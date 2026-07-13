@@ -1,0 +1,1 @@
+export { AMapProvider } from './provider'

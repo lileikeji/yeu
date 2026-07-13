@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "sourceSha256": "3335cae28d18581f8e0164a22768dbfd00b5391e28a6043e0815087f7132ff98",
+  "sheetSummary": [
+    {
+      "name": "标记位置",
+      "headers": [
+        "名称",
+        "颜色",
+        "图标(外轮廓)",
+        "图标(填充物)",
+        "描述",
+        "文件夹",
+        "位置编码(导出的内容若需再次导入，请不要修改此列)",
+        "地址",
+        "所属商圈",
+        "*创建人",
+        "*创建时间",
+        "照片[照片间以逗号分隔，复制链接至浏览器下载/查看]",
+        "审核结果",
+        "不通过原因"
+      ],
+      "dataRowCount": 76,
+      "maxRow": 77,
+      "maxColumn": 14
+    },
+    {
+      "name": "绘制区域",
+      "headers": [
+        "名称",
+        "颜色",
+        "描述",
+        "文件夹",
+        "*周长[米]",
+        "*面积[平方米]",
+        "位置编码(导出的内容若需再次导入，请不要修改此列)",
+        "*创建人",
+        "*创建时间",
+        "照片[照片间以逗号分隔，复制链接至浏览器下载/查看]"
+      ],
+      "dataRowCount": 8,
+      "maxRow": 9,
+      "maxColumn": 10
+    },
+    {
+      "name": "导出说明",
+      "headers": [
+        "工作地图中的标记内容，打卡，记录均会导出在此excel中，其中标记内容会按照工具名称放在不同的工作表中。"
+      ],
+      "dataRowCount": 9,
+      "maxRow": 11,
+      "maxColumn": 1
+    },
+    {
+      "name": "颜色说明",
+      "headers": [
+        "颜色选项的顺序\n（第n个）",
+        "标记点的对应颜色",
+        "标记其他资源的对应颜色\n（绘制线、区域、行政区、制作路线等）"
+      ],
+      "dataRowCount": 20,
+      "maxRow": 21,
+      "maxColumn": 3
+    }
+  ],
+  "markerAudit": {
+    "rowCount": 76,
+    "requestedSeedCount": 76,
+    "defaultSeedSelection": "all marker rows in workbook order",
+    "uniqueNameCount": 76,
+    "uniqueLocationCodeCount": 76,
+    "blankNameRows": [],
+    "blankLocationCodeRows": [],
+    "duplicateNames": [],
+    "duplicateLocationCodes": [],
+    "malformedLocationCodes": [],
+    "formulaCellCount": 0,
+    "rowsWithPhotoLinks": [],
+    "rowsWithoutReviewResult": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77
+    ],
+    "addressMismatchCandidates": [
+      {
+        "sourceRow": 38,
+        "name": "海南楼",
+        "address": "福建省泉州市洛江区马甲镇仰恩大学第三教学区-四川楼",
+        "reason": "reverse-geocoded address mentions a different building name"
+      },
+      {
+        "sourceRow": 40,
+        "name": "四川楼",
+        "address": "福建省泉州市洛江区马甲镇仰恩大学云南楼",
+        "reason": "reverse-geocoded address mentions a different building name"
+      },
+      {
+        "sourceRow": 41,
+        "name": "贵州楼",
+        "address": "福建省泉州市洛江区马甲镇仰恩大学云南楼",
+        "reason": "reverse-geocoded address mentions a different building name"
+      }
+    ]
+  },
+  "areaAudit": {
+    "rowCount": 8,
+    "duplicateNames": {
+      "操场": 3
+    }
+  },
+  "coordinateAudit": {
+    "coordinateColumns": [],
+    "coordinatesPresentInWorkbook": false,
+    "exportCoordinateSystem": null,
+    "locationCodeInterpretation": "AMap Work Map internal resource identifier; values are sequential and must not be parsed as longitude/latitude",
+    "providerNativeCoordinateSystem": "GCJ-02",
+    "providerCrsSource": "https://lbs.amap.com/faq/advisory/others/39838",
+    "seedGenerationBlocked": true,
+    "blockedReason": "The workbook contains no longitude/latitude columns or hidden coordinate metadata. Supply an authorized locationCode-to-coordinate JSON export."
+  },
+  "verificationSemantics": {
+    "importedMeans": "present in the user's AMap Work Map export",
+    "verifiedMeans": "independently checked against an official or field source",
+    "seedMapPoiStatus": "draft",
+    "currentRowsAreOfficiallyVerified": false
+  },
+  "privacyAudit": {
+    "sourceWorkbookStoredInRepository": false,
+    "creatorFieldValuesRemoved": true,
+    "redactedCreatorCellCount": 84,
+    "embeddedImagesCopiedToRepository": false
+  }
+}

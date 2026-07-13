@@ -1,0 +1,762 @@
+[
+  {
+    "sourceRow": 2,
+    "name": "泽钏教学楼",
+    "locationCode": "WIA-200.35340,62.878104083",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 3,
+    "name": "网络信息中心",
+    "locationCode": "WIA-200.35340,62.878104082",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 4,
+    "name": "南门",
+    "locationCode": "WIA-200.35340,62.878104081",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 5,
+    "name": "南洋楼",
+    "locationCode": "WIA-200.35340,62.878104080",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 6,
+    "name": "长春楼",
+    "locationCode": "WIA-200.35340,62.878104079",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 7,
+    "name": "长安楼",
+    "locationCode": "WIA-200.35340,62.878104078",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 8,
+    "name": "宏船楼",
+    "locationCode": "WIA-200.35340,62.878104077",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 9,
+    "name": "共和教学楼",
+    "locationCode": "WIA-200.35340,62.878104076",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 10,
+    "name": "吉龙教学楼",
+    "locationCode": "WIA-200.35340,62.878104075",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 11,
+    "name": "仰光楼",
+    "locationCode": "WIA-200.35340,62.878104074",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 12,
+    "name": "黄海楼",
+    "locationCode": "WIA-200.35340,62.878096502",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 13,
+    "name": "东海楼",
+    "locationCode": "WIA-200.35340,62.878096501",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 14,
+    "name": "新区医务所",
+    "locationCode": "WIA-200.35340,62.878096500",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 15,
+    "name": "旧区医务所",
+    "locationCode": "WIA-200.35340,62.878096499",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 16,
+    "name": "新区行政楼",
+    "locationCode": "WIA-200.35340,62.878096498",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 17,
+    "name": "旧区行政楼",
+    "locationCode": "WIA-200.35340,62.878096497",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 18,
+    "name": "曼谷楼",
+    "locationCode": "WIA-200.35340,62.878096496",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 19,
+    "name": "西苑餐厅",
+    "locationCode": "WIA-200.35340,62.878096495",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 20,
+    "name": "校保卫处",
+    "locationCode": "WIA-200.35340,62.878096494",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 21,
+    "name": "韵达快递",
+    "locationCode": "WIA-200.35340,62.878096493",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 22,
+    "name": "普照大礼堂",
+    "locationCode": "WIA-200.35340,62.878104072",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 23,
+    "name": "创业园",
+    "locationCode": "WIA-200.35340,62.878104071",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 24,
+    "name": "多功能报告厅",
+    "locationCode": "WIA-200.35340,62.878104070",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 25,
+    "name": "祥贤楼",
+    "locationCode": "WIA-200.35340,62.878104069",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 26,
+    "name": "和昌教学楼",
+    "locationCode": "WIA-200.35340,62.878104068",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 27,
+    "name": "北苑餐厅",
+    "locationCode": "WIA-200.35340,62.878104067",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 28,
+    "name": "东苑餐厅",
+    "locationCode": "WIA-200.35340,62.878104066",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 29,
+    "name": "衡山楼",
+    "locationCode": "WIA-200.35340,62.878104065",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 30,
+    "name": "彩虹桥",
+    "locationCode": "WIA-200.35340,62.878104064",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 31,
+    "name": "威海楼",
+    "locationCode": "WIA-200.35340,62.878104063",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 32,
+    "name": "宝洁洗衣店（圆通、顺丰）",
+    "locationCode": "WIA-200.35340,62.878101235",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 33,
+    "name": "快递联盟（中通）",
+    "locationCode": "WIA-200.35340,62.878101234",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 34,
+    "name": "陕西楼",
+    "locationCode": "WIA-200.35340,62.878101233",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 35,
+    "name": "吉林楼",
+    "locationCode": "WIA-200.35340,62.878101232",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 36,
+    "name": "湖南楼",
+    "locationCode": "WIA-200.35340,62.878101231",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 37,
+    "name": "黑龙江楼",
+    "locationCode": "WIA-200.35340,62.878101230",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 38,
+    "name": "海南楼",
+    "locationCode": "WIA-200.35340,62.878101229",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 39,
+    "name": "重庆楼",
+    "locationCode": "WIA-200.35340,62.878101228",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 40,
+    "name": "四川楼",
+    "locationCode": "WIA-200.35340,62.878101227",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 41,
+    "name": "贵州楼",
+    "locationCode": "WIA-200.35340,62.878101226",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 42,
+    "name": "渤海楼",
+    "locationCode": "WIA-200.35340,62.878097609",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 43,
+    "name": "南海楼",
+    "locationCode": "WIA-200.35340,62.878097608",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 44,
+    "name": "南京楼",
+    "locationCode": "WIA-200.35340,62.878097607",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 45,
+    "name": "天山楼",
+    "locationCode": "WIA-200.35340,62.878097606",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 46,
+    "name": "安徽楼",
+    "locationCode": "WIA-200.35340,62.878097605",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 47,
+    "name": "云南楼",
+    "locationCode": "WIA-200.35340,62.878097604",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 48,
+    "name": "宁夏楼",
+    "locationCode": "WIA-200.35340,62.878097603",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 49,
+    "name": "辽宁楼",
+    "locationCode": "WIA-200.35340,62.878097602",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 50,
+    "name": "甘肃楼",
+    "locationCode": "WIA-200.35340,62.878097601",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 51,
+    "name": "湖北楼",
+    "locationCode": "WIA-200.35340,62.878097600",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 52,
+    "name": "仰恩基金会体育场",
+    "locationCode": "WIA-200.35340,62.878102251",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 53,
+    "name": "永康球场",
+    "locationCode": "WIA-200.35340,62.878102250",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 54,
+    "name": "泰山楼",
+    "locationCode": "WIA-200.35340,62.878102249",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 55,
+    "name": "嵩山楼",
+    "locationCode": "WIA-200.35340,62.878102248",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 56,
+    "name": "黄山楼",
+    "locationCode": "WIA-200.35340,62.878102247",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 57,
+    "name": "华山楼",
+    "locationCode": "WIA-200.35340,62.878102246",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 58,
+    "name": "湖边舞池",
+    "locationCode": "WIA-200.35340,62.878102245",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 59,
+    "name": "湖边操场",
+    "locationCode": "WIA-200.35340,62.878102244",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 60,
+    "name": "珠海楼",
+    "locationCode": "WIA-200.35340,62.878102243",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 61,
+    "name": "北海楼",
+    "locationCode": "WIA-200.35340,62.878102242",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 62,
+    "name": "校主陵园",
+    "locationCode": "WIA-200.35340,62.878097597",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 63,
+    "name": "新区操场",
+    "locationCode": "WIA-200.35340,62.878097596",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 64,
+    "name": "新区学生街",
+    "locationCode": "WIA-200.35340,62.878097595",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 65,
+    "name": "新区和昌教学楼",
+    "locationCode": "WIA-200.35340,62.878097594",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 66,
+    "name": "仰恩教学楼",
+    "locationCode": "WIA-200.35340,62.878097593",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 67,
+    "name": "普照教学楼",
+    "locationCode": "WIA-200.35340,62.878097592",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 68,
+    "name": "碑林广场",
+    "locationCode": "WIA-200.35340,62.878097591",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 69,
+    "name": "文体中心",
+    "locationCode": "WIA-200.35340,62.878097590",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 70,
+    "name": "校史馆",
+    "locationCode": "WIA-200.35340,62.878097589",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 71,
+    "name": "图书馆",
+    "locationCode": "WIA-200.35340,62.878097588",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 72,
+    "name": "仰恩大学第三校区(公交站)",
+    "locationCode": "WIA-200.35340,62.878102237",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 73,
+    "name": "北京楼",
+    "locationCode": "WIA-200.35340,62.878101219",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 74,
+    "name": "上海楼",
+    "locationCode": "WIA-200.35340,62.878101218",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 75,
+    "name": "旧区公交车下车点",
+    "locationCode": "WIA-200.35340,62.878101215",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 76,
+    "name": "旧区公交车上车点",
+    "locationCode": "WIA-200.35340,62.878101214",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  },
+  {
+    "sourceRow": 77,
+    "name": "旧区车来车往（京东）",
+    "locationCode": "WIA-200.35340,62.878101213",
+    "lng": null,
+    "lat": null,
+    "crs": "GCJ-02",
+    "coordinateSource": null,
+    "verificationStatus": "pending-authorized-coordinate-export"
+  }
+]

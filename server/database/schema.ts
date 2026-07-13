@@ -1,0 +1,343 @@
+import { sql } from 'drizzle-orm'
+import {
+  check,
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex
+} from 'drizzle-orm/sqlite-core'
+
+const timestamp = (name: string) => integer(name)
+  .notNull()
+  .default(sql`(unixepoch() * 1000)`)
+
+export const adminUsers = sqliteTable('admin_users', {
+  id: text('id').primaryKey(),
+  username: text('username').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  displayName: text('display_name').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  lastLoginAt: integer('last_login_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('admin_users_username_unique').on(table.username)
+])
+
+export const adminSessions = sqliteTable('admin_sessions', {
+  id: text('id').primaryKey(),
+  adminUserId: text('admin_user_id').notNull().references(() => adminUsers.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  csrfTokenHash: text('csrf_token_hash').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  lastSeenAt: integer('last_seen_at').notNull(),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('admin_sessions_token_hash_unique').on(table.tokenHash),
+  index('admin_sessions_user_idx').on(table.adminUserId),
+  index('admin_sessions_expires_idx').on(table.expiresAt)
+])
+
+export const sources = sqliteTable('sources', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  url: text('url').notNull(),
+  platform: text('platform').notNull(),
+  publisherName: text('publisher_name').notNull(),
+  sourceLevel: text('source_level', { enum: ['A', 'B', 'C', 'D', 'E'] }).notNull(),
+  isOfficial: integer('is_official', { mode: 'boolean' }).notNull().default(false),
+  publishedAt: integer('published_at'),
+  accessedAt: integer('accessed_at').notNull(),
+  notes: text('notes'),
+  status: text('status', { enum: ['active', 'unavailable', 'disputed'] }).notNull().default('active'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('sources_url_unique').on(table.url),
+  index('sources_level_status_idx').on(table.sourceLevel, table.status),
+  check('sources_level_check', sql`${table.sourceLevel} in ('A', 'B', 'C', 'D', 'E')`),
+  check('sources_status_check', sql`${table.status} in ('active', 'unavailable', 'disputed')`)
+])
+
+export const places = sqliteTable('places', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull(),
+  name: text('name').notNull(),
+  summary: text('summary').notNull(),
+  body: text('body').notNull().default(''),
+  scope: text('scope', { enum: ['campus', 'nearby'] }).notNull(),
+  type: text('type').notNull(),
+  category: text('category'),
+  address: text('address'),
+  campusArea: text('campus_area'),
+  floor: text('floor'),
+  room: text('room'),
+  longitude: real('longitude'),
+  latitude: real('latitude'),
+  coordinateSystem: text('coordinate_system', { enum: ['WGS84', 'GCJ-02', 'BD-09'] }),
+  coordinateVerification: text('coordinate_verification', {
+    enum: ['missing', 'unverified', 'verified', 'rejected']
+  }).notNull().default('missing'),
+  coordinateVerifiedAt: integer('coordinate_verified_at'),
+  sourceRawRef: text('source_raw_ref'),
+  openingHours: text('opening_hours'),
+  phone: text('phone'),
+  website: text('website'),
+  externalMapUrl: text('external_map_url'),
+  isOfficial: integer('is_official', { mode: 'boolean' }).notNull().default(false),
+  isFeatured: integer('is_featured', { mode: 'boolean' }).notNull().default(false),
+  status: text('status', { enum: ['draft', 'published', 'archived'] }).notNull().default('draft'),
+  lastVerifiedAt: integer('last_verified_at'),
+  publishedAt: integer('published_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('places_slug_unique').on(table.slug),
+  index('places_public_list_idx').on(table.status, table.scope, table.type),
+  index('places_category_idx').on(table.category),
+  check('places_scope_check', sql`${table.scope} in ('campus', 'nearby')`),
+  check('places_status_check', sql`${table.status} in ('draft', 'published', 'archived')`),
+  check('places_crs_check', sql`${table.coordinateSystem} in ('WGS84', 'GCJ-02', 'BD-09')`),
+  check('places_coordinate_verification_check', sql`${table.coordinateVerification} in ('missing', 'unverified', 'verified', 'rejected')`),
+  check('places_longitude_check', sql`${table.longitude} is null or ${table.longitude} between -180 and 180`),
+  check('places_latitude_check', sql`${table.latitude} is null or ${table.latitude} between -90 and 90`),
+  check('places_coordinate_group_check', sql`(${table.longitude} is null and ${table.latitude} is null and ${table.coordinateSystem} is null) or (${table.longitude} is not null and ${table.latitude} is not null and ${table.coordinateSystem} is not null)`),
+  check('places_verified_coordinate_check', sql`${table.coordinateVerification} != 'verified' or (${table.longitude} is not null and ${table.latitude} is not null and ${table.coordinateSystem} is not null)`),
+  check('places_missing_coordinate_check', sql`${table.coordinateVerification} != 'missing' or (${table.longitude} is null and ${table.latitude} is null and ${table.coordinateSystem} is null)`)
+])
+
+export const placeCoordinateObservations = sqliteTable('place_coordinate_observations', {
+  id: text('id').primaryKey(),
+  placeId: text('place_id').notNull().references(() => places.id, { onDelete: 'cascade' }),
+  longitude: real('longitude').notNull(),
+  latitude: real('latitude').notNull(),
+  coordinateSystem: text('coordinate_system', { enum: ['WGS84', 'GCJ-02', 'BD-09'] }).notNull(),
+  accuracyMeters: real('accuracy_meters').notNull(),
+  sampleCount: integer('sample_count').notNull(),
+  samplesJson: text('samples_json').notNull(),
+  captureMethod: text('capture_method', {
+    enum: ['browser-geolocation', 'authorized-import', 'map-review']
+  }).notNull(),
+  pointRole: text('point_role', { enum: ['site-point', 'main-entrance'] }).notNull(),
+  capturedAt: integer('captured_at').notNull(),
+  evidenceNote: text('evidence_note').notNull(),
+  reviewStatus: text('review_status', {
+    enum: ['pending', 'approved', 'rejected', 'superseded']
+  }).notNull().default('pending'),
+  reviewedBy: text('reviewed_by').references(() => adminUsers.id, { onDelete: 'set null' }),
+  reviewedAt: integer('reviewed_at'),
+  reviewNote: text('review_note'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('coordinate_observations_place_status_idx').on(table.placeId, table.reviewStatus),
+  index('coordinate_observations_status_created_idx').on(table.reviewStatus, table.createdAt),
+  check('coordinate_observations_crs_check', sql`${table.coordinateSystem} in ('WGS84', 'GCJ-02', 'BD-09')`),
+  check('coordinate_observations_method_check', sql`${table.captureMethod} in ('browser-geolocation', 'authorized-import', 'map-review')`),
+  check('coordinate_observations_role_check', sql`${table.pointRole} in ('site-point', 'main-entrance')`),
+  check('coordinate_observations_status_check', sql`${table.reviewStatus} in ('pending', 'approved', 'rejected', 'superseded')`),
+  check('coordinate_observations_longitude_check', sql`${table.longitude} between -180 and 180`),
+  check('coordinate_observations_latitude_check', sql`${table.latitude} between -90 and 90`),
+  check('coordinate_observations_accuracy_check', sql`${table.accuracyMeters} between 0 and 1000`),
+  check('coordinate_observations_sample_count_check', sql`${table.sampleCount} between 1 and 10`),
+  check('coordinate_observations_review_check', sql`(${table.reviewStatus} = 'pending' and ${table.reviewedAt} is null) or (${table.reviewStatus} != 'pending' and ${table.reviewedAt} is not null)`)
+])
+
+export const contents = sqliteTable('contents', {
+  id: text('id').primaryKey(),
+  kind: text('kind', { enum: ['guide', 'department', 'club', 'notice'] }).notNull(),
+  slug: text('slug').notNull(),
+  title: text('title').notNull(),
+  summary: text('summary').notNull(),
+  body: text('body').notNull().default(''),
+  category: text('category'),
+  audience: text('audience'),
+  metadataJson: text('metadata_json').notNull().default('{}'),
+  isFeatured: integer('is_featured', { mode: 'boolean' }).notNull().default(false),
+  status: text('status', { enum: ['draft', 'published', 'archived'] }).notNull().default('draft'),
+  lastVerifiedAt: integer('last_verified_at'),
+  publishedAt: integer('published_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('contents_kind_slug_unique').on(table.kind, table.slug),
+  index('contents_public_list_idx').on(table.status, table.kind, table.isFeatured),
+  check('contents_kind_check', sql`${table.kind} in ('guide', 'department', 'club', 'notice')`),
+  check('contents_status_check', sql`${table.status} in ('draft', 'published', 'archived')`)
+])
+
+export const placeSources = sqliteTable('place_sources', {
+  placeId: text('place_id').notNull().references(() => places.id, { onDelete: 'cascade' }),
+  sourceId: text('source_id').notNull().references(() => sources.id, { onDelete: 'restrict' }),
+  isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false),
+  createdAt: timestamp('created_at')
+}, table => [
+  primaryKey({ columns: [table.placeId, table.sourceId] }),
+  index('place_sources_source_idx').on(table.sourceId)
+])
+
+export const contentSources = sqliteTable('content_sources', {
+  contentId: text('content_id').notNull().references(() => contents.id, { onDelete: 'cascade' }),
+  sourceId: text('source_id').notNull().references(() => sources.id, { onDelete: 'restrict' }),
+  isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false),
+  createdAt: timestamp('created_at')
+}, table => [
+  primaryKey({ columns: [table.contentId, table.sourceId] }),
+  index('content_sources_source_idx').on(table.sourceId)
+])
+
+export const procedures = sqliteTable('procedures', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull(),
+  title: text('title').notNull(),
+  summary: text('summary').notNull(),
+  body: text('body').notNull().default(''),
+  category: text('category'),
+  audienceJson: text('audience_json').notNull().default('[]'),
+  method: text('method', { enum: ['online', 'offline', 'mixed'] }).notNull(),
+  informationState: text('information_state', {
+    enum: ['confirmed', 'partial', 'awaiting-notice']
+  }).notNull().default('awaiting-notice'),
+  statusText: text('status_text').notNull(),
+  processingTime: text('processing_time'),
+  deadlineText: text('deadline_text'),
+  startsAt: integer('starts_at'),
+  endsAt: integer('ends_at'),
+  validFrom: integer('valid_from'),
+  validUntil: integer('valid_until'),
+  departmentId: text('department_id').references(() => contents.id, { onDelete: 'set null' }),
+  guideId: text('guide_id').references(() => contents.id, { onDelete: 'set null' }),
+  seedOwner: text('seed_owner'),
+  status: text('status', { enum: ['draft', 'published', 'archived'] }).notNull().default('draft'),
+  lastVerifiedAt: integer('last_verified_at'),
+  publishedAt: integer('published_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('procedures_slug_unique').on(table.slug),
+  index('procedures_public_list_idx').on(table.status, table.category, table.startsAt),
+  index('procedures_department_idx').on(table.departmentId),
+  index('procedures_guide_idx').on(table.guideId),
+  check('procedures_method_check', sql`${table.method} in ('online', 'offline', 'mixed')`),
+  check('procedures_information_state_check', sql`${table.informationState} in ('confirmed', 'partial', 'awaiting-notice')`),
+  check('procedures_status_check', sql`${table.status} in ('draft', 'published', 'archived')`),
+  check('procedures_audience_json_check', sql`json_valid(${table.audienceJson}) and json_array_length(${table.audienceJson}) >= 1`),
+  check('procedures_schedule_check', sql`${table.startsAt} is null or ${table.endsAt} is null or ${table.endsAt} >= ${table.startsAt}`),
+  check('procedures_validity_check', sql`${table.validFrom} is null or ${table.validUntil} is null or ${table.validUntil} >= ${table.validFrom}`)
+])
+
+export const procedureSteps = sqliteTable('procedure_steps', {
+  id: text('id').primaryKey(),
+  procedureId: text('procedure_id').notNull().references(() => procedures.id, { onDelete: 'cascade' }),
+  stepOrder: integer('step_order').notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull().default(''),
+  audienceJson: text('audience_json').notNull().default('[]'),
+  informationState: text('information_state', {
+    enum: ['confirmed', 'partial', 'awaiting-notice']
+  }).notNull().default('awaiting-notice'),
+  timeText: text('time_text'),
+  placeId: text('place_id').references(() => places.id, { onDelete: 'set null' }),
+  departmentId: text('department_id').references(() => contents.id, { onDelete: 'set null' }),
+  actionUrl: text('action_url'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('procedure_steps_order_unique').on(table.procedureId, table.stepOrder),
+  index('procedure_steps_place_idx').on(table.placeId),
+  index('procedure_steps_department_idx').on(table.departmentId),
+  check('procedure_steps_order_check', sql`${table.stepOrder} >= 1`),
+  check('procedure_steps_audience_json_check', sql`json_valid(${table.audienceJson}) and json_array_length(${table.audienceJson}) >= 1`),
+  check('procedure_steps_information_state_check', sql`${table.informationState} in ('confirmed', 'partial', 'awaiting-notice')`)
+])
+
+export const procedureMaterials = sqliteTable('procedure_materials', {
+  id: text('id').primaryKey(),
+  procedureId: text('procedure_id').notNull().references(() => procedures.id, { onDelete: 'cascade' }),
+  itemOrder: integer('item_order').notNull(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  audienceJson: text('audience_json').notNull().default('[]'),
+  isRequired: integer('is_required', { mode: 'boolean' }),
+  informationState: text('information_state', {
+    enum: ['confirmed', 'partial', 'awaiting-notice']
+  }).notNull().default('awaiting-notice'),
+  placeId: text('place_id').references(() => places.id, { onDelete: 'set null' }),
+  departmentId: text('department_id').references(() => contents.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('procedure_materials_order_unique').on(table.procedureId, table.itemOrder),
+  index('procedure_materials_place_idx').on(table.placeId),
+  index('procedure_materials_department_idx').on(table.departmentId),
+  check('procedure_materials_order_check', sql`${table.itemOrder} >= 1`),
+  check('procedure_materials_audience_json_check', sql`json_valid(${table.audienceJson}) and json_array_length(${table.audienceJson}) >= 1`),
+  check('procedure_materials_information_state_check', sql`${table.informationState} in ('confirmed', 'partial', 'awaiting-notice')`)
+])
+
+export const procedurePlaces = sqliteTable('procedure_places', {
+  procedureId: text('procedure_id').notNull().references(() => procedures.id, { onDelete: 'cascade' }),
+  placeId: text('place_id').notNull().references(() => places.id, { onDelete: 'restrict' }),
+  role: text('role').notNull().default('related'),
+  sortOrder: integer('sort_order').notNull(),
+  createdAt: timestamp('created_at')
+}, table => [
+  primaryKey({ columns: [table.procedureId, table.placeId] }),
+  uniqueIndex('procedure_places_order_unique').on(table.procedureId, table.sortOrder),
+  index('procedure_places_place_idx').on(table.placeId),
+  check('procedure_places_order_check', sql`${table.sortOrder} >= 1`)
+])
+
+export const procedureSources = sqliteTable('procedure_sources', {
+  procedureId: text('procedure_id').notNull().references(() => procedures.id, { onDelete: 'cascade' }),
+  sourceId: text('source_id').notNull().references(() => sources.id, { onDelete: 'restrict' }),
+  claimScope: text('claim_scope').notNull().default(''),
+  isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false),
+  sortOrder: integer('sort_order').notNull(),
+  createdAt: timestamp('created_at')
+}, table => [
+  primaryKey({ columns: [table.procedureId, table.sourceId] }),
+  uniqueIndex('procedure_sources_order_unique').on(table.procedureId, table.sortOrder),
+  index('procedure_sources_source_idx').on(table.sourceId),
+  check('procedure_sources_order_check', sql`${table.sortOrder} >= 1`)
+])
+
+export const feedback = sqliteTable('feedback', {
+  id: text('id').primaryKey(),
+  targetType: text('target_type', { enum: ['general', 'place', 'content'] }).notNull(),
+  targetId: text('target_id'),
+  reasonType: text('reason_type').notNull(),
+  message: text('message').notNull(),
+  evidenceUrl: text('evidence_url'),
+  contact: text('contact'),
+  status: text('status', { enum: ['new', 'reviewing', 'resolved', 'rejected', 'spam'] }).notNull().default('new'),
+  resolutionNote: text('resolution_note'),
+  submitterIpHash: text('submitter_ip_hash'),
+  resolvedBy: text('resolved_by').references(() => adminUsers.id, { onDelete: 'set null' }),
+  resolvedAt: integer('resolved_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('feedback_status_created_idx').on(table.status, table.createdAt),
+  index('feedback_target_idx').on(table.targetType, table.targetId),
+  check('feedback_status_check', sql`${table.status} in ('new', 'reviewing', 'resolved', 'rejected', 'spam')`),
+  check('feedback_target_type_check', sql`${table.targetType} in ('general', 'place', 'content')`),
+  check('feedback_target_id_check', sql`(${table.targetType} = 'general' and ${table.targetId} is null) or (${table.targetType} != 'general' and ${table.targetId} is not null)`)
+])
+
+export const auditLogs = sqliteTable('audit_logs', {
+  id: text('id').primaryKey(),
+  actorAdminId: text('actor_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  action: text('action').notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id'),
+  requestId: text('request_id'),
+  detailsJson: text('details_json').notNull().default('{}'),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('audit_logs_entity_idx').on(table.entityType, table.entityId),
+  index('audit_logs_created_idx').on(table.createdAt)
+])

@@ -1,0 +1,72 @@
+{
+  "name": "yeu-freshman-guide",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unofficial freshman guide for Yang-En University",
+  "type": "module",
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "scripts": {
+    "build": "nuxt build",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm pwa:build:test",
+    "amap:coordinates": "tsx scripts/import-amap-coordinates.ts",
+    "amap:coordinates:test": "tsx --test scripts/import-amap-coordinates.test.ts",
+    "amap:drafts": "tsx scripts/import-amap-drafts.ts",
+    "amap:drafts:test": "tsx --test scripts/import-amap-drafts.test.ts",
+    "db:check": "tsx scripts/db-check.ts",
+    "db:admin:test": "tsx --test scripts/admin-bootstrap.test.ts",
+    "db:generate": "drizzle-kit generate --config scripts/drizzle.config.ts",
+    "db:hash-password": "tsx scripts/hash-password.ts",
+    "db:init": "tsx scripts/db-init.ts",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:migrate:test": "tsx --test scripts/database-upgrade.test.ts",
+    "db:invariants:test": "tsx --test scripts/publishing-invariants.test.ts",
+    "db:seed:catalog": "tsx scripts/seed-public-catalog.ts",
+    "db:seed:catalog:test": "tsx --test scripts/seed-public-catalog.test.ts scripts/sync-public-catalog.test.ts",
+    "db:seed:procedures": "tsx scripts/seed-procedures.ts",
+    "db:sync:catalog": "tsx scripts/sync-public-catalog.ts",
+    "feedback:cleanup": "tsx scripts/cleanup-feedback.ts",
+    "env:test": "tsx --test scripts/load-env.test.ts",
+    "map:boundary:sync": "tsx scripts/sync-osm-campus-boundary.ts",
+    "map:data:test": "tsx --test scripts/sync-osm-campus-boundary.test.ts scripts/campus-map-reference.test.ts scripts/coordinate-observations.test.ts",
+    "procedures:test": "tsx --test scripts/procedures.test.ts scripts/seed-procedures.test.ts",
+    "pwa:build:test": "tsx --test tests/pwa-build.test.ts",
+    "search:test": "tsx --test scripts/public-search.test.ts scripts/public-catalog.test.ts",
+    "test": "tsx --test scripts/*.test.ts",
+    "ui:utils:test": "tsx --test scripts/safe-navigation.test.ts",
+    "dev": "nuxt dev",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "typecheck": "nuxt typecheck"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.114",
+    "@iconify-json/simple-icons": "^1.2.87",
+    "@nuxt/ui": "^4.9.0",
+    "@vite-pwa/nuxt": "^1.1.1",
+    "better-sqlite3": "^12.11.1",
+    "drizzle-orm": "^0.45.2",
+    "maplibre-gl": "^5.24.0",
+    "nuxt": "^4.4.8",
+    "tailwindcss": "^4.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.16.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.6.0",
+    "tsx": "^4.23.1",
+    "typescript": "^6.0.3",
+    "vue-router": "5.1.0",
+    "vue-tsc": "^3.3.5"
+  },
+  "packageManager": "pnpm@10.28.1"
+}

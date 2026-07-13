@@ -1,0 +1,42 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Python tooling
+__pycache__/
+*.py[cod]
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Runtime data and uploaded media
+data/*.sqlite
+data/*.sqlite-*
+data/backups/
+storage/uploads/
+
+# Private map source files and exported media
+data/imports/*.xls
+data/imports/*.xlsx
+data/imports/*.xlsm
+data/imports/private/
+data/imports/exports/
+data/imports/raw-media/

@@ -1,0 +1,230 @@
+import type {
+  ContentKind,
+  CoordinateObservationMethod,
+  CoordinateObservationStatus,
+  CoordinatePointRole,
+  CoordinateVerificationState,
+  FeedbackStatus,
+  FeedbackTargetType,
+  ProcedureAudience,
+  ProcedureInformationState,
+  ProcedureMethod,
+  SourceLevel,
+  SourceStatus
+} from '../constants/server'
+import type { CoordinateReferenceSystem, PublicationStatus } from '../types'
+
+export interface ApiListResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  hasManagedRecords?: boolean
+  managedKinds?: ContentKind[]
+}
+
+export interface ApiSource {
+  id: string
+  title: string
+  url: string
+  platform: string
+  publisherName: string
+  sourceLevel: SourceLevel
+  isOfficial: boolean
+  publishedAt: string | null
+  accessedAt: string
+  status: SourceStatus
+}
+
+export interface ApiPlace {
+  id: string
+  slug: string
+  name: string
+  summary: string
+  body: string
+  scope: 'campus' | 'nearby'
+  type: string
+  category: string | null
+  address: string | null
+  campusArea: string | null
+  floor: string | null
+  room: string | null
+  longitude: number | null
+  latitude: number | null
+  coordinateSystem: CoordinateReferenceSystem | null
+  coordinateVerification: CoordinateVerificationState
+  coordinateVerifiedAt: string | null
+  navigationAvailable: boolean
+  sourceRawRef?: string | null
+  openingHours: string | null
+  phone: string | null
+  website: string | null
+  externalMapUrl: string | null
+  isOfficial: boolean
+  isFeatured: boolean
+  status: PublicationStatus
+  lastVerifiedAt: string | null
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+  sources: ApiSource[]
+}
+
+export interface ApiCoordinateSample {
+  longitude: number
+  latitude: number
+  accuracyMeters: number
+  capturedAt: string
+}
+
+export interface CreateCoordinateObservationPayload {
+  placeId: string
+  coordinateSystem: 'WGS84'
+  captureMethod: CoordinateObservationMethod
+  pointRole: CoordinatePointRole
+  evidenceNote: string
+  samples: ApiCoordinateSample[]
+}
+
+export interface ApiCoordinateObservation {
+  id: string
+  placeId: string
+  placeName: string
+  placeScope: 'campus' | 'nearby'
+  longitude: number
+  latitude: number
+  coordinateSystem: CoordinateReferenceSystem
+  accuracyMeters: number
+  sampleCount: number
+  samples: ApiCoordinateSample[]
+  captureMethod: CoordinateObservationMethod
+  pointRole: CoordinatePointRole
+  capturedAt: string
+  evidenceNote: string
+  outsideCampusReviewBounds: boolean
+  reviewStatus: CoordinateObservationStatus
+  reviewedBy: string | null
+  reviewedAt: string | null
+  reviewNote: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApiContent {
+  id: string
+  kind: ContentKind
+  slug: string
+  title: string
+  summary: string
+  body: string
+  category: string | null
+  audience: string | null
+  metadata: Record<string, unknown>
+  isFeatured: boolean
+  status: PublicationStatus
+  lastVerifiedAt: string | null
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+  sources: ApiSource[]
+}
+
+export interface ApiProcedureDepartment {
+  id: string
+  slug: string
+  name: string
+  summary: string
+  website: string | null
+}
+
+export interface ApiProcedureGuide {
+  id: string
+  slug: string
+  title: string
+  summary: string
+}
+
+export interface ApiProcedurePlace {
+  id: string
+  slug: string
+  name: string
+  summary: string
+  address: string | null
+  navigationAvailable: boolean
+}
+
+export interface ApiProcedureSource extends ApiSource {
+  claimScope: string
+  isPrimary: boolean
+  order: number
+}
+
+export interface ApiProcedureStep {
+  id: string
+  order: number
+  title: string
+  description: string
+  audience: ProcedureAudience[]
+  informationState: ProcedureInformationState
+  timeText: string | null
+  place: ApiProcedurePlace | null
+  department: ApiProcedureDepartment | null
+  actionUrl: string | null
+}
+
+export interface ApiProcedureMaterial {
+  id: string
+  order: number
+  name: string
+  description: string
+  audience: ProcedureAudience[]
+  isRequired: boolean | null
+  informationState: ProcedureInformationState
+  place: ApiProcedurePlace | null
+  department: ApiProcedureDepartment | null
+}
+
+export interface ApiProcedure {
+  id: string
+  slug: string
+  title: string
+  summary: string
+  body: string
+  category: string | null
+  audience: ProcedureAudience[]
+  method: ProcedureMethod
+  informationState: ProcedureInformationState
+  statusText: string
+  processingTime: string | null
+  deadlineText: string | null
+  startsAt: string | null
+  endsAt: string | null
+  validFrom: string | null
+  validUntil: string | null
+  department: ApiProcedureDepartment | null
+  relatedGuide: ApiProcedureGuide | null
+  places: ApiProcedurePlace[]
+  steps: ApiProcedureStep[]
+  materials: ApiProcedureMaterial[]
+  sources: ApiProcedureSource[]
+  status: PublicationStatus
+  lastVerifiedAt: string | null
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApiFeedback {
+  id: string
+  targetType: FeedbackTargetType
+  targetId: string | null
+  reasonType: string
+  message: string
+  evidenceUrl: string | null
+  contact: string | null
+  status: FeedbackStatus
+  resolutionNote: string | null
+  createdAt: string
+  updatedAt: string
+  resolvedAt: string | null
+}
