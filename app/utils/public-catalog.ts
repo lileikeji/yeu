@@ -197,6 +197,26 @@ function parseGuideSections(content: ApiContent): GuideSection[] {
     const items = Array.isArray(record.items)
       ? record.items.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
       : []
+    const sectionSources = Array.isArray(record.sources)
+      ? record.sources.flatMap((candidate): PublicSource[] => {
+          if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return []
+          const source = candidate as Record<string, unknown>
+          const title = typeof source.title === 'string' ? source.title.trim() : ''
+          const publisher = typeof source.publisher === 'string' ? source.publisher.trim() : ''
+          const url = typeof source.url === 'string' ? source.url.trim() : ''
+          const accessedAt = typeof source.accessedAt === 'string' ? source.accessedAt.trim() : ''
+          if (!title || !publisher || !isHttpUrl(url) || !/^\d{4}-\d{2}-\d{2}$/.test(accessedAt)) return []
+          return [{
+            title,
+            publisher,
+            url,
+            accessedAt,
+            ...(typeof source.context === 'string' && source.context.trim()
+              ? { context: source.context.trim() }
+              : {})
+          }]
+        })
+      : []
 
     return [{
       title,
@@ -209,7 +229,8 @@ function parseGuideSections(content: ApiContent): GuideSection[] {
       items,
       ...(typeof record.notice === 'string' && record.notice.trim()
         ? { notice: record.notice.trim() }
-        : {})
+        : {}),
+      ...(sectionSources.length ? { sources: sectionSources } : {})
     }]
   })
 }
@@ -441,12 +462,15 @@ function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
     campusArea: null,
     openingHours: null,
     phone: null,
-    point: poi.point,
+    // WIA source points are already GCJ-02 coordinates from AMap. Reuse them
+    // directly for AMap rendering instead of round-tripping the approximate
+    // WGS84 audit value through the network-dependent convertFrom API.
+    point: poi.sourcePoint,
     pointIsVerified: false,
     usesPreviewPoint: false,
     referenceLabel: '用户授权 WIA 工作地图标点',
     coordinateVerification: 'owner-map-only',
-    coordinateSystem: 'WGS84',
+    coordinateSystem: 'GCJ-02',
     navigationUrl: navigation.toString(),
     isApiPublished: false,
     searchText: [poi.name, poi.summary, poi.address, poi.category].filter(Boolean).join(' ')

@@ -1,5 +1,8 @@
 import type {
+  AreaSelectHandler,
   MapErrorHandler,
+  MapBaseStyle,
+  MapDisplayOptions,
   MapProvider,
   PoiSelectHandler,
   PointPickedHandler,
@@ -23,6 +26,7 @@ import type {
   AMapMouseEvent,
   AMapNamespace,
   AMapPosition,
+  AMapTileLayer,
   AMapPolyline,
   AMapWalking
 } from './types'
@@ -34,6 +38,21 @@ const CONVERSION_TIMEOUT_MS = 8_000
 const CLUSTER_GRID_SIZE = 56
 const CLUSTER_MAX_ZOOM = 17
 const ROUTE_TIMEOUT_MS = 15_000
+
+const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
+  showPois: true,
+  showAreas: true,
+  showLabels: true,
+  autoCluster: true,
+  labelSize: 'medium'
+}
+
+const LABEL_FONT_SIZES = {
+  'extra-small': 9,
+  'small': 10,
+  'medium': 12,
+  'large': 14
+} as const
 
 const CATEGORY_COLORS: Record<string, string> = {
   'campus-building': '#176f46',
@@ -59,6 +78,16 @@ interface MarkerRecord extends ConvertedPoi {
   fitMarker: AMapMarker
 }
 
+interface PlainMarkerRecord {
+  marker: AMapMarker
+  clickHandler: (event: AMapMouseEvent) => void
+}
+
+interface AreaOutlineRecord {
+  outline: AMapPolyline
+  clickHandler: (event: AMapMouseEvent) => void
+}
+
 export class AMapProvider implements MapProvider {
   readonly id = 'amap' as const
   private readonly options: AMapProviderOptions
@@ -67,8 +96,10 @@ export class AMapProvider implements MapProvider {
   private pois: MapPoi[] = []
   private areas: MapArea[] = []
   private markers = new Map<string, MarkerRecord>()
-  private areaOutlines: AMapPolyline[] = []
+  private plainMarkers: PlainMarkerRecord[] = []
+  private areaOutlines: AreaOutlineRecord[] = []
   private areaLabels: AMapMarker[] = []
+  private baseLayers: AMapTileLayer[] = []
   private hotspotInfoWindow: AMapInfoWindow | null = null
   private markerCluster: AMapMarkerCluster | null = null
   private walking: AMapWalking | null = null
@@ -76,7 +107,10 @@ export class AMapProvider implements MapProvider {
   private selectedMarkerClickHandler: ((event: AMapMouseEvent) => void) | null = null
   private selectedPoiId: string | null = null
   private poiSelectHandler: PoiSelectHandler | null = null
+  private areaSelectHandler: AreaSelectHandler | null = null
   private mapErrorHandler: MapErrorHandler | null = null
+  private displayOptions: MapDisplayOptions = { ...DEFAULT_DISPLAY_OPTIONS }
+  private baseStyle: MapBaseStyle = 'standard'
   private fitAfterRender = false
   private lifecycleVersion = 0
   private renderVersion = 0
@@ -106,6 +140,7 @@ export class AMapProvider implements MapProvider {
     })
     this.amap = amap
     this.map = map
+    this.applyBaseStyle()
     map.on('click', this.handleMapClick)
     map.on('hotspotclick', this.handleHotspotClick)
     await Promise.all([this.rebuildMarkers(), this.rebuildAreas()])
@@ -124,6 +159,25 @@ export class AMapProvider implements MapProvider {
     void this.rebuildAreas()
   }
 
+  setDisplayOptions(options: MapDisplayOptions): void {
+    const markerRenderingChanged = options.showPois !== this.displayOptions.showPois
+      || options.showLabels !== this.displayOptions.showLabels
+      || options.autoCluster !== this.displayOptions.autoCluster
+      || options.labelSize !== this.displayOptions.labelSize
+    const areaRenderingChanged = options.showAreas !== this.displayOptions.showAreas
+      || options.showLabels !== this.displayOptions.showLabels
+      || options.labelSize !== this.displayOptions.labelSize
+    this.displayOptions = { ...options }
+    if (markerRenderingChanged) void this.rebuildMarkers()
+    if (areaRenderingChanged) void this.rebuildAreas()
+  }
+
+  setBaseStyle(style: MapBaseStyle): boolean {
+    this.baseStyle = style
+    this.applyBaseStyle()
+    return true
+  }
+
   fitToPois(): void {
     const map = this.map
     if (!map || (this.markers.size === 0 && this.areaOutlines.length === 0)) {
@@ -132,7 +186,7 @@ export class AMapProvider implements MapProvider {
     }
 
     const markers = [...this.markers.values()].map(record => record.fitMarker)
-    const overlays = [...this.areaOutlines, ...markers]
+    const overlays = [...this.areaOutlines.map(record => record.outline), ...markers]
     if (markers.length === 1 && this.areaOutlines.length === 0) {
       const first = this.markers.values().next().value as MarkerRecord | undefined
       if (first) map.setZoomAndCenter(Math.max(map.getZoom(), SINGLE_POI_ZOOM), first.position)
@@ -152,6 +206,13 @@ export class AMapProvider implements MapProvider {
     this.poiSelectHandler = handler
     return () => {
       if (this.poiSelectHandler === handler) this.poiSelectHandler = null
+    }
+  }
+
+  onAreaSelect(handler: AreaSelectHandler): () => void {
+    this.areaSelectHandler = handler
+    return () => {
+      if (this.areaSelectHandler === handler) this.areaSelectHandler = null
     }
   }
 
@@ -254,6 +315,7 @@ export class AMapProvider implements MapProvider {
     this.areas = []
     this.selectedPoiId = null
     this.poiSelectHandler = null
+    this.areaSelectHandler = null
     this.mapErrorHandler = null
     this.fitAfterRender = false
   }
@@ -265,6 +327,7 @@ export class AMapProvider implements MapProvider {
 
     const renderVersion = ++this.renderVersion
     this.clearMarkers()
+    if (!this.displayOptions.showPois) return
     const renderable = this.pois.filter(poi => this.isRenderablePoint(poi.point))
     const converted: ConvertedPoi[] = []
 
@@ -289,7 +352,7 @@ export class AMapProvider implements MapProvider {
       })
     }
 
-    if (converted.length) {
+    if (converted.length && this.displayOptions.autoCluster) {
       try {
         const cluster = new amap.MarkerCluster(
           map,
@@ -312,6 +375,24 @@ export class AMapProvider implements MapProvider {
       } catch {
         this.mapErrorHandler?.(new Error('高德地图点聚合初始化失败。'))
       }
+    } else if (converted.length) {
+      for (const item of converted) {
+        const { content } = this.createMarkerContent(item.poi)
+        const marker = new amap.Marker({
+          position: item.position,
+          anchor: 'bottom-center',
+          title: item.poi.name,
+          content,
+          zIndex: 100
+        })
+        const clickHandler = (event: AMapMouseEvent) => {
+          event.originEvent?.stopPropagation()
+          this.poiSelectHandler?.(item.poi)
+        }
+        marker.on('click', clickHandler)
+        this.plainMarkers.push({ marker, clickHandler })
+      }
+      map.add(this.plainMarkers.map(record => record.marker))
     }
 
     this.renderSelectedMarker()
@@ -327,6 +408,7 @@ export class AMapProvider implements MapProvider {
     if (!map || !amap) return
 
     this.clearAreas()
+    if (!this.displayOptions.showAreas) return
     const renderVersion = ++this.areaRenderVersion
     const exactAreas = this.areas.filter((area): area is MapPolygonArea => (
       area.geometrySource === 'wia-shape-batch'
@@ -348,38 +430,52 @@ export class AMapProvider implements MapProvider {
       for (const path of convertedPaths) {
         const firstPoint = path[0]
         if (!firstPoint) continue
-        this.areaOutlines.push(new amap.Polyline({
-          path: [...path, firstPoint],
+        const lastPoint = path[path.length - 1]
+        const closedPath = lastPoint?.[0] === firstPoint[0] && lastPoint[1] === firstPoint[1]
+          ? path
+          : [...path, firstPoint]
+        const outline = new amap.Polyline({
+          path: closedPath,
           strokeColor: area.strokeColor,
           strokeWeight: 3,
           strokeOpacity: 0.95,
           strokeStyle: 'solid',
           bubble: true,
           zIndex: 30
-        }))
+        })
+        const clickHandler = (event: AMapMouseEvent) => {
+          event.originEvent?.stopPropagation()
+          this.areaSelectHandler?.(area)
+        }
+        outline.on('click', clickHandler)
+        this.areaOutlines.push({ outline, clickHandler })
       }
       const allPoints = convertedPaths.flat()
       const center: AMapPosition = [
         allPoints.reduce((sum, point) => sum + point[0], 0) / allPoints.length,
         allPoints.reduce((sum, point) => sum + point[1], 0) / allPoints.length
       ]
-      const label = document.createElement('span')
-      label.textContent = area.name
-      label.title = `${area.name}（WIA 原始区域）`
-      label.style.cssText = `pointer-events:none;display:block;padding:3px 6px;border:1px solid ${area.strokeColor};border-radius:4px;background:rgb(255 255 255 / 90%);box-shadow:0 1px 4px rgb(0 0 0 / 15%);color:#18181b;font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;`
-      const marker = new amap.Marker({
-        position: center,
-        anchor: 'center',
-        content: label,
-        clickable: false,
-        bubble: true,
-        offset: new amap.Pixel(-label.textContent.length * 6 - 7, -10),
-        zIndex: 31
-      })
-      this.areaLabels.push(marker)
+      if (this.displayOptions.showLabels) {
+        const label = document.createElement('span')
+        label.textContent = area.name
+        label.title = `${area.name}（WIA 原始区域）`
+        label.style.cssText = `pointer-events:none;display:block;padding:3px 6px;border:1px solid ${area.strokeColor};border-radius:4px;background:rgb(255 255 255 / 90%);box-shadow:0 1px 4px rgb(0 0 0 / 15%);color:#18181b;font:600 ${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;`
+        const marker = new amap.Marker({
+          position: center,
+          anchor: 'center',
+          content: label,
+          clickable: false,
+          bubble: true,
+          offset: new amap.Pixel(-label.textContent.length * 6 - 7, -10),
+          zIndex: 31
+        })
+        this.areaLabels.push(marker)
+      }
     }
 
-    if (this.areaOutlines.length) map.add([...this.areaOutlines, ...this.areaLabels])
+    if (this.areaOutlines.length) {
+      map.add([...this.areaOutlines.map(record => record.outline), ...this.areaLabels])
+    }
   }
 
   private createMarkerContent(
@@ -395,7 +491,7 @@ export class AMapProvider implements MapProvider {
 
     const label = document.createElement('span')
     label.textContent = poi.name
-    label.style.cssText = `pointer-events:none;position:absolute;top:40px;left:50%;z-index:2;display:block;max-width:160px;overflow:hidden;padding:3px 6px;border:1px solid ${selected ? '#176f46' : 'rgb(212 212 216)'};border-radius:4px;background:rgb(255 255 255 / 94%);box-shadow:0 1px 4px rgb(0 0 0 / 14%);font-weight:${selected ? '700' : '500'};opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
+    label.style.cssText = `pointer-events:none;position:absolute;top:40px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:160px;overflow:hidden;padding:3px 6px;border:1px solid ${selected ? '#176f46' : 'rgb(212 212 216)'};border-radius:4px;background:rgb(255 255 255 / 94%);box-shadow:0 1px 4px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '500'};opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
     label.style.opacity = '1'
     label.style.visibility = 'visible'
 
@@ -446,7 +542,7 @@ export class AMapProvider implements MapProvider {
 
   private renderSelectedMarker(): void {
     this.clearSelectedMarker()
-    if (!this.selectedPoiId || !this.amap || !this.map) return
+    if (!this.displayOptions.showPois || !this.selectedPoiId || !this.amap || !this.map) return
 
     const record = this.markers.get(this.selectedPoiId)
     if (!record) return
@@ -499,6 +595,7 @@ export class AMapProvider implements MapProvider {
 
   private readonly handleMapClick = (): void => {
     this.poiSelectHandler?.(null)
+    this.areaSelectHandler?.(null)
   }
 
   private readonly handleHotspotClick = (event: AMapHotspotEvent): void => {
@@ -539,6 +636,14 @@ export class AMapProvider implements MapProvider {
   private convertPoints(points: GeoPoint[], amap: AMapNamespace): Promise<Array<AMapPosition | null>> {
     if (!points.length) return Promise.resolve([])
 
+    const results = points.map<AMapPosition | null>(point => (
+      point.crs === 'GCJ-02' ? [point.lng, point.lat] : null
+    ))
+    const gpsPoints = points.flatMap((point, index) => (
+      point.crs === 'WGS84' ? [{ point, index }] : []
+    ))
+    if (!gpsPoints.length) return Promise.resolve(results)
+
     return new Promise((resolve) => {
       let settled = false
       const fail = (message: string) => {
@@ -546,14 +651,14 @@ export class AMapProvider implements MapProvider {
         settled = true
         globalThis.clearTimeout(timeout)
         this.mapErrorHandler?.(new Error(message))
-        resolve(points.map(() => null))
+        resolve(results)
       }
       const timeout = globalThis.setTimeout(() => {
         fail('高德地图 WGS84 坐标转换超时。')
       }, CONVERSION_TIMEOUT_MS)
 
       try {
-        amap.convertFrom(points.map<AMapPosition>(point => [point.lng, point.lat]), 'gps', (status, result) => {
+        amap.convertFrom(gpsPoints.map<AMapPosition>(({ point }) => [point.lng, point.lat]), 'gps', (status, result) => {
           if (settled) return
           if (status !== 'complete') {
             fail('高德地图无法转换 WGS84 坐标。')
@@ -561,14 +666,17 @@ export class AMapProvider implements MapProvider {
           }
 
           const locations = this.readLocations(result)
-          if (locations.length < points.length) {
+          if (locations.length < gpsPoints.length) {
             fail('高德地图返回的坐标转换结果不完整。')
             return
           }
 
           settled = true
           globalThis.clearTimeout(timeout)
-          resolve(points.map((_, index) => locations[index] ?? null))
+          gpsPoints.forEach(({ index }, locationIndex) => {
+            results[index] = locations[locationIndex] ?? null
+          })
+          resolve(results)
         })
       } catch {
         fail('高德地图坐标转换调用失败。')
@@ -619,16 +727,41 @@ export class AMapProvider implements MapProvider {
       this.markerCluster.setMap(null)
       this.markerCluster = null
     }
+    if (this.map && this.plainMarkers.length) {
+      for (const record of this.plainMarkers) {
+        record.marker.off('click', record.clickHandler)
+      }
+      this.map.remove(this.plainMarkers.map(record => record.marker))
+    }
+    this.plainMarkers = []
     this.markers.clear()
   }
 
   private clearAreas(): void {
     ++this.areaRenderVersion
     if (this.map && (this.areaOutlines.length || this.areaLabels.length)) {
-      this.map.remove([...this.areaOutlines, ...this.areaLabels])
+      for (const record of this.areaOutlines) {
+        record.outline.off('click', record.clickHandler)
+      }
+      this.map.remove([...this.areaOutlines.map(record => record.outline), ...this.areaLabels])
     }
     this.areaOutlines = []
     this.areaLabels = []
+  }
+
+  private applyBaseStyle(): void {
+    if (!this.map || !this.amap) return
+    if (this.baseLayers.length) {
+      this.map.remove(this.baseLayers)
+      this.baseLayers = []
+    }
+    if (this.baseStyle === 'satellite') {
+      this.baseLayers = [
+        new this.amap.TileLayer.Satellite(),
+        new this.amap.TileLayer.RoadNet()
+      ]
+      this.map.add(this.baseLayers)
+    }
   }
 
   private disposeMap(): void {
@@ -643,6 +776,7 @@ export class AMapProvider implements MapProvider {
     }
     this.map = null
     this.amap = null
+    this.baseLayers = []
     this.hotspotInfoWindow = null
   }
 }

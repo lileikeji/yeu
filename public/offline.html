@@ -1,36 +1,29 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#104830">
-    <meta name="robots" content="noindex,nofollow">
-    <title>暂时无法连接 | 仰恩新生指南</title>
-    <style>
-      :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f7f8f6; color: #18181b; }
-      * { box-sizing: border-box; }
-      body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
-      main { width: min(100%, 560px); border-block: 1px solid #dfe4df; background: #fff; padding: 28px 20px; }
-      .mark { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 6px; background: #fff7ed; color: #9a3412; font-weight: 800; }
-      h1 { margin: 20px 0 0; font-size: 24px; line-height: 1.3; letter-spacing: 0; }
-      p { margin: 12px 0 0; color: #52525b; font-size: 14px; line-height: 1.8; }
-      .warning { border-left: 3px solid #f97316; background: #fff7ed; padding: 10px 12px; color: #7c2d12; }
-      .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
-      a { min-height: 44px; border-radius: 6px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #166534; font: inherit; font-size: 14px; font-weight: 700; text-decoration: none; cursor: pointer; }
-      .primary { background: #166534; color: #fff; }
-      a:not(.primary) { background: #fff; color: #166534; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <div class="mark" aria-hidden="true">OFF</div>
-      <h1>当前网络不可用</h1>
-      <p>暂时无法从服务器获取这条校园信息。恢复网络后重新加载当前地址，即可获取最新发布内容。</p>
-      <p class="warning">报到时间、地点、材料、营业时间和招新安排不要仅凭旧缓存行动。</p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#104830">
+  <title>离线状态 | 仰恩新生指南</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f7f8f6;color:#18181b;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.shell{width:min(720px,calc(100% - 32px));margin:0 auto;padding:12vh 0 48px}.mark{display:grid;width:48px;height:48px;place-items:center;border-radius:12px;background:#104830;color:#fff;font-weight:800}.kicker{margin:24px 0 0;color:#176f46;font-size:12px;font-weight:700;letter-spacing:.08em}.title{margin:8px 0 0;font-size:clamp(28px,7vw,42px);line-height:1.15}.lead{margin:16px 0 0;color:#52525b;line-height:1.8}.card{margin-top:32px;padding:20px;border:1px solid #d4d4d8;border-radius:12px;background:#fff}.card h2{margin:0;font-size:17px}.card p{margin:10px 0 0;color:#52525b;font-size:14px;line-height:1.7}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.button{min-height:44px;padding:0 18px;border:0;border-radius:8px;background:#176f46;color:#fff;font:600 14px/44px system-ui;text-decoration:none;cursor:pointer}.button.secondary{border:1px solid #d4d4d8;background:#fff;color:#27272a}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="mark">YEU</div>
+    <p class="kicker">PWA 离线状态</p>
+    <h1 class="title">暂时无法更新内容</h1>
+    <p class="lead">当前网络不可用。地图瓦片、路线规划和最新校园信息需要联网，涉及报到、日期、地点、营业时间和招新的事项请勿仅凭旧缓存行动。</p>
+    <section class="card" role="status">
+      <h2>等待网络恢复后重试</h2>
+      <p>本页不保存动态校园数据库，也不会把过期内容显示为最新结果。</p>
       <div class="actions">
-        <a class="primary" href="">重新加载</a>
-        <a href="/offline">查看离线说明</a>
+        <button class="button" type="button" onclick="location.reload()">重新尝试</button>
+        <a class="button secondary" href="/">返回首页</a>
       </div>
-    </main>
-  </body>
+    </section>
+  </main>
+</body>
 </html>

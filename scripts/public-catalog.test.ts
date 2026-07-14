@@ -4,7 +4,8 @@ import {
   findFreshmanGuide,
   freshmanGuides,
   officialClubs,
-  officialSources
+  officialSources,
+  researchSources
 } from '../data/seeds/public-content'
 import {
   canUseStaticContentKindFallback,
@@ -17,6 +18,19 @@ test('managed guide catalogs do not restore an unpublished static guide', () => 
 
   assert.deepEqual(mergePublicGuides([expressGuide], [], false), [])
   assert.equal(mergePublicGuides([expressGuide], [], true)[0]?.slug, 'express-delivery')
+})
+
+test('social research leads are linked beside the guide claims they support', () => {
+  const expectedUrls = new Set(Object.values(researchSources).map(source => source.url))
+  assert.equal(expectedUrls.size, 7)
+  assert.ok([...expectedUrls].every(url => /^https:\/\/www\.xiaohongshu\.com\/explore\/[a-z0-9]+$/.test(url)))
+
+  const sectionUrls = new Set(freshmanGuides.flatMap(guide =>
+    guide.sections.flatMap(section => section.sources?.map(source => source.url) ?? [])
+      .filter(url => url.startsWith('https://www.xiaohongshu.com/explore/'))
+  ))
+  assert.deepEqual(sectionUrls, expectedUrls)
+  assert.ok(Object.values(researchSources).every(source => source.context?.trim()))
 })
 
 test('static fallback is fail-closed and scoped to each content kind', () => {

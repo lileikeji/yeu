@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import type { GeoPoint, MapPoi } from '~~/map/core/types'
-import type { MapProvider, MapProviderId, RouteSummary } from '~~/map/core/provider'
+import type { GeoPoint, MapArea, MapPoi } from '~~/map/core/types'
+import type {
+  MapBaseStyle,
+  MapDisplayOptions,
+  MapLabelSize,
+  MapProvider,
+  MapProviderId,
+  RouteSummary
+} from '~~/map/core/provider'
 import { officialSources } from '~~/data/seeds/public-content'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
 import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
@@ -88,6 +95,33 @@ const mapViewMode = ref<'geographic' | 'official-plan'>(
 )
 type MobileSheetState = 'collapsed' | 'half' | 'expanded'
 const mobileSheetState = ref<MobileSheetState>('half')
+const sidebarCollapsed = ref(false)
+const displaySettingsOpen = ref(false)
+const mapBaseStyle = ref<MapBaseStyle>('standard')
+const mapDisplayOptions = ref<MapDisplayOptions>({
+  showPois: true,
+  showAreas: true,
+  showLabels: true,
+  autoCluster: true,
+  labelSize: 'medium'
+})
+const labelSizeOptions: Array<{ value: MapLabelSize, label: string }> = [
+  { value: 'large', label: '大' },
+  { value: 'medium', label: '中' },
+  { value: 'small', label: '小' },
+  { value: 'extra-small', label: '极小' }
+]
+const mapBaseStyleOptions: Array<{ value: MapBaseStyle, label: string, icon: string }> = [
+  { value: 'standard', label: '标准地图', icon: 'i-lucide-map' },
+  { value: 'satellite', label: '卫星地图', icon: 'i-lucide-satellite' }
+]
+type DisplayToggleKey = 'showPois' | 'showAreas' | 'showLabels' | 'autoCluster'
+const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: string }> = [
+  { key: 'showPois', label: '标记点', icon: 'i-lucide-map-pin' },
+  { key: 'showAreas', label: '绘图层', icon: 'i-lucide-pentagon' },
+  { key: 'showLabels', label: '显示名称', icon: 'i-lucide-type' },
+  { key: 'autoCluster', label: '自动聚合', icon: 'i-lucide-orbit' }
+]
 const mobileSheetHeightClass = computed(() => ({
   collapsed: 'h-20',
   half: 'h-[44%]',
@@ -102,7 +136,7 @@ const mapDataLabel = computed(() => {
 })
 const mapFallbackMessage = computed(() => {
   if (ownerMapPlacesInScope.value.length) {
-    return '当前标点来自用户授权的 WIA 工作地图，已转换后供底图显示；8 个区域暂不显示包围框，待取得 WIA 原始不规则边界后再绘制。标点尚未独立现场核验，实际入口请现场确认。'
+    return '当前 76 个标点与 8 个不规则区域边界来自用户授权的 WIA 工作地图，已转换后供底图显示；区域仅绘制边界线，内部高德商铺仍可点击。标点尚未独立现场核验，实际入口请现场确认。'
   }
   if (publicPlaceError.value) return '公开地点暂时不可用，当前显示内置文字目录，不绘制候选坐标。'
   if (activeScope.value === 'nearby' && !publishedPlacesInScope.value.length) {
@@ -121,6 +155,7 @@ const searchQuery = ref(queryValue(route.query.q))
 const activeCategory = ref(categoryIds.has(initialCategory) ? initialCategory : 'all')
 const initialSelectedPoi = places.value.find(poi => poi.slug === initialPlace || poi.id === initialPlace)
 const selectedPoiId = ref<string | null>(initialSelectedPoi?.id ?? null)
+const selectedArea = ref<MapArea | null>(null)
 const locating = ref(false)
 const routePlanning = ref(false)
 const routeSummary = ref<RouteSummary | null>(null)
@@ -210,12 +245,52 @@ function poiStatusText(poi: PublicMapPlace) {
 }
 
 function handlePoiSelected(poi: MapPoi | null) {
+  if (poi) selectedArea.value = null
   selectedPoiId.value = poi?.id ?? null
   mapProvider.value?.setSelectedPoi(poi?.id ?? null)
 
   if (poi) {
     void nextTick(() => poiRowElements.get(poi.id)?.scrollIntoView({ block: 'nearest' }))
   }
+}
+
+function handleAreaSelected(area: MapArea | null): void {
+  selectedArea.value = area
+  if (area) {
+    selectedPoiId.value = null
+    mapProvider.value?.setSelectedPoi(null)
+  }
+}
+
+function toggleDisplayOption(option: DisplayToggleKey): void {
+  mapDisplayOptions.value = {
+    ...mapDisplayOptions.value,
+    [option]: !mapDisplayOptions.value[option]
+  }
+}
+
+function setLabelSize(size: MapLabelSize): void {
+  mapDisplayOptions.value = { ...mapDisplayOptions.value, labelSize: size }
+}
+
+function setMapBaseStyle(style: MapBaseStyle): void {
+  if (!mapProvider.value?.setBaseStyle(style)) {
+    toast.add({ title: '当前地图不支持该图层', color: 'warning' })
+    return
+  }
+  mapBaseStyle.value = style
+}
+
+function formatAreaSquareMeters(value: number | null): string {
+  if (value === null) return '暂无数据'
+  return value >= 10_000
+    ? `${(value / 10_000).toFixed(2)} 公顷（${value.toLocaleString('zh-CN')} 平方米）`
+    : `${value.toLocaleString('zh-CN')} 平方米`
+}
+
+function formatPerimeter(value: number | null): string {
+  if (value === null) return '暂无数据'
+  return value >= 1000 ? `${(value / 1000).toFixed(2)} 公里` : `${value.toLocaleString('zh-CN')} 米`
 }
 
 function setPoiRowElement(id: string, element: unknown) {
@@ -236,6 +311,7 @@ function hasMapError() {
 }
 
 function selectPoi(poi: PublicMapPlace) {
+  selectedArea.value = null
   selectedPoiId.value = poi.id
   if (mobileSheetState.value === 'collapsed') mobileSheetState.value = 'half'
   if (poi.usesPreviewPoint && canShowOfficialPlan.value) mapViewMode.value = 'official-plan'
@@ -260,6 +336,10 @@ function closePoiDetails() {
   mapProvider.value?.setSelectedPoi(null)
 }
 
+function closeAreaDetails(): void {
+  selectedArea.value = null
+}
+
 function setCategory(categoryId: string) {
   activeCategory.value = categoryId
   closePoiDetails()
@@ -267,6 +347,7 @@ function setCategory(categoryId: string) {
 
 function fitToVisiblePois() {
   closePoiDetails()
+  closeAreaDetails()
   mapProvider.value?.fitToPois()
 }
 
@@ -371,12 +452,15 @@ async function mountMap() {
     mapProvider.value = provider
     activeMapProviderId.value = provider.id
     provider.onPoiSelect(handlePoiSelected)
+    provider.onAreaSelect(handleAreaSelected)
     provider.onError((error) => {
       if (mapProvider.value !== provider) return
       mapErrorMessage.value = error.message
       mapStatus.value = 'error'
     })
     await provider.mount(mapElement.value, { zoom: 15 })
+    provider.setDisplayOptions(mapDisplayOptions.value)
+    provider.setBaseStyle(mapBaseStyle.value)
     provider.setAreas(activeScope.value === 'nearby' ? [] : amapImportedAreas)
     provider.setPois(filteredMapPois.value)
 
@@ -401,6 +485,8 @@ async function mountMap() {
 watch(filteredMapPois, (pois) => {
   mapProvider.value?.setPois(pois)
 })
+
+watch(mapDisplayOptions, options => mapProvider.value?.setDisplayOptions(options), { deep: true })
 
 watch(activeScope, (scope) => {
   mapProvider.value?.setAreas(scope === 'nearby' ? [] : amapImportedAreas)
@@ -480,12 +566,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-[34rem] overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:min-h-[40rem] md:grid-cols-[18rem_minmax(0,1fr)] md:grid-rows-1">
+  <div
+    class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-[34rem] overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:min-h-[40rem] md:grid-rows-1"
+    :class="sidebarCollapsed ? 'md:grid-cols-[0_minmax(0,1fr)]' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
+  >
     <aside
       class="absolute inset-x-0 bottom-0 z-20 flex min-h-0 min-w-0 flex-col rounded-t-md border-t border-[var(--line)] bg-white shadow-[0_-6px_24px_rgb(0_0_0/12%)] transition-[height] duration-200 md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :class="[
         mobileSheetHeightClass,
-        selectedPoi && mobileSheetState !== 'collapsed' ? 'overflow-y-auto' : 'overflow-hidden'
+        selectedPoi && mobileSheetState !== 'collapsed' ? 'overflow-y-auto' : 'overflow-hidden',
+        sidebarCollapsed ? 'md:hidden' : ''
       ]"
     >
       <div class="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] px-4 md:hidden">
@@ -549,13 +639,26 @@ onBeforeUnmount(() => {
               校园与周边
             </h1>
           </div>
-          <UBadge
-            color="warning"
-            variant="soft"
-            size="sm"
-          >
-            {{ mapDataLabel }}
-          </UBadge>
+          <div class="flex items-center gap-1">
+            <UBadge
+              color="warning"
+              variant="soft"
+              size="sm"
+            >
+              {{ mapDataLabel }}
+            </UBadge>
+            <UTooltip text="收起地点栏">
+              <UButton
+                icon="i-lucide-panel-left-close"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                class="hidden md:inline-flex"
+                aria-label="收起地点栏"
+                @click="sidebarCollapsed = true"
+              />
+            </UTooltip>
+          </div>
         </div>
 
         <UInput
@@ -807,6 +910,19 @@ onBeforeUnmount(() => {
 
       <div class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3 md:inset-x-4 md:top-4">
         <div class="flex flex-col items-start gap-1.5">
+          <UTooltip
+            v-if="sidebarCollapsed"
+            text="展开地点栏"
+          >
+            <UButton
+              icon="i-lucide-panel-left-open"
+              color="neutral"
+              variant="solid"
+              class="pointer-events-auto hidden size-11 md:inline-flex"
+              aria-label="展开地点栏"
+              @click="sidebarCollapsed = false"
+            />
+          </UTooltip>
           <UBadge
             color="neutral"
             variant="solid"
@@ -874,6 +990,17 @@ onBeforeUnmount(() => {
           v-if="mapViewMode === 'geographic'"
           class="pointer-events-auto flex flex-col gap-2"
         >
+          <UTooltip text="地图图层与显示设置">
+            <UButton
+              icon="i-lucide-layers-3"
+              color="neutral"
+              :variant="displaySettingsOpen ? 'soft' : 'solid'"
+              class="size-11"
+              aria-label="地图图层与显示设置"
+              :aria-expanded="displaySettingsOpen"
+              @click="displaySettingsOpen = !displaySettingsOpen"
+            />
+          </UTooltip>
           <UTooltip text="显示全部地点">
             <UButton
               icon="i-lucide-scan"
@@ -897,6 +1024,102 @@ onBeforeUnmount(() => {
           </UTooltip>
         </div>
       </div>
+
+      <section
+        v-if="mapViewMode === 'geographic' && displaySettingsOpen"
+        class="absolute right-16 top-3 z-20 w-[min(19rem,calc(100%-5rem))] rounded-lg border border-zinc-200 bg-white p-3 shadow-xl md:right-20 md:top-4"
+        aria-label="地图显示设置"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-sm font-bold text-zinc-950">
+            地图显示设置
+          </h2>
+          <UButton
+            icon="i-lucide-x"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            aria-label="关闭地图显示设置"
+            @click="displaySettingsOpen = false"
+          />
+        </div>
+
+        <p class="mt-3 text-xs font-semibold text-zinc-500">
+          底图
+        </p>
+        <div class="mt-2 grid grid-cols-2 overflow-hidden rounded-md border border-zinc-200">
+          <button
+            v-for="style in mapBaseStyleOptions"
+            :key="style.value"
+            type="button"
+            class="flex min-h-11 items-center justify-center gap-2 px-2 text-xs font-medium"
+            :class="mapBaseStyle === style.value ? 'bg-blue-600 text-white' : 'bg-white text-zinc-700 hover:bg-zinc-50'"
+            :aria-pressed="mapBaseStyle === style.value"
+            @click="setMapBaseStyle(style.value)"
+          >
+            <UIcon
+              :name="style.icon"
+              class="size-4"
+            />
+            {{ style.label }}
+          </button>
+        </div>
+
+        <p class="mt-4 text-xs font-semibold text-zinc-500">
+          显示内容
+        </p>
+        <div class="mt-2 grid grid-cols-3 gap-2">
+          <button
+            v-for="item in displayToggleItems"
+            :key="item.key"
+            type="button"
+            class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-md border px-2 text-xs font-medium transition"
+            :class="mapDisplayOptions[item.key] ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-zinc-200 bg-white text-zinc-500'"
+            :aria-pressed="mapDisplayOptions[item.key]"
+            @click="toggleDisplayOption(item.key)"
+          >
+            <UIcon
+              :name="item.icon"
+              class="size-5"
+            />
+            {{ item.label }}
+          </button>
+          <button
+            type="button"
+            class="flex min-h-16 cursor-not-allowed flex-col items-center justify-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 text-xs font-medium text-zinc-400"
+            disabled
+            title="当前没有可信的行政分块边界数据"
+          >
+            <UIcon
+              name="i-lucide-map-pinned"
+              class="size-5"
+            />
+            行政分块
+          </button>
+        </div>
+        <p class="mt-2 text-[11px] leading-4 text-zinc-500">
+          行政分块等待学校或高德提供可信边界数据后开放。
+        </p>
+
+        <div class="mt-4">
+          <p class="text-xs font-semibold text-zinc-500">
+            名称大小
+          </p>
+          <div class="mt-2 grid grid-cols-4 overflow-hidden rounded-md border border-zinc-200">
+            <button
+              v-for="size in labelSizeOptions"
+              :key="size.value"
+              type="button"
+              class="min-h-10 px-2 text-xs font-medium"
+              :class="mapDisplayOptions.labelSize === size.value ? 'bg-blue-600 text-white' : 'bg-white text-zinc-600 hover:bg-zinc-50'"
+              :aria-pressed="mapDisplayOptions.labelSize === size.value"
+              @click="setLabelSize(size.value)"
+            >
+              {{ size.label }}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <div
         v-if="mapViewMode === 'geographic' && routeSummary"
@@ -994,6 +1217,59 @@ onBeforeUnmount(() => {
           />
         </div>
       </div>
+
+      <section
+        v-if="selectedArea"
+        class="absolute bottom-[calc(44%+1rem)] left-3 z-10 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4"
+        aria-live="polite"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2 text-xs font-medium text-green-700">
+              <UIcon
+                name="i-lucide-pentagon"
+                class="size-4"
+              />
+              WIA 原始绘制区域
+            </div>
+            <h2 class="mt-1 text-base font-bold text-zinc-950">
+              {{ selectedArea.name }}
+            </h2>
+          </div>
+          <UButton
+            icon="i-lucide-x"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            aria-label="关闭区域详情"
+            @click="closeAreaDetails"
+          />
+        </div>
+        <p class="mt-3 text-xs leading-5 text-zinc-600">
+          {{ selectedArea.description ?? '边界来自用户授权的高德工作地图原始绘制数据，仅作校园方位参考。' }}
+        </p>
+        <dl class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-3 text-xs">
+          <div>
+            <dt class="text-zinc-400">
+              面积
+            </dt>
+            <dd class="mt-1 font-medium text-zinc-800">
+              {{ formatAreaSquareMeters(selectedArea.areaSquareMeters) }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-zinc-400">
+              周长
+            </dt>
+            <dd class="mt-1 font-medium text-zinc-800">
+              {{ formatPerimeter(selectedArea.perimeterMeters) }}
+            </dd>
+          </div>
+        </dl>
+        <p class="mt-3 text-[11px] leading-4 text-zinc-500">
+          区域只绘制边界线，不覆盖内部商铺的点击区域。
+        </p>
+      </section>
 
       <section
         v-if="selectedPoi"

@@ -17,6 +17,7 @@ export interface MapPoi {
 interface MapAreaBase {
   id: string
   name: string
+  description?: string
   strokeColor: string
   fillColor: string
   areaSquareMeters: number | null
@@ -33,7 +34,7 @@ export interface MapBoundingArea extends MapAreaBase {
 }
 
 export interface MapPolygonArea extends MapAreaBase {
-  /** Exact WGS84 rings decoded from the WIA shapeBatch response. */
+  /** Exact rings decoded from the WIA shape response, with explicit per-point CRS. */
   paths: GeoPoint[][]
   geometrySource: 'wia-shape-batch'
 }

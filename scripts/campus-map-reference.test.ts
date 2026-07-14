@@ -101,6 +101,8 @@ test('owner-authorized WIA points render as drafts with explicit GCJ-02 AMap nav
   for (const [index, place] of ownerViews.entries()) {
     const url = new URL(place.navigationUrl!)
     const source = amapImportedPlaces[index]!.sourcePoint
+    assert.deepEqual(place.point, source)
+    assert.equal(place.coordinateSystem, 'GCJ-02')
     assert.equal(url.origin, 'https://uri.amap.com')
     assert.equal(url.searchParams.get('coordinate'), 'gaode')
     assert.equal(url.searchParams.get('mode'), 'walk')
@@ -108,16 +110,26 @@ test('owner-authorized WIA points render as drafts with explicit GCJ-02 AMap nav
   }
 })
 
-test('owner-authorized WIA areas remain bounding-box metadata pending exact shapeBatch paths', () => {
+test('owner-authorized WIA areas contain exact closed shapeBatch paths', () => {
   assert.equal(amapImportedAreas.length, 8)
   assert.equal(new Set(amapImportedAreas.map(area => area.id)).size, 8)
-  assert.ok(amapImportedAreas.every(area => area.geometrySource === 'wia-bounding-box'))
-  assert.ok(amapImportedAreas.every(area => (
-    area.bounds.southWest.crs === 'WGS84'
-    && area.bounds.northEast.crs === 'WGS84'
-    && area.bounds.southWest.lng < area.bounds.northEast.lng
-    && area.bounds.southWest.lat < area.bounds.northEast.lat
-  )))
+  assert.ok(amapImportedAreas.every(area => area.geometrySource === 'wia-shape-batch'))
+  assert.ok(amapImportedAreas.every((area) => {
+    if (area.geometrySource !== 'wia-shape-batch') return false
+    const path = area.paths[0]
+    const first = path?.[0]
+    const last = path?.at(-1)
+    return area.paths.length === 1
+      && Boolean(first && last && path && path.length >= 5)
+      && path!.every(point => point.crs === 'GCJ-02')
+      && first!.lng === last!.lng
+      && first!.lat === last!.lat
+  }))
+  const oldStudentStreet = amapImportedAreas.find(area => area.id === 'wia-area-2003534061878101222')
+  assert.equal(oldStudentStreet?.geometrySource, 'wia-shape-batch')
+  if (oldStudentStreet?.geometrySource === 'wia-shape-batch') {
+    assert.equal(oldStudentStreet.paths[0]?.length, 15)
+  }
 })
 
 test('official campus plan anchors cover every numbered reference without becoming coordinates', () => {
@@ -148,7 +160,7 @@ test('map page uses the Nuxt auto-import name for the nested map component', () 
   assert.doesNotMatch(source, /<OfficialCampusPlan\b/)
   assert.match(source, /label="地图内路线"/)
   assert.match(source, /planWalkingRoute\(origin, poi\.point!\)/)
-  assert.match(source, /8 个区域暂不显示包围框/)
+  assert.match(source, /8 个不规则区域边界/)
 })
 
 test('geographic map keeps a full-height wrapper around provider-owned container styles', () => {

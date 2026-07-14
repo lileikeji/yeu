@@ -3,6 +3,7 @@ export interface PublicSource {
   publisher: string
   url: string
   accessedAt: string
+  context?: string
 }
 
 export interface GuideSection {
@@ -11,6 +12,7 @@ export interface GuideSection {
   description?: string
   items: string[]
   notice?: string
+  sources?: PublicSource[]
 }
 
 export interface FreshmanGuide {
@@ -89,6 +91,12 @@ export const officialSources = {
     publisher: '仰恩大学招生办公室',
     url: 'https://zhaosheng.yeu.edu.cn/2026/0413/c185a55523/page.htm',
     accessedAt
+  },
+  transferArchive2026: {
+    title: '仰恩大学2026年专升本学生档案邮寄说明',
+    publisher: '仰恩大学招生办公室',
+    url: 'https://zhaosheng.yeu.edu.cn/2026/0429/c183a55895/page.htm',
+    accessedAt: '2026-07-15'
   },
   academicCalendar2026Fall: {
     title: '仰恩大学2026-2027学年第一学期校历',
@@ -234,11 +242,87 @@ export const officialSources = {
     url: 'https://youth.yeu.edu.cn/2026/0606/c530a56580/page.htm',
     accessedAt: '2026-07-14'
   },
+  clubAwards2026: {
+    title: '2024-2025学年优秀学生社团表彰决定',
+    publisher: '共青团仰恩大学委员会',
+    url: 'https://youth.yeu.edu.cn/2026/0322/c516a55029/page.htm',
+    accessedAt: '2026-07-15'
+  },
+  freshmanPreparation2026: {
+    title: '人文学院2026级新生工作启动会',
+    publisher: '仰恩大学人文学院',
+    url: 'https://rwxy.yeu.edu.cn/2026/0626/c868a57193/page.htm',
+    accessedAt: '2026-07-15'
+  },
+  nationalGrantRules2025: {
+    title: '国家助学金评审办法（修订）',
+    publisher: '仰恩大学学生事务部',
+    url: 'https://xsb.yeu.edu.cn/2025/0311/c644a47889/page.htm',
+    accessedAt: '2026-07-15'
+  },
+  mentalHealthAppointment2025: {
+    title: '心理咨询预约方式',
+    publisher: '仰恩大学心理健康教育与咨询中心',
+    url: 'https://xl.yeu.edu.cn/2025/0225/c564a47514/page.htm',
+    accessedAt: '2026-07-15'
+  },
   campusMap: {
     title: '校园地图',
     publisher: '仰恩大学',
     url: 'https://www.yeu.edu.cn/xydt/list.htm',
     accessedAt
+  }
+} satisfies Record<string, PublicSource>
+
+export const researchSources = {
+  dormQuestions: {
+    title: '最关心的问题大揭秘',
+    publisher: '小红书公开笔记',
+    url: 'https://www.xiaohongshu.com/explore/6a45ba77000000000702a5ff',
+    accessedAt: '2026-07-15',
+    context: '社交平台待核验线索；宿舍设施描述须以学校通知或现场核验为准。'
+  },
+  dormPhotos: {
+    title: '仰恩大学普通型宿舍什么样呢',
+    publisher: '小红书公开笔记',
+    url: 'https://www.xiaohongshu.com/explore/6a4883f4000000001603ffc7',
+    accessedAt: '2026-07-15',
+    context: '社交平台视频线索；楼栋、房型与拍摄时间仍待确认。'
+  },
+  freshmanSurvival: {
+    title: '仰恩新生生存指南｜吃喝住行全攻略',
+    publisher: '小红书公开笔记',
+    url: 'https://www.xiaohongshu.com/explore/69fd5e380000000036018f53',
+    accessedAt: '2026-07-15',
+    context: '社交平台待核验线索；拉练可概述为约35–40公里，2025年学校官方报道口径为35公里。'
+  },
+  food: {
+    title: '仰恩大学吃什么',
+    publisher: '小红书公开笔记',
+    url: 'https://www.xiaohongshu.com/explore/6a4526e900000000200388d6',
+    accessedAt: '2026-07-15',
+    context: '与高德 POI 交叉命中的商铺候选；营业状态和菜品仍待实地确认。'
+  },
+  expressMap: {
+    title: '仰恩大学新区快递驿站地图',
+    publisher: '小红书公开笔记',
+    url: 'https://www.xiaohongshu.com/explore/689c97e4000000001b023cb9',
+    accessedAt: '2026-07-15',
+    context: '2025 年社交平台旧线索；站点数量、品牌和营业状态均待复核。'
+  },
+  clubs: {
+    title: '仰恩大学社团列表',
+    publisher: '小红书公开笔记',
+    url: 'https://www.xiaohongshu.com/explore/6875d6f70000000017037779',
+    accessedAt: '2026-07-15',
+    context: '2025 年不完整线索；不能替代校团委当年注册名册。'
+  },
+  campusShuttle: {
+    title: '仰恩叮叮车保姆级攻略｜夏令+冬令时段',
+    publisher: '小红书公开笔记',
+    url: 'https://www.xiaohongshu.com/explore/686f0ee4000000001202cb14',
+    accessedAt: '2026-07-15',
+    context: '校内用户确认该交通工具通称“叮叮车”；票价、时段、上下车点仍待核验，争议配图禁止发布。'
   }
 } satisfies Record<string, PublicSource>
 
@@ -251,7 +335,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     icon: 'i-lucide-clipboard-check',
     category: 'arrival',
     audience: ['本科新生', '专升本新生'],
-    readMinutes: 5,
+    readMinutes: 6,
     status: 'partial',
     statusText: '报到日期已确认，地点材料待通知',
     updatedAt: accessedAt,
@@ -264,6 +348,7 @@ export const freshmanGuides: FreshmanGuide[] = [
           '先确认自己的录取类型是普通本科还是专升本，分别查看对应的当年招生页面。',
           '保存招生办公室官网入口；涉及日期、缴费、材料和报到地点时，只认录取通知书或学校官方通知。',
           '学校办公室发布的校历明确：2026级新生9月5至6日注册报到，9月7至9日参加入学教育，9月10日上课。',
+          '同一份校历将2026级新生军训暂定为12月13日至26日，并注明这是部队初定时间；若后续通知调整，以最新官方安排为准。',
           '校历统一写作“新生”，没有区分普通本科与专升本；个人通知如有更具体安排，以对应录取材料为准。',
           '2026年招生章程公布的校址为福建省泉州市洛江区马甲镇仰恩大学，邮编362014。',
           '招生咨询电话为 0595-22091988、0595-22085622，邮箱为 yeu@yeu.edu.cn。'
@@ -276,6 +361,16 @@ export const freshmanGuides: FreshmanGuide[] = [
           '9月5至6日中为你安排的具体日期和时段、允许提前或延后到校的规则，以及迟到请假方式。',
           '通知要求携带的原件、复印件、照片及线上预办理事项。',
           '缴费渠道、宿舍分配、绿色通道、接站安排和现场报到点。'
+        ]
+      },
+      {
+        title: '专升本档案（2026已发布）',
+        icon: 'i-lucide-folder-input',
+        items: [
+          '招生办公室说明，《调档函》会随录取通知书寄出；收到后，携调档函到档案所在单位办理调档。',
+          '档案须通过 EMS 或机要件邮寄，接收单位为“仰恩大学档案室”，地址为福建省泉州市洛江区马甲镇仰恩大学档案室，邮编362014。',
+          '档案室公开联系电话为0595-22082012；寄出前按录取通知书和招生网页再次核对收件信息，不使用群聊转发的私人地址。',
+          '这一流程仅适用于2026年专升本学生，普通本科新生不要照搬。'
         ]
       },
       {
@@ -302,6 +397,28 @@ export const freshmanGuides: FreshmanGuide[] = [
           '2025级迎新曾在第一、第三教学区设置报到点，并安排泉州火车站接站和校内电瓶车。',
           '这些安排不能推定为2026级方案；本页会在学校发布当年通知后再更新具体日期、材料和路线。'
         ]
+      },
+      {
+        title: '学生经验线索（待核验）',
+        icon: 'i-lucide-message-circle-warning',
+        items: [
+          '公开经验笔记提到校内坡路、叮叮车高峰排队、不同校区外卖送达边界、公用晾晒和自习空间等生活细节；这些内容会作为后续现场核验清单，不作为学校规则。',
+          '校内用户已确认该交通工具通称“叮叮车”；笔记中的票价、座位数、上下车点和支付方式仍是待核验变化信息，争议配图不作为真实车辆照片。',
+          '军训拉练可概述为约35–40公里；学校2025年官方报道标题为35公里，学生常用说法约40公里，具体以当年安排为准。'
+        ],
+        notice: '经验内容可能随学期、校区和管理安排变化，请优先查看录取材料及学校最新通知。',
+        sources: [researchSources.freshmanSurvival, researchSources.campusShuttle]
+      },
+      {
+        title: '资助与校内前置准备',
+        icon: 'i-lucide-hand-coins',
+        items: [
+          '学生事务部现行页面说明，全日制本科家庭经济困难学生可按规定申请国家助学金；页面列出每年3000元和5000元两档，并写明原则上每年9月20日前通过福建省精准资助学生信息管理系统申请。',
+          '金额、申请入口和截止时间仍应在2026学年资助通知中再次确认；不要向私人账号提交身份证、银行卡或家庭经济材料。',
+          '人文学院2026级新生工作启动会确认校内已开展班级联络群、预报到摸排、档案归集和团组织关系转接准备；这只表示校方前置工作已启动，不是面向所有新生的办理步骤。'
+        ],
+        notice: '资助申请和团组织关系转接以学生事务部、学院及录取材料的当年正式通知为准。',
+        sources: [officialSources.nationalGrantRules2025, officialSources.freshmanPreparation2026]
       }
     ],
     sources: [
@@ -309,11 +426,14 @@ export const freshmanGuides: FreshmanGuide[] = [
       officialSources.undergraduateRules2026,
       officialSources.undergraduatePlan2026,
       officialSources.transferRules2026,
+      officialSources.transferArchive2026,
       officialSources.academicCalendar2026Fall,
       officialSources.teachingOffice,
       officialSources.financeContact,
       officialSources.admissionFraudWarning2026,
-      officialSources.welcomeReport2025
+      officialSources.welcomeReport2025,
+      officialSources.nationalGrantRules2025,
+      officialSources.freshmanPreparation2026
     ]
   },
   {
@@ -328,7 +448,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'partial',
     statusText: '地图目录已导入，坐标核验中',
     updatedAt: '2026-07-14',
-    leadNotice: '工作地图的 76 个标点已按“未独立现场核验”状态显示，并支持地图内步行路线与外部高德导航；8 个区域只取得包围框，等待原始不规则边界数据后再绘制。',
+    leadNotice: '工作地图的 76 个标点与 8 个原始不规则区域边界已按“未独立现场核验”状态显示，并支持地图内步行路线与外部高德导航；区域只绘制边界线，避免遮挡内部高德商铺。',
     sections: [
       {
         title: '地图里可以做什么',
@@ -387,6 +507,25 @@ export const freshmanGuides: FreshmanGuide[] = [
           '图书馆借阅部公开电话为0595-22099025、0595-22099026；临时开放调整应先查看图书馆通知。',
           '校医务室2025年10月公开简介注明实行全年全天候24小时值班制，承担医疗卫生、预防保健和传染病防控等工作；具体入口和直拨电话仍待当学期复核。'
         ]
+      },
+      {
+        title: '宿舍实拍与答疑线索（待核验）',
+        icon: 'i-lucide-image-search',
+        items: [
+          '近期公开笔记提供普通型宿舍图片和视频线索，并描述上床下桌、空调、风扇和公共卫浴隔间等情况。',
+          '这些笔记没有形成可覆盖所有楼栋和房型的证据；房型、床位和设施仍以录取安排、学校规定及实际分配为准。',
+          '系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。'
+        ],
+        sources: [researchSources.dormQuestions, researchSources.dormPhotos]
+      },
+      {
+        title: '心理咨询与支持',
+        icon: 'i-lucide-heart-handshake',
+        items: [
+          '心理健康教育与咨询中心公开预约页注明旧区长春楼二楼可提供心理咨询，并支持企业微信、电话、邮件或现场预约。',
+          '预约方式和开放时间可能随学期调整，使用前请打开下方官网原文核对最新联系方式；紧急危险情况应立即联系校方、急救或公安渠道。'
+        ],
+        sources: [officialSources.mentalHealthAppointment2025]
       }
     ],
     sources: [
@@ -401,7 +540,8 @@ export const freshmanGuides: FreshmanGuide[] = [
       officialSources.diningStallLease2026,
       officialSources.libraryHours,
       officialSources.libraryContact,
-      officialSources.medicalOfficeProfile2025
+      officialSources.medicalOfficeProfile2025,
+      officialSources.mentalHealthAppointment2025
     ]
   },
   {
@@ -463,7 +603,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'awaiting-notice',
     statusText: '站点与配送规则待现场核验',
     updatedAt: accessedAt,
-    leadNotice: '当前没有足以公开的站点营业时间、取餐点或配送边界证据。首版会先完成地点目录，再通过现场和经营方双重核验后发布。',
+    leadNotice: '已收录2025年快递地图和新生经验笔记作为待核验线索，但仍没有足以公开的当前站点营业时间、取餐点或配送边界证据。',
     sections: [
       {
         title: '上线前会核对',
@@ -481,6 +621,17 @@ export const freshmanGuides: FreshmanGuide[] = [
           '营业时间和入校规则变化较快，查看页面的最后核验日期。',
           '平台显示“可配送”不代表学校允许骑手进入对应区域。'
         ]
+      },
+      {
+        title: '当前搜索到的线索',
+        icon: 'i-lucide-file-search-2',
+        items: [
+          '一篇2025年公开笔记称新区约有6个快递点，并附有新区、旧区站点地图线索；由于品牌和位置主要在图片中，当前不直接转录为地点。',
+          '另一篇新生经验笔记提到新旧区外卖送达边界不同；边界属于易变化规则，必须在2026级报到前重新现场核验。',
+          '当站点名称、精确位置、覆盖品牌和营业状态至少完成两项独立核验后，再发布到地图。'
+        ],
+        notice: '以下链接用于追溯线索，不表示学校或本系统已经确认其内容。',
+        sources: [researchSources.expressMap, researchSources.freshmanSurvival]
       }
     ],
     sources: []
@@ -526,6 +677,24 @@ export const freshmanGuides: FreshmanGuide[] = [
         ]
       },
       {
+        title: '社交平台名单线索',
+        icon: 'i-lucide-list-tree',
+        items: [
+          '一篇2025年公开笔记整理了“23个社团”名单；校内用户确认计算机协会、电子数模协会确实存在，说明图片名单并不完整。',
+          '存在性反馈不能替代校团委当年注册名册，也不能证明协会当前正在招新；招新时间和联系方式仍需逐项确认。'
+        ],
+        sources: [researchSources.clubs]
+      },
+      {
+        title: '官网名称差异待确认',
+        icon: 'i-lucide-scan-alert',
+        items: [
+          '2024-2025学年优秀社团表彰决定使用“青年志愿者协会”，而2026年社团风采大赛报道使用“青年志愿者先锋队”。',
+          '在校团委确认两者是否为同一组织前，系统保留名称差异，不自动合并社团档案。'
+        ],
+        sources: [officialSources.clubAwards2026]
+      },
+      {
         title: '招新信息发布规则',
         icon: 'i-lucide-badge-check',
         items: [
@@ -539,7 +708,8 @@ export const freshmanGuides: FreshmanGuide[] = [
       officialSources.youthLeague,
       officialSources.clubOverview,
       officialSources.clubShowcase2026,
-      officialSources.clubCarnival2025
+      officialSources.clubCarnival2025,
+      officialSources.clubAwards2026
     ]
   },
   {
@@ -554,7 +724,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'awaiting-notice',
     statusText: '首批商铺待实地核验',
     updatedAt: accessedAt,
-    leadNotice: '工作地图中的商铺只能作为候选线索。门店位置、营业状态和营业时间至少经过平台当前页面与实地或电话两项一致后才会公开。',
+    leadNotice: '工作地图和社交平台中的商铺只能作为候选线索。门店位置、营业状态和营业时间至少经过平台当前页面与实地或电话两项一致后才会公开。',
     sections: [
       {
         title: '首版展示字段',
@@ -573,6 +743,16 @@ export const freshmanGuides: FreshmanGuide[] = [
           '优惠注明提供方、条件和有效期；付费位置显著标注“推广”。',
           '推广不会改变地图的客观排序或核验结论。'
         ]
+      },
+      {
+        title: '首批交叉命中候选',
+        icon: 'i-lucide-badge-help',
+        items: [
+          '公开美食笔记提到旧区“喜又”和新区二街“思念小馆”，两家名称均能在高德 POI 中命中，因此提升为优先实地核验对象。',
+          '跨平台同名只能证明候选关联度较高，不能证明当前营业、菜品、价格、评价或门店控制权。'
+        ],
+        notice: '完成营业状态和位置复核前，这两家不会作为已核验推荐商铺展示。',
+        sources: [researchSources.food]
       }
     ],
     sources: []
@@ -592,6 +772,88 @@ export const officialClubs: OfficialClub[] = [
 ]
 
 export const officialDepartments: OfficialDepartment[] = [
+  {
+    name: '经济学院',
+    summary: '经济学相关专业与学院通知的官方入口。',
+    website: 'https://jjxy.yeu.edu.cn/'
+  },
+  {
+    name: '管理学院',
+    summary: '管理学相关专业与学院通知的官方入口。',
+    website: 'https://glxy.yeu.edu.cn/'
+  },
+  {
+    name: '会计学院',
+    summary: '会计学相关专业与学院通知的官方入口。',
+    website: 'https://kjxy.yeu.edu.cn/'
+  },
+  {
+    name: '计算机科学与工程学院',
+    summary: '计算机相关专业与学院通知的官方入口。',
+    website: 'https://computer.yeu.edu.cn/'
+  },
+  {
+    name: '人文学院',
+    summary: '人文类专业与学院通知的官方入口。',
+    website: 'https://rwxy.yeu.edu.cn/'
+  },
+  {
+    name: '外国语学院',
+    summary: '外语类专业与学院通知的官方入口。',
+    website: 'https://sofl.yeu.edu.cn/'
+  },
+  {
+    name: '法学院',
+    summary: '法学相关专业与学院通知的官方入口。',
+    website: 'https://fxy.yeu.edu.cn/'
+  },
+  {
+    name: '艺术与教育学院',
+    summary: '艺术与教育类专业及学院通知的官方入口。',
+    website: 'https://art.yeu.edu.cn/'
+  },
+  {
+    name: '马克思主义学院',
+    summary: '思想政治理论教学与学院通知的官方入口。',
+    website: 'https://marx.yeu.edu.cn/'
+  },
+  {
+    name: '继续教育学院',
+    summary: '继续教育业务与学院通知的官方入口。',
+    website: 'https://jxjy.yeu.edu.cn/'
+  },
+  {
+    name: '体育教研部',
+    summary: '体育教学与相关通知的官方入口。',
+    website: 'https://tiyu.yeu.edu.cn/'
+  },
+  {
+    name: '军事理论教研部（党委武装部）',
+    summary: '军事理论教学、国防教育与相关通知的官方入口。',
+    website: 'https://wzb.yeu.edu.cn/'
+  },
+  {
+    name: '人工智能与数据科学学院',
+    summary: '人工智能与数据科学相关专业及学院通知的官方入口。',
+    website: 'https://ai.yeu.edu.cn/'
+  },
+  {
+    name: '电气工程与自动化学院',
+    summary: '电气与自动化相关专业及学院通知的官方入口。',
+    website: 'https://dqgc.yeu.edu.cn/'
+  },
+  {
+    name: '教务部',
+    summary: '学籍、教学运行、选课与教学管理的官方入口。',
+    website: 'https://jwb.yeu.edu.cn/',
+    phone: '0595-22082006',
+    email: 'yeujwb@yeu.edu.cn'
+  },
+  {
+    name: '学校办公室',
+    summary: '校历、校级通知和学校办公室信息的官方入口。',
+    website: 'https://bgs.yeu.edu.cn/'
+  },
   {
     name: '招生办公室',
     summary: '招生章程、招生计划、录取与咨询官方入口。',

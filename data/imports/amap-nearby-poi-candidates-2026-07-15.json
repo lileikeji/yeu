@@ -1,0 +1,49 @@
+{
+  "formatVersion": 1,
+  "generatedAt": "2026-07-15T00:00:00+08:00",
+  "provider": "AMap Web Service Place Around v5",
+  "providerDocumentation": "https://lbs.amap.com/api/webservice/guide/api-advanced/newpoisearch",
+  "status": "unverified-platform-candidates",
+  "policy": {
+    "publishAutomatically": false,
+    "coordinateSystem": "GCJ-02",
+    "requiredFollowUp": "Confirm storefront name, entrance coordinate, operating status, hours and service scope by field visit or merchant contact.",
+    "note": "Distance is returned by AMap from the configured center. A platform POI is not proof that a merchant is currently open."
+  },
+  "centers": [
+    { "id": "new-student-street", "name": "新区学生街", "location": { "lng": 118.60124037, "lat": 25.10611162, "crs": "GCJ-02" }, "radiusMeters": 1200 },
+    { "id": "old-student-street", "name": "旧区学生街", "location": { "lng": 118.6153, "lat": 25.10925, "crs": "GCJ-02" }, "radiusMeters": 700 }
+  ],
+  "candidates": [
+    { "centerId": "new-student-street", "name": "江户寿司(新区学生街店)", "category": "food", "amapType": "餐饮服务;餐饮相关场所;餐饮相关", "location": { "lng": 118.6012, "lat": 25.106229, "crs": "GCJ-02" }, "address": "马甲镇洋坑村后城41-24号", "distanceMeters": 13, "amapPoiId": "B0J2ZZHD2O" },
+    { "centerId": "new-student-street", "name": "颜予火锅", "category": "food", "amapType": "餐饮服务;中餐厅;中餐厅", "location": { "lng": 118.601404, "lat": 25.106126, "crs": "GCJ-02" }, "address": "洋坑村委会东南侧70米", "distanceMeters": 16, "amapPoiId": "B0L0PL1DLE" },
+    { "centerId": "new-student-street", "name": "马氏小吃店", "category": "food", "amapType": "餐饮服务;中餐厅;中餐厅", "location": { "lng": 118.601371, "lat": 25.105821, "crs": "GCJ-02" }, "address": "仰恩大学第三教学区西1门西160米", "distanceMeters": 34, "amapPoiId": "B0FFGX2UTB" },
+    { "centerId": "new-student-street", "name": "CQJGB重庆鸡公煲(仰恩大学店)", "category": "food", "amapType": "餐饮服务;中餐厅;四川菜(川菜)", "location": { "lng": 118.601621, "lat": 25.106109, "crs": "GCJ-02" }, "address": "洋坑村后城46-21号", "distanceMeters": 38, "amapPoiId": "B0K35OJBSW" },
+    { "centerId": "new-student-street", "name": "好在鸿烧仙草", "category": "food", "amapType": "餐饮服务;中餐厅;中餐厅", "location": { "lng": 118.601913, "lat": 25.106551, "crs": "GCJ-02" }, "address": "马甲镇仰恩大学新区", "distanceMeters": 83, "amapPoiId": "B0FFGXI1AB" },
+    { "centerId": "new-student-street", "name": "环星超市", "category": "shopping", "amapType": "购物服务;超级市场;超市", "location": { "lng": 118.601946, "lat": 25.105632, "crs": "GCJ-02" }, "address": "仰恩大学第三教学区附近", "distanceMeters": 88, "amapPoiId": "B02530R6ZS" },
+    { "centerId": "new-student-street", "name": "万家缘超市", "category": "shopping", "amapType": "购物服务;便民商店/便利店;便民商店/便利店", "location": { "lng": 118.602217, "lat": 25.106303, "crs": "GCJ-02" }, "address": "仰恩大学西门西80米", "distanceMeters": 100, "amapPoiId": "B02530R833" },
+    { "centerId": "new-student-street", "name": "美宜佳(仰恩大学店)", "category": "shopping", "amapType": "购物服务;便民商店/便利店;便民商店/便利店", "location": { "lng": 118.602224, "lat": 25.105847, "crs": "GCJ-02" }, "address": "仰恩大学第三教学区西1门西70米", "distanceMeters": 103, "amapPoiId": "B0FFJXRVV4" },
+    { "centerId": "new-student-street", "name": "兔喜生活(仰恩大学店)", "category": "shopping", "amapType": "购物服务;购物相关场所;购物相关场所", "location": { "lng": 118.602495, "lat": 25.106735, "crs": "GCJ-02" }, "address": "仰恩大学第三校区西北侧250米", "distanceMeters": 144, "amapPoiId": "B0J31CLVT2" },
+    { "centerId": "new-student-street", "name": "佳佳便利店(新区店)", "category": "shopping", "amapType": "购物服务;便民商店/便利店;便民商店/便利店", "location": { "lng": 118.602673, "lat": 25.106589, "crs": "GCJ-02" }, "address": "仰恩大学西门旁", "distanceMeters": 153, "amapPoiId": "B0K6ACDOAA" },
+    { "centerId": "new-student-street", "name": "汇成手机维修", "category": "service", "amapType": "生活服务;维修站点;维修站点", "location": { "lng": 118.601454, "lat": 25.106587, "crs": "GCJ-02" }, "address": "马甲镇仰恩大学第三校区第四街42-5", "distanceMeters": 57, "amapPoiId": "B0I21UPED7" },
+    { "centerId": "new-student-street", "name": "中国电信", "category": "service", "amapType": "生活服务;电讯营业厅;中国电信营业厅", "location": { "lng": 118.601634, "lat": 25.106983, "crs": "GCJ-02" }, "address": "洋坑村委会东侧60米", "distanceMeters": 104, "amapPoiId": "B0L05HSWZK" },
+    { "centerId": "new-student-street", "name": "顺丰速运(仰恩大学店)", "category": "express", "amapType": "生活服务;生活服务场所;生活服务场所", "location": { "lng": 118.601775, "lat": 25.107025, "crs": "GCJ-02" }, "address": "洋坑村委会东侧70米", "distanceMeters": 115, "amapPoiId": "B0L6KO8PZC" },
+    { "centerId": "new-student-street", "name": "菜鸟驿站(仰恩大学店)", "category": "express", "amapType": "生活服务;物流速递;物流速递", "location": { "lng": 118.602327, "lat": 25.106583, "crs": "GCJ-02" }, "address": "马甲镇仰恩新区惠鲜水果店", "distanceMeters": 121, "amapPoiId": "B0KB26EJQF" },
+    { "centerId": "new-student-street", "name": "中通快递(仰恩大学店)", "category": "express", "amapType": "生活服务;物流速递;物流速递", "location": { "lng": 118.60249, "lat": 25.106745, "crs": "GCJ-02" }, "address": "洋坑村委会东侧140米", "distanceMeters": 144, "amapPoiId": "B0KRN1FCXW" },
+    { "centerId": "old-student-street", "name": "鱼香阁饭店", "category": "food", "amapType": "餐饮服务;中餐厅;中餐厅", "location": { "lng": 118.615419, "lat": 25.109295, "crs": "GCJ-02" }, "address": "仰恩大学第一教学区学生街79-12号", "distanceMeters": 13, "amapPoiId": "B0G1P6G0VM" },
+    { "centerId": "old-student-street", "name": "重庆鸡公煲(仰恩第一家旧区分店)", "category": "food", "amapType": "餐饮服务;中餐厅;四川菜(川菜)", "location": { "lng": 118.615277, "lat": 25.109094, "crs": "GCJ-02" }, "address": "仰恩大学第二教学区附近", "distanceMeters": 17, "amapPoiId": "B0GR4SH171" },
+    { "centerId": "old-student-street", "name": "玉田小厨(仰恩旧区店)", "category": "food", "amapType": "餐饮服务;中餐厅;中餐厅", "location": { "lng": 118.615204, "lat": 25.109095, "crs": "GCJ-02" }, "address": "仰恩村78-19号", "distanceMeters": 19, "amapPoiId": "B0K2US088F" },
+    { "centerId": "old-student-street", "name": "塔斯汀中国汉堡(泉州市仰恩大学校内店)", "category": "food", "amapType": "餐饮服务;快餐厅;快餐厅", "location": { "lng": 118.615633, "lat": 25.109665, "crs": "GCJ-02" }, "address": "马甲镇仰恩大学旧区东苑餐厅一楼", "distanceMeters": 57, "amapPoiId": "B0K3XA26K3" },
+    { "centerId": "old-student-street", "name": "泰罗手打柠檬茶(仰恩店)", "category": "food", "amapType": "餐饮服务;冷饮店;冷饮店", "location": { "lng": 118.615689, "lat": 25.109733, "crs": "GCJ-02" }, "address": "仰恩大学旧区学生街77-10", "distanceMeters": 66, "amapPoiId": "B0IA3APOQ3" },
+    { "centerId": "old-student-street", "name": "佳美乐超市", "category": "shopping", "amapType": "购物服务;购物相关场所;购物相关场所", "location": { "lng": 118.615699, "lat": 25.109318, "crs": "GCJ-02" }, "address": "马甲镇仰恩村学生街78-7号", "distanceMeters": 40, "amapPoiId": "B0FFM1MXZQ" },
+    { "centerId": "old-student-street", "name": "银环便利店", "category": "shopping", "amapType": "购物服务;便民商店/便利店;便民商店/便利店", "location": { "lng": 118.615187, "lat": 25.10982, "crs": "GCJ-02" }, "address": "仰恩大学第一教学区西南侧220米", "distanceMeters": 64, "amapPoiId": "B0FFGK62L3" },
+    { "centerId": "old-student-street", "name": "中国电信(仰恩旧区营业厅)-文印店", "category": "service", "amapType": "购物服务;家电电子卖场;手机销售|生活服务;电讯营业厅;中国电信营业厅|生活服务;摄影冲印店;摄影冲印", "location": { "lng": 118.615154, "lat": 25.109864, "crs": "GCJ-02" }, "address": "仰恩大学旧区学生街南门口第1间", "distanceMeters": 69, "amapPoiId": "B0FFJKNVEO" },
+    { "centerId": "old-student-street", "name": "每日鲜果(仰恩旧区学生街店)", "category": "shopping", "amapType": "购物服务;综合市场;果品市场", "location": { "lng": 118.615996, "lat": 25.109691, "crs": "GCJ-02" }, "address": "马甲镇仰恩村学生街78-1", "distanceMeters": 85, "amapPoiId": "B0GKJX12W8" },
+    { "centerId": "old-student-street", "name": "佳惠超市(仰恩大学店)", "category": "shopping", "amapType": "购物服务;购物相关场所;购物相关场所", "location": { "lng": 118.616011, "lat": 25.109713, "crs": "GCJ-02" }, "address": "仰恩大学第一教学区西南侧180米", "distanceMeters": 88, "amapPoiId": "B0IR31NLKO" },
+    { "centerId": "old-student-street", "name": "仰恩村农村电商服务站", "category": "service", "amapType": "生活服务;生活服务场所;生活服务场所", "location": { "lng": 118.615076, "lat": 25.109215, "crs": "GCJ-02" }, "address": "仰恩大学第二教学区东侧260米", "distanceMeters": 22, "amapPoiId": "B0K35SE036" },
+    { "centerId": "old-student-street", "name": "小芙美甲店", "category": "service", "amapType": "生活服务;美容美发店;美容美发店", "location": { "lng": 118.615562, "lat": 25.109445, "crs": "GCJ-02" }, "address": "仰恩大学第一教学区西南侧230米", "distanceMeters": 34, "amapPoiId": "B0KK067URR" },
+    { "centerId": "old-student-street", "name": "新潮流美发", "category": "service", "amapType": "生活服务;美容美发店;美容美发店", "location": { "lng": 118.614944, "lat": 25.109574, "crs": "GCJ-02" }, "address": "仰恩大学旧区学生街二街", "distanceMeters": 50, "amapPoiId": "B0KK7RDH2O" },
+    { "centerId": "old-student-street", "name": "零度造型", "category": "service", "amapType": "生活服务;美容美发店;美容美发店", "location": { "lng": 118.615025, "lat": 25.109675, "crs": "GCJ-02" }, "address": "马甲镇仰恩大学旧校区学生街", "distanceMeters": 54, "amapPoiId": "B0FFI1PGQ7" },
+    { "centerId": "old-student-street", "name": "邮政快递站", "category": "express", "amapType": "生活服务;邮局;邮局", "location": { "lng": 118.615825, "lat": 25.111875, "crs": "GCJ-02" }, "address": "仰恩大学第一教学区西北侧130米", "distanceMeters": 296, "amapPoiId": "B0MAMO7MIG" }
+  ]
+}

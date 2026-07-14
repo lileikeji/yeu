@@ -17,10 +17,12 @@
 内容维护与核验人员重点阅读：
 
 1. [首批数据源与核验清单](./RESEARCH_SOURCES.md)。
-2. [内容来源与治理政策](./CONTENT_POLICY.md)。
-3. [地图数据就绪台账](./MAP_DATA_READINESS.md)。
-4. [现场坐标采集与审核](./FIELD_COORDINATE_VERIFICATION.md)。
-5. [单管理员运行手册](./ADMIN_RUNBOOK.md)。
+2. [2026-07-15 官网、迎新、社团与周边资料审计](./RESEARCH_AUDIT_2026-07-15.md)。
+3. [2026-07-15 小红书公开资料核验记录](./XIAOHONGSHU_RESEARCH_2026-07-15.md)。
+4. [内容来源与治理政策](./CONTENT_POLICY.md)。
+5. [地图数据就绪台账](./MAP_DATA_READINESS.md)。
+6. [现场坐标采集与审核](./FIELD_COORDINATE_VERIFICATION.md)。
+7. [单管理员运行手册](./ADMIN_RUNBOOK.md)。
 
 准备上线或接管服务器时阅读 [宝塔 Linux 部署与运维](./DEPLOYMENT.md)。
 
@@ -35,6 +37,8 @@
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 前后台、API、地图 provider、PWA 和安全怎样分层 | 技术决策基线 |
 | [DATA_MODEL.md](./DATA_MODEL.md) | 数据实体、状态、关系和生命周期是什么 | 数据契约说明 |
 | [RESEARCH_SOURCES.md](./RESEARCH_SOURCES.md) | 已查过哪些来源、确认了什么、还缺什么 | 资料核验台账 |
+| [RESEARCH_AUDIT_2026-07-15.md](./RESEARCH_AUDIT_2026-07-15.md) | 本轮官网全站、主流平台、社团与学生街 POI 搜到了什么 | 带日期的研究快照 |
+| [XIAOHONGSHU_RESEARCH_2026-07-15.md](./XIAOHONGSHU_RESEARCH_2026-07-15.md) | 小红书公开笔记提供了哪些宿舍、商铺、快递、交通和社团线索 | 非官方待核验线索快照 |
 | [CONTENT_POLICY.md](./CONTENT_POLICY.md) | 什么资料可发布、何时过期、版权隐私如何处理 | 内容治理基线 |
 | [FIELD_COORDINATE_VERIFICATION.md](./FIELD_COORDINATE_VERIFICATION.md) | 现场如何采点、什么观测可以批准 | 坐标审核规则 |
 | [MAP_DATA_READINESS.md](./MAP_DATA_READINESS.md) | 76 个地点当前分别卡在哪里、先采哪些 | 地图数据执行台账 |

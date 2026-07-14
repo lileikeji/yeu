@@ -232,6 +232,40 @@ const relatedAction = computed(() => {
           >
             {{ section.notice }}
           </p>
+          <div
+            v-if="section.sources?.length"
+            class="mt-5 border-l-2 border-zinc-200 pl-4"
+          >
+            <p class="text-xs font-bold text-zinc-500">
+              本段引用
+            </p>
+            <ul class="mt-2 space-y-2">
+              <li
+                v-for="source in section.sources"
+                :key="source.url"
+              >
+                <a
+                  :href="source.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="group flex items-start gap-2 text-xs leading-5 text-zinc-600 hover:text-green-700"
+                >
+                  <UIcon
+                    name="i-lucide-external-link"
+                    class="mt-0.5 size-3.5 shrink-0"
+                  />
+                  <span>
+                    <span class="font-medium">{{ source.title }}</span>
+                    <span class="block text-zinc-400">{{ source.publisher }} · 访问于 {{ source.accessedAt }}</span>
+                    <span
+                      v-if="source.context"
+                      class="mt-0.5 block text-orange-700"
+                    >{{ source.context }}</span>
+                  </span>
+                </a>
+              </li>
+            </ul>
+          </div>
         </section>
 
         <div class="mt-8 flex flex-wrap gap-2">
@@ -308,7 +342,11 @@ const relatedAction = computed(() => {
                   />
                   <span>
                     <span class="font-medium">{{ source.title }}</span>
-                    <span class="block text-zinc-400">访问于 {{ source.accessedAt }}</span>
+                    <span class="block text-zinc-400">{{ source.publisher }} · 访问于 {{ source.accessedAt }}</span>
+                    <span
+                      v-if="source.context"
+                      class="mt-0.5 block text-orange-700"
+                    >{{ source.context }}</span>
                   </span>
                 </a>
               </li>

@@ -1,0 +1,93 @@
+{
+  "formatVersion": 1,
+  "accessedAt": "2026-07-15",
+  "platform": "Xiaohongshu",
+  "status": "unverified-social-leads",
+  "policy": {
+    "publishAutomatically": false,
+    "copySelectedImagesForResearch": true,
+    "publishCopiedImages": false,
+    "copyFullText": false,
+    "collectPrivateContact": false,
+    "requiredFollowUp": "Cross-check each changing claim against a current official source, AMap POI, merchant confirmation, user-confirmed campus knowledge or field observation. Copied images remain research-only until permission is documented."
+  },
+  "leads": [
+    {
+      "noteId": "6a45ba77000000000702a5ff",
+      "title": "最关心的问题大揭秘",
+      "canonicalUrl": "https://www.xiaohongshu.com/explore/6a45ba77000000000702a5ff",
+      "displayedAt": "07-02",
+      "themes": ["dorm", "bathroom"],
+      "claims": ["普通型宿舍上床下桌", "配有空调和风扇", "公共卫浴有门和隔间并有清洁人员"],
+      "researchAssets": ["dorm-note-01.webp", "dorm-note-02.webp", "dorm-note-03.webp", "dorm-note-04.webp", "dorm-note-05.webp"],
+      "verificationStatus": "unverified-social-lead"
+    },
+    {
+      "noteId": "6a4883f4000000001603ffc7",
+      "title": "仰恩大学普通型宿舍什么样呢",
+      "canonicalUrl": "https://www.xiaohongshu.com/explore/6a4883f4000000001603ffc7",
+      "displayedAt": "07-04",
+      "themes": ["dorm", "video"],
+      "claims": ["包含普通型宿舍视频实拍线索"],
+      "verificationStatus": "unverified-social-lead"
+    },
+    {
+      "noteId": "69fd5e380000000036018f53",
+      "title": "仰恩新生生存指南｜吃喝住行全攻略",
+      "canonicalUrl": "https://www.xiaohongshu.com/explore/69fd5e380000000036018f53",
+      "displayedAt": "05-08",
+      "themes": ["arrival", "campus-transport", "delivery", "dorm", "study-space", "military-training"],
+      "claims": ["旧区坡路较多", "叮叮车早课高峰需提前排队", "旧区和新区外卖送达边界不同", "存在公用晾晒空间", "专升本也参加军训", "学生常用概述为拉练约40公里"],
+      "sourceScopeNotes": ["学校2025年官方报道标题写35公里长途拉练", "用户确认约40公里与35公里均为有效口径，前者为概述、后者为2025年官方报道口径"],
+      "recommendedCopy": "军训拉练通常约35–40公里；2025年学校官方报道为35公里，具体以当年通知为准。",
+      "verificationStatus": "mixed-source-range"
+    },
+    {
+      "noteId": "6a4526e900000000200388d6",
+      "title": "仰恩大学吃什么",
+      "canonicalUrl": "https://www.xiaohongshu.com/explore/6a4526e900000000200388d6",
+      "displayedAt": "07-01",
+      "themes": ["food", "nearby"],
+      "claims": ["部分菜品来自旧区喜又", "部分菜品来自新区二街思念小馆"],
+      "researchAssets": ["food-xiyou-01.webp", "food-xiyou-02.webp", "food-sinian-01.webp", "food-sinian-02.webp"],
+      "crossChecks": [
+        { "provider": "AMap", "name": "喜又", "poiId": "B0L1PL7L5Z", "location": { "lng": 118.615925, "lat": 25.109925, "crs": "GCJ-02" } },
+        { "provider": "AMap", "name": "思念小馆", "poiId": "B0J31CO7ZG", "location": { "lng": 118.601724, "lat": 25.105821, "crs": "GCJ-02" } }
+      ],
+      "verificationStatus": "cross-platform-candidate"
+    },
+    {
+      "noteId": "689c97e4000000001b023cb9",
+      "title": "仰恩大学新区快递驿站地图",
+      "canonicalUrl": "https://www.xiaohongshu.com/explore/689c97e4000000001b023cb9",
+      "displayedAt": "2025-08-13",
+      "themes": ["express", "map"],
+      "claims": ["2025年作者称新区约有6个快递点", "图片同时包含旧区快递点线索"],
+      "researchAssets": ["express-map-01.webp", "express-map-02.webp", "express-map-03.webp", "express-map-04.webp"],
+      "verificationStatus": "stale-unverified-social-lead"
+    },
+    {
+      "noteId": "6875d6f70000000017037779",
+      "title": "仰恩大学社团列表",
+      "canonicalUrl": "https://www.xiaohongshu.com/explore/6875d6f70000000017037779",
+      "displayedAt": "2025-07-15",
+      "themes": ["clubs"],
+      "claims": ["正文重复学校共有23个社团及分类数量"],
+      "userConfirmations": ["计算机协会确实存在", "电子数模协会确实存在"],
+      "remainingChecks": ["2026年校团委注册状态", "当年招新时间", "负责人或官方联系方式"],
+      "verificationStatus": "user-confirmed-presence-list-incomplete"
+    },
+    {
+      "noteId": "686f0ee4000000001202cb14",
+      "title": "仰恩叮叮车保姆级攻略｜夏令+冬令时段",
+      "canonicalUrl": "https://www.xiaohongshu.com/explore/686f0ee4000000001202cb14",
+      "displayedAt": "2025-07-22",
+      "themes": ["campus-transport"],
+      "claims": ["1元每次", "每车13座", "新区和昌楼2号门上车", "旧区创业园前上车", "支持学生证或农行APP支付"],
+      "userConfirmations": ["校内车辆确实通称叮叮车"],
+      "researchAssets": ["dingding-note-01.webp", "dingding-note-02.webp", "dingding-note-03.webp", "dingding-note-04.webp", "dingding-note-05.webp"],
+      "risks": ["运营时段引用旧学期", "评论多人指出配图疑似AI且与真实车辆不同", "素材检查发现多张车辆图存在明显生成或合成风险，禁止发布"],
+      "verificationStatus": "user-confirmed-name-details-unverified"
+    }
+  ]
+}

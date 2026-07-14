@@ -52,6 +52,12 @@ export interface AMapPolygon {
 }
 
 export interface AMapPolyline {
+  on(event: 'click', handler: (event: AMapMouseEvent) => void): void
+  off(event: 'click', handler: (event: AMapMouseEvent) => void): void
+  setMap(map: AMapMap | null): void
+}
+
+export interface AMapTileLayer {
   setMap(map: AMapMap | null): void
 }
 
@@ -71,7 +77,7 @@ export interface AMapWalking {
   clear(): void
 }
 
-export type AMapOverlay = AMapMarker | AMapPolygon | AMapPolyline
+export type AMapOverlay = AMapMarker | AMapPolygon | AMapPolyline | AMapTileLayer
 
 export interface AMapInfoWindow {
   setContent(content: HTMLElement): void
@@ -108,6 +114,10 @@ export interface AMapNamespace {
   Marker: new (options: Record<string, unknown>) => AMapMarker
   Polygon: new (options: Record<string, unknown>) => AMapPolygon
   Polyline: new (options: Record<string, unknown>) => AMapPolyline
+  TileLayer: {
+    Satellite: new (options?: Record<string, unknown>) => AMapTileLayer
+    RoadNet: new (options?: Record<string, unknown>) => AMapTileLayer
+  }
   InfoWindow: new (options?: Record<string, unknown>) => AMapInfoWindow
   Pixel: new (x: number, y: number) => AMapPixel
   MarkerCluster: new (

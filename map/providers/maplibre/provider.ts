@@ -9,7 +9,10 @@ import type {
 } from 'maplibre-gl'
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
 import type {
+  AreaSelectHandler,
   MapErrorHandler,
+  MapBaseStyle,
+  MapDisplayOptions,
   MapProvider,
   PoiSelectHandler,
   PointPickedHandler,
@@ -105,6 +108,7 @@ export class MapLibrePreviewProvider implements MapProvider {
   private selectedPoiId: string | null = null
   private pointPickedHandler: PointPickedHandler | null = null
   private poiSelectHandler: PoiSelectHandler | null = null
+  private areaSelectHandler: AreaSelectHandler | null = null
   private mapErrorHandler: MapErrorHandler | null = null
   private labelOverlapAllowed = false
   private eventsAttached = false
@@ -177,6 +181,17 @@ export class MapLibrePreviewProvider implements MapProvider {
   // preview provider compatible so callers do not need provider-specific code.
   setAreas(_areas: MapArea[]): void {}
 
+  setDisplayOptions(options: MapDisplayOptions): void {
+    this.labelOverlapAllowed = options.showLabels
+    if (this.map?.getLayer(POI_LABEL_LAYER_ID)) {
+      this.map.setLayoutProperty(POI_LABEL_LAYER_ID, 'visibility', options.showLabels ? 'visible' : 'none')
+    }
+  }
+
+  setBaseStyle(style: MapBaseStyle): boolean {
+    return style === 'standard'
+  }
+
   fitToPois(): void {
     const map = this.map
     const points = this.renderablePois().map(poi => [poi.point.lng, poi.point.lat] as [number, number])
@@ -244,6 +259,13 @@ export class MapLibrePreviewProvider implements MapProvider {
     }
   }
 
+  onAreaSelect(handler: AreaSelectHandler): () => void {
+    this.areaSelectHandler = handler
+    return () => {
+      if (this.areaSelectHandler === handler) this.areaSelectHandler = null
+    }
+  }
+
   onError(handler: MapErrorHandler): () => void {
     this.mapErrorHandler = handler
 
@@ -303,6 +325,7 @@ export class MapLibrePreviewProvider implements MapProvider {
     this.selectedPoiId = null
     this.pointPickedHandler = null
     this.poiSelectHandler = null
+    this.areaSelectHandler = null
     this.mapErrorHandler = null
     this.fitAfterMount = false
   }

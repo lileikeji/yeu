@@ -30,17 +30,33 @@ const EXPECTED_GUIDE_SLUGS = [
 const SOURCE_FREE_DRAFT_GUIDES = new Set(['express-delivery', 'nearby'])
 
 const DEPARTMENT_SLUGS: Record<string, string> = {
-  招生办公室: 'admissions-office',
-  学生事务部: 'student-affairs',
-  实验室与信息化管理处: 'information-office',
-  学生资助中心: 'financial-aid-center',
-  心理健康教育与咨询中心: 'mental-health-center',
-  财务处: 'finance-office',
-  总务处: 'general-affairs-office',
-  保卫处: 'security-office',
-  医务室: 'campus-clinic',
-  校团委: 'youth-league',
-  图书馆: 'library'
+  '经济学院': 'school-of-economics',
+  '管理学院': 'school-of-management',
+  '会计学院': 'school-of-accounting',
+  '计算机科学与工程学院': 'school-of-computer-science-and-engineering',
+  '人文学院': 'school-of-humanities',
+  '外国语学院': 'school-of-foreign-languages',
+  '法学院': 'school-of-law',
+  '艺术与教育学院': 'school-of-arts-and-education',
+  '马克思主义学院': 'school-of-marxism',
+  '继续教育学院': 'school-of-continuing-education',
+  '体育教研部': 'physical-education-department',
+  '军事理论教研部（党委武装部）': 'military-theory-department',
+  '人工智能与数据科学学院': 'school-of-ai-and-data-science',
+  '电气工程与自动化学院': 'school-of-electrical-engineering-and-automation',
+  '教务部': 'teaching-affairs-office',
+  '学校办公室': 'university-office',
+  '招生办公室': 'admissions-office',
+  '学生事务部': 'student-affairs',
+  '实验室与信息化管理处': 'information-office',
+  '学生资助中心': 'financial-aid-center',
+  '心理健康教育与咨询中心': 'mental-health-center',
+  '财务处': 'finance-office',
+  '总务处': 'general-affairs-office',
+  '保卫处': 'security-office',
+  '医务室': 'campus-clinic',
+  '校团委': 'youth-league',
+  '图书馆': 'library'
 }
 
 type ContentKind = 'guide' | 'department' | 'club'

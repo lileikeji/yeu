@@ -129,6 +129,8 @@ interface MapProvider {
   mount(element: HTMLElement, options?: MapMountOptions): Promise<void>
   setPois(pois: MapPoi[]): void
   setAreas(areas: MapArea[]): void
+  setDisplayOptions(options: MapDisplayOptions): void
+  setBaseStyle(style: 'standard' | 'satellite'): boolean
   fitToPois(): void
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>
   clearRoute(): void
@@ -139,7 +141,7 @@ interface MapProvider {
 
 业务代码只使用 `GeoPoint { lng, lat, crs }`。转换必须经过明确函数并记录源坐标系、目标坐标系和算法版本；禁止按“看起来像国内坐标”猜测坐标系。生产高德适配器只接收 GCJ-02，其他坐标由导入/服务层转换后再传入。
 
-地点搜索和外部导航链接属于独立服务。网页内路线会直接操作供应商覆盖物，因此通过 provider 的可选能力边界实现；高德适配器接入步行路线，MapLibre 预览适配器明确返回“不支持”。区域只有取得真实路径顶点后才绘制，`sparseList` 的包围框仅作审核元数据，不得冒充原始多边形。高德区域使用闭合折线而非填充 Polygon，区域标签禁用点击，避免遮挡学生街等范围内的高德原生商铺热点。
+地点搜索和外部导航链接属于独立服务。网页内路线、标准/卫星底图和显示选项会直接操作供应商覆盖物，因此通过 provider 能力边界实现；高德适配器完整支持，MapLibre 预览适配器对不支持的卫星能力明确返回 `false`。区域只有取得真实路径顶点后才绘制，`sparseList` 的包围框仅作审核元数据，不得冒充原始多边形。高德区域使用闭合折线而非填充 Polygon，区域标签禁用点击，避免遮挡学生街等范围内的高德原生商铺热点。
 
 MapLibre/OSM 仅用于开发和低流量预览。使用 `tile.openstreetmap.org` 时必须保留署名、遵守 Tile Usage Policy，不做预抓取或离线打包；正式生产应使用高德或有明确服务协议的瓦片服务。
 

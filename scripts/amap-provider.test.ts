@@ -72,6 +72,10 @@ class FakeMarker {
   setOffset(offset: FakePixel): void {
     this.offset = offset
   }
+
+  emitClick(): void {
+    for (const listener of this.listeners.get('click') ?? []) listener({})
+  }
 }
 
 class FakePolygon extends FakeMarker {
@@ -95,6 +99,20 @@ class FakePolyline extends FakeMarker {
   constructor(options: Record<string, unknown>) {
     super(options)
     FakePolyline.instances.push(this)
+  }
+
+  setMap(map: FakeAMapMap | null): void {
+    this.map = map
+  }
+}
+
+class FakeTileLayer extends FakeMarker {
+  static instances: FakeTileLayer[] = []
+  map: FakeAMapMap | null = null
+
+  constructor(options: Record<string, unknown> = {}) {
+    super(options)
+    FakeTileLayer.instances.push(this)
   }
 
   setMap(map: FakeAMapMap | null): void {
@@ -316,6 +334,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
   FakePolyline.instances = []
   FakeInfoWindow.instances = []
   FakeWalking.instances = []
+  FakeTileLayer.instances = []
 
   const fakeDocument = {
     createElement: () => new FakeElement()
@@ -325,6 +344,10 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     Marker: FakeMarker,
     Polygon: FakePolygon,
     Polyline: FakePolyline,
+    TileLayer: {
+      Satellite: FakeTileLayer,
+      RoadNet: FakeTileLayer
+    },
     InfoWindow: FakeInfoWindow,
     Pixel: FakePixel,
     MarkerCluster: FakeMarkerCluster,
@@ -360,7 +383,9 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
       securityCode: 'not-exposed-in-a-url'
     })
     const selected: Array<string | null> = []
+    const selectedAreas: Array<string | null> = []
     provider.onPoiSelect(poi => selected.push(poi?.id ?? null))
+    provider.onAreaSelect(area => selectedAreas.push(area?.id ?? null))
     await provider.mount(new FakeElement() as unknown as HTMLElement, { zoom: 14 })
 
     const pois = createPois(76)
@@ -381,10 +406,10 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
       id: 'area-exact-1',
       name: '真实操场轮廓',
       paths: [[
-        { lng: 118.6005, lat: 25.1081, crs: 'WGS84' },
-        { lng: 118.6021, lat: 25.1083, crs: 'WGS84' },
-        { lng: 118.6018, lat: 25.1093, crs: 'WGS84' },
-        { lng: 118.6007, lat: 25.1090, crs: 'WGS84' }
+        { lng: 118.6005, lat: 25.1081, crs: 'GCJ-02' },
+        { lng: 118.6021, lat: 25.1083, crs: 'GCJ-02' },
+        { lng: 118.6018, lat: 25.1093, crs: 'GCJ-02' },
+        { lng: 118.6007, lat: 25.1090, crs: 'GCJ-02' }
       ]],
       strokeColor: '#18AD78',
       fillColor: '#12E3AA',
@@ -407,6 +432,11 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.equal(cluster.options.clusterByZoomChange, true)
     assert.ok(conversionSources.length >= 3)
     assert.ok(conversionSources.every(source => source === 'gps'))
+    assert.equal(provider.setBaseStyle('satellite'), true)
+    assert.equal(FakeTileLayer.instances.length, 2)
+    assert.equal(map.added.includes(FakeTileLayer.instances[0]!), true)
+    assert.equal(provider.setBaseStyle('standard'), true)
+    assert.equal(map.removed.includes(FakeTileLayer.instances[0]!), true)
 
     const regularContent = cluster.renderedMarkers[0]?.content
     const regularLabel = regularContent?.children[0]
@@ -442,6 +472,8 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     ])
     assert.equal(FakePolyline.instances[0]?.options.fillOpacity, undefined)
     assert.equal(FakePolyline.instances[0]?.options.bubble, true)
+    FakePolyline.instances[0]?.emitClick()
+    assert.equal(selectedAreas.at(-1), 'area-exact-1')
 
     const walkingSummary = await provider.planWalkingRoute(
       { lng: 118.6, lat: 25.1, crs: 'WGS84' },
@@ -466,6 +498,20 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
       zoom: 17,
       center: cluster.data[1]!.lnglat
     })
+
+    provider.setDisplayOptions({
+      showPois: true,
+      showAreas: false,
+      showLabels: false,
+      autoCluster: false,
+      labelSize: 'large'
+    })
+    await nextTurn()
+    assert.equal(cluster.map, null)
+    assert.equal(map.removed.includes(FakePolyline.instances[0]!), true)
+    const plainMarkers = map.added.filter(marker => String(marker.options.title ?? '').startsWith('地点 '))
+    assert.ok(plainMarkers.length >= 76)
+    assert.match(plainMarkers.at(-1)?.content?.children[0]?.style.cssText ?? '', /display:none/)
 
     provider.destroy()
     assert.equal(cluster.map, null)

@@ -7,7 +7,7 @@ export default defineNuxtConfig({
   ],
 
   devtools: {
-    enabled: true
+    enabled: false
   },
 
   css: [
@@ -27,7 +27,6 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    '/offline': { prerender: true },
     '/map': {
       headers: {
         'X-Robots-Tag': 'noindex, nofollow'
