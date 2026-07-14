@@ -69,6 +69,7 @@ const directoryEntries = [
   { title: '校园概览', description: '学校简介、常用入口与当前公告', to: '/campus', icon: 'i-lucide-school' },
   { title: '校内部门', description: '按办理事项查找职责、官网与公开联系方式', to: '/departments', icon: 'i-lucide-landmark' },
   { title: '学生社团', description: '搜索已发布社团资料与招新状态', to: '/clubs', icon: 'i-lucide-users-round' },
+  { title: '小红书线索图', description: '查看待核验 AI 重构图与来源笔记', to: '/research/xiaohongshu-images', icon: 'i-lucide-images' },
   { title: '全站搜索', description: '同时搜索指南、地点、部门和社团', to: '/search', icon: 'i-lucide-search' }
 ]
 

@@ -1,0 +1,37 @@
+{
+  "formatVersion": 1,
+  "capturedAt": "2026-07-15",
+  "purpose": "Internal research and field-verification planning for the Yang-En University freshman guide.",
+  "policy": {
+    "publicationStatus": "research-only",
+    "rightsStatus": "permission-not-obtained",
+    "publicDirectoryAllowed": false,
+    "requiredBeforePublication": ["verify factual context", "identify rights holder", "obtain documented reuse permission"]
+  },
+  "sources": {
+    "dorm": { "noteId": "6a45ba77000000000702a5ff", "title": "最关心的问题大揭秘", "authorDisplayName": "仰恩学姐", "canonicalUrl": "https://www.xiaohongshu.com/explore/6a45ba77000000000702a5ff" },
+    "express": { "noteId": "689c97e4000000001b023cb9", "title": "仰恩大学新区快递驿站地图", "authorDisplayName": "湖里", "canonicalUrl": "https://www.xiaohongshu.com/explore/689c97e4000000001b023cb9" },
+    "food": { "noteId": "6a4526e900000000200388d6", "title": "仰恩大学吃什么", "authorDisplayName": "动感光啵啵啵啵啵", "canonicalUrl": "https://www.xiaohongshu.com/explore/6a4526e900000000200388d6" },
+    "dingding": { "noteId": "686f0ee4000000001202cb14", "title": "仰恩叮叮车保姆级攻略｜夏令+冬令时段", "authorDisplayName": "仰恩大学交流圈", "canonicalUrl": "https://www.xiaohongshu.com/explore/686f0ee4000000001202cb14" }
+  },
+  "assets": [
+    { "file": "dingding-note-01.webp", "source": "dingding", "role": "note-image", "description": "2024-2025学年叮叮车数量时段表截图", "integrityAssessment": "stale-schedule", "width": 640, "height": 1083, "bytes": 46216, "sha256": "da080de4f8663c8d157f655d76a2926b23f529358df648da5b0f3bbfd3adfe2f" },
+    { "file": "dingding-note-02.webp", "source": "dingding", "role": "note-image", "description": "多辆轨道式车辆合成场景", "integrityAssessment": "likely-synthetic-or-composited-do-not-publish", "width": 1152, "height": 807, "bytes": 240084, "sha256": "11be6a9cc490ff16cc4dbff3fe64e13121ee03364c795692f8d29d5ebd05994d" },
+    { "file": "dingding-note-03.webp", "source": "dingding", "role": "note-image", "description": "车辆与建筑场景，车身文字异常", "integrityAssessment": "likely-synthetic-or-composited-do-not-publish", "width": 1152, "height": 803, "bytes": 199942, "sha256": "4e2b76a3af16bfbb254a7fafae143ae7ea3e29f54f76af8c36e4477c7d6c3b1a" },
+    { "file": "dingding-note-04.webp", "source": "dingding", "role": "note-image", "description": "标注为新区叮叮车候车处的车辆场景", "integrityAssessment": "likely-synthetic-or-composited-do-not-publish", "width": 1571, "height": 1080, "bytes": 282530, "sha256": "05f9675053a037daf2bfd8f65418b17a1d28247b67e58a5eabddfe4a00864453" },
+    { "file": "dingding-note-05.webp", "source": "dingding", "role": "note-image", "description": "标注为旧区叮叮车候车处的校园场景，画面无车辆", "integrityAssessment": "context-unverified-do-not-publish", "width": 1440, "height": 1080, "bytes": 305276, "sha256": "0c6b183d6bfdc25f162db82aca246b180d496c4519fd8ab36d95c08e8e5a86ac" },
+    { "file": "dorm-note-01.webp", "source": "dorm", "role": "note-image", "description": "普通型宿舍房间，上床下桌布局", "integrityAssessment": "single-room-context-unverified", "width": 1440, "height": 1004, "bytes": 87958, "sha256": "dcbbce62d8bf2ec0ce019c330dc80d9a3914377621cf3ac80308d39ad574023d" },
+    { "file": "dorm-note-02.webp", "source": "dorm", "role": "note-image", "description": "宿舍环境笔记标题页", "integrityAssessment": "title-card", "width": 1080, "height": 1440, "bytes": 163460, "sha256": "b6eea6f3658febf9320dca9df398b2ea197629e32be94cabbad858ac353bdec3" },
+    { "file": "dorm-note-03.webp", "source": "dorm", "role": "note-image", "description": "公共浴室隔间", "integrityAssessment": "building-and-date-unverified", "width": 1080, "height": 1377, "bytes": 54672, "sha256": "be62fe0a70119a495c5d774a110e7d127c4b8c955ec002f0e54f81955cba6e67" },
+    { "file": "dorm-note-04.webp", "source": "dorm", "role": "note-image", "description": "公共厕所隔间", "integrityAssessment": "building-and-date-unverified", "width": 1080, "height": 1434, "bytes": 28436, "sha256": "4ea3a6c39ea318a1c73c273a9a3b50ac71cfb63b39f4d13a37d94c7014c27f55" },
+    { "file": "dorm-note-05.webp", "source": "dorm", "role": "note-image", "description": "公共洗漱区", "integrityAssessment": "building-and-date-unverified", "width": 1080, "height": 1434, "bytes": 43668, "sha256": "e2a32d22e00f392a350155bcb2360354ae4e5bb8e9c39cf90249700b4824df9c" },
+    { "file": "express-map-01.webp", "source": "express", "role": "note-image", "description": "新区学生街快递点示意图", "integrityAssessment": "2025-map-requires-field-refresh", "width": 1260, "height": 972, "bytes": 74248, "sha256": "2a5623f30bce6df1f342bd749557ce231a16691bebfd712732c63b9792989f00" },
+    { "file": "express-map-02.webp", "source": "express", "role": "comment-attachment", "description": "旧区校园楼栋与道路示意图", "integrityAssessment": "attachment-authorship-and-date-unverified", "width": 640, "height": 490, "bytes": 14944, "sha256": "2b60d6d6dd57c28b837033ba6cb985176e124d06c6b382d3365d7137b59291e4" },
+    { "file": "express-map-03.webp", "source": "express", "role": "comment-attachment", "description": "旧区快递与店铺方向示意图", "integrityAssessment": "attachment-authorship-and-date-unverified", "width": 640, "height": 434, "bytes": 11908, "sha256": "6ad368d7e8aa874e9f03e0f137f340328c44483190d3b13ba54c05429ad8b2fc" },
+    { "file": "express-map-04.webp", "source": "express", "role": "comment-attachment", "description": "红侣楼、永春楼与快递位置示意图", "integrityAssessment": "attachment-authorship-and-date-unverified", "width": 521, "height": 437, "bytes": 8374, "sha256": "6621bf9cc49dd935dbfb34a0e1ee465640234203e7fb11c9955a5a04ab7fa6b9" },
+    { "file": "food-xiyou-01.webp", "source": "food", "role": "note-image", "description": "笔记评论称来自旧区喜又的菜品之一", "integrityAssessment": "venue-and-current-menu-unverified", "width": 1080, "height": 1440, "bytes": 244548, "sha256": "1edc7b0ce5663bf02e566ec58550c8afb6e47e322adfc6e3784e578f27089c65" },
+    { "file": "food-xiyou-02.webp", "source": "food", "role": "note-image", "description": "笔记评论称来自旧区喜又的菜品之一", "integrityAssessment": "venue-and-current-menu-unverified", "width": 1080, "height": 1326, "bytes": 205526, "sha256": "e3cc0b1d39de161ad055c12d083e4b93d2761a2229e68c12158ba0a57624928e" },
+    { "file": "food-sinian-01.webp", "source": "food", "role": "note-image", "description": "笔记评论称来自新区二街思念小馆的菜品之一", "integrityAssessment": "venue-and-current-menu-unverified", "width": 1080, "height": 1463, "bytes": 159534, "sha256": "acd76b3e296a578ce986d65db83873a2684ac02e4c960dc2d58bcf1c90f3eeaa" },
+    { "file": "food-sinian-02.webp", "source": "food", "role": "note-image", "description": "笔记评论称来自新区二街思念小馆的菜品之一", "integrityAssessment": "venue-and-current-menu-unverified", "width": 1080, "height": 1440, "bytes": 324130, "sha256": "c45d34d8257d7b6bf11430eebe1194c4b36040f803daccf2e9df1e2cfc895edc" }
+  ]
+}
