@@ -21,6 +21,7 @@
 - `cleanup-feedback.ts`：按环境变量清理到期的反馈网络标识、可选联系方式与反馈记录。
 - `check-source-links.ts`：以低并发、有限超时只读检查来源链接；不自动修改来源状态或下架内容。
 - `discover-official-sources.ts`：通过学校首页公开搜索表单和 Webplus 搜索接口被动发现新生服务候选正文；匿名会话只保留在进程内，结果输出到标准输出，不自动入库或发布。
+- `audit-amap-geocoding.ts`：使用本地 `AMAP_WEB_SERVICE_KEY` 调用高德官方地理编码，把 76 个 WIA 文字地点分成明确命名 POI、通用匹配、越界与无结果；报告写入 `.data`，不回写数据库，也不把地理编码候选当作原始 WIA 坐标。
 
 地图导入脚本支持 `--dry-run`，导入前输出错误行，不能静默覆盖已发布内容。数据库备份、恢复演练和来源链接检查仍需在取得生产服务器信息后补充。
 
@@ -76,6 +77,15 @@ pnpm map:readiness -- --database ./data/yeu.sqlite --require-release-ready
 命令始终以 SQLite `readonly + query_only` 打开已经存在的数据库，不执行迁移、不创建文件、不回写状态。`formalSourceCoverage` 同时报告任意正式关联、有效来源、有效官方来源和满足发布规则的来源；满足发布规则指有效的官方 A/B 级来源或有效的 C 级来源。严格门禁把所有未归档地点视为本次完整地图发布范围，并要求其已发布、事实与坐标核验时间有效、具备可发布来源、WGS84 坐标、点位角色，以及与当前坐标和角色一致的合格双重观测证据。旧库缺少 `coordinate_point_role` 或观测证据列时会显式报告 capability 不可用，严格模式不会把无法证明的记录当作就绪。
 
 `docs/MAP_DATA_READINESS.md` 是便于现场执行的人工快照，不是实时发布依据。发布前必须对实际部署数据库重新运行本命令，并保存该次 JSON/退出码作为验收证据。
+
+高德地理编码候选审计：
+
+```bash
+# .env 中配置服务器端 AMAP_WEB_SERVICE_KEY 后运行
+pnpm map:geocode:audit
+```
+
+默认读取已审计 WIA 导出并写入 `.data/amap-geocode-audit.json`。脚本带请求节流和高德 `10021` 限流重试，不输出 Key。报告坐标系是 GCJ-02，明确名称命中也只是候选；通用匹配常把多栋楼合并到学校或道路中心点，禁止直接导入或发布。
 
 官网候选来源发现：
 

@@ -30,6 +30,7 @@
     "env:test": "tsx --test scripts/load-env.test.ts",
     "map:boundary:sync": "tsx scripts/sync-osm-campus-boundary.ts",
     "map:context:audit": "tsx scripts/audit-osm-campus-context.ts",
+    "map:geocode:audit": "tsx scripts/audit-amap-geocoding.ts",
     "map:data:test": "tsx --test scripts/sync-osm-campus-boundary.test.ts scripts/campus-map-reference.test.ts scripts/coordinate-observations.test.ts",
     "map:plan:check": "tsx scripts/check-official-campus-plan.ts",
     "map:readiness": "tsx scripts/map-readiness.ts",
