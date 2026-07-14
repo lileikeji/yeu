@@ -22,8 +22,8 @@ import type {
   AMapMarkerRenderContext,
   AMapMouseEvent,
   AMapNamespace,
-  AMapPolygon,
   AMapPosition,
+  AMapPolyline,
   AMapWalking
 } from './types'
 
@@ -67,7 +67,7 @@ export class AMapProvider implements MapProvider {
   private pois: MapPoi[] = []
   private areas: MapArea[] = []
   private markers = new Map<string, MarkerRecord>()
-  private areaPolygons: AMapPolygon[] = []
+  private areaOutlines: AMapPolyline[] = []
   private areaLabels: AMapMarker[] = []
   private hotspotInfoWindow: AMapInfoWindow | null = null
   private markerCluster: AMapMarkerCluster | null = null
@@ -126,14 +126,14 @@ export class AMapProvider implements MapProvider {
 
   fitToPois(): void {
     const map = this.map
-    if (!map || (this.markers.size === 0 && this.areaPolygons.length === 0)) {
+    if (!map || (this.markers.size === 0 && this.areaOutlines.length === 0)) {
       this.fitAfterRender = true
       return
     }
 
     const markers = [...this.markers.values()].map(record => record.fitMarker)
-    const overlays = [...this.areaPolygons, ...markers]
-    if (markers.length === 1 && this.areaPolygons.length === 0) {
+    const overlays = [...this.areaOutlines, ...markers]
+    if (markers.length === 1 && this.areaOutlines.length === 0) {
       const first = this.markers.values().next().value as MarkerRecord | undefined
       if (first) map.setZoomAndCenter(Math.max(map.getZoom(), SINGLE_POI_ZOOM), first.position)
       return
@@ -345,16 +345,19 @@ export class AMapProvider implements MapProvider {
       }
       if (!convertedPaths.length) continue
 
-      const polygon = new amap.Polygon({
-        path: convertedPaths.length === 1 ? convertedPaths[0] : convertedPaths,
-        strokeColor: area.strokeColor,
-        strokeWeight: 2,
-        strokeOpacity: 0.95,
-        fillColor: area.fillColor,
-        fillOpacity: 0.18,
-        bubble: true,
-        zIndex: 30
-      })
+      for (const path of convertedPaths) {
+        const firstPoint = path[0]
+        if (!firstPoint) continue
+        this.areaOutlines.push(new amap.Polyline({
+          path: [...path, firstPoint],
+          strokeColor: area.strokeColor,
+          strokeWeight: 3,
+          strokeOpacity: 0.95,
+          strokeStyle: 'solid',
+          bubble: true,
+          zIndex: 30
+        }))
+      }
       const allPoints = convertedPaths.flat()
       const center: AMapPosition = [
         allPoints.reduce((sum, point) => sum + point[0], 0) / allPoints.length,
@@ -363,19 +366,20 @@ export class AMapProvider implements MapProvider {
       const label = document.createElement('span')
       label.textContent = area.name
       label.title = `${area.name}（WIA 原始区域）`
-      label.style.cssText = `display:block;padding:3px 6px;border:1px solid ${area.strokeColor};border-radius:4px;background:rgb(255 255 255 / 90%);box-shadow:0 1px 4px rgb(0 0 0 / 15%);color:#18181b;font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;`
+      label.style.cssText = `pointer-events:none;display:block;padding:3px 6px;border:1px solid ${area.strokeColor};border-radius:4px;background:rgb(255 255 255 / 90%);box-shadow:0 1px 4px rgb(0 0 0 / 15%);color:#18181b;font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;`
       const marker = new amap.Marker({
         position: center,
         anchor: 'center',
         content: label,
+        clickable: false,
+        bubble: true,
         offset: new amap.Pixel(-label.textContent.length * 6 - 7, -10),
         zIndex: 31
       })
-      this.areaPolygons.push(polygon)
       this.areaLabels.push(marker)
     }
 
-    if (this.areaPolygons.length) map.add([...this.areaPolygons, ...this.areaLabels])
+    if (this.areaOutlines.length) map.add([...this.areaOutlines, ...this.areaLabels])
   }
 
   private createMarkerContent(
@@ -620,10 +624,10 @@ export class AMapProvider implements MapProvider {
 
   private clearAreas(): void {
     ++this.areaRenderVersion
-    if (this.map && (this.areaPolygons.length || this.areaLabels.length)) {
-      this.map.remove([...this.areaPolygons, ...this.areaLabels])
+    if (this.map && (this.areaOutlines.length || this.areaLabels.length)) {
+      this.map.remove([...this.areaOutlines, ...this.areaLabels])
     }
-    this.areaPolygons = []
+    this.areaOutlines = []
     this.areaLabels = []
   }
 

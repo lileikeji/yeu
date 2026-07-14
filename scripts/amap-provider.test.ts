@@ -88,6 +88,20 @@ class FakePolygon extends FakeMarker {
   }
 }
 
+class FakePolyline extends FakeMarker {
+  static instances: FakePolyline[] = []
+  map: FakeAMapMap | null = null
+
+  constructor(options: Record<string, unknown>) {
+    super(options)
+    FakePolyline.instances.push(this)
+  }
+
+  setMap(map: FakeAMapMap | null): void {
+    this.map = map
+  }
+}
+
 class FakePixel {
   constructor(readonly x: number, readonly y: number) {}
 }
@@ -299,6 +313,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
   FakeAMapMap.instances = []
   FakeMarkerCluster.instances = []
   FakePolygon.instances = []
+  FakePolyline.instances = []
   FakeInfoWindow.instances = []
   FakeWalking.instances = []
 
@@ -309,6 +324,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     Map: FakeAMapMap,
     Marker: FakeMarker,
     Polygon: FakePolygon,
+    Polyline: FakePolyline,
     InfoWindow: FakeInfoWindow,
     Pixel: FakePixel,
     MarkerCluster: FakeMarkerCluster,
@@ -415,13 +431,17 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     const selectedMarker = map.added.at(-1)
     assert.ok(selectedMarker?.content)
     assert.equal(selectedMarker.content.children[0]?.style.visibility, 'visible')
-    assert.equal(FakePolygon.instances.length, 1)
-    assert.deepEqual(FakePolygon.instances[0]?.options.path, [
+    assert.equal(FakePolygon.instances.length, 0)
+    assert.equal(FakePolyline.instances.length, 1)
+    assert.deepEqual(FakePolyline.instances[0]?.options.path, [
       [118.6005, 25.1081],
       [118.6021, 25.1083],
       [118.6018, 25.1093],
-      [118.6007, 25.109]
+      [118.6007, 25.109],
+      [118.6005, 25.1081]
     ])
+    assert.equal(FakePolyline.instances[0]?.options.fillOpacity, undefined)
+    assert.equal(FakePolyline.instances[0]?.options.bubble, true)
 
     const walkingSummary = await provider.planWalkingRoute(
       { lng: 118.6, lat: 25.1, crs: 'WGS84' },

@@ -51,6 +51,10 @@ export interface AMapPolygon {
   setMap(map: AMapMap | null): void
 }
 
+export interface AMapPolyline {
+  setMap(map: AMapMap | null): void
+}
+
 export interface AMapWalkingResult {
   routes?: Array<{
     distance?: number
@@ -67,7 +71,7 @@ export interface AMapWalking {
   clear(): void
 }
 
-export type AMapOverlay = AMapMarker | AMapPolygon
+export type AMapOverlay = AMapMarker | AMapPolygon | AMapPolyline
 
 export interface AMapInfoWindow {
   setContent(content: HTMLElement): void
@@ -92,7 +96,7 @@ export interface AMapMap {
   destroy(): void
   getZoom(): number
   setZoomAndCenter(zoom: number, center: AMapPosition): void
-  setFitView(overlays?: Array<AMapMarker | AMapPolygon>, immediately?: boolean, avoid?: number[], maxZoom?: number): void
+  setFitView(overlays?: AMapOverlay[], immediately?: boolean, avoid?: number[], maxZoom?: number): void
 }
 
 export interface AMapConvertResult {
@@ -103,6 +107,7 @@ export interface AMapNamespace {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => AMapMap
   Marker: new (options: Record<string, unknown>) => AMapMarker
   Polygon: new (options: Record<string, unknown>) => AMapPolygon
+  Polyline: new (options: Record<string, unknown>) => AMapPolyline
   InfoWindow: new (options?: Record<string, unknown>) => AMapInfoWindow
   Pixel: new (x: number, y: number) => AMapPixel
   MarkerCluster: new (
