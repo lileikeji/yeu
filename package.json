@@ -38,6 +38,7 @@
     "pwa:build:test": "tsx --test tests/pwa-build.test.ts",
     "search:test": "tsx --test scripts/public-search.test.ts scripts/public-catalog.test.ts",
     "sources:check": "tsx scripts/check-source-links.ts",
+    "sources:discover": "tsx scripts/discover-official-sources.ts",
     "test": "tsx --test scripts/*.test.ts",
     "ui:utils:test": "tsx --test scripts/safe-navigation.test.ts",
     "dev": "nuxt dev",
