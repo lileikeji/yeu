@@ -6,6 +6,7 @@ import type {
 } from '~~/data/seeds/public-content'
 import type { GeoPoint, MapPoi } from '~~/map/core/types'
 import type { CampusMapReferencePlace } from '~~/data/seeds/preview-places'
+import type { AmapImportedPlace } from '~~/data/seeds/amap-imported-places'
 import type { ContentKind } from '~~/shared/constants/server'
 import type { ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
 
@@ -116,7 +117,7 @@ export interface PublicMapPlace {
   pointIsVerified: boolean
   usesPreviewPoint: boolean
   referenceLabel: string | null
-  coordinateVerification: ApiPlace['coordinateVerification'] | 'preview'
+  coordinateVerification: ApiPlace['coordinateVerification'] | 'preview' | 'owner-map-only'
   coordinateSystem: ApiPlace['coordinateSystem']
   navigationUrl: string | null
   isApiPublished: boolean
@@ -421,6 +422,30 @@ function previewMapPlace(poi: CampusMapReferencePlace): PublicMapPlace {
   }
 }
 
+function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
+  return {
+    id: poi.id,
+    slug: null,
+    name: poi.name,
+    scope: poi.category === 'nearby' ? 'nearby' : 'campus',
+    category: poi.category,
+    summary: poi.summary,
+    address: poi.address || null,
+    campusArea: null,
+    openingHours: null,
+    phone: null,
+    point: poi.point,
+    pointIsVerified: false,
+    usesPreviewPoint: false,
+    referenceLabel: '用户授权 WIA 工作地图标点',
+    coordinateVerification: 'owner-map-only',
+    coordinateSystem: 'WGS84',
+    navigationUrl: null,
+    isApiPublished: false,
+    searchText: [poi.name, poi.summary, poi.address, poi.category].filter(Boolean).join(' ')
+  }
+}
+
 function apiMapPlace(place: ApiPlace): PublicMapPlace {
   const hasRenderableVerifiedPoint = place.navigationAvailable
     && place.coordinateVerification === 'verified'
@@ -463,7 +488,11 @@ function apiMapPlace(place: ApiPlace): PublicMapPlace {
   }
 }
 
-export function mergePublicMapPlaces(previewPois: CampusMapReferencePlace[], places: ApiPlace[]): PublicMapPlace[] {
+export function mergePublicMapPlaces(
+  previewPois: CampusMapReferencePlace[],
+  places: ApiPlace[],
+  ownerMapPois: AmapImportedPlace[] = []
+): PublicMapPlace[] {
   const published = places.filter(place => place.status === 'published')
   const apiNames = new Set(published.map(place => normalizeName(place.name)))
   const previewByName = new Map<string, CampusMapReferencePlace>()
@@ -486,12 +515,24 @@ export function mergePublicMapPlaces(previewPois: CampusMapReferencePlace[], pla
       ].join(' ')
     }
   })
+  const ownerViews = ownerMapPois
+    .filter(poi => !apiNames.has(normalizeName(poi.name)))
+    .map((poi) => {
+      const view = ownerMapPlace(poi)
+      const matchingPreview = previewByName.get(normalizeName(poi.name))
+      if (!matchingPreview) return view
+      return {
+        ...view,
+        searchText: [view.searchText, matchingPreview.name, ...(matchingPreview.aliases ?? [])].join(' ')
+      }
+    })
+  const ownerNames = new Set(ownerViews.map(place => normalizeName(place.name)))
   const remainingPreviews = previewPois
     .filter(poi => ![poi.name, ...(poi.aliases ?? [])]
-      .some(name => apiNames.has(normalizeName(name))))
+      .some(name => apiNames.has(normalizeName(name)) || ownerNames.has(normalizeName(name))))
     .map(previewMapPlace)
 
-  return [...apiViews, ...remainingPreviews]
+  return [...apiViews, ...ownerViews, ...remainingPreviews]
 }
 
 export function toMapPoi(place: PublicMapPlace): MapPoi | null {

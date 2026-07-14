@@ -3,6 +3,7 @@ import type { GeoPoint, MapPoi } from '~~/map/core/types'
 import type { MapProvider, MapProviderId } from '~~/map/core/provider'
 import { officialSources } from '~~/data/seeds/public-content'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
+import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
 import { createRuntimeMapProvider } from '~~/map/providers/factory'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import type { PublicMapPlace } from '~/utils/public-catalog'
@@ -65,7 +66,8 @@ const initialPlace = queryValue(route.query.place)
 const { data: publicPlaceResponse, error: publicPlaceError } = await usePublicPlaceList()
 const places = computed(() => mergePublicMapPlaces(
   campusMapReferencePlaces,
-  publicPlaceResponse.value?.items ?? []
+  publicPlaceResponse.value?.items ?? [],
+  amapImportedPlaces
 ))
 const activeScope = computed<'campus' | 'nearby' | null>(() => {
   const scope = queryValue(route.query.scope)
@@ -73,9 +75,13 @@ const activeScope = computed<'campus' | 'nearby' | null>(() => {
 })
 const publishedPlacesInScope = computed(() => (publicPlaceResponse.value?.items ?? [])
   .filter(place => !activeScope.value || place.scope === activeScope.value))
+const ownerMapPlacesInScope = computed(() => places.value.filter(place => (
+  place.coordinateVerification === 'owner-map-only'
+  && (!activeScope.value || place.scope === activeScope.value)
+)))
 const canShowOfficialPlan = computed(() => activeScope.value !== 'nearby')
 const mapViewMode = ref<'geographic' | 'official-plan'>(
-  activeScope.value === 'nearby' || publishedPlacesInScope.value.length
+  activeScope.value === 'nearby' || publishedPlacesInScope.value.length || ownerMapPlacesInScope.value.length
     ? 'geographic'
     : 'official-plan'
 )
@@ -87,12 +93,16 @@ const mobileSheetHeightClass = computed(() => ({
   expanded: 'h-[calc(100%_-_0.75rem)]'
 })[mobileSheetState.value])
 const mapDataLabel = computed(() => {
-  if (publicPlaceError.value) return '静态目录'
   if (publishedPlacesInScope.value.length) return '已发布目录'
+  if (ownerMapPlacesInScope.value.length) return 'WIA 工作地图标点'
+  if (publicPlaceError.value) return '静态目录'
   if (activeScope.value === 'nearby') return '周边待核验'
   return '官网平面图索引'
 })
 const mapFallbackMessage = computed(() => {
+  if (ownerMapPlacesInScope.value.length) {
+    return '当前标点来自用户授权的 WIA 工作地图，已由 GCJ-02 转换为 WGS84 供底图显示；尚未独立现场核验，因此不提供导航。'
+  }
   if (publicPlaceError.value) return '公开地点暂时不可用，当前显示内置文字目录，不绘制候选坐标。'
   if (activeScope.value === 'nearby' && !publishedPlacesInScope.value.length) {
     return '暂无完成位置、来源和营业状态核验的周边地点，因此不显示候选商铺或近似坐标。'
@@ -187,6 +197,7 @@ function categoryIcon(categoryId: string) {
 
 function poiStatusText(poi: PublicMapPlace) {
   if (poi.pointIsVerified) return 'WGS84 坐标已核验'
+  if (poi.coordinateVerification === 'owner-map-only') return 'WIA 工作地图坐标 · 未独立核验'
   if (poi.coordinateVerification === 'verified' && poi.coordinateSystem) {
     return `${poi.coordinateSystem} 坐标已核验 · 当前底图不兼容`
   }

@@ -386,7 +386,14 @@ def category_for(name: str) -> str:
         return "food"
     if any(token in name for token in ("快递", "京东")):
         return "express"
-    if any(token in name for token in ("医务", "信息中心", "保卫处")):
+    if any(
+        token in name
+        for token in (
+            "医务", "信息中心", "保卫处", "行政楼", "体育场", "球场", "操场",
+            "舞池", "广场", "陵园", "文体中心", "图书馆", "校史馆", "公交",
+            "报告厅", "大礼堂", "创业园", "彩虹桥",
+        )
+    ):
         return "service"
     dorm_names = {
         "长春楼", "长安楼", "宏船楼", "仰光楼", "黄海楼", "东海楼", "曼谷楼",
@@ -453,6 +460,7 @@ def load_coordinate_map(path: Path) -> dict[str, dict[str, Any]]:
             "lat": lat,
             "crs": crs,
             "coordinateSource": coordinate_source,
+            "coordinateSourceUrl": item.get("coordinateSourceUrl"),
         }
     return result
 
@@ -524,6 +532,8 @@ def generate_seed(raw: dict[str, Any], coordinate_path: Path, limit: int) -> str
         place_id = f"amap-import-row-{row_number:03d}"
         name = str(row["名称"])
         category = category_for(name)
+        summary = str(row.get("描述") or "用户授权的高德工作地图标点，尚未经过独立现场核验。")
+        address = str(row.get("地址") or "")
         code = str(row[location_header])
         original = coordinate_map[code]
         if original["crs"] == "GCJ-02":
@@ -562,7 +572,14 @@ def generate_seed(raw: dict[str, Any], coordinate_path: Path, limit: int) -> str
                     f"    name: {ts_string(name)},",
                     f"    category: {ts_string(category)},",
                     f"    point: {{ lng: {wgs_lng:.{SEED_COORDINATE_PRECISION}f}, lat: {wgs_lat:.{SEED_COORDINATE_PRECISION}f}, crs: 'WGS84' }},",
-                    "    status: 'draft'",
+                    "    status: 'draft',",
+                    f"    sourceRow: {row_number},",
+                    f"    locationCode: {ts_string(code)},",
+                    f"    summary: {ts_string(summary)},",
+                    f"    address: {ts_string(address)},",
+                    f"    sourcePoint: {{ lng: {original['lng']:.8f}, lat: {original['lat']:.8f}, crs: {ts_string(original['crs'])} }},",
+                    f"    coordinateSource: {ts_string(original['coordinateSource'])},",
+                    "    verificationStatus: 'owner-map-only'",
                     "  }",
                 ]
             )
@@ -590,6 +607,16 @@ def generate_seed(raw: dict[str, Any], coordinate_path: Path, limit: int) -> str
         [
             "import type { MapPoi } from '../../map/core/types'",
             "",
+            "export interface AmapImportedPlace extends MapPoi {",
+            "  sourceRow: number",
+            "  locationCode: string",
+            "  summary: string",
+            "  address: string",
+            "  sourcePoint: { lng: number, lat: number, crs: 'GCJ-02' | 'WGS84' }",
+            "  coordinateSource: string",
+            "  verificationStatus: 'owner-map-only'",
+            "}",
+            "",
             "/**",
             " * User-owned AMap Work Map import. `draft` means imported, not officially verified.",
             " * WGS84 values converted from GCJ-02 are approximate and require field checks.",
@@ -603,7 +630,7 @@ def generate_seed(raw: dict[str, Any], coordinate_path: Path, limit: int) -> str
             "  mapPoiStatus: 'draft'",
             "} as const",
             "",
-            "export const amapImportedPlaces: MapPoi[] = [",
+            "export const amapImportedPlaces: AmapImportedPlace[] = [",
             ",\n".join(place_lines),
             "]",
             "",

@@ -6,6 +6,7 @@ import test from 'node:test'
 import { officialCampusPlanAnchors } from '../data/seeds/official-campus-plan-anchors'
 import { officialCampusPlanReference } from '../data/seeds/official-campus-plan-reference'
 import { campusMapReferencePlaces } from '../data/seeds/preview-places'
+import { amapImportedPlaces } from '../data/seeds/amap-imported-places'
 import type { ApiPlace } from '../shared/types/server'
 import { mergePublicMapPlaces } from '../app/utils/public-catalog'
 
@@ -84,6 +85,18 @@ test('published alias names replace their official text-only reference entries',
     assert.ok(replacement?.searchText.includes(officialName))
     assert.ok(replacement?.searchText.includes(alias))
   }
+})
+
+test('owner-authorized WIA points render as drafts without enabling navigation', () => {
+  assert.equal(amapImportedPlaces.length, 76)
+  assert.equal(new Set(amapImportedPlaces.map(place => place.name)).size, 76)
+  assert.equal(new Set(amapImportedPlaces.map(place => `${place.point.lng},${place.point.lat}`)).size, 76)
+
+  const merged = mergePublicMapPlaces(campusMapReferencePlaces, [], amapImportedPlaces)
+  const ownerViews = merged.filter(place => place.coordinateVerification === 'owner-map-only')
+  assert.equal(ownerViews.length, 76)
+  assert.ok(ownerViews.every(place => place.point && !place.pointIsVerified))
+  assert.ok(ownerViews.every(place => place.navigationUrl === null && !place.isApiPublished))
 })
 
 test('official campus plan anchors cover every numbered reference without becoming coordinates', () => {
