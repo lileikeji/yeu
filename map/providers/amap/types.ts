@@ -13,6 +13,12 @@ export interface AMapMouseEvent {
   originEvent?: Event
 }
 
+export interface AMapHotspotEvent extends AMapMouseEvent {
+  id?: string
+  name?: string
+  lnglat?: AMapLngLat
+}
+
 export interface AMapMarkerClusterData {
   lnglat: AMapPosition
   weight?: number
@@ -41,6 +47,18 @@ export interface AMapMarker {
   setOffset(offset: AMapPixel): void
 }
 
+export interface AMapPolygon {
+  setMap(map: AMapMap | null): void
+}
+
+export type AMapOverlay = AMapMarker | AMapPolygon
+
+export interface AMapInfoWindow {
+  setContent(content: HTMLElement): void
+  open(map: AMapMap, position: AMapPosition): void
+  close(): void
+}
+
 export interface AMapMarkerCluster {
   on(event: 'click', handler: (event: AMapMarkerClusterEvent) => void): void
   off(event: 'click', handler: (event: AMapMarkerClusterEvent) => void): void
@@ -51,12 +69,14 @@ export interface AMapMarkerCluster {
 export interface AMapMap {
   on(event: 'click', handler: (event: AMapMouseEvent) => void): void
   off(event: 'click', handler: (event: AMapMouseEvent) => void): void
-  add(overlays: AMapMarker | AMapMarker[]): void
-  remove(overlays: AMapMarker | AMapMarker[]): void
+  on(event: 'hotspotclick', handler: (event: AMapHotspotEvent) => void): void
+  off(event: 'hotspotclick', handler: (event: AMapHotspotEvent) => void): void
+  add(overlays: AMapOverlay | AMapOverlay[]): void
+  remove(overlays: AMapOverlay | AMapOverlay[]): void
   destroy(): void
   getZoom(): number
   setZoomAndCenter(zoom: number, center: AMapPosition): void
-  setFitView(overlays?: AMapMarker[], immediately?: boolean, avoid?: number[], maxZoom?: number): void
+  setFitView(overlays?: Array<AMapMarker | AMapPolygon>, immediately?: boolean, avoid?: number[], maxZoom?: number): void
 }
 
 export interface AMapConvertResult {
@@ -66,6 +86,8 @@ export interface AMapConvertResult {
 export interface AMapNamespace {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => AMapMap
   Marker: new (options: Record<string, unknown>) => AMapMarker
+  Polygon: new (options: Record<string, unknown>) => AMapPolygon
+  InfoWindow: new (options?: Record<string, unknown>) => AMapInfoWindow
   Pixel: new (x: number, y: number) => AMapPixel
   MarkerCluster: new (
     map: AMapMap,

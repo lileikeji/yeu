@@ -20,6 +20,18 @@ interface SparsePoint {
   lat: number
 }
 
+export interface OwnerMapArea {
+  resourceId: string
+  name: string
+  center: { lng: number, lat: number, crs: 'GCJ-02' }
+  bounds: { minLng: number, minLat: number, maxLng: number, maxLat: number, crs: 'GCJ-02' }
+  areaSquareMeters: number | null
+  perimeterMeters: number | null
+  fillColor: string
+  strokeColor: string
+  geometrySource: 'wia-bounding-box'
+}
+
 export interface OwnerMapCoordinate {
   sourceRow: number
   name: string
@@ -85,6 +97,46 @@ function parseSparsePoints(responseValue: unknown): SparsePoint[] {
         `${value.name} is outside the campus review bounds`
       )
       return { resourceId: value.resourceId, name: value.name, lon: value.lon, lat: value.lat }
+    })
+}
+
+export function extractOwnerMapAreas(responseValue: unknown): OwnerMapArea[] {
+  assertExtract(isRecord(responseValue), 'sparseList response must be an object')
+  assertExtract(responseValue.success === true && responseValue.code === 1, 'sparseList response is not successful')
+  assertExtract(isRecord(responseValue.data) && Array.isArray(responseValue.data.resourceList), 'sparseList response has no resourceList')
+
+  return responseValue.data.resourceList
+    .filter(value => isRecord(value) && value.resourceType === 7)
+    .map((value, index) => {
+      assertExtract(isRecord(value), `Area resource ${index + 1} must be an object`)
+      assertExtract(typeof value.resourceId === 'string' && /^\d+$/.test(value.resourceId), `Area resource ${index + 1} has an invalid resourceId`)
+      assertExtract(typeof value.name === 'string' && value.name.trim(), `Area resource ${index + 1} has no name`)
+      assertExtract(typeof value.lon === 'number' && Number.isFinite(value.lon), `${value.name} has no center longitude`)
+      assertExtract(typeof value.lat === 'number' && Number.isFinite(value.lat), `${value.name} has no center latitude`)
+      const boxes = value.boundingBoxDTOList
+      assertExtract(Array.isArray(boxes) && boxes.length === 1 && isRecord(boxes[0]), `${value.name} must have one reviewed bounding box`)
+      const box = boxes[0]
+      const minLng = box.minLon
+      const minLat = box.minLat
+      const maxLng = box.maxLon
+      const maxLat = box.maxLat
+      assertExtract([minLng, minLat, maxLng, maxLat].every(item => typeof item === 'number' && Number.isFinite(item)), `${value.name} has an invalid bounding box`)
+      assertExtract(minLng < maxLng && minLat < maxLat, `${value.name} has an empty bounding box`)
+      assertExtract(minLng >= CAMPUS_BOUNDS.minLng && maxLng <= CAMPUS_BOUNDS.maxLng && minLat >= CAMPUS_BOUNDS.minLat && maxLat <= CAMPUS_BOUNDS.maxLat, `${value.name} bounding box is outside the campus review bounds`)
+      const colors = typeof value.color === 'string' ? value.color.split(',') : []
+      const fillColor = /^#[0-9A-F]{6}$/i.test(colors[0] ?? '') ? colors[0]! : '#12E3AA'
+      const strokeColor = /^#[0-9A-F]{6}$/i.test(colors[1] ?? '') ? colors[1]! : fillColor
+      return {
+        resourceId: value.resourceId,
+        name: value.name,
+        center: { lng: value.lon, lat: value.lat, crs: 'GCJ-02' },
+        bounds: { minLng, minLat, maxLng, maxLat, crs: 'GCJ-02' },
+        areaSquareMeters: typeof value.area === 'number' && Number.isFinite(value.area) ? value.area : null,
+        perimeterMeters: typeof value.perimeter === 'number' && Number.isFinite(value.perimeter) ? value.perimeter : null,
+        fillColor,
+        strokeColor,
+        geometrySource: 'wia-bounding-box' as const
+      }
     })
 }
 

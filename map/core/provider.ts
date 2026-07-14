@@ -1,4 +1,4 @@
-import type { GeoPoint, MapMountOptions, MapPoi } from './types'
+import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from './types'
 
 export type PointPickedHandler = (point: GeoPoint) => void
 export type PoiSelectHandler = (poi: MapPoi | null) => void
@@ -9,6 +9,7 @@ export interface MapProvider {
   readonly id: MapProviderId
   mount(element: HTMLElement, options?: MapMountOptions): Promise<void>
   setPois(pois: MapPoi[]): void
+  setAreas(areas: MapArea[]): void
   fitToPois(): void
   enablePointPicker(handler: PointPickedHandler): void
   disablePointPicker(): void

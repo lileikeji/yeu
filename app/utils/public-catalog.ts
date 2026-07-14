@@ -423,6 +423,13 @@ function previewMapPlace(poi: CampusMapReferencePlace): PublicMapPlace {
 }
 
 function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
+  const navigation = new URL('https://uri.amap.com/navigation')
+  navigation.searchParams.set('to', `${poi.sourcePoint.lng},${poi.sourcePoint.lat},${poi.name}`)
+  navigation.searchParams.set('mode', 'walk')
+  navigation.searchParams.set('policy', '1')
+  navigation.searchParams.set('src', 'yeu-freshman-guide')
+  navigation.searchParams.set('coordinate', 'gaode')
+  navigation.searchParams.set('callnative', '1')
   return {
     id: poi.id,
     slug: null,
@@ -440,7 +447,7 @@ function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
     referenceLabel: '用户授权 WIA 工作地图标点',
     coordinateVerification: 'owner-map-only',
     coordinateSystem: 'WGS84',
-    navigationUrl: null,
+    navigationUrl: navigation.toString(),
     isApiPublished: false,
     searchText: [poi.name, poi.summary, poi.address, poi.category].filter(Boolean).join(' ')
   }

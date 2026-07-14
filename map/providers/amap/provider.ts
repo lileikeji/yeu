@@ -5,11 +5,13 @@ import type {
   PointPickedHandler
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
-import type { GeoPoint, MapMountOptions, MapPoi } from '../../core/types'
+import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from '../../core/types'
 import { loadAMap } from './loader'
 import type {
   AMapConvertResult,
   AMapClusterRenderContext,
+  AMapHotspotEvent,
+  AMapInfoWindow,
   AMapLngLat,
   AMapMap,
   AMapMarker,
@@ -19,6 +21,7 @@ import type {
   AMapMarkerRenderContext,
   AMapMouseEvent,
   AMapNamespace,
+  AMapPolygon,
   AMapPosition
 } from './types'
 
@@ -59,7 +62,11 @@ export class AMapProvider implements MapProvider {
   private amap: AMapNamespace | null = null
   private map: AMapMap | null = null
   private pois: MapPoi[] = []
+  private areas: MapArea[] = []
   private markers = new Map<string, MarkerRecord>()
+  private areaPolygons: AMapPolygon[] = []
+  private areaLabels: AMapMarker[] = []
+  private hotspotInfoWindow: AMapInfoWindow | null = null
   private markerCluster: AMapMarkerCluster | null = null
   private selectedMarker: AMapMarker | null = null
   private selectedMarkerClickHandler: ((event: AMapMouseEvent) => void) | null = null
@@ -69,6 +76,7 @@ export class AMapProvider implements MapProvider {
   private fitAfterRender = false
   private lifecycleVersion = 0
   private renderVersion = 0
+  private areaRenderVersion = 0
 
   constructor(options: AMapProviderOptions) {
     this.options = options
@@ -87,12 +95,16 @@ export class AMapProvider implements MapProvider {
       center,
       zoom: options.zoom ?? DEFAULT_ZOOM,
       viewMode: '2D',
-      resizeEnable: true
+      resizeEnable: true,
+      showLabel: true,
+      isHotspot: true,
+      features: ['bg', 'road', 'building', 'point']
     })
     this.amap = amap
     this.map = map
     map.on('click', this.handleMapClick)
-    await this.rebuildMarkers()
+    map.on('hotspotclick', this.handleHotspotClick)
+    await Promise.all([this.rebuildMarkers(), this.rebuildAreas()])
   }
 
   setPois(pois: MapPoi[]): void {
@@ -103,21 +115,27 @@ export class AMapProvider implements MapProvider {
     void this.rebuildMarkers()
   }
 
+  setAreas(areas: MapArea[]): void {
+    this.areas = [...areas]
+    void this.rebuildAreas()
+  }
+
   fitToPois(): void {
     const map = this.map
-    if (!map || this.markers.size === 0) {
+    if (!map || (this.markers.size === 0 && this.areaPolygons.length === 0)) {
       this.fitAfterRender = true
       return
     }
 
     const markers = [...this.markers.values()].map(record => record.fitMarker)
-    if (markers.length === 1) {
+    const overlays = [...this.areaPolygons, ...markers]
+    if (markers.length === 1 && this.areaPolygons.length === 0) {
       const first = this.markers.values().next().value as MarkerRecord | undefined
       if (first) map.setZoomAndCenter(Math.max(map.getZoom(), SINGLE_POI_ZOOM), first.position)
       return
     }
 
-    map.setFitView(markers, false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
+    map.setFitView(overlays, false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
   }
 
   enablePointPicker(_handler: PointPickedHandler): void {
@@ -175,6 +193,7 @@ export class AMapProvider implements MapProvider {
     ++this.renderVersion
     this.disposeMap()
     this.pois = []
+    this.areas = []
     this.selectedPoiId = null
     this.poiSelectHandler = null
     this.mapErrorHandler = null
@@ -244,6 +263,61 @@ export class AMapProvider implements MapProvider {
     }
   }
 
+  private async rebuildAreas(): Promise<void> {
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap) return
+
+    this.clearAreas()
+    const renderVersion = ++this.areaRenderVersion
+    const rendered: Array<{ area: MapArea, southWest: AMapPosition, northEast: AMapPosition }> = []
+
+    const corners = this.areas.flatMap(area => [area.bounds.southWest, area.bounds.northEast])
+    const convertedCorners = await this.convertPoints(corners, amap)
+    if (renderVersion !== this.areaRenderVersion || this.map !== map) return
+
+    this.areas.forEach((area, index) => {
+      const southWest = convertedCorners[index * 2]
+      const northEast = convertedCorners[index * 2 + 1]
+      if (southWest && northEast) rendered.push({ area, southWest, northEast })
+    })
+
+    for (const { area, southWest, northEast } of rendered) {
+      const path: AMapPosition[] = [
+        southWest,
+        [northEast[0], southWest[1]],
+        northEast,
+        [southWest[0], northEast[1]]
+      ]
+      const polygon = new amap.Polygon({
+        path,
+        strokeColor: area.strokeColor,
+        strokeWeight: 2,
+        strokeOpacity: 0.9,
+        strokeStyle: 'dashed',
+        fillColor: area.fillColor,
+        fillOpacity: 0.16,
+        bubble: true,
+        zIndex: 30
+      })
+      const label = document.createElement('span')
+      label.textContent = area.name
+      label.title = `${area.name}（WIA 区域包围框）`
+      label.style.cssText = `display:block;padding:3px 6px;border:1px solid ${area.strokeColor};border-radius:4px;background:rgb(255 255 255 / 90%);box-shadow:0 1px 4px rgb(0 0 0 / 15%);color:#18181b;font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;`
+      const marker = new amap.Marker({
+        position: [(southWest[0] + northEast[0]) / 2, (southWest[1] + northEast[1]) / 2],
+        anchor: 'center',
+        content: label,
+        offset: new amap.Pixel(-label.textContent.length * 6 - 7, -10),
+        zIndex: 31
+      })
+      this.areaPolygons.push(polygon)
+      this.areaLabels.push(marker)
+    }
+
+    if (this.areaPolygons.length) map.add([...this.areaPolygons, ...this.areaLabels])
+  }
+
   private createMarkerContent(
     poi: MapPoi,
     options: { selected?: boolean, onClick?: () => void } = {}
@@ -257,29 +331,15 @@ export class AMapProvider implements MapProvider {
 
     const label = document.createElement('span')
     label.textContent = poi.name
-    label.style.cssText = `pointer-events:none;position:absolute;bottom:42px;left:50%;z-index:2;display:block;max-width:160px;overflow:hidden;padding:4px 7px;border:1px solid ${selected ? '#176f46' : 'rgb(212 212 216)'};border-radius:4px;background:rgb(255 255 255 / 96%);box-shadow:0 1px 4px rgb(0 0 0 / 16%);font-weight:${selected ? '700' : '500'};opacity:${selected ? '1' : '0'};text-overflow:ellipsis;transform:translateX(-50%);transition:opacity 100ms ease;visibility:${selected ? 'visible' : 'hidden'};white-space:nowrap;`
-    label.style.opacity = selected ? '1' : '0'
-    label.style.visibility = selected ? 'visible' : 'hidden'
+    label.style.cssText = `pointer-events:none;position:absolute;top:40px;left:50%;z-index:2;display:block;max-width:160px;overflow:hidden;padding:3px 6px;border:1px solid ${selected ? '#176f46' : 'rgb(212 212 216)'};border-radius:4px;background:rgb(255 255 255 / 94%);box-shadow:0 1px 4px rgb(0 0 0 / 14%);font-weight:${selected ? '700' : '500'};opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
+    label.style.opacity = '1'
+    label.style.visibility = 'visible'
 
     const pin = document.createElement('span')
     pin.setAttribute('aria-hidden', 'true')
     pin.style.cssText = `position:absolute;bottom:3px;left:1px;display:block;box-sizing:border-box;width:28px;height:34px;border:2px solid #fff;border-radius:50% 50% 50% 8px;background:#176f46;box-shadow:${selected ? '0 0 0 4px rgb(255 255 255 / 80%),0 3px 10px rgb(0 0 0 / 35%)' : '0 2px 7px rgb(0 0 0 / 28%)'};transform:rotate(-45deg)${selected ? ' scale(1.2)' : ''};transition:transform 120ms ease,box-shadow 120ms ease;`
     pin.style.background = CATEGORY_COLORS[poi.category] ?? '#176f46'
 
-    if (!selected) {
-      const showLabel = () => {
-        label.style.opacity = '1'
-        label.style.visibility = 'visible'
-      }
-      const hideLabel = () => {
-        label.style.opacity = '0'
-        label.style.visibility = 'hidden'
-      }
-      element.addEventListener('pointerenter', showLabel)
-      element.addEventListener('pointerleave', hideLabel)
-      element.addEventListener('focus', showLabel)
-      element.addEventListener('blur', hideLabel)
-    }
     if (options.onClick) {
       element.addEventListener('click', (event) => {
         event.stopPropagation()
@@ -377,6 +437,37 @@ export class AMapProvider implements MapProvider {
     this.poiSelectHandler?.(null)
   }
 
+  private readonly handleHotspotClick = (event: AMapHotspotEvent): void => {
+    if (!this.map || !this.amap || !event.lnglat || !event.name?.trim()) return
+    const position: AMapPosition = [event.lnglat.getLng(), event.lnglat.getLat()]
+    if (!position.every(Number.isFinite)) return
+
+    const content = document.createElement('div')
+    content.style.cssText = 'min-width:150px;max-width:240px;padding:3px 2px;color:#18181b;font:400 13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;'
+    const title = document.createElement('strong')
+    title.textContent = event.name.trim()
+    title.style.cssText = 'display:block;margin-bottom:5px;font-size:14px;'
+    const source = document.createElement('span')
+    source.textContent = '高德地图收录地点'
+    source.style.cssText = 'display:block;margin-bottom:7px;color:#71717a;font-size:12px;'
+    const link = document.createElement('a')
+    const url = new URL('https://uri.amap.com/search')
+    url.searchParams.set('keyword', event.name.trim())
+    url.searchParams.set('center', position.join(','))
+    url.searchParams.set('src', 'yeu-freshman-guide')
+    url.searchParams.set('coordinate', 'gaode')
+    link.href = url.toString()
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+    link.textContent = '在高德地图查看'
+    link.style.cssText = 'color:#176f46;font-weight:600;text-decoration:none;'
+    content.append(title, source, link)
+
+    this.hotspotInfoWindow ??= new this.amap.InfoWindow({ offset: new this.amap.Pixel(0, -10) })
+    this.hotspotInfoWindow.setContent(content)
+    this.hotspotInfoWindow.open(this.map, position)
+  }
+
   private async convertPoint(point: GeoPoint, amap: AMapNamespace): Promise<AMapPosition | null> {
     return (await this.convertPoints([point], amap))[0] ?? null
   }
@@ -467,13 +558,26 @@ export class AMapProvider implements MapProvider {
     this.markers.clear()
   }
 
+  private clearAreas(): void {
+    ++this.areaRenderVersion
+    if (this.map && (this.areaPolygons.length || this.areaLabels.length)) {
+      this.map.remove([...this.areaPolygons, ...this.areaLabels])
+    }
+    this.areaPolygons = []
+    this.areaLabels = []
+  }
+
   private disposeMap(): void {
     this.clearMarkers()
+    this.clearAreas()
     if (this.map) {
       this.map.off('click', this.handleMapClick)
+      this.map.off('hotspotclick', this.handleHotspotClick)
+      this.hotspotInfoWindow?.close()
       this.map.destroy()
     }
     this.map = null
     this.amap = null
+    this.hotspotInfoWindow = null
   }
 }

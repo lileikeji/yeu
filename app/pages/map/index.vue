@@ -4,6 +4,7 @@ import type { MapProvider, MapProviderId } from '~~/map/core/provider'
 import { officialSources } from '~~/data/seeds/public-content'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
 import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
+import { amapImportedAreas } from '~~/data/seeds/amap-imported-areas'
 import { createRuntimeMapProvider } from '~~/map/providers/factory'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import type { PublicMapPlace } from '~/utils/public-catalog'
@@ -101,7 +102,7 @@ const mapDataLabel = computed(() => {
 })
 const mapFallbackMessage = computed(() => {
   if (ownerMapPlacesInScope.value.length) {
-    return '当前标点来自用户授权的 WIA 工作地图，已由 GCJ-02 转换为 WGS84 供底图显示；尚未独立现场核验，因此不提供导航。'
+    return '当前标点与 8 个区域包围框来自用户授权的 WIA 工作地图，已由 GCJ-02 转换为 WGS84 供底图显示；可调用高德步行导航，但尚未独立现场核验，实际入口请现场确认。'
   }
   if (publicPlaceError.value) return '公开地点暂时不可用，当前显示内置文字目录，不绘制候选坐标。'
   if (activeScope.value === 'nearby' && !publishedPlacesInScope.value.length) {
@@ -312,6 +313,7 @@ async function mountMap() {
       mapStatus.value = 'error'
     })
     await provider.mount(mapElement.value, { zoom: 15 })
+    provider.setAreas(activeScope.value === 'nearby' ? [] : amapImportedAreas)
     provider.setPois(filteredMapPois.value)
 
     const selectedPlace = filteredPois.value.find(poi => poi.id === selectedPoiId.value)
@@ -334,6 +336,10 @@ async function mountMap() {
 
 watch(filteredMapPois, (pois) => {
   mapProvider.value?.setPois(pois)
+})
+
+watch(activeScope, (scope) => {
+  mapProvider.value?.setAreas(scope === 'nearby' ? [] : amapImportedAreas)
 })
 
 watch(filteredPois, (pois) => {
@@ -984,7 +990,7 @@ onBeforeUnmount(() => {
               size="sm"
               @click="copyPoiLocation(selectedPoi)"
             />
-            <UTooltip :text="selectedPoi.navigationUrl ? '使用已核验地点提供的外部导航入口' : '坐标未核验或未提供安全的导航入口'">
+            <UTooltip :text="selectedPoi.navigationUrl ? (selectedPoi.coordinateVerification === 'owner-map-only' ? '导航至 WIA 工作地图标点，实际入口请现场确认' : '使用已核验地点提供的外部导航入口') : '坐标未核验或未提供安全的导航入口'">
               <UButton
                 :to="selectedPoi.navigationUrl ?? undefined"
                 :target="selectedPoi.navigationUrl ? '_blank' : undefined"

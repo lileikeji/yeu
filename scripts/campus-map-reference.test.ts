@@ -7,6 +7,7 @@ import { officialCampusPlanAnchors } from '../data/seeds/official-campus-plan-an
 import { officialCampusPlanReference } from '../data/seeds/official-campus-plan-reference'
 import { campusMapReferencePlaces } from '../data/seeds/preview-places'
 import { amapImportedPlaces } from '../data/seeds/amap-imported-places'
+import { amapImportedAreas } from '../data/seeds/amap-imported-areas'
 import type { ApiPlace } from '../shared/types/server'
 import { mergePublicMapPlaces } from '../app/utils/public-catalog'
 
@@ -87,7 +88,7 @@ test('published alias names replace their official text-only reference entries',
   }
 })
 
-test('owner-authorized WIA points render as drafts without enabling navigation', () => {
+test('owner-authorized WIA points render as drafts with explicit GCJ-02 AMap navigation', () => {
   assert.equal(amapImportedPlaces.length, 76)
   assert.equal(new Set(amapImportedPlaces.map(place => place.name)).size, 76)
   assert.equal(new Set(amapImportedPlaces.map(place => `${place.point.lng},${place.point.lat}`)).size, 76)
@@ -96,7 +97,27 @@ test('owner-authorized WIA points render as drafts without enabling navigation',
   const ownerViews = merged.filter(place => place.coordinateVerification === 'owner-map-only')
   assert.equal(ownerViews.length, 76)
   assert.ok(ownerViews.every(place => place.point && !place.pointIsVerified))
-  assert.ok(ownerViews.every(place => place.navigationUrl === null && !place.isApiPublished))
+  assert.ok(ownerViews.every(place => !place.isApiPublished && place.navigationUrl))
+  for (const [index, place] of ownerViews.entries()) {
+    const url = new URL(place.navigationUrl!)
+    const source = amapImportedPlaces[index]!.sourcePoint
+    assert.equal(url.origin, 'https://uri.amap.com')
+    assert.equal(url.searchParams.get('coordinate'), 'gaode')
+    assert.equal(url.searchParams.get('mode'), 'walk')
+    assert.equal(url.searchParams.get('to'), `${source.lng},${source.lat},${place.name}`)
+  }
+})
+
+test('owner-authorized WIA areas remain explicit reviewed bounding boxes', () => {
+  assert.equal(amapImportedAreas.length, 8)
+  assert.equal(new Set(amapImportedAreas.map(area => area.id)).size, 8)
+  assert.ok(amapImportedAreas.every(area => area.geometrySource === 'wia-bounding-box'))
+  assert.ok(amapImportedAreas.every(area => (
+    area.bounds.southWest.crs === 'WGS84'
+    && area.bounds.northEast.crs === 'WGS84'
+    && area.bounds.southWest.lng < area.bounds.northEast.lng
+    && area.bounds.southWest.lat < area.bounds.northEast.lat
+  )))
 })
 
 test('official campus plan anchors cover every numbered reference without becoming coordinates', () => {

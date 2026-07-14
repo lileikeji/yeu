@@ -18,7 +18,7 @@ import {
   YEU_CAMPUS_REFERENCE_BOUNDS,
   YEU_CAMPUS_REFERENCE_CENTER
 } from '../../core/campus'
-import type { GeoPoint, MapMountOptions, MapPoi } from '../../core/types'
+import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from '../../core/types'
 import {
   createMarkerImage,
   getMarkerImageId,
@@ -171,6 +171,10 @@ export class MapLibrePreviewProvider implements MapProvider {
 
     this.updateSourceData()
   }
+
+  // WIA areas are currently rendered by the production AMap provider. Keep the
+  // preview provider compatible so callers do not need provider-specific code.
+  setAreas(_areas: MapArea[]): void {}
 
   fitToPois(): void {
     const map = this.map

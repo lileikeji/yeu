@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs'
-import { dirname, isAbsolute, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, resolve } from 'node:path'
 import BetterSqlite3 from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema'
@@ -15,12 +15,18 @@ export interface DatabaseClient {
 
 const clients = new Map<string, DatabaseClient>()
 
-export function resolveDatabasePath(databasePath: string): string {
+export function resolveDatabasePath(databasePath: string, cwd = process.cwd()): string {
   if (databasePath === ':memory:') {
     return databasePath
   }
 
-  return isAbsolute(databasePath) ? databasePath : resolve(process.cwd(), databasePath)
+  if (isAbsolute(databasePath)) return databasePath
+
+  // `nuxt preview` may execute the generated server with `.output` as cwd.
+  // Runtime paths remain project-relative so preview and production use the
+  // same migrated database as development and maintenance scripts.
+  const projectRoot = basename(cwd) === '.output' ? dirname(cwd) : cwd
+  return resolve(projectRoot, databasePath)
 }
 
 export function getDatabase(databasePath: string): DatabaseClient {

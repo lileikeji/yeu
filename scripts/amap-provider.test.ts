@@ -10,6 +10,9 @@ class FakeElement {
   type = ''
   title = ''
   textContent = ''
+  href = ''
+  target = ''
+  rel = ''
   style: Record<string, string> = {}
   readonly attributes = new Map<string, string>()
   readonly children: FakeElement[] = []
@@ -39,6 +42,8 @@ class FakeElement {
 type AMapListener = (event: {
   clusterData?: FakeClusterData[]
   originEvent?: { stopPropagation(): void }
+  name?: string
+  lnglat?: { getLng(): number, getLat(): number }
 }) => void
 
 class FakeMarker {
@@ -69,8 +74,45 @@ class FakeMarker {
   }
 }
 
+class FakePolygon extends FakeMarker {
+  static instances: FakePolygon[] = []
+  map: FakeAMapMap | null = null
+
+  constructor(options: Record<string, unknown>) {
+    super(options)
+    FakePolygon.instances.push(this)
+  }
+
+  setMap(map: FakeAMapMap | null): void {
+    this.map = map
+  }
+}
+
 class FakePixel {
   constructor(readonly x: number, readonly y: number) {}
+}
+
+class FakeInfoWindow {
+  static instances: FakeInfoWindow[] = []
+  content: FakeElement | null = null
+  openedAt: [number, number] | null = null
+  closed = false
+
+  constructor(readonly options: Record<string, unknown> = {}) {
+    FakeInfoWindow.instances.push(this)
+  }
+
+  setContent(content: FakeElement): void {
+    this.content = content
+  }
+
+  open(_map: FakeAMapMap, position: [number, number]): void {
+    this.openedAt = position
+  }
+
+  close(): void {
+    this.closed = true
+  }
 }
 
 interface FakeClusterData {
@@ -165,6 +207,12 @@ class FakeAMapMap {
     this.listeners.get(event)?.delete(listener)
   }
 
+  emitHotspot(name: string, position: [number, number]): void {
+    for (const listener of this.listeners.get('hotspotclick') ?? []) {
+      listener({ name, lnglat: { getLng: () => position[0], getLat: () => position[1] } })
+    }
+  }
+
   add(overlays: FakeMarker | FakeMarker[]): void {
     this.added.push(...(Array.isArray(overlays) ? overlays : [overlays]))
   }
@@ -223,12 +271,14 @@ test('AMap loader requests the public MarkerCluster plugin without security cred
   assert.equal(url.searchParams.has('securityJsCode'), false)
 })
 
-test('AMap provider clusters 76 points and keeps labels contextual while preserving interactions', async () => {
+test('AMap provider clusters 76 points, keeps names visible, and renders reviewed area boxes', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
   const conversionSources: string[] = []
   FakeAMapMap.instances = []
   FakeMarkerCluster.instances = []
+  FakePolygon.instances = []
+  FakeInfoWindow.instances = []
 
   const fakeDocument = {
     createElement: () => new FakeElement()
@@ -236,6 +286,8 @@ test('AMap provider clusters 76 points and keeps labels contextual while preserv
   const fakeAMap = {
     Map: FakeAMapMap,
     Marker: FakeMarker,
+    Polygon: FakePolygon,
+    InfoWindow: FakeInfoWindow,
     Pixel: FakePixel,
     MarkerCluster: FakeMarkerCluster,
     plugin: (_plugins: string[], callback: () => void) => callback(),
@@ -274,12 +326,27 @@ test('AMap provider clusters 76 points and keeps labels contextual while preserv
 
     const pois = createPois(76)
     provider.setPois(pois)
+    provider.setAreas([{
+      id: 'area-1',
+      name: '操场',
+      bounds: {
+        southWest: { lng: 118.6005, lat: 25.1081, crs: 'WGS84' },
+        northEast: { lng: 118.6021, lat: 25.1093, crs: 'WGS84' }
+      },
+      strokeColor: '#18AD78',
+      fillColor: '#12E3AA',
+      areaSquareMeters: 15423.04,
+      perimeterMeters: 500.03,
+      geometrySource: 'wia-bounding-box'
+    }])
     await nextTurn()
 
     const cluster = FakeMarkerCluster.instances.at(-1)
     const map = FakeAMapMap.instances.at(-1)
     assert.ok(cluster)
     assert.ok(map)
+    assert.equal(map.options.isHotspot, true)
+    assert.deepEqual(map.options.features, ['bg', 'road', 'building', 'point'])
     assert.equal(cluster.data.length, 76)
     assert.equal(cluster.options.gridSize, 56)
     assert.equal(cluster.options.maxZoom, 17)
@@ -292,15 +359,13 @@ test('AMap provider clusters 76 points and keeps labels contextual while preserv
     const regularLabel = regularContent?.children[0]
     assert.ok(regularContent)
     assert.ok(regularLabel)
-    assert.equal(regularLabel.style.visibility, 'hidden')
-    assert.ok(cluster.renderedMarkers.every(marker => marker.content?.children[0]?.style.visibility === 'hidden'))
+    assert.equal(regularLabel.style.visibility, 'visible')
+    assert.ok(cluster.renderedMarkers.every(marker => marker.content?.children[0]?.style.visibility === 'visible'))
     assert.deepEqual(cluster.renderedMarkers[0]?.offset, new FakePixel(-15, -38))
     assert.deepEqual(cluster.renderedClusterMarker.offset, new FakePixel(-24, -24))
 
-    regularContent.dispatch('pointerenter')
-    assert.equal(regularLabel.style.visibility, 'visible')
     regularContent.dispatch('pointerleave')
-    assert.equal(regularLabel.style.visibility, 'hidden')
+    assert.equal(regularLabel.style.visibility, 'visible')
     regularContent.dispatch('click')
     assert.equal(selected.at(-1), 'poi-1')
 
@@ -313,9 +378,22 @@ test('AMap provider clusters 76 points and keeps labels contextual while preserv
     const selectedMarker = map.added.at(-1)
     assert.ok(selectedMarker?.content)
     assert.equal(selectedMarker.content.children[0]?.style.visibility, 'visible')
+    assert.equal(FakePolygon.instances.length, 1)
+    assert.deepEqual(FakePolygon.instances[0]?.options.path, [
+      [118.6005, 25.1081],
+      [118.6021, 25.1081],
+      [118.6021, 25.1093],
+      [118.6005, 25.1093]
+    ])
+
+    map.emitHotspot('学生街商家', [118.6, 25.1])
+    const infoWindow = FakeInfoWindow.instances.at(-1)
+    assert.deepEqual(infoWindow?.openedAt, [118.6, 25.1])
+    assert.equal(infoWindow?.content?.children[0]?.textContent, '学生街商家')
+    assert.match(infoWindow?.content?.children[2]?.href ?? '', /^https:\/\/uri\.amap\.com\/search\?/)
 
     provider.fitToPois()
-    assert.equal(map.fitCalls.at(-1)?.overlays.length, 76)
+    assert.equal(map.fitCalls.at(-1)?.overlays.length, 77)
     assert.equal(map.fitCalls.at(-1)?.maxZoom, 17)
     assert.equal(provider.flyToPoi('poi-2'), true)
     assert.deepEqual(map.zoomCalls.at(-1), {
