@@ -114,6 +114,15 @@ test('map page uses the Nuxt auto-import name for the nested map component', () 
   assert.doesNotMatch(source, /<OfficialCampusPlan\b/)
 })
 
+test('geographic map keeps a full-height wrapper around provider-owned container styles', () => {
+  const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+  assert.match(
+    source,
+    /v-show="mapViewMode === 'geographic'"\s+class="absolute inset-0"[\s\S]*?ref="mapElement"\s+class="h-full w-full"/
+  )
+  assert.doesNotMatch(source, /ref="mapElement"\s+class="absolute inset-0"/)
+})
+
 test('official campus plan recovers cached image loads and starts mobile inspection zoomed in', () => {
   const source = readFileSync(resolve('app/components/map/OfficialCampusPlan.vue'), 'utf8')
   assert.match(source, /const MOBILE_INITIAL_ZOOM = MAX_ZOOM/)

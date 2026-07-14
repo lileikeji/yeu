@@ -696,9 +696,13 @@ onBeforeUnmount(() => {
     >
       <div
         v-show="mapViewMode === 'geographic'"
-        ref="mapElement"
         class="absolute inset-0"
-      />
+      >
+        <div
+          ref="mapElement"
+          class="h-full w-full"
+        />
+      </div>
 
       <MapOfficialCampusPlan
         v-if="mapViewMode === 'official-plan'"
