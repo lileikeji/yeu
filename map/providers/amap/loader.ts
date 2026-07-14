@@ -7,7 +7,7 @@ interface AMapWindow extends Window {
 let loaderPromise: Promise<AMapNamespace> | null = null
 const PLUGIN_LOAD_TIMEOUT_MS = 15_000
 
-export const AMAP_REQUIRED_PLUGINS = ['AMap.MarkerCluster', 'AMap.Walking'] as const
+export const AMAP_REQUIRED_PLUGINS = ['AMap.MarkerCluster', 'AMap.Walking', 'AMap.PlaceSearch'] as const
 
 export interface AMapLoaderOptions {
   key: string
@@ -23,7 +23,9 @@ export function buildAMapScriptUrl(key: string): string {
 }
 
 function hasRequiredPlugins(amap: AMapNamespace): boolean {
-  return typeof amap.MarkerCluster === 'function' && typeof amap.Walking === 'function'
+  return typeof amap.MarkerCluster === 'function'
+    && typeof amap.Walking === 'function'
+    && typeof amap.PlaceSearch === 'function'
 }
 
 function ensureRequiredPlugins(amap: AMapNamespace): Promise<AMapNamespace> {

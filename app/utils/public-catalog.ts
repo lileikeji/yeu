@@ -117,7 +117,8 @@ export interface PublicMapPlace {
   pointIsVerified: boolean
   usesPreviewPoint: boolean
   referenceLabel: string | null
-  coordinateVerification: ApiPlace['coordinateVerification'] | 'preview' | 'owner-map-only'
+  officialPlanNumber: string | null
+  coordinateVerification: ApiPlace['coordinateVerification'] | 'preview' | 'owner-map-only' | 'native-map-session'
   coordinateSystem: ApiPlace['coordinateSystem']
   navigationUrl: string | null
   isApiPublished: boolean
@@ -435,6 +436,7 @@ function previewMapPlace(poi: CampusMapReferencePlace): PublicMapPlace {
     pointIsVerified: false,
     usesPreviewPoint: true,
     referenceLabel: `官网平面图 ${poi.mapNumber}`,
+    officialPlanNumber: poi.mapNumber,
     coordinateVerification: 'preview',
     coordinateSystem: null,
     navigationUrl: null,
@@ -469,6 +471,7 @@ function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
     pointIsVerified: false,
     usesPreviewPoint: false,
     referenceLabel: '用户授权 WIA 工作地图标点',
+    officialPlanNumber: null,
     coordinateVerification: 'owner-map-only',
     coordinateSystem: 'GCJ-02',
     navigationUrl: navigation.toString(),
@@ -502,6 +505,7 @@ function apiMapPlace(place: ApiPlace): PublicMapPlace {
     pointIsVerified: hasRenderableVerifiedPoint,
     usesPreviewPoint: false,
     referenceLabel: null,
+    officialPlanNumber: null,
     coordinateVerification: place.coordinateVerification,
     coordinateSystem: place.coordinateSystem,
     navigationUrl: place.navigationAvailable && isHttpUrl(place.externalMapUrl)
@@ -539,6 +543,7 @@ export function mergePublicMapPlaces(
 
     return {
       ...view,
+      officialPlanNumber: matchingPreview.mapNumber,
       searchText: [
         view.searchText,
         matchingPreview.name,
@@ -554,6 +559,7 @@ export function mergePublicMapPlaces(
       if (!matchingPreview) return view
       return {
         ...view,
+        officialPlanNumber: matchingPreview.mapNumber,
         searchText: [view.searchText, matchingPreview.name, ...(matchingPreview.aliases ?? [])].join(' ')
       }
     })
@@ -573,6 +579,7 @@ export function toMapPoi(place: PublicMapPlace): MapPoi | null {
     name: place.name,
     category: place.category,
     point: place.point,
-    status: place.pointIsVerified ? 'published' : 'draft'
+    status: place.pointIsVerified ? 'published' : 'draft',
+    source: 'catalog'
   }
 }

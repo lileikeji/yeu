@@ -72,11 +72,14 @@ const categoryIds = new Set(categories.map(category => category.id))
 const initialCategory = queryValue(route.query.category)
 const initialPlace = queryValue(route.query.place)
 const { data: publicPlaceResponse, error: publicPlaceError } = await usePublicPlaceList()
-const places = computed(() => mergePublicMapPlaces(
+const catalogPlaces = computed(() => mergePublicMapPlaces(
   campusMapReferencePlaces,
   publicPlaceResponse.value?.items ?? [],
   amapImportedPlaces
 ))
+const nativeSessionPlaces = ref<PublicMapPlace[]>([])
+const nativeSearchLoading = ref(false)
+const places = computed(() => [...catalogPlaces.value, ...nativeSessionPlaces.value])
 const activeScope = computed<'campus' | 'nearby' | null>(() => {
   const scope = queryValue(route.query.scope)
   return scope === 'campus' || scope === 'nearby' ? scope : null
@@ -136,7 +139,7 @@ const mapDataLabel = computed(() => {
 })
 const mapFallbackMessage = computed(() => {
   if (ownerMapPlacesInScope.value.length) {
-    return '当前 76 个标点与 8 个不规则区域边界来自用户授权的 WIA 工作地图，已转换后供底图显示；区域仅绘制边界线，内部高德商铺仍可点击。标点尚未独立现场核验，实际入口请现场确认。'
+    return '当前 76 个标点与 8 个不规则区域边界来自用户授权的 WIA 工作地图，并直接使用高德原始 GCJ-02 坐标显示；区域仅绘制边界线，内部高德商铺仍可点击和搜索。标点尚未独立现场核验，实际入口请现场确认。'
   }
   if (publicPlaceError.value) return '公开地点暂时不可用，当前显示内置文字目录，不绘制候选坐标。'
   if (activeScope.value === 'nearby' && !publishedPlacesInScope.value.length) {
@@ -164,7 +167,72 @@ const toast = useToast()
 const { copyText, isWechat } = useShareActions()
 const poiRowElements = new Map<string, HTMLElement>()
 let routeSyncTimer: ReturnType<typeof setTimeout> | null = null
+let nativeSearchTimer: ReturnType<typeof setTimeout> | null = null
+let nativeSearchVersion = 0
 let applyingRouteState = false
+
+function nativePublicPlace(poi: MapPoi): PublicMapPlace {
+  const navigation = new URL('https://uri.amap.com/marker')
+  navigation.searchParams.set('position', `${poi.point.lng},${poi.point.lat}`)
+  navigation.searchParams.set('name', poi.name)
+  navigation.searchParams.set('coordinate', 'gaode')
+  navigation.searchParams.set('callnative', '0')
+  return {
+    id: poi.id,
+    slug: null,
+    name: poi.name,
+    scope: activeScope.value ?? 'nearby',
+    category: poi.category,
+    summary: '高德底图在当前地图视野内返回的地点，仅在本次页面会话中显示。',
+    address: poi.address ?? null,
+    campusArea: null,
+    openingHours: null,
+    phone: null,
+    point: poi.point,
+    pointIsVerified: false,
+    usesPreviewPoint: false,
+    referenceLabel: '高德底图地点 · 本次搜索',
+    officialPlanNumber: null,
+    coordinateVerification: 'native-map-session',
+    coordinateSystem: 'GCJ-02',
+    navigationUrl: navigation.toString(),
+    isApiPublished: false,
+    searchText: [poi.name, poi.address, '高德 原生 商家 当前地图'].filter(Boolean).join(' ')
+  }
+}
+
+function upsertNativePlace(poi: MapPoi): PublicMapPlace {
+  const view = nativePublicPlace(poi)
+  const existingIndex = nativeSessionPlaces.value.findIndex(place => place.id === view.id)
+  if (existingIndex >= 0) nativeSessionPlaces.value.splice(existingIndex, 1, view)
+  else nativeSessionPlaces.value.push(view)
+  return view
+}
+
+async function searchNativePlaces(): Promise<void> {
+  const query = searchQuery.value.trim()
+  const provider = mapProvider.value
+  const version = ++nativeSearchVersion
+  if (!query || provider?.id !== 'amap' || mapViewMode.value !== 'geographic') {
+    nativeSessionPlaces.value = []
+    nativeSearchLoading.value = false
+    return
+  }
+
+  nativeSearchLoading.value = true
+  const results = await provider.searchVisiblePois(query)
+  if (version !== nativeSearchVersion || query !== searchQuery.value.trim()) return
+  const catalogNames = new Set(catalogPlaces.value.map(place => place.name.trim().toLocaleLowerCase('zh-CN')))
+  nativeSessionPlaces.value = results
+    .filter(poi => !catalogNames.has(poi.name.trim().toLocaleLowerCase('zh-CN')))
+    .map(nativePublicPlace)
+  nativeSearchLoading.value = false
+}
+
+function queueNativeSearch(): void {
+  if (nativeSearchTimer) clearTimeout(nativeSearchTimer)
+  nativeSearchTimer = setTimeout(() => void searchNativePlaces(), 320)
+}
 
 const filteredPois = computed(() => {
   const normalizedQuery = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
@@ -237,6 +305,7 @@ function categoryIcon(categoryId: string) {
 function poiStatusText(poi: PublicMapPlace) {
   if (poi.pointIsVerified) return 'WGS84 坐标已核验'
   if (poi.coordinateVerification === 'owner-map-only') return 'WIA 工作地图坐标 · 未独立核验'
+  if (poi.coordinateVerification === 'native-map-session') return '高德底图地点 · 当前视野临时索引'
   if (poi.coordinateVerification === 'verified' && poi.coordinateSystem) {
     return `${poi.coordinateSystem} 坐标已核验 · 当前底图不兼容`
   }
@@ -246,10 +315,12 @@ function poiStatusText(poi: PublicMapPlace) {
 
 function handlePoiSelected(poi: MapPoi | null) {
   if (poi) selectedArea.value = null
-  selectedPoiId.value = poi?.id ?? null
-  mapProvider.value?.setSelectedPoi(poi?.id ?? null)
+  const selected = poi?.source === 'amap-native' ? upsertNativePlace(poi) : null
+  selectedPoiId.value = selected?.id ?? poi?.id ?? null
+  mapProvider.value?.setSelectedPoi(selectedPoiId.value)
 
   if (poi) {
+    sidebarCollapsed.value = false
     void nextTick(() => poiRowElements.get(poi.id)?.scrollIntoView({ block: 'nearest' }))
   }
 }
@@ -320,14 +391,15 @@ function selectPoi(poi: PublicMapPlace) {
 }
 
 function selectedOfficialPlanNumber(poi: PublicMapPlace | null): string | null {
-  return poi?.id.match(/^campus-map-(\d{2})$/)?.[1] ?? null
+  return poi?.officialPlanNumber ?? null
 }
 
 function selectOfficialPlanNumber(mapNumber: string): void {
-  const poi = places.value.find(place => place.id === `campus-map-${mapNumber}`)
+  const poi = places.value.find(place => place.officialPlanNumber === mapNumber)
   if (!poi) return
   searchQuery.value = ''
   activeCategory.value = 'all'
+  sidebarCollapsed.value = false
   selectPoi(poi)
 }
 
@@ -474,6 +546,7 @@ async function mountMap() {
     }
 
     if (!hasMapError()) mapStatus.value = 'ready'
+    queueNativeSearch()
   } catch (error) {
     mapErrorMessage.value = error instanceof Error
       ? error.message
@@ -487,6 +560,8 @@ watch(filteredMapPois, (pois) => {
 })
 
 watch(mapDisplayOptions, options => mapProvider.value?.setDisplayOptions(options), { deep: true })
+watch(searchQuery, queueNativeSearch)
+watch(mapViewMode, queueNativeSearch)
 
 watch(activeScope, (scope) => {
   mapProvider.value?.setAreas(scope === 'nearby' ? [] : amapImportedAreas)
@@ -558,6 +633,8 @@ onMounted(mountMap)
 
 onBeforeUnmount(() => {
   if (routeSyncTimer) clearTimeout(routeSyncTimer)
+  if (nativeSearchTimer) clearTimeout(nativeSearchTimer)
+  ++nativeSearchVersion
   mapProvider.value?.destroy()
   mapProvider.value = null
   routeSummary.value = null
@@ -568,7 +645,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-[34rem] overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:min-h-[40rem] md:grid-rows-1"
-    :class="sidebarCollapsed ? 'md:grid-cols-[0_minmax(0,1fr)]' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
+    :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
       class="absolute inset-x-0 bottom-0 z-20 flex min-h-0 min-w-0 flex-col rounded-t-md border-t border-[var(--line)] bg-white shadow-[0_-6px_24px_rgb(0_0_0/12%)] transition-[height] duration-200 md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
@@ -665,7 +742,7 @@ onBeforeUnmount(() => {
           v-model="searchQuery"
           class="mt-3 w-full"
           icon="i-lucide-search"
-          placeholder="搜索教学楼、宿舍或服务点"
+          placeholder="搜索地点或当前视野高德商家"
           aria-label="搜索地图地点"
         >
           <template
@@ -707,6 +784,13 @@ onBeforeUnmount(() => {
           role="status"
         >
           {{ mapFallbackMessage }}
+        </p>
+        <p
+          v-if="nativeSearchLoading"
+          class="mt-2 text-xs text-zinc-500"
+          role="status"
+        >
+          正在搜索当前地图视野中的高德地点…
         </p>
       </div>
 

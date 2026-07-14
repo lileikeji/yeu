@@ -85,6 +85,10 @@ test('published alias names replace their official text-only reference entries',
     assert.equal(replacement?.usesPreviewPoint, false)
     assert.ok(replacement?.searchText.includes(officialName))
     assert.ok(replacement?.searchText.includes(alias))
+    assert.equal(
+      replacement?.officialPlanNumber,
+      campusMapReferencePlaces.find(place => place.name === officialName)?.mapNumber
+    )
   }
 })
 
@@ -161,6 +165,10 @@ test('map page uses the Nuxt auto-import name for the nested map component', () 
   assert.match(source, /label="地图内路线"/)
   assert.match(source, /planWalkingRoute\(origin, poi\.point!\)/)
   assert.match(source, /8 个不规则区域边界/)
+  assert.match(source, /place.officialPlanNumber === mapNumber/)
+  assert.match(source, /sidebarCollapsed \? 'md:grid-cols-1'/)
+  assert.match(source, /searchVisiblePois\(query\)/)
+  assert.match(source, /高德底图地点 · 当前视野临时索引/)
 })
 
 test('geographic map keeps a full-height wrapper around provider-owned container styles', () => {

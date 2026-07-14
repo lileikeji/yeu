@@ -168,6 +168,33 @@ class FakeWalking {
   }
 }
 
+class FakePlaceSearch {
+  static instances: FakePlaceSearch[] = []
+
+  constructor(readonly options: Record<string, unknown>) {
+    FakePlaceSearch.instances.push(this)
+  }
+
+  searchNearBy(
+    _keyword: string,
+    _center: [number, number],
+    _radius: number,
+    callback: (status: string, result: unknown) => void
+  ): void {
+    callback('complete', {
+      poiList: {
+        pois: [{
+          id: 'native-shop-1',
+          name: '学生街咖啡店',
+          address: '新区学生街',
+          type: '餐饮服务;咖啡厅',
+          location: { getLng: () => 118.6015, getLat: () => 25.1062 }
+        }]
+      }
+    })
+  }
+}
+
 interface FakeClusterData {
   lnglat: [number, number]
   weight?: number
@@ -282,6 +309,17 @@ class FakeAMapMap {
     return this.zoom
   }
 
+  getCenter() {
+    return { getLng: () => 118.601, getLat: () => 25.106 }
+  }
+
+  getBounds() {
+    return {
+      getSouthWest: () => ({ getLng: () => 118.59, getLat: () => 25.09 }),
+      getNorthEast: () => ({ getLng: () => 118.63, getLat: () => 25.13 })
+    }
+  }
+
   setZoomAndCenter(zoom: number, center: [number, number]): void {
     this.zoom = zoom
     this.zoomCalls.push({ zoom, center })
@@ -334,6 +372,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
   FakePolyline.instances = []
   FakeInfoWindow.instances = []
   FakeWalking.instances = []
+  FakePlaceSearch.instances = []
   FakeTileLayer.instances = []
 
   const fakeDocument = {
@@ -352,6 +391,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     Pixel: FakePixel,
     MarkerCluster: FakeMarkerCluster,
     Walking: FakeWalking,
+    PlaceSearch: FakePlaceSearch,
     plugin: (_plugins: string[], callback: () => void) => callback(),
     convertFrom: (
       points: [number, number][],
@@ -389,6 +429,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     await provider.mount(new FakeElement() as unknown as HTMLElement, { zoom: 14 })
 
     const pois = createPois(76)
+    pois[0]!.point = { ...pois[0]!.point, crs: 'GCJ-02' }
     provider.setPois(pois)
     provider.setAreas([{
       id: 'area-1',
@@ -444,7 +485,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.ok(regularLabel)
     assert.equal(regularLabel.style.visibility, 'visible')
     assert.ok(cluster.renderedMarkers.every(marker => marker.content?.children[0]?.style.visibility === 'visible'))
-    assert.deepEqual(cluster.renderedMarkers[0]?.offset, new FakePixel(-15, -38))
+    assert.deepEqual(cluster.renderedMarkers[0]?.offset, new FakePixel(-19, -46))
     assert.deepEqual(cluster.renderedClusterMarker.offset, new FakePixel(-24, -24))
 
     regularContent.dispatch('pointerleave')
@@ -456,6 +497,12 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.equal(selected.at(-1), 'poi-2')
     cluster.emitClick(cluster.data.slice(0, 3))
     assert.equal(selected.at(-1), null)
+
+    const nativeResults = await provider.searchVisiblePois('咖啡')
+    assert.equal(nativeResults.length, 1)
+    assert.equal(nativeResults[0]?.name, '学生街咖啡店')
+    assert.equal(nativeResults[0]?.category, 'food')
+    assert.equal(nativeResults[0]?.source, 'amap-native')
 
     provider.setSelectedPoi('poi-1')
     const selectedMarker = map.added.at(-1)

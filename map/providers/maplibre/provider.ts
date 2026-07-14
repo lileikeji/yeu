@@ -308,6 +308,10 @@ export class MapLibrePreviewProvider implements MapProvider {
     return Promise.reject(new Error('网页内步行路线仅在高德地图模式下可用。'))
   }
 
+  searchVisiblePois(_query: string): Promise<MapPoi[]> {
+    return Promise.resolve([])
+  }
+
   clearRoute(): void {}
 
   setLabelOverlapAllowed(allowed: boolean): void {

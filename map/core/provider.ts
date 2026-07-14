@@ -35,6 +35,7 @@ export interface MapProvider {
   flyToPoi(id: string): boolean
   flyToPoint(point: GeoPoint, zoom?: number): boolean
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>
+  searchVisiblePois(query: string): Promise<MapPoi[]>
   clearRoute(): void
   onPoiSelect(handler: PoiSelectHandler): () => void
   onAreaSelect(handler: AreaSelectHandler): () => void

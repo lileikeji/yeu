@@ -25,6 +25,8 @@ import type {
   AMapMarkerRenderContext,
   AMapMouseEvent,
   AMapNamespace,
+  AMapPlacePoi,
+  AMapPlaceSearchResult,
   AMapPosition,
   AMapTileLayer,
   AMapPolyline,
@@ -38,6 +40,7 @@ const CONVERSION_TIMEOUT_MS = 8_000
 const CLUSTER_GRID_SIZE = 56
 const CLUSTER_MAX_ZOOM = 17
 const ROUTE_TIMEOUT_MS = 15_000
+const PLACE_SEARCH_TIMEOUT_MS = 8_000
 
 const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showPois: true,
@@ -62,6 +65,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   'express': '#7c3aed',
   'gate': '#b43c0b',
   'nearby': '#087f8c'
+}
+
+const CATEGORY_GLYPHS: Record<string, string> = {
+  'campus-building': '教',
+  'dorm': '住',
+  'food': '食',
+  'service': '服',
+  'express': '递',
+  'gate': '门',
+  'nearby': '店'
 }
 
 interface AMapProviderOptions {
@@ -302,6 +315,54 @@ export class AMapProvider implements MapProvider {
     })
   }
 
+  searchVisiblePois(query: string): Promise<MapPoi[]> {
+    const keyword = query.trim()
+    const amap = this.amap
+    const map = this.map
+    if (!keyword || !amap || !map) return Promise.resolve([])
+
+    const center = map.getCenter()
+    const bounds = map.getBounds()
+    const southWest = bounds.getSouthWest()
+    const northEast = bounds.getNorthEast()
+    const centerPosition: AMapPosition = [center.getLng(), center.getLat()]
+    const radius = this.visibleSearchRadius(centerPosition, [northEast.getLng(), northEast.getLat()])
+    const placeSearch = new amap.PlaceSearch({ pageSize: 50, pageIndex: 1, extensions: 'base' })
+
+    return new Promise((resolve) => {
+      let settled = false
+      const finish = (results: MapPoi[]) => {
+        if (settled) return
+        settled = true
+        globalThis.clearTimeout(timeout)
+        resolve(results)
+      }
+      const timeout = globalThis.setTimeout(() => finish([]), PLACE_SEARCH_TIMEOUT_MS)
+
+      try {
+        placeSearch.searchNearBy(keyword, centerPosition, radius, (status, result) => {
+          if (status !== 'complete' || typeof result === 'string') {
+            finish([])
+            return
+          }
+          const pois = this.readPlacePois(result)
+            .filter((poi) => {
+              const lng = poi.location?.getLng()
+              const lat = poi.location?.getLat()
+              return Number.isFinite(lng) && Number.isFinite(lat)
+                && lng! >= southWest.getLng() && lng! <= northEast.getLng()
+                && lat! >= southWest.getLat() && lat! <= northEast.getLat()
+            })
+            .map(poi => this.nativeMapPoi(poi))
+            .filter((poi): poi is MapPoi => poi !== null)
+          finish(pois)
+        })
+      } catch {
+        finish([])
+      }
+    })
+  }
+
   clearRoute(): void {
     this.walking?.clear()
     this.walking = null
@@ -487,18 +548,24 @@ export class AMapProvider implements MapProvider {
     element.type = 'button'
     element.title = poi.name
     element.setAttribute('aria-label', poi.name)
-    element.style.cssText = 'position:relative;display:block;box-sizing:border-box;width:30px;height:38px;padding:0;border:0;background:transparent;color:#18181b;font:500 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;'
+    element.style.cssText = 'position:relative;display:block;box-sizing:border-box;width:38px;height:46px;padding:0;border:0;background:transparent;color:#18181b;font:500 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;filter:drop-shadow(0 3px 5px rgb(0 0 0 / 22%));'
 
     const label = document.createElement('span')
     label.textContent = poi.name
-    label.style.cssText = `pointer-events:none;position:absolute;top:40px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:160px;overflow:hidden;padding:3px 6px;border:1px solid ${selected ? '#176f46' : 'rgb(212 212 216)'};border-radius:4px;background:rgb(255 255 255 / 94%);box-shadow:0 1px 4px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '500'};opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
+    label.style.cssText = `pointer-events:none;position:absolute;top:47px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:172px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
     label.style.opacity = '1'
     label.style.visibility = 'visible'
 
     const pin = document.createElement('span')
     pin.setAttribute('aria-hidden', 'true')
-    pin.style.cssText = `position:absolute;bottom:3px;left:1px;display:block;box-sizing:border-box;width:28px;height:34px;border:2px solid #fff;border-radius:50% 50% 50% 8px;background:#176f46;box-shadow:${selected ? '0 0 0 4px rgb(255 255 255 / 80%),0 3px 10px rgb(0 0 0 / 35%)' : '0 2px 7px rgb(0 0 0 / 28%)'};transform:rotate(-45deg)${selected ? ' scale(1.2)' : ''};transition:transform 120ms ease,box-shadow 120ms ease;`
+    pin.textContent = CATEGORY_GLYPHS[poi.category] ?? '点'
+    pin.style.cssText = `position:absolute;bottom:6px;left:2px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;border:3px solid #fff;border-radius:13px 13px 13px 4px;background:#176f46;box-shadow:${selected ? '0 0 0 4px rgb(23 111 70 / 22%),0 4px 12px rgb(0 0 0 / 32%)' : '0 3px 9px rgb(0 0 0 / 24%)'};color:#fff;font:800 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;transform:rotate(-45deg)${selected ? ' scale(1.14)' : ''};transition:transform 140ms ease,box-shadow 140ms ease;`
     pin.style.background = CATEGORY_COLORS[poi.category] ?? '#176f46'
+    const glyph = document.createElement('span')
+    glyph.textContent = pin.textContent
+    glyph.style.cssText = 'display:block;transform:rotate(45deg);text-shadow:0 1px 2px rgb(0 0 0 / 22%);'
+    pin.textContent = ''
+    pin.append(glyph)
 
     if (options.onClick) {
       element.addEventListener('click', (event) => {
@@ -518,7 +585,7 @@ export class AMapProvider implements MapProvider {
     element.title = `${count} 个地点，点击放大`
     element.setAttribute('aria-label', element.title)
     element.textContent = String(count)
-    element.style.cssText = `display:grid;box-sizing:border-box;width:${size}px;height:${size}px;place-items:center;padding:0;border:2px solid #fff;border-radius:50%;background:${count >= 50 ? '#8f3040' : count >= 10 ? '#087f8c' : '#176f46'};box-shadow:0 2px 9px rgb(0 0 0 / 28%);color:#fff;font:700 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;`
+    element.style.cssText = `display:grid;box-sizing:border-box;width:${size}px;height:${size}px;place-items:center;padding:0;border:3px solid rgb(255 255 255 / 96%);border-radius:50%;background:linear-gradient(145deg,${count >= 50 ? '#b44456,#742536' : count >= 10 ? '#12a3ad,#08717c' : '#24915f,#12613f'});box-shadow:0 0 0 5px rgb(255 255 255 / 26%),0 4px 14px rgb(0 0 0 / 28%);color:#fff;font:800 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;`
     return element
   }
 
@@ -531,7 +598,7 @@ export class AMapProvider implements MapProvider {
       onClick: () => this.poiSelectHandler?.(record.poi)
     })
     context.marker.setContent(content)
-    if (this.amap) context.marker.setOffset(new this.amap.Pixel(-15, -38))
+    if (this.amap) context.marker.setOffset(new this.amap.Pixel(-19, -46))
   }
 
   private readonly renderClusterMarker = (context: AMapClusterRenderContext): void => {
@@ -627,6 +694,56 @@ export class AMapProvider implements MapProvider {
     this.hotspotInfoWindow ??= new this.amap.InfoWindow({ offset: new this.amap.Pixel(0, -10) })
     this.hotspotInfoWindow.setContent(content)
     this.hotspotInfoWindow.open(this.map, position)
+    this.poiSelectHandler?.({
+      id: this.nativePoiId(event.id, event.name.trim(), position),
+      name: event.name.trim(),
+      category: 'nearby',
+      point: { lng: position[0], lat: position[1], crs: 'GCJ-02' },
+      status: 'draft',
+      source: 'amap-native'
+    })
+  }
+
+  private readPlacePois(result: AMapPlaceSearchResult): AMapPlacePoi[] {
+    return Array.isArray(result.poiList?.pois) ? result.poiList.pois : []
+  }
+
+  private nativeMapPoi(poi: AMapPlacePoi): MapPoi | null {
+    const name = poi.name?.trim()
+    const lng = poi.location?.getLng()
+    const lat = poi.location?.getLat()
+    if (!name || !Number.isFinite(lng) || !Number.isFinite(lat)) return null
+    const position: AMapPosition = [lng!, lat!]
+    return {
+      id: this.nativePoiId(poi.id, name, position),
+      name,
+      category: this.nativePoiCategory(poi.type),
+      point: { lng: position[0], lat: position[1], crs: 'GCJ-02' },
+      status: 'draft',
+      address: poi.address?.trim() || undefined,
+      source: 'amap-native'
+    }
+  }
+
+  private nativePoiId(id: string | undefined, name: string, position: AMapPosition): string {
+    const identity = id?.trim() || `${name}-${position[0].toFixed(6)}-${position[1].toFixed(6)}`
+    return `amap-native-${encodeURIComponent(identity)}`
+  }
+
+  private nativePoiCategory(type: string | undefined): string {
+    const value = type ?? ''
+    if (/餐饮|美食|咖啡|茶/.test(value)) return 'food'
+    if (/快递|物流|邮政/.test(value)) return 'express'
+    if (/住宿|酒店|宾馆/.test(value)) return 'dorm'
+    if (/学校|科教|教学/.test(value)) return 'campus-building'
+    if (/生活服务|医疗|银行|通信|维修/.test(value)) return 'service'
+    return 'nearby'
+  }
+
+  private visibleSearchRadius(center: AMapPosition, edge: AMapPosition): number {
+    const latMeters = (edge[1] - center[1]) * 111_320
+    const lngMeters = (edge[0] - center[0]) * 111_320 * Math.cos(center[1] * Math.PI / 180)
+    return Math.min(50_000, Math.max(300, Math.ceil(Math.hypot(latMeters, lngMeters))))
   }
 
   private async convertPoint(point: GeoPoint, amap: AMapNamespace): Promise<AMapPosition | null> {
@@ -713,7 +830,7 @@ export class AMapProvider implements MapProvider {
   }
 
   private isRenderablePoint(point: GeoPoint): boolean {
-    return point.crs === 'WGS84'
+    return (point.crs === 'WGS84' || point.crs === 'GCJ-02')
       && Number.isFinite(point.lng)
       && Number.isFinite(point.lat)
       && point.lng >= -180 && point.lng <= 180

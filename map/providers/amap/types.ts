@@ -9,6 +9,11 @@ export interface AMapLngLat {
   getLng(): number
   getLat(): number
 }
+
+export interface AMapBounds {
+  getSouthWest(): AMapLngLat
+  getNorthEast(): AMapLngLat
+}
 export interface AMapMouseEvent {
   originEvent?: Event
 }
@@ -101,8 +106,31 @@ export interface AMapMap {
   remove(overlays: AMapOverlay | AMapOverlay[]): void
   destroy(): void
   getZoom(): number
+  getCenter(): AMapLngLat
+  getBounds(): AMapBounds
   setZoomAndCenter(zoom: number, center: AMapPosition): void
   setFitView(overlays?: AMapOverlay[], immediately?: boolean, avoid?: number[], maxZoom?: number): void
+}
+
+export interface AMapPlacePoi {
+  id?: string
+  name?: string
+  address?: string
+  type?: string
+  location?: AMapLngLat
+}
+
+export interface AMapPlaceSearchResult {
+  poiList?: { pois?: AMapPlacePoi[] }
+}
+
+export interface AMapPlaceSearch {
+  searchNearBy(
+    keyword: string,
+    center: AMapPosition,
+    radius: number,
+    callback: (status: string, result: AMapPlaceSearchResult | string) => void
+  ): void
 }
 
 export interface AMapConvertResult {
@@ -133,6 +161,7 @@ export interface AMapNamespace {
     }
   ) => AMapMarkerCluster
   Walking: new (options: Record<string, unknown>) => AMapWalking
+  PlaceSearch: new (options: Record<string, unknown>) => AMapPlaceSearch
   plugin(plugins: string[], callback: () => void): void
   convertFrom(
     points: AMapPosition | AMapPosition[],

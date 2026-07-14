@@ -12,6 +12,8 @@ export interface MapPoi {
   category: string
   point: GeoPoint
   status: 'draft' | 'published' | 'archived'
+  address?: string
+  source?: 'catalog' | 'amap-native'
 }
 
 interface MapAreaBase {
