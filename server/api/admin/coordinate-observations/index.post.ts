@@ -6,22 +6,25 @@ import { parseBody } from '../../../utils/validation'
 
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event, true)
-  const result = createCoordinateObservation(
+  const { observation, created } = createCoordinateObservation(
     client,
     await parseBody(event, createCoordinateObservationSchema)
   )
-  writeAudit(client, event, {
-    actorAdminId: session.admin.id,
-    action: 'coordinate_observation.create',
-    entityType: 'place_coordinate_observation',
-    entityId: result.id,
-    details: {
-      placeId: result.placeId,
-      accuracyMeters: result.accuracyMeters,
-      sampleCount: result.sampleCount,
-      pointRole: result.pointRole
-    }
-  })
-  setResponseStatus(event, 201)
-  return result
+  if (created) {
+    writeAudit(client, event, {
+      actorAdminId: session.admin.id,
+      action: 'coordinate_observation.create',
+      entityType: 'place_coordinate_observation',
+      entityId: observation.id,
+      details: {
+        clientObservationId: observation.clientObservationId,
+        placeId: observation.placeId,
+        accuracyMeters: observation.accuracyMeters,
+        sampleCount: observation.sampleCount,
+        pointRole: observation.pointRole
+      }
+    })
+  }
+  setResponseStatus(event, created ? 201 : 200)
+  return observation
 })

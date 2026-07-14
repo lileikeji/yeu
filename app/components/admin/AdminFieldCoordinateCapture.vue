@@ -7,6 +7,14 @@ import {
   coordinateCaptureBelongsToPlace,
   shouldLockCoordinateCapturePlace
 } from '~/utils/coordinate-capture-session'
+import {
+  evaluateCoordinateCapture,
+  FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS,
+  FIELD_CAPTURE_MAX_SAMPLES,
+  FIELD_CAPTURE_MIN_DURATION_MS,
+  FIELD_CAPTURE_MIN_SAMPLE_INTERVAL_MS,
+  FIELD_CAPTURE_MIN_SAMPLES
+} from '~~/shared/utils/coordinate-sampling'
 
 const props = defineProps<{
   placeId: string
@@ -19,7 +27,6 @@ const emit = defineEmits<{
   sessionLockChange: [locked: boolean]
 }>()
 
-const MAX_SAMPLES = 5
 const samples = ref<ApiCoordinateSample[]>([])
 const evidenceNote = ref('')
 const pointRole = ref<'site-point' | 'main-entrance'>('main-entrance')
@@ -27,31 +34,58 @@ const tracking = ref(false)
 const captureError = ref('')
 const watchId = ref<number | null>(null)
 const capturePlaceId = ref<string | null>(null)
+const clientObservationId = ref<string | null>(null)
+const latestReportedAccuracy = ref<number | null>(null)
 let lastAcceptedAt = 0
 
-const latestSample = computed(() => samples.value.at(-1) ?? null)
+const captureQuality = computed(() => evaluateCoordinateCapture(samples.value))
+const captureSummary = computed(() => captureQuality.value.summary)
 const captureMatchesCurrentPlace = computed(() => coordinateCaptureBelongsToPlace(
   capturePlaceId.value,
   props.placeId
 ))
 const readyToSubmit = computed(() => captureMatchesCurrentPlace.value
-  && samples.value.length >= 3
+  && clientObservationId.value !== null
+  && captureQuality.value.canSubmit
   && evidenceNote.value.trim().length >= 5)
 const sessionLocked = computed(() => shouldLockCoordinateCapturePlace(
   tracking.value,
   samples.value.length
 ))
 const qualityTone = computed(() => {
-  const accuracy = latestSample.value?.accuracyMeters
-  if (accuracy === undefined) return 'neutral'
-  if (accuracy <= 15) return 'success'
-  if (accuracy <= 25) return 'warning'
-  return 'error'
+  if (captureQuality.value.state === 'ready') return 'success'
+  if (captureQuality.value.state === 'unstable' || captureQuality.value.state === 'invalid') return 'error'
+  if (samples.value.length) return 'warning'
+  return 'neutral'
 })
 const qualityLabel = computed(() => {
-  const accuracy = latestSample.value?.accuracyMeters
-  if (accuracy === undefined) return '等待定位'
-  return `精度约 ${accuracy.toFixed(1)} 米`
+  const summary = captureSummary.value
+  if (captureQuality.value.state === 'ready' && summary) {
+    return `稳定 · 有效精度 ${summary.effectiveAccuracyMeters.toFixed(1)} 米`
+  }
+  if (summary) return `有效精度约 ${summary.effectiveAccuracyMeters.toFixed(1)} 米`
+  if (latestReportedAccuracy.value !== null) {
+    return `当前定位约 ${latestReportedAccuracy.value.toFixed(1)} 米`
+  }
+  return '等待高精度定位'
+})
+const qualityDetail = computed(() => {
+  const summary = captureSummary.value
+  if (!samples.value.length && latestReportedAccuracy.value !== null
+    && latestReportedAccuracy.value > FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS) {
+    return `当前修复精度不足，等待 ${FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS} 米以内的定位。`
+  }
+  if (captureQuality.value.state === 'collecting') {
+    return `继续保持静止，至少收录 ${FIELD_CAPTURE_MIN_SAMPLES} 个样本。`
+  }
+  if (captureQuality.value.state === 'too-short' && summary) {
+    return `采样仅持续 ${(summary.captureDurationMs / 1000).toFixed(0)} 秒，请继续至 ${FIELD_CAPTURE_MIN_DURATION_MS / 1000} 秒。`
+  }
+  if (captureQuality.value.state === 'unstable' && summary) {
+    return `样本离散或设备精度超过 ${FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS} 米，请移动到开阔处重采。`
+  }
+  if (captureQuality.value.state === 'invalid') return '样本格式异常，请重采。'
+  return '采样稳定，可停止并填写现场证据。'
 })
 
 function stopCapture(): void {
@@ -69,18 +103,27 @@ function acceptPosition(position: GeolocationPosition): void {
     return
   }
   const now = Date.now()
-  if (now - lastAcceptedAt < 1500 || samples.value.length >= MAX_SAMPLES) return
+  if (samples.value.length >= FIELD_CAPTURE_MAX_SAMPLES) return
   const { longitude, latitude, accuracy } = position.coords
   if (![longitude, latitude, accuracy].every(Number.isFinite) || accuracy < 0 || accuracy > 1000) return
+  const capturedAtMs = Number.isFinite(position.timestamp)
+    && position.timestamp > 0
+    && Math.abs(now - position.timestamp) <= 60_000
+    ? position.timestamp
+    : now
+  latestReportedAccuracy.value = accuracy
+  if (accuracy > FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS
+    || capturedAtMs - lastAcceptedAt < FIELD_CAPTURE_MIN_SAMPLE_INTERVAL_MS) return
 
-  lastAcceptedAt = now
+  lastAcceptedAt = capturedAtMs
   samples.value.push({
     longitude,
     latitude,
     accuracyMeters: accuracy,
-    capturedAt: new Date(position.timestamp).toISOString()
+    capturedAt: new Date(capturedAtMs).toISOString()
   })
-  if (samples.value.length >= MAX_SAMPLES) stopCapture()
+  const quality = evaluateCoordinateCapture(samples.value)
+  if (quality.canSubmit || samples.value.length >= FIELD_CAPTURE_MAX_SAMPLES) stopCapture()
 }
 
 function handlePositionError(error: GeolocationPositionError): void {
@@ -94,6 +137,8 @@ function startCapture(): void {
   captureError.value = ''
   samples.value = []
   capturePlaceId.value = null
+  clientObservationId.value = null
+  latestReportedAccuracy.value = null
   lastAcceptedAt = 0
   if (!navigator.geolocation) {
     captureError.value = '当前浏览器不支持定位。'
@@ -101,6 +146,7 @@ function startCapture(): void {
   }
 
   capturePlaceId.value = props.placeId
+  clientObservationId.value = crypto.randomUUID()
   tracking.value = true
   watchId.value = navigator.geolocation.watchPosition(acceptPosition, handlePositionError, {
     enableHighAccuracy: true,
@@ -113,6 +159,8 @@ function resetCapture(): void {
   stopCapture()
   samples.value = []
   capturePlaceId.value = null
+  clientObservationId.value = null
+  latestReportedAccuracy.value = null
   captureError.value = ''
 }
 
@@ -124,6 +172,7 @@ function submitObservation(): void {
   }
   if (!readyToSubmit.value) return
   emit('submit', {
+    clientObservationId: clientObservationId.value!,
     placeId: capturePlaceId.value!,
     coordinateSystem: 'WGS84',
     captureMethod: 'browser-geolocation',
@@ -175,11 +224,11 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      class="mt-5 grid grid-cols-5 gap-2"
+      class="mt-5 grid grid-cols-7 gap-2"
       aria-label="定位样本进度"
     >
       <span
-        v-for="index in MAX_SAMPLES"
+        v-for="index in FIELD_CAPTURE_MAX_SAMPLES"
         :key="index"
         class="h-2 rounded-sm"
         :class="index <= samples.length ? 'bg-green-600' : 'bg-zinc-200'"
@@ -190,19 +239,27 @@ onBeforeUnmount(() => {
       role="status"
       aria-live="polite"
     >
-      已采集 {{ samples.length }} / {{ MAX_SAMPLES }} 个样本，至少需要 3 个
+      已收录 {{ samples.length }} / {{ FIELD_CAPTURE_MAX_SAMPLES }} 个精度合格样本
+    </p>
+    <p
+      class="mt-1 text-xs"
+      :class="captureQuality.state === 'unstable' || captureQuality.state === 'invalid'
+        ? 'text-red-700'
+        : 'text-zinc-500'"
+    >
+      {{ qualityDetail }}
     </p>
 
     <div
-      v-if="latestSample"
-      class="mt-4 grid grid-cols-2 gap-3 border-y border-zinc-100 py-3 text-xs"
+      v-if="captureSummary"
+      class="mt-4 grid grid-cols-2 gap-3 border-y border-zinc-100 py-3 text-xs sm:grid-cols-4"
     >
       <div>
         <p class="text-zinc-400">
           经度
         </p>
         <p class="mt-1 font-medium tabular-nums text-zinc-800">
-          {{ latestSample.longitude.toFixed(7) }}
+          {{ captureSummary.longitude.toFixed(7) }}
         </p>
       </div>
       <div>
@@ -210,7 +267,23 @@ onBeforeUnmount(() => {
           纬度
         </p>
         <p class="mt-1 font-medium tabular-nums text-zinc-800">
-          {{ latestSample.latitude.toFixed(7) }}
+          {{ captureSummary.latitude.toFixed(7) }}
+        </p>
+      </div>
+      <div>
+        <p class="text-zinc-400">
+          最大离散
+        </p>
+        <p class="mt-1 font-medium tabular-nums text-zinc-800">
+          {{ captureSummary.maxSpreadMeters.toFixed(1) }} 米
+        </p>
+      </div>
+      <div>
+        <p class="text-zinc-400">
+          采样时长
+        </p>
+        <p class="mt-1 font-medium tabular-nums text-zinc-800">
+          {{ (captureSummary.captureDurationMs / 1000).toFixed(0) }} 秒
         </p>
       </div>
     </div>

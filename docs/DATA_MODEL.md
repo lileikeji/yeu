@@ -113,7 +113,7 @@ erDiagram
 
 高德展示取 GCJ-02，MapLibre/标准 GeoJSON 底图通常取 WGS84，百度链接取 BD-09。不得在 API 消费端静默转换。转换属于近似处理，人工标定结果优先于算法转换；重新运行新算法前保留修订记录。
 
-当前 MVP 已先落地 `place_coordinate_observations` 作为现场坐标证据链。每条观测保存地点、WGS84 聚合点、设备有效精度、1 至 10 个原始样本、采集方式、点位角色、采集时间、现场说明、审核状态、审核人和审核记录。浏览器现场采点至少需要 3 个样本；观测批准前不会写入 `places`，普通地点表单也不能直接把坐标标成 `verified`。多坐标系派生链仍按上述 `place_coordinates` 目标模型后续实现。
+当前 MVP 已先落地 `place_coordinate_observations` 作为现场坐标证据链。每条观测保存地点、WGS84 聚合点、设备有效精度、1 至 10 个原始样本、采集方式、点位角色、采集时间、现场说明、审核状态、审核人和审核记录。`places.coordinate_point_role` 保存当前候选/主导航点的点位角色。浏览器现场采点至少需要 3 个样本；第一条观测批准后地点最多为 `unverified`，只有同角色、20 米内、满足可信方法和时间独立性的第二条观测才可 `verified`；普通地点表单不能直接把坐标标成 `verified`。多坐标系派生链仍按上述 `place_coordinates` 目标模型后续实现。
 
 ### 3.4 `map_layers` 与 `map_features`
 

@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
 import { safeLocalPath } from '~/utils/safe-navigation'
 
 const route = useRoute()
+const { copyText, isWechat } = useShareActions()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
 const { data: place, error } = await usePublicPlace(slug)
 if (error.value) throwPublicDetailError(error.value, '地点')
@@ -28,6 +30,13 @@ const mapTarget = computed(() => ({
     ...(returnPath.value ? { from: returnPath.value } : {})
   }
 }))
+const feedbackLink = computed(() => buildDetailFeedbackLink({
+  targetType: 'place',
+  targetId: place.value!.id,
+  targetName: place.value!.name,
+  reasonType: 'place_error',
+  from: route.fullPath
+}))
 
 const categoryLabels: Record<string, string> = {
   'campus-building': '教学 / 学习',
@@ -37,6 +46,18 @@ const categoryLabels: Record<string, string> = {
   'express': '快递',
   'gate': '校门',
   'nearby': '周边服务'
+}
+
+function copyPlaceLocation(): void {
+  if (!place.value) return
+  const location = [
+    place.value.name,
+    place.value.campusArea,
+    place.value.address,
+    place.value.floor,
+    place.value.room
+  ].filter((value): value is string => Boolean(value)).join(' · ')
+  void copyText(location, '地点信息')
 }
 </script>
 
@@ -92,6 +113,15 @@ const categoryLabels: Record<string, string> = {
               size="lg"
             />
             <UButton
+              v-if="place.address || place.campusArea || place.floor || place.room"
+              icon="i-lucide-copy"
+              label="复制位置"
+              color="neutral"
+              variant="outline"
+              size="lg"
+              @click="copyPlaceLocation"
+            />
+            <UButton
               v-if="place.navigationAvailable && place.externalMapUrl"
               :to="place.externalMapUrl"
               target="_blank"
@@ -102,6 +132,12 @@ const categoryLabels: Record<string, string> = {
               size="lg"
             />
           </div>
+          <p
+            v-if="isWechat && place.navigationAvailable && place.externalMapUrl"
+            class="text-xs leading-5 text-zinc-500 md:text-right"
+          >
+            微信内若未唤起地图，可复制位置后在地图应用中搜索。
+          </p>
         </div>
       </div>
     </header>
@@ -208,7 +244,7 @@ const categoryLabels: Record<string, string> = {
         </section>
 
         <UButton
-          :to="{ path: '/feedback', query: { targetType: 'place', targetId: place.id, targetName: place.name, type: 'place_error' } }"
+          :to="feedbackLink"
           icon="i-lucide-message-square-warning"
           label="纠错此地点"
           color="neutral"

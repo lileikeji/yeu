@@ -8,10 +8,11 @@ import type {
   updateFeedbackSchema
 } from '../../../shared/schemas/server'
 import type { DatabaseClient } from '../../database/client'
-import { contents, feedback, places } from '../../database/schema'
+import { contents, feedback, places, procedures } from '../../database/schema'
 import { throwNotFound } from '../../utils/errors'
 import { serializeFeedback } from '../../utils/serializers'
 import { getSecurityConfig, hashOpaqueToken } from '../../utils/security'
+import { activePublicProcedureCondition } from '../procedures/service'
 
 type CreateFeedbackInput = z.infer<typeof createFeedbackSchema>
 type UpdateFeedbackInput = z.infer<typeof updateFeedbackSchema>
@@ -21,20 +22,28 @@ function cleanSearchTerm(value: string): string {
   return value.replace(/[%_]/g, '').trim()
 }
 
-function assertPublicTarget(client: DatabaseClient, input: CreateFeedbackInput): void {
+export function assertPublicFeedbackTarget(client: DatabaseClient, input: CreateFeedbackInput): void {
   if (input.targetType === 'general') {
     return
   }
 
-  const exists = input.targetType === 'place'
-    ? client.db.select({ id: places.id }).from(places).where(and(
-        eq(places.id, input.targetId!),
-        eq(places.status, 'published')
-      )).get()
-    : client.db.select({ id: contents.id }).from(contents).where(and(
-        eq(contents.id, input.targetId!),
-        eq(contents.status, 'published')
-      )).get()
+  let exists: { id: string } | undefined
+  if (input.targetType === 'place') {
+    exists = client.db.select({ id: places.id }).from(places).where(and(
+      eq(places.id, input.targetId!),
+      eq(places.status, 'published')
+    )).get()
+  } else if (input.targetType === 'content') {
+    exists = client.db.select({ id: contents.id }).from(contents).where(and(
+      eq(contents.id, input.targetId!),
+      eq(contents.status, 'published')
+    )).get()
+  } else {
+    exists = client.db.select({ id: procedures.id }).from(procedures).where(and(
+      eq(procedures.id, input.targetId!),
+      activePublicProcedureCondition()
+    )).get()
+  }
 
   if (!exists) {
     throw createError({
@@ -51,7 +60,7 @@ export function createFeedback(
   input: CreateFeedbackInput,
   ipAddress: string
 ) {
-  assertPublicTarget(client, input)
+  assertPublicFeedbackTarget(client, input)
   const id = randomUUID()
   const now = Date.now()
   const security = getSecurityConfig(event)
@@ -63,6 +72,7 @@ export function createFeedback(
     reasonType: input.reasonType,
     message: input.message,
     evidenceUrl: input.evidenceUrl || null,
+    pageUrl: input.pageUrl || null,
     contact: input.contact ?? null,
     status: 'new',
     submitterIpHash: hashOpaqueToken(security.secret, 'feedback-ip', ipAddress),

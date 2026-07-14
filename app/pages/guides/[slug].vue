@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { findFreshmanGuide } from '~~/data/seeds/public-content'
+import { buildDetailFeedbackLink, buildGeneralFeedbackLink } from '~/utils/feedback-context'
 import { resolvePublicGuide } from '~/utils/public-catalog'
 
 const route = useRoute()
@@ -65,6 +66,19 @@ const fallbackMessage = computed(() => {
   if (guide.value.isApiPublished) return null
   return '后台尚未接管指南目录，当前显示内置基础指南。'
 })
+const feedbackLink = computed(() => guide.value.contentId
+  ? buildDetailFeedbackLink({
+      targetType: 'content',
+      targetId: guide.value.contentId,
+      targetName: guide.value.title,
+      reasonType: 'content_outdated',
+      from: route.fullPath
+    })
+  : buildGeneralFeedbackLink({
+      targetName: guide.value.title,
+      reasonType: 'content_outdated',
+      from: route.fullPath
+    }))
 
 useSeoMeta({
   title: () => guide.value.title,
@@ -222,7 +236,7 @@ const relatedAction = computed(() => {
 
         <div class="mt-8 flex flex-wrap gap-2">
           <UButton
-            to="/feedback"
+            :to="feedbackLink"
             icon="i-lucide-message-square-warning"
             label="反馈错误或补充资料"
             color="neutral"

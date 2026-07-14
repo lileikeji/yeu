@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
+const { sharePage } = useShareActions()
 
 const navigation = [
   { label: '首页', to: '/', icon: 'i-lucide-house' },
@@ -11,6 +12,10 @@ const navigation = [
 function isActive(to: string) {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
 }
+
+function shareCurrentPage(): void {
+  void sharePage()
+}
 </script>
 
 <template>
@@ -20,10 +25,10 @@ function isActive(to: string) {
       class="fixed left-3 top-3 z-50 -translate-y-20 rounded-md bg-white px-4 py-2 text-sm font-semibold text-green-800 shadow-lg focus:translate-y-0"
     >跳至主要内容</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
-      <div class="page-shell flex h-16 items-center justify-between gap-6">
+      <div class="page-shell flex h-16 items-center justify-between gap-2 md:gap-6">
         <NuxtLink
           to="/"
-          class="flex min-w-0 items-center gap-3"
+          class="flex min-w-0 flex-1 items-center gap-3 md:flex-none"
           aria-label="仰恩新生指南首页"
         >
           <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-800 text-sm font-bold text-white">YEU</span>
@@ -47,13 +52,20 @@ function isActive(to: string) {
           </UButton>
         </nav>
 
-        <div class="flex shrink-0 items-center gap-1">
+        <div class="flex shrink-0 items-center gap-0 sm:gap-1">
           <UButton
             to="/search"
             icon="i-lucide-search"
             color="neutral"
             variant="ghost"
             aria-label="全站搜索"
+          />
+          <UButton
+            icon="i-lucide-share-2"
+            color="neutral"
+            variant="ghost"
+            aria-label="分享当前页面"
+            @click="shareCurrentPage"
           />
           <UButton
             to="/admin"

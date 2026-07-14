@@ -45,6 +45,21 @@ function insertContent(
   `).run(id, kind, id, title, summary, JSON.stringify(metadata), status, updatedAt, updatedAt)
 }
 
+function insertPlace(
+  client: DatabaseClient,
+  id: string,
+  name: string,
+  summary: string,
+  updatedAt: number
+): void {
+  client.sqlite.prepare(`
+    INSERT INTO places (
+      id, slug, name, summary, body, scope, type, coordinate_verification,
+      status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, '', 'campus', 'building', 'missing', 'published', ?, ?)
+  `).run(id, id, name, summary, updatedAt, updatedAt)
+}
+
 function insertProcedure(
   client: DatabaseClient,
   id: string,
@@ -97,6 +112,7 @@ test('punctuation-only search terms do not match the full catalog', () => {
     insertContent(fixture.client, 'guide-one', '校园网', '网络办理说明', Date.now())
     assert.deepEqual(searchPublishedContent(fixture.client, ' %_% ', 20), {
       query: ' %_% ',
+      type: null,
       items: [],
       total: 0,
       hasManagedContent: true,
@@ -168,11 +184,66 @@ test('an empty database reports that static content has not been taken over', ()
   try {
     assert.deepEqual(searchPublishedContent(fixture.client, '网', 20), {
       query: '网',
+      type: null,
       items: [],
       total: 0,
       hasManagedContent: false,
       managedKinds: []
     })
+  } finally {
+    fixture.cleanup()
+  }
+})
+
+test('search type query accepts only public result types', () => {
+  for (const type of ['place', 'procedure', 'guide', 'department', 'club', 'notice']) {
+    assert.equal(searchQuerySchema.parse({ q: '新生', type }).type, type)
+  }
+
+  assert.equal(searchQuerySchema.parse({ q: '新生' }).type, undefined)
+  assert.throws(() => searchQuerySchema.parse({ q: '新生', type: 'content' }))
+  assert.throws(() => searchQuerySchema.parse({ q: '新生', type: 'all' }))
+})
+
+test('type filtering happens before result totals and limits are applied', () => {
+  const fixture = createFixture()
+  try {
+    const now = Date.now()
+    insertPlace(fixture.client, 'shared-place', 'Shared place', 'Shared location', now + 10)
+    insertProcedure(fixture.client, 'shared-procedure')
+    insertContent(fixture.client, 'shared-guide-old', 'Shared guide old', 'Shared guide', now, 'published', 'guide')
+    insertContent(fixture.client, 'shared-guide-new', 'Shared guide new', 'Shared guide', now + 1, 'published', 'guide')
+    insertContent(fixture.client, 'shared-department', 'Shared department', 'Shared office', now + 2, 'published', 'department')
+    insertContent(fixture.client, 'shared-club', 'Shared club', 'Shared student club', now + 3, 'published', 'club')
+    insertContent(fixture.client, 'shared-notice', 'Shared notice', 'Shared announcement', now + 20, 'published', 'notice')
+
+    const guideResult = searchPublishedContent(fixture.client, 'Shared', 1, 'guide')
+    assert.equal(guideResult.type, 'guide')
+    assert.equal(guideResult.total, 2)
+    assert.equal(guideResult.items.length, 1)
+    assert.ok(guideResult.items.every(item => item.resultType === 'guide' && item.kind === 'guide'))
+
+    const placeResult = searchPublishedContent(fixture.client, 'Shared', 1, 'place')
+    assert.equal(placeResult.total, 1)
+    assert.deepEqual(placeResult.items.map(item => item.resultType), ['place'])
+
+    const procedureResult = searchPublishedContent(fixture.client, 'Shared', 1, 'procedure')
+    assert.equal(procedureResult.total, 1)
+    assert.deepEqual(procedureResult.items.map(item => item.resultType), ['procedure'])
+
+    for (const type of ['department', 'club', 'notice'] as const) {
+      const result = searchPublishedContent(fixture.client, 'Shared', 1, type)
+      assert.equal(result.total, 1)
+      assert.deepEqual(result.items.map(item => item.resultType), [type])
+    }
+
+    const allResultTypes = new Set(
+      searchPublishedContent(fixture.client, 'Shared', 20).items.map(item => item.resultType)
+    )
+    assert.deepEqual(
+      [...allResultTypes].sort(),
+      ['place', 'procedure', 'guide', 'department', 'club', 'notice'].sort()
+    )
   } finally {
     fixture.cleanup()
   }

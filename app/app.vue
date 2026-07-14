@@ -6,6 +6,7 @@ useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
     { name: 'theme-color', content: '#0f5132' },
+    { name: 'mobile-web-app-capable', content: 'yes' },
     { name: 'apple-mobile-web-app-capable', content: 'yes' },
     { name: 'apple-mobile-web-app-status-bar-style', content: 'default' }
   ],
@@ -20,7 +21,9 @@ useSeoMeta({
   description: '面向仰恩大学新生的校园地图、办事流程与校园生活指南。',
   ogSiteName: '仰恩新生指南',
   ogLocale: 'zh_CN',
-  twitterCard: 'summary_large_image'
+  ogImage: '/icons/app-icon-512.png',
+  twitterCard: 'summary_large_image',
+  twitterImage: '/icons/app-icon-512.png'
 })
 </script>
 

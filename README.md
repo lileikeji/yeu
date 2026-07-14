@@ -77,7 +77,7 @@ tests/               单元、集成与端到端测试
 public/              公共静态资源与 PWA 资源
 ```
 
-高德工作地图的可复现导入脚本位于 `scripts/import-amap-workmap.py`，字段审计产物位于 `data/imports/`；人工审核后的 WGS84 子批次通过默认只读的 `pnpm amap:coordinates` 入库。OSM 校界派生数据可用 `pnpm map:boundary:sync` 复核更新。原始 Excel、官网高清图、第三方地图瓦片和登录信息均不提交到仓库。
+高德工作地图的可复现导入脚本位于 `scripts/import-amap-workmap.py`，字段审计产物位于 `data/imports/`；人工审核后的 WGS84 子批次通过默认只读的 `pnpm amap:coordinates` 生成待审核观测，不直接修改地点坐标。OSM 校界派生数据可用 `pnpm map:boundary:sync` 复核更新。仓库仅缓存学校官网校园平面图 `public/images/yeu-campus-plan-2025.jpg`：它由官网来源 URL、8504×3898 尺寸、1,250,742 字节和 SHA-256 `30f50d50492335b0aa8859cb435b17f8b76c9bceebdb81d5b360139de4d7335d` 锁定，只作非导航的相对位置参考；缓存不代表已取得再利用授权，也不能作为经纬度、楼栋入口或通行状态证据。原始 Excel、第三方地图瓦片、第三方截图和登录信息仍不提交到仓库。
 
 ## 文档导航
 

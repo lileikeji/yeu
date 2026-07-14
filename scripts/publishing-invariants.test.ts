@@ -190,6 +190,36 @@ test('managed draft content disables static fallback without becoming public', (
   }
 })
 
+test('partial metadata updates preserve unsubmitted structured guide fields', () => {
+  const fixture = createFixture()
+  try {
+    const sections = [{
+      title: '报到步骤',
+      icon: 'i-lucide-list-checks',
+      items: ['核对官方通知']
+    }]
+    insertContent(fixture.client, 'metadata-preservation', [], 'draft', 'guide', {
+      sections,
+      leadNotice: '以当年官方通知为准',
+      statusText: '部分信息待通知',
+      readMinutes: 4
+    })
+
+    const updated = updateContent(fixture.client, 'metadata-preservation', {
+      metadata: { readMinutes: 6 }
+    })
+
+    assert.deepEqual(updated.metadata, {
+      sections,
+      leadNotice: '以当年官方通知为准',
+      statusText: '部分信息待通知',
+      readMinutes: 6
+    })
+  } finally {
+    fixture.cleanup()
+  }
+})
+
 test('public content lists and details enforce notice validity windows', () => {
   const fixture = createFixture()
   try {
@@ -373,11 +403,19 @@ test('changing draft coordinates clears prior verification', () => {
       verification: 'verified',
       verifiedAt: VERIFIED_AT
     })
+    fixture.client.sqlite.prepare(`
+      UPDATE places
+      SET coordinate_point_role = 'main-entrance',
+        external_map_url = 'https://example.test/old-navigation'
+      WHERE id IN ('moved-draft-place', 'cleared-draft-place')
+    `).run()
 
     const moved = updatePlace(fixture.client, 'moved-draft-place', { longitude: 118.606 })
     assert.equal(moved.longitude, 118.606)
     assert.equal(moved.coordinateVerification, 'unverified')
     assert.equal(moved.coordinateVerifiedAt, null)
+    assert.equal(moved.coordinatePointRole, null)
+    assert.equal(moved.externalMapUrl, null)
 
     const cleared = updatePlace(fixture.client, 'cleared-draft-place', {
       longitude: null,
@@ -389,6 +427,8 @@ test('changing draft coordinates clears prior verification', () => {
     assert.equal(cleared.coordinateSystem, null)
     assert.equal(cleared.coordinateVerification, 'missing')
     assert.equal(cleared.coordinateVerifiedAt, null)
+    assert.equal(cleared.coordinatePointRole, null)
+    assert.equal(cleared.externalMapUrl, null)
   } finally {
     fixture.cleanup()
   }

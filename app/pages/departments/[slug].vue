@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { mergePublicDepartments } from '~/utils/public-catalog'
+import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
 
 const route = useRoute()
@@ -16,6 +17,13 @@ useSeoMeta({
   title: () => department.value?.name ?? '部门',
   description: () => department.value?.summary ?? ''
 })
+const feedbackLink = computed(() => buildDetailFeedbackLink({
+  targetType: 'content',
+  targetId: content.value!.id,
+  targetName: department.value!.name,
+  reasonType: 'content_outdated',
+  from: route.fullPath
+}))
 </script>
 
 <template>
@@ -125,7 +133,7 @@ useSeoMeta({
         </section>
 
         <UButton
-          :to="{ path: '/feedback', query: { targetType: 'content', targetId: content.id, targetName: department.name, type: 'content_outdated' } }"
+          :to="feedbackLink"
           icon="i-lucide-message-square-warning"
           label="反馈部门资料"
           color="neutral"

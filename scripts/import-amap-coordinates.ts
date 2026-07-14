@@ -4,6 +4,12 @@ import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import BetterSqlite3 from 'better-sqlite3'
+import {
+  COORDINATE_POINT_ROLES,
+  MAX_APPROVABLE_COORDINATE_ACCURACY_METERS,
+  type CoordinatePointRole
+} from '../shared/constants/server'
+import { createCoordinateObservationSchema } from '../shared/schemas/server'
 import { isPointWithinBounds, YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS } from '../map/core/campus'
 import { parseAmapMarkers } from './import-amap-drafts'
 
@@ -14,9 +20,11 @@ const DEFAULT_TEMPLATE_PATH = `data/imports/${TEMPLATE_FILE_NAME}`
 const TARGET_SHEET_NAME = '标记位置'
 const EXPECTED_MARKER_COUNT = 76
 const DRAFT_IMPORTER_ID = 'amap-workmap-draft-v1'
-const COORDINATE_IMPORTER_ID = 'amap-coordinate-review-v1'
+const LEGACY_COORDINATE_IMPORTER_ID = 'amap-coordinate-review-v1'
+const OBSERVATION_IMPORTER_ID = 'amap-coordinate-observation-v1'
 const LOCATION_CODE_RE = /^WIA-\d+\.\d+,\d+\.\d+$/
 const ISO_WITH_TIMEZONE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/
+const MAX_EVIDENCE_NOTE_LENGTH = 2_000
 
 export const VERIFIER_CATEGORIES = [
   'authorized-map-owner',
@@ -41,8 +49,13 @@ interface TemplateItem {
   lng: null
   lat: null
   crs: 'GCJ-02'
+  pointRole: null
+  accuracyMeters: null
   coordinateSource: null
+  coordinateSourceUrl: null
   verificationStatus: 'pending-authorized-coordinate-export'
+  verifiedAt: null
+  verifierCategory: null
 }
 
 export interface ReviewedCoordinate {
@@ -52,6 +65,8 @@ export interface ReviewedCoordinate {
   lng: number
   lat: number
   crs: 'WGS84'
+  pointRole: CoordinatePointRole
+  accuracyMeters: number
   coordinateSource: string
   coordinateSourceUrl: string | null
   verificationStatus: 'human-verified'
@@ -67,8 +82,8 @@ interface DraftRawReference {
   locationCode: string
 }
 
-interface StoredCoordinateReview {
-  importer: typeof COORDINATE_IMPORTER_ID
+interface LegacyStoredCoordinateReview {
+  importer: typeof LEGACY_COORDINATE_IMPORTER_ID
   schemaVersion: 1
   longitude: number
   latitude: number
@@ -82,41 +97,47 @@ interface StoredCoordinateReview {
   importedAt: number
 }
 
+interface ParsedReference {
+  base: DraftRawReference
+  legacyReview: LegacyStoredCoordinateReview | null
+  canonical: string
+}
+
 interface ExistingPlace {
   id: string
   slug: string
   name: string
-  longitude: number | null
-  latitude: number | null
-  coordinateSystem: string | null
-  coordinateVerification: string
-  coordinateVerifiedAt: number | null
   sourceRawRef: string | null
-  isOfficial: number
-  isFeatured: number
-  status: string
-  lastVerifiedAt: number | null
-  publishedAt: number | null
-  createdAt: number
-  updatedAt: number
-  sourceCount: number
 }
 
-interface ParsedReference {
-  base: DraftRawReference
-  review: StoredCoordinateReview | null
-  canonical: string
+interface ExistingObservation {
+  id: string
+  clientObservationId: string | null
+  placeId: string
+  longitude: number
+  latitude: number
+  coordinateSystem: string
+  accuracyMeters: number
+  sampleCount: number
+  samplesJson: string
+  captureMethod: string
+  pointRole: string
+  capturedAt: number
+  evidenceNote: string
 }
 
-interface CoordinateUpdate {
+interface PlannedObservation {
+  id: string
+  clientObservationId: string
   place: ExistingPlace
   coordinate: ReviewedCoordinate
-  verifiedAtMs: number
-  nextRawReference: string
+  samplesJson: string
+  evidenceNote: string
+  capturedAt: number
 }
 
 interface ImportPlan {
-  updates: CoordinateUpdate[]
+  inserts: PlannedObservation[]
   skipped: number
   conflicts: CoordinateImportConflict[]
 }
@@ -124,8 +145,12 @@ interface ImportPlan {
 interface DatabaseColumn {
   name: string
   type: string
-  notnull: number
   pk: number
+}
+
+interface DatabaseIndex {
+  name: string
+  unique: number
 }
 
 interface CliIo {
@@ -139,6 +164,7 @@ export interface CoordinateImportConflict {
   name: string
   reason: string
   existingPlaceId?: string
+  existingObservationId?: string
 }
 
 export interface CoordinateImportResult {
@@ -146,8 +172,8 @@ export interface CoordinateImportResult {
   inputPath: string
   databasePath: string
   coordinateCount: number
-  updated: number
-  wouldUpdate: number
+  created: number
+  wouldCreate: number
   skipped: number
   conflicts: number
   applied: boolean
@@ -199,19 +225,9 @@ function loadJson(path: string, label: string): unknown {
   }
 }
 
-function expectedDraftReference(marker: AmapMarker): DraftRawReference {
-  return {
-    importer: DRAFT_IMPORTER_ID,
-    file: RAW_FILE_NAME,
-    sheet: TARGET_SHEET_NAME,
-    sourceRow: marker.sourceRow,
-    locationCode: marker.locationCode
-  }
-}
-
-function deterministicDraftId(marker: AmapMarker): string {
+function deterministicUuid(namespace: string, identity: string): string {
   const bytes = createHash('sha256')
-    .update(`${DRAFT_IMPORTER_ID}\0${marker.sourceRow}\0${marker.locationCode}`, 'utf8')
+    .update(`${namespace}\0${identity}`, 'utf8')
     .digest()
     .subarray(0, 16)
   bytes[6] = (bytes[6]! & 0x0f) | 0x50
@@ -220,8 +236,28 @@ function deterministicDraftId(marker: AmapMarker): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
+function deterministicDraftId(marker: AmapMarker): string {
+  return deterministicUuid(DRAFT_IMPORTER_ID, `${marker.sourceRow}\0${marker.locationCode}`)
+}
+
+function observationIdentity(coordinate: ReviewedCoordinate): string {
+  return `${coordinate.sourceRow}\0${coordinate.locationCode}`
+}
+
+function deterministicClientObservationId(coordinate: ReviewedCoordinate): string {
+  return deterministicUuid(`${OBSERVATION_IMPORTER_ID}:client`, observationIdentity(coordinate))
+}
+
+function deterministicObservationId(coordinate: ReviewedCoordinate): string {
+  return deterministicUuid(`${OBSERVATION_IMPORTER_ID}:row`, observationIdentity(coordinate))
+}
+
 function isVerifierCategory(value: unknown): value is VerifierCategory {
   return typeof value === 'string' && (VERIFIER_CATEGORIES as readonly string[]).includes(value)
+}
+
+function isPointRole(value: unknown): value is CoordinatePointRole {
+  return typeof value === 'string' && (COORDINATE_POINT_ROLES as readonly string[]).includes(value)
 }
 
 function parseEvidenceUrl(value: unknown, context: string): string | null {
@@ -266,6 +302,8 @@ function validateReviewedCoordinates(value: unknown, markers: AmapMarker[], now:
     'lng',
     'lat',
     'crs',
+    'pointRole',
+    'accuracyMeters',
     'coordinateSource',
     'coordinateSourceUrl',
     'verificationStatus',
@@ -303,13 +341,21 @@ function validateReviewedCoordinates(value: unknown, markers: AmapMarker[], now:
     const pointKey = `${itemValue.lng},${itemValue.lat}`
     assertImport(!points.has(pointKey), `${context}: duplicate coordinate ${pointKey} in this batch`)
 
+    assertImport(isPointRole(itemValue.pointRole), `${context}: pointRole must be one of ${COORDINATE_POINT_ROLES.join(', ')}`)
+    assertImport(
+      typeof itemValue.accuracyMeters === 'number'
+      && Number.isFinite(itemValue.accuracyMeters)
+      && itemValue.accuracyMeters > 0
+      && itemValue.accuracyMeters <= MAX_APPROVABLE_COORDINATE_ACCURACY_METERS,
+      `${context}: accuracyMeters must be greater than 0 and at most ${MAX_APPROVABLE_COORDINATE_ACCURACY_METERS}`
+    )
     assertImport(
       typeof itemValue.coordinateSource === 'string'
       && itemValue.coordinateSource === itemValue.coordinateSource.trim()
-      && itemValue.coordinateSource.length > 0
+      && itemValue.coordinateSource.length >= 5
       && itemValue.coordinateSource.length <= 1_000
       && !itemValue.coordinateSource.includes('\0'),
-      `${context}: coordinateSource must be a non-blank evidence description of at most 1000 characters`
+      `${context}: coordinateSource must be an evidence description of 5 to 1000 characters`
     )
     const coordinateSourceUrl = parseEvidenceUrl(itemValue.coordinateSourceUrl, context)
     assertImport(itemValue.verificationStatus === 'human-verified', `${context}: verificationStatus must be human-verified`)
@@ -326,6 +372,8 @@ function validateReviewedCoordinates(value: unknown, markers: AmapMarker[], now:
       lng: itemValue.lng,
       lat: itemValue.lat,
       crs: 'WGS84',
+      pointRole: itemValue.pointRole,
+      accuracyMeters: itemValue.accuracyMeters,
       coordinateSource: itemValue.coordinateSource,
       coordinateSourceUrl,
       verificationStatus: 'human-verified',
@@ -338,7 +386,10 @@ function validateReviewedCoordinates(value: unknown, markers: AmapMarker[], now:
 function validateCoordinateTemplate(value: unknown, markers: AmapMarker[]): TemplateItem[] {
   assertImport(Array.isArray(value), 'Coordinate template must be a JSON array')
   assertImport(value.length === EXPECTED_MARKER_COUNT, `Coordinate template must contain exactly ${EXPECTED_MARKER_COUNT} items`)
-  const expectedKeys = ['sourceRow', 'name', 'locationCode', 'lng', 'lat', 'crs', 'coordinateSource', 'verificationStatus'] as const
+  const expectedKeys = [
+    'sourceRow', 'name', 'locationCode', 'lng', 'lat', 'crs', 'pointRole', 'accuracyMeters',
+    'coordinateSource', 'coordinateSourceUrl', 'verificationStatus', 'verifiedAt', 'verifierCategory'
+  ] as const
   return value.map((itemValue, index): TemplateItem => {
     const context = `Coordinate template item ${index + 1}`
     const marker = markers[index]!
@@ -349,8 +400,11 @@ function validateCoordinateTemplate(value: unknown, markers: AmapMarker[]): Temp
     assertImport(itemValue.locationCode === marker.locationCode, `${context}: WIA locationCode drifted from the reviewed export`)
     assertImport(itemValue.lng === null && itemValue.lat === null, `${context}: committed template coordinates must remain null`)
     assertImport(itemValue.crs === 'GCJ-02', `${context}: template crs changed`)
-    assertImport(itemValue.coordinateSource === null, `${context}: committed template provenance must remain null`)
+    assertImport(itemValue.pointRole === null, `${context}: committed template pointRole must remain null`)
+    assertImport(itemValue.accuracyMeters === null, `${context}: committed template accuracyMeters must remain null`)
+    assertImport(itemValue.coordinateSource === null && itemValue.coordinateSourceUrl === null, `${context}: committed template provenance must remain null`)
     assertImport(itemValue.verificationStatus === 'pending-authorized-coordinate-export', `${context}: template verificationStatus changed`)
+    assertImport(itemValue.verifiedAt === null && itemValue.verifierCategory === null, `${context}: committed template review fields must remain null`)
     return itemValue as unknown as TemplateItem
   })
 }
@@ -362,14 +416,14 @@ function loadAuthoritativeMarkers(rawPath: string, templatePath: string): AmapMa
   return markers
 }
 
-function isStoredReview(value: unknown): value is StoredCoordinateReview {
+function isLegacyStoredReview(value: unknown): value is LegacyStoredCoordinateReview {
   if (!isRecord(value)) return false
   const keys = [
     'importer', 'schemaVersion', 'longitude', 'latitude', 'coordinateSystem', 'coordinateSource',
     'coordinateSourceUrl', 'verificationStatus', 'verifiedAt', 'verifierCategory', 'inputSha256', 'importedAt'
   ]
-  if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys.sort())) return false
-  return value.importer === COORDINATE_IMPORTER_ID
+  return JSON.stringify(Object.keys(value).sort()) === JSON.stringify(keys.sort())
+    && value.importer === LEGACY_COORDINATE_IMPORTER_ID
     && value.schemaVersion === 1
     && typeof value.longitude === 'number'
     && Number.isFinite(value.longitude)
@@ -396,8 +450,8 @@ function parseManagedReference(value: string | null): ParsedReference | null {
     return null
   }
   if (!isRecord(parsed)) return null
-  const hasReview = Object.hasOwn(parsed, 'coordinateReview')
-  const expectedKeys = hasReview
+  const hasLegacyReview = Object.hasOwn(parsed, 'coordinateReview')
+  const expectedKeys = hasLegacyReview
     ? ['importer', 'file', 'sheet', 'sourceRow', 'locationCode', 'coordinateReview']
     : ['importer', 'file', 'sheet', 'sourceRow', 'locationCode']
   if (JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(expectedKeys.sort())) return null
@@ -407,7 +461,7 @@ function parseManagedReference(value: string | null): ParsedReference | null {
     || !Number.isInteger(parsed.sourceRow)
     || typeof parsed.locationCode !== 'string'
     || !LOCATION_CODE_RE.test(parsed.locationCode)) return null
-  if (hasReview && !isStoredReview(parsed.coordinateReview)) return null
+  if (hasLegacyReview && !isLegacyStoredReview(parsed.coordinateReview)) return null
   const base: DraftRawReference = {
     importer: DRAFT_IMPORTER_ID,
     file: RAW_FILE_NAME,
@@ -415,148 +469,155 @@ function parseManagedReference(value: string | null): ParsedReference | null {
     sourceRow: Number(parsed.sourceRow),
     locationCode: parsed.locationCode
   }
-  const review = hasReview ? parsed.coordinateReview as StoredCoordinateReview : null
-  const canonical = JSON.stringify(review ? { ...base, coordinateReview: review } : base)
-  return { base, review, canonical }
+  const legacyReview = hasLegacyReview ? parsed.coordinateReview as LegacyStoredCoordinateReview : null
+  const canonical = JSON.stringify(legacyReview ? { ...base, coordinateReview: legacyReview } : base)
+  return { base, legacyReview, canonical }
+}
+
+function assertColumns(
+  database: InstanceType<typeof BetterSqlite3>,
+  table: string,
+  expected: Record<string, string>
+): void {
+  const columns = database.prepare(`PRAGMA table_info('${table}')`).all() as DatabaseColumn[]
+  assertImport(columns.length > 0, `Target database has no ${table} table; run pnpm db:migrate first`)
+  const byName = new Map(columns.map(column => [column.name, column]))
+  for (const [name, type] of Object.entries(expected)) {
+    const column = byName.get(name)
+    assertImport(column && column.type.toUpperCase() === type, `Target ${table}.${name} must exist with SQLite type ${type}`)
+  }
 }
 
 function validateDatabaseSchema(database: InstanceType<typeof BetterSqlite3>): void {
-  const columns = database.prepare(`PRAGMA table_info('places')`).all() as DatabaseColumn[]
-  assertImport(columns.length > 0, 'Target database has no places table; run pnpm db:migrate first')
-  const byName = new Map(columns.map(column => [column.name, column]))
-  const expected: Record<string, string> = {
-    id: 'TEXT', slug: 'TEXT', name: 'TEXT', longitude: 'REAL', latitude: 'REAL',
-    coordinate_system: 'TEXT', coordinate_verification: 'TEXT', coordinate_verified_at: 'INTEGER',
-    source_raw_ref: 'TEXT', is_official: 'INTEGER', is_featured: 'INTEGER', status: 'TEXT',
-    last_verified_at: 'INTEGER', published_at: 'INTEGER', created_at: 'INTEGER', updated_at: 'INTEGER'
-  }
-  for (const [name, type] of Object.entries(expected)) {
-    const column = byName.get(name)
-    assertImport(column && column.type.toUpperCase() === type, `Target places.${name} must exist with SQLite type ${type}`)
-  }
-  assertImport(byName.get('id')?.pk === 1, 'Target places.id must be the primary key')
-  const sourceColumns = database.prepare(`PRAGMA table_info('sources')`).all() as DatabaseColumn[]
-  const relationColumns = database.prepare(`PRAGMA table_info('place_sources')`).all() as DatabaseColumn[]
-  assertImport(sourceColumns.length > 0 && relationColumns.length > 0, 'Target database has no compatible source tables')
+  assertColumns(database, 'places', {
+    id: 'TEXT', slug: 'TEXT', name: 'TEXT', source_raw_ref: 'TEXT'
+  })
+  assertColumns(database, 'place_coordinate_observations', {
+    id: 'TEXT', client_observation_id: 'TEXT', place_id: 'TEXT', longitude: 'REAL', latitude: 'REAL',
+    coordinate_system: 'TEXT', accuracy_meters: 'REAL', sample_count: 'INTEGER', samples_json: 'TEXT',
+    capture_method: 'TEXT', point_role: 'TEXT', captured_at: 'INTEGER', evidence_note: 'TEXT',
+    review_status: 'TEXT', reviewed_by: 'TEXT', reviewed_at: 'INTEGER', review_note: 'TEXT',
+    created_at: 'INTEGER', updated_at: 'INTEGER'
+  })
+  const observationIndexes = database.prepare(`PRAGMA index_list('place_coordinate_observations')`).all() as DatabaseIndex[]
+  assertImport(
+    observationIndexes.some(index => index.name === 'coordinate_observations_client_id_unique' && index.unique === 1),
+    'Target database is missing the unique coordinate observation idempotency index; run pnpm db:migrate first'
+  )
 }
 
-function expectedStoredReview(coordinate: ReviewedCoordinate, importedAt: number): StoredCoordinateReview {
-  return {
-    importer: COORDINATE_IMPORTER_ID,
-    schemaVersion: 1,
-    longitude: coordinate.lng,
-    latitude: coordinate.lat,
-    coordinateSystem: 'WGS84',
-    coordinateSource: coordinate.coordinateSource,
-    coordinateSourceUrl: coordinate.coordinateSourceUrl,
-    verificationStatus: 'human-verified',
-    verifiedAt: coordinate.verifiedAt,
-    verifierCategory: coordinate.verifierCategory,
-    inputSha256: coordinateFingerprint(coordinate),
-    importedAt
-  }
-}
-
-function sameStoredReview(review: StoredCoordinateReview, coordinate: ReviewedCoordinate): boolean {
-  const expected = expectedStoredReview(coordinate, review.importedAt)
-  return JSON.stringify(review) === JSON.stringify(expected)
-}
-
-function conflictFor(coordinate: ReviewedCoordinate, reason: string, existingPlaceId?: string): CoordinateImportConflict {
+function conflictFor(
+  coordinate: ReviewedCoordinate,
+  reason: string,
+  placeId?: string,
+  observationId?: string
+): CoordinateImportConflict {
   return {
     sourceRow: coordinate.sourceRow,
     locationCode: coordinate.locationCode,
     name: coordinate.name,
     reason,
-    ...(existingPlaceId ? { existingPlaceId } : {})
+    ...(placeId ? { existingPlaceId: placeId } : {}),
+    ...(observationId ? { existingObservationId: observationId } : {})
   }
 }
 
 function loadPlaces(database: InstanceType<typeof BetterSqlite3>): ExistingPlace[] {
   return database.prepare(`
-    SELECT
-      p.id,
-      p.slug,
-      p.name,
-      p.longitude,
-      p.latitude,
-      p.coordinate_system AS coordinateSystem,
-      p.coordinate_verification AS coordinateVerification,
-      p.coordinate_verified_at AS coordinateVerifiedAt,
-      p.source_raw_ref AS sourceRawRef,
-      p.is_official AS isOfficial,
-      p.is_featured AS isFeatured,
-      p.status,
-      p.last_verified_at AS lastVerifiedAt,
-      p.published_at AS publishedAt,
-      p.created_at AS createdAt,
-      p.updated_at AS updatedAt,
-      (SELECT count(*) FROM place_sources ps WHERE ps.place_id = p.id) AS sourceCount
-    FROM places p
+    SELECT id, slug, name, source_raw_ref AS sourceRawRef
+    FROM places
   `).all() as ExistingPlace[]
 }
 
-function initialStateConflict(place: ExistingPlace, marker: AmapMarker, parsed: ParsedReference): string | null {
-  if (place.id !== deterministicDraftId(marker)) return 'Target place ID drifted from the deterministic draft identity'
-  if (place.slug !== `amap-workmap-20260713-r${String(marker.sourceRow).padStart(3, '0')}`) return 'Target place slug was manually changed'
-  if (place.name !== marker.name) return 'Target place name was manually changed'
-  if (place.status !== 'draft' || place.publishedAt !== null) return 'Published or non-draft places cannot receive batch coordinates'
-  if (place.longitude !== null || place.latitude !== null || place.coordinateSystem !== null
-    || place.coordinateVerification !== 'missing' || place.coordinateVerifiedAt !== null) {
-    return 'Coordinate fields were already changed outside this coordinate importer'
-  }
-  if (place.createdAt !== place.updatedAt) return 'Target place was manually edited after draft import'
-  if (place.isOfficial !== 0 || place.isFeatured !== 0 || place.lastVerifiedAt !== null || place.sourceCount !== 0) {
-    return 'Target place metadata or source links were manually changed after draft import'
-  }
-  if (place.sourceRawRef !== parsed.canonical) return 'source_raw_ref formatting or fields drifted from the draft importer output'
-  return null
+function makeEvidenceNote(coordinate: ReviewedCoordinate, sourceRawRef: string): string {
+  const note = JSON.stringify({
+    importer: OBSERVATION_IMPORTER_ID,
+    schemaVersion: 1,
+    coordinateSource: coordinate.coordinateSource,
+    coordinateSourceUrl: coordinate.coordinateSourceUrl,
+    inputVerificationStatus: coordinate.verificationStatus,
+    inputVerifiedAt: coordinate.verifiedAt,
+    inputVerifierCategory: coordinate.verifierCategory,
+    sourceRawRef,
+    inputSha256: coordinateFingerprint(coordinate)
+  })
+  assertImport(
+    note.length <= MAX_EVIDENCE_NOTE_LENGTH,
+    `Coordinate item for source row ${coordinate.sourceRow}: serialized evidence exceeds ${MAX_EVIDENCE_NOTE_LENGTH} characters`
+  )
+  return note
 }
 
-function managedStateConflict(place: ExistingPlace, coordinate: ReviewedCoordinate, parsed: ParsedReference): string | null {
-  const review = parsed.review!
-  if (place.id !== deterministicDraftId(coordinate)) return 'Target place ID drifted from the deterministic draft identity'
-  if (place.slug !== `amap-workmap-20260713-r${String(coordinate.sourceRow).padStart(3, '0')}`) return 'Target place slug was manually changed after coordinate import'
-  if (place.name !== coordinate.name) return 'Target place name was manually changed after coordinate import'
-  if (place.status !== 'draft' || place.publishedAt !== null) return 'Published or non-draft places cannot be treated as an idempotent coordinate rerun'
-  if (!sameStoredReview(review, coordinate)) return 'Reviewed coordinate or evidence differs from the previously imported review'
-  if (place.longitude !== coordinate.lng || place.latitude !== coordinate.lat || place.coordinateSystem !== 'WGS84'
-    || place.coordinateVerification !== 'verified' || place.coordinateVerifiedAt !== Date.parse(coordinate.verifiedAt)) {
-    return 'Stored coordinate fields drifted from the previously imported review'
-  }
-  if (place.updatedAt !== review.importedAt) return 'Target place was manually edited after coordinate import'
-  if (place.isOfficial !== 0 || place.isFeatured !== 0 || place.lastVerifiedAt !== null || place.sourceCount !== 0) {
-    return 'Target place metadata or source links were manually changed after coordinate import'
-  }
-  if (place.sourceRawRef !== parsed.canonical) return 'source_raw_ref formatting or fields drifted after coordinate import'
-  return null
+function observationMatchesPlan(existing: ExistingObservation, planned: PlannedObservation): boolean {
+  return existing.placeId === planned.place.id
+    && existing.longitude === planned.coordinate.lng
+    && existing.latitude === planned.coordinate.lat
+    && existing.coordinateSystem === 'WGS84'
+    && existing.accuracyMeters === planned.coordinate.accuracyMeters
+    && existing.sampleCount === 1
+    && existing.samplesJson === planned.samplesJson
+    && existing.captureMethod === 'authorized-import'
+    && existing.pointRole === planned.coordinate.pointRole
+    && existing.capturedAt === planned.capturedAt
+    && existing.evidenceNote === planned.evidenceNote
+}
+
+function validateObservationContract(planned: PlannedObservation): void {
+  const parsed = createCoordinateObservationSchema.safeParse({
+    clientObservationId: planned.clientObservationId,
+    placeId: planned.place.id,
+    coordinateSystem: 'WGS84',
+    captureMethod: 'authorized-import',
+    pointRole: planned.coordinate.pointRole,
+    evidenceNote: planned.evidenceNote,
+    samples: JSON.parse(planned.samplesJson) as unknown
+  })
+  assertImport(
+    parsed.success,
+    `Coordinate item for source row ${planned.coordinate.sourceRow} no longer matches the server observation contract`
+  )
 }
 
 function buildPlan(
   database: InstanceType<typeof BetterSqlite3>,
   markers: AmapMarker[],
-  coordinates: ReviewedCoordinate[],
-  now: number
+  coordinates: ReviewedCoordinate[]
 ): ImportPlan {
   const places = loadPlaces(database)
   const parsedPlaces = places.map(place => ({ place, parsed: parseManagedReference(place.sourceRawRef) }))
   const markerByRow = new Map(markers.map(marker => [marker.sourceRow, marker]))
-  const updates: CoordinateUpdate[] = []
+  const byClientId = database.prepare(`
+    SELECT id, client_observation_id AS clientObservationId, place_id AS placeId,
+           longitude, latitude, coordinate_system AS coordinateSystem,
+           accuracy_meters AS accuracyMeters, sample_count AS sampleCount,
+           samples_json AS samplesJson, capture_method AS captureMethod,
+           point_role AS pointRole, captured_at AS capturedAt, evidence_note AS evidenceNote
+    FROM place_coordinate_observations WHERE client_observation_id = ?
+  `)
+  const byId = database.prepare(`
+    SELECT id, client_observation_id AS clientObservationId, place_id AS placeId,
+           longitude, latitude, coordinate_system AS coordinateSystem,
+           accuracy_meters AS accuracyMeters, sample_count AS sampleCount,
+           samples_json AS samplesJson, capture_method AS captureMethod,
+           point_role AS pointRole, captured_at AS capturedAt, evidence_note AS evidenceNote
+    FROM place_coordinate_observations WHERE id = ?
+  `)
+  const inserts: PlannedObservation[] = []
   const conflicts: CoordinateImportConflict[] = []
   let skipped = 0
 
   const malformedRelated = parsedPlaces.find(({ place, parsed }) => !parsed
     && place.sourceRawRef !== null
     && (place.sourceRawRef.includes(DRAFT_IMPORTER_ID)
-      || place.sourceRawRef.includes(COORDINATE_IMPORTER_ID)
+      || place.sourceRawRef.includes(LEGACY_COORDINATE_IMPORTER_ID)
       || place.sourceRawRef.includes(RAW_FILE_NAME)))
   if (malformedRelated) {
     return {
-      updates,
+      inserts,
       skipped,
       conflicts: [conflictFor(
         coordinates[0]!,
-        'A place has a malformed source_raw_ref related to this import; repair it through a reviewed workflow before any coordinate batch',
+        'A place has a malformed source_raw_ref related to this import; repair it through a reviewed workflow before importing observations',
         malformedRelated.place.id
       )]
     }
@@ -572,9 +633,12 @@ function buildPlan(
     const idMatch = places.find(place => place.id === expectedId)
 
     if (exactMatches.length !== 1 || rowMatches.length !== 1 || codeMatches.length !== 1) {
-      const reason = exactMatches.length > 1 || rowMatches.length > 1 || codeMatches.length > 1
-        ? 'More than one place uses this source row or WIA locationCode'
-        : 'No uniquely bound draft exists for this source row and WIA locationCode; run the draft importer first'
+      const malformedExpectedReference = idMatch?.sourceRawRef !== null && parseManagedReference(idMatch?.sourceRawRef ?? null) === null
+      const reason = malformedExpectedReference
+        ? 'The deterministically bound place has a malformed source_raw_ref; repair it through a reviewed workflow before importing observations'
+        : exactMatches.length > 1 || rowMatches.length > 1 || codeMatches.length > 1
+          ? 'More than one place uses this source row or WIA locationCode'
+          : 'No uniquely bound draft identity exists for this source row and WIA locationCode; run the draft importer first'
       conflicts.push(conflictFor(coordinate, reason, idMatch?.id ?? exactMatches[0]?.place.id))
       continue
     }
@@ -584,76 +648,89 @@ function buildPlan(
       conflicts.push(conflictFor(coordinate, 'Source row and WIA locationCode are bound to an unexpected place ID', target.place.id))
       continue
     }
-    const duplicatePoint = places.find(place => place.id !== target.place.id
-      && place.longitude === coordinate.lng && place.latitude === coordinate.lat)
-    if (duplicatePoint) {
-      conflicts.push(conflictFor(coordinate, 'Another database place already uses this exact coordinate', duplicatePoint.id))
+    if (target.place.slug !== `amap-workmap-20260713-r${String(marker.sourceRow).padStart(3, '0')}`
+      || target.place.name !== marker.name
+      || target.place.sourceRawRef !== target.parsed!.canonical) {
+      conflicts.push(conflictFor(coordinate, 'The bound place identity or source_raw_ref was changed after draft import', target.place.id))
       continue
     }
 
-    if (target.parsed!.review) {
-      const reason = managedStateConflict(target.place, coordinate, target.parsed!)
-      if (reason) conflicts.push(conflictFor(coordinate, reason, target.place.id))
-      else skipped += 1
-      continue
-    }
-
-    const reason = initialStateConflict(target.place, marker, target.parsed!)
-    if (reason) {
-      conflicts.push(conflictFor(coordinate, reason, target.place.id))
-      continue
-    }
-    const verifiedAtMs = Date.parse(coordinate.verifiedAt)
-    const review = expectedStoredReview(coordinate, now)
-    updates.push({
+    const capturedAt = Date.parse(coordinate.verifiedAt)
+    const samplesJson = JSON.stringify([{
+      longitude: coordinate.lng,
+      latitude: coordinate.lat,
+      accuracyMeters: coordinate.accuracyMeters,
+      capturedAt: coordinate.verifiedAt
+    }])
+    const planned: PlannedObservation = {
+      id: deterministicObservationId(coordinate),
+      clientObservationId: deterministicClientObservationId(coordinate),
       place: target.place,
       coordinate,
-      verifiedAtMs,
-      nextRawReference: JSON.stringify({ ...expectedDraftReference(marker), coordinateReview: review })
-    })
+      samplesJson,
+      evidenceNote: makeEvidenceNote(coordinate, target.place.sourceRawRef!),
+      capturedAt
+    }
+    validateObservationContract(planned)
+    const existingByClient = byClientId.get(planned.clientObservationId) as ExistingObservation | undefined
+    if (existingByClient) {
+      if (observationMatchesPlan(existingByClient, planned)) skipped += 1
+      else conflicts.push(conflictFor(
+        coordinate,
+        'The deterministic import identity already exists with a different coordinate, role, accuracy, evidence, or target',
+        target.place.id,
+        existingByClient.id
+      ))
+      continue
+    }
+    const existingById = byId.get(planned.id) as ExistingObservation | undefined
+    if (existingById) {
+      conflicts.push(conflictFor(
+        coordinate,
+        'The deterministic observation row ID is already occupied by another record',
+        target.place.id,
+        existingById.id
+      ))
+      continue
+    }
+    inserts.push(planned)
   }
 
-  return { updates, skipped, conflicts }
+  return { inserts, skipped, conflicts }
 }
 
-function applyUpdates(database: InstanceType<typeof BetterSqlite3>, updates: CoordinateUpdate[], now: number): number {
-  const update = database.prepare(`
-    UPDATE places
-    SET longitude = @longitude,
-        latitude = @latitude,
-        coordinate_system = 'WGS84',
-        coordinate_verification = 'verified',
-        coordinate_verified_at = @verifiedAt,
-        source_raw_ref = @nextRawReference,
-        updated_at = @now
-    WHERE id = @id
-      AND source_raw_ref = @previousRawReference
-      AND status = 'draft'
-      AND published_at IS NULL
-      AND longitude IS NULL
-      AND latitude IS NULL
-      AND coordinate_system IS NULL
-      AND coordinate_verification = 'missing'
-      AND coordinate_verified_at IS NULL
-      AND created_at = @previousUpdatedAt
-      AND updated_at = @previousUpdatedAt
+function applyInserts(database: InstanceType<typeof BetterSqlite3>, inserts: PlannedObservation[], now: number): number {
+  const insert = database.prepare(`
+    INSERT INTO place_coordinate_observations (
+      id, client_observation_id, place_id, longitude, latitude, coordinate_system,
+      accuracy_meters, sample_count, samples_json, capture_method, point_role,
+      captured_at, evidence_note, review_status, reviewed_by, reviewed_at,
+      review_note, created_at, updated_at
+    ) VALUES (
+      @id, @clientObservationId, @placeId, @longitude, @latitude, 'WGS84',
+      @accuracyMeters, 1, @samplesJson, 'authorized-import', @pointRole,
+      @capturedAt, @evidenceNote, 'pending', NULL, NULL, NULL, @now, @now
+    )
   `)
-  let updated = 0
-  for (const item of updates) {
-    const result = update.run({
-      id: item.place.id,
+  let created = 0
+  for (const item of inserts) {
+    const result = insert.run({
+      id: item.id,
+      clientObservationId: item.clientObservationId,
+      placeId: item.place.id,
       longitude: item.coordinate.lng,
       latitude: item.coordinate.lat,
-      verifiedAt: item.verifiedAtMs,
-      nextRawReference: item.nextRawReference,
-      previousRawReference: item.place.sourceRawRef,
-      previousUpdatedAt: item.place.updatedAt,
+      accuracyMeters: item.coordinate.accuracyMeters,
+      samplesJson: item.samplesJson,
+      pointRole: item.coordinate.pointRole,
+      capturedAt: item.capturedAt,
+      evidenceNote: item.evidenceNote,
       now
     })
-    assertImport(result.changes === 1, `Atomic coordinate update failed for source row ${item.coordinate.sourceRow}`)
-    updated += result.changes
+    assertImport(result.changes === 1, `Atomic observation insert failed for source row ${item.coordinate.sourceRow}`)
+    created += result.changes
   }
-  return updated
+  return created
 }
 
 function makeResult(
@@ -662,7 +739,7 @@ function makeResult(
   databasePath: string,
   coordinateCount: number,
   plan: ImportPlan,
-  updated: number,
+  created: number,
   applied: boolean
 ): CoordinateImportResult {
   return {
@@ -670,8 +747,8 @@ function makeResult(
     inputPath,
     databasePath,
     coordinateCount,
-    updated,
-    wouldUpdate: plan.updates.length,
+    created,
+    wouldCreate: plan.inserts.length,
     skipped: plan.skipped,
     conflicts: plan.conflicts.length,
     applied,
@@ -698,20 +775,20 @@ export function importAmapCoordinates(options: CoordinateImportOptions): Coordin
     database.pragma('foreign_keys = ON')
     validateDatabaseSchema(database)
     if (!apply) {
-      const plan = buildPlan(database, markers, coordinates, now)
+      const plan = buildPlan(database, markers, coordinates)
       return makeResult(false, inputPath, databasePath, coordinates.length, plan, 0, false)
     }
 
     database.exec('BEGIN IMMEDIATE')
     try {
-      const plan = buildPlan(database, markers, coordinates, now)
+      const plan = buildPlan(database, markers, coordinates)
       if (plan.conflicts.length > 0) {
         database.exec('ROLLBACK')
         return makeResult(true, inputPath, databasePath, coordinates.length, plan, 0, false)
       }
-      const updated = applyUpdates(database, plan.updates, now)
+      const created = applyInserts(database, plan.inserts, now)
       database.exec('COMMIT')
-      return makeResult(true, inputPath, databasePath, coordinates.length, plan, updated, true)
+      return makeResult(true, inputPath, databasePath, coordinates.length, plan, created, true)
     } catch (error) {
       if (database.inTransaction) database.exec('ROLLBACK')
       throw error
@@ -725,9 +802,10 @@ function usage(): string {
   return [
     'Usage: pnpm amap:coordinates -- --input PATH [--dry-run] [--apply] [--database PATH]',
     '',
-    'Default mode is read-only dry-run. Only --apply writes reviewed WGS84 coordinates.',
+    'Default mode is read-only dry-run. --apply creates pending authorized-import observations only.',
     'The input may contain any non-empty, independently reviewed subset of the 76 markers.',
     'GCJ-02 and BD-09 input is rejected; this script performs no coordinate conversion.',
+    'The importer never changes a place coordinate, verification state, point role, or publication state.',
     'Default database: NUXT_DATABASE_PATH or ./data/yeu.sqlite'
   ].join('\n')
 }

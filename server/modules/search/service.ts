@@ -1,4 +1,6 @@
 import { and, desc, eq, inArray, like, or } from 'drizzle-orm'
+import type { PublicSearchResultType } from '../../../shared/constants/server'
+import type { ApiSearchResponse } from '../../../shared/types/server'
 import type { DatabaseClient } from '../../database/client'
 import {
   contents,
@@ -63,53 +65,64 @@ function publicMetadataSearchText(metadataJson: string): string {
   return text.join(' ')
 }
 
-export function searchPublishedContent(client: DatabaseClient, query: string, limit: number) {
+export function searchPublishedContent(
+  client: DatabaseClient,
+  query: string,
+  limit: number,
+  type?: PublicSearchResultType
+): ApiSearchResponse {
   const search = cleanSearchTerm(query)
   const managedKinds = getManagedContentKinds(client)
   const hasManagedContent = managedKinds.length > 0
   if (!search) {
-    return { query, items: [], total: 0, hasManagedContent, managedKinds }
+    return { query, type: type ?? null, items: [], total: 0, hasManagedContent, managedKinds }
   }
 
   const now = Date.now()
+  const contentKind = type && type !== 'place' && type !== 'procedure' ? type : null
 
-  const placeRows = client.db.select({
-    id: places.id,
-    slug: places.slug,
-    title: places.name,
-    summary: places.summary,
-    address: places.address,
-    category: places.category,
-    updatedAt: places.updatedAt
-  }).from(places).where(and(
-    eq(places.status, 'published'),
-    or(
-      like(places.name, `%${search}%`),
-      like(places.summary, `%${search}%`),
-      like(places.address, `%${search}%`)
-    )
-  )).orderBy(desc(places.isFeatured), desc(places.updatedAt)).all()
+  const placeRows = !type || type === 'place'
+    ? client.db.select({
+        id: places.id,
+        slug: places.slug,
+        title: places.name,
+        summary: places.summary,
+        address: places.address,
+        category: places.category,
+        updatedAt: places.updatedAt
+      }).from(places).where(and(
+        eq(places.status, 'published'),
+        or(
+          like(places.name, `%${search}%`),
+          like(places.summary, `%${search}%`),
+          like(places.address, `%${search}%`)
+        )
+      )).orderBy(desc(places.isFeatured), desc(places.updatedAt)).all()
+    : []
 
-  const contentRows = client.db.select({
-    id: contents.id,
-    slug: contents.slug,
-    title: contents.title,
-    summary: contents.summary,
-    body: contents.body,
-    category: contents.category,
-    kind: contents.kind,
-    metadataJson: contents.metadataJson,
-    updatedAt: contents.updatedAt
-  }).from(contents).where(and(
-    eq(contents.status, 'published'),
-    activePublicContentCondition(now),
-    or(
-      like(contents.title, `%${search}%`),
-      like(contents.summary, `%${search}%`),
-      like(contents.body, `%${search}%`),
-      like(contents.metadataJson, `%${search}%`)
-    )
-  )).orderBy(desc(contents.isFeatured), desc(contents.updatedAt)).all()
+  const contentRows = !type || contentKind
+    ? client.db.select({
+        id: contents.id,
+        slug: contents.slug,
+        title: contents.title,
+        summary: contents.summary,
+        body: contents.body,
+        category: contents.category,
+        kind: contents.kind,
+        metadataJson: contents.metadataJson,
+        updatedAt: contents.updatedAt
+      }).from(contents).where(and(
+        eq(contents.status, 'published'),
+        activePublicContentCondition(now),
+        contentKind ? eq(contents.kind, contentKind) : undefined,
+        or(
+          like(contents.title, `%${search}%`),
+          like(contents.summary, `%${search}%`),
+          like(contents.body, `%${search}%`),
+          like(contents.metadataJson, `%${search}%`)
+        )
+      )).orderBy(desc(contents.isFeatured), desc(contents.updatedAt)).all()
+    : []
 
   const searchableContentRows = contentRows.flatMap((row) => {
     const metadataSearchText = publicMetadataSearchText(row.metadataJson)
@@ -120,19 +133,21 @@ export function searchPublishedContent(client: DatabaseClient, query: string, li
       : []
   })
 
-  const procedureRows = client.db.select({
-    id: procedures.id,
-    slug: procedures.slug,
-    title: procedures.title,
-    summary: procedures.summary,
-    body: procedures.body,
-    category: procedures.category,
-    statusText: procedures.statusText,
-    updatedAt: procedures.updatedAt
-  }).from(procedures)
-    .where(activePublicProcedureCondition(now))
-    .orderBy(desc(procedures.updatedAt))
-    .all()
+  const procedureRows = !type || type === 'procedure'
+    ? client.db.select({
+        id: procedures.id,
+        slug: procedures.slug,
+        title: procedures.title,
+        summary: procedures.summary,
+        body: procedures.body,
+        category: procedures.category,
+        statusText: procedures.statusText,
+        updatedAt: procedures.updatedAt
+      }).from(procedures)
+        .where(activePublicProcedureCondition(now))
+        .orderBy(desc(procedures.updatedAt))
+        .all()
+    : []
   const procedureIds = procedureRows.map(row => row.id)
   const stepRows = procedureIds.length > 0
     ? client.db.select({
@@ -173,6 +188,7 @@ export function searchPublishedContent(client: DatabaseClient, query: string, li
   const rankedItems = [
     ...placeRows.map(row => ({
       entityType: 'place' as const,
+      resultType: 'place' as const,
       id: row.id,
       slug: row.slug,
       title: row.title,
@@ -184,6 +200,7 @@ export function searchPublishedContent(client: DatabaseClient, query: string, li
     })),
     ...searchableContentRows.map(({ row, metadataSearchText }) => ({
       entityType: 'content' as const,
+      resultType: row.kind,
       id: row.id,
       slug: row.slug,
       title: row.title,
@@ -195,6 +212,7 @@ export function searchPublishedContent(client: DatabaseClient, query: string, li
     })),
     ...searchableProcedureRows.map(({ row, detail }) => ({
       entityType: 'procedure' as const,
+      resultType: 'procedure' as const,
       id: row.id,
       slug: row.slug,
       title: row.title,
@@ -213,6 +231,7 @@ export function searchPublishedContent(client: DatabaseClient, query: string, li
 
   return {
     query,
+    type: type ?? null,
     items,
     total,
     hasManagedContent,

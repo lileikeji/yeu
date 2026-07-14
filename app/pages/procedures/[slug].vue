@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
+import {
+  filterProcedureItemsForAudience,
+  normalizeProcedureAudience,
+  type ProcedureAudienceSelection
+} from '~/utils/procedure-audience'
 
 const route = useRoute()
+const router = useRouter()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
 const { data: procedure, error } = await usePublicProcedure(slug)
 if (error.value) throwPublicDetailError(error.value, '办事流程')
@@ -26,6 +33,27 @@ const stateLabel = {
   'partial': '部分确认',
   'awaiting-notice': '待通知'
 } as const
+const audienceOptions: Array<{ value: ProcedureAudienceSelection, label: string }> = [
+  { value: 'all', label: '全部新生' },
+  { value: 'undergraduate', label: '普通本科' },
+  { value: 'transfer', label: '专升本' }
+]
+const selectedAudience = ref<ProcedureAudienceSelection>(normalizeProcedureAudience(route.query.audience))
+const visibleMaterials = computed(() => filterProcedureItemsForAudience(
+  procedure.value?.materials ?? [],
+  selectedAudience.value
+))
+const visibleSteps = computed(() => filterProcedureItemsForAudience(
+  procedure.value?.steps ?? [],
+  selectedAudience.value
+))
+const feedbackLink = computed(() => buildDetailFeedbackLink({
+  targetType: 'procedure',
+  targetId: procedure.value!.id,
+  targetName: procedure.value!.title,
+  reasonType: 'procedure_error',
+  from: route.fullPath
+}))
 
 const completedStepIds = ref<string[]>([])
 const storageKey = computed(() => `yeu:procedure-checklist:${procedure.value?.slug ?? slug}`)
@@ -78,6 +106,13 @@ function mapLink(placeSlug: string, stepId: string) {
     query: { place: placeSlug, from: `/procedures/${slug}#step-${stepId}` }
   }
 }
+
+watch(selectedAudience, (value) => {
+  const query = { ...route.query }
+  if (value === 'all') delete query.audience
+  else query.audience = value
+  void router.replace({ query })
+})
 </script>
 
 <template>
@@ -123,6 +158,23 @@ function mapLink(placeSlug: string, stepId: string) {
             <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
               {{ procedure.summary }}
             </p>
+            <div
+              class="scrollbar-none mt-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-md border border-zinc-200 bg-zinc-50 p-1"
+              role="group"
+              aria-label="选择新生类型"
+            >
+              <UButton
+                v-for="option in audienceOptions"
+                :key="option.value"
+                :label="option.label"
+                size="sm"
+                :color="selectedAudience === option.value ? 'primary' : 'neutral'"
+                :variant="selectedAudience === option.value ? 'solid' : 'ghost'"
+                class="shrink-0"
+                :aria-pressed="selectedAudience === option.value"
+                @click="selectedAudience = option.value"
+              />
+            </div>
           </div>
 
           <dl class="divide-y divide-zinc-100 border-y border-zinc-200 text-sm">
@@ -191,19 +243,19 @@ function mapLink(placeSlug: string, stepId: string) {
               </h2>
             </div>
             <UBadge
-              :color="procedure.materials.length ? 'neutral' : 'warning'"
+              :color="visibleMaterials.length ? 'neutral' : 'warning'"
               variant="soft"
             >
-              {{ procedure.materials.length ? `${procedure.materials.length} 项` : '待通知' }}
+              {{ visibleMaterials.length ? `${visibleMaterials.length} 项` : '待通知' }}
             </UBadge>
           </div>
 
           <ul
-            v-if="procedure.materials.length"
+            v-if="visibleMaterials.length"
             class="mt-5 divide-y divide-zinc-100 border-y border-zinc-200"
           >
             <li
-              v-for="material in procedure.materials"
+              v-for="material in visibleMaterials"
               :key="material.id"
               class="py-4"
             >
@@ -263,7 +315,7 @@ function mapLink(placeSlug: string, stepId: string) {
 
           <ol class="mt-5 space-y-3">
             <li
-              v-for="step in procedure.steps"
+              v-for="(step, stepIndex) in visibleSteps"
               :id="`step-${step.id}`"
               :key="step.id"
               class="surface-panel grid grid-cols-[2.75rem_minmax(0,1fr)] overflow-hidden"
@@ -271,7 +323,7 @@ function mapLink(placeSlug: string, stepId: string) {
               <button
                 type="button"
                 class="grid min-h-32 place-items-center border-r border-zinc-100 bg-zinc-50 text-green-700 transition hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
-                :aria-label="completedStepIds.includes(step.id) ? `取消完成第${step.order}步` : `标记第${step.order}步完成`"
+                :aria-label="completedStepIds.includes(step.id) ? `取消完成第${stepIndex + 1}步` : `标记第${stepIndex + 1}步完成`"
                 :aria-pressed="completedStepIds.includes(step.id)"
                 @click="toggleStep(step.id)"
               >
@@ -283,7 +335,7 @@ function mapLink(placeSlug: string, stepId: string) {
 
               <div class="min-w-0 p-4 md:p-5">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-xs font-bold text-green-700">第 {{ step.order }} 步</span>
+                  <span class="text-xs font-bold text-green-700">第 {{ stepIndex + 1 }} 步</span>
                   <UBadge
                     :color="step.informationState === 'confirmed' ? 'success' : 'warning'"
                     variant="soft"
@@ -301,6 +353,17 @@ function mapLink(placeSlug: string, stepId: string) {
                     />
                     {{ step.timeText }}
                   </span>
+                  <template v-if="selectedAudience === 'all' && step.audience.length < procedure.audience.length">
+                    <UBadge
+                      v-for="stepAudience in step.audience"
+                      :key="stepAudience"
+                      color="neutral"
+                      variant="subtle"
+                      size="sm"
+                    >
+                      {{ audienceLabel[stepAudience] }}
+                    </UBadge>
+                  </template>
                 </div>
                 <h3
                   class="mt-2 text-sm font-bold text-zinc-950 md:text-base"
@@ -347,11 +410,26 @@ function mapLink(placeSlug: string, stepId: string) {
               </div>
             </li>
           </ol>
+          <p
+            v-if="visibleSteps.length === 0"
+            class="mt-5 border-y border-zinc-200 bg-white py-5 text-sm leading-6 text-zinc-600"
+          >
+            当前没有适用于所选新生类型的已确认步骤。
+          </p>
         </section>
       </div>
 
       <aside class="min-w-0">
         <div class="space-y-6 lg:sticky lg:top-24">
+          <UButton
+            :to="feedbackLink"
+            icon="i-lucide-message-square-warning"
+            label="反馈流程错误或补充资料"
+            color="neutral"
+            variant="outline"
+            class="w-full"
+          />
+
           <section
             v-if="procedure.department"
             class="surface-panel p-4"

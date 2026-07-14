@@ -6,6 +6,7 @@ import type {
   CoordinateVerificationState,
   FeedbackStatus,
   FeedbackTargetType,
+  PublicSearchResultType,
   ProcedureAudience,
   ProcedureInformationState,
   ProcedureMethod,
@@ -54,6 +55,7 @@ export interface ApiPlace {
   coordinateSystem: CoordinateReferenceSystem | null
   coordinateVerification: CoordinateVerificationState
   coordinateVerifiedAt: string | null
+  coordinatePointRole: CoordinatePointRole | null
   navigationAvailable: boolean
   sourceRawRef?: string | null
   openingHours: string | null
@@ -78,6 +80,7 @@ export interface ApiCoordinateSample {
 }
 
 export interface CreateCoordinateObservationPayload {
+  clientObservationId: string
   placeId: string
   coordinateSystem: 'WGS84'
   captureMethod: CoordinateObservationMethod
@@ -88,6 +91,7 @@ export interface CreateCoordinateObservationPayload {
 
 export interface ApiCoordinateObservation {
   id: string
+  clientObservationId: string | null
   placeId: string
   placeName: string
   placeScope: 'campus' | 'nearby'
@@ -106,6 +110,7 @@ export interface ApiCoordinateObservation {
   reviewedBy: string | null
   reviewedAt: string | null
   reviewNote: string | null
+  supersededByObservationId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -214,6 +219,27 @@ export interface ApiProcedure {
   updatedAt: string
 }
 
+export interface ApiSearchItem {
+  entityType: 'place' | 'content' | 'procedure'
+  resultType: PublicSearchResultType
+  id: string
+  slug: string
+  title: string
+  summary: string
+  category: string | null
+  kind: ContentKind | null
+  updatedAt: string
+}
+
+export interface ApiSearchResponse {
+  query: string
+  type: PublicSearchResultType | null
+  items: ApiSearchItem[]
+  total: number
+  hasManagedContent: boolean
+  managedKinds: ContentKind[]
+}
+
 export interface ApiFeedback {
   id: string
   targetType: FeedbackTargetType
@@ -221,6 +247,7 @@ export interface ApiFeedback {
   reasonType: string
   message: string
   evidenceUrl: string | null
+  pageUrl: string | null
   contact: string | null
   status: FeedbackStatus
   resolutionNote: string | null

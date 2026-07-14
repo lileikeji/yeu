@@ -6,8 +6,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 3,
@@ -16,8 +21,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 4,
@@ -26,8 +36,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 5,
@@ -36,8 +51,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 6,
@@ -46,8 +66,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 7,
@@ -56,8 +81,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 8,
@@ -66,8 +96,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 9,
@@ -76,8 +111,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 10,
@@ -86,8 +126,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 11,
@@ -96,8 +141,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 12,
@@ -106,8 +156,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 13,
@@ -116,8 +171,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 14,
@@ -126,8 +186,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 15,
@@ -136,8 +201,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 16,
@@ -146,8 +216,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 17,
@@ -156,8 +231,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 18,
@@ -166,8 +246,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 19,
@@ -176,8 +261,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 20,
@@ -186,8 +276,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 21,
@@ -196,8 +291,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 22,
@@ -206,8 +306,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 23,
@@ -216,8 +321,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 24,
@@ -226,8 +336,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 25,
@@ -236,8 +351,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 26,
@@ -246,8 +366,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 27,
@@ -256,8 +381,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 28,
@@ -266,8 +396,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 29,
@@ -276,8 +411,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 30,
@@ -286,8 +426,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 31,
@@ -296,8 +441,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 32,
@@ -306,8 +456,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 33,
@@ -316,8 +471,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 34,
@@ -326,8 +486,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 35,
@@ -336,8 +501,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 36,
@@ -346,8 +516,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 37,
@@ -356,8 +531,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 38,
@@ -366,8 +546,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 39,
@@ -376,8 +561,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 40,
@@ -386,8 +576,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 41,
@@ -396,8 +591,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 42,
@@ -406,8 +606,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 43,
@@ -416,8 +621,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 44,
@@ -426,8 +636,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 45,
@@ -436,8 +651,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 46,
@@ -446,8 +666,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 47,
@@ -456,8 +681,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 48,
@@ -466,8 +696,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 49,
@@ -476,8 +711,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 50,
@@ -486,8 +726,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 51,
@@ -496,8 +741,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 52,
@@ -506,8 +756,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 53,
@@ -516,8 +771,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 54,
@@ -526,8 +786,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 55,
@@ -536,8 +801,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 56,
@@ -546,8 +816,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 57,
@@ -556,8 +831,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 58,
@@ -566,8 +846,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 59,
@@ -576,8 +861,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 60,
@@ -586,8 +876,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 61,
@@ -596,8 +891,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 62,
@@ -606,8 +906,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 63,
@@ -616,8 +921,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 64,
@@ -626,8 +936,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 65,
@@ -636,8 +951,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 66,
@@ -646,8 +966,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 67,
@@ -656,8 +981,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 68,
@@ -666,8 +996,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 69,
@@ -676,8 +1011,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 70,
@@ -686,8 +1026,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 71,
@@ -696,8 +1041,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 72,
@@ -706,8 +1056,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 73,
@@ -716,8 +1071,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 74,
@@ -726,8 +1086,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 75,
@@ -736,8 +1101,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 76,
@@ -746,8 +1116,13 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   },
   {
     "sourceRow": 77,
@@ -756,7 +1131,12 @@
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   }
 ]

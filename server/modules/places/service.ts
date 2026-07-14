@@ -229,6 +229,7 @@ export function createPlace(client: DatabaseClient, input: CreatePlaceInput) {
         coordinateSystem: input.coordinateSystem,
         coordinateVerification: input.coordinateVerification,
         coordinateVerifiedAt: fromIso(input.coordinateVerifiedAt) ?? null,
+        coordinatePointRole: null,
         sourceRawRef: input.sourceRawRef ?? null,
         openingHours: input.openingHours ?? null,
         phone: input.phone ?? null,
@@ -342,7 +343,10 @@ export function updatePlace(client: DatabaseClient, id: string, input: UpdatePla
         floor: fields.floor,
         room: fields.room,
         website: fields.website === '' ? null : fields.website,
-        externalMapUrl: fields.externalMapUrl === '' ? null : fields.externalMapUrl,
+        externalMapUrl: coordinatesChanged
+          ? null
+          : fields.externalMapUrl === '' ? null : fields.externalMapUrl,
+        coordinatePointRole: coordinatesChanged ? null : undefined,
         lastVerifiedAt: fromIso(fields.lastVerifiedAt),
         coordinateVerifiedAt: fromIso(fields.coordinateVerifiedAt),
         updatedAt: Date.now()

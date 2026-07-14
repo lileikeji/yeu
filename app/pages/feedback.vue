@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FeedbackTargetType } from '~~/shared/constants/server'
+import { safeLocalPath } from '~/utils/safe-navigation'
 
 useSeoMeta({
   title: '反馈纠错',
@@ -13,6 +14,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 const reasonOptions = [
   { label: '地点名称或位置错误', value: 'place_error' },
   { label: '内容已经过期', value: 'content_outdated' },
+  { label: '流程步骤或材料有误', value: 'procedure_error' },
   { label: '缺少重要信息', value: 'missing_information' },
   { label: '补充可靠来源', value: 'source_suggestion' },
   { label: '其他问题', value: 'other' }
@@ -28,7 +30,11 @@ const requestedTargetType = computed(() => routeQuery(route.query.targetType).tr
 const requestedTargetId = computed(() => routeQuery(route.query.targetId).trim())
 const targetType = computed<FeedbackTargetType>(() => {
   if (
-    (requestedTargetType.value === 'place' || requestedTargetType.value === 'content')
+    (
+      requestedTargetType.value === 'place'
+      || requestedTargetType.value === 'content'
+      || requestedTargetType.value === 'procedure'
+    )
     && uuidPattern.test(requestedTargetId.value)
   ) {
     return requestedTargetType.value
@@ -40,15 +46,31 @@ const targetId = computed(() => targetType.value === 'general' ? null : requeste
 const targetName = computed(() => targetType.value === 'general'
   ? ''
   : routeQuery(route.query.targetName).trim().slice(0, 160))
-const targetLabel = computed(() => targetType.value === 'place' ? '地点' : '内容')
+const targetLabels = {
+  place: '地点',
+  content: '内容',
+  procedure: '办事流程'
+} satisfies Record<Exclude<FeedbackTargetType, 'general'>, string>
+const targetIcons = {
+  place: 'i-lucide-map-pin',
+  content: 'i-lucide-file-text',
+  procedure: 'i-lucide-list-checks'
+} satisfies Record<Exclude<FeedbackTargetType, 'general'>, string>
+const targetLabel = computed(() => targetType.value === 'general'
+  ? '反馈对象'
+  : targetLabels[targetType.value])
+const targetIcon = computed(() => targetType.value === 'general'
+  ? 'i-lucide-message-square-warning'
+  : targetIcons[targetType.value])
 const targetDisplayName = computed(() => targetName.value || `已选择的${targetLabel.value}`)
+const pageUrl = computed(() => safeLocalPath(route.query.from))
 
 const reasonType = ref(
   reasonOptions.some(option => option.value === route.query.type)
     ? String(route.query.type)
     : 'place_error'
 )
-const message = ref(typeof route.query.from === 'string' ? `关联页面：${route.query.from}\n` : '')
+const message = ref('')
 const evidenceUrl = ref('')
 const contact = ref('')
 const website = ref('')
@@ -70,6 +92,7 @@ async function submitFeedback() {
         reasonType: reasonType.value,
         message: message.value.trim(),
         evidenceUrl: evidenceUrl.value.trim() || null,
+        pageUrl: pageUrl.value,
         contact: contact.value.trim() || null,
         website: website.value
       }
@@ -153,12 +176,12 @@ function resetForm() {
           @submit.prevent="submitFeedback"
         >
           <div
-            v-if="targetType !== 'general'"
+            v-if="targetType !== 'general' || pageUrl"
             class="flex items-start gap-3 border-l-2 border-green-600 bg-green-50 px-4 py-3"
             role="status"
           >
             <UIcon
-              :name="targetType === 'place' ? 'i-lucide-map-pin' : 'i-lucide-file-text'"
+              :name="targetIcon"
               class="mt-0.5 size-4 shrink-0 text-green-700"
             />
             <div class="min-w-0">
@@ -168,6 +191,14 @@ function resetForm() {
               <p class="mt-0.5 break-words text-sm font-bold text-green-950">
                 {{ targetDisplayName }}
               </p>
+              <template v-if="pageUrl">
+                <p class="mt-2 text-xs font-medium text-green-800">
+                  关联页面
+                </p>
+                <p class="mt-0.5 break-all text-xs text-green-900">
+                  {{ pageUrl }}
+                </p>
+              </template>
             </div>
           </div>
 

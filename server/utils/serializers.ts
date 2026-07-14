@@ -10,7 +10,7 @@ function toIso(value: number | null): string | null {
   return value === null ? null : new Date(value).toISOString()
 }
 
-function safeMetadata(value: string): Record<string, unknown> {
+export function safeMetadata(value: string): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(value)
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
@@ -75,6 +75,7 @@ export function serializePlace(
     coordinateSystem: exposeCoordinates ? row.coordinateSystem : null,
     coordinateVerification: row.coordinateVerification,
     coordinateVerifiedAt: toIso(row.coordinateVerifiedAt),
+    coordinatePointRole: row.coordinatePointRole,
     navigationAvailable,
     ...(includeInternalCoordinates ? { sourceRawRef: row.sourceRawRef } : {}),
     openingHours: row.openingHours,
@@ -121,6 +122,7 @@ export function serializeFeedback(row: FeedbackRow): ApiFeedback {
     reasonType: row.reasonType,
     message: row.message,
     evidenceUrl: row.evidenceUrl,
+    pageUrl: row.pageUrl,
     contact: row.contact,
     status: row.status,
     resolutionNote: row.resolutionNote,

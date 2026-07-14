@@ -490,8 +490,13 @@ def generate_coordinate_template(raw: dict[str, Any], limit: int) -> list[dict[s
             "lng": None,
             "lat": None,
             "crs": "GCJ-02",
+            "pointRole": None,
+            "accuracyMeters": None,
             "coordinateSource": None,
+            "coordinateSourceUrl": None,
             "verificationStatus": "pending-authorized-coordinate-export",
+            "verifiedAt": None,
+            "verifierCategory": None,
         }
         for row in selected
     ]

@@ -122,7 +122,10 @@ const methodLabel = {
           <NuxtLink
             v-for="item in procedures"
             :key="item.id"
-            :to="`/procedures/${item.slug}`"
+            :to="{
+              path: `/procedures/${item.slug}`,
+              query: audience === 'all' ? undefined : { audience }
+            }"
             class="surface-panel group flex min-h-60 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
           >
             <div class="flex items-start justify-between gap-3">

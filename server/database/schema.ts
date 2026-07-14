@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  type AnySQLiteColumn,
   check,
   index,
   integer,
@@ -82,6 +83,9 @@ export const places = sqliteTable('places', {
     enum: ['missing', 'unverified', 'verified', 'rejected']
   }).notNull().default('missing'),
   coordinateVerifiedAt: integer('coordinate_verified_at'),
+  coordinatePointRole: text('coordinate_point_role', {
+    enum: ['site-point', 'main-entrance']
+  }),
   sourceRawRef: text('source_raw_ref'),
   openingHours: text('opening_hours'),
   phone: text('phone'),
@@ -111,6 +115,7 @@ export const places = sqliteTable('places', {
 
 export const placeCoordinateObservations = sqliteTable('place_coordinate_observations', {
   id: text('id').primaryKey(),
+  clientObservationId: text('client_observation_id'),
   placeId: text('place_id').notNull().references(() => places.id, { onDelete: 'cascade' }),
   longitude: real('longitude').notNull(),
   latitude: real('latitude').notNull(),
@@ -130,9 +135,12 @@ export const placeCoordinateObservations = sqliteTable('place_coordinate_observa
   reviewedBy: text('reviewed_by').references(() => adminUsers.id, { onDelete: 'set null' }),
   reviewedAt: integer('reviewed_at'),
   reviewNote: text('review_note'),
+  supersededByObservationId: text('superseded_by_observation_id')
+    .references((): AnySQLiteColumn => placeCoordinateObservations.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
+  uniqueIndex('coordinate_observations_client_id_unique').on(table.clientObservationId),
   index('coordinate_observations_place_status_idx').on(table.placeId, table.reviewStatus),
   index('coordinate_observations_status_created_idx').on(table.reviewStatus, table.createdAt),
   check('coordinate_observations_crs_check', sql`${table.coordinateSystem} in ('WGS84', 'GCJ-02', 'BD-09')`),
@@ -307,11 +315,12 @@ export const procedureSources = sqliteTable('procedure_sources', {
 
 export const feedback = sqliteTable('feedback', {
   id: text('id').primaryKey(),
-  targetType: text('target_type', { enum: ['general', 'place', 'content'] }).notNull(),
+  targetType: text('target_type', { enum: ['general', 'place', 'content', 'procedure'] }).notNull(),
   targetId: text('target_id'),
   reasonType: text('reason_type').notNull(),
   message: text('message').notNull(),
   evidenceUrl: text('evidence_url'),
+  pageUrl: text('page_url'),
   contact: text('contact'),
   status: text('status', { enum: ['new', 'reviewing', 'resolved', 'rejected', 'spam'] }).notNull().default('new'),
   resolutionNote: text('resolution_note'),
@@ -324,7 +333,7 @@ export const feedback = sqliteTable('feedback', {
   index('feedback_status_created_idx').on(table.status, table.createdAt),
   index('feedback_target_idx').on(table.targetType, table.targetId),
   check('feedback_status_check', sql`${table.status} in ('new', 'reviewing', 'resolved', 'rejected', 'spam')`),
-  check('feedback_target_type_check', sql`${table.targetType} in ('general', 'place', 'content')`),
+  check('feedback_target_type_check', sql`${table.targetType} in ('general', 'place', 'content', 'procedure')`),
   check('feedback_target_id_check', sql`(${table.targetType} = 'general' and ${table.targetId} is null) or (${table.targetType} != 'general' and ${table.targetId} is not null)`)
 ])
 

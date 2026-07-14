@@ -7,7 +7,7 @@ import { parseQuery } from '../../utils/validation'
 export default defineEventHandler((event) => {
   setHeader(event, 'Cache-Control', 'no-store')
   const query = parseQuery(event, searchQuerySchema)
-  const result = searchPublishedContent(useAppDatabase(event), query.q, query.limit)
+  const result = searchPublishedContent(useAppDatabase(event), query.q, query.limit, query.type)
   setPublicCache(event, 30)
   return result
 })

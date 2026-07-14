@@ -6,10 +6,10 @@ This directory contains an auditable import of the user's authorized AMap Work M
 
 - `amap-workmap-2026-07-13.raw.json`: the complete worksheet/column structure and business fields from all four worksheets, including source row numbers and the workbook SHA-256. Creator nickname values are removed for a public repository. Embedded images are not copied; only their archive paths, sizes and hashes are recorded.
 - `amap-workmap-2026-07-13.audit.json`: headers, row counts, uniqueness checks, coordinate findings, review state and anomaly candidates.
-- `amap-workmap-2026-07-13.coordinates.template.json`: all 76 marker rows in workbook order. Coordinates intentionally remain `null` until an authorized coordinate export is supplied.
+- `amap-workmap-2026-07-13.coordinates.template.json`: all 76 marker rows in workbook order. Coordinate, point-role, accuracy, evidence and review placeholders intentionally remain `null` until an authorized export is independently checked.
 - `../../scripts/import-amap-workmap.py`: reproducible workbook parser, validator and audit/template generator. Its historical seed-generation path is not the approved verified-coordinate database import path.
 - `../../scripts/import-amap-drafts.ts`: strict, idempotent importer that copies the reviewed 76 text-only markers into SQLite as coordinate-missing drafts.
-- `../../scripts/import-amap-coordinates.ts`: strict, idempotent updater for an independently human-reviewed WGS84 subset. It performs no coordinate conversion and never publishes a place or creates a source.
+- `../../scripts/import-amap-coordinates.ts`: strict, idempotent creator of pending `authorized-import` coordinate observations for an independently human-reviewed WGS84 subset. It performs no coordinate conversion and never updates or publishes a place.
 
 The source workbook contains 76 markers and 8 drawn areas. It contains no longitude/latitude columns or hidden coordinate metadata. Values beginning with `WIA-` are internal resource identifiers, not coordinates.
 
@@ -73,11 +73,17 @@ Each object must contain exactly these fields:
 | `locationCode` | Full WIA internal identifier copied unchanged; it is never parsed as a coordinate |
 | `lng`, `lat` | Finite numeric WGS84 values, not strings and not visually guessed values |
 | `crs` | Declared original CRS of the supplied `lng`/`lat`; exactly `WGS84` for accepted batches |
+| `pointRole` | Exactly `site-point` or `main-entrance`; this becomes the candidate observation role and is not written to the place |
+| `accuracyMeters` | Measured positive accuracy in meters, at most the server approval threshold (currently 25); do not invent a precision value |
 | `coordinateSource` | Non-blank evidence/method description; describe any externally reviewed conversion chain |
 | `coordinateSourceUrl` | HTTP(S) evidence URL, or `null` when a field check/private authorized export has no public URL |
 | `verificationStatus` | Exactly `human-verified` |
 | `verifiedAt` | ISO 8601 timestamp with `Z` or an explicit numeric timezone; cannot be in the future |
 | `verifierCategory` | One of `authorized-map-owner`, `campus-staff`, `field-reviewer`, `project-maintainer`, `student-team`; never a person's name |
+
+`human-verified` describes the external input review only. The importer records it as
+`inputVerificationStatus` inside evidence; it never maps that value to the observation `review_status`
+or the place `coordinate_verification`. Every new observation remains `pending`.
 
 Run a read-only preview first:
 
@@ -87,7 +93,7 @@ pnpm amap:coordinates -- `
   --database ./.data/yeu.sqlite
 ```
 
-Only after reviewing `wouldUpdate`, `skipped`, `conflicts` and `conflictDetails`, apply the same file:
+Only after reviewing `wouldCreate`, `skipped`, `conflicts` and `conflictDetails`, apply the same file:
 
 ```powershell
 pnpm amap:coordinates -- `
@@ -96,17 +102,24 @@ pnpm amap:coordinates -- `
   --database ./.data/yeu.sqlite
 ```
 
-The updater validates the immutable 76-row template against the reviewed raw workbook, then binds
+The observation importer validates the immutable 76-row template against the reviewed raw workbook, then binds
 every selected item to exactly one existing place through `sourceRow + locationCode + source_raw_ref`.
-It accepts only untouched, unpublished drafts made by `amap:drafts`; a changed name/slug/ID,
-timestamp, coordinate, source link, publication state or import marker is a conflict. A conflict rolls
-back the whole selected batch. Exact reruns skip already imported reviews; changed coordinates or
-evidence never overwrite the earlier review.
+The deterministic draft ID, slug, name and canonical source reference must still match. A malformed,
+missing or ambiguously duplicated identity is a conflict, and any conflict rolls back the whole selected
+batch.
 
-Accepted coordinates are stored as `WGS84`, `coordinate_verification = verified`, with their
-coordinate verification time. The structured coordinate evidence remains inside `source_raw_ref` for
-auditability. This is not a `sources` record, does not claim that the evidence or place is official,
-does not set content-level `last_verified_at`, and does not make the place publishable by itself.
+`--apply` inserts one `pending` observation per selected item with `capture_method = authorized-import`,
+one WGS84 sample, the supplied point role and measured accuracy. It does not update any `places` column,
+including longitude/latitude, `coordinate_verification`, `coordinate_verified_at`,
+`coordinate_point_role`, `status`, `published_at`, `last_verified_at`, or `source_raw_ref`. The compact
+observation evidence preserves the exact place `source_raw_ref` snapshot and a SHA-256 of the normalized
+input. It is not a `sources` record and does not claim that the evidence or place is school-official.
+
+The client observation UUID and row UUID are deterministic from the immutable source row and WIA code.
+An exact rerun is skipped even after reviewers approve or reject the observation. Reusing that identity
+with a changed coordinate, role, accuracy, evidence or target is a conflict; the importer never creates a
+second observation or overwrites the first. A pending observation becomes a place coordinate only through
+the normal backend review and dual-verification workflow.
 
 GCJ-02 and BD-09 input is rejected. This repository has no approved coordinate-conversion dependency,
 so the updater does not invoke the older hand-written conversion path or silently relabel values. Use
@@ -154,8 +167,13 @@ The committed coordinate template is an array with this shape:
     "lng": null,
     "lat": null,
     "crs": "GCJ-02",
+    "pointRole": null,
+    "accuracyMeters": null,
     "coordinateSource": null,
-    "verificationStatus": "pending-authorized-coordinate-export"
+    "coordinateSourceUrl": null,
+    "verificationStatus": "pending-authorized-coordinate-export",
+    "verifiedAt": null,
+    "verifierCategory": null
   }
 ]
 ```
@@ -167,9 +185,11 @@ above and is processed only by `amap:coordinates`.
 
 - `imported`: the record exists in the user's Work Map export.
 - `owner-map-only`: the coordinate came from that user-owned map but has not been independently verified.
-- `verified`: a human-reviewed WGS84 coordinate with evidence metadata; it does not mean school-official verification or make the place publishable.
+- `pending observation`: an independently checked WGS84 candidate with role, accuracy and evidence; it has not passed backend coordinate approval.
+- `verified`: a place coordinate produced only after the backend review and dual-verification requirements pass; it still does not mean school-official verification or publish the place.
 - `MapPoi.status`: generated imports remain `draft`; the script never upgrades them to `published`.
 
-The approved database updater rejects null or invalid coordinates, missing provenance, duplicate
-source rows/WIA codes/points, future verification times, identity drift and points outside the buffered
-community boundary. It never derives coordinates from WIA identifiers or converts GCJ-02/BD-09.
+The approved observation importer rejects null or invalid coordinates, missing roles/accuracy/provenance,
+duplicate source rows/WIA codes/points, future verification times, identity drift and points outside the
+buffered community boundary. It never derives coordinates from WIA identifiers, converts GCJ-02/BD-09,
+or bypasses the coordinate review service.

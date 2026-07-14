@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import test from 'node:test'
+import { officialCampusPlanAnchors } from '../data/seeds/official-campus-plan-anchors'
+import { officialCampusPlanReference } from '../data/seeds/official-campus-plan-reference'
 import { campusMapReferencePlaces } from '../data/seeds/preview-places'
 import type { ApiPlace } from '../shared/types/server'
 import { mergePublicMapPlaces } from '../app/utils/public-catalog'
@@ -24,6 +29,7 @@ function publishedPlace(id: string, name: string): ApiPlace {
     coordinateSystem: 'WGS84',
     coordinateVerification: 'verified',
     coordinateVerifiedAt: timestamp,
+    coordinatePointRole: 'site-point',
     navigationAvailable: true,
     openingHours: null,
     phone: null,
@@ -78,4 +84,44 @@ test('published alias names replace their official text-only reference entries',
     assert.ok(replacement?.searchText.includes(officialName))
     assert.ok(replacement?.searchText.includes(alias))
   }
+})
+
+test('official campus plan anchors cover every numbered reference without becoming coordinates', () => {
+  const referenceNumbers = new Set(campusMapReferencePlaces.map(place => place.mapNumber))
+  const anchorNumbers = new Set(officialCampusPlanAnchors.map(anchor => anchor.mapNumber))
+  assert.deepEqual([...anchorNumbers].sort(), [...referenceNumbers].sort())
+  assert.ok(officialCampusPlanAnchors.length > campusMapReferencePlaces.length)
+  for (const anchor of officialCampusPlanAnchors) {
+    assert.ok(anchor.x > 0 && anchor.x < 100)
+    assert.ok(anchor.y > 0 && anchor.y < 100)
+    assert.deepEqual(Object.keys(anchor).sort(), ['mapNumber', 'x', 'y'])
+  }
+})
+
+test('committed campus plan asset is the exact reviewed official image', () => {
+  const assetPath = resolve('public', officialCampusPlanReference.localAssetUrl.slice(1))
+  const bytes = readFileSync(assetPath)
+  assert.equal(bytes.byteLength, officialCampusPlanReference.imageContentLength)
+  assert.equal(
+    createHash('sha256').update(bytes).digest('hex'),
+    officialCampusPlanReference.imageSha256
+  )
+})
+
+test('map page uses the Nuxt auto-import name for the nested map component', () => {
+  const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+  assert.match(source, /<MapOfficialCampusPlan\b/)
+  assert.doesNotMatch(source, /<OfficialCampusPlan\b/)
+})
+
+test('official campus plan recovers cached image loads and starts mobile inspection zoomed in', () => {
+  const source = readFileSync(resolve('app/components/map/OfficialCampusPlan.vue'), 'utf8')
+  assert.match(source, /const MOBILE_INITIAL_ZOOM = MAX_ZOOM/)
+  assert.match(source, /ref="imageElement"/)
+  assert.match(source, /if \(!image\?\.complete\) return/)
+  assert.match(source, /if \(image\.naturalWidth > 0\) handleLoaded\(\)/)
+  assert.match(source, /window\.matchMedia\('\(max-width: 639px\)'\)/)
+  assert.match(source, /void nextTick\(reconcileImageState\)/)
+  assert.match(source, /content-center justify-items-start/)
+  assert.doesNotMatch(source, /class="grid min-h-full min-w-full place-items-center"/)
 })

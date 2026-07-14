@@ -657,7 +657,7 @@ const sections: Record<string, AdminResourceConfig> = {
   'feedback': {
     key: 'feedback',
     title: '反馈管理',
-    description: '处理地点纠错、内容问题和资料补充建议。',
+    description: '处理地点纠错、内容与流程问题和资料补充建议。',
     icon: 'i-lucide-message-square-warning',
     endpoint: '/api/admin/feedback',
     createLabel: '登记反馈',
@@ -685,15 +685,21 @@ const sections: Record<string, AdminResourceConfig> = {
         options: [
           { label: '通用反馈', value: 'general' },
           { label: '地点', value: 'place' },
-          { label: '内容', value: 'content' }
+          { label: '内容', value: 'content' },
+          { label: '办事流程', value: 'procedure' }
         ]
       }
     ],
     columns: [
       { key: 'message', label: '反馈内容', class: 'min-w-64 max-w-xl' },
-      { key: 'targetType', label: '对象' },
+      {
+        key: 'targetType',
+        label: '对象',
+        valueLabels: { general: '通用反馈', place: '地点', content: '内容', procedure: '办事流程' }
+      },
       { key: 'reasonType', label: '原因' },
       { key: 'contact', label: '联系方式', class: 'max-w-48' },
+      { key: 'pageUrl', label: '关联页面', class: 'max-w-56' },
       { key: 'evidenceUrl', label: '证据链接', class: 'max-w-56' },
       { key: 'status', label: '状态', kind: 'status' },
       { key: 'createdAt', label: '提交时间', kind: 'date' }

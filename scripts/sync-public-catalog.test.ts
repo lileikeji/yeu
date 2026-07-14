@@ -17,7 +17,15 @@ function createDatabase(): { databasePath: string, cleanup: () => void } {
   closeDatabase(databasePath)
   return {
     databasePath,
-    cleanup: () => rmSync(directory, { recursive: true, force: true })
+    cleanup: () => {
+      closeDatabase(databasePath)
+      rmSync(directory, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 100
+      })
+    }
   }
 }
 
@@ -95,21 +103,24 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
     })
 
     const checked = new BetterSqlite3(fixture.databasePath, { readonly: true })
-    assert.equal(count(checked, 'contents'), 24)
-    assert.equal(
-      (checked.prepare(`SELECT count(*) AS count FROM contents WHERE kind = 'club'`).get() as { count: number }).count,
-      7
-    )
-    assert.equal(
-      (checked.prepare(`
-        SELECT count(*) AS count
-        FROM content_sources AS relation
-        JOIN contents AS content ON content.id = relation.content_id
-        WHERE content.kind = 'guide' AND content.slug = 'campus-card-network'
-      `).get() as { count: number }).count,
-      5
-    )
-    checked.close()
+    try {
+      assert.equal(count(checked, 'contents'), 24)
+      assert.equal(
+        (checked.prepare(`SELECT count(*) AS count FROM contents WHERE kind = 'club'`).get() as { count: number }).count,
+        7
+      )
+      assert.equal(
+        (checked.prepare(`
+          SELECT count(*) AS count
+          FROM content_sources AS relation
+          JOIN contents AS content ON content.id = relation.content_id
+          WHERE content.kind = 'guide' AND content.slug = 'campus-card-network'
+        `).get() as { count: number }).count,
+        6
+      )
+    } finally {
+      checked.close()
+    }
 
     const rerun = syncPublicCatalog({ applyOwned: true, databasePath: fixture.databasePath })
     assert.equal(rerun.createdSources, 0)

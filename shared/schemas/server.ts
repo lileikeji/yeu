@@ -6,15 +6,19 @@ import {
   COORDINATE_POINT_ROLES,
   COORDINATE_REFERENCE_SYSTEMS,
   COORDINATE_VERIFICATION_STATES,
+  BROWSER_GEOLOCATION_MAX_SAMPLES,
+  BROWSER_GEOLOCATION_MIN_SAMPLES,
   FEEDBACK_STATUSES,
   FEEDBACK_TARGET_TYPES,
   PLACE_SCOPES,
+  PUBLIC_SEARCH_RESULT_TYPES,
   PROCEDURE_AUDIENCES,
   PROCEDURE_INFORMATION_STATES,
   PROCEDURE_METHODS,
   SOURCE_LEVELS,
   SOURCE_STATUSES
 } from '../constants/server'
+import { evaluateCoordinateCapture } from '../utils/coordinate-sampling'
 
 const slugSchema = z.string()
   .trim()
@@ -29,6 +33,27 @@ const httpUrlSchema = z.url().max(2048).refine(
 const nullableUrlSchema = z.union([httpUrlSchema, z.literal(''), z.null()]).optional()
 const nullableTextSchema = (max: number) => z.union([z.string().trim().max(max), z.null()]).optional()
 const nullableDateSchema = z.union([z.iso.datetime({ offset: true }), z.null()]).optional()
+const LOCAL_PAGE_ORIGIN = 'https://local.invalid'
+
+function isApplicationLocalPath(value: string): boolean {
+  const hasControlCharacter = Array.from(value)
+    .some(character => character.charCodeAt(0) <= 31 || character.charCodeAt(0) === 127)
+  if (!/^\/(?!\/)/.test(value) || value.includes('\\') || hasControlCharacter) {
+    return false
+  }
+
+  try {
+    return new URL(value, LOCAL_PAGE_ORIGIN).origin === LOCAL_PAGE_ORIGIN
+  } catch {
+    return false
+  }
+}
+
+const localPagePathSchema = z.string()
+  .trim()
+  .max(2048)
+  .refine(isApplicationLocalPath, 'Use an application-local path')
+const nullableLocalPagePathSchema = z.union([localPagePathSchema, z.literal(''), z.null()]).optional()
 const sourceIdsSchema = z.array(z.string().uuid()).max(50)
 const nullableUuidSchema = z.union([z.string().uuid(), z.null()]).optional()
 const procedureAudienceSchema = z.array(z.enum(PROCEDURE_AUDIENCES))
@@ -235,6 +260,7 @@ export const createFeedbackSchema = z.object({
   reasonType: z.string().trim().min(1).max(80),
   message: z.string().trim().min(5).max(4000),
   evidenceUrl: nullableUrlSchema,
+  pageUrl: nullableLocalPagePathSchema,
   contact: nullableTextSchema(300),
   website: z.string().max(0).optional()
 }).strict().superRefine((value, context) => {
@@ -242,7 +268,7 @@ export const createFeedbackSchema = z.object({
     context.addIssue({
       code: 'custom',
       path: ['targetId'],
-      message: 'targetId is required for place or content feedback'
+      message: 'targetId is required for place, content, or procedure feedback'
     })
   }
 
@@ -291,6 +317,7 @@ const coordinateObservationSampleSchema = z.object({
 }).strict()
 
 export const createCoordinateObservationSchema = z.object({
+  clientObservationId: z.string().uuid(),
   placeId: z.string().uuid(),
   coordinateSystem: z.literal('WGS84').default('WGS84'),
   captureMethod: z.enum(COORDINATE_OBSERVATION_METHODS),
@@ -298,11 +325,12 @@ export const createCoordinateObservationSchema = z.object({
   evidenceNote: z.string().trim().min(5).max(2000),
   samples: z.array(coordinateObservationSampleSchema).min(1).max(10)
 }).strict().superRefine((value, context) => {
-  if (value.captureMethod === 'browser-geolocation' && value.samples.length < 3) {
+  if (value.captureMethod === 'browser-geolocation'
+    && !evaluateCoordinateCapture(value.samples).canSubmit) {
     context.addIssue({
       code: 'custom',
       path: ['samples'],
-      message: 'Browser geolocation observations require at least three samples'
+      message: `Browser geolocation observations require ${BROWSER_GEOLOCATION_MIN_SAMPLES}-${BROWSER_GEOLOCATION_MAX_SAMPLES} stable samples over the field capture interval`
     })
   }
 })
@@ -348,5 +376,6 @@ export const feedbackQuerySchema = paginationQuerySchema.extend({
 
 export const searchQuerySchema = z.object({
   q: z.string().trim().min(1).max(80),
+  type: z.enum(PUBLIC_SEARCH_RESULT_TYPES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20)
 })

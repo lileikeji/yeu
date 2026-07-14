@@ -14,17 +14,31 @@ export const COORDINATE_OBSERVATION_STATUSES = [
 ] as const
 export const COORDINATE_POINT_ROLES = ['site-point', 'main-entrance'] as const
 export const MAX_APPROVABLE_COORDINATE_ACCURACY_METERS = 25
+export const BROWSER_GEOLOCATION_MIN_SAMPLES = 5
+export const BROWSER_GEOLOCATION_MAX_SAMPLES = 7
+export const BROWSER_GEOLOCATION_MIN_DURATION_MS = 12_000
+export const BROWSER_GEOLOCATION_MIN_SAMPLE_INTERVAL_MS = 3_000
+export const BROWSER_GEOLOCATION_MAX_SAMPLE_ACCURACY_METERS
+  = MAX_APPROVABLE_COORDINATE_ACCURACY_METERS
+export const MAX_DUAL_VERIFICATION_DISTANCE_METERS = 20
+export const MIN_SAME_METHOD_OBSERVATION_INTERVAL_MS = 30 * 60 * 1000
 export const PLACE_SCOPES = ['campus', 'nearby'] as const
 export const CONTENT_KINDS = ['guide', 'department', 'club', 'notice'] as const
+export const PUBLIC_SEARCH_RESULT_TYPES = [
+  'place',
+  'procedure',
+  ...CONTENT_KINDS
+] as const
 export const SOURCE_LEVELS = ['A', 'B', 'C', 'D', 'E'] as const
 export const SOURCE_STATUSES = ['active', 'unavailable', 'disputed'] as const
 export const FEEDBACK_STATUSES = ['new', 'reviewing', 'resolved', 'rejected', 'spam'] as const
-export const FEEDBACK_TARGET_TYPES = ['general', 'place', 'content'] as const
+export const FEEDBACK_TARGET_TYPES = ['general', 'place', 'content', 'procedure'] as const
 export const PROCEDURE_METHODS = ['online', 'offline', 'mixed'] as const
 export const PROCEDURE_INFORMATION_STATES = ['confirmed', 'partial', 'awaiting-notice'] as const
 export const PROCEDURE_AUDIENCES = ['undergraduate', 'transfer'] as const
 
 export type ContentKind = typeof CONTENT_KINDS[number]
+export type PublicSearchResultType = typeof PUBLIC_SEARCH_RESULT_TYPES[number]
 export type CoordinateVerificationState = typeof COORDINATE_VERIFICATION_STATES[number]
 export type CoordinateObservationMethod = typeof COORDINATE_OBSERVATION_METHODS[number]
 export type CoordinateObservationStatus = typeof COORDINATE_OBSERVATION_STATUSES[number]

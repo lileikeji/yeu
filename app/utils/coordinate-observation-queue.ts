@@ -2,12 +2,59 @@ import type { CreateCoordinateObservationPayload } from '~~/shared/types/server'
 
 const DATABASE_NAME = 'yeu-field-verification'
 const STORE_NAME = 'coordinate-observations'
-const DATABASE_VERSION = 1
+const DATABASE_VERSION = 2
+
+export type NewCoordinateObservationPayload = Omit<
+  CreateCoordinateObservationPayload,
+  'clientObservationId'
+> & {
+  clientObservationId?: string
+}
+
+export type CoordinateObservationSubmissionPayload = NewCoordinateObservationPayload & {
+  clientObservationId: string
+}
 
 export interface QueuedCoordinateObservation {
   id: string
-  payload: CreateCoordinateObservationPayload
+  payload: CoordinateObservationSubmissionPayload
   queuedAt: string
+}
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+export function ensureCoordinateObservationClientId(
+  payload: NewCoordinateObservationPayload
+): CoordinateObservationSubmissionPayload {
+  return {
+    ...payload,
+    clientObservationId: isUuid(payload.clientObservationId)
+      ? payload.clientObservationId
+      : crypto.randomUUID()
+  }
+}
+
+function migrateLegacyRecords(store: IDBObjectStore): void {
+  const request = store.openCursor()
+  request.onsuccess = () => {
+    const cursor = request.result
+    if (!cursor) return
+
+    const record = cursor.value as Partial<QueuedCoordinateObservation> & {
+      payload?: NewCoordinateObservationPayload
+    }
+    if (record.payload && !isUuid(record.payload.clientObservationId)) {
+      record.payload = ensureCoordinateObservationClientId({
+        ...record.payload,
+        clientObservationId: isUuid(record.id) ? record.id : undefined
+      })
+      cursor.update(record)
+    }
+    cursor.continue()
+  }
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -18,9 +65,10 @@ function openDatabase(): Promise<IDBDatabase> {
     request.onerror = () => reject(request.error ?? new Error('Unable to open field queue'))
     request.onupgradeneeded = () => {
       const database = request.result
-      if (!database.objectStoreNames.contains(STORE_NAME)) {
-        database.createObjectStore(STORE_NAME, { keyPath: 'id' })
-      }
+      const store = database.objectStoreNames.contains(STORE_NAME)
+        ? request.transaction!.objectStore(STORE_NAME)
+        : database.createObjectStore(STORE_NAME, { keyPath: 'id' })
+      migrateLegacyRecords(store)
     }
     request.onsuccess = () => resolve(request.result)
   })
@@ -35,11 +83,11 @@ function waitForTransaction(transaction: IDBTransaction): Promise<void> {
 }
 
 export async function enqueueCoordinateObservation(
-  payload: CreateCoordinateObservationPayload
+  payload: CoordinateObservationSubmissionPayload
 ): Promise<QueuedCoordinateObservation> {
   const database = await openDatabase()
   const record: QueuedCoordinateObservation = {
-    id: crypto.randomUUID(),
+    id: payload.clientObservationId,
     payload,
     queuedAt: new Date().toISOString()
   }

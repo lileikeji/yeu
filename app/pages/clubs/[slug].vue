@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { publicClubs } from '~/utils/public-catalog'
+import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
 
 const route = useRoute()
@@ -14,6 +15,13 @@ useSeoMeta({
   title: () => club.value?.name ?? '学生社团',
   description: () => club.value?.summary ?? ''
 })
+const feedbackLink = computed(() => buildDetailFeedbackLink({
+  targetType: 'content',
+  targetId: content.value!.id,
+  targetName: club.value!.name,
+  reasonType: 'missing_information',
+  from: route.fullPath
+}))
 </script>
 
 <template>
@@ -134,7 +142,7 @@ useSeoMeta({
         </dl>
 
         <UButton
-          :to="{ path: '/feedback', query: { targetType: 'content', targetId: content.id, targetName: club.name, type: 'missing_information' } }"
+          :to="feedbackLink"
           icon="i-lucide-message-square-warning"
           label="补充社团资料"
           color="neutral"

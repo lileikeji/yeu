@@ -124,13 +124,13 @@ export const officialSources = {
     title: '仰恩大学校园网使用指南（2025版）',
     publisher: '仰恩大学实验室与信息化管理处',
     url: 'https://metc.yeu.edu.cn/2025/1006/c1324a51853/page.htm',
-    accessedAt
+    accessedAt: '2026-07-14'
   },
   dormRules2025: {
     title: '仰恩大学学生宿舍管理办法',
     publisher: '仰恩大学总务处',
     url: 'https://zwc.yeu.edu.cn/2025/1015/c497a52035/page.htm',
-    accessedAt
+    accessedAt: '2026-07-14'
   },
   dormAirConditioning2025: {
     title: '学生宿舍空调使用管理规定',
@@ -142,13 +142,25 @@ export const officialSources = {
     title: '学生宿舍维修管理规定',
     publisher: '仰恩大学总务处',
     url: 'https://zwc.yeu.edu.cn/2025/1016/c1350a52107/page.htm',
-    accessedAt
+    accessedAt: '2026-07-14'
   },
   repairProcess2025: {
     title: '报修流程',
     publisher: '仰恩大学总务处',
     url: 'https://zwc.yeu.edu.cn/2025/1015/c500a52071/page.htm',
-    accessedAt
+    accessedAt: '2026-07-14'
+  },
+  dormChangeProcess2025: {
+    title: '学生宿舍调换申请流程',
+    publisher: '仰恩大学总务处',
+    url: 'https://zwc.yeu.edu.cn/2025/1015/c500a52072/page.htm',
+    accessedAt: '2026-07-14'
+  },
+  diningStallLease2026: {
+    title: '仰恩大学餐厅档口招租公告',
+    publisher: '仰恩大学总务处',
+    url: 'https://zwc.yeu.edu.cn/2026/0708/c496a57428/page.htm',
+    accessedAt: '2026-07-14'
   },
   libraryHours: {
     title: '图书馆开馆时间',
@@ -204,6 +216,12 @@ export const officialSources = {
     url: 'https://youth.yeu.edu.cn/',
     accessedAt
   },
+  clubOverview: {
+    title: '学生社团简介',
+    publisher: '共青团仰恩大学委员会',
+    url: 'https://youth.yeu.edu.cn/347/list.htm',
+    accessedAt: '2026-07-14'
+  },
   clubCarnival2025: {
     title: '2025年社团嘉年华活动回顾',
     publisher: '共青团仰恩大学委员会',
@@ -214,7 +232,7 @@ export const officialSources = {
     title: '2026年学生社团风采展示大赛',
     publisher: '共青团仰恩大学委员会',
     url: 'https://youth.yeu.edu.cn/2026/0606/c530a56580/page.htm',
-    accessedAt
+    accessedAt: '2026-07-14'
   },
   campusMap: {
     title: '校园地图',
@@ -309,7 +327,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     readMinutes: 5,
     status: 'partial',
     statusText: '地图目录已导入，坐标核验中',
-    updatedAt: accessedAt,
+    updatedAt: '2026-07-14',
     leadNotice: '工作地图已整理 76 个标记点和 8 个区域，但导出文件不提供经纬度。坐标未完成官方或现场复核前，系统不会开启导航。',
     sections: [
       {
@@ -336,7 +354,10 @@ export const freshmanGuides: FreshmanGuide[] = [
         items: [
           '2026年招生章程列明：女生舒适型4人间2780元/学年，男生舒适型5人间2580元/学年，普通型4至5人间1300元/学年。',
           '住宿费含每生每月5度电、2吨水；空调用电由学生承担。',
-          '学校统一安排宿舍，未经允许不得私自调换宿舍或床位；具体分楼仍以入学安排为准。'
+          '新生入学时由学校统一安排入住，无需提交宿舍申请；具体分楼仍以入学安排为准。',
+          '未经允许不得私自调换宿舍或床位。确需调换时，应提交包含班级、学号、姓名、现住宿舍号和具体理由的书面申请。',
+          '因房间问题调换的，携申请单和原宿舍钥匙到总务处办理；因舍友矛盾或身体健康原因调换的，按官方流程完成辅导员、学院和学生事务部审批后再到总务处办理。',
+          '遗失宿舍钥匙等需要开启宿舍门时，应凭本人有效证件到总务处借用备份钥匙。'
         ]
       },
       {
@@ -345,7 +366,17 @@ export const freshmanGuides: FreshmanGuide[] = [
         items: [
           '宿舍水电、设施或家具需要维修时，可拨校园110报修：0595-22076110。',
           '总务处公布的流程要求说明故障位置和现象，并登记可联系渠道；校园110指挥中心形成维修单后派发给对应维修人员。',
-          '维修完成后，由报修人或其授权人检查并确认结果；如属人为或非自然损坏，是否承担费用以宿舍管理规定和现场认定为准。'
+          '宿舍管理办法要求维修人员在24小时内响应，一般故障48小时内修复，紧急故障立即处理。',
+          '宿舍内电路、电器设备、设施家具报修后由维修人员及时维修；人为或非自然损坏是否需要赔偿，以宿舍管理规定和现场认定为准。',
+          '维修完成后，由报修人或其授权人检查并确认结果。'
+        ]
+      },
+      {
+        title: '当前可核验的餐厅名称',
+        icon: 'i-lucide-utensils',
+        items: [
+          '总务处2026年7月招租公告明确：第一教学区设北苑餐厅，第三教学区设西苑餐厅。',
+          '公告只支持餐厅名称和所属教学区，不代表具体档口已经营业；入口、营业时间和精确坐标仍需现场核验。'
         ]
       },
       {
@@ -366,6 +397,8 @@ export const freshmanGuides: FreshmanGuide[] = [
       officialSources.dormAirConditioning2025,
       officialSources.dormMaintenance2025,
       officialSources.repairProcess2025,
+      officialSources.dormChangeProcess2025,
+      officialSources.diningStallLease2026,
       officialSources.libraryHours,
       officialSources.libraryContact,
       officialSources.medicalOfficeProfile2025
@@ -375,21 +408,21 @@ export const freshmanGuides: FreshmanGuide[] = [
     slug: 'campus-card-network',
     title: '校园卡与校园网',
     shortTitle: '校园卡与网络',
-    summary: '校园网接入和图书馆借阅权限已有官方说明，校园卡综合服务仍待核验。',
+    summary: '校园网、图书馆借阅和宿舍门禁场景已有官方说明，校园卡综合服务仍待核验。',
     icon: 'i-lucide-wifi',
     category: 'campus',
     audience: ['本科新生', '专升本新生'],
     readMinutes: 3,
     status: 'partial',
-    statusText: '校园网与图书馆借阅已核验，校园卡综合流程待确认',
+    statusText: '校园网与校园卡部分场景已核验，综合流程待确认',
     updatedAt: '2026-07-14',
-    leadNotice: '校园网接入和图书馆借阅权限已有官方说明；校园卡发放、激活、充值、资金账户挂失、补卡及费用仍待主管部门确认。',
+    leadNotice: '校园网接入、图书馆借阅权限和宿舍门禁场景已有官方说明；校园卡发放、激活、充值、资金账户挂失、补卡及费用仍待主管部门确认。',
     sections: [
       {
         title: '校园网',
         icon: 'i-lucide-router',
         items: [
-          '教学楼、实验室、图书馆和室内场馆等公共区域可连接无线网 YEU；官方指南明确宿舍区不在校园网覆盖范围内。',
+          '校园网有线覆盖教学楼、行政办公楼、实验室和室内场馆；无线网 YEU 覆盖教学楼、实验室、公共机房、行政办公楼、图书馆、普照礼堂、文体中心和室外体育场。官方指南明确以上范围不包括教师、学生宿舍区。',
           '连接后通过浏览器认证。新生注册后以学号获得校园网和VPN账号，首次登录按官方通知操作并立即修改密码。',
           '宿舍或校外访问教务等校内资源时，可按官方指南使用 https://vpn.yeu.edu.cn:444。',
           '网络问题可联系第二校区网络信息中心楼三楼，电话0595-22098521；资费和设备限制仍以入学时最新通知为准。',
@@ -402,6 +435,7 @@ export const freshmanGuides: FreshmanGuide[] = [
         items: [
           '图书馆按学校相关部门提供的全日制学生名单统一审核后开通校园卡借阅权限，可刷卡或刷脸入馆。',
           '校园卡遗失后，可到图书馆办理借阅权限挂失；这不等于校园卡资金账户挂失。',
+          '总务处发布的宿舍管理办法写明，学生通过校园一卡通门禁系统刷脸进出宿舍区；这只证明宿舍门禁场景，不代表校园卡资金账户或完整服务流程。',
           '图书馆2025年微信平台绑定借阅证说明明确，借阅账号为学号；具体绑定步骤以图书馆当前页面为准，本系统不收集账号或密码。',
           '发卡地点、激活方式、充值渠道、资金账户挂失、补卡流程和费用仍待核验。',
           '涉及费用或转账时，只使用学校明确公布的渠道。'
@@ -412,6 +446,7 @@ export const freshmanGuides: FreshmanGuide[] = [
       officialSources.serviceGuide,
       officialSources.informationOffice,
       officialSources.campusNetwork,
+      officialSources.dormRules2025,
       officialSources.libraryBorrowingRules,
       officialSources.libraryWechatBinding2025
     ]
@@ -454,16 +489,24 @@ export const freshmanGuides: FreshmanGuide[] = [
     slug: 'clubs',
     title: '社团与招新',
     shortTitle: '社团招新',
-    summary: '先看官方社团分类，再等待当年招新时间、地点和公开渠道。',
+    summary: '官网列出23个学生社团及类别分布，2026级招新时间、地点和公开渠道仍待发布。',
     icon: 'i-lucide-users-round',
     category: 'community',
     audience: ['本科新生', '专升本新生'],
     readMinutes: 3,
     status: 'partial',
     statusText: '2026招新安排待发布',
-    updatedAt: accessedAt,
-    leadNotice: '官方2026年活动报道可确认7个近期活跃社团，但这不是完整名册；2026级招新时间、地点和公开渠道仍待校团委发布。',
+    updatedAt: '2026-07-14',
+    leadNotice: '校团委社团简介页列出23个学生社团，2026年活动报道另可确认7个近期活跃社团；完整名称清单和2026级招新安排仍待校团委发布。',
     sections: [
+      {
+        title: '官方社团概况',
+        icon: 'i-lucide-layout-grid',
+        items: [
+          '校团委当前社团简介页列出23个学生社团：思想政治类2个、学术科技类1个、文化体育类12个、创新创业类5个、其他类2个、志愿公益类1个。',
+          '该页面未列出23个社团的完整名称，也没有可见更新日期；类别和数量只作当前官网概况，不能替代当年注册名册或招新公告。'
+        ]
+      },
       {
         title: '2026年已核验活跃社团',
         icon: 'i-lucide-badge-check',
@@ -494,6 +537,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     ],
     sources: [
       officialSources.youthLeague,
+      officialSources.clubOverview,
       officialSources.clubShowcase2026,
       officialSources.clubCarnival2025
     ]

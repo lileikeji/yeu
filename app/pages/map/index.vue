@@ -4,6 +4,7 @@ import type { MapProvider, MapProviderId } from '~~/map/core/provider'
 import { officialSources } from '~~/data/seeds/public-content'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
 import { createRuntimeMapProvider } from '~~/map/providers/factory'
+import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import type { PublicMapPlace } from '~/utils/public-catalog'
 import { mergePublicMapPlaces, toMapPoi } from '~/utils/public-catalog'
 import { safeLocalPath } from '~/utils/safe-navigation'
@@ -72,6 +73,19 @@ const activeScope = computed<'campus' | 'nearby' | null>(() => {
 })
 const publishedPlacesInScope = computed(() => (publicPlaceResponse.value?.items ?? [])
   .filter(place => !activeScope.value || place.scope === activeScope.value))
+const canShowOfficialPlan = computed(() => activeScope.value !== 'nearby')
+const mapViewMode = ref<'geographic' | 'official-plan'>(
+  activeScope.value === 'nearby' || publishedPlacesInScope.value.length
+    ? 'geographic'
+    : 'official-plan'
+)
+type MobileSheetState = 'collapsed' | 'half' | 'expanded'
+const mobileSheetState = ref<MobileSheetState>('half')
+const mobileSheetHeightClass = computed(() => ({
+  collapsed: 'h-20',
+  half: 'h-[44%]',
+  expanded: 'h-[calc(100%_-_0.75rem)]'
+})[mobileSheetState.value])
 const mapDataLabel = computed(() => {
   if (publicPlaceError.value) return '静态目录'
   if (publishedPlacesInScope.value.length) return '已发布目录'
@@ -83,7 +97,7 @@ const mapFallbackMessage = computed(() => {
   if (activeScope.value === 'nearby' && !publishedPlacesInScope.value.length) {
     return '暂无完成位置、来源和营业状态核验的周边地点，因此不显示候选商铺或近似坐标。'
   }
-  if (!publishedPlacesInScope.value.length) return '后台暂无已发布坐标，当前显示学校官网平面图的 47 项文字索引；原图未标版本日期，不绘制为导航点。'
+  if (!publishedPlacesInScope.value.length) return '后台暂无已发布坐标，可使用学校官网平面图对照 47 项校内地点；原图没有地理控制点，不用于导航。'
   return null
 })
 
@@ -98,6 +112,7 @@ const initialSelectedPoi = places.value.find(poi => poi.slug === initialPlace ||
 const selectedPoiId = ref<string | null>(initialSelectedPoi?.id ?? null)
 const locating = ref(false)
 const toast = useToast()
+const { copyText, isWechat } = useShareActions()
 const poiRowElements = new Map<string, HTMLElement>()
 let routeSyncTimer: ReturnType<typeof setTimeout> | null = null
 let applyingRouteState = false
@@ -143,15 +158,23 @@ function placeDetailsTarget(poi: PublicMapPlace) {
 
 function placeFeedbackTarget(poi: PublicMapPlace) {
   if (!poi.isApiPublished) return undefined
-  return {
-    path: '/feedback',
-    query: {
-      targetType: 'place',
-      targetId: poi.id,
-      targetName: poi.name,
-      type: 'place_error'
-    }
-  }
+  return buildDetailFeedbackLink({
+    targetType: 'place',
+    targetId: poi.id,
+    targetName: poi.name,
+    reasonType: 'place_error',
+    from: route.fullPath
+  })
+}
+
+function copyPoiLocation(poi: PublicMapPlace): void {
+  const text = [
+    poi.name,
+    poi.referenceLabel,
+    poi.campusArea,
+    poi.address
+  ].filter((value): value is string => Boolean(value)).join(' · ')
+  void copyText(text, '地点信息')
 }
 
 function categoryLabel(categoryId: string) {
@@ -199,8 +222,22 @@ function hasMapError() {
 
 function selectPoi(poi: PublicMapPlace) {
   selectedPoiId.value = poi.id
+  if (mobileSheetState.value === 'collapsed') mobileSheetState.value = 'half'
+  if (poi.usesPreviewPoint && canShowOfficialPlan.value) mapViewMode.value = 'official-plan'
   mapProvider.value?.setSelectedPoi(poi.point ? poi.id : null)
   if (poi.point) mapProvider.value?.flyToPoi(poi.id)
+}
+
+function selectedOfficialPlanNumber(poi: PublicMapPlace | null): string | null {
+  return poi?.id.match(/^campus-map-(\d{2})$/)?.[1] ?? null
+}
+
+function selectOfficialPlanNumber(mapNumber: string): void {
+  const poi = places.value.find(place => place.id === `campus-map-${mapNumber}`)
+  if (!poi) return
+  searchQuery.value = ''
+  activeCategory.value = 'all'
+  selectPoi(poi)
 }
 
 function closePoiDetails() {
@@ -321,6 +358,7 @@ watch(() => route.query, async (query, previousQuery) => {
     || queryValue(query.scope) !== queryValue(previousQuery?.scope)
 
   applyingRouteState = true
+  if (queryValue(query.scope) === 'nearby') mapViewMode.value = 'geographic'
   searchQuery.value = queryValue(query.q)
 
   const category = queryValue(query.category)
@@ -359,12 +397,66 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="map-workspace grid h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-[34rem] grid-rows-[56%_44%] overflow-hidden bg-white md:h-[calc(100dvh-var(--header-height))] md:min-h-[40rem] md:grid-cols-[18rem_minmax(0,1fr)] md:grid-rows-1">
+  <div class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-[34rem] overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:min-h-[40rem] md:grid-cols-[18rem_minmax(0,1fr)] md:grid-rows-1">
     <aside
-      class="order-2 flex min-h-0 min-w-0 flex-col border-t border-[var(--line)] bg-white md:order-1 md:overflow-hidden md:border-r md:border-t-0"
-      :class="selectedPoi ? 'overflow-y-auto' : 'overflow-hidden'"
+      class="absolute inset-x-0 bottom-0 z-20 flex min-h-0 min-w-0 flex-col rounded-t-md border-t border-[var(--line)] bg-white shadow-[0_-6px_24px_rgb(0_0_0/12%)] transition-[height] duration-200 md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      :class="[
+        mobileSheetHeightClass,
+        selectedPoi && mobileSheetState !== 'collapsed' ? 'overflow-y-auto' : 'overflow-hidden'
+      ]"
     >
-      <div class="shrink-0 border-b border-[var(--line)] px-4 py-3 md:px-5 md:py-4">
+      <div class="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] px-4 md:hidden">
+        <div class="min-w-0">
+          <div class="mx-auto mb-2 h-1 w-10 rounded-full bg-zinc-300" />
+          <p class="truncate text-sm font-semibold text-zinc-900">
+            {{ selectedPoi?.name ?? `地点列表 · ${filteredPois.length}` }}
+          </p>
+        </div>
+        <div
+          class="flex shrink-0 items-center gap-1"
+          role="group"
+          aria-label="地图面板高度"
+        >
+          <UTooltip text="收起地点面板">
+            <UButton
+              icon="i-lucide-chevrons-down"
+              color="neutral"
+              variant="ghost"
+              class="size-9"
+              aria-label="收起地点面板"
+              :aria-pressed="mobileSheetState === 'collapsed'"
+              @click="mobileSheetState = 'collapsed'"
+            />
+          </UTooltip>
+          <UTooltip text="半屏显示地点面板">
+            <UButton
+              icon="i-lucide-minus"
+              color="neutral"
+              variant="ghost"
+              class="size-9"
+              aria-label="半屏显示地点面板"
+              :aria-pressed="mobileSheetState === 'half'"
+              @click="mobileSheetState = 'half'"
+            />
+          </UTooltip>
+          <UTooltip text="展开地点面板">
+            <UButton
+              icon="i-lucide-chevrons-up"
+              color="neutral"
+              variant="ghost"
+              class="size-9"
+              aria-label="展开地点面板"
+              :aria-pressed="mobileSheetState === 'expanded'"
+              @click="mobileSheetState = 'expanded'"
+            />
+          </UTooltip>
+        </div>
+      </div>
+
+      <div
+        class="shrink-0 border-b border-[var(--line)] px-4 py-3 md:block md:px-5 md:py-4"
+        :class="mobileSheetState === 'collapsed' ? 'hidden' : 'block'"
+      >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="text-xs font-semibold text-green-700">
@@ -433,7 +525,7 @@ onBeforeUnmount(() => {
       </div>
 
       <section
-        v-if="selectedPoi"
+        v-if="selectedPoi && mobileSheetState !== 'collapsed'"
         class="shrink-0 border-b border-[var(--line)] p-4 md:hidden"
         aria-live="polite"
       >
@@ -492,6 +584,14 @@ onBeforeUnmount(() => {
               size="sm"
             />
             <UButton
+              icon="i-lucide-copy"
+              label="复制位置"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              @click="copyPoiLocation(selectedPoi)"
+            />
+            <UButton
               :to="selectedPoi.navigationUrl ?? undefined"
               :target="selectedPoi.navigationUrl ? '_blank' : undefined"
               icon="i-lucide-navigation"
@@ -501,6 +601,10 @@ onBeforeUnmount(() => {
               size="sm"
               :disabled="!selectedPoi.navigationUrl"
             />
+            <span
+              v-if="isWechat && selectedPoi.navigationUrl"
+              class="w-full text-xs leading-5 text-zinc-500"
+            >微信内未唤起地图时，可复制位置后搜索。</span>
             <UButton
               v-if="returnPath"
               :to="returnPath"
@@ -516,7 +620,11 @@ onBeforeUnmount(() => {
 
       <div
         class="items-center justify-between border-b border-[var(--line)] px-4 py-2 text-xs text-zinc-500 md:flex md:px-5"
-        :class="selectedPoi ? 'hidden' : 'flex'"
+        :class="selectedPoi
+          ? 'hidden'
+          : mobileSheetState === 'collapsed'
+            ? 'hidden md:flex'
+            : 'flex'"
       >
         <span>{{ filteredPois.length }} 个地点</span>
         <button
@@ -530,7 +638,11 @@ onBeforeUnmount(() => {
 
       <div
         class="min-h-0 flex-1 overflow-y-auto md:block"
-        :class="selectedPoi ? 'hidden' : 'block'"
+        :class="selectedPoi
+          ? 'hidden'
+          : mobileSheetState === 'collapsed'
+            ? 'hidden md:block'
+            : 'block'"
         aria-label="地点列表"
       >
         <button
@@ -579,12 +691,21 @@ onBeforeUnmount(() => {
     </aside>
 
     <section
-      class="relative order-1 min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] md:order-2"
+      class="absolute inset-0 min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] md:relative md:inset-auto md:order-2"
       aria-label="校园地图"
     >
       <div
+        v-show="mapViewMode === 'geographic'"
         ref="mapElement"
         class="absolute inset-0"
+      />
+
+      <MapOfficialCampusPlan
+        v-if="mapViewMode === 'official-plan'"
+        :selected-map-number="selectedOfficialPlanNumber(selectedPoi)"
+        :selected-reference-label="selectedPoi?.referenceLabel"
+        :selected-place-name="selectedPoi?.name"
+        @select-number="selectOfficialPlanNumber"
       />
 
       <div class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3 md:inset-x-4 md:top-4">
@@ -595,13 +716,21 @@ onBeforeUnmount(() => {
             class="pointer-events-auto shadow-sm"
           >
             <UIcon
-              :name="activeMapProviderId === 'amap' ? 'i-lucide-map' : 'i-lucide-flask-conical'"
+              :name="mapViewMode === 'official-plan'
+                ? 'i-lucide-image'
+                : activeMapProviderId === 'amap'
+                  ? 'i-lucide-map'
+                  : 'i-lucide-flask-conical'"
               class="mr-1 size-3.5"
             />
-            {{ activeMapProviderId === 'amap' ? '高德地图' : 'OSM 预览底图' }}
+            {{ mapViewMode === 'official-plan'
+              ? '学校官网原图'
+              : activeMapProviderId === 'amap'
+                ? '高德地图'
+                : 'OSM 预览底图' }}
           </UBadge>
           <UTooltip
-            v-if="activeMapProviderId !== 'amap'"
+            v-if="mapViewMode === 'geographic' && activeMapProviderId !== 'amap'"
             text="绿色虚线来自 OSM 社区测绘，只表示校园范围参考，不代表楼栋坐标已核验。"
           >
             <UBadge
@@ -617,7 +746,37 @@ onBeforeUnmount(() => {
             </UBadge>
           </UTooltip>
         </div>
-        <div class="pointer-events-auto flex flex-col gap-2">
+        <div
+          v-if="canShowOfficialPlan"
+          class="pointer-events-auto absolute left-1/2 top-0 flex -translate-x-1/2 overflow-hidden rounded-md border border-white/40 bg-white shadow-sm"
+          role="group"
+          aria-label="地图显示模式"
+        >
+          <UButton
+            icon="i-lucide-map"
+            label="地图"
+            size="xs"
+            :color="mapViewMode === 'geographic' ? 'primary' : 'neutral'"
+            :variant="mapViewMode === 'geographic' ? 'solid' : 'ghost'"
+            class="rounded-none"
+            :aria-pressed="mapViewMode === 'geographic'"
+            @click="mapViewMode = 'geographic'"
+          />
+          <UButton
+            icon="i-lucide-image"
+            label="平面图"
+            size="xs"
+            :color="mapViewMode === 'official-plan' ? 'primary' : 'neutral'"
+            :variant="mapViewMode === 'official-plan' ? 'solid' : 'ghost'"
+            class="rounded-none"
+            :aria-pressed="mapViewMode === 'official-plan'"
+            @click="mapViewMode = 'official-plan'"
+          />
+        </div>
+        <div
+          v-if="mapViewMode === 'geographic'"
+          class="pointer-events-auto flex flex-col gap-2"
+        >
           <UTooltip text="显示全部地点">
             <UButton
               icon="i-lucide-scan"
@@ -643,7 +802,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        v-if="mapStatus !== 'ready'"
+        v-if="mapViewMode === 'geographic' && mapStatus !== 'ready'"
         class="absolute inset-0 z-20 grid place-items-center bg-[#e5ebe7]/95 p-6 text-center"
       >
         <div v-if="mapStatus === 'loading'">
@@ -682,7 +841,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        v-else-if="filteredMapPois.length === 0"
+        v-else-if="mapViewMode === 'geographic' && filteredMapPois.length === 0"
         class="pointer-events-none absolute inset-x-4 top-32 z-10 flex justify-center md:top-20"
         role="status"
       >
@@ -802,6 +961,14 @@ onBeforeUnmount(() => {
               variant="outline"
               size="sm"
             />
+            <UButton
+              icon="i-lucide-copy"
+              label="复制位置"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              @click="copyPoiLocation(selectedPoi)"
+            />
             <UTooltip :text="selectedPoi.navigationUrl ? '使用已核验地点提供的外部导航入口' : '坐标未核验或未提供安全的导航入口'">
               <UButton
                 :to="selectedPoi.navigationUrl ?? undefined"
@@ -814,6 +981,10 @@ onBeforeUnmount(() => {
                 :disabled="!selectedPoi.navigationUrl"
               />
             </UTooltip>
+            <span
+              v-if="isWechat && selectedPoi.navigationUrl"
+              class="w-full text-xs leading-5 text-zinc-500"
+            >微信内未唤起地图时，可复制位置后搜索。</span>
             <UButton
               v-if="returnPath"
               :to="returnPath"
