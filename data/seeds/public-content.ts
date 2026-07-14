@@ -328,7 +328,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'partial',
     statusText: '地图目录已导入，坐标核验中',
     updatedAt: '2026-07-14',
-    leadNotice: '工作地图已整理 76 个标记点和 8 个区域，但导出文件不提供经纬度。坐标未完成官方或现场复核前，系统不会开启导航。',
+    leadNotice: '工作地图的 76 个标点已按“未独立现场核验”状态显示，并支持地图内步行路线与外部高德导航；8 个区域只取得包围框，等待原始不规则边界数据后再绘制。',
     sections: [
       {
         title: '地图里可以做什么',

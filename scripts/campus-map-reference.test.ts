@@ -108,7 +108,7 @@ test('owner-authorized WIA points render as drafts with explicit GCJ-02 AMap nav
   }
 })
 
-test('owner-authorized WIA areas remain explicit reviewed bounding boxes', () => {
+test('owner-authorized WIA areas remain bounding-box metadata pending exact shapeBatch paths', () => {
   assert.equal(amapImportedAreas.length, 8)
   assert.equal(new Set(amapImportedAreas.map(area => area.id)).size, 8)
   assert.ok(amapImportedAreas.every(area => area.geometrySource === 'wia-bounding-box'))
@@ -146,6 +146,9 @@ test('map page uses the Nuxt auto-import name for the nested map component', () 
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   assert.match(source, /<MapOfficialCampusPlan\b/)
   assert.doesNotMatch(source, /<OfficialCampusPlan\b/)
+  assert.match(source, /label="地图内路线"/)
+  assert.match(source, /planWalkingRoute\(origin, poi\.point!\)/)
+  assert.match(source, /8 个区域暂不显示包围框/)
 })
 
 test('geographic map keeps a full-height wrapper around provider-owned container styles', () => {

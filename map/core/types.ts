@@ -14,20 +14,31 @@ export interface MapPoi {
   status: 'draft' | 'published' | 'archived'
 }
 
-export interface MapArea {
+interface MapAreaBase {
   id: string
   name: string
+  strokeColor: string
+  fillColor: string
+  areaSquareMeters: number | null
+  perimeterMeters: number | null
+}
+
+export interface MapBoundingArea extends MapAreaBase {
   /** Reviewed WGS84 rectangle derived from a WIA sparseList bounding box. */
   bounds: {
     southWest: GeoPoint
     northEast: GeoPoint
   }
-  strokeColor: string
-  fillColor: string
-  areaSquareMeters: number | null
-  perimeterMeters: number | null
   geometrySource: 'wia-bounding-box'
 }
+
+export interface MapPolygonArea extends MapAreaBase {
+  /** Exact WGS84 rings decoded from the WIA shapeBatch response. */
+  paths: GeoPoint[][]
+  geometrySource: 'wia-shape-batch'
+}
+
+export type MapArea = MapBoundingArea | MapPolygonArea
 
 export interface MapMountOptions {
   center?: GeoPoint

@@ -51,6 +51,22 @@ export interface AMapPolygon {
   setMap(map: AMapMap | null): void
 }
 
+export interface AMapWalkingResult {
+  routes?: Array<{
+    distance?: number
+    time?: number
+  }>
+}
+
+export interface AMapWalking {
+  search(
+    origin: AMapPosition,
+    destination: AMapPosition,
+    callback: (status: string, result: AMapWalkingResult | string) => void
+  ): void
+  clear(): void
+}
+
 export type AMapOverlay = AMapMarker | AMapPolygon
 
 export interface AMapInfoWindow {
@@ -101,6 +117,7 @@ export interface AMapNamespace {
       renderClusterMarker?: (context: AMapClusterRenderContext) => void
     }
   ) => AMapMarkerCluster
+  Walking: new (options: Record<string, unknown>) => AMapWalking
   plugin(plugins: string[], callback: () => void): void
   convertFrom(
     points: AMapPosition | AMapPosition[],

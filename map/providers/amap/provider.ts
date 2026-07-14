@@ -2,10 +2,11 @@ import type {
   MapErrorHandler,
   MapProvider,
   PoiSelectHandler,
-  PointPickedHandler
+  PointPickedHandler,
+  RouteSummary
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
-import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from '../../core/types'
+import type { GeoPoint, MapArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
 import { loadAMap } from './loader'
 import type {
   AMapConvertResult,
@@ -22,7 +23,8 @@ import type {
   AMapMouseEvent,
   AMapNamespace,
   AMapPolygon,
-  AMapPosition
+  AMapPosition,
+  AMapWalking
 } from './types'
 
 const DEFAULT_ZOOM = 14
@@ -31,6 +33,7 @@ const CONVERSION_BATCH_SIZE = 40
 const CONVERSION_TIMEOUT_MS = 8_000
 const CLUSTER_GRID_SIZE = 56
 const CLUSTER_MAX_ZOOM = 17
+const ROUTE_TIMEOUT_MS = 15_000
 
 const CATEGORY_COLORS: Record<string, string> = {
   'campus-building': '#176f46',
@@ -68,6 +71,7 @@ export class AMapProvider implements MapProvider {
   private areaLabels: AMapMarker[] = []
   private hotspotInfoWindow: AMapInfoWindow | null = null
   private markerCluster: AMapMarkerCluster | null = null
+  private walking: AMapWalking | null = null
   private selectedMarker: AMapMarker | null = null
   private selectedMarkerClickHandler: ((event: AMapMouseEvent) => void) | null = null
   private selectedPoiId: string | null = null
@@ -188,6 +192,60 @@ export class AMapProvider implements MapProvider {
     return true
   }
 
+  async planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary> {
+    const amap = this.amap
+    const map = this.map
+    if (!amap || !map) throw new Error('高德地图尚未加载完成。')
+    if (!this.isRenderablePoint(origin) || !this.isRenderablePoint(destination)) {
+      throw new Error('起点或终点坐标无法用于路线规划。')
+    }
+
+    const [convertedOrigin, convertedDestination] = await this.convertPoints([origin, destination], amap)
+    if (!convertedOrigin || !convertedDestination) throw new Error('路线坐标转换失败。')
+
+    this.clearRoute()
+    const walking = new amap.Walking({ map, hideMarkers: false, autoFitView: true })
+    this.walking = walking
+
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const finish = (error?: Error, summary?: RouteSummary) => {
+        if (settled) return
+        settled = true
+        globalThis.clearTimeout(timeout)
+        if (error) reject(error)
+        else if (summary) resolve(summary)
+      }
+      const timeout = globalThis.setTimeout(() => {
+        finish(new Error('步行路线规划超时，请稍后重试。'))
+      }, ROUTE_TIMEOUT_MS)
+
+      try {
+        walking.search(convertedOrigin, convertedDestination, (status, result) => {
+          if (status !== 'complete' || typeof result === 'string') {
+            finish(new Error('暂时未找到可用的步行路线。'))
+            return
+          }
+          const route = result.routes?.[0]
+          const distanceMeters = Number(route?.distance)
+          const durationSeconds = Number(route?.time)
+          if (!Number.isFinite(distanceMeters) || !Number.isFinite(durationSeconds)) {
+            finish(new Error('高德地图返回的路线信息不完整。'))
+            return
+          }
+          finish(undefined, { distanceMeters, durationSeconds })
+        })
+      } catch {
+        finish(new Error('步行路线规划调用失败。'))
+      }
+    })
+  }
+
+  clearRoute(): void {
+    this.walking?.clear()
+    this.walking = null
+  }
+
   destroy(): void {
     ++this.lifecycleVersion
     ++this.renderVersion
@@ -270,42 +328,44 @@ export class AMapProvider implements MapProvider {
 
     this.clearAreas()
     const renderVersion = ++this.areaRenderVersion
-    const rendered: Array<{ area: MapArea, southWest: AMapPosition, northEast: AMapPosition }> = []
+    const exactAreas = this.areas.filter((area): area is MapPolygonArea => (
+      area.geometrySource === 'wia-shape-batch'
+      && area.paths.length > 0
+      && area.paths.every(path => path.length >= 3)
+    ))
 
-    const corners = this.areas.flatMap(area => [area.bounds.southWest, area.bounds.northEast])
-    const convertedCorners = await this.convertPoints(corners, amap)
-    if (renderVersion !== this.areaRenderVersion || this.map !== map) return
+    for (const area of exactAreas) {
+      const convertedPaths: AMapPosition[][] = []
+      for (const path of area.paths) {
+        const converted = await this.convertPoints(path, amap)
+        if (renderVersion !== this.areaRenderVersion || this.map !== map) return
+        if (converted.every((point): point is AMapPosition => point !== null)) {
+          convertedPaths.push(converted)
+        }
+      }
+      if (!convertedPaths.length) continue
 
-    this.areas.forEach((area, index) => {
-      const southWest = convertedCorners[index * 2]
-      const northEast = convertedCorners[index * 2 + 1]
-      if (southWest && northEast) rendered.push({ area, southWest, northEast })
-    })
-
-    for (const { area, southWest, northEast } of rendered) {
-      const path: AMapPosition[] = [
-        southWest,
-        [northEast[0], southWest[1]],
-        northEast,
-        [southWest[0], northEast[1]]
-      ]
       const polygon = new amap.Polygon({
-        path,
+        path: convertedPaths.length === 1 ? convertedPaths[0] : convertedPaths,
         strokeColor: area.strokeColor,
         strokeWeight: 2,
-        strokeOpacity: 0.9,
-        strokeStyle: 'dashed',
+        strokeOpacity: 0.95,
         fillColor: area.fillColor,
-        fillOpacity: 0.16,
+        fillOpacity: 0.18,
         bubble: true,
         zIndex: 30
       })
+      const allPoints = convertedPaths.flat()
+      const center: AMapPosition = [
+        allPoints.reduce((sum, point) => sum + point[0], 0) / allPoints.length,
+        allPoints.reduce((sum, point) => sum + point[1], 0) / allPoints.length
+      ]
       const label = document.createElement('span')
       label.textContent = area.name
-      label.title = `${area.name}（WIA 区域包围框）`
+      label.title = `${area.name}（WIA 原始区域）`
       label.style.cssText = `display:block;padding:3px 6px;border:1px solid ${area.strokeColor};border-radius:4px;background:rgb(255 255 255 / 90%);box-shadow:0 1px 4px rgb(0 0 0 / 15%);color:#18181b;font:600 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;`
       const marker = new amap.Marker({
-        position: [(southWest[0] + northEast[0]) / 2, (southWest[1] + northEast[1]) / 2],
+        position: center,
         anchor: 'center',
         content: label,
         offset: new amap.Pixel(-label.textContent.length * 6 - 7, -10),
@@ -568,6 +628,7 @@ export class AMapProvider implements MapProvider {
   }
 
   private disposeMap(): void {
+    this.clearRoute()
     this.clearMarkers()
     this.clearAreas()
     if (this.map) {

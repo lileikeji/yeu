@@ -7,7 +7,7 @@ interface AMapWindow extends Window {
 let loaderPromise: Promise<AMapNamespace> | null = null
 const PLUGIN_LOAD_TIMEOUT_MS = 15_000
 
-export const AMAP_REQUIRED_PLUGINS = ['AMap.MarkerCluster'] as const
+export const AMAP_REQUIRED_PLUGINS = ['AMap.MarkerCluster', 'AMap.Walking'] as const
 
 export interface AMapLoaderOptions {
   key: string
@@ -22,8 +22,12 @@ export function buildAMapScriptUrl(key: string): string {
   return url.toString()
 }
 
+function hasRequiredPlugins(amap: AMapNamespace): boolean {
+  return typeof amap.MarkerCluster === 'function' && typeof amap.Walking === 'function'
+}
+
 function ensureRequiredPlugins(amap: AMapNamespace): Promise<AMapNamespace> {
-  if (typeof amap.MarkerCluster === 'function') return Promise.resolve(amap)
+  if (hasRequiredPlugins(amap)) return Promise.resolve(amap)
 
   return new Promise((resolve, reject) => {
     let settled = false
@@ -40,9 +44,9 @@ function ensureRequiredPlugins(amap: AMapNamespace): Promise<AMapNamespace> {
 
     try {
       amap.plugin([...AMAP_REQUIRED_PLUGINS], () => {
-        finish(typeof amap.MarkerCluster === 'function'
+        finish(hasRequiredPlugins(amap)
           ? undefined
-          : new Error('高德地图点聚合插件未初始化。'))
+          : new Error('高德地图点聚合或步行路线插件未初始化。'))
       })
     } catch {
       finish(new Error('高德地图点聚合插件加载失败。'))

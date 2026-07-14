@@ -12,7 +12,8 @@ import type {
   MapErrorHandler,
   MapProvider,
   PoiSelectHandler,
-  PointPickedHandler
+  PointPickedHandler,
+  RouteSummary
 } from '../../core/provider'
 import {
   YEU_CAMPUS_REFERENCE_BOUNDS,
@@ -280,6 +281,12 @@ export class MapLibrePreviewProvider implements MapProvider {
     })
     return true
   }
+
+  planWalkingRoute(_origin: GeoPoint, _destination: GeoPoint): Promise<RouteSummary> {
+    return Promise.reject(new Error('网页内步行路线仅在高德地图模式下可用。'))
+  }
+
+  clearRoute(): void {}
 
   setLabelOverlapAllowed(allowed: boolean): void {
     this.labelOverlapAllowed = allowed

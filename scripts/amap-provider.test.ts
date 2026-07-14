@@ -115,6 +115,27 @@ class FakeInfoWindow {
   }
 }
 
+class FakeWalking {
+  static instances: FakeWalking[] = []
+  cleared = false
+
+  constructor(readonly options: Record<string, unknown>) {
+    FakeWalking.instances.push(this)
+  }
+
+  search(
+    _origin: [number, number],
+    _destination: [number, number],
+    callback: (status: string, result: { routes: Array<{ distance: number, time: number }> }) => void
+  ): void {
+    callback('complete', { routes: [{ distance: 1260, time: 900 }] })
+  }
+
+  clear(): void {
+    this.cleared = true
+  }
+}
+
 interface FakeClusterData {
   lnglat: [number, number]
   weight?: number
@@ -271,7 +292,7 @@ test('AMap loader requests the public MarkerCluster plugin without security cred
   assert.equal(url.searchParams.has('securityJsCode'), false)
 })
 
-test('AMap provider clusters 76 points, keeps names visible, and renders reviewed area boxes', async () => {
+test('AMap provider clusters 76 points, keeps names visible, plans walking routes, and hides area boxes', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
   const conversionSources: string[] = []
@@ -279,6 +300,7 @@ test('AMap provider clusters 76 points, keeps names visible, and renders reviewe
   FakeMarkerCluster.instances = []
   FakePolygon.instances = []
   FakeInfoWindow.instances = []
+  FakeWalking.instances = []
 
   const fakeDocument = {
     createElement: () => new FakeElement()
@@ -290,6 +312,7 @@ test('AMap provider clusters 76 points, keeps names visible, and renders reviewe
     InfoWindow: FakeInfoWindow,
     Pixel: FakePixel,
     MarkerCluster: FakeMarkerCluster,
+    Walking: FakeWalking,
     plugin: (_plugins: string[], callback: () => void) => callback(),
     convertFrom: (
       points: [number, number][],
@@ -338,6 +361,20 @@ test('AMap provider clusters 76 points, keeps names visible, and renders reviewe
       areaSquareMeters: 15423.04,
       perimeterMeters: 500.03,
       geometrySource: 'wia-bounding-box'
+    }, {
+      id: 'area-exact-1',
+      name: '真实操场轮廓',
+      paths: [[
+        { lng: 118.6005, lat: 25.1081, crs: 'WGS84' },
+        { lng: 118.6021, lat: 25.1083, crs: 'WGS84' },
+        { lng: 118.6018, lat: 25.1093, crs: 'WGS84' },
+        { lng: 118.6007, lat: 25.1090, crs: 'WGS84' }
+      ]],
+      strokeColor: '#18AD78',
+      fillColor: '#12E3AA',
+      areaSquareMeters: 15423.04,
+      perimeterMeters: 500.03,
+      geometrySource: 'wia-shape-batch'
     }])
     await nextTurn()
 
@@ -381,10 +418,19 @@ test('AMap provider clusters 76 points, keeps names visible, and renders reviewe
     assert.equal(FakePolygon.instances.length, 1)
     assert.deepEqual(FakePolygon.instances[0]?.options.path, [
       [118.6005, 25.1081],
-      [118.6021, 25.1081],
-      [118.6021, 25.1093],
-      [118.6005, 25.1093]
+      [118.6021, 25.1083],
+      [118.6018, 25.1093],
+      [118.6007, 25.109]
     ])
+
+    const walkingSummary = await provider.planWalkingRoute(
+      { lng: 118.6, lat: 25.1, crs: 'WGS84' },
+      { lng: 118.61, lat: 25.11, crs: 'WGS84' }
+    )
+    assert.deepEqual(walkingSummary, { distanceMeters: 1260, durationSeconds: 900 })
+    assert.equal(FakeWalking.instances.at(-1)?.options.map, map)
+    provider.clearRoute()
+    assert.equal(FakeWalking.instances.at(-1)?.cleared, true)
 
     map.emitHotspot('学生街商家', [118.6, 25.1])
     const infoWindow = FakeInfoWindow.instances.at(-1)

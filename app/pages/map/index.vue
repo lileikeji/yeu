@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GeoPoint, MapPoi } from '~~/map/core/types'
-import type { MapProvider, MapProviderId } from '~~/map/core/provider'
+import type { MapProvider, MapProviderId, RouteSummary } from '~~/map/core/provider'
 import { officialSources } from '~~/data/seeds/public-content'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
 import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
@@ -102,7 +102,7 @@ const mapDataLabel = computed(() => {
 })
 const mapFallbackMessage = computed(() => {
   if (ownerMapPlacesInScope.value.length) {
-    return '当前标点与 8 个区域包围框来自用户授权的 WIA 工作地图，已由 GCJ-02 转换为 WGS84 供底图显示；可调用高德步行导航，但尚未独立现场核验，实际入口请现场确认。'
+    return '当前标点来自用户授权的 WIA 工作地图，已转换后供底图显示；8 个区域暂不显示包围框，待取得 WIA 原始不规则边界后再绘制。标点尚未独立现场核验，实际入口请现场确认。'
   }
   if (publicPlaceError.value) return '公开地点暂时不可用，当前显示内置文字目录，不绘制候选坐标。'
   if (activeScope.value === 'nearby' && !publishedPlacesInScope.value.length) {
@@ -122,6 +122,9 @@ const activeCategory = ref(categoryIds.has(initialCategory) ? initialCategory : 
 const initialSelectedPoi = places.value.find(poi => poi.slug === initialPlace || poi.id === initialPlace)
 const selectedPoiId = ref<string | null>(initialSelectedPoi?.id ?? null)
 const locating = ref(false)
+const routePlanning = ref(false)
+const routeSummary = ref<RouteSummary | null>(null)
+const routeDestinationName = ref('')
 const toast = useToast()
 const { copyText, isWechat } = useShareActions()
 const poiRowElements = new Map<string, HTMLElement>()
@@ -293,9 +296,70 @@ function locateUser() {
   )
 }
 
+function routeSummaryText(summary: RouteSummary): string {
+  const distance = summary.distanceMeters >= 1000
+    ? `${(summary.distanceMeters / 1000).toFixed(1)} 公里`
+    : `${Math.round(summary.distanceMeters)} 米`
+  const minutes = Math.max(1, Math.ceil(summary.durationSeconds / 60))
+  return `约 ${distance} · ${minutes} 分钟`
+}
+
+function clearWalkingRoute(): void {
+  mapProvider.value?.clearRoute()
+  routeSummary.value = null
+  routeDestinationName.value = ''
+}
+
+function startWalkingRoute(poi: PublicMapPlace): void {
+  if (!poi.point) {
+    toast.add({ title: '该地点暂无可用坐标', color: 'warning' })
+    return
+  }
+  if (activeMapProviderId.value !== 'amap') {
+    toast.add({ title: '网页内路线仅支持高德地图', color: 'warning' })
+    return
+  }
+  if (!navigator.geolocation) {
+    toast.add({ title: '当前浏览器不支持定位', color: 'warning' })
+    return
+  }
+
+  routePlanning.value = true
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const origin: GeoPoint = {
+          lng: position.coords.longitude,
+          lat: position.coords.latitude,
+          crs: 'WGS84'
+        }
+        const summary = await mapProvider.value?.planWalkingRoute(origin, poi.point!)
+        if (!summary) throw new Error('地图路线组件尚未就绪。')
+        routeSummary.value = summary
+        routeDestinationName.value = poi.name
+      } catch (error) {
+        clearWalkingRoute()
+        toast.add({
+          title: '路线规划失败',
+          description: error instanceof Error ? error.message : '请稍后重试。',
+          color: 'warning'
+        })
+      } finally {
+        routePlanning.value = false
+      }
+    },
+    () => {
+      routePlanning.value = false
+      toast.add({ title: '未能获取当前位置', description: '请检查浏览器定位权限。', color: 'warning' })
+    },
+    { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 }
+  )
+}
+
 async function mountMap() {
   if (!mapElement.value) return
 
+  clearWalkingRoute()
   mapStatus.value = 'loading'
   mapErrorMessage.value = '地图暂时无法加载，请检查网络和地图配置后重试。'
   mapProvider.value?.destroy()
@@ -410,6 +474,8 @@ onBeforeUnmount(() => {
   if (routeSyncTimer) clearTimeout(routeSyncTimer)
   mapProvider.value?.destroy()
   mapProvider.value = null
+  routeSummary.value = null
+  routeDestinationName.value = ''
 })
 </script>
 
@@ -609,10 +675,20 @@ onBeforeUnmount(() => {
               @click="copyPoiLocation(selectedPoi)"
             />
             <UButton
+              icon="i-lucide-route"
+              label="地图内路线"
+              color="primary"
+              variant="soft"
+              size="sm"
+              :loading="routePlanning"
+              :disabled="activeMapProviderId !== 'amap' || !selectedPoi.point"
+              @click="startWalkingRoute(selectedPoi)"
+            />
+            <UButton
               :to="selectedPoi.navigationUrl ?? undefined"
               :target="selectedPoi.navigationUrl ? '_blank' : undefined"
               icon="i-lucide-navigation"
-              label="导航"
+              label="高德导航"
               color="neutral"
               variant="outline"
               size="sm"
@@ -823,6 +899,33 @@ onBeforeUnmount(() => {
       </div>
 
       <div
+        v-if="mapViewMode === 'geographic' && routeSummary"
+        class="absolute bottom-14 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm"
+        role="status"
+      >
+        <UIcon
+          name="i-lucide-route"
+          class="size-5 shrink-0 text-green-700"
+        />
+        <div class="min-w-0 whitespace-nowrap">
+          <p class="max-w-48 truncate text-xs font-semibold text-zinc-900">
+            步行至 {{ routeDestinationName }}
+          </p>
+          <p class="mt-0.5 text-xs text-zinc-600">
+            {{ routeSummaryText(routeSummary) }}
+          </p>
+        </div>
+        <UButton
+          icon="i-lucide-x"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          aria-label="清除步行路线"
+          @click="clearWalkingRoute"
+        />
+      </div>
+
+      <div
         v-if="mapViewMode === 'geographic' && mapStatus !== 'ready'"
         class="absolute inset-0 z-20 grid place-items-center bg-[#e5ebe7]/95 p-6 text-center"
       >
@@ -990,12 +1093,24 @@ onBeforeUnmount(() => {
               size="sm"
               @click="copyPoiLocation(selectedPoi)"
             />
+            <UTooltip text="获取当前位置，并在当前高德地图内绘制步行路线">
+              <UButton
+                icon="i-lucide-route"
+                label="地图内路线"
+                color="primary"
+                variant="soft"
+                size="sm"
+                :loading="routePlanning"
+                :disabled="activeMapProviderId !== 'amap' || !selectedPoi.point"
+                @click="startWalkingRoute(selectedPoi)"
+              />
+            </UTooltip>
             <UTooltip :text="selectedPoi.navigationUrl ? (selectedPoi.coordinateVerification === 'owner-map-only' ? '导航至 WIA 工作地图标点，实际入口请现场确认' : '使用已核验地点提供的外部导航入口') : '坐标未核验或未提供安全的导航入口'">
               <UButton
                 :to="selectedPoi.navigationUrl ?? undefined"
                 :target="selectedPoi.navigationUrl ? '_blank' : undefined"
                 icon="i-lucide-navigation"
-                label="导航"
+                label="高德导航"
                 color="neutral"
                 variant="outline"
                 size="sm"
