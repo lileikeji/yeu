@@ -7,7 +7,7 @@ import {
 
 useSeoMeta({
   title: '新生指南',
-  description: '仰恩大学本科与专升本新生的报到、校园地图、校园卡网络、快递外卖及社团指南。'
+  description: '仰恩大学本科与专升本新生的报到、校园地图、校园卡网络、学习图书馆、安全医疗、快递外卖及社团指南。'
 })
 
 const categories = [
@@ -88,7 +88,7 @@ const iconTone: Record<string, string> = {
             v-model="searchQuery"
             icon="i-lucide-search"
             size="lg"
-            placeholder="搜索报到、校园网、快递或社团"
+            placeholder="搜索报到、校园网、图书馆、安全、快递或社团"
             aria-label="搜索新生指南"
           >
             <template

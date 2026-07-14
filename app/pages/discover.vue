@@ -27,6 +27,20 @@ const taskEntries = [
     tone: 'bg-cyan-50 text-cyan-700'
   },
   {
+    title: '学习 / 图书馆',
+    description: '核对开学日期、教务入口、开放时间与借阅规则',
+    to: '/guides/study-library',
+    icon: 'i-lucide-book-open-check',
+    tone: 'bg-indigo-50 text-indigo-700'
+  },
+  {
+    title: '安全 / 医疗',
+    description: '保存校园110，查看消防、医务室与心理求助入口',
+    to: '/guides/safety-health',
+    icon: 'i-lucide-shield-plus',
+    tone: 'bg-red-50 text-red-700'
+  },
+  {
     title: '快递 / 外卖',
     description: '查看站点、取餐点和配送边界的当前核验状态',
     to: '/map?category=express',

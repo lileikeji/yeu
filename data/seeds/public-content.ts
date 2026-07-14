@@ -266,6 +266,18 @@ export const officialSources = {
     url: 'https://xl.yeu.edu.cn/2025/0225/c564a47514/page.htm',
     accessedAt: '2026-07-15'
   },
+  mentalHealthVisitorNotice: {
+    title: '心理咨询来访须知',
+    publisher: '仰恩大学心理健康教育与咨询中心',
+    url: 'https://xl.yeu.edu.cn/2020/0110/c564a13891/page.htm',
+    accessedAt: '2026-07-15'
+  },
+  campusFireSafety2025: {
+    title: '“寝”注意：宿舍消防安全指南',
+    publisher: '仰恩大学保卫处',
+    url: 'https://bwc.yeu.edu.cn/2025/0409/c665a48580/page.htm',
+    accessedAt: '2026-07-15'
+  },
   campusMap: {
     title: '校园地图',
     publisher: '仰恩大学',
@@ -589,6 +601,131 @@ export const freshmanGuides: FreshmanGuide[] = [
       officialSources.dormRules2025,
       officialSources.libraryBorrowingRules,
       officialSources.libraryWechatBinding2025
+    ]
+  },
+  {
+    slug: 'study-library',
+    title: '学习、选课与图书馆',
+    shortTitle: '学习 / 图书馆',
+    summary: '汇总开学时间、教务入口、图书馆开放和借阅规则，具体选课安排等待学院通知。',
+    icon: 'i-lucide-book-open-check',
+    category: 'campus',
+    audience: ['本科新生', '专升本新生'],
+    readMinutes: 4,
+    status: 'partial',
+    statusText: '校历与图书馆规则已核验，选课安排待通知',
+    updatedAt: '2026-07-14',
+    leadNotice: '2026级新生9月7至9日参加入学教育、9月10日上课；课表、选课批次、教材和学院报到后的具体安排，以教务部及所在学院当年通知为准。',
+    sections: [
+      {
+        title: '开学后的关键日期',
+        icon: 'i-lucide-calendar-days',
+        items: [
+          '学校办公室发布的2026-2027学年第一学期校历明确：新生9月5至6日注册报到，9月7至9日参加入学教育，9月10日开始上课。',
+          '校历将2026级新生军训暂定为12月13日至26日，并注明部队安排仍可能调整；不要按往年9月军训时间准备。',
+          '个人课表、分班、教材领取、选课轮次及补退选时间尚未在面向2026级新生的公开通知中确认。'
+        ]
+      },
+      {
+        title: '教务入口与账号安全',
+        icon: 'i-lucide-graduation-cap',
+        items: [
+          '教务部官网提供教务系统、选课主页、超星网络教学平台等官方入口；优先从教务部页面跳转，不点击搜索广告或群聊中的仿冒登录页。',
+          '教务部公开电话为0595-22082006，邮箱为 yeujwb@yeu.edu.cn；涉及学籍、课表和成绩事项时，先查看官网办事指南，再按学院或教务部通知办理。',
+          '本系统不会代登录教务、选课、超星或邮箱，也不会要求提交学号密码、短信验证码或人脸信息。',
+          '首次登录、默认口令、统一身份认证和忘记密码流程必须以学校当年页面为准，本指南不公开或猜测默认密码。'
+        ]
+      },
+      {
+        title: '图书馆开放与借阅',
+        icon: 'i-lucide-library',
+        items: [
+          '图书馆官网当前列明，书库和自习室周一至周日8:00至22:00开放，周四12:00至18:00暂停办理借还；节假日和特殊情况另行通知。',
+          '学校相关部门提供全日制学生名单后，图书馆统一审核并开通校园卡借阅权限；可刷校园卡或通过人脸识别入馆借阅。',
+          '借阅规定列明，非毕业班学生每人限借10册，借期30天，可续借1次30天；实际执行前仍应查看图书馆最新规定。',
+          '遗失校园卡后应及时到图书馆办理借阅权限挂失；这不能替代校园卡资金账户挂失。',
+          '图书馆借阅部公开电话为0595-22099025、0595-22099026。'
+        ]
+      },
+      {
+        title: '收到学院通知后再确认',
+        icon: 'i-lucide-list-checks',
+        items: [
+          '自己的班级、辅导员、班主任和学院官方通知渠道。',
+          '培养方案、公共课与专业课选课顺序，以及是否需要购买或领取教材。',
+          '专升本课程衔接、学分认定和补修要求；不要直接套用普通本科新生安排。'
+        ]
+      }
+    ],
+    sources: [
+      officialSources.academicCalendar2026Fall,
+      officialSources.teachingOffice,
+      officialSources.libraryHours,
+      officialSources.libraryContact,
+      officialSources.libraryBorrowingRules,
+      officialSources.libraryWechatBinding2025
+    ]
+  },
+  {
+    slug: 'safety-health',
+    title: '校园安全、医疗与心理支持',
+    shortTitle: '安全 / 医疗',
+    summary: '保存校园110和官方求助入口，了解宿舍消防、医务室与心理咨询的使用边界。',
+    icon: 'i-lucide-shield-plus',
+    category: 'life',
+    audience: ['本科新生', '专升本新生'],
+    readMinutes: 4,
+    status: 'partial',
+    statusText: '官方求助入口已核验，医务室直拨电话待确认',
+    updatedAt: '2026-07-15',
+    leadNotice: '校内火情、治安或紧急故障可拨校园110：0595-22076110；危及生命或需要公安、消防、急救时，同时按实际情况拨打110、119或120，不要只在群聊中求助。',
+    sections: [
+      {
+        title: '先保存这些求助入口',
+        icon: 'i-lucide-phone-call',
+        items: [
+          '校园110：0595-22076110。保卫处消防指南要求，报警时清楚说明地点、火势或事件情况和涉及楼栋。',
+          '医务室官网简介注明实行全年全天候24小时值班，承担医疗卫生、预防保健和传染病防控等工作；具体入口可在校园地图搜索“新区医务所”或“旧区医务所”。',
+          '医务室直拨电话和2026级体检安排尚未从当前公开资料确认；急症不要等待网页更新，立即联系校方并按情况拨打120。',
+          '心理健康教育与咨询中心位于第一教学区长春楼二楼，预约方式以中心当前官网页面为准。'
+        ]
+      },
+      {
+        title: '宿舍消防与用电',
+        icon: 'i-lucide-flame-kindling',
+        items: [
+          '不使用热得快、电炉、电煮锅等违规大功率电器，不私拉乱接电线，不在宿舍卧床吸烟。',
+          '离开宿舍时关闭电源并拔除不需要持续工作的电器；楼道、楼梯间和消防通道不得堆放物品。',
+          '发现火情先报警并迅速疏散；火势较大时用湿毛巾捂住口鼻、弯腰低姿撤离，不乘电梯，不折返取物。',
+          '只有在火势较小、退路安全且本人会使用灭火器时才尝试处置；任何情况下都不要为了拍照或取贵重物品延误撤离。'
+        ]
+      },
+      {
+        title: '防诈骗与缴费安全',
+        icon: 'i-lucide-shield-alert',
+        items: [
+          '学校保卫处2026年提醒，骗子可能冒充教育局、高校招生办或工作人员，以“内部指标”“补录”“罚款”等名义诱导转账。',
+          '招生、学费、住宿费和资助办理只认录取通知书、学校官网及主管部门明确公布的渠道。',
+          '不要向陌生人提供身份证照片、银行卡、短信验证码、屏幕共享或远程控制权限；遇到可疑信息先联系招生办、财务处或辅导员核实。'
+        ]
+      },
+      {
+        title: '心理咨询与隐私边界',
+        icon: 'i-lucide-heart-handshake',
+        items: [
+          '学校心理咨询面向在校学生，可通过中心公布的电话、企业微信或现场方式预约；不能按时来访时应提前联系。',
+          '中心来访须知说明咨询遵循尊重、理解、真诚和保密原则；咨询并不等同于普通聊天，也不要求问题严重到“撑不住”才可求助。',
+          '当来访者存在伤害自己或他人的倾向，或问题涉及法律责任时，保密会有必要例外，中心可联系相关人员或机构采取保护措施。',
+          '出现立即危险、自伤或伤人风险时，不等待常规预约，立刻联系身边可信任的人、辅导员、校园110或紧急服务。'
+        ]
+      }
+    ],
+    sources: [
+      officialSources.campusFireSafety2025,
+      officialSources.admissionFraudWarning2026,
+      officialSources.medicalOfficeProfile2025,
+      officialSources.mentalHealthAppointment2025,
+      officialSources.mentalHealthVisitorNotice
     ]
   },
   {

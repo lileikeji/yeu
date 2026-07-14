@@ -23,6 +23,8 @@ const EXPECTED_GUIDE_SLUGS = [
   'arrival',
   'find-campus',
   'campus-card-network',
+  'study-library',
+  'safety-health',
   'express-delivery',
   'clubs',
   'nearby'

@@ -75,6 +75,29 @@ test('verified campus facts retain their official source and scope', () => {
   assert.doesNotMatch(networkText, /Yeu@/)
 })
 
+test('study and safety guides expose official sources without inventing pending arrangements', () => {
+  const studyGuide = findFreshmanGuide('study-library')
+  assert.ok(studyGuide)
+  assert.equal(studyGuide.updatedAt, '2026-07-14')
+  assert.ok(studyGuide.sources.includes(officialSources.academicCalendar2026Fall))
+  assert.ok(studyGuide.sources.includes(officialSources.libraryBorrowingRules))
+
+  const studyText = studyGuide.sections.flatMap(section => section.items).join('\n')
+  assert.match(studyText, /9月7至9日参加入学教育，9月10日开始上课/)
+  assert.match(studyText, /个人课表、分班、教材领取、选课轮次及补退选时间尚未/)
+  assert.match(studyText, /不公开或猜测默认密码/)
+
+  const safetyGuide = findFreshmanGuide('safety-health')
+  assert.ok(safetyGuide)
+  assert.ok(safetyGuide.sources.includes(officialSources.campusFireSafety2025))
+  assert.ok(safetyGuide.sources.includes(officialSources.mentalHealthVisitorNotice))
+
+  const safetyText = safetyGuide.sections.flatMap(section => section.items).join('\n')
+  assert.match(safetyText, /校园110：0595-22076110/)
+  assert.match(safetyText, /医务室直拨电话和2026级体检安排尚未/)
+  assert.match(safetyText, /保密会有必要例外/)
+})
+
 test('the seven active clubs share the 2026-07-14 verification date', () => {
   assert.deepEqual(
     officialClubs.map(club => club.name),

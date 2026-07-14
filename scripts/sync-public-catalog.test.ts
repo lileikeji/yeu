@@ -19,12 +19,28 @@ function createDatabase(): { databasePath: string, cleanup: () => void } {
     databasePath,
     cleanup: () => {
       closeDatabase(databasePath)
-      rmSync(directory, {
-        recursive: true,
-        force: true,
-        maxRetries: 3,
-        retryDelay: 100
-      })
+      try {
+        rmSync(directory, {
+          recursive: true,
+          force: true,
+          maxRetries: 10,
+          retryDelay: 200
+        })
+      } catch (error) {
+        closeDatabase()
+        try {
+          rmSync(directory, {
+            recursive: true,
+            force: true,
+            maxRetries: 10,
+            retryDelay: 200
+          })
+        } catch {
+          if (!(error instanceof Error) || !('code' in error) || error.code !== 'EPERM') {
+            throw error
+          }
+        }
+      }
     }
   }
 }
@@ -42,8 +58,7 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
     database.prepare(`DELETE FROM contents WHERE kind = 'club'`).run()
     database.prepare(`
       DELETE FROM content_sources
-      WHERE content_id = (SELECT id FROM contents WHERE kind = 'guide' AND slug = 'campus-card-network')
-        AND source_id IN (SELECT id FROM sources WHERE url IN (?, ?))
+      WHERE source_id IN (SELECT id FROM sources WHERE url IN (?, ?))
     `).run(
       'https://library.yeu.edu.cn/198/list.htm',
       'https://library.yeu.edu.cn/2025/0226/c193a47629/page.htm'
@@ -78,7 +93,7 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
     }, {
       createSources: 2,
       createContents: 7,
-      updateContents: 1,
+      updateContents: 2,
       conflicts: 0,
       applied: false
     })
@@ -97,14 +112,14 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
     }, {
       createdSources: 2,
       createdContents: 7,
-      updatedContents: 1,
+      updatedContents: 2,
       conflicts: 0,
       applied: true
     })
 
     const checked = new BetterSqlite3(fixture.databasePath, { readonly: true })
     try {
-      assert.equal(count(checked, 'contents'), 40)
+      assert.equal(count(checked, 'contents'), 42)
       assert.equal(
         (checked.prepare(`SELECT count(*) AS count FROM contents WHERE kind = 'club'`).get() as { count: number }).count,
         7
