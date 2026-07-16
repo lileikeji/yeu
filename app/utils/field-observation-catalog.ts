@@ -88,7 +88,7 @@ export function createFieldObservationCatalog(options: CreateFieldObservationCat
       if (requestVersion !== placesRequestVersion) return
       const unauthorized = await options.handleUnauthorized(error)
       if (requestVersion !== placesRequestVersion || unauthorized) return
-      state.placesError.value = getRequestMessage(error, '鍦扮偣鏁版嵁鏆傛椂鏃犳硶鍔犺浇銆?)
+      state.placesError.value = getRequestMessage(error, '地点数据暂时无法加载。')
     } finally {
       if (requestVersion === placesRequestVersion) state.placesLoading.value = false
     }
@@ -132,7 +132,7 @@ export function createFieldObservationCatalog(options: CreateFieldObservationCat
       if (requestVersion !== observationsRequestVersion || unauthorized) return
       state.observationsError.value = getRequestMessage(
         error,
-        '鍧愭爣瑙傛祴鏆傛椂鏃犳硶鍔犺浇銆?
+        '坐标观测暂时无法加载。'
       )
     } finally {
       if (requestVersion === observationsRequestVersion) {
@@ -155,4 +155,3 @@ export function createFieldObservationCatalog(options: CreateFieldObservationCat
     cancelCatalogRequests
   }
 }
-
