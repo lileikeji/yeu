@@ -1,4 +1,4 @@
-import type { ContentKind } from '~~/shared/constants/server'
+﻿import type { ContentKind } from '~~/shared/constants/server'
 import type {
   ApiAmapOwnerDraftPlace,
   ApiContent,
@@ -7,7 +7,7 @@ import type {
   ApiProcedure
 } from '~~/shared/types/server'
 
-const PUBLIC_PAGE_SIZE = 200
+const PUBLIC_PAGE_SIZE = 100
 
 export function usePublicContentList(kind?: ContentKind) {
   return useFetch<ApiListResponse<ApiContent>>('/api/public/content', {
@@ -101,3 +101,4 @@ export function usePublicProcedure(slug: string) {
     key: `public-procedure-${slug}`
   })
 }
+
