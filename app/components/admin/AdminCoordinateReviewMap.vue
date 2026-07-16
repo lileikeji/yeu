@@ -13,6 +13,17 @@ import type {
   ApiCoordinateSample,
   ApiPlace
 } from '~~/shared/types/server'
+import {
+  buildCoordinateReviewAccuracyCircle,
+  buildCoordinateReviewPointCollection,
+  buildEmptyReviewFeatureCollection,
+  collectReviewMapFitPoints,
+  isCurrentCoordinateNotDisplayable,
+  resolveCurrentPlacePoint,
+  resolveCurrentPlacePointLabel,
+  resolveReviewMapFitDecision,
+  selectNeighboringReviewPlaces
+} from '~~/app/utils/admin-coordinate-review-map-presentation'
 
 const props = defineProps<{
   observation: ApiCoordinateObservation
@@ -23,7 +34,6 @@ const props = defineProps<{
 const POINTS_SOURCE_ID = 'coordinate-review-points'
 const ACCURACY_SOURCE_ID = 'coordinate-review-accuracy'
 const BOUNDARY_SOURCE_ID = 'coordinate-review-campus-boundary'
-const EARTH_RADIUS_METERS = 6_371_000
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>'
 
 const REVIEW_STYLE: StyleSpecification = {
@@ -41,31 +51,6 @@ const REVIEW_STYLE: StyleSpecification = {
   layers: [{ id: 'osm-raster', type: 'raster', source: 'osm' }]
 }
 
-interface ReviewPoint {
-  longitude: number
-  latitude: number
-}
-
-interface ReviewFeatureProperties {
-  kind: 'sample' | 'result' | 'current' | 'neighbor'
-  label: string
-  sampleIndex: number
-}
-
-interface ReviewPointFeature {
-  type: 'Feature'
-  geometry: {
-    type: 'Point'
-    coordinates: [number, number]
-  }
-  properties: ReviewFeatureProperties
-}
-
-interface ReviewPointCollection {
-  type: 'FeatureCollection'
-  features: ReviewPointFeature[]
-}
-
 type MapSourceData = Parameters<GeoJSONSource['setData']>[0]
 
 const mapElement = ref<HTMLDivElement | null>(null)
@@ -74,182 +59,44 @@ let map: MapLibreMap | null = null
 let resizeObserver: ResizeObserver | null = null
 let lifecycleVersion = 0
 
-function hasRenderableWgs84Coordinates(place: ApiPlace): place is ApiPlace & {
-  longitude: number
-  latitude: number
-  coordinateSystem: 'WGS84'
-} {
-  return place.coordinateSystem === 'WGS84'
-    && place.longitude !== null
-    && place.latitude !== null
-    && Number.isFinite(place.longitude)
-    && Number.isFinite(place.latitude)
-}
-
-function isVerifiedRenderableWgs84Place(place: ApiPlace): place is ApiPlace & {
-  longitude: number
-  latitude: number
-  coordinateSystem: 'WGS84'
-} {
-  return place.coordinateVerification === 'verified'
-    && hasRenderableWgs84Coordinates(place)
-}
-
-function distanceMeters(left: ReviewPoint, right: ReviewPoint): number {
-  const toRadians = (value: number) => value * Math.PI / 180
-  const latitudeDelta = toRadians(right.latitude - left.latitude)
-  const longitudeDelta = toRadians(right.longitude - left.longitude)
-  const leftLatitude = toRadians(left.latitude)
-  const rightLatitude = toRadians(right.latitude)
-  const haversine = Math.sin(latitudeDelta / 2) ** 2
-    + Math.cos(leftLatitude) * Math.cos(rightLatitude) * Math.sin(longitudeDelta / 2) ** 2
-  return EARTH_RADIUS_METERS * 2
-    * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
-}
-
-const currentPlacePoint = computed(() => {
-  const place = props.place
-  if (!place || !hasRenderableWgs84Coordinates(place)) return null
-  return {
-    longitude: place.longitude,
-    latitude: place.latitude
-  }
-})
-
-const currentPlacePointLabel = computed(() => props.place?.coordinateVerification === 'verified'
-  ? '当前双重核验坐标'
-  : '首条已批准候选')
-
-const currentCoordinateNotDisplayable = computed(() => {
-  const place = props.place
-  return place !== null
-    && place.longitude !== null
-    && place.latitude !== null
-    && place.coordinateSystem !== 'WGS84'
-})
-
-const neighboringPlaces = computed(() => {
-  const origin = {
-    longitude: props.observation.longitude,
-    latitude: props.observation.latitude
-  }
-  return props.places
-    .filter(place => place.id !== props.observation.placeId
-      && place.scope === props.observation.placeScope)
-    .filter(isVerifiedRenderableWgs84Place)
-    .map(place => ({
-      place,
-      distance: distanceMeters(origin, {
-        longitude: place.longitude,
-        latitude: place.latitude
-      })
-    }))
-    .sort((left, right) => left.distance - right.distance)
-    .slice(0, 8)
-})
+const currentPlacePoint = computed(() => resolveCurrentPlacePoint(props.place))
+const currentPlacePointLabel = computed(() => resolveCurrentPlacePointLabel(props.place))
+const currentCoordinateNotDisplayable = computed(() => isCurrentCoordinateNotDisplayable(props.place))
+const neighboringPlaces = computed(() => selectNeighboringReviewPlaces({
+  observation: props.observation,
+  places: props.places
+}))
 
 function emptyFeatureCollection(): MapSourceData {
-  return {
-    type: 'FeatureCollection',
-    features: []
-  }
+  return buildEmptyReviewFeatureCollection() as MapSourceData
 }
 
-function pointCollection(): ReviewPointCollection {
-  const features: ReviewPointFeature[] = props.observation.samples.map((sample, index) => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Point',
-      coordinates: [sample.longitude, sample.latitude]
-    },
-    properties: {
-      kind: 'sample',
-      label: `样本 ${index + 1}`,
-      sampleIndex: index + 1
-    }
-  }))
-
-  features.push({
-    type: 'Feature',
-    geometry: {
-      type: 'Point',
-      coordinates: [props.observation.longitude, props.observation.latitude]
-    },
-    properties: {
-      kind: 'result',
-      label: '计算结果',
-      sampleIndex: 0
-    }
+function pointCollection() {
+  return buildCoordinateReviewPointCollection({
+    observation: props.observation,
+    currentPlacePoint: currentPlacePoint.value,
+    currentPlacePointLabel: currentPlacePointLabel.value,
+    neighboringPlaces: neighboringPlaces.value
   })
-
-  if (currentPlacePoint.value) {
-    features.push({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [
-          currentPlacePoint.value.longitude,
-          currentPlacePoint.value.latitude
-        ]
-      },
-      properties: {
-        kind: 'current',
-        label: currentPlacePointLabel.value,
-        sampleIndex: 0
-      }
-    })
-  }
-
-  for (const { place } of neighboringPlaces.value) {
-    features.push({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [place.longitude, place.latitude]
-      },
-      properties: {
-        kind: 'neighbor',
-        label: place.name,
-        sampleIndex: 0
-      }
-    })
-  }
-
-  return { type: 'FeatureCollection', features }
 }
 
 function accuracyCircle(): MapSourceData {
-  const center = {
+  return buildCoordinateReviewAccuracyCircle({
     longitude: props.observation.longitude,
-    latitude: props.observation.latitude
-  }
-  const radius = Math.max(1, props.observation.accuracyMeters)
-  const latitudeRadians = center.latitude * Math.PI / 180
-  const points: [number, number][] = []
-
-  for (let index = 0; index <= 64; index += 1) {
-    const angle = index / 64 * Math.PI * 2
-    const latitudeOffset = Math.sin(angle) * radius / EARTH_RADIUS_METERS * 180 / Math.PI
-    const longitudeOffset = Math.cos(angle) * radius / (
-      EARTH_RADIUS_METERS * Math.max(0.01, Math.cos(latitudeRadians))
-    ) * 180 / Math.PI
-    points.push([
-      center.longitude + longitudeOffset,
-      center.latitude + latitudeOffset
-    ])
-  }
-
-  return {
-    type: 'FeatureCollection',
-    features: [{
-      type: 'Feature',
-      geometry: { type: 'Polygon', coordinates: [points] },
-      properties: {}
-    }]
-  }
+    latitude: props.observation.latitude,
+    accuracyMeters: props.observation.accuracyMeters
+  }) as MapSourceData
 }
 
 function addReviewLayers(target: MapLibreMap): void {
+  target.addSource(POINTS_SOURCE_ID, {
+    type: 'geojson',
+    data: emptyFeatureCollection()
+  })
+  target.addSource(ACCURACY_SOURCE_ID, {
+    type: 'geojson',
+    data: emptyFeatureCollection()
+  })
   target.addSource(BOUNDARY_SOURCE_ID, {
     type: 'geojson',
     data: campusBoundary as MapSourceData
@@ -258,43 +105,39 @@ function addReviewLayers(target: MapLibreMap): void {
     id: 'coordinate-review-campus-fill',
     type: 'fill',
     source: BOUNDARY_SOURCE_ID,
-    paint: { 'fill-color': '#1f6b4f', 'fill-opacity': 0.04 }
+    paint: {
+      'fill-color': '#15803d',
+      'fill-opacity': 0.08
+    }
   })
   target.addLayer({
-    id: 'coordinate-review-campus-line',
+    id: 'coordinate-review-campus-outline',
     type: 'line',
     source: BOUNDARY_SOURCE_ID,
     paint: {
-      'line-color': '#1f6b4f',
-      'line-opacity': 0.7,
-      'line-width': 1.5,
-      'line-dasharray': [2, 1.5]
+      'line-color': '#15803d',
+      'line-width': 2,
+      'line-opacity': 0.75
     }
   })
-
-  target.addSource(ACCURACY_SOURCE_ID, { type: 'geojson', data: emptyFeatureCollection() })
   target.addLayer({
-    id: 'coordinate-review-accuracy-fill',
+    id: 'coordinate-review-accuracy',
     type: 'fill',
     source: ACCURACY_SOURCE_ID,
-    paint: { 'fill-color': '#0f766e', 'fill-opacity': 0.13 }
+    paint: {
+      'fill-color': '#16a34a',
+      'fill-opacity': 0.12
+    }
   })
-  target.addLayer({
-    id: 'coordinate-review-accuracy-line',
-    type: 'line',
-    source: ACCURACY_SOURCE_ID,
-    paint: { 'line-color': '#0f766e', 'line-opacity': 0.9, 'line-width': 2 }
-  })
-
-  target.addSource(POINTS_SOURCE_ID, { type: 'geojson', data: emptyFeatureCollection() })
   target.addLayer({
     id: 'coordinate-review-neighbors',
     type: 'circle',
     source: POINTS_SOURCE_ID,
     filter: ['==', ['get', 'kind'], 'neighbor'],
     paint: {
-      'circle-color': '#52525b',
-      'circle-radius': 5,
+      'circle-color': '#71717a',
+      'circle-opacity': 0.85,
+      'circle-radius': 5.5,
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 1.5
     }
@@ -305,7 +148,7 @@ function addReviewLayers(target: MapLibreMap): void {
     source: POINTS_SOURCE_ID,
     filter: ['==', ['get', 'kind'], 'current'],
     paint: {
-      'circle-color': '#d97706',
+      'circle-color': '#c2410c',
       'circle-radius': 8,
       'circle-stroke-color': '#ffffff',
       'circle-stroke-width': 2
@@ -372,43 +215,23 @@ function addReviewLayers(target: MapLibreMap): void {
 }
 
 function fitReviewArea(target: MapLibreMap, samples: ApiCoordinateSample[]): void {
-  const points: ReviewPoint[] = [
-    ...samples,
-    {
-      longitude: props.observation.longitude,
-      latitude: props.observation.latitude
-    }
-  ]
-  if (currentPlacePoint.value) points.push(currentPlacePoint.value)
-  for (const { place } of neighboringPlaces.value) {
-    points.push({ longitude: place.longitude, latitude: place.latitude })
-  }
-
-  const first = points[0]
-  if (!first) return
-  const bounds = points.reduce((result, point) => ({
-    west: Math.min(result.west, point.longitude),
-    south: Math.min(result.south, point.latitude),
-    east: Math.max(result.east, point.longitude),
-    north: Math.max(result.north, point.latitude)
-  }), {
-    west: first.longitude,
-    south: first.latitude,
-    east: first.longitude,
-    north: first.latitude
+  const points = collectReviewMapFitPoints({
+    samples,
+    observation: props.observation,
+    currentPlacePoint: currentPlacePoint.value,
+    neighboringPlaces: neighboringPlaces.value
   })
+  const decision = resolveReviewMapFitDecision(points)
 
-  if (bounds.west === bounds.east && bounds.south === bounds.north) {
-    target.flyTo({ center: [first.longitude, first.latitude], zoom: 18, duration: 450 })
+  if (decision.kind === 'none') return
+  if (decision.kind === 'fly-to') {
+    target.flyTo({ center: decision.center, zoom: decision.zoom, duration: 450 })
     return
   }
 
-  target.fitBounds([
-    [bounds.west, bounds.south],
-    [bounds.east, bounds.north]
-  ], {
-    padding: 52,
-    maxZoom: 18,
+  target.fitBounds(decision.bounds, {
+    padding: decision.padding,
+    maxZoom: decision.maxZoom,
     duration: 450
   })
 }

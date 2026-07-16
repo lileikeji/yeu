@@ -146,3 +146,105 @@ export function buildProcedureMapLink(
     }
   }
 }
+
+export type ProcedureSoftBadgeColor = 'success' | 'warning' | 'neutral' | 'primary'
+
+export function resolveProcedureInformationStateBadgeColor(
+  informationState: string | null | undefined
+): 'success' | 'warning' {
+  return informationState === 'confirmed' ? 'success' : 'warning'
+}
+
+export function resolveProcedureMaterialsCountBadge(count: number): {
+  color: 'neutral' | 'warning'
+  label: string
+} {
+  if (count > 0) {
+    return {
+      color: 'neutral',
+      label: `${count} 项`
+    }
+  }
+  return {
+    color: 'warning',
+    label: '待通知'
+  }
+}
+
+export function resolveProcedureAudienceOptionPresentation(
+  selectedAudience: ProcedureAudienceSelection,
+  optionValue: ProcedureAudienceSelection
+): {
+  color: 'primary' | 'neutral'
+  variant: 'solid' | 'ghost'
+  ariaPressed: boolean
+} {
+  const active = selectedAudience === optionValue
+  return {
+    color: active ? 'primary' : 'neutral',
+    variant: active ? 'solid' : 'ghost',
+    ariaPressed: active
+  }
+}
+
+export function shouldShowProcedureStepAudienceBadges(
+  selectedAudience: ProcedureAudienceSelection,
+  stepAudienceCount: number,
+  procedureAudienceCount: number
+): boolean {
+  return selectedAudience === 'all' && stepAudienceCount < procedureAudienceCount
+}
+
+export function resolveProcedureStepCompletionPresentation(
+  completed: boolean,
+  stepNumber: number
+): {
+  ariaLabel: string
+  ariaPressed: boolean
+  icon: string
+  titleClass: string
+} {
+  return {
+    ariaLabel: completed
+      ? `取消完成第${stepNumber}步`
+      : `标记第${stepNumber}步完成`,
+    ariaPressed: completed,
+    icon: completed ? 'i-lucide-circle-check-big' : 'i-lucide-circle',
+    titleClass: completed ? 'line-through opacity-60' : ''
+  }
+}
+
+export function resolveProcedureAudienceRouteQuery(
+  query: Record<string, unknown>,
+  audience: ProcedureAudienceSelection
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...query }
+  if (audience === 'all') {
+    delete next.audience
+  } else {
+    next.audience = audience
+  }
+  return next
+}
+
+export function resolveProcedureChecklistFromStorageText(
+  raw: string | null | undefined,
+  version: string | null | undefined,
+  validStepIds: Iterable<string>
+): string[] {
+  if (raw == null || raw === '') {
+    return []
+  }
+  try {
+    return parseProcedureChecklist(JSON.parse(raw), version, validStepIds)
+  } catch {
+    return []
+  }
+}
+
+export function buildProcedureChecklistStorageValue(
+  version: string | null | undefined,
+  stepIds: string[]
+): string {
+  return JSON.stringify(serializeProcedureChecklist(version, stepIds))
+}

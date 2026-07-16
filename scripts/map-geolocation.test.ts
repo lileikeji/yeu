@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import test from 'node:test'
 import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from '../map/core/types'
 import type {
@@ -16,7 +18,11 @@ import {
   getCurrentMapPoint,
   MAP_LOCATION_OPTIONS,
   MAP_ROUTE_LOCATION_OPTIONS,
-  planWalkingMapRoute
+  planWalkingMapRoute,
+  resolveMapLocateFailureNotice,
+  resolveMapLocateGuard,
+  resolveMapWalkingRouteFailureNotice,
+  resolveMapWalkingRouteStartGuard
 } from '../app/utils/map-geolocation'
 
 function position(longitude: number, latitude: number): GeolocationPosition {
@@ -142,4 +148,52 @@ test('walking route resolves the current provider after geolocation completes', 
   positionCallback(position(118.6, 24.9))
 
   assert.deepEqual(await routePromise, { distanceMeters: 300, durationSeconds: 180 })
+})
+
+test('locate and walking-route guards keep student-facing notices pure', () => {
+  assert.deepEqual(resolveMapLocateGuard(false), {
+    ok: false,
+    notice: { title: '当前浏览器不支持定位', color: 'warning' }
+  })
+  assert.deepEqual(resolveMapLocateGuard(true), { ok: true })
+  assert.deepEqual(resolveMapLocateFailureNotice(), {
+    title: '未能获取位置',
+    description: '请检查浏览器定位权限，或稍后再试。',
+    color: 'warning'
+  })
+
+  assert.equal(resolveMapWalkingRouteStartGuard({
+    hasDestination: false,
+    activeMapProviderId: 'amap',
+    hasGeolocation: true
+  }).ok, false)
+  assert.equal(resolveMapWalkingRouteStartGuard({
+    hasDestination: true,
+    activeMapProviderId: 'maplibre',
+    hasGeolocation: true
+  }).ok, false)
+  assert.equal(resolveMapWalkingRouteStartGuard({
+    hasDestination: true,
+    activeMapProviderId: 'amap',
+    hasGeolocation: false
+  }).ok, false)
+  assert.deepEqual(resolveMapWalkingRouteStartGuard({
+    hasDestination: true,
+    activeMapProviderId: 'amap',
+    hasGeolocation: true
+  }), { ok: true })
+
+  const geoFail = resolveMapWalkingRouteFailureNotice(new Error('MAP_GEOLOCATION_FAILED'))
+  assert.equal(geoFail.shouldClearRoute, false)
+  assert.equal(geoFail.notice.title, '未能获取当前位置')
+  const planFail = resolveMapWalkingRouteFailureNotice(new Error('other'))
+  assert.equal(planFail.shouldClearRoute, true)
+  assert.equal(planFail.notice.title, '路线规划失败')
+
+  const composable = readFileSync(resolve('app/composables/useMapGeolocation.ts'), 'utf8')
+  assert.match(composable, /resolveMapLocateGuard/)
+  assert.match(composable, /resolveMapWalkingRouteStartGuard/)
+  assert.match(composable, /resolveMapWalkingRouteFailureNotice/)
+  assert.doesNotMatch(composable, /当前浏览器不支持定位/)
+  assert.doesNotMatch(composable, /网页内路线仅支持高德地图/)
 })

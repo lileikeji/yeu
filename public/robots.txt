@@ -1,3 +1,6 @@
 User-agent: *
 Allow: /
 Disallow: /admin/
+Sitemap: https://yeu.huiliyill.cn/sitemap.xml
+Sitemap: https://yeu.huiliyill.cn/seo/sitemap.xml
+Sitemap: https://yeu.huiliyill.cn/seo/live/sitemap.xml

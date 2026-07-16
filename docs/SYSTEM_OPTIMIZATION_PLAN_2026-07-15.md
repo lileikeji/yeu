@@ -309,7 +309,19 @@
 
 第六十一个边界将地图页 `map/index.vue` 中关闭 POI/区域详情、切换分类、适配可见 POI 视野，以及搜索词变更时的重置字段抽出到 `app/utils/map-presentation.ts`：`resolveClosePoiDetailsDecision`、`resolveCloseAreaDetailsDecision`、`resolveSetCategoryDecision`、`resolveFitToVisiblePoisDecision`、`resolveSearchQueryChangeReset`。页面只保留 provider 选中、`fitToPois` 与 `queueNativeSearch` 副作用接线。`map/index.vue` 约 37815 B；展示模块约 20809 B。`scripts/map-presentation.test.ts` 增至 11 项，并更新地图完整性/路由完整性测试薄壳期望。本项只记为地图页可测试性与职责边界改进，不宣称客户端运行时体积下降。
 
-第六十三个边界将全站搜索页 `search.vue` 中路由匹配跳过、并发导航过期校正与路由→输入框/最新提交态同步决策抽出到 `app/utils/public-search-presentation.ts`：`routeMatchesSearchState`、`shouldSkipSearchNavigation`、`resolveSearchNavigationStaleCorrection`、`resolveSearchInputSyncFromRoute`。页面只保留 `router.replace`、导航序号/pending 计数与请求壳副作用。`search.vue` 约 14335 B；展示模块约 13648 B。`scripts/public-search-presentation.test.ts` 增至 12 项，并更新路由完整性测试搜索页期望。本项只记为搜索页可测试性与职责边界改进，不宣称客户端运行时体积下降。
+第六十三个边界将全站搜索页 `search.vue` 中路由匹配跳过、并发导航过期校正与路由→输入框/最新提交态同步决策抽出到 `app/utils/public-search-presentation.ts`：`routeMatchesSearchState`、`shouldSkipSearchNavigation`、`resolveSearchNavigationStaleCorrection`、`resolveSearchInputSyncFromRoute`。页面只保留 `router.replace`、导航序号/pending 计数与请求壳副作用。`search.vue` 约 14335 B；展示模块约 13648 B。`scripts/public-search-presentation.test.ts` 增至 12 项，并更新路由完整性测试搜索页期望。本项只记为搜索页可测试性与职责边界改进，不宣称客户端运行时体积下降。 同阶段将 `scripts/map-place-details.test.ts` 对齐为单浮动详情卡（`variant="desktop"`，选点折叠移动端 sheet），并清理根目录临时补丁脚本与地图页多余空行，使 `pnpm check` 等价门禁可绿。
+
+第六十四个边界将地图路由同步与定位/步行路线前置校验继续纯函数化：`useMapRouteSync` 中选中可见性、provider 选中、镜头动作（fly/refocus/fit）与滚动目标迁入 `app/utils/map-presentation.ts` 的 `resolveMapRouteApplyDecision`；地图页默认显示选项与「能否规划路线」迁入 `defaultMapDisplayOptions` / `canPlanMapWalkingRoute`；`useMapGeolocation` 中定位/路线失败与不支持提示迁入 `app/utils/map-geolocation.ts` 的 guard/notice 纯函数。组合式与页面只保留 watch、provider 调用与 toast 副作用。`scripts/map-presentation.test.ts` 与 `scripts/map-geolocation.test.ts` 增补用例，并软更新路由完整性测试。本项只记为地图可测试性与职责边界改进，不宣称客户端运行时体积下降。
+
+第六十六个边界将后台坐标审阅地图 `AdminCoordinateReviewMap.vue` 中 WGS84 可渲染判定、邻域地点筛选排序、当前点标签、GeoJSON 点集/精度圈构造与视野适配（fly-to / fit-bounds）纯决策抽到 `app/utils/admin-coordinate-review-map-presentation.ts`；距离复用 `coordinateDistanceMeters`，组件只保留 MapLibre 生命周期、图层注册与 setData/flyTo/fitBounds 副作用。新增 `scripts/admin-coordinate-review-map-presentation.test.ts`。本项只记为后台坐标审阅可测试性与职责边界改进，不宣称客户端运行时体积下降。
+
+第六十七个边界将官网平面图组件 `OfficialCampusPlan.vue` 中缩放钳制、滚轮/按钮/双指缩放、焦点保持滚动、选中标签、锚点键、图片加载态与初始缩放等纯决策抽到 `app/utils/official-campus-plan-presentation.ts`；组件只保留 viewport 事件、DOM 滚动副作用与模板接线。新增 `scripts/official-campus-plan-presentation.test.ts`。本项只记为平面图可测试性与职责边界改进，不宣称客户端运行时体积下降。
+
+第六十八个边界将后台现场采点组件 `AdminFieldCoordinateCapture.vue` 中质量色调/标签/详情、提交门槛与样本接受门禁等纯决策抽到 `app/utils/field-coordinate-capture-presentation.ts`；组件只保留 geolocation watch、样本状态与模板接线。新增 `scripts/field-coordinate-capture-presentation.test.ts`。本项只记为现场采点可测试性与职责边界改进，不宣称客户端运行时体积下降。
+
+第六十九个边界将后台坐标拾点组件 `AdminCoordinatePicker.vue` 中 WGS84 当前点、草稿 POI、校界外判定与地图挂载选项纯决策抽到 `app/utils/admin-coordinate-picker-presentation.ts`；组件只保留 MapLibre provider 生命周期、拾点交互与模板接线。新增 `scripts/admin-coordinate-picker-presentation.test.ts`。门禁实测见 `VERIFICATION_RECORD` §2.76（`FINAL_EXIT=0`）。本项只记为后台拾点可测试性与职责边界改进，不宣称客户端运行时体积下降。
+
+第六十五个边界将办事流程详情页 `procedures/[slug].vue` 中仍留在模板/脚本的纯展示决策继续抽到 `app/utils/procedure-detail-presentation.ts`：信息状态徽章色、材料数量徽章、受众选项外观、步骤完成态（aria/图标/删除线）、步骤受众徽章显示条件、受众路由 query 变更、清单 localStorage 文本解析/序列化。页面只保留公开请求、SEO、localStorage 读写副作用、router.replace 与模板接线（薄包装函数）。新增/增补 `scripts/procedure-detail-presentation.test.ts` 用例。本项只记为流程详情可测试性与职责边界改进，不宣称客户端运行时体积下降。
 
 第六十二个边界将地图页 `map/index.vue` 中选点 apply、地图 POI 点击 apply 与平面图编号选中组合决策抽出到 `app/utils/map-presentation.ts`：`resolveSelectPoiApplyDecision`、`resolveMapPoiClickApply`、`resolveSelectOfficialPlanNumberDecision`。页面只保留 `createNativeMapPlace`、provider 选中、飞行/滚动与 `selectPoi` 调用等副作用。`map/index.vue` 约 36762 B；展示模块约 22812 B。`scripts/map-presentation.test.ts` 增至 12 项，并更新地图完整性/路由完整性测试薄壳期望。本项只记为地图页可测试性与职责边界改进，不宣称客户端运行时体积下降。
 
@@ -421,3 +433,7 @@
 - 测试、验收库或生产统计发生变化时，注明日期、环境和生成方式。
 - 已有文档要求但尚未实际演练的能力，不得标记为“已完成”。
 - 任何优化都不得降低来源、坐标、内容时效、隐私和发布审核门槛。
+
+## 9. 2026-07-17 续写
+
+Stage 66–69 后台/地图薄壳拆分门禁已全绿后，后续产品与运维动作见 [SYSTEM_NEXT_STEPS_2026-07-17.md](./SYSTEM_NEXT_STEPS_2026-07-17.md)。工程侧继续为拆而拆的 ROI 已低；优先 P0 坐标核验、2026 时效信息、真机/微信验收与备份告警闭环。

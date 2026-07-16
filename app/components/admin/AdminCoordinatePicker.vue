@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import type { GeoPoint, MapPoi } from '~~/map/core/types'
-import {
-  isPointWithinBounds,
-  YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS
-} from '~~/map/core/campus'
+import type { GeoPoint } from '~~/map/core/types'
 import { MapLibrePreviewProvider } from '~~/map/providers/maplibre/provider'
+import {
+  ADMIN_COORDINATE_PICKER_DRAFT_POI_ID,
+  resolveAdminCoordinatePickerCurrentPoint,
+  resolveAdminCoordinatePickerCurrentPoi,
+  resolveAdminCoordinatePickerMountOptions,
+  resolveAdminCoordinatePickerOutsideCampusBounds
+} from '~~/app/utils/admin-coordinate-picker-presentation'
 
 // Admin picking intentionally stays on WGS84 MapLibre. AMap only offers the
 // official WGS84 -> GCJ-02 display conversion, so it must not write picked GCJ-02 back as WGS84.
@@ -27,42 +30,28 @@ const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const picking = ref(false)
 const provider = shallowRef<MapLibrePreviewProvider | null>(null)
 
-const currentPoint = computed<GeoPoint | null>(() => {
-  if (props.coordinateSystem !== 'WGS84'
-    || props.longitude === null
-    || props.latitude === null
-    || !Number.isFinite(props.longitude)
-    || !Number.isFinite(props.latitude)) {
-    return null
-  }
+const currentPoint = computed(() => resolveAdminCoordinatePickerCurrentPoint({
+  coordinateSystem: props.coordinateSystem,
+  longitude: props.longitude,
+  latitude: props.latitude
+}))
 
-  return {
-    lng: props.longitude,
-    lat: props.latitude,
-    crs: 'WGS84'
-  }
-})
+const currentPoi = computed(() => resolveAdminCoordinatePickerCurrentPoi({
+  point: currentPoint.value,
+  name: props.name
+}))
 
-const currentPoi = computed<MapPoi[]>(() => currentPoint.value
-  ? [{
-      id: 'admin-coordinate-draft',
-      name: props.name || '待核验地点',
-      category: 'service',
-      point: currentPoint.value,
-      status: 'draft'
-    }]
-  : [])
-
-const outsideCampusBounds = computed(() => props.scope === 'campus'
-  && currentPoint.value !== null
-  && !isPointWithinBounds(currentPoint.value, YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS))
+const outsideCampusBounds = computed(() => resolveAdminCoordinatePickerOutsideCampusBounds({
+  scope: props.scope,
+  point: currentPoint.value
+}))
 
 function syncPoint(): void {
   const mapProvider = provider.value
   if (!mapProvider) return
 
   mapProvider.setPois(currentPoi.value)
-  mapProvider.setSelectedPoi(currentPoi.value.length ? 'admin-coordinate-draft' : null)
+  mapProvider.setSelectedPoi(currentPoi.value.length ? ADMIN_COORDINATE_PICKER_DRAFT_POI_ID : null)
 }
 
 function togglePicker(): void {
@@ -103,10 +92,10 @@ onMounted(async () => {
   })
 
   try {
-    await mapProvider.mount(mapElement.value, {
-      center: currentPoint.value ?? undefined,
-      zoom: currentPoint.value ? 18 : 15
+    const mountOptions = resolveAdminCoordinatePickerMountOptions({
+      point: currentPoint.value
     })
+    await mapProvider.mount(mapElement.value, mountOptions)
     syncPoint()
     mapStatus.value = 'ready'
   } catch {

@@ -7,6 +7,7 @@ import {
   resolveMapRouteState,
   type MapRouteQuery
 } from '~/utils/map-route-state'
+import { resolveMapRouteApplyDecision } from '~/utils/map-presentation'
 
 type MapViewMode = 'geographic' | 'official-plan'
 
@@ -79,37 +80,36 @@ export function useMapRouteSync(options: UseMapRouteSyncOptions) {
         options.areas
       )
 
-      if (state.scope === 'nearby') options.mapViewMode.value = 'geographic'
       options.searchQuery.value = state.searchQuery
       options.activeCategory.value = state.activeCategory
       options.selectedPoiId.value = state.selectedPoiId
       options.selectedArea.value = state.selectedArea
 
+      const decision = resolveMapRouteApplyDecision({
+        scope: state.scope,
+        selectedPoiId: state.selectedPoiId,
+        selectedArea: state.selectedArea,
+        places: options.places.value,
+        filteredPlaces: options.filteredPois.value,
+        filtersChanged
+      })
+      if (decision.forceGeographicView) options.mapViewMode.value = 'geographic'
+
       await nextTick()
       if (applyVersion !== routeApplyVersion) return
 
-      const nextSelected = options.places.value.find(poi => poi.id === options.selectedPoiId.value)
-      const selectionIsVisible = Boolean(
-        nextSelected && options.filteredPois.value.some(poi => poi.id === nextSelected.id)
-      )
-      options.mapProvider.value?.setSelectedPoi(
-        selectionIsVisible && nextSelected?.point ? nextSelected.id : null
-      )
-      options.mapProvider.value?.setSelectedArea(options.selectedArea.value?.id ?? null)
+      options.mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
+      options.mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
 
-      if (selectionIsVisible && nextSelected?.point) {
-        options.mapProvider.value?.flyToPoi(nextSelected.id)
-      } else if (options.selectedArea.value) {
-        options.mapProvider.value?.setSelectedArea(options.selectedArea.value.id)
-      } else if (
-        filtersChanged
-        || (!selectionIsVisible && !options.selectedArea.value)
-        || !nextSelected?.point
-      ) {
+      if (decision.cameraAction.kind === 'fly-to-poi') {
+        options.mapProvider.value?.flyToPoi(decision.cameraAction.poiId)
+      } else if (decision.cameraAction.kind === 'refocus-selected-area') {
+        options.mapProvider.value?.setSelectedArea(decision.cameraAction.areaId)
+      } else if (decision.cameraAction.kind === 'fit-to-pois') {
         options.mapProvider.value?.fitToPois()
       }
 
-      if (selectionIsVisible && nextSelected) options.scrollToPoi(nextSelected.id)
+      if (decision.scrollToPoiId) options.scrollToPoi(decision.scrollToPoiId)
     } finally {
       if (applyVersion === routeApplyVersion) applyingRouteState = false
     }

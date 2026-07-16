@@ -101,4 +101,3 @@ export function usePublicProcedure(slug: string) {
     key: `public-procedure-${slug}`
   })
 }
-

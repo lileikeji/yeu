@@ -648,5 +648,120 @@
 - 页面保留 `router.replace`、`searchNavigationSequence` / `pendingSearchNavigations` 计数副作用与 `useAsyncData` 请求壳；不再在页面内联 `routeMatches` 比较或 watch 中的 pending 分支。
 - `search.vue` 约 14335 B；展示模块约 13648 B。目标为可测试性与薄壳职责，不宣称客户端运行时体积下降。
 - 更新 `scripts/public-search-presentation.test.ts`（现 12 项：新增 navigation decisions 纯函数用例，并扩展薄壳接线期望）；同步更新 `scripts/public-route-integrity.test.ts` 搜索页期望。
-- 门禁：eslint + typecheck + scripts test + build + bundle-budget + pwa（见 `.data/stage63_check.log`，`FINAL_EXIT=0`）。
+- 同步对齐 `scripts/map-place-details.test.ts` 与当前地图 UX：选点后移动端收起列表 sheet，仅保留一块 `variant="desktop"` 浮动详情卡（桌面/移动共用，`PlaceDetailsPanel` 的 desktop 样式含移动底栏定位）；不再期望双挂载 mobile+desktop。
+- 清理仓库根目录临时 `tmp-patch-*.{js,cjs}`，并修正 `map/index.vue` 多余空行以通过 eslint。
+- 门禁：eslint + typecheck + scripts test（542 通过）+ build + bundle-budget + pwa（见 `.data/stage63_check.log`，`FINAL_EXIT=0`）。
+
+
+### 2.71 地图路由应用 / 定位路线守卫纯函数拆分（第六十四个边界，2026-07-17）
+
+- 将 `app/composables/useMapRouteSync.ts` 中路由应用后的选中可见性、provider 选中 ID、镜头动作（fly-to-poi / refocus-selected-area / fit-to-pois）与列表滚动目标决策迁入 `app/utils/map-presentation.ts`：`resolveMapRouteApplyDecision`。
+- 地图页 `map/index.vue` 默认显示选项与步行路线能力判断迁入 `defaultMapDisplayOptions`、`canPlanMapWalkingRoute`；组合式/页面只保留 ref、provider 调用与模板绑定。
+- 将 `useMapGeolocation` 中定位/步行路线的前置校验与失败文案迁入 `app/utils/map-geolocation.ts`：`resolveMapLocateGuard`、`resolveMapLocateFailureNotice`、`resolveMapWalkingRouteStartGuard`、`resolveMapWalkingRouteFailureNotice`。
+- `scripts/map-presentation.test.ts`、`scripts/map-geolocation.test.ts` 增补纯函数与薄壳断言；`scripts/public-route-integrity.test.ts` 软更新地图路由同步期望。
+- 目标为可测试性与职责边界，不宣称客户端运行时体积下降。
+- 门禁实测（2026-07-17 Stage 64 pipeline，`.data/stage64_check.log`）：
+  - eslint `0` / 24.6s
+  - typecheck `0` / 21.0s
+  - scripts-test `0` / 11.5s
+  - build `0` / 109.7s
+  - bundle-budget `0` / 0.4s
+  - pwa `0` / 0.5s
+  - **FINAL_EXIT=0**
+
+
+
+### 2.72 办事流程详情展示决策纯函数拆分（第六十五个边界，2026-07-17）
+
+- 范围：`app/pages/procedures/[slug].vue`、`app/utils/procedure-detail-presentation.ts`、`scripts/procedure-detail-presentation.test.ts`。
+- 抽出：`resolveProcedureInformationStateBadgeColor`、`resolveProcedureMaterialsCountBadge`、`resolveProcedureAudienceOptionPresentation`、`shouldShowProcedureStepAudienceBadges`、`resolveProcedureStepCompletionPresentation`、`resolveProcedureAudienceRouteQuery`、`resolveProcedureChecklistFromStorageText`、`buildProcedureChecklistStorageValue`。
+- 页面保留：公开流程请求、SEO、localStorage 读写、router.replace、toast/反馈链接与模板薄包装。
+- 源码约 17715 B；展示模块约 7488 B。本项目标为可测试性与薄壳职责，不宣称客户端运行时体积下降。
+- 门禁实测（2026-07-17 Stage 65 pipeline，`.data/stage65_check.log`）：
+
+| Step | Code | Secs |
+| --- | --- | --- |
+| eslint | 0 | 25.4 |
+| typecheck | 0 | 23.1 |
+| scripts-test | 0 | 10.4 |
+| build | 0 | 103.8 |
+| bundle-budget | 0 | 0.5 |
+| pwa | 0 | 0.5 |
+| **FINAL_EXIT** | **0** | |
+
+
+### 2.73 后台坐标审阅地图纯函数拆分（第六十六个边界，2026-07-17）
+
+- 范围：`app/components/admin/AdminCoordinateReviewMap.vue`、`app/utils/admin-coordinate-review-map-presentation.ts`、`scripts/admin-coordinate-review-map-presentation.test.ts`。
+- 抽出：`hasRenderableWgs84Coordinates`、`isVerifiedRenderableWgs84Place`、`resolveCurrentPlacePoint`、`resolveCurrentPlacePointLabel`、`isCurrentCoordinateNotDisplayable`、`selectNeighboringReviewPlaces`、`buildEmptyReviewFeatureCollection`、`buildCoordinateReviewPointCollection`、`buildCoordinateReviewAccuracyCircle`、`collectReviewMapFitPoints`、`resolveReviewMapBounds`、`resolveReviewMapFitDecision`；距离复用 `field-observation-review.coordinateDistanceMeters`。
+- 组件保留：MapLibre 动态加载、图层注册、setData、flyTo/fitBounds、ResizeObserver 与生命周期。
+- 组件源码约 12000 B（原约 16276 B）；展示模块约 8742 B。本项目标为可测试性与薄壳职责，不宣称客户端运行时体积下降。
+- 门禁实测（2026-07-17 Stage 66 pipeline，`.data/stage66_check.log`）：
+
+| Step | Code | Secs |
+| --- | --- | --- |
+| eslint | 0 | 25.4 |
+| typecheck | 0 | 23.1 |
+| scripts-test | 0 | 10.6 |
+| build | 0 | 108.4 |
+| bundle-budget | 0 | 0.5 |
+| pwa | 0 | 0.5 |
+| **FINAL_EXIT** | **0** | |
+
+
+### 2.74 官网平面图缩放交互纯函数拆分（第六十七个边界，2026-07-17）
+
+- 范围：`app/components/map/OfficialCampusPlan.vue`、`app/utils/official-campus-plan-presentation.ts`、`scripts/official-campus-plan-presentation.test.ts`。
+- 抽出：`clampOfficialPlanZoom`、`isOfficialPlanZoomChangeMeaningful`、`resolveOfficialPlanSelectedLabel`、`resolveOfficialPlanInitialZoom`、`resolveOfficialPlanWheelZoom`、`resolveOfficialPlanButtonZoom`、`touchPointDistance`、`resolveOfficialPlanPinchMidpoint`、`resolveOfficialPlanPinchZoom`、`resolveOfficialPlanZoomFocusScroll`、`officialPlanAnchorKey`、`shouldBoostZoomForSelectedAnchor`、`resolveSelectedAnchorBoostZoom`、`resolveOfficialPlanAnchorScroll`、`resolveOfficialPlanImageLoadState`、`buildOfficialPlanPlaceNameByNumber`、`findOfficialPlanAnchorElementKey`。
+- 组件保留：viewport 滚轮/触摸事件、DOM scrollTo、图片 load/error 生命周期、锚点 ref 注册与模板。
+- 组件源码约 11684 B（原约 11025 B）；展示模块约 5324 B。本项目标为可测试性与薄壳职责，不宣称客户端运行时体积下降。
+- 门禁实测（2026-07-17 Stage 67 pipeline，`.data/stage67_check.log`）：
+
+| Step | Code | Secs |
+| --- | --- | --- |
+| eslint | 0 | 26.3 |
+| typecheck | 0 | 22.3 |
+| scripts-test | 0 | 9.9 |
+| build | 0 | 108 |
+| bundle-budget | 0 | 0.4 |
+| pwa | 0 | 0.5 |
+| **FINAL_EXIT** | **0** | |
+
+### 2.75 后台现场采点质量与样本门禁纯函数拆分（第六十八个边界，2026-07-17）
+
+- 范围：`app/components/admin/AdminFieldCoordinateCapture.vue`、`app/utils/field-coordinate-capture-presentation.ts`、`scripts/field-coordinate-capture-presentation.test.ts`。
+- 抽出：`resolveFieldCaptureQualityTone`、`resolveFieldCaptureQualityLabel`、`resolveFieldCaptureQualityDetail`、`resolveFieldCaptureReadyToSubmit`、`resolveFieldCaptureAcceptedSample`。
+- 组件保留：geolocation watch/clearWatch、样本数组状态、会话锁 emit、提交 payload 组装与模板。
+- 组件源码约 10112 B（原约 11027 B）；展示模块约 4462 B。本项目标为可测试性与薄壳职责，不宣称客户端运行时体积下降。
+- 门禁实测（2026-07-17 Stage 68 pipeline，`.data/stage68_check.log`）：
+
+| Step | Code | Secs |
+| --- | --- | --- |
+| eslint | 0 | 23 |
+| typecheck | 0 | 21.7 |
+| scripts-test | 0 | 10.3 |
+| build | 0 | 107.4 |
+| bundle-budget | 0 | 0.4 |
+| pwa | 0 | 0.5 |
+| **FINAL_EXIT** | **0** | |
+
+### 2.76 后台坐标拾点纯函数拆分（第六十九个边界，2026-07-17）
+
+- 范围：`app/components/admin/AdminCoordinatePicker.vue`、`app/utils/admin-coordinate-picker-presentation.ts`、`scripts/admin-coordinate-picker-presentation.test.ts`。
+- 抽出：`resolveAdminCoordinatePickerCurrentPoint`、`resolveAdminCoordinatePickerCurrentPoi`、`resolveAdminCoordinatePickerOutsideCampusBounds`、`resolveAdminCoordinatePickerMountOptions`。
+- 组件保留：MapLibre provider 挂载/销毁、拾点 enable/disable、flyTo、状态与模板。
+- 组件源码约 5984 B（原约 6091 B）；展示模块约 1870 B。本项目标为可测试性与薄壳职责，不宣称客户端运行时体积下降。
+- 门禁实测（2026-07-17 Stage 69 pipeline，`.data/stage69_check.log`）：
+
+| Step | Code | Secs |
+| --- | --- | --- |
+| eslint | 0 | 25.7 |
+| typecheck | 0 | 23.5 |
+| scripts-test | 0 | 10.5 |
+| build | 0 | 108.3 |
+| bundle-budget | 0 | 0.4 |
+| pwa | 0 | 0.5 |
+| **FINAL_EXIT** | **0** | |
+- 最终验证：ESLint 0（25.7s）、Nuxt typecheck 0（23.5s）、全量脚本测试 563/563（10.5s）、Nuxt build 0（108.3s）、客户端体积预算 0（0.4s，无违规）、PWA 构建测试通过（0.5s）均返回 0；等价 `pnpm check` 流水线 `FINAL_EXIT=0`（约 169 s，见 `.data/stage69_check.log`）。本项只记为后台拾点可测试性与职责边界改善，不宣称客户端运行时体积下降。未跑 Playwright e2e（`pnpm check` 不含 e2e）。
+
 

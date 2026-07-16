@@ -9,17 +9,23 @@ import {
 } from '~/utils/procedure-audience'
 import {
   buildProcedureChecklistStorageKey,
+  buildProcedureChecklistStorageValue,
   buildProcedureDetailSources,
   buildProcedureMapLink,
   getProcedureEmptyMaterialText,
   getProcedureMaterialTitle,
   getProcedureNoticeText,
-  parseProcedureChecklist,
   procedureAudienceLabels,
   procedureAudienceOptions,
   procedureMethodLabels,
   procedureStateLabels,
-  serializeProcedureChecklist,
+  resolveProcedureAudienceOptionPresentation,
+  resolveProcedureAudienceRouteQuery,
+  resolveProcedureChecklistFromStorageText,
+  resolveProcedureInformationStateBadgeColor,
+  resolveProcedureMaterialsCountBadge,
+  resolveProcedureStepCompletionPresentation,
+  shouldShowProcedureStepAudienceBadges,
   toggleProcedureStep
 } from '~~/app/utils/procedure-detail-presentation'
 
@@ -68,29 +74,24 @@ const storageKey = computed(() => buildProcedureChecklistStorageKey(procedure.va
 const ready = ref(false)
 
 onMounted(() => {
-  try {
-    const saved: unknown = JSON.parse(localStorage.getItem(storageKey.value) ?? 'null')
-    completedStepIds.value = parseProcedureChecklist(
-      saved,
-      procedure.value?.updatedAt,
-      procedure.value?.steps.map(step => step.id) ?? []
-    )
-  } catch {
-    completedStepIds.value = []
-  }
-  localStorage.setItem(storageKey.value, JSON.stringify(serializeProcedureChecklist(
+  completedStepIds.value = resolveProcedureChecklistFromStorageText(
+    localStorage.getItem(storageKey.value),
     procedure.value?.updatedAt,
-    completedStepIds.value
-  )))
+    procedure.value?.steps.map(step => step.id) ?? []
+  )
+  localStorage.setItem(
+    storageKey.value,
+    buildProcedureChecklistStorageValue(procedure.value?.updatedAt, completedStepIds.value)
+  )
   ready.value = true
 })
 
 watch(completedStepIds, (value) => {
   if (ready.value) {
-    localStorage.setItem(storageKey.value, JSON.stringify(serializeProcedureChecklist(
-      procedure.value?.updatedAt,
-      value
-    )))
+    localStorage.setItem(
+      storageKey.value,
+      buildProcedureChecklistStorageValue(procedure.value?.updatedAt, value)
+    )
   }
 }, { deep: true })
 
@@ -106,11 +107,40 @@ function mapLink(placeSlug: string, stepId: string) {
   return buildProcedureMapLink(slug, placeSlug, stepId)
 }
 
+function informationStateBadgeColor(informationState: string | null | undefined) {
+  return resolveProcedureInformationStateBadgeColor(informationState)
+}
+
+function materialsCountBadge(count: number) {
+  return resolveProcedureMaterialsCountBadge(count)
+}
+
+function audienceOptionPresentation(optionValue: typeof selectedAudience.value) {
+  return resolveProcedureAudienceOptionPresentation(selectedAudience.value, optionValue)
+}
+
+function stepCompletionPresentation(stepId: string, stepNumber: number) {
+  return resolveProcedureStepCompletionPresentation(
+    completedStepIds.value.includes(stepId),
+    stepNumber
+  )
+}
+
+function showStepAudienceBadges(stepAudienceCount: number, procedureAudienceCount: number) {
+  return shouldShowProcedureStepAudienceBadges(
+    selectedAudience.value,
+    stepAudienceCount,
+    procedureAudienceCount
+  )
+}
+
 watch(selectedAudience, (value) => {
-  const query = { ...route.query }
-  if (value === 'all') delete query.audience
-  else query.audience = value
-  void router.replace({ query })
+  void router.replace({
+    query: resolveProcedureAudienceRouteQuery(
+      route.query as Record<string, unknown>,
+      value
+    ) as typeof route.query
+  })
 })
 </script>
 
@@ -137,7 +167,7 @@ watch(selectedAudience, (value) => {
           <div class="max-w-3xl">
             <div class="flex flex-wrap items-center gap-2">
               <UBadge
-                :color="procedure.informationState === 'confirmed' ? 'success' : 'warning'"
+                :color="informationStateBadgeColor(procedure.informationState)"
                 variant="soft"
               >
                 {{ procedure.statusText }}
@@ -167,10 +197,10 @@ watch(selectedAudience, (value) => {
                 :key="option.value"
                 :label="option.label"
                 size="sm"
-                :color="selectedAudience === option.value ? 'primary' : 'neutral'"
-                :variant="selectedAudience === option.value ? 'solid' : 'ghost'"
+                :color="audienceOptionPresentation(option.value).color"
+                :variant="audienceOptionPresentation(option.value).variant"
                 class="shrink-0"
-                :aria-pressed="selectedAudience === option.value"
+                :aria-pressed="audienceOptionPresentation(option.value).ariaPressed"
                 @click="() => { selectedAudience = option.value }"
               />
             </div>
@@ -245,10 +275,10 @@ watch(selectedAudience, (value) => {
               </h2>
             </div>
             <UBadge
-              :color="visibleMaterials.length ? 'neutral' : 'warning'"
+              :color="materialsCountBadge(visibleMaterials.length).color"
               variant="soft"
             >
-              {{ visibleMaterials.length ? `${visibleMaterials.length} 项` : '待通知' }}
+              {{ materialsCountBadge(visibleMaterials.length).label }}
             </UBadge>
           </div>
 
@@ -274,7 +304,7 @@ watch(selectedAudience, (value) => {
                   </p>
                 </div>
                 <UBadge
-                  :color="material.informationState === 'confirmed' ? 'success' : 'warning'"
+                  :color="informationStateBadgeColor(material.informationState)"
                   variant="soft"
                   class="shrink-0"
                 >
@@ -328,12 +358,12 @@ watch(selectedAudience, (value) => {
               <button
                 type="button"
                 class="grid min-h-32 place-items-center border-r border-zinc-100 bg-zinc-50 text-green-700 transition hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
-                :aria-label="completedStepIds.includes(step.id) ? `取消完成第${stepIndex + 1}步` : `标记第${stepIndex + 1}步完成`"
-                :aria-pressed="completedStepIds.includes(step.id)"
+                :aria-label="stepCompletionPresentation(step.id, stepIndex + 1).ariaLabel"
+                :aria-pressed="stepCompletionPresentation(step.id, stepIndex + 1).ariaPressed"
                 @click="toggleStep(step.id)"
               >
                 <UIcon
-                  :name="completedStepIds.includes(step.id) ? 'i-lucide-circle-check-big' : 'i-lucide-circle'"
+                  :name="stepCompletionPresentation(step.id, stepIndex + 1).icon"
                   class="size-5"
                 />
               </button>
@@ -342,7 +372,7 @@ watch(selectedAudience, (value) => {
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="text-xs font-bold text-green-700">第 {{ stepIndex + 1 }} 步</span>
                   <UBadge
-                    :color="step.informationState === 'confirmed' ? 'success' : 'warning'"
+                    :color="informationStateBadgeColor(step.informationState)"
                     variant="soft"
                     size="sm"
                   >
@@ -358,7 +388,7 @@ watch(selectedAudience, (value) => {
                     />
                     {{ step.timeText }}
                   </span>
-                  <template v-if="selectedAudience === 'all' && step.audience.length < procedure.audience.length">
+                  <template v-if="showStepAudienceBadges(step.audience.length, procedure.audience.length)">
                     <UBadge
                       v-for="stepAudience in step.audience"
                       :key="stepAudience"
@@ -372,7 +402,7 @@ watch(selectedAudience, (value) => {
                 </div>
                 <h3
                   class="mt-2 text-sm font-bold text-zinc-950 md:text-base"
-                  :class="completedStepIds.includes(step.id) ? 'line-through opacity-60' : ''"
+                  :class="stepCompletionPresentation(step.id, stepIndex + 1).titleClass"
                 >
                   {{ step.title }}
                 </h3>

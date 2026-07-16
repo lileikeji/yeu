@@ -847,4 +847,3 @@ export function resolveMapViewModeSwitchDecision(input: {
     keepSelection: true
   }
 }
-

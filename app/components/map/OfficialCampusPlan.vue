@@ -2,6 +2,29 @@
 import { officialCampusPlanAnchors } from '~~/data/seeds/official-campus-plan-anchors'
 import { officialCampusPlanReference } from '~~/data/seeds/official-campus-plan-reference'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
+import {
+  OFFICIAL_PLAN_MAX_ZOOM,
+  OFFICIAL_PLAN_MIN_ZOOM,
+  buildOfficialPlanPlaceNameByNumber,
+  clampOfficialPlanZoom,
+  findOfficialPlanAnchorElementKey,
+  isInteractiveOfficialPlanDragTarget,
+  isOfficialPlanPointerDragPastThreshold,
+  officialPlanAnchorKey,
+  resolveOfficialPlanAnchorScrollFromRects,
+  resolveOfficialPlanButtonZoom,
+  resolveOfficialPlanDragScroll,
+  resolveOfficialPlanImageLoadState,
+  resolveOfficialPlanInitialZoom,
+  resolveOfficialPlanPinchMidpoint,
+  resolveOfficialPlanPinchZoom,
+  resolveOfficialPlanSelectedLabel,
+  resolveOfficialPlanWheelZoom,
+  resolveOfficialPlanZoomFocusScroll,
+  resolveSelectedAnchorBoostZoom,
+  shouldBoostZoomForSelectedAnchor,
+  touchPointDistance
+} from '~~/app/utils/official-campus-plan-presentation'
 
 const props = defineProps<{
   selectedMapNumber?: string | null
@@ -14,102 +37,199 @@ const emit = defineEmits<{
 
 const OFFICIAL_PLAN_IMAGE_URL = officialCampusPlanReference.localAssetUrl
 const OFFICIAL_PLAN_PAGE_URL = officialCampusPlanReference.pageUrl
-const MIN_ZOOM = 1
-const MAX_ZOOM = 6
-const ZOOM_STEP = 0.35
-const MOBILE_INITIAL_ZOOM = 2.2
-const WHEEL_ZOOM_SPEED = 0.0018
 
 const viewport = ref<HTMLElement | null>(null)
 const imageElement = ref<HTMLImageElement | null>(null)
-const zoom = ref(MIN_ZOOM)
+const zoom = ref(OFFICIAL_PLAN_MIN_ZOOM)
 const loading = ref(true)
 const failed = ref(false)
 const anchorElements = new Map<string, HTMLElement>()
-const placeNameByNumber = new Map(campusMapReferencePlaces.map(place => [place.mapNumber, place.name]))
+const placeNameByNumber = buildOfficialPlanPlaceNameByNumber(campusMapReferencePlaces)
+const isPanning = ref(false)
+const focusToken = ref(0)
+let dragPointerId: number | null = null
+let dragStartPoint: { clientX: number, clientY: number } | null = null
+let dragLastPoint: { clientX: number, clientY: number } | null = null
+let dragMoved = false
+let settleFocusTimer: ReturnType<typeof setTimeout> | null = null
 
-const selectedLabel = computed(() => {
-  if (!props.selectedReferenceLabel) return null
-  return props.selectedPlaceName
-    ? `${props.selectedReferenceLabel} · ${props.selectedPlaceName}`
-    : props.selectedReferenceLabel
-})
-
-function clampZoom(value: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(3))))
-}
+const selectedLabel = computed(() => resolveOfficialPlanSelectedLabel({
+  selectedReferenceLabel: props.selectedReferenceLabel,
+  selectedPlaceName: props.selectedPlaceName
+}))
 
 function setZoom(value: number, origin?: { clientX: number, clientY: number }): void {
   const target = viewport.value
-  const nextZoom = clampZoom(value)
+  const nextZoom = clampOfficialPlanZoom(value)
   if (!target) {
     zoom.value = nextZoom
     return
   }
-  if (Math.abs(nextZoom - zoom.value) < 0.001) return
 
   const rect = target.getBoundingClientRect()
   const focusX = origin ? origin.clientX - rect.left : target.clientWidth / 2
   const focusY = origin ? origin.clientY - rect.top : target.clientHeight / 2
-  const contentX = (target.scrollLeft + focusX) / Math.max(1, zoom.value)
-  const contentY = (target.scrollTop + focusY) / Math.max(1, zoom.value)
+  const scroll = resolveOfficialPlanZoomFocusScroll({
+    currentZoom: zoom.value,
+    nextZoom,
+    scrollLeft: target.scrollLeft,
+    scrollTop: target.scrollTop,
+    focusX,
+    focusY
+  })
+  if (!scroll) return
 
   zoom.value = nextZoom
   void nextTick(() => {
     target.scrollTo({
-      left: contentX * nextZoom - focusX,
-      top: contentY * nextZoom - focusY
+      left: scroll.left,
+      top: scroll.top
     })
   })
 }
 
 function resetView(): void {
-  setZoom(MIN_ZOOM)
+  setZoom(OFFICIAL_PLAN_MIN_ZOOM)
   viewport.value?.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
 }
 
 function handleWheel(event: WheelEvent): void {
   event.preventDefault()
-  const factor = Math.exp(-event.deltaY * WHEEL_ZOOM_SPEED)
-  setZoom(zoom.value * factor, { clientX: event.clientX, clientY: event.clientY })
+  setZoom(
+    resolveOfficialPlanWheelZoom({ currentZoom: zoom.value, deltaY: event.deltaY }),
+    { clientX: event.clientX, clientY: event.clientY }
+  )
 }
 
 const pinchStartDistance = ref<number | null>(null)
-const pinchStartZoom = ref(MIN_ZOOM)
+const pinchStartZoom = ref(OFFICIAL_PLAN_MIN_ZOOM)
 
-function touchDistance(touches: TouchList): number {
-  const a = touches.item(0)
-  const b = touches.item(1)
-  if (!a || !b) return 0
-  const dx = a.clientX - b.clientX
-  const dy = a.clientY - b.clientY
-  return Math.hypot(dx, dy)
+function clearDragState(releasePointerId?: number | null): void {
+  const target = viewport.value
+  if (releasePointerId != null && target?.hasPointerCapture?.(releasePointerId)) {
+    try {
+      target.releasePointerCapture(releasePointerId)
+    } catch {
+      // ignore release failures after detach
+    }
+  }
+  dragPointerId = null
+  dragStartPoint = null
+  dragLastPoint = null
+  dragMoved = false
+  isPanning.value = false
+}
+
+function handlePointerDown(event: PointerEvent): void {
+  if (event.button !== 0) return
+  if (pinchStartDistance.value != null) return
+  if (isInteractiveOfficialPlanDragTarget(event.target)) return
+  const target = viewport.value
+  if (!target) return
+
+  dragPointerId = event.pointerId
+  dragStartPoint = { clientX: event.clientX, clientY: event.clientY }
+  dragLastPoint = { clientX: event.clientX, clientY: event.clientY }
+  dragMoved = false
+  isPanning.value = false
+  try {
+    target.setPointerCapture(event.pointerId)
+  } catch {
+    // pointer capture is best-effort
+  }
+}
+
+function handlePointerMove(event: PointerEvent): void {
+  if (dragPointerId !== event.pointerId || !dragStartPoint || !dragLastPoint) return
+  if (pinchStartDistance.value != null) {
+    clearDragState(event.pointerId)
+    return
+  }
+
+  const target = viewport.value
+  if (!target) return
+
+  if (!dragMoved) {
+    if (!isOfficialPlanPointerDragPastThreshold(dragStartPoint, {
+      clientX: event.clientX,
+      clientY: event.clientY
+    })) {
+      return
+    }
+    dragMoved = true
+    isPanning.value = true
+    focusToken.value += 1
+  }
+
+  const deltaX = event.clientX - dragLastPoint.clientX
+  const deltaY = event.clientY - dragLastPoint.clientY
+  const scroll = resolveOfficialPlanDragScroll({
+    scrollLeft: target.scrollLeft,
+    scrollTop: target.scrollTop,
+    deltaX,
+    deltaY
+  })
+  target.scrollLeft = scroll.left
+  target.scrollTop = scroll.top
+  dragLastPoint = { clientX: event.clientX, clientY: event.clientY }
+  event.preventDefault()
+}
+
+function handlePointerUp(event: PointerEvent): void {
+  if (dragPointerId !== event.pointerId) return
+  clearDragState(event.pointerId)
 }
 
 function handleTouchStart(event: TouchEvent): void {
-  if (event.touches.length !== 2) {
-    pinchStartDistance.value = null
+  if (event.touches.length >= 2) {
+    clearDragState(dragPointerId)
+    pinchStartDistance.value = touchPointDistance(event.touches.item(0), event.touches.item(1))
+    pinchStartZoom.value = zoom.value
     return
   }
-  pinchStartDistance.value = touchDistance(event.touches)
-  pinchStartZoom.value = zoom.value
+  if (event.touches.length !== 2) {
+    pinchStartDistance.value = null
+  }
 }
 
 function handleTouchMove(event: TouchEvent): void {
   if (event.touches.length !== 2 || !pinchStartDistance.value) return
   event.preventDefault()
-  const distance = touchDistance(event.touches)
+  const a = event.touches.item(0)
+  const b = event.touches.item(1)
+  if (!a || !b) return
+  const distance = touchPointDistance(a, b)
   if (distance <= 0) return
-  const midX = ((event.touches[0]?.clientX ?? 0) + (event.touches[1]?.clientX ?? 0)) / 2
-  const midY = ((event.touches[0]?.clientY ?? 0) + (event.touches[1]?.clientY ?? 0)) / 2
-  setZoom(pinchStartZoom.value * (distance / pinchStartDistance.value), {
-    clientX: midX,
-    clientY: midY
-  })
+  const midpoint = resolveOfficialPlanPinchMidpoint(a, b)
+  setZoom(
+    resolveOfficialPlanPinchZoom({
+      startZoom: pinchStartZoom.value,
+      startDistance: pinchStartDistance.value,
+      currentDistance: distance
+    }),
+    midpoint
+  )
 }
 
 function handleTouchEnd(event: TouchEvent): void {
   if (event.touches.length < 2) pinchStartDistance.value = null
+}
+
+function handleAnchorPointerDown(event: PointerEvent): void {
+  // Keep pan from starting on markers; focus without browser scrollIntoView thrash.
+  event.stopPropagation()
+  const button = event.currentTarget
+  if (button instanceof HTMLElement) {
+    button.focus({ preventScroll: true })
+  }
+}
+
+function handleAnchorClick(mapNumber: string, event: MouseEvent): void {
+  const button = event.currentTarget
+  if (button instanceof HTMLElement) {
+    button.focus({ preventScroll: true })
+  }
+  emit('selectNumber', mapNumber)
 }
 
 function handleLoaded(): void {
@@ -125,13 +245,13 @@ function handleFailed(): void {
 
 function reconcileImageState(): void {
   const image = imageElement.value
-  if (!image?.complete) return
-  if (image.naturalWidth > 0) handleLoaded()
-  else handleFailed()
-}
-
-function anchorKey(mapNumber: string, index: number): string {
-  return `${mapNumber}-${index}`
+  if (!image) return
+  const state = resolveOfficialPlanImageLoadState({
+    complete: image.complete,
+    naturalWidth: image.naturalWidth
+  })
+  if (state === 'loaded') handleLoaded()
+  else if (state === 'failed') handleFailed()
 }
 
 function setAnchorElement(key: string, element: unknown): void {
@@ -139,54 +259,115 @@ function setAnchorElement(key: string, element: unknown): void {
   else anchorElements.delete(key)
 }
 
+function applySelectedAnchorFocus(mapNumber: string, token: number): void {
+  if (token !== focusToken.value) return
+  if (props.selectedMapNumber !== mapNumber) return
+  const target = viewport.value
+  if (!target || loading.value || failed.value) return
+
+  const key = findOfficialPlanAnchorElementKey([...anchorElements.keys()], mapNumber)
+  const element = key ? anchorElements.get(key) : undefined
+  if (!element) return
+
+  const viewportRect = target.getBoundingClientRect()
+  const elementRect = element.getBoundingClientRect()
+  const scroll = resolveOfficialPlanAnchorScrollFromRects({
+    scrollLeft: target.scrollLeft,
+    scrollTop: target.scrollTop,
+    viewportRect: {
+      left: viewportRect.left,
+      top: viewportRect.top,
+      width: viewportRect.width,
+      height: viewportRect.height
+    },
+    elementRect: {
+      left: elementRect.left,
+      top: elementRect.top,
+      width: elementRect.width,
+      height: elementRect.height
+    }
+  })
+
+  target.scrollTo({
+    left: scroll.left,
+    top: scroll.top,
+    behavior: 'auto'
+  })
+  element.focus({ preventScroll: true })
+}
+
 function scrollToSelectedAnchor(): void {
   const mapNumber = props.selectedMapNumber
-  const target = viewport.value
-  if (!mapNumber || !target) return
-  const element = [...anchorElements.entries()]
-    .find(([key]) => key.startsWith(`${mapNumber}-`))?.[1]
-  if (!element) return
-  if (zoom.value < 2) setZoom(2.4)
+  if (!mapNumber || !viewport.value) return
+
+  const token = ++focusToken.value
+  if (settleFocusTimer != null) {
+    clearTimeout(settleFocusTimer)
+    settleFocusTimer = null
+  }
+
+  // Boost zoom without intermediate center-scroll, then settle once after layout.
+  if (shouldBoostZoomForSelectedAnchor(zoom.value)) {
+    zoom.value = resolveSelectedAnchorBoostZoom()
+  }
+
   void nextTick(() => {
-    target.scrollTo({
-      left: element.offsetLeft - target.clientWidth / 2 + element.offsetWidth / 2,
-      top: element.offsetTop - target.clientHeight / 2 + element.offsetHeight / 2,
-      behavior: 'smooth'
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        applySelectedAnchorFocus(mapNumber, token)
+        // Parent place panel / sidebar can resize the viewport shortly after select.
+        settleFocusTimer = setTimeout(() => {
+          applySelectedAnchorFocus(mapNumber, token)
+          settleFocusTimer = null
+        }, 140)
+      })
     })
   })
 }
 
-watch(() => props.selectedMapNumber, () => void nextTick(scrollToSelectedAnchor))
+watch(() => props.selectedMapNumber, (next, prev) => {
+  if (!next || next === prev) return
+  scrollToSelectedAnchor()
+})
 
 onMounted(() => {
-  if (window.matchMedia('(max-width: 639px)').matches) {
-    setZoom(MOBILE_INITIAL_ZOOM)
-  }
-  void nextTick(reconcileImageState)
+  const coarse = typeof window !== 'undefined'
+    && window.matchMedia('(pointer: coarse)').matches
+  zoom.value = resolveOfficialPlanInitialZoom(coarse)
+  reconcileImageState()
+})
+
+onBeforeUnmount(() => {
+  if (settleFocusTimer != null) clearTimeout(settleFocusTimer)
+  clearDragState(dragPointerId)
 })
 </script>
 
 <template>
-  <div class="absolute inset-0 overflow-hidden bg-[#4f84bb]">
+  <div class="relative h-full min-h-0 w-full overflow-hidden bg-[#4f84bb]">
     <div
       ref="viewport"
-      class="official-plan-scrollbar absolute inset-0 overflow-auto overscroll-contain touch-pan-x touch-pan-y"
-      aria-label="仰恩大学官网平面示意图"
+      class="official-plan-scrollbar absolute inset-0 overflow-auto overscroll-contain touch-none select-none"
+      :class="isPanning ? 'cursor-grabbing' : 'cursor-grab'"
       @wheel="handleWheel"
+      @pointerdown="handlePointerDown"
+      @pointermove="handlePointerMove"
+      @pointerup="handlePointerUp"
+      @pointercancel="handlePointerUp"
       @touchstart.passive="handleTouchStart"
       @touchmove="handleTouchMove"
       @touchend="handleTouchEnd"
       @touchcancel="handleTouchEnd"
     >
-      <div class="grid min-h-full min-w-full content-center justify-items-start">
-        <div
-          class="relative will-change-transform"
-          :style="{ width: `${zoom * 100}%` }"
-        >
+      <div
+        class="relative origin-top-left"
+        :style="{ width: `${zoom * 100}%`, minHeight: '100%' }"
+      >
+        <div class="relative w-full">
           <img
             ref="imageElement"
             :src="OFFICIAL_PLAN_IMAGE_URL"
-            alt="仰恩大学官网平面示意图，含四十七项校内地点图例"
+            alt="云南经济管理学院官网校园平面图，含四十七项校内地点图例"
             class="block h-auto w-full max-w-none select-none"
             draggable="false"
             decoding="async"
@@ -197,15 +378,16 @@ onMounted(() => {
           >
           <button
             v-for="(anchor, index) in officialCampusPlanAnchors"
-            :key="anchorKey(anchor.mapNumber, index)"
-            :ref="(element: unknown) => setAnchorElement(anchorKey(anchor.mapNumber, index), element)"
+            :key="officialPlanAnchorKey(anchor.mapNumber, index)"
+            :ref="(element: unknown) => setAnchorElement(officialPlanAnchorKey(anchor.mapNumber, index), element)"
             type="button"
             class="absolute grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white bg-green-800 text-[8px] font-bold text-white shadow-md transition hover:z-10 hover:scale-125 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:size-7 sm:text-[10px]"
             :class="props.selectedMapNumber === anchor.mapNumber ? 'z-10 scale-125 bg-orange-600 ring-4 ring-white/80' : ''"
             :style="{ left: `${anchor.x}%`, top: `${anchor.y}%` }"
             :aria-label="`平面图 ${anchor.mapNumber}：${placeNameByNumber.get(anchor.mapNumber) ?? '校内地点'}`"
             :aria-pressed="props.selectedMapNumber === anchor.mapNumber"
-            @click="emit('selectNumber', anchor.mapNumber)"
+            @pointerdown="handleAnchorPointerDown"
+            @click="handleAnchorClick(anchor.mapNumber, $event)"
           >
             {{ anchor.mapNumber }}
           </button>
@@ -235,8 +417,8 @@ onMounted(() => {
             variant="outline"
             class="map-float-btn size-11"
             aria-label="放大平面图"
-            :disabled="zoom >= MAX_ZOOM"
-            @click="setZoom(zoom + ZOOM_STEP)"
+            :disabled="zoom >= OFFICIAL_PLAN_MAX_ZOOM"
+            @click="setZoom(resolveOfficialPlanButtonZoom({ currentZoom: zoom, direction: 'in' }))"
           />
         </UTooltip>
         <UTooltip text="缩小平面图">
@@ -246,8 +428,8 @@ onMounted(() => {
             variant="outline"
             class="map-float-btn size-11"
             aria-label="缩小平面图"
-            :disabled="zoom <= MIN_ZOOM"
-            @click="setZoom(zoom - ZOOM_STEP)"
+            :disabled="zoom <= OFFICIAL_PLAN_MIN_ZOOM"
+            @click="setZoom(resolveOfficialPlanButtonZoom({ currentZoom: zoom, direction: 'out' }))"
           />
         </UTooltip>
         <UTooltip text="重置平面图视图">
@@ -325,5 +507,6 @@ onMounted(() => {
   scrollbar-color: rgb(255 255 255 / 55%) transparent;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
+  overflow-anchor: none;
 }
 </style>

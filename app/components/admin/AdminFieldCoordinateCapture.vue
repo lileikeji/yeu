@@ -11,10 +11,15 @@ import {
   evaluateCoordinateCapture,
   FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS,
   FIELD_CAPTURE_MAX_SAMPLES,
-  FIELD_CAPTURE_MIN_DURATION_MS,
-  FIELD_CAPTURE_MIN_SAMPLE_INTERVAL_MS,
-  FIELD_CAPTURE_MIN_SAMPLES
+  FIELD_CAPTURE_MIN_SAMPLE_INTERVAL_MS
 } from '~~/shared/utils/coordinate-sampling'
+import {
+  resolveFieldCaptureAcceptedSample,
+  resolveFieldCaptureQualityDetail,
+  resolveFieldCaptureQualityLabel,
+  resolveFieldCaptureQualityTone,
+  resolveFieldCaptureReadyToSubmit
+} from '~~/app/utils/field-coordinate-capture-presentation'
 
 const props = defineProps<{
   placeId: string
@@ -44,49 +49,29 @@ const captureMatchesCurrentPlace = computed(() => coordinateCaptureBelongsToPlac
   capturePlaceId.value,
   props.placeId
 ))
-const readyToSubmit = computed(() => captureMatchesCurrentPlace.value
-  && clientObservationId.value !== null
-  && captureQuality.value.canSubmit
-  && evidenceNote.value.trim().length >= 5)
+const readyToSubmit = computed(() => resolveFieldCaptureReadyToSubmit({
+  matchesCurrentPlace: captureMatchesCurrentPlace.value,
+  clientObservationId: clientObservationId.value,
+  canSubmit: captureQuality.value.canSubmit,
+  evidenceNote: evidenceNote.value
+}))
 const sessionLocked = computed(() => shouldLockCoordinateCapturePlace(
   tracking.value,
   samples.value.length
 ))
-const qualityTone = computed(() => {
-  if (captureQuality.value.state === 'ready') return 'success'
-  if (captureQuality.value.state === 'unstable' || captureQuality.value.state === 'invalid') return 'error'
-  if (samples.value.length) return 'warning'
-  return 'neutral'
-})
-const qualityLabel = computed(() => {
-  const summary = captureSummary.value
-  if (captureQuality.value.state === 'ready' && summary) {
-    return `稳定 · 有效精度 ${summary.effectiveAccuracyMeters.toFixed(1)} 米`
-  }
-  if (summary) return `有效精度约 ${summary.effectiveAccuracyMeters.toFixed(1)} 米`
-  if (latestReportedAccuracy.value !== null) {
-    return `当前定位约 ${latestReportedAccuracy.value.toFixed(1)} 米`
-  }
-  return '等待高精度定位'
-})
-const qualityDetail = computed(() => {
-  const summary = captureSummary.value
-  if (!samples.value.length && latestReportedAccuracy.value !== null
-    && latestReportedAccuracy.value > FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS) {
-    return `当前修复精度不足，等待 ${FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS} 米以内的定位。`
-  }
-  if (captureQuality.value.state === 'collecting') {
-    return `继续保持静止，至少收录 ${FIELD_CAPTURE_MIN_SAMPLES} 个样本。`
-  }
-  if (captureQuality.value.state === 'too-short' && summary) {
-    return `采样仅持续 ${(summary.captureDurationMs / 1000).toFixed(0)} 秒，请继续至 ${FIELD_CAPTURE_MIN_DURATION_MS / 1000} 秒。`
-  }
-  if (captureQuality.value.state === 'unstable' && summary) {
-    return `样本离散或设备精度超过 ${FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS} 米，请移动到开阔处重采。`
-  }
-  if (captureQuality.value.state === 'invalid') return '样本格式异常，请重采。'
-  return '采样稳定，可停止并填写现场证据。'
-})
+const qualityTone = computed(() => resolveFieldCaptureQualityTone({
+  quality: captureQuality.value,
+  sampleCount: samples.value.length
+}))
+const qualityLabel = computed(() => resolveFieldCaptureQualityLabel({
+  quality: captureQuality.value,
+  latestReportedAccuracy: latestReportedAccuracy.value
+}))
+const qualityDetail = computed(() => resolveFieldCaptureQualityDetail({
+  quality: captureQuality.value,
+  sampleCount: samples.value.length,
+  latestReportedAccuracy: latestReportedAccuracy.value
+}))
 
 function stopCapture(): void {
   if (watchId.value !== null && navigator.geolocation) {
@@ -103,24 +88,31 @@ function acceptPosition(position: GeolocationPosition): void {
     return
   }
   const now = Date.now()
-  if (samples.value.length >= FIELD_CAPTURE_MAX_SAMPLES) return
   const { longitude, latitude, accuracy } = position.coords
-  if (![longitude, latitude, accuracy].every(Number.isFinite) || accuracy < 0 || accuracy > 1000) return
-  const capturedAtMs = Number.isFinite(position.timestamp)
-    && position.timestamp > 0
-    && Math.abs(now - position.timestamp) <= 60_000
-    ? position.timestamp
-    : now
-  latestReportedAccuracy.value = accuracy
-  if (accuracy > FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS
-    || capturedAtMs - lastAcceptedAt < FIELD_CAPTURE_MIN_SAMPLE_INTERVAL_MS) return
+  if ([longitude, latitude, accuracy].every(Number.isFinite) && accuracy >= 0 && accuracy <= 1000) {
+    latestReportedAccuracy.value = accuracy
+  }
 
-  lastAcceptedAt = capturedAtMs
-  samples.value.push({
+  const accepted = resolveFieldCaptureAcceptedSample({
     longitude,
     latitude,
-    accuracyMeters: accuracy,
-    capturedAt: new Date(capturedAtMs).toISOString()
+    accuracy,
+    positionTimestamp: position.timestamp,
+    nowMs: now,
+    lastAcceptedAtMs: lastAcceptedAt,
+    currentSampleCount: samples.value.length,
+    maxSamples: FIELD_CAPTURE_MAX_SAMPLES,
+    maxAcceptedAccuracyMeters: FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS,
+    minSampleIntervalMs: FIELD_CAPTURE_MIN_SAMPLE_INTERVAL_MS
+  })
+  if (!accepted) return
+
+  lastAcceptedAt = accepted.capturedAtMs
+  samples.value.push({
+    longitude: accepted.longitude,
+    latitude: accepted.latitude,
+    accuracyMeters: accepted.accuracy,
+    capturedAt: new Date(accepted.capturedAtMs).toISOString()
   })
   const quality = evaluateCoordinateCapture(samples.value)
   if (quality.canSubmit || samples.value.length >= FIELD_CAPTURE_MAX_SAMPLES) stopCapture()

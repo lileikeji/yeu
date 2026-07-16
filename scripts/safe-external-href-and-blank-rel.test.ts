@@ -62,10 +62,13 @@ test('map provider lifecycle never surfaces raw Error.message to UI', () => {
 })
 
 test('map geolocation route failures use generic description copy', () => {
-  const source = readFileSync(resolve('app/composables/useMapGeolocation.ts'), 'utf8')
-  assert.match(source, /description: '[^']{8,}/)
-  assert.doesNotMatch(source, /\? error\.message/)
-  assert.doesNotMatch(source, /description:[\s\S]{0,40}error\.message/)
+  const composable = readFileSync(resolve('app/composables/useMapGeolocation.ts'), 'utf8')
+  const util = readFileSync(resolve('app/utils/map-geolocation.ts'), 'utf8')
+  assert.match(util, /description: '[^']{8,}/)
+  assert.match(composable, /resolveMapLocateFailureNotice|resolveMapWalkingRouteFailureNotice/)
+  assert.doesNotMatch(composable, /\? error\.message/)
+  assert.doesNotMatch(composable, /description:[\s\S]{0,40}error\.message/)
+  assert.doesNotMatch(util, /description:[\s\S]{0,40}error\.message/)
 })
 
 test('offline retry path is gated by safeLocalPath', () => {

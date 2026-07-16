@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   buildProcedureChecklistStorageKey,
+  buildProcedureChecklistStorageValue,
   buildProcedureDetailSources,
   buildProcedureMapLink,
   getProcedureEmptyMaterialText,
@@ -14,7 +15,14 @@ import {
   procedureAudienceOptions,
   procedureMethodLabels,
   procedureStateLabels,
+  resolveProcedureAudienceOptionPresentation,
+  resolveProcedureAudienceRouteQuery,
+  resolveProcedureChecklistFromStorageText,
+  resolveProcedureInformationStateBadgeColor,
+  resolveProcedureMaterialsCountBadge,
+  resolveProcedureStepCompletionPresentation,
   serializeProcedureChecklist,
+  shouldShowProcedureStepAudienceBadges,
   sourceClaimForStudents,
   toggleProcedureStep
 } from '../app/utils/procedure-detail-presentation'
@@ -26,10 +34,18 @@ test('procedure detail page is a thin shell over presentation util', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/procedure-detail-presentation['"]/)
   assert.match(pageSource, /getProcedureNoticeText/)
   assert.match(pageSource, /buildProcedureDetailSources/)
-  assert.match(pageSource, /parseProcedureChecklist/)
+  assert.match(pageSource, /resolveProcedureChecklistFromStorageText/)
   assert.match(pageSource, /toggleProcedureStep/)
   assert.match(pageSource, /buildProcedureMapLink/)
+  assert.match(pageSource, /resolveProcedureAudienceRouteQuery/)
+  assert.match(pageSource, /resolveProcedureInformationStateBadgeColor/)
+  assert.match(pageSource, /resolveProcedureMaterialsCountBadge/)
+  assert.match(pageSource, /resolveProcedureStepCompletionPresentation/)
+  assert.match(pageSource, /shouldShowProcedureStepAudienceBadges/)
   assert.doesNotMatch(pageSource, /function sourceClaimForStudents/)
+  assert.doesNotMatch(pageSource, /informationState === 'confirmed' \? 'success'/)
+  assert.doesNotMatch(pageSource, /JSON\.parse\(localStorage/)
+  assert.doesNotMatch(pageSource, /delete query\.audience/)
   assert.doesNotMatch(pageSource, /const audienceLabel = \{/)
   assert.doesNotMatch(pageSource, /const methodLabel = \{/)
   assert.doesNotMatch(pageSource, /const stateLabel = \{/)
@@ -124,4 +140,73 @@ test('checklist parse/serialize and step toggle keep version and step id safety'
       }
     }
   )
+})
+
+test('Stage 65 procedure presentation decisions stay pure and student-facing', () => {
+  assert.equal(resolveProcedureInformationStateBadgeColor('confirmed'), 'success')
+  assert.equal(resolveProcedureInformationStateBadgeColor('partial'), 'warning')
+  assert.equal(resolveProcedureInformationStateBadgeColor(null), 'warning')
+  assert.deepEqual(resolveProcedureMaterialsCountBadge(0), {
+    color: 'warning',
+    label: '待通知'
+  })
+  assert.deepEqual(resolveProcedureMaterialsCountBadge(3), {
+    color: 'neutral',
+    label: '3 项'
+  })
+  assert.deepEqual(
+    resolveProcedureAudienceOptionPresentation('all', 'all'),
+    { color: 'primary', variant: 'solid', ariaPressed: true }
+  )
+  assert.deepEqual(
+    resolveProcedureAudienceOptionPresentation('all', 'undergraduate'),
+    { color: 'neutral', variant: 'ghost', ariaPressed: false }
+  )
+  assert.equal(shouldShowProcedureStepAudienceBadges('all', 1, 2), true)
+  assert.equal(shouldShowProcedureStepAudienceBadges('undergraduate', 1, 2), false)
+  assert.equal(shouldShowProcedureStepAudienceBadges('all', 2, 2), false)
+  assert.deepEqual(
+    resolveProcedureStepCompletionPresentation(false, 2),
+    {
+      ariaLabel: '标记第2步完成',
+      ariaPressed: false,
+      icon: 'i-lucide-circle',
+      titleClass: ''
+    }
+  )
+  assert.deepEqual(
+    resolveProcedureStepCompletionPresentation(true, 1),
+    {
+      ariaLabel: '取消完成第1步',
+      ariaPressed: true,
+      icon: 'i-lucide-circle-check-big',
+      titleClass: 'line-through opacity-60'
+    }
+  )
+  assert.deepEqual(
+    resolveProcedureAudienceRouteQuery({ audience: 'transfer', q: 'x' }, 'all'),
+    { q: 'x' }
+  )
+  assert.deepEqual(
+    resolveProcedureAudienceRouteQuery({ q: 'x' }, 'undergraduate'),
+    { q: 'x', audience: 'undergraduate' }
+  )
+  assert.deepEqual(
+    resolveProcedureChecklistFromStorageText(
+      JSON.stringify({ version: 'v1', stepIds: ['a', 'bad'] }),
+      'v1',
+      ['a']
+    ),
+    ['a']
+  )
+  assert.deepEqual(
+    resolveProcedureChecklistFromStorageText('not-json', 'v1', ['a']),
+    []
+  )
+  assert.equal(
+    buildProcedureChecklistStorageValue('v1', ['a']),
+    JSON.stringify({ version: 'v1', stepIds: ['a'] })
+  )
+  assert.match(utilSource, /export function resolveProcedureAudienceRouteQuery/)
+  assert.match(utilSource, /export function resolveProcedureStepCompletionPresentation/)
 })

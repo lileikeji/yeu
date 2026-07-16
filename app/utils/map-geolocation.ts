@@ -49,3 +49,72 @@ export async function planWalkingMapRoute(
   if (!provider) throw new Error('地图路线组件尚未就绪。')
   return provider.planWalkingRoute(origin, destination)
 }
+
+export interface MapGeolocationNotice {
+  title: string
+  description?: string
+  color: 'warning'
+}
+
+export function resolveMapLocateGuard(hasGeolocation: boolean):
+  | { ok: true }
+  | { ok: false, notice: MapGeolocationNotice } {
+  if (!hasGeolocation) {
+    return {
+      ok: false,
+      notice: { title: '当前浏览器不支持定位', color: 'warning' }
+    }
+  }
+  return { ok: true }
+}
+
+export function resolveMapLocateFailureNotice(): MapGeolocationNotice {
+  return {
+    title: '未能获取位置',
+    description: '请检查浏览器定位权限，或稍后再试。',
+    color: 'warning'
+  }
+}
+
+export function resolveMapWalkingRouteStartGuard(input: {
+  hasDestination: boolean
+  activeMapProviderId: string | null | undefined
+  hasGeolocation: boolean
+}):
+  | { ok: true }
+  | { ok: false, notice: MapGeolocationNotice } {
+  if (!input.hasDestination) {
+    return {
+      ok: false,
+      notice: { title: '该地点暂无可用坐标', color: 'warning' }
+    }
+  }
+  if (input.activeMapProviderId !== 'amap') {
+    return {
+      ok: false,
+      notice: { title: '网页内路线仅支持高德地图', color: 'warning' }
+    }
+  }
+  if (!input.hasGeolocation) {
+    return {
+      ok: false,
+      notice: { title: '当前浏览器不支持定位', color: 'warning' }
+    }
+  }
+  return { ok: true }
+}
+
+export function resolveMapWalkingRouteFailureNotice(error: unknown): {
+  notice: MapGeolocationNotice
+  shouldClearRoute: boolean
+} {
+  const geolocationFailed = error instanceof Error && error.message === 'MAP_GEOLOCATION_FAILED'
+  return {
+    shouldClearRoute: !geolocationFailed,
+    notice: {
+      title: geolocationFailed ? '未能获取当前位置' : '路线规划失败',
+      description: '请检查浏览器定位权限，或稍后再试。',
+      color: 'warning'
+    }
+  }
+}
