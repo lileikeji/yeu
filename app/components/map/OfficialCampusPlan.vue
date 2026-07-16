@@ -21,8 +21,6 @@ import {
   resolveOfficialPlanSelectedLabel,
   resolveOfficialPlanWheelZoom,
   resolveOfficialPlanZoomFocusScroll,
-  resolveSelectedAnchorBoostZoom,
-  shouldBoostZoomForSelectedAnchor,
   touchPointDistance
 } from '~~/app/utils/official-campus-plan-presentation'
 
@@ -306,11 +304,7 @@ function scrollToSelectedAnchor(): void {
     settleFocusTimer = null
   }
 
-  // Boost zoom without intermediate center-scroll, then settle once after layout.
-  if (shouldBoostZoomForSelectedAnchor(zoom.value)) {
-    zoom.value = resolveSelectedAnchorBoostZoom()
-  }
-
+  // Keep the user's current zoom; only pan the marker into view.
   void nextTick(() => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {

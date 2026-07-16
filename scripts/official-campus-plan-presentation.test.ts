@@ -117,7 +117,9 @@ describe('official-campus-plan-presentation', () => {
       findOfficialPlanAnchorElementKey(['6-0', '7-1', '8-0'], '7'),
       '7-1'
     )
-    assert.equal(shouldBoostZoomForSelectedAnchor(1.5), true)
+    // Clicking a marker must never auto-boost zoom; keep the current scale.
+    assert.equal(shouldBoostZoomForSelectedAnchor(1.5), false)
+    assert.equal(shouldBoostZoomForSelectedAnchor(1), false)
     assert.equal(shouldBoostZoomForSelectedAnchor(2), false)
     assert.equal(resolveSelectedAnchorBoostZoom(), OFFICIAL_PLAN_SELECTED_ANCHOR_ZOOM)
     assert.deepEqual(

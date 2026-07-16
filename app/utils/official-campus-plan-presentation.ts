@@ -8,8 +8,10 @@ export const OFFICIAL_PLAN_MAX_ZOOM = 6
 export const OFFICIAL_PLAN_ZOOM_STEP = 0.35
 export const OFFICIAL_PLAN_MOBILE_INITIAL_ZOOM = 2.2
 export const OFFICIAL_PLAN_WHEEL_ZOOM_SPEED = 0.0018
-export const OFFICIAL_PLAN_SELECTED_ANCHOR_MIN_ZOOM = 2
-export const OFFICIAL_PLAN_SELECTED_ANCHOR_ZOOM = 2.4
+/** @deprecated Selecting a marker no longer auto-zooms; kept for compatibility. */
+export const OFFICIAL_PLAN_SELECTED_ANCHOR_MIN_ZOOM = 0
+/** @deprecated Selecting a marker no longer auto-zooms; kept for compatibility. */
+export const OFFICIAL_PLAN_SELECTED_ANCHOR_ZOOM = 1
 export const OFFICIAL_PLAN_ZOOM_EPSILON = 0.001
 export const OFFICIAL_PLAN_DRAG_THRESHOLD_PX = 6
 
@@ -136,13 +138,21 @@ export function officialPlanAnchorKey(mapNumber: string, index: number): string 
   return `${mapNumber}-${index}`
 }
 
+/**
+ * Selecting a campus-plan marker must keep the user's current zoom.
+ * Always returns false so click-to-focus never suddenly enlarges the plan.
+ */
 export function shouldBoostZoomForSelectedAnchor(
-  currentZoom: number,
-  minZoom: number = OFFICIAL_PLAN_SELECTED_ANCHOR_MIN_ZOOM
+  _currentZoom: number,
+  _minZoom: number = OFFICIAL_PLAN_SELECTED_ANCHOR_MIN_ZOOM
 ): boolean {
-  return currentZoom < minZoom
+  return false
 }
 
+/**
+ * No-op boost target: returns the provided zoom (or min zoom) without forcing a larger level.
+ * Prefer leaving `zoom` unchanged when focusing a selected anchor.
+ */
 export function resolveSelectedAnchorBoostZoom(
   boostZoom: number = OFFICIAL_PLAN_SELECTED_ANCHOR_ZOOM
 ): number {
