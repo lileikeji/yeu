@@ -30,8 +30,11 @@ import {
   formatMapPerimeter,
   mapCategories,
   mapCategoryIds,
+  canShowOfficialCampusPlan,
   resolveAutoSelectSearchDecision,
   resolveInitialMapViewMode,
+  resolveMapPoiClickSelection,
+  resolveSelectPoiUiDecision,
   resolveMapCategoryIcon,
   resolveMapCategoryLabel,
   resolveMapDataLabel,
@@ -81,7 +84,7 @@ const ownerMapPlacesInScope = computed(() => filterOwnerMapPlacesInScope(
   places.value,
   activeScope.value
 ))
-const canShowOfficialPlan = computed(() => activeScope.value !== 'nearby')
+const canShowOfficialPlan = computed(() => canShowOfficialCampusPlan(activeScope.value))
 const mapViewMode = ref<'geographic' | 'official-plan'>(
   resolveInitialMapViewMode({
     activeScope: activeScope.value,
@@ -212,24 +215,24 @@ function poiUseChecklist(poi: PublicMapPlace): string[] {
 }
 
 function handlePoiSelected(poi: MapPoi | null) {
-  if (poi) {
-    selectedArea.value = null
-    mapProvider.value?.setSelectedArea(null)
-  }
   const selected = poi?.source === 'amap-native'
     ? createNativeMapPlace(poi, activeScope.value)
     : null
+  const decision = resolveMapPoiClickSelection({
+    poi,
+    nativePlaceId: selected?.id
+  })
+  if (decision.clearArea) {
+    selectedArea.value = null
+    mapProvider.value?.setSelectedArea(null)
+  }
   selectedNativePlace.value = selected
-  selectedPoiId.value = poi?.source === 'amap-native'
-    ? selected?.id ?? null
-    : poi?.id ?? null
+  selectedPoiId.value = decision.selectedPoiId
   mapProvider.value?.setSelectedPoi(selectedPoiId.value)
 
-  if (poi && selectedPoiId.value) {
-    if (poi.source !== 'amap-native') {
-      sidebarCollapsed.value = false
-      void nextTick(() => poiRowElements.get(selectedPoiId.value!)?.scrollIntoView({ block: 'nearest' }))
-    }
+  if (decision.expandSidebarAndScroll && decision.selectedPoiId) {
+    sidebarCollapsed.value = false
+    void nextTick(() => poiRowElements.get(decision.selectedPoiId!)?.scrollIntoView({ block: 'nearest' }))
   }
 }
 
@@ -290,14 +293,21 @@ function poiRowRef(id: string) {
 function selectPoi(poi: PublicMapPlace) {
   selectedArea.value = null
   mapProvider.value?.setSelectedArea(null)
-  selectedNativePlace.value = poi.coordinateVerification === 'native-map-session' ? poi : null
+  const decision = resolveSelectPoiUiDecision({
+    poi,
+    mobileSheetState: mobileSheetState.value,
+    mapViewMode: mapViewMode.value,
+    canShowOfficialPlan: canShowOfficialPlan.value
+  })
+  selectedNativePlace.value = decision.selectedNativePlace
   selectedPoiId.value = poi.id
-  if (mobileSheetState.value === 'collapsed') mobileSheetState.value = 'half'
-  if (poi.usesPreviewPoint && canShowOfficialPlan.value) mapViewMode.value = 'official-plan'
-  mapProvider.value?.setSelectedPoi(poi.point ? poi.id : null)
-  if (poi.point) {
-    if (poi.coordinateVerification === 'native-map-session') mapProvider.value?.flyToPoint(poi.point, 18)
-    else mapProvider.value?.flyToPoi(poi.id)
+  mobileSheetState.value = decision.mobileSheetState
+  mapViewMode.value = decision.mapViewMode
+  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
+  if (decision.flyAction === 'fly-to-point' && poi.point) {
+    mapProvider.value?.flyToPoint(poi.point, 18)
+  } else if (decision.flyAction === 'fly-to-poi') {
+    mapProvider.value?.flyToPoi(poi.id)
   }
 }
 

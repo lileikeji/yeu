@@ -28,6 +28,12 @@ import {
   resolveMapUnsupportedBaseStyleMessage,
   resolveSelectedMapPoiId,
   resolveSelectedPublicMapPlace,
+  canShowOfficialCampusPlan,
+  resolveMapPoiClickSelection,
+  resolveSelectPoiFlyAction,
+  resolveSelectPoiMapViewMode,
+  resolveSelectPoiMobileSheetState,
+  resolveSelectPoiUiDecision,
   toggleMapDisplayOption,
   withMapLabelSize
 } from '../app/utils/map-presentation'
@@ -477,4 +483,110 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   if (selectArea.action === 'select-area') {
     assert.equal(selectArea.targetArea.id, 'area-1')
   }
+})
+
+
+test('selectPoi and map click selection decisions stay pure', () => {
+  const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+  const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
+
+  assert.match(source, /resolveSelectPoiUiDecision/)
+  assert.match(source, /resolveMapPoiClickSelection/)
+  assert.match(source, /canShowOfficialCampusPlan/)
+  assert.match(utilSrc, /export function resolveSelectPoiUiDecision/)
+  assert.match(utilSrc, /export function resolveMapPoiClickSelection/)
+  assert.doesNotMatch(source, /if \(mobileSheetState\.value === 'collapsed'\) mobileSheetState\.value = 'half'/)
+  assert.doesNotMatch(source, /if \(poi\.usesPreviewPoint && canShowOfficialPlan\.value\) mapViewMode\.value = 'official-plan'/)
+  assert.doesNotMatch(source, /poi\.coordinateVerification === 'native-map-session' \? poi : null/)
+
+  assert.equal(canShowOfficialCampusPlan('nearby'), false)
+  assert.equal(canShowOfficialCampusPlan('campus'), true)
+  assert.equal(resolveSelectPoiMobileSheetState('collapsed'), 'half')
+  assert.equal(resolveSelectPoiMobileSheetState('half'), 'half')
+  assert.equal(resolveSelectPoiMobileSheetState('expanded'), 'expanded')
+  assert.equal(resolveSelectPoiMapViewMode({
+    usesPreviewPoint: true,
+    canShowOfficialPlan: true,
+    currentMode: 'geographic'
+  }), 'official-plan')
+  assert.equal(resolveSelectPoiMapViewMode({
+    usesPreviewPoint: true,
+    canShowOfficialPlan: false,
+    currentMode: 'geographic'
+  }), 'geographic')
+  assert.equal(resolveSelectPoiMapViewMode({
+    usesPreviewPoint: false,
+    canShowOfficialPlan: true,
+    currentMode: 'geographic'
+  }), 'geographic')
+
+  const previewPlace = partialPlace({
+    id: 'preview-1',
+    name: 'Preview',
+    usesPreviewPoint: true,
+    point: { lng: 118.5, lat: 25.1 },
+    coordinateVerification: 'owner-map-only'
+  })
+  const nativePlace = partialPlace({
+    id: 'native-2',
+    name: 'Native',
+    usesPreviewPoint: false,
+    point: { lng: 118.6, lat: 25.2 },
+    coordinateVerification: 'native-map-session'
+  })
+  const noPoint = partialPlace({
+    id: 'nopoint',
+    name: 'NoPoint',
+    point: null,
+    usesPreviewPoint: false
+  })
+
+  assert.equal(resolveSelectPoiFlyAction(previewPlace), 'fly-to-poi')
+  assert.equal(resolveSelectPoiFlyAction(nativePlace), 'fly-to-point')
+  assert.equal(resolveSelectPoiFlyAction(noPoint), 'none')
+
+  const ui = resolveSelectPoiUiDecision({
+    poi: previewPlace,
+    mobileSheetState: 'collapsed',
+    mapViewMode: 'geographic',
+    canShowOfficialPlan: true
+  })
+  assert.equal(ui.mobileSheetState, 'half')
+  assert.equal(ui.mapViewMode, 'official-plan')
+  assert.equal(ui.selectedNativePlace, null)
+  assert.equal(ui.providerSelectedPoiId, 'preview-1')
+  assert.equal(ui.flyAction, 'fly-to-poi')
+
+  const uiNative = resolveSelectPoiUiDecision({
+    poi: nativePlace,
+    mobileSheetState: 'expanded',
+    mapViewMode: 'geographic',
+    canShowOfficialPlan: true
+  })
+  assert.equal(uiNative.mobileSheetState, 'expanded')
+  assert.equal(uiNative.mapViewMode, 'geographic')
+  assert.equal(uiNative.selectedNativePlace?.id, 'native-2')
+  assert.equal(uiNative.flyAction, 'fly-to-point')
+
+  assert.deepEqual(resolveMapPoiClickSelection({ poi: null, nativePlaceId: null }), {
+    clearArea: false,
+    selectedPoiId: null,
+    expandSidebarAndScroll: false
+  })
+  assert.deepEqual(resolveMapPoiClickSelection({
+    poi: { id: 'catalog-1', source: 'catalog' as never },
+    nativePlaceId: null
+  }), {
+    clearArea: true,
+    selectedPoiId: 'catalog-1',
+    expandSidebarAndScroll: true
+  })
+  assert.deepEqual(resolveMapPoiClickSelection({
+    poi: { id: 'amap-x', source: 'amap-native' as never },
+    nativePlaceId: 'native-resolved'
+  }), {
+    clearArea: true,
+    selectedPoiId: 'native-resolved',
+    expandSidebarAndScroll: false
+  })
 })

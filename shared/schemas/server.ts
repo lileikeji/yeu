@@ -134,6 +134,60 @@ export const createPlaceSchema = z.object({
 }).strict().superRefine(validateCoordinates)
 export const updatePlaceSchema = z.object(placeFields).partial().strict()
 
+
+/** Admin content metadata: bound size and reject prototype-pollution keys. */
+const CONTENT_METADATA_MAX_KEYS = 64
+const CONTENT_METADATA_MAX_JSON_CHARS = 32_000
+const CONTENT_METADATA_MAX_DEPTH = 6
+const FORBIDDEN_METADATA_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
+
+function metadataDepth(value: unknown, depth = 0): number {
+  if (depth > CONTENT_METADATA_MAX_DEPTH) return depth
+  if (!value || typeof value !== 'object') return depth
+  let max = depth
+  for (const child of Object.values(value as Record<string, unknown>)) {
+    max = Math.max(max, metadataDepth(child, depth + 1))
+  }
+  return max
+}
+
+const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRefine((value, ctx) => {
+  const keys = Object.keys(value)
+  if (keys.length > CONTENT_METADATA_MAX_KEYS) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `metadata may contain at most ${CONTENT_METADATA_MAX_KEYS} keys`
+    })
+  }
+  for (const key of keys) {
+    if (FORBIDDEN_METADATA_KEYS.has(key)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `metadata key "${key}" is not allowed`
+      })
+    }
+  }
+  if (metadataDepth(value) > CONTENT_METADATA_MAX_DEPTH) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `metadata nesting exceeds ${CONTENT_METADATA_MAX_DEPTH} levels`
+    })
+  }
+  let encoded = ''
+  try {
+    encoded = JSON.stringify(value)
+  } catch {
+    ctx.addIssue({ code: 'custom', message: 'metadata must be JSON-serializable' })
+    return
+  }
+  if (encoded.length > CONTENT_METADATA_MAX_JSON_CHARS) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `metadata JSON exceeds ${CONTENT_METADATA_MAX_JSON_CHARS} characters`
+    })
+  }
+})
+
 const contentFields = {
   kind: z.enum(CONTENT_KINDS),
   slug: slugSchema,
@@ -142,7 +196,7 @@ const contentFields = {
   body: z.string().trim().max(100000),
   category: nullableTextSchema(80),
   audience: nullableTextSchema(120),
-  metadata: z.record(z.string(), z.unknown()),
+  metadata: contentMetadataSchema,
   isFeatured: z.boolean(),
   lastVerifiedAt: nullableDateSchema,
   sourceIds: sourceIdsSchema

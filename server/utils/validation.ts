@@ -1,6 +1,9 @@
 import type { H3Event } from 'h3'
 import type { ZodType } from 'zod'
 
+/** Reject oversized JSON bodies before full parse (DoS / memory). */
+const MAX_JSON_BODY_BYTES = 1_048_576
+
 function validationError(issues: Array<{ path: PropertyKey[], message: string }>) {
   return createError({
     statusCode: 422,
@@ -15,7 +18,28 @@ function validationError(issues: Array<{ path: PropertyKey[], message: string }>
   })
 }
 
+function assertJsonBodySize(event: H3Event): void {
+  const raw = getHeader(event, 'content-length')
+  if (!raw) return
+  const length = Number(raw)
+  if (!Number.isFinite(length) || length < 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Invalid Content-Length',
+      data: { code: 'INVALID_CONTENT_LENGTH' }
+    })
+  }
+  if (length > MAX_JSON_BODY_BYTES) {
+    throw createError({
+      statusCode: 413,
+      statusMessage: 'Request body too large',
+      data: { code: 'PAYLOAD_TOO_LARGE', maxBytes: MAX_JSON_BODY_BYTES }
+    })
+  }
+}
+
 export async function parseBody<T>(event: H3Event, schema: ZodType<T>): Promise<T> {
+  assertJsonBodySize(event)
   const result = schema.safeParse(await readBody(event))
 
   if (!result.success) {

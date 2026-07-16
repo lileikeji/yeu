@@ -360,3 +360,97 @@ export function resolveAutoSelectSearchDecision(input: {
 
   return { action: 'select-area', autoKey, targetArea: targetArea as MapArea }
 }
+
+
+export type MapViewMode = 'geographic' | 'official-plan'
+
+export function canShowOfficialCampusPlan(activeScope: string | null | undefined): boolean {
+  return activeScope !== 'nearby'
+}
+
+export function resolveSelectPoiMobileSheetState(state: MobileSheetState): MobileSheetState {
+  return state === 'collapsed' ? 'half' : state
+}
+
+export function resolveSelectPoiMapViewMode(input: {
+  usesPreviewPoint: boolean
+  canShowOfficialPlan: boolean
+  currentMode: MapViewMode
+}): MapViewMode {
+  if (input.usesPreviewPoint && input.canShowOfficialPlan) return 'official-plan'
+  return input.currentMode
+}
+
+export type SelectPoiFlyAction = 'none' | 'fly-to-point' | 'fly-to-poi'
+
+export function resolveSelectPoiFlyAction(
+  poi: Pick<PublicMapPlace, 'point' | 'coordinateVerification'>
+): SelectPoiFlyAction {
+  if (!poi.point) return 'none'
+  if (poi.coordinateVerification === 'native-map-session') return 'fly-to-point'
+  return 'fly-to-poi'
+}
+
+export function resolveSelectPoiNativePlace(poi: PublicMapPlace): PublicMapPlace | null {
+  return poi.coordinateVerification === 'native-map-session' ? poi : null
+}
+
+export function resolveSelectPoiProviderId(
+  poi: Pick<PublicMapPlace, 'id' | 'point'>
+): string | null {
+  return poi.point ? poi.id : null
+}
+
+export interface SelectPoiUiDecision {
+  mobileSheetState: MobileSheetState
+  mapViewMode: MapViewMode
+  selectedNativePlace: PublicMapPlace | null
+  providerSelectedPoiId: string | null
+  flyAction: SelectPoiFlyAction
+}
+
+export function resolveSelectPoiUiDecision(input: {
+  poi: PublicMapPlace
+  mobileSheetState: MobileSheetState
+  mapViewMode: MapViewMode
+  canShowOfficialPlan: boolean
+}): SelectPoiUiDecision {
+  const { poi } = input
+  return {
+    mobileSheetState: resolveSelectPoiMobileSheetState(input.mobileSheetState),
+    mapViewMode: resolveSelectPoiMapViewMode({
+      usesPreviewPoint: Boolean(poi.usesPreviewPoint),
+      canShowOfficialPlan: input.canShowOfficialPlan,
+      currentMode: input.mapViewMode
+    }),
+    selectedNativePlace: resolveSelectPoiNativePlace(poi),
+    providerSelectedPoiId: resolveSelectPoiProviderId(poi),
+    flyAction: resolveSelectPoiFlyAction(poi)
+  }
+}
+
+export function resolveMapPoiClickSelection(input: {
+  poi: Pick<MapPoi, 'id' | 'source'> | null
+  nativePlaceId: string | null | undefined
+}): {
+  clearArea: boolean
+  selectedPoiId: string | null
+  expandSidebarAndScroll: boolean
+} {
+  const poi = input.poi
+  if (!poi) {
+    return {
+      clearArea: false,
+      selectedPoiId: null,
+      expandSidebarAndScroll: false
+    }
+  }
+
+  const isNative = poi.source === 'amap-native'
+  const selectedPoiId = isNative ? input.nativePlaceId ?? null : poi.id
+  return {
+    clearArea: true,
+    selectedPoiId,
+    expandSidebarAndScroll: Boolean(selectedPoiId && !isNative)
+  }
+}
