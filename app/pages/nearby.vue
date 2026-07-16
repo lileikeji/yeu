@@ -36,7 +36,7 @@ const candidateHint = nearbyCandidateHint
 
 useSeoMeta({
   title: '校园周边',
-  description: '查看经过位置与营业状态核验的仰恩大学周边商铺和生活服务。'
+  description: '查看经过位置与营业状态核验的仰恩大学周边商铺和生活服务�?
 })
 
 const searchQuery = ref('')
@@ -65,13 +65,13 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
           已核验商铺与生活服务
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          只展示已核对位置、来源和营业状态的地点，不使用平台评分或未经验证的推荐排名。
+          只展示已核对位置、来源和营业状态的地点，不使用平台评分或未经验证的推荐排名�?
         </p>
         <div class="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
           <UInput
             v-model="searchQuery"
             icon="i-lucide-search"
-            placeholder="搜索商铺或服务"
+            placeholder="搜索商铺或服�?
             aria-label="搜索校园周边"
             size="lg"
           />
@@ -93,7 +93,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
         class="border-l-2 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-800"
         role="alert"
       >
-        周边资料暂时不可用，请稍后重试。
+        周边资料暂时不可用，请稍后重试�?
       </div>
 
       <div
@@ -101,7 +101,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
         class="mb-4 flex items-center justify-between gap-4"
       >
         <h2 class="text-sm font-semibold text-zinc-900">
-          {{ filteredPlaces.length }} 个地点
+          {{ filteredPlaces.length }} 个地�?
         </h2>
         <UButton
           :to="{ path: '/map', query: { scope: 'nearby' } }"
@@ -166,10 +166,10 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
           class="mx-auto size-7 text-zinc-400"
         />
         <h2 class="mt-3 text-base font-bold text-zinc-800">
-          暂无达到发布标准的周边地点
+          暂无达到发布标准的周边地�?
         </h2>
         <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-          周边商铺还在确认位置、经营状态和营业时间，因此不会提前写成推荐。
+          周边商铺还在确认位置、经营状态和营业时间，因此不会提前写成推荐�?
         </p>
         <UButton
           :to="{ path: '/feedback', query: { type: 'source_suggestion', from: '/nearby' } }"
@@ -186,7 +186,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-lg font-bold text-zinc-950">
-                周边参考清单
+                周边参考清�?
               </h2>
               <UBadge
                 label="确认后再推荐"
@@ -195,7 +195,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
               />
             </div>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              高德当前 POI 搜索取得 30 条新区、旧区餐饮、便利、快递与生活服务参考。平台 POI 只证明地图上出现过这个名称和位置，不代表门店仍在营业；确认招牌、入口、营业状态、时间和服务范围后，才会进入上方正式目录。
+              高德当前 POI 搜索取得 30 条新区、旧区餐饮、便利、快递与生活服务参考。平�?POI 只证明地图上出现过这个名称和位置，不代表门店仍在营业；确认招牌、入口、营业状态、时间和服务范围后，才会进入上方正式目录�?
             </p>
           </div>
           <a
@@ -215,7 +215,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
         <div class="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div class="rounded-lg border border-zinc-200 bg-white p-4">
             <h3 class="text-sm font-bold text-zinc-950">
-              新生现在怎么用这份参考清单
+              新生现在怎么用这份参考清�?
             </h3>
             <div class="mt-3 grid gap-3 md:grid-cols-2">
               <div
@@ -243,7 +243,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
                 class="flex gap-2"
               >
                 <UIcon
-                  name="i-lucide-check-circle-2"
+                  name="i-lucide-circle-check"
                   class="mt-0.5 size-3.5 shrink-0"
                 />
                 <span>{{ item }}</span>
@@ -253,11 +253,11 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
         </div>
 
         <p class="mt-4 text-xs text-zinc-500">
-          {{ filteredCandidates.length }} 条参考 · 数据整理于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
+          {{ filteredCandidates.length }} 条参�?· 数据整理�?{{ candidateCatalog.generatedAt.slice(0, 10) }}
         </p>
         <div class="mt-4 border-l-2 border-orange-300 bg-orange-50/70 px-4 py-3">
           <p class="text-xs font-bold text-orange-900">
-            相关公开资料 · 仅作确认参考
+            相关公开资料 · 仅作确认参�?
           </p>
           <ul class="mt-2 grid gap-2 md:grid-cols-3">
             <li
@@ -291,7 +291,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
                 <span>
                   <span class="font-medium">{{ source.title }}</span>
                   <span class="block text-zinc-500">{{ sourceContextForStudents(source.context) }}</span>
-                  <span class="block text-orange-700">这个链接现在打不开，先作为参考记录保留。</span>
+                  <span class="block text-orange-700">这个链接现在打不开，先作为参考记录保留�?/span>
                 </span>
               </div>
             </li>
@@ -315,7 +315,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
                 color="neutral"
                 variant="soft"
               />
-              <span class="text-xs text-zinc-400">约 {{ candidate.distanceMeters }} m</span>
+              <span class="text-xs text-zinc-400">�?{{ candidate.distanceMeters }} m</span>
             </div>
             <h3 class="mt-3 font-bold text-zinc-950">
               {{ candidate.name }}

@@ -322,7 +322,6 @@ function selectPoi(poi: PublicMapPlace) {
   }
 }
 
-
 function setMapViewMode(nextMode: 'geographic' | 'official-plan') {
   const decision = resolveMapViewModeSwitchDecision({
     nextMode,
@@ -925,7 +924,7 @@ onBeforeUnmount(() => {
           class="pointer-events-auto max-w-xs rounded-lg border border-zinc-200 bg-white/95 p-5 shadow-lg backdrop-blur-sm"
         >
           <UIcon
-            name="i-lucide-map-off"
+            name="i-lucide-map-pin-off"
             class="mx-auto size-8 text-zinc-500"
           />
           <p class="mt-3 text-sm font-semibold text-zinc-900">

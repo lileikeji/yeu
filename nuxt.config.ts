@@ -1,4 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { clientBundleIcons } from './shared/client-bundle-icons'
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
@@ -36,9 +37,11 @@ export default defineNuxtConfig({
   icon: {
     // Never fetch /api/_nuxt_icon at runtime: CDN may ignore ?icons= and
     // serve a poisoned partial collection (e.g. only loader-circle).
+    // scan alone misses dynamic :name bindings and DB-driven content icons.
     provider: 'none',
     clientBundle: {
       scan: true,
+      icons: [...clientBundleIcons],
       sizeLimitKb: 512
     },
     serverBundle: {
