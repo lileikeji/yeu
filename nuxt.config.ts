@@ -31,10 +31,28 @@ export default defineNuxtConfig({
   // Keep production generation away from a concurrently running dev server.
   buildDir: process.env.NODE_ENV === 'production' ? '.nuxt-build' : '.nuxt',
 
+  // Bundle used icons into the client so production no longer depends on
+  // /api/_nuxt_icon/* (CDN previously cached empty/partial collection responses).
+  icon: {
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 512
+    },
+    serverBundle: {
+      collections: ['lucide', 'simple-icons']
+    }
+  },
+
   routeRules: {
     '/map': {
       headers: {
         'X-Robots-Tag': 'noindex, nofollow'
+      }
+    },
+    // Icon payloads vary by ?icons=; never let CDN share one partial body.
+    '/api/_nuxt_icon/**': {
+      headers: {
+        'Cache-Control': 'private, no-store'
       }
     }
   },
