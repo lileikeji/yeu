@@ -147,6 +147,91 @@ export function searchRouteQuery(
   }
 }
 
+export function routeMatchesSearchState(input: {
+  routeQuery: unknown
+  routeType: unknown
+  query: string
+  type?: PublicSearchResultType
+}): boolean {
+  return routeQueryString(input.routeQuery).trim() === input.query
+    && routeSearchType(input.routeType) === input.type
+}
+
+export function shouldSkipSearchNavigation(input: {
+  routeQuery: unknown
+  routeType: unknown
+  query: string
+  type?: PublicSearchResultType
+}): boolean {
+  return routeMatchesSearchState(input)
+}
+
+export function resolveSearchNavigationStaleCorrection(input: {
+  navigationId: number
+  searchNavigationSequence: number
+  routeQuery: unknown
+  routeType: unknown
+  latestSubmittedQuery: string
+  latestSubmittedType?: PublicSearchResultType
+}): {
+  shouldCorrect: boolean
+  query: string
+  type?: PublicSearchResultType
+} | null {
+  if (input.navigationId === input.searchNavigationSequence) return null
+  if (routeMatchesSearchState({
+    routeQuery: input.routeQuery,
+    routeType: input.routeType,
+    query: input.latestSubmittedQuery,
+    type: input.latestSubmittedType
+  })) {
+    return null
+  }
+
+  return {
+    shouldCorrect: true,
+    query: input.latestSubmittedQuery,
+    type: input.latestSubmittedType
+  }
+}
+
+export function resolveSearchInputSyncFromRoute(input: {
+  pendingSearchNavigations: number
+  routeQuery: string
+  routeType?: PublicSearchResultType
+  latestSubmittedQuery: string
+  latestSubmittedType?: PublicSearchResultType
+}): {
+  shouldUpdateInput: boolean
+  searchInput: string | null
+  shouldUpdateLatestSubmitted: boolean
+  latestSubmittedQuery: string | null
+  latestSubmittedType?: PublicSearchResultType
+} {
+  if (
+    input.pendingSearchNavigations > 0
+    && (
+      input.routeQuery !== input.latestSubmittedQuery
+      || input.routeType !== input.latestSubmittedType
+    )
+  ) {
+    return {
+      shouldUpdateInput: false,
+      searchInput: null,
+      shouldUpdateLatestSubmitted: false,
+      latestSubmittedQuery: null
+    }
+  }
+
+  return {
+    shouldUpdateInput: true,
+    searchInput: input.routeQuery,
+    shouldUpdateLatestSubmitted: input.pendingSearchNavigations === 0,
+    latestSubmittedQuery: input.routeQuery,
+    latestSubmittedType: input.routeType
+  }
+}
+
 export function buildSearchErrorMessage(
   hasError: boolean,
   activeType?: PublicSearchResultType

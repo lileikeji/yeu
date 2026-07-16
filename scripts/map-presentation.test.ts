@@ -28,12 +28,29 @@ import {
   resolveMapUnsupportedBaseStyleMessage,
   resolveSelectedMapPoiId,
   resolveSelectedPublicMapPlace,
+  buildFilteredMapPois,
   canShowOfficialCampusPlan,
+  resolveInitialMapCategoryId,
+  resolveInitialSelectedMapPoiId,
   resolveMapPoiClickSelection,
+  resolveOfficialPlanHotspotSelectionReset,
   resolveSelectPoiFlyAction,
   resolveSelectPoiMapViewMode,
   resolveSelectPoiMobileSheetState,
   resolveSelectPoiUiDecision,
+  shouldClearSelectedMapPoiOnListChange,
+  resolveAreaSelectedDecision,
+  resolveSelectAreaDecision,
+  shouldScrollAfterAutoSelectPoi,
+  resolveAutoSelectSearchApply,
+  resolveClosePoiDetailsDecision,
+  resolveCloseAreaDetailsDecision,
+  resolveSetCategoryDecision,
+  resolveFitToVisiblePoisDecision,
+  resolveSearchQueryChangeReset,
+  resolveSelectPoiApplyDecision,
+  resolveMapPoiClickApply,
+  resolveSelectOfficialPlanNumberDecision,
   toggleMapDisplayOption,
   withMapLabelSize
 } from '../app/utils/map-presentation'
@@ -312,7 +329,10 @@ test('map list filtering and mobile sheet helpers stay pure', () => {
     1
   )
 
-  assert.equal(resolveMobileSheetHeightClass('collapsed'), 'h-20')
+  assert.equal(
+    resolveMobileSheetHeightClass('collapsed'),
+    'h-0 overflow-hidden border-0 shadow-none pointer-events-none'
+  )
   assert.equal(resolveMobileSheetHeightClass('half'), 'h-[44%]')
   assert.equal(resolveMobileSheetHeightClass('expanded'), 'h-[calc(100%_-_0.75rem)]')
 
@@ -390,7 +410,8 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   assert.match(source, /toggleMapDisplayOption/)
   assert.match(source, /withMapLabelSize/)
   assert.match(source, /filterMapAreasForProviderScope/)
-  assert.match(source, /findPublicMapPlaceByOfficialPlanNumber/)
+  assert.match(source, /resolveSelectOfficialPlanNumberDecision/)
+  assert.match(utilSource, /export function findPublicMapPlaceByOfficialPlanNumber/)
   assert.match(utilSource, /export function resolveAutoSelectSearchDecision/)
   assert.match(utilSource, /export function toggleMapDisplayOption/)
 
@@ -485,25 +506,26 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   }
 })
 
-
 test('selectPoi and map click selection decisions stay pure', () => {
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 
-  assert.match(source, /resolveSelectPoiUiDecision/)
-  assert.match(source, /resolveMapPoiClickSelection/)
+  assert.match(source, /resolveSelectPoiApplyDecision/)
+  assert.match(source, /resolveMapPoiClickApply/)
   assert.match(source, /canShowOfficialCampusPlan/)
   assert.match(utilSrc, /export function resolveSelectPoiUiDecision/)
   assert.match(utilSrc, /export function resolveMapPoiClickSelection/)
+  assert.match(utilSrc, /export function resolveSelectPoiApplyDecision/)
+  assert.match(utilSrc, /export function resolveMapPoiClickApply/)
   assert.doesNotMatch(source, /if \(mobileSheetState\.value === 'collapsed'\) mobileSheetState\.value = 'half'/)
   assert.doesNotMatch(source, /if \(poi\.usesPreviewPoint && canShowOfficialPlan\.value\) mapViewMode\.value = 'official-plan'/)
   assert.doesNotMatch(source, /poi\.coordinateVerification === 'native-map-session' \? poi : null/)
 
   assert.equal(canShowOfficialCampusPlan('nearby'), false)
   assert.equal(canShowOfficialCampusPlan('campus'), true)
-  assert.equal(resolveSelectPoiMobileSheetState('collapsed'), 'half')
-  assert.equal(resolveSelectPoiMobileSheetState('half'), 'half')
-  assert.equal(resolveSelectPoiMobileSheetState('expanded'), 'expanded')
+  assert.equal(resolveSelectPoiMobileSheetState('collapsed'), 'collapsed')
+  assert.equal(resolveSelectPoiMobileSheetState('half'), 'collapsed')
+  assert.equal(resolveSelectPoiMobileSheetState('expanded'), 'collapsed')
   assert.equal(resolveSelectPoiMapViewMode({
     usesPreviewPoint: true,
     canShowOfficialPlan: true,
@@ -551,7 +573,7 @@ test('selectPoi and map click selection decisions stay pure', () => {
     mapViewMode: 'geographic',
     canShowOfficialPlan: true
   })
-  assert.equal(ui.mobileSheetState, 'half')
+  assert.equal(ui.mobileSheetState, 'collapsed')
   assert.equal(ui.mapViewMode, 'official-plan')
   assert.equal(ui.selectedNativePlace, null)
   assert.equal(ui.providerSelectedPoiId, 'preview-1')
@@ -563,7 +585,7 @@ test('selectPoi and map click selection decisions stay pure', () => {
     mapViewMode: 'geographic',
     canShowOfficialPlan: true
   })
-  assert.equal(uiNative.mobileSheetState, 'expanded')
+  assert.equal(uiNative.mobileSheetState, 'collapsed')
   assert.equal(uiNative.mapViewMode, 'geographic')
   assert.equal(uiNative.selectedNativePlace?.id, 'native-2')
   assert.equal(uiNative.flyAction, 'fly-to-point')
@@ -589,4 +611,282 @@ test('selectPoi and map click selection decisions stay pure', () => {
     selectedPoiId: 'native-resolved',
     expandSidebarAndScroll: false
   })
+})
+
+test('map initial selection, filtered map pois and list-change clear stay pure', () => {
+  const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+  const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
+
+  assert.match(source, /resolveInitialMapCategoryId/)
+  assert.match(source, /resolveInitialSelectedMapPoiId/)
+  assert.match(source, /buildFilteredMapPois/)
+  assert.match(source, /shouldClearSelectedMapPoiOnListChange/)
+  assert.match(source, /resolveSelectOfficialPlanNumberDecision/)
+  assert.match(utilSrc, /export function resolveOfficialPlanHotspotSelectionReset/)
+  assert.match(utilSrc, /export function shouldClearSelectedMapPoiOnListChange/)
+  assert.doesNotMatch(source, /categoryIds\.has\(initialCategory\) \? initialCategory : 'all'/)
+  assert.doesNotMatch(source, /selectedIsNativeDetail/)
+  assert.doesNotMatch(source, /filteredPois\.value\.flatMap/)
+
+  assert.equal(resolveInitialMapCategoryId('dorm', new Set(['all', 'dorm'])), 'dorm')
+  assert.equal(resolveInitialMapCategoryId('missing', new Set(['all', 'dorm'])), 'all')
+  assert.equal(resolveInitialMapCategoryId(null, new Set(['all'])), 'all')
+
+  const places = [
+    partialPlace({ id: 'p1', name: 'A', slug: 'place-a' }),
+    partialPlace({ id: 'p2', name: 'B', slug: 'place-b' })
+  ]
+  assert.equal(resolveInitialSelectedMapPoiId(places, 'place-b'), 'p2')
+  assert.equal(resolveInitialSelectedMapPoiId(places, 'p1'), 'p1')
+  assert.equal(resolveInitialSelectedMapPoiId(places, 'nope'), null)
+  assert.equal(resolveInitialSelectedMapPoiId(places, null), null)
+
+  const withPoint = partialPlace({
+    id: 'geo-1',
+    name: 'Geo',
+    point: { lng: 118.5, lat: 25.1, crs: 'WGS84' as const },
+    pointIsVerified: true,
+    coordinateVerification: 'verified',
+    coordinateSystem: 'WGS84'
+  })
+  const withoutPoint = partialPlace({ id: 'no-geo', name: 'NoGeo', point: null })
+  const mapPois = buildFilteredMapPois([withPoint, withoutPoint])
+  assert.equal(mapPois.length, 1)
+  assert.equal(mapPois[0]?.id, 'geo-1')
+
+  assert.equal(shouldClearSelectedMapPoiOnListChange({
+    selectedPoiId: null,
+    filteredPlaces: places,
+    nativeSearchResults: [],
+    selectedNativePlaceId: null
+  }), false)
+  assert.equal(shouldClearSelectedMapPoiOnListChange({
+    selectedPoiId: 'p1',
+    filteredPlaces: places,
+    nativeSearchResults: [],
+    selectedNativePlaceId: null
+  }), false)
+  assert.equal(shouldClearSelectedMapPoiOnListChange({
+    selectedPoiId: 'gone',
+    filteredPlaces: places,
+    nativeSearchResults: [],
+    selectedNativePlaceId: null
+  }), true)
+  assert.equal(shouldClearSelectedMapPoiOnListChange({
+    selectedPoiId: 'native-x',
+    filteredPlaces: places,
+    nativeSearchResults: [{ id: 'native-x' }],
+    selectedNativePlaceId: null
+  }), false)
+  assert.equal(shouldClearSelectedMapPoiOnListChange({
+    selectedPoiId: 'native-detail',
+    filteredPlaces: places,
+    nativeSearchResults: [],
+    selectedNativePlaceId: 'native-detail'
+  }), false)
+
+  assert.deepEqual(resolveOfficialPlanHotspotSelectionReset(), {
+    searchQuery: '',
+    activeCategory: 'all',
+    sidebarCollapsed: false
+  })
+})
+
+test('area selected / select area / auto-select apply stay pure', () => {
+  const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+  const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
+
+  assert.match(source, /resolveAreaSelectedDecision/)
+  assert.match(source, /resolveSelectAreaDecision/)
+  assert.match(source, /resolveAutoSelectSearchApply/)
+  assert.match(utilSrc, /export function resolveAreaSelectedDecision/)
+  assert.match(utilSrc, /export function resolveSelectAreaDecision/)
+  assert.match(utilSrc, /export function shouldScrollAfterAutoSelectPoi/)
+  assert.match(utilSrc, /export function resolveAutoSelectSearchApply/)
+  assert.doesNotMatch(source, /shouldScrollAfterAutoSelectPoi/)
+  assert.doesNotMatch(source, /coordinateVerification !== 'native-map-session'/)
+
+  const area = areaFixture2
+
+  assert.deepEqual(resolveAreaSelectedDecision(null), {
+    selectedArea: null,
+    providerSelectedAreaId: null,
+    clearSelectedPoi: false
+  })
+  assert.deepEqual(resolveAreaSelectedDecision(area), {
+    selectedArea: area,
+    providerSelectedAreaId: 'area-1',
+    clearSelectedPoi: true
+  })
+  assert.deepEqual(resolveSelectAreaDecision(area), {
+    selectedArea: area,
+    selectedPoiId: null,
+    selectedNativePlace: null,
+    providerSelectedPoiId: null,
+    providerSelectedAreaId: 'area-1'
+  })
+
+  assert.equal(shouldScrollAfterAutoSelectPoi({
+    coordinateVerification: 'verified'
+  }), true)
+  assert.equal(shouldScrollAfterAutoSelectPoi({
+    coordinateVerification: 'native-map-session'
+  }), false)
+
+  const catalog = partialPlace({ id: 'c1', name: 'Catalog', coordinateVerification: 'verified' })
+  const native = partialPlace({
+    id: 'n1',
+    name: 'Native',
+    coordinateVerification: 'native-map-session'
+  })
+
+  assert.deepEqual(resolveAutoSelectSearchApply({ action: 'clear-key' }), { kind: 'clear-key' })
+  assert.deepEqual(resolveAutoSelectSearchApply({ action: 'noop' }), { kind: 'noop' })
+  assert.deepEqual(resolveAutoSelectSearchApply({
+    action: 'select-poi',
+    autoKey: 'q|all|c1',
+    target: catalog
+  }), {
+    kind: 'select-poi',
+    autoKey: 'q|all|c1',
+    target: catalog,
+    expandSidebar: true,
+    scrollToPoiId: 'c1'
+  })
+  assert.deepEqual(resolveAutoSelectSearchApply({
+    action: 'select-poi',
+    autoKey: 'q|all|n1',
+    target: native
+  }), {
+    kind: 'select-poi',
+    autoKey: 'q|all|n1',
+    target: native,
+    expandSidebar: true,
+    scrollToPoiId: null
+  })
+  assert.deepEqual(resolveAutoSelectSearchApply({
+    action: 'select-area',
+    autoKey: 'q|all|area-1',
+    targetArea: area
+  }), {
+    kind: 'select-area',
+    autoKey: 'q|all|area-1',
+    targetArea: area,
+    expandSidebar: true
+  })
+})
+
+test('close / category / fit / search-reset decisions stay pure', () => {
+  const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+  const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
+
+  assert.match(source, /resolveClosePoiDetailsDecision/)
+  assert.match(source, /resolveCloseAreaDetailsDecision/)
+  assert.match(source, /resolveSetCategoryDecision/)
+  assert.match(source, /resolveFitToVisiblePoisDecision/)
+  assert.match(source, /resolveSearchQueryChangeReset/)
+  assert.match(utilSrc, /export function resolveClosePoiDetailsDecision/)
+  assert.match(utilSrc, /export function resolveCloseAreaDetailsDecision/)
+  assert.match(utilSrc, /export function resolveSetCategoryDecision/)
+  assert.match(utilSrc, /export function resolveFitToVisiblePoisDecision/)
+  assert.match(utilSrc, /export function resolveSearchQueryChangeReset/)
+  assert.doesNotMatch(source, /activeCategory\.value = categoryId\s*\r?\n\s*closePoiDetails\(\)/)
+  assert.doesNotMatch(source, /closePoiDetails\(\)\s*\r?\n\s*closeAreaDetails\(\)\s*\r?\n\s*mapProvider\.value\?\.fitToPois\(\)/)
+  assert.doesNotMatch(source, /lastAutoLocatedSearchKey = ''\s*\r?\n\s*selectedNativePlace\.value = null\s*\r?\n\s*queueNativeSearch\(\)/)
+
+  assert.deepEqual(resolveClosePoiDetailsDecision(), {
+    selectedPoiId: null,
+    selectedNativePlace: null,
+    providerSelectedPoiId: null
+  })
+  assert.deepEqual(resolveCloseAreaDetailsDecision(), {
+    selectedArea: null,
+    providerSelectedAreaId: null
+  })
+  assert.deepEqual(resolveSetCategoryDecision('food'), {
+    activeCategory: 'food',
+    selectedPoiId: null,
+    selectedNativePlace: null,
+    providerSelectedPoiId: null
+  })
+  assert.deepEqual(resolveFitToVisiblePoisDecision(), {
+    selectedPoiId: null,
+    selectedNativePlace: null,
+    selectedArea: null,
+    providerSelectedPoiId: null,
+    providerSelectedAreaId: null,
+    shouldFitToPois: true
+  })
+  assert.deepEqual(resolveSearchQueryChangeReset(), {
+    lastAutoLocatedSearchKey: '',
+    selectedNativePlace: null
+  })
+})
+
+test('selectPoi apply / map click apply / official plan number decisions stay pure', () => {
+  const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+  const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
+
+  assert.match(source, /resolveSelectPoiApplyDecision/)
+  assert.match(source, /resolveMapPoiClickApply/)
+  assert.match(source, /resolveSelectOfficialPlanNumberDecision/)
+  assert.match(utilSrc, /export function resolveSelectPoiApplyDecision/)
+  assert.match(utilSrc, /export function resolveMapPoiClickApply/)
+  assert.match(utilSrc, /export function resolveSelectOfficialPlanNumberDecision/)
+  assert.doesNotMatch(source, /selectedArea\.value = null\s*\r?\n\s*mapProvider\.value\?\.setSelectedArea\(null\)\s*\r?\n\s*const decision = resolveSelectPoiUiDecision/)
+  assert.doesNotMatch(source, /resolveMapPoiClickSelection\(\{/)
+  assert.doesNotMatch(source, /findPublicMapPlaceByOfficialPlanNumber\(places\.value/)
+  assert.doesNotMatch(source, /resolveOfficialPlanHotspotSelectionReset\(\)/)
+
+  const catalogPoi = partialPlace({
+    id: 'place-demo',
+    name: 'Demo Building',
+    point: { lng: 118.5, lat: 25.1 },
+    usesPreviewPoint: false,
+    pointIsVerified: true,
+    coordinateVerification: 'owner-map-only',
+    officialPlanNumber: '08'
+  })
+
+  const apply = resolveSelectPoiApplyDecision({
+    poi: catalogPoi,
+    mobileSheetState: 'collapsed',
+    mapViewMode: 'geographic',
+    canShowOfficialPlan: true
+  })
+  assert.equal(apply.selectedArea, null)
+  assert.equal(apply.providerSelectedAreaId, null)
+  assert.equal(apply.selectedPoiId, 'place-demo')
+  assert.equal(apply.selectedNativePlace, null)
+  assert.equal(apply.providerSelectedPoiId, 'place-demo')
+  assert.equal(apply.mobileSheetState, 'collapsed')
+  assert.equal(apply.mapViewMode, 'geographic')
+  assert.equal(apply.flyAction, 'fly-to-poi')
+
+  const click = resolveMapPoiClickApply({
+    poi: { id: 'place-demo', source: 'catalog' },
+    nativePlace: null
+  })
+  assert.equal(click.clearArea, true)
+  assert.equal(click.selectedPoiId, 'place-demo')
+  assert.equal(click.selectedNativePlace, null)
+  assert.equal(click.providerSelectedPoiId, 'place-demo')
+  assert.equal(click.expandSidebarAndScroll, true)
+  assert.equal(click.scrollToPoiId, 'place-demo')
+
+  const clickClear = resolveMapPoiClickApply({ poi: null, nativePlace: null })
+  assert.equal(clickClear.clearArea, false)
+  assert.equal(clickClear.selectedPoiId, null)
+  assert.equal(clickClear.expandSidebarAndScroll, false)
+  assert.equal(clickClear.scrollToPoiId, null)
+
+  const planHit = resolveSelectOfficialPlanNumberDecision([catalogPoi], '08')
+  assert.ok(planHit)
+  assert.equal(planHit!.poi.id, 'place-demo')
+  assert.equal(planHit!.searchQuery, '')
+  assert.equal(planHit!.activeCategory, 'all')
+  assert.equal(planHit!.sidebarCollapsed, false)
+
+  const planMiss = resolveSelectOfficialPlanNumberDecision([catalogPoi], '99')
+  assert.equal(planMiss, null)
 })

@@ -235,6 +235,7 @@ onMounted(() => {
         <UButton
           :to="OFFICIAL_PLAN_PAGE_URL"
           target="_blank"
+          rel="noopener noreferrer"
           icon="i-lucide-external-link"
           label="打开官网原页"
           color="neutral"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { safeExternalHref } from '~/utils/safe-external-href'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
 import {
@@ -401,9 +402,10 @@ watch(selectedAudience, (value) => {
                     size="sm"
                   />
                   <UButton
-                    v-if="step.actionUrl"
-                    :to="step.actionUrl"
+                    v-if="safeExternalHref(step.actionUrl)"
+                    :to="safeExternalHref(step.actionUrl) || undefined"
                     target="_blank"
+                    rel="noopener noreferrer"
                     icon="i-lucide-external-link"
                     label="打开官方入口"
                     color="neutral"

@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import type { ZodType } from 'zod'
 
 /** Reject oversized JSON bodies before full parse (DoS / memory). */
-const MAX_JSON_BODY_BYTES = 1_048_576
+export const MAX_JSON_BODY_BYTES = 1_048_576
 
 function validationError(issues: Array<{ path: PropertyKey[], message: string }>) {
   return createError({
@@ -18,6 +18,34 @@ function validationError(issues: Array<{ path: PropertyKey[], message: string }>
   })
 }
 
+/** True only for application/json (optional charset / parameters allowed). */
+export function isAllowedJsonContentType(header: string | undefined | null): boolean {
+  if (!header) return false
+  const mediaType = header.split(';')[0]?.trim().toLowerCase()
+  return mediaType === 'application/json'
+}
+
+export function isJsonBodyWithinLimit(
+  byteLength: number,
+  maxBytes = MAX_JSON_BODY_BYTES
+): boolean {
+  return Number.isFinite(byteLength) && byteLength >= 0 && byteLength <= maxBytes
+}
+
+function assertJsonContentType(event: H3Event): void {
+  const contentType = getHeader(event, 'content-type')
+  if (!isAllowedJsonContentType(contentType)) {
+    throw createError({
+      statusCode: 415,
+      statusMessage: 'Unsupported Media Type',
+      data: {
+        code: 'UNSUPPORTED_MEDIA_TYPE',
+        expected: 'application/json'
+      }
+    })
+  }
+}
+
 function assertJsonBodySize(event: H3Event): void {
   const raw = getHeader(event, 'content-length')
   if (!raw) return
@@ -29,7 +57,7 @@ function assertJsonBodySize(event: H3Event): void {
       data: { code: 'INVALID_CONTENT_LENGTH' }
     })
   }
-  if (length > MAX_JSON_BODY_BYTES) {
+  if (!isJsonBodyWithinLimit(length)) {
     throw createError({
       statusCode: 413,
       statusMessage: 'Request body too large',
@@ -38,9 +66,42 @@ function assertJsonBodySize(event: H3Event): void {
   }
 }
 
+/**
+ * Parse and validate a JSON request body.
+ *
+ * - Requires Content-Type: application/json (blocks form-urlencoded CSRF-shaped posts).
+ * - Rejects Content-Length over the cap, and also measures the actual raw body so
+ *   chunked requests without Content-Length cannot bypass the limit.
+ * - Uses strict JSON.parse (not form/urlencoded parsers).
+ */
 export async function parseBody<T>(event: H3Event, schema: ZodType<T>): Promise<T> {
+  assertJsonContentType(event)
   assertJsonBodySize(event)
-  const result = schema.safeParse(await readBody(event))
+
+  const raw = await readRawBody(event, false)
+  const byteLength = raw?.byteLength ?? 0
+  if (!isJsonBodyWithinLimit(byteLength)) {
+    throw createError({
+      statusCode: 413,
+      statusMessage: 'Request body too large',
+      data: { code: 'PAYLOAD_TOO_LARGE', maxBytes: MAX_JSON_BODY_BYTES }
+    })
+  }
+
+  let parsed: unknown = undefined
+  if (byteLength > 0 && raw) {
+    try {
+      parsed = JSON.parse(raw.toString('utf8')) as unknown
+    } catch {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Invalid JSON body',
+        data: { code: 'INVALID_JSON' }
+      })
+    }
+  }
+
+  const result = schema.safeParse(parsed)
 
   if (!result.success) {
     throw validationError(result.error.issues)

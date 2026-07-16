@@ -50,7 +50,7 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
       .catch(() => {
         options.notify({
           title: '未能获取位置',
-          description: '请检查浏览器定位权限。',
+          description: '请检查浏览器定位权限，或稍后再试。',
           color: 'warning'
         })
       })
@@ -88,9 +88,7 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
           title: geolocationFailed
             ? '未能获取当前位置'
             : '路线规划失败',
-          description: error instanceof Error && !geolocationFailed
-            ? error.message
-            : '请检查浏览器定位权限。',
+          description: '请检查浏览器定位权限，或稍后再试。',
           color: 'warning'
         })
       })

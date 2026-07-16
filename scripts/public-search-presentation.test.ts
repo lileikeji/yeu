@@ -17,11 +17,15 @@ import {
   matchesSearchQuery,
   normalizeSearchText,
   queryVariants,
+  resolveSearchInputSyncFromRoute,
+  resolveSearchNavigationStaleCorrection,
+  routeMatchesSearchState,
   routeQueryString,
   routeSearchType,
   searchRouteQuery,
   searchTypeOptions,
-  searchTypePresentation
+  searchTypePresentation,
+  shouldSkipSearchNavigation
 } from '../app/utils/public-search-presentation'
 import type { ApiSearchItem, ApiSearchResponse } from '../shared/types/server'
 
@@ -62,9 +66,12 @@ test('search page keeps route/fetch shell and imports presentation util', () => 
     'buildSearchAnnouncement',
     'buildSearchErrorMessage',
     'groupPublicSearchResults',
+    'resolveSearchInputSyncFromRoute',
+    'resolveSearchNavigationStaleCorrection',
     'routeQueryString',
     'routeSearchType',
     'searchRouteQuery',
+    'shouldSkipSearchNavigation',
     'searchTypeOptions'
   ]) {
     assert.match(pageSource, new RegExp(`\\b${name}\\b`))
@@ -75,6 +82,7 @@ test('search page keeps route/fetch shell and imports presentation util', () => 
   assert.doesNotMatch(pageSource, /function matches\b/)
   assert.doesNotMatch(pageSource, /function apiTarget\b/)
   assert.doesNotMatch(pageSource, /function mapSourceLabel\b/)
+  assert.doesNotMatch(pageSource, /function routeMatches\b/)
   assert.doesNotMatch(pageSource, /interface SearchResult\b/)
   assert.match(pageSource, /useAsyncData<ApiSearchResponse>/)
   assert.match(pageSource, /router\.replace/)
@@ -89,7 +97,11 @@ test('presentation util owns pure search builders', () => {
     'export function groupPublicSearchResults',
     'export function buildSearchAnnouncement',
     'export function buildSearchErrorMessage',
-    'export function searchRouteQuery'
+    'export function searchRouteQuery',
+    'export function routeMatchesSearchState',
+    'export function shouldSkipSearchNavigation',
+    'export function resolveSearchNavigationStaleCorrection',
+    'export function resolveSearchInputSyncFromRoute'
   ]) {
     assert.match(utilSource, new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
@@ -123,6 +135,101 @@ test('route helpers normalize query and type values', () => {
   assert.deepEqual(searchRouteQuery('报到', 'procedure'), { q: '报到', type: 'procedure' })
   assert.deepEqual(searchRouteQuery('', 'place'), { type: 'place' })
   assert.equal(searchRouteQuery('', undefined), undefined)
+})
+
+test('search navigation decisions stay pure', () => {
+  assert.equal(routeMatchesSearchState({
+    routeQuery: '图书馆',
+    routeType: 'place',
+    query: '图书馆',
+    type: 'place'
+  }), true)
+  assert.equal(routeMatchesSearchState({
+    routeQuery: '图书馆',
+    routeType: 'place',
+    query: '图书馆',
+    type: 'guide'
+  }), false)
+  assert.equal(shouldSkipSearchNavigation({
+    routeQuery: '  报到  ',
+    routeType: undefined,
+    query: '报到',
+    type: undefined
+  }), true)
+  assert.equal(shouldSkipSearchNavigation({
+    routeQuery: '报到',
+    routeType: undefined,
+    query: '校园网',
+    type: undefined
+  }), false)
+
+  assert.equal(resolveSearchNavigationStaleCorrection({
+    navigationId: 2,
+    searchNavigationSequence: 2,
+    routeQuery: 'a',
+    routeType: undefined,
+    latestSubmittedQuery: 'b',
+    latestSubmittedType: undefined
+  }), null)
+  assert.equal(resolveSearchNavigationStaleCorrection({
+    navigationId: 1,
+    searchNavigationSequence: 2,
+    routeQuery: 'b',
+    routeType: 'place',
+    latestSubmittedQuery: 'b',
+    latestSubmittedType: 'place'
+  }), null)
+  assert.deepEqual(resolveSearchNavigationStaleCorrection({
+    navigationId: 1,
+    searchNavigationSequence: 2,
+    routeQuery: 'a',
+    routeType: undefined,
+    latestSubmittedQuery: 'b',
+    latestSubmittedType: 'guide'
+  }), {
+    shouldCorrect: true,
+    query: 'b',
+    type: 'guide'
+  })
+
+  assert.deepEqual(resolveSearchInputSyncFromRoute({
+    pendingSearchNavigations: 1,
+    routeQuery: 'route-q',
+    routeType: 'place',
+    latestSubmittedQuery: 'submitted-q',
+    latestSubmittedType: 'place'
+  }), {
+    shouldUpdateInput: false,
+    searchInput: null,
+    shouldUpdateLatestSubmitted: false,
+    latestSubmittedQuery: null
+  })
+  assert.deepEqual(resolveSearchInputSyncFromRoute({
+    pendingSearchNavigations: 1,
+    routeQuery: 'same',
+    routeType: undefined,
+    latestSubmittedQuery: 'same',
+    latestSubmittedType: undefined
+  }), {
+    shouldUpdateInput: true,
+    searchInput: 'same',
+    shouldUpdateLatestSubmitted: false,
+    latestSubmittedQuery: 'same',
+    latestSubmittedType: undefined
+  })
+  assert.deepEqual(resolveSearchInputSyncFromRoute({
+    pendingSearchNavigations: 0,
+    routeQuery: 'from-route',
+    routeType: 'notice',
+    latestSubmittedQuery: 'old',
+    latestSubmittedType: undefined
+  }), {
+    shouldUpdateInput: true,
+    searchInput: 'from-route',
+    shouldUpdateLatestSubmitted: true,
+    latestSubmittedQuery: 'from-route',
+    latestSubmittedType: 'notice'
+  })
 })
 
 test('normalize and query variants handle campus name aliases', () => {

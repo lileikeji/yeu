@@ -301,6 +301,22 @@
 
 第五十七个边界将地图页 `map/index.vue` 中显示选项切换、底图不支持提示、区域 provider 范围过滤、选中 POI/地点解析、官网平面图编号查找与搜索自动选点决策抽出到 `app/utils/map-presentation.ts`。页面只保留 SEO、地图生命周期、选点/选区副作用、Toast 与模板接线。`map/index.vue` 由约 35,175 B 降至约 34,944 B（按字节约 0.7%）；展示模块由约 9,611 B / 256 行增至约 13,157 B / 363 行。`scripts/map-presentation.test.ts` 增至 7 项，并更新地图完整性测试薄壳期望。本项只记为地图页可测试性与职责边界改善，不宣称客户端运行时体积下降。
 
+第五十八个边界将地图页 `map/index.vue` 中选点 UI 决策与地图点击选中解析抽出到 `app/utils/map-presentation.ts`：官网平面图可见性、移动端 sheet 展开、预览点自动切平面图、native 地点保留、provider 选中 id、飞行动作（fly-to-point / fly-to-poi / none），以及地图 marker 点击的 clearArea / selectedPoiId / expandSidebarAndScroll。页面 `selectPoi` / `handlePoiSelected` 只保留副作用接线。`map/index.vue` 由约 34,944 B 变为约 35,206 B（按字节约 +0.7%，决策对象接线略增）；展示模块由约 13,157 B / 363 行增至约 15,945 B / 456 行。`scripts/map-presentation.test.ts` 增至 8 项，并更新地图完整性测试薄壳期望。本项只记为地图页可测试性与职责边界改善，不宣称客户端运行时体积下降。
+
+第五十九个边界将地图页 `map/index.vue` 中初始分类/选中解析、筛选列表到 MapPoi 映射、过滤后选中清理，以及官网平面图热点重置字段抽出到 `app/utils/map-presentation.ts`：`resolveInitialMapCategoryId`、`resolveInitialSelectedMapPoiId`、`buildFilteredMapPois`、`shouldClearSelectedMapPoiOnListChange`、`resolveOfficialPlanHotspotSelectionReset`。页面只保留 route/query 与副作用接线。`map/index.vue` 约 35,292 B；展示模块约 17,609 B。`scripts/map-presentation.test.ts` 增至 9 项，并更新地图完整性测试薄壳期望。本项只记为地图页可测试性与职责边界改善，不宣称客户端运行时体积下降。
+
+第六十个边界将地图页 `map/index.vue` 中区域点击/列表选区域决策，以及搜索自动选点后的 apply（含 native-session 是否滚动）抽出到 `app/utils/map-presentation.ts`：`resolveAreaSelectedDecision`、`resolveSelectAreaDecision`、`shouldScrollAfterAutoSelectPoi`、`resolveAutoSelectSearchApply`。页面只保留 provider 选中、侧栏与 DOM 滚动副作用接线。`map/index.vue` 约 36,751 B；展示模块约 19,470 B。`scripts/map-presentation.test.ts` 增至 10 项，并更新地图完整性/路由完整性测试薄壳期望。本项只记为地图页可测试性与职责边界改善，不宣称客户端运行时体积下降。
+
+第六十一个边界将地图页 `map/index.vue` 中关闭 POI/区域详情、切换分类、适配可见 POI 视野，以及搜索词变更时的重置字段抽出到 `app/utils/map-presentation.ts`：`resolveClosePoiDetailsDecision`、`resolveCloseAreaDetailsDecision`、`resolveSetCategoryDecision`、`resolveFitToVisiblePoisDecision`、`resolveSearchQueryChangeReset`。页面只保留 provider 选中、`fitToPois` 与 `queueNativeSearch` 副作用接线。`map/index.vue` 约 37815 B；展示模块约 20809 B。`scripts/map-presentation.test.ts` 增至 11 项，并更新地图完整性/路由完整性测试薄壳期望。本项只记为地图页可测试性与职责边界改进，不宣称客户端运行时体积下降。
+
+第六十三个边界将全站搜索页 `search.vue` 中路由匹配跳过、并发导航过期校正与路由→输入框/最新提交态同步决策抽出到 `app/utils/public-search-presentation.ts`：`routeMatchesSearchState`、`shouldSkipSearchNavigation`、`resolveSearchNavigationStaleCorrection`、`resolveSearchInputSyncFromRoute`。页面只保留 `router.replace`、导航序号/pending 计数与请求壳副作用。`search.vue` 约 14335 B；展示模块约 13648 B。`scripts/public-search-presentation.test.ts` 增至 12 项，并更新路由完整性测试搜索页期望。本项只记为搜索页可测试性与职责边界改进，不宣称客户端运行时体积下降。
+
+第六十二个边界将地图页 `map/index.vue` 中选点 apply、地图 POI 点击 apply 与平面图编号选中组合决策抽出到 `app/utils/map-presentation.ts`：`resolveSelectPoiApplyDecision`、`resolveMapPoiClickApply`、`resolveSelectOfficialPlanNumberDecision`。页面只保留 `createNativeMapPlace`、provider 选中、飞行/滚动与 `selectPoi` 调用等副作用。`map/index.vue` 约 36762 B；展示模块约 22812 B。`scripts/map-presentation.test.ts` 增至 12 项，并更新地图完整性/路由完整性测试薄壳期望。本项只记为地图页可测试性与职责边界改进，不宣称客户端运行时体积下降。
+
+
+
+
+
 性能工作：
 
 - [x] 建立构建体积预算，覆盖全局入口、首页、地图、搜索和流程详情，并防止 MapLibre SDK 回退为初始依赖。

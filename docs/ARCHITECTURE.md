@@ -198,7 +198,7 @@ MapLibre/OSM 仅用于开发和低流量预览。使用 `tile.openstreetmap.org`
 
 首页开场粒子动画由 `app/components/IntroOverlay.vue` 负责 canvas/DOM 生命周期与绘制编排；粒子弹簧/指针阻尼物理在 `app/utils/intro-overlay-physics.ts`，YEU 字母点与校园水域几何在 `app/utils/intro-overlay-geometry.ts`。组件不内嵌纯物理常数与多边形数据，便于脚本级单元测试与后续调参。
 
-公开搜索页 `app/pages/search.vue` 负责 SEO、地图种子合并、`/api/public/search` 请求与路由导航；关键词归一化/别名、API 与静态回退结果合并、分组与朗读公告在 `app/utils/public-search-presentation.ts`。
+公开搜索页 `app/pages/search.vue` 负责 SEO、地图种子合并、`/api/public/search` 请求与 `router.replace` 导航副作用；关键词归一化/别名、API 与静态回退结果合并、分组与朗读公告、路由匹配/并发导航过期校正/输入同步决策在 `app/utils/public-search-presentation.ts`。
 
 校园周边页 `app/pages/nearby.vue` 负责 SEO、候选目录导入、公开地点列表请求、研究资料种子导入与模板；分类标签/提示、核验清单与用法提示、来源文案学生向改写、过滤、高德 marker 链接与固定研究资料选择（`selectNearbyResearchSources`）在 `app/utils/nearby-presentation.ts`。
 
@@ -212,7 +212,7 @@ MapLibre/OSM 仅用于开发和低流量预览。使用 `tile.openstreetmap.org`
 
 校园总览页 `app/pages/campus.vue` 负责 SEO、公开内容请求、部门/社团/通知合并与模板；概览统计与内容回退提示在 `app/utils/campus-presentation.ts`。
 
-地图页 `app/pages/map/index.vue` 负责地图 provider 生命周期、搜索/筛选/选点、路径规划、DOM 行滚动与模板；分类目录、数据来源标签、回退提示、地点状态/使用清单、位置复制与面积周长格式化在 `app/utils/map-presentation.ts`。 已发布地点详情路由、反馈纠错链接、官网平面图编号解析，公开地点列表/区域搜索筛选、范围过滤、移动端 sheet 高度与初始视图模式解析，以及显示选项切换、底图不支持提示、区域 provider 范围过滤、选中 POI/地点解析与搜索自动选点决策亦在 `app/utils/map-presentation.ts`。
+地图页 `app/pages/map/index.vue` 负责地图 provider 生命周期、搜索/筛选/选点、路径规划、DOM 行滚动与模板；分类目录、数据来源标签、回退提示、地点状态/使用清单、位置复制与面积周长格式化、选点/选区/自动选点 apply、地图 POI 点击 apply、平面图编号选中，以及关闭详情/分类切换/视野适配/搜索重置等纯决策在 `app/utils/map-presentation.ts`。
 
 指南详情页 `app/pages/guides/[slug].vue` 负责路由、公开指南请求、unmanaged 目录回退、反馈链接、SEO 与模板；静态回退提示、相关动作跳转与详情来源展示映射在 `app/utils/guide-detail-presentation.ts`，错误码解析复用 `app/utils/public-errors.ts`。
 

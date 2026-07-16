@@ -2,6 +2,7 @@
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
 import { safeLocalPath } from '~/utils/safe-navigation'
+import { safeExternalHref } from '~/utils/safe-external-href'
 import {
   buildPlaceDetailSources,
   buildPlaceFallbackUseChecklist,
@@ -125,9 +126,10 @@ function copyPlaceLocation(): void {
               @click="copyPlaceLocation"
             />
             <UButton
-              v-if="place.navigationAvailable && place.externalMapUrl"
-              :to="place.externalMapUrl"
+              v-if="place.navigationAvailable && safeExternalHref(place.externalMapUrl)"
+              :to="safeExternalHref(place.externalMapUrl) || undefined"
               target="_blank"
+              rel="noopener noreferrer"
               icon="i-lucide-navigation"
               label="外部导航"
               color="neutral"
@@ -247,7 +249,7 @@ function copyPlaceLocation(): void {
               </dd>
             </div>
             <div
-              v-if="place.website"
+              v-if="safeExternalHref(place.website)"
               class="flex justify-between gap-6 py-3"
             >
               <dt class="text-zinc-500">
@@ -255,7 +257,7 @@ function copyPlaceLocation(): void {
               </dt>
               <dd class="text-right">
                 <a
-                  :href="place.website"
+                  :href="safeExternalHref(place.website) || undefined"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="font-medium text-green-700 hover:underline"

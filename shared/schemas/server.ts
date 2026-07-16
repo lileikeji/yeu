@@ -134,7 +134,6 @@ export const createPlaceSchema = z.object({
 }).strict().superRefine(validateCoordinates)
 export const updatePlaceSchema = z.object(placeFields).partial().strict()
 
-
 /** Admin content metadata: bound size and reject prototype-pollution keys. */
 const CONTENT_METADATA_MAX_KEYS = 64
 const CONTENT_METADATA_MAX_JSON_CHARS = 32_000
@@ -173,7 +172,7 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
       message: `metadata nesting exceeds ${CONTENT_METADATA_MAX_DEPTH} levels`
     })
   }
-  let encoded = ''
+  let encoded: string
   try {
     encoded = JSON.stringify(value)
   } catch {
@@ -343,12 +342,12 @@ export const updateFeedbackSchema = z.object({
 
 export const loginSchema = z.object({
   username: z.string().trim().min(1).max(80),
-  password: z.string().min(12).max(1024)
+  password: z.string().min(12).max(128)
 }).strict()
 
 export const paginationQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).default(20),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().trim().max(100).optional()
 })
 

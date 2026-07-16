@@ -11,9 +11,12 @@ import {
   buildSearchAnnouncement,
   buildSearchErrorMessage,
   groupPublicSearchResults,
+  resolveSearchInputSyncFromRoute,
+  resolveSearchNavigationStaleCorrection,
   routeQueryString,
   routeSearchType,
   searchRouteQuery,
+  shouldSkipSearchNavigation,
   searchTypeOptions
 } from '~~/app/utils/public-search-presentation'
 
@@ -83,15 +86,18 @@ const searchError = computed(() => buildSearchErrorMessage(
   activeType.value
 ))
 
-function routeMatches(query: string, type?: PublicSearchResultType): boolean {
-  return routeQueryString(route.query.q).trim() === query && routeSearchType(route.query.type) === type
-}
-
 async function navigateSearch(query: string, type?: PublicSearchResultType): Promise<void> {
   const navigationId = ++searchNavigationSequence
   latestSubmittedQuery = query
   latestSubmittedType = type
-  if (routeMatches(query, type)) return
+  if (shouldSkipSearchNavigation({
+    routeQuery: route.query.q,
+    routeType: route.query.type,
+    query,
+    type
+  })) {
+    return
+  }
   pendingSearchNavigations += 1
   try {
     await router.replace({ query: searchRouteQuery(query, type) })
@@ -99,10 +105,17 @@ async function navigateSearch(query: string, type?: PublicSearchResultType): Pro
     pendingSearchNavigations -= 1
   }
 
-  if (navigationId !== searchNavigationSequence
-    && !routeMatches(latestSubmittedQuery, latestSubmittedType)) {
+  const correction = resolveSearchNavigationStaleCorrection({
+    navigationId,
+    searchNavigationSequence,
+    routeQuery: route.query.q,
+    routeType: route.query.type,
+    latestSubmittedQuery,
+    latestSubmittedType
+  })
+  if (correction?.shouldCorrect) {
     await router.replace({
-      query: searchRouteQuery(latestSubmittedQuery, latestSubmittedType)
+      query: searchRouteQuery(correction.query, correction.type)
     })
   }
 }
@@ -156,12 +169,18 @@ const searchAnnouncement = computed(() => buildSearchAnnouncement({
 }))
 
 watch([activeQuery, activeType], ([query, type]) => {
-  if (pendingSearchNavigations > 0
-    && (query !== latestSubmittedQuery || type !== latestSubmittedType)) return
-  searchInput.value = query
-  if (pendingSearchNavigations === 0) {
-    latestSubmittedQuery = query
-    latestSubmittedType = type
+  const sync = resolveSearchInputSyncFromRoute({
+    pendingSearchNavigations,
+    routeQuery: query,
+    routeType: type,
+    latestSubmittedQuery,
+    latestSubmittedType
+  })
+  if (!sync.shouldUpdateInput) return
+  searchInput.value = sync.searchInput ?? query
+  if (sync.shouldUpdateLatestSubmitted) {
+    latestSubmittedQuery = sync.latestSubmittedQuery ?? query
+    latestSubmittedType = sync.latestSubmittedType
   }
 })
 </script>

@@ -94,6 +94,16 @@ export async function loginAdmin(
   assertRateLimit(event, `admin-login-ip:${ip}`, 20, 15 * 60 * 1000, client)
   assertRateLimit(event, `admin-login:${ip}:${username.toLowerCase()}`, 5, 15 * 60 * 1000, client)
 
+  // Cap password work factor if callers bypass parseBody (scrypt DoS).
+  // Short passwords still hit dummy verify for timing parity with real failures.
+  if (password.length > 128) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Invalid username or password',
+      data: { code: 'INVALID_CREDENTIALS' }
+    })
+  }
+
   const now = Date.now()
   client.db.delete(adminSessions).where(lt(adminSessions.expiresAt, now)).run()
   const user = client.db.select().from(adminUsers)

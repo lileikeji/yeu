@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { safeExternalHref } from '~/utils/safe-external-href'
 import { findOfficialDepartment, officialSources } from '~~/data/seeds/public-content'
 import { mergePublicDepartments } from '~/utils/public-catalog'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
@@ -94,9 +95,10 @@ const feedbackLink = computed(() => content.value
             </p>
           </div>
           <UButton
-            v-if="department.website"
-            :to="department.website"
+            v-if="safeExternalHref(department.website)"
+            :to="safeExternalHref(department.website) || undefined"
             target="_blank"
+            rel="noopener noreferrer"
             icon="i-lucide-external-link"
             label="部门官网"
             size="lg"

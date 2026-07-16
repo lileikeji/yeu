@@ -106,7 +106,7 @@ test('production monitor counts only recent server errors, failed logins, and ra
     writeFileSync(fixture.requestLogPath, [
       requestLogLine({ statusCode: 500, route: '/api/public/search' }),
       requestLogLine({ statusCode: 503, route: '/api/health' }),
-      ...Array.from({ length: 5 }, (_, index) => requestLogLine({
+      ...Array.from({ length: 5 }, () => requestLogLine({
         statusCode: 401,
         route: '/api/admin/auth/login',
         method: 'POST'

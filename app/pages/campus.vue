@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { safeExternalHref } from '~/utils/safe-external-href'
 import { officialClubs, officialDepartments, officialSources } from '~~/data/seeds/public-content'
 import {
   campusStats,
@@ -58,6 +59,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               <UButton
                 :to="officialSources.university.url"
                 target="_blank"
+                rel="noopener noreferrer"
                 icon="i-lucide-external-link"
                 label="学校官网"
                 color="neutral"
@@ -159,7 +161,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             <span v-if="notice.validUntil">有效至 {{ notice.validUntil.slice(0, 10) }}</span>
             <a
               v-if="notice.sources[0]"
-              :href="notice.sources[0].url"
+              :href="safeExternalHref(notice.sources[0]?.url) || undefined"
               target="_blank"
               rel="noopener noreferrer"
               class="font-medium text-green-700 hover:underline"
@@ -188,6 +190,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
         <UButton
           :to="officialSources.organizations.url"
           target="_blank"
+          rel="noopener noreferrer"
           icon="i-lucide-external-link"
           label="完整组织机构"
           color="neutral"
@@ -212,7 +215,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             </span>
             <a
               v-if="department.website"
-              :href="department.website"
+              :href="safeExternalHref(department.website) || undefined"
               target="_blank"
               rel="noopener noreferrer"
               class="grid size-9 place-items-center rounded-md text-zinc-400 hover:bg-green-50 hover:text-green-700"
@@ -292,6 +295,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               <UButton
                 :to="officialSources.clubShowcase2026.url"
                 target="_blank"
+                rel="noopener noreferrer"
                 icon="i-lucide-external-link"
                 label="查看官方报道"
                 color="neutral"
@@ -389,7 +393,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 <span>核验于 {{ club.updatedAt }}</span>
                 <a
                   v-if="club.sources[0]"
-                  :href="club.sources[0].url"
+                  :href="safeExternalHref(club.sources[0]?.url) || undefined"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="font-medium text-green-700 hover:underline"

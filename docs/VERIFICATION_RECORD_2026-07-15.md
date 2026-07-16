@@ -595,3 +595,58 @@
 - 页面保留 SEO、地图 provider 生命周期、route/from、选点/选区副作用、Toast 与模板接线；不再内联 `place.officialPlanNumber === mapNumber` 与 `currentArea/currentPoi/target` 自动选点分支。源码由约 35,175 B 降至约 34,944 B（按字节约 0.7%）。展示模块由约 9,611 B / 256 行增至约 13,157 B / 363 行。
 - 更新 `scripts/map-presentation.test.ts`（现 7 项：在原 6 项基础上新增选中态/显示选项/自动选点纯函数用例）；同步更新 `scripts/campus-map-reference.test.ts` 与 `scripts/public-route-integrity.test.ts` 的薄壳期望（`findPublicMapPlaceByOfficialPlanNumber`、`selectArea(decision.targetArea)`）。
 - 最终验证：ESLint 0（31.2s）、Nuxt typecheck 0（30.5s）、全量脚本测试 519/519（12.7s）、Nuxt build 0（146.9s）、客户端体积预算 0（0.6s，无违规）、PWA 构建测试 1/1（0.7s）均返回 0；等价 `pnpm check` 流水线 `FINAL_EXIT=0`（约 222.6 秒）。本项只记为地图页可测试性与职责边界改善，不宣称客户端运行时体积下降。未跑 Playwright e2e（`pnpm check` 不含 e2e）。
+
+### 2.65 地图选点 UI 决策与 marker 点击解析纯函数拆分（第五十八个边界，2026-07-17）
+
+- 将 `app/pages/map/index.vue` 中的选点 UI 决策与地图点击选中解析迁入 `app/utils/map-presentation.ts` 纯函数：`canShowOfficialCampusPlan`、`resolveSelectPoiMobileSheetState`、`resolveSelectPoiMapViewMode`、`resolveSelectPoiFlyAction`、`resolveSelectPoiNativePlace`、`resolveSelectPoiProviderId`、`resolveSelectPoiUiDecision`、`resolveMapPoiClickSelection`。
+- 页面 `selectPoi` / `handlePoiSelected` 只保留 clear area、provider、sidebar 滚动、`flyToPoint` / `flyToPoi` 与模板接线；不再内联 collapsed→half、预览点切官网平面图、native-map-session 分支与 marker 点击 id 解析。源码由约 34,944 B 变为约 35,206 B（按字节约 +0.7%）。展示模块由约 13,157 B / 363 行增至约 15,945 B / 456 行。
+- 更新 `scripts/map-presentation.test.ts`（现 8 项：新增选点 UI / marker 点击纯函数用例）；同步更新 `scripts/campus-map-reference.test.ts` 薄壳期望（`resolveSelectPoiUiDecision` / `resolveMapPoiClickSelection`，并禁止页面内联 sheet/平面图切换分支）。
+- 附带清理脏工作区 ESLint：`scripts/monitor-production.test.ts` 未使用参数、`shared/schemas/server.ts` 多余空行与 `encoded` 初值无用赋值（与本边界无关，仅为门禁全绿）。
+- 最终验证：ESLint 0（24.2s）、Nuxt typecheck 0（23.5s）、全量脚本测试 524/524（11s）、Nuxt build 0（108.1s）、客户端体积预算 0（0.5s，无违规）、PWA 构建测试 1/1（0.5s）均返回 0；等价 `pnpm check` 流水线 `FINAL_EXIT=0`（约 168 s）。本项只记为地图页可测试性与职责边界改善，不宣称客户端运行时体积下降。未跑 Playwright e2e（`pnpm check` 不含 e2e）。
+
+
+### 2.66 地图初始选中与筛选列表纯函数拆分（第五十九个边界，2026-07-17）
+
+- 将 `app/pages/map/index.vue` 中的初始分类/选中、筛选结果映射与选中态清理决策迁入 `app/utils/map-presentation.ts` 纯函数：`resolveInitialMapCategoryId`、`resolveInitialSelectedMapPoiId`、`buildFilteredMapPois`、`shouldClearSelectedMapPoiOnListChange`、`resolveOfficialPlanHotspotSelectionReset`。
+- 页面只保留 route query 读取、`toMapPoi` 外的列表 computed 接线、选中态副作用与官网平面图热点重置对象展开；不再内联 category 合法性回退、place slug/id 初始选中、筛选列表映射、过滤后丢弃非 native 选中、热点重置字段拼装。源码约 35,292 B；展示模块约 17,609 B。页面相对第五十八个边界按字节基本持平（接线略调），本项目标为可测试性与职责边界，不宣称客户端运行时体积下降。
+- 更新 `scripts/map-presentation.test.ts`（现 9 项：新增初始选中 / 筛选映射 / 列表变化清理等纯函数用例）；同步更新 `scripts/campus-map-reference.test.ts` 薄壳期望（上述五个导出；禁止页面内联 `selectedIsNativeDetail` 等分支）。
+- 附带清理解锁门禁的脏工作区问题（与本边界职责正交，但为 `pnpm check` 全绿所必需）：
+  - 若干公开页 `<script setup>` 首行被截断导致 `vue/no-parsing-error`，已恢复并正确引入 `safeExternalHref`；
+  - `app/utils/safe-external-href.ts` 改为 `~~/shared/utils/public-http-url` 再导出，修复 Nitro 无法解析相对路径的构建失败；Node 单测改为直接测 shared 导出；
+  - `useMapProviderLifecycle` 未使用 catch 绑定、若干文件 `eol-last` / 尾部空行；
+  - 构建前清理被占用的 `.output` 目录以避免 EBUSY。
+- 最终验证：ESLint 0（24.3s）、Nuxt typecheck 0（21.2s）、全量脚本测试 538/538（9.9s）、Nuxt build 0（104.3s）、客户端体积预算 0（0.5s，无违规）、PWA 构建测试 1/1（0.6s）均返回 0；等价 `pnpm check` 流水线 `FINAL_EXIT=0`（约 161 s）。未跑 Playwright e2e（`pnpm check` 不含 e2e）。
+
+### 2.67 地图区域选中与搜索自动选点 apply 纯函数拆分（第六十个边界，2026-07-17）
+
+- 将 `app/pages/map/index.vue` 中区域点击/列表选区域、搜索自动选点后的 apply 决策迁入 `app/utils/map-presentation.ts` 纯函数：`resolveAreaSelectedDecision`、`resolveSelectAreaDecision`、`shouldScrollAfterAutoSelectPoi`、`resolveAutoSelectSearchApply`（及 `AutoSelectSearchApply` 类型）。
+- 页面 `handleAreaSelected` / `selectArea` / `autoSelectSearchResult` 只消费纯函数结果并接线 provider 选中、侧栏展开、DOM 行滚动；`autoSelectSearchResult` 不再内联 `coordinateVerification !== 'native-map-session'` 滚动判断，滚动 id 由 apply 结果的 `scrollToPoiId` 给出；对 `scrollToPoiId` 做局部窄化以满足 typecheck。
+- 源码约 36,751 B；展示模块约 19,470 B。相对第五十九个边界页面字节略增（apply 接线与局部 const），本项目标为可测试性与职责边界，不宣称客户端运行时体积下降。
+- 更新 `scripts/map-presentation.test.ts`（现 10 项：新增区域选中 / select-area / auto-select apply 与滚动策略用例）；同步更新 `scripts/campus-map-reference.test.ts` 与 `scripts/public-route-integrity.test.ts` 薄壳期望（上述导出与 `selectArea(apply.targetArea)`；禁止页面再导入/内联 `shouldScrollAfterAutoSelectPoi` 与 native-session 滚动分支）。
+- 最终验证：ESLint 0（24.0s）、Nuxt typecheck 0（20.9s）、全量脚本测试 539/539（10.4s）、Nuxt build 0（106.4s）、客户端体积预算 0（0.4s，无违规）、PWA 构建测试 1/1（0.5s）均返回 0；等价 `pnpm check` 流水线 `FINAL_EXIT=0`（约 163 s）。未跑 Playwright e2e（`pnpm check` 不含 e2e）。
+
+### 2.68 地图关闭详情/分类/视野适配与搜索重置纯函数拆分（第六十一个边界，2026-07-17）
+
+- 将 `app/pages/map/index.vue` 中关闭 POI/区域详情、切换分类、适配可见 POI 视野、以及搜索词变更时的重置字段迁入 `app/utils/map-presentation.ts` 纯函数：`resolveClosePoiDetailsDecision`、`resolveCloseAreaDetailsDecision`、`resolveSetCategoryDecision`、`resolveFitToVisiblePoisDecision`、`resolveSearchQueryChangeReset`。
+- 页面 `closePoiDetails` / `closeAreaDetails` / `setCategory` / `fitToVisiblePois` 与 `watch(searchQuery)` 只消费纯函数结果并接线 provider 选中与 `fitToPois` / `queueNativeSearch` 副作用；`setCategory` 与 `fitToVisiblePois` 不再内联调用 `closePoiDetails`/`closeAreaDetails` 链式副作用。
+- 源码约 37815 B；展示模块约 20809 B。相对第六十个边界页面字节略增（决策对象接线），本项目标为可测试性与职责边界，不宣称客户端运行时体积下降。
+- 更新 `scripts/map-presentation.test.ts`（现 11 项：新增 close/category/fit/search-reset 用例）；同步更新 `scripts/campus-map-reference.test.ts` 与 `scripts/public-route-integrity.test.ts` 薄壳期望（上述导出与接线；禁止页面再以内联 `activeCategory=…; closePoiDetails()` / 双 close + fit / 搜索重置字段字面量实现）。
+- 最终验证：ESLint 0（22.7s）、Nuxt typecheck 0（22.1s）、全量脚本测试 540/540（10.2s）、Nuxt build 0（107.6s）、客户端体积预算 0（0.5s，无违规）、PWA 构建测试 1/1（0.5s）均返回 0；等价 `pnpm check` 流水线 `FINAL_EXIT=0`（约 164 s）。未跑 Playwright e2e（`pnpm check` 不含 e2e）。
+
+### 2.69 地图选点 apply / 点击 apply / 平面图编号选中纯函数拆分（第六十二个边界，2026-07-17）
+
+- 将 `app/pages/map/index.vue` 中 `selectPoi`、`handlePoiSelected`、`selectOfficialPlanNumber` 的组合决策迁入 `app/utils/map-presentation.ts` 纯函数：`resolveSelectPoiApplyDecision`、`resolveMapPoiClickApply`、`resolveSelectOfficialPlanNumberDecision`。
+- `resolveSelectPoiApplyDecision` 在既有 `resolveSelectPoiUiDecision` 之上补齐清区域与 `selectedPoiId`；`resolveMapPoiClickApply` 包装 `resolveMapPoiClickSelection` 并带上 `selectedNativePlace` / `scrollToPoiId`；`resolveSelectOfficialPlanNumberDecision` 合并平面图编号查找与热点重置字段。
+- 页面保留 `createNativeMapPlace`、provider 选中、飞行/滚动与 `selectPoi(decision.poi)` 等副作用接线；不再在页面内联 `findPublicMapPlaceByOfficialPlanNumber` 或直接调用 `resolveSelectPoiUiDecision` / `resolveMapPoiClickSelection` / `resolveOfficialPlanHotspotSelectionReset`。
+- 源码约 36762 B；展示模块约 22812 B。相对第六十一个边界页面源码下降、util 上升，目标为可测试性与薄壳职责，不宣称客户端运行时体积下降。
+- 更新 `scripts/map-presentation.test.ts`（现 12 项：新增 selectPoi apply / map click apply / official plan number 用例）；同步更新 `scripts/campus-map-reference.test.ts` 与 `scripts/public-route-integrity.test.ts` 薄壳期望。
+- 最终验证：ESLint 0（25.9s）、Nuxt typecheck 0（23.5s）、全量脚本测试 541/541（9.8s）、Nuxt build 0（104.2s）、客户端体积预算 0（0.5s，无违规）、PWA 构建测试 1/1（0.5s）均返回 0；等价 `pnpm check` 流水线 `FINAL_EXIT=0`（约 164 s）。未跑 Playwright e2e（`pnpm check` 不含 e2e）。
+
+### 2.70 全站搜索导航 / 输入同步纯函数拆分（第六十三个边界，2026-07-17）
+
+- 将 `app/pages/search.vue` 中路由是否已匹配、并发导航过期校正、以及路由→搜索框/最新提交态同步决策迁入 `app/utils/public-search-presentation.ts` 纯函数：`routeMatchesSearchState`、`shouldSkipSearchNavigation`、`resolveSearchNavigationStaleCorrection`、`resolveSearchInputSyncFromRoute`。
+- 页面保留 `router.replace`、`searchNavigationSequence` / `pendingSearchNavigations` 计数副作用与 `useAsyncData` 请求壳；不再在页面内联 `routeMatches` 比较或 watch 中的 pending 分支。
+- `search.vue` 约 14335 B；展示模块约 13648 B。目标为可测试性与薄壳职责，不宣称客户端运行时体积下降。
+- 更新 `scripts/public-search-presentation.test.ts`（现 12 项：新增 navigation decisions 纯函数用例，并扩展薄壳接线期望）；同步更新 `scripts/public-route-integrity.test.ts` 搜索页期望。
+- 门禁：eslint + typecheck + scripts test + build + bundle-budget + pwa（见 `.data/stage63_check.log`，`FINAL_EXIT=0`）。
+

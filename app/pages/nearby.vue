@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { safeExternalHref } from '~/utils/safe-external-href'
 import nearbyCandidateData from '~~/data/imports/amap-nearby-poi-candidates-2026-07-15.json'
 import { researchSources } from '~~/data/seeds/public-content'
 import {
@@ -265,7 +266,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
             >
               <a
                 v-if="sourceIsClickable(source)"
-                :href="source.url"
+                :href="safeExternalHref(source.url) || undefined"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="group flex items-start gap-2 text-xs leading-5 text-zinc-700 hover:text-green-700"

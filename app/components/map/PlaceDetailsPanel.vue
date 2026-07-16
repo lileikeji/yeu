@@ -35,7 +35,7 @@ const navigationTooltip = computed(() => {
   <section
     :class="props.variant === 'mobile'
       ? 'shrink-0 border-b border-[var(--line)] p-4 md:hidden'
-      : 'absolute bottom-12 left-4 z-10 hidden w-[min(24rem,calc(100%-2rem))] rounded-md border border-zinc-200 bg-white p-4 shadow-lg md:block'"
+      : 'absolute bottom-[calc(var(--mobile-nav-height)+0.75rem)] left-3 right-3 z-40 max-h-[min(52vh,26rem)] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4 md:right-auto md:z-20 md:w-[min(24rem,calc(100%-2rem))]'"
     aria-live="polite"
   >
     <div

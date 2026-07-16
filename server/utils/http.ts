@@ -1,10 +1,19 @@
 import type { H3Event } from 'h3'
+import { getMethod } from 'h3'
 import { requireAdminSession } from './auth'
 import { useAppDatabase } from './database'
 
-export function useAdminRequest(event: H3Event, csrf = false) {
+/**
+ * Resolve admin DB + session for handlers.
+ * CSRF defaults to required for mutating methods so a forgotten second argument
+ * cannot ship a state-changing route without double-submit protection
+ * (middleware already enforces the same rule as defense in depth).
+ */
+export function useAdminRequest(event: H3Event, csrf?: boolean) {
   const client = useAppDatabase(event)
-  const session = requireAdminSession(event, client, { csrf })
+  const method = getMethod(event).toUpperCase()
+  const requireCsrf = csrf ?? !['GET', 'HEAD', 'OPTIONS'].includes(method)
+  const session = requireAdminSession(event, client, { csrf: requireCsrf })
   setHeader(event, 'Cache-Control', 'no-store')
   return { client, session }
 }

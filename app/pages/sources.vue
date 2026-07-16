@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { safeExternalHref } from '~/utils/safe-external-href'
 import type { ApiSource } from '~~/shared/types/server'
 import {
   collectActiveLinkedSources,
@@ -94,6 +95,7 @@ const loadError = computed(() => contentError.value || placeError.value)
           <UButton
             to="https://www.openstreetmap.org/copyright"
             target="_blank"
+            rel="noopener noreferrer"
             icon="i-lucide-external-link"
             label="OpenStreetMap 许可与署名"
             color="neutral"
@@ -102,6 +104,7 @@ const loadError = computed(() => contentError.value || placeError.value)
           <UButton
             to="https://www.openstreetmap.org/relation/17685756"
             target="_blank"
+            rel="noopener noreferrer"
             icon="i-lucide-pentagon"
             label="查看地图原始范围"
             color="neutral"
@@ -139,7 +142,7 @@ const loadError = computed(() => contentError.value || placeError.value)
         <a
           v-for="source in sources"
           :key="source.id"
-          :href="source.url"
+          :href="safeExternalHref(source.url) || undefined"
           target="_blank"
           rel="noopener noreferrer"
           class="group grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_12rem_8rem_auto] sm:items-center"

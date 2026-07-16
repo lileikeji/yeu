@@ -194,3 +194,14 @@ export async function parseSafeResolvedPublicHttpUrl(
     return null
   }
 }
+
+/**
+ * Defense-in-depth for href/to binding of stored or third-party URLs.
+ * Returns a safe http(s) URL string or null (never javascript:/data:/etc).
+ */
+export function safeExternalHref(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  return isSafePublicHttpUrl(trimmed) ? trimmed : null
+}

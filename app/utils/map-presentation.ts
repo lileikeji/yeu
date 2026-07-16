@@ -1,6 +1,6 @@
 import type { MapArea, MapPoi } from '~~/map/core/types'
 import type { MapDisplayOptions, MapLabelSize } from '~~/map/core/provider'
-import type { PublicMapPlace } from './public-catalog'
+import { toMapPoi, type PublicMapPlace } from './public-catalog'
 import { buildDetailFeedbackLink } from './feedback-context'
 import { areaMatchesQuery, placeMatchesQuery } from './map-search'
 
@@ -190,7 +190,8 @@ export type MobileSheetState = 'collapsed' | 'half' | 'expanded'
 
 export function resolveMobileSheetHeightClass(state: MobileSheetState): string {
   return ({
-    collapsed: 'h-20',
+    // Fully hide the list sheet on mobile so the map and floating place card stay usable.
+    collapsed: 'h-0 overflow-hidden border-0 shadow-none pointer-events-none',
     half: 'h-[44%]',
     expanded: 'h-[calc(100%_-_0.75rem)]'
   } as const)[state]
@@ -361,15 +362,16 @@ export function resolveAutoSelectSearchDecision(input: {
   return { action: 'select-area', autoKey, targetArea: targetArea as MapArea }
 }
 
-
 export type MapViewMode = 'geographic' | 'official-plan'
 
 export function canShowOfficialCampusPlan(activeScope: string | null | undefined): boolean {
   return activeScope !== 'nearby'
 }
 
-export function resolveSelectPoiMobileSheetState(state: MobileSheetState): MobileSheetState {
-  return state === 'collapsed' ? 'half' : state
+export function resolveSelectPoiMobileSheetState(_state: MobileSheetState): MobileSheetState {
+  // Selecting a place on mobile should free the map for the floating detail card,
+  // instead of expanding the bottom list sheet over the marker popup.
+  return 'collapsed'
 }
 
 export function resolveSelectPoiMapViewMode(input: {
@@ -452,5 +454,270 @@ export function resolveMapPoiClickSelection(input: {
     clearArea: true,
     selectedPoiId,
     expandSidebarAndScroll: Boolean(selectedPoiId && !isNative)
+  }
+}
+
+export function resolveInitialMapCategoryId(
+  initialCategory: string | null | undefined,
+  categoryIds: ReadonlySet<string> | Iterable<string>
+): string {
+  const set = categoryIds instanceof Set ? categoryIds : new Set(categoryIds)
+  return initialCategory && set.has(initialCategory) ? initialCategory : 'all'
+}
+
+export function resolveInitialSelectedMapPoiId(
+  places: readonly Pick<PublicMapPlace, 'id' | 'slug'>[],
+  initialPlace: string | null | undefined
+): string | null {
+  if (!initialPlace) return null
+  return places.find(poi => poi.slug === initialPlace || poi.id === initialPlace)?.id ?? null
+}
+
+export function buildFilteredMapPois(
+  places: readonly PublicMapPlace[]
+): MapPoi[] {
+  return places.flatMap((place) => {
+    const poi = toMapPoi(place)
+    return poi ? [poi] : []
+  })
+}
+
+export function shouldClearSelectedMapPoiOnListChange(input: {
+  selectedPoiId: string | null | undefined
+  filteredPlaces: readonly Pick<PublicMapPlace, 'id'>[]
+  nativeSearchResults: readonly Pick<PublicMapPlace, 'id'>[]
+  selectedNativePlaceId: string | null | undefined
+}): boolean {
+  const id = input.selectedPoiId
+  if (!id) return false
+
+  const selectedIsNative = input.nativeSearchResults.some(poi => poi.id === id)
+  const selectedIsNativeDetail = input.selectedNativePlaceId === id
+  if (selectedIsNative || selectedIsNativeDetail) return false
+
+  return !input.filteredPlaces.some(poi => poi.id === id)
+}
+
+export function resolveOfficialPlanHotspotSelectionReset(): {
+  searchQuery: ''
+  activeCategory: 'all'
+  sidebarCollapsed: false
+} {
+  return {
+    searchQuery: '',
+    activeCategory: 'all',
+    sidebarCollapsed: false
+  }
+}
+
+export function resolveAreaSelectedDecision(area: MapArea | null): {
+  selectedArea: MapArea | null
+  providerSelectedAreaId: string | null
+  clearSelectedPoi: boolean
+} {
+  return {
+    selectedArea: area,
+    providerSelectedAreaId: area?.id ?? null,
+    clearSelectedPoi: Boolean(area)
+  }
+}
+
+export function resolveSelectAreaDecision(area: MapArea): {
+  selectedArea: MapArea
+  selectedPoiId: null
+  selectedNativePlace: null
+  providerSelectedPoiId: null
+  providerSelectedAreaId: string
+} {
+  return {
+    selectedArea: area,
+    selectedPoiId: null,
+    selectedNativePlace: null,
+    providerSelectedPoiId: null,
+    providerSelectedAreaId: area.id
+  }
+}
+
+export function shouldScrollAfterAutoSelectPoi(
+  poi: Pick<PublicMapPlace, 'coordinateVerification'>
+): boolean {
+  return poi.coordinateVerification !== 'native-map-session'
+}
+
+export type AutoSelectSearchApply
+  = | { kind: 'clear-key' }
+    | { kind: 'noop' }
+    | {
+      kind: 'select-poi'
+      autoKey: string
+      target: PublicMapPlace
+      expandSidebar: true
+      scrollToPoiId: string | null
+    }
+    | {
+      kind: 'select-area'
+      autoKey: string
+      targetArea: MapArea
+      expandSidebar: true
+    }
+
+export function resolveAutoSelectSearchApply(
+  decision: AutoSelectSearchDecision
+): AutoSelectSearchApply {
+  if (decision.action === 'clear-key') return { kind: 'clear-key' }
+  if (decision.action === 'noop') return { kind: 'noop' }
+  if (decision.action === 'select-poi') {
+    return {
+      kind: 'select-poi',
+      autoKey: decision.autoKey,
+      target: decision.target,
+      expandSidebar: true,
+      scrollToPoiId: shouldScrollAfterAutoSelectPoi(decision.target)
+        ? decision.target.id
+        : null
+    }
+  }
+
+  return {
+    kind: 'select-area',
+    autoKey: decision.autoKey,
+    targetArea: decision.targetArea,
+    expandSidebar: true
+  }
+}
+
+export function resolveClosePoiDetailsDecision(): {
+  selectedPoiId: null
+  selectedNativePlace: null
+  providerSelectedPoiId: null
+} {
+  return {
+    selectedPoiId: null,
+    selectedNativePlace: null,
+    providerSelectedPoiId: null
+  }
+}
+
+export function resolveCloseAreaDetailsDecision(): {
+  selectedArea: null
+  providerSelectedAreaId: null
+} {
+  return {
+    selectedArea: null,
+    providerSelectedAreaId: null
+  }
+}
+
+export function resolveSetCategoryDecision(categoryId: string): {
+  activeCategory: string
+  selectedPoiId: null
+  selectedNativePlace: null
+  providerSelectedPoiId: null
+} {
+  return {
+    activeCategory: categoryId,
+    selectedPoiId: null,
+    selectedNativePlace: null,
+    providerSelectedPoiId: null
+  }
+}
+
+export function resolveFitToVisiblePoisDecision(): {
+  selectedPoiId: null
+  selectedNativePlace: null
+  selectedArea: null
+  providerSelectedPoiId: null
+  providerSelectedAreaId: null
+  shouldFitToPois: true
+} {
+  return {
+    selectedPoiId: null,
+    selectedNativePlace: null,
+    selectedArea: null,
+    providerSelectedPoiId: null,
+    providerSelectedAreaId: null,
+    shouldFitToPois: true
+  }
+}
+
+export function resolveSearchQueryChangeReset(): {
+  lastAutoLocatedSearchKey: ''
+  selectedNativePlace: null
+} {
+  return {
+    lastAutoLocatedSearchKey: '',
+    selectedNativePlace: null
+  }
+}
+
+export function resolveSelectPoiApplyDecision(input: {
+  poi: PublicMapPlace
+  mobileSheetState: MobileSheetState
+  mapViewMode: MapViewMode
+  canShowOfficialPlan: boolean
+}): {
+  selectedArea: null
+  providerSelectedAreaId: null
+  selectedPoiId: string
+  mobileSheetState: MobileSheetState
+  mapViewMode: MapViewMode
+  selectedNativePlace: PublicMapPlace | null
+  providerSelectedPoiId: string | null
+  flyAction: SelectPoiFlyAction
+} {
+  const ui = resolveSelectPoiUiDecision(input)
+  return {
+    selectedArea: null,
+    providerSelectedAreaId: null,
+    selectedPoiId: input.poi.id,
+    mobileSheetState: ui.mobileSheetState,
+    mapViewMode: ui.mapViewMode,
+    selectedNativePlace: ui.selectedNativePlace,
+    providerSelectedPoiId: ui.providerSelectedPoiId,
+    flyAction: ui.flyAction
+  }
+}
+
+export function resolveMapPoiClickApply(input: {
+  poi: Pick<MapPoi, 'id' | 'source'> | null
+  nativePlace: PublicMapPlace | null
+}): {
+  clearArea: boolean
+  selectedPoiId: string | null
+  selectedNativePlace: PublicMapPlace | null
+  providerSelectedPoiId: string | null
+  expandSidebarAndScroll: boolean
+  scrollToPoiId: string | null
+} {
+  const selection = resolveMapPoiClickSelection({
+    poi: input.poi,
+    nativePlaceId: input.nativePlace?.id
+  })
+  return {
+    clearArea: selection.clearArea,
+    selectedPoiId: selection.selectedPoiId,
+    selectedNativePlace: input.nativePlace,
+    providerSelectedPoiId: selection.selectedPoiId,
+    expandSidebarAndScroll: selection.expandSidebarAndScroll,
+    scrollToPoiId: selection.expandSidebarAndScroll
+      ? selection.selectedPoiId
+      : null
+  }
+}
+
+export function resolveSelectOfficialPlanNumberDecision(
+  places: readonly PublicMapPlace[],
+  mapNumber: string
+): null | {
+  poi: PublicMapPlace
+  searchQuery: ''
+  activeCategory: 'all'
+  sidebarCollapsed: false
+} {
+  const poi = findPublicMapPlaceByOfficialPlanNumber(places, mapNumber)
+  if (!poi) return null
+  return {
+    poi,
+    ...resolveOfficialPlanHotspotSelectionReset()
   }
 }

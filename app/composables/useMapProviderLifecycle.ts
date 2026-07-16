@@ -81,9 +81,9 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
         },
         onPoiSelected: options.onPoiSelected,
         onAreaSelected: options.onAreaSelected,
-        onError(error) {
+        onError(_error) {
           mountReportedError = true
-          options.mapErrorMessage.value = error.message
+          options.mapErrorMessage.value = DEFAULT_MAP_ERROR
           options.mapStatus.value = 'error'
         }
       }, () => mountGate.isCurrent(request))
@@ -94,10 +94,10 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
       }
       if (!mountReportedError) options.mapStatus.value = 'ready'
       options.onReady()
-    } catch (error) {
+    } catch {
       if (!mountGate.isCurrent(request)) return
       clearProvider(createdProvider)
-      options.mapErrorMessage.value = error instanceof Error ? error.message : DEFAULT_MAP_ERROR
+      options.mapErrorMessage.value = DEFAULT_MAP_ERROR
       options.mapStatus.value = 'error'
     }
   }

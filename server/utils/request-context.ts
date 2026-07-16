@@ -8,7 +8,9 @@ export const BASE_SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY'
+  'X-Frame-Options': 'DENY',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-site'
 } as const
 
 export interface RequestLogEntry {
@@ -35,6 +37,7 @@ export function resolveRequestId(
   return normalizeIncomingRequestId(value) ?? create()
 }
 
+// Keep no-store for removed legacy /api/auth/* probes and all admin/auth paths.
 export function shouldDisableCache(method: string, pathname: string): boolean {
   const normalizedMethod = method.toUpperCase()
   if (!SAFE_METHODS.has(normalizedMethod)) return true

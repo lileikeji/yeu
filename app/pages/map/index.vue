@@ -12,7 +12,7 @@ import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
 import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
 import { amapImportedAreas } from '~~/data/seeds/amap-imported-areas'
 import type { PublicMapPlace } from '~/utils/public-catalog'
-import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces, toMapPoi } from '~/utils/public-catalog'
+import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces } from '~/utils/public-catalog'
 import { createNativeMapPlace } from '~/utils/map-native-search'
 import { mapQueryValue, mapRouteScope } from '~/utils/map-route-state'
 import {
@@ -25,16 +25,28 @@ import {
   filterOwnerMapPlacesInScope,
   filterPublicMapPlacesByScope,
   filterPublicMapPlacesForMapList,
-  findPublicMapPlaceByOfficialPlanNumber,
   formatMapAreaSquareMeters,
   formatMapPerimeter,
   mapCategories,
   mapCategoryIds,
+  buildFilteredMapPois,
   canShowOfficialCampusPlan,
   resolveAutoSelectSearchDecision,
+  resolveAutoSelectSearchApply,
+  resolveSelectAreaDecision,
+  resolveAreaSelectedDecision,
+  resolveClosePoiDetailsDecision,
+  resolveCloseAreaDetailsDecision,
+  resolveSetCategoryDecision,
+  resolveFitToVisiblePoisDecision,
+  resolveSearchQueryChangeReset,
+  resolveInitialMapCategoryId,
   resolveInitialMapViewMode,
-  resolveMapPoiClickSelection,
-  resolveSelectPoiUiDecision,
+  resolveInitialSelectedMapPoiId,
+  resolveSelectPoiApplyDecision,
+  resolveMapPoiClickApply,
+  resolveSelectOfficialPlanNumberDecision,
+  shouldClearSelectedMapPoiOnListChange,
   resolveMapCategoryIcon,
   resolveMapCategoryLabel,
   resolveMapDataLabel,
@@ -123,9 +135,8 @@ const activeMapProviderId = ref<MapProviderId | null>(null)
 const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const mapErrorMessage = ref('地图暂时无法加载，请检查网络和地图配置后重试。')
 const searchQuery = ref(mapQueryValue(route.query.q))
-const activeCategory = ref(categoryIds.has(initialCategory) ? initialCategory : 'all')
-const initialSelectedPoi = places.value.find(poi => poi.slug === initialPlace || poi.id === initialPlace)
-const selectedPoiId = ref<string | null>(initialSelectedPoi?.id ?? null)
+const activeCategory = ref(resolveInitialMapCategoryId(initialCategory, categoryIds))
+const selectedPoiId = ref<string | null>(resolveInitialSelectedMapPoiId(places.value, initialPlace))
 const selectedArea = ref<MapArea | null>(null)
 const selectedAreaId = computed(() => selectedArea.value?.id ?? null)
 const selectedNativePlace = ref<PublicMapPlace | null>(null)
@@ -167,10 +178,7 @@ const filteredPois = computed(() => filterPublicMapPlacesForMapList(places.value
   activeCategory: activeCategory.value
 }))
 
-const filteredMapPois = computed<MapPoi[]>(() => filteredPois.value.flatMap((place) => {
-  const poi = toMapPoi(place)
-  return poi ? [poi] : []
-}))
+const filteredMapPois = computed<MapPoi[]>(() => buildFilteredMapPois(filteredPois.value))
 const filteredAreas = computed(() => filterMapAreasForMapSearch(amapImportedAreas, {
   query: searchQuery.value,
   activeScope: activeScope.value
@@ -218,39 +226,45 @@ function handlePoiSelected(poi: MapPoi | null) {
   const selected = poi?.source === 'amap-native'
     ? createNativeMapPlace(poi, activeScope.value)
     : null
-  const decision = resolveMapPoiClickSelection({
+  const decision = resolveMapPoiClickApply({
     poi,
-    nativePlaceId: selected?.id
+    nativePlace: selected
   })
   if (decision.clearArea) {
     selectedArea.value = null
     mapProvider.value?.setSelectedArea(null)
   }
-  selectedNativePlace.value = selected
+  selectedNativePlace.value = decision.selectedNativePlace
   selectedPoiId.value = decision.selectedPoiId
-  mapProvider.value?.setSelectedPoi(selectedPoiId.value)
+  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
+  // On mobile, free the bottom list sheet so the floating place card can show over the map.
+  if (decision.selectedPoiId) {
+    mobileSheetState.value = 'collapsed'
+  }
 
-  if (decision.expandSidebarAndScroll && decision.selectedPoiId) {
+  if (decision.expandSidebarAndScroll && decision.scrollToPoiId) {
     sidebarCollapsed.value = false
-    void nextTick(() => poiRowElements.get(decision.selectedPoiId!)?.scrollIntoView({ block: 'nearest' }))
+    void nextTick(() => poiRowElements.get(decision.scrollToPoiId!)?.scrollIntoView({ block: 'nearest' }))
   }
 }
 
 function handleAreaSelected(area: MapArea | null): void {
-  selectedArea.value = area
-  mapProvider.value?.setSelectedArea(area?.id ?? null)
-  if (area) {
+  const decision = resolveAreaSelectedDecision(area)
+  selectedArea.value = decision.selectedArea
+  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
+  if (decision.clearSelectedPoi) {
     selectedPoiId.value = null
     mapProvider.value?.setSelectedPoi(null)
   }
 }
 
 function selectArea(area: MapArea): void {
-  selectedPoiId.value = null
-  selectedNativePlace.value = null
-  selectedArea.value = area
-  mapProvider.value?.setSelectedPoi(null)
-  mapProvider.value?.setSelectedArea(area.id)
+  const decision = resolveSelectAreaDecision(area)
+  selectedPoiId.value = decision.selectedPoiId
+  selectedNativePlace.value = decision.selectedNativePlace
+  selectedArea.value = decision.selectedArea
+  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
+  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
 }
 
 function toggleDisplayOption(option: MapDisplayToggleKey): void {
@@ -291,16 +305,16 @@ function poiRowRef(id: string) {
 }
 
 function selectPoi(poi: PublicMapPlace) {
-  selectedArea.value = null
-  mapProvider.value?.setSelectedArea(null)
-  const decision = resolveSelectPoiUiDecision({
+  const decision = resolveSelectPoiApplyDecision({
     poi,
     mobileSheetState: mobileSheetState.value,
     mapViewMode: mapViewMode.value,
     canShowOfficialPlan: canShowOfficialPlan.value
   })
+  selectedArea.value = decision.selectedArea
+  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
   selectedNativePlace.value = decision.selectedNativePlace
-  selectedPoiId.value = poi.id
+  selectedPoiId.value = decision.selectedPoiId
   mobileSheetState.value = decision.mobileSheetState
   mapViewMode.value = decision.mapViewMode
   mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
@@ -322,63 +336,77 @@ function autoSelectSearchResult(): void {
     selectedPoiId: selectedPoiId.value,
     nativeSearchResults: nativeSearchResults.value
   })
+  const apply = resolveAutoSelectSearchApply(decision)
 
-  if (decision.action === 'clear-key') {
+  if (apply.kind === 'clear-key') {
     lastAutoLocatedSearchKey = ''
     return
   }
-  if (decision.action === 'noop') return
+  if (apply.kind === 'noop') return
 
-  lastAutoLocatedSearchKey = decision.autoKey
-  sidebarCollapsed.value = false
-  if (decision.action === 'select-poi') {
-    selectPoi(decision.target)
-    if (decision.target.coordinateVerification !== 'native-map-session') {
-      void nextTick(() => poiRowElements.get(decision.target.id)?.scrollIntoView({ block: 'nearest' }))
+  lastAutoLocatedSearchKey = apply.autoKey
+  if (apply.expandSidebar) sidebarCollapsed.value = false
+  if (apply.kind === 'select-poi') {
+    selectPoi(apply.target)
+    if (apply.scrollToPoiId) {
+      const scrollToPoiId = apply.scrollToPoiId
+      void nextTick(() => poiRowElements.get(scrollToPoiId)?.scrollIntoView({ block: 'nearest' }))
     }
     return
   }
 
-  selectArea(decision.targetArea)
+  selectArea(apply.targetArea)
 }
 function selectedOfficialPlanNumber(poi: PublicMapPlace | null): string | null {
   return resolveOfficialPlanNumber(poi)
 }
 
 function selectOfficialPlanNumber(mapNumber: string): void {
-  const poi = findPublicMapPlaceByOfficialPlanNumber(places.value, mapNumber)
-  if (!poi) return
-  searchQuery.value = ''
-  activeCategory.value = 'all'
-  sidebarCollapsed.value = false
-  selectPoi(poi)
+  const decision = resolveSelectOfficialPlanNumberDecision(places.value, mapNumber)
+  if (!decision) return
+  searchQuery.value = decision.searchQuery
+  activeCategory.value = decision.activeCategory
+  sidebarCollapsed.value = decision.sidebarCollapsed
+  selectPoi(decision.poi)
 }
 
 function closePoiDetails() {
-  selectedPoiId.value = null
-  selectedNativePlace.value = null
-  mapProvider.value?.setSelectedPoi(null)
+  const decision = resolveClosePoiDetailsDecision()
+  selectedPoiId.value = decision.selectedPoiId
+  selectedNativePlace.value = decision.selectedNativePlace
+  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
 }
 
 function closeAreaDetails(): void {
-  selectedArea.value = null
-  mapProvider.value?.setSelectedArea(null)
+  const decision = resolveCloseAreaDetailsDecision()
+  selectedArea.value = decision.selectedArea
+  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
 }
 
 function setCategory(categoryId: string) {
-  activeCategory.value = categoryId
-  closePoiDetails()
+  const decision = resolveSetCategoryDecision(categoryId)
+  activeCategory.value = decision.activeCategory
+  selectedPoiId.value = decision.selectedPoiId
+  selectedNativePlace.value = decision.selectedNativePlace
+  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
 }
 
 function fitToVisiblePois() {
-  closePoiDetails()
-  closeAreaDetails()
-  mapProvider.value?.fitToPois()
+  const decision = resolveFitToVisiblePoisDecision()
+  selectedPoiId.value = decision.selectedPoiId
+  selectedNativePlace.value = decision.selectedNativePlace
+  selectedArea.value = decision.selectedArea
+  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
+  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
+  if (decision.shouldFitToPois) {
+    mapProvider.value?.fitToPois()
+  }
 }
 
 watch(searchQuery, () => {
-  lastAutoLocatedSearchKey = ''
-  selectedNativePlace.value = null
+  const reset = resolveSearchQueryChangeReset()
+  lastAutoLocatedSearchKey = reset.lastAutoLocatedSearchKey
+  selectedNativePlace.value = reset.selectedNativePlace
   queueNativeSearch()
 })
 watch(mapViewMode, queueNativeSearch)
@@ -402,9 +430,12 @@ const { mountMap } = useMapProviderLifecycle({
 })
 
 watch(filteredPois, (pois) => {
-  const selectedIsNative = nativeSearchResults.value.some(poi => poi.id === selectedPoiId.value)
-  const selectedIsNativeDetail = selectedNativePlace.value?.id === selectedPoiId.value
-  if (selectedPoiId.value && !selectedIsNative && !selectedIsNativeDetail && !pois.some(poi => poi.id === selectedPoiId.value)) {
+  if (shouldClearSelectedMapPoiOnListChange({
+    selectedPoiId: selectedPoiId.value,
+    filteredPlaces: pois,
+    nativeSearchResults: nativeSearchResults.value,
+    selectedNativePlaceId: selectedNativePlace.value?.id
+  })) {
     closePoiDetails()
   }
   autoSelectSearchResult()
@@ -438,9 +469,12 @@ onBeforeUnmount(() => {
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
-      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md border-t border-[var(--line)] bg-white shadow-[0_-6px_24px_rgb(0_0_0/12%)] transition-[height] duration-200 md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md bg-white transition-[height] duration-200 md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :class="[
         mobileSheetHeightClass,
+        mobileSheetState === 'collapsed'
+          ? 'border-0 shadow-none'
+          : 'border-t border-[var(--line)] shadow-[0_-6px_24px_rgb(0_0_0/12%)]',
         selectedPoi && mobileSheetState !== 'collapsed' ? 'overflow-y-auto' : 'overflow-hidden',
         sidebarCollapsed ? 'md:hidden' : ''
       ]"
@@ -449,7 +483,7 @@ onBeforeUnmount(() => {
         <div class="min-w-0">
           <div class="mx-auto mb-2 h-1 w-10 rounded-full bg-zinc-300" />
           <p class="truncate text-sm font-semibold text-zinc-900">
-            {{ selectedPoi?.name ?? `地点列表 · ${filteredPois.length}` }}
+            地点列表 · {{ filteredPois.length }}
           </p>
         </div>
         <div
@@ -457,13 +491,13 @@ onBeforeUnmount(() => {
           role="group"
           aria-label="地图面板高度"
         >
-          <UTooltip text="收起地点面板">
+          <UTooltip text="全隐藏地点面板">
             <UButton
               icon="i-lucide-chevrons-down"
               color="neutral"
               variant="ghost"
               class="size-9"
-              aria-label="收起地点面板"
+              aria-label="全隐藏地点面板"
               :aria-pressed="mobileSheetState === 'collapsed'"
               @click="() => { mobileSheetState = 'collapsed' }"
             />
@@ -591,32 +625,9 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <MapPlaceDetailsPanel
-        v-if="selectedPoi && mobileSheetState !== 'collapsed'"
-        variant="mobile"
-        :place="selectedPoi"
-        :category-label="categoryLabel(selectedPoi.category)"
-        :category-icon="categoryIcon(selectedPoi.category)"
-        :status-text="poiStatusText(selectedPoi)"
-        :checklist="poiUseChecklist(selectedPoi)"
-        :details-target="placeDetailsTarget(selectedPoi)"
-        :feedback-target="placeFeedbackTarget(selectedPoi)"
-        :return-path="returnPath"
-        :route-planning="routePlanning"
-        :can-plan-route="activeMapProviderId === 'amap' && Boolean(selectedPoi.point)"
-        :is-wechat="isWechat"
-        @close="closePoiDetails"
-        @copy="copyPoiLocation(selectedPoi)"
-        @plan-route="startWalkingRoute(selectedPoi.name, selectedPoi.point)"
-      />
-
       <div
         class="items-center justify-between border-b border-[var(--line)] px-4 py-2 text-xs text-zinc-500 md:flex md:px-5"
-        :class="selectedPoi
-          ? 'hidden'
-          : mobileSheetState === 'collapsed'
-            ? 'hidden md:flex'
-            : 'flex'"
+        :class="mobileSheetState === 'collapsed' ? 'hidden md:flex' : 'flex'"
       >
         <span>{{ filteredPois.length }} 个地点</span>
         <button
@@ -630,11 +641,7 @@ onBeforeUnmount(() => {
 
       <div
         class="min-h-0 flex-1 overflow-y-auto md:block"
-        :class="selectedPoi
-          ? 'hidden'
-          : mobileSheetState === 'collapsed'
-            ? 'hidden md:block'
-            : 'block'"
+        :class="mobileSheetState === 'collapsed' ? 'hidden md:block' : 'block'"
         aria-label="地点列表"
       >
         <button
@@ -704,7 +711,7 @@ onBeforeUnmount(() => {
         @select-number="selectOfficialPlanNumber"
       />
 
-      <div class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3 md:inset-x-4 md:top-4">
+      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-3 md:inset-x-4 md:top-4">
         <div class="flex flex-col items-start gap-1.5">
           <UTooltip
             v-if="sidebarCollapsed"
@@ -790,8 +797,9 @@ onBeforeUnmount(() => {
             <UButton
               icon="i-lucide-layers-3"
               color="neutral"
-              :variant="displaySettingsOpen ? 'soft' : 'solid'"
-              class="size-11"
+              variant="outline"
+              class="map-float-btn size-11"
+              :class="displaySettingsOpen ? 'ring-2 ring-green-600' : ''"
               aria-label="地图图层与显示设置"
               :aria-expanded="displaySettingsOpen"
               @click="() => { displaySettingsOpen = !displaySettingsOpen }"
@@ -801,8 +809,8 @@ onBeforeUnmount(() => {
             <UButton
               icon="i-lucide-scan"
               color="neutral"
-              variant="solid"
-              class="size-11"
+              variant="outline"
+              class="map-float-btn size-11"
               aria-label="显示全部地点"
               @click="fitToVisiblePois"
             />
@@ -811,14 +819,31 @@ onBeforeUnmount(() => {
             <UButton
               icon="i-lucide-locate-fixed"
               color="neutral"
-              variant="solid"
+              variant="outline"
               :loading="locating"
-              class="size-11"
+              class="map-float-btn size-11"
               aria-label="定位到我的位置"
               @click="locateUser"
             />
           </UTooltip>
         </div>
+      </div>
+
+      <!-- Mobile: reopen fully-hidden place list -->
+      <div
+        v-if="mobileSheetState === 'collapsed'"
+        class="pointer-events-none absolute inset-x-0 bottom-[calc(var(--mobile-nav-height)+0.5rem)] z-30 flex justify-center px-3 md:hidden"
+        :class="selectedPoi ? 'bottom-[calc(var(--mobile-nav-height)+min(52vh,26rem)+0.85rem)]' : ''"
+      >
+        <UButton
+          icon="i-lucide-list"
+          label="地点列表"
+          color="neutral"
+          variant="outline"
+          class="map-float-btn pointer-events-auto shadow-lg"
+          aria-label="打开地点列表"
+          @click="() => { mobileSheetState = 'half' }"
+        />
       </div>
 
       <MapDisplaySettingsPanel
@@ -833,7 +858,7 @@ onBeforeUnmount(() => {
 
       <div
         v-if="mapViewMode === 'geographic' && routeSummary"
-        class="absolute bottom-14 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm"
+        class="absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm bottom-[calc(var(--mobile-nav-height)+5.5rem)] md:bottom-14"
         role="status"
       >
         <UIcon
@@ -920,6 +945,7 @@ onBeforeUnmount(() => {
           <UButton
             :to="officialSources.campusMap.url"
             target="_blank"
+            rel="noopener noreferrer"
             icon="i-lucide-external-link"
             label="查看官网文字索引"
             color="neutral"
@@ -932,7 +958,10 @@ onBeforeUnmount(() => {
 
       <section
         v-if="selectedArea"
-        class="absolute bottom-[calc(44%+1rem)] left-3 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4"
+        class="absolute left-3 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4"
+        :class="mobileSheetState === 'collapsed' || selectedPoi
+          ? 'bottom-[calc(var(--mobile-nav-height)+0.75rem)] md:bottom-12'
+          : 'bottom-[calc(44%+1rem)] md:bottom-12'"
         aria-live="polite"
       >
         <div class="flex items-start justify-between gap-3">
@@ -1029,5 +1058,36 @@ onBeforeUnmount(() => {
 .map-workspace .maplibregl-canvas:focus-visible {
   outline: 2px solid #176f46;
   outline-offset: -2px;
+}
+
+.map-workspace :deep(.map-float-btn),
+.map-workspace :deep(button.map-float-btn) {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #18181b !important;
+  border: 1px solid #d4d4d8 !important;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 18%) !important;
+  --ui-bg: #ffffff;
+  --ui-text: #18181b;
+  --ui-border: #d4d4d8;
+}
+
+.map-workspace :deep(.map-float-btn:hover),
+.map-workspace :deep(button.map-float-btn:hover) {
+  background: #f4f4f5 !important;
+  background-color: #f4f4f5 !important;
+}
+
+.map-workspace :deep(.map-float-btn:disabled),
+.map-workspace :deep(button.map-float-btn:disabled) {
+  background: #ffffff !important;
+  opacity: 0.75;
+}
+
+.map-workspace :deep(.map-float-btn .iconify),
+.map-workspace :deep(.map-float-btn svg),
+.map-workspace :deep(.map-float-btn [class*="i-lucide"]) {
+  color: #18181b !important;
+  opacity: 1 !important;
 }
 </style>

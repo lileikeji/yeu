@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { safeExternalHref } from '~/utils/safe-external-href'
 export interface PublicSourceDetailsItem {
   key: string
   title: string
@@ -46,8 +47,8 @@ withDefaults(defineProps<{
           class="text-xs leading-5 text-zinc-600"
         >
           <a
-            v-if="source.url && !source.unavailable"
-            :href="source.url"
+            v-if="safeExternalHref(source.url) && !source.unavailable"
+            :href="safeExternalHref(source.url) || undefined"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-start gap-2 hover:text-green-700"
