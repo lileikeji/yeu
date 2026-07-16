@@ -13,7 +13,7 @@ export interface AdminFieldCondition {
 export interface AdminFieldDefinition {
   key: string
   label: string
-  type?: 'text' | 'textarea' | 'url' | 'email' | 'tel' | 'number' | 'date' | 'datetime-local' | 'select' | 'checkbox'
+  type?: 'text' | 'textarea' | 'json' | 'url' | 'email' | 'tel' | 'number' | 'date' | 'datetime-local' | 'select' | 'checkbox'
   placeholder?: string
   description?: string
   required?: boolean

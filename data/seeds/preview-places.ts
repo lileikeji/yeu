@@ -22,7 +22,7 @@ export const campusMapReferencePlaces: CampusMapReferencePlace[] = [
   { id: 'campus-map-05', mapNumber: '05', name: '西苑餐厅', category: 'food' },
   { id: 'campus-map-06', mapNumber: '06', name: '新区和昌教学楼', category: 'campus-building', aliases: ['和昌教学楼'] },
   { id: 'campus-map-07', mapNumber: '07', name: '塑胶体育场', category: 'service' },
-  { id: 'campus-map-08', mapNumber: '08', name: '仰恩楼', category: 'campus-building' },
+  { id: 'campus-map-08', mapNumber: '08', name: '仰恩楼', category: 'campus-building', aliases: ['仰恩教学楼'] },
   { id: 'campus-map-09', mapNumber: '09', name: '新区行政楼', category: 'service' },
   { id: 'campus-map-10', mapNumber: '10', name: '普照教学楼', category: 'campus-building' },
   { id: 'campus-map-11', mapNumber: '11', name: '教工宿舍', category: 'dorm' },

@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
+import { amapImportedAreas } from '~~/data/seeds/amap-imported-areas'
+import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
 import { freshmanGuides, officialDepartments } from '~~/data/seeds/public-content'
+import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces } from '~~/app/utils/public-catalog'
+import type { PublicSearchResultType } from '~~/shared/constants/server'
+import type { ApiSearchResponse } from '~~/shared/types/server'
 import {
-  PUBLIC_SEARCH_RESULT_TYPES,
-  type PublicSearchResultType
-} from '~~/shared/constants/server'
-import type { ApiSearchItem, ApiSearchResponse } from '~~/shared/types/server'
+  buildPublicSearchResults,
+  buildSearchAnnouncement,
+  buildSearchErrorMessage,
+  groupPublicSearchResults,
+  routeQueryString,
+  routeSearchType,
+  searchRouteQuery,
+  searchTypeOptions
+} from '~~/app/utils/public-search-presentation'
 
 useSeoMeta({
   title: '全站搜索',
@@ -13,72 +23,18 @@ useSeoMeta({
   robots: 'noindex, follow'
 })
 
-interface SearchResult {
-  key: string
-  resultType: PublicSearchResultType
-  title: string
-  summary: string
-  typeLabel: string
-  icon: string
-  to: string
-  sourceLabel: string
-}
-
-const searchTypePresentation = {
-  place: { label: '地点', icon: 'i-lucide-map-pin' },
-  procedure: { label: '流程', icon: 'i-lucide-list-checks' },
-  guide: { label: '指南', icon: 'i-lucide-notebook-tabs' },
-  department: { label: '部门', icon: 'i-lucide-landmark' },
-  club: { label: '社团', icon: 'i-lucide-users-round' },
-  notice: { label: '公告', icon: 'i-lucide-megaphone' }
-} satisfies Record<PublicSearchResultType, { label: string, icon: string }>
-
-const searchTypeOptions = [
-  { label: '全部类型', value: 'all' },
-  ...PUBLIC_SEARCH_RESULT_TYPES.map(value => ({
-    label: searchTypePresentation[value].label,
-    value
-  }))
-]
+const { data: amapOwnerDraftResponse } = await usePublicAmapOwnerDraftPlaces()
+const ownerMapSeeds = computed(() => mergeAmapImportedPlacesWithDrafts(
+  amapImportedPlaces,
+  amapOwnerDraftResponse.value?.items
+))
+const staticMapPlaces = computed(() => mergePublicMapPlaces(campusMapReferencePlaces, [], ownerMapSeeds.value))
+const staticMapAreas = amapImportedAreas
 
 const route = useRoute()
 const router = useRouter()
 
-function routeQuery(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (Array.isArray(value) && typeof value[0] === 'string') return value[0]
-  return ''
-}
-
-function routeSearchType(value: unknown): PublicSearchResultType | undefined {
-  const candidate = routeQuery(value)
-  return PUBLIC_SEARCH_RESULT_TYPES.find(type => type === candidate)
-}
-
-function normalize(value: string): string {
-  return value.trim().toLocaleLowerCase('zh-CN').replace(/[\s（）()\-_/]/g, '')
-}
-
-function matches(query: string, values: Array<string | null | undefined>): boolean {
-  const needle = normalize(query)
-  return Boolean(needle) && normalize(values.filter(Boolean).join(' ')).includes(needle)
-}
-
-function apiTarget(item: ApiSearchItem): string {
-  if (item.entityType === 'place') return `/map?place=${encodeURIComponent(item.slug)}`
-  if (item.entityType === 'procedure') return `/procedures/${encodeURIComponent(item.slug)}`
-  if (item.kind === 'guide') return `/guides/${encodeURIComponent(item.slug)}`
-  if (item.kind === 'department') return `/departments/${encodeURIComponent(item.slug)}`
-  if (item.kind === 'club') return `/clubs/${encodeURIComponent(item.slug)}`
-  return `/campus#notice-${encodeURIComponent(item.slug)}`
-}
-
-function apiPresentation(item: ApiSearchItem): Pick<SearchResult, 'typeLabel' | 'icon'> {
-  const presentation = searchTypePresentation[item.resultType]
-  return { typeLabel: presentation.label, icon: presentation.icon }
-}
-
-const activeQuery = computed(() => routeQuery(route.query.q).trim())
+const activeQuery = computed(() => routeQueryString(route.query.q).trim())
 const activeType = computed(() => routeSearchType(route.query.type))
 const searchInput = ref(activeQuery.value)
 let searchNavigationSequence = 0
@@ -122,22 +78,13 @@ const currentResponse = computed(() => (
     : null
 ))
 const searching = computed(() => searchStatus.value === 'pending')
-const searchError = computed(() => responseError.value
-  ? activeType.value && activeType.value !== 'place'
-    ? '动态搜索暂时不可用，请稍后重试。'
-    : '动态搜索暂时不可用；若有匹配，仍显示官网地图文字索引。'
-  : '')
-
-function searchRouteQuery(query: string, type?: PublicSearchResultType): Record<string, string> | undefined {
-  if (!query && !type) return undefined
-  return {
-    ...(query ? { q: query } : {}),
-    ...(type ? { type } : {})
-  }
-}
+const searchError = computed(() => buildSearchErrorMessage(
+  Boolean(responseError.value),
+  activeType.value
+))
 
 function routeMatches(query: string, type?: PublicSearchResultType): boolean {
-  return routeQuery(route.query.q).trim() === query && routeSearchType(route.query.type) === type
+  return routeQueryString(route.query.q).trim() === query && routeSearchType(route.query.type) === type
 }
 
 async function navigateSearch(query: string, type?: PublicSearchResultType): Promise<void> {
@@ -183,109 +130,30 @@ function retrySearch(): void {
   void refreshSearch()
 }
 
-const results = computed<SearchResult[]>(() => {
+const results = computed(() => {
   if (!activeQuery.value) return []
 
-  const apiItems = (currentResponse.value?.items ?? [])
-    .filter(item => !activeType.value || item.resultType === activeType.value)
-  const canUseStaticFallback = !searchError.value && Boolean(currentResponse.value)
-  const managedKinds = currentResponse.value?.managedKinds
-  const allowStaticGuides = canUseStaticFallback
-    && (managedKinds ? !managedKinds.includes('guide') : currentResponse.value?.hasManagedContent === false)
-  const allowStaticDepartments = canUseStaticFallback
-    && (managedKinds ? !managedKinds.includes('department') : currentResponse.value?.hasManagedContent === false)
-  const apiKeys = new Set(apiItems.map(item => `${item.entityType}:${item.kind ?? 'place'}:${item.slug}`))
-  const apiDepartmentNames = new Set(apiItems
-    .filter(item => item.entityType === 'content' && item.kind === 'department')
-    .map(item => normalize(item.title)))
-  const apiPlaceNames = new Set(apiItems
-    .filter(item => item.entityType === 'place')
-    .map(item => normalize(item.title)))
-  const dynamic = apiItems.map((item): SearchResult => ({
-    key: `api-${item.entityType}-${item.id}`,
-    resultType: item.resultType,
-    title: item.title,
-    summary: item.summary,
-    ...apiPresentation(item),
-    to: apiTarget(item),
-    sourceLabel: '后台已发布'
-  }))
-
-  const mapReferences = (activeType.value && activeType.value !== 'place'
-    ? []
-    : campusMapReferencePlaces)
-    .filter(place => ![place.name, ...(place.aliases ?? [])]
-      .some(name => apiPlaceNames.has(normalize(name))))
-    .filter(place => matches(activeQuery.value, [place.mapNumber, place.name, ...(place.aliases ?? [])]))
-    .map((place): SearchResult => ({
-      key: `map-reference-${place.id}`,
-      resultType: 'place',
-      title: place.name,
-      summary: `学校官网平面图编号 ${place.mapNumber}。当前仅作文字位置索引，坐标独立核验前不提供导航。`,
-      typeLabel: '地图索引',
-      icon: 'i-lucide-map-pinned',
-      to: `/map?q=${encodeURIComponent(activeQuery.value)}`,
-      sourceLabel: '官网平面图文字索引'
-    }))
-
-  const staticGuides = (allowStaticGuides
-    && (!activeType.value || activeType.value === 'guide')
-    ? freshmanGuides
-    : [])
-    .filter(guide => !apiKeys.has(`content:guide:${guide.slug}`))
-    .filter(guide => matches(activeQuery.value, [guide.title, guide.shortTitle, guide.summary, ...guide.audience]))
-    .map((guide): SearchResult => ({
-      key: `static-guide-${guide.slug}`,
-      resultType: 'guide',
-      title: guide.title,
-      summary: guide.summary,
-      typeLabel: '指南',
-      icon: guide.icon,
-      to: guide.slug === 'arrival'
-        ? '/procedures/arrival'
-        : `/guides/${encodeURIComponent(guide.slug)}`,
-      sourceLabel: '内置基础指南'
-    }))
-
-  const staticDepartments = (allowStaticDepartments
-    && (!activeType.value || activeType.value === 'department')
-    ? officialDepartments
-    : [])
-    .map((department, index) => ({ department, slug: `static-department-${index + 1}` }))
-    .filter(({ department }) => !apiDepartmentNames.has(normalize(department.name)))
-    .filter(({ department }) => matches(activeQuery.value, [department.name, department.summary]))
-    .map(({ department, slug }): SearchResult => ({
-      key: slug,
-      resultType: 'department',
-      title: department.name,
-      summary: department.summary,
-      typeLabel: '部门',
-      icon: 'i-lucide-landmark',
-      to: `/campus#department-${encodeURIComponent(slug)}`,
-      sourceLabel: '官网部门入口'
-    }))
-
-  return [...dynamic, ...mapReferences, ...staticGuides, ...staticDepartments]
+  return buildPublicSearchResults({
+    query: activeQuery.value,
+    activeType: activeType.value,
+    apiResponse: currentResponse.value,
+    hasSearchError: Boolean(searchError.value),
+    mapPlaces: staticMapPlaces.value,
+    mapAreas: staticMapAreas,
+    guides: freshmanGuides,
+    departments: officialDepartments
+  })
 })
 
-const groupedResults = computed(() => PUBLIC_SEARCH_RESULT_TYPES.flatMap((type) => {
-  const items = results.value.filter(result => result.resultType === type)
-  return items.length > 0
-    ? [{
-        type,
-        label: searchTypePresentation[type].label,
-        icon: searchTypePresentation[type].icon,
-        items
-      }]
-    : []
+const groupedResults = computed(() => groupPublicSearchResults(results.value))
+
+const searchAnnouncement = computed(() => buildSearchAnnouncement({
+  query: activeQuery.value,
+  searching: searching.value,
+  searchError: searchError.value,
+  resultCount: results.value.length,
+  groupCount: groupedResults.value.length
 }))
-
-const searchAnnouncement = computed(() => {
-  if (!activeQuery.value) return '请输入关键词开始搜索。'
-  if (searching.value) return `正在搜索“${activeQuery.value}”。`
-  if (searchError.value) return `动态搜索暂时不可用，当前显示 ${results.value.length} 项可用结果。`
-  return `搜索完成，当前显示 ${results.value.length} 项匹配结果，分为 ${groupedResults.value.length} 组。`
-})
 
 watch([activeQuery, activeType], ([query, type]) => {
   if (pendingSearchNavigations > 0
@@ -309,7 +177,7 @@ watch([activeQuery, activeType], ([query, type]) => {
           搜索地点、指南与校内服务
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          搜索结果会区分已发布内容与官网文字索引。没有完成坐标核验的地点不会显示导航入口。
+          可以搜地点、报到、校园网、部门和社团。点地图结果会直接定位；已导入的高德标点会使用原坐标显示，平面图地点会显示文字方位。
         </p>
 
         <div class="mt-6 max-w-3xl">
@@ -559,7 +427,7 @@ watch([activeQuery, activeType], ([query, type]) => {
             输入一个名称或问题关键词
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
-            当前为普通关键词搜索，不包含 AI 问答。
+            先输入地点、部门或事项关键词，例如“辽宁楼”“校园网”“报到”。
           </p>
         </div>
       </div>

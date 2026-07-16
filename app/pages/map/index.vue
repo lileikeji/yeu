@@ -1,21 +1,52 @@
 <script setup lang="ts">
-import type { GeoPoint, MapArea, MapPoi } from '~~/map/core/types'
+import type { MapArea, MapPoi } from '~~/map/core/types'
 import type {
   MapBaseStyle,
   MapDisplayOptions,
   MapLabelSize,
   MapProvider,
-  MapProviderId,
-  RouteSummary
+  MapProviderId
 } from '~~/map/core/provider'
 import { officialSources } from '~~/data/seeds/public-content'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
 import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
 import { amapImportedAreas } from '~~/data/seeds/amap-imported-areas'
-import { createRuntimeMapProvider } from '~~/map/providers/factory'
-import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import type { PublicMapPlace } from '~/utils/public-catalog'
-import { mergePublicMapPlaces, toMapPoi } from '~/utils/public-catalog'
+import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces, toMapPoi } from '~/utils/public-catalog'
+import { createNativeMapPlace } from '~/utils/map-native-search'
+import { mapQueryValue, mapRouteScope } from '~/utils/map-route-state'
+import {
+  buildMapPlaceDetailsTarget,
+  buildMapPlaceFeedbackTarget,
+  buildMapPoiLocationCopyText,
+  buildMapPoiUseChecklist,
+  filterMapAreasForMapSearch,
+  filterMapAreasForProviderScope,
+  filterOwnerMapPlacesInScope,
+  filterPublicMapPlacesByScope,
+  filterPublicMapPlacesForMapList,
+  findPublicMapPlaceByOfficialPlanNumber,
+  formatMapAreaSquareMeters,
+  formatMapPerimeter,
+  mapCategories,
+  mapCategoryIds,
+  resolveAutoSelectSearchDecision,
+  resolveInitialMapViewMode,
+  resolveMapCategoryIcon,
+  resolveMapCategoryLabel,
+  resolveMapDataLabel,
+  resolveMapFallbackMessage,
+  resolveMapPoiStatusText,
+  resolveMapUnsupportedBaseStyleMessage,
+  resolveMobileSheetHeightClass,
+  resolveOfficialPlanNumber,
+  resolveSelectedMapPoiId,
+  resolveSelectedPublicMapPlace,
+  toggleMapDisplayOption,
+  withMapLabelSize,
+  type MapDisplayToggleKey,
+  type MobileSheetState
+} from '~~/app/utils/map-presentation'
 import { safeLocalPath } from '~/utils/safe-navigation'
 
 useSeoMeta({
@@ -24,79 +55,40 @@ useSeoMeta({
   robots: 'noindex, nofollow'
 })
 
-interface MapCategory {
-  id: string
-  label: string
-  icon: string
-}
-
-const categories: MapCategory[] = [
-  { id: 'all', label: '全部', icon: 'i-lucide-layout-grid' },
-  { id: 'campus-building', label: '教学', icon: 'i-lucide-school' },
-  { id: 'dorm', label: '宿舍', icon: 'i-lucide-bed-single' },
-  { id: 'food', label: '餐饮', icon: 'i-lucide-utensils' },
-  { id: 'service', label: '服务', icon: 'i-lucide-landmark' },
-  { id: 'express', label: '快递', icon: 'i-lucide-package' },
-  { id: 'gate', label: '校门', icon: 'i-lucide-door-open' },
-  { id: 'nearby', label: '周边', icon: 'i-lucide-store' }
-]
-
-const categoryKeywords: Record<string, string> = {
-  'campus-building': '教学 建筑 校内',
-  'dorm': '宿舍 寝室 住宿 生活区',
-  'food': '食堂 餐厅 吃饭 餐饮',
-  'service': '服务 办事',
-  'express': '快递 驿站 取件 寄件 包裹',
-  'gate': '校门 入口 出入口',
-  'nearby': '周边 商铺 洗衣'
-}
-
-const poiKeywords: Record<string, string> = {
-  'preview-library': '借书 自习 阅读',
-  'preview-network-information-center': '校园网 网络认证 wifi 信息化',
-  'preview-new-campus-clinic': '看病 生病 医疗 药品',
-  'preview-old-campus-clinic': '看病 生病 医疗 药品',
-  'preview-yunda-express': '取件 寄件 包裹',
-  'preview-express-alliance-zto': '取件 寄件 包裹 中通'
-}
-
-function queryValue(value: unknown) {
-  if (typeof value === 'string') return value
-  if (Array.isArray(value) && typeof value[0] === 'string') return value[0]
-  return ''
-}
-
 const route = useRoute()
-const router = useRouter()
-const categoryIds = new Set(categories.map(category => category.id))
-const initialCategory = queryValue(route.query.category)
-const initialPlace = queryValue(route.query.place)
+const categories = mapCategories
+const categoryIds = mapCategoryIds
+const initialCategory = mapQueryValue(route.query.category)
+const initialPlace = mapQueryValue(route.query.place)
 const { data: publicPlaceResponse, error: publicPlaceError } = await usePublicPlaceList()
+const { data: amapOwnerDraftResponse } = await usePublicAmapOwnerDraftPlaces()
+const ownerMapSeeds = computed(() => mergeAmapImportedPlacesWithDrafts(
+  amapImportedPlaces,
+  amapOwnerDraftResponse.value?.items
+))
 const catalogPlaces = computed(() => mergePublicMapPlaces(
   campusMapReferencePlaces,
   publicPlaceResponse.value?.items ?? [],
-  amapImportedPlaces
+  ownerMapSeeds.value
 ))
-const nativeSessionPlaces = ref<PublicMapPlace[]>([])
-const nativeSearchLoading = ref(false)
-const places = computed(() => [...catalogPlaces.value, ...nativeSessionPlaces.value])
-const activeScope = computed<'campus' | 'nearby' | null>(() => {
-  const scope = queryValue(route.query.scope)
-  return scope === 'campus' || scope === 'nearby' ? scope : null
-})
-const publishedPlacesInScope = computed(() => (publicPlaceResponse.value?.items ?? [])
-  .filter(place => !activeScope.value || place.scope === activeScope.value))
-const ownerMapPlacesInScope = computed(() => places.value.filter(place => (
-  place.coordinateVerification === 'owner-map-only'
-  && (!activeScope.value || place.scope === activeScope.value)
-)))
+const places = computed(() => catalogPlaces.value)
+const activeScope = computed(() => mapRouteScope(route.query))
+const publishedPlacesInScope = computed(() => filterPublicMapPlacesByScope(
+  publicPlaceResponse.value?.items ?? [],
+  activeScope.value
+))
+const ownerMapPlacesInScope = computed(() => filterOwnerMapPlacesInScope(
+  places.value,
+  activeScope.value
+))
 const canShowOfficialPlan = computed(() => activeScope.value !== 'nearby')
 const mapViewMode = ref<'geographic' | 'official-plan'>(
-  activeScope.value === 'nearby' || publishedPlacesInScope.value.length || ownerMapPlacesInScope.value.length
-    ? 'geographic'
-    : 'official-plan'
+  resolveInitialMapViewMode({
+    activeScope: activeScope.value,
+    publishedCount: publishedPlacesInScope.value.length,
+    ownerMapCount: ownerMapPlacesInScope.value.length
+  })
 )
-type MobileSheetState = 'collapsed' | 'half' | 'expanded'
 const mobileSheetState = ref<MobileSheetState>('half')
 const sidebarCollapsed = ref(false)
 const displaySettingsOpen = ref(false)
@@ -108,260 +100,178 @@ const mapDisplayOptions = ref<MapDisplayOptions>({
   autoCluster: true,
   labelSize: 'medium'
 })
-const labelSizeOptions: Array<{ value: MapLabelSize, label: string }> = [
-  { value: 'large', label: '大' },
-  { value: 'medium', label: '中' },
-  { value: 'small', label: '小' },
-  { value: 'extra-small', label: '极小' }
-]
-const mapBaseStyleOptions: Array<{ value: MapBaseStyle, label: string, icon: string }> = [
-  { value: 'standard', label: '标准地图', icon: 'i-lucide-map' },
-  { value: 'satellite', label: '卫星地图', icon: 'i-lucide-satellite' }
-]
-type DisplayToggleKey = 'showPois' | 'showAreas' | 'showLabels' | 'autoCluster'
-const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: string }> = [
-  { key: 'showPois', label: '标记点', icon: 'i-lucide-map-pin' },
-  { key: 'showAreas', label: '绘图层', icon: 'i-lucide-pentagon' },
-  { key: 'showLabels', label: '显示名称', icon: 'i-lucide-type' },
-  { key: 'autoCluster', label: '自动聚合', icon: 'i-lucide-orbit' }
-]
-const mobileSheetHeightClass = computed(() => ({
-  collapsed: 'h-20',
-  half: 'h-[44%]',
-  expanded: 'h-[calc(100%_-_0.75rem)]'
-})[mobileSheetState.value])
-const mapDataLabel = computed(() => {
-  if (publishedPlacesInScope.value.length) return '已发布目录'
-  if (ownerMapPlacesInScope.value.length) return 'WIA 工作地图标点'
-  if (publicPlaceError.value) return '静态目录'
-  if (activeScope.value === 'nearby') return '周边待核验'
-  return '官网平面图索引'
-})
-const mapFallbackMessage = computed(() => {
-  if (ownerMapPlacesInScope.value.length) {
-    return '当前 76 个标点与 8 个不规则区域边界来自用户授权的 WIA 工作地图，并直接使用高德原始 GCJ-02 坐标显示；区域仅绘制边界线，内部高德商铺仍可点击和搜索。标点尚未独立现场核验，实际入口请现场确认。'
-  }
-  if (publicPlaceError.value) return '公开地点暂时不可用，当前显示内置文字目录，不绘制候选坐标。'
-  if (activeScope.value === 'nearby' && !publishedPlacesInScope.value.length) {
-    return '暂无完成位置、来源和营业状态核验的周边地点，因此不显示候选商铺或近似坐标。'
-  }
-  if (!publishedPlacesInScope.value.length) return '后台暂无已发布坐标，可使用学校官网平面图对照 47 项校内地点；原图没有地理控制点，不用于导航。'
-  return null
-})
+const mobileSheetHeightClass = computed(() => resolveMobileSheetHeightClass(mobileSheetState.value))
+const mapDataLabel = computed(() => resolveMapDataLabel({
+  publishedCount: publishedPlacesInScope.value.length,
+  ownerMapCount: ownerMapPlacesInScope.value.length,
+  hasPublicPlaceError: Boolean(publicPlaceError.value),
+  activeScope: activeScope.value
+}))
+const mapFallbackMessage = computed(() => resolveMapFallbackMessage({
+  ownerMapCount: ownerMapPlacesInScope.value.length,
+  hasPublicPlaceError: Boolean(publicPlaceError.value),
+  activeScope: activeScope.value,
+  publishedCount: publishedPlacesInScope.value.length
+}))
 
 const mapElement = ref<HTMLElement | null>(null)
 const mapProvider = shallowRef<MapProvider | null>(null)
 const activeMapProviderId = ref<MapProviderId | null>(null)
 const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const mapErrorMessage = ref('地图暂时无法加载，请检查网络和地图配置后重试。')
-const searchQuery = ref(queryValue(route.query.q))
+const searchQuery = ref(mapQueryValue(route.query.q))
 const activeCategory = ref(categoryIds.has(initialCategory) ? initialCategory : 'all')
 const initialSelectedPoi = places.value.find(poi => poi.slug === initialPlace || poi.id === initialPlace)
 const selectedPoiId = ref<string | null>(initialSelectedPoi?.id ?? null)
 const selectedArea = ref<MapArea | null>(null)
-const locating = ref(false)
-const routePlanning = ref(false)
-const routeSummary = ref<RouteSummary | null>(null)
-const routeDestinationName = ref('')
+const selectedAreaId = computed(() => selectedArea.value?.id ?? null)
+const selectedNativePlace = ref<PublicMapPlace | null>(null)
 const toast = useToast()
+const {
+  locating,
+  routePlanning,
+  routeSummary,
+  routeDestinationName,
+  routeSummaryText,
+  locateUser,
+  startWalkingRoute,
+  clearWalkingRoute
+} = useMapGeolocation({
+  mapProvider,
+  activeMapProviderId,
+  notify: notice => toast.add(notice)
+})
+const {
+  nativeSearchResults,
+  nativeSearchLoading,
+  queueNativeSearch,
+  cancelNativeSearch
+} = useMapNativeSearch({
+  mapProvider,
+  mapViewMode,
+  activeScope,
+  searchQuery,
+  catalogPlaces,
+  onResultsReady: autoSelectSearchResult
+})
 const { copyText, isWechat } = useShareActions()
 const poiRowElements = new Map<string, HTMLElement>()
-let routeSyncTimer: ReturnType<typeof setTimeout> | null = null
-let nativeSearchTimer: ReturnType<typeof setTimeout> | null = null
-let nativeSearchVersion = 0
-let applyingRouteState = false
+let lastAutoLocatedSearchKey = ''
 
-function nativePublicPlace(poi: MapPoi): PublicMapPlace {
-  const navigation = new URL('https://uri.amap.com/marker')
-  navigation.searchParams.set('position', `${poi.point.lng},${poi.point.lat}`)
-  navigation.searchParams.set('name', poi.name)
-  navigation.searchParams.set('coordinate', 'gaode')
-  navigation.searchParams.set('callnative', '0')
-  return {
-    id: poi.id,
-    slug: null,
-    name: poi.name,
-    scope: activeScope.value ?? 'nearby',
-    category: poi.category,
-    summary: '高德底图在当前地图视野内返回的地点，仅在本次页面会话中显示。',
-    address: poi.address ?? null,
-    campusArea: null,
-    openingHours: null,
-    phone: null,
-    point: poi.point,
-    pointIsVerified: false,
-    usesPreviewPoint: false,
-    referenceLabel: '高德底图地点 · 本次搜索',
-    officialPlanNumber: null,
-    coordinateVerification: 'native-map-session',
-    coordinateSystem: 'GCJ-02',
-    navigationUrl: navigation.toString(),
-    isApiPublished: false,
-    searchText: [poi.name, poi.address, '高德 原生 商家 当前地图'].filter(Boolean).join(' ')
-  }
-}
-
-function upsertNativePlace(poi: MapPoi): PublicMapPlace {
-  const view = nativePublicPlace(poi)
-  const existingIndex = nativeSessionPlaces.value.findIndex(place => place.id === view.id)
-  if (existingIndex >= 0) nativeSessionPlaces.value.splice(existingIndex, 1, view)
-  else nativeSessionPlaces.value.push(view)
-  return view
-}
-
-async function searchNativePlaces(): Promise<void> {
-  const query = searchQuery.value.trim()
-  const provider = mapProvider.value
-  const version = ++nativeSearchVersion
-  if (!query || provider?.id !== 'amap' || mapViewMode.value !== 'geographic') {
-    nativeSessionPlaces.value = []
-    nativeSearchLoading.value = false
-    return
-  }
-
-  nativeSearchLoading.value = true
-  const results = await provider.searchVisiblePois(query)
-  if (version !== nativeSearchVersion || query !== searchQuery.value.trim()) return
-  const catalogNames = new Set(catalogPlaces.value.map(place => place.name.trim().toLocaleLowerCase('zh-CN')))
-  nativeSessionPlaces.value = results
-    .filter(poi => !catalogNames.has(poi.name.trim().toLocaleLowerCase('zh-CN')))
-    .map(nativePublicPlace)
-  nativeSearchLoading.value = false
-}
-
-function queueNativeSearch(): void {
-  if (nativeSearchTimer) clearTimeout(nativeSearchTimer)
-  nativeSearchTimer = setTimeout(() => void searchNativePlaces(), 320)
-}
-
-const filteredPois = computed(() => {
-  const normalizedQuery = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
-
-  return places.value.filter((poi) => {
-    const matchesScope = !activeScope.value || poi.scope === activeScope.value
-    const matchesCategory = activeCategory.value === 'all' || poi.category === activeCategory.value
-    const searchText = [
-      poi.name,
-      poi.searchText,
-      categoryKeywords[poi.category] ?? '',
-      poiKeywords[poi.id] ?? ''
-    ].join(' ').toLocaleLowerCase('zh-CN')
-    const matchesQuery = !normalizedQuery || searchText.includes(normalizedQuery)
-    return matchesScope && matchesCategory && matchesQuery
-  })
-})
+const filteredPois = computed(() => filterPublicMapPlacesForMapList(places.value, {
+  query: searchQuery.value,
+  activeScope: activeScope.value,
+  activeCategory: activeCategory.value
+}))
 
 const filteredMapPois = computed<MapPoi[]>(() => filteredPois.value.flatMap((place) => {
   const poi = toMapPoi(place)
   return poi ? [poi] : []
 }))
+const filteredAreas = computed(() => filterMapAreasForMapSearch(amapImportedAreas, {
+  query: searchQuery.value,
+  activeScope: activeScope.value
+}))
+const providerAreas = computed(() => filterMapAreasForProviderScope(amapImportedAreas, activeScope.value))
+const selectedMapPoiId = computed(() => resolveSelectedMapPoiId(filteredMapPois.value, selectedPoiId.value))
 
-const selectedPoi = computed(() => (
-  places.value.find(poi => poi.id === selectedPoiId.value) ?? null
-))
+const selectedPoi = computed(() => resolveSelectedPublicMapPlace({
+  places: places.value,
+  selectedNativePlace: selectedNativePlace.value,
+  nativeSearchResults: nativeSearchResults.value,
+  selectedPoiId: selectedPoiId.value
+}))
 const returnPath = computed(() => safeLocalPath(route.query.from))
 
-function placeRouteValue(poi: PublicMapPlace) {
-  return poi.slug ?? poi.id
-}
-
 function placeDetailsTarget(poi: PublicMapPlace) {
-  if (!poi.isApiPublished || !poi.slug) return undefined
-  return {
-    path: `/places/${poi.slug}`,
-    query: { from: returnPath.value ?? route.fullPath }
-  }
+  return buildMapPlaceDetailsTarget(poi, returnPath.value ?? route.fullPath)
 }
 
 function placeFeedbackTarget(poi: PublicMapPlace) {
-  if (!poi.isApiPublished) return undefined
-  return buildDetailFeedbackLink({
-    targetType: 'place',
-    targetId: poi.id,
-    targetName: poi.name,
-    reasonType: 'place_error',
-    from: route.fullPath
-  })
+  return buildMapPlaceFeedbackTarget(poi, route.fullPath)
 }
 
 function copyPoiLocation(poi: PublicMapPlace): void {
-  const text = [
-    poi.name,
-    poi.referenceLabel,
-    poi.campusArea,
-    poi.address
-  ].filter((value): value is string => Boolean(value)).join(' · ')
-  void copyText(text, '地点信息')
+  void copyText(buildMapPoiLocationCopyText(poi), '地点信息')
 }
 
 function categoryLabel(categoryId: string) {
-  return categories.find(category => category.id === categoryId)?.label ?? '地点'
+  return resolveMapCategoryLabel(categoryId)
 }
 
 function categoryIcon(categoryId: string) {
-  return categories.find(category => category.id === categoryId)?.icon ?? 'i-lucide-map-pin'
+  return resolveMapCategoryIcon(categoryId)
 }
 
 function poiStatusText(poi: PublicMapPlace) {
-  if (poi.pointIsVerified) return 'WGS84 坐标已核验'
-  if (poi.coordinateVerification === 'owner-map-only') return 'WIA 工作地图坐标 · 未独立核验'
-  if (poi.coordinateVerification === 'native-map-session') return '高德底图地点 · 当前视野临时索引'
-  if (poi.coordinateVerification === 'verified' && poi.coordinateSystem) {
-    return `${poi.coordinateSystem} 坐标已核验 · 当前底图不兼容`
-  }
-  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '官网平面图索引'} · 不绘制标点`
-  return '地点已发布 · 坐标暂不显示'
+  return resolveMapPoiStatusText(poi)
+}
+
+function poiUseChecklist(poi: PublicMapPlace): string[] {
+  return buildMapPoiUseChecklist(poi)
 }
 
 function handlePoiSelected(poi: MapPoi | null) {
-  if (poi) selectedArea.value = null
-  const selected = poi?.source === 'amap-native' ? upsertNativePlace(poi) : null
-  selectedPoiId.value = selected?.id ?? poi?.id ?? null
+  if (poi) {
+    selectedArea.value = null
+    mapProvider.value?.setSelectedArea(null)
+  }
+  const selected = poi?.source === 'amap-native'
+    ? createNativeMapPlace(poi, activeScope.value)
+    : null
+  selectedNativePlace.value = selected
+  selectedPoiId.value = poi?.source === 'amap-native'
+    ? selected?.id ?? null
+    : poi?.id ?? null
   mapProvider.value?.setSelectedPoi(selectedPoiId.value)
 
-  if (poi) {
-    sidebarCollapsed.value = false
-    void nextTick(() => poiRowElements.get(poi.id)?.scrollIntoView({ block: 'nearest' }))
+  if (poi && selectedPoiId.value) {
+    if (poi.source !== 'amap-native') {
+      sidebarCollapsed.value = false
+      void nextTick(() => poiRowElements.get(selectedPoiId.value!)?.scrollIntoView({ block: 'nearest' }))
+    }
   }
 }
 
 function handleAreaSelected(area: MapArea | null): void {
   selectedArea.value = area
+  mapProvider.value?.setSelectedArea(area?.id ?? null)
   if (area) {
     selectedPoiId.value = null
     mapProvider.value?.setSelectedPoi(null)
   }
 }
 
-function toggleDisplayOption(option: DisplayToggleKey): void {
-  mapDisplayOptions.value = {
-    ...mapDisplayOptions.value,
-    [option]: !mapDisplayOptions.value[option]
-  }
+function selectArea(area: MapArea): void {
+  selectedPoiId.value = null
+  selectedNativePlace.value = null
+  selectedArea.value = area
+  mapProvider.value?.setSelectedPoi(null)
+  mapProvider.value?.setSelectedArea(area.id)
+}
+
+function toggleDisplayOption(option: MapDisplayToggleKey): void {
+  mapDisplayOptions.value = toggleMapDisplayOption(mapDisplayOptions.value, option)
 }
 
 function setLabelSize(size: MapLabelSize): void {
-  mapDisplayOptions.value = { ...mapDisplayOptions.value, labelSize: size }
+  mapDisplayOptions.value = withMapLabelSize(mapDisplayOptions.value, size)
 }
 
 function setMapBaseStyle(style: MapBaseStyle): void {
   if (!mapProvider.value?.setBaseStyle(style)) {
-    toast.add({ title: '当前地图不支持该图层', color: 'warning' })
+    toast.add({ title: resolveMapUnsupportedBaseStyleMessage(), color: 'warning' })
     return
   }
   mapBaseStyle.value = style
 }
 
 function formatAreaSquareMeters(value: number | null): string {
-  if (value === null) return '暂无数据'
-  return value >= 10_000
-    ? `${(value / 10_000).toFixed(2)} 公顷（${value.toLocaleString('zh-CN')} 平方米）`
-    : `${value.toLocaleString('zh-CN')} 平方米`
+  return formatMapAreaSquareMeters(value)
 }
 
 function formatPerimeter(value: number | null): string {
-  if (value === null) return '暂无数据'
-  return value >= 1000 ? `${(value / 1000).toFixed(2)} 公里` : `${value.toLocaleString('zh-CN')} 米`
+  return formatMapPerimeter(value)
 }
 
 function setPoiRowElement(id: string, element: unknown) {
@@ -377,25 +287,56 @@ function poiRowRef(id: string) {
   return (element: unknown) => setPoiRowElement(id, element)
 }
 
-function hasMapError() {
-  return mapStatus.value === 'error'
-}
-
 function selectPoi(poi: PublicMapPlace) {
   selectedArea.value = null
+  mapProvider.value?.setSelectedArea(null)
+  selectedNativePlace.value = poi.coordinateVerification === 'native-map-session' ? poi : null
   selectedPoiId.value = poi.id
   if (mobileSheetState.value === 'collapsed') mobileSheetState.value = 'half'
   if (poi.usesPreviewPoint && canShowOfficialPlan.value) mapViewMode.value = 'official-plan'
   mapProvider.value?.setSelectedPoi(poi.point ? poi.id : null)
-  if (poi.point) mapProvider.value?.flyToPoi(poi.id)
+  if (poi.point) {
+    if (poi.coordinateVerification === 'native-map-session') mapProvider.value?.flyToPoint(poi.point, 18)
+    else mapProvider.value?.flyToPoi(poi.id)
+  }
 }
 
+function autoSelectSearchResult(): void {
+  const decision = resolveAutoSelectSearchDecision({
+    query: searchQuery.value,
+    activeCategory: activeCategory.value,
+    lastAutoLocatedSearchKey,
+    visiblePois: filteredPois.value,
+    visibleAreas: filteredAreas.value,
+    selectedAreaId: selectedAreaId.value,
+    selectedPoiId: selectedPoiId.value,
+    nativeSearchResults: nativeSearchResults.value
+  })
+
+  if (decision.action === 'clear-key') {
+    lastAutoLocatedSearchKey = ''
+    return
+  }
+  if (decision.action === 'noop') return
+
+  lastAutoLocatedSearchKey = decision.autoKey
+  sidebarCollapsed.value = false
+  if (decision.action === 'select-poi') {
+    selectPoi(decision.target)
+    if (decision.target.coordinateVerification !== 'native-map-session') {
+      void nextTick(() => poiRowElements.get(decision.target.id)?.scrollIntoView({ block: 'nearest' }))
+    }
+    return
+  }
+
+  selectArea(decision.targetArea)
+}
 function selectedOfficialPlanNumber(poi: PublicMapPlace | null): string | null {
-  return poi?.officialPlanNumber ?? null
+  return resolveOfficialPlanNumber(poi)
 }
 
 function selectOfficialPlanNumber(mapNumber: string): void {
-  const poi = places.value.find(place => place.officialPlanNumber === mapNumber)
+  const poi = findPublicMapPlaceByOfficialPlanNumber(places.value, mapNumber)
   if (!poi) return
   searchQuery.value = ''
   activeCategory.value = 'all'
@@ -405,11 +346,13 @@ function selectOfficialPlanNumber(mapNumber: string): void {
 
 function closePoiDetails() {
   selectedPoiId.value = null
+  selectedNativePlace.value = null
   mapProvider.value?.setSelectedPoi(null)
 }
 
 function closeAreaDetails(): void {
   selectedArea.value = null
+  mapProvider.value?.setSelectedArea(null)
 }
 
 function setCategory(categoryId: string) {
@@ -423,222 +366,59 @@ function fitToVisiblePois() {
   mapProvider.value?.fitToPois()
 }
 
-function locateUser() {
-  if (!navigator.geolocation) {
-    toast.add({ title: '当前浏览器不支持定位', color: 'warning' })
-    return
-  }
-
-  locating.value = true
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const point: GeoPoint = {
-        lng: position.coords.longitude,
-        lat: position.coords.latitude,
-        crs: 'WGS84'
-      }
-
-      mapProvider.value?.flyToPoint(point, 17)
-      locating.value = false
-    },
-    () => {
-      locating.value = false
-      toast.add({ title: '未能获取位置', description: '请检查浏览器定位权限。', color: 'warning' })
-    },
-    { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
-  )
-}
-
-function routeSummaryText(summary: RouteSummary): string {
-  const distance = summary.distanceMeters >= 1000
-    ? `${(summary.distanceMeters / 1000).toFixed(1)} 公里`
-    : `${Math.round(summary.distanceMeters)} 米`
-  const minutes = Math.max(1, Math.ceil(summary.durationSeconds / 60))
-  return `约 ${distance} · ${minutes} 分钟`
-}
-
-function clearWalkingRoute(): void {
-  mapProvider.value?.clearRoute()
-  routeSummary.value = null
-  routeDestinationName.value = ''
-}
-
-function startWalkingRoute(poi: PublicMapPlace): void {
-  if (!poi.point) {
-    toast.add({ title: '该地点暂无可用坐标', color: 'warning' })
-    return
-  }
-  if (activeMapProviderId.value !== 'amap') {
-    toast.add({ title: '网页内路线仅支持高德地图', color: 'warning' })
-    return
-  }
-  if (!navigator.geolocation) {
-    toast.add({ title: '当前浏览器不支持定位', color: 'warning' })
-    return
-  }
-
-  routePlanning.value = true
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      try {
-        const origin: GeoPoint = {
-          lng: position.coords.longitude,
-          lat: position.coords.latitude,
-          crs: 'WGS84'
-        }
-        const summary = await mapProvider.value?.planWalkingRoute(origin, poi.point!)
-        if (!summary) throw new Error('地图路线组件尚未就绪。')
-        routeSummary.value = summary
-        routeDestinationName.value = poi.name
-      } catch (error) {
-        clearWalkingRoute()
-        toast.add({
-          title: '路线规划失败',
-          description: error instanceof Error ? error.message : '请稍后重试。',
-          color: 'warning'
-        })
-      } finally {
-        routePlanning.value = false
-      }
-    },
-    () => {
-      routePlanning.value = false
-      toast.add({ title: '未能获取当前位置', description: '请检查浏览器定位权限。', color: 'warning' })
-    },
-    { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 }
-  )
-}
-
-async function mountMap() {
-  if (!mapElement.value) return
-
-  clearWalkingRoute()
-  mapStatus.value = 'loading'
-  mapErrorMessage.value = '地图暂时无法加载，请检查网络和地图配置后重试。'
-  mapProvider.value?.destroy()
-  mapProvider.value = null
-  activeMapProviderId.value = null
-
-  try {
-    const provider = await createRuntimeMapProvider()
-    mapProvider.value = provider
-    activeMapProviderId.value = provider.id
-    provider.onPoiSelect(handlePoiSelected)
-    provider.onAreaSelect(handleAreaSelected)
-    provider.onError((error) => {
-      if (mapProvider.value !== provider) return
-      mapErrorMessage.value = error.message
-      mapStatus.value = 'error'
-    })
-    await provider.mount(mapElement.value, { zoom: 15 })
-    provider.setDisplayOptions(mapDisplayOptions.value)
-    provider.setBaseStyle(mapBaseStyle.value)
-    provider.setAreas(activeScope.value === 'nearby' ? [] : amapImportedAreas)
-    provider.setPois(filteredMapPois.value)
-
-    const selectedPlace = filteredPois.value.find(poi => poi.id === selectedPoiId.value)
-    if (selectedPlace?.point) {
-      provider.setSelectedPoi(selectedPlace.id)
-      provider.flyToPoi(selectedPlace.id)
-    } else {
-      if (!selectedPlace) selectedPoiId.value = null
-      provider.fitToPois()
-    }
-
-    if (!hasMapError()) mapStatus.value = 'ready'
-    queueNativeSearch()
-  } catch (error) {
-    mapErrorMessage.value = error instanceof Error
-      ? error.message
-      : '地图暂时无法加载，请检查网络和地图配置后重试。'
-    mapStatus.value = 'error'
-  }
-}
-
-watch(filteredMapPois, (pois) => {
-  mapProvider.value?.setPois(pois)
+watch(searchQuery, () => {
+  lastAutoLocatedSearchKey = ''
+  selectedNativePlace.value = null
+  queueNativeSearch()
 })
-
-watch(mapDisplayOptions, options => mapProvider.value?.setDisplayOptions(options), { deep: true })
-watch(searchQuery, queueNativeSearch)
 watch(mapViewMode, queueNativeSearch)
-
-watch(activeScope, (scope) => {
-  mapProvider.value?.setAreas(scope === 'nearby' ? [] : amapImportedAreas)
+const { mountMap } = useMapProviderLifecycle({
+  mapElement,
+  mapProvider,
+  activeMapProviderId,
+  mapStatus,
+  mapErrorMessage,
+  displayOptions: mapDisplayOptions,
+  baseStyle: mapBaseStyle,
+  areas: providerAreas,
+  pois: filteredMapPois,
+  selectedPoiId: selectedMapPoiId,
+  selectedAreaId,
+  resizeSignal: sidebarCollapsed,
+  onPoiSelected: handlePoiSelected,
+  onAreaSelected: handleAreaSelected,
+  beforeMount: clearWalkingRoute,
+  onReady: queueNativeSearch
 })
 
 watch(filteredPois, (pois) => {
-  if (selectedPoiId.value && !pois.some(poi => poi.id === selectedPoiId.value)) {
+  const selectedIsNative = nativeSearchResults.value.some(poi => poi.id === selectedPoiId.value)
+  const selectedIsNativeDetail = selectedNativePlace.value?.id === selectedPoiId.value
+  if (selectedPoiId.value && !selectedIsNative && !selectedIsNativeDetail && !pois.some(poi => poi.id === selectedPoiId.value)) {
     closePoiDetails()
   }
+  autoSelectSearchResult()
+}, { immediate: true })
+
+const { cancelMapRouteSync } = useMapRouteSync({
+  categoryIds,
+  places,
+  areas: amapImportedAreas,
+  filteredPois,
+  mapProvider,
+  mapViewMode,
+  searchQuery,
+  activeCategory,
+  selectedPoiId,
+  selectedArea,
+  selectedAreaId,
+  scrollToPoi: id => poiRowElements.get(id)?.scrollIntoView({ block: 'nearest' })
 })
-
-watch([searchQuery, activeCategory, selectedPoiId], () => {
-  if (applyingRouteState) return
-  if (routeSyncTimer) clearTimeout(routeSyncTimer)
-
-  routeSyncTimer = setTimeout(() => {
-    const query = { ...route.query }
-
-    if (searchQuery.value.trim()) query.q = searchQuery.value.trim()
-    else delete query.q
-
-    if (activeCategory.value !== 'all') query.category = activeCategory.value
-    else delete query.category
-
-    const selected = places.value.find(poi => poi.id === selectedPoiId.value)
-    if (selected) query.place = placeRouteValue(selected)
-    else delete query.place
-
-    void router.replace({ query })
-  }, 180)
-})
-
-watch(() => route.query, async (query, previousQuery) => {
-  const filtersChanged = queryValue(query.q) !== queryValue(previousQuery?.q)
-    || queryValue(query.category) !== queryValue(previousQuery?.category)
-    || queryValue(query.scope) !== queryValue(previousQuery?.scope)
-
-  applyingRouteState = true
-  if (queryValue(query.scope) === 'nearby') mapViewMode.value = 'geographic'
-  searchQuery.value = queryValue(query.q)
-
-  const category = queryValue(query.category)
-  activeCategory.value = categoryIds.has(category) ? category : 'all'
-
-  const place = queryValue(query.place)
-  const nextSelectedId = places.value.find(poi => poi.slug === place || poi.id === place)?.id ?? null
-  selectedPoiId.value = nextSelectedId
-
-  await nextTick()
-
-  const nextSelected = places.value.find(poi => poi.id === selectedPoiId.value)
-  const selectionIsVisible = Boolean(nextSelected && filteredPois.value.some(poi => poi.id === nextSelected.id))
-  mapProvider.value?.setSelectedPoi(selectionIsVisible && nextSelected?.point ? nextSelected.id : null)
-
-  if (filtersChanged || !selectionIsVisible || !nextSelected?.point) {
-    mapProvider.value?.fitToPois()
-  } else {
-    mapProvider.value?.flyToPoi(nextSelected.id)
-  }
-
-  if (selectionIsVisible && nextSelected) {
-    poiRowElements.get(nextSelected.id)?.scrollIntoView({ block: 'nearest' })
-  }
-
-  applyingRouteState = false
-}, { deep: true })
-
-onMounted(mountMap)
 
 onBeforeUnmount(() => {
-  if (routeSyncTimer) clearTimeout(routeSyncTimer)
-  if (nativeSearchTimer) clearTimeout(nativeSearchTimer)
-  ++nativeSearchVersion
-  mapProvider.value?.destroy()
-  mapProvider.value = null
-  routeSummary.value = null
-  routeDestinationName.value = ''
+  cancelMapRouteSync()
+  cancelNativeSearch()
+  clearWalkingRoute()
 })
 </script>
 
@@ -648,7 +428,7 @@ onBeforeUnmount(() => {
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
-      class="absolute inset-x-0 bottom-0 z-20 flex min-h-0 min-w-0 flex-col rounded-t-md border-t border-[var(--line)] bg-white shadow-[0_-6px_24px_rgb(0_0_0/12%)] transition-[height] duration-200 md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md border-t border-[var(--line)] bg-white shadow-[0_-6px_24px_rgb(0_0_0/12%)] transition-[height] duration-200 md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :class="[
         mobileSheetHeightClass,
         selectedPoi && mobileSheetState !== 'collapsed' ? 'overflow-y-auto' : 'overflow-hidden',
@@ -675,7 +455,7 @@ onBeforeUnmount(() => {
               class="size-9"
               aria-label="收起地点面板"
               :aria-pressed="mobileSheetState === 'collapsed'"
-              @click="mobileSheetState = 'collapsed'"
+              @click="() => { mobileSheetState = 'collapsed' }"
             />
           </UTooltip>
           <UTooltip text="半屏显示地点面板">
@@ -686,7 +466,7 @@ onBeforeUnmount(() => {
               class="size-9"
               aria-label="半屏显示地点面板"
               :aria-pressed="mobileSheetState === 'half'"
-              @click="mobileSheetState = 'half'"
+              @click="() => { mobileSheetState = 'half' }"
             />
           </UTooltip>
           <UTooltip text="展开地点面板">
@@ -697,7 +477,7 @@ onBeforeUnmount(() => {
               class="size-9"
               aria-label="展开地点面板"
               :aria-pressed="mobileSheetState === 'expanded'"
-              @click="mobileSheetState = 'expanded'"
+              @click="() => { mobileSheetState = 'expanded' }"
             />
           </UTooltip>
         </div>
@@ -732,7 +512,7 @@ onBeforeUnmount(() => {
                 size="xs"
                 class="hidden md:inline-flex"
                 aria-label="收起地点栏"
-                @click="sidebarCollapsed = true"
+                @click="() => { sidebarCollapsed = true }"
               />
             </UTooltip>
           </div>
@@ -755,7 +535,7 @@ onBeforeUnmount(() => {
               variant="ghost"
               size="xs"
               aria-label="清空搜索"
-              @click="searchQuery = ''"
+              @click="() => { searchQuery = '' }"
             />
           </template>
         </UInput>
@@ -792,111 +572,33 @@ onBeforeUnmount(() => {
         >
           正在搜索当前地图视野中的高德地点…
         </p>
+        <p
+          v-else-if="searchQuery.trim() && nativeSearchResults.length"
+          class="mt-2 text-xs leading-5 text-zinc-500"
+          role="status"
+        >
+          已在高德底图中找到 {{ nativeSearchResults.length }} 个临时地点；会自动定位到最相关地点，但不会加入左侧地点列表。
+        </p>
       </div>
 
-      <section
+      <MapPlaceDetailsPanel
         v-if="selectedPoi && mobileSheetState !== 'collapsed'"
-        class="shrink-0 border-b border-[var(--line)] p-4 md:hidden"
-        aria-live="polite"
-      >
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 text-xs font-medium text-green-700">
-              <UIcon
-                :name="categoryIcon(selectedPoi.category)"
-                class="size-4"
-              />
-              <span>{{ categoryLabel(selectedPoi.category) }}</span>
-            </div>
-            <h2 class="mt-1 truncate font-bold text-zinc-950">
-              {{ selectedPoi.name }}
-            </h2>
-          </div>
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            class="size-11"
-            aria-label="关闭地点详情"
-            @click="closePoiDetails"
-          />
-        </div>
-        <p class="mt-2 text-xs leading-5 text-zinc-600">
-          {{ selectedPoi.summary }}
-        </p>
-        <p
-          v-if="selectedPoi.address"
-          class="mt-1 text-xs leading-5 text-zinc-500"
-        >
-          {{ selectedPoi.address }}
-        </p>
-        <div class="mt-3 border-t border-zinc-100 pt-3">
-          <span
-            class="text-xs"
-            :class="selectedPoi.pointIsVerified ? 'text-green-700' : 'text-orange-700'"
-          >{{ poiStatusText(selectedPoi) }}</span>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <UButton
-              v-if="placeDetailsTarget(selectedPoi)"
-              :to="placeDetailsTarget(selectedPoi)"
-              icon="i-lucide-info"
-              label="详情"
-              size="sm"
-            />
-            <UButton
-              v-if="placeFeedbackTarget(selectedPoi)"
-              :to="placeFeedbackTarget(selectedPoi)"
-              icon="i-lucide-message-square-warning"
-              label="纠错"
-              color="neutral"
-              variant="outline"
-              size="sm"
-            />
-            <UButton
-              icon="i-lucide-copy"
-              label="复制位置"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              @click="copyPoiLocation(selectedPoi)"
-            />
-            <UButton
-              icon="i-lucide-route"
-              label="地图内路线"
-              color="primary"
-              variant="soft"
-              size="sm"
-              :loading="routePlanning"
-              :disabled="activeMapProviderId !== 'amap' || !selectedPoi.point"
-              @click="startWalkingRoute(selectedPoi)"
-            />
-            <UButton
-              :to="selectedPoi.navigationUrl ?? undefined"
-              :target="selectedPoi.navigationUrl ? '_blank' : undefined"
-              icon="i-lucide-navigation"
-              label="高德导航"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              :disabled="!selectedPoi.navigationUrl"
-            />
-            <span
-              v-if="isWechat && selectedPoi.navigationUrl"
-              class="w-full text-xs leading-5 text-zinc-500"
-            >微信内未唤起地图时，可复制位置后搜索。</span>
-            <UButton
-              v-if="returnPath"
-              :to="returnPath"
-              icon="i-lucide-undo-2"
-              label="返回来源"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-            />
-          </div>
-        </div>
-      </section>
+        variant="mobile"
+        :place="selectedPoi"
+        :category-label="categoryLabel(selectedPoi.category)"
+        :category-icon="categoryIcon(selectedPoi.category)"
+        :status-text="poiStatusText(selectedPoi)"
+        :checklist="poiUseChecklist(selectedPoi)"
+        :details-target="placeDetailsTarget(selectedPoi)"
+        :feedback-target="placeFeedbackTarget(selectedPoi)"
+        :return-path="returnPath"
+        :route-planning="routePlanning"
+        :can-plan-route="activeMapProviderId === 'amap' && Boolean(selectedPoi.point)"
+        :is-wechat="isWechat"
+        @close="closePoiDetails"
+        @copy="copyPoiLocation(selectedPoi)"
+        @plan-route="startWalkingRoute(selectedPoi.name, selectedPoi.point)"
+      />
 
       <div
         class="items-center justify-between border-b border-[var(--line)] px-4 py-2 text-xs text-zinc-500 md:flex md:px-5"
@@ -1004,7 +706,7 @@ onBeforeUnmount(() => {
               variant="solid"
               class="pointer-events-auto hidden size-11 md:inline-flex"
               aria-label="展开地点栏"
-              @click="sidebarCollapsed = false"
+              @click="() => { sidebarCollapsed = false }"
             />
           </UTooltip>
           <UBadge
@@ -1057,7 +759,7 @@ onBeforeUnmount(() => {
             :variant="mapViewMode === 'geographic' ? 'solid' : 'ghost'"
             class="rounded-none"
             :aria-pressed="mapViewMode === 'geographic'"
-            @click="mapViewMode = 'geographic'"
+            @click="() => { mapViewMode = 'geographic' }"
           />
           <UButton
             icon="i-lucide-image"
@@ -1067,7 +769,7 @@ onBeforeUnmount(() => {
             :variant="mapViewMode === 'official-plan' ? 'solid' : 'ghost'"
             class="rounded-none"
             :aria-pressed="mapViewMode === 'official-plan'"
-            @click="mapViewMode = 'official-plan'"
+            @click="() => { mapViewMode = 'official-plan' }"
           />
         </div>
         <div
@@ -1082,7 +784,7 @@ onBeforeUnmount(() => {
               class="size-11"
               aria-label="地图图层与显示设置"
               :aria-expanded="displaySettingsOpen"
-              @click="displaySettingsOpen = !displaySettingsOpen"
+              @click="() => { displaySettingsOpen = !displaySettingsOpen }"
             />
           </UTooltip>
           <UTooltip text="显示全部地点">
@@ -1109,101 +811,15 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <section
+      <MapDisplaySettingsPanel
         v-if="mapViewMode === 'geographic' && displaySettingsOpen"
-        class="absolute right-16 top-3 z-20 w-[min(19rem,calc(100%-5rem))] rounded-lg border border-zinc-200 bg-white p-3 shadow-xl md:right-20 md:top-4"
-        aria-label="地图显示设置"
-      >
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-sm font-bold text-zinc-950">
-            地图显示设置
-          </h2>
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            aria-label="关闭地图显示设置"
-            @click="displaySettingsOpen = false"
-          />
-        </div>
-
-        <p class="mt-3 text-xs font-semibold text-zinc-500">
-          底图
-        </p>
-        <div class="mt-2 grid grid-cols-2 overflow-hidden rounded-md border border-zinc-200">
-          <button
-            v-for="style in mapBaseStyleOptions"
-            :key="style.value"
-            type="button"
-            class="flex min-h-11 items-center justify-center gap-2 px-2 text-xs font-medium"
-            :class="mapBaseStyle === style.value ? 'bg-blue-600 text-white' : 'bg-white text-zinc-700 hover:bg-zinc-50'"
-            :aria-pressed="mapBaseStyle === style.value"
-            @click="setMapBaseStyle(style.value)"
-          >
-            <UIcon
-              :name="style.icon"
-              class="size-4"
-            />
-            {{ style.label }}
-          </button>
-        </div>
-
-        <p class="mt-4 text-xs font-semibold text-zinc-500">
-          显示内容
-        </p>
-        <div class="mt-2 grid grid-cols-3 gap-2">
-          <button
-            v-for="item in displayToggleItems"
-            :key="item.key"
-            type="button"
-            class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-md border px-2 text-xs font-medium transition"
-            :class="mapDisplayOptions[item.key] ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-zinc-200 bg-white text-zinc-500'"
-            :aria-pressed="mapDisplayOptions[item.key]"
-            @click="toggleDisplayOption(item.key)"
-          >
-            <UIcon
-              :name="item.icon"
-              class="size-5"
-            />
-            {{ item.label }}
-          </button>
-          <button
-            type="button"
-            class="flex min-h-16 cursor-not-allowed flex-col items-center justify-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 text-xs font-medium text-zinc-400"
-            disabled
-            title="当前没有可信的行政分块边界数据"
-          >
-            <UIcon
-              name="i-lucide-map-pinned"
-              class="size-5"
-            />
-            行政分块
-          </button>
-        </div>
-        <p class="mt-2 text-[11px] leading-4 text-zinc-500">
-          行政分块等待学校或高德提供可信边界数据后开放。
-        </p>
-
-        <div class="mt-4">
-          <p class="text-xs font-semibold text-zinc-500">
-            名称大小
-          </p>
-          <div class="mt-2 grid grid-cols-4 overflow-hidden rounded-md border border-zinc-200">
-            <button
-              v-for="size in labelSizeOptions"
-              :key="size.value"
-              type="button"
-              class="min-h-10 px-2 text-xs font-medium"
-              :class="mapDisplayOptions.labelSize === size.value ? 'bg-blue-600 text-white' : 'bg-white text-zinc-600 hover:bg-zinc-50'"
-              :aria-pressed="mapDisplayOptions.labelSize === size.value"
-              @click="setLabelSize(size.value)"
-            >
-              {{ size.label }}
-            </button>
-          </div>
-        </div>
-      </section>
+        :base-style="mapBaseStyle"
+        :display-options="mapDisplayOptions"
+        @close="displaySettingsOpen = false"
+        @set-base-style="setMapBaseStyle"
+        @toggle-option="toggleDisplayOption"
+        @set-label-size="setLabelSize"
+      />
 
       <div
         v-if="mapViewMode === 'geographic' && routeSummary"
@@ -1234,7 +850,9 @@ onBeforeUnmount(() => {
 
       <div
         v-if="mapViewMode === 'geographic' && mapStatus !== 'ready'"
-        class="absolute inset-0 z-20 grid place-items-center bg-[#e5ebe7]/95 p-6 text-center"
+        class="absolute inset-0 z-20 grid place-items-center p-6 text-center"
+        :class="mapStatus === 'loading' ? 'pointer-events-auto bg-[#e5ebe7]/95' : 'pointer-events-none'"
+        :role="mapStatus === 'loading' ? 'status' : 'alert'"
       >
         <div v-if="mapStatus === 'loading'">
           <UIcon
@@ -1247,7 +865,7 @@ onBeforeUnmount(() => {
         </div>
         <div
           v-else
-          class="max-w-xs"
+          class="pointer-events-auto max-w-xs rounded-lg border border-zinc-200 bg-white/95 p-5 shadow-lg backdrop-blur-sm"
         >
           <UIcon
             name="i-lucide-map-off"
@@ -1286,14 +904,14 @@ onBeforeUnmount(() => {
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
             {{ activeMapProviderId === 'amap'
-              ? '左侧文字目录仍可搜索；WGS84 转换失败、候选、未核验及其他坐标系的地点不会绘制为标点。'
-              : '绿色虚线仅表示 OSM 社区测绘校界。左侧文字目录仍可搜索；候选、未核验及非 WGS84 坐标不会绘制为标点。' }}
+              ? '左侧目录仍可搜索；已导入的高德标点会直接使用高德坐标显示，平面图文字索引不强行生成假坐标。'
+              : '绿色虚线仅表示 OSM 社区测绘校界。左侧目录仍可搜索；没有可兼容坐标的地点不会强行生成假标点。' }}
           </p>
           <UButton
             :to="officialSources.campusMap.url"
             target="_blank"
             icon="i-lucide-external-link"
-            label="查看官网平面图"
+            label="查看官网文字索引"
             color="neutral"
             variant="outline"
             size="sm"
@@ -1304,7 +922,7 @@ onBeforeUnmount(() => {
 
       <section
         v-if="selectedArea"
-        class="absolute bottom-[calc(44%+1rem)] left-3 z-10 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4"
+        class="absolute bottom-[calc(44%+1rem)] left-3 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4"
         aria-live="polite"
       >
         <div class="flex items-start justify-between gap-3">
@@ -1314,7 +932,7 @@ onBeforeUnmount(() => {
                 name="i-lucide-pentagon"
                 class="size-4"
               />
-              WIA 原始绘制区域
+              高德绘制区域
             </div>
             <h2 class="mt-1 text-base font-bold text-zinc-950">
               {{ selectedArea.name }}
@@ -1355,144 +973,24 @@ onBeforeUnmount(() => {
         </p>
       </section>
 
-      <section
+      <MapPlaceDetailsPanel
         v-if="selectedPoi"
-        class="absolute bottom-12 left-4 z-10 hidden w-[min(24rem,calc(100%-2rem))] rounded-md border border-zinc-200 bg-white p-4 shadow-lg md:block"
-        aria-live="polite"
-      >
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 text-xs font-medium text-green-700">
-              <UIcon
-                :name="categoryIcon(selectedPoi.category)"
-                class="size-4"
-              />
-              <span>{{ categoryLabel(selectedPoi.category) }}</span>
-            </div>
-            <h2 class="mt-1 truncate text-base font-bold text-zinc-950">
-              {{ selectedPoi.name }}
-            </h2>
-          </div>
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            class="size-11"
-            aria-label="关闭地点详情"
-            @click="closePoiDetails"
-          />
-        </div>
-        <p class="mt-3 whitespace-pre-line text-sm leading-6 text-zinc-600">
-          {{ selectedPoi.summary }}
-        </p>
-        <dl
-          v-if="selectedPoi.address || selectedPoi.campusArea || selectedPoi.openingHours || selectedPoi.phone"
-          class="mt-3 space-y-2 border-t border-zinc-100 pt-3 text-xs"
-        >
-          <div v-if="selectedPoi.address">
-            <dt class="text-zinc-400">
-              位置
-            </dt>
-            <dd class="mt-0.5 text-zinc-700">
-              {{ selectedPoi.address }}
-            </dd>
-          </div>
-          <div v-if="selectedPoi.campusArea">
-            <dt class="text-zinc-400">
-              片区
-            </dt>
-            <dd class="mt-0.5 text-zinc-700">
-              {{ selectedPoi.campusArea }}
-            </dd>
-          </div>
-          <div v-if="selectedPoi.openingHours">
-            <dt class="text-zinc-400">
-              开放时间
-            </dt>
-            <dd class="mt-0.5 text-zinc-700">
-              {{ selectedPoi.openingHours }}
-            </dd>
-          </div>
-          <div v-if="selectedPoi.phone">
-            <dt class="text-zinc-400">
-              公开电话
-            </dt>
-            <dd class="mt-0.5 text-zinc-700">
-              {{ selectedPoi.phone }}
-            </dd>
-          </div>
-        </dl>
-        <div class="mt-4 border-t border-zinc-100 pt-3">
-          <span
-            class="text-xs"
-            :class="selectedPoi.pointIsVerified ? 'text-green-700' : 'text-orange-700'"
-          >{{ poiStatusText(selectedPoi) }}</span>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <UButton
-              v-if="placeDetailsTarget(selectedPoi)"
-              :to="placeDetailsTarget(selectedPoi)"
-              icon="i-lucide-info"
-              label="详情"
-              size="sm"
-            />
-            <UButton
-              v-if="placeFeedbackTarget(selectedPoi)"
-              :to="placeFeedbackTarget(selectedPoi)"
-              icon="i-lucide-message-square-warning"
-              label="纠错"
-              color="neutral"
-              variant="outline"
-              size="sm"
-            />
-            <UButton
-              icon="i-lucide-copy"
-              label="复制位置"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              @click="copyPoiLocation(selectedPoi)"
-            />
-            <UTooltip text="获取当前位置，并在当前高德地图内绘制步行路线">
-              <UButton
-                icon="i-lucide-route"
-                label="地图内路线"
-                color="primary"
-                variant="soft"
-                size="sm"
-                :loading="routePlanning"
-                :disabled="activeMapProviderId !== 'amap' || !selectedPoi.point"
-                @click="startWalkingRoute(selectedPoi)"
-              />
-            </UTooltip>
-            <UTooltip :text="selectedPoi.navigationUrl ? (selectedPoi.coordinateVerification === 'owner-map-only' ? '导航至 WIA 工作地图标点，实际入口请现场确认' : '使用已核验地点提供的外部导航入口') : '坐标未核验或未提供安全的导航入口'">
-              <UButton
-                :to="selectedPoi.navigationUrl ?? undefined"
-                :target="selectedPoi.navigationUrl ? '_blank' : undefined"
-                icon="i-lucide-navigation"
-                label="高德导航"
-                color="neutral"
-                variant="outline"
-                size="sm"
-                :disabled="!selectedPoi.navigationUrl"
-              />
-            </UTooltip>
-            <span
-              v-if="isWechat && selectedPoi.navigationUrl"
-              class="w-full text-xs leading-5 text-zinc-500"
-            >微信内未唤起地图时，可复制位置后搜索。</span>
-            <UButton
-              v-if="returnPath"
-              :to="returnPath"
-              icon="i-lucide-undo-2"
-              label="返回来源"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-            />
-          </div>
-        </div>
-      </section>
+        variant="desktop"
+        :place="selectedPoi"
+        :category-label="categoryLabel(selectedPoi.category)"
+        :category-icon="categoryIcon(selectedPoi.category)"
+        :status-text="poiStatusText(selectedPoi)"
+        :checklist="poiUseChecklist(selectedPoi)"
+        :details-target="placeDetailsTarget(selectedPoi)"
+        :feedback-target="placeFeedbackTarget(selectedPoi)"
+        :return-path="returnPath"
+        :route-planning="routePlanning"
+        :can-plan-route="activeMapProviderId === 'amap' && Boolean(selectedPoi.point)"
+        :is-wechat="isWechat"
+        @close="closePoiDetails"
+        @copy="copyPoiLocation(selectedPoi)"
+        @plan-route="startWalkingRoute(selectedPoi.name, selectedPoi.point)"
+      />
     </section>
   </div>
 </template>

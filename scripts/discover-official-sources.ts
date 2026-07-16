@@ -215,17 +215,22 @@ export async function discoverOfficialSources(options: OfficialSourceDiscoveryOp
   }
 }
 
-function cliKeywords(args: string[]): string[] {
+export function parseCliKeywords(args: string[]): string[] | undefined {
   const values: string[] = []
   for (let index = 0; index < args.length; index += 1) {
-    if (args[index] === '--keyword' && args[index + 1]) values.push(args[++index])
+    const argument = args[index]
+    if (argument !== '--keyword') throw new Error(`Unknown argument: ${argument}`)
+    const value = args[index + 1]
+    if (!value || value.startsWith('-')) throw new Error('--keyword requires a value')
+    values.push(value)
+    index += 1
   }
-  return values
+  return values.length > 0 ? values : undefined
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
-    const report = await discoverOfficialSources({ keywords: cliKeywords(process.argv.slice(2)) })
+    const report = await discoverOfficialSources({ keywords: parseCliKeywords(process.argv.slice(2)) })
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)

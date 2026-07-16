@@ -122,6 +122,7 @@ export interface Department {
   phone?: string | null
   email?: string | null
   website?: string | null
+  address?: string | null
   officeHours?: string | null
   places?: Place[]
   status: PublicationStatus

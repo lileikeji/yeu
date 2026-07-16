@@ -33,6 +33,20 @@ interface ExistingProcedure {
   publishedAt: number | null
 }
 
+interface ResolvedProcedureSeed {
+  sourceLinks: Array<ProcedureSeed['sources'][number] & { id: string }>
+  departmentId: string | null
+  guideId: string | null
+  stepRelations: Array<ProcedureSeed['steps'][number] & {
+    departmentId: string | null
+    placeId: string | null
+  }>
+  materialRelations: Array<ProcedureSeed['materials'][number] & {
+    departmentId: string | null
+    placeId: string | null
+  }>
+}
+
 function absolutePath(path: string): string {
   if (path === ':memory:') return path
   return isAbsolute(path) ? path : resolve(process.cwd(), path)
@@ -124,13 +138,10 @@ function findExisting(database: InstanceType<typeof BetterSqlite3>, seed: Proced
   return bySlug
 }
 
-function applySeed(
+function resolveSeedRelations(
   database: InstanceType<typeof BetterSqlite3>,
-  seed: ProcedureSeed,
-  existing: ExistingProcedure | null,
-  now: number
-): void {
-  const procedureId = existing?.id ?? seed.id
+  seed: ProcedureSeed
+): ResolvedProcedureSeed {
   const sourceLinks = resolveSourceIds(database, seed)
   const departmentId = resolveContentId(database, 'department', seed.departmentSlug)
   const guideId = resolveContentId(database, 'guide', seed.guideSlug)
@@ -144,6 +155,119 @@ function applySeed(
     departmentId: resolveContentId(database, 'department', material.departmentSlug),
     placeId: resolvePlaceId(database, material.placeSlug)
   }))
+
+  return { sourceLinks, departmentId, guideId, stepRelations, materialRelations }
+}
+
+function normalizeForCompare(value: unknown): string {
+  return JSON.stringify(value)
+}
+
+function seedNeedsUpdate(
+  database: InstanceType<typeof BetterSqlite3>,
+  seed: ProcedureSeed,
+  existing: ExistingProcedure | null,
+  resolved: ResolvedProcedureSeed
+): boolean {
+  if (!existing) return false
+
+  const procedure = database.prepare(`
+    SELECT title, summary, body, category, audience_json AS audienceJson,
+      method, information_state AS informationState, status_text AS statusText,
+      processing_time AS processingTime, deadline_text AS deadlineText,
+      starts_at AS startsAt, ends_at AS endsAt, valid_from AS validFrom,
+      valid_until AS validUntil, department_id AS departmentId, guide_id AS guideId,
+      status, last_verified_at AS lastVerifiedAt
+    FROM procedures WHERE id = ?
+  `).get(existing.id) as Record<string, unknown> | undefined
+  if (!procedure) return true
+
+  const expectedProcedure = {
+    title: seed.title,
+    summary: seed.summary,
+    body: seed.body,
+    category: seed.category,
+    audienceJson: JSON.stringify(seed.audience),
+    method: seed.method,
+    informationState: seed.informationState,
+    statusText: seed.statusText,
+    processingTime: seed.processingTime,
+    deadlineText: seed.deadlineText,
+    startsAt: timestamp(seed.startsAt),
+    endsAt: timestamp(seed.endsAt),
+    validFrom: timestamp(seed.validFrom),
+    validUntil: timestamp(seed.validUntil),
+    departmentId: resolved.departmentId,
+    guideId: resolved.guideId,
+    status: 'published',
+    lastVerifiedAt: timestamp(seed.lastVerifiedAt)
+  }
+  if (normalizeForCompare(procedure) !== normalizeForCompare(expectedProcedure)) return true
+
+  const steps = database.prepare(`
+    SELECT id, step_order AS stepOrder, title, description,
+      audience_json AS audienceJson, information_state AS informationState,
+      time_text AS timeText, place_id AS placeId, department_id AS departmentId,
+      action_url AS actionUrl
+    FROM procedure_steps WHERE procedure_id = ? ORDER BY step_order
+  `).all(existing.id)
+  const expectedSteps = resolved.stepRelations.map((step, index) => ({
+    id: step.id,
+    stepOrder: index + 1,
+    title: step.title,
+    description: step.description,
+    audienceJson: JSON.stringify(step.audience),
+    informationState: step.informationState,
+    timeText: step.timeText,
+    placeId: step.placeId,
+    departmentId: step.departmentId,
+    actionUrl: step.actionUrl
+  }))
+  if (normalizeForCompare(steps) !== normalizeForCompare(expectedSteps)) return true
+
+  const materials = database.prepare(`
+    SELECT id, item_order AS itemOrder, name, description,
+      audience_json AS audienceJson, is_required AS isRequired,
+      information_state AS informationState, place_id AS placeId,
+      department_id AS departmentId
+    FROM procedure_materials WHERE procedure_id = ? ORDER BY item_order
+  `).all(existing.id)
+  const expectedMaterials = resolved.materialRelations.map((material, index) => ({
+    id: material.id,
+    itemOrder: index + 1,
+    name: material.name,
+    description: material.description,
+    audienceJson: JSON.stringify(material.audience),
+    isRequired: material.isRequired === null ? null : material.isRequired ? 1 : 0,
+    informationState: material.informationState,
+    placeId: material.placeId,
+    departmentId: material.departmentId
+  }))
+  if (normalizeForCompare(materials) !== normalizeForCompare(expectedMaterials)) return true
+
+  const sources = database.prepare(`
+    SELECT source_id AS sourceId, claim_scope AS claimScope,
+      is_primary AS isPrimary, sort_order AS sortOrder
+    FROM procedure_sources WHERE procedure_id = ? ORDER BY sort_order
+  `).all(existing.id)
+  const expectedSources = resolved.sourceLinks.map((source, index) => ({
+    sourceId: source.id,
+    claimScope: source.claimScope,
+    isPrimary: source.isPrimary ? 1 : 0,
+    sortOrder: index + 1
+  }))
+  return normalizeForCompare(sources) !== normalizeForCompare(expectedSources)
+}
+
+function applySeed(
+  database: InstanceType<typeof BetterSqlite3>,
+  seed: ProcedureSeed,
+  existing: ExistingProcedure | null,
+  resolved: ResolvedProcedureSeed,
+  now: number
+): void {
+  const procedureId = existing?.id ?? seed.id
+  const { sourceLinks, departmentId, guideId, stepRelations, materialRelations } = resolved
 
   database.transaction(() => {
     if (existing) {
@@ -283,24 +407,15 @@ export function seedProcedures(options: SeedOptions = {}): ProcedureSeedResult {
   try {
     requireSchema(database)
     const existing = procedureSeeds.map(seed => findExisting(database, seed))
-    for (const seed of procedureSeeds) {
-      resolveSourceIds(database, seed)
-      resolveContentId(database, 'department', seed.departmentSlug)
-      resolveContentId(database, 'guide', seed.guideSlug)
-      for (const step of seed.steps) {
-        resolveContentId(database, 'department', step.departmentSlug)
-        resolvePlaceId(database, step.placeSlug)
-      }
-      for (const material of seed.materials) {
-        resolveContentId(database, 'department', material.departmentSlug)
-        resolvePlaceId(database, material.placeSlug)
-      }
-    }
+    const resolved = procedureSeeds.map(seed => resolveSeedRelations(database, seed))
+    const changedExisting = procedureSeeds.filter((seed, index) =>
+      existing[index] !== null && seedNeedsUpdate(database, seed, existing[index], resolved[index]!)
+    )
     const result: ProcedureSeedResult = {
       mode: options.apply ? 'apply' : 'dry-run',
       databasePath,
       wouldCreate: existing.filter(item => item === null).length,
-      wouldUpdate: existing.filter(item => item !== null).length,
+      wouldUpdate: changedExisting.length,
       created: 0,
       updated: 0,
       procedureCount: procedureSeeds.length,
@@ -309,7 +424,11 @@ export function seedProcedures(options: SeedOptions = {}): ProcedureSeedResult {
       applied: Boolean(options.apply)
     }
     if (!options.apply) return result
-    procedureSeeds.forEach((seed, index) => applySeed(database, seed, existing[index] ?? null, options.now ?? Date.now()))
+    procedureSeeds.forEach((seed, index) => {
+      const existingProcedure = existing[index] ?? null
+      if (existingProcedure && !seedNeedsUpdate(database, seed, existingProcedure, resolved[index]!)) return
+      applySeed(database, seed, existingProcedure, resolved[index]!, options.now ?? Date.now())
+    })
     result.created = result.wouldCreate
     result.updated = result.wouldUpdate
     const foreignKeyErrors = database.pragma('foreign_key_check') as unknown[]

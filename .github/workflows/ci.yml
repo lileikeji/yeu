@@ -1,10 +1,21 @@
 name: ci
 
-on: push
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     strategy:
       matrix:
@@ -27,5 +38,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify
+      - name: Install Chromium
+        run: pnpm e2e:install:ci
+
+      - name: Verify code and production build
         run: pnpm run check
+
+      - name: Verify browser flows
+        run: pnpm run e2e:run

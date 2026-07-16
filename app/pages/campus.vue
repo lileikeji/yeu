@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { officialDepartments, officialSources } from '~~/data/seeds/public-content'
+import { officialClubs, officialDepartments, officialSources } from '~~/data/seeds/public-content'
+import {
+  campusStats,
+  resolveCampusFallbackMessage
+} from '~~/app/utils/campus-presentation'
 import {
   canUseStaticContentKindFallback,
   mergePublicDepartments,
@@ -12,12 +16,6 @@ useSeoMeta({
   description: '仰恩大学校园概览、校内部门官方入口与学生社团信息。'
 })
 
-const campusStats = [
-  { label: '校园占地', value: '2000+', unit: '亩', icon: 'i-lucide-map' },
-  { label: '全日制学生', value: '1.3万+', unit: '人', icon: 'i-lucide-graduation-cap' },
-  { label: '学院', value: '12', unit: '个', icon: 'i-lucide-school' }
-]
-
 const { data: publicContentResponse, error: publicContentError } = await usePublicContentList()
 const publicContents = computed(() => publicContentResponse.value?.items ?? [])
 const allowStaticDepartmentFallback = computed(() => !publicContentError.value
@@ -27,17 +25,13 @@ const departments = computed(() => mergePublicDepartments(
   publicContents.value,
   allowStaticDepartmentFallback.value
 ))
-const clubs = computed(() => publicClubs(publicContents.value))
+const clubs = computed(() => publicClubs(publicContents.value, officialClubs))
 const notices = computed(() => publicNotices(publicContents.value))
-const fallbackMessage = computed(() => {
-  if (publicContentError.value) return '校园内容服务暂时不可用，请稍后重试。'
-  if (!publicContentResponse.value) return null
-  if (allowStaticDepartmentFallback.value) {
-    return '后台尚未接管校园内容，当前显示内置官网入口与基础资料。'
-  }
-  if (!publicContentResponse.value.items.length) return '后台已有校园内容记录，但目前没有已发布内容。'
-  return null
-})
+const fallbackMessage = computed(() => resolveCampusFallbackMessage({
+  hasError: Boolean(publicContentError.value),
+  response: publicContentResponse.value,
+  allowStaticDepartmentFallback: allowStaticDepartmentFallback.value
+}))
 </script>
 
 <template>
@@ -284,10 +278,10 @@ const fallbackMessage = computed(() => {
               学生社团
             </p>
             <h2 class="mt-2 text-2xl font-bold text-zinc-950">
-              2026活动中可核验的社团
+              可追溯的学生社团条目
             </h2>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              校团委2026年活动报道可确认下列7个近期活跃社团，但它们不是完整名册。逐社团简介、联系方式和新生招新安排仍需当年确认。
+              先展示 23 个可追溯条目：7 个来自校团委 2026 年活动报道，16 个来自校团委公开附件中的社团干部线索。它们是新生了解方向的入口，不直接等同于 2026 级招新名单。
             </p>
             <div class="mt-5 flex flex-wrap gap-2">
               <UButton

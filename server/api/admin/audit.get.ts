@@ -4,6 +4,17 @@ import { auditLogs } from '../../database/schema'
 import { useAdminRequest } from '../../utils/http'
 import { parseQuery } from '../../utils/validation'
 
+function parseAuditDetails(value: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
+  } catch {
+    return {}
+  }
+}
+
 export default defineEventHandler((event) => {
   const { client } = useAdminRequest(event)
   const query = parseQuery(event, paginationQuerySchema)
@@ -23,7 +34,7 @@ export default defineEventHandler((event) => {
       entityType: row.entityType,
       entityId: row.entityId,
       requestId: row.requestId,
-      details: JSON.parse(row.detailsJson) as Record<string, unknown>,
+      details: parseAuditDetails(row.detailsJson),
       createdAt: new Date(row.createdAt).toISOString()
     })),
     total,

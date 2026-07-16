@@ -11,8 +11,7 @@ export default defineNuxtConfig({
   },
 
   css: [
-    '~/assets/css/main.css',
-    'maplibre-gl/dist/maplibre-gl.css'
+    '~/assets/css/main.css'
   ],
 
   runtimeConfig: {
@@ -22,9 +21,15 @@ export default defineNuxtConfig({
       siteUrl: 'http://localhost:3000',
       mapProvider: 'maplibre-dev',
       amapKey: '',
-      amapSecurityCode: ''
+      amapSecurityCode: '',
+      // Public map/search overlay of authorized amap owner draft points.
+      // Set NUXT_PUBLIC_ENABLE_AMAP_OWNER_DRAFTS=false to disable without code change.
+      enableAmapOwnerDrafts: true
     }
   },
+
+  // Keep production generation away from a concurrently running dev server.
+  buildDir: process.env.NODE_ENV === 'production' ? '.nuxt-build' : '.nuxt',
 
   routeRules: {
     '/map': {
@@ -46,7 +51,7 @@ export default defineNuxtConfig({
   },
 
   pwa: {
-    registerType: 'autoUpdate',
+    registerType: 'prompt',
     manifestFilename: 'site.webmanifest',
     manifest: {
       id: '/',

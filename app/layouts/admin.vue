@@ -84,9 +84,7 @@ async function checkSession(): Promise<void> {
   authError.value = ''
 
   try {
-    const payload = await $fetch<unknown>('/api/admin/auth/session', {
-      credentials: 'include'
-    })
+    const payload = await adminFetch<unknown>('/api/admin/auth/session')
 
     if (!isAuthenticated(payload)) {
       await redirectToLogin()
@@ -111,9 +109,8 @@ async function logout(): Promise<void> {
   loggingOut.value = true
 
   try {
-    await $fetch('/api/admin/auth/logout', {
-      method: 'POST',
-      credentials: 'include'
+    await adminFetch('/api/admin/auth/logout', {
+      method: 'POST'
     })
   } catch {
     // Redirect even when the session has already expired server-side.

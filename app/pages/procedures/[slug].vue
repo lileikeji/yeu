@@ -6,6 +6,21 @@ import {
   normalizeProcedureAudience,
   type ProcedureAudienceSelection
 } from '~/utils/procedure-audience'
+import {
+  buildProcedureChecklistStorageKey,
+  buildProcedureDetailSources,
+  buildProcedureMapLink,
+  getProcedureEmptyMaterialText,
+  getProcedureMaterialTitle,
+  getProcedureNoticeText,
+  parseProcedureChecklist,
+  procedureAudienceLabels,
+  procedureAudienceOptions,
+  procedureMethodLabels,
+  procedureStateLabels,
+  serializeProcedureChecklist,
+  toggleProcedureStep
+} from '~~/app/utils/procedure-detail-presentation'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,25 +34,10 @@ useSeoMeta({
   description: () => procedure.value?.summary ?? ''
 })
 
-const audienceLabel = {
-  undergraduate: '普通本科新生',
-  transfer: '专升本新生'
-} as const
-const methodLabel = {
-  online: '线上办理',
-  offline: '到校办理',
-  mixed: '线上核对 + 到校办理'
-} as const
-const stateLabel = {
-  'confirmed': '已确认',
-  'partial': '部分确认',
-  'awaiting-notice': '待通知'
-} as const
-const audienceOptions: Array<{ value: ProcedureAudienceSelection, label: string }> = [
-  { value: 'all', label: '全部新生' },
-  { value: 'undergraduate', label: '普通本科' },
-  { value: 'transfer', label: '专升本' }
-]
+const audienceLabel = procedureAudienceLabels
+const methodLabel = procedureMethodLabels
+const stateLabel = procedureStateLabels
+const audienceOptions = procedureAudienceOptions
 const selectedAudience = ref<ProcedureAudienceSelection>(normalizeProcedureAudience(route.query.audience))
 const visibleMaterials = computed(() => filterProcedureItemsForAudience(
   procedure.value?.materials ?? [],
@@ -54,46 +54,47 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
   reasonType: 'procedure_error',
   from: route.fullPath
 }))
+const noticeText = computed(() => getProcedureNoticeText(
+  procedure.value?.category,
+  procedure.value?.informationState
+))
+const materialTitle = computed(() => getProcedureMaterialTitle(procedure.value?.category))
+const emptyMaterialText = computed(() => getProcedureEmptyMaterialText(procedure.value?.category))
+const detailSources = computed(() => buildProcedureDetailSources(procedure.value?.sources))
 
 const completedStepIds = ref<string[]>([])
-const storageKey = computed(() => `yeu:procedure-checklist:${procedure.value?.slug ?? slug}`)
+const storageKey = computed(() => buildProcedureChecklistStorageKey(procedure.value?.slug ?? slug))
 const ready = ref(false)
 
 onMounted(() => {
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(storageKey.value) ?? 'null')
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-      const record = saved as Record<string, unknown>
-      const validStepIds = new Set(procedure.value?.steps.map(step => step.id) ?? [])
-      if (record.version === procedure.value?.updatedAt && Array.isArray(record.stepIds)) {
-        completedStepIds.value = record.stepIds.filter((value): value is string => (
-          typeof value === 'string' && validStepIds.has(value)
-        ))
-      }
-    }
+    completedStepIds.value = parseProcedureChecklist(
+      saved,
+      procedure.value?.updatedAt,
+      procedure.value?.steps.map(step => step.id) ?? []
+    )
   } catch {
     completedStepIds.value = []
   }
-  localStorage.setItem(storageKey.value, JSON.stringify({
-    version: procedure.value?.updatedAt,
-    stepIds: completedStepIds.value
-  }))
+  localStorage.setItem(storageKey.value, JSON.stringify(serializeProcedureChecklist(
+    procedure.value?.updatedAt,
+    completedStepIds.value
+  )))
   ready.value = true
 })
 
 watch(completedStepIds, (value) => {
   if (ready.value) {
-    localStorage.setItem(storageKey.value, JSON.stringify({
-      version: procedure.value?.updatedAt,
-      stepIds: value
-    }))
+    localStorage.setItem(storageKey.value, JSON.stringify(serializeProcedureChecklist(
+      procedure.value?.updatedAt,
+      value
+    )))
   }
 }, { deep: true })
 
 function toggleStep(stepId: string) {
-  completedStepIds.value = completedStepIds.value.includes(stepId)
-    ? completedStepIds.value.filter(value => value !== stepId)
-    : [...completedStepIds.value, stepId]
+  completedStepIds.value = toggleProcedureStep(completedStepIds.value, stepId)
 }
 
 function clearChecklist() {
@@ -101,10 +102,7 @@ function clearChecklist() {
 }
 
 function mapLink(placeSlug: string, stepId: string) {
-  return {
-    path: '/map',
-    query: { place: placeSlug, from: `/procedures/${slug}#step-${stepId}` }
-  }
+  return buildProcedureMapLink(slug, placeSlug, stepId)
 }
 
 watch(selectedAudience, (value) => {
@@ -172,7 +170,7 @@ watch(selectedAudience, (value) => {
                 :variant="selectedAudience === option.value ? 'solid' : 'ghost'"
                 class="shrink-0"
                 :aria-pressed="selectedAudience === option.value"
-                @click="selectedAudience = option.value"
+                @click="() => { selectedAudience = option.value }"
               />
             </div>
           </div>
@@ -213,8 +211,8 @@ watch(selectedAudience, (value) => {
       </div>
     </header>
 
-    <div class="page-shell grid gap-10 py-8 md:py-12 lg:grid-cols-[minmax(0,1fr)_19rem]">
-      <div class="min-w-0">
+    <div class="page-shell py-7 md:py-10">
+      <div class="mx-auto min-w-0 max-w-4xl">
         <section class="border-l-2 border-orange-500 bg-orange-50 px-4 py-3 text-sm leading-6 text-orange-950">
           <div class="flex items-start gap-2">
             <UIcon
@@ -223,23 +221,26 @@ watch(selectedAudience, (value) => {
             />
             <div>
               <p class="font-semibold">
-                待通知内容不会按往年安排补写
+                先看提醒
               </p>
               <p class="mt-1">
-                个人时段、材料、报到点和接站仍需查看录取通知书及学校后续通知；这里仅在官方来源确认后更新。
+                {{ noticeText }}
               </p>
             </div>
           </div>
         </section>
 
-        <section class="border-b border-zinc-200 py-8">
+        <section
+          id="materials"
+          class="scroll-mt-24 border-b border-zinc-200 py-7"
+        >
           <div class="flex items-center justify-between gap-4">
             <div>
               <p class="text-xs font-semibold text-green-700">
                 材料清单
               </p>
               <h2 class="mt-1 text-lg font-bold text-zinc-950">
-                到校前需要准备
+                {{ materialTitle }}
               </h2>
             </div>
             <UBadge
@@ -285,11 +286,14 @@ watch(selectedAudience, (value) => {
             v-else
             class="mt-4 border-y border-zinc-200 bg-white py-5 text-sm leading-6 text-zinc-600"
           >
-            2026公开来源尚未给出可核验的个人材料清单。本页不会用往年材料填充；收到录取通知书或当年报到通知后再逐项核对。
+            {{ emptyMaterialText }}
           </p>
         </section>
 
-        <section class="pt-8">
+        <section
+          id="steps"
+          class="scroll-mt-24 pt-7"
+        >
           <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p class="text-xs font-semibold text-green-700">
@@ -417,97 +421,50 @@ watch(selectedAudience, (value) => {
             当前没有适用于所选新生类型的已确认步骤。
           </p>
         </section>
-      </div>
 
-      <aside class="min-w-0">
-        <div class="space-y-6 lg:sticky lg:top-24">
-          <UButton
-            :to="feedbackLink"
-            icon="i-lucide-message-square-warning"
-            label="反馈流程错误或补充资料"
-            color="neutral"
-            variant="outline"
-            class="w-full"
-          />
-
-          <section
-            v-if="procedure.department"
-            class="surface-panel p-4"
-          >
-            <p class="text-xs text-zinc-500">
-              咨询边界
-            </p>
-            <h2 class="mt-1 text-sm font-bold text-zinc-950">
-              {{ procedure.department.name }}
-            </h2>
-            <p class="mt-2 text-xs leading-5 text-zinc-600">
-              {{ procedure.department.summary }}
-            </p>
+        <section
+          v-if="procedure.department || procedure.relatedGuide"
+          class="mt-8 border-t border-zinc-200 pt-6"
+        >
+          <h2 class="text-sm font-bold text-zinc-950">
+            需要帮助时
+          </h2>
+          <div class="mt-3 flex flex-wrap gap-2">
             <UButton
+              v-if="procedure.department"
               :to="`/departments/${procedure.department.slug}`"
-              icon="i-lucide-arrow-right"
-              label="查看部门资料"
+              icon="i-lucide-landmark"
+              :label="`查看${procedure.department.name}`"
               color="neutral"
-              variant="ghost"
-              size="sm"
-              class="mt-3"
+              variant="soft"
             />
-          </section>
-
-          <section
-            v-if="procedure.relatedGuide"
-            class="border-y border-zinc-200 py-4"
-          >
-            <p class="text-xs text-zinc-500">
-              背景与安全说明
-            </p>
-            <NuxtLink
+            <UButton
+              v-if="procedure.relatedGuide"
               :to="`/guides/${procedure.relatedGuide.slug}`"
-              class="mt-2 flex items-start justify-between gap-3 text-sm font-semibold text-zinc-900 hover:text-green-700"
-            >
-              <span>{{ procedure.relatedGuide.title }}</span>
-              <UIcon
-                name="i-lucide-arrow-up-right"
-                class="mt-0.5 size-4 shrink-0"
-              />
-            </NuxtLink>
-          </section>
+              icon="i-lucide-book-open-text"
+              :label="procedure.relatedGuide.title"
+              color="neutral"
+              variant="soft"
+            />
+          </div>
+        </section>
 
-          <section class="border-y border-zinc-200 py-4">
-            <h2 class="text-sm font-bold text-zinc-950">
-              参考来源
-            </h2>
-            <ul class="mt-3 space-y-3">
-              <li
-                v-for="source in procedure.sources"
-                :key="source.id"
-              >
-                <a
-                  :href="source.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="block text-xs leading-5 text-zinc-600 hover:text-green-700"
-                >
-                  <span class="inline-flex items-start gap-2">
-                    <UIcon
-                      name="i-lucide-external-link"
-                      class="mt-0.5 size-3.5 shrink-0"
-                    />
-                    <span>{{ source.title }}</span>
-                  </span>
-                  <span
-                    v-if="source.claimScope"
-                    class="mt-1 block pl-5 text-zinc-400"
-                  >{{ source.claimScope }}</span>
-                </a>
-              </li>
-            </ul>
-            <p class="mt-4 text-xs text-zinc-400">
-              核验于 {{ (procedure.lastVerifiedAt ?? procedure.updatedAt).slice(0, 10) }}
-            </p>
-          </section>
+        <div class="mt-6">
+          <PublicSourceDetails
+            :sources="detailSources"
+            :verified-at="(procedure.lastVerifiedAt ?? procedure.updatedAt).slice(0, 10)"
+          />
         </div>
-      </aside>
+
+        <UButton
+          :to="feedbackLink"
+          icon="i-lucide-message-square-warning"
+          label="反馈流程错误或补充资料"
+          color="neutral"
+          variant="outline"
+          class="mt-6"
+        />
+      </div>
     </div>
   </div>
 </template>

@@ -6,7 +6,7 @@ import test from 'node:test'
 import { initializeAdmin } from '../server/database/admin-bootstrap'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { verifyPassword } from '../server/utils/password'
+import { hashPassword, verifyPassword } from '../server/utils/password'
 
 test('forced administrator reset replaces the password and revokes existing sessions', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-admin-bootstrap-'))
@@ -73,4 +73,14 @@ test('forced administrator reset replaces the password and revokes existing sess
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
   }
+})
+
+test('administrator password policy enforces a 12-character minimum on hash/bootstrap', async () => {
+  const password = 'synthetic-admin-pass-12'
+  const hash = await hashPassword(password)
+
+  assert.equal(await verifyPassword(password, hash), true)
+  assert.equal(await verifyPassword(password + 'x', hash), false)
+  await assert.rejects(() => hashPassword('12345678901'), /at least 12 characters/)
+  await assert.rejects(() => hashPassword('short'), /at least 12 characters/)
 })

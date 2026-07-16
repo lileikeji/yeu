@@ -97,8 +97,18 @@ interface PlainMarkerRecord {
 }
 
 interface AreaOutlineRecord {
+  areaId: string
   outline: AMapPolyline
   clickHandler: (event: AMapMouseEvent) => void
+  strokeColor: string
+}
+
+interface AreaLabelRecord {
+  areaId: string
+  marker: AMapMarker
+  element: HTMLElement
+  clickHandler: (event: AMapMouseEvent) => void
+  strokeColor: string
 }
 
 export class AMapProvider implements MapProvider {
@@ -111,7 +121,7 @@ export class AMapProvider implements MapProvider {
   private markers = new Map<string, MarkerRecord>()
   private plainMarkers: PlainMarkerRecord[] = []
   private areaOutlines: AreaOutlineRecord[] = []
-  private areaLabels: AMapMarker[] = []
+  private areaLabels: AreaLabelRecord[] = []
   private baseLayers: AMapTileLayer[] = []
   private hotspotInfoWindow: AMapInfoWindow | null = null
   private markerCluster: AMapMarkerCluster | null = null
@@ -121,6 +131,7 @@ export class AMapProvider implements MapProvider {
   private selectedPoiId: string | null = null
   private poiSelectHandler: PoiSelectHandler | null = null
   private areaSelectHandler: AreaSelectHandler | null = null
+  private selectedAreaId: string | null = null
   private mapErrorHandler: MapErrorHandler | null = null
   private displayOptions: MapDisplayOptions = { ...DEFAULT_DISPLAY_OPTIONS }
   private baseStyle: MapBaseStyle = 'standard'
@@ -191,6 +202,10 @@ export class AMapProvider implements MapProvider {
     return true
   }
 
+  resize(): void {
+    this.map?.resize()
+  }
+
   fitToPois(): void {
     const map = this.map
     if (!map || (this.markers.size === 0 && this.areaOutlines.length === 0)) {
@@ -239,6 +254,11 @@ export class AMapProvider implements MapProvider {
   setSelectedPoi(id: string | null): void {
     this.selectedPoiId = id && this.pois.some(poi => poi.id === id) ? id : null
     this.renderSelectedMarker()
+  }
+
+  setSelectedArea(id: string | null): void {
+    this.selectedAreaId = id && this.areas.some(area => area.id === id) ? id : null
+    this.refreshAreaSelection()
   }
 
   flyToPoi(id: string): boolean {
@@ -506,10 +526,10 @@ export class AMapProvider implements MapProvider {
         })
         const clickHandler = (event: AMapMouseEvent) => {
           event.originEvent?.stopPropagation()
-          this.areaSelectHandler?.(area)
+          this.selectArea(area)
         }
         outline.on('click', clickHandler)
-        this.areaOutlines.push({ outline, clickHandler })
+        this.areaOutlines.push({ areaId: area.id, outline, clickHandler, strokeColor: area.strokeColor })
       }
       const allPoints = convertedPaths.flat()
       const center: AMapPosition = [
@@ -519,23 +539,29 @@ export class AMapProvider implements MapProvider {
       if (this.displayOptions.showLabels) {
         const label = document.createElement('span')
         label.textContent = area.name
-        label.title = `${area.name}（WIA 原始区域）`
-        label.style.cssText = `pointer-events:none;display:block;padding:3px 6px;border:1px solid ${area.strokeColor};border-radius:4px;background:rgb(255 255 255 / 90%);box-shadow:0 1px 4px rgb(0 0 0 / 15%);color:#18181b;font:600 ${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;`
+        label.title = area.name
+        label.style.cssText = this.areaLabelStyle(area.strokeColor, this.selectedAreaId === area.id)
         const marker = new amap.Marker({
           position: center,
           anchor: 'center',
           content: label,
-          clickable: false,
+          clickable: true,
           bubble: true,
           offset: new amap.Pixel(-label.textContent.length * 6 - 7, -10),
           zIndex: 31
         })
-        this.areaLabels.push(marker)
+        const labelClickHandler = (event: AMapMouseEvent) => {
+          event.originEvent?.stopPropagation()
+          this.selectArea(area)
+        }
+        marker.on('click', labelClickHandler)
+        this.areaLabels.push({ areaId: area.id, marker, element: label, clickHandler: labelClickHandler, strokeColor: area.strokeColor })
       }
     }
 
     if (this.areaOutlines.length) {
-      map.add([...this.areaOutlines.map(record => record.outline), ...this.areaLabels])
+      map.add([...this.areaOutlines.map(record => record.outline), ...this.areaLabels.map(record => record.marker)])
+      this.refreshAreaSelection()
     }
   }
 
@@ -662,14 +688,13 @@ export class AMapProvider implements MapProvider {
 
   private readonly handleMapClick = (): void => {
     this.poiSelectHandler?.(null)
-    this.areaSelectHandler?.(null)
+    this.selectArea(null)
   }
 
   private readonly handleHotspotClick = (event: AMapHotspotEvent): void => {
     if (!this.map || !this.amap || !event.lnglat || !event.name?.trim()) return
     const position: AMapPosition = [event.lnglat.getLng(), event.lnglat.getLat()]
     if (!position.every(Number.isFinite)) return
-
     const content = document.createElement('div')
     content.style.cssText = 'min-width:150px;max-width:240px;padding:3px 2px;color:#18181b;font:400 13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;'
     const title = document.createElement('strong')
@@ -694,14 +719,40 @@ export class AMapProvider implements MapProvider {
     this.hotspotInfoWindow ??= new this.amap.InfoWindow({ offset: new this.amap.Pixel(0, -10) })
     this.hotspotInfoWindow.setContent(content)
     this.hotspotInfoWindow.open(this.map, position)
-    this.poiSelectHandler?.({
-      id: this.nativePoiId(event.id, event.name.trim(), position),
-      name: event.name.trim(),
-      category: 'nearby',
-      point: { lng: position[0], lat: position[1], crs: 'GCJ-02' },
-      status: 'draft',
-      source: 'amap-native'
-    })
+    this.selectArea(null)
+    this.poiSelectHandler?.(null)
+    // Native AMap hotspots use AMap's own info window only. They are base-map
+    // POIs, not curated guide points, so they must not enter the app index or sidebar.
+  }
+
+  private selectArea(area: MapArea | null): void {
+    this.selectedAreaId = area?.id ?? null
+    this.refreshAreaSelection()
+    this.areaSelectHandler?.(area)
+  }
+
+  private refreshAreaSelection(): void {
+    for (const record of this.areaOutlines) {
+      const selected = record.areaId === this.selectedAreaId
+      record.outline.setOptions?.({
+        strokeColor: selected ? '#2563eb' : record.strokeColor,
+        strokeWeight: selected ? 6 : 3,
+        strokeOpacity: selected ? 1 : 0.95,
+        zIndex: selected ? 42 : 30
+      })
+    }
+    for (const record of this.areaLabels) {
+      const selected = record.areaId === this.selectedAreaId
+      record.element.style.cssText = this.areaLabelStyle(record.strokeColor, selected)
+    }
+  }
+
+  private areaLabelStyle(strokeColor: string, selected: boolean): string {
+    const borderColor = selected ? '#2563eb' : strokeColor
+    const background = selected ? '#2563eb' : 'rgb(255 255 255 / 90%)'
+    const color = selected ? '#ffffff' : '#18181b'
+    const shadow = selected ? '0 4px 12px rgb(37 99 235 / 28%)' : '0 1px 4px rgb(0 0 0 / 15%)'
+    return `pointer-events:auto;cursor:pointer;display:block;padding:3px 6px;border:1px solid ${borderColor};border-radius:4px;background:${background};box-shadow:${shadow};color:${color};font:600 ${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;`
   }
 
   private readPlacePois(result: AMapPlaceSearchResult): AMapPlacePoi[] {
@@ -860,7 +911,10 @@ export class AMapProvider implements MapProvider {
       for (const record of this.areaOutlines) {
         record.outline.off('click', record.clickHandler)
       }
-      this.map.remove([...this.areaOutlines.map(record => record.outline), ...this.areaLabels])
+      for (const record of this.areaLabels) {
+        record.marker.off('click', record.clickHandler)
+      }
+      this.map.remove([...this.areaOutlines.map(record => record.outline), ...this.areaLabels.map(record => record.marker)])
     }
     this.areaOutlines = []
     this.areaLabels = []

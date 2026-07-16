@@ -23,15 +23,12 @@ import {
   activePublicContentCondition,
   isPublicContentCurrentlyVisible
 } from './visibility'
+import { cleanSearchTerm } from '../../../shared/utils/like-search'
 
 type CreateContentInput = z.infer<typeof createContentSchema>
 type UpdateContentInput = z.infer<typeof updateContentSchema>
 type PublicContentQuery = z.infer<typeof publicContentQuerySchema>
 type AdminContentQuery = z.infer<typeof adminContentQuerySchema>
-
-function cleanSearchTerm(value: string): string {
-  return value.replace(/[%_]/g, '').trim()
-}
 
 function getContentByIdRow(client: DatabaseClient, id: string) {
   return client.db.select().from(contents).where(eq(contents.id, id)).get()

@@ -28,11 +28,17 @@ function shareCurrentPage(): void {
       <div class="page-shell flex h-16 items-center justify-between gap-2 md:gap-6">
         <NuxtLink
           to="/"
-          class="flex min-w-0 flex-1 items-center gap-3 md:flex-none"
+          class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 md:flex-none"
           aria-label="仰恩新生指南首页"
         >
-          <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-800 text-sm font-bold text-white">YEU</span>
-          <span class="truncate text-base font-bold text-zinc-900">仰恩新生指南</span>
+          <img
+            src="/icons/site-logo.png"
+            alt=""
+            aria-hidden="true"
+            width="325"
+            height="72"
+            class="h-9 w-auto max-w-[9.5rem] shrink-0 object-contain object-left sm:max-w-none"
+          >
         </NuxtLink>
 
         <nav
@@ -85,6 +91,8 @@ function shareCurrentPage(): void {
     >
       <slot />
     </main>
+
+    <PwaUpdatePrompt />
 
     <footer class="hidden border-t border-[var(--line)] bg-white md:block">
       <div class="page-shell flex items-center justify-between gap-6 py-6 text-xs text-zinc-500">

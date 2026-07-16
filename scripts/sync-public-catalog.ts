@@ -24,6 +24,7 @@ interface PlannedContent extends CatalogContent {
 
 interface SyncPlan {
   createSources: PlannedSource[]
+  updateSources: PlannedSource[]
   createContents: PlannedContent[]
   updateContents: PlannedContent[]
   sourceIdsByUrl: Map<string, string>
@@ -41,9 +42,11 @@ export interface CatalogSyncResult {
   mode: 'dry-run' | 'apply-owned'
   databasePath: string
   wouldCreateSources: number
+  wouldUpdateSources: number
   wouldCreateContents: number
   wouldUpdateContents: number
   createdSources: number
+  updatedSources: number
   createdContents: number
   updatedContents: number
   skippedContents: number
@@ -99,8 +102,24 @@ function validateSchema(database: InstanceType<typeof BetterSqlite3>): void {
 
 function buildPlan(database: InstanceType<typeof BetterSqlite3>, catalog: Catalog): SyncPlan {
   const existingSources = database.prepare(`
-    SELECT id, url, notes, status FROM sources
-  `).all() as Array<{ id: string, url: string, notes: string | null, status: string }>
+    SELECT id, title, url, platform, publisher_name AS publisherName,
+      source_level AS sourceLevel, is_official AS isOfficial,
+      published_at AS publishedAt, accessed_at AS accessedAt,
+      notes, status
+    FROM sources
+  `).all() as Array<{
+    id: string
+    title: string
+    url: string
+    platform: string
+    publisherName: string
+    sourceLevel: string
+    isOfficial: number
+    publishedAt: number | null
+    accessedAt: number
+    notes: string | null
+    status: string
+  }>
   const existingContents = database.prepare(`
     SELECT id, kind, slug, title, summary, body, category, audience,
       metadata_json AS metadataJson, is_featured AS isFeatured, status,
@@ -137,6 +156,7 @@ function buildPlan(database: InstanceType<typeof BetterSqlite3>, catalog: Catalo
   }
 
   const createSources: PlannedSource[] = []
+  const updateSources: PlannedSource[] = []
   const createContents: PlannedContent[] = []
   const updateContents: PlannedContent[] = []
   const sourceIdsByUrl = new Map<string, string>()
@@ -155,8 +175,18 @@ function buildPlan(database: InstanceType<typeof BetterSqlite3>, catalog: Catalo
     sourceIdsByUrl.set(key, existing.id)
     if (!isSeedOwnedSource(existing.notes)) {
       conflicts.push(`Source URL is not seed-owned: ${source.url}`)
-    } else if (existing.status !== 'active') {
-      conflicts.push(`Seed-owned source is not active: ${source.url}`)
+    } else if (
+      existing.title !== source.title
+      || existing.platform !== source.platform
+      || existing.publisherName !== source.publisherName
+      || existing.sourceLevel !== source.sourceLevel
+      || Boolean(existing.isOfficial) !== source.isOfficial
+      || existing.publishedAt !== source.publishedAt
+      || existing.accessedAt !== source.accessedAt
+      || existing.notes !== source.notes
+      || existing.status !== source.status
+    ) {
+      updateSources.push({ ...source, id: existing.id })
     }
   }
 
@@ -199,6 +229,7 @@ function buildPlan(database: InstanceType<typeof BetterSqlite3>, catalog: Catalo
 
   return {
     createSources,
+    updateSources,
     createContents,
     updateContents,
     sourceIdsByUrl,
@@ -213,7 +244,7 @@ function applyPlan(database: InstanceType<typeof BetterSqlite3>, plan: SyncPlan,
       id, title, url, platform, publisher_name, source_level, is_official,
       published_at, accessed_at, notes, status, created_at, updated_at
     ) VALUES (
-      @id, @title, @url, @platform, @publisherName, @sourceLevel, 1,
+      @id, @title, @url, @platform, @publisherName, @sourceLevel, @isOfficial,
       @publishedAt, @accessedAt, @notes, @status, @now, @now
     )
   `)
@@ -225,6 +256,20 @@ function applyPlan(database: InstanceType<typeof BetterSqlite3>, plan: SyncPlan,
       @id, @kind, @slug, @title, @summary, @body, @category, @audience, @metadataJson,
       @isFeatured, @status, @lastVerifiedAt, @publishedAt, @now, @now
     )
+  `)
+  const updateSource = database.prepare(`
+    UPDATE sources SET
+      title = @title,
+      platform = @platform,
+      publisher_name = @publisherName,
+      source_level = @sourceLevel,
+      is_official = @isOfficial,
+      published_at = @publishedAt,
+      accessed_at = @accessedAt,
+      notes = @notes,
+      status = @status,
+      updated_at = @now
+    WHERE id = @id
   `)
   const updateContent = database.prepare(`
     UPDATE contents SET
@@ -247,7 +292,12 @@ function applyPlan(database: InstanceType<typeof BetterSqlite3>, plan: SyncPlan,
     VALUES (?, ?, ?, ?)
   `)
 
-  for (const source of plan.createSources) insertSource.run({ ...source, now })
+  for (const source of plan.createSources) {
+    insertSource.run({ ...source, isOfficial: source.isOfficial ? 1 : 0, now })
+  }
+  for (const source of plan.updateSources) {
+    updateSource.run({ ...source, isOfficial: source.isOfficial ? 1 : 0, now })
+  }
 
   const writeRelations = (content: PlannedContent) => {
     content.sourceUrls.forEach((url, index) => {
@@ -282,6 +332,7 @@ function applyPlan(database: InstanceType<typeof BetterSqlite3>, plan: SyncPlan,
 
   return {
     createdSources: plan.createSources.length,
+    updatedSources: plan.updateSources.length,
     createdContents: plan.createContents.length,
     updatedContents: plan.updateContents.length
   }
@@ -304,9 +355,11 @@ export function syncPublicCatalog(options: CatalogSyncOptions = {}): CatalogSync
         mode: 'dry-run',
         databasePath,
         wouldCreateSources: plan.createSources.length,
+        wouldUpdateSources: plan.updateSources.length,
         wouldCreateContents: plan.createContents.length,
         wouldUpdateContents: plan.updateContents.length,
         createdSources: 0,
+        updatedSources: 0,
         createdContents: 0,
         updatedContents: 0,
         skippedContents: plan.skippedContents,
@@ -324,9 +377,11 @@ export function syncPublicCatalog(options: CatalogSyncOptions = {}): CatalogSync
           mode: 'apply-owned',
           databasePath,
           wouldCreateSources: plan.createSources.length,
+          wouldUpdateSources: plan.updateSources.length,
           wouldCreateContents: plan.createContents.length,
           wouldUpdateContents: plan.updateContents.length,
           createdSources: 0,
+          updatedSources: 0,
           createdContents: 0,
           updatedContents: 0,
           skippedContents: plan.skippedContents,
@@ -340,6 +395,7 @@ export function syncPublicCatalog(options: CatalogSyncOptions = {}): CatalogSync
         mode: 'apply-owned',
         databasePath,
         wouldCreateSources: plan.createSources.length,
+        wouldUpdateSources: plan.updateSources.length,
         wouldCreateContents: plan.createContents.length,
         wouldUpdateContents: plan.updateContents.length,
         ...changed,

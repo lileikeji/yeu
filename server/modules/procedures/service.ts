@@ -45,6 +45,7 @@ import {
   assertSourceIds,
   countPublishableSourcesByIds
 } from '../verification/service'
+import { cleanSearchTerm } from '../../../shared/utils/like-search'
 
 type CreateProcedureInput = z.infer<typeof createProcedureSchema>
 type UpdateProcedureInput = z.infer<typeof updateProcedureSchema>
@@ -65,10 +66,6 @@ interface RelationRefs {
 
 function toIso(value: number | null): string | null {
   return value === null ? null : new Date(value).toISOString()
-}
-
-function cleanSearchTerm(value: string): string {
-  return value.replace(/[%_]/g, '').trim()
 }
 
 function safeAudience(value: string): Array<'undergraduate' | 'transfer'> {

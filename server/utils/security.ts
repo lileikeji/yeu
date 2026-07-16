@@ -1,10 +1,27 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+﻿import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { H3Event } from 'h3'
 
-export const SESSION_COOKIE_NAME = 'yeu_admin_session'
-export const CSRF_COOKIE_NAME = 'yeu_admin_csrf'
-export const CSRF_HEADER_NAME = 'x-csrf-token'
+import {
+  ALL_CSRF_COOKIE_NAMES,
+  ALL_SESSION_COOKIE_NAMES,
+  authCookieNames,
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+  HOST_CSRF_COOKIE_NAME,
+  HOST_SESSION_COOKIE_NAME,
+  SESSION_COOKIE_NAME
+} from '../../shared/constants/security'
 
+export {
+  ALL_CSRF_COOKIE_NAMES,
+  ALL_SESSION_COOKIE_NAMES,
+  authCookieNames,
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+  HOST_CSRF_COOKIE_NAME,
+  HOST_SESSION_COOKIE_NAME,
+  SESSION_COOKIE_NAME
+}
 export interface SecurityConfig {
   secret: string
   ttlMs: number
@@ -61,7 +78,10 @@ export function assertTrustedOrigin(event: H3Event): void {
     allowed.add(configuredOrigin)
   }
 
-  if (requestOrigin) {
+  // Local development only: allow the current request host so localhost ports work
+  // without duplicating every dev origin in NUXT_ALLOWED_ORIGINS. Production must
+  // use an explicit allowlist (siteUrl + NUXT_ALLOWED_ORIGINS).
+  if (process.env.NODE_ENV !== 'production' && requestOrigin) {
     allowed.add(requestOrigin)
   }
 
@@ -106,24 +126,68 @@ export function setAuthCookies(
   expiresAt: number,
   secure: boolean
 ): void {
+  const names = authCookieNames(secure)
   const common = {
-    path: '/',
+    path: '/' as const,
     sameSite: 'lax' as const,
+    // __Host- requires Secure + Path=/ and forbids Domain.
     secure,
     expires: new Date(expiresAt)
   }
 
-  setCookie(event, SESSION_COOKIE_NAME, sessionToken, {
+  // Drop the alternate cookie namespace so only one session pair is active.
+  clearAuthCookieNames(event, secure
+    ? [SESSION_COOKIE_NAME, CSRF_COOKIE_NAME]
+    : [
+        HOST_SESSION_COOKIE_NAME,
+        HOST_CSRF_COOKIE_NAME
+      ], !secure)
+
+  setCookie(event, names.session, sessionToken, {
     ...common,
     httpOnly: true
   })
-  setCookie(event, CSRF_COOKIE_NAME, csrfToken, {
+  setCookie(event, names.csrf, csrfToken, {
     ...common,
     httpOnly: false
   })
 }
 
+function clearAuthCookieNames(
+  event: H3Event,
+  names: readonly string[],
+  preferSecure: boolean
+): void {
+  const base = {
+    path: '/' as const,
+    sameSite: 'lax' as const
+  }
+  for (const name of names) {
+    // Try both Secure flags so leftover cookies from env transitions are cleared.
+    deleteCookie(event, name, { ...base, secure: true })
+    deleteCookie(event, name, { ...base, secure: false })
+    if (preferSecure) {
+      deleteCookie(event, name, { ...base, secure: true })
+    }
+  }
+}
+
+export function readSessionCookie(event: H3Event): string | undefined {
+  return getCookie(event, HOST_SESSION_COOKIE_NAME)
+    || getCookie(event, SESSION_COOKIE_NAME)
+    || undefined
+}
+
+export function readCsrfCookie(event: H3Event): string | undefined {
+  return getCookie(event, HOST_CSRF_COOKIE_NAME)
+    || getCookie(event, CSRF_COOKIE_NAME)
+    || undefined
+}
+
 export function clearAuthCookies(event: H3Event): void {
-  deleteCookie(event, SESSION_COOKIE_NAME, { path: '/' })
-  deleteCookie(event, CSRF_COOKIE_NAME, { path: '/' })
+  // Match Path=/ and both Secure flags so Secure/SameSite/__Host- cookies clear reliably.
+  clearAuthCookieNames(event, [
+    ...ALL_SESSION_COOKIE_NAMES,
+    ...ALL_CSRF_COOKIE_NAMES
+  ], true)
 }

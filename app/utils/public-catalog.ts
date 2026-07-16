@@ -1,14 +1,16 @@
+import { freshmanGuideBody, officialClubBody, officialDepartmentBody } from '../../data/seeds/public-content'
 import type {
   FreshmanGuide,
   GuideSection,
   OfficialDepartment,
+  OfficialClub,
   PublicSource
 } from '~~/data/seeds/public-content'
 import type { GeoPoint, MapPoi } from '~~/map/core/types'
 import type { CampusMapReferencePlace } from '~~/data/seeds/preview-places'
 import type { AmapImportedPlace } from '~~/data/seeds/amap-imported-places'
 import type { ContentKind } from '~~/shared/constants/server'
-import type { ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
+import type { ApiAmapOwnerDraftPlace, ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
 
 type GuideCategory = FreshmanGuide['category']
 
@@ -57,6 +59,8 @@ const mapCategoryAliases: Record<string, string> = {
   merchant: 'nearby'
 }
 
+const ownerMapGenericSummary = '用户授权的高德工作地图标点，尚未经过独立现场核验。'
+
 export interface PublicGuideView extends FreshmanGuide {
   contentId: string | null
   body: string
@@ -71,7 +75,9 @@ export interface PublicDepartmentView {
   website: string | null
   phone: string | null
   email: string | null
+  address: string | null
   officeHours: string | null
+  verificationState: 'verified' | 'partial' | null
   isApiPublished: boolean
 }
 
@@ -109,10 +115,12 @@ export interface PublicMapPlace {
   scope: 'campus' | 'nearby'
   category: string
   summary: string
+  body: string
   address: string | null
   campusArea: string | null
   openingHours: string | null
   phone: string | null
+  usageChecklist: string[]
   point: GeoPoint | null
   pointIsVerified: boolean
   usesPreviewPoint: boolean
@@ -136,7 +144,7 @@ function metadataNumber(content: ApiContent, key: string): number | null {
 }
 
 function dateOnly(value: string | null): string {
-  if (!value) return '待核验'
+  if (!value) return '待确认'
   return value.slice(0, 10)
 }
 
@@ -144,8 +152,178 @@ function normalizeName(value: string): string {
   return value.trim().toLocaleLowerCase('zh-CN').replace(/[\s（）()\-_/]/g, '')
 }
 
+function equivalentPlaceNames(value: string): string[] {
+  const normalized = normalizeName(value)
+  const names = new Set([normalized])
+
+  if (normalized.includes('教学楼')) {
+    names.add(normalized.replace(/教学楼/g, '楼'))
+  }
+  if (normalized.endsWith('楼') && !normalized.endsWith('教学楼')) {
+    names.add(normalized.replace(/楼$/, '教学楼'))
+  }
+
+  return [...names]
+}
+
 function isHttpUrl(value: string | null): value is string {
   return Boolean(value && /^https?:\/\//i.test(value))
+}
+
+export function extractStudentUseChecklist(body: string): string[] {
+  const lines = body.split('\n')
+  const headingIndex = lines.findIndex(line => line.trim() === '【到这里前先确认】')
+  if (headingIndex < 0) return []
+
+  const items: string[] = []
+  for (const line of lines.slice(headingIndex + 1)) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('【')) break
+    const match = trimmed.match(/^[-*•]\s*(.+)$/)
+    if (!match) break
+    items.push(match[1]!.trim())
+    if (items.length >= 8) break
+  }
+  return items
+}
+
+export function studentFacingPlaceBody(body: string): string {
+  return body
+    .replace(/【到这里前先确认】[\s\S]*?(?=\n【|$)/g, '')
+    .split('\n')
+    .map(line => line.trim()
+      .replace(/已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护。?/g, '的位置来自高德地图标点，可以先用来找方向。')
+      .replace(/后台草稿/g, '地图标点')
+      .replace(/正式发布/g, '公开展示')
+      .replace(/地图定位和维护/g, '找方向')
+      .replace(/GCJ-02|WGS84|coordinate/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim())
+    .filter((line) => {
+      if (!line) return true
+      return !/resourceId|坐标来源|发布提醒|sourceRawRef/i.test(line)
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function studentFacingSourceContext(value: string | undefined): string | undefined {
+  if (!value?.trim()) return undefined
+  return value
+    .replace(/社交平台待核验线索/g, '社交平台参考信息')
+    .replace(/社交平台视频线索/g, '社交平台视频参考')
+    .replace(/与高德 POI 交叉命中的商铺候选/g, '在高德地图和学生分享中都出现过的商铺')
+    .replace(/候选/g, '参考')
+    .replace(/仍待核验/g, '还要再确认')
+    .replace(/待核验/g, '还要再确认')
+    .replace(/原外链当前不可稳定访问，前台仅保留为归档线索。?/g, '原链接现在不稳定，先作为参考记录保留。')
+    .replace(/归档线索/g, '参考记录')
+    .trim()
+}
+
+function studentFacingSource(source: PublicSource): PublicSource {
+  const context = studentFacingSourceContext(source.context)
+  return {
+    ...source,
+    ...(context ? { context } : {})
+  }
+}
+
+function normalizeOwnerMapNote(value: string): string {
+  return value
+    .split('\n')
+    .map(line => line.trim().replace(/^\d+[.、]\s*/, ''))
+    .filter(Boolean)
+    .join('；')
+    .replace(/用户授权的高德工作地图标点，?尚未经过独立现场确认。?/g, '')
+    .replace(/用户授权的高德工作地图标点，?尚未经过独立现场核验。?/g, '')
+    .replace(/已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护，?具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。?/g, '的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+    .replace(/用户授权的高德工作地图导出/g, '高德地图标点')
+    .replace(/高德工作地图导入草稿/g, '高德地图标点')
+    .replace(/后台草稿/g, '地图标点')
+    .replace(/草稿/g, '待确认信息')
+    .replace(/可用于地图定位和维护/g, '可以先用来找方向')
+    .replace(/正式发布/g, '公开展示')
+    .replace(/核验/g, '确认')
+    .replace(/待确认信息[，；、：:]?/g, '还要再确认，')
+    .replace(/([\u4e00-\u9fa5A-Za-z0-9]+) 的位置/g, '$1的位置')
+    .trim()
+}
+
+function ownerMapFriendlySummary(poi: AmapImportedPlace): string {
+  const note = normalizeOwnerMapNote(poi.summary)
+  const suffix = '位置来自你提供的高德地图标点，适合先用来找方向；具体入口、楼层、开放时间和当期用途仍以现场标识或学校通知为准。'
+  if (note && note !== ownerMapGenericSummary) {
+    return `${note}。${suffix}`
+  }
+
+  if (poi.category === 'campus-building') {
+    return `${poi.name} 是教学楼或校内楼栋标点。查课表、集合地点或部门通知时，可先用它确认楼名和大致方向；具体教室、楼层和入口以现场标识为准。`
+  }
+  if (poi.category === 'dorm') {
+    return `${poi.name} 是宿舍楼标点。新生可用它判断住宿区方向；实际入住楼栋、门禁规则、访客和报修要求以辅导员、宿管或总务通知为准。`
+  }
+  if (poi.category === 'food') {
+    return `${poi.name} 是校内餐厅或餐饮点标点。适合先判断吃饭方向；具体窗口、营业时间、支付方式和假期开放情况以现场为准。`
+  }
+  if (poi.category === 'express') {
+    return `${poi.name} 是快递或取件相关标点。取件前先看短信、平台取件码和站点现场提示；不同快递品牌、营业时间和寄件范围可能会调整。`
+  }
+  if (poi.category === 'gate') {
+    return `${poi.name} 是校门或出入口标点。到校、打车和步行导航可先用它判断入口方向；新生报到当天的通行口和车辆管控以学校现场安排为准。`
+  }
+  if (poi.category === 'nearby') {
+    return `${poi.name} 是学生街或周边生活服务标点。它只说明位置线索，不代表当前一定营业；价格、优惠、取件品牌和服务范围需要到店或电话确认。`
+  }
+  if (/医务|卫生|诊所/.test(poi.name)) {
+    return `${poi.name} 是校内基础医疗服务标点。普通不适可先按学校医务室说明处理；急症、夜间风险或严重症状应立即联系现场老师、医务人员或急救。`
+  }
+  if (/行政|校办|教务|资助|就业|财务|总务|保卫|网络|信息/.test(poi.name)) {
+    return `${poi.name} 是校内办事服务标点。适合查找咨询、缴费、网络、报修、资助或安全相关入口；具体窗口、材料和办公时间以部门最新通知为准。`
+  }
+  if (/图书馆/.test(poi.name)) {
+    return `${poi.name} 是借阅、自习和学习空间相关标点。开放时间、借阅规则、座位和节假日安排可能调整，进馆前先看图书馆最新通知。`
+  }
+  if (/公交|车站|上车|下车|叮叮车/.test(poi.name)) {
+    return `${poi.name} 是交通或上下车相关标点。适合先判断候车方向；班次、停靠点、报到日接驳和临时交通管制以学校或现场安排为准。`
+  }
+  if (/礼堂|报告厅|体育|操场|篮球|排球|球场|舞池|运动|桥|广场|文体|校史馆|创业园/.test(poi.name)) {
+    return `${poi.name} 是校内活动、运动或公共空间标点。集合、活动和上课安排要结合当次通知核对；临时封闭或借用以现场公告为准。`
+  }
+
+  return `${poi.name} 是校内服务点标点。可先用来判断位置方向；具体用途、入口和开放状态以现场标识或学校通知为准。`
+}
+
+export function mergeAmapImportedPlacesWithDrafts(
+  seeds: AmapImportedPlace[],
+  drafts: ApiAmapOwnerDraftPlace[] | null | undefined
+): AmapImportedPlace[] {
+  if (!drafts?.length) return seeds
+
+  const draftBySourceRow = new Map(drafts.map(draft => [draft.sourceRow, draft]))
+  return seeds.map((seed) => {
+    const draft = draftBySourceRow.get(seed.sourceRow)
+    if (!draft) return seed
+
+    return {
+      ...seed,
+      name: draft.name || seed.name,
+      summary: studentFacingPlaceBody(draft.summary || seed.summary) || seed.summary,
+      address: draft.address || seed.address,
+      category: mapCategories.has(draft.category ?? '') ? draft.category! : seed.category,
+      point: {
+        lng: draft.longitude,
+        lat: draft.latitude,
+        crs: 'GCJ-02'
+      },
+      sourcePoint: {
+        lng: draft.longitude,
+        lat: draft.latitude,
+        crs: 'GCJ-02'
+      }
+    }
+  })
 }
 
 function toPublicSources(content: ApiContent): PublicSource[] {
@@ -153,7 +331,8 @@ function toPublicSources(content: ApiContent): PublicSource[] {
     title: source.title,
     publisher: source.publisherName,
     url: source.url,
-    accessedAt: dateOnly(source.accessedAt)
+    accessedAt: dateOnly(source.accessedAt),
+    status: source.status
   }))
 }
 
@@ -212,8 +391,11 @@ function parseGuideSections(content: ApiContent): GuideSection[] {
             publisher,
             url,
             accessedAt,
-            ...(typeof source.context === 'string' && source.context.trim()
-              ? { context: source.context.trim() }
+            ...(source.status === 'unavailable' || source.status === 'disputed'
+              ? { status: source.status }
+              : {}),
+            ...(studentFacingSourceContext(typeof source.context === 'string' ? source.context : undefined)
+              ? { context: studentFacingSourceContext(typeof source.context === 'string' ? source.context : undefined)! }
               : {})
           }]
         })
@@ -265,7 +447,7 @@ function apiGuideToView(content: ApiContent, seed?: FreshmanGuide): PublicGuideV
     statusText: metadataString(content, 'statusText') ?? `${guideCategoryDefaults[category].statusText} · ${verifiedDate}`,
     updatedAt: verifiedDate,
     leadNotice: metadataString(content, 'leadNotice')
-      ?? `本页内容已通过后台发布流程，最后核验于 ${verifiedDate}；强时效事项仍以所列官方来源为准。`,
+      ?? `本页内容已整理发布，最后确认于 ${verifiedDate}；强时效事项仍以所列官方来源为准。`,
     sections,
     sources: toPublicSources(content),
     contentId: content.id,
@@ -277,8 +459,13 @@ function apiGuideToView(content: ApiContent, seed?: FreshmanGuide): PublicGuideV
 export function staticGuideToView(guide: FreshmanGuide): PublicGuideView {
   return {
     ...guide,
+    sections: guide.sections.map(section => ({
+      ...section,
+      ...(section.sources ? { sources: section.sources.map(studentFacingSource) } : {})
+    })),
+    sources: guide.sources.map(studentFacingSource),
     contentId: null,
-    body: '',
+    body: freshmanGuideBody(guide),
     isApiPublished: false
   }
 }
@@ -332,7 +519,13 @@ function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): Pu
     website: isHttpUrl(metadataWebsite) ? metadataWebsite : sourceWebsite ?? seed?.website ?? null,
     phone: metadataString(content, 'phone') ?? seed?.phone ?? null,
     email: metadataString(content, 'email') ?? seed?.email ?? null,
+    address: metadataString(content, 'address') ?? seed?.address ?? null,
     officeHours: metadataString(content, 'officeHours'),
+    verificationState: metadataString(content, 'verificationState') === 'verified'
+      ? 'verified'
+      : metadataString(content, 'verificationState') === 'partial'
+        ? 'partial'
+        : seed?.verificationState ?? null,
     isApiPublished: true
   }
 }
@@ -344,19 +537,21 @@ export function mergePublicDepartments(
 ): PublicDepartmentView[] {
   const apiDepartments = contents.filter(content => content.kind === 'department' && content.status === 'published')
   const apiByName = new Map(apiDepartments.map(content => [normalizeName(content.title), content]))
-  const merged = seedDepartments.flatMap((seed, index): PublicDepartmentView[] => {
+  const merged = seedDepartments.flatMap((seed): PublicDepartmentView[] => {
     const content = apiByName.get(normalizeName(seed.name))
     if (content) return [apiDepartmentToView(content, seed)]
     if (!allowStaticFallback) return []
     return [{
-      slug: `static-department-${index + 1}`,
+      slug: seed.slug,
       name: seed.name,
       summary: seed.summary,
-      body: '',
+      body: officialDepartmentBody(seed),
       website: seed.website,
       phone: seed.phone ?? null,
       email: seed.email ?? null,
+      address: seed.address ?? null,
       officeHours: null,
+      verificationState: seed.verificationState ?? null,
       isApiPublished: false
     }]
   })
@@ -368,22 +563,52 @@ export function mergePublicDepartments(
   return [...merged, ...additional]
 }
 
-export function publicClubs(contents: ApiContent[]): PublicClubView[] {
-  return contents
-    .filter(content => content.kind === 'club' && content.status === 'published')
-    .map(content => ({
-      id: content.id,
-      slug: content.slug,
-      name: content.title,
-      summary: content.summary,
-      body: content.body,
-      category: content.category === 'recent-activity' ? '近期活动可核验' : content.category,
-      recruitmentPeriod: metadataString(content, 'recruitmentPeriod'),
-      activitySchedule: metadataString(content, 'activitySchedule'),
-      contactMethod: metadataString(content, 'contactMethod'),
-      updatedAt: dateOnly(content.lastVerifiedAt ?? content.updatedAt),
-      sources: toPublicSources(content)
-    }))
+function apiClubToView(content: ApiContent): PublicClubView {
+  return {
+    id: content.id,
+    slug: content.slug,
+    name: content.title,
+    summary: content.summary,
+    body: content.body,
+    category: content.category === 'recent-activity' ? '近期活动可确认' : content.category,
+    recruitmentPeriod: metadataString(content, 'recruitmentPeriod'),
+    activitySchedule: metadataString(content, 'activitySchedule'),
+    contactMethod: metadataString(content, 'contactMethod'),
+    updatedAt: dateOnly(content.lastVerifiedAt ?? content.updatedAt),
+    sources: toPublicSources(content)
+  }
+}
+
+function staticClubToView(club: OfficialClub): PublicClubView {
+  const active = club.source.url.includes('/2026/')
+  return {
+    id: `static-club-${club.slug}`,
+    slug: club.slug,
+    name: club.name,
+    summary: club.summary,
+    body: officialClubBody(club),
+    category: active ? `${club.group} · 近期活动可确认` : `${club.group} · 名称线索待确认`,
+    recruitmentPeriod: null,
+    activitySchedule: null,
+    contactMethod: null,
+    updatedAt: club.source.accessedAt,
+    sources: [studentFacingSource(club.source)]
+  }
+}
+
+export function publicClubs(contents: ApiContent[], seedClubs: OfficialClub[] = []): PublicClubView[] {
+  const apiClubs = contents.filter(content => content.kind === 'club' && content.status === 'published')
+  const apiBySlug = new Map(apiClubs.map(content => [content.slug, content]))
+  const merged = seedClubs.map((seed) => {
+    const content = apiBySlug.get(seed.slug)
+    return content ? apiClubToView(content) : staticClubToView(seed)
+  })
+  const seedSlugs = new Set(seedClubs.map(club => club.slug))
+  const additional = apiClubs
+    .filter(content => !seedSlugs.has(content.slug))
+    .map(apiClubToView)
+
+  return [...merged, ...additional]
 }
 
 export function publicNotices(contents: ApiContent[]): PublicNoticeView[] {
@@ -427,15 +652,17 @@ function previewMapPlace(poi: CampusMapReferencePlace): PublicMapPlace {
     name: poi.name,
     scope: 'campus',
     category: poi.category,
-    summary: `学校官网平面图编号 ${poi.mapNumber}。原图未提供可验证的版本日期、比例尺或经纬度，因此这里只作名称与相对位置索引。`,
+    summary: `学校官网平面图文字编号 ${poi.mapNumber}。原图未提供可验证的版本日期、比例尺或经纬度，且本站不转载原图，因此这里只保留编号和名称索引。`,
+    body: `学校官网平面图文字编号 ${poi.mapNumber}。原图未提供可验证的版本日期、比例尺或经纬度，且本站不转载原图，因此这里只保留编号和名称索引。`,
     address: null,
     campusArea: null,
     openingHours: null,
     phone: null,
+    usageChecklist: [],
     point: null,
     pointIsVerified: false,
     usesPreviewPoint: true,
-    referenceLabel: `官网平面图 ${poi.mapNumber}`,
+    referenceLabel: `官网文字索引 ${poi.mapNumber}`,
     officialPlanNumber: poi.mapNumber,
     coordinateVerification: 'preview',
     coordinateSystem: null,
@@ -459,24 +686,26 @@ function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
     name: poi.name,
     scope: poi.category === 'nearby' ? 'nearby' : 'campus',
     category: poi.category,
-    summary: poi.summary,
+    summary: ownerMapFriendlySummary(poi),
+    body: ownerMapFriendlySummary(poi),
     address: poi.address || null,
     campusArea: null,
     openingHours: null,
     phone: null,
-    // WIA source points are already GCJ-02 coordinates from AMap. Reuse them
-    // directly for AMap rendering instead of round-tripping the approximate
-    // WGS84 audit value through the network-dependent convertFrom API.
+    usageChecklist: [],
+    // These owner-provided AMap points are already GCJ-02 coordinates. Reuse
+    // them directly for AMap rendering instead of round-tripping through the
+    // network-dependent convertFrom API.
     point: poi.sourcePoint,
     pointIsVerified: false,
     usesPreviewPoint: false,
-    referenceLabel: '用户授权 WIA 工作地图标点',
+    referenceLabel: '高德地图标点',
     officialPlanNumber: null,
     coordinateVerification: 'owner-map-only',
     coordinateSystem: 'GCJ-02',
     navigationUrl: navigation.toString(),
     isApiPublished: false,
-    searchText: [poi.name, poi.summary, poi.address, poi.category].filter(Boolean).join(' ')
+    searchText: [poi.name, ownerMapFriendlySummary(poi), poi.summary, poi.address, poi.category].filter(Boolean).join(' ')
   }
 }
 
@@ -497,10 +726,12 @@ function apiMapPlace(place: ApiPlace): PublicMapPlace {
     scope: place.scope,
     category: normalizeMapCategory(place),
     summary: place.summary,
+    body: place.body,
     address: place.address,
     campusArea: place.campusArea,
     openingHours: place.openingHours,
     phone: place.phone,
+    usageChecklist: extractStudentUseChecklist(place.body),
     point,
     pointIsVerified: hasRenderableVerifiedPoint,
     usesPreviewPoint: false,
@@ -529,16 +760,27 @@ export function mergePublicMapPlaces(
   ownerMapPois: AmapImportedPlace[] = []
 ): PublicMapPlace[] {
   const published = places.filter(place => place.status === 'published')
-  const apiNames = new Set(published.map(place => normalizeName(place.name)))
+  const apiNames = new Set(published.flatMap(place => equivalentPlaceNames(place.name)))
+  const apiNamesWithRenderablePoints = new Set(published
+    .filter(place => (
+      place.navigationAvailable
+      && place.coordinateVerification === 'verified'
+      && place.coordinateSystem === 'WGS84'
+      && place.longitude !== null
+      && place.latitude !== null
+    ))
+    .flatMap(place => equivalentPlaceNames(place.name)))
   const previewByName = new Map<string, CampusMapReferencePlace>()
   for (const preview of previewPois) {
     for (const name of [preview.name, ...(preview.aliases ?? [])]) {
-      previewByName.set(normalizeName(name), preview)
+      for (const equivalentName of equivalentPlaceNames(name)) {
+        previewByName.set(equivalentName, preview)
+      }
     }
   }
   const apiViews = published.map((place) => {
     const view = apiMapPlace(place)
-    const matchingPreview = previewByName.get(normalizeName(place.name))
+    const matchingPreview = equivalentPlaceNames(place.name).map(name => previewByName.get(name)).find(Boolean)
     if (!matchingPreview) return view
 
     return {
@@ -546,27 +788,28 @@ export function mergePublicMapPlaces(
       officialPlanNumber: matchingPreview.mapNumber,
       searchText: [
         view.searchText,
+        matchingPreview.mapNumber,
         matchingPreview.name,
         ...(matchingPreview.aliases ?? [])
       ].join(' ')
     }
   })
   const ownerViews = ownerMapPois
-    .filter(poi => !apiNames.has(normalizeName(poi.name)))
+    .filter(poi => !apiNamesWithRenderablePoints.has(normalizeName(poi.name)))
     .map((poi) => {
       const view = ownerMapPlace(poi)
-      const matchingPreview = previewByName.get(normalizeName(poi.name))
+      const matchingPreview = equivalentPlaceNames(poi.name).map(name => previewByName.get(name)).find(Boolean)
       if (!matchingPreview) return view
       return {
         ...view,
         officialPlanNumber: matchingPreview.mapNumber,
-        searchText: [view.searchText, matchingPreview.name, ...(matchingPreview.aliases ?? [])].join(' ')
+        searchText: [view.searchText, matchingPreview.mapNumber, matchingPreview.name, ...(matchingPreview.aliases ?? [])].join(' ')
       }
     })
-  const ownerNames = new Set(ownerViews.map(place => normalizeName(place.name)))
+  const ownerNames = new Set(ownerViews.flatMap(place => equivalentPlaceNames(place.name)))
   const remainingPreviews = previewPois
     .filter(poi => ![poi.name, ...(poi.aliases ?? [])]
-      .some(name => apiNames.has(normalizeName(name)) || ownerNames.has(normalizeName(name))))
+      .some(name => equivalentPlaceNames(name).some(equivalentName => apiNames.has(equivalentName) || ownerNames.has(equivalentName))))
     .map(previewMapPlace)
 
   return [...apiViews, ...ownerViews, ...remainingPreviews]

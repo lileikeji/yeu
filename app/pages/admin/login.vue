@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  adminLoginMessages,
+  adminLoginRequestMessage,
+  isAdminSessionAuthenticated,
+  resolveAdminLoginRedirectTarget
+} from '~~/app/utils/admin-login-presentation'
+
 definePageMeta({ layout: false })
 
 useSeoMeta({
@@ -14,28 +21,8 @@ const submitting = ref(false)
 const checkingSession = ref(true)
 const errorMessage = ref('')
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function authenticated(payload: unknown): boolean {
-  if (!isObject(payload)) return false
-  if (payload.authenticated === true || payload.isAuthenticated === true || payload.loggedIn === true) return true
-  if (isObject(payload.user) || isObject(payload.admin)) return true
-  return isObject(payload.session) && isObject(payload.session.user)
-}
-
-function requestMessage(error: unknown): string {
-  if (!isObject(error)) return '登录失败，请稍后重试。'
-  if (isObject(error.data) && typeof error.data.message === 'string') return error.data.message
-  if (typeof error.statusMessage === 'string') return error.statusMessage
-  return '账号或密码不正确。'
-}
-
 function redirectTarget(): string {
-  const value = typeof route.query.redirect === 'string' ? route.query.redirect : '/admin'
-  if (!value.startsWith('/admin') || value.startsWith('/admin/login')) return '/admin'
-  return value
+  return resolveAdminLoginRedirectTarget(route.query.redirect)
 }
 
 async function checkExistingSession(): Promise<void> {
@@ -45,7 +32,7 @@ async function checkExistingSession(): Promise<void> {
     const payload = await $fetch<unknown>('/api/admin/auth/session', {
       credentials: 'include'
     })
-    if (authenticated(payload)) await navigateTo(redirectTarget(), { replace: true })
+    if (isAdminSessionAuthenticated(payload)) await navigateTo(redirectTarget(), { replace: true })
   } catch {
     // A missing or expired session is the expected login-page state.
   } finally {
@@ -55,7 +42,7 @@ async function checkExistingSession(): Promise<void> {
 
 async function login(): Promise<void> {
   if (!username.value.trim() || !password.value) {
-    errorMessage.value = '请输入管理员账号和密码。'
+    errorMessage.value = adminLoginMessages.missingCredentials
     return
   }
 
@@ -73,7 +60,7 @@ async function login(): Promise<void> {
     })
     await navigateTo(redirectTarget(), { replace: true })
   } catch (error) {
-    errorMessage.value = requestMessage(error)
+    errorMessage.value = adminLoginRequestMessage(error)
   } finally {
     submitting.value = false
   }
@@ -191,7 +178,7 @@ onMounted(() => {
                     variant="ghost"
                     size="sm"
                     :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-                    @click="passwordVisible = !passwordVisible"
+                    @click="() => { passwordVisible = !passwordVisible }"
                   />
                 </template>
               </UInput>

@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { officialDepartments } from '~~/data/seeds/public-content'
+import {
+  departmentListContactPreview,
+  departmentListMessages,
+  filterDepartmentListItems
+} from '~~/app/utils/department-list-presentation'
 import { mergePublicDepartments } from '~/utils/public-catalog'
 
 useSeoMeta({
@@ -8,17 +14,8 @@ useSeoMeta({
 
 const searchQuery = ref('')
 const { data: response, error } = await usePublicDepartmentList()
-const departments = computed(() => mergePublicDepartments([], response.value?.items ?? [], false))
-const filteredDepartments = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
-  if (!query) return departments.value
-  return departments.value.filter(department => [
-    department.name,
-    department.summary,
-    department.phone,
-    department.email
-  ].filter(Boolean).join(' ').toLocaleLowerCase('zh-CN').includes(query))
-})
+const departments = computed(() => mergePublicDepartments(officialDepartments, response.value?.items ?? [], true))
+const filteredDepartments = computed(() => filterDepartmentListItems(departments.value, searchQuery.value))
 </script>
 
 <template>
@@ -51,7 +48,7 @@ const filteredDepartments = computed(() => {
         class="border-l-2 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-800"
         role="alert"
       >
-        部门资料暂时不可用，请稍后重试。
+        {{ departmentListMessages.serviceUnavailable }}
       </div>
 
       <div
@@ -93,7 +90,7 @@ const filteredDepartments = computed(() => {
             {{ department.summary }}
           </p>
           <div class="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-xs text-zinc-500">
-            <span>{{ department.phone || department.email || '查看官方入口' }}</span>
+            <span>{{ departmentListContactPreview(department) }}</span>
             <UIcon
               name="i-lucide-arrow-right"
               class="size-4 text-green-700"
@@ -111,7 +108,7 @@ const filteredDepartments = computed(() => {
           class="mx-auto size-6 text-zinc-400"
         />
         <p class="mt-3 text-sm text-zinc-600">
-          没有匹配的部门
+          {{ departmentListMessages.emptyMatch }}
         </p>
       </div>
     </div>

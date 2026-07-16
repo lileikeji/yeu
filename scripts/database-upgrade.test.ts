@@ -467,3 +467,52 @@ test('0006 preserves feedback, adds page context, and accepts procedure targets'
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('0007 creates rate_limit_buckets for shared rate limiting', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-rate-limit-migration-'))
+  const sqlite = new BetterSqlite3(join(directory, 'rate-limit.sqlite'))
+
+  try {
+    sqlite.pragma('foreign_keys = ON')
+    const database = drizzle(sqlite)
+    migrate(database, { migrationsFolder: createMigrationSet(directory, 7) })
+
+    assert.equal(
+      sqlite.prepare(`
+        SELECT name FROM sqlite_master
+        WHERE type = 'table' AND name = 'rate_limit_buckets'
+      `).get(),
+      undefined
+    )
+
+    migrate(database, { migrationsFolder: createMigrationSet(directory, 8) })
+
+    const table = sqlite.prepare(`
+      SELECT name FROM sqlite_master
+      WHERE type = 'table' AND name = 'rate_limit_buckets'
+    `).get() as { name: string } | undefined
+    assert.equal(table?.name, 'rate_limit_buckets')
+
+    const columns = sqlite.prepare(`PRAGMA table_info(rate_limit_buckets)`).all() as Array<{ name: string }>
+    assert.deepEqual(
+      columns.map(column => column.name).sort(),
+      ['bucket_key', 'hit_count', 'reset_at']
+    )
+
+    const indexes = sqlite.pragma('index_list(rate_limit_buckets)') as Array<{ name: string }>
+    assert.ok(indexes.some(index => index.name === 'rate_limit_buckets_reset_idx'))
+
+    sqlite.prepare(`
+      INSERT INTO rate_limit_buckets (bucket_key, hit_count, reset_at)
+      VALUES ('probe', 1, ?)
+    `).run(Date.now() + 60_000)
+    assert.equal(
+      sqlite.prepare('SELECT hit_count FROM rate_limit_buckets WHERE bucket_key = ?')
+        .pluck().get('probe'),
+      1
+    )
+  } finally {
+    sqlite.close()
+    rmSync(directory, { recursive: true, force: true })
+  }
+})

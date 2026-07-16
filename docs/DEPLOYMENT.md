@@ -83,6 +83,7 @@ pnpm check
 pnpm db:migrate
 pnpm db:init
 pnpm db:check
+pnpm data:verify --database "$NUXT_DATABASE_PATH"
 ln -sfn /www/wwwroot/yeu/releases/20260713-180000 /www/wwwroot/yeu/current
 ```
 
@@ -92,21 +93,48 @@ ln -sfn /www/wwwroot/yeu/releases/20260713-180000 /www/wwwroot/yeu/current
 
 ```bash
 pnpm db:seed:catalog
-pnpm db:seed:catalog -- --apply
+pnpm db:seed:catalog --apply
 ```
 
 第一条命令默认只读，只报告预计新增、跳过和冲突；确认无冲突后才执行第二条。已有人工内容的生产库不应把 `--apply` 作为无审查的日常发布步骤。脚本遇到来源 URL 或内容标识冲突会整批停止。
 
-公开目录完成后，以同样的预检/应用顺序导入结构化报到流程：
+公开目录完成后，以同样的预检/应用顺序导入首批结构化流程：
 
 ```bash
 pnpm db:seed:procedures
-pnpm db:seed:procedures -- --apply
+pnpm db:seed:procedures --apply
 ```
 
-流程脚本要求关联部门、指南和来源已存在；人工同名流程会使整批操作停止。生产更新前先备份数据库，并核对预检中的新增/更新数量。
+流程脚本要求关联部门、指南和来源已存在；人工同名流程会使整批操作停止。当前种子覆盖 2026 级报到、校园网与统一认证、宿舍维修报修、图书馆借阅证/微信绑定和专升本学生档案邮寄。生产更新前先备份数据库，并核对预检中的新增/更新数量。
 
-`pnpm check` 统一执行 lint、类型检查、全部 `scripts/*.test.ts` 测试、生产构建和 Service Worker 产物断言。发布记录仍须明确列出浏览器验收范围。迁移前创建一致性备份；首次建库也要确认目录权限、外键和 WAL 设置。
+首次建立地图草稿库时，按以下顺序预检并应用；已有人工地点数据的生产库必须先备份并逐项审查预检结果：
+
+```bash
+pnpm amap:drafts --database "$NUXT_DATABASE_PATH"
+pnpm amap:drafts --apply --database "$NUXT_DATABASE_PATH"
+pnpm map:owner:sync --database "$NUXT_DATABASE_PATH"
+pnpm map:owner:sync --apply --database "$NUXT_DATABASE_PATH"
+pnpm map:sources:sync --database "$NUXT_DATABASE_PATH"
+pnpm map:sources:sync --apply --database "$NUXT_DATABASE_PATH"
+```
+
+`map:owner:sync` 只写入用户授权工作地图的 `unverified` GCJ-02 草稿点；`map:sources:sync` 只新增经过审核的官方来源关系。两者都不会创建公开导航点。应用后必须运行 `pnpm map:readiness --database "$NUXT_DATABASE_PATH"`，确认剩余阻塞与现场核验台账一致。
+
+`pnpm check` 统一执行 lint、类型检查、全部 `scripts/*.test.ts` 测试、生产构建、客户端构建体积预算和 Service Worker 产物断言。体积预算要求 MapLibre 保持独立动态分包，并限制首页、搜索、地图、流程详情及全局入口的初始未压缩 JS/CSS；它不代替生产真机性能测试。`pnpm data:verify --database "$NUXT_DATABASE_PATH"` 只读核对目标库中的来源、公开内容、流程和高德草稿标点是否与当前代码种子一致，防止前台显示内容和后台可维护数据分叉。若需要同时验收管理员账号，只在受限部署会话中临时执行 `pnpm data:verify --database "$NUXT_DATABASE_PATH" --admin-user "$NUXT_ADMIN_USERNAME" --admin-password "$NUXT_ADMIN_PASSWORD"`，不要把明文密码写入脚本、日志或发布记录。发布记录仍须明确列出浏览器验收范围。迁移前创建一致性备份；首次建库也要确认目录权限、外键和 WAL 设置。
+
+CI 或发布候选工作站应在 `pnpm install --frozen-lockfile` 后安装与仓库 Playwright 版本匹配的 Chromium，再执行包含完整工程门禁和浏览器测试的命令：
+
+```bash
+# 开发/发布候选工作站
+pnpm e2e:install
+
+# 裸 Linux CI 需要同时安装浏览器系统依赖时使用；需具备相应系统包权限
+pnpm e2e:install:ci
+
+pnpm check:e2e
+```
+
+`pnpm e2e` 会先运行生产构建，再重建 Git 忽略的 `.data/e2e.sqlite`，在其中初始化仅用于 E2E 的管理员、内容草稿和公开地点，不会读取或修改生产数据库，也不会复用生产凭据。已经通过 `pnpm check` 或 `pnpm build` 生成最新 `.output` 时，可使用 `pnpm e2e:run` 避免重复构建；CI 和 `pnpm check:e2e` 使用这一底层命令。当前项目自动执行桌面 Chromium 与 Pixel 5 移动视口，外部地图瓦片和官网请求会被阻断；公开端、地图显示设置、后台发布/下线/审计、反馈处理、PWA 注册/更新提示和六类页面 Axe 扫描共 36 条检查。生产服务器本身无需为运行应用安装浏览器；WebKit、微信内置浏览器、实际安装态 PWA、真机定位、高德正式 Key 与生产域名仍按发布清单人工验收。
 
 首次启动（示意）：
 
@@ -144,7 +172,7 @@ NEW_ADMIN_HASH="$(pnpm --silent db:hash-password)"
 unset NUXT_ADMIN_PASSWORD
 
 export NUXT_ADMIN_PASSWORD_HASH="$NEW_ADMIN_HASH"
-pnpm db:init -- --reset-admin
+pnpm db:init --reset-admin
 unset NUXT_ADMIN_PASSWORD_HASH NEW_ADMIN_HASH
 
 pm2 restart yeu --update-env
@@ -153,6 +181,15 @@ pm2 restart yeu --update-env
 `--reset-admin` 在一个数据库事务中更新密码哈希、重新启用管理员并撤销该管理员的全部旧会话，不需要再手工修改 `admin_sessions`。完成后用新密码登录一次，确认旧浏览器会话已失效，并在受限运维记录中写明轮换时间、执行人和备份位置，不记录密码或哈希。
 
 若会话密钥疑似泄露，应生成新的至少 32 字节 `NUXT_ADMIN_SESSION_SECRET`、更新 shared `.env` 并重启应用；密钥变化会使所有现有会话 token 无法通过校验。随后检查 `/api/health` 并重新登录。不要把日常密码轮换和会话密钥轮换混为同一步骤。
+
+
+
+### NUXT_TRUST_PROXY 安全约定
+
+- 仅在 Nginx（或其它反向代理）已正确设置 `X-Forwarded-For` / `X-Real-IP`，且 Node 只监听本机回环（`NITRO_HOST=127.0.0.1`）时，将 `NUXT_TRUST_PROXY=true`。
+- 应用在 `true` 时**仍会校验 TCP 对端**：默认只信任 loopback 对端的 `X-Forwarded-For`；直连 Node 并伪造 XFF 的请求会被忽略。
+- Docker sidecar 等私网代理场景可设置 `NUXT_TRUST_PROXY_PEERS=private`（额外信任 RFC1918 对端）。默认 `loopback`。
+- 切勿在 Node 对公网暴露且开启 `NUXT_TRUST_PROXY` 的情况下运行。
 
 ## 5. Nginx 配置要点
 
@@ -195,6 +232,7 @@ location @nuxt {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-Id $request_id;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_read_timeout 60s;
@@ -204,11 +242,20 @@ location @nuxt {
 补充要求：
 
 - HTTP 强制跳转 HTTPS；证书链、自动续期和 TLS 1.2/1.3 通过检查。
-- 增加 `X-Content-Type-Options: nosniff`、合理的 `Referrer-Policy` 和页面 framing 限制。
+- Nitro 动态响应已统一返回 `X-Content-Type-Options: nosniff`、`Referrer-Policy`、framing/object 限制、Permissions Policy 和 `X-Request-Id`；Nginx 直接提供的 `/_nuxt/`、图标、manifest、Service Worker 和上传文件仍须在对应静态 location 添加等价安全头。
 - CSP 先以 `Content-Security-Policy-Report-Only` 观察实际高德域名，再收紧并启用；不要为省事永久允许任意脚本域或 `unsafe-eval`。
 - `/api/admin/**`、登录和纠错接口不得被代理缓存；对登录/纠错/搜索配置应用层和 Nginx 双层限流。
 - 上传文件由应用生成安全文件名并校验类型；Nginx 不执行 uploads 中的脚本。
 - HSTS 只在 HTTPS 和所有子域准备完成后开启，避免误锁域名。
+
+上线后至少执行以下响应头冒烟检查；请求 ID 必须为受限格式，认证接口必须保持 `no-store`，页面不能允许第三方 framing：
+
+```bash
+curl -sSI https://example.edu.cn/ | grep -Ei 'x-request-id|x-content-type-options|referrer-policy|permissions-policy|content-security-policy|x-frame-options'
+curl -sSI https://example.edu.cn/api/admin/auth/session | grep -Ei 'cache-control|pragma|x-request-id'
+```
+
+生产默认输出一行一个 JSON 的请求日志。`NUXT_REQUEST_LOGGING=false` 只允许在已经由受监控的上游访问日志完整替代时使用；无论是否关闭应用请求日志，数据库后台审计仍保留同一个请求 ID。运行时 `app/server/map` 源码禁止直接使用 `console.*`，服务端请求错误由统一结构化日志记录；维护脚本的 stdout/stderr 是命令行契约，不应与 PM2 请求日志混写。
 
 ## 6. 日常发布与回滚
 
@@ -269,16 +316,16 @@ PRAGMA busy_timeout = 5000;
 
 最低备份范围：SQLite、`shared/uploads`、生产环境变量/密钥的独立加密备份，以及能定位代码的 commit SHA。构建产物可从 Git 重建，无需作为唯一备份。
 
-运行中 SQLite 的一致性备份示例：
+优先使用仓库自带、经过测试的在线一致性备份命令：
 
 ```bash
 STAMP=$(date +%Y%m%d-%H%M%S)
-sqlite3 /www/wwwroot/yeu/shared/data/yeu.sqlite \
-  ".backup '/www/wwwroot/yeu/shared/backups/yeu-${STAMP}.sqlite'"
-sqlite3 /www/wwwroot/yeu/shared/backups/yeu-${STAMP}.sqlite \
-  "PRAGMA integrity_check; PRAGMA foreign_key_check;"
-gzip /www/wwwroot/yeu/shared/backups/yeu-${STAMP}.sqlite
+pnpm db:backup \
+  --database /www/wwwroot/yeu/shared/data/yeu.sqlite \
+  --output /www/wwwroot/yeu/shared/backups/yeu-${STAMP}.sqlite
 ```
+
+该命令使用 SQLite online backup API，先写同目录临时文件，验证 `integrity_check`、`foreign_key_check`、文件大小和 SHA-256 后再原子改名，并生成同名 `.json` 元数据。它拒绝覆盖已有文件以及写入 `public/`、`.output/public/`、`storage/uploads/`。备份与元数据随后可作为同一归档加密压缩；压缩后还应记录归档自身哈希。
 
 保留建议：最近 7 个每日、4 个每周、6 个每月版本；本机备份之外至少有一份异机/对象存储加密副本。备份任务失败必须通知，不能只依赖宝塔显示“计划任务已执行”。
 
@@ -286,7 +333,7 @@ gzip /www/wwwroot/yeu/shared/backups/yeu-${STAMP}.sqlite
 
 1. 停止写入并保留当前数据库副本；
 2. 解压到新文件，不覆盖原库；
-3. 运行完整性、外键检查和关键表数量核对；
+3. 核对备份 JSON 哈希，运行完整性、外键检查和 `pnpm data:verify --database <恢复文件>`；
 4. 用临时 `NUXT_DATABASE_PATH` 启动隔离实例；
 5. 验证地图地点、指南、管理员登录、发布/下线和媒体引用；
 6. 确认无误后原子切换数据库路径并记录恢复点、耗时与数据损失窗口。
@@ -296,7 +343,30 @@ gzip /www/wwwroot/yeu/shared/backups/yeu-${STAMP}.sqlite
 - `/api/health` 返回数据库与生产配置就绪状态，不返回路径、Key、密钥或表数据。生产模式要求：`NUXT_PUBLIC_SITE_URL` 是 HTTPS、地图 provider 为 `amap` 且 Key/安全密钥非空、`NUXT_ADMIN_SESSION_SECRET` 至少 32 字节；任一条件不满足或数据库不可读时返回 HTTP `503`。
 - 配置问题通过稳定问题码报告：`site_url_invalid`、`site_url_https_required`、`admin_session_secret_missing`、`amap_key_missing`、`amap_security_code_missing`、`development_map_provider_in_production` 或 `map_provider_invalid`。健康时应为 `status: ok`、`database: ready`、`configuration: ready` 且 `issues` 为空。
 - 外部监控每分钟检查首页、健康端点和 HTTPS；高德地图以前端错误率/配额告警监控，不让外部 SDK 故障拖垮健康端点。
-- PM2 日志启用轮转并限制磁盘；日志包含请求 ID、路由、状态和耗时，不记录 Cookie、密码、完整纠错联系方式或精确用户定位。
+- 仓库提供 `pnpm ops:monitor`，用于组合检查健康端点、SQLite/WAL、磁盘、内存、系统负载和最近一次备份。生产 `.env` 必须使用 shared 目录的绝对路径，例如：
+
+```bash
+NUXT_MONITOR_HEALTH_URL=http://127.0.0.1:3000/api/health
+NUXT_MONITOR_BACKUP_DIR=/www/wwwroot/yeu/shared/backups
+NUXT_MONITOR_REQUEST_LOG_PATH=/www/wwwroot/yeu/shared/logs/app-out.log
+NUXT_MONITOR_STATE_PATH=/www/wwwroot/yeu/shared/monitor/production-monitor-state.json
+NUXT_MONITOR_WEBHOOK_URL=https://alerts.example.invalid/yeu
+NUXT_MONITOR_LABEL=yeu-production
+NUXT_MONITOR_LOG_WINDOW_MINUTES=15
+NUXT_MONITOR_MAX_SERVER_ERRORS=0
+NUXT_MONITOR_MAX_LOGIN_FAILURES=4
+NUXT_MONITOR_MAX_RATE_LIMITED=0
+```
+
+  `NUXT_MONITOR_REQUEST_LOG_PATH` 必须指向 PM2 `out_file` 的 shared 非公开绝对路径，不能指向包含环境变量、数据库输出或用户内容的混合调试日志。Webhook 地址必须是无内嵌账号密码的 HTTPS URL；发送前会再解析 DNS 并拒绝落到私网/元数据地址（防 DNS rebinding）。通知只包含故障码与聚合指标；首次故障、故障集合变化、超过提醒间隔和恢复会发送，相同状态在间隔内不会重复发送。若不配置 webhook，命令仍在异常时返回非零，必须让宝塔计划任务或 cron 对非零状态告警。
+- 每分钟运行监控命令，日志写入 shared 非公开目录。实际 `pnpm` 绝对路径以 `command -v pnpm` 为准，不依赖交互式 shell 的 PATH：
+
+```cron
+* * * * * cd /www/wwwroot/yeu/current && set -a && . /www/wwwroot/yeu/shared/.env && set +a && /usr/local/bin/pnpm --silent ops:monitor >> /www/wwwroot/yeu/shared/logs/monitor.log 2>&1
+```
+
+  首次启用时应临时将健康 URL 指向不可达端口验证 `unhealthy` 通知，再恢复正确地址验证 `recovery`；同时确认 webhook 接收端和 monitor 日志均未出现路径、密钥或用户数据。默认阈值为备份 26 小时、磁盘至少 5 GiB 且 15%、WAL 最大 256 MiB、可用内存至少 10%、单 CPU 一分钟负载不高于 2；请求指标默认检查最近 15 分钟，任一 5xx、任一 429 或超过 4 次管理员登录 401 即告警，可按机器容量通过 `NUXT_MONITOR_*` 调整。
+- PM2 `out_file` 指向 `NUXT_MONITOR_REQUEST_LOG_PATH`，错误日志单独存放；两者启用轮转并限制磁盘。结构化请求日志包含时间戳、请求 ID、路由、状态和耗时，不记录 Cookie、密码、查询串、完整纠错联系方式或精确用户定位。监控最多读取日志尾部 4 MiB；若该尾部不能覆盖完整时间窗，会返回 `request_log_window_incomplete`，此时必须缩短轮转周期、增加轮转频率或缩短监控时间窗，不能忽略。
 - 在宝塔计划任务中每日运行一次 `pnpm feedback:cleanup`，清除到期的反馈网络标识、联系方式和记录；执行失败应进入运维告警。
 - 监控 CPU、内存、磁盘、inode、数据库/WAL 大小、备份最近成功时间、5xx、登录失败和纠错滥用。
 - 管理员发布、下线、坐标修改和来源变更写入数据库审计日志，不能只依赖 PM2 文本日志。
@@ -308,6 +378,7 @@ gzip /www/wwwroot/yeu/shared/backups/yeu-${STAMP}.sqlite
 - [ ] 数据库、uploads、备份和 `.env` 位于 shared 目录，权限最小化且不可经 URL 下载。
 - [ ] HTTPS、证书续期、反向代理真实 IP、上传上限和安全响应头正确。
 - [ ] 生产 `/api/health` 返回 HTTP 200、`status=ok`、`database=ready`、`configuration=ready` 且 `issues=[]`；不能忽略带问题码的 503。
+- [ ] `pnpm ops:monitor` 已由生产计划任务每分钟执行，故障与恢复通知均完成受控演练，状态文件和日志位于 shared 非公开目录。
 - [ ] 生产地图为高德，Key 已绑定域名；GCJ-02 标点抽样核对，地图失败时文字内容仍可访问。
 - [ ] 首页、地图、地点详情、报到流程、校园卡/网络、快递外卖、社团页面在手机和微信内浏览器通过。
 - [ ] PWA manifest、图标、Service Worker 更新和离线降级可用；`sw.js` 未被长缓存，后台/API 写请求不缓存。

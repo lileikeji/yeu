@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import type { FeedbackTargetType } from '~~/shared/constants/server'
 import { safeLocalPath } from '~/utils/safe-navigation'
+import {
+  buildFeedbackSubmitBody,
+  canSubmitFeedback,
+  createEmptyFeedbackFormState,
+  feedbackReasonOptions,
+  resolveFeedbackReasonType,
+  resolveFeedbackTargetDisplayName,
+  resolveFeedbackTargetIcon,
+  resolveFeedbackTargetId,
+  resolveFeedbackTargetLabel,
+  resolveFeedbackTargetName,
+  resolveFeedbackTargetType,
+  feedbackRouteQueryString
+} from '~~/app/utils/feedback-presentation'
 
 useSeoMeta({
   title: '反馈纠错',
@@ -10,66 +24,28 @@ useSeoMeta({
 
 const route = useRoute()
 const toast = useToast()
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const reasonOptions = [
-  { label: '地点名称或位置错误', value: 'place_error' },
-  { label: '内容已经过期', value: 'content_outdated' },
-  { label: '流程步骤或材料有误', value: 'procedure_error' },
-  { label: '缺少重要信息', value: 'missing_information' },
-  { label: '补充可靠来源', value: 'source_suggestion' },
-  { label: '其他问题', value: 'other' }
-]
+const reasonOptions = feedbackReasonOptions
 
-function routeQuery(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (Array.isArray(value) && typeof value[0] === 'string') return value[0]
-  return ''
-}
-
-const requestedTargetType = computed(() => routeQuery(route.query.targetType).trim())
-const requestedTargetId = computed(() => routeQuery(route.query.targetId).trim())
-const targetType = computed<FeedbackTargetType>(() => {
-  if (
-    (
-      requestedTargetType.value === 'place'
-      || requestedTargetType.value === 'content'
-      || requestedTargetType.value === 'procedure'
-    )
-    && uuidPattern.test(requestedTargetId.value)
-  ) {
-    return requestedTargetType.value
-  }
-
-  return 'general'
-})
-const targetId = computed(() => targetType.value === 'general' ? null : requestedTargetId.value)
-const targetName = computed(() => targetType.value === 'general'
-  ? ''
-  : routeQuery(route.query.targetName).trim().slice(0, 160))
-const targetLabels = {
-  place: '地点',
-  content: '内容',
-  procedure: '办事流程'
-} satisfies Record<Exclude<FeedbackTargetType, 'general'>, string>
-const targetIcons = {
-  place: 'i-lucide-map-pin',
-  content: 'i-lucide-file-text',
-  procedure: 'i-lucide-list-checks'
-} satisfies Record<Exclude<FeedbackTargetType, 'general'>, string>
-const targetLabel = computed(() => targetType.value === 'general'
-  ? '反馈对象'
-  : targetLabels[targetType.value])
-const targetIcon = computed(() => targetType.value === 'general'
-  ? 'i-lucide-message-square-warning'
-  : targetIcons[targetType.value])
-const targetDisplayName = computed(() => targetName.value || `已选择的${targetLabel.value}`)
+const requestedTargetType = computed(() => feedbackRouteQueryString(route.query.targetType).trim())
+const requestedTargetId = computed(() => feedbackRouteQueryString(route.query.targetId).trim())
+const targetType = computed<FeedbackTargetType>(() => resolveFeedbackTargetType(
+  requestedTargetType.value,
+  requestedTargetId.value
+))
+const targetId = computed(() => resolveFeedbackTargetId(targetType.value, requestedTargetId.value))
+const targetName = computed(() => resolveFeedbackTargetName(
+  targetType.value,
+  feedbackRouteQueryString(route.query.targetName)
+))
+const targetLabel = computed(() => resolveFeedbackTargetLabel(targetType.value))
+const targetIcon = computed(() => resolveFeedbackTargetIcon(targetType.value))
+const targetDisplayName = computed(() => resolveFeedbackTargetDisplayName(
+  targetType.value,
+  targetName.value
+))
 const pageUrl = computed(() => safeLocalPath(route.query.from))
 
-const reasonType = ref(
-  reasonOptions.some(option => option.value === route.query.type)
-    ? String(route.query.type)
-    : 'place_error'
-)
+const reasonType = ref(resolveFeedbackReasonType(route.query.type))
 const message = ref('')
 const evidenceUrl = ref('')
 const contact = ref('')
@@ -77,7 +53,7 @@ const website = ref('')
 const submitting = ref(false)
 const submitted = ref(false)
 
-const canSubmit = computed(() => message.value.trim().length >= 5 && !submitting.value)
+const canSubmit = computed(() => canSubmitFeedback(message.value, submitting.value))
 
 async function submitFeedback() {
   if (!canSubmit.value) return
@@ -86,16 +62,16 @@ async function submitFeedback() {
   try {
     await $fetch('/api/public/feedback', {
       method: 'POST',
-      body: {
+      body: buildFeedbackSubmitBody({
         targetType: targetType.value,
         targetId: targetId.value,
         reasonType: reasonType.value,
-        message: message.value.trim(),
-        evidenceUrl: evidenceUrl.value.trim() || null,
+        message: message.value,
+        evidenceUrl: evidenceUrl.value,
         pageUrl: pageUrl.value,
-        contact: contact.value.trim() || null,
+        contact: contact.value,
         website: website.value
-      }
+      })
     })
     submitted.value = true
   } catch {
@@ -110,12 +86,13 @@ async function submitFeedback() {
 }
 
 function resetForm() {
-  reasonType.value = 'place_error'
-  message.value = ''
-  evidenceUrl.value = ''
-  contact.value = ''
-  website.value = ''
-  submitted.value = false
+  const empty = createEmptyFeedbackFormState()
+  reasonType.value = empty.reasonType
+  message.value = empty.message
+  evidenceUrl.value = empty.evidenceUrl
+  contact.value = empty.contact
+  website.value = empty.website
+  submitted.value = empty.submitted
 }
 </script>
 

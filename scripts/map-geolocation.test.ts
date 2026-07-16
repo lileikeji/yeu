@@ -1,0 +1,145 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from '../map/core/types'
+import type {
+  AreaSelectHandler,
+  MapBaseStyle,
+  MapDisplayOptions,
+  MapErrorHandler,
+  MapProvider,
+  PoiSelectHandler,
+  PointPickedHandler,
+  RouteSummary
+} from '../map/core/provider'
+import {
+  formatMapRouteSummary,
+  getCurrentMapPoint,
+  MAP_LOCATION_OPTIONS,
+  MAP_ROUTE_LOCATION_OPTIONS,
+  planWalkingMapRoute
+} from '../app/utils/map-geolocation'
+
+function position(longitude: number, latitude: number): GeolocationPosition {
+  return {
+    coords: {
+      longitude,
+      latitude,
+      accuracy: 5,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null
+    },
+    timestamp: 1
+  }
+}
+
+function geolocation(
+  handler: (
+    success: PositionCallback,
+    error: PositionErrorCallback | null,
+    options: PositionOptions | undefined
+  ) => void
+): Pick<Geolocation, 'getCurrentPosition'> {
+  return {
+    getCurrentPosition: handler as Geolocation['getCurrentPosition']
+  }
+}
+
+function mapProvider(overrides: Partial<MapProvider> = {}): MapProvider {
+  return {
+    id: 'amap',
+    mount: async (_element: HTMLElement, _options?: MapMountOptions) => {},
+    setPois: (_pois: MapPoi[]) => {},
+    setAreas: (_areas: MapArea[]) => {},
+    setDisplayOptions: (_options: MapDisplayOptions) => {},
+    setBaseStyle: (_style: MapBaseStyle) => true,
+    resize: () => {},
+    fitToPois: () => {},
+    enablePointPicker: (_handler: PointPickedHandler) => {},
+    disablePointPicker: () => {},
+    setSelectedPoi: (_id: string | null) => {},
+    setSelectedArea: (_id: string | null) => {},
+    flyToPoi: (_id: string) => true,
+    flyToPoint: (_point: GeoPoint, _zoom?: number) => true,
+    planWalkingRoute: async (_origin: GeoPoint, _destination: GeoPoint): Promise<RouteSummary> => ({
+      distanceMeters: 100,
+      durationSeconds: 60
+    }),
+    searchVisiblePois: async (_query: string) => [],
+    clearRoute: () => {},
+    onPoiSelect: (_handler: PoiSelectHandler) => () => {},
+    onAreaSelect: (_handler: AreaSelectHandler) => () => {},
+    onError: (_handler: MapErrorHandler) => () => {},
+    destroy: () => {},
+    ...overrides
+  }
+}
+
+test('route summaries use readable distance and rounded-up minutes', () => {
+  assert.equal(formatMapRouteSummary({ distanceMeters: 849.6, durationSeconds: 61 }), '约 850 米 · 2 分钟')
+  assert.equal(formatMapRouteSummary({ distanceMeters: 1350, durationSeconds: 120 }), '约 1.4 公里 · 2 分钟')
+  assert.equal(formatMapRouteSummary({ distanceMeters: 1, durationSeconds: 0 }), '约 1 米 · 1 分钟')
+})
+
+test('browser geolocation converts coordinates to WGS84 with bounded options', async () => {
+  const point = await getCurrentMapPoint(geolocation((success, _error, options) => {
+    assert.deepEqual(options, MAP_LOCATION_OPTIONS)
+    success(position(118.6, 24.9))
+  }))
+
+  assert.deepEqual(point, { lng: 118.6, lat: 24.9, crs: 'WGS84' })
+})
+
+test('browser geolocation rejects permission failures with a stable internal error', async () => {
+  await assert.rejects(
+    getCurrentMapPoint(geolocation((_success, error) => {
+      error?.({} as GeolocationPositionError)
+    })),
+    /MAP_GEOLOCATION_FAILED/
+  )
+})
+
+test('walking route planning uses WGS84 origin and route-specific timeout', async () => {
+  let routeCall: { origin: GeoPoint, destination: GeoPoint } | null = null
+  const provider = mapProvider({
+    async planWalkingRoute(origin, destination) {
+      routeCall = { origin, destination }
+      return { distanceMeters: 1280, durationSeconds: 780 }
+    }
+  })
+  const destination: GeoPoint = { lng: 118.7, lat: 24.8, crs: 'GCJ-02' }
+  const summary = await planWalkingMapRoute(() => provider, geolocation((success, _error, options) => {
+    assert.deepEqual(options, MAP_ROUTE_LOCATION_OPTIONS)
+    success(position(118.6, 24.9))
+  }), destination)
+
+  assert.deepEqual(routeCall, {
+    origin: { lng: 118.6, lat: 24.9, crs: 'WGS84' },
+    destination
+  })
+  assert.deepEqual(summary, { distanceMeters: 1280, durationSeconds: 780 })
+})
+
+test('walking route resolves the current provider after geolocation completes', async () => {
+  let positionCallback: PositionCallback | null = null
+  let currentProvider: MapProvider | null = null
+  const destination: GeoPoint = { lng: 118.7, lat: 24.8, crs: 'GCJ-02' }
+  const routePromise = planWalkingMapRoute(
+    () => currentProvider,
+    geolocation((success) => {
+      positionCallback = success
+    }),
+    destination
+  )
+
+  currentProvider = mapProvider({
+    async planWalkingRoute() {
+      return { distanceMeters: 300, durationSeconds: 180 }
+    }
+  })
+  assert.ok(positionCallback)
+  positionCallback(position(118.6, 24.9))
+
+  assert.deepEqual(await routePromise, { distanceMeters: 300, durationSeconds: 180 })
+})

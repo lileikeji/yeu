@@ -1,33 +1,67 @@
 <script setup lang="ts">
+import { findOfficialDepartment, officialSources } from '~~/data/seeds/public-content'
 import { mergePublicDepartments } from '~/utils/public-catalog'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
-import { throwPublicDetailError } from '~/utils/public-errors'
+import {
+  buildDepartmentDetailSources,
+  extractDepartmentUseCases,
+  resolveDepartmentContactPreparation,
+  resolveDepartmentUsageSuggestion,
+  resolveDepartmentVerificationSummary,
+  resolveDepartmentVerifiedDate
+} from '~~/app/utils/department-detail-presentation'
 
 const route = useRoute()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
-const { data: content, error } = await usePublicDepartment(slug)
-if (error.value) throwPublicDetailError(error.value, '部门')
+const seedDepartment = findOfficialDepartment(slug)
+const { data: content } = await usePublicDepartment(slug)
 
-const department = computed(() => mergePublicDepartments([], content.value ? [content.value] : [], false)[0] ?? null)
-if (!department.value || !content.value) {
+const department = computed(() => mergePublicDepartments(
+  seedDepartment ? [seedDepartment] : [],
+  content.value ? [content.value] : [],
+  true
+)[0] ?? null)
+
+if (!department.value) {
   throw createError({ statusCode: 404, statusMessage: '部门不存在' })
 }
+
+const verifiedDate = computed(() => resolveDepartmentVerifiedDate(
+  content.value?.lastVerifiedAt,
+  content.value?.updatedAt,
+  officialSources.organizations.accessedAt
+))
+const departmentUseCases = computed(() => extractDepartmentUseCases(department.value?.body ?? ''))
+const contactPreparation = computed(() => resolveDepartmentContactPreparation(department.value?.body ?? ''))
+const usageSuggestion = computed(() => resolveDepartmentUsageSuggestion(department.value?.body ?? ''))
+const verificationSummary = computed(() => resolveDepartmentVerificationSummary(department.value?.body ?? ''))
+const detailSources = computed(() => buildDepartmentDetailSources(
+  content.value?.sources,
+  {
+    organizationsTitle: officialSources.organizations.title,
+    organizationsUrl: officialSources.organizations.url,
+    departmentName: seedDepartment?.name ?? department.value?.name,
+    website: seedDepartment?.website ?? department.value?.website ?? null
+  }
+))
 
 useSeoMeta({
   title: () => department.value?.name ?? '部门',
   description: () => department.value?.summary ?? ''
 })
-const feedbackLink = computed(() => buildDetailFeedbackLink({
-  targetType: 'content',
-  targetId: content.value!.id,
-  targetName: department.value!.name,
-  reasonType: 'content_outdated',
-  from: route.fullPath
-}))
+const feedbackLink = computed(() => content.value
+  ? buildDetailFeedbackLink({
+      targetType: 'content',
+      targetId: content.value.id,
+      targetName: department.value!.name,
+      reasonType: 'content_outdated',
+      from: route.fullPath
+    })
+  : `/feedback?from=${encodeURIComponent(route.fullPath)}`)
 </script>
 
 <template>
-  <div v-if="department && content">
+  <div v-if="department">
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <nav
@@ -71,31 +105,72 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
       </div>
     </header>
 
-    <div class="page-shell grid gap-8 py-8 md:grid-cols-[minmax(0,1fr)_18rem] md:py-12">
-      <article class="min-w-0">
-        <section class="border-b border-zinc-200 pb-8">
+    <div class="page-shell py-7 md:py-10">
+      <article class="mx-auto min-w-0 max-w-4xl">
+        <section
+          v-if="departmentUseCases.length || contactPreparation || usageSuggestion"
+          class="border-b border-zinc-200 pb-8"
+        >
           <h2 class="text-lg font-bold text-zinc-950">
-            新生相关职责
+            新生先看这几件事
           </h2>
-          <p
-            v-if="department.body"
-            class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600"
-          >
-            {{ department.body }}
-          </p>
-          <p
-            v-else
-            class="mt-4 text-sm leading-7 text-zinc-600"
-          >
-            当前仅发布官网可确认的职责摘要；具体办理材料和服务时间以部门最新通知为准。
-          </p>
+          <div class="mt-4 grid gap-3 md:grid-cols-3">
+            <div
+              v-for="item in departmentUseCases"
+              :key="item"
+              class="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm leading-6 text-blue-950"
+            >
+              {{ item }}
+            </div>
+          </div>
+          <div class="mt-4 grid gap-3 md:grid-cols-2">
+            <div
+              v-if="contactPreparation"
+              class="rounded-lg border border-zinc-200 bg-white p-4"
+            >
+              <p class="text-xs font-semibold text-zinc-500">
+                咨询前准备
+              </p>
+              <p class="mt-2 text-sm leading-6 text-zinc-700">
+                {{ contactPreparation }}
+              </p>
+            </div>
+            <div
+              v-if="usageSuggestion"
+              class="rounded-lg border border-zinc-200 bg-white p-4"
+            >
+              <p class="text-xs font-semibold text-zinc-500">
+                使用建议
+              </p>
+              <p class="mt-2 text-sm leading-6 text-zinc-700">
+                {{ usageSuggestion }}
+              </p>
+            </div>
+          </div>
         </section>
 
-        <section class="py-8">
+        <section class="py-7">
           <h2 class="text-lg font-bold text-zinc-950">
             公开联系方式
           </h2>
+          <p
+            v-if="verificationSummary"
+            class="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950"
+          >
+            {{ verificationSummary }}
+          </p>
           <dl class="mt-4 divide-y divide-zinc-100 border-y border-zinc-200 text-sm">
+            <div
+              v-if="department.address"
+              class="flex items-start justify-between gap-6 py-3"
+            >
+              <dt class="text-zinc-500">
+                地址
+              </dt>
+              <dd class="text-right font-medium text-zinc-900">
+                {{ department.address }}
+              </dd>
+            </div>
             <div
               v-if="department.phone"
               class="flex items-start justify-between gap-6 py-3"
@@ -130,7 +205,18 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
               </dd>
             </div>
           </dl>
+          <p
+            v-if="!department.address && !department.phone && !department.email && !department.officeHours"
+            class="mt-4 text-sm leading-6 text-zinc-500"
+          >
+            暂未找到可公开确认的电话、邮箱或服务时间，请优先使用上方部门官网。
+          </p>
         </section>
+
+        <PublicSourceDetails
+          :sources="detailSources"
+          :verified-at="verifiedDate"
+        />
 
         <UButton
           :to="feedbackLink"
@@ -138,38 +224,9 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
           label="反馈部门资料"
           color="neutral"
           variant="outline"
+          class="mt-6"
         />
       </article>
-
-      <aside class="min-w-0">
-        <div class="surface-panel p-4 md:sticky md:top-24">
-          <h2 class="text-sm font-bold text-zinc-950">
-            参考来源
-          </h2>
-          <ul class="mt-3 space-y-3">
-            <li
-              v-for="source in content.sources"
-              :key="source.id"
-            >
-              <a
-                :href="source.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex items-start gap-2 text-xs leading-5 text-zinc-600 hover:text-green-700"
-              >
-                <UIcon
-                  name="i-lucide-external-link"
-                  class="mt-0.5 size-3.5 shrink-0"
-                />
-                <span>{{ source.title }}</span>
-              </a>
-            </li>
-          </ul>
-          <p class="mt-4 text-xs text-zinc-400">
-            核验于 {{ (content.lastVerifiedAt ?? content.updatedAt).slice(0, 10) }}
-          </p>
-        </div>
-      </aside>
     </div>
   </div>
 </template>

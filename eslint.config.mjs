@@ -2,5 +2,14 @@
 import withNuxt from './.nuxt/eslint.config.mjs'
 
 export default withNuxt(
-  // Your custom configs here
+  {
+    files: [
+      'app/**/*.{js,ts,vue}',
+      'map/**/*.{js,ts}',
+      'server/**/*.{js,ts}'
+    ],
+    rules: {
+      'no-console': 'error'
+    }
+  }
 )

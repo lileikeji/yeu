@@ -2,6 +2,7 @@
 .output
 .data
 .nuxt
+.nuxt-build
 .nitro
 .cache
 dist
@@ -40,3 +41,13 @@ data/imports/*.xlsm
 data/imports/private/
 data/imports/exports/
 data/imports/raw-media/
+
+# Rights-restricted research media (keep manifests and indexes only)
+data/imports/xiaohongshu-assets/*.webp
+data/generated/xiaohongshu-recreations-2026-07-15/*.png
+
+# Local production monitor state (machine-specific)
+data/production-monitor-state.json
+
+# Ad-hoc local probe / sync scripts (never commit secrets)
+_*.py

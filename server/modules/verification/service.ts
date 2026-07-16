@@ -14,15 +14,12 @@ import {
 } from '../../database/schema'
 import { rethrowDatabaseError, throwNotFound } from '../../utils/errors'
 import { fromIso, serializeAdminSource } from '../../utils/serializers'
+import { cleanSearchTerm } from '../../../shared/utils/like-search'
 
 type CreateSourceInput = z.infer<typeof createSourceSchema>
 type UpdateSourceInput = z.infer<typeof updateSourceSchema>
 type SourcesQuery = z.infer<typeof sourcesQuerySchema>
 type SourceRow = typeof sources.$inferSelect
-
-function cleanSearchTerm(value: string): string {
-  return value.replace(/[%_]/g, '').trim()
-}
 
 export function assertSourceIds(client: DatabaseClient, sourceIds: string[]): string[] {
   const uniqueIds = [...new Set(sourceIds)]

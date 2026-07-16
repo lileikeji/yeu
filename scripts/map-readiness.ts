@@ -672,7 +672,7 @@ export function inspectMapReadiness(options: MapReadinessOptions = {}): MapReadi
 
 function usage(): string {
   return [
-    'Usage: pnpm map:readiness -- [--database PATH] [--require-release-ready]',
+    'Usage: pnpm map:readiness [--database PATH] [--require-release-ready]',
     '',
     'Always opens an existing SQLite database read-only and prints authoritative JSON statistics.',
     'Default mode only reports blockers. --require-release-ready returns exit code 1 when blockers exist.',

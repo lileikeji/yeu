@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import nearbyCandidateData from '~~/data/imports/amap-nearby-poi-candidates-2026-07-15.json'
 import { researchSources } from '~~/data/seeds/public-content'
-
-interface NearbyCandidate {
-  centerId: 'new-student-street' | 'old-student-street'
-  name: string
-  category: 'food' | 'shopping' | 'service' | 'express'
-  amapType: string
-  location: { lng: number, lat: number, crs: 'GCJ-02' }
-  address: string
-  distanceMeters: number
-  amapPoiId: string
-}
+import {
+  buildNearbyCategoryOptions,
+  filterNearbyCandidates,
+  filterNearbyPlaces,
+  nearbyCandidateCenterLabel,
+  nearbyCandidateHint,
+  nearbyCandidateMapUrl,
+  nearbyCategoryLabels,
+  selectNearbyResearchSources,
+  nearbySourceContextForStudents,
+  nearbySourceIsClickable,
+  nearbyUsageTips,
+  nearbyVerificationChecklist,
+  type NearbyCandidate
+} from '~~/app/utils/nearby-presentation'
 
 const candidateCatalog = nearbyCandidateData as {
   generatedAt: string
@@ -19,24 +23,15 @@ const candidateCatalog = nearbyCandidateData as {
   status: 'unverified-platform-candidates'
   candidates: NearbyCandidate[]
 }
-const nearbyResearchSources = [
-  researchSources.expressMap,
-  researchSources.freshmanSurvival,
-  researchSources.food
-]
-
-const categoryLabels: Record<string, string> = {
-  food: '餐饮',
-  shopping: '购物 / 便利',
-  service: '生活服务',
-  express: '快递',
-  lodging: '住宿',
-  retail: '零售',
-  medical: '医疗',
-  repair: '打印 / 维修',
-  transit: '交通',
-  nearby: '生活服务'
-}
+const nearbyResearchSources = selectNearbyResearchSources(researchSources)
+const categoryLabels = nearbyCategoryLabels
+const verificationChecklist = nearbyVerificationChecklist
+const usageTips = nearbyUsageTips
+const sourceIsClickable = nearbySourceIsClickable
+const sourceContextForStudents = nearbySourceContextForStudents
+const candidateMapUrl = nearbyCandidateMapUrl
+const candidateCenterLabel = nearbyCandidateCenterLabel
+const candidateHint = nearbyCandidateHint
 
 useSeoMeta({
   title: '校园周边',
@@ -47,39 +42,15 @@ const searchQuery = ref('')
 const activeCategory = ref('all')
 const { data: response, error } = await usePublicPlaceList('nearby')
 const places = computed(() => response.value?.items ?? [])
-const categories = computed(() => [...new Set([
-  ...places.value.map(place => place.category ?? place.type),
-  ...candidateCatalog.candidates.map(candidate => candidate.category)
-])]
-  .map(value => ({ value, label: categoryLabels[value] ?? value })))
-const filteredPlaces = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
-  return places.value.filter((place) => {
-    const category = place.category ?? place.type
-    const categoryMatches = activeCategory.value === 'all' || category === activeCategory.value
-    const queryMatches = !query || [place.name, place.summary, place.address, place.campusArea]
-      .filter(Boolean).join(' ').toLocaleLowerCase('zh-CN').includes(query)
-    return categoryMatches && queryMatches
-  })
-})
-const filteredCandidates = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
-  return candidateCatalog.candidates.filter((candidate) => {
-    const categoryMatches = activeCategory.value === 'all' || candidate.category === activeCategory.value
-    const queryMatches = !query || [candidate.name, candidate.address, candidate.amapType]
-      .join(' ').toLocaleLowerCase('zh-CN').includes(query)
-    return categoryMatches && queryMatches
-  })
-})
-
-function candidateMapUrl(candidate: NearbyCandidate): string {
-  const url = new URL('https://uri.amap.com/marker')
-  url.searchParams.set('position', `${candidate.location.lng},${candidate.location.lat}`)
-  url.searchParams.set('name', candidate.name)
-  url.searchParams.set('coordinate', 'gaode')
-  url.searchParams.set('callnative', '0')
-  return url.toString()
-}
+const categories = computed(() => buildNearbyCategoryOptions(places.value, candidateCatalog.candidates))
+const filteredPlaces = computed(() => filterNearbyPlaces(places.value, {
+  query: searchQuery.value,
+  activeCategory: activeCategory.value
+}))
+const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalog.candidates, {
+  query: searchQuery.value,
+  activeCategory: activeCategory.value
+}))
 </script>
 
 <template>
@@ -197,7 +168,7 @@ function candidateMapUrl(candidate: NearbyCandidate): string {
           暂无达到发布标准的周边地点
         </h2>
         <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-          候选商铺仍在核验位置、经营状态和营业时间，因此不会提前公开。
+          周边商铺还在确认位置、经营状态和营业时间，因此不会提前写成推荐。
         </p>
         <UButton
           :to="{ path: '/feedback', query: { type: 'source_suggestion', from: '/nearby' } }"
@@ -214,16 +185,16 @@ function candidateMapUrl(candidate: NearbyCandidate): string {
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-lg font-bold text-zinc-950">
-                待实地核验候选
+                周边参考清单
               </h2>
               <UBadge
-                label="不可自动发布"
+                label="确认后再推荐"
                 color="warning"
                 variant="soft"
               />
             </div>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              高德当前 POI 搜索取得 30 条新区、旧区餐饮、便利、快递与生活服务候选。平台 POI 只证明名称和位置线索，不代表门店仍在营业；完成招牌、入口、营业状态、时间和服务范围复核后，才会进入上方已核验目录。
+              高德当前 POI 搜索取得 30 条新区、旧区餐饮、便利、快递与生活服务参考。平台 POI 只证明地图上出现过这个名称和位置，不代表门店仍在营业；确认招牌、入口、营业状态、时间和服务范围后，才会进入上方正式目录。
             </p>
           </div>
           <a
@@ -240,12 +211,52 @@ function candidateMapUrl(candidate: NearbyCandidate): string {
           </a>
         </div>
 
+        <div class="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div class="rounded-lg border border-zinc-200 bg-white p-4">
+            <h3 class="text-sm font-bold text-zinc-950">
+              新生现在怎么用这份参考清单
+            </h3>
+            <div class="mt-3 grid gap-3 md:grid-cols-2">
+              <div
+                v-for="tip in usageTips"
+                :key="tip.title"
+                class="rounded-md bg-zinc-50 px-3 py-2"
+              >
+                <p class="text-xs font-semibold text-zinc-900">
+                  {{ tip.title }}
+                </p>
+                <p class="mt-1 text-xs leading-5 text-zinc-600">
+                  {{ tip.text }}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="rounded-lg border border-orange-200 bg-orange-50/70 p-4">
+            <h3 class="text-sm font-bold text-orange-950">
+              进入已核验目录前必须确认
+            </h3>
+            <ul class="mt-3 space-y-2 text-xs leading-5 text-orange-900">
+              <li
+                v-for="item in verificationChecklist"
+                :key="item"
+                class="flex gap-2"
+              >
+                <UIcon
+                  name="i-lucide-check-circle-2"
+                  class="mt-0.5 size-3.5 shrink-0"
+                />
+                <span>{{ item }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <p class="mt-4 text-xs text-zinc-500">
-          {{ filteredCandidates.length }} 条候选 · 数据整理于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
+          {{ filteredCandidates.length }} 条参考 · 数据整理于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
         </p>
         <div class="mt-4 border-l-2 border-orange-300 bg-orange-50/70 px-4 py-3">
           <p class="text-xs font-bold text-orange-900">
-            相关公开资料 · 仅作核验线索
+            相关公开资料 · 仅作确认参考
           </p>
           <ul class="mt-2 grid gap-2 md:grid-cols-3">
             <li
@@ -253,6 +264,7 @@ function candidateMapUrl(candidate: NearbyCandidate): string {
               :key="source.url"
             >
               <a
+                v-if="sourceIsClickable(source)"
                 :href="source.url"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -264,9 +276,23 @@ function candidateMapUrl(candidate: NearbyCandidate): string {
                 />
                 <span>
                   <span class="font-medium">{{ source.title }}</span>
-                  <span class="block text-zinc-500">{{ source.context }}</span>
+                  <span class="block text-zinc-500">{{ sourceContextForStudents(source.context) }}</span>
                 </span>
               </a>
+              <div
+                v-else
+                class="flex items-start gap-2 text-xs leading-5 text-zinc-700"
+              >
+                <UIcon
+                  name="i-lucide-archive"
+                  class="mt-0.5 size-3.5 shrink-0 text-orange-600"
+                />
+                <span>
+                  <span class="font-medium">{{ source.title }}</span>
+                  <span class="block text-zinc-500">{{ sourceContextForStudents(source.context) }}</span>
+                  <span class="block text-orange-700">这个链接现在打不开，先作为参考记录保留。</span>
+                </span>
+              </div>
             </li>
           </ul>
         </div>
@@ -284,7 +310,7 @@ function candidateMapUrl(candidate: NearbyCandidate): string {
           >
             <div class="flex items-start justify-between gap-3">
               <UBadge
-                :label="candidate.centerId === 'new-student-street' ? '新区学生街' : '旧区学生街'"
+                :label="candidateCenterLabel(candidate)"
                 color="neutral"
                 variant="soft"
               />
@@ -293,11 +319,21 @@ function candidateMapUrl(candidate: NearbyCandidate): string {
             <h3 class="mt-3 font-bold text-zinc-950">
               {{ candidate.name }}
             </h3>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <UBadge
+                :label="categoryLabels[candidate.category]"
+                color="warning"
+                variant="soft"
+              />
+            </div>
             <p class="mt-2 text-xs leading-5 text-zinc-500">
               {{ candidate.address || '高德未提供详细地址' }}
             </p>
+            <p class="mt-3 rounded-md bg-orange-50 px-3 py-2 text-xs leading-5 text-orange-900">
+              {{ candidateHint(candidate) }}
+            </p>
             <div class="mt-auto flex items-end justify-between gap-3 pt-4">
-              <span class="text-xs text-orange-700">高德候选 · 待核验</span>
+              <span class="text-xs text-orange-700">高德地图线索 · 到店前再确认</span>
               <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700">
                 高德查看
                 <UIcon

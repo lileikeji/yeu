@@ -60,6 +60,7 @@ export interface AMapPolyline {
   on(event: 'click', handler: (event: AMapMouseEvent) => void): void
   off(event: 'click', handler: (event: AMapMouseEvent) => void): void
   setMap(map: AMapMap | null): void
+  setOptions?(options: Record<string, unknown>): void
 }
 
 export interface AMapTileLayer {
@@ -104,6 +105,7 @@ export interface AMapMap {
   off(event: 'hotspotclick', handler: (event: AMapHotspotEvent) => void): void
   add(overlays: AMapOverlay | AMapOverlay[]): void
   remove(overlays: AMapOverlay | AMapOverlay[]): void
+  resize(): void
   destroy(): void
   getZoom(): number
   getCenter(): AMapLngLat

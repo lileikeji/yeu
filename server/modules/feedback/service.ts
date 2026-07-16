@@ -13,14 +13,11 @@ import { throwNotFound } from '../../utils/errors'
 import { serializeFeedback } from '../../utils/serializers'
 import { getSecurityConfig, hashOpaqueToken } from '../../utils/security'
 import { activePublicProcedureCondition } from '../procedures/service'
+import { cleanSearchTerm } from '../../../shared/utils/like-search'
 
 type CreateFeedbackInput = z.infer<typeof createFeedbackSchema>
 type UpdateFeedbackInput = z.infer<typeof updateFeedbackSchema>
 type FeedbackQuery = z.infer<typeof feedbackQuerySchema>
-
-function cleanSearchTerm(value: string): string {
-  return value.replace(/[%_]/g, '').trim()
-}
 
 export function assertPublicFeedbackTarget(client: DatabaseClient, input: CreateFeedbackInput): void {
   if (input.targetType === 'general') {

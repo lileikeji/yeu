@@ -13,6 +13,6 @@ data/
 
 `seeds/public-content.ts` 同时提供前台静态回退。需要在后台维护这些公开来源、指南和部门时，使用默认只读的 `pnpm db:seed:catalog` 预检，再以 `--apply` 明确入库；该步骤不属于数据库迁移，也不会自动覆盖人工记录。
 
-`seeds/procedures.ts` 保存首批结构化流程。先完成公开目录入库，再使用默认只读的 `pnpm db:seed:procedures` 预检，以 `pnpm db:seed:procedures -- --apply` 明确应用。流程种子只更新带自身所有权标记的记录；同 slug 人工记录会使整次操作停止。当前报到流程只录入 2026 官方来源可确认的日期、校址和咨询边界，个人时段、材料、报到点及接站安排保持待通知。
+`seeds/procedures.ts` 保存首批结构化流程。先完成公开目录入库，再使用默认只读的 `pnpm db:seed:procedures` 预检，以 `pnpm db:seed:procedures --apply` 明确应用。流程种子只更新带自身所有权标记的记录；同 slug 人工记录会使整次操作停止。当前首批流程覆盖 2026 级报到、校园网与统一认证、宿舍维修报修、图书馆借阅证/微信绑定和专升本学生档案邮寄；未取得当年来源的个人时段、材料、报到点、接站、缴费和招新安排保持待通知或不建流程。
 
-`seeds/osm-campus-boundary.json` 是 OSM relation 17685756 的派生 `MultiPolygon`，遵循 ODbL 1.0 并保留来源、版本与许可链接；它只表示社区测绘的候选校界。`seeds/preview-places.ts` 保存学校官网平面图的 47 项纯文字编号索引，不包含坐标。产品仅缓存由官网来源 URL、8504×3898 尺寸、1,250,742 字节和 SHA-256 `30f50d50492335b0aa8859cb435b17f8b76c9bceebdb81d5b360139de4d7335d` 锁定的 `public/images/yeu-campus-plan-2025.jpg`，只用于非导航的相对位置参考，且缓存不表示已取得再利用授权。OSM 候选校界、文字索引和平面图热点都不能作为楼栋入口或导航点证据。
+`seeds/osm-campus-boundary.json` 是 OSM relation 17685756 的派生 `MultiPolygon`，遵循 ODbL 1.0 并保留来源、版本与许可链接；它只表示社区测绘的候选校界。`seeds/preview-places.ts` 保存学校官网平面图的 47 项编号索引，不包含坐标；`seeds/official-campus-plan-anchors.ts` 只保存原图百分比热点。`seeds/official-campus-plan-reference.ts` 登记官网原页、资源 URL、本地快照路径、8504×3898 尺寸、1,250,742 字节和 SHA-256。按维护者当前要求，已核验原图快照恢复到产品中；OSM 候选校界、图片热点和文字编号都不能作为楼栋入口或导航点证据，正式公开授权仍须发布前确认。

@@ -5,6 +5,7 @@ const SCRYPT_R = 8
 const SCRYPT_P = 1
 const SCRYPT_KEY_LENGTH = 64
 const SCRYPT_MAX_MEMORY = 64 * 1024 * 1024
+export const ADMIN_PASSWORD_MIN_LENGTH = 12
 
 function deriveKey(password: string, salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -25,8 +26,8 @@ function deriveKey(password: string, salt: Buffer): Promise<Buffer> {
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  if (password.length < 12) {
-    throw new Error('Admin password must contain at least 12 characters')
+  if (password.length < ADMIN_PASSWORD_MIN_LENGTH) {
+    throw new Error(`Admin password must contain at least ${ADMIN_PASSWORD_MIN_LENGTH} characters`)
   }
 
   const salt = randomBytes(16)

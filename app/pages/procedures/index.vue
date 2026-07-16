@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import {
+  filterProcedureListItems,
+  procedureListAudienceOptions,
+  procedureListDetailQuery,
+  procedureListMessages,
+  procedureMethodLabel
+} from '~~/app/utils/procedure-list-presentation'
+
 const { data, error, refresh } = await usePublicProcedureList()
 
 useSeoMeta({
@@ -9,26 +17,10 @@ useSeoMeta({
 const query = ref('')
 const audience = ref<'all' | 'undergraduate' | 'transfer'>('all')
 
-const audienceOptions = [
-  { value: 'all' as const, label: '全部新生' },
-  { value: 'undergraduate' as const, label: '普通本科' },
-  { value: 'transfer' as const, label: '专升本' }
-]
-
-const procedures = computed(() => {
-  const keyword = query.value.trim().toLocaleLowerCase('zh-CN')
-  return (data.value?.items ?? []).filter((item) => {
-    const matchesAudience = audience.value === 'all' || item.audience.includes(audience.value)
-    const text = [item.title, item.summary, item.statusText].join(' ').toLocaleLowerCase('zh-CN')
-    return matchesAudience && (!keyword || text.includes(keyword))
-  })
-})
-
-const methodLabel = {
-  online: '线上办理',
-  offline: '到校办理',
-  mixed: '线上核对 + 到校办理'
-} as const
+const procedures = computed(() => filterProcedureListItems(data.value?.items ?? [], {
+  query: query.value,
+  audience: audience.value
+}))
 </script>
 
 <template>
@@ -70,14 +62,14 @@ const methodLabel = {
             aria-label="适用人群"
           >
             <UButton
-              v-for="option in audienceOptions"
+              v-for="option in procedureListAudienceOptions"
               :key="option.value"
               :label="option.label"
               :color="audience === option.value ? 'primary' : 'neutral'"
               :variant="audience === option.value ? 'soft' : 'ghost'"
               class="min-h-11 shrink-0"
               :aria-pressed="audience === option.value"
-              @click="audience = option.value"
+              @click="() => { audience = option.value }"
             />
           </div>
         </div>
@@ -95,7 +87,7 @@ const methodLabel = {
           class="mx-auto size-6 text-red-700"
         />
         <p class="mt-3 text-sm text-red-900">
-          办事流程暂时不可用，请稍后重试。
+          {{ procedureListMessages.serviceUnavailable }}
         </p>
         <UButton
           icon="i-lucide-refresh-cw"
@@ -124,7 +116,7 @@ const methodLabel = {
             :key="item.id"
             :to="{
               path: `/procedures/${item.slug}`,
-              query: audience === 'all' ? undefined : { audience }
+              query: procedureListDetailQuery(audience)
             }"
             class="surface-panel group flex min-h-60 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
           >
@@ -151,7 +143,7 @@ const methodLabel = {
             </p>
             <div class="mt-5 border-t border-zinc-100 pt-4 text-xs text-zinc-500">
               <div class="flex items-center justify-between gap-3">
-                <span>{{ methodLabel[item.method] }}</span>
+                <span>{{ procedureMethodLabel(item.method) }}</span>
                 <span class="inline-flex items-center gap-1 font-medium text-green-700">
                   {{ item.steps.length }} 个步骤
                   <UIcon
@@ -179,7 +171,7 @@ const methodLabel = {
             class="mx-auto size-6 text-zinc-400"
           />
           <p class="mt-3 text-sm text-zinc-600">
-            当前没有匹配的已发布流程
+            {{ procedureListMessages.emptyMatch }}
           </p>
         </div>
       </template>

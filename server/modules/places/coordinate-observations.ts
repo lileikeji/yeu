@@ -25,6 +25,7 @@ import {
   places
 } from '../../database/schema'
 import { throwNotFound } from '../../utils/errors'
+import { cleanSearchTerm } from '../../../shared/utils/like-search'
 
 type CreateObservationInput = z.infer<typeof createCoordinateObservationSchema>
 type ObservationQuery = z.infer<typeof coordinateObservationsQuerySchema>
@@ -257,7 +258,10 @@ export function listCoordinateObservations(client: DatabaseClient, query: Observ
   const conditions: SQL[] = []
   if (query.placeId) conditions.push(eq(placeCoordinateObservations.placeId, query.placeId))
   if (query.status) conditions.push(eq(placeCoordinateObservations.reviewStatus, query.status))
-  if (query.q) conditions.push(like(places.name, `%${query.q.replace(/[%_]/g, '').trim()}%`))
+  if (query.q) {
+    const search = cleanSearchTerm(query.q)
+    if (search) conditions.push(like(places.name, `%${search}%`))
+  }
   const where = conditions.length ? and(...conditions) : undefined
   const offset = (query.page - 1) * query.pageSize
   const rows = client.db.select({

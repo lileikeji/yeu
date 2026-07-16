@@ -92,7 +92,7 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
       applied: preview.applied
     }, {
       createSources: 2,
-      createContents: 7,
+      createContents: 23,
       updateContents: 2,
       conflicts: 0,
       applied: false
@@ -111,7 +111,7 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
       applied: applied.applied
     }, {
       createdSources: 2,
-      createdContents: 7,
+      createdContents: 23,
       updatedContents: 2,
       conflicts: 0,
       applied: true
@@ -119,10 +119,10 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
 
     const checked = new BetterSqlite3(fixture.databasePath, { readonly: true })
     try {
-      assert.equal(count(checked, 'contents'), 42)
+      assert.equal(count(checked, 'contents'), 58)
       assert.equal(
         (checked.prepare(`SELECT count(*) AS count FROM contents WHERE kind = 'club'`).get() as { count: number }).count,
-        7
+        23
       )
       assert.equal(
         (checked.prepare(`
@@ -131,7 +131,19 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
           JOIN contents AS content ON content.id = relation.content_id
           WHERE content.kind = 'guide' AND content.slug = 'campus-card-network'
         `).get() as { count: number }).count,
-        6
+        7
+      )
+      assert.equal(
+        (checked.prepare(`
+          SELECT count(*) AS count
+          FROM content_sources AS relation
+          JOIN contents AS content ON content.id = relation.content_id
+          JOIN sources AS source ON source.id = relation.source_id
+          WHERE content.kind = 'guide'
+            AND content.slug = 'campus-card-network'
+            AND source.url = 'https://metc.yeu.edu.cn/2025/0804/c1241a50868/page.htm'
+        `).get() as { count: number }).count,
+        1
       )
     } finally {
       checked.close()

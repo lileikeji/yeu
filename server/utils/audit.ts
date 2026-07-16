@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { H3Event } from 'h3'
 import type { DatabaseClient } from '../database/client'
 import { auditLogs } from '../database/schema'
+import { resolveRequestId } from './request-context'
 
 export interface AuditEntry {
   actorAdminId: string | null
@@ -12,12 +13,13 @@ export interface AuditEntry {
 }
 
 export function writeAudit(client: DatabaseClient, event: H3Event, entry: AuditEntry): void {
-  const incomingRequestId = getHeader(event, 'x-request-id')
-  const requestId = incomingRequestId && incomingRequestId.length <= 100
-    ? incomingRequestId
-    : randomUUID()
+  const contextualRequestId = typeof event.context.requestId === 'string'
+    ? event.context.requestId
+    : null
+  const requestId = resolveRequestId(contextualRequestId ?? getHeader(event, 'x-request-id'))
 
-  setHeader(event, 'x-request-id', requestId)
+  event.context.requestId = requestId
+  setHeader(event, 'X-Request-Id', requestId)
   client.db.insert(auditLogs).values({
     id: randomUUID(),
     actorAdminId: entry.actorAdminId,

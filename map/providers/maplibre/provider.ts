@@ -192,6 +192,10 @@ export class MapLibrePreviewProvider implements MapProvider {
     return style === 'standard'
   }
 
+  resize(): void {
+    this.map?.resize()
+  }
+
   fitToPois(): void {
     const map = this.map
     const points = this.renderablePois().map(poi => [poi.point.lng, poi.point.lat] as [number, number])
@@ -280,6 +284,8 @@ export class MapLibrePreviewProvider implements MapProvider {
     this.selectedPoiId = id && this.pois.some(poi => poi.id === id) ? id : null
     this.updateSourceData()
   }
+
+  setSelectedArea(_id: string | null): void {}
 
   flyToPoi(id: string): boolean {
     const poi = this.pois.find(candidate => candidate.id === id)

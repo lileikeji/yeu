@@ -4,19 +4,17 @@ import {
   canUseStaticContentKindFallback,
   mergePublicGuides
 } from '~/utils/public-catalog'
+import {
+  filterGuideListItems,
+  guideCategoryIconTones,
+  guideListCategories,
+  resolveGuideListFallbackMessage
+} from '~~/app/utils/guide-list-presentation'
 
 useSeoMeta({
   title: '新生指南',
   description: '仰恩大学本科与专升本新生的报到、校园地图、校园卡网络、学习图书馆、安全医疗、快递外卖及社团指南。'
 })
-
-const categories = [
-  { id: 'all', label: '全部', icon: 'i-lucide-layout-grid' },
-  { id: 'arrival', label: '入学', icon: 'i-lucide-clipboard-check' },
-  { id: 'campus', label: '校园', icon: 'i-lucide-school' },
-  { id: 'life', label: '生活', icon: 'i-lucide-coffee' },
-  { id: 'community', label: '社团', icon: 'i-lucide-users-round' }
-]
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
@@ -28,34 +26,16 @@ const guides = computed(() => mergePublicGuides(
   publicGuideResponse.value?.items ?? [],
   allowStaticFallback.value
 ))
-const fallbackMessage = computed(() => {
-  if (publicGuideError.value) return '指南服务暂时不可用，请稍后重试。'
-  if (!publicGuideResponse.value) return null
-  if (allowStaticFallback.value) {
-    return '后台尚未接管指南目录，当前显示内置基础指南。'
-  }
-  if (!publicGuideResponse.value.items.length) return '后台已有指南记录，但目前没有已发布指南。'
-  return null
-})
+const fallbackMessage = computed(() => resolveGuideListFallbackMessage({
+  hasError: Boolean(publicGuideError.value),
+  response: publicGuideResponse.value,
+  allowStaticFallback: allowStaticFallback.value
+}))
 
-const filteredGuides = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
-
-  return guides.value.filter((guide) => {
-    const matchesCategory = activeCategory.value === 'all' || guide.category === activeCategory.value
-    const text = [guide.title, guide.shortTitle, guide.summary, ...guide.audience]
-      .join(' ')
-      .toLocaleLowerCase('zh-CN')
-    return matchesCategory && (!query || text.includes(query))
-  })
-})
-
-const iconTone: Record<string, string> = {
-  arrival: 'bg-green-50 text-green-700',
-  campus: 'bg-blue-50 text-blue-700',
-  life: 'bg-orange-50 text-orange-700',
-  community: 'bg-violet-50 text-violet-700'
-}
+const filteredGuides = computed(() => filterGuideListItems(guides.value, {
+  query: searchQuery.value,
+  category: activeCategory.value
+}))
 </script>
 
 <template>
@@ -101,7 +81,7 @@ const iconTone: Record<string, string> = {
                 variant="ghost"
                 size="xs"
                 aria-label="清空搜索"
-                @click="searchQuery = ''"
+                @click="() => { searchQuery = '' }"
               />
             </template>
           </UInput>
@@ -111,7 +91,7 @@ const iconTone: Record<string, string> = {
             aria-label="指南分类"
           >
             <UButton
-              v-for="category in categories"
+              v-for="category in guideListCategories"
               :key="category.id"
               :icon="category.icon"
               :label="category.label"
@@ -119,7 +99,7 @@ const iconTone: Record<string, string> = {
               :variant="activeCategory === category.id ? 'soft' : 'ghost'"
               class="min-h-11 shrink-0"
               :aria-pressed="activeCategory === category.id"
-              @click="activeCategory = category.id"
+              @click="() => { activeCategory = category.id }"
             />
           </div>
         </div>
@@ -168,7 +148,7 @@ const iconTone: Record<string, string> = {
           <div class="flex items-start justify-between gap-3">
             <span
               class="grid size-10 shrink-0 place-items-center rounded-md"
-              :class="iconTone[guide.category]"
+              :class="guideCategoryIconTones[guide.category]"
             >
               <UIcon
                 :name="guide.icon"

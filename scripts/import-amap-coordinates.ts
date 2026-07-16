@@ -766,7 +766,7 @@ export function importAmapCoordinates(options: CoordinateImportOptions): Coordin
   const now = options.now ?? Date.now()
   assertImport(Number.isInteger(now) && now >= 0, 'now must be a non-negative integer timestamp')
   assertImport(databasePath !== ':memory:', 'CLI imports require a file-backed SQLite database')
-  assertImport(existsSync(databasePath), `Target database does not exist: ${databasePath}; run pnpm db:migrate and pnpm amap:drafts -- --apply first`)
+  assertImport(existsSync(databasePath), `Target database does not exist: ${databasePath}; run pnpm db:migrate and pnpm amap:drafts --apply first`)
 
   const markers = loadAuthoritativeMarkers(rawPath, templatePath)
   const coordinates = validateReviewedCoordinates(loadJson(inputPath, 'Reviewed coordinate input'), markers, now)
@@ -800,7 +800,7 @@ export function importAmapCoordinates(options: CoordinateImportOptions): Coordin
 
 function usage(): string {
   return [
-    'Usage: pnpm amap:coordinates -- --input PATH [--dry-run] [--apply] [--database PATH]',
+    'Usage: pnpm amap:coordinates --input PATH [--dry-run] [--apply] [--database PATH]',
     '',
     'Default mode is read-only dry-run. --apply creates pending authorized-import observations only.',
     'The input may contain any non-empty, independently reviewed subset of the 76 markers.',

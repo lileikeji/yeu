@@ -1,26 +1,34 @@
-import { randomUUID } from 'node:crypto'
+﻿import { randomUUID } from 'node:crypto'
 import { and, eq, lt } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import type { DatabaseClient } from '../database/client'
 import { adminSessions, adminUsers } from '../database/schema'
 import { verifyPassword } from './password'
+import { getClientIpAddress } from './client-ip'
 import { assertRateLimit } from './rate-limit'
 import {
   assertTrustedOrigin,
   clearAuthCookies,
   createOpaqueToken,
-  CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
   getSecurityConfig,
   hashOpaqueToken,
+  readCsrfCookie,
+  readSessionCookie,
   safeEqual,
-  SESSION_COOKIE_NAME,
   setAuthCookies
 } from './security'
 import { writeAudit } from './audit'
 
 const DUMMY_PASSWORD_HASH = `scrypt$16384$8$1$${Buffer.alloc(16).toString('base64url')}$${Buffer.alloc(64).toString('base64url')}`
 const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000
+const DEFAULT_SESSION_IDLE_MS = 4 * 60 * 60 * 1000
+
+function sessionIdleLimitMs(): number {
+  const hours = Number(process.env.NUXT_ADMIN_SESSION_IDLE_HOURS || 4)
+  if (!Number.isFinite(hours)) return DEFAULT_SESSION_IDLE_MS
+  return Math.min(168, Math.max(1, hours)) * 60 * 60 * 1000
+}
 
 export interface AdminIdentity {
   id: string
@@ -36,8 +44,7 @@ export interface AdminSessionContext {
 }
 
 function requestIp(event: H3Event): string {
-  const trustProxy = process.env.NUXT_TRUST_PROXY === 'true'
-  return getRequestIP(event, { xForwardedFor: trustProxy }) || 'unknown'
+  return getClientIpAddress(event)
 }
 
 function unauthorized(): never {
@@ -56,8 +63,8 @@ function assertCsrf(
   secret: string
 ): string {
   assertTrustedOrigin(event)
-  const cookieToken = getCookie(event, CSRF_COOKIE_NAME) || ''
-  const headerToken = getHeader(event, CSRF_HEADER_NAME) || cookieToken
+  const cookieToken = readCsrfCookie(event) || ''
+  const headerToken = getHeader(event, CSRF_HEADER_NAME) || ''
   const actualHash = hashOpaqueToken(secret, 'csrf', headerToken)
 
   if (!headerToken
@@ -83,7 +90,9 @@ export async function loginAdmin(
   password: string
 ): Promise<AdminSessionContext> {
   assertTrustedOrigin(event)
-  assertRateLimit(event, `admin-login:${requestIp(event)}:${username.toLowerCase()}`, 5, 15 * 60 * 1000)
+  const ip = requestIp(event)
+  assertRateLimit(event, `admin-login-ip:${ip}`, 20, 15 * 60 * 1000, client)
+  assertRateLimit(event, `admin-login:${ip}:${username.toLowerCase()}`, 5, 15 * 60 * 1000, client)
 
   const now = Date.now()
   client.db.delete(adminSessions).where(lt(adminSessions.expiresAt, now)).run()
@@ -113,6 +122,7 @@ export async function loginAdmin(
   const expiresAt = now + security.ttlMs
 
   client.db.transaction((transaction) => {
+    transaction.delete(adminSessions).where(eq(adminSessions.adminUserId, user.id)).run()
     transaction.insert(adminSessions).values({
       id: sessionId,
       adminUserId: user.id,
@@ -153,7 +163,7 @@ export function getOptionalAdminSession(
   client: DatabaseClient,
   options: { csrf?: boolean } = {}
 ): AdminSessionContext | null {
-  const sessionToken = getCookie(event, SESSION_COOKIE_NAME)
+  const sessionToken = readSessionCookie(event)
 
   if (!sessionToken) {
     return null
@@ -175,7 +185,9 @@ export function getOptionalAdminSession(
     .where(eq(adminSessions.tokenHash, tokenHash))
     .get()
 
-  if (!result || !result.isActive || result.expiresAt <= Date.now()) {
+  const now = Date.now()
+  const idleExpired = result ? (now - result.lastSeenAt) > sessionIdleLimitMs() : false
+  if (!result || !result.isActive || result.expiresAt <= now || idleExpired) {
     if (result) {
       client.db.delete(adminSessions).where(eq(adminSessions.id, result.sessionId)).run()
     }
@@ -183,7 +195,7 @@ export function getOptionalAdminSession(
     return null
   }
 
-  let csrfToken = getCookie(event, CSRF_COOKIE_NAME) || ''
+  let csrfToken = readCsrfCookie(event) || ''
 
   if (options.csrf) {
     csrfToken = assertCsrf(
@@ -205,7 +217,6 @@ export function getOptionalAdminSession(
     }
   }
 
-  const now = Date.now()
   if (now - result.lastSeenAt >= SESSION_TOUCH_INTERVAL_MS) {
     client.db.update(adminSessions).set({ lastSeenAt: now })
       .where(eq(adminSessions.id, result.sessionId))

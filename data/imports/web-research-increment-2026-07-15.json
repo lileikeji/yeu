@@ -1,0 +1,320 @@
+{
+  "formatVersion": 1,
+  "generatedAt": "2026-07-15T16:30:34+08:00",
+  "baseline": {
+    "rule": "Only URLs and evidence not already present in the 2026-07-14/15 research baseline are included.",
+    "files": [
+      "docs/RESEARCH_AUDIT_2026-07-15.md",
+      "docs/RESEARCH_SOURCES.md",
+      "docs/XIAOHONGSHU_RESEARCH_2026-07-15.md",
+      "data/seeds/public-content.ts",
+      "data/imports/xiaohongshu-leads-2026-07-15.json",
+      "data/imports/amap-nearby-poi-candidates-2026-07-15.json"
+    ]
+  },
+  "policy": {
+    "officialSourcesMayPublishAfterReview": true,
+    "socialSourcesPublishAutomatically": false,
+    "copyFullText": false,
+    "copyThirdPartyImages": false,
+    "collectPrivateContacts": false,
+    "changingFactsRequireReverification": true
+  },
+  "officialSources": [
+    {
+      "id": "library-reader-notice",
+      "title": "读者须知",
+      "publisher": "仰恩大学图书馆",
+      "url": "https://library.yeu.edu.cn/197/list.htm",
+      "publishedAt": null,
+      "accessedAt": "2026-07-15",
+      "themes": ["library", "campus-card", "study-space", "safety"],
+      "facts": ["校内读者凭本人校园卡入馆", "禁止占座和馆内进食", "禁止私拉电线和违规使用电器", "未经许可不得举办活动或散发宣传品"],
+      "verificationStatus": "official-current-page"
+    },
+    {
+      "id": "library-study-room-rules",
+      "title": "自习室使用规定",
+      "publisher": "仰恩大学图书馆",
+      "url": "https://library.yeu.edu.cn/200/list.htm",
+      "publishedAt": null,
+      "accessedAt": "2026-07-15",
+      "themes": ["library", "study-space", "safety"],
+      "facts": ["自习室一人一座且禁止占座", "禁止进食和违规用电", "个人物品由本人妥善保管"],
+      "verificationStatus": "official-current-page"
+    },
+    {
+      "id": "library-reader-guide-index",
+      "title": "读者指南",
+      "publisher": "仰恩大学图书馆",
+      "url": "https://library.yeu.edu.cn/193/list.htm",
+      "publishedAt": null,
+      "accessedAt": "2026-07-15",
+      "themes": ["library", "official-directory"],
+      "facts": ["提供新生专栏、常见问题、馆藏查询、数据库和读者服务入口"],
+      "verificationStatus": "official-current-index"
+    },
+    {
+      "id": "campus-network-management-2025",
+      "title": "仰恩大学信息网络管理规定",
+      "publisher": "仰恩大学实验室与信息化管理处",
+      "url": "https://metc.yeu.edu.cn/2025/0804/c1241a50868/page.htm",
+      "publishedAt": "2025-08-04",
+      "accessedAt": "2026-07-15",
+      "themes": ["campus-network", "account-security"],
+      "facts": ["校园网覆盖第一、第二、第三教学区但不含教职工和学生宿舍", "未经批准不得将校园网延伸至校外", "不得向非校内用户提供互联网接入", "不得利用校园网开展赢利性经营活动"],
+      "verificationStatus": "official-current-rule",
+      "dedupeNote": "The no-dorm-coverage fact already existed; this source is retained as corroboration and for the additional network-use restrictions."
+    },
+    {
+      "id": "telecom-fraud-guide-2025",
+      "title": "电信诈骗全知晓：类型、手段与防范，一篇让你远离骗局",
+      "publisher": "仰恩大学保卫处",
+      "url": "https://bwc.yeu.edu.cn/2025/1015/c665a52028/page.htm",
+      "publishedAt": "2025-10-15",
+      "accessedAt": "2026-07-15",
+      "themes": ["safety", "anti-fraud"],
+      "facts": ["列出冒充老师、网络刷单、冒充公检法、AI换脸、网络贷款和冒充亲友等骗局", "涉及钱款要求时应通过学校或亲友直接核实"],
+      "verificationStatus": "official-guidance"
+    },
+    {
+      "id": "dorm-safety-inspection-2026",
+      "title": "仰恩大学开展学生宿舍安全防线检查",
+      "publisher": "仰恩大学保卫处",
+      "url": "https://bwc.yeu.edu.cn/2026/0506/c663a55976/page.htm",
+      "publishedAt": "2026-05-06",
+      "accessedAt": "2026-07-15",
+      "themes": ["dorm", "fire-safety", "electricity"],
+      "facts": ["检查重点包括热得快、电煮锅等大功率违规电器", "检查劣质插排和私拉乱接电线", "多部门检查宿舍和消防设施"],
+      "verificationStatus": "official-current-report"
+    },
+    {
+      "id": "youth-organizations-meeting-2026",
+      "title": "青春有为，实干争先——校团委召开团学干部工作例会部署新学期工作",
+      "publisher": "共青团仰恩大学委员会",
+      "url": "https://youth.yeu.edu.cn/2026/0314/c517a54902/page.htm",
+      "publishedAt": "2026-03-13",
+      "accessedAt": "2026-07-15",
+      "themes": ["clubs", "student-organizations"],
+      "facts": ["各学生社团负责人参加新学期工作会议", "各学生社团汇报学期工作计划"],
+      "verificationStatus": "official-current-report"
+    },
+    {
+      "id": "electronic-modeling-association-2025",
+      "title": "仰恩大学2025年校内数学建模竞赛的通知",
+      "publisher": "仰恩大学数学系",
+      "url": "https://shuxuexi.yeu.edu.cn/2025/0603/c474a49678/page.htm",
+      "publishedAt": "2025-06-03",
+      "accessedAt": "2026-07-15",
+      "themes": ["clubs", "electronic-modeling", "competition"],
+      "facts": ["仰恩大学电子数模协会是2025年校内数学建模竞赛协办单位"],
+      "verificationStatus": "official-historical-activity"
+    },
+    {
+      "id": "dining-safety-inspection-2026",
+      "title": "筑牢食安防线 守护师生健康",
+      "publisher": "仰恩大学总务处",
+      "url": "https://zwc.yeu.edu.cn/2026/0327/c498a55230/page.htm",
+      "publishedAt": "2026-03-27",
+      "accessedAt": "2026-07-15",
+      "themes": ["dining", "map", "food-safety"],
+      "facts": ["2026年3月学校检查西苑、北苑、东苑餐厅", "检查采购、储存、加工、消毒、留样和溯源"],
+      "verificationStatus": "official-current-report"
+    },
+    {
+      "id": "food-safety-committee-2025",
+      "title": "仰恩大学食品安全膳食管理委员会章程",
+      "publisher": "仰恩大学总务处",
+      "url": "https://zwc.yeu.edu.cn/2025/1015/c497a52038/page.htm",
+      "publishedAt": "2025-10-09",
+      "accessedAt": "2026-07-15",
+      "themes": ["dining", "feedback", "food-safety"],
+      "facts": ["食安会收集师生餐饮意见和建议", "监督卫生、质量、服务和价格", "协助处理餐饮投诉"],
+      "verificationStatus": "official-current-rule"
+    },
+    {
+      "id": "entrepreneurship-park-rules-2025",
+      "title": "仰恩大学大学生创业园管理办法（修订）",
+      "publisher": "仰恩大学学生事务部",
+      "url": "https://xsb.yeu.edu.cn/2025/0512/c640a49290/page.htm",
+      "publishedAt": "2025-05-12",
+      "accessedAt": "2026-07-15",
+      "themes": ["entrepreneurship", "map", "student-services"],
+      "facts": ["创业园A区位于第一教学区图书馆一楼", "创业园B区位于第三教学区图书馆一楼", "A区为电商孵化区，B区为实体创意区"],
+      "verificationStatus": "official-current-rule"
+    },
+    {
+      "id": "entrepreneurship-park-batch-22-2026",
+      "title": "关于启动大学生创业园第22批创业项目申报工作的通知",
+      "publisher": "仰恩大学创业信息网",
+      "url": "https://cy.yeu.edu.cn/2026/0416/c539a55601/page.htm",
+      "publishedAt": "2026-04-16",
+      "accessedAt": "2026-07-15",
+      "themes": ["entrepreneurship", "student-services"],
+      "facts": ["2026年创业园继续招募项目", "符合条件的入驻项目可获得办公场所、指导和部分扶持"],
+      "verificationStatus": "official-expired-notice"
+    },
+    {
+      "id": "psychology-association-activity-2026",
+      "title": "校心理健康咨询中心组织开展‘心知识，进社区’心理健康宣传活动",
+      "publisher": "仰恩大学心理健康教育与咨询中心",
+      "url": "https://xl.yeu.edu.cn/2026/0326/c562a55202/page.htm",
+      "publishedAt": "2026-03-26",
+      "accessedAt": "2026-07-15",
+      "themes": ["clubs", "mental-health", "student-community"],
+      "facts": ["活动由校心理协会承办", "活动在全校六个一站式学生社区开展"],
+      "verificationStatus": "official-current-report"
+    },
+    {
+      "id": "red-cross-recognition-2026",
+      "title": "福建省红十字会通报表扬我校红十字会在‘5·8人道公益日’筹资活动中的突出表现",
+      "publisher": "仰恩大学",
+      "url": "https://web.yeu.edu.cn/2026/0618/c770a56830/page.htm",
+      "publishedAt": "2026-06-18",
+      "accessedAt": "2026-07-15",
+      "themes": ["clubs", "volunteering", "first-aid"],
+      "facts": ["仰恩大学红十字会2026年仍持续开展公益活动", "筹资用于AED、急救物品、培训物资和救援设备等"],
+      "verificationStatus": "official-current-report"
+    },
+    {
+      "id": "red-cross-bazaar-2026",
+      "title": "暖阳聚爱 义润校园——仰恩大学红十字会开展爱心义卖活动",
+      "publisher": "仰恩大学",
+      "url": "https://www.yeu.edu.cn/2026/0114/c770a54471/page.htm",
+      "publishedAt": "2026-01-14",
+      "accessedAt": "2026-07-15",
+      "themes": ["clubs", "dining", "map"],
+      "facts": ["义卖点位于第一教学区东苑餐厅前和第三教学区西苑餐厅前", "仰恩大学红十字会成立于2007年并持续开展公益活动"],
+      "verificationStatus": "official-current-report"
+    },
+    {
+      "id": "campus-bus-route-reference-2025",
+      "title": "仰恩大学‘百日冲刺’行动暨洛江区2025年专场招聘会邀请函",
+      "publisher": "仰恩大学",
+      "url": "https://www.yeu.edu.cn/2025/0509/c771a49255/page.htm",
+      "publishedAt": "2025-05-09",
+      "accessedAt": "2026-07-15",
+      "themes": ["transport", "arrival"],
+      "facts": ["2025年官方到校路线包含11路、K2路、K6路和罗马专线"],
+      "verificationStatus": "official-historical-reference"
+    },
+    {
+      "id": "custom-bus-reference-2025",
+      "title": "校工会定制公交，暖心助力仰恩学子返乡",
+      "publisher": "仰恩大学校工会",
+      "url": "https://gh.yeu.edu.cn/2025/0114/c449a47294/page.htm",
+      "publishedAt": "2025-01-14",
+      "accessedAt": "2026-07-15",
+      "themes": ["transport"],
+      "facts": ["2025年寒假曾从第一教学区开行直达高铁泉州站的临时定制公交"],
+      "verificationStatus": "official-historical-reference"
+    }
+  ],
+  "secondaryAndSocialLeads": [
+    {
+      "id": "college-life-survey-2026",
+      "title": "仰恩大学 - 大学生活质量指北",
+      "publisher": "Colleges.Chat anonymous questionnaires",
+      "url": "https://cf-pages.colleges.chat/universities/yang-en-da-xue/",
+      "accessedAt": "2026-07-15",
+      "themes": ["dorm", "transport", "delivery", "network", "access-control"],
+      "claims": ["包含2023、2025、2026匿名问卷", "涉及宿舍、公共浴室、晚自习、叮叮车、公交、快递、外卖、校园网和门禁"],
+      "risks": ["匿名身份", "回答互相冲突", "部分内容涉及安全或管理规则"],
+      "verificationStatus": "unverified-social-lead"
+    },
+    {
+      "id": "zhihu-freshman-guide-2023",
+      "title": "仰恩大学到底好不好？——致23级新生",
+      "publisher": "Zhihu user article",
+      "url": "https://www.zhihu.com/articles/647141718",
+      "accessedAt": "2026-07-15",
+      "themes": ["map", "dorm", "campus-shuttle", "delivery", "transport"],
+      "claims": ["提供2023年前后的校园生活、宿舍、叮叮车、快递和公交经验"],
+      "risks": ["信息较旧", "包含私人引流信息", "变化信息未核验"],
+      "verificationStatus": "stale-unverified-social-lead"
+    },
+    {
+      "id": "douyin-campus-view-2026-a",
+      "title": "给新生看看咱仰恩大学的大好时光",
+      "publisher": "Douyin public video",
+      "url": "https://www.douyin.com/video/7653297634275335524",
+      "accessedAt": "2026-07-15",
+      "themes": ["campus-visual"],
+      "claims": ["标题显示为仰恩大学校园影像"],
+      "risks": ["作者身份、拍摄时间、地点和版权未核验"],
+      "verificationStatus": "visual-lead-only"
+    },
+    {
+      "id": "douyin-campus-view-2025-a",
+      "title": "仰恩大学精彩校园等你到来",
+      "publisher": "Douyin public video",
+      "url": "https://www.douyin.com/video/7527176270220889378",
+      "accessedAt": "2026-07-15",
+      "themes": ["campus-visual"],
+      "claims": ["标题显示为仰恩大学校园生活影像"],
+      "risks": ["作者身份、拍摄时间、地点和版权未核验"],
+      "verificationStatus": "visual-lead-only"
+    },
+    {
+      "id": "official-wechat-campus-archive-2020",
+      "title": "想了解仰恩大学的校园环境？点开这篇文章...",
+      "publisher": "027Art archive of Yang-En University official WeChat content",
+      "url": "https://m.027art.com/fujianbenke/HTML/8547708.html",
+      "accessedAt": "2026-07-15",
+      "themes": ["map", "campus-buildings", "campus-shuttle", "transport"],
+      "claims": ["转载页列出多个校园地标及空间关系", "历史内容称和昌教学楼为叮叮车出发地", "历史内容提到K2和K6"],
+      "risks": ["第三方转载", "内容约为2020年", "班车、公交和场所功能可能变化"],
+      "verificationStatus": "secondary-historical-reference"
+    },
+    {
+      "id": "oshwhub-electronic-modeling-training",
+      "title": "仰恩大学电子数模协会12月培训反馈文章",
+      "publisher": "OSHWHub community article",
+      "url": "https://oshwhub.com/article/yangon-university-electronic-digital-model-association-december-training-feedback-article",
+      "accessedAt": "2026-07-15",
+      "themes": ["clubs", "electronics", "stm32"],
+      "claims": ["搜索摘要显示电子数模协会曾开展STM32培训"],
+      "risks": ["非学校官网", "正文当前无法稳定提取", "作者身份和活动日期需复核"],
+      "verificationStatus": "unverified-community-lead"
+    }
+  ],
+  "platformCoverage": [
+    { "platform": "Bilibili", "result": "no-direct-useful-new-result", "publishableCount": 0 },
+    { "platform": "Baidu Tieba", "result": "no-verifiable-yang-en-result", "publishableCount": 0 },
+    { "platform": "Weibo", "result": "high-noise-no-traceable-new-result", "publishableCount": 0 },
+    { "platform": "Dianping", "result": "no-stable-yang-en-merchant-result", "publishableCount": 0 },
+    { "platform": "Meituan", "result": "no-stable-yang-en-merchant-result", "publishableCount": 0 }
+  ],
+  "mapReviewTasks": [
+    {
+      "name": "创业园A区",
+      "expectedRelation": "第一教学区图书馆一楼",
+      "sourceId": "entrepreneurship-park-rules-2025",
+      "requiredCheck": "现场核对正式入口和独立坐标"
+    },
+    {
+      "name": "创业园B区",
+      "expectedRelation": "第三教学区图书馆一楼",
+      "sourceId": "entrepreneurship-park-rules-2025",
+      "requiredCheck": "现场核对正式入口和独立坐标"
+    },
+    {
+      "name": "东苑餐厅",
+      "expectedRelation": "第一教学区",
+      "sourceId": "red-cross-bazaar-2026",
+      "requiredCheck": "现场核对主入口、营业状态和开放时间"
+    },
+    {
+      "name": "西苑餐厅",
+      "expectedRelation": "第三教学区",
+      "sourceId": "red-cross-bazaar-2026",
+      "requiredCheck": "现场核对主入口、营业状态和开放时间"
+    },
+    {
+      "name": "北苑餐厅",
+      "expectedRelation": "当前仍在使用",
+      "sourceId": "dining-safety-inspection-2026",
+      "requiredCheck": "结合既有第一教学区证据核对入口和营业状态"
+    }
+  ]
+}

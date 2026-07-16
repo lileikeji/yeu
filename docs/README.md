@@ -1,6 +1,6 @@
 # 项目文档索引
 
-> 最近整理：2026-07-14（Asia/Shanghai）
+> 最近整理：2026-07-15（Asia/Shanghai）
 > 适用阶段：V0.3 内容与办事流程 Alpha、地图真实数据核验
 > 产品需求文档采用业界常用缩写 PRD；本仓库不另建内容重复的 `PRO.md`
 
@@ -12,17 +12,21 @@
 2. [信息架构](./INFORMATION_ARCHITECTURE.md)：公开页面、导航、路由和后台模块。
 3. [地图交互规范](./MAP_INTERACTION_SPEC.md)：地图布局、标点、筛选、联动和失败降级。
 4. [路线图](./ROADMAP.md)：当前进度、阶段门槛和未来商家/AI/官方协作边界。
-5. [技术架构](./ARCHITECTURE.md) 与 [数据模型](./DATA_MODEL.md)：实现边界、领域关系和迁移约定。
+5. [系统体检与优化实施计划](./SYSTEM_OPTIMIZATION_PLAN_2026-07-15.md)：当前质量快照、优化优先级、执行顺序和发布检查清单。
+6. [当前工作区拆分与提交计划](./CHANGESET_PLAN_2026-07-15.md)：本轮跨模块改动如何拆成可审查、可回退的提交。
+7. [工程与发布验证记录](./VERIFICATION_RECORD_2026-07-15.md)：当前 commit、工具版本、质量门禁、空库重建和生产产物冒烟证据。
+8. [技术架构](./ARCHITECTURE.md) 与 [数据模型](./DATA_MODEL.md)：实现边界、领域关系和迁移约定。
 
 内容维护与核验人员重点阅读：
 
 1. [首批数据源与核验清单](./RESEARCH_SOURCES.md)。
 2. [2026-07-15 官网、迎新、社团与周边资料审计](./RESEARCH_AUDIT_2026-07-15.md)。
 3. [2026-07-15 小红书公开资料核验记录](./XIAOHONGSHU_RESEARCH_2026-07-15.md)。
-4. [内容来源与治理政策](./CONTENT_POLICY.md)。
-5. [地图数据就绪台账](./MAP_DATA_READINESS.md)。
-6. [现场坐标采集与审核](./FIELD_COORDINATE_VERIFICATION.md)。
-7. [单管理员运行手册](./ADMIN_RUNBOOK.md)。
+4. [2026-07-15 公开媒体与授权审计](./PUBLIC_MEDIA_AUDIT_2026-07-15.md)。
+5. [内容来源与治理政策](./CONTENT_POLICY.md)。
+6. [地图数据就绪台账](./MAP_DATA_READINESS.md)。
+7. [现场坐标采集与审核](./FIELD_COORDINATE_VERIFICATION.md)。
+8. [单管理员运行手册](./ADMIN_RUNBOOK.md)。
 
 准备上线或接管服务器时阅读 [宝塔 Linux 部署与运维](./DEPLOYMENT.md)。
 
@@ -34,11 +38,15 @@
 | [INFORMATION_ARCHITECTURE.md](./INFORMATION_ARCHITECTURE.md) | 页面、路由、导航和用户路径如何组织 | 产品结构基线 |
 | [MAP_INTERACTION_SPEC.md](./MAP_INTERACTION_SPEC.md) | 地图在桌面、手机、微信和 PWA 中如何表现 | 地图体验验收基线 |
 | [ROADMAP.md](./ROADMAP.md) | 当前在哪一阶段、下一个发布门槛是什么 | 进度基线，需随验收更新 |
+| [SYSTEM_OPTIMIZATION_PLAN_2026-07-15.md](./SYSTEM_OPTIMIZATION_PLAN_2026-07-15.md) | 当前系统还有哪些差距、按什么顺序优化、怎样验收 | 带日期的工程与发布改进计划 |
+| [CHANGESET_PLAN_2026-07-15.md](./CHANGESET_PLAN_2026-07-15.md) | 当前大量改动按什么边界和顺序提交、哪些研究素材禁止进入仓库 | 工作区拆分与合并门禁基线 |
+| [VERIFICATION_RECORD_2026-07-15.md](./VERIFICATION_RECORD_2026-07-15.md) | 当前环境、测试、构建、空库重建和 HTTP 响应头实际验证结果是什么 | 带日期的验证证据，不等于发布批准 |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 前后台、API、地图 provider、PWA 和安全怎样分层 | 技术决策基线 |
 | [DATA_MODEL.md](./DATA_MODEL.md) | 数据实体、状态、关系和生命周期是什么 | 数据契约说明 |
 | [RESEARCH_SOURCES.md](./RESEARCH_SOURCES.md) | 已查过哪些来源、确认了什么、还缺什么 | 资料核验台账 |
 | [RESEARCH_AUDIT_2026-07-15.md](./RESEARCH_AUDIT_2026-07-15.md) | 本轮官网全站、主流平台、社团与学生街 POI 搜到了什么 | 带日期的研究快照 |
 | [XIAOHONGSHU_RESEARCH_2026-07-15.md](./XIAOHONGSHU_RESEARCH_2026-07-15.md) | 小红书公开笔记提供了哪些宿舍、商铺、快递、交通和社团线索 | 非官方待核验线索快照 |
+| [PUBLIC_MEDIA_AUDIT_2026-07-15.md](./PUBLIC_MEDIA_AUDIT_2026-07-15.md) | 哪些图片可以公开、哪些因缺少授权已撤下、重新发布需要什么 | 带日期的媒体授权与发布边界台账 |
 | [CONTENT_POLICY.md](./CONTENT_POLICY.md) | 什么资料可发布、何时过期、版权隐私如何处理 | 内容治理基线 |
 | [FIELD_COORDINATE_VERIFICATION.md](./FIELD_COORDINATE_VERIFICATION.md) | 现场如何采点、什么观测可以批准 | 坐标审核规则 |
 | [MAP_DATA_READINESS.md](./MAP_DATA_READINESS.md) | 76 个地点当前分别卡在哪里、先采哪些 | 地图数据执行台账 |

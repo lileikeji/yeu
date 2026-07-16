@@ -72,6 +72,19 @@ export interface ApiPlace {
   sources: ApiSource[]
 }
 
+export interface ApiAmapOwnerDraftPlace {
+  id: string
+  sourceRow: number
+  name: string
+  summary: string
+  category: string | null
+  address: string | null
+  longitude: number
+  latitude: number
+  coordinateSystem: 'GCJ-02'
+  coordinateVerification: 'unverified'
+}
+
 export interface ApiCoordinateSample {
   longitude: number
   latitude: number

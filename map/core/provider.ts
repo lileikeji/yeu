@@ -28,10 +28,12 @@ export interface MapProvider {
   setAreas(areas: MapArea[]): void
   setDisplayOptions(options: MapDisplayOptions): void
   setBaseStyle(style: MapBaseStyle): boolean
+  resize(): void
   fitToPois(): void
   enablePointPicker(handler: PointPickedHandler): void
   disablePointPicker(): void
   setSelectedPoi(id: string | null): void
+  setSelectedArea(id: string | null): void
   flyToPoi(id: string): boolean
   flyToPoint(point: GeoPoint, zoom?: number): boolean
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>

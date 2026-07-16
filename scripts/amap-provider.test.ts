@@ -69,6 +69,10 @@ class FakeMarker {
     this.content = content
   }
 
+  setOptions(options: Record<string, unknown>): void {
+    Object.assign(this.options, options)
+  }
+
   setOffset(offset: FakePixel): void {
     this.offset = offset
   }
@@ -136,6 +140,10 @@ class FakeInfoWindow {
 
   setContent(content: FakeElement): void {
     this.content = content
+  }
+
+  setOptions(options: Record<string, unknown>): void {
+    Object.assign(this.options, options)
   }
 
   open(_map: FakeAMapMap, position: [number, number]): void {
@@ -271,6 +279,7 @@ class FakeAMapMap {
   readonly zoomCalls: Array<{ zoom: number, center: [number, number] }> = []
   zoom: number
   destroyed = false
+  resized = false
 
   constructor(_element: FakeElement, readonly options: Record<string, unknown>) {
     this.zoom = Number(options.zoom ?? 14)
@@ -293,12 +302,22 @@ class FakeAMapMap {
     }
   }
 
+  emitClick(): void {
+    for (const listener of this.listeners.get('click') ?? []) {
+      listener({})
+    }
+  }
+
   add(overlays: FakeMarker | FakeMarker[]): void {
     this.added.push(...(Array.isArray(overlays) ? overlays : [overlays]))
   }
 
   remove(overlays: FakeMarker | FakeMarker[]): void {
     this.removed.push(...(Array.isArray(overlays) ? overlays : [overlays]))
+  }
+
+  resize(): void {
+    this.resized = true
   }
 
   destroy(): void {
@@ -521,6 +540,19 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.equal(FakePolyline.instances[0]?.options.bubble, true)
     FakePolyline.instances[0]?.emitClick()
     assert.equal(selectedAreas.at(-1), 'area-exact-1')
+    assert.equal(FakePolyline.instances[0]?.options.strokeColor, '#2563eb')
+    assert.equal(FakePolyline.instances[0]?.options.strokeWeight, 6)
+    const areaLabel = map.added.find(marker => marker.content?.textContent === '真实操场轮廓')
+    assert.ok(areaLabel)
+    areaLabel.emitClick()
+    assert.equal(selectedAreas.at(-1), 'area-exact-1')
+    assert.match(areaLabel.content?.style.cssText ?? '', /background:#2563eb/)
+    provider.setSelectedArea(null)
+    assert.equal(FakePolyline.instances[0]?.options.strokeColor, '#18AD78')
+    assert.equal(FakePolyline.instances[0]?.options.strokeWeight, 3)
+    assert.match(areaLabel.content?.style.cssText ?? '', /background:rgb\(255 255 255 \/ 90%\)/)
+    map.emitClick()
+    assert.equal(selectedAreas.at(-1), null)
 
     const walkingSummary = await provider.planWalkingRoute(
       { lng: 118.6, lat: 25.1, crs: 'WGS84' },
@@ -536,6 +568,9 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.deepEqual(infoWindow?.openedAt, [118.6, 25.1])
     assert.equal(infoWindow?.content?.children[0]?.textContent, '学生街商家')
     assert.match(infoWindow?.content?.children[2]?.href ?? '', /^https:\/\/uri\.amap\.com\/search\?/)
+    assert.equal(selected.at(-1), null)
+    provider.resize()
+    assert.equal(map.resized, true)
 
     provider.fitToPois()
     assert.equal(map.fitCalls.at(-1)?.overlays.length, 77)

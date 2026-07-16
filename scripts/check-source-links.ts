@@ -1,10 +1,17 @@
 import './load-env'
 import { pathToFileURL } from 'node:url'
+import { eq } from 'drizzle-orm'
 import { sources } from '../server/database/schema'
 import { closeDatabase, getDatabase } from '../server/database/client'
+import {
+  assertSafeResolvedPublicHttpUrl,
+  parseSafePublicHttpUrl,
+  type HostnameLookup
+} from '../shared/utils/public-http-url'
 
 const DEFAULT_CONCURRENCY = 4
 const DEFAULT_TIMEOUT_MS = 12_000
+const MAX_REDIRECTS = 5
 const USER_AGENT = 'YEU-Freshman-Guide-Source-Check/0.1 (+https://gitee.com/lilei1529/yeu)'
 
 export type SourceLinkState = 'healthy' | 'broken' | 'warning' | 'unavailable' | 'invalid'
@@ -27,6 +34,13 @@ export interface SourceLinkResult extends SourceLinkInput {
 export interface SourceLinkCheckOptions {
   concurrency?: number
   timeoutMs?: number
+  /**
+   * Allow loopback/private destinations. Default false (SSRF-safe for ops).
+   * Enable only for local unit tests.
+   */
+  allowPrivateNetwork?: boolean
+  /** Injected DNS resolver for tests (rebinding gate). */
+  lookup?: HostnameLookup
 }
 
 function boundedInteger(value: number | undefined, fallback: number, minimum: number, maximum: number): number {
@@ -40,16 +54,21 @@ function stateForStatus(status: number): SourceLinkState {
   return 'warning'
 }
 
-function validPublicUrl(value: string): URL | null {
+async function validPublicUrl(
+  value: string,
+  allowPrivateNetwork = false,
+  lookup?: HostnameLookup
+): Promise<URL | null> {
+  // Sync string policy first (cheap). Resolved DNS rebinding check is for hops we will fetch.
+  if (!parseSafePublicHttpUrl(value, { allowPrivateNetwork })) return null
   try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url : null
+    return await assertSafeResolvedPublicHttpUrl(value, { allowPrivateNetwork, lookup })
   } catch {
     return null
   }
 }
 
-async function request(
+async function requestOnce(
   url: string,
   method: 'HEAD' | 'GET',
   timeoutMs: number,
@@ -61,7 +80,8 @@ async function request(
   try {
     const response = await fetcher(url, {
       method,
-      redirect: 'follow',
+      // Manual redirects so each hop can be re-validated against the public URL policy.
+      redirect: 'manual',
       signal: controller.signal,
       headers: {
         'User-Agent': USER_AGENT,
@@ -76,13 +96,47 @@ async function request(
   }
 }
 
+async function request(
+  startUrl: string,
+  method: 'HEAD' | 'GET',
+  timeoutMs: number,
+  fetcher: typeof fetch,
+  allowPrivateNetwork: boolean,
+  lookup?: HostnameLookup
+): Promise<{ response: Response, finalUrl: string }> {
+  let current = startUrl
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const safe = await validPublicUrl(current, allowPrivateNetwork, lookup)
+    if (!safe) {
+      throw new Error('Blocked non-public HTTP(S) URL (SSRF protection)')
+    }
+
+    const response = await requestOnce(safe.href, method, timeoutMs, fetcher)
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      if (!location) {
+        return { response, finalUrl: safe.href }
+      }
+      current = new URL(location, safe.href).href
+      continue
+    }
+
+    return { response, finalUrl: response.url || safe.href }
+  }
+
+  throw new Error(`Exceeded ${MAX_REDIRECTS} redirects`)
+}
+
 export async function checkSourceLink(
   source: SourceLinkInput,
   options: SourceLinkCheckOptions = {},
   fetcher: typeof fetch = fetch
 ): Promise<SourceLinkResult> {
   const startedAt = Date.now()
-  const url = validPublicUrl(source.url)
+  const allowPrivateNetwork = options.allowPrivateNetwork === true
+  const lookup = options.lookup
+  const url = await validPublicUrl(source.url, allowPrivateNetwork, lookup)
   const timeoutMs = boundedInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS, 500, 60_000)
 
   if (!url) {
@@ -99,18 +153,19 @@ export async function checkSourceLink(
 
   try {
     let method: 'HEAD' | 'GET' = 'HEAD'
-    let response = await request(url.href, method, timeoutMs, fetcher)
+    let result = await request(url.href, method, timeoutMs, fetcher, allowPrivateNetwork, lookup)
 
-    if ([400, 403, 405, 501].includes(response.status)) {
+    if ([400, 403, 405, 501].includes(result.response.status)) {
       method = 'GET'
-      response = await request(url.href, method, timeoutMs, fetcher)
+      result = await request(url.href, method, timeoutMs, fetcher, allowPrivateNetwork, lookup)
     }
 
+    const { response, finalUrl } = result
     return {
       ...source,
       state: stateForStatus(response.status),
       status: response.status,
-      finalUrl: response.url || url.href,
+      finalUrl,
       method,
       durationMs: Date.now() - startedAt,
       message: response.ok || (response.status >= 300 && response.status < 400)
@@ -119,9 +174,10 @@ export async function checkSourceLink(
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Source request failed'
+    const blocked = message.includes('SSRF') || message.includes('non-public')
     return {
       ...source,
-      state: 'unavailable',
+      state: blocked ? 'invalid' : 'unavailable',
       status: null,
       finalUrl: null,
       method: null,
@@ -169,7 +225,9 @@ export async function runCli(): Promise<void> {
       id: sources.id,
       title: sources.title,
       url: sources.url
-    }).from(sources).all()
+    }).from(sources)
+      .where(eq(sources.status, 'active'))
+      .all()
     const results = await checkSourceLinks(rows, {
       concurrency: numberArgument('concurrency'),
       timeoutMs: numberArgument('timeout-ms')

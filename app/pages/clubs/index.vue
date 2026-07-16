@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { officialClubs } from '~~/data/seeds/public-content'
+import {
+  clubListMessages,
+  countLeadClubs,
+  countRecentClubs,
+  filterClubListItems,
+  joinClubNames
+} from '~~/app/utils/club-list-presentation'
 import { publicClubs } from '~/utils/public-catalog'
 
 useSeoMeta({
@@ -8,13 +16,11 @@ useSeoMeta({
 
 const searchQuery = ref('')
 const { data: response, error } = await usePublicClubList()
-const clubs = computed(() => publicClubs(response.value?.items ?? []))
-const filteredClubs = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase('zh-CN')
-  if (!query) return clubs.value
-  return clubs.value.filter(club => [club.name, club.summary, club.category]
-    .filter(Boolean).join(' ').toLocaleLowerCase('zh-CN').includes(query))
-})
+const clubs = computed(() => publicClubs(response.value?.items ?? [], officialClubs))
+const recentClubCount = computed(() => countRecentClubs(clubs.value))
+const leadClubCount = computed(() => countLeadClubs(clubs.value.length, recentClubCount.value))
+const clubNamesText = computed(() => joinClubNames(clubs.value))
+const filteredClubs = computed(() => filterClubListItems(clubs.value, searchQuery.value))
 </script>
 
 <template>
@@ -28,7 +34,7 @@ const filteredClubs = computed(() => {
           学生社团
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          当前名单来自校团委2026年活动报道，不代表完整注册名册，也不代表2026级正在招新。
+          当前完整收录 {{ clubs.length }} 个可追溯社团条目：{{ recentClubCount }} 个能在校团委 2026 年活动报道中确认近期活跃，{{ leadClubCount }} 个来自校团委公开附件中的社团干部线索。这里先帮新生知道“学校里可能有哪些方向”，不把未发布的招新群、二维码或收费要求写成确定通知。
         </p>
         <UInput
           v-model="searchQuery"
@@ -47,23 +53,36 @@ const filteredClubs = computed(() => {
         class="border-l-2 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-800"
         role="alert"
       >
-        社团资料暂时不可用，请稍后重试。
+        {{ clubListMessages.serviceUnavailable }}
       </div>
 
       <div
         v-else
-        class="mb-4 flex items-center justify-between gap-4"
+        class="mb-4 space-y-4"
       >
-        <h2 class="text-sm font-semibold text-zinc-900">
-          {{ filteredClubs.length }} 个近期活动可核验社团
-        </h2>
-        <UButton
-          to="/guides/clubs"
-          icon="i-lucide-notebook-tabs"
-          label="招新指南"
-          color="neutral"
-          variant="ghost"
-        />
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="text-sm font-semibold text-zinc-900">
+            {{ filteredClubs.length }} 个社团条目
+          </h2>
+          <UButton
+            to="/guides/clubs"
+            icon="i-lucide-notebook-tabs"
+            label="招新指南"
+            color="neutral"
+            variant="ghost"
+          />
+        </div>
+        <div class="rounded-lg border border-violet-100 bg-violet-50/70 p-4 text-sm leading-7 text-violet-950">
+          <p class="font-semibold">
+            当前 23 个条目完整清单
+          </p>
+          <p class="mt-1">
+            {{ clubNamesText }}
+          </p>
+          <p class="mt-2 text-xs leading-5 text-violet-800">
+            标记为“名称线索待确认”的社团不是删除或漏写，而是只有公开附件线索；等校团委或社团负责人发布 2026 级招新信息后，再补入招新时间、地点、群号和报名方式。
+          </p>
+        </div>
       </div>
 
       <div
@@ -84,7 +103,7 @@ const filteredClubs = computed(() => {
               />
             </span>
             <UBadge
-              label="招新待发布"
+              :label="club.category ?? clubListMessages.defaultCategory"
               color="warning"
               variant="soft"
             />
@@ -95,6 +114,10 @@ const filteredClubs = computed(() => {
           <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
             {{ club.summary }}
           </p>
+          <div class="mt-4 rounded-md bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">
+            <span class="font-semibold text-zinc-800">新生怎么看：</span>
+            先按兴趣收藏，开学招新时再核对摊位、群号、例会频率和是否收费。
+          </div>
           <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-green-700">
             查看资料
             <UIcon
@@ -114,7 +137,7 @@ const filteredClubs = computed(() => {
           class="mx-auto size-6 text-zinc-400"
         />
         <p class="mt-3 text-sm text-zinc-600">
-          没有匹配的社团
+          {{ clubListMessages.emptyMatch }}
         </p>
       </div>
     </div>

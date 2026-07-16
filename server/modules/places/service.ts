@@ -7,6 +7,7 @@ import type {
   publicPlacesQuerySchema,
   updatePlaceSchema
 } from '../../../shared/schemas/server'
+import type { ApiAmapOwnerDraftPlace } from '../../../shared/types/server'
 import {
   isPointWithinBounds,
   YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS
@@ -21,14 +22,73 @@ import {
   countPublishableSourcesByIds,
   getPlaceSourceMap
 } from '../verification/service'
+import { cleanSearchTerm } from '../../../shared/utils/like-search'
 
 type CreatePlaceInput = z.infer<typeof createPlaceSchema>
 type UpdatePlaceInput = z.infer<typeof updatePlaceSchema>
 type PublicPlacesQuery = z.infer<typeof publicPlacesQuerySchema>
 type AdminPlacesQuery = z.infer<typeof adminPlacesQuerySchema>
 
-function cleanSearchTerm(value: string): string {
-  return value.replace(/[%_]/g, '').trim()
+const AMAP_DRAFT_IMPORTER_ID = 'amap-workmap-draft-v1'
+const AMAP_DRAFT_RAW_FILE = 'amap-workmap-2026-07-13.raw.json'
+const AMAP_DRAFT_SHEET = '标记位置'
+const AMAP_DRAFT_LOCATION_CODE_RE = /^WIA-\d+\.\d+,\d+\.\d+$/
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function parseAmapDraftReference(value: string | null): { sourceRow: number, locationCode: string } | null {
+  if (!value) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value) as unknown
+  } catch {
+    return null
+  }
+  if (!isRecord(parsed)) return null
+  if (parsed.importer !== AMAP_DRAFT_IMPORTER_ID
+    || parsed.file !== AMAP_DRAFT_RAW_FILE
+    || parsed.sheet !== AMAP_DRAFT_SHEET) {
+    return null
+  }
+  if (!Number.isInteger(parsed.sourceRow)
+    || Number(parsed.sourceRow) < 2
+    || typeof parsed.locationCode !== 'string'
+    || !AMAP_DRAFT_LOCATION_CODE_RE.test(parsed.locationCode)) {
+    return null
+  }
+
+  return {
+    sourceRow: Number(parsed.sourceRow),
+    locationCode: parsed.locationCode
+  }
+}
+
+function studentFacingAmapDraftText(value: string, placeName: string): string {
+  const cleaned = value
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !/resourceId|坐标来源|发布提醒|sourceRawRef|GCJ-02|WGS84|coordinate/i.test(line))
+    .join(' ')
+    .replace(/已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护，?具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。?/g, '的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+    .replace(/用户授权的高德工作地图导出/g, '高德地图标点')
+    .replace(/高德工作地图导入草稿/g, '高德地图标点')
+    .replace(/后台草稿/g, '地图标点')
+    .replace(/草稿/g, '待确认信息')
+    .replace(/可用于地图定位和维护/g, '可以先用来找方向')
+    .replace(/正式发布/g, '公开展示')
+    .replace(/核验/g, '确认')
+    .replace(/待人工确认/g, '还要再确认')
+    .replace(/待确认信息[，；、：:]?/g, '还要再确认，')
+    .replace(/\s+/g, ' ')
+    .replace(`${placeName} 的位置`, `${placeName}的位置`)
+    .trim()
+
+  if (!cleaned) {
+    return `${placeName} 的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。`
+  }
+  return cleaned
 }
 
 function getPlaceByIdRow(client: DatabaseClient, id: string) {
@@ -172,6 +232,38 @@ export function listPlaces(
       }
     })
   }
+}
+
+export function listPublicAmapOwnerDraftPlaces(client: DatabaseClient): ApiAmapOwnerDraftPlace[] {
+  const rows = client.db.select().from(places)
+    .where(and(
+      eq(places.status, 'draft'),
+      eq(places.coordinateVerification, 'unverified'),
+      eq(places.coordinateSystem, 'GCJ-02')
+    ))
+    .orderBy(places.name)
+    .all()
+
+  return rows
+    .map((row): ApiAmapOwnerDraftPlace | null => {
+      const reference = parseAmapDraftReference(row.sourceRawRef)
+      if (!reference || row.longitude === null || row.latitude === null) return null
+      // Public overlay DTO: only fields needed for map/search merge. No phone/hours/URLs/body.
+      return {
+        id: row.id,
+        sourceRow: reference.sourceRow,
+        name: row.name,
+        summary: studentFacingAmapDraftText(row.summary, row.name),
+        category: row.category,
+        address: row.address,
+        longitude: row.longitude,
+        latitude: row.latitude,
+        coordinateSystem: 'GCJ-02',
+        coordinateVerification: 'unverified'
+      }
+    })
+    .filter((item): item is ApiAmapOwnerDraftPlace => item !== null)
+    .sort((a, b) => a.sourceRow - b.sourceRow)
 }
 
 export function getPublicPlace(client: DatabaseClient, slug: string) {

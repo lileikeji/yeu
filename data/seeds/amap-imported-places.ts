@@ -12,7 +12,8 @@ export interface AmapImportedPlace extends MapPoi {
 
 /**
  * User-owned AMap Work Map import. `draft` means imported, not officially verified.
- * WGS84 values converted from GCJ-02 are approximate and require field checks.
+ * Owner-authorized AMap coordinates stay in GCJ-02 for AMap rendering and
+ * navigation. Official publication still requires independent field checks.
  */
 export const amapImportMetadata = {
   sourceWorkbookSha256: '3335cae28d18581f8e0164a22768dbfd00b5391e28a6043e0815087f7132ff98',
@@ -686,13 +687,13 @@ export const amapImportedPlaces: AmapImportedPlace[] = [
     id: 'amap-import-row-049',
     name: '辽宁楼',
     category: 'dorm',
-    point: { lng: 118.59527975, lat: 25.10637313, crs: 'WGS84' },
+    point: { lng: 118.59973890906161, lat: 25.103396572681646, crs: 'GCJ-02' },
     status: 'draft',
     sourceRow: 49,
     locationCode: 'WIA-200.35340,62.878097602',
     summary: '用户授权的高德工作地图标点，尚未经过独立现场核验。',
     address: '福建省泉州市洛江区马甲镇挪威街',
-    sourcePoint: { lng: 118.59973891, lat: 25.10339657, crs: 'GCJ-02' },
+    sourcePoint: { lng: 118.59973890906161, lat: 25.103396572681646, crs: 'GCJ-02' },
     coordinateSource: 'User-authorized AMap Work Map sparseList response; resourceId 2003534061878097602.',
     verificationStatus: 'owner-map-only'
   },

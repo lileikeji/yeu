@@ -1,6 +1,13 @@
+import type { H3Event } from 'h3'
 import { adminUsers, places } from '../database/schema'
 import { useAppDatabase } from '../utils/database'
+import { isLoopbackAddress, publicConfigurationIssues } from '../utils/health-public'
 import { inspectRuntimeReadiness } from '../utils/readiness'
+
+function discloseHealthDetails(event: H3Event): boolean {
+  if (process.env.NODE_ENV !== 'production') return true
+  return isLoopbackAddress(getRequestIP(event, { xForwardedFor: false }))
+}
 
 export default defineEventHandler((event) => {
   setHeader(event, 'Cache-Control', 'no-store')
@@ -14,6 +21,7 @@ export default defineEventHandler((event) => {
     amapSecurityCode: String(runtimeConfig.public.amapSecurityCode || ''),
     adminSessionSecret: String(runtimeConfig.adminSessionSecret || process.env.NUXT_ADMIN_SESSION_SECRET || '')
   })
+  const issues = publicConfigurationIssues(configuration.issues, discloseHealthDetails(event))
 
   try {
     client.db.select({ id: places.id }).from(places).limit(1).get()
@@ -25,7 +33,7 @@ export default defineEventHandler((event) => {
         status: 'unavailable',
         database: 'ready',
         configuration: 'invalid',
-        issues: configuration.issues,
+        issues,
         timestamp: new Date().toISOString()
       }
     }
@@ -43,7 +51,7 @@ export default defineEventHandler((event) => {
       status: 'unavailable',
       database: 'not_initialized_or_unreachable',
       configuration: configuration.ready ? 'ready' : 'invalid',
-      issues: configuration.issues,
+      issues: configuration.ready ? [] : issues,
       timestamp: new Date().toISOString()
     }
   }

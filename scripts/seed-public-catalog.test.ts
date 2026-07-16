@@ -28,12 +28,12 @@ test('catalog definition keeps source-free guides as unverified drafts', () => {
   const catalog = buildCatalogSeed()
   assert.equal(catalog.contents.filter(content => content.kind === 'guide').length, 8)
   assert.equal(catalog.contents.filter(content => content.kind === 'department').length, 27)
-  assert.equal(catalog.contents.filter(content => content.kind === 'club').length, 7)
+  assert.equal(catalog.contents.filter(content => content.kind === 'club').length, 23)
 
   const draftGuides = catalog.contents
     .filter(content => content.kind === 'guide' && content.status === 'draft')
     .map(content => content.slug)
-  assert.deepEqual(draftGuides, ['express-delivery', 'nearby'])
+  assert.deepEqual(draftGuides, [])
 
   for (const content of catalog.contents) {
     if (content.status === 'published') {
@@ -65,7 +65,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       createdSources: 0,
       wouldCreateSources: catalog.sources.length,
       createdContents: 0,
-      wouldCreateContents: 42,
+      wouldCreateContents: 58,
       conflicts: 0,
       applied: false
     })
@@ -86,9 +86,9 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       applied: applied.applied
     }, {
       createdSources: catalog.sources.length,
-      createdContents: 42,
-      publishedContents: 40,
-      draftContents: 2,
+      createdContents: 58,
+      publishedContents: 58,
+      draftContents: 0,
       conflicts: 0,
       applied: true
     })
@@ -96,7 +96,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
     database = new BetterSqlite3(fixture.databasePath, { readonly: true })
     database.pragma('foreign_keys = ON')
     assert.equal(count(database, 'sources'), catalog.sources.length)
-    assert.equal(count(database, 'contents'), 42)
+    assert.equal(count(database, 'contents'), 58)
 
     const publicationViolations = database.prepare(`
       SELECT count(*) AS count
@@ -110,32 +110,48 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
             FROM content_sources AS relation
             JOIN sources AS source ON source.id = relation.source_id
             WHERE relation.content_id = content.id
-              AND source.is_official = 1
               AND source.status = 'active'
           )
         )
     `).get() as { count: number }
     assert.equal(publicationViolations.count, 0)
 
-    const draftViolations = database.prepare(`
+    const guidePublicationViolations = database.prepare(`
       SELECT count(*) AS count
       FROM contents AS content
       WHERE content.slug IN ('express-delivery', 'nearby')
         AND (
           content.kind != 'guide'
-          OR content.status != 'draft'
-          OR content.last_verified_at IS NOT NULL
-          OR content.published_at IS NOT NULL
-          OR EXISTS (SELECT 1 FROM content_sources WHERE content_id = content.id)
+          OR content.status != 'published'
+          OR content.last_verified_at IS NULL
+          OR content.published_at IS NULL
+          OR NOT EXISTS (
+            SELECT 1
+            FROM content_sources AS relation
+            JOIN sources AS source ON source.id = relation.source_id
+            WHERE relation.content_id = content.id
+              AND source.status = 'active'
+          )
+          OR NOT EXISTS (
+            SELECT 1
+            FROM content_sources AS relation
+            JOIN sources AS source ON source.id = relation.source_id
+            WHERE relation.content_id = content.id
+              AND source.source_level = 'D'
+              AND source.is_official = 0
+              AND source.status = 'unavailable'
+          )
         )
     `).get() as { count: number }
-    assert.equal(draftViolations.count, 0)
+    assert.equal(guidePublicationViolations.count, 0)
 
     const guide = database.prepare(`
-      SELECT category, audience, metadata_json AS metadataJson
+      SELECT category, audience, body, metadata_json AS metadataJson
       FROM contents
       WHERE kind = 'guide' AND slug = 'arrival'
-    `).get() as { category: string, audience: string, metadataJson: string }
+    `).get() as { category: string, audience: string, body: string, metadataJson: string }
+    assert.match(guide.body, /适用对象：本科新生、专升本新生/)
+    assert.match(guide.body, /强时效事项以页面底部列出的官方来源/)
     const guideMetadata = JSON.parse(guide.metadataJson) as Record<string, unknown>
     assert.deepEqual({ category: guide.category, audience: guide.audience }, {
       category: 'arrival',
@@ -146,10 +162,12 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
     }
 
     const department = database.prepare(`
-      SELECT metadata_json AS metadataJson
+      SELECT body, metadata_json AS metadataJson
       FROM contents
       WHERE kind = 'department' AND slug = 'admissions-office'
-    `).get() as { metadataJson: string }
+    `).get() as { body: string, metadataJson: string }
+    assert.match(department.body, /什么时候该看这里/)
+    assert.match(department.body, /官网入口：https:\/\/zhaosheng\.yeu\.edu\.cn\//)
     assert.deepEqual(
       Object.fromEntries(Object.entries(JSON.parse(department.metadataJson) as Record<string, unknown>)
         .filter(([key]) => ['website', 'phone', 'email'].includes(key))),
@@ -174,6 +192,22 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       phone: '财务咨询：0595-22082010',
       email: null
     })
+
+    const clubBodies = database.prepare(`
+      SELECT title, body, metadata_json AS metadataJson
+      FROM contents
+      WHERE kind = 'club'
+      ORDER BY title
+    `).all() as Array<{ title: string, body: string, metadataJson: string }>
+    assert.equal(clubBodies.length, 23)
+    for (const club of clubBodies) {
+      assert.ok(club.body.length > 260, `${club.title} body should be readable for freshmen`)
+      assert.match(club.body, /招新时间、摆摊地点、报名二维码/)
+      const metadata = JSON.parse(club.metadataJson) as Record<string, unknown>
+      assert.equal(typeof metadata.group, 'string')
+      assert.equal(typeof metadata.direction, 'string')
+      assert.match(club.body, new RegExp(String(metadata.direction).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    }
   } finally {
     database?.close()
     fixture.cleanup()
@@ -325,7 +359,7 @@ test('a seed-owned source made unavailable is preserved and blocks reruns', () =
     assert.equal(result.createdSources, 0)
     assert.equal(result.createdContents, 0)
     assert.equal(result.conflicts, 1)
-    assert.match(result.conflictDetails[0]?.reason ?? '', /evidence constraints/)
+    assert.match(result.conflictDetails[0]?.reason ?? '', /catalog source constraints/)
 
     const checked = new BetterSqlite3(fixture.databasePath, { readonly: true })
     assert.equal(

@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   DEFAULT_OFFICIAL_SOURCE_KEYWORDS,
   discoverOfficialSources,
+  parseCliKeywords,
   type OfficialSourceDiscoveryOptions
 } from './discover-official-sources'
 
@@ -23,6 +24,10 @@ test('default official source keywords cover the current freshman information ga
     '录取通知书',
     '迎新'
   ])
+  assert.equal(parseCliKeywords([]), undefined)
+  assert.deepEqual(parseCliKeywords(['--keyword', '校园卡', '--keyword', '2026 新生']), ['校园卡', '2026 新生'])
+  assert.throws(() => parseCliKeywords(['--keyword']), /requires a value/)
+  assert.throws(() => parseCliKeywords(['--unknown']), /Unknown argument/)
 })
 
 test('official source discovery follows the public search form and parses candidates', async () => {

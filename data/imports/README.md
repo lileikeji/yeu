@@ -9,6 +9,7 @@ This directory contains an auditable import of the user's authorized AMap Work M
 - `amap-workmap-2026-07-13.coordinates.template.json`: all 76 marker rows in workbook order. Coordinate, point-role, accuracy, evidence and review placeholders intentionally remain `null` until an authorized export is independently checked.
 - `amap-nearby-poi-candidates-2026-07-15.json`: curated AMap Place Around candidates for the new/old student-street centers. This is a read-only verification queue, not an import batch; entries must never be auto-published without a current storefront/phone check and entrance-coordinate review.
 - `xiaohongshu-leads-2026-07-15.json`: minimal public-note metadata and claim summaries from a logged-in, read-only Xiaohongshu search. It excludes full note text, images, private contacts and comment-profile collection; each record retains a stable public source link.
+- `web-research-increment-2026-07-15.json`: deduplicated incremental web research completed after the initial audit. Official sources and social/community leads are separated, and changing claims remain review-only until current official or field confirmation.
 - `../../scripts/import-amap-workmap.py`: reproducible workbook parser, validator and audit/template generator. Its historical seed-generation path is not the approved verified-coordinate database import path.
 - `../../scripts/import-amap-drafts.ts`: strict, idempotent importer that copies the reviewed 76 text-only markers into SQLite as coordinate-missing drafts.
 - `../../scripts/import-amap-coordinates.ts`: strict, idempotent creator of pending `authorized-import` coordinate observations for an independently human-reviewed WGS84 subset. It performs no coordinate conversion and never updates or publishes a place.
@@ -31,7 +32,7 @@ Review `wouldCreate`, `skipped`, `conflicts` and `conflictDetails`. Only an expl
 the database for writing:
 
 ```powershell
-pnpm amap:drafts -- --apply
+pnpm amap:drafts --apply
 ```
 
 Select another migrated database with either `NUXT_DATABASE_PATH` or `--database PATH`. The importer:

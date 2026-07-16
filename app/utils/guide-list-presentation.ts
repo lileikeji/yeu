@@ -1,0 +1,59 @@
+export const guideListCategories = [
+  { id: 'all', label: '全部', icon: 'i-lucide-layout-grid' },
+  { id: 'arrival', label: '入学', icon: 'i-lucide-clipboard-check' },
+  { id: 'campus', label: '校园', icon: 'i-lucide-school' },
+  { id: 'life', label: '生活', icon: 'i-lucide-coffee' },
+  { id: 'community', label: '社团', icon: 'i-lucide-users-round' }
+] as const
+
+export type GuideListCategoryId = (typeof guideListCategories)[number]['id']
+
+export const guideCategoryIconTones: Record<string, string> = {
+  arrival: 'bg-green-50 text-green-700',
+  campus: 'bg-blue-50 text-blue-700',
+  life: 'bg-orange-50 text-orange-700',
+  community: 'bg-violet-50 text-violet-700'
+}
+
+export const guideListFallbackMessages = {
+  serviceUnavailable: '指南服务暂时不可用，请稍后重试。',
+  staticGuide: '当前显示已整理的新生指南；涉及时间、地点、材料和费用的事项仍以学校最新通知为准。',
+  emptyPublished: '指南正在整理中，暂时没有可公开展示的新记录。'
+} as const
+
+export interface GuideListFilterableItem {
+  category: string
+  title: string
+  shortTitle: string
+  summary: string
+  audience: readonly string[]
+}
+
+export interface GuideListFallbackInput {
+  hasError: boolean
+  response: { items: ReadonlyArray<unknown> } | null | undefined
+  allowStaticFallback: boolean
+}
+
+export function resolveGuideListFallbackMessage(input: GuideListFallbackInput): string | null {
+  if (input.hasError) return guideListFallbackMessages.serviceUnavailable
+  if (!input.response) return null
+  if (input.allowStaticFallback) return guideListFallbackMessages.staticGuide
+  if (!input.response.items.length) return guideListFallbackMessages.emptyPublished
+  return null
+}
+
+export function filterGuideListItems<T extends GuideListFilterableItem>(
+  guides: ReadonlyArray<T>,
+  options: { query: string, category: string }
+): T[] {
+  const query = options.query.trim().toLocaleLowerCase('zh-CN')
+
+  return guides.filter((guide) => {
+    const matchesCategory = options.category === 'all' || guide.category === options.category
+    const text = [guide.title, guide.shortTitle, guide.summary, ...guide.audience]
+      .join(' ')
+      .toLocaleLowerCase('zh-CN')
+    return matchesCategory && (!query || text.includes(query))
+  })
+}

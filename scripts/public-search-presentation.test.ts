@@ -1,0 +1,474 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import test from 'node:test'
+import type { PublicMapPlace } from '../app/utils/public-catalog'
+import {
+  apiSearchPresentation,
+  apiSearchTarget,
+  buildPublicSearchResults,
+  buildSearchAnnouncement,
+  buildSearchErrorMessage,
+  groupPublicSearchResults,
+  mapAreaSummary,
+  mapResultSummary,
+  mapSourceLabel,
+  mapTypeLabel,
+  matchesSearchQuery,
+  normalizeSearchText,
+  queryVariants,
+  routeQueryString,
+  routeSearchType,
+  searchRouteQuery,
+  searchTypeOptions,
+  searchTypePresentation
+} from '../app/utils/public-search-presentation'
+import type { ApiSearchItem, ApiSearchResponse } from '../shared/types/server'
+
+const pageSource = readFileSync(resolve('app/pages/search.vue'), 'utf8')
+const utilSource = readFileSync(resolve('app/utils/public-search-presentation.ts'), 'utf8')
+
+function place(partial: Partial<PublicMapPlace> & Pick<PublicMapPlace, 'id' | 'name'>): PublicMapPlace {
+  return {
+    id: partial.id,
+    slug: partial.slug ?? partial.id,
+    name: partial.name,
+    scope: partial.scope ?? 'campus',
+    category: partial.category ?? 'facility',
+    summary: partial.summary ?? '',
+    body: partial.body ?? '',
+    address: partial.address ?? null,
+    campusArea: partial.campusArea ?? null,
+    openingHours: partial.openingHours ?? null,
+    phone: partial.phone ?? null,
+    usageChecklist: partial.usageChecklist ?? [],
+    point: partial.point ?? null,
+    pointIsVerified: partial.pointIsVerified ?? false,
+    usesPreviewPoint: partial.usesPreviewPoint ?? false,
+    referenceLabel: partial.referenceLabel ?? null,
+    officialPlanNumber: partial.officialPlanNumber ?? null,
+    coordinateVerification: partial.coordinateVerification ?? 'unverified',
+    coordinateSystem: partial.coordinateSystem ?? 'gcj02',
+    navigationUrl: partial.navigationUrl ?? null,
+    isApiPublished: partial.isApiPublished ?? false,
+    searchText: partial.searchText ?? partial.name
+  }
+}
+
+test('search page keeps route/fetch shell and imports presentation util', () => {
+  assert.match(pageSource, /from '~~\/app\/utils\/public-search-presentation'/)
+  for (const name of [
+    'buildPublicSearchResults',
+    'buildSearchAnnouncement',
+    'buildSearchErrorMessage',
+    'groupPublicSearchResults',
+    'routeQueryString',
+    'routeSearchType',
+    'searchRouteQuery',
+    'searchTypeOptions'
+  ]) {
+    assert.match(pageSource, new RegExp(`\\b${name}\\b`))
+  }
+
+  assert.doesNotMatch(pageSource, /function normalize\b/)
+  assert.doesNotMatch(pageSource, /function queryVariants\b/)
+  assert.doesNotMatch(pageSource, /function matches\b/)
+  assert.doesNotMatch(pageSource, /function apiTarget\b/)
+  assert.doesNotMatch(pageSource, /function mapSourceLabel\b/)
+  assert.doesNotMatch(pageSource, /interface SearchResult\b/)
+  assert.match(pageSource, /useAsyncData<ApiSearchResponse>/)
+  assert.match(pageSource, /router\.replace/)
+})
+
+test('presentation util owns pure search builders', () => {
+  for (const name of [
+    'export function normalizeSearchText',
+    'export function queryVariants',
+    'export function matchesSearchQuery',
+    'export function buildPublicSearchResults',
+    'export function groupPublicSearchResults',
+    'export function buildSearchAnnouncement',
+    'export function buildSearchErrorMessage',
+    'export function searchRouteQuery'
+  ]) {
+    assert.match(utilSource, new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+})
+
+test('local search result type list stays synchronized with shared constants', async () => {
+  const { PUBLIC_SEARCH_RESULT_TYPES } = await import('../shared/constants/server')
+  assert.deepEqual(
+    searchTypeOptions.slice(1).map(item => item.value),
+    [...PUBLIC_SEARCH_RESULT_TYPES]
+  )
+})
+
+test('search type options cover all result types plus all', () => {
+  assert.equal(searchTypeOptions[0]?.value, 'all')
+  assert.equal(searchTypeOptions[0]?.label, '全部类型')
+  assert.deepEqual(
+    searchTypeOptions.slice(1).map(item => item.value),
+    Object.keys(searchTypePresentation)
+  )
+})
+
+test('route helpers normalize query and type values', () => {
+  assert.equal(routeQueryString(' 图书馆 '), ' 图书馆 ')
+  assert.equal(routeQueryString(['校园网']), '校园网')
+  assert.equal(routeQueryString(['a', 'b']), 'a')
+  assert.equal(routeQueryString(undefined), '')
+  assert.equal(routeSearchType('place'), 'place')
+  assert.equal(routeSearchType('unknown'), undefined)
+  assert.equal(routeSearchType(['guide']), 'guide')
+  assert.deepEqual(searchRouteQuery('报到', 'procedure'), { q: '报到', type: 'procedure' })
+  assert.deepEqual(searchRouteQuery('', 'place'), { type: 'place' })
+  assert.equal(searchRouteQuery('', undefined), undefined)
+})
+
+test('normalize and query variants handle campus name aliases', () => {
+  assert.equal(normalizeSearchText(' 仰恩 教学楼 '), '仰恩教学楼')
+  assert.ok(queryVariants('仰恩楼').includes('仰恩教学楼'))
+  assert.ok(queryVariants('仰恩教学楼').includes('仰恩楼'))
+  assert.deepEqual(queryVariants('教学楼A'), ['教学楼a', '楼a'])
+  assert.ok(queryVariants('a楼').includes('a教学楼'))
+  assert.ok(queryVariants('学生街').includes('新区学生街'))
+  assert.ok(queryVariants('新区学生街').includes('学生街'))
+  assert.equal(matchesSearchQuery('仰恩楼', ['仰恩教学楼东侧']), true)
+  assert.equal(matchesSearchQuery('不存在', ['图书馆']), false)
+})
+
+test('api target and presentation map entity kinds', () => {
+  const placeItem = {
+    id: '1',
+    entityType: 'place',
+    kind: null,
+    resultType: 'place',
+    slug: 'lib',
+    title: '图书馆',
+    summary: '自习'
+  } as ApiSearchItem
+  const procedureItem = {
+    id: '2',
+    entityType: 'procedure',
+    kind: null,
+    resultType: 'procedure',
+    slug: 'arrival',
+    title: '报到',
+    summary: '流程'
+  } as ApiSearchItem
+  const guideItem = {
+    id: '3',
+    entityType: 'content',
+    kind: 'guide',
+    resultType: 'guide',
+    slug: 'network',
+    title: '校园网',
+    summary: '指南'
+  } as ApiSearchItem
+  const departmentItem = {
+    id: '4',
+    entityType: 'content',
+    kind: 'department',
+    resultType: 'department',
+    slug: 'net-center',
+    title: '网络中心',
+    summary: '部门'
+  } as ApiSearchItem
+  const clubItem = {
+    id: '5',
+    entityType: 'content',
+    kind: 'club',
+    resultType: 'club',
+    slug: 'photo',
+    title: '摄影社',
+    summary: '社团'
+  } as ApiSearchItem
+  const noticeItem = {
+    id: '6',
+    entityType: 'content',
+    kind: 'notice',
+    resultType: 'notice',
+    slug: 'welcome',
+    title: '欢迎',
+    summary: '公告'
+  } as ApiSearchItem
+
+  assert.equal(apiSearchTarget(placeItem), '/map?place=lib')
+  assert.equal(apiSearchTarget(procedureItem), '/procedures/arrival')
+  assert.equal(apiSearchTarget(guideItem), '/guides/network')
+  assert.equal(apiSearchTarget(departmentItem), '/departments/net-center')
+  assert.equal(apiSearchTarget(clubItem), '/clubs/photo')
+  assert.equal(apiSearchTarget(noticeItem), '/campus#notice-welcome')
+  assert.deepEqual(apiSearchPresentation(placeItem), {
+    typeLabel: '地点',
+    icon: 'i-lucide-map-pin'
+  })
+})
+
+test('map labels and summaries preserve coordinate source semantics', () => {
+  const owner = place({
+    id: 'owner-1',
+    name: '高德点',
+    coordinateVerification: 'owner-map-only',
+    summary: ''
+  })
+  const preview = place({
+    id: 'preview-1',
+    name: '平面图点',
+    usesPreviewPoint: true,
+    summary: ''
+  })
+  const catalog = place({
+    id: 'catalog-1',
+    name: '目录点',
+    summary: '已有摘要'
+  })
+
+  assert.equal(mapSourceLabel(owner), '高德地图标点')
+  assert.equal(mapSourceLabel(preview), '学校平面图')
+  assert.equal(mapSourceLabel(catalog), '地点目录')
+  assert.equal(mapTypeLabel(owner), '地图标点')
+  assert.equal(mapTypeLabel(preview), '地图索引')
+  assert.match(mapResultSummary(owner), /高德坐标/)
+  assert.match(mapResultSummary(preview), /文字方位/)
+  assert.equal(mapResultSummary(catalog), '已有摘要')
+  assert.match(mapAreaSummary('新区学生街'), /校园绘图区域/)
+})
+
+test('buildPublicSearchResults merges api, map and static fallbacks without duplicates', () => {
+  const apiResponse: ApiSearchResponse = {
+    query: '校园',
+    type: null,
+    items: [
+      {
+        id: 'p1',
+        entityType: 'place',
+        kind: null,
+        resultType: 'place',
+        slug: 'library',
+        title: '图书馆',
+        summary: '已发布地点'
+      },
+      {
+        id: 'g1',
+        entityType: 'content',
+        kind: 'guide',
+        resultType: 'guide',
+        slug: 'network',
+        title: '校园网指南',
+        summary: '已发布指南'
+      }
+    ] as ApiSearchItem[],
+    total: 2,
+    hasManagedContent: false,
+    managedKinds: []
+  }
+
+  const results = buildPublicSearchResults({
+    query: '校园',
+    activeType: undefined,
+    apiResponse,
+    hasSearchError: false,
+    mapPlaces: [
+      place({
+        id: 'library',
+        name: '图书馆',
+        summary: '地图重复点',
+        searchText: '校园 图书馆'
+      }),
+      place({
+        id: 'owner-shop',
+        name: '校园便利店',
+        coordinateVerification: 'owner-map-only',
+        searchText: '校园 便利店',
+        summary: ''
+      })
+    ],
+    mapAreas: [
+      {
+        id: 'area-1',
+        name: '校园商业区',
+        description: '购物',
+        geometrySource: 'wia-shape-batch'
+      }
+    ],
+    guides: [
+      {
+        slug: 'network',
+        title: '校园网指南',
+        shortTitle: '校园网',
+        summary: '静态重复指南',
+        audience: ['本科'],
+        icon: 'i-lucide-wifi'
+      },
+      {
+        slug: 'arrival',
+        title: '校园报到',
+        shortTitle: '报到',
+        summary: '到校流程',
+        audience: ['本科'],
+        icon: 'i-lucide-plane'
+      }
+    ],
+    departments: [
+      {
+        slug: 'net-center',
+        name: '网络信息中心',
+        summary: '校园网与账号'
+      }
+    ]
+  })
+
+  const keys = results.map(item => item.key)
+  assert.ok(keys.includes('api-place-p1'))
+  assert.ok(keys.includes('api-content-g1'))
+  assert.ok(keys.includes('map-reference-owner-shop'))
+  assert.ok(keys.includes('map-area-area-1'))
+  assert.ok(keys.includes('static-guide-arrival'))
+  assert.ok(keys.includes('net-center'))
+  assert.equal(keys.includes('map-reference-library'), false)
+  assert.equal(keys.includes('static-guide-network'), false)
+
+  const arrival = results.find(item => item.key === 'static-guide-arrival')
+  assert.equal(arrival?.to, '/procedures/arrival')
+})
+
+test('buildPublicSearchResults respects active type and managed-kind fallback gates', () => {
+  const managedResponse: ApiSearchResponse = {
+    query: '报到',
+    type: 'guide',
+    items: [],
+    total: 0,
+    hasManagedContent: true,
+    managedKinds: ['guide']
+  }
+
+  const guideOnly = buildPublicSearchResults({
+    query: '报到',
+    activeType: 'guide',
+    apiResponse: managedResponse,
+    hasSearchError: false,
+    mapPlaces: [
+      place({
+        id: 'gate',
+        name: '报到大门',
+        searchText: '报到'
+      })
+    ],
+    mapAreas: [],
+    guides: [
+      {
+        slug: 'arrival',
+        title: '报到指南',
+        shortTitle: '报到',
+        summary: '流程',
+        audience: ['本科'],
+        icon: 'i-lucide-plane'
+      }
+    ],
+    departments: [
+      {
+        slug: 'reg',
+        name: '教务处',
+        summary: '报到'
+      }
+    ]
+  })
+
+  assert.deepEqual(guideOnly, [])
+
+  const withError = buildPublicSearchResults({
+    query: '报到',
+    activeType: undefined,
+    apiResponse: {
+      query: '报到',
+      type: null,
+      items: [],
+      total: 0,
+      hasManagedContent: false,
+      managedKinds: []
+    },
+    hasSearchError: true,
+    mapPlaces: [
+      place({
+        id: 'gate',
+        name: '报到大门',
+        searchText: '报到'
+      })
+    ],
+    mapAreas: [],
+    guides: [
+      {
+        slug: 'arrival',
+        title: '报到指南',
+        shortTitle: '报到',
+        summary: '流程',
+        audience: ['本科'],
+        icon: 'i-lucide-plane'
+      }
+    ],
+    departments: []
+  })
+
+  assert.equal(withError.some(item => item.resultType === 'place'), true)
+  assert.equal(withError.some(item => item.resultType === 'guide'), false)
+})
+
+test('groupPublicSearchResults and announcement helpers stay stable', () => {
+  const grouped = groupPublicSearchResults([
+    {
+      key: 'g1',
+      resultType: 'guide',
+      title: '指南',
+      summary: 's',
+      typeLabel: '指南',
+      icon: 'i-lucide-book',
+      to: '/guides/a',
+      sourceLabel: '基础指南'
+    },
+    {
+      key: 'p1',
+      resultType: 'place',
+      title: '地点',
+      summary: 's',
+      typeLabel: '地点',
+      icon: 'i-lucide-map-pin',
+      to: '/map',
+      sourceLabel: '地点目录'
+    }
+  ])
+
+  assert.deepEqual(grouped.map(group => group.type), ['place', 'guide'])
+  assert.equal(grouped[0]?.items.length, 1)
+  assert.equal(buildSearchErrorMessage(false, 'place'), '')
+  assert.match(buildSearchErrorMessage(true, 'guide'), /稍后再试/)
+  assert.match(buildSearchErrorMessage(true, 'place'), /地图目录/)
+  assert.equal(buildSearchAnnouncement({
+    query: '',
+    searching: false,
+    searchError: '',
+    resultCount: 0,
+    groupCount: 0
+  }), '请输入关键词开始搜索。')
+  assert.match(buildSearchAnnouncement({
+    query: '图书馆',
+    searching: true,
+    searchError: '',
+    resultCount: 0,
+    groupCount: 0
+  }), /正在搜索/)
+  assert.match(buildSearchAnnouncement({
+    query: '图书馆',
+    searching: false,
+    searchError: 'err',
+    resultCount: 2,
+    groupCount: 1
+  }), /动态搜索暂时不可用/)
+  assert.match(buildSearchAnnouncement({
+    query: '图书馆',
+    searching: false,
+    searchError: '',
+    resultCount: 3,
+    groupCount: 2
+  }), /搜索完成/)
+})

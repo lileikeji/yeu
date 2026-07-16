@@ -12,10 +12,7 @@ import {
 import { getManagedContentKinds } from '../content/catalog-state'
 import { activePublicContentCondition } from '../content/visibility'
 import { activePublicProcedureCondition } from '../procedures/service'
-
-function cleanSearchTerm(value: string): string {
-  return value.replace(/[%_]/g, '').trim()
-}
+import { cleanSearchTerm } from '../../../shared/utils/like-search'
 
 function matchScore(title: string, detail: string | null, search: string): number {
   const normalizedTitle = title.toLocaleLowerCase('zh-CN')

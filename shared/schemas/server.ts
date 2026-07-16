@@ -19,6 +19,7 @@ import {
   SOURCE_STATUSES
 } from '../constants/server'
 import { evaluateCoordinateCapture } from '../utils/coordinate-sampling'
+import { isSafePublicHttpUrl } from '../utils/public-http-url'
 
 const slugSchema = z.string()
   .trim()
@@ -26,9 +27,9 @@ const slugSchema = z.string()
   .max(120)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers, and hyphens')
 
-const httpUrlSchema = z.url().max(2048).refine(
-  value => value.startsWith('https://') || value.startsWith('http://'),
-  'Only http and https URLs are allowed'
+const httpUrlSchema = z.string().trim().max(2048).refine(
+  value => isSafePublicHttpUrl(value),
+  'Only public http(s) URLs without credentials are allowed'
 )
 const nullableUrlSchema = z.union([httpUrlSchema, z.literal(''), z.null()]).optional()
 const nullableTextSchema = (max: number) => z.union([z.string().trim().max(max), z.null()]).optional()
@@ -288,7 +289,7 @@ export const updateFeedbackSchema = z.object({
 
 export const loginSchema = z.object({
   username: z.string().trim().min(1).max(80),
-  password: z.string().min(8).max(1024)
+  password: z.string().min(12).max(1024)
 }).strict()
 
 export const paginationQuerySchema = z.object({

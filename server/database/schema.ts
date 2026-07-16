@@ -350,3 +350,11 @@ export const auditLogs = sqliteTable('audit_logs', {
   index('audit_logs_entity_idx').on(table.entityType, table.entityId),
   index('audit_logs_created_idx').on(table.createdAt)
 ])
+
+export const rateLimitBuckets = sqliteTable('rate_limit_buckets', {
+  bucketKey: text('bucket_key').primaryKey(),
+  hitCount: integer('hit_count').notNull(),
+  resetAt: integer('reset_at').notNull()
+}, table => [
+  index('rate_limit_buckets_reset_idx').on(table.resetAt)
+])

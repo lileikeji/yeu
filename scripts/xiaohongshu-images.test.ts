@@ -24,23 +24,35 @@ const imageFiles = [
   'dingding-old-area-stop-concept-hd.png'
 ]
 
-test('xiaohongshu recreation gallery references every public image with explicit caveats', () => {
+test('xiaohongshu research route explains why visual derivatives are withheld', () => {
   const pagePath = join(process.cwd(), 'app/pages/research/xiaohongshu-images.vue')
   const page = readFileSync(pagePath, 'utf8')
-  assert.equal(page.length > 0, true)
+  assert.match(page, /社交平台研究素材暂不公开/)
+  assert.match(page, /尚未取得原作者或相关权利人的书面再利用许可/)
+  assert.match(page, /AI 重构或概念示意不能替代原素材的再利用授权/)
+  assert.match(page, /robots: 'noindex, nofollow'/)
+  assert.doesNotMatch(page, /<img|xiaohongshu-recreations-2026-07-15/)
 })
 
-test('xiaohongshu recreation images are public but marked as non-evidence', () => {
-  const page = readFileSync(join(process.cwd(), 'app/pages/research/xiaohongshu-images.vue'), 'utf8')
-  assert.match(page, /AI重构图/)
-  assert.match(page, /不是官方图片、原始实拍或独立事实证据/)
+test('xiaohongshu derivatives are absent from public images and indexed without shipping binaries', () => {
+  const index = readFileSync(
+    join(process.cwd(), 'data/generated/xiaohongshu-recreations-2026-07-15/INDEX.md'),
+    'utf8'
+  )
 
   for (const file of imageFiles) {
-    assert.match(page, new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
     assert.equal(
       existsSync(join(process.cwd(), 'public/images/xiaohongshu-recreations-2026-07-15', file)),
-      true,
-      `${file} is missing from public images`
+      false,
+      `${file} must not be exposed from public images without permission`
     )
+    assert.match(index, new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
+})
+
+test('xiaohongshu source assets retain an explicit research-only policy', () => {
+  const manifest = readFileSync(join(process.cwd(), 'data/imports/xiaohongshu-assets/manifest.json'), 'utf8')
+  assert.match(manifest, /"publicationStatus": "research-only"/)
+  assert.match(manifest, /"rightsStatus": "permission-not-obtained"/)
+  assert.match(manifest, /"publicDirectoryAllowed": false/)
 })

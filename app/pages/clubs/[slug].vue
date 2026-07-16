@@ -1,15 +1,27 @@
 <script setup lang="ts">
+import { findOfficialClub, officialClubs } from '~~/data/seeds/public-content'
 import { publicClubs } from '~/utils/public-catalog'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
+import {
+  buildClubDetailSources,
+  clubSectionLabels,
+  clubSignupQuestionChecklist,
+  resolveClubSourceStatusText
+} from '~~/app/utils/club-detail-presentation'
 
 const route = useRoute()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
 const { data: content, error } = await usePublicClub(slug)
-if (error.value) throwPublicDetailError(error.value, '社团')
+const seedClub = computed(() => findOfficialClub(slug))
+if (error.value && !seedClub.value) throwPublicDetailError(error.value, '社团')
 
-const club = computed(() => publicClubs(content.value ? [content.value] : [])[0] ?? null)
-if (!club.value || !content.value) throw createError({ statusCode: 404, statusMessage: '社团不存在' })
+const club = computed(() => {
+  const seed = seedClub.value
+  return publicClubs(content.value ? [content.value] : [], seed ? [seed] : officialClubs)
+    .find(item => item.slug === slug) ?? null
+})
+if (!club.value) throw createError({ statusCode: 404, statusMessage: '社团不存在' })
 
 useSeoMeta({
   title: () => club.value?.name ?? '学生社团',
@@ -17,15 +29,18 @@ useSeoMeta({
 })
 const feedbackLink = computed(() => buildDetailFeedbackLink({
   targetType: 'content',
-  targetId: content.value!.id,
+  targetId: content.value?.id ?? `static-club-${slug}`,
   targetName: club.value!.name,
   reasonType: 'missing_information',
   from: route.fullPath
 }))
+
+const sourceStatusText = computed(() => resolveClubSourceStatusText(club.value?.sources))
+const detailSources = computed(() => buildClubDetailSources(club.value?.sources))
 </script>
 
 <template>
-  <div v-if="club && content">
+  <div v-if="club">
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <nav
@@ -50,12 +65,12 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
             />
           </span>
           <UBadge
-            label="近期活动可核验"
+            :label="club.category ?? sourceStatusText"
             color="success"
             variant="soft"
           />
           <UBadge
-            label="2026级招新待发布"
+            :label="clubSectionLabels.recruitmentPending"
             color="warning"
             variant="soft"
           />
@@ -69,8 +84,8 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
       </div>
     </header>
 
-    <div class="page-shell grid gap-8 py-8 md:grid-cols-[minmax(0,1fr)_18rem] md:py-12">
-      <article class="min-w-0">
+    <div class="page-shell py-7 md:py-10">
+      <article class="mx-auto min-w-0 max-w-4xl">
         <div
           class="border-l-4 border-orange-500 bg-orange-50 px-4 py-3 text-sm leading-6 text-orange-950"
           role="status"
@@ -80,14 +95,22 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
               name="i-lucide-calendar-clock"
               class="mt-0.5 size-4 shrink-0"
             />
-            <p>招新时间、地点、报名入口和公开联系方式尚未取得2026级有效来源。</p>
+            <p>{{ clubSectionLabels.recruitmentNotice }}</p>
           </div>
         </div>
 
         <section class="border-b border-zinc-200 py-8">
           <h2 class="text-lg font-bold text-zinc-950">
-            当前可确认信息
+            {{ clubSectionLabels.confirmedInfo }}
           </h2>
+          <div class="mt-4 rounded-lg bg-violet-50 px-4 py-3 text-sm leading-6 text-violet-950">
+            <p>
+              <span class="font-semibold">{{ clubSectionLabels.currentlyConfirmed }}</span>{{ sourceStatusText }}。
+            </p>
+            <p class="mt-1">
+              <span class="font-semibold">{{ clubSectionLabels.suitableFor }}</span>{{ clubSectionLabels.suitableAudience }}
+            </p>
+          </div>
           <p
             v-if="club.body"
             class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600"
@@ -98,8 +121,27 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
             v-else
             class="mt-4 text-sm leading-7 text-zinc-600"
           >
-            校团委2026年活动报道中出现该社团名称，可确认其近期参与校级社团活动；不据此补写社团简介或招新条件。
+            {{ clubSectionLabels.bodyFallback }}
           </p>
+        </section>
+
+        <section class="border-b border-zinc-200 py-8">
+          <h2 class="text-lg font-bold text-zinc-950">
+            {{ clubSectionLabels.signupChecklist }}
+          </h2>
+          <ul class="mt-4 grid gap-2 md:grid-cols-2">
+            <li
+              v-for="item in clubSignupQuestionChecklist"
+              :key="item"
+              class="flex gap-3 rounded-lg border border-violet-100 bg-violet-50/60 p-3 text-sm leading-6 text-violet-950"
+            >
+              <UIcon
+                name="i-lucide-circle-help"
+                class="mt-0.5 size-4 shrink-0"
+              />
+              <span>{{ item }}</span>
+            </li>
+          </ul>
         </section>
 
         <dl
@@ -141,45 +183,20 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
           </div>
         </dl>
 
+        <PublicSourceDetails
+          :sources="detailSources"
+          :verified-at="club.updatedAt"
+        />
+
         <UButton
           :to="feedbackLink"
           icon="i-lucide-message-square-warning"
           label="补充社团资料"
           color="neutral"
           variant="outline"
-          class="mt-8"
+          class="mt-6"
         />
       </article>
-
-      <aside class="min-w-0">
-        <div class="surface-panel p-4 md:sticky md:top-24">
-          <h2 class="text-sm font-bold text-zinc-950">
-            参考来源
-          </h2>
-          <ul class="mt-3 space-y-3">
-            <li
-              v-for="source in club.sources"
-              :key="source.url"
-            >
-              <a
-                :href="source.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex items-start gap-2 text-xs leading-5 text-zinc-600 hover:text-green-700"
-              >
-                <UIcon
-                  name="i-lucide-external-link"
-                  class="mt-0.5 size-3.5 shrink-0"
-                />
-                <span>{{ source.title }}</span>
-              </a>
-            </li>
-          </ul>
-          <p class="mt-4 text-xs text-zinc-400">
-            核验于 {{ club.updatedAt }}
-          </p>
-        </div>
-      </aside>
     </div>
   </div>
 </template>

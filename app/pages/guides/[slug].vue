@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { findFreshmanGuide } from '~~/data/seeds/public-content'
 import { buildDetailFeedbackLink, buildGeneralFeedbackLink } from '~/utils/feedback-context'
+import {
+  publicResponseErrorCode,
+  throwPublicDetailError
+} from '~/utils/public-errors'
 import { resolvePublicGuide } from '~/utils/public-catalog'
+import {
+  buildGuideDetailSources,
+  resolveGuideFallbackMessage,
+  resolveGuideRelatedAction
+} from '~~/app/utils/guide-detail-presentation'
 
 const route = useRoute()
 const slug = Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug
@@ -9,44 +18,11 @@ const normalizedSlug = String(slug ?? '')
 const seedGuide = findFreshmanGuide(normalizedSlug)
 const { data: publicGuide, error: publicGuideError } = await usePublicGuide(normalizedSlug)
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function responseErrorCode(error: unknown): string | null {
-  if (!isObject(error)) return null
-  if (typeof error.code === 'string') return error.code
-
-  const data = isObject(error.data) ? error.data : null
-  if (typeof data?.code === 'string') return data.code
-  if (isObject(data?.data) && typeof data.data.code === 'string') return data.data.code
-
-  const response = isObject(error.response) ? error.response : null
-  const responseData = isObject(response?._data) ? response._data : null
-  if (typeof responseData?.code === 'string') return responseData.code
-  if (isObject(responseData?.data) && typeof responseData.data.code === 'string') return responseData.data.code
-  return null
-}
-
-function responseStatusCode(error: unknown): number | null {
-  if (!isObject(error)) return null
-  if (typeof error.statusCode === 'number') return error.statusCode
-  const response = isObject(error.response) ? error.response : null
-  if (typeof response?.status === 'number') return response.status
-  const responseData = isObject(response?._data) ? response._data : null
-  if (typeof responseData?.statusCode === 'number') return responseData.statusCode
-  return null
-}
-
-const guideErrorCode = responseErrorCode(publicGuideError.value)
+const guideErrorCode = publicResponseErrorCode(publicGuideError.value)
 const catalogIsUnmanaged = guideErrorCode === 'CONTENT_CATALOG_UNMANAGED'
 
 if (publicGuideError.value && !catalogIsUnmanaged) {
-  const statusCode = responseStatusCode(publicGuideError.value)
-  throw createError({
-    statusCode: statusCode === 404 ? 404 : 503,
-    statusMessage: statusCode === 404 ? '指南不存在' : '指南服务暂时不可用'
-  })
+  throwPublicDetailError(publicGuideError.value, '指南')
 }
 
 const initialGuide = resolvePublicGuide(
@@ -62,10 +38,7 @@ const guide = computed(() => resolvePublicGuide(
   catalogIsUnmanaged ? seedGuide : undefined,
   publicGuide.value
 ) ?? initialGuide)
-const fallbackMessage = computed(() => {
-  if (guide.value.isApiPublished) return null
-  return '后台尚未接管指南目录，当前显示内置基础指南。'
-})
+const fallbackMessage = computed(() => resolveGuideFallbackMessage(guide.value.isApiPublished))
 const feedbackLink = computed(() => guide.value.contentId
   ? buildDetailFeedbackLink({
       targetType: 'content',
@@ -85,18 +58,12 @@ useSeoMeta({
   description: () => guide.value.summary
 })
 
-const relatedAction = computed(() => {
-  if (guide.value.slug === 'arrival') {
-    return { label: '打开可勾选报到流程', to: '/procedures/arrival', icon: 'i-lucide-list-checks' }
-  }
-  if (guide.value.slug === 'find-campus') {
-    return { label: '打开校园地图', to: '/map', icon: 'i-lucide-map' }
-  }
-  if (guide.value.slug === 'clubs') {
-    return { label: '查看校园与社团', to: '/campus#clubs', icon: 'i-lucide-users-round' }
-  }
-  return { label: '返回全部指南', to: '/guides', icon: 'i-lucide-layout-grid' }
-})
+const relatedAction = computed(() => resolveGuideRelatedAction(guide.value.slug))
+
+const detailSources = computed(() => buildGuideDetailSources(
+  guide.value.sources,
+  guide.value.sections
+))
 </script>
 
 <template>
@@ -155,8 +122,8 @@ const relatedAction = computed(() => {
       </div>
     </header>
 
-    <div class="page-shell grid gap-8 py-8 md:grid-cols-[minmax(0,1fr)_17rem] md:py-12">
-      <article class="min-w-0">
+    <div class="page-shell py-7 md:py-10">
+      <article class="mx-auto min-w-0 max-w-4xl">
         <div
           v-if="fallbackMessage"
           class="mb-4 flex items-start gap-2 border-l-2 border-blue-500 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900"
@@ -183,10 +150,26 @@ const relatedAction = computed(() => {
           </div>
         </div>
 
+        <nav
+          v-if="guide.sections.length > 1"
+          class="scrollbar-none mt-5 flex gap-2 overflow-x-auto pb-1"
+          aria-label="本页内容"
+        >
+          <a
+            v-for="(section, index) in guide.sections"
+            :key="section.title"
+            :href="`#guide-section-${index}`"
+            class="shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-green-300 hover:text-green-700"
+          >
+            {{ section.title }}
+          </a>
+        </nav>
+
         <section
           v-for="(section, index) in guide.sections"
+          :id="`guide-section-${index}`"
           :key="section.title"
-          class="border-b border-[var(--line)] py-8 first:pt-9"
+          class="scroll-mt-24 border-b border-[var(--line)] py-6 first:pt-7"
         >
           <div class="flex items-center gap-3">
             <span class="grid size-8 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700">
@@ -212,7 +195,7 @@ const relatedAction = computed(() => {
           </p>
           <ul
             v-if="section.items.length"
-            class="mt-5 space-y-3"
+            class="mt-4 space-y-2.5"
           >
             <li
               v-for="item in section.items"
@@ -220,7 +203,7 @@ const relatedAction = computed(() => {
               class="flex items-start gap-3 text-sm leading-7 text-zinc-700"
             >
               <UIcon
-                name="i-lucide-circle-dot"
+                name="i-lucide-check"
                 class="mt-1.5 size-4 shrink-0 text-green-700"
               />
               <span>{{ item }}</span>
@@ -232,43 +215,14 @@ const relatedAction = computed(() => {
           >
             {{ section.notice }}
           </p>
-          <div
-            v-if="section.sources?.length"
-            class="mt-5 border-l-2 border-zinc-200 pl-4"
-          >
-            <p class="text-xs font-bold text-zinc-500">
-              本段引用
-            </p>
-            <ul class="mt-2 space-y-2">
-              <li
-                v-for="source in section.sources"
-                :key="source.url"
-              >
-                <a
-                  :href="source.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="group flex items-start gap-2 text-xs leading-5 text-zinc-600 hover:text-green-700"
-                >
-                  <UIcon
-                    name="i-lucide-external-link"
-                    class="mt-0.5 size-3.5 shrink-0"
-                  />
-                  <span>
-                    <span class="font-medium">{{ source.title }}</span>
-                    <span class="block text-zinc-400">{{ source.publisher }} · 访问于 {{ source.accessedAt }}</span>
-                    <span
-                      v-if="source.context"
-                      class="mt-0.5 block text-orange-700"
-                    >{{ source.context }}</span>
-                  </span>
-                </a>
-              </li>
-            </ul>
-          </div>
         </section>
 
-        <div class="mt-8 flex flex-wrap gap-2">
+        <PublicSourceDetails
+          :sources="detailSources"
+          :verified-at="guide.updatedAt"
+        />
+
+        <div class="mt-6 flex flex-wrap gap-2">
           <UButton
             :to="feedbackLink"
             icon="i-lucide-message-square-warning"
@@ -285,81 +239,6 @@ const relatedAction = computed(() => {
           />
         </div>
       </article>
-
-      <aside class="min-w-0">
-        <div class="surface-panel p-4 md:sticky md:top-24">
-          <h2 class="text-sm font-bold text-zinc-950">
-            信息状态
-          </h2>
-          <dl class="mt-4 space-y-3 text-xs">
-            <div class="flex items-start justify-between gap-4">
-              <dt class="text-zinc-500">
-                适用人群
-              </dt>
-              <dd class="text-right font-medium text-zinc-800">
-                {{ guide.audience.join('、') }}
-              </dd>
-            </div>
-            <div class="flex items-start justify-between gap-4">
-              <dt class="text-zinc-500">
-                预计阅读
-              </dt>
-              <dd class="font-medium text-zinc-800">
-                {{ guide.readMinutes }} 分钟
-              </dd>
-            </div>
-            <div class="flex items-start justify-between gap-4">
-              <dt class="text-zinc-500">
-                最后整理
-              </dt>
-              <dd class="font-medium text-zinc-800">
-                {{ guide.updatedAt }}
-              </dd>
-            </div>
-          </dl>
-
-          <div class="mt-5 border-t border-zinc-100 pt-4">
-            <h3 class="text-xs font-bold text-zinc-800">
-              参考来源
-            </h3>
-            <ul
-              v-if="guide.sources.length"
-              class="mt-3 space-y-3"
-            >
-              <li
-                v-for="source in guide.sources"
-                :key="source.url"
-              >
-                <a
-                  :href="source.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="group flex items-start gap-2 text-xs leading-5 text-zinc-600 hover:text-green-700"
-                >
-                  <UIcon
-                    name="i-lucide-external-link"
-                    class="mt-0.5 size-3.5 shrink-0"
-                  />
-                  <span>
-                    <span class="font-medium">{{ source.title }}</span>
-                    <span class="block text-zinc-400">{{ source.publisher }} · 访问于 {{ source.accessedAt }}</span>
-                    <span
-                      v-if="source.context"
-                      class="mt-0.5 block text-orange-700"
-                    >{{ source.context }}</span>
-                  </span>
-                </a>
-              </li>
-            </ul>
-            <p
-              v-else
-              class="mt-3 text-xs leading-5 text-zinc-500"
-            >
-              暂无足以支持具体事实的公开来源，因此页面仅展示核验计划。
-            </p>
-          </div>
-        </div>
-      </aside>
     </div>
   </div>
 </template>

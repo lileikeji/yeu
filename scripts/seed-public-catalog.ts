@@ -6,9 +6,13 @@ import { pathToFileURL } from 'node:url'
 import BetterSqlite3 from 'better-sqlite3'
 import {
   freshmanGuides,
+  freshmanGuideBody,
+  officialClubBody,
   officialClubs,
+  officialDepartmentBody,
   officialDepartments,
   officialSources,
+  researchSources,
   type FreshmanGuide,
   type OfficialClub,
   type OfficialDepartment,
@@ -29,7 +33,7 @@ const EXPECTED_GUIDE_SLUGS = [
   'clubs',
   'nearby'
 ] as const
-const SOURCE_FREE_DRAFT_GUIDES = new Set(['express-delivery', 'nearby'])
+const SOURCE_FREE_DRAFT_GUIDES = new Set<string>()
 
 const DEPARTMENT_SLUGS: Record<string, string> = {
   '经济学院': 'school-of-economics',
@@ -69,12 +73,12 @@ interface CatalogSource {
   url: string
   platform: string
   publisherName: string
-  sourceLevel: 'A'
-  isOfficial: true
+  sourceLevel: 'A' | 'D'
+  isOfficial: boolean
   publishedAt: null
   accessedAt: number
   notes: string
-  status: 'active'
+  status: 'active' | 'unavailable' | 'disputed'
 }
 
 interface CatalogContent {
@@ -226,8 +230,12 @@ function isOfficialUniversityUrl(value: string): boolean {
   return url.protocol === 'https:' && (hostname === 'yeu.edu.cn' || hostname.endsWith('.yeu.edu.cn'))
 }
 
-function sourceMarkerNotes(url: string): string {
-  return `${SOURCE_MARKER} identity=${encodeURIComponent(canonicalUrl(url))} Imported from data/seeds/public-content.ts; keep this marker for idempotent reruns.`
+function sourceMarkerNotes(url: string, context?: string): string {
+  return [
+    `${SOURCE_MARKER} identity=${encodeURIComponent(canonicalUrl(url))}`,
+    'Imported from data/seeds/public-content.ts; keep this marker for idempotent reruns.',
+    context ? `Context: ${context}` : ''
+  ].filter(Boolean).join(' ')
 }
 
 function seedMetadata(identity: string, metadata: Record<string, unknown>): Record<string, unknown> {
@@ -243,28 +251,56 @@ function seedMetadata(identity: string, metadata: Record<string, unknown>): Reco
 
 function publicSourceToCatalog(source: PublicSource): CatalogSource {
   const url = canonicalUrl(source.url)
-  assertSeed(isOfficialUniversityUrl(url), `Catalog source is outside the official university domains: ${source.url}`)
+  const isOfficial = isOfficialUniversityUrl(url)
   return {
     title: source.title,
     url: source.url,
-    platform: '仰恩大学官网',
+    platform: isOfficial ? '仰恩大学官网' : source.publisher,
     publisherName: source.publisher,
-    sourceLevel: 'A',
-    isOfficial: true,
+    sourceLevel: isOfficial ? 'A' : 'D',
+    isOfficial,
     publishedAt: null,
     accessedAt: dateOnlyToTimestamp(source.accessedAt, `Source ${source.url} accessedAt`),
-    notes: sourceMarkerNotes(source.url),
-    status: 'active'
+    notes: sourceMarkerNotes(source.url, source.context),
+    status: source.status ?? 'active'
   }
 }
 
-function departmentSource(department: OfficialDepartment, accessedAt: string): CatalogSource {
-  return publicSourceToCatalog({
-    title: `${department.name}官网`,
-    publisher: `仰恩大学${department.name}`,
-    url: department.website,
-    accessedAt
-  })
+function departmentSources(department: OfficialDepartment, accessedAt: string): CatalogSource[] {
+  const verifiedAt = department.verifiedAt ?? accessedAt
+  const candidates: PublicSource[] = [
+    {
+      title: `${department.name}官网入口`,
+      publisher: `仰恩大学${department.name}`,
+      url: department.website,
+      accessedAt: verifiedAt
+    },
+    ...(department.profileUrl
+      ? [{
+          title: `${department.name}简介`,
+          publisher: `仰恩大学${department.name}`,
+          url: department.profileUrl,
+          accessedAt: verifiedAt
+        }]
+      : []),
+    ...(department.contactUrl
+      ? [{
+          title: `${department.name}公开联系方式`,
+          publisher: `仰恩大学${department.name}`,
+          url: department.contactUrl,
+          accessedAt: verifiedAt
+        }]
+      : [])
+  ]
+  const seenUrls = new Set<string>()
+  return candidates
+    .filter((source) => {
+      const key = canonicalUrl(source.url)
+      if (seenUrls.has(key)) return false
+      seenUrls.add(key)
+      return true
+    })
+    .map(publicSourceToCatalog)
 }
 
 function guideContent(guide: FreshmanGuide): CatalogContent {
@@ -291,7 +327,7 @@ function guideContent(guide: FreshmanGuide): CatalogContent {
     slug: guide.slug,
     title: guide.title,
     summary: guide.summary,
-    body: '',
+    body: freshmanGuideBody(guide),
     category: guide.category,
     audience: guide.audience.join('、'),
     metadata: seedMetadata(contentKey('guide', guide.slug), {
@@ -311,18 +347,21 @@ function guideContent(guide: FreshmanGuide): CatalogContent {
 }
 
 function clubContent(club: OfficialClub): CatalogContent {
+  const active = club.source === officialSources.clubShowcase2026
   return {
     kind: 'club',
     slug: club.slug,
     title: club.name,
     summary: club.summary,
-    body: '',
-    category: 'recent-activity',
+    body: officialClubBody(club),
+    category: active ? `${club.group} · 近期活动可确认` : `${club.group} · 名称线索待确认`,
     audience: '本科新生、专升本新生',
     metadata: seedMetadata(contentKey('club', club.slug), {
       recruitmentPeriod: null,
       activitySchedule: null,
       contactMethod: null,
+      group: club.group,
+      direction: club.direction,
       verificationState: 'partial'
     }),
     isFeatured: false,
@@ -332,26 +371,31 @@ function clubContent(club: OfficialClub): CatalogContent {
   }
 }
 
-function departmentContent(department: OfficialDepartment, source: CatalogSource): CatalogContent {
+function departmentContent(department: OfficialDepartment, sources: CatalogSource[]): CatalogContent {
   const slug = DEPARTMENT_SLUGS[department.name]
   assertSeed(slug, `Department slug is not reviewed: ${department.name}`)
+  assertSeed(sources.length > 0, `Department ${department.name} has no official source`)
   return {
     kind: 'department',
     slug,
     title: department.name,
     summary: department.summary,
-    body: '',
+    body: officialDepartmentBody(department),
     category: 'official-department',
     audience: '本科新生、专升本新生',
     metadata: seedMetadata(contentKey('department', slug), {
       website: department.website,
+      profileUrl: department.profileUrl ?? null,
+      contactUrl: department.contactUrl ?? null,
       phone: department.phone ?? null,
-      email: department.email ?? null
+      email: department.email ?? null,
+      address: department.address ?? null,
+      verificationState: department.verificationState ?? null
     }),
     isFeatured: false,
     status: 'published',
-    lastVerifiedAt: source.accessedAt,
-    sourceUrls: [source.url]
+    lastVerifiedAt: Math.max(...sources.map(source => source.accessedAt)),
+    sourceUrls: sources.map(source => source.url)
   }
 }
 
@@ -366,8 +410,18 @@ function validateCatalog(catalog: CatalogSeedData): void {
     assertSeed(source.platform.trim().length > 0 && source.platform.length <= 80, `Source platform is invalid: ${source.url}`)
     assertSeed(source.publisherName.trim().length > 0 && source.publisherName.length <= 160, `Source publisher is invalid: ${source.url}`)
     assertSeed(source.notes.length <= 4000, `Source notes are too long: ${source.url}`)
-    assertSeed(source.isOfficial && source.sourceLevel === 'A' && source.status === 'active', `Source is not active official level A: ${source.url}`)
-    assertSeed(isOfficialUniversityUrl(key), `Source is outside official university domains: ${source.url}`)
+    assertSeed(
+      source.status === 'active' || source.status === 'unavailable' || source.status === 'disputed',
+      `Source status is invalid: ${source.url}`
+    )
+    assertSeed(
+      source.isOfficial === isOfficialUniversityUrl(key),
+      `Source official flag does not match URL domain: ${source.url}`
+    )
+    assertSeed(
+      source.sourceLevel === (source.isOfficial ? 'A' : 'D'),
+      `Source level does not match source policy: ${source.url}`
+    )
     assertSeed(Number.isFinite(source.accessedAt), `Source has no traceable accessedAt: ${source.url}`)
   }
 
@@ -387,7 +441,7 @@ function validateCatalog(catalog: CatalogSeedData): void {
       assertSeed(sourceUrls.has(canonicalUrl(sourceUrl)), `Content ${key} references a source outside the catalog`)
     }
     if (content.status === 'published') {
-      assertSeed(content.sourceUrls.length > 0, `Published content ${key} must have an official source`)
+      assertSeed(content.sourceUrls.length > 0, `Published content ${key} must have a traceable source`)
       assertSeed(content.lastVerifiedAt !== null, `Published content ${key} must have lastVerifiedAt`)
     } else {
       assertSeed(content.lastVerifiedAt === null, `Unverified draft ${key} must not claim lastVerifiedAt`)
@@ -414,23 +468,33 @@ export function buildCatalogSeed(): CatalogSeedData {
     assertSeed(!sourcesByUrl.has(key), `Duplicate official source URL: ${catalogSource.url}`)
     sourcesByUrl.set(key, catalogSource)
   }
+  for (const source of Object.values(researchSources)) {
+    const catalogSource = publicSourceToCatalog(source)
+    const key = canonicalUrl(catalogSource.url)
+    assertSeed(!sourcesByUrl.has(key), `Duplicate research source URL: ${catalogSource.url}`)
+    sourcesByUrl.set(key, catalogSource)
+  }
 
-  const departmentSources = new Map<string, CatalogSource>()
+  const departmentSourcesByName = new Map<string, CatalogSource[]>()
   const departmentAccessedAt = officialSources.university.accessedAt
   for (const department of officialDepartments) {
-    const key = canonicalUrl(department.website)
-    const source = sourcesByUrl.get(key) ?? departmentSource(department, departmentAccessedAt)
-    if (!sourcesByUrl.has(key)) sourcesByUrl.set(key, source)
-    departmentSources.set(department.name, source)
+    const resolvedSources = departmentSources(department, departmentAccessedAt).map((source) => {
+      const key = canonicalUrl(source.url)
+      const existing = sourcesByUrl.get(key)
+      if (existing) return existing
+      sourcesByUrl.set(key, source)
+      return source
+    })
+    departmentSourcesByName.set(department.name, resolvedSources)
   }
 
   const contents: CatalogContent[] = [
     ...freshmanGuides.map(guideContent),
     ...officialClubs.map(clubContent),
     ...officialDepartments.map((department) => {
-      const source = departmentSources.get(department.name)
-      assertSeed(source, `Missing source for department ${department.name}`)
-      return departmentContent(department, source)
+      const sources = departmentSourcesByName.get(department.name)
+      assertSeed(sources, `Missing sources for department ${department.name}`)
+      return departmentContent(department, sources)
     })
   ]
   const catalog = { sources: [...sourcesByUrl.values()], contents }
@@ -651,11 +715,16 @@ function buildPlan(database: InstanceType<typeof BetterSqlite3>, catalog: Catalo
         continue
       }
       const match = markerMatches[0]!
-      if (match.sourceLevel !== 'A' || match.isOfficial !== 1 || match.status !== 'active' || !Number.isFinite(match.accessedAt)) {
+      if (
+        match.sourceLevel !== source.sourceLevel
+        || Boolean(match.isOfficial) !== source.isOfficial
+        || match.status !== source.status
+        || !Number.isFinite(match.accessedAt)
+      ) {
         conflicts.push({
           entityType: 'source',
           key,
-          reason: 'Seed-owned source no longer satisfies active official evidence constraints; review it explicitly',
+          reason: 'Seed-owned source no longer satisfies catalog source constraints; review it explicitly',
           existingId: match.id
         })
         continue
@@ -768,7 +837,7 @@ function insertPlan(database: InstanceType<typeof BetterSqlite3>, plan: ImportPl
   `)
   let createdSources = 0
   for (const source of plan.createSources) {
-    createdSources += insertSource.run({ ...source, isOfficial: 1, now }).changes
+    createdSources += insertSource.run({ ...source, isOfficial: source.isOfficial ? 1 : 0, now }).changes
   }
 
   const insertContent = database.prepare(`

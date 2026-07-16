@@ -1,0 +1,7 @@
+# OSV scanner ignore list for residual build-time toolchains.
+# Runtime/app dependencies must not be ignored without an expiry + owner reason.
+
+[[IgnoredVulns]]
+id = "GHSA-67mh-4wv8-2f99"
+ignoreUntil = 2026-08-31
+reason = "esbuild 0.18.20 is only pulled by drizzle-kit via deprecated @esbuild-kit/* (dev CLI). Not in production server runtime. fontless was forced to esbuild 0.28.1 via pnpm-workspace.yaml overrides. Replace drizzle-kit toolchain before this exception expires; do not expose esbuild.dev server."

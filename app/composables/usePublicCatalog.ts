@@ -1,5 +1,11 @@
 import type { ContentKind } from '~~/shared/constants/server'
-import type { ApiContent, ApiListResponse, ApiPlace, ApiProcedure } from '~~/shared/types/server'
+import type {
+  ApiAmapOwnerDraftPlace,
+  ApiContent,
+  ApiListResponse,
+  ApiPlace,
+  ApiProcedure
+} from '~~/shared/types/server'
 
 const PUBLIC_PAGE_SIZE = 200
 
@@ -64,6 +70,12 @@ export function usePublicPlaceList(scope?: 'campus' | 'nearby') {
       pageSize: PUBLIC_PAGE_SIZE,
       ...(scope ? { scope } : {})
     }
+  })
+}
+
+export function usePublicAmapOwnerDraftPlaces() {
+  return useFetch<ApiListResponse<ApiAmapOwnerDraftPlace>>('/api/public/amap-owner-drafts', {
+    key: 'public-amap-owner-drafts'
   })
 }
 

@@ -46,13 +46,17 @@ test('all public detail pages build feedback context from the current full path'
 })
 
 test('map detail panel keeps typed place feedback bound to the current map path', () => {
-  const source = readFileSync('app/pages/map/index.vue', 'utf8')
-  const targetBuilder = source.match(/function placeFeedbackTarget[\s\S]*?\n}/)?.[0]
+  const page = readFileSync('app/pages/map/index.vue', 'utf8')
+  const util = readFileSync('app/utils/map-presentation.ts', 'utf8')
+  const targetBuilder = page.match(/function placeFeedbackTarget[\s\S]*?\n}/)?.[0]
 
   assert.ok(targetBuilder)
-  assert.match(targetBuilder, /buildDetailFeedbackLink/)
-  assert.match(targetBuilder, /targetType:\s*'place'/)
-  assert.match(targetBuilder, /from:\s*route\.fullPath/)
+  assert.match(targetBuilder, /buildMapPlaceFeedbackTarget/)
+  assert.match(targetBuilder, /route\.fullPath/)
+  assert.match(util, /export function buildMapPlaceFeedbackTarget/)
+  assert.match(util, /buildDetailFeedbackLink/)
+  assert.match(util, /targetType:\s*'place'/)
+  assert.match(util, /reasonType:\s*'place_error'/)
 })
 
 test('feedback form keeps source context structured and displays only the safe page path', () => {

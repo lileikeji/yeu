@@ -1,44 +1,14 @@
 <script setup lang="ts">
+import {
+  aboutBoundaries,
+  aboutGovernanceLinks,
+  aboutProjectFacts
+} from '~~/app/utils/about-presentation'
+
 useSeoMeta({
   title: '关于项目',
   description: '了解仰恩新生指南的非官方身份、维护主体、资料边界、纠错与隐私规则。'
 })
-
-const projectFacts = [
-  { label: '项目性质', value: '非官方学生指南' },
-  { label: '当前维护', value: '个人 / 学生团队' },
-  { label: '服务对象', value: '本科与专升本新生' },
-  { label: '公开访问', value: '游客免登录' }
-]
-
-const boundaries = [
-  {
-    title: '信息不替代官方通知',
-    icon: 'i-lucide-file-warning',
-    text: '报到、缴费、学籍、住宿、安全及个人材料要求，以录取通知书、学校及主管部门最新正式通知为准。'
-  },
-  {
-    title: '地图只公开可核验信息',
-    icon: 'i-lucide-map-pinned',
-    text: '地点名称、楼栋入口和导航坐标分开管理。没有官方资料或现场观测支持的坐标，不会用近似点补齐。'
-  },
-  {
-    title: '旧资料不冒充当年安排',
-    icon: 'i-lucide-calendar-clock',
-    text: '往年报到点、接站、快递外卖、商铺营业与社团招新信息只能作为线索，未经当期复核不作行动依据。'
-  },
-  {
-    title: '首版不提供商业排名',
-    icon: 'i-lucide-badge-percent',
-    text: '商家认领、优惠、推广位与学生账号尚未开放。未来若上线，付费内容需显著标识，不得改变客观核验结论。'
-  }
-]
-
-const governanceLinks = [
-  { title: '查看资料来源', description: '了解来源分级、访问日期和地图数据边界', to: '/sources', icon: 'i-lucide-list-checks' },
-  { title: '反馈错误或补充资料', description: '当前唯一的站内联系入口，管理员核验后再更新', to: '/feedback', icon: 'i-lucide-message-square-warning' },
-  { title: '查看隐私说明', description: '了解定位、反馈、缓存和数据删除规则', to: '/privacy', icon: 'i-lucide-shield-check' }
-]
 </script>
 
 <template>
@@ -63,7 +33,7 @@ const governanceLinks = [
       <section class="page-shell py-8 md:py-10">
         <dl class="grid border-y border-[var(--line)] sm:grid-cols-2 lg:grid-cols-4">
           <div
-            v-for="fact in projectFacts"
+            v-for="fact in aboutProjectFacts"
             :key="fact.label"
             class="border-b border-zinc-100 px-1 py-4 sm:px-4 lg:border-b-0 lg:border-r lg:last:border-r-0"
           >
@@ -94,7 +64,7 @@ const governanceLinks = [
 
             <div class="grid gap-x-8 md:grid-cols-2">
               <article
-                v-for="boundary in boundaries"
+                v-for="boundary in aboutBoundaries"
                 :key="boundary.title"
                 class="border-t border-zinc-200 py-5"
               >
@@ -134,7 +104,7 @@ const governanceLinks = [
 
           <div class="divide-y divide-zinc-200 border-y border-zinc-200">
             <NuxtLink
-              v-for="link in governanceLinks"
+              v-for="link in aboutGovernanceLinks"
               :key="link.to"
               :to="link.to"
               class="group flex min-h-24 items-center gap-4 py-4"

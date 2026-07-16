@@ -5,3 +5,7 @@ allowBuilds:
   esbuild: false
   unrs-resolver: false
   vue-demi: false
+
+overrides:
+  # Close GHSA-g7r4-m6w7-qqqr path for @nuxt/fonts fontless build tooling.
+  fontless>esbuild: 0.28.1
