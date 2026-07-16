@@ -34,6 +34,9 @@ export default defineNuxtConfig({
   // Bundle used icons into the client so production no longer depends on
   // /api/_nuxt_icon/* (CDN previously cached empty/partial collection responses).
   icon: {
+    // Never fetch /api/_nuxt_icon at runtime: CDN may ignore ?icons= and
+    // serve a poisoned partial collection (e.g. only loader-circle).
+    provider: 'none',
     clientBundle: {
       scan: true,
       sizeLimitKb: 512
