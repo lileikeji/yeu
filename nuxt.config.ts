@@ -32,13 +32,12 @@ export default defineNuxtConfig({
   // Keep production generation away from a concurrently running dev server.
   buildDir: process.env.NODE_ENV === 'production' ? '.nuxt-build' : '.nuxt',
 
-  // Bundle used icons into the client so production no longer depends on
-  // /api/_nuxt_icon/* (CDN previously cached empty/partial collection responses).
+  // SSR needs provider=server so serverBundle is built (CSS-mode --svg).
+  // clientBundle covers client hydration; fallbackToApi=false avoids CDN
+  // poisoning partial /api/_nuxt_icon collection responses.
   icon: {
-    // Never fetch /api/_nuxt_icon at runtime: CDN may ignore ?icons= and
-    // serve a poisoned partial collection (e.g. only loader-circle).
-    // scan alone misses dynamic :name bindings and DB-driven content icons.
-    provider: 'none',
+    provider: 'server',
+    fallbackToApi: false,
     clientBundle: {
       scan: true,
       icons: [...clientBundleIcons],
