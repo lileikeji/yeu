@@ -30,7 +30,10 @@ import {
   mapCategories,
   mapCategoryIds,
   buildFilteredMapPois,
+  canPlanMapWalkingRoute,
+  defaultMapDisplayOptions,
   canShowOfficialCampusPlan,
+  resolveMapViewModeSwitchDecision,
   resolveAutoSelectSearchDecision,
   resolveAutoSelectSearchApply,
   resolveSelectAreaDecision,
@@ -108,13 +111,7 @@ const mobileSheetState = ref<MobileSheetState>('half')
 const sidebarCollapsed = ref(false)
 const displaySettingsOpen = ref(false)
 const mapBaseStyle = ref<MapBaseStyle>('standard')
-const mapDisplayOptions = ref<MapDisplayOptions>({
-  showPois: true,
-  showAreas: true,
-  showLabels: true,
-  autoCluster: true,
-  labelSize: 'medium'
-})
+const mapDisplayOptions = ref<MapDisplayOptions>({ ...defaultMapDisplayOptions })
 const mobileSheetHeightClass = computed(() => resolveMobileSheetHeightClass(mobileSheetState.value))
 const mapDataLabel = computed(() => resolveMapDataLabel({
   publishedCount: publishedPlacesInScope.value.length,
@@ -322,6 +319,31 @@ function selectPoi(poi: PublicMapPlace) {
     mapProvider.value?.flyToPoint(poi.point, 18)
   } else if (decision.flyAction === 'fly-to-poi') {
     mapProvider.value?.flyToPoi(poi.id)
+  }
+}
+
+
+function setMapViewMode(nextMode: 'geographic' | 'official-plan') {
+  const decision = resolveMapViewModeSwitchDecision({
+    nextMode,
+    currentMode: mapViewMode.value,
+    selectedPoi: selectedPoi.value,
+    mobileSheetState: mobileSheetState.value
+  })
+  mapViewMode.value = decision.mapViewMode
+  if (decision.mobileSheetState) {
+    mobileSheetState.value = decision.mobileSheetState
+  }
+  if (decision.keepSelection && selectedPoi.value) {
+    // Keep the floating place panel open; re-sync geographic selection when returning to map.
+    if (decision.mapViewMode === 'geographic') {
+      mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId ?? selectedPoi.value.id)
+      if (decision.cameraAction === 'fly-to-point' && selectedPoi.value.point) {
+        mapProvider.value?.flyToPoint(selectedPoi.value.point, 18)
+      } else if (decision.cameraAction === 'fly-to-poi') {
+        mapProvider.value?.flyToPoi(selectedPoi.value.id)
+      }
+    }
   }
 }
 
@@ -776,7 +798,7 @@ onBeforeUnmount(() => {
             :variant="mapViewMode === 'geographic' ? 'solid' : 'ghost'"
             class="rounded-none"
             :aria-pressed="mapViewMode === 'geographic'"
-            @click="() => { mapViewMode = 'geographic' }"
+            @click="setMapViewMode('geographic')"
           />
           <UButton
             icon="i-lucide-image"
@@ -786,7 +808,7 @@ onBeforeUnmount(() => {
             :variant="mapViewMode === 'official-plan' ? 'solid' : 'ghost'"
             class="rounded-none"
             :aria-pressed="mapViewMode === 'official-plan'"
-            @click="() => { mapViewMode = 'official-plan' }"
+            @click="setMapViewMode('official-plan')"
           />
         </div>
         <div
@@ -1024,7 +1046,7 @@ onBeforeUnmount(() => {
         :feedback-target="placeFeedbackTarget(selectedPoi)"
         :return-path="returnPath"
         :route-planning="routePlanning"
-        :can-plan-route="activeMapProviderId === 'amap' && Boolean(selectedPoi.point)"
+        :can-plan-route="canPlanMapWalkingRoute(activeMapProviderId, selectedPoi.point)"
         :is-wechat="isWechat"
         @close="closePoiDetails"
         @copy="copyPoiLocation(selectedPoi)"

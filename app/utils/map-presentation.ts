@@ -721,3 +721,130 @@ export function resolveSelectOfficialPlanNumberDecision(
     ...resolveOfficialPlanHotspotSelectionReset()
   }
 }
+
+export const defaultMapDisplayOptions: MapDisplayOptions = {
+  showPois: true,
+  showAreas: true,
+  showLabels: true,
+  autoCluster: true,
+  labelSize: 'medium'
+}
+
+export function canPlanMapWalkingRoute(
+  activeMapProviderId: string | null | undefined,
+  point: { lng: number, lat: number } | null | undefined
+): boolean {
+  return activeMapProviderId === 'amap' && Boolean(point)
+}
+
+export type MapRouteCameraAction
+  = | { kind: 'fly-to-poi', poiId: string }
+    | { kind: 'refocus-selected-area', areaId: string }
+    | { kind: 'fit-to-pois' }
+    | { kind: 'none' }
+
+export function resolveMapRouteApplyDecision(input: {
+  scope: string | null | undefined
+  selectedPoiId: string | null
+  selectedArea: MapArea | null
+  places: readonly PublicMapPlace[]
+  filteredPlaces: readonly Pick<PublicMapPlace, 'id'>[]
+  filtersChanged: boolean
+}): {
+  forceGeographicView: boolean
+  providerSelectedPoiId: string | null
+  providerSelectedAreaId: string | null
+  cameraAction: MapRouteCameraAction
+  scrollToPoiId: string | null
+} {
+  const nextSelected = input.places.find(poi => poi.id === input.selectedPoiId) ?? null
+  const selectionIsVisible = Boolean(
+    nextSelected && input.filteredPlaces.some(poi => poi.id === nextSelected.id)
+  )
+  const providerSelectedPoiId = selectionIsVisible && nextSelected?.point
+    ? nextSelected.id
+    : null
+  const providerSelectedAreaId = input.selectedArea?.id ?? null
+
+  let cameraAction: MapRouteCameraAction
+  if (selectionIsVisible && nextSelected?.point) {
+    cameraAction = { kind: 'fly-to-poi', poiId: nextSelected.id }
+  } else if (input.selectedArea) {
+    cameraAction = { kind: 'refocus-selected-area', areaId: input.selectedArea.id }
+  } else if (
+    input.filtersChanged
+    || (!selectionIsVisible && !input.selectedArea)
+    || !nextSelected?.point
+  ) {
+    cameraAction = { kind: 'fit-to-pois' }
+  } else {
+    cameraAction = { kind: 'none' }
+  }
+
+  return {
+    forceGeographicView: input.scope === 'nearby',
+    providerSelectedPoiId,
+    providerSelectedAreaId,
+    cameraAction,
+    scrollToPoiId: selectionIsVisible && nextSelected ? nextSelected.id : null
+  }
+}
+
+export type MapViewModeSwitchDecision = {
+  mapViewMode: MapViewMode
+  mobileSheetState: MobileSheetState | null
+  providerSelectedPoiId: string | null
+  cameraAction: 'fly-to-point' | 'fly-to-poi' | 'none'
+  keepSelection: boolean
+}
+
+/** Keep the selected place panel/camera when users toggle 地图 / 平面图. */
+export function resolveMapViewModeSwitchDecision(input: {
+  nextMode: MapViewMode
+  currentMode: MapViewMode
+  selectedPoi: Pick<PublicMapPlace, 'id' | 'point' | 'usesPreviewPoint'> | null
+  mobileSheetState: MobileSheetState
+}): MapViewModeSwitchDecision {
+  if (input.nextMode === input.currentMode) {
+    return {
+      mapViewMode: input.currentMode,
+      mobileSheetState: null,
+      providerSelectedPoiId: null,
+      cameraAction: 'none',
+      keepSelection: Boolean(input.selectedPoi)
+    }
+  }
+
+  const selected = input.selectedPoi
+  if (!selected) {
+    return {
+      mapViewMode: input.nextMode,
+      mobileSheetState: null,
+      providerSelectedPoiId: null,
+      cameraAction: 'none',
+      keepSelection: false
+    }
+  }
+
+  // Free the list sheet so the floating detail card stays visible over either basemap.
+  const mobileSheetState: MobileSheetState = 'collapsed'
+  if (input.nextMode === 'geographic') {
+    const hasPoint = Boolean(selected.point)
+    return {
+      mapViewMode: 'geographic',
+      mobileSheetState,
+      providerSelectedPoiId: selected.id,
+      cameraAction: hasPoint ? 'fly-to-point' : 'fly-to-poi',
+      keepSelection: true
+    }
+  }
+
+  return {
+    mapViewMode: 'official-plan',
+    mobileSheetState,
+    providerSelectedPoiId: null,
+    cameraAction: 'none',
+    keepSelection: true
+  }
+}
+

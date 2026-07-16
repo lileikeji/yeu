@@ -52,7 +52,8 @@ import {
   resolveMapPoiClickApply,
   resolveSelectOfficialPlanNumberDecision,
   toggleMapDisplayOption,
-  withMapLabelSize
+  withMapLabelSize,
+  resolveMapViewModeSwitchDecision
 } from '../app/utils/map-presentation'
 import type { MapPoiStatusFields } from '../app/utils/map-presentation'
 import type { MapArea } from '../map/core/types'
@@ -89,6 +90,9 @@ test('map page is a thin shell over map-presentation util for labels and checkli
   assert.match(pageSource, /filterMapAreasForMapSearch/)
   assert.match(pageSource, /resolveMobileSheetHeightClass/)
   assert.match(pageSource, /resolveInitialMapViewMode/)
+  assert.match(pageSource, /resolveMapViewModeSwitchDecision/)
+  assert.match(pageSource, /setMapViewMode/)
+  assert.match(utilSource, /export function resolveMapViewModeSwitchDecision/)
   assert.match(pageSource, /mapCategories/)
   assert.doesNotMatch(pageSource, /const categories: MapCategory\[\] = \[/)
   assert.doesNotMatch(pageSource, /这个点来自你提供的高德地图标点，可以先导航到附近/)
@@ -889,4 +893,97 @@ test('selectPoi apply / map click apply / official plan number decisions stay pu
 
   const planMiss = resolveSelectOfficialPlanNumberDecision([catalogPoi], '99')
   assert.equal(planMiss, null)
+})
+
+test('map/plan mode switch keeps selection and focuses the basemap', () => {
+  const withPoint = {
+    id: 'p1',
+    point: { lng: 118.8, lat: 25.1 },
+    usesPreviewPoint: false
+  }
+  const withoutPoint = {
+    id: 'p2',
+    point: null,
+    usesPreviewPoint: true
+  }
+
+  assert.deepEqual(
+    resolveMapViewModeSwitchDecision({
+      nextMode: 'geographic',
+      currentMode: 'geographic',
+      selectedPoi: withPoint,
+      mobileSheetState: 'half'
+    }),
+    {
+      mapViewMode: 'geographic',
+      mobileSheetState: null,
+      providerSelectedPoiId: null,
+      cameraAction: 'none',
+      keepSelection: true
+    }
+  )
+
+  assert.deepEqual(
+    resolveMapViewModeSwitchDecision({
+      nextMode: 'official-plan',
+      currentMode: 'geographic',
+      selectedPoi: withPoint,
+      mobileSheetState: 'half'
+    }),
+    {
+      mapViewMode: 'official-plan',
+      mobileSheetState: 'collapsed',
+      providerSelectedPoiId: null,
+      cameraAction: 'none',
+      keepSelection: true
+    }
+  )
+
+  assert.deepEqual(
+    resolveMapViewModeSwitchDecision({
+      nextMode: 'geographic',
+      currentMode: 'official-plan',
+      selectedPoi: withPoint,
+      mobileSheetState: 'full'
+    }),
+    {
+      mapViewMode: 'geographic',
+      mobileSheetState: 'collapsed',
+      providerSelectedPoiId: 'p1',
+      cameraAction: 'fly-to-point',
+      keepSelection: true
+    }
+  )
+
+  assert.deepEqual(
+    resolveMapViewModeSwitchDecision({
+      nextMode: 'geographic',
+      currentMode: 'official-plan',
+      selectedPoi: withoutPoint,
+      mobileSheetState: 'half'
+    }),
+    {
+      mapViewMode: 'geographic',
+      mobileSheetState: 'collapsed',
+      providerSelectedPoiId: 'p2',
+      cameraAction: 'fly-to-poi',
+      keepSelection: true
+    }
+  )
+
+  assert.deepEqual(
+    resolveMapViewModeSwitchDecision({
+      nextMode: 'official-plan',
+      currentMode: 'geographic',
+      selectedPoi: null,
+      mobileSheetState: 'half'
+    }),
+    {
+      mapViewMode: 'official-plan',
+      mobileSheetState: null,
+      providerSelectedPoiId: null,
+      cameraAction: 'none',
+      keepSelection: false
+    }
+  )
 })
