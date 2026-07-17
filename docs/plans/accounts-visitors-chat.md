@@ -60,3 +60,27 @@
 - Nitro 私有页增加 `Cache-Control: private, no-store` / `CDN-Cache-Control: no-store`，避免 CDN 缓存访客 302 或已登录 HTML
 - 现网 E2E（origin + 公网 HTTPS）: 访客页 302、API 401、无注册、公开页 200；登录后 /chat /me 200；发消息 201；全员禁言 403；错误 CSRF 清会话；禁用账号后页 302 / API 401；首页无 /admin /chat 泄漏
 - 前台布局：未登录只显示登录入口，群聊入口仅登录后可见
+
+## 全量验收（2026-07-18 续 · 42/42）
+
+生产：https://yeu.huiliyill.cn  
+发布：/www/wwwroot/yeu/releases/20260718-061629（部署加固后更新）  
+脚本：服务器 /tmp/yeu-full-req-audit3.py → **42 PASS / 0 FAIL**
+
+| 需求 | 结果 |
+|------|------|
+| 访客 IP/地点/操作埋点 + 后台列表/封禁 | PASS（track 200；visitors/bans API；user ban → 403 VISITOR_BANNED） |
+| 账号体系；不开放注册；游客仍可用指南/地图/办事 | PASS（/register 404；公开页 200） |
+| 管理入口隐藏 | PASS（首页无 /admin 链接；URL 仍可进壳层） |
+| 登录后个人中心改名/专业/宿舍 + 宿舍联想 | PASS（PATCH /api/me；dorm-suggestions） |
+| 公共群 + 宿舍楼群切换 | PASS（list rooms 含 public + dorm） |
+| 消息格式 用户名+时间 | PASS（displayName + createdAt） |
+| 后台群聊记录/全员禁言/个人禁言 | PASS（messages/mutes/mute-all） |
+| 后台账号管理筛选创建状态 | PASS |
+| **不登录不能聊天** | PASS（/chat·/me 302；API 401；发消息 401） |
+| 私有页 no-store | PASS |
+
+### 机制再加固（本提交）
+
+- 房间列表返回 isMuted / muteReason（个人禁言状态）
+- 聊天输入框对全员禁言 **与** 个人禁言均禁用，并展示原因

@@ -19,6 +19,8 @@ type ChatRoom = {
   title: string
   dormBuilding: string | null
   isMutedAll: boolean
+  isMuted: boolean
+  muteReason: string | null
   isActive: boolean
 }
 
@@ -46,6 +48,16 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 let stickToBottom = true
 
 const activeRoom = computed(() => rooms.value.find(room => room.id === activeRoomId.value) || null)
+const composerLocked = computed(() => Boolean(activeRoom.value?.isMutedAll || activeRoom.value?.isMuted))
+const composerLockReason = computed(() => {
+  if (activeRoom.value?.isMutedAll) return '当前房间已全员禁言'
+  if (activeRoom.value?.isMuted) {
+    return activeRoom.value.muteReason
+      ? `你已被禁言：${activeRoom.value.muteReason}`
+      : '你已被禁言，暂时无法发言'
+  }
+  return ''
+})
 
 function formatTime(iso: string): string {
   try {
@@ -143,7 +155,7 @@ async function switchRoom(roomId: string): Promise<void> {
 
 async function sendMessage(): Promise<void> {
   const body = draft.value.trim()
-  if (!body || !activeRoomId.value || sending.value) return
+  if (!body || !activeRoomId.value || sending.value || composerLocked.value) return
   sending.value = true
   sendError.value = ''
   try {
@@ -289,6 +301,7 @@ watch(activeRoomId, () => {
               >
                 {{ room.kind === 'public' ? '公共' : '宿舍楼' }}
                 <template v-if="room.isMutedAll"> · 全员禁言</template>
+                <template v-else-if="room.isMuted"> · 你已被禁言</template>
               </span>
             </button>
           </div>
@@ -347,10 +360,10 @@ watch(activeRoomId, () => {
               {{ sendError }}
             </div>
             <div
-              v-if="activeRoom?.isMutedAll"
+              v-if="composerLocked"
               class="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
             >
-              当前房间已全员禁言
+              {{ composerLockReason }}
             </div>
             <form
               class="flex items-end gap-2"
@@ -362,15 +375,15 @@ watch(activeRoomId, () => {
                 autoresize
                 maxlength="1000"
                 class="w-full"
-                :placeholder="activeRoom?.isMutedAll ? '当前房间已全员禁言' : '输入消息，回车发送前请确认内容合适'"
-                :disabled="sending || !activeRoomId || !!activeRoom?.isMutedAll"
+                :placeholder="composerLocked ? composerLockReason : '输入消息，回车发送前请确认内容合适'"
+                :disabled="sending || !activeRoomId || composerLocked"
               />
               <UButton
                 type="submit"
                 color="primary"
                 icon="i-lucide-send"
                 :loading="sending"
-                :disabled="!draft.trim() || !activeRoomId || !!activeRoom?.isMutedAll"
+                :disabled="!draft.trim() || !activeRoomId || composerLocked"
               >
                 发送
               </UButton>

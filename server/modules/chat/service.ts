@@ -111,15 +111,20 @@ export function listRoomsForUser(
     rooms.push(dormRoom)
   }
 
-  return rooms.map(room => ({
-    id: room.id,
-    kind: room.kind,
-    slug: room.slug,
-    title: room.title,
-    dormBuilding: room.dormBuilding,
-    isMutedAll: room.isMutedAll,
-    isActive: room.isActive
-  }))
+  return rooms.map((room) => {
+    const personalMute = getActiveMute(client, user.id, room.id)
+    return {
+      id: room.id,
+      kind: room.kind,
+      slug: room.slug,
+      title: room.title,
+      dormBuilding: room.dormBuilding,
+      isMutedAll: room.isMutedAll,
+      isMuted: Boolean(personalMute),
+      muteReason: personalMute?.reason || null,
+      isActive: room.isActive
+    }
+  })
 }
 
 export function getRoomOrThrow(client: DatabaseClient, roomId: string) {
