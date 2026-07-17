@@ -27,6 +27,7 @@ function applyPrivatePageHeaders(event: Parameters<typeof setHeader>[0]): void {
   // Never let CDN/browser cache private HTML or the guest login redirect.
   setHeader(event, 'Cache-Control', 'private, no-store, no-cache, must-revalidate')
   setHeader(event, 'CDN-Cache-Control', 'no-store')
+  setHeader(event, 'Cloudflare-CDN-Cache-Control', 'no-store')
   setHeader(event, 'Edge-Control', 'no-store')
   setHeader(event, 'Pragma', 'no-cache')
 }

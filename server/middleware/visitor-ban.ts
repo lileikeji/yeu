@@ -7,6 +7,7 @@ import { getClientIpAddress } from '../utils/client-ip'
 function applyBanHeaders(event: Parameters<typeof setHeader>[0]): void {
   setHeader(event, 'Cache-Control', 'private, no-store, no-cache, must-revalidate')
   setHeader(event, 'CDN-Cache-Control', 'no-store')
+  setHeader(event, 'Cloudflare-CDN-Cache-Control', 'no-store')
   setHeader(event, 'Edge-Control', 'no-store')
   setHeader(event, 'Pragma', 'no-cache')
 }
@@ -49,12 +50,27 @@ function renderBannedHtml(reason: string): string {
 </html>`
 }
 
+function renderBannedJson(reason: string): string {
+  return JSON.stringify({
+    error: true,
+    statusCode: 403,
+    statusMessage: 'Access denied',
+    message: 'Access denied',
+    data: {
+      code: 'VISITOR_BANNED',
+      reason
+    }
+  })
+}
+
 /**
  * Block banned IP/visitor/user on public app APIs and public HTML pages.
  * Admin surfaces stay reachable so operators can manage bans.
  *
- * HTML uses an explicit 403 body (not only throw): Nuxt document/SSR paths
- * can still render a 200 shell when middleware only throws createError.
+ * HTML and API both use explicit 403 bodies (not only throw): Nuxt document/SSR
+ * paths can still render a 200 shell when middleware only throws createError,
+ * and Accept: text/html clients can otherwise receive an HTML error document
+ * for /api/* ban responses.
  */
 export default defineEventHandler((event) => {
   const pathname = getRequestURL(event).pathname.replace(/\/+$/, '') || '/'
@@ -112,14 +128,10 @@ export default defineEventHandler((event) => {
       return send(event, renderBannedHtml(reason))
     }
 
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Access denied',
-      data: {
-        code: 'VISITOR_BANNED',
-        reason
-      }
-    })
+    // Force machine-readable JSON for banned API clients regardless of Accept.
+    setResponseStatus(event, 403, 'Access denied')
+    setHeader(event, 'Content-Type', 'application/json; charset=utf-8')
+    return send(event, renderBannedJson(reason))
   } catch (error) {
     // If migration not applied yet, skip ban gate to avoid total outage.
     const message = error instanceof Error ? error.message : String(error)
