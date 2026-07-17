@@ -39,6 +39,7 @@ function concretePageRoutes(): Set<string> {
     '/',
     '/about',
     '/campus',
+    '/checklist',
     '/clubs',
     '/departments',
     '/discover',
@@ -396,6 +397,16 @@ test('offline page is a thin shell over offline presentation', () => {
   assert.match(presentation, /export function resolveOfflineStatus/)
   assert.match(presentation, /公开 API 不作离线数据库/)
   assert.match(presentation, /当前处于离线状态/)
+})
+
+test('checklist page is a thin shell over checklist presentation', () => {
+  const page = readFileSync(resolve('app/pages/checklist.vue'), 'utf8')
+  const presentation = readFileSync(resolve('app/utils/checklist-presentation.ts'), 'utf8')
+  assert.match(page, /from ['"]~~\/app\/utils\/checklist-presentation['"]/)
+  assert.match(page, /useFreshmanChecklist/)
+  assert.match(page, /checklistAudienceOptions/)
+  assert.match(presentation, /export const checklistItems/)
+  assert.match(presentation, /export function buildChecklistOverview/)
 })
 
 test('privacy page is a thin shell over privacy presentation', () => {

@@ -25,19 +25,21 @@ test('discover page is a thin shell over discover-presentation util', () => {
 })
 
 test('discover catalogs stay student-facing', () => {
-  assert.equal(discoverTaskEntries.length, 8)
-  assert.equal(discoverTaskEntries[0]?.title, '新生报到')
-  assert.equal(discoverTaskEntries[0]?.to, '/procedures/arrival')
+  assert.equal(discoverTaskEntries.length, 9)
+  assert.equal(discoverTaskEntries[0]?.title, '新生清单')
+  assert.equal(discoverTaskEntries[0]?.to, '/checklist')
   assert.ok(discoverTaskEntries.some(item => item.title === '周边商铺' && item.to === '/nearby'))
   assert.ok(discoverTaskEntries.some(item => item.to === '/map?category=express'))
-  assert.equal(discoverDirectoryEntries.length, 6)
-  assert.equal(discoverDirectoryEntries[0]?.title, '校园地图')
+  assert.equal(discoverDirectoryEntries.length, 7)
+  assert.equal(discoverDirectoryEntries[0]?.title, '新生清单')
+  assert.ok(discoverDirectoryEntries.some(item => item.title === '校园地图' && item.to === '/map'))
   assert.ok(discoverDirectoryEntries.some(item => item.title === '全站搜索' && item.to === '/search'))
   assert.equal(discoverTrustEntries.length, 5)
   assert.equal(discoverTrustEntries[0]?.to, '/sources')
   assert.ok(discoverTrustEntries.some(item => item.title === '反馈纠错' && item.to === '/feedback'))
   assert.ok(discoverTrustEntries.some(item => item.title === '关于项目' && item.to === '/about'))
-  assert.match(discoverTaskEntries[0]?.description ?? '', /2026级/)
+  assert.ok(discoverTaskEntries.some(item => item.to === '/procedures/arrival' && /2026级/.test(item.description)))
+  assert.ok(discoverTaskEntries.some(item => item.to === '/checklist' && item.title === '新生清单'))
 })
 
 test('discover presentation export surface stays stable', () => {

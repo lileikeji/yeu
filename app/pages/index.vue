@@ -92,6 +92,11 @@ const featuredProcedures = computed(() => buildHomeFeaturedProcedures(
 function searchMap() {
   void navigateTo(buildHomeMapSearchTarget(placeQuery.value))
 }
+
+const {
+  homeSummary: checklistSummary,
+  hydrated: checklistHydrated
+} = useFreshmanChecklist()
 </script>
 
 <template>
@@ -235,6 +240,51 @@ function searchMap() {
           />
           <span>{{ fallbackMessage }}</span>
         </div>
+      </section>
+
+      <section class="page-shell pb-2 md:pb-4">
+        <NuxtLink
+          to="/checklist"
+          class="group flex flex-col gap-4 rounded-2xl border border-green-200 bg-gradient-to-r from-green-50 via-white to-emerald-50 p-4 transition hover:border-green-300 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
+        >
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-green-100 text-green-700">
+              <UIcon
+                name="i-lucide-list-checks"
+                class="size-5"
+              />
+            </span>
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-green-800">
+                新生本地清单
+              </p>
+              <h2 class="mt-1 text-base font-bold text-zinc-950">
+                到校前到第一周，逐项勾选
+              </h2>
+              <p class="mt-1 text-sm leading-6 text-zinc-600">
+                <template v-if="checklistHydrated && checklistSummary.remainingCount > 0">
+                  已完成 {{ checklistSummary.percent }}%，还剩 {{ checklistSummary.remainingCount }} 项
+                  <span v-if="checklistSummary.nextTitle">
+                    · 下一项：{{ checklistSummary.nextTitle }}
+                  </span>
+                </template>
+                <template v-else-if="checklistHydrated">
+                  当前清单已全部勾完，可随时复查行李与日常事项。
+                </template>
+                <template v-else>
+                  进度只保存在本机，打开后继续勾选。
+                </template>
+              </p>
+            </div>
+          </div>
+          <span class="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-green-700">
+            打开清单
+            <UIcon
+              name="i-lucide-arrow-right"
+              class="size-4 transition group-hover:translate-x-0.5"
+            />
+          </span>
+        </NuxtLink>
       </section>
 
       <section class="border-y border-[var(--line)] bg-white">

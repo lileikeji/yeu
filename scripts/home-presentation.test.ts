@@ -60,6 +60,8 @@ test('home page is a thin shell over home-presentation util', () => {
   assert.match(pageSource, /homeMoreEntries/)
   assert.match(pageSource, /computeHomeCardTilt/)
   assert.match(pageSource, /buildHomeMapSearchTarget/)
+  assert.match(pageSource, /useFreshmanChecklist/)
+  assert.match(pageSource, /\/checklist/)
   assert.doesNotMatch(pageSource, /const essentialActions = computed<HomeAction/)
   assert.doesNotMatch(pageSource, /const timelineStages: HomeTimelineStage/)
   assert.doesNotMatch(pageSource, /function procedureHomeItem/)
@@ -83,8 +85,9 @@ test('home essential actions and timeline keep freshman-first copy', () => {
   assert.equal(findGuideSummary([], 'missing', 'fallback'), 'fallback')
   assert.equal(homeTimelineStages.length, 3)
   assert.equal(homeTimelineStages[0]?.to, '/procedures/arrival')
-  assert.equal(homeMoreEntries.length, 4)
-  assert.equal(homeMoreEntries[0]?.to, '/guides/safety-health')
+  assert.equal(homeMoreEntries.length, 5)
+  assert.equal(homeMoreEntries[0]?.to, '/checklist')
+  assert.equal(homeMoreEntries[1]?.to, '/guides/safety-health')
 })
 
 test('home featured procedures exclude arrival and map method labels', () => {

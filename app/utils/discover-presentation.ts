@@ -11,6 +11,13 @@ export interface DiscoverTaskEntry extends DiscoverLinkEntry {
 
 export const discoverTaskEntries: DiscoverTaskEntry[] = [
   {
+    title: '新生清单',
+    description: '到校前到第一周任务勾选，进度只保存在本机',
+    to: '/checklist',
+    icon: 'i-lucide-list-checks',
+    tone: 'bg-emerald-50 text-emerald-700'
+  },
+  {
     title: '新生报到',
     description: '核对2026级日期、待通知材料与安全提醒',
     to: '/procedures/arrival',
@@ -69,6 +76,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
 ]
 
 export const discoverDirectoryEntries: DiscoverLinkEntry[] = [
+  { title: '新生清单', description: '本地勾选报到与入学事项，无需登录', to: '/checklist', icon: 'i-lucide-list-checks' },
   { title: '校园地图', description: '搜索地点、筛选类别、查看坐标核验状态', to: '/map', icon: 'i-lucide-map' },
   { title: '全部指南', description: '按入学、校园、生活与社团浏览', to: '/guides', icon: 'i-lucide-notebook-tabs' },
   { title: '校园概览', description: '学校简介、常用入口与当前公告', to: '/campus', icon: 'i-lucide-school' },

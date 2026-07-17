@@ -71,6 +71,13 @@ export const homeTimelineStages: HomeTimelineStage[] = [
 
 export const homeMoreEntries: HomeMoreEntry[] = [
   {
+    title: '新生清单',
+    description: '勾选到校前到第一周事项，进度只存在本机',
+    to: '/checklist',
+    icon: 'i-lucide-list-checks',
+    tone: 'bg-emerald-50 text-emerald-700'
+  },
+  {
     title: '安全、医疗与心理支持',
     description: '保存校园110，知道紧急情况先找谁',
     to: '/guides/safety-health',
