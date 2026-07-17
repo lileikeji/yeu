@@ -13,6 +13,7 @@ import {
   homeMoreEntries,
   homeTimelineStages
 } from '~~/app/utils/home-presentation'
+import { buildHomeArrivalSummary } from '~~/app/utils/arrival-timeline-presentation'
 
 useSeoMeta({
   title: '首页',
@@ -97,6 +98,8 @@ const {
   homeSummary: checklistSummary,
   hydrated: checklistHydrated
 } = useFreshmanChecklist()
+
+const arrivalSummary = computed(() => buildHomeArrivalSummary())
 </script>
 
 <template>
@@ -156,23 +159,23 @@ const {
           </div>
 
           <NuxtLink
-            to="/procedures/arrival"
+            :to="arrivalSummary.to"
             class="group p-5 premium-card glow-effect bg-orange-50/60 border-orange-200"
             @mousemove="onCardMouseMove"
             @mouseleave="onCardMouseLeave"
           >
             <p class="text-xs font-semibold text-orange-800">
-              2026级报到日期
+              {{ arrivalSummary.kicker }}
             </p>
             <p class="mt-2 text-3xl font-bold text-orange-950">
-              9月5–6日
+              {{ arrivalSummary.title }}
             </p>
             <div class="mt-4 space-y-2 border-t border-orange-200 pt-4 text-xs leading-5 text-orange-900">
-              <p>9月7–9日：入学教育</p>
-              <p>9月10日：开始上课</p>
+              <p>{{ arrivalSummary.meta }}</p>
+              <p>9月7–9日入学教育 · 9月10日上课</p>
             </div>
             <span class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-orange-950">
-              查看报到流程
+              打开入学清单 / 流程
               <UIcon
                 name="i-lucide-arrow-right"
                 class="size-4 transition group-hover:translate-x-0.5"

@@ -29,8 +29,9 @@ export default defineNuxtConfig({
     }
   },
 
-  // Keep production generation away from a concurrently running dev server.
-  buildDir: process.env.NODE_ENV === 'production' ? '.nuxt-build' : '.nuxt',
+  // Default .nuxt matches root tsconfig references. Set NUXT_BUILD_DIR=.nuxt-build
+  // only when a concurrent nuxt dev would otherwise clobber the same folder.
+  buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
 
   // SSR needs provider=server so serverBundle is built (CSS-mode --svg).
   // clientBundle covers client hydration; fallbackToApi=false avoids CDN
@@ -54,12 +55,30 @@ export default defineNuxtConfig({
         'X-Robots-Tag': 'noindex, nofollow'
       }
     },
+    // Admin UI and APIs must never be cached or indexed.
+    '/admin/**': {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'X-Robots-Tag': 'noindex, nofollow'
+      }
+    },
+    '/api/admin/**': {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'X-Robots-Tag': 'noindex, nofollow'
+      }
+    },
     // Icon payloads vary by ?icons=; never let CDN share one partial body.
     '/api/_nuxt_icon/**': {
       headers: {
         'Cache-Control': 'private, no-store'
       }
     }
+  },
+
+  nitro: {
+    // Do not advertise the framework via X-Powered-By.
+    poweredByHeader: false
   },
 
   compatibilityDate: '2026-06-30',

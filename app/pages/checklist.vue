@@ -2,6 +2,10 @@
 import {
   checklistAudienceOptions
 } from '~~/app/utils/checklist-presentation'
+import {
+  buildArrivalCountdown,
+  buildTodayFocus
+} from '~~/app/utils/arrival-timeline-presentation'
 
 useSeoMeta({
   title: '新生清单',
@@ -17,6 +21,9 @@ const {
   resetProgress,
   isCompleted
 } = useFreshmanChecklist()
+
+const arrival = computed(() => buildArrivalCountdown())
+const todayFocus = computed(() => buildTodayFocus(progress.value.completedIds, progress.value.audience))
 
 const confirmReset = ref(false)
 
@@ -78,7 +85,142 @@ function confirmResetProgress() {
     </header>
 
     <div class="page-shell py-8 md:py-10">
-      <section class="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 via-white to-orange-50 p-5 md:p-6">
+      <section class="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 via-white to-green-50 p-5 md:p-6">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-stretch lg:justify-between">
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-semibold text-orange-800">
+              {{ arrival.phaseLabel }} · {{ arrival.reportWindowLabel }}
+            </p>
+            <h2 class="mt-2 text-2xl font-bold tracking-tight text-zinc-950 md:text-3xl">
+              <template v-if="arrival.daysNumber != null && arrival.phase === 'before-report'">
+                还有 <span class="text-orange-700">{{ arrival.daysNumber }}</span> 天报到
+              </template>
+              <template v-else>
+                {{ arrival.headline }}
+              </template>
+            </h2>
+            <p class="mt-2 text-sm leading-6 text-zinc-600">
+              {{ arrival.detail }}
+            </p>
+            <p class="mt-2 text-xs leading-5 text-zinc-500">
+              {{ arrival.honestyNote }}
+            </p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <UButton
+                :to="arrival.primaryCtaTo"
+                :label="arrival.primaryCtaLabel"
+                icon="i-lucide-list-checks"
+                class="min-h-11"
+              />
+              <UButton
+                :to="arrival.secondaryCtaTo"
+                :label="arrival.secondaryCtaLabel"
+                color="neutral"
+                variant="outline"
+                class="min-h-11"
+              />
+            </div>
+          </div>
+          <ol class="grid w-full max-w-sm gap-2 sm:grid-cols-3 lg:grid-cols-1">
+            <li
+              v-for="milestone in arrival.milestones"
+              :key="milestone.id"
+              class="rounded-xl border px-3 py-3 text-xs leading-5"
+              :class="milestone.active
+                ? 'border-orange-300 bg-orange-50 text-orange-950'
+                : milestone.done
+                  ? 'border-green-200 bg-green-50 text-green-900'
+                  : 'border-zinc-200 bg-white text-zinc-600'"
+            >
+              <p class="font-semibold">
+                {{ milestone.label }}
+              </p>
+              <p class="mt-1 opacity-80">
+                {{ milestone.dateLabel }}
+              </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 md:p-6">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold text-green-700">
+              今日优先
+            </p>
+            <h2 class="mt-1 text-lg font-bold text-zinc-950">
+              {{ todayFocus.title }}
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-zinc-600">
+              {{ todayFocus.description }}
+            </p>
+          </div>
+        </div>
+
+        <p
+          v-if="!todayFocus.items.length"
+          class="mt-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600"
+        >
+          {{ todayFocus.emptyLabel }}
+        </p>
+        <ul
+          v-else
+          class="mt-4 grid gap-2 sm:grid-cols-2"
+        >
+          <li
+            v-for="item in todayFocus.items"
+            :key="`focus-${item.id}`"
+            class="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4"
+          >
+            <button
+              type="button"
+              class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md border transition"
+              :class="isCompleted(item.id)
+                ? 'border-green-600 bg-green-600 text-white'
+                : 'border-zinc-300 bg-white text-transparent hover:border-green-500'"
+              :aria-pressed="isCompleted(item.id)"
+              :aria-label="`${isCompleted(item.id) ? '取消完成' : '标记完成'}：${item.title}`"
+              @click="toggleItem(item.id)"
+            >
+              <UIcon
+                name="i-lucide-check"
+                class="size-3.5"
+              />
+            </button>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="text-sm font-semibold text-zinc-950">
+                  {{ item.title }}
+                </p>
+                <UBadge
+                  v-if="item.awaitingNotice"
+                  label="以通知为准"
+                  color="warning"
+                  variant="soft"
+                  size="sm"
+                />
+              </div>
+              <p class="mt-1 text-xs leading-5 text-zinc-600">
+                {{ item.description }}
+              </p>
+              <NuxtLink
+                v-if="item.to"
+                :to="item.to"
+                class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-green-700"
+              >
+                相关页面
+                <UIcon
+                  name="i-lucide-arrow-right"
+                  class="size-3.5"
+                />
+              </NuxtLink>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <section class="mt-6 rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 via-white to-orange-50 p-5 md:p-6">
         <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div class="min-w-0">
             <p class="text-xs font-semibold text-green-800">
