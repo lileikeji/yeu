@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
+import { getRequestMessage, getRequestStatusCode, isAuthorizationError } from '~~/app/utils/request-error'
 import { userFetch } from '~~/app/utils/user-request'
 
 definePageMeta({
@@ -49,6 +49,34 @@ let stickToBottom = true
 
 const activeRoom = computed(() => rooms.value.find(room => room.id === activeRoomId.value) || null)
 const composerLocked = computed(() => Boolean(activeRoom.value?.isMutedAll || activeRoom.value?.isMuted))
+
+type ChatRoomMuteState = {
+  id: string
+  isMutedAll: boolean
+  isMuted: boolean
+  muteReason: string | null
+}
+
+function applyRoomMuteState(state: ChatRoomMuteState | null | undefined): void {
+  if (!state?.id) return
+  const index = rooms.value.findIndex(room => room.id === state.id)
+  if (index < 0) return
+  const current = rooms.value[index]
+  if (
+    current.isMutedAll === state.isMutedAll
+    && current.isMuted === state.isMuted
+    && current.muteReason === state.muteReason
+  ) {
+    return
+  }
+  rooms.value[index] = {
+    ...current,
+    isMutedAll: state.isMutedAll,
+    isMuted: state.isMuted,
+    muteReason: state.muteReason
+  }
+}
+
 const composerLockReason = computed(() => {
   if (activeRoom.value?.isMutedAll) return '当前房间已全员禁言'
   if (activeRoom.value?.isMuted) {
@@ -99,10 +127,11 @@ async function loadInitialMessages(): Promise<void> {
     messages.value = []
     return
   }
-  const payload = await userFetch<{ items: ChatMessage[] }>(
+  const payload = await userFetch<{ items: ChatMessage[]; room?: ChatRoomMuteState }>(
     `/api/chat/rooms/${encodeURIComponent(activeRoomId.value)}/messages`,
     { query: { limit: 50 } }
   )
+  applyRoomMuteState(payload.room)
   messages.value = payload.items || []
   await nextTick()
   scrollToBottom(true)
@@ -111,10 +140,12 @@ async function loadInitialMessages(): Promise<void> {
 async function pollMessages(): Promise<void> {
   if (!activeRoomId.value) return
   const after = messages.value[messages.value.length - 1]?.id
-  const payload = await userFetch<{ items: ChatMessage[] }>(
+  const payload = await userFetch<{ items: ChatMessage[]; room?: ChatRoomMuteState }>(
     `/api/chat/rooms/${encodeURIComponent(activeRoomId.value)}/messages`,
     { query: after ? { after, limit: 50 } : { limit: 50 } }
   )
+  // Always refresh mute/all-mute flags so admin actions lock the composer without reload.
+  applyRoomMuteState(payload.room)
   const incoming = payload.items || []
   if (!incoming.length) return
   const known = new Set(messages.value.map(item => item.id))
@@ -174,9 +205,18 @@ async function sendMessage(): Promise<void> {
     await nextTick()
     scrollToBottom(true)
   } catch (error) {
-    if (isAuthorizationError(error)) {
+    const status = getRequestStatusCode(error)
+    if (status === 401) {
       await navigateTo({ path: '/login', query: { redirect: '/chat' } }, { replace: true })
       return
+    }
+    // Mute and other 403s should lock the composer, not bounce the user to login.
+    if (status === 403) {
+      try {
+        await loadRooms()
+      } catch {
+        // ignore secondary refresh failures
+      }
     }
     sendError.value = getRequestMessage(error, '发送失败')
   } finally {
@@ -188,7 +228,8 @@ function startPolling(): void {
   stopPolling()
   pollTimer = setInterval(() => {
     void pollMessages().catch((error) => {
-      if (isAuthorizationError(error)) {
+      const status = getRequestStatusCode(error)
+      if (status === 401) {
         stopPolling()
         void navigateTo({ path: '/login', query: { redirect: '/chat' } }, { replace: true })
       }
@@ -213,7 +254,8 @@ onMounted(async () => {
     await loadInitialMessages()
     startPolling()
   } catch (error) {
-    if (isAuthorizationError(error)) {
+    const status = getRequestStatusCode(error)
+    if (status === 401) {
       await navigateTo({ path: '/login', query: { redirect: '/chat' } }, { replace: true })
       return
     }

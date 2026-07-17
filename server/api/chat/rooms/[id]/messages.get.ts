@@ -3,6 +3,7 @@ import { requireUserSession } from '../../../../utils/user-auth'
 import { useAppDatabase } from '../../../../utils/database'
 import {
   assertUserCanAccessRoom,
+  getActiveMute,
   getRoomOrThrow,
   listMessages
 } from '../../../../modules/chat/service'
@@ -16,7 +17,14 @@ export default defineEventHandler((event) => {
   const room = getRoomOrThrow(client, roomId)
   assertUserCanAccessRoom(client, room, session.user)
   const query = parseQuery(event, chatMessagesQuerySchema)
+  const personalMute = getActiveMute(client, session.user.id, room.id)
   return {
-    items: listMessages(client, roomId, query)
+    items: listMessages(client, roomId, query),
+    room: {
+      id: room.id,
+      isMutedAll: room.isMutedAll,
+      isMuted: Boolean(personalMute),
+      muteReason: personalMute?.reason || null
+    }
   }
 })
