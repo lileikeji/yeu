@@ -1,9 +1,9 @@
-﻿/**
+/**
  * Hard gate for private HTML pages: guests cannot open /chat or /me at all.
  * Complements Nuxt route middleware (client SPA nav) and API requireUserSession (401).
  * Nuxt middleware alone may still SSR the protected page shell as 200 for guests.
  */
-import { getMethod, getRequestURL, sendRedirect } from 'h3'
+import { getMethod, getRequestURL, sendRedirect, setHeader } from 'h3'
 import { getOptionalUserSession } from '../utils/user-auth'
 import { useAppDatabase } from '../utils/database'
 
@@ -23,12 +23,22 @@ function isProtectedAppPage(pathname: string): boolean {
     || path.startsWith('/me/')
 }
 
+function applyPrivatePageHeaders(event: Parameters<typeof setHeader>[0]): void {
+  // Never let CDN/browser cache private HTML or the guest login redirect.
+  setHeader(event, 'Cache-Control', 'private, no-store, no-cache, must-revalidate')
+  setHeader(event, 'CDN-Cache-Control', 'no-store')
+  setHeader(event, 'Edge-Control', 'no-store')
+  setHeader(event, 'Pragma', 'no-cache')
+}
+
 export default defineEventHandler((event) => {
   const method = getMethod(event).toUpperCase()
   if (method !== 'GET' && method !== 'HEAD') return
 
   const url = getRequestURL(event)
   if (!isProtectedAppPage(url.pathname)) return
+
+  applyPrivatePageHeaders(event)
 
   let authenticated = false
   try {
