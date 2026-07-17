@@ -18,6 +18,14 @@ export function useAdminRequest(event: H3Event, csrf?: boolean) {
   return { client, session }
 }
 
+/**
+ * Short browser-side reuse for public catalog payloads.
+ * Intentionally NOT shared-cached at CDN/edge: visitor bans and other origin
+ * middleware cannot run on a shared HIT, so edge cache would leak public API
+ * bodies to banned clients.
+ */
 export function setPublicCache(event: H3Event, maxAge = 60): void {
-  setHeader(event, 'Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=${maxAge * 5}`)
+  setHeader(event, 'Cache-Control', `private, max-age=${maxAge}, stale-while-revalidate=${maxAge * 5}`)
+  setHeader(event, 'CDN-Cache-Control', 'no-store')
+  setHeader(event, 'Cloudflare-CDN-Cache-Control', 'no-store')
 }
