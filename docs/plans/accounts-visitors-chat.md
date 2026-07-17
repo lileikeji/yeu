@@ -1,4 +1,4 @@
-# 账号 · 访客 · 群聊 实施方案
+﻿# 账号 · 访客 · 群聊 实施方案
 
 状态：已完成并持续加固（2026-07-18）。不登录不能聊天；迁移已部署；E2E 通过；已补页面路由中间件与 SSR 会话读取。
 约束：不登录也能用指南；**不登录不能聊天**；暂不开放注册；管理员入口隐藏。
@@ -46,3 +46,11 @@
 - API 第二道闸：`requireUserSession` 仍强制 `/api/chat/*`、`/api/me/*` 401
 - 群聊 UI：全员禁言时禁用输入与发送
 - 访客埋点外网 curl 403 为 `assertTrustedOrigin` 预期行为；浏览器同源 POST 正常
+
+## 机制加固（2026-07-18 再续 · 不登录不能聊天）
+
+- Nitro：`server/middleware/require-user-pages.ts` 对访客访问 `/chat`、`/me` 直接 **302** → `/login?redirect=...`（SSR/硬刷新也生效）
+- Nuxt：`app/middleware/auth.ts` 使用 `redirectCode: 302`，覆盖客户端路由跳转
+- API：`/api/chat/*`、`/api/me` 仍 401
+- 访客仍可正常使用指南、地图、办事等公开功能
+
