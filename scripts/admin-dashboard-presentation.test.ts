@@ -3,21 +3,28 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import {
+  adminDashboardGroupMeta,
   adminDashboardModules,
+  adminDashboardModulesByGroup,
   adminDashboardQuickActions,
   adminDashboardRecordValue,
   adminDashboardStatusCode,
+  adminNavigationGroups,
+  adminNavigationItems,
   formatAdminDashboardDate,
   normalizeAdminDashboardResponse
 } from '../app/utils/admin-dashboard-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/admin/index.vue'), 'utf8')
 const utilSource = readFileSync(resolve('app/utils/admin-dashboard-presentation.ts'), 'utf8')
+const layoutSource = readFileSync(resolve('app/layouts/admin.vue'), 'utf8')
 
 test('admin dashboard page is a thin shell over admin-dashboard-presentation util', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/admin-dashboard-presentation['"]/)
   assert.match(pageSource, /adminDashboardModules/)
   assert.match(pageSource, /adminDashboardQuickActions/)
+  assert.match(pageSource, /adminDashboardGroupMeta/)
+  assert.match(pageSource, /adminDashboardModulesByGroup/)
   assert.match(pageSource, /normalizeAdminDashboardResponse/)
   assert.match(pageSource, /adminDashboardStatusCode/)
   assert.match(pageSource, /adminDashboardRecordValue/)
@@ -28,18 +35,48 @@ test('admin dashboard page is a thin shell over admin-dashboard-presentation uti
   assert.doesNotMatch(pageSource, /function formatDate/)
   assert.match(utilSource, /export const adminDashboardModules/)
   assert.match(utilSource, /export const adminDashboardQuickActions/)
+  assert.match(utilSource, /export const adminDashboardGroupMeta/)
+  assert.match(utilSource, /export const adminNavigationGroups/)
 })
 
-test('admin dashboard catalogs cover core maintenance routes', () => {
-  assert.equal(adminDashboardModules.length, 5)
+test('admin dashboard catalogs cover content, ops, and security routes', () => {
+  assert.equal(adminDashboardGroupMeta.length, 3)
+  assert.deepEqual(adminDashboardGroupMeta.map(item => item.key), ['content', 'ops', 'security'])
+  assert.equal(adminDashboardModules.length, 9)
   assert.equal(adminDashboardModules[0]?.key, 'places')
   assert.equal(adminDashboardModules[0]?.to, '/admin/places')
   assert.ok(adminDashboardModules.some(item => item.key === 'feedback' && item.query?.status === 'new'))
+  assert.ok(adminDashboardModules.some(item => item.key === 'users' && item.group === 'ops'))
+  assert.ok(adminDashboardModules.some(item => item.key === 'chat-rooms' && item.endpoint === '/api/admin/chat/rooms'))
+  assert.ok(adminDashboardModules.some(item => item.key === 'visitors' && item.group === 'security'))
+  assert.ok(adminDashboardModules.some(item => item.key === 'bans' && item.endpoint === '/api/admin/visitors/bans'))
   assert.ok(adminDashboardModules.every(item => item.endpoint.startsWith('/api/admin/')))
-  assert.equal(adminDashboardQuickActions.length, 7)
+  assert.ok(adminDashboardModules.every(item => item.group === 'content' || item.group === 'ops' || item.group === 'security'))
+  assert.equal(adminDashboardModulesByGroup('content').length, 4)
+  assert.equal(adminDashboardModulesByGroup('ops').length, 3)
+  assert.equal(adminDashboardModulesByGroup('security').length, 2)
+  assert.equal(adminDashboardQuickActions.length, 10)
   assert.equal(adminDashboardQuickActions[0]?.to, '/admin/places?action=create')
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/field-observations'))
   assert.ok(adminDashboardQuickActions.some(item => item.label === '处理反馈'))
+  assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/users'))
+  assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/chat'))
+  assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/visitors'))
+  assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/audit-logs'))
+})
+
+test('admin navigation is grouped and shared with the layout shell', () => {
+  assert.equal(adminNavigationGroups.length, 4)
+  assert.deepEqual(adminNavigationGroups.map(group => group.key), ['overview', 'content', 'ops', 'security'])
+  assert.ok(adminNavigationItems.some(item => item.to === '/admin/places'))
+  assert.ok(adminNavigationItems.some(item => item.to === '/admin/users'))
+  assert.ok(adminNavigationItems.some(item => item.to === '/admin/chat'))
+  assert.ok(adminNavigationItems.some(item => item.to === '/admin/visitors'))
+  assert.ok(adminNavigationItems.some(item => item.to === '/admin/audit-logs'))
+  assert.match(layoutSource, /from ['"]~~\/app\/utils\/admin-dashboard-presentation['"]/)
+  assert.match(layoutSource, /adminNavigationGroups/)
+  assert.match(layoutSource, /navigationGroups/)
+  assert.doesNotMatch(layoutSource, /const navigation: NavigationItem\[\] = \[/)
 })
 
 test('admin dashboard response helpers stay pure and stable', () => {

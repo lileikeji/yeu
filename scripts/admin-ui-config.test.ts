@@ -186,15 +186,19 @@ test('content admin form covers editable metadata used by public catalog seeds',
 })
 
 test('admin navigation and dashboard expose every maintenance entry point', () => {
-  assertContains(adminLayoutSource, [
+  assert.match(adminLayoutSource, /adminNavigationGroups/)
+  assertContains(adminDashboardPresentationSource, [
     /to: '\/admin\/places'/,
     /to: '\/admin\/field-observations'/,
     /to: '\/admin\/procedures'/,
     /to: '\/admin\/content'/,
     /to: '\/admin\/sources'/,
     /to: '\/admin\/feedback'/,
+    /to: '\/admin\/users'/,
+    /to: '\/admin\/chat'/,
+    /to: '\/admin\/visitors'/,
     /to: '\/admin\/audit-logs'/
-  ], 'admin layout navigation')
+  ], 'admin navigation entry points')
 
   assert.match(adminIndexSource, /from ['"]~~\/app\/utils\/admin-dashboard-presentation['"]/)
   assert.match(adminIndexSource, /adminDashboardModules/)
@@ -205,13 +209,22 @@ test('admin navigation and dashboard expose every maintenance entry point', () =
     /endpoint: '\/api\/admin\/procedures'/,
     /endpoint: '\/api\/admin\/sources'/,
     /endpoint: '\/api\/admin\/feedback'/,
+    /endpoint: '\/api\/admin\/users'/,
+    /endpoint: '\/api\/admin\/chat\/rooms'/,
+    /endpoint: '\/api\/admin\/visitors'/,
+    /endpoint: '\/api\/admin\/visitors\/bans'/,
     /to: '\/admin\/places\?action=create'/,
     /to: '\/admin\/content\?action=create'/,
     /to: '\/admin\/procedures\?action=create'/,
     /to: '\/admin\/sources\?action=create'/,
     /to: '\/admin\/field-observations'/,
     /to: '\/admin\/feedback'/,
-    /to: '\/admin\/audit-logs'/
+    /to: '\/admin\/users'/,
+    /to: '\/admin\/chat'/,
+    /to: '\/admin\/visitors'/,
+    /to: '\/admin\/audit-logs'/,
+    /export const adminDashboardGroupMeta/,
+    /export const adminNavigationGroups/
   ], 'admin dashboard entry points')
 })
 

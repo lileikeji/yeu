@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
+  adminDashboardGroupMeta,
   adminDashboardModules,
+  adminDashboardModulesByGroup,
   adminDashboardQuickActions,
   adminDashboardRecordValue,
   adminDashboardStatusCode,
@@ -21,6 +23,13 @@ const recentFeedback = ref<AdminDashboardRecord[]>([])
 const recentAudit = ref<AdminDashboardRecord[]>([])
 const loading = ref(false)
 const loadError = ref('')
+
+const moduleGroups = computed(() =>
+  adminDashboardGroupMeta.map(group => ({
+    ...group,
+    modules: adminDashboardModulesByGroup(group.key)
+  }))
+)
 
 async function loadDashboard(): Promise<void> {
   loading.value = true
@@ -77,7 +86,7 @@ onMounted(() => {
   <div class="mx-auto max-w-[1500px]">
     <AdminPageHeader
       title="管理概览"
-      description="待处理事项、内容规模与最近操作。"
+      description="内容资产、用户互动与安全审计分区一览。"
       icon="i-lucide-layout-dashboard"
       eyebrow="工作台"
     >
@@ -106,43 +115,57 @@ onMounted(() => {
     </div>
 
     <section
-      class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
-      aria-label="内容统计"
+      v-for="group in moduleGroups"
+      :key="group.key"
+      class="mt-5"
+      :aria-label="group.label"
     >
-      <NuxtLink
-        v-for="module in adminDashboardModules"
-        :key="module.key"
-        :to="module.to"
-        class="group rounded-md border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
-      >
-        <div class="flex items-start justify-between gap-3">
-          <span
-            class="grid size-9 place-items-center rounded-md"
-            :class="module.color"
-          >
-            <UIcon
-              :name="module.icon"
-              class="size-4"
-            />
-          </span>
-          <UIcon
-            name="i-lucide-arrow-up-right"
-            class="size-4 text-zinc-300 group-hover:text-zinc-500"
-          />
+      <div class="mb-2 flex items-end justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-semibold text-zinc-950">
+            {{ group.label }}
+          </h2>
+          <p class="mt-0.5 text-xs text-zinc-500">
+            {{ group.description }}
+          </p>
         </div>
-        <p class="mt-4 text-2xl font-bold text-zinc-950">
-          <USkeleton
-            v-if="loading && counts[module.key] === undefined"
-            class="h-7 w-14"
-          />
-          <template v-else>
-            {{ counts[module.key] ?? '—' }}
-          </template>
-        </p>
-        <p class="mt-1 text-xs font-medium text-zinc-500">
-          {{ module.label }}
-        </p>
-      </NuxtLink>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <NuxtLink
+          v-for="module in group.modules"
+          :key="module.key"
+          :to="module.to"
+          class="group rounded-md border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <span
+              class="grid size-9 place-items-center rounded-md"
+              :class="module.color"
+            >
+              <UIcon
+                :name="module.icon"
+                class="size-4"
+              />
+            </span>
+            <UIcon
+              name="i-lucide-arrow-up-right"
+              class="size-4 text-zinc-300 group-hover:text-zinc-500"
+            />
+          </div>
+          <p class="mt-4 text-2xl font-bold text-zinc-950">
+            <USkeleton
+              v-if="loading && counts[module.key] === undefined"
+              class="h-7 w-14"
+            />
+            <template v-else>
+              {{ counts[module.key] ?? '—' }}
+            </template>
+          </p>
+          <p class="mt-1 text-xs font-medium text-zinc-500">
+            {{ module.label }}
+          </p>
+        </NuxtLink>
+      </div>
     </section>
 
     <section class="mt-5 border-y border-zinc-200 bg-white px-4 py-3">
@@ -153,7 +176,7 @@ onMounted(() => {
         <div class="flex flex-wrap gap-2">
           <UButton
             v-for="action in adminDashboardQuickActions"
-            :key="action.to"
+            :key="action.to + action.label"
             :to="action.to"
             :icon="action.icon"
             :label="action.label"
@@ -173,7 +196,7 @@ onMounted(() => {
               待处理反馈
             </h2>
             <p class="mt-0.5 text-xs text-zinc-500">
-              最近提交
+              用户与互动
             </p>
           </div>
           <UButton
@@ -228,7 +251,7 @@ onMounted(() => {
               最近操作
             </h2>
             <p class="mt-0.5 text-xs text-zinc-500">
-              审计日志
+              安全与审计
             </p>
           </div>
           <UButton

@@ -1,25 +1,12 @@
 <script setup lang="ts">
+import {
+  adminNavigationGroups,
+  adminNavigationItems
+} from '~~/app/utils/admin-dashboard-presentation'
+
 const route = useRoute()
-
-interface NavigationItem {
-  label: string
-  icon: string
-  to: string
-}
-
-const navigation: NavigationItem[] = [
-  { label: '概览', icon: 'i-lucide-layout-dashboard', to: '/admin' },
-  { label: '地点', icon: 'i-lucide-map-pin', to: '/admin/places' },
-  { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations' },
-  { label: '办事流程', icon: 'i-lucide-list-checks', to: '/admin/procedures' },
-  { label: '内容', icon: 'i-lucide-files', to: '/admin/content' },
-  { label: '来源', icon: 'i-lucide-book-marked', to: '/admin/sources' },
-  { label: '反馈', icon: 'i-lucide-message-square-warning', to: '/admin/feedback' },
-  { label: '访客', icon: 'i-lucide-radar', to: '/admin/visitors' },
-  { label: '账号', icon: 'i-lucide-users', to: '/admin/users' },
-  { label: '群聊', icon: 'i-lucide-messages-square', to: '/admin/chat' },
-  { label: '审计日志', icon: 'i-lucide-scroll-text', to: '/admin/audit-logs' }
-]
+const navigationGroups = adminNavigationGroups
+const navigation = adminNavigationItems
 
 const authState = ref<'checking' | 'authenticated' | 'error'>('checking')
 const authError = ref('')
@@ -231,23 +218,35 @@ onMounted(() => {
         </div>
 
         <nav
-          class="flex-1 space-y-1 overflow-y-auto p-3"
+          class="flex-1 space-y-4 overflow-y-auto p-3"
           aria-label="管理后台导航"
         >
-          <NuxtLink
-            v-for="item in navigation"
-            :key="item.to"
-            :to="item.to"
-            class="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
-            :class="isActive(item.to) ? 'bg-white text-zinc-950' : 'text-zinc-300 hover:bg-white/10 hover:text-white'"
-            :aria-current="isActive(item.to) ? 'page' : undefined"
+          <div
+            v-for="group in navigationGroups"
+            :key="group.key"
+            class="space-y-1"
           >
-            <UIcon
-              :name="item.icon"
-              class="size-4 shrink-0"
-            />
-            <span>{{ item.label }}</span>
-          </NuxtLink>
+            <p
+              v-if="group.key !== 'overview'"
+              class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500"
+            >
+              {{ group.label }}
+            </p>
+            <NuxtLink
+              v-for="item in group.items"
+              :key="item.to"
+              :to="item.to"
+              class="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
+              :class="isActive(item.to) ? 'bg-white text-zinc-950' : 'text-zinc-300 hover:bg-white/10 hover:text-white'"
+              :aria-current="isActive(item.to) ? 'page' : undefined"
+            >
+              <UIcon
+                :name="item.icon"
+                class="size-4 shrink-0"
+              />
+              <span>{{ item.label }}</span>
+            </NuxtLink>
+          </div>
         </nav>
 
         <div class="border-t border-white/10 p-3">
@@ -347,23 +346,35 @@ onMounted(() => {
             />
           </div>
           <nav
-            class="flex-1 space-y-1 overflow-y-auto p-3"
+            class="flex-1 space-y-4 overflow-y-auto p-3"
             aria-label="移动端管理导航"
           >
-            <NuxtLink
-              v-for="item in navigation"
-              :key="item.to"
-              :to="item.to"
-              class="flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm"
-              :class="isActive(item.to) ? 'bg-green-50 font-medium text-green-800' : 'text-zinc-600'"
-              :aria-current="isActive(item.to) ? 'page' : undefined"
+            <div
+              v-for="group in navigationGroups"
+              :key="group.key"
+              class="space-y-1"
             >
-              <UIcon
-                :name="item.icon"
-                class="size-4"
-              />
-              {{ item.label }}
-            </NuxtLink>
+              <p
+                v-if="group.key !== 'overview'"
+                class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400"
+              >
+                {{ group.label }}
+              </p>
+              <NuxtLink
+                v-for="item in group.items"
+                :key="item.to"
+                :to="item.to"
+                class="flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm"
+                :class="isActive(item.to) ? 'bg-green-50 font-medium text-green-800' : 'text-zinc-600'"
+                :aria-current="isActive(item.to) ? 'page' : undefined"
+              >
+                <UIcon
+                  :name="item.icon"
+                  class="size-4"
+                />
+                {{ item.label }}
+              </NuxtLink>
+            </div>
           </nav>
           <div class="border-t border-zinc-200 p-3">
             <UButton

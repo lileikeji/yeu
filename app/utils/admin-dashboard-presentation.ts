@@ -1,3 +1,11 @@
+export type AdminDashboardGroupKey = 'content' | 'ops' | 'security'
+
+export interface AdminDashboardGroupMeta {
+  key: AdminDashboardGroupKey
+  label: string
+  description: string
+}
+
 export interface AdminDashboardModule {
   key: string
   label: string
@@ -6,15 +14,47 @@ export interface AdminDashboardModule {
   to: string
   query?: Record<string, string | number>
   color: string
+  group: AdminDashboardGroupKey
 }
 
 export interface AdminDashboardQuickAction {
   label: string
   icon: string
   to: string
+  group?: AdminDashboardGroupKey
+}
+
+export interface AdminNavigationItem {
+  label: string
+  icon: string
+  to: string
+}
+
+export interface AdminNavigationGroup {
+  key: string
+  label: string
+  items: AdminNavigationItem[]
 }
 
 export type AdminDashboardRecord = Record<string, unknown>
+
+export const adminDashboardGroupMeta: AdminDashboardGroupMeta[] = [
+  {
+    key: 'content',
+    label: '内容资产',
+    description: '地点、办事流程、图文与来源等对外内容。'
+  },
+  {
+    key: 'ops',
+    label: '用户与互动',
+    description: '账号、反馈与楼群群聊运营。'
+  },
+  {
+    key: 'security',
+    label: '安全与审计',
+    description: '访客轨迹、封禁与后台操作留痕。'
+  }
+]
 
 export const adminDashboardModules: AdminDashboardModule[] = [
   {
@@ -23,7 +63,8 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     icon: 'i-lucide-map-pin',
     endpoint: '/api/admin/places',
     to: '/admin/places',
-    color: 'text-blue-700 bg-blue-50'
+    color: 'text-blue-700 bg-blue-50',
+    group: 'content'
   },
   {
     key: 'content',
@@ -31,7 +72,8 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     icon: 'i-lucide-files',
     endpoint: '/api/admin/content',
     to: '/admin/content',
-    color: 'text-green-700 bg-green-50'
+    color: 'text-green-700 bg-green-50',
+    group: 'content'
   },
   {
     key: 'procedures',
@@ -39,7 +81,8 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     icon: 'i-lucide-list-checks',
     endpoint: '/api/admin/procedures',
     to: '/admin/procedures',
-    color: 'text-cyan-700 bg-cyan-50'
+    color: 'text-cyan-700 bg-cyan-50',
+    group: 'content'
   },
   {
     key: 'sources',
@@ -47,7 +90,8 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     icon: 'i-lucide-book-marked',
     endpoint: '/api/admin/sources',
     to: '/admin/sources',
-    color: 'text-violet-700 bg-violet-50'
+    color: 'text-violet-700 bg-violet-50',
+    group: 'content'
   },
   {
     key: 'feedback',
@@ -56,19 +100,103 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     endpoint: '/api/admin/feedback',
     to: '/admin/feedback',
     query: { status: 'new' },
-    color: 'text-orange-700 bg-orange-50'
+    color: 'text-orange-700 bg-orange-50',
+    group: 'ops'
+  },
+  {
+    key: 'users',
+    label: '账号',
+    icon: 'i-lucide-users',
+    endpoint: '/api/admin/users',
+    to: '/admin/users',
+    color: 'text-sky-700 bg-sky-50',
+    group: 'ops'
+  },
+  {
+    key: 'chat-rooms',
+    label: '群聊',
+    icon: 'i-lucide-messages-square',
+    endpoint: '/api/admin/chat/rooms',
+    to: '/admin/chat',
+    color: 'text-indigo-700 bg-indigo-50',
+    group: 'ops'
+  },
+  {
+    key: 'visitors',
+    label: '访客',
+    icon: 'i-lucide-radar',
+    endpoint: '/api/admin/visitors',
+    to: '/admin/visitors',
+    color: 'text-rose-700 bg-rose-50',
+    group: 'security'
+  },
+  {
+    key: 'bans',
+    label: '封禁',
+    icon: 'i-lucide-shield-ban',
+    endpoint: '/api/admin/visitors/bans',
+    to: '/admin/visitors',
+    color: 'text-red-700 bg-red-50',
+    group: 'security'
   }
 ]
 
 export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
-  { label: '新增地点', icon: 'i-lucide-map-pin-plus', to: '/admin/places?action=create' },
-  { label: '新增内容', icon: 'i-lucide-file-plus-2', to: '/admin/content?action=create' },
-  { label: '新增流程', icon: 'i-lucide-list-plus', to: '/admin/procedures?action=create' },
-  { label: '登记来源', icon: 'i-lucide-book-plus', to: '/admin/sources?action=create' },
-  { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations' },
-  { label: '处理反馈', icon: 'i-lucide-message-square-reply', to: '/admin/feedback' },
-  { label: '审计日志', icon: 'i-lucide-history', to: '/admin/audit-logs' }
+  { label: '新增地点', icon: 'i-lucide-map-pin-plus', to: '/admin/places?action=create', group: 'content' },
+  { label: '新增内容', icon: 'i-lucide-file-plus-2', to: '/admin/content?action=create', group: 'content' },
+  { label: '新增流程', icon: 'i-lucide-list-plus', to: '/admin/procedures?action=create', group: 'content' },
+  { label: '登记来源', icon: 'i-lucide-book-plus', to: '/admin/sources?action=create', group: 'content' },
+  { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations', group: 'content' },
+  { label: '处理反馈', icon: 'i-lucide-message-square-reply', to: '/admin/feedback', group: 'ops' },
+  { label: '创建账号', icon: 'i-lucide-user-plus', to: '/admin/users', group: 'ops' },
+  { label: '群聊管理', icon: 'i-lucide-messages-square', to: '/admin/chat', group: 'ops' },
+  { label: '访客与封禁', icon: 'i-lucide-radar', to: '/admin/visitors', group: 'security' },
+  { label: '审计日志', icon: 'i-lucide-history', to: '/admin/audit-logs', group: 'security' }
 ]
+
+export const adminNavigationGroups: AdminNavigationGroup[] = [
+  {
+    key: 'overview',
+    label: '工作台',
+    items: [
+      { label: '概览', icon: 'i-lucide-layout-dashboard', to: '/admin' }
+    ]
+  },
+  {
+    key: 'content',
+    label: '内容资产',
+    items: [
+      { label: '地点', icon: 'i-lucide-map-pin', to: '/admin/places' },
+      { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations' },
+      { label: '办事流程', icon: 'i-lucide-list-checks', to: '/admin/procedures' },
+      { label: '内容', icon: 'i-lucide-files', to: '/admin/content' },
+      { label: '来源', icon: 'i-lucide-book-marked', to: '/admin/sources' }
+    ]
+  },
+  {
+    key: 'ops',
+    label: '用户与互动',
+    items: [
+      { label: '反馈', icon: 'i-lucide-message-square-warning', to: '/admin/feedback' },
+      { label: '账号', icon: 'i-lucide-users', to: '/admin/users' },
+      { label: '群聊', icon: 'i-lucide-messages-square', to: '/admin/chat' }
+    ]
+  },
+  {
+    key: 'security',
+    label: '安全与审计',
+    items: [
+      { label: '访客', icon: 'i-lucide-radar', to: '/admin/visitors' },
+      { label: '审计日志', icon: 'i-lucide-scroll-text', to: '/admin/audit-logs' }
+    ]
+  }
+]
+
+export const adminNavigationItems: AdminNavigationItem[] = adminNavigationGroups.flatMap(group => group.items)
+
+export function adminDashboardModulesByGroup(group: AdminDashboardGroupKey): AdminDashboardModule[] {
+  return adminDashboardModules.filter(module => module.group === group)
+}
 
 export function isAdminDashboardRecord(value: unknown): value is AdminDashboardRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
