@@ -81,6 +81,6 @@ test('administrator password policy enforces a 12-character minimum on hash/boot
 
   assert.equal(await verifyPassword(password, hash), true)
   assert.equal(await verifyPassword(password + 'x', hash), false)
-  await assert.rejects(() => hashPassword('12345678901'), /at least 12 characters/)
-  await assert.rejects(() => hashPassword('short'), /at least 12 characters/)
+  await assert.rejects(() => hashPassword('1234567'), /at least 8 characters/)
+  await assert.rejects(() => hashPassword('short'), /at least 8 characters/)
 })

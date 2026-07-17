@@ -5,7 +5,7 @@ const SCRYPT_R = 8
 const SCRYPT_P = 1
 const SCRYPT_KEY_LENGTH = 64
 const SCRYPT_MAX_MEMORY = 64 * 1024 * 1024
-export const ADMIN_PASSWORD_MIN_LENGTH = 12
+export const ADMIN_PASSWORD_MIN_LENGTH = 8
 
 function deriveKey(password: string, salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {

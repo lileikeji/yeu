@@ -355,7 +355,7 @@ export const updateFeedbackSchema = z.object({
 
 export const loginSchema = z.object({
   username: z.string().trim().min(1).max(80),
-  password: z.string().min(12).max(128)
+  password: z.string().min(8).max(128)
 }).strict()
 
 export const paginationQuerySchema = z.object({
