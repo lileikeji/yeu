@@ -1,5 +1,6 @@
 import type { ApiContent, ApiFeedback, ApiPlace, ApiSource } from '../../shared/types/server'
 import type { contents, feedback, places, sources } from '../database/schema'
+import { isSafePublicHttpUrl } from '../../shared/utils/public-http-url'
 
 type SourceRow = typeof sources.$inferSelect
 type PlaceRow = typeof places.$inferSelect
@@ -10,22 +11,76 @@ function toIso(value: number | null): string | null {
   return value === null ? null : new Date(value).toISOString()
 }
 
+/** Keys that must never reappear in API-facing metadata (write schema + read sanitize). */
+const FORBIDDEN_METADATA_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
+const SAFE_METADATA_MAX_DEPTH = 6
+const SAFE_METADATA_MAX_KEYS_PER_OBJECT = 64
+
+function sanitizeMetadataValue(value: unknown, depth: number): unknown {
+  if (depth > SAFE_METADATA_MAX_DEPTH) {
+    return null
+  }
+
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => sanitizeMetadataValue(item, depth + 1))
+  }
+
+  const out: Record<string, unknown> = {}
+  let count = 0
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (FORBIDDEN_METADATA_KEYS.has(key)) continue
+    if (count >= SAFE_METADATA_MAX_KEYS_PER_OBJECT) break
+    out[key] = sanitizeMetadataValue(child, depth + 1)
+    count += 1
+  }
+  return out
+}
+
+/**
+ * Parse stored content/procedure metadata for API responses.
+ * Defense-in-depth: strip prototype-pollution keys and bound depth/key fan-out
+ * even if legacy or out-of-band JSON still contains them.
+ */
 export function safeMetadata(value: string): Record<string, unknown> {
   try {
     const parsed: unknown = JSON.parse(value)
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : {}
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {}
+    }
+    return sanitizeMetadataValue(parsed, 0) as Record<string, unknown>
   } catch {
     return {}
   }
 }
 
-export function serializeSource(row: SourceRow): ApiSource {
+/** Same sanitize path for already-parsed JSON objects (e.g. audit details). */
+export function safeMetadataRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+  return sanitizeMetadataValue(value, 0) as Record<string, unknown>
+}
+
+/** Public API: only expose http(s) URLs that pass the shared public-URL policy. */
+function safeStoredHttpUrl(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  return isSafePublicHttpUrl(trimmed) ? trimmed : null
+}
+
+export function serializeSource(row: SourceRow, sanitizeUrls = true): ApiSource {
+  const url = sanitizeUrls
+    ? (safeStoredHttpUrl(row.url) || '')
+    : row.url
   return {
     id: row.id,
     title: row.title,
-    url: row.url,
+    url,
     platform: row.platform,
     publisherName: row.publisherName,
     sourceLevel: row.sourceLevel,
@@ -38,7 +93,8 @@ export function serializeSource(row: SourceRow): ApiSource {
 
 export function serializeAdminSource(row: SourceRow) {
   return {
-    ...serializeSource(row),
+    // Keep raw URLs in admin so editors can repair legacy/invalid values.
+    ...serializeSource(row, false),
     notes: row.notes,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString()
@@ -56,6 +112,13 @@ export function serializePlace(
     && row.latitude !== null
     && row.coordinateSystem !== null
   const exposeCoordinates = includeInternalCoordinates || navigationAvailable
+  // Admin keeps raw URL columns for repair; public strips unsafe values.
+  const website = includeInternalCoordinates
+    ? row.website
+    : safeStoredHttpUrl(row.website)
+  const externalMapUrl = includeInternalCoordinates
+    ? row.externalMapUrl
+    : safeStoredHttpUrl(row.externalMapUrl)
 
   return {
     id: row.id,
@@ -80,8 +143,8 @@ export function serializePlace(
     ...(includeInternalCoordinates ? { sourceRawRef: row.sourceRawRef } : {}),
     openingHours: row.openingHours,
     phone: row.phone,
-    website: row.website,
-    externalMapUrl: row.externalMapUrl,
+    website,
+    externalMapUrl,
     isOfficial: row.isOfficial,
     isFeatured: row.isFeatured,
     status: row.status,
@@ -89,7 +152,7 @@ export function serializePlace(
     publishedAt: toIso(row.publishedAt),
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
-    sources: sourceRows.map(serializeSource)
+    sources: sourceRows.map(source => serializeSource(source, !includeInternalCoordinates))
   }
 }
 
@@ -121,7 +184,8 @@ export function serializeFeedback(row: FeedbackRow): ApiFeedback {
     targetId: row.targetId,
     reasonType: row.reasonType,
     message: row.message,
-    evidenceUrl: row.evidenceUrl,
+    // Null unsafe legacy evidence links; pageUrl is a local path (validated on write).
+    evidenceUrl: safeStoredHttpUrl(row.evidenceUrl),
     pageUrl: row.pageUrl,
     contact: row.contact,
     status: row.status,

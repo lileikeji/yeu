@@ -19,5 +19,14 @@ export function rethrowDatabaseError(error: unknown): never {
     })
   }
 
+  // Never surface raw driver messages (paths, SQL fragments) to API clients.
+  if (process.env.NODE_ENV === 'production') {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Database error',
+      data: { code: 'DATABASE_ERROR' }
+    })
+  }
+
   throw error
 }

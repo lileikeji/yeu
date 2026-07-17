@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const { sharePage } = useShareActions()
+const { user, isAuthenticated, refreshSession } = useUserSession()
 
 const navigation = [
   { label: '首页', to: '/', icon: 'i-lucide-house' },
@@ -16,6 +17,10 @@ function isActive(to: string) {
 function shareCurrentPage(): void {
   void sharePage()
 }
+
+onMounted(() => {
+  void refreshSession()
+})
 </script>
 
 <template>
@@ -73,13 +78,35 @@ function shareCurrentPage(): void {
             aria-label="分享当前页面"
             @click="shareCurrentPage"
           />
+          <template v-if="isAuthenticated">
+            <UButton
+              to="/chat"
+              icon="i-lucide-messages-square"
+              color="neutral"
+              variant="ghost"
+              aria-label="群聊"
+              class="hidden sm:inline-flex"
+            />
+            <UButton
+              to="/me"
+              icon="i-lucide-user-round"
+              color="primary"
+              variant="soft"
+              :aria-label="user?.displayName || '个人中心'"
+            >
+              <span class="hidden max-w-[5.5rem] truncate sm:inline">{{ user?.displayName || '我的' }}</span>
+            </UButton>
+          </template>
           <UButton
-            to="/admin"
-            icon="i-lucide-shield"
+            v-else
+            to="/login"
+            icon="i-lucide-log-in"
             color="neutral"
             variant="ghost"
-            aria-label="管理后台"
-          />
+            aria-label="账号登录"
+          >
+            <span class="hidden sm:inline">登录</span>
+          </UButton>
         </div>
       </div>
     </header>
@@ -115,9 +142,9 @@ function shareCurrentPage(): void {
             class="hover:text-green-700"
           >来源说明</NuxtLink>
           <NuxtLink
-            to="/admin"
+            to="/login"
             class="hover:text-green-700"
-          >内容管理</NuxtLink>
+          >账号登录</NuxtLink>
         </div>
       </div>
     </footer>

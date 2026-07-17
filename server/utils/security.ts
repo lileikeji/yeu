@@ -92,6 +92,15 @@ export function assertTrustedOrigin(event: H3Event): void {
     }
   }
 
+  // Production with no configured allowlist is a deploy misconfiguration, not a client fault.
+  if (process.env.NODE_ENV === 'production' && allowed.size === 0) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Origin allowlist is empty',
+      data: { code: 'ORIGIN_ALLOWLIST_EMPTY' }
+    })
+  }
+
   if (!origin || !allowed.has(origin)) {
     throw createError({
       statusCode: 403,

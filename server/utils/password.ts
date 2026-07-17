@@ -67,3 +67,18 @@ export async function verifyPassword(password: string, encodedHash: string): Pro
     return false
   }
 }
+
+export const USER_PASSWORD_MIN_LENGTH = 8
+
+export async function hashUserPassword(password: string): Promise<string> {
+  if (password.length < USER_PASSWORD_MIN_LENGTH) {
+    throw new Error(`User password must contain at least ${USER_PASSWORD_MIN_LENGTH} characters`)
+  }
+  if (password.length > 128) {
+    throw new Error('User password is too long')
+  }
+
+  const salt = randomBytes(16)
+  const key = await deriveKey(password, salt)
+  return `scrypt$${SCRYPT_N}$${SCRYPT_R}$${SCRYPT_P}$${salt.toString('base64url')}$${key.toString('base64url')}`
+}

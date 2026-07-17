@@ -15,6 +15,9 @@ const navigation: NavigationItem[] = [
   { label: '内容', icon: 'i-lucide-files', to: '/admin/content' },
   { label: '来源', icon: 'i-lucide-book-marked', to: '/admin/sources' },
   { label: '反馈', icon: 'i-lucide-message-square-warning', to: '/admin/feedback' },
+  { label: '访客', icon: 'i-lucide-radar', to: '/admin/visitors' },
+  { label: '账号', icon: 'i-lucide-users', to: '/admin/users' },
+  { label: '群聊', icon: 'i-lucide-messages-square', to: '/admin/chat' },
   { label: '审计日志', icon: 'i-lucide-scroll-text', to: '/admin/audit-logs' }
 ]
 

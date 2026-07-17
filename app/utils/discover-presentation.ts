@@ -72,10 +72,19 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
     to: '/clubs',
     icon: 'i-lucide-users-round',
     tone: 'bg-violet-50 text-violet-700'
+  },
+  {
+    title: '新生群聊',
+    description: '登录后进入公共群与宿舍楼群；不登录不能聊天',
+    to: '/chat',
+    icon: 'i-lucide-messages-square',
+    tone: 'bg-teal-50 text-teal-700'
   }
 ]
 
 export const discoverDirectoryEntries: DiscoverLinkEntry[] = [
+  { title: '新生群聊', description: '公共群与宿舍楼群，需登录', to: '/chat', icon: 'i-lucide-messages-square' },
+  { title: '账号登录', description: '个人中心改名、专业与宿舍楼', to: '/login', icon: 'i-lucide-log-in' },
   { title: '新生清单', description: '本地勾选报到与入学事项，无需登录', to: '/checklist', icon: 'i-lucide-list-checks' },
   { title: '校园地图', description: '搜索地点、筛选类别、查看坐标核验状态', to: '/map', icon: 'i-lucide-map' },
   { title: '全部指南', description: '按入学、校园、生活与社团浏览', to: '/guides', icon: 'i-lucide-notebook-tabs' },

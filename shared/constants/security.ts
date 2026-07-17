@@ -31,3 +31,35 @@ export const ALL_CSRF_COOKIE_NAMES = [
   HOST_CSRF_COOKIE_NAME,
   CSRF_COOKIE_NAME
 ] as const
+export const USER_SESSION_COOKIE_NAME = 'yeu_user_session'
+export const USER_CSRF_COOKIE_NAME = 'yeu_user_csrf'
+export const HOST_USER_SESSION_COOKIE_NAME = '__Host-yeu_user_session'
+export const HOST_USER_CSRF_COOKIE_NAME = '__Host-yeu_user_csrf'
+export const USER_CSRF_HEADER_NAME = 'x-user-csrf-token'
+export const VISITOR_COOKIE_NAME = 'yeu_vid'
+
+export function userAuthCookieNames(secure: boolean): {
+  session: string
+  csrf: string
+} {
+  if (secure) {
+    return {
+      session: HOST_USER_SESSION_COOKIE_NAME,
+      csrf: HOST_USER_CSRF_COOKIE_NAME
+    }
+  }
+  return {
+    session: USER_SESSION_COOKIE_NAME,
+    csrf: USER_CSRF_COOKIE_NAME
+  }
+}
+
+export const ALL_USER_SESSION_COOKIE_NAMES = [
+  HOST_USER_SESSION_COOKIE_NAME,
+  USER_SESSION_COOKIE_NAME
+] as const
+
+export const ALL_USER_CSRF_COOKIE_NAMES = [
+  HOST_USER_CSRF_COOKIE_NAME,
+  USER_CSRF_COOKIE_NAME
+] as const

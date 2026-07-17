@@ -358,3 +358,149 @@ export const rateLimitBuckets = sqliteTable('rate_limit_buckets', {
 }, table => [
   index('rate_limit_buckets_reset_idx').on(table.resetAt)
 ])
+
+export const visitors = sqliteTable('visitors', {
+  id: text('id').primaryKey(),
+  firstSeenAt: integer('first_seen_at').notNull(),
+  lastSeenAt: integer('last_seen_at').notNull(),
+  lastIp: text('last_ip'),
+  lastCountry: text('last_country'),
+  lastRegion: text('last_region'),
+  lastCity: text('last_city'),
+  lastUserAgent: text('last_user_agent'),
+  lastPath: text('last_path'),
+  eventCount: integer('event_count').notNull().default(0),
+  userId: text('user_id'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('visitors_last_seen_idx').on(table.lastSeenAt),
+  index('visitors_last_ip_idx').on(table.lastIp),
+  index('visitors_user_idx').on(table.userId)
+])
+
+export const visitorEvents = sqliteTable('visitor_events', {
+  id: text('id').primaryKey(),
+  visitorId: text('visitor_id').notNull().references(() => visitors.id, { onDelete: 'cascade' }),
+  userId: text('user_id'),
+  ip: text('ip'),
+  country: text('country'),
+  region: text('region'),
+  city: text('city'),
+  userAgent: text('user_agent'),
+  path: text('path'),
+  method: text('method'),
+  action: text('action').notNull(),
+  metaJson: text('meta_json').notNull().default('{}'),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('visitor_events_visitor_created_idx').on(table.visitorId, table.createdAt),
+  index('visitor_events_action_created_idx').on(table.action, table.createdAt),
+  index('visitor_events_ip_created_idx').on(table.ip, table.createdAt),
+  index('visitor_events_created_idx').on(table.createdAt)
+])
+
+export const visitorBans = sqliteTable('visitor_bans', {
+  id: text('id').primaryKey(),
+  scope: text('scope', { enum: ['ip', 'visitor', 'user'] }).notNull(),
+  value: text('value').notNull(),
+  reason: text('reason').notNull().default(''),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  bannedByAdminId: text('banned_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  expiresAt: integer('expires_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('visitor_bans_scope_value_idx').on(table.scope, table.value),
+  index('visitor_bans_active_idx').on(table.isActive),
+  check('visitor_bans_scope_check', sql`${table.scope} in ('ip', 'visitor', 'user')`)
+])
+
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  username: text('username').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  displayName: text('display_name').notNull(),
+  major: text('major'),
+  dormBuilding: text('dorm_building'),
+  status: text('status', { enum: ['active', 'disabled', 'banned'] }).notNull().default('active'),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  lastLoginAt: integer('last_login_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('users_username_unique').on(table.username),
+  index('users_status_idx').on(table.status),
+  index('users_dorm_idx').on(table.dormBuilding),
+  index('users_major_idx').on(table.major),
+  check('users_status_check', sql`${table.status} in ('active', 'disabled', 'banned')`)
+])
+
+export const userSessions = sqliteTable('user_sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  csrfTokenHash: text('csrf_token_hash').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  lastSeenAt: integer('last_seen_at').notNull(),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('user_sessions_token_hash_unique').on(table.tokenHash),
+  index('user_sessions_user_idx').on(table.userId),
+  index('user_sessions_expires_idx').on(table.expiresAt)
+])
+
+export const chatRooms = sqliteTable('chat_rooms', {
+  id: text('id').primaryKey(),
+  kind: text('kind', { enum: ['public', 'dorm'] }).notNull(),
+  slug: text('slug').notNull(),
+  title: text('title').notNull(),
+  dormBuilding: text('dorm_building'),
+  isMutedAll: integer('is_muted_all', { mode: 'boolean' }).notNull().default(false),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('chat_rooms_slug_unique').on(table.slug),
+  index('chat_rooms_kind_idx').on(table.kind),
+  index('chat_rooms_dorm_idx').on(table.dormBuilding),
+  check('chat_rooms_kind_check', sql`${table.kind} in ('public', 'dorm')`)
+])
+
+export const chatMembers = sqliteTable('chat_members', {
+  roomId: text('room_id').notNull().references(() => chatRooms.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  joinedAt: integer('joined_at').notNull(),
+  lastReadAt: integer('last_read_at')
+}, table => [
+  primaryKey({ columns: [table.roomId, table.userId] }),
+  index('chat_members_user_idx').on(table.userId)
+])
+
+export const chatMessages = sqliteTable('chat_messages', {
+  id: text('id').primaryKey(),
+  roomId: text('room_id').notNull().references(() => chatRooms.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  displayName: text('display_name').notNull(),
+  body: text('body').notNull(),
+  deletedAt: integer('deleted_at'),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('chat_messages_room_created_idx').on(table.roomId, table.createdAt),
+  index('chat_messages_user_created_idx').on(table.userId, table.createdAt)
+])
+
+export const chatMutes = sqliteTable('chat_mutes', {
+  id: text('id').primaryKey(),
+  roomId: text('room_id').references(() => chatRooms.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  reason: text('reason').notNull().default(''),
+  mutedByAdminId: text('muted_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  expiresAt: integer('expires_at'),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('chat_mutes_user_active_idx').on(table.userId, table.isActive),
+  index('chat_mutes_room_user_idx').on(table.roomId, table.userId)
+])

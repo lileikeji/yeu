@@ -150,6 +150,21 @@ function metadataDepth(value: unknown, depth = 0): number {
   return max
 }
 
+/** True when any object key (nested) is a prototype-pollution name. */
+function metadataHasForbiddenKey(value: unknown, depth = 0): boolean {
+  if (depth > CONTENT_METADATA_MAX_DEPTH || value === null || typeof value !== 'object') {
+    return false
+  }
+  if (Array.isArray(value)) {
+    return value.some(item => metadataHasForbiddenKey(item, depth + 1))
+  }
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (FORBIDDEN_METADATA_KEYS.has(key)) return true
+    if (metadataHasForbiddenKey(child, depth + 1)) return true
+  }
+  return false
+}
+
 const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRefine((value, ctx) => {
   const keys = Object.keys(value)
   if (keys.length > CONTENT_METADATA_MAX_KEYS) {
@@ -158,13 +173,11 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
       message: `metadata may contain at most ${CONTENT_METADATA_MAX_KEYS} keys`
     })
   }
-  for (const key of keys) {
-    if (FORBIDDEN_METADATA_KEYS.has(key)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `metadata key "${key}" is not allowed`
-      })
-    }
+  if (metadataHasForbiddenKey(value)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'metadata contains a forbidden key (__proto__, prototype, or constructor)'
+    })
   }
   if (metadataDepth(value) > CONTENT_METADATA_MAX_DEPTH) {
     ctx.addIssue({
@@ -433,3 +446,81 @@ export const searchQuerySchema = z.object({
   type: z.enum(PUBLIC_SEARCH_RESULT_TYPES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20)
 })
+
+export const userLoginSchema = z.object({
+  username: z.string().trim().min(1).max(80),
+  password: z.string().min(8).max(128)
+}).strict()
+
+export const updateUserProfileSchema = z.object({
+  displayName: z.string().trim().min(1).max(40).optional(),
+  major: z.union([z.string().trim().max(80), z.literal(''), z.null()]).optional(),
+  dormBuilding: z.union([z.string().trim().max(80), z.literal(''), z.null()]).optional()
+}).strict()
+
+export const createAppUserSchema = z.object({
+  username: z.string().trim().min(2).max(40).regex(/^[a-zA-Z0-9_\u4e00-\u9fff.-]+$/, 'Invalid username'),
+  password: z.string().min(8).max(128),
+  displayName: z.string().trim().min(1).max(40),
+  major: z.union([z.string().trim().max(80), z.literal(''), z.null()]).optional(),
+  dormBuilding: z.union([z.string().trim().max(80), z.literal(''), z.null()]).optional()
+}).strict()
+
+export const updateAppUserSchema = z.object({
+  displayName: z.string().trim().min(1).max(40).optional(),
+  major: z.union([z.string().trim().max(80), z.literal(''), z.null()]).optional(),
+  dormBuilding: z.union([z.string().trim().max(80), z.literal(''), z.null()]).optional(),
+  status: z.enum(['active', 'disabled', 'banned']).optional(),
+  password: z.string().min(8).max(128).optional()
+}).strict()
+
+export const adminUsersQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(['active', 'disabled', 'banned']).optional(),
+  major: z.string().trim().max(80).optional(),
+  dormBuilding: z.string().trim().max(80).optional()
+})
+
+export const visitorTrackSchema = z.object({
+  action: z.string().trim().min(1).max(64).regex(/^[a-z0-9_:-]+$/i),
+  path: z.string().trim().max(2048).optional(),
+  meta: z.record(z.string(), z.unknown()).optional()
+}).strict()
+
+export const adminVisitorsQuerySchema = paginationQuerySchema.extend({
+  ip: z.string().trim().max(80).optional(),
+  banned: z.enum(['true', 'false']).optional()
+})
+
+export const createVisitorBanSchema = z.object({
+  scope: z.enum(['ip', 'visitor', 'user']),
+  value: z.string().trim().min(1).max(200),
+  reason: z.string().trim().max(500).optional(),
+  expiresAt: z.union([z.iso.datetime({ offset: true }), z.null()]).optional()
+}).strict()
+
+export const sendChatMessageSchema = z.object({
+  body: z.string().trim().min(1).max(1000)
+}).strict()
+
+export const chatMessagesQuerySchema = z.object({
+  after: z.string().uuid().optional(),
+  before: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50)
+})
+
+export const adminChatMessagesQuerySchema = paginationQuerySchema.extend({
+  roomId: z.string().uuid().optional(),
+  userId: z.string().uuid().optional()
+})
+
+export const muteChatUserSchema = z.object({
+  userId: z.string().uuid(),
+  roomId: z.union([z.string().uuid(), z.null()]).optional(),
+  reason: z.string().trim().max(500).optional(),
+  expiresAt: z.union([z.iso.datetime({ offset: true }), z.null()]).optional()
+}).strict()
+
+export const muteAllChatRoomSchema = z.object({
+  muted: z.boolean(),
+  reason: z.string().trim().max(500).optional()
+}).strict()
