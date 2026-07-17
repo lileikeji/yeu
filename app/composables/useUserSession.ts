@@ -1,5 +1,5 @@
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
-import { userFetch } from '~~/app/utils/user-request'
+import { userFetch, withUserRequestOptions } from '~~/app/utils/user-request'
 
 export type AppUser = {
   id: string
@@ -21,6 +21,18 @@ const userState = () => useState<AppUser | null>('yeu-user', () => null)
 const checkedState = () => useState<boolean>('yeu-user-checked', () => false)
 const loadingState = () => useState<boolean>('yeu-user-loading', () => false)
 
+async function fetchSessionPayload(): Promise<UserSessionPayload> {
+  // SSR must forward the browser cookies; bare $fetch does not.
+  if (import.meta.server) {
+    const requestFetch = useRequestFetch()
+    return await requestFetch<UserSessionPayload>(
+      '/api/auth/session',
+      withUserRequestOptions() as never
+    )
+  }
+  return await userFetch<UserSessionPayload>('/api/auth/session')
+}
+
 export function useUserSession() {
   const user = userState()
   const checked = checkedState()
@@ -34,7 +46,7 @@ export function useUserSession() {
 
     loading.value = true
     try {
-      const payload = await userFetch<UserSessionPayload>('/api/auth/session')
+      const payload = await fetchSessionPayload()
       if (payload.authenticated && payload.user) {
         user.value = payload.user
       } else {

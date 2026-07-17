@@ -1,6 +1,6 @@
 # 账号 · 访客 · 群聊 实施方案
 
-状态：已完成（不登录不能聊天；待服务器迁移部署）  
+状态：已完成并持续加固（2026-07-18）。不登录不能聊天；迁移已部署；E2E 通过；已补页面路由中间件与 SSR 会话读取。
 约束：不登录也能用指南；**不登录不能聊天**；暂不开放注册；管理员入口隐藏。
 
 ## 模块
@@ -26,3 +26,23 @@
 - 所有 `/api/chat/*` 与聊天页需用户登录
 - 无 public register API
 - 封禁命中后公共 API / 页面拒绝访问
+
+
+## 上线验证
+
+- 生产站点: https://yeu.huiliyill.cn
+- 发布目录: /www/wwwroot/yeu/releases/20260718-045910
+- guest /api/chat/* /api/me => 401
+- admin 开号 / 用户登录 / 发消息 / 宿舍群 / 全员与个人禁言 / 访客埋点与 IP 封禁：已用服务器 curl E2E 验证
+- 无 public register；前台无管理入口
+- 中文 UI（login/me/chat/admin）正常
+
+
+## 机制加固（2026-07-18 续）
+
+- 前端：`app/middleware/auth.ts` 保护 `/chat`、`/me`（未登录跳转 `/login?redirect=...`）
+- 会话：`useUserSession` 在 SSR 使用 `useRequestFetch` 转发 Cookie，避免已登录用户硬刷新误跳登录
+- 登录页：根据 redirect 展示「群聊/个人中心需要登录」提示
+- API 第二道闸：`requireUserSession` 仍强制 `/api/chat/*`、`/api/me/*` 401
+- 群聊 UI：全员禁言时禁用输入与发送
+- 访客埋点外网 curl 403 为 `assertTrustedOrigin` 预期行为；浏览器同源 POST 正常

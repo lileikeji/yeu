@@ -2,6 +2,10 @@
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { userFetch } from '~~/app/utils/user-request'
 
+definePageMeta({
+  middleware: 'auth'
+})
+
 useSeoMeta({
   title: '群聊',
   description: '公共群与宿舍楼群，登录后可用。',
@@ -358,15 +362,15 @@ watch(activeRoomId, () => {
                 autoresize
                 maxlength="1000"
                 class="w-full"
-                placeholder="输入消息，回车发送前请确认内容合适"
-                :disabled="sending || !activeRoomId"
+                :placeholder="activeRoom?.isMutedAll ? '当前房间已全员禁言' : '输入消息，回车发送前请确认内容合适'"
+                :disabled="sending || !activeRoomId || !!activeRoom?.isMutedAll"
               />
               <UButton
                 type="submit"
                 color="primary"
                 icon="i-lucide-send"
                 :loading="sending"
-                :disabled="!draft.trim() || !activeRoomId"
+                :disabled="!draft.trim() || !activeRoomId || !!activeRoom?.isMutedAll"
               >
                 发送
               </UButton>

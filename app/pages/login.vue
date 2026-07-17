@@ -25,6 +25,20 @@ function redirectTarget(): string {
   return '/me'
 }
 
+const loginHint = computed(() => {
+  const target = redirectTarget()
+  if (target === '/chat' || target.startsWith('/chat?') || target.startsWith('/chat/')) {
+    return '群聊需要登录后才能使用。登录成功后将自动返回群聊。'
+  }
+  if (target === '/me' || target.startsWith('/me?') || target.startsWith('/me/')) {
+    return '个人中心需要登录后才能访问。'
+  }
+  if (target && target !== '/me') {
+    return '该功能需要登录后才能继续使用。'
+  }
+  return ''
+})
+
 async function checkExistingSession(): Promise<void> {
   checkingSession.value = true
   try {
@@ -77,6 +91,18 @@ onMounted(() => {
         <p class="mt-2 text-sm leading-6 text-zinc-500">
           浏览指南、地图与办事流程无需登录。群聊需要账号；当前暂不开放自助注册，请联系管理员开号。
         </p>
+
+        <div
+          v-if="loginHint"
+          class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+          role="status"
+        >
+          <UIcon
+            name="i-lucide-shield-check"
+            class="mt-0.5 size-4 shrink-0"
+          />
+          <span>{{ loginHint }}</span>
+        </div>
 
         <div
           v-if="errorMessage"

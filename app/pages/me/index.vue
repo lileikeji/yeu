@@ -2,6 +2,10 @@
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { userFetch } from '~~/app/utils/user-request'
 
+definePageMeta({
+  middleware: 'auth'
+})
+
 useSeoMeta({
   title: '个人中心',
   robots: 'noindex, nofollow'
