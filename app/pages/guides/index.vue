@@ -8,8 +8,13 @@ import {
   filterGuideListItems,
   guideCategoryIconTones,
   guideListCategories,
+  previewGuideListItems,
   resolveGuideListFallbackMessage
 } from '~~/app/utils/guide-list-presentation'
+import {
+  guideStatePresentation,
+  studentFacingGuideStatusText
+} from '~~/app/utils/guide-detail-presentation'
 
 useSeoMeta({
   title: '新生指南',
@@ -18,6 +23,7 @@ useSeoMeta({
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
+const showAllGuides = ref(false)
 const { data: publicGuideResponse, error: publicGuideError } = await usePublicGuideList()
 const allowStaticFallback = computed(() => !publicGuideError.value
   && canUseStaticContentKindFallback(publicGuideResponse.value, 'guide'))
@@ -36,6 +42,22 @@ const filteredGuides = computed(() => filterGuideListItems(guides.value, {
   query: searchQuery.value,
   category: activeCategory.value
 }))
+const visibleGuides = computed(() => previewGuideListItems(filteredGuides.value, {
+  expanded: showAllGuides.value,
+  query: searchQuery.value,
+  category: activeCategory.value
+}))
+const showGuideToggle = computed(() => !searchQuery.value.trim()
+  && activeCategory.value === 'all'
+  && filteredGuides.value.length > 6)
+
+watch([searchQuery, activeCategory], () => {
+  showAllGuides.value = false
+})
+
+function toggleGuidePreview() {
+  showAllGuides.value = !showAllGuides.value
+}
 </script>
 
 <template>
@@ -51,7 +73,7 @@ const filteredGuides = computed(() => filterGuideListItems(guides.value, {
               从到校前到开学后的常用事项
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              本科与专升本信息分开核对。涉及时间、地点、材料和费用时，以录取通知书及学校当年通知为准。
+              本科和专升本需要留意的内容会分别说明。时间、地点、材料和费用请以录取通知书及学校当年通知为准。
             </p>
           </div>
           <UButton
@@ -121,7 +143,7 @@ const filteredGuides = computed(() => filterGuideListItems(guides.value, {
 
       <div class="mb-4 flex items-center justify-between gap-4">
         <h2 class="text-sm font-semibold text-zinc-900">
-          {{ filteredGuides.length }} 项指南
+          {{ filteredGuides.length }} 篇指南
         </h2>
         <NuxtLink
           to="/campus"
@@ -140,7 +162,7 @@ const filteredGuides = computed(() => filterGuideListItems(guides.value, {
         class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
       >
         <NuxtLink
-          v-for="guide in filteredGuides"
+          v-for="guide in visibleGuides"
           :key="guide.slug"
           :to="`/guides/${guide.slug}`"
           class="surface-panel group flex min-h-56 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
@@ -156,12 +178,15 @@ const filteredGuides = computed(() => filterGuideListItems(guides.value, {
               />
             </span>
             <UBadge
-              :color="guide.status === 'verified' ? 'success' : 'warning'"
+              :color="guideStatePresentation(guide.status).color"
               variant="soft"
               size="sm"
-              class="max-w-[11rem] whitespace-normal text-right"
             >
-              {{ guide.statusText }}
+              <UIcon
+                :name="guideStatePresentation(guide.status).icon"
+                class="mr-1 size-3.5"
+              />
+              {{ guideStatePresentation(guide.status).label }}
             </UBadge>
           </div>
 
@@ -171,10 +196,14 @@ const filteredGuides = computed(() => filterGuideListItems(guides.value, {
           <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
             {{ guide.summary }}
           </p>
+          <p class="mt-4 border-l-2 border-orange-300 pl-3 text-xs leading-5 text-zinc-600">
+            <span class="font-semibold text-zinc-800">目前：</span>
+            {{ studentFacingGuideStatusText(guide.statusText) }}
+          </p>
           <div class="mt-5 flex items-center justify-between gap-3 border-t border-zinc-100 pt-4 text-xs text-zinc-500">
             <span>{{ guide.audience.join(' · ') }}</span>
             <span class="inline-flex shrink-0 items-center gap-1 font-medium text-green-700">
-              查看
+              打开
               <UIcon
                 name="i-lucide-arrow-right"
                 class="size-3.5 transition group-hover:translate-x-0.5"
@@ -185,7 +214,20 @@ const filteredGuides = computed(() => filterGuideListItems(guides.value, {
       </div>
 
       <div
-        v-else
+        v-if="showGuideToggle"
+        class="mt-6 flex justify-center"
+      >
+        <UButton
+          :icon="showAllGuides ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+          :label="showAllGuides ? '收起' : `再看其他 ${filteredGuides.length - visibleGuides.length} 篇`"
+          color="neutral"
+          variant="ghost"
+          @click="toggleGuidePreview"
+        />
+      </div>
+
+      <div
+        v-else-if="!filteredGuides.length"
         class="border-y border-[var(--line)] bg-white px-5 py-12 text-center"
       >
         <UIcon

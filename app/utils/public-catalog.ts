@@ -16,10 +16,10 @@ import { isSafePublicHttpUrl } from '../../shared/utils/public-http-url'
 type GuideCategory = FreshmanGuide['category']
 
 const guideCategoryDefaults: Record<GuideCategory, { icon: string, statusText: string }> = {
-  arrival: { icon: 'i-lucide-clipboard-check', statusText: '已发布并核验' },
-  campus: { icon: 'i-lucide-school', statusText: '已发布并核验' },
-  life: { icon: 'i-lucide-coffee', statusText: '已发布并核验' },
-  community: { icon: 'i-lucide-users-round', statusText: '已发布并核验' }
+  arrival: { icon: 'i-lucide-clipboard-check', statusText: '内容已经整理' },
+  campus: { icon: 'i-lucide-school', statusText: '内容已经整理' },
+  life: { icon: 'i-lucide-coffee', statusText: '内容已经整理' },
+  community: { icon: 'i-lucide-users-round', statusText: '内容已经整理' }
 }
 
 const audienceLabels: Record<string, Array<'本科新生' | '专升本新生'>> = {
@@ -64,6 +64,9 @@ const ownerMapGenericSummary = '用户授权的高德工作地图标点，尚未
 
 export function studentFacingGuideText(value: string): string {
   return value
+    .replace(/专升本档案（2026已发布）/g, '专升本档案（2026年说明）')
+    .replace(/资料状态：/g, '目前：')
+    .replace(/强时效事项/g, '时间变化较快的事项')
     .replace(/工作地图的 76 个标点与 8 个原始不规则区域边界已按“未独立现场核验”状态显示，并支持地图内步行路线与外部高德导航；区域只绘制边界线，避免遮挡内部高德商铺。/g, '已整理 76 个高德地图地点和 8 个区域范围，可用于地图内路线规划和高德导航；具体入口仍请以现场标识为准。')
     .replace(/地图目录已导入，坐标核验中/g, '地图地点已整理，入口仍在确认')
     .replace(/不要仅凭工作地图中的反向地址判断楼栋；部分地址会落到相邻建筑。/g, '不要只看地图自动显示的地址判断楼栋，部分地址可能指向相邻建筑。')

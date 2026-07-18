@@ -88,6 +88,14 @@ test('student-facing place body hides maintenance notes and keeps actionable che
 
 test('guide copy hides maintainer language from student pages', () => {
   assert.equal(
+    studentFacingGuideText('专升本档案（2026已发布）'),
+    '专升本档案（2026年说明）'
+  )
+  assert.equal(
+    studentFacingGuideText('资料状态：部分内容待通知。强时效事项以学校通知为准。'),
+    '目前：部分内容待通知。时间变化较快的事项以学校通知为准。'
+  )
+  assert.equal(
     studentFacingGuideText('地图目录已导入，坐标核验中'),
     '地图地点已整理，入口仍在确认'
   )

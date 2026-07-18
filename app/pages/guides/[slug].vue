@@ -8,8 +8,10 @@ import {
 import { resolvePublicGuide } from '~/utils/public-catalog'
 import {
   buildGuideDetailSources,
+  guideStatePresentation,
   resolveGuideFallbackMessage,
-  resolveGuideRelatedAction
+  resolveGuideRelatedAction,
+  studentFacingGuideStatusText
 } from '~~/app/utils/guide-detail-presentation'
 
 const route = useRoute()
@@ -97,10 +99,14 @@ const detailSources = computed(() => buildGuideDetailSources(
                 />
               </span>
               <UBadge
-                :color="guide.status === 'verified' ? 'success' : 'warning'"
+                :color="guideStatePresentation(guide.status).color"
                 variant="soft"
               >
-                {{ guide.statusText }}
+                <UIcon
+                  :name="guideStatePresentation(guide.status).icon"
+                  class="mr-1 size-3.5"
+                />
+                {{ guideStatePresentation(guide.status).label }}
               </UBadge>
             </div>
             <h1 class="mt-4 text-2xl font-bold text-zinc-950 md:text-3xl">
@@ -108,6 +114,13 @@ const detailSources = computed(() => buildGuideDetailSources(
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
               {{ guide.summary }}
+            </p>
+            <p class="mt-4 flex max-w-2xl items-start gap-2 text-sm leading-6 text-zinc-600">
+              <UIcon
+                name="i-lucide-info"
+                class="mt-1 size-4 shrink-0 text-orange-600"
+              />
+              <span><strong class="font-semibold text-zinc-800">目前：</strong>{{ studentFacingGuideStatusText(guide.statusText) }}</span>
             </p>
           </div>
 
@@ -226,14 +239,14 @@ const detailSources = computed(() => buildGuideDetailSources(
           <UButton
             :to="feedbackLink"
             icon="i-lucide-message-square-warning"
-            label="反馈错误或补充资料"
+            label="告诉我们哪里需要修改"
             color="neutral"
             variant="outline"
           />
           <UButton
             to="/guides"
             icon="i-lucide-arrow-left"
-            label="全部指南"
+            label="返回全部指南"
             color="neutral"
             variant="ghost"
           />

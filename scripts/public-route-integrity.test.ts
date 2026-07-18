@@ -325,9 +325,9 @@ test('guide list page is a thin shell over guide-list presentation', () => {
   assert.match(presentation, /export const guideListCategories/)
   assert.match(presentation, /export function filterGuideListItems/)
   assert.match(presentation, /export function resolveGuideListFallbackMessage/)
-  assert.match(presentation, /指南服务暂时不可用，请稍后重试/)
-  assert.match(presentation, /当前显示已整理的新生指南/)
-  assert.match(presentation, /指南正在整理中，暂时没有可公开展示的新记录/)
+  assert.match(presentation, /暂时没能打开指南，请检查网络后再试/)
+  assert.match(presentation, /这里先显示已经整理好的指南/)
+  assert.match(presentation, /指南还在整理，过一会再来看看/)
 })
 
 test('procedure list page is a thin shell over procedure-list presentation', () => {

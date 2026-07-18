@@ -1,6 +1,44 @@
 export const guideFallbackMessages = {
-  staticGuide: '当前显示已整理的新生指南；涉及时间、地点、材料和费用的事项仍以学校最新通知为准。'
+  staticGuide: '这里先显示已经整理好的指南；时间、地点、材料和费用请以学校最新通知为准。'
 } as const
+
+export interface GuideStatePresentation {
+  label: string
+  color: 'success' | 'warning' | 'neutral'
+  icon: string
+}
+
+export function guideStatePresentation(status: string): GuideStatePresentation {
+  if (status === 'verified') {
+    return {
+      label: '主要内容明确',
+      color: 'success',
+      icon: 'i-lucide-circle-check-big'
+    }
+  }
+  if (status === 'awaiting-notice') {
+    return {
+      label: '等待学校通知',
+      color: 'warning',
+      icon: 'i-lucide-clock-3'
+    }
+  }
+  return {
+    label: '先看已知部分',
+    color: 'neutral',
+    icon: 'i-lucide-info'
+  }
+}
+
+export function studentFacingGuideStatusText(value: string): string {
+  return value
+    .replace(/已确认/g, '已经明确')
+    .replace(/待通知/g, '还要等学校通知')
+    .replace(/待确认/g, '还要确认')
+    .replace(/待发布/g, '还没公布')
+    .replace(/已发布/g, '已经公布')
+    .replace(/官方求助入口/g, '学校求助入口')
+}
 
 export interface GuideRelatedAction {
   label: string
@@ -37,7 +75,7 @@ export function resolveGuideFallbackMessage(isApiPublished: boolean): string | n
 
 export function resolveGuideRelatedAction(slug: string): GuideRelatedAction {
   if (slug === 'arrival') {
-    return { label: '打开可勾选报到流程', to: '/procedures/arrival', icon: 'i-lucide-list-checks' }
+    return { label: '去完成报到步骤', to: '/procedures/arrival', icon: 'i-lucide-list-checks' }
   }
   if (slug === 'find-campus') {
     return { label: '打开校园地图', to: '/map', icon: 'i-lucide-map' }
@@ -45,7 +83,7 @@ export function resolveGuideRelatedAction(slug: string): GuideRelatedAction {
   if (slug === 'clubs') {
     return { label: '查看校园与社团', to: '/campus#clubs', icon: 'i-lucide-users-round' }
   }
-  return { label: '返回全部指南', to: '/guides', icon: 'i-lucide-layout-grid' }
+  return { label: '查看全部指南', to: '/guides', icon: 'i-lucide-layout-grid' }
 }
 
 export function buildGuideDetailSources(

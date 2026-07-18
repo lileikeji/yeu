@@ -16,9 +16,9 @@ export const guideCategoryIconTones: Record<string, string> = {
 }
 
 export const guideListFallbackMessages = {
-  serviceUnavailable: '指南服务暂时不可用，请稍后重试。',
-  staticGuide: '当前显示已整理的新生指南；涉及时间、地点、材料和费用的事项仍以学校最新通知为准。',
-  emptyPublished: '指南正在整理中，暂时没有可公开展示的新记录。'
+  serviceUnavailable: '暂时没能打开指南，请检查网络后再试。',
+  staticGuide: '这里先显示已经整理好的指南；时间、地点、材料和费用请以学校最新通知为准。',
+  emptyPublished: '指南还在整理，过一会再来看看。'
 } as const
 
 export interface GuideListFilterableItem {
@@ -56,4 +56,15 @@ export function filterGuideListItems<T extends GuideListFilterableItem>(
       .toLocaleLowerCase('zh-CN')
     return matchesCategory && (!query || text.includes(query))
   })
+}
+
+export function previewGuideListItems<T>(
+  guides: ReadonlyArray<T>,
+  options: { expanded: boolean, query: string, category: string },
+  limit = 6
+): T[] {
+  const shouldLimit = !options.expanded
+    && !options.query.trim()
+    && options.category === 'all'
+  return shouldLimit ? guides.slice(0, Math.max(0, limit)) : [...guides]
 }

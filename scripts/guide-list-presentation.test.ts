@@ -7,6 +7,7 @@ import {
   guideCategoryIconTones,
   guideListCategories,
   guideListFallbackMessages,
+  previewGuideListItems,
   resolveGuideListFallbackMessage
 } from '../app/utils/guide-list-presentation'
 
@@ -32,8 +33,8 @@ test('guide list categories and fallback messages stay student-facing', () => {
   assert.equal(guideListCategories.length, 5)
   assert.ok(guideListCategories.some(item => item.id === 'arrival' && item.label === '入学'))
   assert.equal(guideCategoryIconTones.arrival, 'bg-green-50 text-green-700')
-  assert.equal(guideListFallbackMessages.serviceUnavailable, '指南服务暂时不可用，请稍后重试。')
-  assert.match(guideListFallbackMessages.staticGuide, /当前显示已整理的新生指南/)
+  assert.equal(guideListFallbackMessages.serviceUnavailable, '暂时没能打开指南，请检查网络后再试。')
+  assert.match(guideListFallbackMessages.staticGuide, /已经整理好的指南/)
 })
 
 test('guide list filter and fallback resolution', () => {
@@ -73,7 +74,7 @@ test('guide list filter and fallback resolution', () => {
 
   assert.equal(
     resolveGuideListFallbackMessage({ hasError: true, response: null, allowStaticFallback: false }),
-    '指南服务暂时不可用，请稍后重试。'
+    '暂时没能打开指南，请检查网络后再试。'
   )
   assert.equal(
     resolveGuideListFallbackMessage({ hasError: false, response: null, allowStaticFallback: false }),
@@ -93,7 +94,7 @@ test('guide list filter and fallback resolution', () => {
       response: { items: [] },
       allowStaticFallback: false
     }),
-    '指南正在整理中，暂时没有可公开展示的新记录。'
+    '指南还在整理，过一会再来看看。'
   )
   assert.equal(
     resolveGuideListFallbackMessage({
@@ -102,5 +103,25 @@ test('guide list filter and fallback resolution', () => {
       allowStaticFallback: false
     }),
     null
+  )
+})
+
+test('guide list preview stays compact until the reader searches, filters, or expands', () => {
+  const guides = Array.from({ length: 8 }, (_, index) => index + 1)
+  assert.deepEqual(
+    previewGuideListItems(guides, { expanded: false, query: '', category: 'all' }),
+    [1, 2, 3, 4, 5, 6]
+  )
+  assert.deepEqual(
+    previewGuideListItems(guides, { expanded: true, query: '', category: 'all' }),
+    guides
+  )
+  assert.deepEqual(
+    previewGuideListItems(guides, { expanded: false, query: '校园网', category: 'all' }),
+    guides
+  )
+  assert.deepEqual(
+    previewGuideListItems(guides, { expanded: false, query: '', category: 'campus' }),
+    guides
   )
 })
