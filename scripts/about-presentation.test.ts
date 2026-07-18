@@ -26,19 +26,20 @@ test('about page is a thin shell over about-presentation util', () => {
 
 test('about catalogs stay student-facing', () => {
   assert.equal(aboutProjectFacts.length, 4)
-  assert.equal(aboutProjectFacts[0]?.label, '项目性质')
-  assert.equal(aboutProjectFacts[0]?.value, '非官方学生指南')
-  assert.ok(aboutProjectFacts.some(item => item.label === '服务对象' && item.value === '本科与专升本新生'))
+  assert.equal(aboutProjectFacts[0]?.label, '这是什么')
+  assert.equal(aboutProjectFacts[0]?.value, '非官方新生指南')
+  assert.ok(aboutProjectFacts.some(item => item.label === '适合谁' && item.value === '本科与专升本新生'))
   assert.equal(aboutBoundaries.length, 4)
-  assert.equal(aboutBoundaries[0]?.title, '信息不替代官方通知')
+  assert.equal(aboutBoundaries[0]?.title, '重要事项看学校通知')
   assert.match(aboutBoundaries[0]?.text ?? '', /录取通知书/)
-  assert.ok(aboutBoundaries.some(item => item.title === '地图只公开已确认的信息'))
-  assert.ok(aboutBoundaries.some(item => item.title === '首版不提供商业排名'))
+  assert.ok(aboutBoundaries.some(item => item.title === '地图不猜位置'))
+  assert.ok(aboutBoundaries.some(item => item.title === '没有付费排名'))
   assert.equal(aboutGovernanceLinks.length, 3)
   assert.equal(aboutGovernanceLinks[0]?.to, '/sources')
   assert.equal(aboutGovernanceLinks[1]?.to, '/feedback')
   assert.equal(aboutGovernanceLinks[2]?.to, '/privacy')
-  assert.equal(aboutGovernanceLinks[1]?.title, '反馈错误或补充资料')
+  assert.equal(aboutGovernanceLinks[1]?.title, '告诉我们哪里不对')
+  assert.doesNotMatch(pageSource, /服务边界|公开边界|管理员核对|项目性质/)
 })
 
 test('about presentation export surface stays stable', () => {

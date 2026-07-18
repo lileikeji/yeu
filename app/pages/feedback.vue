@@ -17,8 +17,8 @@ import {
 } from '~~/app/utils/feedback-presentation'
 
 useSeoMeta({
-  title: '反馈纠错',
-  description: '提交校园地点错误、过期信息或可靠资料来源。',
+  title: '反馈信息',
+  description: '告诉我们校园地点、办事步骤或指南内容哪里不对，也可以提供更准确的学校通知。',
   robots: 'noindex, nofollow'
 })
 
@@ -101,13 +101,13 @@ function resetForm() {
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
-          内容共建
+          一起完善指南
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          反馈错误或补充资料
+          发现信息不对？告诉我们
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          地点搬迁、营业时间变化、通知过期或可靠来源都可以提交。管理员确认后再更新公开内容。
+          地点搬了、营业时间变了、通知过期了，或者你有更准确的学校通知，都可以在这里告诉我们。
         </p>
       </div>
     </header>
@@ -126,10 +126,10 @@ function resetForm() {
             />
           </span>
           <h2 class="mt-4 text-lg font-bold text-green-950">
-            反馈已进入待处理列表
+            已经收到你的反馈
           </h2>
           <p class="mt-2 text-sm leading-6 text-green-800">
-            管理员会先核对来源和时效，不会直接把未经确认的信息发布到前台。
+            我们会先看清来源和日期，确认后再更新。相同问题不用重复提交。
           </p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <UButton
@@ -163,14 +163,14 @@ function resetForm() {
             />
             <div class="min-w-0">
               <p class="text-xs font-medium text-green-800">
-                正在反馈{{ targetLabel }}
+                正在反馈：{{ targetLabel }}
               </p>
               <p class="mt-0.5 break-words text-sm font-bold text-green-950">
                 {{ targetDisplayName }}
               </p>
               <template v-if="pageUrl">
                 <p class="mt-2 text-xs font-medium text-green-800">
-                  关联页面
+                  来自页面
                 </p>
                 <p class="mt-0.5 break-all text-xs text-green-900">
                   {{ pageUrl }}
@@ -183,7 +183,7 @@ function resetForm() {
             <label
               for="feedback-reason"
               class="text-sm font-semibold text-zinc-900"
-            >问题类型</label>
+            >哪里需要修改</label>
             <select
               id="feedback-reason"
               v-model="reasonType"
@@ -203,9 +203,9 @@ function resetForm() {
             <label
               for="feedback-message"
               class="text-sm font-semibold text-zinc-900"
-            >问题说明 <span class="text-red-600">*</span></label>
+            >具体情况 <span class="text-red-600">*</span></label>
             <p class="mt-1 text-xs leading-5 text-zinc-500">
-              请写明地点或页面、当前错误内容，以及你认为正确的信息。
+              请写清哪个地点或页面、哪里不对，以及正确情况。
             </p>
             <UTextarea
               id="feedback-message"
@@ -226,7 +226,7 @@ function resetForm() {
               <label
                 for="feedback-evidence"
                 class="text-sm font-semibold text-zinc-900"
-              >来源链接</label>
+              >可以核对的链接</label>
               <UInput
                 id="feedback-evidence"
                 v-model="evidenceUrl"
@@ -240,13 +240,13 @@ function resetForm() {
               <label
                 for="feedback-contact"
                 class="text-sm font-semibold text-zinc-900"
-              >联系方式</label>
+              >怎么联系你（选填）</label>
               <UInput
                 id="feedback-contact"
                 v-model="contact"
                 class="mt-2 w-full"
                 icon="i-lucide-at-sign"
-                placeholder="便于追问，仅管理员可见（选填）"
+                placeholder="不填也可以，仅用于追问这次反馈"
                 :maxlength="300"
               />
             </div>
@@ -288,23 +288,23 @@ function resetForm() {
         </form>
       </section>
 
-      <aside class="min-w-0">
-        <div class="surface-panel p-4 md:sticky md:top-24">
+      <aside class="order-first min-w-0 md:order-none">
+        <div class="border-y border-zinc-200 bg-white px-4 py-4 md:sticky md:top-24">
           <h2 class="text-sm font-bold text-zinc-950">
-            确认顺序
+            写清楚这三点
           </h2>
           <ol class="mt-4 space-y-4">
             <li class="flex gap-3 text-xs leading-5 text-zinc-600">
               <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">1</span>
-              管理员检查链接、时间和适用对象
+              哪一个地点、页面或办事步骤
             </li>
             <li class="flex gap-3 text-xs leading-5 text-zinc-600">
               <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">2</span>
-              与官网、主管部门或现场记录交叉核对
+              现在看到的内容哪里不对
             </li>
             <li class="flex gap-3 text-xs leading-5 text-zinc-600">
               <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">3</span>
-              更新内容并记录来源和确认日期
+              正确情况和可以核对的链接
             </li>
           </ol>
         </div>

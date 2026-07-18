@@ -45,7 +45,10 @@ function concretePageRoutes(): Set<string> {
     '/discover',
     '/feedback',
     '/guides',
+    '/chat',
+    '/login',
     '/map',
+    '/me',
     '/nearby',
     '/offline',
     '/privacy',
@@ -140,7 +143,7 @@ test('department and club detail pages expose structured freshman decision aids'
   assert.match(clubPage, /PublicSourceDetails/)
   assert.doesNotMatch(clubPage, /const signupQuestionChecklist = \[/)
   assert.match(clubPresentation, /export const clubSignupQuestionChecklist/)
-  assert.match(clubPresentation, /入群或报名之前先问清楚/)
+  assert.match(clubPresentation, /报名之前问清楚/)
   assert.match(clubPresentation, /是否收费，是否需要自备器材、服装或材料/)
   assert.match(clubPresentation, /是否适合零基础新生/)
 })
@@ -362,8 +365,8 @@ test('about page is a thin shell over about presentation', () => {
   assert.match(presentation, /export const aboutProjectFacts/)
   assert.match(presentation, /export const aboutBoundaries/)
   assert.match(presentation, /export const aboutGovernanceLinks/)
-  assert.match(presentation, /信息不替代官方通知/)
-  assert.match(presentation, /反馈错误或补充资料/)
+  assert.match(presentation, /重要事项看学校通知/)
+  assert.match(presentation, /告诉我们哪里不对/)
 })
 
 test('discover page is a thin shell over discover presentation', () => {
@@ -395,7 +398,7 @@ test('offline page is a thin shell over offline presentation', () => {
   assert.match(presentation, /export const offlineBoundaries/)
   assert.match(presentation, /export const offlineStaticEntries/)
   assert.match(presentation, /export function resolveOfflineStatus/)
-  assert.match(presentation, /公开 API 不作离线数据库/)
+  assert.match(presentation, /公开内容不会完整保存在设备上/)
   assert.match(presentation, /当前处于离线状态/)
 })
 
@@ -414,10 +417,11 @@ test('privacy page is a thin shell over privacy presentation', () => {
   const presentation = readFileSync(resolve('app/utils/privacy-presentation.ts'), 'utf8')
   assert.match(page, /from ['"]~~\/app\/utils\/privacy-presentation['"]/)
   assert.match(page, /privacySections/)
+  assert.match(page, /privacyHighlights/)
   assert.doesNotMatch(page, /const sections = \[/)
   assert.match(presentation, /export const privacySections/)
-  assert.match(presentation, /公开访问/)
-  assert.match(presentation, /不保存原始 IP/)
+  assert.match(presentation, /浏览和定位/)
+  assert.match(presentation, /不能还原原地址的编号/)
   assert.match(presentation, /730 天/)
 })
 
@@ -436,10 +440,10 @@ test('public source and place pages use student-facing data status wording', () 
   assert.match(sourcePage, /collectActiveLinkedSources/)
   assert.match(sourcePage, /sourceLevelGuides/)
   assert.match(sourcePage, /sourceLevelLabels/)
-  assert.match(sourcePage, /来源、确认范围与使用说明/)
-  assert.match(sourcePage, /你提供的高德地图数据已经导入 76 个标记点和 8 个绘制区域/)
-  assert.match(sourcePage, /查看地图原始范围/)
-  assert.match(sourcesPresentation, /这类资料用于发现地点和问题/)
+  assert.match(sourcePage, /看到校园消息，先判断能不能直接用/)
+  assert.match(sourcePage, /当前地图包含 76 个地点和 8 个范围/)
+  assert.match(sourcePage, /查看范围出处/)
+  assert.match(sourcesPresentation, /适合先找地点和了解生活经验/)
   assert.match(sourcesPresentation, /export function collectActiveLinkedSources/)
   assert.doesNotMatch(sourcePage, /function dateOnly/)
   assert.doesNotMatch(sourcePage, /const sourceLevels =/)
@@ -471,13 +475,14 @@ test('student-facing nearby and research pages use reader-facing wording', () =>
   ]
   const source = files.map(file => readFileSync(resolve(file), 'utf8')).join('\n')
 
-  assert.match(source, /周边参考清单/)
-  assert.match(source, /高德地图线索 · 到店前再确认/)
-  assert.match(source, /内容与版权治理/)
-  assert.match(source, /社交平台研究素材暂不公开/)
+  assert.match(source, /找吃饭、快递和日用品/)
+  assert.match(source, /地图上还能找到这些地方/)
+  assert.match(source, /图片使用说明/)
+  assert.match(source, /部分社交平台图片暂不展示/)
   assert.doesNotMatch(source, /高德候选 · 待核验/)
   assert.doesNotMatch(source, /待实地核验候选/)
   assert.doesNotMatch(source, /社交平台待核验素材/)
   assert.doesNotMatch(source, /张待核验图|张待确认图/)
   assert.doesNotMatch(source, /核验候选/)
+  assert.doesNotMatch(source, /research-only|AI 重构|内部事实核验|视觉重构|发布确认/)
 })

@@ -6,8 +6,8 @@ import {
 } from '~~/app/utils/about-presentation'
 
 useSeoMeta({
-  title: '关于项目',
-  description: '了解仰恩新生指南的非官方身份、维护主体、资料边界、纠错与隐私规则。'
+  title: '关于这份指南',
+  description: '了解仰恩新生指南能帮你做什么、哪些事项要看学校通知，以及怎样反馈错误。'
 })
 </script>
 
@@ -16,15 +16,15 @@ useSeoMeta({
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <UBadge
-          label="非官方项目"
+          label="非官方学生指南"
           color="warning"
           variant="soft"
         />
         <h1 class="mt-4 text-2xl font-bold text-zinc-950 md:text-3xl">
-          关于仰恩新生指南
+          这个指南能帮你做什么
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
-          这是由个人或学生团队维护的校园信息项目，目前不代表仰恩大学，也不是学校的通知、办事或缴费平台。
+          把新生常用的地图、办事、清单和校园生活信息放在一起，方便你少走弯路。它由个人或学生团队维护，不代表学校。
         </p>
       </div>
     </header>
@@ -52,13 +52,13 @@ useSeoMeta({
           <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
             <div>
               <p class="section-kicker">
-                服务边界
+                使用前先知道
               </p>
               <h2 class="mt-2 text-xl font-bold text-zinc-950">
-                什么能作参考，什么必须再确认
+                这些信息可以怎么用
               </h2>
               <p class="mt-3 text-sm leading-7 text-zinc-600">
-                项目整理公开资料和可复核的现场信息，但不替新生做身份、缴费或学籍决定。
+                日常找路和查资料可以从这里开始，报到、缴费等重要事项仍要看学校通知。
               </p>
             </div>
 
@@ -92,13 +92,13 @@ useSeoMeta({
         <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
           <div>
             <p class="section-kicker">
-              来源、纠错与隐私
+              有问题怎么办
             </p>
             <h2 class="mt-2 text-xl font-bold text-zinc-950">
-              公开边界可查，错误可提交
+              查出处，或告诉我们哪里不对
             </h2>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              反馈不会自动发布，将由管理员核对来源和时效。请不要提交密码、证件、他人私人联系方式或未经同意的群二维码。
+              每条重要信息尽量附上出处和日期。发现错误时，写清页面和正确情况即可，我们会确认后更新。请不要提交密码、证件或他人的私人信息。
             </p>
           </div>
 
@@ -132,10 +132,10 @@ useSeoMeta({
         <div class="page-shell grid gap-5 py-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div>
             <h2 class="text-base font-bold text-zinc-950">
-              学校事项请回到官方渠道确认
+              报到、缴费等重要事项请看学校通知
             </h2>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              学校名称、标识及官网内容的权利归相应权利人所有；本项目的引用不表示学校对项目进行背书。
+              学校名称、校徽和官网内容属于相应权利人。本站引用这些内容，不表示学校认可或参与维护本站。
             </p>
           </div>
           <UButton

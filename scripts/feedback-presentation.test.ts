@@ -32,6 +32,9 @@ test('feedback page is a thin shell over feedback-presentation util', () => {
   assert.doesNotMatch(pageSource, /const reasonOptions = \[/)
   assert.match(utilSource, /export function resolveFeedbackTargetType/)
   assert.match(utilSource, /export function buildFeedbackSubmitBody/)
+  assert.match(pageSource, /发现信息不对？告诉我们/)
+  assert.match(pageSource, /写清楚这三点/)
+  assert.doesNotMatch(pageSource, /确认顺序|交叉核对|待处理列表|发布到前台/)
 })
 
 test('feedback target resolution requires typed target and uuid', () => {
@@ -55,6 +58,8 @@ test('feedback target resolution requires typed target and uuid', () => {
 
 test('feedback reason defaults and submit body normalize empty optional fields', () => {
   assert.equal(feedbackReasonOptions.length, 6)
+  assert.equal(feedbackReasonOptions[0]?.label, '地点名称或位置不对')
+  assert.equal(feedbackReasonOptions[4]?.label, '提供更准确的链接')
   assert.equal(resolveFeedbackReasonType('procedure_error'), 'procedure_error')
   assert.equal(resolveFeedbackReasonType('unknown'), 'place_error')
   assert.equal(canSubmitFeedback('1234', false), false)

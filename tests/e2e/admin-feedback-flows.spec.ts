@@ -192,13 +192,13 @@ test('公开反馈可提交并由管理员标记为已解决', async ({ page }, 
   const resolution = `${testInfo.project.name} 已核对并完成处理。`
 
   await page.goto('/feedback')
-  await expect(page.getByRole('heading', { level: 1, name: '反馈错误或补充资料' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '发现信息不对？告诉我们' })).toBeVisible()
   await page.locator('#feedback-reason').selectOption('content_outdated')
   await page.locator('#feedback-message').fill(message)
   await page.locator('#feedback-evidence').fill('https://example.com/e2e-evidence')
   await page.locator('#feedback-contact').fill(`contact-${testInfo.project.name}`)
   await page.getByRole('button', { name: '提交反馈', exact: true }).click()
-  await expect(page.getByRole('heading', { level: 2, name: '反馈已进入待处理列表' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: '已经收到你的反馈' })).toBeVisible()
 
   await loginAdmin(page, '/admin/feedback')
   await expect(page.getByRole('heading', { level: 1, name: '反馈管理' })).toBeVisible()

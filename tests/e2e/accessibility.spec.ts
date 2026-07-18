@@ -13,7 +13,7 @@ const auditPages: AuditPage[] = [
   { name: '全站搜索', path: '/search', heading: '搜索地点、指南与校内服务' },
   { name: '校园地图', path: '/map', heading: '校园与周边' },
   { name: '办事流程详情', path: '/procedures/campus-network', heading: '校园网与统一认证排查' },
-  { name: '公众反馈', path: '/feedback?type=general&path=%2F', heading: '反馈错误或补充资料' },
+  { name: '公众反馈', path: '/feedback?type=general&path=%2F', heading: '发现信息不对？告诉我们' },
   { name: '后台登录', path: '/admin/login', heading: '管理员登录' }
 ]
 

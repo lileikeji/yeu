@@ -3,11 +3,11 @@ import type { FeedbackTargetType } from '~~/shared/constants/server'
 export const feedbackUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export const feedbackReasonOptions = [
-  { label: '地点名称或位置错误', value: 'place_error' },
+  { label: '地点名称或位置不对', value: 'place_error' },
   { label: '内容已经过期', value: 'content_outdated' },
-  { label: '流程步骤或材料有误', value: 'procedure_error' },
-  { label: '缺少重要信息', value: 'missing_information' },
-  { label: '补充可靠来源', value: 'source_suggestion' },
+  { label: '办事步骤或材料不对', value: 'procedure_error' },
+  { label: '还缺少重要信息', value: 'missing_information' },
+  { label: '提供更准确的链接', value: 'source_suggestion' },
   { label: '其他问题', value: 'other' }
 ] as const
 
