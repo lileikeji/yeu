@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import type { ApiContent } from '../shared/types/server'
 import {
   findFreshmanGuide,
   officialClubBody,
@@ -131,6 +132,31 @@ test('guide copy hides maintainer language from student pages', () => {
     studentFacingGuideText('系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。'),
     /内部资料目录|前台|核验/
   )
+})
+
+test('published department copy also hides internal network wording', () => {
+  const content: ApiContent = {
+    id: 'department-copy-test',
+    kind: 'department',
+    slug: 'information-office',
+    title: '实验室与信息化管理处',
+    summary: '新生处理校园网、统一认证、VPN、网络故障和信息化服务问题的主管部门入口。',
+    body: '查校园网、统一认证、网络故障、信息化服务和实验室信息。\n连接后通过浏览器认证。新生注册后以学号获得校园网和VPN账号，首次登录按官方通知操作并立即修改密码。',
+    category: 'office',
+    audience: '本科新生',
+    metadata: {},
+    isFeatured: false,
+    status: 'published',
+    lastVerifiedAt: '2026-07-15',
+    publishedAt: '2026-07-15',
+    createdAt: '2026-07-15',
+    updatedAt: '2026-07-15',
+    sources: []
+  }
+  const view = mergePublicDepartments([], [content], false)[0]
+  assert.equal(view?.summary, '新生遇到校园网、校外访问（VPN）、网络故障或校园系统问题时，可以找这个部门。')
+  assert.match(view?.body ?? '', /按页面提示登录|校外访问账号/)
+  assert.doesNotMatch(view?.body ?? '', /统一认证|信息化服务|通过浏览器认证|VPN账号/)
 })
 
 test('static guide and department bodies are readable for freshmen instead of empty placeholders', () => {

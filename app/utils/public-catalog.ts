@@ -571,8 +571,8 @@ function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): Pu
   return {
     slug: content.slug,
     name: content.title,
-    summary: content.summary,
-    body: content.body,
+    summary: studentFacingGuideText(content.summary),
+    body: studentFacingGuideText(content.body),
     website: isHttpUrl(metadataWebsite) ? metadataWebsite : sourceWebsite ?? seed?.website ?? null,
     phone: metadataString(content, 'phone') ?? seed?.phone ?? null,
     email: metadataString(content, 'email') ?? seed?.email ?? null,
@@ -601,8 +601,8 @@ export function mergePublicDepartments(
     return [{
       slug: seed.slug,
       name: seed.name,
-      summary: seed.summary,
-      body: officialDepartmentBody(seed),
+      summary: studentFacingGuideText(seed.summary),
+      body: studentFacingGuideText(officialDepartmentBody(seed)),
       website: seed.website,
       phone: seed.phone ?? null,
       email: seed.email ?? null,
