@@ -62,6 +62,42 @@ export const searchTypeOptions = [
   }))
 ]
 
+export const popularSearchSuggestions = [
+  { label: '新生报到', query: '新生报到', icon: 'i-lucide-clipboard-check' },
+  { label: '校园网', query: '校园网', icon: 'i-lucide-wifi' },
+  { label: '宿舍', query: '宿舍', icon: 'i-lucide-bed-single' },
+  { label: '快递', query: '快递', icon: 'i-lucide-package' },
+  { label: '图书馆', query: '图书馆', icon: 'i-lucide-library' },
+  { label: '医务室', query: '医务室', icon: 'i-lucide-heart-pulse' }
+] as const
+
+export const searchStartingPoints = [
+  {
+    title: '找校内位置',
+    description: '教学楼、宿舍、食堂和常用服务点',
+    to: '/map',
+    icon: 'i-lucide-map'
+  },
+  {
+    title: '办理校园事项',
+    description: '按步骤准备材料，找到负责部门',
+    to: '/procedures',
+    icon: 'i-lucide-list-checks'
+  },
+  {
+    title: '准备入学生活',
+    description: '从报到前到开学后的实用指南',
+    to: '/guides',
+    icon: 'i-lucide-notebook-tabs'
+  },
+  {
+    title: '看看校园周边',
+    description: '吃饭、快递、购物和日常服务',
+    to: '/nearby',
+    icon: 'i-lucide-store'
+  }
+] as const
+
 export function routeQueryString(value: unknown): string {
   if (typeof value === 'string') return value
   if (Array.isArray(value) && typeof value[0] === 'string') return value[0]
@@ -238,8 +274,8 @@ export function buildSearchErrorMessage(
 ): string {
   if (!hasError) return ''
   return activeType && activeType !== 'place'
-    ? '搜索暂时没有响应，请稍后再试。'
-    : '搜索暂时没有响应；如果地图里能找到这个关键词，下面会先显示相关地点。'
+    ? '现在没搜出来，请稍后再试。'
+    : '部分内容暂时没加载出来，先为你显示地图里能找到的地点。'
 }
 
 export function buildPublicSearchResults(input: {
@@ -390,6 +426,6 @@ export function buildSearchAnnouncement(input: {
 }): string {
   if (!input.query) return '请输入关键词开始搜索。'
   if (input.searching) return `正在搜索“${input.query}”。`
-  if (input.searchError) return `联网搜索暂时没有响应，当前显示 ${input.resultCount} 项可用结果。`
+  if (input.searchError) return `部分内容暂时没加载出来，当前显示 ${input.resultCount} 项结果。`
   return `搜索完成，当前显示 ${input.resultCount} 项匹配结果，分为 ${input.groupCount} 组。`
 }

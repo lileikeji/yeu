@@ -11,11 +11,13 @@ import {
   buildSearchAnnouncement,
   buildSearchErrorMessage,
   groupPublicSearchResults,
+  popularSearchSuggestions,
   resolveSearchInputSyncFromRoute,
   resolveSearchNavigationStaleCorrection,
   routeQueryString,
   routeSearchType,
   searchRouteQuery,
+  searchStartingPoints,
   shouldSkipSearchNavigation,
   searchTypeOptions
 } from '~~/app/utils/public-search-presentation'
@@ -143,6 +145,11 @@ function retrySearch(): void {
   void refreshSearch()
 }
 
+function startSuggestedSearch(query: string): void {
+  searchInput.value = query
+  void navigateSearch(query)
+}
+
 const results = computed(() => {
   if (!activeQuery.value) return []
 
@@ -190,13 +197,13 @@ watch([activeQuery, activeType], ([query, type]) => {
     <section class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          一处查找
+          校园搜索
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
           找地点、办事和校园信息
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          输入地点、部门或要办的事，也可以查校园网、社团和生活服务。地图结果点开后会直接带你查看对应位置。
+          报到流程、校园网、教学楼、部门和社团，都可以在这里查到。
         </p>
 
         <div class="mt-6 max-w-3xl">
@@ -210,7 +217,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               icon="i-lucide-search"
               size="xl"
               class="min-w-0"
-              placeholder="例如：报到、校园网、网络信息中心、图书馆"
+              placeholder="搜索地点、办事或部门"
               aria-label="全站搜索"
             >
               <template
@@ -389,7 +396,10 @@ watch([activeQuery, activeType], ([query, type]) => {
               class="mx-auto size-7 text-orange-600"
             />
             <p class="mt-3 text-sm font-semibold text-zinc-800">
-              这一类结果暂时没有响应
+              暂时没能完成搜索
+            </p>
+            <p class="mt-1 text-xs leading-5 text-zinc-500">
+              请稍后再试，或先从校园地图和新生指南里找找。
             </p>
             <UButton
               class="mt-4"
@@ -430,25 +440,89 @@ watch([activeQuery, activeType], ([query, type]) => {
               variant="ghost"
             />
           </div>
+          <div class="mt-5 flex flex-wrap justify-center gap-2">
+            <UButton
+              v-for="suggestion in popularSearchSuggestions.slice(0, 3)"
+              :key="suggestion.query"
+              :icon="suggestion.icon"
+              :label="suggestion.label"
+              color="neutral"
+              variant="soft"
+              size="sm"
+              @click="startSuggestedSearch(suggestion.query)"
+            />
+          </div>
         </div>
       </div>
 
       <div
         v-else
-        class="grid min-h-64 place-items-center border-y border-[var(--line)] bg-white px-5 text-center"
+        class="space-y-8"
       >
-        <div>
-          <UIcon
-            name="i-lucide-text-search"
-            class="mx-auto size-7 text-green-700"
-          />
-          <p class="mt-3 text-sm font-semibold text-zinc-800">
-            输入地点、部门或要办的事
-          </p>
-          <p class="mt-1 text-xs leading-5 text-zinc-500">
-            先输入地点、部门或事项关键词，例如“辽宁楼”“校园网”“报到”。
-          </p>
-        </div>
+        <section aria-labelledby="popular-searches-heading">
+          <div class="flex items-center gap-2">
+            <UIcon
+              name="i-lucide-sparkles"
+              class="size-4 text-green-700"
+            />
+            <h2
+              id="popular-searches-heading"
+              class="text-base font-bold text-zinc-950"
+            >
+              大家常找
+            </h2>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <UButton
+              v-for="suggestion in popularSearchSuggestions"
+              :key="suggestion.query"
+              :icon="suggestion.icon"
+              :label="suggestion.label"
+              color="neutral"
+              variant="soft"
+              @click="startSuggestedSearch(suggestion.query)"
+            />
+          </div>
+        </section>
+
+        <section aria-labelledby="search-starting-points-heading">
+          <div class="flex items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
+            <div>
+              <p class="section-kicker">
+                按需要浏览
+              </p>
+              <h2
+                id="search-starting-points-heading"
+                class="mt-1 text-lg font-bold text-zinc-950"
+              >
+                也可以从这里开始
+              </h2>
+            </div>
+          </div>
+          <div class="mt-3 grid gap-2 sm:grid-cols-2">
+            <NuxtLink
+              v-for="item in searchStartingPoints"
+              :key="item.to"
+              :to="item.to"
+              class="group flex min-h-24 items-start gap-3 rounded-md border border-[var(--line)] bg-white p-4 transition-colors hover:border-green-300 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            >
+              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+                <UIcon
+                  :name="item.icon"
+                  class="size-5"
+                />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="font-bold text-zinc-950">{{ item.title }}</span>
+                <span class="mt-1 block text-sm leading-6 text-zinc-600">{{ item.description }}</span>
+              </span>
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="mt-3 size-4 shrink-0 text-zinc-300 transition-colors group-hover:text-green-700"
+              />
+            </NuxtLink>
+          </div>
+        </section>
       </div>
     </section>
   </div>

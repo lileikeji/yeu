@@ -16,6 +16,7 @@ import {
   mapTypeLabel,
   matchesSearchQuery,
   normalizeSearchText,
+  popularSearchSuggestions,
   queryVariants,
   resolveSearchInputSyncFromRoute,
   resolveSearchNavigationStaleCorrection,
@@ -23,6 +24,7 @@ import {
   routeQueryString,
   routeSearchType,
   searchRouteQuery,
+  searchStartingPoints,
   searchTypeOptions,
   searchTypePresentation,
   shouldSkipSearchNavigation
@@ -122,6 +124,24 @@ test('search type options cover all result types plus all', () => {
     searchTypeOptions.slice(1).map(item => item.value),
     Object.keys(searchTypePresentation)
   )
+})
+
+test('search empty state offers useful student starting points', () => {
+  assert.deepEqual(
+    popularSearchSuggestions.map(item => item.query),
+    ['新生报到', '校园网', '宿舍', '快递', '图书馆', '医务室']
+  )
+  assert.deepEqual(
+    searchStartingPoints.map(item => item.to),
+    ['/map', '/procedures', '/guides', '/nearby']
+  )
+  assert.match(pageSource, /v-for="suggestion in popularSearchSuggestions"/)
+  assert.match(pageSource, /v-for="item in searchStartingPoints"/)
+  assert.match(pageSource, /大家常找/)
+  assert.match(pageSource, /校园搜索/)
+  assert.match(pageSource, /搜索地点、办事或部门/)
+  assert.doesNotMatch(pageSource, /地图结果点开后/)
+  assert.doesNotMatch(pageSource, /一处查找/)
 })
 
 test('route helpers normalize query and type values', () => {
@@ -570,7 +590,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
     searchError: 'err',
     resultCount: 2,
     groupCount: 1
-  }), /联网搜索暂时没有响应/)
+  }), /部分内容暂时没加载出来/)
   assert.match(buildSearchAnnouncement({
     query: '图书馆',
     searching: false,
