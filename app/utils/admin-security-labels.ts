@@ -279,6 +279,31 @@ export const adminBanCoverageLabels = {
   topIpCount: '高频 IP 样本'
 } as const
 
+export const adminAnomalyStatusLabels: Record<string, string> = {
+  critical: '显著异常',
+  elevated: '偏离基线',
+  normal: '基线正常'
+}
+
+export const adminEvidenceStrengthLabels: Record<string, string> = {
+  strong: '强证据',
+  moderate: '中证据',
+  weak: '弱证据'
+}
+
+export const adminPlaybookStatusLabels: Record<string, string> = {
+  completed: '已完成',
+  recommended: '建议执行',
+  optional: '按需执行'
+}
+
+export const adminInvestigationStepLabels: Record<string, string> = {
+  VERIFY_EVIDENCE: '复核证据',
+  REVIEW_CLUSTER: '核对聚类',
+  CONTAIN_RISK: '限制风险',
+  AUDIT_AND_CLOSE: '审计闭环'
+}
+
 /** Deep-link from audit entity to related admin page. */
 export function adminEntityHref(
   entityType: string | null | undefined,

@@ -6,6 +6,9 @@ import {
   adminBanScopeLabels,
   adminHttpMethodLabels,
   adminLabel,
+  adminEvidenceStrengthLabels,
+  adminInvestigationStepLabels,
+  adminPlaybookStatusLabels,
   adminRiskFactorLabels,
   adminConfidenceLabels,
   adminRiskLevelLabels,
@@ -103,6 +106,10 @@ type VisitorSecurityDossier = {
   pathTransitions?: Array<{ from: string; to: string; transition: string; count: number }>
   burstWindows?: Array<{ startAt: string; endAt: string; count: number }>
   relationship?: Record<string, any>
+  sessions?: Array<{ id: string; startAt: string; endAt: string; durationSeconds: number; eventCount: number; uniquePathCount: number; entryPath: string; exitPath: string }>
+  evidenceLedger?: Array<{ code: string; kind: string; strength: string; weight: number; message: string }>
+  playbook?: Array<{ step: number; code: string; status: string; title: string; detail: string; href: string }>
+  investigationSummary?: Record<string, number>
   events1h?: number
   events24h?: number
   userAgentHistory?: Array<{ userAgent: string; count: number; lastAt?: string | null }>
@@ -179,6 +186,11 @@ type IpSecurityDossier = {
   pathTransitions?: Array<{ from: string; to: string; transition: string; count: number }>
   burstWindows?: Array<{ startAt: string; endAt: string; count: number }>
   relationship?: Record<string, any>
+  sessions?: Array<{ id: string; startAt: string; endAt: string; durationSeconds: number; eventCount: number; uniquePathCount: number; entryPath: string; exitPath: string }>
+  networkProfile?: { prefix: string; eventCount: number; ipCount: number; visitorCount: number; userCount: number; topCity: string; topPath: string; riskScore: number; riskLevel: string }
+  evidenceLedger?: Array<{ code: string; kind: string; strength: string; weight: number; message: string }>
+  playbook?: Array<{ step: number; code: string; status: string; title: string; detail: string; href: string }>
+  investigationSummary?: Record<string, number>
   firstEventAt?: string | null
   lastEventAt?: string | null
   suggestedActions?: Array<{
@@ -1096,6 +1108,52 @@ onMounted(async () => {
           </div>
         </div>
 
+        <div
+          v-if="ipDossier.networkProfile || ipDossier.evidenceLedger?.length || ipDossier.playbook?.length"
+          class="mt-3 grid gap-3 lg:grid-cols-3"
+        >
+          <section class="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+            <h3 class="text-xs font-semibold text-indigo-950">网段画像</h3>
+            <template v-if="ipDossier.networkProfile">
+              <p class="mt-2 text-sm font-medium text-zinc-900">{{ ipDossier.networkProfile.prefix || '—' }}</p>
+              <p class="mt-1 text-[11px] text-zinc-600">
+                {{ ipDossier.networkProfile.ipCount }} IP · {{ ipDossier.networkProfile.visitorCount }} 访客 · {{ ipDossier.networkProfile.userCount }} 账号
+              </p>
+              <p class="mt-1 text-[11px] text-zinc-500">
+                {{ ipDossier.networkProfile.eventCount }} 事件 · 风险 {{ ipDossier.networkProfile.riskScore }}
+              </p>
+            </template>
+          </section>
+          <section class="rounded-lg border border-rose-100 bg-rose-50/40 p-3">
+            <h3 class="text-xs font-semibold text-rose-950">证据账本</h3>
+            <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
+              <li v-for="item in ipDossier.evidenceLedger" :key="'ipe-' + item.code" class="text-[11px]">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="truncate font-medium text-zinc-800">{{ item.message }}</span>
+                  <span class="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[10px] text-rose-800">
+                    {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · {{ item.weight }}
+                  </span>
+                </div>
+              </li>
+              <li v-if="!ipDossier.evidenceLedger?.length" class="text-[11px] text-zinc-400">暂无证据</li>
+            </ul>
+          </section>
+          <section class="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+            <h3 class="text-xs font-semibold text-emerald-950">调查剧本</h3>
+            <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
+              <li v-for="step in ipDossier.playbook" :key="'ippb-' + step.code" class="text-[11px]">
+                <NuxtLink :to="step.href" class="block rounded-md bg-white px-2 py-1.5 hover:bg-emerald-50">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-medium text-zinc-900">{{ step.step }}. {{ adminLabel(adminInvestigationStepLabels, step.code, step.title) }}</span>
+                    <span class="shrink-0 text-[10px] text-emerald-800">{{ adminLabel(adminPlaybookStatusLabels, step.status, step.status) }}</span>
+                  </div>
+                  <p class="mt-0.5 line-clamp-2 text-zinc-500">{{ step.detail }}</p>
+                </NuxtLink>
+              </li>
+            </ol>
+          </section>
+        </div>
+
       </template>
       <p v-else-if="ip.trim()" class="mt-3 text-xs text-zinc-500">
         暂无该 IP 档案，可点击刷新或确认筛选条件。
@@ -1489,6 +1547,54 @@ onMounted(async () => {
               <span class="text-zinc-500">{{ formatAdminRelativeTime(sib.lastSeenAt) }} · 事件 {{ sib.eventCount }}</span>
             </li>
           </ul>
+        </div>
+
+        <div
+          v-if="visitorDossier.sessions?.length || visitorDossier.evidenceLedger?.length || visitorDossier.playbook?.length"
+          class="grid gap-3 lg:grid-cols-3"
+        >
+          <section class="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+            <h3 class="text-xs font-semibold text-indigo-950">会话切片</h3>
+            <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
+              <li v-for="session in visitorDossier.sessions" :key="session.id" class="rounded-md bg-white px-2 py-1.5 text-[11px]">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-zinc-500">{{ formatAdminRelativeTime(session.startAt) }}</span>
+                  <span class="font-medium tabular-nums text-zinc-900">{{ session.eventCount }} 事件</span>
+                </div>
+                <p class="mt-0.5 truncate text-zinc-600">{{ session.entryPath }} → {{ session.exitPath }}</p>
+                <p class="mt-0.5 text-[10px] text-zinc-400">{{ session.uniquePathCount }} 路径 · {{ session.durationSeconds }} 秒</p>
+              </li>
+              <li v-if="!visitorDossier.sessions?.length" class="text-[11px] text-zinc-400">暂无会话</li>
+            </ul>
+          </section>
+          <section class="rounded-lg border border-rose-100 bg-rose-50/40 p-3">
+            <h3 class="text-xs font-semibold text-rose-950">证据账本</h3>
+            <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
+              <li v-for="item in visitorDossier.evidenceLedger" :key="'ve-' + item.code" class="text-[11px]">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="truncate font-medium text-zinc-800">{{ item.message }}</span>
+                  <span class="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[10px] text-rose-800">
+                    {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · {{ item.weight }}
+                  </span>
+                </div>
+              </li>
+              <li v-if="!visitorDossier.evidenceLedger?.length" class="text-[11px] text-zinc-400">暂无证据</li>
+            </ul>
+          </section>
+          <section class="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+            <h3 class="text-xs font-semibold text-emerald-950">调查剧本</h3>
+            <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
+              <li v-for="step in visitorDossier.playbook" :key="'vpb-' + step.code" class="text-[11px]">
+                <NuxtLink :to="step.href" class="block rounded-md bg-white px-2 py-1.5 hover:bg-emerald-50">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-medium text-zinc-900">{{ step.step }}. {{ adminLabel(adminInvestigationStepLabels, step.code, step.title) }}</span>
+                    <span class="shrink-0 text-[10px] text-emerald-800">{{ adminLabel(adminPlaybookStatusLabels, step.status, step.status) }}</span>
+                  </div>
+                  <p class="mt-0.5 line-clamp-2 text-zinc-500">{{ step.detail }}</p>
+                </NuxtLink>
+              </li>
+            </ol>
+          </section>
         </div>
       </div>
 

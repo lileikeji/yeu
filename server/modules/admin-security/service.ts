@@ -88,8 +88,11 @@ function buildPathTransitions(
     .sort((a, b) => Number(a.createdAt) - Number(b.createdAt))
   const map = new Map<string, number>()
   for (let i = 1; i < sorted.length; i++) {
-    const from = ((sorted[i - 1].path || '/').trim() || '/')
-    const to = ((sorted[i].path || '/').trim() || '/')
+    const previous = sorted[i - 1]
+    const current = sorted[i]
+    if (!previous || !current) continue
+    const from = ((previous.path || '/').trim() || '/')
+    const to = ((current.path || '/').trim() || '/')
     if (from === to) continue
     const key = `${from}\t${to}`
     map.set(key, (map.get(key) || 0) + 1)
@@ -130,6 +133,248 @@ function riskConfidence(factorCount: number, evidenceEvents: number): 'high' | '
   if (factorCount >= 3 && evidenceEvents >= 30) return 'high'
   if (factorCount >= 2 || evidenceEvents >= 10) return 'medium'
   return 'low'
+}
+
+function buildSessions(
+  rows: Array<{
+    path: string | null | undefined
+    action?: string | null
+    ip?: string | null
+    createdAt: number
+  }>,
+  idleMs = 30 * 60 * 1000,
+  limit = 12
+) {
+  const sorted = [...rows]
+    .filter(row => Number.isFinite(Number(row.createdAt)))
+    .sort((a, b) => Number(a.createdAt) - Number(b.createdAt))
+
+  const groups: typeof sorted[] = []
+  for (const row of sorted) {
+    const current = groups.at(-1)
+    const previous = current?.at(-1)
+    if (!current || !previous || Number(row.createdAt) - Number(previous.createdAt) > idleMs) {
+      groups.push([row])
+    } else {
+      current.push(row)
+    }
+  }
+
+  return groups.map((group, index) => {
+    const first = group[0]
+    const last = group[group.length - 1]
+    if (!first || !last) return null
+    const startAt = Number(first.createdAt)
+    const endAt = Number(last.createdAt)
+    const paths = [...new Set(group.map(row => (row.path || '/').trim() || '/'))]
+    const actions = [...new Set(group.map(row => row.action || 'unknown'))]
+    const ips = [...new Set(group.map(row => row.ip).filter(Boolean))] as string[]
+    return {
+      id: `session-${index + 1}-${startAt}`,
+      startAt: new Date(startAt).toISOString(),
+      endAt: new Date(endAt).toISOString(),
+      durationSeconds: Math.max(0, Math.round((endAt - startAt) / 1000)),
+      eventCount: group.length,
+      uniquePathCount: paths.length,
+      entryPath: paths[0] || '/',
+      exitPath: paths.at(-1) || '/',
+      actionCount: actions.length,
+      ips
+    }
+  }).filter((session): session is NonNullable<typeof session> => Boolean(session))
+    .sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt))
+    .slice(0, limit)
+}
+
+function normalizeNetworkPrefix(rawIp: string | null | undefined): string {
+  const ip = (rawIp || '').trim()
+  if (!ip) return ''
+  if (ip.includes('.')) {
+    const parts = ip.split('.')
+    if (parts.length === 4 && parts.every(part => /^\d{1,3}$/.test(part))) {
+      return `${parts.slice(0, 3).join('.')}.0/24`
+    }
+  }
+  if (ip.includes(':')) {
+    const parts = ip.split(':').filter(Boolean)
+    return `${parts.slice(0, 4).join(':')}::/64`
+  }
+  return ip
+}
+
+function buildNetworkClusters(
+  rows: Array<{
+    ip: string | null | undefined
+    visitorId?: string | null
+    userId?: string | null
+    city?: string | null
+    path?: string | null
+    createdAt: number
+  }>,
+  limit = 10
+) {
+  const clusters = new Map<string, {
+    prefix: string
+    eventCount: number
+    ips: Set<string>
+    visitors: Set<string>
+    users: Set<string>
+    cities: Map<string, number>
+    paths: Map<string, number>
+    firstAt: number
+    lastAt: number
+  }>()
+
+  for (const row of rows) {
+    const ip = (row.ip || '').trim()
+    const prefix = normalizeNetworkPrefix(ip)
+    const createdAt = Number(row.createdAt)
+    if (!prefix || !Number.isFinite(createdAt)) continue
+    let cluster = clusters.get(prefix)
+    if (!cluster) {
+      cluster = {
+        prefix,
+        eventCount: 0,
+        ips: new Set(),
+        visitors: new Set(),
+        users: new Set(),
+        cities: new Map(),
+        paths: new Map(),
+        firstAt: createdAt,
+        lastAt: createdAt
+      }
+      clusters.set(prefix, cluster)
+    }
+    cluster.eventCount += 1
+    cluster.ips.add(ip)
+    if (row.visitorId) cluster.visitors.add(row.visitorId)
+    if (row.userId) cluster.users.add(row.userId)
+    const city = (row.city || '').trim()
+    const path = (row.path || '/').trim() || '/'
+    if (city) cluster.cities.set(city, (cluster.cities.get(city) || 0) + 1)
+    cluster.paths.set(path, (cluster.paths.get(path) || 0) + 1)
+    cluster.firstAt = Math.min(cluster.firstAt, createdAt)
+    cluster.lastAt = Math.max(cluster.lastAt, createdAt)
+  }
+
+  return [...clusters.values()].map(cluster => {
+    const topCity = [...cluster.cities.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || ''
+    const topPath = [...cluster.paths.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '/'
+    const riskScore = Math.min(100,
+      (cluster.visitors.size >= 5 ? 28 : cluster.visitors.size >= 3 ? 18 : 0)
+      + (cluster.ips.size >= 5 ? 22 : cluster.ips.size >= 2 ? 10 : 0)
+      + (cluster.users.size >= 3 ? 18 : cluster.users.size ? 6 : 0)
+      + (cluster.eventCount >= 200 ? 22 : cluster.eventCount >= 80 ? 12 : 0)
+    )
+    return {
+      prefix: cluster.prefix,
+      eventCount: cluster.eventCount,
+      ipCount: cluster.ips.size,
+      visitorCount: cluster.visitors.size,
+      userCount: cluster.users.size,
+      topCity,
+      topPath,
+      firstAt: new Date(cluster.firstAt).toISOString(),
+      lastAt: new Date(cluster.lastAt).toISOString(),
+      riskScore,
+      riskLevel: riskScore >= 55 ? 'high' : riskScore >= 30 ? 'medium' : riskScore >= 12 ? 'low' : 'info'
+    }
+  }).filter(row => row.eventCount >= 2)
+    .sort((a, b) => b.riskScore - a.riskScore || b.eventCount - a.eventCount)
+    .slice(0, limit)
+}
+
+function buildAnomalyBaseline(current: number, historical: number[]) {
+  const values = historical.filter(value => Number.isFinite(value) && value >= 0)
+  const sorted = [...values].sort((a, b) => a - b)
+  const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
+  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0
+  const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 0
+  const variance = values.length
+    ? values.reduce((sum, value) => sum + ((value - average) ** 2), 0) / values.length
+    : 0
+  const deviation = Math.sqrt(variance)
+  const zScore = deviation > 0 ? (current - average) / deviation : current > average ? 3 : 0
+  const multiplier = average > 0 ? current / average : current > 0 ? current : 0
+  const status: 'critical' | 'elevated' | 'normal' =
+    zScore >= 3 || multiplier >= 4 ? 'critical' : zScore >= 2 || multiplier >= 2 ? 'elevated' : 'normal'
+  return {
+    current,
+    sampleSize: values.length,
+    average: Math.round(average * 10) / 10,
+    median,
+    p95,
+    standardDeviation: Math.round(deviation * 10) / 10,
+    zScore: Math.round(zScore * 100) / 100,
+    multiplier: Math.round(multiplier * 100) / 100,
+    status
+  }
+}
+
+function buildEvidenceLedger(
+  factors: Array<{ code: string; points: number; message: string }>,
+  context: Array<{ code: string; message: string; weight?: number }> = []
+) {
+  return [
+    ...factors.map(factor => ({
+      code: factor.code,
+      kind: 'risk_factor' as const,
+      strength: factor.points >= 25 ? 'strong' as const : factor.points >= 10 ? 'moderate' as const : 'weak' as const,
+      weight: factor.points,
+      message: factor.message
+    })),
+    ...context.map(item => ({
+      code: item.code,
+      kind: 'context' as const,
+      strength: (item.weight || 0) >= 20 ? 'strong' as const : (item.weight || 0) >= 8 ? 'moderate' as const : 'weak' as const,
+      weight: item.weight || 0,
+      message: item.message
+    }))
+  ].sort((a, b) => b.weight - a.weight)
+}
+
+function buildInvestigationPlaybook(input: {
+  riskLevel: string
+  isBanned: boolean
+  hasAccount?: boolean
+  hasCluster?: boolean
+  auditHref: string
+  visitorHref: string
+}) {
+  return [
+    {
+      step: 1,
+      code: 'VERIFY_EVIDENCE',
+      status: 'recommended',
+      title: '复核证据与时间线',
+      detail: '先确认高频窗口、路径迁移、地理位置和设备变化是否一致。',
+      href: input.visitorHref
+    },
+    {
+      step: 2,
+      code: 'REVIEW_CLUSTER',
+      status: input.hasCluster ? 'recommended' : 'optional',
+      title: '核对同 IP 与网段关联',
+      detail: input.hasCluster ? '存在同 IP 或同网段关联对象，建议排除共享网络后再处置。' : '当前未发现明显聚类，可继续观察。',
+      href: input.visitorHref
+    },
+    {
+      step: 3,
+      code: 'CONTAIN_RISK',
+      status: input.isBanned ? 'completed' : input.riskLevel === 'high' ? 'recommended' : 'optional',
+      title: input.isBanned ? '限制措施已生效' : '选择最小影响范围限制',
+      detail: input.hasAccount ? '优先账号级或访客级限制，确认属于单一来源后再扩大到 IP。' : '优先访客级限制，避免直接封禁共享出口 IP。',
+      href: input.visitorHref
+    },
+    {
+      step: 4,
+      code: 'AUDIT_AND_CLOSE',
+      status: 'recommended',
+      title: '记录原因并审计闭环',
+      detail: '处置时填写原因，随后检查管理员操作日志与到期时间。',
+      href: input.auditHref
+    }
+  ]
 }
 
 
@@ -655,12 +900,14 @@ export function getSecuritySnapshot(client: DatabaseClient) {
   }
   if (ipClustersBase.some(row => row.visitorCount >= 4)) {
     const top = ipClustersBase[0]
-    riskHints.push({
-      level: 'medium',
-      code: 'IP_VISITOR_CLUSTER',
-      message: `IP ${top.ip} 近 24 小时关联 ${top.visitorCount} 个访客`,
-      href: `/admin/visitors?ip=${encodeURIComponent(top.ip)}`
-    })
+    if (top) {
+      riskHints.push({
+        level: 'medium',
+        code: 'IP_VISITOR_CLUSTER',
+        message: `IP ${top.ip} 近 24 小时关联 ${top.visitorCount} 个访客`,
+        href: `/admin/visitors?ip=${encodeURIComponent(top.ip)}`
+      })
+    }
   }
   if (deltas24h.visitorEvents >= 300) {
     riskHints.push({
@@ -692,7 +939,10 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     path: visitorEvents.path,
     action: visitorEvents.action,
     createdAt: visitorEvents.createdAt,
-    ip: visitorEvents.ip
+    ip: visitorEvents.ip,
+    visitorId: visitorEvents.visitorId,
+    userId: visitorEvents.userId,
+    city: visitorEvents.city
   }).from(visitorEvents)
     .where(gt(visitorEvents.createdAt, since24h))
     .orderBy(desc(visitorEvents.createdAt))
@@ -709,6 +959,40 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     8
   )
   const peakBurst = burstWindows[0]?.count || 0
+  const recentSessions = buildSessions(
+    recentPathRows.map(row => ({
+      path: row.path,
+      action: row.action,
+      ip: row.ip,
+      createdAt: Number(row.createdAt)
+    })),
+    30 * 60 * 1000,
+    16
+  )
+  const networkClusters = buildNetworkClusters(
+    recentPathRows.map(row => ({
+      ip: row.ip,
+      visitorId: row.visitorId,
+      userId: row.userId,
+      city: row.city,
+      path: row.path,
+      createdAt: Number(row.createdAt)
+    })),
+    10
+  )
+
+  const dailyEventRows = client.db.select({
+    bucket: sql<number>`cast(floor(${visitorEvents.createdAt} / ${DAY_MS}.0) as integer)`,
+    value: count()
+  }).from(visitorEvents)
+    .where(gt(visitorEvents.createdAt, now - DAY_MS * 14))
+    .groupBy(sql`cast(floor(${visitorEvents.createdAt} / ${DAY_MS}.0) as integer)`)
+    .all()
+  const currentDayBucket = Math.floor(now / DAY_MS)
+  const historicalDailyEvents = dailyEventRows
+    .filter(row => Number(row.bucket) < currentDayBucket)
+    .map(row => Number(row.value))
+  const anomalyBaseline = buildAnomalyBaseline(events24h, historicalDailyEvents)
 
   const ipClusters = ipClustersBase.map((cluster) => {
     const cityRow = client.db.select({
@@ -908,6 +1192,9 @@ export function getSecuritySnapshot(client: DatabaseClient) {
   const detail = {
     pathTransitions,
     burstWindows,
+    recentSessions,
+    networkClusters,
+    anomalyBaseline,
     peakBurst10m: peakBurst,
     sampleEventCount: recentPathRows.length,
     riskHintCount: riskHints.length,
@@ -949,6 +1236,9 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     ipClusters,
     pathTransitions,
     burstWindows,
+    recentSessions,
+    networkClusters,
+    anomalyBaseline,
     geoConcentration,
     responseQueue: responseQueue.slice(0, 12),
     detail,
@@ -1197,6 +1487,39 @@ export function getUserSecurityDossier(client: DatabaseClient, userId: string) {
     rooms: memberships.map((m: any) => m.roomId || m.roomTitle).filter(Boolean),
     activeSessions
   }
+  const evidenceLedger = buildEvidenceLedger(userRisk.riskFactors, [
+    {
+      code: 'ACCOUNT_VISITOR_LINKS',
+      message: `账号关联 ${linkedVisitors.length} 个访客设备`,
+      weight: linkedVisitors.length >= 4 ? 15 : linkedVisitors.length ? 5 : 0
+    },
+    {
+      code: 'ACCOUNT_IP_FOOTPRINT',
+      message: `账号关联 ${ipFootprint.length} 个 IP`,
+      weight: ipFootprint.length >= 4 ? 15 : ipFootprint.length >= 2 ? 8 : 0
+    },
+    {
+      code: 'ACCOUNT_CHAT_ACTIVITY',
+      message: `消息 ${messageTotal} 条，其中已删 ${messageDeleted} 条`,
+      weight: messageDeleted >= 5 ? 12 : messageDeleted ? 4 : 0
+    }
+  ])
+  const playbook = buildInvestigationPlaybook({
+    riskLevel: userRisk.riskLevel,
+    isBanned: user.status === 'banned' || activeBanCount > 0,
+    hasAccount: true,
+    hasCluster: linkedVisitors.length > 1 || ipFootprint.length > 1,
+    auditHref: `/admin/audit?entityType=user&entityId=${encodeURIComponent(userId)}`,
+    visitorHref: `/admin/visitors?userId=${encodeURIComponent(userId)}`
+  })
+  const investigationSummary = {
+    evidenceCount: evidenceLedger.length,
+    strongEvidenceCount: evidenceLedger.filter(item => item.strength === 'strong').length,
+    linkedVisitorCount: linkedVisitors.length,
+    ipCount: ipFootprint.length,
+    roomCount: memberships.length,
+    recommendedSteps: playbook.filter(step => step.status === 'recommended').length
+  }
 
 
   return {
@@ -1223,6 +1546,9 @@ export function getUserSecurityDossier(client: DatabaseClient, userId: string) {
     confidence,
     evidenceEvents,
     suggestedActions,
+    evidenceLedger,
+    playbook,
+    investigationSummary,
     relationship,
     ipFootprint,
     linkedVisitors,
@@ -1589,6 +1915,49 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
     sameIpVisitorIds: sameIpVisitors.map((row: any) => row.id),
     topPaths: pathTop.slice(0, 5).map(row => row.path)
   }
+  const sessions = buildSessions(
+    seqSource.map(row => ({
+      path: row.path,
+      action: row.action,
+      ip: visitor.lastIp,
+      createdAt: Number(row.createdAt)
+    })),
+    30 * 60 * 1000,
+    12
+  )
+  const evidenceLedger = buildEvidenceLedger(visitorRisk.riskFactors, [
+    {
+      code: 'PEER_PERCENTILE',
+      message: `近 24 小时事件量位于同行 P${peerComparison.percentile}`,
+      weight: peerComparison.percentile >= 95 ? 20 : peerComparison.percentile >= 80 ? 10 : 3
+    },
+    {
+      code: 'SESSION_DENSITY',
+      message: `最近样本切分为 ${sessions.length} 个会话`,
+      weight: sessions.some(session => session.eventCount >= 30) ? 15 : 3
+    },
+    {
+      code: 'RELATIONSHIP_SCOPE',
+      message: `同 IP 关联 ${sameIpVisitors.length} 个其他访客`,
+      weight: sameIpVisitors.length >= 3 ? 12 : sameIpVisitors.length ? 4 : 0
+    }
+  ])
+  const playbook = buildInvestigationPlaybook({
+    riskLevel: visitorRisk.riskLevel,
+    isBanned,
+    hasAccount: Boolean(linkedUser),
+    hasCluster: sameIpVisitors.length > 0,
+    auditHref: `/admin/audit?entityType=visitor&entityId=${encodeURIComponent(visitorId)}`,
+    visitorHref: `/admin/visitors?visitorId=${encodeURIComponent(visitorId)}`
+  })
+  const investigationSummary = {
+    sessionCount: sessions.length,
+    longestSessionSeconds: Math.max(0, ...sessions.map(session => session.durationSeconds)),
+    densestSessionEvents: Math.max(0, ...sessions.map(session => session.eventCount)),
+    evidenceCount: evidenceLedger.length,
+    strongEvidenceCount: evidenceLedger.filter(item => item.strength === 'strong').length,
+    recommendedSteps: playbook.filter(step => step.status === 'recommended').length
+  }
 
 
 
@@ -1684,6 +2053,10 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
     pathSequence,
     pathTransitions,
     burstWindows,
+    sessions,
+    evidenceLedger,
+    playbook,
+    investigationSummary,
     relationship,
     events1h,
     events24h,
@@ -1932,6 +2305,89 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
     firstEventAt,
     lastEventAt
   }
+  const sessions = buildSessions(
+    seqSource.map(row => ({
+      path: row.path,
+      action: row.action,
+      ip,
+      createdAt: Number(row.createdAt)
+    })),
+    30 * 60 * 1000,
+    12
+  )
+  const networkPrefix = normalizeNetworkPrefix(ip)
+  const networkPeerRows = networkPrefix
+    ? client.db.select({
+      ip: visitorEvents.ip,
+      visitorId: visitorEvents.visitorId,
+      userId: visitorEvents.userId,
+      city: visitorEvents.city,
+      path: visitorEvents.path,
+      createdAt: visitorEvents.createdAt
+    }).from(visitorEvents)
+      .where(and(gt(visitorEvents.createdAt, since24h), isNotNull(visitorEvents.ip)))
+      .orderBy(desc(visitorEvents.createdAt))
+      .limit(1000)
+      .all()
+      .filter(row => normalizeNetworkPrefix(row.ip) === networkPrefix)
+    : []
+  const networkProfile = buildNetworkClusters(
+    networkPeerRows.map(row => ({
+      ip: row.ip,
+      visitorId: row.visitorId,
+      userId: row.userId,
+      city: row.city,
+      path: row.path,
+      createdAt: Number(row.createdAt)
+    })),
+    1
+  )[0] || {
+    prefix: networkPrefix,
+    eventCount: events24h,
+    ipCount: ip ? 1 : 0,
+    visitorCount: uniqueVisitors24h,
+    userCount: linkedUserIds.length,
+    topCity: geoTrail[0]?.city || '',
+    topPath: pathTop[0]?.path || '/',
+    firstAt: firstEventAt,
+    lastAt: lastEventAt,
+    riskScore: 0,
+    riskLevel: 'info'
+  }
+  const evidenceLedger = buildEvidenceLedger(risk.riskFactors, [
+    {
+      code: 'IP_PEER_PERCENTILE',
+      message: `近 24 小时事件量位于 IP 同行 P${peerComparison.percentile}`,
+      weight: peerComparison.percentile >= 95 ? 20 : peerComparison.percentile >= 80 ? 10 : 3
+    },
+    {
+      code: 'NETWORK_CLUSTER',
+      message: `${networkProfile.prefix || '未知网段'} 关联 ${networkProfile.ipCount} 个 IP、${networkProfile.visitorCount} 个访客`,
+      weight: networkProfile.riskScore || 0
+    },
+    {
+      code: 'SESSION_DENSITY',
+      message: `最近样本切分为 ${sessions.length} 个会话`,
+      weight: sessions.some(session => session.eventCount >= 40) ? 15 : 3
+    }
+  ])
+  const playbook = buildInvestigationPlaybook({
+    riskLevel: risk.riskLevel,
+    isBanned,
+    hasAccount: linkedUserIds.length > 0,
+    hasCluster: networkProfile.visitorCount > 1 || networkProfile.ipCount > 1,
+    auditHref: '/admin/audit?entityType=visitor_ban',
+    visitorHref: `/admin/visitors?ip=${encodeURIComponent(ip)}`
+  })
+  const investigationSummary = {
+    sessionCount: sessions.length,
+    longestSessionSeconds: Math.max(0, ...sessions.map(session => session.durationSeconds)),
+    densestSessionEvents: Math.max(0, ...sessions.map(session => session.eventCount)),
+    evidenceCount: evidenceLedger.length,
+    strongEvidenceCount: evidenceLedger.filter(item => item.strength === 'strong').length,
+    networkRiskScore: networkProfile.riskScore,
+    recommendedSteps: playbook.filter(step => step.status === 'recommended').length
+  }
 
 
   const suggestedActions: Array<{
@@ -1999,6 +2455,11 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
     pathSequence,
     pathTransitions,
     burstWindows,
+    sessions,
+    networkProfile,
+    evidenceLedger,
+    playbook,
+    investigationSummary,
     relationship,
     firstEventAt,
     lastEventAt,

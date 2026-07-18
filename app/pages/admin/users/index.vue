@@ -5,6 +5,9 @@ import {
   adminUserStatusLabels,
   adminLabel,
   adminAuditActionLabels,
+  adminEvidenceStrengthLabels,
+  adminInvestigationStepLabels,
+  adminPlaybookStatusLabels,
   adminRiskFactorLabels,
   adminConfidenceLabels,
   adminSuggestedActionLabels,
@@ -53,6 +56,9 @@ const userDossier = ref<{
   evidenceEvents?: number
   suggestedActions?: Array<{ kind: string; label: string; href: string; reason: string; priority: string }>
   relationship?: { visitorIds?: string[]; ips?: string[]; rooms?: string[]; activeSessions?: number }
+  evidenceLedger?: Array<{ code: string; kind: string; strength: string; weight: number; message: string }>
+  playbook?: Array<{ step: number; code: string; status: string; title: string; detail: string; href: string }>
+  investigationSummary?: Record<string, number>
   ipFootprint?: Array<{ ip: string; count: number; lastAt: string | null }>
   linkedVisitors: Array<Record<string, any>>
   bans: Array<Record<string, any>>
@@ -925,6 +931,47 @@ onMounted(async () => {
                 </li>
               </ul>
             </div>
+          </div>
+
+          <div
+            v-if="userDossier.evidenceLedger?.length || userDossier.playbook?.length"
+            class="mt-3 grid gap-3 lg:grid-cols-2"
+          >
+            <section class="rounded-xl border border-rose-100 bg-rose-50/40 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-xs font-semibold text-rose-950">账号证据账本</h3>
+                <span class="text-[10px] text-rose-700">
+                  强证据 {{ userDossier.investigationSummary?.strongEvidenceCount ?? 0 }} / {{ userDossier.investigationSummary?.evidenceCount ?? 0 }}
+                </span>
+              </div>
+              <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
+                <li v-for="item in userDossier.evidenceLedger" :key="'ue-' + item.code" class="rounded-md bg-white px-2 py-1.5 text-[11px]">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="truncate font-medium text-zinc-800">{{ item.message }}</span>
+                    <span class="shrink-0 text-[10px] text-rose-800">
+                      {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · {{ item.weight }}
+                    </span>
+                  </div>
+                </li>
+              </ul>
+            </section>
+            <section class="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-xs font-semibold text-emerald-950">账号调查剧本</h3>
+                <span class="text-[10px] text-emerald-700">建议 {{ userDossier.investigationSummary?.recommendedSteps ?? 0 }} 步</span>
+              </div>
+              <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
+                <li v-for="step in userDossier.playbook" :key="'upb-' + step.code" class="text-[11px]">
+                  <NuxtLink :to="step.href" class="block rounded-md bg-white px-2 py-1.5 hover:bg-emerald-50">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-medium text-zinc-900">{{ step.step }}. {{ adminLabel(adminInvestigationStepLabels, step.code, step.title) }}</span>
+                      <span class="shrink-0 text-[10px] text-emerald-800">{{ adminLabel(adminPlaybookStatusLabels, step.status, step.status) }}</span>
+                    </div>
+                    <p class="mt-0.5 line-clamp-2 text-zinc-500">{{ step.detail }}</p>
+                  </NuxtLink>
+                </li>
+              </ol>
+            </section>
           </div>
 
           <div class="mt-4 space-y-3">

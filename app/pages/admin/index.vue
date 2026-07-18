@@ -14,6 +14,7 @@ import {
   adminAuditActionLabels,
   adminBanScopeLabels,
   adminLabel,
+  adminAnomalyStatusLabels,
   adminOpsTimelineKindLabels,
   adminResponseQueueKindLabels,
   adminRiskFactorLabels,
@@ -154,6 +155,37 @@ const securityGeoConcentration = reactive({
   topCity: '' as string,
   topCityShare: null as number | null,
   distinctCities: null as number | null
+})
+const securityRecentSessions = ref<Array<{
+  id: string
+  startAt: string
+  endAt: string
+  durationSeconds: number
+  eventCount: number
+  uniquePathCount: number
+  entryPath: string
+  exitPath: string
+}>>([])
+const securityNetworkClusters = ref<Array<{
+  prefix: string
+  eventCount: number
+  ipCount: number
+  visitorCount: number
+  userCount: number
+  topCity: string
+  topPath: string
+  riskScore: number
+  riskLevel: string
+}>>([])
+const securityAnomalyBaseline = reactive({
+  current: null as number | null,
+  average: null as number | null,
+  median: null as number | null,
+  p95: null as number | null,
+  zScore: null as number | null,
+  multiplier: null as number | null,
+  sampleSize: null as number | null,
+  status: '' as string
 })
 const loading = ref(false)
 const loadError = ref('')
@@ -371,6 +403,17 @@ async function loadDashboard(): Promise<void> {
       securityGeoConcentration.topCity = geo.topCity || ''
       securityGeoConcentration.topCityShare = Number(geo.topCityShare ?? 0)
       securityGeoConcentration.distinctCities = Number(geo.distinctCities ?? 0)
+      securityRecentSessions.value = Array.isArray(snap.recentSessions) ? snap.recentSessions : []
+      securityNetworkClusters.value = Array.isArray(snap.networkClusters) ? snap.networkClusters : []
+      const baseline = snap.anomalyBaseline || {}
+      securityAnomalyBaseline.current = Number(baseline.current ?? 0)
+      securityAnomalyBaseline.average = Number(baseline.average ?? 0)
+      securityAnomalyBaseline.median = Number(baseline.median ?? 0)
+      securityAnomalyBaseline.p95 = Number(baseline.p95 ?? 0)
+      securityAnomalyBaseline.zScore = Number(baseline.zScore ?? 0)
+      securityAnomalyBaseline.multiplier = Number(baseline.multiplier ?? 0)
+      securityAnomalyBaseline.sampleSize = Number(baseline.sampleSize ?? 0)
+      securityAnomalyBaseline.status = baseline.status || 'normal'
       securityTopPaths.value = Array.isArray(snap.topPaths) ? snap.topPaths : []
       securityTopCities.value = Array.isArray(snap.topCities) ? snap.topCities : []
       securityTopActions.value = Array.isArray(snap.topActions) ? snap.topActions : []
@@ -645,6 +688,95 @@ onMounted(() => {
             <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
           </li>
           <li v-if="!securityPathTransitions.length" class="py-4 text-center text-zinc-400 sm:col-span-2 lg:col-span-3">暂无迁移</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="调查基线与聚类">
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-semibold text-zinc-950">24 小时异常基线</h2>
+            <p class="mt-0.5 text-[11px] text-zinc-500">与近 14 天日事件量对照</p>
+          </div>
+          <span
+            class="rounded-full px-2 py-0.5 text-[10px] font-medium"
+            :class="securityAnomalyBaseline.status === 'critical'
+              ? 'bg-red-100 text-red-800'
+              : securityAnomalyBaseline.status === 'elevated'
+                ? 'bg-amber-100 text-amber-900'
+                : 'bg-emerald-100 text-emerald-800'"
+          >
+            {{ adminLabel(adminAnomalyStatusLabels, securityAnomalyBaseline.status, '—') }}
+          </span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">当前 / 均值</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">
+              {{ securityAnomalyBaseline.current ?? '—' }} / {{ securityAnomalyBaseline.average ?? '—' }}
+            </p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">倍数 / Z 分数</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">
+              {{ securityAnomalyBaseline.multiplier ?? '—' }}× / {{ securityAnomalyBaseline.zScore ?? '—' }}
+            </p>
+          </div>
+        </div>
+        <p class="mt-2 text-[11px] text-zinc-500">
+          中位数 {{ securityAnomalyBaseline.median ?? '—' }} · P95 {{ securityAnomalyBaseline.p95 ?? '—' }} · 样本 {{ securityAnomalyBaseline.sampleSize ?? '—' }} 天
+        </p>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-2">
+        <h2 class="text-sm font-semibold text-zinc-950">网段聚类</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">IPv4 /24 与 IPv6 /64 聚合，识别轮换 IP 与共享出口</p>
+        <ul class="mt-3 grid gap-2 sm:grid-cols-2">
+          <li
+            v-for="cluster in securityNetworkClusters"
+            :key="cluster.prefix"
+            class="rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2 text-xs"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="truncate font-medium text-zinc-900">{{ cluster.prefix }}</span>
+              <span
+                class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px]"
+                :class="cluster.riskLevel === 'high'
+                  ? 'bg-red-100 text-red-800'
+                  : cluster.riskLevel === 'medium'
+                    ? 'bg-amber-100 text-amber-900'
+                    : 'bg-zinc-200 text-zinc-700'"
+              >
+                {{ riskLevelLabel(cluster.riskLevel) }} · {{ cluster.riskScore }}
+              </span>
+            </div>
+            <p class="mt-1 text-zinc-600">
+              {{ cluster.ipCount }} IP · {{ cluster.visitorCount }} 访客 · {{ cluster.userCount }} 账号 · {{ cluster.eventCount }} 事件
+            </p>
+            <p class="mt-0.5 truncate text-zinc-400">{{ cluster.topCity || '未知地点' }} · {{ cluster.topPath || '/' }}</p>
+          </li>
+          <li v-if="!securityNetworkClusters.length" class="py-6 text-center text-xs text-zinc-400 sm:col-span-2">暂无网段聚类</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-3">
+        <h2 class="text-sm font-semibold text-zinc-950">最近会话切片</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">按 30 分钟无操作自动切分，用于识别持续扫描与密集操作</p>
+        <ul class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <li
+            v-for="session in securityRecentSessions.slice(0, 8)"
+            :key="session.id"
+            class="rounded-lg bg-zinc-50 px-3 py-2 text-xs"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-zinc-500">{{ formatAdminRelativeTime(session.startAt) }}</span>
+              <span class="font-medium tabular-nums text-zinc-900">{{ session.eventCount }} 事件</span>
+            </div>
+            <p class="mt-1 truncate text-zinc-700">{{ session.entryPath }} → {{ session.exitPath }}</p>
+            <p class="mt-0.5 text-[10px] text-zinc-400">{{ session.uniquePathCount }} 路径 · {{ session.durationSeconds }} 秒</p>
+          </li>
+          <li v-if="!securityRecentSessions.length" class="py-6 text-center text-xs text-zinc-400 sm:col-span-2 lg:col-span-4">暂无会话</li>
         </ul>
       </div>
     </section>
