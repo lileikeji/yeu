@@ -95,8 +95,15 @@ function toggleClubList() {
             size="lg"
             class="w-full"
           />
+          <USelect
+            v-model="selectedGroup"
+            :items="clubGroups"
+            aria-label="按兴趣分类筛选"
+            size="lg"
+            class="mt-3 w-full md:hidden"
+          />
           <div
-            class="mt-3 flex gap-2 overflow-x-auto pb-1"
+            class="mt-3 hidden flex-wrap gap-2 md:flex"
             aria-label="按兴趣分类筛选"
           >
             <button
