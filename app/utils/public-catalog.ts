@@ -11,7 +11,7 @@ import type { CampusMapReferencePlace } from '~~/data/seeds/preview-places'
 import type { AmapImportedPlace } from '~~/data/seeds/amap-imported-places'
 import type { ContentKind } from '~~/shared/constants/server'
 import type { ApiAmapOwnerDraftPlace, ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
-import { isSafePublicHttpUrl } from '../../shared/utils/public-http-url'
+import { isSafePublicHttpUrl } from '~~/shared/utils/public-http-url'
 
 type GuideCategory = FreshmanGuide['category']
 
