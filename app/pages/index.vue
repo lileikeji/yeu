@@ -114,9 +114,6 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
 
     <div class="animate-spring-up">
       <section class="border-b border-[var(--line)] bg-white/60 backdrop-blur-md relative overflow-hidden">
-        <!-- 粒子光晕背景装饰 -->
-        <div class="absolute -right-24 -top-24 size-96 rounded-full bg-green-100/30 blur-3xl pointer-events-none" />
-        <div class="absolute -left-24 -bottom-24 size-96 rounded-full bg-orange-100/20 blur-3xl pointer-events-none" />
         <div class="page-shell grid gap-7 py-7 md:py-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-center">
           <div class="max-w-3xl">
             <div class="flex flex-wrap items-center gap-2 text-xs">
@@ -374,7 +371,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
             v-for="procedure in featuredProcedures"
             :key="procedure.id"
             :to="procedure.to"
-            class="group flex items-start gap-4 rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-green-300 hover:shadow-sm"
+            class="group flex items-start gap-4 rounded-lg border border-zinc-200 bg-white p-4 transition hover:border-green-300 hover:shadow-sm"
           >
             <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-green-50 text-green-700">
               <UIcon
@@ -411,7 +408,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
               v-for="entry in moreEntries"
               :key="entry.to"
               :to="entry.to"
-              class="flex min-h-28 items-start gap-3 rounded-xl border border-zinc-200 p-4 transition hover:border-green-300"
+              class="flex min-h-28 items-start gap-3 rounded-lg border border-zinc-200 p-4 transition hover:border-green-300"
             >
               <span
                 class="grid size-9 shrink-0 place-items-center rounded-lg"

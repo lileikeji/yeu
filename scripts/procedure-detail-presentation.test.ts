@@ -24,6 +24,7 @@ import {
   serializeProcedureChecklist,
   shouldShowProcedureStepAudienceBadges,
   sourceClaimForStudents,
+  studentFacingProcedureText,
   toggleProcedureStep
 } from '../app/utils/procedure-detail-presentation'
 
@@ -58,8 +59,8 @@ test('procedure presentation labels and audience options stay student-facing', (
   assert.equal(procedureAudienceLabels.undergraduate, '普通本科新生')
   assert.equal(procedureAudienceLabels.transfer, '专升本新生')
   assert.equal(procedureMethodLabels.mixed, '线上核对 + 到校办理')
-  assert.equal(procedureStateLabels.confirmed, '已确认')
-  assert.equal(procedureStateLabels['awaiting-notice'], '待通知')
+  assert.equal(procedureStateLabels.confirmed, '信息明确')
+  assert.equal(procedureStateLabels['awaiting-notice'], '等待学校通知')
   assert.deepEqual(procedureAudienceOptions.map(option => option.value), [
     'all',
     'undergraduate',
@@ -69,22 +70,30 @@ test('procedure presentation labels and audience options stay student-facing', (
 
 test('procedure notice and material copy follow category and confirmation state', () => {
   assert.match(getProcedureNoticeText('arrival', 'partial'), /录取通知书/)
-  assert.match(getProcedureNoticeText('campus-card', 'confirmed'), /部门最新通知/)
-  assert.match(getProcedureNoticeText('campus-card', 'awaiting-notice'), /待通知/)
+  assert.match(getProcedureNoticeText('campus-card', 'confirmed'), /最新通知/)
+  assert.match(getProcedureNoticeText('campus-card', 'awaiting-notice'), /等学校通知/)
   assert.equal(getProcedureMaterialTitle('arrival'), '到校前需要准备')
   assert.equal(getProcedureMaterialTitle('campus-card'), '办理前先看是否需要材料')
-  assert.match(getProcedureEmptyMaterialText('arrival'), /不会用往年材料填充/)
-  assert.match(getProcedureEmptyMaterialText('campus-card'), /现场窗口要求/)
+  assert.match(getProcedureEmptyMaterialText('arrival'), /还没有公布/)
+  assert.match(getProcedureEmptyMaterialText('campus-card'), /现场窗口的要求/)
+  assert.equal(
+    studentFacingProcedureText('说明已发布，工单状态待通知，入口仍待核验'),
+    '说明已经公布，处理进度还要等学校通知，入口仍待确认'
+  )
+  assert.equal(
+    studentFacingProcedureText('2026公开来源尚未列明个人材料，尚未从2026公开来源确认窗口'),
+    '学校目前还没有列明个人材料，目前还没有从学校通知中确认窗口'
+  )
 })
 
 test('source claim rewrite and detail source mapping stay student-readable', () => {
   assert.equal(
     sourceClaimForStudents('官方入口与咨询边界'),
-    '这条来源主要确认：官方入口与咨询方式和适用范围'
+    '这份说明可以确认：官方入口与咨询方式和适用范围'
   )
   assert.equal(
     sourceClaimForStudents('报到流程与使用提醒'),
-    '这条来源主要确认：报到办理流程与使用注意事项'
+    '这份说明可以确认：报到办理流程与使用注意事项'
   )
   const sources = buildProcedureDetailSources([
     { id: 's1', title: '招生网', url: 'https://example.com', claimScope: '咨询边界' },
@@ -95,7 +104,7 @@ test('source claim rewrite and detail source mapping stay student-readable', () 
       key: 's1',
       title: '招生网',
       url: 'https://example.com',
-      note: '这条来源主要确认：咨询方式和适用范围'
+      note: '这份说明可以确认：咨询方式和适用范围'
     },
     {
       key: 's2',
@@ -148,7 +157,7 @@ test('Stage 65 procedure presentation decisions stay pure and student-facing', (
   assert.equal(resolveProcedureInformationStateBadgeColor(null), 'warning')
   assert.deepEqual(resolveProcedureMaterialsCountBadge(0), {
     color: 'warning',
-    label: '待通知'
+    label: '暂未公布'
   })
   assert.deepEqual(resolveProcedureMaterialsCountBadge(3), {
     color: 'neutral',

@@ -143,9 +143,9 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               color="warning"
               variant="soft"
             >
-              已发布公告
+              近期提醒
             </UBadge>
-            <span class="text-xs text-zinc-400">确认于 {{ notice.updatedAt }}</span>
+            <span class="text-xs text-zinc-400">更新于 {{ notice.updatedAt }}</span>
           </div>
           <h3 class="mt-4 font-bold text-zinc-950">
             {{ notice.title }}
@@ -235,7 +235,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               variant="soft"
               size="sm"
             >
-              已发布
+              可查看详情
             </UBadge>
           </div>
           <h3 class="mt-4 font-bold text-zinc-950">

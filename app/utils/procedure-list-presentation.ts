@@ -1,4 +1,7 @@
-import { procedureMethodLabels } from './procedure-detail-presentation'
+import {
+  procedureMethodLabels,
+  studentFacingProcedureText
+} from './procedure-detail-presentation'
 
 export const procedureListAudienceOptions = [
   { value: 'all', label: '全部新生' },
@@ -11,9 +14,41 @@ export type ProcedureListAudienceFilter = (typeof procedureListAudienceOptions)[
 export type ProcedureMethodKey = keyof typeof procedureMethodLabels
 
 export const procedureListMessages = {
-  serviceUnavailable: '办事流程暂时不可用，请稍后重试。',
-  emptyMatch: '当前没有匹配的已发布流程'
+  serviceUnavailable: '暂时没能打开办事信息，请检查网络后再试。',
+  emptyMatch: '没有找到相关事项，换个关键词试试。'
 } as const
+
+export type ProcedureListStatePresentation = {
+  label: string
+  color: 'success' | 'warning' | 'neutral'
+  icon: string
+}
+
+export function procedureListStatePresentation(informationState: string): ProcedureListStatePresentation {
+  if (informationState === 'confirmed') {
+    return {
+      label: '可以照着办理',
+      color: 'success',
+      icon: 'i-lucide-circle-check-big'
+    }
+  }
+  if (informationState === 'awaiting-notice') {
+    return {
+      label: '等待学校通知',
+      color: 'warning',
+      icon: 'i-lucide-clock-3'
+    }
+  }
+  return {
+    label: '先看已知部分',
+    color: 'neutral',
+    icon: 'i-lucide-info'
+  }
+}
+
+export function procedureListStatusText(value: string): string {
+  return studentFacingProcedureText(value)
+}
 
 export interface ProcedureListFilterableItem {
   title: string

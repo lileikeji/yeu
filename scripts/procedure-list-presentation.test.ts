@@ -7,6 +7,8 @@ import {
   procedureListAudienceOptions,
   procedureListDetailQuery,
   procedureListMessages,
+  procedureListStatePresentation,
+  procedureListStatusText,
   procedureMethodLabel
 } from '../app/utils/procedure-list-presentation'
 import { procedureMethodLabels } from '../app/utils/procedure-detail-presentation'
@@ -39,8 +41,15 @@ test('procedure list audience and method labels stay student-facing', () => {
   assert.equal(procedureMethodLabels.offline, '到校办理')
   assert.equal(procedureMethodLabels.mixed, '线上核对 + 到校办理')
   assert.equal(procedureMethodLabel('mixed'), '线上核对 + 到校办理')
-  assert.equal(procedureListMessages.serviceUnavailable, '办事流程暂时不可用，请稍后重试。')
-  assert.equal(procedureListMessages.emptyMatch, '当前没有匹配的已发布流程')
+  assert.equal(procedureListMessages.serviceUnavailable, '暂时没能打开办事信息，请检查网络后再试。')
+  assert.equal(procedureListMessages.emptyMatch, '没有找到相关事项，换个关键词试试。')
+  assert.equal(procedureListStatePresentation('confirmed').label, '可以照着办理')
+  assert.equal(procedureListStatePresentation('partial').label, '先看已知部分')
+  assert.equal(procedureListStatePresentation('awaiting-notice').label, '等待学校通知')
+  assert.equal(
+    procedureListStatusText('报修制度有官方来源，工单状态待通知'),
+    '报修制度有学校说明，处理进度还要等学校通知'
+  )
 })
 
 test('procedure list filter and detail query helpers', () => {

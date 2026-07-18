@@ -17,10 +17,24 @@ export const procedureMethodLabels = {
 } as const satisfies Record<ProcedureMethod, string>
 
 export const procedureStateLabels = {
-  'confirmed': '已确认',
-  'partial': '部分确认',
-  'awaiting-notice': '待通知'
+  'confirmed': '信息明确',
+  'partial': '部分内容待确认',
+  'awaiting-notice': '等待学校通知'
 } as const satisfies Record<ProcedureInformationState, string>
+
+export function studentFacingProcedureText(value: string): string {
+  return value
+    .replace(/2026公开来源尚未列明/g, '学校目前还没有列明')
+    .replace(/尚未从2026公开来源确认/g, '目前还没有从学校通知中确认')
+    .replace(/公开来源尚未/g, '学校目前还没有')
+    .replace(/公开来源确认/g, '学校通知确认')
+    .replace(/报到日期已确认/g, '报到日期已经确定')
+    .replace(/已发布/g, '已经公布')
+    .replace(/官方来源/g, '学校说明')
+    .replace(/工单状态/g, '处理进度')
+    .replace(/待通知/g, '还要等学校通知')
+    .replace(/核验/g, '确认')
+}
 
 export const procedureAudienceOptions: Array<{ value: ProcedureAudienceSelection, label: string }> = [
   { value: 'all', label: '全部新生' },
@@ -52,12 +66,12 @@ export function getProcedureNoticeText(
   informationState: ProcedureInformationState | string | null | undefined
 ): string {
   if (category === 'arrival') {
-    return '个人时段、材料、报到点和接站仍需查看录取通知书及学校后续通知；这里仅在官方来源确认后更新。'
+    return '个人报到时段、材料、报到点和接站安排还要看录取通知书及学校后续通知。'
   }
   if (informationState === 'confirmed') {
-    return '本页只整理公开来源已经能确认的办理入口、步骤和注意事项；如果部门后续改入口或改要求，以部门最新通知为准。'
+    return '这里整理了学校目前已经说明的办理入口、步骤和注意事项；如果部门之后调整要求，请以最新通知为准。'
   }
-  return '办理入口、材料要求、时间窗口或负责窗口如果还没有公开来源，本页会标为待通知，不用往年经验或群聊截图替你做决定。'
+  return '有些办理入口、材料或时间还没公布，可以先按已经明确的部分准备，其余等学校通知，不必照搬往年经验或群聊截图。'
 }
 
 export function getProcedureMaterialTitle(category: string | null | undefined): string {
@@ -68,8 +82,8 @@ export function getProcedureMaterialTitle(category: string | null | undefined): 
 
 export function getProcedureEmptyMaterialText(category: string | null | undefined): string {
   return category === 'arrival'
-    ? '2026公开来源尚未给出可核验的个人材料清单。本页不会用往年材料填充；收到录取通知书或当年报到通知后再逐项核对。'
-    : '当前公开来源没有列出需要提前准备的个人材料。办理时仍要以对应部门入口、页面提示或现场窗口要求为准。'
+    ? '学校目前还没有公布个人材料清单。收到录取通知书或当年报到通知后，再逐项准备。'
+    : '学校目前没有列出需要提前准备的个人材料。办理时请留意对应部门页面或现场窗口的要求。'
 }
 
 export function sourceClaimForStudents(claimScope: string): string {
@@ -81,7 +95,7 @@ export function sourceClaimForStudents(claimScope: string): string {
     .replace(/使用提醒/g, '使用注意事项')
     .replace(/流程/g, '办理流程')
     .replace(/规定/g, '相关规定')
-  return `这条来源主要确认：${text}`
+  return `这份说明可以确认：${text}`
 }
 
 export function buildProcedureDetailSources(
@@ -167,7 +181,7 @@ export function resolveProcedureMaterialsCountBadge(count: number): {
   }
   return {
     color: 'warning',
-    label: '待通知'
+    label: '暂未公布'
   }
 }
 

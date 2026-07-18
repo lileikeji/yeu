@@ -106,6 +106,10 @@ test('home featured procedures exclude arrival and map method labels', () => {
   ])
   assert.equal(featured[0]?.methodLabel, homeProcedureMethodLabels.online)
   assert.equal(toHomeProcedureItem(sampleProcedure({ method: 'mixed' })).methodLabel, '线上确认 + 到校办理')
+  assert.equal(
+    toHomeProcedureItem(sampleProcedure({ statusText: '入口已发布，材料待通知' })).statusText,
+    '入口已经公布，材料还要等学校通知'
+  )
   assert.equal(getHomeFallbackMessage(true, false), '部分内容暂时没有加载出来，可以先使用校园地图和基础指南。')
   assert.equal(getHomeFallbackMessage(false, false), null)
 })

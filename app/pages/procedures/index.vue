@@ -4,6 +4,8 @@ import {
   procedureListAudienceOptions,
   procedureListDetailQuery,
   procedureListMessages,
+  procedureListStatePresentation,
+  procedureListStatusText,
   procedureMethodLabel
 } from '~~/app/utils/procedure-list-presentation'
 
@@ -11,7 +13,7 @@ const { data, error, refresh } = await usePublicProcedureList()
 
 useSeoMeta({
   title: '新生办事流程',
-  description: '按顺序查看仰恩大学新生报到等事项的时间、材料、地点、负责部门和待通知状态。'
+  description: '查看仰恩大学新生报到等事项的办理步骤、材料、地点，以及现在可以准备的内容。'
 })
 
 const query = ref('')
@@ -36,13 +38,13 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
               新生办事流程
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              已确认信息和待通知事项分开展示。涉及个人时段、材料、地点和费用时，以录取通知书及学校当年通知为准。
+              先找你要办的事，页面会告诉你现在能做什么、还要等什么。个人时段、材料、地点和费用请以录取通知书及学校当年通知为准。
             </p>
           </div>
           <UButton
             to="/guides"
             icon="i-lucide-notebook-tabs"
-            label="查看背景指南"
+            label="先看入学指南"
             color="neutral"
             variant="outline"
             class="min-h-11 self-start md:self-auto"
@@ -102,9 +104,9 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
       <template v-else>
         <div class="mb-4 flex items-center justify-between gap-4">
           <h2 class="text-sm font-semibold text-zinc-900">
-            {{ procedures.length }} 项流程
+            {{ procedures.length }} 件事
           </h2>
-          <span class="text-xs text-zinc-500">无需登录</span>
+          <span class="text-xs text-zinc-500">点开查看步骤</span>
         </div>
 
         <div
@@ -118,7 +120,7 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
               path: `/procedures/${item.slug}`,
               query: procedureListDetailQuery(audience)
             }"
-            class="surface-panel group flex min-h-60 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
+            class="surface-panel group flex min-h-64 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
           >
             <div class="flex items-start justify-between gap-3">
               <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
@@ -128,11 +130,15 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
                 />
               </span>
               <UBadge
-                :color="item.informationState === 'confirmed' ? 'success' : 'warning'"
+                :color="procedureListStatePresentation(item.informationState).color"
                 variant="soft"
-                class="max-w-[12rem] whitespace-normal text-right"
+                size="sm"
               >
-                {{ item.statusText }}
+                <UIcon
+                  :name="procedureListStatePresentation(item.informationState).icon"
+                  class="mr-1 size-3.5"
+                />
+                {{ procedureListStatePresentation(item.informationState).label }}
               </UBadge>
             </div>
             <h2 class="mt-5 text-base font-bold text-zinc-950">
@@ -140,6 +146,10 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
             </h2>
             <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
               {{ item.summary }}
+            </p>
+            <p class="mt-4 border-l-2 border-orange-300 pl-3 text-xs leading-5 text-zinc-600">
+              <span class="font-semibold text-zinc-800">目前：</span>
+              {{ procedureListStatusText(item.statusText) }}
             </p>
             <div class="mt-5 border-t border-zinc-100 pt-4 text-xs text-zinc-500">
               <div class="flex items-center justify-between gap-3">

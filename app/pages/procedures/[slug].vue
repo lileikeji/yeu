@@ -26,6 +26,7 @@ import {
   resolveProcedureMaterialsCountBadge,
   resolveProcedureStepCompletionPresentation,
   shouldShowProcedureStepAudienceBadges,
+  studentFacingProcedureText,
   toggleProcedureStep
 } from '~~/app/utils/procedure-detail-presentation'
 
@@ -170,7 +171,7 @@ watch(selectedAudience, (value) => {
                 :color="informationStateBadgeColor(procedure.informationState)"
                 variant="soft"
               >
-                {{ procedure.statusText }}
+                {{ stateLabel[procedure.informationState] }}
               </UBadge>
               <UBadge
                 v-for="audience in procedure.audience"
@@ -185,7 +186,14 @@ watch(selectedAudience, (value) => {
               {{ procedure.title }}
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
-              {{ procedure.summary }}
+              {{ studentFacingProcedureText(procedure.summary) }}
+            </p>
+            <p class="mt-4 flex max-w-2xl items-start gap-2 text-sm leading-6 text-zinc-600">
+              <UIcon
+                name="i-lucide-info"
+                class="mt-1 size-4 shrink-0 text-orange-600"
+              />
+              <span><strong class="font-semibold text-zinc-800">目前：</strong>{{ studentFacingProcedureText(procedure.statusText) }}</span>
             </p>
             <div
               class="scrollbar-none mt-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-md border border-zinc-200 bg-zinc-50 p-1"
@@ -223,7 +231,7 @@ watch(selectedAudience, (value) => {
                 时间说明
               </dt>
               <dd class="mt-1 leading-6 text-zinc-900">
-                {{ procedure.deadlineText }}
+                {{ studentFacingProcedureText(procedure.deadlineText) }}
               </dd>
             </div>
             <div
@@ -234,7 +242,7 @@ watch(selectedAudience, (value) => {
                 预计耗时
               </dt>
               <dd class="text-right font-medium text-zinc-900">
-                {{ procedure.processingTime }}
+                {{ studentFacingProcedureText(procedure.processingTime) }}
               </dd>
             </div>
           </dl>
@@ -300,7 +308,7 @@ watch(selectedAudience, (value) => {
                     v-if="material.description"
                     class="mt-1 text-sm leading-6 text-zinc-600"
                   >
-                    {{ material.description }}
+                    {{ studentFacingProcedureText(material.description) }}
                   </p>
                 </div>
                 <UBadge
@@ -328,13 +336,13 @@ watch(selectedAudience, (value) => {
           <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p class="text-xs font-semibold text-green-700">
-                本设备清单
+                你的进度
               </p>
               <h2 class="mt-1 text-lg font-bold text-zinc-950">
-                按顺序核对
+                按顺序完成
               </h2>
               <p class="mt-1 text-xs text-zinc-500">
-                勾选状态只保存在当前设备，不会上传。
+                勾选内容只留在这台设备上。
               </p>
             </div>
             <UButton
@@ -386,7 +394,7 @@ watch(selectedAudience, (value) => {
                       name="i-lucide-clock-3"
                       class="size-3.5"
                     />
-                    {{ step.timeText }}
+                    {{ studentFacingProcedureText(step.timeText) }}
                   </span>
                   <template v-if="showStepAudienceBadges(step.audience.length, procedure.audience.length)">
                     <UBadge
@@ -404,10 +412,10 @@ watch(selectedAudience, (value) => {
                   class="mt-2 text-sm font-bold text-zinc-950 md:text-base"
                   :class="stepCompletionPresentation(step.id, stepIndex + 1).titleClass"
                 >
-                  {{ step.title }}
+                  {{ studentFacingProcedureText(step.title) }}
                 </h3>
                 <p class="mt-2 text-sm leading-6 text-zinc-600">
-                  {{ step.description }}
+                  {{ studentFacingProcedureText(step.description) }}
                 </p>
                 <div
                   v-if="step.department || step.place || step.actionUrl"
@@ -450,7 +458,7 @@ watch(selectedAudience, (value) => {
             v-if="visibleSteps.length === 0"
             class="mt-5 border-y border-zinc-200 bg-white py-5 text-sm leading-6 text-zinc-600"
           >
-            当前没有适用于所选新生类型的已确认步骤。
+            没有适合这一新生类型的步骤。
           </p>
         </section>
 

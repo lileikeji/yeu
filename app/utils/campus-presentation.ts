@@ -16,8 +16,8 @@ export const campusStats: CampusStatItem[] = [
 ]
 
 export const campusFallbackMessages = {
-  serviceUnavailable: '校园内容服务暂时不可用，请稍后重试。',
-  staticDepartmentFallback: '正在显示学校官网中的基础信息，部分联系方式可能暂未收录。',
+  serviceUnavailable: '暂时没能打开校园信息，请检查网络后再试。',
+  staticDepartmentFallback: '这里先列出学校官网中的常用信息，部分联系方式还没有收录。',
   emptyCatalog: '校园信息暂时还没有准备好，请稍后再看。'
 } as const
 
@@ -26,9 +26,7 @@ export const campusFeaturedDepartmentSlugs = [
   'student-affairs',
   'admissions-office',
   'financial-aid-center',
-  'general-affairs-office',
   'campus-clinic',
-  'mental-health-center',
   'library'
 ] as const
 

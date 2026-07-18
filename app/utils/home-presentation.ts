@@ -1,4 +1,5 @@
 import type { ApiProcedure } from '~~/shared/types/server'
+import { studentFacingProcedureText } from './procedure-detail-presentation'
 
 export interface HomeGuideLike {
   slug: string
@@ -157,7 +158,7 @@ export function toHomeProcedureItem(procedure: ApiProcedure): HomeProcedureItem 
     id: procedure.id,
     title: procedure.title,
     summary: procedure.summary,
-    statusText: procedure.statusText,
+    statusText: studentFacingProcedureText(procedure.statusText),
     methodLabel: homeProcedureMethodLabels[procedure.method],
     to: `/procedures/${encodeURIComponent(procedure.slug)}`
   }

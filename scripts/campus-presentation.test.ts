@@ -84,7 +84,8 @@ test('campus overview keeps short, useful previews and links to complete lists',
     selectFeaturedDepartments(departments).map(item => item.slug),
     ['student-affairs', 'campus-clinic', 'library']
   )
-  assert.ok(campusFeaturedDepartmentSlugs.length <= 8)
+  assert.ok(campusFeaturedDepartmentSlugs.length <= 6)
+  assert.ok(campusFeaturedDepartmentSlugs.includes('library'))
   assert.deepEqual(selectFeaturedClubs([1, 2, 3, 4], 3), [1, 2, 3])
   assert.match(pageSource, /to="\/departments"/)
   assert.match(pageSource, /to="\/clubs"/)
