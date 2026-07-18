@@ -55,6 +55,7 @@ test('source level guides use ordinary decision wording', () => {
   assert.equal(sourceLevelGuides.at(-1)?.level, '到现场再看')
   assert.match(sourceLevelGuides.at(-1)?.description ?? '', /营业情况、收费和办事要求/)
   assert.doesNotMatch(pageSource, /确认范围|判断可信度|按有效期复核|地图数据|已发布内容关联来源/)
+  assert.match(pageSource, /sm:grid-cols-\[10rem_minmax\(0,1fr\)\]/)
   assert.equal(dateOnly('2026-07-10T12:00:00Z'), '2026-07-10')
   assert.equal(dateOnly('2025-12-01'), '2025-12-01')
 })

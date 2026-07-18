@@ -84,7 +84,7 @@ function toggleSourcePreview(): void {
           <div
             v-for="item in sourceLevelGuides"
             :key="item.level"
-            class="grid gap-1 py-4 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4"
+            class="grid gap-1 py-4 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4"
           >
             <dt class="text-sm font-bold text-zinc-900">
               {{ item.level }} · {{ item.title }}

@@ -32,7 +32,7 @@ export const aboutBoundaries: AboutBoundary[] = [
   {
     title: '地图不猜位置',
     icon: 'i-lucide-map-pinned',
-    text: '只有能从学校资料或现场记录中确认的位置才会标在地图上。暂时不确定的地点会明确说明，不会随便放一个近似点。'
+    text: '只有能从学校资料或现场记录中确认的位置才会标在地图上。暂时不确定的地点会明确说明，不会为了看起来完整而随便标位置。'
   },
   {
     title: '往年消息只作参考',

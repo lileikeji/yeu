@@ -32,6 +32,8 @@ test('about catalogs stay student-facing', () => {
   assert.equal(aboutBoundaries.length, 4)
   assert.equal(aboutBoundaries[0]?.title, '重要事项看学校通知')
   assert.match(aboutBoundaries[0]?.text ?? '', /录取通知书/)
+  assert.match(aboutBoundaries.find(item => item.title === '地图不猜位置')?.text ?? '', /不会为了看起来完整而随便标位置/)
+  assert.doesNotMatch(utilSource, /近似点/)
   assert.ok(aboutBoundaries.some(item => item.title === '地图不猜位置'))
   assert.ok(aboutBoundaries.some(item => item.title === '没有付费排名'))
   assert.equal(aboutGovernanceLinks.length, 3)
