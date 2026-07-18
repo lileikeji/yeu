@@ -97,7 +97,7 @@ export const discoverDirectoryEntries: DiscoverLinkEntry[] = [
 export const discoverTrustEntries: DiscoverLinkEntry[] = [
   { title: '来源说明', description: '资料分级、核验方法与已发布引用', to: '/sources', icon: 'i-lucide-list-checks' },
   { title: '反馈纠错', description: '提交位置错误、过期内容或可靠来源', to: '/feedback', icon: 'i-lucide-message-square-warning' },
-  { title: '隐私说明', description: '定位、反馈、缓存与数据删除边界', to: '/privacy', icon: 'i-lucide-shield-check' },
+  { title: '隐私说明', description: '定位、反馈、离线使用与信息删除说明', to: '/privacy', icon: 'i-lucide-shield-check' },
   { title: '关于项目', description: '维护主体、非官方声明与服务边界', to: '/about', icon: 'i-lucide-info' },
-  { title: '离线状态', description: '网络不可用时的缓存边界和重试入口', to: '/offline', icon: 'i-lucide-cloud-off' }
+  { title: '离线状态', description: '网络暂时不可用时能查看什么，以及如何重试', to: '/offline', icon: 'i-lucide-cloud-off' }
 ]

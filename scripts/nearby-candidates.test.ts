@@ -49,6 +49,8 @@ test('nearby page keeps template wiring and review boundary copy', () => {
   assert.match(pageSource, /usageTips/)
   assert.match(pageSource, /verificationChecklist/)
   assert.match(pageSource, /candidateHint\(candidate\)/)
+  assert.doesNotMatch(pageSource, /高德 POI 接口来源/)
+  assert.doesNotMatch(pageSource, /高德当前 POI/)
   assert.match(pageSource, /title: '校园周边'/)
   assert.doesNotMatch(pageSource, /高德分类：/)
   assert.doesNotMatch(pageSource, /高德候选 · 待核验/)

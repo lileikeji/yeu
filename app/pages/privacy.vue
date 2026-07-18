@@ -3,7 +3,7 @@ import { privacySections } from '~~/app/utils/privacy-presentation'
 
 useSeoMeta({
   title: '隐私说明',
-  description: '仰恩新生指南的反馈、定位、缓存与管理员数据处理说明。',
+  description: '仰恩新生指南的反馈、定位、离线使用与管理员处理信息说明。',
   robots: 'noindex, nofollow'
 })
 </script>

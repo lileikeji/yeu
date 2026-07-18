@@ -8,7 +8,7 @@ import { safeLocalPath } from '~/utils/safe-navigation'
 
 useSeoMeta({
   title: '离线状态',
-  description: '仰恩新生指南的网络断开提示、缓存边界与重试入口。',
+  description: '仰恩新生指南在网络暂时不可用时的提示、可查看内容与重试入口。',
   robots: 'noindex, nofollow'
 })
 

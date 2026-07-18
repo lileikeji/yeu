@@ -261,7 +261,7 @@ function confirmResetProgress() {
               />
             </div>
             <p class="mt-3 text-xs leading-5 text-zinc-500">
-              {{ hydrated ? '进度已同步到本机缓存' : '正在读取本机进度…' }}
+              {{ hydrated ? '进度已保存在这台设备' : '正在读取已保存进度…' }}
             </p>
           </div>
         </div>

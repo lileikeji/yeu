@@ -46,7 +46,7 @@ async function dismissUpdate(): Promise<void> {
       id="pwa-update-description"
       class="mt-1 text-sm leading-6 text-zinc-600"
     >
-      立即更新会刷新当前页面。正在填写反馈或后台表单时，可以稍后再更新。
+      立即更新会刷新当前页面。正在填写反馈或管理页面时，可以稍后再更新。
     </p>
     <div class="mt-4 flex justify-end gap-2">
       <button

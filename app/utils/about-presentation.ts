@@ -61,7 +61,7 @@ export const aboutGovernanceLinks: AboutGovernanceLink[] = [
   },
   {
     title: '查看隐私说明',
-    description: '了解定位、反馈、缓存和数据删除规则',
+    description: '了解定位、反馈、离线使用和信息删除规则',
     to: '/privacy',
     icon: 'i-lucide-shield-check'
   }

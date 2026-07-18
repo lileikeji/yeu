@@ -195,7 +195,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
               />
             </div>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              高德当前 POI 搜索取得 30 条新区、旧区餐饮、便利、快递与生活服务参考。平台 POI 只证明地图上出现过这个名称和位置，不代表门店仍在营业；确认招牌、入口、营业状态、时间和服务范围后，才会进入上方正式目录。
+              高德地图搜索整理出 30 条新区、旧区餐饮、便利、快递与生活服务参考。地图搜索结果只能说明这里曾出现过这个名称和位置，不代表门店仍在营业；确认招牌、入口、营业状态、时间和服务范围后，才会进入上方正式目录。
             </p>
           </div>
           <a
@@ -204,7 +204,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
             rel="noopener noreferrer"
             class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800"
           >
-            高德 POI 接口来源
+            查看地图资料来源
             <UIcon
               name="i-lucide-external-link"
               class="size-3.5"
