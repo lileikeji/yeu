@@ -14,6 +14,9 @@ import {
   adminRiskLevelLabels,
   adminSuggestedActionLabels,
   adminVisitorActionLabels,
+  adminPathLabel,
+  adminPathTransitionLabel,
+  adminRiskScoreText,
   banStatusMeta,
   confirmAdminAction,
   formatAdminDateTime,
@@ -626,7 +629,7 @@ onMounted(async () => {
       <UFormField label="关键词">
         <UInput
           v-model="q"
-          placeholder="IP / 城市 / 路径 / 访客编号"
+          placeholder="IP / 城市 / 页面 / 访客编号"
           class="w-full"
           @keyup.enter="applySearch"
         />
@@ -681,7 +684,7 @@ onMounted(async () => {
             {{ row.isBanned ? '已封禁' : '正常' }}
           </span>
         </div>
-        <p class="mt-2 truncate text-xs text-zinc-700">{{ row.lastPath || '暂无访问路径' }}</p>
+        <p class="mt-2 truncate text-xs text-zinc-700" :title="row.lastPath || ''">{{ adminPathLabel(row.lastPath) }}</p>
         <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
           <span>{{ formatTime(row.lastSeenAt) }}</span>
           <span>{{ row.eventCount }} 次操作</span>
@@ -703,8 +706,8 @@ onMounted(async () => {
           <tr>
             <th class="px-3 py-3 font-medium">最近访问</th>
             <th class="px-3 py-3 font-medium">IP / 地点</th>
-            <th class="px-3 py-3 font-medium">路径 / 设备</th>
-            <th class="px-3 py-3 font-medium">事件</th>
+            <th class="px-3 py-3 font-medium">页面 / 设备</th>
+            <th class="px-3 py-3 font-medium">操作次数</th>
             <th class="px-3 py-3 font-medium">状态</th>
             <th class="px-3 py-3 font-medium">操作</th>
           </tr>
@@ -730,18 +733,18 @@ onMounted(async () => {
                 {{ row.locationLabel }}
               </div>
               <div class="mt-1 break-all text-[11px] text-zinc-400">
-                访客 {{ row.id }}
+                访客编号 {{ shortAdminId(row.id, 12) }}
               </div>
               <div
                 v-if="row.userId"
                 class="mt-1 break-all text-[11px] text-sky-600"
               >
-                账号 {{ row.userId }}
+                账号编号 {{ shortAdminId(row.userId, 12) }}
               </div>
             </td>
             <td class="px-3 py-3">
               <div class="text-xs text-zinc-700">
-                {{ row.lastPath || '—' }}
+                <span :title="row.lastPath || ''">{{ adminPathLabel(row.lastPath) }}</span>
               </div>
               <div class="mt-1 break-all text-[11px] text-zinc-400">
                 {{ shortUa(row.lastUserAgent) }}
@@ -993,7 +996,7 @@ onMounted(async () => {
           >
             {{ adminLabel(adminRiskLevelLabels, ipDossier.riskLevel || ipDossier.summary.riskLevel) }}
             <template v-if="(ipDossier.riskScore ?? ipDossier.summary.riskScore) != null">
-              · {{ ipDossier.riskScore ?? ipDossier.summary.riskScore }}
+              · {{ adminRiskScoreText(ipDossier.riskScore ?? ipDossier.summary.riskScore) }}
             </template>
           </span>
           <span
@@ -1027,7 +1030,7 @@ onMounted(async () => {
               class="rounded-full bg-white px-2 py-0.5 text-[11px] text-rose-900 ring-1 ring-rose-100"
             >
               {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
-              +{{ factor.points }} · {{ factor.message }}
+              风险分 +{{ factor.points }} · {{ factor.message }}
             </li>
           </ul>
         </div>
@@ -1066,20 +1069,20 @@ onMounted(async () => {
                 >
                   {{ shortAdminId(v.id, 10) }}
                 </button>
-                <span class="shrink-0 text-zinc-500">事件 {{ v.eventCount ?? '—' }}</span>
+                <span class="shrink-0 text-zinc-500">{{ v.eventCount ?? '—' }} 次操作</span>
               </li>
               <li v-if="!(ipDossier.visitors || []).length" class="text-zinc-400">暂无</li>
             </ul>
           </div>
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">高频路径</p>
+            <p class="text-[11px] font-medium text-zinc-600">常访页面</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
               <li
                 v-for="row in (ipDossier.pathTop || []).slice(0, 8)"
                 :key="'ipp-' + row.path"
                 class="flex items-center justify-between gap-2 text-[11px]"
               >
-                <span class="truncate text-zinc-700">{{ row.path }}</span>
+                <span class="truncate text-zinc-700" :title="row.path">{{ adminPathLabel(row.path) }}</span>
                 <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
               </li>
               <li v-if="!(ipDossier.pathTop || []).length" class="text-zinc-400">暂无</li>
@@ -1142,7 +1145,7 @@ onMounted(async () => {
             <p class="text-[11px] font-medium text-zinc-600">访问过程</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
               <li v-for="(row, idx) in (ipDossier.pathSequence || []).slice(0, 10)" :key="'iseq-' + idx" class="flex justify-between gap-2">
-                <span class="truncate">{{ row.path }}</span>
+                <span class="truncate" :title="row.path">{{ adminPathLabel(row.path) }}</span>
                 <span class="shrink-0 text-zinc-400">{{ actionLabel(row.action) }}</span>
               </li>
             </ul>
@@ -1151,7 +1154,7 @@ onMounted(async () => {
             <p class="text-[11px] font-medium text-zinc-600">常见访问顺序</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
               <li v-for="(row, idx) in (ipDossier.pathTransitions || []).slice(0, 8)" :key="'ipt-' + idx" class="flex justify-between gap-2">
-                <span class="truncate">{{ row.transition || (row.from + ' → ' + row.to) }}</span>
+                <span class="truncate" :title="row.transition">{{ adminPathTransitionLabel(row.from, row.to) }}</span>
                 <span class="shrink-0 tabular-nums">{{ row.count }}</span>
               </li>
             </ul>
@@ -1179,7 +1182,7 @@ onMounted(async () => {
                 {{ ipDossier.networkProfile.ipCount }} IP · {{ ipDossier.networkProfile.visitorCount }} 访客 · {{ ipDossier.networkProfile.userCount }} 账号
               </p>
               <p class="mt-1 text-[11px] text-zinc-500">
-                {{ ipDossier.networkProfile.eventCount }} 事件 · 风险 {{ ipDossier.networkProfile.riskScore }}
+                {{ ipDossier.networkProfile.eventCount }} 次操作 · {{ adminRiskScoreText(ipDossier.networkProfile.riskScore) }}
               </p>
             </template>
           </section>
@@ -1190,7 +1193,7 @@ onMounted(async () => {
                 <div class="flex items-center justify-between gap-2">
                   <span class="truncate font-medium text-zinc-800">{{ item.message }}</span>
                   <span class="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[10px] text-rose-800">
-                    {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · {{ item.weight }}
+                    {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · 参考分 {{ item.weight }}
                   </span>
                 </div>
               </li>
@@ -1226,10 +1229,10 @@ onMounted(async () => {
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 class="font-semibold text-zinc-950">
-            事件详情 · {{ selectedVisitor.lastIp || selectedVisitor.id }}
+            操作详情 · {{ selectedVisitor.lastIp || shortAdminId(selectedVisitor.id, 12) }}
           </h2>
           <p class="mt-1 text-xs text-zinc-500">
-            {{ selectedVisitor.locationLabel }} · 共 {{ eventTotal }} 条事件 · 访客编号 {{ shortAdminId(selectedVisitor.id, 12) }}
+            {{ selectedVisitor.locationLabel }} · 共 {{ eventTotal }} 条操作记录 · 访客编号 {{ shortAdminId(selectedVisitor.id, 12) }}
           </p>
         </div>
         <div class="flex gap-2">
@@ -1269,7 +1272,7 @@ onMounted(async () => {
             <p class="text-xs font-semibold text-violet-950">访客详情</p>
             <p class="mt-0.5 text-[11px] text-violet-700/80">
               事件 {{ visitorDossier.summary.eventTotal }} · 近 7 天 {{ visitorDossier.summary.events7d }}
-              · IP {{ visitorDossier.summary.uniqueIps }} · 路径 {{ visitorDossier.summary.uniquePaths }}
+              · IP {{ visitorDossier.summary.uniqueIps }} · 页面 {{ visitorDossier.summary.uniquePaths }}
             </p>
           </div>
           <div class="flex flex-wrap gap-1.5">
@@ -1292,7 +1295,7 @@ onMounted(async () => {
             >
               {{ adminLabel(adminRiskLevelLabels, visitorDossier.riskLevel || visitorDossier.summary.riskLevel) }}
               <template v-if="(visitorDossier.riskScore ?? visitorDossier.summary.riskScore) != null">
-                · {{ visitorDossier.riskScore ?? visitorDossier.summary.riskScore }}
+                · {{ adminRiskScoreText(visitorDossier.riskScore ?? visitorDossier.summary.riskScore) }}
               </template>
             </span>
             <NuxtLink
@@ -1334,7 +1337,7 @@ onMounted(async () => {
               :title="factor.message"
             >
               {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
-              <span class="tabular-nums text-rose-700">+{{ factor.points }}</span>
+              <span class="tabular-nums text-rose-700">风险分 +{{ factor.points }}</span>
               <span class="text-rose-700/70">· {{ factor.message }}</span>
             </li>
           </ul>
@@ -1463,7 +1466,7 @@ onMounted(async () => {
                 :key="'vseq-' + idx"
                 class="flex items-center justify-between gap-2"
               >
-                <span class="truncate text-zinc-700">{{ row.path }}</span>
+                <span class="truncate text-zinc-700" :title="row.path">{{ adminPathLabel(row.path) }}</span>
                 <span class="shrink-0 text-zinc-400">{{ adminLabel(adminVisitorActionLabels, row.action, row.action) }}</span>
               </li>
               <li v-if="!(visitorDossier.pathSequence || []).length" class="text-zinc-400">暂无</li>
@@ -1477,7 +1480,7 @@ onMounted(async () => {
                 :key="'vpt-' + idx"
                 class="flex items-center justify-between gap-2"
               >
-                <span class="truncate text-zinc-700">{{ row.transition || (row.from + ' → ' + row.to) }}</span>
+                <span class="truncate text-zinc-700" :title="row.transition">{{ adminPathTransitionLabel(row.from, row.to) }}</span>
                 <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
               </li>
               <li v-if="!(visitorDossier.pathTransitions || []).length" class="text-zinc-400">暂无</li>
@@ -1520,14 +1523,14 @@ onMounted(async () => {
             </ul>
           </div>
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">高频路径</p>
+            <p class="text-[11px] font-medium text-zinc-600">常访页面</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
               <li
                 v-for="row in visitorDossier.pathTop"
                 :key="row.path"
                 class="flex items-center justify-between gap-2 text-[11px]"
               >
-                <span class="truncate text-zinc-700">{{ row.path }}</span>
+                <span class="truncate text-zinc-700" :title="row.path">{{ adminPathLabel(row.path) }}</span>
                 <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
               </li>
               <li v-if="!visitorDossier.pathTop.length" class="text-zinc-400">暂无</li>
@@ -1599,9 +1602,9 @@ onMounted(async () => {
                   locationLabel: sib.lastCity || '未知'
                 })"
               >
-                {{ shortAdminId(sib.id, 10) }} · {{ sib.lastPath || '—' }}
+                {{ shortAdminId(sib.id, 10) }} · <span :title="sib.lastPath || ''">{{ adminPathLabel(sib.lastPath) }}</span>
               </button>
-              <span class="text-zinc-500">{{ formatAdminRelativeTime(sib.lastSeenAt) }} · 事件 {{ sib.eventCount }}</span>
+              <span class="text-zinc-500">{{ formatAdminRelativeTime(sib.lastSeenAt) }} · {{ sib.eventCount }} 次操作</span>
             </li>
           </ul>
         </div>
@@ -1616,10 +1619,10 @@ onMounted(async () => {
               <li v-for="session in visitorDossier.sessions" :key="session.id" class="rounded-md bg-white px-2 py-1.5 text-[11px]">
                 <div class="flex items-center justify-between gap-2">
                   <span class="text-zinc-500">{{ formatAdminRelativeTime(session.startAt) }}</span>
-                  <span class="font-medium tabular-nums text-zinc-900">{{ session.eventCount }} 事件</span>
+                  <span class="font-medium tabular-nums text-zinc-900">{{ session.eventCount }} 次操作</span>
                 </div>
-                <p class="mt-0.5 truncate text-zinc-600">{{ session.entryPath }} → {{ session.exitPath }}</p>
-                <p class="mt-0.5 text-[10px] text-zinc-400">{{ session.uniquePathCount }} 路径 · {{ session.durationSeconds }} 秒</p>
+                <p class="mt-0.5 truncate text-zinc-600" :title="`${session.entryPath} → ${session.exitPath}`">{{ adminPathTransitionLabel(session.entryPath, session.exitPath) }}</p>
+                <p class="mt-0.5 text-[10px] text-zinc-400">{{ session.uniquePathCount }} 个页面 · {{ session.durationSeconds }} 秒</p>
               </li>
               <li v-if="!visitorDossier.sessions?.length" class="text-[11px] text-zinc-400">暂无访问过程</li>
             </ul>
@@ -1631,7 +1634,7 @@ onMounted(async () => {
                 <div class="flex items-center justify-between gap-2">
                   <span class="truncate font-medium text-zinc-800">{{ item.message }}</span>
                   <span class="shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[10px] text-rose-800">
-                    {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · {{ item.weight }}
+                    {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · 参考分 {{ item.weight }}
                   </span>
                 </div>
               </li>

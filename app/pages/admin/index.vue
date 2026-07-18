@@ -20,6 +20,9 @@ import {
   adminRiskFactorLabels,
   adminRiskLevelLabels,
   adminVisitorActionLabels,
+  adminPathLabel,
+  adminPathTransitionLabel,
+  adminRiskScoreText,
   formatAdminDateTime,
   formatAdminRelativeTime,
   shortAdminId
@@ -617,7 +620,7 @@ onMounted(() => {
               >
                 {{ riskLevelLabel(item.priority) }}
               </span>
-              <span class="tabular-nums text-zinc-400">{{ item.score }}</span>
+              <span class="tabular-nums text-zinc-500">{{ adminRiskScoreText(item.score) }}</span>
             </div>
             <p class="mt-1 font-medium text-zinc-900">{{ item.title }}</p>
             <p class="mt-0.5 line-clamp-2 text-zinc-500">{{ item.detail }}</p>
@@ -693,7 +696,7 @@ onMounted(() => {
             :key="'pt-' + idx"
             class="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 px-2.5 py-1.5"
           >
-            <span class="truncate text-zinc-700">{{ row.transition || (row.from + ' → ' + row.to) }}</span>
+            <span class="truncate text-zinc-700" :title="row.transition">{{ adminPathTransitionLabel(row.from, row.to) }}</span>
             <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
           </li>
           <li v-if="!securityPathTransitions.length" class="py-4 text-center text-zinc-400 sm:col-span-2 lg:col-span-3">暂无连续访问记录</li>
@@ -763,13 +766,13 @@ onMounted(() => {
                     ? 'bg-amber-100 text-amber-900'
                     : 'bg-zinc-200 text-zinc-700'"
               >
-                {{ riskLevelLabel(cluster.riskLevel) }} · {{ cluster.riskScore }}
+                {{ riskLevelLabel(cluster.riskLevel) }} · {{ adminRiskScoreText(cluster.riskScore) }}
               </span>
             </div>
             <p class="mt-1 text-zinc-600">
-              {{ cluster.ipCount }} IP · {{ cluster.visitorCount }} 访客 · {{ cluster.userCount }} 账号 · {{ cluster.eventCount }} 事件
+              {{ cluster.ipCount }} IP · {{ cluster.visitorCount }} 访客 · {{ cluster.userCount }} 账号 · {{ cluster.eventCount }} 次操作
             </p>
-            <p class="mt-0.5 truncate text-zinc-400">{{ cluster.topCity || '未知地点' }} · {{ cluster.topPath || '/' }}</p>
+            <p class="mt-0.5 truncate text-zinc-400" :title="cluster.topPath">{{ cluster.topCity || '未知地点' }} · {{ adminPathLabel(cluster.topPath) }}</p>
           </li>
           <li v-if="!securityNetworkClusters.length" class="py-6 text-center text-xs text-zinc-400 sm:col-span-2">暂无相近网络来源</li>
         </ul>
@@ -786,10 +789,10 @@ onMounted(() => {
           >
             <div class="flex items-center justify-between gap-2">
               <span class="text-zinc-500">{{ formatAdminRelativeTime(session.startAt) }}</span>
-              <span class="font-medium tabular-nums text-zinc-900">{{ session.eventCount }} 事件</span>
+              <span class="font-medium tabular-nums text-zinc-900">{{ session.eventCount }} 次操作</span>
             </div>
-            <p class="mt-1 truncate text-zinc-700">{{ session.entryPath }} → {{ session.exitPath }}</p>
-            <p class="mt-0.5 text-[10px] text-zinc-400">{{ session.uniquePathCount }} 路径 · {{ session.durationSeconds }} 秒</p>
+            <p class="mt-1 truncate text-zinc-700" :title="`${session.entryPath} → ${session.exitPath}`">{{ adminPathTransitionLabel(session.entryPath, session.exitPath) }}</p>
+            <p class="mt-0.5 text-[10px] text-zinc-400">{{ session.uniquePathCount }} 个页面 · {{ session.durationSeconds }} 秒</p>
           </li>
           <li v-if="!securityRecentSessions.length" class="py-6 text-center text-xs text-zinc-400 sm:col-span-2 lg:col-span-4">暂无访问过程</li>
         </ul>
@@ -827,7 +830,7 @@ onMounted(() => {
             <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.visitorsNew ?? '—' }}</p>
           </div>
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
-            <p class="text-[11px] text-zinc-500">访客事件</p>
+            <p class="text-[11px] text-zinc-500">访客操作</p>
             <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.visitorEvents ?? '—' }}</p>
           </div>
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
@@ -886,7 +889,7 @@ onMounted(() => {
             :key="row.path"
             class="flex items-center justify-between gap-2 text-xs"
           >
-            <span class="truncate text-zinc-700">{{ row.path || '/' }}</span>
+            <span class="truncate text-zinc-700" :title="row.path">{{ adminPathLabel(row.path) }}</span>
             <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
           </li>
           <li v-if="!securityTopPaths.length" class="py-4 text-center text-zinc-400">暂无数据</li>
@@ -1025,9 +1028,9 @@ onMounted(() => {
             </NuxtLink>
             <span class="shrink-0 text-right text-zinc-500">
               <span class="tabular-nums">访客 {{ row.visitorCount }} · 事件 {{ row.eventCount }}</span>
-              <span v-if="row.city" class="block text-[10px] text-zinc-400">{{ row.city }} · {{ row.topPath || '/' }}</span>
+              <span v-if="row.city" class="block text-[10px] text-zinc-400" :title="row.topPath">{{ row.city }} · {{ adminPathLabel(row.topPath) }}</span>
               <span v-if="row.riskLevel && row.riskLevel !== 'info'" class="block text-[10px]" :class="row.riskLevel === 'high' ? 'text-red-700' : 'text-amber-700'">
-                {{ riskLevelLabel(row.riskLevel) }} · {{ row.riskScore }}
+                {{ riskLevelLabel(row.riskLevel) }} · {{ adminRiskScoreText(row.riskScore) }}
                 <template v-if="row.isBanned"> · 已封</template>
               </span>
             </span>

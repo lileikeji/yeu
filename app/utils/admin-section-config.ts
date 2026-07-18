@@ -614,7 +614,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   'sources': {
     key: 'sources',
     title: '来源管理',
-    description: '维护证据链接、发布主体、可信等级和可用状态。',
+    description: '维护来源链接、发布主体、可信程度和可用状态。',
     icon: 'i-lucide-book-marked',
     endpoint: '/api/admin/sources',
     createLabel: '登记来源',
@@ -624,8 +624,8 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
     filters: [
       {
         key: 'level',
-        label: '可信等级',
-        allLabel: '全部等级',
+        label: '可信程度',
+        allLabel: '全部可信程度',
         options: [
           { label: 'A · 官方一手', value: 'A' },
           { label: 'B · 权威或实地', value: 'B' },
@@ -670,7 +670,17 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         }
       },
       { key: 'publisherName', label: '发布主体' },
-      { key: 'sourceLevel', label: '等级' },
+      {
+        key: 'sourceLevel',
+        label: '可信程度',
+        valueLabels: {
+          A: 'A（学校官方）',
+          B: 'B（权威或现场核验）',
+          C: 'C（当事方或授权导入）',
+          D: 'D（辅助线索）',
+          E: 'E（尚未分级）'
+        }
+      },
       { key: 'status', label: '状态', kind: 'status' },
       { key: 'accessedAt', label: '访问日期', kind: 'date' }
     ],
@@ -707,7 +717,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'sourceLevel',
-        label: '可信等级',
+        label: '可信程度',
         type: 'select',
         required: true,
         defaultValue: 'D',

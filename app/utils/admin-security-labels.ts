@@ -36,6 +36,28 @@ export const adminAuditActionLabels: Record<string, string> = {
   'auth.login_failed': '管理员登录失败',
   user_login: '用户登录',
   'admin.logout': '管理员登出',
+  'auth.logout': '管理员登出',
+  'place.create': '新增地点',
+  'place.update': '编辑地点',
+  'place.archive': '下架地点',
+  'place.publish': '发布地点',
+  'place.delete': '删除地点',
+  'content.create': '新增内容',
+  'content.update': '编辑内容',
+  'content.archive': '下架内容',
+  'content.publish': '发布内容',
+  'content.delete': '删除内容',
+  'procedure.create': '新增办事流程',
+  'procedure.update': '编辑办事流程',
+  'procedure.archive': '下架办事流程',
+  'procedure.publish': '发布办事流程',
+  'procedure.delete': '删除办事流程',
+  'source.create': '登记来源',
+  'source.update': '编辑来源',
+  'source.archive': '停用来源',
+  'source.delete': '删除来源',
+  'feedback.update': '处理反馈',
+  'feedback.delete': '删除反馈',
   publish: '发布',
   unpublish: '取消发布',
   create: '创建',
@@ -219,6 +241,59 @@ export function formatAdminRelativeTime(iso: string | null | undefined): string 
 export function shortAdminId(id: string | null | undefined, keep = 8): string {
   if (!id) return '—'
   return id.length <= keep + 2 ? id : `${id.slice(0, keep)}…`
+}
+
+const adminPageLabels: Array<[prefix: string, label: string]> = [
+  ['/admin/field-observations', '现场采点'],
+  ['/admin/procedures', '办事流程管理'],
+  ['/admin/visitors', '访客轨迹'],
+  ['/admin/sources', '来源管理'],
+  ['/admin/content', '内容管理'],
+  ['/admin/places', '地点管理'],
+  ['/admin/feedback', '反馈管理'],
+  ['/admin/users', '账号管理'],
+  ['/admin/chat', '群聊管理'],
+  ['/admin/bans', '封禁管理'],
+  ['/admin/audit', '审计日志'],
+  ['/admin/login', '后台登录'],
+  ['/procedures', '办事指南'],
+  ['/departments', '学校部门'],
+  ['/guides', '新生指南'],
+  ['/content', '指南内容'],
+  ['/clubs', '校园社团'],
+  ['/nearby', '校园周边'],
+  ['/campus', '校园平面图'],
+  ['/profile', '个人中心'],
+  ['/chat', '群聊房间'],
+  ['/login', '用户登录'],
+  ['/map', '校园地图']
+]
+
+export function adminPathLabel(value: string | null | undefined): string {
+  if (!value) return '未知页面'
+  let path = value.trim()
+  try {
+    if (/^https?:\/\//i.test(path)) path = new URL(path).pathname
+  } catch {
+    return '其他页面'
+  }
+  path = path.split(/[?#]/, 1)[0] || '/'
+  if (path === '/') return '首页'
+  if (path === '/admin') return '后台概览'
+  if (/^\/(?:mech-smoke|gate-|e2e-|smoke)/.test(path)) return '系统检查页面'
+  const match = adminPageLabels.find(([prefix]) => path === prefix || path.startsWith(`${prefix}/`))
+  return match?.[1] || '其他页面'
+}
+
+export function adminPathTransitionLabel(from: string | null | undefined, to: string | null | undefined): string {
+  return `${adminPathLabel(from)} → ${adminPathLabel(to)}`
+}
+
+export function adminRiskScoreText(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '风险分未知'
+  const score = Number(value)
+  if (!Number.isFinite(score)) return '风险分未知'
+  return `风险分 ${Math.min(100, Math.max(0, Math.round(score)))}/100`
 }
 
 export function formatAdminDateTime(iso: string | null | undefined, withSeconds = false): string {
