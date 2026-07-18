@@ -139,6 +139,7 @@ export class AMapProvider implements MapProvider {
   private lifecycleVersion = 0
   private renderVersion = 0
   private areaRenderVersion = 0
+  private mapAccessibilityObserver: MutationObserver | null = null
 
   constructor(options: AMapProviderOptions) {
     this.options = options
@@ -164,6 +165,7 @@ export class AMapProvider implements MapProvider {
     })
     this.amap = amap
     this.map = map
+    this.installMapAccessibility(element)
     this.applyBaseStyle()
     map.on('click', this.handleMapClick)
     map.on('hotspotclick', this.handleHotspotClick)
@@ -935,7 +937,29 @@ export class AMapProvider implements MapProvider {
     }
   }
 
+  private installMapAccessibility(element: HTMLElement): void {
+    if (typeof element.querySelectorAll !== 'function') return
+
+    const applyLabels = () => {
+      element.querySelectorAll<HTMLIFrameElement>('iframe').forEach((frame) => {
+        if (!frame.title) frame.title = '地图交互区域'
+      })
+      element.querySelectorAll<HTMLImageElement>('.amap-logo img').forEach((image) => {
+        if (!image.alt) image.alt = '高德地图'
+      })
+    }
+
+    applyLabels()
+    if (typeof MutationObserver === 'undefined') return
+
+    const observer = new MutationObserver(applyLabels)
+    observer.observe(element, { childList: true, subtree: true })
+    this.mapAccessibilityObserver = observer
+  }
+
   private disposeMap(): void {
+    this.mapAccessibilityObserver?.disconnect()
+    this.mapAccessibilityObserver = null
     this.clearRoute()
     this.clearMarkers()
     this.clearAreas()
