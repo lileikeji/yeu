@@ -5,10 +5,16 @@ import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
 import {
   buildClubDetailSources,
+  buildClubOverviewItems,
   clubSectionLabels,
   clubSignupQuestionChecklist,
+  clubSourceStatusMessages,
   resolveClubSourceStatusText
 } from '~~/app/utils/club-detail-presentation'
+import {
+  resolveClubDirection,
+  resolveClubGroup
+} from '~~/app/utils/club-list-presentation'
 
 const route = useRoute()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
@@ -25,7 +31,9 @@ if (!club.value) throw createError({ statusCode: 404, statusMessage: '社团不�
 
 useSeoMeta({
   title: () => club.value?.name ?? '学生社团',
-  description: () => club.value?.summary ?? ''
+  description: () => club.value
+    ? `${club.value.name}：${resolveClubDirection(club.value.summary, seedClub.value?.direction)}`
+    : ''
 })
 const feedbackLink = computed(() => buildDetailFeedbackLink({
   targetType: 'content',
@@ -36,6 +44,16 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
 }))
 
 const sourceStatusText = computed(() => resolveClubSourceStatusText(club.value?.sources))
+const hasRecentActivity = computed(() => sourceStatusText.value === clubSourceStatusMessages.recentActivity)
+const clubGroup = computed(() => seedClub.value?.group ?? resolveClubGroup(club.value?.category))
+const clubDirection = computed(() => resolveClubDirection(
+  club.value?.summary ?? '',
+  seedClub.value?.direction
+))
+const overviewItems = computed(() => buildClubOverviewItems(clubDirection.value))
+const hasRecruitmentDetails = computed(() => Boolean(
+  club.value?.recruitmentPeriod || club.value?.activitySchedule || club.value?.contactMethod
+))
 const detailSources = computed(() => buildClubDetailSources(club.value?.sources))
 </script>
 
@@ -57,20 +75,27 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
           />
           <span>{{ club.name }}</span>
         </nav>
-        <div class="mt-5 flex items-center gap-3">
-          <span class="grid size-11 place-items-center rounded-md bg-violet-50 text-violet-700">
+        <div class="mt-5 flex flex-wrap items-center gap-2">
+          <span class="mr-1 grid size-11 place-items-center rounded-md bg-emerald-50 text-emerald-700">
             <UIcon
               name="i-lucide-users-round"
               class="size-5"
             />
           </span>
           <UBadge
-            :label="club.category ?? sourceStatusText"
+            :label="clubGroup"
+            color="neutral"
+            variant="soft"
+          />
+          <UBadge
+            v-if="hasRecentActivity"
+            :label="sourceStatusText"
             color="success"
             variant="soft"
           />
           <UBadge
-            :label="clubSectionLabels.recruitmentPending"
+            v-else
+            :label="sourceStatusText"
             color="warning"
             variant="soft"
           />
@@ -79,7 +104,7 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
           {{ club.name }}
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 md:text-base">
-          {{ club.summary }}
+          {{ clubDirection }}
         </p>
       </div>
     </header>
@@ -87,6 +112,7 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
     <div class="page-shell py-7 md:py-10">
       <article class="mx-auto min-w-0 max-w-4xl">
         <div
+          v-if="!hasRecruitmentDetails"
           class="border-l-4 border-orange-500 bg-orange-50 px-4 py-3 text-sm leading-6 text-orange-950"
           role="status"
         >
@@ -101,28 +127,26 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
 
         <section class="border-b border-zinc-200 py-8">
           <h2 class="text-lg font-bold text-zinc-950">
-            {{ clubSectionLabels.confirmedInfo }}
+            {{ clubSectionLabels.overview }}
           </h2>
-          <div class="mt-4 rounded-lg bg-violet-50 px-4 py-3 text-sm leading-6 text-violet-950">
-            <p>
-              <span class="font-semibold">{{ clubSectionLabels.currentlyConfirmed }}</span>{{ sourceStatusText }}。
-            </p>
-            <p class="mt-1">
-              <span class="font-semibold">{{ clubSectionLabels.suitableFor }}</span>{{ clubSectionLabels.suitableAudience }}
-            </p>
+          <div class="mt-5 grid gap-5 md:grid-cols-3">
+            <div
+              v-for="item in overviewItems"
+              :key="item.title"
+              class="border-l-2 border-emerald-200 pl-4"
+            >
+              <div class="flex items-center gap-2 text-sm font-semibold text-zinc-900">
+                <UIcon
+                  :name="item.icon"
+                  class="size-4 text-emerald-700"
+                />
+                {{ item.title }}
+              </div>
+              <p class="mt-2 text-sm leading-6 text-zinc-600">
+                {{ item.text }}
+              </p>
+            </div>
           </div>
-          <p
-            v-if="club.body"
-            class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600"
-          >
-            {{ club.body }}
-          </p>
-          <p
-            v-else
-            class="mt-4 text-sm leading-7 text-zinc-600"
-          >
-            {{ clubSectionLabels.bodyFallback }}
-          </p>
         </section>
 
         <section class="border-b border-zinc-200 py-8">
@@ -133,65 +157,71 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
             <li
               v-for="item in clubSignupQuestionChecklist"
               :key="item"
-              class="flex gap-3 rounded-lg border border-violet-100 bg-violet-50/60 p-3 text-sm leading-6 text-violet-950"
+              class="flex gap-3 rounded-lg border border-zinc-200 bg-white p-3 text-sm leading-6 text-zinc-700"
             >
               <UIcon
                 name="i-lucide-circle-help"
-                class="mt-0.5 size-4 shrink-0"
+                class="mt-0.5 size-4 shrink-0 text-emerald-700"
               />
               <span>{{ item }}</span>
             </li>
           </ul>
         </section>
 
-        <dl
-          v-if="club.recruitmentPeriod || club.activitySchedule || club.contactMethod"
-          class="divide-y divide-zinc-100 border-b border-zinc-200 py-4 text-sm"
+        <section
+          v-if="hasRecruitmentDetails"
+          class="border-b border-zinc-200 py-7"
         >
-          <div
-            v-if="club.recruitmentPeriod"
-            class="flex justify-between gap-6 py-3"
-          >
-            <dt class="text-zinc-500">
-              招新时间
-            </dt>
-            <dd class="text-right text-zinc-900">
-              {{ club.recruitmentPeriod }}
-            </dd>
-          </div>
-          <div
-            v-if="club.activitySchedule"
-            class="flex justify-between gap-6 py-3"
-          >
-            <dt class="text-zinc-500">
-              活动安排
-            </dt>
-            <dd class="text-right text-zinc-900">
-              {{ club.activitySchedule }}
-            </dd>
-          </div>
-          <div
-            v-if="club.contactMethod"
-            class="flex justify-between gap-6 py-3"
-          >
-            <dt class="text-zinc-500">
-              公开联系
-            </dt>
-            <dd class="text-right text-zinc-900">
-              {{ club.contactMethod }}
-            </dd>
-          </div>
-        </dl>
+          <h2 class="text-lg font-bold text-zinc-950">
+            {{ clubSectionLabels.recruitmentDetails }}
+          </h2>
+          <dl class="mt-3 divide-y divide-zinc-100 border-y border-zinc-200 text-sm">
+            <div
+              v-if="club.recruitmentPeriod"
+              class="flex justify-between gap-6 py-3"
+            >
+              <dt class="text-zinc-500">
+                招新时间
+              </dt>
+              <dd class="text-right text-zinc-900">
+                {{ club.recruitmentPeriod }}
+              </dd>
+            </div>
+            <div
+              v-if="club.activitySchedule"
+              class="flex justify-between gap-6 py-3"
+            >
+              <dt class="text-zinc-500">
+                活动安排
+              </dt>
+              <dd class="text-right text-zinc-900">
+                {{ club.activitySchedule }}
+              </dd>
+            </div>
+            <div
+              v-if="club.contactMethod"
+              class="flex justify-between gap-6 py-3"
+            >
+              <dt class="text-zinc-500">
+                联系方式
+              </dt>
+              <dd class="text-right text-zinc-900">
+                {{ club.contactMethod }}
+              </dd>
+            </div>
+          </dl>
+        </section>
 
         <PublicSourceDetails
           :sources="detailSources"
           :verified-at="club.updatedAt"
+          :title="clubSectionLabels.sourceDetails"
         />
 
         <UButton
           :to="feedbackLink"
           icon="i-lucide-message-square-warning"
-          label="补充社团资料"
+          :label="clubSectionLabels.feedback"
           color="neutral"
           variant="outline"
           class="mt-6"

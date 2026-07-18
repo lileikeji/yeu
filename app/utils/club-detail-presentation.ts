@@ -1,27 +1,56 @@
 export const clubSourceStatusMessages = {
-  recentActivity: '近期活动可确认',
-  namePending: '名称线索待确认'
+  recentActivity: '近期有活动',
+  namePending: '等待本学期招新消息'
 } as const
 
 export const clubSectionLabels = {
-  confirmedInfo: '当前可确认信息',
-  signupChecklist: '入群或报名之前先问清楚',
-  currentlyConfirmed: '目前能确认：',
-  suitableFor: '适合：',
-  suitableAudience: '对这个方向有兴趣、想找同好或参加校内活动的新生。',
-  recruitmentPending: '2026级招新待发布',
-  recruitmentNotice: '招新时间、地点、报名入口和公开联系方式尚未取得2026级有效来源。',
-  bodyFallback: '校团委2026年活动报道中出现该社团名称，可确认其近期参与校级社团活动；不据此补写社团简介或招新条件。'
+  overview: '先了解这个社团',
+  signupChecklist: '报名之前问清楚',
+  activityDirection: '主要活动',
+  suitableFor: '适合谁',
+  findingIt: '开学后怎么找',
+  recruitmentPending: '招新安排待公布',
+  recruitmentDetails: '最新招新安排',
+  recruitmentNotice: '2026 级招新时间、地点和群聊入口还没公布。开学后请留意校团委、社团负责人或现场摊位的最新消息。',
+  sourceDetails: '查看信息出处与更新时间',
+  feedback: '告诉我们新的招新消息'
 } as const
+
+export interface ClubOverviewItem {
+  title: string
+  text: string
+  icon: string
+}
+
+export function buildClubOverviewItems(direction: string): ClubOverviewItem[] {
+  const activityText = direction.trim() || '具体活动内容请留意本学期社团介绍。'
+  return [
+    {
+      title: clubSectionLabels.activityDirection,
+      text: activityText,
+      icon: 'i-lucide-sparkles'
+    },
+    {
+      title: clubSectionLabels.suitableFor,
+      text: '对这个方向感兴趣、想认识同好或参加校园活动的同学。零基础能否加入，请在招新时直接询问。',
+      icon: 'i-lucide-user-round-check'
+    },
+    {
+      title: clubSectionLabels.findingIt,
+      text: '留意开学社团招新现场、校团委通知和社团负责人发布的消息，不要只凭转发二维码入群。',
+      icon: 'i-lucide-map-pin-check'
+    }
+  ]
+}
 
 export const clubSignupQuestionChecklist = [
   '本学期主要活动是什么，是否适合零基础新生',
   '例会或训练多久一次，时间是否和课程冲突',
   '是否收费，是否需要自备器材、服装或材料',
-  '报名入口、群二维码和负责人是否来自官方渠道'
+  '报名入口、群二维码和负责人是否由校团委、社团负责人或现场摊位公布'
 ] as const
 
-export const clubRecentActivityUrlMarker = '/2026/0606/'
+export const clubRecentActivityUrlMarker = '/2026/'
 
 export interface ClubDetailSourceLike {
   title: string
