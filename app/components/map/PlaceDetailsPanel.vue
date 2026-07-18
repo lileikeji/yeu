@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
 import type { PublicMapPlace } from '~/utils/public-catalog'
+import { safeExternalHref } from '~/utils/safe-external-href'
 
 const props = defineProps<{
   place: PublicMapPlace
@@ -23,10 +24,12 @@ const emit = defineEmits<{
   planRoute: []
 }>()
 
+const safeNavigationUrl = computed(() => safeExternalHref(props.place.navigationUrl))
+
 const navigationTooltip = computed(() => {
-  if (!props.place.navigationUrl) return '这个地点暂时没有可用导航入口'
+  if (!safeNavigationUrl.value) return '这个地点暂时没有可用导航入口'
   return props.place.coordinateVerification === 'owner-map-only'
-    ? '导航到这个高德地图标点，实际入口请现场确认'
+    ? '导航到这个地图位置，实际入口请现场确认'
     : '使用该地点提供的外部导航入口'
 })
 </script>
@@ -207,30 +210,32 @@ const navigationTooltip = computed(() => {
           :text="navigationTooltip"
         >
           <UButton
-            :to="props.place.navigationUrl ?? undefined"
-            :target="props.place.navigationUrl ? '_blank' : undefined"
+            :to="safeNavigationUrl ?? undefined"
+            :target="safeNavigationUrl ? '_blank' : undefined"
+            rel="noopener noreferrer"
             icon="i-lucide-navigation"
             label="高德导航"
             color="neutral"
             variant="outline"
             size="sm"
-            :disabled="!props.place.navigationUrl"
+            :disabled="!safeNavigationUrl"
           />
         </UTooltip>
         <UButton
           v-else
-          :to="props.place.navigationUrl ?? undefined"
-          :target="props.place.navigationUrl ? '_blank' : undefined"
+          :to="safeNavigationUrl ?? undefined"
+          :target="safeNavigationUrl ? '_blank' : undefined"
+          rel="noopener noreferrer"
           icon="i-lucide-navigation"
           label="高德导航"
           color="neutral"
           variant="outline"
           size="sm"
-          :disabled="!props.place.navigationUrl"
+          :disabled="!safeNavigationUrl"
         />
 
         <span
-          v-if="props.isWechat && props.place.navigationUrl"
+          v-if="props.isWechat && safeNavigationUrl"
           class="w-full text-xs leading-5 text-zinc-500"
         >微信内未唤起地图时，可复制位置后搜索。</span>
         <UButton

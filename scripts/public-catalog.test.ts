@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { ApiContent } from '../shared/types/server'
+import type { ApiContent, ApiPlace } from '../shared/types/server'
 import {
   findFreshmanGuide,
   officialClubBody,
@@ -17,6 +17,7 @@ import {
   extractStudentUseChecklist,
   mergePublicDepartments,
   mergePublicGuides,
+  mergePublicMapPlaces,
   studentFacingGuideText,
   studentFacingPlaceBody
 } from '../app/utils/public-catalog'
@@ -85,6 +86,46 @@ test('student-facing place body hides maintenance notes and keeps actionable che
   assert.match(publicBody, /辽宁楼/)
   assert.doesNotMatch(publicBody, /resourceId|坐标来源|发布提醒|GCJ-02|sourceRawRef/i)
   assert.doesNotMatch(publicBody, /【到这里前先确认】/)
+})
+
+test('published map places use student-facing copy in the map panel', () => {
+  const place = mergePublicMapPlaces([], [{
+    id: 'place-1',
+    slug: 'shanghai-building',
+    name: '上海楼',
+    summary: '上海楼 已按用户授权的高德地图坐标导入后台草稿；可用于地图定位和维护，具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。',
+    body: '上海楼 已按用户授权的高德地图坐标导入后台草稿；可用于地图定位和维护，具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。\n\n高德 resourceId：123',
+    scope: 'campus',
+    type: 'building',
+    category: null,
+    address: null,
+    campusArea: null,
+    floor: null,
+    room: null,
+    longitude: 118.6,
+    latitude: 25.1,
+    coordinateSystem: 'WGS84',
+    coordinateVerification: 'verified',
+    coordinateVerifiedAt: null,
+    coordinatePointRole: null,
+    navigationAvailable: true,
+    openingHours: null,
+    phone: null,
+    website: null,
+    externalMapUrl: 'https://uri.amap.com/marker?position=118.6,25.1',
+    isOfficial: false,
+    isFeatured: false,
+    status: 'published',
+    lastVerifiedAt: null,
+    publishedAt: null,
+    createdAt: '',
+    updatedAt: '',
+    sources: []
+  } as ApiPlace])[0]
+
+  assert.ok(place)
+  assert.equal(place.summary, '上海楼的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+  assert.doesNotMatch(place.body, /后台草稿|resourceId|坐标来源|正式发布/)
 })
 
 test('guide copy hides maintainer language from student pages', () => {

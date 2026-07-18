@@ -237,6 +237,7 @@ export function studentFacingPlaceBody(body: string): string {
     .replace(/【到这里前先确认】[\s\S]*?(?=\n【|$)/g, '')
     .split('\n')
     .map(line => line.trim()
+      .replace(/^(.*?)\s*已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护，?具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。?$/g, '$1的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
       .replace(/已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护。?/g, '的位置来自高德地图标点，可以先用来找方向。')
       .replace(/后台草稿/g, '地图标点')
       .replace(/正式发布/g, '公开展示')
@@ -768,6 +769,8 @@ function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
 }
 
 function apiMapPlace(place: ApiPlace): PublicMapPlace {
+  const summary = studentFacingPlaceBody(place.summary) || place.summary
+  const body = studentFacingPlaceBody(place.body ?? place.summary) || summary
   const hasRenderableVerifiedPoint = place.navigationAvailable
     && place.coordinateVerification === 'verified'
     && place.coordinateSystem === 'WGS84'
@@ -783,8 +786,8 @@ function apiMapPlace(place: ApiPlace): PublicMapPlace {
     name: place.name,
     scope: place.scope,
     category: normalizeMapCategory(place),
-    summary: place.summary,
-    body: place.body,
+    summary,
+    body,
     address: place.address,
     campusArea: place.campusArea,
     openingHours: place.openingHours,
@@ -803,7 +806,7 @@ function apiMapPlace(place: ApiPlace): PublicMapPlace {
     isApiPublished: true,
     searchText: [
       place.name,
-      place.summary,
+      summary,
       place.address,
       place.campusArea,
       place.type,
