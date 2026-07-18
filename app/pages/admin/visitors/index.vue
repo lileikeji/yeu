@@ -364,7 +364,7 @@ function prepBanFromEvent(event: VisitorEvent, scope: 'ip' | 'visitor' = 'ip'): 
     banScope.value = 'visitor'
     banValue.value = selectedVisitor.value.id
   }
-  banReason.value = event.path ? `来自事件 ${event.action} · ${event.path}` : ''
+  banReason.value = event.path ? `来自操作记录：${actionLabel(event.action)} · ${adminPathLabel(event.path)}` : ''
   banExpiresAt.value = ''
   if (typeof window !== 'undefined') {
     document.getElementById('visitor-ban-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -769,7 +769,7 @@ onMounted(async () => {
                   variant="outline"
                   @click="openEvents(row)"
                 >
-                  事件详情
+                  操作详情
                 </UButton>
                 <UButton
                   size="xs"
@@ -982,7 +982,7 @@ onMounted(async () => {
             {{ ipDossier?.ip || ip.trim() || '—' }}
             <template v-if="ipDossier">
               · 访客 {{ ipDossier.summary.visitorCount }}
-              · 事件 {{ ipDossier.summary.eventTotal }}
+              · 操作 {{ ipDossier.summary.eventTotal }}
               <template v-if="ipDossier.summary.events24h != null"> · 24h {{ ipDossier.summary.events24h }}</template>
               <template v-if="ipDossier.summary.linkedUserCount != null"> · 账号 {{ ipDossier.summary.linkedUserCount }}</template>
             </template>
@@ -1271,7 +1271,7 @@ onMounted(async () => {
           <div>
             <p class="text-xs font-semibold text-violet-950">访客详情</p>
             <p class="mt-0.5 text-[11px] text-violet-700/80">
-              事件 {{ visitorDossier.summary.eventTotal }} · 近 7 天 {{ visitorDossier.summary.events7d }}
+            操作 {{ visitorDossier.summary.eventTotal }} · 近 7 天 {{ visitorDossier.summary.events7d }}
               · IP {{ visitorDossier.summary.uniqueIps }} · 页面 {{ visitorDossier.summary.uniquePaths }}
             </p>
           </div>
@@ -1672,7 +1672,7 @@ onMounted(async () => {
           v-if="eventActionSummary.length"
           class="flex flex-wrap gap-1.5 rounded-xl border border-sky-100 bg-white px-3 py-2"
         >
-          <span class="w-full text-[11px] font-medium text-sky-900">本页事件摘要</span>
+          <span class="w-full text-[11px] font-medium text-sky-900">本页操作摘要</span>
           <span
             v-for="row in eventActionSummary"
             :key="row.action"
@@ -1760,7 +1760,7 @@ onMounted(async () => {
           v-if="!events.length"
           class="py-6 text-center text-sm text-zinc-400"
         >
-          暂无事件
+          暂无操作记录
         </p>
       </div>
     </section>

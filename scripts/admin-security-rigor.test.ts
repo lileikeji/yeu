@@ -254,7 +254,7 @@ test('admin depth4: visitor dossier, risk snapshot, richer security ops', () => 
   assert.match(dashboardPage, /风险提示/)
   assert.match(dashboardPage, /常见操作/)
   assert.match(dashboardPage, /高频网络地址/)
-  assert.match(dashboardPage, /24 小时事件节奏/)
+  assert.match(dashboardPage, /24 小时操作趋势/)
 
   assert.match(visitorsPage, /\/api\/admin\/visitors\//)
   assert.match(visitorsPage, /security/)

@@ -6,9 +6,11 @@ import { adminSectionConfigs } from '../app/utils/admin-section-config'
 import { displayAdminResourceCell } from '../app/utils/admin-resource-presentation'
 import {
   adminAuditActionLabels,
+  adminHttpMethodLabels,
   adminPathLabel,
   adminPathTransitionLabel,
-  adminRiskScoreText
+  adminRiskScoreText,
+  adminVisitorActionLabels
 } from '../app/utils/admin-security-labels'
 
 const captureEntry = readFileSync(resolve('app/components/admin/AdminCoordinateCaptureEntry.vue'), 'utf8')
@@ -21,6 +23,9 @@ const procedureBasics = readFileSync(resolve('app/components/admin/AdminProcedur
 const procedureCatalog = readFileSync(resolve('app/components/admin/AdminProcedureCatalogPanel.vue'), 'utf8')
 const bansPage = readFileSync(resolve('app/pages/admin/bans/index.vue'), 'utf8')
 const visitorsPage = readFileSync(resolve('app/pages/admin/visitors/index.vue'), 'utf8')
+const dashboardPage = readFileSync(resolve('app/pages/admin/index.vue'), 'utf8')
+const usersPage = readFileSync(resolve('app/pages/admin/users/index.vue'), 'utf8')
+const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
 
 test('content and source catalogs translate stored values for administrators', () => {
   const contentKind = adminSectionConfigs.content!.columns.find(column => column.key === 'kind')!
@@ -72,4 +77,12 @@ test('security paths and scores are presented as operator-facing explanations', 
   assert.equal(adminAuditActionLabels['procedure.archive'], '下架办事流程')
   assert.equal(adminAuditActionLabels['place.update'], '编辑地点')
   assert.equal(adminAuditActionLabels['auth.logout'], '管理员登出')
+  assert.equal(adminVisitorActionLabels.route_view, '浏览页面')
+  assert.equal(adminVisitorActionLabels.api_request, '数据加载')
+  assert.equal(adminHttpMethodLabels.GET, '读取数据')
+  assert.equal(adminHttpMethodLabels.POST, '提交数据')
+  assert.doesNotMatch(dashboardPage, /审计事件|事件节奏|访客事件/)
+  assert.doesNotMatch(visitorsPage, /事件详情|本页事件摘要|暂无事件/)
+  assert.doesNotMatch(usersPage, /· 事件 \{\{ v\.eventCount \}\}/)
+  assert.doesNotMatch(securityService, /访客事件|事件 ·/)
 })

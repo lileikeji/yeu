@@ -128,16 +128,16 @@ export const adminAuditActionOptions: AdminLabelOption[] = [
 ]
 
 export const adminHttpMethodLabels: Record<string, string> = {
-  GET: 'GET',
-  POST: 'POST',
-  PUT: 'PUT',
-  PATCH: 'PATCH',
-  DELETE: 'DELETE'
+  GET: '读取数据',
+  POST: '提交数据',
+  PUT: '更新数据',
+  PATCH: '更新数据',
+  DELETE: '删除数据'
 }
 
 export const adminVisitorActionLabels: Record<string, string> = {
   page_view: '浏览页面',
-  route_view: '路由访问',
+  route_view: '浏览页面',
   search: '搜索',
   map_open: '打开地图',
   map_route: '规划路线',
@@ -149,12 +149,12 @@ export const adminVisitorActionLabels: Record<string, string> = {
   profile_update: '更新资料',
   procedure_view: '查看办事',
   feedback_submit: '提交反馈',
-  api_request: '接口请求',
+  api_request: '数据加载',
   click: '点击',
   scroll: '滚动',
   share: '分享',
   download: '下载',
-  error: '前端错误',
+  error: '页面异常',
   unknown: '未知动作'
 }
 

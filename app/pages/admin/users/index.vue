@@ -1042,7 +1042,7 @@ onMounted(async () => {
                     {{ shortAdminId(v.id, 10) }}
                   </NuxtLink>
                   <span class="text-zinc-500"> · {{ v.lastCity || v.lastRegion || '未知地点' }} · {{ v.lastIp || '无 IP' }}</span>
-                  <p class="text-zinc-400">末次 {{ formatAdminRelativeTime(v.lastSeenAt) }} · 事件 {{ v.eventCount }}</p>
+                  <p class="text-zinc-400">末次 {{ formatAdminRelativeTime(v.lastSeenAt) }} · {{ v.eventCount }} 次操作</p>
                 </li>
                 <li v-if="!userDossier.linkedVisitors.length" class="text-zinc-400">无关联访客</li>
               </ul>

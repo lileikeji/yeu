@@ -878,7 +878,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     riskHints.push({
       level: 'medium',
       code: 'EVENT_SPIKE',
-      message: `近 24 小时访客事件 ${events24h} 次，关注高频 IP 与路径`,
+      message: `近 24 小时访客操作 ${events24h} 次，关注高频 IP 与常访页面`,
       href: '/admin/visitors'
     })
   }
@@ -913,7 +913,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     riskHints.push({
       level: 'medium',
       code: 'EVENT_DELTA_SPIKE',
-      message: `访客事件较前一窗口 +${deltas24h.visitorEvents}`,
+      message: `访客操作较前一天增加 ${deltas24h.visitorEvents} 次`,
       href: '/admin/visitors'
     })
   }
@@ -921,7 +921,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     riskHints.push({
       level: 'high',
       code: 'EVENT_BURST_1H',
-      message: `近 1 小时访客事件 ${events1h}，疑似突发扫描或异常流量`,
+      message: `近 1 小时访客操作 ${events1h} 次，可能存在集中访问或异常流量`,
       href: '/admin/visitors'
     })
   }
@@ -1140,7 +1140,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
       kind: 'ip_cluster',
       priority: cluster.riskLevel === 'high' ? 'high' : cluster.riskLevel === 'medium' ? 'medium' : 'low',
       title: `同一网络来源 ${cluster.ip}`,
-      detail: `${cluster.visitorCount} 访客 · ${cluster.eventCount} 事件 · ${cluster.city || '未知地区'}${cluster.isBanned ? ' · 已封禁' : ''}`,
+      detail: `${cluster.visitorCount} 个访客 · ${cluster.eventCount} 次操作 · ${cluster.city || '未知地区'}${cluster.isBanned ? ' · 已封禁' : ''}`,
       href: `/admin/visitors?ip=${encodeURIComponent(cluster.ip)}`,
       score: cluster.riskScore
     })
@@ -1176,7 +1176,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
       id: 'burst:peak',
       kind: 'burst',
       priority: peakBurst >= 100 ? 'high' : 'medium',
-      title: `近 24 小时 10 分钟峰值 ${peakBurst} 次事件`,
+      title: `近 24 小时内，10 分钟访问峰值为 ${peakBurst} 次操作`,
       detail: burstWindows[0]
         ? `${burstWindows[0].startAt} ~ ${burstWindows[0].endAt}`
         : '访问量激增',
@@ -1850,10 +1850,10 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
 
   const visitorFactors: Array<{ code: string; points: number; message: string }> = []
   if (isBanned) visitorFactors.push({ code: 'HIT_BAN', points: 50, message: '已命中生效封禁' })
-  if (events1h >= 40) visitorFactors.push({ code: 'BURST_1H', points: 25, message: `近 1 小时事件 ${events1h}` })
-  else if (events1h >= 15) visitorFactors.push({ code: 'BURST_1H', points: 12, message: `近 1 小时事件 ${events1h}` })
-  if (events24h >= 200) visitorFactors.push({ code: 'HIGH_VOLUME_24H', points: 18, message: `近 24 小时事件 ${events24h}` })
-  else if (events24h >= 80) visitorFactors.push({ code: 'HIGH_VOLUME_24H', points: 8, message: `近 24 小时事件 ${events24h}` })
+  if (events1h >= 40) visitorFactors.push({ code: 'BURST_1H', points: 25, message: `近 1 小时操作 ${events1h} 次` })
+  else if (events1h >= 15) visitorFactors.push({ code: 'BURST_1H', points: 12, message: `近 1 小时操作 ${events1h} 次` })
+  if (events24h >= 200) visitorFactors.push({ code: 'HIGH_VOLUME_24H', points: 18, message: `近 24 小时操作 ${events24h} 次` })
+  else if (events24h >= 80) visitorFactors.push({ code: 'HIGH_VOLUME_24H', points: 8, message: `近 24 小时操作 ${events24h} 次` })
   if (uniqueIps >= 4) visitorFactors.push({ code: 'MULTI_IP', points: 16, message: `历史 IP ${uniqueIps} 个` })
   else if (uniqueIps >= 2) visitorFactors.push({ code: 'MULTI_IP', points: 6, message: `历史 IP ${uniqueIps} 个` })
   if (sameIpVisitors.length >= 4) visitorFactors.push({ code: 'SAME_IP_CLUSTER', points: 14, message: `同 IP 其他访客 ${sameIpVisitors.length}` })
@@ -2237,10 +2237,10 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
   if (isBanned) factors.push({ code: 'IP_BANNED', points: 50, message: '该 IP 已命中生效封禁' })
   if (uniqueVisitors24h >= 5) factors.push({ code: 'MULTI_VISITOR_IP', points: 25, message: `近 24 小时关联 ${uniqueVisitors24h} 个访客` })
   else if (uniqueVisitors24h >= 3) factors.push({ code: 'MULTI_VISITOR_IP', points: 15, message: `近 24 小时关联 ${uniqueVisitors24h} 个访客` })
-  if (events1h >= 80) factors.push({ code: 'BURST_1H', points: 25, message: `近 1 小时事件 ${events1h}` })
-  else if (events1h >= 30) factors.push({ code: 'BURST_1H', points: 12, message: `近 1 小时事件 ${events1h}` })
-  if (events24h >= 500) factors.push({ code: 'HIGH_VOLUME_24H', points: 20, message: `近 24 小时事件 ${events24h}` })
-  else if (events24h >= 150) factors.push({ code: 'HIGH_VOLUME_24H', points: 10, message: `近 24 小时事件 ${events24h}` })
+  if (events1h >= 80) factors.push({ code: 'BURST_1H', points: 25, message: `近 1 小时操作 ${events1h} 次` })
+  else if (events1h >= 30) factors.push({ code: 'BURST_1H', points: 12, message: `近 1 小时操作 ${events1h} 次` })
+  if (events24h >= 500) factors.push({ code: 'HIGH_VOLUME_24H', points: 20, message: `近 24 小时操作 ${events24h} 次` })
+  else if (events24h >= 150) factors.push({ code: 'HIGH_VOLUME_24H', points: 10, message: `近 24 小时操作 ${events24h} 次` })
   if (linkedUserIds.length >= 3) factors.push({ code: 'MULTI_ACCOUNT_IP', points: 15, message: `关联账号 ${linkedUserIds.length} 个` })
   if (userAgentHistory.length >= 5) factors.push({ code: 'UA_DIVERSITY', points: 8, message: `近 7 天设备或浏览器共 ${userAgentHistory.length} 种` })
 
