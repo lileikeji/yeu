@@ -89,9 +89,9 @@ export function buildMapPoiLocationCopyText(poi: Pick<MapPoiStatusFields, 'name'
 }
 
 export function resolveMapPoiStatusText(poi: MapPoiStatusFields): string {
-  if (poi.pointIsVerified) return '入口位置已现场核对'
+  if (poi.pointIsVerified) return '入口位置已确认'
   if (poi.coordinateVerification === 'owner-map-only') return '地图位置已整理 · 入口细节请现场确认'
-  if (poi.coordinateVerification === 'native-map-session') return '地图搜索结果 · 临时查看，不加入地点列表'
+  if (poi.coordinateVerification === 'native-map-session') return '地图搜索结果 · 仅供本次查看'
   if (poi.coordinateVerification === 'verified' && poi.coordinateSystem) {
     return '位置已记录 · 当前地图暂时无法显示'
   }
@@ -104,7 +104,7 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
 
   if (poi.coordinateVerification === 'native-map-session') {
     return [
-      '这是地图搜索返回的临时地点，刷新后不会保存在校园目录里。',
+      '这是地图搜索找到的临时地点，只供本次查看。',
       '可以先用来找附近商家；营业状态、价格、电话和入口仍要到店或电话确认。',
       '如果这个地点对新生有帮助，可以通过反馈入口告诉我们，确认后再加入校园目录。'
     ]
@@ -114,16 +114,16 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
     ? [
         '这个地点来自你提供的地图位置，可以先导航到附近。',
         '到达后请看现场门牌、楼栋名或服务窗口，确认是不是你要去的入口。',
-        '这个位置还没有经过两次现场确认，出发前请再看现场标识。'
+        '这个入口还需要再次确认，出发前请再看现场标识。'
       ]
     : poi.pointIsVerified
       ? [
-          '这个地点的入口已经现场核对，可以作为校内导航参考。',
+          '这个地点的入口已经确认，可以作为校内导航参考。',
           '开放时间、办理材料和临时管控仍要看对应部门或现场通知。',
           '如果发现入口变更或道路封闭，请提交纠错。'
         ]
       : [
-          '这个地点目前只能作为文字索引，暂时不要把它当成精确导航。',
+          '这个地点目前只有名称和文字方位，暂时不要把它当成精确导航。',
           '先核对平面图编号、部门说明或现场标识。',
           '发现准确入口后，可以提交位置纠错。'
         ]

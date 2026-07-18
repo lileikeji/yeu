@@ -269,7 +269,7 @@ test('map selected-place details explain how students should use unverified and 
   assert.match(mapPresentation, /这个地点来自你提供的地图位置，可以先导航到附近/)
   assert.match(mapPresentation, /取快递以短信、平台取件码和站点现场牌子为准/)
   assert.match(mapPresentation, /周边商铺到店前再确认是否营业、价格、服务范围/)
-  assert.match(mapPresentation, /这是地图搜索返回的临时地点，刷新后不会保存在校园目录/)
+  assert.match(mapPresentation, /这是地图搜索找到的临时地点，只供本次查看/)
 })
 
 test('student-facing pages do not expose maintenance-only map and backend wording', () => {
@@ -465,7 +465,7 @@ test('public source and place pages use student-facing data status wording', () 
 
   assert.match(mapPage, /from ['"]~~\/app\/utils\/map-presentation['"]/)
   assert.match(mapPage, /resolveMapPoiStatusText/)
-  assert.match(mapPresentation, /入口位置已现场核对/)
+  assert.match(mapPresentation, /入口位置已确认/)
   assert.match(mapPresentation, /位置已记录 · 当前地图暂时无法显示/)
   assert.doesNotMatch(mapPage, /WGS84 坐标已核验/)
   assert.doesNotMatch(mapPresentation, /WGS84 坐标已核验/)
