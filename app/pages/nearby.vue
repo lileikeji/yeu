@@ -35,9 +35,6 @@ const sourceContextForStudents = nearbySourceContextForStudents
 const candidateMapUrl = nearbyCandidateMapUrl
 const candidateCenterLabel = nearbyCandidateCenterLabel
 const candidateHint = nearbyCandidateHint
-const candidateProviderLabel = safeExternalHref(candidateCatalog.providerDocumentation)?.includes('amap.com')
-  ? '高德地图'
-  : '地图'
 
 useSeoMeta({
   title: '校园周边',
@@ -296,10 +293,10 @@ function clearNearbyFilters(): void {
           </h2>
           <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
             <template v-if="candidateFilterActive">
-              按当前条件找到 {{ filteredCandidates.length }} 个地点。点开后可以在{{ candidateProviderLabel }}查看位置和近期营业信息。
+              按当前条件找到 {{ filteredCandidates.length }} 个地点。点开后可以在{{ safeExternalHref(candidateCatalog.providerDocumentation) ? '高德地图' : '地图' }}查看位置和近期营业信息。
             </template>
             <template v-else>
-              这里整理了 {{ filteredCandidates.length }} 个新区、旧区的餐饮、便利、快递和生活服务地点。点开后可以在{{ candidateProviderLabel }}查看位置，营业时间和价格请以近期信息或现场为准。
+              这里整理了 {{ filteredCandidates.length }} 个新区、旧区的餐饮、便利、快递和生活服务地点。点开后可以在{{ safeExternalHref(candidateCatalog.providerDocumentation) ? '高德地图' : '地图' }}查看位置，营业时间和价格请以近期信息或现场为准。
             </template>
           </p>
         </div>
