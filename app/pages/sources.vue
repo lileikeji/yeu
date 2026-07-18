@@ -98,7 +98,7 @@ const loadError = computed(() => contentError.value || placeError.value)
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-external-link"
-            label="OpenStreetMap 许可与署名"
+            label="社区地图许可与署名"
             color="neutral"
             variant="outline"
           />

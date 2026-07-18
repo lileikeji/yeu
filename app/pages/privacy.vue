@@ -59,7 +59,7 @@ useSeoMeta({
         <UButton
           to="/feedback"
           icon="i-lucide-message-square"
-          label="提交查询或删除请求"
+          label="提交查询或删除申请"
         />
         <UButton
           to="/"

@@ -328,7 +328,7 @@ watch(selectedAudience, (value) => {
           <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p class="text-xs font-semibold text-green-700">
-                本机清单
+                本设备清单
               </p>
               <h2 class="mt-1 text-lg font-bold text-zinc-950">
                 按顺序核对

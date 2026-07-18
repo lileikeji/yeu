@@ -196,7 +196,7 @@ watch([activeQuery, activeType], ([query, type]) => {
           搜索地点、指南与校内服务
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          可以搜地点、报到、校园网、部门和社团。点地图结果会直接定位；已导入的高德标点会使用原坐标显示，平面图地点会显示文字方位。
+          可以搜地点、报到、校园网、部门和社团。点地图结果会直接定位；已整理的地图地点会按已有位置显示，平面图地点会显示文字方位。
         </p>
 
         <div class="mt-6 max-w-3xl">
