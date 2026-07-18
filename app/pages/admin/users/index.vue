@@ -4,7 +4,9 @@ import { adminFetch } from '~~/app/utils/admin-request'
 import {
   adminUserStatusLabels,
   adminLabel,
-  formatAdminDateTime
+  formatAdminDateTime,
+  confirmAdminAction,
+  adminAuditHref
 } from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
@@ -21,6 +23,7 @@ type AppUser = {
   createdAt: string
 }
 
+const route = useRoute()
 const toast = useToast()
 const loading = ref(false)
 const creating = ref(false)
@@ -30,6 +33,8 @@ const items = ref<AppUser[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = 20
+const selectedUser = ref<AppUser | null>(null)
+const focusUserId = ref('')
 
 const q = ref('')
 const status = ref<string>('')
@@ -85,6 +90,21 @@ async function handleAuth(error: unknown): Promise<boolean> {
   return true
 }
 
+function openUserDetail(row: AppUser): void {
+  selectedUser.value = row
+  focusUserId.value = row.id
+}
+
+function closeUserDetail(): void {
+  selectedUser.value = null
+}
+
+function syncSelectedUser(): void {
+  if (!focusUserId.value) return
+  const hit = items.value.find(row => row.id === focusUserId.value)
+  if (hit) selectedUser.value = hit
+}
+
 async function loadUsers(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
@@ -101,6 +121,7 @@ async function loadUsers(): Promise<void> {
     })
     items.value = payload.items || []
     total.value = payload.total || 0
+    syncSelectedUser()
   } catch (error) {
     if (await handleAuth(error)) return
     errorMessage.value = getRequestMessage(error, '账号列表加载失败')
@@ -157,6 +178,7 @@ async function createUser(): Promise<void> {
 }
 
 function startEdit(row: AppUser): void {
+  openUserDetail(row)
   editId.value = row.id
   editForm.displayName = row.displayName
   editForm.major = row.major || ''
@@ -167,6 +189,7 @@ function startEdit(row: AppUser): void {
 
 async function saveEdit(): Promise<void> {
   if (!editId.value) return
+  if (!confirmAdminAction('确认保存该账号资料修改？')) return
   saving.value = true
   try {
     await adminFetch(`/api/admin/users/${encodeURIComponent(editId.value)}`, {
@@ -193,10 +216,7 @@ async function saveEdit(): Promise<void> {
 async function quickStatus(row: AppUser, next: 'active' | 'disabled' | 'banned'): Promise<void> {
   if (row.status === next) return
   const labels = { active: '恢复正常', disabled: '停用', banned: '封禁' }
-  if (typeof window !== 'undefined') {
-    const ok = window.confirm(`确认将 ${row.displayName}（${row.username}）设为「${labels[next]}」？`)
-    if (!ok) return
-  }
+  if (!confirmAdminAction(`确认将 ${row.displayName}（${row.username}）设为「${labels[next]}」？`)) return
   try {
     await adminFetch(`/api/admin/users/${encodeURIComponent(row.id)}`, {
       method: 'PATCH',
@@ -210,8 +230,25 @@ async function quickStatus(row: AppUser, next: 'active' | 'disabled' | 'banned')
   }
 }
 
-onMounted(() => {
-  void loadUsers()
+onMounted(async () => {
+  const userIdQuery = typeof route.query.userId === 'string' ? route.query.userId : ''
+  if (userIdQuery) {
+    focusUserId.value = userIdQuery
+    q.value = userIdQuery
+  }
+  await loadUsers()
+  if (userIdQuery && !selectedUser.value) {
+    selectedUser.value = {
+      id: userIdQuery,
+      username: userIdQuery.slice(0, 8),
+      displayName: '从链接打开',
+      major: null,
+      dormBuilding: null,
+      status: 'active',
+      lastLoginAt: null,
+      createdAt: ''
+    }
+  }
 })
 </script>
 
@@ -228,6 +265,13 @@ onMounted(() => {
           to="/admin/chat"
           icon="i-lucide-messages-square"
           label="群聊管理"
+          color="neutral"
+          variant="outline"
+        />
+        <UButton
+          to="/admin/audit?entityType=user"
+          icon="i-lucide-scroll-text"
+          label="账号审计"
           color="neutral"
           variant="outline"
         />
@@ -317,7 +361,7 @@ onMounted(() => {
         <UInput
           v-model="q"
           class="w-full"
-          placeholder="用户名 / 显示名"
+          placeholder="用户名 / 显示名 / ID"
           @keyup.enter="applySearch"
         />
       </UFormField>
@@ -358,183 +402,333 @@ onMounted(() => {
       本页概览：正常 {{ statusSummary.active }} · 停用 {{ statusSummary.disabled }} · 封禁 {{ statusSummary.banned }}
     </p>
 
-    <div class="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
-      <table class="min-w-full text-left text-sm">
-        <thead class="bg-zinc-50 text-xs text-zinc-500">
-          <tr>
-            <th class="px-3 py-3 font-medium">账号</th>
-            <th class="px-3 py-3 font-medium">专业 / 宿舍</th>
-            <th class="px-3 py-3 font-medium">状态</th>
-            <th class="px-3 py-3 font-medium">最近登录 / 创建</th>
-            <th class="px-3 py-3 font-medium">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in items"
-            :key="row.id"
-            class="border-t border-zinc-100 align-top"
-          >
-            <td class="px-3 py-3">
-              <div class="font-medium text-zinc-900">
-                {{ row.displayName }}
-              </div>
-              <div class="text-xs text-zinc-500">
-                {{ row.username }}
-              </div>
-              <div class="mt-1 break-all text-[11px] text-zinc-400">
-                {{ row.id }}
-              </div>
-            </td>
-            <td class="px-3 py-3 text-xs text-zinc-600">
-              <div>{{ row.major || '未填专业' }}</div>
-              <div class="mt-1">
-                {{ row.dormBuilding || '未填宿舍' }}
-              </div>
-            </td>
-            <td class="px-3 py-3">
-              <span
-                class="rounded-full px-2 py-0.5 text-xs"
-                :class="statusClass(row.status)"
+    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div class="min-w-0 space-y-4">
+        <div class="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
+          <table class="min-w-full text-left text-sm">
+            <thead class="bg-zinc-50 text-xs text-zinc-500">
+              <tr>
+                <th class="px-3 py-3 font-medium">账号</th>
+                <th class="px-3 py-3 font-medium">专业 / 宿舍</th>
+                <th class="px-3 py-3 font-medium">状态</th>
+                <th class="px-3 py-3 font-medium">最近登录 / 创建</th>
+                <th class="px-3 py-3 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in items"
+                :key="row.id"
+                class="border-t border-zinc-100 align-top transition-colors hover:bg-zinc-50/80"
+                :class="selectedUser?.id === row.id ? 'bg-emerald-50/50' : ''"
               >
-                {{ statusLabel(row.status) }}
-              </span>
-            </td>
-            <td class="px-3 py-3 text-xs text-zinc-500">
-              <div>登录 {{ formatTime(row.lastLoginAt) }}</div>
-              <div class="mt-1">
-                创建 {{ formatTime(row.createdAt) }}
-              </div>
-            </td>
-            <td class="px-3 py-3">
-              <div class="flex flex-wrap gap-1">
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="outline"
-                  @click="startEdit(row)"
+                <td class="px-3 py-3">
+                  <button
+                    type="button"
+                    class="text-left"
+                    @click="openUserDetail(row)"
+                  >
+                    <div class="font-medium text-zinc-900">
+                      {{ row.displayName }}
+                    </div>
+                    <div class="text-xs text-zinc-500">
+                      {{ row.username }}
+                    </div>
+                    <div class="mt-1 break-all text-[11px] text-zinc-400">
+                      {{ row.id }}
+                    </div>
+                  </button>
+                </td>
+                <td class="px-3 py-3 text-xs text-zinc-600">
+                  <div>{{ row.major || '未填专业' }}</div>
+                  <div class="mt-1">
+                    {{ row.dormBuilding || '未填宿舍' }}
+                  </div>
+                </td>
+                <td class="px-3 py-3">
+                  <span
+                    class="rounded-full px-2 py-0.5 text-xs"
+                    :class="statusClass(row.status)"
+                  >
+                    {{ statusLabel(row.status) }}
+                  </span>
+                </td>
+                <td class="px-3 py-3 text-xs text-zinc-500">
+                  <div>登录 {{ formatTime(row.lastLoginAt) }}</div>
+                  <div class="mt-1">
+                    创建 {{ formatTime(row.createdAt) }}
+                  </div>
+                </td>
+                <td class="px-3 py-3">
+                  <div class="flex flex-wrap gap-1">
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="outline"
+                      @click="openUserDetail(row)"
+                    >
+                      详情
+                    </UButton>
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="outline"
+                      @click="startEdit(row)"
+                    >
+                      编辑
+                    </UButton>
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      :to="`/admin/chat?userId=${encodeURIComponent(row.id)}`"
+                    >
+                      群聊
+                    </UButton>
+                    <UButton
+                      v-if="row.status !== 'active'"
+                      size="xs"
+                      color="success"
+                      variant="soft"
+                      @click="quickStatus(row, 'active')"
+                    >
+                      恢复
+                    </UButton>
+                    <UButton
+                      v-if="row.status !== 'disabled'"
+                      size="xs"
+                      color="warning"
+                      variant="soft"
+                      @click="quickStatus(row, 'disabled')"
+                    >
+                      停用
+                    </UButton>
+                    <UButton
+                      v-if="row.status !== 'banned'"
+                      size="xs"
+                      color="error"
+                      variant="soft"
+                      @click="quickStatus(row, 'banned')"
+                    >
+                      封禁
+                    </UButton>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!items.length && !loading">
+                <td
+                  colspan="5"
+                  class="px-3 py-10 text-center text-zinc-400"
                 >
-                  编辑
-                </UButton>
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
-                  :to="`/admin/chat?userId=${encodeURIComponent(row.id)}`"
-                >
-                  群聊
-                </UButton>
-                <UButton
-                  v-if="row.status !== 'active'"
-                  size="xs"
-                  color="success"
-                  variant="soft"
-                  @click="quickStatus(row, 'active')"
-                >
-                  恢复
-                </UButton>
-                <UButton
-                  v-if="row.status !== 'disabled'"
-                  size="xs"
-                  color="warning"
-                  variant="soft"
-                  @click="quickStatus(row, 'disabled')"
-                >
-                  停用
-                </UButton>
-                <UButton
-                  v-if="row.status !== 'banned'"
-                  size="xs"
-                  color="error"
-                  variant="soft"
-                  @click="quickStatus(row, 'banned')"
-                >
-                  封禁
-                </UButton>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!items.length && !loading">
-            <td
-              colspan="5"
-              class="px-3 py-10 text-center text-zinc-400"
+                  暂无账号
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex items-center justify-between text-sm text-zinc-500">
+          <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
+          <div class="flex gap-2">
+            <UButton
+              size="sm"
+              color="neutral"
+              variant="outline"
+              :disabled="page <= 1"
+              @click="page -= 1; loadUsers()"
             >
-              暂无账号
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              上一页
+            </UButton>
+            <UButton
+              size="sm"
+              color="neutral"
+              variant="outline"
+              :disabled="page * pageSize >= total"
+              @click="page += 1; loadUsers()"
+            >
+              下一页
+            </UButton>
+          </div>
+        </div>
 
-    <div class="flex items-center justify-between text-sm text-zinc-500">
-      <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
-      <div class="flex gap-2">
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="outline"
-          :disabled="page <= 1"
-          @click="page -= 1; loadUsers()"
+        <section
+          v-if="editId"
+          class="rounded-2xl border border-green-200 bg-green-50/40 p-4"
         >
-          上一页
-        </UButton>
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="outline"
-          :disabled="page * pageSize >= total"
-          @click="page += 1; loadUsers()"
-        >
-          下一页
-        </UButton>
+          <h2 class="font-semibold text-zinc-950">
+            编辑账号
+          </h2>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <UFormField label="显示名">
+              <UInput v-model="editForm.displayName" class="w-full" />
+            </UFormField>
+            <UFormField label="专业">
+              <UInput v-model="editForm.major" class="w-full" />
+            </UFormField>
+            <UFormField label="宿舍楼">
+              <UInput v-model="editForm.dormBuilding" class="w-full" />
+            </UFormField>
+            <UFormField label="状态">
+              <USelect
+                v-model="editForm.status"
+                :items="[
+                  { label: '正常', value: 'active' },
+                  { label: '停用', value: 'disabled' },
+                  { label: '封禁', value: 'banned' }
+                ]"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="重置密码（可选）">
+              <UInput
+                v-model="editForm.password"
+                type="password"
+                class="w-full"
+                placeholder="留空不改"
+              />
+            </UFormField>
+            <div class="flex items-end gap-2">
+              <UButton color="primary" :loading="saving" @click="saveEdit">
+                保存
+              </UButton>
+              <UButton color="neutral" variant="outline" @click="editId = null">
+                取消
+              </UButton>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
 
-    <section
-      v-if="editId"
-      class="rounded-2xl border border-green-200 bg-green-50/40 p-4"
-    >
-      <h2 class="font-semibold text-zinc-950">
-        编辑账号
-      </h2>
-      <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <UFormField label="显示名">
-          <UInput v-model="editForm.displayName" class="w-full" />
-        </UFormField>
-        <UFormField label="专业">
-          <UInput v-model="editForm.major" class="w-full" />
-        </UFormField>
-        <UFormField label="宿舍楼">
-          <UInput v-model="editForm.dormBuilding" class="w-full" />
-        </UFormField>
-        <UFormField label="状态">
-          <USelect
-            v-model="editForm.status"
-            :items="[
-              { label: '正常', value: 'active' },
-              { label: '停用', value: 'disabled' },
-              { label: '封禁', value: 'banned' }
-            ]"
-            class="w-full"
-          />
-        </UFormField>
-        <UFormField label="重置密码（可选）">
-          <UInput
-            v-model="editForm.password"
-            type="password"
-            class="w-full"
-            placeholder="留空不改"
-          />
-        </UFormField>
-        <div class="flex items-end gap-2">
-          <UButton color="primary" :loading="saving" @click="saveEdit">
-            保存
-          </UButton>
-          <UButton color="neutral" variant="outline" @click="editId = null">
-            取消
+      <aside
+        v-if="selectedUser"
+        class="h-fit rounded-2xl border border-emerald-200 bg-emerald-50/30 p-4 lg:sticky lg:top-4"
+      >
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h2 class="font-semibold text-zinc-950">
+              账号详情
+            </h2>
+            <p class="mt-1 text-sm text-zinc-700">
+              {{ selectedUser.displayName }}
+              <span class="text-zinc-500">· {{ selectedUser.username }}</span>
+            </p>
+          </div>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            @click="closeUserDetail"
+          >
+            关闭
           </UButton>
         </div>
-      </div>
-    </section>
+
+        <dl class="mt-3 grid gap-2">
+          <div class="rounded-xl border border-white bg-white px-3 py-2">
+            <dt class="text-[11px] text-zinc-500">状态</dt>
+            <dd>
+              <span
+                class="rounded-full px-2 py-0.5 text-xs"
+                :class="statusClass(selectedUser.status)"
+              >
+                {{ statusLabel(selectedUser.status) }}
+              </span>
+            </dd>
+          </div>
+          <div class="rounded-xl border border-white bg-white px-3 py-2">
+            <dt class="text-[11px] text-zinc-500">专业</dt>
+            <dd class="text-sm text-zinc-800">{{ selectedUser.major || '—' }}</dd>
+          </div>
+          <div class="rounded-xl border border-white bg-white px-3 py-2">
+            <dt class="text-[11px] text-zinc-500">宿舍楼</dt>
+            <dd class="text-sm text-zinc-800">{{ selectedUser.dormBuilding || '—' }}</dd>
+          </div>
+          <div class="rounded-xl border border-white bg-white px-3 py-2">
+            <dt class="text-[11px] text-zinc-500">最近登录</dt>
+            <dd class="text-sm text-zinc-800">{{ formatTime(selectedUser.lastLoginAt) }}</dd>
+          </div>
+          <div class="rounded-xl border border-white bg-white px-3 py-2">
+            <dt class="text-[11px] text-zinc-500">创建时间</dt>
+            <dd class="text-sm text-zinc-800">{{ formatTime(selectedUser.createdAt) }}</dd>
+          </div>
+          <div class="rounded-xl border border-white bg-white px-3 py-2">
+            <dt class="text-[11px] text-zinc-500">用户 ID</dt>
+            <dd class="break-all text-xs text-zinc-700">{{ selectedUser.id }}</dd>
+          </div>
+        </dl>
+
+        <div class="mt-3 flex flex-wrap gap-2">
+          <UButton
+            size="sm"
+            color="primary"
+            variant="soft"
+            @click="startEdit(selectedUser)"
+          >
+            编辑资料
+          </UButton>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="outline"
+            :to="`/admin/chat?userId=${encodeURIComponent(selectedUser.id)}`"
+            icon="i-lucide-messages-square"
+          >
+            查看群聊
+          </UButton>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="outline"
+            :to="adminAuditHref('user', selectedUser.id)"
+            icon="i-lucide-scroll-text"
+          >
+            相关审计
+          </UButton>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="outline"
+            :to="`/admin/bans?q=${encodeURIComponent(selectedUser.id)}`"
+            icon="i-lucide-shield-ban"
+          >
+            封禁记录
+          </UButton>
+          <UButton
+            v-if="selectedUser.status !== 'active'"
+            size="sm"
+            color="success"
+            variant="soft"
+            @click="quickStatus(selectedUser, 'active')"
+          >
+            恢复正常
+          </UButton>
+          <UButton
+            v-if="selectedUser.status !== 'disabled'"
+            size="sm"
+            color="warning"
+            variant="soft"
+            @click="quickStatus(selectedUser, 'disabled')"
+          >
+            停用
+          </UButton>
+          <UButton
+            v-if="selectedUser.status !== 'banned'"
+            size="sm"
+            color="error"
+            variant="soft"
+            @click="quickStatus(selectedUser, 'banned')"
+          >
+            封禁账号
+          </UButton>
+        </div>
+      </aside>
+
+      <aside
+        v-else
+        class="hidden h-fit rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/60 p-4 text-sm text-zinc-500 lg:block lg:sticky lg:top-4"
+      >
+        点击账号行或「详情」，可在此查看资料、跳转群聊/审计，并快捷改状态。
+      </aside>
+    </div>
   </div>
 </template>

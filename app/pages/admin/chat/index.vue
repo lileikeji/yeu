@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
-import { formatAdminDateTime } from '~~/app/utils/admin-security-labels'
+import {
+  confirmAdminAction,
+  formatAdminDateTime
+} from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '群聊管理', robots: 'noindex, nofollow' })
@@ -60,10 +63,16 @@ const muteUserId = ref('')
 const muteRoomId = ref('')
 const muteReason = ref('')
 const muteExpiresAt = ref('')
+const deletedOnly = ref(false)
+const selectedMessage = ref<ChatMessage | null>(null)
 
 const mutedRoomCount = computed(() => rooms.value.filter(room => room.isMutedAll).length)
 const deletedOnPage = computed(() => messages.value.filter(item => item.deletedAt).length)
 const activeMuteCount = computed(() => mutes.value.filter(item => item.isActive).length)
+const visibleMessages = computed(() => {
+  if (!deletedOnly.value) return messages.value
+  return messages.value.filter(item => Boolean(item.deletedAt))
+})
 
 function formatTime(iso: string | null | undefined): string {
   return formatAdminDateTime(iso, true)
@@ -146,6 +155,9 @@ async function toggleMuteAll(room: ChatRoom): Promise<void> {
     toast.add({ title: '开启全员禁言前请先填写禁言原因', color: 'warning' })
     return
   }
+  if (!confirmAdminAction(nextMuted
+    ? `确认对「${room.title}」开启全员禁言？`
+    : `确认取消「${room.title}」全员禁言？`)) return
   try {
     await adminFetch(`/api/admin/chat/rooms/${encodeURIComponent(room.id)}/mute-all`, {
       method: 'POST',
@@ -197,6 +209,7 @@ async function muteUser(): Promise<void> {
     toast.add({ title: '请填写禁言原因（必填）', color: 'warning' })
     return
   }
+  if (!confirmAdminAction(`确认禁言用户 ${muteUserId.value.trim()}？原因：${muteReason.value.trim()}`)) return
   try {
     await adminFetch('/api/admin/chat/mutes', {
       method: 'POST',
@@ -220,6 +233,7 @@ async function muteUser(): Promise<void> {
 }
 
 async function unmute(id: string): Promise<void> {
+  if (!confirmAdminAction('确认解除该用户禁言？')) return
   try {
     await adminFetch(`/api/admin/chat/mutes/${encodeURIComponent(id)}`, {
       method: 'DELETE'
@@ -230,6 +244,10 @@ async function unmute(id: string): Promise<void> {
     if (await handleAuth(error)) return
     toast.add({ title: getRequestMessage(error, '解除失败'), color: 'error' })
   }
+}
+
+function openMessageDetail(message: ChatMessage): void {
+  selectedMessage.value = message
 }
 
 async function softDeleteMessage(message: ChatMessage): Promise<void> {
@@ -424,8 +442,19 @@ onMounted(() => {
         </div>
 
         <ul class="mt-4 max-h-[36rem] space-y-2 overflow-y-auto">
+          <div class="mb-2 flex flex-wrap items-center gap-2">
+            <UButton
+              size="xs"
+              :color="deletedOnly ? 'warning' : 'neutral'"
+              :variant="deletedOnly ? 'soft' : 'outline'"
+              @click="deletedOnly = !deletedOnly"
+            >
+              {{ deletedOnly ? '显示全部消息' : '只看已删除' }}
+            </UButton>
+            <span class="text-xs text-zinc-500">当前列表 {{ visibleMessages.length }} 条</span>
+          </div>
           <li
-            v-for="message in messages"
+            v-for="message in visibleMessages"
             :key="message.id"
             class="rounded-xl border border-zinc-100 px-3 py-3"
           >
@@ -442,6 +471,14 @@ onMounted(() => {
                 </p>
               </div>
               <div class="flex flex-wrap gap-1">
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  @click="openMessageDetail(message)"
+                >
+                  详情
+                </UButton>
                 <UButton
                   size="xs"
                   color="neutral"
@@ -591,11 +628,11 @@ onMounted(() => {
                   <p class="mt-1 text-xs text-amber-700">
                     {{ muteExpiryLabel(mute) }}
                   </p>
-                  <p
-                    v-if="mute.reason"
-                    class="mt-1 text-xs text-zinc-600"
-                  >
-                    {{ mute.reason }}
+                  <p class="mt-1 text-xs text-zinc-700">
+                    原因：{{ mute.reason || '（未填写）' }}
+                  </p>
+                  <p class="mt-1 break-all text-[11px] text-zinc-400">
+                    user {{ mute.userId }}
                   </p>
                 </div>
                 <UButton
@@ -617,6 +654,57 @@ onMounted(() => {
             </li>
           </ul>
         </section>
+      </div>
+    </section>
+
+    <section
+      v-if="selectedMessage"
+      class="rounded-2xl border border-indigo-200 bg-indigo-50/30 p-4"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="font-semibold text-zinc-950">消息详情</h2>
+          <p class="mt-1 text-xs text-zinc-500">
+            {{ selectedMessage.displayName }} · {{ formatTime(selectedMessage.createdAt) }}
+            <template v-if="selectedMessage.deletedAt"> · 已删除 {{ formatTime(selectedMessage.deletedAt) }}</template>
+          </p>
+        </div>
+        <UButton size="xs" color="neutral" variant="ghost" @click="selectedMessage = null">关闭</UButton>
+      </div>
+      <dl class="mt-3 grid gap-2 sm:grid-cols-2">
+        <div class="rounded-xl border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">房间</dt>
+          <dd class="text-sm text-zinc-800">{{ roomTitle(selectedMessage.roomId) }}</dd>
+        </div>
+        <div class="rounded-xl border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">用户 ID</dt>
+          <dd class="break-all text-sm text-zinc-800">{{ selectedMessage.userId }}</dd>
+        </div>
+        <div class="rounded-xl border border-white bg-white px-3 py-2 sm:col-span-2">
+          <dt class="text-[11px] text-zinc-500">消息 ID</dt>
+          <dd class="break-all text-sm text-zinc-800">{{ selectedMessage.id }}</dd>
+        </div>
+      </dl>
+      <div class="mt-3 rounded-xl border border-white bg-white px-3 py-3">
+        <p class="text-[11px] text-zinc-500">正文</p>
+        <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-900">{{ selectedMessage.body }}</p>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <UButton size="sm" color="neutral" variant="outline" @click="filterByUser(selectedMessage.userId)">只看此人</UButton>
+        <UButton size="sm" color="warning" variant="soft" @click="prepMute(selectedMessage); selectedMessage = null">禁言此人</UButton>
+        <UButton
+          size="sm"
+          color="error"
+          variant="soft"
+          :disabled="Boolean(selectedMessage.deletedAt)"
+          @click="softDeleteMessage(selectedMessage)"
+        >删除消息</UButton>
+        <UButton
+          size="sm"
+          color="neutral"
+          variant="outline"
+          :to="`/admin/users?userId=${encodeURIComponent(selectedMessage.userId)}`"
+        >账号档案</UButton>
       </div>
     </section>
   </div>

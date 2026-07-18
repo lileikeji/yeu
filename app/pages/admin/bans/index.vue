@@ -2,9 +2,12 @@
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
 import {
+  adminAuditHref,
   adminBanScopeLabels,
+  adminEntityHref,
   adminLabel,
   banStatusMeta,
+  confirmAdminAction,
   formatAdminDateTime
 } from '~~/app/utils/admin-security-labels'
 
@@ -17,11 +20,14 @@ type BanRow = {
   value: string
   reason: string
   isActive: boolean
+  bannedByAdminId?: string | null
   expiresAt: string | null
   createdAt: string
+  updatedAt?: string | null
 }
 
 const toast = useToast()
+const route = useRoute()
 const loading = ref(false)
 const creating = ref(false)
 const errorMessage = ref('')
@@ -29,6 +35,7 @@ const items = ref<BanRow[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = 30
+const selectedBan = ref<BanRow | null>(null)
 
 const active = ref<'true' | 'false' | 'all'>('true')
 const scope = ref<'' | 'ip' | 'visitor' | 'user'>('')
@@ -114,6 +121,7 @@ async function createBan(): Promise<void> {
     toast.add({ title: '请填写封禁原因（必填）', color: 'warning' })
     return
   }
+  if (!confirmAdminAction(`确认创建封禁 ${adminLabel(adminBanScopeLabels, form.scope)} · ${form.value.trim()}？`)) return
   creating.value = true
   try {
     await adminFetch('/api/admin/visitors/bans', {
@@ -143,11 +151,13 @@ async function createBan(): Promise<void> {
 }
 
 async function deactivateBan(id: string): Promise<void> {
+  if (!confirmAdminAction('确认解除该封禁？解除后对象可立即访问。')) return
   try {
     await adminFetch(`/api/admin/visitors/bans/${encodeURIComponent(id)}`, {
       method: 'DELETE'
     })
     toast.add({ title: '已解除封禁', color: 'success' })
+    if (selectedBan.value?.id === id) selectedBan.value = null
     await loadBans()
   } catch (error) {
     if (await handleAuth(error)) return
@@ -155,8 +165,44 @@ async function deactivateBan(id: string): Promise<void> {
   }
 }
 
-onMounted(() => {
-  void loadBans()
+function openBanDetail(ban: BanRow): void {
+  selectedBan.value = ban
+}
+
+function relatedVisitorHref(ban: BanRow): string | null {
+  if (ban.scope === 'visitor') return adminEntityHref('visitor', ban.value)
+  if (ban.scope === 'user') return adminEntityHref('user', ban.value)
+  if (ban.scope === 'ip') return `/admin/visitors?ip=${encodeURIComponent(ban.value)}`
+  return null
+}
+
+onMounted(async () => {
+  const activeQuery = typeof route.query.active === 'string' ? route.query.active : ''
+  const scopeQuery = typeof route.query.scope === 'string' ? route.query.scope : ''
+  const qQuery = typeof route.query.q === 'string' ? route.query.q : ''
+  const ipQuery = typeof route.query.ip === 'string' ? route.query.ip : ''
+  if (activeQuery === 'true' || activeQuery === 'false' || activeQuery === 'all') active.value = activeQuery
+  if (scopeQuery === 'ip' || scopeQuery === 'visitor' || scopeQuery === 'user') scope.value = scopeQuery
+  if (qQuery) q.value = qQuery
+  else if (ipQuery) q.value = ipQuery
+  await loadBans()
+  const banIdQuery = typeof route.query.banId === 'string' ? route.query.banId : ''
+  if (banIdQuery) {
+    const hit = items.value.find(row => row.id === banIdQuery)
+    if (hit) selectedBan.value = hit
+    else {
+      selectedBan.value = {
+        id: banIdQuery,
+        scope: 'ip',
+        value: banIdQuery,
+        reason: '从链接打开',
+        isActive: true,
+        expiresAt: null,
+        createdAt: '',
+        bannedByAdminId: null
+      } as BanRow
+    }
+  }
 })
 </script>
 
@@ -361,10 +407,15 @@ onMounted(() => {
           <li
             v-for="ban in items"
             :key="ban.id"
-            class="rounded-xl border border-zinc-100 px-3 py-3 text-sm"
+            class="rounded-xl border px-3 py-3 text-sm"
+            :class="selectedBan?.id === ban.id ? 'border-red-300 bg-red-50/40' : 'border-zinc-100'"
           >
             <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0 flex-1">
+              <button
+                type="button"
+                class="min-w-0 flex-1 text-left"
+                @click="openBanDetail(ban)"
+              >
                 <div class="flex flex-wrap items-center gap-2">
                   <p class="font-medium text-zinc-900">
                     {{ adminLabel(adminBanScopeLabels, ban.scope) }} · {{ ban.value }}
@@ -386,17 +437,36 @@ onMounted(() => {
                 </p>
                 <p class="mt-1 break-all text-[11px] text-zinc-400">
                   ID {{ ban.id }}
+                  <template v-if="ban.bannedByAdminId"> · 操作人 {{ ban.bannedByAdminId }}</template>
                 </p>
+              </button>
+              <div class="flex shrink-0 flex-col gap-1">
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  @click="openBanDetail(ban)"
+                >
+                  详情
+                </UButton>
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :to="adminAuditHref('visitor_ban', ban.id)"
+                >
+                  审计
+                </UButton>
+                <UButton
+                  v-if="ban.isActive"
+                  size="xs"
+                  color="neutral"
+                  variant="outline"
+                  @click="deactivateBan(ban.id)"
+                >
+                  解除
+                </UButton>
               </div>
-              <UButton
-                v-if="ban.isActive"
-                size="xs"
-                color="neutral"
-                variant="outline"
-                @click="deactivateBan(ban.id)"
-              >
-                解除
-              </UButton>
             </div>
           </li>
           <li
@@ -432,5 +502,85 @@ onMounted(() => {
         </div>
       </section>
     </div>
+
+    <section
+      v-if="selectedBan"
+      class="rounded-2xl border border-red-200 bg-red-50/30 p-4"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="font-semibold text-zinc-950">
+            封禁详情 · {{ adminLabel(adminBanScopeLabels, selectedBan.scope) }}
+          </h2>
+          <p class="mt-1 break-all text-sm text-zinc-700">
+            {{ selectedBan.value }}
+          </p>
+        </div>
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          @click="selectedBan = null"
+        >
+          关闭
+        </UButton>
+      </div>
+      <dl class="mt-3 grid gap-2 sm:grid-cols-2">
+        <div class="rounded-xl border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">状态</dt>
+          <dd class="text-sm font-medium text-zinc-900">{{ banStatusMeta(selectedBan).label }}</dd>
+        </div>
+        <div class="rounded-xl border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">原因</dt>
+          <dd class="text-sm text-zinc-800">{{ selectedBan.reason || '—' }}</dd>
+        </div>
+        <div class="rounded-xl border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">创建时间</dt>
+          <dd class="text-sm text-zinc-800">{{ formatTime(selectedBan.createdAt) }}</dd>
+        </div>
+        <div class="rounded-xl border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">到期</dt>
+          <dd class="text-sm text-zinc-800">{{ selectedBan.expiresAt ? formatTime(selectedBan.expiresAt) : '永久' }}</dd>
+        </div>
+        <div class="rounded-xl border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">操作管理员</dt>
+          <dd class="break-all text-sm text-zinc-800">{{ selectedBan.bannedByAdminId || '—' }}</dd>
+        </div>
+        <div class="rounded-xl border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">封禁 ID</dt>
+          <dd class="break-all text-sm text-zinc-800">{{ selectedBan.id }}</dd>
+        </div>
+      </dl>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <UButton
+          size="sm"
+          color="neutral"
+          variant="outline"
+          :to="adminAuditHref('visitor_ban', selectedBan.id)"
+          icon="i-lucide-scroll-text"
+        >
+          查看相关审计
+        </UButton>
+        <UButton
+          v-if="relatedVisitorHref(selectedBan)"
+          size="sm"
+          color="neutral"
+          variant="outline"
+          :to="relatedVisitorHref(selectedBan) || undefined"
+          icon="i-lucide-radar"
+        >
+          关联访客/账号
+        </UButton>
+        <UButton
+          v-if="selectedBan.isActive"
+          size="sm"
+          color="error"
+          variant="soft"
+          @click="deactivateBan(selectedBan.id)"
+        >
+          解除封禁
+        </UButton>
+      </div>
+    </section>
   </div>
 </template>

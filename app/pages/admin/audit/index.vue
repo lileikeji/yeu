@@ -6,6 +6,7 @@ import {
   adminAuditEntityLabels,
   adminAuditEntityTypeOptions,
   adminAuditPresets,
+  adminEntityHref,
   adminLabel,
   formatAdminDateTime,
   prettyAdminDetails
@@ -26,6 +27,7 @@ type AuditRow = {
 }
 
 const toast = useToast()
+const route = useRoute()
 const loading = ref(false)
 const errorMessage = ref('')
 const items = ref<AuditRow[]>([])
@@ -56,6 +58,10 @@ function toggleExpand(id: string): void {
     ...expanded.value,
     [id]: !expanded.value[id]
   }
+}
+
+function entityHref(row: AuditRow): string | null {
+  return adminEntityHref(row.entityType, row.entityId)
 }
 
 async function handleAuth(error: unknown): Promise<boolean> {
@@ -103,6 +109,16 @@ function applyPreset(key: string): void {
 }
 
 onMounted(() => {
+  if (typeof route.query.entityType === 'string' && route.query.entityType) {
+    entityType.value = route.query.entityType
+    activePreset.value = 'all'
+  }
+  if (typeof route.query.entityId === 'string' && route.query.entityId) {
+    entityId.value = route.query.entityId
+  }
+  if (typeof route.query.action === 'string' && route.query.action) {
+    action.value = route.query.action
+  }
   void loadAudit()
 })
 </script>
@@ -260,14 +276,25 @@ onMounted(() => {
                 </p>
               </div>
             </div>
-            <UButton
-              size="xs"
-              color="neutral"
-              variant="outline"
-              @click="toggleExpand(row.id)"
-            >
-              {{ expanded[row.id] ? '收起详情' : '展开详情' }}
-            </UButton>
+            <div class="flex shrink-0 flex-col gap-1">
+              <UButton
+                v-if="entityHref(row)"
+                size="xs"
+                color="primary"
+                variant="soft"
+                :to="entityHref(row) || undefined"
+              >
+                跳转对象
+              </UButton>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="outline"
+                @click="toggleExpand(row.id)"
+              >
+                {{ expanded[row.id] ? '收起详情' : '展开详情' }}
+              </UButton>
+            </div>
           </div>
         </li>
         <li

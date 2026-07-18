@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict'
+import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -111,4 +111,50 @@ test('admin depth: visitors expose isBanned, labels and richer panels', () => {
   assert.match(labels, /prettyAdminDetails/)
   assert.match(labels, /banStatusMeta/)
   assert.match(labels, /adminAuditActionLabels/)
+})
+
+test('admin depth2: entity links, confirms, detail panels, security snapshot', () => {
+  assert.match(labels, /export function adminEntityHref/)
+  assert.match(labels, /export function adminAuditHref/)
+  assert.match(labels, /export function confirmAdminAction/)
+  assert.match(labels, /export function groupByAdminDay/)
+  assert.match(labels, /export function formatAdminDay/)
+  assert.match(labels, /adminHttpMethodLabels/)
+
+  assert.match(visitorsPage, /confirmAdminAction/)
+  assert.match(visitorsPage, /route\.query\.banned/)
+  assert.match(visitorsPage, /prettyAdminDetails/)
+  assert.match(visitorsPage, /adminAuditHref|\/admin\/audit/)
+
+  assert.match(bansPage, /confirmAdminAction/)
+  assert.match(bansPage, /selectedBan/)
+  assert.match(bansPage, /bannedByAdminId/)
+  assert.match(bansPage, /adminEntityHref|adminAuditHref/)
+  assert.match(bansPage, /route\.query\.active|route\.query\.banId/)
+
+  assert.match(auditPage, /adminEntityHref/)
+  assert.match(auditPage, /entityType/)
+  assert.match(auditPage, /跳转对象|相关对象|adminEntityHref/)
+
+  assert.match(chatPage, /confirmAdminAction/)
+  assert.match(chatPage, /openMessageDetail|selectedMessage/)
+  assert.match(chatPage, /deletedOnly|仅看已删除|softDelete/)
+
+  assert.match(usersPage, /selectedUser/)
+  assert.match(usersPage, /openUserDetail/)
+  assert.match(usersPage, /route\.query\.userId/)
+  assert.match(usersPage, /confirmAdminAction/)
+  assert.match(usersPage, /adminAuditHref/)
+  assert.match(usersPage, /账号详情/)
+
+  assert.match(dashboardPage, /securitySnapshot/)
+  assert.match(dashboardPage, /安全态势/)
+  assert.match(dashboardPage, /生效封禁/)
+  assert.match(dashboardPage, /security-active-bans/)
+  assert.match(dashboardPage, /security-active-mutes/)
+  assert.match(dashboardPage, /security-muted-rooms/)
+  assert.match(dashboardPage, /\/api\/admin\/chat\/mutes/)
+  assert.match(dashboardPage, /\/api\/admin\/chat\/rooms/)
+
+  assert.match(visitorsService, /bannedByAdminId/)
 })

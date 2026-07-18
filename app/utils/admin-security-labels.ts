@@ -30,6 +30,8 @@ export const adminAuditActionLabels: Record<string, string> = {
   'user.create': '创建账号',
   'user.update': '更新账号',
   'user.status': '调整账号状态',
+  'admin.login': '管理员登录',
+  'admin.logout': '管理员登出',
   publish: '发布',
   unpublish: '取消发布',
   create: '创建',
@@ -48,7 +50,8 @@ export const adminAuditEntityLabels: Record<string, string> = {
   procedure: '办事流程',
   source: '来源',
   feedback: '反馈',
-  visitor: '访客'
+  visitor: '访客',
+  admin: '管理员'
 }
 
 export const adminAuditEntityTypeOptions: AdminLabelOption[] = [
@@ -62,7 +65,8 @@ export const adminAuditEntityTypeOptions: AdminLabelOption[] = [
   { label: '内容', value: 'content' },
   { label: '办事流程', value: 'procedure' },
   { label: '来源', value: 'source' },
-  { label: '反馈', value: 'feedback' }
+  { label: '反馈', value: 'feedback' },
+  { label: '访客', value: 'visitor' }
 ]
 
 export const adminAuditPresets: Array<{
@@ -75,8 +79,17 @@ export const adminAuditPresets: Array<{
   { key: 'bans', label: '封禁相关', entityType: 'visitor_ban' },
   { key: 'chat', label: '群聊相关', entityType: 'chat_message' },
   { key: 'mute', label: '禁言相关', entityType: 'chat_mute' },
-  { key: 'users', label: '账号相关', entityType: 'user' }
+  { key: 'users', label: '账号相关', entityType: 'user' },
+  { key: 'login', label: '登录相关', action: 'admin.login' }
 ]
+
+export const adminHttpMethodLabels: Record<string, string> = {
+  GET: 'GET',
+  POST: 'POST',
+  PUT: 'PUT',
+  PATCH: 'PATCH',
+  DELETE: 'DELETE'
+}
 
 export function adminLabel(map: Record<string, string>, value: string | null | undefined, fallback?: string): string {
   if (!value) return fallback || '—'
@@ -97,6 +110,19 @@ export function formatAdminDateTime(iso: string | null | undefined, withSeconds 
     }).format(new Date(iso))
   } catch {
     return iso
+  }
+}
+
+export function formatAdminDay(iso: string | null | undefined): string {
+  if (!iso) return '未知日期'
+  try {
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date(iso))
+  } catch {
+    return iso.slice(0, 10)
   }
 }
 
@@ -126,4 +152,58 @@ export function banStatusMeta(ban: { isActive: boolean; expiresAt: string | null
     return { label: '已过期', tone: 'expired' }
   }
   return { label: '生效中', tone: 'active' }
+}
+
+/** Deep-link from audit entity to related admin page. */
+export function adminEntityHref(
+  entityType: string | null | undefined,
+  entityId?: string | null
+): string | null {
+  const type = (entityType || '').trim()
+  const id = (entityId || '').trim()
+  if (type === 'visitor_ban') {
+    return id ? `/admin/bans?banId=${encodeURIComponent(id)}` : '/admin/bans'
+  }
+  if (type === 'visitor') {
+    return id ? `/admin/visitors?visitorId=${encodeURIComponent(id)}` : '/admin/visitors'
+  }
+  if (type === 'user') {
+    return id ? `/admin/users?userId=${encodeURIComponent(id)}` : '/admin/users'
+  }
+  if (type === 'chat_message' || type === 'chat_mute' || type === 'chat_room') {
+    if (type === 'chat_room' && id) return `/admin/chat?roomId=${encodeURIComponent(id)}`
+    if (type === 'chat_mute' && id) return `/admin/chat?muteId=${encodeURIComponent(id)}`
+    return '/admin/chat'
+  }
+  if (type === 'place') return id ? `/admin/places?id=${encodeURIComponent(id)}` : '/admin/places'
+  if (type === 'content') return id ? `/admin/content?id=${encodeURIComponent(id)}` : '/admin/content'
+  if (type === 'procedure') return id ? `/admin/procedures?id=${encodeURIComponent(id)}` : '/admin/procedures'
+  if (type === 'feedback') return id ? `/admin/feedback?id=${encodeURIComponent(id)}` : '/admin/feedback'
+  return null
+}
+
+export function adminAuditHref(entityType?: string | null, entityId?: string | null): string {
+  const params = new URLSearchParams()
+  if (entityType) params.set('entityType', entityType)
+  if (entityId) params.set('entityId', entityId)
+  const qs = params.toString()
+  return qs ? `/admin/audit?${qs}` : '/admin/audit'
+}
+
+export function groupByAdminDay<T extends { createdAt: string }>(
+  items: T[]
+): Array<{ day: string; items: T[] }> {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const day = formatAdminDay(item.createdAt)
+    const list = map.get(day) || []
+    list.push(item)
+    map.set(day, list)
+  }
+  return [...map.entries()].map(([day, dayItems]) => ({ day, items: dayItems }))
+}
+
+export function confirmAdminAction(message: string): boolean {
+  if (typeof window === 'undefined') return true
+  return window.confirm(message)
 }

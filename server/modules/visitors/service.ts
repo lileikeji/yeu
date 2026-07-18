@@ -357,8 +357,10 @@ export function listVisitorBans(
       value: row.value,
       reason: row.reason,
       isActive: row.isActive,
+      bannedByAdminId: row.bannedByAdminId ?? null,
       expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
-      createdAt: new Date(row.createdAt).toISOString()
+      createdAt: new Date(row.createdAt).toISOString(),
+      updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null
     })),
     total,
     page: query.page,

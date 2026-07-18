@@ -13,7 +13,8 @@ import {
 import {
   adminAuditActionLabels,
   adminBanScopeLabels,
-  adminLabel
+  adminLabel,
+  formatAdminDateTime
 } from '~~/app/utils/admin-security-labels'
 import { adminFetch } from '~~/app/utils/admin-request'
 
@@ -29,6 +30,12 @@ const recentFeedback = ref<AdminDashboardRecord[]>([])
 const recentAudit = ref<AdminDashboardRecord[]>([])
 const recentBans = ref<AdminDashboardRecord[]>([])
 const recentVisitors = ref<AdminDashboardRecord[]>([])
+const securitySnapshot = reactive({
+  activeBans: null as number | null,
+  bannedVisitors: null as number | null,
+  activeMutes: null as number | null,
+  mutedRooms: null as number | null
+})
 const loading = ref(false)
 const loadError = ref('')
 
@@ -81,6 +88,35 @@ async function loadDashboard(): Promise<void> {
     return { key: 'recent-visitors', ...normalizeAdminDashboardResponse(response) }
   })())
 
+  
+  requests.push((async () => {
+    const response = await adminFetch<{ total?: number }>('/api/admin/visitors/bans', {
+      query: { page: 1, pageSize: 1, active: 'true' }
+    })
+    return { key: 'security-active-bans', items: [], total: Number(response?.total ?? 0) }
+  })())
+
+  requests.push((async () => {
+    const response = await adminFetch<{ total?: number }>('/api/admin/visitors', {
+      query: { page: 1, pageSize: 1, banned: 'true' }
+    })
+    return { key: 'security-banned-visitors', items: [], total: Number(response?.total ?? 0) }
+  })())
+
+  requests.push((async () => {
+    const response = await adminFetch<{ total?: number }>('/api/admin/chat/mutes', {
+      query: { page: 1, pageSize: 1 }
+    })
+    return { key: 'security-active-mutes', items: [], total: Number(response?.total ?? 0) }
+  })())
+
+  requests.push((async () => {
+    const response = await adminFetch<{ items?: Array<{ isMutedAll?: boolean }> }>('/api/admin/chat/rooms')
+    const rooms = Array.isArray(response?.items) ? response.items : []
+    const muted = rooms.filter(room => room.isMutedAll).length
+    return { key: 'security-muted-rooms', items: [], total: muted }
+  })())
+
   const results = await Promise.allSettled(requests)
   let failed = false
 
@@ -100,7 +136,11 @@ async function loadDashboard(): Promise<void> {
     if (key === 'audit') recentAudit.value = items
     if (key === 'recent-bans') recentBans.value = items
     if (key === 'recent-visitors') recentVisitors.value = items
-    if (key !== 'audit' && key !== 'recent-bans' && key !== 'recent-visitors') {
+    if (key === 'security-active-bans') securitySnapshot.activeBans = total
+    else if (key === 'security-banned-visitors') securitySnapshot.bannedVisitors = total
+    else if (key === 'security-active-mutes') securitySnapshot.activeMutes = total
+    else if (key === 'security-muted-rooms') securitySnapshot.mutedRooms = total
+    else if (key !== 'audit' && key !== 'recent-bans' && key !== 'recent-visitors') {
       counts[key] = total
     }
   }
@@ -149,6 +189,57 @@ onMounted(() => {
       />
       {{ loadError }}
     </div>
+
+
+    <section
+      class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      aria-label="安全态势"
+    >
+      <NuxtLink
+        to="/admin/bans?active=true"
+        class="rounded-md border border-red-200 bg-red-50/50 p-4 transition hover:border-red-300"
+      >
+        <p class="text-xs font-medium text-red-700">生效封禁</p>
+        <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-950">
+          <USkeleton v-if="loading && securitySnapshot.activeBans == null" class="h-7 w-12" />
+          <template v-else>{{ securitySnapshot.activeBans ?? '—' }}</template>
+        </p>
+        <p class="mt-1 text-[11px] text-zinc-500">IP / 访客 / 账号</p>
+      </NuxtLink>
+      <NuxtLink
+        to="/admin/visitors?banned=true"
+        class="rounded-md border border-rose-200 bg-rose-50/40 p-4 transition hover:border-rose-300"
+      >
+        <p class="text-xs font-medium text-rose-700">命中封禁访客</p>
+        <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-950">
+          <USkeleton v-if="loading && securitySnapshot.bannedVisitors == null" class="h-7 w-12" />
+          <template v-else>{{ securitySnapshot.bannedVisitors ?? '—' }}</template>
+        </p>
+        <p class="mt-1 text-[11px] text-zinc-500">当前列表命中封禁策略</p>
+      </NuxtLink>
+      <NuxtLink
+        to="/admin/chat"
+        class="rounded-md border border-amber-200 bg-amber-50/40 p-4 transition hover:border-amber-300"
+      >
+        <p class="text-xs font-medium text-amber-800">个人禁言</p>
+        <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-950">
+          <USkeleton v-if="loading && securitySnapshot.activeMutes == null" class="h-7 w-12" />
+          <template v-else>{{ securitySnapshot.activeMutes ?? '—' }}</template>
+        </p>
+        <p class="mt-1 text-[11px] text-zinc-500">生效中的用户禁言</p>
+      </NuxtLink>
+      <NuxtLink
+        to="/admin/chat"
+        class="rounded-md border border-orange-200 bg-orange-50/40 p-4 transition hover:border-orange-300"
+      >
+        <p class="text-xs font-medium text-orange-800">全员禁言房间</p>
+        <p class="mt-2 text-2xl font-semibold tabular-nums text-zinc-950">
+          <USkeleton v-if="loading && securitySnapshot.mutedRooms == null" class="h-7 w-12" />
+          <template v-else>{{ securitySnapshot.mutedRooms ?? '—' }}</template>
+        </p>
+        <p class="mt-1 text-[11px] text-zinc-500">房间级 mute-all</p>
+      </NuxtLink>
+    </section>
 
     <section
       v-for="group in moduleGroups"
@@ -361,7 +452,7 @@ onMounted(() => {
           <NuxtLink
             v-for="item in recentBans"
             :key="adminDashboardRecordValue(item, 'id', '_id')"
-            to="/admin/bans"
+            :to="'/admin/bans?banId=' + encodeURIComponent(String(adminDashboardRecordValue(item, 'id', '_id')))"
             class="flex items-start gap-3 px-4 py-3 hover:bg-zinc-50"
           >
             <span class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-red-50 text-red-700">
@@ -416,7 +507,7 @@ onMounted(() => {
           <NuxtLink
             v-for="item in recentVisitors"
             :key="adminDashboardRecordValue(item, 'id', '_id')"
-            to="/admin/visitors"
+            :to="'/admin/visitors?visitorId=' + encodeURIComponent(String(adminDashboardRecordValue(item, 'id', '_id')))"
             class="flex items-start gap-3 px-4 py-3 hover:bg-zinc-50"
           >
             <span class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-rose-50 text-rose-700">

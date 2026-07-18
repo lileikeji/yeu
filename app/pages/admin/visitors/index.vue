@@ -2,10 +2,14 @@
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
 import {
+  adminAuditHref,
   adminBanScopeLabels,
   adminLabel,
   banStatusMeta,
-  formatAdminDateTime
+  confirmAdminAction,
+  formatAdminDateTime,
+  groupByAdminDay,
+  prettyAdminDetails
 } from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
@@ -51,6 +55,7 @@ type BanRow = {
 }
 
 const toast = useToast()
+const route = useRoute()
 const loading = ref(false)
 const banLoading = ref(false)
 const eventsLoading = ref(false)
@@ -87,6 +92,24 @@ function shortUa(ua: string | null | undefined): string {
 
 function eventLocation(event: VisitorEvent): string {
   return [event.country, event.region, event.city].filter(Boolean).join(' · ') || '未知'
+}
+
+const eventGroups = computed(() => groupByAdminDay(events.value))
+
+function prepBanFromEvent(event: VisitorEvent, scope: 'ip' | 'visitor' = 'ip'): void {
+  if (!selectedVisitor.value) return
+  if (scope === 'ip') {
+    banScope.value = 'ip'
+    banValue.value = event.ip || selectedVisitor.value.lastIp || ''
+  } else {
+    banScope.value = 'visitor'
+    banValue.value = selectedVisitor.value.id
+  }
+  banReason.value = event.path ? `来自事件 ${event.action} · ${event.path}` : ''
+  banExpiresAt.value = ''
+  if (typeof window !== 'undefined') {
+    document.getElementById('visitor-ban-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 }
 
 async function handleAuth(error: unknown): Promise<boolean> {
@@ -172,6 +195,7 @@ async function createBan(): Promise<void> {
     toast.add({ title: '请填写封禁原因（必填）', color: 'warning' })
     return
   }
+  if (!confirmAdminAction(`确认封禁 ${adminLabel(adminBanScopeLabels, banScope.value)} · ${banValue.value.trim()}？`)) return
   creatingBan.value = true
   try {
     await adminFetch('/api/admin/visitors/bans', {
@@ -198,6 +222,7 @@ async function createBan(): Promise<void> {
 }
 
 async function deactivateBan(id: string): Promise<void> {
+  if (!confirmAdminAction('确认解除该条封禁？解除后立即生效。')) return
   try {
     await adminFetch(`/api/admin/visitors/bans/${encodeURIComponent(id)}`, {
       method: 'DELETE'
@@ -215,9 +240,38 @@ function applySearch(): void {
   void loadVisitors()
 }
 
-onMounted(() => {
-  void loadVisitors()
+onMounted(async () => {
+  const bannedQuery = typeof route.query.banned === 'string' ? route.query.banned : ''
+  const ipQuery = typeof route.query.ip === 'string' ? route.query.ip : ''
+  const qQuery = typeof route.query.q === 'string' ? route.query.q : ''
+  if (bannedQuery === 'true' || bannedQuery === 'false') banned.value = bannedQuery
+  if (ipQuery) ip.value = ipQuery
+  if (qQuery) q.value = qQuery
+  await loadVisitors()
   void loadBans()
+  const visitorIdQuery = typeof route.query.visitorId === 'string' ? route.query.visitorId : ''
+  if (visitorIdQuery) {
+    const hit = items.value.find(row => row.id === visitorIdQuery)
+    if (hit) await openEvents(hit)
+    else {
+      // still open panel with id if not on first page
+      selectedVisitor.value = {
+        id: visitorIdQuery,
+        firstSeenAt: '',
+        lastSeenAt: '',
+        lastIp: null,
+        lastCountry: null,
+        lastRegion: null,
+        lastCity: null,
+        lastUserAgent: null,
+        lastPath: null,
+        eventCount: 0,
+        userId: null,
+        locationLabel: '从链接打开'
+      }
+      await openEvents(selectedVisitor.value)
+    }
+  }
 })
 </script>
 
@@ -569,15 +623,25 @@ onMounted(() => {
                   {{ ban.reason }}
                 </p>
               </div>
-              <UButton
-                v-if="ban.isActive"
-                size="xs"
-                color="neutral"
-                variant="outline"
-                @click="deactivateBan(ban.id)"
-              >
-                解除
-              </UButton>
+              <div class="flex shrink-0 flex-col gap-1">
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :to="adminAuditHref('visitor_ban', ban.id)"
+                >
+                  审计
+                </UButton>
+                <UButton
+                  v-if="ban.isActive"
+                  size="xs"
+                  color="neutral"
+                  variant="outline"
+                  @click="deactivateBan(ban.id)"
+                >
+                  解除
+                </UButton>
+              </div>
             </div>
           </li>
           <li
@@ -630,45 +694,89 @@ onMounted(() => {
       >
         加载中…
       </div>
-      <ul
+      <div
         v-else
-        class="mt-3 max-h-[28rem] space-y-2 overflow-y-auto"
+        class="mt-3 max-h-[28rem] space-y-4 overflow-y-auto"
       >
-        <li
-          v-for="event in events"
-          :key="event.id"
-          class="rounded-xl border border-white bg-white px-3 py-3 text-sm shadow-sm"
+        <div
+          v-for="group in eventGroups"
+          :key="group.day"
         >
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800">
-              {{ event.action }}
-            </span>
-            <span
-              v-if="event.method"
-              class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700"
+          <p class="sticky top-0 z-[1] mb-2 bg-sky-50/90 py-1 text-xs font-semibold text-sky-900 backdrop-blur">
+            {{ group.day }} · {{ group.items.length }} 条
+          </p>
+          <ul class="space-y-2">
+            <li
+              v-for="event in group.items"
+              :key="event.id"
+              class="rounded-xl border border-white bg-white px-3 py-3 text-sm shadow-sm"
             >
-              {{ event.method }}
-            </span>
-            <span class="text-xs text-zinc-500">{{ formatTime(event.createdAt) }}</span>
-          </div>
-          <p class="mt-2 break-all text-sm text-zinc-800">
-            {{ event.path || '—' }}
-          </p>
-          <p class="mt-1 text-xs text-zinc-500">
-            {{ event.ip || '—' }} · {{ eventLocation(event) }}
-          </p>
-          <pre
-            v-if="event.meta && Object.keys(event.meta).length"
-            class="mt-2 overflow-x-auto rounded-lg bg-zinc-50 p-2 text-[11px] leading-5 text-zinc-600"
-          >{{ JSON.stringify(event.meta, null, 2) }}</pre>
-        </li>
-        <li
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800">
+                    {{ event.action }}
+                  </span>
+                  <span
+                    v-if="event.method"
+                    class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700"
+                  >
+                    {{ event.method }}
+                  </span>
+                  <span class="text-xs text-zinc-500">{{ formatTime(event.createdAt) }}</span>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  <UButton
+                    size="xs"
+                    color="error"
+                    variant="soft"
+                    :disabled="!event.ip && !selectedVisitor?.lastIp"
+                    @click="prepBanFromEvent(event, 'ip')"
+                  >
+                    封此 IP
+                  </UButton>
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    @click="prepBanFromEvent(event, 'visitor')"
+                  >
+                    封访客
+                  </UButton>
+                </div>
+              </div>
+              <p class="mt-2 break-all text-sm text-zinc-800">
+                {{ event.path || '—' }}
+              </p>
+              <p class="mt-1 text-xs text-zinc-500">
+                {{ event.ip || '—' }} · {{ eventLocation(event) }}
+              </p>
+              <dl
+                v-if="event.meta && Object.keys(event.meta).length"
+                class="mt-2 space-y-1 rounded-lg bg-zinc-50 p-2"
+              >
+                <div
+                  v-for="item in prettyAdminDetails(event.meta)"
+                  :key="item.key"
+                  class="grid gap-1 sm:grid-cols-[6rem_minmax(0,1fr)]"
+                >
+                  <dt class="text-[11px] font-medium text-zinc-500">
+                    {{ item.key }}
+                  </dt>
+                  <dd class="break-all text-[11px] leading-5 text-zinc-700 whitespace-pre-wrap">
+                    {{ item.value }}
+                  </dd>
+                </div>
+              </dl>
+            </li>
+          </ul>
+        </div>
+        <p
           v-if="!events.length"
           class="py-6 text-center text-sm text-zinc-400"
         >
           暂无事件
-        </li>
-      </ul>
+        </p>
+      </div>
     </section>
   </div>
 </template>
