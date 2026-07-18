@@ -62,6 +62,8 @@ test('home page is a thin shell over home-presentation util', () => {
   assert.match(pageSource, /buildHomeMapSearchTarget/)
   assert.match(pageSource, /useFreshmanChecklist/)
   assert.match(pageSource, /\/checklist/)
+  assert.match(pageSource, /再看一次开场动画/)
+  assert.doesNotMatch(pageSource, /重新播放粒子动画/)
   assert.doesNotMatch(pageSource, /const essentialActions = computed<HomeAction/)
   assert.doesNotMatch(pageSource, /const timelineStages: HomeTimelineStage/)
   assert.doesNotMatch(pageSource, /function procedureHomeItem/)

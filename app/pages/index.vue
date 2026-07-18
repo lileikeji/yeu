@@ -469,7 +469,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
             name="i-lucide-sparkles"
             class="size-3.5 text-green-700 animate-pulse"
           />
-          <span>重新播放粒子动画</span>
+          <span>再看一次开场动画</span>
         </button>
       </div>
     </div>
