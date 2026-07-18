@@ -34,6 +34,7 @@ test('discover catalogs stay student-facing', () => {
   assert.equal(discoverTaskEntries[0]?.to, '/checklist')
   assert.ok(discoverTaskEntries.some(item => item.title === '周边商铺' && item.to === '/nearby'))
   assert.ok(discoverTaskEntries.some(item => item.to === '/map?category=express'))
+  assert.ok(discoverTaskEntries.some(item => item.description === '查看校园网、校外访问和图书馆登录说明'))
   assert.equal(discoverDirectoryEntries.length, 9)
   assert.equal(discoverDirectoryEntries[0]?.title, '新生群聊')
   assert.ok(discoverDirectoryEntries.some(item => item.title === '校园地图' && item.to === '/map'))

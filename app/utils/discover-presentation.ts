@@ -50,7 +50,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
   },
   {
     title: '校园卡与网络',
-    description: '查看校园网、VPN 和图书馆登录说明',
+    description: '查看校园网、校外访问和图书馆登录说明',
     to: '/guides/campus-card-network',
     icon: 'i-lucide-wifi',
     tone: 'bg-cyan-50 text-cyan-700'

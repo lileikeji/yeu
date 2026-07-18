@@ -104,6 +104,22 @@ test('guide copy hides maintainer language from student pages', () => {
     '用校园地图搜索宿舍、教学楼和服务点；地图上的位置可先用来找方向，入口细节仍需现场确认。'
   )
   assert.equal(
+    studentFacingGuideText('新生处理校园网、统一认证、VPN、网络故障和信息化服务问题的主管部门入口。'),
+    '新生遇到校园网、校外访问（VPN）、网络故障或校园系统问题时，可以找这个部门。'
+  )
+  assert.equal(
+    studentFacingGuideText('连接后通过浏览器认证。新生注册后以学号获得校园网和VPN账号，首次登录按官方通知操作并立即修改密码。'),
+    '连接后按页面提示登录。新生注册后会获得校园网和校外访问账号，第一次使用请按学校通知操作并及时修改密码。'
+  )
+  assert.equal(
+    studentFacingGuideText('宿舍或校外访问教务等校内资源时，可按官方指南使用 https://vpn.yeu.edu.cn:444。'),
+    '在宿舍或校外需要打开教务等校内资源时，请按学校指南使用校外访问入口（https://vpn.yeu.edu.cn:444）。'
+  )
+  assert.equal(
+    studentFacingGuideText('信息网络管理规定禁止未经批准私设代理或DHCP、把校园网扩展到校外、向非校内用户提供接入，或利用校园网开展经营活动。'),
+    '学校规定不能私自搭建网络转接工具、把校园网分享给校外人员，或利用校园网做经营活动。'
+  )
+  assert.equal(
     studentFacingGuideText('工作地图目前只有一个“创业园”标点，后续应拆分为A、B两个地点并分别核对入口坐标。'),
     '地图目前只显示一个“创业园”地点；到达后请按现场标识确认 A、B 区入口。'
   )
