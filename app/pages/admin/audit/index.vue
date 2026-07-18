@@ -41,8 +41,8 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = 30
 
-const action = ref('')
-const entityType = ref('')
+const action = ref('all')
+const entityType = ref('all')
 const entityId = ref('')
 const activePreset = ref('all')
 const expanded = ref<Record<string, boolean>>({})
@@ -115,8 +115,8 @@ async function loadAudit(): Promise<void> {
       query: {
         page: page.value,
         pageSize,
-        action: action.value.trim() || undefined,
-        entityType: entityType.value.trim() || undefined,
+        action: action.value === 'all' ? undefined : action.value.trim() || undefined,
+        entityType: entityType.value === 'all' ? undefined : entityType.value.trim() || undefined,
         entityId: entityId.value.trim() || undefined
       }
     })
@@ -139,8 +139,8 @@ function applyPreset(key: string): void {
   const preset = adminAuditPresets.find(item => item.key === key)
   if (!preset) return
   activePreset.value = key
-  action.value = preset.action || ''
-  entityType.value = preset.entityType || ''
+  action.value = preset.action || 'all'
+  entityType.value = preset.entityType || 'all'
   page.value = 1
   void loadAudit()
 }
@@ -227,7 +227,7 @@ onMounted(() => {
           />
         </UFormField>
         <UFormField
-          label="对象类型"
+          label="记录类型"
           class="min-w-[10rem]"
         >
           <USelect
@@ -237,7 +237,7 @@ onMounted(() => {
           />
         </UFormField>
         <UFormField
-          label="相关对象编号"
+          label="相关记录编号"
           class="min-w-[12rem] flex-1"
         >
           <UInput
@@ -329,7 +329,7 @@ onMounted(() => {
                 variant="soft"
                 :to="entityHref(row) || undefined"
               >
-                查看对象
+                查看相关内容
               </UButton>
               <UButton
                 size="xs"

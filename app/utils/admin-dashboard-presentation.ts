@@ -41,8 +41,8 @@ export type AdminDashboardRecord = Record<string, unknown>
 export const adminDashboardGroupMeta: AdminDashboardGroupMeta[] = [
   {
     key: 'content',
-    label: '内容资产',
-    description: '地点、办事流程、图文与来源：面向新生的对外内容资产。'
+    label: '内容管理',
+    description: '集中管理面向新生的地点、办事流程、指南和信息来源。'
   },
   {
     key: 'ops',
@@ -52,7 +52,7 @@ export const adminDashboardGroupMeta: AdminDashboardGroupMeta[] = [
   {
     key: 'security',
     label: '安全与审计',
-    description: '访客轨迹、访问封禁与后台审计留痕，分区独立处理。'
+    description: '查看访客轨迹、处理访问封禁，并核对管理员操作记录。'
   }
 ]
 
@@ -165,7 +165,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   },
   {
     key: 'content',
-    label: '内容资产',
+    label: '内容管理',
     items: [
       { label: '地点', icon: 'i-lucide-map-pin', to: '/admin/places' },
       { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations' },

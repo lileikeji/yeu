@@ -617,7 +617,7 @@ onMounted(async () => {
       </div>
       <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
         <p class="text-xs text-zinc-500">
-          生效中封禁（侧栏）
+          当前生效封禁
         </p>
         <p class="mt-1 text-2xl font-semibold text-amber-700">
           {{ activeBanCount }}

@@ -39,7 +39,7 @@ const pageSize = 30
 const selectedBan = ref<BanRow | null>(null)
 
 const active = ref<'true' | 'false' | 'all'>('true')
-const scope = ref<'' | 'ip' | 'visitor' | 'user'>('')
+const scope = ref<'all' | 'ip' | 'visitor' | 'user'>('all')
 const q = ref('')
 
 const form = reactive({
@@ -87,7 +87,7 @@ async function loadBans(): Promise<void> {
         page: page.value,
         pageSize,
         active: active.value,
-        scope: scope.value || undefined,
+        scope: scope.value === 'all' ? undefined : scope.value,
         q: q.value.trim() || undefined
       }
     })
@@ -106,7 +106,7 @@ function applySearch(): void {
   void loadBans()
 }
 
-function applyPreset(nextActive: 'true' | 'false' | 'all', nextScope: '' | 'ip' | 'visitor' | 'user' = ''): void {
+function applyPreset(nextActive: 'true' | 'false' | 'all', nextScope: 'all' | 'ip' | 'visitor' | 'user' = 'all'): void {
   active.value = nextActive
   scope.value = nextScope
   page.value = 1
@@ -170,6 +170,10 @@ function openBanDetail(ban: BanRow): void {
   selectedBan.value = ban
 }
 
+function closeBanDetail(): void {
+  selectedBan.value = null
+}
+
 function relatedVisitorHref(ban: BanRow): string | null {
   if (ban.scope === 'visitor') return adminEntityHref('visitor', ban.value)
   if (ban.scope === 'user') return adminEntityHref('user', ban.value)
@@ -211,7 +215,7 @@ onMounted(async () => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="封禁管理"
-      description="按状态、范围与关键词治理 IP / 访客 / 账号封禁；创建原因必填，支持到期时间。"
+      description="按状态、类型和关键词查找并管理 IP、访客和账号封禁。原因必填，可设置到期时间。"
       icon="i-lucide-shield-ban"
       eyebrow="安全与审计"
     >
@@ -371,7 +375,7 @@ onMounted(async () => {
             <USelect
               v-model="scope"
               :items="[
-                { label: '全部范围', value: '' },
+                { label: '全部范围', value: 'all' },
                 { label: 'IP', value: 'ip' },
                 { label: '访客', value: 'visitor' },
                 { label: '账号', value: 'user' }
@@ -521,7 +525,7 @@ onMounted(async () => {
           size="xs"
           color="neutral"
           variant="ghost"
-          @click="selectedBan = null"
+          @click="closeBanDetail"
         >
           关闭
         </UButton>

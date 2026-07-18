@@ -47,7 +47,7 @@ const emit = defineEmits<{
   <UModal
     v-model:open="open"
     :title="editingId ? '编辑办事流程' : '新增办事流程'"
-    :description="editingId ? '更新结构化步骤、材料、关联地点与核验信息。' : '新建内容将先保存为草稿。'"
+    :description="editingId ? '更新办理步骤、所需材料、关联地点和信息来源。' : '新建内容将先保存为草稿。'"
     scrollable
     :dismissible="!saving"
     :ui="{ content: 'sm:max-w-6xl' }"

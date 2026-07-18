@@ -62,7 +62,7 @@ const loading = ref(false)
 const messageLoading = ref(false)
 const muteLoading = ref(false)
 const errorMessage = ref('')
-const roomFilter = ref('')
+const roomFilter = ref('all')
 const userFilter = ref('')
 const q = ref('')
 const page = ref(1)
@@ -70,7 +70,7 @@ const pageSize = 30
 const total = ref(0)
 
 const muteUserId = ref('')
-const muteRoomId = ref('')
+const muteRoomId = ref('all')
 const muteReason = ref('')
 const muteExpiresAt = ref('')
 const deletedFilter = ref<'all' | 'true' | 'false'>('all')
@@ -85,12 +85,16 @@ const deletedFilterLabel = computed(() => {
 })
 function cycleDeletedFilter(): void {
   const order: Array<'all' | 'true' | 'false'> = ['all', 'true', 'false']
-  const next = order[(order.indexOf(deletedFilter.value) + 1) % order.length]
+  const next = order[(order.indexOf(deletedFilter.value) + 1) % order.length]!
   deletedFilter.value = next
   page.value = 1
   void loadMessages()
 }
 const selectedMessage = ref<ChatMessage | null>(null)
+
+function closeSelectedMessage(): void {
+  selectedMessage.value = null
+}
 
 const mutedRoomCount = computed(() => rooms.value.filter(room => room.isMutedAll).length)
 const deletedOnPage = computed(() => messages.value.filter(item => item.deletedAt).length)
@@ -135,7 +139,7 @@ async function loadMessages(): Promise<void> {
       query: {
         page: page.value,
         pageSize,
-        roomId: roomFilter.value || undefined,
+        roomId: roomFilter.value === 'all' ? undefined : roomFilter.value,
         userId: userFilter.value.trim() || undefined,
         q: q.value.trim() || undefined,
         deleted: deletedFilter.value === 'all' ? undefined : deletedFilter.value
@@ -246,7 +250,7 @@ async function muteUser(): Promise<void> {
       method: 'POST',
       body: {
         userId: muteUserId.value.trim(),
-        roomId: muteRoomId.value || null,
+        roomId: muteRoomId.value === 'all' ? null : muteRoomId.value,
         reason: muteReason.value.trim(),
         expiresAt: muteExpiresAt.value.trim()
           ? new Date(muteExpiresAt.value.trim()).toISOString()
@@ -372,7 +376,7 @@ onMounted(() => {
         房间与全员禁言
       </h2>
       <p class="mt-1 text-xs text-zinc-500">
-        开启全员禁言前，请先在右侧「个人禁言」表单填写原因（全员也复用该原因字段）。
+        开启全员禁言前，请先在下方「个人禁言」区域填写原因；全员禁言会使用同一原因。
       </p>
       <ul class="mt-3 grid gap-2 md:grid-cols-2">
         <li
@@ -460,7 +464,7 @@ onMounted(() => {
             <USelect
               v-model="roomFilter"
               :items="[
-                { label: '全部房间', value: '' },
+                { label: '全部房间', value: 'all' },
                 ...rooms.map(room => ({ label: room.title, value: room.id }))
               ]"
               class="w-full"
@@ -616,11 +620,11 @@ onMounted(() => {
                 class="w-full"
               />
             </UFormField>
-            <UFormField label="房间（空=全站禁言）">
+            <UFormField label="禁言范围" description="不选择房间时，该账号将在所有群聊中禁言。">
               <USelect
                 v-model="muteRoomId"
                 :items="[
-                  { label: '全部房间', value: '' },
+                  { label: '全部房间', value: 'all' },
                   ...rooms.map(room => ({ label: room.title, value: room.id }))
                 ]"
                 class="w-full"
@@ -721,7 +725,7 @@ onMounted(() => {
             <template v-if="selectedMessage.deletedAt"> · 已删除 {{ formatTime(selectedMessage.deletedAt) }}</template>
           </p>
         </div>
-        <UButton size="xs" color="neutral" variant="ghost" @click="selectedMessage = null">关闭</UButton>
+        <UButton size="xs" color="neutral" variant="ghost" @click="closeSelectedMessage">关闭</UButton>
       </div>
       <dl class="mt-3 grid gap-2 sm:grid-cols-2">
         <div class="rounded-xl border border-white bg-white px-3 py-2">

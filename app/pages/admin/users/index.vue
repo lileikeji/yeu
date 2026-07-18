@@ -69,7 +69,7 @@ const userDossier = ref<{
 } | null>(null)
 
 const q = ref('')
-const status = ref<string>('')
+const status = ref<string>('all')
 const major = ref('')
 const dormBuilding = ref('')
 
@@ -191,7 +191,7 @@ async function loadUsers(): Promise<void> {
         page: page.value,
         pageSize,
         q: q.value.trim() || undefined,
-        status: status.value || undefined,
+        status: status.value === 'all' ? undefined : status.value,
         major: major.value.trim() || undefined,
         dormBuilding: dormBuilding.value.trim() || undefined
       }
@@ -351,7 +351,7 @@ onMounted(async () => {
         <UButton
           to="/admin/audit?entityType=user"
           icon="i-lucide-scroll-text"
-          label="账号审计"
+          label="账号操作记录"
           color="neutral"
           variant="outline"
         />
@@ -378,7 +378,7 @@ onMounted(async () => {
         size="sm"
         :color="!status ? 'primary' : 'neutral'"
         :variant="!status ? 'solid' : 'soft'"
-        @click="applyStatusPreset('')"
+        @click="applyStatusPreset('all')"
       >
         全部
       </UButton>
@@ -455,7 +455,7 @@ onMounted(async () => {
         <USelect
           v-model="status"
           :items="[
-            { label: '全部状态', value: '' },
+            { label: '全部状态', value: 'all' },
             { label: '正常', value: 'active' },
             { label: '停用', value: 'disabled' },
             { label: '封禁', value: 'banned' }

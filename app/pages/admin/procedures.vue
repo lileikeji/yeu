@@ -118,7 +118,7 @@ onMounted(() => {
   <div class="mx-auto max-w-[1500px]">
     <AdminPageHeader
       title="办事流程管理"
-      description="维护报到和新生办事的结构化步骤、材料、地点、部门与核验依据。"
+      description="维护新生办事步骤、所需材料、办理地点、负责部门和信息来源。"
       icon="i-lucide-list-checks"
     >
       <template #actions>

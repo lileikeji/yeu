@@ -25,6 +25,10 @@ const bansPage = readFileSync(resolve('app/pages/admin/bans/index.vue'), 'utf8')
 const visitorsPage = readFileSync(resolve('app/pages/admin/visitors/index.vue'), 'utf8')
 const dashboardPage = readFileSync(resolve('app/pages/admin/index.vue'), 'utf8')
 const usersPage = readFileSync(resolve('app/pages/admin/users/index.vue'), 'utf8')
+const proceduresPage = readFileSync(resolve('app/pages/admin/procedures.vue'), 'utf8')
+const procedureEditor = readFileSync(resolve('app/components/admin/AdminProcedureEditor.vue'), 'utf8')
+const chatPage = readFileSync(resolve('app/pages/admin/chat/index.vue'), 'utf8')
+const auditPage = readFileSync(resolve('app/pages/admin/audit/index.vue'), 'utf8')
 const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
 
 test('content and source catalogs translate stored values for administrators', () => {
@@ -85,4 +89,22 @@ test('security paths and scores are presented as operator-facing explanations', 
   assert.doesNotMatch(visitorsPage, /事件详情|本页事件摘要|暂无事件/)
   assert.doesNotMatch(usersPage, /· 事件 \{\{ v\.eventCount \}\}/)
   assert.doesNotMatch(securityService, /访客事件|事件 ·/)
+})
+
+test('admin pages avoid internal and layout-dependent wording', () => {
+  const combined = [
+    dashboardPage,
+    proceduresPage,
+    procedureEditor,
+    chatPage,
+    auditPage,
+    bansPage,
+    usersPage,
+    visitorsPage
+  ].join('\n')
+
+  assert.doesNotMatch(
+    combined,
+    /内容资产|治理|结构化|核验依据|对象类型|相关对象编号|侧栏|空=全站禁言|右侧「个人禁言」/
+  )
 })

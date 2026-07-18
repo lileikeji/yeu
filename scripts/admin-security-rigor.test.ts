@@ -428,11 +428,14 @@ test('admin security pages use administrator-friendly language and mobile visito
 
 test('admin daily workflows hide internal codes and use mobile account cards', () => {
   const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
+  const filterSources = [labels, auditPage, bansPage, chatPage, usersPage].join('\n')
+
+  assert.doesNotMatch(filterSources, /label:[^\n]+value:\s*''/)
 
   assert.match(labels, /adminAuditActionOptions/)
   assert.match(auditPage, /:items="adminAuditActionOptions"/)
   assert.match(auditPage, /操作类型/)
-  assert.match(auditPage, /相关对象编号/)
+  assert.match(auditPage, /相关记录编号/)
   assert.doesNotMatch(auditPage, /操作 action|对象 ID|placeholder="如 visitor\.ban|\{\{ row\.action \}\}|req \{\{/)
 
   assert.match(chatPage, /roomKindLabel/)

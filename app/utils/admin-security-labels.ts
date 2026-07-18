@@ -81,7 +81,7 @@ export const adminAuditEntityLabels: Record<string, string> = {
 }
 
 export const adminAuditEntityTypeOptions: AdminLabelOption[] = [
-  { label: '全部对象', value: '' },
+  { label: '全部记录类型', value: 'all' },
   { label: '访客封禁', value: 'visitor_ban' },
   { label: '聊天消息', value: 'chat_message' },
   { label: '聊天禁言', value: 'chat_mute' },
@@ -110,7 +110,7 @@ export const adminAuditPresets: Array<{
 ]
 
 export const adminAuditActionOptions: AdminLabelOption[] = [
-  { label: '全部操作', value: '' },
+  { label: '全部操作', value: 'all' },
   { label: '管理员登录', value: 'auth.login' },
   { label: '管理员登录失败', value: 'auth.login_failed' },
   { label: '创建封禁', value: 'visitor.ban.create' },

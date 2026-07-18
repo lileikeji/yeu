@@ -458,7 +458,7 @@ onMounted(() => {
   <div class="mx-auto max-w-[1500px]">
     <AdminPageHeader
       title="管理概览"
-      description="内容资产、用户互动与安全审计分区一览。"
+      description="集中查看内容、用户互动、访客和安全情况。"
       icon="i-lucide-layout-dashboard"
       eyebrow="工作台"
     >

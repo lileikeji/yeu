@@ -20,7 +20,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   'places': {
     key: 'places',
     title: '地点管理',
-    description: '维护校内与周边地点、坐标、发布状态和核验来源；主入口/场地点等坐标点角色通过现场观测审核写入。',
+    description: '维护校内与周边地点、坐标、发布状态和信息来源；主入口和场地点坐标需通过现场采点审核后更新。',
     icon: 'i-lucide-map-pin',
     endpoint: '/api/admin/places',
     createLabel: '新增地点',
@@ -614,7 +614,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   'sources': {
     key: 'sources',
     title: '来源管理',
-    description: '维护来源链接、发布主体、可信程度和可用状态。',
+    description: '维护来源链接、发布方、可信程度和可用状态。',
     icon: 'i-lucide-book-marked',
     endpoint: '/api/admin/sources',
     createLabel: '登记来源',
@@ -669,7 +669,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
           other: '其他'
         }
       },
-      { key: 'publisherName', label: '发布主体' },
+      { key: 'publisherName', label: '发布方' },
       {
         key: 'sourceLevel',
         label: '可信程度',
@@ -710,7 +710,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'publisherName',
-        label: '发布主体',
+        label: '发布方',
         required: true,
         placeholder: '例：仰恩大学招生办公室',
         group: '来源信息'
@@ -868,7 +868,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
     readOnlyNote: '审计日志只能查看，由系统在管理操作发生时自动记录。',
     columns: [
       { key: 'action', label: '操作', class: 'min-w-32' },
-      { key: 'entityType', label: '对象类型', fallbackKeys: ['entity_type'] },
+      { key: 'entityType', label: '记录类型', fallbackKeys: ['entity_type'] },
       { key: 'entityTitle', label: '对象', fallbackKeys: ['entityId', 'entity_id'], class: 'min-w-48' },
       { key: 'adminName', label: '管理员', fallbackKeys: ['adminUsername', 'actorAdminId', 'admin_name'] },
       { key: 'createdAt', label: '时间', kind: 'date', fallbackKeys: ['created_at'] }
