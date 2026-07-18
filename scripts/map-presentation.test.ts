@@ -105,6 +105,8 @@ test('map page is a thin shell over map-presentation util for labels and checkli
   assert.match(pageSource, /地图搜索找到/)
   assert.match(pageSource, /校园范围参考/)
   assert.doesNotMatch(pageSource, /错误标点|高德绘制区域|用户授权的高德地图绘制/)
+  assert.doesNotMatch(pageSource, /官网文字索引|当前地图还没有可展示的已确认地点/)
+  assert.doesNotMatch(utilSource, /文字目录|官网文字索引|47 个编号/)
 })
 
 test('map data labels and fallback messages follow scope and data readiness', () => {
@@ -125,7 +127,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     ownerMapCount: 0,
     hasPublicPlaceError: true,
     activeScope: null
-  }), '文字目录')
+  }), '地点清单')
   assert.equal(resolveMapDataLabel({
     publishedCount: 0,
     ownerMapCount: 0,
@@ -143,7 +145,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: null
-  }), '官网编号')
+  }), '官网地点')
 
   assert.match(resolveMapFallbackMessage({
     ownerMapCount: 1,
@@ -168,7 +170,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /47 个编号/)
+  }) ?? '', /47 个地点编号/)
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,

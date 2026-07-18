@@ -957,7 +957,7 @@ onBeforeUnmount(() => {
             class="mx-auto size-5 text-zinc-500"
           />
           <p class="mt-2 text-sm font-semibold text-zinc-900">
-            当前地图还没有可展示的已确认地点
+            当前地图还没有可直接显示的地点
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
             {{ activeMapProviderId === 'amap'
@@ -969,7 +969,7 @@ onBeforeUnmount(() => {
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-external-link"
-            label="查看官网文字索引"
+            label="查看官网地点编号"
             color="neutral"
             variant="outline"
             size="sm"

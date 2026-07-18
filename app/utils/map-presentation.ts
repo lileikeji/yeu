@@ -54,8 +54,8 @@ export function resolveMapDataLabel(input: {
   if (input.activeScope === 'nearby') return '周边生活'
   if (input.publishedCount) return '校园地点'
   if (input.ownerMapCount) return '校园地点'
-  if (input.hasPublicPlaceError) return '文字目录'
-  return '官网编号'
+  if (input.hasPublicPlaceError) return '地点清单'
+  return '官网地点'
 }
 
 export function resolveMapFallbackMessage(input: {
@@ -68,13 +68,13 @@ export function resolveMapFallbackMessage(input: {
     return '地图里已整理 76 个地点和 8 个区域范围；区域只显示边界，里面的商铺仍可点击和搜索。实际入口、楼层和营业状态请以现场情况为准。'
   }
   if (input.hasPublicPlaceError) {
-    return '地图地点暂时加载不出来，先显示文字目录；没有确认的位置不会画成导航点。'
+    return '地图地点暂时加载不出来，先显示地点清单；没有确认的位置不会画成导航点。'
   }
   if (input.activeScope === 'nearby' && !input.publishedCount) {
     return '附近地点还在整理中，暂时不把未确认的商铺当作推荐，也不在地图上估一个位置。'
   }
   if (!input.publishedCount) {
-    return '可以先用学校官网的 47 个编号查找校内地点；这里不复制原图，也不把文字位置假装成导航位置。'
+    return '可以先按学校官网的 47 个地点编号查找校内地点；这里不复制原图，也不把文字位置假装成导航位置。'
   }
   return null
 }
@@ -124,7 +124,7 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
         ]
       : [
           '这个地点目前只能作为文字索引，暂时不要把它当成精确导航。',
-          '先核对官网文字索引、部门说明或现场标识。',
+          '先核对官网编号、部门说明或现场标识。',
           '发现准确入口后，可以提交位置纠错。'
         ]
 
