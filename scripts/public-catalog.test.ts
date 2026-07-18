@@ -125,6 +125,10 @@ test('guide copy hides maintainer language from student pages', () => {
     '地图目前只显示一个“创业园”地点；到达后请按现场标识确认 A、B 区入口。'
   )
   assert.equal(
+    studentFacingGuideText('查看地点的数据状态、来源和最后核验日期。'),
+    '查看地点是否已经确认、参考来源和最后更新时间。'
+  )
+  assert.equal(
     studentFacingGuideText('站点与配送规则待现场核验，查看页面的最后核验日期。'),
     '站点与配送规则还要到现场确认，查看页面的最后确认日期。'
   )
