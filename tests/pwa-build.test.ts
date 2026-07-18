@@ -4,6 +4,12 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 
 const serviceWorkerPath = resolve('.output/public/sw.js')
+const offlinePage = readFileSync(resolve('public/offline.html'), 'utf8')
+
+test('offline fallback uses student-facing language', () => {
+  assert.match(offlinePage, /暂时离线/)
+  assert.doesNotMatch(offlinePage, /PWA/)
+})
 
 test('production service worker only provides the explicit offline navigation fallback', () => {
   const serviceWorker = readFileSync(serviceWorkerPath, 'utf8')
