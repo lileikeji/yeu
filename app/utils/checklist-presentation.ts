@@ -206,7 +206,7 @@ export const checklistItems: ChecklistItem[] = [
     id: 'campus-card-network',
     stageId: 'first-week',
     title: '办理校园卡与校园网',
-    description: '尽快弄清校园卡充值、校园网认证和常见连接问题。',
+    description: '尽快弄清校园卡充值、校园网连接和常见问题。',
     to: '/guides/campus-card-network',
     icon: 'i-lucide-wifi',
     audience: [...allFreshmen],
