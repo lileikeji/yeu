@@ -317,7 +317,7 @@ onBeforeUnmount(disposeMap)
       </div>
       <div class="flex flex-wrap gap-2">
         <UBadge
-          :label="`${observation.sampleCount} 个样本`"
+          :label="`${observation.sampleCount} 条定位记录`"
           color="neutral"
           variant="soft"
         />
@@ -371,7 +371,7 @@ onBeforeUnmount(disposeMap)
       class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-600"
       aria-label="地图图例"
     >
-      <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-blue-600" />现场样本</span>
+      <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-blue-600" />现场定位记录</span>
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-green-700" />计算结果</span>
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-amber-600" />{{ currentPlacePointLabel }}</span>
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-zinc-600" />附近已确认地点</span>

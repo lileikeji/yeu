@@ -211,7 +211,7 @@ export const adminSuggestedActionLabels: Record<string, string> = {
   open_chat: '打开群聊',
   open_visitors: '打开访客',
   open_audit: '打开操作记录',
-  open_ip: '打开 IP 档案',
+  open_ip: '打开网络地址记录',
   open_user: '打开账号',
   review_visitors: '复核访客'
 }
@@ -290,10 +290,10 @@ export function adminPathTransitionLabel(from: string | null | undefined, to: st
 }
 
 export function adminRiskScoreText(value: number | string | null | undefined): string {
-  if (value === null || value === undefined || value === '') return '风险分未知'
+  if (value === null || value === undefined || value === '') return '风险分数未知'
   const score = Number(value)
-  if (!Number.isFinite(score)) return '风险分未知'
-  return `风险分 ${Math.min(100, Math.max(0, Math.round(score)))}/100`
+  if (!Number.isFinite(score)) return '风险分数未知'
+  return `风险分数 ${Math.min(100, Math.max(0, Math.round(score)))}/100`
 }
 
 export function formatAdminDateTime(iso: string | null | undefined, withSeconds = false): string {
@@ -370,9 +370,9 @@ export const adminConfidenceLabels: Record<string, string> = {
 }
 
 export const adminBanCoverageLabels = {
-  coverageRate: '高频 IP 封禁覆盖率',
+  coverageRate: '高频网络地址封禁比例',
   bannedTopIps: '已封禁高频 IP',
-  topIpCount: '高频 IP 样本'
+  topIpCount: '高频网络地址记录数'
 } as const
 
 export const adminAnomalyStatusLabels: Record<string, string> = {

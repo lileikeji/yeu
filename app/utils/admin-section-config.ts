@@ -854,7 +854,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   },
   'audit-logs': {
     key: 'audit-logs',
-    title: '审计日志',
+    title: '操作记录',
     description: '查看登录、创建、更新、发布、下架和删除记录。',
     icon: 'i-lucide-scroll-text',
     endpoint: '/api/admin/audit-logs',
@@ -865,7 +865,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
     canEdit: false,
     canDelete: false,
     searchable: false,
-    readOnlyNote: '审计日志只能查看，由系统在管理操作发生时自动记录。',
+    readOnlyNote: '操作记录只能查看，由系统在管理操作发生时自动保存。',
     columns: [
       { key: 'action', label: '操作', class: 'min-w-32' },
       { key: 'entityType', label: '记录类型', fallbackKeys: ['entity_type'] },

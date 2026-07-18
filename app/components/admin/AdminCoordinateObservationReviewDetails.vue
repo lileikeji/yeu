@@ -137,7 +137,7 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
           v-model="reviewNote"
           :rows="3"
           maxlength="2000"
-          placeholder="说明样本散点、精度圈、入口位置和邻近地点的比对结果"
+          placeholder="说明定位记录分布、准确范围、入口位置和邻近地点的比对结果"
           class="w-full"
         />
       </UFormField>

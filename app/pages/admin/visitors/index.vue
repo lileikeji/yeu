@@ -977,7 +977,7 @@ onMounted(async () => {
     >
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 class="font-semibold text-indigo-950">IP 安全档案</h2>
+          <h2 class="font-semibold text-indigo-950">网络地址记录</h2>
           <p class="mt-0.5 text-xs text-indigo-800/80">
             {{ ipDossier?.ip || ip.trim() || '—' }}
             <template v-if="ipDossier">
@@ -1011,12 +1011,12 @@ onMounted(async () => {
             :disabled="!ip.trim()"
             @click="loadIpDossier(ip.trim())"
           >
-            刷新档案
+            刷新记录
           </UButton>
         </div>
       </div>
 
-      <div v-if="ipDossierLoading && !ipDossier" class="mt-3 text-xs text-indigo-700">加载 IP 档案中…</div>
+      <div v-if="ipDossierLoading && !ipDossier" class="mt-3 text-xs text-indigo-700">正在加载网络地址记录…</div>
       <template v-else-if="ipDossier">
         <div
           v-if="ipDossier.riskFactors?.length"
@@ -1030,7 +1030,7 @@ onMounted(async () => {
               class="rounded-full bg-white px-2 py-0.5 text-[11px] text-rose-900 ring-1 ring-rose-100"
             >
               {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
-              风险分 +{{ factor.points }} · {{ factor.message }}
+              风险分数 +{{ factor.points }} · {{ factor.message }}
             </li>
           </ul>
         </div>
@@ -1218,7 +1218,7 @@ onMounted(async () => {
 
       </template>
       <p v-else-if="ip.trim()" class="mt-3 text-xs text-zinc-500">
-        暂无该 IP 档案，可点击刷新或确认筛选条件。
+        暂无该网络地址记录，可点击刷新或确认筛选条件。
       </p>
     </section>
 
@@ -1261,7 +1261,7 @@ onMounted(async () => {
         v-if="dossierLoading"
         class="mt-3 rounded-xl border border-violet-100 bg-violet-50/40 px-3 py-2 text-xs text-violet-800"
       >
-        安全档案加载中…
+        详细情况加载中…
       </div>
       <div
         v-else-if="visitorDossier"
@@ -1337,7 +1337,7 @@ onMounted(async () => {
               :title="factor.message"
             >
               {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
-              <span class="tabular-nums text-rose-700">风险分 +{{ factor.points }}</span>
+              <span class="tabular-nums text-rose-700">风险分数 +{{ factor.points }}</span>
               <span class="text-rose-700/70">· {{ factor.message }}</span>
             </li>
           </ul>

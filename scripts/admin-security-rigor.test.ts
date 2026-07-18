@@ -305,7 +305,7 @@ test('admin depth5: ops snapshot, ip dossier, risk dossiers', () => {
   assert.match(visitorsPage, /loadIpDossier/)
   assert.match(visitorsPage, /IpSecurityDossier/)
   assert.match(visitorsPage, /建议处置/)
-  assert.match(visitorsPage, /IP 安全档案/)
+  assert.match(visitorsPage, /网络地址记录/)
   assert.match(visitorsPage, /风险原因/)
   assert.match(visitorsPage, /applySuggestedAction/)
   assert.match(visitorsPage, /\/api\/admin\/security\/ip\//)

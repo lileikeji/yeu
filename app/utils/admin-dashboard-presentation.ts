@@ -51,7 +51,7 @@ export const adminDashboardGroupMeta: AdminDashboardGroupMeta[] = [
   },
   {
     key: 'security',
-    label: '安全与审计',
+    label: '安全与操作记录',
     description: '查看访客轨迹、处理访问封禁，并核对管理员操作记录。'
   }
 ]
@@ -152,7 +152,7 @@ export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '群聊管理', icon: 'i-lucide-messages-square', to: '/admin/chat', group: 'ops' },
   { label: '访客轨迹', icon: 'i-lucide-radar', to: '/admin/visitors', group: 'security' },
   { label: '封禁管理', icon: 'i-lucide-shield-ban', to: '/admin/bans', group: 'security' },
-  { label: '审计日志', icon: 'i-lucide-history', to: '/admin/audit', group: 'security' }
+  { label: '操作记录', icon: 'i-lucide-history', to: '/admin/audit', group: 'security' }
 ]
 
 export const adminNavigationGroups: AdminNavigationGroup[] = [
@@ -185,11 +185,11 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   },
   {
     key: 'security',
-    label: '安全与审计',
+    label: '安全与操作记录',
     items: [
       { label: '访客', icon: 'i-lucide-radar', to: '/admin/visitors' },
       { label: '封禁', icon: 'i-lucide-shield-ban', to: '/admin/bans' },
-      { label: '审计日志', icon: 'i-lucide-scroll-text', to: '/admin/audit' }
+      { label: '操作记录', icon: 'i-lucide-scroll-text', to: '/admin/audit' }
     ]
   }
 ]

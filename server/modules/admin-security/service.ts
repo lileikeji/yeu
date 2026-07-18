@@ -370,7 +370,7 @@ function buildInvestigationPlaybook(input: {
       step: 4,
       code: 'AUDIT_AND_CLOSE',
       status: 'recommended',
-      title: '记录原因并审计闭环',
+      title: '记录原因并保留操作记录',
       detail: '处置时填写原因，随后检查管理员操作日志与到期时间。',
       href: input.auditHref
     }
@@ -929,7 +929,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     riskHints.push({
       level: 'info',
       code: 'ALL_CLEAR',
-      message: '当前未发现明显风险峰值，建议定期查看访客档案与审计',
+      message: '当前未发现明显风险峰值，建议定期查看访客详细情况与操作记录',
       href: '/admin/visitors'
     })
   }
@@ -1476,7 +1476,7 @@ export function getUserSecurityDossier(client: DatabaseClient, userId: string) {
   }
   suggestedActions.push({
     kind: 'open_audit',
-    label: '打开审计日志',
+    label: '打开操作记录',
     href: `/admin/audit?entityType=user&entityId=${encodeURIComponent(userId)}`,
     reason: '核对管理员操作轨迹',
     priority: 'low'
@@ -1934,7 +1934,7 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
     },
     {
       code: 'SESSION_DENSITY',
-      message: `最近样本切分为 ${sessions.length} 个会话`,
+      message: `最近访问按时间分为 ${sessions.length} 段`,
       weight: sessions.some(session => session.eventCount >= 30) ? 15 : 3
     },
     {
@@ -2008,7 +2008,7 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
   if (visitor.lastIp) {
     suggestedActions.push({
       kind: 'open_ip',
-      label: '查看 IP 安全档案',
+      label: '查看网络地址记录',
       href: `/admin/visitors?ip=${encodeURIComponent(visitor.lastIp)}`,
       reason: '查看同一网络下的访客和操作记录',
       priority: 'low'
@@ -2368,7 +2368,7 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
     },
     {
       code: 'SESSION_DENSITY',
-      message: `最近样本切分为 ${sessions.length} 个会话`,
+      message: `最近访问按时间分为 ${sessions.length} 段`,
       weight: sessions.some(session => session.eventCount >= 40) ? 15 : 3
     }
   ])
@@ -2413,13 +2413,13 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
       kind: 'review_visitors',
       label: '复核关联访客',
       href: `/admin/visitors?ip=${encodeURIComponent(ip)}`,
-      reason: `该 IP 关联 ${visitorRows.length} 个访客档案`,
+      reason: `该网络地址关联 ${visitorRows.length} 条访客记录`,
       priority: 'medium'
     })
   }
   suggestedActions.push({
     kind: 'open_audit',
-    label: '查看相关审计',
+    label: '查看相关操作记录',
     href: '/admin/audit?entityType=visitor_ban',
     reason: '核对历史封禁与管理操作',
     priority: 'low'

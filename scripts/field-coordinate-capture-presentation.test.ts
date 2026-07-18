@@ -107,7 +107,7 @@ describe('field-coordinate-capture-presentation', () => {
         sampleCount: 5,
         latestReportedAccuracy: 8
       }),
-      '样本离散或设备精度超过 ' + FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS + ' 米，请移动到开阔处重采。'
+      '定位记录分散或设备准确度超过 ' + FIELD_CAPTURE_MAX_ACCEPTED_ACCURACY_METERS + ' 米，请移动到开阔处重新定位。'
     )
     assert.equal(
       resolveFieldCaptureQualityDetail({
@@ -115,7 +115,7 @@ describe('field-coordinate-capture-presentation', () => {
         sampleCount: 1,
         latestReportedAccuracy: null
       }),
-      '样本格式异常，请重采。'
+      '定位记录格式异常，请重新定位。'
     )
     assert.equal(
       resolveFieldCaptureQualityDetail({

@@ -77,7 +77,7 @@ watch(() => props.records, (records) => {
               {{ placeName(record.payload.placeId) }}
             </h3>
             <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
-              <span>{{ record.payload.samples.length }} 个样本</span>
+              <span>{{ record.payload.samples.length }} 条定位记录</span>
               <span>{{ record.payload.pointRole === 'main-entrance' ? '主入口' : '场地点' }}</span>
               <span>{{ formatCoordinateObservationDate(record.queuedAt) }}</span>
             </div>
@@ -149,7 +149,7 @@ watch(() => props.records, (records) => {
               <thead class="text-zinc-500">
                 <tr>
                   <th class="whitespace-nowrap px-2 py-2 font-medium">
-                    样本
+                    定位记录
                   </th>
                   <th class="whitespace-nowrap px-2 py-2 font-medium">
                     经度
@@ -201,7 +201,7 @@ watch(() => props.records, (records) => {
     >
       <template #body>
         <p class="text-sm leading-6 text-zinc-600">
-          删除后无法从本机队列恢复。仅当这条记录确定无效或已经通过其他方式提交时执行此操作。
+                    删除后无法从设备上暂存的记录恢复。仅当这条记录确定无效或已经通过其他方式提交时执行此操作。
         </p>
       </template>
       <template #footer>

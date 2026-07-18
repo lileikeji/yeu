@@ -139,7 +139,7 @@ function goToNextPage(): void {
               {{ observation.evidenceNote }}
             </p>
             <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
-              <span>{{ observation.sampleCount }} 个样本</span>
+              <span>{{ observation.sampleCount }} 条定位记录</span>
               <span>{{ pointRoleLabel(observation.pointRole) }}</span>
               <span>{{ formatDate(observation.capturedAt) }}</span>
             </div>

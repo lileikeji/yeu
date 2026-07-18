@@ -64,9 +64,9 @@ export function resolveFieldCaptureQualityDetail(input: {
     return '采样仅持续 ' + (summary.captureDurationMs / 1000).toFixed(0) + ' 秒，请继续至 ' + (minDurationMs / 1000) + ' 秒。'
   }
   if (input.quality.state === 'unstable' && summary) {
-    return '样本离散或设备精度超过 ' + maxAccuracy + ' 米，请移动到开阔处重采。'
+    return '定位记录分散或设备准确度超过 ' + maxAccuracy + ' 米，请移动到开阔处重新定位。'
   }
-  if (input.quality.state === 'invalid') return '样本格式异常，请重采。'
+  if (input.quality.state === 'invalid') return '定位记录格式异常，请重新定位。'
   return '采样稳定，可停止并填写现场证据。'
 }
 

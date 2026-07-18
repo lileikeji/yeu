@@ -217,7 +217,7 @@ onBeforeUnmount(() => {
 
     <div
       class="mt-5 grid grid-cols-7 gap-2"
-      aria-label="定位样本进度"
+              aria-label="定位记录进度"
     >
       <span
         v-for="index in FIELD_CAPTURE_MAX_SAMPLES"
@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
       role="status"
       aria-live="polite"
     >
-      已收录 {{ samples.length }} / {{ FIELD_CAPTURE_MAX_SAMPLES }} 个精度合格样本
+              已收录 {{ samples.length }} / {{ FIELD_CAPTURE_MAX_SAMPLES }} 条符合准确度要求的定位记录
     </p>
     <p
       class="mt-1 text-xs"

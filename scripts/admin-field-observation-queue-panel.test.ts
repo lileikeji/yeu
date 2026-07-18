@@ -57,7 +57,7 @@ test('offline queue panel owns presentation and emits operations without storage
   assert.match(panelSource, /record\.payload\.clientObservationId/)
   assert.match(panelSource, /sample\.accuracyMeters\.toFixed\(1\)/)
   assert.match(panelSource, /records\.some\(record => record\.id === expandedId\.value\)/)
-  assert.match(panelSource, /删除后无法从本机队列恢复/)
+  assert.match(panelSource, /删除后无法从设备上暂存的记录恢复/)
   assert.doesNotMatch(
     panelSource,
     /\$fetch|enqueueCoordinateObservation|listQueuedCoordinateObservations|removeQueuedCoordinateObservation/

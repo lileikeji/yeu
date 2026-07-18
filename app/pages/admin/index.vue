@@ -658,11 +658,11 @@ onMounted(() => {
         <p class="mt-0.5 text-[11px] text-zinc-500">高频 IP 是否已封禁</p>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div class="rounded-lg bg-emerald-50/60 px-3 py-2">
-            <p class="text-[11px] text-emerald-800">覆盖率</p>
+            <p class="text-[11px] text-emerald-800">封禁比例</p>
             <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityBanCoverage.coverageRate ?? '—' }}%</p>
           </div>
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
-            <p class="text-[11px] text-zinc-500">已封 / 样本</p>
+            <p class="text-[11px] text-zinc-500">已封 / 记录</p>
             <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityBanCoverage.bannedTopIps ?? '—' }} / {{ securityBanCoverage.topIpCount ?? '—' }}</p>
           </div>
         </div>

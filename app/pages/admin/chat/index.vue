@@ -760,7 +760,7 @@ onMounted(() => {
           color="neutral"
           variant="outline"
           :to="`/admin/users?userId=${encodeURIComponent(selectedMessage.userId)}`"
-        >账号档案</UButton>
+        >账号资料</UButton>
       </div>
     </section>
   </div>

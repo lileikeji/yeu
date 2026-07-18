@@ -152,7 +152,7 @@ async function loadUserDossier(userId: string): Promise<void> {
     }
   } catch (error) {
     if (await handleAuth(error)) return
-    dossierError.value = getRequestMessage(error, '安全档案加载失败')
+    dossierError.value = getRequestMessage(error, '账号详细情况加载失败')
     userDossier.value = null
   } finally {
     dossierLoading.value = false
@@ -849,7 +849,7 @@ onMounted(async () => {
             :loading="dossierLoading"
             @click="loadUserDossier(selectedUser.id)"
           >
-            刷新档案
+            刷新详细情况
           </UButton>
         </div>
 
@@ -861,7 +861,7 @@ onMounted(async () => {
         </div>
 
         <div v-if="dossierLoading && !userDossier" class="mt-3 text-xs text-zinc-500">
-          安全档案加载中…
+          账号详细情况加载中…
         </div>
 
         <template v-if="userDossier">
@@ -887,7 +887,7 @@ onMounted(async () => {
               <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.messageDeleted ?? 0 }}</p>
             </div>
             <div class="rounded-xl border border-white bg-white px-3 py-2">
-              <p class="text-[11px] text-zinc-500">在线会话</p>
+              <p class="text-[11px] text-zinc-500">当前在线</p>
               <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.activeSessions ?? 0 }}</p>
             </div>
           </div>
