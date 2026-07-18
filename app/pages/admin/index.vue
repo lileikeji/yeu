@@ -14,6 +14,8 @@ import {
   adminAuditActionLabels,
   adminBanScopeLabels,
   adminLabel,
+  adminOpsTimelineKindLabels,
+  adminRiskFactorLabels,
   adminRiskLevelLabels,
   adminVisitorActionLabels,
   formatAdminDateTime,
@@ -80,6 +82,48 @@ const securitySnapshotBans = ref<Array<{
   createdAt: string
 }>>([])
 const securityGeneratedAt = ref('')
+const securityPrevious24h = reactive({
+  visitorsActive: null as number | null,
+  visitorsNew: null as number | null,
+  visitorEvents: null as number | null,
+  bansCreated: null as number | null,
+  mutesCreated: null as number | null,
+  messages: null as number | null,
+  auditEvents: null as number | null,
+  adminLogins: null as number | null
+})
+const securityDeltas24h = reactive({
+  visitorsActive: null as number | null,
+  visitorsNew: null as number | null,
+  visitorEvents: null as number | null,
+  bansCreated: null as number | null,
+  mutesCreated: null as number | null,
+  messages: null as number | null,
+  auditEvents: null as number | null,
+  adminLogins: null as number | null
+})
+const securityBanHygiene = reactive({
+  activeExpired: null as number | null,
+  expiringSoon24h: null as number | null,
+  permanentActive: null as number | null,
+  temporaryActive: null as number | null
+})
+const securityPulse = reactive({
+  events1h: null as number | null,
+  multiVisitorIps: null as number | null,
+  staleActiveBans: null as number | null
+})
+const securityIpClusters = ref<Array<{ ip: string; eventCount: number; visitorCount: number }>>([])
+const securitySuspiciousAgents = ref<Array<{ userAgent: string; eventCount: number; visitorCount: number }>>([])
+const securityAdminActors = ref<Array<{ adminId: string; username: string | null; displayName: string | null; actions: number }>>([])
+const securityOpsTimeline = ref<Array<{
+  id: string
+  kind: string
+  title: string
+  subtitle: string
+  createdAt: string
+  href: string
+}>>([])
 const loading = ref(false)
 const loadError = ref('')
 
@@ -106,6 +150,25 @@ function visitorActionLabel(action: string | null | undefined): string {
 
 function riskLevelLabel(level: string | null | undefined): string {
   return adminLabel(adminRiskLevelLabels, level, level || '提示')
+}
+
+function formatSecurityDelta(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(Number(value))) return '—'
+  const n = Number(value)
+  if (n > 0) return '+' + n
+  return String(n)
+}
+
+function securityDeltaClass(value: number | null | undefined): string {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n === 0) return 'text-zinc-500'
+  return n > 0 ? 'text-amber-700' : 'text-emerald-700'
+}
+
+function shortUaDash(ua: string | null | undefined): string {
+  const t = (ua || '').trim()
+  if (!t) return '未知 UA'
+  return t.length > 64 ? t.slice(0, 64) + '…' : t
 }
 
 const securityHourlyMax = computed(() =>
@@ -157,6 +220,14 @@ async function loadDashboard(): Promise<void> {
       topBanReasons?: Array<{ reason: string; count: number }>
       hourlyEvents?: Array<{ hour: string; count: number }>
       riskHints?: Array<{ level: string; code: string; message: string; href: string }>
+      previous24h?: Record<string, number>
+      deltas24h?: Record<string, number>
+      banHygiene?: Record<string, number>
+      pulse?: Record<string, number>
+      ipClusters?: Array<{ ip: string; eventCount: number; visitorCount: number }>
+      suspiciousAgents?: Array<{ userAgent: string; eventCount: number; visitorCount: number }>
+      adminActors?: Array<{ adminId: string; username: string | null; displayName: string | null; actions: number }>
+      opsTimeline?: Array<{ id: string; kind: string; title: string; subtitle: string; createdAt: string; href: string }>
       recentBans?: Array<{ id: string; scope: string; value: string; reason: string; createdAt: string }>
       recentMutes?: Array<{
         id: string
@@ -212,6 +283,37 @@ async function loadDashboard(): Promise<void> {
       securityLast24h.messages = Number(h.messages ?? 0)
       securityLast24h.auditEvents = Number(h.auditEvents ?? 0)
       securityLast24h.adminLogins = Number(h.adminLogins ?? 0)
+      const prev = snap.previous24h || {}
+      securityPrevious24h.visitorsActive = Number(prev.visitorsActive ?? 0)
+      securityPrevious24h.visitorsNew = Number(prev.visitorsNew ?? 0)
+      securityPrevious24h.visitorEvents = Number(prev.visitorEvents ?? 0)
+      securityPrevious24h.bansCreated = Number(prev.bansCreated ?? 0)
+      securityPrevious24h.mutesCreated = Number(prev.mutesCreated ?? 0)
+      securityPrevious24h.messages = Number(prev.messages ?? 0)
+      securityPrevious24h.auditEvents = Number(prev.auditEvents ?? 0)
+      securityPrevious24h.adminLogins = Number(prev.adminLogins ?? 0)
+      const dlt = snap.deltas24h || {}
+      securityDeltas24h.visitorsActive = Number(dlt.visitorsActive ?? 0)
+      securityDeltas24h.visitorsNew = Number(dlt.visitorsNew ?? 0)
+      securityDeltas24h.visitorEvents = Number(dlt.visitorEvents ?? 0)
+      securityDeltas24h.bansCreated = Number(dlt.bansCreated ?? 0)
+      securityDeltas24h.mutesCreated = Number(dlt.mutesCreated ?? 0)
+      securityDeltas24h.messages = Number(dlt.messages ?? 0)
+      securityDeltas24h.auditEvents = Number(dlt.auditEvents ?? 0)
+      securityDeltas24h.adminLogins = Number(dlt.adminLogins ?? 0)
+      const hy = snap.banHygiene || {}
+      securityBanHygiene.activeExpired = Number(hy.activeExpired ?? 0)
+      securityBanHygiene.expiringSoon24h = Number(hy.expiringSoon24h ?? 0)
+      securityBanHygiene.permanentActive = Number(hy.permanentActive ?? 0)
+      securityBanHygiene.temporaryActive = Number(hy.temporaryActive ?? 0)
+      const pulse = snap.pulse || {}
+      securityPulse.events1h = Number(pulse.events1h ?? 0)
+      securityPulse.multiVisitorIps = Number(pulse.multiVisitorIps ?? 0)
+      securityPulse.staleActiveBans = Number(pulse.staleActiveBans ?? 0)
+      securityIpClusters.value = Array.isArray(snap.ipClusters) ? snap.ipClusters : []
+      securitySuspiciousAgents.value = Array.isArray(snap.suspiciousAgents) ? snap.suspiciousAgents : []
+      securityAdminActors.value = Array.isArray(snap.adminActors) ? snap.adminActors : []
+      securityOpsTimeline.value = Array.isArray(snap.opsTimeline) ? snap.opsTimeline : []
       securityTopPaths.value = Array.isArray(snap.topPaths) ? snap.topPaths : []
       securityTopCities.value = Array.isArray(snap.topCities) ? snap.topCities : []
       securityTopActions.value = Array.isArray(snap.topActions) ? snap.topActions : []
@@ -538,6 +640,119 @@ onMounted(() => {
           />
         </div>
         <p v-if="!securityHourlyEvents.length" class="py-6 text-center text-xs text-zinc-400">暂无节奏数据</p>
+      </div>
+
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">封禁卫生</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">过期未清理 / 即将到期 / 永久与临时</p>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <div class="rounded-lg bg-red-50/70 px-3 py-2">
+            <p class="text-[11px] text-red-700">过期仍生效</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityBanHygiene.activeExpired ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-amber-50/70 px-3 py-2">
+            <p class="text-[11px] text-amber-800">24h 内到期</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityBanHygiene.expiringSoon24h ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">永久生效</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityBanHygiene.permanentActive ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">临时生效</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityBanHygiene.temporaryActive ?? '—' }}</p>
+          </div>
+        </div>
+        <UButton to="/admin/bans?active=true" size="xs" color="neutral" variant="soft" class="mt-3" trailing-icon="i-lucide-arrow-right">
+          清理封禁
+        </UButton>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-semibold text-zinc-950">IP 访客聚类 · 近 24h</h2>
+            <p class="mt-0.5 text-[11px] text-zinc-500">同一 IP 关联多名访客</p>
+          </div>
+        </div>
+        <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
+          <li
+            v-for="row in securityIpClusters"
+            :key="'ipc-' + row.ip"
+            class="flex items-center justify-between gap-2 text-xs"
+          >
+            <NuxtLink
+              :to="'/admin/visitors?ip=' + encodeURIComponent(row.ip)"
+              class="truncate text-sky-700 hover:underline"
+            >
+              {{ row.ip }}
+            </NuxtLink>
+            <span class="shrink-0 tabular-nums text-zinc-500">访客 {{ row.visitorCount }} · 事件 {{ row.eventCount }}</span>
+          </li>
+          <li v-if="!securityIpClusters.length" class="py-4 text-center text-zinc-400">暂无聚类</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">可疑 UA · 近 24h</h2>
+        <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
+          <li
+            v-for="(row, idx) in securitySuspiciousAgents"
+            :key="'ua-' + idx"
+            class="text-xs"
+          >
+            <p class="truncate text-zinc-800" :title="row.userAgent">{{ shortUaDash(row.userAgent) }}</p>
+            <p class="mt-0.5 text-zinc-500">访客 {{ row.visitorCount }} · 事件 {{ row.eventCount }}</p>
+          </li>
+          <li v-if="!securitySuspiciousAgents.length" class="py-4 text-center text-zinc-400">暂无异常 UA</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">管理员动作 · 近 24h</h2>
+        <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
+          <li
+            v-for="row in securityAdminActors"
+            :key="'actor-' + row.adminId"
+            class="flex items-center justify-between gap-2 text-xs"
+          >
+            <span class="truncate text-zinc-800">{{ row.displayName || row.username || shortAdminId(row.adminId) }}</span>
+            <span class="shrink-0 tabular-nums text-zinc-500">{{ row.actions }} 次</span>
+          </li>
+          <li v-if="!securityAdminActors.length" class="py-4 text-center text-zinc-400">暂无管理员动作</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-2">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-semibold text-zinc-950">运维时间线</h2>
+            <p class="mt-0.5 text-[11px] text-zinc-500">封禁 / 禁言 / 审计 / 登录最近动作</p>
+          </div>
+          <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">审计</UButton>
+        </div>
+        <ul class="mt-3 max-h-64 space-y-2 overflow-y-auto">
+          <li
+            v-for="item in securityOpsTimeline"
+            :key="item.id"
+          >
+            <NuxtLink
+              :to="item.href"
+              class="block rounded-lg border border-zinc-100 px-2.5 py-2 text-xs hover:bg-zinc-50"
+            >
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600">
+                  {{ adminLabel(adminOpsTimelineKindLabels, item.kind, item.kind) }}
+                </span>
+                <span class="font-medium text-zinc-900">{{ item.title }}</span>
+                <span class="text-zinc-400">{{ formatAdminRelativeTime(item.createdAt) }}</span>
+              </div>
+              <p class="mt-1 line-clamp-2 text-zinc-500">{{ item.subtitle }}</p>
+            </NuxtLink>
+          </li>
+          <li v-if="!securityOpsTimeline.length" class="py-6 text-center text-zinc-400">暂无运维事件</li>
+        </ul>
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">

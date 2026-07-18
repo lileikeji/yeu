@@ -134,6 +134,42 @@ export const adminRiskLevelTone: Record<string, string> = {
   info: 'neutral'
 }
 
+export const adminRiskFactorLabels: Record<string, string> = {
+  HIT_BAN: '命中封禁',
+  USER_BANNED: '账号封禁',
+  USER_DISABLED: '账号停用',
+  ACTIVE_MUTES: '生效禁言',
+  DELETED_MESSAGES: '删帖偏多',
+  MULTI_IP: '多 IP',
+  MULTI_IP_FOOTPRINT: '多 IP 足迹',
+  MULTI_VISITOR_LINK: '多访客设备',
+  SAME_IP_CLUSTER: '同 IP 聚类',
+  UA_SWITCH: 'UA 切换',
+  BURST_1H: '1 小时突发',
+  HIGH_VOLUME_24H: '24 小时高量',
+  IP_BANNED: 'IP 已封禁',
+  MULTI_VISITOR_IP: 'IP 多访客',
+  MULTI_ACCOUNT_IP: 'IP 多账号',
+  UA_DIVERSITY: 'UA 多样'
+}
+
+export const adminOpsTimelineKindLabels: Record<string, string> = {
+  ban: '封禁',
+  mute: '禁言',
+  audit: '审计',
+  login: '登录'
+}
+
+export const adminSuggestedActionLabels: Record<string, string> = {
+  ban_visitor: '封禁访客',
+  ban_ip: '封禁 IP',
+  ban_user: '封禁账号',
+  open_ip: '查看 IP',
+  open_user: '查看账号',
+  review_visitors: '复核访客',
+  open_audit: '查看审计'
+}
+
 export function adminLabel(map: Record<string, string>, value: string | null | undefined, fallback?: string): string {
   if (!value) return fallback || '—'
   return map[value] || value

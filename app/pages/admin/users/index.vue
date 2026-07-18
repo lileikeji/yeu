@@ -5,6 +5,8 @@ import {
   adminUserStatusLabels,
   adminLabel,
   adminAuditActionLabels,
+  adminRiskFactorLabels,
+  adminRiskLevelLabels,
   formatAdminDateTime,
   formatAdminRelativeTime,
   shortAdminId,
@@ -42,6 +44,10 @@ const dossierLoading = ref(false)
 const dossierError = ref('')
 const userDossier = ref<{
   summary: Record<string, number>
+  riskScore?: number
+  riskLevel?: string
+  riskFactors?: Array<{ code: string; points: number; message: string }>
+  ipFootprint?: Array<{ ip: string; count: number; lastAt: string | null }>
   linkedVisitors: Array<Record<string, any>>
   bans: Array<Record<string, any>>
   mutes: Array<Record<string, any>>
@@ -98,6 +104,13 @@ function statusClass(value: string): string {
   return 'bg-zinc-100 text-zinc-600'
 }
 
+function riskToneClass(level: string | null | undefined): string {
+  if (level === 'high') return 'bg-red-100 text-red-800'
+  if (level === 'medium') return 'bg-amber-100 text-amber-900'
+  if (level === 'low') return 'bg-sky-100 text-sky-900'
+  return 'bg-zinc-100 text-zinc-700'
+}
+
 async function handleAuth(error: unknown): Promise<boolean> {
   if (!isAuthorizationError(error)) return false
   await navigateTo('/admin/login', { replace: true })
@@ -111,6 +124,10 @@ async function loadUserDossier(userId: string): Promise<void> {
     const payload = await adminFetch<any>(`/api/admin/users/${encodeURIComponent(userId)}/security`)
     userDossier.value = {
       summary: payload.summary || {},
+      riskScore: payload.riskScore ?? payload.summary?.riskScore,
+      riskLevel: payload.riskLevel ?? payload.summary?.riskLevel,
+      riskFactors: payload.riskFactors || [],
+      ipFootprint: payload.ipFootprint || [],
       linkedVisitors: payload.linkedVisitors || [],
       bans: payload.bans || [],
       mutes: payload.mutes || [],
@@ -819,6 +836,56 @@ onMounted(async () => {
             <div class="rounded-xl border border-white bg-white px-3 py-2">
               <p class="text-[11px] text-zinc-500">在线会话</p>
               <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.activeSessions ?? 0 }}</p>
+            </div>
+          </div>
+
+          <div
+            v-if="userDossier.riskLevel || userDossier.riskFactors?.length || userDossier.ipFootprint?.length"
+            class="mt-3 space-y-2 rounded-xl border border-violet-100 bg-violet-50/40 p-3"
+          >
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="text-xs font-semibold text-violet-950">风险画像</span>
+              <span
+                v-if="userDossier.riskLevel"
+                class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                :class="riskToneClass(userDossier.riskLevel)"
+              >
+                {{ adminLabel(adminRiskLevelLabels, userDossier.riskLevel) }}
+                <template v-if="userDossier.riskScore != null">· {{ userDossier.riskScore }}</template>
+              </span>
+            </div>
+            <ul
+              v-if="userDossier.riskFactors?.length"
+              class="flex flex-wrap gap-1.5"
+            >
+              <li
+                v-for="factor in userDossier.riskFactors"
+                :key="'urf-' + factor.code + '-' + factor.points"
+                class="rounded-full bg-white px-2 py-0.5 text-[11px] text-rose-900 ring-1 ring-rose-100"
+              >
+                {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
+                +{{ factor.points }} · {{ factor.message }}
+              </li>
+            </ul>
+            <div v-if="userDossier.ipFootprint?.length">
+              <p class="text-[11px] font-medium text-violet-900">IP 足迹</p>
+              <ul class="mt-1 max-h-28 space-y-1 overflow-y-auto">
+                <li
+                  v-for="row in userDossier.ipFootprint"
+                  :key="'uip-' + row.ip"
+                  class="flex items-center justify-between gap-2 text-[11px]"
+                >
+                  <NuxtLink
+                    :to="'/admin/visitors?ip=' + encodeURIComponent(row.ip)"
+                    class="truncate text-sky-700 hover:underline"
+                  >
+                    {{ row.ip }}
+                  </NuxtLink>
+                  <span class="shrink-0 text-zinc-500">
+                    {{ row.count }} · {{ formatAdminRelativeTime(row.lastAt) }}
+                  </span>
+                </li>
+              </ul>
             </div>
           </div>
 

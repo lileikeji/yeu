@@ -6,6 +6,9 @@ import {
   adminBanScopeLabels,
   adminHttpMethodLabels,
   adminLabel,
+  adminRiskFactorLabels,
+  adminRiskLevelLabels,
+  adminSuggestedActionLabels,
   adminVisitorActionLabels,
   banStatusMeta,
   confirmAdminAction,
@@ -81,7 +84,26 @@ type VisitorSecurityDossier = {
     isBanned: boolean
     hasLinkedUser: boolean
     sameIpVisitorCount: number
+    riskScore?: number
+    riskLevel?: string
   }
+  riskScore?: number
+  riskLevel?: string
+  riskFactors?: Array<{ code: string; points: number; message: string }>
+  events1h?: number
+  events24h?: number
+  userAgentHistory?: Array<{ userAgent: string; count: number; lastAt?: string | null }>
+  geoTrail?: Array<{ city: string; region?: string | null; country?: string | null; count: number; lastAt?: string | null }>
+  hourlyPattern?: Array<{ hour: string; count: number }>
+  suggestedActions?: Array<{
+    kind: string
+    label: string
+    href: string
+    reason: string
+    priority: 'high' | 'medium' | 'low'
+    scope?: 'visitor' | 'ip' | 'user'
+    value?: string
+  }>
   actionBreakdown: Array<{ action: string; count: number }>
   ipHistory: Array<{ ip: string; count: number; lastAt: string | null }>
   pathTop: Array<{ path: string; count: number }>
@@ -113,6 +135,40 @@ type VisitorSecurityDossier = {
   }>
 }
 
+type IpSecurityDossier = {
+  ip: string
+  summary: {
+    visitorCount: number
+    uniqueVisitors24h?: number
+    eventTotal: number
+    events1h?: number
+    events24h?: number
+    events7d?: number
+    linkedUserCount?: number
+    relatedBanCount?: number
+    activeBanCount?: number
+    isBanned?: boolean
+    riskScore?: number
+    riskLevel?: string
+  }
+  riskScore?: number
+  riskLevel?: string
+  riskFactors?: Array<{ code: string; points: number; message: string }>
+  suggestedActions?: Array<{
+    kind: string
+    label: string
+    href: string
+    reason: string
+    priority: 'high' | 'medium' | 'low'
+    scope?: 'visitor' | 'ip' | 'user'
+    value?: string
+  }>
+  visitors?: Array<Record<string, any>>
+  pathTop?: Array<{ path: string; count: number }>
+  userAgentHistory?: Array<{ userAgent: string; count: number }>
+  geoTrail?: Array<{ city: string; count: number }>
+}
+
 const toast = useToast()
 const route = useRoute()
 const loading = ref(false)
@@ -133,6 +189,8 @@ const events = ref<VisitorEvent[]>([])
 const eventTotal = ref(0)
 const visitorDossier = ref<VisitorSecurityDossier | null>(null)
 const dossierLoading = ref(false)
+const ipDossier = ref<IpSecurityDossier | null>(null)
+const ipDossierLoading = ref(false)
 const bans = ref<BanRow[]>([])
 const banScope = ref<'ip' | 'visitor' | 'user'>('ip')
 const banValue = ref('')
@@ -168,6 +226,61 @@ const eventActionSummary = computed(() => {
 function shortUa(ua: string | null | undefined): string {
   if (!ua) return '—'
   return ua.length > 72 ? `${ua.slice(0, 72)}…` : ua
+}
+
+function riskToneClass(level: string | null | undefined): string {
+  if (level === 'high') return 'bg-red-100 text-red-800'
+  if (level === 'medium') return 'bg-amber-100 text-amber-900'
+  if (level === 'low') return 'bg-sky-100 text-sky-900'
+  return 'bg-zinc-100 text-zinc-700'
+}
+
+function applySuggestedAction(action: {
+  kind: string
+  label: string
+  href: string
+  reason: string
+  priority: string
+  scope?: 'visitor' | 'ip' | 'user'
+  value?: string
+}): void {
+  if (action.scope && action.value) {
+    banScope.value = action.scope
+    banValue.value = action.value
+    if (!banReason.value.trim()) {
+      banReason.value = action.reason || action.label
+    }
+    toast.add({ title: '已预填封禁表单：' + action.label, color: 'primary' })
+    return
+  }
+  if (action.kind === 'open_ip' && action.value) {
+    ip.value = action.value
+    page.value = 1
+    void loadVisitors()
+    return
+  }
+  if (action.href) {
+    void navigateTo(action.href)
+  }
+}
+
+async function loadIpDossier(targetIp: string): Promise<void> {
+  const raw = (targetIp || '').trim()
+  if (!raw) {
+    ipDossier.value = null
+    return
+  }
+  ipDossierLoading.value = true
+  try {
+    ipDossier.value = await adminFetch<IpSecurityDossier>(
+      '/api/admin/security/ip/' + encodeURIComponent(raw)
+    )
+  } catch (error) {
+    console.warn('ip security dossier failed', error)
+    ipDossier.value = null
+  } finally {
+    ipDossierLoading.value = false
+  }
 }
 
 function eventLocation(event: VisitorEvent): string {
@@ -213,7 +326,12 @@ async function loadVisitors(): Promise<void> {
     })
     items.value = payload.items || []
     total.value = payload.total || 0
-  } catch (error) {
+      if (ip.value.trim()) {
+      void loadIpDossier(ip.value.trim())
+    } else {
+      ipDossier.value = null
+    }
+} catch (error) {
     if (await handleAuth(error)) return
     errorMessage.value = getRequestMessage(error, '访客列表加载失败')
   } finally {
@@ -754,6 +872,156 @@ onMounted(async () => {
     </div>
 
     <section
+      v-if="ip.trim() || ipDossier || ipDossierLoading"
+      class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 to-white p-4"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="font-semibold text-indigo-950">IP 安全档案</h2>
+          <p class="mt-0.5 text-xs text-indigo-800/80">
+            {{ ipDossier?.ip || ip.trim() || '—' }}
+            <template v-if="ipDossier">
+              · 访客 {{ ipDossier.summary.visitorCount }}
+              · 事件 {{ ipDossier.summary.eventTotal }}
+              <template v-if="ipDossier.summary.events24h != null"> · 24h {{ ipDossier.summary.events24h }}</template>
+              <template v-if="ipDossier.summary.linkedUserCount != null"> · 账号 {{ ipDossier.summary.linkedUserCount }}</template>
+            </template>
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span
+            v-if="ipDossier?.riskLevel || ipDossier?.summary.riskLevel"
+            class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+            :class="riskToneClass(ipDossier.riskLevel || ipDossier.summary.riskLevel)"
+          >
+            {{ adminLabel(adminRiskLevelLabels, ipDossier.riskLevel || ipDossier.summary.riskLevel) }}
+            <template v-if="(ipDossier.riskScore ?? ipDossier.summary.riskScore) != null">
+              · {{ ipDossier.riskScore ?? ipDossier.summary.riskScore }}
+            </template>
+          </span>
+          <span
+            v-if="ipDossier?.summary.isBanned"
+            class="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-800"
+          >IP 命中封禁</span>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="outline"
+            :loading="ipDossierLoading"
+            :disabled="!ip.trim()"
+            @click="loadIpDossier(ip.trim())"
+          >
+            刷新档案
+          </UButton>
+        </div>
+      </div>
+
+      <div v-if="ipDossierLoading && !ipDossier" class="mt-3 text-xs text-indigo-700">加载 IP 档案中…</div>
+      <template v-else-if="ipDossier">
+        <div
+          v-if="ipDossier.riskFactors?.length"
+          class="mt-3 rounded-lg border border-rose-100 bg-rose-50/40 p-2.5"
+        >
+          <p class="text-[11px] font-medium text-rose-900">风险因子</p>
+          <ul class="mt-1.5 flex flex-wrap gap-1.5">
+            <li
+              v-for="factor in ipDossier.riskFactors"
+              :key="'ipf-' + factor.code + '-' + factor.points"
+              class="rounded-full bg-white px-2 py-0.5 text-[11px] text-rose-900 ring-1 ring-rose-100"
+            >
+              {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
+              +{{ factor.points }} · {{ factor.message }}
+            </li>
+          </ul>
+        </div>
+
+        <div
+          v-if="ipDossier.suggestedActions?.length"
+          class="mt-3 rounded-lg border border-sky-100 bg-sky-50/40 p-2.5"
+        >
+          <p class="text-[11px] font-medium text-sky-950">建议处置</p>
+          <div class="mt-1.5 flex flex-wrap gap-1.5">
+            <button
+              v-for="(action, idx) in ipDossier.suggestedActions"
+              :key="'ipsa-' + action.kind + '-' + idx"
+              type="button"
+              class="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-200 hover:bg-sky-50"
+              :title="action.reason"
+              @click="applySuggestedAction(action)"
+            >
+              {{ adminLabel(adminSuggestedActionLabels, action.kind, action.label) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-3 grid gap-3 md:grid-cols-3">
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">关联访客</p>
+            <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
+              <li
+                v-for="v in (ipDossier.visitors || []).slice(0, 8)"
+                :key="'ipv-' + v.id"
+                class="flex items-center justify-between gap-2 text-[11px]"
+              >
+                <button
+                  type="button"
+                  class="truncate text-left text-sky-700 hover:underline"
+                  @click="q = v.id; page = 1; loadVisitors()"
+                >
+                  {{ shortAdminId(v.id, 10) }}
+                </button>
+                <span class="shrink-0 text-zinc-500">事件 {{ v.eventCount ?? '—' }}</span>
+              </li>
+              <li v-if="!(ipDossier.visitors || []).length" class="text-zinc-400">暂无</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">高频路径</p>
+            <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
+              <li
+                v-for="row in (ipDossier.pathTop || []).slice(0, 8)"
+                :key="'ipp-' + row.path"
+                class="flex items-center justify-between gap-2 text-[11px]"
+              >
+                <span class="truncate text-zinc-700">{{ row.path }}</span>
+                <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+              </li>
+              <li v-if="!(ipDossier.pathTop || []).length" class="text-zinc-400">暂无</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">UA / 地理</p>
+            <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px] text-zinc-700">
+              <li
+                v-for="(row, idx) in (ipDossier.userAgentHistory || []).slice(0, 4)"
+                :key="'ipua-' + idx"
+              >
+                <span class="tabular-nums text-zinc-500">{{ row.count }}×</span>
+                {{ shortUa(row.userAgent) }}
+              </li>
+              <li
+                v-for="(row, idx) in (ipDossier.geoTrail || []).slice(0, 4)"
+                :key="'ipgeo-' + idx"
+                class="text-zinc-600"
+              >
+                {{ row.city || '未知地点' }} · {{ row.count }}
+              </li>
+              <li
+                v-if="!(ipDossier.userAgentHistory || []).length && !(ipDossier.geoTrail || []).length"
+                class="text-zinc-400"
+              >
+                暂无
+              </li>
+            </ul>
+          </div>
+        </div>
+      </template>
+      <p v-else-if="ip.trim()" class="mt-3 text-xs text-zinc-500">
+        暂无该 IP 档案，可点击刷新或确认筛选条件。
+      </p>
+    </section>
+
+    <section
       v-if="selectedVisitor"
       class="rounded-2xl border border-sky-200 bg-sky-50/30 p-4"
     >
@@ -819,6 +1087,16 @@ onMounted(async () => {
             >
               生效封禁 {{ visitorDossier.summary.activeBanCount }}
             </span>
+            <span
+              v-if="visitorDossier.riskLevel || visitorDossier.summary.riskLevel"
+              class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+              :class="riskToneClass(visitorDossier.riskLevel || visitorDossier.summary.riskLevel)"
+            >
+              {{ adminLabel(adminRiskLevelLabels, visitorDossier.riskLevel || visitorDossier.summary.riskLevel) }}
+              <template v-if="(visitorDossier.riskScore ?? visitorDossier.summary.riskScore) != null">
+                · {{ visitorDossier.riskScore ?? visitorDossier.summary.riskScore }}
+              </template>
+            </span>
             <NuxtLink
               v-if="visitorDossier.linkedUser"
               :to="'/admin/users?userId=' + encodeURIComponent(visitorDossier.linkedUser.id)"
@@ -843,6 +1121,105 @@ onMounted(async () => {
           >
             {{ actionLabel(row.action) }} {{ row.count }}
           </span>
+        </div>
+
+        <div
+          v-if="visitorDossier.riskFactors?.length"
+          class="rounded-lg border border-rose-100 bg-rose-50/40 p-2.5"
+        >
+          <p class="text-[11px] font-medium text-rose-900">风险因子</p>
+          <ul class="mt-1.5 flex flex-wrap gap-1.5">
+            <li
+              v-for="factor in visitorDossier.riskFactors"
+              :key="factor.code + '-' + factor.points"
+              class="rounded-full bg-white px-2 py-0.5 text-[11px] text-rose-900 ring-1 ring-rose-100"
+              :title="factor.message"
+            >
+              {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
+              <span class="tabular-nums text-rose-700">+{{ factor.points }}</span>
+              <span class="text-rose-700/70">· {{ factor.message }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <div
+          v-if="visitorDossier.suggestedActions?.length"
+          class="rounded-lg border border-sky-100 bg-sky-50/40 p-2.5"
+        >
+          <p class="text-[11px] font-medium text-sky-950">建议处置</p>
+          <div class="mt-1.5 flex flex-wrap gap-1.5">
+            <button
+              v-for="(action, idx) in visitorDossier.suggestedActions"
+              :key="action.kind + '-' + idx"
+              type="button"
+              class="rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition hover:brightness-95"
+              :class="action.priority === 'high'
+                ? 'bg-red-100 text-red-900 ring-red-200'
+                : action.priority === 'medium'
+                  ? 'bg-amber-100 text-amber-950 ring-amber-200'
+                  : 'bg-white text-sky-900 ring-sky-200'"
+              :title="action.reason"
+              @click="applySuggestedAction(action)"
+            >
+              {{ adminLabel(adminSuggestedActionLabels, action.kind, action.label) }}
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-if="visitorDossier.userAgentHistory?.length || visitorDossier.geoTrail?.length || visitorDossier.hourlyPattern?.length"
+          class="grid gap-3 md:grid-cols-3"
+        >
+          <div
+            v-if="visitorDossier.userAgentHistory?.length"
+            class="rounded-lg border border-white bg-white/90 p-2.5"
+          >
+            <p class="text-[11px] font-medium text-zinc-600">UA 足迹</p>
+            <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
+              <li
+                v-for="(row, idx) in visitorDossier.userAgentHistory.slice(0, 6)"
+                :key="'ua-' + idx"
+                class="text-[11px] text-zinc-700"
+              >
+                <span class="tabular-nums text-zinc-500">{{ row.count }}×</span>
+                {{ shortUa(row.userAgent) }}
+              </li>
+            </ul>
+          </div>
+          <div
+            v-if="visitorDossier.geoTrail?.length"
+            class="rounded-lg border border-white bg-white/90 p-2.5"
+          >
+            <p class="text-[11px] font-medium text-zinc-600">地理轨迹</p>
+            <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
+              <li
+                v-for="(row, idx) in visitorDossier.geoTrail.slice(0, 8)"
+                :key="'geo-' + idx"
+                class="flex items-center justify-between gap-2 text-[11px]"
+              >
+                <span class="truncate text-zinc-700">
+                  {{ [row.country, row.region, row.city].filter(Boolean).join(' · ') || row.city || '未知' }}
+                </span>
+                <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+              </li>
+            </ul>
+          </div>
+          <div
+            v-if="visitorDossier.hourlyPattern?.length"
+            class="rounded-lg border border-white bg-white/90 p-2.5"
+          >
+            <p class="text-[11px] font-medium text-zinc-600">小时节奏</p>
+            <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
+              <li
+                v-for="row in visitorDossier.hourlyPattern.slice(0, 12)"
+                :key="'hour-' + row.hour"
+                class="flex items-center justify-between gap-2 text-[11px]"
+              >
+                <span class="text-zinc-700">{{ row.hour }}</span>
+                <span class="tabular-nums text-zinc-500">{{ row.count }}</span>
+              </li>
+            </ul>
+          </div>
         </div>
 
         <div class="grid gap-3 md:grid-cols-2">
