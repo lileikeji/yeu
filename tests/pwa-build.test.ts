@@ -9,6 +9,8 @@ const offlinePage = readFileSync(resolve('public/offline.html'), 'utf8')
 test('offline fallback uses student-facing language', () => {
   assert.match(offlinePage, /暂时离线/)
   assert.doesNotMatch(offlinePage, /PWA/)
+  assert.match(offlinePage, /没有实时校园信息/)
+  assert.doesNotMatch(offlinePage, /校园数据库/)
 })
 
 test('production service worker only provides the explicit offline navigation fallback', () => {
