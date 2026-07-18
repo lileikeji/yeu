@@ -331,6 +331,38 @@ export function listAdminMessages(
   }
 }
 
+
+export function softDeleteAdminMessage(client: DatabaseClient, messageId: string): boolean {
+  const existing = client.db.select({
+    id: chatMessages.id,
+    deletedAt: chatMessages.deletedAt
+  }).from(chatMessages)
+    .where(eq(chatMessages.id, messageId))
+    .get()
+
+  if (!existing) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Chat message not found',
+      data: { code: 'CHAT_MESSAGE_NOT_FOUND' }
+    })
+  }
+
+  if (existing.deletedAt) {
+    return false
+  }
+
+  const now = Date.now()
+  const result = client.db.update(chatMessages).set({
+    deletedAt: now
+  }).where(and(
+    eq(chatMessages.id, messageId),
+    isNull(chatMessages.deletedAt)
+  )).run()
+
+  return (result.changes ?? 0) > 0
+}
+
 export function setRoomMutedAll(
   client: DatabaseClient,
   roomId: string,

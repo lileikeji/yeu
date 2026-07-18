@@ -198,6 +198,24 @@ async function unmute(id: string): Promise<void> {
   }
 }
 
+
+async function softDeleteMessage(message: ChatMessage): Promise<void> {
+  if (message.deletedAt) {
+    toast.add({ title: '该消息已删除', color: 'neutral' })
+    return
+  }
+  try {
+    await adminFetch(`/api/admin/chat/messages/${encodeURIComponent(message.id)}`, {
+      method: 'DELETE'
+    })
+    toast.add({ title: '已删除消息', color: 'success' })
+    await loadMessages()
+  } catch (error) {
+    if (await handleAuth(error)) return
+    toast.add({ title: getRequestMessage(error, '删除失败'), color: 'error' })
+  }
+}
+
 function applyMessageFilter(): void {
   page.value = 1
   void loadMessages()
@@ -212,7 +230,7 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="群聊管理"
-      description="查看聊天记录，房间全员禁言，以及个人禁言。"
+      description="查看与治理聊天记录：可软删除消息、房间全员禁言与个人禁言。"
       icon="i-lucide-messages-square"
       eyebrow="社区"
     >
@@ -325,17 +343,31 @@ onMounted(() => {
                 <span class="mx-1">·</span>
                 {{ roomTitle(message.roomId) }}
               </p>
-              <UButton
-                size="xs"
-                color="warning"
-                variant="soft"
-                @click="prepMute(message)"
-              >
-                禁言此人
-              </UButton>
+              <div class="flex flex-wrap gap-2">
+                <UButton
+                  size="xs"
+                  color="warning"
+                  variant="soft"
+                  @click="prepMute(message)"
+                >
+                  禁言此人
+                </UButton>
+                <UButton
+                  v-if="!message.deletedAt"
+                  size="xs"
+                  color="error"
+                  variant="soft"
+                  @click="softDeleteMessage(message)"
+                >
+                  删除消息
+                </UButton>
+              </div>
             </div>
-            <p class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-800">
-              {{ message.body }}
+            <p
+              class="mt-2 whitespace-pre-wrap break-words text-sm leading-6"
+              :class="message.deletedAt ? 'text-zinc-400 line-through' : 'text-zinc-800'"
+            >
+              {{ message.deletedAt ? '（已删除）' + message.body : message.body }}
             </p>
           </li>
           <li

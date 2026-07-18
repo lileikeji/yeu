@@ -320,15 +320,34 @@ export function createVisitorBan(
 
 export function listVisitorBans(
   client: DatabaseClient,
-  query: { page: number; pageSize: number }
+  query: {
+    page: number
+    pageSize: number
+    active?: 'true' | 'false' | 'all'
+    scope?: 'ip' | 'visitor' | 'user'
+    q?: string
+  }
 ) {
   const offset = (query.page - 1) * query.pageSize
+  const conditions = []
+  if (query.active === 'true') conditions.push(eq(visitorBans.isActive, true))
+  if (query.active === 'false') conditions.push(eq(visitorBans.isActive, false))
+  if (query.scope) conditions.push(eq(visitorBans.scope, query.scope))
+  if (query.q?.trim()) {
+    const needle = `%${query.q.trim()}%`
+    conditions.push(or(
+      like(visitorBans.value, needle),
+      like(visitorBans.reason, needle)
+    ))
+  }
+  const where = conditions.length ? and(...conditions) : undefined
   const rows = client.db.select().from(visitorBans)
+    .where(where)
     .orderBy(desc(visitorBans.createdAt))
     .limit(query.pageSize)
     .offset(offset)
     .all()
-  const total = client.db.select({ value: count() }).from(visitorBans).get()?.value ?? 0
+  const total = client.db.select({ value: count() }).from(visitorBans).where(where).get()?.value ?? 0
   return {
     items: rows.map(row => ({
       id: row.id,

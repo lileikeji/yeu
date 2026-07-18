@@ -491,10 +491,21 @@ export const adminVisitorsQuerySchema = paginationQuerySchema.extend({
   banned: z.enum(['true', 'false']).optional()
 })
 
+export const adminVisitorBansQuerySchema = paginationQuerySchema.extend({
+  active: z.enum(['true', 'false', 'all']).optional().default('all'),
+  scope: z.enum(['ip', 'visitor', 'user']).optional(),
+  q: z.string().trim().max(200).optional()
+})
+
+export const adminAuditLogsQuerySchema = paginationQuerySchema.extend({
+  action: z.string().trim().max(80).optional(),
+  entityType: z.string().trim().max(80).optional()
+})
+
 export const createVisitorBanSchema = z.object({
   scope: z.enum(['ip', 'visitor', 'user']),
   value: z.string().trim().min(1).max(200),
-  reason: z.string().trim().max(500).optional(),
+  reason: z.string().trim().min(1).max(500),
   expiresAt: z.union([z.iso.datetime({ offset: true }), z.null()]).optional()
 }).strict()
 

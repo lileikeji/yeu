@@ -42,7 +42,7 @@ export const adminDashboardGroupMeta: AdminDashboardGroupMeta[] = [
   {
     key: 'content',
     label: '内容资产',
-    description: '地点、办事流程、图文与来源等对外内容。'
+    description: '地点、办事流程、图文与来源：面向新生的对外内容资产。'
   },
   {
     key: 'ops',
@@ -52,7 +52,7 @@ export const adminDashboardGroupMeta: AdminDashboardGroupMeta[] = [
   {
     key: 'security',
     label: '安全与审计',
-    description: '访客轨迹、封禁与后台操作留痕。'
+    description: '访客轨迹、访问封禁与后台审计留痕，分区独立处理。'
   }
 ]
 
@@ -135,7 +135,7 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     label: '封禁',
     icon: 'i-lucide-shield-ban',
     endpoint: '/api/admin/visitors/bans',
-    to: '/admin/visitors',
+    to: '/admin/bans',
     color: 'text-red-700 bg-red-50',
     group: 'security'
   }
@@ -150,7 +150,8 @@ export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '处理反馈', icon: 'i-lucide-message-square-reply', to: '/admin/feedback', group: 'ops' },
   { label: '创建账号', icon: 'i-lucide-user-plus', to: '/admin/users', group: 'ops' },
   { label: '群聊管理', icon: 'i-lucide-messages-square', to: '/admin/chat', group: 'ops' },
-  { label: '访客与封禁', icon: 'i-lucide-radar', to: '/admin/visitors', group: 'security' },
+  { label: '访客轨迹', icon: 'i-lucide-radar', to: '/admin/visitors', group: 'security' },
+  { label: '封禁管理', icon: 'i-lucide-shield-ban', to: '/admin/bans', group: 'security' },
   { label: '审计日志', icon: 'i-lucide-history', to: '/admin/audit-logs', group: 'security' }
 ]
 
@@ -187,6 +188,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     label: '安全与审计',
     items: [
       { label: '访客', icon: 'i-lucide-radar', to: '/admin/visitors' },
+      { label: '封禁', icon: 'i-lucide-shield-ban', to: '/admin/bans' },
       { label: '审计日志', icon: 'i-lucide-scroll-text', to: '/admin/audit-logs' }
     ]
   }

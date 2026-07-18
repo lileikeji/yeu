@@ -3,7 +3,7 @@ import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-er
 import { adminFetch } from '~~/app/utils/admin-request'
 
 definePageMeta({ layout: 'admin' })
-useSeoMeta({ title: '访客与封禁', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '访客轨迹', robots: 'noindex, nofollow' })
 
 type VisitorRow = {
   id: string
@@ -145,13 +145,17 @@ async function createBan(): Promise<void> {
     toast.add({ title: '请填写封禁值', color: 'warning' })
     return
   }
+  if (!banReason.value.trim()) {
+    toast.add({ title: '请填写封禁原因（必填）', color: 'warning' })
+    return
+  }
   try {
     await adminFetch('/api/admin/visitors/bans', {
       method: 'POST',
       body: {
         scope: banScope.value,
         value: banValue.value.trim(),
-        reason: banReason.value.trim() || undefined
+        reason: banReason.value.trim()
       }
     })
     toast.add({ title: '已添加封禁', color: 'success' })
@@ -190,12 +194,19 @@ onMounted(() => {
 <template>
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
-      title="访客与封禁"
-      description="记录访客 IP、地点与操作；可按 IP / 访客 / 账号封禁。"
+      title="访客轨迹"
+      description="记录访客 IP、地点与操作轨迹；快速封禁入口在此，完整封禁治理见「封禁」页。"
       icon="i-lucide-radar"
       eyebrow="运营安全"
     >
       <template #actions>
+        <UButton
+          to="/admin/bans"
+          icon="i-lucide-shield-ban"
+          label="封禁管理"
+          color="neutral"
+          variant="outline"
+        />
         <UButton
           icon="i-lucide-refresh-cw"
           label="刷新"
@@ -226,7 +237,7 @@ onMounted(() => {
       <UFormField label="精确 IP">
         <UInput
           v-model="ip"
-          placeholder="可选"
+          placeholder="必填原因"
           class="w-full"
           @keyup.enter="applySearch"
         />
@@ -372,7 +383,7 @@ onMounted(() => {
               placeholder="IP / 访客 ID / 用户 ID"
             />
           </UFormField>
-          <UFormField label="原因">
+          <UFormField label="原因（必填）">
             <UInput
               v-model="banReason"
               class="w-full"
