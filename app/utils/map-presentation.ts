@@ -52,8 +52,8 @@ export function resolveMapDataLabel(input: {
   activeScope: string | null | undefined
 }): string {
   if (input.activeScope === 'nearby') return '周边生活'
-  if (input.publishedCount) return '已发布目录'
-  if (input.ownerMapCount) return '地图地点'
+  if (input.publishedCount) return '校园地点'
+  if (input.ownerMapCount) return '校园地点'
   if (input.hasPublicPlaceError) return '文字目录'
   return '官网编号'
 }
@@ -96,7 +96,7 @@ export function resolveMapPoiStatusText(poi: MapPoiStatusFields): string {
     return '位置已记录 · 当前地图暂时无法显示'
   }
   if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '官网编号'} · 暂不显示地图位置`
-  return '地点已发布 · 位置暂不显示'
+  return '地点已整理 · 暂时没有可显示的位置'
 }
 
 export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {

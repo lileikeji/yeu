@@ -113,13 +113,13 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: null
-  }), '已发布目录')
+  }), '校园地点')
   assert.equal(resolveMapDataLabel({
     publishedCount: 0,
     ownerMapCount: 3,
     hasPublicPlaceError: false,
     activeScope: null
-  }), '地图地点')
+  }), '校园地点')
   assert.equal(resolveMapDataLabel({
     publishedCount: 0,
     ownerMapCount: 0,
