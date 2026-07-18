@@ -200,7 +200,7 @@ export const adminRiskFactorLabels: Record<string, string> = {
 export const adminOpsTimelineKindLabels: Record<string, string> = {
   ban: '封禁',
   mute: '禁言',
-  audit: '审计',
+  audit: '操作记录',
   login: '登录'
 }
 
@@ -210,7 +210,7 @@ export const adminSuggestedActionLabels: Record<string, string> = {
   ban_user: '限制账号',
   open_chat: '打开群聊',
   open_visitors: '打开访客',
-  open_audit: '打开审计',
+  open_audit: '打开操作记录',
   open_ip: '打开 IP 档案',
   open_user: '打开账号',
   review_visitors: '复核访客'
@@ -254,7 +254,7 @@ const adminPageLabels: Array<[prefix: string, label: string]> = [
   ['/admin/users', '账号管理'],
   ['/admin/chat', '群聊管理'],
   ['/admin/bans', '封禁管理'],
-  ['/admin/audit', '审计日志'],
+  ['/admin/audit', '操作记录'],
   ['/admin/login', '后台登录'],
   ['/procedures', '办事指南'],
   ['/departments', '学校部门'],

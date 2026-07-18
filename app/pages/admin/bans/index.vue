@@ -217,7 +217,7 @@ onMounted(async () => {
       title="封禁管理"
       description="按状态、类型和关键词查找并管理 IP、访客和账号封禁。原因必填，可设置到期时间。"
       icon="i-lucide-shield-ban"
-      eyebrow="安全与审计"
+      eyebrow="安全与操作记录"
     >
       <template #actions>
         <UButton
@@ -230,7 +230,7 @@ onMounted(async () => {
         <UButton
           to="/admin/audit"
           icon="i-lucide-scroll-text"
-          label="审计日志"
+          label="操作记录"
           color="neutral"
           variant="outline"
         />
@@ -460,7 +460,7 @@ onMounted(async () => {
                   variant="ghost"
                   :to="adminAuditHref('visitor_ban', ban.id)"
                 >
-                  审计
+                  操作记录
                 </UButton>
                 <UButton
                   v-if="ban.isActive"
@@ -564,7 +564,7 @@ onMounted(async () => {
           :to="adminAuditHref('visitor_ban', selectedBan.id)"
           icon="i-lucide-scroll-text"
         >
-          查看相关审计
+                  查看相关操作记录
         </UButton>
         <UButton
           v-if="relatedVisitorHref(selectedBan)"

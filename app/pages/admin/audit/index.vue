@@ -17,7 +17,7 @@ import {
 } from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
-useSeoMeta({ title: '审计日志', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '操作记录', robots: 'noindex, nofollow' })
 
 type AuditRow = {
   id: string
@@ -124,7 +124,7 @@ async function loadAudit(): Promise<void> {
     total.value = payload.total || 0
   } catch (error) {
     if (await handleAuth(error)) return
-    errorMessage.value = getRequestMessage(error, '审计日志加载失败')
+    errorMessage.value = getRequestMessage(error, '操作记录加载失败')
   } finally {
     loading.value = false
   }
@@ -163,10 +163,10 @@ onMounted(() => {
 <template>
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
-      title="审计日志"
+      title="操作记录"
       description="查看管理员近期做过的操作，记录仅供核对，不能修改。"
       icon="i-lucide-scroll-text"
-      eyebrow="安全与审计"
+      eyebrow="安全与操作记录"
     >
       <template #actions>
         <UButton
@@ -348,7 +348,7 @@ onMounted(() => {
           v-if="!items.length && !loading"
           class="py-10 text-center text-sm text-zinc-400"
         >
-          暂无审计记录
+          暂无操作记录
         </p>
       </div>
 

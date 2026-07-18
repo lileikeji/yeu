@@ -803,7 +803,7 @@ onMounted(async () => {
             :to="adminAuditHref('user', selectedUser.id)"
             icon="i-lucide-scroll-text"
           >
-            相关审计
+            相关操作记录
           </UButton>
           <UButton
             size="sm"
@@ -1099,7 +1099,7 @@ onMounted(async () => {
             </section>
 
             <section class="rounded-xl border border-white bg-white p-3">
-              <h3 class="text-xs font-semibold text-zinc-800">相关审计（{{ userDossier.auditItems.length }}）</h3>
+              <h3 class="text-xs font-semibold text-zinc-800">相关操作记录（{{ userDossier.auditItems.length }}）</h3>
               <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="a in userDossier.auditItems"
@@ -1109,7 +1109,7 @@ onMounted(async () => {
                   {{ adminLabel(adminAuditActionLabels, a.action, a.action) }}
                   <span class="text-zinc-400"> · {{ formatAdminRelativeTime(a.createdAt) }}</span>
                 </li>
-                <li v-if="!userDossier.auditItems.length" class="text-zinc-400">暂无审计</li>
+                <li v-if="!userDossier.auditItems.length" class="text-zinc-400">暂无操作记录</li>
               </ul>
             </section>
           </div>
@@ -1120,7 +1120,7 @@ onMounted(async () => {
         v-else
         class="hidden h-fit rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/60 p-4 text-sm text-zinc-500 lg:block lg:sticky lg:top-4"
       >
-        点击账号行或「详情」，可在此查看资料、跳转群聊/审计，并快捷改状态。
+        点击账号行或「详情」，可在此查看资料、跳转群聊/操作记录，并快捷改状态。
       </aside>
     </div>
   </div>

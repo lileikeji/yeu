@@ -545,7 +545,7 @@ onMounted(() => {
           <p class="mt-0.5 text-[11px] text-zinc-500">需要管理员留意的异常情况</p>
         </div>
         <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">
-          审计
+          操作记录
         </UButton>
       </div>
       <ul class="mt-3 grid gap-2 sm:grid-cols-2">
@@ -814,11 +814,11 @@ onMounted(() => {
           <div>
             <h2 class="text-sm font-semibold text-zinc-950">今天的动态</h2>
             <p class="mt-0.5 text-[11px] text-zinc-500">
-              访客活跃、封禁禁言与审计动作
+              访客活跃、封禁禁言与管理员操作
               <template v-if="securityGeneratedAt"> · 更新 {{ formatAdminRelativeTime(securityGeneratedAt) }}</template>
             </p>
           </div>
-          <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">审计</UButton>
+          <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">操作记录</UButton>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
@@ -846,7 +846,7 @@ onMounted(() => {
             <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.mutesCreated ?? '—' }}</p>
           </div>
           <div class="rounded-lg bg-indigo-50/50 px-3 py-2">
-            <p class="text-[11px] text-indigo-700">审计记录</p>
+            <p class="text-[11px] text-indigo-700">操作记录</p>
             <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.auditEvents ?? '—' }}</p>
           </div>
           <div class="rounded-lg bg-emerald-50/50 px-3 py-2">
@@ -1073,9 +1073,9 @@ onMounted(() => {
         <div class="flex items-center justify-between gap-2">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950">最近管理记录</h2>
-            <p class="mt-0.5 text-[11px] text-zinc-500">最近的封禁、禁言、审计和登录操作</p>
+            <p class="mt-0.5 text-[11px] text-zinc-500">最近的封禁、禁言、管理员和登录操作</p>
           </div>
-          <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">审计</UButton>
+          <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">操作记录</UButton>
         </div>
         <ul class="mt-3 max-h-64 space-y-2 overflow-y-auto">
           <li
@@ -1262,7 +1262,7 @@ onMounted(() => {
               最近操作
             </h2>
             <p class="mt-0.5 text-xs text-zinc-500">
-              安全与审计
+              安全与操作记录
             </p>
           </div>
           <UButton
@@ -1316,7 +1316,7 @@ onMounted(() => {
               生效封禁
             </h2>
             <p class="mt-0.5 text-xs text-zinc-500">
-              安全与审计
+              安全与操作记录
             </p>
           </div>
           <UButton
@@ -1371,7 +1371,7 @@ onMounted(() => {
               最近访客
             </h2>
             <p class="mt-0.5 text-xs text-zinc-500">
-              安全与审计
+              安全与操作记录
             </p>
           </div>
           <UButton

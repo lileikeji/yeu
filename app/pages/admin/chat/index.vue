@@ -291,7 +291,7 @@ async function softDeleteMessage(message: ChatMessage): Promise<void> {
     return
   }
   if (typeof window !== 'undefined') {
-    const ok = window.confirm(`确认删除 ${message.displayName} 的这条消息？删除后仍可审计。`)
+    const ok = window.confirm(`确认删除 ${message.displayName} 的这条消息？删除后仍会保留操作记录。`)
     if (!ok) return
   }
   try {

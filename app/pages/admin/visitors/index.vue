@@ -564,7 +564,7 @@ onMounted(async () => {
       title="访客轨迹"
       description="查看访客来源、访问记录和异常情况。"
       icon="i-lucide-radar"
-      eyebrow="安全与审计"
+      eyebrow="安全与操作记录"
     >
       <template #actions>
         <UButton
@@ -577,7 +577,7 @@ onMounted(async () => {
         <UButton
           to="/admin/audit"
           icon="i-lucide-scroll-text"
-          label="审计日志"
+          label="操作记录"
           color="neutral"
           variant="outline"
         />
@@ -845,7 +845,7 @@ onMounted(async () => {
           快速封禁
         </h2>
         <p class="mt-1 text-xs text-zinc-500">
-          原因必填；可选到期时间。创建后会写入审计日志。
+          原因必填；可选到期时间。创建后会写入操作记录。
         </p>
         <div class="mt-3 space-y-3">
           <UFormField label="范围">
@@ -947,7 +947,7 @@ onMounted(async () => {
                   variant="ghost"
                   :to="adminAuditHref('visitor_ban', ban.id)"
                 >
-                  审计
+                  操作记录
                 </UButton>
                 <UButton
                   v-if="ban.isActive"
@@ -1309,7 +1309,7 @@ onMounted(async () => {
               :to="adminAuditHref('visitor', selectedVisitor.id)"
               class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700 hover:underline"
             >
-              审计
+              操作记录
             </NuxtLink>
           </div>
         </div>
