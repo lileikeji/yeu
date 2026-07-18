@@ -47,7 +47,7 @@ export interface PublicSearchAreaSeed {
 
 export const searchTypePresentation = {
   place: { label: '地点', icon: 'i-lucide-map-pin' },
-  procedure: { label: '流程', icon: 'i-lucide-list-checks' },
+  procedure: { label: '办事', icon: 'i-lucide-list-checks' },
   guide: { label: '指南', icon: 'i-lucide-notebook-tabs' },
   department: { label: '部门', icon: 'i-lucide-landmark' },
   club: { label: '社团', icon: 'i-lucide-users-round' },
@@ -55,7 +55,7 @@ export const searchTypePresentation = {
 } satisfies Record<PublicSearchResultType, { label: string, icon: string }>
 
 export const searchTypeOptions = [
-  { label: '全部类型', value: 'all' },
+  { label: '全部', value: 'all' },
   ...PUBLIC_SEARCH_RESULT_TYPES.map(value => ({
     label: searchTypePresentation[value].label,
     value
@@ -116,24 +116,24 @@ export function apiSearchPresentation(item: ApiSearchItem): Pick<PublicSearchRes
 }
 
 export function mapSourceLabel(place: PublicMapPlace): string {
-  if (place.coordinateVerification === 'owner-map-only') return '高德地图标点'
+  if (place.coordinateVerification === 'owner-map-only') return '高德地图'
   if (place.usesPreviewPoint) return '学校平面图'
-  return '地点目录'
+  return '校园地点'
 }
 
 export function mapTypeLabel(place: PublicMapPlace): string {
-  return place.coordinateVerification === 'owner-map-only' ? '地图标点' : '地图索引'
+  return place.coordinateVerification === 'owner-map-only' ? '高德地点' : '平面图地点'
 }
 
 export function mapResultSummary(place: PublicMapPlace): string {
   if (place.coordinateVerification === 'owner-map-only') {
-    return place.summary || '已按你提供的高德坐标放到地图上，点开会直接定位；具体入口和开放情况请以现场标识为准。'
+    return place.summary || '已经放到地图上，点开会直接定位；具体入口和开放情况请以现场标识为准。'
   }
   return place.summary || '点开后会进入校园地图；没有精确坐标的平面图地点，会显示文字方位帮助对照。'
 }
 
 export function mapAreaSummary(name: string): string {
-  return `${name} 是校园绘图区域。点进地图后可以查看边界、面积和周长，图框只做方位参考，不会挡住店铺。`
+  return `点开地图可以查看${name}的大致范围，方便辨认方向；边界只作参考。`
 }
 
 export function searchRouteQuery(
@@ -238,8 +238,8 @@ export function buildSearchErrorMessage(
 ): string {
   if (!hasError) return ''
   return activeType && activeType !== 'place'
-    ? '搜索服务暂时不稳定，请稍后再试。'
-    : '搜索服务暂时不稳定；如果关键词命中地图目录，下面仍会先显示可用地点。'
+    ? '搜索暂时没有响应，请稍后再试。'
+    : '搜索暂时没有响应；如果地图里能找到这个关键词，下面会先显示相关地点。'
 }
 
 export function buildPublicSearchResults(input: {
@@ -279,7 +279,7 @@ export function buildPublicSearchResults(input: {
     summary: item.summary,
     ...apiSearchPresentation(item),
     to: apiSearchTarget(item),
-    sourceLabel: '已发布内容'
+    sourceLabel: '本站整理'
   }))
 
   const mapReferences = (activeType && activeType !== 'place'
@@ -324,7 +324,7 @@ export function buildPublicSearchResults(input: {
       typeLabel: '地点',
       icon: 'i-lucide-pentagon',
       to: `/map?q=${encodeURIComponent(query)}&area=${encodeURIComponent(area.id)}`,
-      sourceLabel: '高德绘图区域'
+      sourceLabel: '地图范围'
     }))
 
   const staticGuides = (allowStaticGuides
@@ -343,7 +343,7 @@ export function buildPublicSearchResults(input: {
       to: guide.slug === 'arrival'
         ? '/procedures/arrival'
         : `/guides/${encodeURIComponent(guide.slug)}`,
-      sourceLabel: '基础指南'
+      sourceLabel: '新生指南'
     }))
 
   const staticDepartments = (allowStaticDepartments
@@ -361,7 +361,7 @@ export function buildPublicSearchResults(input: {
       typeLabel: '部门',
       icon: 'i-lucide-landmark',
       to: `/departments/${encodeURIComponent(slug)}`,
-      sourceLabel: '官网部门入口'
+      sourceLabel: '学校官网'
     }))
 
   return [...dynamic, ...mapReferences, ...mapAreas, ...staticGuides, ...staticDepartments]
@@ -390,6 +390,6 @@ export function buildSearchAnnouncement(input: {
 }): string {
   if (!input.query) return '请输入关键词开始搜索。'
   if (input.searching) return `正在搜索“${input.query}”。`
-  if (input.searchError) return `动态搜索暂时不可用，当前显示 ${input.resultCount} 项可用结果。`
+  if (input.searchError) return `联网搜索暂时没有响应，当前显示 ${input.resultCount} 项可用结果。`
   return `搜索完成，当前显示 ${input.resultCount} 项匹配结果，分为 ${input.groupCount} 组。`
 }

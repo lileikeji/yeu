@@ -221,10 +221,10 @@ test('public search includes imported AMap markers and student-readable labels',
   assert.match(presentation, /仰恩楼/)
   assert.match(presentation, /仰恩教学楼/)
   assert.match(presentation, /新区学生街/)
-  assert.match(presentation, /高德地图标点/)
-  assert.match(presentation, /高德绘图区域/)
+  assert.match(presentation, /高德地点/)
+  assert.match(presentation, /地图范围/)
   assert.match(presentation, /area=\$\{encodeURIComponent\(area\.id\)\}/)
-  assert.match(presentation, /已按你提供的高德坐标放到地图上/)
+  assert.match(presentation, /已经放到地图上/)
   assert.match(presentation, /\/map\?q=\$\{encodeURIComponent\(query\)\}&place=/)
 })
 
@@ -382,8 +382,9 @@ test('discover page is a thin shell over discover presentation', () => {
   assert.match(presentation, /export const discoverTaskEntries/)
   assert.match(presentation, /export const discoverDirectoryEntries/)
   assert.match(presentation, /export const discoverTrustEntries/)
+  assert.match(presentation, /export function buildDiscoverTaskPreview/)
   assert.match(presentation, /新生报到/)
-  assert.match(presentation, /反馈纠错/)
+  assert.match(presentation, /告诉我们哪里不对/)
 })
 
 test('offline page is a thin shell over offline presentation', () => {
@@ -398,8 +399,8 @@ test('offline page is a thin shell over offline presentation', () => {
   assert.match(presentation, /export const offlineBoundaries/)
   assert.match(presentation, /export const offlineStaticEntries/)
   assert.match(presentation, /export function resolveOfflineStatus/)
-  assert.match(presentation, /公开内容不会完整保存在设备上/)
-  assert.match(presentation, /当前处于离线状态/)
+  assert.match(presentation, /重要信息不要只看旧页面/)
+  assert.match(presentation, /现在仍然没有网络/)
 })
 
 test('checklist page is a thin shell over checklist presentation', () => {

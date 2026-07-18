@@ -21,7 +21,7 @@ import {
 } from '~~/app/utils/public-search-presentation'
 
 useSeoMeta({
-  title: '全站搜索',
+  title: '校园搜索',
   description: '搜索仰恩大学新生指南中的地点、指南、部门、社团和公告。',
   robots: 'noindex, follow'
 })
@@ -190,13 +190,13 @@ watch([activeQuery, activeType], ([query, type]) => {
     <section class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          关键词检索
+          一处查找
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          搜索地点、指南与校内服务
+          找地点、办事和校园信息
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          可以搜地点、报到、校园网、部门和社团。点地图结果会直接定位；已整理的地图地点会按已有位置显示，平面图地点会显示文字方位。
+          输入地点、部门或要办的事，也可以查校园网、社团和生活服务。地图结果点开后会直接带你查看对应位置。
         </p>
 
         <div class="mt-6 max-w-3xl">
@@ -243,7 +243,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               for="search-result-type"
               class="shrink-0 text-xs font-medium text-zinc-600"
             >
-              结果类型
+              只看
             </label>
             <USelect
               id="search-result-type"
@@ -253,7 +253,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               label-key="label"
               size="sm"
               class="w-36 max-w-full"
-              aria-label="筛选搜索结果类型"
+              aria-label="筛选搜索结果"
             />
           </div>
         </div>
@@ -289,7 +289,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               “{{ activeQuery }}”的结果
             </p>
             <h2 class="mt-1 text-lg font-bold text-zinc-950">
-              {{ results.length }} 项已显示
+              找到 {{ results.length }} 项
             </h2>
           </div>
           <UButton
@@ -389,7 +389,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               class="mx-auto size-7 text-orange-600"
             />
             <p class="mt-3 text-sm font-semibold text-zinc-800">
-              当前类型暂时无法检索
+              这一类结果暂时没有响应
             </p>
             <UButton
               class="mt-4"
@@ -411,10 +411,10 @@ watch([activeQuery, activeType], ([query, type]) => {
             class="mx-auto size-7 text-zinc-400"
           />
           <p class="mt-3 text-sm font-semibold text-zinc-800">
-            暂无匹配内容
+            暂时没找到相关内容
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
-            可换用正式名称、常用简称或用途词，也可以提交缺失信息。
+            可以试试正式名称、常用简称，或直接写你想办的事。
           </p>
           <div class="mt-4 flex justify-center gap-2">
             <UButton
@@ -425,7 +425,7 @@ watch([activeQuery, activeType], ([query, type]) => {
             />
             <UButton
               to="/feedback"
-              label="反馈缺失"
+              label="告诉我们缺了什么"
               color="neutral"
               variant="ghost"
             />
@@ -443,7 +443,7 @@ watch([activeQuery, activeType], ([query, type]) => {
             class="mx-auto size-7 text-green-700"
           />
           <p class="mt-3 text-sm font-semibold text-zinc-800">
-            输入一个名称或问题关键词
+            输入地点、部门或要办的事
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
             先输入地点、部门或事项关键词，例如“辽宁楼”“校园网”“报到”。

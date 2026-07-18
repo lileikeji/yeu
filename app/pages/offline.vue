@@ -7,8 +7,8 @@ import {
 import { safeLocalPath } from '~/utils/safe-navigation'
 
 useSeoMeta({
-  title: '离线状态',
-  description: '仰恩新生指南在网络暂时不可用时的提示、可查看内容与重试入口。',
+  title: '网络提示',
+  description: '网络断开时查看连接状态、重试原页面，并了解哪些内容可能不是最新的。',
   robots: 'noindex, nofollow'
 })
 
@@ -57,13 +57,13 @@ onBeforeUnmount(() => {
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          离线状态
+          网络提示
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          暂时无法更新内容
+          网络连接出了点问题
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          待网络恢复后重试。涉及报到、日期、地点、营业时间和招新的信息，不应仅凭旧页面行动。
+          先检查 Wi-Fi 或移动网络。连接恢复后可以回到原页面；报到、地点和营业时间等信息请不要只看旧页面。
         </p>
       </div>
     </header>
@@ -94,7 +94,7 @@ onBeforeUnmount(() => {
           <div class="mt-4 flex flex-wrap gap-2">
             <UButton
               icon="i-lucide-refresh-cw"
-              :label="isOnline ? '重新加载原页面' : '重新尝试'"
+              :label="isOnline ? '回到原页面' : '再试一次'"
               class="min-h-11"
               @click="retry"
             />
@@ -112,10 +112,10 @@ onBeforeUnmount(() => {
 
       <section class="mt-10">
         <p class="section-kicker">
-          离线时能看到什么
+          没有网络时要注意
         </p>
         <h2 class="mt-1 text-xl font-bold text-zinc-950">
-          离线时不会显示最新校园信息
+          以前打开过的页面可能不是最新的
         </h2>
 
         <div class="mt-5 grid gap-x-8 md:grid-cols-3">
@@ -136,10 +136,10 @@ onBeforeUnmount(() => {
 
       <section class="mt-6 border-t border-[var(--line)] pt-8">
         <p class="section-kicker">
-          可尝试打开
+          先看看这些
         </p>
         <h2 class="mt-1 text-xl font-bold text-zinc-950">
-          可能仍能打开的页面
+          下面几页可能还能打开
         </h2>
         <p class="mt-2 text-xs leading-5 text-zinc-500">
           设备可能保留部分说明页面，但是否能打开取决于你之前是否访问过。

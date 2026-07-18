@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
+  buildDiscoverTaskPreview,
   discoverDirectoryEntries,
+  discoverTaskPreviewLimit,
   discoverTaskEntries,
   discoverTrustEntries
 } from '~~/app/utils/discover-presentation'
@@ -9,6 +11,14 @@ useSeoMeta({
   title: '更多服务',
   description: '按新生当前要做的事，快速进入仰恩校园地图、报到、指南、部门、社团与周边目录。'
 })
+
+const tasksExpanded = ref(false)
+const taskPreview = computed(() => buildDiscoverTaskPreview(discoverTaskEntries, tasksExpanded.value))
+const visibleTaskEntries = computed(() => taskPreview.value.items)
+
+function toggleTaskPreview(): void {
+  tasksExpanded.value = !tasksExpanded.value
+}
 </script>
 
 <template>
@@ -18,13 +28,13 @@ useSeoMeta({
         <div class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div class="max-w-2xl">
             <p class="section-kicker">
-              功能目录
+              所有入口
             </p>
             <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-              你现在要找什么
+              你现在想做什么
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              从具体任务直接进入，或按地图、指南、部门和社团浏览。
+              按要办的事直接进入，也可以搜索地点、部门和社团。
             </p>
           </div>
           <UButton
@@ -43,16 +53,16 @@ useSeoMeta({
         <div class="flex items-end justify-between gap-4">
           <div>
             <p class="section-kicker">
-              新生任务
+              常用入口
             </p>
             <h2 class="mt-1 text-xl font-bold text-zinc-950">
-              按当前事项进入
+              先从这些开始
             </h2>
           </div>
           <UButton
             to="/map"
             icon="i-lucide-map"
-            label="地图"
+            label="打开地图"
             color="neutral"
             variant="ghost"
           />
@@ -60,7 +70,7 @@ useSeoMeta({
 
         <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <NuxtLink
-            v-for="entry in discoverTaskEntries"
+            v-for="entry in visibleTaskEntries"
             :key="entry.to"
             :to="entry.to"
             class="surface-panel group flex min-h-40 items-start gap-4 p-4 transition hover:border-green-300 hover:shadow-sm"
@@ -87,15 +97,28 @@ useSeoMeta({
             </span>
           </NuxtLink>
         </div>
+        <div
+          v-if="discoverTaskEntries.length > discoverTaskPreviewLimit"
+          class="mt-5 flex justify-center"
+        >
+          <UButton
+            :icon="tasksExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            :label="tasksExpanded ? '收起其他入口' : `再看 ${taskPreview.hiddenCount} 个入口`"
+            color="neutral"
+            variant="soft"
+            :aria-expanded="tasksExpanded"
+            @click="toggleTaskPreview"
+          />
+        </div>
       </section>
 
       <section class="border-y border-[var(--line)] bg-white">
         <div class="page-shell py-8 md:py-10">
           <p class="section-kicker">
-            内容目录
+            全部入口
           </p>
           <h2 class="mt-1 text-xl font-bold text-zinc-950">
-            按类别浏览
+            也可以按类别找
           </h2>
 
           <div class="mt-5 grid gap-x-8 md:grid-cols-2">
@@ -126,10 +149,10 @@ useSeoMeta({
 
       <section class="page-shell py-8 md:py-10">
         <p class="section-kicker">
-          说明与共建
+          帮助与说明
         </p>
         <h2 class="mt-1 text-xl font-bold text-zinc-950">
-          查看信息边界或提交纠错
+          信息从哪来，哪里错了怎么说
         </h2>
 
         <div class="mt-5 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">

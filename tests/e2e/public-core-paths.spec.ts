@@ -63,7 +63,7 @@ test('首页地点搜索进入地图，并保留文字查询', async ({ page }) 
 
 test('全站搜索返回可访问的校园网流程', async ({ page }) => {
   await page.goto('/search')
-  await expect(page.getByRole('heading', { level: 1, name: '搜索地点、指南与校内服务' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '找地点、办事和校园信息' })).toBeVisible()
 
   const search = page.getByRole('search').filter({ has: page.getByLabel('全站搜索') })
   await search.getByLabel('全站搜索').fill('校园网')
@@ -294,7 +294,7 @@ test('Service Worker 在断网导航时返回明确离线说明页', async ({ co
   await context.setOffline(true)
   try {
     await page.goto('/e2e-offline-navigation-probe', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { level: 1, name: '暂时无法更新内容' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: '网络连接出了点问题' })).toBeVisible()
     await expect(page.getByRole('heading', { level: 2, name: '等待网络恢复后重试' })).toBeVisible()
     await expect(page.getByText('本页不保存动态校园数据库，也不会把过期内容显示为最新结果。')).toBeVisible()
   } finally {

@@ -117,7 +117,7 @@ test('local search result type list stays synchronized with shared constants', a
 
 test('search type options cover all result types plus all', () => {
   assert.equal(searchTypeOptions[0]?.value, 'all')
-  assert.equal(searchTypeOptions[0]?.label, '全部类型')
+  assert.equal(searchTypeOptions[0]?.label, '全部')
   assert.deepEqual(
     searchTypeOptions.slice(1).map(item => item.value),
     Object.keys(searchTypePresentation)
@@ -312,7 +312,7 @@ test('api target and presentation map entity kinds', () => {
   })
 })
 
-test('map labels and summaries preserve coordinate source semantics', () => {
+test('map labels and summaries use student-facing location wording', () => {
   const owner = place({
     id: 'owner-1',
     name: '高德点',
@@ -331,15 +331,15 @@ test('map labels and summaries preserve coordinate source semantics', () => {
     summary: '已有摘要'
   })
 
-  assert.equal(mapSourceLabel(owner), '高德地图标点')
+  assert.equal(mapSourceLabel(owner), '高德地图')
   assert.equal(mapSourceLabel(preview), '学校平面图')
-  assert.equal(mapSourceLabel(catalog), '地点目录')
-  assert.equal(mapTypeLabel(owner), '地图标点')
-  assert.equal(mapTypeLabel(preview), '地图索引')
-  assert.match(mapResultSummary(owner), /高德坐标/)
+  assert.equal(mapSourceLabel(catalog), '校园地点')
+  assert.equal(mapTypeLabel(owner), '高德地点')
+  assert.equal(mapTypeLabel(preview), '平面图地点')
+  assert.match(mapResultSummary(owner), /已经放到地图上/)
   assert.match(mapResultSummary(preview), /文字方位/)
   assert.equal(mapResultSummary(catalog), '已有摘要')
-  assert.match(mapAreaSummary('新区学生街'), /校园绘图区域/)
+  assert.match(mapAreaSummary('新区学生街'), /大致范围/)
 })
 
 test('buildPublicSearchResults merges api, map and static fallbacks without duplicates', () => {
@@ -531,7 +531,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
       typeLabel: '指南',
       icon: 'i-lucide-book',
       to: '/guides/a',
-      sourceLabel: '基础指南'
+      sourceLabel: '新生指南'
     },
     {
       key: 'p1',
@@ -541,7 +541,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
       typeLabel: '地点',
       icon: 'i-lucide-map-pin',
       to: '/map',
-      sourceLabel: '地点目录'
+      sourceLabel: '校园地点'
     }
   ])
 
@@ -549,7 +549,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
   assert.equal(grouped[0]?.items.length, 1)
   assert.equal(buildSearchErrorMessage(false, 'place'), '')
   assert.match(buildSearchErrorMessage(true, 'guide'), /稍后再试/)
-  assert.match(buildSearchErrorMessage(true, 'place'), /地图目录/)
+  assert.match(buildSearchErrorMessage(true, 'place'), /地图里能找到/)
   assert.equal(buildSearchAnnouncement({
     query: '',
     searching: false,
@@ -570,7 +570,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
     searchError: 'err',
     resultCount: 2,
     groupCount: 1
-  }), /动态搜索暂时不可用/)
+  }), /联网搜索暂时没有响应/)
   assert.match(buildSearchAnnouncement({
     query: '图书馆',
     searching: false,

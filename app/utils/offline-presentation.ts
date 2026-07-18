@@ -19,8 +19,8 @@ export interface OfflineStaticEntry {
 export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
   if (isOnline === null) {
     return {
-      title: '正在检查网络',
-      description: '稍后可重新尝试加载公开内容。',
+      title: '正在看看网络是否恢复',
+      description: '通常几秒钟就能确认。',
       icon: 'i-lucide-loader-circle',
       tone: 'bg-zinc-100 text-zinc-600'
     }
@@ -28,16 +28,16 @@ export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
 
   if (isOnline) {
     return {
-      title: '网络已恢复',
-      description: '可以重新加载原页面，获取当前已发布内容。',
+      title: '网络已经恢复',
+      description: '可以回到刚才的页面继续查看。',
       icon: 'i-lucide-wifi',
       tone: 'bg-green-50 text-green-700'
     }
   }
 
   return {
-    title: '当前处于离线状态',
-    description: '动态内容和地图数据无法更新，本页不会把旧数据显示为最新结果。',
+    title: '现在仍然没有网络',
+    description: '地图和最新校园消息还不能加载，请稍后再试。',
     icon: 'i-lucide-wifi-off',
     tone: 'bg-orange-50 text-orange-700'
   }
@@ -45,21 +45,21 @@ export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
 
 export const offlineBoundaries: OfflineBoundary[] = [
   {
-    title: '公开内容不会完整保存在设备上',
-    text: '指南、部门、社团、地点和公告以联网后看到的最新发布内容为准。'
+    title: '重要信息不要只看旧页面',
+    text: '报到日期、地点、营业时间和招新安排可能变化，联网后请再看最新消息。'
   },
   {
     title: '地图和导航需要网络',
     text: '离线时无法加载新的地图画面，也不保证外部地图或导航链接可用。'
   },
   {
-    title: '以前打开过的页面也可能过期',
-    text: '设备可能保留部分页面，但是否能打开取决于你之前是否访问过，内容也可能不是最新版本。'
+    title: '以前打开过的页面不一定能打开',
+    text: '设备可能保留一部分页面，但能否打开取决于你之前是否看过，内容也可能已经变化。'
   }
 ]
 
 export const offlineStaticEntries: OfflineStaticEntry[] = [
-  { title: '功能目录', to: '/discover', icon: 'i-lucide-layout-grid' },
-  { title: '关于项目', to: '/about', icon: 'i-lucide-info' },
+  { title: '更多功能', to: '/discover', icon: 'i-lucide-layout-grid' },
+  { title: '关于这份指南', to: '/about', icon: 'i-lucide-info' },
   { title: '隐私说明', to: '/privacy', icon: 'i-lucide-shield-check' }
 ]
