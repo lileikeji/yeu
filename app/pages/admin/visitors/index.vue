@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
+import {
+  adminBanScopeLabels,
+  adminLabel,
+  banStatusMeta,
+  formatAdminDateTime
+} from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '访客轨迹', robots: 'noindex, nofollow' })
@@ -17,6 +23,7 @@ type VisitorRow = {
   lastPath: string | null
   eventCount: number
   userId: string | null
+  isBanned?: boolean
   locationLabel: string
 }
 
@@ -24,7 +31,12 @@ type VisitorEvent = {
   id: string
   action: string
   path: string | null
+  method?: string | null
   ip: string | null
+  country?: string | null
+  region?: string | null
+  city?: string | null
+  meta?: Record<string, unknown> | null
   createdAt: string
 }
 
@@ -42,6 +54,7 @@ const toast = useToast()
 const loading = ref(false)
 const banLoading = ref(false)
 const eventsLoading = ref(false)
+const creatingBan = ref(false)
 const errorMessage = ref('')
 const items = ref<VisitorRow[]>([])
 const total = ref(0)
@@ -49,28 +62,31 @@ const page = ref(1)
 const pageSize = 20
 const q = ref('')
 const ip = ref('')
+const banned = ref<'all' | 'true' | 'false'>('all')
 
 const selectedVisitor = ref<VisitorRow | null>(null)
 const events = ref<VisitorEvent[]>([])
+const eventTotal = ref(0)
 const bans = ref<BanRow[]>([])
 const banScope = ref<'ip' | 'visitor' | 'user'>('ip')
 const banValue = ref('')
 const banReason = ref('')
+const banExpiresAt = ref('')
+
+const bannedCountOnPage = computed(() => items.value.filter(row => row.isBanned).length)
+const activeBanCount = computed(() => bans.value.filter(row => banStatusMeta(row).tone === 'active').length)
 
 function formatTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
+  return formatAdminDateTime(iso)
+}
+
+function shortUa(ua: string | null | undefined): string {
+  if (!ua) return '—'
+  return ua.length > 72 ? `${ua.slice(0, 72)}…` : ua
+}
+
+function eventLocation(event: VisitorEvent): string {
+  return [event.country, event.region, event.city].filter(Boolean).join(' · ') || '未知'
 }
 
 async function handleAuth(error: unknown): Promise<boolean> {
@@ -88,7 +104,8 @@ async function loadVisitors(): Promise<void> {
         page: page.value,
         pageSize,
         q: q.value.trim() || undefined,
-        ip: ip.value.trim() || undefined
+        ip: ip.value.trim() || undefined,
+        banned: banned.value === 'all' ? undefined : banned.value
       }
     })
     items.value = payload.items || []
@@ -105,7 +122,7 @@ async function loadBans(): Promise<void> {
   banLoading.value = true
   try {
     const payload = await adminFetch<{ items: BanRow[] }>('/api/admin/visitors/bans', {
-      query: { page: 1, pageSize: 50 }
+      query: { page: 1, pageSize: 30, active: 'true' }
     })
     bans.value = payload.items || []
   } catch (error) {
@@ -120,11 +137,12 @@ async function openEvents(row: VisitorRow): Promise<void> {
   selectedVisitor.value = row
   eventsLoading.value = true
   try {
-    const payload = await adminFetch<{ items: VisitorEvent[] }>(
+    const payload = await adminFetch<{ items: VisitorEvent[]; total: number }>(
       `/api/admin/visitors/${encodeURIComponent(row.id)}/events`,
-      { query: { page: 1, pageSize: 40 } }
+      { query: { page: 1, pageSize: 60 } }
     )
     events.value = payload.items || []
+    eventTotal.value = payload.total || events.value.length
   } catch (error) {
     if (await handleAuth(error)) return
     toast.add({ title: getRequestMessage(error, '操作记录加载失败'), color: 'error' })
@@ -138,6 +156,11 @@ function prepBan(row: VisitorRow, scope: 'ip' | 'visitor' | 'user'): void {
   if (scope === 'ip') banValue.value = row.lastIp || ''
   else if (scope === 'visitor') banValue.value = row.id
   else banValue.value = row.userId || ''
+  banReason.value = ''
+  banExpiresAt.value = ''
+  if (typeof window !== 'undefined') {
+    document.getElementById('visitor-ban-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 }
 
 async function createBan(): Promise<void> {
@@ -149,21 +172,28 @@ async function createBan(): Promise<void> {
     toast.add({ title: '请填写封禁原因（必填）', color: 'warning' })
     return
   }
+  creatingBan.value = true
   try {
     await adminFetch('/api/admin/visitors/bans', {
       method: 'POST',
       body: {
         scope: banScope.value,
         value: banValue.value.trim(),
-        reason: banReason.value.trim()
+        reason: banReason.value.trim(),
+        expiresAt: banExpiresAt.value.trim()
+          ? new Date(banExpiresAt.value.trim()).toISOString()
+          : null
       }
     })
     toast.add({ title: '已添加封禁', color: 'success' })
     banReason.value = ''
-    await loadBans()
+    banExpiresAt.value = ''
+    await Promise.all([loadBans(), loadVisitors()])
   } catch (error) {
     if (await handleAuth(error)) return
     toast.add({ title: getRequestMessage(error, '封禁失败'), color: 'error' })
+  } finally {
+    creatingBan.value = false
   }
 }
 
@@ -173,7 +203,7 @@ async function deactivateBan(id: string): Promise<void> {
       method: 'DELETE'
     })
     toast.add({ title: '已解除封禁', color: 'success' })
-    await loadBans()
+    await Promise.all([loadBans(), loadVisitors()])
   } catch (error) {
     if (await handleAuth(error)) return
     toast.add({ title: getRequestMessage(error, '解除失败'), color: 'error' })
@@ -195,15 +225,22 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="访客轨迹"
-      description="记录访客 IP、地点与操作轨迹；快速封禁入口在此，完整封禁治理见「封禁」页。"
+      description="按 IP / 地点 / 路径检索访客；可看详细事件抽屉，并快速封禁（支持到期时间）。完整封禁治理见「封禁」页。"
       icon="i-lucide-radar"
-      eyebrow="运营安全"
+      eyebrow="安全与审计"
     >
       <template #actions>
         <UButton
           to="/admin/bans"
           icon="i-lucide-shield-ban"
           label="封禁管理"
+          color="neutral"
+          variant="outline"
+        />
+        <UButton
+          to="/admin/audit"
+          icon="i-lucide-scroll-text"
+          label="审计日志"
           color="neutral"
           variant="outline"
         />
@@ -225,7 +262,34 @@ onMounted(() => {
       {{ errorMessage }}
     </div>
 
-    <div class="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:grid-cols-3">
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+        <p class="text-xs text-zinc-500">
+          当前筛选结果
+        </p>
+        <p class="mt-1 text-2xl font-semibold text-zinc-950">
+          {{ total }}
+        </p>
+      </div>
+      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+        <p class="text-xs text-zinc-500">
+          本页已封禁访客
+        </p>
+        <p class="mt-1 text-2xl font-semibold text-rose-700">
+          {{ bannedCountOnPage }}
+        </p>
+      </div>
+      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+        <p class="text-xs text-zinc-500">
+          生效中封禁（侧栏）
+        </p>
+        <p class="mt-1 text-2xl font-semibold text-amber-700">
+          {{ activeBanCount }}
+        </p>
+      </div>
+    </div>
+
+    <div class="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
       <UFormField label="关键词">
         <UInput
           v-model="q"
@@ -237,15 +301,27 @@ onMounted(() => {
       <UFormField label="精确 IP">
         <UInput
           v-model="ip"
-          placeholder="必填原因"
+          placeholder="例如 1.2.3.4"
           class="w-full"
           @keyup.enter="applySearch"
+        />
+      </UFormField>
+      <UFormField label="封禁状态">
+        <USelect
+          v-model="banned"
+          :items="[
+            { label: '全部访客', value: 'all' },
+            { label: '仅已封禁', value: 'true' },
+            { label: '仅未封禁', value: 'false' }
+          ]"
+          class="w-full"
         />
       </UFormField>
       <div class="flex items-end">
         <UButton
           color="primary"
           icon="i-lucide-search"
+          :loading="loading"
           @click="applySearch"
         >
           查询
@@ -259,8 +335,9 @@ onMounted(() => {
           <tr>
             <th class="px-3 py-3 font-medium">最近访问</th>
             <th class="px-3 py-3 font-medium">IP / 地点</th>
-            <th class="px-3 py-3 font-medium">路径</th>
+            <th class="px-3 py-3 font-medium">路径 / UA</th>
             <th class="px-3 py-3 font-medium">事件</th>
+            <th class="px-3 py-3 font-medium">状态</th>
             <th class="px-3 py-3 font-medium">操作</th>
           </tr>
         </thead>
@@ -269,6 +346,7 @@ onMounted(() => {
             v-for="row in items"
             :key="row.id"
             class="border-t border-zinc-100 align-top"
+            :class="selectedVisitor?.id === row.id ? 'bg-sky-50/40' : ''"
           >
             <td class="px-3 py-3 whitespace-nowrap text-zinc-700">
               {{ formatTime(row.lastSeenAt) }}
@@ -284,14 +362,33 @@ onMounted(() => {
                 {{ row.locationLabel }}
               </div>
               <div class="mt-1 break-all text-[11px] text-zinc-400">
-                {{ row.id }}
+                访客 {{ row.id }}
+              </div>
+              <div
+                v-if="row.userId"
+                class="mt-1 break-all text-[11px] text-sky-600"
+              >
+                账号 {{ row.userId }}
               </div>
             </td>
-            <td class="px-3 py-3 text-xs text-zinc-600">
-              {{ row.lastPath || '—' }}
+            <td class="px-3 py-3">
+              <div class="text-xs text-zinc-700">
+                {{ row.lastPath || '—' }}
+              </div>
+              <div class="mt-1 break-all text-[11px] text-zinc-400">
+                {{ shortUa(row.lastUserAgent) }}
+              </div>
+            </td>
+            <td class="px-3 py-3 font-medium text-zinc-800">
+              {{ row.eventCount }}
             </td>
             <td class="px-3 py-3">
-              {{ row.eventCount }}
+              <span
+                class="rounded-full px-2 py-0.5 text-xs"
+                :class="row.isBanned ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'"
+              >
+                {{ row.isBanned ? '已封禁' : '正常' }}
+              </span>
             </td>
             <td class="px-3 py-3">
               <div class="flex flex-wrap gap-1">
@@ -301,7 +398,7 @@ onMounted(() => {
                   variant="outline"
                   @click="openEvents(row)"
                 >
-                  记录
+                  事件详情
                 </UButton>
                 <UButton
                   size="xs"
@@ -320,12 +417,21 @@ onMounted(() => {
                 >
                   封访客
                 </UButton>
+                <UButton
+                  v-if="row.userId"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="prepBan(row, 'user')"
+                >
+                  封账号
+                </UButton>
               </div>
             </td>
           </tr>
           <tr v-if="!items.length && !loading">
             <td
-              colspan="5"
+              colspan="6"
               class="px-3 py-10 text-center text-sm text-zinc-400"
             >
               暂无访客数据
@@ -336,7 +442,7 @@ onMounted(() => {
     </div>
 
     <div class="flex items-center justify-between text-sm text-zinc-500">
-      <span>共 {{ total }} 条</span>
+      <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
       <div class="flex gap-2">
         <UButton
           size="sm"
@@ -360,10 +466,16 @@ onMounted(() => {
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
-      <section class="rounded-2xl border border-zinc-200 bg-white p-4">
+      <section
+        id="visitor-ban-form"
+        class="rounded-2xl border border-zinc-200 bg-white p-4"
+      >
         <h2 class="font-semibold text-zinc-950">
-          添加封禁
+          快速封禁
         </h2>
+        <p class="mt-1 text-xs text-zinc-500">
+          原因必填；可选到期时间。创建后会写入审计日志。
+        </p>
         <div class="mt-3 space-y-3">
           <UFormField label="范围">
             <USelect
@@ -371,7 +483,7 @@ onMounted(() => {
               :items="[
                 { label: 'IP', value: 'ip' },
                 { label: '访客', value: 'visitor' },
-                { label: '用户', value: 'user' }
+                { label: '账号', value: 'user' }
               ]"
               class="w-full"
             />
@@ -380,19 +492,27 @@ onMounted(() => {
             <UInput
               v-model="banValue"
               class="w-full"
-              placeholder="IP / 访客 ID / 用户 ID"
+              placeholder="IP / 访客 ID / 账号 ID"
             />
           </UFormField>
           <UFormField label="原因（必填）">
             <UInput
               v-model="banReason"
               class="w-full"
-              placeholder="可选"
+              placeholder="例如：恶意刷接口 / 异常爬取"
+            />
+          </UFormField>
+          <UFormField label="到期时间（可选）">
+            <UInput
+              v-model="banExpiresAt"
+              type="datetime-local"
+              class="w-full"
             />
           </UFormField>
           <UButton
             color="error"
             icon="i-lucide-ban"
+            :loading="creatingBan"
             @click="createBan"
           >
             确认封禁
@@ -402,9 +522,14 @@ onMounted(() => {
 
       <section class="rounded-2xl border border-zinc-200 bg-white p-4">
         <div class="flex items-center justify-between">
-          <h2 class="font-semibold text-zinc-950">
-            封禁列表
-          </h2>
+          <div>
+            <h2 class="font-semibold text-zinc-950">
+              生效中封禁（最近 30 条）
+            </h2>
+            <p class="mt-1 text-xs text-zinc-500">
+              完整筛选与分页请前往封禁管理。
+            </p>
+          </div>
           <UButton
             size="xs"
             color="neutral"
@@ -415,7 +540,7 @@ onMounted(() => {
             刷新
           </UButton>
         </div>
-        <ul class="mt-3 max-h-80 space-y-2 overflow-y-auto">
+        <ul class="mt-3 max-h-96 space-y-2 overflow-y-auto">
           <li
             v-for="ban in bans"
             :key="ban.id"
@@ -424,10 +549,18 @@ onMounted(() => {
             <div class="flex items-start justify-between gap-2">
               <div>
                 <p class="font-medium text-zinc-900">
-                  {{ ban.scope }} · {{ ban.value }}
+                  {{ adminLabel(adminBanScopeLabels, ban.scope) }} · {{ ban.value }}
                 </p>
                 <p class="text-xs text-zinc-500">
-                  {{ ban.isActive ? '生效中' : '已解除' }} · {{ formatTime(ban.createdAt) }}
+                  <span
+                    :class="{
+                      'text-emerald-700': banStatusMeta(ban).tone === 'active',
+                      'text-amber-700': banStatusMeta(ban).tone === 'expired',
+                      'text-zinc-500': banStatusMeta(ban).tone === 'inactive'
+                    }"
+                  >{{ banStatusMeta(ban).label }}</span>
+                  · {{ formatTime(ban.createdAt) }}
+                  <template v-if="ban.expiresAt"> · 到期 {{ formatTime(ban.expiresAt) }}</template>
                 </p>
                 <p
                   v-if="ban.reason"
@@ -451,7 +584,7 @@ onMounted(() => {
             v-if="!bans.length"
             class="py-6 text-center text-sm text-zinc-400"
           >
-            暂无封禁
+            暂无生效封禁
           </li>
         </ul>
       </section>
@@ -459,21 +592,38 @@ onMounted(() => {
 
     <section
       v-if="selectedVisitor"
-      class="rounded-2xl border border-zinc-200 bg-white p-4"
+      class="rounded-2xl border border-sky-200 bg-sky-50/30 p-4"
     >
-      <div class="flex items-center justify-between gap-2">
-        <h2 class="font-semibold text-zinc-950">
-          操作记录 · {{ selectedVisitor.lastIp || selectedVisitor.id }}
-        </h2>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          @click="selectedVisitor = null"
-        >
-          关闭
-        </UButton>
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="font-semibold text-zinc-950">
+            事件详情 · {{ selectedVisitor.lastIp || selectedVisitor.id }}
+          </h2>
+          <p class="mt-1 text-xs text-zinc-500">
+            {{ selectedVisitor.locationLabel }} · 共 {{ eventTotal }} 条事件 · 访客 ID {{ selectedVisitor.id }}
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <UButton
+            size="xs"
+            color="error"
+            variant="soft"
+            :disabled="!selectedVisitor.lastIp"
+            @click="prepBan(selectedVisitor, 'ip')"
+          >
+            封此 IP
+          </UButton>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            @click="selectedVisitor = null"
+          >
+            关闭
+          </UButton>
+        </div>
       </div>
+
       <div
         v-if="eventsLoading"
         class="py-6 text-sm text-zinc-400"
@@ -482,19 +632,35 @@ onMounted(() => {
       </div>
       <ul
         v-else
-        class="mt-3 max-h-96 space-y-2 overflow-y-auto"
+        class="mt-3 max-h-[28rem] space-y-2 overflow-y-auto"
       >
         <li
           v-for="event in events"
           :key="event.id"
-          class="rounded-lg bg-zinc-50 px-3 py-2 text-sm"
+          class="rounded-xl border border-white bg-white px-3 py-3 text-sm shadow-sm"
         >
-          <span class="font-medium text-zinc-900">{{ event.action }}</span>
-          <span class="mx-2 text-zinc-300">·</span>
-          <span class="text-zinc-600">{{ event.path || '—' }}</span>
-          <div class="text-xs text-zinc-400">
-            {{ formatTime(event.createdAt) }} · {{ event.ip || '—' }}
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800">
+              {{ event.action }}
+            </span>
+            <span
+              v-if="event.method"
+              class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700"
+            >
+              {{ event.method }}
+            </span>
+            <span class="text-xs text-zinc-500">{{ formatTime(event.createdAt) }}</span>
           </div>
+          <p class="mt-2 break-all text-sm text-zinc-800">
+            {{ event.path || '—' }}
+          </p>
+          <p class="mt-1 text-xs text-zinc-500">
+            {{ event.ip || '—' }} · {{ eventLocation(event) }}
+          </p>
+          <pre
+            v-if="event.meta && Object.keys(event.meta).length"
+            class="mt-2 overflow-x-auto rounded-lg bg-zinc-50 p-2 text-[11px] leading-5 text-zinc-600"
+          >{{ JSON.stringify(event.meta, null, 2) }}</pre>
         </li>
         <li
           v-if="!events.length"

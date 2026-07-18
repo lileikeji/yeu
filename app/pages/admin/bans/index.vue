@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
+import {
+  adminBanScopeLabels,
+  adminLabel,
+  banStatusMeta,
+  formatAdminDateTime
+} from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '封禁管理', robots: 'noindex, nofollow' })
@@ -35,27 +41,27 @@ const form = reactive({
   expiresAt: ''
 })
 
-function formatTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }).format(new Date(iso))
-  } catch {
-    return iso
+const statusCounts = computed(() => {
+  let activeN = 0
+  let expiredN = 0
+  let inactiveN = 0
+  for (const ban of items.value) {
+    const tone = banStatusMeta(ban).tone
+    if (tone === 'active') activeN += 1
+    else if (tone === 'expired') expiredN += 1
+    else inactiveN += 1
   }
+  return { activeN, expiredN, inactiveN }
+})
+
+function formatTime(iso: string | null | undefined): string {
+  return formatAdminDateTime(iso)
 }
 
-function scopeLabel(value: string): string {
-  if (value === 'ip') return 'IP'
-  if (value === 'visitor') return '访客'
-  if (value === 'user') return '账号'
-  return value
+function statusClass(tone: 'active' | 'expired' | 'inactive'): string {
+  if (tone === 'active') return 'bg-emerald-50 text-emerald-700'
+  if (tone === 'expired') return 'bg-amber-50 text-amber-700'
+  return 'bg-zinc-100 text-zinc-600'
 }
 
 async function handleAuth(error: unknown): Promise<boolean> {
@@ -88,6 +94,13 @@ async function loadBans(): Promise<void> {
 }
 
 function applySearch(): void {
+  page.value = 1
+  void loadBans()
+}
+
+function applyPreset(nextActive: 'true' | 'false' | 'all', nextScope: '' | 'ip' | 'visitor' | 'user' = ''): void {
+  active.value = nextActive
+  scope.value = nextScope
   page.value = 1
   void loadBans()
 }
@@ -151,7 +164,7 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="封禁管理"
-      description="按 IP、访客或账号封禁访问；原因必填，操作写入审计。"
+      description="按状态、范围与关键词治理 IP / 访客 / 账号封禁；创建原因必填，支持到期时间。"
       icon="i-lucide-shield-ban"
       eyebrow="安全与审计"
     >
@@ -160,6 +173,13 @@ onMounted(() => {
           to="/admin/visitors"
           icon="i-lucide-radar"
           label="访客轨迹"
+          color="neutral"
+          variant="outline"
+        />
+        <UButton
+          to="/admin/audit"
+          icon="i-lucide-scroll-text"
+          label="审计日志"
           color="neutral"
           variant="outline"
         />
@@ -181,14 +201,62 @@ onMounted(() => {
       {{ errorMessage }}
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
+    <div class="flex flex-wrap gap-2">
+      <UButton
+        size="sm"
+        :color="active === 'true' && !scope ? 'primary' : 'neutral'"
+        :variant="active === 'true' && !scope ? 'solid' : 'soft'"
+        @click="applyPreset('true')"
+      >
+        生效中
+      </UButton>
+      <UButton
+        size="sm"
+        :color="active === 'false' ? 'primary' : 'neutral'"
+        :variant="active === 'false' ? 'solid' : 'soft'"
+        @click="applyPreset('false')"
+      >
+        已解除
+      </UButton>
+      <UButton
+        size="sm"
+        :color="active === 'all' && !scope ? 'primary' : 'neutral'"
+        :variant="active === 'all' && !scope ? 'solid' : 'soft'"
+        @click="applyPreset('all')"
+      >
+        全部状态
+      </UButton>
+      <UButton
+        size="sm"
+        :color="scope === 'ip' ? 'primary' : 'neutral'"
+        :variant="scope === 'ip' ? 'solid' : 'soft'"
+        @click="applyPreset(active, 'ip')"
+      >
+        仅 IP
+      </UButton>
+      <UButton
+        size="sm"
+        :color="scope === 'visitor' ? 'primary' : 'neutral'"
+        :variant="scope === 'visitor' ? 'solid' : 'soft'"
+        @click="applyPreset(active, 'visitor')"
+      >
+        仅访客
+      </UButton>
+      <UButton
+        size="sm"
+        :color="scope === 'user' ? 'primary' : 'neutral'"
+        :variant="scope === 'user' ? 'solid' : 'soft'"
+        @click="applyPreset(active, 'user')"
+      >
+        仅账号
+      </UButton>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
       <section class="rounded-2xl border border-zinc-200 bg-white p-4">
         <h2 class="font-semibold text-zinc-950">
-          新增封禁
+          新建封禁
         </h2>
-        <p class="mt-1 text-xs text-zinc-500">
-          原因必填，便于审计复核。
-        </p>
         <div class="mt-3 space-y-3">
           <UFormField label="范围">
             <USelect
@@ -285,6 +353,10 @@ onMounted(() => {
           </UButton>
         </div>
 
+        <p class="mt-3 text-xs text-zinc-500">
+          本页：生效 {{ statusCounts.activeN }} · 过期 {{ statusCounts.expiredN }} · 已解除 {{ statusCounts.inactiveN }}
+        </p>
+
         <ul class="mt-4 max-h-[36rem] space-y-2 overflow-y-auto">
           <li
             v-for="ban in items"
@@ -292,16 +364,28 @@ onMounted(() => {
             class="rounded-xl border border-zinc-100 px-3 py-3 text-sm"
           >
             <div class="flex items-start justify-between gap-2">
-              <div>
-                <p class="font-medium text-zinc-900">
-                  {{ scopeLabel(ban.scope) }} · {{ ban.value }}
-                </p>
-                <p class="text-xs text-zinc-500">
-                  {{ ban.isActive ? '生效中' : '已解除' }} · {{ formatTime(ban.createdAt) }}
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="font-medium text-zinc-900">
+                    {{ adminLabel(adminBanScopeLabels, ban.scope) }} · {{ ban.value }}
+                  </p>
+                  <span
+                    class="rounded-full px-2 py-0.5 text-[11px]"
+                    :class="statusClass(banStatusMeta(ban).tone)"
+                  >
+                    {{ banStatusMeta(ban).label }}
+                  </span>
+                </div>
+                <p class="mt-1 text-xs text-zinc-500">
+                  创建 {{ formatTime(ban.createdAt) }}
                   <template v-if="ban.expiresAt"> · 到期 {{ formatTime(ban.expiresAt) }}</template>
+                  <template v-else> · 永久</template>
                 </p>
                 <p class="mt-1 text-xs text-zinc-700">
                   原因：{{ ban.reason || '—' }}
+                </p>
+                <p class="mt-1 break-all text-[11px] text-zinc-400">
+                  ID {{ ban.id }}
                 </p>
               </div>
               <UButton
@@ -324,7 +408,7 @@ onMounted(() => {
         </ul>
 
         <div class="mt-3 flex items-center justify-between text-sm text-zinc-500">
-          <span>共 {{ total }} 条</span>
+          <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
           <div class="flex gap-2">
             <UButton
               size="sm"

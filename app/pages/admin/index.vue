@@ -10,6 +10,12 @@ import {
   normalizeAdminDashboardResponse,
   type AdminDashboardRecord
 } from '~~/app/utils/admin-dashboard-presentation'
+import {
+  adminAuditActionLabels,
+  adminBanScopeLabels,
+  adminLabel
+} from '~~/app/utils/admin-security-labels'
+import { adminFetch } from '~~/app/utils/admin-request'
 
 definePageMeta({ layout: 'admin' })
 
@@ -21,6 +27,8 @@ useSeoMeta({
 const counts = reactive<Record<string, number | null>>({})
 const recentFeedback = ref<AdminDashboardRecord[]>([])
 const recentAudit = ref<AdminDashboardRecord[]>([])
+const recentBans = ref<AdminDashboardRecord[]>([])
+const recentVisitors = ref<AdminDashboardRecord[]>([])
 const loading = ref(false)
 const loadError = ref('')
 
@@ -30,6 +38,16 @@ const moduleGroups = computed(() =>
     modules: adminDashboardModulesByGroup(group.key)
   }))
 )
+
+function auditActionLabel(record: AdminDashboardRecord): string {
+  const raw = adminDashboardRecordValue(record, 'action', 'event', 'operation')
+  return adminLabel(adminAuditActionLabels, raw === '—' ? '' : raw, raw)
+}
+
+function banScopeLabel(record: AdminDashboardRecord): string {
+  const raw = adminDashboardRecordValue(record, 'scope')
+  return adminLabel(adminBanScopeLabels, raw === '—' ? '' : raw, raw)
+}
 
 async function loadDashboard(): Promise<void> {
   loading.value = true
@@ -49,6 +67,20 @@ async function loadDashboard(): Promise<void> {
     return { key: 'audit', ...normalizeAdminDashboardResponse(response) }
   })())
 
+  requests.push((async () => {
+    const response = await adminFetch<unknown>('/api/admin/visitors/bans', {
+      query: { page: 1, pageSize: 5, active: 'true' }
+    })
+    return { key: 'recent-bans', ...normalizeAdminDashboardResponse(response) }
+  })())
+
+  requests.push((async () => {
+    const response = await adminFetch<unknown>('/api/admin/visitors', {
+      query: { page: 1, pageSize: 5 }
+    })
+    return { key: 'recent-visitors', ...normalizeAdminDashboardResponse(response) }
+  })())
+
   const results = await Promise.allSettled(requests)
   let failed = false
 
@@ -66,7 +98,11 @@ async function loadDashboard(): Promise<void> {
     const { key, items, total } = result.value
     if (key === 'feedback') recentFeedback.value = items
     if (key === 'audit') recentAudit.value = items
-    if (key !== 'audit') counts[key] = total
+    if (key === 'recent-bans') recentBans.value = items
+    if (key === 'recent-visitors') recentVisitors.value = items
+    if (key !== 'audit' && key !== 'recent-bans' && key !== 'recent-visitors') {
+      counts[key] = total
+    }
   }
 
   for (const module of adminDashboardModules) {
@@ -149,12 +185,12 @@ onMounted(() => {
             </span>
             <UIcon
               name="i-lucide-arrow-up-right"
-              class="size-4 text-zinc-300 group-hover:text-zinc-500"
+              class="size-4 text-zinc-300 transition group-hover:text-zinc-500"
             />
           </div>
-          <p class="mt-4 text-2xl font-bold text-zinc-950">
+          <p class="mt-3 text-2xl font-semibold tabular-nums text-zinc-950">
             <USkeleton
-              v-if="loading && counts[module.key] === undefined"
+              v-if="loading && counts[module.key] == null"
               class="h-7 w-14"
             />
             <template v-else>
@@ -281,7 +317,7 @@ onMounted(() => {
             </span>
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium text-zinc-900">
-                {{ adminDashboardRecordValue(item, 'action', 'event', 'operation') }}
+                {{ auditActionLabel(item) }}
               </p>
               <p class="mt-1 truncate text-xs text-zinc-500">
                 {{ adminDashboardRecordValue(item, 'entityTitle', 'entityType', 'target') }}
@@ -295,6 +331,118 @@ onMounted(() => {
           class="px-4 py-10 text-center text-sm text-zinc-500"
         >
           暂无操作记录
+        </p>
+      </section>
+
+      <section class="overflow-hidden rounded-md border border-zinc-200 bg-white">
+        <div class="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+          <div>
+            <h2 class="text-sm font-semibold text-zinc-950">
+              生效封禁
+            </h2>
+            <p class="mt-0.5 text-xs text-zinc-500">
+              安全与审计
+            </p>
+          </div>
+          <UButton
+            to="/admin/bans"
+            icon="i-lucide-arrow-right"
+            trailing
+            label="全部"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+          />
+        </div>
+        <div
+          v-if="recentBans.length"
+          class="divide-y divide-zinc-100"
+        >
+          <NuxtLink
+            v-for="item in recentBans"
+            :key="adminDashboardRecordValue(item, 'id', '_id')"
+            to="/admin/bans"
+            class="flex items-start gap-3 px-4 py-3 hover:bg-zinc-50"
+          >
+            <span class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-red-50 text-red-700">
+              <UIcon
+                name="i-lucide-shield-ban"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium text-zinc-900">
+                {{ banScopeLabel(item) }} · {{ adminDashboardRecordValue(item, 'value') }}
+              </p>
+              <p class="mt-1 line-clamp-1 text-xs text-zinc-500">
+                {{ adminDashboardRecordValue(item, 'reason') }}
+              </p>
+            </div>
+            <span class="shrink-0 text-xs text-zinc-400">{{ formatAdminDashboardDate(item) }}</span>
+          </NuxtLink>
+        </div>
+        <p
+          v-else
+          class="px-4 py-10 text-center text-sm text-zinc-500"
+        >
+          暂无生效封禁
+        </p>
+      </section>
+
+      <section class="overflow-hidden rounded-md border border-zinc-200 bg-white">
+        <div class="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+          <div>
+            <h2 class="text-sm font-semibold text-zinc-950">
+              最近访客
+            </h2>
+            <p class="mt-0.5 text-xs text-zinc-500">
+              安全与审计
+            </p>
+          </div>
+          <UButton
+            to="/admin/visitors"
+            icon="i-lucide-arrow-right"
+            trailing
+            label="全部"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+          />
+        </div>
+        <div
+          v-if="recentVisitors.length"
+          class="divide-y divide-zinc-100"
+        >
+          <NuxtLink
+            v-for="item in recentVisitors"
+            :key="adminDashboardRecordValue(item, 'id', '_id')"
+            to="/admin/visitors"
+            class="flex items-start gap-3 px-4 py-3 hover:bg-zinc-50"
+          >
+            <span class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-rose-50 text-rose-700">
+              <UIcon
+                name="i-lucide-radar"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium text-zinc-900">
+                {{ adminDashboardRecordValue(item, 'lastIp', 'id') }}
+              </p>
+              <p class="mt-1 truncate text-xs text-zinc-500">
+                {{ adminDashboardRecordValue(item, 'locationLabel', 'lastCity', 'lastPath') }}
+              </p>
+            </div>
+            <span class="shrink-0 text-xs text-zinc-400">
+              {{ formatAdminDashboardDate({ createdAt: item.lastSeenAt } as AdminDashboardRecord) }}
+            </span>
+          </NuxtLink>
+        </div>
+        <p
+          v-else
+          class="px-4 py-10 text-center text-sm text-zinc-500"
+        >
+          暂无访客数据
         </p>
       </section>
     </div>

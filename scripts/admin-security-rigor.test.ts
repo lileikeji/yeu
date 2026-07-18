@@ -1,10 +1,11 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   adminVisitorBansQuerySchema,
   adminAuditLogsQuerySchema,
+  adminChatMessagesQuerySchema,
   createVisitorBanSchema,
   muteChatUserSchema,
   muteAllChatRoomSchema
@@ -13,6 +14,11 @@ import {
 const bansPage = readFileSync(resolve('app/pages/admin/bans/index.vue'), 'utf8')
 const chatPage = readFileSync(resolve('app/pages/admin/chat/index.vue'), 'utf8')
 const auditPage = readFileSync(resolve('app/pages/admin/audit/index.vue'), 'utf8')
+const visitorsPage = readFileSync(resolve('app/pages/admin/visitors/index.vue'), 'utf8')
+const usersPage = readFileSync(resolve('app/pages/admin/users/index.vue'), 'utf8')
+const dashboardPage = readFileSync(resolve('app/pages/admin/index.vue'), 'utf8')
+const labels = readFileSync(resolve('app/utils/admin-security-labels.ts'), 'utf8')
+const visitorsService = readFileSync(resolve('server/modules/visitors/service.ts'), 'utf8')
 const presentation = readFileSync(resolve('app/utils/admin-dashboard-presentation.ts'), 'utf8')
 const banPost = readFileSync(resolve('server/api/admin/visitors/bans.post.ts'), 'utf8')
 const mutePost = readFileSync(resolve('server/api/admin/chat/mutes.post.ts'), 'utf8')
@@ -43,6 +49,17 @@ test('admin audit query filters parse', () => {
   assert.equal(q.action, 'visitor.ban')
   assert.equal(q.entityType, 'visitor_ban')
   assert.equal(q.entityId, 'abc')
+})
+
+test('admin chat message query supports body search q up to 200', () => {
+  const ok = adminChatMessagesQuerySchema.parse({
+    page: 1,
+    pageSize: 20,
+    q: 'x'.repeat(150),
+    userId: '11111111-1111-4111-8111-111111111111'
+  })
+  assert.equal(ok.q?.length, 150)
+  assert.throws(() => adminChatMessagesQuerySchema.parse({ page: 1, q: 'x'.repeat(201) }))
 })
 
 test('chat mute reason is required; mute-all reason required when enabling', () => {
@@ -78,4 +95,20 @@ test('security modules stay separated in dedicated admin pages and nav', () => {
   assert.match(banPost, /reason: input\.reason/)
   assert.match(mutePost, /reason: input\.reason/)
   assert.match(auditApi, /query\.entityId/)
+})
+
+test('admin depth: visitors expose isBanned, labels and richer panels', () => {
+  assert.match(visitorsService, /isBanned:\s*isBanned\(row\)/)
+  assert.match(visitorsPage, /isBanned/)
+  assert.match(visitorsPage, /banned/)
+  assert.match(bansPage, /生效中|已过期|已解除/)
+  assert.match(auditPage, /prettyAdminDetails|admin-security-labels/)
+  assert.match(chatPage, /softDeleteMessage/)
+  assert.match(chatPage, /expiresAt/)
+  assert.match(usersPage, /\/admin\/chat/)
+  assert.match(dashboardPage, /\/api\/admin\/visitors\/bans/)
+  assert.match(dashboardPage, /recentBans|recent-bans/)
+  assert.match(labels, /prettyAdminDetails/)
+  assert.match(labels, /banStatusMeta/)
+  assert.match(labels, /adminAuditActionLabels/)
 })

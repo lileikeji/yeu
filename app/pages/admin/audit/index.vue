@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
+import {
+  adminAuditActionLabels,
+  adminAuditEntityLabels,
+  adminAuditEntityTypeOptions,
+  adminAuditPresets,
+  adminLabel,
+  formatAdminDateTime,
+  prettyAdminDetails
+} from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '审计日志', robots: 'noindex, nofollow' })
@@ -27,42 +36,25 @@ const pageSize = 30
 const action = ref('')
 const entityType = ref('')
 const entityId = ref('')
-
-const entityTypeOptions = [
-  { label: '全部对象', value: '' },
-  { label: 'visitor_ban', value: 'visitor_ban' },
-  { label: 'chat_message', value: 'chat_message' },
-  { label: 'chat_mute', value: 'chat_mute' },
-  { label: 'chat_room', value: 'chat_room' },
-  { label: 'user', value: 'user' },
-  { label: 'place', value: 'place' },
-  { label: 'content', value: 'content' },
-  { label: 'procedure', value: 'procedure' }
-]
+const activePreset = ref('all')
+const expanded = ref<Record<string, boolean>>({})
 
 function formatTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
+  return formatAdminDateTime(iso, true)
 }
 
-function detailsText(details: Record<string, unknown> | null | undefined): string {
-  if (!details || !Object.keys(details).length) return '—'
-  try {
-    return JSON.stringify(details)
-  } catch {
-    return '—'
+function actionLabel(value: string): string {
+  return adminLabel(adminAuditActionLabels, value, value)
+}
+
+function entityLabel(value: string): string {
+  return adminLabel(adminAuditEntityLabels, value, value)
+}
+
+function toggleExpand(id: string): void {
+  expanded.value = {
+    ...expanded.value,
+    [id]: !expanded.value[id]
   }
 }
 
@@ -100,6 +92,16 @@ function applySearch(): void {
   void loadAudit()
 }
 
+function applyPreset(key: string): void {
+  const preset = adminAuditPresets.find(item => item.key === key)
+  if (!preset) return
+  activePreset.value = key
+  action.value = preset.action || ''
+  entityType.value = preset.entityType || ''
+  page.value = 1
+  void loadAudit()
+}
+
 onMounted(() => {
   void loadAudit()
 })
@@ -122,6 +124,13 @@ onMounted(() => {
           variant="outline"
         />
         <UButton
+          to="/admin/visitors"
+          icon="i-lucide-radar"
+          label="访客轨迹"
+          color="neutral"
+          variant="outline"
+        />
+        <UButton
           icon="i-lucide-refresh-cw"
           label="刷新"
           color="neutral"
@@ -140,6 +149,19 @@ onMounted(() => {
     </div>
 
     <section class="rounded-2xl border border-zinc-200 bg-white p-4">
+      <div class="mb-3 flex flex-wrap gap-2">
+        <UButton
+          v-for="preset in adminAuditPresets"
+          :key="preset.key"
+          size="sm"
+          :color="activePreset === preset.key ? 'primary' : 'neutral'"
+          :variant="activePreset === preset.key ? 'solid' : 'soft'"
+          @click="applyPreset(preset.key)"
+        >
+          {{ preset.label }}
+        </UButton>
+      </div>
+
       <div class="flex flex-wrap items-end gap-3">
         <UFormField
           label="操作 action"
@@ -158,7 +180,7 @@ onMounted(() => {
         >
           <USelect
             v-model="entityType"
-            :items="entityTypeOptions"
+            :items="adminAuditEntityTypeOptions"
             class="w-full"
           />
         </UFormField>
@@ -191,22 +213,61 @@ onMounted(() => {
         >
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
-              <p class="font-medium text-zinc-900">
-                {{ row.action }}
-              </p>
-              <p class="text-xs text-zinc-500">
-                {{ row.entityType }}
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="font-medium text-zinc-900">
+                  {{ actionLabel(row.action) }}
+                </p>
+                <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600">
+                  {{ row.action }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs text-zinc-500">
+                {{ entityLabel(row.entityType) }}
                 <template v-if="row.entityId"> · {{ row.entityId }}</template>
                 · {{ formatTime(row.createdAt) }}
-              </p>
-              <p class="mt-1 break-all text-xs text-zinc-700">
-                详情：{{ detailsText(row.details) }}
               </p>
               <p class="mt-1 text-xs text-zinc-400">
                 管理员：{{ row.actorAdminId || '—' }}
                 <template v-if="row.requestId"> · req {{ row.requestId }}</template>
               </p>
+
+              <div
+                v-if="expanded[row.id]"
+                class="mt-2 rounded-lg border border-zinc-100 bg-zinc-50 p-3"
+              >
+                <dl
+                  v-if="prettyAdminDetails(row.details).length"
+                  class="space-y-1.5"
+                >
+                  <div
+                    v-for="item in prettyAdminDetails(row.details)"
+                    :key="item.key"
+                    class="grid gap-1 sm:grid-cols-[7rem_minmax(0,1fr)]"
+                  >
+                    <dt class="text-xs font-medium text-zinc-500">
+                      {{ item.key }}
+                    </dt>
+                    <dd class="break-all text-xs text-zinc-800 whitespace-pre-wrap">
+                      {{ item.value }}
+                    </dd>
+                  </div>
+                </dl>
+                <p
+                  v-else
+                  class="text-xs text-zinc-400"
+                >
+                  无详情字段
+                </p>
+              </div>
             </div>
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="outline"
+              @click="toggleExpand(row.id)"
+            >
+              {{ expanded[row.id] ? '收起详情' : '展开详情' }}
+            </UButton>
           </div>
         </li>
         <li
@@ -218,7 +279,7 @@ onMounted(() => {
       </ul>
 
       <div class="mt-3 flex items-center justify-between text-sm text-zinc-500">
-        <span>共 {{ total }} 条</span>
+        <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
         <div class="flex gap-2">
           <UButton
             size="sm"

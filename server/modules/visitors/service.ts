@@ -211,25 +211,26 @@ export function listVisitors(
     .orderBy(desc(visitors.lastSeenAt))
     .all()
 
+  const now = Date.now()
+  const activeBans = client.db.select().from(visitorBans)
+    .where(eq(visitorBans.isActive, true))
+    .all()
+    .filter(row => !row.expiresAt || row.expiresAt > now)
+  const bannedVisitorIds = new Set(
+    activeBans.filter(row => row.scope === 'visitor').map(row => row.value)
+  )
+  const bannedIps = new Set(
+    activeBans.filter(row => row.scope === 'ip').map(row => row.value)
+  )
+  const bannedUserIds = new Set(
+    activeBans.filter(row => row.scope === 'user').map(row => row.value)
+  )
+  const isBanned = (row: typeof rows[number]) =>
+    bannedVisitorIds.has(row.id)
+    || (row.lastIp ? bannedIps.has(row.lastIp) : false)
+    || (row.userId ? bannedUserIds.has(row.userId) : false)
+
   if (query.banned === 'true' || query.banned === 'false') {
-    const now = Date.now()
-    const activeBans = client.db.select().from(visitorBans)
-      .where(eq(visitorBans.isActive, true))
-      .all()
-      .filter(row => !row.expiresAt || row.expiresAt > now)
-    const bannedVisitorIds = new Set(
-      activeBans.filter(row => row.scope === 'visitor').map(row => row.value)
-    )
-    const bannedIps = new Set(
-      activeBans.filter(row => row.scope === 'ip').map(row => row.value)
-    )
-    const bannedUserIds = new Set(
-      activeBans.filter(row => row.scope === 'user').map(row => row.value)
-    )
-    const isBanned = (row: typeof rows[number]) =>
-      bannedVisitorIds.has(row.id)
-      || (row.lastIp ? bannedIps.has(row.lastIp) : false)
-      || (row.userId ? bannedUserIds.has(row.userId) : false)
     rows = rows.filter(row => query.banned === 'true' ? isBanned(row) : !isBanned(row))
   }
 
@@ -248,6 +249,7 @@ export function listVisitors(
       lastPath: row.lastPath,
       eventCount: row.eventCount,
       userId: row.userId,
+      isBanned: isBanned(row),
       locationLabel: [row.lastCountry, row.lastRegion, row.lastCity].filter(Boolean).join(' · ') || '未知'
     })),
     total,

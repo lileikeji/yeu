@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
+import { formatAdminDateTime } from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '群聊管理', robots: 'noindex, nofollow' })
@@ -40,6 +41,7 @@ type MuteRow = {
 }
 
 const toast = useToast()
+const route = useRoute()
 const rooms = ref<ChatRoom[]>([])
 const messages = ref<ChatMessage[]>([])
 const mutes = ref<MuteRow[]>([])
@@ -48,6 +50,7 @@ const messageLoading = ref(false)
 const muteLoading = ref(false)
 const errorMessage = ref('')
 const roomFilter = ref('')
+const userFilter = ref('')
 const q = ref('')
 const page = ref(1)
 const pageSize = 30
@@ -56,25 +59,23 @@ const total = ref(0)
 const muteUserId = ref('')
 const muteRoomId = ref('')
 const muteReason = ref('')
+const muteExpiresAt = ref('')
+
+const mutedRoomCount = computed(() => rooms.value.filter(room => room.isMutedAll).length)
+const deletedOnPage = computed(() => messages.value.filter(item => item.deletedAt).length)
+const activeMuteCount = computed(() => mutes.value.filter(item => item.isActive).length)
 
 function formatTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
+  return formatAdminDateTime(iso, true)
 }
 
 function roomTitle(id: string): string {
   return rooms.value.find(room => room.id === id)?.title || id.slice(0, 8)
+}
+
+function muteExpiryLabel(mute: MuteRow): string {
+  if (!mute.expiresAt) return '永久'
+  return `到期 ${formatTime(mute.expiresAt)}`
 }
 
 async function handleAuth(error: unknown): Promise<boolean> {
@@ -96,6 +97,7 @@ async function loadMessages(): Promise<void> {
         page: page.value,
         pageSize,
         roomId: roomFilter.value || undefined,
+        userId: userFilter.value.trim() || undefined,
         q: q.value.trim() || undefined
       }
     })
@@ -113,12 +115,11 @@ async function loadMutes(): Promise<void> {
   muteLoading.value = true
   try {
     const payload = await adminFetch<{ items: MuteRow[] }>('/api/admin/chat/mutes', {
-      query: { page: 1, pageSize: 50 }
+      query: { page: 1, pageSize: 80 }
     })
     mutes.value = payload.items || []
   } catch (error) {
     if (await handleAuth(error)) return
-    // optional endpoint may be missing until deploy; soft-fail
     mutes.value = []
   } finally {
     muteLoading.value = false
@@ -169,6 +170,22 @@ function prepMute(message: ChatMessage): void {
   muteUserId.value = message.userId
   muteRoomId.value = message.roomId
   muteReason.value = ''
+  muteExpiresAt.value = ''
+  if (typeof window !== 'undefined') {
+    document.getElementById('chat-mute-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+function filterByUser(userId: string): void {
+  userFilter.value = userId
+  page.value = 1
+  void loadMessages()
+}
+
+function filterByRoom(roomId: string): void {
+  roomFilter.value = roomId
+  page.value = 1
+  void loadMessages()
 }
 
 async function muteUser(): Promise<void> {
@@ -186,11 +203,15 @@ async function muteUser(): Promise<void> {
       body: {
         userId: muteUserId.value.trim(),
         roomId: muteRoomId.value || null,
-        reason: muteReason.value.trim()
+        reason: muteReason.value.trim(),
+        expiresAt: muteExpiresAt.value.trim()
+          ? new Date(muteExpiresAt.value.trim()).toISOString()
+          : null
       }
     })
     toast.add({ title: '已禁言用户', color: 'success' })
     muteReason.value = ''
+    muteExpiresAt.value = ''
     await loadMutes()
   } catch (error) {
     if (await handleAuth(error)) return
@@ -211,11 +232,14 @@ async function unmute(id: string): Promise<void> {
   }
 }
 
-
 async function softDeleteMessage(message: ChatMessage): Promise<void> {
   if (message.deletedAt) {
     toast.add({ title: '该消息已删除', color: 'neutral' })
     return
+  }
+  if (typeof window !== 'undefined') {
+    const ok = window.confirm(`确认删除 ${message.displayName} 的这条消息？删除后仍可审计。`)
+    if (!ok) return
   }
   try {
     await adminFetch(`/api/admin/chat/messages/${encodeURIComponent(message.id)}`, {
@@ -235,6 +259,10 @@ function applyMessageFilter(): void {
 }
 
 onMounted(() => {
+  const userIdQuery = typeof route.query.userId === 'string' ? route.query.userId : ''
+  const roomIdQuery = typeof route.query.roomId === 'string' ? route.query.roomId : ''
+  if (userIdQuery) userFilter.value = userIdQuery
+  if (roomIdQuery) roomFilter.value = roomIdQuery
   void refreshAll()
 })
 </script>
@@ -243,11 +271,18 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="群聊管理"
-      description="聊天记录、软删除、个人/全员禁言分区治理；禁言原因必填，便于审计复核。"
+      description="聊天记录检索、软删除确认、个人/全员禁言（可设到期）；禁言原因必填，便于审计复核。"
       icon="i-lucide-messages-square"
-      eyebrow="社区"
+      eyebrow="用户与互动"
     >
       <template #actions>
+        <UButton
+          to="/admin/users"
+          icon="i-lucide-users"
+          label="账号管理"
+          color="neutral"
+          variant="outline"
+        />
         <UButton
           icon="i-lucide-refresh-cw"
           label="刷新"
@@ -266,12 +301,32 @@ onMounted(() => {
       {{ errorMessage }}
     </div>
 
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+        <p class="text-xs text-zinc-500">房间数</p>
+        <p class="mt-1 text-2xl font-semibold text-zinc-950">{{ rooms.length }}</p>
+        <p class="mt-1 text-xs text-amber-700">全员禁言 {{ mutedRoomCount }}</p>
+      </div>
+      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+        <p class="text-xs text-zinc-500">消息结果</p>
+        <p class="mt-1 text-2xl font-semibold text-zinc-950">{{ total }}</p>
+        <p class="mt-1 text-xs text-zinc-500">本页已删 {{ deletedOnPage }}</p>
+      </div>
+      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+        <p class="text-xs text-zinc-500">生效禁言</p>
+        <p class="mt-1 text-2xl font-semibold text-rose-700">{{ activeMuteCount }}</p>
+      </div>
+    </div>
+
     <section class="rounded-2xl border border-zinc-200 bg-white p-4">
       <h2 class="font-semibold text-zinc-950">
-        房间
+        房间与全员禁言
       </h2>
-      <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        <div
+      <p class="mt-1 text-xs text-zinc-500">
+        开启全员禁言前，请先在右侧「个人禁言」表单填写原因（全员也复用该原因字段）。
+      </p>
+      <ul class="mt-3 grid gap-2 md:grid-cols-2">
+        <li
           v-for="room in rooms"
           :key="room.id"
           class="rounded-xl border border-zinc-100 px-3 py-3"
@@ -282,35 +337,50 @@ onMounted(() => {
                 {{ room.title }}
               </p>
               <p class="text-xs text-zinc-500">
-                {{ room.kind === 'public' ? '公共群' : '宿舍楼群' }}
-                <template v-if="room.dormBuilding"> · {{ room.dormBuilding }}</template>
+                {{ room.kind }} · {{ room.dormBuilding || room.slug }}
               </p>
+              <span
+                class="mt-2 inline-flex rounded-full px-2 py-0.5 text-[11px]"
+                :class="room.isMutedAll ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+              >
+                {{ room.isMutedAll ? '全员禁言中' : '可发言' }}
+              </span>
             </div>
-            <UButton
-              size="xs"
-              :color="room.isMutedAll ? 'warning' : 'neutral'"
-              :variant="room.isMutedAll ? 'solid' : 'outline'"
-              @click="toggleMuteAll(room)"
-            >
-              {{ room.isMutedAll ? '取消全员禁言' : '全员禁言' }}
-            </UButton>
+            <div class="flex flex-col gap-1">
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="outline"
+                @click="filterByRoom(room.id)"
+              >
+                看消息
+              </UButton>
+              <UButton
+                size="xs"
+                :color="room.isMutedAll ? 'neutral' : 'warning'"
+                :variant="room.isMutedAll ? 'outline' : 'soft'"
+                @click="toggleMuteAll(room)"
+              >
+                {{ room.isMutedAll ? '取消全员' : '全员禁言' }}
+              </UButton>
+            </div>
           </div>
-        </div>
-        <p
+        </li>
+        <li
           v-if="!rooms.length"
-          class="text-sm text-zinc-400"
+          class="py-6 text-center text-sm text-zinc-400 md:col-span-2"
         >
           暂无房间
-        </p>
-      </div>
+        </li>
+      </ul>
     </section>
 
-    <section class="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.8fr)]">
+    <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div class="rounded-2xl border border-zinc-200 bg-white p-4">
         <div class="flex flex-wrap items-end gap-3">
           <UFormField
             label="房间"
-            class="min-w-[12rem] flex-1"
+            class="min-w-[10rem]"
           >
             <USelect
               v-model="roomFilter"
@@ -319,6 +389,17 @@ onMounted(() => {
                 ...rooms.map(room => ({ label: room.title, value: room.id }))
               ]"
               class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="用户 ID"
+            class="min-w-[12rem] flex-1"
+          >
+            <UInput
+              v-model="userFilter"
+              class="w-full"
+              placeholder="精确用户 UUID"
+              @keyup.enter="applyMessageFilter"
             />
           </UFormField>
           <UFormField
@@ -338,25 +419,37 @@ onMounted(() => {
             :loading="messageLoading"
             @click="applyMessageFilter"
           >
-            查询
+            筛选
           </UButton>
         </div>
 
-        <ul class="mt-4 max-h-[32rem] space-y-3 overflow-y-auto">
+        <ul class="mt-4 max-h-[36rem] space-y-2 overflow-y-auto">
           <li
             v-for="message in messages"
             :key="message.id"
             class="rounded-xl border border-zinc-100 px-3 py-3"
           >
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <p class="text-xs text-zinc-500">
-                <span class="font-medium text-zinc-800">{{ message.displayName }}</span>
-                <span class="mx-1">·</span>
-                {{ formatTime(message.createdAt) }}
-                <span class="mx-1">·</span>
-                {{ roomTitle(message.roomId) }}
-              </p>
-              <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p class="font-medium text-zinc-900">
+                  {{ message.displayName }}
+                  <span class="ml-2 text-xs font-normal text-zinc-500">
+                    {{ roomTitle(message.roomId) }} · {{ formatTime(message.createdAt) }}
+                  </span>
+                </p>
+                <p class="mt-1 break-all text-[11px] text-zinc-400">
+                  user {{ message.userId }}
+                </p>
+              </div>
+              <div class="flex flex-wrap gap-1">
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  @click="filterByUser(message.userId)"
+                >
+                  只看此人
+                </UButton>
                 <UButton
                   size="xs"
                   color="warning"
@@ -392,7 +485,7 @@ onMounted(() => {
         </ul>
 
         <div class="mt-3 flex items-center justify-between text-sm text-zinc-500">
-          <span>共 {{ total }} 条</span>
+          <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
           <div class="flex gap-2">
             <UButton
               size="sm"
@@ -417,7 +510,10 @@ onMounted(() => {
       </div>
 
       <div class="space-y-4">
-        <section class="rounded-2xl border border-zinc-200 bg-white p-4">
+        <section
+          id="chat-mute-form"
+          class="rounded-2xl border border-zinc-200 bg-white p-4"
+        >
           <h2 class="font-semibold text-zinc-950">
             个人禁言
           </h2>
@@ -438,9 +534,17 @@ onMounted(() => {
                 class="w-full"
               />
             </UFormField>
-            <UFormField label="原因">
+            <UFormField label="原因（必填）">
               <UInput
                 v-model="muteReason"
+                class="w-full"
+                placeholder="例如：刷屏 / 人身攻击"
+              />
+            </UFormField>
+            <UFormField label="到期时间（可选）">
+              <UInput
+                v-model="muteExpiresAt"
+                type="datetime-local"
                 class="w-full"
               />
             </UFormField>
@@ -483,6 +587,9 @@ onMounted(() => {
                   <p class="text-xs text-zinc-500">
                     {{ mute.roomTitle || (mute.roomId ? roomTitle(mute.roomId) : '全部房间') }}
                     · {{ formatTime(mute.createdAt) }}
+                  </p>
+                  <p class="mt-1 text-xs text-amber-700">
+                    {{ muteExpiryLabel(mute) }}
                   </p>
                   <p
                     v-if="mute.reason"
