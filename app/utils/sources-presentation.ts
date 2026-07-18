@@ -8,6 +8,20 @@ export const sourceLevelLabels: Record<ApiSource['sourceLevel'], string> = {
   E: '未分级'
 }
 
+export const sourcePlatformLabels: Record<string, string> = {
+  'official-website': '学校官网',
+  'official-document': '学校公开文件',
+  'amap-workmap': '授权地图资料',
+  'social-platform': '社交平台资料',
+  'government-website': '政府公开网站',
+  'school-document': '学校公开材料'
+}
+
+export function sourcePlatformLabel(value: string | null | undefined): string {
+  if (!value) return '公开资料'
+  return sourcePlatformLabels[value] ?? value.replace(/[-_]/g, ' ')
+}
+
 export interface SourceLevelGuide {
   level: string
   title: string

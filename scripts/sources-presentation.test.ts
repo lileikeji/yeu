@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   collectActiveLinkedSources,
   dateOnly,
+  sourcePlatformLabel,
   sourceLevelGuides,
   sourceLevelLabels
 } from '../app/utils/sources-presentation'
@@ -49,6 +50,14 @@ test('source level guides keep student-facing credibility wording', () => {
   assert.match(sourceLevelGuides.at(-1)?.description ?? '', /这类资料用于发现地点和问题/)
   assert.equal(dateOnly('2026-07-10T12:00:00Z'), '2026-07-10')
   assert.equal(dateOnly('2025-12-01'), '2025-12-01')
+})
+
+test('source platform values are translated for ordinary readers', () => {
+  assert.equal(sourcePlatformLabel('official-website'), '学校官网')
+  assert.equal(sourcePlatformLabel('amap-workmap'), '授权地图资料')
+  assert.equal(sourcePlatformLabel('social-platform'), '社交平台资料')
+  assert.equal(sourcePlatformLabel('future-platform'), 'future platform')
+  assert.equal(sourcePlatformLabel(null), '公开资料')
 })
 
 test('collectActiveLinkedSources dedupes by url, keeps newer access, and sorts', () => {

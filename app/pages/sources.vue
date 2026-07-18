@@ -4,6 +4,7 @@ import type { ApiSource } from '~~/shared/types/server'
 import {
   collectActiveLinkedSources,
   dateOnly,
+  sourcePlatformLabel,
   sourceLevelGuides,
   sourceLevelLabels
 } from '~~/app/utils/sources-presentation'
@@ -149,7 +150,7 @@ const loadError = computed(() => contentError.value || placeError.value)
         >
           <span class="min-w-0">
             <span class="block font-semibold text-zinc-900 group-hover:text-green-700">{{ source.title }}</span>
-            <span class="mt-1 block text-xs text-zinc-500">{{ source.platform }}</span>
+            <span class="mt-1 block text-xs text-zinc-500">{{ sourcePlatformLabel(source.platform) }}</span>
           </span>
           <span class="text-sm text-zinc-600">{{ source.publisherName }}</span>
           <span class="text-xs text-zinc-500">
