@@ -115,13 +115,13 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     ownerMapCount: 3,
     hasPublicPlaceError: false,
     activeScope: null
-  }), '高德地图标点')
+  }), '地图地点')
   assert.equal(resolveMapDataLabel({
     publishedCount: 0,
     ownerMapCount: 0,
     hasPublicPlaceError: true,
     activeScope: null
-  }), '静态目录')
+  }), '文字目录')
   assert.equal(resolveMapDataLabel({
     publishedCount: 0,
     ownerMapCount: 0,
@@ -133,32 +133,32 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: null
-  }), '官网文字编号索引')
+  }), '官网编号')
 
   assert.match(resolveMapFallbackMessage({
     ownerMapCount: 1,
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /76 个标点/)
+  }) ?? '', /76 个地点/)
   assert.match(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: true,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /公开地点暂时不可用/)
+  }) ?? '', /地图地点暂时加载不出来/)
   assert.match(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: 'nearby',
     publishedCount: 0
-  }) ?? '', /周边地点/)
+  }) ?? '', /附近地点还在整理中/)
   assert.match(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /47 项文字编号/)
+  }) ?? '', /47 个编号/)
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
@@ -183,7 +183,7 @@ test('map poi checklist status and formatters stay student-facing', () => {
   assert.deepEqual(buildMapPoiUseChecklist(samplePoi({ usageChecklist: provided })), provided)
 
   const owner = buildMapPoiUseChecklist(samplePoi())
-  assert.match(owner[0]!, /高德地图标点/)
+  assert.match(owner[0]!, /地图位置/)
   assert.match(owner.join('\n'), /宿管|辅导员/)
 
   const express = buildMapPoiUseChecklist(samplePoi({ category: 'express' }))

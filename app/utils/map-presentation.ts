@@ -52,10 +52,10 @@ export function resolveMapDataLabel(input: {
   activeScope: string | null | undefined
 }): string {
   if (input.publishedCount) return '已发布目录'
-  if (input.ownerMapCount) return '高德地图标点'
-  if (input.hasPublicPlaceError) return '静态目录'
+  if (input.ownerMapCount) return '地图地点'
+  if (input.hasPublicPlaceError) return '文字目录'
   if (input.activeScope === 'nearby') return '周边生活'
-  return '官网文字编号索引'
+  return '官网编号'
 }
 
 export function resolveMapFallbackMessage(input: {
@@ -65,16 +65,16 @@ export function resolveMapFallbackMessage(input: {
   publishedCount: number
 }): string | null {
   if (input.ownerMapCount) {
-    return '当前 76 个标点与 8 个不规则区域边界来自你提供的高德地图数据，已经按原位置放到地图上；区域只画边线，内部商铺仍可点击和搜索。实际入口、楼层和营业状态请现场确认。'
+    return '地图里已整理 76 个地点和 8 个区域范围；区域只显示边界，里面的商铺仍可点击和搜索。实际入口、楼层和营业状态请以现场情况为准。'
   }
   if (input.hasPublicPlaceError) {
-    return '公开地点暂时不可用，当前显示内置文字目录，不绘制临时坐标。'
+    return '地图地点暂时加载不出来，先显示文字目录；没有确认的位置不会画成导航点。'
   }
   if (input.activeScope === 'nearby' && !input.publishedCount) {
-    return '暂无完成位置、来源和营业状态确认的周边地点，因此不把商铺写成正式推荐，也不生成近似坐标。'
+    return '附近地点还在整理中，暂时不把未确认的商铺当作推荐，也不在地图上估一个位置。'
   }
   if (!input.publishedCount) {
-    return '当前可使用学校官网 47 项文字编号查找校内地点；本站不转载原图，也不强行生成导航坐标。'
+    return '可以先用学校官网的 47 个编号查找校内地点；这里不复制原图，也不把文字位置假装成导航位置。'
   }
   return null
 }
@@ -90,13 +90,13 @@ export function buildMapPoiLocationCopyText(poi: Pick<MapPoiStatusFields, 'name'
 
 export function resolveMapPoiStatusText(poi: MapPoiStatusFields): string {
   if (poi.pointIsVerified) return '入口位置已现场核对'
-  if (poi.coordinateVerification === 'owner-map-only') return '已按地图标点定位 · 入口细节请现场确认'
-  if (poi.coordinateVerification === 'native-map-session') return '高德底图地点 · 临时查看，不加入左侧地点列表'
+  if (poi.coordinateVerification === 'owner-map-only') return '地图位置已整理 · 入口细节请现场确认'
+  if (poi.coordinateVerification === 'native-map-session') return '地图搜索结果 · 临时查看，不加入地点列表'
   if (poi.coordinateVerification === 'verified' && poi.coordinateSystem) {
-    return '位置已记录 · 当前底图暂不能显示'
+    return '位置已记录 · 当前地图暂时无法显示'
   }
-  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '官网文字编号索引'} · 不绘制标点`
-  return '地点已发布 · 坐标暂不显示'
+  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '官网编号'} · 暂不显示地图位置`
+  return '地点已发布 · 位置暂不显示'
 }
 
 export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
@@ -104,28 +104,28 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
 
   if (poi.coordinateVerification === 'native-map-session') {
     return [
-      '这是高德当前视野返回的临时地点，刷新后不会保存到学校目录。',
-      '可以先用来定位附近商家；营业状态、价格、电话和入口仍要到店或电话确认。',
-      '如果这个地点对新生有用，可以通过反馈入口提交来源，管理员确认后再进入正式目录。'
+      '这是地图搜索返回的临时地点，刷新后不会保存在校园目录里。',
+      '可以先用来找附近商家；营业状态、价格、电话和入口仍要到店或电话确认。',
+      '如果这个地点对新生有帮助，可以通过反馈入口告诉我们，确认后再加入校园目录。'
     ]
   }
 
   const checklist = poi.coordinateVerification === 'owner-map-only'
     ? [
-        '这个点来自你提供的高德地图标点，可以先导航到附近。',
+        '这个地点来自你提供的地图位置，可以先导航到附近。',
         '到达后请看现场门牌、楼栋名或服务窗口，确认是不是你要去的入口。',
-        '这个位置还没有经过两次现场确认，不要只靠它做决定。'
+        '这个位置还没有经过两次现场确认，出发前请再看现场标识。'
       ]
     : poi.pointIsVerified
       ? [
-          '这个地点已经完成入口位置确认，可以作为站内导航参考。',
+          '这个地点的入口已经现场核对，可以作为校内导航参考。',
           '开放时间、办理材料和临时管控仍要看对应部门或现场通知。',
           '如果发现入口变更或道路封闭，请提交纠错。'
         ]
       : [
-          '这个地点可作为文字索引使用，暂时不要按它生成精确导航。',
+          '这个地点目前只能作为文字索引，暂时不要把它当成精确导航。',
           '先核对官网文字索引、部门说明或现场标识。',
-          '发现准确入口后可提交现场采点或纠错。'
+          '发现准确入口后，可以提交位置纠错。'
         ]
 
   if (poi.category === 'express') {
