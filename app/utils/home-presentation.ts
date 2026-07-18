@@ -72,7 +72,7 @@ export const homeTimelineStages: HomeTimelineStage[] = [
 export const homeMoreEntries: HomeMoreEntry[] = [
   {
     title: '新生清单',
-    description: '勾选到校前到第一周事项，进度只存在本机',
+    description: '勾选到校前到第一周事项，进度只存在本设备',
     to: '/checklist',
     icon: 'i-lucide-list-checks',
     tone: 'bg-emerald-50 text-emerald-700'
