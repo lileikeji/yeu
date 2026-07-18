@@ -36,30 +36,30 @@ test('nearby platform candidates remain a distinct non-publishable catalog', () 
   assert.ok(candidateData.candidates.every(candidate => Number.isFinite(candidate.location.lat)))
 })
 
-test('nearby page keeps template wiring and review boundary copy', () => {
+test('nearby page keeps map wiring and student-facing travel copy', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/nearby-presentation['"]/)
   assert.match(pageSource, /candidateCatalog\.providerDocumentation/)
-  assert.match(pageSource, /确认后再推荐/)
-  assert.match(pageSource, /地图搜索线索 · 到店前再确认/)
+  assert.match(pageSource, /出发前再看一眼/)
+  assert.match(pageSource, /出发前看营业情况/)
   assert.match(pageSource, /selectNearbyResearchSources/)
   assert.match(pageSource, /from ['"]~~\/data\/seeds\/public-content['"]/)
   assert.match(pageSource, /const nearbyResearchSources = selectNearbyResearchSources\(researchSources\)/)
   assert.doesNotMatch(pageSource, /const nearbyResearchSources = \[/)
   assert.doesNotMatch(pageSource, /researchSources\.expressMap/)
   assert.match(pageSource, /sourceContextForStudents/)
-  assert.match(pageSource, /相关公开资料 · 仅作确认参考/)
-  assert.match(pageSource, /usageTips/)
+  assert.match(pageSource, /查看这些地点的资料出处/)
   assert.match(pageSource, /verificationChecklist/)
   assert.match(pageSource, /candidateHint\(candidate\)/)
   assert.match(pageSource, /buildNearbyCandidatePreview/)
   assert.match(pageSource, /visibleCandidates/)
-  assert.match(pageSource, /收起参考清单/)
+  assert.match(pageSource, /收起地点/)
   assert.doesNotMatch(pageSource, /高德 POI 接口来源/)
   assert.doesNotMatch(pageSource, /高德当前 POI/)
   assert.match(pageSource, /title: '校园周边'/)
   assert.doesNotMatch(pageSource, /高德分类：/)
   assert.doesNotMatch(pageSource, /高德候选 · 待核验/)
   assert.doesNotMatch(pageSource, /待实地核验候选/)
+  assert.doesNotMatch(pageSource, /已确认商铺与生活服务|达到发布标准|进入已确认目录前必须确认|资料整理于|周边参考清单/)
 })
 
 test('nearby presentation util owns pure labels, filters, and student-facing source rewrites', () => {
@@ -94,7 +94,7 @@ test('nearby presentation helpers rewrite source context and build map links', (
     /2025 年社交平台参考/
   )
   assert.match(nearbySourceContextForStudents('社交平台待核验线索'), /社交平台参考信息/)
-  assert.match(nearbySourceContextForStudents(undefined), /来源可作为参考/)
+  assert.match(nearbySourceContextForStudents(undefined), /可以帮助了解大致情况/)
 
   const sample = candidateData.candidates[0] as NearbyCandidate
   const mapUrl = nearbyCandidateMapUrl(sample)
@@ -105,7 +105,7 @@ test('nearby presentation helpers rewrite source context and build map links', (
   assert.equal(nearbyCandidateHint(sample), nearbyCategoryHints[sample.category])
   assert.ok(nearbyCandidateHint(sample).length > 8)
   assert.equal(nearbyUsageTips.length, 4)
-  assert.equal(nearbyVerificationChecklist.length, 5)
+  assert.equal(nearbyVerificationChecklist.length, 4)
   assert.equal(nearbyCategoryLabels.food, '餐饮')
 })
 

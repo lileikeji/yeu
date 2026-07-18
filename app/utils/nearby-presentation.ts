@@ -70,25 +70,24 @@ export const nearbyCategoryLabels: Record<string, string> = {
 }
 
 export const nearbyCategoryHints: Record<NearbyCandidateCategory, string> = {
-  food: '先当作吃饭参考：到店前还要确认是否营业、是否支持堂食/打包、价格和高峰排队情况。',
-  shopping: '先当作生活补给参考：到店前还要确认是否营业、是否有日用品/饮用水/文具等新生常用物品。',
-  service: '先当作生活服务参考：维修、打印、电信、美发等服务范围和价格需要到店或电话确认。',
-  express: '先当作取件寄件参考：不同快递品牌、取件码、营业时间和寄件范围要看短信、平台和站点现场提示。'
+  food: '营业时间、菜单和价格可能变化，出发前可以先在地图上看一眼。',
+  shopping: '日用品库存和营业时间变化较快，具体以到店看到的情况为准。',
+  service: '打印、维修、电信和美发的服务项目与价格，请到店或电话询问。',
+  express: '取件请以短信里的站点、取件码和现场牌子为准。'
 }
 
 export const nearbyVerificationChecklist = [
-  '现场招牌或门头名称与平台名称一致',
-  '入口位置可以被新生实际找到，不只停留在道路中心点',
-  '当学期仍在营业，并确认大致营业时间',
-  '服务范围明确：餐饮、便利、维修、电信、快递品牌或寄件范围',
-  '如果涉及优惠或推广，必须写清提供方、条件和有效期'
+  '先看地图是否仍显示营业，再确认路线有没有到门口',
+  '吃饭和购物先看近期评价，但不要只按评分决定',
+  '快递取件以短信里的站点和取件码为准',
+  '维修、电信等服务先问价格，需要证件时只交给正规工作人员'
 ] as const
 
 export const nearbyUsageTips = [
-  { title: '吃饭', text: '先看餐饮参考清单，了解学生街大概有哪些店；真正推荐要等菜单、价格和营业状态确认。' },
-  { title: '取快递', text: '先看快递参考清单判断可能方向；实际取件以短信、平台取件码和站点现场牌子为准。' },
-  { title: '买日用品', text: '便利店、超市参考清单只说明“可能有补给点”；开学季库存和营业时间变化很快。' },
-  { title: '维修/电信', text: '手机维修、文印、电信营业厅等服务要确认项目、收费和是否需要身份证件。' }
+  { title: '吃饭', text: '按餐饮筛选后在地图中打开，出发前看营业时间和路线。' },
+  { title: '取快递', text: '实际站点以短信、取件码和现场牌子为准。' },
+  { title: '买日用品', text: '开学季库存变化快，急需物品可以先电话询问。' },
+  { title: '维修和电信', text: '先问清服务项目、价格和是否需要证件。' }
 ] as const
 
 export function nearbySourceIsClickable(source: { status?: string }): boolean {
@@ -96,7 +95,7 @@ export function nearbySourceIsClickable(source: { status?: string }): boolean {
 }
 
 export function nearbySourceContextForStudents(value: string | undefined): string {
-  if (!value?.trim()) return '来源可作为参考，具体信息以现场和学校最新通知为准。'
+  if (!value?.trim()) return '这条信息可以帮助了解大致情况，具体以现场和最新通知为准。'
   return value
     .replace(/社交平台待核验线索/g, '社交平台参考信息')
     .replace(/社交平台视频线索/g, '社交平台视频参考')

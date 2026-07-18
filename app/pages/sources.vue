@@ -2,8 +2,11 @@
 import { safeExternalHref } from '~/utils/safe-external-href'
 import type { ApiSource } from '~~/shared/types/server'
 import {
+  buildSourcePreview,
   collectActiveLinkedSources,
   dateOnly,
+  filterSourceList,
+  sourcePreviewLimit,
   sourcePlatformLabel,
   sourceLevelGuides,
   sourceLevelLabels
@@ -11,8 +14,11 @@ import {
 
 useSeoMeta({
   title: '来源说明',
-  description: '查看仰恩新生指南的资料来源、确认范围和已发布内容引用记录。'
+  description: '了解仰恩新生指南的信息出处，以及新生查看不同消息时应该注意什么。'
 })
+
+const sourceQuery = ref('')
+const sourcesExpanded = ref(false)
 
 const contentRequest = usePublicContentList()
 const placeRequest = usePublicPlaceList()
@@ -25,8 +31,23 @@ const sources = computed<ApiSource[]>(() => collectActiveLinkedSources(
   contentResponse.value?.items,
   placeResponse.value?.items
 ))
+const filteredSources = computed(() => filterSourceList(sources.value, sourceQuery.value))
+const sourceFilterActive = computed(() => Boolean(sourceQuery.value.trim()))
+const sourcePreview = computed(() => buildSourcePreview(filteredSources.value, {
+  expanded: sourcesExpanded.value,
+  filterActive: sourceFilterActive.value
+}))
+const visibleSources = computed(() => sourcePreview.value.items)
 
 const loadError = computed(() => contentError.value || placeError.value)
+
+watch(sourceQuery, () => {
+  sourcesExpanded.value = false
+})
+
+function toggleSourcePreview(): void {
+  sourcesExpanded.value = !sourcesExpanded.value
+}
 </script>
 
 <template>
@@ -34,13 +55,13 @@ const loadError = computed(() => contentError.value || placeError.value)
     <section class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          来源可查
+          信息从哪里来
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          来源、确认范围与使用说明
+          看到校园消息，先判断能不能直接用
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
-          重要事实优先采用学校和主管部门当前公开资料。页面会保留来源、发布主体和访问日期；无法确认的安排继续标记为待通知，不用旧年份信息填空。
+          报到、缴费和学籍等重要事项，请优先看学校和主管部门的最新通知。地图、商铺和社团消息变化较快，页面会保留出处，方便你自己再看一眼。
         </p>
       </div>
     </section>
@@ -49,13 +70,13 @@ const loadError = computed(() => contentError.value || placeError.value)
       <div class="grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)] lg:gap-10">
         <div>
           <p class="section-kicker">
-            来源怎么用
+            怎么判断
           </p>
           <h2 class="mt-2 text-xl font-bold text-zinc-950">
-            发布时如何判断可信度
+            不同消息，适合用在不同地方
           </h2>
           <p class="mt-3 text-sm leading-7 text-zinc-600">
-            这里用学生能理解的方式说明“哪些资料能直接采用，哪些只能当线索”。报到、交通、快递、商铺和招新仍需按有效期复核。
+            同一件事可能同时出现在官网、群聊和地图上。下面四类提醒可以帮你快速决定先看哪一个。
           </p>
         </div>
 
@@ -79,17 +100,17 @@ const loadError = computed(() => contentError.value || placeError.value)
     <section class="border-y border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
-          地图数据
+          地图怎么用
         </p>
         <h2 class="mt-2 text-xl font-bold text-zinc-950">
-          校界不等于楼栋坐标
+          地图边界只帮助你辨认方向
         </h2>
         <div class="mt-4 grid gap-5 text-sm leading-7 text-zinc-600 md:grid-cols-2">
           <p>
-            绿色虚线校界来自公开社区地图资料，只用于校园范围参考和位置异常检查。它不是学校发布的法定或官方校界，也不能证明任何楼栋入口位置。
+            绿色虚线来自公开社区地图，只帮助辨认校园大致范围，不代表学校公布的正式边界。找楼栋和入口时，请继续看地图标点与现场指示牌。
           </p>
           <p>
-            你提供的高德地图地点资料已经整理出 76 个地点和 8 个范围。地点可以在高德地图上查看和导航；范围只显示边界，方便查看位置，也不会挡住区域内原有商铺。
+            当前地图包含 76 个地点和 8 个范围。地点可以查看和导航；范围只画边界，方便辨认区域，不会挡住里面的商铺和建筑。
           </p>
         </div>
         <div class="mt-5 flex flex-wrap gap-2">
@@ -98,7 +119,7 @@ const loadError = computed(() => contentError.value || placeError.value)
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-external-link"
-            label="社区地图许可与署名"
+            label="社区地图说明"
             color="neutral"
             variant="outline"
           />
@@ -107,7 +128,7 @@ const loadError = computed(() => contentError.value || placeError.value)
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-pentagon"
-            label="查看地图原始范围"
+            label="查看范围出处"
             color="neutral"
             variant="ghost"
           />
@@ -119,13 +140,24 @@ const loadError = computed(() => contentError.value || placeError.value)
       <div class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-4">
         <div>
           <p class="section-kicker">
-            当前引用
+            具体出处
           </p>
           <h2 class="mt-2 text-xl font-bold text-zinc-950">
-            已发布内容关联来源
+            查看页面引用的信息出处
           </h2>
         </div>
-        <span class="text-sm text-zinc-500">{{ sources.length }} 条不同来源</span>
+        <span class="text-sm text-zinc-500">共 {{ sources.length }} 条</span>
+      </div>
+
+      <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <UInput
+          v-model="sourceQuery"
+          icon="i-lucide-search"
+          placeholder="搜索学校、部门或信息名称"
+          aria-label="搜索信息出处"
+          class="w-full sm:max-w-md"
+        />
+        <span class="text-xs text-zinc-500">找到 {{ filteredSources.length }} 条</span>
       </div>
 
       <div
@@ -133,15 +165,15 @@ const loadError = computed(() => contentError.value || placeError.value)
         class="mt-5 border-l-2 border-orange-500 bg-orange-50 px-3 py-2 text-sm text-orange-900"
         role="status"
       >
-        动态来源暂时无法加载；各指南详情仍保留自身的来源链接。
+        信息出处暂时无法加载，各指南详情页仍可以查看对应链接。
       </div>
 
       <div
-        v-if="sources.length"
+        v-if="visibleSources.length"
         class="divide-y divide-zinc-100"
       >
         <a
-          v-for="source in sources"
+          v-for="source in visibleSources"
           :key="source.id"
           :href="safeExternalHref(source.url) || undefined"
           target="_blank"
@@ -166,11 +198,25 @@ const loadError = computed(() => contentError.value || placeError.value)
         </a>
       </div>
 
+      <div
+        v-if="!sourceFilterActive && filteredSources.length > sourcePreviewLimit"
+        class="mt-5 flex justify-center"
+      >
+        <UButton
+          :icon="sourcesExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+          :label="sourcesExpanded ? '收起出处' : `查看其余 ${sourcePreview.hiddenCount} 条出处`"
+          color="neutral"
+          variant="soft"
+          :aria-expanded="sourcesExpanded"
+          @click="toggleSourcePreview"
+        />
+      </div>
+
       <p
-        v-else-if="!loadError"
+        v-if="!loadError && !visibleSources.length"
         class="py-10 text-center text-sm text-zinc-500"
       >
-        暂无已发布内容来源。
+        没有找到匹配的信息出处。
       </p>
     </section>
   </div>

@@ -1,11 +1,11 @@
 import type { ApiSource } from '~~/shared/types/server'
 
 export const sourceLevelLabels: Record<ApiSource['sourceLevel'], string> = {
-  A: '官方一手',
-  B: '权威或实地核验',
-  C: '信息当事方',
-  D: '公开线索',
-  E: '未分级'
+  A: '学校或主管部门',
+  B: '公共服务或现场信息',
+  C: '发布方信息',
+  D: '地图或同学分享',
+  E: '其他公开信息'
 }
 
 export const sourcePlatformLabels: Record<string, string> = {
@@ -30,26 +30,59 @@ export interface SourceLevelGuide {
 
 export const sourceLevelGuides: SourceLevelGuide[] = [
   {
-    level: '最优先',
-    title: '学校或主管部门发布',
-    description: '学校官网、主管部门官网、正式通知与公开校历。'
+    level: '优先看',
+    title: '学校正式通知',
+    description: '报到、缴费、学籍和放假安排，优先看学校官网或主管部门的最新通知。'
   },
   {
-    level: '可确认',
-    title: '权威平台或现场记录',
-    description: '政府、公共服务运营方、现场记录或可复核的部门答复。'
+    level: '可以参考',
+    title: '政府服务或现场信息',
+    description: '交通、通信和公共服务可以参考运营方说明；到校后的地点信息也可以看现场标识。'
   },
   {
-    level: '看时效',
-    title: '当事方公开资料',
-    description: '社团、商家或服务提供方自己公开，并且能看清发布时间和适用范围的资料。'
+    level: '注意时间',
+    title: '社团或商家自己发布',
+    description: '适合查看招新、营业时间和活动安排，但要先看发布时间，过期二维码不要继续使用。'
   },
   {
-    level: '只作线索',
-    title: '地图、社交平台和学生经验',
-    description: '这类资料用于发现地点和问题，不能单独支撑报到材料、收费、营业状态等高风险事实。'
+    level: '到现场再看',
+    title: '地图和同学分享',
+    description: '适合先找地点和了解生活经验；营业情况、收费和办事要求仍以现场或最新通知为准。'
   }
 ]
+
+export const sourcePreviewLimit = 8
+
+export function filterSourceList(
+  sources: ReadonlyArray<ApiSource>,
+  query: string
+): ApiSource[] {
+  const normalized = query.trim().toLocaleLowerCase('zh-CN')
+  if (!normalized) return [...sources]
+  return sources.filter(source => [
+    source.title,
+    source.publisherName,
+    sourcePlatformLabel(source.platform),
+    sourceLevelLabels[source.sourceLevel]
+  ]
+    .join(' ')
+    .toLocaleLowerCase('zh-CN')
+    .includes(normalized))
+}
+
+export function buildSourcePreview<T>(
+  sources: ReadonlyArray<T>,
+  options: { expanded: boolean, filterActive: boolean, limit?: number }
+): { items: T[], hiddenCount: number } {
+  const limit = Math.max(1, Math.floor(options.limit ?? sourcePreviewLimit))
+  if (options.expanded || options.filterActive || sources.length <= limit) {
+    return { items: [...sources], hiddenCount: 0 }
+  }
+  return {
+    items: sources.slice(0, limit),
+    hiddenCount: sources.length - limit
+  }
+}
 
 export interface SourceCarrier {
   sources: ReadonlyArray<ApiSource>

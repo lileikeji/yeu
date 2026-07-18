@@ -3,8 +3,11 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import {
+  buildSourcePreview,
   collectActiveLinkedSources,
   dateOnly,
+  filterSourceList,
+  sourcePreviewLimit,
   sourcePlatformLabel,
   sourceLevelGuides,
   sourceLevelLabels
@@ -32,6 +35,8 @@ function sampleSource(overrides: Record<string, unknown> = {}) {
 test('sources page is a thin shell over sources-presentation util', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/sources-presentation['"]/)
   assert.match(pageSource, /collectActiveLinkedSources/)
+  assert.match(pageSource, /buildSourcePreview/)
+  assert.match(pageSource, /filterSourceList/)
   assert.match(pageSource, /sourceLevelGuides/)
   assert.match(pageSource, /sourceLevelLabels/)
   assert.match(pageSource, /dateOnly/)
@@ -43,11 +48,13 @@ test('sources page is a thin shell over sources-presentation util', () => {
   assert.match(utilSource, /export const sourceLevelLabels/)
 })
 
-test('source level guides keep student-facing credibility wording', () => {
-  assert.equal(sourceLevelLabels.A, '官方一手')
-  assert.equal(sourceLevelLabels.D, '公开线索')
-  assert.equal(sourceLevelGuides[0]?.level, '最优先')
-  assert.match(sourceLevelGuides.at(-1)?.description ?? '', /这类资料用于发现地点和问题/)
+test('source level guides use ordinary decision wording', () => {
+  assert.equal(sourceLevelLabels.A, '学校或主管部门')
+  assert.equal(sourceLevelLabels.D, '地图或同学分享')
+  assert.equal(sourceLevelGuides[0]?.level, '优先看')
+  assert.equal(sourceLevelGuides.at(-1)?.level, '到现场再看')
+  assert.match(sourceLevelGuides.at(-1)?.description ?? '', /营业情况、收费和办事要求/)
+  assert.doesNotMatch(pageSource, /确认范围|判断可信度|按有效期复核|地图数据|已发布内容关联来源/)
   assert.equal(dateOnly('2026-07-10T12:00:00Z'), '2026-07-10')
   assert.equal(dateOnly('2025-12-01'), '2025-12-01')
 })
@@ -103,4 +110,23 @@ test('collectActiveLinkedSources dedupes by url, keeps newer access, and sorts',
   assert.equal(collected.find(item => item.url === 'https://example.test/shared')?.title, '新访问')
   assert.deepEqual(collectActiveLinkedSources(null, undefined), [])
   assert.deepEqual(collectActiveLinkedSources([], []), [])
+})
+
+test('source search and preview keep long lists manageable', () => {
+  const sources = Array.from({ length: 12 }, (_, index) => sampleSource({
+    id: `s${index}`,
+    title: index === 9 ? '学生事务部通知' : `学校通知 ${index}`,
+    publisherName: index === 9 ? '学生事务部' : '仰恩大学'
+  }))
+
+  assert.equal(filterSourceList(sources, '学生事务').length, 1)
+  assert.equal(filterSourceList(sources, '学校或主管部门').length, 12)
+  const collapsed = buildSourcePreview(sources, { expanded: false, filterActive: false })
+  assert.equal(collapsed.items.length, sourcePreviewLimit)
+  assert.equal(collapsed.hiddenCount, sources.length - sourcePreviewLimit)
+  assert.equal(buildSourcePreview(sources, { expanded: true, filterActive: false }).items.length, 12)
+  assert.equal(buildSourcePreview(filterSourceList(sources, '学生事务'), {
+    expanded: false,
+    filterActive: true
+  }).items.length, 1)
 })

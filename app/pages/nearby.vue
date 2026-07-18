@@ -15,7 +15,6 @@ import {
   selectNearbyResearchSources,
   nearbySourceContextForStudents,
   nearbySourceIsClickable,
-  nearbyUsageTips,
   nearbyVerificationChecklist,
   type NearbyCandidate
 } from '~~/app/utils/nearby-presentation'
@@ -29,7 +28,6 @@ const candidateCatalog = nearbyCandidateData as {
 const nearbyResearchSources = selectNearbyResearchSources(researchSources)
 const categoryLabels = nearbyCategoryLabels
 const verificationChecklist = nearbyVerificationChecklist
-const usageTips = nearbyUsageTips
 const sourceIsClickable = nearbySourceIsClickable
 const sourceContextForStudents = nearbySourceContextForStudents
 const candidateMapUrl = nearbyCandidateMapUrl
@@ -38,7 +36,7 @@ const candidateHint = nearbyCandidateHint
 
 useSeoMeta({
   title: '校园周边',
-  description: '查看经过位置与营业状态确认的仰恩大学周边商铺和生活服务。'
+  description: '查找仰恩大学周边吃饭、快递、购物和生活服务地点。'
 })
 
 const searchQuery = ref('')
@@ -76,13 +74,13 @@ function toggleCandidatePreview(): void {
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          校园周边
+          周边生活
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          已确认商铺与生活服务
+          找吃饭、快递和日用品
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          只展示已核对位置、来源和营业状态的地点，不使用平台评分或未经验证的推荐排名。
+          可以按名称或类别查找学校附近的生活服务。商铺营业时间变化较快，出发前建议先在地图上看一眼，到店后以现场情况为准。
         </p>
         <div class="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
           <UInput
@@ -110,7 +108,7 @@ function toggleCandidatePreview(): void {
         class="border-l-2 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-800"
         role="alert"
       >
-        周边资料暂时不可用，请稍后重试。
+        周边地点暂时无法加载，请稍后再试。
       </div>
 
       <div
@@ -118,12 +116,12 @@ function toggleCandidatePreview(): void {
         class="mb-4 flex items-center justify-between gap-4"
       >
         <h2 class="text-sm font-semibold text-zinc-900">
-          {{ filteredPlaces.length }} 个地点
+          {{ filteredPlaces.length }} 个本站介绍
         </h2>
         <UButton
           :to="{ path: '/map', query: { scope: 'nearby' } }"
           icon="i-lucide-map"
-          label="地图查看"
+          label="在地图中查看周边"
           color="neutral"
           variant="outline"
         />
@@ -176,25 +174,19 @@ function toggleCandidatePreview(): void {
 
       <div
         v-else-if="!error"
-        class="border-y border-zinc-200 bg-white px-5 py-12 text-center"
+        class="border-l-2 border-amber-300 bg-amber-50 px-4 py-3"
       >
-        <UIcon
-          name="i-lucide-store"
-          class="mx-auto size-7 text-zinc-400"
-        />
-        <h2 class="mt-3 text-base font-bold text-zinc-800">
-          暂无达到发布标准的周边地点
-        </h2>
-        <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-          周边商铺还在确认位置、经营状态和营业时间，因此不会提前写成推荐。
+        <p class="text-sm leading-6 text-amber-950">
+          暂时没有单独整理的商铺介绍，可以先看下方地图结果，或直接进入周边地图查找。
         </p>
         <UButton
           :to="{ path: '/feedback', query: { type: 'source_suggestion', from: '/nearby' } }"
-          icon="i-lucide-link"
-          label="提交可靠来源"
+          icon="i-lucide-message-square-plus"
+          label="告诉我们附近的新店"
           color="neutral"
-          variant="outline"
-          class="mt-5"
+          variant="ghost"
+          size="sm"
+          class="mt-2"
         />
       </div>
 
@@ -203,16 +195,16 @@ function toggleCandidatePreview(): void {
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-lg font-bold text-zinc-950">
-                周边参考清单
+                地图上还能找到这些地方
               </h2>
               <UBadge
-                label="确认后再推荐"
+                label="出发前再看一眼"
                 color="warning"
                 variant="soft"
               />
             </div>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              高德地图搜索整理出 30 条新区、旧区餐饮、便利、快递与生活服务参考。地图搜索结果只能说明这里曾出现过这个名称和位置，不代表门店仍在营业；确认招牌、入口、营业状态、时间和服务范围后，才会进入上方正式目录。
+              高德地图中整理了 {{ filteredCandidates.length }} 个新区、旧区的餐饮、便利、快递和生活服务地点，适合先找方向。营业时间、价格和服务范围请以地图近期信息或现场为准。
             </p>
           </div>
           <a
@@ -221,7 +213,7 @@ function toggleCandidatePreview(): void {
             rel="noopener noreferrer"
             class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800"
           >
-            查看地图资料来源
+            地图地点说明
             <UIcon
               name="i-lucide-external-link"
               class="size-3.5"
@@ -229,60 +221,61 @@ function toggleCandidatePreview(): void {
           </a>
         </div>
 
-        <div class="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <div class="rounded-lg border border-zinc-200 bg-white p-4">
-            <h3 class="text-sm font-bold text-zinc-950">
-              新生现在怎么用这份参考清单
-            </h3>
-            <div class="mt-3 grid gap-3 md:grid-cols-2">
-              <div
-                v-for="tip in usageTips"
-                :key="tip.title"
-                class="rounded-md bg-zinc-50 px-3 py-2"
-              >
-                <p class="text-xs font-semibold text-zinc-900">
-                  {{ tip.title }}
-                </p>
-                <p class="mt-1 text-xs leading-5 text-zinc-600">
-                  {{ tip.text }}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="rounded-lg border border-orange-200 bg-orange-50/70 p-4">
-            <h3 class="text-sm font-bold text-orange-950">
-              进入已确认目录前必须确认
-            </h3>
-            <ul class="mt-3 space-y-2 text-xs leading-5 text-orange-900">
+        <details class="group mt-5 border-y border-zinc-200 bg-white">
+          <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-zinc-800 marker:hidden">
+            <span class="inline-flex items-center gap-2">
+              <UIcon
+                name="i-lucide-list-checks"
+                class="size-4 text-green-700"
+              />
+              出发前看一眼
+            </span>
+            <UIcon
+              name="i-lucide-chevron-down"
+              class="size-4 text-zinc-400 transition group-open:rotate-180"
+            />
+          </summary>
+          <div class="border-t border-zinc-100 py-4">
+            <ul class="grid gap-2 text-xs leading-5 text-zinc-700 md:grid-cols-2">
               <li
                 v-for="item in verificationChecklist"
                 :key="item"
-                class="flex gap-2"
+                class="flex gap-2 rounded-md bg-zinc-50 px-3 py-2"
               >
                 <UIcon
                   name="i-lucide-circle-check"
-                  class="mt-0.5 size-3.5 shrink-0"
+                  class="mt-0.5 size-3.5 shrink-0 text-green-700"
                 />
                 <span>{{ item }}</span>
               </li>
             </ul>
           </div>
-        </div>
+        </details>
 
         <p class="mt-4 text-xs text-zinc-500">
           <template v-if="candidateFilterActive">
-            已找到 {{ filteredCandidates.length }} 条参考
+            找到 {{ filteredCandidates.length }} 个地点
           </template>
           <template v-else>
-            {{ filteredCandidates.length }} 条参考 · 默认先展示 {{ Math.min(filteredCandidates.length, nearbyCandidatePreviewLimit) }} 条
+            共 {{ filteredCandidates.length }} 个地点 · 先显示 {{ Math.min(filteredCandidates.length, nearbyCandidatePreviewLimit) }} 个
           </template>
-          · 资料整理于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
+          · 地图信息更新于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
         </p>
-        <div class="mt-4 border-l-2 border-orange-300 bg-orange-50/70 px-4 py-3">
-          <p class="text-xs font-bold text-orange-900">
-            相关公开资料 · 仅作确认参考
-          </p>
-          <ul class="mt-2 grid gap-2 md:grid-cols-3">
+        <details class="group mt-4 border-y border-zinc-200 bg-white">
+          <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-xs font-semibold text-zinc-700 marker:hidden">
+            <span class="inline-flex items-center gap-2">
+              <UIcon
+                name="i-lucide-book-open"
+                class="size-4 text-green-700"
+              />
+              查看这些地点的资料出处
+            </span>
+            <UIcon
+              name="i-lucide-chevron-down"
+              class="size-4 text-zinc-400 transition group-open:rotate-180"
+            />
+          </summary>
+          <ul class="grid gap-3 border-t border-zinc-100 py-4 md:grid-cols-3">
             <li
               v-for="source in nearbyResearchSources"
               :key="source.url"
@@ -319,7 +312,7 @@ function toggleCandidatePreview(): void {
               </div>
             </li>
           </ul>
-        </div>
+        </details>
         <div
           v-if="filteredCandidates.length"
           class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3"
@@ -357,9 +350,9 @@ function toggleCandidatePreview(): void {
               {{ candidateHint(candidate) }}
             </p>
             <div class="mt-auto flex items-end justify-between gap-3 pt-4">
-              <span class="text-xs text-orange-700">地图搜索线索 · 到店前再确认</span>
+              <span class="text-xs text-orange-700">出发前看营业情况</span>
               <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700">
-                高德查看
+                在高德地图打开
                 <UIcon
                   name="i-lucide-external-link"
                   class="size-3.5"
@@ -374,7 +367,7 @@ function toggleCandidatePreview(): void {
         >
           <UButton
             :icon="candidatesExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-            :label="candidatesExpanded ? '收起参考清单' : `再看 ${candidatePreview.hiddenCount} 条参考`"
+            :label="candidatesExpanded ? '收起地点' : `再看 ${candidatePreview.hiddenCount} 个地点`"
             color="neutral"
             variant="soft"
             :aria-expanded="candidatesExpanded"
