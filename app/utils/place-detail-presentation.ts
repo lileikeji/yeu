@@ -168,8 +168,7 @@ export function resolvePlaceStudentBody(
 ): string {
   const raw = body?.trim() ?? ''
   if (!raw) return ''
-  const contentLines = raw.split(/\n+/).filter(line => line.trim())
-  if (importedPlaceMaintenanceCopy.test(raw) && contentLines.length <= 2) {
+  if (importedPlaceMaintenanceCopy.test(raw)) {
     return resolvePlaceStudentSummary(raw, name || '这里', category, type)
   }
   return studentFacingPlaceBody(raw)

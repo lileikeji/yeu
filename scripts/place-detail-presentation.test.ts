@@ -94,6 +94,8 @@ test('place detail rewrites imported maintenance copy for students', () => {
   assert.match(summary, /现场标识或学校通知/)
   assert.doesNotMatch(summary, /后台|草稿|坐标|维护|核验|发布/)
   assert.equal(resolvePlaceStudentBody(raw, '上海楼', 'building', 'building'), summary)
+  const importedBody = `${raw}\n\n高德 resourceId：2003534061878101218\n坐标来源：User-authorized AMap Work Map sparseList response.\n发布提醒：后台可维护和定位；公开发布仍需要独立核验。`
+  assert.equal(resolvePlaceStudentBody(importedBody, '上海楼', 'building', 'building'), summary)
 
   const published = resolvePlaceStudentSummary('图书馆提供借阅和自习服务。', '图书馆', 'library', 'library')
   assert.equal(published, '图书馆提供借阅和自习服务。')
