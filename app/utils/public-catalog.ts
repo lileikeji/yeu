@@ -64,6 +64,7 @@ const ownerMapGenericSummary = '用户授权的高德工作地图标点，尚未
 
 export function studentFacingGuideText(value: string): string {
   return value
+    .replace(/高德导入标点可先导航，入口细节仍需现场确认。/g, '地图上的位置可先用来找方向，入口细节仍需现场确认。')
     .replace(/专升本档案（2026已发布）/g, '专升本档案（2026年说明）')
     .replace(/资料状态：/g, '目前：')
     .replace(/强时效事项/g, '时间变化较快的事项')
