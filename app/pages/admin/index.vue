@@ -14,7 +14,9 @@ import {
   adminAuditActionLabels,
   adminBanScopeLabels,
   adminLabel,
-  formatAdminDateTime
+  formatAdminDateTime,
+  formatAdminRelativeTime,
+  shortAdminId
 } from '~~/app/utils/admin-security-labels'
 import { adminFetch } from '~~/app/utils/admin-request'
 
@@ -34,8 +36,36 @@ const securitySnapshot = reactive({
   activeBans: null as number | null,
   bannedVisitors: null as number | null,
   activeMutes: null as number | null,
-  mutedRooms: null as number | null
+  mutedRooms: null as number | null,
+  totalUsers: null as number | null,
+  totalVisitors: null as number | null,
+  totalMessages: null as number | null,
+  deletedMessages: null as number | null
 })
+const securityLast24h = reactive({
+  visitorsActive: null as number | null,
+  visitorsNew: null as number | null,
+  visitorEvents: null as number | null,
+  bansCreated: null as number | null,
+  mutesCreated: null as number | null,
+  messages: null as number | null,
+  auditEvents: null as number | null,
+  adminLogins: null as number | null
+})
+const securityTopPaths = ref<Array<{ path: string; count: number }>>([])
+const securityTopCities = ref<Array<{ city: string; count: number }>>([])
+const securityRecentMutes = ref<Array<{
+  id: string
+  userId: string
+  roomId: string | null
+  reason: string
+  expiresAt: string | null
+  createdAt: string
+  username: string | null
+  displayName: string | null
+  roomTitle: string | null
+}>>([])
+const securityGeneratedAt = ref('')
 const loading = ref(false)
 const loadError = ref('')
 
@@ -90,31 +120,25 @@ async function loadDashboard(): Promise<void> {
 
   
   requests.push((async () => {
-    const response = await adminFetch<{ total?: number }>('/api/admin/visitors/bans', {
-      query: { page: 1, pageSize: 1, active: 'true' }
-    })
-    return { key: 'security-active-bans', items: [], total: Number(response?.total ?? 0) }
-  })())
-
-  requests.push((async () => {
-    const response = await adminFetch<{ total?: number }>('/api/admin/visitors', {
-      query: { page: 1, pageSize: 1, banned: 'true' }
-    })
-    return { key: 'security-banned-visitors', items: [], total: Number(response?.total ?? 0) }
-  })())
-
-  requests.push((async () => {
-    const response = await adminFetch<{ total?: number }>('/api/admin/chat/mutes', {
-      query: { page: 1, pageSize: 1 }
-    })
-    return { key: 'security-active-mutes', items: [], total: Number(response?.total ?? 0) }
-  })())
-
-  requests.push((async () => {
-    const response = await adminFetch<{ items?: Array<{ isMutedAll?: boolean }> }>('/api/admin/chat/rooms')
-    const rooms = Array.isArray(response?.items) ? response.items : []
-    const muted = rooms.filter(room => room.isMutedAll).length
-    return { key: 'security-muted-rooms', items: [], total: muted }
+    const response = await adminFetch<{
+      generatedAt?: string
+      counts?: Record<string, number>
+      last24h?: Record<string, number>
+      topPaths?: Array<{ path: string; count: number }>
+      topCities?: Array<{ city: string; count: number }>
+      recentMutes?: Array<{
+        id: string
+        userId: string
+        roomId: string | null
+        reason: string
+        expiresAt: string | null
+        createdAt: string
+        username: string | null
+        displayName: string | null
+        roomTitle: string | null
+      }>
+    }>('/api/admin/security/snapshot')
+    return { key: 'security-snapshot', items: [], total: 0, snapshot: response }
   })())
 
   const results = await Promise.allSettled(requests)
@@ -131,16 +155,36 @@ async function loadDashboard(): Promise<void> {
       continue
     }
 
-    const { key, items, total } = result.value
+    const { key, items, total } = result.value as any
     if (key === 'feedback') recentFeedback.value = items
     if (key === 'audit') recentAudit.value = items
     if (key === 'recent-bans') recentBans.value = items
     if (key === 'recent-visitors') recentVisitors.value = items
-    if (key === 'security-active-bans') securitySnapshot.activeBans = total
-    else if (key === 'security-banned-visitors') securitySnapshot.bannedVisitors = total
-    else if (key === 'security-active-mutes') securitySnapshot.activeMutes = total
-    else if (key === 'security-muted-rooms') securitySnapshot.mutedRooms = total
-    else if (key !== 'audit' && key !== 'recent-bans' && key !== 'recent-visitors') {
+    if (key === 'security-snapshot') {
+      const snap = (result.value as any).snapshot || {}
+      const c = snap.counts || {}
+      const h = snap.last24h || {}
+      securitySnapshot.activeBans = Number(c.activeBans ?? 0)
+      securitySnapshot.bannedVisitors = Number(c.bannedVisitors ?? 0)
+      securitySnapshot.activeMutes = Number(c.activeMutes ?? 0)
+      securitySnapshot.mutedRooms = Number(c.mutedRooms ?? 0)
+      securitySnapshot.totalUsers = Number(c.totalUsers ?? 0)
+      securitySnapshot.totalVisitors = Number(c.totalVisitors ?? 0)
+      securitySnapshot.totalMessages = Number(c.totalMessages ?? 0)
+      securitySnapshot.deletedMessages = Number(c.deletedMessages ?? 0)
+      securityLast24h.visitorsActive = Number(h.visitorsActive ?? 0)
+      securityLast24h.visitorsNew = Number(h.visitorsNew ?? 0)
+      securityLast24h.visitorEvents = Number(h.visitorEvents ?? 0)
+      securityLast24h.bansCreated = Number(h.bansCreated ?? 0)
+      securityLast24h.mutesCreated = Number(h.mutesCreated ?? 0)
+      securityLast24h.messages = Number(h.messages ?? 0)
+      securityLast24h.auditEvents = Number(h.auditEvents ?? 0)
+      securityLast24h.adminLogins = Number(h.adminLogins ?? 0)
+      securityTopPaths.value = Array.isArray(snap.topPaths) ? snap.topPaths : []
+      securityTopCities.value = Array.isArray(snap.topCities) ? snap.topCities : []
+      securityRecentMutes.value = Array.isArray(snap.recentMutes) ? snap.recentMutes : []
+      securityGeneratedAt.value = snap.generatedAt || ''
+    } else if (key !== 'audit' && key !== 'recent-bans' && key !== 'recent-visitors') {
       counts[key] = total
     }
   }
@@ -239,6 +283,110 @@ onMounted(() => {
         </p>
         <p class="mt-1 text-[11px] text-zinc-500">房间级 mute-all</p>
       </NuxtLink>
+    </section>
+
+    <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="安全深度快照">
+      <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-2">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-semibold text-zinc-950">近 24 小时动态</h2>
+            <p class="mt-0.5 text-[11px] text-zinc-500">
+              访客活跃、封禁禁言与审计动作
+              <template v-if="securityGeneratedAt"> · 更新 {{ formatAdminRelativeTime(securityGeneratedAt) }}</template>
+            </p>
+          </div>
+          <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">审计</UButton>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">活跃访客</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.visitorsActive ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">新访客</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.visitorsNew ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">访客事件</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.visitorEvents ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">聊天消息</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.messages ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-red-50/60 px-3 py-2">
+            <p class="text-[11px] text-red-700">新建封禁</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.bansCreated ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-amber-50/60 px-3 py-2">
+            <p class="text-[11px] text-amber-800">新建禁言</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.mutesCreated ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-indigo-50/50 px-3 py-2">
+            <p class="text-[11px] text-indigo-700">审计事件</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.auditEvents ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-emerald-50/50 px-3 py-2">
+            <p class="text-[11px] text-emerald-700">管理员登录</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">{{ securityLast24h.adminLogins ?? '—' }}</p>
+          </div>
+        </div>
+        <p class="mt-3 text-[11px] text-zinc-500">
+          总量：账号 {{ securitySnapshot.totalUsers ?? '—' }} · 访客 {{ securitySnapshot.totalVisitors ?? '—' }} · 消息 {{ securitySnapshot.totalMessages ?? '—' }}
+          （已删 {{ securitySnapshot.deletedMessages ?? '—' }}）
+        </p>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">生效禁言</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">来自安全快照 · 最多 6 条</p>
+        <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
+          <li
+            v-for="mute in securityRecentMutes"
+            :key="mute.id"
+            class="rounded-lg border border-zinc-100 px-2.5 py-2 text-xs"
+          >
+            <p class="font-medium text-zinc-900">
+              {{ mute.displayName || mute.username || shortAdminId(mute.userId) }}
+            </p>
+            <p class="mt-0.5 text-zinc-500">
+              {{ mute.roomTitle || '全站' }} · {{ formatAdminRelativeTime(mute.createdAt) }}
+            </p>
+            <p class="mt-1 line-clamp-2 text-amber-800">原因：{{ mute.reason || '—' }}</p>
+          </li>
+          <li v-if="!securityRecentMutes.length" class="py-6 text-center text-zinc-400">暂无生效禁言</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">热门路径 · 近 7 天</h2>
+        <ul class="mt-3 space-y-1.5">
+          <li
+            v-for="row in securityTopPaths"
+            :key="row.path"
+            class="flex items-center justify-between gap-2 text-xs"
+          >
+            <span class="truncate text-zinc-700">{{ row.path || '/' }}</span>
+            <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+          </li>
+          <li v-if="!securityTopPaths.length" class="py-4 text-center text-zinc-400">暂无数据</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">访客城市 TOP</h2>
+        <ul class="mt-3 space-y-1.5">
+          <li
+            v-for="row in securityTopCities"
+            :key="row.city"
+            class="flex items-center justify-between gap-2 text-xs"
+          >
+            <span class="truncate text-zinc-700">{{ row.city }}</span>
+            <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+          </li>
+          <li v-if="!securityTopCities.length" class="py-4 text-center text-zinc-400">暂无数据</li>
+        </ul>
+      </div>
     </section>
 
     <section

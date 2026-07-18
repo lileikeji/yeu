@@ -9,7 +9,10 @@ import {
   adminEntityHref,
   adminLabel,
   formatAdminDateTime,
-  prettyAdminDetails
+  formatAdminRelativeTime,
+  groupByAdminDay,
+  prettyAdminDetails,
+  shortAdminId
 } from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
@@ -18,6 +21,8 @@ useSeoMeta({ title: '审计日志', robots: 'noindex, nofollow' })
 type AuditRow = {
   id: string
   actorAdminId: string | null
+  actorUsername?: string | null
+  actorDisplayName?: string | null
   action: string
   entityType: string
   entityId: string | null
@@ -52,6 +57,15 @@ function actionLabel(value: string): string {
 function entityLabel(value: string): string {
   return adminLabel(adminAuditEntityLabels, value, value)
 }
+
+function actorLabel(row: AuditRow): string {
+  if (row.actorDisplayName) return row.actorDisplayName
+  if (row.actorUsername) return row.actorUsername
+  if (row.actorAdminId) return shortAdminId(row.actorAdminId, 10)
+  return '系统 / 未知'
+}
+
+const auditDayGroups = computed(() => groupByAdminDay(items.value))
 
 function toggleExpand(id: string): void {
   expanded.value = {
@@ -221,9 +235,17 @@ onMounted(() => {
         </UButton>
       </div>
 
-      <ul class="mt-4 max-h-[42rem] space-y-2 overflow-y-auto">
+      <div class="mt-4 max-h-[42rem] space-y-4 overflow-y-auto">
+        <div
+          v-for="group in auditDayGroups"
+          :key="group.day"
+        >
+          <p class="sticky top-0 z-[1] mb-2 bg-white/90 py-1 text-xs font-semibold text-zinc-700 backdrop-blur">
+            {{ group.day }} · {{ group.items.length }} 条
+          </p>
+          <ul class="space-y-2">
         <li
-          v-for="row in items"
+          v-for="row in group.items"
           :key="row.id"
           class="rounded-xl border border-zinc-100 px-3 py-3 text-sm"
         >
@@ -243,8 +265,10 @@ onMounted(() => {
                 · {{ formatTime(row.createdAt) }}
               </p>
               <p class="mt-1 text-xs text-zinc-400">
-                管理员：{{ row.actorAdminId || '—' }}
+                操作人：{{ actorLabel(row) }}
+                <template v-if="row.actorAdminId"> · {{ shortAdminId(row.actorAdminId, 10) }}</template>
                 <template v-if="row.requestId"> · req {{ row.requestId }}</template>
+                · {{ formatAdminRelativeTime(row.createdAt) }}
               </p>
 
               <div
@@ -297,13 +321,15 @@ onMounted(() => {
             </div>
           </div>
         </li>
-        <li
+          </ul>
+        </div>
+        <p
           v-if="!items.length && !loading"
           class="py-10 text-center text-sm text-zinc-400"
         >
           暂无审计记录
-        </li>
-      </ul>
+        </p>
+      </div>
 
       <div class="mt-3 flex items-center justify-between text-sm text-zinc-500">
         <span>共 {{ total }} 条 · 第 {{ page }} 页</span>

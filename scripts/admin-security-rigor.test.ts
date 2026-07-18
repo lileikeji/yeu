@@ -150,11 +150,75 @@ test('admin depth2: entity links, confirms, detail panels, security snapshot', (
   assert.match(dashboardPage, /securitySnapshot/)
   assert.match(dashboardPage, /安全态势/)
   assert.match(dashboardPage, /生效封禁/)
-  assert.match(dashboardPage, /security-active-bans/)
-  assert.match(dashboardPage, /security-active-mutes/)
-  assert.match(dashboardPage, /security-muted-rooms/)
-  assert.match(dashboardPage, /\/api\/admin\/chat\/mutes/)
-  assert.match(dashboardPage, /\/api\/admin\/chat\/rooms/)
+  assert.match(dashboardPage, /security-snapshot|securitySnapshot/)
+  assert.match(dashboardPage, /\/api\/admin\/security\/snapshot/)
 
   assert.match(visitorsService, /bannedByAdminId/)
 })
+
+
+test('admin depth3: security snapshot, user dossier, room stats, deleted filter, relative time', () => {
+  const snapshotApi = readFileSync(resolve('server/api/admin/security/snapshot.get.ts'), 'utf8')
+  const dossierApi = readFileSync(resolve('server/api/admin/users/[id]/security.get.ts'), 'utf8')
+  const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
+  const chatService = readFileSync(resolve('server/modules/chat/service.ts'), 'utf8')
+  const usersService = readFileSync(resolve('server/modules/users/service.ts'), 'utf8')
+
+  assert.match(snapshotApi, /getSecuritySnapshot/)
+  assert.match(dossierApi, /getUserSecurityDossier/)
+  assert.match(securityService, /export function getSecuritySnapshot/)
+  assert.match(securityService, /export function getUserSecurityDossier/)
+  assert.match(securityService, /last24h/)
+  assert.match(securityService, /topPaths/)
+  assert.match(securityService, /topCities/)
+  assert.match(securityService, /recentMutes/)
+  assert.match(securityService, /linkedVisitors/)
+  assert.match(securityService, /activeSessions/)
+
+  assert.match(chatService, /messageCount/)
+  assert.match(chatService, /deletedMessageCount/)
+  assert.match(chatService, /memberCount/)
+  assert.match(chatService, /activeMuteCount/)
+  assert.match(chatService, /lastMessagePreview/)
+  assert.match(chatService, /roomTitle/)
+  assert.match(chatService, /username/)
+  assert.match(chatService, /deleted === 'true'/)
+  assert.match(chatService, /deleted === 'false'/)
+
+  const deleted = adminChatMessagesQuerySchema.parse({ page: 1, deleted: 'true' })
+  assert.equal(deleted.deleted, 'true')
+  assert.throws(() => adminChatMessagesQuerySchema.parse({ page: 1, deleted: 'maybe' as any }))
+
+  assert.match(usersService, /like\(users\.id/)
+
+  assert.match(dashboardPage, /\/api\/admin\/security\/snapshot/)
+  assert.match(dashboardPage, /securityLast24h/)
+  assert.match(dashboardPage, /securityTopPaths/)
+  assert.match(dashboardPage, /securityRecentMutes/)
+  assert.match(dashboardPage, /近 24 小时/)
+
+  assert.match(usersPage, /\/api\/admin\/users\//)
+  assert.match(usersPage, /security/)
+  assert.match(usersPage, /loadUserDossier|userDossier/)
+  assert.match(usersPage, /关联访客|生效封禁|最近消息/)
+
+  assert.match(chatPage, /messageCount/)
+  assert.match(chatPage, /deletedFilter|cycleDeletedFilter/)
+  assert.match(chatPage, /message\.username|message\.roomTitle/)
+  assert.match(chatPage, /memberCount/)
+
+  assert.match(visitorsPage, /adminVisitorActionLabels|actionLabel/)
+  assert.match(visitorsPage, /eventActionSummary/)
+
+  assert.match(auditPage, /actorUsername|actorLabel|actorDisplayName/)
+  assert.match(auditPage, /auditDayGroups|groupByAdminDay/)
+  assert.match(auditApi, /actorUsername/)
+  assert.match(auditApi, /actorDisplayName/)
+
+  assert.match(labels, /formatAdminRelativeTime/)
+  assert.match(labels, /shortAdminId/)
+  assert.match(labels, /adminVisitorActionLabels/)
+  assert.match(labels, /adminSecurityWindowLabels/)
+  assert.match(labels, /'auth\.login'/)
+})
+

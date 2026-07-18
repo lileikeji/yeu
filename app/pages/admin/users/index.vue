@@ -4,7 +4,10 @@ import { adminFetch } from '~~/app/utils/admin-request'
 import {
   adminUserStatusLabels,
   adminLabel,
+  adminAuditActionLabels,
   formatAdminDateTime,
+  formatAdminRelativeTime,
+  shortAdminId,
   confirmAdminAction,
   adminAuditHref
 } from '~~/app/utils/admin-security-labels'
@@ -35,6 +38,17 @@ const page = ref(1)
 const pageSize = 20
 const selectedUser = ref<AppUser | null>(null)
 const focusUserId = ref('')
+const dossierLoading = ref(false)
+const dossierError = ref('')
+const userDossier = ref<{
+  summary: Record<string, number>
+  linkedVisitors: Array<Record<string, any>>
+  bans: Array<Record<string, any>>
+  mutes: Array<Record<string, any>>
+  recentMessages: Array<Record<string, any>>
+  auditItems: Array<Record<string, any>>
+  memberships: Array<Record<string, any>>
+} | null>(null)
 
 const q = ref('')
 const status = ref<string>('')
@@ -90,19 +104,53 @@ async function handleAuth(error: unknown): Promise<boolean> {
   return true
 }
 
+async function loadUserDossier(userId: string): Promise<void> {
+  dossierLoading.value = true
+  dossierError.value = ''
+  try {
+    const payload = await adminFetch<any>(`/api/admin/users/${encodeURIComponent(userId)}/security`)
+    userDossier.value = {
+      summary: payload.summary || {},
+      linkedVisitors: payload.linkedVisitors || [],
+      bans: payload.bans || [],
+      mutes: payload.mutes || [],
+      recentMessages: payload.recentMessages || [],
+      auditItems: payload.auditItems || [],
+      memberships: payload.memberships || []
+    }
+    if (payload.user) {
+      selectedUser.value = payload.user as AppUser
+    }
+  } catch (error) {
+    if (await handleAuth(error)) return
+    dossierError.value = getRequestMessage(error, '安全档案加载失败')
+    userDossier.value = null
+  } finally {
+    dossierLoading.value = false
+  }
+}
+
 function openUserDetail(row: AppUser): void {
   selectedUser.value = row
   focusUserId.value = row.id
+  void loadUserDossier(row.id)
 }
 
 function closeUserDetail(): void {
   selectedUser.value = null
+  userDossier.value = null
+  dossierError.value = ''
 }
 
 function syncSelectedUser(): void {
   if (!focusUserId.value) return
   const hit = items.value.find(row => row.id === focusUserId.value)
-  if (hit) selectedUser.value = hit
+  if (hit) {
+    selectedUser.value = hit
+    if (!userDossier.value || (userDossier.value as any)._userId !== hit.id) {
+      void loadUserDossier(hit.id)
+    }
+  }
 }
 
 async function loadUsers(): Promise<void> {
@@ -248,6 +296,9 @@ onMounted(async () => {
       lastLoginAt: null,
       createdAt: ''
     }
+  }
+  if (userIdQuery) {
+    void loadUserDossier(userIdQuery)
   }
 })
 </script>
@@ -720,7 +771,156 @@ onMounted(async () => {
           >
             封禁账号
           </UButton>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-refresh-cw"
+            :loading="dossierLoading"
+            @click="loadUserDossier(selectedUser.id)"
+          >
+            刷新档案
+          </UButton>
         </div>
+
+        <div
+          v-if="dossierError"
+          class="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+        >
+          {{ dossierError }}
+        </div>
+
+        <div v-if="dossierLoading && !userDossier" class="mt-3 text-xs text-zinc-500">
+          安全档案加载中…
+        </div>
+
+        <template v-if="userDossier">
+          <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div class="rounded-xl border border-white bg-white px-3 py-2">
+              <p class="text-[11px] text-zinc-500">关联访客</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.linkedVisitorCount ?? 0 }}</p>
+            </div>
+            <div class="rounded-xl border border-white bg-white px-3 py-2">
+              <p class="text-[11px] text-zinc-500">生效封禁</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-red-700">{{ userDossier.summary.activeBanCount ?? 0 }}</p>
+            </div>
+            <div class="rounded-xl border border-white bg-white px-3 py-2">
+              <p class="text-[11px] text-zinc-500">生效禁言</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-amber-700">{{ userDossier.summary.activeMuteCount ?? 0 }}</p>
+            </div>
+            <div class="rounded-xl border border-white bg-white px-3 py-2">
+              <p class="text-[11px] text-zinc-500">消息总数</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.messageTotal ?? 0 }}</p>
+            </div>
+            <div class="rounded-xl border border-white bg-white px-3 py-2">
+              <p class="text-[11px] text-zinc-500">已删消息</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.messageDeleted ?? 0 }}</p>
+            </div>
+            <div class="rounded-xl border border-white bg-white px-3 py-2">
+              <p class="text-[11px] text-zinc-500">在线会话</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.activeSessions ?? 0 }}</p>
+            </div>
+          </div>
+
+          <div class="mt-4 space-y-3">
+            <section class="rounded-xl border border-white bg-white p-3">
+              <h3 class="text-xs font-semibold text-zinc-800">群成员身份（{{ userDossier.memberships.length }}）</h3>
+              <ul class="mt-2 max-h-28 space-y-1 overflow-y-auto text-xs text-zinc-600">
+                <li v-for="m in userDossier.memberships" :key="m.roomId">
+                  {{ m.title }}
+                  <span class="text-zinc-400">· {{ m.kind }} · {{ formatAdminRelativeTime(m.joinedAt) }}</span>
+                </li>
+                <li v-if="!userDossier.memberships.length" class="text-zinc-400">未加入群聊</li>
+              </ul>
+            </section>
+
+            <section class="rounded-xl border border-white bg-white p-3">
+              <h3 class="text-xs font-semibold text-zinc-800">关联访客（{{ userDossier.linkedVisitors.length }}）</h3>
+              <ul class="mt-2 max-h-32 space-y-1.5 overflow-y-auto text-xs">
+                <li
+                  v-for="v in userDossier.linkedVisitors"
+                  :key="v.id"
+                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                >
+                  <NuxtLink
+                    :to="`/admin/visitors?q=${encodeURIComponent(v.id)}`"
+                    class="font-medium text-emerald-700 hover:underline"
+                  >
+                    {{ shortAdminId(v.id, 10) }}
+                  </NuxtLink>
+                  <span class="text-zinc-500"> · {{ v.lastCity || v.lastRegion || '未知地点' }} · {{ v.lastIp || '无 IP' }}</span>
+                  <p class="text-zinc-400">末次 {{ formatAdminRelativeTime(v.lastSeenAt) }} · 事件 {{ v.eventCount }}</p>
+                </li>
+                <li v-if="!userDossier.linkedVisitors.length" class="text-zinc-400">无关联访客</li>
+              </ul>
+            </section>
+
+            <section class="rounded-xl border border-white bg-white p-3">
+              <h3 class="text-xs font-semibold text-zinc-800">封禁记录（{{ userDossier.bans.length }}）</h3>
+              <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
+                <li
+                  v-for="b in userDossier.bans"
+                  :key="b.id"
+                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                >
+                  <span :class="b.isActive ? 'text-red-700' : 'text-zinc-500'">{{ b.isActive ? '生效' : '失效' }}</span>
+                  · {{ b.reason || '—' }}
+                  <p class="text-zinc-400">{{ formatTime(b.createdAt) }}</p>
+                </li>
+                <li v-if="!userDossier.bans.length" class="text-zinc-400">无账号级封禁</li>
+              </ul>
+            </section>
+
+            <section class="rounded-xl border border-white bg-white p-3">
+              <h3 class="text-xs font-semibold text-zinc-800">禁言记录（{{ userDossier.mutes.length }}）</h3>
+              <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
+                <li
+                  v-for="m in userDossier.mutes"
+                  :key="m.id"
+                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                >
+                  <span :class="m.isActive ? 'text-amber-700' : 'text-zinc-500'">{{ m.isActive ? '生效' : '失效' }}</span>
+                  · {{ m.roomTitle || '全站' }} · {{ m.reason || '—' }}
+                  <p class="text-zinc-400">{{ formatTime(m.createdAt) }}</p>
+                </li>
+                <li v-if="!userDossier.mutes.length" class="text-zinc-400">无禁言记录</li>
+              </ul>
+            </section>
+
+            <section class="rounded-xl border border-white bg-white p-3">
+              <h3 class="text-xs font-semibold text-zinc-800">最近消息（{{ userDossier.recentMessages.length }}）</h3>
+              <ul class="mt-2 max-h-36 space-y-1.5 overflow-y-auto text-xs">
+                <li
+                  v-for="msg in userDossier.recentMessages"
+                  :key="msg.id"
+                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                >
+                  <p class="text-zinc-500">
+                    {{ msg.roomTitle }} · {{ formatAdminRelativeTime(msg.createdAt) }}
+                    <span v-if="msg.deletedAt" class="text-red-600"> · 已删</span>
+                  </p>
+                  <p class="mt-0.5 line-clamp-2 text-zinc-800">{{ msg.body }}</p>
+                </li>
+                <li v-if="!userDossier.recentMessages.length" class="text-zinc-400">暂无消息</li>
+              </ul>
+            </section>
+
+            <section class="rounded-xl border border-white bg-white p-3">
+              <h3 class="text-xs font-semibold text-zinc-800">相关审计（{{ userDossier.auditItems.length }}）</h3>
+              <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
+                <li
+                  v-for="a in userDossier.auditItems"
+                  :key="a.id"
+                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                >
+                  {{ adminLabel(adminAuditActionLabels, a.action, a.action) }}
+                  <span class="text-zinc-400"> · {{ formatAdminRelativeTime(a.createdAt) }}</span>
+                </li>
+                <li v-if="!userDossier.auditItems.length" class="text-zinc-400">暂无审计</li>
+              </ul>
+            </section>
+          </div>
+        </template>
       </aside>
 
       <aside

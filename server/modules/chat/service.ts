@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, count, desc, eq, gt, isNull, like, lt, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, isNotNull, isNull, like, lt, or, sql } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
   chatMembers,
@@ -283,10 +283,39 @@ export function sendMessage(
 
 export function listAdminRooms(client: DatabaseClient) {
   ensurePublicRoom(client)
-  return client.db.select().from(chatRooms)
+  const now = Date.now()
+  const rooms = client.db.select().from(chatRooms)
     .orderBy(desc(chatRooms.createdAt))
     .all()
-    .map(room => ({
+
+  return rooms.map((room) => {
+    const messageCount = client.db.select({ value: count() }).from(chatMessages)
+      .where(eq(chatMessages.roomId, room.id))
+      .get()?.value ?? 0
+    const deletedMessageCount = client.db.select({ value: count() }).from(chatMessages)
+      .where(and(eq(chatMessages.roomId, room.id), isNotNull(chatMessages.deletedAt)))
+      .get()?.value ?? 0
+    const memberCount = client.db.select({ value: count() }).from(chatMembers)
+      .where(eq(chatMembers.roomId, room.id))
+      .get()?.value ?? 0
+    const activeMuteCount = client.db.select({ value: count() }).from(chatMutes)
+      .where(and(
+        eq(chatMutes.roomId, room.id),
+        eq(chatMutes.isActive, true),
+        or(isNull(chatMutes.expiresAt), gt(chatMutes.expiresAt, now))
+      ))
+      .get()?.value ?? 0
+    const lastMessage = client.db.select({
+      createdAt: chatMessages.createdAt,
+      body: chatMessages.body,
+      displayName: chatMessages.displayName
+    }).from(chatMessages)
+      .where(eq(chatMessages.roomId, room.id))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(1)
+      .get()
+
+    return {
       id: room.id,
       kind: room.kind,
       slug: room.slug,
@@ -294,21 +323,50 @@ export function listAdminRooms(client: DatabaseClient) {
       dormBuilding: room.dormBuilding,
       isMutedAll: room.isMutedAll,
       isActive: room.isActive,
-      createdAt: new Date(room.createdAt).toISOString()
-    }))
+      createdAt: new Date(room.createdAt).toISOString(),
+      messageCount: Number(messageCount),
+      deletedMessageCount: Number(deletedMessageCount),
+      memberCount: Number(memberCount),
+      activeMuteCount: Number(activeMuteCount),
+      lastMessageAt: lastMessage ? new Date(lastMessage.createdAt).toISOString() : null,
+      lastMessagePreview: lastMessage ? String(lastMessage.body || '').slice(0, 80) : null,
+      lastMessageAuthor: lastMessage?.displayName || null
+    }
+  })
 }
 
 export function listAdminMessages(
   client: DatabaseClient,
-  query: { page: number; pageSize: number; roomId?: string; userId?: string; q?: string }
+  query: {
+    page: number
+    pageSize: number
+    roomId?: string
+    userId?: string
+    q?: string
+    deleted?: 'true' | 'false' | 'all'
+  }
 ) {
   const offset = (query.page - 1) * query.pageSize
   const conditions = []
   if (query.roomId) conditions.push(eq(chatMessages.roomId, query.roomId))
   if (query.userId) conditions.push(eq(chatMessages.userId, query.userId))
   if (query.q) conditions.push(like(chatMessages.body, `%${query.q}%`))
+  if (query.deleted === 'true') conditions.push(isNotNull(chatMessages.deletedAt))
+  if (query.deleted === 'false') conditions.push(isNull(chatMessages.deletedAt))
   const where = conditions.length ? and(...conditions) : undefined
-  const rows = client.db.select().from(chatMessages)
+  const rows = client.db.select({
+    id: chatMessages.id,
+    roomId: chatMessages.roomId,
+    userId: chatMessages.userId,
+    displayName: chatMessages.displayName,
+    body: chatMessages.body,
+    deletedAt: chatMessages.deletedAt,
+    createdAt: chatMessages.createdAt,
+    roomTitle: chatRooms.title,
+    username: users.username
+  }).from(chatMessages)
+    .leftJoin(chatRooms, eq(chatMessages.roomId, chatRooms.id))
+    .leftJoin(users, eq(chatMessages.userId, users.id))
     .where(where)
     .orderBy(desc(chatMessages.createdAt))
     .limit(query.pageSize)
@@ -321,6 +379,8 @@ export function listAdminMessages(
       roomId: row.roomId,
       userId: row.userId,
       displayName: row.displayName,
+      username: row.username || null,
+      roomTitle: row.roomTitle || null,
       body: row.body,
       deletedAt: row.deletedAt ? new Date(row.deletedAt).toISOString() : null,
       createdAt: new Date(row.createdAt).toISOString()

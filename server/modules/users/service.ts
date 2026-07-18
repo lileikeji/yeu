@@ -35,8 +35,12 @@ export function listAppUsers(
   if (query.major) conditions.push(eq(users.major, query.major))
   if (query.dormBuilding) conditions.push(eq(users.dormBuilding, query.dormBuilding))
   if (query.q) {
-    const likeValue = `%${query.q}%`
+    const raw = query.q.trim()
+    const likeValue = `%${raw}%`
+    // Support deep-link by full/partial user id from admin panels.
     conditions.push(or(
+      eq(users.id, raw),
+      like(users.id, likeValue),
       like(users.username, likeValue),
       like(users.displayName, likeValue),
       like(users.major, likeValue),

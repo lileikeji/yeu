@@ -4,10 +4,13 @@ import { adminFetch } from '~~/app/utils/admin-request'
 import {
   adminAuditHref,
   adminBanScopeLabels,
+  adminHttpMethodLabels,
   adminLabel,
+  adminVisitorActionLabels,
   banStatusMeta,
   confirmAdminAction,
   formatAdminDateTime,
+  formatAdminRelativeTime,
   groupByAdminDay,
   prettyAdminDetails
 } from '~~/app/utils/admin-security-labels'
@@ -84,6 +87,25 @@ const activeBanCount = computed(() => bans.value.filter(row => banStatusMeta(row
 function formatTime(iso: string | null | undefined): string {
   return formatAdminDateTime(iso)
 }
+
+function actionLabel(value: string | null | undefined): string {
+  return adminLabel(adminVisitorActionLabels, value, value || '未知动作')
+}
+
+function methodLabel(value: string | null | undefined): string {
+  return adminLabel(adminHttpMethodLabels, value, value || '')
+}
+
+const eventActionSummary = computed(() => {
+  const map = new Map<string, number>()
+  for (const ev of events.value) {
+    const key = ev.action || 'unknown'
+    map.set(key, (map.get(key) || 0) + 1)
+  }
+  return Array.from(map.entries())
+    .map(([action, count]) => ({ action, count, label: actionLabel(action) }))
+    .sort((a, b) => b.count - a.count)
+})
 
 function shortUa(ua: string | null | undefined): string {
   if (!ua) return '—'
@@ -699,6 +721,19 @@ onMounted(async () => {
         class="mt-3 max-h-[28rem] space-y-4 overflow-y-auto"
       >
         <div
+          v-if="eventActionSummary.length"
+          class="flex flex-wrap gap-1.5 rounded-xl border border-sky-100 bg-white px-3 py-2"
+        >
+          <span class="w-full text-[11px] font-medium text-sky-900">本页事件摘要</span>
+          <span
+            v-for="row in eventActionSummary"
+            :key="row.action"
+            class="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] text-sky-800"
+          >
+            {{ row.label }} {{ row.count }}
+          </span>
+        </div>
+        <div
           v-for="group in eventGroups"
           :key="group.day"
         >
@@ -714,15 +749,18 @@ onMounted(async () => {
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800">
+                    {{ actionLabel(event.action) }}
+                  </span>
+                  <span class="rounded-full bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-500">
                     {{ event.action }}
                   </span>
                   <span
                     v-if="event.method"
                     class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700"
                   >
-                    {{ event.method }}
+                    {{ methodLabel(event.method) }}
                   </span>
-                  <span class="text-xs text-zinc-500">{{ formatTime(event.createdAt) }}</span>
+                  <span class="text-xs text-zinc-500">{{ formatAdminRelativeTime(event.createdAt) }} · {{ formatTime(event.createdAt) }}</span>
                 </div>
                 <div class="flex flex-wrap gap-1">
                   <UButton

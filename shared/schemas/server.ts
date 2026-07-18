@@ -523,7 +523,8 @@ export const chatMessagesQuerySchema = z.object({
 export const adminChatMessagesQuerySchema = paginationQuerySchema.extend({
   roomId: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
-  q: z.string().trim().max(200).optional()
+  q: z.string().trim().max(200).optional(),
+  deleted: z.enum(['true', 'false', 'all']).optional()
 })
 
 export const muteChatUserSchema = z.object({

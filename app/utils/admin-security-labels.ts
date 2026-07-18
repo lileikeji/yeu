@@ -31,6 +31,7 @@ export const adminAuditActionLabels: Record<string, string> = {
   'user.update': '更新账号',
   'user.status': '调整账号状态',
   'admin.login': '管理员登录',
+  'auth.login': '管理员登录',
   'admin.logout': '管理员登出',
   publish: '发布',
   unpublish: '取消发布',
@@ -91,9 +92,53 @@ export const adminHttpMethodLabels: Record<string, string> = {
   DELETE: 'DELETE'
 }
 
+export const adminVisitorActionLabels: Record<string, string> = {
+  page_view: '浏览页面',
+  route_view: '路由访问',
+  search: '搜索',
+  map_open: '打开地图',
+  map_route: '规划路线',
+  place_view: '查看地点',
+  chat_open: '打开群聊',
+  chat_send: '发送消息',
+  login: '登录',
+  logout: '退出',
+  profile_update: '更新资料',
+  procedure_view: '查看办事',
+  feedback_submit: '提交反馈',
+  api_request: '接口请求'
+}
+
+export const adminSecurityWindowLabels = {
+  h24: '近 24 小时',
+  d7: '近 7 天'
+} as const
+
 export function adminLabel(map: Record<string, string>, value: string | null | undefined, fallback?: string): string {
   if (!value) return fallback || '—'
   return map[value] || value
+}
+
+export function formatAdminRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return '未知'
+  const ts = Date.parse(iso)
+  if (!Number.isFinite(ts)) return iso
+  const diff = Date.now() - ts
+  if (diff < 0) return formatAdminDateTime(iso)
+  const sec = Math.floor(diff / 1000)
+  if (sec < 60) return `${sec} 秒前`
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min} 分钟前`
+  const hour = Math.floor(min / 60)
+  if (hour < 24) return `${hour} 小时前`
+  const day = Math.floor(hour / 24)
+  if (day < 30) return `${day} 天前`
+  return formatAdminDateTime(iso)
+}
+
+export function shortAdminId(id: string | null | undefined, keep = 8): string {
+  if (!id) return '—'
+  return id.length <= keep + 2 ? id : `${id.slice(0, keep)}…`
 }
 
 export function formatAdminDateTime(iso: string | null | undefined, withSeconds = false): string {

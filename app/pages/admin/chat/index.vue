@@ -18,6 +18,13 @@ type ChatRoom = {
   isMutedAll: boolean
   isActive: boolean
   createdAt: string
+  messageCount?: number
+  deletedMessageCount?: number
+  memberCount?: number
+  activeMuteCount?: number
+  lastMessageAt?: string | null
+  lastMessagePreview?: string | null
+  lastMessageAuthor?: string | null
 }
 
 type ChatMessage = {
@@ -25,6 +32,8 @@ type ChatMessage = {
   roomId: string
   userId: string
   displayName: string
+  username?: string | null
+  roomTitle?: string | null
   body: string
   deletedAt: string | null
   createdAt: string
@@ -63,22 +72,36 @@ const muteUserId = ref('')
 const muteRoomId = ref('')
 const muteReason = ref('')
 const muteExpiresAt = ref('')
-const deletedOnly = ref(false)
+const deletedFilter = ref<'all' | 'true' | 'false'>('all')
+const deletedOnly = computed({
+  get: () => deletedFilter.value === 'true',
+  set: (v: boolean) => { deletedFilter.value = v ? 'true' : 'all' }
+})
+const deletedFilterLabel = computed(() => {
+  if (deletedFilter.value === 'true') return '仅已删除'
+  if (deletedFilter.value === 'false') return '仅未删除'
+  return '全部消息'
+})
+function cycleDeletedFilter(): void {
+  const order: Array<'all' | 'true' | 'false'> = ['all', 'true', 'false']
+  const next = order[(order.indexOf(deletedFilter.value) + 1) % order.length]
+  deletedFilter.value = next
+  page.value = 1
+  void loadMessages()
+}
 const selectedMessage = ref<ChatMessage | null>(null)
 
 const mutedRoomCount = computed(() => rooms.value.filter(room => room.isMutedAll).length)
 const deletedOnPage = computed(() => messages.value.filter(item => item.deletedAt).length)
 const activeMuteCount = computed(() => mutes.value.filter(item => item.isActive).length)
-const visibleMessages = computed(() => {
-  if (!deletedOnly.value) return messages.value
-  return messages.value.filter(item => Boolean(item.deletedAt))
-})
+const visibleMessages = computed(() => messages.value)
 
 function formatTime(iso: string | null | undefined): string {
   return formatAdminDateTime(iso, true)
 }
 
-function roomTitle(id: string): string {
+function roomTitle(id: string, fallback?: string | null): string {
+  if (fallback) return fallback
   return rooms.value.find(room => room.id === id)?.title || id.slice(0, 8)
 }
 
@@ -107,7 +130,8 @@ async function loadMessages(): Promise<void> {
         pageSize,
         roomId: roomFilter.value || undefined,
         userId: userFilter.value.trim() || undefined,
-        q: q.value.trim() || undefined
+        q: q.value.trim() || undefined,
+        deleted: deletedFilter.value === 'all' ? undefined : deletedFilter.value
       }
     })
     messages.value = payload.items || []
@@ -357,12 +381,38 @@ onMounted(() => {
               <p class="text-xs text-zinc-500">
                 {{ room.kind }} · {{ room.dormBuilding || room.slug }}
               </p>
-              <span
-                class="mt-2 inline-flex rounded-full px-2 py-0.5 text-[11px]"
-                :class="room.isMutedAll ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+              <div class="mt-2 flex flex-wrap gap-1">
+                <span
+                  class="inline-flex rounded-full px-2 py-0.5 text-[11px]"
+                  :class="room.isMutedAll ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+                >
+                  {{ room.isMutedAll ? '全员禁言中' : '可发言' }}
+                </span>
+                <span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600">
+                  消息 {{ room.messageCount ?? 0 }}
+                </span>
+                <span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600">
+                  成员 {{ room.memberCount ?? 0 }}
+                </span>
+                <span
+                  v-if="(room.activeMuteCount || 0) > 0"
+                  class="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700"
+                >
+                  禁言 {{ room.activeMuteCount }}
+                </span>
+                <span
+                  v-if="(room.deletedMessageCount || 0) > 0"
+                  class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500"
+                >
+                  已删 {{ room.deletedMessageCount }}
+                </span>
+              </div>
+              <p
+                v-if="room.lastMessagePreview"
+                class="mt-2 line-clamp-1 text-[11px] text-zinc-500"
               >
-                {{ room.isMutedAll ? '全员禁言中' : '可发言' }}
-              </span>
+                最近：{{ room.lastMessageAuthor || '—' }} · {{ room.lastMessagePreview }}
+              </p>
             </div>
             <div class="flex flex-col gap-1">
               <UButton
@@ -445,13 +495,13 @@ onMounted(() => {
           <div class="mb-2 flex flex-wrap items-center gap-2">
             <UButton
               size="xs"
-              :color="deletedOnly ? 'warning' : 'neutral'"
-              :variant="deletedOnly ? 'soft' : 'outline'"
-              @click="deletedOnly = !deletedOnly"
+              :color="deletedFilter === 'true' ? 'warning' : deletedFilter === 'false' ? 'primary' : 'neutral'"
+              :variant="deletedFilter === 'all' ? 'outline' : 'soft'"
+              @click="cycleDeletedFilter"
             >
-              {{ deletedOnly ? '显示全部消息' : '只看已删除' }}
+              {{ deletedFilterLabel }}
             </UButton>
-            <span class="text-xs text-zinc-500">当前列表 {{ visibleMessages.length }} 条</span>
+            <span class="text-xs text-zinc-500">服务端筛选 · 当前 {{ total }} 条命中 / 本页 {{ visibleMessages.length }}</span>
           </div>
           <li
             v-for="message in visibleMessages"
@@ -462,8 +512,9 @@ onMounted(() => {
               <div>
                 <p class="font-medium text-zinc-900">
                   {{ message.displayName }}
+                  <span v-if="message.username" class="ml-1 text-xs font-normal text-zinc-500">@{{ message.username }}</span>
                   <span class="ml-2 text-xs font-normal text-zinc-500">
-                    {{ roomTitle(message.roomId) }} · {{ formatTime(message.createdAt) }}
+                    {{ roomTitle(message.roomId, message.roomTitle) }} · {{ formatTime(message.createdAt) }}
                   </span>
                 </p>
                 <p class="mt-1 break-all text-[11px] text-zinc-400">
@@ -665,7 +716,7 @@ onMounted(() => {
         <div>
           <h2 class="font-semibold text-zinc-950">消息详情</h2>
           <p class="mt-1 text-xs text-zinc-500">
-            {{ selectedMessage.displayName }} · {{ formatTime(selectedMessage.createdAt) }}
+            {{ selectedMessage.displayName }}<template v-if="selectedMessage.username"> @{{ selectedMessage.username }}</template> · {{ formatTime(selectedMessage.createdAt) }}
             <template v-if="selectedMessage.deletedAt"> · 已删除 {{ formatTime(selectedMessage.deletedAt) }}</template>
           </p>
         </div>
@@ -674,7 +725,7 @@ onMounted(() => {
       <dl class="mt-3 grid gap-2 sm:grid-cols-2">
         <div class="rounded-xl border border-white bg-white px-3 py-2">
           <dt class="text-[11px] text-zinc-500">房间</dt>
-          <dd class="text-sm text-zinc-800">{{ roomTitle(selectedMessage.roomId) }}</dd>
+          <dd class="text-sm text-zinc-800">{{ roomTitle(selectedMessage.roomId, selectedMessage.roomTitle) }}</dd>
         </div>
         <div class="rounded-xl border border-white bg-white px-3 py-2">
           <dt class="text-[11px] text-zinc-500">用户 ID</dt>
