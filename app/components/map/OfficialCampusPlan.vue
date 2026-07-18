@@ -484,7 +484,7 @@ onBeforeUnmount(() => {
 
     <div class="pointer-events-none absolute inset-x-3 bottom-3 z-10 md:inset-x-4">
       <p class="mx-auto max-w-2xl border border-white/30 bg-zinc-950/85 px-3 py-2 text-center text-xs leading-5 text-white shadow-sm backdrop-blur-sm">
-        滚轮/双指可自由缩放，拖动可平移。官网平面图未标注比例尺和地理控制点，仅用于校内方位对照，不作为导航坐标。
+        滚轮/双指可自由缩放，拖动可平移。这张平面图只用来对照校园方向，不能用来精确导航。
         <a
           :href="OFFICIAL_PLAN_PAGE_URL"
           target="_blank"
