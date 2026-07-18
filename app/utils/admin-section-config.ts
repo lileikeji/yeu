@@ -10,6 +10,7 @@ export const sourcePlatformOptions: AdminOption[] = [
   { label: '学校官网', value: 'official-website' },
   { label: '官方公众号', value: 'official-wechat' },
   { label: '地图平台', value: 'map-platform' },
+  { label: '高德工作地图（授权导入）', value: 'amap-workmap' },
   { label: '社交平台', value: 'social-platform' },
   { label: '现场核验', value: 'field-verification' },
   { label: '其他', value: 'other' }
@@ -122,9 +123,9 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'slug',
-        label: '公开路径标识',
+        label: '网页地址名称',
         required: true,
-        placeholder: 'lowercase-ascii-slug',
+        placeholder: '例如 campus-library（仅小写字母、数字和短横线）',
         group: '基本信息'
       },
       {
@@ -232,12 +233,12 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'coordinateSystem',
-        label: '坐标系',
+        label: '坐标类型',
         type: 'select',
         options: [
-          { label: 'WGS84', value: 'WGS84' },
-          { label: 'GCJ-02', value: 'GCJ-02' },
-          { label: 'BD-09', value: 'BD-09' }
+          { label: '标准地理坐标', value: 'WGS84' },
+          { label: '国内地图坐标', value: 'GCJ-02' },
+          { label: '百度地图坐标', value: 'BD-09' }
         ],
         description: '必须与坐标来源一致。',
         group: '坐标'
@@ -284,16 +285,16 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'sourceRawRef',
-        label: '原始数据引用',
-        placeholder: '例：工作地图行号或导入记录 ID',
+        label: '导入记录说明',
+        placeholder: '例如：工作地图第 12 行',
         group: '来源与核验'
       },
       {
         key: 'sourceIds',
-        label: '关联来源 ID',
+        label: '关联来源编号',
         type: 'textarea',
         rows: 3,
-        description: '每行一个来源 UUID；发布至少需要一条有效的官方 A/B 级或 C 级来源。',
+        description: '每行填写一个来源编号；发布前至少需要一条有效来源。',
         group: '来源与核验',
         span: 'full'
       },
@@ -354,7 +355,11 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
     ],
     columns: [
       { key: 'title', label: '标题', fallbackKeys: ['name'], class: 'min-w-56' },
-      { key: 'kind', label: '类型' },
+      {
+        key: 'kind',
+        label: '类型',
+        valueLabels: { guide: '指南', department: '部门', club: '社团', notice: '公告' }
+      },
       { key: 'audience', label: '适用人群' },
       { key: 'status', label: '状态', kind: 'status' },
       { key: 'lastVerifiedAt', label: '最后核验', kind: 'date', fallbackKeys: ['last_verified_at'] }
@@ -383,9 +388,9 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'slug',
-        label: '公开路径标识',
+        label: '网页地址名称',
         required: true,
-        placeholder: 'lowercase-ascii-slug',
+        placeholder: '例如 freshman-arrival（仅小写字母、数字和短横线）',
         group: '基本信息'
       },
       {
@@ -402,7 +407,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '正文',
         type: 'textarea',
         rows: 10,
-        placeholder: '支持服务端约定的 Markdown 或纯文本格式',
+        placeholder: '填写页面正文，可使用标题、段落和列表',
         group: '正文',
         span: 'full'
       },
@@ -443,9 +448,10 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'metadata.icon',
-        label: '图标名称',
+        label: '卡片图标（高级）',
         placeholder: '例如 i-lucide-map',
-        group: '内容属性',
+        description: '一般无需修改，用于指定指南卡片的小图标。',
+        group: '高级设置（一般无需修改）',
         condition: { key: 'kind', values: ['guide'] }
       },
       {
@@ -466,12 +472,12 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'metadata.sections',
-        label: '结构化章节 JSON',
+        label: '自定义卡片章节（高级）',
         type: 'json',
         rows: 12,
         placeholder: '[{"title":"先做什么","icon":"i-lucide-list-checks","items":["第一条说明"]}]',
-        description: '用于指南页卡片章节；必须是 JSON 数组。留空则前台使用正文生成基础章节。',
-        group: '内容属性',
+        description: '一般无需填写。仅在需要自定义指南卡片结构时使用，留空会根据正文自动生成。',
+        group: '高级设置（一般无需修改）',
         span: 'full',
         condition: { key: 'kind', values: ['guide'] }
       },
@@ -582,10 +588,10 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'sourceIds',
-        label: '关联来源 ID',
+        label: '关联来源编号',
         type: 'textarea',
         rows: 3,
-        description: '每行一个来源 UUID；发布至少需要一条有效的官方 A/B 级或 C 级来源。',
+        description: '每行填写一个来源编号；发布前至少需要一条有效来源。',
         group: '来源与核验',
         span: 'full'
       },
@@ -650,7 +656,19 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
     ],
     columns: [
       { key: 'title', label: '来源标题', class: 'min-w-56' },
-      { key: 'platform', label: '平台' },
+      {
+        key: 'platform',
+        label: '平台',
+        valueLabels: {
+          'official-website': '学校官网',
+          'official-wechat': '官方公众号',
+          'map-platform': '地图平台',
+          'amap-workmap': '高德工作地图（授权导入）',
+          'social-platform': '社交平台',
+          'field-verification': '现场核验',
+          other: '其他'
+        }
+      },
       { key: 'publisherName', label: '发布主体' },
       { key: 'sourceLevel', label: '等级' },
       { key: 'status', label: '状态', kind: 'status' },
@@ -837,7 +855,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
     canEdit: false,
     canDelete: false,
     searchable: false,
-    readOnlyNote: '审计日志只读，由服务端在管理操作发生时写入。',
+    readOnlyNote: '审计日志只能查看，由系统在管理操作发生时自动记录。',
     columns: [
       { key: 'action', label: '操作', class: 'min-w-32' },
       { key: 'entityType', label: '对象类型', fallbackKeys: ['entity_type'] },

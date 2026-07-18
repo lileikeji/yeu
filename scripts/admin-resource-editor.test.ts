@@ -17,6 +17,8 @@ test('admin resource editor owns modal presentation and dynamic field rendering'
   assert.match(editorSource, /v-if="formError"/)
   assert.match(editorSource, /<AdminCoordinatePicker/)
   assert.match(editorSource, /v-for="group in groupedFields"/)
+  assert.match(editorSource, /<details/)
+  assert.match(editorSource, /高级设置/)
   assert.match(editorSource, /field\.type === 'textarea' \|\| field\.type === 'json'/)
   assert.match(editorSource, /field\.type === 'select'/)
   assert.match(editorSource, /field\.type === 'checkbox'/)

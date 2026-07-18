@@ -45,24 +45,24 @@ export function buildCoordinateReviewHint(
   if (place.coordinateVerification === 'verified') {
     return {
       stage: 'dual-verified',
-      title: '地点当前已完成双重核验',
+      title: '地点当前已完成两次独立核验',
       description: observation.reviewStatus === 'pending'
-        ? '批准这条新观测时，服务端只会保留与其最匹配的一条有效旧证据；若没有兼容证据，地点会退回首条候选状态。'
-        : '当前地点由两条有效 approved 观测共同支持，前台才可使用该导航坐标。'
+        ? '批准这条新观测时，系统只会保留与它最接近的一条有效旧记录；如果找不到相符记录，地点会退回仅完成一次核验的状态。'
+        : '当前地点已有两条相互独立且位置相符的批准记录，前台可以使用该导航坐标。'
     }
   }
 
   if (observation.reviewStatus === 'approved') {
     return {
       stage: 'first-candidate',
-      title: '已批准为首条候选',
-      description: '当前只有一条有效 approved 证据，地点保持 unverified；仍需满足角色、距离、可信采集方式和时间独立性规则的第二条观测。'
+      title: '已完成第一次核验',
+      description: '当前只有一条有效记录，地点仍处于待核验状态；还需要另一条点位角色相同、位置接近且独立采集的记录。'
     }
   }
   if (observation.reviewStatus !== 'pending') {
     return {
       stage: 'replacement',
-      title: '历史观测不参与当前核验',
+      title: '这条历史记录不参与当前核验',
       description: observation.reviewStatus === 'superseded'
         ? '该记录的审核历史已保留，但已由更新证据替代。'
         : '该记录已被驳回，不会计入地点坐标证据。'
@@ -76,8 +76,8 @@ export function buildCoordinateReviewHint(
   if (!hasCandidate) {
     return {
       stage: 'first-candidate',
-      title: '批准后仅形成首条候选',
-      description: '地点会保存该 WGS84 点，但仍保持 unverified；还需要第二条独立、同点位角色且位置相符的观测。'
+      title: '批准后将完成第一次核验',
+      description: '地点会保存这次标准地理坐标，但仍显示为待核验；还需要另一条独立采集、点位角色相同且位置相符的记录。'
     }
   }
 
@@ -88,21 +88,21 @@ export function buildCoordinateReviewHint(
   if (place.coordinatePointRole !== observation.pointRole) {
     return {
       stage: 'replacement',
-      title: '点位角色与首条候选不同',
-      description: '这条观测不能与现有候选组成双重证据；批准后会替代旧候选，地点仍保持 unverified。'
+      title: '点位角色与第一次核验不同',
+      description: '这条记录的点位角色与现有记录不同，无法组成两次独立核验；批准后会替代旧记录，地点仍保持待核验。'
     }
   }
   if (separation > MAX_DUAL_VERIFICATION_DISTANCE_METERS) {
     return {
       stage: 'replacement',
-      title: `与首条候选相距 ${separation.toFixed(1)} m`,
-      description: `超过 ${MAX_DUAL_VERIFICATION_DISTANCE_METERS} m 阈值，批准后会替代旧候选，不会完成双重核验。`
+      title: `与第一次核验位置相距 ${separation.toFixed(1)} 米`,
+      description: `距离超过允许的 ${MAX_DUAL_VERIFICATION_DISTANCE_METERS} 米；批准后会替代旧记录，不会完成第二次独立核验。`
     }
   }
 
   return {
     stage: 'possible-dual',
-    title: `与首条候选相距 ${separation.toFixed(1)} m`,
-    description: `角色和距离已匹配；服务端还会核对采集独立性。同方法须至少间隔 ${MIN_SAME_METHOD_OBSERVATION_INTERVAL_MS / 60_000} 分钟，且至少一条来自浏览器定位或授权导入，全部满足后才升级为 verified。`
+    title: `与第一次核验位置相距 ${separation.toFixed(1)} 米`,
+    description: `点位角色和距离均符合要求。系统还会确认两次采集是否独立：使用同一种采集方式时需至少间隔 ${MIN_SAME_METHOD_OBSERVATION_INTERVAL_MS / 60_000} 分钟，并且至少一条来自浏览器定位或授权地图导入。`
   }
 }

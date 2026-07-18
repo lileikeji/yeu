@@ -137,10 +137,10 @@ watch(() => props.records, (records) => {
             </div>
             <div>
               <dt class="text-zinc-500">
-                客户端观测 ID
+                本地记录编号
               </dt>
-              <dd class="mt-1 break-all font-mono text-zinc-800">
-                {{ record.payload.clientObservationId }}
+              <dd class="mt-1 text-zinc-800">
+                {{ record.payload.clientObservationId.slice(0, 12) }}…
               </dd>
             </div>
           </dl>

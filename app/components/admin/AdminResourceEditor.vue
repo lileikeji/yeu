@@ -80,13 +80,16 @@ function checkboxValue(key: string): boolean {
           @clear="emit('clearCoordinates')"
         />
 
-        <section
+        <details
           v-for="group in groupedFields"
           :key="group.label"
+          :open="!group.label.includes('高级设置')"
+          class="group"
         >
-          <h3 class="border-b border-zinc-200 pb-2 text-sm font-semibold text-zinc-900">
-            {{ group.label }}
-          </h3>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-2 border-b border-zinc-200 pb-2 text-sm font-semibold text-zinc-900 [&::-webkit-details-marker]:hidden">
+            <span>{{ group.label }}</span>
+            <UIcon name="i-lucide-chevron-down" class="size-4 text-zinc-400 transition-transform group-open:rotate-180" />
+          </summary>
           <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <UFormField
               v-for="field in group.fields"
@@ -135,7 +138,7 @@ function checkboxValue(key: string): boolean {
               />
             </UFormField>
           </div>
-        </section>
+        </details>
       </div>
     </template>
 

@@ -377,13 +377,13 @@ onBeforeUnmount(disposeMap)
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-zinc-600" />邻近已核验地点</span>
     </div>
     <p class="mt-2 text-xs leading-5 text-zinc-500">
-      已显示 {{ neighboringPlaces.length }} 个同范围内最近的已核验地点。误差圈以服务端计算精度为半径，底图与校界只用于人工比对。
+      已显示 {{ neighboringPlaces.length }} 个附近的已核验地点。误差圈按系统计算的定位精度绘制，底图与校界只用于人工比对。
     </p>
     <p
       v-if="currentCoordinateNotDisplayable"
       class="mt-1 text-xs leading-5 text-amber-700"
     >
-      地点当前坐标不是 WGS84，为避免坐标系混用，本地图未叠加该点。
+      地点当前使用另一种坐标类型，为避免位置偏移，本图暂不显示该点。
     </p>
   </section>
 </template>

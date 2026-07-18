@@ -20,7 +20,7 @@ const emit = defineEmits<{
   >
     <template #body>
       <p class="text-sm leading-6 text-zinc-600">
-        当前服务端会将删除的流程归档并从前台隐藏，历史记录和审计信息会保留。
+        删除后流程会自动归档并从前台隐藏，历史记录和操作记录仍会保留。
       </p>
     </template>
     <template #footer>

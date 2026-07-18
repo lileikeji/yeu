@@ -21,8 +21,17 @@ const selectedPlaceId = defineModel<string>('selectedPlaceId', { default: '' })
 const capture = ref<InstanceType<typeof AdminFieldCoordinateCapture> | null>(null)
 const sessionLocked = ref(false)
 
+function verificationLabel(value: string): string {
+  return {
+    missing: '缺少坐标',
+    unverified: '待核验',
+    verified: '已核验',
+    rejected: '已驳回'
+  }[value] || '待核验'
+}
+
 const placeOptions = computed(() => props.places.map(place => ({
-  label: `${place.name} · ${place.coordinateVerification === 'missing' ? '缺坐标' : place.coordinateVerification}`,
+  label: `${place.name} · ${verificationLabel(place.coordinateVerification)}`,
   value: place.id
 })))
 

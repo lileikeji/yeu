@@ -20,7 +20,7 @@ const emit = defineEmits<{
   >
     <template #body>
       <p class="text-sm leading-6 text-zinc-600">
-        删除操作不可由当前界面撤销。若记录已被其他内容引用，服务端可能拒绝删除。
+        删除操作不能在当前界面撤销。如果记录仍被其他内容使用，系统会阻止删除。
       </p>
     </template>
     <template #footer>

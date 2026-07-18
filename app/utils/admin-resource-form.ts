@@ -253,7 +253,7 @@ export function normalizeAdminResourceFieldValue(
     try {
       return JSON.parse(value)
     } catch {
-      throw new Error(`${field.label} 必须是合法 JSON。`)
+      throw new Error(`${field.label}格式不正确，请检查括号、引号和逗号。`)
     }
   }
 

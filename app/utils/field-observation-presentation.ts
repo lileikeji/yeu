@@ -45,3 +45,10 @@ export function getCoordinatePointRoleLabel(
 ): string {
   return role === 'main-entrance' ? '主入口' : '场地点'
 }
+
+export function getCoordinateCaptureMethodLabel(method: string): string {
+  if (method === 'browser-geolocation') return '浏览器定位'
+  if (method === 'amap-workmap') return '授权地图导入'
+  if (method === 'manual') return '人工录入'
+  return '其他采集方式'
+}

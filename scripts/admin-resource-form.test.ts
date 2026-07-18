@@ -182,7 +182,7 @@ test('payload normalization handles dedupe, numbers, dates, select and nested JS
 test('invalid JSON is explicit and required validation keeps field order', () => {
   assert.throws(
     () => normalizeAdminResourceFieldValue(field('metadata', 'json'), '{invalid'),
-    /metadata 必须是合法 JSON/
+    /metadata格式不正确，请检查括号、引号和逗号/
   )
   const fields = [
     field('title', 'text', { label: '标题', required: true }),

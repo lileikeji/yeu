@@ -197,7 +197,7 @@ test('admin navigation and dashboard expose every maintenance entry point', () =
     /to: '\/admin\/users'/,
     /to: '\/admin\/chat'/,
     /to: '\/admin\/visitors'/,
-    /to: '\/admin\/audit-logs'/
+    /to: '\/admin\/audit'/
   ], 'admin navigation entry points')
 
   assert.match(adminIndexSource, /from ['"]~~\/app\/utils\/admin-dashboard-presentation['"]/)
@@ -222,7 +222,7 @@ test('admin navigation and dashboard expose every maintenance entry point', () =
     /to: '\/admin\/users'/,
     /to: '\/admin\/chat'/,
     /to: '\/admin\/visitors'/,
-    /to: '\/admin\/audit-logs'/,
+    /to: '\/admin\/audit'/,
     /export const adminDashboardGroupMeta/,
     /export const adminNavigationGroups/
   ], 'admin dashboard entry points')

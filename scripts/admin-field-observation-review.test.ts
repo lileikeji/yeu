@@ -10,7 +10,8 @@ import {
 import {
   getCoordinateObservationStatusColor,
   getCoordinateObservationStatusLabel,
-  getCoordinatePointRoleLabel
+  getCoordinatePointRoleLabel,
+  getCoordinateCaptureMethodLabel
 } from '../app/utils/field-observation-presentation'
 
 function observation(
@@ -54,14 +55,14 @@ test('verified places explain pending replacement and existing dual evidence', (
   const verifiedPlace = place({ coordinateVerification: 'verified' })
   const pending = buildCoordinateReviewHint(observation(), verifiedPlace)
   assert.equal(pending?.stage, 'dual-verified')
-  assert.match(pending?.description ?? '', /只会保留与其最匹配的一条有效旧证据/)
+  assert.match(pending?.description ?? '', /只会保留与它最接近的一条有效旧记录/)
 
   const approved = buildCoordinateReviewHint(
     observation({ reviewStatus: 'approved' }),
     verifiedPlace
   )
-  assert.equal(approved?.title, '地点当前已完成双重核验')
-  assert.match(approved?.description ?? '', /两条有效 approved 观测/)
+  assert.equal(approved?.title, '地点当前已完成两次独立核验')
+  assert.match(approved?.description ?? '', /两条相互独立且位置相符的批准记录/)
 })
 
 test('approved, rejected and superseded history cannot be presented as a new dual candidate', () => {
@@ -70,7 +71,7 @@ test('approved, rejected and superseded history cannot be presented as a new dua
     place()
   )
   assert.equal(approved?.stage, 'first-candidate')
-  assert.equal(approved?.title, '已批准为首条候选')
+  assert.equal(approved?.title, '已完成第一次核验')
 
   const rejected = buildCoordinateReviewHint(
     observation({ reviewStatus: 'rejected' }),
@@ -95,7 +96,7 @@ test('missing or incompatible candidate coordinates remain a first observation',
   ]) {
     const hint = buildCoordinateReviewHint(observation(), candidate)
     assert.equal(hint?.stage, 'first-candidate')
-    assert.equal(hint?.title, '批准后仅形成首条候选')
+    assert.equal(hint?.title, '批准后将完成第一次核验')
   }
 })
 
@@ -105,7 +106,7 @@ test('a point-role mismatch is a replacement even at the same coordinates', () =
     place({ coordinatePointRole: 'main-entrance' })
   )
   assert.equal(hint?.stage, 'replacement')
-  assert.equal(hint?.title, '点位角色与首条候选不同')
+  assert.equal(hint?.title, '点位角色与第一次核验不同')
 })
 
 test('a distant observation reports separation and replacement threshold', () => {
@@ -115,7 +116,7 @@ test('a distant observation reports separation and replacement threshold', () =>
   )
   assert.equal(hint?.stage, 'replacement')
   assert.match(hint?.title ?? '', /相距 111\./)
-  assert.match(hint?.description ?? '', /超过 .* m 阈值/)
+  assert.match(hint?.description ?? '', /距离超过允许的 .* 米/)
 })
 
 test('a close matching observation is only a possible dual pending server independence checks', () => {
@@ -124,9 +125,9 @@ test('a close matching observation is only a possible dual pending server indepe
     place()
   )
   assert.equal(hint?.stage, 'possible-dual')
-  assert.match(hint?.title ?? '', /相距 1\.1 m/)
-  assert.match(hint?.description ?? '', /服务端还会核对采集独立性/)
-  assert.match(hint?.description ?? '', /浏览器定位或授权导入/)
+  assert.match(hint?.title ?? '', /相距 1\.1 米/)
+  assert.match(hint?.description ?? '', /系统还会确认两次采集是否独立/)
+  assert.match(hint?.description ?? '', /浏览器定位或授权地图导入/)
 })
 
 test('review status presentation and page delegation stay centralized', () => {
@@ -140,6 +141,8 @@ test('review status presentation and page delegation stay centralized', () => {
   assert.equal(getCoordinateObservationStatusColor('superseded'), 'neutral')
   assert.equal(getCoordinatePointRoleLabel('main-entrance'), '主入口')
   assert.equal(getCoordinatePointRoleLabel('site-point'), '场地点')
+  assert.equal(getCoordinateCaptureMethodLabel('browser-geolocation'), '浏览器定位')
+  assert.equal(getCoordinateCaptureMethodLabel('amap-workmap'), '授权地图导入')
   assert.equal(buildCoordinateReviewHint(null, place()), null)
   assert.equal(buildCoordinateReviewHint(observation(), null), null)
 

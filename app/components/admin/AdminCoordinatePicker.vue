@@ -30,6 +30,13 @@ const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const picking = ref(false)
 const provider = shallowRef<MapLibrePreviewProvider | null>(null)
 
+const coordinateSystemLabel = computed(() => {
+  if (!props.coordinateSystem) return '未设置坐标类型'
+  if (props.coordinateSystem === 'WGS84') return '标准地理坐标'
+  if (props.coordinateSystem === 'GCJ-02') return '国内地图坐标'
+  return '其他坐标类型'
+})
+
 const currentPoint = computed(() => resolveAdminCoordinatePickerCurrentPoint({
   coordinateSystem: props.coordinateSystem,
   longitude: props.longitude,
@@ -116,7 +123,7 @@ onBeforeUnmount(() => {
         地图拾点
       </h3>
       <UBadge
-        :label="coordinateSystem || '未设置坐标系'"
+        :label="coordinateSystemLabel"
         color="neutral"
         variant="soft"
         size="sm"
@@ -196,7 +203,7 @@ onBeforeUnmount(() => {
     </div>
 
     <p class="mt-2 text-xs leading-5 text-zinc-500">
-      地图拾取写入 WGS84，并自动标记为“待核验”；校界提示来自 OSM 社区测绘，只用于异常值检查，完成独立核验后才能改为“已核验”。
+      地图选点会保存标准地理坐标，并自动标记为“待核验”。校界范围只用于发现明显偏差，完成两次独立核验后才会显示“已核验”。
     </p>
   </section>
 </template>

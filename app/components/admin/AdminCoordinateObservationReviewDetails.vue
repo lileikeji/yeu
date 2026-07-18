@@ -4,7 +4,8 @@ import type { ApiCoordinateObservation, ApiPlace } from '~~/shared/types/server'
 import {
   formatCoordinateObservationDate as formatDate,
   getCoordinateObservationStatusColor as observationStatusColor,
-  getCoordinateObservationStatusLabel as observationStatusLabel
+  getCoordinateObservationStatusLabel as observationStatusLabel,
+  getCoordinateCaptureMethodLabel as captureMethodLabel
 } from '~/utils/field-observation-presentation'
 import { buildCoordinateReviewHint } from '~/utils/field-observation-review'
 
@@ -71,7 +72,7 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
             采集方式
           </dt>
           <dd class="mt-1 text-zinc-900">
-            {{ observation.captureMethod }}
+            {{ captureMethodLabel(observation.captureMethod) }}
           </dd>
         </div>
         <div>
