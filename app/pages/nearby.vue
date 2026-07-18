@@ -15,6 +15,7 @@ import {
   selectNearbyResearchSources,
   nearbySourceContextForStudents,
   nearbySourceIsClickable,
+  nearbyUsageTips,
   nearbyVerificationChecklist,
   type NearbyCandidate
 } from '~~/app/utils/nearby-presentation'
@@ -27,12 +28,16 @@ const candidateCatalog = nearbyCandidateData as {
 }
 const nearbyResearchSources = selectNearbyResearchSources(researchSources)
 const categoryLabels = nearbyCategoryLabels
+const usageTips = nearbyUsageTips
 const verificationChecklist = nearbyVerificationChecklist
 const sourceIsClickable = nearbySourceIsClickable
 const sourceContextForStudents = nearbySourceContextForStudents
 const candidateMapUrl = nearbyCandidateMapUrl
 const candidateCenterLabel = nearbyCandidateCenterLabel
 const candidateHint = nearbyCandidateHint
+const candidateProviderLabel = safeExternalHref(candidateCatalog.providerDocumentation)?.includes('amap.com')
+  ? '高德地图'
+  : '地图'
 
 useSeoMeta({
   title: '校园周边',
@@ -67,6 +72,11 @@ watch([searchQuery, activeCategory], () => {
 function toggleCandidatePreview(): void {
   candidatesExpanded.value = !candidatesExpanded.value
 }
+
+function clearNearbyFilters(): void {
+  searchQuery.value = ''
+  activeCategory.value = 'all'
+}
 </script>
 
 <template>
@@ -80,7 +90,7 @@ function toggleCandidatePreview(): void {
           找吃饭、快递和日用品
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          可以按名称或类别查找学校附近的生活服务。商铺营业时间变化较快，出发前建议先在地图上看一眼，到店后以现场情况为准。
+          学校附近吃饭、取快递、买日用品和生活服务都在这里。营业时间变化较快，出发前再看一下地图中的近期信息。
         </p>
         <div class="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
           <UInput
@@ -105,120 +115,193 @@ function toggleCandidatePreview(): void {
     <div class="page-shell page-section">
       <div
         v-if="error"
-        class="border-l-2 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-800"
-        role="alert"
+        class="border-l-2 border-orange-400 bg-orange-50 px-3 py-2 text-sm text-orange-900"
+        role="status"
       >
-        周边地点暂时无法加载，请稍后再试。
+        部分周边介绍暂时没显示出来，下面的地图地点仍然可以查看。
       </div>
 
-      <div
-        v-else
-        class="mb-4 flex items-center justify-between gap-4"
-      >
-        <h2 class="text-sm font-semibold text-zinc-900">
-          {{ filteredPlaces.length }} 个本站介绍
-        </h2>
-        <UButton
-          :to="{ path: '/map', query: { scope: 'nearby' } }"
-          icon="i-lucide-map"
-          label="在地图中查看周边"
-          color="neutral"
-          variant="outline"
-        />
-      </div>
-
-      <div
+      <section
         v-if="filteredPlaces.length"
-        class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+        aria-labelledby="nearby-published-heading"
       >
-        <NuxtLink
-          v-for="place in filteredPlaces"
-          :key="place.id"
-          :to="`/places/${place.slug}`"
-          class="surface-panel group flex min-h-52 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <span class="grid size-10 place-items-center rounded-md bg-orange-50 text-orange-700">
-              <UIcon
-                name="i-lucide-store"
-                class="size-5"
-              />
-            </span>
+        <div class="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
+          <div>
+            <p class="section-kicker">
+              精选地点
+            </p>
+            <h2
+              id="nearby-published-heading"
+              class="mt-1 text-lg font-bold text-zinc-950"
+            >
+              本页整理的周边地点
+            </h2>
+          </div>
+          <div class="flex items-center gap-2">
             <UBadge
-              :label="categoryLabels[place.category ?? place.type] ?? (place.category ?? place.type)"
+              :label="`${filteredPlaces.length} 个`"
               color="neutral"
               variant="soft"
             />
-          </div>
-          <h2 class="mt-4 font-bold text-zinc-950">
-            {{ place.name }}
-          </h2>
-          <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
-            {{ place.summary }}
-          </p>
-          <p
-            v-if="place.address"
-            class="mt-3 text-xs leading-5 text-zinc-500"
-          >
-            {{ place.address }}
-          </p>
-          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-green-700">
-            查看详情
-            <UIcon
-              name="i-lucide-arrow-right"
-              class="size-3.5"
+            <UButton
+              :to="{ path: '/map', query: { scope: 'nearby' } }"
+              icon="i-lucide-map"
+              label="打开周边地图"
+              color="neutral"
+              variant="outline"
             />
-          </span>
-        </NuxtLink>
+          </div>
+        </div>
+
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <NuxtLink
+            v-for="place in filteredPlaces"
+            :key="place.id"
+            :to="`/places/${place.slug}`"
+            class="surface-panel group flex min-h-52 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <span class="grid size-10 place-items-center rounded-md bg-orange-50 text-orange-700">
+                <UIcon
+                  name="i-lucide-store"
+                  class="size-5"
+                />
+              </span>
+              <UBadge
+                :label="categoryLabels[place.category ?? place.type] ?? (place.category ?? place.type)"
+                color="neutral"
+                variant="soft"
+              />
+            </div>
+            <h3 class="mt-4 font-bold text-zinc-950">
+              {{ place.name }}
+            </h3>
+            <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
+              {{ place.summary }}
+            </p>
+            <p
+              v-if="place.address"
+              class="mt-3 text-xs leading-5 text-zinc-500"
+            >
+              {{ place.address }}
+            </p>
+            <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-green-700">
+              查看详情
+              <UIcon
+                name="i-lucide-arrow-right"
+                class="size-3.5"
+              />
+            </span>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section
+        v-else-if="!error && !candidateFilterActive"
+        aria-labelledby="nearby-needs-heading"
+      >
+        <div class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
+          <div>
+            <p class="section-kicker">
+              常用需求
+            </p>
+            <h2
+              id="nearby-needs-heading"
+              class="mt-1 text-lg font-bold text-zinc-950"
+            >
+              先按要做的事找
+            </h2>
+          </div>
+          <UButton
+            :to="{ path: '/map', query: { scope: 'nearby' } }"
+            icon="i-lucide-map"
+            label="打开周边地图"
+            color="neutral"
+            variant="outline"
+          />
+        </div>
+        <ul class="mt-3 grid gap-2 md:grid-cols-2">
+          <li
+            v-for="tip in usageTips"
+            :key="tip.title"
+            class="flex items-start gap-3 rounded-md border border-[var(--line)] bg-white p-4"
+          >
+            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+              <UIcon
+                :name="tip.icon"
+                class="size-4.5"
+              />
+            </span>
+            <span>
+              <span class="font-bold text-zinc-950">{{ tip.title }}</span>
+              <span class="mt-1 block text-sm leading-6 text-zinc-600">{{ tip.text }}</span>
+            </span>
+          </li>
+        </ul>
+      </section>
+
+      <div
+        v-else-if="!error && filteredCandidates.length"
+        class="flex flex-wrap items-center justify-between gap-3 border-l-2 border-green-600 bg-green-50 px-4 py-3"
+        role="status"
+      >
+        <p class="text-sm font-medium text-green-950">
+          下方找到 {{ filteredCandidates.length }} 个相关地点
+        </p>
+        <UButton
+          icon="i-lucide-x"
+          label="清除筛选"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          @click="clearNearbyFilters"
+        />
       </div>
 
       <div
         v-else-if="!error"
-        class="border-l-2 border-amber-300 bg-amber-50 px-4 py-3"
+        class="border-l-2 border-amber-400 bg-amber-50 px-4 py-3"
+        role="status"
       >
-        <p class="text-sm leading-6 text-amber-950">
-          暂时没有单独整理的商铺介绍，可以先看下方地图结果，或直接进入周边地图查找。
+        <p class="text-sm font-semibold text-amber-950">
+          没有找到相关地点
         </p>
-        <UButton
-          :to="{ path: '/feedback', query: { type: 'source_suggestion', from: '/nearby' } }"
-          icon="i-lucide-message-square-plus"
-          label="告诉我们附近的新店"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          class="mt-2"
-        />
+        <p class="mt-1 text-xs leading-5 text-amber-900">
+          换个名称或分类试试，也可以直接打开周边地图。
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <UButton
+            icon="i-lucide-x"
+            label="清除筛选"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            @click="clearNearbyFilters"
+          />
+          <UButton
+            :to="{ path: '/map', query: { scope: 'nearby' } }"
+            icon="i-lucide-map"
+            label="打开周边地图"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+          />
+        </div>
       </div>
 
       <section class="mt-10 border-t border-zinc-200 pt-8">
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-lg font-bold text-zinc-950">
-                地图上还能找到这些地方
-              </h2>
-              <UBadge
-                label="出发前再看一眼"
-                color="warning"
-                variant="soft"
-              />
-            </div>
-            <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              高德地图中整理了 {{ filteredCandidates.length }} 个新区、旧区的餐饮、便利、快递和生活服务地点，适合先找方向。营业时间、价格和服务范围请以地图近期信息或现场为准。
-            </p>
-          </div>
-          <a
-            :href="safeExternalHref(candidateCatalog.providerDocumentation) || undefined"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800"
-          >
-            地图地点说明
-            <UIcon
-              name="i-lucide-external-link"
-              class="size-3.5"
-            />
-          </a>
+        <div>
+          <h2 class="text-lg font-bold text-zinc-950">
+            附近这些地方可以先看看
+          </h2>
+          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+            <template v-if="candidateFilterActive">
+              按当前条件找到 {{ filteredCandidates.length }} 个地点。点开后可以在{{ candidateProviderLabel }}查看位置和近期营业信息。
+            </template>
+            <template v-else>
+              这里整理了 {{ filteredCandidates.length }} 个新区、旧区的餐饮、便利、快递和生活服务地点。点开后可以在{{ candidateProviderLabel }}查看位置，营业时间和价格请以近期信息或现场为准。
+            </template>
+          </p>
         </div>
 
         <details class="group mt-5 border-y border-zinc-200 bg-white">
@@ -228,7 +311,7 @@ function toggleCandidatePreview(): void {
                 name="i-lucide-list-checks"
                 class="size-4 text-green-700"
               />
-              出发前看一眼
+              出发前确认这几件事
             </span>
             <UIcon
               name="i-lucide-chevron-down"
@@ -257,9 +340,9 @@ function toggleCandidatePreview(): void {
             找到 {{ filteredCandidates.length }} 个地点
           </template>
           <template v-else>
-            共 {{ filteredCandidates.length }} 个地点 · 先显示 {{ Math.min(filteredCandidates.length, nearbyCandidatePreviewLimit) }} 个
+            先显示 {{ Math.min(filteredCandidates.length, nearbyCandidatePreviewLimit) }} 个，共 {{ filteredCandidates.length }} 个
           </template>
-          · 地图信息更新于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
+          · 名单更新于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
         </p>
         <details class="group mt-4 border-y border-zinc-200 bg-white">
           <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-xs font-semibold text-zinc-700 marker:hidden">
@@ -268,7 +351,7 @@ function toggleCandidatePreview(): void {
                 name="i-lucide-book-open"
                 class="size-4 text-green-700"
               />
-              查看这些地点的资料出处
+              这些地点从哪里整理
             </span>
             <UIcon
               name="i-lucide-chevron-down"
@@ -344,7 +427,7 @@ function toggleCandidatePreview(): void {
               />
             </div>
             <p class="mt-2 text-xs leading-5 text-zinc-500">
-              {{ candidate.address || '高德未提供详细地址' }}
+              {{ candidate.address || '暂时没有详细地址' }}
             </p>
             <p class="mt-3 rounded-md bg-orange-50 px-3 py-2 text-xs leading-5 text-orange-900">
               {{ candidateHint(candidate) }}

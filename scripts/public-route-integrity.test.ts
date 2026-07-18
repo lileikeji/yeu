@@ -477,7 +477,7 @@ test('student-facing nearby and research pages use reader-facing wording', () =>
   const source = files.map(file => readFileSync(resolve(file), 'utf8')).join('\n')
 
   assert.match(source, /找吃饭、快递和日用品/)
-  assert.match(source, /地图上还能找到这些地方/)
+  assert.match(source, /附近这些地方可以先看看/)
   assert.match(source, /图片使用说明/)
   assert.match(source, /部分社交平台图片暂不展示/)
   assert.doesNotMatch(source, /高德候选 · 待核验/)
@@ -485,5 +485,6 @@ test('student-facing nearby and research pages use reader-facing wording', () =>
   assert.doesNotMatch(source, /社交平台待核验素材/)
   assert.doesNotMatch(source, /张待核验图|张待确认图/)
   assert.doesNotMatch(source, /核验候选/)
+  assert.doesNotMatch(source, /本站介绍|地图结果|单独整理的商铺介绍/)
   assert.doesNotMatch(source, /research-only|AI 重构|内部事实核验|视觉重构|发布确认/)
 })
