@@ -28,10 +28,10 @@ const mapBaseStyleOptions: Array<{ value: MapBaseStyle, label: string, icon: str
 ]
 
 const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: string }> = [
-  { key: 'showPois', label: '标记点', icon: 'i-lucide-map-pin' },
-  { key: 'showAreas', label: '绘图层', icon: 'i-lucide-pentagon' },
-  { key: 'showLabels', label: '显示名称', icon: 'i-lucide-type' },
-  { key: 'autoCluster', label: '自动聚合', icon: 'i-lucide-orbit' }
+  { key: 'showPois', label: '地图标记', icon: 'i-lucide-map-pin' },
+  { key: 'showAreas', label: '区域范围', icon: 'i-lucide-pentagon' },
+  { key: 'showLabels', label: '地点名称', icon: 'i-lucide-type' },
+  { key: 'autoCluster', label: '合并附近标记', icon: 'i-lucide-orbit' }
 ]
 </script>
 
@@ -55,7 +55,7 @@ const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: st
     </div>
 
     <p class="mt-3 text-xs font-semibold text-zinc-500">
-      底图
+      地图样式
     </p>
     <div class="mt-2 grid grid-cols-2 overflow-hidden rounded-md border border-zinc-200">
       <button
@@ -98,22 +98,22 @@ const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: st
         type="button"
         class="flex min-h-16 cursor-not-allowed flex-col items-center justify-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 text-xs font-medium text-zinc-400"
         disabled
-        title="当前没有可信的行政分块边界数据"
+        title="校园分区暂时没有可确认的范围"
       >
         <UIcon
           name="i-lucide-map-pinned"
           class="size-5"
         />
-        行政分块
+        校园分区
       </button>
     </div>
     <p class="mt-2 text-[11px] leading-4 text-zinc-500">
-      行政分块等待学校或高德提供可信边界数据后开放。
+      校园分区范围还没有可确认的资料，先用地点和区域范围找路。
     </p>
 
     <div class="mt-4">
       <p class="text-xs font-semibold text-zinc-500">
-        名称大小
+        文字大小
       </p>
       <div class="mt-2 grid grid-cols-4 overflow-hidden rounded-md border border-zinc-200">
         <button

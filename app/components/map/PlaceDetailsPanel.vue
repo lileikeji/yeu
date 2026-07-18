@@ -180,7 +180,7 @@ const navigationTooltip = computed(() => {
 
         <UTooltip
           v-if="props.variant === 'desktop'"
-          text="获取当前位置，并在当前高德地图内绘制步行路线"
+          text="在地图上规划从你所在位置到这里的步行路线"
         >
           <UButton
             icon="i-lucide-route"

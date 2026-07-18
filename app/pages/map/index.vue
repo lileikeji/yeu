@@ -815,14 +815,14 @@ onBeforeUnmount(() => {
           v-if="mapViewMode === 'geographic'"
           class="pointer-events-auto flex flex-col gap-2"
         >
-          <UTooltip text="地图图层与显示设置">
+          <UTooltip text="地图显示设置">
             <UButton
               icon="i-lucide-layers-3"
               color="neutral"
               variant="outline"
               class="map-float-btn size-11"
               :class="displaySettingsOpen ? 'ring-2 ring-green-600' : ''"
-              aria-label="地图图层与显示设置"
+              aria-label="地图显示设置"
               :aria-expanded="displaySettingsOpen"
               @click="() => { displaySettingsOpen = !displaySettingsOpen }"
             />
