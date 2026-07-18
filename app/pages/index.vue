@@ -259,7 +259,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
             </span>
             <div class="min-w-0">
               <p class="text-xs font-semibold text-green-800">
-                新生本地清单
+                新生清单
               </p>
               <h2 class="mt-1 text-base font-bold text-zinc-950">
                 到校前到第一周，逐项勾选
@@ -275,7 +275,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
                   当前清单已全部勾完，可随时复查行李与日常事项。
                 </template>
                 <template v-else>
-                  进度只保存在本机，打开后继续勾选。
+                  进度只保存在这台设备，打开后可以继续勾选。
                 </template>
               </p>
             </div>

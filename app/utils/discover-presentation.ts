@@ -12,7 +12,7 @@ export interface DiscoverTaskEntry extends DiscoverLinkEntry {
 export const discoverTaskEntries: DiscoverTaskEntry[] = [
   {
     title: '新生清单',
-    description: '到校前到第一周任务勾选，进度只保存在本机',
+    description: '到校前到第一周任务勾选，进度只保存在这台设备',
     to: '/checklist',
     icon: 'i-lucide-list-checks',
     tone: 'bg-emerald-50 text-emerald-700'
@@ -26,7 +26,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
   },
   {
     title: '找宿舍 / 教学楼',
-    description: '先查地点目录和坐标状态，未核验点不导航',
+    description: '先查地点目录和确认情况，未确认的点不会提供导航',
     to: '/guides/find-campus',
     icon: 'i-lucide-map-pinned',
     tone: 'bg-blue-50 text-blue-700'
@@ -54,7 +54,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
   },
   {
     title: '快递 / 外卖',
-    description: '查看站点、取餐点和配送边界的当前核验状态',
+    description: '查看站点、取餐点和配送范围的当前确认情况',
     to: '/map?category=express',
     icon: 'i-lucide-package-open',
     tone: 'bg-orange-50 text-orange-700'
@@ -68,7 +68,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
   },
   {
     title: '社团与招新',
-    description: '查看近期活动可核验社团，当年招新以新通知为准',
+    description: '查看近期活动中已确认的社团信息，当年招新以新通知为准',
     to: '/clubs',
     icon: 'i-lucide-users-round',
     tone: 'bg-violet-50 text-violet-700'
@@ -85,8 +85,8 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
 export const discoverDirectoryEntries: DiscoverLinkEntry[] = [
   { title: '新生群聊', description: '公共群与宿舍楼群，需登录', to: '/chat', icon: 'i-lucide-messages-square' },
   { title: '账号登录', description: '个人中心改名、专业与宿舍楼', to: '/login', icon: 'i-lucide-log-in' },
-  { title: '新生清单', description: '本地勾选报到与入学事项，无需登录', to: '/checklist', icon: 'i-lucide-list-checks' },
-  { title: '校园地图', description: '搜索地点、筛选类别、查看坐标核验状态', to: '/map', icon: 'i-lucide-map' },
+  { title: '新生清单', description: '在这台设备勾选报到与入学事项，无需登录', to: '/checklist', icon: 'i-lucide-list-checks' },
+  { title: '校园地图', description: '搜索地点、筛选类别、查看地点确认情况', to: '/map', icon: 'i-lucide-map' },
   { title: '全部指南', description: '按入学、校园、生活与社团浏览', to: '/guides', icon: 'i-lucide-notebook-tabs' },
   { title: '校园概览', description: '学校简介、常用入口与当前公告', to: '/campus', icon: 'i-lucide-school' },
   { title: '校内部门', description: '按办理事项查找职责、官网与公开联系方式', to: '/departments', icon: 'i-lucide-landmark' },
@@ -95,7 +95,7 @@ export const discoverDirectoryEntries: DiscoverLinkEntry[] = [
 ]
 
 export const discoverTrustEntries: DiscoverLinkEntry[] = [
-  { title: '来源说明', description: '资料分级、核验方法与已发布引用', to: '/sources', icon: 'i-lucide-list-checks' },
+  { title: '来源说明', description: '资料分级、确认方法与已发布引用', to: '/sources', icon: 'i-lucide-list-checks' },
   { title: '反馈纠错', description: '提交位置错误、过期内容或可靠来源', to: '/feedback', icon: 'i-lucide-message-square-warning' },
   { title: '隐私说明', description: '定位、反馈、离线使用与信息删除说明', to: '/privacy', icon: 'i-lucide-shield-check' },
   { title: '关于项目', description: '维护主体、非官方声明与服务边界', to: '/about', icon: 'i-lucide-info' },

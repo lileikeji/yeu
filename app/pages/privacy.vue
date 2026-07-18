@@ -13,13 +13,13 @@ useSeoMeta({
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
-          PRIVACY
+          信息使用说明
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
           隐私说明
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
-          本项目由个人或学生团队维护，按最少必要原则处理数据。以下规则适用于当前 V0.3 Alpha，更新日期为 2026-07-14。
+          本项目由个人或学生团队维护，按最少必要原则处理信息。以下说明适用于当前版本，更新日期为 2026-07-14。
         </p>
       </div>
     </header>

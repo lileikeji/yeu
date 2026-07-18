@@ -9,7 +9,7 @@ import {
 
 useSeoMeta({
   title: '新生清单',
-  description: '仰恩大学新生到校前、报到当天、第一周与行李材料自查清单。进度只保存在本机，无需登录。'
+  description: '仰恩大学新生到校前、报到当天、第一周与行李材料自查清单。进度只保存在这台设备，无需登录。'
 })
 
 const {
@@ -54,7 +54,7 @@ function confirmResetProgress() {
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div class="max-w-2xl">
             <p class="section-kicker">
-              本地清单
+              新生清单
             </p>
             <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
               新生入学清单
@@ -514,7 +514,7 @@ function confirmResetProgress() {
           使用说明
         </p>
         <ul class="mt-2 list-disc space-y-1 pl-4">
-          <li>清单进度使用浏览器本地存储，换设备或清除站点数据后会丢失。</li>
+          <li>清单进度只保存在这台设备，换设备或清除本站数据后会丢失。</li>
           <li>本清单为自助整理工具，不替代学校官方通知、录取通知书或现场安排。</li>
           <li>涉及报到时段、材料、接站、招新等以当年学校通知为准。</li>
         </ul>
