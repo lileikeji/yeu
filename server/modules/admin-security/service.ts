@@ -981,12 +981,13 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     10
   )
 
+  const dailyBucketExpr = sql<number>`cast(floor(${visitorEvents.createdAt} / 86400000.0) as integer)`
   const dailyEventRows = client.db.select({
-    bucket: sql<number>`cast(floor(${visitorEvents.createdAt} / ${DAY_MS}.0) as integer)`,
+    bucket: dailyBucketExpr,
     value: count()
   }).from(visitorEvents)
     .where(gt(visitorEvents.createdAt, now - DAY_MS * 14))
-    .groupBy(sql`cast(floor(${visitorEvents.createdAt} / ${DAY_MS}.0) as integer)`)
+    .groupBy(dailyBucketExpr)
     .all()
   const currentDayBucket = Math.floor(now / DAY_MS)
   const historicalDailyEvents = dailyEventRows

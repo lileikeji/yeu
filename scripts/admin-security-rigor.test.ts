@@ -374,6 +374,8 @@ test('admin depth7: sessions, anomaly baseline, network clusters, evidence and p
   assert.match(securityService, /function normalizeNetworkPrefix/)
   assert.match(securityService, /function buildNetworkClusters/)
   assert.match(securityService, /function buildAnomalyBaseline/)
+  assert.match(securityService, /dailyBucketExpr/)
+  assert.doesNotMatch(securityService, /\$\{DAY_MS\}\.0/)
   assert.match(securityService, /function buildEvidenceLedger/)
   assert.match(securityService, /function buildInvestigationPlaybook/)
   assert.match(securityService, /recentSessions/)
