@@ -101,6 +101,10 @@ test('map page is a thin shell over map-presentation util for labels and checkli
   assert.match(utilSource, /export function filterPublicMapPlacesForMapList/)
   assert.match(utilSource, /export function resolveMobileSheetHeightClass/)
   assert.match(utilSource, /export const mapCategories/)
+  assert.match(pageSource, /搜索地点或附近商家/)
+  assert.match(pageSource, /地图搜索找到/)
+  assert.match(pageSource, /校园范围参考/)
+  assert.doesNotMatch(pageSource, /错误标点|高德绘制区域|用户授权的高德地图绘制/)
 })
 
 test('map data labels and fallback messages follow scope and data readiness', () => {

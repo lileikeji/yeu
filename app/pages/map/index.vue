@@ -588,7 +588,7 @@ onBeforeUnmount(() => {
           v-model="searchQuery"
           class="mt-3 w-full"
           icon="i-lucide-search"
-          placeholder="搜索地点或当前视野高德商家"
+          placeholder="搜索地点或附近商家"
           aria-label="搜索地图地点"
         >
           <template
@@ -636,14 +636,14 @@ onBeforeUnmount(() => {
           class="mt-2 text-xs text-zinc-500"
           role="status"
         >
-          正在搜索当前地图视野中的高德地点…
+          正在搜索地图里的地点…
         </p>
         <p
           v-else-if="searchQuery.trim() && nativeSearchResults.length"
           class="mt-2 text-xs leading-5 text-zinc-500"
           role="status"
         >
-          已在高德底图中找到 {{ nativeSearchResults.length }} 个临时地点；会自动定位到最相关地点，但不会加入左侧地点列表。
+          地图搜索找到 {{ nativeSearchResults.length }} 个附近地点；会自动定位到最相关的地点，但不会加入地点列表。
         </p>
       </div>
 
@@ -780,7 +780,7 @@ onBeforeUnmount(() => {
                 name="i-lucide-pentagon"
                 class="mr-1 size-3.5"
               />
-              社区测绘校界
+              校园范围参考
             </UBadge>
           </UTooltip>
         </div>
@@ -961,8 +961,8 @@ onBeforeUnmount(() => {
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
             {{ activeMapProviderId === 'amap'
-              ? '左侧目录仍可搜索；部分地图地点可以直接显示，平面图中的文字地点不会被硬凑成错误位置。'
-              : '绿色虚线仅表示公开社区地图上的校园范围。左侧目录仍可搜索；没有可靠位置的地点不会硬凑成错误标点。' }}
+              ? '左侧目录仍可搜索；部分地图地点可以直接显示，平面图中的文字地点不会被强行放到错误的位置。'
+              : '绿色虚线只表示校园的大致范围。左侧目录仍可搜索；没有确认位置的地点不会硬塞到地图上。' }}
           </p>
           <UButton
             :to="safeExternalHref(officialSources.campusMap.url) || undefined"
@@ -993,7 +993,7 @@ onBeforeUnmount(() => {
                 name="i-lucide-pentagon"
                 class="size-4"
               />
-              高德绘制区域
+              地图范围
             </div>
             <h2 class="mt-1 text-base font-bold text-zinc-950">
               {{ selectedArea.name }}
@@ -1009,7 +1009,7 @@ onBeforeUnmount(() => {
           />
         </div>
         <p class="mt-3 text-xs leading-5 text-zinc-600">
-          {{ selectedArea.description ?? '边界来自用户授权的高德地图绘制，仅作校园方位参考。' }}
+          {{ selectedArea.description ?? '这个范围来自地图绘制，只用来帮助你辨认校园方向。' }}
         </p>
         <dl class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-3 text-xs">
           <div>
@@ -1030,7 +1030,7 @@ onBeforeUnmount(() => {
           </div>
         </dl>
         <p class="mt-3 text-[11px] leading-4 text-zinc-500">
-          区域只绘制边界线，不覆盖内部商铺的点击区域。
+          这里只显示范围边界，不会挡住里面的商铺点击。
         </p>
       </section>
 
