@@ -5,12 +5,14 @@ import test from 'node:test'
 
 import candidateData from '../data/imports/amap-nearby-poi-candidates-2026-07-15.json'
 import {
+  buildNearbyCandidatePreview,
   buildNearbyCategoryOptions,
   filterNearbyCandidates,
   filterNearbyPlaces,
   nearbyCandidateCenterLabel,
   nearbyCandidateHint,
   nearbyCandidateMapUrl,
+  nearbyCandidatePreviewLimit,
   nearbyCategoryHints,
   nearbyCategoryLabels,
   selectNearbyResearchSources,
@@ -49,6 +51,9 @@ test('nearby page keeps template wiring and review boundary copy', () => {
   assert.match(pageSource, /usageTips/)
   assert.match(pageSource, /verificationChecklist/)
   assert.match(pageSource, /candidateHint\(candidate\)/)
+  assert.match(pageSource, /buildNearbyCandidatePreview/)
+  assert.match(pageSource, /visibleCandidates/)
+  assert.match(pageSource, /收起参考清单/)
   assert.doesNotMatch(pageSource, /高德 POI 接口来源/)
   assert.doesNotMatch(pageSource, /高德当前 POI/)
   assert.match(pageSource, /title: '校园周边'/)
@@ -136,6 +141,27 @@ test('nearby filters and category options stay pure', () => {
   const options = buildNearbyCategoryOptions(places, candidates)
   assert.ok(options.some(option => option.value === 'food' && option.label === '餐饮'))
   assert.ok(options.some(option => option.value === 'express'))
+
+  const collapsed = buildNearbyCandidatePreview(candidates, {
+    expanded: false,
+    filterActive: false
+  })
+  assert.equal(collapsed.items.length, nearbyCandidatePreviewLimit)
+  assert.equal(collapsed.hiddenCount, candidates.length - nearbyCandidatePreviewLimit)
+
+  const expanded = buildNearbyCandidatePreview(candidates, {
+    expanded: true,
+    filterActive: false
+  })
+  assert.equal(expanded.items.length, candidates.length)
+  assert.equal(expanded.hiddenCount, 0)
+
+  const filtered = buildNearbyCandidatePreview(foodOnly, {
+    expanded: false,
+    filterActive: true
+  })
+  assert.equal(filtered.items.length, foodOnly.length)
+  assert.equal(filtered.hiddenCount, 0)
 })
 
 test('nearby research sources stay fixed student-facing references', () => {

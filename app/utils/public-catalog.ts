@@ -62,6 +62,39 @@ const mapCategoryAliases: Record<string, string> = {
 
 const ownerMapGenericSummary = '用户授权的高德工作地图标点，尚未经过独立现场核验。'
 
+export function studentFacingGuideText(value: string): string {
+  return value
+    .replace(/工作地图的 76 个标点与 8 个原始不规则区域边界已按“未独立现场核验”状态显示，并支持地图内步行路线与外部高德导航；区域只绘制边界线，避免遮挡内部高德商铺。/g, '已整理 76 个高德地图地点和 8 个区域范围，可用于地图内路线规划和高德导航；具体入口仍请以现场标识为准。')
+    .replace(/地图目录已导入，坐标核验中/g, '地图地点已整理，入口仍在确认')
+    .replace(/不要仅凭工作地图中的反向地址判断楼栋；部分地址会落到相邻建筑。/g, '不要只看地图自动显示的地址判断楼栋，部分地址可能指向相邻建筑。')
+    .replace(/工作地图目前只有一个“创业园”标点，后续应拆分为A、B两个地点并分别核对入口坐标。/g, '地图目前只显示一个“创业园”地点；到达后请按现场标识确认 A、B 区入口。')
+    .replace(/系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。/g, '部分图片只用于确认地点和设施信息，不会在公开页面展示，也不会复制原帖正文或评论中的个人信息。')
+    .replace(/学生经验线索（待核验）/g, '学生经验参考')
+    .replace(/宿舍实拍与答疑线索（待核验）/g, '宿舍实拍与答疑参考')
+    .replace(/当期复核清单/g, '本学期确认清单')
+    .replace(/现场核验清单/g, '现场确认清单')
+    .replace(/待核验线索/g, '参考信息')
+    .replace(/高德 POI/g, '高德地图地点')
+    .replace(/工作地图/g, '地图')
+    .replace(/精确坐标/g, '准确位置')
+    .replace(/入口坐标/g, '入口位置')
+    .replace(/最后核验日期/g, '最后确认日期')
+    .replace(/两项独立核验/g, '两个独立来源确认')
+    .replace(/当前可核验的/g, '目前能确认的')
+    .replace(/重新现场核验/g, '重新到现场确认')
+    .replace(/待现场核验/g, '还要到现场确认')
+    .replace(/待实地核验/g, '还要到现场确认')
+    .replace(/已核验/g, '已确认')
+    .replace(/仍待核验/g, '还要再确认')
+    .replace(/待核验/g, '还要再确认')
+    .replace(/可核验/g, '可确认')
+    .replace(/核验中/g, '正在确认')
+    .replace(/现场核验/g, '现场确认')
+    .replace(/独立核验/g, '独立确认')
+    .replace(/核验/g, '确认')
+    .replace(/复核/g, '再次确认')
+}
+
 export interface PublicGuideView extends FreshmanGuide {
   contentId: string | null
   body: string
@@ -366,6 +399,17 @@ function normalizeAudience(value: string | null, fallback?: FreshmanGuide['audie
   return labels.length ? labels : fallback ?? defaultAudience
 }
 
+function studentFacingGuideSection(section: GuideSection): GuideSection {
+  return {
+    ...section,
+    title: studentFacingGuideText(section.title),
+    ...(section.description ? { description: studentFacingGuideText(section.description) } : {}),
+    items: section.items.map(studentFacingGuideText),
+    ...(section.notice ? { notice: studentFacingGuideText(section.notice) } : {}),
+    ...(section.sources ? { sources: section.sources.map(studentFacingSource) } : {})
+  }
+}
+
 function parseGuideSections(content: ApiContent): GuideSection[] {
   const value = content.metadata.sections
   if (!Array.isArray(value)) return []
@@ -373,11 +417,13 @@ function parseGuideSections(content: ApiContent): GuideSection[] {
   return value.flatMap((candidate): GuideSection[] => {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return []
     const record = candidate as Record<string, unknown>
-    const title = typeof record.title === 'string' ? record.title.trim() : ''
+    const title = typeof record.title === 'string' ? studentFacingGuideText(record.title.trim()) : ''
     if (!title) return []
 
     const items = Array.isArray(record.items)
-      ? record.items.filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+      ? record.items
+          .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+          .map(item => studentFacingGuideText(item.trim()))
       : []
     const sectionSources = Array.isArray(record.sources)
       ? record.sources.flatMap((candidate): PublicSource[] => {
@@ -409,11 +455,11 @@ function parseGuideSections(content: ApiContent): GuideSection[] {
         ? record.icon.trim()
         : 'i-lucide-list-checks',
       ...(typeof record.description === 'string' && record.description.trim()
-        ? { description: record.description.trim() }
+        ? { description: studentFacingGuideText(record.description.trim()) }
         : {}),
       items,
       ...(typeof record.notice === 'string' && record.notice.trim()
-        ? { notice: record.notice.trim() }
+        ? { notice: studentFacingGuideText(record.notice.trim()) }
         : {}),
       ...(sectionSources.length ? { sources: sectionSources } : {})
     }]
@@ -423,33 +469,33 @@ function parseGuideSections(content: ApiContent): GuideSection[] {
 function apiGuideToView(content: ApiContent, seed?: FreshmanGuide): PublicGuideView {
   const category = normalizeGuideCategory(content.category, seed?.category)
   const metadataSections = parseGuideSections(content)
-  const body = content.body.trim()
+  const body = studentFacingGuideText(content.body.trim())
   const sections = metadataSections.length
     ? metadataSections
     : body
       ? [{
-          title: metadataString(content, 'bodyHeading') ?? '正文',
+          title: studentFacingGuideText(metadataString(content, 'bodyHeading') ?? '正文'),
           icon: 'i-lucide-file-text',
           description: body,
           items: []
         }]
-      : seed?.sections ?? []
+      : seed?.sections.map(studentFacingGuideSection) ?? []
   const verifiedDate = dateOnly(content.lastVerifiedAt ?? content.updatedAt)
 
   return {
     slug: content.slug,
     title: content.title,
     shortTitle: metadataString(content, 'shortTitle') ?? seed?.shortTitle ?? content.title,
-    summary: content.summary,
+    summary: studentFacingGuideText(content.summary),
     icon: metadataString(content, 'icon') ?? seed?.icon ?? guideCategoryDefaults[category].icon,
     category,
     audience: normalizeAudience(content.audience, seed?.audience),
     readMinutes: Math.max(1, Math.round(metadataNumber(content, 'readMinutes') ?? seed?.readMinutes ?? Math.ceil(body.length / 400))),
     status: normalizeGuideStatus(content, seed?.status),
-    statusText: metadataString(content, 'statusText') ?? `${guideCategoryDefaults[category].statusText} · ${verifiedDate}`,
+    statusText: studentFacingGuideText(metadataString(content, 'statusText') ?? `${guideCategoryDefaults[category].statusText} · ${verifiedDate}`),
     updatedAt: verifiedDate,
-    leadNotice: metadataString(content, 'leadNotice')
-      ?? `本页内容已整理发布，最后确认于 ${verifiedDate}；强时效事项仍以所列官方来源为准。`,
+    leadNotice: studentFacingGuideText(metadataString(content, 'leadNotice')
+      ?? `本页内容已整理发布，最后确认于 ${verifiedDate}；强时效事项仍以所列官方来源为准。`),
     sections,
     sources: toPublicSources(content),
     contentId: content.id,
@@ -461,13 +507,13 @@ function apiGuideToView(content: ApiContent, seed?: FreshmanGuide): PublicGuideV
 export function staticGuideToView(guide: FreshmanGuide): PublicGuideView {
   return {
     ...guide,
-    sections: guide.sections.map(section => ({
-      ...section,
-      ...(section.sources ? { sources: section.sources.map(studentFacingSource) } : {})
-    })),
+    summary: studentFacingGuideText(guide.summary),
+    statusText: studentFacingGuideText(guide.statusText),
+    leadNotice: studentFacingGuideText(guide.leadNotice),
+    sections: guide.sections.map(studentFacingGuideSection),
     sources: guide.sources.map(studentFacingSource),
     contentId: null,
-    body: freshmanGuideBody(guide),
+    body: studentFacingGuideText(freshmanGuideBody(guide)),
     isApiPublished: false
   }
 }

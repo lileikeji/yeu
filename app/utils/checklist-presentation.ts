@@ -269,7 +269,7 @@ export const checklistItems: ChecklistItem[] = [
     id: 'nearby-life',
     stageId: 'daily',
     title: '了解周边餐饮与生活服务',
-    description: '学生街、便利和常用商铺可按需浏览，先核验位置再去。',
+    description: '学生街、便利和常用商铺可按需浏览，先确认位置和营业状态再去。',
     to: '/nearby',
     icon: 'i-lucide-store',
     audience: [...allFreshmen],

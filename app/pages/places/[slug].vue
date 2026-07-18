@@ -71,7 +71,7 @@ function copyPlaceLocation(): void {
       <div class="page-shell py-8 md:py-11">
         <nav
           class="flex items-center gap-2 text-xs text-zinc-500"
-          aria-label="面包屑"
+          aria-label="当前位置"
         >
           <NuxtLink
             to="/map"

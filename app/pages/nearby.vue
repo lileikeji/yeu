@@ -4,11 +4,13 @@ import nearbyCandidateData from '~~/data/imports/amap-nearby-poi-candidates-2026
 import { researchSources } from '~~/data/seeds/public-content'
 import {
   buildNearbyCategoryOptions,
+  buildNearbyCandidatePreview,
   filterNearbyCandidates,
   filterNearbyPlaces,
   nearbyCandidateCenterLabel,
   nearbyCandidateHint,
   nearbyCandidateMapUrl,
+  nearbyCandidatePreviewLimit,
   nearbyCategoryLabels,
   selectNearbyResearchSources,
   nearbySourceContextForStudents,
@@ -41,6 +43,7 @@ useSeoMeta({
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
+const candidatesExpanded = ref(false)
 const { data: response, error } = await usePublicPlaceList('nearby')
 const places = computed(() => response.value?.items ?? [])
 const categories = computed(() => buildNearbyCategoryOptions(places.value, candidateCatalog.candidates))
@@ -52,6 +55,20 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
   query: searchQuery.value,
   activeCategory: activeCategory.value
 }))
+const candidateFilterActive = computed(() => Boolean(searchQuery.value.trim()) || activeCategory.value !== 'all')
+const candidatePreview = computed(() => buildNearbyCandidatePreview(filteredCandidates.value, {
+  expanded: candidatesExpanded.value,
+  filterActive: candidateFilterActive.value
+}))
+const visibleCandidates = computed(() => candidatePreview.value.items)
+
+watch([searchQuery, activeCategory], () => {
+  candidatesExpanded.value = false
+})
+
+function toggleCandidatePreview(): void {
+  candidatesExpanded.value = !candidatesExpanded.value
+}
 </script>
 
 <template>
@@ -253,7 +270,13 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
         </div>
 
         <p class="mt-4 text-xs text-zinc-500">
-          {{ filteredCandidates.length }} 条参考 · 资料整理于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
+          <template v-if="candidateFilterActive">
+            已找到 {{ filteredCandidates.length }} 条参考
+          </template>
+          <template v-else>
+            {{ filteredCandidates.length }} 条参考 · 默认先展示 {{ Math.min(filteredCandidates.length, nearbyCandidatePreviewLimit) }} 条
+          </template>
+          · 资料整理于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
         </p>
         <div class="mt-4 border-l-2 border-orange-300 bg-orange-50/70 px-4 py-3">
           <p class="text-xs font-bold text-orange-900">
@@ -302,7 +325,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
           class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3"
         >
           <a
-            v-for="candidate in filteredCandidates"
+            v-for="candidate in visibleCandidates"
             :key="candidate.amapPoiId"
             :href="safeExternalHref(candidateMapUrl(candidate)) || undefined"
             target="_blank"
@@ -344,6 +367,19 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
               </span>
             </div>
           </a>
+        </div>
+        <div
+          v-if="!candidateFilterActive && filteredCandidates.length > nearbyCandidatePreviewLimit"
+          class="mt-5 flex justify-center"
+        >
+          <UButton
+            :icon="candidatesExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            :label="candidatesExpanded ? '收起参考清单' : `再看 ${candidatePreview.hiddenCount} 条参考`"
+            color="neutral"
+            variant="soft"
+            :aria-expanded="candidatesExpanded"
+            @click="toggleCandidatePreview"
+          />
         </div>
       </section>
     </div>

@@ -114,7 +114,7 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
     ? [
         '这个点来自你提供的高德地图标点，可以先导航到附近。',
         '到达后请看现场门牌、楼栋名或服务窗口，确认是不是你要去的入口。',
-        '它还不是学校现场双重核验坐标，不要把它当成唯一行动依据。'
+        '这个位置还没有经过两次现场确认，不要只靠它做决定。'
       ]
     : poi.pointIsVerified
       ? [

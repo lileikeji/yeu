@@ -72,7 +72,7 @@ const detailSources = computed(() => buildGuideDetailSources(
       <div class="page-shell py-7 md:py-10">
         <nav
           class="flex items-center gap-2 text-xs text-zinc-500"
-          aria-label="面包屑"
+          aria-label="当前位置"
         >
           <NuxtLink
             to="/guides"

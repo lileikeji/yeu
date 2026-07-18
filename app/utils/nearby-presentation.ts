@@ -49,6 +49,13 @@ export interface NearbyPlaceLike {
   type: string
 }
 
+export interface NearbyCandidatePreview<T> {
+  items: T[]
+  hiddenCount: number
+}
+
+export const nearbyCandidatePreviewLimit = 6
+
 export const nearbyCategoryLabels: Record<string, string> = {
   food: '餐饮',
   shopping: '购物 / 便利',
@@ -155,6 +162,20 @@ export function filterNearbyCandidates(
       .includes(query)
     return categoryMatches && queryMatches
   })
+}
+
+export function buildNearbyCandidatePreview<T>(
+  candidates: readonly T[],
+  options: { expanded: boolean, filterActive: boolean, limit?: number }
+): NearbyCandidatePreview<T> {
+  const limit = Math.max(1, Math.floor(options.limit ?? nearbyCandidatePreviewLimit))
+  if (options.expanded || options.filterActive || candidates.length <= limit) {
+    return { items: [...candidates], hiddenCount: 0 }
+  }
+  return {
+    items: candidates.slice(0, limit),
+    hiddenCount: candidates.length - limit
+  }
 }
 
 export function buildNearbyCategoryOptions(

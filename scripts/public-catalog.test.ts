@@ -16,6 +16,7 @@ import {
   extractStudentUseChecklist,
   mergePublicDepartments,
   mergePublicGuides,
+  studentFacingGuideText,
   studentFacingPlaceBody
 } from '../app/utils/public-catalog'
 import { buildCatalogSeed } from './seed-public-catalog'
@@ -83,6 +84,25 @@ test('student-facing place body hides maintenance notes and keeps actionable che
   assert.match(publicBody, /辽宁楼/)
   assert.doesNotMatch(publicBody, /resourceId|坐标来源|发布提醒|GCJ-02|sourceRawRef/i)
   assert.doesNotMatch(publicBody, /【到这里前先确认】/)
+})
+
+test('guide copy hides maintainer language from student pages', () => {
+  assert.equal(
+    studentFacingGuideText('地图目录已导入，坐标核验中'),
+    '地图地点已整理，入口仍在确认'
+  )
+  assert.equal(
+    studentFacingGuideText('工作地图目前只有一个“创业园”标点，后续应拆分为A、B两个地点并分别核对入口坐标。'),
+    '地图目前只显示一个“创业园”地点；到达后请按现场标识确认 A、B 区入口。'
+  )
+  assert.equal(
+    studentFacingGuideText('站点与配送规则待现场核验，查看页面的最后核验日期。'),
+    '站点与配送规则还要到现场确认，查看页面的最后确认日期。'
+  )
+  assert.doesNotMatch(
+    studentFacingGuideText('系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。'),
+    /内部资料目录|前台|核验/
+  )
 })
 
 test('static guide and department bodies are readable for freshmen instead of empty placeholders', () => {
