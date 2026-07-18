@@ -216,7 +216,7 @@ export const checklistItems: ChecklistItem[] = [
     id: 'library-binding',
     stageId: 'first-week',
     title: '图书馆借阅与微信绑定',
-    description: '按流程开通借阅权限，并完成必要的微信/统一认证绑定。',
+    description: '按流程开通借阅权限，并完成必要的微信和图书馆账号绑定。',
     to: '/procedures',
     icon: 'i-lucide-book-open-check',
     audience: [...allFreshmen],
