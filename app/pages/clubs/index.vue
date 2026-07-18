@@ -11,7 +11,7 @@ import { publicClubs } from '~/utils/public-catalog'
 
 useSeoMeta({
   title: '学生社团',
-  description: '查看仰恩大学近期活动可核验的学生社团及招新信息状态。'
+  description: '查看仰恩大学近期活动中有公开来源的学生社团及招新信息状态。'
 })
 
 const searchQuery = ref('')
@@ -34,7 +34,7 @@ const filteredClubs = computed(() => filterClubListItems(clubs.value, searchQuer
           学生社团
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          当前完整收录 {{ clubs.length }} 个可追溯社团条目：{{ recentClubCount }} 个能在校团委 2026 年活动报道中确认近期活跃，{{ leadClubCount }} 个来自校团委公开附件中的社团干部线索。这里先帮新生知道“学校里可能有哪些方向”，不把未发布的招新群、二维码或收费要求写成确定通知。
+          当前完整收录 {{ clubs.length }} 个有公开来源的社团条目：{{ recentClubCount }} 个能在校团委 2026 年活动报道中确认近期活跃，{{ leadClubCount }} 个来自校团委公开附件中的社团干部线索。这里先帮新生知道“学校里可能有哪些方向”，不把未发布的招新群、二维码或收费要求写成确定通知。
         </p>
         <UInput
           v-model="searchQuery"

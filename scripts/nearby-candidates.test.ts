@@ -38,7 +38,7 @@ test('nearby page keeps template wiring and review boundary copy', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/nearby-presentation['"]/)
   assert.match(pageSource, /candidateCatalog\.providerDocumentation/)
   assert.match(pageSource, /确认后再推荐/)
-  assert.match(pageSource, /高德地图线索 · 到店前再确认/)
+  assert.match(pageSource, /地图搜索线索 · 到店前再确认/)
   assert.match(pageSource, /selectNearbyResearchSources/)
   assert.match(pageSource, /from ['"]~~\/data\/seeds\/public-content['"]/)
   assert.match(pageSource, /const nearbyResearchSources = selectNearbyResearchSources\(researchSources\)/)

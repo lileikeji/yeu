@@ -8,6 +8,7 @@ import type {
   MapProviderId
 } from '~~/map/core/provider'
 import { officialSources } from '~~/data/seeds/public-content'
+import { safeExternalHref } from '~/utils/safe-external-href'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
 import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
 import { amapImportedAreas } from '~~/data/seeds/amap-imported-areas'
@@ -764,11 +765,11 @@ onBeforeUnmount(() => {
               ? '学校官网原图'
               : activeMapProviderId === 'amap'
                 ? '高德地图'
-                : 'OSM 预览底图' }}
+                : '社区地图预览' }}
           </UBadge>
           <UTooltip
             v-if="mapViewMode === 'geographic' && activeMapProviderId !== 'amap'"
-            text="绿色虚线来自 OSM 社区测绘，只表示校园范围参考，不代表楼栋坐标已核验。"
+            text="绿色虚线来自公开社区地图资料，只表示校园范围参考，不代表楼栋位置已经确认。"
           >
             <UBadge
               color="success"
@@ -956,15 +957,15 @@ onBeforeUnmount(() => {
             class="mx-auto size-5 text-zinc-500"
           />
           <p class="mt-2 text-sm font-semibold text-zinc-900">
-            暂无可在当前底图展示的已核验标点
+            当前地图还没有可展示的已确认地点
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
             {{ activeMapProviderId === 'amap'
-              ? '左侧目录仍可搜索；已导入的高德标点会直接使用高德坐标显示，平面图文字索引不强行生成假坐标。'
-              : '绿色虚线仅表示 OSM 社区测绘校界。左侧目录仍可搜索；没有可兼容坐标的地点不会强行生成假标点。' }}
+              ? '左侧目录仍可搜索；部分地图地点可以直接显示，平面图中的文字地点不会被硬凑成错误位置。'
+              : '绿色虚线仅表示公开社区地图上的校园范围。左侧目录仍可搜索；没有可靠位置的地点不会硬凑成错误标点。' }}
           </p>
           <UButton
-            :to="officialSources.campusMap.url"
+            :to="safeExternalHref(officialSources.campusMap.url) || undefined"
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-external-link"
@@ -1008,7 +1009,7 @@ onBeforeUnmount(() => {
           />
         </div>
         <p class="mt-3 text-xs leading-5 text-zinc-600">
-          {{ selectedArea.description ?? '边界来自用户授权的高德工作地图原始绘制数据，仅作校园方位参考。' }}
+          {{ selectedArea.description ?? '边界来自用户授权的高德地图绘制，仅作校园方位参考。' }}
         </p>
         <dl class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-3 text-xs">
           <div>

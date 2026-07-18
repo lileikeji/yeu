@@ -220,7 +220,7 @@ watch(selectedAudience, (value) => {
               class="py-3"
             >
               <dt class="text-zinc-500">
-                时间边界
+                时间说明
               </dt>
               <dd class="mt-1 leading-6 text-zinc-900">
                 {{ procedure.deadlineText }}

@@ -36,7 +36,7 @@ const candidateHint = nearbyCandidateHint
 
 useSeoMeta({
   title: '校园周边',
-  description: '查看经过位置与营业状态核验的仰恩大学周边商铺和生活服务。'
+  description: '查看经过位置与营业状态确认的仰恩大学周边商铺和生活服务。'
 })
 
 const searchQuery = ref('')
@@ -62,7 +62,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
           校园周边
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          已核验商铺与生活服务
+          已确认商铺与生活服务
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
           只展示已核对位置、来源和营业状态的地点，不使用平台评分或未经验证的推荐排名。
@@ -199,7 +199,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
             </p>
           </div>
           <a
-            :href="candidateCatalog.providerDocumentation"
+            :href="safeExternalHref(candidateCatalog.providerDocumentation) || undefined"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800"
@@ -234,7 +234,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
           </div>
           <div class="rounded-lg border border-orange-200 bg-orange-50/70 p-4">
             <h3 class="text-sm font-bold text-orange-950">
-              进入已核验目录前必须确认
+              进入已确认目录前必须确认
             </h3>
             <ul class="mt-3 space-y-2 text-xs leading-5 text-orange-900">
               <li
@@ -253,7 +253,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
         </div>
 
         <p class="mt-4 text-xs text-zinc-500">
-          {{ filteredCandidates.length }} 条参考 · 数据整理于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
+          {{ filteredCandidates.length }} 条参考 · 资料整理于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
         </p>
         <div class="mt-4 border-l-2 border-orange-300 bg-orange-50/70 px-4 py-3">
           <p class="text-xs font-bold text-orange-900">
@@ -304,7 +304,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
           <a
             v-for="candidate in filteredCandidates"
             :key="candidate.amapPoiId"
-            :href="candidateMapUrl(candidate)"
+            :href="safeExternalHref(candidateMapUrl(candidate)) || undefined"
             target="_blank"
             rel="noopener noreferrer"
             class="surface-panel group flex min-h-44 flex-col p-5 transition hover:border-orange-300 hover:shadow-sm"
@@ -334,7 +334,7 @@ const filteredCandidates = computed(() => filterNearbyCandidates(candidateCatalo
               {{ candidateHint(candidate) }}
             </p>
             <div class="mt-auto flex items-end justify-between gap-3 pt-4">
-              <span class="text-xs text-orange-700">高德地图线索 · 到店前再确认</span>
+              <span class="text-xs text-orange-700">地图搜索线索 · 到店前再确认</span>
               <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700">
                 高德查看
                 <UIcon

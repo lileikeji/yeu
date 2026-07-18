@@ -33,7 +33,7 @@ const loadError = computed(() => contentError.value || placeError.value)
     <section class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          信息可追溯
+          来源可查
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
           来源、确认范围与使用说明
@@ -85,10 +85,10 @@ const loadError = computed(() => contentError.value || placeError.value)
         </h2>
         <div class="mt-4 grid gap-5 text-sm leading-7 text-zinc-600 md:grid-cols-2">
           <p>
-            绿色虚线校界来自 OpenStreetMap 社区数据，只用于校园范围参考和坐标异常检查。它不是学校发布的法定或官方校界，也不能证明任何楼栋入口位置。
+            绿色虚线校界来自公开社区地图资料，只用于校园范围参考和位置异常检查。它不是学校发布的法定或官方校界，也不能证明任何楼栋入口位置。
           </p>
           <p>
-            你提供的高德地图数据已经导入 76 个标记点和 8 个绘制区域。标记点可以在高德地图上查看和导航；绘制区域只显示边界，方便查看范围，同时不挡住区域内原有商铺。
+            你提供的高德地图地点资料已经整理出 76 个地点和 8 个范围。地点可以在高德地图上查看和导航；范围只显示边界，方便查看位置，也不会挡住区域内原有商铺。
           </p>
         </div>
         <div class="mt-5 flex flex-wrap gap-2">
@@ -124,7 +124,7 @@ const loadError = computed(() => contentError.value || placeError.value)
             已发布内容关联来源
           </h2>
         </div>
-        <span class="text-sm text-zinc-500">{{ sources.length }} 条去重来源</span>
+        <span class="text-sm text-zinc-500">{{ sources.length }} 条不同来源</span>
       </div>
 
       <div

@@ -57,7 +57,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 label="查看校园地图"
               />
               <UButton
-                :to="officialSources.university.url"
+                :to="safeExternalHref(officialSources.university.url) || undefined"
                 target="_blank"
                 rel="noopener noreferrer"
                 icon="i-lucide-external-link"
@@ -90,7 +90,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
         <p class="mt-4 text-xs text-zinc-400">
           主值采用
           <a
-            :href="officialSources.university.url"
+            :href="safeExternalHref(officialSources.university.url) || undefined"
             target="_blank"
             rel="noopener noreferrer"
             class="underline decoration-zinc-300 underline-offset-2 hover:text-green-700"
@@ -142,7 +142,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             >
               已发布公告
             </UBadge>
-            <span class="text-xs text-zinc-400">核验于 {{ notice.updatedAt }}</span>
+            <span class="text-xs text-zinc-400">确认于 {{ notice.updatedAt }}</span>
           </div>
           <h3 class="mt-4 font-bold text-zinc-950">
             {{ notice.title }}
@@ -184,11 +184,11 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             新生常用部门
           </h2>
           <p class="mt-2 text-sm leading-6 text-zinc-600">
-            只收录官网组织机构页能够确认的部门入口，办公地点和时间待逐项核验。
+            只收录官网组织机构页能够确认的部门入口，办公地点和时间待逐项确认。
           </p>
         </div>
         <UButton
-          :to="officialSources.organizations.url"
+          :to="safeExternalHref(officialSources.organizations.url) || undefined"
           target="_blank"
           rel="noopener noreferrer"
           icon="i-lucide-external-link"
@@ -281,10 +281,10 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               学生社团
             </p>
             <h2 class="mt-2 text-2xl font-bold text-zinc-950">
-              可追溯的学生社团条目
+              有公开来源的学生社团条目
             </h2>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              先展示 23 个可追溯条目：7 个来自校团委 2026 年活动报道，16 个来自校团委公开附件中的社团干部线索。它们是新生了解方向的入口，不直接等同于 2026 级招新名单。
+              先展示 23 个有公开来源的条目：7 个来自校团委 2026 年活动报道，16 个来自校团委公开附件中的社团干部线索。它们是新生了解方向的入口，不直接等同于 2026 级招新名单。
             </p>
             <div class="mt-5 flex flex-wrap gap-2">
               <UButton
@@ -293,7 +293,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 label="查看招新指南"
               />
               <UButton
-                :to="officialSources.clubShowcase2026.url"
+                :to="safeExternalHref(officialSources.clubShowcase2026.url) || undefined"
                 target="_blank"
                 rel="noopener noreferrer"
                 icon="i-lucide-external-link"
@@ -390,7 +390,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 </div>
               </dl>
               <div class="mt-4 flex items-center justify-between gap-3 text-xs text-zinc-400">
-                <span>核验于 {{ club.updatedAt }}</span>
+                <span>确认于 {{ club.updatedAt }}</span>
                 <a
                   v-if="club.sources[0]"
                   :href="safeExternalHref(club.sources[0]?.url) || undefined"

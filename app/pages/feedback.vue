@@ -107,7 +107,7 @@ function resetForm() {
           反馈错误或补充资料
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          地点搬迁、营业时间变化、通知过期或可靠来源都可以提交。管理员核验后再更新公开内容。
+          地点搬迁、营业时间变化、通知过期或可靠来源都可以提交。管理员确认后再更新公开内容。
         </p>
       </div>
     </header>
@@ -291,7 +291,7 @@ function resetForm() {
       <aside class="min-w-0">
         <div class="surface-panel p-4 md:sticky md:top-24">
           <h2 class="text-sm font-bold text-zinc-950">
-            核验顺序
+            确认顺序
           </h2>
           <ol class="mt-4 space-y-4">
             <li class="flex gap-3 text-xs leading-5 text-zinc-600">
@@ -304,7 +304,7 @@ function resetForm() {
             </li>
             <li class="flex gap-3 text-xs leading-5 text-zinc-600">
               <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">3</span>
-              更新内容并记录来源和核验日期
+              更新内容并记录来源和确认日期
             </li>
           </ol>
         </div>

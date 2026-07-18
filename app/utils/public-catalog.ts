@@ -11,6 +11,7 @@ import type { CampusMapReferencePlace } from '~~/data/seeds/preview-places'
 import type { AmapImportedPlace } from '~~/data/seeds/amap-imported-places'
 import type { ContentKind } from '~~/shared/constants/server'
 import type { ApiAmapOwnerDraftPlace, ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
+import { isSafePublicHttpUrl } from '../../shared/utils/public-http-url'
 
 type GuideCategory = FreshmanGuide['category']
 
@@ -167,7 +168,8 @@ function equivalentPlaceNames(value: string): string[] {
 }
 
 function isHttpUrl(value: string | null): value is string {
-  return Boolean(value && /^https?:\/\//i.test(value))
+  // Defense-in-depth: reject non-public/dangerous URLs before they reach href sinks.
+  return Boolean(value && isSafePublicHttpUrl(value))
 }
 
 export function extractStudentUseChecklist(body: string): string[] {
