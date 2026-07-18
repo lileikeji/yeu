@@ -13,7 +13,7 @@ export const procedureAudienceLabels = {
 export const procedureMethodLabels = {
   online: '线上办理',
   offline: '到校办理',
-  mixed: '线上核对 + 到校办理'
+  mixed: '网上确认 + 到校办理'
 } as const satisfies Record<ProcedureMethod, string>
 
 export const procedureStateLabels = {
@@ -21,6 +21,11 @@ export const procedureStateLabels = {
   'partial': '部分内容待确认',
   'awaiting-notice': '等待学校通知'
 } as const satisfies Record<ProcedureInformationState, string>
+
+export function studentFacingProcedureTitle(value: string): string {
+  return value
+    .replace(/校园网与统一认证排查/g, '校园网与账号登录问题')
+}
 
 export function studentFacingProcedureText(value: string): string {
   return value
@@ -33,6 +38,10 @@ export function studentFacingProcedureText(value: string): string {
     .replace(/官方来源/g, '学校说明')
     .replace(/工单状态/g, '处理进度')
     .replace(/待通知/g, '还要等学校通知')
+    .replace(/统一认证/g, '账号登录')
+    .replace(/认证入口/g, '登录入口')
+    .replace(/认证不了/g, '登录不了')
+    .replace(/账号、认证、网络故障/g, '账号登录、网络故障')
     .replace(/核验/g, '确认')
 }
 

@@ -27,6 +27,7 @@ import {
   resolveProcedureStepCompletionPresentation,
   shouldShowProcedureStepAudienceBadges,
   studentFacingProcedureText,
+  studentFacingProcedureTitle,
   toggleProcedureStep
 } from '~~/app/utils/procedure-detail-presentation'
 
@@ -38,7 +39,7 @@ if (error.value) throwPublicDetailError(error.value, '办事流程')
 if (!procedure.value) throw createError({ statusCode: 404, statusMessage: '办事流程不存在' })
 
 useSeoMeta({
-  title: () => procedure.value?.title ?? '办事流程',
+  title: () => studentFacingProcedureTitle(procedure.value?.title ?? '办事流程'),
   description: () => procedure.value?.summary ?? ''
 })
 
@@ -58,7 +59,7 @@ const visibleSteps = computed(() => filterProcedureItemsForAudience(
 const feedbackLink = computed(() => buildDetailFeedbackLink({
   targetType: 'procedure',
   targetId: procedure.value!.id,
-  targetName: procedure.value!.title,
+  targetName: studentFacingProcedureTitle(procedure.value!.title),
   reasonType: 'procedure_error',
   from: route.fullPath
 }))
@@ -161,7 +162,7 @@ watch(selectedAudience, (value) => {
             name="i-lucide-chevron-right"
             class="size-3.5"
           />
-          <span>{{ procedure.title }}</span>
+          <span>{{ studentFacingProcedureTitle(procedure.title) }}</span>
         </nav>
 
         <div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
@@ -183,7 +184,7 @@ watch(selectedAudience, (value) => {
               </UBadge>
             </div>
             <h1 class="mt-4 text-2xl font-bold text-zinc-950 md:text-3xl">
-              {{ procedure.title }}
+              {{ studentFacingProcedureTitle(procedure.title) }}
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
               {{ studentFacingProcedureText(procedure.summary) }}

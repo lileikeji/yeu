@@ -25,6 +25,7 @@ import {
   shouldShowProcedureStepAudienceBadges,
   sourceClaimForStudents,
   studentFacingProcedureText,
+  studentFacingProcedureTitle,
   toggleProcedureStep
 } from '../app/utils/procedure-detail-presentation'
 
@@ -58,7 +59,7 @@ test('procedure detail page is a thin shell over presentation util', () => {
 test('procedure presentation labels and audience options stay student-facing', () => {
   assert.equal(procedureAudienceLabels.undergraduate, '普通本科新生')
   assert.equal(procedureAudienceLabels.transfer, '专升本新生')
-  assert.equal(procedureMethodLabels.mixed, '线上核对 + 到校办理')
+  assert.equal(procedureMethodLabels.mixed, '网上确认 + 到校办理')
   assert.equal(procedureStateLabels.confirmed, '信息明确')
   assert.equal(procedureStateLabels['awaiting-notice'], '等待学校通知')
   assert.deepEqual(procedureAudienceOptions.map(option => option.value), [
@@ -84,6 +85,8 @@ test('procedure notice and material copy follow category and confirmation state'
     studentFacingProcedureText('2026公开来源尚未列明个人材料，尚未从2026公开来源确认窗口'),
     '学校目前还没有列明个人材料，目前还没有从学校通知中确认窗口'
   )
+  assert.equal(studentFacingProcedureTitle('校园网与统一认证排查'), '校园网与账号登录问题')
+  assert.equal(studentFacingProcedureText('请查看统一认证入口，遇到认证不了的情况再联系部门'), '请查看账号登录入口，遇到登录不了的情况再联系部门')
 })
 
 test('source claim rewrite and detail source mapping stay student-readable', () => {

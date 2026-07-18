@@ -1,5 +1,8 @@
 import type { ApiProcedure } from '~~/shared/types/server'
-import { studentFacingProcedureText } from './procedure-detail-presentation'
+import {
+  studentFacingProcedureText,
+  studentFacingProcedureTitle
+} from './procedure-detail-presentation'
 
 export interface HomeGuideLike {
   slug: string
@@ -43,7 +46,7 @@ export interface HomeMoreEntry {
 export const homeProcedureMethodLabels: Record<ApiProcedure['method'], string> = {
   online: '线上办理',
   offline: '到校办理',
-  mixed: '线上确认 + 到校办理'
+  mixed: '网上确认 + 到校办理'
 }
 
 export const homeTimelineStages: HomeTimelineStage[] = [
@@ -156,8 +159,8 @@ export function buildHomeEssentialActions(guides: HomeGuideLike[]): HomeAction[]
 export function toHomeProcedureItem(procedure: ApiProcedure): HomeProcedureItem {
   return {
     id: procedure.id,
-    title: procedure.title,
-    summary: procedure.summary,
+    title: studentFacingProcedureTitle(procedure.title),
+    summary: studentFacingProcedureText(procedure.summary),
     statusText: studentFacingProcedureText(procedure.statusText),
     methodLabel: homeProcedureMethodLabels[procedure.method],
     to: `/procedures/${encodeURIComponent(procedure.slug)}`

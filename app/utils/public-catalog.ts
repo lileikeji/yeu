@@ -301,6 +301,7 @@ function ownerMapFriendlySummary(poi: AmapImportedPlace): string {
   const note = normalizeOwnerMapNote(poi.summary)
   const suffix = '位置来自你提供的高德地图标点，适合先用来找方向；具体入口、楼层、开放时间和当期用途仍以现场标识或学校通知为准。'
   if (note && note !== ownerMapGenericSummary) {
+    if (/位置来自(?:你提供的)?高德地图标点/.test(note)) return note
     return `${note}。${suffix}`
   }
 

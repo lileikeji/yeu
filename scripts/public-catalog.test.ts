@@ -22,6 +22,7 @@ import {
   studentFacingPlaceBody
 } from '../app/utils/public-catalog'
 import { buildCatalogSeed } from './seed-public-catalog'
+import { amapImportedPlaces } from '../data/seeds/amap-imported-places'
 
 test('managed guide catalogs do not restore an unpublished static guide', () => {
   const expressGuide = freshmanGuides.find(guide => guide.slug === 'express-delivery')
@@ -126,6 +127,19 @@ test('published map places use student-facing copy in the map panel', () => {
   assert.ok(place)
   assert.equal(place.summary, '上海楼的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
   assert.doesNotMatch(place.body, /后台草稿|resourceId|坐标来源|正式发布/)
+})
+
+test('owner map summaries do not repeat the location disclaimer', () => {
+  const seed = amapImportedPlaces.find(place => place.name === '韵达快递')
+  assert.ok(seed)
+  const place = mergePublicMapPlaces([], [], [{
+    ...seed,
+    summary: '韵达快递 已按用户授权的高德地图坐标导入后台草稿；可用于地图定位和维护，具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。'
+  }])[0]
+
+  assert.ok(place)
+  assert.equal((place.summary.match(/位置来自/g) ?? []).length, 1)
+  assert.doesNotMatch(place.summary, /为准。位置来自/)
 })
 
 test('guide copy hides maintainer language from student pages', () => {

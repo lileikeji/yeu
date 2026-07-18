@@ -1,4 +1,5 @@
 import type { PublicMapPlace } from './public-catalog'
+import { studentFacingProcedureTitle } from './procedure-detail-presentation'
 import type { PublicSearchResultType } from '~~/shared/constants/server'
 import type { ApiSearchItem, ApiSearchResponse } from '~~/shared/types/server'
 
@@ -311,7 +312,7 @@ export function buildPublicSearchResults(input: {
   const dynamic = apiItems.map((item): PublicSearchResult => ({
     key: `api-${item.entityType}-${item.id}`,
     resultType: item.resultType,
-    title: item.title,
+    title: item.entityType === 'procedure' ? studentFacingProcedureTitle(item.title) : item.title,
     summary: item.summary,
     ...apiSearchPresentation(item),
     to: apiSearchTarget(item),

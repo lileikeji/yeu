@@ -8,6 +8,10 @@ import {
   procedureListStatusText,
   procedureMethodLabel
 } from '~~/app/utils/procedure-list-presentation'
+import {
+  studentFacingProcedureText,
+  studentFacingProcedureTitle
+} from '~~/app/utils/procedure-detail-presentation'
 
 const { data, error, refresh } = await usePublicProcedureList()
 
@@ -142,10 +146,10 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
               </UBadge>
             </div>
             <h2 class="mt-5 text-base font-bold text-zinc-950">
-              {{ item.title }}
+              {{ studentFacingProcedureTitle(item.title) }}
             </h2>
             <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
-              {{ item.summary }}
+              {{ studentFacingProcedureText(item.summary) }}
             </p>
             <p class="mt-4 border-l-2 border-orange-300 pl-3 text-xs leading-5 text-zinc-600">
               <span class="font-semibold text-zinc-800">目前：</span>
