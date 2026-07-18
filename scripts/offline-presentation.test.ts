@@ -26,10 +26,10 @@ test('offline page is a thin shell over offline-presentation util', () => {
 
 test('offline catalogs stay student-facing', () => {
   assert.equal(offlineBoundaries.length, 3)
-  assert.equal(offlineBoundaries[0]?.title, '公开 API 不作离线数据库')
-  assert.match(offlineBoundaries[0]?.text ?? '', /服务端当前发布状态/)
-  assert.ok(offlineBoundaries.some(item => item.title === '地图瓦片与导航需要网络'))
-  assert.ok(offlineBoundaries.some(item => item.title === '已缓存页面仍需核对时效'))
+  assert.equal(offlineBoundaries[0]?.title, '公开内容不会完整保存在设备上')
+  assert.match(offlineBoundaries[0]?.text ?? '', /联网后看到的最新发布内容/)
+  assert.ok(offlineBoundaries.some(item => item.title === '地图和导航需要网络'))
+  assert.ok(offlineBoundaries.some(item => item.title === '以前打开过的页面也可能过期'))
   assert.equal(offlineStaticEntries.length, 3)
   assert.equal(offlineStaticEntries[0]?.to, '/discover')
   assert.equal(offlineStaticEntries[1]?.to, '/about')

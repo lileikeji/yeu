@@ -32,7 +32,7 @@ test('about catalogs stay student-facing', () => {
   assert.equal(aboutBoundaries.length, 4)
   assert.equal(aboutBoundaries[0]?.title, '信息不替代官方通知')
   assert.match(aboutBoundaries[0]?.text ?? '', /录取通知书/)
-  assert.ok(aboutBoundaries.some(item => item.title === '地图只公开可核验信息'))
+  assert.ok(aboutBoundaries.some(item => item.title === '地图只公开已确认的信息'))
   assert.ok(aboutBoundaries.some(item => item.title === '首版不提供商业排名'))
   assert.equal(aboutGovernanceLinks.length, 3)
   assert.equal(aboutGovernanceLinks[0]?.to, '/sources')

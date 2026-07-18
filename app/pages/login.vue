@@ -13,6 +13,10 @@ const { isAuthenticated, refreshSession, login } = useUserSession()
 const username = ref('')
 const password = ref('')
 const passwordVisible = ref(false)
+
+function togglePasswordVisibility(): void {
+  passwordVisible.value = !passwordVisible.value
+}
 const submitting = ref(false)
 const checkingSession = ref(true)
 const errorMessage = ref('')
@@ -160,7 +164,7 @@ onMounted(() => {
                   size="sm"
                   type="button"
                   :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-                  @click="passwordVisible = !passwordVisible"
+                  @click="togglePasswordVisibility"
                 />
               </template>
             </UInput>

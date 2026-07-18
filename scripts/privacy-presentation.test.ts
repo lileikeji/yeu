@@ -16,16 +16,19 @@ test('privacy page is a thin shell over privacy-presentation util', () => {
 })
 
 test('privacy sections stay student-facing', () => {
-  assert.equal(privacySections.length, 4)
+  assert.equal(privacySections.length, 6)
   assert.equal(privacySections[0]?.title, '公开访问')
-  assert.equal(privacySections[1]?.title, '反馈纠错')
-  assert.equal(privacySections[2]?.title, '保留与删除')
-  assert.equal(privacySections[3]?.title, '第三方服务')
+  assert.equal(privacySections[1]?.title, '访客记录')
+  assert.equal(privacySections[2]?.title, '账号与群聊')
+  assert.equal(privacySections[3]?.title, '反馈纠错')
+  assert.equal(privacySections[4]?.title, '保留与删除')
+  assert.equal(privacySections[5]?.title, '第三方服务')
   assert.ok(privacySections[0]?.items.some(item => item.includes('不需要学生账号')))
-  assert.ok(privacySections[0]?.items.some(item => item.includes('不写入本站数据库')))
-  assert.ok(privacySections[1]?.items.some(item => item.includes('不保存原始 IP')))
-  assert.ok(privacySections[2]?.items.some(item => item.includes('730 天')))
-  assert.ok(privacySections[3]?.items.some(item => item.includes('地图供应商')))
+  assert.ok(privacySections[0]?.items.some(item => item.includes('不会保存到本站')))
+  assert.ok(privacySections[1]?.items.some(item => item.includes('本站访客编号')))
+  assert.ok(privacySections[3]?.items.some(item => item.includes('无法直接还原的网络标识')))
+  assert.ok(privacySections[4]?.items.some(item => item.includes('730 天')))
+  assert.ok(privacySections[5]?.items.some(item => item.includes('地图服务')))
 })
 
 test('privacy presentation export surface stays stable', () => {

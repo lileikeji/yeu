@@ -76,11 +76,6 @@ export default defineNuxtConfig({
     }
   },
 
-  nitro: {
-    // Do not advertise the framework via X-Powered-By.
-    poweredByHeader: false
-  },
-
   compatibilityDate: '2026-06-30',
 
   eslint: {

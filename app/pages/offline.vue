@@ -57,7 +57,7 @@ onBeforeUnmount(() => {
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          PWA 离线状态
+          离线状态
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
           暂时无法更新内容
@@ -112,10 +112,10 @@ onBeforeUnmount(() => {
 
       <section class="mt-10">
         <p class="section-kicker">
-          离线边界
+          离线时能看到什么
         </p>
         <h2 class="mt-1 text-xl font-bold text-zinc-950">
-          当前不保存动态校园数据
+          离线时不会显示最新校园信息
         </h2>
 
         <div class="mt-5 grid gap-x-8 md:grid-cols-3">
@@ -139,10 +139,10 @@ onBeforeUnmount(() => {
           可尝试打开
         </p>
         <h2 class="mt-1 text-xl font-bold text-zinc-950">
-          静态说明页面
+          可能仍能打开的页面
         </h2>
         <p class="mt-2 text-xs leading-5 text-zinc-500">
-          以下页面是否可用取决于当前 PWA 版本和设备缓存，本页不宣称它们已保存。
+          设备可能保留部分说明页面，但是否能打开取决于你之前是否访问过。
         </p>
         <div class="mt-4 grid gap-2 sm:grid-cols-3">
           <UButton

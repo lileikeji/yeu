@@ -62,6 +62,7 @@ function applyRoomMuteState(state: ChatRoomMuteState | null | undefined): void {
   const index = rooms.value.findIndex(room => room.id === state.id)
   if (index < 0) return
   const current = rooms.value[index]
+  if (!current) return
   if (
     current.isMutedAll === state.isMutedAll
     && current.isMuted === state.isMuted
@@ -115,7 +116,7 @@ async function loadRooms(): Promise<void> {
   const payload = await userFetch<{ items: ChatRoom[] }>('/api/chat/rooms')
   rooms.value = payload.items || []
   if (!activeRoomId.value && rooms.value.length) {
-    activeRoomId.value = rooms.value[0].id
+    activeRoomId.value = rooms.value[0]?.id || ''
   }
   if (activeRoomId.value && !rooms.value.some(room => room.id === activeRoomId.value)) {
     activeRoomId.value = rooms.value[0]?.id || ''

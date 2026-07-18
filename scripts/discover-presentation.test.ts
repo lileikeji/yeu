@@ -25,13 +25,13 @@ test('discover page is a thin shell over discover-presentation util', () => {
 })
 
 test('discover catalogs stay student-facing', () => {
-  assert.equal(discoverTaskEntries.length, 9)
+  assert.equal(discoverTaskEntries.length, 10)
   assert.equal(discoverTaskEntries[0]?.title, '新生清单')
   assert.equal(discoverTaskEntries[0]?.to, '/checklist')
   assert.ok(discoverTaskEntries.some(item => item.title === '周边商铺' && item.to === '/nearby'))
   assert.ok(discoverTaskEntries.some(item => item.to === '/map?category=express'))
-  assert.equal(discoverDirectoryEntries.length, 7)
-  assert.equal(discoverDirectoryEntries[0]?.title, '新生清单')
+  assert.equal(discoverDirectoryEntries.length, 9)
+  assert.equal(discoverDirectoryEntries[0]?.title, '新生群聊')
   assert.ok(discoverDirectoryEntries.some(item => item.title === '校园地图' && item.to === '/map'))
   assert.ok(discoverDirectoryEntries.some(item => item.title === '全站搜索' && item.to === '/search'))
   assert.equal(discoverTrustEntries.length, 5)

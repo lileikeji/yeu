@@ -30,9 +30,9 @@ export const aboutBoundaries: AboutBoundary[] = [
     text: '报到、缴费、学籍、住宿、安全及个人材料要求，以录取通知书、学校及主管部门最新正式通知为准。'
   },
   {
-    title: '地图只公开可核验信息',
+    title: '地图只公开已确认的信息',
     icon: 'i-lucide-map-pinned',
-    text: '地点名称、楼栋入口和导航坐标分开管理。没有官方资料或现场观测支持的坐标，不会用近似点补齐。'
+    text: '地点名称、楼栋入口和导航坐标分开管理。没有官方资料或现场定位记录支持的坐标，不会用近似点补齐。'
   },
   {
     title: '旧资料不冒充当年安排',
@@ -42,7 +42,7 @@ export const aboutBoundaries: AboutBoundary[] = [
   {
     title: '首版不提供商业排名',
     icon: 'i-lucide-badge-percent',
-    text: '商家认领、优惠、推广位与学生账号尚未开放。未来若上线，付费内容需显著标识，不得改变客观核验结论。'
+    text: '商家认领、优惠、推广位与学生账号尚未开放。未来若上线，付费内容会明确标识，也不能改变已经确认的信息。'
   }
 ]
 
@@ -55,7 +55,7 @@ export const aboutGovernanceLinks: AboutGovernanceLink[] = [
   },
   {
     title: '反馈错误或补充资料',
-    description: '当前唯一的站内联系入口，管理员核验后再更新',
+    description: '当前唯一的站内联系入口，管理员确认后再更新',
     to: '/feedback',
     icon: 'i-lucide-message-square-warning'
   },

@@ -173,7 +173,7 @@ export function serializeContent(row: ContentRow, sourceRows: SourceRow[] = []):
     publishedAt: toIso(row.publishedAt),
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
-    sources: sourceRows.map(serializeSource)
+    sources: sourceRows.map(source => serializeSource(source))
   }
 }
 

@@ -45,16 +45,16 @@ export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
 
 export const offlineBoundaries: OfflineBoundary[] = [
   {
-    title: '公开 API 不作离线数据库',
-    text: '指南、部门、社团、地点与公告以服务端当前发布状态为准。'
+    title: '公开内容不会完整保存在设备上',
+    text: '指南、部门、社团、地点和公告以联网后看到的最新发布内容为准。'
   },
   {
-    title: '地图瓦片与导航需要网络',
-    text: '离线时不显示新地图瓦片，也不保证外部地图或导航链接可用。'
+    title: '地图和导航需要网络',
+    text: '离线时无法加载新的地图画面，也不保证外部地图或导航链接可用。'
   },
   {
-    title: '已缓存页面仍需核对时效',
-    text: '浏览器可能保留应用外壳和静态资源，但是否能打开某个页面取决于当前设备缓存。'
+    title: '以前打开过的页面也可能过期',
+    text: '设备可能保留部分页面，但是否能打开取决于你之前是否访问过，内容也可能不是最新版本。'
   }
 ]
 
