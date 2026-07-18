@@ -26,6 +26,9 @@ test('club list page is a thin shell over club-list-presentation util', () => {
   assert.match(pageSource, /resolveClubDirection/)
   assert.match(pageSource, /resolveClubGroup/)
   assert.match(pageSource, /clubListMessages/)
+  assert.match(pageSource, /directory-list-presentation/)
+  assert.match(pageSource, /previewDirectoryItems/)
+  assert.match(pageSource, /v-for="club in visibleClubs"/)
   assert.doesNotMatch(pageSource, /function countRecentClubs/)
   assert.doesNotMatch(pageSource, /function filterClubListItems/)
   assert.doesNotMatch(pageSource, /const filteredClubs = computed\(\(\) => \{[\s\S]*toLocaleLowerCase\('zh-CN'\)/)
@@ -36,7 +39,7 @@ test('club list page is a thin shell over club-list-presentation util', () => {
 
 test('club list stats and messages stay student-facing', () => {
   assert.equal(clubListRecentActivityUrlMarker, '/2026/')
-  assert.equal(clubListMessages.serviceUnavailable, '社团资料暂时不可用，请稍后重试。')
+  assert.equal(clubListMessages.serviceUnavailable, '暂时没能打开社团列表，请检查网络后再试。')
   assert.equal(clubListMessages.emptyMatch, '没有匹配的社团')
   assert.equal(clubListMessages.defaultCategory, '校园社团')
   assert.equal(clubListMessages.recentActivity, '近期有活动')

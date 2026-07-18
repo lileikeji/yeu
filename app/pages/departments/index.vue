@@ -3,9 +3,16 @@ import { officialDepartments } from '~~/data/seeds/public-content'
 import {
   departmentListContactPreview,
   departmentListMessages,
-  filterDepartmentListItems
+  filterDepartmentListItems,
+  prioritizeDepartmentListItems
 } from '~~/app/utils/department-list-presentation'
 import { mergePublicDepartments } from '~/utils/public-catalog'
+import {
+  directoryListBatchSize,
+  directoryListToggleLabel,
+  nextDirectoryVisibleCount,
+  previewDirectoryItems
+} from '~~/app/utils/directory-list-presentation'
 
 useSeoMeta({
   title: '校内部门',
@@ -13,9 +20,33 @@ useSeoMeta({
 })
 
 const searchQuery = ref('')
+const visibleCount = ref(directoryListBatchSize)
 const { data: response, error } = await usePublicDepartmentList()
 const departments = computed(() => mergePublicDepartments(officialDepartments, response.value?.items ?? [], true))
-const filteredDepartments = computed(() => filterDepartmentListItems(departments.value, searchQuery.value))
+const orderedDepartments = computed(() => prioritizeDepartmentListItems(departments.value))
+const filteredDepartments = computed(() => filterDepartmentListItems(orderedDepartments.value, searchQuery.value))
+const isFiltering = computed(() => Boolean(searchQuery.value.trim()))
+const visibleDepartments = computed(() => previewDirectoryItems(filteredDepartments.value, {
+  filtered: isFiltering.value,
+  visibleCount: visibleCount.value
+}))
+const showListToggle = computed(() => !isFiltering.value
+  && filteredDepartments.value.length > directoryListBatchSize)
+const listToggleLabel = computed(() => directoryListToggleLabel(
+  visibleDepartments.value.length,
+  filteredDepartments.value.length
+))
+
+watch(searchQuery, () => {
+  visibleCount.value = directoryListBatchSize
+})
+
+function toggleDepartmentList() {
+  visibleCount.value = nextDirectoryVisibleCount(
+    visibleDepartments.value.length,
+    filteredDepartments.value.length
+  )
+}
 </script>
 
 <template>
@@ -29,7 +60,7 @@ const filteredDepartments = computed(() => filterDepartmentListItems(departments
           新生常用部门
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          联系方式来自学校或部门官网；办公地点和时间只在取得明确来源后显示。
+          联系方式来自学校或部门官网。办公地点和时间可能调整，出发前请再确认。
         </p>
         <UInput
           v-model="searchQuery"
@@ -72,7 +103,7 @@ const filteredDepartments = computed(() => filterDepartmentListItems(departments
         class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
       >
         <NuxtLink
-          v-for="department in filteredDepartments"
+          v-for="department in visibleDepartments"
           :key="department.slug"
           :to="`/departments/${department.slug}`"
           class="surface-panel group flex min-h-48 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
@@ -100,7 +131,20 @@ const filteredDepartments = computed(() => filterDepartmentListItems(departments
       </div>
 
       <div
-        v-else-if="!error"
+        v-if="showListToggle"
+        class="mt-6 flex justify-center"
+      >
+        <UButton
+          :icon="visibleDepartments.length >= filteredDepartments.length ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+          :label="listToggleLabel"
+          color="neutral"
+          variant="ghost"
+          @click="toggleDepartmentList"
+        />
+      </div>
+
+      <div
+        v-if="!error && !filteredDepartments.length"
         class="border-y border-zinc-200 bg-white px-5 py-12 text-center"
       >
         <UIcon

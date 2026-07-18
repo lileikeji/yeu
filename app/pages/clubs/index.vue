@@ -10,6 +10,12 @@ import {
   resolveClubGroup
 } from '~~/app/utils/club-list-presentation'
 import { publicClubs } from '~/utils/public-catalog'
+import {
+  directoryListBatchSize,
+  directoryListToggleLabel,
+  nextDirectoryVisibleCount,
+  previewDirectoryItems
+} from '~~/app/utils/directory-list-presentation'
 
 useSeoMeta({
   title: '学生社团',
@@ -18,6 +24,7 @@ useSeoMeta({
 
 const searchQuery = ref('')
 const selectedGroup = ref<string>(clubListMessages.allGroups)
+const visibleCount = ref(directoryListBatchSize)
 const clubDirectionBySlug = new Map(officialClubs.map(club => [club.slug, club.direction]))
 const { data: response, error } = await usePublicClubList()
 const clubs = computed(() => publicClubs(response.value?.items ?? [], officialClubs))
@@ -28,6 +35,29 @@ const filteredClubs = computed(() => filterClubListItems(
   searchQuery.value,
   selectedGroup.value
 ))
+const isFiltering = computed(() => Boolean(searchQuery.value.trim())
+  || selectedGroup.value !== clubListMessages.allGroups)
+const visibleClubs = computed(() => previewDirectoryItems(filteredClubs.value, {
+  filtered: isFiltering.value,
+  visibleCount: visibleCount.value
+}))
+const showListToggle = computed(() => !isFiltering.value
+  && filteredClubs.value.length > directoryListBatchSize)
+const listToggleLabel = computed(() => directoryListToggleLabel(
+  visibleClubs.value.length,
+  filteredClubs.value.length
+))
+
+watch([searchQuery, selectedGroup], () => {
+  visibleCount.value = directoryListBatchSize
+})
+
+function toggleClubList() {
+  visibleCount.value = nextDirectoryVisibleCount(
+    visibleClubs.value.length,
+    filteredClubs.value.length
+  )
+}
 </script>
 
 <template>
@@ -49,7 +79,7 @@ const filteredClubs = computed(() => filterClubListItems(
               name="i-lucide-compass"
               class="size-4 text-green-700"
             />
-            {{ clubs.length }} 个兴趣方向
+            {{ clubs.length }} 个社团
           </span>
           <span class="inline-flex items-center gap-1.5">
             <span class="size-2 rounded-full bg-emerald-500" />
@@ -119,7 +149,7 @@ const filteredClubs = computed(() => filterClubListItems(
         class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
       >
         <NuxtLink
-          v-for="club in filteredClubs"
+          v-for="club in visibleClubs"
           :key="club.id"
           :to="`/clubs/${club.slug}`"
           class="surface-panel group flex min-h-48 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
@@ -153,7 +183,7 @@ const filteredClubs = computed(() => filterClubListItems(
               : clubListMessages.recruitmentPending }}
           </div>
           <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700">
-            查看介绍
+            打开介绍
             <UIcon
               name="i-lucide-arrow-right"
               class="size-3.5"
@@ -163,7 +193,20 @@ const filteredClubs = computed(() => filterClubListItems(
       </div>
 
       <div
-        v-else-if="!error"
+        v-if="showListToggle"
+        class="mt-6 flex justify-center"
+      >
+        <UButton
+          :icon="visibleClubs.length >= filteredClubs.length ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+          :label="listToggleLabel"
+          color="neutral"
+          variant="ghost"
+          @click="toggleClubList"
+        />
+      </div>
+
+      <div
+        v-if="!error && !filteredClubs.length"
         class="border-y border-zinc-200 bg-white px-5 py-12 text-center"
       >
         <UIcon

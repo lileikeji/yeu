@@ -1,5 +1,5 @@
 export const departmentListMessages = {
-  serviceUnavailable: '部门资料暂时不可用，请稍后重试。',
+  serviceUnavailable: '暂时没能打开部门列表，请检查网络后再试。',
   emptyMatch: '没有匹配的部门'
 } as const
 
@@ -8,6 +8,29 @@ export interface DepartmentListFilterableItem {
   summary: string
   phone?: string | null
   email?: string | null
+}
+
+export const departmentListPrioritySlugs = [
+  'admissions-office',
+  'student-affairs',
+  'teaching-affairs-office',
+  'financial-aid-center',
+  'campus-clinic',
+  'mental-health-center',
+  'general-affairs-office',
+  'information-office',
+  'library'
+] as const
+
+export function prioritizeDepartmentListItems<T extends { slug: string }>(
+  departments: ReadonlyArray<T>
+): T[] {
+  const priority = new Map<string, number>(departmentListPrioritySlugs.map((slug, index) => [slug, index]))
+  return [...departments].sort((left, right) => {
+    const leftPriority = priority.get(left.slug) ?? Number.MAX_SAFE_INTEGER
+    const rightPriority = priority.get(right.slug) ?? Number.MAX_SAFE_INTEGER
+    return leftPriority - rightPriority
+  })
 }
 
 export function filterDepartmentListItems<T extends DepartmentListFilterableItem>(
@@ -29,5 +52,5 @@ export function filterDepartmentListItems<T extends DepartmentListFilterableItem
 }
 
 export function departmentListContactPreview(department: DepartmentListFilterableItem): string {
-  return department.phone || department.email || '查看官方入口'
+  return department.phone || department.email || '查看部门介绍'
 }

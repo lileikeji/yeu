@@ -35,6 +35,10 @@ test('department body extractors keep student-facing section markers', () => {
   assert.equal(departmentBodyPrefixes.useCases, '新生什么时候该看这里：')
   assert.equal(departmentSectionLabels.firstLook, '新生先看这几件事')
   assert.equal(departmentSectionLabels.contactPrep, '咨询前准备')
+  assert.equal(
+    departmentSectionLabels.emptyContact,
+    '暂时没有找到电话、邮箱或服务时间，可以先打开上方部门官网。'
+  )
 
   const body = [
     '开头说明',

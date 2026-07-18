@@ -211,7 +211,7 @@ const feedbackLink = computed(() => content.value
             v-if="!department.address && !department.phone && !department.email && !department.officeHours"
             class="mt-4 text-sm leading-6 text-zinc-500"
           >
-            暂未找到可公开确认的电话、邮箱或服务时间，请优先使用上方部门官网。
+            暂时没有找到电话、邮箱或服务时间，可以先打开上方部门官网。
           </p>
         </section>
 
@@ -223,7 +223,7 @@ const feedbackLink = computed(() => content.value
         <UButton
           :to="feedbackLink"
           icon="i-lucide-message-square-warning"
-          label="反馈部门资料"
+          label="告诉我们哪里需要修改"
           color="neutral"
           variant="outline"
           class="mt-6"

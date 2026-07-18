@@ -4,8 +4,10 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   departmentListContactPreview,
+  departmentListPrioritySlugs,
   departmentListMessages,
-  filterDepartmentListItems
+  filterDepartmentListItems,
+  prioritizeDepartmentListItems
 } from '../app/utils/department-list-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/departments/index.vue'), 'utf8')
@@ -16,6 +18,10 @@ test('department list page is a thin shell over department-list-presentation uti
   assert.match(pageSource, /filterDepartmentListItems/)
   assert.match(pageSource, /departmentListMessages/)
   assert.match(pageSource, /departmentListContactPreview/)
+  assert.match(pageSource, /prioritizeDepartmentListItems/)
+  assert.match(pageSource, /directory-list-presentation/)
+  assert.match(pageSource, /previewDirectoryItems/)
+  assert.match(pageSource, /v-for="department in visibleDepartments"/)
   assert.doesNotMatch(pageSource, /function filterDepartmentListItems/)
   assert.doesNotMatch(pageSource, /const filteredDepartments = computed\(\(\) => \{[\s\S]*toLocaleLowerCase\('zh-CN'\)/)
   assert.match(utilSource, /export function filterDepartmentListItems/)
@@ -24,7 +30,7 @@ test('department list page is a thin shell over department-list-presentation uti
 })
 
 test('department list messages stay student-facing', () => {
-  assert.equal(departmentListMessages.serviceUnavailable, '部门资料暂时不可用，请稍后重试。')
+  assert.equal(departmentListMessages.serviceUnavailable, '暂时没能打开部门列表，请检查网络后再试。')
   assert.equal(departmentListMessages.emptyMatch, '没有匹配的部门')
 })
 
@@ -41,5 +47,20 @@ test('department list pure helpers filter and preview contacts', () => {
   assert.equal(filterDepartmentListItems(departments, '没有这个').length, 0)
   assert.equal(departmentListContactPreview(departments[0]!), '0595-11111111')
   assert.equal(departmentListContactPreview(departments[1]!), 'stu@example.com')
-  assert.equal(departmentListContactPreview(departments[2]!), '查看官方入口')
+  assert.equal(departmentListContactPreview(departments[2]!), '查看部门介绍')
+})
+
+test('department list puts freshman essentials before the full school catalog', () => {
+  const departments = [
+    { slug: 'school-of-economics', name: '经济学院' },
+    { slug: 'library', name: '图书馆' },
+    { slug: 'student-affairs', name: '学生事务部' },
+    { slug: 'admissions-office', name: '招生办公室' },
+    { slug: 'other', name: '其他部门' }
+  ]
+  assert.equal(departmentListPrioritySlugs[0], 'admissions-office')
+  assert.deepEqual(
+    prioritizeDepartmentListItems(departments).map(item => item.slug),
+    ['admissions-office', 'student-affairs', 'library', 'school-of-economics', 'other']
+  )
 })

@@ -10,7 +10,7 @@ export const departmentSectionLabels = {
   contactPrep: '咨询前准备',
   usageSuggestion: '使用建议',
   publicContact: '公开联系方式',
-  emptyContact: '暂未找到可公开确认的电话、邮箱或服务时间，请优先使用上方部门官网。'
+  emptyContact: '暂时没有找到电话、邮箱或服务时间，可以先打开上方部门官网。'
 } as const
 
 export interface DepartmentSourceLike {

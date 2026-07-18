@@ -1,7 +1,7 @@
 export const clubListRecentActivityUrlMarker = '/2026/'
 
 export const clubListMessages = {
-  serviceUnavailable: '社团资料暂时不可用，请稍后重试。',
+  serviceUnavailable: '暂时没能打开社团列表，请检查网络后再试。',
   emptyMatch: '没有匹配的社团',
   defaultCategory: '校园社团',
   allGroups: '全部',
