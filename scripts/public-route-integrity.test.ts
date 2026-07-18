@@ -455,9 +455,11 @@ test('public source and place pages use student-facing data status wording', () 
 
   assert.match(placePage, /入口位置已确认/)
   assert.match(placePage, /入口位置待确认/)
-  assert.match(placePage, /地图查看/)
-  assert.match(placePage, /外部导航/)
+  assert.match(placePage, /查看地图/)
+  assert.match(placePage, /开始导航/)
   assert.match(placePage, /PublicSourceDetails/)
+  assert.match(placePage, /resolvePlaceStudentSummary/)
+  assert.match(placePage, /告诉我们哪里不对/)
   assert.doesNotMatch(placePage, /经纬度/)
   assert.doesNotMatch(placePage, /\{\{ place\.coordinateSystem \}\}/)
 

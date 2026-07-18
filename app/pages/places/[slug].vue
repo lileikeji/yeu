@@ -13,6 +13,7 @@ import {
   resolvePlaceFloorRoomLabel,
   resolvePlaceScopeLabel,
   resolvePlaceStudentBody,
+  resolvePlaceStudentSummary,
   resolvePlaceUseChecklist
 } from '~~/app/utils/place-detail-presentation'
 
@@ -23,9 +24,16 @@ const { data: place, error } = await usePublicPlace(slug)
 if (error.value) throwPublicDetailError(error.value, '地点')
 if (!place.value) throw createError({ statusCode: 404, statusMessage: '地点不存在' })
 
+const studentSummary = computed(() => resolvePlaceStudentSummary(
+  place.value?.summary,
+  place.value?.name ?? '这里',
+  place.value?.category,
+  place.value?.type
+))
+
 useSeoMeta({
   title: () => place.value?.name ?? '地点',
-  description: () => place.value?.summary ?? ''
+  description: () => studentSummary.value
 })
 
 const returnPath = computed(() => safeLocalPath(route.query.from))
@@ -43,7 +51,15 @@ const feedbackLink = computed(() => buildDetailFeedbackLink({
 }))
 
 const placeUseChecklist = computed(() => resolvePlaceUseChecklist(place.value?.body))
-const studentBody = computed(() => resolvePlaceStudentBody(place.value?.body))
+const studentBody = computed(() => {
+  const body = resolvePlaceStudentBody(
+    place.value?.body,
+    place.value?.name,
+    place.value?.category,
+    place.value?.type
+  )
+  return body === studentSummary.value ? '' : body
+})
 const detailSources = computed(() => buildPlaceDetailSources(place.value?.sources))
 const fallbackUseChecklist = computed(() => buildPlaceFallbackUseChecklist(
   placeUseChecklist.value,
@@ -93,7 +109,7 @@ function copyPlaceLocation(): void {
               />
               <UBadge
                 :label="scopeLabel"
-                color="info"
+                color="neutral"
                 variant="soft"
               />
               <UBadge
@@ -106,14 +122,14 @@ function copyPlaceLocation(): void {
               {{ place.name }}
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
-              {{ place.summary }}
+              {{ studentSummary }}
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
             <UButton
               :to="mapTarget"
               icon="i-lucide-map-pinned"
-              label="地图查看"
+              label="查看地图"
               size="lg"
             />
             <UButton
@@ -131,7 +147,7 @@ function copyPlaceLocation(): void {
               target="_blank"
               rel="noopener noreferrer"
               icon="i-lucide-navigation"
-              label="外部导航"
+              label="开始导航"
               color="neutral"
               variant="outline"
               size="lg"
@@ -221,7 +237,10 @@ function copyPlaceLocation(): void {
           </p>
         </section>
 
-        <section class="py-8">
+        <section
+          v-if="place.openingHours || place.phone || safeExternalHref(place.website)"
+          class="py-8"
+        >
           <h2 class="text-lg font-bold text-zinc-950">
             服务信息
           </h2>
@@ -276,7 +295,7 @@ function copyPlaceLocation(): void {
           <UButton
             :to="feedbackLink"
             icon="i-lucide-message-square-warning"
-            label="纠错此地点"
+            label="告诉我们哪里不对"
             color="neutral"
             variant="outline"
           />
@@ -284,7 +303,7 @@ function copyPlaceLocation(): void {
             v-if="returnPath"
             :to="returnPath"
             icon="i-lucide-undo-2"
-            label="返回来源页面"
+            label="返回上一页"
             color="neutral"
             variant="ghost"
           />
