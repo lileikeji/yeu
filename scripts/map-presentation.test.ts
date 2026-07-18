@@ -145,7 +145,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: null
-  }), '官网地点')
+  }), '平面图地点')
 
   assert.match(resolveMapFallbackMessage({
     ownerMapCount: 1,
@@ -170,7 +170,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /47 个地点编号/)
+  }) ?? '', /学校平面图的 47 个地点编号/)
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,

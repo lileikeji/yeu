@@ -723,7 +723,7 @@ function previewMapPlace(poi: CampusMapReferencePlace): PublicMapPlace {
     point: null,
     pointIsVerified: false,
     usesPreviewPoint: true,
-    referenceLabel: `官网编号 ${poi.mapNumber}`,
+    referenceLabel: `平面图编号 ${poi.mapNumber}`,
     officialPlanNumber: poi.mapNumber,
     coordinateVerification: 'preview',
     coordinateSystem: null,

@@ -55,7 +55,7 @@ export function resolveMapDataLabel(input: {
   if (input.publishedCount) return '校园地点'
   if (input.ownerMapCount) return '校园地点'
   if (input.hasPublicPlaceError) return '地点清单'
-  return '官网地点'
+  return '平面图地点'
 }
 
 export function resolveMapFallbackMessage(input: {
@@ -74,7 +74,7 @@ export function resolveMapFallbackMessage(input: {
     return '附近地点还在整理中，暂时不把未确认的商铺当作推荐，也不在地图上估一个位置。'
   }
   if (!input.publishedCount) {
-    return '可以先按学校官网的 47 个地点编号查找校内地点；这里不复制原图，也不把文字位置假装成导航位置。'
+    return '可以先按学校平面图的 47 个地点编号查找校内地点；这里不复制原图，也不把文字位置假装成导航位置。'
   }
   return null
 }
@@ -95,7 +95,7 @@ export function resolveMapPoiStatusText(poi: MapPoiStatusFields): string {
   if (poi.coordinateVerification === 'verified' && poi.coordinateSystem) {
     return '位置已记录 · 当前地图暂时无法显示'
   }
-  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '官网编号'} · 暂不显示地图位置`
+  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '平面图编号'} · 暂不显示地图位置`
   return '地点已整理 · 暂时没有可显示的位置'
 }
 
@@ -124,7 +124,7 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
         ]
       : [
           '这个地点目前只能作为文字索引，暂时不要把它当成精确导航。',
-          '先核对官网编号、部门说明或现场标识。',
+          '先核对平面图编号、部门说明或现场标识。',
           '发现准确入口后，可以提交位置纠错。'
         ]
 
