@@ -1153,7 +1153,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
       kind: 'risk_hint',
       priority: hint.level === 'high' ? 'high' : hint.level === 'medium' ? 'medium' : 'low',
       title: hint.message,
-      detail: hint.code,
+      detail: '查看相关访客、封禁和操作记录',
       href: hint.href,
       score: hint.level === 'high' ? 90 : hint.level === 'medium' ? 60 : 30
     })

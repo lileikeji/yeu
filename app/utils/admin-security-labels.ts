@@ -84,7 +84,25 @@ export const adminAuditPresets: Array<{
   { key: 'chat', label: '群聊相关', entityType: 'chat_message' },
   { key: 'mute', label: '禁言相关', entityType: 'chat_mute' },
   { key: 'users', label: '账号相关', entityType: 'user' },
-  { key: 'login', label: '登录相关', action: 'admin.login' }
+  { key: 'login', label: '登录相关', action: 'auth.login' }
+]
+
+export const adminAuditActionOptions: AdminLabelOption[] = [
+  { label: '全部操作', value: '' },
+  { label: '管理员登录', value: 'auth.login' },
+  { label: '管理员登录失败', value: 'auth.login_failed' },
+  { label: '创建封禁', value: 'visitor.ban.create' },
+  { label: '解除封禁', value: 'visitor.ban.deactivate' },
+  { label: '个人禁言', value: 'chat.mute' },
+  { label: '解除禁言', value: 'chat.unmute' },
+  { label: '全员禁言', value: 'chat.mute_all' },
+  { label: '取消全员禁言', value: 'chat.unmute_all' },
+  { label: '删除聊天消息', value: 'chat.message.soft_delete' },
+  { label: '创建账号', value: 'user.create' },
+  { label: '更新账号', value: 'user.update' },
+  { label: '调整账号状态', value: 'user.status' },
+  { label: '发布内容', value: 'publish' },
+  { label: '取消发布', value: 'unpublish' }
 ]
 
 export const adminHttpMethodLabels: Record<string, string> = {

@@ -425,3 +425,27 @@ test('admin security pages use administrator-friendly language and mobile visito
   assert.match(visitorsPage, /formatHourLabel/)
   assert.match(dashboardPage, /更多安全数据/)
 })
+
+test('admin daily workflows hide internal codes and use mobile account cards', () => {
+  const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
+
+  assert.match(labels, /adminAuditActionOptions/)
+  assert.match(auditPage, /:items="adminAuditActionOptions"/)
+  assert.match(auditPage, /操作类型/)
+  assert.match(auditPage, /相关对象编号/)
+  assert.doesNotMatch(auditPage, /操作 action|对象 ID|placeholder="如 visitor\.ban|\{\{ row\.action \}\}|req \{\{/)
+
+  assert.match(chatPage, /roomKindLabel/)
+  assert.match(chatPage, /宿舍楼群/)
+  assert.match(chatPage, /公共群聊/)
+  assert.doesNotMatch(chatPage, /软删除确认|服务端筛选|用户 ID|\{\{ room\.kind \}\}|user \{\{/)
+
+  assert.match(usersPage, /aria-label="账号列表"/)
+  assert.match(usersPage, /md:hidden/)
+  assert.match(usersPage, /hidden overflow-x-auto[^\n]*md:block/)
+  assert.match(usersPage, /注册暂未开放，由管理员创建/)
+  assert.doesNotMatch(usersPage, /用户 ID/)
+
+  assert.doesNotMatch(securityService, /detail: hint\.code/)
+  assert.match(securityService, /查看相关访客、封禁和操作记录/)
+})

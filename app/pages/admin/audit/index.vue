@@ -5,6 +5,7 @@ import {
   adminAuditActionLabels,
   adminAuditEntityLabels,
   adminAuditEntityTypeOptions,
+  adminAuditActionOptions,
   adminAuditPresets,
   adminEntityHref,
   adminLabel,
@@ -51,11 +52,11 @@ function formatTime(iso: string | null | undefined): string {
 }
 
 function actionLabel(value: string): string {
-  return adminLabel(adminAuditActionLabels, value, value)
+  return adminLabel(adminAuditActionLabels, value, '其他操作')
 }
 
 function entityLabel(value: string): string {
-  return adminLabel(adminAuditEntityLabels, value, value)
+  return adminLabel(adminAuditEntityLabels, value, '其他对象')
 }
 
 function actorLabel(row: AuditRow): string {
@@ -63,6 +64,28 @@ function actorLabel(row: AuditRow): string {
   if (row.actorUsername) return row.actorUsername
   if (row.actorAdminId) return shortAdminId(row.actorAdminId, 10)
   return '系统 / 未知'
+}
+
+function detailLabel(key: string): string {
+  const labels: Record<string, string> = {
+    reason: '原因',
+    scope: '范围',
+    value: '对象',
+    status: '状态',
+    previousStatus: '原状态',
+    nextStatus: '新状态',
+    expiresAt: '到期时间',
+    roomId: '群聊编号',
+    userId: '账号编号',
+    visitorId: '访客编号',
+    messageId: '消息编号',
+    username: '登录名',
+    displayName: '显示名',
+    ip: '网络地址',
+    body: '内容',
+    deletedAt: '删除时间'
+  }
+  return labels[key] || '补充信息'
 }
 
 const auditDayGroups = computed(() => groupByAdminDay(items.value))
@@ -141,7 +164,7 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="审计日志"
-      description="独立安全分区：按操作、对象类型、对象 ID 筛选后台动作留痕，只读不可改写。"
+      description="查看管理员近期做过的操作，记录仅供核对，不能修改。"
       icon="i-lucide-scroll-text"
       eyebrow="安全与审计"
     >
@@ -178,7 +201,7 @@ onMounted(() => {
       {{ errorMessage }}
     </div>
 
-    <section class="rounded-2xl border border-zinc-200 bg-white p-4">
+    <section class="rounded-md border border-zinc-200 bg-white p-4">
       <div class="mb-3 flex flex-wrap gap-2">
         <UButton
           v-for="preset in adminAuditPresets"
@@ -194,14 +217,13 @@ onMounted(() => {
 
       <div class="flex flex-wrap items-end gap-3">
         <UFormField
-          label="操作 action"
+          label="操作类型"
           class="min-w-[12rem] flex-1"
         >
-          <UInput
+          <USelect
             v-model="action"
+            :items="adminAuditActionOptions"
             class="w-full"
-            placeholder="如 visitor.ban / chat.mute / soft_delete"
-            @keyup.enter="applySearch"
           />
         </UFormField>
         <UFormField
@@ -215,13 +237,13 @@ onMounted(() => {
           />
         </UFormField>
         <UFormField
-          label="对象 ID"
+          label="相关对象编号"
           class="min-w-[12rem] flex-1"
         >
           <UInput
             v-model="entityId"
             class="w-full"
-            placeholder="精确匹配 entityId"
+            placeholder="从账号、访客或封禁页跳转时自动填写"
             @keyup.enter="applySearch"
           />
         </UFormField>
@@ -247,7 +269,7 @@ onMounted(() => {
         <li
           v-for="row in group.items"
           :key="row.id"
-          class="rounded-xl border border-zinc-100 px-3 py-3 text-sm"
+          class="rounded-md border border-zinc-100 px-3 py-3 text-sm"
         >
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
@@ -255,26 +277,25 @@ onMounted(() => {
                 <p class="font-medium text-zinc-900">
                   {{ actionLabel(row.action) }}
                 </p>
-                <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600">
-                  {{ row.action }}
-                </span>
               </div>
               <p class="mt-1 text-xs text-zinc-500">
                 {{ entityLabel(row.entityType) }}
-                <template v-if="row.entityId"> · {{ row.entityId }}</template>
+                <template v-if="row.entityId"> · 编号 {{ shortAdminId(row.entityId, 10) }}</template>
                 · {{ formatTime(row.createdAt) }}
               </p>
               <p class="mt-1 text-xs text-zinc-400">
                 操作人：{{ actorLabel(row) }}
-                <template v-if="row.actorAdminId"> · {{ shortAdminId(row.actorAdminId, 10) }}</template>
-                <template v-if="row.requestId"> · req {{ row.requestId }}</template>
                 · {{ formatAdminRelativeTime(row.createdAt) }}
               </p>
 
               <div
                 v-if="expanded[row.id]"
-                class="mt-2 rounded-lg border border-zinc-100 bg-zinc-50 p-3"
+                class="mt-2 rounded-md border border-zinc-100 bg-zinc-50 p-3"
               >
+                <dl class="mb-3 grid gap-1 text-xs text-zinc-500 sm:grid-cols-2">
+                  <div><dt class="inline font-medium">操作记录：</dt><dd class="inline">{{ shortAdminId(row.id, 12) }}</dd></div>
+                  <div v-if="row.requestId"><dt class="inline font-medium">请求记录：</dt><dd class="inline">{{ shortAdminId(row.requestId, 12) }}</dd></div>
+                </dl>
                 <dl
                   v-if="prettyAdminDetails(row.details).length"
                   class="space-y-1.5"
@@ -285,7 +306,7 @@ onMounted(() => {
                     class="grid gap-1 sm:grid-cols-[7rem_minmax(0,1fr)]"
                   >
                     <dt class="text-xs font-medium text-zinc-500">
-                      {{ item.key }}
+                      {{ detailLabel(item.key) }}
                     </dt>
                     <dd class="break-all text-xs text-zinc-800 whitespace-pre-wrap">
                       {{ item.value }}
@@ -296,7 +317,7 @@ onMounted(() => {
                   v-else
                   class="text-xs text-zinc-400"
                 >
-                  无详情字段
+                  没有补充说明
                 </p>
               </div>
             </div>
@@ -308,7 +329,7 @@ onMounted(() => {
                 variant="soft"
                 :to="entityHref(row) || undefined"
               >
-                跳转对象
+                查看对象
               </UButton>
               <UButton
                 size="xs"

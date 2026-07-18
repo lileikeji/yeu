@@ -3,7 +3,8 @@ import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-er
 import { adminFetch } from '~~/app/utils/admin-request'
 import {
   confirmAdminAction,
-  formatAdminDateTime
+  formatAdminDateTime,
+  shortAdminId
 } from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
@@ -103,6 +104,12 @@ function formatTime(iso: string | null | undefined): string {
 function roomTitle(id: string, fallback?: string | null): string {
   if (fallback) return fallback
   return rooms.value.find(room => room.id === id)?.title || id.slice(0, 8)
+}
+
+function roomKindLabel(kind: string): string {
+  if (kind === 'dorm') return '宿舍楼群'
+  if (kind === 'public') return '公共群聊'
+  return '群聊房间'
 }
 
 function muteExpiryLabel(mute: MuteRow): string {
@@ -226,7 +233,7 @@ function filterByRoom(roomId: string): void {
 
 async function muteUser(): Promise<void> {
   if (!muteUserId.value.trim()) {
-    toast.add({ title: '请填写用户 ID', color: 'warning' })
+    toast.add({ title: '请填写账号编号', color: 'warning' })
     return
   }
   if (!muteReason.value.trim()) {
@@ -313,7 +320,7 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="群聊管理"
-      description="聊天记录检索、软删除确认、个人/全员禁言（可设到期）；禁言原因必填，便于审计复核。"
+      description="查看群聊消息，处理违规内容，并管理个人或全员禁言。"
       icon="i-lucide-messages-square"
       eyebrow="用户与互动"
     >
@@ -344,23 +351,23 @@ onMounted(() => {
     </div>
 
     <div class="grid gap-3 sm:grid-cols-3">
-      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+      <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
         <p class="text-xs text-zinc-500">房间数</p>
         <p class="mt-1 text-2xl font-semibold text-zinc-950">{{ rooms.length }}</p>
         <p class="mt-1 text-xs text-amber-700">全员禁言 {{ mutedRoomCount }}</p>
       </div>
-      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+      <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
         <p class="text-xs text-zinc-500">消息结果</p>
         <p class="mt-1 text-2xl font-semibold text-zinc-950">{{ total }}</p>
         <p class="mt-1 text-xs text-zinc-500">本页已删 {{ deletedOnPage }}</p>
       </div>
-      <div class="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+      <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
         <p class="text-xs text-zinc-500">生效禁言</p>
         <p class="mt-1 text-2xl font-semibold text-rose-700">{{ activeMuteCount }}</p>
       </div>
     </div>
 
-    <section class="rounded-2xl border border-zinc-200 bg-white p-4">
+    <section class="rounded-md border border-zinc-200 bg-white p-4">
       <h2 class="font-semibold text-zinc-950">
         房间与全员禁言
       </h2>
@@ -371,7 +378,7 @@ onMounted(() => {
         <li
           v-for="room in rooms"
           :key="room.id"
-          class="rounded-xl border border-zinc-100 px-3 py-3"
+          class="rounded-md border border-zinc-100 px-3 py-3"
         >
           <div class="flex items-start justify-between gap-2">
             <div>
@@ -379,7 +386,7 @@ onMounted(() => {
                 {{ room.title }}
               </p>
               <p class="text-xs text-zinc-500">
-                {{ room.kind }} · {{ room.dormBuilding || room.slug }}
+                {{ roomKindLabel(room.kind) }}<template v-if="room.dormBuilding"> · {{ room.dormBuilding }}</template>
               </p>
               <div class="mt-2 flex flex-wrap gap-1">
                 <span
@@ -444,7 +451,7 @@ onMounted(() => {
     </section>
 
     <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <div class="rounded-2xl border border-zinc-200 bg-white p-4">
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
         <div class="flex flex-wrap items-end gap-3">
           <UFormField
             label="房间"
@@ -460,13 +467,13 @@ onMounted(() => {
             />
           </UFormField>
           <UFormField
-            label="用户 ID"
+            label="账号编号"
             class="min-w-[12rem] flex-1"
           >
             <UInput
               v-model="userFilter"
               class="w-full"
-              placeholder="精确用户 UUID"
+              placeholder="从账号页跳转时自动填写"
               @keyup.enter="applyMessageFilter"
             />
           </UFormField>
@@ -501,12 +508,12 @@ onMounted(() => {
             >
               {{ deletedFilterLabel }}
             </UButton>
-            <span class="text-xs text-zinc-500">服务端筛选 · 当前 {{ total }} 条命中 / 本页 {{ visibleMessages.length }}</span>
+            <span class="text-xs text-zinc-500">找到 {{ total }} 条，本页显示 {{ visibleMessages.length }} 条</span>
           </div>
           <li
             v-for="message in visibleMessages"
             :key="message.id"
-            class="rounded-xl border border-zinc-100 px-3 py-3"
+            class="rounded-md border border-zinc-100 px-3 py-3"
           >
             <div class="flex flex-wrap items-start justify-between gap-2">
               <div>
@@ -516,9 +523,6 @@ onMounted(() => {
                   <span class="ml-2 text-xs font-normal text-zinc-500">
                     {{ roomTitle(message.roomId, message.roomTitle) }} · {{ formatTime(message.createdAt) }}
                   </span>
-                </p>
-                <p class="mt-1 break-all text-[11px] text-zinc-400">
-                  user {{ message.userId }}
                 </p>
               </div>
               <div class="flex flex-wrap gap-1">
@@ -600,13 +604,13 @@ onMounted(() => {
       <div class="space-y-4">
         <section
           id="chat-mute-form"
-          class="rounded-2xl border border-zinc-200 bg-white p-4"
+          class="rounded-md border border-zinc-200 bg-white p-4"
         >
           <h2 class="font-semibold text-zinc-950">
             个人禁言
           </h2>
           <div class="mt-3 space-y-3">
-            <UFormField label="用户 ID">
+            <UFormField label="账号编号">
               <UInput
                 v-model="muteUserId"
                 class="w-full"
@@ -646,7 +650,7 @@ onMounted(() => {
           </div>
         </section>
 
-        <section class="rounded-2xl border border-zinc-200 bg-white p-4">
+        <section class="rounded-md border border-zinc-200 bg-white p-4">
           <div class="flex items-center justify-between">
             <h2 class="font-semibold text-zinc-950">
               生效中的禁言
@@ -665,7 +669,7 @@ onMounted(() => {
             <li
               v-for="mute in mutes"
               :key="mute.id"
-              class="rounded-xl border border-zinc-100 px-3 py-2 text-sm"
+              class="rounded-md border border-zinc-100 px-3 py-2 text-sm"
             >
               <div class="flex items-start justify-between gap-2">
                 <div>
@@ -681,9 +685,6 @@ onMounted(() => {
                   </p>
                   <p class="mt-1 text-xs text-zinc-700">
                     原因：{{ mute.reason || '（未填写）' }}
-                  </p>
-                  <p class="mt-1 break-all text-[11px] text-zinc-400">
-                    user {{ mute.userId }}
                   </p>
                 </div>
                 <UButton
@@ -710,7 +711,7 @@ onMounted(() => {
 
     <section
       v-if="selectedMessage"
-      class="rounded-2xl border border-indigo-200 bg-indigo-50/30 p-4"
+      class="rounded-md border border-indigo-200 bg-indigo-50/30 p-4"
     >
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
@@ -727,13 +728,13 @@ onMounted(() => {
           <dt class="text-[11px] text-zinc-500">房间</dt>
           <dd class="text-sm text-zinc-800">{{ roomTitle(selectedMessage.roomId, selectedMessage.roomTitle) }}</dd>
         </div>
-        <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">用户 ID</dt>
-          <dd class="break-all text-sm text-zinc-800">{{ selectedMessage.userId }}</dd>
+        <div class="rounded-md border border-white bg-white px-3 py-2">
+          <dt class="text-[11px] text-zinc-500">账号编号</dt>
+          <dd class="text-sm text-zinc-800">{{ shortAdminId(selectedMessage.userId, 12) }}</dd>
         </div>
-        <div class="rounded-xl border border-white bg-white px-3 py-2 sm:col-span-2">
-          <dt class="text-[11px] text-zinc-500">消息 ID</dt>
-          <dd class="break-all text-sm text-zinc-800">{{ selectedMessage.id }}</dd>
+        <div class="rounded-md border border-white bg-white px-3 py-2 sm:col-span-2">
+          <dt class="text-[11px] text-zinc-500">消息编号</dt>
+          <dd class="text-sm text-zinc-800">{{ shortAdminId(selectedMessage.id, 12) }}</dd>
         </div>
       </dl>
       <div class="mt-3 rounded-xl border border-white bg-white px-3 py-3">

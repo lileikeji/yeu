@@ -336,7 +336,7 @@ onMounted(async () => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="账号管理"
-      description="暂不开放注册。后台开号、筛选专业/宿舍/状态；支持快捷停用/封禁，并可跳转群聊按用户筛选。"
+      description="创建和管理账号，可按专业、宿舍楼和状态查找。"
       icon="i-lucide-users"
       eyebrow="用户与互动"
     >
@@ -408,10 +408,15 @@ onMounted(async () => {
       </UButton>
     </div>
 
-    <section class="rounded-2xl border border-zinc-200 bg-white p-4">
-      <h2 class="font-semibold text-zinc-950">
-        创建账号
-      </h2>
+    <details class="group rounded-md border border-zinc-200 bg-white">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-zinc-950 [&::-webkit-details-marker]:hidden">
+        <span>创建账号</span>
+        <span class="flex items-center gap-1 text-xs font-normal text-zinc-500">
+          注册暂未开放，由管理员创建
+          <UIcon name="i-lucide-chevron-down" class="size-4 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div class="border-t border-zinc-100 px-4 pb-4">
       <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <UFormField label="登录名">
           <UInput v-model="form.username" class="w-full" />
@@ -434,14 +439,15 @@ onMounted(async () => {
           </UButton>
         </div>
       </div>
-    </section>
+      </div>
+    </details>
 
-    <div class="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
       <UFormField label="关键词">
         <UInput
           v-model="q"
           class="w-full"
-          placeholder="用户名 / 显示名 / ID"
+          placeholder="用户名 / 显示名 / 账号编号"
           @keyup.enter="applySearch"
         />
       </UFormField>
@@ -484,7 +490,42 @@ onMounted(async () => {
 
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div class="min-w-0 space-y-4">
-        <div class="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
+        <div class="grid gap-2 md:hidden" aria-label="账号列表">
+          <article
+            v-for="row in items"
+            :key="'mobile-' + row.id"
+            class="min-w-0 rounded-md border border-zinc-200 bg-white p-3"
+            :class="selectedUser?.id === row.id ? 'border-emerald-300 bg-emerald-50/40' : ''"
+          >
+            <div class="flex min-w-0 items-start justify-between gap-3">
+              <button type="button" class="min-w-0 text-left" @click="openUserDetail(row)">
+                <p class="truncate text-sm font-semibold text-zinc-900">{{ row.displayName }}</p>
+                <p class="mt-0.5 truncate text-xs text-zinc-500">{{ row.username }}</p>
+              </button>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px]" :class="statusClass(row.status)">
+                {{ statusLabel(row.status) }}
+              </span>
+            </div>
+            <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600">
+              <p class="truncate">{{ row.major || '未填专业' }}</p>
+              <p class="truncate">{{ row.dormBuilding || '未填宿舍' }}</p>
+            </div>
+            <p class="mt-2 text-[11px] text-zinc-400">
+              最近登录 {{ formatTime(row.lastLoginAt) }} · 编号 {{ shortAdminId(row.id, 8) }}
+            </p>
+            <div class="mt-3 flex flex-wrap gap-1.5">
+              <UButton size="xs" color="neutral" variant="outline" @click="openUserDetail(row)">详情</UButton>
+              <UButton size="xs" color="neutral" variant="outline" @click="startEdit(row)">编辑</UButton>
+              <UButton size="xs" color="neutral" variant="ghost" :to="`/admin/chat?userId=${encodeURIComponent(row.id)}`">群聊</UButton>
+              <UButton v-if="row.status !== 'active'" size="xs" color="success" variant="soft" @click="quickStatus(row, 'active')">恢复</UButton>
+              <UButton v-if="row.status !== 'disabled'" size="xs" color="warning" variant="soft" @click="quickStatus(row, 'disabled')">停用</UButton>
+              <UButton v-if="row.status !== 'banned'" size="xs" color="error" variant="soft" @click="quickStatus(row, 'banned')">封禁</UButton>
+            </div>
+          </article>
+          <p v-if="!items.length && !loading" class="rounded-md border border-zinc-200 bg-white px-3 py-8 text-center text-sm text-zinc-400">暂无账号</p>
+        </div>
+
+        <div class="hidden overflow-x-auto rounded-md border border-zinc-200 bg-white md:block">
           <table class="min-w-full text-left text-sm">
             <thead class="bg-zinc-50 text-xs text-zinc-500">
               <tr>
@@ -514,8 +555,8 @@ onMounted(async () => {
                     <div class="text-xs text-zinc-500">
                       {{ row.username }}
                     </div>
-                    <div class="mt-1 break-all text-[11px] text-zinc-400">
-                      {{ row.id }}
+                    <div class="mt-1 text-[11px] text-zinc-400">
+                      编号 {{ shortAdminId(row.id, 10) }}
                     </div>
                   </button>
                 </td>
@@ -732,8 +773,8 @@ onMounted(async () => {
             <dd class="text-sm text-zinc-800">{{ formatTime(selectedUser.createdAt) }}</dd>
           </div>
           <div class="rounded-xl border border-white bg-white px-3 py-2">
-            <dt class="text-[11px] text-zinc-500">用户 ID</dt>
-            <dd class="break-all text-xs text-zinc-700">{{ selectedUser.id }}</dd>
+            <dt class="text-[11px] text-zinc-500">账号编号</dt>
+            <dd class="text-xs text-zinc-700">{{ shortAdminId(selectedUser.id, 12) }}</dd>
           </div>
         </dl>
 

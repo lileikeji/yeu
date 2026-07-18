@@ -199,7 +199,7 @@ const moduleGroups = computed(() =>
 
 function auditActionLabel(record: AdminDashboardRecord): string {
   const raw = adminDashboardRecordValue(record, 'action', 'event', 'operation')
-  return adminLabel(adminAuditActionLabels, raw === '—' ? '' : raw, raw)
+  return adminLabel(adminAuditActionLabels, raw === '—' ? '' : raw, '其他操作')
 }
 
 function banScopeLabel(record: AdminDashboardRecord): string {
