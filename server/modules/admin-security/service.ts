@@ -346,16 +346,16 @@ function buildInvestigationPlaybook(input: {
       step: 1,
       code: 'VERIFY_EVIDENCE',
       status: 'recommended',
-      title: '复核证据与时间线',
-      detail: '先确认高频窗口、路径迁移、地理位置和设备变化是否一致。',
+      title: '确认判断依据与操作记录',
+      detail: '先确认访问高峰、访问顺序、地点和设备变化是否一致。',
       href: input.visitorHref
     },
     {
       step: 2,
       code: 'REVIEW_CLUSTER',
       status: input.hasCluster ? 'recommended' : 'optional',
-      title: '核对同 IP 与网段关联',
-      detail: input.hasCluster ? '存在同 IP 或同网段关联对象，建议排除共享网络后再处置。' : '当前未发现明显聚类，可继续观察。',
+      title: '核对同一网络的关联对象',
+      detail: input.hasCluster ? '同一或相近网络下存在关联对象，建议先排除校园网等共享网络。' : '当前未发现明显关联，可继续观察。',
       href: input.visitorHref
     },
     {
@@ -1139,7 +1139,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
       id: `ip:${cluster.ip}`,
       kind: 'ip_cluster',
       priority: cluster.riskLevel === 'high' ? 'high' : cluster.riskLevel === 'medium' ? 'medium' : 'low',
-      title: `IP 聚类 ${cluster.ip}`,
+      title: `同一网络来源 ${cluster.ip}`,
       detail: `${cluster.visitorCount} 访客 · ${cluster.eventCount} 事件 · ${cluster.city || '未知地区'}${cluster.isBanned ? ' · 已封禁' : ''}`,
       href: `/admin/visitors?ip=${encodeURIComponent(cluster.ip)}`,
       score: cluster.riskScore
@@ -1179,7 +1179,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
       title: `近 24 小时 10 分钟峰值 ${peakBurst} 次事件`,
       detail: burstWindows[0]
         ? `${burstWindows[0].startAt} ~ ${burstWindows[0].endAt}`
-        : '突发窗口',
+        : '访问量激增',
       href: '/admin/visitors',
       score: Math.min(99, peakBurst)
     })
@@ -1858,7 +1858,7 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
   else if (uniqueIps >= 2) visitorFactors.push({ code: 'MULTI_IP', points: 6, message: `历史 IP ${uniqueIps} 个` })
   if (sameIpVisitors.length >= 4) visitorFactors.push({ code: 'SAME_IP_CLUSTER', points: 14, message: `同 IP 其他访客 ${sameIpVisitors.length}` })
   else if (sameIpVisitors.length >= 2) visitorFactors.push({ code: 'SAME_IP_CLUSTER', points: 6, message: `同 IP 其他访客 ${sameIpVisitors.length}` })
-  if (userAgentHistory.length >= 4) visitorFactors.push({ code: 'UA_SWITCH', points: 8, message: `UA 切换 ${userAgentHistory.length} 种` })
+  if (userAgentHistory.length >= 4) visitorFactors.push({ code: 'UA_SWITCH', points: 8, message: `设备或浏览器变化 ${userAgentHistory.length} 种` })
   const visitorRisk = scoreRisk(visitorFactors)
 
   const seqSource = client.db.select({
@@ -1929,7 +1929,7 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
   const evidenceLedger = buildEvidenceLedger(visitorRisk.riskFactors, [
     {
       code: 'PEER_PERCENTILE',
-      message: `近 24 小时事件量位于同行 P${peerComparison.percentile}`,
+      message: `今天的访问量高于约 ${peerComparison.percentile}% 的访客`,
       weight: peerComparison.percentile >= 95 ? 20 : peerComparison.percentile >= 80 ? 10 : 3
     },
     {
@@ -1987,7 +1987,7 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
         kind: 'ban_ip',
         label: '封禁最近 IP',
         href: `/admin/visitors?ip=${encodeURIComponent(visitor.lastIp)}`,
-        reason: '该访客最近使用此 IP，可联动封禁网段异常',
+        reason: '该访客最近使用此网络地址，可结合相近网络来源检查',
         priority: sameIpVisitors.length >= 2 ? 'high' : 'medium',
         scope: 'ip',
         value: visitor.lastIp
@@ -2010,7 +2010,7 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
       kind: 'open_ip',
       label: '查看 IP 安全档案',
       href: `/admin/visitors?ip=${encodeURIComponent(visitor.lastIp)}`,
-      reason: '展开同 IP 访客与事件聚类',
+      reason: '查看同一网络下的访客和操作记录',
       priority: 'low'
     })
   }
@@ -2242,7 +2242,7 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
   if (events24h >= 500) factors.push({ code: 'HIGH_VOLUME_24H', points: 20, message: `近 24 小时事件 ${events24h}` })
   else if (events24h >= 150) factors.push({ code: 'HIGH_VOLUME_24H', points: 10, message: `近 24 小时事件 ${events24h}` })
   if (linkedUserIds.length >= 3) factors.push({ code: 'MULTI_ACCOUNT_IP', points: 15, message: `关联账号 ${linkedUserIds.length} 个` })
-  if (userAgentHistory.length >= 5) factors.push({ code: 'UA_DIVERSITY', points: 8, message: `近 7 天 UA 种类 ${userAgentHistory.length}` })
+  if (userAgentHistory.length >= 5) factors.push({ code: 'UA_DIVERSITY', points: 8, message: `近 7 天设备或浏览器共 ${userAgentHistory.length} 种` })
 
   const risk = scoreRisk(factors)
 
@@ -2358,12 +2358,12 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
   const evidenceLedger = buildEvidenceLedger(risk.riskFactors, [
     {
       code: 'IP_PEER_PERCENTILE',
-      message: `近 24 小时事件量位于 IP 同行 P${peerComparison.percentile}`,
+      message: `今天的访问量高于约 ${peerComparison.percentile}% 的网络来源`,
       weight: peerComparison.percentile >= 95 ? 20 : peerComparison.percentile >= 80 ? 10 : 3
     },
     {
       code: 'NETWORK_CLUSTER',
-      message: `${networkProfile.prefix || '未知网段'} 关联 ${networkProfile.ipCount} 个 IP、${networkProfile.visitorCount} 个访客`,
+      message: `${networkProfile.prefix || '未知网络'} 关联 ${networkProfile.ipCount} 个地址、${networkProfile.visitorCount} 个访客`,
       weight: networkProfile.riskScore || 0
     },
     {

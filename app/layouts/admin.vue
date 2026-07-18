@@ -280,7 +280,7 @@ onMounted(() => {
         </div>
       </aside>
 
-      <div class="lg:pl-60">
+      <div class="min-w-0 overflow-x-hidden lg:pl-60">
         <header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-zinc-200 bg-white/95 px-3 backdrop-blur sm:px-5 lg:px-6">
           <UButton
             ref="mobileNavigationButton"
@@ -317,7 +317,7 @@ onMounted(() => {
           </UTooltip>
         </header>
 
-        <main class="p-4 sm:p-5 lg:p-6">
+        <main class="min-w-0 p-4 sm:p-5 lg:p-6">
           <slot />
         </main>
       </div>

@@ -888,7 +888,7 @@ onMounted(async () => {
             </div>
 
             <div class="flex flex-wrap items-center gap-1.5">
-              <span class="text-xs font-semibold text-violet-950">风险画像</span>
+              <span class="text-xs font-semibold text-violet-950">账号风险</span>
               <span
                 v-if="userDossier.riskLevel"
                 class="rounded-full px-2 py-0.5 text-[11px] font-medium"
@@ -912,7 +912,7 @@ onMounted(async () => {
               </li>
             </ul>
             <div v-if="userDossier.ipFootprint?.length">
-              <p class="text-[11px] font-medium text-violet-900">IP 足迹</p>
+              <p class="text-[11px] font-medium text-violet-900">常用网络</p>
               <ul class="mt-1 max-h-28 space-y-1 overflow-y-auto">
                 <li
                   v-for="row in userDossier.ipFootprint"
@@ -939,9 +939,9 @@ onMounted(async () => {
           >
             <section class="rounded-xl border border-rose-100 bg-rose-50/40 p-3">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="text-xs font-semibold text-rose-950">账号证据账本</h3>
+                <h3 class="text-xs font-semibold text-rose-950">判断依据</h3>
                 <span class="text-[10px] text-rose-700">
-                  强证据 {{ userDossier.investigationSummary?.strongEvidenceCount ?? 0 }} / {{ userDossier.investigationSummary?.evidenceCount ?? 0 }}
+                  重要依据 {{ userDossier.investigationSummary?.strongEvidenceCount ?? 0 }} / {{ userDossier.investigationSummary?.evidenceCount ?? 0 }}
                 </span>
               </div>
               <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
@@ -957,7 +957,7 @@ onMounted(async () => {
             </section>
             <section class="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="text-xs font-semibold text-emerald-950">账号调查剧本</h3>
+                <h3 class="text-xs font-semibold text-emerald-950">处理建议</h3>
                 <span class="text-[10px] text-emerald-700">建议 {{ userDossier.investigationSummary?.recommendedSteps ?? 0 }} 步</span>
               </div>
               <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">

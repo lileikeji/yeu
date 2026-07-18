@@ -228,9 +228,18 @@ function securityDeltaClass(value: number | null | undefined): string {
   return n > 0 ? 'text-amber-700' : 'text-emerald-700'
 }
 
+function anomalyComparisonText(): string {
+  const current = Number(securityAnomalyBaseline.current)
+  const average = Number(securityAnomalyBaseline.average)
+  if (!Number.isFinite(current) || !Number.isFinite(average) || average <= 0) return '暂无足够的历史数据'
+  const percent = Math.round(Math.abs((current - average) / average) * 100)
+  if (percent < 5) return '与平时基本一致'
+  return current > average ? `比平时高约 ${percent}%` : `比平时低约 ${percent}%`
+}
+
 function shortUaDash(ua: string | null | undefined): string {
   const t = (ua || '').trim()
-  if (!t) return '未知 UA'
+  if (!t) return '未知设备或浏览器'
   return t.length > 64 ? t.slice(0, 64) + '…' : t
 }
 
@@ -519,7 +528,7 @@ onMounted(() => {
           <USkeleton v-if="loading && securitySnapshot.mutedRooms == null" class="h-7 w-12" />
           <template v-else>{{ securitySnapshot.mutedRooms ?? '—' }}</template>
         </p>
-        <p class="mt-1 text-[11px] text-zinc-500">房间级 mute-all</p>
+        <p class="mt-1 text-[11px] text-zinc-500">已开启全员禁言</p>
       </NuxtLink>
     </section>
     <section
@@ -530,7 +539,7 @@ onMounted(() => {
       <div class="flex items-center justify-between gap-2">
         <div>
           <h2 class="text-sm font-semibold text-zinc-950">风险提示</h2>
-          <p class="mt-0.5 text-[11px] text-zinc-500">基于快照自动生成的运营线索</p>
+          <p class="mt-0.5 text-[11px] text-zinc-500">需要管理员留意的异常情况</p>
         </div>
         <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">
           审计
@@ -569,12 +578,12 @@ onMounted(() => {
     <section
       v-if="securityResponseQueue.length"
       class="mt-4 rounded-md border border-zinc-200 bg-white p-4"
-      aria-label="响应队列"
+      aria-label="待处理事项"
     >
       <div class="flex items-center justify-between gap-2">
         <div>
-          <h2 class="text-sm font-semibold text-zinc-950">处置响应队列</h2>
-          <p class="mt-0.5 text-[11px] text-zinc-500">按优先级汇总 IP 聚类、风险提示、封禁卫生与突发窗口</p>
+          <h2 class="text-sm font-semibold text-zinc-950">待处理事项</h2>
+          <p class="mt-0.5 text-[11px] text-zinc-500">按紧急程度汇总需要检查的访问与封禁情况</p>
         </div>
         <UButton to="/admin/visitors" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">
           访客
@@ -617,13 +626,13 @@ onMounted(() => {
       </ul>
     </section>
 
-    <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="深度窗口与覆盖">
+    <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="近期情况与封禁覆盖">
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">时间窗口</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500">1h / 24h / 7d 对照</p>
+        <h2 class="text-sm font-semibold text-zinc-950">近期变化</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">1 小时、今天与近 7 天</p>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
-            <p class="text-[11px] text-zinc-500">1h 事件</p>
+            <p class="text-[11px] text-zinc-500">近 1 小时访问</p>
             <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.h1Events ?? '—' }}</p>
           </div>
           <div class="rounded-lg bg-amber-50/60 px-3 py-2">
@@ -631,11 +640,11 @@ onMounted(() => {
             <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.peakBurst10m ?? '—' }}</p>
           </div>
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
-            <p class="text-[11px] text-zinc-500">7d 活跃访客</p>
+            <p class="text-[11px] text-zinc-500">近 7 天活跃访客</p>
             <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.d7Visitors ?? '—' }}</p>
           </div>
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
-            <p class="text-[11px] text-zinc-500">7d 事件 / 封禁</p>
+            <p class="text-[11px] text-zinc-500">近 7 天访问 / 封禁</p>
             <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.d7Events ?? '—' }} / {{ securityWindows.d7Bans ?? '—' }}</p>
           </div>
         </div>
@@ -662,7 +671,7 @@ onMounted(() => {
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">突发窗口 TOP</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">访问高峰</h2>
         <ul class="mt-3 max-h-40 space-y-1.5 overflow-y-auto text-xs">
           <li
             v-for="(row, idx) in securityBurstWindows"
@@ -672,12 +681,12 @@ onMounted(() => {
             <span class="truncate text-zinc-600">{{ formatAdminRelativeTime(row.startAt) }}</span>
             <span class="shrink-0 tabular-nums font-medium text-amber-800">{{ row.count }}</span>
           </li>
-          <li v-if="!securityBurstWindows.length" class="py-4 text-center text-zinc-400">暂无突发</li>
+          <li v-if="!securityBurstWindows.length" class="py-4 text-center text-zinc-400">暂无明显高峰</li>
         </ul>
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-3">
-        <h2 class="text-sm font-semibold text-zinc-950">路径迁移 · 近 24h 样本</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">常见访问顺序 · 今天</h2>
         <ul class="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 text-xs">
           <li
             v-for="(row, idx) in securityPathTransitions"
@@ -687,17 +696,25 @@ onMounted(() => {
             <span class="truncate text-zinc-700">{{ row.transition || (row.from + ' → ' + row.to) }}</span>
             <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
           </li>
-          <li v-if="!securityPathTransitions.length" class="py-4 text-center text-zinc-400 sm:col-span-2 lg:col-span-3">暂无迁移</li>
+          <li v-if="!securityPathTransitions.length" class="py-4 text-center text-zinc-400 sm:col-span-2 lg:col-span-3">暂无连续访问记录</li>
         </ul>
       </div>
     </section>
 
-    <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="调查基线与聚类">
+    <details class="group mt-4 rounded-md border border-zinc-200 bg-white">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-900 [&::-webkit-details-marker]:hidden">
+        <span>更多访问分析</span>
+        <span class="flex items-center gap-1 text-xs font-normal text-zinc-500">
+          网络来源与访问过程
+          <UIcon name="i-lucide-chevron-down" class="size-4 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+    <section class="grid gap-3 border-t border-zinc-100 p-3 lg:grid-cols-3" aria-label="更多访问分析">
       <div class="rounded-md border border-zinc-200 bg-white p-4">
         <div class="flex items-start justify-between gap-2">
           <div>
-            <h2 class="text-sm font-semibold text-zinc-950">24 小时异常基线</h2>
-            <p class="mt-0.5 text-[11px] text-zinc-500">与近 14 天日事件量对照</p>
+            <h2 class="text-sm font-semibold text-zinc-950">今天与平时相比</h2>
+            <p class="mt-0.5 text-[11px] text-zinc-500">参考最近 14 天访问量</p>
           </div>
           <span
             class="rounded-full px-2 py-0.5 text-[10px] font-medium"
@@ -712,26 +729,24 @@ onMounted(() => {
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
-            <p class="text-[11px] text-zinc-500">当前 / 均值</p>
+            <p class="text-[11px] text-zinc-500">今天 / 平均每天</p>
             <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">
               {{ securityAnomalyBaseline.current ?? '—' }} / {{ securityAnomalyBaseline.average ?? '—' }}
             </p>
           </div>
           <div class="rounded-lg bg-zinc-50 px-3 py-2">
-            <p class="text-[11px] text-zinc-500">倍数 / Z 分数</p>
-            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-950">
-              {{ securityAnomalyBaseline.multiplier ?? '—' }}× / {{ securityAnomalyBaseline.zScore ?? '—' }}
-            </p>
+            <p class="text-[11px] text-zinc-500">变化幅度</p>
+            <p class="mt-1 text-sm font-semibold text-zinc-950">{{ anomalyComparisonText() }}</p>
           </div>
         </div>
         <p class="mt-2 text-[11px] text-zinc-500">
-          中位数 {{ securityAnomalyBaseline.median ?? '—' }} · P95 {{ securityAnomalyBaseline.p95 ?? '—' }} · 样本 {{ securityAnomalyBaseline.sampleSize ?? '—' }} 天
+          已参考 {{ securityAnomalyBaseline.sampleSize ?? '—' }} 天数据
         </p>
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-2">
-        <h2 class="text-sm font-semibold text-zinc-950">网段聚类</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500">IPv4 /24 与 IPv6 /64 聚合，识别轮换 IP 与共享出口</p>
+        <h2 class="text-sm font-semibold text-zinc-950">相近网络来源</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">帮助识别来自同一校园网、宿舍网或公共网络的访问</p>
         <ul class="mt-3 grid gap-2 sm:grid-cols-2">
           <li
             v-for="cluster in securityNetworkClusters"
@@ -756,13 +771,13 @@ onMounted(() => {
             </p>
             <p class="mt-0.5 truncate text-zinc-400">{{ cluster.topCity || '未知地点' }} · {{ cluster.topPath || '/' }}</p>
           </li>
-          <li v-if="!securityNetworkClusters.length" class="py-6 text-center text-xs text-zinc-400 sm:col-span-2">暂无网段聚类</li>
+          <li v-if="!securityNetworkClusters.length" class="py-6 text-center text-xs text-zinc-400 sm:col-span-2">暂无相近网络来源</li>
         </ul>
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-3">
-        <h2 class="text-sm font-semibold text-zinc-950">最近会话切片</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500">按 30 分钟无操作自动切分，用于识别持续扫描与密集操作</p>
+        <h2 class="text-sm font-semibold text-zinc-950">最近访问过程</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">连续 30 分钟无操作后视为一次新的访问</p>
         <ul class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <li
             v-for="session in securityRecentSessions.slice(0, 8)"
@@ -776,16 +791,25 @@ onMounted(() => {
             <p class="mt-1 truncate text-zinc-700">{{ session.entryPath }} → {{ session.exitPath }}</p>
             <p class="mt-0.5 text-[10px] text-zinc-400">{{ session.uniquePathCount }} 路径 · {{ session.durationSeconds }} 秒</p>
           </li>
-          <li v-if="!securityRecentSessions.length" class="py-6 text-center text-xs text-zinc-400 sm:col-span-2 lg:col-span-4">暂无会话</li>
+          <li v-if="!securityRecentSessions.length" class="py-6 text-center text-xs text-zinc-400 sm:col-span-2 lg:col-span-4">暂无访问过程</li>
         </ul>
       </div>
     </section>
+    </details>
 
-    <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="安全深度快照">
+    <details class="group mt-4 rounded-md border border-zinc-200 bg-white">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-900 [&::-webkit-details-marker]:hidden">
+        <span>更多安全数据</span>
+        <span class="flex items-center gap-1 text-xs font-normal text-zinc-500">
+          访问趋势、封禁与管理记录
+          <UIcon name="i-lucide-chevron-down" class="size-4 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+    <section class="grid gap-3 border-t border-zinc-100 p-3 lg:grid-cols-3" aria-label="更多安全数据">
       <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-2">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <h2 class="text-sm font-semibold text-zinc-950">近 24 小时动态</h2>
+            <h2 class="text-sm font-semibold text-zinc-950">今天的动态</h2>
             <p class="mt-0.5 text-[11px] text-zinc-500">
               访客活跃、封禁禁言与审计动作
               <template v-if="securityGeneratedAt"> · 更新 {{ formatAdminRelativeTime(securityGeneratedAt) }}</template>
@@ -855,7 +879,7 @@ onMounted(() => {
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">热门路径 · 近 7 天</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">常见访问页面 · 近 7 天</h2>
         <ul class="mt-3 space-y-1.5">
           <li
             v-for="row in securityTopPaths"
@@ -870,7 +894,7 @@ onMounted(() => {
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">访客城市 TOP</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">访客主要城市</h2>
         <ul class="mt-3 space-y-1.5">
           <li
             v-for="row in securityTopCities"
@@ -885,7 +909,7 @@ onMounted(() => {
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">热门动作 · 近 7 天</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">常见操作 · 近 7 天</h2>
         <ul class="mt-3 space-y-1.5">
           <li
             v-for="row in securityTopActions"
@@ -900,7 +924,7 @@ onMounted(() => {
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">高频 IP · 近 24 小时</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">高频网络地址 · 今天</h2>
         <ul class="mt-3 space-y-1.5">
           <li
             v-for="row in securityTopIps"
@@ -920,7 +944,7 @@ onMounted(() => {
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">封禁原因 TOP</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">常见封禁原因</h2>
         <ul class="mt-3 space-y-1.5">
           <li
             v-for="row in securityTopBanReasons"
@@ -955,7 +979,7 @@ onMounted(() => {
 
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">封禁卫生</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">封禁状态检查</h2>
         <p class="mt-0.5 text-[11px] text-zinc-500">过期未清理 / 即将到期 / 永久与临时</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
           <div class="rounded-lg bg-red-50/70 px-3 py-2">
@@ -983,7 +1007,7 @@ onMounted(() => {
       <div class="rounded-md border border-zinc-200 bg-white p-4">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <h2 class="text-sm font-semibold text-zinc-950">IP 访客聚类 · 近 24h</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">同一网络的多个访客 · 今天</h2>
             <p class="mt-0.5 text-[11px] text-zinc-500">同一 IP 关联多名访客</p>
           </div>
         </div>
@@ -1008,12 +1032,12 @@ onMounted(() => {
               </span>
             </span>
           </li>
-          <li v-if="!securityIpClusters.length" class="py-4 text-center text-zinc-400">暂无聚类</li>
+          <li v-if="!securityIpClusters.length" class="py-4 text-center text-zinc-400">暂无关联访客</li>
         </ul>
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">可疑 UA · 近 24h</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">异常设备与浏览器 · 今天</h2>
         <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
           <li
             v-for="(row, idx) in securitySuspiciousAgents"
@@ -1023,12 +1047,12 @@ onMounted(() => {
             <p class="truncate text-zinc-800" :title="row.userAgent">{{ shortUaDash(row.userAgent) }}</p>
             <p class="mt-0.5 text-zinc-500">访客 {{ row.visitorCount }} · 事件 {{ row.eventCount }}</p>
           </li>
-          <li v-if="!securitySuspiciousAgents.length" class="py-4 text-center text-zinc-400">暂无异常 UA</li>
+          <li v-if="!securitySuspiciousAgents.length" class="py-4 text-center text-zinc-400">暂无异常设备或浏览器</li>
         </ul>
       </div>
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <h2 class="text-sm font-semibold text-zinc-950">管理员动作 · 近 24h</h2>
+        <h2 class="text-sm font-semibold text-zinc-950">管理员操作 · 今天</h2>
         <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
           <li
             v-for="row in securityAdminActors"
@@ -1045,8 +1069,8 @@ onMounted(() => {
       <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-2">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <h2 class="text-sm font-semibold text-zinc-950">运维时间线</h2>
-            <p class="mt-0.5 text-[11px] text-zinc-500">封禁 / 禁言 / 审计 / 登录最近动作</p>
+            <h2 class="text-sm font-semibold text-zinc-950">最近管理记录</h2>
+            <p class="mt-0.5 text-[11px] text-zinc-500">最近的封禁、禁言、审计和登录操作</p>
           </div>
           <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">审计</UButton>
         </div>
@@ -1069,7 +1093,7 @@ onMounted(() => {
               <p class="mt-1 line-clamp-2 text-zinc-500">{{ item.subtitle }}</p>
             </NuxtLink>
           </li>
-          <li v-if="!securityOpsTimeline.length" class="py-6 text-center text-zinc-400">暂无运维事件</li>
+          <li v-if="!securityOpsTimeline.length" class="py-6 text-center text-zinc-400">暂无管理记录</li>
         </ul>
       </div>
 
@@ -1096,6 +1120,7 @@ onMounted(() => {
       </div>
 
     </section>
+    </details>
 
     <section
       v-for="group in moduleGroups"

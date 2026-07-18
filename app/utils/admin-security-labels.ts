@@ -32,6 +32,9 @@ export const adminAuditActionLabels: Record<string, string> = {
   'user.status': '调整账号状态',
   'admin.login': '管理员登录',
   'auth.login': '管理员登录',
+  'admin.login_failed': '管理员登录失败',
+  'auth.login_failed': '管理员登录失败',
+  user_login: '用户登录',
   'admin.logout': '管理员登出',
   publish: '发布',
   unpublish: '取消发布',
@@ -141,17 +144,17 @@ export const adminRiskFactorLabels: Record<string, string> = {
   USER_DISABLED: '账号停用',
   ACTIVE_MUTES: '生效禁言',
   DELETED_MESSAGES: '删帖偏多',
-  MULTI_IP: '多 IP',
-  MULTI_IP_FOOTPRINT: '多 IP 足迹',
-  MULTI_VISITOR_LINK: '多访客设备',
-  SAME_IP_CLUSTER: '同 IP 聚类',
-  UA_SWITCH: 'UA 切换',
-  BURST_1H: '1 小时突发',
-  HIGH_VOLUME_24H: '24 小时高量',
+  MULTI_IP: '使用多个网络地址',
+  MULTI_IP_FOOTPRINT: '网络地址变化较多',
+  MULTI_VISITOR_LINK: '关联多个访客设备',
+  SAME_IP_CLUSTER: '同一网络有多个访客',
+  UA_SWITCH: '设备或浏览器变化频繁',
+  BURST_1H: '1 小时内访问激增',
+  HIGH_VOLUME_24H: '今天访问量较高',
   IP_BANNED: 'IP 已封禁',
-  MULTI_VISITOR_IP: 'IP 多访客',
-  MULTI_ACCOUNT_IP: 'IP 多账号',
-  UA_DIVERSITY: 'UA 多样'
+  MULTI_VISITOR_IP: '同一网络有多个访客',
+  MULTI_ACCOUNT_IP: '同一网络有多个账号',
+  UA_DIVERSITY: '设备或浏览器种类较多'
 }
 
 export const adminOpsTimelineKindLabels: Record<string, string> = {
@@ -261,16 +264,16 @@ export function banStatusMeta(ban: { isActive: boolean; expiresAt: string | null
 
 
 export const adminResponseQueueKindLabels: Record<string, string> = {
-  ip_cluster: 'IP 聚类',
+  ip_cluster: '同一网络来源',
   risk_hint: '风险提示',
-  ban_hygiene: '封禁卫生',
-  burst: '突发流量'
+  ban_hygiene: '封禁状态检查',
+  burst: '访问量激增'
 }
 
 export const adminConfidenceLabels: Record<string, string> = {
-  high: '高置信',
-  medium: '中置信',
-  low: '低置信'
+  high: '把握较高',
+  medium: '把握一般',
+  low: '线索较少'
 }
 
 export const adminBanCoverageLabels = {
@@ -286,9 +289,9 @@ export const adminAnomalyStatusLabels: Record<string, string> = {
 }
 
 export const adminEvidenceStrengthLabels: Record<string, string> = {
-  strong: '强证据',
-  moderate: '中证据',
-  weak: '弱证据'
+  strong: '重要依据',
+  moderate: '参考依据',
+  weak: '辅助线索'
 }
 
 export const adminPlaybookStatusLabels: Record<string, string> = {
@@ -298,10 +301,10 @@ export const adminPlaybookStatusLabels: Record<string, string> = {
 }
 
 export const adminInvestigationStepLabels: Record<string, string> = {
-  VERIFY_EVIDENCE: '复核证据',
-  REVIEW_CLUSTER: '核对聚类',
+  VERIFY_EVIDENCE: '确认判断依据',
+  REVIEW_CLUSTER: '核对关联来源',
   CONTAIN_RISK: '限制风险',
-  AUDIT_AND_CLOSE: '审计闭环'
+  AUDIT_AND_CLOSE: '记录处理结果'
 }
 
 /** Deep-link from audit entity to related admin page. */

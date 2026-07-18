@@ -274,6 +274,30 @@ function riskToneClass(level: string | null | undefined): string {
   return 'bg-zinc-100 text-zinc-700'
 }
 
+function activityLevel(percentile: number | null | undefined): string {
+  const value = Number(percentile)
+  if (!Number.isFinite(value)) return '暂无足够数据'
+  if (value >= 90) return `高于约 ${value}% 的访客`
+  if (value >= 60) return `高于约 ${value}% 的访客，活跃度偏高`
+  return `高于约 ${value}% 的访客，活跃度正常`
+}
+
+function activeHourlyRows(rows: Array<{ hour: string; count: number }> | null | undefined) {
+  return (rows || []).filter(row => Number(row.count) > 0).slice(0, 12)
+}
+
+function formatHourLabel(value: string): string {
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return value
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date)
+}
+
 function applySuggestedAction(action: {
   kind: string
   label: string
@@ -535,7 +559,7 @@ onMounted(async () => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="访客轨迹"
-      description="按 IP / 地点 / 路径检索访客；可看详细事件抽屉，并快速封禁（支持到期时间）。完整封禁治理见「封禁」页。"
+      description="查看访客来源、访问记录和异常情况。"
       icon="i-lucide-radar"
       eyebrow="安全与审计"
     >
@@ -638,13 +662,48 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="overflow-x-auto rounded-2xl border border-zinc-200 bg-white">
+    <div class="grid gap-2 md:hidden" aria-label="访客列表">
+      <article
+        v-for="row in items"
+        :key="'mobile-' + row.id"
+        class="min-w-0 rounded-md border border-zinc-200 bg-white p-3"
+        :class="selectedVisitor?.id === row.id ? 'border-sky-300 bg-sky-50/40' : ''"
+      >
+        <div class="flex min-w-0 items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-semibold text-zinc-900">{{ row.lastIp || '未知网络' }}</p>
+            <p class="mt-0.5 truncate text-xs text-zinc-500">{{ row.locationLabel || '未知地点' }}</p>
+          </div>
+          <span
+            class="shrink-0 rounded-full px-2 py-0.5 text-[11px]"
+            :class="row.isBanned ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'"
+          >
+            {{ row.isBanned ? '已封禁' : '正常' }}
+          </span>
+        </div>
+        <p class="mt-2 truncate text-xs text-zinc-700">{{ row.lastPath || '暂无访问路径' }}</p>
+        <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
+          <span>{{ formatTime(row.lastSeenAt) }}</span>
+          <span>{{ row.eventCount }} 次操作</span>
+          <span>访客 {{ shortAdminId(row.id, 8) }}</span>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-1.5">
+          <UButton size="xs" color="neutral" variant="outline" @click="openEvents(row)">查看详情</UButton>
+          <UButton size="xs" color="error" variant="soft" :disabled="!row.lastIp" @click="prepBan(row, 'ip')">封 IP</UButton>
+          <UButton size="xs" color="error" variant="ghost" @click="prepBan(row, 'visitor')">封访客</UButton>
+          <UButton v-if="row.userId" size="xs" color="error" variant="ghost" @click="prepBan(row, 'user')">封账号</UButton>
+        </div>
+      </article>
+      <p v-if="!items.length && !loading" class="rounded-md border border-zinc-200 bg-white px-3 py-8 text-center text-sm text-zinc-400">暂无访客数据</p>
+    </div>
+
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-200 bg-white md:block">
       <table class="min-w-full text-left text-sm">
         <thead class="bg-zinc-50 text-xs text-zinc-500">
           <tr>
             <th class="px-3 py-3 font-medium">最近访问</th>
             <th class="px-3 py-3 font-medium">IP / 地点</th>
-            <th class="px-3 py-3 font-medium">路径 / UA</th>
+            <th class="px-3 py-3 font-medium">路径 / 设备</th>
             <th class="px-3 py-3 font-medium">事件</th>
             <th class="px-3 py-3 font-medium">状态</th>
             <th class="px-3 py-3 font-medium">操作</th>
@@ -960,7 +1019,7 @@ onMounted(async () => {
           v-if="ipDossier.riskFactors?.length"
           class="mt-3 rounded-lg border border-rose-100 bg-rose-50/40 p-2.5"
         >
-          <p class="text-[11px] font-medium text-rose-900">风险因子</p>
+          <p class="text-[11px] font-medium text-rose-900">风险原因</p>
           <ul class="mt-1.5 flex flex-wrap gap-1.5">
             <li
               v-for="factor in ipDossier.riskFactors"
@@ -1027,7 +1086,7 @@ onMounted(async () => {
             </ul>
           </div>
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">UA / 地理</p>
+            <p class="text-[11px] font-medium text-zinc-600">设备与地点</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px] text-zinc-700">
               <li
                 v-for="(row, idx) in (ipDossier.userAgentHistory || []).slice(0, 4)"
@@ -1057,16 +1116,16 @@ onMounted(async () => {
           class="mt-3 grid gap-2 sm:grid-cols-3"
         >
           <div class="rounded-lg border border-violet-100 bg-violet-50/40 p-2.5 text-[11px]">
-            <p class="font-medium text-violet-950">置信度</p>
+            <p class="font-medium text-violet-950">判断把握</p>
             <p class="mt-1 text-sm font-semibold text-violet-900">
               {{ adminLabel(adminConfidenceLabels, ipDossier.confidence || ipDossier.summary?.confidence, ipDossier.confidence || '—') }}
             </p>
-            <p class="mt-0.5 text-violet-800/80">证据 {{ ipDossier.evidenceEvents ?? ipDossier.summary?.evidenceEvents ?? '—' }}</p>
+            <p class="mt-0.5 text-violet-800/80">参考记录 {{ ipDossier.evidenceEvents ?? ipDossier.summary?.evidenceEvents ?? '—' }} 条</p>
           </div>
           <div class="rounded-lg border border-sky-100 bg-sky-50/40 p-2.5 text-[11px]">
-            <p class="font-medium text-sky-950">IP 同行百分位</p>
-            <p class="mt-1 text-sm font-semibold text-sky-900">P{{ ipDossier.peerComparison?.percentile ?? ipDossier.summary?.peerPercentile ?? '—' }}</p>
-            <p class="mt-0.5 text-sky-800/80">样本 {{ ipDossier.peerComparison?.sampleSize ?? '—' }}</p>
+            <p class="font-medium text-sky-950">活跃程度</p>
+            <p class="mt-1 text-sm font-semibold text-sky-900">{{ activityLevel(ipDossier.peerComparison?.percentile ?? ipDossier.summary?.peerPercentile) }}</p>
+            <p class="mt-0.5 text-sky-800/80">参考 {{ ipDossier.peerComparison?.sampleSize ?? '—' }} 个来源</p>
           </div>
           <div class="rounded-lg border border-zinc-200 bg-white p-2.5 text-[11px]">
             <p class="font-medium text-zinc-800">活跃时段</p>
@@ -1080,16 +1139,16 @@ onMounted(async () => {
           class="mt-3 grid gap-3 md:grid-cols-3"
         >
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">路径序列</p>
+            <p class="text-[11px] font-medium text-zinc-600">访问过程</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
               <li v-for="(row, idx) in (ipDossier.pathSequence || []).slice(0, 10)" :key="'iseq-' + idx" class="flex justify-between gap-2">
                 <span class="truncate">{{ row.path }}</span>
-                <span class="shrink-0 text-zinc-400">{{ row.action }}</span>
+                <span class="shrink-0 text-zinc-400">{{ actionLabel(row.action) }}</span>
               </li>
             </ul>
           </div>
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">路径迁移</p>
+            <p class="text-[11px] font-medium text-zinc-600">常见访问顺序</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
               <li v-for="(row, idx) in (ipDossier.pathTransitions || []).slice(0, 8)" :key="'ipt-' + idx" class="flex justify-between gap-2">
                 <span class="truncate">{{ row.transition || (row.from + ' → ' + row.to) }}</span>
@@ -1098,7 +1157,7 @@ onMounted(async () => {
             </ul>
           </div>
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">突发窗口</p>
+            <p class="text-[11px] font-medium text-zinc-600">访问高峰</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
               <li v-for="(row, idx) in (ipDossier.burstWindows || []).slice(0, 6)" :key="'ibw-' + idx" class="flex justify-between gap-2">
                 <span class="truncate text-zinc-600">{{ formatAdminRelativeTime(row.startAt) }}</span>
@@ -1113,7 +1172,7 @@ onMounted(async () => {
           class="mt-3 grid gap-3 lg:grid-cols-3"
         >
           <section class="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
-            <h3 class="text-xs font-semibold text-indigo-950">网段画像</h3>
+            <h3 class="text-xs font-semibold text-indigo-950">相近网络来源</h3>
             <template v-if="ipDossier.networkProfile">
               <p class="mt-2 text-sm font-medium text-zinc-900">{{ ipDossier.networkProfile.prefix || '—' }}</p>
               <p class="mt-1 text-[11px] text-zinc-600">
@@ -1125,7 +1184,7 @@ onMounted(async () => {
             </template>
           </section>
           <section class="rounded-lg border border-rose-100 bg-rose-50/40 p-3">
-            <h3 class="text-xs font-semibold text-rose-950">证据账本</h3>
+            <h3 class="text-xs font-semibold text-rose-950">判断依据</h3>
             <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
               <li v-for="item in ipDossier.evidenceLedger" :key="'ipe-' + item.code" class="text-[11px]">
                 <div class="flex items-center justify-between gap-2">
@@ -1135,11 +1194,11 @@ onMounted(async () => {
                   </span>
                 </div>
               </li>
-              <li v-if="!ipDossier.evidenceLedger?.length" class="text-[11px] text-zinc-400">暂无证据</li>
+              <li v-if="!ipDossier.evidenceLedger?.length" class="text-[11px] text-zinc-400">暂无判断依据</li>
             </ul>
           </section>
           <section class="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
-            <h3 class="text-xs font-semibold text-emerald-950">调查剧本</h3>
+            <h3 class="text-xs font-semibold text-emerald-950">处理建议</h3>
             <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
               <li v-for="step in ipDossier.playbook" :key="'ippb-' + step.code" class="text-[11px]">
                 <NuxtLink :to="step.href" class="block rounded-md bg-white px-2 py-1.5 hover:bg-emerald-50">
@@ -1207,7 +1266,7 @@ onMounted(async () => {
       >
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p class="text-xs font-semibold text-violet-950">访客安全档案</p>
+            <p class="text-xs font-semibold text-violet-950">访客详情</p>
             <p class="mt-0.5 text-[11px] text-violet-700/80">
               事件 {{ visitorDossier.summary.eventTotal }} · 近 7 天 {{ visitorDossier.summary.events7d }}
               · IP {{ visitorDossier.summary.uniqueIps }} · 路径 {{ visitorDossier.summary.uniquePaths }}
@@ -1266,7 +1325,7 @@ onMounted(async () => {
           v-if="visitorDossier.riskFactors?.length"
           class="rounded-lg border border-rose-100 bg-rose-50/40 p-2.5"
         >
-          <p class="text-[11px] font-medium text-rose-900">风险因子</p>
+          <p class="text-[11px] font-medium text-rose-900">风险原因</p>
           <ul class="mt-1.5 flex flex-wrap gap-1.5">
             <li
               v-for="factor in visitorDossier.riskFactors"
@@ -1313,7 +1372,7 @@ onMounted(async () => {
             v-if="visitorDossier.userAgentHistory?.length"
             class="rounded-lg border border-white bg-white/90 p-2.5"
           >
-            <p class="text-[11px] font-medium text-zinc-600">UA 足迹</p>
+            <p class="text-[11px] font-medium text-zinc-600">设备与浏览器</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
               <li
                 v-for="(row, idx) in visitorDossier.userAgentHistory.slice(0, 6)"
@@ -1344,17 +1403,17 @@ onMounted(async () => {
             </ul>
           </div>
           <div
-            v-if="visitorDossier.hourlyPattern?.length"
+            v-if="activeHourlyRows(visitorDossier.hourlyPattern).length"
             class="rounded-lg border border-white bg-white/90 p-2.5"
           >
-            <p class="text-[11px] font-medium text-zinc-600">小时节奏</p>
+            <p class="text-[11px] font-medium text-zinc-600">活跃时段</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
               <li
-                v-for="row in visitorDossier.hourlyPattern.slice(0, 12)"
+                v-for="row in activeHourlyRows(visitorDossier.hourlyPattern)"
                 :key="'hour-' + row.hour"
                 class="flex items-center justify-between gap-2 text-[11px]"
               >
-                <span class="text-zinc-700">{{ row.hour }}</span>
+                <span class="text-zinc-700">{{ formatHourLabel(row.hour) }}</span>
                 <span class="tabular-nums text-zinc-500">{{ row.count }}</span>
               </li>
             </ul>
@@ -1367,20 +1426,18 @@ onMounted(async () => {
           class="mt-3 grid gap-2 sm:grid-cols-3"
         >
           <div class="rounded-lg border border-violet-100 bg-violet-50/40 p-2.5 text-[11px]">
-            <p class="font-medium text-violet-950">置信度</p>
+            <p class="font-medium text-violet-950">判断把握</p>
             <p class="mt-1 text-sm font-semibold text-violet-900">
               {{ adminLabel(adminConfidenceLabels, visitorDossier.confidence || visitorDossier.summary?.confidence, visitorDossier.confidence || '—') }}
             </p>
-            <p class="mt-0.5 text-violet-800/80">证据事件 {{ visitorDossier.evidenceEvents ?? visitorDossier.summary?.evidenceEvents ?? '—' }}</p>
+            <p class="mt-0.5 text-violet-800/80">参考记录 {{ visitorDossier.evidenceEvents ?? visitorDossier.summary?.evidenceEvents ?? '—' }} 条</p>
           </div>
           <div class="rounded-lg border border-sky-100 bg-sky-50/40 p-2.5 text-[11px]">
-            <p class="font-medium text-sky-950">同行百分位</p>
-            <p class="mt-1 text-sm font-semibold text-sky-900">
-              P{{ visitorDossier.peerComparison?.percentile ?? visitorDossier.summary?.peerPercentile ?? '—' }}
-            </p>
+            <p class="font-medium text-sky-950">活跃程度</p>
+            <p class="mt-1 text-sm font-semibold text-sky-900">{{ activityLevel(visitorDossier.peerComparison?.percentile ?? visitorDossier.summary?.peerPercentile) }}</p>
             <p class="mt-0.5 text-sky-800/80">
-              24h {{ visitorDossier.peerComparison?.events24h ?? visitorDossier.summary?.events24h ?? '—' }}
-              · 样本 {{ visitorDossier.peerComparison?.sampleSize ?? '—' }}
+              今天 {{ visitorDossier.peerComparison?.events24h ?? visitorDossier.summary?.events24h ?? '—' }} 次
+              · 参考 {{ visitorDossier.peerComparison?.sampleSize ?? '—' }} 位访客
             </p>
           </div>
           <div class="rounded-lg border border-zinc-200 bg-white p-2.5 text-[11px]">
@@ -1399,7 +1456,7 @@ onMounted(async () => {
           class="mt-3 grid gap-3 md:grid-cols-3"
         >
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">路径序列</p>
+            <p class="text-[11px] font-medium text-zinc-600">访问过程</p>
             <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
               <li
                 v-for="(row, idx) in (visitorDossier.pathSequence || []).slice(0, 12)"
@@ -1413,7 +1470,7 @@ onMounted(async () => {
             </ul>
           </div>
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">路径迁移</p>
+            <p class="text-[11px] font-medium text-zinc-600">常见访问顺序</p>
             <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
               <li
                 v-for="(row, idx) in (visitorDossier.pathTransitions || []).slice(0, 8)"
@@ -1427,7 +1484,7 @@ onMounted(async () => {
             </ul>
           </div>
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
-            <p class="text-[11px] font-medium text-zinc-600">突发窗口</p>
+            <p class="text-[11px] font-medium text-zinc-600">访问高峰</p>
             <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
               <li
                 v-for="(row, idx) in (visitorDossier.burstWindows || []).slice(0, 6)"
@@ -1554,7 +1611,7 @@ onMounted(async () => {
           class="grid gap-3 lg:grid-cols-3"
         >
           <section class="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
-            <h3 class="text-xs font-semibold text-indigo-950">会话切片</h3>
+            <h3 class="text-xs font-semibold text-indigo-950">最近访问过程</h3>
             <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
               <li v-for="session in visitorDossier.sessions" :key="session.id" class="rounded-md bg-white px-2 py-1.5 text-[11px]">
                 <div class="flex items-center justify-between gap-2">
@@ -1564,11 +1621,11 @@ onMounted(async () => {
                 <p class="mt-0.5 truncate text-zinc-600">{{ session.entryPath }} → {{ session.exitPath }}</p>
                 <p class="mt-0.5 text-[10px] text-zinc-400">{{ session.uniquePathCount }} 路径 · {{ session.durationSeconds }} 秒</p>
               </li>
-              <li v-if="!visitorDossier.sessions?.length" class="text-[11px] text-zinc-400">暂无会话</li>
+              <li v-if="!visitorDossier.sessions?.length" class="text-[11px] text-zinc-400">暂无访问过程</li>
             </ul>
           </section>
           <section class="rounded-lg border border-rose-100 bg-rose-50/40 p-3">
-            <h3 class="text-xs font-semibold text-rose-950">证据账本</h3>
+            <h3 class="text-xs font-semibold text-rose-950">判断依据</h3>
             <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
               <li v-for="item in visitorDossier.evidenceLedger" :key="'ve-' + item.code" class="text-[11px]">
                 <div class="flex items-center justify-between gap-2">
@@ -1578,11 +1635,11 @@ onMounted(async () => {
                   </span>
                 </div>
               </li>
-              <li v-if="!visitorDossier.evidenceLedger?.length" class="text-[11px] text-zinc-400">暂无证据</li>
+              <li v-if="!visitorDossier.evidenceLedger?.length" class="text-[11px] text-zinc-400">暂无判断依据</li>
             </ul>
           </section>
           <section class="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
-            <h3 class="text-xs font-semibold text-emerald-950">调查剧本</h3>
+            <h3 class="text-xs font-semibold text-emerald-950">处理建议</h3>
             <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
               <li v-for="step in visitorDossier.playbook" :key="'vpb-' + step.code" class="text-[11px]">
                 <NuxtLink :to="step.href" class="block rounded-md bg-white px-2 py-1.5 hover:bg-emerald-50">
