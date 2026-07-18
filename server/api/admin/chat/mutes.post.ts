@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     action: 'chat.mute_user',
     entityType: 'chat_mute',
     entityId: id,
-    details: { userId: input.userId, roomId: input.roomId ?? null }
+    details: { userId: input.userId, roomId: input.roomId ?? null, reason: input.reason, expiresAt: input.expiresAt ?? null }
   })
   setResponseStatus(event, 201)
   return { id }

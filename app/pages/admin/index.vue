@@ -43,7 +43,7 @@ async function loadDashboard(): Promise<void> {
   })
 
   requests.push((async () => {
-    const response = await adminFetch<unknown>('/api/admin/audit-logs', {
+    const response = await adminFetch<unknown>('/api/admin/audit', {
       query: { page: 1, pageSize: 6 }
     })
     return { key: 'audit', ...normalizeAdminDashboardResponse(response) }
@@ -255,7 +255,7 @@ onMounted(() => {
             </p>
           </div>
           <UButton
-            to="/admin/audit-logs"
+            to="/admin/audit"
             icon="i-lucide-arrow-right"
             trailing
             label="全部"

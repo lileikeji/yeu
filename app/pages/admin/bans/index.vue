@@ -31,7 +31,8 @@ const q = ref('')
 const form = reactive({
   scope: 'ip' as 'ip' | 'visitor' | 'user',
   value: '',
-  reason: ''
+  reason: '',
+  expiresAt: ''
 })
 
 function formatTime(iso: string | null | undefined): string {
@@ -107,12 +108,16 @@ async function createBan(): Promise<void> {
       body: {
         scope: form.scope,
         value: form.value.trim(),
-        reason: form.reason.trim()
+        reason: form.reason.trim(),
+        expiresAt: form.expiresAt.trim()
+          ? new Date(form.expiresAt.trim()).toISOString()
+          : null
       }
     })
     toast.add({ title: '已创建封禁', color: 'success' })
     form.value = ''
     form.reason = ''
+    form.expiresAt = ''
     page.value = 1
     active.value = 'true'
     await loadBans()
@@ -208,6 +213,13 @@ onMounted(() => {
               v-model="form.reason"
               class="w-full"
               placeholder="例如：恶意刷接口 / 骚扰聊天"
+            />
+          </UFormField>
+          <UFormField label="到期时间（可选）">
+            <UInput
+              v-model="form.expiresAt"
+              type="datetime-local"
+              class="w-full"
             />
           </UFormField>
           <UButton

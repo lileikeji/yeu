@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     action: 'visitor.ban_create',
     entityType: 'visitor_ban',
     entityId: id,
-    details: { scope: input.scope, value: input.value }
+    details: { scope: input.scope, value: input.value, reason: input.reason, expiresAt: input.expiresAt ?? null }
   })
   setResponseStatus(event, 201)
   return { id }

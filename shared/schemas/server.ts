@@ -499,7 +499,8 @@ export const adminVisitorBansQuerySchema = paginationQuerySchema.extend({
 
 export const adminAuditLogsQuerySchema = paginationQuerySchema.extend({
   action: z.string().trim().max(80).optional(),
-  entityType: z.string().trim().max(80).optional()
+  entityType: z.string().trim().max(80).optional(),
+  entityId: z.string().trim().max(80).optional()
 })
 
 export const createVisitorBanSchema = z.object({
@@ -527,11 +528,19 @@ export const adminChatMessagesQuerySchema = paginationQuerySchema.extend({
 export const muteChatUserSchema = z.object({
   userId: z.string().uuid(),
   roomId: z.union([z.string().uuid(), z.null()]).optional(),
-  reason: z.string().trim().max(500).optional(),
+  reason: z.string().trim().min(1).max(500),
   expiresAt: z.union([z.iso.datetime({ offset: true }), z.null()]).optional()
 }).strict()
 
 export const muteAllChatRoomSchema = z.object({
   muted: z.boolean(),
   reason: z.string().trim().max(500).optional()
-}).strict()
+}).strict().superRefine((value, ctx) => {
+  if (value.muted && !(value.reason && value.reason.trim())) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reason'],
+      message: 'Reason is required when enabling mute-all'
+    })
+  }
+})

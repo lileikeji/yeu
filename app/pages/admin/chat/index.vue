@@ -140,15 +140,24 @@ async function refreshAll(): Promise<void> {
 }
 
 async function toggleMuteAll(room: ChatRoom): Promise<void> {
+  const nextMuted = !room.isMutedAll
+  if (nextMuted && !muteReason.value.trim()) {
+    toast.add({ title: '开启全员禁言前请先填写禁言原因', color: 'warning' })
+    return
+  }
   try {
     await adminFetch(`/api/admin/chat/rooms/${encodeURIComponent(room.id)}/mute-all`, {
       method: 'POST',
-      body: { muted: !room.isMutedAll }
+      body: {
+        muted: nextMuted,
+        reason: muteReason.value.trim() || undefined
+      }
     })
     toast.add({
       title: room.isMutedAll ? '已取消全员禁言' : '已开启全员禁言',
       color: 'success'
     })
+    if (nextMuted) muteReason.value = ''
     await loadRooms()
   } catch (error) {
     if (await handleAuth(error)) return
@@ -167,13 +176,17 @@ async function muteUser(): Promise<void> {
     toast.add({ title: '请填写用户 ID', color: 'warning' })
     return
   }
+  if (!muteReason.value.trim()) {
+    toast.add({ title: '请填写禁言原因（必填）', color: 'warning' })
+    return
+  }
   try {
     await adminFetch('/api/admin/chat/mutes', {
       method: 'POST',
       body: {
         userId: muteUserId.value.trim(),
         roomId: muteRoomId.value || null,
-        reason: muteReason.value.trim() || undefined
+        reason: muteReason.value.trim()
       }
     })
     toast.add({ title: '已禁言用户', color: 'success' })
@@ -230,7 +243,7 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="群聊管理"
-      description="查看与治理聊天记录：可软删除消息、房间全员禁言与个人禁言。"
+      description="聊天记录、软删除、个人/全员禁言分区治理；禁言原因必填，便于审计复核。"
       icon="i-lucide-messages-square"
       eyebrow="社区"
     >

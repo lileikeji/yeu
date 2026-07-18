@@ -152,7 +152,7 @@ export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '群聊管理', icon: 'i-lucide-messages-square', to: '/admin/chat', group: 'ops' },
   { label: '访客轨迹', icon: 'i-lucide-radar', to: '/admin/visitors', group: 'security' },
   { label: '封禁管理', icon: 'i-lucide-shield-ban', to: '/admin/bans', group: 'security' },
-  { label: '审计日志', icon: 'i-lucide-history', to: '/admin/audit-logs', group: 'security' }
+  { label: '审计日志', icon: 'i-lucide-history', to: '/admin/audit', group: 'security' }
 ]
 
 export const adminNavigationGroups: AdminNavigationGroup[] = [
@@ -189,7 +189,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: '访客', icon: 'i-lucide-radar', to: '/admin/visitors' },
       { label: '封禁', icon: 'i-lucide-shield-ban', to: '/admin/bans' },
-      { label: '审计日志', icon: 'i-lucide-scroll-text', to: '/admin/audit-logs' }
+      { label: '审计日志', icon: 'i-lucide-scroll-text', to: '/admin/audit' }
     ]
   }
 ]

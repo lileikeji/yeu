@@ -63,7 +63,7 @@ test('admin dashboard catalogs cover content, ops, and security routes', () => {
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/chat'))
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/visitors'))
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/bans'))
-  assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/audit-logs'))
+  assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/audit'))
 })
 
 test('admin navigation is grouped and shared with the layout shell', () => {
@@ -73,7 +73,7 @@ test('admin navigation is grouped and shared with the layout shell', () => {
   assert.ok(adminNavigationItems.some(item => item.to === '/admin/users'))
   assert.ok(adminNavigationItems.some(item => item.to === '/admin/chat'))
   assert.ok(adminNavigationItems.some(item => item.to === '/admin/visitors'))
-  assert.ok(adminNavigationItems.some(item => item.to === '/admin/audit-logs'))
+  assert.ok(adminNavigationItems.some(item => item.to === '/admin/audit'))
   assert.match(layoutSource, /from ['"]~~\/app\/utils\/admin-dashboard-presentation['"]/)
   assert.match(layoutSource, /adminNavigationGroups/)
   assert.match(layoutSource, /navigationGroups/)

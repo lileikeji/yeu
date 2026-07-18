@@ -20,6 +20,9 @@ export default defineEventHandler((event) => {
   if (query.entityType?.trim()) {
     conditions.push(eq(auditLogs.entityType, query.entityType.trim()))
   }
+  if (query.entityId?.trim()) {
+    conditions.push(eq(auditLogs.entityId, query.entityId.trim()))
+  }
   const where = conditions.length ? and(...conditions) : undefined
 
   const rows = client.db.select().from(auditLogs)
