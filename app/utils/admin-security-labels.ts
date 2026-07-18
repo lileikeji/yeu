@@ -116,6 +116,7 @@ export const adminVisitorActionLabels: Record<string, string> = {
 }
 
 export const adminSecurityWindowLabels = {
+  h1: '近 1 小时',
   h24: '近 24 小时',
   d7: '近 7 天'
 } as const
@@ -163,11 +164,13 @@ export const adminOpsTimelineKindLabels: Record<string, string> = {
 export const adminSuggestedActionLabels: Record<string, string> = {
   ban_visitor: '封禁访客',
   ban_ip: '封禁 IP',
-  ban_user: '封禁账号',
-  open_ip: '查看 IP',
-  open_user: '查看账号',
-  review_visitors: '复核访客',
-  open_audit: '查看审计'
+  ban_user: '限制账号',
+  open_chat: '打开群聊',
+  open_visitors: '打开访客',
+  open_audit: '打开审计',
+  open_ip: '打开 IP 档案',
+  open_user: '打开账号',
+  review_visitors: '复核访客'
 }
 
 export function adminLabel(map: Record<string, string>, value: string | null | undefined, fallback?: string): string {
@@ -254,6 +257,27 @@ export function banStatusMeta(ban: { isActive: boolean; expiresAt: string | null
   }
   return { label: '生效中', tone: 'active' }
 }
+
+
+
+export const adminResponseQueueKindLabels: Record<string, string> = {
+  ip_cluster: 'IP 聚类',
+  risk_hint: '风险提示',
+  ban_hygiene: '封禁卫生',
+  burst: '突发流量'
+}
+
+export const adminConfidenceLabels: Record<string, string> = {
+  high: '高置信',
+  medium: '中置信',
+  low: '低置信'
+}
+
+export const adminBanCoverageLabels = {
+  coverageRate: '高频 IP 封禁覆盖率',
+  bannedTopIps: '已封禁高频 IP',
+  topIpCount: '高频 IP 样本'
+} as const
 
 /** Deep-link from audit entity to related admin page. */
 export function adminEntityHref(

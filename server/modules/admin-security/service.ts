@@ -57,6 +57,82 @@ function scoreRisk(factors: Array<{ code: string; points: number; message: strin
   }
 }
 
+function buildBurstWindows(
+  rows: Array<{ createdAt: number }>,
+  bucketMs = 10 * 60 * 1000,
+  limit = 6
+) {
+  const map = new Map<number, number>()
+  for (const row of rows) {
+    const ts = Number(row.createdAt)
+    if (!Number.isFinite(ts)) continue
+    const bucket = Math.floor(ts / bucketMs) * bucketMs
+    map.set(bucket, (map.get(bucket) || 0) + 1)
+  }
+  return [...map.entries()]
+    .map(([startAt, count]) => ({
+      startAt: new Date(startAt).toISOString(),
+      endAt: new Date(startAt + bucketMs).toISOString(),
+      count
+    }))
+    .sort((a, b) => b.count - a.count || Date.parse(b.startAt) - Date.parse(a.startAt))
+    .slice(0, limit)
+}
+
+function buildPathTransitions(
+  rows: Array<{ path: string | null | undefined; createdAt: number }>,
+  limit = 8
+) {
+  const sorted = [...rows]
+    .filter(row => Number.isFinite(Number(row.createdAt)))
+    .sort((a, b) => Number(a.createdAt) - Number(b.createdAt))
+  const map = new Map<string, number>()
+  for (let i = 1; i < sorted.length; i++) {
+    const from = ((sorted[i - 1].path || '/').trim() || '/')
+    const to = ((sorted[i].path || '/').trim() || '/')
+    if (from === to) continue
+    const key = `${from}\t${to}`
+    map.set(key, (map.get(key) || 0) + 1)
+  }
+  return [...map.entries()]
+    .map(([key, count]) => {
+      const [from, to] = key.split('\t')
+      return { from, to, transition: `${from} → ${to}`, count }
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
+}
+
+function buildPathSequence(
+  rows: Array<{ path: string | null | undefined; action?: string | null; createdAt: number }>,
+  limit = 12
+) {
+  return [...rows]
+    .filter(row => Number.isFinite(Number(row.createdAt)))
+    .sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
+    .slice(0, limit)
+    .map(row => ({
+      path: (row.path || '/').trim() || '/',
+      action: row.action || 'unknown',
+      createdAt: new Date(Number(row.createdAt)).toISOString()
+    }))
+    .reverse()
+}
+
+function percentileRank(value: number, population: number[]): number {
+  if (!population.length) return 0
+  const below = population.filter(v => v < value).length
+  return Math.round((below / population.length) * 100)
+}
+
+function riskConfidence(factorCount: number, evidenceEvents: number): 'high' | 'medium' | 'low' {
+  if (factorCount <= 0) return 'low'
+  if (factorCount >= 3 && evidenceEvents >= 30) return 'high'
+  if (factorCount >= 2 || evidenceEvents >= 10) return 'medium'
+  return 'low'
+}
+
+
 export function getSecuritySnapshot(client: DatabaseClient) {
   const now = Date.now()
   const since24h = now - DAY_MS
@@ -141,6 +217,13 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     )
   )
   const events1h = countWhere(client, visitorEvents, gt(visitorEvents.createdAt, since1h))
+
+  const visitors7d = countWhere(client, visitors, gt(visitors.lastSeenAt, since7d))
+  const events7d = countWhere(client, visitorEvents, gt(visitorEvents.createdAt, since7d))
+  const bans7d = countWhere(client, visitorBans, gt(visitorBans.createdAt, since7d))
+  const mutes7d = countWhere(client, chatMutes, gt(chatMutes.createdAt, since7d))
+  const messages7d = countWhere(client, chatMessages, gt(chatMessages.createdAt, since7d))
+  const audit7d = countWhere(client, auditLogs, gt(auditLogs.createdAt, since7d))
 
   // Approximate banned visitors by scanning recent visitors against active bans
   // (same approach as listVisitors; keep cheap: only active ban values).
@@ -375,7 +458,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     .limit(12)
     .all()
 
-  const ipClusters = ipClusterRaw
+  const ipClustersBase = ipClusterRaw
     .map(row => ({
       ip: row.ip || '',
       eventCount: Number(row.eventCount),
@@ -478,7 +561,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, 16)
 
-  const multiVisitorIps = ipClusters.length
+  const multiVisitorIps = ipClustersBase.length
   const pulse = {
     events1h,
     multiVisitorIps,
@@ -570,8 +653,8 @@ export function getSecuritySnapshot(client: DatabaseClient) {
       href: '/admin/bans?active=true'
     })
   }
-  if (ipClusters.some(row => row.visitorCount >= 4)) {
-    const top = ipClusters[0]
+  if (ipClustersBase.some(row => row.visitorCount >= 4)) {
+    const top = ipClustersBase[0]
     riskHints.push({
       level: 'medium',
       code: 'IP_VISITOR_CLUSTER',
@@ -604,6 +687,234 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     })
   }
 
+
+  const recentPathRows = client.db.select({
+    path: visitorEvents.path,
+    action: visitorEvents.action,
+    createdAt: visitorEvents.createdAt,
+    ip: visitorEvents.ip
+  }).from(visitorEvents)
+    .where(gt(visitorEvents.createdAt, since24h))
+    .orderBy(desc(visitorEvents.createdAt))
+    .limit(500)
+    .all()
+
+  const pathTransitions = buildPathTransitions(
+    recentPathRows.map(row => ({ path: row.path, createdAt: Number(row.createdAt) })),
+    10
+  )
+  const burstWindows = buildBurstWindows(
+    recentPathRows.map(row => ({ createdAt: Number(row.createdAt) })),
+    10 * 60 * 1000,
+    8
+  )
+  const peakBurst = burstWindows[0]?.count || 0
+
+  const ipClusters = ipClustersBase.map((cluster) => {
+    const cityRow = client.db.select({
+      city: visitorEvents.city,
+      country: visitorEvents.country,
+      value: count()
+    }).from(visitorEvents)
+      .where(and(eq(visitorEvents.ip, cluster.ip), gt(visitorEvents.createdAt, since24h)))
+      .groupBy(visitorEvents.city, visitorEvents.country)
+      .orderBy(desc(count()))
+      .limit(1)
+      .get()
+
+    const pathRow = client.db.select({
+      path: visitorEvents.path,
+      value: count()
+    }).from(visitorEvents)
+      .where(and(eq(visitorEvents.ip, cluster.ip), gt(visitorEvents.createdAt, since24h)))
+      .groupBy(visitorEvents.path)
+      .orderBy(desc(count()))
+      .limit(1)
+      .get()
+
+    const linkedUsers = Number(
+      client.db.select({ value: sql<number>`count(distinct ${visitorEvents.userId})` })
+        .from(visitorEvents)
+        .where(and(
+          eq(visitorEvents.ip, cluster.ip),
+          gt(visitorEvents.createdAt, since24h),
+          isNotNull(visitorEvents.userId),
+          sql`trim(${visitorEvents.userId}) != ''`
+        ))
+        .get()?.value ?? 0
+    )
+
+    const banRowsForIp = client.db.select().from(visitorBans)
+      .where(and(
+        eq(visitorBans.scope, 'ip'),
+        eq(visitorBans.value, cluster.ip),
+        eq(visitorBans.isActive, true)
+      ))
+      .orderBy(desc(visitorBans.createdAt))
+      .limit(5)
+      .all()
+    const isBanned = banRowsForIp.some(row => isBanEffectivelyActive({ isActive: row.isActive, expiresAt: row.expiresAt }, now))
+
+    let riskScore = 0
+    if (cluster.visitorCount >= 5) riskScore += 24
+    else if (cluster.visitorCount >= 3) riskScore += 16
+    else if (cluster.visitorCount >= 2) riskScore += 8
+    if (cluster.eventCount >= 200) riskScore += 18
+    else if (cluster.eventCount >= 80) riskScore += 10
+    if (linkedUsers >= 3) riskScore += 14
+    else if (linkedUsers >= 1) riskScore += 6
+    if (isBanned) riskScore += 12
+
+    const riskLevel: 'high' | 'medium' | 'low' | 'info' =
+      riskScore >= 40 ? 'high' : riskScore >= 22 ? 'medium' : riskScore >= 10 ? 'low' : 'info'
+
+    return {
+      ...cluster,
+      city: cityRow?.city || '',
+      country: cityRow?.country || '',
+      topPath: pathRow?.path || '/',
+      linkedUsers,
+      isBanned,
+      riskScore,
+      riskLevel
+    }
+  })
+
+  const bannedTopIpCount = topIps.filter((row) => {
+    const ban = client.db.select().from(visitorBans)
+      .where(and(
+        eq(visitorBans.scope, 'ip'),
+        eq(visitorBans.value, row.ip),
+        eq(visitorBans.isActive, true)
+      ))
+      .orderBy(desc(visitorBans.createdAt))
+      .limit(1)
+      .get()
+    return ban ? isBanEffectivelyActive({ isActive: ban.isActive, expiresAt: ban.expiresAt }, now) : false
+  }).length
+
+  const banCoverage = {
+    topIpCount: topIps.length,
+    bannedTopIps: bannedTopIpCount,
+    coverageRate: topIps.length ? Math.round((bannedTopIpCount / topIps.length) * 100) : 0,
+    activeExpired: banHygiene.activeExpired,
+    expiringSoon24h: banHygiene.expiringSoon24h
+  }
+
+  const cityTotal = topCities.reduce((sum, row) => sum + row.count, 0) || 1
+  const geoConcentration = {
+    topCityShare: Math.round(((topCities[0]?.count || 0) / cityTotal) * 100),
+    topCity: topCities[0]?.city || '',
+    distinctCities: topCities.length,
+    cities: topCities.map(row => ({
+      city: row.city,
+      count: row.count,
+      share: Math.round((row.count / cityTotal) * 100)
+    }))
+  }
+
+  const windows = {
+    h1: {
+      visitorEvents: events1h,
+      peakBurst10m: peakBurst
+    },
+    h24: {
+      visitorsActive: visitors24h,
+      visitorsNew: newVisitors24h,
+      visitorEvents: events24h,
+      bansCreated: bans24h,
+      mutesCreated: mutes24h,
+      messages: messages24h,
+      auditEvents: audit24h,
+      adminLogins: logins24h
+    },
+    d7: {
+      visitorsActive: visitors7d,
+      visitorEvents: events7d,
+      bansCreated: bans7d,
+      mutesCreated: mutes7d,
+      messages: messages7d,
+      auditEvents: audit7d
+    }
+  }
+
+  const responseQueue: Array<{
+    id: string
+    kind: 'ip_cluster' | 'risk_hint' | 'ban_hygiene' | 'burst'
+    priority: 'high' | 'medium' | 'low'
+    title: string
+    detail: string
+    href: string
+    score: number
+  }> = []
+
+  for (const cluster of ipClusters) {
+    if (cluster.riskLevel === 'info') continue
+    responseQueue.push({
+      id: `ip:${cluster.ip}`,
+      kind: 'ip_cluster',
+      priority: cluster.riskLevel === 'high' ? 'high' : cluster.riskLevel === 'medium' ? 'medium' : 'low',
+      title: `IP 聚类 ${cluster.ip}`,
+      detail: `${cluster.visitorCount} 访客 · ${cluster.eventCount} 事件 · ${cluster.city || '未知地区'}${cluster.isBanned ? ' · 已封禁' : ''}`,
+      href: `/admin/visitors?ip=${encodeURIComponent(cluster.ip)}`,
+      score: cluster.riskScore
+    })
+  }
+
+  for (const hint of riskHints) {
+    if (hint.level === 'info') continue
+    responseQueue.push({
+      id: `hint:${hint.code}`,
+      kind: 'risk_hint',
+      priority: hint.level === 'high' ? 'high' : hint.level === 'medium' ? 'medium' : 'low',
+      title: hint.message,
+      detail: hint.code,
+      href: hint.href,
+      score: hint.level === 'high' ? 90 : hint.level === 'medium' ? 60 : 30
+    })
+  }
+
+  if (banHygiene.activeExpired > 0) {
+    responseQueue.push({
+      id: 'hygiene:stale-bans',
+      kind: 'ban_hygiene',
+      priority: banHygiene.activeExpired >= 3 ? 'high' : 'medium',
+      title: `清理过期但仍标记生效的封禁 ${banHygiene.activeExpired} 条`,
+      detail: `即将过期 ${banHygiene.expiringSoon24h} 条 · 永久生效 ${banHygiene.permanentActive} 条`,
+      href: '/admin/bans?active=true',
+      score: 50 + banHygiene.activeExpired * 5
+    })
+  }
+
+  if (peakBurst >= 40) {
+    responseQueue.push({
+      id: 'burst:peak',
+      kind: 'burst',
+      priority: peakBurst >= 100 ? 'high' : 'medium',
+      title: `近 24 小时 10 分钟峰值 ${peakBurst} 次事件`,
+      detail: burstWindows[0]
+        ? `${burstWindows[0].startAt} ~ ${burstWindows[0].endAt}`
+        : '突发窗口',
+      href: '/admin/visitors',
+      score: Math.min(99, peakBurst)
+    })
+  }
+
+  responseQueue.sort((a, b) => {
+    const order = { high: 0, medium: 1, low: 2 } as const
+    return order[a.priority] - order[b.priority] || b.score - a.score
+  })
+
+  const detail = {
+    pathTransitions,
+    burstWindows,
+    peakBurst10m: peakBurst,
+    sampleEventCount: recentPathRows.length,
+    riskHintCount: riskHints.length,
+    responseQueueSize: Math.min(responseQueue.length, 12)
+  }
+
+
   return {
     generatedAt: new Date(now).toISOString(),
     counts: {
@@ -633,7 +944,14 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     previous24h,
     deltas24h,
     banHygiene,
+    banCoverage,
+    windows,
     ipClusters,
+    pathTransitions,
+    burstWindows,
+    geoConcentration,
+    responseQueue: responseQueue.slice(0, 12),
+    detail,
     suspiciousAgents,
     adminActors,
     opsTimeline,
@@ -650,6 +968,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     recentAudit
   }
 }
+
 
 export function getUserSecurityDossier(client: DatabaseClient, userId: string) {
   const userRow = client.db.select().from(users).where(eq(users.id, userId)).get()
@@ -826,6 +1145,59 @@ export function getUserSecurityDossier(client: DatabaseClient, userId: string) {
     userFactors.push({ code: 'MULTI_VISITOR_LINK', points: 10, message: `关联访客设备 ${linkedVisitors.length}` })
   }
   const userRisk = scoreRisk(userFactors)
+  const evidenceEvents = messageTotal + linkedVisitors.reduce((sum, v) => sum + (v.eventCount || 0), 0)
+  const confidence = riskConfidence(userRisk.riskFactors.length, evidenceEvents)
+
+  const suggestedActions: Array<{
+    kind: 'ban_user' | 'open_chat' | 'open_visitors' | 'open_audit'
+    label: string
+    href: string
+    reason: string
+    priority: 'high' | 'medium' | 'low'
+  }> = []
+
+  if (user.status !== 'banned' && activeBanCount === 0) {
+    suggestedActions.push({
+      kind: 'ban_user',
+      label: '限制此账号',
+      href: `/admin/users?userId=${encodeURIComponent(userId)}`,
+      reason: userRisk.riskLevel === 'high' ? '风险偏高，建议限制登录或聊天' : '可按需停用或封禁账号',
+      priority: userRisk.riskLevel === 'high' ? 'high' : 'medium'
+    })
+  }
+  if (memberships.length) {
+    suggestedActions.push({
+      kind: 'open_chat',
+      label: '查看群聊消息',
+      href: `/admin/chat?userId=${encodeURIComponent(userId)}`,
+      reason: '核对发言与禁言状态',
+      priority: 'medium'
+    })
+  }
+  if (linkedVisitors.length) {
+    suggestedActions.push({
+      kind: 'open_visitors',
+      label: '查看关联访客',
+      href: `/admin/visitors?userId=${encodeURIComponent(userId)}`,
+      reason: `关联 ${linkedVisitors.length} 个访客设备`,
+      priority: 'low'
+    })
+  }
+  suggestedActions.push({
+    kind: 'open_audit',
+    label: '打开审计日志',
+    href: `/admin/audit?entityType=user&entityId=${encodeURIComponent(userId)}`,
+    reason: '核对管理员操作轨迹',
+    priority: 'low'
+  })
+
+  const relationship = {
+    visitorIds: linkedVisitors.map(v => v.id),
+    ips: ipFootprint.map(item => item.ip),
+    rooms: memberships.map((m: any) => m.roomId || m.roomTitle).filter(Boolean),
+    activeSessions
+  }
+
 
   return {
     user,
@@ -841,11 +1213,17 @@ export function getUserSecurityDossier(client: DatabaseClient, userId: string) {
       membershipCount: memberships.length,
       auditCount: auditItems.length,
       riskScore: userRisk.riskScore,
-      riskLevel: userRisk.riskLevel
+      riskLevel: userRisk.riskLevel,
+      evidenceEvents,
+      confidence
     },
     riskScore: userRisk.riskScore,
     riskLevel: userRisk.riskLevel,
     riskFactors: userRisk.riskFactors,
+    confidence,
+    evidenceEvents,
+    suggestedActions,
+    relationship,
     ipFootprint,
     linkedVisitors,
     bans,
@@ -1156,6 +1534,64 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
   if (userAgentHistory.length >= 4) visitorFactors.push({ code: 'UA_SWITCH', points: 8, message: `UA 切换 ${userAgentHistory.length} 种` })
   const visitorRisk = scoreRisk(visitorFactors)
 
+  const seqSource = client.db.select({
+    path: visitorEvents.path,
+    action: visitorEvents.action,
+    createdAt: visitorEvents.createdAt
+  }).from(visitorEvents)
+    .where(eq(visitorEvents.visitorId, visitorId))
+    .orderBy(desc(visitorEvents.createdAt))
+    .limit(80)
+    .all()
+
+  const pathSequence = buildPathSequence(
+    seqSource.map(row => ({
+      path: row.path,
+      action: row.action,
+      createdAt: Number(row.createdAt)
+    })),
+    12
+  )
+  const pathTransitions = buildPathTransitions(
+    seqSource.map(row => ({ path: row.path, createdAt: Number(row.createdAt) })),
+    8
+  )
+  const burstWindows = buildBurstWindows(
+    seqSource.map(row => ({ createdAt: Number(row.createdAt) })),
+    10 * 60 * 1000,
+    6
+  )
+
+  const peerRows = client.db.select({
+    visitorId: visitorEvents.visitorId,
+    value: count()
+  }).from(visitorEvents)
+    .where(gt(visitorEvents.createdAt, now - DAY_MS))
+    .groupBy(visitorEvents.visitorId)
+    .orderBy(desc(count()))
+    .limit(200)
+    .all()
+  const peerPopulation = peerRows.map(row => Number(row.value))
+  const peerComparison = {
+    events24h,
+    percentile: percentileRank(events24h, peerPopulation),
+    sampleSize: peerPopulation.length,
+    peerMedian: peerPopulation.length
+      ? peerPopulation[Math.floor(peerPopulation.length / 2)]
+      : 0
+  }
+
+  const evidenceEvents = events24h + events1h + relatedBans.length
+  const confidence = riskConfidence(visitorRisk.riskFactors.length, evidenceEvents)
+  const relationship = {
+    lastIp: visitor.lastIp || null,
+    linkedUserId: linkedUser?.id || visitor.userId || null,
+    sameIpVisitorIds: sameIpVisitors.map((row: any) => row.id),
+    topPaths: pathTop.slice(0, 5).map(row => row.path)
+  }
+
+
+
   const suggestedActions: Array<{
     kind: 'ban_visitor' | 'ban_ip' | 'ban_user' | 'open_ip' | 'open_user'
     label: string
@@ -1234,11 +1670,21 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
       hasLinkedUser: Boolean(linkedUser),
       sameIpVisitorCount: sameIpVisitors.length,
       riskScore: visitorRisk.riskScore,
-      riskLevel: visitorRisk.riskLevel
+      riskLevel: visitorRisk.riskLevel,
+      evidenceEvents,
+      confidence,
+      peerPercentile: peerComparison.percentile
     },
     riskScore: visitorRisk.riskScore,
     riskLevel: visitorRisk.riskLevel,
     riskFactors: visitorRisk.riskFactors,
+    confidence,
+    evidenceEvents,
+    peerComparison,
+    pathSequence,
+    pathTransitions,
+    burstWindows,
+    relationship,
     events1h,
     events24h,
     userAgentHistory,
@@ -1425,6 +1871,69 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
   if (userAgentHistory.length >= 5) factors.push({ code: 'UA_DIVERSITY', points: 8, message: `近 7 天 UA 种类 ${userAgentHistory.length}` })
 
   const risk = scoreRisk(factors)
+
+  const seqSource = client.db.select({
+    path: visitorEvents.path,
+    action: visitorEvents.action,
+    createdAt: visitorEvents.createdAt
+  }).from(visitorEvents)
+    .where(eq(visitorEvents.ip, ip))
+    .orderBy(desc(visitorEvents.createdAt))
+    .limit(100)
+    .all()
+
+  const pathSequence = buildPathSequence(
+    seqSource.map(row => ({
+      path: row.path,
+      action: row.action,
+      createdAt: Number(row.createdAt)
+    })),
+    12
+  )
+  const pathTransitions = buildPathTransitions(
+    seqSource.map(row => ({ path: row.path, createdAt: Number(row.createdAt) })),
+    8
+  )
+  const burstWindows = buildBurstWindows(
+    seqSource.map(row => ({ createdAt: Number(row.createdAt) })),
+    10 * 60 * 1000,
+    6
+  )
+
+  const firstEventAt = seqSource.length
+    ? new Date(Math.min(...seqSource.map(row => Number(row.createdAt)))).toISOString()
+    : null
+  const lastEventAt = seqSource.length
+    ? new Date(Math.max(...seqSource.map(row => Number(row.createdAt)))).toISOString()
+    : null
+
+  const peerIpRows = client.db.select({
+    ip: visitorEvents.ip,
+    value: count()
+  }).from(visitorEvents)
+    .where(and(gt(visitorEvents.createdAt, since24h), isNotNull(visitorEvents.ip), sql`trim(${visitorEvents.ip}) != ''`))
+    .groupBy(visitorEvents.ip)
+    .orderBy(desc(count()))
+    .limit(200)
+    .all()
+  const peerPopulation = peerIpRows.map(row => Number(row.value))
+  const peerComparison = {
+    events24h,
+    percentile: percentileRank(events24h, peerPopulation),
+    sampleSize: peerPopulation.length
+  }
+
+  const evidenceEvents = events24h + events1h + visitorRows.length
+  const confidence = riskConfidence(risk.riskFactors.length, evidenceEvents)
+  const relationship = {
+    visitorIds: visitorRows.map(row => row.id),
+    linkedUserIds,
+    topPaths: pathTop.slice(0, 5).map(row => row.path),
+    firstEventAt,
+    lastEventAt
+  }
+
+
   const suggestedActions: Array<{
     kind: 'ban_ip' | 'review_visitors' | 'open_audit'
     label: string
@@ -1474,11 +1983,25 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
       activeBanCount,
       isBanned,
       riskScore: risk.riskScore,
-      riskLevel: risk.riskLevel
+      riskLevel: risk.riskLevel,
+      evidenceEvents,
+      confidence,
+      peerPercentile: peerComparison.percentile,
+      firstEventAt,
+      lastEventAt
     },
     riskScore: risk.riskScore,
     riskLevel: risk.riskLevel,
     riskFactors: risk.riskFactors,
+    confidence,
+    evidenceEvents,
+    peerComparison,
+    pathSequence,
+    pathTransitions,
+    burstWindows,
+    relationship,
+    firstEventAt,
+    lastEventAt,
     visitors: visitorRows,
     pathTop,
     actionBreakdown,

@@ -7,6 +7,7 @@ import {
   adminHttpMethodLabels,
   adminLabel,
   adminRiskFactorLabels,
+  adminConfidenceLabels,
   adminRiskLevelLabels,
   adminSuggestedActionLabels,
   adminVisitorActionLabels,
@@ -76,6 +77,8 @@ type VisitorSecurityDossier = {
   summary: {
     eventTotal: number
     events7d: number
+    events24h?: number
+    events1h?: number
     uniqueIps: number
     uniquePaths: number
     actionCounts: number
@@ -86,10 +89,20 @@ type VisitorSecurityDossier = {
     sameIpVisitorCount: number
     riskScore?: number
     riskLevel?: string
+    evidenceEvents?: number
+    confidence?: string
+    peerPercentile?: number
   }
   riskScore?: number
   riskLevel?: string
   riskFactors?: Array<{ code: string; points: number; message: string }>
+  confidence?: string
+  evidenceEvents?: number
+  peerComparison?: { events24h: number; percentile: number; sampleSize: number; peerMedian?: number }
+  pathSequence?: Array<{ path: string; action: string; createdAt: string }>
+  pathTransitions?: Array<{ from: string; to: string; transition: string; count: number }>
+  burstWindows?: Array<{ startAt: string; endAt: string; count: number }>
+  relationship?: Record<string, any>
   events1h?: number
   events24h?: number
   userAgentHistory?: Array<{ userAgent: string; count: number; lastAt?: string | null }>
@@ -150,10 +163,24 @@ type IpSecurityDossier = {
     isBanned?: boolean
     riskScore?: number
     riskLevel?: string
+    evidenceEvents?: number
+    confidence?: string
+    peerPercentile?: number
+    firstEventAt?: string | null
+    lastEventAt?: string | null
   }
   riskScore?: number
   riskLevel?: string
   riskFactors?: Array<{ code: string; points: number; message: string }>
+  confidence?: string
+  evidenceEvents?: number
+  peerComparison?: { events24h: number; percentile: number; sampleSize: number }
+  pathSequence?: Array<{ path: string; action: string; createdAt: string }>
+  pathTransitions?: Array<{ from: string; to: string; transition: string; count: number }>
+  burstWindows?: Array<{ startAt: string; endAt: string; count: number }>
+  relationship?: Record<string, any>
+  firstEventAt?: string | null
+  lastEventAt?: string | null
   suggestedActions?: Array<{
     kind: string
     label: string
@@ -525,8 +552,7 @@ onMounted(async () => {
         />
       </template>
     </AdminPageHeader>
-
-    <div
+          <div
       v-if="errorMessage"
       class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
     >
@@ -934,7 +960,6 @@ onMounted(async () => {
             </li>
           </ul>
         </div>
-
         <div
           v-if="ipDossier.suggestedActions?.length"
           class="mt-3 rounded-lg border border-sky-100 bg-sky-50/40 p-2.5"
@@ -1015,6 +1040,62 @@ onMounted(async () => {
             </ul>
           </div>
         </div>
+        <div
+          v-if="ipDossier?.confidence || ipDossier?.peerComparison || ipDossier?.firstEventAt"
+          class="mt-3 grid gap-2 sm:grid-cols-3"
+        >
+          <div class="rounded-lg border border-violet-100 bg-violet-50/40 p-2.5 text-[11px]">
+            <p class="font-medium text-violet-950">置信度</p>
+            <p class="mt-1 text-sm font-semibold text-violet-900">
+              {{ adminLabel(adminConfidenceLabels, ipDossier.confidence || ipDossier.summary?.confidence, ipDossier.confidence || '—') }}
+            </p>
+            <p class="mt-0.5 text-violet-800/80">证据 {{ ipDossier.evidenceEvents ?? ipDossier.summary?.evidenceEvents ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg border border-sky-100 bg-sky-50/40 p-2.5 text-[11px]">
+            <p class="font-medium text-sky-950">IP 同行百分位</p>
+            <p class="mt-1 text-sm font-semibold text-sky-900">P{{ ipDossier.peerComparison?.percentile ?? ipDossier.summary?.peerPercentile ?? '—' }}</p>
+            <p class="mt-0.5 text-sky-800/80">样本 {{ ipDossier.peerComparison?.sampleSize ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 bg-white p-2.5 text-[11px]">
+            <p class="font-medium text-zinc-800">活跃时段</p>
+            <p class="mt-1 text-zinc-600">首见 {{ formatAdminRelativeTime(ipDossier.firstEventAt || ipDossier.summary?.firstEventAt) }}</p>
+            <p class="mt-0.5 text-zinc-500">最近 {{ formatAdminRelativeTime(ipDossier.lastEventAt || ipDossier.summary?.lastEventAt) }}</p>
+          </div>
+        </div>
+
+        <div
+          v-if="ipDossier?.pathSequence?.length || ipDossier?.pathTransitions?.length || ipDossier?.burstWindows?.length"
+          class="mt-3 grid gap-3 md:grid-cols-3"
+        >
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">路径序列</p>
+            <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
+              <li v-for="(row, idx) in (ipDossier.pathSequence || []).slice(0, 10)" :key="'iseq-' + idx" class="flex justify-between gap-2">
+                <span class="truncate">{{ row.path }}</span>
+                <span class="shrink-0 text-zinc-400">{{ row.action }}</span>
+              </li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">路径迁移</p>
+            <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
+              <li v-for="(row, idx) in (ipDossier.pathTransitions || []).slice(0, 8)" :key="'ipt-' + idx" class="flex justify-between gap-2">
+                <span class="truncate">{{ row.transition || (row.from + ' → ' + row.to) }}</span>
+                <span class="shrink-0 tabular-nums">{{ row.count }}</span>
+              </li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">突发窗口</p>
+            <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
+              <li v-for="(row, idx) in (ipDossier.burstWindows || []).slice(0, 6)" :key="'ibw-' + idx" class="flex justify-between gap-2">
+                <span class="truncate text-zinc-600">{{ formatAdminRelativeTime(row.startAt) }}</span>
+                <span class="shrink-0 tabular-nums text-amber-800">{{ row.count }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
       </template>
       <p v-else-if="ip.trim()" class="mt-3 text-xs text-zinc-500">
         暂无该 IP 档案，可点击刷新或确认筛选条件。
@@ -1223,7 +1304,87 @@ onMounted(async () => {
         </div>
 
         <div class="grid gap-3 md:grid-cols-2">
+        <div
+          v-if="visitorDossier?.confidence || visitorDossier?.peerComparison"
+          class="mt-3 grid gap-2 sm:grid-cols-3"
+        >
+          <div class="rounded-lg border border-violet-100 bg-violet-50/40 p-2.5 text-[11px]">
+            <p class="font-medium text-violet-950">置信度</p>
+            <p class="mt-1 text-sm font-semibold text-violet-900">
+              {{ adminLabel(adminConfidenceLabels, visitorDossier.confidence || visitorDossier.summary?.confidence, visitorDossier.confidence || '—') }}
+            </p>
+            <p class="mt-0.5 text-violet-800/80">证据事件 {{ visitorDossier.evidenceEvents ?? visitorDossier.summary?.evidenceEvents ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg border border-sky-100 bg-sky-50/40 p-2.5 text-[11px]">
+            <p class="font-medium text-sky-950">同行百分位</p>
+            <p class="mt-1 text-sm font-semibold text-sky-900">
+              P{{ visitorDossier.peerComparison?.percentile ?? visitorDossier.summary?.peerPercentile ?? '—' }}
+            </p>
+            <p class="mt-0.5 text-sky-800/80">
+              24h {{ visitorDossier.peerComparison?.events24h ?? visitorDossier.summary?.events24h ?? '—' }}
+              · 样本 {{ visitorDossier.peerComparison?.sampleSize ?? '—' }}
+            </p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 bg-white p-2.5 text-[11px]">
+            <p class="font-medium text-zinc-800">关系摘要</p>
+            <p class="mt-1 text-zinc-600">
+              IP {{ visitorDossier.relationship?.lastIp || visitorDossier.visitor?.lastIp || '—' }}
+            </p>
+            <p class="mt-0.5 text-zinc-500">
+              同 IP 访客 {{ (visitorDossier.relationship?.sameIpVisitorIds || []).length || visitorDossier.summary?.sameIpVisitorCount || 0 }}
+            </p>
+          </div>
+        </div>
+
+        <div
+          v-if="visitorDossier?.pathSequence?.length || visitorDossier?.pathTransitions?.length || visitorDossier?.burstWindows?.length"
+          class="mt-3 grid gap-3 md:grid-cols-3"
+        >
           <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">路径序列</p>
+            <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
+              <li
+                v-for="(row, idx) in (visitorDossier.pathSequence || []).slice(0, 12)"
+                :key="'vseq-' + idx"
+                class="flex items-center justify-between gap-2"
+              >
+                <span class="truncate text-zinc-700">{{ row.path }}</span>
+                <span class="shrink-0 text-zinc-400">{{ adminLabel(adminVisitorActionLabels, row.action, row.action) }}</span>
+              </li>
+              <li v-if="!(visitorDossier.pathSequence || []).length" class="text-zinc-400">暂无</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">路径迁移</p>
+            <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
+              <li
+                v-for="(row, idx) in (visitorDossier.pathTransitions || []).slice(0, 8)"
+                :key="'vpt-' + idx"
+                class="flex items-center justify-between gap-2"
+              >
+                <span class="truncate text-zinc-700">{{ row.transition || (row.from + ' → ' + row.to) }}</span>
+                <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+              </li>
+              <li v-if="!(visitorDossier.pathTransitions || []).length" class="text-zinc-400">暂无</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">突发窗口</p>
+            <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
+              <li
+                v-for="(row, idx) in (visitorDossier.burstWindows || []).slice(0, 6)"
+                :key="'vbw-' + idx"
+                class="flex items-center justify-between gap-2"
+              >
+                <span class="truncate text-zinc-600">{{ formatAdminRelativeTime(row.startAt) }}</span>
+                <span class="shrink-0 tabular-nums text-amber-800">{{ row.count }}</span>
+              </li>
+              <li v-if="!(visitorDossier.burstWindows || []).length" class="text-zinc-400">暂无</li>
+            </ul>
+          </div>
+        </div>
+
+<div class="rounded-lg border border-white bg-white/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600">IP 历史</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
               <li

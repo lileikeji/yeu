@@ -15,6 +15,7 @@ import {
   adminBanScopeLabels,
   adminLabel,
   adminOpsTimelineKindLabels,
+  adminResponseQueueKindLabels,
   adminRiskFactorLabels,
   adminRiskLevelLabels,
   adminVisitorActionLabels,
@@ -113,7 +114,7 @@ const securityPulse = reactive({
   multiVisitorIps: null as number | null,
   staleActiveBans: null as number | null
 })
-const securityIpClusters = ref<Array<{ ip: string; eventCount: number; visitorCount: number }>>([])
+const securityIpClusters = ref<Array<{ ip: string; eventCount: number; visitorCount: number; city?: string; topPath?: string; linkedUsers?: number; isBanned?: boolean; riskScore?: number; riskLevel?: string }>>([])
 const securitySuspiciousAgents = ref<Array<{ userAgent: string; eventCount: number; visitorCount: number }>>([])
 const securityAdminActors = ref<Array<{ adminId: string; username: string | null; displayName: string | null; actions: number }>>([])
 const securityOpsTimeline = ref<Array<{
@@ -124,6 +125,36 @@ const securityOpsTimeline = ref<Array<{
   createdAt: string
   href: string
 }>>([])
+const securityResponseQueue = ref<Array<{
+  id: string
+  kind: string
+  priority: string
+  title: string
+  detail: string
+  href: string
+  score: number
+}>>([])
+const securityPathTransitions = ref<Array<{ from: string; to: string; transition: string; count: number }>>([])
+const securityBurstWindows = ref<Array<{ startAt: string; endAt: string; count: number }>>([])
+const securityBanCoverage = reactive({
+  topIpCount: null as number | null,
+  bannedTopIps: null as number | null,
+  coverageRate: null as number | null,
+  activeExpired: null as number | null,
+  expiringSoon24h: null as number | null
+})
+const securityWindows = reactive({
+  h1Events: null as number | null,
+  peakBurst10m: null as number | null,
+  d7Visitors: null as number | null,
+  d7Events: null as number | null,
+  d7Bans: null as number | null
+})
+const securityGeoConcentration = reactive({
+  topCity: '' as string,
+  topCityShare: null as number | null,
+  distinctCities: null as number | null
+})
 const loading = ref(false)
 const loadError = ref('')
 
@@ -312,8 +343,34 @@ async function loadDashboard(): Promise<void> {
       securityPulse.staleActiveBans = Number(pulse.staleActiveBans ?? 0)
       securityIpClusters.value = Array.isArray(snap.ipClusters) ? snap.ipClusters : []
       securitySuspiciousAgents.value = Array.isArray(snap.suspiciousAgents) ? snap.suspiciousAgents : []
-      securityAdminActors.value = Array.isArray(snap.adminActors) ? snap.adminActors : []
+      securityAdminActors.value = Array.isArray(snap.adminActors)
+        ? snap.adminActors.map((row: any) => ({
+          adminId: row.adminId,
+          username: row.username ?? null,
+          displayName: row.displayName ?? null,
+          actions: Number(row.actions ?? row.auditCount ?? 0)
+        }))
+        : []
       securityOpsTimeline.value = Array.isArray(snap.opsTimeline) ? snap.opsTimeline : []
+      securityResponseQueue.value = Array.isArray(snap.responseQueue) ? snap.responseQueue : []
+      securityPathTransitions.value = Array.isArray(snap.pathTransitions) ? snap.pathTransitions : []
+      securityBurstWindows.value = Array.isArray(snap.burstWindows) ? snap.burstWindows : []
+      const cov = snap.banCoverage || {}
+      securityBanCoverage.topIpCount = Number(cov.topIpCount ?? 0)
+      securityBanCoverage.bannedTopIps = Number(cov.bannedTopIps ?? 0)
+      securityBanCoverage.coverageRate = Number(cov.coverageRate ?? 0)
+      securityBanCoverage.activeExpired = Number(cov.activeExpired ?? 0)
+      securityBanCoverage.expiringSoon24h = Number(cov.expiringSoon24h ?? 0)
+      const win = snap.windows || {}
+      securityWindows.h1Events = Number(win.h1?.visitorEvents ?? 0)
+      securityWindows.peakBurst10m = Number(win.h1?.peakBurst10m ?? 0)
+      securityWindows.d7Visitors = Number(win.d7?.visitorsActive ?? 0)
+      securityWindows.d7Events = Number(win.d7?.visitorEvents ?? 0)
+      securityWindows.d7Bans = Number(win.d7?.bansCreated ?? 0)
+      const geo = snap.geoConcentration || {}
+      securityGeoConcentration.topCity = geo.topCity || ''
+      securityGeoConcentration.topCityShare = Number(geo.topCityShare ?? 0)
+      securityGeoConcentration.distinctCities = Number(geo.distinctCities ?? 0)
       securityTopPaths.value = Array.isArray(snap.topPaths) ? snap.topPaths : []
       securityTopCities.value = Array.isArray(snap.topCities) ? snap.topCities : []
       securityTopActions.value = Array.isArray(snap.topActions) ? snap.topActions : []
@@ -373,8 +430,6 @@ onMounted(() => {
       />
       {{ loadError }}
     </div>
-
-
     <section
       class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
       aria-label="安全态势"
@@ -424,8 +479,6 @@ onMounted(() => {
         <p class="mt-1 text-[11px] text-zinc-500">房间级 mute-all</p>
       </NuxtLink>
     </section>
-
-
     <section
       v-if="securityRiskHints.length"
       class="mt-4 rounded-md border border-zinc-200 bg-white p-4"
@@ -468,6 +521,132 @@ onMounted(() => {
           </NuxtLink>
         </li>
       </ul>
+    </section>
+
+    <section
+      v-if="securityResponseQueue.length"
+      class="mt-4 rounded-md border border-zinc-200 bg-white p-4"
+      aria-label="响应队列"
+    >
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-zinc-950">处置响应队列</h2>
+          <p class="mt-0.5 text-[11px] text-zinc-500">按优先级汇总 IP 聚类、风险提示、封禁卫生与突发窗口</p>
+        </div>
+        <UButton to="/admin/visitors" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">
+          访客
+        </UButton>
+      </div>
+      <ul class="mt-3 grid gap-2 lg:grid-cols-2">
+        <li
+          v-for="item in securityResponseQueue"
+          :key="item.id"
+        >
+          <NuxtLink
+            :to="item.href"
+            class="block rounded-lg border px-3 py-2 text-xs transition hover:bg-zinc-50"
+            :class="item.priority === 'high'
+              ? 'border-red-200 bg-red-50/40'
+              : item.priority === 'medium'
+                ? 'border-amber-200 bg-amber-50/30'
+                : 'border-zinc-200 bg-zinc-50/40'"
+          >
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span class="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 ring-1 ring-zinc-200">
+                {{ adminLabel(adminResponseQueueKindLabels, item.kind, item.kind) }}
+              </span>
+              <span
+                class="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                :class="item.priority === 'high'
+                  ? 'bg-red-100 text-red-800'
+                  : item.priority === 'medium'
+                    ? 'bg-amber-100 text-amber-900'
+                    : 'bg-zinc-200 text-zinc-700'"
+              >
+                {{ riskLevelLabel(item.priority) }}
+              </span>
+              <span class="tabular-nums text-zinc-400">{{ item.score }}</span>
+            </div>
+            <p class="mt-1 font-medium text-zinc-900">{{ item.title }}</p>
+            <p class="mt-0.5 line-clamp-2 text-zinc-500">{{ item.detail }}</p>
+          </NuxtLink>
+        </li>
+      </ul>
+    </section>
+
+    <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="深度窗口与覆盖">
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">时间窗口</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">1h / 24h / 7d 对照</p>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">1h 事件</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.h1Events ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-amber-50/60 px-3 py-2">
+            <p class="text-[11px] text-amber-800">10 分钟峰值</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.peakBurst10m ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">7d 活跃访客</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.d7Visitors ?? '—' }}</p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">7d 事件 / 封禁</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityWindows.d7Events ?? '—' }} / {{ securityWindows.d7Bans ?? '—' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">封禁覆盖</h2>
+        <p class="mt-0.5 text-[11px] text-zinc-500">高频 IP 是否已封禁</p>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div class="rounded-lg bg-emerald-50/60 px-3 py-2">
+            <p class="text-[11px] text-emerald-800">覆盖率</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityBanCoverage.coverageRate ?? '—' }}%</p>
+          </div>
+          <div class="rounded-lg bg-zinc-50 px-3 py-2">
+            <p class="text-[11px] text-zinc-500">已封 / 样本</p>
+            <p class="mt-1 text-lg font-semibold tabular-nums">{{ securityBanCoverage.bannedTopIps ?? '—' }} / {{ securityBanCoverage.topIpCount ?? '—' }}</p>
+          </div>
+        </div>
+        <p class="mt-2 text-[11px] text-zinc-500">
+          地理集中：{{ securityGeoConcentration.topCity || '—' }}
+          <template v-if="securityGeoConcentration.topCityShare != null"> · {{ securityGeoConcentration.topCityShare }}%</template>
+          <template v-if="securityGeoConcentration.distinctCities != null"> · {{ securityGeoConcentration.distinctCities }} 城</template>
+        </p>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">突发窗口 TOP</h2>
+        <ul class="mt-3 max-h-40 space-y-1.5 overflow-y-auto text-xs">
+          <li
+            v-for="(row, idx) in securityBurstWindows"
+            :key="'bw-' + idx"
+            class="flex items-center justify-between gap-2"
+          >
+            <span class="truncate text-zinc-600">{{ formatAdminRelativeTime(row.startAt) }}</span>
+            <span class="shrink-0 tabular-nums font-medium text-amber-800">{{ row.count }}</span>
+          </li>
+          <li v-if="!securityBurstWindows.length" class="py-4 text-center text-zinc-400">暂无突发</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-3">
+        <h2 class="text-sm font-semibold text-zinc-950">路径迁移 · 近 24h 样本</h2>
+        <ul class="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 text-xs">
+          <li
+            v-for="(row, idx) in securityPathTransitions"
+            :key="'pt-' + idx"
+            class="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 px-2.5 py-1.5"
+          >
+            <span class="truncate text-zinc-700">{{ row.transition || (row.from + ' → ' + row.to) }}</span>
+            <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+          </li>
+          <li v-if="!securityPathTransitions.length" class="py-4 text-center text-zinc-400 sm:col-span-2 lg:col-span-3">暂无迁移</li>
+        </ul>
+      </div>
     </section>
 
     <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="安全深度快照">
@@ -688,7 +867,14 @@ onMounted(() => {
             >
               {{ row.ip }}
             </NuxtLink>
-            <span class="shrink-0 tabular-nums text-zinc-500">访客 {{ row.visitorCount }} · 事件 {{ row.eventCount }}</span>
+            <span class="shrink-0 text-right text-zinc-500">
+              <span class="tabular-nums">访客 {{ row.visitorCount }} · 事件 {{ row.eventCount }}</span>
+              <span v-if="row.city" class="block text-[10px] text-zinc-400">{{ row.city }} · {{ row.topPath || '/' }}</span>
+              <span v-if="row.riskLevel && row.riskLevel !== 'info'" class="block text-[10px]" :class="row.riskLevel === 'high' ? 'text-red-700' : 'text-amber-700'">
+                {{ riskLevelLabel(row.riskLevel) }} · {{ row.riskScore }}
+                <template v-if="row.isBanned"> · 已封</template>
+              </span>
+            </span>
           </li>
           <li v-if="!securityIpClusters.length" class="py-4 text-center text-zinc-400">暂无聚类</li>
         </ul>
