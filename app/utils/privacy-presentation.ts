@@ -27,7 +27,7 @@ export const privacySections: PrivacySection[] = [
     ]
   },
   {
-    title: '访问安全记录',
+    title: '网站安全记录',
     icon: 'i-lucide-radar',
     items: [
       '为了保障网站安全，会记录访问时使用的网络地址、推测到的城市或地区、打开过的页面和进行过的操作。',

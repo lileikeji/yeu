@@ -22,7 +22,7 @@ test('privacy sections stay student-facing', () => {
   assert.equal(privacyHighlights[0]?.value, '不需要登录')
   assert.equal(privacySections.length, 6)
   assert.equal(privacySections[0]?.title, '浏览和定位')
-  assert.equal(privacySections[1]?.title, '访问安全记录')
+  assert.equal(privacySections[1]?.title, '网站安全记录')
   assert.equal(privacySections[2]?.title, '账号和聊天')
   assert.equal(privacySections[3]?.title, '你提交的反馈')
   assert.equal(privacySections[4]?.title, '保存多久')
