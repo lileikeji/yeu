@@ -14,33 +14,38 @@ function walkFiles(rootDir: string, predicate: (name: string) => boolean): strin
   return out
 }
 
-test('legacy /api/auth/* route handlers are removed', () => {
-  const legacyFiles = [
-    join(process.cwd(), 'server/api/auth/login.post.ts'),
-    join(process.cwd(), 'server/api/auth/logout.post.ts'),
-    join(process.cwd(), 'server/api/auth/status.get.ts'),
-    join(process.cwd(), 'server/utils/legacy-auth-deprecation.ts')
-  ]
-  for (const file of legacyFiles) {
-    assert.equal(existsSync(file), false, 'legacy auth file must not exist: ' + file)
+test('user auth routes exist without restoring the deprecated status handler', () => {
+  for (const rel of [
+    'server/api/auth/login.post.ts',
+    'server/api/auth/logout.post.ts',
+    'server/api/auth/session.get.ts'
+  ]) {
+    assert.equal(existsSync(join(process.cwd(), rel)), true, rel)
+  }
+  for (const rel of [
+    'server/api/auth/status.get.ts',
+    'server/utils/legacy-auth-deprecation.ts'
+  ]) {
+    assert.equal(existsSync(join(process.cwd(), rel)), false, 'deprecated auth file must not exist: ' + rel)
   }
 })
 
-test('admin UI only calls /api/admin/auth/* (not legacy /api/auth/*)', () => {
+test('admin UI only calls /api/admin/auth/* and never user auth routes', () => {
   const roots = [
-    join(process.cwd(), 'app'),
-    join(process.cwd(), 'shared'),
-    join(process.cwd(), 'server')
+    join(process.cwd(), 'app/pages/admin'),
+    join(process.cwd(), 'app/components/admin')
   ]
-  const files = roots.flatMap(rootDir => walkFiles(rootDir, name => /\.(vue|ts|js|mjs)$/.test(name)))
+  const files = [
+    ...roots.flatMap(rootDir => walkFiles(rootDir, name => /\.(vue|ts|js|mjs)$/.test(name))),
+    join(process.cwd(), 'app/layouts/admin.vue')
+  ]
   const offenders: string[] = []
   for (const file of files) {
-    // Skip nothing under server/api/auth except .gitkeep (handlers deleted)
     const text = readFileSync(file, 'utf8')
-    const legacy = text.match(/['"`]\/api\/auth\/(login|logout|status)/g)
-    if (legacy?.length) offenders.push(file + ': ' + legacy.join(', '))
+    const userAuthPaths = text.match(/['"`]\/api\/auth\/(login|logout|session)/g)
+    if (userAuthPaths?.length) offenders.push(file + ': ' + userAuthPaths.join(', '))
   }
-  assert.deepEqual(offenders, [], 'legacy /api/auth paths found:\n' + offenders.join('\n'))
+  assert.deepEqual(offenders, [], 'user auth paths found in admin UI:\n' + offenders.join('\n'))
 })
 
 test('canonical admin auth handlers exist', () => {

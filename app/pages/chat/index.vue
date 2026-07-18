@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getRequestMessage, getRequestStatusCode, isAuthorizationError } from '~~/app/utils/request-error'
+import { getRequestMessage, getRequestStatusCode } from '~~/app/utils/request-error'
 import { userFetch } from '~~/app/utils/user-request'
 
 definePageMeta({
@@ -49,6 +49,13 @@ let stickToBottom = true
 
 const activeRoom = computed(() => rooms.value.find(room => room.id === activeRoomId.value) || null)
 const composerLocked = computed(() => Boolean(activeRoom.value?.isMutedAll || activeRoom.value?.isMuted))
+const activeRoomDescription = computed(() => {
+  if (!activeRoom.value) return '请选择一个群聊'
+  if (activeRoom.value.kind === 'public') return '所有已登录同学都可以参与'
+  return activeRoom.value.dormBuilding
+    ? `${activeRoom.value.dormBuilding}楼群`
+    : '同宿舍楼同学的交流区'
+})
 
 type ChatRoomMuteState = {
   id: string
@@ -128,7 +135,7 @@ async function loadInitialMessages(): Promise<void> {
     messages.value = []
     return
   }
-  const payload = await userFetch<{ items: ChatMessage[]; room?: ChatRoomMuteState }>(
+  const payload = await userFetch<{ items: ChatMessage[], room?: ChatRoomMuteState }>(
     `/api/chat/rooms/${encodeURIComponent(activeRoomId.value)}/messages`,
     { query: { limit: 50 } }
   )
@@ -141,7 +148,7 @@ async function loadInitialMessages(): Promise<void> {
 async function pollMessages(): Promise<void> {
   if (!activeRoomId.value) return
   const after = messages.value[messages.value.length - 1]?.id
-  const payload = await userFetch<{ items: ChatMessage[]; room?: ChatRoomMuteState }>(
+  const payload = await userFetch<{ items: ChatMessage[], room?: ChatRoomMuteState }>(
     `/api/chat/rooms/${encodeURIComponent(activeRoomId.value)}/messages`,
     { query: after ? { after, limit: 50 } : { limit: 50 } }
   )
@@ -287,7 +294,7 @@ watch(activeRoomId, () => {
             公共群与宿舍楼群
           </h1>
           <p class="mt-1 text-sm text-zinc-500">
-            当前身份：{{ user?.displayName || '…' }} · 不登录不能聊天
+            {{ user?.displayName || '同学' }}，选择公共群或宿舍楼群开始交流。
           </p>
         </div>
         <div class="flex gap-2">
@@ -305,25 +312,29 @@ watch(activeRoomId, () => {
 
       <div
         v-if="loading"
-        class="rounded-2xl border border-[var(--line)] bg-white p-8 text-sm text-zinc-500"
+        class="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white p-8 text-sm text-zinc-500"
       >
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="size-4 animate-spin"
+        />
         正在进入群聊…
       </div>
 
       <div
         v-else-if="loadError"
-        class="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"
+        class="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-800"
       >
         {{ loadError }}
       </div>
 
       <div
         v-else
-        class="grid min-h-[70vh] overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm lg:grid-cols-[15rem_minmax(0,1fr)]"
+        class="grid min-h-[70vh] overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-sm lg:grid-cols-[15rem_minmax(0,1fr)]"
       >
         <aside class="border-b border-zinc-100 bg-zinc-50/80 p-3 lg:border-b-0 lg:border-r">
           <p class="px-2 pb-2 text-xs font-semibold text-zinc-500">
-            房间
+            群聊
           </p>
           <div class="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
             <button
@@ -334,6 +345,7 @@ watch(activeRoomId, () => {
               :class="room.id === activeRoomId
                 ? 'bg-green-700 text-white shadow-sm'
                 : 'bg-white text-zinc-700 ring-1 ring-zinc-200 hover:bg-green-50'"
+              :aria-pressed="room.id === activeRoomId"
               @click="switchRoom(room.id)"
             >
               <span class="block font-medium">
@@ -360,10 +372,10 @@ watch(activeRoomId, () => {
           <header class="flex items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3">
             <div class="min-w-0">
               <h2 class="truncate font-semibold text-zinc-950">
-                {{ activeRoom?.title || '未选择房间' }}
+                {{ activeRoom?.title || '请选择群聊' }}
               </h2>
               <p class="text-xs text-zinc-500">
-                消息格式：用户名 + 时间，下一行内容
+                {{ activeRoomDescription }}
               </p>
             </div>
           </header>
@@ -373,12 +385,24 @@ watch(activeRoomId, () => {
             class="flex-1 space-y-4 overflow-y-auto px-4 py-4"
             @scroll="onListScroll"
           >
-            <p
+            <div
               v-if="!messages.length"
-              class="py-10 text-center text-sm text-zinc-400"
+              class="grid place-items-center py-10 text-center"
             >
-              还没有消息，来打个招呼吧。
-            </p>
+              <UIcon
+                name="i-lucide-message-circle"
+                class="size-7 text-zinc-300"
+              />
+              <p class="mt-3 text-sm font-medium text-zinc-600">
+                {{ activeRoom ? '这里还没有消息' : '暂时没有可用群聊' }}
+              </p>
+              <p
+                v-if="activeRoom"
+                class="mt-1 text-xs text-zinc-400"
+              >
+                先和同学打个招呼吧。
+              </p>
+            </div>
             <article
               v-for="message in messages"
               :key="message.id"
@@ -389,7 +413,7 @@ watch(activeRoomId, () => {
                 <span class="mx-2 text-zinc-300">·</span>
                 <time :datetime="message.createdAt">{{ formatTime(message.createdAt) }}</time>
               </p>
-              <p class="mt-1 whitespace-pre-wrap break-words rounded-2xl bg-zinc-50 px-3 py-2 text-sm leading-6 text-zinc-800 ring-1 ring-zinc-100">
+              <p class="mt-1 whitespace-pre-wrap break-words rounded-lg bg-zinc-50 px-3 py-2 text-sm leading-6 text-zinc-800 ring-1 ring-zinc-100">
                 {{ message.body }}
               </p>
             </article>
@@ -418,7 +442,7 @@ watch(activeRoomId, () => {
                 autoresize
                 maxlength="1000"
                 class="w-full"
-                :placeholder="composerLocked ? composerLockReason : '输入消息，回车发送前请确认内容合适'"
+                :placeholder="composerLocked ? composerLockReason : '和同学说点什么…'"
                 :disabled="sending || !activeRoomId || composerLocked"
               />
               <UButton

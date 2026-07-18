@@ -132,7 +132,7 @@ onMounted(async () => {
             资料与宿舍
           </h1>
           <p class="mt-1 text-sm text-zinc-500">
-            登录后可改名、填写专业与宿舍楼；宿舍楼决定楼群入口。
+            完善显示名、专业和宿舍楼，方便进入对应楼群。
           </p>
         </div>
         <UButton
@@ -147,14 +147,18 @@ onMounted(async () => {
 
       <div
         v-if="loading"
-        class="rounded-2xl border border-[var(--line)] bg-white p-8 text-sm text-zinc-500"
+        class="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white p-8 text-sm text-zinc-500"
       >
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="size-4 animate-spin"
+        />
         正在加载…
       </div>
 
       <div
         v-else
-        class="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm sm:p-7"
+        class="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm sm:p-7"
       >
         <div class="flex flex-wrap items-center gap-3 border-b border-zinc-100 pb-4">
           <span class="grid size-11 place-items-center rounded-full bg-green-100 text-sm font-bold text-green-800">
@@ -172,13 +176,13 @@ onMounted(async () => {
 
         <div
           v-if="errorMessage"
-          class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          class="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
         >
           {{ errorMessage }}
         </div>
         <div
           v-if="successMessage"
-          class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+          class="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
         >
           {{ successMessage }}
         </div>
@@ -213,7 +217,7 @@ onMounted(async () => {
               v-model="dormBuilding"
               maxlength="80"
               class="w-full"
-              placeholder="输入后下方会出现已有宿舍楼"
+              placeholder="输入楼名，或从下方已有楼栋中选择"
               @update:model-value="onDormInput"
             />
             <p class="mt-1 text-xs text-zinc-500">
@@ -237,7 +241,7 @@ onMounted(async () => {
               v-else-if="dormLoading"
               class="mt-2 text-xs text-zinc-400"
             >
-              正在加载宿舍建议…
+              正在查找宿舍楼…
             </p>
           </UFormField>
 

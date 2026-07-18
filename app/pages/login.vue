@@ -84,16 +84,16 @@ onMounted(() => {
 
 <template>
   <div class="page-shell py-8 sm:py-12">
-    <div class="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(18rem,0.75fr)]">
-      <section class="rounded-2xl border border-[var(--line)] bg-white p-6 shadow-sm sm:p-8">
-        <p class="text-xs font-semibold tracking-wide text-green-700">
-          ACCOUNT
+    <div class="mx-auto max-w-md">
+      <section class="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm sm:p-7">
+        <p class="text-xs font-semibold text-green-700">
+          账号服务
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950">
           账号登录
         </h1>
         <p class="mt-2 text-sm leading-6 text-zinc-500">
-          浏览指南、地图与办事流程无需登录。群聊需要账号；当前暂不开放自助注册，请联系管理员开号。
+          地图、办事指南和校园信息无需登录；只有群聊需要账号。账号由管理员统一创建，暂不支持自行注册。
         </p>
 
         <div
@@ -181,23 +181,11 @@ onMounted(() => {
             登录
           </UButton>
         </form>
-      </section>
 
-      <aside class="rounded-2xl border border-green-100 bg-green-50/70 p-6 text-sm leading-7 text-green-950">
-        <h2 class="text-base font-semibold">
-          登录后可做什么
-        </h2>
-        <ul class="mt-3 space-y-2">
-          <li>· 修改显示名、专业与宿舍楼</li>
-          <li>· 进入公共群聊</li>
-          <li>· 自动进入对应宿舍楼群</li>
-        </ul>
-        <p class="mt-5 text-xs text-green-800/80">
-          不登录也能正常使用地图、办事与指南。管理员入口不在公开导航中展示。
-        </p>
-        <div class="mt-6 flex flex-wrap gap-2">
+        <div class="mt-6 flex flex-wrap gap-2 border-t border-zinc-100 pt-5">
           <UButton
             to="/"
+            icon="i-lucide-house"
             color="neutral"
             variant="outline"
             size="sm"
@@ -206,6 +194,7 @@ onMounted(() => {
           </UButton>
           <UButton
             to="/privacy"
+            icon="i-lucide-shield-check"
             color="neutral"
             variant="ghost"
             size="sm"
@@ -213,7 +202,7 @@ onMounted(() => {
             隐私说明
           </UButton>
         </div>
-      </aside>
+      </section>
     </div>
   </div>
 </template>
