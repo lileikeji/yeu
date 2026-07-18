@@ -23,6 +23,8 @@ const composableSource = readFileSync(resolve('app/composables/useFreshmanCheckl
 test('checklist page is a thin shell over presentation + local composable', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/checklist-presentation['"]/)
   assert.match(pageSource, /checklistAudienceOptions/)
+  assert.match(pageSource, /清单进度只保存在这台设备，换设备或清除本地记录后会丢失。/)
+  assert.doesNotMatch(pageSource, /清除本站数据/)
   assert.match(pageSource, /useFreshmanChecklist/)
   assert.doesNotMatch(pageSource, /const checklistItems = \[/)
   assert.match(utilSource, /export const checklistItems/)
