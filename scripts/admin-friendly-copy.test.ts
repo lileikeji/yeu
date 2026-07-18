@@ -11,6 +11,10 @@ const picker = readFileSync(resolve('app/components/admin/AdminCoordinatePicker.
 const reviewMap = readFileSync(resolve('app/components/admin/AdminCoordinateReviewMap.vue'), 'utf8')
 const offlineQueue = readFileSync(resolve('app/components/admin/AdminCoordinateOfflineQueuePanel.vue'), 'utf8')
 const resourceForm = readFileSync(resolve('app/utils/admin-resource-form.ts'), 'utf8')
+const procedureBasics = readFileSync(resolve('app/components/admin/AdminProcedureBasicsEditor.vue'), 'utf8')
+const procedureCatalog = readFileSync(resolve('app/components/admin/AdminProcedureCatalogPanel.vue'), 'utf8')
+const bansPage = readFileSync(resolve('app/pages/admin/bans/index.vue'), 'utf8')
+const visitorsPage = readFileSync(resolve('app/pages/admin/visitors/index.vue'), 'utf8')
 
 test('content and source catalogs translate stored values for administrators', () => {
   const contentKind = adminSectionConfigs.content!.columns.find(column => column.key === 'kind')!
@@ -32,4 +36,14 @@ test('content editor and coordinate workflows avoid engineer-facing copy', () =>
   assert.match(reviewCopy, /两次独立核验/)
   assert.match(offlineQueue, /本地记录编号/)
   assert.doesNotMatch(resourceForm, /必须是合法 JSON/)
+})
+
+test('operator identifiers and procedure paths use plain-language labels', () => {
+  assert.match(procedureBasics, /网页地址名称/)
+  assert.doesNotMatch(procedureBasics, /公开路径标识/)
+  assert.doesNotMatch(procedureCatalog, /\{\{ procedure\.slug \}\}/)
+  assert.doesNotMatch(bansPage, /访客 ID|账号 ID|封禁 ID/)
+  assert.doesNotMatch(visitorsPage, /访客 ID|账号 ID/)
+  assert.match(bansPage, /封禁记录编号/)
+  assert.match(visitorsPage, /访客编号/)
 })

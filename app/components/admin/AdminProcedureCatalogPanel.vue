@@ -127,7 +127,7 @@ const emit = defineEmits<{
                   {{ procedure.title }}
                 </p>
                 <p class="mt-1 line-clamp-1 text-xs text-zinc-500">
-                  {{ procedure.slug }} · {{ procedure.steps.length }} 个步骤 / {{ procedure.materials.length }} 项材料
+                  {{ procedure.steps.length }} 个步骤 · {{ procedure.materials.length }} 项材料
                 </p>
               </td>
               <td class="px-4 py-3 text-zinc-600">

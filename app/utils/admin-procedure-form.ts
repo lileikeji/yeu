@@ -32,7 +32,7 @@ function isHttpUrl(value: string): boolean {
 
 export function validateProcedureForm(form: ProcedureForm): string | null {
   if (!form.title.trim()) return '请填写流程标题'
-  if (!form.slug.trim()) return '请填写公开路径标识'
+  if (!form.slug.trim()) return '请填写网页地址名称'
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug.trim())) return '公开路径只能使用小写字母、数字和连字符'
   if (!form.summary.trim()) return '请填写流程摘要'
   if (!form.statusText.trim()) return '请填写前台状态说明'

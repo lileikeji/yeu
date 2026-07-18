@@ -58,7 +58,7 @@ test('procedure editor shell composes ordered section editors with a shared form
 test('basic editor owns the public identity and audience fields without side effects', () => {
   assert.match(basicsSource, /defineModel<ProcedureForm>\('form', \{ required: true \}\)/)
   assert.match(basicsSource, /toggleAudience: \[target: ProcedureForm/)
-  for (const label of ['流程标题', '公开路径标识', '分类', '办理方式', '适用人群', '摘要', '详细说明']) {
+  for (const label of ['流程标题', '网页地址名称', '分类', '办理方式', '适用人群', '摘要', '详细说明']) {
     assert.match(basicsSource, new RegExp(`label="${label}"`))
   }
   assert.doesNotMatch(basicsSource, /\$fetch|useRoute|useRouter|buildPayload|validateForm/)

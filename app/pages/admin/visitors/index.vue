@@ -626,7 +626,7 @@ onMounted(async () => {
       <UFormField label="关键词">
         <UInput
           v-model="q"
-          placeholder="IP / 城市 / 路径 / 访客 ID"
+          placeholder="IP / 城市 / 路径 / 访客编号"
           class="w-full"
           @keyup.enter="applySearch"
         />
@@ -860,7 +860,7 @@ onMounted(async () => {
             <UInput
               v-model="banValue"
               class="w-full"
-              placeholder="IP / 访客 ID / 账号 ID"
+              placeholder="IP / 访客编号 / 账号编号"
             />
           </UFormField>
           <UFormField label="原因（必填）">
@@ -1229,7 +1229,7 @@ onMounted(async () => {
             事件详情 · {{ selectedVisitor.lastIp || selectedVisitor.id }}
           </h2>
           <p class="mt-1 text-xs text-zinc-500">
-            {{ selectedVisitor.locationLabel }} · 共 {{ eventTotal }} 条事件 · 访客 ID {{ selectedVisitor.id }}
+            {{ selectedVisitor.locationLabel }} · 共 {{ eventTotal }} 条事件 · 访客编号 {{ shortAdminId(selectedVisitor.id, 12) }}
           </p>
         </div>
         <div class="flex gap-2">

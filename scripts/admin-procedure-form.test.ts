@@ -65,7 +65,7 @@ function validForm(): ProcedureForm {
 test('procedure form validation preserves the complete user-facing error order', () => {
   const cases: Array<{ expected: string, mutate: (form: ProcedureForm) => void }> = [
     { expected: '请填写流程标题', mutate: (form) => { form.title = ' ' } },
-    { expected: '请填写公开路径标识', mutate: (form) => { form.slug = '' } },
+    { expected: '请填写网页地址名称', mutate: (form) => { form.slug = '' } },
     { expected: '公开路径只能使用小写字母、数字和连字符', mutate: (form) => { form.slug = 'Arrival Registration' } },
     { expected: '请填写流程摘要', mutate: (form) => { form.summary = '' } },
     { expected: '请填写前台状态说明', mutate: (form) => { form.statusText = '' } },

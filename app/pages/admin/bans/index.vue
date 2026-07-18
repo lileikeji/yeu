@@ -8,7 +8,8 @@ import {
   adminLabel,
   banStatusMeta,
   confirmAdminAction,
-  formatAdminDateTime
+  formatAdminDateTime,
+  shortAdminId
 } from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
@@ -114,7 +115,7 @@ function applyPreset(nextActive: 'true' | 'false' | 'all', nextScope: '' | 'ip' 
 
 async function createBan(): Promise<void> {
   if (!form.value.trim()) {
-    toast.add({ title: '请填写封禁值（IP / 访客 ID / 账号 ID）', color: 'warning' })
+    toast.add({ title: '请填写封禁值（IP / 访客编号 / 账号编号）', color: 'warning' })
     return
   }
   if (!form.reason.trim()) {
@@ -319,7 +320,7 @@ onMounted(async () => {
             <UInput
               v-model="form.value"
               class="w-full"
-              placeholder="IP / 访客 ID / 账号 ID"
+              placeholder="IP / 访客编号 / 账号编号"
             />
           </UFormField>
           <UFormField label="原因（必填）">
@@ -436,8 +437,8 @@ onMounted(async () => {
                   原因：{{ ban.reason || '—' }}
                 </p>
                 <p class="mt-1 break-all text-[11px] text-zinc-400">
-                  ID {{ ban.id }}
-                  <template v-if="ban.bannedByAdminId"> · 操作人 {{ ban.bannedByAdminId }}</template>
+                  封禁记录 {{ shortAdminId(ban.id, 10) }}
+                  <template v-if="ban.bannedByAdminId"> · 管理员 {{ shortAdminId(ban.bannedByAdminId, 10) }}</template>
                 </p>
               </button>
               <div class="flex shrink-0 flex-col gap-1">
@@ -543,12 +544,12 @@ onMounted(async () => {
           <dd class="text-sm text-zinc-800">{{ selectedBan.expiresAt ? formatTime(selectedBan.expiresAt) : '永久' }}</dd>
         </div>
         <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">操作管理员</dt>
-          <dd class="break-all text-sm text-zinc-800">{{ selectedBan.bannedByAdminId || '—' }}</dd>
+          <dt class="text-[11px] text-zinc-500">操作管理员编号</dt>
+          <dd class="text-sm text-zinc-800">{{ selectedBan.bannedByAdminId ? shortAdminId(selectedBan.bannedByAdminId, 12) : '—' }}</dd>
         </div>
         <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">封禁 ID</dt>
-          <dd class="break-all text-sm text-zinc-800">{{ selectedBan.id }}</dd>
+          <dt class="text-[11px] text-zinc-500">封禁记录编号</dt>
+          <dd class="text-sm text-zinc-800">{{ shortAdminId(selectedBan.id, 12) }}</dd>
         </div>
       </dl>
       <div class="mt-3 flex flex-wrap gap-2">

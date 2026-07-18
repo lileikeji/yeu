@@ -35,13 +35,13 @@ const emit = defineEmits<{
         />
       </UFormField>
       <UFormField
-        label="公开路径标识"
-        description="仅使用小写字母、数字和连字符。"
+        label="网页地址名称"
+        description="用于生成网页地址，仅使用小写字母、数字和短横线。"
         required
       >
         <UInput
           v-model="form.slug"
-          placeholder="arrival-registration"
+          placeholder="例如 arrival-registration"
           class="w-full"
         />
       </UFormField>
@@ -51,7 +51,7 @@ const emit = defineEmits<{
       >
         <UInput
           v-model="form.category"
-          placeholder="arrival"
+          placeholder="例如 报到入学"
           class="w-full"
         />
       </UFormField>
