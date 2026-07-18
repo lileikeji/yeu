@@ -4,8 +4,11 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   campusFallbackMessages,
+  campusFeaturedDepartmentSlugs,
   campusStats,
-  resolveCampusFallbackMessage
+  resolveCampusFallbackMessage,
+  selectFeaturedClubs,
+  selectFeaturedDepartments
 } from '../app/utils/campus-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/campus.vue'), 'utf8')
@@ -15,8 +18,11 @@ test('campus page is a thin shell over campus-presentation util', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/campus-presentation['"]/)
   assert.match(pageSource, /campusStats/)
   assert.match(pageSource, /resolveCampusFallbackMessage/)
+  assert.match(pageSource, /selectFeaturedDepartments/)
+  assert.match(pageSource, /selectFeaturedClubs/)
   assert.doesNotMatch(pageSource, /const campusStats = \[/)
   assert.doesNotMatch(pageSource, /校园内容服务暂时不可用/)
+  assert.doesNotMatch(pageSource, /旧口径|有公开来源的学生社团条目|干部线索|已发布社团资料/)
   assert.match(utilSource, /export const campusStats/)
   assert.match(utilSource, /export function resolveCampusFallbackMessage/)
 })
@@ -65,4 +71,21 @@ test('campus fallback message covers error, static, empty and ready states', () 
     response: { items: [{ id: '1' }] },
     allowStaticDepartmentFallback: false
   }), null)
+})
+
+test('campus overview keeps short, useful previews and links to complete lists', () => {
+  const departments = [
+    { slug: 'library' },
+    { slug: 'school-of-management' },
+    { slug: 'student-affairs' },
+    { slug: 'campus-clinic' }
+  ]
+  assert.deepEqual(
+    selectFeaturedDepartments(departments).map(item => item.slug),
+    ['student-affairs', 'campus-clinic', 'library']
+  )
+  assert.ok(campusFeaturedDepartmentSlugs.length <= 8)
+  assert.deepEqual(selectFeaturedClubs([1, 2, 3, 4], 3), [1, 2, 3])
+  assert.match(pageSource, /to="\/departments"/)
+  assert.match(pageSource, /to="\/clubs"/)
 })

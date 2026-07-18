@@ -17,9 +17,31 @@ export const campusStats: CampusStatItem[] = [
 
 export const campusFallbackMessages = {
   serviceUnavailable: '校园内容服务暂时不可用，请稍后重试。',
-  staticDepartmentFallback: '当前先显示学校公开入口与基础资料，后续可在内容管理中持续补充。',
-  emptyCatalog: '校园资料正在整理中，暂时没有可公开展示的新记录。'
+  staticDepartmentFallback: '正在显示学校官网中的基础信息，部分联系方式可能暂未收录。',
+  emptyCatalog: '校园信息暂时还没有准备好，请稍后再看。'
 } as const
+
+export const campusFeaturedDepartmentSlugs = [
+  'teaching-affairs-office',
+  'student-affairs',
+  'admissions-office',
+  'financial-aid-center',
+  'general-affairs-office',
+  'campus-clinic',
+  'mental-health-center',
+  'library'
+] as const
+
+export function selectFeaturedDepartments<T extends { slug: string }>(departments: ReadonlyArray<T>): T[] {
+  const bySlug = new Map(departments.map(department => [department.slug, department]))
+  return campusFeaturedDepartmentSlugs
+    .map(slug => bySlug.get(slug))
+    .filter((department): department is T => Boolean(department))
+}
+
+export function selectFeaturedClubs<T>(clubs: ReadonlyArray<T>, limit = 6): T[] {
+  return clubs.slice(0, Math.max(0, limit))
+}
 
 export function resolveCampusFallbackMessage(input: {
   hasError: boolean

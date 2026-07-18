@@ -2,25 +2,32 @@
 import { officialClubs } from '~~/data/seeds/public-content'
 import {
   clubListMessages,
-  countLeadClubs,
   countRecentClubs,
   filterClubListItems,
-  joinClubNames
+  hasRecentClubActivity,
+  listClubGroups,
+  resolveClubDirection,
+  resolveClubGroup
 } from '~~/app/utils/club-list-presentation'
 import { publicClubs } from '~/utils/public-catalog'
 
 useSeoMeta({
   title: '学生社团',
-  description: '查看仰恩大学近期活动中有公开来源的学生社团及招新信息状态。'
+  description: '按兴趣浏览仰恩大学学生社团，查看活动方向与最新招新提醒。'
 })
 
 const searchQuery = ref('')
+const selectedGroup = ref<string>(clubListMessages.allGroups)
+const clubDirectionBySlug = new Map(officialClubs.map(club => [club.slug, club.direction]))
 const { data: response, error } = await usePublicClubList()
 const clubs = computed(() => publicClubs(response.value?.items ?? [], officialClubs))
 const recentClubCount = computed(() => countRecentClubs(clubs.value))
-const leadClubCount = computed(() => countLeadClubs(clubs.value.length, recentClubCount.value))
-const clubNamesText = computed(() => joinClubNames(clubs.value))
-const filteredClubs = computed(() => filterClubListItems(clubs.value, searchQuery.value))
+const clubGroups = computed(() => [clubListMessages.allGroups, ...listClubGroups(clubs.value)])
+const filteredClubs = computed(() => filterClubListItems(
+  clubs.value,
+  searchQuery.value,
+  selectedGroup.value
+))
 </script>
 
 <template>
@@ -28,22 +35,55 @@ const filteredClubs = computed(() => filterClubListItems(clubs.value, searchQuer
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          校园活动
+          发现同好
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          学生社团
+          找到你感兴趣的社团
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          当前完整收录 {{ clubs.length }} 个有公开来源的社团条目：{{ recentClubCount }} 个能在校团委 2026 年活动报道中确认近期活跃，{{ leadClubCount }} 个来自校团委公开附件中的社团干部线索。这里先帮新生知道“学校里可能有哪些方向”，不把未发布的招新群、二维码或收费要求写成确定通知。
+          先按兴趣看看学校里有哪些社团。2026 级招新时间、地点和群聊入口还没公布，开学后记得留意校团委和现场通知。
         </p>
-        <UInput
-          v-model="searchQuery"
-          icon="i-lucide-search"
-          placeholder="搜索社团名称"
-          aria-label="搜索学生社团"
-          size="lg"
-          class="mt-6 max-w-2xl"
-        />
+        <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500">
+          <span class="inline-flex items-center gap-1.5">
+            <UIcon
+              name="i-lucide-compass"
+              class="size-4 text-green-700"
+            />
+            {{ clubs.length }} 个兴趣方向
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="size-2 rounded-full bg-emerald-500" />
+            {{ recentClubCount }} 个近期有活动
+          </span>
+        </div>
+        <div class="mt-6 max-w-2xl">
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="搜索社团或兴趣，例如音乐、足球、编程"
+            aria-label="搜索学生社团"
+            size="lg"
+            class="w-full"
+          />
+          <div
+            class="mt-3 flex gap-2 overflow-x-auto pb-1"
+            aria-label="按兴趣分类筛选"
+          >
+            <button
+              v-for="group in clubGroups"
+              :key="group"
+              type="button"
+              class="shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition"
+              :class="selectedGroup === group
+                ? 'bg-green-700 text-white'
+                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'"
+              :aria-pressed="selectedGroup === group"
+              @click="selectedGroup = group"
+            >
+              {{ group }}
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -58,11 +98,11 @@ const filteredClubs = computed(() => filterClubListItems(clubs.value, searchQuer
 
       <div
         v-else
-        class="mb-4 space-y-4"
+        class="mb-4"
       >
         <div class="flex items-center justify-between gap-4">
           <h2 class="text-sm font-semibold text-zinc-900">
-            {{ filteredClubs.length }} 个社团条目
+            找到 {{ filteredClubs.length }} 个社团
           </h2>
           <UButton
             to="/guides/clubs"
@@ -71,17 +111,6 @@ const filteredClubs = computed(() => filterClubListItems(clubs.value, searchQuer
             color="neutral"
             variant="ghost"
           />
-        </div>
-        <div class="rounded-lg border border-violet-100 bg-violet-50/70 p-4 text-sm leading-7 text-violet-950">
-          <p class="font-semibold">
-            当前 23 个条目完整清单
-          </p>
-          <p class="mt-1">
-            {{ clubNamesText }}
-          </p>
-          <p class="mt-2 text-xs leading-5 text-violet-800">
-            标记为“名称线索待确认”的社团不是删除或漏写，而是只有公开附件线索；等校团委或社团负责人发布 2026 级招新信息后，再补入招新时间、地点、群号和报名方式。
-          </p>
         </div>
       </div>
 
@@ -93,18 +122,18 @@ const filteredClubs = computed(() => filterClubListItems(clubs.value, searchQuer
           v-for="club in filteredClubs"
           :key="club.id"
           :to="`/clubs/${club.slug}`"
-          class="surface-panel group flex min-h-52 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
+          class="surface-panel group flex min-h-48 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
         >
           <div class="flex items-start justify-between gap-3">
-            <span class="grid size-10 place-items-center rounded-md bg-violet-50 text-violet-700">
+            <span class="grid size-10 place-items-center rounded-md bg-emerald-50 text-emerald-700">
               <UIcon
                 name="i-lucide-users-round"
                 class="size-5"
               />
             </span>
             <UBadge
-              :label="club.category ?? clubListMessages.defaultCategory"
-              color="warning"
+              :label="resolveClubGroup(club.category)"
+              color="neutral"
               variant="soft"
             />
           </div>
@@ -112,14 +141,19 @@ const filteredClubs = computed(() => filterClubListItems(clubs.value, searchQuer
             {{ club.name }}
           </h2>
           <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
-            {{ club.summary }}
+            {{ resolveClubDirection(club.summary, clubDirectionBySlug.get(club.slug)) }}
           </p>
-          <div class="mt-4 rounded-md bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">
-            <span class="font-semibold text-zinc-800">新生怎么看：</span>
-            先按兴趣收藏，开学招新时再核对摊位、群号、例会频率和是否收费。
+          <div class="mt-4 flex items-center gap-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+            <span
+              class="size-2 rounded-full"
+              :class="hasRecentClubActivity(club) ? 'bg-emerald-500' : 'bg-amber-400'"
+            />
+            {{ hasRecentClubActivity(club)
+              ? clubListMessages.recentActivity
+              : clubListMessages.recruitmentPending }}
           </div>
-          <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-green-700">
-            查看资料
+          <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700">
+            查看介绍
             <UIcon
               name="i-lucide-arrow-right"
               class="size-3.5"

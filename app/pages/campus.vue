@@ -3,8 +3,14 @@ import { safeExternalHref } from '~/utils/safe-external-href'
 import { officialClubs, officialDepartments, officialSources } from '~~/data/seeds/public-content'
 import {
   campusStats,
-  resolveCampusFallbackMessage
+  resolveCampusFallbackMessage,
+  selectFeaturedClubs,
+  selectFeaturedDepartments
 } from '~~/app/utils/campus-presentation'
+import {
+  resolveClubDirection,
+  resolveClubGroup
+} from '~~/app/utils/club-list-presentation'
 import {
   canUseStaticContentKindFallback,
   mergePublicDepartments,
@@ -14,11 +20,12 @@ import {
 
 useSeoMeta({
   title: '校园与部门',
-  description: '仰恩大学校园概览、校内部门官方入口与学生社团信息。'
+  description: '快速了解仰恩大学校园，找到新生常用部门和学生社团入口。'
 })
 
 const { data: publicContentResponse, error: publicContentError } = await usePublicContentList()
 const publicContents = computed(() => publicContentResponse.value?.items ?? [])
+const clubDirectionBySlug = new Map(officialClubs.map(club => [club.slug, club.direction]))
 const allowStaticDepartmentFallback = computed(() => !publicContentError.value
   && canUseStaticContentKindFallback(publicContentResponse.value, 'department'))
 const departments = computed(() => mergePublicDepartments(
@@ -27,6 +34,8 @@ const departments = computed(() => mergePublicDepartments(
   allowStaticDepartmentFallback.value
 ))
 const clubs = computed(() => publicClubs(publicContents.value, officialClubs))
+const featuredDepartments = computed(() => selectFeaturedDepartments(departments.value))
+const featuredClubs = computed(() => selectFeaturedClubs(clubs.value))
 const notices = computed(() => publicNotices(publicContents.value))
 const fallbackMessage = computed(() => resolveCampusFallbackMessage({
   hasError: Boolean(publicContentError.value),
@@ -45,10 +54,10 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               仰恩大学
             </p>
             <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-4xl">
-              校园、服务部门与学生组织
+              从这里认识仰恩校园
             </h1>
             <p class="mt-4 text-sm leading-7 text-zinc-600 md:text-base">
-              学校位于福建省泉州市洛江区马甲镇。这里汇总官网公开的校园概况和部门入口，便于新生直接找到信息主管方。
+              学校位于福建省泉州市洛江区马甲镇。先看校园地图，再从常用部门和学生社团入口找到你需要的信息。
             </p>
             <div class="mt-6 flex flex-wrap gap-2">
               <UButton
@@ -88,13 +97,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           </dl>
         </div>
         <p class="mt-4 text-xs text-zinc-400">
-          主值采用
-          <a
-            :href="safeExternalHref(officialSources.university.url) || undefined"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="underline decoration-zinc-300 underline-offset-2 hover:text-green-700"
-          >学校官网首页</a>（访问于 2026-07-13）。官网“学校概况”栏目仍显示 122 万平方米、14 个学院（部）的旧口径，两处数据待学校统一；请以官网最新说明为准。
+          校园规模会随建设和统计时间变化，具体请以学校官网最新介绍为准。
         </p>
       </div>
     </section>
@@ -178,13 +181,13 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
       <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p class="section-kicker">
-            官方办事入口
+            办事去哪里
           </p>
           <h2 class="mt-2 text-xl font-bold text-zinc-950 md:text-2xl">
-            新生常用部门
+            新生常用入口
           </h2>
           <p class="mt-2 text-sm leading-6 text-zinc-600">
-            只收录官网组织机构页能够确认的部门入口，办公地点和时间待逐项确认。
+            学籍、住宿、资助、就医等事情可以先从对应部门查起。办公地点和时间可能调整，出发前建议再看一次官网。
           </p>
         </div>
         <UButton
@@ -192,7 +195,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           target="_blank"
           rel="noopener noreferrer"
           icon="i-lucide-external-link"
-          label="完整组织机构"
+          label="学校组织机构"
           color="neutral"
           variant="ghost"
           class="self-start"
@@ -201,7 +204,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
 
       <div class="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <article
-          v-for="department in departments"
+          v-for="department in featuredDepartments"
           :id="`department-${department.slug}`"
           :key="department.name"
           class="surface-panel flex min-h-48 flex-col p-5"
@@ -268,6 +271,16 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           </NuxtLink>
         </article>
       </div>
+
+      <div class="mt-6 flex justify-center">
+        <UButton
+          to="/departments"
+          icon="i-lucide-layout-list"
+          label="查看全部部门与学院"
+          color="neutral"
+          variant="outline"
+        />
+      </div>
     </section>
 
     <section
@@ -281,23 +294,21 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               学生社团
             </p>
             <h2 class="mt-2 text-2xl font-bold text-zinc-950">
-              有公开来源的学生社团条目
+              按兴趣认识校园社团
             </h2>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              先展示 23 个有公开来源的条目：7 个来自校团委 2026 年活动报道，16 个来自校团委公开附件中的社团干部线索。它们是新生了解方向的入口，不直接等同于 2026 级招新名单。
+              这里先推荐几个不同方向。完整名单可以按兴趣筛选，2026 级招新安排请留意校团委和各社团的最新通知。
             </p>
             <div class="mt-5 flex flex-wrap gap-2">
               <UButton
-                to="/guides/clubs"
-                icon="i-lucide-notebook-tabs"
-                label="查看招新指南"
+                to="/clubs"
+                icon="i-lucide-compass"
+                label="浏览全部社团"
               />
               <UButton
-                :to="safeExternalHref(officialSources.clubShowcase2026.url) || undefined"
-                target="_blank"
-                rel="noopener noreferrer"
-                icon="i-lucide-external-link"
-                label="查看官方报道"
+                to="/guides/clubs"
+                icon="i-lucide-notebook-tabs"
+                label="招新指南"
                 color="neutral"
                 variant="outline"
               />
@@ -310,7 +321,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 name="i-lucide-calendar-clock"
                 class="mt-0.5 size-4 shrink-0"
               />
-              <p>2026 年招新时间、地点与二维码尚未发布；过期渠道不会作为当前招新入口展示。</p>
+              <p>2026 级招新时间、地点和群聊入口还没公布。开学后请认准校团委、社团负责人或现场摊位发布的信息。</p>
             </div>
           </div>
         </div>
@@ -321,13 +332,16 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
         >
           <div class="flex items-center justify-between gap-4">
             <h3 class="text-lg font-bold text-zinc-950">
-              已发布社团资料
+              先看看这些方向
             </h3>
-            <span class="text-xs text-zinc-500">{{ clubs.length }} 个</span>
+            <NuxtLink
+              to="/clubs"
+              class="text-xs font-medium text-green-700 hover:underline"
+            >共 {{ clubs.length }} 个社团</NuxtLink>
           </div>
           <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <article
-              v-for="club in clubs"
+              v-for="club in featuredClubs"
               :id="`club-${club.slug}`"
               :key="club.id"
               class="surface-panel p-5"
@@ -340,70 +354,25 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                   />
                 </span>
                 <UBadge
-                  v-if="club.category"
+                  v-if="resolveClubGroup(club.category)"
                   color="neutral"
                   variant="soft"
                   size="sm"
                 >
-                  {{ club.category }}
+                  {{ resolveClubGroup(club.category) }}
                 </UBadge>
               </div>
               <h4 class="mt-4 font-bold text-zinc-950">
                 {{ club.name }}
               </h4>
               <p class="mt-2 text-sm leading-6 text-zinc-600">
-                {{ club.summary }}
+                {{ resolveClubDirection(club.summary, clubDirectionBySlug.get(club.slug)) }}
               </p>
-              <p
-                v-if="club.body"
-                class="mt-3 line-clamp-4 whitespace-pre-line text-xs leading-6 text-zinc-600"
-              >
-                {{ club.body }}
-              </p>
-              <dl
-                v-if="club.recruitmentPeriod || club.activitySchedule || club.contactMethod"
-                class="mt-4 space-y-2 border-t border-zinc-100 pt-3 text-xs"
-              >
-                <div v-if="club.recruitmentPeriod">
-                  <dt class="text-zinc-400">
-                    招新时间
-                  </dt>
-                  <dd class="mt-0.5 text-zinc-700">
-                    {{ club.recruitmentPeriod }}
-                  </dd>
-                </div>
-                <div v-if="club.activitySchedule">
-                  <dt class="text-zinc-400">
-                    活动时间
-                  </dt>
-                  <dd class="mt-0.5 text-zinc-700">
-                    {{ club.activitySchedule }}
-                  </dd>
-                </div>
-                <div v-if="club.contactMethod">
-                  <dt class="text-zinc-400">
-                    公开联系
-                  </dt>
-                  <dd class="mt-0.5 text-zinc-700">
-                    {{ club.contactMethod }}
-                  </dd>
-                </div>
-              </dl>
-              <div class="mt-4 flex items-center justify-between gap-3 text-xs text-zinc-400">
-                <span>确认于 {{ club.updatedAt }}</span>
-                <a
-                  v-if="club.sources[0]"
-                  :href="safeExternalHref(club.sources[0]?.url) || undefined"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="font-medium text-green-700 hover:underline"
-                >查看来源</a>
-              </div>
               <NuxtLink
                 :to="`/clubs/${encodeURIComponent(club.slug)}`"
                 class="mt-4 inline-flex items-center gap-1.5 border-t border-zinc-100 pt-3 text-xs font-semibold text-green-700 hover:text-green-800"
               >
-                查看社团详情
+                查看介绍
                 <UIcon
                   name="i-lucide-arrow-right"
                   class="size-3.5"
