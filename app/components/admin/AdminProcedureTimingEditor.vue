@@ -88,7 +88,7 @@ const form = defineModel<ProcedureForm>('form', { required: true })
         />
       </UFormField>
       <UFormField
-        label="最后核验时间"
+        label="信息确认时间"
         description="发布前必须填写，且不能晚于当前时间。"
         class="sm:col-span-2"
       >

@@ -24,10 +24,10 @@ const sessionLocked = ref(false)
 function verificationLabel(value: string): string {
   return {
     missing: '缺少坐标',
-    unverified: '待核验',
-    verified: '已核验',
+    unverified: '待确认',
+    verified: '已确认',
     rejected: '已驳回'
-  }[value] || '待核验'
+  }[value] || '待确认'
 }
 
 const placeOptions = computed(() => props.places.map(place => ({

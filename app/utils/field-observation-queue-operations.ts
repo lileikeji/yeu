@@ -63,7 +63,7 @@ export function createFieldObservationQueueOperations(
     try {
       await options.submitToServer(submission)
       options.markSubmitted(submission.placeId)
-      options.notify({ title: '观测已进入审核队列', color: 'success' })
+      options.notify({ title: '定位记录已提交审核', color: 'success' })
       await options.reloadObservations()
     } catch (error) {
       const code = getRequestStatusCode(error)
@@ -73,20 +73,20 @@ export function createFieldObservationQueueOperations(
           options.markSubmitted(submission.placeId)
           await loadLocalQueue()
           options.notify({
-            title: '网络不可用，观测已保存在本机',
-            description: '稍后可在离线队列中逐条或批量同步。',
+            title: '网络不可用，定位记录已保存在本机',
+            description: '稍后可在未上传记录中逐条或批量上传。',
             color: 'warning'
           })
         } catch {
           options.notify({
-            title: '观测提交失败',
-            description: '本机离线队列也不可用。',
+            title: '定位记录提交失败',
+            description: '本机也无法保存这条记录。',
             color: 'error'
           })
         }
       } else if (!await options.handleUnauthorized(error)) {
         options.notify({
-          title: '观测未提交',
+          title: '定位记录未提交',
           description: getRequestMessage(error, '请检查样本与说明。'),
           color: 'error'
         })
@@ -104,7 +104,7 @@ export function createFieldObservationQueueOperations(
       await options.submitToServer(record.payload)
       await options.remove(record.id)
       await Promise.all([loadLocalQueue(), options.reloadObservations()])
-      options.notify({ title: '本地观测已同步', color: 'success' })
+      options.notify({ title: '本地定位记录已上传', color: 'success' })
     } catch (error) {
       if (await options.handleUnauthorized(error)) return
       const message = getRequestMessage(error, '同步失败，记录仍保存在本机。')
@@ -150,7 +150,7 @@ export function createFieldObservationQueueOperations(
           color: 'warning'
         })
       } else {
-        options.notify({ title: `已同步 ${synced} 条本地观测`, color: 'success' })
+        options.notify({ title: `已上传 ${synced} 条本地定位记录`, color: 'success' })
       }
     } finally {
       state.syncing.value = false
@@ -173,7 +173,7 @@ export function createFieldObservationQueueOperations(
       await loadLocalQueue()
       state.deleteOpen.value = false
       state.deleteTarget.value = null
-      options.notify({ title: '本地观测已删除', color: 'success' })
+      options.notify({ title: '本地定位记录已删除', color: 'success' })
     } catch {
       options.notify({
         title: '删除失败',

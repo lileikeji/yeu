@@ -10,7 +10,7 @@ const detailsSource = readFileSync(
 )
 
 test('review details component owns evidence, map and historical presentation', () => {
-  assert.match(detailsSource, /aria-label="选中观测审核详情"/)
+  assert.match(detailsSource, /aria-label="选中定位记录详情"/)
   assert.match(detailsSource, /<AdminCoordinateReviewMap\b/)
   assert.match(detailsSource, /buildCoordinateReviewHint\(props\.observation, props\.place\)/)
   assert.match(detailsSource, /observation\.longitude\.toFixed\(7\)/)
@@ -32,5 +32,5 @@ test('field observation page delegates details while preserving notes per observ
   assert.match(pageSource, /v-model:review-note="selectedReviewNote"/)
   assert.match(pageSource, /@review="reviewObservation"/)
   assert.match(pageSource, /reviewNotes\[observationId\] = value/)
-  assert.doesNotMatch(pageSource, /<AdminCoordinateReviewMap\b|aria-label="选中观测审核详情"/)
+  assert.doesNotMatch(pageSource, /<AdminCoordinateReviewMap\b|aria-label="选中定位记录详情"/)
 })

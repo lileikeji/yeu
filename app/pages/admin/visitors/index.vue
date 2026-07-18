@@ -870,7 +870,7 @@ onMounted(async () => {
             <UInput
               v-model="banReason"
               class="w-full"
-              placeholder="例如：恶意刷接口 / 异常爬取"
+              placeholder="例如：频繁访问 / 自动批量访问"
             />
           </UFormField>
           <UFormField label="到期时间（可选）">

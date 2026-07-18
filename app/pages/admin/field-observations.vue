@@ -109,10 +109,10 @@ onMounted(() => void refreshAll())
 <template>
   <div class="mx-auto max-w-7xl">
     <AdminPageHeader
-      title="现场坐标观测"
+      title="现场坐标采集"
       description="采集、暂存并审核地点主入口或场地点。"
       icon="i-lucide-crosshair"
-      eyebrow="地图核验"
+      eyebrow="地图审核"
     >
       <template #actions>
         <UButton

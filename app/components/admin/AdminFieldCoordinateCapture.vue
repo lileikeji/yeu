@@ -315,7 +315,7 @@ onBeforeUnmount(() => {
 
     <div class="mt-5 grid gap-4 sm:grid-cols-2">
       <UFormField
-        label="点位角色"
+        label="坐标用途"
         required
       >
         <USelect
@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
         />
       </UFormField>
       <UFormField
-        label="现场证据说明"
+        label="现场情况说明"
         required
       >
         <UTextarea
@@ -346,7 +346,7 @@ onBeforeUnmount(() => {
     <div class="mt-5 flex justify-end">
       <UButton
         icon="i-lucide-cloud-upload"
-        label="提交待审核观测"
+        label="提交定位记录"
         :loading="submitting"
         :disabled="!readyToSubmit || tracking"
         @click="submitObservation"

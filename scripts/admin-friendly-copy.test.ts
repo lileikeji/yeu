@@ -49,9 +49,10 @@ test('content editor and coordinate workflows avoid engineer-facing copy', () =>
   const visibleJargon = /approved 观测|保持 unverified|升级为 verified|服务端还会|m 阈值|客户端观测 ID|写入 WGS84|来自 OSM/
 
   assert.doesNotMatch(combined, visibleJargon)
+  assert.doesNotMatch(combined, /幂等键|坐标证据|离线观测队列|本地观测|坐标观测/)
   assert.match(captureEntry, /verificationLabel/)
   assert.match(picker, /标准地理坐标/)
-  assert.match(reviewCopy, /两次独立核验/)
+  assert.match(reviewCopy, /两次独立确认/)
   assert.match(offlineQueue, /本地记录编号/)
   assert.doesNotMatch(resourceForm, /必须是合法 JSON/)
 })
@@ -105,6 +106,6 @@ test('admin pages avoid internal and layout-dependent wording', () => {
 
   assert.doesNotMatch(
     combined,
-    /内容资产|治理|结构化|核验依据|对象类型|相关对象编号|侧栏|空=全站禁言|右侧「个人禁言」/
+    /内容资产|治理|结构化|核验依据|对象类型|相关对象编号|侧栏|空=全站禁言|右侧「个人禁言」|安全快照|请求记录|恶意刷接口/
   )
 })

@@ -97,7 +97,7 @@ test('approved first evidence reloads both catalogs and clears its note', async 
   assert.equal(placeReloads, 1)
   assert.equal(observationReloads, 1)
   assert.equal(reviewState.notes.candidate, undefined)
-  assert.deepEqual(notifications, ['观测已批准为首条候选，仍待独立复核'])
+  assert.deepEqual(notifications, ['定位记录已批准，还需另一条独立记录确认'])
 })
 
 test('verified approval and rejection use action-specific success messages', async () => {
@@ -118,8 +118,8 @@ test('verified approval and rejection use action-specific success messages', asy
   verification = 'unverified'
   await operations.reviewObservation(observation('rejected'), 'reject')
   assert.deepEqual(notifications, [
-    '第二条独立证据已完成，地点坐标已双重核验',
-    '观测已驳回'
+    '第二条独立记录已确认，地点坐标已完成双重确认',
+    '定位记录已驳回'
   ])
 })
 

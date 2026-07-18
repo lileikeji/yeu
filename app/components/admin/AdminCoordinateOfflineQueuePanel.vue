@@ -49,10 +49,10 @@ watch(() => props.records, (records) => {
           本机 IndexedDB
         </p>
         <h2 class="mt-1 text-base font-bold text-zinc-950">
-          离线观测队列
+          未上传的定位记录
         </h2>
         <p class="mt-1 text-xs leading-5 text-zinc-600">
-          每条记录保留原始幂等键；重试不会创建重复观测。
+          每条记录都有唯一编号，重复上传也不会创建多份记录。
         </p>
       </div>
       <UButton
@@ -114,7 +114,7 @@ watch(() => props.records, (records) => {
                 color="error"
                 variant="soft"
                 size="sm"
-                :aria-label="`删除${placeName(record.payload.placeId)}的本地观测`"
+                :aria-label="`删除${placeName(record.payload.placeId)}的本地定位记录`"
                 :disabled="syncing || retryingId !== null"
                 @click="emit('requestDelete', record)"
               />
@@ -195,8 +195,8 @@ watch(() => props.records, (records) => {
 
     <UModal
       v-model:open="deleteOpen"
-      title="删除本地观测"
-      :description="deleteTarget ? `确认删除“${placeName(deleteTarget.payload.placeId)}”的离线观测？` : '确认删除此离线观测？'"
+      title="删除本地定位记录"
+      :description="deleteTarget ? `确认删除“${placeName(deleteTarget.payload.placeId)}”尚未上传的定位记录？` : '确认删除这条尚未上传的定位记录？'"
       :dismissible="!deleting"
     >
       <template #body>

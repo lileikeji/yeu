@@ -65,7 +65,7 @@ function deferred<T>() {
 }
 
 function response<T>(items: T[], total = items.length): ApiListResponse<T> {
-  return { items, total, page: 1, pageSize: 200 }
+  return { items, total, page: 1, pageSize: 100 }
 }
 
 function referenceResponse<T>(
@@ -111,8 +111,8 @@ test('catalog pagination merges every page with stable query fields', async () =
   )
   assert.deepEqual(items.map(item => item.id), ['one', 'two', 'three'])
   assert.deepEqual(queries, [
-    { kind: 'guide', page: 1, pageSize: 200 },
-    { kind: 'guide', page: 2, pageSize: 200 }
+    { kind: 'guide', page: 1, pageSize: 100 },
+    { kind: 'guide', page: 2, pageSize: 100 }
   ])
 })
 

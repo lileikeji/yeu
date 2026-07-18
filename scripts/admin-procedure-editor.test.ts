@@ -66,7 +66,7 @@ test('basic editor owns the public identity and audience fields without side eff
 
 test('timing editor owns confirmed status, schedule, validity and verification fields', () => {
   assert.match(timingSource, /defineModel<ProcedureForm>\('form', \{ required: true \}\)/)
-  for (const label of ['信息确认状态', '前台状态说明', '预计办理时长', '截止时间说明', '办理开始时间', '办理结束时间', '公开有效期开始', '公开有效期结束', '最后核验时间']) {
+  for (const label of ['信息确认状态', '前台状态说明', '预计办理时长', '截止时间说明', '办理开始时间', '办理结束时间', '公开有效期开始', '公开有效期结束', '信息确认时间']) {
     assert.match(timingSource, new RegExp(`label="${label}"`))
   }
   assert.equal(timingSource.match(/type="datetime-local"/g)?.length, 5)
@@ -77,7 +77,7 @@ test('relation editor owns maintained department, guide, place and source select
   assert.match(relationsSource, /defineModel<ProcedureForm>\('form', \{ required: true \}\)/)
   assert.match(relationsSource, /departmentOptions: ProcedureSelectOption\[\]/)
   assert.match(relationsSource, /sourceOptions: ProcedureSelectOption\[\]/)
-  for (const label of ['负责部门', '相关指南', '流程涉及地点', '核验来源']) {
+  for (const label of ['负责部门', '相关指南', '流程涉及地点', '信息来源']) {
     assert.match(relationsSource, new RegExp(`label="${label}"`))
     assert.match(relationsSource, new RegExp(`aria-label="${label}"`))
   }

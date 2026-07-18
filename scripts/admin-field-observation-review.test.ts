@@ -61,7 +61,7 @@ test('verified places explain pending replacement and existing dual evidence', (
     observation({ reviewStatus: 'approved' }),
     verifiedPlace
   )
-  assert.equal(approved?.title, '地点当前已完成两次独立核验')
+  assert.equal(approved?.title, '地点坐标已完成两次独立确认')
   assert.match(approved?.description ?? '', /两条相互独立且位置相符的批准记录/)
 })
 
@@ -71,7 +71,7 @@ test('approved, rejected and superseded history cannot be presented as a new dua
     place()
   )
   assert.equal(approved?.stage, 'first-candidate')
-  assert.equal(approved?.title, '已完成第一次核验')
+  assert.equal(approved?.title, '已完成第一次确认')
 
   const rejected = buildCoordinateReviewHint(
     observation({ reviewStatus: 'rejected' }),
@@ -84,7 +84,7 @@ test('approved, rejected and superseded history cannot be presented as a new dua
     observation({ reviewStatus: 'superseded' }),
     place()
   )
-  assert.match(superseded?.description ?? '', /已由更新证据替代/)
+  assert.match(superseded?.description ?? '', /已由更新的定位记录替代/)
 })
 
 test('missing or incompatible candidate coordinates remain a first observation', () => {
@@ -96,7 +96,7 @@ test('missing or incompatible candidate coordinates remain a first observation',
   ]) {
     const hint = buildCoordinateReviewHint(observation(), candidate)
     assert.equal(hint?.stage, 'first-candidate')
-    assert.equal(hint?.title, '批准后将完成第一次核验')
+    assert.equal(hint?.title, '批准后将完成第一次确认')
   }
 })
 
@@ -106,7 +106,7 @@ test('a point-role mismatch is a replacement even at the same coordinates', () =
     place({ coordinatePointRole: 'main-entrance' })
   )
   assert.equal(hint?.stage, 'replacement')
-  assert.equal(hint?.title, '点位角色与第一次核验不同')
+  assert.equal(hint?.title, '坐标用途与第一次记录不同')
 })
 
 test('a distant observation reports separation and replacement threshold', () => {

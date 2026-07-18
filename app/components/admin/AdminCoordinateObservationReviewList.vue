@@ -59,13 +59,13 @@ function goToNextPage(): void {
       <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p class="text-xs font-medium text-green-700">
-            审核队列
+            待审核记录
           </p>
           <h2 class="mt-1 text-lg font-bold text-zinc-950">
-            坐标观测记录
+            定位记录
           </h2>
           <p class="mt-1 text-xs text-zinc-500">
-            共 {{ total }} 条符合条件的观测
+            共 {{ total }} 条符合条件的定位记录
           </p>
         </div>
         <div class="grid min-w-0 gap-2 sm:grid-cols-[minmax(14rem,1fr)_10rem_9rem] lg:w-[42rem]">
@@ -73,7 +73,7 @@ function goToNextPage(): void {
             v-model="searchInput"
             icon="i-lucide-search"
             placeholder="搜索地点名称"
-            aria-label="搜索观测地点"
+            aria-label="搜索定位地点"
             @keydown.enter="emit('applySearch')"
           />
           <USelect
@@ -185,7 +185,7 @@ function goToNextPage(): void {
       v-else-if="!loading"
       class="py-12 text-center text-sm text-zinc-500"
     >
-      当前筛选条件下暂无坐标观测
+      当前条件下暂无定位记录
     </p>
   </section>
 </template>

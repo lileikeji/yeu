@@ -312,7 +312,7 @@ onBeforeUnmount(disposeMap)
           共享审核地图
         </p>
         <h3 class="mt-1 text-sm font-bold text-zinc-950 sm:text-base">
-          {{ observation.placeName }}的坐标证据
+          {{ observation.placeName }}的定位记录
         </h3>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -333,7 +333,7 @@ onBeforeUnmount(disposeMap)
       <div
         ref="mapElement"
         class="absolute inset-0"
-        :aria-label="`${observation.placeName}坐标观测审核地图`"
+        :aria-label="`${observation.placeName}定位记录审核地图`"
       />
       <div
         v-if="mapStatus === 'loading'"
@@ -374,10 +374,10 @@ onBeforeUnmount(disposeMap)
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-blue-600" />现场样本</span>
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-green-700" />计算结果</span>
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-amber-600" />{{ currentPlacePointLabel }}</span>
-      <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-zinc-600" />邻近已核验地点</span>
+      <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-zinc-600" />附近已确认地点</span>
     </div>
     <p class="mt-2 text-xs leading-5 text-zinc-500">
-      已显示 {{ neighboringPlaces.length }} 个附近的已核验地点。误差圈按系统计算的定位精度绘制，底图与校界只用于人工比对。
+      已显示 {{ neighboringPlaces.length }} 个附近的已确认地点。误差圈表示定位可能存在的偏差范围，底图与校界只用于人工比对。
     </p>
     <p
       v-if="currentCoordinateNotDisplayable"

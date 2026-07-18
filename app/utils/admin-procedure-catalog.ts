@@ -51,6 +51,8 @@ interface AdminProcedureReferenceSnapshot {
   sources: ApiSource[]
 }
 
+const REFERENCE_PAGE_SIZE = 100
+
 export function buildAdminProcedureListQuery(
   page: number,
   pageSize: number,
@@ -74,7 +76,7 @@ export async function fetchAllAdminCatalogItems<T>(
 
   while (true) {
     const response = await request<T>(endpoint, {
-      query: { ...query, page: currentPage, pageSize: 200 },
+      query: { ...query, page: currentPage, pageSize: REFERENCE_PAGE_SIZE },
       credentials: 'include'
     })
     if (response.items.length === 0 && items.length < response.total) {
@@ -168,7 +170,7 @@ export function createAdminProcedureCatalog(options: CreateAdminProcedureCatalog
       if (requestVersion !== referencesRequestVersion || unauthorized) return
       state.referencesError.value = getRequestMessage(
         error,
-        '关联内容加载失败，可稍后重试。'
+        '流程编辑所需的地点、部门和来源暂时无法加载，请稍后重试。'
       )
     } finally {
       if (requestVersion === referencesRequestVersion) state.referencesLoading.value = false

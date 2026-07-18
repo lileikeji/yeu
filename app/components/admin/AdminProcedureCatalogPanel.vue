@@ -109,7 +109,7 @@ const emit = defineEmits<{
                 发布状态
               </th>
               <th class="border-b border-zinc-200 px-4 py-2.5">
-                最后核验
+                最后确认
               </th>
               <th class="w-44 border-b border-zinc-200 px-4 py-2.5 text-right">
                 操作

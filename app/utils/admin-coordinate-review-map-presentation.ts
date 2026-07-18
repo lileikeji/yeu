@@ -99,8 +99,8 @@ export function resolveCurrentPlacePoint(place: ApiPlace | null): ReviewMapPoint
 
 export function resolveCurrentPlacePointLabel(place: ApiPlace | null): string {
   return place?.coordinateVerification === 'verified'
-    ? '当前已核验坐标'
-    : '第一次核验坐标'
+    ? '当前已确认坐标'
+    : '第一次确认的坐标'
 }
 
 export function isCurrentCoordinateNotDisplayable(place: ApiPlace | null): boolean {

@@ -906,7 +906,7 @@ onMounted(async () => {
                   class="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900"
                 >
                   {{ adminLabel(adminConfidenceLabels, userDossier.confidence, userDossier.confidence) }}
-                  · 证据 {{ userDossier.evidenceEvents ?? userDossier.summary?.evidenceEvents ?? '—' }}
+                  · 相关记录 {{ userDossier.evidenceEvents ?? userDossier.summary?.evidenceEvents ?? '—' }}
                 </span>
                 <span
                   v-if="userDossier.relationship?.ips?.length"

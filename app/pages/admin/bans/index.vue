@@ -152,7 +152,7 @@ async function createBan(): Promise<void> {
 }
 
 async function deactivateBan(id: string): Promise<void> {
-  if (!confirmAdminAction('确认解除该封禁？解除后对象可立即访问。')) return
+  if (!confirmAdminAction('确认解除该封禁？解除后相关访客或账号可立即访问。')) return
   try {
     await adminFetch(`/api/admin/visitors/bans/${encodeURIComponent(id)}`, {
       method: 'DELETE'
@@ -331,7 +331,7 @@ onMounted(async () => {
             <UInput
               v-model="form.reason"
               class="w-full"
-              placeholder="例如：恶意刷接口 / 骚扰聊天"
+              placeholder="例如：频繁访问 / 骚扰聊天"
             />
           </UFormField>
           <UFormField label="到期时间（可选）">

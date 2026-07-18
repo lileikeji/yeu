@@ -121,8 +121,8 @@ test('renderable WGS84 guards reject incomplete or non-WGS84 places', () => {
 test('current place point and label decisions stay pure', () => {
   assert.deepEqual(resolveCurrentPlacePoint(place()), { longitude: 118.6, latitude: 24.9 })
   assert.equal(resolveCurrentPlacePoint(place({ coordinateSystem: 'GCJ-02' })), null)
-  assert.equal(resolveCurrentPlacePointLabel(place({ coordinateVerification: 'verified' })), '当前已核验坐标')
-  assert.equal(resolveCurrentPlacePointLabel(place()), '第一次核验坐标')
+  assert.equal(resolveCurrentPlacePointLabel(place({ coordinateVerification: 'verified' })), '当前已确认坐标')
+  assert.equal(resolveCurrentPlacePointLabel(place()), '第一次确认的坐标')
   assert.equal(isCurrentCoordinateNotDisplayable(place({ coordinateSystem: 'GCJ-02' })), true)
   assert.equal(isCurrentCoordinateNotDisplayable(place()), false)
 })

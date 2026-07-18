@@ -56,7 +56,7 @@ function actionLabel(value: string): string {
 }
 
 function entityLabel(value: string): string {
-  return adminLabel(adminAuditEntityLabels, value, '其他对象')
+  return adminLabel(adminAuditEntityLabels, value, '其他记录')
 }
 
 function actorLabel(row: AuditRow): string {
@@ -70,7 +70,7 @@ function detailLabel(key: string): string {
   const labels: Record<string, string> = {
     reason: '原因',
     scope: '范围',
-    value: '对象',
+    value: '相关内容',
     status: '状态',
     previousStatus: '原状态',
     nextStatus: '新状态',
@@ -294,7 +294,7 @@ onMounted(() => {
               >
                 <dl class="mb-3 grid gap-1 text-xs text-zinc-500 sm:grid-cols-2">
                   <div><dt class="inline font-medium">操作记录：</dt><dd class="inline">{{ shortAdminId(row.id, 12) }}</dd></div>
-                  <div v-if="row.requestId"><dt class="inline font-medium">请求记录：</dt><dd class="inline">{{ shortAdminId(row.requestId, 12) }}</dd></div>
+                  <div v-if="row.requestId"><dt class="inline font-medium">操作记录编号：</dt><dd class="inline">{{ shortAdminId(row.requestId, 12) }}</dd></div>
                 </dl>
                 <dl
                   v-if="prettyAdminDetails(row.details).length"

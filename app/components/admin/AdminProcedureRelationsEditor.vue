@@ -63,13 +63,13 @@ const form = defineModel<ProcedureForm>('form', { required: true })
         />
       </UFormField>
       <UFormField
-        label="核验来源"
+        label="信息来源"
         description="发布至少需要一个有效且达到发布等级的来源。"
         class="sm:col-span-2"
       >
         <USelectMenu
           v-model="form.sourceIds"
-          aria-label="核验来源"
+          aria-label="信息来源"
           :items="sourceOptions"
           value-key="value"
           label-key="label"

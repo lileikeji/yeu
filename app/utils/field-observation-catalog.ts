@@ -132,7 +132,7 @@ export function createFieldObservationCatalog(options: CreateFieldObservationCat
       if (requestVersion !== observationsRequestVersion || unauthorized) return
       state.observationsError.value = getRequestMessage(
         error,
-        '坐标观测暂时无法加载。'
+        '定位记录暂时无法加载。'
       )
     } finally {
       if (requestVersion === observationsRequestVersion) {

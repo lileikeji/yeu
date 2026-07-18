@@ -862,7 +862,7 @@ onMounted(() => {
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
         <h2 class="text-sm font-semibold text-zinc-950">生效禁言</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500">来自安全快照 · 最多 6 条</p>
+        <p class="mt-0.5 text-[11px] text-zinc-500">根据近期安全情况整理 · 最多 6 条</p>
         <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
           <li
             v-for="mute in securityRecentMutes"

@@ -11,13 +11,13 @@ const listSource = readFileSync(
 const e2eSource = readFileSync(resolve('tests/e2e/admin-feedback-flows.spec.ts'), 'utf8')
 
 test('review list owns filters, rows, pagination and empty/loading states', () => {
-  assert.match(listSource, /aria-label="搜索观测地点"/)
+  assert.match(listSource, /aria-label="搜索定位地点"/)
   assert.match(listSource, /aria-label="筛选审核状态"/)
   assert.match(listSource, /v-for="observation in observations"/)
   assert.match(listSource, /observationStatusLabel\(observation\.reviewStatus\)/)
   assert.match(listSource, /goToPreviousPage/)
   assert.match(listSource, /goToNextPage/)
-  assert.match(listSource, /当前筛选条件下暂无坐标观测/)
+  assert.match(listSource, /当前条件下暂无定位记录/)
   assert.match(listSource, /<slot name="details"/)
 })
 
@@ -38,7 +38,7 @@ test('field observation page delegates list models and browser coverage', () => 
   assert.match(pageSource, /v-model:selected-observation-id="selectedObservationId"/)
   assert.match(pageSource, /@apply-search="applyObservationSearch"/)
   assert.match(pageSource, /<template #details>/)
-  assert.doesNotMatch(pageSource, /aria-label="搜索观测地点"|observationStatusOptions/)
-  assert.match(e2eSource, /getByLabel\('搜索观测地点'\)/)
-  assert.match(e2eSource, /getByText\('当前筛选条件下暂无坐标观测'\)/)
+  assert.doesNotMatch(pageSource, /aria-label="搜索定位地点"|observationStatusOptions/)
+  assert.match(e2eSource, /getByLabel\('搜索定位地点'\)/)
+  assert.match(e2eSource, /getByText\('当前条件下暂无定位记录'\)/)
 })

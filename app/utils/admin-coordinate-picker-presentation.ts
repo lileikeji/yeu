@@ -5,7 +5,7 @@ import {
 } from '../../map/core/campus'
 
 export const ADMIN_COORDINATE_PICKER_DRAFT_POI_ID = 'admin-coordinate-draft'
-export const ADMIN_COORDINATE_PICKER_DEFAULT_NAME = '待核验地点'
+export const ADMIN_COORDINATE_PICKER_DEFAULT_NAME = '待确认地点'
 
 export function resolveAdminCoordinatePickerCurrentPoint(input: {
   coordinateSystem: string | null

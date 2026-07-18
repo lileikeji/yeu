@@ -50,7 +50,7 @@ function checkboxValue(key: string): boolean {
   <UModal
     v-model:open="open"
     :title="editingRecord ? `编辑${config.title}` : config.createLabel"
-    :description="editingRecord ? `更新“${editingRecordTitle}”的字段与状态。` : '填写后保存为所选状态。'"
+    :description="editingRecord ? `更新“${editingRecordTitle}”的内容和发布状态。` : '填写完成后保存，可稍后继续修改。'"
     scrollable
     :dismissible="!saving"
     :ui="{ content: 'sm:max-w-4xl' }"

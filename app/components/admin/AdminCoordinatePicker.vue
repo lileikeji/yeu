@@ -137,7 +137,7 @@ onBeforeUnmount(() => {
       />
       <UBadge
         v-if="outsideCampusBounds"
-        label="超出校界核验缓冲区"
+        label="距离校界较远"
         color="error"
         variant="soft"
         size="sm"
@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
     </div>
 
     <p class="mt-2 text-xs leading-5 text-zinc-500">
-      地图选点会保存标准地理坐标，并自动标记为“待核验”。校界范围只用于发现明显偏差，完成两次独立核验后才会显示“已核验”。
+      地图选点会保存标准地理坐标，并自动标记为“待确认”。校界范围只用于发现明显偏差，完成两次独立确认后才会显示“已确认”。
     </p>
   </section>
 </template>

@@ -27,7 +27,7 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
 <template>
   <aside
     class="order-1 min-w-0 xl:order-2"
-    aria-label="选中观测审核详情"
+    aria-label="选中定位记录详情"
   >
     <div class="border-b border-zinc-200 pb-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
@@ -153,7 +153,7 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
         />
         <UButton
           icon="i-lucide-check"
-          label="批准并纳入坐标证据"
+          label="批准这条定位记录"
           :disabled="actionId !== null || observation.accuracyMeters > MAX_APPROVABLE_COORDINATE_ACCURACY_METERS || observation.outsideCampusReviewBounds"
           :loading="actionId === observation.id"
           @click="emit('review', observation, 'approve')"

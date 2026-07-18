@@ -90,7 +90,7 @@ onMounted(() => {
           单管理员工作台
         </p>
         <h1 class="mt-3 text-3xl font-bold leading-tight">
-          管理地点、指南与核验记录
+          管理地点、指南与信息确认记录
         </h1>
         <p class="mt-4 text-sm leading-7 text-green-100/80">
           发布前核对坐标、来源和有效时间；草稿与已下架内容不会进入公开列表。

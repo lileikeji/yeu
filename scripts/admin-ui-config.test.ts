@@ -103,10 +103,10 @@ test('core admin modules are configured for maintainable CRUD and publication wo
     /key: 'coordinateSystem'/,
     /key: 'coordinateVerification'/,
     /key: 'coordinatePointRole'/,
-    /label: '点位角色'/,
+    /label: '坐标用途'/,
     /'main-entrance': '主入口'/,
     /'site-point': '场地点'/,
-    /点位角色只能通过现场坐标观测/,
+    /坐标用途只能通过现场定位记录/,
     /key: 'sourceIds'/,
     /key: 'lastVerifiedAt'/
   ], 'places admin config')

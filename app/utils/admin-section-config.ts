@@ -12,7 +12,7 @@ export const sourcePlatformOptions: AdminOption[] = [
   { label: '地图平台', value: 'map-platform' },
   { label: '高德工作地图（授权导入）', value: 'amap-workmap' },
   { label: '社交平台', value: 'social-platform' },
-  { label: '现场核验', value: 'field-verification' },
+  { label: '现场确认', value: 'field-verification' },
   { label: '其他', value: 'other' }
 ]
 
@@ -33,8 +33,8 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       items: [
         { key: 'total', label: '全部地点', icon: 'i-lucide-map-pinned' },
         { key: 'missing', label: '缺少坐标', icon: 'i-lucide-map-pin-off' },
-        { key: 'unverified', label: '待核验', icon: 'i-lucide-map-pin-check-inside' },
-        { key: 'verified', label: '已核验', icon: 'i-lucide-badge-check' },
+        { key: 'unverified', label: '待确认', icon: 'i-lucide-map-pin-check-inside' },
+        { key: 'verified', label: '已确认', icon: 'i-lucide-badge-check' },
         { key: 'rejected', label: '已驳回', icon: 'i-lucide-circle-x' }
       ]
     },
@@ -70,12 +70,12 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'coordinateVerification',
-        label: '坐标核验状态',
+        label: '坐标确认状态',
         allLabel: '全部坐标状态',
         options: [
           { label: '缺少坐标', value: 'missing' },
-          { label: '待核验', value: 'unverified' },
-          { label: '已核验', value: 'verified' },
+          { label: '待确认', value: 'unverified' },
+          { label: '已确认', value: 'verified' },
           { label: '已驳回', value: 'rejected' }
         ]
       }
@@ -104,14 +104,14 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         }
       },
       { key: 'scope', label: '范围', valueLabels: { campus: '校内', nearby: '周边' } },
-      { key: 'coordinateVerification', label: '坐标核验', kind: 'status' },
+      { key: 'coordinateVerification', label: '坐标确认', kind: 'status' },
       {
         key: 'coordinatePointRole',
-        label: '点位角色',
+        label: '坐标用途',
         valueLabels: { 'main-entrance': '主入口', 'site-point': '场地点' }
       },
       { key: 'status', label: '状态', kind: 'status' },
-      { key: 'lastVerifiedAt', label: '最后核验', kind: 'date', fallbackKeys: ['last_verified_at'] }
+      { key: 'lastVerifiedAt', label: '最后确认', kind: 'date', fallbackKeys: ['last_verified_at'] }
     ],
     fields: [
       {
@@ -245,16 +245,16 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'coordinateVerification',
-        label: '坐标核验状态',
+        label: '坐标确认状态',
         type: 'select',
         required: true,
         defaultValue: 'missing',
         options: [
           { label: '缺少坐标', value: 'missing' },
-          { label: '待核验', value: 'unverified' },
+          { label: '待确认', value: 'unverified' },
           { label: '已驳回', value: 'rejected' }
         ],
-        description: '“已核验”和点位角色只能通过现场坐标观测的独立审核写入；普通表单改坐标会自动退回待核验。',
+        description: '“已确认”和坐标用途只能通过现场定位记录的独立审核更新；普通表单修改坐标后会自动变为待确认。',
         group: '坐标'
       },
       {
@@ -287,7 +287,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'sourceRawRef',
         label: '导入记录说明',
         placeholder: '例如：工作地图第 12 行',
-        group: '来源与核验'
+        group: '来源与确认'
       },
       {
         key: 'sourceIds',
@@ -295,14 +295,14 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         type: 'textarea',
         rows: 3,
         description: '每行填写一个来源编号；发布前至少需要一条有效来源。',
-        group: '来源与核验',
+        group: '来源与确认',
         span: 'full'
       },
       {
         key: 'lastVerifiedAt',
-        label: '最后核验时间',
+        label: '最后确认时间',
         type: 'datetime-local',
-        group: '发布与核验'
+        group: '发布与确认'
       },
       {
         key: 'isOfficial',
@@ -310,7 +310,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         type: 'checkbox',
         description: '表示地点主体属性，不代表本页面已获校方确认。',
         defaultValue: false,
-        group: '发布与核验',
+        group: '发布与确认',
         span: 'full'
       },
       {
@@ -318,7 +318,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '首页精选',
         type: 'checkbox',
         defaultValue: false,
-        group: '发布与核验',
+        group: '发布与确认',
         span: 'full'
       }
     ]
@@ -362,7 +362,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       { key: 'audience', label: '适用人群' },
       { key: 'status', label: '状态', kind: 'status' },
-      { key: 'lastVerifiedAt', label: '最后核验', kind: 'date', fallbackKeys: ['last_verified_at'] }
+      { key: 'lastVerifiedAt', label: '最后确认', kind: 'date', fallbackKeys: ['last_verified_at'] }
     ],
     fields: [
       {
@@ -483,7 +483,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'metadata.verificationState',
-        label: '核验状态',
+        label: '信息确认状态',
         type: 'select',
         options: [
           { label: '已确认', value: 'verified' },
@@ -592,21 +592,21 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         type: 'textarea',
         rows: 3,
         description: '每行填写一个来源编号；发布前至少需要一条有效来源。',
-        group: '来源与核验',
+        group: '来源与确认',
         span: 'full'
       },
       {
         key: 'lastVerifiedAt',
-        label: '最后核验时间',
+        label: '最后确认时间',
         type: 'datetime-local',
-        group: '发布与核验'
+        group: '发布与确认'
       },
       {
         key: 'isFeatured',
         label: '精选内容',
         type: 'checkbox',
         defaultValue: false,
-        group: '发布与核验',
+        group: '发布与确认',
         span: 'full'
       }
     ]
@@ -665,7 +665,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
           'map-platform': '地图平台',
           'amap-workmap': '高德工作地图（授权导入）',
           'social-platform': '社交平台',
-          'field-verification': '现场核验',
+          'field-verification': '现场确认',
           other: '其他'
         }
       },
@@ -675,7 +675,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '可信程度',
         valueLabels: {
           A: 'A（学校官方）',
-          B: 'B（权威或现场核验）',
+          B: 'B（权威或现场确认）',
           C: 'C（当事方或授权导入）',
           D: 'D（辅助线索）',
           E: 'E（尚未分级）'
@@ -728,11 +728,11 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
           { label: 'D · 线索', value: 'D' },
           { label: 'E · 未分级', value: 'E' }
         ],
-        group: '核验'
+        group: '信息确认'
       },
       {
         key: 'accessedAt',
-        label: '访问或核验日期',
+        label: '查看或确认日期',
         type: 'datetime-local',
         required: true,
         group: '来源信息'
@@ -754,7 +754,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
           { label: '不可用', value: 'unavailable' },
           { label: '存在争议', value: 'disputed' }
         ],
-        group: '核验'
+        group: '信息确认'
       },
       {
         key: 'isOfficial',
@@ -762,7 +762,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         type: 'checkbox',
         description: '仅在来源确属学校或部门官方渠道时勾选。',
         defaultValue: false,
-        group: '核验',
+        group: '信息确认',
         span: 'full'
       },
       {
@@ -770,7 +770,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '内部备注',
         type: 'textarea',
         rows: 4,
-        group: '核验',
+        group: '信息确认',
         span: 'full'
       }
     ]
@@ -815,13 +815,13 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       { key: 'message', label: '反馈内容', class: 'min-w-64 max-w-xl' },
       {
         key: 'targetType',
-        label: '对象',
+        label: '反馈事项',
         valueLabels: { general: '通用反馈', place: '地点', content: '内容', procedure: '办事流程' }
       },
       { key: 'reasonType', label: '原因' },
       { key: 'contact', label: '联系方式', class: 'max-w-48' },
       { key: 'pageUrl', label: '关联页面', class: 'max-w-56' },
-      { key: 'evidenceUrl', label: '证据链接', class: 'max-w-56' },
+      { key: 'evidenceUrl', label: '补充图片或链接', class: 'max-w-56' },
       { key: 'status', label: '状态', kind: 'status' },
       { key: 'createdAt', label: '提交时间', kind: 'date' }
     ],

@@ -115,7 +115,7 @@ test('successful submission preserves one client id and blocks duplicate clicks'
 
   assert.equal(queueState.submitting.value, false)
   assert.deepEqual(marked, [fixedSubmission.placeId])
-  assert.deepEqual(notifications, ['观测已进入审核队列'])
+  assert.deepEqual(notifications, ['定位记录已提交审核'])
   assert.equal(reloadCount, 1)
 })
 
@@ -143,7 +143,7 @@ test('server outages enqueue the exact submission while queue failures are expli
   await operations.submitObservation({} as NewCoordinateObservationPayload)
   assert.deepEqual(enqueuedIds, [fixedSubmission.clientObservationId])
   assert.deepEqual(queueState.queued.value.map(item => item.id), [fixedSubmission.clientObservationId])
-  assert.deepEqual(notifications, ['网络不可用，观测已保存在本机'])
+  assert.deepEqual(notifications, ['网络不可用，定位记录已保存在本机'])
 
   stored = []
   const failedQueue = createFieldObservationQueueOperations({
@@ -159,7 +159,7 @@ test('server outages enqueue the exact submission while queue failures are expli
     notify(notification) { notifications.push(notification.title) }
   })
   await failedQueue.submitObservation({} as NewCoordinateObservationPayload)
-  assert.equal(notifications.at(-1), '观测提交失败')
+  assert.equal(notifications.at(-1), '定位记录提交失败')
 })
 
 test('validation and authorization errors never enter the offline queue', async () => {
@@ -190,12 +190,12 @@ test('validation and authorization errors never enter the offline queue', async 
   })
 
   await operations.submitObservation({} as NewCoordinateObservationPayload)
-  assert.deepEqual(notifications, ['观测未提交'])
+  assert.deepEqual(notifications, ['定位记录未提交'])
   status = 401
   await operations.submitObservation({} as NewCoordinateObservationPayload)
   assert.equal(unauthorizedCount, 1)
   assert.equal(enqueueCount, 0)
-  assert.deepEqual(notifications, ['观测未提交'])
+  assert.deepEqual(notifications, ['定位记录未提交'])
 })
 
 test('single retry blocks overlap and keeps a failed record with its message', async () => {
@@ -329,7 +329,7 @@ test('delete snapshots its target, blocks duplicates and preserves failures', as
   await Promise.all([firstDelete, duplicateDelete])
   assert.equal(queueState.deleteOpen.value, false)
   assert.equal(queueState.deleteTarget.value, null)
-  assert.deepEqual(notifications, ['本地观测已删除'])
+  assert.deepEqual(notifications, ['本地定位记录已删除'])
 })
 
 test('field observation page delegates queue storage and operation state', () => {

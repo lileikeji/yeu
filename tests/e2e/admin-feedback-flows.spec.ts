@@ -46,7 +46,7 @@ async function exerciseProcedureEditors(page: Page): Promise<void> {
   await editor.getByLabel('预计办理时长').fill('约 10 分钟')
   await expect(editor.getByLabel('流程标题')).toHaveValue('E2E 流程编辑器')
   await expect(editor.getByLabel('前台状态说明')).toHaveValue('E2E 等待确认')
-  await expect(editor.getByLabel('核验来源')).toBeVisible()
+  await expect(editor.getByLabel('信息来源')).toBeVisible()
 
   const stepTitles = editor.getByLabel('步骤标题')
   await expect(stepTitles).toHaveCount(1)
@@ -93,11 +93,11 @@ async function exerciseOfflineCoordinateQueue(page: Page): Promise<void> {
   }
 
   await page.goto('/admin/field-observations')
-  await expect(page.getByRole('heading', { level: 1, name: '现场坐标观测' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '现场坐标采集' })).toBeVisible()
   await expect(page.getByLabel('选择采点地点')).toBeVisible()
-  await expect(page.getByLabel('搜索观测地点')).toBeVisible()
+  await expect(page.getByLabel('搜索定位地点')).toBeVisible()
   await expect(page.getByLabel('筛选审核状态')).toBeVisible()
-  await expect(page.getByText('当前筛选条件下暂无坐标观测')).toBeVisible()
+  await expect(page.getByText('当前条件下暂无定位记录')).toBeVisible()
   await page.evaluate(async (queuedRecord) => {
     await new Promise<void>((resolve, reject) => {
       const request = indexedDB.open('yeu-field-verification', 2)
@@ -122,7 +122,7 @@ async function exerciseOfflineCoordinateQueue(page: Page): Promise<void> {
   }, record)
   await page.reload()
 
-  const heading = page.getByRole('heading', { level: 2, name: '离线观测队列' })
+  const heading = page.getByRole('heading', { level: 2, name: '未上传的定位记录' })
   await expect(heading).toBeVisible()
   const panel = page.locator('section').filter({ has: heading })
   await expect(panel.getByText('未知地点', { exact: true })).toBeVisible()
@@ -130,8 +130,8 @@ async function exerciseOfflineCoordinateQueue(page: Page): Promise<void> {
   await expect(panel.getByText('E2E 离线现场说明', { exact: true })).toBeVisible()
   await expect(panel.getByText(record.id, { exact: true })).toBeVisible()
   await expect(panel.getByText('118.6034567', { exact: true })).toBeVisible()
-  await panel.getByRole('button', { name: '删除未知地点的本地观测' }).click()
-  const dialog = page.getByRole('dialog', { name: '删除本地观测' })
+  await panel.getByRole('button', { name: '删除未知地点的本地定位记录' }).click()
+  const dialog = page.getByRole('dialog', { name: '删除本地定位记录' })
   await expect(dialog).toBeVisible()
   await dialog.getByRole('button', { name: '确认删除', exact: true }).click()
   await expect(heading).toHaveCount(0)
