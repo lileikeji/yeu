@@ -90,7 +90,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   },
   {
     title: '学生社团',
-    description: '按兴趣查看社团方向和当前招新状态',
+    description: '按兴趣看社团方向和本学期招新消息',
     to: '/clubs',
     icon: 'i-lucide-users-round',
     tone: 'bg-violet-50 text-violet-700'

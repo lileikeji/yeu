@@ -114,7 +114,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
 
     <div class="animate-spring-up">
       <section class="border-b border-[var(--line)] bg-white/60 backdrop-blur-md relative overflow-hidden">
-        <div class="page-shell grid gap-7 py-7 md:py-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-center">
+        <div class="page-shell grid gap-5 py-5 md:gap-7 md:py-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-center">
           <div class="max-w-3xl">
             <div class="flex flex-wrap items-center gap-2 text-xs">
               <UBadge
@@ -133,7 +133,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
             </p>
 
             <form
-              class="mt-6 flex max-w-2xl gap-2"
+              class="mt-4 flex max-w-2xl gap-2 md:mt-6"
               role="search"
               @submit.prevent="searchMap"
             >
@@ -157,21 +157,21 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
 
           <NuxtLink
             :to="arrivalSummary.to"
-            class="group p-5 premium-card glow-effect bg-orange-50/60 border-orange-200"
+            class="group p-4 premium-card glow-effect bg-orange-50/60 border-orange-200 md:p-5"
             @mousemove="onCardMouseMove"
             @mouseleave="onCardMouseLeave"
           >
             <p class="text-xs font-semibold text-orange-800">
               {{ arrivalSummary.kicker }}
             </p>
-            <p class="mt-2 text-3xl font-bold text-orange-950">
+            <p class="mt-2 text-2xl font-bold text-orange-950 md:text-3xl">
               {{ arrivalSummary.title }}
             </p>
-            <div class="mt-4 space-y-2 border-t border-orange-200 pt-4 text-xs leading-5 text-orange-900">
+            <div class="mt-3 space-y-2 border-t border-orange-200 pt-3 text-xs leading-5 text-orange-900 md:mt-4 md:pt-4">
               <p>{{ arrivalSummary.meta }}</p>
               <p>9月7–9日入学教育 · 9月10日上课</p>
             </div>
-            <span class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-orange-950">
+            <span class="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-orange-950 md:mt-4">
               打开入学清单 / 流程
               <UIcon
                 name="i-lucide-arrow-right"
