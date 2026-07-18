@@ -222,3 +222,48 @@ test('admin depth3: security snapshot, user dossier, room stats, deleted filter,
   assert.match(labels, /'auth\.login'/)
 })
 
+
+test('admin depth4: visitor dossier, risk snapshot, richer security ops', () => {
+  const snapshotApi = readFileSync(resolve('server/api/admin/security/snapshot.get.ts'), 'utf8')
+  const visitorSecurityApi = readFileSync(resolve('server/api/admin/visitors/[id]/security.get.ts'), 'utf8')
+  const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
+
+  assert.match(snapshotApi, /getSecuritySnapshot/)
+  assert.match(visitorSecurityApi, /getVisitorSecurityDossier/)
+  assert.match(securityService, /export function getSecuritySnapshot/)
+  assert.match(securityService, /export function getVisitorSecurityDossier/)
+  assert.match(securityService, /topActions/)
+  assert.match(securityService, /topIps/)
+  assert.match(securityService, /topBanReasons/)
+  assert.match(securityService, /hourlyEvents/)
+  assert.match(securityService, /riskHints/)
+  assert.match(securityService, /recentBans/)
+  assert.match(securityService, /actionBreakdown/)
+  assert.match(securityService, /ipHistory/)
+  assert.match(securityService, /sameIpVisitors/)
+  assert.match(securityService, /relatedBans/)
+  assert.match(securityService, /linkedUser/)
+
+  assert.match(dashboardPage, /securityRiskHints/)
+  assert.match(dashboardPage, /securityTopActions/)
+  assert.match(dashboardPage, /securityTopIps/)
+  assert.match(dashboardPage, /securityTopBanReasons/)
+  assert.match(dashboardPage, /securityHourlyEvents/)
+  assert.match(dashboardPage, /风险提示/)
+  assert.match(dashboardPage, /热门动作/)
+  assert.match(dashboardPage, /高频 IP/)
+  assert.match(dashboardPage, /24 小时事件节奏/)
+
+  assert.match(visitorsPage, /\/api\/admin\/visitors\//)
+  assert.match(visitorsPage, /security/)
+  assert.match(visitorsPage, /visitorDossier|VisitorSecurityDossier/)
+  assert.match(visitorsPage, /访客安全档案/)
+  assert.match(visitorsPage, /IP 历史/)
+  assert.match(visitorsPage, /关联封禁/)
+  assert.match(visitorsPage, /同 IP 其他访客/)
+
+  assert.match(labels, /adminRiskLevelLabels/)
+  assert.match(labels, /adminRiskLevelTone/)
+  assert.match(labels, /adminVisitorActionLabels/)
+})
+

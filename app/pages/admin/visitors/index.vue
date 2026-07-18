@@ -12,7 +12,8 @@ import {
   formatAdminDateTime,
   formatAdminRelativeTime,
   groupByAdminDay,
-  prettyAdminDetails
+  prettyAdminDetails,
+  shortAdminId
 } from '~~/app/utils/admin-security-labels'
 
 definePageMeta({ layout: 'admin' })
@@ -57,6 +58,61 @@ type BanRow = {
   createdAt: string
 }
 
+type VisitorSecurityDossier = {
+  visitor: {
+    id: string
+    firstSeenAt: string
+    lastSeenAt: string
+    lastIp: string | null
+    lastPath: string | null
+    eventCount: number
+    userId: string | null
+    locationLabel: string
+    lastUserAgent?: string | null
+  }
+  summary: {
+    eventTotal: number
+    events7d: number
+    uniqueIps: number
+    uniquePaths: number
+    actionCounts: number
+    relatedBanCount: number
+    activeBanCount: number
+    isBanned: boolean
+    hasLinkedUser: boolean
+    sameIpVisitorCount: number
+  }
+  actionBreakdown: Array<{ action: string; count: number }>
+  ipHistory: Array<{ ip: string; count: number; lastAt: string | null }>
+  pathTop: Array<{ path: string; count: number }>
+  relatedBans: Array<{
+    id: string
+    scope: string
+    value: string
+    reason: string
+    isActive: boolean
+    expiresAt: string | null
+    createdAt: string
+  }>
+  linkedUser: { id: string; username: string; displayName: string; status?: string } | null
+  sameIpVisitors: Array<{
+    id: string
+    lastSeenAt: string
+    lastIp: string | null
+    lastCity: string | null
+    lastPath: string | null
+    eventCount: number
+    userId: string | null
+  }>
+  auditItems: Array<{
+    id: string
+    action: string
+    entityType: string
+    entityId: string | null
+    createdAt: string
+  }>
+}
+
 const toast = useToast()
 const route = useRoute()
 const loading = ref(false)
@@ -75,6 +131,8 @@ const banned = ref<'all' | 'true' | 'false'>('all')
 const selectedVisitor = ref<VisitorRow | null>(null)
 const events = ref<VisitorEvent[]>([])
 const eventTotal = ref(0)
+const visitorDossier = ref<VisitorSecurityDossier | null>(null)
+const dossierLoading = ref(false)
 const bans = ref<BanRow[]>([])
 const banScope = ref<'ip' | 'visitor' | 'user'>('ip')
 const banValue = ref('')
@@ -181,19 +239,38 @@ async function loadBans(): Promise<void> {
 async function openEvents(row: VisitorRow): Promise<void> {
   selectedVisitor.value = row
   eventsLoading.value = true
+  dossierLoading.value = true
+  visitorDossier.value = null
   try {
-    const payload = await adminFetch<{ items: VisitorEvent[]; total: number }>(
-      `/api/admin/visitors/${encodeURIComponent(row.id)}/events`,
-      { query: { page: 1, pageSize: 60 } }
-    )
-    events.value = payload.items || []
-    eventTotal.value = payload.total || events.value.length
+    const [eventsPayload, dossierPayload] = await Promise.all([
+      adminFetch<{ items: VisitorEvent[]; total: number }>(
+        `/api/admin/visitors/${encodeURIComponent(row.id)}/events`,
+        { query: { page: 1, pageSize: 60 } }
+      ),
+      adminFetch<VisitorSecurityDossier>(
+        `/api/admin/visitors/${encodeURIComponent(row.id)}/security`
+      ).catch((error) => {
+        console.warn('visitor security dossier failed', error)
+        return null
+      })
+    ])
+    events.value = eventsPayload.items || []
+    eventTotal.value = eventsPayload.total || events.value.length
+    visitorDossier.value = dossierPayload
   } catch (error) {
     if (await handleAuth(error)) return
     toast.add({ title: getRequestMessage(error, '操作记录加载失败'), color: 'error' })
   } finally {
     eventsLoading.value = false
+    dossierLoading.value = false
   }
+}
+
+function clearSelectedVisitor(): void {
+  selectedVisitor.value = null
+  visitorDossier.value = null
+  events.value = []
+  eventTotal.value = 0
 }
 
 function prepBan(row: VisitorRow, scope: 'ip' | 'visitor' | 'user'): void {
@@ -703,10 +780,177 @@ onMounted(async () => {
             size="xs"
             color="neutral"
             variant="ghost"
-            @click="selectedVisitor = null"
+            @click="clearSelectedVisitor()"
           >
             关闭
           </UButton>
+        </div>
+      </div>
+
+
+      <div
+        v-if="dossierLoading"
+        class="mt-3 rounded-xl border border-violet-100 bg-violet-50/40 px-3 py-2 text-xs text-violet-800"
+      >
+        安全档案加载中…
+      </div>
+      <div
+        v-else-if="visitorDossier"
+        class="mt-3 space-y-3 rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50/70 to-white p-3"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="text-xs font-semibold text-violet-950">访客安全档案</p>
+            <p class="mt-0.5 text-[11px] text-violet-700/80">
+              事件 {{ visitorDossier.summary.eventTotal }} · 近 7 天 {{ visitorDossier.summary.events7d }}
+              · IP {{ visitorDossier.summary.uniqueIps }} · 路径 {{ visitorDossier.summary.uniquePaths }}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <span
+              class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+              :class="visitorDossier.summary.isBanned ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'"
+            >
+              {{ visitorDossier.summary.isBanned ? '命中封禁' : '未命中封禁' }}
+            </span>
+            <span
+              v-if="visitorDossier.summary.activeBanCount"
+              class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900"
+            >
+              生效封禁 {{ visitorDossier.summary.activeBanCount }}
+            </span>
+            <NuxtLink
+              v-if="visitorDossier.linkedUser"
+              :to="'/admin/users?userId=' + encodeURIComponent(visitorDossier.linkedUser.id)"
+              class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] text-sky-900 hover:underline"
+            >
+              关联账号 {{ visitorDossier.linkedUser.displayName || visitorDossier.linkedUser.username }}
+            </NuxtLink>
+            <NuxtLink
+              :to="adminAuditHref('visitor', selectedVisitor.id)"
+              class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700 hover:underline"
+            >
+              审计
+            </NuxtLink>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-1.5">
+          <span
+            v-for="row in visitorDossier.actionBreakdown.slice(0, 8)"
+            :key="'act-' + row.action"
+            class="rounded-full bg-white px-2 py-0.5 text-[11px] text-zinc-700 ring-1 ring-violet-100"
+          >
+            {{ actionLabel(row.action) }} {{ row.count }}
+          </span>
+        </div>
+
+        <div class="grid gap-3 md:grid-cols-2">
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">IP 历史</p>
+            <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
+              <li
+                v-for="row in visitorDossier.ipHistory"
+                :key="row.ip"
+                class="flex items-center justify-between gap-2 text-[11px]"
+              >
+                <button
+                  type="button"
+                  class="truncate text-left text-sky-700 hover:underline"
+                  @click="ip = row.ip; page = 1; loadVisitors()"
+                >
+                  {{ row.ip }}
+                </button>
+                <span class="shrink-0 text-zinc-500">{{ row.count }} · {{ formatAdminRelativeTime(row.lastAt) }}</span>
+              </li>
+              <li v-if="!visitorDossier.ipHistory.length" class="text-zinc-400">暂无</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-white bg-white/90 p-2.5">
+            <p class="text-[11px] font-medium text-zinc-600">高频路径</p>
+            <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
+              <li
+                v-for="row in visitorDossier.pathTop"
+                :key="row.path"
+                class="flex items-center justify-between gap-2 text-[11px]"
+              >
+                <span class="truncate text-zinc-700">{{ row.path }}</span>
+                <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+              </li>
+              <li v-if="!visitorDossier.pathTop.length" class="text-zinc-400">暂无</li>
+            </ul>
+          </div>
+        </div>
+
+        <div
+          v-if="visitorDossier.relatedBans.length"
+          class="rounded-lg border border-red-100 bg-red-50/40 p-2.5"
+        >
+          <p class="text-[11px] font-medium text-red-900">关联封禁</p>
+          <ul class="mt-1.5 space-y-1.5">
+            <li
+              v-for="ban in visitorDossier.relatedBans.slice(0, 6)"
+              :key="ban.id"
+              class="flex flex-wrap items-start justify-between gap-2 text-[11px]"
+            >
+              <div class="min-w-0">
+                <p class="font-medium text-zinc-900">
+                  {{ adminLabel(adminBanScopeLabels, ban.scope, ban.scope) }} · {{ ban.value }}
+                  <span
+                    class="ml-1 rounded-full px-1.5 py-0.5"
+                    :class="banStatusMeta(ban).tone === 'active' ? 'bg-red-100 text-red-800' : 'bg-zinc-100 text-zinc-600'"
+                  >
+                    {{ banStatusMeta(ban).label }}
+                  </span>
+                </p>
+                <p class="mt-0.5 line-clamp-2 text-zinc-600">{{ ban.reason || '—' }}</p>
+              </div>
+              <NuxtLink
+                :to="'/admin/bans?banId=' + encodeURIComponent(ban.id)"
+                class="shrink-0 text-sky-700 hover:underline"
+              >
+                查看
+              </NuxtLink>
+            </li>
+          </ul>
+        </div>
+
+        <div
+          v-if="visitorDossier.sameIpVisitors.length"
+          class="rounded-lg border border-amber-100 bg-amber-50/30 p-2.5"
+        >
+          <p class="text-[11px] font-medium text-amber-950">
+            同 IP 其他访客 · {{ visitorDossier.summary.sameIpVisitorCount }}
+          </p>
+          <ul class="mt-1.5 space-y-1">
+            <li
+              v-for="sib in visitorDossier.sameIpVisitors"
+              :key="sib.id"
+              class="flex flex-wrap items-center justify-between gap-2 text-[11px]"
+            >
+              <button
+                type="button"
+                class="truncate text-left text-sky-700 hover:underline"
+                @click="openEvents({
+                  id: sib.id,
+                  firstSeenAt: sib.lastSeenAt,
+                  lastSeenAt: sib.lastSeenAt,
+                  lastIp: sib.lastIp,
+                  lastCountry: null,
+                  lastRegion: null,
+                  lastCity: sib.lastCity,
+                  lastUserAgent: null,
+                  lastPath: sib.lastPath,
+                  eventCount: sib.eventCount,
+                  userId: sib.userId,
+                  locationLabel: sib.lastCity || '未知'
+                })"
+              >
+                {{ shortAdminId(sib.id, 10) }} · {{ sib.lastPath || '—' }}
+              </button>
+              <span class="text-zinc-500">{{ formatAdminRelativeTime(sib.lastSeenAt) }} · 事件 {{ sib.eventCount }}</span>
+            </li>
+          </ul>
         </div>
       </div>
 

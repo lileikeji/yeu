@@ -106,13 +106,33 @@ export const adminVisitorActionLabels: Record<string, string> = {
   profile_update: '更新资料',
   procedure_view: '查看办事',
   feedback_submit: '提交反馈',
-  api_request: '接口请求'
+  api_request: '接口请求',
+  click: '点击',
+  scroll: '滚动',
+  share: '分享',
+  download: '下载',
+  error: '前端错误',
+  unknown: '未知动作'
 }
 
 export const adminSecurityWindowLabels = {
   h24: '近 24 小时',
   d7: '近 7 天'
 } as const
+
+export const adminRiskLevelLabels: Record<string, string> = {
+  high: '高风险',
+  medium: '中风险',
+  low: '低风险',
+  info: '提示'
+}
+
+export const adminRiskLevelTone: Record<string, string> = {
+  high: 'error',
+  medium: 'warning',
+  low: 'primary',
+  info: 'neutral'
+}
 
 export function adminLabel(map: Record<string, string>, value: string | null | undefined, fallback?: string): string {
   if (!value) return fallback || '—'

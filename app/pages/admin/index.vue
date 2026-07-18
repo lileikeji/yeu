@@ -14,6 +14,8 @@ import {
   adminAuditActionLabels,
   adminBanScopeLabels,
   adminLabel,
+  adminRiskLevelLabels,
+  adminVisitorActionLabels,
   formatAdminDateTime,
   formatAdminRelativeTime,
   shortAdminId
@@ -65,6 +67,18 @@ const securityRecentMutes = ref<Array<{
   displayName: string | null
   roomTitle: string | null
 }>>([])
+const securityTopActions = ref<Array<{ action: string; count: number }>>([])
+const securityTopIps = ref<Array<{ ip: string; count: number }>>([])
+const securityTopBanReasons = ref<Array<{ reason: string; count: number }>>([])
+const securityHourlyEvents = ref<Array<{ hour: string; count: number }>>([])
+const securityRiskHints = ref<Array<{ level: string; code: string; message: string; href: string }>>([])
+const securitySnapshotBans = ref<Array<{
+  id: string
+  scope: string
+  value: string
+  reason: string
+  createdAt: string
+}>>([])
 const securityGeneratedAt = ref('')
 const loading = ref(false)
 const loadError = ref('')
@@ -85,6 +99,18 @@ function banScopeLabel(record: AdminDashboardRecord): string {
   const raw = adminDashboardRecordValue(record, 'scope')
   return adminLabel(adminBanScopeLabels, raw === '—' ? '' : raw, raw)
 }
+
+function visitorActionLabel(action: string | null | undefined): string {
+  return adminLabel(adminVisitorActionLabels, action, action || '未知')
+}
+
+function riskLevelLabel(level: string | null | undefined): string {
+  return adminLabel(adminRiskLevelLabels, level, level || '提示')
+}
+
+const securityHourlyMax = computed(() =>
+  Math.max(1, ...securityHourlyEvents.value.map(row => Number(row.count) || 0))
+)
 
 async function loadDashboard(): Promise<void> {
   loading.value = true
@@ -126,6 +152,12 @@ async function loadDashboard(): Promise<void> {
       last24h?: Record<string, number>
       topPaths?: Array<{ path: string; count: number }>
       topCities?: Array<{ city: string; count: number }>
+      topActions?: Array<{ action: string; count: number }>
+      topIps?: Array<{ ip: string; count: number }>
+      topBanReasons?: Array<{ reason: string; count: number }>
+      hourlyEvents?: Array<{ hour: string; count: number }>
+      riskHints?: Array<{ level: string; code: string; message: string; href: string }>
+      recentBans?: Array<{ id: string; scope: string; value: string; reason: string; createdAt: string }>
       recentMutes?: Array<{
         id: string
         userId: string
@@ -182,6 +214,12 @@ async function loadDashboard(): Promise<void> {
       securityLast24h.adminLogins = Number(h.adminLogins ?? 0)
       securityTopPaths.value = Array.isArray(snap.topPaths) ? snap.topPaths : []
       securityTopCities.value = Array.isArray(snap.topCities) ? snap.topCities : []
+      securityTopActions.value = Array.isArray(snap.topActions) ? snap.topActions : []
+      securityTopIps.value = Array.isArray(snap.topIps) ? snap.topIps : []
+      securityTopBanReasons.value = Array.isArray(snap.topBanReasons) ? snap.topBanReasons : []
+      securityHourlyEvents.value = Array.isArray(snap.hourlyEvents) ? snap.hourlyEvents : []
+      securityRiskHints.value = Array.isArray(snap.riskHints) ? snap.riskHints : []
+      securitySnapshotBans.value = Array.isArray(snap.recentBans) ? snap.recentBans : []
       securityRecentMutes.value = Array.isArray(snap.recentMutes) ? snap.recentMutes : []
       securityGeneratedAt.value = snap.generatedAt || ''
     } else if (key !== 'audit' && key !== 'recent-bans' && key !== 'recent-visitors') {
@@ -283,6 +321,51 @@ onMounted(() => {
         </p>
         <p class="mt-1 text-[11px] text-zinc-500">房间级 mute-all</p>
       </NuxtLink>
+    </section>
+
+
+    <section
+      v-if="securityRiskHints.length"
+      class="mt-4 rounded-md border border-zinc-200 bg-white p-4"
+      aria-label="风险提示"
+    >
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-zinc-950">风险提示</h2>
+          <p class="mt-0.5 text-[11px] text-zinc-500">基于快照自动生成的运营线索</p>
+        </div>
+        <UButton to="/admin/audit" size="xs" color="neutral" variant="ghost" trailing-icon="i-lucide-arrow-right">
+          审计
+        </UButton>
+      </div>
+      <ul class="mt-3 grid gap-2 sm:grid-cols-2">
+        <li
+          v-for="hint in securityRiskHints"
+          :key="hint.code"
+        >
+          <NuxtLink
+            :to="hint.href"
+            class="flex items-start gap-2 rounded-lg border px-3 py-2 text-xs transition hover:bg-zinc-50"
+            :class="hint.level === 'high'
+              ? 'border-red-200 bg-red-50/50'
+              : hint.level === 'medium'
+                ? 'border-amber-200 bg-amber-50/40'
+                : 'border-zinc-200 bg-zinc-50/50'"
+          >
+            <span
+              class="mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+              :class="hint.level === 'high'
+                ? 'bg-red-100 text-red-800'
+                : hint.level === 'medium'
+                  ? 'bg-amber-100 text-amber-900'
+                  : 'bg-zinc-200 text-zinc-700'"
+            >
+              {{ riskLevelLabel(hint.level) }}
+            </span>
+            <span class="min-w-0 leading-5 text-zinc-800">{{ hint.message }}</span>
+          </NuxtLink>
+        </li>
+      </ul>
     </section>
 
     <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="安全深度快照">
@@ -387,6 +470,98 @@ onMounted(() => {
           <li v-if="!securityTopCities.length" class="py-4 text-center text-zinc-400">暂无数据</li>
         </ul>
       </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">热门动作 · 近 7 天</h2>
+        <ul class="mt-3 space-y-1.5">
+          <li
+            v-for="row in securityTopActions"
+            :key="row.action"
+            class="flex items-center justify-between gap-2 text-xs"
+          >
+            <span class="truncate text-zinc-700">{{ visitorActionLabel(row.action) }}</span>
+            <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+          </li>
+          <li v-if="!securityTopActions.length" class="py-4 text-center text-zinc-400">暂无数据</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">高频 IP · 近 24 小时</h2>
+        <ul class="mt-3 space-y-1.5">
+          <li
+            v-for="row in securityTopIps"
+            :key="row.ip"
+            class="flex items-center justify-between gap-2 text-xs"
+          >
+            <NuxtLink
+              :to="'/admin/visitors?ip=' + encodeURIComponent(row.ip)"
+              class="truncate text-sky-700 hover:underline"
+            >
+              {{ row.ip }}
+            </NuxtLink>
+            <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+          </li>
+          <li v-if="!securityTopIps.length" class="py-4 text-center text-zinc-400">暂无数据</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">封禁原因 TOP</h2>
+        <ul class="mt-3 space-y-1.5">
+          <li
+            v-for="row in securityTopBanReasons"
+            :key="row.reason"
+            class="flex items-start justify-between gap-2 text-xs"
+          >
+            <span class="line-clamp-2 text-zinc-700">{{ row.reason }}</span>
+            <span class="shrink-0 tabular-nums text-zinc-500">{{ row.count }}</span>
+          </li>
+          <li v-if="!securityTopBanReasons.length" class="py-4 text-center text-zinc-400">暂无生效原因</li>
+        </ul>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4 lg:col-span-2">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-semibold text-zinc-950">24 小时事件节奏</h2>
+            <p class="mt-0.5 text-[11px] text-zinc-500">按小时汇总访客事件</p>
+          </div>
+        </div>
+        <div class="mt-3 flex h-24 items-end gap-0.5">
+          <div
+            v-for="(row, idx) in securityHourlyEvents"
+            :key="row.hour + '-' + idx"
+            class="group relative min-w-0 flex-1 rounded-t bg-sky-400/80 transition hover:bg-sky-500"
+            :style="{ height: Math.max(4, Math.round((Number(row.count) / securityHourlyMax) * 100)) + '%' }"
+            :title="formatAdminDateTime(row.hour) + ' · ' + row.count"
+          />
+        </div>
+        <p v-if="!securityHourlyEvents.length" class="py-6 text-center text-xs text-zinc-400">暂无节奏数据</p>
+      </div>
+
+      <div class="rounded-md border border-zinc-200 bg-white p-4">
+        <h2 class="text-sm font-semibold text-zinc-950">最近生效封禁</h2>
+        <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
+          <li
+            v-for="ban in securitySnapshotBans"
+            :key="ban.id"
+          >
+            <NuxtLink
+              :to="'/admin/bans?banId=' + encodeURIComponent(ban.id)"
+              class="block rounded-lg border border-zinc-100 px-2.5 py-2 text-xs hover:bg-zinc-50"
+            >
+              <p class="font-medium text-zinc-900">
+                {{ adminLabel(adminBanScopeLabels, ban.scope, ban.scope) }} · {{ ban.value }}
+              </p>
+              <p class="mt-0.5 line-clamp-2 text-zinc-500">{{ ban.reason || '—' }}</p>
+              <p class="mt-1 text-zinc-400">{{ formatAdminRelativeTime(ban.createdAt) }}</p>
+            </NuxtLink>
+          </li>
+          <li v-if="!securitySnapshotBans.length" class="py-6 text-center text-zinc-400">暂无生效封禁</li>
+        </ul>
+      </div>
+
     </section>
 
     <section
