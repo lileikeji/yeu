@@ -129,6 +129,12 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     activeScope: 'nearby'
   }), '周边生活')
   assert.equal(resolveMapDataLabel({
+    publishedCount: 4,
+    ownerMapCount: 0,
+    hasPublicPlaceError: false,
+    activeScope: 'nearby'
+  }), '周边生活')
+  assert.equal(resolveMapDataLabel({
     publishedCount: 0,
     ownerMapCount: 0,
     hasPublicPlaceError: false,

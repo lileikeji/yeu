@@ -51,10 +51,10 @@ export function resolveMapDataLabel(input: {
   hasPublicPlaceError: boolean
   activeScope: string | null | undefined
 }): string {
+  if (input.activeScope === 'nearby') return '周边生活'
   if (input.publishedCount) return '已发布目录'
   if (input.ownerMapCount) return '地图地点'
   if (input.hasPublicPlaceError) return '文字目录'
-  if (input.activeScope === 'nearby') return '周边生活'
   return '官网编号'
 }
 
