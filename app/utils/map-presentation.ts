@@ -278,7 +278,7 @@ export function withMapLabelSize(
 }
 
 export function resolveMapUnsupportedBaseStyleMessage(): string {
-  return '当前地图不支持该图层'
+  return '当前地图暂不支持这个显示选项'
 }
 
 export function filterMapAreasForProviderScope(

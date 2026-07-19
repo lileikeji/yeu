@@ -451,7 +451,7 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   }, 'showLabels')
   assert.equal(toggled.showLabels, false)
   assert.equal(withMapLabelSize(toggled, 'large').labelSize, 'large')
-  assert.equal(resolveMapUnsupportedBaseStyleMessage(), '当前地图不支持该图层')
+  assert.equal(resolveMapUnsupportedBaseStyleMessage(), '当前地图暂不支持这个显示选项')
 
   const areas: MapArea[] = [sampleArea]
   assert.deepEqual(filterMapAreasForProviderScope(areas, 'nearby'), [])
