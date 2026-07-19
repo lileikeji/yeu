@@ -1,4 +1,5 @@
 import { extractStudentUseChecklist, studentFacingPlaceBody } from './public-catalog'
+import { studentFacingSourceTitle } from './sources-presentation'
 
 export const placeCategoryLabels: Record<string, string> = {
   'campus-building': '教学 / 学习',
@@ -70,7 +71,9 @@ export interface PlaceDetailSourceLike {
 export interface PlaceDetailSourceView {
   key: string
   title: string
-  url: string
+  url: string | null
+  meta?: string
+  unavailable?: boolean
 }
 
 export function resolvePlaceCategoryLabel(category: string | null | undefined, type: string | null | undefined): string {
@@ -108,11 +111,19 @@ export function buildPlaceMapTarget(
 export function buildPlaceDetailSources(
   sources: PlaceDetailSourceLike[] | null | undefined
 ): PlaceDetailSourceView[] {
-  return (sources ?? []).map(source => ({
-    key: source.id,
-    title: source.title,
-    url: source.url
-  }))
+  return (sources ?? []).map((source) => {
+    const title = studentFacingSourceTitle(source.title)
+    if (title === '高德地图位置参考') {
+      return {
+        key: source.id,
+        title,
+        url: null,
+        meta: '这个位置来自高德地图标点，可先用来确认大致方向。',
+        unavailable: true
+      }
+    }
+    return { key: source.id, title, url: source.url }
+  })
 }
 
 export function buildPlaceFallbackUseChecklist(

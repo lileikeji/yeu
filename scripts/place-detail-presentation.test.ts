@@ -91,6 +91,19 @@ test('place category checklist and copy text follow student-facing rules', () =>
   assert.deepEqual(buildPlaceDetailSources([
     { id: 's1', title: '官网', url: 'https://example.test' }
   ]), [{ key: 's1', title: '官网', url: 'https://example.test' }])
+  assert.deepEqual(buildPlaceDetailSources([
+    {
+      id: 'map-source',
+      title: '用户授权高德工作地图导入（业主标记）',
+      url: 'https://yeu.local/internal/map-source'
+    }
+  ]), [{
+    key: 'map-source',
+    title: '高德地图位置参考',
+    url: null,
+    meta: '这个位置来自高德地图标点，可先用来确认大致方向。',
+    unavailable: true
+  }])
 })
 
 test('place detail rewrites imported maintenance copy for students', () => {
