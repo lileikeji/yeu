@@ -103,6 +103,7 @@ function toggleGuidePreview() {
                 variant="ghost"
                 size="xs"
                 aria-label="清空搜索"
+                class="min-h-10 min-w-10"
                 @click="() => { searchQuery = '' }"
               />
             </template>
@@ -147,7 +148,7 @@ function toggleGuidePreview() {
         </h2>
         <NuxtLink
           to="/campus"
-          class="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-800"
+          class="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-green-700 hover:text-green-800"
         >
           校园与部门
           <UIcon
@@ -222,6 +223,7 @@ function toggleGuidePreview() {
           :label="showAllGuides ? '收起' : `再看其他 ${filteredGuides.length - visibleGuides.length} 篇`"
           color="neutral"
           variant="ghost"
+          class="min-h-11"
           @click="toggleGuidePreview"
         />
       </div>

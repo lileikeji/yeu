@@ -64,6 +64,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 to="/map"
                 icon="i-lucide-map-pinned"
                 label="查看校园地图"
+                class="min-h-11"
               />
               <UButton
                 :to="safeExternalHref(officialSources.university.url) || undefined"
@@ -73,6 +74,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 label="学校官网"
                 color="neutral"
                 variant="outline"
+                class="min-h-11"
               />
             </div>
           </div>
@@ -198,7 +200,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           label="学校组织机构"
           color="neutral"
           variant="ghost"
-          class="self-start"
+          class="min-h-11 self-start"
         />
       </div>
 
@@ -261,7 +263,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           <NuxtLink
             v-if="department.isApiPublished"
             :to="`/departments/${encodeURIComponent(department.slug)}`"
-            class="mt-4 inline-flex items-center gap-1.5 border-t border-zinc-100 pt-3 text-xs font-semibold text-green-700 hover:text-green-800"
+            class="mt-3 inline-flex min-h-10 items-center gap-1.5 border-t border-zinc-100 pt-2 text-xs font-semibold text-green-700 hover:text-green-800"
           >
             查看部门详情
             <UIcon
@@ -279,6 +281,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           label="查看全部部门与学院"
           color="neutral"
           variant="outline"
+          class="min-h-11"
         />
       </div>
     </section>
@@ -304,6 +307,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 to="/clubs"
                 icon="i-lucide-compass"
                 label="浏览全部社团"
+                class="min-h-11"
               />
               <UButton
                 to="/guides/clubs"
@@ -311,6 +315,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 label="招新指南"
                 color="neutral"
                 variant="outline"
+                class="min-h-11"
               />
             </div>
           </div>
@@ -336,7 +341,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             </h3>
             <NuxtLink
               to="/clubs"
-              class="text-xs font-medium text-green-700 hover:underline"
+              class="inline-flex min-h-10 items-center text-xs font-medium text-green-700 hover:underline"
             >共 {{ clubs.length }} 个社团</NuxtLink>
           </div>
           <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -370,7 +375,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               </p>
               <NuxtLink
                 :to="`/clubs/${encodeURIComponent(club.slug)}`"
-                class="mt-4 inline-flex items-center gap-1.5 border-t border-zinc-100 pt-3 text-xs font-semibold text-green-700 hover:text-green-800"
+                class="mt-3 inline-flex min-h-10 items-center gap-1.5 border-t border-zinc-100 pt-2 text-xs font-semibold text-green-700 hover:text-green-800"
               >
                 查看介绍
                 <UIcon

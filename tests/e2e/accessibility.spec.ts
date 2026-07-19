@@ -12,6 +12,7 @@ const auditPages: AuditPage[] = [
   { name: '首页', path: '/', heading: '第一次来仰恩，先从这里开始' },
   { name: '全站搜索', path: '/search', heading: '找地点、办事和校园信息' },
   { name: '校园地图', path: '/map', heading: '校园与周边' },
+  { name: '新生清单', path: '/checklist', heading: '新生入学清单' },
   { name: '办事流程详情', path: '/procedures/campus-network', heading: '校园网与账号登录问题' },
   { name: '公众反馈', path: '/feedback?type=general&path=%2F', heading: '发现信息不对？告诉我们' },
   { name: '后台登录', path: '/admin/login', heading: '管理员登录' }
@@ -28,6 +29,18 @@ async function dismissIntroIfShown(page: Page): Promise<void> {
   await page.getByRole('button', { name: '跳过动画' }).click()
   await expect(intro).toBeHidden()
 }
+
+test('新生清单的勾选按钮适合手机触控', async ({ page }) => {
+  await page.goto('/checklist')
+  const controls = page.getByRole('button', { name: /标记完成/ })
+  await expect(controls.first()).toBeVisible()
+
+  for (const control of await controls.all()) {
+    const box = await control.boundingBox()
+    expect(box?.width).toBeGreaterThanOrEqual(40)
+    expect(box?.height).toBeGreaterThanOrEqual(40)
+  }
+})
 
 function summarizeViolations(violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violations']): string {
   return violations.map(violation => [

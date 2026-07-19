@@ -65,6 +65,7 @@ function toggleTaskPreview(): void {
             label="打开地图"
             color="neutral"
             variant="ghost"
+            class="min-h-11"
           />
         </div>
 
@@ -106,6 +107,7 @@ function toggleTaskPreview(): void {
             :label="tasksExpanded ? '收起其他入口' : `再看 ${taskPreview.hiddenCount} 个入口`"
             color="neutral"
             variant="soft"
+            class="min-h-11"
             :aria-expanded="tasksExpanded"
             @click="toggleTaskPreview"
           />

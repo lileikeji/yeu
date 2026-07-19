@@ -85,7 +85,7 @@ function confirmResetProgress() {
     </header>
 
     <div class="page-shell py-8 md:py-10">
-      <section class="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 via-white to-green-50 p-5 md:p-6">
+      <section class="rounded-lg border border-orange-200 bg-orange-50/60 p-5 md:p-6">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-stretch lg:justify-between">
           <div class="min-w-0 flex-1">
             <p class="text-xs font-semibold text-orange-800">
@@ -121,21 +121,21 @@ function confirmResetProgress() {
               />
             </div>
           </div>
-          <ol class="grid w-full max-w-sm gap-2 sm:grid-cols-3 lg:grid-cols-1">
+          <ol class="w-full max-w-sm divide-y divide-zinc-200 border-y border-zinc-200">
             <li
               v-for="milestone in arrival.milestones"
               :key="milestone.id"
-              class="rounded-xl border px-3 py-3 text-xs leading-5"
+              class="px-1 py-3 text-xs leading-5"
               :class="milestone.active
-                ? 'border-orange-300 bg-orange-50 text-orange-950'
+                ? 'font-semibold text-orange-950'
                 : milestone.done
-                  ? 'border-green-200 bg-green-50 text-green-900'
-                  : 'border-zinc-200 bg-white text-zinc-600'"
+                  ? 'text-green-800'
+                  : 'text-zinc-600'"
             >
               <p class="font-semibold">
                 {{ milestone.label }}
               </p>
-              <p class="mt-1 opacity-80">
+              <p class="mt-1">
                 {{ milestone.dateLabel }}
               </p>
             </li>
@@ -143,7 +143,7 @@ function confirmResetProgress() {
         </div>
       </section>
 
-      <section class="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 md:p-6">
+      <section class="mt-6 border-y border-zinc-200 bg-white py-5 md:px-5">
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div class="min-w-0">
             <p class="text-xs font-semibold text-green-700">
@@ -160,33 +160,37 @@ function confirmResetProgress() {
 
         <p
           v-if="!todayFocus.items.length"
-          class="mt-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600"
+          class="mt-4 border-l-2 border-zinc-300 bg-zinc-50 px-4 py-3 text-sm text-zinc-600"
         >
           {{ todayFocus.emptyLabel }}
         </p>
         <ul
           v-else
-          class="mt-4 grid gap-2 sm:grid-cols-2"
+          class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 sm:grid sm:grid-cols-2 sm:divide-y-0"
         >
           <li
             v-for="item in todayFocus.items"
             :key="`focus-${item.id}`"
-            class="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4"
+            class="flex items-start gap-3 px-1 py-4 sm:border-b sm:border-zinc-200 sm:odd:pr-4 sm:even:pl-4"
           >
             <button
               type="button"
-              class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md border transition"
-              :class="isCompleted(item.id)
-                ? 'border-green-600 bg-green-600 text-white'
-                : 'border-zinc-300 bg-white text-transparent hover:border-green-500'"
+              class="group -m-2 grid size-10 shrink-0 place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-green-700"
               :aria-pressed="isCompleted(item.id)"
               :aria-label="`${isCompleted(item.id) ? '取消完成' : '标记完成'}：${item.title}`"
               @click="toggleItem(item.id)"
             >
-              <UIcon
-                name="i-lucide-check"
-                class="size-3.5"
-              />
+              <span
+                class="grid size-6 place-items-center rounded-md border transition"
+                :class="isCompleted(item.id)
+                  ? 'border-green-600 bg-green-600 text-white'
+                  : 'border-zinc-300 bg-white text-transparent group-hover:border-green-500'"
+              >
+                <UIcon
+                  name="i-lucide-check"
+                  class="size-3.5"
+                />
+              </span>
             </button>
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
@@ -207,7 +211,7 @@ function confirmResetProgress() {
               <NuxtLink
                 v-if="item.to"
                 :to="item.to"
-                class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-green-700"
+                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700"
               >
                 相关页面
                 <UIcon
@@ -220,7 +224,7 @@ function confirmResetProgress() {
         </ul>
       </section>
 
-      <section class="mt-6 rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 via-white to-orange-50 p-5 md:p-6">
+      <section class="mt-6 rounded-lg border border-green-200 bg-green-50/60 p-5 md:p-6">
         <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div class="min-w-0">
             <p class="text-xs font-semibold text-green-800">
@@ -351,27 +355,31 @@ function confirmResetProgress() {
           </p>
         </div>
 
-        <ul class="mt-4 space-y-2">
+        <ul class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
           <li
             v-for="item in stage.items"
             :key="item.id"
-            class="surface-panel flex items-start gap-3 p-4 transition"
-            :class="isCompleted(item.id) ? 'border-green-200 bg-green-50/40' : 'hover:border-green-200'"
+            class="flex items-start gap-3 px-1 py-4 transition"
+            :class="isCompleted(item.id) ? 'bg-green-50/50' : 'hover:bg-zinc-50'"
           >
             <button
               type="button"
-              class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md border transition"
-              :class="isCompleted(item.id)
-                ? 'border-green-600 bg-green-600 text-white'
-                : 'border-zinc-300 bg-white text-transparent hover:border-green-500'"
+              class="group -m-2 grid size-10 shrink-0 place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-green-700"
               :aria-pressed="isCompleted(item.id)"
               :aria-label="`${isCompleted(item.id) ? '取消完成' : '标记完成'}：${item.title}`"
               @click="toggleItem(item.id)"
             >
-              <UIcon
-                name="i-lucide-check"
-                class="size-3.5"
-              />
+              <span
+                class="grid size-6 place-items-center rounded-md border transition"
+                :class="isCompleted(item.id)
+                  ? 'border-green-600 bg-green-600 text-white'
+                  : 'border-zinc-300 bg-white text-transparent group-hover:border-green-500'"
+              >
+                <UIcon
+                  name="i-lucide-check"
+                  class="size-3.5"
+                />
+              </span>
             </button>
 
             <div class="min-w-0 flex-1">
@@ -396,7 +404,7 @@ function confirmResetProgress() {
               <NuxtLink
                 v-if="item.to"
                 :to="item.to"
-                class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-green-700 hover:text-green-800"
+                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700 hover:text-green-800"
               >
                 打开相关页面
                 <UIcon
@@ -452,27 +460,31 @@ function confirmResetProgress() {
           </p>
         </div>
 
-        <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+        <ul class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 sm:grid sm:grid-cols-2 sm:divide-y-0">
           <li
             v-for="item in overview.packing.items"
             :key="item.id"
-            class="surface-panel flex items-start gap-3 p-4"
-            :class="isCompleted(item.id) ? 'border-amber-200 bg-amber-50/50' : ''"
+            class="flex items-start gap-3 px-1 py-4 sm:border-b sm:border-zinc-200 sm:odd:pr-4 sm:even:pl-4"
+            :class="isCompleted(item.id) ? 'bg-amber-50/50' : ''"
           >
             <button
               type="button"
-              class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md border transition"
-              :class="isCompleted(item.id)
-                ? 'border-amber-600 bg-amber-600 text-white'
-                : 'border-zinc-300 bg-white text-transparent hover:border-amber-500'"
+              class="group -m-2 grid size-10 shrink-0 place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-700"
               :aria-pressed="isCompleted(item.id)"
               :aria-label="`${isCompleted(item.id) ? '取消完成' : '标记完成'}：${item.title}`"
               @click="toggleItem(item.id)"
             >
-              <UIcon
-                name="i-lucide-check"
-                class="size-3.5"
-              />
+              <span
+                class="grid size-6 place-items-center rounded-md border transition"
+                :class="isCompleted(item.id)
+                  ? 'border-amber-600 bg-amber-600 text-white'
+                  : 'border-zinc-300 bg-white text-transparent group-hover:border-amber-500'"
+              >
+                <UIcon
+                  name="i-lucide-check"
+                  class="size-3.5"
+                />
+              </span>
             </button>
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
@@ -496,7 +508,7 @@ function confirmResetProgress() {
               <NuxtLink
                 v-if="item.to"
                 :to="item.to"
-                class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-green-700"
+                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700"
               >
                 相关页面
                 <UIcon
@@ -509,7 +521,7 @@ function confirmResetProgress() {
         </ul>
       </section>
 
-      <section class="mt-10 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-4 text-xs leading-6 text-zinc-600">
+      <section class="mt-10 border-y border-zinc-200 bg-zinc-50 px-4 py-4 text-xs leading-6 text-zinc-600">
         <p class="font-semibold text-zinc-800">
           使用说明
         </p>

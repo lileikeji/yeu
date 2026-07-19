@@ -122,6 +122,7 @@ function toggleSourcePreview(): void {
             label="社区地图说明"
             color="neutral"
             variant="outline"
+            class="min-h-11"
           />
           <UButton
             to="https://www.openstreetmap.org/relation/17685756"
@@ -131,6 +132,7 @@ function toggleSourcePreview(): void {
             label="查看范围出处"
             color="neutral"
             variant="ghost"
+            class="min-h-11"
           />
         </div>
       </div>
@@ -155,6 +157,7 @@ function toggleSourcePreview(): void {
           icon="i-lucide-search"
           placeholder="搜索学校、部门或信息名称"
           aria-label="搜索信息出处"
+          size="lg"
           class="w-full sm:max-w-md"
         />
         <span class="text-xs text-zinc-500">找到 {{ filteredSources.length }} 条</span>
@@ -207,6 +210,7 @@ function toggleSourcePreview(): void {
           :label="sourcesExpanded ? '收起出处' : `查看其余 ${sourcePreview.hiddenCount} 条出处`"
           color="neutral"
           variant="soft"
+          class="min-h-11"
           :aria-expanded="sourcesExpanded"
           @click="toggleSourcePreview"
         />
