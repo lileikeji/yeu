@@ -36,6 +36,12 @@ test('procedure search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /aria-label="搜索办事流程"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
 })
 
+test('procedure audience controls update the selected audience directly', () => {
+  assert.match(pageSource, /function selectProcedureAudience\(value: typeof audience\.value\): void/)
+  assert.match(pageSource, /@click="selectProcedureAudience\(option\.value\)"/)
+  assert.doesNotMatch(pageSource, /@click="\(\) => \{ audience = option\.value \}"/)
+})
+
 test('procedure list audience and method labels stay student-facing', () => {
   assert.equal(procedureListAudienceOptions[0]?.value, 'all')
   assert.equal(procedureListAudienceOptions.length, 3)
@@ -96,4 +102,70 @@ test('procedure list filter and detail query helpers', () => {
 
   assert.equal(procedureListDetailQuery('all'), undefined)
   assert.deepEqual(procedureListDetailQuery('transfer'), { audience: 'transfer' })
+})
+
+test('procedure list puts shared newcomer tasks first until an audience is selected', () => {
+  const sharedAudience = ['undergraduate', 'transfer']
+  const items = [
+    {
+      title: '专升本学生档案邮寄',
+      summary: '专升本事项',
+      statusText: '可以办理',
+      audience: ['transfer']
+    },
+    {
+      title: '图书馆借阅证与微信绑定',
+      summary: '全部新生事项',
+      statusText: '可以办理',
+      audience: sharedAudience
+    },
+    {
+      title: '宿舍维修报修',
+      summary: '全部新生事项',
+      statusText: '可以办理',
+      audience: sharedAudience
+    },
+    {
+      title: '校园网与账号登录问题',
+      summary: '全部新生事项',
+      statusText: '可以办理',
+      audience: sharedAudience
+    },
+    {
+      title: '2026级新生报到',
+      summary: '全部新生事项',
+      statusText: '等待通知',
+      audience: sharedAudience
+    }
+  ]
+
+  assert.deepEqual(
+    filterProcedureListItems(items, { query: '', audience: 'all' }).map(item => item.title),
+    [
+      '2026级新生报到',
+      '校园网与账号登录问题',
+      '图书馆借阅证与微信绑定',
+      '宿舍维修报修',
+      '专升本学生档案邮寄'
+    ]
+  )
+  assert.deepEqual(
+    filterProcedureListItems(items, { query: '', audience: 'transfer' }).map(item => item.title),
+    [
+      '专升本学生档案邮寄',
+      '2026级新生报到',
+      '校园网与账号登录问题',
+      '图书馆借阅证与微信绑定',
+      '宿舍维修报修'
+    ]
+  )
+  assert.deepEqual(
+    filterProcedureListItems(items, { query: '可以办理', audience: 'all' }).map(item => item.title),
+    [
+      '专升本学生档案邮寄',
+      '图书馆借阅证与微信绑定',
+      '宿舍维修报修',
+      '校园网与账号登录问题'
+    ]
+  )
 })

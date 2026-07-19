@@ -29,6 +29,10 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
 }))
 const filtersActive = computed(() => Boolean(query.value.trim()) || audience.value !== 'all')
 
+function selectProcedureAudience(value: typeof audience.value): void {
+  audience.value = value
+}
+
 function clearProcedureFilters(): void {
   query.value = ''
   audience.value = 'all'
@@ -83,7 +87,7 @@ function clearProcedureFilters(): void {
               :variant="audience === option.value ? 'soft' : 'ghost'"
               class="min-h-11 shrink-0"
               :aria-pressed="audience === option.value"
-              @click="() => { audience = option.value }"
+              @click="selectProcedureAudience(option.value)"
             />
           </div>
         </div>

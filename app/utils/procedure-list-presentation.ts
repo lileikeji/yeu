@@ -58,17 +58,55 @@ export interface ProcedureListFilterableItem {
   audience: readonly string[]
 }
 
+const procedureJourneyTerms = [
+  '报到',
+  '校园网',
+  '图书馆',
+  '宿舍'
+] as const
+
+function procedureAudiencePriority(
+  item: ProcedureListFilterableItem,
+  audience: ProcedureListAudienceFilter | string
+): number {
+  const itemAudience = new Set(item.audience)
+  const appliesToAllFreshmen = itemAudience.has('undergraduate') && itemAudience.has('transfer')
+
+  if (audience === 'all') return appliesToAllFreshmen ? 0 : 1
+  if (itemAudience.size === 1 && itemAudience.has(audience)) return 0
+  return appliesToAllFreshmen ? 1 : 2
+}
+
+function procedureJourneyPriority(title: string): number {
+  const normalizedTitle = title.trim().toLocaleLowerCase('zh-CN')
+  const index = procedureJourneyTerms.findIndex(term => normalizedTitle.includes(term))
+  return index === -1 ? procedureJourneyTerms.length : index
+}
+
 export function filterProcedureListItems<T extends ProcedureListFilterableItem>(
   items: ReadonlyArray<T>,
   options: { query: string, audience: ProcedureListAudienceFilter | string }
 ): T[] {
   const keyword = options.query.trim().toLocaleLowerCase('zh-CN')
 
-  return items.filter((item) => {
+  const filtered = items.filter((item) => {
     const matchesAudience = options.audience === 'all' || item.audience.includes(options.audience)
     const text = [item.title, item.summary, item.statusText].join(' ').toLocaleLowerCase('zh-CN')
     return matchesAudience && (!keyword || text.includes(keyword))
   })
+
+  if (keyword) return filtered
+
+  return filtered
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      return procedureAudiencePriority(left.item, options.audience)
+        - procedureAudiencePriority(right.item, options.audience)
+        || procedureJourneyPriority(left.item.title)
+        - procedureJourneyPriority(right.item.title)
+        || left.index - right.index
+    })
+    .map(({ item }) => item)
 }
 
 export function procedureMethodLabel(method: string): string {
