@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { safeExternalHref } from '~/utils/safe-external-href'
+import { studentFacingSourceTitle } from '~/utils/sources-presentation'
+
 export interface PublicSourceDetailsItem {
   key: string
   title: string
@@ -58,7 +60,7 @@ withDefaults(defineProps<{
               class="mt-0.5 size-3.5 shrink-0"
             />
             <span>
-              <span class="font-medium">{{ source.title }}</span>
+              <span class="font-medium">{{ studentFacingSourceTitle(source.title) }}</span>
               <span
                 v-if="source.meta"
                 class="block text-zinc-500"
@@ -78,7 +80,7 @@ withDefaults(defineProps<{
               class="mt-0.5 size-3.5 shrink-0 text-orange-600"
             />
             <span>
-              <span class="font-medium">{{ source.title }}</span>
+              <span class="font-medium">{{ studentFacingSourceTitle(source.title) }}</span>
               <span class="block text-zinc-500">{{ source.meta || '这个页面现在打不开，暂时只保留名称供参考。' }}</span>
               <span
                 v-if="source.note"

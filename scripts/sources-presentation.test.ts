@@ -11,11 +11,14 @@ import {
   sourceListMessages,
   sourcePlatformLabel,
   sourceLevelGuides,
-  sourceLevelLabels
+  sourceLevelLabels,
+  studentFacingSourcePublisher,
+  studentFacingSourceTitle
 } from '../app/utils/sources-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/sources.vue'), 'utf8')
 const utilSource = readFileSync(resolve('app/utils/sources-presentation.ts'), 'utf8')
+const sourceDetailsSource = readFileSync(resolve('app/components/public/PublicSourceDetails.vue'), 'utf8')
 
 function sampleSource(overrides: Record<string, unknown> = {}) {
   return {
@@ -75,10 +78,23 @@ test('source level guides use ordinary decision wording', () => {
 
 test('source platform values are translated for ordinary readers', () => {
   assert.equal(sourcePlatformLabel('official-website'), '学校官网')
-  assert.equal(sourcePlatformLabel('amap-workmap'), '授权地图资料')
+  assert.equal(sourcePlatformLabel('amap-workmap'), '高德地图资料')
   assert.equal(sourcePlatformLabel('social-platform'), '社交平台资料')
   assert.equal(sourcePlatformLabel('future-platform'), 'future platform')
   assert.equal(sourcePlatformLabel(null), '公开资料')
+})
+
+test('internal map source labels are rewritten for students', () => {
+  assert.equal(
+    studentFacingSourceTitle('用户授权高德工作地图导入（业主标记）'),
+    '高德地图位置参考'
+  )
+  assert.equal(studentFacingSourceTitle('仰恩大学官网通知'), '仰恩大学官网通知')
+  assert.equal(studentFacingSourcePublisher('业主授权导入'), '地图位置提供者')
+  assert.equal(studentFacingSourcePublisher('仰恩大学'), '仰恩大学')
+  assert.match(pageSource, /studentFacingSourceTitle\(source\.title\)/)
+  assert.match(pageSource, /studentFacingSourcePublisher\(source\.publisherName\)/)
+  assert.equal((sourceDetailsSource.match(/studentFacingSourceTitle\(source\.title\)/g) || []).length, 2)
 })
 
 test('collectActiveLinkedSources dedupes by url, keeps newer access, and sorts', () => {

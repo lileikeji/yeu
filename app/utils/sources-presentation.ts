@@ -17,7 +17,7 @@ export const sourceLevelLabels: Record<ApiSource['sourceLevel'], string> = {
 export const sourcePlatformLabels: Record<string, string> = {
   'official-website': '学校官网',
   'official-document': '学校公开文件',
-  'amap-workmap': '授权地图资料',
+  'amap-workmap': '高德地图资料',
   'social-platform': '社交平台资料',
   'government-website': '政府公开网站',
   'school-document': '学校公开材料'
@@ -26,6 +26,20 @@ export const sourcePlatformLabels: Record<string, string> = {
 export function sourcePlatformLabel(value: string | null | undefined): string {
   if (!value) return '公开资料'
   return sourcePlatformLabels[value] ?? value.replace(/[-_]/g, ' ')
+}
+
+export function studentFacingSourceTitle(value: string): string {
+  const title = value.trim()
+  if (/用户授权.*高德.*(?:导入|业主标记)|高德.*(?:工作地图|坐标).*(?:导入|业主标记)/.test(title)) {
+    return '高德地图位置参考'
+  }
+  return title
+}
+
+export function studentFacingSourcePublisher(value: string): string {
+  const publisher = value.trim()
+  if (/业主授权导入|用户授权导入/.test(publisher)) return '地图位置提供者'
+  return publisher
 }
 
 export interface SourceLevelGuide {
@@ -67,7 +81,9 @@ export function filterSourceList(
   if (!normalized) return [...sources]
   return sources.filter(source => [
     source.title,
+    studentFacingSourceTitle(source.title),
     source.publisherName,
+    studentFacingSourcePublisher(source.publisherName),
     sourcePlatformLabel(source.platform),
     sourceLevelLabels[source.sourceLevel]
   ]

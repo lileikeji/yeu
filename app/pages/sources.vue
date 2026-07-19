@@ -10,7 +10,9 @@ import {
   sourceListMessages,
   sourcePlatformLabel,
   sourceLevelGuides,
-  sourceLevelLabels
+  sourceLevelLabels,
+  studentFacingSourcePublisher,
+  studentFacingSourceTitle
 } from '~~/app/utils/sources-presentation'
 
 useSeoMeta({
@@ -221,10 +223,10 @@ async function refreshSources(): Promise<void> {
           class="group grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_12rem_8rem_auto] sm:items-center"
         >
           <span class="min-w-0">
-            <span class="block font-semibold text-zinc-900 group-hover:text-green-700">{{ source.title }}</span>
+            <span class="block font-semibold text-zinc-900 group-hover:text-green-700">{{ studentFacingSourceTitle(source.title) }}</span>
             <span class="mt-1 block text-xs text-zinc-500">{{ sourcePlatformLabel(source.platform) }}</span>
           </span>
-          <span class="text-sm text-zinc-600">{{ source.publisherName }}</span>
+          <span class="text-sm text-zinc-600">{{ studentFacingSourcePublisher(source.publisherName) }}</span>
           <span class="text-xs text-zinc-500">
             {{ sourceLevelLabels[source.sourceLevel] }}
           </span>
