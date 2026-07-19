@@ -44,6 +44,9 @@ const waterPointer = { x: 0, y: 0, active: false }
 const waterLens = { x: 0, y: 0, vx: 0, vy: 0, strength: 0 }
 const mapMotion = { x: 0, y: 0, vx: 0, vy: 0, targetX: 0, targetY: 0 }
 const timerIds = new Set<number>()
+const INTRO_INIT_RETRY_DELAY = 180
+const INTRO_INIT_MAX_ATTEMPTS = 3
+const INTRO_INIT_FALLBACK_DELAY = 2400
 
 function schedule(callback: () => void, delay: number): void {
   const timerId = window.setTimeout(() => {
@@ -182,7 +185,7 @@ function drawRefractedWater(
   const layout = getCampusMapLayout()
   const [imageX, imageY] = imagePointToViewport(0, 0, layout)
   const [imageRight, imageBottom] = imagePointToViewport(1, 1, layout)
-  const radius = lowPowerMode ? 86 : 118
+  const radius = lowPowerMode ? 68 : 88
   const cell = lowPowerMode ? 16 : 11
   const half = radius
   const motionEnergy = Math.min(1, Math.hypot(waterLens.vx, waterLens.vy) / 7.5)
@@ -193,8 +196,8 @@ function drawRefractedWater(
   ctx.save()
   clipToWater(ctx)
   // Keep campus tones; only mild regrading so water stays photographic.
-  ctx.filter = 'saturate(0.96) contrast(1.02) brightness(0.97)'
-  ctx.globalAlpha = 0.98
+  ctx.filter = 'saturate(0.9) contrast(1.02) brightness(0.7)'
+  ctx.globalAlpha = 0.78
 
   for (let y = -half; y < half; y += cell) {
     for (let x = -half; x < half; x += cell) {
@@ -274,8 +277,8 @@ function drawRefractedWater(
     waterLens.y,
     radius
   )
-  shade.addColorStop(0, `rgba(6, 34, 28, ${0.08 * strength * (0.4 + motionEnergy * 0.6)})`)
-  shade.addColorStop(0.55, `rgba(4, 30, 24, ${0.12 * strength})`)
+  shade.addColorStop(0, `rgba(6, 34, 28, ${0.05 * strength * (0.4 + motionEnergy * 0.6)})`)
+  shade.addColorStop(0.55, `rgba(4, 30, 24, ${0.08 * strength})`)
   shade.addColorStop(1, 'rgba(3, 24, 17, 0)')
   ctx.globalAlpha = 1
   ctx.fillStyle = shade
@@ -286,8 +289,8 @@ function drawRefractedWater(
   const glintX = waterLens.x - radius * 0.16 + flowX * 1.2
   const glintY = waterLens.y - radius * 0.2 + flowY * 0.8
   const glint = ctx.createRadialGradient(glintX, glintY, 0, waterLens.x, waterLens.y, radius * 0.95)
-  glint.addColorStop(0, `rgba(220, 240, 234, ${0.22 * strength * (0.45 + motionEnergy * 0.55)})`)
-  glint.addColorStop(0.4, `rgba(150, 195, 180, ${0.08 * strength})`)
+  glint.addColorStop(0, `rgba(220, 240, 234, ${0.025 * strength * (0.45 + motionEnergy * 0.55)})`)
+  glint.addColorStop(0.4, `rgba(150, 195, 180, ${0.01 * strength})`)
   glint.addColorStop(1, 'rgba(20, 40, 32, 0)')
   ctx.fillStyle = glint
   ctx.fillRect(waterLens.x - radius, waterLens.y - radius, radius * 2, radius * 2)
@@ -305,9 +308,9 @@ function drawRefractedWater(
     waterLens.y,
     radius
   )
-  feather.addColorStop(0, `rgba(0, 0, 0, ${0.9 * strength})`)
-  feather.addColorStop(0.55, `rgba(0, 0, 0, ${0.5 * strength})`)
-  feather.addColorStop(0.82, `rgba(0, 0, 0, ${0.16 * strength})`)
+  feather.addColorStop(0, `rgba(0, 0, 0, ${0.55 * strength})`)
+  feather.addColorStop(0.55, `rgba(0, 0, 0, ${0.32 * strength})`)
+  feather.addColorStop(0.82, `rgba(0, 0, 0, ${0.09 * strength})`)
   feather.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = feather
   ctx.fillRect(waterLens.x - radius, waterLens.y - radius, radius * 2, radius * 2)
@@ -352,7 +355,7 @@ function renderWaterInteraction(
 
     // Very soft contact flash — main feel comes from refraction warp.
     if (progress < 0.2) {
-      const bloom = Math.sin((progress / 0.2) * Math.PI) * 0.1
+      const bloom = Math.sin((progress / 0.2) * Math.PI) * 0.055
       const bloomRadius = 8 + progress * 34
       const bloomGrad = ctx.createRadialGradient(ripple.x, ripple.y, 0, ripple.x, ripple.y, bloomRadius)
       bloomGrad.addColorStop(0, `rgba(210, 236, 226, ${bloom})`)
@@ -618,6 +621,19 @@ function initializeAnimation() {
   animationFrameId = requestAnimationFrame(render)
 }
 
+function startAnimation(attempt = 1): void {
+  try {
+    initializeAnimation()
+    void nextTick(() => enterButtonRef.value?.focus({ preventScroll: true }))
+  } catch {
+    if (attempt < INTRO_INIT_MAX_ATTEMPTS) {
+      schedule(() => startAnimation(attempt + 1), INTRO_INIT_RETRY_DELAY)
+      return
+    }
+    completeIntro()
+  }
+}
+
 onMounted(async () => {
   visible.value = true
   reducedMotion.value = !props.force
@@ -626,15 +642,9 @@ onMounted(async () => {
     if (!hasLoaded.value) {
       completeIntro()
     }
-  }, 800)
-  try {
-    await nextTick()
-    initializeAnimation()
-    await nextTick()
-    enterButtonRef.value?.focus({ preventScroll: true })
-  } catch {
-    completeIntro()
-  }
+  }, INTRO_INIT_FALLBACK_DELAY)
+  await nextTick()
+  startAnimation()
 })
 
 onUnmounted(clearRuntime)
@@ -711,10 +721,10 @@ onUnmounted(clearRuntime)
           class="intro-copy absolute left-6 right-6 flex flex-col items-center transition-all duration-700"
           :class="isLeaving ? 'opacity-0 translate-y-6 scale-95' : 'opacity-100'"
         >
-          <p class="text-xs font-semibold uppercase tracking-[0.3em] text-[#b2dfc2] opacity-80">
+          <p class="text-xs font-semibold uppercase tracking-normal text-[#b2dfc2] opacity-80">
             Yang-En University
           </p>
-          <h2 class="mt-2 text-xl font-bold tracking-[0.15em] text-[#ffefd4]">
+          <h2 class="mt-2 text-xl font-bold tracking-normal text-[#ffefd4]">
             仰恩新生指南
           </h2>
           <p class="mt-2 max-w-[280px] text-xs leading-relaxed text-[#7dc79b]/80">
@@ -723,7 +733,7 @@ onUnmounted(clearRuntime)
           <button
             ref="enterButtonRef"
             data-intro-enter
-            class="pointer-events-auto mt-6 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-[#7dc79b]/40 bg-[#104830]/70 px-6 text-xs font-semibold text-[#ffefd4] backdrop-blur transition-all duration-300 hover:border-[#b2dfc2] hover:bg-[#125a3a] hover:shadow-[0_0_24px_rgba(125,199,155,0.25)] active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ffbd6e]"
+            class="pointer-events-auto mt-6 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-[#7dc79b]/40 bg-[#104830]/70 px-6 text-sm font-semibold text-[#ffefd4] backdrop-blur transition-all duration-300 hover:border-[#b2dfc2] hover:bg-[#125a3a] hover:shadow-[0_0_24px_rgba(125,199,155,0.25)] active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#ffbd6e]"
             @pointerenter="guideActive = true"
             @pointerleave="guideActive = false"
             @focus="guideActive = true"
@@ -763,7 +773,7 @@ onUnmounted(clearRuntime)
 
       <!-- 右上角跳过按钮 -->
       <button
-        class="absolute right-4 top-4 z-20 min-h-10 cursor-pointer px-3 text-xs text-[#d8efe0]/60 transition hover:text-white focus-visible:outline-2 focus-visible:outline-[#ffbd6e]"
+        class="absolute right-4 top-4 z-20 min-h-11 cursor-pointer px-3 text-xs text-[#d8efe0]/60 transition hover:text-white focus-visible:outline-2 focus-visible:outline-[#ffbd6e]"
         aria-label="跳过动画"
         @click="leaveIntro"
       >

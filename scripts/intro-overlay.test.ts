@@ -55,12 +55,14 @@ test('开场动画使用代码生成的 YEU 粒子坐标且不依赖运行时图
 })
 
 test('动画初始化失败会快速放行首页', () => {
-  assert.match(introSource, /visible\.value = true[\s\S]{0,500}?await nextTick\(\)[\s\S]{0,80}?initializeAnimation\(\)/)
+  assert.match(introSource, /visible\.value = true[\s\S]{0,500}?await nextTick\(\)[\s\S]{0,80}?startAnimation\(\)/)
   assert.match(
     introSource,
-    /schedule\(\(\) => \{\s*if \(!hasLoaded\.value\) \{[\s\S]{0,240}?completeIntro\(\)[\s\S]{0,80}?\}\s*\}, 800\)/
+    /schedule\(\(\) => \{\s*if \(!hasLoaded\.value\) \{[\s\S]{0,240}?completeIntro\(\)[\s\S]{0,80}?\}\s*\}, INTRO_INIT_FALLBACK_DELAY\)/
   )
-  assert.match(introSource, /catch \{[\s\S]{0,200}?completeIntro\(\)/)
+  assert.match(introSource, /INTRO_INIT_MAX_ATTEMPTS = 3/)
+  assert.match(introSource, /schedule\(\(\) => startAnimation\(attempt \+ 1\), INTRO_INIT_RETRY_DELAY\)/)
+  assert.match(introSource, /catch \{[\s\S]{0,300}?attempt < INTRO_INIT_MAX_ATTEMPTS[\s\S]{0,300}?completeIntro\(\)/)
   assert.match(introSource, /onUnmounted\(clearRuntime\)/)
   assert.match(introSource, /prefers-reduced-motion: reduce/)
 })
@@ -88,6 +90,12 @@ test('动画完成后停留并且只在用户点击时进入首页', () => {
   assert.match(introSource, /data-intro-enter/)
   assert.match(introSource, /@click="leaveIntro"/)
   assert.match(introSource, /if \(visible\.value\)/)
+})
+
+test('开场动画操作保持清晰且适合触控', () => {
+  assert.match(introSource, /data-intro-enter[\s\S]{0,240}?min-h-11[\s\S]{0,160}?text-sm/)
+  assert.match(introSource, /class="absolute right-4 top-4 z-20 min-h-11/)
+  assert.doesNotMatch(introSource, /tracking-\[0\.(?:15|3)em\]/)
 })
 
 test('开场动画加载提示面向新生而不是暴露实现过程', () => {
@@ -152,7 +160,7 @@ test('首页不因装饰动画而被隐藏或禁用', () => {
 })
 
 test('开场动画失败静默降级且不向生产控制台写调试错误', () => {
-  assert.match(introSource, /catch \{\s*completeIntro\(\)/)
+  assert.match(introSource, /catch \{[\s\S]{0,300}?completeIntro\(\)/)
   assert.doesNotMatch(introSource, /console\.(?:log|debug|info|warn|error)/)
 })
 
@@ -187,6 +195,9 @@ test('校园水域支持带阻尼的鼠标流动尾迹与点击波纹', () => {
   assert.match(introSource, /ctx\.ellipse\(ripple\.x, ripple\.y [+-]/)
   assert.match(introSource, /globalCompositeOperation = 'destination-in'/)
   assert.match(introSource, /globalCompositeOperation = 'soft-light'/)
+  assert.match(introSource, /const radius = lowPowerMode \? 68 : 88/)
+  assert.match(introSource, /brightness\(0\.7\)/)
+  assert.match(introSource, /0\.025 \* strength/)
   assert.match(introSource, /ring < 3/)
   assert.match(introSource, /ref="waterCanvasRef"/)
   assert.match(introSource, /@pointerdown="handleWaterClick"/)
