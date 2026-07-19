@@ -355,6 +355,8 @@ test('official campus plan renders the reviewed image with hotspots and navigati
   const source = readFileSync(resolve('app/components/map/OfficialCampusPlan.vue'), 'utf8')
   assert.match(source, /const OFFICIAL_PLAN_IMAGE_URL = officialCampusPlanReference\.localAssetUrl/)
   assert.match(source, /<img/)
+  assert.match(source, /alt="仰恩大学官网校园平面图，含四十七项校内地点图例"/)
+  assert.doesNotMatch(source, /云南经济管理学院/)
   assert.match(source, /v-for="\(anchor, index\) in officialCampusPlanAnchors"/)
   assert.match(source, /handleAnchorClick\(anchor\.mapNumber, \$event\)/)
   assert.match(source, /emit\('selectNumber', mapNumber\)/)

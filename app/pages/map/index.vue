@@ -908,7 +908,7 @@ onBeforeUnmount(() => {
 
       <div
         v-if="mapViewMode === 'geographic' && mapStatus !== 'ready'"
-        class="absolute inset-0 z-20 grid place-items-center p-6 text-center"
+        class="absolute inset-0 z-40 grid place-items-start p-4 pt-32 text-center md:place-items-center md:p-6"
         :class="mapStatus === 'loading' ? 'pointer-events-auto bg-[#e5ebe7]/95' : 'pointer-events-none'"
         :role="mapStatus === 'loading' ? 'status' : 'alert'"
       >
@@ -923,27 +923,39 @@ onBeforeUnmount(() => {
         </div>
         <div
           v-else
-          class="pointer-events-auto max-w-xs rounded-lg border border-zinc-200 bg-white/95 p-5 shadow-lg backdrop-blur-sm"
+          class="pointer-events-auto max-w-sm rounded-lg border border-zinc-200 bg-white/95 p-5 shadow-lg backdrop-blur-sm"
         >
           <UIcon
             name="i-lucide-map-pin-off"
             class="mx-auto size-8 text-zinc-500"
           />
           <p class="mt-3 text-sm font-semibold text-zinc-900">
-            地图暂时无法载入
+            地图画面暂时没有显示出来
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
-            {{ mapErrorMessage }}地点列表仍可继续浏览。
+            {{ mapErrorMessage }}
           </p>
-          <UButton
-            class="mt-4"
-            icon="i-lucide-refresh-cw"
-            label="重新载入"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            @click="mountMap"
-          />
+          <div class="mt-4 flex flex-wrap justify-center gap-2">
+            <UButton
+              icon="i-lucide-refresh-cw"
+              label="重新试一次"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="min-h-11"
+              @click="mountMap"
+            />
+            <UButton
+              v-if="canShowOfficialPlan"
+              icon="i-lucide-map"
+              label="查看学校平面图"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="min-h-11"
+              @click="setMapViewMode('official-plan')"
+            />
+          </div>
         </div>
       </div>
 

@@ -111,7 +111,13 @@ test('map page is a thin shell over map-presentation util for labels and checkli
 })
 
 test('map data labels and fallback messages follow scope and data readiness', () => {
-  assert.equal(MAP_LOAD_ERROR_MESSAGE, '地图暂时无法加载，请检查网络后重试。')
+  assert.equal(MAP_LOAD_ERROR_MESSAGE, '可以重新试一次，也可以先查看学校平面图或地点清单。')
+  assert.match(pageSource, /地图画面暂时没有显示出来/)
+  assert.match(pageSource, /label="重新试一次"/)
+  assert.match(pageSource, /label="查看学校平面图"/)
+  assert.match(pageSource, /@click="setMapViewMode\('official-plan'\)"/)
+  assert.match(pageSource, /z-40 grid place-items-start[^"]*pt-32[^"]*md:place-items-center/)
+  assert.doesNotMatch(pageSource, /地图暂时无法载入|label="重新载入"/)
 
   assert.equal(resolveMapDataLabel({
     publishedCount: 2,

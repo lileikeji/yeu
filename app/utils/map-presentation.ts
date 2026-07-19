@@ -10,7 +10,7 @@ export interface MapCategory {
   icon: string
 }
 
-export const MAP_LOAD_ERROR_MESSAGE = '地图暂时无法加载，请检查网络后重试。'
+export const MAP_LOAD_ERROR_MESSAGE = '可以重新试一次，也可以先查看学校平面图或地点清单。'
 
 export type MapPoiStatusFields = Pick<
   PublicMapPlace,
