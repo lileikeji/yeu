@@ -797,7 +797,7 @@ onBeforeUnmount(() => {
             size="xs"
             :color="mapViewMode === 'geographic' ? 'primary' : 'neutral'"
             :variant="mapViewMode === 'geographic' ? 'solid' : 'ghost'"
-            class="rounded-none"
+            :class="['rounded-none', mapViewMode === 'geographic' ? '!bg-green-800 !text-white' : '']"
             :aria-pressed="mapViewMode === 'geographic'"
             @click="setMapViewMode('geographic')"
           />
@@ -807,7 +807,7 @@ onBeforeUnmount(() => {
             size="xs"
             :color="mapViewMode === 'official-plan' ? 'primary' : 'neutral'"
             :variant="mapViewMode === 'official-plan' ? 'solid' : 'ghost'"
-            class="rounded-none"
+            :class="['rounded-none', mapViewMode === 'official-plan' ? '!bg-green-800 !text-white' : '']"
             :aria-pressed="mapViewMode === 'official-plan'"
             @click="setMapViewMode('official-plan')"
           />

@@ -441,7 +441,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="loading"
-      class="absolute inset-0 z-20 grid place-items-center bg-[#4f84bb] text-white"
+      class="absolute inset-0 z-20 grid place-items-center bg-[#2f6598] text-white"
       role="status"
     >
       <div class="text-center">

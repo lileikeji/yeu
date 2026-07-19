@@ -357,6 +357,8 @@ test('official campus plan renders the reviewed image with hotspots and navigati
   assert.match(source, /<img/)
   assert.match(source, /alt="仰恩大学官网校园平面图，含四十七项校内地点图例"/)
   assert.doesNotMatch(source, /云南经济管理学院/)
+  assert.match(source, /bg-\[#2f6598\] text-white/)
+  assert.doesNotMatch(source, /bg-\[#4f84bb\] text-white/)
   assert.match(source, /v-for="\(anchor, index\) in officialCampusPlanAnchors"/)
   assert.match(source, /handleAnchorClick\(anchor\.mapNumber, \$event\)/)
   assert.match(source, /emit\('selectNumber', mapNumber\)/)

@@ -117,6 +117,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
   assert.match(pageSource, /label="查看学校平面图"/)
   assert.match(pageSource, /@click="setMapViewMode\('official-plan'\)"/)
   assert.match(pageSource, /z-40 grid place-items-start[^"]*pt-32[^"]*md:place-items-center/)
+  assert.match(pageSource, /!bg-green-800 !text-white/)
   assert.doesNotMatch(pageSource, /地图暂时无法载入|label="重新载入"/)
 
   assert.equal(resolveMapDataLabel({
