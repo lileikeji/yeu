@@ -42,6 +42,7 @@ export function studentFacingProcedureText(value: string): string {
     .replace(/认证入口/g, '登录入口')
     .replace(/认证不了/g, '登录不了')
     .replace(/账号、认证、网络故障/g, '账号登录、网络故障')
+    .replace(/系统不公开或猜测个人账号初始密码/g, '这里不会提供或猜测个人账号初始密码')
     .replace(/核验/g, '确认')
 }
 

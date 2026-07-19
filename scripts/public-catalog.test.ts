@@ -171,6 +171,7 @@ test('guide copy hides maintainer language from student pages', () => {
     studentFacingGuideText('新生遇到校园卡网络认证、Wi-Fi、账号登录问题。'),
     '新生遇到校园卡、校园网连接或账号登录问题。'
   )
+  assert.equal(studentFacingGuideText('本系统不收集账号或密码。'), '这里不收集账号或密码。')
   assert.equal(
     studentFacingGuideText('连接后通过浏览器认证。新生注册后以学号获得校园网和VPN账号，首次登录按官方通知操作并立即修改密码。'),
     '连接后按页面提示登录。新生注册后会获得校园网和校外访问账号，第一次使用请按学校通知操作并及时修改密码。'

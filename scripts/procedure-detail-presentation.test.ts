@@ -87,6 +87,7 @@ test('procedure notice and material copy follow category and confirmation state'
   )
   assert.equal(studentFacingProcedureTitle('校园网与统一认证排查'), '校园网与账号登录问题')
   assert.equal(studentFacingProcedureText('请查看统一认证入口，遇到认证不了的情况再联系部门'), '请查看账号登录入口，遇到登录不了的情况再联系部门')
+  assert.equal(studentFacingProcedureText('系统不公开或猜测个人账号初始密码'), '这里不会提供或猜测个人账号初始密码')
 })
 
 test('source claim rewrite and detail source mapping stay student-readable', () => {
