@@ -164,6 +164,7 @@ onMounted(() => {
                   size="sm"
                   type="button"
                   :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
+                  class="min-h-9 min-w-9"
                   @click="togglePasswordVisibility"
                 />
               </template>
@@ -189,6 +190,7 @@ onMounted(() => {
             color="neutral"
             variant="outline"
             size="sm"
+            class="min-h-11"
           >
             返回首页
           </UButton>
@@ -198,6 +200,7 @@ onMounted(() => {
             color="neutral"
             variant="ghost"
             size="sm"
+            class="min-h-11"
           >
             隐私说明
           </UButton>

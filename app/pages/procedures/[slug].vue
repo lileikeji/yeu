@@ -208,7 +208,7 @@ watch(selectedAudience, (value) => {
                 size="sm"
                 :color="audienceOptionPresentation(option.value).color"
                 :variant="audienceOptionPresentation(option.value).variant"
-                class="shrink-0"
+                class="min-h-11 shrink-0"
                 :aria-pressed="audienceOptionPresentation(option.value).ariaPressed"
                 @click="() => { selectedAudience = option.value }"
               />

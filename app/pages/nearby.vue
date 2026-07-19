@@ -146,6 +146,7 @@ function clearNearbyFilters(): void {
               label="打开周边地图"
               color="neutral"
               variant="outline"
+              class="min-h-11"
             />
           </div>
         </div>
@@ -215,6 +216,7 @@ function clearNearbyFilters(): void {
             label="打开周边地图"
             color="neutral"
             variant="outline"
+            class="min-h-11"
           />
         </div>
         <ul class="mt-3 grid gap-2 md:grid-cols-2">
@@ -282,6 +284,7 @@ function clearNearbyFilters(): void {
             color="neutral"
             variant="ghost"
             size="sm"
+            class="min-h-11"
           />
         </div>
       </div>
@@ -450,6 +453,7 @@ function clearNearbyFilters(): void {
             :label="candidatesExpanded ? '收起地点' : `再看 ${candidatePreview.hiddenCount} 个地点`"
             color="neutral"
             variant="soft"
+            class="min-h-11"
             :aria-expanded="candidatesExpanded"
             @click="toggleCandidatePreview"
           />

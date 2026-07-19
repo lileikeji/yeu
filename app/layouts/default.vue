@@ -70,12 +70,14 @@ onMounted(() => {
             color="neutral"
             variant="ghost"
             aria-label="全站搜索"
+            class="min-h-11 min-w-11"
           />
           <UButton
             icon="i-lucide-share-2"
             color="neutral"
             variant="ghost"
             aria-label="分享当前页面"
+            class="min-h-11 min-w-11"
             @click="shareCurrentPage"
           />
           <template v-if="isAuthenticated">
@@ -85,7 +87,7 @@ onMounted(() => {
               color="neutral"
               variant="ghost"
               aria-label="群聊"
-              class="hidden sm:inline-flex"
+              class="hidden min-h-11 min-w-11 sm:inline-flex"
             />
             <UButton
               to="/me"
@@ -93,6 +95,7 @@ onMounted(() => {
               color="primary"
               variant="soft"
               :aria-label="user?.displayName || '个人中心'"
+              class="min-h-11 min-w-11"
             >
               <span class="hidden max-w-[5.5rem] truncate sm:inline">{{ user?.displayName || '我的' }}</span>
             </UButton>
@@ -104,6 +107,7 @@ onMounted(() => {
             color="neutral"
             variant="ghost"
             aria-label="账号登录"
+            class="min-h-11 min-w-11"
           >
             <span class="hidden sm:inline">登录</span>
           </UButton>

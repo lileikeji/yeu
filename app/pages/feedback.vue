@@ -231,6 +231,7 @@ function resetForm() {
                 id="feedback-evidence"
                 v-model="evidenceUrl"
                 type="url"
+                size="lg"
                 class="mt-2 w-full"
                 icon="i-lucide-link"
                 placeholder="https://（选填）"
@@ -244,6 +245,7 @@ function resetForm() {
               <UInput
                 id="feedback-contact"
                 v-model="contact"
+                size="lg"
                 class="mt-2 w-full"
                 icon="i-lucide-at-sign"
                 placeholder="不填也可以，仅用于追问这次反馈"

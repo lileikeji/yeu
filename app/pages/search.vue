@@ -231,6 +231,7 @@ watch([activeQuery, activeType], ([query, type]) => {
                   variant="ghost"
                   size="xs"
                   aria-label="清空搜索"
+                  class="min-h-10 min-w-10"
                   @click="clearSearch"
                 />
               </template>
@@ -259,7 +260,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               value-key="value"
               label-key="label"
               size="sm"
-              class="w-36 max-w-full"
+              class="min-h-11 w-36 max-w-full"
               aria-label="筛选搜索结果"
             />
           </div>
@@ -306,6 +307,7 @@ watch([activeQuery, activeType], ([query, type]) => {
             label="只看地图"
             color="neutral"
             variant="outline"
+            class="min-h-11"
           />
         </div>
 
