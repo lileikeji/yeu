@@ -93,6 +93,8 @@ function toggleGuidePreview() {
             size="lg"
             placeholder="搜索报到、校园网、图书馆、安全、快递或社团"
             aria-label="搜索新生指南"
+            class="min-h-11 w-full"
+            :ui="{ base: 'min-h-11' }"
           >
             <template
               v-if="searchQuery"

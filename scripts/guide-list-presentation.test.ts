@@ -28,6 +28,10 @@ test('guide list page is a thin shell over guide-list-presentation util', () => 
   assert.match(utilSource, /export const guideListCategories/)
 })
 
+test('guide search keeps a comfortable mobile touch height', () => {
+  assert.match(pageSource, /aria-label="搜索新生指南"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+})
+
 test('guide list categories and fallback messages stay student-facing', () => {
   assert.equal(guideListCategories[0]?.id, 'all')
   assert.equal(guideListCategories.length, 5)

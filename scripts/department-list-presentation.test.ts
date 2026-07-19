@@ -29,6 +29,10 @@ test('department list page is a thin shell over department-list-presentation uti
   assert.match(utilSource, /export const departmentListMessages/)
 })
 
+test('department search keeps a comfortable mobile touch height', () => {
+  assert.match(pageSource, /class="mt-6 min-h-11 max-w-2xl"\s+:ui="\{ base: 'min-h-11' \}"/)
+})
+
 test('department list messages stay student-facing', () => {
   assert.equal(departmentListMessages.serviceUnavailable, '下方仍可查看学校公开的常用部门；办公地点和联系方式请以学校最新信息为准。')
   assert.equal(departmentListMessages.emptyMatch, '没有匹配的部门')

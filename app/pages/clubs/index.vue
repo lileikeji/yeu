@@ -98,7 +98,8 @@ function clearClubFilters() {
             placeholder="搜索社团或兴趣，例如音乐、足球、编程"
             aria-label="搜索学生社团"
             size="lg"
-            class="w-full"
+            class="min-h-11 w-full"
+            :ui="{ base: 'min-h-11' }"
           />
           <USelect
             v-model="selectedGroup"

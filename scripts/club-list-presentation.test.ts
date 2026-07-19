@@ -41,6 +41,10 @@ test('club list page is a thin shell over club-list-presentation util', () => {
   assert.match(utilSource, /export const clubListMessages/)
 })
 
+test('club search keeps a comfortable mobile touch height', () => {
+  assert.match(pageSource, /class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+})
+
 test('club list stats and messages stay student-facing', () => {
   assert.equal(clubListRecentActivityUrlMarker, '/2026/')
   assert.equal(clubListMessages.serviceUnavailable, '下方仍可按兴趣查看已有社团；本学期招新请以校团委和现场通知为准。')

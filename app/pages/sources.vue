@@ -167,7 +167,8 @@ async function refreshSources(): Promise<void> {
           placeholder="搜索学校、部门或信息名称"
           aria-label="搜索信息出处"
           size="lg"
-          class="w-full sm:max-w-md"
+          class="min-h-11 w-full sm:max-w-md"
+          :ui="{ base: 'min-h-11' }"
         />
         <span class="text-xs text-zinc-500">找到 {{ filteredSources.length }} 条</span>
       </div>

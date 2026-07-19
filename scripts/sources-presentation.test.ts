@@ -50,6 +50,10 @@ test('sources page is a thin shell over sources-presentation util', () => {
   assert.match(utilSource, /export const sourceLevelLabels/)
 })
 
+test('source search keeps a comfortable mobile touch height', () => {
+  assert.match(pageSource, /class="min-h-11 w-full sm:max-w-md"\s+:ui="\{ base: 'min-h-11' \}"/)
+})
+
 test('source level guides use ordinary decision wording', () => {
   assert.equal(sourceLevelLabels.A, '学校或主管部门')
   assert.equal(sourceLevelLabels.D, '地图或同学分享')

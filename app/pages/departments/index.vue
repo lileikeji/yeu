@@ -72,7 +72,8 @@ function clearDepartmentSearch() {
           placeholder="搜索部门或办理事项"
           aria-label="搜索校内部门"
           size="lg"
-          class="mt-6 max-w-2xl"
+          class="mt-6 min-h-11 max-w-2xl"
+          :ui="{ base: 'min-h-11' }"
         />
       </div>
     </header>
