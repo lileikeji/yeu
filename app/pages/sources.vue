@@ -7,6 +7,7 @@ import {
   dateOnly,
   filterSourceList,
   sourcePreviewLimit,
+  sourceListMessages,
   sourcePlatformLabel,
   sourceLevelGuides,
   sourceLevelLabels
@@ -47,6 +48,14 @@ watch(sourceQuery, () => {
 
 function toggleSourcePreview(): void {
   sourcesExpanded.value = !sourcesExpanded.value
+}
+
+function clearSourceSearch(): void {
+  sourceQuery.value = ''
+}
+
+async function refreshSources(): Promise<void> {
+  await Promise.all([contentRequest.refresh(), placeRequest.refresh()])
 }
 </script>
 
@@ -165,14 +174,41 @@ function toggleSourcePreview(): void {
 
       <div
         v-if="loadError"
-        class="mt-5 border-l-2 border-orange-500 bg-orange-50 px-3 py-2 text-sm text-orange-900"
-        role="status"
+        class="mt-5 border-y border-amber-200 bg-amber-50 px-5 py-8 text-center"
+        role="alert"
       >
-        信息出处暂时无法加载，各指南详情页仍可以查看对应链接。
+        <UIcon
+          name="i-lucide-circle-alert"
+          class="mx-auto size-6 text-amber-700"
+        />
+        <h3 class="mt-3 text-base font-bold text-amber-950">
+          信息出处暂时没有显示出来
+        </h3>
+        <p class="mt-2 text-sm leading-6 text-amber-900">
+          {{ sourceListMessages.serviceUnavailable }}
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-2">
+          <UButton
+            icon="i-lucide-refresh-cw"
+            label="重新试一次"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+            @click="refreshSources"
+          />
+          <UButton
+            to="/guides"
+            icon="i-lucide-notebook-tabs"
+            label="查看入学指南"
+            color="neutral"
+            variant="ghost"
+            class="min-h-11"
+          />
+        </div>
       </div>
 
       <div
-        v-if="visibleSources.length"
+        v-if="!loadError && visibleSources.length"
         class="divide-y divide-zinc-100"
       >
         <a
@@ -202,7 +238,7 @@ function toggleSourcePreview(): void {
       </div>
 
       <div
-        v-if="!sourceFilterActive && filteredSources.length > sourcePreviewLimit"
+        v-if="!loadError && !sourceFilterActive && filteredSources.length > sourcePreviewLimit"
         class="mt-5 flex justify-center"
       >
         <UButton
@@ -216,12 +252,41 @@ function toggleSourcePreview(): void {
         />
       </div>
 
-      <p
+      <div
         v-if="!loadError && !visibleSources.length"
-        class="py-10 text-center text-sm text-zinc-500"
+        class="mt-5 border-y border-zinc-200 bg-white px-5 py-10 text-center"
+        role="status"
       >
-        没有找到匹配的信息出处。
-      </p>
+        <UIcon
+          name="i-lucide-search-x"
+          class="mx-auto size-6 text-zinc-400"
+        />
+        <h3 class="mt-3 text-base font-bold text-zinc-900">
+          {{ sourceFilterActive ? sourceListMessages.emptyMatch : sourceListMessages.emptyList }}
+        </h3>
+        <p class="mt-2 text-sm leading-6 text-zinc-600">
+          {{ sourceFilterActive ? '换个学校、部门或信息名称试试。' : '可以先从各篇指南中查看对应通知和链接。' }}
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-2">
+          <UButton
+            v-if="sourceFilterActive"
+            icon="i-lucide-x"
+            label="清空搜索"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+            @click="clearSourceSearch"
+          />
+          <UButton
+            to="/guides"
+            icon="i-lucide-notebook-tabs"
+            label="查看入学指南"
+            color="neutral"
+            variant="ghost"
+            class="min-h-11"
+          />
+        </div>
+      </div>
     </section>
   </div>
 </template>

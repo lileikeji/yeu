@@ -27,6 +27,12 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
   query: query.value,
   audience: audience.value
 }))
+const filtersActive = computed(() => Boolean(query.value.trim()) || audience.value !== 'all')
+
+function clearProcedureFilters(): void {
+  query.value = ''
+  audience.value = 'all'
+}
 </script>
 
 <template>
@@ -85,24 +91,37 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
     <div class="page-shell page-section">
       <div
         v-if="error"
-        class="border-y border-red-200 bg-red-50 px-5 py-10 text-center"
+        class="border-y border-amber-200 bg-amber-50 px-5 py-10 text-center"
         role="alert"
       >
         <UIcon
           name="i-lucide-circle-alert"
-          class="mx-auto size-6 text-red-700"
+          class="mx-auto size-6 text-amber-700"
         />
-        <p class="mt-3 text-sm text-red-900">
+        <h2 class="mt-3 text-base font-bold text-amber-950">
+          办事信息暂时没有显示出来
+        </h2>
+        <p class="mt-2 text-sm leading-6 text-amber-900">
           {{ procedureListMessages.serviceUnavailable }}
         </p>
-        <UButton
-          icon="i-lucide-refresh-cw"
-          label="重新加载"
-          color="neutral"
-          variant="outline"
-          class="mt-4"
-          @click="refresh()"
-        />
+        <div class="mt-5 flex flex-wrap justify-center gap-2">
+          <UButton
+            icon="i-lucide-refresh-cw"
+            label="重新试一次"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+            @click="refresh()"
+          />
+          <UButton
+            to="/guides"
+            icon="i-lucide-notebook-tabs"
+            label="先看入学指南"
+            color="neutral"
+            variant="ghost"
+            class="min-h-11"
+          />
+        </div>
       </div>
 
       <template v-else>
@@ -179,14 +198,37 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
         <div
           v-else
           class="border-y border-zinc-200 bg-white px-5 py-12 text-center"
+          role="status"
         >
           <UIcon
             name="i-lucide-list-x"
             class="mx-auto size-6 text-zinc-400"
           />
-          <p class="mt-3 text-sm text-zinc-600">
-            {{ procedureListMessages.emptyMatch }}
+          <h2 class="mt-3 text-base font-bold text-zinc-900">
+            {{ filtersActive ? procedureListMessages.emptyMatch : procedureListMessages.emptyList }}
+          </h2>
+          <p class="mt-2 text-sm leading-6 text-zinc-600">
+            {{ filtersActive ? '换个关键词或适用人群试试。' : '可以先看看入学指南，了解现在能准备什么。' }}
           </p>
+          <div class="mt-5 flex flex-wrap justify-center gap-2">
+            <UButton
+              v-if="filtersActive"
+              icon="i-lucide-x"
+              label="清除条件"
+              color="neutral"
+              variant="outline"
+              class="min-h-11"
+              @click="clearProcedureFilters"
+            />
+            <UButton
+              to="/guides"
+              icon="i-lucide-notebook-tabs"
+              label="查看入学指南"
+              color="neutral"
+              variant="ghost"
+              class="min-h-11"
+            />
+          </div>
         </div>
       </template>
     </div>

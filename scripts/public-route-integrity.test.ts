@@ -372,8 +372,11 @@ test('procedure list page is a thin shell over procedure-list presentation', () 
   assert.match(presentation, /export function filterProcedureListItems/)
   assert.match(presentation, /export function procedureListDetailQuery/)
   assert.match(presentation, /全部新生/)
-  assert.match(presentation, /暂时没能打开办事信息/)
-  assert.match(presentation, /没有找到相关事项/)
+  assert.match(page, /办事信息暂时没有显示出来/)
+  assert.match(presentation, /可以稍后再试，也可以先查看入学指南/)
+  assert.match(presentation, /没有找到符合当前条件的事项/)
+  assert.match(page, /label="重新试一次"/)
+  assert.match(page, /label="清除条件"/)
 })
 
 test('about page is a thin shell over about presentation', () => {

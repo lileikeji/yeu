@@ -1,5 +1,11 @@
 import type { ApiSource } from '~~/shared/types/server'
 
+export const sourceListMessages = {
+  serviceUnavailable: '可以稍后再试，各篇指南仍然可以正常查看。',
+  emptyMatch: '没有找到匹配的信息出处',
+  emptyList: '目前还没有可以查看的信息出处'
+} as const
+
 export const sourceLevelLabels: Record<ApiSource['sourceLevel'], string> = {
   A: '学校或主管部门',
   B: '公共服务或现场信息',

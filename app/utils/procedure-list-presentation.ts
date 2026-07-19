@@ -14,8 +14,9 @@ export type ProcedureListAudienceFilter = (typeof procedureListAudienceOptions)[
 export type ProcedureMethodKey = keyof typeof procedureMethodLabels
 
 export const procedureListMessages = {
-  serviceUnavailable: '暂时没能打开办事信息，请检查网络后再试。',
-  emptyMatch: '没有找到相关事项，换个关键词试试。'
+  serviceUnavailable: '可以稍后再试，也可以先查看入学指南。',
+  emptyMatch: '没有找到符合当前条件的事项',
+  emptyList: '目前还没有可以查看的办事事项'
 } as const
 
 export type ProcedureListStatePresentation = {
