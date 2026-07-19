@@ -628,3 +628,53 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
     groupCount: 2
   }), /搜索完成/)
 })
+
+test('action-oriented searches put procedures and guides before map places', () => {
+  const results = [
+    {
+      key: 'place-dorm',
+      resultType: 'place' as const,
+      title: '学生宿舍',
+      summary: '宿舍区',
+      typeLabel: '地点',
+      icon: 'i-lucide-map-pin',
+      to: '/map?place=dorm',
+      sourceLabel: '校园地点'
+    },
+    {
+      key: 'procedure-dorm',
+      resultType: 'procedure' as const,
+      title: '宿舍入住',
+      summary: '入住流程',
+      typeLabel: '办事',
+      icon: 'i-lucide-list-checks',
+      to: '/procedures/dorm',
+      sourceLabel: '办事流程'
+    },
+    {
+      key: 'guide-dorm',
+      resultType: 'guide' as const,
+      title: '宿舍生活指南',
+      summary: '生活准备',
+      typeLabel: '指南',
+      icon: 'i-lucide-notebook-tabs',
+      to: '/guides/dorm',
+      sourceLabel: '新生指南'
+    }
+  ]
+
+  assert.deepEqual(
+    groupPublicSearchResults(results, '宿舍').map(group => group.type),
+    ['procedure', 'guide', 'place']
+  )
+  assert.deepEqual(
+    groupPublicSearchResults(results, '上海楼').map(group => group.type),
+    ['place', 'procedure', 'guide']
+  )
+  assert.deepEqual(
+    groupPublicSearchResults(results.filter(result => result.resultType === 'place'), '宿舍')
+      .map(group => group.type),
+    ['place']
+  )
+  assert.match(pageSource, /groupPublicSearchResults\(results\.value, activeQuery\.value\)/)
+})

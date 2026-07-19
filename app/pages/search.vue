@@ -165,7 +165,7 @@ const results = computed(() => {
   })
 })
 
-const groupedResults = computed(() => groupPublicSearchResults(results.value))
+const groupedResults = computed(() => groupPublicSearchResults(results.value, activeQuery.value))
 
 const searchAnnouncement = computed(() => buildSearchAnnouncement({
   query: activeQuery.value,

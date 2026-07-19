@@ -14,6 +14,33 @@ const PUBLIC_SEARCH_RESULT_TYPES = [
   'notice'
 ] as const satisfies readonly PublicSearchResultType[]
 
+const ACTION_ORIENTED_SEARCH_TERMS = [
+  '报到',
+  '校园网',
+  '宿舍',
+  '快递',
+  '缴费',
+  '请假',
+  '补办',
+  '申请',
+  '办理',
+  '办事',
+  '流程',
+  '手续',
+  '材料',
+  '怎么',
+  '如何'
+] as const
+
+const ACTION_FIRST_SEARCH_RESULT_TYPES = [
+  'procedure',
+  'guide',
+  'place',
+  'department',
+  'club',
+  'notice'
+] as const satisfies readonly PublicSearchResultType[]
+
 export interface PublicSearchResult {
   key: string
   resultType: PublicSearchResultType
@@ -412,8 +439,13 @@ export function buildPublicSearchResults(input: {
   return [...dynamic, ...mapReferences, ...mapAreas, ...staticGuides, ...staticDepartments]
 }
 
-export function groupPublicSearchResults(results: PublicSearchResult[]) {
-  return PUBLIC_SEARCH_RESULT_TYPES.flatMap((type) => {
+export function groupPublicSearchResults(results: PublicSearchResult[], query = '') {
+  const normalizedQuery = normalizeSearchText(query)
+  const resultTypeOrder = ACTION_ORIENTED_SEARCH_TERMS.some(term => normalizedQuery.includes(term))
+    ? ACTION_FIRST_SEARCH_RESULT_TYPES
+    : PUBLIC_SEARCH_RESULT_TYPES
+
+  return resultTypeOrder.flatMap((type) => {
     const items = results.filter(result => result.resultType === type)
     return items.length > 0
       ? [{
