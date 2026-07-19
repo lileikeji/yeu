@@ -30,7 +30,7 @@ test('club list page is a thin shell over club-list-presentation util', () => {
   assert.match(pageSource, /previewDirectoryItems/)
   assert.match(pageSource, /v-for="club in visibleClubs"/)
   assert.match(pageSource, /:items="clubGroups"/)
-  assert.match(pageSource, /class="mt-3 w-full md:hidden"/)
+  assert.match(pageSource, /class="mt-3 min-h-11 w-full md:hidden"/)
   assert.match(pageSource, /class="mt-3 hidden flex-wrap gap-2 md:flex"/)
   assert.doesNotMatch(pageSource, /overflow-x-auto/)
   assert.doesNotMatch(pageSource, /function countRecentClubs/)

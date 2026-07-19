@@ -104,6 +104,7 @@ function clearNearbyFilters(): void {
             label-key="label"
             aria-label="周边地点分类"
             size="lg"
+            class="min-h-11"
           />
         </div>
       </div>
@@ -289,7 +290,10 @@ function clearNearbyFilters(): void {
         </div>
       </div>
 
-      <section class="mt-10 border-t border-zinc-200 pt-8">
+      <section
+        v-if="filteredCandidates.length || !candidateFilterActive"
+        class="mt-10 border-t border-zinc-200 pt-8"
+      >
         <div>
           <h2 class="text-lg font-bold text-zinc-950">
             附近这些地方可以先看看

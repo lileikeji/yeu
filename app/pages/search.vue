@@ -404,7 +404,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               请稍后再试，或先从校园地图和新生指南里找找。
             </p>
             <UButton
-              class="mt-4"
+              class="mt-4 min-h-11"
               icon="i-lucide-refresh-cw"
               label="重新搜索"
               color="neutral"
@@ -434,12 +434,14 @@ watch([activeQuery, activeType], ([query, type]) => {
               label="浏览指南"
               color="neutral"
               variant="outline"
+              class="min-h-11"
             />
             <UButton
               to="/feedback"
               label="告诉我们缺了什么"
               color="neutral"
               variant="ghost"
+              class="min-h-11"
             />
           </div>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
@@ -451,6 +453,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               color="neutral"
               variant="soft"
               size="sm"
+              class="min-h-10"
               @click="startSuggestedSearch(suggestion.query)"
             />
           </div>

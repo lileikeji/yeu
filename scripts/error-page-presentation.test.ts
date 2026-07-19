@@ -20,7 +20,7 @@ test('public error page uses Chinese recovery copy without raw exception output'
 test('error presentation covers common public failure states', () => {
   const missing = resolveErrorPageContent(404)
   assert.equal(missing.title, '这个页面不存在')
-  assert.equal(missing.code, '404')
+  assert.equal(missing.code, null)
   assert.equal(missing.canRetry, false)
 
   assert.match(resolveErrorPageContent(403).title, /不能访问/)

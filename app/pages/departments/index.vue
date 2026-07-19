@@ -47,6 +47,10 @@ function toggleDepartmentList() {
     filteredDepartments.value.length
   )
 }
+
+function clearDepartmentSearch() {
+  searchQuery.value = ''
+}
 </script>
 
 <template>
@@ -95,6 +99,7 @@ function toggleDepartmentList() {
           label="校园概览"
           color="neutral"
           variant="ghost"
+          class="min-h-11"
         />
       </div>
 
@@ -139,6 +144,7 @@ function toggleDepartmentList() {
           :label="listToggleLabel"
           color="neutral"
           variant="ghost"
+          class="min-h-11"
           @click="toggleDepartmentList"
         />
       </div>
@@ -154,6 +160,15 @@ function toggleDepartmentList() {
         <p class="mt-3 text-sm text-zinc-600">
           {{ departmentListMessages.emptyMatch }}
         </p>
+        <UButton
+          v-if="isFiltering"
+          icon="i-lucide-x"
+          label="清空搜索"
+          color="neutral"
+          variant="outline"
+          class="mt-4 min-h-11"
+          @click="clearDepartmentSearch"
+        />
       </div>
     </div>
   </div>

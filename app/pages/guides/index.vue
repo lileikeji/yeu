@@ -243,7 +243,7 @@ function toggleGuidePreview() {
           label="清除筛选"
           color="neutral"
           variant="ghost"
-          class="mt-3"
+          class="mt-3 min-h-11"
           @click="searchQuery = ''; activeCategory = 'all'"
         />
       </div>

@@ -58,6 +58,11 @@ function toggleClubList() {
     filteredClubs.value.length
   )
 }
+
+function clearClubFilters() {
+  searchQuery.value = ''
+  selectedGroup.value = clubListMessages.allGroups
+}
 </script>
 
 <template>
@@ -100,7 +105,7 @@ function toggleClubList() {
             :items="clubGroups"
             aria-label="按兴趣分类筛选"
             size="lg"
-            class="mt-3 w-full md:hidden"
+            class="mt-3 min-h-11 w-full md:hidden"
           />
           <div
             class="mt-3 hidden flex-wrap gap-2 md:flex"
@@ -110,7 +115,7 @@ function toggleClubList() {
               v-for="group in clubGroups"
               :key="group"
               type="button"
-              class="shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition"
+              class="inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-xs font-medium transition"
               :class="selectedGroup === group
                 ? 'bg-green-700 text-white'
                 : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'"
@@ -147,6 +152,7 @@ function toggleClubList() {
             label="招新指南"
             color="neutral"
             variant="ghost"
+            class="min-h-11"
           />
         </div>
       </div>
@@ -208,6 +214,7 @@ function toggleClubList() {
           :label="listToggleLabel"
           color="neutral"
           variant="ghost"
+          class="min-h-11"
           @click="toggleClubList"
         />
       </div>
@@ -223,6 +230,15 @@ function toggleClubList() {
         <p class="mt-3 text-sm text-zinc-600">
           {{ clubListMessages.emptyMatch }}
         </p>
+        <UButton
+          v-if="isFiltering"
+          icon="i-lucide-x"
+          label="清除筛选"
+          color="neutral"
+          variant="outline"
+          class="mt-4 min-h-11"
+          @click="clearClubFilters"
+        />
       </div>
     </div>
   </div>

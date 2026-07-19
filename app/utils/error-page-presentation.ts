@@ -16,7 +16,7 @@ export const errorRecoveryActions = [
 export function resolveErrorPageContent(statusCode: number | null | undefined): ErrorPageContent {
   if (statusCode === 404) {
     return {
-      code: '404',
+      code: null,
       kicker: '页面走丢了',
       title: '这个页面不存在',
       description: '链接可能已经更新，或者这个内容暂时不在公开页面中。你可以返回首页，或从下面的入口继续查找。',
