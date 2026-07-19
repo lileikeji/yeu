@@ -17,6 +17,11 @@ test('public error page uses Chinese recovery copy without raw exception output'
   assert.doesNotMatch(pageSource, /Go back home|error\.message|error\.statusMessage|error\.stack/)
 })
 
+test('error page header actions keep a comfortable touch size', () => {
+  assert.match(pageSource, /class="flex min-h-11 min-w-0 items-center"/)
+  assert.match(pageSource, /class="grid size-11 place-items-center rounded-md text-zinc-600/)
+})
+
 test('error presentation covers common public failure states', () => {
   const missing = resolveErrorPageContent(404)
   assert.equal(missing.title, '这个页面不存在')

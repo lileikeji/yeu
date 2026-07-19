@@ -96,6 +96,8 @@ function clearNearbyFilters(): void {
             placeholder="搜索商铺或服务"
             aria-label="搜索校园周边"
             size="lg"
+            class="min-h-11 w-full"
+            :ui="{ base: 'min-h-11' }"
           />
           <USelect
             v-model="activeCategory"

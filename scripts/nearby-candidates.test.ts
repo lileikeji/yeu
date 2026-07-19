@@ -68,6 +68,10 @@ test('nearby page keeps map wiring and student-facing travel copy', () => {
   assert.doesNotMatch(pageSource, /已确认商铺与生活服务|达到发布标准|进入已确认目录前必须确认|资料整理于|周边参考清单/)
 })
 
+test('nearby search keeps a comfortable mobile touch height', () => {
+  assert.match(pageSource, /aria-label="搜索校园周边"\s+size="lg"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+})
+
 test('nearby presentation util owns pure labels, filters, and student-facing source rewrites', () => {
   assert.match(utilSource, /export function selectNearbyResearchSources/)
   assert.doesNotMatch(utilSource, /from ['"]~~\/data\/seeds\/public-content['"]/)

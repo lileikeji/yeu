@@ -44,7 +44,7 @@ function retryPage(): void {
       <div class="page-shell flex h-16 items-center justify-between gap-3">
         <a
           href="/"
-          class="flex min-w-0 items-center"
+          class="flex min-h-11 min-w-0 items-center"
           aria-label="返回仰恩新生指南首页"
           @click.prevent="recover('/')"
         >
@@ -59,7 +59,7 @@ function retryPage(): void {
         </a>
         <button
           type="button"
-          class="grid size-10 place-items-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+          class="grid size-11 place-items-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
           aria-label="返回首页"
           @click="recover('/')"
         >

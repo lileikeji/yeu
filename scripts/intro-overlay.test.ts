@@ -44,6 +44,7 @@ test('站点左上角使用工作区提供的完整品牌标识且不重复字�
   assert.doesNotMatch(defaultLayoutSource, />仰恩新生指南<\/span>/)
   assert.doesNotMatch(defaultLayoutSource, /仰恩大学校标|yeu-logo/)
   assert.match(defaultLayoutSource, /class="h-9 w-auto max-w-\[9\.5rem\] shrink-0 object-contain object-left sm:max-w-none"/)
+  assert.match(defaultLayoutSource, /inline-flex min-h-11[^\n]+focus:translate-y-0/)
 })
 
 test('开场动画使用代码生成的 YEU 粒子坐标且不依赖运行时图片取样', () => {

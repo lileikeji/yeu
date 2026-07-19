@@ -257,7 +257,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               :href="safeExternalHref(department.website) || undefined"
               target="_blank"
               rel="noopener noreferrer"
-              class="grid size-9 place-items-center rounded-md text-zinc-400 hover:bg-green-50 hover:text-green-700"
+              class="grid size-11 place-items-center rounded-md text-zinc-400 hover:bg-green-50 hover:text-green-700"
               :aria-label="`打开${department.name}官网`"
             >
               <UIcon

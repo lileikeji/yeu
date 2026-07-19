@@ -27,7 +27,7 @@ onMounted(() => {
   <div class="min-h-screen bg-[var(--page-bg)]">
     <a
       href="#main-content"
-      class="fixed left-3 top-3 z-50 -translate-y-20 rounded-md bg-white px-4 py-2 text-sm font-semibold text-green-800 shadow-lg focus:translate-y-0"
+      class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white px-4 text-sm font-semibold text-green-800 shadow-lg focus:translate-y-0"
     >跳至主要内容</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
       <div class="page-shell flex h-16 items-center justify-between gap-2 md:gap-6">

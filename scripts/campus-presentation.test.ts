@@ -27,6 +27,10 @@ test('campus page is a thin shell over campus-presentation util', () => {
   assert.match(utilSource, /export function resolveCampusFallbackMessage/)
 })
 
+test('campus department website icons keep a comfortable touch size', () => {
+  assert.match(pageSource, /class="grid size-11 place-items-center rounded-md text-zinc-400 hover:bg-green-50 hover:text-green-700"/)
+})
+
 test('campus stats keep student-facing overview labels', () => {
   assert.equal(campusStats.length, 3)
   assert.equal(campusStats[0]?.label, '校园占地')
