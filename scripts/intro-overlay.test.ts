@@ -38,6 +38,7 @@ const defaultLayoutSource = readFileSync(resolve('app/layouts/default.vue'), 'ut
 test('站点左上角使用工作区提供的完整品牌标识且不重复字标', () => {
   assert.doesNotMatch(defaultLayoutSource, />YEU<\/span>/)
   assert.match(defaultLayoutSource, /src="\/icons\/site-logo\.png"/)
+  assert.match(defaultLayoutSource, /class="flex min-h-11 min-w-0 flex-1 items-center gap-2 sm:gap-3 md:flex-none"/)
   assert.match(defaultLayoutSource, /alt=""/)
   assert.match(defaultLayoutSource, /aria-hidden="true"/)
   assert.doesNotMatch(defaultLayoutSource, />仰恩新生指南<\/span>/)

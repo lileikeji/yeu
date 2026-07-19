@@ -79,6 +79,7 @@ useSeoMeta({
           to="/feedback"
           icon="i-lucide-message-square"
           label="询问或申请删除信息"
+          class="min-h-11"
         />
         <UButton
           to="/"
@@ -86,6 +87,7 @@ useSeoMeta({
           label="返回首页"
           color="neutral"
           variant="outline"
+          class="min-h-11"
         />
       </div>
     </div>

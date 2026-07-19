@@ -33,7 +33,7 @@ onMounted(() => {
       <div class="page-shell flex h-16 items-center justify-between gap-2 md:gap-6">
         <NuxtLink
           to="/"
-          class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 md:flex-none"
+          class="flex min-h-11 min-w-0 flex-1 items-center gap-2 sm:gap-3 md:flex-none"
           aria-label="仰恩新生指南首页"
         >
           <img

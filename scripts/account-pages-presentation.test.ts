@@ -14,6 +14,13 @@ test('login page stays compact and uses ordinary account language', () => {
   assert.doesNotMatch(loginPage, /ACCOUNT|登录后可做什么|管理员入口不在公开导航中展示/)
 })
 
+test('login controls keep a comfortable mobile touch height', () => {
+  assert.equal((loginPage.match(/class="min-h-11 w-full"/g) || []).length, 2)
+  assert.equal((loginPage.match(/base: 'min-h-11'/g) || []).length, 2)
+  assert.match(loginPage, /class="min-h-11 min-w-11"\s+@click="togglePasswordVisibility"/)
+  assert.match(loginPage, /icon="i-lucide-log-in"\s+class="min-h-11"/)
+})
+
 test('profile page explains dorm matching without system wording', () => {
   assert.match(profilePage, /方便进入对应楼群/)
   assert.match(profilePage, /输入楼名，或从下方已有楼栋中选择/)

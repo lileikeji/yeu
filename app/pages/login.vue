@@ -135,7 +135,8 @@ onMounted(() => {
               icon="i-lucide-user-round"
               placeholder="请输入账号"
               size="lg"
-              class="w-full"
+              class="min-h-11 w-full"
+              :ui="{ base: 'min-h-11' }"
               :disabled="checkingSession || submitting"
             />
           </UFormField>
@@ -152,9 +153,9 @@ onMounted(() => {
               icon="i-lucide-lock-keyhole"
               placeholder="至少 8 位"
               size="lg"
-              class="w-full"
+              class="min-h-11 w-full"
               :disabled="checkingSession || submitting"
-              :ui="{ trailing: 'pe-1' }"
+              :ui="{ base: 'min-h-11', trailing: 'pe-1' }"
             >
               <template #trailing>
                 <UButton
@@ -164,7 +165,7 @@ onMounted(() => {
                   size="sm"
                   type="button"
                   :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-                  class="min-h-9 min-w-9"
+                  class="min-h-11 min-w-11"
                   @click="togglePasswordVisibility"
                 />
               </template>
@@ -178,6 +179,7 @@ onMounted(() => {
             block
             :loading="submitting || checkingSession"
             icon="i-lucide-log-in"
+            class="min-h-11"
           >
             登录
           </UButton>

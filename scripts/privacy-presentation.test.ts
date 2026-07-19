@@ -17,6 +17,10 @@ test('privacy page is a thin shell over privacy-presentation util', () => {
   assert.match(utilSource, /export const privacyHighlights/)
 })
 
+test('privacy actions keep a comfortable mobile touch height', () => {
+  assert.equal((pageSource.match(/class="min-h-11"/g) || []).length, 2)
+})
+
 test('privacy sections stay student-facing', () => {
   assert.equal(privacyHighlights.length, 3)
   assert.equal(privacyHighlights[0]?.value, '不需要登录')

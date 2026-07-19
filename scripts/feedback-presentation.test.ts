@@ -37,6 +37,11 @@ test('feedback page is a thin shell over feedback-presentation util', () => {
   assert.doesNotMatch(pageSource, /确认顺序|交叉核对|待处理列表|发布到前台/)
 })
 
+test('feedback short fields keep a comfortable mobile touch height', () => {
+  assert.equal((pageSource.match(/class="mt-2 min-h-11 w-full"/g) || []).length, 2)
+  assert.equal((pageSource.match(/:ui="\{ base: 'min-h-11' \}"/g) || []).length, 2)
+})
+
 test('feedback target resolution requires typed target and uuid', () => {
   const uuid = '33333333-3333-4333-8333-333333333331'
   assert.equal(feedbackRouteQueryString(['place']), 'place')
