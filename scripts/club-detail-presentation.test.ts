@@ -83,7 +83,7 @@ test('club source status and detail source mapping', () => {
         key: 'https://example.test/a',
         title: '活动报道',
         url: 'https://example.test/a',
-        meta: '校团委 · 访问于 2026-06-06',
+        meta: '校团委 · 页面查看时间：2026-06-06',
         note: '活动名单',
         unavailable: false
       },
@@ -91,7 +91,7 @@ test('club source status and detail source mapping', () => {
         key: 'https://example.test/b',
         title: '失效链接',
         url: 'https://example.test/b',
-        meta: '未知 · 访问于 2025-01-01',
+        meta: '未知 · 页面查看时间：2025-01-01',
         note: null,
         unavailable: true
       }

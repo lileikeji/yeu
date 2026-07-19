@@ -67,7 +67,7 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
         >
           <NuxtLink
             to="/clubs"
-            class="hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700"
           >学生社团</NuxtLink>
           <UIcon
             name="i-lucide-chevron-right"
@@ -153,11 +153,11 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
           <h2 class="text-lg font-bold text-zinc-950">
             {{ clubSectionLabels.signupChecklist }}
           </h2>
-          <ul class="mt-4 grid gap-2 md:grid-cols-2">
+          <ul class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 md:grid md:grid-cols-2 md:divide-y-0">
             <li
               v-for="item in clubSignupQuestionChecklist"
               :key="item"
-              class="flex gap-3 rounded-lg border border-zinc-200 bg-white p-3 text-sm leading-6 text-zinc-700"
+              class="flex gap-3 py-4 text-sm leading-6 text-zinc-700 md:border-b md:border-zinc-200 md:odd:pr-4 md:even:pl-4"
             >
               <UIcon
                 name="i-lucide-circle-help"
@@ -224,7 +224,7 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
           :label="clubSectionLabels.feedback"
           color="neutral"
           variant="outline"
-          class="mt-6"
+          class="mt-6 min-h-11"
         />
       </article>
     </div>

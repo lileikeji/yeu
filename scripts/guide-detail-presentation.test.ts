@@ -105,7 +105,7 @@ test('guide fallback message and detail source mapping stay student-facing', () 
       key: 'https://example.test/a',
       title: '招生网',
       url: 'https://example.test/a',
-      meta: '学校 · 访问于 2026-07-01',
+      meta: '学校 · 页面查看时间：2026-07-01',
       note: '报到入口',
       unavailable: false
     },
@@ -113,7 +113,7 @@ test('guide fallback message and detail source mapping stay student-facing', () 
       key: 'https://example.test/b',
       title: '节内来源',
       url: 'https://example.test/b',
-      meta: '部门 · 访问于 2026-07-03',
+      meta: '部门 · 页面查看时间：2026-07-03',
       note: '材料说明',
       unavailable: true
     }

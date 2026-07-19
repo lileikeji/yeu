@@ -91,7 +91,7 @@ function copyPlaceLocation(): void {
         >
           <NuxtLink
             to="/map"
-            class="hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700"
           >校园地图</NuxtLink>
           <UIcon
             name="i-lucide-chevron-right"
@@ -279,7 +279,7 @@ function copyPlaceLocation(): void {
                   :href="safeExternalHref(place.website) || undefined"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="font-medium text-green-700 hover:underline"
+                  class="inline-flex min-h-10 items-center font-medium text-green-700 hover:underline"
                 >打开官网</a>
               </dd>
             </div>
@@ -298,6 +298,7 @@ function copyPlaceLocation(): void {
             label="告诉我们哪里不对"
             color="neutral"
             variant="outline"
+            class="min-h-11"
           />
           <UButton
             v-if="returnPath"
@@ -306,6 +307,7 @@ function copyPlaceLocation(): void {
             label="返回上一页"
             color="neutral"
             variant="ghost"
+            class="min-h-11"
           />
         </div>
       </article>

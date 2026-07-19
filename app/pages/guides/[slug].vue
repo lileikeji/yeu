@@ -78,7 +78,7 @@ const detailSources = computed(() => buildGuideDetailSources(
         >
           <NuxtLink
             to="/guides"
-            class="hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700"
           >
             新生指南
           </NuxtLink>
@@ -172,7 +172,7 @@ const detailSources = computed(() => buildGuideDetailSources(
             v-for="(section, index) in guide.sections"
             :key="section.title"
             :href="`#guide-section-${index}`"
-            class="shrink-0 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-green-300 hover:text-green-700"
+            class="inline-flex min-h-10 shrink-0 items-center rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-600 hover:border-green-300 hover:text-green-700"
           >
             {{ section.title }}
           </a>
@@ -242,6 +242,7 @@ const detailSources = computed(() => buildGuideDetailSources(
             label="告诉我们哪里需要修改"
             color="neutral"
             variant="outline"
+            class="min-h-11"
           />
           <UButton
             to="/guides"
@@ -249,6 +250,7 @@ const detailSources = computed(() => buildGuideDetailSources(
             label="返回全部指南"
             color="neutral"
             variant="ghost"
+            class="min-h-11"
           />
         </div>
       </article>

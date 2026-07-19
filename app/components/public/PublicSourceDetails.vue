@@ -15,7 +15,7 @@ withDefaults(defineProps<{
   title?: string
 }>(), {
   verifiedAt: null,
-  title: '来源与更新时间'
+  title: '信息出处与更新时间'
 })
 </script>
 
@@ -28,7 +28,7 @@ withDefaults(defineProps<{
           class="size-4 text-green-700"
         />
         {{ title }}
-        <span class="font-normal text-zinc-400">{{ sources.length }} 条</span>
+        <span class="font-normal text-zinc-500">{{ sources.length }} 条</span>
       </span>
       <UIcon
         name="i-lucide-chevron-down"
@@ -51,7 +51,7 @@ withDefaults(defineProps<{
             :href="safeExternalHref(source.url) || undefined"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex items-start gap-2 hover:text-green-700"
+            class="inline-flex min-h-10 items-start gap-2 py-1 hover:text-green-700"
           >
             <UIcon
               name="i-lucide-external-link"
@@ -61,7 +61,7 @@ withDefaults(defineProps<{
               <span class="font-medium">{{ source.title }}</span>
               <span
                 v-if="source.meta"
-                class="block text-zinc-400"
+                class="block text-zinc-500"
               >{{ source.meta }}</span>
               <span
                 v-if="source.note"
@@ -79,7 +79,7 @@ withDefaults(defineProps<{
             />
             <span>
               <span class="font-medium">{{ source.title }}</span>
-              <span class="block text-zinc-400">{{ source.meta || '原链接暂时无法打开，保留作参考记录' }}</span>
+              <span class="block text-zinc-500">{{ source.meta || '这个页面现在打不开，暂时只保留名称供参考。' }}</span>
               <span
                 v-if="source.note"
                 class="block text-orange-700"
@@ -92,11 +92,11 @@ withDefaults(defineProps<{
         v-else
         class="text-xs leading-5 text-zinc-500"
       >
-        当前没有可公开展示的来源链接。
+        这页暂时没有可以打开的信息出处。
       </p>
       <p
         v-if="verifiedAt"
-        class="mt-4 text-xs text-zinc-400"
+        class="mt-4 text-xs text-zinc-500"
       >
         最近整理：{{ verifiedAt }}
       </p>

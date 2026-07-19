@@ -156,7 +156,7 @@ watch(selectedAudience, (value) => {
         >
           <NuxtLink
             to="/procedures"
-            class="hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700"
           >办事流程</NuxtLink>
           <UIcon
             name="i-lucide-chevron-right"
@@ -353,6 +353,7 @@ watch(selectedAudience, (value) => {
               color="neutral"
               variant="ghost"
               size="sm"
+              class="min-h-10"
               @click="clearChecklist"
             />
           </div>
@@ -384,6 +385,7 @@ watch(selectedAudience, (value) => {
                     :color="informationStateBadgeColor(step.informationState)"
                     variant="soft"
                     size="sm"
+                    class="min-h-10"
                   >
                     {{ stateLabel[step.informationState] }}
                   </UBadge>
@@ -430,6 +432,7 @@ watch(selectedAudience, (value) => {
                     color="neutral"
                     variant="soft"
                     size="sm"
+                    class="min-h-10"
                   />
                   <UButton
                     v-if="step.place"
@@ -450,6 +453,7 @@ watch(selectedAudience, (value) => {
                     color="neutral"
                     variant="outline"
                     size="sm"
+                    class="min-h-10"
                   />
                 </div>
               </div>
@@ -478,6 +482,7 @@ watch(selectedAudience, (value) => {
               :label="`查看${procedure.department.name}`"
               color="neutral"
               variant="soft"
+              class="min-h-11"
             />
             <UButton
               v-if="procedure.relatedGuide"
@@ -486,6 +491,7 @@ watch(selectedAudience, (value) => {
               :label="procedure.relatedGuide.title"
               color="neutral"
               variant="soft"
+              class="min-h-11"
             />
           </div>
         </section>
@@ -503,7 +509,7 @@ watch(selectedAudience, (value) => {
           label="反馈流程错误或补充资料"
           color="neutral"
           variant="outline"
-          class="mt-6"
+          class="mt-6 min-h-11"
         />
       </div>
     </div>

@@ -71,7 +71,7 @@ const feedbackLink = computed(() => content.value
         >
           <NuxtLink
             to="/departments"
-            class="hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700"
           >校内部门</NuxtLink>
           <UIcon
             name="i-lucide-chevron-right"
@@ -226,7 +226,7 @@ const feedbackLink = computed(() => content.value
           label="告诉我们哪里需要修改"
           color="neutral"
           variant="outline"
-          class="mt-6"
+          class="mt-6 min-h-11"
         />
       </article>
     </div>
