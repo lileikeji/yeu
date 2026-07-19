@@ -1,5 +1,6 @@
-import type { PublicMapPlace } from './public-catalog'
-import { studentFacingProcedureTitle } from './procedure-detail-presentation'
+import { studentFacingGuideText, type PublicMapPlace } from './public-catalog'
+import { resolvePlaceStudentSummary } from './place-detail-presentation'
+import { studentFacingProcedureText, studentFacingProcedureTitle } from './procedure-detail-presentation'
 import type { PublicSearchResultType } from '~~/shared/constants/server'
 import type { ApiSearchItem, ApiSearchResponse } from '~~/shared/types/server'
 
@@ -150,6 +151,16 @@ export function apiSearchTarget(item: ApiSearchItem): string {
 export function apiSearchPresentation(item: ApiSearchItem): Pick<PublicSearchResult, 'typeLabel' | 'icon'> {
   const presentation = searchTypePresentation[item.resultType]
   return { typeLabel: presentation.label, icon: presentation.icon }
+}
+
+export function apiSearchSummary(item: ApiSearchItem): string {
+  if (item.entityType === 'place') {
+    return resolvePlaceStudentSummary(item.summary, item.title, null, null)
+  }
+  if (item.entityType === 'procedure') {
+    return studentFacingProcedureText(item.summary)
+  }
+  return studentFacingGuideText(item.summary)
 }
 
 export function mapSourceLabel(place: PublicMapPlace): string {
@@ -313,7 +324,7 @@ export function buildPublicSearchResults(input: {
     key: `api-${item.entityType}-${item.id}`,
     resultType: item.resultType,
     title: item.entityType === 'procedure' ? studentFacingProcedureTitle(item.title) : item.title,
-    summary: item.summary,
+    summary: apiSearchSummary(item),
     ...apiSearchPresentation(item),
     to: apiSearchTarget(item),
     sourceLabel: '本站整理'
@@ -322,10 +333,7 @@ export function buildPublicSearchResults(input: {
   const mapReferences = (activeType && activeType !== 'place'
     ? []
     : input.mapPlaces)
-    .filter(place => (
-      place.coordinateVerification === 'owner-map-only'
-      || !apiPlaceNames.has(normalizeSearchText(place.name))
-    ))
+    .filter(place => !apiPlaceNames.has(normalizeSearchText(place.name)))
     .filter(place => matchesSearchQuery(query, [
       place.officialPlanNumber,
       place.name,

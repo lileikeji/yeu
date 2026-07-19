@@ -5,6 +5,7 @@ import test from 'node:test'
 import type { PublicMapPlace } from '../app/utils/public-catalog'
 import {
   apiSearchPresentation,
+  apiSearchSummary,
   apiSearchTarget,
   buildPublicSearchResults,
   buildSearchAnnouncement,
@@ -330,6 +331,25 @@ test('api target and presentation map entity kinds', () => {
     typeLabel: '地点',
     icon: 'i-lucide-map-pin'
   })
+  assert.equal(
+    apiSearchSummary({
+      ...placeItem,
+      title: '上海楼',
+      summary: '上海楼 已按用户授权的高德地图坐标导入后台草稿；可用于地图定位和维护，具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。'
+    }),
+    '上海楼是校园地点，可以先用地图确认大致方向。具体入口、楼层、开放时间和当前用途请以现场标识或学校通知为准。'
+  )
+  assert.equal(
+    apiSearchSummary({ ...procedureItem, summary: '统一认证仍待核验' }),
+    '账号登录仍待确认'
+  )
+  assert.equal(
+    apiSearchSummary({
+      ...departmentItem,
+      summary: '新生处理校园网、统一认证、VPN、网络故障和信息化服务问题的主管部门入口。'
+    }),
+    '新生遇到校园网、在校外打开校内系统（VPN）、网络故障或校园系统问题时，可以找这个部门。'
+  )
 })
 
 test('map labels and summaries use student-facing location wording', () => {
@@ -400,6 +420,7 @@ test('buildPublicSearchResults merges api, map and static fallbacks without dupl
       place({
         id: 'library',
         name: '图书馆',
+        coordinateVerification: 'owner-map-only',
         summary: '地图重复点',
         searchText: '校园 图书馆'
       }),
