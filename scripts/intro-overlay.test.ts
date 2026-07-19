@@ -88,6 +88,11 @@ test('动画完成后停留并且只在用户点击时进入首页', () => {
   assert.match(introSource, /if \(visible\.value\)/)
 })
 
+test('开场动画加载提示面向新生而不是暴露实现过程', () => {
+  assert.match(introSource, /正在准备校园地图/)
+  assert.doesNotMatch(introSource, /正在构建粒子星图/)
+})
+
 test('粒子聚合后保留鼠标推力和阻尼回归交互', () => {
   assert.match(introSource, /@pointermove="handlePointerMove"/)
   assert.match(physicsSource, /export const SPRING = 0\./)
