@@ -422,7 +422,9 @@ test('privacy page is a thin shell over privacy presentation', () => {
   assert.doesNotMatch(page, /const sections = \[/)
   assert.match(presentation, /export const privacySections/)
   assert.match(presentation, /浏览和定位/)
-  assert.match(presentation, /不能还原原地址的编号/)
+  assert.match(presentation, /网站安全与访问记录/)
+  assert.match(presentation, /随机访客标识/)
+  assert.match(presentation, /转换成无法还原的标识/)
   assert.match(presentation, /730 天/)
 })
 
