@@ -16,6 +16,8 @@ test('map place details use one floating panel for mobile and desktop', () => {
   assert.match(pageSource, /@copy="copyPoiLocation\(selectedPoi\)"/)
   assert.match(pageSource, /@plan-route="startWalkingRoute\(selectedPoi\.name, selectedPoi\.point\)"/)
   assert.match(pageSource, /On mobile, free the bottom list sheet so the floating place card can show over the map/)
+  assert.match(pageSource, /const initialSelectedPoiId = resolveInitialSelectedMapPoiId\(places\.value, initialPlace\)/)
+  assert.match(pageSource, /ref<MobileSheetState>\(initialSelectedPoiId \? 'collapsed' : 'half'\)/)
   assert.doesNotMatch(pageSource, /label="复制位置"/)
   assert.doesNotMatch(pageSource, /到这里前先确认/)
 
@@ -34,6 +36,12 @@ test('map place details use one floating panel for mobile and desktop', () => {
     < detailsSource.indexOf('到这里前先确认')
   )
   assert.match(detailsSource, /label="规划步行路线"[\s\S]*?variant="solid"/)
+  assert.equal((detailsSource.match(/class="min-h-11 w-full justify-center"/g) || []).length, 4)
+  assert.equal((detailsSource.match(/class="min-h-11"/g) || []).length, 4)
+  assert.match(pageSource, /aria-label="全隐藏地点面板"[\s\S]{0,120}?mobileSheetState === 'collapsed'/)
+  assert.equal((pageSource.match(/class="size-11"\s+aria-label="(?:全隐藏|半屏显示|展开)地点面板"/g) || []).length, 3)
+  assert.match(pageSource, /class="mt-3 min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+  assert.equal((pageSource.match(/\['min-h-11 rounded-none px-3'/g) || []).length, 2)
   // Desktop variant is the floating card used on both breakpoints.
   assert.match(detailsSource, /absolute bottom-\[calc\(var\(--mobile-nav-height\)\+0\.75rem\)\]/)
   assert.doesNotMatch(detailsSource, /useRoute|useRouter|createRuntimeMapProvider/)

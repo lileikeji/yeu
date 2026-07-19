@@ -576,18 +576,18 @@ export class AMapProvider implements MapProvider {
     element.type = 'button'
     element.title = poi.name
     element.setAttribute('aria-label', poi.name)
-    element.style.cssText = 'position:relative;display:block;box-sizing:border-box;width:38px;height:46px;padding:0;border:0;background:transparent;color:#18181b;font:500 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;filter:drop-shadow(0 3px 5px rgb(0 0 0 / 22%));'
+    element.style.cssText = 'position:relative;display:block;box-sizing:border-box;width:44px;height:50px;padding:0;border:0;background:transparent;color:#18181b;font:500 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;filter:drop-shadow(0 3px 5px rgb(0 0 0 / 22%));'
 
     const label = document.createElement('span')
     label.textContent = poi.name
-    label.style.cssText = `pointer-events:none;position:absolute;top:47px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:172px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
+    label.style.cssText = `pointer-events:none;position:absolute;top:51px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:172px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
     label.style.opacity = '1'
     label.style.visibility = 'visible'
 
     const pin = document.createElement('span')
     pin.setAttribute('aria-hidden', 'true')
     pin.textContent = CATEGORY_GLYPHS[poi.category] ?? '点'
-    pin.style.cssText = `position:absolute;bottom:6px;left:2px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;border:3px solid #fff;border-radius:13px 13px 13px 4px;background:#176f46;box-shadow:${selected ? '0 0 0 4px rgb(23 111 70 / 22%),0 4px 12px rgb(0 0 0 / 32%)' : '0 3px 9px rgb(0 0 0 / 24%)'};color:#fff;font:800 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;transform:rotate(-45deg)${selected ? ' scale(1.14)' : ''};transition:transform 140ms ease,box-shadow 140ms ease;`
+    pin.style.cssText = `position:absolute;bottom:6px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;border:3px solid #fff;border-radius:13px 13px 13px 4px;background:#176f46;box-shadow:${selected ? '0 0 0 4px rgb(23 111 70 / 22%),0 4px 12px rgb(0 0 0 / 32%)' : '0 3px 9px rgb(0 0 0 / 24%)'};color:#fff;font:800 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;transform:rotate(-45deg)${selected ? ' scale(1.14)' : ''};transition:transform 140ms ease,box-shadow 140ms ease;`
     pin.style.background = CATEGORY_COLORS[poi.category] ?? '#176f46'
     const glyph = document.createElement('span')
     glyph.textContent = pin.textContent
@@ -607,7 +607,7 @@ export class AMapProvider implements MapProvider {
   }
 
   private createClusterContent(count: number): HTMLButtonElement {
-    const size = count >= 50 ? 48 : count >= 10 ? 42 : 36
+    const size = count >= 50 ? 52 : count >= 10 ? 48 : 44
     const element = document.createElement('button')
     element.type = 'button'
     element.title = `${count} 个地点，点击放大`
@@ -626,12 +626,12 @@ export class AMapProvider implements MapProvider {
       onClick: () => this.poiSelectHandler?.(record.poi)
     })
     context.marker.setContent(content)
-    if (this.amap) context.marker.setOffset(new this.amap.Pixel(-19, -46))
+    if (this.amap) context.marker.setOffset(new this.amap.Pixel(-22, -50))
   }
 
   private readonly renderClusterMarker = (context: AMapClusterRenderContext): void => {
     context.marker.setContent(this.createClusterContent(context.count))
-    const size = context.count >= 50 ? 48 : context.count >= 10 ? 42 : 36
+    const size = context.count >= 50 ? 52 : context.count >= 10 ? 48 : 44
     if (this.amap) context.marker.setOffset(new this.amap.Pixel(-size / 2, -size / 2))
   }
 

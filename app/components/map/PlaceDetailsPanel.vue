@@ -145,7 +145,7 @@ const navigationTooltip = computed(() => {
             color="primary"
             variant="solid"
             size="sm"
-            class="w-full justify-center"
+            class="min-h-11 w-full justify-center"
             :loading="props.routePlanning"
             :disabled="!props.canPlanRoute"
             @click="emit('planRoute')"
@@ -158,7 +158,7 @@ const navigationTooltip = computed(() => {
           color="primary"
           variant="solid"
           size="sm"
-          class="w-full justify-center"
+          class="min-h-11 w-full justify-center"
           :loading="props.routePlanning"
           :disabled="!props.canPlanRoute"
           @click="emit('planRoute')"
@@ -177,7 +177,7 @@ const navigationTooltip = computed(() => {
             color="neutral"
             variant="outline"
             size="sm"
-            class="w-full justify-center"
+            class="min-h-11 w-full justify-center"
             :disabled="!safeNavigationUrl"
           />
         </UTooltip>
@@ -191,7 +191,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="outline"
           size="sm"
-          class="w-full justify-center"
+          class="min-h-11 w-full justify-center"
           :disabled="!safeNavigationUrl"
         />
       </div>
@@ -227,6 +227,7 @@ const navigationTooltip = computed(() => {
           icon="i-lucide-info"
           label="详情"
           size="sm"
+          class="min-h-11"
         />
         <UButton
           v-if="props.feedbackTarget"
@@ -236,6 +237,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="outline"
           size="sm"
+          class="min-h-11"
         />
         <UButton
           icon="i-lucide-copy"
@@ -243,6 +245,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="outline"
           size="sm"
+          class="min-h-11"
           @click="emit('copy')"
         />
         <UButton
@@ -253,6 +256,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="ghost"
           size="sm"
+          class="min-h-11"
         />
       </div>
     </div>

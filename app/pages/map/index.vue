@@ -101,6 +101,7 @@ const ownerMapPlacesInScope = computed(() => filterOwnerMapPlacesInScope(
   places.value,
   activeScope.value
 ))
+const initialSelectedPoiId = resolveInitialSelectedMapPoiId(places.value, initialPlace)
 const canShowOfficialPlan = computed(() => canShowOfficialCampusPlan(activeScope.value))
 const mapViewMode = ref<'geographic' | 'official-plan'>(
   resolveInitialMapViewMode({
@@ -109,7 +110,7 @@ const mapViewMode = ref<'geographic' | 'official-plan'>(
     ownerMapCount: ownerMapPlacesInScope.value.length
   })
 )
-const mobileSheetState = ref<MobileSheetState>('half')
+const mobileSheetState = ref<MobileSheetState>(initialSelectedPoiId ? 'collapsed' : 'half')
 const sidebarCollapsed = ref(false)
 const displaySettingsOpen = ref(false)
 const mapBaseStyle = ref<MapBaseStyle>('standard')
@@ -135,7 +136,7 @@ const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const mapErrorMessage = ref(MAP_LOAD_ERROR_MESSAGE)
 const searchQuery = ref(mapQueryValue(route.query.q))
 const activeCategory = ref(resolveInitialMapCategoryId(initialCategory, categoryIds))
-const selectedPoiId = ref<string | null>(resolveInitialSelectedMapPoiId(places.value, initialPlace))
+const selectedPoiId = ref<string | null>(initialSelectedPoiId)
 const selectedArea = ref<MapArea | null>(null)
 const selectedAreaId = computed(() => selectedArea.value?.id ?? null)
 const selectedNativePlace = ref<PublicMapPlace | null>(null)
@@ -519,7 +520,7 @@ onBeforeUnmount(() => {
               icon="i-lucide-chevrons-down"
               color="neutral"
               variant="ghost"
-              class="size-9"
+              class="size-11"
               aria-label="全隐藏地点面板"
               :aria-pressed="mobileSheetState === 'collapsed'"
               @click="() => { mobileSheetState = 'collapsed' }"
@@ -530,7 +531,7 @@ onBeforeUnmount(() => {
               icon="i-lucide-minus"
               color="neutral"
               variant="ghost"
-              class="size-9"
+              class="size-11"
               aria-label="半屏显示地点面板"
               :aria-pressed="mobileSheetState === 'half'"
               @click="() => { mobileSheetState = 'half' }"
@@ -541,7 +542,7 @@ onBeforeUnmount(() => {
               icon="i-lucide-chevrons-up"
               color="neutral"
               variant="ghost"
-              class="size-9"
+              class="size-11"
               aria-label="展开地点面板"
               :aria-pressed="mobileSheetState === 'expanded'"
               @click="() => { mobileSheetState = 'expanded' }"
@@ -577,7 +578,7 @@ onBeforeUnmount(() => {
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                class="hidden md:inline-flex"
+                class="hidden size-11 md:inline-flex"
                 aria-label="收起地点栏"
                 @click="() => { sidebarCollapsed = true }"
               />
@@ -587,7 +588,9 @@ onBeforeUnmount(() => {
 
         <UInput
           v-model="searchQuery"
-          class="mt-3 w-full"
+          size="lg"
+          class="mt-3 min-h-11 w-full"
+          :ui="{ base: 'min-h-11' }"
           icon="i-lucide-search"
           placeholder="搜索地点或附近商家"
           aria-label="搜索地图地点"
@@ -654,7 +657,7 @@ onBeforeUnmount(() => {
       >
         <span>{{ filteredPois.length }} 个地点</span>
         <button
-          class="font-medium text-green-700 hover:text-green-800"
+          class="min-h-11 min-w-11 px-2 font-medium text-green-700 hover:text-green-800"
           type="button"
           @click="fitToVisiblePois"
         >
@@ -794,20 +797,20 @@ onBeforeUnmount(() => {
           <UButton
             icon="i-lucide-map"
             label="地图"
-            size="xs"
+            size="sm"
             :color="mapViewMode === 'geographic' ? 'primary' : 'neutral'"
             :variant="mapViewMode === 'geographic' ? 'solid' : 'ghost'"
-            :class="['rounded-none', mapViewMode === 'geographic' ? '!bg-green-800 !text-white' : '']"
+            :class="['min-h-11 rounded-none px-3', mapViewMode === 'geographic' ? '!bg-green-800 !text-white' : '']"
             :aria-pressed="mapViewMode === 'geographic'"
             @click="setMapViewMode('geographic')"
           />
           <UButton
             icon="i-lucide-image"
             label="平面图"
-            size="xs"
+            size="sm"
             :color="mapViewMode === 'official-plan' ? 'primary' : 'neutral'"
             :variant="mapViewMode === 'official-plan' ? 'solid' : 'ghost'"
-            :class="['rounded-none', mapViewMode === 'official-plan' ? '!bg-green-800 !text-white' : '']"
+            :class="['min-h-11 rounded-none px-3', mapViewMode === 'official-plan' ? '!bg-green-800 !text-white' : '']"
             :aria-pressed="mapViewMode === 'official-plan'"
             @click="setMapViewMode('official-plan')"
           />
