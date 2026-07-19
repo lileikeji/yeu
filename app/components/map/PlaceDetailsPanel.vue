@@ -133,6 +133,74 @@ const navigationTooltip = computed(() => {
         class="text-xs"
         :class="props.place.pointIsVerified ? 'text-green-700' : 'text-orange-700'"
       >{{ props.statusText }}</span>
+
+      <div class="mt-3 grid grid-cols-2 gap-2">
+        <UTooltip
+          v-if="props.variant === 'desktop'"
+          text="在地图上规划从你所在位置到这里的步行路线"
+        >
+          <UButton
+            icon="i-lucide-route"
+            label="规划步行路线"
+            color="primary"
+            variant="solid"
+            size="sm"
+            class="w-full justify-center"
+            :loading="props.routePlanning"
+            :disabled="!props.canPlanRoute"
+            @click="emit('planRoute')"
+          />
+        </UTooltip>
+        <UButton
+          v-else
+          icon="i-lucide-route"
+          label="规划步行路线"
+          color="primary"
+          variant="solid"
+          size="sm"
+          class="w-full justify-center"
+          :loading="props.routePlanning"
+          :disabled="!props.canPlanRoute"
+          @click="emit('planRoute')"
+        />
+
+        <UTooltip
+          v-if="props.variant === 'desktop'"
+          :text="navigationTooltip"
+        >
+          <UButton
+            :to="safeNavigationUrl ?? undefined"
+            :target="safeNavigationUrl ? '_blank' : undefined"
+            rel="noopener noreferrer"
+            icon="i-lucide-navigation"
+            label="高德导航"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            class="w-full justify-center"
+            :disabled="!safeNavigationUrl"
+          />
+        </UTooltip>
+        <UButton
+          v-else
+          :to="safeNavigationUrl ?? undefined"
+          :target="safeNavigationUrl ? '_blank' : undefined"
+          rel="noopener noreferrer"
+          icon="i-lucide-navigation"
+          label="高德导航"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          class="w-full justify-center"
+          :disabled="!safeNavigationUrl"
+        />
+      </div>
+
+      <span
+        v-if="props.isWechat && safeNavigationUrl"
+        class="mt-2 block text-xs leading-5 text-zinc-500"
+      >微信内未唤起地图时，可复制位置后搜索。</span>
+
       <div class="mt-3 rounded-md bg-zinc-50 p-3">
         <p class="text-xs font-semibold text-zinc-900">
           到这里前先确认
@@ -177,67 +245,6 @@ const navigationTooltip = computed(() => {
           size="sm"
           @click="emit('copy')"
         />
-
-        <UTooltip
-          v-if="props.variant === 'desktop'"
-          text="在地图上规划从你所在位置到这里的步行路线"
-        >
-          <UButton
-            icon="i-lucide-route"
-            label="规划步行路线"
-            color="primary"
-            variant="soft"
-            size="sm"
-            :loading="props.routePlanning"
-            :disabled="!props.canPlanRoute"
-            @click="emit('planRoute')"
-          />
-        </UTooltip>
-        <UButton
-          v-else
-          icon="i-lucide-route"
-          label="规划步行路线"
-          color="primary"
-          variant="soft"
-          size="sm"
-          :loading="props.routePlanning"
-          :disabled="!props.canPlanRoute"
-          @click="emit('planRoute')"
-        />
-
-        <UTooltip
-          v-if="props.variant === 'desktop'"
-          :text="navigationTooltip"
-        >
-          <UButton
-            :to="safeNavigationUrl ?? undefined"
-            :target="safeNavigationUrl ? '_blank' : undefined"
-            rel="noopener noreferrer"
-            icon="i-lucide-navigation"
-            label="高德导航"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            :disabled="!safeNavigationUrl"
-          />
-        </UTooltip>
-        <UButton
-          v-else
-          :to="safeNavigationUrl ?? undefined"
-          :target="safeNavigationUrl ? '_blank' : undefined"
-          rel="noopener noreferrer"
-          icon="i-lucide-navigation"
-          label="高德导航"
-          color="neutral"
-          variant="outline"
-          size="sm"
-          :disabled="!safeNavigationUrl"
-        />
-
-        <span
-          v-if="props.isWechat && safeNavigationUrl"
-          class="w-full text-xs leading-5 text-zinc-500"
-        >微信内未唤起地图时，可复制位置后搜索。</span>
         <UButton
           v-if="props.returnPath"
           :to="props.returnPath"

@@ -28,6 +28,12 @@ test('map place details use one floating panel for mobile and desktop', () => {
   assert.match(detailsSource, /props\.variant === 'desktop'/)
   assert.match(detailsSource, /props\.place\.campusArea/)
   assert.match(detailsSource, /微信内未唤起地图时/)
+  assert.match(detailsSource, /grid grid-cols-2 gap-2/)
+  assert.ok(
+    detailsSource.indexOf('label="规划步行路线"')
+    < detailsSource.indexOf('到这里前先确认')
+  )
+  assert.match(detailsSource, /label="规划步行路线"[\s\S]*?variant="solid"/)
   // Desktop variant is the floating card used on both breakpoints.
   assert.match(detailsSource, /absolute bottom-\[calc\(var\(--mobile-nav-height\)\+0\.75rem\)\]/)
   assert.doesNotMatch(detailsSource, /useRoute|useRouter|createRuntimeMapProvider/)
