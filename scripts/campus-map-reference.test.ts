@@ -17,8 +17,8 @@ function publishedPlace(id: string, name: string): ApiPlace {
     id,
     slug: id,
     name,
-    summary: `${name} 已核验地点`,
-    body: '地点说明。\n【到这里前先确认】\n- 后台维护的第一条确认项\n- 后台维护的第二条确认项',
+    summary: `${name} 的位置已确认`,
+    body: '地点说明。\n【到这里前先确认】\n- 出发前再看一次入口标识\n- 开放时间以现场通知为准',
     scope: 'campus',
     type: 'service',
     category: 'service',
@@ -172,14 +172,14 @@ test('managed AMap owner drafts override static imported map points without chan
   })
 })
 
-test('published map places expose backend-maintained student use checklist from body', () => {
+test('published map places extract student use checklist without repeating its marker in the body', () => {
   const merged = mergePublicMapPlaces(campusMapReferencePlaces, [publishedPlace('service-desk', '服务点')], [])
   const place = merged.find(item => item.id === 'service-desk')
   assert.deepEqual(place?.usageChecklist, [
-    '后台维护的第一条确认项',
-    '后台维护的第二条确认项'
+    '出发前再看一次入口标识',
+    '开放时间以现场通知为准'
   ])
-  assert.equal(place?.body.includes('【到这里前先确认】'), true)
+  assert.equal(place?.body.includes('【到这里前先确认】'), false)
 })
 
 test('owner-authorized WIA areas contain exact closed shapeBatch paths', () => {
@@ -329,7 +329,8 @@ test('map page uses the Nuxt auto-import name for the nested map component', () 
   assert.match(mapPresentationSource, /export function filterMapAreasForMapSearch/)
   assert.doesNotMatch(source, /const hasQuery = Boolean\(query\)/)
   assert.doesNotMatch(source, /const matchesCategory = hasQuery/)
-  assert.match(mapPresentationSource, /地图搜索结果 · 临时查看，不加入地点列表/)
+  assert.match(mapPresentationSource, /地图搜索结果 · 仅供本次查看/)
+  assert.doesNotMatch(mapPresentationSource, /临时查看，不加入地点列表/)
   assert.match(source, /resolveMapPoiStatusText/)
   assert.match(source, /const selectedNativePlace = ref<PublicMapPlace \| null>\(null\)/)
   assert.match(source, /selectedNativePlace\.value = decision\.selectedNativePlace/)
