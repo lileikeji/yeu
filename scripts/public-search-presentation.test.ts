@@ -350,6 +350,14 @@ test('api target and presentation map entity kinds', () => {
     }),
     '新生遇到校园网、在校外打开校内系统（VPN）、网络故障或校园系统问题时，可以找这个部门。'
   )
+  assert.equal(
+    apiSearchSummary({
+      ...departmentItem,
+      title: '招生办公室',
+      summary: '本科和专升本新生查询招生章程、录取进度、通知书和入学前咨询的官方入口。'
+    }),
+    '本科和专升本新生可以在这里查询招生章程、录取进度、通知书和入学前咨询。'
+  )
 })
 
 test('map labels and summaries use student-facing location wording', () => {

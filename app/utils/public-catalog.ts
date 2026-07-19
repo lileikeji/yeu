@@ -64,6 +64,7 @@ const ownerMapGenericSummary = '用户授权的高德工作地图标点，尚未
 
 export function studentFacingGuideText(value: string): string {
   return value
+    .replace(/新生(.+?)的官方入口。/g, '新生可以在这里$1。')
     .replace(/高德导入标点可先导航，入口细节仍需现场确认。/g, '地图上的位置可先用来找方向，入口细节仍需现场确认。')
     .replace(/连接后通过浏览器认证。新生注册后以学号获得校园网和VPN账号，首次登录按官方通知操作并立即修改密码。/g, '连接后按页面提示登录。新生注册后会获得校园网和校外访问账号，第一次使用请按学校通知操作并及时修改密码。')
     .replace(/宿舍或校外访问教务等校内资源时，可按官方指南使用 https:\/\/vpn\.yeu\.edu\.cn:444。/g, '在宿舍或校外需要打开教务等校内资源时，请按学校指南使用校外访问入口（https://vpn.yeu.edu.cn:444）。')
