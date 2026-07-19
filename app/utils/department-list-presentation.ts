@@ -1,5 +1,5 @@
 export const departmentListMessages = {
-  serviceUnavailable: '暂时没能打开部门列表，请检查网络后再试。',
+  serviceUnavailable: '下方仍可查看学校公开的常用部门；办公地点和联系方式请以学校最新信息为准。',
   emptyMatch: '没有匹配的部门'
 } as const
 

@@ -16,7 +16,7 @@ export const campusStats: CampusStatItem[] = [
 ]
 
 export const campusFallbackMessages = {
-  serviceUnavailable: '暂时没能打开校园信息，请检查网络后再试。',
+  serviceUnavailable: '地图、学校官网和下方已有介绍仍然可以使用。',
   staticDepartmentFallback: '这里先列出学校官网中的常用信息，部分联系方式还没有收录。',
   emptyCatalog: '校园信息暂时还没有准备好，请稍后再看。'
 } as const

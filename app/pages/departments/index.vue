@@ -21,7 +21,7 @@ useSeoMeta({
 
 const searchQuery = ref('')
 const visibleCount = ref(directoryListBatchSize)
-const { data: response, error } = await usePublicDepartmentList()
+const { data: response, error, refresh } = await usePublicDepartmentList()
 const departments = computed(() => mergePublicDepartments(officialDepartments, response.value?.items ?? [], true))
 const orderedDepartments = computed(() => prioritizeDepartmentListItems(departments.value))
 const filteredDepartments = computed(() => filterDepartmentListItems(orderedDepartments.value, searchQuery.value))
@@ -80,14 +80,34 @@ function clearDepartmentSearch() {
     <div class="page-shell page-section">
       <div
         v-if="error"
-        class="border-l-2 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-800"
-        role="alert"
+        class="mb-5 border-l-2 border-amber-500 bg-amber-50 px-4 py-3"
+        role="status"
       >
-        {{ departmentListMessages.serviceUnavailable }}
+        <div class="flex items-start gap-3">
+          <UIcon
+            name="i-lucide-info"
+            class="mt-0.5 size-4 shrink-0 text-amber-700"
+          />
+          <div class="min-w-0 flex-1">
+            <h2 class="text-sm font-bold text-amber-950">
+              部分部门信息还没更新出来
+            </h2>
+            <p class="mt-1 text-xs leading-5 text-amber-900">
+              {{ departmentListMessages.serviceUnavailable }}
+            </p>
+            <UButton
+              icon="i-lucide-refresh-cw"
+              label="重新试一次"
+              color="neutral"
+              variant="outline"
+              class="mt-3 min-h-11"
+              @click="refresh()"
+            />
+          </div>
+        </div>
       </div>
 
       <div
-        v-else
         class="mb-4 flex items-center justify-between gap-4"
       >
         <h2 class="text-sm font-semibold text-zinc-900">

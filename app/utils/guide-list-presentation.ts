@@ -16,7 +16,7 @@ export const guideCategoryIconTones: Record<string, string> = {
 }
 
 export const guideListFallbackMessages = {
-  serviceUnavailable: '暂时没能打开指南，请检查网络后再试。',
+  serviceUnavailable: '可以稍后再试，也可以先查看校园地图和常用部门。',
   staticGuide: '这里先显示已经整理好的指南；时间、地点、材料和费用请以学校最新通知为准。',
   emptyPublished: '指南还在整理，过一会再来看看。'
 } as const

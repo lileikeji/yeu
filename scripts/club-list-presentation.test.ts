@@ -43,12 +43,16 @@ test('club list page is a thin shell over club-list-presentation util', () => {
 
 test('club list stats and messages stay student-facing', () => {
   assert.equal(clubListRecentActivityUrlMarker, '/2026/')
-  assert.equal(clubListMessages.serviceUnavailable, '暂时没能打开社团列表，请检查网络后再试。')
+  assert.equal(clubListMessages.serviceUnavailable, '下方仍可按兴趣查看已有社团；本学期招新请以校团委和现场通知为准。')
   assert.equal(clubListMessages.emptyMatch, '没有匹配的社团')
   assert.equal(clubListMessages.defaultCategory, '校园社团')
   assert.equal(clubListMessages.recentActivity, '近期有活动')
   assert.equal(clubListMessages.recruitmentPending, '等待本学期招新消息')
   assert.doesNotMatch(pageSource, /社团条目|干部线索|名称线索待确认|当前 23 个条目完整清单/)
+  assert.match(pageSource, /部分社团信息还没更新出来/)
+  assert.match(pageSource, /label="重新试一次"/)
+  assert.match(pageSource, /@click="refresh\(\)"/)
+  assert.doesNotMatch(pageSource, /border-red-500|bg-red-50|text-red-800/)
 })
 
 test('club list pure helpers filter and summarize catalogs', () => {

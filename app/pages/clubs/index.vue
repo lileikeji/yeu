@@ -26,7 +26,7 @@ const searchQuery = ref('')
 const selectedGroup = ref<string>(clubListMessages.allGroups)
 const visibleCount = ref(directoryListBatchSize)
 const clubDirectionBySlug = new Map(officialClubs.map(club => [club.slug, club.direction]))
-const { data: response, error } = await usePublicClubList()
+const { data: response, error, refresh } = await usePublicClubList()
 const clubs = computed(() => publicClubs(response.value?.items ?? [], officialClubs))
 const recentClubCount = computed(() => countRecentClubs(clubs.value))
 const clubGroups = computed(() => [clubListMessages.allGroups, ...listClubGroups(clubs.value)])
@@ -132,14 +132,34 @@ function clearClubFilters() {
     <div class="page-shell page-section">
       <div
         v-if="error"
-        class="border-l-2 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-800"
-        role="alert"
+        class="mb-5 border-l-2 border-amber-500 bg-amber-50 px-4 py-3"
+        role="status"
       >
-        {{ clubListMessages.serviceUnavailable }}
+        <div class="flex items-start gap-3">
+          <UIcon
+            name="i-lucide-info"
+            class="mt-0.5 size-4 shrink-0 text-amber-700"
+          />
+          <div class="min-w-0 flex-1">
+            <h2 class="text-sm font-bold text-amber-950">
+              部分社团信息还没更新出来
+            </h2>
+            <p class="mt-1 text-xs leading-5 text-amber-900">
+              {{ clubListMessages.serviceUnavailable }}
+            </p>
+            <UButton
+              icon="i-lucide-refresh-cw"
+              label="重新试一次"
+              color="neutral"
+              variant="outline"
+              class="mt-3 min-h-11"
+              @click="refresh()"
+            />
+          </div>
+        </div>
       </div>
 
       <div
-        v-else
         class="mb-4"
       >
         <div class="flex items-center justify-between gap-4">

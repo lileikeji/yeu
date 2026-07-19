@@ -42,6 +42,7 @@ test('campus stats keep student-facing overview labels', () => {
 })
 
 test('campus fallback message covers error, static, empty and ready states', () => {
+  assert.equal(campusFallbackMessages.serviceUnavailable, '地图、学校官网和下方已有介绍仍然可以使用。')
   assert.equal(resolveCampusFallbackMessage({
     hasError: true,
     response: { items: [] },
@@ -71,6 +72,10 @@ test('campus fallback message covers error, static, empty and ready states', () 
     response: { items: [{ id: '1' }] },
     allowStaticDepartmentFallback: false
   }), null)
+
+  assert.match(pageSource, /校园里的部分内容还没更新出来/)
+  assert.match(pageSource, /label="重新试一次"/)
+  assert.match(pageSource, /@click="refresh\(\)"/)
 })
 
 test('campus overview keeps short, useful previews and links to complete lists', () => {

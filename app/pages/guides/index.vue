@@ -8,6 +8,7 @@ import {
   filterGuideListItems,
   guideCategoryIconTones,
   guideListCategories,
+  guideListFallbackMessages,
   previewGuideListItems,
   resolveGuideListFallbackMessage
 } from '~~/app/utils/guide-list-presentation'
@@ -24,7 +25,7 @@ useSeoMeta({
 const searchQuery = ref('')
 const activeCategory = ref('all')
 const showAllGuides = ref(false)
-const { data: publicGuideResponse, error: publicGuideError } = await usePublicGuideList()
+const { data: publicGuideResponse, error: publicGuideError, refresh } = await usePublicGuideList()
 const allowStaticFallback = computed(() => !publicGuideError.value
   && canUseStaticContentKindFallback(publicGuideResponse.value, 'guide'))
 const guides = computed(() => mergePublicGuides(
@@ -131,7 +132,50 @@ function toggleGuidePreview() {
 
     <section class="page-shell page-section">
       <div
-        v-if="fallbackMessage"
+        v-if="publicGuideError"
+        class="mb-5 border-y border-amber-200 bg-amber-50 px-5 py-8 text-center"
+        role="alert"
+      >
+        <UIcon
+          name="i-lucide-circle-alert"
+          class="mx-auto size-6 text-amber-700"
+        />
+        <h2 class="mt-3 text-base font-bold text-amber-950">
+          指南暂时没有显示出来
+        </h2>
+        <p class="mt-2 text-sm leading-6 text-amber-900">
+          {{ guideListFallbackMessages.serviceUnavailable }}
+        </p>
+        <div class="mt-5 flex flex-wrap justify-center gap-2">
+          <UButton
+            icon="i-lucide-refresh-cw"
+            label="重新试一次"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+            @click="refresh()"
+          />
+          <UButton
+            to="/map"
+            icon="i-lucide-map"
+            label="打开校园地图"
+            color="neutral"
+            variant="ghost"
+            class="min-h-11"
+          />
+          <UButton
+            to="/departments"
+            icon="i-lucide-landmark"
+            label="查看常用部门"
+            color="neutral"
+            variant="ghost"
+            class="min-h-11"
+          />
+        </div>
+      </div>
+
+      <div
+        v-else-if="fallbackMessage"
         class="mb-5 flex items-start gap-2 border-l-2 border-blue-500 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900"
         role="status"
       >
@@ -229,7 +273,7 @@ function toggleGuidePreview() {
       </div>
 
       <div
-        v-else-if="!filteredGuides.length"
+        v-else-if="!publicGuideError && !filteredGuides.length"
         class="border-y border-[var(--line)] bg-white px-5 py-12 text-center"
       >
         <UIcon

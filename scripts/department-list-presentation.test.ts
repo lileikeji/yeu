@@ -30,8 +30,12 @@ test('department list page is a thin shell over department-list-presentation uti
 })
 
 test('department list messages stay student-facing', () => {
-  assert.equal(departmentListMessages.serviceUnavailable, '暂时没能打开部门列表，请检查网络后再试。')
+  assert.equal(departmentListMessages.serviceUnavailable, '下方仍可查看学校公开的常用部门；办公地点和联系方式请以学校最新信息为准。')
   assert.equal(departmentListMessages.emptyMatch, '没有匹配的部门')
+  assert.match(pageSource, /部分部门信息还没更新出来/)
+  assert.match(pageSource, /label="重新试一次"/)
+  assert.match(pageSource, /@click="refresh\(\)"/)
+  assert.doesNotMatch(pageSource, /border-red-500|bg-red-50|text-red-800/)
 })
 
 test('department list pure helpers filter and preview contacts', () => {

@@ -33,7 +33,7 @@ test('guide list categories and fallback messages stay student-facing', () => {
   assert.equal(guideListCategories.length, 5)
   assert.ok(guideListCategories.some(item => item.id === 'arrival' && item.label === '入学'))
   assert.equal(guideCategoryIconTones.arrival, 'bg-green-50 text-green-700')
-  assert.equal(guideListFallbackMessages.serviceUnavailable, '暂时没能打开指南，请检查网络后再试。')
+  assert.equal(guideListFallbackMessages.serviceUnavailable, '可以稍后再试，也可以先查看校园地图和常用部门。')
   assert.match(guideListFallbackMessages.staticGuide, /已经整理好的指南/)
 })
 
@@ -74,12 +74,17 @@ test('guide list filter and fallback resolution', () => {
 
   assert.equal(
     resolveGuideListFallbackMessage({ hasError: true, response: null, allowStaticFallback: false }),
-    '暂时没能打开指南，请检查网络后再试。'
+    '可以稍后再试，也可以先查看校园地图和常用部门。'
   )
   assert.equal(
     resolveGuideListFallbackMessage({ hasError: false, response: null, allowStaticFallback: false }),
     null
   )
+  assert.match(pageSource, /指南暂时没有显示出来/)
+  assert.match(pageSource, /label="重新试一次"/)
+  assert.match(pageSource, /label="打开校园地图"/)
+  assert.match(pageSource, /label="查看常用部门"/)
+  assert.match(pageSource, /!publicGuideError && !filteredGuides\.length/)
   assert.equal(
     resolveGuideListFallbackMessage({
       hasError: false,

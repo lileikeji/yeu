@@ -2,6 +2,7 @@
 import { safeExternalHref } from '~/utils/safe-external-href'
 import { officialClubs, officialDepartments, officialSources } from '~~/data/seeds/public-content'
 import {
+  campusFallbackMessages,
   campusStats,
   resolveCampusFallbackMessage,
   selectFeaturedClubs,
@@ -23,7 +24,7 @@ useSeoMeta({
   description: '快速了解仰恩大学校园，找到新生常用部门和学生社团入口。'
 })
 
-const { data: publicContentResponse, error: publicContentError } = await usePublicContentList()
+const { data: publicContentResponse, error: publicContentError, refresh } = await usePublicContentList()
 const publicContents = computed(() => publicContentResponse.value?.items ?? [])
 const clubDirectionBySlug = new Map(officialClubs.map(club => [club.slug, club.direction]))
 const allowStaticDepartmentFallback = computed(() => !publicContentError.value
@@ -105,7 +106,40 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
     </section>
 
     <div
-      v-if="fallbackMessage"
+      v-if="publicContentError"
+      class="page-shell pt-6"
+    >
+      <div
+        class="border-l-2 border-amber-500 bg-amber-50 px-4 py-3"
+        role="status"
+      >
+        <div class="flex items-start gap-3">
+          <UIcon
+            name="i-lucide-info"
+            class="mt-0.5 size-4 shrink-0 text-amber-700"
+          />
+          <div class="min-w-0 flex-1">
+            <h2 class="text-sm font-bold text-amber-950">
+              校园里的部分内容还没更新出来
+            </h2>
+            <p class="mt-1 text-xs leading-5 text-amber-900">
+              {{ campusFallbackMessages.serviceUnavailable }}
+            </p>
+            <UButton
+              icon="i-lucide-refresh-cw"
+              label="重新试一次"
+              color="neutral"
+              variant="outline"
+              class="mt-3 min-h-11"
+              @click="refresh()"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-else-if="fallbackMessage"
       class="page-shell pt-6"
     >
       <div
