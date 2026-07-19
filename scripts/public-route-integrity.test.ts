@@ -279,6 +279,7 @@ test('student-facing pages do not expose maintenance-only map and backend wordin
     'app/pages/guides/[slug].vue',
     'app/pages/campus.vue',
     'app/pages/map/index.vue',
+    'app/components/map/PlaceDetailsPanel.vue',
     'app/pages/sources.vue',
     'app/utils/public-catalog.ts',
     'app/utils/home-presentation.ts',
@@ -308,6 +309,7 @@ test('student-facing pages do not expose maintenance-only map and backend wordin
   assert.doesNotMatch(source, /候选校界 relation/)
   assert.doesNotMatch(source, /WGS84 坐标已核验/)
   assert.doesNotMatch(source, /学校官网原图|社区地图预览|检查网络和地图配置/)
+  assert.doesNotMatch(source, /地图内路线/)
   assert.match(source, /学校平面图/)
   assert.match(source, /校园范围参考/)
   assert.match(source, /地图会直接定位并提供可用的导航入口/)

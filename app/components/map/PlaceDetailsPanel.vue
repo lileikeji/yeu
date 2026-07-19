@@ -184,7 +184,7 @@ const navigationTooltip = computed(() => {
         >
           <UButton
             icon="i-lucide-route"
-            label="地图内路线"
+            label="规划步行路线"
             color="primary"
             variant="soft"
             size="sm"
@@ -196,7 +196,7 @@ const navigationTooltip = computed(() => {
         <UButton
           v-else
           icon="i-lucide-route"
-          label="地图内路线"
+          label="规划步行路线"
           color="primary"
           variant="soft"
           size="sm"
