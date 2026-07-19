@@ -102,6 +102,7 @@ const feedbackLink = computed(() => content.value
             icon="i-lucide-external-link"
             label="部门官网"
             size="lg"
+            class="min-h-11"
           />
         </div>
       </div>

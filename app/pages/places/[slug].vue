@@ -131,6 +131,7 @@ function copyPlaceLocation(): void {
               icon="i-lucide-map-pinned"
               label="查看地图"
               size="lg"
+              class="min-h-11"
             />
             <UButton
               v-if="place.address || place.campusArea || place.floor || place.room"
@@ -139,6 +140,7 @@ function copyPlaceLocation(): void {
               color="neutral"
               variant="outline"
               size="lg"
+              class="min-h-11"
               @click="copyPlaceLocation"
             />
             <UButton
@@ -151,6 +153,7 @@ function copyPlaceLocation(): void {
               color="neutral"
               variant="outline"
               size="lg"
+              class="min-h-11"
             />
           </div>
           <p

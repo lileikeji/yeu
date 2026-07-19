@@ -32,6 +32,10 @@ test('procedure list page is a thin shell over procedure-list-presentation util'
   assert.match(utilSource, /from '\.\/procedure-detail-presentation'/)
 })
 
+test('procedure search keeps a comfortable mobile touch height', () => {
+  assert.match(pageSource, /aria-label="搜索办事流程"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+})
+
 test('procedure list audience and method labels stay student-facing', () => {
   assert.equal(procedureListAudienceOptions[0]?.value, 'all')
   assert.equal(procedureListAudienceOptions.length, 3)

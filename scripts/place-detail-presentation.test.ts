@@ -32,6 +32,12 @@ test('place detail page is a thin shell over place-detail-presentation util', ()
   assert.match(utilSource, /export function buildPlaceFallbackUseChecklist/)
 })
 
+test('place map actions keep a comfortable mobile touch height', () => {
+  assert.match(pageSource, /label="查看地图"\s+size="lg"\s+class="min-h-11"/)
+  assert.match(pageSource, /label="复制位置"[\s\S]*?size="lg"\s+class="min-h-11"/)
+  assert.match(pageSource, /label="开始导航"[\s\S]*?size="lg"\s+class="min-h-11"/)
+})
+
 test('place coordinate verification and map target stay strict', () => {
   assert.equal(isPlaceCoordinateVerified({
     navigationAvailable: true,

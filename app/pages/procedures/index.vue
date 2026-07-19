@@ -68,6 +68,8 @@ function clearProcedureFilters(): void {
             size="lg"
             placeholder="搜索报到或办事事项"
             aria-label="搜索办事流程"
+            class="min-h-11 w-full"
+            :ui="{ base: 'min-h-11' }"
           />
           <div
             class="scrollbar-none flex gap-1 overflow-x-auto"

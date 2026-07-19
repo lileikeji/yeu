@@ -31,6 +31,10 @@ test('department detail page is a thin shell over department-detail-presentation
   assert.match(utilSource, /export const departmentSectionLabels/)
 })
 
+test('department website action keeps a comfortable mobile touch height', () => {
+  assert.match(pageSource, /label="部门官网"\s+size="lg"\s+class="min-h-11"/)
+})
+
 test('department body extractors keep student-facing section markers', () => {
   assert.equal(departmentBodyPrefixes.useCases, '新生什么时候该看这里：')
   assert.equal(departmentSectionLabels.firstLook, '新生先看这几件事')
