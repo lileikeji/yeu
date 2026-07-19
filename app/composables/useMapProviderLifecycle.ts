@@ -62,7 +62,6 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
     options.mapProvider.value?.destroy()
     clearProvider()
     let createdProvider: MapProvider | null = null
-    let mountReportedError = false
 
     try {
       const provider = await initializeMapProvider(createProvider, {
@@ -82,10 +81,9 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
         },
         onPoiSelected: options.onPoiSelected,
         onAreaSelected: options.onAreaSelected,
-        onError(_error) {
-          mountReportedError = true
-          options.mapErrorMessage.value = DEFAULT_MAP_ERROR
-          options.mapStatus.value = 'error'
+        onError() {
+          // Providers also report recoverable rendering failures here. A failed mount
+          // rejects initializeMapProvider and is handled by the catch block below.
         }
       }, () => mountGate.isCurrent(request))
 
@@ -93,7 +91,7 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
         clearProvider(createdProvider)
         return
       }
-      if (!mountReportedError) options.mapStatus.value = 'ready'
+      options.mapStatus.value = 'ready'
       options.onReady()
     } catch {
       if (!mountGate.isCurrent(request)) return

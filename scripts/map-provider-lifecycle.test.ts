@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import test from 'node:test'
 import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from '../map/core/types'
 import type {
@@ -283,4 +285,14 @@ test('provider callbacks ignore events after their request becomes stale', async
   state.errorHandler?.(new Error('late failure'))
 
   assert.deepEqual(events, ['created'])
+})
+
+test('recoverable provider errors cannot leave a successfully mounted public map in an error state', () => {
+  const composable = readFileSync(resolve('app/composables/useMapProviderLifecycle.ts'), 'utf8')
+  const recoverableErrorHandler = composable.match(/onError\(\) \{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+
+  assert.doesNotMatch(recoverableErrorHandler, /mapStatus\.value\s*=\s*'error'/)
+  assert.doesNotMatch(composable, /mountReportedError/)
+  assert.match(composable, /if \(!provider\)[\s\S]*?mapStatus\.value = 'ready'/)
+  assert.match(composable, /catch[\s\S]*?mapStatus\.value = 'error'/)
 })
