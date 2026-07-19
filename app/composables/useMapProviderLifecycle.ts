@@ -11,6 +11,7 @@ import {
   createMapProviderMountGate,
   initializeMapProvider
 } from '~/utils/map-provider-lifecycle'
+import { MAP_LOAD_ERROR_MESSAGE } from '~/utils/map-presentation'
 
 type MapStatus = 'loading' | 'ready' | 'error'
 
@@ -37,7 +38,7 @@ interface UseMapProviderLifecycleOptions {
   createProvider?: () => Promise<MapProvider>
 }
 
-const DEFAULT_MAP_ERROR = '地图暂时无法加载，请检查网络和地图配置后重试。'
+const DEFAULT_MAP_ERROR = MAP_LOAD_ERROR_MESSAGE
 
 export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions) {
   const mountGate = createMapProviderMountGate()

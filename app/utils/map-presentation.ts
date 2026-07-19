@@ -10,6 +10,8 @@ export interface MapCategory {
   icon: string
 }
 
+export const MAP_LOAD_ERROR_MESSAGE = '地图暂时无法加载，请检查网络后重试。'
+
 export type MapPoiStatusFields = Pick<
   PublicMapPlace,
   | 'pointIsVerified'
@@ -74,7 +76,7 @@ export function resolveMapFallbackMessage(input: {
     return '附近地点还在整理中，暂时不把未确认的商铺当作推荐，也不在地图上估一个位置。'
   }
   if (!input.publishedCount) {
-    return '可以先按学校平面图的 47 个地点编号查找校内地点；这里不复制原图，也不把文字位置假装成导航位置。'
+    return '可以先按学校平面图的 47 个地点编号查找校内地点；需要导航时，请使用已有地图标点或到校后确认具体入口。'
   }
   return null
 }

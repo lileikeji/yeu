@@ -13,6 +13,7 @@ import {
   filterPublicMapPlacesForMapList,
   formatMapAreaSquareMeters,
   formatMapPerimeter,
+  MAP_LOAD_ERROR_MESSAGE,
   mapCategories,
   resolveInitialMapViewMode,
   resolveMapCategoryIcon,
@@ -110,6 +111,8 @@ test('map page is a thin shell over map-presentation util for labels and checkli
 })
 
 test('map data labels and fallback messages follow scope and data readiness', () => {
+  assert.equal(MAP_LOAD_ERROR_MESSAGE, '地图暂时无法加载，请检查网络后重试。')
+
   assert.equal(resolveMapDataLabel({
     publishedCount: 2,
     ownerMapCount: 0,
@@ -171,6 +174,12 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     activeScope: null,
     publishedCount: 0
   }) ?? '', /学校平面图的 47 个地点编号/)
+  assert.match(resolveMapFallbackMessage({
+    ownerMapCount: 0,
+    hasPublicPlaceError: false,
+    activeScope: null,
+    publishedCount: 0
+  }) ?? '', /已有地图标点或到校后确认具体入口/)
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,

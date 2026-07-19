@@ -30,6 +30,7 @@ import {
   formatMapPerimeter,
   mapCategories,
   mapCategoryIds,
+  MAP_LOAD_ERROR_MESSAGE,
   buildFilteredMapPois,
   canPlanMapWalkingRoute,
   defaultMapDisplayOptions,
@@ -131,7 +132,7 @@ const mapElement = ref<HTMLElement | null>(null)
 const mapProvider = shallowRef<MapProvider | null>(null)
 const activeMapProviderId = ref<MapProviderId | null>(null)
 const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
-const mapErrorMessage = ref('地图暂时无法加载，请检查网络和地图配置后重试。')
+const mapErrorMessage = ref(MAP_LOAD_ERROR_MESSAGE)
 const searchQuery = ref(mapQueryValue(route.query.q))
 const activeCategory = ref(resolveInitialMapCategoryId(initialCategory, categoryIds))
 const selectedPoiId = ref<string | null>(resolveInitialSelectedMapPoiId(places.value, initialPlace))
@@ -762,10 +763,10 @@ onBeforeUnmount(() => {
               class="mr-1 size-3.5"
             />
             {{ mapViewMode === 'official-plan'
-              ? '学校官网原图'
+              ? '学校平面图'
               : activeMapProviderId === 'amap'
                 ? '高德地图'
-                : '社区地图预览' }}
+                : '校园范围参考' }}
           </UBadge>
           <UTooltip
             v-if="mapViewMode === 'geographic' && activeMapProviderId !== 'amap'"
