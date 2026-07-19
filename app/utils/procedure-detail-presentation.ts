@@ -36,11 +36,14 @@ export function studentFacingProcedureText(value: string): string {
     .replace(/报到日期已确认/g, '报到日期已经确定')
     .replace(/已发布/g, '已经公布')
     .replace(/官方来源/g, '学校说明')
+    .replace(/官方信息入口/g, '官网')
+    .replace(/官方入口/g, '官网')
     .replace(/工单状态/g, '处理进度')
     .replace(/待通知/g, '还要等学校通知')
     .replace(/统一认证/g, '账号登录')
     .replace(/认证入口/g, '登录入口')
     .replace(/认证不了/g, '登录不了')
+    .replace(/按(.+?)入口咨询/g, '通过$1官网咨询')
     .replace(/账号、认证、网络故障/g, '账号登录、网络故障')
     .replace(/系统不公开或猜测个人账号初始密码/g, '这里不会提供或猜测个人账号初始密码')
     .replace(/核验/g, '确认')
@@ -97,9 +100,13 @@ export function getProcedureEmptyMaterialText(category: string | null | undefine
 }
 
 export function sourceClaimForStudents(claimScope: string): string {
+  const officialPage = claimScope.match(/^(.+?)官方(?:信息)?入口$/)
+  if (officialPage?.[1]) {
+    return `可以从${officialPage[1]}官网查看最新信息。`
+  }
   const text = claimScope
-    .replace(/官方信息入口/g, '官方信息入口')
-    .replace(/官方入口/g, '官方入口')
+    .replace(/官方信息入口/g, '官网')
+    .replace(/官方入口/g, '官网')
     .replace(/招生咨询边界/g, '招生咨询方式和适用范围')
     .replace(/咨询边界/g, '咨询方式和适用范围')
     .replace(/使用提醒/g, '使用注意事项')

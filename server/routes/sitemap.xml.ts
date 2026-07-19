@@ -24,7 +24,7 @@ function escapeXml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
+    .replaceAll('\'', '&apos;')
 }
 
 function collectPaged<T extends { slug?: string | null, updatedAt?: string | number | null }>(
@@ -77,12 +77,6 @@ export default defineEventHandler((event) => {
     changefreq: string
     items: Array<{ slug?: string | null, updatedAt?: string | number | null }>
   }> = [
-    {
-      prefix: '/content/',
-      priority: '0.6',
-      changefreq: 'weekly',
-      items: collectPaged((page, pageSize) => listContent(client, { page, pageSize }, true))
-    },
     {
       prefix: '/guides/',
       priority: '0.7',
@@ -137,7 +131,7 @@ export default defineEventHandler((event) => {
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...ordered.flatMap((entry) => [
+    ...ordered.flatMap(entry => [
       '  <url>',
       `    <loc>${escapeXml(entry.loc)}</loc>`,
       `    <lastmod>${entry.lastmod}</lastmod>`,

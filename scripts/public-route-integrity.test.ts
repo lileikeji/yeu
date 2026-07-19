@@ -12,6 +12,7 @@ import {
   mergePublicGuides,
   publicClubs
 } from '../app/utils/public-catalog'
+import { publicContentRoute } from '../server/utils/public-content-route'
 import { buildCatalogSeed } from './seed-public-catalog'
 
 function publicContentPath(kind: 'guide' | 'department' | 'club', slug: string): string {
@@ -115,6 +116,24 @@ test('static Nuxt links point to existing pages or backed dynamic routes', () =>
     .filter(({ path }) => !pageRoutes.has(path) && !routeIsDynamicButBacked(path))
 
   assert.deepEqual(broken, [])
+})
+
+test('sitemap only publishes real content detail routes and old content links redirect', () => {
+  const sitemap = readFileSync(resolve('server/routes/sitemap.xml.ts'), 'utf8')
+  const legacyRoute = readFileSync(resolve('server/routes/content/[slug].ts'), 'utf8')
+
+  assert.doesNotMatch(sitemap, /prefix: '\/content\/'/)
+  assert.match(sitemap, /prefix: '\/guides\/'/)
+  assert.match(sitemap, /prefix: '\/departments\/'/)
+  assert.match(sitemap, /prefix: '\/clubs\/'/)
+  assert.match(sitemap, /prefix: '\/places\/'/)
+  assert.match(legacyRoute, /publicContentRoute\(content\.kind, slug\)/)
+  assert.match(legacyRoute, /sendRedirect\([\s\S]*?, 308\)/)
+
+  assert.equal(publicContentRoute('guide', 'find-campus'), '/guides/find-campus')
+  assert.equal(publicContentRoute('department', 'student affairs'), '/departments/student%20affairs')
+  assert.equal(publicContentRoute('club', 'computer-association'), '/clubs/computer-association')
+  assert.equal(publicContentRoute('notice', 'welcome'), '/campus#notice-welcome')
 })
 
 test('department and club detail pages expose structured freshman decision aids', () => {

@@ -44,6 +44,8 @@ test('procedure detail page is a thin shell over presentation util', () => {
   assert.match(pageSource, /resolveProcedureMaterialsCountBadge/)
   assert.match(pageSource, /resolveProcedureStepCompletionPresentation/)
   assert.match(pageSource, /shouldShowProcedureStepAudienceBadges/)
+  assert.match(pageSource, /label="查看学校页面"/)
+  assert.doesNotMatch(pageSource, /打开官方入口/)
   assert.doesNotMatch(pageSource, /function sourceClaimForStudents/)
   assert.doesNotMatch(pageSource, /informationState === 'confirmed' \? 'success'/)
   assert.doesNotMatch(pageSource, /JSON\.parse\(localStorage/)
@@ -88,12 +90,18 @@ test('procedure notice and material copy follow category and confirmation state'
   assert.equal(studentFacingProcedureTitle('校园网与统一认证排查'), '校园网与账号登录问题')
   assert.equal(studentFacingProcedureText('请查看统一认证入口，遇到认证不了的情况再联系部门'), '请查看账号登录入口，遇到登录不了的情况再联系部门')
   assert.equal(studentFacingProcedureText('系统不公开或猜测个人账号初始密码'), '这里不会提供或猜测个人账号初始密码')
+  assert.equal(studentFacingProcedureText('优先按信息化管理处官方入口处理'), '优先按信息化管理处官网处理')
+  assert.equal(studentFacingProcedureText('按信息化管理处入口咨询'), '通过信息化管理处官网咨询')
 })
 
 test('source claim rewrite and detail source mapping stay student-readable', () => {
   assert.equal(
+    sourceClaimForStudents('招生办公室官方信息入口'),
+    '可以从招生办公室官网查看最新信息。'
+  )
+  assert.equal(
     sourceClaimForStudents('官方入口与咨询边界'),
-    '这份说明可以确认：官方入口与咨询方式和适用范围'
+    '这份说明可以确认：官网与咨询方式和适用范围'
   )
   assert.equal(
     sourceClaimForStudents('报到流程与使用提醒'),
