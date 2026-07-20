@@ -10,6 +10,7 @@ import {
   filterNearbyCandidates,
   filterNearbyPlaces,
   nearbyCandidateCenterLabel,
+  nearbyCandidateDistanceLabel,
   nearbyCandidateHint,
   nearbyCandidateMapUrl,
   nearbyCandidatePreviewLimit,
@@ -57,6 +58,8 @@ test('nearby page keeps map wiring and student-facing travel copy', () => {
   assert.match(pageSource, /查看\$\{tip\.title\}地点/)
   assert.match(pageSource, /clearNearbyFilters/)
   assert.match(pageSource, /candidateHint\(candidate\)/)
+  assert.match(pageSource, /candidateDistanceLabel\(candidate\)/)
+  assert.match(pageSource, /不是从你当前位置算起/)
   assert.match(pageSource, /buildNearbyCandidatePreview/)
   assert.match(pageSource, /visibleCandidates/)
   assert.match(pageSource, /收起地点/)
@@ -115,6 +118,8 @@ test('nearby presentation helpers rewrite source context and build map links', (
   assert.match(mapUrl, new RegExp(String(sample.location.lng)))
   assert.equal(nearbyCandidateCenterLabel({ ...sample, centerId: 'new-student-street' }), '新区学生街')
   assert.equal(nearbyCandidateCenterLabel({ ...sample, centerId: 'old-student-street' }), '旧区学生街')
+  assert.equal(nearbyCandidateDistanceLabel({ ...sample, distanceMeters: 13.4 }), '距参考位置约 13 米')
+  assert.equal(nearbyCandidateDistanceLabel({ ...sample, distanceMeters: -1 }), '距参考位置约 0 米')
   assert.equal(nearbyCandidateHint(sample), nearbyCategoryHints[sample.category])
   assert.ok(nearbyCandidateHint(sample).length > 8)
   assert.equal(nearbyUsageTips.length, 4)

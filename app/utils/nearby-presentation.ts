@@ -123,6 +123,10 @@ export function nearbyCandidateCenterLabel(candidate: NearbyCandidate): string {
   return candidate.centerId === 'new-student-street' ? '新区学生街' : '旧区学生街'
 }
 
+export function nearbyCandidateDistanceLabel(candidate: NearbyCandidate): string {
+  return `距参考位置约 ${Math.max(0, Math.round(candidate.distanceMeters))} 米`
+}
+
 export function nearbyCandidateHint(candidate: NearbyCandidate): string {
   return nearbyCategoryHints[candidate.category]
 }

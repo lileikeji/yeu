@@ -8,6 +8,7 @@ import {
   filterNearbyCandidates,
   filterNearbyPlaces,
   nearbyCandidateCenterLabel,
+  nearbyCandidateDistanceLabel,
   nearbyCandidateHint,
   nearbyCandidateMapUrl,
   nearbyCandidatePreviewLimit,
@@ -34,6 +35,7 @@ const sourceIsClickable = nearbySourceIsClickable
 const sourceContextForStudents = nearbySourceContextForStudents
 const candidateMapUrl = nearbyCandidateMapUrl
 const candidateCenterLabel = nearbyCandidateCenterLabel
+const candidateDistanceLabel = nearbyCandidateDistanceLabel
 const candidateHint = nearbyCandidateHint
 
 useSeoMeta({
@@ -329,6 +331,13 @@ async function selectNearbyNeed(category: string): Promise<void> {
               这里整理了 {{ filteredCandidates.length }} 个新区、旧区的餐饮、便利、快递和生活服务地点。点开后可以在{{ safeExternalHref(candidateCatalog.providerDocumentation) ? '高德地图' : '地图' }}查看位置，营业时间和价格请以近期信息或现场为准。
             </template>
           </p>
+          <p class="mt-2 flex max-w-3xl items-start gap-2 text-xs leading-5 text-zinc-500">
+            <UIcon
+              name="i-lucide-info"
+              class="mt-0.5 size-3.5 shrink-0 text-green-700"
+            />
+            <span>卡片里的距离是商铺到新区或旧区学生街参考位置的大致距离，不是从你当前位置算起。</span>
+          </p>
         </div>
 
         <details class="group mt-5 border-y border-zinc-200 bg-white">
@@ -441,7 +450,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 color="neutral"
                 variant="soft"
               />
-              <span class="text-xs text-zinc-400">约 {{ candidate.distanceMeters }} m</span>
+              <span class="text-right text-xs leading-5 text-zinc-500">{{ candidateDistanceLabel(candidate) }}</span>
             </div>
             <h3 class="mt-3 font-bold text-zinc-950">
               {{ candidate.name }}
