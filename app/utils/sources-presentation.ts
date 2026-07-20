@@ -46,28 +46,38 @@ export interface SourceLevelGuide {
   level: string
   title: string
   description: string
+  icon: string
+  tone: 'blue' | 'green' | 'amber' | 'zinc'
 }
 
 export const sourceLevelGuides: SourceLevelGuide[] = [
   {
     level: '优先看',
     title: '学校正式通知',
-    description: '报到、缴费、学籍和放假安排，优先看学校官网或主管部门的最新通知。'
+    description: '报到、缴费、学籍和放假安排，优先看学校官网或主管部门的最新通知。',
+    icon: 'i-lucide-landmark',
+    tone: 'blue'
   },
   {
     level: '可以参考',
     title: '政府服务或现场信息',
-    description: '交通、通信和公共服务可以参考运营方说明；到校后的地点信息也可以看现场标识。'
+    description: '交通、通信和公共服务可以参考运营方说明；到校后的地点信息也可以看现场标识。',
+    icon: 'i-lucide-signpost',
+    tone: 'green'
   },
   {
     level: '注意时间',
     title: '社团或商家自己发布',
-    description: '适合查看招新、营业时间和活动安排，但要先看发布时间，过期二维码不要继续使用。'
+    description: '适合查看招新、营业时间和活动安排，但要先看发布时间，过期二维码不要继续使用。',
+    icon: 'i-lucide-clock-3',
+    tone: 'amber'
   },
   {
     level: '到现场再看',
     title: '地图和同学分享',
-    description: '适合先找地点和了解生活经验；营业情况、收费和办事要求仍以现场或最新通知为准。'
+    description: '适合先找地点和了解生活经验；营业情况、收费和办事要求仍以现场或最新通知为准。',
+    icon: 'i-lucide-map-pin-check',
+    tone: 'zinc'
   }
 ]
 

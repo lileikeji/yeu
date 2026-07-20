@@ -101,16 +101,40 @@ async function refreshSources(): Promise<void> {
           </p>
         </div>
 
-        <dl class="divide-y divide-zinc-100 border-y border-[var(--line)]">
+        <dl class="grid gap-3 sm:grid-cols-2">
           <div
             v-for="item in sourceLevelGuides"
             :key="item.level"
-            class="grid gap-1 py-4 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4"
+            class="rounded-md border bg-white p-4 shadow-sm"
+            :class="{
+              'border-blue-200': item.tone === 'blue',
+              'border-green-200': item.tone === 'green',
+              'border-amber-200': item.tone === 'amber',
+              'border-zinc-200': item.tone === 'zinc'
+            }"
           >
-            <dt class="text-sm font-bold text-zinc-900">
-              {{ item.level }} · {{ item.title }}
-            </dt>
-            <dd class="text-sm leading-6 text-zinc-600">
+            <div class="flex items-center gap-3">
+              <span
+                class="grid size-9 shrink-0 place-items-center rounded-md"
+                :class="{
+                  'bg-blue-50 text-blue-700': item.tone === 'blue',
+                  'bg-green-50 text-green-700': item.tone === 'green',
+                  'bg-amber-50 text-amber-700': item.tone === 'amber',
+                  'bg-zinc-100 text-zinc-700': item.tone === 'zinc'
+                }"
+                aria-hidden="true"
+              >
+                <UIcon
+                  :name="item.icon"
+                  class="size-4"
+                />
+              </span>
+              <dt>
+                <span class="block text-xs font-semibold text-zinc-500">{{ item.level }}</span>
+                <span class="mt-0.5 block text-sm font-bold text-zinc-950">{{ item.title }}</span>
+              </dt>
+            </div>
+            <dd class="mt-3 text-sm leading-6 text-zinc-600">
               {{ item.description }}
             </dd>
           </div>
