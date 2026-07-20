@@ -25,6 +25,8 @@ test('privacy actions keep a comfortable mobile touch height', () => {
 
 test('public update and offline copy avoid admin-facing language', () => {
   assert.match(updatePromptSource, /正在填写反馈或聊天内容时，可以稍后更新/)
+  assert.equal((updatePromptSource.match(/class="min-h-11 rounded-md/g) || []).length, 2)
+  assert.doesNotMatch(updatePromptSource, /class="min-h-10 rounded-md/)
   assert.doesNotMatch(updatePromptSource, /管理页面/)
   assert.match(utilSource, /不会保存账号资料、聊天内容或完整地图资料/)
   assert.doesNotMatch(utilSource, /管理页面内容/)

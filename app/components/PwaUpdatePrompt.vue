@@ -51,7 +51,7 @@ async function dismissUpdate(): Promise<void> {
     <div class="mt-4 flex justify-end gap-2">
       <button
         type="button"
-        class="min-h-10 rounded-md px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+        class="min-h-11 rounded-md px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
         @click="dismissUpdate"
       >
         稍后更新
@@ -59,7 +59,7 @@ async function dismissUpdate(): Promise<void> {
       <button
         ref="updateButton"
         type="button"
-        class="min-h-10 rounded-md bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 disabled:cursor-wait disabled:opacity-70"
+        class="min-h-11 rounded-md bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 disabled:cursor-wait disabled:opacity-70"
         :disabled="updating"
         @click="applyUpdate"
       >
