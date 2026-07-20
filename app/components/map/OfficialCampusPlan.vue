@@ -230,6 +230,33 @@ function handleAnchorClick(mapNumber: string, event: MouseEvent): void {
   emit('selectNumber', mapNumber)
 }
 
+function handlePlanMarkerClickCapture(event: MouseEvent): void {
+  const eventTarget = event.target
+  if (!(eventTarget instanceof Element)) return
+  const hitButton = eventTarget.closest<HTMLElement>('[data-plan-anchor-key]')
+  if (!hitButton) return
+
+  let nearest: { element: HTMLElement, mapNumber: string, distance: number } | null = null
+  for (const element of anchorElements.values()) {
+    const mapNumber = element.dataset.planMapNumber
+    if (!mapNumber) continue
+    const rect = element.getBoundingClientRect()
+    const distance = Math.hypot(
+      event.clientX - (rect.left + rect.width / 2),
+      event.clientY - (rect.top + rect.height / 2)
+    )
+    if (!nearest || distance < nearest.distance) {
+      nearest = { element, mapNumber, distance }
+    }
+  }
+
+  if (!nearest || nearest.element === hitButton || nearest.distance > 24) return
+  event.preventDefault()
+  event.stopPropagation()
+  nearest.element.focus({ preventScroll: true })
+  emit('selectNumber', nearest.mapNumber)
+}
+
 function handleLoaded(): void {
   loading.value = false
   failed.value = false
@@ -348,6 +375,7 @@ onBeforeUnmount(() => {
       @pointermove="handlePointerMove"
       @pointerup="handlePointerUp"
       @pointercancel="handlePointerUp"
+      @click.capture="handlePlanMarkerClickCapture"
       @touchstart.passive="handleTouchStart"
       @touchmove="handleTouchMove"
       @touchend="handleTouchEnd"
@@ -375,6 +403,8 @@ onBeforeUnmount(() => {
             :key="officialPlanAnchorKey(anchor.mapNumber, index)"
             :ref="(element: unknown) => setAnchorElement(officialPlanAnchorKey(anchor.mapNumber, index), element)"
             type="button"
+            :data-plan-anchor-key="officialPlanAnchorKey(anchor.mapNumber, index)"
+            :data-plan-map-number="anchor.mapNumber"
             class="absolute grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white bg-green-800 text-[8px] font-bold text-white shadow-md transition hover:z-10 hover:scale-125 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:size-7 sm:text-[10px]"
             :class="props.selectedMapNumber === anchor.mapNumber ? 'z-10 scale-125 bg-orange-600 ring-4 ring-white/80' : ''"
             :style="{ left: `${anchor.x}%`, top: `${anchor.y}%` }"

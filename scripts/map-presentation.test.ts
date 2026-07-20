@@ -62,6 +62,7 @@ import type { PublicMapPlace } from '../app/utils/public-catalog'
 
 const pageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
 const utilSource = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
+const placeDetailsPanelSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
 
 function samplePoi(overrides: Partial<MapPoiStatusFields> = {}): MapPoiStatusFields {
   return {
@@ -116,9 +117,22 @@ test('map data labels and fallback messages follow scope and data readiness', ()
   assert.match(pageSource, /label="重新试一次"/)
   assert.match(pageSource, /label="查看学校平面图"/)
   assert.match(pageSource, /@click="setMapViewMode\('official-plan'\)"/)
+  assert.match(
+    pageSource,
+    /button\[aria-label\^="平面图 "\]::before[\s\S]*?inset: -12px/
+  )
+  assert.match(
+    pageSource,
+    /@media \(min-width: 640px\)[\s\S]*?button\[aria-label\^="平面图 "\]::before[\s\S]*?inset: -8px/
+  )
   assert.match(pageSource, /z-40 grid place-items-start[^"]*pt-32[^"]*md:place-items-center/)
   assert.match(pageSource, /!bg-green-800 !text-white/)
   assert.doesNotMatch(pageSource, /地图暂时无法载入|label="重新载入"/)
+  assert.match(placeDetailsPanelSource, /v-if="props\.canPlanRoute \|\| safeNavigationUrl"/)
+  assert.match(
+    placeDetailsPanelSource,
+    /这个平面图地点还没有精确位置，暂时不能规划路线/
+  )
 
   assert.equal(resolveMapDataLabel({
     publishedCount: 2,
