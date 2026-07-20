@@ -22,14 +22,6 @@ const route = useRoute()
 const toast = useToast()
 const reasonOptions = feedbackReasonOptions
 const initialReasonType = computed(() => resolveFeedbackReasonType(route.query.type))
-const formCopy = computed(() => resolveFeedbackFormCopy(initialReasonType.value))
-const isPrivacyRequest = computed(() => initialReasonType.value === 'privacy_request')
-
-useSeoMeta({
-  title: () => formCopy.value.metaTitle,
-  description: () => formCopy.value.metaDescription,
-  robots: 'noindex, nofollow'
-})
 
 const requestedTargetType = computed(() => feedbackRouteQueryString(route.query.targetType).trim())
 const requestedTargetId = computed(() => feedbackRouteQueryString(route.query.targetId).trim())
@@ -51,12 +43,21 @@ const targetDisplayName = computed(() => resolveFeedbackTargetDisplayName(
 const pageUrl = computed(() => safeLocalPath(route.query.from))
 
 const reasonType = ref(initialReasonType.value)
+const formCopy = computed(() => resolveFeedbackFormCopy(reasonType.value))
+const isPrivacyRequest = computed(() => reasonType.value === 'privacy_request')
+const isDedicatedPrivacyRequest = computed(() => initialReasonType.value === 'privacy_request')
 const message = ref('')
 const evidenceUrl = ref('')
 const contact = ref('')
 const website = ref('')
 const submitting = ref(false)
 const submitted = ref(false)
+
+useSeoMeta({
+  title: () => formCopy.value.metaTitle,
+  description: () => formCopy.value.metaDescription,
+  robots: 'noindex, nofollow'
+})
 
 const canSubmit = computed(() => canSubmitFeedback(message.value, submitting.value))
 const messageNeedsMoreDetail = computed(() => feedbackMessageNeedsMoreDetail(message.value))
@@ -203,7 +204,7 @@ function resetForm() {
 
           <div>
             <label
-              v-if="!isPrivacyRequest"
+              v-if="!isDedicatedPrivacyRequest"
               for="feedback-reason"
               class="text-sm font-semibold text-zinc-900"
             >{{ formCopy.reasonLabel }}</label>
@@ -215,7 +216,7 @@ function resetForm() {
               {{ formCopy.reasonLabel }}
             </p>
             <select
-              v-if="!isPrivacyRequest"
+              v-if="!isDedicatedPrivacyRequest"
               id="feedback-reason"
               v-model="reasonType"
               class="mt-2 min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
