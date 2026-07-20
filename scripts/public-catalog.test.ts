@@ -156,6 +156,10 @@ test('guide copy hides maintainer language from student pages', () => {
     '地图地点已整理，入口仍在确认'
   )
   assert.equal(
+    studentFacingGuideText('用校园地图搜索地点，同时区分“已导入”和“已确认坐标”。'),
+    '用校园地图搜索宿舍、教学楼和服务点；地图上的位置可先用来找方向，入口细节仍需现场确认。'
+  )
+  assert.equal(
     studentFacingGuideText('用校园地图搜索宿舍、教学楼和服务点；高德导入标点可先导航，入口细节仍需现场确认。'),
     '用校园地图搜索宿舍、教学楼和服务点；地图上的位置可先用来找方向，入口细节仍需现场确认。'
   )

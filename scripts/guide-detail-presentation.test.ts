@@ -31,6 +31,17 @@ test('guide detail page is a thin shell over guide-detail-presentation util', ()
   assert.match(utilSource, /export function buildGuideDetailSources/)
 })
 
+test('long guide pages expose every section in a compact mobile jump menu', () => {
+  assert.match(pageSource, /<details[\s\S]*v-if="guide\.sections\.length > 1"/)
+  assert.match(pageSource, /<summary[\s\S]*快速跳到/)
+  assert.match(pageSource, /共 \{\{ guide\.sections\.length \}\} 个部分/)
+  assert.match(pageSource, /class="grid grid-cols-2[^"]*sm:grid-cols-3"/)
+  assert.match(pageSource, /aria-label="本页内容"/)
+  assert.match(pageSource, /:href="`#guide-section-\$\{index\}`"/)
+  assert.match(pageSource, /class="inline-flex min-h-11/)
+  assert.doesNotMatch(pageSource, /scrollbar-none mt-5 flex gap-2 overflow-x-auto/)
+})
+
 test('guide related actions map known slugs and fall back to the guides index', () => {
   assert.deepEqual(resolveGuideRelatedAction('arrival'), {
     label: '去完成报到步骤',

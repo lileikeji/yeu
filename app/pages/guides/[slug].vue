@@ -163,20 +163,42 @@ const detailSources = computed(() => buildGuideDetailSources(
           </div>
         </div>
 
-        <nav
+        <details
           v-if="guide.sections.length > 1"
-          class="scrollbar-none mt-5 flex gap-2 overflow-x-auto pb-1"
-          aria-label="本页内容"
+          class="group mt-5 overflow-hidden rounded-md border border-zinc-200 bg-white"
         >
-          <a
-            v-for="(section, index) in guide.sections"
-            :key="section.title"
-            :href="`#guide-section-${index}`"
-            class="inline-flex min-h-10 shrink-0 items-center rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-600 hover:border-green-300 hover:text-green-700"
+          <summary
+            class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3.5 text-sm font-semibold text-zinc-800 marker:hidden focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
           >
-            {{ section.title }}
-          </a>
-        </nav>
+            <span class="flex items-center gap-2">
+              <UIcon
+                name="i-lucide-list"
+                class="size-4 text-green-700"
+              />
+              快速跳到
+            </span>
+            <span class="flex items-center gap-2 text-xs font-normal text-zinc-500">
+              共 {{ guide.sections.length }} 个部分
+              <UIcon
+                name="i-lucide-chevron-down"
+                class="size-4 transition-transform group-open:rotate-180"
+              />
+            </span>
+          </summary>
+          <nav
+            class="grid grid-cols-2 gap-2 border-t border-zinc-200 bg-zinc-50/70 p-2.5 sm:grid-cols-3"
+            aria-label="本页内容"
+          >
+            <a
+              v-for="(section, index) in guide.sections"
+              :key="section.title"
+              :href="`#guide-section-${index}`"
+              class="inline-flex min-h-11 min-w-0 items-center rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium leading-5 text-zinc-700 transition-colors hover:border-green-300 hover:text-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            >
+              <span class="line-clamp-2">{{ section.title }}</span>
+            </a>
+          </nav>
+        </details>
 
         <section
           v-for="(section, index) in guide.sections"
