@@ -114,6 +114,31 @@ test('public department payload removes maintainer notes before SSR serializatio
   assert.match(sanitized.body, /新生可以在计算机科学与工程学院官网查找/)
 })
 
+test('public department payload gives the university office a direct website label', () => {
+  const content = {
+    id: 'department-2',
+    kind: 'department',
+    slug: 'university-office',
+    title: '学校办公室',
+    summary: '新生可以在这里查看校历、校级通知、节假日安排、学校办公室信息和全校性安排。',
+    body: '学校办公室是新生查找相关通知和办事入口时需要优先确认的官方渠道。\n新生查看校历、校级通知、节假日安排、学校办公室信息和全校性安排的官方入口。',
+    category: 'department',
+    audience: 'undergraduate',
+    metadata: {},
+    isFeatured: false,
+    status: 'published',
+    lastVerifiedAt: null,
+    publishedAt: '2026-07-20T00:00:00.000Z',
+    createdAt: '2026-07-20T00:00:00.000Z',
+    updatedAt: '2026-07-20T00:00:00.000Z',
+    sources: []
+  } satisfies ApiContent
+
+  const presented = sanitizePublicContent(content)
+  assert.equal(presented.summary, '新生可以在学校办公室官网查看校历、校级通知和全校性安排。')
+  assert.match(presented.body, /新生可以在学校办公室官网查看/)
+})
+
 test('public search payload removes raw department maintenance copy', () => {
   const sanitized = sanitizePublicSearchResponse({
     query: '校园网',
