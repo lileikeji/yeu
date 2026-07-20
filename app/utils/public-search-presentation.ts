@@ -41,6 +41,14 @@ const ACTION_FIRST_SEARCH_RESULT_TYPES = [
   'notice'
 ] as const satisfies readonly PublicSearchResultType[]
 
+const BROAD_LIFE_SEARCH_RESULT_TYPE_ORDERS: Readonly<Record<string, readonly PublicSearchResultType[]>> = {
+  宿舍: ['guide', 'procedure', 'place', 'department', 'club', 'notice'],
+  快递: ['guide', 'place', 'procedure', 'department', 'club', 'notice'],
+  外卖: ['guide', 'place', 'procedure', 'department', 'club', 'notice'],
+  取餐: ['guide', 'place', 'procedure', 'department', 'club', 'notice'],
+  快递点: ['place', 'guide', 'procedure', 'department', 'club', 'notice']
+}
+
 export interface PublicSearchResult {
   key: string
   resultType: PublicSearchResultType
@@ -441,9 +449,10 @@ export function buildPublicSearchResults(input: {
 
 export function groupPublicSearchResults(results: PublicSearchResult[], query = '') {
   const normalizedQuery = normalizeSearchText(query)
-  const resultTypeOrder = ACTION_ORIENTED_SEARCH_TERMS.some(term => normalizedQuery.includes(term))
-    ? ACTION_FIRST_SEARCH_RESULT_TYPES
-    : PUBLIC_SEARCH_RESULT_TYPES
+  const resultTypeOrder = BROAD_LIFE_SEARCH_RESULT_TYPE_ORDERS[normalizedQuery]
+    ?? (ACTION_ORIENTED_SEARCH_TERMS.some(term => normalizedQuery.includes(term))
+      ? ACTION_FIRST_SEARCH_RESULT_TYPES
+      : PUBLIC_SEARCH_RESULT_TYPES)
 
   return resultTypeOrder.flatMap((type) => {
     const items = results.filter(result => result.resultType === type)

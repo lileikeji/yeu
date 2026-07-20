@@ -629,7 +629,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
   }), /搜索完成/)
 })
 
-test('action-oriented searches put procedures and guides before map places', () => {
+test('search result groups follow the freshman intent behind broad and specific queries', () => {
   const results = [
     {
       key: 'place-dorm',
@@ -665,7 +665,19 @@ test('action-oriented searches put procedures and guides before map places', () 
 
   assert.deepEqual(
     groupPublicSearchResults(results, '宿舍').map(group => group.type),
+    ['guide', 'procedure', 'place']
+  )
+  assert.deepEqual(
+    groupPublicSearchResults(results, '宿舍报修').map(group => group.type),
     ['procedure', 'guide', 'place']
+  )
+  assert.deepEqual(
+    groupPublicSearchResults(results, '快递').map(group => group.type),
+    ['guide', 'place', 'procedure']
+  )
+  assert.deepEqual(
+    groupPublicSearchResults(results, '快递点').map(group => group.type),
+    ['place', 'guide', 'procedure']
   )
   assert.deepEqual(
     groupPublicSearchResults(results, '上海楼').map(group => group.type),
