@@ -512,7 +512,10 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="pointer-events-none absolute inset-x-3 bottom-3 z-10 md:inset-x-4">
+    <div
+      class="pointer-events-none absolute inset-x-3 bottom-3 z-10 md:inset-x-4"
+      :class="selectedLabel ? 'hidden md:block' : ''"
+    >
       <p class="mx-auto max-w-2xl border border-white/30 bg-zinc-950/85 px-3 py-2 text-center text-xs leading-5 text-white shadow-sm backdrop-blur-sm">
         滚轮/双指可自由缩放，拖动可平移。这张平面图只用来对照校园方向，不能用来精确导航。
         <a

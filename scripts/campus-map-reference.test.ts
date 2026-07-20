@@ -364,6 +364,7 @@ test('official campus plan renders the reviewed image with hotspots and navigati
   assert.match(source, /@click\.capture="handlePlanMarkerClickCapture"/)
   assert.match(source, /:data-plan-anchor-key="officialPlanAnchorKey\(anchor\.mapNumber, index\)"/)
   assert.match(source, /nearest\.distance > 24/)
+  assert.match(source, /:class="selectedLabel \? 'hidden md:block' : ''"/)
   assert.match(source, /emit\('selectNumber', mapNumber\)/)
   assert.match(source, /@pointerdown="handlePointerDown"/)
   assert.match(source, /resolveOfficialPlanAnchorScrollFromRects/)
