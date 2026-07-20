@@ -3,6 +3,7 @@ import { officialDepartments } from '~~/data/seeds/public-content'
 import {
   departmentListContactPreview,
   departmentListMessages,
+  departmentNeedShortcuts,
   filterDepartmentListItems,
   prioritizeDepartmentListItems
 } from '~~/app/utils/department-list-presentation'
@@ -51,6 +52,10 @@ function toggleDepartmentList() {
 function clearDepartmentSearch() {
   searchQuery.value = ''
 }
+
+function selectDepartmentNeed(query: string) {
+  searchQuery.value = searchQuery.value === query ? '' : query
+}
 </script>
 
 <template>
@@ -90,6 +95,27 @@ function clearDepartmentSearch() {
             />
           </template>
         </UInput>
+        <div class="mt-4 max-w-2xl">
+          <p class="text-xs font-semibold text-zinc-600">
+            按要办的事情找
+          </p>
+          <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <button
+              v-for="shortcut in departmentNeedShortcuts"
+              :key="shortcut.query"
+              type="button"
+              class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              :class="searchQuery === shortcut.query
+                ? 'border-green-700 bg-green-700 text-white'
+                : 'border-zinc-200 bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50'"
+              :aria-label="`按${shortcut.label}查找部门`"
+              :aria-pressed="searchQuery === shortcut.query"
+              @click="selectDepartmentNeed(shortcut.query)"
+            >
+              {{ shortcut.label }}
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 

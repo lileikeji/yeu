@@ -3,6 +3,15 @@ export const departmentListMessages = {
   emptyMatch: '没有匹配的部门'
 } as const
 
+export const departmentNeedShortcuts = [
+  { label: '录取通知', query: '录取' },
+  { label: '课表选课', query: '教务' },
+  { label: '校园网', query: '校园网' },
+  { label: '宿舍报修', query: '报修' },
+  { label: '资助贷款', query: '资助' },
+  { label: '安全求助', query: '安全' }
+] as const
+
 export interface DepartmentListFilterableItem {
   name: string
   summary: string

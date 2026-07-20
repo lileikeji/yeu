@@ -6,6 +6,7 @@ import {
   departmentListContactPreview,
   departmentListPrioritySlugs,
   departmentListMessages,
+  departmentNeedShortcuts,
   filterDepartmentListItems,
   prioritizeDepartmentListItems
 } from '../app/utils/department-list-presentation'
@@ -20,6 +21,9 @@ test('department list page is a thin shell over department-list-presentation uti
   assert.match(pageSource, /departmentListContactPreview/)
   assert.match(pageSource, /prioritizeDepartmentListItems/)
   assert.match(pageSource, /directory-list-presentation/)
+  assert.match(pageSource, /departmentNeedShortcuts/)
+  assert.match(pageSource, /selectDepartmentNeed\(shortcut\.query\)/)
+  assert.match(pageSource, /按要办的事情找/)
   assert.match(pageSource, /previewDirectoryItems/)
   assert.match(pageSource, /v-for="department in visibleDepartments"/)
   assert.doesNotMatch(pageSource, /function filterDepartmentListItems/)
@@ -33,6 +37,22 @@ test('department search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /class="mt-6 min-h-11 w-full max-w-2xl"\s+:ui="\{ base: 'min-h-11' \}"/)
   assert.match(pageSource, /aria-label="清空搜索"/)
   assert.match(pageSource, /@click="clearDepartmentSearch"/)
+  assert.match(pageSource, /class="min-h-11 rounded-md border/)
+})
+
+test('department need shortcuts use student tasks instead of office names', () => {
+  assert.deepEqual(
+    departmentNeedShortcuts.map(item => [item.label, item.query]),
+    [
+      ['录取通知', '录取'],
+      ['课表选课', '教务'],
+      ['校园网', '校园网'],
+      ['宿舍报修', '报修'],
+      ['资助贷款', '资助'],
+      ['安全求助', '安全']
+    ]
+  )
+  assert.ok(departmentNeedShortcuts.every(item => item.label.length <= 4))
 })
 
 test('department list messages stay student-facing', () => {
