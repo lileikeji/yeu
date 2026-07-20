@@ -46,6 +46,19 @@ test('feedback page is a thin shell over feedback-presentation util', () => {
 test('feedback short fields keep a comfortable mobile touch height', () => {
   assert.equal((pageSource.match(/class="mt-2 min-h-11 w-full"/g) || []).length, 2)
   assert.equal((pageSource.match(/:ui="\{ base: 'min-h-11' \}"/g) || []).length, 2)
+  assert.match(pageSource, /scroll-mb-\[calc\(var\(--mobile-nav-height\)\+1rem\)\]/)
+})
+
+test('feedback page separates required and optional information on small screens', () => {
+  assert.match(pageSource, /<details/)
+  assert.match(pageSource, /:open="isPrivacyRequest"/)
+  assert.match(pageSource, /补充核对信息（选填）/)
+  assert.match(pageSource, /有学校通知链接，或希望我们回复时再填写/)
+  assert.match(pageSource, /group-open:rotate-180/)
+  assert.match(pageSource, /border-sky-200 bg-white text-sky-950/)
+  assert.match(pageSource, /border-amber-200 bg-amber-50 text-amber-950/)
+  assert.match(pageSource, /border-green-200 bg-green-50 text-green-950/)
+  assert.match(pageSource, /grid-cols-3 gap-2 md:grid-cols-1/)
 })
 
 test('feedback privacy link keeps a comfortable mobile touch target', () => {

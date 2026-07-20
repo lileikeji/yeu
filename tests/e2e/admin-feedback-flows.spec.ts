@@ -195,6 +195,7 @@ test('公开反馈可提交并由管理员标记为已解决', async ({ page }, 
   await expect(page.getByRole('heading', { level: 1, name: '发现信息不对？告诉我们' })).toBeVisible()
   await page.locator('#feedback-reason').selectOption('content_outdated')
   await page.locator('#feedback-message').fill(message)
+  await page.getByText('补充核对信息（选填）', { exact: true }).click()
   await page.locator('#feedback-evidence').fill('https://example.com/e2e-evidence')
   await page.locator('#feedback-contact').fill(`contact-${testInfo.project.name}`)
   await page.getByRole('button', { name: '提交反馈', exact: true }).click()

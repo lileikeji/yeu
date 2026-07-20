@@ -276,40 +276,66 @@ function resetForm() {
             </div>
           </div>
 
-          <div class="grid gap-5 md:grid-cols-2">
-            <div>
-              <label
-                for="feedback-evidence"
-                class="text-sm font-semibold text-zinc-900"
-              >可以核对的链接</label>
-              <UInput
-                id="feedback-evidence"
-                v-model="evidenceUrl"
-                type="url"
-                size="lg"
-                class="mt-2 min-h-11 w-full"
-                :ui="{ base: 'min-h-11' }"
-                icon="i-lucide-link"
-                placeholder="https://（选填）"
+          <details
+            class="group border-y border-zinc-200 bg-white"
+            :open="isPrivacyRequest"
+          >
+            <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-1 py-3 [&::-webkit-details-marker]:hidden">
+              <span class="flex min-w-0 items-start gap-3">
+                <span class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-sky-50 text-sky-700">
+                  <UIcon
+                    name="i-lucide-paperclip"
+                    class="size-4"
+                  />
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-sm font-semibold text-zinc-900">补充核对信息（选填）</span>
+                  <span class="mt-0.5 block text-xs leading-5 text-zinc-500">
+                    有学校通知链接，或希望我们回复时再填写
+                  </span>
+                </span>
+              </span>
+              <UIcon
+                name="i-lucide-chevron-down"
+                class="size-5 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
               />
+            </summary>
+
+            <div class="grid gap-5 border-t border-zinc-100 px-1 py-5 md:grid-cols-2">
+              <div>
+                <label
+                  for="feedback-evidence"
+                  class="text-sm font-semibold text-zinc-900"
+                >可以核对的链接</label>
+                <UInput
+                  id="feedback-evidence"
+                  v-model="evidenceUrl"
+                  type="url"
+                  size="lg"
+                  class="mt-2 min-h-11 w-full"
+                  :ui="{ base: 'min-h-11' }"
+                  icon="i-lucide-link"
+                  placeholder="https://（选填）"
+                />
+              </div>
+              <div>
+                <label
+                  for="feedback-contact"
+                  class="text-sm font-semibold text-zinc-900"
+                >{{ formCopy.contactLabel }}</label>
+                <UInput
+                  id="feedback-contact"
+                  v-model="contact"
+                  size="lg"
+                  class="mt-2 min-h-11 w-full"
+                  :ui="{ base: 'min-h-11' }"
+                  icon="i-lucide-at-sign"
+                  :placeholder="formCopy.contactPlaceholder"
+                  :maxlength="300"
+                />
+              </div>
             </div>
-            <div>
-              <label
-                for="feedback-contact"
-                class="text-sm font-semibold text-zinc-900"
-              >{{ formCopy.contactLabel }}</label>
-              <UInput
-                id="feedback-contact"
-                v-model="contact"
-                size="lg"
-                class="mt-2 min-h-11 w-full"
-                :ui="{ base: 'min-h-11' }"
-                icon="i-lucide-at-sign"
-                :placeholder="formCopy.contactPlaceholder"
-                :maxlength="300"
-              />
-            </div>
-          </div>
+          </details>
 
           <div
             class="hidden"
@@ -339,7 +365,7 @@ function resetForm() {
               icon="i-lucide-send"
               :label="formCopy.submitLabel"
               size="lg"
-              class="min-h-11 shrink-0"
+              class="min-h-11 w-full shrink-0 scroll-mb-[calc(var(--mobile-nav-height)+1rem)] sm:w-auto md:scroll-mb-0"
               :loading="submitting"
               :disabled="!canSubmit"
             />
@@ -348,17 +374,33 @@ function resetForm() {
       </section>
 
       <aside class="order-first min-w-0 md:order-none">
-        <div class="border-y border-zinc-200 bg-white px-4 py-4 md:sticky md:top-24">
-          <h2 class="text-sm font-bold text-zinc-950">
+        <div class="border-l-2 border-sky-500 bg-sky-50/70 px-4 py-4 md:sticky md:top-24">
+          <h2 class="flex items-center gap-2 text-sm font-bold text-zinc-950">
+            <UIcon
+              name="i-lucide-list-checks"
+              class="size-4 text-sky-700"
+            />
             {{ formCopy.sidebarTitle }}
           </h2>
-          <ol class="mt-4 space-y-4">
+          <ol class="mt-3 grid grid-cols-3 gap-2 md:grid-cols-1">
             <li
               v-for="(item, index) in formCopy.sidebarItems"
               :key="item"
-              class="flex gap-3 text-xs leading-5 text-zinc-600"
+              class="flex flex-col gap-2 rounded-md border px-2.5 py-2.5 text-[11px] leading-4 md:flex-row md:items-start md:gap-3 md:px-3 md:text-xs md:leading-5"
+              :class="[
+                index === 0 && 'border-sky-200 bg-white text-sky-950',
+                index === 1 && 'border-amber-200 bg-amber-50 text-amber-950',
+                index === 2 && 'border-green-200 bg-green-50 text-green-950'
+              ]"
             >
-              <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">{{ index + 1 }}</span>
+              <span
+                class="grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+                :class="[
+                  index === 0 && 'bg-sky-700',
+                  index === 1 && 'bg-amber-600',
+                  index === 2 && 'bg-green-700'
+                ]"
+              >{{ index + 1 }}</span>
               {{ item }}
             </li>
           </ol>
