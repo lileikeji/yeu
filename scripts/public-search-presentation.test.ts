@@ -678,3 +678,12 @@ test('action-oriented searches put procedures and guides before map places', () 
   )
   assert.match(pageSource, /groupPublicSearchResults\(results\.value, activeQuery\.value\)/)
 })
+
+test('search results offer touch-friendly shortcuts to each visible group', () => {
+  assert.match(pageSource, /aria-label="快速跳到结果分类"/)
+  assert.match(pageSource, /v-if="groupedResults\.length > 1"/)
+  assert.match(pageSource, /:href="`#search-group-\$\{group\.type\}`"/)
+  assert.match(pageSource, /class="inline-flex min-h-11[^"]*"/)
+  assert.match(pageSource, /\{\{ group\.items\.length \}\} 项/)
+  assert.match(pageSource, /class="scroll-mt-20 py-5"/)
+})

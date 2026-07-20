@@ -311,6 +311,31 @@ watch([activeQuery, activeType], ([query, type]) => {
           />
         </div>
 
+        <nav
+          v-if="groupedResults.length > 1"
+          class="mt-4 rounded-lg border border-green-100 bg-green-50/60 p-3"
+          aria-label="快速跳到结果分类"
+        >
+          <p class="text-xs font-semibold text-green-900">
+            快速跳到
+          </p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <a
+              v-for="group in groupedResults"
+              :key="group.type"
+              :href="`#search-group-${group.type}`"
+              class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-white px-3 text-sm font-semibold text-zinc-800 transition-colors hover:border-green-400 hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            >
+              <UIcon
+                :name="group.icon"
+                class="size-4 text-green-700"
+              />
+              <span>{{ group.label }}</span>
+              <span class="text-xs font-normal text-zinc-500">{{ group.items.length }} 项</span>
+            </a>
+          </div>
+        </nav>
+
         <div
           v-if="results.length"
           class="divide-y divide-[var(--line)]"
@@ -318,7 +343,7 @@ watch([activeQuery, activeType], ([query, type]) => {
           <section
             v-for="group in groupedResults"
             :key="group.type"
-            class="py-5"
+            class="scroll-mt-20 py-5"
             :aria-labelledby="`search-group-${group.type}`"
           >
             <div class="flex items-center gap-2">
