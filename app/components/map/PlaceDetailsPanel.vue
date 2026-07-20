@@ -261,7 +261,7 @@ const navigationTooltip = computed(() => {
           v-if="props.returnPath"
           :to="props.returnPath"
           icon="i-lucide-undo-2"
-          label="返回来源"
+          label="返回上一页"
           color="neutral"
           variant="ghost"
           size="sm"

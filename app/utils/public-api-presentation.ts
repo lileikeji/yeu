@@ -7,6 +7,7 @@ import type {
   ApiProcedureDepartment,
   ApiProcedureGuide,
   ApiProcedurePlace,
+  ApiSearchResponse,
   ApiSource
 } from '~~/shared/types/server'
 import {
@@ -18,8 +19,19 @@ import {
   studentFacingSourceTitle
 } from './sources-presentation'
 
+function studentFacingDepartmentPayloadText(value: string): string {
+  return value
+    .replace(/学院独立官网已经上线，可查询计算机、网络工程、物联网等相关栏目；网站仍混有原工程技术学院历史内容，2026级专业归属应以录取材料和学院最新通知为准。/g, '可以在学院官网查看计算机、网络工程、物联网等专业信息。2026级专业归属和报到安排请以录取材料及学院最新通知为准。')
+    .replace(/学院独立官网已经上线，可查询人工智能、数据科学相关教学科研和学院通知；网站仍混有原工程技术学院内容，2026级专业归属以录取材料和学院最新通知为准。/g, '可以在学院官网查看人工智能、数据科学相关专业、教学科研和学院通知。2026级专业归属和报到安排请以录取材料及学院最新通知为准。')
+    .replace(/学院独立官网已经上线，可查询学院概况、专业介绍、教学科研和通知公告；当前可独立核对的院情资料较少，2026级专业归属以录取材料和学院最新通知为准。/g, '可以在学院官网查看学院概况、专业介绍、教学科研和通知公告。2026级专业归属和报到安排请以录取材料及学院最新通知为准。')
+    .replace(/(.+?)是新生查找相关通知和办事入口时需要优先确认的官方渠道。/g, '$1可以帮助新生查找相关通知和办事入口。')
+    .replace(/使用建议：如果你不确定该不该找这个部门，可以先在站内搜索关键词，再核对官网栏目名称、发布时间和落款；不要只靠群聊截图或二手转述。/g, '不确定该找谁时，可以先在站内搜索想办的事，再打开学校或部门官网看最新通知；不要只看群聊截图。')
+    .replace(/^资料核对：[^\n]*(?:\n|$)/gm, '')
+    .replace(/当前只整理到官网入口，固定办公地点、办公时间和直拨电话未核验前不写死。/g, '具体办公地点、办公时间和电话可能调整，请打开官网查看最新安排。')
+}
+
 function studentFacingPayloadText(value: string): string {
-  return studentFacingProcedureText(value
+  return studentFacingDepartmentPayloadText(studentFacingProcedureText(value
     .replace(/地图目录已导入，坐标核验中/g, '地图地点已整理，入口仍在确认')
     .replace(/高德 POI/g, '高德地图地点')
     .replace(/工作地图/g, '地图')
@@ -41,7 +53,7 @@ function studentFacingPayloadText(value: string): string {
     .replace(/原外链/g, '原链接')
     .replace(/前台/g, '公开页面')
     .replace(/本系统/g, '这里')
-    .replace(/上线前/g, '使用前'))
+    .replace(/上线前/g, '使用前')))
 }
 
 function studentFacingPlacePayloadText(value: string): string {
@@ -170,6 +182,17 @@ export function sanitizePublicProcedure(procedure: ApiProcedure): ApiProcedure {
     sources: procedure.sources.map(source => ({
       ...sanitizeSource(source),
       claimScope: studentFacingProcedureText(source.claimScope)
+    }))
+  }
+}
+
+export function sanitizePublicSearchResponse(response: ApiSearchResponse): ApiSearchResponse {
+  return {
+    ...response,
+    items: response.items.map(item => ({
+      ...item,
+      title: studentFacingPayloadText(item.title),
+      summary: studentFacingPayloadText(item.summary)
     }))
   }
 }

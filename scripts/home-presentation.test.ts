@@ -105,6 +105,9 @@ test('home essential actions and timeline keep freshman-first copy', () => {
   assert.doesNotMatch(JSON.stringify(homeMoreEntries), /线索/)
   assert.match(pageSource, /拨打校园 110/)
   assert.doesNotMatch(pageSource, /校园110/)
+  assert.match(pageSource, /第一次来仰恩，<span class="block sm:inline">从这里开始<\/span>/)
+  assert.match(pageSource, /placeholder="搜宿舍、教学楼或快递"/)
+  assert.doesNotMatch(pageSource, /先从这里开始|快递或商铺/)
 })
 
 test('home featured procedures put broadly useful freshman tasks before audience-specific items', () => {

@@ -16,7 +16,7 @@ import {
 } from '~~/app/utils/sources-presentation'
 
 useSeoMeta({
-  title: '来源说明',
+  title: '信息从哪里来',
   description: '了解仰恩新生指南引用的参考页面，以及新生查看不同消息时应该注意什么。'
 })
 
@@ -69,7 +69,7 @@ async function refreshSources(): Promise<void> {
           信息从哪里来
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          看到校园消息，先判断能不能直接用
+          校园消息，<span class="block sm:inline">先看能不能直接用</span>
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
           报到、缴费和学籍等重要事项，请优先看学校和主管部门的最新通知。地图、商铺和社团消息变化较快，页面会保留参考链接，方便你自己再看一眼。

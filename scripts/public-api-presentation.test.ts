@@ -9,7 +9,8 @@ import type {
 import {
   sanitizePublicContent,
   sanitizePublicPlace,
-  sanitizePublicProcedure
+  sanitizePublicProcedure,
+  sanitizePublicSearchResponse
 } from '../app/utils/public-api-presentation'
 
 const publicCatalogSource = readFileSync(
@@ -76,6 +77,58 @@ test('public content payload uses student-facing copy before Nuxt serializes it'
   assert.equal(sanitized.sources[0]?.title, '高德地图位置参考')
   assert.equal(sanitized.sources[0]?.publisherName, '地图位置提供者')
   assert.equal(sanitized.sources[0]?.url, source.url)
+})
+
+test('public department payload removes maintainer notes before SSR serialization', () => {
+  const content = {
+    id: 'department-1',
+    kind: 'department',
+    slug: 'computer-school',
+    title: '计算机科学与工程学院',
+    summary: '学院独立官网已经上线，可查询计算机、网络工程、物联网等相关栏目；网站仍混有原工程技术学院历史内容，2026级专业归属应以录取材料和学院最新通知为准。',
+    body: '计算机科学与工程学院是新生查找相关通知和办事入口时需要优先确认的官方渠道。\n资料核对：独立官网入口已于2026-07-15核对。',
+    category: 'department',
+    audience: 'undergraduate',
+    metadata: {},
+    isFeatured: false,
+    status: 'published',
+    lastVerifiedAt: null,
+    publishedAt: '2026-07-20T00:00:00.000Z',
+    createdAt: '2026-07-20T00:00:00.000Z',
+    updatedAt: '2026-07-20T00:00:00.000Z',
+    sources: []
+  } satisfies ApiContent
+
+  const sanitized = sanitizePublicContent(content)
+  const serialized = JSON.stringify(sanitized)
+
+  assert.doesNotMatch(serialized, /独立官网已经上线|网站仍混有|资料核对|优先确认的官方渠道/)
+  assert.match(sanitized.summary, /可以在学院官网查看/)
+  assert.match(sanitized.body, /可以帮助新生/)
+})
+
+test('public search payload removes raw department maintenance copy', () => {
+  const sanitized = sanitizePublicSearchResponse({
+    query: '校园网',
+    type: null,
+    items: [{
+      entityType: 'content',
+      resultType: 'department',
+      id: 'department-1',
+      slug: 'computer-school',
+      title: '计算机科学与工程学院',
+      summary: '学院独立官网已经上线，可查询计算机、网络工程、物联网等相关栏目；网站仍混有原工程技术学院历史内容，2026级专业归属应以录取材料和学院最新通知为准。',
+      category: 'department',
+      kind: 'department',
+      updatedAt: '2026-07-20T00:00:00.000Z'
+    }],
+    total: 1,
+    hasManagedContent: true,
+    managedKinds: ['department']
+  })
+
+  assert.doesNotMatch(JSON.stringify(sanitized), /独立官网已经上线|网站仍混有/)
+  assert.match(sanitized.items[0]?.summary ?? '', /可以在学院官网查看/)
 })
 
 test('public place payload removes internal notes and maintenance wording', () => {

@@ -62,21 +62,23 @@ export function resolveMapDataLabel(input: {
 
 export function resolveMapFallbackMessage(input: {
   ownerMapCount: number
+  areaCount?: number
   hasPublicPlaceError: boolean
   activeScope: string | null | undefined
   publishedCount: number
 }): string | null {
   if (input.ownerMapCount) {
-    return '地图里已整理 76 个地点和 8 个区域范围；区域只显示边界，里面的商铺仍可点击和搜索。实际入口、楼层和营业状态请以现场情况为准。'
+    const areaText = input.areaCount ? `和 ${input.areaCount} 个区域` : ''
+    return `可以查找 ${input.ownerMapCount} 个地点${areaText}。地图位置适合先认路，到入口处再看现场标识；楼层、开放时间和营业情况可能会调整。`
   }
   if (input.hasPublicPlaceError) {
-    return '有些校园地点暂时没显示出来，先为你保留地点清单；还没确认的位置不会当作导航点。'
+    return '有些校园地点暂时没显示出来，可以先用现有清单找方向；没有位置的地点仍可在学校平面图中查看。'
   }
   if (input.activeScope === 'nearby' && !input.publishedCount) {
-    return '附近地点还在整理中，暂时不把未确认的商铺当作推荐，也不在地图上估一个位置。'
+    return '附近地点暂时不多，可以先查看周边生活指南；营业时间和位置请在出发前再确认。'
   }
   if (!input.publishedCount) {
-    return '可以先按学校平面图的 47 个地点编号查找校内地点；需要导航时，请使用已有地图标点或到校后确认具体入口。'
+    return '可以按学校平面图上的 47 个地点查找校内建筑；需要导航时请切回地图，到达后再看现场入口。'
   }
   return null
 }

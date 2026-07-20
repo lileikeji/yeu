@@ -396,7 +396,7 @@ export function buildPublicSearchResults(input: {
     summary: apiSearchSummary(item),
     ...apiSearchPresentation(item),
     to: apiSearchTarget(item),
-    sourceLabel: '新生指南整理'
+    sourceLabel: '本站整理'
   }))
 
   const mapReferences = (activeType && activeType !== 'place'

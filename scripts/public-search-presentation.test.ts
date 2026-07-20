@@ -91,6 +91,9 @@ test('search page keeps route/fetch shell and imports presentation util', () => 
   assert.doesNotMatch(pageSource, /interface SearchResult\b/)
   assert.match(pageSource, /useAsyncData<ApiSearchResponse>/)
   assert.match(pageSource, /router\.replace/)
+  assert.match(pageSource, /if \(import\.meta\.client\) return searchResponse/)
+  assert.match(pageSource, /await import\('~\/utils\/public-api-presentation'\)/)
+  assert.doesNotMatch(pageSource, /import \{ sanitizePublicSearchResponse \} from/)
 })
 
 test('presentation util owns pure search builders', () => {
@@ -414,6 +417,14 @@ test('api target and presentation map entity kinds', () => {
     }),
     '本科和专升本新生可以在这里查询招生章程、录取进度、通知书和入学前咨询。'
   )
+  assert.equal(
+    apiSearchSummary({
+      ...departmentItem,
+      title: '计算机科学与工程学院',
+      summary: '学院独立官网已经上线，可查询计算机、网络工程、物联网等相关栏目；网站仍混有原工程技术学院历史内容，2026级专业归属应以录取材料和学院最新通知为准。'
+    }),
+    '可以在学院官网查看计算机、网络工程、物联网等专业信息。2026级专业归属和报到安排请以录取材料及学院最新通知为准。'
+  )
 })
 
 test('map labels and summaries use student-facing location wording', () => {
@@ -542,6 +553,7 @@ test('buildPublicSearchResults merges api, map and static fallbacks without dupl
   assert.ok(keys.includes('net-center'))
   assert.equal(keys.includes('map-reference-library'), false)
   assert.equal(keys.includes('static-guide-network'), false)
+  assert.equal(results.find(item => item.key === 'api-content-g1')?.sourceLabel, '本站整理')
 
   const arrival = results.find(item => item.key === 'static-guide-arrival')
   assert.equal(arrival?.to, '/procedures/arrival')

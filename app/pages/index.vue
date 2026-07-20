@@ -126,7 +126,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
               <span class="text-zinc-500">本科 · 专升本</span>
             </div>
             <h1 class="mt-4 text-3xl font-bold tracking-tight text-zinc-950 md:text-4xl">
-              第一次来仰恩，先从这里开始
+              第一次来仰恩，<span class="block sm:inline">从这里开始</span>
             </h1>
             <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 md:text-base">
               不用先看完所有资料。先确认报到安排、找到宿舍和教学楼，再处理校园卡、网络与日常生活。
@@ -142,7 +142,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
                 icon="i-lucide-search"
                 size="xl"
                 class="min-w-0 flex-1"
-                placeholder="搜宿舍、教学楼、快递或商铺"
+                placeholder="搜宿舍、教学楼或快递"
                 aria-label="搜索校园地点"
               />
               <UButton

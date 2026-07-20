@@ -161,6 +161,14 @@ test('official plan places explain how students can use the number', () => {
 
 test('guide copy hides maintainer language from student pages', () => {
   assert.equal(
+    studentFacingGuideText('学院独立官网已经上线，可查询计算机、网络工程、物联网等相关栏目；网站仍混有原工程技术学院历史内容，2026级专业归属应以录取材料和学院最新通知为准。'),
+    '可以在学院官网查看计算机、网络工程、物联网等专业信息。2026级专业归属和报到安排请以录取材料及学院最新通知为准。'
+  )
+  assert.equal(
+    studentFacingGuideText('计算机科学与工程学院是新生查找相关通知和办事入口时需要优先确认的官方渠道。\n使用建议：如果你不确定该不该找这个部门，可以先在站内搜索关键词，再核对官网栏目名称、发布时间和落款；不要只靠群聊截图或二手转述。\n资料核对：独立官网入口已于2026-07-15核对。\n当前只整理到官网入口，固定办公地点、办公时间和直拨电话未核验前不写死。'),
+    '计算机科学与工程学院可以帮助新生查找相关通知和办事入口。\n不确定该找谁时，可以先在站内搜索想办的事，再打开学校或部门官网看最新通知；不要只看群聊截图。\n具体办公地点、办公时间和电话可能调整，请打开官网查看最新安排。'
+  )
+  assert.equal(
     studentFacingGuideText('首版展示字段'),
     '现在可以查看'
   )
@@ -385,6 +393,9 @@ test('static guide and department bodies are readable for freshmen instead of em
   assert.ok(freshmanGuides.every(guide => freshmanGuideBody(guide).length > 300))
   assert.ok(freshmanGuides.every(guide => freshmanGuideBody(guide).includes('适用对象：本科新生、专升本新生')))
   assert.ok(officialDepartments.every(department => officialDepartmentBody(department).includes('不要只靠群聊截图或二手转述')))
+  const departmentViews = mergePublicDepartments(officialDepartments, [], true)
+  assert.ok(departmentViews.every(department => !/资料核对|未核验前不写死|优先确认的官方渠道/.test(department.body)))
+  assert.ok(departmentViews.every(department => /可以帮助新生|新生什么时候该看这里/.test(department.body)))
 })
 
 test('verified campus facts retain their official source and scope', () => {

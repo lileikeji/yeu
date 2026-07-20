@@ -144,7 +144,7 @@ onMounted(() => {
           <NuxtLink
             to="/sources"
             class="hover:text-green-700"
-          >来源说明</NuxtLink>
+          >信息从哪里来</NuxtLink>
           <NuxtLink
             to="/login"
             class="hover:text-green-700"

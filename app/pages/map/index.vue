@@ -124,6 +124,7 @@ const mapDataLabel = computed(() => resolveMapDataLabel({
 }))
 const mapFallbackMessage = computed(() => resolveMapFallbackMessage({
   ownerMapCount: ownerMapPlacesInScope.value.length,
+  areaCount: filterMapAreasForProviderScope(amapImportedAreas, activeScope.value).length,
   hasPublicPlaceError: Boolean(publicPlaceError.value),
   activeScope: activeScope.value,
   publishedCount: publishedPlacesInScope.value.length

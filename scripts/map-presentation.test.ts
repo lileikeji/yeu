@@ -130,6 +130,8 @@ test('map data labels and fallback messages follow scope and data readiness', ()
   assert.match(pageSource, /!bg-green-800 !text-white/)
   assert.doesNotMatch(pageSource, /地图暂时无法载入|label="重新载入"/)
   assert.match(placeDetailsPanelSource, /v-if="props\.canPlanRoute \|\| safeNavigationUrl"/)
+  assert.match(placeDetailsPanelSource, /label="返回上一页"/)
+  assert.doesNotMatch(placeDetailsPanelSource, /label="返回来源"/)
   assert.match(
     placeDetailsPanelSource,
     /这个地点目前只能在学校平面图中查看，还不能直接规划路线/
@@ -172,36 +174,31 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     activeScope: null
   }), '平面图地点')
 
-  assert.match(resolveMapFallbackMessage({
-    ownerMapCount: 1,
+  assert.equal(resolveMapFallbackMessage({
+    ownerMapCount: 76,
+    areaCount: 8,
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /76 个地点/)
-  assert.match(resolveMapFallbackMessage({
+  }), '可以查找 76 个地点和 8 个区域。地图位置适合先认路，到入口处再看现场标识；楼层、开放时间和营业情况可能会调整。')
+  assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: true,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /有些校园地点暂时没显示出来/)
-  assert.match(resolveMapFallbackMessage({
+  }), '有些校园地点暂时没显示出来，可以先用现有清单找方向；没有位置的地点仍可在学校平面图中查看。')
+  assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: 'nearby',
     publishedCount: 0
-  }) ?? '', /附近地点还在整理中/)
-  assert.match(resolveMapFallbackMessage({
+  }), '附近地点暂时不多，可以先查看周边生活指南；营业时间和位置请在出发前再确认。')
+  assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /学校平面图的 47 个地点编号/)
-  assert.match(resolveMapFallbackMessage({
-    ownerMapCount: 0,
-    hasPublicPlaceError: false,
-    activeScope: null,
-    publishedCount: 0
-  }) ?? '', /已有地图标点或到校后确认具体入口/)
+  }), '可以按学校平面图上的 47 个地点查找校内建筑；需要导航时请切回地图，到达后再看现场入口。')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,

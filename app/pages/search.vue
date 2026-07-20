@@ -49,6 +49,15 @@ let latestSubmittedQuery = activeQuery.value
 let latestSubmittedType = activeType.value
 let pendingSearchNavigations = 0
 const requestFetch = useRequestFetch()
+
+async function sanitizeServerSearchPayload(
+  searchResponse: ApiSearchResponse
+): Promise<ApiSearchResponse> {
+  if (import.meta.client) return searchResponse
+  const { sanitizePublicSearchResponse } = await import('~/utils/public-api-presentation')
+  return sanitizePublicSearchResponse(searchResponse)
+}
+
 const {
   data: response,
   error: responseError,
@@ -89,11 +98,11 @@ const {
         return null
       }
     }))
-    return mergePublicSearchApiResponses(
+    return sanitizeServerSearchPayload(mergePublicSearchApiResponses(
       activeQuery.value,
       activeType.value,
       [primary, ...expanded.filter((item): item is ApiSearchResponse => Boolean(item))]
-    )
+    ))
   },
   { watch: [activeQuery, activeType], dedupe: 'cancel' }
 )

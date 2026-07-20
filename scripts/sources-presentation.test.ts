@@ -63,6 +63,9 @@ test('source search keeps a comfortable mobile touch height', () => {
 })
 
 test('source page offers a direct path from the introduction to source search', () => {
+  assert.match(pageSource, /title: '信息从哪里来'/)
+  assert.match(pageSource, /校园消息，<span class="block sm:inline">先看能不能直接用<\/span>/)
+  assert.doesNotMatch(pageSource, /看到校园消息，先判断能不能直接用/)
   assert.match(pageSource, /href="#source-list"/)
   assert.match(pageSource, />\s*查找参考页面\s*<\/a>/)
   assert.match(pageSource, /id="source-list"/)
