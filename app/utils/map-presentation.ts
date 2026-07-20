@@ -70,7 +70,7 @@ export function resolveMapFallbackMessage(input: {
     return '地图里已整理 76 个地点和 8 个区域范围；区域只显示边界，里面的商铺仍可点击和搜索。实际入口、楼层和营业状态请以现场情况为准。'
   }
   if (input.hasPublicPlaceError) {
-    return '地图地点暂时加载不出来，先显示地点清单；没有确认的位置不会画成导航点。'
+    return '有些校园地点暂时没显示出来，先为你保留地点清单；还没确认的位置不会当作导航点。'
   }
   if (input.activeScope === 'nearby' && !input.publishedCount) {
     return '附近地点还在整理中，暂时不把未确认的商铺当作推荐，也不在地图上估一个位置。'
@@ -146,14 +146,14 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
 }
 
 export function formatMapAreaSquareMeters(value: number | null): string {
-  if (value === null) return '暂无数据'
+  if (value === null) return '面积还未整理'
   return value >= 10_000
     ? `${(value / 10_000).toFixed(2)} 公顷（${value.toLocaleString('zh-CN')} 平方米）`
     : `${value.toLocaleString('zh-CN')} 平方米`
 }
 
 export function formatMapPerimeter(value: number | null): string {
-  if (value === null) return '暂无数据'
+  if (value === null) return '边界长度还未整理'
   return value >= 1000 ? `${(value / 1000).toFixed(2)} 公里` : `${value.toLocaleString('zh-CN')} 米`
 }
 

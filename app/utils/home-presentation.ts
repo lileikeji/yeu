@@ -76,14 +76,14 @@ export const homeTimelineStages: HomeTimelineStage[] = [
 export const homeMoreEntries: HomeMoreEntry[] = [
   {
     title: '新生清单',
-    description: '勾选到校前到第一周事项，进度只存在本设备',
+    description: '勾选到校前和第一周事项，进度会留在这台设备上',
     to: '/checklist',
     icon: 'i-lucide-list-checks',
     tone: 'bg-emerald-50 text-emerald-700'
   },
   {
     title: '安全、医疗与心理支持',
-    description: '保存校园110，知道紧急情况先找谁',
+    description: '保存校园 110，知道紧急情况先找谁',
     to: '/guides/safety-health',
     icon: 'i-lucide-shield-plus',
     tone: 'bg-red-50 text-red-700'
@@ -195,7 +195,7 @@ export function getHomeFallbackMessage(
   hasProcedureError: boolean
 ): string | null {
   if (hasContentError || hasProcedureError) {
-    return '部分内容暂时没有加载出来，可以先使用校园地图和基础指南。'
+    return '有些新生信息暂时没显示出来，可以先查校园地图和基础指南。'
   }
   return null
 }

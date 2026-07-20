@@ -182,7 +182,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     hasPublicPlaceError: true,
     activeScope: null,
     publishedCount: 0
-  }) ?? '', /地图地点暂时加载不出来/)
+  }) ?? '', /有些校园地点暂时没显示出来/)
   assert.match(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
@@ -240,9 +240,9 @@ test('map poi checklist status and formatters stay student-facing', () => {
   assert.match(native[0]!, /临时地点/)
 
   assert.equal(buildMapPoiLocationCopyText(samplePoi()), '旧区1号楼 · 编号 12 · 旧区 · 马甲镇')
-  assert.equal(formatMapAreaSquareMeters(null), '暂无数据')
+  assert.equal(formatMapAreaSquareMeters(null), '面积还未整理')
   assert.match(formatMapAreaSquareMeters(12500), /1\.25 公顷/)
-  assert.equal(formatMapPerimeter(null), '暂无数据')
+  assert.equal(formatMapPerimeter(null), '边界长度还未整理')
   assert.match(formatMapPerimeter(2500), /2\.50 公里/)
   assert.match(formatMapPerimeter(800), /800/)
 })

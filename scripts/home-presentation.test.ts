@@ -97,10 +97,14 @@ test('home essential actions and timeline keep freshman-first copy', () => {
   assert.equal(homeTimelineStages[0]?.to, '/procedures/arrival')
   assert.equal(homeMoreEntries.length, 5)
   assert.equal(homeMoreEntries[0]?.to, '/checklist')
+  assert.equal(homeMoreEntries[0]?.description, '勾选到校前和第一周事项，进度会留在这台设备上')
   assert.equal(homeMoreEntries[1]?.to, '/guides/safety-health')
+  assert.equal(homeMoreEntries[1]?.description, '保存校园 110，知道紧急情况先找谁')
   assert.equal(homeMoreEntries[2]?.description, '按兴趣看社团方向和本学期招新消息')
   assert.equal(homeMoreEntries[4]?.description, '查看学生街、餐饮、便利店和快递信息')
   assert.doesNotMatch(JSON.stringify(homeMoreEntries), /线索/)
+  assert.match(pageSource, /拨打校园 110/)
+  assert.doesNotMatch(pageSource, /校园110/)
 })
 
 test('home featured procedures put broadly useful freshman tasks before audience-specific items', () => {
@@ -136,7 +140,7 @@ test('home featured procedures put broadly useful freshman tasks before audience
     toHomeProcedureItem(sampleProcedure({ statusText: '入口已发布，材料待通知' })).statusText,
     '入口已经公布，材料还要等学校通知'
   )
-  assert.equal(getHomeFallbackMessage(true, false), '部分内容暂时没有加载出来，可以先使用校园地图和基础指南。')
+  assert.equal(getHomeFallbackMessage(true, false), '有些新生信息暂时没显示出来，可以先查校园地图和基础指南。')
   assert.equal(getHomeFallbackMessage(false, false), null)
 })
 

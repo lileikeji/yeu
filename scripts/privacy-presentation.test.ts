@@ -6,6 +6,7 @@ import { privacyHighlights, privacySections } from '../app/utils/privacy-present
 
 const pageSource = readFileSync(resolve('app/pages/privacy.vue'), 'utf8')
 const utilSource = readFileSync(resolve('app/utils/privacy-presentation.ts'), 'utf8')
+const updatePromptSource = readFileSync(resolve('app/components/PwaUpdatePrompt.vue'), 'utf8')
 
 test('privacy page is a thin shell over privacy-presentation util', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/privacy-presentation['"]/)
@@ -20,6 +21,13 @@ test('privacy page is a thin shell over privacy-presentation util', () => {
 test('privacy actions keep a comfortable mobile touch height', () => {
   assert.equal((pageSource.match(/class="min-h-11"/g) || []).length, 2)
   assert.match(pageSource, /to="\/feedback\?type=privacy_request&from=%2Fprivacy"/)
+})
+
+test('public update and offline copy avoid admin-facing language', () => {
+  assert.match(updatePromptSource, /如果正在填写内容，可以稍后再更新/)
+  assert.doesNotMatch(updatePromptSource, /管理页面/)
+  assert.match(utilSource, /不会保存账号资料、聊天内容或完整地图资料/)
+  assert.doesNotMatch(utilSource, /管理页面内容/)
 })
 
 test('privacy sections stay student-facing', () => {

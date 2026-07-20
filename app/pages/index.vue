@@ -441,7 +441,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
                 紧急情况先求助
               </p>
               <p class="mt-1 text-xs leading-5 text-zinc-300">
-                校园110：0595-22076110；危及生命或需要公安、消防、急救时，同时按情况拨打110、119或120。
+                校园 110：0595-22076110；危及生命或需要公安、消防、急救时，同时按情况拨打 110、119 或 120。
               </p>
             </div>
           </div>
@@ -453,7 +453,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
               name="i-lucide-phone"
               class="size-4"
             />
-            拨打校园110
+            拨打校园 110
           </a>
         </div>
       </section>
