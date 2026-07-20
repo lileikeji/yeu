@@ -729,7 +729,7 @@ export const defaultMapDisplayOptions: MapDisplayOptions = {
   showAreas: true,
   showLabels: true,
   autoCluster: true,
-  labelSize: 'medium'
+  labelSize: 'small'
 }
 
 export function canPlanMapWalkingRoute(

@@ -47,7 +47,7 @@ const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showAreas: true,
   showLabels: true,
   autoCluster: true,
-  labelSize: 'medium'
+  labelSize: 'small'
 }
 
 const LABEL_FONT_SIZES = {

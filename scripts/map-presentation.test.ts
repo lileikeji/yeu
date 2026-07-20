@@ -31,6 +31,7 @@ import {
   resolveSelectedPublicMapPlace,
   buildFilteredMapPois,
   canShowOfficialCampusPlan,
+  defaultMapDisplayOptions,
   resolveInitialMapCategoryId,
   resolveInitialSelectedMapPoiId,
   resolveMapPoiClickSelection,
@@ -471,6 +472,7 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   assert.match(utilSource, /export function findPublicMapPlaceByOfficialPlanNumber/)
   assert.match(utilSource, /export function resolveAutoSelectSearchDecision/)
   assert.match(utilSource, /export function toggleMapDisplayOption/)
+  assert.equal(defaultMapDisplayOptions.labelSize, 'small')
 
   const toggled = toggleMapDisplayOption({
     showPois: true,
