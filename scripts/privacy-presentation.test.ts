@@ -35,6 +35,9 @@ test('public update and offline copy avoid admin-facing language', () => {
 test('privacy sections stay student-facing', () => {
   assert.equal(privacyHighlights.length, 3)
   assert.equal(privacyHighlights[0]?.value, '不需要登录')
+  assert.equal(privacyHighlights[0]?.tone, 'blue')
+  assert.equal(privacyHighlights[1]?.tone, 'green')
+  assert.equal(privacyHighlights[2]?.tone, 'amber')
   assert.equal(privacySections.length, 6)
   assert.equal(privacySections[0]?.title, '浏览和定位')
   assert.equal(privacySections[1]?.title, '网站安全与访问记录')
@@ -54,10 +57,20 @@ test('privacy sections stay student-facing', () => {
   assert.doesNotMatch(utilSource, /资料出处/)
 })
 
+test('privacy summary presents the important choices before the detailed rules', () => {
+  assert.match(pageSource, /先记住这三点/)
+  assert.match(pageSource, /常用功能怎么保护你的信息/)
+  assert.match(pageSource, /不会向你索要学号、校园卡密码或校园网密码/)
+  assert.match(pageSource, /class="mt-4 grid gap-3 sm:grid-cols-3"/)
+  assert.match(pageSource, /highlight\.tone === 'blue'/)
+  assert.match(pageSource, /highlight\.tone === 'amber'/)
+  assert.doesNotMatch(pageSource, /以下内容适用于当前版本/)
+})
+
 test('privacy presentation export surface stays stable', () => {
   assert.match(utilSource, /export interface PrivacySection/)
   assert.match(utilSource, /export interface PrivacyHighlight/)
-  assert.equal(privacyHighlights.every(item => item.label && item.value && item.icon), true)
+  assert.equal(privacyHighlights.every(item => item.label && item.value && item.icon && item.tone), true)
   assert.equal(privacySections.every(section => section.title && section.icon && section.items.length >= 3), true)
   assert.equal(privacySections.every(section => section.items.every(item => item.length > 8)), true)
 })

@@ -19,30 +19,51 @@ useSeoMeta({
           隐私说明
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
-          这里说明本站会记录什么、为什么记录，以及你怎样查询或删除自己的信息。以下内容适用于当前版本，更新日期为 2026-07-14。
+          你可以在这里查看本站会记录什么、为什么记录，以及怎样查询或删除自己的信息。我们不会向你索要学号、校园卡密码或校园网密码。最近更新：2026-07-14。
         </p>
       </div>
     </header>
 
     <div class="page-shell py-8 md:py-12">
-      <ul class="mb-9 grid border-y border-zinc-200 sm:grid-cols-3">
-        <li
-          v-for="highlight in privacyHighlights"
-          :key="highlight.label"
-          class="flex items-center gap-3 border-b border-zinc-100 py-4 last:border-b-0 sm:border-b-0 sm:border-r sm:px-4 sm:first:pl-0 sm:last:border-r-0"
-        >
-          <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
-            <UIcon
-              :name="highlight.icon"
-              class="size-4"
-            />
-          </span>
-          <span class="min-w-0">
-            <span class="block text-xs text-zinc-500">{{ highlight.label }}</span>
-            <span class="mt-1 block text-sm font-bold text-zinc-950">{{ highlight.value }}</span>
-          </span>
-        </li>
-      </ul>
+      <section class="mb-10">
+        <p class="section-kicker">
+          先记住这三点
+        </p>
+        <h2 class="mt-2 text-xl font-bold text-zinc-950">
+          常用功能怎么保护你的信息
+        </h2>
+        <ul class="mt-4 grid gap-3 sm:grid-cols-3">
+          <li
+            v-for="highlight in privacyHighlights"
+            :key="highlight.label"
+            class="flex items-center gap-3 rounded-md border bg-white p-4 shadow-sm"
+            :class="{
+              'border-blue-200': highlight.tone === 'blue',
+              'border-green-200': highlight.tone === 'green',
+              'border-amber-200': highlight.tone === 'amber'
+            }"
+          >
+            <span
+              class="grid size-9 shrink-0 place-items-center rounded-md"
+              :class="{
+                'bg-blue-50 text-blue-700': highlight.tone === 'blue',
+                'bg-green-50 text-green-700': highlight.tone === 'green',
+                'bg-amber-50 text-amber-700': highlight.tone === 'amber'
+              }"
+              aria-hidden="true"
+            >
+              <UIcon
+                :name="highlight.icon"
+                class="size-4"
+              />
+            </span>
+            <span class="min-w-0">
+              <span class="block text-xs text-zinc-500">{{ highlight.label }}</span>
+              <span class="mt-1 block text-sm font-bold text-zinc-950">{{ highlight.value }}</span>
+            </span>
+          </li>
+        </ul>
+      </section>
 
       <div class="grid gap-x-10 gap-y-8 md:grid-cols-2">
         <section

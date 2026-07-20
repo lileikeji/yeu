@@ -8,12 +8,13 @@ export interface PrivacyHighlight {
   label: string
   value: string
   icon: string
+  tone: 'blue' | 'green' | 'amber'
 }
 
 export const privacyHighlights: PrivacyHighlight[] = [
-  { label: '浏览指南', value: '不需要登录', icon: 'i-lucide-eye' },
-  { label: '使用定位', value: '由你主动允许', icon: 'i-lucide-navigation' },
-  { label: '进入群聊', value: '需要账号', icon: 'i-lucide-messages-square' }
+  { label: '浏览指南', value: '不需要登录', icon: 'i-lucide-eye', tone: 'blue' },
+  { label: '使用定位', value: '由你主动允许', icon: 'i-lucide-navigation', tone: 'green' },
+  { label: '进入群聊', value: '需要账号', icon: 'i-lucide-messages-square', tone: 'amber' }
 ]
 
 export const privacySections: PrivacySection[] = [
