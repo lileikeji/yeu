@@ -44,7 +44,7 @@ test('department need shortcuts use student tasks instead of office names', () =
   assert.deepEqual(
     departmentNeedShortcuts.map(item => [item.label, item.query]),
     [
-      ['录取通知', '录取'],
+      ['录取通知', '招生办公室'],
       ['课表选课', '教务'],
       ['校园网', '校园网'],
       ['宿舍报修', '报修'],

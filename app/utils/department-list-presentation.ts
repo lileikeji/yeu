@@ -4,7 +4,7 @@ export const departmentListMessages = {
 } as const
 
 export const departmentNeedShortcuts = [
-  { label: '录取通知', query: '录取' },
+  { label: '录取通知', query: '招生办公室' },
   { label: '课表选课', query: '教务' },
   { label: '校园网', query: '校园网' },
   { label: '宿舍报修', query: '报修' },
