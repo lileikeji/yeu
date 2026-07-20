@@ -42,6 +42,9 @@ test('about catalogs stay student-facing', () => {
   assert.equal(aboutGovernanceLinks[2]?.to, '/privacy')
   assert.equal(aboutGovernanceLinks[1]?.title, '告诉我们哪里不对')
   assert.doesNotMatch(pageSource, /服务边界|公开边界|管理员核对|项目性质/)
+  assert.match(pageSource, /看参考页面，或告诉我们哪里不对/)
+  assert.match(pageSource, /附上参考链接和查看日期/)
+  assert.doesNotMatch(pageSource, /出处/)
 })
 
 test('about presentation export surface stays stable', () => {

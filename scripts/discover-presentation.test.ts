@@ -44,13 +44,14 @@ test('discover catalogs stay student-facing', () => {
   assert.ok(discoverDirectoryEntries.some(item => item.title === '全站搜索' && item.to === '/search'))
   assert.equal(discoverTrustEntries.length, 5)
   assert.equal(discoverTrustEntries[0]?.to, '/sources')
+  assert.equal(discoverTrustEntries[0]?.title, '参考页面')
   assert.ok(discoverTrustEntries.some(item => item.title === '告诉我们哪里不对' && item.to === '/feedback'))
   assert.ok(discoverTrustEntries.some(item => item.title === '关于这份指南' && item.to === '/about'))
   assert.ok(discoverTaskEntries.some(item => item.to === '/procedures/arrival' && /2026 级/.test(item.description)))
   assert.ok(discoverTaskEntries.some(item => item.to === '/checklist' && item.title === '新生清单'))
   assert.equal(discoverTaskEntries.some(item => item.to === '/chat'), false)
   assert.equal(discoverDirectoryEntries.some(item => item.to === '/chat' || item.to === '/login'), false)
-  assert.doesNotMatch(utilSource, /发布标准|确认情况|资料分级|服务边界|已发布引用/)
+  assert.doesNotMatch(utilSource, /发布标准|确认情况|资料分级|服务边界|已发布引用|信息出处/)
 })
 
 test('discover account entries adapt to the current login state', () => {

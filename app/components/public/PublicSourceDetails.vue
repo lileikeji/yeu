@@ -94,7 +94,7 @@ withDefaults(defineProps<{
         v-else
         class="text-xs leading-5 text-zinc-500"
       >
-        这页暂时没有可以打开的信息出处。
+        这页暂时没有可以打开的参考链接。
       </p>
       <p
         v-if="verifiedAt"

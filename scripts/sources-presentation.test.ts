@@ -57,7 +57,9 @@ test('sources page is a thin shell over sources-presentation util', () => {
 test('source search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /class="min-h-11 w-full sm:max-w-md"\s+:ui="\{ base: 'min-h-11' \}"/)
   assert.match(sourceDetailsSource, /title: '这些信息从哪里来'/)
+  assert.match(sourceDetailsSource, /这页暂时没有可以打开的参考链接/)
   assert.doesNotMatch(sourceDetailsSource, /信息出处与更新时间/)
+  assert.doesNotMatch(sourceDetailsSource, /信息出处/)
 })
 
 test('source page offers a direct path from the introduction to source search', () => {
