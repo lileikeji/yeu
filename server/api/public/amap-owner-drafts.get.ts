@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 import { listPublicAmapOwnerDraftPlaces } from '../../modules/places/service'
 import { useAppDatabase } from '../../utils/database'
 import { setPublicCache } from '../../utils/http'
+import { presentPublicAmapOwnerDraftPlace } from '../../utils/public-api-presentation'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { assertRateLimit } from '../../utils/rate-limit'
 
@@ -36,7 +37,7 @@ export default defineEventHandler((event) => {
   const items = listPublicAmapOwnerDraftPlaces(client)
   setPublicCache(event, 60)
   return {
-    items,
+    items: items.map(presentPublicAmapOwnerDraftPlace),
     total: items.length,
     page: 1,
     pageSize: items.length

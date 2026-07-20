@@ -32,7 +32,13 @@ function studentFacingDepartmentPayloadText(value: string): string {
 
 function studentFacingPayloadText(value: string): string {
   return studentFacingDepartmentPayloadText(studentFacingProcedureText(value
+    .replace(/系统只在内部资料目录保存少量带来源和版权状态的(?:核验|确认)图片，不在(?:前台|公开页面)发布，也不复制完整正文或评论用户资料。/g, '部分图片只用于确认地点和设施信息，不会在公开页面展示，也不会复制原帖正文或评论中的个人信息。')
+    .replace(/系统不会把未(?:核验|确认)内容伪装成确定通知。/g, '还没有明确通知的时间、地点和报名方式只作参考，不会写成已经确定。')
+    .replace(/资料状态是：名称线索(?:待确认|还要确认)/g, '今年是否继续招新还要等通知')
+    .replace(/资料状态是：近期活动可确认/g, '2026年仍有公开活动')
+    .replace(/用校园地图搜索地点，同时区分\s*[“"]已导入[”"]\s*和\s*[“"]已确认坐标[”"]\s*。?/g, '用校园地图搜索宿舍、教学楼和服务点；地图上的位置可先用来找方向，入口细节仍需现场确认。')
     .replace(/地图目录已导入，坐标核验中/g, '地图地点已整理，入口仍在确认')
+    .replace(/高德导入标点/g, '地图上的位置')
     .replace(/高德 POI/g, '高德地图地点')
     .replace(/工作地图/g, '地图')
     .replace(/后台草稿/g, '地图位置参考')
@@ -110,8 +116,8 @@ function sanitizeProcedureGuide(guide: ApiProcedureGuide | null): ApiProcedureGu
   if (!guide) return null
   return {
     ...guide,
-    title: studentFacingProcedureTitle(guide.title),
-    summary: studentFacingProcedureText(guide.summary)
+    title: studentFacingPayloadText(studentFacingProcedureTitle(guide.title)),
+    summary: studentFacingPayloadText(guide.summary)
   }
 }
 

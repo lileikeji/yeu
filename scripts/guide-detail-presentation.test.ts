@@ -43,6 +43,15 @@ test('long guide pages expose every section in a compact mobile jump menu', () =
   assert.doesNotMatch(pageSource, /scrollbar-none mt-5 flex gap-2 overflow-x-auto/)
 })
 
+test('guide sections use a connected reading rail instead of repeated cards', () => {
+  assert.match(pageSource, /class="group relative scroll-mt-24[^"]*pl-12[^"]*last:border-b-0"/)
+  assert.match(pageSource, /v-if="index < guide\.sections\.length - 1"/)
+  assert.match(pageSource, /aria-hidden="true"/)
+  assert.match(pageSource, /class="absolute -bottom-7 left-4 top-16 w-px bg-zinc-200"/)
+  assert.match(pageSource, /group-hover:border-green-300 group-hover:bg-green-50/)
+  assert.doesNotMatch(pageSource, /<UCard[\s\S]*v-for="\(section, index\) in guide\.sections"/)
+})
+
 test('long guide pages offer a mobile return to contents without covering the sources', () => {
   assert.match(pageSource, /guide\.value\.sections\.length < 5/)
   assert.match(pageSource, /sourceOverlapsShortcut/)

@@ -12,9 +12,14 @@ import {
   sanitizePublicProcedure,
   sanitizePublicSearchResponse
 } from '../app/utils/public-api-presentation'
+import { presentPublicContent } from '../server/utils/public-api-presentation'
 
 const publicCatalogSource = readFileSync(
   new URL('../app/composables/usePublicCatalog.ts', import.meta.url),
+  'utf8'
+)
+const clientPresentationSource = readFileSync(
+  new URL('../app/utils/public-api-presentation.ts', import.meta.url),
   'utf8'
 )
 
@@ -28,6 +33,7 @@ test('public payload sanitizer stays out of the client entry bundle', () => {
     publicCatalogSource,
     /import \{[\s\S]*sanitizePublicContent[\s\S]*\} from '~\/utils\/public-api-presentation'/
   )
+  assert.doesNotMatch(clientPresentationSource, /from ['"].*public-catalog['"]/)
 })
 
 const source = {
@@ -50,7 +56,7 @@ test('public content payload uses student-facing copy before Nuxt serializes it'
     slug: 'find-campus',
     title: '找宿舍和教学楼',
     summary: '地图目录已导入，坐标核验中',
-    body: '工作地图的 76 个标点已按未独立现场核验状态显示。',
+    body: '工作地图的 76 个标点已按未独立现场核验状态显示。\n系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。',
     category: 'campus',
     audience: 'undergraduate',
     metadata: {
@@ -72,8 +78,9 @@ test('public content payload uses student-facing copy before Nuxt serializes it'
   const sanitized = sanitizePublicContent(content)
   const serialized = JSON.stringify(sanitized)
 
-  assert.doesNotMatch(serialized, /坐标核验|点位|现场核验|数据状态|高德工作地图/)
+  assert.doesNotMatch(serialized, /坐标核验|点位|现场核验|数据状态|高德工作地图|内部资料目录|版权状态|前台/)
   assert.match(sanitized.summary, /入口仍在确认/)
+  assert.match(sanitized.body, /部分图片只用于确认地点和设施信息/)
   assert.equal(sanitized.sources[0]?.title, '高德地图位置参考')
   assert.equal(sanitized.sources[0]?.publisherName, '地图位置提供者')
   assert.equal(sanitized.sources[0]?.url, source.url)
@@ -129,6 +136,30 @@ test('public search payload removes raw department maintenance copy', () => {
 
   assert.doesNotMatch(JSON.stringify(sanitized), /独立官网已经上线|网站仍混有/)
   assert.match(sanitized.items[0]?.summary ?? '', /可以在学院官网查看/)
+})
+
+test('public payload rewrites internal map import states at the final response boundary', () => {
+  const sanitized = sanitizePublicSearchResponse({
+    query: '宿舍',
+    type: null,
+    items: [{
+      entityType: 'content',
+      resultType: 'guide',
+      id: 'guide-1',
+      slug: 'find-campus',
+      title: '找宿舍和教学楼',
+      summary: '用校园地图搜索地点，同时区分“已导入”和“已确认坐标”。',
+      category: 'campus',
+      kind: 'guide',
+      updatedAt: '2026-07-20T00:00:00.000Z'
+    }],
+    total: 1,
+    hasManagedContent: true,
+    managedKinds: ['guide']
+  })
+
+  assert.doesNotMatch(JSON.stringify(sanitized), /已导入|已确认坐标/)
+  assert.match(sanitized.items[0]?.summary ?? '', /搜索宿舍、教学楼和服务点/)
 })
 
 test('public place payload removes internal notes and maintenance wording', () => {
@@ -280,4 +311,64 @@ test('public procedure payload translates nested steps, materials and source not
   assert.doesNotMatch(serialized, /点位|核验|公开来源|官方信息入口/)
   assert.match(sanitized.summary, /报到地点/)
   assert.match(sanitized.statusText, /学校通知/)
+})
+
+test('server public presentation rewrites nested club and guide maintenance copy', () => {
+  const content = {
+    id: 'club-1',
+    kind: 'club',
+    slug: 'sample-club',
+    title: '示例社团',
+    summary: '资料状态是：名称线索待确认',
+    body: [
+      '这个社团目前属于「科技创新」方向，资料状态是：名称线索待确认。',
+      '可信度中等：这个名字出现在校团委的公开资料里，可以作为找社团时的名称索引；是否仍按同名注册和招新，需要等当年公告或现场确认。',
+      '还不能写死的信息：2026级招新时间、摆摊地点、报名二维码。系统不会把未核验内容伪装成确定通知。'
+    ].join('\n'),
+    category: 'community',
+    audience: 'undergraduate',
+    metadata: {
+      note: '系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。'
+    },
+    isFeatured: false,
+    status: 'published',
+    lastVerifiedAt: null,
+    publishedAt: '2026-07-20T00:00:00.000Z',
+    createdAt: '2026-07-20T00:00:00.000Z',
+    updatedAt: '2026-07-20T00:00:00.000Z',
+    sources: []
+  } satisfies ApiContent
+
+  const presented = presentPublicContent(content)
+  const serialized = JSON.stringify(presented)
+
+  assert.doesNotMatch(serialized, /资料状态|可信度|写死|伪装|未核验|内部资料目录|版权状态|前台/)
+  assert.match(presented.summary, /今年是否继续招新还要等通知/)
+  assert.match(presented.body, /请以本学期通知为准/)
+  assert.match(presented.body, /请不要使用往年的二维码或群聊入口/)
+})
+
+test('all public read endpoints apply student-facing presentation before returning', () => {
+  const endpointFiles = [
+    '../server/api/public/amap-owner-drafts.get.ts',
+    '../server/api/public/clubs/index.get.ts',
+    '../server/api/public/clubs/[slug].get.ts',
+    '../server/api/public/content/index.get.ts',
+    '../server/api/public/content/[slug].get.ts',
+    '../server/api/public/departments/index.get.ts',
+    '../server/api/public/departments/[slug].get.ts',
+    '../server/api/public/guides/index.get.ts',
+    '../server/api/public/guides/[slug].get.ts',
+    '../server/api/public/places/index.get.ts',
+    '../server/api/public/places/[slug].get.ts',
+    '../server/api/public/procedures/index.get.ts',
+    '../server/api/public/procedures/[slug].get.ts',
+    '../server/api/public/search.get.ts'
+  ]
+
+  for (const file of endpointFiles) {
+    const source = readFileSync(new URL(file, import.meta.url), 'utf8')
+    assert.match(source, /presentPublic/)
+    assert.match(source, /utils\/public-api-presentation/)
+  }
 })

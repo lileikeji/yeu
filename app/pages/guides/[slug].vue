@@ -260,23 +260,26 @@ onBeforeUnmount(() => {
           v-for="(section, index) in guide.sections"
           :id="`guide-section-${index}`"
           :key="section.title"
-          class="scroll-mt-24 border-b border-[var(--line)] py-6 first:pt-7"
+          class="group relative scroll-mt-24 border-b border-[var(--line)] py-7 pl-12 last:border-b-0"
         >
-          <div class="flex items-center gap-3">
-            <span class="grid size-8 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700">
+          <span
+            v-if="index < guide.sections.length - 1"
+            aria-hidden="true"
+            class="absolute -bottom-7 left-4 top-16 w-px bg-zinc-200"
+          />
+          <div class="min-w-0">
+            <span class="absolute left-0 top-7 grid size-8 place-items-center rounded-md border border-zinc-200 bg-white text-green-700 shadow-sm transition-colors group-hover:border-green-300 group-hover:bg-green-50">
               <UIcon
                 :name="section.icon"
                 class="size-4"
               />
             </span>
-            <div>
-              <p class="text-xs font-medium text-zinc-400">
-                {{ String(index + 1).padStart(2, '0') }}
-              </p>
-              <h2 class="text-lg font-bold text-zinc-950">
-                {{ section.title }}
-              </h2>
-            </div>
+            <p class="text-xs font-medium text-zinc-400">
+              {{ String(index + 1).padStart(2, '0') }}
+            </p>
+            <h2 class="text-lg font-bold text-zinc-950">
+              {{ section.title }}
+            </h2>
           </div>
           <p
             v-if="section.description"
