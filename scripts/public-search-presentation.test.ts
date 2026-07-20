@@ -404,7 +404,7 @@ test('api target and presentation map entity kinds', () => {
       ...departmentItem,
       summary: '新生处理校园网、统一认证、VPN、网络故障和信息化服务问题的主管部门入口。'
     }),
-    '新生遇到校园网、在校外打开校内系统、网络故障或校园系统问题时，可以找这个部门。'
+    '新生遇到校园网、在校外打不开校园网站或线上办事页面、网络故障时，可以找这个部门。'
   )
   assert.equal(
     apiSearchSummary({

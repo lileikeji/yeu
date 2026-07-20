@@ -61,7 +61,7 @@ function confirmResetProgress() {
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
               按到校前、报到当天、第一周和行李材料逐项勾选。进度只保存在这台设备，不会上传，也不需要登录。
-              标有「以通知为准」的条目请再核对本年官方通知。
+              标有「以通知为准」的内容请再核对本年官方通知。
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
