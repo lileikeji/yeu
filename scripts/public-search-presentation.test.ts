@@ -11,6 +11,7 @@ import {
   buildSearchAnnouncement,
   buildSearchErrorMessage,
   groupPublicSearchResults,
+  mergePublicSearchApiResponses,
   mapAreaSummary,
   mapResultSummary,
   mapSourceLabel,
@@ -18,6 +19,7 @@ import {
   matchesSearchQuery,
   normalizeSearchText,
   popularSearchSuggestions,
+  publicSearchApiQueries,
   queryVariants,
   resolveSearchInputSyncFromRoute,
   resolveSearchNavigationStaleCorrection,
@@ -261,8 +263,62 @@ test('normalize and query variants handle campus name aliases', () => {
   assert.ok(queryVariants('a楼').includes('a教学楼'))
   assert.ok(queryVariants('学生街').includes('新区学生街'))
   assert.ok(queryVariants('新区学生街').includes('学生街'))
+  assert.ok(queryVariants('快递点').includes('快递'))
   assert.equal(matchesSearchQuery('仰恩楼', ['仰恩教学楼东侧']), true)
   assert.equal(matchesSearchQuery('不存在', ['图书馆']), false)
+})
+
+test('common freshman phrases expand API searches and merge results without duplicates', () => {
+  assert.deepEqual(publicSearchApiQueries(' 宿舍报修 '), ['宿舍报修', '报修'])
+  assert.deepEqual(publicSearchApiQueries('宿舍维修报修'), ['宿舍维修报修', '报修'])
+  assert.deepEqual(publicSearchApiQueries('校园网'), ['校园网'])
+  assert.deepEqual(publicSearchApiQueries('   '), [])
+
+  const guide = {
+    entityType: 'content',
+    resultType: 'guide',
+    id: 'guide-dorm',
+    slug: 'find-campus',
+    title: '找宿舍与教学楼',
+    summary: '找楼指南',
+    category: 'arrival',
+    kind: 'guide',
+    updatedAt: '2026-07-20'
+  } satisfies ApiSearchItem
+  const procedure = {
+    entityType: 'procedure',
+    resultType: 'procedure',
+    id: 'procedure-dorm-repair',
+    slug: 'dorm-repair',
+    title: '宿舍维修报修',
+    summary: '报修流程',
+    category: 'life',
+    kind: null,
+    updatedAt: '2026-07-20'
+  } satisfies ApiSearchItem
+  const merged = mergePublicSearchApiResponses('宿舍报修', undefined, [
+    {
+      query: '宿舍报修',
+      type: null,
+      items: [guide],
+      total: 1,
+      hasManagedContent: true,
+      managedKinds: ['guide']
+    },
+    {
+      query: '报修',
+      type: null,
+      items: [procedure, guide],
+      total: 2,
+      hasManagedContent: true,
+      managedKinds: ['guide']
+    }
+  ])
+  assert.equal(merged.query, '宿舍报修')
+  assert.equal(merged.type, null)
+  assert.deepEqual(merged.items.map(item => item.id), ['guide-dorm', 'procedure-dorm-repair'])
+  assert.equal(merged.total, 2)
+  assert.deepEqual(merged.managedKinds, ['guide'])
 })
 
 test('api target and presentation map entity kinds', () => {

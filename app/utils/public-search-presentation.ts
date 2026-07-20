@@ -155,6 +155,7 @@ export function queryVariants(value: string): string[] {
   if (!normalized) return []
 
   const variants = new Set([normalized])
+  if (normalized === '快递点') variants.add('快递')
   if (normalized.includes('教学楼')) variants.add(normalized.replace(/教学楼/g, '楼'))
   if (normalized.endsWith('楼') && !normalized.endsWith('教学楼')) {
     variants.add(normalized.replace(/楼$/, '教学楼'))
@@ -167,6 +168,39 @@ export function queryVariants(value: string): string[] {
   }
 
   return [...variants]
+}
+
+export function publicSearchApiQueries(value: string): string[] {
+  const query = value.trim()
+  if (!query) return []
+
+  const normalized = normalizeSearchText(query)
+  const queries = new Set([query])
+  if (normalized.includes('宿舍') && normalized.includes('报修')) {
+    queries.add('报修')
+  }
+  return [...queries]
+}
+
+export function mergePublicSearchApiResponses(
+  query: string,
+  type: PublicSearchResultType | undefined,
+  responses: ApiSearchResponse[]
+): ApiSearchResponse {
+  const items = [...new Map(
+    responses
+      .flatMap(response => response.items)
+      .map(item => [`${item.resultType}:${item.id}`, item] as const)
+  ).values()]
+
+  return {
+    query,
+    type: type ?? null,
+    items,
+    total: items.length,
+    hasManagedContent: responses.some(response => response.hasManagedContent),
+    managedKinds: [...new Set(responses.flatMap(response => response.managedKinds))]
+  }
 }
 
 export function matchesSearchQuery(query: string, values: Array<string | null | undefined>): boolean {

@@ -11,7 +11,9 @@ import {
   buildSearchAnnouncement,
   buildSearchErrorMessage,
   groupPublicSearchResults,
+  mergePublicSearchApiResponses,
   popularSearchSuggestions,
+  publicSearchApiQueries,
   resolveSearchInputSyncFromRoute,
   resolveSearchNavigationStaleCorrection,
   routeQueryString,
@@ -54,25 +56,44 @@ const {
   refresh: refreshSearch
 } = await useAsyncData<ApiSearchResponse>(
   'public-search',
-  () => {
+  async () => {
     if (!activeQuery.value) {
-      return Promise.resolve({
+      return {
         query: '',
         type: activeType.value ?? null,
         items: [],
         total: 0,
         hasManagedContent: false,
         managedKinds: []
-      })
+      }
     }
 
-    return requestFetch<ApiSearchResponse>('/api/public/search', {
+    const queries = publicSearchApiQueries(activeQuery.value)
+    const primary = await requestFetch<ApiSearchResponse>('/api/public/search', {
       query: {
-        q: activeQuery.value,
+        q: queries[0],
         type: activeType.value,
         limit: 50
       }
     })
+    const expanded = await Promise.all(queries.slice(1).map(async (query) => {
+      try {
+        return await requestFetch<ApiSearchResponse>('/api/public/search', {
+          query: {
+            q: query,
+            type: activeType.value,
+            limit: 50
+          }
+        })
+      } catch {
+        return null
+      }
+    }))
+    return mergePublicSearchApiResponses(
+      activeQuery.value,
+      activeType.value,
+      [primary, ...expanded.filter((item): item is ApiSearchResponse => Boolean(item))]
+    )
   },
   { watch: [activeQuery, activeType], dedupe: 'cancel' }
 )
