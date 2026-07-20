@@ -1479,7 +1479,7 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'information-office',
     name: '实验室与信息化管理处',
-    summary: '新生遇到校园网、校外访问（VPN）、网络故障或校园系统问题时，可以找这个部门。',
+    summary: '新生遇到校园网、校外访问校内系统、网络故障或校园系统问题时，可以找这个部门。',
     website: 'https://metc.yeu.edu.cn/',
     phone: '0595-22098521 / 0595-22087606'
   },

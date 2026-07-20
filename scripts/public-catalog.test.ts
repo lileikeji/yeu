@@ -181,7 +181,7 @@ test('guide copy hides maintainer language from student pages', () => {
   )
   assert.equal(
     studentFacingGuideText('新生处理校园网、统一认证、VPN、网络故障和信息化服务问题的主管部门入口。'),
-    '新生遇到校园网、在校外打开校内系统（VPN）、网络故障或校园系统问题时，可以找这个部门。'
+    '新生遇到校园网、在校外打开校内系统、网络故障或校园系统问题时，可以找这个部门。'
   )
   assert.equal(
     studentFacingGuideText('新生遇到校园卡网络认证、Wi-Fi 或账号登录问题。'),
@@ -355,7 +355,7 @@ test('published department copy also hides internal network wording', () => {
     sources: []
   }
   const view = mergePublicDepartments([], [content], false)[0]
-  assert.equal(view?.summary, '新生遇到校园网、在校外打开校内系统（VPN）、网络故障或校园系统问题时，可以找这个部门。')
+  assert.equal(view?.summary, '新生遇到校园网、在校外打开校内系统、网络故障或校园系统问题时，可以找这个部门。')
   assert.match(view?.body ?? '', /按页面提示登录|校外访问账号/)
   assert.doesNotMatch(view?.body ?? '', /统一认证|信息化服务|通过浏览器认证|VPN账号/)
 })
