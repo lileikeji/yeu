@@ -470,8 +470,11 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   assert.match(utilSource, /export function findPublicMapPlaceByOfficialPlanNumber/)
   assert.match(utilSource, /export function resolveAutoSelectSearchDecision/)
   assert.match(utilSource, /export function toggleMapDisplayOption/)
-  assert.match(source, /yeu-amap-poi-label:not\(\.yeu-amap-poi-label-selected\)/)
-  assert.match(readFileSync(resolve('map/providers/amap/provider.ts'), 'utf8'), /yeu-amap-poi-label-selected/)
+  assert.match(source, /\.map-workspace \.yeu-amap-poi-label:not\(\.yeu-amap-poi-label-selected\)/)
+  assert.match(source, /\.map-workspace \.yeu-amap-area-label:not\(\.yeu-amap-area-label-selected\)/)
+  const amapSource = readFileSync(resolve('map/providers/amap/provider.ts'), 'utf8')
+  assert.match(amapSource, /yeu-amap-poi-label-selected/)
+  assert.match(amapSource, /yeu-amap-area-label-selected/)
   assert.equal(defaultMapDisplayOptions.labelSize, 'small')
 
   const toggled = toggleMapDisplayOption({

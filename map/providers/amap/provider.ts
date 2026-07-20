@@ -542,7 +542,9 @@ export class AMapProvider implements MapProvider {
         const label = document.createElement('span')
         label.textContent = area.name
         label.title = area.name
-        label.className = 'yeu-amap-area-label'
+        label.className = this.selectedAreaId === area.id
+          ? 'yeu-amap-area-label yeu-amap-area-label-selected'
+          : 'yeu-amap-area-label'
         label.style.cssText = this.areaLabelStyle(area.strokeColor, this.selectedAreaId === area.id)
         const marker = new amap.Marker({
           position: center,
@@ -747,6 +749,7 @@ export class AMapProvider implements MapProvider {
     }
     for (const record of this.areaLabels) {
       const selected = record.areaId === this.selectedAreaId
+      record.element.classList.toggle('yeu-amap-area-label-selected', selected)
       record.element.style.cssText = this.areaLabelStyle(record.strokeColor, selected)
     }
   }

@@ -1151,7 +1151,7 @@ onBeforeUnmount(() => {
  */
 @media (max-width: 639px) {
   .map-workspace .yeu-amap-poi-label:not(.yeu-amap-poi-label-selected),
-  .map-workspace .yeu-amap-area-label {
+  .map-workspace .yeu-amap-area-label:not(.yeu-amap-area-label-selected) {
     display: none !important;
   }
 }
