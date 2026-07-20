@@ -17,7 +17,7 @@ import {
 
 useSeoMeta({
   title: '来源说明',
-  description: '了解仰恩新生指南的信息出处，以及新生查看不同消息时应该注意什么。'
+  description: '了解仰恩新生指南引用的参考页面，以及新生查看不同消息时应该注意什么。'
 })
 
 const sourceQuery = ref('')
@@ -72,7 +72,7 @@ async function refreshSources(): Promise<void> {
           看到校园消息，先判断能不能直接用
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
-          报到、缴费和学籍等重要事项，请优先看学校和主管部门的最新通知。地图、商铺和社团消息变化较快，页面会保留出处，方便你自己再看一眼。
+          报到、缴费和学籍等重要事项，请优先看学校和主管部门的最新通知。地图、商铺和社团消息变化较快，页面会保留参考链接，方便你自己再看一眼。
         </p>
         <a
           href="#source-list"
@@ -82,7 +82,7 @@ async function refreshSources(): Promise<void> {
             name="i-lucide-search"
             class="size-4"
           />
-          查找具体出处
+          查找参考页面
         </a>
       </div>
     </section>
@@ -166,13 +166,13 @@ async function refreshSources(): Promise<void> {
       <div class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-4">
         <div>
           <p class="section-kicker">
-            具体出处
+            参考页面
           </p>
           <h2 class="mt-2 text-xl font-bold text-zinc-950">
-            查看页面引用的信息出处
+            查看页面引用的参考链接
           </h2>
         </div>
-        <span class="text-sm text-zinc-500">已整理 {{ sources.length }} 条出处</span>
+        <span class="text-sm text-zinc-500">共 {{ sources.length }} 个参考页面</span>
       </div>
 
       <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -180,7 +180,7 @@ async function refreshSources(): Promise<void> {
           v-model="sourceQuery"
           icon="i-lucide-search"
           placeholder="搜索学校、部门或信息名称"
-          aria-label="搜索信息出处"
+          aria-label="搜索参考页面"
           size="lg"
           class="min-h-11 w-full sm:max-w-md"
           :ui="{ base: 'min-h-11' }"
@@ -200,7 +200,7 @@ async function refreshSources(): Promise<void> {
           class="mx-auto size-6 text-amber-700"
         />
         <h3 class="mt-3 text-base font-bold text-amber-950">
-          信息出处暂时没有显示出来
+          参考页面暂时没有显示出来
         </h3>
         <p class="mt-2 text-sm leading-6 text-amber-900">
           {{ sourceListMessages.serviceUnavailable }}
@@ -270,7 +270,7 @@ async function refreshSources(): Promise<void> {
       >
         <UButton
           :icon="sourcesExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-          :label="sourcesExpanded ? '收起出处' : `查看其余 ${sourcePreview.hiddenCount} 条出处`"
+          :label="sourcesExpanded ? '收起参考页面' : `查看其余 ${sourcePreview.hiddenCount} 个参考页面`"
           color="neutral"
           variant="soft"
           class="min-h-11"

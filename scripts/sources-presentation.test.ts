@@ -62,10 +62,11 @@ test('source search keeps a comfortable mobile touch height', () => {
 
 test('source page offers a direct path from the introduction to source search', () => {
   assert.match(pageSource, /href="#source-list"/)
-  assert.match(pageSource, />\s*查找具体出处\s*<\/a>/)
+  assert.match(pageSource, />\s*查找参考页面\s*<\/a>/)
   assert.match(pageSource, /id="source-list"/)
   assert.match(pageSource, /class="page-shell page-section scroll-mt-20"/)
-  assert.match(pageSource, /id="source-list"[\s\S]*查看页面引用的信息出处/)
+  assert.match(pageSource, /id="source-list"[\s\S]*查看页面引用的参考链接/)
+  assert.doesNotMatch(pageSource, /信息出处|查找具体出处|条出处/)
 })
 
 test('source level guides use ordinary decision wording', () => {
@@ -80,8 +81,8 @@ test('source level guides use ordinary decision wording', () => {
   assert.equal(dateOnly('2025-12-01'), '2025-12-01')
   assert.equal(sourceAccessedLabel('2026-07-10T12:00:00Z'), '最近查看 2026-07-10')
   assert.equal(sourceListMessages.serviceUnavailable, '可以稍后再试，各篇指南仍然可以正常查看。')
-  assert.equal(sourceListMessages.emptyMatch, '没有找到匹配的信息出处')
-  assert.equal(sourceListMessages.emptyList, '目前还没有可以查看的信息出处')
+  assert.equal(sourceListMessages.emptyMatch, '没有找到匹配的参考页面')
+  assert.equal(sourceListMessages.emptyList, '目前还没有可以查看的参考页面')
   assert.match(pageSource, /clearSourceSearch/)
   assert.match(pageSource, /refreshSources/)
   assert.match(pageSource, /label="清空搜索"/)
