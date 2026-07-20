@@ -103,21 +103,34 @@ test('home essential actions and timeline keep freshman-first copy', () => {
   assert.doesNotMatch(JSON.stringify(homeMoreEntries), /线索/)
 })
 
-test('home featured procedures exclude arrival and map method labels', () => {
+test('home featured procedures put broadly useful freshman tasks before audience-specific items', () => {
   const featured = buildHomeFeaturedProcedures([
     sampleProcedure({ id: 'a', slug: 'arrival', title: '报到' }),
-    sampleProcedure({ id: 'b', slug: 'campus-card', title: '校园卡', method: 'online' }),
-    sampleProcedure({ id: 'c', slug: 'dorm-repair', title: '宿舍报修', method: 'offline' }),
-    sampleProcedure({ id: 'd', slug: 'library', title: '图书馆', method: 'mixed' }),
-    sampleProcedure({ id: 'e', slug: 'extra', title: '额外' })
+    sampleProcedure({ id: 'b', slug: 'transfer-archive-mailing', title: '专升本学生档案邮寄', method: 'offline' }),
+    sampleProcedure({ id: 'c', slug: 'library-card-wechat', title: '图书馆借阅证与微信绑定', method: 'online' }),
+    sampleProcedure({ id: 'd', slug: 'dorm-repair', title: '宿舍维修报修', method: 'mixed' }),
+    sampleProcedure({ id: 'e', slug: 'campus-network', title: '校园网与账号登录问题', method: 'mixed' })
   ], 4)
   assert.deepEqual(featured.map(item => item.to), [
-    '/procedures/campus-card',
+    '/procedures/campus-network',
     '/procedures/dorm-repair',
-    '/procedures/library',
-    '/procedures/extra'
+    '/procedures/library-card-wechat',
+    '/procedures/transfer-archive-mailing'
   ])
-  assert.equal(featured[0]?.methodLabel, homeProcedureMethodLabels.online)
+  assert.deepEqual(
+    buildHomeFeaturedProcedures([
+      sampleProcedure({ id: 'a', slug: 'transfer-archive-mailing' }),
+      sampleProcedure({ id: 'b', slug: 'library-card-wechat' }),
+      sampleProcedure({ id: 'c', slug: 'dorm-repair' }),
+      sampleProcedure({ id: 'd', slug: 'campus-network' })
+    ], 3).map(item => item.to),
+    [
+      '/procedures/campus-network',
+      '/procedures/dorm-repair',
+      '/procedures/library-card-wechat'
+    ]
+  )
+  assert.equal(featured[2]?.methodLabel, homeProcedureMethodLabels.online)
   assert.equal(toHomeProcedureItem(sampleProcedure({ method: 'mixed' })).methodLabel, '网上确认 + 到校办理')
   assert.equal(
     toHomeProcedureItem(sampleProcedure({ statusText: '入口已发布，材料待通知' })).statusText,

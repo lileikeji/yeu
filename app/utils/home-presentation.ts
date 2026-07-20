@@ -167,14 +167,27 @@ export function toHomeProcedureItem(procedure: ApiProcedure): HomeProcedureItem 
   }
 }
 
+const homeProcedurePriority: Readonly<Record<string, number>> = {
+  'campus-network': 0,
+  'dorm-repair': 1,
+  'library-card-wechat': 2,
+  'transfer-archive-mailing': 100
+}
+
 export function buildHomeFeaturedProcedures(
   procedures: ApiProcedure[] | null | undefined,
   limit = 4
 ): HomeProcedureItem[] {
   return (procedures ?? [])
     .filter(procedure => procedure.slug !== 'arrival')
+    .map((procedure, index) => ({ procedure, index }))
+    .sort((left, right) => (
+      (homeProcedurePriority[left.procedure.slug] ?? 50)
+      - (homeProcedurePriority[right.procedure.slug] ?? 50)
+      || left.index - right.index
+    ))
     .slice(0, limit)
-    .map(toHomeProcedureItem)
+    .map(({ procedure }) => toHomeProcedureItem(procedure))
 }
 
 export function getHomeFallbackMessage(
