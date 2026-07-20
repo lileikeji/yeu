@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  buildDiscoverAccountEntries,
   buildDiscoverTaskPreview,
   discoverDirectoryEntries,
   discoverTaskPreviewLimit,
@@ -12,9 +13,13 @@ useSeoMeta({
   description: '按新生当前要做的事，快速进入仰恩校园地图、报到、指南、部门、社团与周边目录。'
 })
 
+const { isAuthenticated, refreshSession } = useUserSession()
+await refreshSession()
+
 const tasksExpanded = ref(false)
 const taskPreview = computed(() => buildDiscoverTaskPreview(discoverTaskEntries, tasksExpanded.value))
 const visibleTaskEntries = computed(() => taskPreview.value.items)
+const accountEntries = computed(() => buildDiscoverAccountEntries(isAuthenticated.value))
 
 function toggleTaskPreview(): void {
   tasksExpanded.value = !tasksExpanded.value
@@ -49,6 +54,48 @@ function toggleTaskPreview(): void {
     </header>
 
     <div>
+      <section class="border-b border-green-100 bg-gradient-to-b from-green-50/70 to-white">
+        <div class="page-shell py-6 md:py-8">
+          <p class="section-kicker">
+            账号与交流
+          </p>
+          <div class="mt-1 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 class="text-xl font-bold text-zinc-950">
+                {{ isAuthenticated ? '欢迎回来' : '登录后可以做这些' }}
+              </h2>
+              <p class="mt-1 text-sm leading-6 text-zinc-600">
+                {{ isAuthenticated ? '从这里进入个人中心或新生群聊。' : '登录后可以进群聊，也可以填写专业和宿舍楼。' }}
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            <NuxtLink
+              v-for="entry in accountEntries"
+              :key="entry.to"
+              :to="entry.to"
+              class="group flex min-h-24 items-center gap-3 rounded-lg border border-green-100 bg-white p-4 shadow-sm transition hover:border-green-300 hover:shadow"
+            >
+              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+                <UIcon
+                  :name="entry.icon"
+                  class="size-5"
+                />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block font-bold text-zinc-950">{{ entry.title }}</span>
+                <span class="mt-1 block text-sm leading-6 text-zinc-600">{{ entry.description }}</span>
+              </span>
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="size-4 shrink-0 text-zinc-300 transition-colors group-hover:text-green-700"
+              />
+            </NuxtLink>
+          </div>
+        </div>
+      </section>
+
       <section class="page-shell py-8 md:py-10">
         <div class="flex items-end justify-between gap-4">
           <div>
