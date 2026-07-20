@@ -142,6 +142,23 @@ test('owner map summaries do not repeat the location disclaimer', () => {
   assert.doesNotMatch(place.summary, /为准。位置来自/)
 })
 
+test('official plan places explain how students can use the number', () => {
+  const place = mergePublicMapPlaces([{
+    id: 'campus-map-29',
+    mapNumber: '29',
+    name: '永福楼',
+    category: 'campus-building'
+  }], [])[0]
+
+  assert.ok(place)
+  assert.equal(
+    place.summary,
+    '学校平面图编号 29。点开会在平面图中标出这个位置，方便你按编号找方向；这里不能直接规划路线。'
+  )
+  assert.equal(place.body, place.summary)
+  assert.doesNotMatch(place.summary, /可验证|比例尺|经纬度|索引/)
+})
+
 test('guide copy hides maintainer language from student pages', () => {
   assert.equal(
     studentFacingGuideText('首版展示字段'),

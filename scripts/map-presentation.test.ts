@@ -131,7 +131,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
   assert.match(placeDetailsPanelSource, /v-if="props\.canPlanRoute \|\| safeNavigationUrl"/)
   assert.match(
     placeDetailsPanelSource,
-    /这个平面图地点还没有精确位置，暂时不能规划路线/
+    /这个地点目前只能在学校平面图中查看，还不能直接规划路线/
   )
 
   assert.equal(resolveMapDataLabel({
@@ -238,6 +238,15 @@ test('map poi checklist status and formatters stay student-facing', () => {
     category: 'nearby'
   }))
   assert.match(native[0]!, /临时地点/)
+
+  const preview = samplePoi({
+    coordinateVerification: 'preview',
+    usesPreviewPoint: true,
+    referenceLabel: '平面图编号 29'
+  })
+  assert.equal(resolveMapPoiStatusText(preview), '平面图编号 29 · 只能在平面图中查看')
+  assert.match(buildMapPoiUseChecklist(preview)[0]!, /按编号找方向/)
+  assert.doesNotMatch(buildMapPoiUseChecklist(preview).join('\n'), /精确导航|文字方位/)
 
   assert.equal(buildMapPoiLocationCopyText(samplePoi()), '旧区1号楼 · 编号 12 · 旧区 · 马甲镇')
   assert.equal(formatMapAreaSquareMeters(null), '面积还未整理')

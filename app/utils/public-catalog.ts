@@ -780,14 +780,15 @@ function normalizeMapCategory(place: ApiPlace): string {
 
 // Preview fixtures contribute searchable names only; their approximate points never reach MapLibre.
 function previewMapPlace(poi: CampusMapReferencePlace): PublicMapPlace {
+  const summary = `学校平面图编号 ${poi.mapNumber}。点开会在平面图中标出这个位置，方便你按编号找方向；这里不能直接规划路线。`
   return {
     id: poi.id,
     slug: null,
     name: poi.name,
     scope: 'campus',
     category: poi.category,
-    summary: `学校官网平面图文字编号 ${poi.mapNumber}。原图未提供可验证的版本日期、比例尺或经纬度，且本站不转载原图，因此这里只保留编号和名称索引。`,
-    body: `学校官网平面图文字编号 ${poi.mapNumber}。原图未提供可验证的版本日期、比例尺或经纬度，且本站不转载原图，因此这里只保留编号和名称索引。`,
+    summary,
+    body: summary,
     address: null,
     campusArea: null,
     openingHours: null,

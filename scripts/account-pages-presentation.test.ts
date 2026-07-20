@@ -32,7 +32,11 @@ test('profile page explains dorm matching without system wording', () => {
   assert.match(profilePage, /方便进入对应楼群/)
   assert.match(profilePage, /输入楼名，或从下方已有楼栋中选择/)
   assert.match(profilePage, /正在查找宿舍楼/)
+  assert.match(profilePage, /正在打开个人中心/)
+  assert.match(profilePage, /这次没有保存成功，请稍后再试/)
+  assert.match(profilePage, /这次没有退出成功，请再试一次/)
   assert.doesNotMatch(profilePage, /宿舍楼决定楼群入口|加载宿舍建议/)
+  assert.doesNotMatch(profilePage, /保存失败|退出失败/)
 })
 
 test('profile controls keep a comfortable mobile touch height', () => {
@@ -46,10 +50,14 @@ test('chat page uses group language and truthful composer copy', () => {
   assert.match(chatPage, /所有已登录同学都可以参与/)
   assert.match(chatPage, /这里还没有消息/)
   assert.match(chatPage, /当前群聊已开启全员禁言/)
+  assert.match(chatPage, /消息暂时没显示出来，请重新打开群聊/)
+  assert.match(chatPage, /这条消息没发出去，请再试一次/)
+  assert.match(chatPage, /现在还进不了群聊，请稍后再试/)
   assert.match(chatPage, /aria-pressed/)
   assert.doesNotMatch(chatPage, />\s*房间\s*</)
   assert.doesNotMatch(chatPage, /当前房间/)
   assert.doesNotMatch(chatPage, /消息格式：|回车发送/)
+  assert.doesNotMatch(chatPage, /加载消息失败|发送失败|群聊暂时不可用/)
 })
 
 test('chat controls keep a comfortable mobile touch height', () => {

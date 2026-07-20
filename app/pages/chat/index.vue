@@ -188,7 +188,7 @@ async function switchRoom(roomId: string): Promise<void> {
   try {
     await loadInitialMessages()
   } catch (error) {
-    loadError.value = getRequestMessage(error, '加载消息失败')
+    loadError.value = getRequestMessage(error, '消息暂时没显示出来，请重新打开群聊。')
   }
 }
 
@@ -226,7 +226,7 @@ async function sendMessage(): Promise<void> {
         // ignore secondary refresh failures
       }
     }
-    sendError.value = getRequestMessage(error, '发送失败')
+    sendError.value = getRequestMessage(error, '这条消息没发出去，请再试一次。')
   } finally {
     sending.value = false
   }
@@ -267,7 +267,7 @@ onMounted(async () => {
       await navigateTo({ path: '/login', query: { redirect: '/chat' } }, { replace: true })
       return
     }
-    loadError.value = getRequestMessage(error, '群聊暂时不可用')
+    loadError.value = getRequestMessage(error, '现在还进不了群聊，请稍后再试。')
   } finally {
     loading.value = false
   }

@@ -246,7 +246,7 @@ export function mapResultSummary(place: PublicMapPlace): string {
   if (place.coordinateVerification === 'owner-map-only') {
     return place.summary || '已经放到地图上，点开会直接定位；具体入口和开放情况请以现场标识为准。'
   }
-  return place.summary || '点开后会进入校园地图；没有精确坐标的平面图地点，会显示文字方位帮助对照。'
+  return place.summary || '点开会切换到学校平面图并标出编号，方便你按图找方向；这里不能直接规划路线。'
 }
 
 export function mapAreaSummary(name: string): string {
@@ -356,7 +356,7 @@ export function buildSearchErrorMessage(
   if (!hasError) return ''
   return activeType && activeType !== 'place'
     ? '现在没搜出来，请稍后再试。'
-    : '部分内容暂时没加载出来，先为你显示地图里能找到的地点。'
+    : '有些内容暂时没显示出来，先为你保留地图里能找到的地点。'
 }
 
 export function buildPublicSearchResults(input: {

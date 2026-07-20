@@ -202,7 +202,7 @@ const navigationTooltip = computed(() => {
         v-else
         class="mt-3 rounded-md bg-orange-50 px-3 py-2 text-xs leading-5 text-orange-800"
       >
-        这个平面图地点还没有精确位置，暂时不能规划路线。到校后请按平面图编号和现场标识确认。
+        这个地点目前只能在学校平面图中查看，还不能直接规划路线。到校后请按编号和现场标识确认。
       </p>
 
       <span

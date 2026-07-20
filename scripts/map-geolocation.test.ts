@@ -162,16 +162,22 @@ test('locate and walking-route guards keep student-facing notices pure', () => {
     color: 'warning'
   })
 
-  assert.equal(resolveMapWalkingRouteStartGuard({
+  assert.deepEqual(resolveMapWalkingRouteStartGuard({
     hasDestination: false,
     activeMapProviderId: 'amap',
     hasGeolocation: true
-  }).ok, false)
-  assert.equal(resolveMapWalkingRouteStartGuard({
+  }), {
+    ok: false,
+    notice: { title: '这个地点还不能直接规划路线', color: 'warning' }
+  })
+  assert.deepEqual(resolveMapWalkingRouteStartGuard({
     hasDestination: true,
     activeMapProviderId: 'maplibre',
     hasGeolocation: true
-  }).ok, false)
+  }), {
+    ok: false,
+    notice: { title: '切换到高德地图后才能在页面里规划路线', color: 'warning' }
+  })
   assert.equal(resolveMapWalkingRouteStartGuard({
     hasDestination: true,
     activeMapProviderId: 'amap',
@@ -185,15 +191,16 @@ test('locate and walking-route guards keep student-facing notices pure', () => {
 
   const geoFail = resolveMapWalkingRouteFailureNotice(new Error('MAP_GEOLOCATION_FAILED'))
   assert.equal(geoFail.shouldClearRoute, false)
-  assert.equal(geoFail.notice.title, '未能获取当前位置')
+  assert.equal(geoFail.notice.title, '没能获取你的位置')
   const planFail = resolveMapWalkingRouteFailureNotice(new Error('other'))
   assert.equal(planFail.shouldClearRoute, true)
-  assert.equal(planFail.notice.title, '路线规划失败')
+  assert.equal(planFail.notice.title, '这次没规划出路线')
+  assert.equal(planFail.notice.description, '请检查定位权限，或稍后再试。')
 
   const composable = readFileSync(resolve('app/composables/useMapGeolocation.ts'), 'utf8')
   assert.match(composable, /resolveMapLocateGuard/)
   assert.match(composable, /resolveMapWalkingRouteStartGuard/)
   assert.match(composable, /resolveMapWalkingRouteFailureNotice/)
   assert.doesNotMatch(composable, /当前浏览器不支持定位/)
-  assert.doesNotMatch(composable, /网页内路线仅支持高德地图/)
+  assert.doesNotMatch(composable, /切换到高德地图后才能在页面里规划路线/)
 })

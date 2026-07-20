@@ -86,13 +86,13 @@ export function resolveMapWalkingRouteStartGuard(input: {
   if (!input.hasDestination) {
     return {
       ok: false,
-      notice: { title: '该地点暂无可用坐标', color: 'warning' }
+      notice: { title: '这个地点还不能直接规划路线', color: 'warning' }
     }
   }
   if (input.activeMapProviderId !== 'amap') {
     return {
       ok: false,
-      notice: { title: '网页内路线仅支持高德地图', color: 'warning' }
+      notice: { title: '切换到高德地图后才能在页面里规划路线', color: 'warning' }
     }
   }
   if (!input.hasGeolocation) {
@@ -112,8 +112,8 @@ export function resolveMapWalkingRouteFailureNotice(error: unknown): {
   return {
     shouldClearRoute: !geolocationFailed,
     notice: {
-      title: geolocationFailed ? '未能获取当前位置' : '路线规划失败',
-      description: '请检查浏览器定位权限，或稍后再试。',
+      title: geolocationFailed ? '没能获取你的位置' : '这次没规划出路线',
+      description: '请检查定位权限，或稍后再试。',
       color: 'warning'
     }
   }

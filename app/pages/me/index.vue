@@ -92,7 +92,7 @@ async function saveProfile(): Promise<void> {
       await navigateTo({ path: '/login', query: { redirect: '/me' } }, { replace: true })
       return
     }
-    errorMessage.value = getRequestMessage(error, '保存失败，请稍后重试')
+    errorMessage.value = getRequestMessage(error, '这次没有保存成功，请稍后再试。')
   } finally {
     saving.value = false
   }
@@ -104,7 +104,7 @@ async function handleLogout(): Promise<void> {
     await logout()
     await navigateTo('/', { replace: true })
   } catch (error) {
-    errorMessage.value = getRequestMessage(error, '退出失败')
+    errorMessage.value = getRequestMessage(error, '这次没有退出成功，请再试一次。')
   } finally {
     loggingOut.value = false
   }
@@ -154,7 +154,7 @@ onMounted(async () => {
           name="i-lucide-loader-circle"
           class="size-4 animate-spin"
         />
-        正在加载…
+        正在打开个人中心…
       </div>
 
       <div

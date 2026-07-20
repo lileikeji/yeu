@@ -97,7 +97,7 @@ export function resolveMapPoiStatusText(poi: MapPoiStatusFields): string {
   if (poi.coordinateVerification === 'verified' && poi.coordinateSystem) {
     return '位置已记录 · 当前地图暂时无法显示'
   }
-  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '平面图编号'} · 暂不显示地图位置`
+  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '平面图编号'} · 只能在平面图中查看`
   return '地点已整理 · 暂时没有可显示的位置'
 }
 
@@ -125,9 +125,9 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
           '如果发现入口变更或道路封闭，请提交纠错。'
         ]
       : [
-          '这个地点目前只有名称和文字方位，暂时不要把它当成精确导航。',
-          '先核对平面图编号、部门说明或现场标识。',
-          '发现准确入口后，可以提交位置纠错。'
+          '这个地点会在学校平面图中标出，方便按编号找方向；这里不能直接导航。',
+          '到校后请再看楼名、门牌或现场指引，确认具体入口。',
+          '如果你知道准确入口，可以提交位置纠错。'
         ]
 
   if (poi.category === 'express') {

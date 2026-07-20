@@ -441,7 +441,9 @@ test('map labels and summaries use student-facing location wording', () => {
   assert.equal(mapTypeLabel(owner), '高德地点')
   assert.equal(mapTypeLabel(preview), '平面图地点')
   assert.match(mapResultSummary(owner), /已经放到地图上/)
-  assert.match(mapResultSummary(preview), /文字方位/)
+  assert.match(mapResultSummary(preview), /学校平面图/)
+  assert.match(mapResultSummary(preview), /不能直接规划路线/)
+  assert.doesNotMatch(mapResultSummary(preview), /精确坐标|文字方位/)
   assert.equal(mapResultSummary(catalog), '已有摘要')
   assert.match(mapAreaSummary('新区学生街'), /大致范围/)
 })
@@ -655,6 +657,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
   assert.equal(buildSearchErrorMessage(false, 'place'), '')
   assert.match(buildSearchErrorMessage(true, 'guide'), /稍后再试/)
   assert.match(buildSearchErrorMessage(true, 'place'), /地图里能找到/)
+  assert.doesNotMatch(buildSearchErrorMessage(true, 'place'), /加载出来/)
   assert.equal(buildSearchAnnouncement({
     query: '',
     searching: false,
