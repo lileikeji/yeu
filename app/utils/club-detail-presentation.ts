@@ -86,7 +86,7 @@ export function buildClubDetailSources(
     key: source.url,
     title: source.title,
     url: source.url,
-    meta: source.publisher + ' · 页面查看时间：' + source.accessedAt,
+    meta: source.publisher + ' · 查阅于 ' + source.accessedAt,
     note: source.context ?? null,
     unavailable: source.status === 'unavailable' || source.status === 'disputed'
   }))

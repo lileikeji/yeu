@@ -131,7 +131,7 @@ export function nearbyCandidateCenterLabel(candidate: NearbyCandidate): string {
 }
 
 export function nearbyCandidateDistanceLabel(candidate: NearbyCandidate): string {
-  return `距参考位置约 ${Math.max(0, Math.round(candidate.distanceMeters))} 米`
+  return `离${nearbyCandidateCenterLabel(candidate)}参考点约 ${Math.max(0, Math.round(candidate.distanceMeters))} 米`
 }
 
 export function nearbyCandidateHint(candidate: NearbyCandidate): string {

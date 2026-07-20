@@ -122,8 +122,11 @@ test('nearby presentation helpers rewrite source context and build map links', (
   assert.match(mapUrl, new RegExp(String(sample.location.lng)))
   assert.equal(nearbyCandidateCenterLabel({ ...sample, centerId: 'new-student-street' }), '新区学生街')
   assert.equal(nearbyCandidateCenterLabel({ ...sample, centerId: 'old-student-street' }), '旧区学生街')
-  assert.equal(nearbyCandidateDistanceLabel({ ...sample, distanceMeters: 13.4 }), '距参考位置约 13 米')
-  assert.equal(nearbyCandidateDistanceLabel({ ...sample, distanceMeters: -1 }), '距参考位置约 0 米')
+  assert.equal(nearbyCandidateDistanceLabel({ ...sample, distanceMeters: 13.4 }), '离新区学生街参考点约 13 米')
+  assert.equal(
+    nearbyCandidateDistanceLabel({ ...sample, centerId: 'old-student-street', distanceMeters: -1 }),
+    '离旧区学生街参考点约 0 米'
+  )
   assert.equal(nearbyCandidateHint(sample), nearbyCategoryHints[sample.category])
   assert.ok(nearbyCandidateHint(sample).length > 8)
   assert.equal(nearbyUsageTips.length, 4)
