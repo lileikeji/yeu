@@ -84,10 +84,10 @@ export const nearbyVerificationChecklist = [
 ] as const
 
 export const nearbyUsageTips = [
-  { title: '吃饭', text: '出发前看看营业时间和路线，到店后以现场为准。', icon: 'i-lucide-utensils' },
-  { title: '取快递', text: '实际站点以短信、取件码和现场牌子为准。', icon: 'i-lucide-package-check' },
-  { title: '买日用品', text: '开学季库存变化快，急需物品可以先电话询问。', icon: 'i-lucide-shopping-basket' },
-  { title: '维修和电信', text: '先问清服务项目、价格和是否需要证件。', icon: 'i-lucide-wrench' }
+  { title: '吃饭', text: '出发前看看营业时间和路线，到店后以现场为准。', icon: 'i-lucide-utensils', category: 'food' },
+  { title: '取快递', text: '实际站点以短信、取件码和现场牌子为准。', icon: 'i-lucide-package-check', category: 'express' },
+  { title: '买日用品', text: '开学季库存变化快，急需物品可以先电话询问。', icon: 'i-lucide-shopping-basket', category: 'shopping' },
+  { title: '维修和电信', text: '先问清服务项目、价格和是否需要证件。', icon: 'i-lucide-wrench', category: 'service' }
 ] as const
 
 export function nearbySourceIsClickable(source: { status?: string }): boolean {

@@ -52,6 +52,9 @@ test('nearby page keeps map wiring and student-facing travel copy', () => {
   assert.match(pageSource, /这些地点从哪里整理/)
   assert.match(pageSource, /verificationChecklist/)
   assert.match(pageSource, /usageTips/)
+  assert.match(pageSource, /selectNearbyNeed\(tip\.category\)/)
+  assert.match(pageSource, /id="nearby-results"/)
+  assert.match(pageSource, /查看\$\{tip\.title\}地点/)
   assert.match(pageSource, /clearNearbyFilters/)
   assert.match(pageSource, /candidateHint\(candidate\)/)
   assert.match(pageSource, /buildNearbyCandidatePreview/)
@@ -116,6 +119,15 @@ test('nearby presentation helpers rewrite source context and build map links', (
   assert.ok(nearbyCandidateHint(sample).length > 8)
   assert.equal(nearbyUsageTips.length, 4)
   assert.ok(nearbyUsageTips.every(item => item.icon.startsWith('i-lucide-')))
+  assert.deepEqual(
+    nearbyUsageTips.map(item => [item.title, item.category]),
+    [
+      ['吃饭', 'food'],
+      ['取快递', 'express'],
+      ['买日用品', 'shopping'],
+      ['维修和电信', 'service']
+    ]
+  )
   assert.equal(nearbyVerificationChecklist.length, 4)
   assert.equal(nearbyCategoryLabels.food, '餐饮')
 })

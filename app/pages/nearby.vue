@@ -74,6 +74,16 @@ function clearNearbyFilters(): void {
   searchQuery.value = ''
   activeCategory.value = 'all'
 }
+
+async function selectNearbyNeed(category: string): Promise<void> {
+  searchQuery.value = ''
+  activeCategory.value = category
+  await nextTick()
+  document.getElementById('nearby-results')?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'start'
+  })
+}
 </script>
 
 <template>
@@ -226,18 +236,28 @@ function clearNearbyFilters(): void {
           <li
             v-for="tip in usageTips"
             :key="tip.title"
-            class="flex items-start gap-3 rounded-md border border-[var(--line)] bg-white p-4"
           >
-            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+            <button
+              type="button"
+              class="group flex min-h-24 w-full items-start gap-3 rounded-md border border-[var(--line)] bg-white p-4 text-left transition hover:border-green-300 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              :aria-label="`查看${tip.title}地点`"
+              @click="selectNearbyNeed(tip.category)"
+            >
+              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+                <UIcon
+                  :name="tip.icon"
+                  class="size-4.5"
+                />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="font-bold text-zinc-950">{{ tip.title }}</span>
+                <span class="mt-1 block text-sm leading-6 text-zinc-600">{{ tip.text }}</span>
+              </span>
               <UIcon
-                :name="tip.icon"
-                class="size-4.5"
+                name="i-lucide-arrow-right"
+                class="mt-2 size-4 shrink-0 text-zinc-400 transition group-hover:translate-x-0.5 group-hover:text-green-700"
               />
-            </span>
-            <span>
-              <span class="font-bold text-zinc-950">{{ tip.title }}</span>
-              <span class="mt-1 block text-sm leading-6 text-zinc-600">{{ tip.text }}</span>
-            </span>
+            </button>
           </li>
         </ul>
       </section>
@@ -294,7 +314,8 @@ function clearNearbyFilters(): void {
 
       <section
         v-if="filteredCandidates.length || !candidateFilterActive"
-        class="mt-10 border-t border-zinc-200 pt-8"
+        id="nearby-results"
+        class="mt-10 scroll-mt-20 border-t border-zinc-200 pt-8"
       >
         <div>
           <h2 class="text-lg font-bold text-zinc-950">
