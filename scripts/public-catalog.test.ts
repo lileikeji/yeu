@@ -209,6 +209,10 @@ test('guide copy hides maintainer language from student pages', () => {
     '地图目前只显示一个“创业园”地点；到达后请按现场标识确认 A、B 区入口。'
   )
   assert.equal(
+    studentFacingGuideText('近期公开笔记提供普通型宿舍图片和视频线索，并描述上床下桌、空调、风扇和公共卫浴隔间等情况。'),
+    '近期有学生分享普通型宿舍的图片和视频，并介绍了上床下桌、空调、风扇和公共卫浴隔间等情况。'
+  )
+  assert.equal(
     studentFacingGuideText('查看地点的数据状态、来源和最后核验日期。'),
     '查看地点是否已经确认、参考来源和最后更新时间。'
   )
