@@ -331,7 +331,7 @@ function resetForm() {
               提交即表示你已阅读
               <NuxtLink
                 to="/privacy"
-                class="font-medium text-green-700 hover:underline"
+                class="-mx-1 inline-flex min-h-10 items-center px-1 align-middle font-medium text-green-700 hover:underline"
               >隐私说明</NuxtLink>。
             </p>
             <UButton

@@ -48,6 +48,10 @@ test('feedback short fields keep a comfortable mobile touch height', () => {
   assert.equal((pageSource.match(/:ui="\{ base: 'min-h-11' \}"/g) || []).length, 2)
 })
 
+test('feedback privacy link keeps a comfortable mobile touch target', () => {
+  assert.match(pageSource, /class="-mx-1 inline-flex min-h-10 items-center px-1 align-middle font-medium text-green-700 hover:underline"/)
+})
+
 test('feedback target resolution requires typed target and uuid', () => {
   const uuid = '33333333-3333-4333-8333-333333333331'
   assert.equal(feedbackRouteQueryString(['place']), 'place')
