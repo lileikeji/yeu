@@ -730,7 +730,7 @@ onBeforeUnmount(() => {
       </div>
 
       <MapOfficialCampusPlan
-        v-if="mapViewMode === 'official-plan'"
+        v-show="mapViewMode === 'official-plan'"
         :selected-map-number="selectedOfficialPlanNumber(selectedPoi)"
         :selected-reference-label="selectedPoi?.referenceLabel"
         :selected-place-name="selectedPoi?.name"
