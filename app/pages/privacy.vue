@@ -76,7 +76,7 @@ useSeoMeta({
 
       <div class="mt-10 flex flex-wrap gap-2 border-t border-zinc-200 pt-6">
         <UButton
-          to="/feedback"
+          to="/feedback?type=privacy_request&from=%2Fprivacy"
           icon="i-lucide-message-square"
           label="询问或申请删除信息"
           class="min-h-11"

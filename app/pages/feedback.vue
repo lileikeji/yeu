@@ -7,6 +7,7 @@ import {
   createEmptyFeedbackFormState,
   feedbackMessageNeedsMoreDetail,
   feedbackReasonOptions,
+  resolveFeedbackFormCopy,
   resolveFeedbackReasonType,
   resolveFeedbackTargetDisplayName,
   resolveFeedbackTargetIcon,
@@ -17,15 +18,18 @@ import {
   feedbackRouteQueryString
 } from '~~/app/utils/feedback-presentation'
 
-useSeoMeta({
-  title: '反馈信息',
-  description: '告诉我们校园地点、办事步骤或指南内容哪里不对，也可以提供更准确的学校通知。',
-  robots: 'noindex, nofollow'
-})
-
 const route = useRoute()
 const toast = useToast()
 const reasonOptions = feedbackReasonOptions
+const initialReasonType = computed(() => resolveFeedbackReasonType(route.query.type))
+const formCopy = computed(() => resolveFeedbackFormCopy(initialReasonType.value))
+const isPrivacyRequest = computed(() => initialReasonType.value === 'privacy_request')
+
+useSeoMeta({
+  title: () => formCopy.value.metaTitle,
+  description: () => formCopy.value.metaDescription,
+  robots: 'noindex, nofollow'
+})
 
 const requestedTargetType = computed(() => feedbackRouteQueryString(route.query.targetType).trim())
 const requestedTargetId = computed(() => feedbackRouteQueryString(route.query.targetId).trim())
@@ -46,7 +50,6 @@ const targetDisplayName = computed(() => resolveFeedbackTargetDisplayName(
 ))
 const pageUrl = computed(() => safeLocalPath(route.query.from))
 
-const initialReasonType = computed(() => resolveFeedbackReasonType(route.query.type))
 const reasonType = ref(initialReasonType.value)
 const message = ref('')
 const evidenceUrl = ref('')
@@ -104,13 +107,13 @@ function resetForm() {
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
-          一起完善指南
+          {{ formCopy.kicker }}
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          发现信息不对？告诉我们
+          {{ formCopy.title }}
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          地点搬了、营业时间变了、通知过期了，或者你有更准确的学校通知，都可以在这里告诉我们。
+          {{ formCopy.description }}
         </p>
       </div>
     </header>
@@ -129,10 +132,10 @@ function resetForm() {
             />
           </span>
           <h2 class="mt-4 text-lg font-bold text-green-950">
-            已经收到你的反馈
+            {{ formCopy.successTitle }}
           </h2>
           <p class="mt-2 text-sm leading-6 text-green-800">
-            我们会先看清来源和日期，确认后再更新。相同问题不用重复提交。
+            {{ formCopy.successDescription }}
           </p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <UButton
@@ -156,38 +159,63 @@ function resetForm() {
           @submit.prevent="submitFeedback"
         >
           <div
-            v-if="targetType !== 'general' || pageUrl"
+            v-if="isPrivacyRequest || targetType !== 'general' || pageUrl"
             class="flex items-start gap-3 border-l-2 border-green-600 bg-green-50 px-4 py-3"
             role="status"
           >
             <UIcon
-              :name="targetIcon"
+              :name="isPrivacyRequest ? 'i-lucide-shield-check' : targetIcon"
               class="mt-0.5 size-4 shrink-0 text-green-700"
             />
             <div class="min-w-0">
-              <p class="text-xs font-medium text-green-800">
-                正在反馈：{{ targetLabel }}
-              </p>
-              <p class="mt-0.5 break-words text-sm font-bold text-green-950">
-                {{ targetDisplayName }}
-              </p>
-              <template v-if="pageUrl">
-                <p class="mt-2 text-xs font-medium text-green-800">
-                  来自页面
+              <template v-if="isPrivacyRequest">
+                <p class="text-xs font-medium text-green-800">
+                  申请内容
                 </p>
-                <p class="mt-0.5 break-all text-xs text-green-900">
-                  {{ pageUrl }}
+                <p class="mt-0.5 text-sm font-bold text-green-950">
+                  查询或删除自己的信息
                 </p>
+                <p
+                  v-if="pageUrl"
+                  class="mt-2 text-xs text-green-900"
+                >
+                  从“隐私说明”进入
+                </p>
+              </template>
+              <template v-else>
+                <p class="text-xs font-medium text-green-800">
+                  正在反馈：{{ targetLabel }}
+                </p>
+                <p class="mt-0.5 break-words text-sm font-bold text-green-950">
+                  {{ targetDisplayName }}
+                </p>
+                <template v-if="pageUrl">
+                  <p class="mt-2 text-xs font-medium text-green-800">
+                    来自页面
+                  </p>
+                  <p class="mt-0.5 break-all text-xs text-green-900">
+                    {{ pageUrl }}
+                  </p>
+                </template>
               </template>
             </div>
           </div>
 
           <div>
             <label
+              v-if="!isPrivacyRequest"
               for="feedback-reason"
               class="text-sm font-semibold text-zinc-900"
-            >哪里需要修改</label>
+            >{{ formCopy.reasonLabel }}</label>
+            <p
+              v-else
+              id="feedback-reason-label"
+              class="text-sm font-semibold text-zinc-900"
+            >
+              {{ formCopy.reasonLabel }}
+            </p>
             <select
+              v-if="!isPrivacyRequest"
               id="feedback-reason"
               v-model="reasonType"
               class="mt-2 min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
@@ -200,22 +228,34 @@ function resetForm() {
                 {{ option.label }}
               </option>
             </select>
+            <div
+              v-else
+              id="feedback-reason"
+              aria-labelledby="feedback-reason-label"
+              class="mt-2 flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-900"
+            >
+              <UIcon
+                name="i-lucide-shield-check"
+                class="size-4 shrink-0 text-green-700"
+              />
+              查询或删除我的信息
+            </div>
           </div>
 
           <div>
             <label
               for="feedback-message"
               class="text-sm font-semibold text-zinc-900"
-            >具体情况 <span class="text-red-600">*</span></label>
+            >{{ formCopy.messageLabel }} <span class="text-red-600">*</span></label>
             <p class="mt-1 text-xs leading-5 text-zinc-500">
-              请写清哪个地点或页面、哪里不对，以及正确情况。至少写 5 个字。
+              {{ formCopy.messageHint }}
             </p>
             <UTextarea
               id="feedback-message"
               v-model="message"
               :rows="7"
               class="mt-2 w-full"
-              placeholder="例如：某地点已经搬迁，现场标牌显示……"
+              :placeholder="formCopy.messagePlaceholder"
               :maxlength="4000"
               required
               :aria-invalid="messageNeedsMoreDetail ? 'true' : undefined"
@@ -256,7 +296,7 @@ function resetForm() {
               <label
                 for="feedback-contact"
                 class="text-sm font-semibold text-zinc-900"
-              >怎么联系你（选填）</label>
+              >{{ formCopy.contactLabel }}</label>
               <UInput
                 id="feedback-contact"
                 v-model="contact"
@@ -264,7 +304,7 @@ function resetForm() {
                 class="mt-2 min-h-11 w-full"
                 :ui="{ base: 'min-h-11' }"
                 icon="i-lucide-at-sign"
-                placeholder="不填也可以，仅用于追问这次反馈"
+                :placeholder="formCopy.contactPlaceholder"
                 :maxlength="300"
               />
             </div>
@@ -296,7 +336,7 @@ function resetForm() {
             <UButton
               type="submit"
               icon="i-lucide-send"
-              label="提交反馈"
+              :label="formCopy.submitLabel"
               size="lg"
               class="min-h-11 shrink-0"
               :loading="submitting"
@@ -309,20 +349,16 @@ function resetForm() {
       <aside class="order-first min-w-0 md:order-none">
         <div class="border-y border-zinc-200 bg-white px-4 py-4 md:sticky md:top-24">
           <h2 class="text-sm font-bold text-zinc-950">
-            写清楚这三点
+            {{ formCopy.sidebarTitle }}
           </h2>
           <ol class="mt-4 space-y-4">
-            <li class="flex gap-3 text-xs leading-5 text-zinc-600">
-              <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">1</span>
-              哪一个地点、页面或办事步骤
-            </li>
-            <li class="flex gap-3 text-xs leading-5 text-zinc-600">
-              <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">2</span>
-              现在看到的内容哪里不对
-            </li>
-            <li class="flex gap-3 text-xs leading-5 text-zinc-600">
-              <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">3</span>
-              正确情况和可以核对的链接
+            <li
+              v-for="(item, index) in formCopy.sidebarItems"
+              :key="item"
+              class="flex gap-3 text-xs leading-5 text-zinc-600"
+            >
+              <span class="grid size-5 shrink-0 place-items-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">{{ index + 1 }}</span>
+              {{ item }}
             </li>
           </ol>
         </div>

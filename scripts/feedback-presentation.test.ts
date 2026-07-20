@@ -6,11 +6,14 @@ import {
   buildFeedbackSubmitBody,
   canSubmitFeedback,
   createEmptyFeedbackFormState,
+  feedbackDefaultFormCopy,
   feedbackMessageNeedsMoreDetail,
+  feedbackPrivacyRequestFormCopy,
   feedbackReasonOptions,
   feedbackTargetIcons,
   feedbackTargetLabels,
   resolveFeedbackReasonType,
+  resolveFeedbackFormCopy,
   resolveFeedbackTargetDisplayName,
   resolveFeedbackTargetIcon,
   resolveFeedbackTargetId,
@@ -33,8 +36,10 @@ test('feedback page is a thin shell over feedback-presentation util', () => {
   assert.doesNotMatch(pageSource, /const reasonOptions = \[/)
   assert.match(utilSource, /export function resolveFeedbackTargetType/)
   assert.match(utilSource, /export function buildFeedbackSubmitBody/)
-  assert.match(pageSource, /发现信息不对？告诉我们/)
-  assert.match(pageSource, /写清楚这三点/)
+  assert.match(pageSource, /formCopy\.title/)
+  assert.match(pageSource, /formCopy\.sidebarTitle/)
+  assert.match(utilSource, /发现信息不对？告诉我们/)
+  assert.match(utilSource, /写清楚这三点/)
   assert.doesNotMatch(pageSource, /确认顺序|交叉核对|待处理列表|发布到前台/)
 })
 
@@ -63,10 +68,14 @@ test('feedback target resolution requires typed target and uuid', () => {
 })
 
 test('feedback reason defaults and submit body normalize empty optional fields', () => {
-  assert.equal(feedbackReasonOptions.length, 6)
+  assert.equal(feedbackReasonOptions.length, 7)
   assert.equal(feedbackReasonOptions[0]?.label, '地点名称或位置不对')
   assert.equal(feedbackReasonOptions[4]?.label, '提供更准确的链接')
+  assert.ok(feedbackReasonOptions.some(option =>
+    option.value === 'privacy_request' && option.label === '查询或删除我的信息'
+  ))
   assert.equal(resolveFeedbackReasonType('procedure_error'), 'procedure_error')
+  assert.equal(resolveFeedbackReasonType('privacy_request'), 'privacy_request')
   assert.equal(resolveFeedbackReasonType('unknown'), 'other')
   assert.equal(canSubmitFeedback('1234', false), false)
   assert.equal(canSubmitFeedback('12345', false), true)
@@ -98,8 +107,26 @@ test('feedback reason defaults and submit body normalize empty optional fields',
 })
 
 test('feedback form explains the short-message requirement in plain language', () => {
-  assert.match(pageSource, /至少写 5 个字/)
+  assert.match(utilSource, /至少写 5 个字/)
   assert.match(pageSource, /还需要再写一点才能提交。/)
   assert.match(pageSource, /messageNeedsMoreDetail/)
   assert.match(pageSource, /createEmptyFeedbackFormState\(initialReasonType\.value\)/)
+})
+
+test('privacy requests get a dedicated, plain-language form', () => {
+  assert.equal(resolveFeedbackFormCopy('other'), feedbackDefaultFormCopy)
+  assert.equal(resolveFeedbackFormCopy('privacy_request'), feedbackPrivacyRequestFormCopy)
+  assert.equal(feedbackPrivacyRequestFormCopy.title, '查询或删除自己的信息')
+  assert.equal(feedbackPrivacyRequestFormCopy.reasonLabel, '这次申请')
+  assert.equal(feedbackPrivacyRequestFormCopy.submitLabel, '提交申请')
+  assert.match(feedbackPrivacyRequestFormCopy.messageHint, /想查询还是删除/)
+  assert.match(feedbackPrivacyRequestFormCopy.description, /不要填写密码、证件号码或完整网络地址/)
+  assert.match(pageSource, /isPrivacyRequest/)
+  assert.match(pageSource, /formCopy\.messagePlaceholder/)
+  assert.match(pageSource, /formCopy\.contactPlaceholder/)
+  assert.match(pageSource, /formCopy\.successTitle/)
+  assert.match(pageSource, /aria-labelledby="feedback-reason-label"/)
+  assert.match(pageSource, />\s*申请内容\s*</)
+  assert.match(pageSource, /从“隐私说明”进入/)
+  assert.doesNotMatch(feedbackPrivacyRequestFormCopy.description, /反馈对象|目标类型|请求类型/)
 })

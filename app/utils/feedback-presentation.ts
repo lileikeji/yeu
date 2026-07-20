@@ -8,10 +8,82 @@ export const feedbackReasonOptions = [
   { label: '办事步骤或材料不对', value: 'procedure_error' },
   { label: '还缺少重要信息', value: 'missing_information' },
   { label: '提供更准确的链接', value: 'source_suggestion' },
+  { label: '查询或删除我的信息', value: 'privacy_request' },
   { label: '其他问题', value: 'other' }
 ] as const
 
 export type FeedbackReasonValue = (typeof feedbackReasonOptions)[number]['value']
+
+export interface FeedbackFormCopy {
+  metaTitle: string
+  metaDescription: string
+  kicker: string
+  title: string
+  description: string
+  reasonLabel: string
+  messageLabel: string
+  messageHint: string
+  messagePlaceholder: string
+  contactLabel: string
+  contactPlaceholder: string
+  submitLabel: string
+  successTitle: string
+  successDescription: string
+  sidebarTitle: string
+  sidebarItems: [string, string, string]
+}
+
+export const feedbackDefaultFormCopy: FeedbackFormCopy = {
+  metaTitle: '反馈信息',
+  metaDescription: '告诉我们校园地点、办事步骤或指南内容哪里不对，也可以提供更准确的学校通知。',
+  kicker: '一起完善指南',
+  title: '发现信息不对？告诉我们',
+  description: '地点搬了、营业时间变了、通知过期了，或者你有更准确的学校通知，都可以在这里告诉我们。',
+  reasonLabel: '哪里需要修改',
+  messageLabel: '具体情况',
+  messageHint: '请写清哪个地点或页面、哪里不对，以及正确情况。至少写 5 个字。',
+  messagePlaceholder: '例如：某地点已经搬迁，现场标牌显示……',
+  contactLabel: '怎么联系你（选填）',
+  contactPlaceholder: '不填也可以，仅用于追问这次反馈',
+  submitLabel: '提交反馈',
+  successTitle: '已经收到你的反馈',
+  successDescription: '我们会先看清来源和日期，确认后再更新。相同问题不用重复提交。',
+  sidebarTitle: '写清楚这三点',
+  sidebarItems: [
+    '哪一个地点、页面或办事步骤',
+    '现在看到的内容哪里不对',
+    '正确情况和可以核对的链接'
+  ]
+}
+
+export const feedbackPrivacyRequestFormCopy: FeedbackFormCopy = {
+  metaTitle: '查询或删除自己的信息',
+  metaDescription: '申请查询或删除你在本站留下的信息，并了解需要提供哪些核对线索。',
+  kicker: '信息查询与删除',
+  title: '查询或删除自己的信息',
+  description: '请说明你想查询或删除哪类信息，以及大约什么时候留下的。不要填写密码、证件号码或完整网络地址。',
+  reasonLabel: '这次申请',
+  messageLabel: '需要处理的信息',
+  messageHint: '请写明想查询还是删除、涉及的页面或聊天，以及大致时间。至少写 5 个字。',
+  messagePlaceholder: '例如：我想删除 7 月 18 日在公共群发送的一条消息……',
+  contactLabel: '方便回复你的方式（建议填写）',
+  contactPlaceholder: '例如邮箱，仅用于回复这次申请',
+  submitLabel: '提交申请',
+  successTitle: '已经收到你的申请',
+  successDescription: '我们会先核对对应信息，再按你填写的联系方式回复处理情况。',
+  sidebarTitle: '请写清这三点',
+  sidebarItems: [
+    '想查询还是删除信息',
+    '涉及哪个页面、反馈或聊天',
+    '大约使用或提交的时间'
+  ]
+}
+
+export function resolveFeedbackFormCopy(reasonType: FeedbackReasonValue): FeedbackFormCopy {
+  return reasonType === 'privacy_request'
+    ? feedbackPrivacyRequestFormCopy
+    : feedbackDefaultFormCopy
+}
 
 export const feedbackTargetLabels = {
   place: '地点',

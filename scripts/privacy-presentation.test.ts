@@ -19,6 +19,7 @@ test('privacy page is a thin shell over privacy-presentation util', () => {
 
 test('privacy actions keep a comfortable mobile touch height', () => {
   assert.equal((pageSource.match(/class="min-h-11"/g) || []).length, 2)
+  assert.match(pageSource, /to="\/feedback\?type=privacy_request&from=%2Fprivacy"/)
 })
 
 test('privacy sections stay student-facing', () => {
