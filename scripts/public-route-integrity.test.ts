@@ -428,8 +428,9 @@ test('offline page is a thin shell over offline presentation', () => {
   assert.match(presentation, /export const offlineBoundaries/)
   assert.match(presentation, /export const offlineStaticEntries/)
   assert.match(presentation, /export function resolveOfflineStatus/)
-  assert.match(presentation, /重要信息不要只看旧页面/)
-  assert.match(presentation, /现在仍然没有网络/)
+  assert.match(presentation, /报到安排要重新确认/)
+  assert.match(presentation, /还没有连上网络/)
+  assert.doesNotMatch(presentation, /地图瓦片|旧缓存/)
 })
 
 test('checklist page is a thin shell over checklist presentation', () => {
