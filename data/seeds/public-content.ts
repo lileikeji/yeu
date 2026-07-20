@@ -468,7 +468,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'partial',
     statusText: '报到日期已确认，地点材料待通知',
     updatedAt: accessedAt,
-    leadNotice: '学校2026-2027学年第一学期校历已确认新生于9月5至6日注册报到；具体到校时段、报到校区或点位、材料清单和接站安排仍以录取通知书及招生网后续公告为准。',
+    leadNotice: '学校2026-2027学年第一学期校历已确认新生于9月5至6日注册报到；具体到校时段、报到校区或报到地点、材料清单和接站安排仍以录取通知书及招生网后续公告为准。',
     sections: [
       {
         title: '现在可以确认',

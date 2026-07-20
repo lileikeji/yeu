@@ -67,7 +67,7 @@ export const procedureSeeds: ProcedureSeed[] = [
     audience: [...allFreshmen],
     method: 'mixed',
     informationState: 'partial',
-    statusText: '报到日期已确认，个人时段、材料、点位和接站待通知',
+    statusText: '报到日期已确认，个人时段、材料、报到地点和接站待通知',
     processingTime: null,
     deadlineText: '2026年9月5日至6日；个人日期和时段以录取通知书及学校后续通知为准。',
     startsAt: '2026-09-05T00:00:00+08:00',
@@ -133,7 +133,7 @@ export const procedureSeeds: ProcedureSeed[] = [
       {
         id: '78c98a4f-61b6-4890-8944-76917f66dfd1',
         title: '确认入校与接站安排',
-        description: '学校公开校址为福建省泉州市洛江区马甲镇仰恩大学，邮编362014；具体报到点、入校路线和接站安排待通知，在明确点位前不提供报到点导航。',
+        description: '学校公开校址为福建省泉州市洛江区马甲镇仰恩大学，邮编362014；具体报到点、入校路线和接站安排待通知，在明确报到地点前不提供报到点导航。',
         audience: [...allFreshmen],
         informationState: 'awaiting-notice',
         timeText: '待学校通知',

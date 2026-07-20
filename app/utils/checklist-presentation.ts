@@ -118,7 +118,7 @@ export const checklistItems: ChecklistItem[] = [
     id: 'confirm-report-date',
     stageId: 'before-arrival',
     title: '确认报到日期与个人时段',
-    description: '2026 级注册报到日为 9 月 5–6 日；个人时段、窗口和点位仍以通知书与学校后续通知为准。',
+    description: '2026 级注册报到日为 9 月 5–6 日；个人时段、窗口和报到地点仍以通知书与学校后续通知为准。',
     to: '/procedures/arrival',
     icon: 'i-lucide-calendar-days',
     audience: [...allFreshmen],
