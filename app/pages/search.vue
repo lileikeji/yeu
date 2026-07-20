@@ -318,7 +318,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               “{{ activeQuery }}”的结果
             </p>
             <h2 class="mt-1 text-lg font-bold text-zinc-950">
-              找到 {{ results.length }} 项
+              {{ results.length > 0 ? `找到 ${results.length} 项` : '没有找到相关内容' }}
             </h2>
           </div>
           <UButton
@@ -469,7 +469,7 @@ watch([activeQuery, activeType], ([query, type]) => {
             class="mx-auto size-7 text-zinc-400"
           />
           <p class="mt-3 text-sm font-semibold text-zinc-800">
-            暂时没找到相关内容
+            换个关键词再试试
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
             可以试试正式名称、常用简称，或直接写你想办的事。

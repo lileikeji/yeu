@@ -661,28 +661,49 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
     searchError: '',
     resultCount: 0,
     groupCount: 0
-  }), '请输入关键词开始搜索。')
-  assert.match(buildSearchAnnouncement({
+  }), '输入关键词后，就能查找地点、办事、部门和社团。')
+  assert.equal(buildSearchAnnouncement({
     query: '图书馆',
     searching: true,
     searchError: '',
     resultCount: 0,
     groupCount: 0
-  }), /正在搜索/)
-  assert.match(buildSearchAnnouncement({
+  }), '正在查找“图书馆”……')
+  assert.equal(buildSearchAnnouncement({
     query: '图书馆',
     searching: false,
     searchError: 'err',
     resultCount: 2,
     groupCount: 1
-  }), /部分内容暂时没加载出来/)
-  assert.match(buildSearchAnnouncement({
+  }), '有些内容暂时没显示出来，先为你找到 2 项。')
+  assert.equal(buildSearchAnnouncement({
+    query: '图书馆',
+    searching: false,
+    searchError: 'err',
+    resultCount: 0,
+    groupCount: 0
+  }), '有些内容暂时没显示出来，请稍后再试。')
+  assert.equal(buildSearchAnnouncement({
+    query: '不存在的地点',
+    searching: false,
+    searchError: '',
+    resultCount: 0,
+    groupCount: 0
+  }), '没有找到“不存在的地点”相关内容。可以换个名称，或直接写想办的事。')
+  assert.equal(buildSearchAnnouncement({
+    query: '图书馆',
+    searching: false,
+    searchError: '',
+    resultCount: 2,
+    groupCount: 1
+  }), '找到 2 项相关内容。')
+  assert.equal(buildSearchAnnouncement({
     query: '图书馆',
     searching: false,
     searchError: '',
     resultCount: 3,
     groupCount: 2
-  }), /搜索完成/)
+  }), '找到 3 项相关内容，已按类别整理。')
 })
 
 test('search result groups follow the freshman intent behind broad and specific queries', () => {

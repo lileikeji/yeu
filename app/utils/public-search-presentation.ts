@@ -508,8 +508,17 @@ export function buildSearchAnnouncement(input: {
   resultCount: number
   groupCount: number
 }): string {
-  if (!input.query) return '请输入关键词开始搜索。'
-  if (input.searching) return `正在搜索“${input.query}”。`
-  if (input.searchError) return `部分内容暂时没加载出来，当前显示 ${input.resultCount} 项结果。`
-  return `搜索完成，当前显示 ${input.resultCount} 项匹配结果，分为 ${input.groupCount} 组。`
+  if (!input.query) return '输入关键词后，就能查找地点、办事、部门和社团。'
+  if (input.searching) return `正在查找“${input.query}”……`
+  if (input.searchError) {
+    return input.resultCount > 0
+      ? `有些内容暂时没显示出来，先为你找到 ${input.resultCount} 项。`
+      : '有些内容暂时没显示出来，请稍后再试。'
+  }
+  if (input.resultCount === 0) {
+    return `没有找到“${input.query}”相关内容。可以换个名称，或直接写想办的事。`
+  }
+  return input.groupCount > 1
+    ? `找到 ${input.resultCount} 项相关内容，已按类别整理。`
+    : `找到 ${input.resultCount} 项相关内容。`
 }
