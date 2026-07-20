@@ -103,7 +103,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
 </script>
 
 <template>
-  <div>
+  <div class="overflow-x-clip">
     <ClientOnly>
       <IntroOverlay
         v-if="showIntro"

@@ -171,6 +171,7 @@ test('home page and docs expose the expanded procedure catalog instead of only a
   const homeSource = readFileSync(resolve('app/pages/index.vue'), 'utf8')
   const homePresentation = readFileSync(resolve('app/utils/home-presentation.ts'), 'utf8')
   assert.match(homeSource, /const procedureRequest = usePublicProcedureList\(\)/)
+  assert.match(homeSource, /<div class="overflow-x-clip">/)
   assert.match(homeSource, /featuredProcedures/)
   assert.match(homeSource, /buildHomeFeaturedProcedures/)
   assert.match(homeSource, /先做这四件事/)
