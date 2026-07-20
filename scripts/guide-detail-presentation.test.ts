@@ -33,6 +33,7 @@ test('guide detail page is a thin shell over guide-detail-presentation util', ()
 
 test('long guide pages expose every section in a compact mobile jump menu', () => {
   assert.match(pageSource, /<details[\s\S]*v-if="guide\.sections\.length > 1"/)
+  assert.match(pageSource, /id="guide-contents"/)
   assert.match(pageSource, /<summary[\s\S]*快速跳到/)
   assert.match(pageSource, /共 \{\{ guide\.sections\.length \}\} 个部分/)
   assert.match(pageSource, /class="grid grid-cols-2[^"]*sm:grid-cols-3"/)
@@ -40,6 +41,21 @@ test('long guide pages expose every section in a compact mobile jump menu', () =
   assert.match(pageSource, /:href="`#guide-section-\$\{index\}`"/)
   assert.match(pageSource, /class="inline-flex min-h-11/)
   assert.doesNotMatch(pageSource, /scrollbar-none mt-5 flex gap-2 overflow-x-auto/)
+})
+
+test('long guide pages offer a mobile return to contents without covering the sources', () => {
+  assert.match(pageSource, /guide\.value\.sections\.length < 5/)
+  assert.match(pageSource, /sourceOverlapsShortcut/)
+  assert.match(pageSource, /!sourceDetails\?\.open/)
+  assert.match(pageSource, /mobileNav\?\.getBoundingClientRect\(\)\.height \|\| 72/)
+  assert.match(pageSource, /@toggle\.capture="updateContentsShortcut"/)
+  assert.match(pageSource, /ref="sourceArea"[\s\S]*<PublicSourceDetails[\s\S]*label="返回全部指南"/)
+  assert.match(pageSource, /aria-label="返回本页目录"/)
+  assert.match(pageSource, /href="#guide-contents"/)
+  assert.match(pageSource, />\s*查看目录\s*</)
+  assert.match(pageSource, /md:hidden/)
+  assert.match(pageSource, /contentsDetails\.value\.open = true/)
+  assert.match(pageSource, /window\.removeEventListener\('scroll', updateContentsShortcut\)/)
 })
 
 test('guide related actions map known slugs and fall back to the guides index', () => {

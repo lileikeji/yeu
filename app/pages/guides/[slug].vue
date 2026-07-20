@@ -66,6 +66,60 @@ const detailSources = computed(() => buildGuideDetailSources(
   guide.value.sources,
   guide.value.sections
 ))
+
+const contentsDetails = ref<HTMLDetailsElement | null>(null)
+const sourceArea = ref<HTMLElement | null>(null)
+const showContentsShortcut = ref(false)
+let contentsShortcutFrame = 0
+
+function updateContentsShortcut() {
+  if (contentsShortcutFrame) return
+
+  contentsShortcutFrame = window.requestAnimationFrame(() => {
+    contentsShortcutFrame = 0
+    const contents = contentsDetails.value
+    const source = sourceArea.value
+
+    if (!contents || !source || guide.value.sections.length < 5) {
+      showContentsShortcut.value = false
+      return
+    }
+
+    const contentsRect = contents.getBoundingClientRect()
+    const sourceRect = source.getBoundingClientRect()
+    const sourceDetails = source.querySelector('details')
+    const mobileNav = document.querySelector<HTMLElement>('[aria-label="移动端主导航"]')
+    const mobileNavHeight = mobileNav?.getBoundingClientRect().height || 72
+    const shortcutBottom = window.innerHeight - mobileNavHeight - 12
+    const shortcutTop = shortcutBottom - 44
+    const sourceOverlapsShortcut = sourceRect.top < shortcutBottom
+      && sourceRect.bottom > shortcutTop
+
+    showContentsShortcut.value = contentsRect.bottom < 72
+      && !sourceDetails?.open
+      && !sourceOverlapsShortcut
+  })
+}
+
+function openContents() {
+  if (contentsDetails.value) {
+    contentsDetails.value.open = true
+  }
+}
+
+onMounted(() => {
+  updateContentsShortcut()
+  window.addEventListener('scroll', updateContentsShortcut, { passive: true })
+  window.addEventListener('resize', updateContentsShortcut, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', updateContentsShortcut)
+  window.removeEventListener('resize', updateContentsShortcut)
+  if (contentsShortcutFrame) {
+    window.cancelAnimationFrame(contentsShortcutFrame)
+  }
+})
 </script>
 
 <template>
@@ -165,6 +219,8 @@ const detailSources = computed(() => buildGuideDetailSources(
 
         <details
           v-if="guide.sections.length > 1"
+          id="guide-contents"
+          ref="contentsDetails"
           class="group mt-5 overflow-hidden rounded-md border border-zinc-200 bg-white"
         >
           <summary
@@ -252,30 +308,58 @@ const detailSources = computed(() => buildGuideDetailSources(
           </p>
         </section>
 
-        <PublicSourceDetails
-          :sources="detailSources"
-          :verified-at="guide.updatedAt"
-        />
+        <div
+          ref="sourceArea"
+          @toggle.capture="updateContentsShortcut"
+        >
+          <PublicSourceDetails
+            :sources="detailSources"
+            :verified-at="guide.updatedAt"
+          />
 
-        <div class="mt-6 flex flex-wrap gap-2">
-          <UButton
-            :to="feedbackLink"
-            icon="i-lucide-message-square-warning"
-            label="告诉我们哪里需要修改"
-            color="neutral"
-            variant="outline"
-            class="min-h-11"
-          />
-          <UButton
-            to="/guides"
-            icon="i-lucide-arrow-left"
-            label="返回全部指南"
-            color="neutral"
-            variant="ghost"
-            class="min-h-11"
-          />
+          <div class="mt-6 flex flex-wrap gap-2">
+            <UButton
+              :to="feedbackLink"
+              icon="i-lucide-message-square-warning"
+              label="告诉我们哪里需要修改"
+              color="neutral"
+              variant="outline"
+              class="min-h-11"
+            />
+            <UButton
+              to="/guides"
+              icon="i-lucide-arrow-left"
+              label="返回全部指南"
+              color="neutral"
+              variant="ghost"
+              class="min-h-11"
+            />
+          </div>
         </div>
       </article>
     </div>
+
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="translate-y-2 opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-2 opacity-0"
+    >
+      <a
+        v-if="showContentsShortcut"
+        href="#guide-contents"
+        class="fixed bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] right-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-800 shadow-lg shadow-zinc-950/10 hover:border-green-300 hover:text-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 md:hidden"
+        aria-label="返回本页目录"
+        @click="openContents"
+      >
+        <UIcon
+          name="i-lucide-list"
+          class="size-4 text-green-700"
+        />
+        查看目录
+      </a>
+    </Transition>
   </div>
 </template>
