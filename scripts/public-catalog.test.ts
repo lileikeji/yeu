@@ -144,6 +144,22 @@ test('owner map summaries do not repeat the location disclaimer', () => {
 
 test('guide copy hides maintainer language from student pages', () => {
   assert.equal(
+    studentFacingGuideText('首版展示字段'),
+    '现在可以查看'
+  )
+  assert.equal(
+    studentFacingGuideText('后续商业功能'),
+    '到店前先确认'
+  )
+  assert.equal(
+    studentFacingGuideText('首批交叉命中候选'),
+    '先参考这两个地点'
+  )
+  assert.equal(
+    studentFacingGuideText('公开美食笔记提到旧区“喜又”和新区二街“思念小馆”，两家名称均能在高德 POI 中命中，因此提升为优先实地核验对象。'),
+    '学生公开分享里提到旧区“喜又”和新区二街“思念小馆”，高德地图也能找到同名地点，可以先用于认路。'
+  )
+  assert.equal(
     studentFacingGuideText('专升本档案（2026已发布）'),
     '专升本档案（2026年说明）'
   )
@@ -204,6 +220,25 @@ test('guide copy hides maintainer language from student pages', () => {
     studentFacingGuideText('系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。'),
     /内部资料目录|前台|核验/
   )
+})
+
+test('nearby guide only exposes student-useful sections', () => {
+  const nearby = freshmanGuides.find(guide => guide.slug === 'nearby')
+  assert.ok(nearby)
+  const view = mergePublicGuides([nearby], [], true)[0]
+  assert.ok(view)
+  assert.deepEqual(view.sections.map(section => section.title), [
+    '现在可以查看',
+    '到店前先确认',
+    '先参考这两个地点'
+  ])
+  const publicCopy = JSON.stringify({
+    summary: view.summary,
+    leadNotice: view.leadNotice,
+    sections: view.sections
+  })
+  assert.doesNotMatch(publicCopy, /首版|展示字段|商业功能|交叉命中|高德 POI|门店控制权/)
+  assert.match(publicCopy, /避免白跑|出发前请再确认|只作为找店参考/)
 })
 
 test('published department copy also hides internal network wording', () => {
