@@ -102,6 +102,31 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
         <p class="mt-4 text-xs text-zinc-400">
           校园规模会随建设和统计时间变化，具体请以学校官网最新介绍为准。
         </p>
+        <nav
+          aria-label="校园概览快速入口"
+          class="mt-6 grid grid-cols-2 gap-2 sm:flex"
+        >
+          <a
+            href="#departments"
+            class="group flex min-h-11 items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-800 transition hover:border-green-300 hover:bg-green-50 hover:text-green-800"
+          >
+            <span>找常用部门</span>
+            <UIcon
+              name="i-lucide-arrow-down"
+              class="size-4 text-zinc-400 transition group-hover:text-green-700"
+            />
+          </a>
+          <a
+            href="#clubs"
+            class="group flex min-h-11 items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-800 transition hover:border-green-300 hover:bg-green-50 hover:text-green-800"
+          >
+            <span>看学生社团</span>
+            <UIcon
+              name="i-lucide-arrow-down"
+              class="size-4 text-zinc-400 transition group-hover:text-green-700"
+            />
+          </a>
+        </nav>
       </div>
     </section>
 

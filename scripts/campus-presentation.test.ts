@@ -99,3 +99,13 @@ test('campus overview keeps short, useful previews and links to complete lists',
   assert.match(pageSource, /to="\/departments"/)
   assert.match(pageSource, /to="\/clubs"/)
 })
+
+test('campus overview lets mobile visitors jump to departments and clubs', () => {
+  assert.match(pageSource, /aria-label="校园概览快速入口"/)
+  assert.match(pageSource, /href="#departments"/)
+  assert.match(pageSource, /href="#clubs"/)
+  assert.match(pageSource, /id="departments"[\s\S]*scroll-mt-20/)
+  assert.match(pageSource, /id="clubs"[\s\S]*scroll-mt-20/)
+  assert.match(pageSource, />找常用部门</)
+  assert.match(pageSource, />看学生社团</)
+})
