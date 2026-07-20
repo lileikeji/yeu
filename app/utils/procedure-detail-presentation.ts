@@ -47,6 +47,7 @@ export function studentFacingProcedureText(value: string): string {
     .replace(/账号、认证、网络故障/g, '账号登录、网络故障')
     .replace(/系统不公开或猜测个人账号初始密码/g, '这里不会提供或猜测个人账号初始密码')
     .replace(/设备系统/g, '手机或电脑的系统版本')
+    .replace(/点位/g, '报到地点')
     .replace(/核验/g, '确认')
 }
 

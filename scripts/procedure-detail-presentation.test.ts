@@ -100,6 +100,7 @@ test('procedure notice and material copy follow category and confirmation state'
   assert.equal(studentFacingProcedureText('请附上错误截图和设备系统'), '请附上错误截图和手机或电脑的系统版本')
   assert.equal(studentFacingProcedureText('优先按信息化管理处官方入口处理'), '优先按信息化管理处官网处理')
   assert.equal(studentFacingProcedureText('按信息化管理处入口咨询'), '通过信息化管理处官网咨询')
+  assert.equal(studentFacingProcedureText('个人时段、材料、点位和接站待通知'), '个人时段、材料、报到地点和接站还要等学校通知')
 })
 
 test('source claim rewrite and detail source mapping stay student-readable', () => {
