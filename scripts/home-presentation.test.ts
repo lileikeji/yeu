@@ -99,6 +99,8 @@ test('home essential actions and timeline keep freshman-first copy', () => {
   assert.equal(homeMoreEntries[0]?.to, '/checklist')
   assert.equal(homeMoreEntries[1]?.to, '/guides/safety-health')
   assert.equal(homeMoreEntries[2]?.description, '按兴趣看社团方向和本学期招新消息')
+  assert.equal(homeMoreEntries[4]?.description, '查看学生街、餐饮、便利店和快递信息')
+  assert.doesNotMatch(JSON.stringify(homeMoreEntries), /线索/)
 })
 
 test('home featured procedures exclude arrival and map method labels', () => {

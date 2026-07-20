@@ -104,7 +104,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   },
   {
     title: '周边生活',
-    description: '查看学生街、餐饮、便利和快递线索',
+    description: '查看学生街、餐饮、便利店和快递信息',
     to: '/nearby',
     icon: 'i-lucide-store',
     tone: 'bg-orange-50 text-orange-700'

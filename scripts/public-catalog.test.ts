@@ -214,11 +214,45 @@ test('guide copy hides maintainer language from student pages', () => {
   )
   assert.equal(
     studentFacingGuideText('站点与配送规则待现场核验，查看页面的最后核验日期。'),
-    '站点与配送规则还要到现场确认，查看页面的最后确认日期。'
+    '站点和配送规则还要到现场确认，查看页面的最后确认日期。'
   )
   assert.doesNotMatch(
     studentFacingGuideText('系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。'),
     /内部资料目录|前台|核验/
+  )
+})
+
+test('express guide gives students direct, current-use advice', () => {
+  const express = findFreshmanGuide('express-delivery')
+  assert.ok(express)
+  const view = mergePublicGuides([express], [], true)[0]
+  assert.ok(view)
+  assert.equal(view.summary, '整理快递站点、取件前要确认的事项和外卖取餐边界。站点可能随学期调整，出发前请再看现场通知。')
+  assert.equal(view.statusText, '站点和配送规则还要到现场确认')
+  assert.deepEqual(view.sections.map(section => section.title), [
+    '取件前先确认',
+    '容易变化的地方',
+    '往年信息怎么用'
+  ])
+  assert.match(view.leadNotice, /本学期现场标识和宿舍通知/)
+  assert.match(view.sections[0]?.items[1] ?? '', /带好取件码/)
+  assert.match(view.sections[1]?.items[1] ?? '', /只表示商家接单/)
+  assert.match(view.sections[2]?.items[2] ?? '', /先问宿管或站点工作人员/)
+  const publicCopy = JSON.stringify({
+    summary: view.summary,
+    statusText: view.statusText,
+    leadNotice: view.leadNotice,
+    sections: view.sections
+  })
+  assert.doesNotMatch(publicCopy, /上线前|线索|追溯|本系统|两项独立核验|再发布到地图|不直接转录|最后核验日期/)
+  assert.equal(
+    studentFacingGuideText('以下链接用于追溯线索，不表示学校或本系统已经确认其内容。'),
+    '下面是往年公开分享和校园地图，适合先了解大致情况；今年的具体安排请以学校通知和现场标识为准。'
+  )
+  assert.equal(studentFacingGuideText('使用时注意'), '容易变化的地方')
+  assert.equal(
+    studentFacingGuideText('一篇2025年公开笔记称新区约有6个快递点，并附有新区、旧区站点地图线索；由于品牌和位置主要在图片中，当前不直接转录为地点。'),
+    '2025年公开分享提到新区约有6个快递点，并附有新区、旧区示意图；可以先用来认方向，站点品牌和位置仍要现场确认。'
   )
 })
 
