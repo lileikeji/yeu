@@ -163,6 +163,70 @@ test('public search payload removes raw department maintenance copy', () => {
   assert.match(sanitized.items[0]?.summary ?? '', /可以在学院官网查看/)
 })
 
+test('public search payload removes legacy club status suffixes from categories', () => {
+  const sanitized = sanitizePublicSearchResponse({
+    query: '校园',
+    type: null,
+    items: [{
+      entityType: 'content',
+      resultType: 'club',
+      id: 'club-1',
+      slug: 'sample-club',
+      title: '书画社',
+      summary: '校团委公开资料曾提到这个社团。',
+      category: '文化艺术 · 名称线索待确认',
+      kind: 'club',
+      updatedAt: '2026-07-20T00:00:00.000Z'
+    }],
+    total: 1,
+    hasManagedContent: true,
+    managedKinds: ['club']
+  })
+
+  assert.equal(sanitized.items[0]?.category, '文化艺术')
+  assert.doesNotMatch(JSON.stringify(sanitized), /名称线索待确认|近期活动可确认/)
+})
+
+test('nested guide sources use student-facing link wording', () => {
+  const content = {
+    id: 'guide-source-1',
+    kind: 'guide',
+    slug: 'source-copy',
+    title: '周边生活',
+    summary: '周边信息',
+    body: '周边信息',
+    category: 'life',
+    audience: 'undergraduate',
+    metadata: {
+      sections: [{
+        title: '来源',
+        items: [],
+        sources: [{
+          title: '学生分享',
+          publisher: '小红书公开笔记',
+          url: 'https://example.test/source',
+          accessedAt: '2026-07-20',
+          status: 'unavailable',
+          context: '与高德地图地点 交叉命中的商铺候选；营业状态和菜品仍待实地确认。原链接当前不可稳定访问，公开页面仅保留为归档线索。'
+        }]
+      }]
+    },
+    isFeatured: false,
+    status: 'published',
+    lastVerifiedAt: null,
+    publishedAt: '2026-07-20T00:00:00.000Z',
+    createdAt: '2026-07-20T00:00:00.000Z',
+    updatedAt: '2026-07-20T00:00:00.000Z',
+    sources: []
+  } satisfies ApiContent
+
+  const presented = presentPublicContent(content)
+  const serialized = JSON.stringify(presented)
+
+  assert.doesNotMatch(serialized, /归档线索|原链接当前不可稳定访问|公开页面仅保留/)
+  assert.match(serialized, /原分享链接目前打不开/)
+})
+
 test('public payload rewrites internal map import states at the final response boundary', () => {
   const sanitized = sanitizePublicSearchResponse({
     query: '宿舍',

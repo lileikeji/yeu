@@ -7,6 +7,7 @@ import type {
   ApiProcedureDepartment,
   ApiProcedureGuide,
   ApiProcedurePlace,
+  ApiSearchItem,
   ApiSearchResponse,
   ApiSource
 } from '~~/shared/types/server'
@@ -127,9 +128,16 @@ function sanitizeProcedureGuide(guide: ApiProcedureGuide | null): ApiProcedureGu
   }
 }
 
-function studentFacingContentCategory(content: ApiContent): string {
-  if (content.kind !== 'club') return content.category
+function studentFacingContentCategory(content: ApiContent): string | null {
+  if (content.kind !== 'club' || !content.category) return content.category
   return content.category
+    .replace(/\s*·\s*(?:名称线索待确认|近期活动可确认|近期有活动)\s*/g, '')
+    .trim()
+}
+
+function studentFacingSearchCategory(item: ApiSearchItem): string | null {
+  if (item.resultType !== 'club' || !item.category) return item.category
+  return item.category
     .replace(/\s*·\s*(?:名称线索待确认|近期活动可确认|近期有活动)\s*/g, '')
     .trim()
 }
@@ -212,7 +220,8 @@ export function sanitizePublicSearchResponse(response: ApiSearchResponse): ApiSe
     items: response.items.map(item => ({
       ...item,
       title: studentFacingPayloadText(item.title),
-      summary: studentFacingPayloadText(item.summary)
+      summary: studentFacingPayloadText(item.summary),
+      category: studentFacingSearchCategory(item)
     }))
   }
 }

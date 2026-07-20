@@ -185,6 +185,10 @@ export function studentFacingGuideText(value: string): string {
     .replace(/独立核验/g, '独立确认')
     .replace(/核验/g, '确认')
     .replace(/复核/g, '再次确认')
+    .replace(/原链接当前不可稳定访问，公开页面仅保留为归档线索。?/g, '原分享链接目前打不开。')
+    .replace(/原链接当前不可稳定访问，前台仅保留为归档线索。?/g, '原分享链接目前打不开。')
+    .replace(/原外链当前不可稳定访问，(?:前台|公开页面)仅保留为归档线索。?/g, '原分享链接目前打不开。')
+    .replace(/归档线索/g, '参考记录')
 }
 
 export interface PublicGuideView extends FreshmanGuide {
