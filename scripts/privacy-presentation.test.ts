@@ -24,7 +24,7 @@ test('privacy actions keep a comfortable mobile touch height', () => {
 })
 
 test('public update and offline copy avoid admin-facing language', () => {
-  assert.match(updatePromptSource, /如果正在填写内容，可以稍后再更新/)
+  assert.match(updatePromptSource, /正在填写反馈或聊天内容时，可以稍后更新/)
   assert.doesNotMatch(updatePromptSource, /管理页面/)
   assert.match(utilSource, /不会保存账号资料、聊天内容或完整地图资料/)
   assert.doesNotMatch(utilSource, /管理页面内容/)
@@ -42,8 +42,8 @@ test('privacy sections stay student-facing', () => {
   assert.equal(privacySections[5]?.title, '外部地图和网站')
   assert.ok(privacySections[0]?.items.some(item => item.includes('不需要学生账号')))
   assert.ok(privacySections[0]?.items.some(item => item.includes('不会保存你的准确位置')))
-  assert.ok(privacySections[1]?.items.some(item => item.includes('随机访客标识')))
-  assert.ok(privacySections[3]?.items.some(item => item.includes('转换成无法还原的标识')))
+  assert.ok(privacySections[1]?.items.some(item => item.includes('一串随机编号')))
+  assert.ok(privacySections[3]?.items.some(item => item.includes('不能倒推出原地址的编号')))
   assert.ok(privacySections[4]?.items.some(item => item.includes('730 天')))
   assert.ok(privacySections[5]?.items.some(item => item.includes('地图服务')))
   assert.doesNotMatch(utilSource, /访问路径|操作类型|网络标识|内容加速|运营排查/)

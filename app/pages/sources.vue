@@ -4,10 +4,10 @@ import type { ApiSource } from '~~/shared/types/server'
 import {
   buildSourcePreview,
   collectActiveLinkedSources,
-  dateOnly,
   filterSourceList,
   sourcePreviewLimit,
   sourceListMessages,
+  sourceAccessedLabel,
   sourcePlatformLabel,
   sourceLevelGuides,
   sourceLevelLabels,
@@ -128,10 +128,10 @@ async function refreshSources(): Promise<void> {
         </h2>
         <div class="mt-4 grid gap-5 text-sm leading-7 text-zinc-600 md:grid-cols-2">
           <p>
-            绿色虚线来自公开社区地图，只帮助辨认校园大致范围，不代表学校公布的正式边界。找楼栋和入口时，请继续看地图标点与现场指示牌。
+            地图上的绿色虚线来自公开社区地图，只帮助辨认校园大致范围，不代表学校公布的正式边界。找楼栋和入口时，请继续看地图标点与现场指示牌。
           </p>
           <p>
-            当前地图包含 76 个地点和 8 个范围。地点可以查看和导航；范围只画边界，方便辨认区域，不会挡住里面的商铺和建筑。
+            点开地点可以查看位置和导航；绿色虚线区域只用来认方向，不会挡住里面的商铺和建筑。
           </p>
         </div>
         <div class="mt-5 flex flex-wrap gap-2">
@@ -140,7 +140,7 @@ async function refreshSources(): Promise<void> {
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-external-link"
-            label="社区地图说明"
+            label="了解社区地图"
             color="neutral"
             variant="outline"
             class="min-h-11"
@@ -150,7 +150,7 @@ async function refreshSources(): Promise<void> {
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-pentagon"
-            label="查看范围出处"
+            label="看看虚线从哪里来"
             color="neutral"
             variant="ghost"
             class="min-h-11"
@@ -172,7 +172,7 @@ async function refreshSources(): Promise<void> {
             查看页面引用的信息出处
           </h2>
         </div>
-        <span class="text-sm text-zinc-500">共 {{ sources.length }} 条</span>
+        <span class="text-sm text-zinc-500">已整理 {{ sources.length }} 条出处</span>
       </div>
 
       <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -185,7 +185,9 @@ async function refreshSources(): Promise<void> {
           class="min-h-11 w-full sm:max-w-md"
           :ui="{ base: 'min-h-11' }"
         />
-        <span class="text-xs text-zinc-500">找到 {{ filteredSources.length }} 条</span>
+        <span class="text-xs text-zinc-500">
+          {{ sourceFilterActive ? `找到 ${filteredSources.length} 条` : '可按学校、部门或信息名称查找' }}
+        </span>
       </div>
 
       <div
@@ -233,21 +235,30 @@ async function refreshSources(): Promise<void> {
           :href="safeExternalHref(source.url) || undefined"
           target="_blank"
           rel="noopener noreferrer"
-          class="group grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_12rem_8rem_auto] sm:items-center"
+          class="group grid gap-2 border-b border-zinc-100 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_12rem_12rem_auto] sm:items-center"
         >
           <span class="min-w-0">
             <span class="block font-semibold text-zinc-900 group-hover:text-green-700">{{ studentFacingSourceTitle(source.title) }}</span>
-            <span class="mt-1 block text-xs text-zinc-500">{{ sourcePlatformLabel(source.platform) }}</span>
+            <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
+              <span>{{ sourcePlatformLabel(source.platform) }}</span>
+              <span aria-hidden="true">·</span>
+              <span>{{ studentFacingSourcePublisher(source.publisherName) }}</span>
+            </span>
           </span>
-          <span class="text-sm text-zinc-600">{{ studentFacingSourcePublisher(source.publisherName) }}</span>
+          <span class="text-xs text-zinc-500 sm:text-sm">
+            适合参考：{{ sourceLevelLabels[source.sourceLevel] }}
+          </span>
           <span class="text-xs text-zinc-500">
-            {{ sourceLevelLabels[source.sourceLevel] }}
+            <UIcon
+              name="i-lucide-calendar-clock"
+              class="mr-1 inline-block size-3.5 align-[-2px]"
+            />
+            {{ sourceAccessedLabel(source.accessedAt) }}
           </span>
-          <span class="flex items-center justify-between gap-3 text-xs text-zinc-400 sm:justify-end">
-            {{ dateOnly(source.accessedAt) }}
+          <span class="flex items-center justify-end">
             <UIcon
               name="i-lucide-external-link"
-              class="size-4 shrink-0 group-hover:text-green-700"
+              class="size-4 shrink-0 text-zinc-400 group-hover:text-green-700"
             />
           </span>
         </a>

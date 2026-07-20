@@ -8,6 +8,7 @@ import {
   dateOnly,
   filterSourceList,
   sourcePreviewLimit,
+  sourceAccessedLabel,
   sourceListMessages,
   sourcePlatformLabel,
   sourceLevelGuides,
@@ -44,7 +45,7 @@ test('sources page is a thin shell over sources-presentation util', () => {
   assert.match(pageSource, /sourceLevelGuides/)
   assert.match(pageSource, /sourceLevelLabels/)
   assert.match(pageSource, /sourceListMessages/)
-  assert.match(pageSource, /dateOnly/)
+  assert.match(pageSource, /sourceAccessedLabel/)
   assert.doesNotMatch(pageSource, /function dateOnly/)
   assert.doesNotMatch(pageSource, /const levelLabels/)
   assert.doesNotMatch(pageSource, /const sourceLevels =/)
@@ -77,6 +78,7 @@ test('source level guides use ordinary decision wording', () => {
   assert.match(pageSource, /sm:grid-cols-\[10rem_minmax\(0,1fr\)\]/)
   assert.equal(dateOnly('2026-07-10T12:00:00Z'), '2026-07-10')
   assert.equal(dateOnly('2025-12-01'), '2025-12-01')
+  assert.equal(sourceAccessedLabel('2026-07-10T12:00:00Z'), '最近查看 2026-07-10')
   assert.equal(sourceListMessages.serviceUnavailable, '可以稍后再试，各篇指南仍然可以正常查看。')
   assert.equal(sourceListMessages.emptyMatch, '没有找到匹配的信息出处')
   assert.equal(sourceListMessages.emptyList, '目前还没有可以查看的信息出处')
@@ -84,6 +86,9 @@ test('source level guides use ordinary decision wording', () => {
   assert.match(pageSource, /refreshSources/)
   assert.match(pageSource, /label="清空搜索"/)
   assert.match(pageSource, /label="重新试一次"/)
+  assert.match(pageSource, /sourceAccessedLabel\(source\.accessedAt\)/)
+  assert.match(pageSource, /适合参考：/)
+  assert.doesNotMatch(pageSource, /当前地图包含 76 个地点和 8 个范围/)
 })
 
 test('source platform values are translated for ordinary readers', () => {

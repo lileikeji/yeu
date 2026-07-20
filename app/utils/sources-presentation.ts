@@ -114,6 +114,10 @@ export function dateOnly(value: string): string {
   return value.slice(0, 10)
 }
 
+export function sourceAccessedLabel(value: string): string {
+  return `最近查看 ${dateOnly(value)}`
+}
+
 export function collectActiveLinkedSources(
   contentItems: ReadonlyArray<SourceCarrier> | null | undefined,
   placeItems: ReadonlyArray<SourceCarrier> | null | undefined
