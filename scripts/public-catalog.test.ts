@@ -125,7 +125,8 @@ test('published map places use student-facing copy in the map panel', () => {
   } as ApiPlace])[0]
 
   assert.ok(place)
-  assert.equal(place.summary, '上海楼的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+  assert.equal(place.summary, '上海楼的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+  assert.doesNotMatch(place.summary, /\s的位置|。，/)
   assert.doesNotMatch(place.body, /后台草稿|resourceId|坐标来源|正式发布/)
 })
 
@@ -166,7 +167,7 @@ test('guide copy hides maintainer language from student pages', () => {
   )
   assert.equal(
     studentFacingGuideText('计算机科学与工程学院是新生查找相关通知和办事入口时需要优先确认的官方渠道。\n使用建议：如果你不确定该不该找这个部门，可以先在站内搜索关键词，再核对官网栏目名称、发布时间和落款；不要只靠群聊截图或二手转述。\n资料核对：独立官网入口已于2026-07-15核对。\n当前只整理到官网入口，固定办公地点、办公时间和直拨电话未核验前不写死。'),
-    '计算机科学与工程学院可以帮助新生查找相关通知和办事入口。\n不确定该找谁时，可以先在站内搜索想办的事，再打开学校或部门官网看最新通知；不要只看群聊截图。\n具体办公地点、办公时间和电话可能调整，请打开官网查看最新安排。'
+    '新生可以在计算机科学与工程学院官网查找相关通知和办事入口。\n不确定该找谁时，可以先在站内搜索想办的事，再打开学校或部门官网看最新通知；不要只看群聊截图。\n具体办公地点、办公时间和电话可能调整，请打开官网查看最新安排。'
   )
   assert.equal(
     studentFacingGuideText('首版展示字段'),
@@ -395,7 +396,7 @@ test('static guide and department bodies are readable for freshmen instead of em
   assert.ok(officialDepartments.every(department => officialDepartmentBody(department).includes('不要只靠群聊截图或二手转述')))
   const departmentViews = mergePublicDepartments(officialDepartments, [], true)
   assert.ok(departmentViews.every(department => !/资料核对|未核验前不写死|优先确认的官方渠道/.test(department.body)))
-  assert.ok(departmentViews.every(department => /可以帮助新生|新生什么时候该看这里/.test(department.body)))
+  assert.ok(departmentViews.every(department => /新生可以在.+官网查找|新生什么时候该看这里/.test(department.body)))
 })
 
 test('verified campus facts retain their official source and scope', () => {
@@ -414,7 +415,7 @@ test('verified campus facts retain their official source and scope', () => {
   assert.match(campusText, /维修人员在24小时内响应，一般故障48小时内修复，紧急故障立即处理/)
   assert.match(campusText, /凭本人有效证件到总务处借用备份钥匙/)
   assert.match(campusText, /第一教学区设北苑餐厅，第三教学区设西苑餐厅/)
-  assert.match(campusText, /精确坐标仍需现场核验/)
+  assert.match(campusText, /具体档口是否营业、从哪个入口进入和开放时间请到校后确认/)
   assert.ok(campusGuide.sources.includes(officialSources.dormChangeProcess2025))
   assert.ok(campusGuide.sources.includes(officialSources.diningStallLease2026))
 

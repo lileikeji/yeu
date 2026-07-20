@@ -29,6 +29,8 @@ export function studentFacingProcedureTitle(value: string): string {
 
 export function studentFacingProcedureText(value: string): string {
   return value
+    .replace(/公开来源能确认/g, '学校官网已经公布')
+    .replace(/公开来源是/g, '学校官网已经公布')
     .replace(/2026公开来源尚未列明/g, '学校目前还没有列明')
     .replace(/尚未从2026公开来源确认/g, '目前还没有从学校通知中确认')
     .replace(/公开来源尚未/g, '学校目前还没有')

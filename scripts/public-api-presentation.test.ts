@@ -111,7 +111,7 @@ test('public department payload removes maintainer notes before SSR serializatio
 
   assert.doesNotMatch(serialized, /独立官网已经上线|网站仍混有|资料核对|优先确认的官方渠道/)
   assert.match(sanitized.summary, /可以在学院官网查看/)
-  assert.match(sanitized.body, /可以帮助新生/)
+  assert.match(sanitized.body, /新生可以在计算机科学与工程学院官网查找/)
 })
 
 test('public search payload removes raw department maintenance copy', () => {
@@ -203,7 +203,11 @@ test('public place payload removes internal notes and maintenance wording', () =
   const serialized = JSON.stringify(sanitized)
 
   assert.doesNotMatch(serialized, /后台草稿|resourceId|坐标来源|GCJ-02 原坐标|sourceRawRef/)
-  assert.match(sanitized.summary, /可以先用来找方向/)
+  assert.equal(
+    sanitized.summary,
+    '上海楼的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。'
+  )
+  assert.doesNotMatch(sanitized.summary, /\s的位置|。，/)
   assert.equal('sourceRawRef' in sanitized, false)
 })
 

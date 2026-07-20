@@ -118,7 +118,7 @@ export function buildPlaceDetailSources(
         key: source.id,
         title,
         url: null,
-        meta: '这个位置来自高德地图标点，可先用来确认大致方向。',
+        meta: '这个位置来自高德地图，可先用来确认大致方向。',
         unavailable: true
       }
     }

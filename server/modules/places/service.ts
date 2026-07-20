@@ -71,7 +71,7 @@ function studentFacingAmapDraftText(value: string, placeName: string): string {
     .map(line => line.trim())
     .filter(line => line && !/resourceId|坐标来源|发布提醒|sourceRawRef|GCJ-02|WGS84|coordinate/i.test(line))
     .join(' ')
-    .replace(/已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护，?具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。?/g, '的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+    .replace(/^(.+?)\s*已按用户授权的高德地图坐标导入后台草稿[；;]?\s*可用于地图定位和维护[。，,；;\s]*具体入口、楼层、开放时间仍需现场或官方资料(?:核验|确认)后再正式发布[。.]?$/g, '$1的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
     .replace(/用户授权的高德工作地图导出/g, '高德地图标点')
     .replace(/高德工作地图导入草稿/g, '高德地图标点')
     .replace(/后台草稿/g, '地图标点')
@@ -86,7 +86,7 @@ function studentFacingAmapDraftText(value: string, placeName: string): string {
     .trim()
 
   if (!cleaned) {
-    return `${placeName} 的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。`
+    return `${placeName}的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。`
   }
   return cleaned
 }

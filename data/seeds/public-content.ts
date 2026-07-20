@@ -630,7 +630,7 @@ export const freshmanGuides: FreshmanGuide[] = [
           '总务处2026年7月招租公告明确：第一教学区设北苑餐厅，第三教学区设西苑餐厅。',
           '2026年3月学校食堂安全检查同时出现西苑、北苑、东苑餐厅，确认三处餐厅当前仍被学校使用。',
           '2026年1月红十字会活动进一步确认东苑餐厅位于第一教学区、西苑餐厅位于第三教学区。',
-          '以上证据不代表具体档口已经营业；入口、楼层、营业时间和精确坐标仍需现场核验。'
+          '这些学校通知只能说明餐厅仍在使用，具体档口是否营业、从哪个入口进入和开放时间请到校后确认。'
         ],
         sources: [officialSources.diningStallLease2026, officialSources.diningSafetyInspection2026, officialSources.redCrossBazaar2026]
       },
@@ -639,8 +639,8 @@ export const freshmanGuides: FreshmanGuide[] = [
         icon: 'i-lucide-briefcase-business',
         items: [
           '学生事务部2025年管理办法明确：创业园A区位于第一教学区图书馆一楼，B区位于第三教学区图书馆一楼。',
-          'A区为电商孵化区，B区为实体创意区；2026年第22批项目申报证明创业园体系当前仍在运行。',
-          '工作地图目前只有一个“创业园”标点，后续应拆分为A、B两个地点并分别核对入口坐标。'
+          'A区为电商孵化区，B区为实体创意区；2026年第22批项目仍在申报，说明创业园本学期仍在开放。',
+          '地图目前只显示一个“创业园”位置。前往前请根据A区或B区名称确认对应图书馆和楼层。'
         ],
         sources: [officialSources.entrepreneurshipParkRules2025, officialSources.entrepreneurshipParkBatch2026]
       },
@@ -1093,24 +1093,23 @@ export const freshmanGuides: FreshmanGuide[] = [
 
 function clubSummary(direction: string, sourceType: 'active' | 'lead'): string {
   const sourceNote = sourceType === 'active'
-    ? '学校2026年官方活动报道中出现该组织名称，可确认近期参与过校内活动'
-    : '校团委公开附件中出现该社团干部任职信息，可作为社团名称线索'
-  return `${sourceNote}。适合想了解“${direction}”的新生先收藏；具体招新摊位、群号和报名方式等当年信息，等官方或社团负责人发布后再更新。`
+    ? '这个社团在学校2026年的活动报道中出现过，近期仍有活动'
+    : '校团委公开资料曾提到这个社团'
+  return `${sourceNote}。适合想了解“${direction}”的新生先收藏；今年是否招新、在哪里报名，请以本学期校团委或社团通知为准。`
 }
 
 export function officialClubBody(club: OfficialClub): string {
   const isRecent = club.verification === 'active' || club.source === officialSources.clubShowcase2026
-  const sourceType = isRecent ? '近期活动可确认' : '名称线索待确认'
   const confidenceText = isRecent
-    ? `可信度较高：这个名字出现在${club.source.publisher}的2026年官方活动页面里，说明近期确实开展或参加过校内活动。`
-    : `可信度中等：这个名字出现在${club.source.publisher}的公开资料里，可以作为找社团时的名称索引；是否仍按同名注册和招新，需要等当年公告或现场确认。`
+    ? `${club.source.publisher}在2026年的活动报道中提到过这个社团，近期仍有活动。`
+    : `${club.source.publisher}的公开资料曾提到这个社团；今年是否仍使用同名、是否招新，请以本学期通知为准。`
   return [
-    `这个社团目前属于「${club.group}」方向，资料状态是：${sourceType}。`,
+    `这个社团属于「${club.group}」方向。`,
     `你可以把它理解成：主要围绕 ${club.direction}。如果你对这个方向感兴趣，开学社团招新时可以优先去找它的摊位或公告。`,
     `适合的新生：想尝试 ${club.direction}，或者想找同好、参加校内活动、积累实践经历的同学。零基础能不能加入、训练/例会频率、是否需要自备器材，要等社团当年说明。`,
     `入群或报名之前建议先问清楚：本学期主要活动是什么、多久一次、是否有考核或值班、是否收费、是否和课程时间冲突、负责人联系方式是否来自官方渠道。`,
     confidenceText,
-    '还不能写死的信息：2026级招新时间、摆摊地点、报名二维码、QQ群/微信群、固定例会时间、收费或装备要求。系统不会把未核验内容伪装成确定通知。'
+    '今年的招新时间、摆摊地点、报名二维码、QQ群/微信群、固定例会时间、收费或装备要求，请以本学期校团委或社团通知为准。'
   ].join('\n')
 }
 
@@ -1257,8 +1256,12 @@ export function officialDepartmentBody(department: OfficialDepartment): string {
     ? useCase.when.map(item => `- ${item}`).join('\n')
     : `- ${department.summary}\n- 涉及该部门职责范围内的通知、表格、流程、联系方式变化时，先看官网，再按页面公布的方式联系。`
 
+  const intro = department.slug === 'university-office'
+    ? '新生可以在学校办公室官网查看校历、校级通知和全校性安排。'
+    : department.summary
+
   return [
-    `${department.name}是新生查找相关通知和办事入口时需要优先确认的官方渠道。${department.summary}`,
+    intro,
     `新生什么时候该看这里：\n${whenText}`,
     `联系前先确认：${useCase?.check ?? '准备好学院、专业、年级、学号或问题截图；涉及缴费、学籍、住宿、安全、网络等事项时，优先使用学校官网或部门官网给出的入口。'}`,
     '使用建议：如果你不确定该不该找这个部门，可以先在站内搜索关键词，再核对官网栏目名称、发布时间和落款；不要只靠群聊截图或二手转述。',

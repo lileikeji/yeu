@@ -103,11 +103,11 @@ test('nearby presentation helpers rewrite source context and build map links', (
 
   assert.match(
     nearbySourceContextForStudents('与高德 POI 交叉命中的商铺候选；营业状态和菜品仍待确认。原外链当前不可稳定访问，前台仅保留为归档线索。'),
-    /在高德地图和学生分享中都出现过的商铺/
+    /同时出现在学生分享和高德地图中/
   )
   assert.match(
     nearbySourceContextForStudents('2025 年社交平台旧线索；站点数量、品牌和营业状态均待复核。原外链当前不可稳定访问，前台仅保留为归档线索。'),
-    /2025 年社交平台参考/
+    /这是2025年的学生分享/
   )
   assert.match(nearbySourceContextForStudents('社交平台待核验线索'), /社交平台参考信息/)
   assert.equal(

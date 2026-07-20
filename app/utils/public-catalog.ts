@@ -73,7 +73,8 @@ export function studentFacingGuideText(value: string): string {
     .replace(/学院独立官网已经上线，可查询计算机、网络工程、物联网等相关栏目；网站仍混有原工程技术学院历史内容，2026级专业归属应以录取材料和学院最新通知为准。/g, '可以在学院官网查看计算机、网络工程、物联网等专业信息。2026级专业归属和报到安排请以录取材料及学院最新通知为准。')
     .replace(/学院独立官网已经上线，可查询人工智能、数据科学相关教学科研和学院通知；网站仍混有原工程技术学院内容，2026级专业归属以录取材料和学院最新通知为准。/g, '可以在学院官网查看人工智能、数据科学相关专业、教学科研和学院通知。2026级专业归属和报到安排请以录取材料及学院最新通知为准。')
     .replace(/学院独立官网已经上线，可查询学院概况、专业介绍、教学科研和通知公告；当前可独立核对的院情资料较少，2026级专业归属以录取材料和学院最新通知为准。/g, '可以在学院官网查看学院概况、专业介绍、教学科研和通知公告。2026级专业归属和报到安排请以录取材料及学院最新通知为准。')
-    .replace(/(.+?)是新生查找相关通知和办事入口时需要优先确认的官方渠道。/g, '$1可以帮助新生查找相关通知和办事入口。')
+    .replace(/(.+?)是新生查找相关通知和办事入口时需要优先确认的官方渠道。(?:本科和专升本)?新生([^。\n]+?)的官方入口。/g, '新生可以在$1官网$2。')
+    .replace(/(.+?)是新生查找相关通知和办事入口时需要优先确认的官方渠道。/g, '新生可以在$1官网查找相关通知和办事入口。')
     .replace(/使用建议：如果你不确定该不该找这个部门，可以先在站内搜索关键词，再核对官网栏目名称、发布时间和落款；不要只靠群聊截图或二手转述。/g, '不确定该找谁时，可以先在站内搜索想办的事，再打开学校或部门官网看最新通知；不要只看群聊截图。')
     .replace(/^资料核对：[^\n]*(?:\n|$)/gm, '')
     .replace(/当前只整理到官网入口，固定办公地点、办公时间和直拨电话未核验前不写死。/g, '具体办公地点、办公时间和电话可能调整，请打开官网查看最新安排。')
@@ -134,7 +135,7 @@ export function studentFacingGuideText(value: string): string {
     .replace(/公开美食笔记提到旧区“喜又”和新区二街“思念小馆”，两家名称均能在高德 POI 中命中，因此提升为优先实地核验对象。/g, '学生公开分享里提到旧区“喜又”和新区二街“思念小馆”，高德地图也能找到同名地点，可以先用于认路。')
     .replace(/跨平台同名只能证明候选关联度较高，不能证明当前营业、菜品、价格、评价或门店控制权。/g, '同名信息不代表一定仍在营业，也不能说明菜品、价格或口碑；出发前请再确认。')
     .replace(/完成营业状态和位置复核前，这两家不会作为已核验推荐商铺展示。/g, '还没完成位置和营业情况确认，这两家暂时只作为找店参考，不会标成已确认推荐。')
-    .replace(/新生(.+?)的官方入口。/g, '新生可以在这里$1。')
+    .replace(/新生([^。\n]+?)的官方入口。/g, '新生可以在这里$1。')
     .replace(/高德导入标点可先导航，入口细节仍需现场确认。/g, '地图上的位置可先用来找方向，入口细节仍需现场确认。')
     .replace(/连接后通过浏览器认证。新生注册后以学号获得校园网和VPN账号，首次登录按官方通知操作并立即修改密码。/g, '连接后按页面提示登录。新生注册后会获得校园网和校外访问账号，第一次使用请按学校通知操作并及时修改密码。')
     .replace(/宿舍或校外访问教务等校内资源时，可按官方指南使用 https:\/\/vpn\.yeu\.edu\.cn:444。/g, '在宿舍或校外需要打开教务等校内资源时，请按学校指南使用校外访问入口（https://vpn.yeu.edu.cn:444）。')
@@ -318,8 +319,8 @@ export function studentFacingPlaceBody(body: string): string {
     .replace(/【到这里前先确认】[\s\S]*?(?=\n【|$)/g, '')
     .split('\n')
     .map(line => line.trim()
-      .replace(/^(.*?)\s*已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护，?具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。?$/g, '$1的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
-      .replace(/已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护。?/g, '的位置来自高德地图标点，可以先用来找方向。')
+      .replace(/^(.+?)\s*已按用户授权的高德地图坐标导入后台草稿[；;]?\s*可用于地图定位和维护[。，,；;\s]*具体入口、楼层、开放时间仍需现场或官方资料(?:核验|确认)后再正式发布[。.]?$/g, '$1的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+      .replace(/^(.+?)\s*已按用户授权的高德地图坐标导入后台草稿[；;]?\s*可用于地图定位和维护[。.]?$/g, '$1的位置来自高德地图，可以先用来找方向。')
       .replace(/后台草稿/g, '地图标点')
       .replace(/正式发布/g, '公开展示')
       .replace(/地图定位和维护/g, '找方向')
@@ -338,6 +339,8 @@ export function studentFacingPlaceBody(body: string): string {
 function studentFacingSourceContext(value: string | undefined): string | undefined {
   if (!value?.trim()) return undefined
   return value
+    .replace(/与高德 POI 交叉命中的商铺候选；营业状态和菜品仍待(?:实地)?确认。原外链当前不可稳定访问，前台仅保留为归档线索。?/g, '这家店同时出现在学生分享和高德地图中；是否营业、菜品和价格请到店前再确认。原分享链接目前打不开。')
+    .replace(/2025 年社交平台旧线索；站点数量、品牌和营业状态均待复核。原外链当前不可稳定访问，前台仅保留为归档线索。?/g, '这是2025年的学生分享，快递点数量、品牌和营业情况可能已经变化；原分享链接目前打不开。')
     .replace(/社交平台待核验线索/g, '社交平台参考信息')
     .replace(/社交平台视频线索/g, '社交平台视频参考')
     .replace(/与高德 POI 交叉命中的商铺候选/g, '在高德地图和学生分享中都出现过的商铺')
@@ -375,7 +378,7 @@ function normalizeOwnerMapNote(value: string): string {
     .join('；')
     .replace(/用户授权的高德工作地图标点，?尚未经过独立现场确认。?/g, '')
     .replace(/用户授权的高德工作地图标点，?尚未经过独立现场核验。?/g, '')
-    .replace(/已按用户授权的高德地图坐标导入后台草稿；?可用于地图定位和维护，?具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。?/g, '的位置来自高德地图标点，可以先用来找方向；具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+    .replace(/^(.+?)\s*已按用户授权的高德地图坐标导入后台草稿[；;]?\s*可用于地图定位和维护[。，,；;\s]*具体入口、楼层、开放时间仍需现场或官方资料(?:核验|确认)后再正式发布[。.]?$/g, '$1的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
     .replace(/用户授权的高德工作地图导出/g, '高德地图标点')
     .replace(/高德工作地图导入草稿/g, '高德地图标点')
     .replace(/后台草稿/g, '地图标点')
@@ -390,9 +393,9 @@ function normalizeOwnerMapNote(value: string): string {
 
 function ownerMapFriendlySummary(poi: AmapImportedPlace): string {
   const note = normalizeOwnerMapNote(poi.summary)
-  const suffix = '位置来自你提供的高德地图标点，适合先用来找方向；具体入口、楼层、开放时间和当期用途仍以现场标识或学校通知为准。'
+  const suffix = '位置来自高德地图，适合先用来找方向。具体入口、楼层、开放时间和当前用途请以现场标识或学校通知为准。'
   if (note && note !== ownerMapGenericSummary) {
-    if (/位置来自(?:你提供的)?高德地图标点/.test(note)) return note
+    if (/位置来自(?:你提供的)?高德地图(?:标点)?/.test(note)) return note
     return `${note}。${suffix}`
   }
 
@@ -721,7 +724,7 @@ function apiClubToView(content: ApiContent): PublicClubView {
     name: content.title,
     summary: content.summary,
     body: content.body,
-    category: content.category === 'recent-activity' ? '近期活动可确认' : content.category,
+    category: content.category === 'recent-activity' ? '近期有活动' : content.category,
     recruitmentPeriod: metadataString(content, 'recruitmentPeriod'),
     activitySchedule: metadataString(content, 'activitySchedule'),
     contactMethod: metadataString(content, 'contactMethod'),
@@ -738,7 +741,7 @@ function staticClubToView(club: OfficialClub): PublicClubView {
     name: club.name,
     summary: club.summary,
     body: officialClubBody(club),
-    category: active ? `${club.group} · 近期活动可确认` : `${club.group} · 名称线索待确认`,
+    category: club.group,
     recruitmentPeriod: null,
     activitySchedule: null,
     contactMethod: null,
