@@ -21,16 +21,21 @@ const submitting = ref(false)
 const checkingSession = ref(true)
 const errorMessage = ref('')
 
-function redirectTarget(): string {
+function requestedRedirectTarget(): string | null {
   const raw = Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect
   if (typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/admin')) {
     return raw
   }
-  return '/me'
+  return null
+}
+
+function redirectTarget(): string {
+  return requestedRedirectTarget() ?? '/me'
 }
 
 const loginHint = computed(() => {
-  const target = redirectTarget()
+  const target = requestedRedirectTarget()
+  if (!target) return ''
   if (target === '/chat' || target.startsWith('/chat?') || target.startsWith('/chat/')) {
     return '群聊需要登录后才能使用。登录成功后将自动返回群聊。'
   }
@@ -93,7 +98,7 @@ onMounted(() => {
           账号登录
         </h1>
         <p class="mt-2 text-sm leading-6 text-zinc-500">
-          地图、办事指南和校园信息无需登录；群聊和个人中心需要账号。账号由管理员统一创建，暂不支持自行注册。
+          看地图和办事指南不用登录。群聊和个人中心需要账号；账号由工作人员提前创建，暂不开放自行注册。
         </p>
 
         <div

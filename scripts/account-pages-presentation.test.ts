@@ -9,9 +9,16 @@ const chatPage = readFileSync(resolve('app/pages/chat/index.vue'), 'utf8')
 
 test('login page stays compact and uses ordinary account language', () => {
   assert.match(loginPage, /账号服务/)
-  assert.match(loginPage, /账号由管理员统一创建，暂不支持自行注册/)
+  assert.match(loginPage, /看地图和办事指南不用登录/)
+  assert.match(loginPage, /账号由工作人员提前创建，暂不开放自行注册/)
   assert.match(loginPage, /max-w-md/)
-  assert.doesNotMatch(loginPage, /ACCOUNT|登录后可做什么|管理员入口不在公开导航中展示/)
+  assert.doesNotMatch(loginPage, /ACCOUNT|登录后可做什么|管理员入口不在公开导航中展示|账号由管理员统一创建/)
+})
+
+test('login guidance only appears after a protected page sends the student here', () => {
+  assert.match(loginPage, /function requestedRedirectTarget\(\): string \| null/)
+  assert.match(loginPage, /const target = requestedRedirectTarget\(\)\s+if \(!target\) return ''/)
+  assert.match(loginPage, /return requestedRedirectTarget\(\) \?\? '\/me'/)
 })
 
 test('login controls keep a comfortable mobile touch height', () => {
@@ -28,10 +35,25 @@ test('profile page explains dorm matching without system wording', () => {
   assert.doesNotMatch(profilePage, /宿舍楼决定楼群入口|加载宿舍建议/)
 })
 
+test('profile controls keep a comfortable mobile touch height', () => {
+  assert.equal((profilePage.match(/class="min-h-11 w-full"/g) || []).length, 3)
+  assert.equal((profilePage.match(/:ui="\{ base: 'min-h-11' \}"/g) || []).length, 3)
+  assert.match(profilePage, /class="min-h-11 rounded-full border border-zinc-200/)
+  assert.ok((profilePage.match(/class="min-h-11"/g) || []).length >= 3)
+})
+
 test('chat page uses group language and truthful composer copy', () => {
   assert.match(chatPage, /所有已登录同学都可以参与/)
   assert.match(chatPage, /这里还没有消息/)
+  assert.match(chatPage, /当前群聊已开启全员禁言/)
   assert.match(chatPage, /aria-pressed/)
   assert.doesNotMatch(chatPage, />\s*房间\s*</)
+  assert.doesNotMatch(chatPage, /当前房间/)
   assert.doesNotMatch(chatPage, /消息格式：|回车发送/)
+})
+
+test('chat controls keep a comfortable mobile touch height', () => {
+  assert.match(chatPage, /class="min-h-11 min-w-\[9rem\] rounded-xl/)
+  assert.match(chatPage, /class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+  assert.ok((chatPage.match(/class="min-h-11"/g) || []).length >= 2)
 })

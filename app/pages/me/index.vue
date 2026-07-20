@@ -140,6 +140,7 @@ onMounted(async () => {
           icon="i-lucide-messages-square"
           color="primary"
           variant="soft"
+          class="min-h-11"
         >
           群聊
         </UButton>
@@ -198,7 +199,8 @@ onMounted(async () => {
             <UInput
               v-model="displayName"
               maxlength="40"
-              class="w-full"
+              class="min-h-11 w-full"
+              :ui="{ base: 'min-h-11' }"
               placeholder="聊天与资料中展示的名字"
             />
           </UFormField>
@@ -207,7 +209,8 @@ onMounted(async () => {
             <UInput
               v-model="major"
               maxlength="80"
-              class="w-full"
+              class="min-h-11 w-full"
+              :ui="{ base: 'min-h-11' }"
               placeholder="例如：计算机科学与技术"
             />
           </UFormField>
@@ -216,7 +219,8 @@ onMounted(async () => {
             <UInput
               v-model="dormBuilding"
               maxlength="80"
-              class="w-full"
+              class="min-h-11 w-full"
+              :ui="{ base: 'min-h-11' }"
               placeholder="输入楼名，或从下方已有楼栋中选择"
               @update:model-value="onDormInput"
             />
@@ -231,7 +235,7 @@ onMounted(async () => {
                 v-for="item in dormSuggestions"
                 :key="item"
                 type="button"
-                class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs text-zinc-700 transition hover:border-green-300 hover:bg-green-50 hover:text-green-800"
+                class="min-h-11 rounded-full border border-zinc-200 bg-zinc-50 px-3 text-xs text-zinc-700 transition hover:border-green-300 hover:bg-green-50 hover:text-green-800"
                 @click="pickDorm(item)"
               >
                 {{ item }}
@@ -251,6 +255,7 @@ onMounted(async () => {
               color="primary"
               :loading="saving"
               icon="i-lucide-save"
+              class="min-h-11"
             >
               保存资料
             </UButton>
@@ -260,6 +265,7 @@ onMounted(async () => {
               variant="outline"
               :loading="loggingOut"
               icon="i-lucide-log-out"
+              class="min-h-11"
               @click="handleLogout"
             >
               退出登录

@@ -86,7 +86,7 @@ function applyRoomMuteState(state: ChatRoomMuteState | null | undefined): void {
 }
 
 const composerLockReason = computed(() => {
-  if (activeRoom.value?.isMutedAll) return '当前房间已全员禁言'
+  if (activeRoom.value?.isMutedAll) return '当前群聊已开启全员禁言'
   if (activeRoom.value?.isMuted) {
     return activeRoom.value.muteReason
       ? `你已被禁言：${activeRoom.value.muteReason}`
@@ -304,6 +304,7 @@ watch(activeRoomId, () => {
             variant="outline"
             size="sm"
             icon="i-lucide-user-round"
+            class="min-h-11"
           >
             个人中心
           </UButton>
@@ -341,7 +342,7 @@ watch(activeRoomId, () => {
               v-for="room in rooms"
               :key="room.id"
               type="button"
-              class="min-w-[9rem] rounded-xl px-3 py-2 text-left text-sm transition lg:min-w-0"
+              class="min-h-11 min-w-[9rem] rounded-xl px-3 py-2 text-left text-sm transition lg:min-w-0"
               :class="room.id === activeRoomId
                 ? 'bg-green-700 text-white shadow-sm'
                 : 'bg-white text-zinc-700 ring-1 ring-zinc-200 hover:bg-green-50'"
@@ -441,7 +442,8 @@ watch(activeRoomId, () => {
                 :rows="2"
                 autoresize
                 maxlength="1000"
-                class="w-full"
+                class="min-h-11 w-full"
+                :ui="{ base: 'min-h-11' }"
                 :placeholder="composerLocked ? composerLockReason : '和同学说点什么…'"
                 :disabled="sending || !activeRoomId || composerLocked"
               />
@@ -451,6 +453,7 @@ watch(activeRoomId, () => {
                 icon="i-lucide-send"
                 :loading="sending"
                 :disabled="!draft.trim() || !activeRoomId || composerLocked"
+                class="min-h-11"
               >
                 发送
               </UButton>
