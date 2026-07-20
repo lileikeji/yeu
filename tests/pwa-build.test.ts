@@ -7,10 +7,11 @@ const serviceWorkerPath = resolve('.output/public/sw.js')
 const offlinePage = readFileSync(resolve('public/offline.html'), 'utf8')
 
 test('offline fallback uses student-facing language', () => {
-  assert.match(offlinePage, /暂时离线/)
+  assert.match(offlinePage, /网络断开了/)
   assert.doesNotMatch(offlinePage, /PWA/)
-  assert.match(offlinePage, /没有实时校园信息/)
+  assert.match(offlinePage, /校园地图、路线和最新通知需要联网查看/)
   assert.doesNotMatch(offlinePage, /校园数据库/)
+  assert.doesNotMatch(offlinePage, /地图瓦片|旧缓存/)
 })
 
 test('production service worker only provides the explicit offline navigation fallback', () => {

@@ -272,11 +272,11 @@ test('PWA 新版本出现时提示刷新并保护未提交表单', async ({ page
     pwa.needRefresh = true
   })
 
-  const prompt = page.getByRole('alertdialog', { name: '新版本已经准备好' })
+  const prompt = page.getByRole('alertdialog', { name: '指南有新内容' })
   await expect(prompt).toBeVisible()
-  await expect(prompt.getByText('正在填写反馈或后台表单时，可以稍后再更新。', { exact: false })).toBeVisible()
-  await expect(prompt.getByRole('button', { name: '立即更新' })).toBeFocused()
-  await prompt.getByRole('button', { name: '立即更新' }).click()
+  await expect(prompt.getByText('正在填写反馈或聊天内容时，可以稍后更新。', { exact: false })).toBeVisible()
+  await expect(prompt.getByRole('button', { name: '更新内容' })).toBeFocused()
+  await prompt.getByRole('button', { name: '更新内容' }).click()
   await expect.poll(() => page.evaluate(() => (
     (window as typeof window & { __e2ePwaUpdateReloadPage?: boolean }).__e2ePwaUpdateReloadPage
   ))).toBe(true)
@@ -294,9 +294,9 @@ test('Service Worker 在断网导航时返回明确离线说明页', async ({ co
   await context.setOffline(true)
   try {
     await page.goto('/e2e-offline-navigation-probe', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { level: 1, name: '网络连接出了点问题' })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2, name: '等待网络恢复后重试' })).toBeVisible()
-    await expect(page.getByText('本页不保存动态校园数据库，也不会把过期内容显示为最新结果。')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: '先检查网络，连上后再继续' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: '连上网络后再试一次' })).toBeVisible()
+    await expect(page.getByText(/校园地图、路线和最新通知需要联网查看/)).toBeVisible()
   } finally {
     await context.setOffline(false)
   }

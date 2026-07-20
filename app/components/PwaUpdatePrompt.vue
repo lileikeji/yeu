@@ -40,13 +40,13 @@ async function dismissUpdate(): Promise<void> {
       id="pwa-update-title"
       class="text-sm font-bold text-zinc-950"
     >
-      新版本已经准备好
+      指南有新内容
     </p>
     <p
       id="pwa-update-description"
       class="mt-1 text-sm leading-6 text-zinc-600"
     >
-      立即更新会刷新当前页面。如果正在填写内容，可以稍后再更新。
+      更新后会重新打开当前页面。正在填写反馈或聊天内容时，可以稍后更新。
     </p>
     <div class="mt-4 flex justify-end gap-2">
       <button
@@ -54,7 +54,7 @@ async function dismissUpdate(): Promise<void> {
         class="min-h-10 rounded-md px-4 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
         @click="dismissUpdate"
       >
-        稍后
+        稍后更新
       </button>
       <button
         ref="updateButton"
@@ -63,7 +63,7 @@ async function dismissUpdate(): Promise<void> {
         :disabled="updating"
         @click="applyUpdate"
       >
-        {{ updating ? '正在更新…' : '立即更新' }}
+        {{ updating ? '正在更新…' : '更新内容' }}
       </button>
     </div>
   </aside>

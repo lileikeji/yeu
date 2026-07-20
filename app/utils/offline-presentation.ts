@@ -1,4 +1,7 @@
 export interface OfflineStatus {
+  pageKicker: string
+  pageTitle: string
+  pageDescription: string
   title: string
   description: string
   icon: string
@@ -8,6 +11,7 @@ export interface OfflineStatus {
 export interface OfflineBoundary {
   title: string
   text: string
+  icon: string
 }
 
 export interface OfflineStaticEntry {
@@ -19,8 +23,11 @@ export interface OfflineStaticEntry {
 export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
   if (isOnline === null) {
     return {
-      title: '正在看看网络是否恢复',
-      description: '通常几秒钟就能确认。',
+      pageKicker: '网络提示',
+      pageTitle: '正在检查网络连接',
+      pageDescription: '校园地图、路线和最新通知需要联网查看。连接状态确认后，这里会自动更新。',
+      title: '正在检查网络',
+      description: '连接状态确认后，这里会自动更新。',
       icon: 'i-lucide-loader-circle',
       tone: 'bg-zinc-100 text-zinc-600'
     }
@@ -28,6 +35,9 @@ export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
 
   if (isOnline) {
     return {
+      pageKicker: '网络已恢复',
+      pageTitle: '可以回到刚才的页面了',
+      pageDescription: '连接已经恢复，回到原页面后可以继续查看校园地图、路线和最新通知。',
       title: '网络已经恢复',
       description: '可以回到刚才的页面继续查看。',
       icon: 'i-lucide-wifi',
@@ -36,8 +46,11 @@ export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
   }
 
   return {
-    title: '现在仍然没有网络',
-    description: '地图和最新校园消息还不能加载，请稍后再试。',
+    pageKicker: '网络断开了',
+    pageTitle: '先检查网络，连上后再继续',
+    pageDescription: '校园地图、路线和最新通知需要联网查看。连接恢复后，可以直接回到刚才的页面。',
+    title: '还没有连上网络',
+    description: '先检查 Wi-Fi 或移动网络，连上后再回到刚才的页面。',
     icon: 'i-lucide-wifi-off',
     tone: 'bg-orange-50 text-orange-700'
   }
@@ -45,21 +58,24 @@ export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
 
 export const offlineBoundaries: OfflineBoundary[] = [
   {
-    title: '重要信息不要只看旧页面',
-    text: '报到日期、地点、营业时间和招新安排可能变化，联网后请再看最新消息。'
+    title: '报到安排要重新确认',
+    text: '报到日期、地点和材料可能调整，连上网络后请再看学校最新通知。',
+    icon: 'i-lucide-calendar-check-2'
   },
   {
-    title: '地图和导航需要网络',
-    text: '离线时无法加载新的地图画面，也不保证外部地图或导航链接可用。'
+    title: '地图和路线暂时用不了',
+    text: '校园地图、路线规划和外部导航都需要联网，出发前请先恢复网络。',
+    icon: 'i-lucide-map-pinned'
   },
   {
-    title: '以前打开过的页面不一定能打开',
-    text: '设备可能保留一部分页面，但能否打开取决于你之前是否看过，内容也可能已经变化。'
+    title: '之前看过的内容可能有变化',
+    text: '手机里之前打开过的页面可能还能看，但日期、地点和营业时间不一定还是最新的。',
+    icon: 'i-lucide-history'
   }
 ]
 
 export const offlineStaticEntries: OfflineStaticEntry[] = [
-  { title: '更多功能', to: '/discover', icon: 'i-lucide-layout-grid' },
-  { title: '关于这份指南', to: '/about', icon: 'i-lucide-info' },
-  { title: '隐私说明', to: '/privacy', icon: 'i-lucide-shield-check' }
+  { title: '报到准备', to: '/procedures/arrival', icon: 'i-lucide-clipboard-check' },
+  { title: '新生清单', to: '/checklist', icon: 'i-lucide-list-checks' },
+  { title: '安全电话与求助', to: '/guides/safety-health', icon: 'i-lucide-shield-plus' }
 ]

@@ -8,7 +8,7 @@ import { safeLocalPath } from '~/utils/safe-navigation'
 
 useSeoMeta({
   title: '网络提示',
-  description: '网络断开时查看连接状态、重试原页面，并了解哪些内容可能不是最新的。',
+  description: '网络断开时检查连接、回到原页面，并确认哪些校园信息需要联网后重新查看。',
   robots: 'noindex, nofollow'
 })
 
@@ -57,20 +57,20 @@ onBeforeUnmount(() => {
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          网络提示
+          {{ status.pageKicker }}
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          网络连接出了点问题
+          {{ status.pageTitle }}
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          先检查 Wi-Fi 或移动网络。连接恢复后可以回到原页面；报到、地点和营业时间等信息请不要只看旧页面。
+          {{ status.pageDescription }}
         </p>
       </div>
     </header>
 
     <div class="page-shell py-8 md:py-12">
       <section
-        class="flex items-start gap-4 border-y border-[var(--line)] bg-white px-4 py-5 sm:px-5"
+        class="flex items-start gap-4 rounded-lg border border-[var(--line)] bg-white px-4 py-5 shadow-sm sm:px-5"
         role="status"
         aria-live="polite"
       >
@@ -112,37 +112,45 @@ onBeforeUnmount(() => {
 
       <section class="mt-10">
         <p class="section-kicker">
-          没有网络时要注意
+          现在先这样做
         </p>
         <h2 class="mt-1 text-xl font-bold text-zinc-950">
-          以前打开过的页面可能不是最新的
+          重要信息等联网后再确认
         </h2>
 
         <div class="mt-5 grid gap-x-8 md:grid-cols-3">
           <article
             v-for="item in offlineBoundaries"
             :key="item.title"
-            class="border-t border-zinc-200 py-5"
+            class="flex gap-3 border-t border-zinc-200 py-5"
           >
-            <h3 class="text-sm font-bold text-zinc-950">
-              {{ item.title }}
-            </h3>
-            <p class="mt-2 text-sm leading-7 text-zinc-600">
-              {{ item.text }}
-            </p>
+            <span class="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-800">
+              <UIcon
+                :name="item.icon"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0">
+              <h3 class="text-sm font-bold text-zinc-950">
+                {{ item.title }}
+              </h3>
+              <p class="mt-1.5 text-sm leading-7 text-zinc-600">
+                {{ item.text }}
+              </p>
+            </div>
           </article>
         </div>
       </section>
 
       <section class="mt-6 border-t border-[var(--line)] pt-8">
         <p class="section-kicker">
-          先看看这些
+          还能先看看
         </p>
         <h2 class="mt-1 text-xl font-bold text-zinc-950">
-          下面几页可能还能打开
+          之前看过的常用页面
         </h2>
-        <p class="mt-2 text-xs leading-5 text-zinc-500">
-          设备可能保留部分说明页面，但是否能打开取决于你之前是否访问过。
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+          如果你之前打开过这些页面，现在可能还能查看。日期和地点仍要等联网后重新确认。
         </p>
         <div class="mt-4 grid gap-2 sm:grid-cols-3">
           <UButton
