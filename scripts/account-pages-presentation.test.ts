@@ -8,17 +8,21 @@ const profilePage = readFileSync(resolve('app/pages/me/index.vue'), 'utf8')
 const chatPage = readFileSync(resolve('app/pages/chat/index.vue'), 'utf8')
 
 test('login page stays compact and uses ordinary account language', () => {
-  assert.match(loginPage, /账号服务/)
+  assert.match(loginPage, /新生账号/)
   assert.match(loginPage, /看地图和办事指南不用登录/)
-  assert.match(loginPage, /账号由工作人员提前创建，暂不开放自行注册/)
+  assert.match(loginPage, /目前只支持已有账号，暂不能自己注册/)
   assert.match(loginPage, /max-w-md/)
-  assert.doesNotMatch(loginPage, /ACCOUNT|登录后可做什么|管理员入口不在公开导航中展示|账号由管理员统一创建/)
+  assert.doesNotMatch(loginPage, /ACCOUNT|账号服务|登录后可做什么|管理员入口不在公开导航中展示|账号由管理员统一创建|工作人员提前创建/)
 })
 
 test('login guidance only appears after a protected page sends the student here', () => {
   assert.match(loginPage, /function requestedRedirectTarget\(\): string \| null/)
   assert.match(loginPage, /const target = requestedRedirectTarget\(\)\s+if \(!target\) return ''/)
   assert.match(loginPage, /return requestedRedirectTarget\(\) \?\? '\/me'/)
+  assert.match(loginPage, /请先登录，登录后会回到群聊/)
+  assert.match(loginPage, /请先登录，再进入个人中心/)
+  assert.match(loginPage, /请先登录，登录后会回到刚才的页面/)
+  assert.doesNotMatch(loginPage, /该功能需要登录|登录成功后将自动返回/)
 })
 
 test('login controls keep a comfortable mobile touch height', () => {

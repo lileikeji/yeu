@@ -37,13 +37,13 @@ const loginHint = computed(() => {
   const target = requestedRedirectTarget()
   if (!target) return ''
   if (target === '/chat' || target.startsWith('/chat?') || target.startsWith('/chat/')) {
-    return '群聊需要登录后才能使用。登录成功后将自动返回群聊。'
+    return '请先登录，登录后会回到群聊。'
   }
   if (target === '/me' || target.startsWith('/me?') || target.startsWith('/me/')) {
-    return '个人中心需要登录后才能访问。'
+    return '请先登录，再进入个人中心。'
   }
   if (target && target !== '/me') {
-    return '该功能需要登录后才能继续使用。'
+    return '请先登录，登录后会回到刚才的页面。'
   }
   return ''
 })
@@ -92,13 +92,13 @@ onMounted(() => {
     <div class="mx-auto max-w-md">
       <section class="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm sm:p-7">
         <p class="text-xs font-semibold text-green-700">
-          账号服务
+          新生账号
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950">
           账号登录
         </h1>
         <p class="mt-2 text-sm leading-6 text-zinc-500">
-          看地图和办事指南不用登录。群聊和个人中心需要账号；账号由工作人员提前创建，暂不开放自行注册。
+          看地图和办事指南不用登录。登录后可以进入群聊和个人中心；目前只支持已有账号，暂不能自己注册。
         </p>
 
         <div
