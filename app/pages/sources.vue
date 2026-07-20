@@ -74,6 +74,16 @@ async function refreshSources(): Promise<void> {
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
           报到、缴费和学籍等重要事项，请优先看学校和主管部门的最新通知。地图、商铺和社团消息变化较快，页面会保留出处，方便你自己再看一眼。
         </p>
+        <a
+          href="#source-list"
+          class="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+        >
+          <UIcon
+            name="i-lucide-search"
+            class="size-4"
+          />
+          查找具体出处
+        </a>
       </div>
     </section>
 
@@ -149,7 +159,10 @@ async function refreshSources(): Promise<void> {
       </div>
     </section>
 
-    <section class="page-shell page-section">
+    <section
+      id="source-list"
+      class="page-shell page-section scroll-mt-20"
+    >
       <div class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-4">
         <div>
           <p class="section-kicker">

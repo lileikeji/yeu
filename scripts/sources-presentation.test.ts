@@ -57,6 +57,14 @@ test('source search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /class="min-h-11 w-full sm:max-w-md"\s+:ui="\{ base: 'min-h-11' \}"/)
 })
 
+test('source page offers a direct path from the introduction to source search', () => {
+  assert.match(pageSource, /href="#source-list"/)
+  assert.match(pageSource, />\s*查找具体出处\s*<\/a>/)
+  assert.match(pageSource, /id="source-list"/)
+  assert.match(pageSource, /class="page-shell page-section scroll-mt-20"/)
+  assert.match(pageSource, /id="source-list"[\s\S]*查看页面引用的信息出处/)
+})
+
 test('source level guides use ordinary decision wording', () => {
   assert.equal(sourceLevelLabels.A, '学校或主管部门')
   assert.equal(sourceLevelLabels.D, '地图或同学分享')
