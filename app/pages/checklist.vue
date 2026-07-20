@@ -292,16 +292,15 @@ function confirmResetProgress() {
 
         <div class="flex flex-wrap gap-2">
           <UButton
-            v-if="!confirmReset"
+            v-if="overview.completedCount > 0 && !confirmReset"
             icon="i-lucide-rotate-ccw"
             label="清空勾选"
             color="neutral"
             variant="ghost"
             class="min-h-10"
-            :disabled="overview.completedCount === 0"
             @click="requestReset"
           />
-          <template v-else>
+          <template v-else-if="confirmReset">
             <UButton
               label="确认清空"
               color="error"

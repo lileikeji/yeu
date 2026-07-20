@@ -97,3 +97,9 @@ test('checklist overview and home summary reflect completed progress', () => {
   assert.equal(summary.remainingCount, overview.remainingCount)
   assert.ok(summary.nextTitle)
 })
+
+test('checklist only offers clearing after an item has been checked', () => {
+  assert.match(pageSource, /v-if="overview\.completedCount > 0 && !confirmReset"/)
+  assert.match(pageSource, /v-else-if="confirmReset"/)
+  assert.doesNotMatch(pageSource, /:disabled="overview\.completedCount === 0"/)
+})
