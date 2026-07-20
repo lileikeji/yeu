@@ -716,7 +716,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <section
-      class="absolute inset-0 min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] md:relative md:inset-auto md:order-2"
+      class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] md:relative md:inset-auto md:order-2"
       aria-label="校园地图"
     >
       <div
@@ -1141,5 +1141,17 @@ onBeforeUnmount(() => {
 .map-workspace :deep(.map-float-btn [class*="i-lucide"]) {
   color: #18181b !important;
   opacity: 1 !important;
+}
+
+/*
+ * The map keeps the full 44px marker hit area on phones, but showing every
+ * name at once makes nearby campus points unreadable. The selected marker
+ * remains labeled so the current place is still obvious.
+ */
+@media (max-width: 639px) {
+  .map-workspace .yeu-amap-poi-label:not(.yeu-amap-poi-label-selected),
+  .map-workspace .yeu-amap-area-label {
+    display: none !important;
+  }
 }
 </style>

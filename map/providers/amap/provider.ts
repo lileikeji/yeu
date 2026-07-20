@@ -542,6 +542,7 @@ export class AMapProvider implements MapProvider {
         const label = document.createElement('span')
         label.textContent = area.name
         label.title = area.name
+        label.className = 'yeu-amap-area-label'
         label.style.cssText = this.areaLabelStyle(area.strokeColor, this.selectedAreaId === area.id)
         const marker = new amap.Marker({
           position: center,
@@ -579,6 +580,7 @@ export class AMapProvider implements MapProvider {
     element.style.cssText = 'position:relative;display:block;box-sizing:border-box;width:44px;height:50px;padding:0;border:0;background:transparent;color:#18181b;font:500 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;filter:drop-shadow(0 3px 5px rgb(0 0 0 / 22%));'
 
     const label = document.createElement('span')
+    label.className = selected ? 'yeu-amap-poi-label yeu-amap-poi-label-selected' : 'yeu-amap-poi-label'
     label.textContent = poi.name
     label.style.cssText = `pointer-events:none;position:absolute;top:51px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:172px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
     label.style.opacity = '1'

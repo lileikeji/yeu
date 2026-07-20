@@ -469,9 +469,12 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   assert.match(source, /withMapLabelSize/)
   assert.match(source, /filterMapAreasForProviderScope/)
   assert.match(source, /resolveSelectOfficialPlanNumberDecision/)
+  assert.match(source, /class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden/)
   assert.match(utilSource, /export function findPublicMapPlaceByOfficialPlanNumber/)
   assert.match(utilSource, /export function resolveAutoSelectSearchDecision/)
   assert.match(utilSource, /export function toggleMapDisplayOption/)
+  assert.match(source, /yeu-amap-poi-label:not\(\.yeu-amap-poi-label-selected\)/)
+  assert.match(readFileSync(resolve('map/providers/amap/provider.ts'), 'utf8'), /yeu-amap-poi-label-selected/)
   assert.equal(defaultMapDisplayOptions.labelSize, 'small')
 
   const toggled = toggleMapDisplayOption({
