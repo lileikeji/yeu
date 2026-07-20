@@ -30,7 +30,9 @@ test('department list page is a thin shell over department-list-presentation uti
 })
 
 test('department search keeps a comfortable mobile touch height', () => {
-  assert.match(pageSource, /class="mt-6 min-h-11 max-w-2xl"\s+:ui="\{ base: 'min-h-11' \}"/)
+  assert.match(pageSource, /class="mt-6 min-h-11 w-full max-w-2xl"\s+:ui="\{ base: 'min-h-11' \}"/)
+  assert.match(pageSource, /aria-label="清空搜索"/)
+  assert.match(pageSource, /@click="clearDepartmentSearch"/)
 })
 
 test('department list messages stay student-facing', () => {

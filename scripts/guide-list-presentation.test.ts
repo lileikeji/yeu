@@ -32,6 +32,15 @@ test('guide search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /aria-label="搜索新生指南"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
 })
 
+test('guide categories fit the mobile width and use direct interactions', () => {
+  assert.match(pageSource, /const activeCategory = ref<GuideListCategoryId>\('all'\)/)
+  assert.match(pageSource, /class="grid grid-cols-5 gap-1 md:flex"/)
+  assert.match(pageSource, /:ui="\{ leadingIcon: 'hidden md:block' \}"/)
+  assert.match(pageSource, /@click="selectGuideCategory\(category\.id\)"/)
+  assert.match(pageSource, /@click="clearGuideSearch"/)
+  assert.doesNotMatch(pageSource, /overflow-x-auto/)
+})
+
 test('guide list categories and fallback messages stay student-facing', () => {
   assert.equal(guideListCategories[0]?.id, 'all')
   assert.equal(guideListCategories.length, 5)

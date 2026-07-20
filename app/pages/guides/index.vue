@@ -10,7 +10,8 @@ import {
   guideListCategories,
   guideListFallbackMessages,
   previewGuideListItems,
-  resolveGuideListFallbackMessage
+  resolveGuideListFallbackMessage,
+  type GuideListCategoryId
 } from '~~/app/utils/guide-list-presentation'
 import {
   guideStatePresentation,
@@ -23,7 +24,7 @@ useSeoMeta({
 })
 
 const searchQuery = ref('')
-const activeCategory = ref('all')
+const activeCategory = ref<GuideListCategoryId>('all')
 const showAllGuides = ref(false)
 const { data: publicGuideResponse, error: publicGuideError, refresh } = await usePublicGuideList()
 const allowStaticFallback = computed(() => !publicGuideError.value
@@ -58,6 +59,14 @@ watch([searchQuery, activeCategory], () => {
 
 function toggleGuidePreview() {
   showAllGuides.value = !showAllGuides.value
+}
+
+function clearGuideSearch(): void {
+  searchQuery.value = ''
+}
+
+function selectGuideCategory(category: GuideListCategoryId): void {
+  activeCategory.value = category
 }
 </script>
 
@@ -107,13 +116,13 @@ function toggleGuidePreview() {
                 size="xs"
                 aria-label="清空搜索"
                 class="min-h-10 min-w-10"
-                @click="() => { searchQuery = '' }"
+                @click="clearGuideSearch"
               />
             </template>
           </UInput>
 
           <div
-            class="scrollbar-none flex gap-1 overflow-x-auto"
+            class="grid grid-cols-5 gap-1 md:flex"
             aria-label="指南分类"
           >
             <UButton
@@ -123,9 +132,10 @@ function toggleGuidePreview() {
               :label="category.label"
               :color="activeCategory === category.id ? 'primary' : 'neutral'"
               :variant="activeCategory === category.id ? 'soft' : 'ghost'"
-              class="min-h-11 shrink-0"
+              class="min-h-11 min-w-0 justify-center px-1.5 md:w-auto md:shrink-0 md:px-2.5"
+              :ui="{ leadingIcon: 'hidden md:block' }"
               :aria-pressed="activeCategory === category.id"
-              @click="() => { activeCategory = category.id }"
+              @click="selectGuideCategory(category.id)"
             />
           </div>
         </div>

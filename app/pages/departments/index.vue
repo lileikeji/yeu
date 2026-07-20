@@ -72,9 +72,24 @@ function clearDepartmentSearch() {
           placeholder="搜索部门或办理事项"
           aria-label="搜索校内部门"
           size="lg"
-          class="mt-6 min-h-11 max-w-2xl"
+          class="mt-6 min-h-11 w-full max-w-2xl"
           :ui="{ base: 'min-h-11' }"
-        />
+        >
+          <template
+            v-if="searchQuery"
+            #trailing
+          >
+            <UButton
+              icon="i-lucide-x"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              aria-label="清空搜索"
+              class="min-h-10 min-w-10"
+              @click="clearDepartmentSearch"
+            />
+          </template>
+        </UInput>
       </div>
     </header>
 
