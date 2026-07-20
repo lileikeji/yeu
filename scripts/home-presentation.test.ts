@@ -71,6 +71,14 @@ test('home page is a thin shell over home-presentation util', () => {
   assert.match(utilSource, /export function buildHomeFeaturedProcedures/)
 })
 
+test('home timeline and secondary actions remain comfortable to tap on mobile', () => {
+  assert.match(pageSource, /<NuxtLink\s+v-for="\(stage, index\) in timelineStages"[\s\S]*?:to="stage\.to"[\s\S]*?:aria-label="`\$\{stage\.label\}：\$\{stage\.title\}，\$\{stage\.actionLabel\}`"/)
+  assert.match(pageSource, /class="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold/)
+  assert.match(pageSource, /to="\/procedures"\s+class="-mr-2 inline-flex min-h-11/)
+  assert.match(pageSource, /class="inline-flex min-h-11 items-center gap-1\.5 rounded-full/)
+  assert.doesNotMatch(pageSource, /<article\s+v-for="\(stage, index\) in timelineStages"/)
+})
+
 test('home essential actions and timeline keep freshman-first copy', () => {
   const actions = buildHomeEssentialActions([
     { slug: 'campus-card-network', summary: 'API 校园卡摘要' },

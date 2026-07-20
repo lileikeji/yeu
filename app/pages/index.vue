@@ -297,10 +297,12 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
           </h2>
 
           <div class="mt-5 grid gap-3 lg:grid-cols-3">
-            <article
+            <NuxtLink
               v-for="(stage, index) in timelineStages"
               :key="stage.label"
-              class="rounded-xl border border-zinc-200 bg-white p-5"
+              :to="stage.to"
+              :aria-label="`${stage.label}：${stage.title}，${stage.actionLabel}`"
+              class="group block rounded-xl border border-zinc-200 bg-white p-5 transition hover:border-green-300 hover:shadow-sm active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
             >
               <div class="flex items-center gap-3">
                 <span class="grid size-8 place-items-center rounded-full bg-green-700 text-sm font-bold text-white">{{ index + 1 }}</span>
@@ -326,17 +328,14 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
                   <span>{{ item }}</span>
                 </li>
               </ul>
-              <NuxtLink
-                :to="stage.to"
-                class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-800"
-              >
+              <span class="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-green-700 group-hover:text-green-800">
                 {{ stage.actionLabel }}
                 <UIcon
                   name="i-lucide-arrow-right"
-                  class="size-4"
+                  class="size-4 transition group-hover:translate-x-0.5"
                 />
-              </NuxtLink>
-            </article>
+              </span>
+            </NuxtLink>
           </div>
         </div>
       </section>
@@ -356,7 +355,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
           </div>
           <NuxtLink
             to="/procedures"
-            class="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-green-700"
+            class="-mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-sm font-medium text-green-700 hover:bg-green-50"
           >
             全部流程
             <UIcon
@@ -462,7 +461,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
       <!-- 重新播放动画入口 -->
       <div class="flex justify-center pb-8">
         <button
-          class="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-xs text-zinc-500 hover:border-green-300 hover:text-green-700 transition cursor-pointer"
+          class="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-xs text-zinc-500 transition hover:border-green-300 hover:text-green-700 cursor-pointer"
           @click="replayIntro"
         >
           <UIcon
