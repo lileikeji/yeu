@@ -75,6 +75,7 @@ const detailSources = computed(() => buildProcedureDetailSources(procedure.value
 const completedStepIds = ref<string[]>([])
 const storageKey = computed(() => buildProcedureChecklistStorageKey(procedure.value?.slug ?? slug))
 const ready = ref(false)
+const confirmClearChecklist = ref(false)
 const checklistProgress = computed(() => resolveProcedureChecklistProgress(
   visibleSteps.value.map(step => step.id),
   completedStepIds.value
@@ -106,11 +107,21 @@ watch(completedStepIds, (value) => {
 }, { deep: true })
 
 function toggleStep(stepId: string) {
+  confirmClearChecklist.value = false
   completedStepIds.value = toggleProcedureStep(completedStepIds.value, stepId)
+}
+
+function requestClearChecklist() {
+  confirmClearChecklist.value = true
+}
+
+function cancelClearChecklist() {
+  confirmClearChecklist.value = false
 }
 
 function clearChecklist() {
   completedStepIds.value = []
+  confirmClearChecklist.value = false
 }
 
 function mapLink(placeSlug: string, stepId: string) {
@@ -145,6 +156,7 @@ function showStepAudienceBadges(stepAudienceCount: number, procedureAudienceCoun
 }
 
 watch(selectedAudience, (value) => {
+  confirmClearChecklist.value = false
   void router.replace({
     query: resolveProcedureAudienceRouteQuery(
       route.query as Record<string, unknown>,
@@ -354,16 +366,36 @@ watch(selectedAudience, (value) => {
                 勾选内容只留在这台设备上。
               </p>
             </div>
-            <UButton
-              v-if="completedStepIds.length"
-              icon="i-lucide-rotate-ccw"
-              label="清空勾选"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="min-h-10"
-              @click="clearChecklist"
-            />
+            <div class="flex flex-wrap justify-end gap-1">
+              <UButton
+                v-if="completedStepIds.length && !confirmClearChecklist"
+                icon="i-lucide-rotate-ccw"
+                label="清空勾选"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="min-h-10"
+                @click="requestClearChecklist"
+              />
+              <template v-else-if="confirmClearChecklist">
+                <UButton
+                  label="确认清空"
+                  color="error"
+                  variant="soft"
+                  size="sm"
+                  class="min-h-10"
+                  @click="clearChecklist"
+                />
+                <UButton
+                  label="取消"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="min-h-10"
+                  @click="cancelClearChecklist"
+                />
+              </template>
+            </div>
           </div>
 
           <div
