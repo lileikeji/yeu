@@ -256,6 +256,44 @@ test('express guide gives students direct, current-use advice', () => {
   )
 })
 
+test('clubs guide helps students choose an interest and verify this year recruitment', () => {
+  const clubs = findFreshmanGuide('clubs')
+  assert.ok(clubs)
+  const view = mergePublicGuides([clubs], [], true)[0]
+  assert.ok(view)
+  assert.equal(view.statusText, '2026级招新时间和报名方式还要等通知')
+  assert.deepEqual(view.sections.map(section => section.title), [
+    '先了解有哪些方向',
+    '2026年仍有活动的社团',
+    '按兴趣找社团',
+    '学校仍在组织社团活动',
+    '往年通常怎么招新',
+    '学生分享可以怎么参考',
+    '名称不同怎么办',
+    '报名时注意'
+  ])
+  assert.match(view.summary, /先按兴趣了解/)
+  assert.match(view.leadNotice, /具体招新时间、报名方式和群聊入口/)
+  assert.match(view.sections[2]?.items[1] ?? '', /学术、表达和创作方向/)
+  assert.match(view.sections[4]?.items[1] ?? '', /仍要等本学期通知/)
+  assert.match(view.sections[7]?.items[2] ?? '', /不要使用往年群二维码/)
+  const publicCopy = JSON.stringify({
+    summary: view.summary,
+    statusText: view.statusText,
+    leadNotice: view.leadNotice,
+    sections: view.sections.map(section => ({
+      title: section.title,
+      items: section.items,
+      notice: section.notice
+    }))
+  })
+  assert.doesNotMatch(publicCopy, /线索|运行证据|干部任职|系统保留|自动合并|发布规则|存续状态|归档/)
+  assert.equal(
+    studentFacingGuideText('其余名称主要来自校团委公开附件中的干部任职线索，适合做招新前索引，不适合直接写成“2026正在招新”。'),
+    '这些名称来自校团委公开资料，社团名称和是否招新可能调整，报名时以本学期通知为准。'
+  )
+})
+
 test('nearby guide only exposes student-useful sections', () => {
   const nearby = freshmanGuides.find(guide => guide.slug === 'nearby')
   assert.ok(nearby)
@@ -425,16 +463,16 @@ test('official club catalog exposes 23 traceable club entries with source levels
 
   const clubsGuide = findFreshmanGuide('clubs')
   assert.equal(clubsGuide?.updatedAt, '2026-07-15')
-  assert.equal(clubsGuide?.statusText, '2026招新安排待发布')
+  assert.equal(clubsGuide?.statusText, '2026级招新时间和报名方式还要等通知')
   assert.equal(officialSources.clubOverview.title, '学生社团简介')
   assert.equal(officialSources.clubOverview.accessedAt, '2026-07-14')
 
   const clubsText = clubsGuide?.sections.flatMap(section => section.items).join('\n') ?? ''
   assert.match(clubsText, /23个学生社团/)
   assert.match(clubsText, /文化体育类12个/)
-  assert.match(clubsText, /当前已整理的23个社团名称|近期活动可确认：国旗班、音乐协会、公共关系协会/)
+  assert.match(clubsText, /近期有公开活动：国旗班、音乐协会、公共关系协会/)
   assert.match(clubsText, /体育协会排球分会、体育协会乒乓球分会、体育协会跆拳道分会、体育协会足球分会、体育协会定向越野分会/)
-  assert.match(clubsText, /不能替代当年注册名册或招新公告/)
+  assert.match(clubsText, /报到后再关注本学期招新通知/)
   assert.ok(clubsGuide?.sources.includes(officialSources.clubOverview))
 })
 
