@@ -17,6 +17,7 @@ import {
   procedureStateLabels,
   resolveProcedureAudienceOptionPresentation,
   resolveProcedureAudienceRouteQuery,
+  resolveProcedureChecklistProgress,
   resolveProcedureChecklistFromStorageText,
   resolveProcedureInformationStateBadgeColor,
   resolveProcedureMaterialsCountBadge,
@@ -42,6 +43,7 @@ test('procedure detail page is a thin shell over presentation util', () => {
   assert.match(pageSource, /resolveProcedureAudienceRouteQuery/)
   assert.match(pageSource, /resolveProcedureInformationStateBadgeColor/)
   assert.match(pageSource, /resolveProcedureMaterialsCountBadge/)
+  assert.match(pageSource, /resolveProcedureChecklistProgress/)
   assert.match(pageSource, /resolveProcedureStepCompletionPresentation/)
   assert.match(pageSource, /shouldShowProcedureStepAudienceBadges/)
   assert.match(pageSource, /label="查看学校页面"/)
@@ -152,6 +154,39 @@ test('checklist parse/serialize and step toggle keep version and step id safety'
   assert.deepEqual(toggleProcedureStep(['a'], 'b'), ['a', 'b'])
   assert.deepEqual(toggleProcedureStep(['a', 'b'], 'a'), ['b'])
   assert.deepEqual(
+    resolveProcedureChecklistProgress(['a', 'b', 'c'], ['a', 'hidden']),
+    {
+      completedCount: 1,
+      totalCount: 3,
+      remainingCount: 2,
+      percent: 33,
+      nextStepId: 'b',
+      isComplete: false
+    }
+  )
+  assert.deepEqual(
+    resolveProcedureChecklistProgress(['a', 'b'], ['a', 'b']),
+    {
+      completedCount: 2,
+      totalCount: 2,
+      remainingCount: 0,
+      percent: 100,
+      nextStepId: null,
+      isComplete: true
+    }
+  )
+  assert.deepEqual(
+    resolveProcedureChecklistProgress([], ['hidden']),
+    {
+      completedCount: 0,
+      totalCount: 0,
+      remainingCount: 0,
+      percent: 0,
+      nextStepId: null,
+      isComplete: false
+    }
+  )
+  assert.deepEqual(
     buildProcedureMapLink('campus-card', 'card-center', 'step-1'),
     {
       path: '/map',
@@ -229,5 +264,6 @@ test('Stage 65 procedure presentation decisions stay pure and student-facing', (
     JSON.stringify({ version: 'v1', stepIds: ['a'] })
   )
   assert.match(utilSource, /export function resolveProcedureAudienceRouteQuery/)
+  assert.match(utilSource, /export function resolveProcedureChecklistProgress/)
   assert.match(utilSource, /export function resolveProcedureStepCompletionPresentation/)
 })

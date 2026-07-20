@@ -21,6 +21,7 @@ import {
   procedureStateLabels,
   resolveProcedureAudienceOptionPresentation,
   resolveProcedureAudienceRouteQuery,
+  resolveProcedureChecklistProgress,
   resolveProcedureChecklistFromStorageText,
   resolveProcedureInformationStateBadgeColor,
   resolveProcedureMaterialsCountBadge,
@@ -74,6 +75,13 @@ const detailSources = computed(() => buildProcedureDetailSources(procedure.value
 const completedStepIds = ref<string[]>([])
 const storageKey = computed(() => buildProcedureChecklistStorageKey(procedure.value?.slug ?? slug))
 const ready = ref(false)
+const checklistProgress = computed(() => resolveProcedureChecklistProgress(
+  visibleSteps.value.map(step => step.id),
+  completedStepIds.value
+))
+const nextVisibleStep = computed(() => visibleSteps.value.find(
+  step => step.id === checklistProgress.value.nextStepId
+) ?? null)
 
 onMounted(() => {
   completedStepIds.value = resolveProcedureChecklistFromStorageText(
@@ -356,6 +364,59 @@ watch(selectedAudience, (value) => {
               class="min-h-10"
               @click="clearChecklist"
             />
+          </div>
+
+          <div
+            v-if="visibleSteps.length"
+            class="mt-5 rounded-lg border p-4 md:p-5"
+            :class="checklistProgress.isComplete
+              ? 'border-green-200 bg-green-50/70'
+              : 'border-zinc-200 bg-zinc-50'"
+            aria-live="polite"
+          >
+            <div class="flex items-center justify-between gap-4">
+              <p
+                class="text-sm font-bold"
+                :class="checklistProgress.isComplete ? 'text-green-900' : 'text-zinc-900'"
+              >
+                {{ checklistProgress.isComplete
+                  ? '这份流程已经全部勾完'
+                  : `已完成 ${checklistProgress.completedCount} / ${checklistProgress.totalCount} 项` }}
+              </p>
+              <span class="shrink-0 text-sm font-bold text-green-700">
+                {{ checklistProgress.percent }}%
+              </span>
+            </div>
+            <div
+              class="mt-3 h-2 overflow-hidden rounded-full bg-white ring-1 ring-zinc-200"
+              role="progressbar"
+              :aria-valuenow="checklistProgress.percent"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-label="`这份流程已完成 ${checklistProgress.percent}%`"
+            >
+              <div
+                class="h-full rounded-full bg-green-600 transition-all duration-300"
+                :style="{ width: `${checklistProgress.percent}%` }"
+              />
+            </div>
+            <p
+              v-if="checklistProgress.isComplete"
+              class="mt-3 text-sm leading-6 text-green-900"
+            >
+              办理前再看一眼学校最新通知，确认时间、地点和材料没有变化。
+            </p>
+            <a
+              v-else-if="nextVisibleStep"
+              :href="`#step-${nextVisibleStep.id}`"
+              class="mt-2 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-800"
+            >
+              下一步：{{ studentFacingProcedureText(nextVisibleStep.title) }}
+              <UIcon
+                name="i-lucide-arrow-down"
+                class="size-4"
+              />
+            </a>
           </div>
 
           <ol class="mt-5 space-y-3">

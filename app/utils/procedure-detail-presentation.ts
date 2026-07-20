@@ -74,6 +74,15 @@ export interface ProcedureChecklistRecord {
   stepIds: string[]
 }
 
+export interface ProcedureChecklistProgress {
+  completedCount: number
+  totalCount: number
+  remainingCount: number
+  percent: number
+  nextStepId: string | null
+  isComplete: boolean
+}
+
 export function getProcedureNoticeText(
   category: string | null | undefined,
   informationState: ProcedureInformationState | string | null | undefined
@@ -162,6 +171,26 @@ export function toggleProcedureStep(stepIds: string[], stepId: string): string[]
   return stepIds.includes(stepId)
     ? stepIds.filter(value => value !== stepId)
     : [...stepIds, stepId]
+}
+
+export function resolveProcedureChecklistProgress(
+  visibleStepIds: Iterable<string>,
+  completedStepIds: Iterable<string>
+): ProcedureChecklistProgress {
+  const stepIds = [...visibleStepIds]
+  const completed = new Set(completedStepIds)
+  const completedCount = stepIds.filter(stepId => completed.has(stepId)).length
+  const totalCount = stepIds.length
+  const remainingCount = totalCount - completedCount
+
+  return {
+    completedCount,
+    totalCount,
+    remainingCount,
+    percent: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
+    nextStepId: stepIds.find(stepId => !completed.has(stepId)) ?? null,
+    isComplete: totalCount > 0 && remainingCount === 0
+  }
 }
 
 export function buildProcedureMapLink(
