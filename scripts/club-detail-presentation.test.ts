@@ -32,12 +32,13 @@ test('club detail page is a thin shell over club-detail-presentation util', () =
 test('club decision aids use ordinary signup and activity language', () => {
   assert.equal(clubSectionLabels.overview, '先了解这个社团')
   assert.equal(clubSectionLabels.signupChecklist, '报名之前问清楚')
+  assert.equal(clubSectionLabels.sourceDetails, '看看这些信息从哪里来')
   assert.equal(clubSourceStatusMessages.recentActivity, '近期有活动')
   assert.equal(clubSourceStatusMessages.namePending, '等待本学期招新消息')
   assert.ok(clubSignupQuestionChecklist.some(item => item.includes('是否适合零基础新生')))
   assert.ok(clubSignupQuestionChecklist.some(item => item.includes('是否收费，是否需要自备器材、服装或材料')))
   assert.equal(clubSignupQuestionChecklist.length, 4)
-  assert.doesNotMatch(pageSource, /资料状态|可信度|系统不会|当前可确认信息|目前能确认|有效来源/)
+  assert.doesNotMatch(pageSource, /资料状态|可信度|系统不会|当前可确认信息|目前能确认|有效来源|信息出处与更新时间/)
 
   assert.deepEqual(buildClubOverviewItems('声乐、器乐和校园演出').map(item => item.title), [
     '主要活动',

@@ -17,7 +17,7 @@ withDefaults(defineProps<{
   title?: string
 }>(), {
   verifiedAt: null,
-  title: '信息出处与更新时间'
+  title: '这些信息从哪里来'
 })
 </script>
 

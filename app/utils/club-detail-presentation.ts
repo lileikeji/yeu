@@ -12,7 +12,7 @@ export const clubSectionLabels = {
   recruitmentPending: '招新安排待公布',
   recruitmentDetails: '最新招新安排',
   recruitmentNotice: '2026 级招新时间、地点和群聊入口还没公布。开学后请留意校团委、社团负责人或现场摊位的最新消息。',
-  sourceDetails: '查看信息出处与更新时间',
+  sourceDetails: '看看这些信息从哪里来',
   feedback: '告诉我们新的招新消息'
 } as const
 

@@ -599,7 +599,7 @@ watch(selectedAudience, (value) => {
         <UButton
           :to="feedbackLink"
           icon="i-lucide-message-square-warning"
-          label="反馈流程错误或补充资料"
+          label="告诉我们哪里不对或还缺什么"
           color="neutral"
           variant="outline"
           class="mt-6 min-h-11"

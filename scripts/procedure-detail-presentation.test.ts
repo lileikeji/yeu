@@ -50,6 +50,8 @@ test('procedure detail page is a thin shell over presentation util', () => {
   assert.match(pageSource, /label="确认清空"/)
   assert.match(pageSource, /label="取消"/)
   assert.match(pageSource, /label="查看学校页面"/)
+  assert.match(pageSource, /label="告诉我们哪里不对或还缺什么"/)
+  assert.doesNotMatch(pageSource, /反馈流程错误或补充资料/)
   assert.doesNotMatch(pageSource, /打开官方入口/)
   assert.doesNotMatch(pageSource, /function sourceClaimForStudents/)
   assert.doesNotMatch(pageSource, /informationState === 'confirmed' \? 'success'/)
