@@ -84,11 +84,16 @@ export function resolveFeedbackReasonType(value: unknown): FeedbackReasonValue {
   const candidate = feedbackRouteQueryString(value)
   return feedbackReasonOptions.some(option => option.value === candidate)
     ? candidate as FeedbackReasonValue
-    : 'place_error'
+    : 'other'
 }
 
 export function canSubmitFeedback(message: string, submitting: boolean): boolean {
   return message.trim().length >= 5 && !submitting
+}
+
+export function feedbackMessageNeedsMoreDetail(message: string): boolean {
+  const length = message.trim().length
+  return length > 0 && length < 5
 }
 
 export interface FeedbackSubmitBody {
@@ -124,7 +129,7 @@ export function buildFeedbackSubmitBody(input: {
   }
 }
 
-export function createEmptyFeedbackFormState(): {
+export function createEmptyFeedbackFormState(reasonType: FeedbackReasonValue = 'other'): {
   reasonType: FeedbackReasonValue
   message: string
   evidenceUrl: string
@@ -133,7 +138,7 @@ export function createEmptyFeedbackFormState(): {
   submitted: boolean
 } {
   return {
-    reasonType: 'place_error',
+    reasonType,
     message: '',
     evidenceUrl: '',
     contact: '',

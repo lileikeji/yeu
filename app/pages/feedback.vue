@@ -5,6 +5,7 @@ import {
   buildFeedbackSubmitBody,
   canSubmitFeedback,
   createEmptyFeedbackFormState,
+  feedbackMessageNeedsMoreDetail,
   feedbackReasonOptions,
   resolveFeedbackReasonType,
   resolveFeedbackTargetDisplayName,
@@ -45,7 +46,8 @@ const targetDisplayName = computed(() => resolveFeedbackTargetDisplayName(
 ))
 const pageUrl = computed(() => safeLocalPath(route.query.from))
 
-const reasonType = ref(resolveFeedbackReasonType(route.query.type))
+const initialReasonType = computed(() => resolveFeedbackReasonType(route.query.type))
+const reasonType = ref(initialReasonType.value)
 const message = ref('')
 const evidenceUrl = ref('')
 const contact = ref('')
@@ -54,6 +56,7 @@ const submitting = ref(false)
 const submitted = ref(false)
 
 const canSubmit = computed(() => canSubmitFeedback(message.value, submitting.value))
+const messageNeedsMoreDetail = computed(() => feedbackMessageNeedsMoreDetail(message.value))
 
 async function submitFeedback() {
   if (!canSubmit.value) return
@@ -86,7 +89,7 @@ async function submitFeedback() {
 }
 
 function resetForm() {
-  const empty = createEmptyFeedbackFormState()
+  const empty = createEmptyFeedbackFormState(initialReasonType.value)
   reasonType.value = empty.reasonType
   message.value = empty.message
   evidenceUrl.value = empty.evidenceUrl
@@ -205,7 +208,7 @@ function resetForm() {
               class="text-sm font-semibold text-zinc-900"
             >具体情况 <span class="text-red-600">*</span></label>
             <p class="mt-1 text-xs leading-5 text-zinc-500">
-              请写清哪个地点或页面、哪里不对，以及正确情况。
+              请写清哪个地点或页面、哪里不对，以及正确情况。至少写 5 个字。
             </p>
             <UTextarea
               id="feedback-message"
@@ -215,10 +218,21 @@ function resetForm() {
               placeholder="例如：某地点已经搬迁，现场标牌显示……"
               :maxlength="4000"
               required
+              :aria-invalid="messageNeedsMoreDetail ? 'true' : undefined"
             />
-            <p class="mt-1 text-right text-xs text-zinc-400">
-              {{ message.length }} / 4000
-            </p>
+            <div class="mt-1 flex items-start justify-between gap-3">
+              <p
+                v-if="messageNeedsMoreDetail"
+                class="text-xs leading-5 text-orange-700"
+                role="status"
+              >
+                还需要再写一点才能提交。
+              </p>
+              <span v-else />
+              <p class="shrink-0 text-right text-xs text-zinc-400">
+                {{ message.length }} / 4000
+              </p>
+            </div>
           </div>
 
           <div class="grid gap-5 md:grid-cols-2">
