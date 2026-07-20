@@ -97,6 +97,7 @@ test('procedure notice and material copy follow category and confirmation state'
   assert.equal(studentFacingProcedureTitle('校园网与统一认证排查'), '校园网与账号登录问题')
   assert.equal(studentFacingProcedureText('请查看统一认证入口，遇到认证不了的情况再联系部门'), '请查看账号登录入口，遇到登录不了的情况再联系部门')
   assert.equal(studentFacingProcedureText('系统不公开或猜测个人账号初始密码'), '这里不会提供或猜测个人账号初始密码')
+  assert.equal(studentFacingProcedureText('请附上错误截图和设备系统'), '请附上错误截图和手机或电脑的系统版本')
   assert.equal(studentFacingProcedureText('优先按信息化管理处官方入口处理'), '优先按信息化管理处官网处理')
   assert.equal(studentFacingProcedureText('按信息化管理处入口咨询'), '通过信息化管理处官网咨询')
 })
