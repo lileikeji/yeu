@@ -375,6 +375,30 @@ test('server public presentation rewrites nested club and guide maintenance copy
   assert.match(presented.summary, /今年是否继续招新还要等通知/)
   assert.match(presented.body, /请以本学期通知为准/)
   assert.match(presented.body, /请不要使用往年的二维码或群聊入口/)
+  assert.equal(presented.category, 'community')
+})
+
+test('public club categories remove verification suffixes', () => {
+  const content = {
+    id: 'club-2',
+    kind: 'club',
+    slug: 'sample-club-2',
+    title: '示例社团',
+    summary: '今年是否继续招新还要等通知',
+    body: '这个社团属于科技创新方向。',
+    category: '科技创新 · 名称线索待确认',
+    audience: 'undergraduate',
+    metadata: {},
+    isFeatured: false,
+    status: 'published',
+    lastVerifiedAt: null,
+    publishedAt: '2026-07-20T00:00:00.000Z',
+    createdAt: '2026-07-20T00:00:00.000Z',
+    updatedAt: '2026-07-20T00:00:00.000Z',
+    sources: []
+  } satisfies ApiContent
+
+  assert.equal(presentPublicContent(content).category, '科技创新')
 })
 
 test('all public read endpoints apply student-facing presentation before returning', () => {

@@ -127,12 +127,20 @@ function sanitizeProcedureGuide(guide: ApiProcedureGuide | null): ApiProcedureGu
   }
 }
 
+function studentFacingContentCategory(content: ApiContent): string {
+  if (content.kind !== 'club') return content.category
+  return content.category
+    .replace(/\s*·\s*(?:名称线索待确认|近期活动可确认|近期有活动)\s*/g, '')
+    .trim()
+}
+
 export function sanitizePublicContent(content: ApiContent): ApiContent {
   return {
     ...content,
     title: studentFacingPayloadText(content.title),
     summary: studentFacingPayloadText(content.summary),
     body: studentFacingPayloadText(content.body),
+    category: studentFacingContentCategory(content),
     metadata: sanitizeMetadataValue(content.metadata) as Record<string, unknown>,
     sources: content.sources.map(sanitizeSource)
   }

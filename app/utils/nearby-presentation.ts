@@ -117,6 +117,8 @@ export function nearbySourceContextForStudents(value: string | undefined): strin
     .replace(/原外链/g, '原链接')
     .replace(/前台/g, '公开页面')
     .replace(/线索/g, '参考信息')
+    .replace(/原链接当前不可稳定访问，公开页面仅保留为归档线索。?/g, '原分享链接目前打不开。')
+    .replace(/原链接当前不可稳定访问，前台仅保留为归档线索。?/g, '原分享链接目前打不开。')
 }
 
 export function nearbyCandidateMapUrl(candidate: NearbyCandidate): string {

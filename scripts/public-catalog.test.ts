@@ -365,6 +365,18 @@ test('guide source notes hide maintainer wording', () => {
   )
 })
 
+test('nearby and delivery source notes do not retain archive wording', () => {
+  const nearby = freshmanGuides.find(guide => guide.slug === 'nearby')
+  assert.ok(nearby)
+  const view = mergePublicGuides([nearby], [], true)[0]
+  assert.ok(view)
+  const contexts = [
+    ...view.sources,
+    ...view.sections.flatMap(section => section.sources ?? [])
+  ].map(source => source.context ?? '').join('\n')
+  assert.doesNotMatch(contexts, /归档线索|原链接当前不可稳定访问|公开页面仅保留/)
+})
+
 test('published department copy also hides internal network wording', () => {
   const content: ApiContent = {
     id: 'department-copy-test',
