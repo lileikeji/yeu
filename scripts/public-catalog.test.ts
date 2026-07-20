@@ -241,6 +241,24 @@ test('nearby guide only exposes student-useful sections', () => {
   assert.match(publicCopy, /避免白跑|出发前请再确认|只作为找店参考/)
 })
 
+test('guide source notes hide maintainer wording', () => {
+  const campus = freshmanGuides.find(guide => guide.slug === 'find-campus')
+  assert.ok(campus)
+  const view = mergePublicGuides([campus], [], true)[0]
+  assert.ok(view)
+  const contexts = [
+    ...view.sources,
+    ...view.sections.flatMap(section => section.sources ?? [])
+  ]
+    .map(source => source.context ?? '')
+    .join('\n')
+  assert.match(contexts, /现场确认|参考记录/)
+  assert.doesNotMatch(
+    contexts,
+    /现场核验|独立核验|待复核|待核验|原外链|归档线索|前台|争议配图禁止发布/
+  )
+})
+
 test('published department copy also hides internal network wording', () => {
   const content: ApiContent = {
     id: 'department-copy-test',

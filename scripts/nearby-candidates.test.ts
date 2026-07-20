@@ -110,6 +110,10 @@ test('nearby presentation helpers rewrite source context and build map links', (
     /2025 年社交平台参考/
   )
   assert.match(nearbySourceContextForStudents('社交平台待核验线索'), /社交平台参考信息/)
+  assert.equal(
+    nearbySourceContextForStudents('现场核验后再公开，争议配图禁止发布。'),
+    '现场确认后再公开，有争议信息不作为公开参考。'
+  )
   assert.match(nearbySourceContextForStudents(undefined), /可以帮助了解大致情况/)
 
   const sample = candidateData.candidates[0] as NearbyCandidate

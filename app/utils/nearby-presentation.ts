@@ -108,6 +108,13 @@ export function nearbySourceContextForStudents(value: string | undefined): strin
     .replace(/待核验/g, '还要再确认')
     .replace(/原外链当前不可稳定访问，前台仅保留为归档线索。?/g, '原链接现在不稳定，先作为参考记录保留。')
     .replace(/归档线索/g, '参考记录')
+    .replace(/争议配图禁止发布。?/g, '有争议信息不作为公开参考。')
+    .replace(/现场核验/g, '现场确认')
+    .replace(/独立核验/g, '独立确认')
+    .replace(/核验/g, '确认')
+    .replace(/原外链/g, '原链接')
+    .replace(/前台/g, '公开页面')
+    .replace(/线索/g, '参考信息')
 }
 
 export function nearbyCandidateMapUrl(candidate: NearbyCandidate): string {
