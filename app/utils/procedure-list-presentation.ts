@@ -35,13 +35,13 @@ export function procedureListStatePresentation(informationState: string): Proced
   }
   if (informationState === 'awaiting-notice') {
     return {
-      label: '等待学校通知',
+      label: '等学校通知',
       color: 'warning',
       icon: 'i-lucide-clock-3'
     }
   }
   return {
-    label: '先看已知部分',
+    label: '先看已确认内容',
     color: 'neutral',
     icon: 'i-lucide-info'
   }

@@ -19,7 +19,7 @@ export const procedureMethodLabels = {
 export const procedureStateLabels = {
   'confirmed': '信息明确',
   'partial': '部分内容待确认',
-  'awaiting-notice': '等待学校通知'
+  'awaiting-notice': '等学校通知'
 } as const satisfies Record<ProcedureInformationState, string>
 
 export function studentFacingProcedureTitle(value: string): string {

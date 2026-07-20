@@ -86,8 +86,8 @@ test('guide fallback message and detail source mapping stay student-facing', () 
   assert.equal(resolveGuideFallbackMessage(false), guideFallbackMessages.staticGuide)
   assert.match(guideFallbackMessages.staticGuide, /学校最新通知/)
   assert.equal(guideStatePresentation('verified').label, '主要内容明确')
-  assert.equal(guideStatePresentation('partial').label, '先看已知部分')
-  assert.equal(guideStatePresentation('awaiting-notice').label, '等待学校通知')
+  assert.equal(guideStatePresentation('partial').label, '先看已确认内容')
+  assert.equal(guideStatePresentation('awaiting-notice').label, '等学校通知')
   assert.equal(
     studentFacingGuideStatusText('官方求助入口已确认，医务室电话待确认，招新安排待发布'),
     '学校求助入口已经明确，医务室电话还要确认，招新安排还没公布'

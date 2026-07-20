@@ -59,8 +59,8 @@ test('procedure list audience and method labels stay student-facing', () => {
   assert.match(pageSource, /label="重新试一次"/)
   assert.doesNotMatch(pageSource, /border-red-200|text-red-900/)
   assert.equal(procedureListStatePresentation('confirmed').label, '可以照着办理')
-  assert.equal(procedureListStatePresentation('partial').label, '先看已知部分')
-  assert.equal(procedureListStatePresentation('awaiting-notice').label, '等待学校通知')
+  assert.equal(procedureListStatePresentation('partial').label, '先看已确认内容')
+  assert.equal(procedureListStatePresentation('awaiting-notice').label, '等学校通知')
   assert.equal(
     procedureListStatusText('报修制度有官方来源，工单状态待通知'),
     '报修制度有学校说明，处理进度还要等学校通知'

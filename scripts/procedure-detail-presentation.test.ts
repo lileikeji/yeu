@@ -70,7 +70,7 @@ test('procedure presentation labels and audience options stay student-facing', (
   assert.equal(procedureAudienceLabels.transfer, '专升本新生')
   assert.equal(procedureMethodLabels.mixed, '网上确认 + 到校办理')
   assert.equal(procedureStateLabels.confirmed, '信息明确')
-  assert.equal(procedureStateLabels['awaiting-notice'], '等待学校通知')
+  assert.equal(procedureStateLabels['awaiting-notice'], '等学校通知')
   assert.deepEqual(procedureAudienceOptions.map(option => option.value), [
     'all',
     'undergraduate',
