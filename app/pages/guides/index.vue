@@ -222,11 +222,11 @@ function selectGuideCategory(category: GuideListCategoryId): void {
           v-for="guide in visibleGuides"
           :key="guide.slug"
           :to="`/guides/${guide.slug}`"
-          class="surface-panel group flex min-h-56 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
+          class="surface-panel group flex min-h-0 flex-col p-4 transition hover:border-green-300 hover:shadow-sm md:min-h-56 md:p-5"
         >
           <div class="flex items-start justify-between gap-3">
             <span
-              class="grid size-10 shrink-0 place-items-center rounded-md"
+              class="grid size-9 shrink-0 place-items-center rounded-md md:size-10"
               :class="guideCategoryIconTones[guide.category]"
             >
               <UIcon
@@ -247,23 +247,22 @@ function selectGuideCategory(category: GuideListCategoryId): void {
             </UBadge>
           </div>
 
-          <h2 class="mt-5 text-base font-bold text-zinc-950">
+          <h2 class="mt-3 text-base font-bold text-zinc-950 md:mt-5">
             {{ guide.title }}
           </h2>
-          <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
+          <p class="mt-1.5 line-clamp-2 flex-1 text-sm leading-6 text-zinc-600 md:mt-2 md:line-clamp-none">
             {{ guide.summary }}
           </p>
-          <p class="mt-4 border-l-2 border-orange-300 pl-3 text-xs leading-5 text-zinc-600">
+          <p class="mt-2 line-clamp-1 border-l-2 border-orange-300 pl-2.5 text-xs leading-5 text-zinc-600 md:mt-4 md:line-clamp-none md:pl-3">
             <span class="font-semibold text-zinc-800">目前：</span>
             {{ studentFacingGuideStatusText(guide.statusText) }}
           </p>
-          <div class="mt-5 flex items-center justify-between gap-3 border-t border-zinc-100 pt-4 text-xs text-zinc-500">
-            <span>{{ guide.audience.join(' · ') }}</span>
-            <span class="inline-flex shrink-0 items-center gap-1 font-medium text-green-700">
-              打开
+          <div class="mt-3 flex items-center justify-between gap-3 text-xs text-zinc-500 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
+            <span class="truncate">{{ guide.audience.join(' · ') }}</span>
+            <span class="inline-flex shrink-0 items-center text-green-700">
               <UIcon
                 name="i-lucide-arrow-right"
-                class="size-3.5 transition group-hover:translate-x-0.5"
+                class="size-4 transition group-hover:translate-x-0.5"
               />
             </span>
           </div>

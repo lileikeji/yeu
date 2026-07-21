@@ -41,6 +41,15 @@ test('guide categories fit the mobile width and use direct interactions', () => 
   assert.doesNotMatch(pageSource, /overflow-x-auto/)
 })
 
+test('guide cards stay compact on mobile without dropping trust context', () => {
+  assert.match(pageSource, /class="surface-panel group flex min-h-0 flex-col p-4[^"]*md:min-h-56 md:p-5"/)
+  assert.match(pageSource, /line-clamp-2[^"]*md:line-clamp-none/)
+  assert.match(pageSource, /line-clamp-1[^"]*md:line-clamp-none/)
+  assert.match(pageSource, /studentFacingGuideStatusText\(guide\.statusText\)/)
+  assert.match(pageSource, /guide\.audience\.join\(' · '\)/)
+  assert.doesNotMatch(pageSource, />\s*打开\s*<UIcon/)
+})
+
 test('guide list categories and fallback messages stay student-facing', () => {
   assert.equal(guideListCategories[0]?.id, 'all')
   assert.equal(guideListCategories.length, 5)
