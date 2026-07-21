@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import BetterSqlite3 from 'better-sqlite3'
+import { amapImportedPlaces } from '../data/seeds/amap-imported-places'
 
 const RAW_FILE_NAME = 'amap-workmap-2026-07-13.raw.json'
 const DEFAULT_INPUT_PATH = `data/imports/${RAW_FILE_NAME}`
@@ -309,7 +310,14 @@ function rawReference(marker: AmapMarker): RawReference {
 }
 
 function buildDraft(marker: AmapMarker): DraftPlace {
-  const classification = classifyMarker(marker.name)
+  const reviewed = amapImportedPlaces.find(place => place.sourceRow === marker.sourceRow)
+  assertImport(reviewed, `Row ${marker.sourceRow}: reviewed map classification is missing`)
+  assertImport(reviewed.name === marker.name, `Row ${marker.sourceRow}: reviewed map classification name does not match`)
+  assertImport(reviewed.locationCode === marker.locationCode, `Row ${marker.sourceRow}: reviewed map classification WIA code does not match`)
+  const classification = {
+    ...classifyMarker(marker.name),
+    category: reviewed.category
+  }
   const pendingNote = '待核验：本条来自用户授权的高德工作地图导出，当前缺少经纬度；名称、描述和文字地址均未完成独立核验，不能用于导航。'
   const summary = marker.description
     ? `${marker.description}\n（高德工作地图导入草稿，内容待人工核验。）`

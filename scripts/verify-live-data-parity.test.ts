@@ -84,7 +84,7 @@ test('live data parity verifier accepts a fully seeded current SQLite database',
   }
 })
 
-test('live data parity verifier detects public content and AMap coordinate drift', async () => {
+test('live data parity verifier detects public content and AMap coordinate or category drift', async () => {
   const fixture = await createVerifiedFixture()
   try {
     const database = new BetterSqlite3(fixture.databasePath)
@@ -96,7 +96,8 @@ test('live data parity verifier detects public content and AMap coordinate drift
       `).run()
       database.prepare(`
         UPDATE places
-        SET longitude = longitude + 0.001
+        SET longitude = longitude + 0.001,
+            category = 'campus-building'
         WHERE source_raw_ref LIKE '%"sourceRow":49%'
       `).run()
     } finally {
@@ -110,6 +111,9 @@ test('live data parity verifier detects public content and AMap coordinate drift
     ))
     assert.ok(result.failures.some(failure =>
       failure.scope === 'places' && failure.message.includes('辽宁楼 longitude drifted')
+    ))
+    assert.ok(result.failures.some(failure =>
+      failure.scope === 'places' && failure.message.includes('辽宁楼 category drifted')
     ))
   } finally {
     fixture.cleanup()

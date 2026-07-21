@@ -257,13 +257,14 @@ export async function verifyLiveDataParity(options: LiveDataParityOptions): Prom
     }
 
     const draftRows = database.prepare(`
-      SELECT name, longitude, latitude, coordinate_system AS coordinateSystem,
+      SELECT name, category, longitude, latitude, coordinate_system AS coordinateSystem,
              coordinate_verification AS coordinateVerification, status, source_raw_ref AS sourceRawRef
       FROM places
       WHERE source_raw_ref LIKE '%amap-workmap-draft-v1%'
       ORDER BY name
     `).all() as Array<{
       name: string
+      category: string | null
       longitude: number | null
       latitude: number | null
       coordinateSystem: string | null
@@ -284,6 +285,7 @@ export async function verifyLiveDataParity(options: LiveDataParityOptions): Prom
       }
       if (row.name !== expected.name) fail(failures, 'places', `AMap row ${expected.sourceRow} name drifted: ${row.name} != ${expected.name}`)
       if (ref?.locationCode !== expected.locationCode) fail(failures, 'places', `AMap row ${expected.sourceRow} location code drifted`)
+      if (row.category !== expected.category) fail(failures, 'places', `${expected.name} category drifted: ${row.category ?? 'null'} != ${expected.category}`)
       if (!sameNumber(row.longitude, expected.sourcePoint.lng)) fail(failures, 'places', `${expected.name} longitude drifted`)
       if (!sameNumber(row.latitude, expected.sourcePoint.lat)) fail(failures, 'places', `${expected.name} latitude drifted`)
       if (row.coordinateSystem !== 'GCJ-02') fail(failures, 'places', `${expected.name} coordinate system must stay GCJ-02`)

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 import BetterSqlite3 from 'better-sqlite3'
+import { amapImportedPlaces } from '../data/seeds/amap-imported-places'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
@@ -27,7 +28,7 @@ function createDatabase(): { databasePath: string, cleanup: () => void } {
   }
 }
 
-test('strictly validates the reviewed marker sheet and keeps ambiguous buildings out of dorms', () => {
+test('strictly validates the reviewed marker sheet and keeps name-only fallback conservative', () => {
   const raw: unknown = JSON.parse(readFileSync(RAW_PATH, 'utf8'))
   const markers = parseAmapMarkers(raw)
   assert.equal(markers.length, 76)
@@ -108,8 +109,36 @@ test('dry-run is read-only and apply creates 76 source-free missing-coordinate d
       locationCode: 'WIA-200.35340,62.878096498'
     })
 
-    const ambiguous = verified.prepare('SELECT type, category FROM places WHERE name = ?').get('海南楼') as { type: string, category: string | null }
-    assert.deepEqual(ambiguous, { type: 'building', category: null })
+    const imported = verified.prepare(`
+      SELECT name, category, source_raw_ref AS sourceRawRef
+      FROM places
+      ORDER BY name
+    `).all() as Array<{ name: string, category: string | null, sourceRawRef: string }>
+    const reviewedByRow = new Map(amapImportedPlaces.map(place => [place.sourceRow, place]))
+    assert.equal(imported.length, 76)
+    for (const place of imported) {
+      const sourceRow = Number((JSON.parse(place.sourceRawRef) as { sourceRow: number }).sourceRow)
+      const reviewed = reviewedByRow.get(sourceRow)
+      assert.ok(reviewed)
+      assert.equal(place.name, reviewed.name)
+      assert.equal(place.category, reviewed.category)
+    }
+
+    const examples = verified.prepare(`
+      SELECT name, category
+      FROM places
+      WHERE name IN ('长春楼', '新区行政楼', '图书馆', '多功能报告厅', '普照大礼堂', '新区学生街', '旧区车来车往（京东）')
+      ORDER BY name
+    `).all() as Array<{ name: string, category: string }>
+    assert.deepEqual(Object.fromEntries(examples.map(place => [place.name, place.category])), {
+      '图书馆': 'service',
+      '多功能报告厅': 'service',
+      '新区学生街': 'nearby',
+      '新区行政楼': 'service',
+      '旧区车来车往（京东）': 'express',
+      '普照大礼堂': 'service',
+      '长春楼': 'dorm'
+    })
     verified.close()
   } finally {
     fixture.cleanup()
