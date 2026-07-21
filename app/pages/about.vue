@@ -4,6 +4,14 @@ import {
   aboutGovernanceLinks,
   aboutProjectFacts
 } from '~~/app/utils/about-presentation'
+import type { AboutTone } from '~~/app/utils/about-presentation'
+
+const aboutToneClasses: Record<AboutTone, string> = {
+  amber: 'bg-amber-50 text-amber-700',
+  green: 'bg-green-50 text-green-700',
+  sky: 'bg-sky-50 text-sky-700',
+  zinc: 'bg-zinc-100 text-zinc-700'
+}
 
 useSeoMeta({
   title: '关于这份指南',
@@ -31,20 +39,33 @@ useSeoMeta({
 
     <div>
       <section class="page-shell py-8 md:py-10">
-        <dl class="grid border-y border-[var(--line)] sm:grid-cols-2 lg:grid-cols-4">
-          <div
+        <ul class="grid grid-cols-2 border-y border-[var(--line)] lg:grid-cols-4">
+          <li
             v-for="fact in aboutProjectFacts"
             :key="fact.label"
-            class="border-b border-zinc-100 px-1 py-4 sm:px-4 lg:border-b-0 lg:border-r lg:last:border-r-0"
+            class="min-w-0 border-b border-zinc-100 px-3 py-4 odd:border-r [&:nth-last-child(-n+2)]:border-b-0 sm:px-5 lg:border-b-0 lg:border-r lg:last:border-r-0"
           >
-            <dt class="text-xs text-zinc-500">
-              {{ fact.label }}
-            </dt>
-            <dd class="mt-1.5 text-sm font-bold text-zinc-950">
-              {{ fact.value }}
-            </dd>
-          </div>
-        </dl>
+            <div class="flex items-start gap-3">
+              <span
+                class="grid size-8 shrink-0 place-items-center rounded-md"
+                :class="aboutToneClasses[fact.tone]"
+              >
+                <UIcon
+                  :name="fact.icon"
+                  class="size-4"
+                />
+              </span>
+              <div class="min-w-0">
+                <p class="text-xs text-zinc-500">
+                  {{ fact.label }}
+                </p>
+                <p class="mt-1 text-sm font-bold leading-5 text-zinc-950">
+                  {{ fact.value }}
+                </p>
+              </div>
+            </div>
+          </li>
+        </ul>
       </section>
 
       <section class="border-y border-[var(--line)] bg-white">
@@ -69,7 +90,10 @@ useSeoMeta({
                 class="border-t border-zinc-200 py-5"
               >
                 <div class="flex items-center gap-3">
-                  <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+                  <span
+                    class="grid size-9 shrink-0 place-items-center rounded-md"
+                    :class="aboutToneClasses[boundary.tone]"
+                  >
                     <UIcon
                       :name="boundary.icon"
                       class="size-4"
@@ -95,10 +119,10 @@ useSeoMeta({
               有问题怎么办
             </p>
             <h2 class="mt-2 text-xl font-bold text-zinc-950">
-              看参考页面，或告诉我们哪里不对
+              想确认来源，或发现信息不对
             </h2>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              每条重要信息尽量附上参考链接和查看日期。发现错误时，写清页面和正确情况即可，我们会确认后更新。请不要提交密码、证件或他人的私人信息。
+              重要信息会尽量附上参考链接，并写明我们最近查看的时间。发现错误时，只要告诉我们哪个页面、哪里不对以及正确情况。请不要提交密码、证件号码或他人的私人信息。
             </p>
           </div>
 
@@ -109,7 +133,10 @@ useSeoMeta({
               :to="link.to"
               class="group flex min-h-24 items-center gap-4 py-4"
             >
-              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700 group-hover:bg-green-50 group-hover:text-green-700">
+              <span
+                class="grid size-10 shrink-0 place-items-center rounded-md"
+                :class="aboutToneClasses[link.tone]"
+              >
                 <UIcon
                   :name="link.icon"
                   class="size-5"
@@ -132,10 +159,10 @@ useSeoMeta({
         <div class="page-shell grid gap-5 py-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div>
             <h2 class="text-base font-bold text-zinc-950">
-              报到、缴费等重要事项请看学校通知
+              重要事项以学校通知为准
             </h2>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              学校名称、校徽和官网内容属于相应权利人。本站引用这些内容，不表示学校认可或参与维护本站。
+              校名、校徽和官网内容归学校及相关单位所有。本站引用这些内容只是为了帮助新生查找信息，不表示学校参与维护或认可本站。
             </p>
           </div>
           <UButton
