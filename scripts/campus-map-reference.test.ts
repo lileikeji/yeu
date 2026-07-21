@@ -363,6 +363,8 @@ test('official campus plan renders the reviewed image with hotspots and navigati
   assert.match(source, /bg-\[#2f6598\] text-white/)
   assert.doesNotMatch(source, /bg-\[#4f84bb\] text-white/)
   assert.match(source, /v-for="\(anchor, index\) in officialCampusPlanAnchors"/)
+  assert.match(source, /class="group absolute grid size-11/)
+  assert.match(source, /class="grid size-5[\s\S]*?sm:size-7/)
   assert.match(source, /handleAnchorClick\(anchor\.mapNumber, \$event\)/)
   assert.match(source, /@click\.capture="handlePlanMarkerClickCapture"/)
   assert.match(source, /:data-plan-anchor-key="officialPlanAnchorKey\(anchor\.mapNumber, index\)"/)

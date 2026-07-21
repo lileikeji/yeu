@@ -406,15 +406,21 @@ onBeforeUnmount(() => {
             type="button"
             :data-plan-anchor-key="officialPlanAnchorKey(anchor.mapNumber, index)"
             :data-plan-map-number="anchor.mapNumber"
-            class="absolute grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white bg-green-800 text-[8px] font-bold text-white shadow-md transition hover:z-10 hover:scale-125 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:size-7 sm:text-[10px]"
-            :class="props.selectedMapNumber === anchor.mapNumber ? 'z-10 scale-125 bg-orange-600 ring-4 ring-white/80' : ''"
+            class="group absolute grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            :class="props.selectedMapNumber === anchor.mapNumber ? 'z-10' : 'hover:z-10'"
             :style="{ left: `${anchor.x}%`, top: `${anchor.y}%` }"
             :aria-label="`平面图 ${anchor.mapNumber}：${placeNameByNumber.get(anchor.mapNumber) ?? '校内地点'}`"
             :aria-pressed="props.selectedMapNumber === anchor.mapNumber"
             @pointerdown="handleAnchorPointerDown"
             @click="handleAnchorClick(anchor.mapNumber, $event)"
           >
-            {{ anchor.mapNumber }}
+            <span
+              class="grid size-5 place-items-center rounded-full border-2 border-white bg-green-800 text-[8px] font-bold text-white shadow-md transition group-hover:scale-125 sm:size-7 sm:text-[10px]"
+              :class="props.selectedMapNumber === anchor.mapNumber ? 'scale-125 bg-orange-600 ring-4 ring-white/80' : ''"
+              aria-hidden="true"
+            >
+              {{ anchor.mapNumber }}
+            </span>
           </button>
         </div>
       </div>

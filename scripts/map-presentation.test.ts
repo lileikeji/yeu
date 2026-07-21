@@ -64,6 +64,7 @@ import type { PublicMapPlace } from '../app/utils/public-catalog'
 const pageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
 const utilSource = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 const placeDetailsPanelSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
+const officialPlanSource = readFileSync(resolve('app/components/map/OfficialCampusPlan.vue'), 'utf8')
 
 function samplePoi(overrides: Partial<MapPoiStatusFields> = {}): MapPoiStatusFields {
   return {
@@ -118,14 +119,9 @@ test('map data labels and fallback messages follow scope and data readiness', ()
   assert.match(pageSource, /label="重新试一次"/)
   assert.match(pageSource, /label="查看学校平面图"/)
   assert.match(pageSource, /@click="setMapViewMode\('official-plan'\)"/)
-  assert.match(
-    pageSource,
-    /button\[aria-label\^="平面图 "\]::before[\s\S]*?inset: -12px/
-  )
-  assert.match(
-    pageSource,
-    /@media \(min-width: 640px\)[\s\S]*?button\[aria-label\^="平面图 "\]::before[\s\S]*?inset: -8px/
-  )
+  assert.match(officialPlanSource, /class="group absolute grid size-11/)
+  assert.match(officialPlanSource, /class="grid size-5[\s\S]*?sm:size-7/)
+  assert.doesNotMatch(pageSource, /button\[aria-label\^="平面图 "\]::before/)
   assert.match(pageSource, /class="map-provider-badges flex flex-col items-start gap-1\.5"/)
   assert.match(
     pageSource,

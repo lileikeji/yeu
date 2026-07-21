@@ -1099,20 +1099,6 @@ onBeforeUnmount(() => {
   outline-offset: -2px;
 }
 
-/* Keep numbered plan markers compact while giving fingers a 44px hit area. */
-.map-workspace button[aria-label^="平面图 "]::before {
-  position: absolute;
-  inset: -12px;
-  border-radius: 9999px;
-  content: "";
-}
-
-@media (min-width: 640px) {
-  .map-workspace button[aria-label^="平面图 "]::before {
-    inset: -8px;
-  }
-}
-
 .map-workspace :deep(.map-float-btn),
 .map-workspace :deep(button.map-float-btn) {
   background: #ffffff !important;
