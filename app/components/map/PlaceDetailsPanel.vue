@@ -89,6 +89,41 @@ const navigationTooltip = computed(() => {
       {{ props.place.address }}
     </p>
 
+    <div
+      v-if="props.variant === 'mobile' && (props.place.campusArea || props.place.openingHours || phoneContacts.length)"
+      class="mt-2 space-y-2"
+    >
+      <p
+        v-if="props.place.campusArea"
+        class="text-xs leading-5 text-zinc-500"
+      >
+        片区：{{ props.place.campusArea }}
+      </p>
+      <p
+        v-if="props.place.openingHours"
+        class="text-xs leading-5 text-zinc-500"
+      >
+        开放时间：{{ props.place.openingHours }}
+      </p>
+      <div
+        v-if="phoneContacts.length"
+        class="flex flex-col items-start gap-2"
+      >
+        <a
+          v-for="phone in phoneContacts"
+          :key="phone.href"
+          :href="phone.href"
+          class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors active:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+        >
+          <UIcon
+            name="i-lucide-phone"
+            class="size-4 shrink-0"
+          />
+          <span>拨打 {{ phone.label }}</span>
+        </a>
+      </div>
+    </div>
+
     <dl
       v-if="props.variant === 'desktop' && (props.place.address || props.place.campusArea || props.place.openingHours || props.place.phone)"
       class="mt-3 space-y-2 border-t border-zinc-100 pt-3 text-xs"

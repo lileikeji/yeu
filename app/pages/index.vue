@@ -441,13 +441,27 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
                 紧急情况先求助
               </p>
               <p class="mt-1 text-xs leading-5 text-zinc-300">
-                校园 110：0595-22076110；危及生命或需要公安、消防、急救时，同时按情况拨打 110、119 或 120。
+                校园 110：0595-22076110。危及生命或需要公安、消防、急救时，同时按情况拨打下面的电话。
               </p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <a
+                  href="tel:110"
+                  class="inline-flex min-h-10 items-center justify-center rounded-md border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white"
+                >拨打 110</a>
+                <a
+                  href="tel:119"
+                  class="inline-flex min-h-10 items-center justify-center rounded-md border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white"
+                >拨打 119</a>
+                <a
+                  href="tel:120"
+                  class="inline-flex min-h-10 items-center justify-center rounded-md border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white"
+                >拨打 120</a>
+              </div>
             </div>
           </div>
           <a
             href="tel:059522076110"
-            class="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-900"
+            class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-900"
           >
             <UIcon
               name="i-lucide-phone"
