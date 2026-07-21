@@ -48,6 +48,17 @@ const loginHint = computed(() => {
   return ''
 })
 
+const loginButtonLabel = computed(() => {
+  const target = requestedRedirectTarget()
+  if (target === '/chat' || target?.startsWith('/chat?') || target?.startsWith('/chat/')) {
+    return '登录并进入群聊'
+  }
+  if (target === '/me' || target?.startsWith('/me?') || target?.startsWith('/me/')) {
+    return '登录并进入个人中心'
+  }
+  return '登录'
+})
+
 async function checkExistingSession(): Promise<void> {
   checkingSession.value = true
   try {
@@ -98,12 +109,47 @@ onMounted(() => {
           账号登录
         </h1>
         <p class="mt-2 text-sm leading-6 text-zinc-500">
-          看地图和办事指南不用登录。登录后可以进入群聊和个人中心；目前只支持已有账号，暂不能自己注册。
+          目前只支持已有账号，暂不能自己注册。没有账号也不影响使用校园指南。
         </p>
+
+        <div class="mt-5 border-y border-zinc-100">
+          <div class="flex items-start gap-3 py-3">
+            <span class="grid size-8 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+              <UIcon
+                name="i-lucide-compass"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-zinc-900">
+                不登录也能用
+              </p>
+              <p class="mt-0.5 text-xs leading-5 text-zinc-500">
+                查地图、看办事指南、勾选新生清单
+              </p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 border-t border-zinc-100 py-3">
+            <span class="grid size-8 shrink-0 place-items-center rounded-md bg-sky-50 text-sky-700">
+              <UIcon
+                name="i-lucide-users-round"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-zinc-900">
+                登录后可以
+              </p>
+              <p class="mt-0.5 text-xs leading-5 text-zinc-500">
+                修改个人资料，进入公共群和宿舍楼群
+              </p>
+            </div>
+          </div>
+        </div>
 
         <div
           v-if="loginHint"
-          class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+          class="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
           role="status"
         >
           <UIcon
@@ -115,7 +161,7 @@ onMounted(() => {
 
         <div
           v-if="errorMessage"
-          class="mt-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          class="mt-5 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
           role="alert"
         >
           <UIcon
@@ -186,7 +232,7 @@ onMounted(() => {
             icon="i-lucide-log-in"
             class="min-h-11"
           >
-            登录
+            {{ loginButtonLabel }}
           </UButton>
         </form>
 

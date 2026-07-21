@@ -9,8 +9,12 @@ const chatPage = readFileSync(resolve('app/pages/chat/index.vue'), 'utf8')
 
 test('login page stays compact and uses ordinary account language', () => {
   assert.match(loginPage, /新生账号/)
-  assert.match(loginPage, /看地图和办事指南不用登录/)
   assert.match(loginPage, /目前只支持已有账号，暂不能自己注册/)
+  assert.match(loginPage, /没有账号也不影响使用校园指南/)
+  assert.match(loginPage, /不登录也能用/)
+  assert.match(loginPage, /查地图、看办事指南、勾选新生清单/)
+  assert.match(loginPage, /登录后可以/)
+  assert.match(loginPage, /修改个人资料，进入公共群和宿舍楼群/)
   assert.match(loginPage, /max-w-md/)
   assert.doesNotMatch(loginPage, /ACCOUNT|账号服务|登录后可做什么|管理员入口不在公开导航中展示|账号由管理员统一创建|工作人员提前创建/)
 })
@@ -23,6 +27,13 @@ test('login guidance only appears after a protected page sends the student here'
   assert.match(loginPage, /请先登录，再进入个人中心/)
   assert.match(loginPage, /请先登录，登录后会回到刚才的页面/)
   assert.doesNotMatch(loginPage, /该功能需要登录|登录成功后将自动返回/)
+})
+
+test('login button names the protected page it will open', () => {
+  assert.match(loginPage, /const loginButtonLabel = computed/)
+  assert.match(loginPage, /return '登录并进入群聊'/)
+  assert.match(loginPage, /return '登录并进入个人中心'/)
+  assert.match(loginPage, /\{\{ loginButtonLabel \}\}/)
 })
 
 test('login controls keep a comfortable mobile touch height', () => {
