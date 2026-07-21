@@ -54,48 +54,6 @@ function toggleTaskPreview(): void {
     </header>
 
     <div>
-      <section class="border-b border-green-100 bg-gradient-to-b from-green-50/70 to-white">
-        <div class="page-shell py-6 md:py-8">
-          <p class="section-kicker">
-            账号与交流
-          </p>
-          <div class="mt-1 flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 class="text-xl font-bold text-zinc-950">
-                {{ isAuthenticated ? '欢迎回来' : '登录后可以做这些' }}
-              </h2>
-              <p class="mt-1 text-sm leading-6 text-zinc-600">
-                {{ isAuthenticated ? '从这里进入个人中心或新生群聊。' : '登录后可以进群聊，也可以填写专业和宿舍楼。' }}
-              </p>
-            </div>
-          </div>
-
-          <div class="mt-4 grid gap-3 sm:grid-cols-2">
-            <NuxtLink
-              v-for="entry in accountEntries"
-              :key="entry.to"
-              :to="entry.to"
-              class="group flex min-h-24 items-center gap-3 rounded-lg border border-green-100 bg-white p-4 shadow-sm transition hover:border-green-300 hover:shadow"
-            >
-              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
-                <UIcon
-                  :name="entry.icon"
-                  class="size-5"
-                />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block font-bold text-zinc-950">{{ entry.title }}</span>
-                <span class="mt-1 block text-sm leading-6 text-zinc-600">{{ entry.description }}</span>
-              </span>
-              <UIcon
-                name="i-lucide-chevron-right"
-                class="size-4 shrink-0 text-zinc-300 transition-colors group-hover:text-green-700"
-              />
-            </NuxtLink>
-          </div>
-        </div>
-      </section>
-
       <section class="page-shell py-8 md:py-10">
         <div class="flex items-end justify-between gap-4">
           <div>
@@ -121,7 +79,7 @@ function toggleTaskPreview(): void {
             v-for="entry in visibleTaskEntries"
             :key="entry.to"
             :to="entry.to"
-            class="surface-panel group flex min-h-40 items-start gap-4 p-4 transition hover:border-green-300 hover:shadow-sm"
+            class="surface-panel group flex min-h-32 items-start gap-3 p-4 transition hover:border-green-300 hover:shadow-sm sm:min-h-40 sm:gap-4"
           >
             <span
               class="grid size-10 shrink-0 place-items-center rounded-md"
@@ -132,17 +90,14 @@ function toggleTaskPreview(): void {
                 class="size-5"
               />
             </span>
-            <span class="flex min-w-0 flex-1 flex-col self-stretch">
+            <span class="min-w-0 flex-1">
               <span class="font-bold text-zinc-950">{{ entry.title }}</span>
-              <span class="mt-2 flex-1 text-sm leading-6 text-zinc-600">{{ entry.description }}</span>
-              <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700">
-                查看
-                <UIcon
-                  name="i-lucide-arrow-right"
-                  class="size-3.5 transition group-hover:translate-x-0.5"
-                />
-              </span>
+              <span class="mt-2 block text-sm leading-6 text-zinc-600">{{ entry.description }}</span>
             </span>
+            <UIcon
+              name="i-lucide-arrow-right"
+              class="mt-1 size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-green-700"
+            />
           </NuxtLink>
         </div>
         <div
@@ -158,6 +113,44 @@ function toggleTaskPreview(): void {
             :aria-expanded="tasksExpanded"
             @click="toggleTaskPreview"
           />
+        </div>
+      </section>
+
+      <section class="border-y border-green-100 bg-green-50/60">
+        <div class="page-shell py-7 md:py-9">
+          <p class="section-kicker">
+            账号与交流
+          </p>
+          <h2 class="mt-1 text-xl font-bold text-zinc-950">
+            {{ isAuthenticated ? '个人资料与新生群聊' : '群聊和个人资料需要登录' }}
+          </h2>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+            {{ isAuthenticated ? '查看或修改个人资料，也可以进入公共群和宿舍楼群。' : '不登录也能继续使用地图、清单和指南。已有账号登录后，可以进入群聊并填写专业和宿舍楼。' }}
+          </p>
+
+          <div class="mt-5 grid gap-x-8 sm:grid-cols-2">
+            <NuxtLink
+              v-for="entry in accountEntries"
+              :key="entry.to"
+              :to="entry.to"
+              class="group flex min-h-20 items-center gap-3 border-t border-green-200 py-4"
+            >
+              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-white text-green-700 shadow-sm">
+                <UIcon
+                  :name="entry.icon"
+                  class="size-4"
+                />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-bold text-zinc-950">{{ entry.title }}</span>
+                <span class="mt-1 block text-xs leading-5 text-zinc-600">{{ entry.description }}</span>
+              </span>
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="size-4 shrink-0 text-zinc-300 transition-colors group-hover:text-green-700"
+              />
+            </NuxtLink>
+          </div>
         </div>
       </section>
 

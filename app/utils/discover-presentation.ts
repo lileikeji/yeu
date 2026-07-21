@@ -19,8 +19,8 @@ export function buildDiscoverAccountEntries(authenticated: boolean): DiscoverLin
           icon: 'i-lucide-user-round'
         }
       : {
-          title: '登录账号',
-          description: '登录后可以进入群聊，并填写专业和宿舍楼',
+          title: '登录已有账号',
+          description: '暂不开放自行注册；不登录也能使用地图、清单和指南',
           to: '/login',
           icon: 'i-lucide-log-in'
         },

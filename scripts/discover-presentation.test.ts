@@ -56,9 +56,10 @@ test('discover catalogs stay student-facing', () => {
 
 test('discover account entries adapt to the current login state', () => {
   const guest = buildDiscoverAccountEntries(false)
-  assert.deepEqual(guest.map(item => item.title), ['登录账号', '新生群聊'])
+  assert.deepEqual(guest.map(item => item.title), ['登录已有账号', '新生群聊'])
   assert.deepEqual(guest.map(item => item.to), ['/login', '/chat'])
-  assert.match(guest[0]?.description ?? '', /登录后/)
+  assert.match(guest[0]?.description ?? '', /暂不开放自行注册/)
+  assert.match(guest[0]?.description ?? '', /不登录也能使用/)
   assert.match(guest[1]?.description ?? '', /登录后才能发消息/)
 
   const signedIn = buildDiscoverAccountEntries(true)
@@ -66,7 +67,11 @@ test('discover account entries adapt to the current login state', () => {
   assert.deepEqual(signedIn.map(item => item.to), ['/me', '/chat'])
   assert.doesNotMatch(signedIn.map(item => item.description).join(' '), /登录/)
   assert.match(pageSource, /await refreshSession\(\)/)
-  assert.match(pageSource, /isAuthenticated \? '欢迎回来' : '登录后可以做这些'/)
+  assert.match(pageSource, /isAuthenticated \? '个人资料与新生群聊' : '群聊和个人资料需要登录'/)
+  assert.match(pageSource, /不登录也能继续使用地图、清单和指南/)
+  assert.ok(pageSource.indexOf('常用入口') < pageSource.indexOf('账号与交流'))
+  assert.match(pageSource, /class="group flex min-h-20 items-center gap-3 border-t border-green-200 py-4"/)
+  assert.doesNotMatch(pageSource, /min-h-24 items-center gap-3 rounded-lg/)
 })
 
 test('discover task preview keeps the mobile page manageable', () => {
@@ -77,6 +82,8 @@ test('discover task preview keeps the mobile page manageable', () => {
   const expanded = buildDiscoverTaskPreview(discoverTaskEntries, true)
   assert.equal(expanded.items.length, 9)
   assert.equal(expanded.hiddenCount, 0)
+  assert.match(pageSource, /min-h-32 items-start gap-3[\s\S]*sm:min-h-40 sm:gap-4/)
+  assert.doesNotMatch(pageSource, />\s*查看\s*<UIcon/)
 })
 
 test('discover presentation export surface stays stable', () => {
