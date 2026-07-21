@@ -6,9 +6,12 @@ import {
   procedureListMessages,
   procedureListStatePresentation,
   procedureListStatusText,
-  procedureMethodLabel
+  procedureMethodLabel,
+  readLooseProcedureChecklistFromStorageText,
+  resolveProcedureListCardProgress
 } from '~~/app/utils/procedure-list-presentation'
 import {
+  buildProcedureChecklistStorageKey,
   studentFacingProcedureText,
   studentFacingProcedureTitle
 } from '~~/app/utils/procedure-detail-presentation'
@@ -28,6 +31,28 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
   audience: audience.value
 }))
 const filtersActive = computed(() => Boolean(query.value.trim()) || audience.value !== 'all')
+const checklistTick = ref(0)
+
+function readChecklistForItem(item: { slug: string, steps: ReadonlyArray<{ id: string }>, materials: ReadonlyArray<{ id: string }> }) {
+  void checklistTick.value
+  if (!import.meta.client) {
+    return { stepIds: [] as string[], materialIds: [] as string[] }
+  }
+  try {
+    const raw = window.localStorage.getItem(buildProcedureChecklistStorageKey(item.slug))
+    return readLooseProcedureChecklistFromStorageText(
+      raw,
+      item.steps.map(step => step.id),
+      item.materials.map(material => material.id)
+    )
+  } catch {
+    return { stepIds: [] as string[], materialIds: [] as string[] }
+  }
+}
+
+function cardProgressFor(item: { slug: string, steps: ReadonlyArray<{ id: string }>, materials: ReadonlyArray<{ id: string }> }) {
+  return resolveProcedureListCardProgress(item, readChecklistForItem(item))
+}
 
 function selectProcedureAudience(value: typeof audience.value): void {
   audience.value = value
@@ -37,6 +62,20 @@ function clearProcedureFilters(): void {
   query.value = ''
   audience.value = 'all'
 }
+
+onMounted(() => {
+  checklistTick.value += 1
+  if (!import.meta.client) return
+  window.addEventListener('storage', () => {
+    checklistTick.value += 1
+  })
+  window.addEventListener('pageshow', () => {
+    checklistTick.value += 1
+  })
+  window.addEventListener('focus', () => {
+    checklistTick.value += 1
+  })
+})
 </script>
 
 <template>
@@ -184,13 +223,24 @@ function clearProcedureFilters(): void {
               <div class="flex items-center justify-between gap-3">
                 <span class="truncate">{{ procedureMethodLabel(item.method) }}</span>
                 <span class="inline-flex items-center gap-1 font-medium text-green-700">
-                  {{ item.steps.length }} 个步骤
+                  查看详情
                   <UIcon
                     name="i-lucide-arrow-right"
                     class="size-4 transition group-hover:translate-x-0.5"
                   />
                 </span>
               </div>
+              <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 leading-5 md:mt-2">
+                <span>{{ cardProgressFor(item).stepLabel }}</span>
+                <span class="text-zinc-300">·</span>
+                <span>{{ cardProgressFor(item).materialLabel }}</span>
+              </div>
+              <p
+                v-if="cardProgressFor(item).progressHint"
+                class="mt-1 font-medium text-green-700"
+              >
+                {{ cardProgressFor(item).progressHint }}
+              </p>
               <p
                 v-if="item.deadlineText"
                 class="mt-1 line-clamp-1 leading-5 md:mt-2 md:line-clamp-2"

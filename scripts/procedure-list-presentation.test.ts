@@ -9,7 +9,10 @@ import {
   procedureListMessages,
   procedureListStatePresentation,
   procedureListStatusText,
-  procedureMethodLabel
+  procedureMethodLabel,
+  readLooseProcedureChecklistFromStorageText,
+  resolveProcedureListCardCounts,
+  resolveProcedureListCardProgress
 } from '../app/utils/procedure-list-presentation'
 import { procedureMethodLabels } from '../app/utils/procedure-detail-presentation'
 
@@ -54,7 +57,11 @@ test('procedure cards scan quickly on mobile without hiding decision details', (
   assert.match(pageSource, /class="mt-2 line-clamp-1[^"]*md:line-clamp-none[^"]*"/)
   assert.match(pageSource, /procedureListStatusText\(item\.statusText\)/)
   assert.match(pageSource, /procedureMethodLabel\(item\.method\)/)
-  assert.match(pageSource, /item\.steps\.length/)
+  assert.match(pageSource, /cardProgressFor\(item\)\.stepLabel/)
+  assert.match(pageSource, /cardProgressFor\(item\)\.materialLabel/)
+  assert.match(pageSource, /cardProgressFor\(item\)\.progressHint/)
+  assert.match(pageSource, /readLooseProcedureChecklistFromStorageText/)
+  assert.match(pageSource, /查看详情/)
   assert.match(pageSource, /v-if="item\.deadlineText"\s+class="mt-1 line-clamp-1[^"]*md:line-clamp-2"/)
 })
 
@@ -184,4 +191,50 @@ test('procedure list puts shared newcomer tasks first until an audience is selec
       '校园网与账号登录问题'
     ]
   )
+})
+
+
+test('procedure list cards expose step/material counts and local progress hints', () => {
+  const item = {
+    slug: 'demo',
+    steps: [{ id: 's1' }, { id: 's2' }],
+    materials: [{ id: 'm1' }, { id: 'm2' }, { id: 'm3' }]
+  }
+
+  assert.deepEqual(resolveProcedureListCardCounts(item), {
+    stepTotal: 2,
+    materialTotal: 3,
+    stepLabel: '2 个步骤',
+    materialLabel: '3 项材料'
+  })
+
+  assert.equal(
+    resolveProcedureListCardProgress(item, { stepIds: ['s1'], materialIds: ['m1', 'm2'] }).progressHint,
+    '材料已备 2/3'
+  )
+  assert.equal(
+    resolveProcedureListCardProgress(item, { stepIds: ['s1', 's2'], materialIds: ['m1', 'm2', 'm3'] }).progressHint,
+    '材料已备齐'
+  )
+  assert.equal(
+    resolveProcedureListCardProgress(
+      { ...item, materials: [] },
+      { stepIds: ['s1'], materialIds: [] }
+    ).progressHint,
+    '步骤已勾 1/2'
+  )
+  assert.equal(
+    resolveProcedureListCardProgress(
+      { slug: 'empty', steps: [], materials: [] },
+      null
+    ).materialLabel,
+    '材料暂未公布'
+  )
+
+  const loose = readLooseProcedureChecklistFromStorageText(
+    JSON.stringify({ version: 'any-version', stepIds: ['s1', 'ghost'], materialIds: ['m2'] }),
+    ['s1', 's2'],
+    ['m1', 'm2', 'm3']
+  )
+  assert.deepEqual(loose, { stepIds: ['s1'], materialIds: ['m2'] })
 })

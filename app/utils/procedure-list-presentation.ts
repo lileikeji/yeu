@@ -119,3 +119,95 @@ export function procedureMethodLabel(method: string): string {
 export function procedureListDetailQuery(audience: ProcedureListAudienceFilter | string): Record<string, string> | undefined {
   return audience === 'all' ? undefined : { audience: String(audience) }
 }
+
+export interface ProcedureListCardProgressInput {
+  slug: string
+  steps: ReadonlyArray<{ id: string }>
+  materials: ReadonlyArray<{ id: string }>
+}
+
+export interface ProcedureListCardProgress {
+  stepTotal: number
+  stepDone: number
+  materialTotal: number
+  materialDone: number
+  stepLabel: string
+  materialLabel: string
+  progressHint: string | null
+}
+
+export function resolveProcedureListCardCounts(
+  item: ProcedureListCardProgressInput
+): Pick<ProcedureListCardProgress, 'stepTotal' | 'materialTotal' | 'stepLabel' | 'materialLabel'> {
+  const stepTotal = item.steps.length
+  const materialTotal = item.materials.length
+  return {
+    stepTotal,
+    materialTotal,
+    stepLabel: stepTotal > 0 ? `${stepTotal} 个步骤` : '步骤待补充',
+    materialLabel: materialTotal > 0 ? `${materialTotal} 项材料` : '材料暂未公布'
+  }
+}
+
+export function resolveProcedureListCardProgress(
+  item: ProcedureListCardProgressInput,
+  checklist: { stepIds?: readonly string[], materialIds?: readonly string[] } | null | undefined
+): ProcedureListCardProgress {
+  const counts = resolveProcedureListCardCounts(item)
+  const validStepIds = new Set(item.steps.map(step => step.id))
+  const validMaterialIds = new Set(item.materials.map(material => material.id))
+  const stepDone = Array.isArray(checklist?.stepIds)
+    ? checklist.stepIds.filter(id => validStepIds.has(id)).length
+    : 0
+  const materialDone = Array.isArray(checklist?.materialIds)
+    ? checklist.materialIds.filter(id => validMaterialIds.has(id)).length
+    : 0
+
+  let progressHint: string | null = null
+  if (counts.materialTotal > 0 && materialDone > 0) {
+    progressHint = materialDone >= counts.materialTotal
+      ? '材料已备齐'
+      : `材料已备 ${materialDone}/${counts.materialTotal}`
+  } else if (counts.stepTotal > 0 && stepDone > 0) {
+    progressHint = stepDone >= counts.stepTotal
+      ? '步骤已全部勾完'
+      : `步骤已勾 ${stepDone}/${counts.stepTotal}`
+  }
+
+  return {
+    ...counts,
+    stepDone,
+    materialDone,
+    progressHint
+  }
+}
+
+/** List page only needs completed ids; accept any checklist version and filter by known ids. */
+export function readLooseProcedureChecklistFromStorageText(
+  raw: string | null | undefined,
+  validStepIds: Iterable<string>,
+  validMaterialIds: Iterable<string> = []
+): { stepIds: string[], materialIds: string[] } {
+  if (raw == null || raw === '') {
+    return { stepIds: [], materialIds: [] }
+  }
+  try {
+    const saved = JSON.parse(raw) as unknown
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+      return { stepIds: [], materialIds: [] }
+    }
+    const record = saved as Record<string, unknown>
+    const stepAllowed = new Set(validStepIds)
+    const materialAllowed = new Set(validMaterialIds)
+    const stepIds = Array.isArray(record.stepIds)
+      ? record.stepIds.filter((value): value is string => typeof value === 'string' && stepAllowed.has(value))
+      : []
+    const materialIds = Array.isArray(record.materialIds)
+      ? record.materialIds.filter((value): value is string => typeof value === 'string' && materialAllowed.has(value))
+      : []
+    return { stepIds, materialIds }
+  } catch {
+    return { stepIds: [], materialIds: [] }
+  }
+}
+
