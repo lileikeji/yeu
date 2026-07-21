@@ -211,6 +211,20 @@ test('nested guide sources use student-facing link wording', () => {
           accessedAt: '2026-07-20',
           status: 'unavailable',
           context: '与高德地图地点 交叉命中的商铺候选；营业状态和菜品仍待实地确认。原链接当前不可稳定访问，公开页面仅保留为归档线索。'
+        }, {
+          title: '宿舍分享',
+          publisher: '小红书公开笔记',
+          url: 'https://example.test/dorm',
+          accessedAt: '2026-07-20',
+          status: 'unavailable',
+          context: '社交平台参考信息；宿舍设施描述须以学校通知或现场确认为准。原分享目前打不开。'
+        }, {
+          title: '宿舍视频',
+          publisher: '小红书公开笔记',
+          url: 'https://example.test/video',
+          accessedAt: '2026-07-20',
+          status: 'unavailable',
+          context: '社交平台视频线索；楼栋、房型与拍摄时间仍待确认。原分享目前打不开。'
         }]
       }]
     },
@@ -227,7 +241,10 @@ test('nested guide sources use student-facing link wording', () => {
   const serialized = JSON.stringify(presented)
 
   assert.doesNotMatch(serialized, /归档线索|原链接当前不可稳定访问|公开页面仅保留/)
+  assert.doesNotMatch(serialized, /社交平台参考信息|社交平台视频线索/)
   assert.match(serialized, /原分享目前打不开/)
+  assert.match(serialized, /这是往年的学生分享/)
+  assert.match(serialized, /这是一段学生分享/)
 })
 
 test('public payload rewrites internal map import states at the final response boundary', () => {
