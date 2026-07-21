@@ -6,7 +6,9 @@ export const clubListMessages = {
   defaultCategory: '校园社团',
   allGroups: '全部',
   recentActivity: '近期有活动',
-  recruitmentPending: '等待本学期招新消息'
+  recruitmentPending: '等待本学期招新消息',
+  contactPending: '联系方式待公布',
+  contactReady: '有联系方式'
 } as const
 
 export interface ClubListFilterableItem {
@@ -82,4 +84,14 @@ export function filterClubListItems<T extends ClubListFilterableItem>(
       .toLocaleLowerCase('zh-CN')
     return text.includes(normalized)
   })
+}
+
+export function resolveClubContactStatusText(contactMethod: string | null | undefined): string {
+  return contactMethod?.trim()
+    ? clubListMessages.contactReady
+    : clubListMessages.contactPending
+}
+
+export function hasClubContactMethod(contactMethod: string | null | undefined): boolean {
+  return Boolean(contactMethod?.trim())
 }

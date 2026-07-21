@@ -9,6 +9,7 @@ import {
   clubSectionLabels,
   clubSignupQuestionChecklist,
   clubSourceStatusMessages,
+  resolveClubContactSectionState,
   resolveClubSourceStatusText
 } from '~~/app/utils/club-detail-presentation'
 import {
@@ -57,6 +58,7 @@ const hasRecruitmentDetails = computed(() => Boolean(
 ))
 const detailSources = computed(() => buildClubDetailSources(club.value?.sources))
 const contactActions = computed(() => resolvePublicContactActions(club.value?.contactMethod))
+const contactSection = computed(() => resolveClubContactSectionState(contactActions.value.length > 0))
 const { copyText } = useShareActions()
 
 function copyContactAction(value: string) {
@@ -253,6 +255,36 @@ function copyContactAction(value: string) {
               </dd>
             </div>
           </dl>
+        </section>
+
+
+        <section
+          v-if="contactSection.kind === 'pending'"
+          class="border-b border-zinc-200 py-7"
+        >
+          <h2 class="text-lg font-bold text-zinc-950">
+            {{ contactSection.title }}
+          </h2>
+          <div
+            class="mt-3 border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+            role="status"
+          >
+            <div class="flex items-start gap-2">
+              <UIcon
+                name="i-lucide-phone-off"
+                class="mt-0.5 size-4 shrink-0"
+              />
+              <p>{{ contactSection.notice }}</p>
+            </div>
+          </div>
+          <UButton
+            :to="feedbackLink"
+            icon="i-lucide-message-square-plus"
+            :label="contactSection.actionLabel"
+            color="neutral"
+            variant="outline"
+            class="mt-4 min-h-11"
+          />
         </section>
 
         <PublicSourceDetails

@@ -4,8 +4,10 @@ import {
   clubListMessages,
   countRecentClubs,
   filterClubListItems,
+  hasClubContactMethod,
   hasRecentClubActivity,
   listClubGroups,
+  resolveClubContactStatusText,
   resolveClubDirection,
   resolveClubGroup
 } from '~~/app/utils/club-list-presentation'
@@ -207,14 +209,23 @@ function clearClubFilters() {
           <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
             {{ resolveClubDirection(club.summary, clubDirectionBySlug.get(club.slug)) }}
           </p>
-          <div class="mt-4 flex items-center gap-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
-            <span
-              class="size-2 rounded-full"
-              :class="hasRecentClubActivity(club) ? 'bg-emerald-500' : 'bg-amber-400'"
-            />
-            {{ hasRecentClubActivity(club)
-              ? clubListMessages.recentActivity
-              : clubListMessages.recruitmentPending }}
+          <div class="mt-4 space-y-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+            <div class="flex items-center gap-2">
+              <span
+                class="size-2 rounded-full"
+                :class="hasRecentClubActivity(club) ? 'bg-emerald-500' : 'bg-amber-400'"
+              />
+              {{ hasRecentClubActivity(club)
+                ? clubListMessages.recentActivity
+                : clubListMessages.recruitmentPending }}
+            </div>
+            <div class="flex items-center gap-2">
+              <span
+                class="size-2 rounded-full"
+                :class="hasClubContactMethod(club.contactMethod) ? 'bg-emerald-500' : 'bg-zinc-300'"
+              />
+              {{ resolveClubContactStatusText(club.contactMethod) }}
+            </div>
           </div>
           <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700">
             打开介绍

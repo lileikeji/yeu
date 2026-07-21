@@ -8,6 +8,7 @@ import {
   clubSectionLabels,
   clubSignupQuestionChecklist,
   clubSourceStatusMessages,
+  resolveClubContactSectionState,
   resolveClubSourceStatusText
 } from '../app/utils/club-detail-presentation'
 
@@ -23,6 +24,9 @@ test('club detail page is a thin shell over club-detail-presentation util', () =
   assert.match(pageSource, /clubSectionLabels/)
   assert.match(pageSource, /resolvePublicContactActions/)
   assert.match(pageSource, /contactActions/)
+  assert.match(pageSource, /resolveClubContactSectionState/)
+  assert.match(pageSource, /contactSection/)
+  assert.match(pageSource, /contactSection\.kind === 'pending'/) 
   assert.doesNotMatch(pageSource, /\{\{\s*club\.contactMethod\s*\}\}/)
   assert.doesNotMatch(pageSource, /const signupQuestionChecklist = \[/)
   assert.doesNotMatch(pageSource, /function resolveClubSourceStatusText/)
@@ -38,6 +42,12 @@ test('club decision aids use ordinary signup and activity language', () => {
   assert.equal(clubSectionLabels.sourceDetails, '看看这些信息从哪里来')
   assert.equal(clubSectionLabels.contactMethod, '联系方式')
   assert.equal(clubSectionLabels.copyContact, '复制联系方式')
+  assert.equal(clubSectionLabels.contactPending, '联系方式待公布')
+  assert.match(clubSectionLabels.contactPendingNotice, /电话、邮箱或群入口/)
+  assert.equal(clubSectionLabels.contactPendingAction, '知道新的联系方式？告诉我们')
+  assert.deepEqual(resolveClubContactSectionState(true), { kind: 'ready' })
+  assert.equal(resolveClubContactSectionState(false).kind, 'pending')
+  assert.equal(resolveClubContactSectionState(false).title, '联系方式待公布')
   assert.equal(clubSourceStatusMessages.recentActivity, '近期有活动')
   assert.equal(clubSourceStatusMessages.namePending, '等待本学期招新消息')
   assert.ok(clubSignupQuestionChecklist.some(item => item.includes('是否适合零基础新生')))

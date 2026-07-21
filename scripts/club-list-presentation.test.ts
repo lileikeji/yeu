@@ -8,8 +8,10 @@ import {
   countLeadClubs,
   countRecentClubs,
   filterClubListItems,
+  hasClubContactMethod,
   hasRecentClubActivity,
   listClubGroups,
+  resolveClubContactStatusText,
   resolveClubDirection,
   resolveClubGroup,
   joinClubNames
@@ -29,6 +31,8 @@ test('club list page is a thin shell over club-list-presentation util', () => {
   assert.match(pageSource, /directory-list-presentation/)
   assert.match(pageSource, /previewDirectoryItems/)
   assert.match(pageSource, /v-for="club in visibleClubs"/)
+  assert.match(pageSource, /resolveClubContactStatusText\(club\.contactMethod\)/)
+  assert.match(pageSource, /hasClubContactMethod\(club\.contactMethod\)/)
   assert.match(pageSource, /:items="clubGroups"/)
   assert.match(pageSource, /class="mt-3 min-h-11 w-full md:hidden"/)
   assert.match(pageSource, /class="mt-3 hidden flex-wrap gap-2 md:flex"/)
@@ -94,4 +98,15 @@ test('club list pure helpers filter and summarize catalogs', () => {
   assert.equal(filterClubListItems(clubs, '文化').map(item => item.name).join(','), '读书会')
   assert.equal(filterClubListItems(clubs, '', '兴趣').map(item => item.name).join(','), '摄影协会')
   assert.equal(filterClubListItems(clubs, '没有这个').length, 0)
+})
+
+
+test('club contact status helpers stay student-facing', () => {
+  assert.equal(clubListMessages.contactPending, '联系方式待公布')
+  assert.equal(clubListMessages.contactReady, '有联系方式')
+  assert.equal(hasClubContactMethod(null), false)
+  assert.equal(hasClubContactMethod('  '), false)
+  assert.equal(hasClubContactMethod('微信群：校团委招新群'), true)
+  assert.equal(resolveClubContactStatusText(null), '联系方式待公布')
+  assert.equal(resolveClubContactStatusText('电话 123'), '有联系方式')
 })

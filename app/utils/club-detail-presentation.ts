@@ -15,7 +15,10 @@ export const clubSectionLabels = {
   sourceDetails: '看看这些信息从哪里来',
   feedback: '告诉我们新的招新消息',
   contactMethod: '联系方式',
-  copyContact: '复制联系方式'
+  copyContact: '复制联系方式',
+  contactPending: '联系方式待公布',
+  contactPendingNotice: '目前还没有公开的电话、邮箱或群入口。开学后请以校团委、社团负责人或现场摊位公布的信息为准。',
+  contactPendingAction: '知道新的联系方式？告诉我们'
 } as const
 
 export interface ClubOverviewItem {
@@ -92,4 +95,18 @@ export function buildClubDetailSources(
     note: source.context ?? null,
     unavailable: source.status === 'unavailable' || source.status === 'disputed'
   }))
+}
+
+export type ClubContactSectionState =
+  | { kind: 'ready' }
+  | { kind: 'pending'; title: string; notice: string; actionLabel: string }
+
+export function resolveClubContactSectionState(hasContact: boolean): ClubContactSectionState {
+  if (hasContact) return { kind: 'ready' }
+  return {
+    kind: 'pending',
+    title: clubSectionLabels.contactPending,
+    notice: clubSectionLabels.contactPendingNotice,
+    actionLabel: clubSectionLabels.contactPendingAction
+  }
 }
