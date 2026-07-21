@@ -93,14 +93,14 @@ export function buildMapPoiLocationCopyText(poi: Pick<MapPoiStatusFields, 'name'
 }
 
 export function resolveMapPoiStatusText(poi: MapPoiStatusFields): string {
-  if (poi.pointIsVerified) return '入口位置已确认'
-  if (poi.coordinateVerification === 'owner-map-only') return '地图位置已整理 · 入口细节请现场确认'
-  if (poi.coordinateVerification === 'native-map-session') return '地图搜索结果 · 仅供本次查看'
+  if (poi.pointIsVerified) return '可直接导航'
+  if (poi.coordinateVerification === 'owner-map-only') return '可先导航到附近 · 入口以现场为准'
+  if (poi.coordinateVerification === 'native-map-session') return '地图搜索结果 · 只在本次显示'
   if (poi.coordinateVerification === 'verified' && poi.coordinateSystem) {
-    return '位置已记录 · 当前地图暂时无法显示'
+    return '已有位置 · 暂时无法在地图显示'
   }
-  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '平面图编号'} · 只能在平面图中查看`
-  return '地点已整理 · 暂时没有可显示的位置'
+  if (poi.usesPreviewPoint) return `${poi.referenceLabel ?? '平面图编号'} · 可按编号找方向`
+  return '暂时没有地图位置'
 }
 
 export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
@@ -108,21 +108,21 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
 
   if (poi.coordinateVerification === 'native-map-session') {
     return [
-      '这是地图搜索找到的临时地点，只供本次查看。',
+      '这是高德地图搜索到的地点，只在当前页面显示。',
       '可以先用来找附近商家；营业状态、价格、电话和入口仍要到店或电话确认。',
-      '如果这个地点对新生有帮助，可以通过反馈入口告诉我们，确认后再加入校园目录。'
+      '如果这个地点对新生有帮助，可以通过反馈告诉我们，确认后会加入校园地点。'
     ]
   }
 
   const checklist = poi.coordinateVerification === 'owner-map-only'
     ? [
-        '这个地点来自你提供的地图位置，可以先导航到附近。',
-        '到达后请看现场门牌、楼栋名或服务窗口，确认是不是你要去的入口。',
-        '这个入口还需要再次确认，出发前请再看现场标识。'
+        '可以先导航到附近，最后一段请看现场门牌、楼栋名或服务窗口。',
+        '入口还可能调整，出发前请再看学校通知或现场标识。',
+        '如果地图落点和现场入口有偏差，可以通过纠错入口告诉我们。'
       ]
     : poi.pointIsVerified
       ? [
-          '这个地点的入口已经确认，可以作为校内导航参考。',
+          '可以直接导航到这个入口；到达后仍请留意现场门牌和临时封路。',
           '开放时间、办理材料和临时管控仍要看对应部门或现场通知。',
           '如果发现入口变更或道路封闭，请提交纠错。'
         ]

@@ -213,19 +213,19 @@ test('map poi checklist status and formatters stay student-facing', () => {
   assert.equal(resolveMapCategoryIcon('food'), 'i-lucide-utensils')
   assert.equal(resolveMapCategoryLabel('unknown'), '地点')
 
-  assert.equal(resolveMapPoiStatusText(samplePoi({ pointIsVerified: true })), '入口位置已确认')
-  assert.match(resolveMapPoiStatusText(samplePoi()), /入口细节请现场确认/)
+  assert.equal(resolveMapPoiStatusText(samplePoi({ pointIsVerified: true })), '可直接导航')
+  assert.equal(resolveMapPoiStatusText(samplePoi()), '可先导航到附近 · 入口以现场为准')
   assert.match(resolveMapPoiStatusText(samplePoi({
     coordinateVerification: 'native-map-session'
-  })), /仅供本次查看/)
+  })), /只在本次显示/)
 
   const provided = ['现场先看指示牌']
   assert.deepEqual(buildMapPoiUseChecklist(samplePoi({ usageChecklist: provided })), provided)
 
   const owner = buildMapPoiUseChecklist(samplePoi())
-  assert.match(owner[0]!, /地图位置/)
+  assert.match(owner[0]!, /导航到附近/)
   assert.match(owner.join('\n'), /宿管|辅导员/)
-  assert.match(owner[2]!, /还需要再次确认/)
+  assert.match(owner[2]!, /纠错入口/)
   assert.doesNotMatch(owner.join('\n'), /两次现场确认/)
 
   const express = buildMapPoiUseChecklist(samplePoi({ category: 'express' }))
@@ -235,14 +235,14 @@ test('map poi checklist status and formatters stay student-facing', () => {
     coordinateVerification: 'native-map-session',
     category: 'nearby'
   }))
-  assert.match(native[0]!, /临时地点/)
+  assert.match(native[0]!, /当前页面/)
 
   const preview = samplePoi({
     coordinateVerification: 'preview',
     usesPreviewPoint: true,
     referenceLabel: '平面图编号 29'
   })
-  assert.equal(resolveMapPoiStatusText(preview), '平面图编号 29 · 只能在平面图中查看')
+  assert.equal(resolveMapPoiStatusText(preview), '平面图编号 29 · 可按编号找方向')
   assert.match(buildMapPoiUseChecklist(preview)[0]!, /按编号找方向/)
   assert.doesNotMatch(buildMapPoiUseChecklist(preview).join('\n'), /精确导航|文字方位/)
 

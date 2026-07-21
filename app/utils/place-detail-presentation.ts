@@ -95,6 +95,10 @@ export function isPlaceCoordinateVerified(place: PlaceCoordinateFields | null | 
   )
 }
 
+export function resolvePlaceNavigationStatusLabel(coordinateIsVerified: boolean): string {
+  return coordinateIsVerified ? '可直接导航' : '入口以现场为准'
+}
+
 export function buildPlaceMapTarget(
   placeSlug: string,
   returnPath: string | null | undefined

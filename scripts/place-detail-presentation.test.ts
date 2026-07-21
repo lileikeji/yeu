@@ -11,6 +11,7 @@ import {
   placeCategoryLabels,
   resolvePlaceCategoryLabel,
   resolvePlaceFloorRoomLabel,
+  resolvePlaceNavigationStatusLabel,
   resolvePlaceScopeLabel,
   resolvePlaceStudentBody,
   resolvePlaceStudentSummary
@@ -53,6 +54,8 @@ test('place coordinate verification and map target stay strict', () => {
     longitude: 118.7,
     latitude: 25.1
   }), false)
+  assert.equal(resolvePlaceNavigationStatusLabel(true), '可直接导航')
+  assert.equal(resolvePlaceNavigationStatusLabel(false), '入口以现场为准')
   assert.deepEqual(buildPlaceMapTarget('library', '/campus'), {
     path: '/map',
     query: { place: 'library', from: '/campus' }

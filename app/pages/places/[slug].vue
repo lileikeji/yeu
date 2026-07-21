@@ -11,6 +11,7 @@ import {
   isPlaceCoordinateVerified,
   resolvePlaceCategoryLabel,
   resolvePlaceFloorRoomLabel,
+  resolvePlaceNavigationStatusLabel,
   resolvePlaceScopeLabel,
   resolvePlaceStudentBody,
   resolvePlaceStudentSummary,
@@ -38,6 +39,7 @@ useSeoMeta({
 
 const returnPath = computed(() => safeLocalPath(route.query.from))
 const coordinateIsVerified = computed(() => isPlaceCoordinateVerified(place.value))
+const navigationStatusLabel = computed(() => resolvePlaceNavigationStatusLabel(coordinateIsVerified.value))
 const mapTarget = computed(() => buildPlaceMapTarget(
   place.value?.slug ?? slug,
   returnPath.value
@@ -113,7 +115,7 @@ function copyPlaceLocation(): void {
                 variant="soft"
               />
               <UBadge
-                :label="coordinateIsVerified ? '入口位置已确认' : '入口位置待确认'"
+                :label="navigationStatusLabel"
                 :color="coordinateIsVerified ? 'success' : 'warning'"
                 variant="soft"
               />
