@@ -103,3 +103,11 @@ test('checklist only offers clearing after an item has been checked', () => {
   assert.match(pageSource, /v-else-if="confirmReset"/)
   assert.doesNotMatch(pageSource, /:disabled="overview\.completedCount === 0"/)
 })
+
+test('checklist keeps the mobile summary compact before the full stage list', () => {
+  assert.match(pageSource, /buildTodayFocus\([\s\S]*new Date\(\),\s*1\s*\)/)
+  assert.match(pageSource, /todayFocus\.items\[0\]/)
+  assert.doesNotMatch(pageSource, /v-for="item in todayFocus\.items"/)
+  assert.match(pageSource, /我的身份/)
+  assert.match(pageSource, /进度只保存在这台设备/)
+})

@@ -23,7 +23,12 @@ const {
 } = useFreshmanChecklist()
 
 const arrival = computed(() => buildArrivalCountdown())
-const todayFocus = computed(() => buildTodayFocus(progress.value.completedIds, progress.value.audience))
+const todayFocus = computed(() => buildTodayFocus(
+  progress.value.completedIds,
+  progress.value.audience,
+  new Date(),
+  1
+))
 
 const confirmReset = ref(false)
 
@@ -143,116 +148,19 @@ function confirmResetProgress() {
         </div>
       </section>
 
-      <section class="mt-6 border-y border-zinc-200 bg-white py-5 md:px-5">
-        <div class="flex flex-wrap items-end justify-between gap-3">
+      <section class="mt-6 border-y border-green-200 bg-green-50/60 py-4 md:px-5 md:py-5">
+        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div class="min-w-0">
-            <p class="text-xs font-semibold text-green-700">
-              今日优先
-            </p>
-            <h2 class="mt-1 text-lg font-bold text-zinc-950">
-              {{ todayFocus.title }}
-            </h2>
-            <p class="mt-1 text-sm leading-6 text-zinc-600">
-              {{ todayFocus.description }}
-            </p>
-          </div>
-        </div>
-
-        <p
-          v-if="!todayFocus.items.length"
-          class="mt-4 border-l-2 border-zinc-300 bg-zinc-50 px-4 py-3 text-sm text-zinc-600"
-        >
-          {{ todayFocus.emptyLabel }}
-        </p>
-        <ul
-          v-else
-          class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 sm:grid sm:grid-cols-2 sm:divide-y-0"
-        >
-          <li
-            v-for="item in todayFocus.items"
-            :key="`focus-${item.id}`"
-            class="flex items-start gap-3 px-1 py-4 sm:border-b sm:border-zinc-200 sm:odd:pr-4 sm:even:pl-4"
-          >
-            <button
-              type="button"
-              class="group -m-2 grid size-10 shrink-0 place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-green-700"
-              :aria-pressed="isCompleted(item.id)"
-              :aria-label="`${isCompleted(item.id) ? '取消完成' : '标记完成'}：${item.title}`"
-              @click="toggleItem(item.id)"
-            >
-              <span
-                class="grid size-6 place-items-center rounded-md border transition"
-                :class="isCompleted(item.id)
-                  ? 'border-green-600 bg-green-600 text-white'
-                  : 'border-zinc-300 bg-white text-transparent group-hover:border-green-500'"
-              >
-                <UIcon
-                  name="i-lucide-check"
-                  class="size-3.5"
-                />
-              </span>
-            </button>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="text-sm font-semibold text-zinc-950">
-                  {{ item.title }}
-                </p>
-                <UBadge
-                  v-if="item.awaitingNotice"
-                  label="以通知为准"
-                  color="warning"
-                  variant="soft"
-                  size="sm"
-                />
-              </div>
-              <p class="mt-1 text-xs leading-5 text-zinc-600">
-                {{ item.description }}
+            <div class="flex items-baseline gap-3">
+              <p class="text-2xl font-bold text-zinc-950">
+                {{ overview.percent }}%
               </p>
-              <NuxtLink
-                v-if="item.to"
-                :to="item.to"
-                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700"
-              >
-                相关页面
-                <UIcon
-                  name="i-lucide-arrow-right"
-                  class="size-3.5"
-                />
-              </NuxtLink>
+              <p class="text-sm text-zinc-600">
+                已完成 {{ overview.completedCount }} / {{ overview.totalCount }} 项
+              </p>
             </div>
-          </li>
-        </ul>
-      </section>
-
-      <section class="mt-6 rounded-lg border border-green-200 bg-green-50/60 p-5 md:p-6">
-        <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-          <div class="min-w-0">
-            <p class="text-xs font-semibold text-green-800">
-              完成进度
-            </p>
-            <p class="mt-1 text-3xl font-bold tracking-tight text-zinc-950">
-              {{ overview.percent }}%
-            </p>
-            <p class="mt-2 text-sm leading-6 text-zinc-600">
-              已完成 {{ overview.completedCount }} / {{ overview.totalCount }} 项
-              <span v-if="overview.remainingCount > 0">
-                · 还剩 {{ overview.remainingCount }} 项
-              </span>
-              <span v-else>
-                · 当前筛选项都勾完了
-              </span>
-            </p>
-            <p
-              v-if="overview.nextItem"
-              class="mt-2 text-sm font-medium text-zinc-800"
-            >
-              下一项：{{ overview.nextItem.title }}
-            </p>
-          </div>
-
-          <div class="w-full max-w-xs">
             <div
-              class="h-2.5 overflow-hidden rounded-full bg-white/80 ring-1 ring-green-100"
+              class="mt-2 h-2 overflow-hidden rounded-full bg-white ring-1 ring-green-100"
               role="progressbar"
               :aria-valuenow="overview.percent"
               aria-valuemin="0"
@@ -264,33 +172,31 @@ function confirmResetProgress() {
                 :style="{ width: `${overview.percent}%` }"
               />
             </div>
-            <p class="mt-3 text-xs leading-5 text-zinc-500">
-              {{ hydrated ? '进度已保存在这台设备' : '正在读取已保存进度…' }}
+            <p class="mt-2 text-xs leading-5 text-zinc-500">
+              {{ hydrated ? '进度只保存在这台设备' : '正在读取已保存进度…' }}
             </p>
           </div>
-        </div>
-      </section>
 
-      <section class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="text-xs font-semibold text-zinc-500">
-            按身份筛选
-          </p>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <UButton
-              v-for="option in checklistAudienceOptions"
-              :key="option.value"
-              size="sm"
-              class="min-h-10"
-              :color="progress.audience === option.value ? 'primary' : 'neutral'"
-              :variant="progress.audience === option.value ? 'solid' : 'outline'"
-              :label="option.label"
-              @click="onAudienceChange(option.value)"
-            />
+          <div>
+            <p class="text-xs font-semibold text-zinc-600">
+              我的身份
+            </p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <UButton
+                v-for="option in checklistAudienceOptions"
+                :key="option.value"
+                size="sm"
+                class="min-h-10"
+                :color="progress.audience === option.value ? 'primary' : 'neutral'"
+                :variant="progress.audience === option.value ? 'solid' : 'outline'"
+                :label="option.label"
+                @click="onAudienceChange(option.value)"
+              />
+            </div>
           </div>
         </div>
 
-        <div class="flex flex-wrap gap-2">
+        <div class="mt-3 flex flex-wrap justify-end gap-2">
           <UButton
             v-if="overview.completedCount > 0 && !confirmReset"
             icon="i-lucide-rotate-ccw"
@@ -319,10 +225,75 @@ function confirmResetProgress() {
         </div>
       </section>
 
+      <section class="mt-6 rounded-lg border border-zinc-200 bg-white p-4 md:p-5">
+        <div class="flex items-start gap-3">
+          <button
+            v-if="todayFocus.items[0]"
+            type="button"
+            class="group -m-1 grid size-11 shrink-0 place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-green-700"
+            :aria-pressed="isCompleted(todayFocus.items[0].id)"
+            :aria-label="`${isCompleted(todayFocus.items[0].id) ? '取消完成' : '标记完成'}：${todayFocus.items[0].title}`"
+            @click="toggleItem(todayFocus.items[0].id)"
+          >
+            <span
+              class="grid size-7 place-items-center rounded-md border transition"
+              :class="isCompleted(todayFocus.items[0].id)
+                ? 'border-green-600 bg-green-600 text-white'
+                : 'border-zinc-300 bg-white text-transparent group-hover:border-green-500'"
+            >
+              <UIcon
+                name="i-lucide-check"
+                class="size-4"
+              />
+            </span>
+          </button>
+
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-semibold text-green-700">
+              今日优先 · {{ todayFocus.title }}
+            </p>
+            <template v-if="todayFocus.items[0]">
+              <div class="mt-1 flex flex-wrap items-center gap-2">
+                <h2 class="text-base font-bold text-zinc-950">
+                  {{ todayFocus.items[0].title }}
+                </h2>
+                <UBadge
+                  v-if="todayFocus.items[0].awaitingNotice"
+                  label="以通知为准"
+                  color="warning"
+                  variant="soft"
+                  size="sm"
+                />
+              </div>
+              <p class="mt-1 text-sm leading-6 text-zinc-600">
+                {{ todayFocus.items[0].description }}
+              </p>
+              <NuxtLink
+                v-if="todayFocus.items[0].to"
+                :to="todayFocus.items[0].to"
+                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700 hover:text-green-800"
+              >
+                打开相关页面
+                <UIcon
+                  name="i-lucide-arrow-right"
+                  class="size-3.5"
+                />
+              </NuxtLink>
+            </template>
+            <p
+              v-else
+              class="mt-1 text-sm leading-6 text-zinc-600"
+            >
+              {{ todayFocus.emptyLabel }}
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section
         v-for="stage in overview.tasks"
         :key="stage.stage.id"
-        class="mt-10"
+        class="mt-8 md:mt-10"
       >
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div class="min-w-0">
