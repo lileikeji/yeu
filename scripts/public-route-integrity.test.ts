@@ -136,6 +136,12 @@ test('sitemap only publishes real content detail routes and old content links re
   assert.equal(publicContentRoute('notice', 'welcome'), '/campus#notice-welcome')
 })
 
+test('the retired more entry sends old links to the current directory', () => {
+  const legacyMoreRoute = readFileSync(resolve('server/routes/more.get.ts'), 'utf8')
+
+  assert.match(legacyMoreRoute, /sendRedirect\(event, '\/discover', 308\)/)
+})
+
 test('department and club detail pages expose structured freshman decision aids', () => {
   const departmentPage = readFileSync(resolve('app/pages/departments/[slug].vue'), 'utf8')
   const clubPage = readFileSync(resolve('app/pages/clubs/[slug].vue'), 'utf8')
