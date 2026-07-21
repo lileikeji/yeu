@@ -29,6 +29,15 @@ const todayFocus = computed(() => buildTodayFocus(
   new Date(),
   1
 ))
+const checklistSectionLinks = computed(() => [
+  ...overview.value.tasks,
+  ...(overview.value.packing.totalCount > 0 ? [overview.value.packing] : [])
+].map(section => ({
+  id: `checklist-${section.stage.id}`,
+  label: section.stage.label,
+  completedCount: section.completedCount,
+  totalCount: section.totalCount
+})))
 
 const confirmReset = ref(false)
 
@@ -274,10 +283,47 @@ function confirmResetProgress() {
         </div>
       </section>
 
+      <nav
+        class="mt-6"
+        aria-labelledby="checklist-section-nav-title"
+      >
+        <div class="flex items-end justify-between gap-3">
+          <div>
+            <p class="section-kicker">
+              分段查看
+            </p>
+            <h2
+              id="checklist-section-nav-title"
+              class="mt-1 text-base font-bold text-zinc-950"
+            >
+              快速跳到
+            </h2>
+          </div>
+          <p class="text-xs text-zinc-500">
+            {{ checklistSectionLinks.length }} 个阶段
+          </p>
+        </div>
+
+        <div class="mt-3 grid grid-cols-5 gap-px overflow-hidden rounded-md border border-zinc-200 bg-zinc-200">
+          <a
+            v-for="section in checklistSectionLinks"
+            :key="section.id"
+            :href="`#${section.id}`"
+            class="flex min-h-16 flex-col items-center justify-center bg-white px-1 py-2 text-center transition hover:bg-green-50 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
+          >
+            <span class="text-xs font-semibold leading-4 text-zinc-900">{{ section.label }}</span>
+            <span class="mt-1 text-[11px] leading-4 text-zinc-500">
+              {{ section.completedCount }}/{{ section.totalCount }} 项
+            </span>
+          </a>
+        </div>
+      </nav>
+
       <section
         v-for="stage in overview.tasks"
+        :id="`checklist-${stage.stage.id}`"
         :key="stage.stage.id"
-        class="mt-8 md:mt-10"
+        class="mt-8 scroll-mt-[calc(var(--header-height)+1rem)] md:mt-10"
       >
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div class="min-w-0">
@@ -382,7 +428,8 @@ function confirmResetProgress() {
 
       <section
         v-if="overview.packing.totalCount > 0"
-        class="mt-10"
+        id="checklist-packing"
+        class="mt-10 scroll-mt-[calc(var(--header-height)+1rem)]"
       >
         <div class="flex flex-wrap items-end justify-between gap-3">
           <div class="min-w-0">

@@ -114,3 +114,13 @@ test('checklist keeps the mobile summary compact before the full stage list', ()
   assert.match(pageSource, /我的身份/)
   assert.match(pageSource, /进度只保存在这台设备/)
 })
+
+test('checklist offers direct, touch-friendly jumps to every visible stage', () => {
+  assert.match(pageSource, /const checklistSectionLinks = computed/)
+  assert.match(pageSource, /aria-labelledby="checklist-section-nav-title"/)
+  assert.match(pageSource, /:href="`#\$\{section\.id\}`"/)
+  assert.match(pageSource, /class="flex min-h-16 flex-col items-center justify-center/)
+  assert.match(pageSource, /:id="`checklist-\$\{stage\.stage\.id\}`"/)
+  assert.match(pageSource, /id="checklist-packing"/)
+  assert.match(pageSource, /scroll-mt-\[calc\(var\(--header-height\)\+1rem\)\]/)
+})
