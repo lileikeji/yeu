@@ -24,7 +24,7 @@ export function guideStatePresentation(status: string): GuideStatePresentation {
     }
   }
   return {
-    label: '先看已确认内容',
+    label: '部分信息待确认',
     color: 'neutral',
     icon: 'i-lucide-info'
   }

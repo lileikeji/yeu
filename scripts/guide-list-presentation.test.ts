@@ -44,9 +44,11 @@ test('guide categories fit the mobile width and use direct interactions', () => 
 test('guide cards stay compact on mobile without dropping trust context', () => {
   assert.match(pageSource, /class="surface-panel group flex min-h-0 flex-col p-4[^"]*md:min-h-56 md:p-5"/)
   assert.match(pageSource, /line-clamp-2[^"]*md:line-clamp-none/)
-  assert.match(pageSource, /line-clamp-1[^"]*md:line-clamp-none/)
+  assert.match(pageSource, /:name="guideStatePresentation\(guide\.status\)\.icon"/)
+  assert.match(pageSource, /guide\.status === 'verified' \? 'text-green-800'/)
   assert.match(pageSource, /studentFacingGuideStatusText\(guide\.statusText\)/)
   assert.match(pageSource, /guide\.audience\.join\(' · '\)/)
+  assert.doesNotMatch(pageSource, /<UBadge[\s\S]*?guideStatePresentation\(guide\.status\)\.label/)
   assert.doesNotMatch(pageSource, />\s*打开\s*<UIcon/)
 })
 

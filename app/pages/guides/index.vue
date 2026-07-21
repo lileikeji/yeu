@@ -224,7 +224,7 @@ function selectGuideCategory(category: GuideListCategoryId): void {
           :to="`/guides/${guide.slug}`"
           class="surface-panel group flex min-h-0 flex-col p-4 transition hover:border-green-300 hover:shadow-sm md:min-h-56 md:p-5"
         >
-          <div class="flex items-start justify-between gap-3">
+          <div class="flex items-start">
             <span
               class="grid size-9 shrink-0 place-items-center rounded-md md:size-10"
               :class="guideCategoryIconTones[guide.category]"
@@ -234,17 +234,6 @@ function selectGuideCategory(category: GuideListCategoryId): void {
                 class="size-5"
               />
             </span>
-            <UBadge
-              :color="guideStatePresentation(guide.status).color"
-              variant="soft"
-              size="sm"
-            >
-              <UIcon
-                :name="guideStatePresentation(guide.status).icon"
-                class="mr-1 size-3.5"
-              />
-              {{ guideStatePresentation(guide.status).label }}
-            </UBadge>
           </div>
 
           <h2 class="mt-3 text-base font-bold text-zinc-950 md:mt-5">
@@ -253,9 +242,17 @@ function selectGuideCategory(category: GuideListCategoryId): void {
           <p class="mt-1.5 line-clamp-2 flex-1 text-sm leading-6 text-zinc-600 md:mt-2 md:line-clamp-none">
             {{ guide.summary }}
           </p>
-          <p class="mt-2 line-clamp-1 border-l-2 border-orange-300 pl-2.5 text-xs leading-5 text-zinc-600 md:mt-4 md:line-clamp-none md:pl-3">
-            <span class="font-semibold text-zinc-800">目前：</span>
-            {{ studentFacingGuideStatusText(guide.statusText) }}
+          <p
+            class="mt-3 flex items-start gap-2 text-xs leading-5 text-zinc-600 md:mt-4"
+            :class="guide.status === 'verified' ? 'text-green-800' : guide.status === 'awaiting-notice' ? 'text-orange-800' : 'text-zinc-600'"
+          >
+            <UIcon
+              :name="guideStatePresentation(guide.status).icon"
+              class="mt-0.5 size-3.5 shrink-0"
+            />
+            <span class="line-clamp-2 md:line-clamp-none">
+              {{ studentFacingGuideStatusText(guide.statusText) }}
+            </span>
           </p>
           <div class="mt-3 flex items-center justify-between gap-3 text-xs text-zinc-500 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
             <span class="truncate">{{ guide.audience.join(' · ') }}</span>
