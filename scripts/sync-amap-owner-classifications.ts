@@ -183,10 +183,10 @@ function buildPlan(database: BetterSqlite3.Database, reviewed: ReviewedClassific
       skipped += 1
       continue
     }
-    if (place.status !== 'draft') {
+    if (place.status === 'archived') {
       conflicts.push({
         ...base,
-        reason: 'Refusing to change the category of a published or archived place',
+        reason: 'Refusing to change the category of an archived place',
         existingPlaceId: place.id
       })
       continue
@@ -237,7 +237,7 @@ export function syncAmapOwnerClassifications(options: SyncOptions = {}): SyncOwn
           updated_at = @now
       WHERE id = @id
         AND category IS @legacyCategory
-        AND status = 'draft'
+        AND status IN ('draft', 'published')
     `)
     database.exec('BEGIN IMMEDIATE')
     let updated = 0
@@ -280,7 +280,7 @@ function usage(): string {
     '',
     'Default mode is read-only dry-run.',
     'This sync applies the reviewed categories for the 76 owner-map draft places.',
-    'It only replaces legacy importer values and stops on published, archived, or manually changed records.'
+    'It only replaces legacy importer values and stops on archived or manually changed records.'
   ].join('\n')
 }
 

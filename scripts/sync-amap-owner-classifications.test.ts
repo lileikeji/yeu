@@ -152,25 +152,9 @@ test('classification sync stops before writing when a category was manually chan
   }
 })
 
-test('classification sync refuses a published mismatch and CLI defaults to dry-run', () => {
+test('classification sync preserves publication state and CLI defaults to dry-run', () => {
   const fixture = createLegacyFixture()
   try {
-    const database = new BetterSqlite3(fixture.databasePath)
-    database.prepare(`UPDATE places SET status = 'published' WHERE name = '长春楼'`).run()
-    database.close()
-
-    const blocked = syncAmapOwnerClassifications({
-      apply: true,
-      databasePath: fixture.databasePath,
-      now: NOW
-    })
-    assert.equal(blocked.applied, false)
-    assert.equal(blocked.conflicts, 1)
-    assert.match(blocked.conflictDetails[0]!.reason, /published or archived/)
-
-    const reopened = new BetterSqlite3(fixture.databasePath)
-    reopened.prepare(`UPDATE places SET status = 'draft' WHERE name = '长春楼'`).run()
-    reopened.close()
     let stdout = ''
     let stderr = ''
     assert.equal(runCli(['--database', fixture.databasePath], {
@@ -181,6 +165,47 @@ test('classification sync refuses a published mismatch and CLI defaults to dry-r
     const preview = JSON.parse(stdout) as SyncOwnerClassificationResult
     assert.equal(preview.mode, 'dry-run')
     assert.equal(preview.wouldUpdate, 54)
+
+    const database = new BetterSqlite3(fixture.databasePath)
+    database.prepare(`UPDATE places SET status = 'published' WHERE name = '长春楼'`).run()
+    database.close()
+
+    const applied = syncAmapOwnerClassifications({
+      apply: true,
+      databasePath: fixture.databasePath,
+      now: NOW
+    })
+    assert.equal(applied.applied, true)
+    assert.equal(applied.updated, 54)
+    const checked = new BetterSqlite3(fixture.databasePath, { readonly: true })
+    const published = checked.prepare(`
+      SELECT status, category
+      FROM places
+      WHERE name = '长春楼'
+    `).get() as { status: string, category: string }
+    checked.close()
+    assert.deepEqual(published, { status: 'published', category: 'dorm' })
+  } finally {
+    fixture.cleanup()
+  }
+})
+
+test('classification sync refuses archived owner-map records', () => {
+  const fixture = createLegacyFixture()
+  try {
+    const database = new BetterSqlite3(fixture.databasePath)
+    database.prepare(`UPDATE places SET status = 'archived' WHERE name = '长春楼'`).run()
+    database.close()
+
+    const result = syncAmapOwnerClassifications({
+      apply: true,
+      databasePath: fixture.databasePath,
+      now: NOW
+    })
+    assert.equal(result.applied, false)
+    assert.equal(result.updated, 0)
+    assert.equal(result.conflicts, 1)
+    assert.match(result.conflictDetails[0]!.reason, /archived/)
   } finally {
     fixture.cleanup()
   }
