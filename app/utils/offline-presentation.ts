@@ -24,10 +24,10 @@ export function resolveOfflineStatus(isOnline: boolean | null): OfflineStatus {
   if (isOnline === null) {
     return {
       pageKicker: '网络提示',
-      pageTitle: '正在检查网络连接',
-      pageDescription: '校园地图、路线和最新通知需要联网查看。连接状态确认后，这里会自动更新。',
-      title: '正在检查网络',
-      description: '连接状态确认后，这里会自动更新。',
+      pageTitle: '正在看看网络是否恢复',
+      pageDescription: '校园地图、路线和最新通知需要联网查看。连上网络后，这里会自动恢复。',
+      title: '正在查看网络',
+      description: '连上网络后，这里会自动恢复。',
       icon: 'i-lucide-loader-circle',
       tone: 'bg-zinc-100 text-zinc-600'
     }

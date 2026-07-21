@@ -25,13 +25,19 @@ test('error page header actions keep a comfortable touch size', () => {
 test('error presentation covers common public failure states', () => {
   const missing = resolveErrorPageContent(404)
   assert.equal(missing.title, '这个页面不存在')
+  assert.match(missing.description, /已经移动或下架/)
+  assert.doesNotMatch(missing.description, /公开页面/)
   assert.equal(missing.code, null)
   assert.equal(missing.canRetry, false)
 
-  assert.match(resolveErrorPageContent(403).title, /不能访问/)
+  const forbidden = resolveErrorPageContent(403)
+  assert.match(forbidden.title, /不能访问/)
+  assert.doesNotMatch(forbidden.description, /权限|公开信息/)
   assert.match(resolveErrorPageContent(429).title, /操作有点快/)
   assert.equal(resolveErrorPageContent(429).canRetry, true)
-  assert.match(resolveErrorPageContent(500).title, /页面现在有点忙/)
+  const generic = resolveErrorPageContent(500)
+  assert.match(generic.title, /页面现在有点忙/)
+  assert.doesNotMatch(generic.description, /公开页面/)
   assert.match(resolveErrorPageContent(503).description, /稍后重新打开/)
 })
 

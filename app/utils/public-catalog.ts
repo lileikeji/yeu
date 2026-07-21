@@ -12,6 +12,7 @@ import type { AmapImportedPlace } from '~~/data/seeds/amap-imported-places'
 import type { ContentKind } from '~~/shared/constants/server'
 import type { ApiAmapOwnerDraftPlace, ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
 import { isSafePublicHttpUrl } from '~~/shared/utils/public-http-url'
+import { presentStudentSourceContext } from './source-context-presentation'
 
 type GuideCategory = FreshmanGuide['category']
 
@@ -186,10 +187,10 @@ export function studentFacingGuideText(value: string): string {
     .replace(/独立核验/g, '独立确认')
     .replace(/核验/g, '确认')
     .replace(/复核/g, '再次确认')
-    .replace(/原链接当前不可稳定访问，公开页面仅保留为归档线索。?/g, '原分享链接目前打不开。')
-    .replace(/原链接当前不可稳定访问，前台仅保留为归档线索。?/g, '原分享链接目前打不开。')
-    .replace(/原外链当前不可稳定访问，(?:前台|公开页面)仅保留为归档线索。?/g, '原分享链接目前打不开。')
-    .replace(/归档线索/g, '参考记录')
+    .replace(/原链接当前不可稳定访问，公开页面仅保留为归档线索。?/g, '原分享目前打不开。')
+    .replace(/原链接当前不可稳定访问，前台仅保留为归档线索。?/g, '原分享目前打不开。')
+    .replace(/原外链当前不可稳定访问，(?:前台|公开页面)仅保留为归档线索。?/g, '原分享目前打不开。')
+    .replace(/归档线索/g, '仅供参考')
 }
 
 export interface PublicGuideView extends FreshmanGuide {
@@ -342,33 +343,7 @@ export function studentFacingPlaceBody(body: string): string {
 }
 
 function studentFacingSourceContext(value: string | undefined): string | undefined {
-  if (!value?.trim()) return undefined
-  return value
-    .replace(/与高德(?: POI|地图地点)\s*交叉命中的商铺候选；营业状态和菜品仍待(?:实地)?确认。(?:原外链|原链接)当前不可稳定访问，(?:前台|公开页面)仅保留为归档线索。?/g, '这家店同时出现在学生分享和高德地图中；是否营业、菜品和价格请到店前再确认。原分享链接目前打不开。')
-    .replace(/与高德 POI 交叉命中的商铺候选；营业状态和菜品仍待(?:实地)?确认。原外链当前不可稳定访问，前台仅保留为归档线索。?/g, '这家店同时出现在学生分享和高德地图中；是否营业、菜品和价格请到店前再确认。原分享链接目前打不开。')
-    .replace(/2025 年社交平台旧线索；站点数量、品牌和营业状态均待复核。原外链当前不可稳定访问，前台仅保留为归档线索。?/g, '这是2025年的学生分享，快递点数量、品牌和营业情况可能已经变化；原分享链接目前打不开。')
-    .replace(/社交平台待核验线索/g, '社交平台参考信息')
-    .replace(/社交平台视频线索/g, '社交平台视频参考')
-    .replace(/与高德 POI 交叉命中的商铺候选/g, '在高德地图和学生分享中都出现过的商铺')
-    .replace(/候选/g, '参考')
-    .replace(/仍待核验/g, '还要再确认')
-    .replace(/待核验/g, '还要再确认')
-    .replace(/均待复核/g, '都要再确认')
-    .replace(/待复核/g, '还要再确认')
-    .replace(/仍待确认/g, '还要再确认')
-    .replace(/原外链当前不可稳定访问，前台仅保留为归档线索。?/g, '原链接现在不稳定，先作为参考记录保留。')
-    .replace(/归档线索/g, '参考记录')
-    .replace(/争议配图禁止发布。?/g, '有争议信息不作为公开参考。')
-    .replace(/现场核验/g, '现场确认')
-    .replace(/独立核验/g, '独立确认')
-    .replace(/核验/g, '确认')
-    .replace(/原外链/g, '原链接')
-    .replace(/前台/g, '公开页面')
-    .replace(/线索/g, '参考信息')
-    .replace(/原链接当前不可稳定访问，公开页面仅保留为归档线索。?/g, '原分享链接目前打不开。')
-    .replace(/原链接当前不可稳定访问，前台仅保留为归档线索。?/g, '原分享链接目前打不开。')
-    .replace(/争议配图禁止发布。?/g, '有争议信息不作为公开参考。')
-    .trim()
+  return presentStudentSourceContext(value)
 }
 
 function studentFacingSource(source: PublicSource): PublicSource {

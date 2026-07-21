@@ -315,7 +315,8 @@ test('student-facing pages do not expose maintenance-only map and backend wordin
     'app/utils/about-presentation.ts',
     'app/utils/discover-presentation.ts',
     'app/utils/offline-presentation.ts',
-    'app/utils/privacy-presentation.ts'
+    'app/utils/privacy-presentation.ts',
+    'app/utils/source-context-presentation.ts'
   ]
   const source = files.map(file => readFileSync(resolve(file), 'utf8')).join('\n')
 

@@ -366,7 +366,7 @@ test('guide source notes hide maintainer wording', () => {
   ]
     .map(source => source.context ?? '')
     .join('\n')
-  assert.match(contexts, /现场确认|参考记录/)
+  assert.match(contexts, /往年的学生分享|往年的宿舍视频/)
   assert.doesNotMatch(
     contexts,
     /现场核验|独立核验|待复核|待核验|原外链|归档线索|前台|争议配图禁止发布/

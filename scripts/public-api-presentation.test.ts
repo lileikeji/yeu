@@ -227,7 +227,7 @@ test('nested guide sources use student-facing link wording', () => {
   const serialized = JSON.stringify(presented)
 
   assert.doesNotMatch(serialized, /归档线索|原链接当前不可稳定访问|公开页面仅保留/)
-  assert.match(serialized, /原分享链接目前打不开/)
+  assert.match(serialized, /原分享目前打不开/)
 })
 
 test('public payload rewrites internal map import states at the final response boundary', () => {

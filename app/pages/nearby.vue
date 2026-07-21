@@ -420,13 +420,13 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 class="flex items-start gap-2 text-xs leading-5 text-zinc-700"
               >
                 <UIcon
-                  name="i-lucide-archive"
+                  name="i-lucide-link-2-off"
                   class="mt-0.5 size-3.5 shrink-0 text-orange-600"
                 />
                 <span>
                   <span class="font-medium">{{ source.title }}</span>
                   <span class="block text-zinc-500">{{ sourceContextForStudents(source.context) }}</span>
-                  <span class="block text-orange-700">这个链接现在打不开，先作为参考记录保留。</span>
+                  <span class="block text-orange-700">原分享目前打不开，以上内容只作参考。</span>
                 </span>
               </div>
             </li>

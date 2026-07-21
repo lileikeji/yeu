@@ -51,6 +51,9 @@ test('nearby page keeps map wiring and student-facing travel copy', () => {
   assert.doesNotMatch(pageSource, /researchSources\.expressMap/)
   assert.match(pageSource, /sourceContextForStudents/)
   assert.match(pageSource, /这些地点从哪里整理/)
+  assert.match(pageSource, /i-lucide-link-2-off/)
+  assert.match(pageSource, /原分享目前打不开，以上内容只作参考/)
+  assert.doesNotMatch(pageSource, /先作为参考记录保留/)
   assert.match(pageSource, /verificationChecklist/)
   assert.match(pageSource, /usageTips/)
   assert.match(pageSource, /selectNearbyNeed\(tip\.category\)/)
@@ -87,6 +90,7 @@ test('nearby presentation util owns pure labels, filters, and student-facing sou
   assert.match(utilSource, /export const nearbyVerificationChecklist/)
   assert.match(utilSource, /export const nearbyUsageTips/)
   assert.match(utilSource, /export function nearbySourceContextForStudents/)
+  assert.match(utilSource, /presentStudentSourceContext/)
   assert.match(utilSource, /export function filterNearbyPlaces/)
   assert.match(utilSource, /export function filterNearbyCandidates/)
   assert.match(utilSource, /export function buildNearbyCategoryOptions/)
@@ -101,15 +105,18 @@ test('nearby presentation helpers rewrite source context and build map links', (
   assert.equal(nearbySourceIsClickable({ status: 'unavailable' }), false)
   assert.equal(nearbySourceIsClickable({ status: 'disputed' }), false)
 
-  assert.match(
+  assert.equal(
     nearbySourceContextForStudents('与高德 POI 交叉命中的商铺候选；营业状态和菜品仍待确认。原外链当前不可稳定访问，前台仅保留为归档线索。'),
-    /同时出现在学生分享和高德地图中/
+    '这家店同时出现在学生分享和高德地图中；是否营业、菜品和价格请到店前再确认。'
   )
-  assert.match(
+  assert.equal(
     nearbySourceContextForStudents('2025 年社交平台旧线索；站点数量、品牌和营业状态均待复核。原外链当前不可稳定访问，前台仅保留为归档线索。'),
-    /这是2025年的学生分享/
+    '这是2025年的学生分享，快递点数量、品牌和营业情况可能已经变化。'
   )
-  assert.match(nearbySourceContextForStudents('社交平台待核验线索'), /社交平台参考信息/)
+  assert.equal(
+    nearbySourceContextForStudents('社交平台待核验线索'),
+    '这是一份学生分享，内容可能已经变化'
+  )
   assert.equal(
     nearbySourceContextForStudents('现场核验后再公开，争议配图禁止发布。'),
     '现场确认后再公开，有争议信息不作为公开参考。'

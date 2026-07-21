@@ -19,7 +19,7 @@ export function resolveErrorPageContent(statusCode: number | null | undefined): 
       code: null,
       kicker: '页面走丢了',
       title: '这个页面不存在',
-      description: '链接可能已经更新，或者这个内容暂时不在公开页面中。你可以返回首页，或从下面的入口继续查找。',
+      description: '链接可能已经更新，这条内容也可能已经移动或下架。你可以返回首页，或从下面的入口继续查找。',
       icon: 'i-lucide-map-pin-off',
       canRetry: false
     }
@@ -30,7 +30,7 @@ export function resolveErrorPageContent(statusCode: number | null | undefined): 
       code: null,
       kicker: '暂时不能进入',
       title: '这里现在不能访问',
-      description: '当前账号没有进入这个页面的权限。校园地图、办事指南和公开信息仍然可以正常使用。',
+      description: '这个账号暂时不能打开这里。校园地图和办事指南仍然可以正常使用。',
       icon: 'i-lucide-shield-alert',
       canRetry: false
     }
@@ -51,7 +51,7 @@ export function resolveErrorPageContent(statusCode: number | null | undefined): 
     code: null,
     kicker: '暂时没打开',
     title: '页面现在有点忙',
-    description: '请稍后重新打开。其他公开页面通常仍可正常使用，你也可以先从首页继续浏览。',
+    description: '请稍后重新打开。校园地图和办事指南通常仍能使用，你也可以先从首页继续浏览。',
     icon: 'i-lucide-cloud-sun',
     canRetry: true
   }
