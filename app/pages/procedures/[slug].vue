@@ -498,8 +498,6 @@ watch(selectedAudience, (value) => {
           </p>
         </section>
 
-        </section>
-
         <section
           id="steps"
           class="scroll-mt-24 pt-7"
