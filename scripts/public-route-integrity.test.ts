@@ -334,7 +334,7 @@ test('student-facing pages do not expose maintenance-only map and backend wordin
   assert.match(source, /学校平面图/)
   assert.match(source, /校园范围参考/)
   assert.match(source, /地图会直接定位并提供可用的导航入口/)
-  assert.match(source, /高德地图标点/)
+  assert.match(source, /高德地图位置/)
 })
 
 test('guide list page is a thin shell over guide-list presentation', () => {

@@ -327,7 +327,7 @@ export function studentFacingPlaceBody(body: string): string {
     .map(line => line.trim()
       .replace(/^(.+?)\s*已按用户授权的高德地图坐标导入后台草稿[；;]?\s*可用于地图定位和维护[。，,；;\s]*具体入口、楼层、开放时间仍需现场或官方资料(?:核验|确认)后再正式发布[。.]?$/g, '$1的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
       .replace(/^(.+?)\s*已按用户授权的高德地图坐标导入后台草稿[；;]?\s*可用于地图定位和维护[。.]?$/g, '$1的位置来自高德地图，可以先用来找方向。')
-      .replace(/后台草稿/g, '地图标点')
+      .replace(/后台草稿/g, '地图上的位置')
       .replace(/正式发布/g, '公开展示')
       .replace(/地图定位和维护/g, '找方向')
       .replace(/GCJ-02|WGS84|coordinate/gi, '')
@@ -363,9 +363,9 @@ function normalizeOwnerMapNote(value: string): string {
     .replace(/用户授权的高德工作地图标点，?尚未经过独立现场确认。?/g, '')
     .replace(/用户授权的高德工作地图标点，?尚未经过独立现场核验。?/g, '')
     .replace(/^(.+?)\s*已按用户授权的高德地图坐标导入后台草稿[；;]?\s*可用于地图定位和维护[。，,；;\s]*具体入口、楼层、开放时间仍需现场或官方资料(?:核验|确认)后再正式发布[。.]?$/g, '$1的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
-    .replace(/用户授权的高德工作地图导出/g, '高德地图标点')
-    .replace(/高德工作地图导入草稿/g, '高德地图标点')
-    .replace(/后台草稿/g, '地图标点')
+    .replace(/用户授权的高德工作地图导出/g, '高德地图中的位置')
+    .replace(/高德工作地图导入草稿/g, '高德地图中的位置')
+    .replace(/后台草稿/g, '地图上的位置')
     .replace(/草稿/g, '待确认信息')
     .replace(/可用于地图定位和维护/g, '可以先用来找方向')
     .replace(/正式发布/g, '公开展示')
@@ -379,45 +379,45 @@ function ownerMapFriendlySummary(poi: AmapImportedPlace): string {
   const note = normalizeOwnerMapNote(poi.summary)
   const suffix = '位置来自高德地图，适合先用来找方向。具体入口、楼层、开放时间和当前用途请以现场标识或学校通知为准。'
   if (note && note !== ownerMapGenericSummary) {
-    if (/位置来自(?:你提供的)?高德地图(?:标点)?/.test(note)) return note
+    if (/位置来自(?:你提供的)?高德地图/.test(note)) return note
     return `${note}。${suffix}`
   }
 
   if (poi.category === 'campus-building') {
-    return `${poi.name} 是教学楼或校内楼栋标点。查课表、集合地点或部门通知时，可先用它确认楼名和大致方向；具体教室、楼层和入口以现场标识为准。`
+    return `${poi.name} 是校园里的教学楼或楼栋。查课表、集合地点或部门通知时，可先用它确认楼名和大致方向；具体教室、楼层和入口以现场标识为准。`
   }
   if (poi.category === 'dorm') {
-    return `${poi.name} 是宿舍楼标点。新生可用它判断住宿区方向；实际入住楼栋、门禁规则、访客和报修要求以辅导员、宿管或总务通知为准。`
+    return `${poi.name} 是宿舍楼。新生可用它判断住宿区方向；实际入住楼栋、门禁规则、访客和报修要求以辅导员、宿管或总务通知为准。`
   }
   if (poi.category === 'food') {
-    return `${poi.name} 是校内餐厅或餐饮点标点。适合先判断吃饭方向；具体窗口、营业时间、支付方式和假期开放情况以现场为准。`
+    return `${poi.name} 是校内餐厅或餐饮点。适合先判断吃饭方向；具体窗口、营业时间、支付方式和假期开放情况以现场为准。`
   }
   if (poi.category === 'express') {
-    return `${poi.name} 是快递或取件相关标点。取件前先看短信、平台取件码和站点现场提示；不同快递品牌、营业时间和寄件范围可能会调整。`
+    return `${poi.name} 是快递或取件地点。取件前先看短信、平台取件码和站点现场提示；不同快递品牌、营业时间和寄件范围可能会调整。`
   }
   if (poi.category === 'gate') {
-    return `${poi.name} 是校门或出入口标点。到校、打车和步行导航可先用它判断入口方向；新生报到当天的通行口和车辆管控以学校现场安排为准。`
+    return `${poi.name} 是校门或出入口。到校、打车和步行导航可先用它判断入口方向；新生报到当天的通行口和车辆管控以学校现场安排为准。`
   }
   if (poi.category === 'nearby') {
-    return `${poi.name} 是学生街或周边生活服务标点。它只说明位置线索，不代表当前一定营业；价格、优惠、取件品牌和服务范围需要到店或电话确认。`
+    return `${poi.name} 位于学生街或学校周边，提供日常生活服务。这里可以先用来判断方向，但不代表当前一定营业；价格、优惠、取件品牌和服务范围需要到店或电话确认。`
   }
   if (/医务|卫生|诊所/.test(poi.name)) {
-    return `${poi.name} 是校内基础医疗服务标点。普通不适可先按学校医务室说明处理；急症、夜间风险或严重症状应立即联系现场老师、医务人员或急救。`
+    return `${poi.name} 提供校内基础医疗服务。普通不适可先按学校医务室说明处理；急症、夜间风险或严重症状应立即联系现场老师、医务人员或急救。`
   }
   if (/行政|校办|教务|资助|就业|财务|总务|保卫|网络|信息/.test(poi.name)) {
-    return `${poi.name} 是校内办事服务标点。适合查找咨询、缴费、网络、报修、资助或安全相关入口；具体窗口、材料和办公时间以部门最新通知为准。`
+    return `${poi.name} 是校内办事地点。适合查找咨询、缴费、网络、报修、资助或安全相关入口；具体窗口、材料和办公时间以部门最新通知为准。`
   }
   if (/图书馆/.test(poi.name)) {
-    return `${poi.name} 是借阅、自习和学习空间相关标点。开放时间、借阅规则、座位和节假日安排可能调整，进馆前先看图书馆最新通知。`
+    return `${poi.name} 提供借阅、自习和学习空间。开放时间、借阅规则、座位和节假日安排可能调整，进馆前先看图书馆最新通知。`
   }
   if (/公交|车站|上车|下车|叮叮车/.test(poi.name)) {
-    return `${poi.name} 是交通或上下车相关标点。适合先判断候车方向；班次、停靠点、报到日接驳和临时交通管制以学校或现场安排为准。`
+    return `${poi.name} 是交通或上下车地点。适合先判断候车方向；班次、停靠点、报到日接驳和临时交通管制以学校或现场安排为准。`
   }
   if (/礼堂|报告厅|体育|操场|篮球|排球|球场|舞池|运动|桥|广场|文体|校史馆|创业园/.test(poi.name)) {
-    return `${poi.name} 是校内活动、运动或公共空间标点。集合、活动和上课安排要结合当次通知核对；临时封闭或借用以现场公告为准。`
+    return `${poi.name} 是校内活动、运动或公共空间。集合、活动和上课安排要结合当次通知核对；临时封闭或借用以现场公告为准。`
   }
 
-  return `${poi.name} 是校内服务点标点。可先用来判断位置方向；具体用途、入口和开放状态以现场标识或学校通知为准。`
+  return `${poi.name} 是校内服务地点。可先用来判断方向；具体用途、入口和开放状态以现场标识或学校通知为准。`
 }
 
 export function mergeAmapImportedPlacesWithDrafts(
@@ -837,7 +837,7 @@ function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
     point: poi.sourcePoint,
     pointIsVerified: false,
     usesPreviewPoint: false,
-    referenceLabel: '高德地图标点',
+    referenceLabel: '高德地图位置',
     officialPlanNumber: null,
     coordinateVerification: 'owner-map-only',
     coordinateSystem: 'GCJ-02',
