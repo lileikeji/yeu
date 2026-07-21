@@ -32,6 +32,11 @@ test('campus department website icons keep a comfortable touch size', () => {
 })
 
 test('campus stats keep student-facing overview labels', () => {
+  assert.match(pageSource, /class="min-w-0 px-2 first:pl-0 last:pr-0 sm:px-3"/)
+  assert.match(
+    pageSource,
+    /class="mt-2 whitespace-nowrap text-lg font-bold text-zinc-950 sm:text-xl md:text-2xl"/
+  )
   assert.equal(campusStats.length, 3)
   assert.equal(campusStats[0]?.label, '校园占地')
   assert.equal(campusStats[0]?.value, '2000+')

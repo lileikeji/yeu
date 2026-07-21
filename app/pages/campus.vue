@@ -84,7 +84,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             <div
               v-for="stat in campusStats"
               :key="stat.label"
-              class="min-w-0 px-3 first:pl-0 last:pr-0"
+              class="min-w-0 px-2 first:pl-0 last:pr-0 sm:px-3"
             >
               <dt class="flex items-center gap-1.5 text-xs text-zinc-500">
                 <UIcon
@@ -93,7 +93,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 />
                 <span>{{ stat.label }}</span>
               </dt>
-              <dd class="mt-2 text-xl font-bold text-zinc-950 md:text-2xl">
+              <dd class="mt-2 whitespace-nowrap text-lg font-bold text-zinc-950 sm:text-xl md:text-2xl">
                 {{ stat.value }}<span class="ml-0.5 text-xs font-medium text-zinc-500">{{ stat.unit }}</span>
               </dd>
             </div>
