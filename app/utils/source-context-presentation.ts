@@ -14,6 +14,10 @@ export function presentStudentSourceContext(
 
   return value
     .replace(
+      /社交平台参考信息；宿舍设施描述须以学校通知或现场(?:核验|确认)为准。(?:原分享目前打不开。)?/g,
+      `这是往年的学生分享，宿舍设施请以学校通知和到校后的实际情况为准。${unavailableNote}`
+    )
+    .replace(
       /社交平台待核验线索；宿舍设施描述须以学校通知或现场核验为准。原外链当前不可稳定访问，前台仅保留为归档线索。?/g,
       `这是往年的学生分享，宿舍设施请以学校通知和到校后看到的情况为准。${unavailableNote}`
     )

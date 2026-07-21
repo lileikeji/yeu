@@ -41,6 +41,15 @@ test('nearby pages can show the unavailable note separately without duplicate co
 })
 
 test('generic source notes still remove maintainer language', () => {
+  const previouslySimplified = presentStudentSourceContext(
+    '社交平台参考信息；宿舍设施描述须以学校通知或现场确认为准。原分享目前打不开。'
+  )
+  assert.equal(
+    previouslySimplified,
+    '这是往年的学生分享，宿舍设施请以学校通知和到校后的实际情况为准。原分享目前打不开。'
+  )
+  assert.equal(presentStudentSourceContext(previouslySimplified), previouslySimplified)
+
   assert.equal(
     presentStudentSourceContext('现场核验后再公开，争议配图禁止发布。'),
     '现场确认后再公开，有争议信息不作为公开参考。'
