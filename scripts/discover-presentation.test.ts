@@ -38,10 +38,17 @@ test('discover catalogs stay student-facing', () => {
   assert.ok(discoverTaskEntries.some(item => item.title === '周边商铺' && item.to === '/nearby'))
   assert.ok(discoverTaskEntries.some(item => item.to === '/map?category=express'))
   assert.ok(discoverTaskEntries.some(item => item.description === '查看校园网、校外访问和图书馆登录说明'))
-  assert.equal(discoverDirectoryEntries.length, 7)
-  assert.equal(discoverDirectoryEntries[0]?.title, '新生清单')
-  assert.ok(discoverDirectoryEntries.some(item => item.title === '校园地图' && item.to === '/map'))
-  assert.ok(discoverDirectoryEntries.some(item => item.title === '全站搜索' && item.to === '/search'))
+  assert.equal(discoverDirectoryEntries.length, 4)
+  assert.deepEqual(
+    discoverDirectoryEntries.map(item => item.title),
+    ['全部指南', '校园概览', '校内部门', '学生社团']
+  )
+  assert.equal(discoverDirectoryEntries.some(item => item.to === '/checklist' || item.to === '/map' || item.to === '/search'), false)
+  assert.match(pageSource, /to="\/search"/)
+  assert.match(pageSource, /to="\/map"/)
+  assert.ok(discoverTaskEntries.some(item => item.to === '/checklist'))
+  assert.match(pageSource, /继续浏览/)
+  assert.match(pageSource, /按内容找/)
   assert.equal(discoverTrustEntries.length, 5)
   assert.equal(discoverTrustEntries[0]?.to, '/sources')
   assert.equal(discoverTrustEntries[0]?.title, '参考页面')

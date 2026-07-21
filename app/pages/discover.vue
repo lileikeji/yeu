@@ -157,10 +157,10 @@ function toggleTaskPreview(): void {
       <section class="border-y border-[var(--line)] bg-white">
         <div class="page-shell py-8 md:py-10">
           <p class="section-kicker">
-            全部入口
+            继续浏览
           </p>
           <h2 class="mt-1 text-xl font-bold text-zinc-950">
-            也可以按类别找
+            按内容找
           </h2>
 
           <div class="mt-5 grid gap-x-8 md:grid-cols-2">

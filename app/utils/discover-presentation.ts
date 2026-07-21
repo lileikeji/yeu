@@ -119,13 +119,10 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
 ]
 
 export const discoverDirectoryEntries: DiscoverLinkEntry[] = [
-  { title: '新生清单', description: '在这台设备勾选报到与入学事项，无需登录', to: '/checklist', icon: 'i-lucide-list-checks' },
-  { title: '校园地图', description: '搜索地点、筛选类别、查看入口与导航', to: '/map', icon: 'i-lucide-map' },
-  { title: '全部指南', description: '按入学、校园、生活与社团浏览', to: '/guides', icon: 'i-lucide-notebook-tabs' },
-  { title: '校园概览', description: '学校简介、常用入口与当前公告', to: '/campus', icon: 'i-lucide-school' },
-  { title: '校内部门', description: '按办理事项查找职责、官网与公开联系方式', to: '/departments', icon: 'i-lucide-landmark' },
-  { title: '学生社团', description: '搜索社团方向、近期活动和招新消息', to: '/clubs', icon: 'i-lucide-users-round' },
-  { title: '全站搜索', description: '同时搜索指南、地点、部门和社团', to: '/search', icon: 'i-lucide-search' }
+  { title: '全部指南', description: '查看入学、校园、生活与社团事项', to: '/guides', icon: 'i-lucide-notebook-tabs' },
+  { title: '校园概览', description: '学校简介、当前公告和常用入口', to: '/campus', icon: 'i-lucide-school' },
+  { title: '校内部门', description: '按要办的事查职责和公开联系方式', to: '/departments', icon: 'i-lucide-landmark' },
+  { title: '学生社团', description: '按兴趣找社团，留意本学期招新消息', to: '/clubs', icon: 'i-lucide-users-round' }
 ]
 
 export const discoverTrustEntries: DiscoverLinkEntry[] = [
