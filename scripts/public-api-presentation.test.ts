@@ -61,6 +61,7 @@ test('public content payload uses student-facing copy before Nuxt serializes it'
     audience: 'undergraduate',
     metadata: {
       statusText: '地图目录已导入，坐标核验中',
+      leadNotice: '工作地图的 76 个标点与 8 个原始不规则区域边界已按“未独立现场核验”状态显示，并支持地图内步行路线与外部高德导航；区域只绘制边界线，避免遮挡内部高德商铺。',
       sections: [{
         title: '现场核验清单',
         items: ['查看地点的数据状态、来源和最后核验日期。']
@@ -78,9 +79,11 @@ test('public content payload uses student-facing copy before Nuxt serializes it'
   const sanitized = sanitizePublicContent(content)
   const serialized = JSON.stringify(sanitized)
 
-  assert.doesNotMatch(serialized, /坐标核验|点位|现场核验|数据状态|高德工作地图|内部资料目录|版权状态|前台/)
+  assert.doesNotMatch(serialized, /坐标核验|点位|现场核验|数据状态|高德工作地图|内部资料目录|版权状态|前台|76 个标点|原始不规则区域|区域边界/)
   assert.match(sanitized.summary, /入口仍在确认/)
   assert.match(sanitized.body, /部分图片只用于确认地点和设施信息/)
+  assert.match(serialized, /校园地图可以直接规划步行路线/)
+  assert.match(serialized, /入口不确定时，页面会直接提醒/)
   assert.equal(sanitized.sources[0]?.title, '高德地图位置参考')
   assert.equal(sanitized.sources[0]?.publisherName, '地图位置提供者')
   assert.equal(sanitized.sources[0]?.url, source.url)

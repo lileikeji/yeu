@@ -198,6 +198,14 @@ test('guide copy hides maintainer language from student pages', () => {
     '地图地点已整理，入口仍在确认'
   )
   assert.equal(
+    studentFacingGuideText('工作地图的 76 个标点与 8 个原始不规则区域边界已按“未独立现场核验”状态显示，并支持地图内步行路线与外部高德导航；区域只绘制边界线，避免遮挡内部高德商铺。'),
+    '校园地图可以直接规划步行路线，也能打开高德导航。到达后请按现场指示牌确认具体入口。'
+  )
+  assert.equal(
+    studentFacingGuideText('查看地点的数据状态、来源和最后核验日期。'),
+    '点开地点可以查看位置说明；入口不确定时，页面会直接提醒。'
+  )
+  assert.equal(
     studentFacingGuideText('用校园地图搜索地点，同时区分“已导入”和“已确认坐标”。'),
     '用校园地图搜索宿舍、教学楼和服务点；地图上的位置可先用来找方向，入口细节仍需现场确认。'
   )
@@ -244,7 +252,7 @@ test('guide copy hides maintainer language from student pages', () => {
   )
   assert.equal(
     studentFacingGuideText('查看地点的数据状态、来源和最后核验日期。'),
-    '查看地点是否已经确认、参考来源和最后更新时间。'
+    '点开地点可以查看位置说明；入口不确定时，页面会直接提醒。'
   )
   assert.equal(
     studentFacingGuideText('站点与配送规则待现场核验，查看页面的最后核验日期。'),
@@ -362,6 +370,22 @@ test('guide source notes hide maintainer wording', () => {
   assert.doesNotMatch(
     contexts,
     /现场核验|独立核验|待复核|待核验|原外链|归档线索|前台|争议配图禁止发布/
+  )
+})
+
+test('campus guide explains map use without inventory language', () => {
+  const campus = freshmanGuides.find(guide => guide.slug === 'find-campus')
+  assert.ok(campus)
+  const view = mergePublicGuides([campus], [], true)[0]
+  assert.ok(view)
+  assert.equal(
+    view.leadNotice,
+    '校园地图可以直接规划步行路线，也能打开高德导航。到达后请按现场指示牌确认具体入口。'
+  )
+  assert.match(view.sections[0]?.items.join('\n') ?? '', /入口不确定时，页面会直接提醒/)
+  assert.doesNotMatch(
+    JSON.stringify(view),
+    /76 个标点|原始不规则区域|区域边界|未独立现场核验|数据状态|最后核验日期/
   )
 })
 
