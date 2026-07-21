@@ -357,6 +357,16 @@ test('guide list page is a thin shell over guide-list presentation', () => {
   assert.match(presentation, /指南还在整理，过一会再来看看/)
 })
 
+test('global public copy describes the student project in ordinary language', () => {
+  const layout = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
+  const about = readFileSync(resolve('app/pages/about.vue'), 'utf8')
+
+  assert.match(layout, /本指南由学生团队整理/)
+  assert.doesNotMatch(layout, /学生团队维护的非官方指南/)
+  assert.match(about, /内容由个人或学生团队整理/)
+  assert.doesNotMatch(about, /个人或学生团队维护/)
+})
+
 test('procedure list page is a thin shell over procedure-list presentation', () => {
   const page = readFileSync(resolve('app/pages/procedures/index.vue'), 'utf8')
   const presentation = readFileSync(resolve('app/utils/procedure-list-presentation.ts'), 'utf8')

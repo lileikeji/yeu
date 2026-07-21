@@ -30,7 +30,7 @@ export const aboutProjectFacts: AboutProjectFact[] = [
     tone: 'sky'
   },
   {
-    label: '谁在维护',
+    label: '谁在整理',
     value: '个人或学生团队',
     icon: 'i-lucide-users-round',
     tone: 'green'

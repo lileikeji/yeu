@@ -50,10 +50,12 @@ test('privacy sections stay student-facing', () => {
   assert.ok(privacySections[1]?.items.some(item => item.includes('一串随机编号')))
   assert.ok(privacySections[3]?.items.some(item => item.includes('不能倒推出原地址的编号')))
   assert.ok(privacySections[4]?.items.some(item => item.includes('730 天')))
+  assert.ok(privacySections[4]?.items.some(item => item.includes('保障网站运行、处理问题')))
   assert.ok(privacySections[5]?.items.some(item => item.includes('地图服务')))
   assert.ok(privacySections[5]?.items.some(item => item.includes('学校官网、参考链接或导航链接')))
   assert.doesNotMatch(utilSource, /访问路径|操作类型|网络标识|内容加速|运营排查/)
   assert.doesNotMatch(utilSource, /站点维护人员|维护人员/)
+  assert.doesNotMatch(utilSource, /维护网站/)
   assert.doesNotMatch(utilSource, /资料出处/)
 })
 

@@ -127,7 +127,7 @@ onMounted(() => {
 
     <footer class="hidden border-t border-[var(--line)] bg-white md:block">
       <div class="page-shell flex items-center justify-between gap-6 py-6 text-xs text-zinc-500">
-        <p>学生团队维护的非官方指南，重要事项以学校最新通知为准。</p>
+        <p>本指南由学生团队整理，重要事项以学校最新通知为准。</p>
         <div class="flex items-center gap-4">
           <NuxtLink
             to="/about"

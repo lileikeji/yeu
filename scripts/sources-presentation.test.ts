@@ -70,6 +70,8 @@ test('source page offers a direct path from the introduction to source search', 
   assert.match(pageSource, /href="#source-list"/)
   assert.match(pageSource, />\s*查找参考页面\s*<\/a>/)
   assert.match(pageSource, /id="source-list"/)
+  assert.match(pageSource, /地图上的地点与现场指示牌/)
+  assert.doesNotMatch(pageSource, /地图标点与现场指示牌/)
   assert.match(pageSource, /class="page-shell page-section scroll-mt-20"/)
   assert.match(pageSource, /id="source-list"[\s\S]*查看页面引用的参考链接/)
   assert.doesNotMatch(pageSource, /信息出处|查找具体出处|条出处/)
