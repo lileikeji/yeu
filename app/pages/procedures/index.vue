@@ -149,10 +149,10 @@ function clearProcedureFilters(): void {
               path: `/procedures/${item.slug}`,
               query: procedureListDetailQuery(audience)
             }"
-            class="surface-panel group flex min-h-64 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
+            class="surface-panel group flex min-h-0 flex-col p-4 transition hover:border-green-300 hover:shadow-sm md:min-h-64 md:p-5"
           >
             <div class="flex items-start justify-between gap-3">
-              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700 md:size-10">
                 <UIcon
                   name="i-lucide-list-checks"
                   class="size-5"
@@ -170,30 +170,30 @@ function clearProcedureFilters(): void {
                 {{ procedureListStatePresentation(item.informationState).label }}
               </UBadge>
             </div>
-            <h2 class="mt-5 text-base font-bold text-zinc-950">
+            <h2 class="mt-3 text-base font-bold text-zinc-950 md:mt-5">
               {{ studentFacingProcedureTitle(item.title) }}
             </h2>
-            <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
+            <p class="mt-1.5 line-clamp-2 flex-1 text-sm leading-6 text-zinc-600 md:mt-2 md:line-clamp-none">
               {{ studentFacingProcedureText(item.summary) }}
             </p>
-            <p class="mt-4 border-l-2 border-orange-300 pl-3 text-xs leading-5 text-zinc-600">
+            <p class="mt-2 line-clamp-1 border-l-2 border-orange-300 pl-2.5 text-xs leading-5 text-zinc-600 md:mt-4 md:line-clamp-none md:pl-3">
               <span class="font-semibold text-zinc-800">目前：</span>
               {{ procedureListStatusText(item.statusText) }}
             </p>
-            <div class="mt-5 border-t border-zinc-100 pt-4 text-xs text-zinc-500">
+            <div class="mt-3 text-xs text-zinc-500 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
               <div class="flex items-center justify-between gap-3">
-                <span>{{ procedureMethodLabel(item.method) }}</span>
+                <span class="truncate">{{ procedureMethodLabel(item.method) }}</span>
                 <span class="inline-flex items-center gap-1 font-medium text-green-700">
                   {{ item.steps.length }} 个步骤
                   <UIcon
                     name="i-lucide-arrow-right"
-                    class="size-3.5 transition group-hover:translate-x-0.5"
+                    class="size-4 transition group-hover:translate-x-0.5"
                   />
                 </span>
               </div>
               <p
                 v-if="item.deadlineText"
-                class="mt-2 line-clamp-2 leading-5"
+                class="mt-1 line-clamp-1 leading-5 md:mt-2 md:line-clamp-2"
               >
                 {{ item.deadlineText }}
               </p>

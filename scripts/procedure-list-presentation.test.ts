@@ -42,6 +42,16 @@ test('procedure audience controls update the selected audience directly', () => 
   assert.doesNotMatch(pageSource, /@click="\(\) => \{ audience = option\.value \}"/)
 })
 
+test('procedure cards scan quickly on mobile without hiding decision details', () => {
+  assert.match(pageSource, /class="surface-panel group flex min-h-0 flex-col p-4[^"]*md:min-h-64 md:p-5"/)
+  assert.match(pageSource, /line-clamp-2[^"]*md:line-clamp-none/)
+  assert.match(pageSource, /class="mt-2 line-clamp-1[^"]*md:line-clamp-none[^"]*"/)
+  assert.match(pageSource, /procedureListStatusText\(item\.statusText\)/)
+  assert.match(pageSource, /procedureMethodLabel\(item\.method\)/)
+  assert.match(pageSource, /item\.steps\.length/)
+  assert.match(pageSource, /v-if="item\.deadlineText"\s+class="mt-1 line-clamp-1[^"]*md:line-clamp-2"/)
+})
+
 test('procedure list audience and method labels stay student-facing', () => {
   assert.equal(procedureListAudienceOptions[0]?.value, 'all')
   assert.equal(procedureListAudienceOptions.length, 3)
