@@ -739,7 +739,7 @@ onBeforeUnmount(() => {
       />
 
       <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-3 md:inset-x-4 md:top-4">
-        <div class="flex flex-col items-start gap-1.5">
+        <div class="map-provider-badges flex flex-col items-start gap-1.5">
           <UTooltip
             v-if="sidebarCollapsed"
             text="展开地点栏"
@@ -1153,6 +1153,13 @@ onBeforeUnmount(() => {
   .map-workspace .yeu-amap-poi-label:not(.yeu-amap-poi-label-selected),
   .map-workspace .yeu-amap-area-label:not(.yeu-amap-area-label-selected) {
     display: none !important;
+  }
+}
+
+/* At 320px the provider badge and centered view switch share the same row. */
+@media (max-width: 359px) {
+  .map-workspace .map-provider-badges {
+    padding-top: 3.25rem;
   }
 }
 </style>

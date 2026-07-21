@@ -126,6 +126,11 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     pageSource,
     /@media \(min-width: 640px\)[\s\S]*?button\[aria-label\^="平面图 "\]::before[\s\S]*?inset: -8px/
   )
+  assert.match(pageSource, /class="map-provider-badges flex flex-col items-start gap-1\.5"/)
+  assert.match(
+    pageSource,
+    /@media \(max-width: 359px\)[\s\S]*?\.map-workspace \.map-provider-badges[\s\S]*?padding-top: 3\.25rem/
+  )
   assert.match(pageSource, /z-40 grid place-items-start[^"]*pt-32[^"]*md:place-items-center/)
   assert.match(pageSource, /!bg-green-800 !text-white/)
   assert.doesNotMatch(pageSource, /地图暂时无法载入|label="重新载入"/)
