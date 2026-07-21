@@ -40,7 +40,8 @@ import {
   sources
 } from '../../database/schema'
 import { rethrowDatabaseError, throwNotFound } from '../../utils/errors'
-import { fromIso, serializeSource } from '../../utils/serializers'
+import { fromIso, safeMetadata, serializeSource } from '../../utils/serializers'
+import { isSafePublicHttpUrl } from '../../../shared/utils/public-http-url'
 import {
   assertSourceIds,
   countPublishableSourcesByIds
@@ -81,27 +82,19 @@ function safeAudience(value: string): Array<'undergraduate' | 'transfer'> {
   }
 }
 
-function safeMetadata(value: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : {}
-  } catch {
-    return {}
-  }
-}
-
 function serializeDepartment(row: ContentRow | undefined, publicOnly: boolean): ApiProcedureDepartment | null {
   if (!row || row.kind !== 'department' || row.status === 'archived') return null
   if (publicOnly && row.status !== 'published') return null
-  const website = safeMetadata(row.metadataJson).website
+  const websiteRaw = safeMetadata(row.metadataJson).website
+  const website = typeof websiteRaw === 'string' && isSafePublicHttpUrl(websiteRaw)
+    ? websiteRaw
+    : null
   return {
     id: row.id,
     slug: row.slug,
     name: row.title,
     summary: row.summary,
-    website: typeof website === 'string' ? website : null
+    website
   }
 }
 

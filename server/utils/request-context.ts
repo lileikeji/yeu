@@ -4,7 +4,7 @@ const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 export const BASE_SECURITY_HEADERS = {
-  'Content-Security-Policy': 'frame-ancestors \'none\'; base-uri \'self\'; object-src \'none\'',
+  'Content-Security-Policy': 'frame-ancestors \'none\'; base-uri \'self\'; object-src \'none\'; form-action \'self\'',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Content-Type-Options': 'nosniff',
@@ -12,6 +12,26 @@ export const BASE_SECURITY_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Resource-Policy': 'same-site'
 } as const
+
+/**
+ * Production HTTPS sites get upgrade-insecure-requests so mixed-content subresource
+ * loads are upgraded. Dev/HTTP stays on the base policy to avoid breaking localhost.
+ */
+export function resolveSecurityHeaders(options: {
+  nodeEnv?: string
+  siteUrl?: string
+} = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...BASE_SECURITY_HEADERS }
+  const nodeEnv = options.nodeEnv ?? process.env.NODE_ENV
+  const siteUrl = options.siteUrl ?? process.env.NUXT_PUBLIC_SITE_URL ?? ''
+  const productionHttps = nodeEnv === 'production' && /^https:\/\//i.test(siteUrl.trim())
+  if (productionHttps) {
+    headers['Content-Security-Policy'] = BASE_SECURITY_HEADERS['Content-Security-Policy'] + '; upgrade-insecure-requests'
+    // HSTS only when the public site URL is HTTPS (opt-in via env / deploy).
+    headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+  }
+  return headers
+}
 
 export interface RequestLogEntry {
   event: 'http_request'
@@ -45,6 +65,12 @@ export function shouldDisableCache(method: string, pathname: string): boolean {
     || pathname.startsWith('/api/admin/')
     || pathname === '/api/auth'
     || pathname.startsWith('/api/auth/')
+    || pathname === '/api/me'
+    || pathname.startsWith('/api/me/')
+    || pathname === '/api/chat'
+    || pathname.startsWith('/api/chat/')
+    || pathname === '/api/public/track'
+    || pathname.startsWith('/api/public/track/')
     || pathname === '/api/public/feedback'
     || pathname.startsWith('/api/public/feedback/')
 }
@@ -78,7 +104,7 @@ export function createRequestLogEntry(input: {
     route: input.pathname,
     statusCode,
     durationMs: Math.max(0, Math.round(input.durationMs * 10) / 10),
-    errorCode: statusCode >= 400 ? `HTTP_${statusCode}` : null,
+    errorCode: statusCode >= 400 ? ('HTTP_' + statusCode) : null,
     aborted: input.aborted === true
   }
 }

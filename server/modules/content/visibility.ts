@@ -1,6 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm'
 import type { ContentKind } from '../../../shared/constants/server'
 import { contents } from '../../database/schema'
+import { safeMetadataRecord } from '../../utils/serializers'
 
 interface MetadataBoundary {
   state: 'missing' | 'valid' | 'invalid'
@@ -26,14 +27,16 @@ export function isPublicContentCurrentlyVisible(
 ): boolean {
   if (kind !== 'notice') return true
 
-  let metadata: Record<string, unknown>
+  let parsed: unknown
   try {
-    const parsed = JSON.parse(metadataJson) as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false
-    metadata = parsed as Record<string, unknown>
+    parsed = JSON.parse(metadataJson)
   } catch {
     return false
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false
+
+  // Strip prototype-pollution keys before reading schedule boundaries.
+  const metadata = safeMetadataRecord(parsed)
 
   const validFrom = metadataBoundary(metadata, 'validFrom')
   const validUntil = metadataBoundary(metadata, 'validUntil')

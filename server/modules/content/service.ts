@@ -11,7 +11,7 @@ import type { ContentKind } from '../../../shared/constants/server'
 import type { DatabaseClient } from '../../database/client'
 import { contents, contentSources } from '../../database/schema'
 import { rethrowDatabaseError, throwNotFound } from '../../utils/errors'
-import { fromIso, safeMetadata, serializeContent } from '../../utils/serializers'
+import { fromIso, safeMetadata, safeMetadataRecord, serializeContent } from '../../utils/serializers'
 import {
   assertSourceIds,
   countPublishableContentSources,
@@ -171,7 +171,7 @@ export function createContent(client: DatabaseClient, input: CreateContentInput)
         body: input.body,
         category: input.category ?? null,
         audience: input.audience ?? null,
-        metadataJson: JSON.stringify(input.metadata),
+        metadataJson: JSON.stringify(safeMetadataRecord(input.metadata)),
         isFeatured: input.isFeatured,
         status: 'draft',
         lastVerifiedAt: fromIso(input.lastVerifiedAt) ?? null,
@@ -205,7 +205,7 @@ export function updateContent(client: DatabaseClient, id: string, input: UpdateC
   const { sourceIds: requestedSourceIds, metadata, ...fields } = input
   const mergedMetadata = metadata === undefined
     ? undefined
-    : { ...safeMetadata(existing.metadataJson), ...metadata }
+    : safeMetadataRecord({ ...safeMetadata(existing.metadataJson), ...metadata })
   const sourceIds = requestedSourceIds === undefined
     ? undefined
     : assertSourceIds(client, requestedSourceIds)

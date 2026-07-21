@@ -51,6 +51,7 @@
 | `NUXT_ADMIN_SESSION_TTL_HOURS` | `12`，允许范围 1-168 | 否 |
 | `NUXT_ALLOWED_ORIGINS` | 可选的额外写接口来源，逗号分隔；站点自身来源自动允许 | 否 |
 | `NUXT_TRUST_PROXY` | Nginx 真实 IP 拓扑核验后设为 `true`，否则保持未设置/`false` | 否 |
+| `NUXT_FORCE_HTTPS` | 可选，设为 `true`/`1` 时在应用层将 HTTP 301 到 HTTPS（跳过 loopback；Host 须通过安全校验）。**优先在 Nginx 做 HTTP→HTTPS**；仅当边缘仍转发明文且需应用兜底时开启。须先保证 `NITRO_HOST=127.0.0.1` 与证书正确 | 否 |
 | `NUXT_FEEDBACK_IP_RETENTION_DAYS` | `30`，反馈限流网络摘要保留期 | 否 |
 | `NUXT_FEEDBACK_CONTACT_RETENTION_DAYS` | `90`，已处理反馈联系方式保留期 | 否 |
 | `NUXT_FEEDBACK_RECORD_RETENTION_DAYS` | `730`，反馈记录最长保留期 | 否 |
@@ -196,6 +197,20 @@ pm2 restart yeu --update-env
 在宝塔站点中配置域名和证书，反向代理到 `127.0.0.1:3000`。以下片段需合并到宝塔生成的 server 块，不能覆盖证书续期配置：
 
 ```nginx
+# 独立 HTTP server：禁止明文站点返回业务内容（CDN/边缘也应同样强制）。
+server {
+    listen 80;
+    server_name yeu.example.com;
+    return 301 https://$host$request_uri;
+}
+
+# 可选：拒绝裸 IP 直接访问业务（与域名证书不一致时关闭默认站点或 return 444）。
+# server {
+#     listen 80 default_server;
+#     server_name _;
+#     return 444;
+# }
+
 client_max_body_size 10m;
 
 location /_nuxt/ {
@@ -241,12 +256,17 @@ location @nuxt {
 
 补充要求：
 
-- HTTP 强制跳转 HTTPS；证书链、自动续期和 TLS 1.2/1.3 通过检查。
+- HTTP 强制跳转 HTTPS（见上方独立 listen 80 示例）；证书链、自动续期和 TLS 1.2/1.3 通过检查。**当前若 HTTP 仍 200 返回完整业务页，说明边缘/CDN 或 Nginx 未强制跳转，必须修复。**
+- 应用层会尽量移除 x-powered-by；Nginx 静态 location 也不要额外添加框架指纹头。
 - Nitro 动态响应已统一返回 `X-Content-Type-Options: nosniff`、`Referrer-Policy`、framing/object 限制、Permissions Policy 和 `X-Request-Id`；Nginx 直接提供的 `/_nuxt/`、图标、manifest、Service Worker 和上传文件仍须在对应静态 location 添加等价安全头。
-- CSP 先以 `Content-Security-Policy-Report-Only` 观察实际高德域名，再收紧并启用；不要为省事永久允许任意脚本域或 `unsafe-eval`。
+- 基线 CSP 已包含 `frame-ancestors 'none'`、`base-uri 'self'`、`object-src 'none'`、`form-action 'self'`（限制表单只提交到同源）。更完整的 `script-src`/`img-src` 等请先以 `Content-Security-Policy-Report-Only` 观察实际高德与 Nuxt 域名，再收紧并启用；不要为省事永久允许任意脚本域或 `unsafe-eval`。
 - `/api/admin/**`、登录和纠错接口不得被代理缓存；对登录/纠错/搜索配置应用层和 Nginx 双层限流。
 - 上传文件由应用生成安全文件名并校验类型；Nginx 不执行 uploads 中的脚本。
 - HSTS 只在 HTTPS 和所有子域准备完成后开启，避免误锁域名。
+  当 `NODE_ENV=production` 且 `NUXT_PUBLIC_SITE_URL`（或 `public.siteUrl`）为 `https://` 时，应用会自动下发 `Strict-Transport-Security: max-age=31536000; includeSubDomains`；仍建议在 Nginx 同步配置。
+- 生产环境必须配置 `NUXT_PUBLIC_SITE_URL` 和/或 `NUXT_ALLOWED_ORIGINS`；若写接口来源白名单为空，会返回 500 `ORIGIN_ALLOWLIST_EMPTY`（部署误配），而不是一律 403。
+- 反向代理应强制 HTTP→HTTPS；可选设置 `NUXT_FORCE_HTTPS=true` 作为应用层兜底（不要替代 Nginx 证书终止）。`NITRO_HOST` 必须为 `127.0.0.1` 再考虑 `NUXT_TRUST_PROXY=true`。
+- 部署后确认响应无 `X-Powered-By`（由全局中间件和响应钩子共同移除）；CSP 至少含 `form-action 'self'`。
 
 上线后至少执行以下响应头冒烟检查；请求 ID 必须为受限格式，认证接口必须保持 `no-store`，页面不能允许第三方 framing：
 

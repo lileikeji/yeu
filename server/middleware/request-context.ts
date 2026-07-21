@@ -1,10 +1,10 @@
 import { performance } from 'node:perf_hooks'
 import { defineEventHandler } from 'h3'
 import {
-  BASE_SECURITY_HEADERS,
   createRequestLogEntry,
   requestLoggingEnabled,
   resolveRequestId,
+  resolveSecurityHeaders,
   shouldDisableCache
 } from '../utils/request-context'
 
@@ -21,8 +21,13 @@ export default defineEventHandler((event) => {
 
   event.context.requestId = requestId
   response.setHeader('X-Request-Id', requestId)
-  for (const [name, value] of Object.entries(BASE_SECURITY_HEADERS)) {
+  for (const [name, value] of Object.entries(resolveSecurityHeaders())) {
     response.setHeader(name, value)
+  }
+  // Fingerprint: Nuxt may re-add x-powered-by for HTML; plugin strip-powered-by
+  // removes it on beforeResponse. Also clear here for early JSON paths.
+  if (typeof response.removeHeader === 'function') {
+    response.removeHeader('x-powered-by')
   }
   if (shouldDisableCache(method, pathname)) {
     response.setHeader('Cache-Control', 'no-store')

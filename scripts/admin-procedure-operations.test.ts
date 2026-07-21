@@ -7,7 +7,8 @@ import { createAdminProcedureOperations } from '../app/utils/admin-procedure-ope
 import {
   getRequestMessage,
   getRequestStatusCode,
-  isAuthorizationError
+  isAuthorizationError,
+  isSafeUiErrorMessage
 } from '../app/utils/request-error'
 
 function procedure(id: string, title = id): ApiProcedure {
@@ -86,6 +87,13 @@ test('request error helpers preserve nested messages and authorization status', 
   assert.equal(getRequestMessage({ data: { message: '关联不存在' } }, '失败'), '关联不存在')
   assert.equal(getRequestMessage(new Error('网络失败'), '失败'), '网络失败')
   assert.equal(getRequestMessage(null, '失败'), '失败')
+  assert.equal(getRequestMessage({ message: 'SQLITE_ERROR: no such table' }, '失败'), '失败')
+  assert.equal(getRequestMessage({ message: 'Error at foo (/home/user/app.ts:1:1)' }, '失败'), '失败')
+  assert.equal(getRequestMessage({ message: 'password hash mismatch for secret token' }, '失败'), '失败')
+  assert.equal(isSafeUiErrorMessage('字段无效'), true)
+  assert.equal(isSafeUiErrorMessage('a'.repeat(201)), false)
+  assert.equal(isSafeUiErrorMessage('C:\\Users\\x\\secret.env leak'), false)
+  assert.equal(isSafeUiErrorMessage('ENOENT: no such file'), false)
 })
 
 test('a stale editor detail response cannot overwrite a newer procedure', async () => {

@@ -24,12 +24,13 @@ const imageFiles = [
   'dingding-old-area-stop-concept-hd.png'
 ]
 
-test('xiaohongshu research route explains why visual derivatives are withheld', () => {
+test('social image notice explains the permission boundary in ordinary language', () => {
   const pagePath = join(process.cwd(), 'app/pages/research/xiaohongshu-images.vue')
   const page = readFileSync(pagePath, 'utf8')
-  assert.match(page, /社交平台研究素材暂不公开/)
-  assert.match(page, /尚未取得原作者或相关权利人的书面再利用许可/)
-  assert.match(page, /AI 重构或概念示意不能替代原素材的再利用授权/)
+  assert.match(page, /部分社交平台图片暂不展示/)
+  assert.match(page, /没有获得明确同意前，本站不会展示或改编它们/)
+  assert.match(page, /用 AI 重画也不能代替作者同意/)
+  assert.doesNotMatch(page, /研究素材|书面再利用许可|AI 重构|概念示意/)
   assert.match(page, /robots: 'noindex, nofollow'/)
   assert.doesNotMatch(page, /<img|xiaohongshu-recreations-2026-07-15/)
 })

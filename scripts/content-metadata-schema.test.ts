@@ -36,6 +36,19 @@ test('content metadata rejects prototype keys and oversized payloads', () => {
   const deepRes = createContentSchema.safeParse({ ...base, metadata: deep })
   assert.equal(deepRes.success, false)
 
+  // JSON text ensures __proto__/constructor are real own keys (object-literal __proto__ is special).
+  const nestedForbidden = createContentSchema.safeParse({
+    ...base,
+    metadata: JSON.parse('{"sections":[{"title":"A","__proto__":{"polluted":true}}]}')
+  })
+  assert.equal(nestedForbidden.success, false, 'nested prototype keys must be rejected')
+
+  const nestedConstructor = createContentSchema.safeParse({
+    ...base,
+    metadata: JSON.parse('{"deep":{"nested":{"constructor":{"name":"x"}}}}')
+  })
+  assert.equal(nestedConstructor.success, false, 'nested constructor key must be rejected')
+
   const ok = createContentSchema.safeParse({
     ...base,
     metadata: { shortTitle: 'Hi', sections: [{ title: 'A', items: ['1'] }] }

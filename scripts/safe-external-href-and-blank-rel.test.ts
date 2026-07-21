@@ -39,7 +39,7 @@ test('every app target=_blank carries rel=noopener noreferrer nearby', () => {
   for (const file of vueFiles) {
     const lines = readFileSync(file, 'utf8').split(/\r?\n/)
     for (let i = 0; i < lines.length; i++) {
-      if (!lines[i].includes('target="_blank"')) continue
+      if (!lines[i].includes('_blank') || !/target/.test(lines[i])) continue
       let hasRel = false
       for (let j = i; j < Math.min(lines.length, i + 12); j++) {
         if (/rel=["']noopener noreferrer["']/.test(lines[j])) {
@@ -90,4 +90,34 @@ test('dynamic public source links filter through safeExternalHref', () => {
   assert.match(places, /safeExternalHref\(place\.externalMapUrl\)/)
   const procedures = readFileSync(resolve('app/pages/procedures/[slug].vue'), 'utf8')
   assert.match(procedures, /safeExternalHref\(step\.actionUrl\)/)
+})
+
+test('navigation and official seed links filter through safeExternalHref at UI sinks', () => {
+  const panel = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
+  assert.match(panel, /safeExternalHref\(props\.place\.navigationUrl\)/)
+  assert.match(panel, /rel=["']noopener noreferrer["']/)
+
+  const campus = readFileSync(resolve('app/pages/campus.vue'), 'utf8')
+  assert.match(campus, /safeExternalHref\(officialSources\.university\.url\)/)
+  assert.match(campus, /safeExternalHref\(officialSources\.organizations\.url\)/)
+  assert.match(campus, /safeExternalHref\(notice\.sources\[0\]\?\.url\)/)
+  assert.match(campus, /safeExternalHref\(department\.website\)/)
+
+  const mapIndex = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+  assert.match(mapIndex, /safeExternalHref\(officialSources\.campusMap\.url\)/)
+
+  const nearby = readFileSync(resolve('app/pages/nearby.vue'), 'utf8')
+  assert.match(nearby, /safeExternalHref\(candidateCatalog\.providerDocumentation\)/)
+  assert.match(nearby, /safeExternalHref\(candidateMapUrl\(candidate\)\)/)
+
+  const plan = readFileSync(resolve('app/components/map/OfficialCampusPlan.vue'), 'utf8')
+  assert.match(plan, /safeExternalHref\(officialCampusPlanReference\.pageUrl\)/)
+})
+
+test('public-catalog http URL gate uses isSafePublicHttpUrl (not bare scheme check)', () => {
+  const source = readFileSync(resolve('app/utils/public-catalog.ts'), 'utf8')
+  assert.match(source, /isSafePublicHttpUrl/)
+  assert.match(source, /function isHttpUrl/)
+  assert.match(source, /return Boolean\(value && isSafePublicHttpUrl\(value\)\)/)
+  assert.doesNotMatch(source, /https\?:/)
 })

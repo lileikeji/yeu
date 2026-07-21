@@ -16,6 +16,17 @@ class FakeElement {
   style: Record<string, string> = {}
   readonly attributes = new Map<string, string>()
   readonly children: FakeElement[] = []
+  readonly classNames = new Set<string>()
+  readonly classList = {
+    toggle: (name: string, force?: boolean) => {
+      const enabled = force ?? !this.classNames.has(name)
+      if (enabled) this.classNames.add(name)
+      else this.classNames.delete(name)
+      return enabled
+    },
+    contains: (name: string) => this.classNames.has(name)
+  }
+
   private readonly listeners = new Map<string, Set<FakeListener>>()
 
   setAttribute(name: string, value: string): void {
@@ -548,10 +559,12 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.ok(areaLabel)
     areaLabel.emitClick()
     assert.equal(selectedAreas.at(-1), 'area-exact-1')
+    assert.equal(areaLabel.content?.classList.contains('yeu-amap-area-label-selected'), true)
     assert.match(areaLabel.content?.style.cssText ?? '', /background:#2563eb/)
     provider.setSelectedArea(null)
     assert.equal(FakePolyline.instances[0]?.options.strokeColor, '#18AD78')
     assert.equal(FakePolyline.instances[0]?.options.strokeWeight, 3)
+    assert.equal(areaLabel.content?.classList.contains('yeu-amap-area-label-selected'), false)
     assert.match(areaLabel.content?.style.cssText ?? '', /background:rgb\(255 255 255 \/ 90%\)/)
     map.emitClick()
     assert.equal(selectedAreas.at(-1), null)

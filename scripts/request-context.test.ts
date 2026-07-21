@@ -8,6 +8,7 @@ import {
   normalizeIncomingRequestId,
   requestLoggingEnabled,
   resolveRequestId,
+  resolveSecurityHeaders,
   shouldDisableCache
 } from '../server/utils/request-context'
 
@@ -26,6 +27,7 @@ test('baseline security headers prevent sniffing and framing without blocking fi
   assert.equal(BASE_SECURITY_HEADERS['X-Frame-Options'], 'DENY')
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /frame-ancestors 'none'/)
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /object-src 'none'/)
+  assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /form-action 'self'/)
   assert.match(BASE_SECURITY_HEADERS['Permissions-Policy'], /geolocation=\(self\)/)
   assert.match(BASE_SECURITY_HEADERS['Permissions-Policy'], /camera=\(\)/)
 })
@@ -56,7 +58,9 @@ test('public read APIs only enable short caching after successful data preparati
   }
 
   const cacheHelper = readFileSync(join(process.cwd(), 'server/utils/http.ts'), 'utf8')
-  assert.match(cacheHelper, /public, max-age=\$\{maxAge\}, stale-while-revalidate=\$\{maxAge \* 5\}/)
+  assert.match(cacheHelper, /private, max-age=\$\{maxAge\}, stale-while-revalidate=\$\{maxAge \* 5\}/)
+  assert.match(cacheHelper, /CDN-Cache-Control', 'no-store'/)
+  assert.match(cacheHelper, /Cloudflare-CDN-Cache-Control', 'no-store'/)
 
   const feedback = readFileSync(join(publicApiRoot, 'feedback.post.ts'), 'utf8')
   assert.match(feedback, /Cache-Control', 'no-store'/)
@@ -98,4 +102,50 @@ test('global middleware applies request context without collecting client identi
   assert.doesNotMatch(middleware, /getRequestURL|getHeader|getMethod|setHeader\(event/)
   assert.match(middleware, /JSON\.stringify\(entry\)/)
   assert.doesNotMatch(middleware, /getRequestIP|remoteAddress|cookie|authorization|searchParams/)
+})
+
+test('resolveSecurityHeaders adds upgrade-insecure-requests only for production HTTPS sites', () => {
+  const base = resolveSecurityHeaders({ nodeEnv: 'development', siteUrl: 'https://example.com' })
+  assert.equal(base['Content-Security-Policy'], BASE_SECURITY_HEADERS['Content-Security-Policy'])
+  assert.doesNotMatch(base['Content-Security-Policy'], /upgrade-insecure-requests/)
+
+  const prodHttp = resolveSecurityHeaders({ nodeEnv: 'production', siteUrl: 'http://example.com' })
+  assert.doesNotMatch(prodHttp['Content-Security-Policy'], /upgrade-insecure-requests/)
+
+  const prodHttps = resolveSecurityHeaders({ nodeEnv: 'production', siteUrl: 'https://yeu.example.com' })
+  assert.match(prodHttps['Content-Security-Policy'], /form-action 'self'/)
+  assert.match(prodHttps['Content-Security-Policy'], /upgrade-insecure-requests/)
+  assert.equal(prodHttps['Strict-Transport-Security'], 'max-age=31536000; includeSubDomains')
+  assert.equal(prodHttps['Cross-Origin-Opener-Policy'], 'same-origin')
+  assert.equal(prodHttps['Cross-Origin-Resource-Policy'], 'same-site')
+
+  assert.equal(base['Strict-Transport-Security'], undefined)
+  assert.equal(prodHttp['Strict-Transport-Security'], undefined)
+})
+
+test('framework fingerprint header is stripped by middleware and nitro plugin', () => {
+  const middleware = readFileSync(join(process.cwd(), 'server/middleware/request-context.ts'), 'utf8')
+  const plugin = readFileSync(join(process.cwd(), 'server/plugins/strip-powered-by.ts'), 'utf8')
+  assert.match(middleware, /resolveSecurityHeaders\(\)/)
+  assert.match(middleware, /removeHeader\(['"]x-powered-by['"]\)/)
+  assert.match(plugin, /beforeResponse/)
+  assert.match(plugin, /afterResponse/)
+  assert.match(plugin, /render:response/)
+  assert.match(plugin, /removeResponseHeader/)
+  assert.match(plugin, /x-powered-by/i)
+})
+
+test('production origin allowlist empty is explicit server misconfiguration', () => {
+  const security = readFileSync(join(process.cwd(), 'server/utils/security.ts'), 'utf8')
+  assert.match(security, /ORIGIN_ALLOWLIST_EMPTY/)
+  assert.match(security, /allowed\.size === 0/)
+  assert.match(security, /statusCode: 500/)
+})
+
+test('admin UI and admin API route rules force no-store and noindex', () => {
+  const nuxtConfig = readFileSync(join(process.cwd(), 'nuxt.config.ts'), 'utf8')
+  assert.match(nuxtConfig, /'\/admin\/\*\*'/)
+  assert.match(nuxtConfig, /'\/api\/admin\/\*\*'/)
+  assert.match(nuxtConfig, /Cache-Control': 'private, no-store'/)
+  assert.match(nuxtConfig, /X-Robots-Tag': 'noindex, nofollow'/)
 })

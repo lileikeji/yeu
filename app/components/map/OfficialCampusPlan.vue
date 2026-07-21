@@ -23,6 +23,7 @@ import {
   resolveOfficialPlanZoomFocusScroll,
   touchPointDistance
 } from '~~/app/utils/official-campus-plan-presentation'
+import { safeExternalHref } from '~/utils/safe-external-href'
 
 const props = defineProps<{
   selectedMapNumber?: string | null
@@ -34,7 +35,7 @@ const emit = defineEmits<{
 }>()
 
 const OFFICIAL_PLAN_IMAGE_URL = officialCampusPlanReference.localAssetUrl
-const OFFICIAL_PLAN_PAGE_URL = officialCampusPlanReference.pageUrl
+const OFFICIAL_PLAN_PAGE_URL = safeExternalHref(officialCampusPlanReference.pageUrl)
 
 const viewport = ref<HTMLElement | null>(null)
 const imageElement = ref<HTMLImageElement | null>(null)
@@ -499,7 +500,7 @@ onBeforeUnmount(() => {
           官网平面图暂时无法载入
         </p>
         <UButton
-          :to="OFFICIAL_PLAN_PAGE_URL"
+          :to="OFFICIAL_PLAN_PAGE_URL || undefined"
           target="_blank"
           rel="noopener noreferrer"
           icon="i-lucide-external-link"
@@ -519,7 +520,7 @@ onBeforeUnmount(() => {
       <p class="mx-auto max-w-2xl border border-white/30 bg-zinc-950/85 px-3 py-2 text-center text-xs leading-5 text-white shadow-sm backdrop-blur-sm">
         滚轮/双指可自由缩放，拖动可平移。这张平面图只用来对照校园方向，不能用来精确导航。
         <a
-          :href="OFFICIAL_PLAN_PAGE_URL"
+          :href="OFFICIAL_PLAN_PAGE_URL || undefined"
           target="_blank"
           rel="noopener noreferrer"
           class="pointer-events-auto ml-1 font-semibold underline underline-offset-2"

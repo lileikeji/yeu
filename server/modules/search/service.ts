@@ -13,6 +13,7 @@ import { getManagedContentKinds } from '../content/catalog-state'
 import { activePublicContentCondition } from '../content/visibility'
 import { activePublicProcedureCondition } from '../procedures/service'
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
+import { safeMetadata } from '../../utils/serializers'
 
 function matchScore(title: string, detail: string | null, search: string): number {
   const normalizedTitle = title.toLocaleLowerCase('zh-CN')
@@ -26,14 +27,7 @@ function matchScore(title: string, detail: string | null, search: string): numbe
 }
 
 function publicMetadataSearchText(metadataJson: string): string {
-  let metadata: Record<string, unknown>
-  try {
-    const parsed = JSON.parse(metadataJson) as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return ''
-    metadata = parsed as Record<string, unknown>
-  } catch {
-    return ''
-  }
+  const metadata = safeMetadata(metadataJson)
 
   const text: string[] = []
   for (const key of [
