@@ -90,62 +90,46 @@ function confirmResetProgress() {
     </header>
 
     <div class="page-shell py-8 md:py-10">
-      <section class="rounded-lg border border-orange-200 bg-orange-50/60 p-5 md:p-6">
-        <div class="flex flex-col gap-5 lg:flex-row lg:items-stretch lg:justify-between">
-          <div class="min-w-0 flex-1">
-            <p class="text-xs font-semibold text-orange-800">
-              {{ arrival.phaseLabel }} · {{ arrival.reportWindowLabel }}
+      <section class="rounded-lg border border-orange-200 bg-orange-50/60 p-4 md:p-6">
+        <p class="text-xs font-semibold text-orange-800">
+          {{ arrival.phaseLabel }} · {{ arrival.reportWindowLabel }}
+        </p>
+        <h2 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+          <template v-if="arrival.daysNumber != null && arrival.phase === 'before-report'">
+            还有 <span class="text-orange-700">{{ arrival.daysNumber }}</span> 天报到
+          </template>
+          <template v-else>
+            {{ arrival.headline }}
+          </template>
+        </h2>
+        <p class="mt-2 text-sm leading-6 text-zinc-600">
+          {{ arrival.detail }}
+        </p>
+
+        <ol class="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-orange-200 bg-orange-200 sm:grid-cols-4">
+          <li
+            v-for="milestone in arrival.milestones"
+            :key="milestone.id"
+            class="min-h-20 bg-white/90 p-3 text-xs leading-5"
+            :class="milestone.active
+              ? 'font-semibold text-orange-950 ring-2 ring-inset ring-orange-400'
+              : milestone.done
+                ? 'text-green-800'
+                : 'text-zinc-600'"
+            :aria-current="milestone.active ? 'step' : undefined"
+          >
+            <p class="font-semibold">
+              {{ milestone.label }}
             </p>
-            <h2 class="mt-2 text-2xl font-bold tracking-tight text-zinc-950 md:text-3xl">
-              <template v-if="arrival.daysNumber != null && arrival.phase === 'before-report'">
-                还有 <span class="text-orange-700">{{ arrival.daysNumber }}</span> 天报到
-              </template>
-              <template v-else>
-                {{ arrival.headline }}
-              </template>
-            </h2>
-            <p class="mt-2 text-sm leading-6 text-zinc-600">
-              {{ arrival.detail }}
+            <p class="mt-1">
+              {{ milestone.dateLabel }}
             </p>
-            <p class="mt-2 text-xs leading-5 text-zinc-500">
-              {{ arrival.honestyNote }}
-            </p>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <UButton
-                :to="arrival.primaryCtaTo"
-                :label="arrival.primaryCtaLabel"
-                icon="i-lucide-list-checks"
-                class="min-h-11"
-              />
-              <UButton
-                :to="arrival.secondaryCtaTo"
-                :label="arrival.secondaryCtaLabel"
-                color="neutral"
-                variant="outline"
-                class="min-h-11"
-              />
-            </div>
-          </div>
-          <ol class="w-full max-w-sm divide-y divide-zinc-200 border-y border-zinc-200">
-            <li
-              v-for="milestone in arrival.milestones"
-              :key="milestone.id"
-              class="px-1 py-3 text-xs leading-5"
-              :class="milestone.active
-                ? 'font-semibold text-orange-950'
-                : milestone.done
-                  ? 'text-green-800'
-                  : 'text-zinc-600'"
-            >
-              <p class="font-semibold">
-                {{ milestone.label }}
-              </p>
-              <p class="mt-1">
-                {{ milestone.dateLabel }}
-              </p>
-            </li>
-          </ol>
-        </div>
+          </li>
+        </ol>
+
+        <p class="mt-3 text-xs leading-5 text-zinc-500">
+          {{ arrival.honestyNote }}
+        </p>
       </section>
 
       <section class="mt-6 border-y border-green-200 bg-green-50/60 py-4 md:px-5 md:py-5">
@@ -250,7 +234,7 @@ function confirmResetProgress() {
 
           <div class="min-w-0 flex-1">
             <p class="text-xs font-semibold text-green-700">
-              今日优先 · {{ todayFocus.title }}
+              下一件事 · {{ arrival.phaseLabel }}
             </p>
             <template v-if="todayFocus.items[0]">
               <div class="mt-1 flex flex-wrap items-center gap-2">
