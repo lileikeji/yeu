@@ -17,6 +17,7 @@ import {
   resolvePlaceStudentSummary,
   resolvePlaceUseChecklist
 } from '~~/app/utils/place-detail-presentation'
+import { parsePublicPhoneContacts } from '~~/app/utils/public-phone-contact'
 
 const route = useRoute()
 const { copyText, isWechat } = useShareActions()
@@ -76,6 +77,8 @@ const floorRoomLabel = computed(() => resolvePlaceFloorRoomLabel(
   place.value?.floor,
   place.value?.room
 ))
+
+const phoneContacts = computed(() => parsePublicPhoneContacts(place.value?.phone))
 
 function copyPlaceLocation(): void {
   if (!place.value) return
@@ -262,14 +265,27 @@ function copyPlaceLocation(): void {
               </dd>
             </div>
             <div
-              v-if="place.phone"
-              class="flex justify-between gap-6 py-3"
+              v-if="phoneContacts.length"
+              class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="shrink-0 text-zinc-500">
                 公开电话
               </dt>
-              <dd class="text-right text-zinc-900">
-                {{ place.phone }}
+              <dd class="min-w-0 text-right">
+                <div class="flex flex-col items-end gap-2">
+                  <a
+                    v-for="phone in phoneContacts"
+                    :key="phone.href"
+                    :href="phone.href"
+                    class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                  >
+                    <UIcon
+                      name="i-lucide-phone"
+                      class="size-4 shrink-0"
+                    />
+                    <span>{{ phone.label }}</span>
+                  </a>
+                </div>
               </dd>
             </div>
             <div

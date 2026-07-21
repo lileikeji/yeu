@@ -11,6 +11,10 @@ import {
   resolveDepartmentVerificationSummary,
   resolveDepartmentVerifiedDate
 } from '~~/app/utils/department-detail-presentation'
+import {
+  parsePublicPhoneContacts,
+  resolvePublicEmailHref
+} from '~~/app/utils/public-phone-contact'
 
 const route = useRoute()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
@@ -50,6 +54,9 @@ useSeoMeta({
   title: () => department.value?.name ?? '部门',
   description: () => department.value?.summary ?? ''
 })
+const phoneContacts = computed(() => parsePublicPhoneContacts(department.value?.phone))
+const emailHref = computed(() => resolvePublicEmailHref(department.value?.email))
+
 const feedbackLink = computed(() => content.value
   ? buildDetailFeedbackLink({
       targetType: 'content',
@@ -175,25 +182,46 @@ const feedbackLink = computed(() => content.value
               </dd>
             </div>
             <div
-              v-if="department.phone"
+              v-if="phoneContacts.length"
               class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="shrink-0 text-zinc-500">
                 电话
               </dt>
-              <dd class="text-right font-medium text-zinc-900">
-                {{ department.phone }}
+              <dd class="min-w-0 text-right">
+                <div class="flex flex-col items-end gap-2">
+                  <a
+                    v-for="phone in phoneContacts"
+                    :key="phone.href"
+                    :href="phone.href"
+                    class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                  >
+                    <UIcon
+                      name="i-lucide-phone"
+                      class="size-4 shrink-0"
+                    />
+                    <span>{{ phone.label }}</span>
+                  </a>
+                </div>
               </dd>
             </div>
             <div
               v-if="department.email"
               class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="shrink-0 text-zinc-500">
                 邮箱
               </dt>
-              <dd class="break-all text-right font-medium text-zinc-900">
-                {{ department.email }}
+              <dd class="min-w-0 break-all text-right">
+                <a
+                  v-if="emailHref"
+                  :href="emailHref"
+                  class="inline-flex min-h-11 items-center break-all font-medium text-green-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                >{{ department.email }}</a>
+                <span
+                  v-else
+                  class="font-medium text-zinc-900"
+                >{{ department.email }}</span>
               </dd>
             </div>
             <div
