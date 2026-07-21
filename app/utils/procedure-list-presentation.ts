@@ -41,7 +41,7 @@ export function procedureListStatePresentation(informationState: string): Proced
     }
   }
   return {
-    label: '先看已确认内容',
+    label: '先看能准备的',
     color: 'neutral',
     icon: 'i-lucide-info'
   }

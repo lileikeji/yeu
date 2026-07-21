@@ -36,6 +36,12 @@ test('procedure search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /aria-label="搜索办事流程"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
 })
 
+test('procedure introduction stays direct and balanced on narrow phones', () => {
+  assert.match(pageSource, /先找你要办的事，再按步骤准备时间、材料和地点/)
+  assert.match(pageSource, /尚未公布的安排会直接标明/)
+  assert.doesNotMatch(pageSource, /页面会告诉你现在能做什么、还要等什么/)
+})
+
 test('procedure audience controls update the selected audience directly', () => {
   assert.match(pageSource, /function selectProcedureAudience\(value: typeof audience\.value\): void/)
   assert.match(pageSource, /@click="selectProcedureAudience\(option\.value\)"/)
@@ -69,7 +75,7 @@ test('procedure list audience and method labels stay student-facing', () => {
   assert.match(pageSource, /label="重新试一次"/)
   assert.doesNotMatch(pageSource, /border-red-200|text-red-900/)
   assert.equal(procedureListStatePresentation('confirmed').label, '可以照着办理')
-  assert.equal(procedureListStatePresentation('partial').label, '先看已确认内容')
+  assert.equal(procedureListStatePresentation('partial').label, '先看能准备的')
   assert.equal(procedureListStatePresentation('awaiting-notice').label, '等学校通知')
   assert.equal(
     procedureListStatusText('报修制度有官方来源，工单状态待通知'),

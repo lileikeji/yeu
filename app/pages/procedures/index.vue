@@ -52,7 +52,7 @@ function clearProcedureFilters(): void {
               新生办事流程
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              先找你要办的事，页面会告诉你现在能做什么、还要等什么。个人时段、材料、地点和费用请以录取通知书及学校当年通知为准。
+              先找你要办的事，再按步骤准备时间、材料和地点。尚未公布的安排会直接标明，费用请以录取通知书和学校最新通知为准。
             </p>
           </div>
           <UButton
