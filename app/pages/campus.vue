@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { safeExternalHref } from '~/utils/safe-external-href'
+import {
+  parsePublicPhoneContacts,
+  resolvePublicEmailHref
+} from '~/utils/public-phone-contact'
 import { officialClubs, officialDepartments, officialSources } from '~~/data/seeds/public-content'
 import {
   campusFallbackMessages,
@@ -38,6 +42,15 @@ const clubs = computed(() => publicClubs(publicContents.value, officialClubs))
 const featuredDepartments = computed(() => selectFeaturedDepartments(departments.value))
 const featuredClubs = computed(() => selectFeaturedClubs(clubs.value))
 const notices = computed(() => publicNotices(publicContents.value))
+
+function departmentPhoneContacts(phone?: string | null) {
+  return parsePublicPhoneContacts(phone)
+}
+
+function departmentEmailHref(email?: string | null) {
+  return resolvePublicEmailHref(email)
+}
+
 const fallbackMessage = computed(() => resolveCampusFallbackMessage({
   hasError: Boolean(publicContentError.value),
   response: publicContentResponse.value,
@@ -309,13 +322,44 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             v-if="department.phone || department.email || department.officeHours"
             class="mt-4 border-t border-zinc-100 pt-3 text-xs leading-5 text-zinc-500"
           >
-            <p v-if="department.phone">
+            <div
+              v-if="departmentPhoneContacts(department.phone).length"
+              class="flex flex-col items-start gap-2"
+            >
+              <a
+                v-for="phone in departmentPhoneContacts(department.phone)"
+                :key="phone.href"
+                :href="phone.href"
+                class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              >
+                <UIcon
+                  name="i-lucide-phone"
+                  class="size-4 shrink-0"
+                />
+                <span>{{ phone.label }}</span>
+              </a>
+            </div>
+            <p
+              v-else-if="department.phone"
+              class="text-zinc-500"
+            >
               {{ department.phone }}
             </p>
-            <p v-if="department.email">
-              {{ department.email }}
+            <p
+              v-if="department.email"
+              class="mt-2"
+            >
+              <a
+                v-if="departmentEmailHref(department.email)"
+                :href="departmentEmailHref(department.email)"
+                class="inline-flex min-h-11 items-center break-all font-medium text-green-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              >{{ department.email }}</a>
+              <span v-else>{{ department.email }}</span>
             </p>
-            <p v-if="department.officeHours">
+            <p
+              v-if="department.officeHours"
+              class="mt-2"
+            >
               {{ department.officeHours }}
             </p>
           </div>

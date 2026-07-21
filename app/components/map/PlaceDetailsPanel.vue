@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
 import type { PublicMapPlace } from '~/utils/public-catalog'
+import { parsePublicPhoneContacts } from '~/utils/public-phone-contact'
 import { safeExternalHref } from '~/utils/safe-external-href'
 
 const props = defineProps<{
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 }>()
 
 const safeNavigationUrl = computed(() => safeExternalHref(props.place.navigationUrl))
+const phoneContacts = computed(() => parsePublicPhoneContacts(props.place.phone))
 
 const navigationTooltip = computed(() => {
   if (!safeNavigationUrl.value) return '这个地点暂时没有可用导航入口'
@@ -115,12 +117,25 @@ const navigationTooltip = computed(() => {
           {{ props.place.openingHours }}
         </dd>
       </div>
-      <div v-if="props.place.phone">
+      <div v-if="phoneContacts.length">
         <dt class="text-zinc-400">
           公开电话
         </dt>
-        <dd class="mt-0.5 text-zinc-700">
-          {{ props.place.phone }}
+        <dd class="mt-0.5">
+          <div class="flex flex-col items-start gap-2">
+            <a
+              v-for="phone in phoneContacts"
+              :key="phone.href"
+              :href="phone.href"
+              class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            >
+              <UIcon
+                name="i-lucide-phone"
+                class="size-4 shrink-0"
+              />
+              <span>{{ phone.label }}</span>
+            </a>
+          </div>
         </dd>
       </div>
     </dl>

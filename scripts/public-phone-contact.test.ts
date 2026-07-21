@@ -9,6 +9,8 @@ import {
 
 const departmentPage = readFileSync(resolve('app/pages/departments/[slug].vue'), 'utf8')
 const placePage = readFileSync(resolve('app/pages/places/[slug].vue'), 'utf8')
+const placePanel = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
+const campusPage = readFileSync(resolve('app/pages/campus.vue'), 'utf8')
 
 test('parsePublicPhoneContacts splits multi-number campus lines into dialable tel links', () => {
   assert.deepEqual(
@@ -34,7 +36,7 @@ test('resolvePublicEmailHref only accepts plain email addresses', () => {
   assert.equal(resolvePublicEmailHref(null), null)
 })
 
-test('department and place detail pages expose dialable public phone contacts', () => {
+test('public pages expose dialable public phone contacts', () => {
   assert.match(departmentPage, /parsePublicPhoneContacts/)
   assert.match(departmentPage, /resolvePublicEmailHref/)
   assert.match(departmentPage, /phoneContacts/)
@@ -43,6 +45,13 @@ test('department and place detail pages expose dialable public phone contacts', 
   assert.match(placePage, /parsePublicPhoneContacts/)
   assert.match(placePage, /phoneContacts/)
   assert.match(placePage, /:href="phone\.href"/)
-  assert.doesNotMatch(departmentPage, /{{ department\.phone }}/)
-  assert.doesNotMatch(placePage, /{{ place\.phone }}/)
+  assert.match(placePanel, /parsePublicPhoneContacts/)
+  assert.match(placePanel, /phoneContacts/)
+  assert.match(placePanel, /:href="phone\.href"/)
+  assert.match(campusPage, /parsePublicPhoneContacts/)
+  assert.match(campusPage, /departmentPhoneContacts/)
+  assert.match(campusPage, /:href="phone\.href"/)
+  assert.doesNotMatch(departmentPage, /\{\{\s*department\.phone\s*\}\}/)
+  assert.doesNotMatch(placePage, /\{\{\s*place\.phone\s*\}\}/)
+  assert.doesNotMatch(placePanel, /\{\{\s*props\.place\.phone\s*\}\}/)
 })
