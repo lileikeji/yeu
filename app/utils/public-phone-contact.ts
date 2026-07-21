@@ -3,6 +3,16 @@ export interface PublicPhoneContact {
   href: string
 }
 
+export type PublicContactActionKind = 'phone' | 'email' | 'text'
+
+export interface PublicContactAction {
+  kind: PublicContactActionKind
+  label: string
+  href: string | null
+  copyValue: string
+  actionLabel: string
+}
+
 const phonePartSplit = /[/／|｜,，;；、\n]+/
 
 /**
@@ -48,4 +58,43 @@ export function resolvePublicEmailHref(value: string | null | undefined): string
   if (!email) return null
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
   return `mailto:${email}`
+}
+
+/**
+ * Turn free-form contact text into student-facing actions.
+ * Phones become dial links, emails become mailto links, otherwise keep copyable text.
+ */
+export function resolvePublicContactActions(value: string | null | undefined): PublicContactAction[] {
+  const raw = value?.trim()
+  if (!raw) return []
+
+  const phones = parsePublicPhoneContacts(raw)
+  if (phones.length) {
+    return phones.map(phone => ({
+      kind: 'phone' as const,
+      label: phone.label,
+      href: phone.href,
+      copyValue: phone.label,
+      actionLabel: `拨打 ${phone.label}`
+    }))
+  }
+
+  const emailHref = resolvePublicEmailHref(raw)
+  if (emailHref) {
+    return [{
+      kind: 'email',
+      label: raw,
+      href: emailHref,
+      copyValue: raw,
+      actionLabel: '发邮件'
+    }]
+  }
+
+  return [{
+    kind: 'text',
+    label: raw,
+    href: null,
+    copyValue: raw,
+    actionLabel: '复制联系方式'
+  }]
 }

@@ -13,7 +13,9 @@ export const clubSectionLabels = {
   recruitmentDetails: '最新招新安排',
   recruitmentNotice: '2026 级招新时间、地点和群聊入口还没公布。开学后请留意校团委、社团负责人或现场摊位的最新消息。',
   sourceDetails: '看看这些信息从哪里来',
-  feedback: '告诉我们新的招新消息'
+  feedback: '告诉我们新的招新消息',
+  contactMethod: '联系方式',
+  copyContact: '复制联系方式'
 } as const
 
 export interface ClubOverviewItem {

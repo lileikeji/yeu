@@ -15,6 +15,7 @@ import {
   resolveClubDirection,
   resolveClubGroup
 } from '~~/app/utils/club-list-presentation'
+import { resolvePublicContactActions } from '~~/app/utils/public-phone-contact'
 
 const route = useRoute()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
@@ -55,6 +56,12 @@ const hasRecruitmentDetails = computed(() => Boolean(
   club.value?.recruitmentPeriod || club.value?.activitySchedule || club.value?.contactMethod
 ))
 const detailSources = computed(() => buildClubDetailSources(club.value?.sources))
+const contactActions = computed(() => resolvePublicContactActions(club.value?.contactMethod))
+const { copyText } = useShareActions()
+
+function copyContactAction(value: string) {
+  return copyText(value, '联系方式')
+}
 </script>
 
 <template>
@@ -199,14 +206,50 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
               </dd>
             </div>
             <div
-              v-if="club.contactMethod"
-              class="flex justify-between gap-6 py-3"
+              v-if="contactActions.length"
+              class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
-                联系方式
+              <dt class="shrink-0 text-zinc-500">
+                {{ clubSectionLabels.contactMethod }}
               </dt>
-              <dd class="text-right text-zinc-900">
-                {{ club.contactMethod }}
+              <dd class="min-w-0 text-right">
+                <div class="flex flex-col items-end gap-2">
+                  <template
+                    v-for="action in contactActions"
+                    :key="`${action.kind}-${action.label}`"
+                  >
+                    <a
+                      v-if="action.href"
+                      :href="action.href"
+                      class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                    >
+                      <UIcon
+                        :name="action.kind === 'email' ? 'i-lucide-mail' : 'i-lucide-phone'"
+                        class="size-4 shrink-0"
+                      />
+                      <span>{{ action.actionLabel }}</span>
+                    </a>
+                    <div
+                      v-else
+                      class="flex max-w-full flex-col items-end gap-2"
+                    >
+                      <p class="break-all text-sm font-medium leading-6 text-zinc-900">
+                        {{ action.label }}
+                      </p>
+                      <button
+                        type="button"
+                        class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-800 transition-colors hover:border-zinc-300 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                        @click="copyContactAction(action.copyValue)"
+                      >
+                        <UIcon
+                          name="i-lucide-copy"
+                          class="size-4 shrink-0"
+                        />
+                        <span>{{ clubSectionLabels.copyContact }}</span>
+                      </button>
+                    </div>
+                  </template>
+                </div>
               </dd>
             </div>
           </dl>

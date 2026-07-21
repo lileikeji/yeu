@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   parsePublicPhoneContacts,
+  resolvePublicContactActions,
   resolvePublicEmailHref
 } from '../app/utils/public-phone-contact'
 
@@ -12,6 +13,7 @@ const placePage = readFileSync(resolve('app/pages/places/[slug].vue'), 'utf8')
 const placePanel = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
 const campusPage = readFileSync(resolve('app/pages/campus.vue'), 'utf8')
 const homePage = readFileSync(resolve('app/pages/index.vue'), 'utf8')
+const clubPage = readFileSync(resolve('app/pages/clubs/[slug].vue'), 'utf8')
 
 test('parsePublicPhoneContacts splits multi-number campus lines into dialable tel links', () => {
   assert.deepEqual(
@@ -37,6 +39,51 @@ test('resolvePublicEmailHref only accepts plain email addresses', () => {
   assert.equal(resolvePublicEmailHref(null), null)
 })
 
+
+test('resolvePublicContactActions maps phones, emails, and plain text contacts', () => {
+  assert.deepEqual(
+    resolvePublicContactActions('0595-22098521 / 0595-22087606'),
+    [
+      {
+        kind: 'phone',
+        label: '0595-22098521',
+        href: 'tel:059522098521',
+        copyValue: '0595-22098521',
+        actionLabel: '拨打 0595-22098521'
+      },
+      {
+        kind: 'phone',
+        label: '0595-22087606',
+        href: 'tel:059522087606',
+        copyValue: '0595-22087606',
+        actionLabel: '拨打 0595-22087606'
+      }
+    ]
+  )
+  assert.deepEqual(
+    resolvePublicContactActions('club@example.edu.cn'),
+    [{
+      kind: 'email',
+      label: 'club@example.edu.cn',
+      href: 'mailto:club@example.edu.cn',
+      copyValue: 'club@example.edu.cn',
+      actionLabel: '发邮件'
+    }]
+  )
+  assert.deepEqual(
+    resolvePublicContactActions('关注校团委公众号后搜索社团名称'),
+    [{
+      kind: 'text',
+      label: '关注校团委公众号后搜索社团名称',
+      href: null,
+      copyValue: '关注校团委公众号后搜索社团名称',
+      actionLabel: '复制联系方式'
+    }]
+  )
+  assert.deepEqual(resolvePublicContactActions(''), [])
+  assert.deepEqual(resolvePublicContactActions(null), [])
+})
+
 test('public pages expose dialable public phone contacts', () => {
   assert.match(departmentPage, /parsePublicPhoneContacts/)
   assert.match(departmentPage, /resolvePublicEmailHref/)
@@ -59,6 +106,15 @@ test('public pages expose dialable public phone contacts', () => {
   assert.match(homePage, /href="tel:119"/)
   assert.match(homePage, /href="tel:120"/)
   assert.match(homePage, /拨打校园 110/)
+  assert.match(clubPage, /resolvePublicContactActions/)
+  assert.match(clubPage, /contactActions/)
+  assert.match(clubPage, /copyContactAction/)
+  assert.match(clubPage, /action\.actionLabel/)
+  assert.match(clubPage, /clubSectionLabels\.copyContact/)
+  assert.match(clubPage, /i-lucide-phone/)
+  assert.match(clubPage, /i-lucide-mail/)
+  assert.match(clubPage, /i-lucide-copy/)
+  assert.doesNotMatch(clubPage, /\{\{\s*club\.contactMethod\s*\}\}/)
   assert.doesNotMatch(departmentPage, /\{\{\s*department\.phone\s*\}\}/)
   assert.doesNotMatch(placePage, /\{\{\s*place\.phone\s*\}\}/)
   assert.doesNotMatch(placePanel, /\{\{\s*props\.place\.phone\s*\}\}/)
