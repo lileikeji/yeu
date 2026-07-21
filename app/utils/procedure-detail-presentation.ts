@@ -76,6 +76,7 @@ export interface ProcedureDetailSourceView {
 export interface ProcedureChecklistRecord {
   version: string
   stepIds: string[]
+  materialIds: string[]
 }
 
 export interface ProcedureChecklistProgress {
@@ -143,31 +144,47 @@ export function buildProcedureChecklistStorageKey(slug: string): string {
   return `yeu:procedure-checklist:${slug}`
 }
 
-export function parseProcedureChecklist(
-  saved: unknown,
-  version: string | null | undefined,
-  validStepIds: Iterable<string>
+function filterChecklistIds(
+  values: unknown,
+  validIds: Iterable<string>
 ): string[] {
-  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+  if (!Array.isArray(values)) {
     return []
   }
-  const record = saved as Record<string, unknown>
-  if (record.version !== version || !Array.isArray(record.stepIds)) {
-    return []
-  }
-  const allowed = new Set(validStepIds)
-  return record.stepIds.filter((value): value is string => (
+  const allowed = new Set(validIds)
+  return values.filter((value): value is string => (
     typeof value === 'string' && allowed.has(value)
   ))
 }
 
+export function parseProcedureChecklist(
+  saved: unknown,
+  version: string | null | undefined,
+  validStepIds: Iterable<string>,
+  validMaterialIds: Iterable<string> = []
+): { stepIds: string[], materialIds: string[] } {
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+    return { stepIds: [], materialIds: [] }
+  }
+  const record = saved as Record<string, unknown>
+  if (record.version !== version) {
+    return { stepIds: [], materialIds: [] }
+  }
+  return {
+    stepIds: filterChecklistIds(record.stepIds, validStepIds),
+    materialIds: filterChecklistIds(record.materialIds, validMaterialIds)
+  }
+}
+
 export function serializeProcedureChecklist(
   version: string | null | undefined,
-  stepIds: string[]
+  stepIds: string[],
+  materialIds: string[] = []
 ): ProcedureChecklistRecord {
   return {
     version: version ?? '',
-    stepIds
+    stepIds,
+    materialIds
   }
 }
 
@@ -195,6 +212,13 @@ export function resolveProcedureChecklistProgress(
     nextStepId: stepIds.find(stepId => !completed.has(stepId)) ?? null,
     isComplete: totalCount > 0 && remainingCount === 0
   }
+}
+
+export function resolveProcedureMaterialPackProgress(
+  visibleMaterialIds: Iterable<string>,
+  packedMaterialIds: Iterable<string>
+): ProcedureChecklistProgress {
+  return resolveProcedureChecklistProgress(visibleMaterialIds, packedMaterialIds)
 }
 
 export function buildProcedureMapLink(
@@ -232,6 +256,31 @@ export function resolveProcedureMaterialsCountBadge(count: number): {
   return {
     color: 'warning',
     label: '暂未公布'
+  }
+}
+
+export function resolveProcedureMaterialsPackBadge(
+  totalCount: number,
+  packedCount: number
+): {
+  color: 'success' | 'neutral' | 'warning'
+  label: string
+} {
+  if (totalCount <= 0) {
+    return {
+      color: 'warning',
+      label: '暂未公布'
+    }
+  }
+  if (packedCount >= totalCount) {
+    return {
+      color: 'success',
+      label: '已备齐'
+    }
+  }
+  return {
+    color: 'neutral',
+    label: `已备 ${packedCount}/${totalCount}`
   }
 }
 
@@ -278,6 +327,25 @@ export function resolveProcedureStepCompletionPresentation(
   }
 }
 
+export function resolveProcedureMaterialPackPresentation(
+  packed: boolean,
+  materialName: string
+): {
+  ariaLabel: string
+  ariaPressed: boolean
+  icon: string
+  titleClass: string
+} {
+  return {
+    ariaLabel: packed
+      ? `取消已备齐：${materialName}`
+      : `标记已备齐：${materialName}`,
+    ariaPressed: packed,
+    icon: packed ? 'i-lucide-circle-check-big' : 'i-lucide-circle',
+    titleClass: packed ? 'line-through opacity-60' : ''
+  }
+}
+
 export function resolveProcedureAudienceRouteQuery(
   query: Record<string, unknown>,
   audience: ProcedureAudienceSelection
@@ -294,21 +362,23 @@ export function resolveProcedureAudienceRouteQuery(
 export function resolveProcedureChecklistFromStorageText(
   raw: string | null | undefined,
   version: string | null | undefined,
-  validStepIds: Iterable<string>
-): string[] {
+  validStepIds: Iterable<string>,
+  validMaterialIds: Iterable<string> = []
+): { stepIds: string[], materialIds: string[] } {
   if (raw == null || raw === '') {
-    return []
+    return { stepIds: [], materialIds: [] }
   }
   try {
-    return parseProcedureChecklist(JSON.parse(raw), version, validStepIds)
+    return parseProcedureChecklist(JSON.parse(raw), version, validStepIds, validMaterialIds)
   } catch {
-    return []
+    return { stepIds: [], materialIds: [] }
   }
 }
 
 export function buildProcedureChecklistStorageValue(
   version: string | null | undefined,
-  stepIds: string[]
+  stepIds: string[],
+  materialIds: string[] = []
 ): string {
-  return JSON.stringify(serializeProcedureChecklist(version, stepIds))
+  return JSON.stringify(serializeProcedureChecklist(version, stepIds, materialIds))
 }

@@ -20,7 +20,9 @@ import {
   resolveProcedureChecklistProgress,
   resolveProcedureChecklistFromStorageText,
   resolveProcedureInformationStateBadgeColor,
+  resolveProcedureMaterialPackPresentation,
   resolveProcedureMaterialsCountBadge,
+  resolveProcedureMaterialsPackBadge,
   resolveProcedureStepCompletionPresentation,
   serializeProcedureChecklist,
   shouldShowProcedureStepAudienceBadges,
@@ -42,15 +44,20 @@ test('procedure detail page is a thin shell over presentation util', () => {
   assert.match(pageSource, /buildProcedureMapLink/)
   assert.match(pageSource, /resolveProcedureAudienceRouteQuery/)
   assert.match(pageSource, /resolveProcedureInformationStateBadgeColor/)
-  assert.match(pageSource, /resolveProcedureMaterialsCountBadge/)
+  assert.match(pageSource, /resolveProcedureMaterialsPackBadge/)
+  assert.match(pageSource, /resolveProcedureMaterialPackPresentation/)
   assert.match(pageSource, /resolveProcedureChecklistProgress/)
   assert.match(pageSource, /resolveProcedureStepCompletionPresentation/)
   assert.match(pageSource, /shouldShowProcedureStepAudienceBadges/)
   assert.match(pageSource, /requestClearChecklist/)
+  assert.match(pageSource, /requestClearMaterials/)
+  assert.match(pageSource, /toggleMaterial/)
   assert.match(pageSource, /label="确认清空"/)
   assert.match(pageSource, /label="取消"/)
+  assert.match(pageSource, /label="清空材料勾选"/)
   assert.match(pageSource, /label="查看学校页面"/)
   assert.match(pageSource, /label="告诉我们哪里不对或还缺什么"/)
+  assert.match(pageSource, /这份材料已经全部备齐/)
   assert.doesNotMatch(pageSource, /反馈流程错误或补充资料/)
   assert.doesNotMatch(pageSource, /打开官方入口/)
   assert.doesNotMatch(pageSource, /function sourceClaimForStudents/)
@@ -140,23 +147,33 @@ test('checklist parse/serialize and step toggle keep version and step id safety'
   assert.equal(buildProcedureChecklistStorageKey('campus-card'), 'yeu:procedure-checklist:campus-card')
   assert.deepEqual(
     parseProcedureChecklist(
-      { version: '2026-01-01', stepIds: ['a', 'bad', 1, 'b'] },
+      { version: '2026-01-01', stepIds: ['a', 'bad', 1, 'b'], materialIds: ['m1', 'bad', 'm2'] },
       '2026-01-01',
-      ['a', 'b']
+      ['a', 'b'],
+      ['m1', 'm2']
     ),
-    ['a', 'b']
+    { stepIds: ['a', 'b'], materialIds: ['m1', 'm2'] }
   )
   assert.deepEqual(
-    parseProcedureChecklist({ version: 'old', stepIds: ['a'] }, 'new', ['a']),
-    []
+    parseProcedureChecklist({ version: 'old', stepIds: ['a'], materialIds: ['m1'] }, 'new', ['a'], ['m1']),
+    { stepIds: [], materialIds: [] }
   )
   assert.deepEqual(
-    parseProcedureChecklist('not-object', 'v', ['a']),
-    []
+    parseProcedureChecklist('not-object', 'v', ['a'], ['m1']),
+    { stepIds: [], materialIds: [] }
   )
   assert.deepEqual(
-    serializeProcedureChecklist('2026-01-01', ['a', 'b']),
-    { version: '2026-01-01', stepIds: ['a', 'b'] }
+    parseProcedureChecklist(
+      { version: '2026-01-01', stepIds: ['a'] },
+      '2026-01-01',
+      ['a'],
+      ['m1']
+    ),
+    { stepIds: ['a'], materialIds: [] }
+  )
+  assert.deepEqual(
+    serializeProcedureChecklist('2026-01-01', ['a', 'b'], ['m1']),
+    { version: '2026-01-01', stepIds: ['a', 'b'], materialIds: ['m1'] }
   )
   assert.deepEqual(toggleProcedureStep(['a'], 'b'), ['a', 'b'])
   assert.deepEqual(toggleProcedureStep(['a', 'b'], 'a'), ['b'])
@@ -256,21 +273,63 @@ test('Stage 65 procedure presentation decisions stay pure and student-facing', (
   )
   assert.deepEqual(
     resolveProcedureChecklistFromStorageText(
-      JSON.stringify({ version: 'v1', stepIds: ['a', 'bad'] }),
+      JSON.stringify({ version: 'v1', stepIds: ['a', 'bad'], materialIds: ['m1', 'bad'] }),
       'v1',
-      ['a']
+      ['a'],
+      ['m1']
     ),
-    ['a']
+    { stepIds: ['a'], materialIds: ['m1'] }
   )
   assert.deepEqual(
-    resolveProcedureChecklistFromStorageText('not-json', 'v1', ['a']),
-    []
+    resolveProcedureChecklistFromStorageText(
+      JSON.stringify({ version: 'v1', stepIds: ['a'] }),
+      'v1',
+      ['a'],
+      ['m1']
+    ),
+    { stepIds: ['a'], materialIds: [] }
+  )
+  assert.deepEqual(
+    resolveProcedureChecklistFromStorageText('not-json', 'v1', ['a'], ['m1']),
+    { stepIds: [], materialIds: [] }
   )
   assert.equal(
-    buildProcedureChecklistStorageValue('v1', ['a']),
-    JSON.stringify({ version: 'v1', stepIds: ['a'] })
+    buildProcedureChecklistStorageValue('v1', ['a'], ['m1']),
+    JSON.stringify({ version: 'v1', stepIds: ['a'], materialIds: ['m1'] })
+  )
+  assert.deepEqual(resolveProcedureMaterialsPackBadge(0, 0), {
+    color: 'warning',
+    label: '暂未公布'
+  })
+  assert.deepEqual(resolveProcedureMaterialsPackBadge(3, 1), {
+    color: 'neutral',
+    label: '已备 1/3'
+  })
+  assert.deepEqual(resolveProcedureMaterialsPackBadge(2, 2), {
+    color: 'success',
+    label: '已备齐'
+  })
+  assert.deepEqual(
+    resolveProcedureMaterialPackPresentation(false, '身份证'),
+    {
+      ariaLabel: '标记已备齐：身份证',
+      ariaPressed: false,
+      icon: 'i-lucide-circle',
+      titleClass: ''
+    }
+  )
+  assert.deepEqual(
+    resolveProcedureMaterialPackPresentation(true, '身份证'),
+    {
+      ariaLabel: '取消已备齐：身份证',
+      ariaPressed: true,
+      icon: 'i-lucide-circle-check-big',
+      titleClass: 'line-through opacity-60'
+    }
   )
   assert.match(utilSource, /export function resolveProcedureAudienceRouteQuery/)
   assert.match(utilSource, /export function resolveProcedureChecklistProgress/)
   assert.match(utilSource, /export function resolveProcedureStepCompletionPresentation/)
+  assert.match(utilSource, /export function resolveProcedureMaterialPackPresentation/)
+  assert.match(utilSource, /export function resolveProcedureMaterialsPackBadge/)
 })

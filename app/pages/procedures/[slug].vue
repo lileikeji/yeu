@@ -24,7 +24,8 @@ import {
   resolveProcedureChecklistProgress,
   resolveProcedureChecklistFromStorageText,
   resolveProcedureInformationStateBadgeColor,
-  resolveProcedureMaterialsCountBadge,
+  resolveProcedureMaterialPackPresentation,
+  resolveProcedureMaterialsPackBadge,
   resolveProcedureStepCompletionPresentation,
   shouldShowProcedureStepAudienceBadges,
   studentFacingProcedureText,
@@ -73,42 +74,63 @@ const emptyMaterialText = computed(() => getProcedureEmptyMaterialText(procedure
 const detailSources = computed(() => buildProcedureDetailSources(procedure.value?.sources))
 
 const completedStepIds = ref<string[]>([])
+const packedMaterialIds = ref<string[]>([])
 const storageKey = computed(() => buildProcedureChecklistStorageKey(procedure.value?.slug ?? slug))
 const ready = ref(false)
 const confirmClearChecklist = ref(false)
+const confirmClearMaterials = ref(false)
 const checklistProgress = computed(() => resolveProcedureChecklistProgress(
   visibleSteps.value.map(step => step.id),
   completedStepIds.value
 ))
+const materialPackProgress = computed(() => resolveProcedureChecklistProgress(
+  visibleMaterials.value.map(material => material.id),
+  packedMaterialIds.value
+))
 const nextVisibleStep = computed(() => visibleSteps.value.find(
   step => step.id === checklistProgress.value.nextStepId
 ) ?? null)
+const nextPackedMaterial = computed(() => visibleMaterials.value.find(
+  material => material.id === materialPackProgress.value.nextStepId
+) ?? null)
 
-onMounted(() => {
-  completedStepIds.value = resolveProcedureChecklistFromStorageText(
-    localStorage.getItem(storageKey.value),
-    procedure.value?.updatedAt,
-    procedure.value?.steps.map(step => step.id) ?? []
-  )
+function persistProcedureChecklist() {
+  if (!ready.value) return
   localStorage.setItem(
     storageKey.value,
-    buildProcedureChecklistStorageValue(procedure.value?.updatedAt, completedStepIds.value)
+    buildProcedureChecklistStorageValue(
+      procedure.value?.updatedAt,
+      completedStepIds.value,
+      packedMaterialIds.value
+    )
   )
+}
+
+onMounted(() => {
+  const saved = resolveProcedureChecklistFromStorageText(
+    localStorage.getItem(storageKey.value),
+    procedure.value?.updatedAt,
+    procedure.value?.steps.map(step => step.id) ?? [],
+    procedure.value?.materials.map(material => material.id) ?? []
+  )
+  completedStepIds.value = saved.stepIds
+  packedMaterialIds.value = saved.materialIds
   ready.value = true
+  persistProcedureChecklist()
 })
 
-watch(completedStepIds, (value) => {
-  if (ready.value) {
-    localStorage.setItem(
-      storageKey.value,
-      buildProcedureChecklistStorageValue(procedure.value?.updatedAt, value)
-    )
-  }
+watch([completedStepIds, packedMaterialIds], () => {
+  persistProcedureChecklist()
 }, { deep: true })
 
 function toggleStep(stepId: string) {
   confirmClearChecklist.value = false
   completedStepIds.value = toggleProcedureStep(completedStepIds.value, stepId)
+}
+
+function toggleMaterial(materialId: string) {
+  confirmClearMaterials.value = false
+  packedMaterialIds.value = toggleProcedureStep(packedMaterialIds.value, materialId)
 }
 
 function requestClearChecklist() {
@@ -124,16 +146,25 @@ function clearChecklist() {
   confirmClearChecklist.value = false
 }
 
+function requestClearMaterials() {
+  confirmClearMaterials.value = true
+}
+
+function cancelClearMaterials() {
+  confirmClearMaterials.value = false
+}
+
+function clearMaterials() {
+  packedMaterialIds.value = []
+  confirmClearMaterials.value = false
+}
+
 function mapLink(placeSlug: string, stepId: string) {
   return buildProcedureMapLink(slug, placeSlug, stepId)
 }
 
 function informationStateBadgeColor(informationState: string | null | undefined) {
   return resolveProcedureInformationStateBadgeColor(informationState)
-}
-
-function materialsCountBadge(count: number) {
-  return resolveProcedureMaterialsCountBadge(count)
 }
 
 function audienceOptionPresentation(optionValue: typeof selectedAudience.value) {
@@ -147,6 +178,17 @@ function stepCompletionPresentation(stepId: string, stepNumber: number) {
   )
 }
 
+function materialPackPresentation(materialId: string, materialName: string) {
+  return resolveProcedureMaterialPackPresentation(
+    packedMaterialIds.value.includes(materialId),
+    materialName
+  )
+}
+
+function materialsPackBadge(totalCount: number, packedCount: number) {
+  return resolveProcedureMaterialsPackBadge(totalCount, packedCount)
+}
+
 function showStepAudienceBadges(stepAudienceCount: number, procedureAudienceCount: number) {
   return shouldShowProcedureStepAudienceBadges(
     selectedAudience.value,
@@ -157,6 +199,7 @@ function showStepAudienceBadges(stepAudienceCount: number, procedureAudienceCoun
 
 watch(selectedAudience, (value) => {
   confirmClearChecklist.value = false
+  confirmClearMaterials.value = false
   void router.replace({
     query: resolveProcedureAudienceRouteQuery(
       route.query as Record<string, unknown>,
@@ -294,7 +337,7 @@ watch(selectedAudience, (value) => {
           id="materials"
           class="scroll-mt-24 border-b border-zinc-200 py-7"
         >
-          <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p class="text-xs font-semibold text-green-700">
                 材料清单
@@ -302,43 +345,148 @@ watch(selectedAudience, (value) => {
               <h2 class="mt-1 text-lg font-bold text-zinc-950">
                 {{ materialTitle }}
               </h2>
+              <p
+                v-if="visibleMaterials.length"
+                class="mt-1 text-xs text-zinc-500"
+              >
+                点一下就能标记已备齐，只保存在这台设备上。
+              </p>
             </div>
-            <UBadge
-              :color="materialsCountBadge(visibleMaterials.length).color"
-              variant="soft"
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <UBadge
+                :color="materialsPackBadge(materialPackProgress.totalCount, materialPackProgress.completedCount).color"
+                variant="soft"
+              >
+                {{ materialsPackBadge(materialPackProgress.totalCount, materialPackProgress.completedCount).label }}
+              </UBadge>
+              <UButton
+                v-if="packedMaterialIds.length && !confirmClearMaterials"
+                icon="i-lucide-rotate-ccw"
+                label="清空材料勾选"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="min-h-10"
+                @click="requestClearMaterials"
+              />
+              <template v-else-if="confirmClearMaterials">
+                <UButton
+                  label="确认清空"
+                  color="error"
+                  variant="soft"
+                  size="sm"
+                  class="min-h-10"
+                  @click="clearMaterials"
+                />
+                <UButton
+                  label="取消"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="min-h-10"
+                  @click="cancelClearMaterials"
+                />
+              </template>
+            </div>
+          </div>
+
+          <div
+            v-if="visibleMaterials.length"
+            class="mt-5 rounded-lg border p-4 md:p-5"
+            :class="materialPackProgress.isComplete
+              ? 'border-green-200 bg-green-50/70'
+              : 'border-zinc-200 bg-zinc-50'"
+            aria-live="polite"
+          >
+            <div class="flex items-center justify-between gap-4">
+              <p
+                class="text-sm font-bold"
+                :class="materialPackProgress.isComplete ? 'text-green-900' : 'text-zinc-900'"
+              >
+                {{ materialPackProgress.isComplete
+                  ? '这份材料已经全部备齐'
+                  : `已备齐 ${materialPackProgress.completedCount} / ${materialPackProgress.totalCount} 项` }}
+              </p>
+              <span class="shrink-0 text-sm font-bold text-green-700">
+                {{ materialPackProgress.percent }}%
+              </span>
+            </div>
+            <div
+              class="mt-3 h-2 overflow-hidden rounded-full bg-white ring-1 ring-zinc-200"
+              role="progressbar"
+              :aria-valuenow="materialPackProgress.percent"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-label="`材料已备齐 ${materialPackProgress.percent}%`"
             >
-              {{ materialsCountBadge(visibleMaterials.length).label }}
-            </UBadge>
+              <div
+                class="h-full rounded-full bg-green-600 transition-all duration-300"
+                :style="{ width: `${materialPackProgress.percent}%` }"
+              />
+            </div>
+            <p
+              v-if="materialPackProgress.isComplete"
+              class="mt-3 text-sm leading-6 text-green-900"
+            >
+              出发前再对照录取通知书或学校最新通知，确认材料没有变化。
+            </p>
+            <a
+              v-else-if="nextPackedMaterial"
+              :href="`#material-${nextPackedMaterial.id}`"
+              class="mt-2 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-800"
+            >
+              下一项：{{ nextPackedMaterial.name }}
+              <UIcon
+                name="i-lucide-arrow-down"
+                class="size-4"
+              />
+            </a>
           </div>
 
           <ul
             v-if="visibleMaterials.length"
-            class="mt-5 divide-y divide-zinc-100 border-y border-zinc-200"
+            class="mt-5 space-y-3"
           >
             <li
               v-for="material in visibleMaterials"
+              :id="`material-${material.id}`"
               :key="material.id"
-              class="py-4"
+              class="surface-panel grid grid-cols-[2.75rem_minmax(0,1fr)] overflow-hidden"
             >
-              <div class="flex items-start justify-between gap-4">
-                <div>
-                  <h3 class="text-sm font-semibold text-zinc-900">
-                    {{ material.name }}
-                  </h3>
-                  <p
-                    v-if="material.description"
-                    class="mt-1 text-sm leading-6 text-zinc-600"
+              <button
+                type="button"
+                class="grid min-h-24 place-items-center border-r border-zinc-100 bg-zinc-50 text-green-700 transition hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
+                :aria-label="materialPackPresentation(material.id, material.name).ariaLabel"
+                :aria-pressed="materialPackPresentation(material.id, material.name).ariaPressed"
+                @click="toggleMaterial(material.id)"
+              >
+                <UIcon
+                  :name="materialPackPresentation(material.id, material.name).icon"
+                  class="size-5"
+                />
+              </button>
+              <div class="min-w-0 p-4">
+                <div class="flex flex-wrap items-center gap-2">
+                  <UBadge
+                    :color="informationStateBadgeColor(material.informationState)"
+                    variant="soft"
+                    size="sm"
                   >
-                    {{ studentFacingProcedureText(material.description) }}
-                  </p>
+                    {{ material.isRequired === null ? stateLabel[material.informationState] : material.isRequired ? '必需' : '按需' }}
+                  </UBadge>
                 </div>
-                <UBadge
-                  :color="informationStateBadgeColor(material.informationState)"
-                  variant="soft"
-                  class="shrink-0"
+                <h3
+                  class="mt-2 text-sm font-semibold text-zinc-900"
+                  :class="materialPackPresentation(material.id, material.name).titleClass"
                 >
-                  {{ material.isRequired === null ? stateLabel[material.informationState] : material.isRequired ? '必需' : '按需' }}
-                </UBadge>
+                  {{ material.name }}
+                </h3>
+                <p
+                  v-if="material.description"
+                  class="mt-1 text-sm leading-6 text-zinc-600"
+                >
+                  {{ studentFacingProcedureText(material.description) }}
+                </p>
               </div>
             </li>
           </ul>
@@ -348,6 +496,8 @@ watch(selectedAudience, (value) => {
           >
             {{ emptyMaterialText }}
           </p>
+        </section>
+
         </section>
 
         <section
