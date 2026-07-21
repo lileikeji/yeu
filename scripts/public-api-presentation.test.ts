@@ -80,7 +80,8 @@ test('public content payload uses student-facing copy before Nuxt serializes it'
   const serialized = JSON.stringify(sanitized)
 
   assert.doesNotMatch(serialized, /坐标核验|点位|现场核验|数据状态|高德工作地图|内部资料目录|版权状态|前台|76 个标点|原始不规则区域|区域边界/)
-  assert.match(sanitized.summary, /入口仍在确认/)
+  assert.equal(sanitized.summary, '地图可以先用来找方向，入口还要现场确认')
+  assert.doesNotMatch(sanitized.summary, /已整理|仍在确认/)
   assert.match(sanitized.body, /部分图片只用于确认地点和设施信息/)
   assert.match(serialized, /校园地图可以直接规划步行路线/)
   assert.match(serialized, /入口不确定时，页面会直接提醒/)

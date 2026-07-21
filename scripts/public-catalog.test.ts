@@ -195,7 +195,7 @@ test('guide copy hides maintainer language from student pages', () => {
   )
   assert.equal(
     studentFacingGuideText('地图目录已导入，坐标核验中'),
-    '地图地点已整理，入口仍在确认'
+    '地图可以先用来找方向，入口还要现场确认'
   )
   assert.equal(
     studentFacingGuideText('工作地图的 76 个标点与 8 个原始不规则区域边界已按“未独立现场核验”状态显示，并支持地图内步行路线与外部高德导航；区域只绘制边界线，避免遮挡内部高德商铺。'),
