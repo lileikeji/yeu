@@ -150,6 +150,15 @@ test('search empty state offers useful student starting points', () => {
   assert.doesNotMatch(pageSource, /一处查找/)
 })
 
+test('popular search suggestions keep a comfortable mobile touch height', () => {
+  const suggestionLoops = pageSource.match(
+    /<UButton[\s\S]*?v-for="suggestion in popularSearchSuggestions(?:\.slice\(0, 3\))?"[\s\S]*?\/>/g
+  ) ?? []
+
+  assert.equal(suggestionLoops.length, 2)
+  assert.ok(suggestionLoops.every(loop => /class="min-h-11"/.test(loop)))
+})
+
 test('route helpers normalize query and type values', () => {
   assert.equal(routeQueryString(' 图书馆 '), ' 图书馆 ')
   assert.equal(routeQueryString(['校园网']), '校园网')

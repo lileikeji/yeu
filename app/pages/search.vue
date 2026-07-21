@@ -508,7 +508,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               color="neutral"
               variant="soft"
               size="sm"
-              class="min-h-10"
+              class="min-h-11"
               @click="startSuggestedSearch(suggestion.query)"
             />
           </div>
@@ -540,6 +540,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               :label="suggestion.label"
               color="neutral"
               variant="soft"
+              class="min-h-11"
               @click="startSuggestedSearch(suggestion.query)"
             />
           </div>
