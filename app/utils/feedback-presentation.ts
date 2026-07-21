@@ -50,9 +50,9 @@ export const feedbackDefaultFormCopy: FeedbackFormCopy = {
   successDescription: '我们会先看清来源和日期，确认后再更新。相同问题不用重复提交。',
   sidebarTitle: '写清楚这三点',
   sidebarItems: [
-    '哪一个地点、页面或办事步骤',
-    '现在看到的内容哪里不对',
-    '正确情况和可以核对的链接'
+    '你在哪个地点、页面或办事步骤遇到了问题',
+    '页面现在写了什么，具体哪里不对',
+    '正确情况是什么；有通知链接可以一并附上'
   ]
 }
 
@@ -73,9 +73,9 @@ export const feedbackPrivacyRequestFormCopy: FeedbackFormCopy = {
   successDescription: '我们会先核对对应信息，再按你填写的联系方式回复处理情况。',
   sidebarTitle: '请写清这三点',
   sidebarItems: [
-    '想查询还是删除信息',
-    '涉及哪个页面、反馈或聊天',
-    '大约使用或提交的时间'
+    '你想查询还是删除哪些信息',
+    '这些信息来自哪个页面、反馈或聊天',
+    '大约是哪天使用或提交的'
   ]
 }
 

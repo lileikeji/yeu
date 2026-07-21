@@ -382,26 +382,21 @@ function resetForm() {
             />
             {{ formCopy.sidebarTitle }}
           </h2>
-          <ol class="mt-3 grid grid-cols-3 gap-2 md:grid-cols-1">
+          <ol class="mt-3 divide-y divide-sky-100">
             <li
               v-for="(item, index) in formCopy.sidebarItems"
               :key="item"
-              class="flex flex-col gap-2 rounded-md border px-2.5 py-2.5 text-[11px] leading-4 md:flex-row md:items-start md:gap-3 md:px-3 md:text-xs md:leading-5"
-              :class="[
-                index === 0 && 'border-sky-200 bg-white text-sky-950',
-                index === 1 && 'border-amber-200 bg-amber-50 text-amber-950',
-                index === 2 && 'border-green-200 bg-green-50 text-green-950'
-              ]"
+              class="flex items-start gap-3 py-3 text-xs leading-5 text-zinc-700 first:pt-1 last:pb-0"
             >
               <span
-                class="grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+                class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
                 :class="[
                   index === 0 && 'bg-sky-700',
                   index === 1 && 'bg-amber-600',
                   index === 2 && 'bg-green-700'
                 ]"
               >{{ index + 1 }}</span>
-              {{ item }}
+              <span>{{ item }}</span>
             </li>
           </ol>
         </div>

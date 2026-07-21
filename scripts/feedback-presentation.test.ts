@@ -55,10 +55,23 @@ test('feedback page separates required and optional information on small screens
   assert.match(pageSource, /补充核对信息（选填）/)
   assert.match(pageSource, /有学校通知链接，或希望我们回复时再填写/)
   assert.match(pageSource, /group-open:rotate-180/)
-  assert.match(pageSource, /border-sky-200 bg-white text-sky-950/)
-  assert.match(pageSource, /border-amber-200 bg-amber-50 text-amber-950/)
-  assert.match(pageSource, /border-green-200 bg-green-50 text-green-950/)
-  assert.match(pageSource, /grid-cols-3 gap-2 md:grid-cols-1/)
+  assert.match(pageSource, /divide-y divide-sky-100/)
+  assert.match(pageSource, /flex items-start gap-3 py-3 text-xs leading-5/)
+  assert.doesNotMatch(pageSource, /grid-cols-3/)
+  assert.doesNotMatch(pageSource, /rounded-md border px-2\.5/)
+})
+
+test('feedback prompts read as complete questions instead of cramped labels', () => {
+  assert.deepEqual(feedbackDefaultFormCopy.sidebarItems, [
+    '你在哪个地点、页面或办事步骤遇到了问题',
+    '页面现在写了什么，具体哪里不对',
+    '正确情况是什么；有通知链接可以一并附上'
+  ])
+  assert.deepEqual(feedbackPrivacyRequestFormCopy.sidebarItems, [
+    '你想查询还是删除哪些信息',
+    '这些信息来自哪个页面、反馈或聊天',
+    '大约是哪天使用或提交的'
+  ])
 })
 
 test('feedback privacy link keeps a comfortable mobile touch target', () => {
