@@ -43,6 +43,8 @@ test('club list page is a thin shell over club-list-presentation util', () => {
 
 test('club search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+  assert.match(pageSource, /placeholder="搜索社团或兴趣"/)
+  assert.doesNotMatch(pageSource, /placeholder="搜索社团或兴趣，例如/)
 })
 
 test('club list stats and messages stay student-facing', () => {

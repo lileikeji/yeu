@@ -30,6 +30,14 @@ test('guide list page is a thin shell over guide-list-presentation util', () => 
 
 test('guide search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /aria-label="搜索新生指南"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+  assert.match(pageSource, /placeholder="搜索报到、校园网、图书馆…"/)
+  assert.doesNotMatch(pageSource, /placeholder="[^"]{18,}"/)
+})
+
+test('guide heading and introduction stay balanced on narrow phones', () => {
+  assert.match(pageSource, /从报到到开学后的常用事项/)
+  assert.match(pageSource, /本科和专升本的安排会分开说明/)
+  assert.doesNotMatch(pageSource, /从到校前到开学后的常用事项/)
 })
 
 test('guide categories fit the mobile width and use direct interactions', () => {

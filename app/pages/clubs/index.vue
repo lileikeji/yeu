@@ -95,7 +95,7 @@ function clearClubFilters() {
           <UInput
             v-model="searchQuery"
             icon="i-lucide-search"
-            placeholder="搜索社团或兴趣，例如音乐、足球、编程"
+            placeholder="搜索社团或兴趣"
             aria-label="搜索学生社团"
             size="lg"
             class="min-h-11 w-full"

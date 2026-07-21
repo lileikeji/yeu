@@ -80,10 +80,10 @@ function selectGuideCategory(category: GuideListCategoryId): void {
               新生办事入口
             </p>
             <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-              从到校前到开学后的常用事项
+              从报到到开学后的常用事项
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              本科和专升本需要留意的内容会分别说明。时间、地点、材料和费用请以录取通知书及学校当年通知为准。
+              本科和专升本的安排会分开说明。时间、地点、材料和费用，以录取通知书和学校最新通知为准。
             </p>
           </div>
           <UButton
@@ -100,7 +100,7 @@ function selectGuideCategory(category: GuideListCategoryId): void {
             v-model="searchQuery"
             icon="i-lucide-search"
             size="lg"
-            placeholder="搜索报到、校园网、图书馆、安全、快递或社团"
+            placeholder="搜索报到、校园网、图书馆…"
             aria-label="搜索新生指南"
             class="min-h-11 w-full"
             :ui="{ base: 'min-h-11' }"
