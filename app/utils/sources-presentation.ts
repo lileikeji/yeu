@@ -47,7 +47,22 @@ export interface SourceLevelGuide {
   title: string
   description: string
   icon: string
-  tone: 'blue' | 'green' | 'amber' | 'zinc'
+  tone: SourceTone
+}
+
+export type SourceTone = 'blue' | 'green' | 'amber' | 'zinc'
+
+export interface SourceLevelAppearance {
+  icon: string
+  tone: SourceTone
+}
+
+export const sourceLevelAppearances: Record<ApiSource['sourceLevel'], SourceLevelAppearance> = {
+  A: { icon: 'i-lucide-landmark', tone: 'blue' },
+  B: { icon: 'i-lucide-signpost', tone: 'green' },
+  C: { icon: 'i-lucide-clock-3', tone: 'amber' },
+  D: { icon: 'i-lucide-map-pin-check', tone: 'zinc' },
+  E: { icon: 'i-lucide-globe-2', tone: 'zinc' }
 }
 
 export const sourceLevelGuides: SourceLevelGuide[] = [

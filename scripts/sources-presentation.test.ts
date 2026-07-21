@@ -11,6 +11,7 @@ import {
   sourceAccessedLabel,
   sourceListMessages,
   sourcePlatformLabel,
+  sourceLevelAppearances,
   sourceLevelGuides,
   sourceLevelLabels,
   studentFacingSourcePublisher,
@@ -84,9 +85,15 @@ test('source level guides use ordinary decision wording', () => {
   assert.equal(sourceLevelGuides.at(-1)?.tone, 'zinc')
   assert.match(sourceLevelGuides.at(-1)?.description ?? '', /营业情况、收费和办事要求/)
   assert.doesNotMatch(pageSource, /确认范围|判断可信度|按有效期复核|地图数据|已发布内容关联来源/)
-  assert.match(pageSource, /class="grid gap-3 sm:grid-cols-2"/)
+  assert.match(pageSource, /<ul class="grid gap-3 sm:grid-cols-2"/)
+  assert.match(pageSource, /<li[\s\S]*v-for="item in sourceLevelGuides"/)
+  assert.doesNotMatch(pageSource, /<dl|<dt|<dd/)
   assert.match(pageSource, /:name="item\.icon"/)
-  assert.match(pageSource, /item\.tone === 'amber'/)
+  assert.match(pageSource, /sourceToneClasses\[item\.tone\]/)
+  assert.equal(sourceLevelAppearances.A.icon, 'i-lucide-landmark')
+  assert.equal(sourceLevelAppearances.A.tone, 'blue')
+  assert.equal(sourceLevelAppearances.C.tone, 'amber')
+  assert.equal(sourceLevelAppearances.E.icon, 'i-lucide-globe-2')
   assert.equal(dateOnly('2026-07-10T12:00:00Z'), '2026-07-10')
   assert.equal(dateOnly('2025-12-01'), '2025-12-01')
   assert.equal(sourceAccessedLabel('2026-07-10T12:00:00Z'), '最近查看 2026-07-10')
@@ -98,7 +105,10 @@ test('source level guides use ordinary decision wording', () => {
   assert.match(pageSource, /label="清空搜索"/)
   assert.match(pageSource, /label="重新试一次"/)
   assert.match(pageSource, /sourceAccessedLabel\(source\.accessedAt\)/)
-  assert.match(pageSource, /适合参考：/)
+  assert.match(pageSource, /sourceLevelAppearances\[source\.sourceLevel\]/)
+  assert.match(pageSource, /sourceLevelLabels\[source\.sourceLevel\]/)
+  assert.match(pageSource, /<ul[\s\S]*v-if="!loadError && visibleSources\.length"/)
+  assert.match(pageSource, /<li[\s\S]*v-for="source in visibleSources"/)
   assert.doesNotMatch(pageSource, /当前地图包含 76 个地点和 8 个范围/)
 })
 

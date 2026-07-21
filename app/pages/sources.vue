@@ -9,11 +9,40 @@ import {
   sourceListMessages,
   sourceAccessedLabel,
   sourcePlatformLabel,
+  sourceLevelAppearances,
   sourceLevelGuides,
   sourceLevelLabels,
   studentFacingSourcePublisher,
   studentFacingSourceTitle
 } from '~~/app/utils/sources-presentation'
+import type { SourceTone } from '~~/app/utils/sources-presentation'
+
+const sourceToneClasses: Record<SourceTone, {
+  border: string
+  soft: string
+  text: string
+}> = {
+  blue: {
+    border: 'border-blue-200',
+    soft: 'bg-blue-50',
+    text: 'text-blue-700'
+  },
+  green: {
+    border: 'border-green-200',
+    soft: 'bg-green-50',
+    text: 'text-green-700'
+  },
+  amber: {
+    border: 'border-amber-200',
+    soft: 'bg-amber-50',
+    text: 'text-amber-700'
+  },
+  zinc: {
+    border: 'border-zinc-200',
+    soft: 'bg-zinc-100',
+    text: 'text-zinc-700'
+  }
+}
 
 useSeoMeta({
   title: '信息从哪里来',
@@ -101,27 +130,17 @@ async function refreshSources(): Promise<void> {
           </p>
         </div>
 
-        <dl class="grid gap-3 sm:grid-cols-2">
-          <div
+        <ul class="grid gap-3 sm:grid-cols-2">
+          <li
             v-for="item in sourceLevelGuides"
             :key="item.level"
             class="rounded-md border bg-white p-4 shadow-sm"
-            :class="{
-              'border-blue-200': item.tone === 'blue',
-              'border-green-200': item.tone === 'green',
-              'border-amber-200': item.tone === 'amber',
-              'border-zinc-200': item.tone === 'zinc'
-            }"
+            :class="sourceToneClasses[item.tone].border"
           >
             <div class="flex items-center gap-3">
               <span
                 class="grid size-9 shrink-0 place-items-center rounded-md"
-                :class="{
-                  'bg-blue-50 text-blue-700': item.tone === 'blue',
-                  'bg-green-50 text-green-700': item.tone === 'green',
-                  'bg-amber-50 text-amber-700': item.tone === 'amber',
-                  'bg-zinc-100 text-zinc-700': item.tone === 'zinc'
-                }"
+                :class="[sourceToneClasses[item.tone].soft, sourceToneClasses[item.tone].text]"
                 aria-hidden="true"
               >
                 <UIcon
@@ -129,16 +148,16 @@ async function refreshSources(): Promise<void> {
                   class="size-4"
                 />
               </span>
-              <dt>
+              <div>
                 <span class="block text-xs font-semibold text-zinc-500">{{ item.level }}</span>
                 <span class="mt-0.5 block text-sm font-bold text-zinc-950">{{ item.title }}</span>
-              </dt>
+              </div>
             </div>
-            <dd class="mt-3 text-sm leading-6 text-zinc-600">
+            <p class="mt-3 text-sm leading-6 text-zinc-600">
               {{ item.description }}
-            </dd>
-          </div>
-        </dl>
+            </p>
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -249,44 +268,68 @@ async function refreshSources(): Promise<void> {
         </div>
       </div>
 
-      <div
+      <ul
         v-if="!loadError && visibleSources.length"
         class="divide-y divide-zinc-100"
       >
-        <a
+        <li
           v-for="source in visibleSources"
           :key="source.id"
-          :href="safeExternalHref(source.url) || undefined"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="group grid gap-2 border-b border-zinc-100 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_12rem_12rem_auto] sm:items-center"
         >
-          <span class="min-w-0">
-            <span class="block font-semibold text-zinc-900 group-hover:text-green-700">{{ studentFacingSourceTitle(source.title) }}</span>
-            <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
-              <span>{{ sourcePlatformLabel(source.platform) }}</span>
-              <span aria-hidden="true">·</span>
-              <span>{{ studentFacingSourcePublisher(source.publisherName) }}</span>
+          <a
+            :href="safeExternalHref(source.url) || undefined"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="group flex items-start gap-3 py-4 sm:py-5"
+          >
+            <span
+              class="grid size-9 shrink-0 place-items-center rounded-md"
+              :class="[
+                sourceToneClasses[sourceLevelAppearances[source.sourceLevel].tone].soft,
+                sourceToneClasses[sourceLevelAppearances[source.sourceLevel].tone].text
+              ]"
+              aria-hidden="true"
+            >
+              <UIcon
+                :name="sourceLevelAppearances[source.sourceLevel].icon"
+                class="size-4"
+              />
             </span>
-          </span>
-          <span class="text-xs text-zinc-500 sm:text-sm">
-            适合参考：{{ sourceLevelLabels[source.sourceLevel] }}
-          </span>
-          <span class="text-xs text-zinc-500">
-            <UIcon
-              name="i-lucide-calendar-clock"
-              class="mr-1 inline-block size-3.5 align-[-2px]"
-            />
-            {{ sourceAccessedLabel(source.accessedAt) }}
-          </span>
-          <span class="flex items-center justify-end">
+            <span class="min-w-0 flex-1">
+              <span class="block font-semibold leading-6 text-zinc-900 group-hover:text-green-700">
+                {{ studentFacingSourceTitle(source.title) }}
+              </span>
+              <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
+                <span>{{ sourcePlatformLabel(source.platform) }}</span>
+                <span aria-hidden="true">·</span>
+                <span>{{ studentFacingSourcePublisher(source.publisherName) }}</span>
+              </span>
+              <span class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span
+                  class="rounded px-2 py-1 text-xs font-semibold"
+                  :class="[
+                    sourceToneClasses[sourceLevelAppearances[source.sourceLevel].tone].soft,
+                    sourceToneClasses[sourceLevelAppearances[source.sourceLevel].tone].text
+                  ]"
+                >
+                  {{ sourceLevelLabels[source.sourceLevel] }}
+                </span>
+                <span class="text-xs text-zinc-500">
+                  <UIcon
+                    name="i-lucide-calendar-clock"
+                    class="mr-1 inline-block size-3.5 align-[-2px]"
+                  />
+                  {{ sourceAccessedLabel(source.accessedAt) }}
+                </span>
+              </span>
+            </span>
             <UIcon
               name="i-lucide-external-link"
-              class="size-4 shrink-0 text-zinc-400 group-hover:text-green-700"
+              class="mt-1 size-4 shrink-0 text-zinc-400 group-hover:text-green-700"
             />
-          </span>
-        </a>
-      </div>
+          </a>
+        </li>
+      </ul>
 
       <div
         v-if="!loadError && !sourceFilterActive && filteredSources.length > sourcePreviewLimit"
