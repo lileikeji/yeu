@@ -26,6 +26,7 @@ import {
   resolveProcedureInformationStateBadgeColor,
   resolveProcedureMaterialPackPresentation,
   resolveProcedureMaterialsPackBadge,
+  resolveProcedureOfficialSource,
   resolveProcedureStepCompletionPresentation,
   shouldShowProcedureStepAudienceBadges,
   studentFacingProcedureText,
@@ -72,6 +73,9 @@ const noticeText = computed(() => getProcedureNoticeText(
 const materialTitle = computed(() => getProcedureMaterialTitle(procedure.value?.category))
 const emptyMaterialText = computed(() => getProcedureEmptyMaterialText(procedure.value?.category))
 const detailSources = computed(() => buildProcedureDetailSources(procedure.value?.sources))
+const officialSourceHref = computed(() => safeExternalHref(
+  resolveProcedureOfficialSource(detailSources.value)?.url
+))
 
 const completedStepIds = ref<string[]>([])
 const packedMaterialIds = ref<string[]>([])
@@ -259,8 +263,19 @@ watch(selectedAudience, (value) => {
               />
               <span><strong class="font-semibold text-zinc-800">目前：</strong>{{ studentFacingProcedureText(procedure.statusText) }}</span>
             </p>
+            <UButton
+              v-if="officialSourceHref"
+              :to="officialSourceHref"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-external-link"
+              label="查看学校原文"
+              color="neutral"
+              variant="outline"
+              class="mt-5 min-h-11"
+            />
             <div
-              class="scrollbar-none mt-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-md border border-zinc-200 bg-zinc-50 p-1"
+              class="scrollbar-none mt-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-md border border-zinc-200 bg-zinc-50 p-1"
               role="group"
               aria-label="选择新生类型"
             >

@@ -23,6 +23,7 @@ import {
   resolveProcedureMaterialPackPresentation,
   resolveProcedureMaterialsCountBadge,
   resolveProcedureMaterialsPackBadge,
+  resolveProcedureOfficialSource,
   resolveProcedureStepCompletionPresentation,
   serializeProcedureChecklist,
   shouldShowProcedureStepAudienceBadges,
@@ -45,6 +46,7 @@ test('procedure detail page is a thin shell over presentation util', () => {
   assert.match(pageSource, /resolveProcedureAudienceRouteQuery/)
   assert.match(pageSource, /resolveProcedureInformationStateBadgeColor/)
   assert.match(pageSource, /resolveProcedureMaterialsPackBadge/)
+  assert.match(pageSource, /resolveProcedureOfficialSource/)
   assert.match(pageSource, /resolveProcedureMaterialPackPresentation/)
   assert.match(pageSource, /resolveProcedureChecklistProgress/)
   assert.match(pageSource, /resolveProcedureStepCompletionPresentation/)
@@ -56,6 +58,9 @@ test('procedure detail page is a thin shell over presentation util', () => {
   assert.match(pageSource, /label="取消"/)
   assert.match(pageSource, /label="清空材料勾选"/)
   assert.match(pageSource, /label="查看学校页面"/)
+  assert.match(pageSource, /label="查看学校原文"/)
+  assert.match(pageSource, /target="_blank"/)
+  assert.match(pageSource, /rel="noopener noreferrer"/)
   assert.match(pageSource, /label="告诉我们哪里不对或还缺什么"/)
   assert.match(pageSource, /这份材料已经全部备齐/)
   assert.doesNotMatch(pageSource, /反馈流程错误或补充资料/)
@@ -141,6 +146,21 @@ test('source claim rewrite and detail source mapping stay student-readable', () 
       note: null
     }
   ])
+})
+
+test('official procedure source only accepts the school domain and its subdomains', () => {
+  const official = resolveProcedureOfficialSource([
+    { key: 'other', title: '第三方整理', url: 'https://example.com/help', note: null },
+    { key: 'school', title: '信息化管理处', url: 'https://metc.yeu.edu.cn/notice', note: null }
+  ])
+  assert.equal(official?.key, 'school')
+  assert.equal(resolveProcedureOfficialSource([
+    { key: 'lookalike', title: '相似域名', url: 'https://yeu.edu.cn.example.com', note: null }
+  ]), null)
+  assert.equal(resolveProcedureOfficialSource([
+    { key: 'invalid', title: '无效链接', url: 'not-a-url', note: null },
+    { key: 'empty', title: '没有链接', url: null, note: null }
+  ]), null)
 })
 
 test('checklist parse/serialize and step toggle keep version and step id safety', () => {

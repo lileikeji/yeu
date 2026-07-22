@@ -140,6 +140,21 @@ export function buildProcedureDetailSources(
   }))
 }
 
+export function resolveProcedureOfficialSource(
+  sources: ReadonlyArray<ProcedureDetailSourceView> | null | undefined
+): ProcedureDetailSourceView | null {
+  return (sources ?? []).find((source) => {
+    if (!source.url) return false
+
+    try {
+      const hostname = new URL(source.url).hostname.toLowerCase()
+      return hostname === 'yeu.edu.cn' || hostname.endsWith('.yeu.edu.cn')
+    } catch {
+      return false
+    }
+  }) ?? null
+}
+
 export function buildProcedureChecklistStorageKey(slug: string): string {
   return `yeu:procedure-checklist:${slug}`
 }
