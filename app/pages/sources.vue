@@ -98,11 +98,6 @@ function clearSourceFilters(): void {
   activeSourceKind.value = 'all'
 }
 
-function showOfficialSources(): void {
-  sourceQuery.value = ''
-  activeSourceKind.value = 'official'
-}
-
 async function refreshSources(): Promise<void> {
   await Promise.all([contentRequest.refresh(), placeRequest.refresh()])
 }
@@ -123,15 +118,17 @@ async function refreshSources(): Promise<void> {
         </p>
         <div class="mt-5 flex flex-wrap gap-2">
           <a
-            href="#source-list"
+            href="https://www.yeu.edu.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="打开仰恩大学官网 yeu.edu.cn（新窗口）"
             class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
-            @click="showOfficialSources"
           >
             <UIcon
-              name="i-lucide-landmark"
+              name="i-lucide-external-link"
               class="size-4"
             />
-            先看学校官网
+            学校官网 · yeu.edu.cn
           </a>
           <a
             href="#source-list"
