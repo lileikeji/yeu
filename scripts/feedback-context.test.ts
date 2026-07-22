@@ -59,7 +59,7 @@ test('map detail panel keeps typed place feedback bound to the current map path'
   assert.match(util, /reasonType:\s*'place_error'/)
 })
 
-test('feedback form keeps source context structured and displays only the safe page path', () => {
+test('feedback form keeps source context structured without showing an internal page path', () => {
   const source = readFileSync('app/pages/feedback.vue', 'utf8')
 
   assert.match(source, /const pageUrl = computed\(\(\) => safeLocalPath\(route\.query\.from\)\)/)
@@ -67,5 +67,6 @@ test('feedback form keeps source context structured and displays only the safe p
   assert.doesNotMatch(source, /message = ref\([^\n]*route\.query\.from/)
   assert.match(source, /pageUrl: pageUrl\.value/)
   assert.match(source, /<template v-if="pageUrl">/)
-  assert.match(source, /\{\{ pageUrl \}\}/)
+  assert.match(source, /pageContextCopy\.title/)
+  assert.doesNotMatch(source, /\{\{ pageUrl \}\}/)
 })

@@ -6,6 +6,7 @@ import {
   canSubmitFeedback,
   createEmptyFeedbackFormState,
   feedbackMessageNeedsMoreDetail,
+  feedbackPageContextCopy,
   feedbackReasonOptions,
   resolveFeedbackFormCopy,
   resolveFeedbackReasonType,
@@ -21,6 +22,7 @@ import {
 const route = useRoute()
 const toast = useToast()
 const reasonOptions = feedbackReasonOptions
+const pageContextCopy = feedbackPageContextCopy
 const initialReasonType = computed(() => resolveFeedbackReasonType(route.query.type))
 
 const requestedTargetType = computed(() => feedbackRouteQueryString(route.query.targetType).trim())
@@ -184,18 +186,23 @@ function resetForm() {
                 </p>
               </template>
               <template v-else>
-                <p class="text-xs font-medium text-green-800">
-                  正在反馈：{{ targetLabel }}
-                </p>
-                <p class="mt-0.5 break-words text-sm font-bold text-green-950">
-                  {{ targetDisplayName }}
-                </p>
-                <template v-if="pageUrl">
-                  <p class="mt-2 text-xs font-medium text-green-800">
-                    来自页面
+                <template v-if="targetType !== 'general'">
+                  <p class="text-xs font-medium text-green-800">
+                    正在反馈：{{ targetLabel }}
                   </p>
-                  <p class="mt-0.5 break-all text-xs text-green-900">
-                    {{ pageUrl }}
+                  <p class="mt-0.5 break-words text-sm font-bold text-green-950">
+                    {{ targetDisplayName }}
+                  </p>
+                </template>
+                <template v-if="pageUrl">
+                  <p
+                    class="text-xs font-semibold text-green-900"
+                    :class="targetType !== 'general' ? 'mt-2' : ''"
+                  >
+                    {{ pageContextCopy.title }}
+                  </p>
+                  <p class="mt-0.5 text-xs leading-5 text-green-800">
+                    {{ pageContextCopy.description }}
                   </p>
                 </template>
               </template>
@@ -289,7 +296,7 @@ function resetForm() {
                   />
                 </span>
                 <span class="min-w-0">
-                  <span class="block text-sm font-semibold text-zinc-900">补充核对信息（选填）</span>
+                  <span class="block text-sm font-semibold text-zinc-900">补充信息（选填）</span>
                   <span class="mt-0.5 block text-xs leading-5 text-zinc-500">
                     有学校通知链接，或希望我们回复时再填写
                   </span>

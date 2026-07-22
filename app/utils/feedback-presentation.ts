@@ -12,6 +12,11 @@ export const feedbackReasonOptions = [
   { label: '其他问题', value: 'other' }
 ] as const
 
+export const feedbackPageContextCopy = {
+  title: '已带上你刚才浏览的页面',
+  description: '提交时会一起附上，方便我们找到问题。'
+} as const
+
 export type FeedbackReasonValue = (typeof feedbackReasonOptions)[number]['value']
 
 export interface FeedbackFormCopy {
