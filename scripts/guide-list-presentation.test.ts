@@ -7,6 +7,12 @@ import {
   guideCategoryIconTones,
   guideListCategories,
   guideListFallbackMessages,
+  guideListMessages,
+  guideListReadMinutesLabel,
+  guideListStatusDotClass,
+  guideListStatusToneClass,
+  guideNeedShortcuts,
+  isGuideNeedShortcutActive,
   previewGuideListItems,
   resolveGuideListFallbackMessage
 } from '../app/utils/guide-list-presentation'
@@ -20,12 +26,19 @@ test('guide list page is a thin shell over guide-list-presentation util', () => 
   assert.match(pageSource, /resolveGuideListFallbackMessage/)
   assert.match(pageSource, /guideListCategories/)
   assert.match(pageSource, /guideCategoryIconTones/)
+  assert.match(pageSource, /guideNeedShortcuts/)
+  assert.match(pageSource, /guideListMessages/)
+  assert.match(pageSource, /guideListReadMinutesLabel/)
+  assert.match(pageSource, /guideListStatusDotClass/)
+  assert.match(pageSource, /guideListStatusToneClass/)
+  assert.match(pageSource, /isGuideNeedShortcutActive/)
   assert.doesNotMatch(pageSource, /const categories = \[/)
   assert.doesNotMatch(pageSource, /const iconTone:/)
   assert.doesNotMatch(pageSource, /function filterGuideListItems/)
   assert.match(utilSource, /export function filterGuideListItems/)
   assert.match(utilSource, /export function resolveGuideListFallbackMessage/)
   assert.match(utilSource, /export const guideListCategories/)
+  assert.match(utilSource, /export const guideNeedShortcuts/)
 })
 
 test('guide search keeps a comfortable mobile touch height', () => {
@@ -49,15 +62,47 @@ test('guide categories fit the mobile width and use direct interactions', () => 
   assert.doesNotMatch(pageSource, /overflow-x-auto/)
 })
 
-test('guide cards stay compact on mobile without dropping trust context', () => {
+test('guide need shortcuts help students start from real tasks', () => {
+  assert.deepEqual(
+    guideNeedShortcuts.map(item => [item.label, item.query, item.category]),
+    [
+      ['报到', '报到', 'arrival'],
+      ['校园网', '校园网', 'campus'],
+      ['图书馆', '图书馆', 'campus'],
+      ['快递', '快递', 'life'],
+      ['社团', '社团', 'community'],
+      ['周边', '周边', 'life']
+    ]
+  )
+  assert.match(pageSource, /按要办的事找/)
+  assert.match(pageSource, /selectGuideNeed\(shortcut\)/)
+  assert.match(pageSource, /class="min-h-11 rounded-md border/)
+  assert.equal(
+    isGuideNeedShortcutActive(guideNeedShortcuts[0], { query: '报到', category: 'arrival' }),
+    true
+  )
+  assert.equal(
+    isGuideNeedShortcutActive(guideNeedShortcuts[0], { query: '报到', category: 'all' }),
+    false
+  )
+})
+
+test('guide cards show readiness badge, current status, and reading time', () => {
   assert.match(pageSource, /class="surface-panel group flex min-h-0 flex-col p-4[^"]*md:min-h-56 md:p-5"/)
   assert.match(pageSource, /line-clamp-2[^"]*md:line-clamp-none/)
-  assert.match(pageSource, /:name="guideStatePresentation\(guide\.status\)\.icon"/)
-  assert.match(pageSource, /guide\.status === 'verified' \? 'text-green-800'/)
+  assert.match(pageSource, /guideStatePresentation\(guide\.status\)\.label/)
+  assert.match(pageSource, /guideListStatusDotClass\(guide\.status\)/)
+  assert.match(pageSource, /guideListStatusToneClass\(guide\.status\)/)
+  assert.match(pageSource, /目前：/)
   assert.match(pageSource, /studentFacingGuideStatusText\(guide\.statusText\)/)
-  assert.match(pageSource, /guide\.audience\.join\(' · '\)/)
-  assert.doesNotMatch(pageSource, /<UBadge[\s\S]*?guideStatePresentation\(guide\.status\)\.label/)
+  assert.match(pageSource, /guideListReadMinutesLabel\(guide\.readMinutes\)/)
+  assert.match(pageSource, /guideListMessages\.openGuide/)
   assert.doesNotMatch(pageSource, />\s*打开\s*<UIcon/)
+  assert.equal(guideListReadMinutesLabel(3), '约 3 分钟')
+  assert.equal(guideListReadMinutesLabel(0), '约 1 分钟')
+  assert.equal(guideListStatusDotClass('verified'), 'bg-emerald-500')
+  assert.equal(guideListStatusDotClass('awaiting-notice'), 'bg-amber-400')
+  assert.equal(guideListStatusToneClass('partial'), 'text-zinc-600')
 })
 
 test('guide list categories and fallback messages stay student-facing', () => {
@@ -67,6 +112,9 @@ test('guide list categories and fallback messages stay student-facing', () => {
   assert.equal(guideCategoryIconTones.arrival, 'bg-green-50 text-green-700')
   assert.equal(guideListFallbackMessages.serviceUnavailable, '可以稍后再试，也可以先查看校园地图和常用部门。')
   assert.match(guideListFallbackMessages.staticGuide, /已经整理好的指南/)
+  assert.equal(guideListMessages.emptyMatchTitle, '没有找到相关指南')
+  assert.match(guideListMessages.emptyMatchHint, /校园地图和办事入口/)
+  assert.equal(guideListMessages.openGuide, '打开指南')
 })
 
 test('guide list filter and fallback resolution', () => {
@@ -76,14 +124,16 @@ test('guide list filter and fallback resolution', () => {
       title: '报到指南',
       shortTitle: '报到',
       summary: '核对材料和时间',
-      audience: ['本科新生']
+      audience: ['本科新生'],
+      statusText: '报到日期已确认'
     },
     {
       category: 'life',
       title: '快递外卖',
       shortTitle: '快递',
       summary: '校内外快递点',
-      audience: ['本科新生', '专升本']
+      audience: ['本科新生', '专升本'],
+      statusText: '站点和配送规则还要到现场确认'
     }
   ]
 
@@ -98,6 +148,10 @@ test('guide list filter and fallback resolution', () => {
   assert.deepEqual(
     filterGuideListItems(guides, { query: '本科', category: 'arrival' }).map(item => item.title),
     ['报到指南']
+  )
+  assert.deepEqual(
+    filterGuideListItems(guides, { query: '现场确认', category: 'all' }).map(item => item.title),
+    ['快递外卖']
   )
   assert.deepEqual(
     filterGuideListItems(guides, { query: '社团', category: 'all' }),
@@ -117,6 +171,8 @@ test('guide list filter and fallback resolution', () => {
   assert.match(pageSource, /label="打开校园地图"/)
   assert.match(pageSource, /label="查看常用部门"/)
   assert.match(pageSource, /!publicGuideError && !filteredGuides\.length/)
+  assert.match(pageSource, /guideListMessages\.emptyMatchTitle/)
+  assert.match(pageSource, /label="查看办事流程"/)
   assert.equal(
     resolveGuideListFallbackMessage({
       hasError: false,

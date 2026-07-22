@@ -9,6 +9,12 @@ import {
   guideCategoryIconTones,
   guideListCategories,
   guideListFallbackMessages,
+  guideListMessages,
+  guideListReadMinutesLabel,
+  guideListStatusDotClass,
+  guideListStatusToneClass,
+  guideNeedShortcuts,
+  isGuideNeedShortcutActive,
   previewGuideListItems,
   resolveGuideListFallbackMessage,
   type GuideListCategoryId
@@ -52,6 +58,7 @@ const visibleGuides = computed(() => previewGuideListItems(filteredGuides.value,
 const showGuideToggle = computed(() => !searchQuery.value.trim()
   && activeCategory.value === 'all'
   && filteredGuides.value.length > 6)
+const isFiltering = computed(() => Boolean(searchQuery.value.trim()) || activeCategory.value !== 'all')
 
 watch([searchQuery, activeCategory], () => {
   showAllGuides.value = false
@@ -65,8 +72,25 @@ function clearGuideSearch(): void {
   searchQuery.value = ''
 }
 
+function clearGuideFilters(): void {
+  searchQuery.value = ''
+  activeCategory.value = 'all'
+}
+
 function selectGuideCategory(category: GuideListCategoryId): void {
   activeCategory.value = category
+}
+
+function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
+  if (isGuideNeedShortcutActive(shortcut, {
+    query: searchQuery.value,
+    category: activeCategory.value
+  })) {
+    clearGuideFilters()
+    return
+  }
+  searchQuery.value = shortcut.query
+  activeCategory.value = shortcut.category
 }
 </script>
 
@@ -139,6 +163,28 @@ function selectGuideCategory(category: GuideListCategoryId): void {
             />
           </div>
         </div>
+
+        <div class="mt-4 max-w-3xl">
+          <p class="text-xs font-semibold text-zinc-600">
+            按要办的事找
+          </p>
+          <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <button
+              v-for="shortcut in guideNeedShortcuts"
+              :key="shortcut.query"
+              type="button"
+              class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              :class="isGuideNeedShortcutActive(shortcut, { query: searchQuery, category: activeCategory })
+                ? 'border-green-700 bg-green-700 text-white'
+                : 'border-zinc-200 bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50'"
+              :aria-label="`按${shortcut.label}查找指南`"
+              :aria-pressed="isGuideNeedShortcutActive(shortcut, { query: searchQuery, category: activeCategory })"
+              @click="selectGuideNeed(shortcut)"
+            >
+              {{ shortcut.label }}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -149,7 +195,7 @@ function selectGuideCategory(category: GuideListCategoryId): void {
         role="alert"
       >
         <UIcon
-          name="i-lucide-circle-alert"
+          name="i-lucide-cloud-off"
           class="mx-auto size-6 text-amber-700"
         />
         <h2 class="mt-3 text-base font-bold text-amber-950">
@@ -224,7 +270,7 @@ function selectGuideCategory(category: GuideListCategoryId): void {
           :to="`/guides/${guide.slug}`"
           class="surface-panel group flex min-h-0 flex-col p-4 transition hover:border-green-300 hover:shadow-sm md:min-h-56 md:p-5"
         >
-          <div class="flex items-start">
+          <div class="flex items-start justify-between gap-3">
             <span
               class="grid size-9 shrink-0 place-items-center rounded-md md:size-10"
               :class="guideCategoryIconTones[guide.category]"
@@ -234,6 +280,17 @@ function selectGuideCategory(category: GuideListCategoryId): void {
                 class="size-5"
               />
             </span>
+            <UBadge
+              :color="guideStatePresentation(guide.status).color"
+              variant="soft"
+              size="sm"
+            >
+              <UIcon
+                :name="guideStatePresentation(guide.status).icon"
+                class="mr-1 size-3.5"
+              />
+              {{ guideStatePresentation(guide.status).label }}
+            </UBadge>
           </div>
 
           <h2 class="mt-3 text-base font-bold text-zinc-950 md:mt-5">
@@ -243,20 +300,22 @@ function selectGuideCategory(category: GuideListCategoryId): void {
             {{ guide.summary }}
           </p>
           <p
-            class="mt-3 flex items-start gap-2 text-xs leading-5 text-zinc-600 md:mt-4"
-            :class="guide.status === 'verified' ? 'text-green-800' : guide.status === 'awaiting-notice' ? 'text-orange-800' : 'text-zinc-600'"
+            class="mt-3 flex items-start gap-2 text-xs leading-5 md:mt-4"
+            :class="guideListStatusToneClass(guide.status)"
           >
-            <UIcon
-              :name="guideStatePresentation(guide.status).icon"
-              class="mt-0.5 size-3.5 shrink-0"
+            <span
+              class="mt-1.5 size-2 shrink-0 rounded-full"
+              :class="guideListStatusDotClass(guide.status)"
             />
             <span class="line-clamp-2 md:line-clamp-none">
+              <span class="font-semibold text-zinc-800">目前：</span>
               {{ studentFacingGuideStatusText(guide.statusText) }}
             </span>
           </p>
           <div class="mt-3 flex items-center justify-between gap-3 text-xs text-zinc-500 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
-            <span class="truncate">{{ guide.audience.join(' · ') }}</span>
-            <span class="inline-flex shrink-0 items-center text-green-700">
+            <span class="truncate">{{ guideListReadMinutesLabel(guide.readMinutes) }} · {{ guide.audience.join(' · ') }}</span>
+            <span class="inline-flex shrink-0 items-center gap-1 font-medium text-green-700">
+              {{ guideListMessages.openGuide }}
               <UIcon
                 name="i-lucide-arrow-right"
                 class="size-4 transition group-hover:translate-x-0.5"
@@ -288,16 +347,38 @@ function selectGuideCategory(category: GuideListCategoryId): void {
           name="i-lucide-search-x"
           class="mx-auto size-6 text-zinc-400"
         />
-        <p class="mt-3 text-sm font-medium text-zinc-700">
-          没有匹配的指南
+        <p class="mt-3 text-sm font-semibold text-zinc-800">
+          {{ guideListMessages.emptyMatchTitle }}
         </p>
-        <UButton
-          label="清除筛选"
-          color="neutral"
-          variant="ghost"
-          class="mt-3 min-h-11"
-          @click="searchQuery = ''; activeCategory = 'all'"
-        />
+        <p class="mt-1 text-xs leading-5 text-zinc-500">
+          {{ guideListMessages.emptyMatchHint }}
+        </p>
+        <div class="mt-4 flex flex-wrap justify-center gap-2">
+          <UButton
+            v-if="isFiltering"
+            :label="guideListMessages.clearFilters"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+            @click="clearGuideFilters"
+          />
+          <UButton
+            to="/map"
+            icon="i-lucide-map"
+            label="打开校园地图"
+            color="neutral"
+            variant="ghost"
+            class="min-h-11"
+          />
+          <UButton
+            to="/procedures"
+            icon="i-lucide-list-checks"
+            label="查看办事流程"
+            color="neutral"
+            variant="ghost"
+            class="min-h-11"
+          />
+        </div>
       </div>
     </section>
   </div>

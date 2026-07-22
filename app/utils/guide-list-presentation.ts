@@ -21,12 +21,30 @@ export const guideListFallbackMessages = {
   emptyPublished: '指南还在整理，过一会再来看看。'
 } as const
 
+export const guideListMessages = {
+  emptyMatchTitle: '没有找到相关指南',
+  emptyMatchHint: '可以换个关键词，或者先从校园地图和办事入口找。',
+  openGuide: '打开指南',
+  needShortcutsTitle: '按要办的事找',
+  clearFilters: '清除筛选'
+} as const
+
+export const guideNeedShortcuts = [
+  { label: '报到', query: '报到', category: 'arrival' as const },
+  { label: '校园网', query: '校园网', category: 'campus' as const },
+  { label: '图书馆', query: '图书馆', category: 'campus' as const },
+  { label: '快递', query: '快递', category: 'life' as const },
+  { label: '社团', query: '社团', category: 'community' as const },
+  { label: '周边', query: '周边', category: 'life' as const }
+] as const
+
 export interface GuideListFilterableItem {
   category: string
   title: string
   shortTitle: string
   summary: string
   audience: readonly string[]
+  statusText?: string
 }
 
 export interface GuideListFallbackInput {
@@ -51,7 +69,8 @@ export function filterGuideListItems<T extends GuideListFilterableItem>(
 
   return guides.filter((guide) => {
     const matchesCategory = options.category === 'all' || guide.category === options.category
-    const text = [guide.title, guide.shortTitle, guide.summary, ...guide.audience]
+    const text = [guide.title, guide.shortTitle, guide.summary, guide.statusText, ...guide.audience]
+      .filter(Boolean)
       .join(' ')
       .toLocaleLowerCase('zh-CN')
     return matchesCategory && (!query || text.includes(query))
@@ -67,4 +86,28 @@ export function previewGuideListItems<T>(
     && !options.query.trim()
     && options.category === 'all'
   return shouldLimit ? guides.slice(0, Math.max(0, limit)) : [...guides]
+}
+
+export function guideListReadMinutesLabel(minutes: number | null | undefined): string {
+  const value = Math.max(1, Math.round(Number(minutes) || 1))
+  return `约 ${value} 分钟`
+}
+
+export function guideListStatusToneClass(status: string): string {
+  if (status === 'verified') return 'text-green-800'
+  if (status === 'awaiting-notice') return 'text-orange-800'
+  return 'text-zinc-600'
+}
+
+export function guideListStatusDotClass(status: string): string {
+  if (status === 'verified') return 'bg-emerald-500'
+  if (status === 'awaiting-notice') return 'bg-amber-400'
+  return 'bg-zinc-300'
+}
+
+export function isGuideNeedShortcutActive(
+  shortcut: { query: string, category: GuideListCategoryId },
+  options: { query: string, category: string }
+): boolean {
+  return options.query.trim() === shortcut.query && options.category === shortcut.category
 }
