@@ -1,6 +1,9 @@
 export const departmentListMessages = {
   serviceUnavailable: '下方仍可查看学校公开的常用部门；办公地点和联系方式请以学校最新信息为准。',
-  emptyMatch: '没有匹配的部门'
+  emptyMatch: '没有匹配的部门',
+  contactPending: '联系方式待公布',
+  contactReady: '有公开联系方式',
+  openIntro: '打开介绍'
 } as const
 
 export const departmentNeedShortcuts = [
@@ -17,6 +20,9 @@ export interface DepartmentListFilterableItem {
   summary: string
   phone?: string | null
   email?: string | null
+  address?: string | null
+  officeHours?: string | null
+  website?: string | null
 }
 
 export const departmentListPrioritySlugs = [
@@ -60,6 +66,22 @@ export function filterDepartmentListItems<T extends DepartmentListFilterableItem
   })
 }
 
+export function hasDepartmentContactMethod(department: DepartmentListFilterableItem): boolean {
+  return Boolean(department.phone?.trim() || department.email?.trim())
+}
+
+export function resolveDepartmentContactStatusText(department: DepartmentListFilterableItem): string {
+  return hasDepartmentContactMethod(department)
+    ? departmentListMessages.contactReady
+    : departmentListMessages.contactPending
+}
+
 export function departmentListContactPreview(department: DepartmentListFilterableItem): string {
-  return department.phone || department.email || '查看部门介绍'
+  const phone = department.phone?.trim()
+  if (phone) return phone
+
+  const email = department.email?.trim()
+  if (email) return email
+
+  return departmentListMessages.contactPending
 }

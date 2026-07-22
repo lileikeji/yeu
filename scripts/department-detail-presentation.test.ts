@@ -9,7 +9,9 @@ import {
   departmentSectionLabels,
   extractDepartmentUseCases,
   extractPrefixedParagraph,
+  hasDepartmentPublicContact,
   resolveDepartmentContactPreparation,
+  resolveDepartmentContactSectionState,
   resolveDepartmentUsageSuggestion,
   resolveDepartmentVerificationSummary,
   resolveDepartmentVerifiedDate
@@ -24,6 +26,8 @@ test('department detail page is a thin shell over department-detail-presentation
   assert.match(pageSource, /buildDepartmentDetailSources/)
   assert.match(pageSource, /resolveDepartmentVerifiedDate/)
   assert.match(pageSource, /resolveDepartmentContactPreparation/)
+  assert.match(pageSource, /resolveDepartmentContactSectionState/)
+  assert.match(pageSource, /departmentSectionLabels/)
   assert.doesNotMatch(pageSource, /function extractDepartmentUseCases/)
   assert.doesNotMatch(pageSource, /function extractPrefixedParagraph/)
   assert.match(utilSource, /export function extractDepartmentUseCases/)
@@ -43,6 +47,17 @@ test('department body extractors keep student-facing section markers', () => {
     departmentSectionLabels.emptyContact,
     '暂时没有找到电话、邮箱或服务时间，可以先打开上方部门官网。'
   )
+  assert.equal(departmentSectionLabels.contactPending, '联系方式待公布')
+  assert.equal(
+    departmentSectionLabels.contactPendingNotice,
+    '目前还没有公开的电话或邮箱。可以先打开上方部门官网，或开学后以学校和部门最新通知为准。'
+  )
+  assert.equal(departmentSectionLabels.contactPendingAction, '知道新的联系方式？告诉我们')
+  assert.equal(hasDepartmentPublicContact({ phone: null, email: ' ' }), false)
+  assert.equal(hasDepartmentPublicContact({ phone: '0595-1', email: null }), true)
+  assert.equal(resolveDepartmentContactSectionState(true).kind, 'ready')
+  assert.equal(resolveDepartmentContactSectionState(false).kind, 'pending')
+  assert.equal(resolveDepartmentContactSectionState(false).title, '联系方式待公布')
 
   const body = [
     '开头说明',
@@ -106,4 +121,14 @@ test('department sources and verified date prefer API then seed fallbacks', () =
     }),
     [{ key: 'organizations', title: '组织机构', url: 'https://example.test/org' }]
   )
+})
+
+
+test('department detail pending contact UI stays student-facing', () => {
+  assert.match(pageSource, /contactSection\.kind === 'pending'/)
+  assert.match(pageSource, /contactSection\.notice/)
+  assert.match(pageSource, /contactSection\.actionLabel/)
+  assert.match(pageSource, /i-lucide-phone-off/)
+  assert.match(pageSource, /知道新的联系方式？告诉我们|contactSection\.actionLabel/)
+  assert.match(pageSource, /departmentSectionLabels\.publicContact/)
 })

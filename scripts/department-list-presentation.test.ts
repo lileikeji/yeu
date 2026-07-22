@@ -8,7 +8,9 @@ import {
   departmentListMessages,
   departmentNeedShortcuts,
   filterDepartmentListItems,
-  prioritizeDepartmentListItems
+  hasDepartmentContactMethod,
+  prioritizeDepartmentListItems,
+  resolveDepartmentContactStatusText
 } from '../app/utils/department-list-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/departments/index.vue'), 'utf8')
@@ -19,6 +21,8 @@ test('department list page is a thin shell over department-list-presentation uti
   assert.match(pageSource, /filterDepartmentListItems/)
   assert.match(pageSource, /departmentListMessages/)
   assert.match(pageSource, /departmentListContactPreview/)
+  assert.match(pageSource, /hasDepartmentContactMethod/)
+  assert.match(pageSource, /resolveDepartmentContactStatusText/)
   assert.match(pageSource, /prioritizeDepartmentListItems/)
   assert.match(pageSource, /directory-list-presentation/)
   assert.match(pageSource, /departmentNeedShortcuts/)
@@ -58,9 +62,14 @@ test('department need shortcuts use student tasks instead of office names', () =
 test('department list messages stay student-facing', () => {
   assert.equal(departmentListMessages.serviceUnavailable, '下方仍可查看学校公开的常用部门；办公地点和联系方式请以学校最新信息为准。')
   assert.equal(departmentListMessages.emptyMatch, '没有匹配的部门')
+  assert.equal(departmentListMessages.contactPending, '联系方式待公布')
+  assert.equal(departmentListMessages.contactReady, '有公开联系方式')
+  assert.equal(departmentListMessages.openIntro, '打开介绍')
   assert.match(pageSource, /部分部门信息还没更新出来/)
   assert.match(pageSource, /label="重新试一次"/)
   assert.match(pageSource, /@click="refresh\(\)"/)
+  assert.match(pageSource, /resolveDepartmentContactStatusText\(department\)/)
+  assert.match(pageSource, /hasDepartmentContactMethod\(department\)/)
   assert.doesNotMatch(pageSource, /border-red-500|bg-red-50|text-red-800/)
 })
 
@@ -77,7 +86,11 @@ test('department list pure helpers filter and preview contacts', () => {
   assert.equal(filterDepartmentListItems(departments, '没有这个').length, 0)
   assert.equal(departmentListContactPreview(departments[0]!), '0595-11111111')
   assert.equal(departmentListContactPreview(departments[1]!), 'stu@example.com')
-  assert.equal(departmentListContactPreview(departments[2]!), '查看部门介绍')
+  assert.equal(departmentListContactPreview(departments[2]!), '联系方式待公布')
+  assert.equal(hasDepartmentContactMethod(departments[0]!), true)
+  assert.equal(hasDepartmentContactMethod(departments[2]!), false)
+  assert.equal(resolveDepartmentContactStatusText(departments[0]!), '有公开联系方式')
+  assert.equal(resolveDepartmentContactStatusText(departments[2]!), '联系方式待公布')
 })
 
 test('department list puts freshman essentials before the full school catalog', () => {

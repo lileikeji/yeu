@@ -5,7 +5,9 @@ import {
   departmentListMessages,
   departmentNeedShortcuts,
   filterDepartmentListItems,
-  prioritizeDepartmentListItems
+  hasDepartmentContactMethod,
+  prioritizeDepartmentListItems,
+  resolveDepartmentContactStatusText
 } from '~~/app/utils/department-list-presentation'
 import { mergePublicDepartments } from '~/utils/public-catalog'
 import {
@@ -187,13 +189,28 @@ function selectDepartmentNeed(query: string) {
           <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
             {{ department.summary }}
           </p>
-          <div class="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-xs text-zinc-500">
-            <span>{{ departmentListContactPreview(department) }}</span>
+          <div class="mt-4 space-y-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+            <div class="flex items-center gap-2">
+              <span
+                class="size-2 rounded-full"
+                :class="hasDepartmentContactMethod(department) ? 'bg-emerald-500' : 'bg-zinc-300'"
+              />
+              {{ resolveDepartmentContactStatusText(department) }}
+            </div>
+            <div
+              v-if="hasDepartmentContactMethod(department)"
+              class="truncate text-zinc-600"
+            >
+              {{ departmentListContactPreview(department) }}
+            </div>
+          </div>
+          <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700">
+            {{ departmentListMessages.openIntro }}
             <UIcon
               name="i-lucide-arrow-right"
-              class="size-4 text-green-700"
+              class="size-3.5"
             />
-          </div>
+          </span>
         </NuxtLink>
       </div>
 

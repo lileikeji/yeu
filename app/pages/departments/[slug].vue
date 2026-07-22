@@ -5,8 +5,10 @@ import { mergePublicDepartments } from '~/utils/public-catalog'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import {
   buildDepartmentDetailSources,
+  departmentSectionLabels,
   extractDepartmentUseCases,
   resolveDepartmentContactPreparation,
+  resolveDepartmentContactSectionState,
   resolveDepartmentUsageSuggestion,
   resolveDepartmentVerificationSummary,
   resolveDepartmentVerifiedDate
@@ -56,6 +58,10 @@ useSeoMeta({
 })
 const phoneContacts = computed(() => parsePublicPhoneContacts(department.value?.phone))
 const emailHref = computed(() => resolvePublicEmailHref(department.value?.email))
+
+const contactSection = computed(() => resolveDepartmentContactSectionState(
+  Boolean(phoneContacts.value.length || emailHref.value || department.value?.email?.trim())
+))
 
 const feedbackLink = computed(() => content.value
   ? buildDetailFeedbackLink({
@@ -122,7 +128,7 @@ const feedbackLink = computed(() => content.value
           class="border-b border-zinc-200 pb-8"
         >
           <h2 class="text-lg font-bold text-zinc-950">
-            新生先看这几件事
+            {{ departmentSectionLabels.firstLook }}
           </h2>
           <div class="mt-4 grid gap-3 md:grid-cols-3">
             <div
@@ -161,7 +167,7 @@ const feedbackLink = computed(() => content.value
 
         <section class="py-7">
           <h2 class="text-lg font-bold text-zinc-950">
-            公开联系方式
+            {{ departmentSectionLabels.publicContact }}
           </h2>
           <p
             v-if="verificationSummary"
@@ -236,13 +242,47 @@ const feedbackLink = computed(() => content.value
               </dd>
             </div>
           </dl>
+          <div
+            v-if="contactSection.kind === 'pending'"
+            class="mt-4 border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+            role="status"
+          >
+            <div class="flex items-start gap-2">
+              <UIcon
+                name="i-lucide-phone-off"
+                class="mt-0.5 size-4 shrink-0"
+              />
+              <div>
+                <p class="font-semibold text-amber-950">
+                  {{ contactSection.title }}
+                </p>
+                <p class="mt-1">
+                  {{ contactSection.notice }}
+                </p>
+              </div>
+            </div>
+          </div>
           <p
-            v-if="!department.address && !department.phone && !department.email && !department.officeHours"
+            v-else-if="!department.address && !department.officeHours"
             class="mt-4 text-sm leading-6 text-zinc-500"
           >
-            暂时没有找到电话、邮箱或服务时间，可以先打开上方部门官网。
+            {{ departmentSectionLabels.emptyContact }}
           </p>
         </section>
+
+        <div
+          v-if="contactSection.kind === 'pending'"
+          class="border-b border-zinc-200 pb-7"
+        >
+          <UButton
+            :to="feedbackLink"
+            icon="i-lucide-message-square-plus"
+            :label="contactSection.actionLabel"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+          />
+        </div>
 
         <PublicSourceDetails
           :sources="detailSources"
