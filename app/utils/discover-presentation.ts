@@ -111,6 +111,14 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
     when: '开学后常用'
   },
   {
+    title: '军训安排（暂定）',
+    description: '校历暂定 12 月 13—26 日；地点、服装和请假要求等学校后续通知',
+    to: '/campus#freshman-dates',
+    icon: 'i-lucide-shield',
+    tone: 'bg-lime-50 text-lime-700',
+    when: '12 月 13—26 日'
+  },
+  {
     title: '安全 / 医疗',
     description: '保存校园 110，查看医务室和心理求助方式',
     to: '/guides/safety-health',
