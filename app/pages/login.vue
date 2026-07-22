@@ -34,11 +34,16 @@ function redirectTarget(): string {
   return requestedRedirectTarget() ?? '/me'
 }
 
+const isChatRedirect = computed(() => {
+  const target = requestedRedirectTarget()
+  return target === '/chat' || target?.startsWith('/chat?') || target?.startsWith('/chat/') || false
+})
+
 const loginHint = computed(() => {
   const target = requestedRedirectTarget()
   if (!target) return ''
-  if (target === '/chat' || target.startsWith('/chat?') || target.startsWith('/chat/')) {
-    return '请先登录，登录后会回到群聊。'
+  if (isChatRedirect.value) {
+    return '群聊需要登录。公共群对所有已登录同学开放；填写宿舍楼后，还会显示对应楼群。'
   }
   if (target === '/me' || target.startsWith('/me?') || target.startsWith('/me/')) {
     return '请先登录，再进入个人中心。'
@@ -51,7 +56,7 @@ const loginHint = computed(() => {
 
 const loginButtonLabel = computed(() => {
   const target = requestedRedirectTarget()
-  if (target === '/chat' || target?.startsWith('/chat?') || target?.startsWith('/chat/')) {
+  if (isChatRedirect.value) {
     return '登录并进入群聊'
   }
   if (target === '/me' || target?.startsWith('/me?') || target?.startsWith('/me/')) {
@@ -253,7 +258,30 @@ onMounted(() => {
         </form>
 
         <div class="mt-6 flex flex-wrap gap-2 border-t border-zinc-100 pt-5">
+          <template v-if="isChatRedirect">
+            <UButton
+              to="/map"
+              icon="i-lucide-map"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="min-h-11"
+            >
+              先看地图
+            </UButton>
+            <UButton
+              to="/procedures"
+              icon="i-lucide-list-checks"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              class="min-h-11"
+            >
+              先看办事指南
+            </UButton>
+          </template>
           <UButton
+            v-else
             to="/"
             icon="i-lucide-house"
             color="neutral"

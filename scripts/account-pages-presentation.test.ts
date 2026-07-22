@@ -23,10 +23,20 @@ test('login guidance only appears after a protected page sends the student here'
   assert.match(loginPage, /function requestedRedirectTarget\(\): string \| null/)
   assert.match(loginPage, /const target = requestedRedirectTarget\(\)\s+if \(!target\) return ''/)
   assert.match(loginPage, /return requestedRedirectTarget\(\) \?\? '\/me'/)
-  assert.match(loginPage, /请先登录，登录后会回到群聊/)
+  assert.match(loginPage, /群聊需要登录。公共群对所有已登录同学开放；填写宿舍楼后，还会显示对应楼群/)
   assert.match(loginPage, /请先登录，再进入个人中心/)
   assert.match(loginPage, /请先登录，登录后会回到刚才的页面/)
   assert.doesNotMatch(loginPage, /该功能需要登录|登录成功后将自动返回/)
+})
+
+test('chat login offers useful places to continue without an account', () => {
+  assert.match(loginPage, /const isChatRedirect = computed/)
+  assert.match(loginPage, /v-if="isChatRedirect"/)
+  assert.match(loginPage, /to="\/map"/)
+  assert.match(loginPage, /先看地图/)
+  assert.match(loginPage, /to="\/procedures"/)
+  assert.match(loginPage, /先看办事指南/)
+  assert.match(loginPage, /v-else\s+to="\/"/)
 })
 
 test('login button names the protected page it will open', () => {
