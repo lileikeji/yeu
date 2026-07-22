@@ -42,8 +42,9 @@ test('discover catalogs stay student-facing', () => {
     '/campus#military-training'
   )
   assert.equal(discoverTaskEntries[5]?.title, '食堂在哪里')
-  assert.equal(discoverTaskEntries[5]?.to, '/map?category=food')
+  assert.equal(discoverTaskEntries[5]?.to, '/guides/find-campus#dining')
   assert.match(discoverTaskEntries[5]?.description ?? '', /东苑、北苑和西苑餐厅/)
+  assert.match(discoverTaskEntries[5]?.description ?? '', /先看.*说明，再去地图找位置/)
   assert.ok(discoverTaskEntries.some(item => (
     item.title === '军训安排（暂定）'
     && item.when === '12 月 13—26 日'

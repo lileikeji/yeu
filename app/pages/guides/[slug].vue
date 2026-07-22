@@ -9,10 +9,13 @@ import { resolvePublicGuide } from '~/utils/public-catalog'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import {
   buildGuideDetailSources,
+  guideSectionId,
   guideStatePresentation,
   resolveGuideFallbackMessage,
   resolveGuideOfficialSource,
   resolveGuideRelatedAction,
+  resolveGuideSectionAction,
+  studentFacingGuideSectionTitle,
   studentFacingGuideStatusText
 } from '~~/app/utils/guide-detail-presentation'
 
@@ -267,17 +270,17 @@ onBeforeUnmount(() => {
             <a
               v-for="(section, index) in guide.sections"
               :key="section.title"
-              :href="`#guide-section-${index}`"
+              :href="`#${guideSectionId(guide.slug, section.title, index)}`"
               class="inline-flex min-h-11 min-w-0 items-center rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium leading-5 text-zinc-700 transition-colors hover:border-green-300 hover:text-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             >
-              <span class="line-clamp-2">{{ section.title }}</span>
+              <span class="line-clamp-2">{{ studentFacingGuideSectionTitle(section.title) }}</span>
             </a>
           </nav>
         </details>
 
         <section
           v-for="(section, index) in guide.sections"
-          :id="`guide-section-${index}`"
+          :id="guideSectionId(guide.slug, section.title, index)"
           :key="section.title"
           class="group relative scroll-mt-24 border-b border-[var(--line)] py-7 pl-12 last:border-b-0"
         >
@@ -297,7 +300,7 @@ onBeforeUnmount(() => {
               {{ String(index + 1).padStart(2, '0') }}
             </p>
             <h2 class="text-lg font-bold text-zinc-950">
-              {{ section.title }}
+              {{ studentFacingGuideSectionTitle(section.title) }}
             </h2>
           </div>
           <p
@@ -328,6 +331,15 @@ onBeforeUnmount(() => {
           >
             {{ section.notice }}
           </p>
+          <UButton
+            v-if="resolveGuideSectionAction(guide.slug, section.title)"
+            :to="resolveGuideSectionAction(guide.slug, section.title)?.to"
+            :icon="resolveGuideSectionAction(guide.slug, section.title)?.icon"
+            :label="resolveGuideSectionAction(guide.slug, section.title)?.label"
+            color="neutral"
+            variant="outline"
+            class="mt-5 min-h-11"
+          />
         </section>
 
         <div

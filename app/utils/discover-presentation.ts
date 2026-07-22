@@ -96,8 +96,8 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
   },
   {
     title: '食堂在哪里',
-    description: '直接在地图查看东苑、北苑和西苑餐厅，开放时间与档口到校再看',
-    to: '/map?category=food',
+    description: '先看东苑、北苑和西苑餐厅说明，再去地图找位置；开放时间与档口到校确认',
+    to: '/guides/find-campus#dining',
     icon: 'i-lucide-utensils',
     tone: 'bg-orange-50 text-orange-700',
     when: '到校就会用'

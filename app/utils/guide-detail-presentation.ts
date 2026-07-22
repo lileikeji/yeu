@@ -40,6 +40,10 @@ export function studentFacingGuideStatusText(value: string): string {
     .replace(/官方求助入口/g, '学校求助入口')
 }
 
+export function studentFacingGuideSectionTitle(value: string): string {
+  return value.replace(/(?:当前可核验的|目前能确认的)餐厅名称/, '现在可以确认的餐厅')
+}
+
 export interface GuideRelatedAction {
   label: string
   to: string
@@ -98,6 +102,22 @@ export function resolveGuideRelatedAction(slug: string): GuideRelatedAction {
     return { label: '查看校园与社团', to: '/campus#clubs', icon: 'i-lucide-users-round' }
   }
   return { label: '查看全部指南', to: '/guides', icon: 'i-lucide-layout-grid' }
+}
+
+export function guideSectionId(slug: string, title: string, index: number): string {
+  if (slug === 'find-campus' && /餐厅/.test(title)) return 'dining'
+  return `guide-section-${index}`
+}
+
+export function resolveGuideSectionAction(slug: string, title: string): GuideRelatedAction | null {
+  if (slug === 'find-campus' && /餐厅/.test(title)) {
+    return {
+      label: '在地图查看三处餐厅',
+      to: '/map?category=food',
+      icon: 'i-lucide-map-pinned'
+    }
+  }
+  return null
 }
 
 export function buildGuideDetailSources(

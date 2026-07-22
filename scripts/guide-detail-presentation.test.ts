@@ -4,11 +4,14 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   buildGuideDetailSources,
+  guideSectionId,
   guideStatePresentation,
   guideFallbackMessages,
   resolveGuideFallbackMessage,
   resolveGuideOfficialSource,
   resolveGuideRelatedAction,
+  resolveGuideSectionAction,
+  studentFacingGuideSectionTitle,
   studentFacingGuideStatusText
 } from '../app/utils/guide-detail-presentation'
 
@@ -41,9 +44,26 @@ test('long guide pages expose every section in a compact mobile jump menu', () =
   assert.match(pageSource, /共 \{\{ guide\.sections\.length \}\} 个部分/)
   assert.match(pageSource, /class="grid grid-cols-2[^"]*sm:grid-cols-3"/)
   assert.match(pageSource, /aria-label="本页内容"/)
-  assert.match(pageSource, /:href="`#guide-section-\$\{index\}`"/)
+  assert.match(pageSource, /:href="`#\$\{guideSectionId\(guide\.slug, section\.title, index\)\}`"/)
   assert.match(pageSource, /class="inline-flex min-h-11/)
   assert.doesNotMatch(pageSource, /scrollbar-none mt-5 flex gap-2 overflow-x-auto/)
+})
+
+test('dining section has ordinary wording, a stable link, and a map action', () => {
+  assert.equal(studentFacingGuideSectionTitle('当前可核验的餐厅名称'), '现在可以确认的餐厅')
+  assert.equal(studentFacingGuideSectionTitle('目前能确认的餐厅名称'), '现在可以确认的餐厅')
+  assert.equal(studentFacingGuideSectionTitle('校园网'), '校园网')
+  assert.equal(guideSectionId('find-campus', '当前可核验的餐厅名称', 4), 'dining')
+  assert.equal(guideSectionId('study-library', '图书馆开放与借阅', 2), 'guide-section-2')
+  assert.deepEqual(resolveGuideSectionAction('find-campus', '当前可核验的餐厅名称'), {
+    label: '在地图查看三处餐厅',
+    to: '/map?category=food',
+    icon: 'i-lucide-map-pinned'
+  })
+  assert.equal(resolveGuideSectionAction('find-campus', '住宿与分配'), null)
+  assert.match(pageSource, /studentFacingGuideSectionTitle\(section\.title\)/)
+  assert.match(pageSource, /:id="guideSectionId\(guide\.slug, section\.title, index\)"/)
+  assert.match(pageSource, /resolveGuideSectionAction\(guide\.slug, section\.title\)/)
 })
 
 test('guide sections use a connected reading rail instead of repeated cards', () => {
