@@ -216,6 +216,7 @@ const results = computed(() => {
 })
 
 const groupedResults = computed(() => groupPublicSearchResults(results.value, activeQuery.value))
+const hasPlaceResults = computed(() => results.value.some(result => result.resultType === 'place'))
 
 const searchAnnouncement = computed(() => buildSearchAnnouncement({
   query: activeQuery.value,
@@ -367,17 +368,20 @@ watch([activeQuery, activeType], ([query, type]) => {
       </div>
 
       <div v-if="activeQuery">
-        <div class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
+        <div
+          v-if="searching || results.length"
+          class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3"
+        >
           <div>
             <p class="text-xs text-zinc-500">
               “{{ activeQuery }}”{{ listMessages.resultQuerySuffix }}
             </p>
             <h2 class="mt-1 text-lg font-bold text-zinc-950">
-              {{ resultCountLabel(results.length) }}
+              {{ searching ? listMessages.searching : resultCountLabel(results.length) }}
             </h2>
           </div>
           <UButton
-            v-if="!activeType || activeType === 'place'"
+            v-if="hasPlaceResults"
             :to="`/map?q=${encodeURIComponent(activeQuery)}`"
             icon="i-lucide-map"
             :label="listMessages.onlyMap"

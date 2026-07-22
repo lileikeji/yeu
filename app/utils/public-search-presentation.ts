@@ -120,18 +120,18 @@ export const searchNeedShortcuts = [
 
 export const searchListMessages = {
   needShortcutsTitle: '按要办的事找',
-  emptyMatchTitle: '没有找到相关内容',
-  emptyMatchHint: '可以试试正式名称、常用简称，或直接写你想办的事。',
+  emptyMatchTitle: '没找到合适的内容',
+  emptyMatchHint: '换个叫法试试，或者直接写“宿舍报修”“校园网登录”这类问题。',
   emptyErrorTitle: '暂时没能完成搜索',
   emptyErrorHint: '请稍后再试，或先从校园地图和新生指南里找找。',
-  clearSearch: '清空关键词',
+  clearSearch: '换个关键词',
   openMap: '打开校园地图',
   openGuides: '浏览指南',
   openNearby: '看看周边',
-  tellUsMissing: '告诉我们缺了什么',
+  tellUsMissing: '告诉我们还缺什么',
   retrySearch: '重新搜索',
-  onlyMap: '只看地图',
-  searching: '正在搜索',
+  onlyMap: '在地图里看',
+  searching: '正在帮你查找',
   resultHeadingPrefix: '找到',
   resultHeadingSuffix: '项',
   resultQuerySuffix: '的结果',
@@ -266,6 +266,25 @@ export function mergePublicSearchApiResponses(
 export function matchesSearchQuery(query: string, values: Array<string | null | undefined>): boolean {
   const haystack = normalizeSearchText(values.filter(Boolean).join(' '))
   return queryVariants(query).some(needle => haystack.includes(needle))
+}
+
+const requiredActionIntentRules = [
+  { queryTerms: ['报修'], resultTerms: ['报修', '维修'] },
+  { queryTerms: ['缴费'], resultTerms: ['缴费', '学费', '费用', '收费', '支付'] },
+  { queryTerms: ['补办'], resultTerms: ['补办', '挂失', '补领'] }
+] as const
+
+/** Keep action searches from matching unrelated content that only shares a broad word such as “宿舍”. */
+export function matchesRequiredSearchIntent(
+  query: string,
+  values: Array<string | null | undefined>
+): boolean {
+  const normalizedQuery = normalizeSearchText(query)
+  const normalizedResult = normalizeSearchText(values.filter(Boolean).join(' '))
+  return requiredActionIntentRules.every(rule => (
+    !rule.queryTerms.some(term => normalizedQuery.includes(normalizeSearchText(term)))
+    || rule.resultTerms.some(term => normalizedResult.includes(normalizeSearchText(term)))
+  ))
 }
 
 export function apiSearchTarget(item: ApiSearchItem): string {
@@ -435,6 +454,7 @@ export function buildPublicSearchResults(input: {
   const activeType = input.activeType
   const apiItems = (input.apiResponse?.items ?? [])
     .filter(item => !activeType || item.resultType === activeType)
+    .filter(item => matchesRequiredSearchIntent(query, [item.title, item.summary, item.category]))
   const canUseStaticFallback = !input.hasSearchError && Boolean(input.apiResponse)
   const managedKinds = input.apiResponse?.managedKinds
   const allowStaticGuides = canUseStaticFallback
@@ -471,6 +491,12 @@ export function buildPublicSearchResults(input: {
       place.referenceLabel,
       place.searchText
     ]))
+    .filter(place => matchesRequiredSearchIntent(query, [
+      place.name,
+      place.summary,
+      place.referenceLabel,
+      place.searchText
+    ]))
     .map((place): PublicSearchResult => ({
       key: `map-reference-${place.id}`,
       resultType: 'place',
@@ -490,6 +516,7 @@ export function buildPublicSearchResults(input: {
       area.description,
       area.geometrySource === 'wia-shape-batch' ? '不规则区域 边界 面积 周长' : '范围 区域'
     ]))
+    .filter(area => matchesRequiredSearchIntent(query, [area.name, area.description]))
     .map((area): PublicSearchResult => ({
       key: `map-area-${area.id}`,
       resultType: 'place',
@@ -507,6 +534,7 @@ export function buildPublicSearchResults(input: {
     : [])
     .filter(guide => !apiKeys.has(`content:guide:${guide.slug}`))
     .filter(guide => matchesSearchQuery(query, [guide.title, guide.shortTitle, guide.summary, ...guide.audience]))
+    .filter(guide => matchesRequiredSearchIntent(query, [guide.title, guide.shortTitle, guide.summary]))
     .map((guide): PublicSearchResult => ({
       key: `static-guide-${guide.slug}`,
       resultType: 'guide',
@@ -527,6 +555,7 @@ export function buildPublicSearchResults(input: {
     .map(department => ({ department, slug: department.slug }))
     .filter(({ department }) => !apiDepartmentNames.has(normalizeSearchText(department.name)))
     .filter(({ department }) => matchesSearchQuery(query, [department.name, department.summary]))
+    .filter(({ department }) => matchesRequiredSearchIntent(query, [department.name, department.summary]))
     .map(({ department, slug }): PublicSearchResult => ({
       key: slug,
       resultType: 'department',

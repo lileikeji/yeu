@@ -17,6 +17,7 @@ import {
   mapResultSummary,
   mapSourceLabel,
   mapTypeLabel,
+  matchesRequiredSearchIntent,
   matchesSearchQuery,
   normalizeSearchText,
   popularSearchSuggestions,
@@ -177,6 +178,9 @@ test('search need shortcuts stay student-facing and toggle-clearable', () => {
   assert.equal(isSearchNeedShortcutActive(searchNeedShortcuts[0]!, '校园网'), false)
   assert.equal(searchResultCountLabel(0), searchListMessages.emptyMatchTitle)
   assert.equal(searchResultCountLabel(3), '找到 3 项')
+  assert.equal(searchListMessages.emptyMatchTitle, '没找到合适的内容')
+  assert.equal(searchListMessages.clearSearch, '换个关键词')
+  assert.equal(searchListMessages.onlyMap, '在地图里看')
   assert.match(pageSource, /v-for="shortcut in needShortcuts"/)
   assert.match(pageSource, /listMessages\.needShortcutsTitle/)
   assert.match(pageSource, /selectSearchNeed/)
@@ -315,6 +319,85 @@ test('normalize and query variants handle campus name aliases', () => {
   assert.ok(queryVariants('快递点').includes('快递'))
   assert.equal(matchesSearchQuery('仰恩楼', ['仰恩教学楼东侧']), true)
   assert.equal(matchesSearchQuery('不存在', ['图书馆']), false)
+})
+
+test('action searches exclude results that only share a broad campus word', () => {
+  assert.equal(matchesRequiredSearchIntent('宿舍报修', ['宿舍维修报修流程']), true)
+  assert.equal(matchesRequiredSearchIntent('宿舍报修', ['宿舍区校园网登录说明']), false)
+  assert.equal(matchesRequiredSearchIntent('学费缴费', ['学费支付入口']), true)
+  assert.equal(matchesRequiredSearchIntent('学费缴费', ['学生费用说明']), true)
+  assert.equal(matchesRequiredSearchIntent('校园卡补办', ['校园卡挂失与补领']), true)
+  assert.equal(matchesRequiredSearchIntent('校园卡补办', ['校园卡充值地点']), false)
+  assert.equal(matchesRequiredSearchIntent('图书馆', ['图书馆开放时间']), true)
+})
+
+test('dorm repair search keeps repair results and drops unrelated dorm mentions', () => {
+  const apiResponse: ApiSearchResponse = {
+    query: '宿舍报修',
+    type: null,
+    items: [
+      {
+        entityType: 'procedure',
+        resultType: 'procedure',
+        id: 'repair',
+        slug: 'dorm-repair',
+        title: '宿舍维修报修',
+        summary: '宿舍设施损坏后的报修流程',
+        category: 'life',
+        kind: null,
+        updatedAt: '2026-07-20'
+      },
+      {
+        entityType: 'procedure',
+        resultType: 'procedure',
+        id: 'network',
+        slug: 'campus-network',
+        title: '校园网登录排查',
+        summary: '处理宿舍区网络和账号问题',
+        category: 'life',
+        kind: null,
+        updatedAt: '2026-07-20'
+      },
+      {
+        entityType: 'content',
+        resultType: 'guide',
+        id: 'safety',
+        slug: 'safety-health',
+        title: '校园安全与医疗',
+        summary: '了解宿舍消防和医务室',
+        category: 'safety',
+        kind: 'guide',
+        updatedAt: '2026-07-20'
+      },
+      {
+        entityType: 'content',
+        resultType: 'department',
+        id: 'general-affairs',
+        slug: 'general-affairs-office',
+        title: '总务处',
+        summary: '负责宿舍维修报修和生活设施',
+        category: 'department',
+        kind: 'department',
+        updatedAt: '2026-07-20'
+      }
+    ],
+    total: 4,
+    hasManagedContent: true,
+    managedKinds: ['guide', 'department']
+  }
+
+  const results = buildPublicSearchResults({
+    query: '宿舍报修',
+    activeType: undefined,
+    apiResponse,
+    hasSearchError: false,
+    mapPlaces: [],
+    mapAreas: [],
+    guides: [],
+    departments: []
+  })
+
+  assert.deepEqual(results.map(result => result.title), ['宿舍维修报修', '总务处'])
 })
 
 test('common freshman phrases expand API searches and merge results without duplicates', () => {
@@ -836,4 +919,7 @@ test('search results offer touch-friendly shortcuts to each visible group', () =
   assert.match(pageSource, /class="inline-flex min-h-11[^"]*"/)
   assert.match(pageSource, /\{\{ group\.items\.length \}\} 项/)
   assert.match(pageSource, /class="scroll-mt-20 py-5"/)
+  assert.match(pageSource, /const hasPlaceResults = computed/)
+  assert.match(pageSource, /v-if="hasPlaceResults"/)
+  assert.match(pageSource, /v-if="searching \|\| results\.length"/)
 })
