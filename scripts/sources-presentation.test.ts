@@ -15,6 +15,7 @@ import {
   sourceLevelAppearances,
   sourceLevelGuides,
   sourceLevelLabels,
+  sourceRecentUpdates,
   studentFacingSourcePublisher,
   studentFacingSourceTitle
 } from '../app/utils/sources-presentation'
@@ -80,6 +81,24 @@ test('source page offers a direct path from the introduction to source search', 
   assert.match(pageSource, /class="page-shell page-section scroll-mt-20"/)
   assert.match(pageSource, /id="source-list"[\s\S]*查看页面引用的参考链接/)
   assert.doesNotMatch(pageSource, /信息出处|查找具体出处|条出处/)
+})
+
+test('source page shows recent student-facing updates and a correction path', () => {
+  assert.equal(sourceRecentUpdates.length, 3)
+  assert.deepEqual(sourceRecentUpdates.map(item => item.to), [
+    '/guides/fees-aid',
+    '/campus#military-training',
+    '/guides'
+  ])
+  assert.ok(sourceRecentUpdates.every(item => item.date === '2026年7月23日'))
+  assert.ok(sourceRecentUpdates.every(item => item.description.length >= 20))
+  assert.doesNotMatch(sourceRecentUpdates.map(item => `${item.title}${item.description}`).join(' '), /机制|版本|数据同步|核验/)
+  assert.match(pageSource, /id="recent-updates"/)
+  assert.match(pageSource, /最近补充了这些内容/)
+  assert.match(pageSource, /v-for="item in sourceRecentUpdates"/)
+  assert.match(pageSource, /to="\/feedback\?type=correction&from=\/sources"/)
+  assert.match(pageSource, /label="发现信息有变化"/)
+  assert.match(pageSource, /class="group flex h-full min-h-40/)
 })
 
 test('source level guides use ordinary decision wording', () => {

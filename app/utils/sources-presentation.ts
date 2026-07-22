@@ -6,6 +6,42 @@ export const sourceListMessages = {
   emptyList: '目前还没有可以查看的参考页面'
 } as const
 
+export interface SourceRecentUpdate {
+  date: string
+  title: string
+  description: string
+  to: string
+  icon: string
+  tone: SourceTone
+}
+
+export const sourceRecentUpdates: SourceRecentUpdate[] = [
+  {
+    date: '2026年7月23日',
+    title: '费用与资助更清楚了',
+    description: '补充学费、住宿费、助学贷款和奖助学金入口，方便入学前一起核对。',
+    to: '/guides/fees-aid',
+    icon: 'i-lucide-hand-coins',
+    tone: 'green'
+  },
+  {
+    date: '2026年7月23日',
+    title: '军训有了单独准备区',
+    description: '整理预计时间、随身物品和请假材料；还没通知的内容也会明确写出来。',
+    to: '/campus#military-training',
+    icon: 'i-lucide-shield-check',
+    tone: 'blue'
+  },
+  {
+    date: '2026年7月23日',
+    title: '学校原文更容易找到',
+    description: '指南和办事页面会把可用的学校原文放在更靠前的位置。',
+    to: '/guides',
+    icon: 'i-lucide-external-link',
+    tone: 'amber'
+  }
+]
+
 export const sourceLevelLabels: Record<ApiSource['sourceLevel'], string> = {
   A: '学校或主管部门',
   B: '政府或公共服务',

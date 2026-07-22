@@ -13,6 +13,7 @@ import {
   sourceLevelAppearances,
   sourceLevelGuides,
   sourceLevelLabels,
+  sourceRecentUpdates,
   studentFacingSourcePublisher,
   studentFacingSourceTitle
 } from '~~/app/utils/sources-presentation'
@@ -142,6 +143,70 @@ async function refreshSources(): Promise<void> {
             查找全部参考
           </a>
         </div>
+      </div>
+    </section>
+
+    <section
+      id="recent-updates"
+      class="page-shell scroll-mt-20 py-8 md:py-10"
+    >
+      <div class="overflow-hidden rounded-xl border border-green-100 bg-gradient-to-br from-green-50 via-white to-amber-50 shadow-sm">
+        <div class="grid gap-5 border-b border-green-100 px-5 py-6 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div>
+            <p class="section-kicker">
+              最近更新
+            </p>
+            <h2 class="mt-2 text-xl font-bold text-zinc-950">
+              最近补充了这些内容
+            </h2>
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+              有新的学校通知时，我们会继续补充。下面会写清最近整理的内容和时间，方便你判断是不是最新的。
+            </p>
+          </div>
+          <UButton
+            to="/feedback?type=correction&from=/sources"
+            icon="i-lucide-message-square-warning"
+            label="发现信息有变化"
+            color="neutral"
+            variant="outline"
+            class="min-h-11 self-start md:self-auto"
+          />
+        </div>
+
+        <ul class="grid divide-y divide-green-100 md:grid-cols-3 md:divide-x md:divide-y-0">
+          <li
+            v-for="item in sourceRecentUpdates"
+            :key="item.title"
+          >
+            <NuxtLink
+              :to="item.to"
+              class="group flex h-full min-h-40 gap-4 px-5 py-5 transition-colors hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 sm:px-6"
+            >
+              <span
+                class="grid size-10 shrink-0 place-items-center rounded-lg"
+                :class="[sourceToneClasses[item.tone].soft, sourceToneClasses[item.tone].text]"
+                aria-hidden="true"
+              >
+                <UIcon
+                  :name="item.icon"
+                  class="size-5"
+                />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-xs font-semibold text-zinc-500">{{ item.date }}</span>
+                <span class="mt-1.5 block text-sm font-bold leading-6 text-zinc-950 group-hover:text-green-800">{{ item.title }}</span>
+                <span class="mt-1.5 block text-xs leading-5 text-zinc-600">{{ item.description }}</span>
+                <span class="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-green-700">
+                  去看看
+                  <UIcon
+                    name="i-lucide-arrow-right"
+                    class="size-3.5 transition-transform group-hover:translate-x-0.5"
+                  />
+                </span>
+              </span>
+            </NuxtLink>
+          </li>
+        </ul>
       </div>
     </section>
 
