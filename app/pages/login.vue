@@ -13,6 +13,7 @@ const { isAuthenticated, refreshSession, login } = useUserSession()
 const username = ref('')
 const password = ref('')
 const passwordVisible = ref(false)
+const accountHelpLink = '/feedback?type=other&from=%2Flogin'
 
 function togglePasswordVisibility(): void {
   passwordVisible.value = !passwordVisible.value
@@ -221,6 +222,21 @@ onMounted(() => {
                 />
               </template>
             </UInput>
+            <div class="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <p class="text-xs text-zinc-500">
+                请不要向任何人提供密码
+              </p>
+              <NuxtLink
+                :to="accountHelpLink"
+                class="-mr-1 inline-flex min-h-10 items-center gap-1 px-1 text-xs font-semibold text-green-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              >
+                登录有问题？告诉我们
+                <UIcon
+                  name="i-lucide-arrow-right"
+                  class="size-3.5"
+                />
+              </NuxtLink>
+            </div>
           </UFormField>
 
           <UButton

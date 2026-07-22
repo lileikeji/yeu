@@ -43,6 +43,15 @@ test('login controls keep a comfortable mobile touch height', () => {
   assert.match(loginPage, /icon="i-lucide-log-in"\s+class="min-h-11"/)
 })
 
+test('login page gives students a safe account-help path', () => {
+  assert.match(loginPage, /const accountHelpLink = '\/feedback\?type=other&from=%2Flogin'/)
+  assert.match(loginPage, /请不要向任何人提供密码/)
+  assert.match(loginPage, /登录有问题？告诉我们/)
+  assert.match(loginPage, /:to="accountHelpLink"/)
+  assert.match(loginPage, /class="-mr-1 inline-flex min-h-10 items-center/)
+  assert.doesNotMatch(loginPage, /联系管理员|提交密码|找管理员重置/)
+})
+
 test('profile page explains dorm matching without system wording', () => {
   assert.match(profilePage, /方便进入对应楼群/)
   assert.match(profilePage, /输入楼名，或从下方已有楼栋中选择/)
