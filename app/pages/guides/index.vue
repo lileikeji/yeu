@@ -124,7 +124,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
             v-model="searchQuery"
             icon="i-lucide-search"
             size="lg"
-            placeholder="搜索报到、校园网、图书馆…"
+            placeholder="搜索报到、学费、食堂…"
             aria-label="搜索新生指南"
             class="min-h-11 w-full"
             :ui="{ base: 'min-h-11' }"
@@ -168,7 +168,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
           <p class="text-xs font-semibold text-zinc-600">
             按要办的事找
           </p>
-          <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+          <div class="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8">
             <button
               v-for="shortcut in guideNeedShortcuts"
               :key="shortcut.query"

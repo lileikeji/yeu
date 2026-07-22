@@ -442,6 +442,8 @@ test('verified campus facts retain their official source and scope', () => {
 
   const campusGuide = findFreshmanGuide('find-campus')
   assert.ok(campusGuide)
+  assert.equal(campusGuide.title, '找宿舍、教学楼和食堂')
+  assert.match(campusGuide.summary, /东苑、北苑、西苑餐厅/)
 
   const campusText = campusGuide.sections
     .flatMap(section => section.items)

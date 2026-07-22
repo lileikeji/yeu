@@ -32,6 +32,8 @@ export const guideListMessages = {
 export const guideNeedShortcuts = [
   { label: '报到', query: '报到', category: 'arrival' as const },
   { label: '费用资助', query: '学费', category: 'arrival' as const },
+  { label: '找宿舍', query: '宿舍', category: 'campus' as const },
+  { label: '吃饭', query: '食堂', category: 'campus' as const },
   { label: '校园网', query: '校园网', category: 'campus' as const },
   { label: '图书馆', query: '图书馆', category: 'campus' as const },
   { label: '快递', query: '快递', category: 'life' as const },

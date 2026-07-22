@@ -43,7 +43,7 @@ test('guide list page is a thin shell over guide-list-presentation util', () => 
 
 test('guide search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /aria-label="搜索新生指南"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
-  assert.match(pageSource, /placeholder="搜索报到、校园网、图书馆…"/)
+  assert.match(pageSource, /placeholder="搜索报到、学费、食堂…"/)
   assert.doesNotMatch(pageSource, /placeholder="[^"]{18,}"/)
 })
 
@@ -68,6 +68,8 @@ test('guide need shortcuts help students start from real tasks', () => {
     [
       ['报到', '报到', 'arrival'],
       ['费用资助', '学费', 'arrival'],
+      ['找宿舍', '宿舍', 'campus'],
+      ['吃饭', '食堂', 'campus'],
       ['校园网', '校园网', 'campus'],
       ['图书馆', '图书馆', 'campus'],
       ['快递', '快递', 'life'],
@@ -75,6 +77,7 @@ test('guide need shortcuts help students start from real tasks', () => {
     ]
   )
   assert.match(pageSource, /按要办的事找/)
+  assert.match(pageSource, /grid-cols-4 gap-2 sm:grid-cols-8/)
   assert.match(pageSource, /selectGuideNeed\(shortcut\)/)
   assert.match(pageSource, /class="min-h-11 rounded-md border/)
   assert.equal(

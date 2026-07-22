@@ -650,9 +650,9 @@ export const freshmanGuides: FreshmanGuide[] = [
   },
   {
     slug: 'find-campus',
-    title: '找宿舍与教学楼',
-    shortTitle: '找宿舍 / 教学楼',
-    summary: '用校园地图搜索宿舍、教学楼和服务点；地图上的位置可先用来找方向，入口细节仍需现场确认。',
+    title: '找宿舍、教学楼和食堂',
+    shortTitle: '宿舍 / 教学楼 / 食堂',
+    summary: '用校园地图搜索宿舍、教学楼和东苑、北苑、西苑餐厅；地图上的位置可先用来找方向，入口和营业情况仍需现场确认。',
     icon: 'i-lucide-map-pinned',
     category: 'campus',
     audience: ['本科新生', '专升本新生'],
