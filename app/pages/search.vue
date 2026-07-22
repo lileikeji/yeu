@@ -20,6 +20,7 @@ import {
   routeQueryString,
   routeSearchType,
   searchListMessages,
+  searchAlternativeSuggestions,
   searchNeedShortcuts,
   searchResultActionLabel,
   searchResultCountLabel,
@@ -58,6 +59,7 @@ const listMessages = searchListMessages
 const needShortcuts = searchNeedShortcuts
 const isNeedShortcutActive = isSearchNeedShortcutActive
 const resultCountLabel = searchResultCountLabel
+const alternativeSuggestions = computed(() => searchAlternativeSuggestions(activeQuery.value))
 
 
 async function sanitizeServerSearchPayload(
@@ -254,7 +256,7 @@ watch([activeQuery, activeType], ([query, type]) => {
           找地点、办事和校园信息
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          报到流程、校园网、教学楼、部门和社团，都可以在这里查到。
+          报到流程、校园网、教学楼、部门和社团，都可以先在这里找找。
         </p>
 
         <div class="mt-6 max-w-3xl">
@@ -268,7 +270,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               icon="i-lucide-search"
               size="xl"
               class="min-w-0"
-              placeholder="搜索地点、办事或部门"
+              placeholder="搜索地点、要办的事或部门"
               aria-label="全站搜索"
             >
               <template
@@ -581,7 +583,7 @@ watch([activeQuery, activeType], ([query, type]) => {
           </div>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <UButton
-              v-for="suggestion in popularSearchSuggestions.slice(0, 3)"
+              v-for="suggestion in alternativeSuggestions"
               :key="suggestion.query"
               :icon="suggestion.icon"
               :label="suggestion.label"

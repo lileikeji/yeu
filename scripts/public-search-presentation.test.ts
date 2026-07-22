@@ -29,6 +29,7 @@ import {
   routeQueryString,
   routeSearchType,
   searchListMessages,
+  searchAlternativeSuggestions,
   searchNeedShortcuts,
   searchResultActionLabel,
   searchResultCountLabel,
@@ -153,7 +154,7 @@ test('search result cards tell students what opening each result will do', () =>
 test('search empty state offers useful student starting points', () => {
   assert.deepEqual(
     popularSearchSuggestions.map(item => item.query),
-    ['新生报到', '校园网', '宿舍', '快递', '图书馆', '医务室']
+    ['食堂', '教学楼', '图书馆', '医务室', '校门', '社团']
   )
   assert.deepEqual(
     searchStartingPoints.map(item => item.to),
@@ -163,7 +164,8 @@ test('search empty state offers useful student starting points', () => {
   assert.match(pageSource, /v-for="item in searchStartingPoints"/)
   assert.match(pageSource, /大家常找/)
   assert.match(pageSource, /校园搜索/)
-  assert.match(pageSource, /搜索地点、办事或部门/)
+  assert.match(pageSource, /搜索地点、要办的事或部门/)
+  assert.match(pageSource, /都可以先在这里找找/)
   assert.doesNotMatch(pageSource, /地图结果点开后/)
   assert.doesNotMatch(pageSource, /一处查找/)
 })
@@ -172,7 +174,11 @@ test('search need shortcuts stay student-facing and toggle-clearable', () => {
   assert.equal(searchListMessages.needShortcutsTitle, '按要办的事找')
   assert.deepEqual(
     searchNeedShortcuts.map(item => item.label),
-    ['报到', '校园网', '宿舍', '快递', '缴费', '补办']
+    ['新生报到', '连校园网', '找宿舍', '取快递', '交学费', '补办证件']
+  )
+  assert.deepEqual(
+    searchNeedShortcuts.map(item => item.query),
+    ['新生报到', '校园网', '宿舍', '快递', '缴费', '补办']
   )
   assert.equal(isSearchNeedShortcutActive(searchNeedShortcuts[0]!, '新生报到'), true)
   assert.equal(isSearchNeedShortcutActive(searchNeedShortcuts[0]!, '校园网'), false)
@@ -187,14 +193,25 @@ test('search need shortcuts stay student-facing and toggle-clearable', () => {
   assert.match(pageSource, /listMessages\.emptyMatchTitle/)
   assert.match(pageSource, /listMessages\.clearSearch/)
   assert.match(pageSource, /listMessages\.openMap/)
+  assert.deepEqual(
+    searchAlternativeSuggestions('食堂').map(item => item.query),
+    ['教学楼', '图书馆', '医务室']
+  )
+  assert.deepEqual(
+    searchAlternativeSuggestions('不存在', 2).map(item => item.query),
+    ['食堂', '教学楼']
+  )
+  assert.match(pageSource, /v-for="suggestion in alternativeSuggestions"/)
   assert.doesNotMatch(pageSource, /换个关键词再试试/)
   assert.doesNotMatch(utilSource, /加载出来/)
 })
 
 test('popular search suggestions keep a comfortable mobile touch height', () => {
-  const suggestionLoops = pageSource.match(
-    /<UButton[\s\S]*?v-for="suggestion in popularSearchSuggestions(?:\.slice\(0, 3\))?"[\s\S]*?\/>/g
-  ) ?? []
+  const suggestionLoops = [
+    ...pageSource.matchAll(
+      /<UButton[\s\S]*?v-for="suggestion in (?:popularSearchSuggestions|alternativeSuggestions)"[\s\S]*?\/>/g
+    )
+  ].map(match => match[0])
 
   assert.equal(suggestionLoops.length, 2)
   assert.ok(suggestionLoops.every(loop => /class="min-h-11"/.test(loop)))
@@ -317,7 +334,10 @@ test('normalize and query variants handle campus name aliases', () => {
   assert.ok(queryVariants('学生街').includes('新区学生街'))
   assert.ok(queryVariants('新区学生街').includes('学生街'))
   assert.ok(queryVariants('快递点').includes('快递'))
+  assert.ok(queryVariants('食堂').includes('餐厅'))
+  assert.ok(queryVariants('东苑餐厅').includes('东苑食堂'))
   assert.equal(matchesSearchQuery('仰恩楼', ['仰恩教学楼东侧']), true)
+  assert.equal(matchesSearchQuery('食堂', ['东苑餐厅']), true)
   assert.equal(matchesSearchQuery('不存在', ['图书馆']), false)
 })
 

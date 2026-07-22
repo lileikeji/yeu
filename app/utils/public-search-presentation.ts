@@ -100,22 +100,22 @@ export const searchTypeOptions = [
 ]
 
 export const popularSearchSuggestions = [
-  { label: '新生报到', query: '新生报到', icon: 'i-lucide-clipboard-check' },
-  { label: '校园网', query: '校园网', icon: 'i-lucide-wifi' },
-  { label: '宿舍', query: '宿舍', icon: 'i-lucide-bed-single' },
-  { label: '快递', query: '快递', icon: 'i-lucide-package' },
+  { label: '食堂', query: '食堂', icon: 'i-lucide-utensils' },
+  { label: '教学楼', query: '教学楼', icon: 'i-lucide-school' },
   { label: '图书馆', query: '图书馆', icon: 'i-lucide-library' },
-  { label: '医务室', query: '医务室', icon: 'i-lucide-heart-pulse' }
+  { label: '医务室', query: '医务室', icon: 'i-lucide-heart-pulse' },
+  { label: '校门', query: '校门', icon: 'i-lucide-gate' },
+  { label: '社团', query: '社团', icon: 'i-lucide-users-round' }
 ] as const
 
 /** Action shortcuts under the search box: same student tone as guides/nearby. */
 export const searchNeedShortcuts = [
-  { label: '报到', query: '新生报到', icon: 'i-lucide-clipboard-check' },
-  { label: '校园网', query: '校园网', icon: 'i-lucide-wifi' },
-  { label: '宿舍', query: '宿舍', icon: 'i-lucide-bed-single' },
-  { label: '快递', query: '快递', icon: 'i-lucide-package' },
-  { label: '缴费', query: '缴费', icon: 'i-lucide-wallet' },
-  { label: '补办', query: '补办', icon: 'i-lucide-id-card' }
+  { label: '新生报到', query: '新生报到', icon: 'i-lucide-clipboard-check' },
+  { label: '连校园网', query: '校园网', icon: 'i-lucide-wifi' },
+  { label: '找宿舍', query: '宿舍', icon: 'i-lucide-bed-single' },
+  { label: '取快递', query: '快递', icon: 'i-lucide-package' },
+  { label: '交学费', query: '缴费', icon: 'i-lucide-wallet' },
+  { label: '补办证件', query: '补办', icon: 'i-lucide-id-card' }
 ] as const
 
 export const searchListMessages = {
@@ -174,6 +174,16 @@ export function isSearchNeedShortcutActive(
   return normalizeSearchText(activeQuery) === normalizeSearchText(shortcut.query)
 }
 
+export function searchAlternativeSuggestions(
+  activeQuery: string,
+  limit = 3
+): Array<(typeof popularSearchSuggestions)[number]> {
+  const normalizedQuery = normalizeSearchText(activeQuery)
+  return popularSearchSuggestions
+    .filter(suggestion => normalizeSearchText(suggestion.query) !== normalizedQuery)
+    .slice(0, Math.max(0, limit))
+}
+
 export function searchResultCountLabel(count: number): string {
   if (count <= 0) return searchListMessages.emptyMatchTitle
   return `${searchListMessages.resultHeadingPrefix} ${count} ${searchListMessages.resultHeadingSuffix}`
@@ -216,6 +226,8 @@ export function queryVariants(value: string): string[] {
 
   const variants = new Set([normalized])
   if (normalized === '快递点') variants.add('快递')
+  if (normalized.includes('食堂')) variants.add(normalized.replace(/食堂/g, '餐厅'))
+  if (normalized.includes('餐厅')) variants.add(normalized.replace(/餐厅/g, '食堂'))
   if (normalized.includes('教学楼')) variants.add(normalized.replace(/教学楼/g, '楼'))
   if (normalized.endsWith('楼') && !normalized.endsWith('教学楼')) {
     variants.add(normalized.replace(/楼$/, '教学楼'))
