@@ -7,6 +7,7 @@ import {
 import { officialClubs, officialDepartments, officialSources } from '~~/data/seeds/public-content'
 import {
   campusFallbackMessages,
+  campusFreshmanDates,
   campusStats,
   resolveCampusFallbackMessage,
   selectFeaturedClubs,
@@ -93,7 +94,67 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             </div>
           </div>
 
-          <dl class="grid grid-cols-3 divide-x divide-zinc-200 border-y border-zinc-200 py-4">
+          <aside
+            id="freshman-dates"
+            class="overflow-hidden rounded-lg border border-green-100 bg-green-50/70"
+          >
+            <div class="flex items-start justify-between gap-4 px-4 pb-3 pt-4">
+              <div>
+                <p class="text-xs font-semibold text-green-700">
+                  2026 级开学时间
+                </p>
+                <h2 class="mt-1 text-lg font-bold text-zinc-950">
+                  先记住这四个安排
+                </h2>
+              </div>
+              <a
+                :href="safeExternalHref(officialSources.academicCalendar2026Fall.url) || undefined"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex min-h-10 shrink-0 items-center gap-1 text-xs font-semibold text-green-700 hover:underline"
+              >
+                学校校历
+                <UIcon
+                  name="i-lucide-external-link"
+                  class="size-3.5"
+                />
+              </a>
+            </div>
+            <ol class="grid grid-cols-2 border-t border-green-100 bg-white/80">
+              <li
+                v-for="item in campusFreshmanDates"
+                :key="item.title"
+                class="border-b border-r border-green-100 even:border-r-0"
+              >
+                <NuxtLink
+                  :to="item.to"
+                  class="group relative block min-h-32 p-4 transition-colors hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
+                >
+                  <UIcon
+                    :name="item.icon"
+                    class="size-4 text-green-700"
+                  />
+                  <UIcon
+                    name="i-lucide-arrow-up-right"
+                    class="absolute right-3 top-3 size-3.5 text-green-300 transition group-hover:text-green-700"
+                  />
+                  <p class="mt-3 text-xs font-semibold text-green-700">
+                    {{ item.date }}
+                  </p>
+                  <h3 class="mt-1 text-sm font-bold text-zinc-950">
+                    {{ item.title }}
+                  </h3>
+                  <p class="mt-1 text-xs leading-5 text-zinc-500">
+                    {{ item.description }}
+                  </p>
+                </NuxtLink>
+              </li>
+            </ol>
+          </aside>
+        </div>
+
+        <div class="mt-6 border-y border-zinc-200 py-4">
+          <dl class="grid grid-cols-3 divide-x divide-zinc-200">
             <div
               v-for="stat in campusStats"
               :key="stat.label"
@@ -111,10 +172,10 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               </dd>
             </div>
           </dl>
+          <p class="mt-3 text-xs leading-5 text-zinc-400">
+            校园规模会随建设和统计时间变化，具体请以学校官网最新介绍为准。
+          </p>
         </div>
-        <p class="mt-4 text-xs text-zinc-400">
-          校园规模会随建设和统计时间变化，具体请以学校官网最新介绍为准。
-        </p>
         <nav
           aria-label="校园概览快速入口"
           class="mt-6 grid grid-cols-2 gap-2 sm:flex"
@@ -242,7 +303,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               target="_blank"
               rel="noopener noreferrer"
               class="font-medium text-green-700 hover:underline"
-            >查看来源</a>
+            >查看学校原文</a>
           </div>
         </article>
       </div>

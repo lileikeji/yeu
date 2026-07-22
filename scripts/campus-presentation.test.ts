@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   campusFallbackMessages,
+  campusFreshmanDates,
   campusFeaturedDepartmentSlugs,
   campusStats,
   resolveCampusFallbackMessage,
@@ -17,6 +18,7 @@ const utilSource = readFileSync(resolve('app/utils/campus-presentation.ts'), 'ut
 test('campus page is a thin shell over campus-presentation util', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/campus-presentation['"]/)
   assert.match(pageSource, /campusStats/)
+  assert.match(pageSource, /campusFreshmanDates/)
   assert.match(pageSource, /resolveCampusFallbackMessage/)
   assert.match(pageSource, /selectFeaturedDepartments/)
   assert.match(pageSource, /selectFeaturedClubs/)
@@ -50,8 +52,31 @@ test('campus stats keep student-facing overview labels', () => {
   assert.match(campusStats[2]?.icon ?? '', /school/)
 })
 
+test('campus page surfaces the 2026 freshman dates in ordinary language', () => {
+  assert.equal(campusFreshmanDates.length, 4)
+  assert.deepEqual(
+    campusFreshmanDates.map(item => item.title),
+    ['注册报到', '入学教育', '开始上课', '军训（暂定）']
+  )
+  assert.equal(campusFreshmanDates[0]?.date, '9 月 5—6 日')
+  assert.equal(campusFreshmanDates[2]?.date, '9 月 10 日')
+  assert.equal(campusFreshmanDates[3]?.date, '12 月 13—26 日')
+  assert.match(campusFreshmanDates[3]?.description ?? '', /可能调整/)
+  assert.equal(campusFreshmanDates[0]?.to, '/procedures/arrival')
+  assert.equal(campusFreshmanDates[3]?.to, '/guides/study-library#guide-section-0')
+  assert.equal(campusFreshmanDates.every(item => item.to.startsWith('/')), true)
+  assert.doesNotMatch(campusFreshmanDates.map(item => item.description).join(' '), /核验|数据状态|发布状态|系统接口/)
+  assert.match(pageSource, /id="freshman-dates"/)
+  assert.match(pageSource, /officialSources\.academicCalendar2026Fall\.url/)
+  assert.match(pageSource, />\s*学校校历\s*<UIcon/)
+  assert.match(pageSource, /:to="item\.to"/)
+  assert.match(pageSource, /min-h-32 p-4/)
+  assert.ok(pageSource.indexOf('freshman-dates') < pageSource.indexOf('id="departments"'))
+})
+
 test('campus fallback message covers error, static, empty and ready states', () => {
   assert.equal(campusFallbackMessages.serviceUnavailable, '地图、学校官网和下方已有介绍仍然可以使用。')
+  assert.equal(campusFallbackMessages.staticDepartmentFallback, '这里先列出学校官网中的常用信息，部分联系方式还在整理。')
   assert.equal(resolveCampusFallbackMessage({
     hasError: true,
     response: { items: [] },
@@ -85,6 +110,11 @@ test('campus fallback message covers error, static, empty and ready states', () 
   assert.match(pageSource, /校园里的部分内容还没更新出来/)
   assert.match(pageSource, /label="重新试一次"/)
   assert.match(pageSource, /@click="refresh\(\)"/)
+})
+
+test('campus notice links use reader-facing labels', () => {
+  assert.match(pageSource, /查看学校原文/)
+  assert.doesNotMatch(pageSource, />查看来源</)
 })
 
 test('campus overview keeps short, useful previews and links to complete lists', () => {
