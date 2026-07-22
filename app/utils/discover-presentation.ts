@@ -7,6 +7,7 @@ export interface DiscoverLinkEntry {
 
 export interface DiscoverTaskEntry extends DiscoverLinkEntry {
   tone: string
+  when: string
 }
 
 export function buildDiscoverAccountEntries(authenticated: boolean): DiscoverLinkEntry[] {
@@ -58,63 +59,88 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
     description: '按到校前、报到当天和第一周逐项勾选，进度只保存在这台设备',
     to: '/checklist',
     icon: 'i-lucide-list-checks',
-    tone: 'bg-emerald-50 text-emerald-700'
+    tone: 'bg-emerald-50 text-emerald-700',
+    when: '现在就能准备'
   },
   {
     title: '新生报到',
     description: '查看 2026 级报到日期、要带的材料和安全提醒',
     to: '/procedures/arrival',
     icon: 'i-lucide-clipboard-check',
-    tone: 'bg-green-50 text-green-700'
+    tone: 'bg-green-50 text-green-700',
+    when: '9 月 5—6 日'
+  },
+  {
+    title: '学费与资助',
+    description: '查 2026 年学费、住宿费、助学贷款和助学金，缴费入口等学校通知',
+    to: '/guides/fees-aid',
+    icon: 'i-lucide-wallet-cards',
+    tone: 'bg-amber-50 text-amber-700',
+    when: '缴费前先核对'
   },
   {
     title: '找宿舍 / 教学楼',
     description: '搜索宿舍和教学楼；位置不确定时会提醒你到现场确认',
     to: '/guides/find-campus',
     icon: 'i-lucide-map-pinned',
-    tone: 'bg-blue-50 text-blue-700'
+    tone: 'bg-blue-50 text-blue-700',
+    when: '到校找路'
   },
   {
     title: '校园卡与网络',
     description: '查看校园网、校外访问和图书馆登录说明',
     to: '/guides/campus-card-network',
     icon: 'i-lucide-wifi',
-    tone: 'bg-cyan-50 text-cyan-700'
+    tone: 'bg-cyan-50 text-cyan-700',
+    when: '注册后再办理'
+  },
+  {
+    title: '食堂在哪里',
+    description: '先认西苑、北苑和东苑餐厅，具体开放时间与窗口到校再看',
+    to: '/guides/find-campus#guide-section-4',
+    icon: 'i-lucide-utensils',
+    tone: 'bg-orange-50 text-orange-700',
+    when: '到校就会用'
   },
   {
     title: '学习 / 图书馆',
     description: '查看开学日期、教务入口、开放时间和借阅规则',
     to: '/guides/study-library',
     icon: 'i-lucide-book-open-check',
-    tone: 'bg-indigo-50 text-indigo-700'
+    tone: 'bg-indigo-50 text-indigo-700',
+    when: '开学后常用'
   },
   {
     title: '安全 / 医疗',
     description: '保存校园 110，查看医务室和心理求助方式',
     to: '/guides/safety-health',
     icon: 'i-lucide-shield-plus',
-    tone: 'bg-red-50 text-red-700'
+    tone: 'bg-red-50 text-red-700',
+    when: '现在先保存'
   },
   {
     title: '快递 / 外卖',
     description: '查快递站、取餐点和配送范围，出发前再看营业情况',
     to: '/map?category=express',
     icon: 'i-lucide-package-open',
-    tone: 'bg-orange-50 text-orange-700'
+    tone: 'bg-orange-50 text-orange-700',
+    when: '入住后确认'
   },
   {
     title: '周边商铺',
     description: '找学校附近的餐饮、便利店、快递和生活服务',
     to: '/nearby',
     icon: 'i-lucide-store',
-    tone: 'bg-amber-50 text-amber-700'
+    tone: 'bg-amber-50 text-amber-700',
+    when: '到店前确认'
   },
   {
     title: '社团与招新',
     description: '了解社团方向和近期活动，招新时间看最新消息',
     to: '/clubs',
     icon: 'i-lucide-users-round',
-    tone: 'bg-violet-50 text-violet-700'
+    tone: 'bg-violet-50 text-violet-700',
+    when: '开学后留意'
   }
 ]
 

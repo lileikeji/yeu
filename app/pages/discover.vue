@@ -61,7 +61,7 @@ function toggleTaskPreview(): void {
               常用入口
             </p>
             <h2 class="mt-1 text-xl font-bold text-zinc-950">
-              先从这些开始
+              开学最常用的入口
             </h2>
           </div>
           <UButton
@@ -74,12 +74,12 @@ function toggleTaskPreview(): void {
           />
         </div>
 
-        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <NuxtLink
             v-for="entry in visibleTaskEntries"
             :key="entry.to"
             :to="entry.to"
-            class="surface-panel group flex min-h-32 items-start gap-3 p-4 transition hover:border-green-300 hover:shadow-sm sm:min-h-40 sm:gap-4"
+            class="surface-panel group relative flex min-h-32 flex-col items-start gap-3 p-4 transition hover:border-green-300 hover:shadow-sm sm:min-h-40 sm:flex-row sm:gap-4"
           >
             <span
               class="grid size-10 shrink-0 place-items-center rounded-md"
@@ -90,13 +90,14 @@ function toggleTaskPreview(): void {
                 class="size-5"
               />
             </span>
-            <span class="min-w-0 flex-1">
-              <span class="font-bold text-zinc-950">{{ entry.title }}</span>
-              <span class="mt-2 block text-sm leading-6 text-zinc-600">{{ entry.description }}</span>
+            <span class="min-w-0 flex-1 pr-4 sm:pr-0">
+              <span class="block text-[11px] font-medium leading-5 text-green-700">{{ entry.when }}</span>
+              <span class="mt-0.5 block text-sm font-bold leading-5 text-zinc-950 sm:text-base">{{ entry.title }}</span>
+              <span class="mt-2 hidden text-sm leading-6 text-zinc-600 sm:block">{{ entry.description }}</span>
             </span>
             <UIcon
               name="i-lucide-arrow-right"
-              class="mt-1 size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-green-700"
+              class="absolute right-3 top-4 size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-green-700 sm:static sm:mt-1"
             />
           </NuxtLink>
         </div>
@@ -106,7 +107,7 @@ function toggleTaskPreview(): void {
         >
           <UButton
             :icon="tasksExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-            :label="tasksExpanded ? '收起其他入口' : `再看 ${taskPreview.hiddenCount} 个入口`"
+            :label="tasksExpanded ? '收起其他入口' : `查看另外 ${taskPreview.hiddenCount} 项`"
             color="neutral"
             variant="soft"
             class="min-h-11"
