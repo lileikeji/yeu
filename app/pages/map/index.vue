@@ -612,7 +612,7 @@ onBeforeUnmount(() => {
         </UInput>
 
         <div
-          class="scrollbar-none mt-3 flex gap-1.5 overflow-x-auto pb-1"
+          class="mt-3 grid grid-cols-4 gap-1.5 md:flex md:overflow-x-auto md:pb-1"
           aria-label="地点分类"
         >
           <UButton
@@ -623,7 +623,7 @@ onBeforeUnmount(() => {
             :color="activeCategory === category.id ? 'primary' : 'neutral'"
             :variant="activeCategory === category.id ? 'soft' : 'ghost'"
             size="xs"
-            class="min-h-11 shrink-0"
+            class="min-h-11 min-w-0 justify-center px-1 md:shrink-0 md:px-2.5"
             :aria-pressed="activeCategory === category.id"
             @click="setCategory(category.id)"
           />

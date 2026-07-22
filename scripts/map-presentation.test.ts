@@ -113,6 +113,12 @@ test('map page is a thin shell over map-presentation util for labels and checkli
   assert.doesNotMatch(utilSource, /文字目录|官网文字索引|47 个编号/)
 })
 
+test('all map categories remain visible in a two-row mobile grid', () => {
+  assert.match(pageSource, /class="mt-3 grid grid-cols-4 gap-1\.5 md:flex md:overflow-x-auto md:pb-1"/)
+  assert.match(pageSource, /class="min-h-11 min-w-0 justify-center px-1 md:shrink-0 md:px-2\.5"/)
+  assert.equal(mapCategories.length, 8)
+})
+
 test('map data labels and fallback messages follow scope and data readiness', () => {
   assert.equal(MAP_LOAD_ERROR_MESSAGE, '可以重新试一次，也可以先查看学校平面图或地点清单。')
   assert.match(pageSource, /地图画面暂时没有显示出来/)
