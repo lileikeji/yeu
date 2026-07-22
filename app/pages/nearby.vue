@@ -7,12 +7,16 @@ import {
   buildNearbyCandidatePreview,
   filterNearbyCandidates,
   filterNearbyPlaces,
+  isNearbyNeedShortcutActive,
   nearbyCandidateCenterLabel,
   nearbyCandidateDistanceLabel,
   nearbyCandidateHint,
   nearbyCandidateMapUrl,
   nearbyCandidatePreviewLimit,
   nearbyCategoryLabels,
+  nearbyListMessages,
+  nearbyMatchCountLabel,
+  nearbyNeedShortcuts,
   selectNearbyResearchSources,
   nearbySourceContextForStudents,
   nearbySourceIsClickable,
@@ -30,6 +34,8 @@ const candidateCatalog = nearbyCandidateData as {
 const nearbyResearchSources = selectNearbyResearchSources(researchSources)
 const categoryLabels = nearbyCategoryLabels
 const usageTips = nearbyUsageTips
+const needShortcuts = nearbyNeedShortcuts
+const listMessages = nearbyListMessages
 const verificationChecklist = nearbyVerificationChecklist
 const sourceIsClickable = nearbySourceIsClickable
 const sourceContextForStudents = nearbySourceContextForStudents
@@ -37,6 +43,8 @@ const candidateMapUrl = nearbyCandidateMapUrl
 const candidateCenterLabel = nearbyCandidateCenterLabel
 const candidateDistanceLabel = nearbyCandidateDistanceLabel
 const candidateHint = nearbyCandidateHint
+const matchCountLabel = nearbyMatchCountLabel
+const isNeedShortcutActive = isNearbyNeedShortcutActive
 
 useSeoMeta({
   title: '校园周边',
@@ -79,7 +87,7 @@ function clearNearbyFilters(): void {
 
 async function selectNearbyNeed(category: string): Promise<void> {
   searchQuery.value = ''
-  activeCategory.value = category
+  activeCategory.value = activeCategory.value === category ? 'all' : category
   await nextTick()
   document.getElementById('nearby-results')?.scrollIntoView({
     behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
@@ -105,7 +113,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           <UInput
             v-model="searchQuery"
             icon="i-lucide-search"
-            placeholder="搜索商铺或服务"
+            placeholder="搜索吃饭、快递、便利店…"
             aria-label="搜索校园周边"
             size="lg"
             class="min-h-11 w-full"
@@ -133,6 +141,38 @@ async function selectNearbyNeed(category: string): Promise<void> {
         部分周边介绍暂时没显示出来，下面的地图地点仍然可以查看。
       </div>
 
+
+      <section
+        v-if="!candidateFilterActive || activeCategory !== 'all' || searchQuery.trim()"
+        class="mb-6"
+        aria-labelledby="nearby-need-shortcuts-heading"
+      >
+        <p
+          id="nearby-need-shortcuts-heading"
+          class="text-xs font-semibold text-zinc-600"
+        >
+          {{ listMessages.needShortcutsTitle }}
+        </p>
+        <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <button
+            v-for="shortcut in needShortcuts"
+            :key="shortcut.category"
+            type="button"
+            class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            :class="isNeedShortcutActive(shortcut, activeCategory)
+              ? 'border-green-600 bg-green-50 text-green-800'
+              : 'border-[var(--line)] bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50/40'"
+            :aria-pressed="isNeedShortcutActive(shortcut, activeCategory)"
+            @click="selectNearbyNeed(shortcut.category)"
+          >
+            <UIcon
+              :name="shortcut.icon"
+              class="size-4"
+            />
+            {{ shortcut.label }}
+          </button>
+        </div>
+      </section>
       <section
         v-if="filteredPlaces.length"
         aria-labelledby="nearby-published-heading"
@@ -146,7 +186,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
               id="nearby-published-heading"
               class="mt-1 text-lg font-bold text-zinc-950"
             >
-              本页整理的周边地点
+              {{ listMessages.publishedHeading }}
             </h2>
           </div>
           <div class="flex items-center gap-2">
@@ -158,7 +198,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
             <UButton
               :to="{ path: '/map', query: { scope: 'nearby' } }"
               icon="i-lucide-map"
-              label="打开周边地图"
+              :label="listMessages.openMap"
               color="neutral"
               variant="outline"
               class="min-h-11"
@@ -199,7 +239,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
               {{ place.address }}
             </p>
             <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-green-700">
-              查看详情
+              {{ listMessages.viewPlace }}
               <UIcon
                 name="i-lucide-arrow-right"
                 class="size-3.5"
@@ -228,7 +268,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           <UButton
             :to="{ path: '/map', query: { scope: 'nearby' } }"
             icon="i-lucide-map"
-            label="打开周边地图"
+            :label="listMessages.openMap"
             color="neutral"
             variant="outline"
             class="min-h-11"
@@ -270,11 +310,11 @@ async function selectNearbyNeed(category: string): Promise<void> {
         role="status"
       >
         <p class="text-sm font-medium text-green-950">
-          下方找到 {{ filteredCandidates.length }} 个相关地点
+          {{ matchCountLabel(filteredCandidates.length) }}
         </p>
         <UButton
           icon="i-lucide-x"
-          label="清除筛选"
+          :label="listMessages.clearFilters"
           color="neutral"
           variant="ghost"
           size="sm"
@@ -288,15 +328,15 @@ async function selectNearbyNeed(category: string): Promise<void> {
         role="status"
       >
         <p class="text-sm font-semibold text-amber-950">
-          没有找到相关地点
+          {{ listMessages.emptyMatchTitle }}
         </p>
         <p class="mt-1 text-xs leading-5 text-amber-900">
-          换个名称或分类试试，也可以直接打开周边地图。
+          {{ listMessages.emptyMatchHint }}
         </p>
         <div class="mt-3 flex flex-wrap gap-2">
           <UButton
             icon="i-lucide-x"
-            label="清除筛选"
+            :label="listMessages.clearFilters"
             color="neutral"
             variant="outline"
             size="sm"
@@ -305,7 +345,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           <UButton
             :to="{ path: '/map', query: { scope: 'nearby' } }"
             icon="i-lucide-map"
-            label="打开周边地图"
+            :label="listMessages.openMap"
             color="neutral"
             variant="ghost"
             size="sm"
@@ -321,7 +361,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
       >
         <div>
           <h2 class="text-lg font-bold text-zinc-950">
-            附近这些地方可以先看看
+            {{ listMessages.candidatesHeading }}
           </h2>
           <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
             <template v-if="candidateFilterActive">

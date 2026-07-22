@@ -9,6 +9,7 @@ import {
   buildNearbyCategoryOptions,
   filterNearbyCandidates,
   filterNearbyPlaces,
+  isNearbyNeedShortcutActive,
   nearbyCandidateCenterLabel,
   nearbyCandidateDistanceLabel,
   nearbyCandidateHint,
@@ -16,6 +17,9 @@ import {
   nearbyCandidatePreviewLimit,
   nearbyCategoryHints,
   nearbyCategoryLabels,
+  nearbyListMessages,
+  nearbyMatchCountLabel,
+  nearbyNeedShortcuts,
   selectNearbyResearchSources,
   nearbySourceContextForStudents,
   nearbySourceIsClickable,
@@ -41,7 +45,11 @@ test('nearby page keeps map wiring and student-facing travel copy', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/nearby-presentation['"]/)
   assert.match(pageSource, /candidateCatalog\.providerDocumentation/)
   assert.match(pageSource, /先按要做的事找/)
-  assert.match(pageSource, /附近这些地方可以先看看/)
+  assert.match(pageSource, /listMessages\.candidatesHeading|附近这些地方可以先看看/)
+  assert.match(pageSource, /listMessages\.needShortcutsTitle|按要办的事找/)
+  assert.match(pageSource, /needShortcuts/)
+  assert.match(pageSource, /isNeedShortcutActive/)
+  assert.match(pageSource, /matchCountLabel/)
   assert.match(pageSource, /出发前确认这几件事/)
   assert.match(pageSource, /出发前看营业情况/)
   assert.match(pageSource, /selectNearbyResearchSources/)
@@ -89,6 +97,10 @@ test('nearby presentation util owns pure labels, filters, and student-facing sou
   assert.match(utilSource, /export const nearbyCategoryHints/)
   assert.match(utilSource, /export const nearbyVerificationChecklist/)
   assert.match(utilSource, /export const nearbyUsageTips/)
+  assert.match(utilSource, /export const nearbyListMessages/)
+  assert.match(utilSource, /export const nearbyNeedShortcuts/)
+  assert.match(utilSource, /export function isNearbyNeedShortcutActive/)
+  assert.match(utilSource, /export function nearbyMatchCountLabel/)
   assert.match(utilSource, /export function nearbySourceContextForStudents/)
   assert.match(utilSource, /presentStudentSourceContext/)
   assert.match(utilSource, /export function filterNearbyPlaces/)
@@ -137,6 +149,22 @@ test('nearby presentation helpers rewrite source context and build map links', (
   assert.equal(nearbyCandidateHint(sample), nearbyCategoryHints[sample.category])
   assert.ok(nearbyCandidateHint(sample).length > 8)
   assert.equal(nearbyUsageTips.length, 4)
+  assert.equal(nearbyNeedShortcuts.length, 4)
+  assert.deepEqual(
+    nearbyNeedShortcuts.map(item => [item.label, item.category]),
+    [
+      ['吃饭', 'food'],
+      ['取快递', 'express'],
+      ['日用品', 'shopping'],
+      ['打印维修', 'service']
+    ]
+  )
+  assert.equal(isNearbyNeedShortcutActive(nearbyNeedShortcuts[0], 'food'), true)
+  assert.equal(isNearbyNeedShortcutActive(nearbyNeedShortcuts[0], 'all'), false)
+  assert.equal(nearbyMatchCountLabel(12), '下方找到 12 个相关地点')
+  assert.equal(nearbyListMessages.openMap, '打开周边地图')
+  assert.equal(nearbyListMessages.viewPlace, '查看地点')
+  assert.equal(nearbyListMessages.needShortcutsTitle, '按要办的事找')
   assert.ok(nearbyUsageTips.every(item => item.icon.startsWith('i-lucide-')))
   assert.deepEqual(
     nearbyUsageTips.map(item => [item.title, item.category]),

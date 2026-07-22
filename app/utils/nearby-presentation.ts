@@ -57,6 +57,27 @@ export interface NearbyCandidatePreview<T> {
 
 export const nearbyCandidatePreviewLimit = 6
 
+export const nearbyListMessages = {
+  emptyMatchTitle: '没有找到相关地点',
+  emptyMatchHint: '可以换个名字或分类，也可以直接打开周边地图看看。',
+  clearFilters: '清除筛选',
+  openMap: '打开周边地图',
+  viewPlace: '查看地点',
+  needShortcutsTitle: '按要办的事找',
+  publishedHeading: '本页整理的周边地点',
+  candidatesHeading: '附近这些地方可以先看看',
+  matchCountPrefix: '下方找到',
+  matchCountSuffix: '个相关地点'
+} as const
+
+export const nearbyNeedShortcuts = [
+  { label: '吃饭', category: 'food' as const, icon: 'i-lucide-utensils' },
+  { label: '取快递', category: 'express' as const, icon: 'i-lucide-package' },
+  { label: '日用品', category: 'shopping' as const, icon: 'i-lucide-shopping-basket' },
+  { label: '打印维修', category: 'service' as const, icon: 'i-lucide-wrench' }
+] as const
+
+
 export const nearbyCategoryLabels: Record<string, string> = {
   food: '餐饮',
   shopping: '购物 / 便利',
@@ -78,7 +99,7 @@ export const nearbyCategoryHints: Record<NearbyCandidateCategory, string> = {
 }
 
 export const nearbyVerificationChecklist = [
-  '先看地图是否仍显示营业，再确认路线有没有到门口',
+  '出发前先看地图是否还显示营业，并确认路线能不能到门口',
   '吃饭和购物先看近期评价，但不要只按评分决定',
   '快递取件以短信里的站点和取件码为准',
   '维修、电信等服务先问价格，需要证件时只交给正规工作人员'
@@ -90,6 +111,19 @@ export const nearbyUsageTips = [
   { title: '买日用品', text: '开学季库存变化快，急需物品可以先电话询问。', icon: 'i-lucide-shopping-basket', category: 'shopping' },
   { title: '维修和电信', text: '先问清服务项目、价格和是否需要证件。', icon: 'i-lucide-wrench', category: 'service' }
 ] as const
+
+export function isNearbyNeedShortcutActive(
+  shortcut: { category: string },
+  activeCategory: string
+): boolean {
+  return activeCategory === shortcut.category
+}
+
+export function nearbyMatchCountLabel(count: number): string {
+  const value = Math.max(0, Math.round(Number(count) || 0))
+  return nearbyListMessages.matchCountPrefix + ' ' + value + ' ' + nearbyListMessages.matchCountSuffix
+}
+
 
 export function nearbySourceIsClickable(source: { status?: string }): boolean {
   return source.status !== 'unavailable' && source.status !== 'disputed'
