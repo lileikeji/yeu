@@ -8,6 +8,7 @@ import { officialClubs, officialDepartments, officialSources } from '~~/data/see
 import {
   campusFallbackMessages,
   campusFreshmanDates,
+  campusMilitaryPreparation,
   campusStats,
   resolveCampusFallbackMessage,
   selectFeaturedClubs,
@@ -201,6 +202,94 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             />
           </a>
         </nav>
+      </div>
+    </section>
+
+    <section
+      id="military-training"
+      class="page-shell scroll-mt-20 pt-8"
+    >
+      <div class="overflow-hidden rounded-xl border border-lime-200 bg-gradient-to-br from-lime-50 via-white to-emerald-50 shadow-sm">
+        <div class="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_15rem] md:p-7">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <UBadge
+                :label="campusMilitaryPreparation.badge"
+                color="warning"
+                variant="soft"
+              />
+              <span class="text-sm font-bold text-lime-800">{{ campusMilitaryPreparation.date }}</span>
+            </div>
+            <h2 class="mt-3 text-xl font-bold text-zinc-950 md:text-2xl">
+              {{ campusMilitaryPreparation.title }}
+            </h2>
+            <p class="mt-2 max-w-3xl text-sm leading-7 text-zinc-600">
+              {{ campusMilitaryPreparation.description }}
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-2 self-start md:justify-end">
+            <UButton
+              :to="safeExternalHref(officialSources.academicCalendar2026Fall.url) || undefined"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-calendar-days"
+              label="查看学校校历"
+              color="neutral"
+              variant="outline"
+              class="min-h-11"
+            />
+            <UButton
+              to="/departments/military-theory-department"
+              icon="i-lucide-landmark"
+              label="查看武装部"
+              color="neutral"
+              variant="ghost"
+              class="min-h-11"
+            />
+          </div>
+        </div>
+
+        <div class="grid border-t border-lime-100 bg-white/70 sm:grid-cols-2">
+          <article
+            v-for="(item, index) in campusMilitaryPreparation.items"
+            :key="item.title"
+            class="border-lime-100 p-5 sm:min-h-40 sm:border-r sm:even:border-r-0"
+            :class="[
+              index < 3 ? 'border-b' : '',
+              index < 2 ? 'sm:border-b' : 'sm:border-b-0'
+            ]"
+          >
+            <span class="grid size-9 place-items-center rounded-lg bg-lime-100 text-lime-800">
+              <UIcon
+                :name="item.icon"
+                class="size-4"
+              />
+            </span>
+            <h3 class="mt-3 text-sm font-bold text-zinc-950">
+              {{ item.title }}
+            </h3>
+            <p class="mt-1.5 text-sm leading-6 text-zinc-600">
+              {{ item.description }}
+            </p>
+          </article>
+        </div>
+
+        <div class="flex flex-col gap-2 border-t border-lime-100 px-5 py-4 text-xs leading-5 text-zinc-600 sm:flex-row sm:items-center sm:justify-between md:px-7">
+          <p>想了解往年形式可以参考学校报道，但不要把往年安排当成今年通知。</p>
+          <a
+            :href="safeExternalHref(officialSources.militaryTrainingReport2025.url) || undefined"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex min-h-10 shrink-0 items-center gap-1 font-semibold text-green-700 hover:underline"
+          >
+            看2025年学校报道
+            <UIcon
+              name="i-lucide-external-link"
+              class="size-3.5"
+            />
+          </a>
+        </div>
       </div>
     </section>
 

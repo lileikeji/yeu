@@ -6,6 +6,7 @@ import {
   campusFallbackMessages,
   campusFreshmanDates,
   campusFeaturedDepartmentSlugs,
+  campusMilitaryPreparation,
   campusStats,
   resolveCampusFallbackMessage,
   selectFeaturedClubs,
@@ -63,7 +64,7 @@ test('campus page surfaces the 2026 freshman dates in ordinary language', () => 
   assert.equal(campusFreshmanDates[3]?.date, '12 月 13—26 日')
   assert.match(campusFreshmanDates[3]?.description ?? '', /可能调整/)
   assert.equal(campusFreshmanDates[0]?.to, '/procedures/arrival')
-  assert.equal(campusFreshmanDates[3]?.to, '/guides/study-library#guide-section-0')
+  assert.equal(campusFreshmanDates[3]?.to, '/campus#military-training')
   assert.equal(campusFreshmanDates.every(item => item.to.startsWith('/')), true)
   assert.doesNotMatch(campusFreshmanDates.map(item => item.description).join(' '), /核验|数据状态|发布状态|系统接口/)
   assert.match(pageSource, /id="freshman-dates"/)
@@ -72,6 +73,25 @@ test('campus page surfaces the 2026 freshman dates in ordinary language', () => 
   assert.match(pageSource, /:to="item\.to"/)
   assert.match(pageSource, /min-h-32 p-4/)
   assert.ok(pageSource.indexOf('freshman-dates') < pageSource.indexOf('id="departments"'))
+})
+
+test('campus page gives 2026 freshmen a cautious military training preparation section', () => {
+  assert.equal(campusMilitaryPreparation.date, '12 月 13—26 日')
+  assert.equal(campusMilitaryPreparation.items.length, 4)
+  assert.match(campusMilitaryPreparation.description, /具体地点.*服装装备.*请假要求还要等当届通知/)
+  assert.match(campusMilitaryPreparation.items[1]?.description ?? '', /不要按往年帖子购买/)
+  assert.match(campusMilitaryPreparation.items[2]?.description ?? '', /以学校当届通知为准/)
+  assert.match(campusMilitaryPreparation.items[3]?.description ?? '', /不能据此推定2026级/)
+  assert.doesNotMatch(
+    JSON.stringify(campusMilitaryPreparation),
+    /核验|数据状态|发布状态|系统接口/
+  )
+  assert.match(pageSource, /id="military-training"/)
+  assert.match(pageSource, /officialSources\.academicCalendar2026Fall\.url/)
+  assert.match(pageSource, /officialSources\.militaryTrainingReport2025\.url/)
+  assert.match(pageSource, /label="查看学校校历"/)
+  assert.match(pageSource, /label="查看武装部"/)
+  assert.match(pageSource, />\s*看2025年学校报道/)
 })
 
 test('campus fallback message covers error, static, empty and ready states', () => {

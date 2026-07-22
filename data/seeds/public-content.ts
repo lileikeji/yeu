@@ -115,6 +115,13 @@ export const officialSources = {
     url: 'https://bgs.yeu.edu.cn/2026/0710/c1102a57503/page.htm',
     accessedAt
   },
+  militaryTrainingReport2025: {
+    title: '我校2025级新生圆满完成35公里长途拉练',
+    publisher: '仰恩大学',
+    url: 'https://www.yeu.edu.cn/2025/0921/c1351a51605/page.psp',
+    accessedAt: '2026-07-23',
+    context: '只用于了解2025级军训曾有长途拉练，不代表2026级训练天数、科目、路线或里程。'
+  },
   teachingOffice: {
     title: '仰恩大学教务部',
     publisher: '仰恩大学教务部',

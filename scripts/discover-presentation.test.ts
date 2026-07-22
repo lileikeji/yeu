@@ -37,13 +37,17 @@ test('discover catalogs stay student-facing', () => {
   assert.equal(discoverTaskEntries[0]?.to, '/checklist')
   assert.equal(discoverTaskEntries[2]?.title, '学费与资助')
   assert.equal(discoverTaskEntries[2]?.to, '/guides/fees-aid')
+  assert.equal(
+    discoverTaskEntries.find(item => item.title === '军训安排（暂定）')?.to,
+    '/campus#military-training'
+  )
   assert.equal(discoverTaskEntries[5]?.title, '食堂在哪里')
   assert.equal(discoverTaskEntries[5]?.to, '/map?category=food')
   assert.match(discoverTaskEntries[5]?.description ?? '', /东苑、北苑和西苑餐厅/)
   assert.ok(discoverTaskEntries.some(item => (
     item.title === '军训安排（暂定）'
     && item.when === '12 月 13—26 日'
-    && item.to === '/campus#freshman-dates'
+    && item.to === '/campus#military-training'
     && /地点、服装和请假要求/.test(item.description)
   )))
   assert.ok(discoverTaskEntries.some(item => item.title === '周边商铺' && item.to === '/nearby'))

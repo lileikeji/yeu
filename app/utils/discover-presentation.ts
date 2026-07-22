@@ -113,7 +113,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
   {
     title: '军训安排（暂定）',
     description: '校历暂定 12 月 13—26 日；地点、服装和请假要求等学校后续通知',
-    to: '/campus#freshman-dates',
+    to: '/campus#military-training',
     icon: 'i-lucide-shield',
     tone: 'bg-lime-50 text-lime-700',
     when: '12 月 13—26 日'
