@@ -43,6 +43,52 @@ export interface HomeMoreEntry {
   tone: string
 }
 
+export interface HomeTrustLink {
+  label: string
+  to: string
+  icon: string
+  external: boolean
+}
+
+export const homeTrustNotice = {
+  badge: '学生整理 · 非学校官网',
+  title: '重要事项，再到学校原文确认一次',
+  description: '本站把分散的新生信息整理到一起，方便你先找到方向。报到、缴费、住宿和资助等要求，最终以录取通知书和学校最新通知为准。',
+  checkedText: '学校、招生和学生资助入口最近查看：2026年7月23日',
+  links: [
+    {
+      label: '学校官网',
+      to: 'https://www.yeu.edu.cn/',
+      icon: 'i-lucide-school',
+      external: true
+    },
+    {
+      label: '招生官网',
+      to: 'https://zhaosheng.yeu.edu.cn/',
+      icon: 'i-lucide-graduation-cap',
+      external: true
+    },
+    {
+      label: '学生资助',
+      to: 'https://xsb.yeu.edu.cn/xszz/list.htm',
+      icon: 'i-lucide-hand-heart',
+      external: true
+    },
+    {
+      label: '看信息从哪来',
+      to: '/sources',
+      icon: 'i-lucide-book-open-check',
+      external: false
+    },
+    {
+      label: '反馈纠错',
+      to: '/feedback',
+      icon: 'i-lucide-message-square-warning',
+      external: false
+    }
+  ] satisfies HomeTrustLink[]
+} as const
+
 export const homeProcedureMethodLabels: Record<ApiProcedure['method'], string> = {
   online: '线上办理',
   offline: '到校办理',

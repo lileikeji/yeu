@@ -11,6 +11,7 @@ import {
   getHomeFallbackMessage,
   homeMoreEntries,
   homeProcedureMethodLabels,
+  homeTrustNotice,
   homeTimelineStages,
   toHomeProcedureItem
 } from '../app/utils/home-presentation'
@@ -108,6 +109,30 @@ test('home essential actions and timeline keep freshman-first copy', () => {
   assert.match(pageSource, /第一次来仰恩，<span class="block sm:inline">从这里开始<\/span>/)
   assert.match(pageSource, /placeholder="搜宿舍、教学楼或快递"/)
   assert.doesNotMatch(pageSource, /先从这里开始|快递或商铺/)
+})
+
+test('home puts its student-run status, official entry points and correction path up front', () => {
+  assert.equal(homeTrustNotice.badge, '学生整理 · 非学校官网')
+  assert.match(homeTrustNotice.description, /最终以录取通知书和学校最新通知为准/)
+  assert.match(homeTrustNotice.checkedText, /2026年7月23日/)
+  assert.deepEqual(
+    homeTrustNotice.links.map(link => link.label),
+    ['学校官网', '招生官网', '学生资助', '看信息从哪来', '反馈纠错']
+  )
+  assert.deepEqual(
+    homeTrustNotice.links.filter(link => link.external).map(link => link.to),
+    [
+      'https://www.yeu.edu.cn/',
+      'https://zhaosheng.yeu.edu.cn/',
+      'https://xsb.yeu.edu.cn/xszz/list.htm'
+    ]
+  )
+  assert.equal(homeTrustNotice.links.find(link => link.label === '看信息从哪来')?.to, '/sources')
+  assert.equal(homeTrustNotice.links.find(link => link.label === '反馈纠错')?.to, '/feedback')
+  assert.match(pageSource, /trustNotice\.badge/)
+  assert.match(pageSource, /v-for="link in trustNotice\.links"/)
+  assert.match(pageSource, /:target="link\.external \? '_blank' : undefined"/)
+  assert.doesNotMatch(JSON.stringify(homeTrustNotice), /来源库|核验|治理/)
 })
 
 test('home featured procedures put broadly useful freshman tasks before audience-specific items', () => {

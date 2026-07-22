@@ -11,6 +11,7 @@ import {
   computeHomeCardTilt,
   getHomeFallbackMessage,
   homeMoreEntries,
+  homeTrustNotice,
   homeTimelineStages
 } from '~~/app/utils/home-presentation'
 import { buildHomeArrivalSummary } from '~~/app/utils/arrival-timeline-presentation'
@@ -82,6 +83,7 @@ const guides = computed(() => mergePublicGuides(
 const essentialActions = computed(() => buildHomeEssentialActions(guides.value))
 const timelineStages = homeTimelineStages
 const moreEntries = homeMoreEntries
+const trustNotice = homeTrustNotice
 const fallbackMessage = computed(() => getHomeFallbackMessage(
   Boolean(publicContentError.value),
   Boolean(publicProcedureError.value)
@@ -179,6 +181,46 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
               />
             </span>
           </NuxtLink>
+        </div>
+
+        <div class="page-shell pb-5 md:pb-7">
+          <aside class="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-emerald-50 p-4 shadow-sm md:p-5">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div class="min-w-0 max-w-3xl">
+                <div class="flex flex-wrap items-center gap-2">
+                  <UBadge
+                    :label="trustNotice.badge"
+                    color="warning"
+                    variant="soft"
+                  />
+                  <span class="text-xs text-zinc-500">{{ trustNotice.checkedText }}</span>
+                </div>
+                <h2 class="mt-3 text-base font-bold text-zinc-950">
+                  {{ trustNotice.title }}
+                </h2>
+                <p class="mt-1.5 text-sm leading-6 text-zinc-600">
+                  {{ trustNotice.description }}
+                </p>
+              </div>
+
+              <div class="flex shrink-0 flex-wrap gap-2 lg:max-w-sm lg:justify-end">
+                <UButton
+                  v-for="link in trustNotice.links"
+                  :key="link.to"
+                  :to="link.to"
+                  :external="link.external"
+                  :target="link.external ? '_blank' : undefined"
+                  :rel="link.external ? 'noopener noreferrer' : undefined"
+                  :icon="link.icon"
+                  :label="link.label"
+                  color="neutral"
+                  :variant="link.external ? 'outline' : 'ghost'"
+                  size="sm"
+                  class="min-h-11"
+                />
+              </div>
+            </div>
+          </aside>
         </div>
       </section>
 
