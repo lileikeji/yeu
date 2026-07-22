@@ -108,6 +108,38 @@ export const popularSearchSuggestions = [
   { label: '医务室', query: '医务室', icon: 'i-lucide-heart-pulse' }
 ] as const
 
+/** Action shortcuts under the search box: same student tone as guides/nearby. */
+export const searchNeedShortcuts = [
+  { label: '报到', query: '新生报到', icon: 'i-lucide-clipboard-check' },
+  { label: '校园网', query: '校园网', icon: 'i-lucide-wifi' },
+  { label: '宿舍', query: '宿舍', icon: 'i-lucide-bed-single' },
+  { label: '快递', query: '快递', icon: 'i-lucide-package' },
+  { label: '缴费', query: '缴费', icon: 'i-lucide-wallet' },
+  { label: '补办', query: '补办', icon: 'i-lucide-id-card' }
+] as const
+
+export const searchListMessages = {
+  needShortcutsTitle: '按要办的事找',
+  emptyMatchTitle: '没有找到相关内容',
+  emptyMatchHint: '可以试试正式名称、常用简称，或直接写你想办的事。',
+  emptyErrorTitle: '暂时没能完成搜索',
+  emptyErrorHint: '请稍后再试，或先从校园地图和新生指南里找找。',
+  clearSearch: '清空关键词',
+  openMap: '打开校园地图',
+  openGuides: '浏览指南',
+  openNearby: '看看周边',
+  tellUsMissing: '告诉我们缺了什么',
+  retrySearch: '重新搜索',
+  onlyMap: '只看地图',
+  searching: '正在搜索',
+  resultHeadingPrefix: '找到',
+  resultHeadingSuffix: '项',
+  resultQuerySuffix: '的结果',
+  jumpToGroups: '快速跳到',
+  resultCountPrefix: '下方找到',
+  resultCountSuffix: '项相关内容'
+} as const
+
 export const searchStartingPoints = [
   {
     title: '找校内位置',
@@ -134,6 +166,22 @@ export const searchStartingPoints = [
     icon: 'i-lucide-store'
   }
 ] as const
+
+export function isSearchNeedShortcutActive(
+  shortcut: { query: string },
+  activeQuery: string
+): boolean {
+  return normalizeSearchText(activeQuery) === normalizeSearchText(shortcut.query)
+}
+
+export function searchResultCountLabel(count: number): string {
+  if (count <= 0) return searchListMessages.emptyMatchTitle
+  return `${searchListMessages.resultHeadingPrefix} ${count} ${searchListMessages.resultHeadingSuffix}`
+}
+
+export function searchMatchCountLabel(count: number): string {
+  return `${searchListMessages.resultCountPrefix} ${count} ${searchListMessages.resultCountSuffix}`
+}
 
 export function routeQueryString(value: unknown): string {
   if (typeof value === 'string') return value
@@ -508,7 +556,7 @@ export function buildSearchAnnouncement(input: {
   resultCount: number
   groupCount: number
 }): string {
-  if (!input.query) return '输入关键词后，就能查找地点、办事、部门和社团。'
+  if (!input.query) return '输入关键词，或点下方要办的事，就能查找地点、办事和校园信息。'
   if (input.searching) return `正在查找“${input.query}”……`
   if (input.searchError) {
     return input.resultCount > 0

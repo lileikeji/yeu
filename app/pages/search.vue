@@ -11,6 +11,7 @@ import {
   buildSearchAnnouncement,
   buildSearchErrorMessage,
   groupPublicSearchResults,
+  isSearchNeedShortcutActive,
   mergePublicSearchApiResponses,
   popularSearchSuggestions,
   publicSearchApiQueries,
@@ -18,6 +19,9 @@ import {
   resolveSearchNavigationStaleCorrection,
   routeQueryString,
   routeSearchType,
+  searchListMessages,
+  searchNeedShortcuts,
+  searchResultCountLabel,
   searchRouteQuery,
   searchStartingPoints,
   shouldSkipSearchNavigation,
@@ -26,7 +30,7 @@ import {
 
 useSeoMeta({
   title: '校园搜索',
-  description: '搜索仰恩大学新生指南中的地点、指南、部门、社团和公告。',
+  description: '按地点、办事和校园信息搜索仰恩大学新生指南。',
   robots: 'noindex, follow'
 })
 
@@ -49,6 +53,11 @@ let latestSubmittedQuery = activeQuery.value
 let latestSubmittedType = activeType.value
 let pendingSearchNavigations = 0
 const requestFetch = useRequestFetch()
+const listMessages = searchListMessages
+const needShortcuts = searchNeedShortcuts
+const isNeedShortcutActive = isSearchNeedShortcutActive
+const resultCountLabel = searchResultCountLabel
+
 
 async function sanitizeServerSearchPayload(
   searchResponse: ApiSearchResponse
@@ -180,6 +189,16 @@ function startSuggestedSearch(query: string): void {
   void navigateSearch(query)
 }
 
+function selectSearchNeed(query: string): void {
+  if (isNeedShortcutActive({ query }, activeQuery.value)) {
+    searchInput.value = ''
+    void navigateSearch('')
+    return
+  }
+  searchInput.value = query
+  void navigateSearch(query)
+}
+
 const results = computed(() => {
   if (!activeQuery.value) return []
 
@@ -294,6 +313,32 @@ watch([activeQuery, activeType], ([query, type]) => {
               aria-label="筛选搜索结果"
             />
           </div>
+
+          <div class="mt-4">
+            <p class="text-xs font-semibold text-zinc-600">
+              {{ listMessages.needShortcutsTitle }}
+            </p>
+            <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+              <button
+                v-for="shortcut in needShortcuts"
+                :key="shortcut.query"
+                type="button"
+                class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                :class="isNeedShortcutActive(shortcut, activeQuery)
+                  ? 'border-green-700 bg-green-700 text-white'
+                  : 'border-zinc-200 bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50'"
+                :aria-label="`按${shortcut.label}搜索`"
+                :aria-pressed="isNeedShortcutActive(shortcut, activeQuery)"
+                @click="selectSearchNeed(shortcut.query)"
+              >
+                <UIcon
+                  :name="shortcut.icon"
+                  class="size-3.5"
+                />
+                {{ shortcut.label }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -324,17 +369,17 @@ watch([activeQuery, activeType], ([query, type]) => {
         <div class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
           <div>
             <p class="text-xs text-zinc-500">
-              “{{ activeQuery }}”的结果
+              “{{ activeQuery }}”{{ listMessages.resultQuerySuffix }}
             </p>
             <h2 class="mt-1 text-lg font-bold text-zinc-950">
-              {{ results.length > 0 ? `找到 ${results.length} 项` : '没有找到相关内容' }}
+              {{ resultCountLabel(results.length) }}
             </h2>
           </div>
           <UButton
             v-if="!activeType || activeType === 'place'"
             :to="`/map?q=${encodeURIComponent(activeQuery)}`"
             icon="i-lucide-map"
-            label="只看地图"
+            :label="listMessages.onlyMap"
             color="neutral"
             variant="outline"
             class="min-h-11"
@@ -347,7 +392,7 @@ watch([activeQuery, activeType], ([query, type]) => {
           aria-label="快速跳到结果分类"
         >
           <p class="text-xs font-semibold text-green-900">
-            快速跳到
+            {{ listMessages.jumpToGroups }}
           </p>
           <div class="mt-2 flex flex-wrap gap-2">
             <a
@@ -438,7 +483,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               class="mx-auto size-6 animate-spin text-green-700"
             />
             <p class="mt-3 text-sm font-medium text-zinc-600">
-              正在搜索
+              {{ listMessages.searching }}
             </p>
           </div>
         </div>
@@ -453,19 +498,29 @@ watch([activeQuery, activeType], ([query, type]) => {
               class="mx-auto size-7 text-orange-600"
             />
             <p class="mt-3 text-sm font-semibold text-zinc-800">
-              暂时没能完成搜索
+              {{ listMessages.emptyErrorTitle }}
             </p>
             <p class="mt-1 text-xs leading-5 text-zinc-500">
-              请稍后再试，或先从校园地图和新生指南里找找。
+              {{ listMessages.emptyErrorHint }}
             </p>
-            <UButton
-              class="mt-4 min-h-11"
-              icon="i-lucide-refresh-cw"
-              label="重新搜索"
-              color="neutral"
-              variant="outline"
-              @click="retrySearch"
-            />
+            <div class="mt-4 flex flex-wrap justify-center gap-2">
+              <UButton
+                class="min-h-11"
+                icon="i-lucide-refresh-cw"
+                :label="listMessages.retrySearch"
+                color="neutral"
+                variant="outline"
+                @click="retrySearch"
+              />
+              <UButton
+                to="/map"
+                class="min-h-11"
+                icon="i-lucide-map"
+                :label="listMessages.openMap"
+                color="neutral"
+                variant="ghost"
+              />
+            </div>
           </div>
         </div>
 
@@ -478,22 +533,37 @@ watch([activeQuery, activeType], ([query, type]) => {
             class="mx-auto size-7 text-zinc-400"
           />
           <p class="mt-3 text-sm font-semibold text-zinc-800">
-            换个关键词再试试
+            {{ listMessages.emptyMatchTitle }}
           </p>
           <p class="mt-1 text-xs leading-5 text-zinc-500">
-            可以试试正式名称、常用简称，或直接写你想办的事。
+            {{ listMessages.emptyMatchHint }}
           </p>
-          <div class="mt-4 flex justify-center gap-2">
+          <div class="mt-4 flex flex-wrap justify-center gap-2">
             <UButton
-              to="/guides"
-              label="浏览指南"
+              class="min-h-11"
+              icon="i-lucide-eraser"
+              :label="listMessages.clearSearch"
+              color="neutral"
+              variant="outline"
+              @click="clearSearch"
+            />
+            <UButton
+              to="/map"
+              :label="listMessages.openMap"
               color="neutral"
               variant="outline"
               class="min-h-11"
             />
             <UButton
+              to="/guides"
+              :label="listMessages.openGuides"
+              color="neutral"
+              variant="ghost"
+              class="min-h-11"
+            />
+            <UButton
               to="/feedback"
-              label="告诉我们缺了什么"
+              :label="listMessages.tellUsMissing"
               color="neutral"
               variant="ghost"
               class="min-h-11"

@@ -11,6 +11,7 @@ import {
   buildSearchAnnouncement,
   buildSearchErrorMessage,
   groupPublicSearchResults,
+  isSearchNeedShortcutActive,
   mergePublicSearchApiResponses,
   mapAreaSummary,
   mapResultSummary,
@@ -26,6 +27,9 @@ import {
   routeMatchesSearchState,
   routeQueryString,
   routeSearchType,
+  searchListMessages,
+  searchNeedShortcuts,
+  searchResultCountLabel,
   searchRouteQuery,
   searchStartingPoints,
   searchTypeOptions,
@@ -148,6 +152,26 @@ test('search empty state offers useful student starting points', () => {
   assert.match(pageSource, /搜索地点、办事或部门/)
   assert.doesNotMatch(pageSource, /地图结果点开后/)
   assert.doesNotMatch(pageSource, /一处查找/)
+})
+
+test('search need shortcuts stay student-facing and toggle-clearable', () => {
+  assert.equal(searchListMessages.needShortcutsTitle, '按要办的事找')
+  assert.deepEqual(
+    searchNeedShortcuts.map(item => item.label),
+    ['报到', '校园网', '宿舍', '快递', '缴费', '补办']
+  )
+  assert.equal(isSearchNeedShortcutActive(searchNeedShortcuts[0]!, '新生报到'), true)
+  assert.equal(isSearchNeedShortcutActive(searchNeedShortcuts[0]!, '校园网'), false)
+  assert.equal(searchResultCountLabel(0), searchListMessages.emptyMatchTitle)
+  assert.equal(searchResultCountLabel(3), '找到 3 项')
+  assert.match(pageSource, /v-for="shortcut in needShortcuts"/)
+  assert.match(pageSource, /listMessages\.needShortcutsTitle/)
+  assert.match(pageSource, /selectSearchNeed/)
+  assert.match(pageSource, /listMessages\.emptyMatchTitle/)
+  assert.match(pageSource, /listMessages\.clearSearch/)
+  assert.match(pageSource, /listMessages\.openMap/)
+  assert.doesNotMatch(pageSource, /换个关键词再试试/)
+  assert.doesNotMatch(utilSource, /加载出来/)
 })
 
 test('popular search suggestions keep a comfortable mobile touch height', () => {
@@ -685,7 +709,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
     searchError: '',
     resultCount: 0,
     groupCount: 0
-  }), '输入关键词后，就能查找地点、办事、部门和社团。')
+  }), '输入关键词，或点下方要办的事，就能查找地点、办事和校园信息。')
   assert.equal(buildSearchAnnouncement({
     query: '图书馆',
     searching: true,
