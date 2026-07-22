@@ -7,6 +7,7 @@ import {
   guideStatePresentation,
   guideFallbackMessages,
   resolveGuideFallbackMessage,
+  resolveGuideOfficialSource,
   resolveGuideRelatedAction,
   studentFacingGuideStatusText
 } from '../app/utils/guide-detail-presentation'
@@ -17,6 +18,7 @@ const utilSource = readFileSync(resolve('app/utils/guide-detail-presentation.ts'
 test('guide detail page is a thin shell over guide-detail-presentation util', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/guide-detail-presentation['"]/)
   assert.match(pageSource, /resolveGuideFallbackMessage/)
+  assert.match(pageSource, /resolveGuideOfficialSource/)
   assert.match(pageSource, /resolveGuideRelatedAction/)
   assert.match(pageSource, /buildGuideDetailSources/)
   assert.match(pageSource, /publicResponseErrorCode/)
@@ -27,6 +29,7 @@ test('guide detail page is a thin shell over guide-detail-presentation util', ()
   assert.doesNotMatch(pageSource, /当前显示已整理的新生指南/)
   assert.doesNotMatch(pageSource, /打开可勾选报到流程/)
   assert.match(utilSource, /export function resolveGuideFallbackMessage/)
+  assert.match(utilSource, /export function resolveGuideOfficialSource/)
   assert.match(utilSource, /export function resolveGuideRelatedAction/)
   assert.match(utilSource, /export function buildGuideDetailSources/)
 })
@@ -88,6 +91,43 @@ test('guide related actions map known slugs and fall back to the guides index', 
     to: '/guides',
     icon: 'i-lucide-layout-grid'
   })
+})
+
+test('guide header exposes the first available school source without treating other sites as official', () => {
+  const sources = [
+    {
+      key: 'other',
+      title: '公共服务说明',
+      url: 'https://example.test/notice',
+      meta: '公共服务',
+      note: undefined,
+      unavailable: false
+    },
+    {
+      key: 'school-old',
+      title: '学校旧页面',
+      url: 'https://www.yeu.edu.cn/old',
+      meta: '仰恩大学',
+      note: undefined,
+      unavailable: true
+    },
+    {
+      key: 'school',
+      title: '学校最新通知',
+      url: 'https://zhaosheng.yeu.edu.cn/notice',
+      meta: '仰恩大学招生办公室',
+      note: undefined,
+      unavailable: false
+    }
+  ]
+
+  assert.equal(resolveGuideOfficialSource(sources)?.key, 'school')
+  assert.equal(resolveGuideOfficialSource([sources[0]!] as typeof sources), null)
+  assert.equal(resolveGuideOfficialSource(undefined), null)
+  assert.match(pageSource, /v-if="officialSourceHref"/)
+  assert.match(pageSource, /label="查看学校原文"/)
+  assert.match(pageSource, /target="_blank"/)
+  assert.match(pageSource, /rel="noopener noreferrer"/)
 })
 
 test('guide fallback message and detail source mapping stay student-facing', () => {

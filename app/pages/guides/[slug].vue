@@ -6,10 +6,12 @@ import {
   throwPublicDetailError
 } from '~/utils/public-errors'
 import { resolvePublicGuide } from '~/utils/public-catalog'
+import { safeExternalHref } from '~/utils/safe-external-href'
 import {
   buildGuideDetailSources,
   guideStatePresentation,
   resolveGuideFallbackMessage,
+  resolveGuideOfficialSource,
   resolveGuideRelatedAction,
   studentFacingGuideStatusText
 } from '~~/app/utils/guide-detail-presentation'
@@ -65,6 +67,9 @@ const relatedAction = computed(() => resolveGuideRelatedAction(guide.value.slug)
 const detailSources = computed(() => buildGuideDetailSources(
   guide.value.sources,
   guide.value.sections
+))
+const officialSourceHref = computed(() => safeExternalHref(
+  resolveGuideOfficialSource(detailSources.value)?.url
 ))
 
 const contentsDetails = ref<HTMLDetailsElement | null>(null)
@@ -178,13 +183,27 @@ onBeforeUnmount(() => {
             </p>
           </div>
 
-          <UButton
-            :to="relatedAction.to"
-            :icon="relatedAction.icon"
-            :label="relatedAction.label"
-            size="lg"
-            class="min-h-11 self-start"
-          />
+          <div class="flex flex-wrap gap-2 self-start md:max-w-xs md:justify-end">
+            <UButton
+              :to="relatedAction.to"
+              :icon="relatedAction.icon"
+              :label="relatedAction.label"
+              size="lg"
+              class="min-h-11"
+            />
+            <UButton
+              v-if="officialSourceHref"
+              :to="officialSourceHref"
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-external-link"
+              label="查看学校原文"
+              color="neutral"
+              variant="outline"
+              size="lg"
+              class="min-h-11"
+            />
+          </div>
         </div>
       </div>
     </header>

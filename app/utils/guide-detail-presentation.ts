@@ -64,6 +64,20 @@ export interface GuideDetailSourceView {
   unavailable: boolean
 }
 
+export function resolveGuideOfficialSource(
+  sources: ReadonlyArray<GuideDetailSourceView> | null | undefined
+): GuideDetailSourceView | null {
+  return (sources ?? []).find((source) => {
+    if (source.unavailable) return false
+    try {
+      const hostname = new URL(source.url).hostname.toLowerCase()
+      return hostname === 'yeu.edu.cn' || hostname.endsWith('.yeu.edu.cn')
+    } catch {
+      return false
+    }
+  }) ?? null
+}
+
 export interface GuideSectionsWithSources {
   sources?: ReadonlyArray<GuideDetailSourceLike> | null
 }
