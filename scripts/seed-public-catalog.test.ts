@@ -26,7 +26,7 @@ function count(database: InstanceType<typeof BetterSqlite3>, table: string): num
 
 test('catalog definition keeps source-free guides as unverified drafts', () => {
   const catalog = buildCatalogSeed()
-  assert.equal(catalog.contents.filter(content => content.kind === 'guide').length, 8)
+  assert.equal(catalog.contents.filter(content => content.kind === 'guide').length, 9)
   assert.equal(catalog.contents.filter(content => content.kind === 'department').length, 27)
   assert.equal(catalog.contents.filter(content => content.kind === 'club').length, 23)
 
@@ -65,7 +65,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       createdSources: 0,
       wouldCreateSources: catalog.sources.length,
       createdContents: 0,
-      wouldCreateContents: 58,
+      wouldCreateContents: 59,
       conflicts: 0,
       applied: false
     })
@@ -86,8 +86,8 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       applied: applied.applied
     }, {
       createdSources: catalog.sources.length,
-      createdContents: 58,
-      publishedContents: 58,
+      createdContents: 59,
+      publishedContents: 59,
       draftContents: 0,
       conflicts: 0,
       applied: true
@@ -96,7 +96,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
     database = new BetterSqlite3(fixture.databasePath, { readonly: true })
     database.pragma('foreign_keys = ON')
     assert.equal(count(database, 'sources'), catalog.sources.length)
-    assert.equal(count(database, 'contents'), 58)
+    assert.equal(count(database, 'contents'), 59)
 
     const publicationViolations = database.prepare(`
       SELECT count(*) AS count

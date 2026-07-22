@@ -79,7 +79,7 @@ test('seeded public guides, departments and clubs have stable detail routes and 
     content.status === 'published'
     && (content.kind === 'guide' || content.kind === 'department' || content.kind === 'club')
   ))
-  assert.equal(published.length, 58)
+  assert.equal(published.length, 59)
 
   const paths = published.map(content => publicContentPath(content.kind, content.slug))
   assert.equal(new Set(paths).size, paths.length)
@@ -95,7 +95,7 @@ test('front-end catalog fallbacks expose every seed route without placeholder de
   const departments = mergePublicDepartments(officialDepartments, [], true)
   const clubs = publicClubs([], officialClubs)
 
-  assert.equal(guides.length, 8)
+  assert.equal(guides.length, 9)
   assert.equal(departments.length, 27)
   assert.equal(clubs.length, 23)
 
@@ -525,6 +525,7 @@ test('public source and place pages use student-facing data status wording', () 
 test('student-facing nearby and research pages use reader-facing wording', () => {
   const files = [
     'app/pages/nearby.vue',
+    'app/utils/nearby-presentation.ts',
     'app/pages/research/xiaohongshu-images.vue'
   ]
   const source = files.map(file => readFileSync(resolve(file), 'utf8')).join('\n')

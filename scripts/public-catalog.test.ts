@@ -549,10 +549,28 @@ test('official club catalog exposes 23 traceable club entries with source levels
   assert.ok(clubsGuide?.sources.includes(officialSources.clubOverview))
 })
 
+test('fees and aid guide makes 2026 costs discoverable without inventing a payment entry', () => {
+  const guide = findFreshmanGuide('fees-aid')
+  assert.ok(guide)
+  assert.equal(guide.updatedAt, '2026-07-23')
+  assert.equal(guide.category, 'arrival')
+  assert.ok(guide.sources.includes(officialSources.undergraduateRules2026))
+  assert.ok(guide.sources.includes(officialSources.nationalGrantRules2025))
+
+  const text = guide.sections.flatMap(section => section.items).join('\n')
+  assert.match(text, /每学年23000元/)
+  assert.match(text, /每学年2780元/)
+  assert.match(text, /生源地信用助学贷款.*最高20000元/)
+  assert.match(text, /国家助学金分每年3000元和5000元两档/)
+  assert.match(text, /尚未在面向2026级新生的公开通知中公布统一操作入口/)
+  assert.doesNotMatch(text, /支付宝|微信缴费|统一支付平台/)
+  assert.match(guide.leadNotice, /专升本新生.*以自己的录取通知书/)
+})
+
 test('published seed summaries are specific enough for freshman cards', () => {
   const catalog = buildCatalogSeed()
   const published = catalog.contents.filter(content => content.status === 'published')
-  assert.equal(published.length, 58)
+  assert.equal(published.length, 59)
   for (const content of published) {
     assert.ok(
       content.summary.trim().length >= 35,

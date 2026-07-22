@@ -25,6 +25,7 @@ const SOURCE_MARKER = `[${IMPORTER_ID}:v${IMPORT_VERSION}]`
 const CONTENT_MARKER_KEY = 'catalogSeed'
 const EXPECTED_GUIDE_SLUGS = [
   'arrival',
+  'fees-aid',
   'find-campus',
   'campus-card-network',
   'study-library',

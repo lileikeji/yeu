@@ -264,7 +264,7 @@ export const officialSources = {
     title: '高考诈骗话术全披露',
     publisher: '仰恩大学保卫处',
     url: 'https://bwc.yeu.edu.cn/2026/0611/c665a56691/page.htm',
-    accessedAt
+    accessedAt: '2026-07-23'
   },
   telecomFraudGuide2025: {
     title: '电信诈骗全知晓：类型、手段与防范',
@@ -368,7 +368,7 @@ export const officialSources = {
     title: '国家助学金评审办法（修订）',
     publisher: '仰恩大学学生事务部',
     url: 'https://xsb.yeu.edu.cn/2025/0311/c644a47889/page.htm',
-    accessedAt: '2026-07-15'
+    accessedAt: '2026-07-23'
   },
   mentalHealthAppointment2025: {
     title: '心理咨询预约方式',
@@ -566,6 +566,86 @@ export const freshmanGuides: FreshmanGuide[] = [
       officialSources.welcomeReport2025,
       officialSources.nationalGrantRules2025,
       officialSources.freshmanPreparation2026
+    ]
+  },
+  {
+    slug: 'fees-aid',
+    title: '学费、住宿费与学生资助',
+    shortTitle: '费用与资助',
+    summary: '按2026年招生章程查看学费、住宿费和助学贷款，缴费入口与个人宿舍类型仍以录取材料为准。',
+    icon: 'i-lucide-hand-coins',
+    category: 'arrival',
+    audience: ['本科新生', '专升本新生'],
+    readMinutes: 5,
+    status: 'partial',
+    statusText: '收费标准已公布，缴费方式和个人住宿安排待通知',
+    updatedAt: '2026-07-23',
+    leadNotice: '学校2026年普通高考招生章程已经公布普通本科的学费、住宿费和助学贷款标准；专升本新生、个人宿舍类型、缴费时间与缴费入口，请以自己的录取通知书和学校后续通知为准。',
+    sections: [
+      {
+        title: '普通本科每学年学费',
+        icon: 'i-lucide-receipt-text',
+        items: [
+          '经济学、金融学、金融科技、国际经济与贸易、法学、汉语言文学、英语、新闻学、广告学、工商管理、市场营销、会计学、财务管理、物流管理、工业工程、商务英语、网络与新媒体、人力资源管理：每学年23000元。',
+          '艺术教育：每学年24000元。',
+          '电气工程及其自动化、电子信息工程、计算机科学与技术、网络工程、人工智能、物联网工程、数据科学与大数据技术：每学年25000元。',
+          '上面是2026年普通高考招生章程中的标准。专升本、转专业或其他特殊情况，请按自己的招生类别和录取材料核对。'
+        ],
+        sources: [officialSources.undergraduateRules2026]
+      },
+      {
+        title: '住宿费怎么计算',
+        icon: 'i-lucide-bed-single',
+        items: [
+          '舒适型女生宿舍为4人间，每学年2780元。',
+          '舒适型男生宿舍为5人间，每学年2580元。',
+          '普通型宿舍为4至5人间，每学年1300元。',
+          '住宿费包含每生每月5度电和2吨水的定额；超出部分怎样结算，以宿舍和学校当年说明为准。',
+          '新生实际住哪种宿舍要等学校分配，不要根据群聊接龙或商家宣传提前付款。'
+        ],
+        sources: [officialSources.undergraduateRules2026]
+      },
+      {
+        title: '缴费前先做这三步',
+        icon: 'i-lucide-shield-check',
+        items: [
+          '先对照录取通知书确认收费项目、金额、缴费时间和学校指定入口。',
+          '不要扫群聊、短信或搜索广告里的私人收款码，也不要把验证码、银行卡密码发给任何人。',
+          '页面暂不写死缴费网址，因为学校尚未在面向2026级新生的公开通知中公布统一操作入口。',
+          '对金额、票据或退费有疑问，可从财务处官网进入；财务处公开电话为0595-22082010，办公地点为旧区行政楼一楼。'
+        ],
+        notice: '本站不代收学费、住宿费或任何押金，也不会私聊发送缴费二维码。',
+        sources: [officialSources.financeContact]
+      },
+      {
+        title: '助学贷款',
+        icon: 'i-lucide-landmark',
+        items: [
+          '家庭经济困难学生可在入学前到户籍所在地教育局申请生源地信用助学贷款，2026年普通高考招生章程写明每生每年最高20000元。',
+          '有意申请校园地国家助学贷款的学生，可在入校后按学校要求提交材料，每生每年最高6000元。',
+          '生源地信用助学贷款和校园地国家助学贷款不能同时获得。',
+          '贷款材料、回执、绿色通道、到账和余额处理方式，请等2026级录取材料或学生事务部通知，不要照搬其他学校的教程。'
+        ],
+        sources: [officialSources.undergraduateRules2026, officialSources.studentAffairs]
+      },
+      {
+        title: '国家助学金与学校奖学金',
+        icon: 'i-lucide-hand-heart',
+        items: [
+          '学校现行办法面向全日制本科在校生中的家庭经济困难学生，国家助学金分每年3000元和5000元两档。',
+          '现行办法写明原则上每年9月20日前由学生本人在“福建省精准资助学生信息管理系统”申请；2026学年的具体时间和入口仍要看当年通知。',
+          '同一学年获得国家助学金的学生，也可以按条件申请国家奖学金或国家励志奖学金。',
+          '2026年招生章程列出的学校奖学金包括仰恩奖学金、吴庆星奖学金、校友奖学金和各类企业奖学金，一般在每学年开学后的第二周开始按学校规定评选。'
+        ],
+        notice: '困难认定和资助申请会涉及个人及家庭材料，只通过学校明确的系统和老师通知提交，不要发送给陌生个人。',
+        sources: [officialSources.nationalGrantRules2025, officialSources.undergraduateRules2026]
+      }
+    ],
+    sources: [
+      officialSources.undergraduateRules2026,
+      officialSources.financeContact,
+      officialSources.studentAffairs,
+      officialSources.nationalGrantRules2025
     ]
   },
   {

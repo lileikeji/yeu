@@ -67,11 +67,11 @@ test('guide need shortcuts help students start from real tasks', () => {
     guideNeedShortcuts.map(item => [item.label, item.query, item.category]),
     [
       ['报到', '报到', 'arrival'],
+      ['费用资助', '学费', 'arrival'],
       ['校园网', '校园网', 'campus'],
       ['图书馆', '图书馆', 'campus'],
       ['快递', '快递', 'life'],
-      ['社团', '社团', 'community'],
-      ['周边', '周边', 'life']
+      ['社团', '社团', 'community']
     ]
   )
   assert.match(pageSource, /按要办的事找/)
