@@ -11,6 +11,7 @@ import {
   sourceAccessedLabel,
   sourceListMessages,
   sourcePlatformLabel,
+  sourceKindOptions,
   sourceLevelAppearances,
   sourceLevelGuides,
   sourceLevelLabels,
@@ -67,8 +68,9 @@ test('source page offers a direct path from the introduction to source search', 
   assert.match(pageSource, /title: '信息从哪里来'/)
   assert.match(pageSource, /校园消息，<span class="block sm:inline">先看能不能直接用<\/span>/)
   assert.doesNotMatch(pageSource, /看到校园消息，先判断能不能直接用/)
-  assert.match(pageSource, /href="#source-list"/)
-  assert.match(pageSource, />\s*查找参考页面\s*<\/a>/)
+  assert.match(pageSource, /showOfficialSources/)
+  assert.match(pageSource, />\s*先看学校官网\s*<\/a>/)
+  assert.match(pageSource, />\s*查找全部参考\s*<\/a>/)
   assert.match(pageSource, /id="source-list"/)
   assert.match(pageSource, /地图上的地点与现场指示牌/)
   assert.doesNotMatch(pageSource, /地图标点与现场指示牌/)
@@ -79,7 +81,10 @@ test('source page offers a direct path from the introduction to source search', 
 
 test('source level guides use ordinary decision wording', () => {
   assert.equal(sourceLevelLabels.A, '学校或主管部门')
+  assert.equal(sourceLevelLabels.B, '政府或公共服务')
+  assert.equal(sourceLevelLabels.C, '社团或商家发布')
   assert.equal(sourceLevelLabels.D, '地图或同学分享')
+  assert.equal(sourceLevelLabels.E, '其他公开参考')
   assert.equal(sourceLevelGuides[0]?.level, '优先看')
   assert.equal(sourceLevelGuides[0]?.icon, 'i-lucide-landmark')
   assert.equal(sourceLevelGuides[0]?.tone, 'blue')
@@ -102,9 +107,9 @@ test('source level guides use ordinary decision wording', () => {
   assert.equal(sourceListMessages.serviceUnavailable, '可以稍后再试，各篇指南仍然可以正常查看。')
   assert.equal(sourceListMessages.emptyMatch, '没有找到匹配的参考页面')
   assert.equal(sourceListMessages.emptyList, '目前还没有可以查看的参考页面')
-  assert.match(pageSource, /clearSourceSearch/)
+  assert.match(pageSource, /clearSourceFilters/)
   assert.match(pageSource, /refreshSources/)
-  assert.match(pageSource, /label="清空搜索"/)
+  assert.match(pageSource, /label="清除筛选"/)
   assert.match(pageSource, /label="重新试一次"/)
   assert.match(pageSource, /sourceAccessedLabel\(source\.accessedAt\)/)
   assert.match(pageSource, /sourceLevelAppearances\[source\.sourceLevel\]/)
@@ -189,6 +194,15 @@ test('source search and preview keep long lists manageable', () => {
 
   assert.equal(filterSourceList(sources, '学生事务').length, 1)
   assert.equal(filterSourceList(sources, '学校或主管部门').length, 12)
+  assert.deepEqual(sourceKindOptions.map(item => item.label), ['全部', '学校官网', '地图 / 生活'])
+  assert.equal(filterSourceList(sources, '', 'official').length, 12)
+  assert.equal(filterSourceList(sources, '', 'other').length, 0)
+  assert.equal(filterSourceList([
+    ...sources,
+    sampleSource({ id: 'other', isOfficial: false, sourceLevel: 'D' })
+  ], '', 'other').length, 1)
+  assert.match(pageSource, /aria-label="参考页面类型"/)
+  assert.match(pageSource, /sourceKindCounts\[option\.id\]/)
   const collapsed = buildSourcePreview(sources, { expanded: false, filterActive: false })
   assert.equal(collapsed.items.length, sourcePreviewLimit)
   assert.equal(collapsed.hiddenCount, sources.length - sourcePreviewLimit)

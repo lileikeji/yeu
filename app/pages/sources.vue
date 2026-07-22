@@ -9,6 +9,7 @@ import {
   sourceListMessages,
   sourceAccessedLabel,
   sourcePlatformLabel,
+  sourceKindOptions,
   sourceLevelAppearances,
   sourceLevelGuides,
   sourceLevelLabels,
@@ -50,6 +51,7 @@ useSeoMeta({
 })
 
 const sourceQuery = ref('')
+const activeSourceKind = ref<(typeof sourceKindOptions)[number]['id']>('all')
 const sourcesExpanded = ref(false)
 
 const contentRequest = usePublicContentList()
@@ -63,17 +65,27 @@ const sources = computed<ApiSource[]>(() => collectActiveLinkedSources(
   contentResponse.value?.items,
   placeResponse.value?.items
 ))
-const filteredSources = computed(() => filterSourceList(sources.value, sourceQuery.value))
-const sourceFilterActive = computed(() => Boolean(sourceQuery.value.trim()))
+const filteredSources = computed(() => filterSourceList(
+  sources.value,
+  sourceQuery.value,
+  activeSourceKind.value
+))
+const sourceSearchActive = computed(() => Boolean(sourceQuery.value.trim()))
+const sourceFilterActive = computed(() => sourceSearchActive.value || activeSourceKind.value !== 'all')
+const sourceKindCounts = computed(() => ({
+  all: sources.value.length,
+  official: sources.value.filter(source => source.isOfficial).length,
+  other: sources.value.filter(source => !source.isOfficial).length
+}))
 const sourcePreview = computed(() => buildSourcePreview(filteredSources.value, {
   expanded: sourcesExpanded.value,
-  filterActive: sourceFilterActive.value
+  filterActive: sourceSearchActive.value
 }))
 const visibleSources = computed(() => sourcePreview.value.items)
 
 const loadError = computed(() => contentError.value || placeError.value)
 
-watch(sourceQuery, () => {
+watch([sourceQuery, activeSourceKind], () => {
   sourcesExpanded.value = false
 })
 
@@ -81,8 +93,14 @@ function toggleSourcePreview(): void {
   sourcesExpanded.value = !sourcesExpanded.value
 }
 
-function clearSourceSearch(): void {
+function clearSourceFilters(): void {
   sourceQuery.value = ''
+  activeSourceKind.value = 'all'
+}
+
+function showOfficialSources(): void {
+  sourceQuery.value = ''
+  activeSourceKind.value = 'official'
 }
 
 async function refreshSources(): Promise<void> {
@@ -103,16 +121,30 @@ async function refreshSources(): Promise<void> {
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
           报到、缴费和学籍等重要事项，请优先看学校和主管部门的最新通知。地图、商铺和社团消息变化较快，页面会保留参考链接，方便你自己再看一眼。
         </p>
-        <a
-          href="#source-list"
-          class="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
-        >
-          <UIcon
-            name="i-lucide-search"
-            class="size-4"
-          />
-          查找参考页面
-        </a>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <a
+            href="#source-list"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            @click="showOfficialSources"
+          >
+            <UIcon
+              name="i-lucide-landmark"
+              class="size-4"
+            />
+            先看学校官网
+          </a>
+          <a
+            href="#source-list"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition-colors hover:border-green-300 hover:text-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            @click="clearSourceFilters"
+          >
+            <UIcon
+              name="i-lucide-search"
+              class="size-4"
+            />
+            查找全部参考
+          </a>
+        </div>
       </div>
     </section>
 
@@ -231,6 +263,25 @@ async function refreshSources(): Promise<void> {
         <span class="text-xs text-zinc-500">
           {{ sourceFilterActive ? `找到 ${filteredSources.length} 条` : '可按学校、部门或信息名称查找' }}
         </span>
+      </div>
+
+      <div
+        class="mt-3 grid grid-cols-3 gap-2 sm:flex"
+        aria-label="参考页面类型"
+      >
+        <button
+          v-for="option in sourceKindOptions"
+          :key="option.id"
+          type="button"
+          class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 sm:px-3"
+          :class="activeSourceKind === option.id
+            ? 'border-green-700 bg-green-700 text-white'
+            : 'border-zinc-200 bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50'"
+          :aria-pressed="activeSourceKind === option.id"
+          @click="activeSourceKind = option.id"
+        >
+          {{ option.label }} {{ sourceKindCounts[option.id] }}
+        </button>
       </div>
 
       <div
@@ -365,11 +416,11 @@ async function refreshSources(): Promise<void> {
           <UButton
             v-if="sourceFilterActive"
             icon="i-lucide-x"
-            label="清空搜索"
+            label="清除筛选"
             color="neutral"
             variant="outline"
             class="min-h-11"
-            @click="clearSourceSearch"
+            @click="clearSourceFilters"
           />
           <UButton
             to="/guides"

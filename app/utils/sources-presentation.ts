@@ -8,11 +8,19 @@ export const sourceListMessages = {
 
 export const sourceLevelLabels: Record<ApiSource['sourceLevel'], string> = {
   A: '学校或主管部门',
-  B: '公共服务或现场信息',
-  C: '发布方信息',
+  B: '政府或公共服务',
+  C: '社团或商家发布',
   D: '地图或同学分享',
-  E: '其他公开信息'
+  E: '其他公开参考'
 }
+
+export const sourceKindOptions = [
+  { id: 'all', label: '全部' },
+  { id: 'official', label: '学校官网' },
+  { id: 'other', label: '地图 / 生活' }
+] as const
+
+export type SourceKindFilter = (typeof sourceKindOptions)[number]['id']
 
 export const sourcePlatformLabels: Record<string, string> = {
   'official-website': '学校官网',
@@ -100,21 +108,27 @@ export const sourcePreviewLimit = 8
 
 export function filterSourceList(
   sources: ReadonlyArray<ApiSource>,
-  query: string
+  query: string,
+  kind: SourceKindFilter = 'all'
 ): ApiSource[] {
   const normalized = query.trim().toLocaleLowerCase('zh-CN')
-  if (!normalized) return [...sources]
-  return sources.filter(source => [
-    source.title,
-    studentFacingSourceTitle(source.title),
-    source.publisherName,
-    studentFacingSourcePublisher(source.publisherName),
-    sourcePlatformLabel(source.platform),
-    sourceLevelLabels[source.sourceLevel]
-  ]
-    .join(' ')
-    .toLocaleLowerCase('zh-CN')
-    .includes(normalized))
+  return sources.filter((source) => {
+    const matchesKind = kind === 'all'
+      || (kind === 'official' ? source.isOfficial : !source.isOfficial)
+    if (!matchesKind) return false
+    if (!normalized) return true
+    return [
+      source.title,
+      studentFacingSourceTitle(source.title),
+      source.publisherName,
+      studentFacingSourcePublisher(source.publisherName),
+      sourcePlatformLabel(source.platform),
+      sourceLevelLabels[source.sourceLevel]
+    ]
+      .join(' ')
+      .toLocaleLowerCase('zh-CN')
+      .includes(normalized)
+  })
 }
 
 export function buildSourcePreview<T>(
