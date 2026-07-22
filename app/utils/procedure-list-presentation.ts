@@ -13,10 +13,25 @@ export type ProcedureListAudienceFilter = (typeof procedureListAudienceOptions)[
 
 export type ProcedureMethodKey = keyof typeof procedureMethodLabels
 
+export interface ProcedureListQuickEntry {
+  label: string
+  to: string
+  icon: string
+}
+
+export const procedureListQuickEntries: ProcedureListQuickEntry[] = [
+  { label: '新生报到', to: '/procedures/arrival', icon: 'i-lucide-clipboard-check' },
+  { label: '学费与资助', to: '/guides/fees-aid', icon: 'i-lucide-wallet-cards' },
+  { label: '校园网', to: '/procedures/campus-network', icon: 'i-lucide-wifi' },
+  { label: '宿舍报修', to: '/procedures/dorm-repair', icon: 'i-lucide-wrench' },
+  { label: '图书馆', to: '/procedures/library-card-wechat', icon: 'i-lucide-library' },
+  { label: '专升本档案', to: '/procedures/transfer-archive-mailing', icon: 'i-lucide-folder-input' }
+]
+
 export const procedureListMessages = {
   serviceUnavailable: '可以稍后再试，也可以先查看入学指南。',
-  emptyMatch: '没有找到符合当前条件的事项',
-  emptyList: '目前还没有可以查看的办事事项'
+  emptyMatch: '没有找到你要办的事',
+  emptyList: '这里暂时没有可查看的办事流程'
 } as const
 
 export type ProcedureListStatePresentation = {
@@ -45,6 +60,12 @@ export function procedureListStatePresentation(informationState: string): Proced
     color: 'neutral',
     icon: 'i-lucide-info'
   }
+}
+
+export function procedureListCardActionLabel(informationState: string): string {
+  if (informationState === 'confirmed') return '开始办理'
+  if (informationState === 'awaiting-notice') return '看看要等什么'
+  return '先看能准备什么'
 }
 
 export function procedureListStatusText(value: string): string {
@@ -210,4 +231,3 @@ export function readLooseProcedureChecklistFromStorageText(
     return { stepIds: [], materialIds: [] }
   }
 }
-

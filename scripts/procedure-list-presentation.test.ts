@@ -5,8 +5,10 @@ import test from 'node:test'
 import {
   filterProcedureListItems,
   procedureListAudienceOptions,
+  procedureListCardActionLabel,
   procedureListDetailQuery,
   procedureListMessages,
+  procedureListQuickEntries,
   procedureListStatePresentation,
   procedureListStatusText,
   procedureMethodLabel,
@@ -23,6 +25,8 @@ test('procedure list page is a thin shell over procedure-list-presentation util'
   assert.match(pageSource, /from ['"]~~\/app\/utils\/procedure-list-presentation['"]/)
   assert.match(pageSource, /filterProcedureListItems/)
   assert.match(pageSource, /procedureListAudienceOptions/)
+  assert.match(pageSource, /procedureListQuickEntries/)
+  assert.match(pageSource, /procedureListCardActionLabel/)
   assert.match(pageSource, /procedureMethodLabel/)
   assert.match(pageSource, /procedureListDetailQuery/)
   assert.match(pageSource, /procedureListMessages/)
@@ -37,6 +41,20 @@ test('procedure list page is a thin shell over procedure-list-presentation util'
 
 test('procedure search keeps a comfortable mobile touch height', () => {
   assert.match(pageSource, /aria-label="搜索办事流程"\s+class="min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
+  assert.match(pageSource, /placeholder="搜索报到、校园网、宿舍报修…"/)
+})
+
+test('procedure quick entries cover the tasks freshmen most often look for', () => {
+  assert.deepEqual(
+    procedureListQuickEntries.map(item => item.label),
+    ['新生报到', '学费与资助', '校园网', '宿舍报修', '图书馆', '专升本档案']
+  )
+  assert.ok(procedureListQuickEntries.some(item => item.to === '/guides/fees-aid'))
+  assert.ok(procedureListQuickEntries.some(item => item.to === '/procedures/campus-network'))
+  assert.equal(procedureListQuickEntries.every(item => item.to.startsWith('/') && item.icon.startsWith('i-lucide-')), true)
+  assert.match(pageSource, /aria-label="常找的办事入口"/)
+  assert.match(pageSource, /v-for="entry in procedureListQuickEntries"/)
+  assert.match(pageSource, /min-h-10 shrink-0 items-center/)
 })
 
 test('procedure introduction stays direct and balanced on narrow phones', () => {
@@ -61,7 +79,7 @@ test('procedure cards scan quickly on mobile without hiding decision details', (
   assert.match(pageSource, /cardProgressFor\(item\)\.materialLabel/)
   assert.match(pageSource, /cardProgressFor\(item\)\.progressHint/)
   assert.match(pageSource, /readLooseProcedureChecklistFromStorageText/)
-  assert.match(pageSource, /查看详情/)
+  assert.match(pageSource, /procedureListCardActionLabel\(item\.informationState\)/)
   assert.match(pageSource, /v-if="item\.deadlineText"\s+class="mt-1 line-clamp-1[^"]*md:line-clamp-2"/)
 })
 
@@ -75,8 +93,8 @@ test('procedure list audience and method labels stay student-facing', () => {
   assert.equal(procedureMethodLabels.mixed, '网上确认 + 到校办理')
   assert.equal(procedureMethodLabel('mixed'), '网上确认 + 到校办理')
   assert.equal(procedureListMessages.serviceUnavailable, '可以稍后再试，也可以先查看入学指南。')
-  assert.equal(procedureListMessages.emptyMatch, '没有找到符合当前条件的事项')
-  assert.equal(procedureListMessages.emptyList, '目前还没有可以查看的办事事项')
+  assert.equal(procedureListMessages.emptyMatch, '没有找到你要办的事')
+  assert.equal(procedureListMessages.emptyList, '这里暂时没有可查看的办事流程')
   assert.match(pageSource, /clearProcedureFilters/)
   assert.match(pageSource, /label="清除条件"/)
   assert.match(pageSource, /label="重新试一次"/)
@@ -84,6 +102,9 @@ test('procedure list audience and method labels stay student-facing', () => {
   assert.equal(procedureListStatePresentation('confirmed').label, '可以照着办理')
   assert.equal(procedureListStatePresentation('partial').label, '先看能准备的')
   assert.equal(procedureListStatePresentation('awaiting-notice').label, '等学校通知')
+  assert.equal(procedureListCardActionLabel('confirmed'), '开始办理')
+  assert.equal(procedureListCardActionLabel('awaiting-notice'), '看看要等什么')
+  assert.equal(procedureListCardActionLabel('partial'), '先看能准备什么')
   assert.equal(
     procedureListStatusText('报修制度有官方来源，工单状态待通知'),
     '报修制度有学校说明，处理进度还要等学校通知'

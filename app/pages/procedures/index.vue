@@ -2,8 +2,10 @@
 import {
   filterProcedureListItems,
   procedureListAudienceOptions,
+  procedureListCardActionLabel,
   procedureListDetailQuery,
   procedureListMessages,
+  procedureListQuickEntries,
   procedureListStatePresentation,
   procedureListStatusText,
   procedureMethodLabel,
@@ -104,12 +106,31 @@ onMounted(() => {
           />
         </div>
 
+        <nav
+          aria-label="常找的办事入口"
+          class="scrollbar-none mt-5 flex items-center gap-2 overflow-x-auto pb-1"
+        >
+          <span class="shrink-0 text-xs font-semibold text-zinc-500">常找</span>
+          <NuxtLink
+            v-for="entry in procedureListQuickEntries"
+            :key="entry.to"
+            :to="entry.to"
+            class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 text-xs font-semibold text-zinc-700 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-800"
+          >
+            <UIcon
+              :name="entry.icon"
+              class="size-3.5"
+            />
+            {{ entry.label }}
+          </NuxtLink>
+        </nav>
+
         <div class="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <UInput
             v-model="query"
             icon="i-lucide-search"
             size="lg"
-            placeholder="搜索报到或办事事项"
+            placeholder="搜索报到、校园网、宿舍报修…"
             aria-label="搜索办事流程"
             class="min-h-11 w-full"
             :ui="{ base: 'min-h-11' }"
@@ -223,7 +244,7 @@ onMounted(() => {
               <div class="flex items-center justify-between gap-3">
                 <span class="truncate">{{ procedureMethodLabel(item.method) }}</span>
                 <span class="inline-flex items-center gap-1 font-medium text-green-700">
-                  查看详情
+                  {{ procedureListCardActionLabel(item.informationState) }}
                   <UIcon
                     name="i-lucide-arrow-right"
                     class="size-4 transition group-hover:translate-x-0.5"
