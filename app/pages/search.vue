@@ -21,6 +21,7 @@ import {
   routeSearchType,
   searchListMessages,
   searchNeedShortcuts,
+  searchResultActionLabel,
   searchResultCountLabel,
   searchRouteQuery,
   searchStartingPoints,
@@ -461,12 +462,17 @@ watch([activeQuery, activeType], ([query, type]) => {
                     </UBadge>
                   </span>
                   <span class="mt-1.5 line-clamp-2 block text-sm leading-6 text-zinc-600">{{ result.summary }}</span>
-                  <span class="mt-2 block text-xs text-zinc-400">{{ result.sourceLabel }}</span>
+                  <span class="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                    <span class="text-zinc-400">{{ result.sourceLabel }}</span>
+                    <span class="inline-flex items-center gap-1 font-semibold text-green-700">
+                      {{ searchResultActionLabel(result.resultType) }}
+                      <UIcon
+                        name="i-lucide-arrow-right"
+                        class="size-3.5 transition-transform group-hover:translate-x-0.5"
+                      />
+                    </span>
+                  </span>
                 </span>
-                <UIcon
-                  name="i-lucide-chevron-right"
-                  class="mt-3 size-4 shrink-0 text-zinc-300 group-hover:text-green-700"
-                />
               </NuxtLink>
             </div>
           </section>

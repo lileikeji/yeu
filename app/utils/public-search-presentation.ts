@@ -183,6 +183,18 @@ export function searchMatchCountLabel(count: number): string {
   return `${searchListMessages.resultCountPrefix} ${count} ${searchListMessages.resultCountSuffix}`
 }
 
+export function searchResultActionLabel(resultType: PublicSearchResultType): string {
+  const labels: Record<PublicSearchResultType, string> = {
+    place: '在地图中查看',
+    procedure: '查看办理步骤',
+    guide: '打开指南',
+    department: '查看部门信息',
+    club: '了解社团',
+    notice: '查看校园通知'
+  }
+  return labels[resultType]
+}
+
 export function routeQueryString(value: unknown): string {
   if (typeof value === 'string') return value
   if (Array.isArray(value) && typeof value[0] === 'string') return value[0]

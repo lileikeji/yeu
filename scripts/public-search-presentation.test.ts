@@ -29,6 +29,7 @@ import {
   routeSearchType,
   searchListMessages,
   searchNeedShortcuts,
+  searchResultActionLabel,
   searchResultCountLabel,
   searchRouteQuery,
   searchStartingPoints,
@@ -134,6 +135,18 @@ test('search type options cover all result types plus all', () => {
     searchTypeOptions.slice(1).map(item => item.value),
     Object.keys(searchTypePresentation)
   )
+})
+
+test('search result cards tell students what opening each result will do', () => {
+  assert.equal(searchResultActionLabel('place'), '在地图中查看')
+  assert.equal(searchResultActionLabel('procedure'), '查看办理步骤')
+  assert.equal(searchResultActionLabel('guide'), '打开指南')
+  assert.equal(searchResultActionLabel('department'), '查看部门信息')
+  assert.equal(searchResultActionLabel('club'), '了解社团')
+  assert.equal(searchResultActionLabel('notice'), '查看校园通知')
+  assert.match(pageSource, /searchResultActionLabel\(result\.resultType\)/)
+  assert.match(pageSource, /result\.sourceLabel/)
+  assert.match(pageSource, /group-hover:translate-x-0\.5/)
 })
 
 test('search empty state offers useful student starting points', () => {
