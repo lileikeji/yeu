@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   aboutBoundaries,
   aboutGovernanceLinks,
+  aboutHeroActions,
   aboutProjectFacts
 } from '../app/utils/about-presentation'
 
@@ -16,12 +17,26 @@ test('about page is a thin shell over about-presentation util', () => {
   assert.match(pageSource, /aboutProjectFacts/)
   assert.match(pageSource, /aboutBoundaries/)
   assert.match(pageSource, /aboutGovernanceLinks/)
+  assert.match(pageSource, /aboutHeroActions/)
   assert.doesNotMatch(pageSource, /const projectFacts = \[/)
   assert.doesNotMatch(pageSource, /const boundaries = \[/)
   assert.doesNotMatch(pageSource, /const governanceLinks = \[/)
   assert.match(utilSource, /export const aboutProjectFacts/)
   assert.match(utilSource, /export const aboutBoundaries/)
   assert.match(utilSource, /export const aboutGovernanceLinks/)
+  assert.match(utilSource, /export const aboutHeroActions/)
+})
+
+test('about page surfaces source and correction actions before the long explanation', () => {
+  assert.deepEqual(aboutHeroActions.map(item => item.label), [
+    '查看参考页面',
+    '发现错误，告诉我们'
+  ])
+  assert.deepEqual(aboutHeroActions.map(item => item.to), ['/sources', '/feedback'])
+  assert.equal(aboutHeroActions.every(item => item.icon.startsWith('i-lucide-')), true)
+  assert.match(pageSource, /aria-label="关于本站常用入口"/)
+  assert.match(pageSource, /v-for="action in aboutHeroActions"/)
+  assert.match(pageSource, /class="inline-flex min-h-11 items-center[^\"]*rounded-full/)
 })
 
 test('about catalogs stay student-facing', () => {
@@ -56,6 +71,7 @@ test('about presentation export surface stays stable', () => {
   assert.match(utilSource, /export interface AboutProjectFact/)
   assert.match(utilSource, /export interface AboutBoundary/)
   assert.match(utilSource, /export interface AboutGovernanceLink/)
+  assert.match(utilSource, /export interface AboutHeroAction/)
   assert.equal(aboutProjectFacts.every(item => item.label && item.value && item.icon && item.tone), true)
   assert.equal(aboutBoundaries.every(item => item.title && item.icon && item.text && item.tone), true)
   assert.equal(aboutGovernanceLinks.every(item => item.title && item.description && item.to && item.icon && item.tone), true)

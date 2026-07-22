@@ -2,6 +2,7 @@
 import {
   aboutBoundaries,
   aboutGovernanceLinks,
+  aboutHeroActions,
   aboutProjectFacts
 } from '~~/app/utils/about-presentation'
 import type { AboutTone } from '~~/app/utils/about-presentation'
@@ -34,6 +35,23 @@ useSeoMeta({
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
           把新生常用的地图、办事、清单和校园生活信息放在一起，方便你少走弯路。内容由个人或学生团队整理，不代表学校。
         </p>
+        <nav
+          aria-label="关于本站常用入口"
+          class="mt-5 flex flex-wrap gap-2"
+        >
+          <NuxtLink
+            v-for="action in aboutHeroActions"
+            :key="action.to"
+            :to="action.to"
+            class="inline-flex min-h-11 items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-4 text-sm font-semibold text-zinc-700 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+          >
+            <UIcon
+              :name="action.icon"
+              class="size-4"
+            />
+            {{ action.label }}
+          </NuxtLink>
+        </nav>
       </div>
     </header>
 

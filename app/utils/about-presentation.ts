@@ -20,7 +20,26 @@ export interface AboutGovernanceLink {
   tone: AboutTone
 }
 
+export interface AboutHeroAction {
+  label: string
+  to: string
+  icon: string
+}
+
 export type AboutTone = 'amber' | 'green' | 'sky' | 'zinc'
+
+export const aboutHeroActions: AboutHeroAction[] = [
+  {
+    label: '查看参考页面',
+    to: '/sources',
+    icon: 'i-lucide-file-check-2'
+  },
+  {
+    label: '发现错误，告诉我们',
+    to: '/feedback',
+    icon: 'i-lucide-message-square-warning'
+  }
+]
 
 export const aboutProjectFacts: AboutProjectFact[] = [
   {
