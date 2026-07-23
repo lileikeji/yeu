@@ -38,7 +38,7 @@ useSeoMeta({
       </div>
     </header>
 
-    <main class="page-shell py-8 md:py-12">
+    <div class="page-shell py-8 md:py-12">
       <section class="max-w-3xl border-y border-zinc-200 bg-white py-5 md:py-6">
         <div class="flex items-start gap-3">
           <span class="grid size-10 shrink-0 place-items-center rounded-md bg-orange-50 text-orange-700">
@@ -75,6 +75,6 @@ useSeoMeta({
           variant="outline"
         />
       </div>
-    </main>
+    </div>
   </div>
 </template>

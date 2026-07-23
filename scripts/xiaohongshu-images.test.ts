@@ -33,6 +33,7 @@ test('social image notice explains the permission boundary in ordinary language'
   assert.doesNotMatch(page, /研究素材|书面再利用许可|AI 重构|概念示意/)
   assert.match(page, /robots: 'noindex, nofollow'/)
   assert.doesNotMatch(page, /<img|xiaohongshu-recreations-2026-07-15/)
+  assert.doesNotMatch(page, /<main\b/)
 })
 
 test('xiaohongshu derivatives are absent from public images and indexed without shipping binaries', () => {
