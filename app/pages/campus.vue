@@ -64,7 +64,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
   <div>
     <section class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-12">
-        <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-end">
+        <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start">
           <div class="max-w-3xl">
             <p class="section-kicker">
               仰恩大学
@@ -114,7 +114,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 rel="noopener noreferrer"
                 class="inline-flex min-h-10 shrink-0 items-center gap-1 text-xs font-semibold text-green-700 hover:underline"
               >
-                学校校历
+                2026 年校历
                 <UIcon
                   name="i-lucide-external-link"
                   class="size-3.5"
@@ -209,7 +209,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
       id="military-training"
       class="page-shell scroll-mt-20 pt-8"
     >
-      <div class="overflow-hidden rounded-xl border border-lime-200 bg-gradient-to-br from-lime-50 via-white to-emerald-50 shadow-sm">
+      <div class="overflow-hidden rounded-lg border border-lime-200 bg-gradient-to-br from-lime-50 via-white to-emerald-50 shadow-sm">
         <div class="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_15rem] md:p-7">
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
@@ -234,7 +234,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               target="_blank"
               rel="noopener noreferrer"
               icon="i-lucide-calendar-days"
-              label="查看学校校历"
+              label="查看 2026 年校历"
               color="neutral"
               variant="outline"
               class="min-h-11"

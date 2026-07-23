@@ -104,7 +104,7 @@ export const popularSearchSuggestions = [
   { label: '教学楼', query: '教学楼', icon: 'i-lucide-school' },
   { label: '图书馆', query: '图书馆', icon: 'i-lucide-library' },
   { label: '医务室', query: '医务室', icon: 'i-lucide-heart-pulse' },
-  { label: '校门', query: '校门', icon: 'i-lucide-gate' },
+  { label: '校门', query: '校门', icon: 'i-lucide-fence' },
   { label: '社团', query: '社团', icon: 'i-lucide-users-round' }
 ] as const
 

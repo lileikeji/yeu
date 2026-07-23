@@ -40,7 +40,7 @@ const navigationTooltip = computed(() => {
   <section
     :class="props.variant === 'mobile'
       ? 'shrink-0 border-b border-[var(--line)] p-4 md:hidden'
-      : 'absolute bottom-[calc(var(--mobile-nav-height)+0.75rem)] left-3 right-3 z-40 max-h-[min(52vh,26rem)] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4 md:right-auto md:z-20 md:w-[min(24rem,calc(100%-2rem))]'"
+      : 'absolute bottom-[calc(var(--mobile-nav-height)+0.75rem)] left-3 right-3 z-40 max-h-[min(52vh,26rem)] overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4 md:right-auto md:z-20 md:w-[min(24rem,calc(100%-2rem))]'"
     aria-live="polite"
   >
     <div
@@ -271,7 +271,7 @@ const navigationTooltip = computed(() => {
             class="flex gap-2"
           >
             <UIcon
-              name="i-lucide-check-circle-2"
+              name="i-lucide-circle-check-big"
               class="mt-0.5 size-3.5 shrink-0 text-green-700"
             />
             <span>{{ item }}</span>

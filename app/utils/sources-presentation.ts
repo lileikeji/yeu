@@ -2,8 +2,8 @@ import type { ApiSource } from '~~/shared/types/server'
 
 export const sourceListMessages = {
   serviceUnavailable: '可以稍后再试，各篇指南仍然可以正常查看。',
-  emptyMatch: '没有找到匹配的参考页面',
-  emptyList: '目前还没有可以查看的参考页面'
+  emptyMatch: '没有找到相关链接',
+  emptyList: '这里还没有可以打开的链接'
 } as const
 
 export interface SourceRecentUpdate {
@@ -106,7 +106,7 @@ export const sourceLevelAppearances: Record<ApiSource['sourceLevel'], SourceLeve
   B: { icon: 'i-lucide-signpost', tone: 'green' },
   C: { icon: 'i-lucide-clock-3', tone: 'amber' },
   D: { icon: 'i-lucide-map-pin-check', tone: 'zinc' },
-  E: { icon: 'i-lucide-globe-2', tone: 'zinc' }
+  E: { icon: 'i-lucide-globe', tone: 'zinc' }
 }
 
 export const sourceLevelGuides: SourceLevelGuide[] = [

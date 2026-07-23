@@ -145,7 +145,7 @@ select {
 
 @media (min-width: 768px) {
   .page-section {
-    padding-block: 4rem;
+    padding-block: 3rem;
   }
 
   .safe-bottom {

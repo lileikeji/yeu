@@ -140,7 +140,7 @@ async function refreshSources(): Promise<void> {
               name="i-lucide-search"
               class="size-4"
             />
-            查找全部参考
+            查看原文链接
           </a>
         </div>
       </div>
@@ -150,7 +150,7 @@ async function refreshSources(): Promise<void> {
       id="recent-updates"
       class="page-shell scroll-mt-20 py-8 md:py-10"
     >
-      <div class="overflow-hidden rounded-xl border border-green-100 bg-gradient-to-br from-green-50 via-white to-amber-50 shadow-sm">
+      <div class="overflow-hidden rounded-lg border border-green-100 bg-gradient-to-br from-green-50 via-white to-amber-50 shadow-sm">
         <div class="grid gap-5 border-b border-green-100 px-5 py-6 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <div>
             <p class="section-kicker">
@@ -303,13 +303,13 @@ async function refreshSources(): Promise<void> {
       <div class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-4">
         <div>
           <p class="section-kicker">
-            参考页面
+            原文链接
           </p>
           <h2 class="mt-2 text-xl font-bold text-zinc-950">
-            查看页面引用的参考链接
+            查看学校原文和其他参考链接
           </h2>
         </div>
-        <span class="text-sm text-zinc-500">共 {{ sources.length }} 个参考页面</span>
+        <span class="text-sm text-zinc-500">共 {{ sources.length }} 条链接</span>
       </div>
 
       <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -317,7 +317,7 @@ async function refreshSources(): Promise<void> {
           v-model="sourceQuery"
           icon="i-lucide-search"
           placeholder="搜索学校、部门或信息名称"
-          aria-label="搜索参考页面"
+          aria-label="搜索原文链接"
           size="lg"
           class="min-h-11 w-full sm:max-w-md"
           :ui="{ base: 'min-h-11' }"
@@ -329,7 +329,7 @@ async function refreshSources(): Promise<void> {
 
       <div
         class="mt-3 grid grid-cols-3 gap-2 sm:flex"
-        aria-label="参考页面类型"
+        aria-label="原文链接类型"
       >
         <button
           v-for="option in sourceKindOptions"
@@ -356,7 +356,7 @@ async function refreshSources(): Promise<void> {
           class="mx-auto size-6 text-amber-700"
         />
         <h3 class="mt-3 text-base font-bold text-amber-950">
-          参考页面暂时没有显示出来
+          原文链接暂时没显示出来
         </h3>
         <p class="mt-2 text-sm leading-6 text-amber-900">
           {{ sourceListMessages.serviceUnavailable }}

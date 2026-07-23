@@ -169,7 +169,7 @@ function copyContactAction(value: string) {
               class="flex gap-3 py-4 text-sm leading-6 text-zinc-700 md:border-b md:border-zinc-200 md:odd:pr-4 md:even:pl-4"
             >
               <UIcon
-                name="i-lucide-circle-help"
+                name="i-lucide-circle-question-mark"
                 class="mt-0.5 size-4 shrink-0 text-emerald-700"
               />
               <span>{{ item }}</span>

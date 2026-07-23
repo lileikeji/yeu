@@ -225,7 +225,7 @@ function copyPlaceLocation(): void {
               class="flex gap-2"
             >
               <UIcon
-                name="i-lucide-check-circle-2"
+                name="i-lucide-circle-check-big"
                 class="mt-0.5 size-4 shrink-0 text-green-700"
               />
               <span>{{ item }}</span>

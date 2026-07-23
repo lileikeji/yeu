@@ -25,7 +25,7 @@ async function dismissUpdate(): Promise<void> {
     aria-atomic="true"
     aria-labelledby="pwa-update-title"
     aria-describedby="pwa-update-description"
-    class="fixed inset-x-3 bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto max-w-md rounded-xl border border-green-200 bg-white/95 p-3 shadow-xl backdrop-blur md:bottom-6 md:right-6 md:left-auto md:mx-0 md:w-[23rem]"
+    class="fixed inset-x-3 bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto max-w-md rounded-lg border border-green-200 bg-white/95 p-3 shadow-xl backdrop-blur md:bottom-6 md:right-6 md:left-auto md:mx-0 md:w-[23rem]"
   >
     <div class="flex items-start gap-3">
       <span class="grid size-9 shrink-0 place-items-center rounded-full bg-green-50 text-green-700">

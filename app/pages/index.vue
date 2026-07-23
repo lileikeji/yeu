@@ -184,7 +184,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
         </div>
 
         <div class="page-shell pb-5 md:pb-7">
-          <aside class="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-emerald-50 p-4 shadow-sm md:p-5">
+          <aside class="rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-emerald-50 p-4 shadow-sm md:p-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div class="min-w-0 max-w-3xl">
                 <div class="flex flex-wrap items-center gap-2">
@@ -287,10 +287,10 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
       <section class="page-shell pb-2 md:pb-4">
         <NuxtLink
           to="/checklist"
-          class="group flex flex-col gap-4 rounded-2xl border border-green-200 bg-gradient-to-r from-green-50 via-white to-emerald-50 p-4 transition hover:border-green-300 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
+          class="group flex flex-col gap-4 rounded-lg border border-green-200 bg-gradient-to-r from-green-50 via-white to-emerald-50 p-4 transition hover:border-green-300 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
         >
           <div class="flex min-w-0 items-start gap-3">
-            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-green-100 text-green-700">
+            <span class="grid size-11 shrink-0 place-items-center rounded-lg bg-green-100 text-green-700">
               <UIcon
                 name="i-lucide-list-checks"
                 class="size-5"
@@ -344,7 +344,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
               :key="stage.label"
               :to="stage.to"
               :aria-label="`${stage.label}：${stage.title}，${stage.actionLabel}`"
-              class="group block rounded-xl border border-zinc-200 bg-white p-5 transition hover:border-green-300 hover:shadow-sm active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+              class="group block rounded-lg border border-zinc-200 bg-white p-5 transition hover:border-green-300 hover:shadow-sm active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
             >
               <div class="flex items-center gap-3">
                 <span class="grid size-8 place-items-center rounded-full bg-green-700 text-sm font-bold text-white">{{ index + 1 }}</span>
@@ -470,7 +470,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
       </section>
 
       <section class="page-shell py-6 md:py-8">
-        <div class="flex flex-col gap-4 rounded-xl bg-zinc-900 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex flex-col gap-4 rounded-lg bg-zinc-900 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between">
           <div class="flex items-start gap-3">
             <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-white/10">
               <UIcon

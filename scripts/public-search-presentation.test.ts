@@ -156,6 +156,10 @@ test('search empty state offers useful student starting points', () => {
     popularSearchSuggestions.map(item => item.query),
     ['食堂', '教学楼', '图书馆', '医务室', '校门', '社团']
   )
+  assert.equal(
+    popularSearchSuggestions.find(item => item.query === '校门')?.icon,
+    'i-lucide-fence'
+  )
   assert.deepEqual(
     searchStartingPoints.map(item => item.to),
     ['/map', '/procedures', '/guides', '/nearby']
