@@ -24,6 +24,10 @@ test('offline page is a thin shell over offline-presentation util', () => {
   assert.match(utilSource, /export function resolveOfflineStatus/)
 })
 
+test('offline status stays readable instead of stretching across wide screens', () => {
+  assert.match(pageSource, /class="flex max-w-3xl items-start gap-4/)
+})
+
 test('offline catalogs stay student-facing', () => {
   assert.equal(offlineBoundaries.length, 3)
   assert.equal(offlineBoundaries[0]?.title, '报到安排要重新确认')

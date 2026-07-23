@@ -70,7 +70,7 @@ onBeforeUnmount(() => {
 
     <div class="page-shell py-8 md:py-12">
       <section
-        class="flex items-start gap-4 rounded-lg border border-[var(--line)] bg-white px-4 py-5 shadow-sm sm:px-5"
+        class="flex max-w-3xl items-start gap-4 rounded-lg border border-[var(--line)] bg-white px-4 py-5 shadow-sm sm:px-5"
         role="status"
         aria-live="polite"
       >

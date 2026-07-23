@@ -115,7 +115,7 @@ function confirmResetProgress() {
           {{ arrival.detail }}
         </p>
 
-        <ol class="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-orange-200 bg-orange-200 sm:grid-cols-4">
+        <ol class="mt-4 grid grid-cols-3 gap-px overflow-hidden rounded-md border border-orange-200 bg-orange-200">
           <li
             v-for="milestone in arrival.milestones"
             :key="milestone.id"
