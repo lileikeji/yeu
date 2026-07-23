@@ -50,6 +50,10 @@ test('map place details use one floating panel for mobile and desktop', () => {
 
 test('desktop place list keeps mouse and wheel control after mobile sheet collapse', () => {
   assert.match(pageSource, /md:pointer-events-auto/)
+  assert.match(
+    pageSource,
+    /selectedPoi && mobileSheetState !== 'collapsed'[\s\S]*?'overflow-y-auto overscroll-y-contain md:overflow-hidden'/
+  )
   assert.match(pageSource, /class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"/)
   assert.match(pageSource, /mobileSheetState === 'collapsed'[\s\S]*?'hidden md:block' : 'block'/)
 })

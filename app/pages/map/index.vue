@@ -500,7 +500,9 @@ onBeforeUnmount(() => {
         mobileSheetState === 'collapsed'
           ? 'border-0 shadow-none'
           : 'border-t border-[var(--line)] shadow-[0_-6px_24px_rgb(0_0_0/12%)]',
-        selectedPoi && mobileSheetState !== 'collapsed' ? 'overflow-y-auto' : 'overflow-hidden',
+        selectedPoi && mobileSheetState !== 'collapsed'
+          ? 'overflow-y-auto overscroll-y-contain md:overflow-hidden'
+          : 'overflow-hidden',
         sidebarCollapsed ? 'md:hidden' : ''
       ]"
     >
