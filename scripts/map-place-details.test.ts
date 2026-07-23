@@ -47,3 +47,9 @@ test('map place details use one floating panel for mobile and desktop', () => {
   assert.doesNotMatch(detailsSource, /useRoute|useRouter|createRuntimeMapProvider/)
   assert.match(e2eFixtureSource, /【到这里前先确认】\\n- 核对地点名称和入口标识。/)
 })
+
+test('desktop place list keeps mouse and wheel control after mobile sheet collapse', () => {
+  assert.match(pageSource, /md:pointer-events-auto/)
+  assert.match(pageSource, /class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"/)
+  assert.match(pageSource, /mobileSheetState === 'collapsed'[\s\S]*?'hidden md:block' : 'block'/)
+})

@@ -494,7 +494,7 @@ onBeforeUnmount(() => {
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
-      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md bg-white transition-[height] duration-200 md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md bg-white transition-[height] duration-200 md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :class="[
         mobileSheetHeightClass,
         mobileSheetState === 'collapsed'
@@ -667,7 +667,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        class="min-h-0 flex-1 overflow-y-auto md:block"
+        class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"
         :class="mobileSheetState === 'collapsed' ? 'hidden md:block' : 'block'"
         aria-label="地点列表"
       >
