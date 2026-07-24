@@ -1,9 +1,8 @@
 import {
   buildEdgeUrl,
   chooseEdgeHost,
-  EDGE_ENTRY_HOST,
   EDGE_PROBE_TIMEOUT_MS,
-  EDGE_TARGET_HOSTS,
+  EDGE_ROUTE_HOSTS,
   shouldProbeEdgeRoute,
   type EdgeProbeResult
 } from '~/utils/edge-route'
@@ -40,11 +39,14 @@ async function probeHost(host: string): Promise<EdgeProbeResult> {
 }
 
 export default defineNuxtPlugin(() => {
+  const edgeWindow = window as Window & { __YEU_EDGE_ROUTED__?: boolean }
+  if (edgeWindow.__YEU_EDGE_ROUTED__) return
+
   const currentHost = window.location.hostname.toLowerCase()
-  if (currentHost !== EDGE_ENTRY_HOST) return
+  if (!EDGE_ROUTE_HOSTS.includes(currentHost as typeof EDGE_ROUTE_HOSTS[number])) return
   if (!shouldProbeEdgeRoute(window.location.pathname)) return
 
-  void Promise.all(EDGE_TARGET_HOSTS.map(probeHost)).then((results) => {
+  void Promise.all(EDGE_ROUTE_HOSTS.map(probeHost)).then((results) => {
     const targetHost = chooseEdgeHost(currentHost, results)
 
     if (targetHost !== currentHost) {

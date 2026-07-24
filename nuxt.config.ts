@@ -1,6 +1,17 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { clientBundleIcons } from './shared/client-bundle-icons'
+import { EDGE_ROUTE_BOOTSTRAP_SCRIPT } from './app/utils/edge-route-bootstrap'
 export default defineNuxtConfig({
+  app: {
+    head: {
+      script: [{
+        key: 'yeu-edge-route-bootstrap',
+        innerHTML: EDGE_ROUTE_BOOTSTRAP_SCRIPT,
+        tagPosition: 'head'
+      }]
+    }
+  },
+
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',

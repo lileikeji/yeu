@@ -1,11 +1,10 @@
-export const EDGE_ENTRY_HOST = 'yeu.huiliyill.cn'
-
-export const EDGE_TARGET_HOSTS = [
+export const EDGE_ROUTE_HOSTS = [
+  'yeu.huiliyill.cn',
   'cn.yeu.huiliyill.cn',
   'global.yeu.huiliyill.cn'
 ] as const
 
-export const EDGE_PROBE_TIMEOUT_MS = 2_800
+export const EDGE_PROBE_TIMEOUT_MS = 700
 
 const EDGE_EXCLUDED_PREFIXES = [
   '/admin',
@@ -31,7 +30,7 @@ export function chooseEdgeHost(
   results: EdgeProbeResult[]
 ) {
   const reachableTargets = results
-    .filter(result => EDGE_TARGET_HOSTS.includes(result.host as typeof EDGE_TARGET_HOSTS[number]))
+    .filter(result => EDGE_ROUTE_HOSTS.includes(result.host as typeof EDGE_ROUTE_HOSTS[number]))
     .filter(result => result.reachable)
     .sort((left, right) => left.durationMs - right.durationMs)
 
