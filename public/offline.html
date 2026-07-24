@@ -17,13 +17,90 @@
     <h1 class="title">先检查网络，连上后再继续</h1>
     <p class="lead">校园地图、路线和最新通知需要联网查看。先检查 Wi-Fi 或移动网络，恢复连接后再确认报到日期、地点、营业时间和招新安排。</p>
     <section class="card" role="status">
-      <h2>连上网络后再试一次</h2>
-      <p>恢复连接后会重新打开刚才的页面，继续查看最新内容。</p>
+      <h2 id="recovery-title">连上网络后再试一次</h2>
+      <p id="recovery-status">恢复连接后会重新打开刚才的页面，继续查看最新内容。</p>
       <div class="actions">
-        <button class="button" type="button" onclick="location.reload()">再试一次</button>
+        <button id="recovery-button" class="button" type="button">再试一次</button>
         <a class="button secondary" href="/">回到首页</a>
       </div>
     </section>
   </main>
+  <script>
+    (() => {
+      const button = document.getElementById('recovery-button')
+      const title = document.getElementById('recovery-title')
+      const status = document.getElementById('recovery-status')
+      const candidates = [
+        location.hostname,
+        'cn.yeu.huiliyill.cn',
+        'global.yeu.huiliyill.cn'
+      ].filter((host, index, hosts) => host && hosts.indexOf(host) === index)
+
+      async function probe(host) {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 3200)
+
+        try {
+          await fetch(`https://${host}/api/health?offline_recovery=${Date.now()}`, {
+            cache: 'no-store',
+            credentials: 'omit',
+            mode: 'no-cors',
+            redirect: 'follow',
+            referrerPolicy: 'no-referrer',
+            signal: controller.signal
+          })
+          return true
+        } catch {
+          return false
+        } finally {
+          clearTimeout(timer)
+        }
+      }
+
+      async function recover() {
+        button.disabled = true
+        button.textContent = '正在检查…'
+        title.textContent = '正在寻找可用线路'
+        status.textContent = '会保留当前页面位置，无需重新查找内容。'
+
+        const results = await Promise.all(candidates.map(async host => ({
+          host,
+          reachable: await probe(host)
+        })))
+        const target = results.find(result => result.reachable)
+
+        if (!target) {
+          title.textContent = '暂时还没有可用线路'
+          status.textContent = '请切换 Wi-Fi 或移动网络后再试，页面会继续保留在这里。'
+          button.disabled = false
+          button.textContent = '重新检查'
+          return
+        }
+
+        try {
+          const registrations = await navigator.serviceWorker?.getRegistrations?.() || []
+          await Promise.all(registrations.map(registration => registration.unregister().catch(() => false)))
+          const cacheNames = await caches?.keys?.() || []
+          await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)))
+        } catch {
+          // A reachable route is enough to recover even when the browser blocks cache cleanup.
+        }
+
+        const next = new URL(location.href)
+        next.protocol = 'https:'
+        next.hostname = target.host
+        next.port = ''
+        next.searchParams.set('_recovered', Date.now().toString())
+        location.replace(next.toString())
+      }
+
+      button.addEventListener('click', recover)
+      window.addEventListener('online', recover, { once: true })
+
+      if (navigator.onLine) {
+        recover()
+      }
+    })()
+  </script>
 </body>
 </html>

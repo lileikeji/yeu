@@ -12,6 +12,7 @@ async function applyUpdate(): Promise<void> {
 
   try {
     await $pwa.updateServiceWorker(true)
+    window.location.reload()
   } catch {
     window.location.reload()
   } finally {
