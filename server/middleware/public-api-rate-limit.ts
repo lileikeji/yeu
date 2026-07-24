@@ -10,6 +10,7 @@ import { assertRateLimit } from '../utils/rate-limit'
  */
 const OWN_RATE_LIMIT_PREFIXES = [
   '/api/public/search',
+  '/api/public/assistant',
   '/api/public/feedback',
   '/api/public/amap-owner-drafts',
   '/api/public/track'

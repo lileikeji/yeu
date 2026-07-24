@@ -105,6 +105,7 @@ export const clientBundleIcons = [
   'lucide:megaphone',
   'lucide:menu',
   'lucide:message-circle-warning',
+  'lucide:message-circle',
   'lucide:message-square',
   'lucide:message-square-reply',
   'lucide:message-square-warning',
@@ -161,7 +162,7 @@ export const clientBundleIcons = [
   'lucide:wifi',
   'lucide:wifi-off',
   'lucide:wrench',
-  'lucide:x',
+  'lucide:x'
 ] as const
 
 export type ClientBundleIcon = typeof clientBundleIcons[number]

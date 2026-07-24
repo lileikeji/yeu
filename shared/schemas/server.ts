@@ -447,6 +447,10 @@ export const searchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20)
 })
 
+export const assistantQuestionSchema = z.object({
+  q: z.string().trim().min(4).max(160)
+}).strict()
+
 export const userLoginSchema = z.object({
   username: z.string().trim().min(1).max(80),
   password: z.string().min(8).max(128)

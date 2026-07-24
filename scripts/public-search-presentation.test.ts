@@ -168,7 +168,7 @@ test('search empty state offers useful student starting points', () => {
   assert.match(pageSource, /v-for="item in searchStartingPoints"/)
   assert.match(pageSource, /大家常找/)
   assert.match(pageSource, /校园搜索/)
-  assert.match(pageSource, /搜索地点、要办的事或部门/)
+  assert.match(pageSource, /搜索地点，或直接问一个校园问题/)
   assert.match(pageSource, /都可以先在这里找找/)
   assert.doesNotMatch(pageSource, /地图结果点开后/)
   assert.doesNotMatch(pageSource, /一处查找/)

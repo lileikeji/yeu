@@ -65,6 +65,16 @@ onMounted(() => {
 
         <div class="flex shrink-0 items-center gap-0 sm:gap-1">
           <UButton
+            to="/contact"
+            icon="i-lucide-message-circle"
+            color="primary"
+            variant="soft"
+            aria-label="联系我们"
+            class="min-h-11 min-w-11"
+          >
+            <span class="hidden lg:inline">联系我们</span>
+          </UButton>
+          <UButton
             to="/search"
             icon="i-lucide-search"
             color="neutral"
@@ -137,6 +147,10 @@ onMounted(() => {
             to="/feedback"
             class="hover:text-green-700"
           >反馈纠错</NuxtLink>
+          <NuxtLink
+            to="/contact"
+            class="font-semibold text-green-700 hover:text-green-800"
+          >联系我们</NuxtLink>
           <NuxtLink
             to="/privacy"
             class="hover:text-green-700"

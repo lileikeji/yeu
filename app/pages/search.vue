@@ -5,7 +5,8 @@ import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
 import { freshmanGuides, officialDepartments } from '~~/data/seeds/public-content'
 import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces } from '~~/app/utils/public-catalog'
 import type { PublicSearchResultType } from '~~/shared/constants/server'
-import type { ApiSearchResponse } from '~~/shared/types/server'
+import type { ApiAssistantResponse, ApiSearchResponse } from '~~/shared/types/server'
+import { shouldRequestAssistantAnswer } from '~~/shared/utils/assistant-query'
 import {
   buildPublicSearchResults,
   buildSearchAnnouncement,
@@ -60,7 +61,6 @@ const needShortcuts = searchNeedShortcuts
 const isNeedShortcutActive = isSearchNeedShortcutActive
 const resultCountLabel = searchResultCountLabel
 const alternativeSuggestions = computed(() => searchAlternativeSuggestions(activeQuery.value))
-
 
 async function sanitizeServerSearchPayload(
   searchResponse: ApiSearchResponse
@@ -220,6 +220,41 @@ const results = computed(() => {
 const groupedResults = computed(() => groupPublicSearchResults(results.value, activeQuery.value))
 const hasPlaceResults = computed(() => results.value.some(result => result.resultType === 'place'))
 
+const assistantResponse = ref<ApiAssistantResponse | null>(null)
+const assistantStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
+let assistantRequestSequence = 0
+
+async function requestAssistantAnswer(): Promise<void> {
+  if (import.meta.server) return
+  const query = activeQuery.value
+  const shouldRequest = !activeType.value
+    && !searching.value
+    && !searchError.value
+    && shouldRequestAssistantAnswer(query, results.value.length)
+  if (!shouldRequest) {
+    assistantRequestSequence += 1
+    assistantResponse.value = null
+    assistantStatus.value = 'idle'
+    return
+  }
+
+  const requestId = ++assistantRequestSequence
+  assistantResponse.value = null
+  assistantStatus.value = 'pending'
+  try {
+    const response = await requestFetch<ApiAssistantResponse>('/api/public/assistant', {
+      method: 'POST',
+      body: { q: query }
+    })
+    if (requestId !== assistantRequestSequence || query !== activeQuery.value) return
+    assistantResponse.value = response
+    assistantStatus.value = 'success'
+  } catch {
+    if (requestId !== assistantRequestSequence || query !== activeQuery.value) return
+    assistantStatus.value = 'error'
+  }
+}
+
 const searchAnnouncement = computed(() => buildSearchAnnouncement({
   query: activeQuery.value,
   searching: searching.value,
@@ -243,6 +278,12 @@ watch([activeQuery, activeType], ([query, type]) => {
     latestSubmittedType = sync.latestSubmittedType
   }
 })
+
+watch(
+  [activeQuery, activeType, searching, searchError, () => results.value.length],
+  () => void requestAssistantAnswer(),
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -270,7 +311,7 @@ watch([activeQuery, activeType], ([query, type]) => {
               icon="i-lucide-search"
               size="xl"
               class="min-w-0"
-              placeholder="搜索地点、要办的事或部门"
+              placeholder="搜索地点，或直接问一个校园问题"
               aria-label="全站搜索"
             >
               <template
@@ -370,6 +411,105 @@ watch([activeQuery, activeType], ([query, type]) => {
       </div>
 
       <div v-if="activeQuery">
+        <section
+          v-if="assistantStatus === 'pending' || assistantResponse || assistantStatus === 'error'"
+          class="mb-6 rounded-lg border border-green-200 bg-white p-4 shadow-sm sm:p-5"
+          aria-labelledby="assistant-answer-heading"
+        >
+          <div class="flex items-start gap-3">
+            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+              <UIcon
+                :name="assistantStatus === 'pending' ? 'i-lucide-loader-circle' : 'i-lucide-sparkles'"
+                class="size-4.5"
+                :class="assistantStatus === 'pending' ? 'animate-spin' : ''"
+              />
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h2
+                  id="assistant-answer-heading"
+                  class="text-base font-bold text-zinc-950"
+                >
+                  {{ assistantStatus === 'pending' ? '继续查找答案' : '校园问答' }}
+                </h2>
+                <UBadge
+                  v-if="assistantResponse"
+                  :label="assistantResponse.mode === 'local' ? '本站资料' : (assistantResponse.usedWebSearch ? 'AI + 网页检索' : 'AI 整理')"
+                  color="success"
+                  variant="soft"
+                  size="sm"
+                />
+              </div>
+
+              <p
+                v-if="assistantStatus === 'pending'"
+                class="mt-2 text-sm leading-6 text-zinc-600"
+              >
+                正在核对站内资料，请稍候。
+              </p>
+              <template v-else-if="assistantResponse">
+                <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700">
+                  {{ assistantResponse.answer }}
+                </p>
+                <div
+                  v-if="assistantResponse.citations.length"
+                  class="mt-4 border-t border-zinc-100 pt-3"
+                >
+                  <p class="text-xs font-semibold text-zinc-500">
+                    参考内容
+                  </p>
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <NuxtLink
+                      v-for="citation in assistantResponse.citations.filter(item => item.source === 'site')"
+                      :key="citation.url"
+                      :to="citation.url"
+                      class="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs font-semibold text-zinc-700 hover:border-green-300 hover:text-green-700"
+                    >
+                      <UIcon
+                        name="i-lucide-file-text"
+                        class="size-3.5"
+                      />
+                      {{ citation.title }}
+                    </NuxtLink>
+                    <a
+                      v-for="citation in assistantResponse.citations.filter(item => item.source === 'web')"
+                      :key="citation.url"
+                      :href="citation.url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs font-semibold text-zinc-700 hover:border-green-300 hover:text-green-700"
+                    >
+                      <UIcon
+                        name="i-lucide-external-link"
+                        class="size-3.5"
+                      />
+                      {{ citation.title }}
+                    </a>
+                  </div>
+                </div>
+                <p class="mt-3 text-xs leading-5 text-zinc-500">
+                  {{ assistantResponse.mode === 'ai' ? 'AI 整理可能有遗漏，日期、费用和办理要求请以学校最新通知为准。' : '站内资料可能未覆盖最新变化，重要事项请以学校最新通知为准。' }}
+                </p>
+              </template>
+              <div
+                v-else
+                class="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600"
+              >
+                <span>暂时无法继续整理这个问题。</span>
+                <UButton
+                  to="/contact"
+                  icon="i-lucide-message-circle"
+                  label="联系整理者"
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                  class="min-h-10"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div
           v-if="searching || results.length"
           class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3"
@@ -537,7 +677,7 @@ watch([activeQuery, activeType], ([query, type]) => {
         </div>
 
         <div
-          v-else
+          v-else-if="assistantStatus === 'idle'"
           class="py-12 text-center"
         >
           <UIcon
@@ -578,6 +718,14 @@ watch([activeQuery, activeType], ([query, type]) => {
               :label="listMessages.tellUsMissing"
               color="neutral"
               variant="ghost"
+              class="min-h-11"
+            />
+            <UButton
+              to="/contact"
+              icon="i-lucide-message-circle"
+              label="联系我们"
+              color="primary"
+              variant="soft"
               class="min-h-11"
             />
           </div>

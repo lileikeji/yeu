@@ -18,6 +18,15 @@ export default defineNuxtConfig({
   runtimeConfig: {
     databasePath: './data/yeu.sqlite',
     adminSessionSecret: '',
+    aiGatewayBaseUrl: '',
+    aiGatewayApiKey: '',
+    aiGatewayModel: 'gpt-5.4',
+    aiGatewayTimeoutMs: 25_000,
+    aiMcpSearchUrl: '',
+    aiMcpSearchBearerToken: '',
+    aiMcpAllowedHosts: 'mcp.firecrawl.dev',
+    aiMcpToolName: 'firecrawl_search',
+    aiMcpTimeoutMs: 12_000,
     public: {
       siteUrl: 'http://localhost:3000',
       mapProvider: 'maplibre-dev',
@@ -65,6 +74,13 @@ export default defineNuxtConfig({
     '/api/admin/**': {
       headers: {
         'Cache-Control': 'private, no-store',
+        'X-Robots-Tag': 'noindex, nofollow'
+      }
+    },
+    '/api/public/assistant': {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'CDN-Cache-Control': 'no-store',
         'X-Robots-Tag': 'noindex, nofollow'
       }
     },

@@ -42,6 +42,7 @@ function concretePageRoutes(): Set<string> {
     '/campus',
     '/checklist',
     '/clubs',
+    '/contact',
     '/departments',
     '/discover',
     '/feedback',

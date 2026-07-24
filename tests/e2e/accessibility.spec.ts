@@ -11,6 +11,7 @@ interface AuditPage {
 const auditPages: AuditPage[] = [
   { name: '首页', path: '/', heading: '第一次来仰恩，先从这里开始' },
   { name: '全站搜索', path: '/search', heading: '找地点、办事和校园信息' },
+  { name: '联系我们', path: '/contact', heading: '有问题，直接来找我' },
   { name: '校园地图', path: '/map', heading: '校园与周边' },
   { name: '新生清单', path: '/checklist', heading: '新生入学清单' },
   { name: '办事流程详情', path: '/procedures/campus-network', heading: '校园网与账号登录问题' },

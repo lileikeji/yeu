@@ -253,6 +253,22 @@ export interface ApiSearchResponse {
   managedKinds: ContentKind[]
 }
 
+export interface ApiAssistantCitation {
+  title: string
+  url: string
+  snippet: string
+  source: 'site' | 'web'
+}
+
+export interface ApiAssistantResponse {
+  query: string
+  mode: 'local' | 'ai'
+  answer: string
+  citations: ApiAssistantCitation[]
+  usedWebSearch: boolean
+  confidence: number
+}
+
 export interface ApiFeedback {
   id: string
   targetType: FeedbackTargetType

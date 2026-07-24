@@ -160,6 +160,7 @@ export const discoverDirectoryEntries: DiscoverLinkEntry[] = [
 ]
 
 export const discoverTrustEntries: DiscoverLinkEntry[] = [
+  { title: '联系我们 / 加新生群', description: '扫码联系整理者，咨询问题或申请加入新生交流群', to: '/contact', icon: 'i-lucide-message-circle' },
   { title: '参考页面', description: '看看学校通知、部门页面和地图资料', to: '/sources', icon: 'i-lucide-list-checks' },
   { title: '告诉我们哪里不对', description: '说明出错的页面和正确情况，不登录也能提交', to: '/feedback', icon: 'i-lucide-message-square-warning' },
   { title: '隐私说明', description: '了解会记录哪些信息，以及如何查询或删除', to: '/privacy', icon: 'i-lucide-shield-check' },
