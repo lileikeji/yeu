@@ -105,6 +105,17 @@ let activeGatewayCalls = 0
 let consecutiveGatewayFailures = 0
 let gatewayOpenUntil = 0
 
+const MIN_GATEWAY_TIMEOUT_MS = 60_000
+const MAX_GATEWAY_TIMEOUT_MS = 180_000
+const MIN_MCP_TIMEOUT_MS = 25_000
+const MAX_MCP_TIMEOUT_MS = 60_000
+
+function boundedTimeout(value: number, minimum: number, maximum: number): number {
+  return Number.isFinite(value)
+    ? Math.min(maximum, Math.max(minimum, Math.round(value)))
+    : minimum
+}
+
 async function runAssistantStage<T>(
   tracker: AssistantRunTracker,
   stage: ApiAssistantStage,
@@ -759,6 +770,16 @@ function parseAllowedHosts(value: string): Set<string> {
   return new Set(value.split(',').map(item => item.trim().toLowerCase()).filter(Boolean))
 }
 
+function canSearchWeb(config: AssistantConfig): boolean {
+  if (!config.mcpSearchUrl) return false
+  try {
+    const url = new URL(config.mcpSearchUrl)
+    return parseAllowedHosts(config.mcpAllowedHosts).has(url.hostname.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
 function safeExternalCitation(value: unknown): ApiAssistantCitation | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const item = value as Record<string, unknown>
@@ -909,9 +930,9 @@ export function storeWebEvidence(
 }
 
 async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAssistantCitation[]> {
-  if (!config.mcpSearchUrl) return []
+  if (!canSearchWeb(config)) return []
   const url = new URL(config.mcpSearchUrl)
-  if (!parseAllowedHosts(config.mcpAllowedHosts).has(url.hostname.toLowerCase())) return []
+  const timeoutMs = boundedTimeout(config.mcpTimeoutMs, MIN_MCP_TIMEOUT_MS, MAX_MCP_TIMEOUT_MS)
   const headers: Record<string, string> = {
     'Accept': 'application/json, text/event-stream',
     'Content-Type': 'application/json'
@@ -926,12 +947,12 @@ async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAss
       capabilities: {},
       clientInfo: { name: 'yeu-campus-assistant', version: '1.0.0' }
     }
-  }, config.mcpTimeoutMs)
+  }, timeoutMs)
   if (initialized.sessionId) headers['Mcp-Session-Id'] = initialized.sessionId
   await mcpPost(url.toString(), headers, {
     jsonrpc: '2.0',
     method: 'notifications/initialized'
-  }, config.mcpTimeoutMs)
+  }, timeoutMs)
   const result = await mcpPost(url.toString(), headers, {
     jsonrpc: '2.0',
     id: 2,
@@ -940,7 +961,7 @@ async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAss
       name: config.mcpToolName,
       arguments: { query: `仰恩大学 ${query}`, limit: 6 }
     }
-  }, config.mcpTimeoutMs)
+  }, timeoutMs)
   return normalizeMcpResult(result.payload)
 }
 
@@ -995,7 +1016,11 @@ async function askGateway(
           }
         ]
       }),
-      signal: AbortSignal.timeout(config.gatewayTimeoutMs)
+      signal: AbortSignal.timeout(boundedTimeout(
+        config.gatewayTimeoutMs,
+        MIN_GATEWAY_TIMEOUT_MS,
+        MAX_GATEWAY_TIMEOUT_MS
+      ))
     })
     const responseText = await response.text()
     if (isGatewayContentBlocked(responseText)) throw new Error('AI_CONTENT_BLOCKED')
@@ -1058,6 +1083,22 @@ function dormBedEvidenceGapResponse(
   }
 }
 
+function localEvidenceGapResponse(query: string): ApiAssistantResponse {
+  return {
+    query,
+    mode: 'local',
+    answer: '内置资料暂时没有找到可以确认这个问题的内容。建议换一个更具体的关键词，或通过“联系我们”提交问题和可靠来源。',
+    citations: [{
+      title: '联系整理者',
+      url: '/contact',
+      snippet: '可以提交问题、纠错线索或可靠资料来源。',
+      source: 'site'
+    }],
+    usedWebSearch: false,
+    confidence: 0.35
+  }
+}
+
 export async function answerCampusQuestion(
   client: DatabaseClient,
   rawQuery: string,
@@ -1074,57 +1115,110 @@ export async function answerCampusQuestion(
     const cacheKey = query.toLocaleLowerCase('zh-CN')
     const cached = answerCache.get(cacheKey)
     if (cached && cached.expiresAt <= Date.now()) answerCache.delete(cacheKey)
+    const activeCachedResponse = cached && cached.expiresAt > Date.now() ? cached.response : null
+    if (activeCachedResponse) {
+      return {
+        query,
+        cacheKey,
+        route: 'answer_cache' as const,
+        cached: activeCachedResponse,
+        localEvidence: [] as AssistantEvidence[],
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence: false
+      }
+    }
+
+    const featureSeeking = isFeatureSeekingQuery(query)
+    const featureMatch = featureSeeking ? searchSystemFeatures(query, 1)[0] : null
+    if (featureMatch && featureMatch.score >= 8) {
+      return {
+        query,
+        cacheKey,
+        route: 'feature_api' as const,
+        cached: null,
+        localEvidence: [] as AssistantEvidence[],
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence: false
+      }
+    }
+
+    const localEvidence = retrieveCampusEvidence(client, query)
+    const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
+    const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+    if (!requiresSpecificWebEvidence && (deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8))) {
+      return {
+        query,
+        cacheKey,
+        route: 'local_database' as const,
+        cached: null,
+        localEvidence,
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence
+      }
+    }
+
+    let webEvidence: ApiAssistantCitation[] = []
+    try {
+      webEvidence = cachedWebEvidenceForQuery(client, query)
+    } catch {
+      // A delayed cache migration must not prevent the planner from choosing live search.
+    }
     return {
       query,
       cacheKey,
-      cached: cached && cached.expiresAt > Date.now() ? cached.response : null,
-      featureSeeking: isFeatureSeekingQuery(query)
+      route: webEvidence.length > 0
+        ? 'web_cache' as const
+        : canSearchWeb(config) ? 'web_search' as const : 'local_database' as const,
+      cached: null,
+      localEvidence,
+      webEvidence,
+      requiresSpecificWebEvidence
     }
   })
-  const { query, cacheKey, featureSeeking } = analysis
-  if (analysis.cached) {
+  const { query, cacheKey } = analysis
+  if (analysis.route === 'answer_cache' && analysis.cached) {
     const response = await runAssistantStage(tracker, 'answer_cache', '读取答案缓存', () => analysis.cached!)
     return withRunMetadata(response, tracker, 'answer_cache', true)
   }
 
-  const retrievalStage: ApiAssistantStage = featureSeeking ? 'feature_api' : 'local_database'
-  const retrievalLabel = featureSeeking ? '搜索系统 API' : '搜索内置数据库'
-  const localEvidence = await runAssistantStage(
-    tracker,
-    retrievalStage,
-    retrievalLabel,
-    () => retrieveCampusEvidence(client, query)
-  )
-  const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
-  const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
-  if (!requiresSpecificWebEvidence && (deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8))) {
+  if (analysis.route === 'feature_api' || analysis.route === 'local_database') {
+    const retrievalStage: ApiAssistantStage = analysis.route
+    const retrievalLabel = analysis.route === 'feature_api' ? '搜索系统 API' : '搜索内置数据库'
+    const localEvidence = await runAssistantStage(
+      tracker,
+      retrievalStage,
+      retrievalLabel,
+      () => retrieveCampusEvidence(client, query)
+    )
+    const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
     const response = await runAssistantStage(
       tracker,
       'answer_generation',
       '整理答案',
-      () => deterministicRuleAnswer ?? buildLocalResponse(query, localEvidence)
+      () => analysis.requiresSpecificWebEvidence
+        ? dormBedEvidenceGapResponse(query, localEvidence)
+        : deterministicRuleAnswer ?? (localEvidence[0]
+          ? buildLocalResponse(query, localEvidence)
+          : localEvidenceGapResponse(query))
     )
     const result = withRunMetadata(
       response,
       tracker,
-      featureSeeking ? 'feature_api' : 'local_database'
+      analysis.route
     )
     return cacheResponse(cacheKey, result)
   }
 
-  let webEvidence: ApiAssistantCitation[] = []
-  try {
+  let webEvidence = analysis.webEvidence
+  const retrievalPath: ApiAssistantRetrievalPath = analysis.route
+  if (analysis.route === 'web_cache') {
     webEvidence = await runAssistantStage(
       tracker,
       'web_cache',
-      '检查网页资料缓存',
-      () => cachedWebEvidenceForQuery(client, query)
+      '读取网页资料缓存',
+      () => analysis.webEvidence
     )
-  } catch {
-    // The cache is optional so a delayed database migration cannot take down campus answers.
-  }
-  let retrievalPath: ApiAssistantRetrievalPath = webEvidence.length > 0 ? 'web_cache' : 'web_search'
-  if (webEvidence.length === 0) {
+  } else {
     try {
       webEvidence = await runAssistantStage(tracker, 'web_search', '搜索网页', async () => {
         const result = await searchWeb(query, config)
@@ -1139,7 +1233,7 @@ export async function answerCampusQuestion(
       // MCP search is optional; the fallback still reports that evidence is insufficient.
     }
   }
-  const weakLocalEvidence = localEvidence.slice(0, 3).map(({ text: _text, score: _score, ...item }) => item)
+  const weakLocalEvidence = analysis.localEvidence.slice(0, 3).map(({ text: _text, score: _score, ...item }) => item)
   const evidence = [...weakLocalEvidence, ...webEvidence].slice(0, 8)
   const response = await runAssistantStage(tracker, 'answer_generation', '整理答案', async () => {
     let model: ModelAnswer
@@ -1156,7 +1250,7 @@ export async function answerCampusQuestion(
           confidence: 1
         }
       }
-      if (requiresSpecificWebEvidence) return dormBedEvidenceGapResponse(query, localEvidence)
+      if (analysis.requiresSpecificWebEvidence) return dormBedEvidenceGapResponse(query, analysis.localEvidence)
       throw error
     }
     const citations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
@@ -1169,8 +1263,5 @@ export async function answerCampusQuestion(
       confidence: model.confidence
     }
   })
-  if (retrievalPath === 'web_search' && !tracker.trace.some(step => step.stage === 'web_search')) {
-    retrievalPath = featureSeeking ? 'feature_api' : 'local_database'
-  }
   return cacheResponse(cacheKey, withRunMetadata(response, tracker, retrievalPath))
 }

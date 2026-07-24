@@ -36,6 +36,13 @@ export default defineEventHandler(async (event) => {
   const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
   const startedAt = Date.now()
   const stream = createEventStream(event)
+  const heartbeatTimer = setInterval(() => {
+    void stream.push({
+      event: 'heartbeat',
+      data: JSON.stringify({ at: new Date().toISOString() })
+    }).catch(() => {})
+  }, 10_000)
+  heartbeatTimer.unref()
 
   void (async () => {
     try {
@@ -43,12 +50,12 @@ export default defineEventHandler(async (event) => {
         gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
         gatewayApiKey: String(runtime.aiGatewayApiKey || ''),
         gatewayModel: String(runtime.aiGatewayModel || 'gpt-5.4'),
-        gatewayTimeoutMs: Number(runtime.aiGatewayTimeoutMs || 25_000),
+        gatewayTimeoutMs: Math.max(60_000, Number(runtime.aiGatewayTimeoutMs) || 60_000),
         mcpSearchUrl: String(runtime.aiMcpSearchUrl || ''),
         mcpSearchBearerToken: String(runtime.aiMcpSearchBearerToken || ''),
         mcpAllowedHosts: String(runtime.aiMcpAllowedHosts || 'mcp.firecrawl.dev'),
         mcpToolName: String(runtime.aiMcpToolName || 'firecrawl_search'),
-        mcpTimeoutMs: Number(runtime.aiMcpTimeoutMs || 12_000)
+        mcpTimeoutMs: Math.max(25_000, Number(runtime.aiMcpTimeoutMs) || 25_000)
       }, {
         onStageStarted: async (stage, label, stageStartedAt) => {
           await stream.push({
@@ -81,6 +88,7 @@ export default defineEventHandler(async (event) => {
         data: JSON.stringify({ code: publicCode, message: '暂时无法继续整理这个问题。' })
       })
     } finally {
+      clearInterval(heartbeatTimer)
       await stream.close()
     }
   })()

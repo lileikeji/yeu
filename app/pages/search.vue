@@ -259,6 +259,12 @@ function formatAssistantDuration(durationMs: number): string {
   return `${Math.round(durationMs / 1000)} 秒`
 }
 
+function formatAssistantStepDuration(step: AssistantDisplayStep): string {
+  const durationMs = assistantDurationMs(step)
+  if (step.status !== 'running' && durationMs < 100) return '已完成'
+  return formatAssistantDuration(durationMs)
+}
+
 function assistantModeLabel(response: ApiAssistantResponse): string {
   const labels: Record<string, string> = {
     feature_api: '系统 API',
@@ -628,7 +634,7 @@ onBeforeUnmount(() => {
                 v-if="assistantStatus === 'pending'"
                 class="mt-2 text-sm leading-6 text-zinc-600"
               >
-                正在判断应查询系统 API、内置数据库还是网页资料。
+                正在分析问题，随后只执行最合适的一条检索路径。
               </p>
               <div
                 v-if="assistantDisplayTrace.length"
@@ -656,7 +662,7 @@ onBeforeUnmount(() => {
                     {{ step.label }}{{ step.status === 'running' ? '中' : '' }}
                   </span>
                   <span class="shrink-0 tabular-nums text-zinc-500">
-                    {{ formatAssistantDuration(assistantDurationMs(step)) }}
+                    {{ formatAssistantStepDuration(step) }}
                   </span>
                 </div>
                 <div

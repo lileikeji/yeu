@@ -56,6 +56,11 @@ test('assistant answers feature location with a clickable local entry', async ()
     assert.equal(response.mode, 'local')
     assert.match(response.answer, /专业与学院查询/)
     assert.equal(response.citations[0]?.url, '/#major-lookup')
+    assert.deepEqual(response.trace?.map(item => item.stage), [
+      'query_analysis',
+      'feature_api',
+      'answer_generation'
+    ])
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
@@ -95,6 +100,38 @@ test('bed-size question still gets a safe answer when MCP has no verified result
     assert.match(response.answer, /没有检索到仰恩大学官方公开的统一宿舍床尺寸/)
     assert.match(response.answer, /不要按未经核验的尺寸/)
     assert.ok(response.citations.some(item => item.url === '/contact'))
+    assert.deepEqual(response.trace?.map(item => item.stage), [
+      'query_analysis',
+      'local_database',
+      'answer_generation'
+    ])
+    assert.equal(response.trace?.some(item => item.stage === 'web_cache' || item.stage === 'web_search'), false)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('cached web evidence selects only the web-cache route', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-bed-cached-route-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const query = '宿舍床尺寸缓存路线测试'
+    storeWebEvidence(client, query, [{
+      title: '公开网页线索',
+      url: 'https://example.edu/dorm-bed-route',
+      snippet: '不同楼栋需要分别核验。',
+      source: 'web'
+    }])
+    const response = await answerCampusQuestion(client, query, emptyAssistantConfig)
+    assert.deepEqual(response.trace?.map(item => item.stage), [
+      'query_analysis',
+      'web_cache',
+      'answer_generation'
+    ])
+    assert.equal(response.trace?.some(item => item.stage === 'local_database' || item.stage === 'web_search'), false)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

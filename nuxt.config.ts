@@ -1,17 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { clientBundleIcons } from './shared/client-bundle-icons'
 import { EDGE_ROUTE_BOOTSTRAP_SCRIPT } from './app/utils/edge-route-bootstrap'
-export default defineNuxtConfig({
-  app: {
-    head: {
-      script: [{
-        key: 'yeu-edge-route-bootstrap',
-        innerHTML: EDGE_ROUTE_BOOTSTRAP_SCRIPT,
-        tagPosition: 'head'
-      }]
-    }
-  },
 
+export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
@@ -20,6 +11,15 @@ export default defineNuxtConfig({
 
   devtools: {
     enabled: false
+  },
+  app: {
+    head: {
+      script: [{
+        key: 'yeu-edge-route-bootstrap',
+        innerHTML: EDGE_ROUTE_BOOTSTRAP_SCRIPT,
+        tagPosition: 'head'
+      }]
+    }
   },
 
   css: [
@@ -32,12 +32,12 @@ export default defineNuxtConfig({
     aiGatewayBaseUrl: '',
     aiGatewayApiKey: '',
     aiGatewayModel: 'gpt-5.4',
-    aiGatewayTimeoutMs: 25_000,
+    aiGatewayTimeoutMs: 60_000,
     aiMcpSearchUrl: '',
     aiMcpSearchBearerToken: '',
     aiMcpAllowedHosts: 'mcp.firecrawl.dev',
     aiMcpToolName: 'firecrawl_search',
-    aiMcpTimeoutMs: 12_000,
+    aiMcpTimeoutMs: 25_000,
     botSiteUrl: 'https://yeu.huiliyill.cn/',
     botMaxReplyChars: 1800,
     qqBotWebhookToken: '',
@@ -62,22 +62,6 @@ export default defineNuxtConfig({
   // Default .nuxt matches root tsconfig references. Set NUXT_BUILD_DIR=.nuxt-build
   // only when a concurrent nuxt dev would otherwise clobber the same folder.
   buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
-
-  // SSR needs provider=server so serverBundle is built (CSS-mode --svg).
-  // clientBundle covers client hydration; fallbackToApi=false avoids CDN
-  // poisoning partial /api/_nuxt_icon collection responses.
-  icon: {
-    provider: 'server',
-    fallbackToApi: false,
-    clientBundle: {
-      scan: true,
-      icons: [...clientBundleIcons],
-      sizeLimitKb: 512
-    },
-    serverBundle: {
-      collections: ['lucide', 'simple-icons']
-    }
-  },
 
   routeRules: {
     '/map': {
@@ -136,6 +120,22 @@ export default defineNuxtConfig({
         commaDangle: 'never',
         braceStyle: '1tbs'
       }
+    }
+  },
+
+  // SSR needs provider=server so serverBundle is built (CSS-mode --svg).
+  // clientBundle covers client hydration; fallbackToApi=false avoids CDN
+  // poisoning partial /api/_nuxt_icon collection responses.
+  icon: {
+    provider: 'server',
+    fallbackToApi: false,
+    clientBundle: {
+      scan: true,
+      icons: [...clientBundleIcons],
+      sizeLimitKb: 512
+    },
+    serverBundle: {
+      collections: ['lucide', 'simple-icons']
     }
   },
 
