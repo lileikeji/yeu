@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { $pwa } = useNuxtApp()
 const updating = ref(false)
+const dismissed = ref(false)
 
 async function applyUpdate(): Promise<void> {
   if (!$pwa || updating.value) return
@@ -20,13 +21,19 @@ async function applyUpdate(): Promise<void> {
 }
 
 async function dismissUpdate(): Promise<void> {
-  await $pwa?.cancelPrompt()
+  // Hide immediately even if the service-worker prompt state is slow to settle.
+  dismissed.value = true
+  try {
+    await $pwa?.cancelPrompt()
+  } catch {
+    // Dismissing the visual prompt should not depend on plugin state updates.
+  }
 }
 </script>
 
 <template>
   <aside
-    v-if="$pwa?.needRefresh"
+    v-if="$pwa?.needRefresh && !dismissed"
     role="status"
     aria-live="polite"
     aria-atomic="true"

@@ -28,6 +28,8 @@ test('public update and offline copy avoid admin-facing language', () => {
   assert.match(updatePromptSource, /有新的校园内容/)
   assert.match(updatePromptSource, /window\.setTimeout/)
   assert.match(updatePromptSource, /window\.location\.reload/)
+  assert.match(updatePromptSource, /dismissed\.value = true/)
+  assert.match(updatePromptSource, /\$pwa\?\.needRefresh && !dismissed/)
   assert.match(updatePromptSource, /z-\[100\]/)
   assert.match(updatePromptSource, /刷新看看/)
   assert.match(updatePromptSource, /role="status"/)

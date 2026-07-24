@@ -1,8 +1,14 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import type { ApiAssistantCitation, ApiAssistantResponse } from '../../../shared/types/server'
 import { normalizeAssistantQuery } from '../../../shared/utils/assistant-query'
 import type { DatabaseClient } from '../../database/client'
-import { contents, places, procedures } from '../../database/schema'
+import {
+  contents,
+  places,
+  procedureMaterials,
+  procedures,
+  procedureSteps
+} from '../../database/schema'
 import { activePublicContentCondition } from '../content/visibility'
 import { activePublicProcedureCondition } from '../procedures/service'
 
@@ -44,7 +50,8 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   快递: ['取件', '驿站', '快递站'],
   食堂: ['餐厅', '吃饭', '用餐'],
   军训: ['训练', '军训安排'],
-  档案: ['邮寄', '转接', '专升本档案']
+  档案: ['邮寄', '转接', '专升本档案'],
+  开学: ['报到', '注册', '入学教育', '上课', '校历']
 }
 
 const answerCache = new Map<string, { expiresAt: number, response: ApiAssistantResponse }>()
@@ -54,6 +61,54 @@ let gatewayOpenUntil = 0
 
 function safeText(value: string | null | undefined, maxLength = 1600): string {
   return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength)
+}
+
+function nestedArticleText(metadataJson: string): string {
+  let metadata: unknown
+  try {
+    metadata = JSON.parse(metadataJson)
+  } catch {
+    return ''
+  }
+
+  const values: string[] = []
+  const visit = (value: unknown, depth: number): void => {
+    if (depth > 8 || values.length >= 500) return
+    if (typeof value === 'string') {
+      values.push(value)
+      return
+    }
+    if (Array.isArray(value)) {
+      value.forEach(item => visit(item, depth + 1))
+      return
+    }
+    if (value && typeof value === 'object') {
+      Object.values(value).forEach(item => visit(item, depth + 1))
+    }
+  }
+  visit(metadata, 0)
+  return safeText(values.join(' '), 12_000)
+}
+
+function passageMatchScore(value: string, terms: string[]): number {
+  const normalized = value.toLocaleLowerCase('zh-CN')
+  return terms.reduce((score, term) => (
+    normalized.includes(term) ? score + (term.length >= 3 ? 3 : 2) : score
+  ), 0)
+}
+
+function evidenceSnippet(summary: string, detail: string, terms: string[]): string {
+  const normalizedSummary = safeText(summary, 500)
+  const bestDetail = detail
+    .split(/(?<=[。！？!?；;])|\n+/)
+    .map(item => safeText(item, 500))
+    .filter(Boolean)
+    .sort((left, right) => passageMatchScore(right, terms) - passageMatchScore(left, terms))[0]
+
+  if (!bestDetail || passageMatchScore(bestDetail, terms) <= passageMatchScore(normalizedSummary, terms)) {
+    return normalizedSummary
+  }
+  return safeText(`${normalizedSummary} ${bestDetail}`, 500)
 }
 
 function contentUrl(kind: string, slug: string): string {
@@ -118,17 +173,19 @@ export function retrieveCampusEvidence(
     slug: places.slug,
     title: places.name,
     summary: places.summary,
+    body: places.body,
     address: places.address,
     updatedAt: places.updatedAt
   }).from(places).where(eq(places.status, 'published')).orderBy(desc(places.updatedAt)).all().map((row) => {
     const summary = safeText(`${row.summary} ${row.address ?? ''}`, 500)
+    const body = safeText(row.body, 6000)
     return {
       title: row.title,
       url: `/map?place=${encodeURIComponent(row.slug)}`,
-      snippet: summary,
+      snippet: evidenceSnippet(summary, body, terms),
       source: 'site' as const,
-      text: summary,
-      score: evidenceScore(row.title, summary, '', terms)
+      text: `${summary} ${body}`,
+      score: evidenceScore(row.title, summary, body, terms)
     }
   })
 
@@ -137,6 +194,7 @@ export function retrieveCampusEvidence(
     title: contents.title,
     summary: contents.summary,
     body: contents.body,
+    metadataJson: contents.metadataJson,
     kind: contents.kind,
     updatedAt: contents.updatedAt
   }).from(contents).where(and(
@@ -144,34 +202,63 @@ export function retrieveCampusEvidence(
     activePublicContentCondition(now)
   )).orderBy(desc(contents.updatedAt)).all().map((row) => {
     const summary = safeText(row.summary, 500)
-    const body = safeText(row.body)
+    const body = safeText(row.body, 6000)
+    const metadata = nestedArticleText(row.metadataJson)
+    const detail = `${body} ${metadata}`
     return {
       title: row.title,
       url: contentUrl(row.kind, row.slug),
-      snippet: summary,
+      snippet: evidenceSnippet(summary, detail, terms),
       source: 'site' as const,
-      text: `${summary} ${body}`,
-      score: evidenceScore(row.title, summary, body, terms)
+      text: `${summary} ${detail}`,
+      score: evidenceScore(row.title, summary, detail, terms)
     }
   })
 
-  const procedureEvidence: AssistantEvidence[] = client.db.select({
+  const procedureRows = client.db.select({
+    id: procedures.id,
     slug: procedures.slug,
     title: procedures.title,
     summary: procedures.summary,
     body: procedures.body,
     statusText: procedures.statusText,
+    deadlineText: procedures.deadlineText,
     updatedAt: procedures.updatedAt
-  }).from(procedures).where(activePublicProcedureCondition(now)).orderBy(desc(procedures.updatedAt)).all().map((row) => {
-    const summary = safeText(`${row.summary} ${row.statusText}`, 500)
-    const body = safeText(row.body)
+  }).from(procedures).where(activePublicProcedureCondition(now)).orderBy(desc(procedures.updatedAt)).all()
+  const procedureIds = procedureRows.map(row => row.id)
+  const stepRows = procedureIds.length > 0
+    ? client.db.select({
+        procedureId: procedureSteps.procedureId,
+        title: procedureSteps.title,
+        description: procedureSteps.description,
+        timeText: procedureSteps.timeText
+      }).from(procedureSteps).where(inArray(procedureSteps.procedureId, procedureIds)).all()
+    : []
+  const materialRows = procedureIds.length > 0
+    ? client.db.select({
+        procedureId: procedureMaterials.procedureId,
+        name: procedureMaterials.name,
+        description: procedureMaterials.description
+      }).from(procedureMaterials).where(inArray(procedureMaterials.procedureId, procedureIds)).all()
+    : []
+  const procedureEvidence: AssistantEvidence[] = procedureRows.map((row) => {
+    const summary = safeText(`${row.summary} ${row.statusText} ${row.deadlineText ?? ''}`, 500)
+    const childText = [
+      ...stepRows
+        .filter(step => step.procedureId === row.id)
+        .map(step => `${step.title} ${step.description} ${step.timeText ?? ''}`),
+      ...materialRows
+        .filter(material => material.procedureId === row.id)
+        .map(material => `${material.name} ${material.description}`)
+    ].join(' ')
+    const detail = `${safeText(row.body, 6000)} ${safeText(childText, 6000)}`
     return {
       title: row.title,
       url: `/procedures/${encodeURIComponent(row.slug)}`,
-      snippet: summary,
+      snippet: evidenceSnippet(summary, detail, terms),
       source: 'site' as const,
-      text: `${summary} ${body}`,
-      score: evidenceScore(row.title, summary, body, terms)
+      text: `${summary} ${detail}`,
+      score: evidenceScore(row.title, summary, detail, terms)
     }
   })
 
