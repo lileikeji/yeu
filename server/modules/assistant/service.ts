@@ -35,6 +35,12 @@ interface ModelAnswer {
   confidence: number
 }
 
+const GATEWAY_CONTENT_BLOCK_MARKERS = [
+  '违禁词', '敏感词', '敏感内容', '内容审核', '内容安全',
+  'content_filter', 'content policy', 'moderation_blocked',
+  'safety_violation', 'prohibited content'
+] as const
+
 const QUESTION_FILLERS = [
   '请问', '我想知道', '告诉我', '一下', '怎么', '如何', '哪里', '在哪', '什么时候',
   '何时', '多少', '能不能', '可不可以', '需要什么', '要带什么', '准备什么', '怎么办',
@@ -61,6 +67,11 @@ let gatewayOpenUntil = 0
 
 function safeText(value: string | null | undefined, maxLength = 1600): string {
   return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength)
+}
+
+export function isGatewayContentBlocked(payload: string): boolean {
+  const normalized = payload.toLocaleLowerCase('zh-CN').replace(/\s+/g, ' ')
+  return GATEWAY_CONTENT_BLOCK_MARKERS.some(marker => normalized.includes(marker))
 }
 
 function nestedArticleText(metadataJson: string): string {
@@ -440,11 +451,20 @@ async function askGateway(
       }),
       signal: AbortSignal.timeout(config.gatewayTimeoutMs)
     })
+    const responseText = await response.text()
+    if (isGatewayContentBlocked(responseText)) throw new Error('AI_CONTENT_BLOCKED')
     if (!response.ok) throw new Error(`AI_GATEWAY_${response.status}`)
-    const result = parseModelAnswer(await response.json(), evidence.length)
+    let payload: unknown
+    try {
+      payload = JSON.parse(responseText)
+    } catch {
+      throw new Error('INVALID_MODEL_RESPONSE')
+    }
+    const result = parseModelAnswer(payload, evidence.length)
     consecutiveGatewayFailures = 0
     return result
   } catch (error) {
+    if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') throw error
     consecutiveGatewayFailures += 1
     if (consecutiveGatewayFailures >= 3) gatewayOpenUntil = Date.now() + 60_000
     throw error
@@ -486,7 +506,22 @@ export async function answerCampusQuestion(
   }
   const weakLocalEvidence = localEvidence.slice(0, 3).map(({ text: _text, score: _score, ...item }) => item)
   const evidence = [...weakLocalEvidence, ...webEvidence].slice(0, 8)
-  const model = await askGateway(query, evidence, config)
+  let model: ModelAnswer
+  try {
+    model = await askGateway(query, evidence, config)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') {
+      return cacheResponse(cacheKey, {
+        query,
+        mode: 'ai',
+        answer: '禁止回答',
+        citations: [],
+        usedWebSearch: false,
+        confidence: 1
+      })
+    }
+    throw error
+  }
   const citations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
   return cacheResponse(cacheKey, {
     query,
