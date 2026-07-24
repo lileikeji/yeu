@@ -131,6 +131,7 @@ onMounted(() => {
       tabindex="-1"
     >
       <slot />
+      <HomeMajorLookup v-if="route.path === '/'" />
     </main>
 
     <PwaUpdatePrompt />

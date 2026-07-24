@@ -12,9 +12,11 @@ import {
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
+  answerCampusQuestion,
   assistantQueryTerms,
   isGatewayContentBlocked,
-  retrieveCampusEvidence
+  retrieveCampusEvidence,
+  seedCatalogEvidenceForQuery
 } from '../server/modules/assistant/service'
 
 const root = resolve(import.meta.dirname, '..')
@@ -22,6 +24,8 @@ const root = resolve(import.meta.dirname, '..')
 test('assistant routing keeps keyword search local and escalates unanswered questions only', () => {
   assert.equal(isQuestionLike('校园网'), false)
   assert.equal(isQuestionLike('校园网怎么连接？'), true)
+  assert.equal(isQuestionLike('会计学属于哪个学院'), true)
+  assert.equal(isQuestionLike('会计学新生住新区还是旧区'), true)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 2), false)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 0), true)
   assert.equal(shouldRequestAssistantAnswer('校园网', 0), false)
@@ -96,6 +100,66 @@ test('assistant retrieval ranks opening dates and indexes nested article section
     const nested = retrieveCampusEvidence(client, '夜间开放安排在哪里？', 3)
     assert.equal(nested[0]?.title, '图书馆使用指南')
     assert.match(nested[0]?.snippet ?? '', /夜间开放安排/)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('verified seed catalog covers opening dates when the runtime database is stale', () => {
+  const opening = seedCatalogEvidenceForQuery('什么时候开学？', 3)
+  assert.equal(opening[0]?.title, '2026级新生报到')
+  assert.ok(opening[0]?.score && opening[0].score >= 8)
+  assert.match(opening[0]?.snippet ?? '', /9月10日上课/)
+})
+
+test('opening question returns a deterministic local answer with an empty database', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-empty-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '什么时候开学？', {
+      gatewayBaseUrl: '',
+      gatewayApiKey: '',
+      gatewayModel: '',
+      gatewayTimeoutMs: 1000,
+      mcpSearchUrl: '',
+      mcpSearchBearerToken: '',
+      mcpAllowedHosts: '',
+      mcpToolName: '',
+      mcpTimeoutMs: 1000
+    })
+    assert.equal(response.mode, 'local')
+    assert.match(response.answer, /9月5日至6日注册报到/)
+    assert.match(response.answer, /9月10日开始上课/)
+    assert.equal(response.citations[0]?.title, '2026级新生报到')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('major dorm question prioritizes the verified pending allocation', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-major-dorm-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '会计学新生住新区还是旧区', {
+      gatewayBaseUrl: '',
+      gatewayApiKey: '',
+      gatewayModel: '',
+      gatewayTimeoutMs: 1000,
+      mcpSearchUrl: '',
+      mcpSearchBearerToken: '',
+      mcpAllowedHosts: '',
+      mcpToolName: '',
+      mcpTimeoutMs: 1000
+    })
+    assert.equal(response.mode, 'local')
+    assert.match(response.answer, /待学校通知/)
+    assert.equal(response.citations[0]?.title, '会计学 · 会计学院')
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
