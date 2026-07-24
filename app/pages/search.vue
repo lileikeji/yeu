@@ -281,9 +281,12 @@ watch([activeQuery, activeType], ([query, type]) => {
 
 watch(
   [activeQuery, activeType, searching, searchError, () => results.value.length],
-  () => void requestAssistantAnswer(),
-  { immediate: true }
+  () => void requestAssistantAnswer()
 )
+
+onMounted(() => {
+  void requestAssistantAnswer()
+})
 </script>
 
 <template>

@@ -54,6 +54,7 @@ test('contact page exposes the supplied QR image and visible entry points', () =
 test('assistant endpoint is server-only, rate limited and excluded from CDN cache', () => {
   const route = readFileSync(resolve(root, 'server/api/public/assistant.post.ts'), 'utf8')
   const service = readFileSync(resolve(root, 'server/modules/assistant/service.ts'), 'utf8')
+  const searchPage = readFileSync(resolve(root, 'app/pages/search.vue'), 'utf8')
   const config = readFileSync(resolve(root, 'nuxt.config.ts'), 'utf8')
 
   assert.match(route, /assistant:\$\{ipAddress\}.*, 8, 60 \* 1000/)
@@ -61,6 +62,8 @@ test('assistant endpoint is server-only, rate limited and excluded from CDN cach
   assert.match(service, /activeGatewayCalls >= 2/)
   assert.match(service, /gatewayOpenUntil = Date\.now\(\) \+ 60_000/)
   assert.match(service, /parseAllowedHosts/)
+  assert.match(searchPage, /onMounted\(\(\) => \{\s+void requestAssistantAnswer\(\)/)
+  assert.doesNotMatch(searchPage, /requestAssistantAnswer\(\),\s+\{ immediate: true \}/)
   assert.match(config, /'\/api\/public\/assistant'/)
   assert.match(config, /'CDN-Cache-Control': 'no-store'/)
 })
