@@ -645,21 +645,31 @@ onBeforeUnmount(() => {
                   :key="step.stage"
                   class="flex min-h-8 items-center justify-between gap-4 rounded-md bg-zinc-50 px-2.5 py-1.5"
                 >
-                  <span class="inline-flex min-w-0 items-center gap-2 font-medium text-zinc-700">
+                  <span class="inline-flex min-w-0 items-start gap-2 font-medium text-zinc-700">
                     <UIcon
                       :name="step.status === 'running'
                         ? 'i-lucide-loader-circle'
                         : step.status === 'failed'
                           ? 'i-lucide-circle-x'
                           : 'i-lucide-circle-check'"
-                      class="size-3.5 shrink-0"
+                      class="mt-0.5 size-3.5 shrink-0"
                       :class="step.status === 'running'
                         ? 'animate-spin text-green-700'
                         : step.status === 'failed'
                           ? 'text-red-600'
                           : 'text-green-700'"
                     />
-                    {{ step.label }}{{ step.status === 'running' ? '中' : '' }}
+                    <span class="min-w-0">
+                      <span class="block">
+                        {{ step.label }}{{ step.status === 'running' ? '中' : '' }}
+                      </span>
+                      <span
+                        v-if="step.detail"
+                        class="mt-0.5 block text-[11px] font-normal leading-4 text-zinc-500"
+                      >
+                        {{ step.detail }}
+                      </span>
+                    </span>
                   </span>
                   <span class="shrink-0 tabular-nums text-zinc-500">
                     {{ formatAssistantStepDuration(step) }}

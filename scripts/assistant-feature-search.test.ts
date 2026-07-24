@@ -8,7 +8,9 @@ import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
   answerCampusQuestion,
+  assistantRetrievalQuery,
   cachedWebEvidenceForQuery,
+  sanitizeAssistantAnswer,
   storeWebEvidence
 } from '../server/modules/assistant/service'
 import { searchPublishedContent } from '../server/modules/search/service'
@@ -88,6 +90,46 @@ test('MCP web evidence can be persisted and reused without becoming site evidenc
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
   }
+})
+
+test('bed and mattress wording share one normalized web-knowledge cache', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-mattress-cache-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    assert.equal(
+      assistantRetrievalQuery('新生要买多大的床垫'),
+      assistantRetrievalQuery('宿舍床的尺寸是多大')
+    )
+    storeWebEvidence(client, '宿舍床的尺寸是多大', [{
+      title: '宿舍床尺寸公开资料',
+      url: 'https://example.edu/dorm-mattress-size',
+      snippet: '床位宽0.9米、长1.9米，具体楼栋仍需核验。',
+      source: 'web'
+    }])
+    const cached = cachedWebEvidenceForQuery(client, '新生要买多大的床垫')
+    assert.equal(cached[0]?.url, 'https://example.edu/dorm-mattress-size')
+
+    const response = await answerCampusQuestion(client, '新生要买多大的床垫', emptyAssistantConfig)
+    assert.equal(response.retrievalPath, 'web_cache')
+    assert.deepEqual(response.trace?.map(item => item.stage), [
+      'query_analysis',
+      'web_cache',
+      'answer_generation'
+    ])
+    assert.equal(response.trace?.[0]?.detail, '识别为：宿舍床与床垫尺寸')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('assistant answer text strips raw URLs while citations remain separate', () => {
+  assert.equal(
+    sanitizeAssistantAnswer('查看[宿舍说明](https://example.edu/very/long/path)，也可访问 https://example.edu/raw。'),
+    '查看宿舍说明，也可访问'
+  )
 })
 
 test('bed-size question still gets a safe answer when MCP has no verified result', async () => {
