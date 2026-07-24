@@ -84,6 +84,14 @@ export default defineNuxtConfig({
         'X-Robots-Tag': 'noindex, nofollow'
       }
     },
+    '/api/public/assistant/stream': {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'CDN-Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, nofollow',
+        'X-Accel-Buffering': 'no'
+      }
+    },
     // Icon payloads vary by ?icons=; never let CDN share one partial body.
     '/api/_nuxt_icon/**': {
       headers: {

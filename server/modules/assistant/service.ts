@@ -18,7 +18,13 @@ import {
   officialDepartmentBody,
   officialDepartments
 } from '../../../data/seeds/public-content'
-import type { ApiAssistantCitation, ApiAssistantResponse } from '../../../shared/types/server'
+import type {
+  ApiAssistantCitation,
+  ApiAssistantResponse,
+  ApiAssistantRetrievalPath,
+  ApiAssistantStage,
+  ApiAssistantTraceStep
+} from '../../../shared/types/server'
 import { normalizeAssistantQuery } from '../../../shared/utils/assistant-query'
 import type { DatabaseClient } from '../../database/client'
 import {
@@ -55,6 +61,17 @@ interface ModelAnswer {
   confidence: number
 }
 
+export interface AssistantRunHooks {
+  onStageStarted?: (stage: ApiAssistantStage, label: string, startedAt: string) => void | Promise<void>
+  onStageCompleted?: (step: ApiAssistantTraceStep) => void | Promise<void>
+}
+
+interface AssistantRunTracker {
+  startedAt: number
+  trace: ApiAssistantTraceStep[]
+  hooks: AssistantRunHooks
+}
+
 const GATEWAY_CONTENT_BLOCK_MARKERS = [
   '违禁词', '敏感词', '敏感内容', '内容审核', '内容安全',
   'content_filter', 'content policy', 'moderation_blocked',
@@ -87,6 +104,56 @@ const answerCache = new Map<string, { expiresAt: number, response: ApiAssistantR
 let activeGatewayCalls = 0
 let consecutiveGatewayFailures = 0
 let gatewayOpenUntil = 0
+
+async function runAssistantStage<T>(
+  tracker: AssistantRunTracker,
+  stage: ApiAssistantStage,
+  label: string,
+  task: () => T | Promise<T>,
+  detail?: string
+): Promise<T> {
+  const startedAt = Date.now()
+  await tracker.hooks.onStageStarted?.(stage, label, new Date(startedAt).toISOString())
+  try {
+    const result = await task()
+    const step: ApiAssistantTraceStep = {
+      stage,
+      label,
+      durationMs: Math.max(0, Date.now() - startedAt),
+      status: 'completed',
+      ...(detail ? { detail } : {})
+    }
+    tracker.trace.push(step)
+    await tracker.hooks.onStageCompleted?.(step)
+    return result
+  } catch (error) {
+    const step: ApiAssistantTraceStep = {
+      stage,
+      label,
+      durationMs: Math.max(0, Date.now() - startedAt),
+      status: 'failed',
+      ...(detail ? { detail } : {})
+    }
+    tracker.trace.push(step)
+    await tracker.hooks.onStageCompleted?.(step)
+    throw error
+  }
+}
+
+function withRunMetadata(
+  response: ApiAssistantResponse,
+  tracker: AssistantRunTracker,
+  retrievalPath: ApiAssistantRetrievalPath,
+  cacheHit = false
+): ApiAssistantResponse {
+  return {
+    ...response,
+    retrievalPath,
+    trace: [...tracker.trace],
+    totalDurationMs: Math.max(0, Date.now() - tracker.startedAt),
+    cacheHit
+  }
+}
 
 function safeText(value: string | null | undefined, maxLength = 1600): string {
   return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength)
@@ -302,6 +369,7 @@ export function studentRuleEvidenceForQuery(query: string, limit = 8): Assistant
   const terms = assistantQueryTerms(query)
   if (terms.length === 0) return []
   const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const scholarshipOverviewQuery = /奖助学金|奖学金.*(?:有哪些|全部|所有|各类|汇总|规则|条件|申请|评审|流程|时间)/.test(normalizedQuery)
 
   const gpaDetail = [...gpaRules.formulas, ...gpaRules.notes].join(' ')
   const comprehensiveDetail = [
@@ -335,6 +403,7 @@ export function studentRuleEvidenceForQuery(query: string, limit = 8): Assistant
       text: `${scholarshipGeneralRule.documentNumber} ${scholarshipGeneralRule.summary}`,
       score: evidenceScore(scholarshipGeneralRule.title, scholarshipGeneralRule.summary, scholarshipGeneralRule.summary, terms)
         + (/奖学金.*(同时|一起|兼得|重复|几个)|同时.*奖学金/.test(normalizedQuery) ? 18 : 0)
+        + (scholarshipOverviewQuery ? 14 : 0)
     }
   ]
 
@@ -348,6 +417,7 @@ export function studentRuleEvidenceForQuery(query: string, limit = 8): Assistant
       text: detail,
       score: evidenceScore(item.name, `${item.scope} ${item.ranking}`, detail, terms)
         + (normalizedQuery.includes(item.name.toLocaleLowerCase('zh-CN')) ? 22 : 0)
+        + (scholarshipOverviewQuery ? 9 : 0)
     }
   })
 
@@ -575,6 +645,23 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
     }
   }
 
+  if (/国家助学金/.test(normalizedQuery) && !/国家奖学金/.test(normalizedQuery)) {
+    return {
+      query,
+      mode: 'local',
+      answer: '国家助学金面向全日制本科在校生中的家庭经济困难学生，现行办法为每年3000元和5000元两档。原则上由学生本人在每年9月20日前通过“福建省精准资助学生信息管理系统”申请；2026学年的开放时间和入口仍以学生事务部当年通知为准。同一学年获得国家助学金后，符合条件的学生仍可申请国家奖学金或国家励志奖学金。',
+      citations: [{
+        title: '学费、住宿费与学生资助',
+        url: '/guides/fees-aid',
+        snippet: '国家助学金分每年3000元和5000元两档，原则上每年9月20日前通过福建省精准资助学生信息管理系统申请。',
+        source: 'site'
+      }],
+      usedWebSearch: false,
+      confidence: 0.98
+    }
+  }
+
+  const mentionedScholarships = scholarships.filter(item => normalizedQuery.includes(item.name.toLocaleLowerCase('zh-CN')))
   if (/奖学金.*(同时|一起|兼得|重复|几个)|同时.*奖学金/.test(normalizedQuery)) {
     return {
       query,
@@ -586,12 +673,46 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
     }
   }
 
-  const scholarship = scholarships.find(item => normalizedQuery.includes(item.name.toLocaleLowerCase('zh-CN')))
+  const scholarshipOverviewQuery = /奖助学金|奖学金.*(?:有哪些|全部|所有|各类|汇总|具体规则|申请条件|评审流程|评审时间|怎么评|怎么申请)/.test(normalizedQuery)
+    || mentionedScholarships.length > 1
+  if (scholarshipOverviewQuery) {
+    const rules = scholarships.map(item => (
+      `${item.name}：${item.amount}；${item.scope}；${item.ranking}；主要条件为${item.requirements.slice(0, 3).join('、')}；${item.reviewTime}。`
+    ))
+    return {
+      query,
+      mode: 'local',
+      answer: [
+        `学校现行总规则：${scholarshipGeneralRule.summary}`,
+        '国家助学金：家庭经济困难的全日制本科在校生可申请，每年3000元或5000元两档，原则上每年9月20日前在福建省精准资助学生信息管理系统提交；2026学年以当年通知为准。',
+        ...rules,
+        '申请时通常按学院通知提交，由学院初审、公示后报学校评审；具体名额、材料清单和当年截止时间以学生事务部及学院通知为准。'
+      ].join('\n'),
+      citations: [
+        {
+          title: '国家助学金与学校奖学金',
+          url: '/guides/fees-aid',
+          snippet: '国家助学金分每年3000元和5000元两档，并列明现行申请时间与兼得规则。',
+          source: 'site'
+        },
+        ...scholarships.map(item => ({
+          title: item.name,
+          url: `/student-rules#scholarship-${item.slug}`,
+          snippet: `${item.amount}；${item.ranking}；${item.reviewTime}`,
+          source: 'site' as const
+        }))
+      ],
+      usedWebSearch: false,
+      confidence: 0.98
+    }
+  }
+
+  const scholarship = mentionedScholarships[0]
   if (scholarship) {
     return {
       query,
       mode: 'local',
-      answer: `${scholarship.name}：${scholarship.amount}。参评范围为${scholarship.scope}，${scholarship.ranking}。主要条件：${scholarship.requirements.slice(0, 3).join('；')}。`,
+      answer: `${scholarship.name}：${scholarship.amount}。参评范围：${scholarship.scope}；排名要求：${scholarship.ranking}。申请条件：${scholarship.requirements.join('；')}。评审时间：${scholarship.reviewTime}。兼得规则：${scholarship.coexistence}依据为${scholarship.version}${scholarship.documentNumber ? `（${scholarship.documentNumber}）` : ''}。`,
       citations: citationFor(`/student-rules#scholarship-${scholarship.slug}`),
       usedWebSearch: false,
       confidence: 0.97
@@ -940,62 +1061,116 @@ function dormBedEvidenceGapResponse(
 export async function answerCampusQuestion(
   client: DatabaseClient,
   rawQuery: string,
-  config: AssistantConfig
+  config: AssistantConfig,
+  hooks: AssistantRunHooks = {}
 ): Promise<ApiAssistantResponse> {
-  const query = normalizeAssistantQuery(rawQuery)
-  const cacheKey = query.toLocaleLowerCase('zh-CN')
-  const cached = answerCache.get(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) return cached.response
-  if (cached) answerCache.delete(cacheKey)
+  const tracker: AssistantRunTracker = {
+    startedAt: Date.now(),
+    trace: [],
+    hooks
+  }
+  const analysis = await runAssistantStage(tracker, 'query_analysis', '分析问题', () => {
+    const query = normalizeAssistantQuery(rawQuery)
+    const cacheKey = query.toLocaleLowerCase('zh-CN')
+    const cached = answerCache.get(cacheKey)
+    if (cached && cached.expiresAt <= Date.now()) answerCache.delete(cacheKey)
+    return {
+      query,
+      cacheKey,
+      cached: cached && cached.expiresAt > Date.now() ? cached.response : null,
+      featureSeeking: isFeatureSeekingQuery(query)
+    }
+  })
+  const { query, cacheKey, featureSeeking } = analysis
+  if (analysis.cached) {
+    const response = await runAssistantStage(tracker, 'answer_cache', '读取答案缓存', () => analysis.cached!)
+    return withRunMetadata(response, tracker, 'answer_cache', true)
+  }
 
-  const localEvidence = retrieveCampusEvidence(client, query)
+  const retrievalStage: ApiAssistantStage = featureSeeking ? 'feature_api' : 'local_database'
+  const retrievalLabel = featureSeeking ? '搜索系统 API' : '搜索内置数据库'
+  const localEvidence = await runAssistantStage(
+    tracker,
+    retrievalStage,
+    retrievalLabel,
+    () => retrieveCampusEvidence(client, query)
+  )
   const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
-  if (!requiresSpecificWebEvidence && localEvidence[0] && localEvidence[0].score >= 8) {
-    return cacheResponse(cacheKey, buildLocalResponse(query, localEvidence))
+  const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+  if (!requiresSpecificWebEvidence && (deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8))) {
+    const response = await runAssistantStage(
+      tracker,
+      'answer_generation',
+      '整理答案',
+      () => deterministicRuleAnswer ?? buildLocalResponse(query, localEvidence)
+    )
+    const result = withRunMetadata(
+      response,
+      tracker,
+      featureSeeking ? 'feature_api' : 'local_database'
+    )
+    return cacheResponse(cacheKey, result)
   }
 
   let webEvidence: ApiAssistantCitation[] = []
   try {
-    webEvidence = cachedWebEvidenceForQuery(client, query)
+    webEvidence = await runAssistantStage(
+      tracker,
+      'web_cache',
+      '检查网页资料缓存',
+      () => cachedWebEvidenceForQuery(client, query)
+    )
   } catch {
     // The cache is optional so a delayed database migration cannot take down campus answers.
   }
+  let retrievalPath: ApiAssistantRetrievalPath = webEvidence.length > 0 ? 'web_cache' : 'web_search'
   if (webEvidence.length === 0) {
     try {
-      webEvidence = await searchWeb(query, config)
-      storeWebEvidence(client, query, webEvidence)
+      webEvidence = await runAssistantStage(tracker, 'web_search', '搜索网页', async () => {
+        const result = await searchWeb(query, config)
+        try {
+          storeWebEvidence(client, query, result)
+        } catch {
+          // A cache write must never turn a successful search into a failed answer.
+        }
+        return result
+      })
     } catch {
       // MCP search is optional; the fallback still reports that evidence is insufficient.
     }
   }
   const weakLocalEvidence = localEvidence.slice(0, 3).map(({ text: _text, score: _score, ...item }) => item)
   const evidence = [...weakLocalEvidence, ...webEvidence].slice(0, 8)
-  let model: ModelAnswer
-  try {
-    model = await askGateway(query, evidence, config)
-  } catch (error) {
-    if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') {
-      return cacheResponse(cacheKey, {
-        query,
-        mode: 'ai',
-        answer: '禁止回答',
-        citations: [],
-        usedWebSearch: false,
-        confidence: 1
-      })
+  const response = await runAssistantStage(tracker, 'answer_generation', '整理答案', async () => {
+    let model: ModelAnswer
+    try {
+      model = await askGateway(query, evidence, config)
+    } catch (error) {
+      if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') {
+        return {
+          query,
+          mode: 'ai' as const,
+          answer: '禁止回答',
+          citations: [],
+          usedWebSearch: false,
+          confidence: 1
+        }
+      }
+      if (requiresSpecificWebEvidence) return dormBedEvidenceGapResponse(query, localEvidence)
+      throw error
     }
-    if (requiresSpecificWebEvidence) {
-      return cacheResponse(cacheKey, dormBedEvidenceGapResponse(query, localEvidence))
+    const citations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
+    return {
+      query,
+      mode: 'ai' as const,
+      answer: model.answer,
+      citations,
+      usedWebSearch: citations.some(item => item.source === 'web'),
+      confidence: model.confidence
     }
-    throw error
-  }
-  const citations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
-  return cacheResponse(cacheKey, {
-    query,
-    mode: 'ai',
-    answer: model.answer,
-    citations,
-    usedWebSearch: citations.some(item => item.source === 'web'),
-    confidence: model.confidence
   })
+  if (retrievalPath === 'web_search' && !tracker.trace.some(step => step.stage === 'web_search')) {
+    retrievalPath = featureSeeking ? 'feature_api' : 'local_database'
+  }
+  return cacheResponse(cacheKey, withRunMetadata(response, tracker, retrievalPath))
 }

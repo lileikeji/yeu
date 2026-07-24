@@ -28,6 +28,7 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(isQuestionLike('会计学新生住新区还是旧区'), true)
   assert.equal(isQuestionLike('宿舍床的尺寸'), true)
   assert.equal(isQuestionLike('宿舍床多大'), true)
+  assert.equal(isQuestionLike('奖助学金有哪些具体申请条件'), true)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 2), false)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 0), true)
   assert.equal(shouldRequestAssistantAnswer('校园网', 0), false)
@@ -184,12 +185,17 @@ test('contact page exposes the supplied QR image and visible entry points', () =
 
 test('assistant endpoint is server-only, rate limited and excluded from CDN cache', () => {
   const route = readFileSync(resolve(root, 'server/api/public/assistant.post.ts'), 'utf8')
+  const streamRoute = readFileSync(resolve(root, 'server/api/public/assistant/stream.post.ts'), 'utf8')
   const service = readFileSync(resolve(root, 'server/modules/assistant/service.ts'), 'utf8')
   const searchPage = readFileSync(resolve(root, 'app/pages/search.vue'), 'utf8')
   const config = readFileSync(resolve(root, 'nuxt.config.ts'), 'utf8')
 
   assert.match(route, /assistant:\$\{ipAddress\}.*, 8, 60 \* 1000/)
   assert.match(route, /assistant:global.*, 80, 60 \* 1000/)
+  assert.match(streamRoute, /createEventStream/)
+  assert.match(streamRoute, /event: 'stage_started'/)
+  assert.match(streamRoute, /event: 'stage_completed'/)
+  assert.match(streamRoute, /recordAssistantSuccess/)
   assert.match(service, /activeGatewayCalls >= 2/)
   assert.match(service, /gatewayOpenUntil = Date\.now\(\) \+ 60_000/)
   assert.match(service, /parseAllowedHosts/)
@@ -199,5 +205,6 @@ test('assistant endpoint is server-only, rate limited and excluded from CDN cach
   assert.match(searchPage, /onMounted\(\(\) => \{\s+void requestAssistantAnswer\(\)/)
   assert.doesNotMatch(searchPage, /requestAssistantAnswer\(\),\s+\{ immediate: true \}/)
   assert.match(config, /'\/api\/public\/assistant'/)
+  assert.match(config, /'\/api\/public\/assistant\/stream'/)
   assert.match(config, /'CDN-Cache-Control': 'no-store'/)
 })

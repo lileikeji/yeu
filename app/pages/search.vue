@@ -5,7 +5,12 @@ import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
 import { freshmanGuides, officialDepartments } from '~~/data/seeds/public-content'
 import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces } from '~~/app/utils/public-catalog'
 import type { PublicSearchResultType } from '~~/shared/constants/server'
-import type { ApiAssistantResponse, ApiSearchResponse } from '~~/shared/types/server'
+import type {
+  ApiAssistantResponse,
+  ApiAssistantStage,
+  ApiAssistantTraceStep,
+  ApiSearchResponse
+} from '~~/shared/types/server'
 import { isQuestionLike, shouldRequestAssistantAnswer } from '~~/shared/utils/assistant-query'
 import { buildStudentRuleSearchResults } from '~~/app/utils/student-rules-search'
 import {
@@ -226,7 +231,162 @@ const hasFeatureResult = computed(() => results.value.some(result => result.key.
 
 const assistantResponse = ref<ApiAssistantResponse | null>(null)
 const assistantStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
+interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
+  status: 'running' | 'completed' | 'failed'
+  startedAt?: string
+}
+const assistantLiveTrace = ref<AssistantDisplayStep[]>([])
+const assistantClock = ref(Date.now())
 let assistantRequestSequence = 0
+let assistantAbortController: AbortController | null = null
+let assistantClockTimer: ReturnType<typeof setInterval> | null = null
+
+const assistantDisplayTrace = computed<AssistantDisplayStep[]>(() => {
+  if (assistantStatus.value === 'pending') return assistantLiveTrace.value
+  return (assistantResponse.value?.trace ?? []).map(step => ({ ...step }))
+})
+
+function assistantDurationMs(step: AssistantDisplayStep): number {
+  if (step.status !== 'running' || !step.startedAt) return step.durationMs
+  const startedAt = Date.parse(step.startedAt)
+  if (!Number.isFinite(startedAt)) return step.durationMs
+  return Math.max(0, assistantClock.value - startedAt)
+}
+
+function formatAssistantDuration(durationMs: number): string {
+  if (durationMs < 100) return '<0.1 秒'
+  if (durationMs < 10_000) return `${(durationMs / 1000).toFixed(1)} 秒`
+  return `${Math.round(durationMs / 1000)} 秒`
+}
+
+function assistantModeLabel(response: ApiAssistantResponse): string {
+  const labels: Record<string, string> = {
+    feature_api: '系统 API',
+    local_database: '内置数据库',
+    answer_cache: '答案缓存',
+    web_cache: '网页资料缓存',
+    web_search: 'AI + 网页检索'
+  }
+  return labels[response.retrievalPath ?? '']
+    ?? (response.mode === 'local' ? '本站资料' : response.usedWebSearch ? 'AI + 网页检索' : 'AI 整理')
+}
+
+function startAssistantClock(): void {
+  if (assistantClockTimer) clearInterval(assistantClockTimer)
+  assistantClock.value = Date.now()
+  assistantClockTimer = setInterval(() => {
+    assistantClock.value = Date.now()
+  }, 100)
+}
+
+function stopAssistantClock(): void {
+  if (!assistantClockTimer) return
+  clearInterval(assistantClockTimer)
+  assistantClockTimer = null
+}
+
+function updateAssistantStageStarted(payload: Record<string, unknown>): void {
+  const stage = String(payload.stage ?? '') as ApiAssistantStage
+  const label = String(payload.label ?? '').trim()
+  const startedAt = String(payload.startedAt ?? '')
+  if (!stage || !label) return
+  const next: AssistantDisplayStep = {
+    stage,
+    label,
+    durationMs: 0,
+    status: 'running',
+    startedAt
+  }
+  assistantLiveTrace.value = [
+    ...assistantLiveTrace.value.filter(item => item.stage !== stage),
+    next
+  ]
+}
+
+function updateAssistantStageCompleted(payload: Record<string, unknown>): void {
+  const stage = String(payload.stage ?? '') as ApiAssistantStage
+  const label = String(payload.label ?? '').trim()
+  if (!stage || !label) return
+  const status = payload.status === 'failed' ? 'failed' : 'completed'
+  const completed: AssistantDisplayStep = {
+    stage,
+    label,
+    durationMs: Math.max(0, Number(payload.durationMs) || 0),
+    status,
+    ...(typeof payload.detail === 'string' ? { detail: payload.detail } : {})
+  }
+  const index = assistantLiveTrace.value.findIndex(item => item.stage === stage)
+  if (index < 0) assistantLiveTrace.value = [...assistantLiveTrace.value, completed]
+  else assistantLiveTrace.value = assistantLiveTrace.value.map((item, itemIndex) => itemIndex === index ? completed : item)
+}
+
+function parseAssistantSseBlock(block: string): { event: string, data: Record<string, unknown> } | null {
+  const lines = block.split(/\r?\n/)
+  const event = lines.find(line => line.startsWith('event:'))?.slice(6).trim() ?? ''
+  const dataText = lines.filter(line => line.startsWith('data:')).map(line => line.slice(5).trim()).join('\n')
+  if (!event || !dataText) return null
+  const data = JSON.parse(dataText) as unknown
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+  return { event, data: data as Record<string, unknown> }
+}
+
+async function requestAssistantStream(query: string, signal: AbortSignal): Promise<ApiAssistantResponse> {
+  const response = await fetch('/api/public/assistant/stream', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Accept': 'text/event-stream',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ q: query }),
+    signal
+  })
+  if (response.status === 404 || response.status === 405) {
+    return requestFetch<ApiAssistantResponse>('/api/public/assistant', {
+      method: 'POST',
+      body: { q: query },
+      signal
+    })
+  }
+  if (!response.ok || !response.body) throw new Error(`ASSISTANT_STREAM_${response.status}`)
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let completed: ApiAssistantResponse | null = null
+  let receivedBusinessEvent = false
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      buffer += decoder.decode(chunk.value ?? new Uint8Array(), { stream: !chunk.done })
+      const blocks = buffer.split(/\r?\n\r?\n/)
+      buffer = blocks.pop() ?? ''
+      for (const block of blocks) {
+        const message = parseAssistantSseBlock(block)
+        if (!message) continue
+        receivedBusinessEvent = true
+        if (message.event === 'stage_started') updateAssistantStageStarted(message.data)
+        else if (message.event === 'stage_completed') updateAssistantStageCompleted(message.data)
+        else if (message.event === 'completed') completed = message.data as unknown as ApiAssistantResponse
+        else if (message.event === 'error') throw new Error(String(message.data.code ?? 'AI_UNAVAILABLE'))
+      }
+      if (chunk.done) break
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  if (!completed) {
+    if (!receivedBusinessEvent && (response.status === 404 || response.status === 405)) {
+      return requestFetch<ApiAssistantResponse>('/api/public/assistant', {
+        method: 'POST',
+        body: { q: query },
+        signal
+      })
+    }
+    throw new Error('ASSISTANT_STREAM_INCOMPLETE')
+  }
+  return completed
+}
 
 async function requestAssistantAnswer(): Promise<void> {
   if (import.meta.server) return
@@ -240,25 +400,33 @@ async function requestAssistantAnswer(): Promise<void> {
     )
   if (!shouldRequest) {
     assistantRequestSequence += 1
+    assistantAbortController?.abort()
+    assistantAbortController = null
+    stopAssistantClock()
     assistantResponse.value = null
+    assistantLiveTrace.value = []
     assistantStatus.value = 'idle'
     return
   }
 
   const requestId = ++assistantRequestSequence
+  assistantAbortController?.abort()
+  assistantAbortController = new AbortController()
   assistantResponse.value = null
+  assistantLiveTrace.value = []
   assistantStatus.value = 'pending'
+  startAssistantClock()
   try {
-    const response = await requestFetch<ApiAssistantResponse>('/api/public/assistant', {
-      method: 'POST',
-      body: { q: query }
-    })
+    const response = await requestAssistantStream(query, assistantAbortController.signal)
     if (requestId !== assistantRequestSequence || query !== activeQuery.value) return
     assistantResponse.value = response
+    assistantLiveTrace.value = (response.trace ?? []).map(step => ({ ...step }))
     assistantStatus.value = 'success'
   } catch {
     if (requestId !== assistantRequestSequence || query !== activeQuery.value) return
     assistantStatus.value = 'error'
+  } finally {
+    if (requestId === assistantRequestSequence) stopAssistantClock()
   }
 }
 
@@ -293,6 +461,11 @@ watch(
 
 onMounted(() => {
   void requestAssistantAnswer()
+})
+
+onBeforeUnmount(() => {
+  assistantAbortController?.abort()
+  stopAssistantClock()
 })
 </script>
 
@@ -444,7 +617,7 @@ onMounted(() => {
                 </h2>
                 <UBadge
                   v-if="assistantResponse"
-                  :label="assistantResponse.mode === 'local' ? (hasFeatureResult ? '系统 API' : '本站资料') : (assistantResponse.usedWebSearch ? 'AI + 网页检索' : 'AI 整理')"
+                  :label="assistantModeLabel(assistantResponse)"
                   color="success"
                   variant="soft"
                   size="sm"
@@ -455,35 +628,64 @@ onMounted(() => {
                 v-if="assistantStatus === 'pending'"
                 class="mt-2 text-sm leading-6 text-zinc-600"
               >
-                正在检索站内 API 和数据库；没有匹配资料时再查询网页。
+                正在判断应查询系统 API、内置数据库还是网页资料。
               </p>
               <div
-                v-if="assistantStatus === 'pending'"
-                class="mt-3 flex flex-wrap gap-2 text-xs text-zinc-500"
+                v-if="assistantDisplayTrace.length"
+                class="mt-3 max-w-xl space-y-1.5 text-xs"
               >
-                <span class="inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-2.5 py-1.5">
-                  <UIcon
-                    name="i-lucide-braces"
-                    class="size-3.5 text-green-700"
-                  />
-                  搜索系统入口
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-2.5 py-1.5">
-                  <UIcon
-                    name="i-lucide-database"
-                    class="size-3.5 text-green-700"
-                  />
-                  核对站内资料
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-2.5 py-1.5">
-                  <UIcon
-                    name="i-lucide-globe-search"
-                    class="size-3.5 text-green-700"
-                  />
-                  必要时网页检索
-                </span>
+                <div
+                  v-for="step in assistantDisplayTrace"
+                  :key="step.stage"
+                  class="flex min-h-8 items-center justify-between gap-4 rounded-md bg-zinc-50 px-2.5 py-1.5"
+                >
+                  <span class="inline-flex min-w-0 items-center gap-2 font-medium text-zinc-700">
+                    <UIcon
+                      :name="step.status === 'running'
+                        ? 'i-lucide-loader-circle'
+                        : step.status === 'failed'
+                          ? 'i-lucide-circle-x'
+                          : 'i-lucide-circle-check'"
+                      class="size-3.5 shrink-0"
+                      :class="step.status === 'running'
+                        ? 'animate-spin text-green-700'
+                        : step.status === 'failed'
+                          ? 'text-red-600'
+                          : 'text-green-700'"
+                    />
+                    {{ step.label }}{{ step.status === 'running' ? '中' : '' }}
+                  </span>
+                  <span class="shrink-0 tabular-nums text-zinc-500">
+                    {{ formatAssistantDuration(assistantDurationMs(step)) }}
+                  </span>
+                </div>
+                <div
+                  v-if="assistantResponse?.totalDurationMs !== undefined"
+                  class="flex items-center justify-between gap-4 px-2.5 pt-1 text-zinc-500"
+                >
+                  <span class="inline-flex items-center gap-2 font-medium">
+                    <UIcon
+                      name="i-lucide-timer"
+                      class="size-3.5 text-green-700"
+                    />
+                    全部完成
+                  </span>
+                  <span class="tabular-nums">
+                    {{ formatAssistantDuration(assistantResponse.totalDurationMs) }}
+                  </span>
+                </div>
               </div>
-              <template v-else-if="assistantResponse">
+              <div
+                v-else-if="assistantStatus === 'pending'"
+                class="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-500"
+              >
+                <UIcon
+                  name="i-lucide-loader-circle"
+                  class="size-3.5 animate-spin text-green-700"
+                />
+                正在连接检索服务
+              </div>
+              <template v-if="assistantResponse">
                 <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700">
                   {{ assistantResponse.answer }}
                 </p>
@@ -528,7 +730,7 @@ onMounted(() => {
                 </p>
               </template>
               <div
-                v-else
+                v-else-if="assistantStatus === 'error'"
                 class="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600"
               >
                 <span>暂时无法继续整理这个问题。</span>

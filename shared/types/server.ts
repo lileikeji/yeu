@@ -269,6 +269,30 @@ export interface ApiAssistantCitation {
   source: 'site' | 'web'
 }
 
+export type ApiAssistantStage =
+  | 'query_analysis'
+  | 'feature_api'
+  | 'local_database'
+  | 'answer_cache'
+  | 'web_cache'
+  | 'web_search'
+  | 'answer_generation'
+
+export type ApiAssistantRetrievalPath =
+  | 'feature_api'
+  | 'local_database'
+  | 'answer_cache'
+  | 'web_cache'
+  | 'web_search'
+
+export interface ApiAssistantTraceStep {
+  stage: ApiAssistantStage
+  label: string
+  durationMs: number
+  status: 'completed' | 'failed'
+  detail?: string
+}
+
 export interface ApiAssistantResponse {
   query: string
   mode: 'local' | 'ai'
@@ -276,6 +300,10 @@ export interface ApiAssistantResponse {
   citations: ApiAssistantCitation[]
   usedWebSearch: boolean
   confidence: number
+  retrievalPath?: ApiAssistantRetrievalPath
+  trace?: ApiAssistantTraceStep[]
+  totalDurationMs?: number
+  cacheHit?: boolean
 }
 
 export interface ApiFeedback {

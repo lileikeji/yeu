@@ -122,6 +122,15 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     group: 'ops'
   },
   {
+    key: 'assistant-runs',
+    label: 'AI 检索',
+    icon: 'i-lucide-bot',
+    endpoint: '/api/admin/assistant',
+    to: '/admin/assistant',
+    color: 'text-emerald-700 bg-emerald-50',
+    group: 'ops'
+  },
+  {
     key: 'visitors',
     label: '访客',
     icon: 'i-lucide-radar',
@@ -150,6 +159,7 @@ export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '处理反馈', icon: 'i-lucide-message-square-reply', to: '/admin/feedback', group: 'ops' },
   { label: '创建账号', icon: 'i-lucide-user-plus', to: '/admin/users', group: 'ops' },
   { label: '群聊管理', icon: 'i-lucide-messages-square', to: '/admin/chat', group: 'ops' },
+  { label: 'AI 检索统计', icon: 'i-lucide-bot', to: '/admin/assistant', group: 'ops' },
   { label: '访客轨迹', icon: 'i-lucide-radar', to: '/admin/visitors', group: 'security' },
   { label: '封禁管理', icon: 'i-lucide-shield-ban', to: '/admin/bans', group: 'security' },
   { label: '操作记录', icon: 'i-lucide-history', to: '/admin/audit', group: 'security' }
@@ -180,7 +190,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: '反馈', icon: 'i-lucide-message-square-warning', to: '/admin/feedback' },
       { label: '账号', icon: 'i-lucide-users', to: '/admin/users' },
-      { label: '群聊', icon: 'i-lucide-messages-square', to: '/admin/chat' }
+      { label: '群聊', icon: 'i-lucide-messages-square', to: '/admin/chat' },
+      { label: 'AI 检索', icon: 'i-lucide-bot', to: '/admin/assistant' }
     ]
   },
   {

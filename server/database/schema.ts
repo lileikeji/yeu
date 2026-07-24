@@ -525,3 +525,35 @@ export const assistantWebKnowledge = sqliteTable('assistant_web_knowledge', {
   index('assistant_web_knowledge_host_idx').on(table.sourceHost),
   check('assistant_web_knowledge_status_check', sql`${table.status} in ('active', 'expired', 'rejected')`)
 ])
+
+export const assistantRuns = sqliteTable('assistant_runs', {
+  id: text('id').primaryKey(),
+  requestId: text('request_id').notNull(),
+  queryHash: text('query_hash').notNull(),
+  query: text('query').notNull(),
+  mode: text('mode', { enum: ['local', 'ai', 'error'] }).notNull(),
+  retrievalPath: text('retrieval_path', {
+    enum: ['feature_api', 'local_database', 'answer_cache', 'web_cache', 'web_search', 'error']
+  }).notNull(),
+  usedWebSearch: integer('used_web_search', { mode: 'boolean' }).notNull().default(false),
+  cacheHit: integer('cache_hit', { mode: 'boolean' }).notNull().default(false),
+  success: integer('success', { mode: 'boolean' }).notNull().default(true),
+  errorCode: text('error_code'),
+  analysisMs: integer('analysis_ms').notNull().default(0),
+  featureApiMs: integer('feature_api_ms').notNull().default(0),
+  databaseMs: integer('database_ms').notNull().default(0),
+  webCacheMs: integer('web_cache_ms').notNull().default(0),
+  webSearchMs: integer('web_search_ms').notNull().default(0),
+  answerMs: integer('answer_ms').notNull().default(0),
+  totalMs: integer('total_ms').notNull().default(0),
+  citationCount: integer('citation_count').notNull().default(0),
+  ipAddress: text('ip_address'),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('assistant_runs_request_unique').on(table.requestId),
+  index('assistant_runs_created_idx').on(table.createdAt),
+  index('assistant_runs_path_created_idx').on(table.retrievalPath, table.createdAt),
+  index('assistant_runs_success_created_idx').on(table.success, table.createdAt),
+  check('assistant_runs_mode_check', sql`${table.mode} in ('local', 'ai', 'error')`),
+  check('assistant_runs_path_check', sql`${table.retrievalPath} in ('feature_api', 'local_database', 'answer_cache', 'web_cache', 'web_search', 'error')`)
+])

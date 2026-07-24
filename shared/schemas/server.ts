@@ -507,6 +507,18 @@ export const adminAuditLogsQuerySchema = paginationQuerySchema.extend({
   entityId: z.string().trim().max(80).optional()
 })
 
+export const adminAssistantRunsQuerySchema = paginationQuerySchema.extend({
+  retrievalPath: z.enum([
+    'feature_api',
+    'local_database',
+    'answer_cache',
+    'web_cache',
+    'web_search',
+    'error'
+  ]).optional(),
+  success: z.enum(['true', 'false']).optional()
+})
+
 export const createVisitorBanSchema = z.object({
   scope: z.enum(['ip', 'visitor', 'user']),
   value: z.string().trim().min(1).max(200),

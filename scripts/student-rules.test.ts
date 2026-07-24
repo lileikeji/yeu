@@ -63,6 +63,25 @@ test('student rule questions use deterministic local answers', async () => {
     const coexistence = await answerCampusQuestion(client, '吴庆星奖学金和仰恩奖学金能一起拿吗', assistantConfig)
     assert.equal(coexistence.mode, 'local')
     assert.match(coexistence.answer, /每人每学年只能参评一项/)
+
+    const overview = await answerCampusQuestion(client, '奖助学金有哪些具体申请条件、评审流程和时间', assistantConfig)
+    assert.equal(overview.mode, 'local')
+    assert.equal(overview.usedWebSearch, false)
+    assert.equal(overview.retrievalPath, 'local_database')
+    assert.match(overview.answer, /国家助学金.*3000元.*5000元/s)
+    assert.match(overview.answer, /国家奖学金.*前10%/s)
+    assert.match(overview.answer, /国家励志奖学金.*前40%/s)
+    assert.match(overview.answer, /仰恩奖学金.*每年9月/)
+    assert.deepEqual(overview.trace?.map(item => item.stage), [
+      'query_analysis',
+      'local_database',
+      'answer_generation'
+    ])
+
+    const grant = await answerCampusQuestion(client, '国家助学金什么时候申请，有多少钱', assistantConfig)
+    assert.equal(grant.mode, 'local')
+    assert.match(grant.answer, /9月20日前/)
+    assert.match(grant.answer, /3000元和5000元/)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

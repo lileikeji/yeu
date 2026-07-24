@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { assistantQuestionSchema } from '../../../shared/schemas/server'
 import { containsPromptInjection, isQuestionLike } from '../../../shared/utils/assistant-query'
+import { recordAssistantFailure, recordAssistantSuccess } from '../../modules/assistant/analytics'
 import { answerCampusQuestion } from '../../modules/assistant/service'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { useAppDatabase } from '../../utils/database'
@@ -31,8 +33,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const runtime = useRuntimeConfig(event)
+  const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
+  const startedAt = Date.now()
   try {
-    return await answerCampusQuestion(client, body.q, {
+    const response = await answerCampusQuestion(client, body.q, {
       gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
       gatewayApiKey: String(runtime.aiGatewayApiKey || ''),
       gatewayModel: String(runtime.aiGatewayModel || 'gpt-5.4'),
@@ -43,8 +47,19 @@ export default defineEventHandler(async (event) => {
       mcpToolName: String(runtime.aiMcpToolName || 'firecrawl_search'),
       mcpTimeoutMs: Number(runtime.aiMcpTimeoutMs || 12_000)
     })
+    try {
+      recordAssistantSuccess(client, { requestId, query: body.q, ipAddress }, response)
+    } catch {
+      // Analytics must not affect the public answer during a delayed migration.
+    }
+    return response
   } catch (error) {
     const code = error instanceof Error ? error.message : 'AI_UNAVAILABLE'
+    try {
+      recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, code, Date.now() - startedAt)
+    } catch {
+      // Analytics must not affect the public answer during a delayed migration.
+    }
     const busy = code === 'AI_BUSY' || code === 'AI_CIRCUIT_OPEN'
     throw createError({
       statusCode: busy ? 503 : 502,

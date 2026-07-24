@@ -1,0 +1,89 @@
+import { randomUUID } from 'node:crypto'
+import { createEventStream } from 'h3'
+import { assistantQuestionSchema } from '../../../../shared/schemas/server'
+import { containsPromptInjection, isQuestionLike } from '../../../../shared/utils/assistant-query'
+import { recordAssistantFailure, recordAssistantSuccess } from '../../../modules/assistant/analytics'
+import { answerCampusQuestion } from '../../../modules/assistant/service'
+import { getClientIpAddress } from '../../../utils/client-ip'
+import { useAppDatabase } from '../../../utils/database'
+import { assertRateLimit } from '../../../utils/rate-limit'
+import { parseBody } from '../../../utils/validation'
+
+export default defineEventHandler(async (event) => {
+  setHeader(event, 'CDN-Cache-Control', 'no-store')
+  const client = useAppDatabase(event)
+  const ipAddress = getClientIpAddress(event)
+  assertRateLimit(event, `assistant:${ipAddress}`, 8, 60 * 1000, client)
+  assertRateLimit(event, 'assistant:global', 80, 60 * 1000, client)
+
+  const body = await parseBody(event, assistantQuestionSchema)
+  if (!isQuestionLike(body.q)) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Use regular search for keywords',
+      data: { code: 'REGULAR_SEARCH_PREFERRED' }
+    })
+  }
+  if (containsPromptInjection(body.q)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Unsupported question',
+      data: { code: 'UNSAFE_QUERY' }
+    })
+  }
+
+  const runtime = useRuntimeConfig(event)
+  const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
+  const startedAt = Date.now()
+  const stream = createEventStream(event)
+
+  void (async () => {
+    try {
+      const response = await answerCampusQuestion(client, body.q, {
+        gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
+        gatewayApiKey: String(runtime.aiGatewayApiKey || ''),
+        gatewayModel: String(runtime.aiGatewayModel || 'gpt-5.4'),
+        gatewayTimeoutMs: Number(runtime.aiGatewayTimeoutMs || 25_000),
+        mcpSearchUrl: String(runtime.aiMcpSearchUrl || ''),
+        mcpSearchBearerToken: String(runtime.aiMcpSearchBearerToken || ''),
+        mcpAllowedHosts: String(runtime.aiMcpAllowedHosts || 'mcp.firecrawl.dev'),
+        mcpToolName: String(runtime.aiMcpToolName || 'firecrawl_search'),
+        mcpTimeoutMs: Number(runtime.aiMcpTimeoutMs || 12_000)
+      }, {
+        onStageStarted: async (stage, label, stageStartedAt) => {
+          await stream.push({
+            event: 'stage_started',
+            data: JSON.stringify({ stage, label, startedAt: stageStartedAt })
+          })
+        },
+        onStageCompleted: async step => {
+          await stream.push({ event: 'stage_completed', data: JSON.stringify(step) })
+        }
+      })
+      try {
+        recordAssistantSuccess(client, { requestId, query: body.q, ipAddress }, response)
+      } catch {
+        // Analytics must not affect the public stream during a delayed migration.
+      }
+      await stream.push({ event: 'completed', data: JSON.stringify(response) })
+    } catch (error) {
+      const internalCode = error instanceof Error ? error.message : 'AI_UNAVAILABLE'
+      const publicCode = internalCode === 'AI_BUSY' || internalCode === 'AI_CIRCUIT_OPEN'
+        ? 'AI_BUSY'
+        : 'AI_UNAVAILABLE'
+      try {
+        recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, internalCode, Date.now() - startedAt)
+      } catch {
+        // Analytics must not affect the public stream during a delayed migration.
+      }
+      await stream.push({
+        event: 'error',
+        data: JSON.stringify({ code: publicCode, message: '暂时无法继续整理这个问题。' })
+      })
+    } finally {
+      await stream.close()
+    }
+  })()
+
+  return stream.send()
+})
