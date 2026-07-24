@@ -1,29 +1,12 @@
 import {
   buildEdgeUrl,
   chooseEdgeHost,
-  EDGE_HOSTS,
+  EDGE_ENTRY_HOST,
   EDGE_PROBE_TIMEOUT_MS,
-  EDGE_STICKY_SECONDS,
+  EDGE_TARGET_HOSTS,
   shouldProbeEdgeRoute,
   type EdgeProbeResult
 } from '~/utils/edge-route'
-
-const STICKY_COOKIE = 'yeu_edge_route'
-
-function readStickyHost() {
-  const prefix = `${STICKY_COOKIE}=`
-  const value = document.cookie
-    .split(';')
-    .map(part => part.trim())
-    .find(part => part.startsWith(prefix))
-    ?.slice(prefix.length)
-
-  return value ? decodeURIComponent(value) : ''
-}
-
-function rememberHost(host: string) {
-  document.cookie = `${STICKY_COOKIE}=${encodeURIComponent(host)}; Max-Age=${EDGE_STICKY_SECONDS}; Path=/; Domain=.huiliyill.cn; Secure; SameSite=Lax`
-}
 
 async function probeHost(host: string): Promise<EdgeProbeResult> {
   const startedAt = performance.now()
@@ -58,20 +41,14 @@ async function probeHost(host: string): Promise<EdgeProbeResult> {
 
 export default defineNuxtPlugin(() => {
   const currentHost = window.location.hostname.toLowerCase()
-  if (!EDGE_HOSTS.includes(currentHost as typeof EDGE_HOSTS[number])) return
+  if (currentHost !== EDGE_ENTRY_HOST) return
   if (!shouldProbeEdgeRoute(window.location.pathname)) return
 
-  const stickyHost = readStickyHost()
-  if (stickyHost && EDGE_HOSTS.includes(stickyHost as typeof EDGE_HOSTS[number])) return
-
-  void Promise.all(EDGE_HOSTS.map(probeHost)).then((results) => {
+  void Promise.all(EDGE_TARGET_HOSTS.map(probeHost)).then((results) => {
     const targetHost = chooseEdgeHost(currentHost, results)
-    rememberHost(targetHost)
 
     if (targetHost !== currentHost) {
       window.location.replace(buildEdgeUrl(targetHost, new URL(window.location.href)))
     }
-  }).catch(() => {
-    rememberHost(currentHost)
-  })
+  }).catch(() => undefined)
 })

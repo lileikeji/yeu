@@ -1,11 +1,11 @@
-export const EDGE_HOSTS = [
-  'yeu.huiliyill.cn',
-  'cn.yeu.huiliyill.cn'
+export const EDGE_ENTRY_HOST = 'yeu.huiliyill.cn'
+
+export const EDGE_TARGET_HOSTS = [
+  'cn.yeu.huiliyill.cn',
+  'global.yeu.huiliyill.cn'
 ] as const
 
 export const EDGE_PROBE_TIMEOUT_MS = 2_800
-export const EDGE_SWITCH_ADVANTAGE_MS = 250
-export const EDGE_STICKY_SECONDS = 300
 
 const EDGE_EXCLUDED_PREFIXES = [
   '/admin',
@@ -28,22 +28,14 @@ export function shouldProbeEdgeRoute(pathname: string) {
 
 export function chooseEdgeHost(
   currentHost: string,
-  results: EdgeProbeResult[],
-  minimumAdvantageMs = EDGE_SWITCH_ADVANTAGE_MS
+  results: EdgeProbeResult[]
 ) {
-  const current = results.find(result => result.host === currentHost)
-  const reachable = results
+  const reachableTargets = results
+    .filter(result => EDGE_TARGET_HOSTS.includes(result.host as typeof EDGE_TARGET_HOSTS[number]))
     .filter(result => result.reachable)
     .sort((left, right) => left.durationMs - right.durationMs)
 
-  const fastest = reachable[0]
-  if (!fastest) return currentHost
-  if (!current?.reachable) return fastest.host
-  if (fastest.host === currentHost) return currentHost
-
-  return fastest.durationMs + minimumAdvantageMs < current.durationMs
-    ? fastest.host
-    : currentHost
+  return reachableTargets[0]?.host ?? currentHost
 }
 
 export function buildEdgeUrl(targetHost: string, currentUrl: URL) {
