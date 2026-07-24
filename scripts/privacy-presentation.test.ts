@@ -26,6 +26,9 @@ test('privacy actions keep a comfortable mobile touch height', () => {
 test('public update and offline copy avoid admin-facing language', () => {
   assert.match(updatePromptSource, /正在输入反馈或聊天时，可以先点稍后/)
   assert.match(updatePromptSource, /有新的校园内容/)
+  assert.match(updatePromptSource, /window\.setTimeout/)
+  assert.match(updatePromptSource, /window\.location\.reload/)
+  assert.match(updatePromptSource, /z-\[100\]/)
   assert.match(updatePromptSource, /刷新看看/)
   assert.match(updatePromptSource, /role="status"/)
   assert.match(updatePromptSource, /aria-live="polite"/)
