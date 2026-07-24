@@ -27,6 +27,16 @@ export default defineNuxtConfig({
     aiMcpAllowedHosts: 'mcp.firecrawl.dev',
     aiMcpToolName: 'firecrawl_search',
     aiMcpTimeoutMs: 12_000,
+    botSiteUrl: 'https://yeu.huiliyill.cn/',
+    botMaxReplyChars: 1800,
+    qqBotWebhookToken: '',
+    qqBotApiUrl: '',
+    qqBotApiToken: '',
+    qqBotSelfId: '',
+    wechatBotWebhookSecret: '',
+    wechatBotSendUrl: '',
+    wechatBotId: '',
+    wechatBotName: '',
     public: {
       siteUrl: 'http://localhost:3000',
       mapProvider: 'maplibre-dev',
@@ -90,6 +100,13 @@ export default defineNuxtConfig({
         'CDN-Cache-Control': 'no-store',
         'X-Robots-Tag': 'noindex, nofollow',
         'X-Accel-Buffering': 'no'
+      }
+    },
+    '/api/integrations/bots/**': {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'CDN-Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, nofollow'
       }
     },
     // Icon payloads vary by ?icons=; never let CDN share one partial body.

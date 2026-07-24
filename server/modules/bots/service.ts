@@ -1,0 +1,117 @@
+import { createHash } from 'node:crypto'
+import type { DatabaseClient } from '../../database/client'
+import { recordAssistantFailure, recordAssistantSuccess } from '../assistant/analytics'
+import { answerCampusQuestion } from '../assistant/service'
+import { containsPromptInjection } from '../../../shared/utils/assistant-query'
+import type { NormalizedBotQuestion } from './events'
+
+export interface BotAssistantConfig {
+  siteUrl: string
+  maxReplyChars: number
+  gatewayBaseUrl: string
+  gatewayApiKey: string
+  gatewayModel: string
+  gatewayTimeoutMs: number
+  mcpSearchUrl: string
+  mcpSearchBearerToken: string
+  mcpAllowedHosts: string
+  mcpToolName: string
+  mcpTimeoutMs: number
+}
+
+const acceptedMessages = new Map<string, number>()
+const DEDUPE_TTL_MS = 30 * 60 * 1000
+
+function canonicalSiteUrl(value: string): string {
+  try {
+    const url = new URL(value || 'https://yeu.huiliyill.cn/')
+    return `${url.origin}/`
+  } catch {
+    return 'https://yeu.huiliyill.cn/'
+  }
+}
+
+export function formatBotReply(answer: string, siteUrl: string, maxReplyChars = 1800): string {
+  const footer = `官网：${canonicalSiteUrl(siteUrl)}`
+  const normalized = answer.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim() || '暂时无法整理这个问题。'
+  const safeLimit = Math.max(200, Math.min(6000, Math.floor(maxReplyChars)))
+  const answerLimit = Math.max(80, safeLimit - footer.length - 4)
+  const clipped = normalized.length > answerLimit ? `${normalized.slice(0, answerLimit - 1).trimEnd()}…` : normalized
+  return `${clipped}\n\n${footer}`
+}
+
+export function reserveBotMessage(platform: string, messageId: string, now = Date.now()): boolean {
+  const key = `${platform}:${messageId}`
+  const expiresAt = acceptedMessages.get(key)
+  if (expiresAt && expiresAt > now) return false
+  acceptedMessages.set(key, now + DEDUPE_TTL_MS)
+  if (acceptedMessages.size > 2000) {
+    for (const [messageKey, expiry] of acceptedMessages) {
+      if (expiry <= now) acceptedMessages.delete(messageKey)
+    }
+  }
+  return true
+}
+
+export function releaseBotMessage(platform: string, messageId: string): void {
+  acceptedMessages.delete(`${platform}:${messageId}`)
+}
+
+export function clearBotMessageReservationsForTests(): void {
+  acceptedMessages.clear()
+}
+
+function logBotFailure(question: NormalizedBotQuestion, code: string): void {
+  const messageHash = createHash('sha256').update(`${question.platform}:${question.messageId}`).digest('hex').slice(0, 16)
+  console.error(JSON.stringify({ event: 'bot_reply_failed', platform: question.platform, messageHash, code }))
+}
+
+export async function answerAndSendBotQuestion(input: {
+  client: DatabaseClient
+  question: NormalizedBotQuestion
+  config: BotAssistantConfig
+  send: (message: string) => Promise<void>
+}): Promise<void> {
+  const startedAt = Date.now()
+  const requestId = `bot:${input.question.platform}:${input.question.messageId}`.slice(0, 200)
+  const context = { requestId, query: input.question.question, ipAddress: null }
+
+  if (containsPromptInjection(input.question.question)) {
+    try {
+      recordAssistantFailure(input.client, context, 'UNSAFE_QUERY', Date.now() - startedAt)
+    } catch {
+      // Analytics remains optional during migrations.
+    }
+    await input.send(formatBotReply('禁止回答', input.config.siteUrl, input.config.maxReplyChars))
+    return
+  }
+
+  try {
+    const response = await answerCampusQuestion(input.client, input.question.question, {
+      gatewayBaseUrl: input.config.gatewayBaseUrl,
+      gatewayApiKey: input.config.gatewayApiKey,
+      gatewayModel: input.config.gatewayModel,
+      gatewayTimeoutMs: input.config.gatewayTimeoutMs,
+      mcpSearchUrl: input.config.mcpSearchUrl,
+      mcpSearchBearerToken: input.config.mcpSearchBearerToken,
+      mcpAllowedHosts: input.config.mcpAllowedHosts,
+      mcpToolName: input.config.mcpToolName,
+      mcpTimeoutMs: input.config.mcpTimeoutMs
+    })
+    await input.send(formatBotReply(response.answer, input.config.siteUrl, input.config.maxReplyChars))
+    try {
+      recordAssistantSuccess(input.client, context, response)
+    } catch {
+      // Analytics remains optional during migrations.
+    }
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'AI_UNAVAILABLE'
+    try {
+      recordAssistantFailure(input.client, context, code, Date.now() - startedAt)
+    } catch {
+      // Analytics remains optional during migrations.
+    }
+    logBotFailure(input.question, code)
+    await input.send(formatBotReply('暂时无法整理这个问题，请稍后再试。', input.config.siteUrl, input.config.maxReplyChars))
+  }
+}

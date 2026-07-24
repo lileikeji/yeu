@@ -1,0 +1,51 @@
+import { createHmac } from 'node:crypto'
+import { safeEqual } from '../../utils/security'
+
+const MAX_WEBHOOK_CLOCK_SKEW_MS = 5 * 60 * 1000
+
+export function verifyBearerToken(headerValue: string | undefined, expectedToken: string): boolean {
+  if (!expectedToken || !headerValue) return false
+  const match = /^Bearer\s+(.+)$/i.exec(headerValue.trim())
+  return Boolean(match?.[1] && safeEqual(match[1], expectedToken))
+}
+
+export function createBotWebhookSignature(secret: string, timestamp: string, rawBody: string): string {
+  return createHmac('sha256', secret)
+    .update(timestamp)
+    .update('.')
+    .update(rawBody)
+    .digest('hex')
+}
+
+export function verifyBotWebhookSignature(input: {
+  secret: string
+  timestamp: string | undefined
+  signature: string | undefined
+  rawBody: string
+  now?: number
+}): boolean {
+  if (!input.secret || !input.timestamp || !input.signature) return false
+  const timestampMs = Number(input.timestamp)
+  if (!Number.isFinite(timestampMs)) return false
+  const normalizedTimestamp = timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs
+  if (Math.abs((input.now ?? Date.now()) - normalizedTimestamp) > MAX_WEBHOOK_CLOCK_SKEW_MS) return false
+
+  const expected = createBotWebhookSignature(input.secret, input.timestamp, input.rawBody)
+  const provided = input.signature.replace(/^sha256=/i, '').trim().toLowerCase()
+  return /^[a-f0-9]{64}$/.test(provided) && safeEqual(provided, expected)
+}
+
+export function safeOutboundBotUrl(rawValue: string): URL {
+  let url: URL
+  try {
+    url = new URL(rawValue)
+  } catch {
+    throw new Error('BOT_OUTBOUND_URL_INVALID')
+  }
+  if (url.username || url.password) throw new Error('BOT_OUTBOUND_URL_INVALID')
+  const loopback = ['127.0.0.1', '::1', 'localhost'].includes(url.hostname.toLowerCase())
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new Error('BOT_OUTBOUND_URL_UNSAFE')
+  }
+  return url
+}
