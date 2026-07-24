@@ -129,7 +129,7 @@ export default defineNuxtConfig({
   },
 
   pwa: {
-    registerType: 'prompt',
+    registerType: 'autoUpdate',
     manifestFilename: 'site.webmanifest',
     manifest: {
       id: '/',
@@ -180,6 +180,8 @@ export default defineNuxtConfig({
       ]
     },
     workbox: {
+      skipWaiting: true,
+      clientsClaim: true,
       globPatterns: ['**/*.{css,html,ico,png,svg,webp,woff2}'],
       navigateFallback: null,
       manifestTransforms: [async entries => ({ manifest: entries, warnings: [] })],
