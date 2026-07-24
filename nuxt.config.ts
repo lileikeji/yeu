@@ -44,6 +44,7 @@ export default defineNuxtConfig({
     qqBotApiUrl: '',
     qqBotApiToken: '',
     qqBotSelfId: '',
+    qqBotAllowedGroupIds: '',
     wechatBotWebhookSecret: '',
     wechatBotSendUrl: '',
     wechatBotId: '',

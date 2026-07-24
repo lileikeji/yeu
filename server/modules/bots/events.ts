@@ -44,6 +44,13 @@ function oneBotSegments(value: unknown): OneBotSegment[] {
   return Array.isArray(value) ? value.filter(item => item && typeof item === 'object') as OneBotSegment[] : []
 }
 
+export function oneBotGroupAllowed(payload: unknown, configuredGroupIds = ''): boolean {
+  const allowed = new Set(configuredGroupIds.split(/[\s,]+/).map(value => value.trim()).filter(Boolean))
+  if (allowed.size === 0) return true
+  if (!payload || typeof payload !== 'object') return false
+  return allowed.has(requiredId((payload as OneBotEvent).group_id) || '')
+}
+
 function oneBotText(event: OneBotEvent, selfId: string): { mentioned: boolean, text: string } {
   const segments = oneBotSegments(event.message)
   if (segments.length > 0) {

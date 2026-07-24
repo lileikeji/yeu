@@ -18,9 +18,12 @@ NUXT_QQ_BOT_WEBHOOK_TOKEN=<random secret, at least 32 characters>
 NUXT_QQ_BOT_API_URL=http://127.0.0.1:3005/
 NUXT_QQ_BOT_API_TOKEN=<OneBot API token>
 NUXT_QQ_BOT_SELF_ID=<QQ number>
+NUXT_QQ_BOT_ALLOWED_GROUP_IDS=<comma-separated QQ group numbers>
 ```
 
 Supported inbound events are OneBot 11 group `message` events with an `at` segment targeting `self_id`. Private messages, `@全体成员`, messages for other bots, duplicates and messages without a question after the mention are ignored.
+
+Set `NUXT_QQ_BOT_ALLOWED_GROUP_IDS` in production. When it is non-empty, every event outside those exact group numbers is rejected before AI routing.
 
 ## WeChat relay
 

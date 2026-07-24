@@ -1,4 +1,4 @@
-import { normalizeOneBotQuestion } from '../../../modules/bots/events'
+import { normalizeOneBotQuestion, oneBotGroupAllowed } from '../../../modules/bots/events'
 import { botAssistantConfig, botIntegrationDisabled, botRateLimited } from '../../../modules/bots/runtime'
 import { answerAndSendBotQuestion, releaseBotMessage, reserveBotMessage } from '../../../modules/bots/service'
 import { verifyBearerToken, verifyOneBotWebhookSignature } from '../../../modules/bots/security'
@@ -29,6 +29,9 @@ export default defineEventHandler(async (event) => {
     payload = JSON.parse(rawBody || '')
   } catch {
     throw createError({ statusCode: 400, statusMessage: 'Invalid JSON body' })
+  }
+  if (!oneBotGroupAllowed(payload, String(runtime.qqBotAllowedGroupIds || ''))) {
+    return { status: 'ignored', reason: 'group_not_allowed' }
   }
   const question = normalizeOneBotQuestion(payload, String(runtime.qqBotSelfId || ''))
   if (!question) return { status: 'ignored', reason: 'mention_required' }

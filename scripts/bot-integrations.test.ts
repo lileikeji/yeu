@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { normalizeOneBotQuestion, normalizeWechatQuestion } from '../server/modules/bots/events'
+import { normalizeOneBotQuestion, normalizeWechatQuestion, oneBotGroupAllowed } from '../server/modules/bots/events'
 import {
   clearBotMessageReservationsForTests,
   formatBotReply,
@@ -61,6 +61,14 @@ test('OneBot CQ strings remove only the matching bot mention', () => {
     raw_message: '[CQ:at,qq=9527] 奖学金有什么要求？'
   }, '9527')
   assert.equal(result?.question, '奖学金有什么要求？')
+})
+
+test('OneBot group allowlists reject every non-target group', () => {
+  assert.equal(oneBotGroupAllowed({ group_id: 873029727 }, '873029727'), true)
+  assert.equal(oneBotGroupAllowed({ group_id: '873029727' }, '1, 873029727'), true)
+  assert.equal(oneBotGroupAllowed({ group_id: 123 }, '873029727'), false)
+  assert.equal(oneBotGroupAllowed({ message_type: 'private' }, '873029727'), false)
+  assert.equal(oneBotGroupAllowed({ group_id: 123 }, ''), true)
 })
 
 test('WeChat relay requires a room mention and uses clean text', () => {
