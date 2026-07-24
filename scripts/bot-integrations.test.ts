@@ -98,6 +98,23 @@ test('bot replies always retain the canonical website footer', () => {
   assert.ok(clipped.endsWith('官网：https://yeu.huiliyill.cn/'))
 })
 
+test('bot replies expose safe assistant result links within the reply limit', () => {
+  const reply = formatBotReply('答案内容', 'https://yeu.huiliyill.cn/path', 500, [
+    { title: '绩点计算器', url: '/student-rules#gpa-calculator', snippet: '', source: 'site' },
+    { title: '学校通知', url: 'https://www.yeu.edu.cn/news/1', snippet: '', source: 'web' },
+    { title: '重复入口', url: '/student-rules#gpa-calculator', snippet: '', source: 'site' },
+    { title: '伪造站内入口', url: 'https://example.com/phishing', snippet: '', source: 'site' },
+    { title: '危险协议', url: 'javascript:alert(1)', snippet: '', source: 'web' }
+  ])
+  assert.match(reply, /相关入口：/)
+  assert.match(reply, /https:\/\/yeu\.huiliyill\.cn\/student-rules#gpa-calculator/)
+  assert.match(reply, /https:\/\/www\.yeu\.edu\.cn\/news\/1/)
+  assert.equal(reply.match(/gpa-calculator/g)?.length, 1)
+  assert.doesNotMatch(reply, /example\.com|javascript:/)
+  assert.ok(reply.length <= 500)
+  assert.ok(reply.endsWith('官网：https://yeu.huiliyill.cn/'))
+})
+
 test('bot message reservations suppress duplicate platform deliveries', () => {
   clearBotMessageReservationsForTests()
   assert.equal(reserveBotMessage('qq', 'same-id', 1_000), true)
