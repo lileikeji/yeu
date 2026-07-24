@@ -26,6 +26,8 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(isQuestionLike('校园网怎么连接？'), true)
   assert.equal(isQuestionLike('会计学属于哪个学院'), true)
   assert.equal(isQuestionLike('会计学新生住新区还是旧区'), true)
+  assert.equal(isQuestionLike('宿舍床的尺寸'), true)
+  assert.equal(isQuestionLike('宿舍床多大'), true)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 2), false)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 0), true)
   assert.equal(shouldRequestAssistantAnswer('校园网', 0), false)

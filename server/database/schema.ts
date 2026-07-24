@@ -504,3 +504,24 @@ export const chatMutes = sqliteTable('chat_mutes', {
   index('chat_mutes_user_active_idx').on(table.userId, table.isActive),
   index('chat_mutes_room_user_idx').on(table.roomId, table.userId)
 ])
+
+export const assistantWebKnowledge = sqliteTable('assistant_web_knowledge', {
+  id: text('id').primaryKey(),
+  queryHash: text('query_hash').notNull(),
+  query: text('query').notNull(),
+  title: text('title').notNull(),
+  url: text('url').notNull(),
+  snippet: text('snippet').notNull(),
+  sourceHost: text('source_host').notNull(),
+  status: text('status', { enum: ['active', 'expired', 'rejected'] }).notNull().default('active'),
+  fetchedAt: integer('fetched_at').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  lastUsedAt: integer('last_used_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('assistant_web_knowledge_query_url_unique').on(table.queryHash, table.url),
+  index('assistant_web_knowledge_query_expiry_idx').on(table.queryHash, table.status, table.expiresAt),
+  index('assistant_web_knowledge_host_idx').on(table.sourceHost),
+  check('assistant_web_knowledge_status_check', sql`${table.status} in ('active', 'expired', 'rejected')`)
+])

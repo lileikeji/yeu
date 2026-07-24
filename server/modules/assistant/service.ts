@@ -1,5 +1,14 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
+import { and, desc, eq, gt, inArray } from 'drizzle-orm'
 import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../data/major-profiles'
+import { searchSystemFeatures } from '../../../data/system-features'
+import {
+  comprehensiveEvaluationRules,
+  gpaRules,
+  scholarshipGeneralRule,
+  scholarships,
+  studentRuleCatalog
+} from '../../../data/student-rules'
 import { procedureSeeds } from '../../../data/seeds/procedures'
 import {
   freshmanGuideBody,
@@ -13,6 +22,7 @@ import type { ApiAssistantCitation, ApiAssistantResponse } from '../../../shared
 import { normalizeAssistantQuery } from '../../../shared/utils/assistant-query'
 import type { DatabaseClient } from '../../database/client'
 import {
+  assistantWebKnowledge,
   contents,
   places,
   procedureMaterials,
@@ -67,7 +77,10 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   食堂: ['餐厅', '吃饭', '用餐'],
   军训: ['训练', '军训安排'],
   档案: ['邮寄', '转接', '专升本档案'],
-  开学: ['报到', '注册', '入学教育', '上课', '校历']
+  开学: ['报到', '注册', '入学教育', '上课', '校历'],
+  绩点: ['GPA', '平均学分绩点', '课程绩点', '学分', '成绩'],
+  奖学金: ['评奖', '参评', '综合测评', '奖项'],
+  综合测评: ['德育', '智育', '体育', '加分', '扣分']
 }
 
 const answerCache = new Map<string, { expiresAt: number, response: ApiAssistantResponse }>()
@@ -285,13 +298,104 @@ export function seedCatalogEvidenceForQuery(query: string, limit = 8): Assistant
     .slice(0, limit)
 }
 
+export function studentRuleEvidenceForQuery(query: string, limit = 8): AssistantEvidence[] {
+  const terms = assistantQueryTerms(query)
+  if (terms.length === 0) return []
+  const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+
+  const gpaDetail = [...gpaRules.formulas, ...gpaRules.notes].join(' ')
+  const comprehensiveDetail = [
+    ...comprehensiveEvaluationRules.formulas,
+    ...comprehensiveEvaluationRules.notes
+  ].join(' ')
+  const fixedEvidence: AssistantEvidence[] = [
+    {
+      title: '绩点公式与 GPA 计算器',
+      url: '/student-rules#gpa-calculator',
+      snippet: `${gpaRules.formulas[1]}；${gpaRules.formulas[2]}`,
+      source: 'site',
+      text: `${gpaRules.title} ${gpaDetail}`,
+      score: evidenceScore(`${gpaRules.title} GPA 绩点`, gpaRules.formulas[1], gpaDetail, terms)
+        + (/绩点|gpa|学分绩点/i.test(normalizedQuery) ? 14 : 0)
+    },
+    {
+      title: comprehensiveEvaluationRules.title,
+      url: '/student-rules#rule-comprehensive-evaluation',
+      snippet: `${comprehensiveEvaluationRules.formulas[0]}；${comprehensiveEvaluationRules.formulas[1]}`,
+      source: 'site',
+      text: comprehensiveDetail,
+      score: evidenceScore(comprehensiveEvaluationRules.title, comprehensiveEvaluationRules.formulas[0], comprehensiveDetail, terms)
+        + (/综合测评|德育|智育/.test(normalizedQuery) ? 12 : 0)
+    },
+    {
+      title: scholarshipGeneralRule.title,
+      url: '/student-rules#scholarships',
+      snippet: scholarshipGeneralRule.summary,
+      source: 'site',
+      text: `${scholarshipGeneralRule.documentNumber} ${scholarshipGeneralRule.summary}`,
+      score: evidenceScore(scholarshipGeneralRule.title, scholarshipGeneralRule.summary, scholarshipGeneralRule.summary, terms)
+        + (/奖学金.*(同时|一起|兼得|重复|几个)|同时.*奖学金/.test(normalizedQuery) ? 18 : 0)
+    }
+  ]
+
+  const scholarshipEvidence: AssistantEvidence[] = scholarships.map((item) => {
+    const detail = `${item.scope} ${item.ranking} ${item.amount} ${item.requirements.join(' ')} ${item.coexistence} ${item.reviewTime}`
+    return {
+      title: item.name,
+      url: `/student-rules#scholarship-${item.slug}`,
+      snippet: `${item.amount}；${item.ranking}。${item.requirements.slice(0, 2).join('；')}`,
+      source: 'site' as const,
+      text: detail,
+      score: evidenceScore(item.name, `${item.scope} ${item.ranking}`, detail, terms)
+        + (normalizedQuery.includes(item.name.toLocaleLowerCase('zh-CN')) ? 22 : 0)
+    }
+  })
+
+  const catalogEvidence: AssistantEvidence[] = studentRuleCatalog.map((item) => {
+    const detail = `${item.category} ${item.version} ${item.keywords.join(' ')}`
+    return {
+      title: item.title,
+      url: `/student-rules#rule-${item.slug}`,
+      snippet: item.summary,
+      source: 'site' as const,
+      text: `${item.summary} ${detail}`,
+      score: evidenceScore(item.title, item.summary, detail, terms)
+    }
+  })
+
+  return [...fixedEvidence, ...scholarshipEvidence, ...catalogEvidence]
+    .filter(item => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .filter((item, index, items) => items.findIndex(candidate => candidate.url === item.url) === index)
+    .slice(0, limit)
+}
+
+function isFeatureSeekingQuery(query: string): boolean {
+  return /在哪|哪里|入口|哪个页面|什么页面|怎么打开|怎么进入|去哪|功能/.test(query)
+}
+
+export function featureEvidenceForQuery(query: string, limit = 5): AssistantEvidence[] {
+  const featureSeeking = isFeatureSeekingQuery(query)
+  return searchSystemFeatures(query, limit).map(feature => ({
+    title: feature.title,
+    url: feature.to,
+    snippet: feature.summary,
+    source: 'site' as const,
+    text: `${feature.title} ${feature.summary}`,
+    score: featureSeeking
+      ? Math.max(8, Math.round(feature.score / 4))
+      : Math.min(7, Math.max(1, Math.round(feature.score / 6)))
+  }))
+}
+
 export function retrieveCampusEvidence(
   client: DatabaseClient,
   query: string,
   limit = 6
 ): AssistantEvidence[] {
   const terms = assistantQueryTerms(query)
-  if (terms.length === 0) return []
+  const featureEvidence = featureEvidenceForQuery(query, limit)
+  if (terms.length === 0) return featureEvidence
   const now = Date.now()
 
   const placeEvidence: AssistantEvidence[] = client.db.select({
@@ -389,15 +493,117 @@ export function retrieveCampusEvidence(
 
   const majorEvidence = majorEvidenceForQuery(query, limit)
   const seedEvidence = seedCatalogEvidenceForQuery(query, limit)
+  const studentRuleEvidence = studentRuleEvidenceForQuery(query, limit)
 
-  return [...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
+  return [...featureEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
     .filter((item, index, items) => items.findIndex(candidate => candidate.url === item.url) === index)
     .slice(0, limit)
 }
 
+function featureLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
+  if (!isFeatureSeekingQuery(query)) return null
+  const features = searchSystemFeatures(query, 3)
+  if (!features[0] || features[0].score < 8) return null
+  const citations = features.map((feature) => {
+    const item = evidence.find(candidate => candidate.url === feature.to)
+    if (item) {
+      const { text: _text, score: _score, ...citation } = item
+      return citation
+    }
+    return {
+      title: feature.title,
+      url: feature.to,
+      snippet: feature.summary,
+      source: 'site' as const
+    }
+  })
+  const alternatives = features.slice(1).map(item => `“${item.title}”`).join('、')
+  return {
+    query,
+    mode: 'local',
+    answer: `这个功能在“${features[0].title}”。${features[0].summary}点击下方入口可以直接打开。${alternatives ? `相关入口还有${alternatives}。` : ''}`,
+    citations,
+    usedWebSearch: false,
+    confidence: 0.98
+  }
+}
+
+function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
+  const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const citationFor = (url: string): ApiAssistantCitation[] => evidence
+    .filter(item => item.url === url)
+    .slice(0, 1)
+    .map(({ text: _text, score: _score, ...citation }) => citation)
+
+  if (/绩点|gpa|学分绩点/i.test(normalizedQuery)) {
+    const scoreMatch = normalizedQuery.match(/(\d{1,3}(?:\.\d+)?)\s*分/)
+    if (scoreMatch) {
+      const score = Math.max(0, Math.min(100, Number(scoreMatch[1])))
+      const gradePoint = /补考/.test(normalizedQuery)
+        ? (score >= 60 ? 1 : 0)
+        : (score >= 60 ? Math.round((score / 10 - 5) * 100) / 100 : 0)
+      const retakeNote = /补考/.test(normalizedQuery) ? '补考达到60分及以上时课程绩点固定为1。' : ''
+      return {
+        query,
+        mode: 'local',
+        answer: `${score}分对应课程绩点${gradePoint.toFixed(2)}。${retakeNote}平均学分绩点还要按各课程学分加权计算。`,
+        citations: citationFor('/student-rules#gpa-calculator'),
+        usedWebSearch: false,
+        confidence: 0.99
+      }
+    }
+    return {
+      query,
+      mode: 'local',
+      answer: '百分制课程绩点 = 成绩 ÷ 10 - 5，不及格为0；GPA = Σ（课程学分 × 课程绩点）÷ Σ绩点课程学分。补考达到60分及以上绩点固定为1，0学分课程不计入。可在学生规则页直接试算。',
+      citations: citationFor('/student-rules#gpa-calculator'),
+      usedWebSearch: false,
+      confidence: 0.99
+    }
+  }
+
+  if (/综合测评|德育|智育/.test(normalizedQuery)) {
+    return {
+      query,
+      mode: 'local',
+      answer: '综合测评满分100分，由德育25分、智育70分、体育5分组成。智育基础分 = 本人学年平均成绩 ÷ 本年级本专业最高平均成绩 × 60，另按2025版办法计入加扣分。',
+      citations: citationFor('/student-rules#rule-comprehensive-evaluation'),
+      usedWebSearch: false,
+      confidence: 0.98
+    }
+  }
+
+  if (/奖学金.*(同时|一起|兼得|重复|几个)|同时.*奖学金/.test(normalizedQuery)) {
+    return {
+      query,
+      mode: 'local',
+      answer: `学校2025年总规定是：${scholarshipGeneralRule.summary}国家奖学金或国家励志奖学金可以按各自办法同时获得国家助学金，但二者不能同时获得。`,
+      citations: citationFor('/student-rules#scholarships'),
+      usedWebSearch: false,
+      confidence: 0.98
+    }
+  }
+
+  const scholarship = scholarships.find(item => normalizedQuery.includes(item.name.toLocaleLowerCase('zh-CN')))
+  if (scholarship) {
+    return {
+      query,
+      mode: 'local',
+      answer: `${scholarship.name}：${scholarship.amount}。参评范围为${scholarship.scope}，${scholarship.ranking}。主要条件：${scholarship.requirements.slice(0, 3).join('；')}。`,
+      citations: citationFor(`/student-rules#scholarship-${scholarship.slug}`),
+      usedWebSearch: false,
+      confidence: 0.97
+    }
+  }
+
+  return null
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
+  const studentRuleAnswer = studentRuleLocalAnswer(query, evidence)
+  if (studentRuleAnswer) return studentRuleAnswer
   const opening = evidence.find(item => item.title === '2026级新生报到')
   if (opening && assistantQueryTerms(query).includes('开学')) {
     const { text: _text, score: _score, ...citation } = opening
@@ -410,6 +616,9 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
       confidence: 0.98
     }
   }
+
+  const featureAnswer = featureLocalAnswer(query, evidence)
+  if (featureAnswer) return featureAnswer
 
   const primary = evidence[0]!
   const related = evidence.slice(1, 3).map(item => `“${item.title}”`).join('、')
@@ -491,6 +700,91 @@ async function mcpPost(
     return { payload: data ? JSON.parse(data) : {}, sessionId }
   }
   return { payload: JSON.parse(text), sessionId }
+}
+
+function assistantKnowledgeQueryHash(query: string): string {
+  return createHash('sha256')
+    .update(normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN'))
+    .digest('hex')
+}
+
+export function cachedWebEvidenceForQuery(
+  client: DatabaseClient,
+  query: string,
+  limit = 6
+): ApiAssistantCitation[] {
+  const now = Date.now()
+  const queryHash = assistantKnowledgeQueryHash(query)
+  const rows = client.db.select({
+    title: assistantWebKnowledge.title,
+    url: assistantWebKnowledge.url,
+    snippet: assistantWebKnowledge.snippet
+  }).from(assistantWebKnowledge).where(and(
+    eq(assistantWebKnowledge.queryHash, queryHash),
+    eq(assistantWebKnowledge.status, 'active'),
+    gt(assistantWebKnowledge.expiresAt, now)
+  )).orderBy(desc(assistantWebKnowledge.fetchedAt)).limit(limit).all()
+
+  if (rows.length > 0) {
+    client.db.update(assistantWebKnowledge)
+      .set({ lastUsedAt: now, updatedAt: now })
+      .where(and(
+        eq(assistantWebKnowledge.queryHash, queryHash),
+        eq(assistantWebKnowledge.status, 'active')
+      ))
+      .run()
+  }
+  return rows.map(row => ({ ...row, source: 'web' as const }))
+}
+
+export function storeWebEvidence(
+  client: DatabaseClient,
+  query: string,
+  evidence: ApiAssistantCitation[],
+  ttlMs = 14 * 24 * 60 * 60 * 1000
+): number {
+  const now = Date.now()
+  const queryHash = assistantKnowledgeQueryHash(query)
+  let stored = 0
+  for (const item of evidence.filter(item => item.source === 'web').slice(0, 6)) {
+    let parsedUrl: URL
+    try {
+      parsedUrl = new URL(item.url)
+    } catch {
+      continue
+    }
+    const sourceHost = parsedUrl.hostname.toLowerCase()
+    const id = createHash('sha256').update(`${queryHash}:${item.url}`).digest('hex').slice(0, 32)
+    client.db.insert(assistantWebKnowledge).values({
+      id,
+      queryHash,
+      query: safeText(query, 300),
+      title: safeText(item.title, 200),
+      url: item.url,
+      snippet: safeText(item.snippet, 800),
+      sourceHost,
+      status: 'active',
+      fetchedAt: now,
+      expiresAt: now + ttlMs,
+      lastUsedAt: now,
+      createdAt: now,
+      updatedAt: now
+    }).onConflictDoUpdate({
+      target: [assistantWebKnowledge.queryHash, assistantWebKnowledge.url],
+      set: {
+        title: safeText(item.title, 200),
+        snippet: safeText(item.snippet, 800),
+        sourceHost,
+        status: 'active',
+        fetchedAt: now,
+        expiresAt: now + ttlMs,
+        lastUsedAt: now,
+        updatedAt: now
+      }
+    }).run()
+    stored += 1
+  }
+  return stored
 }
 
 async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAssistantCitation[]> {
@@ -613,6 +907,36 @@ function cacheResponse(key: string, response: ApiAssistantResponse): ApiAssistan
   return response
 }
 
+function isDormBedDimensionQuery(query: string): boolean {
+  return /(?:宿舍|寝室).*(?:床|床垫).*(?:尺寸|多大|长|宽)|(?:床|床垫).*(?:尺寸|多大|长|宽)/.test(query)
+}
+
+function dormBedEvidenceGapResponse(
+  query: string,
+  localEvidence: AssistantEvidence[]
+): ApiAssistantResponse {
+  const citations = localEvidence
+    .filter(item => /宿舍|寝室/.test(`${item.title} ${item.snippet}`))
+    .slice(0, 2)
+    .map(({ text: _text, score: _score, ...citation }) => citation)
+  if (!citations.some(item => item.url === '/contact')) {
+    citations.push({
+      title: '联系整理者',
+      url: '/contact',
+      snippet: '提供宿舍楼栋或现场照片后，可以继续核对具体床型。',
+      source: 'site'
+    })
+  }
+  return {
+    query,
+    mode: 'local',
+    answer: '目前没有检索到仰恩大学官方公开的统一宿舍床尺寸，现有资料也明确提示不同楼栋、房型和床位设施可能不同，因此不能把常见的0.9米床规格当成学校确认值。先不要按未经核验的尺寸定制床帘或床垫；拿到楼栋和房型后向宿管、辅导员或在校同学实测确认。',
+    citations,
+    usedWebSearch: false,
+    confidence: 0.86
+  }
+}
+
 export async function answerCampusQuestion(
   client: DatabaseClient,
   rawQuery: string,
@@ -625,15 +949,24 @@ export async function answerCampusQuestion(
   if (cached) answerCache.delete(cacheKey)
 
   const localEvidence = retrieveCampusEvidence(client, query)
-  if (localEvidence[0] && localEvidence[0].score >= 8) {
+  const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
+  if (!requiresSpecificWebEvidence && localEvidence[0] && localEvidence[0].score >= 8) {
     return cacheResponse(cacheKey, buildLocalResponse(query, localEvidence))
   }
 
   let webEvidence: ApiAssistantCitation[] = []
   try {
-    webEvidence = await searchWeb(query, config)
+    webEvidence = cachedWebEvidenceForQuery(client, query)
   } catch {
-    // Web search is optional; the model must explicitly report insufficient evidence.
+    // The cache is optional so a delayed database migration cannot take down campus answers.
+  }
+  if (webEvidence.length === 0) {
+    try {
+      webEvidence = await searchWeb(query, config)
+      storeWebEvidence(client, query, webEvidence)
+    } catch {
+      // MCP search is optional; the fallback still reports that evidence is insufficient.
+    }
   }
   const weakLocalEvidence = localEvidence.slice(0, 3).map(({ text: _text, score: _score, ...item }) => item)
   const evidence = [...weakLocalEvidence, ...webEvidence].slice(0, 8)
@@ -650,6 +983,9 @@ export async function answerCampusQuestion(
         usedWebSearch: false,
         confidence: 1
       })
+    }
+    if (requiresSpecificWebEvidence) {
+      return cacheResponse(cacheKey, dormBedEvidenceGapResponse(query, localEvidence))
     }
     throw error
   }

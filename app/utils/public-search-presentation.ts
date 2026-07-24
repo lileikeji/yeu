@@ -271,7 +271,12 @@ export function mergePublicSearchApiResponses(
     items,
     total: items.length,
     hasManagedContent: responses.some(response => response.hasManagedContent),
-    managedKinds: [...new Set(responses.flatMap(response => response.managedKinds))]
+    managedKinds: [...new Set(responses.flatMap(response => response.managedKinds))],
+    features: [...new Map(
+      responses
+        .flatMap(response => response.features ?? [])
+        .map(feature => [feature.id, feature] as const)
+    ).values()]
   }
 }
 
@@ -491,6 +496,20 @@ export function buildPublicSearchResults(input: {
     sourceLabel: '本站整理'
   }))
 
+  const featureResults = (!activeType || activeType === 'guide'
+    ? input.apiResponse?.features ?? []
+    : [])
+    .map((feature): PublicSearchResult => ({
+      key: `system-feature-${feature.id}`,
+      resultType: 'guide',
+      title: feature.title,
+      summary: feature.summary,
+      typeLabel: '功能入口',
+      icon: feature.icon,
+      to: feature.to,
+      sourceLabel: '站内功能'
+    }))
+
   const mapReferences = (activeType && activeType !== 'place'
     ? []
     : input.mapPlaces)
@@ -579,7 +598,7 @@ export function buildPublicSearchResults(input: {
       sourceLabel: '学校官网'
     }))
 
-  return [...dynamic, ...mapReferences, ...mapAreas, ...staticGuides, ...staticDepartments]
+  return [...featureResults, ...dynamic, ...mapReferences, ...mapAreas, ...staticGuides, ...staticDepartments]
 }
 
 export function groupPublicSearchResults(results: PublicSearchResult[], query = '') {

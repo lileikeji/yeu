@@ -14,6 +14,7 @@ import { activePublicContentCondition } from '../content/visibility'
 import { activePublicProcedureCondition } from '../procedures/service'
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
 import { safeMetadata } from '../../utils/serializers'
+import { searchSystemFeatures } from '../../../data/system-features'
 
 function matchScore(title: string, detail: string | null, search: string): number {
   const normalizedTitle = title.toLocaleLowerCase('zh-CN')
@@ -219,6 +220,9 @@ export function searchPublishedContent(
   const items = rankedItems
     .slice(0, limit)
     .map(({ score: _score, ...item }) => item)
+  const featureMatches = !type || type === 'guide'
+    ? searchSystemFeatures(query, Math.min(limit, 8)).map(({ score: _score, ...feature }) => feature)
+    : []
 
   return {
     query,
@@ -226,6 +230,7 @@ export function searchPublishedContent(
     items,
     total,
     hasManagedContent,
-    managedKinds
+    managedKinds,
+    ...(featureMatches.length > 0 ? { features: featureMatches } : {})
   }
 }

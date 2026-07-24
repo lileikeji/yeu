@@ -244,6 +244,14 @@ export interface ApiSearchItem {
   updatedAt: string
 }
 
+export interface ApiFeatureSearchItem {
+  id: string
+  title: string
+  summary: string
+  to: string
+  icon: string
+}
+
 export interface ApiSearchResponse {
   query: string
   type: PublicSearchResultType | null
@@ -251,6 +259,7 @@ export interface ApiSearchResponse {
   total: number
   hasManagedContent: boolean
   managedKinds: ContentKind[]
+  features?: ApiFeatureSearchItem[]
 }
 
 export interface ApiAssistantCitation {

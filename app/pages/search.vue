@@ -6,7 +6,8 @@ import { freshmanGuides, officialDepartments } from '~~/data/seeds/public-conten
 import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces } from '~~/app/utils/public-catalog'
 import type { PublicSearchResultType } from '~~/shared/constants/server'
 import type { ApiAssistantResponse, ApiSearchResponse } from '~~/shared/types/server'
-import { shouldRequestAssistantAnswer } from '~~/shared/utils/assistant-query'
+import { isQuestionLike, shouldRequestAssistantAnswer } from '~~/shared/utils/assistant-query'
+import { buildStudentRuleSearchResults } from '~~/app/utils/student-rules-search'
 import {
   buildPublicSearchResults,
   buildSearchAnnouncement,
@@ -205,7 +206,7 @@ function selectSearchNeed(query: string): void {
 const results = computed(() => {
   if (!activeQuery.value) return []
 
-  return buildPublicSearchResults({
+  const publicResults = buildPublicSearchResults({
     query: activeQuery.value,
     activeType: activeType.value,
     apiResponse: currentResponse.value,
@@ -215,10 +216,13 @@ const results = computed(() => {
     guides: freshmanGuides,
     departments: officialDepartments
   })
+  const ruleResults = buildStudentRuleSearchResults(activeQuery.value, activeType.value)
+  return [...ruleResults, ...publicResults]
 })
 
 const groupedResults = computed(() => groupPublicSearchResults(results.value, activeQuery.value))
 const hasPlaceResults = computed(() => results.value.some(result => result.resultType === 'place'))
+const hasFeatureResult = computed(() => results.value.some(result => result.key.startsWith('system-feature-')))
 
 const assistantResponse = ref<ApiAssistantResponse | null>(null)
 const assistantStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
@@ -230,7 +234,10 @@ async function requestAssistantAnswer(): Promise<void> {
   const shouldRequest = !activeType.value
     && !searching.value
     && !searchError.value
-    && shouldRequestAssistantAnswer(query, results.value.length)
+    && (
+      shouldRequestAssistantAnswer(query, results.value.length)
+      || (hasFeatureResult.value && isQuestionLike(query))
+    )
   if (!shouldRequest) {
     assistantRequestSequence += 1
     assistantResponse.value = null
@@ -437,7 +444,7 @@ onMounted(() => {
                 </h2>
                 <UBadge
                   v-if="assistantResponse"
-                  :label="assistantResponse.mode === 'local' ? '本站资料' : (assistantResponse.usedWebSearch ? 'AI + 网页检索' : 'AI 整理')"
+                  :label="assistantResponse.mode === 'local' ? (hasFeatureResult ? '系统 API' : '本站资料') : (assistantResponse.usedWebSearch ? 'AI + 网页检索' : 'AI 整理')"
                   color="success"
                   variant="soft"
                   size="sm"
@@ -448,8 +455,34 @@ onMounted(() => {
                 v-if="assistantStatus === 'pending'"
                 class="mt-2 text-sm leading-6 text-zinc-600"
               >
-                正在核对站内资料，请稍候。
+                正在检索站内 API 和数据库；没有匹配资料时再查询网页。
               </p>
+              <div
+                v-if="assistantStatus === 'pending'"
+                class="mt-3 flex flex-wrap gap-2 text-xs text-zinc-500"
+              >
+                <span class="inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-2.5 py-1.5">
+                  <UIcon
+                    name="i-lucide-braces"
+                    class="size-3.5 text-green-700"
+                  />
+                  搜索系统入口
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-2.5 py-1.5">
+                  <UIcon
+                    name="i-lucide-database"
+                    class="size-3.5 text-green-700"
+                  />
+                  核对站内资料
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-2.5 py-1.5">
+                  <UIcon
+                    name="i-lucide-globe-search"
+                    class="size-3.5 text-green-700"
+                  />
+                  必要时网页检索
+                </span>
+              </div>
               <template v-else-if="assistantResponse">
                 <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700">
                   {{ assistantResponse.answer }}

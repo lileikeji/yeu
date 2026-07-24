@@ -131,6 +131,7 @@ onMounted(() => {
       tabindex="-1"
     >
       <slot />
+      <HomeStudentRules v-if="route.path === '/'" />
       <HomeMajorLookup v-if="route.path === '/'" />
     </main>
 
