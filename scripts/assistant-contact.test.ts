@@ -26,6 +26,9 @@ test('assistant query normalization and retrieval terms cover common campus word
   assert.ok(terms.includes('宿舍'))
   assert.ok(terms.includes('住宿'))
   assert.ok(terms.includes('报修'))
+  const unknownTerms = assistantQueryTerms('仰恩大学有没有飞行课程？')
+  assert.deepEqual(unknownTerms, ['飞行课程'])
+  assert.equal(unknownTerms.includes('仰恩大学') || unknownTerms.includes('仰恩'), false)
 })
 
 test('prompt-injection shaped questions never reach the assistant gateway', () => {
