@@ -9,6 +9,21 @@ export function verifyBearerToken(headerValue: string | undefined, expectedToken
   return Boolean(match?.[1] && safeEqual(match[1], expectedToken))
 }
 
+export function createOneBotWebhookSignature(secret: string, rawBody: string): string {
+  return createHmac('sha1', secret).update(rawBody).digest('hex')
+}
+
+export function verifyOneBotWebhookSignature(input: {
+  secret: string
+  signature: string | undefined
+  rawBody: string
+}): boolean {
+  if (!input.secret || !input.signature) return false
+  const provided = input.signature.replace(/^sha1=/i, '').trim().toLowerCase()
+  if (!/^[a-f0-9]{40}$/.test(provided)) return false
+  return safeEqual(provided, createOneBotWebhookSignature(input.secret, input.rawBody))
+}
+
 export function createBotWebhookSignature(secret: string, timestamp: string, rawBody: string): string {
   return createHmac('sha256', secret)
     .update(timestamp)

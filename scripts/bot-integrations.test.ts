@@ -8,9 +8,11 @@ import {
 } from '../server/modules/bots/service'
 import {
   createBotWebhookSignature,
+  createOneBotWebhookSignature,
   safeOutboundBotUrl,
   verifyBearerToken,
-  verifyBotWebhookSignature
+  verifyBotWebhookSignature,
+  verifyOneBotWebhookSignature
 } from '../server/modules/bots/security'
 
 test('OneBot group messages require an explicit mention of this bot', () => {
@@ -77,7 +79,7 @@ test('WeChat relay requires a room mention and uses clean text', () => {
     ...base,
     mentionedIds: ['bot-1']
   }, 'bot-1', '新生指南')?.conversationId, 'room-1')
-  assert.equal(normalizeWechatQuestion({ ...base, roomId: '' , isAt: true }, 'bot-1', '新生指南'), null)
+  assert.equal(normalizeWechatQuestion({ ...base, roomId: '', isAt: true }, 'bot-1', '新生指南'), null)
 })
 
 test('bot replies always retain the canonical website footer', () => {
@@ -116,6 +118,27 @@ test('webhook authentication rejects invalid and stale credentials', () => {
     signature,
     rawBody,
     now
+  }), false)
+})
+
+test('OneBot HTTP signatures authenticate the exact raw request body', () => {
+  const secret = 'onebot-shared-secret'
+  const rawBody = '{"post_type":"message","message_id":1001}'
+  const signature = createOneBotWebhookSignature(secret, rawBody)
+  assert.equal(verifyOneBotWebhookSignature({
+    secret,
+    signature: `sha1=${signature}`,
+    rawBody
+  }), true)
+  assert.equal(verifyOneBotWebhookSignature({
+    secret,
+    signature: `sha1=${signature}`,
+    rawBody: `${rawBody} `
+  }), false)
+  assert.equal(verifyOneBotWebhookSignature({
+    secret,
+    signature: 'sha1=invalid',
+    rawBody
   }), false)
 })
 

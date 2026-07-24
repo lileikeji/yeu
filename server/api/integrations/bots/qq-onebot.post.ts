@@ -1,7 +1,7 @@
 import { normalizeOneBotQuestion } from '../../../modules/bots/events'
 import { botAssistantConfig, botIntegrationDisabled, botRateLimited } from '../../../modules/bots/runtime'
 import { answerAndSendBotQuestion, releaseBotMessage, reserveBotMessage } from '../../../modules/bots/service'
-import { verifyBearerToken } from '../../../modules/bots/security'
+import { verifyBearerToken, verifyOneBotWebhookSignature } from '../../../modules/bots/security'
 import { sendOneBotGroupMessage } from '../../../modules/bots/transports'
 import { useAppDatabase } from '../../../utils/database'
 import { assertRateLimit } from '../../../utils/rate-limit'
@@ -13,11 +13,17 @@ export default defineEventHandler(async (event) => {
   const webhookToken = String(runtime.qqBotWebhookToken || '')
   const apiUrl = String(runtime.qqBotApiUrl || '')
   if (Buffer.byteLength(webhookToken) < 32 || !apiUrl) botIntegrationDisabled()
-  if (!verifyBearerToken(getHeader(event, 'authorization'), webhookToken)) {
+  const rawBody = await readRawBody(event)
+  const authenticated = verifyBearerToken(getHeader(event, 'authorization'), webhookToken)
+    || verifyOneBotWebhookSignature({
+      secret: webhookToken,
+      signature: getHeader(event, 'x-signature'),
+      rawBody: rawBody || ''
+    })
+  if (!authenticated) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  const rawBody = await readRawBody(event)
   let payload: unknown
   try {
     payload = JSON.parse(rawBody || '')
