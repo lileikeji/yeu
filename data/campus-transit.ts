@@ -54,6 +54,12 @@ export const campusTransitSources: TransitSource[] = [
     note: '用于交叉核对文化宫至仰恩大学第三校区的线路关系；票价和时刻可能调整。'
   },
   {
+    id: 'k2-k6-fare-notice',
+    title: '泉州公交 K2、K6 线路调整公告',
+    url: 'https://www.fjdaily.com/app/content/2024-10/25/content_2875425.html',
+    note: '2024 年 10 月 25 日公告，信息来自泉州公交集团；明确 K6 一票制 2 元，并列出 K2 临时分段票价。'
+  },
+  {
     id: 'amap',
     title: '高德地图实时公交与路线规划',
     url: 'https://ditu.amap.com/',
@@ -75,7 +81,7 @@ export const campusTransitOptions: CampusTransitOption[] = [
     badge: '首选直达',
     summary: '福厦铁路泉州站上车，仰恩大学第三校区站下车，不需要换乘。',
     duration: '通常约 60-90 分钟',
-    fare: '2 元起，按上下车站点分段计价',
+    fare: '全程一票制 2 元',
     serviceHours: '常见资料：泉州站约 07:20-18:10；学校约 06:30-18:10',
     steps: [
       '抵达泉州站后，按公交指引前往公交上客区。',
@@ -85,7 +91,7 @@ export const campusTransitOptions: CampusTransitOption[] = [
     notes: ['不同公开来源对泉州站首班时间存在约 20 分钟差异。', '返程在仰恩大学第三校区站乘 K6 路前往泉州站，赶动车务必预留候车和堵车时间。'],
     keywords: ['泉州站', '动车站', '高铁站', 'K6', '到校', '离校', '直达公交'],
     mapUrl: 'https://ditu.amap.com/dir?from%5Bname%5D=%E6%B3%89%E5%B7%9E%E7%AB%99&to%5Bname%5D=%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6&type=bus',
-    sourceIds: ['qzbus', 'k6-reference', 'amap'],
+    sourceIds: ['qzbus', 'k6-reference', 'k2-k6-fare-notice', 'amap'],
     recommended: true
   },
   {
@@ -135,17 +141,22 @@ export const campusTransitOptions: CampusTransitOption[] = [
     badge: '市区主线路',
     summary: 'K2 路连接泉州文化宫与仰恩大学第三校区，适合从中心城区进出学校。',
     duration: '通常需预留约 70-100 分钟',
-    fare: '2 元起，按上下车站点分段计价；全程公开资料约 5 元',
+    fare: '分段累计计价：前四段各 1 元、最后一段 1.5 元；乘满五段按全程 5 元',
     serviceHours: '常见资料：文化宫约 06:30-22:00；学校约 06:30-21:40',
     steps: [
       '前往文化宫公交站，确认车辆方向为仰恩大学第三校区。',
       '乘 K2 路至仰恩大学第三校区站。',
       '从学校去市区时反向乘坐 K2，末班前提前到站。'
     ],
-    notes: ['K2 运营时间通常晚于 K6，但节假日和临时调整仍以实时公交为准。', '前往开元寺、西街等地点，可到市区后再换乘或步行。'],
+    notes: [
+      '2024 年 10 月 25 日临时调整公告列出的相邻计价段为：文化宫—坪山洞东侧 1 元、坪山洞东侧—万虹路口 1 元、万虹路口—前洋社区路口 1 元、前洋社区路口—埔边 1 元、埔边—仰恩大学第三校区 1.5 元；跨段累计，乘满五段按全程 5 元。',
+      '公告中的“埔边”是道路施工改道期间的临时分段点，原分段点为“河市”；施工恢复后的实际分段点请在乘车前向泉州公交核验。',
+      'K2 运营时间通常晚于 K6，但节假日和临时调整仍以实时公交为准。',
+      '前往开元寺、西街等地点，可到市区后再换乘或步行。'
+    ],
     keywords: ['泉州市区', '文化宫', 'K2', '西街', '开元寺', '进城', '离校'],
     mapUrl: 'https://ditu.amap.com/dir?from%5Bname%5D=%E6%B3%89%E5%B7%9E%E6%96%87%E5%8C%96%E5%AE%AB&to%5Bname%5D=%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6&type=bus',
-    sourceIds: ['qzbus', 'k2-reference', 'amap'],
+    sourceIds: ['qzbus', 'k2-reference', 'k2-k6-fare-notice', 'amap'],
     recommended: true
   },
   {
@@ -155,7 +166,7 @@ export const campusTransitOptions: CampusTransitOption[] = [
     badge: '离校速查',
     summary: '去泉州站优先看 K6；去文化宫和中心城区优先看 K2；去东站或机场需换乘或打车。',
     duration: '按目的地和当天路况变化',
-    fare: 'K6、K2 均为 2 元起，按上下车站点分段计价；K2 全程公开资料约 5 元',
+    fare: 'K6 全程一票制 2 元；K2 分段累计，乘满五段按全程 5 元',
     serviceHours: 'K6 末班较早，K2 通常运营到夜间',
     steps: [
       '动车从泉州站出发：优先 K6，并为堵车、进站安检预留至少 60 分钟缓冲。',
@@ -165,7 +176,7 @@ export const campusTransitOptions: CampusTransitOption[] = [
     notes: ['节假日前后客流大，尽量提前购票、提前出发。', '错过末班车时不要乘坐无平台记录的揽客车辆。'],
     keywords: ['离校', '学校怎么出去', '去泉州站', '去市区', '去机场', '末班车', 'K6', 'K2'],
     mapUrl: 'https://ditu.amap.com/dir?from%5Bname%5D=%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6&type=bus',
-    sourceIds: ['qzbus', 'k6-reference', 'k2-reference', 'amap'],
+    sourceIds: ['qzbus', 'k6-reference', 'k2-reference', 'k2-k6-fare-notice', 'amap'],
     recommended: true
   }
 ]

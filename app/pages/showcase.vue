@@ -61,7 +61,7 @@ const assistantQuestion = computed(() => showcaseTypedText(
   (sceneProgress.value - 0.06) / 0.24
 ))
 const assistantAnswer = computed(() => showcaseTypedText(
-  '泉州站上车，乘 K6 到“仰恩大学第三校区”站下车，不用换乘。通常约 50–70 分钟，票价 2 元起，实际按上下车站点分段计费。K6 末班较早，出发前再看一次当天班次。',
+  '泉州站上车，乘 K6 到“仰恩大学第三校区”站下车，不用换乘。通常约 50–70 分钟，全程一票制 2 元。K6 末班较早，出发前再看一次当天班次。',
   (sceneProgress.value - 0.57) / 0.3
 ))
 const completedChecklistCount = computed(() => showcaseCheckedCount(
@@ -382,7 +382,7 @@ onBeforeUnmount(() => {
               </p>
               <div class="showcase-answer-facts">
                 <span><b>50–70</b> 分钟</span>
-                <span><b>2 元起</b> 分段计价</span>
+                <span><b>2 元</b> 全程一票制</span>
                 <span><b>0</b> 次换乘</span>
               </div>
               <div class="showcase-citation">
@@ -490,7 +490,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="showcase-transit-meta">
                 <span><b>50–70</b> 分钟</span>
-                <span><b>2 元起</b> 分段计价</span>
+                <span><b>2 元</b> 全程一票制</span>
                 <span><b>直达</b> 不换乘</span>
               </div>
               <p class="showcase-transit-note">

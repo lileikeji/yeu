@@ -41,6 +41,17 @@ function formatQueryTime(value: string): string {
   }).format(new Date(value))
 }
 
+function formatPlanFare(plan: ApiTransitPlanResponse['plans'][number]): string {
+  const routeNames = plan.segments.map(segment => segment.name).join(' ')
+  if (/\bK6\b/i.test(routeNames)) return 'K6 全程 2 元'
+  if (/\bK2\b/i.test(routeNames)) {
+    return plan.fareYuan === null
+      ? 'K2 分段计价，全程 5 元'
+      : `K2 本次约 ${plan.fareYuan} 元`
+  }
+  return plan.fareYuan === null ? '票价以乘车为准' : `约 ${plan.fareYuan} 元`
+}
+
 const quickFacts = [
   { route: 'K6', destination: '泉州站', detail: '直达，末班较早', tone: 'text-emerald-800 bg-emerald-50' },
   { route: 'K2', destination: '文化宫 / 市区', detail: '直达，运营较晚', tone: 'text-blue-800 bg-blue-50' },
@@ -207,7 +218,7 @@ const quickFacts = [
               </div>
               <p class="text-right text-xs leading-5 text-zinc-500">
                 步行 {{ plan.walkingMeters }} 米<br>
-                {{ plan.fareYuan === null ? '票价以乘车为准' : `约 ${plan.fareYuan} 元` }}
+                {{ formatPlanFare(plan) }}
               </p>
             </div>
             <ol class="mt-3 space-y-3">

@@ -160,9 +160,16 @@ export function transitRouteForQuery(query: string): {
 
 function transitApiResponse(query: string, response: ApiTransitPlanResponse): ApiAssistantResponse {
   const plan = response.plans[0]!
-  const fare = plan.fareYuan === null
-    ? '票价按线路及上下车站点计费'
-    : `本次路线预估票价约 ${plan.fareYuan} 元（按上下车站点计算）`
+  const routeNames = plan.segments.map(segment => segment.name).join(' ')
+  const fare = /\bK6\b/i.test(routeNames)
+    ? 'K6 全程一票制 2 元'
+    : /\bK2\b/i.test(routeNames)
+      ? plan.fareYuan === null
+        ? 'K2 分段累计计价，乘满五段按全程 5 元'
+        : `K2 本次路线预估票价约 ${plan.fareYuan} 元（分段累计，全程 5 元）`
+      : plan.fareYuan === null
+        ? '票价以当天线路结果为准'
+        : `本次路线预估票价约 ${plan.fareYuan} 元`
   const segments = plan.segments.map((segment) => {
     const schedule = segment.startTime && segment.endTime
       ? `，运营时间 ${segment.startTime}-${segment.endTime}`
@@ -904,6 +911,42 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
       citations: [citation],
       usedWebSearch: false,
       confidence: 0.98
+    }
+  }
+
+  const normalizedQuery = normalizeAssistantQuery(query)
+  if (/票价|车费|多少钱|收费|计价|价格|分段/.test(normalizedQuery) && /\bK[26]\b|公交/i.test(normalizedQuery)) {
+    const asksK6 = /\bK6\b/i.test(normalizedQuery)
+    const asksK2 = /\bK2\b/i.test(normalizedQuery)
+    const k6Answer = 'K6 不是分段计价，泉州站至仰恩大学第三校区全程一票制 2 元。'
+    const k2Answer = 'K2 分段累计计价：文化宫—坪山洞东侧 1 元、坪山洞东侧—万虹路口 1 元、万虹路口—前洋社区路口 1 元、前洋社区路口—埔边 1 元、埔边—仰恩大学第三校区 1.5 元；跨段累计，乘满五段按全程 5 元。公告中的“埔边”是 2024 年道路施工改道期间的临时分段点，当前乘车前仍应核验实际分段点。'
+    const answer = asksK6 && !asksK2
+      ? k6Answer
+      : asksK2 && !asksK6
+        ? k2Answer
+        : `${k6Answer}${k2Answer}`
+    const transitCitation = evidence.find(item => item.url === '/transport')
+    const citations: ApiAssistantCitation[] = transitCitation
+      ? [{
+          title: transitCitation.title,
+          url: transitCitation.url,
+          snippet: transitCitation.snippet,
+          source: transitCitation.source
+        }]
+      : []
+    citations.push({
+      title: '泉州公交 K2、K6 线路调整公告',
+      url: 'https://www.fjdaily.com/app/content/2024-10/25/content_2875425.html',
+      snippet: '2024 年 10 月 25 日公告，信息来自泉州公交集团。',
+      source: 'web'
+    })
+    return {
+      query,
+      mode: 'local',
+      answer,
+      citations,
+      usedWebSearch: false,
+      confidence: 0.97
     }
   }
 
