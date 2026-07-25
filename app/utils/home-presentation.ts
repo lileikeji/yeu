@@ -162,10 +162,10 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   },
   {
     featureKey: 'home.more.nearby',
-    title: '周边生活',
-    description: '查看学生街、餐饮、便利店和快递信息',
+    title: '吃喝玩乐',
+    description: '学生街吃饭、马甲本地味道与半日周末攻略',
     to: '/nearby',
-    icon: 'i-lucide-store',
+    icon: 'i-lucide-compass',
     tone: 'bg-orange-50 text-orange-700'
   },
   {

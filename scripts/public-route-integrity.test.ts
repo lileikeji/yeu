@@ -531,7 +531,7 @@ test('student-facing nearby and research pages use reader-facing wording', () =>
   ]
   const source = files.map(file => readFileSync(resolve(file), 'utf8')).join('\n')
 
-  assert.match(source, /找吃饭、快递和日用品/)
+  assert.match(source, /从下课随手吃，到周末出去玩/)
   assert.match(source, /附近这些地方可以先看看/)
   assert.match(source, /图片使用说明/)
   assert.match(source, /部分社交平台图片暂不展示/)

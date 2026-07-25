@@ -125,6 +125,17 @@ export const systemFeatures: SystemFeature[] = [
     keywords: ['社团', '学生组织', '加入社团', '协会', '招新']
   },
   {
+    id: 'nearby-guide',
+    title: '校园吃喝玩乐',
+    summary: '查看学生街餐饮、马甲本地风味，以及仙公山、海丝动物园、永安蝶村和虹山周末攻略。',
+    to: '/nearby',
+    icon: 'i-lucide-compass',
+    keywords: [
+      '吃喝玩乐', '附近有什么好吃的', '附近有什么好玩的', '学校附近吃什么', '周末去哪',
+      '学生街', '马甲美食', '仙公山', '海丝动物园', '永安蝶村', '虹山乡', '半日游'
+    ]
+  },
+  {
     id: 'feedback',
     title: '反馈纠错',
     summary: '提交内容错误、信息缺失、地图问题或功能建议。',

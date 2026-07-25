@@ -160,10 +160,10 @@ export const searchStartingPoints = [
     icon: 'i-lucide-notebook-tabs'
   },
   {
-    title: '看看校园周边',
-    description: '吃饭、快递、购物和日常服务',
+    title: '看看吃喝玩乐',
+    description: '学生街餐饮、周边景点和半日周末攻略',
     to: '/nearby',
-    icon: 'i-lucide-store'
+    icon: 'i-lucide-compass'
   }
 ] as const
 

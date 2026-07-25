@@ -76,7 +76,7 @@ test('nearby page keeps map wiring and student-facing travel copy', () => {
   assert.match(pageSource, /收起地点/)
   assert.doesNotMatch(pageSource, /高德 POI 接口来源/)
   assert.doesNotMatch(pageSource, /高德当前 POI/)
-  assert.match(pageSource, /title: '校园周边'/)
+  assert.match(pageSource, /title: '校园吃喝玩乐'/)
   assert.doesNotMatch(pageSource, /高德分类：/)
   assert.doesNotMatch(pageSource, /高德候选 · 待核验/)
   assert.doesNotMatch(pageSource, /待实地核验候选/)

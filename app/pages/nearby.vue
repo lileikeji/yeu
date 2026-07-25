@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { safeExternalHref } from '~/utils/safe-external-href'
 import nearbyCandidateData from '~~/data/imports/amap-nearby-poi-candidates-2026-07-15.json'
+import {
+  nearbyGuideCategoryLabels,
+  nearbyGuideItems
+} from '~~/data/nearby-guide'
 import { researchSources } from '~~/data/seeds/public-content'
 import {
   buildNearbyCategoryOptions,
@@ -45,10 +49,12 @@ const candidateDistanceLabel = nearbyCandidateDistanceLabel
 const candidateHint = nearbyCandidateHint
 const matchCountLabel = nearbyMatchCountLabel
 const isNeedShortcutActive = isNearbyNeedShortcutActive
+const guideItems = nearbyGuideItems
+const guideCategoryLabels = nearbyGuideCategoryLabels
 
 useSeoMeta({
-  title: '校园周边',
-  description: '查找仰恩大学周边吃饭、快递、购物和生活服务地点。'
+  title: '校园吃喝玩乐',
+  description: '查看仰恩大学学生街、马甲镇美食与洛江周边半日、周末游玩攻略。'
 })
 
 const searchQuery = ref('')
@@ -101,13 +107,13 @@ async function selectNearbyNeed(category: string): Promise<void> {
     <header class="border-b border-[var(--line)] bg-white">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
-          周边生活
+          吃喝玩乐
         </p>
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
-          找吃饭、快递和日用品
+          从下课随手吃，到周末出去玩
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          学校附近吃饭、取快递、买日用品和生活服务都在这里。营业时间变化较快，出发前再看一下地图中的近期信息。
+          学生街吃什么、马甲有什么本地味道、半天和周末能去哪，已经按时间成本整理好。商家营业、景区开放和票价变化较快，出发前再用地图复核。
         </p>
         <div class="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
           <UInput
@@ -141,6 +147,176 @@ async function selectNearbyNeed(category: string): Promise<void> {
         部分周边介绍暂时没显示出来，下面的地图地点仍然可以查看。
       </div>
 
+      <section
+        class="mb-10"
+        aria-labelledby="nearby-guide-heading"
+      >
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="section-kicker">
+              不用临时做攻略
+            </p>
+            <h2
+              id="nearby-guide-heading"
+              class="mt-1 text-xl font-bold text-zinc-950"
+            >
+              按空闲时间直接选
+            </h2>
+            <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+              校门口先解决吃饭，半天空闲在仙公山和动物园中二选一；傍晚关注永安村活动，完整周末再考虑虹山生态线。
+            </p>
+          </div>
+          <UButton
+            :to="'/transport'"
+            icon="i-lucide-bus-front"
+            label="先看往返交通"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+          />
+        </div>
+
+        <nav
+          class="mt-5 flex gap-2 overflow-x-auto pb-1"
+          aria-label="吃喝玩乐攻略快捷入口"
+        >
+          <a
+            v-for="item in guideItems"
+            :key="`shortcut-${item.id}`"
+            :href="`#guide-${item.id}`"
+            class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-700 transition hover:border-green-300 hover:bg-green-50 hover:text-green-800"
+          >
+            <UIcon
+              :name="item.icon"
+              class="size-3.5"
+            />
+            {{ item.eyebrow }}
+          </a>
+        </nav>
+
+        <div class="mt-5 grid gap-4 lg:grid-cols-2">
+          <article
+            v-for="item in guideItems"
+            :id="`guide-${item.id}`"
+            :key="item.id"
+            class="surface-panel scroll-mt-20 overflow-hidden"
+          >
+            <div class="flex h-full flex-col p-5 md:p-6">
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex min-w-0 items-start gap-3">
+                  <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-green-50 text-green-700">
+                    <UIcon
+                      :name="item.icon"
+                      class="size-5"
+                    />
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold tracking-wide text-green-700">
+                      {{ item.eyebrow }}
+                    </p>
+                    <h3 class="mt-1 text-lg font-bold leading-7 text-zinc-950">
+                      {{ item.title }}
+                    </h3>
+                  </div>
+                </div>
+                <UBadge
+                  :label="guideCategoryLabels[item.category]"
+                  color="warning"
+                  variant="soft"
+                  class="shrink-0"
+                />
+              </div>
+
+              <p class="mt-4 text-sm leading-6 text-zinc-600">
+                {{ item.summary }}
+              </p>
+              <ul class="mt-4 space-y-2">
+                <li
+                  v-for="highlight in item.highlights"
+                  :key="highlight"
+                  class="flex items-start gap-2 text-sm leading-6 text-zinc-700"
+                >
+                  <UIcon
+                    name="i-lucide-circle-check"
+                    class="mt-1 size-4 shrink-0 text-green-600"
+                  />
+                  <span>{{ highlight }}</span>
+                </li>
+              </ul>
+
+              <dl class="mt-5 grid gap-3 rounded-xl bg-zinc-50 p-4 text-xs leading-5 sm:grid-cols-2">
+                <div>
+                  <dt class="font-semibold text-zinc-900">
+                    适合
+                  </dt>
+                  <dd class="mt-1 text-zinc-600">
+                    {{ item.suitableFor }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="font-semibold text-zinc-900">
+                    费用提醒
+                  </dt>
+                  <dd class="mt-1 text-zinc-600">
+                    {{ item.costNote }}
+                  </dd>
+                </div>
+                <div class="sm:col-span-2">
+                  <dt class="font-semibold text-zinc-900">
+                    出发建议
+                  </dt>
+                  <dd class="mt-1 text-zinc-600">
+                    {{ item.travelNote }}
+                  </dd>
+                </div>
+              </dl>
+
+              <div class="mt-auto pt-5">
+                <p class="flex items-start gap-2 text-xs leading-5 text-amber-800">
+                  <UIcon
+                    name="i-lucide-clock-3"
+                    class="mt-0.5 size-3.5 shrink-0"
+                  />
+                  <span>{{ item.freshnessNote }}</span>
+                </p>
+                <div class="mt-4 flex flex-wrap gap-2">
+                  <UButton
+                    :href="safeExternalHref(item.mapUrl) || undefined"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    icon="i-lucide-map-pinned"
+                    label="在高德地图查看"
+                    color="primary"
+                    variant="solid"
+                    class="min-h-11"
+                  />
+                  <UButton
+                    v-for="source in item.sources"
+                    :key="source.url"
+                    :href="safeExternalHref(source.url) || undefined"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    icon="i-lucide-book-open"
+                    :label="`查看${source.publisher}来源`"
+                    color="neutral"
+                    variant="ghost"
+                    class="min-h-11"
+                  />
+                  <UButton
+                    v-if="item.id === 'student-streets'"
+                    href="#nearby-results"
+                    icon="i-lucide-list-filter"
+                    label="筛选学生街地点"
+                    color="neutral"
+                    variant="ghost"
+                    class="min-h-11"
+                  />
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
 
       <section
         v-if="!candidateFilterActive || activeCategory !== 'all' || searchQuery.trim()"

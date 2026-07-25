@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { and, desc, eq, gt, inArray } from 'drizzle-orm'
 import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../data/major-profiles'
 import { campusTransitOptions, campusTransitSearchText } from '../../../data/campus-transit'
+import { nearbyGuideItems, nearbyGuideSearchText } from '../../../data/nearby-guide'
 import { searchSystemFeatures } from '../../../data/system-features'
 import { transferMajorHistoricalRule } from '../../../data/transfer-major'
 import {
@@ -114,6 +115,14 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   机场: ['晋江机场', '泉州晋江国际机场', '飞机'],
   市区: ['文化宫', 'K2', '西街'],
   离校: ['学校怎么出去', '返程', 'K6', 'K2'],
+  吃喝玩乐: ['附近美食', '周边游玩', '学生街', '马甲镇', '半日游', '周末游'],
+  美食: ['吃饭', '小吃', '本地菜', '学生街', '马甲镇'],
+  好吃: ['美食', '吃饭', '小吃', '学生街'],
+  好玩: ['游玩', '景点', '半日游', '周末游'],
+  周末: ['游玩', '景点', '周边攻略', '半日游'],
+  仙公山: ['爬山', '登山', '半日游'],
+  动物园: ['海丝野生动物世界', '海丝野生动物园', '半日游'],
+  虹山: ['彩虹瀑布', '石龙谷', '樱梅园', '周末游'],
   k6: ['泉州站', '直达公交', '首班车', '末班车'],
   k2: ['文化宫', '泉州市区', '首班车', '末班车']
 }
@@ -491,7 +500,23 @@ export function seedCatalogEvidenceForQuery(query: string, limit = 8): Assistant
     }
   })
 
-  return [...procedureEvidence, ...guideEvidence, ...departmentEvidence, ...clubEvidence, ...transitEvidence]
+  const nearbyGuideEvidence: AssistantEvidence[] = nearbyGuideItems.map((item) => {
+    const detail = nearbyGuideSearchText(item)
+    const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+    const exactKeywordBoost = item.keywords.some(keyword => normalizedQuery.includes(keyword.toLocaleLowerCase('zh-CN')))
+      ? 18
+      : 0
+    return {
+      title: item.title,
+      url: `/nearby#guide-${item.id}`,
+      snippet: `${item.summary} ${item.travelNote}`,
+      source: 'site' as const,
+      text: detail,
+      score: evidenceScore(item.title, item.summary, detail, terms) + exactKeywordBoost
+    }
+  })
+
+  return [...procedureEvidence, ...guideEvidence, ...departmentEvidence, ...clubEvidence, ...transitEvidence, ...nearbyGuideEvidence]
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
     .map(item => ({ ...item, score: Math.max(0, item.score - 6) }))
@@ -947,6 +972,63 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
       citations,
       usedWebSearch: false,
       confidence: 0.97
+    }
+  }
+
+  const asksNearbyGuide = /吃喝玩乐|附近.{0,8}(?:好吃|吃饭|美食|好玩|游玩|景点)|学生街|马甲.{0,6}(?:吃|美食|玩)|周末.{0,8}(?:去哪|哪里|玩|攻略)|仙公山|海丝.{0,4}动物|永安蝶村|福蝶|虹山|彩虹瀑布|石龙谷|樱梅园/.test(normalizedQuery)
+  if (asksNearbyGuide) {
+    const guideEvidence = evidence.filter(item => item.url.startsWith('/nearby#guide-'))
+    const asksFoodAndPlay = /吃喝玩乐|好吃.{0,8}好玩|好玩.{0,8}好吃/.test(normalizedQuery)
+    let citationIds = ['student-streets', 'majia-flavors', 'xiangongshan', 'yongan-butterfly', 'hongshan-weekend']
+    if (!asksFoodAndPlay && /仙公山/.test(normalizedQuery)) citationIds = ['xiangongshan']
+    else if (!asksFoodAndPlay && /动物/.test(normalizedQuery)) citationIds = ['haisi-zoo']
+    else if (!asksFoodAndPlay && /永安|福蝶|蝴蝶/.test(normalizedQuery)) citationIds = ['yongan-butterfly']
+    else if (!asksFoodAndPlay && /虹山|瀑布|石龙谷|樱梅园/.test(normalizedQuery)) citationIds = ['hongshan-weekend']
+    else if (!asksFoodAndPlay && /马甲|七宝羹|猪肝/.test(normalizedQuery)) citationIds = ['majia-flavors']
+    else if (!asksFoodAndPlay && /学生街|附近.{0,6}(?:吃|美食)/.test(normalizedQuery)) citationIds = ['student-streets', 'majia-flavors']
+    const citations: ApiAssistantCitation[] = citationIds
+      .map((id) => {
+        const matchedEvidence = guideEvidence.find(item => item.url === `/nearby#guide-${id}`)
+        if (matchedEvidence) {
+          const { text: _text, score: _score, ...citation } = matchedEvidence
+          return citation
+        }
+        const guide = nearbyGuideItems.find(item => item.id === id)
+        return guide
+          ? {
+              title: guide.title,
+              url: `/nearby#guide-${guide.id}`,
+              snippet: guide.summary,
+              source: 'site' as const
+            }
+          : null
+      })
+      .filter((item): item is ApiAssistantCitation => Boolean(item))
+
+    let answer = '有，已经整理成“校园吃喝玩乐”模块：临时吃饭先看新区、旧区学生街的地图候选；想尝马甲本地味道可留意凤栖七宝羹和炒猪肝；半天空闲在仙公山与海丝野生动物世界中二选一；傍晚可关注永安蝶村、福蝶广场的活动；完整周末再考虑虹山的彩虹瀑布、石龙谷或樱梅园。商家营业、景区开放、票价和活动都属于动态信息，出发前请从下方入口打开地图复核。'
+    if (asksFoodAndPlay) {
+      // Keep the overview answer assembled above.
+    } else if (/仙公山/.test(normalizedQuery)) {
+      answer = '仙公山位于马甲镇，是省级风景名胜区，适合留出半天爬山、看山景和人文古迹。穿防滑鞋、带水，并在出发前核对天气、开放区域、索道和门票；返程前确认交通，不要夜间临时走陌生山路。'
+    } else if (/动物/.test(normalizedQuery)) {
+      answer = '海丝野生动物世界适合朋友结伴安排半天，和仙公山二选一会更从容。票种、优惠、表演与开放时间变化较快，不沿用旧攻略；出发前看园区当天公示，并提前确认返程是否方便叫车。'
+    } else if (/永安|福蝶|蝴蝶/.test(normalizedQuery)) {
+      answer = '永安蝶村、福蝶文化广场一带适合傍晚和活动日去。2026 年夏季“村晚”公开信息提到福蝶文化广场、蝶恋花乡野营地和市集音乐活动；非活动日体验会不同，出发前先确认当天安排，并提前处理夜间返程。'
+    } else if (/虹山|瀑布|石龙谷|樱梅园/.test(normalizedQuery)) {
+      answer = '虹山生态线更适合完整周末白天结伴去。近期公开资料提到彩虹瀑布、石龙谷和樱梅园，也提到虹山酸茶、白凤地瓜；具体景观受季节、降雨和运营状态影响，导航时要选具体目的地，不要只导航到“虹山乡”。'
+    } else if (/马甲|七宝羹|猪肝/.test(normalizedQuery)) {
+      answer = '想尝马甲本地味道，可以先记住凤栖七宝羹和炒猪肝：这两道菜名有洛江区公开资料确认，但资料没有为具体商家背书。建议以马甲镇区为范围查看近期仍营业的店，点单前问清份量与价格。'
+    } else if (/学生街|附近.{0,6}(?:吃|美食)/.test(normalizedQuery)) {
+      answer = '临时想吃饭，先按自己所在校区查看新区或旧区学生街。本页整理了 30 个餐饮、购物、快递和生活服务地图候选，但不做主观商家排名；营业状态、菜单和价格请以出发当天地图与现场为准。想吃更本地的，可再到马甲镇区找凤栖七宝羹或炒猪肝。'
+    }
+
+    return {
+      query,
+      mode: 'local',
+      answer,
+      citations,
+      usedWebSearch: false,
+      confidence: 0.96
     }
   }
 
