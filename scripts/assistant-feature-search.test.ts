@@ -31,6 +31,7 @@ test('feature catalog resolves natural function-finding questions', () => {
   assert.equal(searchSystemFeatures('专业在哪查是什么学院')[0]?.id, 'major-college-lookup')
   assert.equal(searchSystemFeatures('在哪里规划去教学楼的路线')[0]?.id, 'campus-map')
   assert.equal(searchSystemFeatures('我想算绩点')[0]?.id, 'gpa-calculator')
+  assert.equal(searchSystemFeatures('WeLearn 软件在哪里下载')[0]?.id, 'welearn-download')
 })
 
 test('public search API result includes direct feature targets', () => {

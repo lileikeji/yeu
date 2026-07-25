@@ -444,11 +444,14 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
           <h2 class="mt-1 text-xl font-bold text-zinc-950">
             其他常用入口
           </h2>
-          <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <NuxtLink
               v-for="entry in moreEntries"
               :key="entry.to"
               :to="entry.to"
+              :external="entry.external"
+              :target="entry.external ? '_blank' : undefined"
+              :rel="entry.external ? 'noopener noreferrer' : undefined"
               class="flex min-h-28 items-start gap-3 rounded-lg border border-zinc-200 p-4 transition hover:border-green-300"
             >
               <span
@@ -461,7 +464,14 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
                 />
               </span>
               <span>
-                <span class="block text-sm font-bold text-zinc-950">{{ entry.title }}</span>
+                <span class="flex items-center gap-1.5 text-sm font-bold text-zinc-950">
+                  {{ entry.title }}
+                  <UIcon
+                    v-if="entry.external"
+                    name="i-lucide-external-link"
+                    class="size-3.5 text-zinc-400"
+                  />
+                </span>
                 <span class="mt-1 block text-xs leading-5 text-zinc-500">{{ entry.description }}</span>
               </span>
             </NuxtLink>

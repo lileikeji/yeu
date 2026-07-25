@@ -41,6 +41,7 @@ export interface HomeMoreEntry {
   to: string
   icon: string
   tone: string
+  external?: boolean
 }
 
 export interface HomeTrustLink {
@@ -154,6 +155,14 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     to: '/nearby',
     icon: 'i-lucide-store',
     tone: 'bg-orange-50 text-orange-700'
+  },
+  {
+    title: 'WeLearn 学习工具',
+    description: '独立第三方工具，打开软件下载页查看版本说明并获取最新版',
+    to: 'https://dz.lileikeji.top/uploads/releases/download.php',
+    icon: 'i-lucide-download',
+    tone: 'bg-cyan-50 text-cyan-700',
+    external: true
   }
 ]
 

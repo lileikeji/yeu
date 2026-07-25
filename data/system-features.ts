@@ -139,6 +139,14 @@ export const systemFeatures: SystemFeature[] = [
     to: '/contact',
     icon: 'i-lucide-message-circle',
     keywords: ['联系我们', '联系整理者', '二维码', '微信', '拉群', '人工咨询']
+  },
+  {
+    id: 'welearn-download',
+    title: 'WeLearn 学习工具下载',
+    summary: '打开独立第三方软件下载页，查看版本说明并获取最新版。',
+    to: 'https://dz.lileikeji.top/uploads/releases/download.php',
+    icon: 'i-lucide-download',
+    keywords: ['WeLearn', '英语脚本', '英语学习工具', '软件下载', '下载软件', '脚本下载', '最新版']
   }
 ]
 
