@@ -479,6 +479,10 @@ function isFeatureSeekingQuery(query: string): boolean {
   return /在哪|哪里|入口|哪个页面|什么页面|怎么打开|怎么进入|去哪|功能/.test(query)
 }
 
+function isTransferQuery(query: string): boolean {
+  return /\u8f6c\u4e13\u4e1a|\u6362\u4e13\u4e1a/.test(normalizeAssistantQuery(query))
+}
+
 export function featureEvidenceForQuery(query: string, limit = 5): AssistantEvidence[] {
   const featureSeeking = isFeatureSeekingQuery(query)
   return searchSystemFeatures(query, limit).map(feature => ({
@@ -1229,8 +1233,17 @@ export async function answerCampusQuestion(
 
     const localEvidence = retrieveCampusEvidence(client, retrievalQuery)
     const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
+    const transferQuery = isTransferQuery(query)
+    let transferWebEvidence: ApiAssistantCitation[] = []
+    if (transferQuery) {
+      try {
+        transferWebEvidence = cachedWebEvidenceForQuery(client, retrievalQuery)
+      } catch {
+        // A delayed cache migration must not prevent the planner from choosing live search.
+      }
+    }
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
-    if (!requiresSpecificWebEvidence && (deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8))) {
+    if (!transferQuery && !requiresSpecificWebEvidence && (deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8))) {
       return {
         query,
         retrievalQuery,
@@ -1244,9 +1257,9 @@ export async function answerCampusQuestion(
       }
     }
 
-    let webEvidence: ApiAssistantCitation[] = []
+    let webEvidence: ApiAssistantCitation[] = transferWebEvidence
     try {
-      webEvidence = cachedWebEvidenceForQuery(client, retrievalQuery)
+      if (webEvidence.length === 0) webEvidence = cachedWebEvidenceForQuery(client, retrievalQuery)
     } catch {
       // A delayed cache migration must not prevent the planner from choosing live search.
     }
