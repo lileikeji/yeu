@@ -163,7 +163,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.nearby',
     title: '吃喝玩乐',
-    description: '学生街吃饭、马甲本地味道与半日周末攻略',
+    description: '学生街、马甲周边与泉州市区吃喝玩乐攻略',
     to: '/nearby',
     icon: 'i-lucide-compass',
     tone: 'bg-orange-50 text-orange-700'

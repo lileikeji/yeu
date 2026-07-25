@@ -161,7 +161,7 @@ export const searchStartingPoints = [
   },
   {
     title: '看看吃喝玩乐',
-    description: '学生街餐饮、周边景点和半日周末攻略',
+    description: '学生街、马甲周边与泉州市区攻略',
     to: '/nearby',
     icon: 'i-lucide-compass'
   }

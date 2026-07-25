@@ -51,10 +51,26 @@ const matchCountLabel = nearbyMatchCountLabel
 const isNeedShortcutActive = isNearbyNeedShortcutActive
 const guideItems = nearbyGuideItems
 const guideCategoryLabels = nearbyGuideCategoryLabels
+const guideGroups = [
+  {
+    id: 'nearby',
+    kicker: '学校与马甲周边',
+    title: '下课后、半天和周末近郊',
+    description: '先解决学生街吃饭，再按时间选择马甲本地味道、仙公山、动物园、永安村或虹山。',
+    items: guideItems.filter(item => item.scope === 'nearby')
+  },
+  {
+    id: 'city',
+    kicker: '泉州市区',
+    title: '古城、美食、夜游、场馆和商圈',
+    description: '第一次进城先走古城主线；想轻松一点，可以按吃小吃、看展、蟳埔拍照或逛商圈单独安排。',
+    items: guideItems.filter(item => item.scope === 'city')
+  }
+] as const
 
 useSeoMeta({
   title: '校园吃喝玩乐',
-  description: '查看仰恩大学学生街、马甲镇美食与洛江周边半日、周末游玩攻略。'
+  description: '查看仰恩大学学生街、马甲洛江周边与泉州市区的吃喝玩乐攻略。'
 })
 
 const searchQuery = ref('')
@@ -113,7 +129,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           从下课随手吃，到周末出去玩
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          学生街吃什么、马甲有什么本地味道、半天和周末能去哪，已经按时间成本整理好。商家营业、景区开放和票价变化较快，出发前再用地图复核。
+          学生街吃什么、马甲周边能去哪、泉州市区怎么逛，已经按范围和时间成本整理好。商家营业、景区开放和票价变化较快，出发前再用地图复核。
         </p>
         <div class="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
           <UInput
@@ -160,10 +176,10 @@ async function selectNearbyNeed(category: string): Promise<void> {
               id="nearby-guide-heading"
               class="mt-1 text-xl font-bold text-zinc-950"
             >
-              按空闲时间直接选
+              先选近郊还是进城
             </h2>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              校门口先解决吃饭，半天空闲在仙公山和动物园中二选一；傍晚关注永安村活动，完整周末再考虑虹山生态线。
+              校门口与马甲周边适合临时安排；进泉州市区要把 K2 往返时间一起算上，古城、美食、夜游、场馆和商圈按兴趣选一条即可。
             </p>
           </div>
           <UButton
@@ -194,127 +210,31 @@ async function selectNearbyNeed(category: string): Promise<void> {
           </a>
         </nav>
 
-        <div class="mt-5 grid gap-4 lg:grid-cols-2">
-          <article
-            v-for="item in guideItems"
-            :id="`guide-${item.id}`"
-            :key="item.id"
-            class="surface-panel scroll-mt-20 overflow-hidden"
-          >
-            <div class="flex h-full flex-col p-5 md:p-6">
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex min-w-0 items-start gap-3">
-                  <span class="grid size-10 shrink-0 place-items-center rounded-xl bg-green-50 text-green-700">
-                    <UIcon
-                      :name="item.icon"
-                      class="size-5"
-                    />
-                  </span>
-                  <div class="min-w-0">
-                    <p class="text-xs font-semibold tracking-wide text-green-700">
-                      {{ item.eyebrow }}
-                    </p>
-                    <h3 class="mt-1 text-lg font-bold leading-7 text-zinc-950">
-                      {{ item.title }}
-                    </h3>
-                  </div>
-                </div>
-                <UBadge
-                  :label="guideCategoryLabels[item.category]"
-                  color="warning"
-                  variant="soft"
-                  class="shrink-0"
-                />
-              </div>
-
-              <p class="mt-4 text-sm leading-6 text-zinc-600">
-                {{ item.summary }}
-              </p>
-              <ul class="mt-4 space-y-2">
-                <li
-                  v-for="highlight in item.highlights"
-                  :key="highlight"
-                  class="flex items-start gap-2 text-sm leading-6 text-zinc-700"
-                >
-                  <UIcon
-                    name="i-lucide-circle-check"
-                    class="mt-1 size-4 shrink-0 text-green-600"
-                  />
-                  <span>{{ highlight }}</span>
-                </li>
-              </ul>
-
-              <dl class="mt-5 grid gap-3 rounded-xl bg-zinc-50 p-4 text-xs leading-5 sm:grid-cols-2">
-                <div>
-                  <dt class="font-semibold text-zinc-900">
-                    适合
-                  </dt>
-                  <dd class="mt-1 text-zinc-600">
-                    {{ item.suitableFor }}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="font-semibold text-zinc-900">
-                    费用提醒
-                  </dt>
-                  <dd class="mt-1 text-zinc-600">
-                    {{ item.costNote }}
-                  </dd>
-                </div>
-                <div class="sm:col-span-2">
-                  <dt class="font-semibold text-zinc-900">
-                    出发建议
-                  </dt>
-                  <dd class="mt-1 text-zinc-600">
-                    {{ item.travelNote }}
-                  </dd>
-                </div>
-              </dl>
-
-              <div class="mt-auto pt-5">
-                <p class="flex items-start gap-2 text-xs leading-5 text-amber-800">
-                  <UIcon
-                    name="i-lucide-clock-3"
-                    class="mt-0.5 size-3.5 shrink-0"
-                  />
-                  <span>{{ item.freshnessNote }}</span>
-                </p>
-                <div class="mt-4 flex flex-wrap gap-2">
-                  <UButton
-                    :href="safeExternalHref(item.mapUrl) || undefined"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    icon="i-lucide-map-pinned"
-                    label="在高德地图查看"
-                    color="primary"
-                    variant="solid"
-                    class="min-h-11"
-                  />
-                  <UButton
-                    v-for="source in item.sources"
-                    :key="source.url"
-                    :href="safeExternalHref(source.url) || undefined"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    icon="i-lucide-book-open"
-                    :label="`查看${source.publisher}来源`"
-                    color="neutral"
-                    variant="ghost"
-                    class="min-h-11"
-                  />
-                  <UButton
-                    v-if="item.id === 'student-streets'"
-                    href="#nearby-results"
-                    icon="i-lucide-list-filter"
-                    label="筛选学生街地点"
-                    color="neutral"
-                    variant="ghost"
-                    class="min-h-11"
-                  />
-                </div>
-              </div>
-            </div>
-          </article>
+        <div
+          v-for="group in guideGroups"
+          :id="`guide-group-${group.id}`"
+          :key="group.id"
+          class="mt-8 scroll-mt-20"
+        >
+          <div class="mb-4 border-l-2 border-green-600 pl-4">
+            <p class="text-xs font-semibold tracking-wide text-green-700">
+              {{ group.kicker }}
+            </p>
+            <h3 class="mt-1 text-lg font-bold text-zinc-950">
+              {{ group.title }}
+            </h3>
+            <p class="mt-1 max-w-3xl text-sm leading-6 text-zinc-600">
+              {{ group.description }}
+            </p>
+          </div>
+          <div class="grid gap-4 lg:grid-cols-2">
+            <NearbyGuideCard
+              v-for="item in group.items"
+              :key="item.id"
+              :item="item"
+              :category-label="guideCategoryLabels[item.category]"
+            />
+          </div>
         </div>
       </section>
 
