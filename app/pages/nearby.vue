@@ -51,22 +51,51 @@ const matchCountLabel = nearbyMatchCountLabel
 const isNeedShortcutActive = isNearbyNeedShortcutActive
 const guideItems = nearbyGuideItems
 const guideCategoryLabels = nearbyGuideCategoryLabels
-const guideGroups = [
+const guideScopeOptions = [
   {
     id: 'nearby',
-    kicker: '学校与马甲周边',
-    title: '下课后、半天和周末近郊',
-    description: '先解决学生街吃饭，再按时间选择马甲本地味道、仙公山、动物园、永安村或虹山。',
-    items: guideItems.filter(item => item.scope === 'nearby')
+    label: '学校周边',
+    description: '临时吃饭、半天出去、周末放风',
+    icon: 'i-lucide-school'
   },
   {
     id: 'city',
-    kicker: '泉州市区',
-    title: '古城、美食、夜游、场馆和商圈',
-    description: '第一次进城先走古城主线；想轻松一点，可以按吃小吃、看展、蟳埔拍照或逛商圈单独安排。',
-    items: guideItems.filter(item => item.scope === 'city')
+    label: '泉州市区',
+    description: '古城、美食、夜游、看展和商场',
+    icon: 'i-lucide-building-2'
   }
 ] as const
+const guideTagOptions = {
+  nearby: [
+    { id: 'nearby-food', label: '就近吃点', icon: 'i-lucide-utensils', categories: ['food'] },
+    { id: 'nearby-half-day', label: '半天出去', icon: 'i-lucide-sun', categories: ['half-day'] },
+    { id: 'nearby-weekend', label: '傍晚或周末', icon: 'i-lucide-trees', categories: ['evening', 'weekend'] }
+  ],
+  city: [
+    { id: 'city-food', label: '边走边吃', icon: 'i-lucide-cooking-pot', categories: ['city-food'] },
+    { id: 'city-walk', label: '逛景点', icon: 'i-lucide-landmark', categories: ['city-walk'] },
+    { id: 'city-night', label: '晚上去哪', icon: 'i-lucide-moon-star', categories: ['city-night'] },
+    { id: 'city-culture', label: '看展看戏', icon: 'i-lucide-theater', categories: ['city-culture'] },
+    { id: 'city-shopping', label: '商场放松', icon: 'i-lucide-shopping-bag', categories: ['city-shopping'] }
+  ]
+} as const
+
+type GuideScope = keyof typeof guideTagOptions
+
+const activeGuideScope = ref<GuideScope>('city')
+const activeGuideTag = ref('city-walk')
+const activeGuideScopeOption = computed(() =>
+  guideScopeOptions.find(option => option.id === activeGuideScope.value) ?? guideScopeOptions[1]
+)
+const visibleGuideTags = computed(() => guideTagOptions[activeGuideScope.value])
+const selectedGuideTag = computed(() =>
+  visibleGuideTags.value.find(tag => tag.id === activeGuideTag.value) ?? visibleGuideTags.value[0]
+)
+const selectedGuideItems = computed(() => {
+  const categories = new Set<string>(selectedGuideTag.value?.categories ?? [])
+  return guideItems.filter(item => item.scope === activeGuideScope.value && categories.has(item.category))
+})
+const route = useRoute()
 
 useSeoMeta({
   title: '校园吃喝玩乐',
@@ -106,6 +135,51 @@ function clearNearbyFilters(): void {
   searchQuery.value = ''
   activeCategory.value = 'all'
 }
+
+function selectGuideScope(scope: GuideScope): void {
+  activeGuideScope.value = scope
+  activeGuideTag.value = guideTagOptions[scope][0].id
+}
+
+function selectGuideTag(tagId: string): void {
+  activeGuideTag.value = tagId
+}
+
+function guideTagItemCount(categories: readonly string[]): number {
+  const categorySet = new Set(categories)
+  return guideItems.filter(item =>
+    item.scope === activeGuideScope.value && categorySet.has(item.category)
+  ).length
+}
+
+async function revealGuideFromHash(hash: string): Promise<void> {
+  const matchedId = hash.replace(/^#guide-/, '')
+  if (!matchedId || matchedId === hash) return
+  const item = guideItems.find(guide => guide.id === matchedId)
+  if (!item) return
+
+  const scope = item.scope as GuideScope
+  const tag = guideTagOptions[scope].find(option =>
+    (option.categories as readonly string[]).includes(item.category)
+  )
+  if (!tag) return
+
+  activeGuideScope.value = scope
+  activeGuideTag.value = tag.id
+  await nextTick()
+  document.getElementById(`guide-${item.id}`)?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'center'
+  })
+}
+
+onMounted(() => {
+  void revealGuideFromHash(route.hash)
+})
+
+watch(() => route.hash, (hash) => {
+  if (import.meta.client) void revealGuideFromHash(hash)
+})
 
 async function selectNearbyNeed(category: string): Promise<void> {
   searchQuery.value = ''
@@ -167,73 +241,168 @@ async function selectNearbyNeed(category: string): Promise<void> {
         class="mb-10"
         aria-labelledby="nearby-guide-heading"
       >
-        <div class="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p class="section-kicker">
-              不用临时做攻略
-            </p>
-            <h2
-              id="nearby-guide-heading"
-              class="mt-1 text-xl font-bold text-zinc-950"
+        <div class="nearby-guide-shell overflow-hidden rounded-3xl border border-emerald-200/70 bg-[linear-gradient(145deg,#f0fdf4_0%,#ffffff_48%,#fff7ed_100%)]">
+          <div class="relative grid gap-6 overflow-hidden border-b border-emerald-100 px-5 py-6 md:grid-cols-[minmax(0,1fr)_19rem] md:px-7 md:py-8">
+            <div class="relative z-10">
+              <p class="section-kicker">
+                先选范围，再选想做的事
+              </p>
+              <h2
+                id="nearby-guide-heading"
+                class="mt-2 text-xl font-bold text-zinc-950 md:text-2xl"
+              >
+                不用从一长页攻略里慢慢翻
+              </h2>
+              <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+                选“学校周边”或“泉州市区”，再点吃饭、景点、夜游、看展等标签。每个标签会给出几种不同地点，挑一个适合当天时间和预算的就行。
+              </p>
+              <p class="mt-5 inline-flex items-center gap-2 rounded-xl border border-green-200 bg-white/80 px-3 py-2 text-xs font-semibold text-green-900">
+                <UIcon
+                  name="i-lucide-route"
+                  class="size-4"
+                />
+                每张卡片都能查这个地点的往返公交、步行和打车路线
+              </p>
+            </div>
+
+            <div
+              class="nearby-route-scene"
+              aria-hidden="true"
             >
-              先选近郊还是进城
-            </h2>
-            <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
-              校门口与马甲周边适合临时安排；进泉州市区要把 K2 往返时间一起算上，古城、美食、夜游、场馆和商圈按兴趣选一条即可。
-            </p>
+              <svg
+                viewBox="0 0 320 180"
+                class="h-full w-full"
+              >
+                <path
+                  class="nearby-route-path"
+                  d="M22 134 C77 73 118 150 167 91 S257 48 298 74"
+                />
+                <circle
+                  class="nearby-route-dot nearby-route-dot-a"
+                  cx="22"
+                  cy="134"
+                  r="7"
+                />
+                <circle
+                  class="nearby-route-dot nearby-route-dot-b"
+                  cx="167"
+                  cy="91"
+                  r="7"
+                />
+                <circle
+                  class="nearby-route-dot nearby-route-dot-c"
+                  cx="298"
+                  cy="74"
+                  r="7"
+                />
+              </svg>
+              <span class="nearby-route-label nearby-route-label-a">学校</span>
+              <span class="nearby-route-label nearby-route-label-b">古城</span>
+              <span class="nearby-route-label nearby-route-label-c">海边</span>
+            </div>
           </div>
-          <UButton
-            :to="'/transport'"
-            icon="i-lucide-bus-front"
-            label="先看往返交通"
-            color="neutral"
-            variant="outline"
-            class="min-h-11"
-          />
-        </div>
 
-        <nav
-          class="mt-5 flex gap-2 overflow-x-auto pb-1"
-          aria-label="吃喝玩乐攻略快捷入口"
-        >
-          <a
-            v-for="item in guideItems"
-            :key="`shortcut-${item.id}`"
-            :href="`#guide-${item.id}`"
-            class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 text-xs font-semibold text-zinc-700 transition hover:border-green-300 hover:bg-green-50 hover:text-green-800"
-          >
-            <UIcon
-              :name="item.icon"
-              class="size-3.5"
-            />
-            {{ item.eyebrow }}
-          </a>
-        </nav>
+          <div class="px-4 py-5 md:px-7 md:py-6">
+            <div
+              class="grid gap-2 sm:grid-cols-2"
+              role="tablist"
+              aria-label="选择游玩范围"
+            >
+              <button
+                v-for="scope in guideScopeOptions"
+                :key="scope.id"
+                type="button"
+                role="tab"
+                class="group flex min-h-16 items-center gap-3 rounded-2xl border px-4 text-left transition"
+                :class="activeGuideScope === scope.id
+                  ? 'border-green-600 bg-green-700 text-white shadow-sm'
+                  : 'border-zinc-200 bg-white text-zinc-800 hover:border-green-300 hover:bg-green-50/50'"
+                :aria-selected="activeGuideScope === scope.id"
+                @click="selectGuideScope(scope.id)"
+              >
+                <span
+                  class="grid size-10 shrink-0 place-items-center rounded-xl"
+                  :class="activeGuideScope === scope.id ? 'bg-white/15 text-white' : 'bg-green-50 text-green-700'"
+                >
+                  <UIcon
+                    :name="scope.icon"
+                    class="size-5"
+                  />
+                </span>
+                <span class="min-w-0">
+                  <span class="block font-bold">{{ scope.label }}</span>
+                  <span
+                    class="mt-0.5 block text-xs"
+                    :class="activeGuideScope === scope.id ? 'text-green-50' : 'text-zinc-500'"
+                  >{{ scope.description }}</span>
+                </span>
+              </button>
+            </div>
 
-        <div
-          v-for="group in guideGroups"
-          :id="`guide-group-${group.id}`"
-          :key="group.id"
-          class="mt-8 scroll-mt-20"
-        >
-          <div class="mb-4 border-l-2 border-green-600 pl-4">
-            <p class="text-xs font-semibold tracking-wide text-green-700">
-              {{ group.kicker }}
-            </p>
-            <h3 class="mt-1 text-lg font-bold text-zinc-950">
-              {{ group.title }}
-            </h3>
-            <p class="mt-1 max-w-3xl text-sm leading-6 text-zinc-600">
-              {{ group.description }}
-            </p>
-          </div>
-          <div class="grid gap-4 lg:grid-cols-2">
-            <NearbyGuideCard
-              v-for="item in group.items"
-              :key="item.id"
-              :item="item"
-              :category-label="guideCategoryLabels[item.category]"
-            />
+            <div class="mt-5">
+              <p class="text-xs font-semibold text-zinc-500">
+                这次想做什么
+              </p>
+              <div
+                class="guide-tag-tabs mt-2 flex snap-x gap-2 overflow-x-auto pb-2"
+                role="tablist"
+                :aria-label="`${activeGuideScopeOption.label}分类`"
+              >
+                <button
+                  v-for="tag in visibleGuideTags"
+                  :key="tag.id"
+                  type="button"
+                  role="tab"
+                  class="inline-flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-full border px-4 text-sm font-semibold transition"
+                  :class="activeGuideTag === tag.id
+                    ? 'border-orange-500 bg-orange-50 text-orange-800'
+                    : 'border-zinc-200 bg-white text-zinc-700 hover:border-orange-300 hover:text-orange-800'"
+                  :aria-selected="activeGuideTag === tag.id"
+                  @click="selectGuideTag(tag.id)"
+                >
+                  <UIcon
+                    :name="tag.icon"
+                    class="size-4"
+                  />
+                  {{ tag.label }}
+                  <span class="rounded-full bg-black/5 px-1.5 py-0.5 text-[11px] tabular-nums">
+                    {{ guideTagItemCount(tag.categories) }}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-zinc-200/80 pt-4">
+              <div>
+                <p class="text-xs font-semibold text-green-700">
+                  {{ activeGuideScopeOption.label }} · {{ selectedGuideTag?.label }}
+                </p>
+                <p class="mt-1 text-sm text-zinc-600">
+                  下面有 {{ selectedGuideItems.length }} 个选择，不用全部去。
+                </p>
+              </div>
+              <p class="text-xs text-zinc-500">
+                图片来自对应来源页面，营业、票价和场次出发前再查。
+              </p>
+            </div>
+
+            <Transition
+              name="guide-switch"
+              mode="out-in"
+            >
+              <div
+                :key="activeGuideTag"
+                class="mt-5 grid gap-4 lg:grid-cols-2"
+              >
+                <NearbyGuideCard
+                  v-for="(item, index) in selectedGuideItems"
+                  :key="item.id"
+                  :item="item"
+                  :index="index"
+                  :category-label="guideCategoryLabels[item.category]"
+                />
+              </div>
+            </Transition>
           </div>
         </div>
       </section>
@@ -634,3 +803,136 @@ async function selectNearbyNeed(category: string): Promise<void> {
     </div>
   </div>
 </template>
+
+<style scoped>
+.nearby-route-scene {
+  position: relative;
+  min-height: 10rem;
+  border: 1px solid rgb(167 243 208 / 70%);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at 78% 20%, rgb(251 146 60 / 22%), transparent 30%),
+    radial-gradient(circle at 20% 80%, rgb(34 197 94 / 20%), transparent 34%),
+    linear-gradient(135deg, rgb(255 255 255 / 82%), rgb(236 253 245 / 84%));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 85%);
+}
+
+.nearby-route-scene::after {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgb(22 101 52 / 18%) 1px, transparent 1px);
+  background-size: 18px 18px;
+  border-radius: inherit;
+  content: '';
+  mask-image: linear-gradient(to bottom right, black, transparent 82%);
+  pointer-events: none;
+}
+
+.nearby-route-path {
+  fill: none;
+  stroke: rgb(22 163 74 / 72%);
+  stroke-dasharray: 8 10;
+  stroke-linecap: round;
+  stroke-width: 3;
+  animation: nearby-route-travel 12s linear infinite;
+}
+
+.nearby-route-dot {
+  fill: white;
+  stroke: rgb(22 163 74);
+  stroke-width: 4;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nearby-route-pulse 2.4s ease-in-out infinite;
+}
+
+.nearby-route-dot-b {
+  animation-delay: 0.5s;
+}
+
+.nearby-route-dot-c {
+  animation-delay: 1s;
+}
+
+.nearby-route-label {
+  position: absolute;
+  z-index: 1;
+  border: 1px solid rgb(255 255 255 / 80%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 8%);
+  color: rgb(39 39 42);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.4rem 0.55rem;
+  backdrop-filter: blur(8px);
+}
+
+.nearby-route-label-a {
+  bottom: 9%;
+  left: 3%;
+}
+
+.nearby-route-label-b {
+  left: 47%;
+  top: 39%;
+}
+
+.nearby-route-label-c {
+  right: 2%;
+  top: 21%;
+}
+
+.guide-tag-tabs {
+  scrollbar-width: none;
+}
+
+.guide-tag-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.guide-switch-enter-active,
+.guide-switch-leave-active {
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+
+.guide-switch-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.guide-switch-leave-to {
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+@keyframes nearby-route-travel {
+  to {
+    stroke-dashoffset: -180;
+  }
+}
+
+@keyframes nearby-route-pulse {
+  0%,
+  100% {
+    transform: scale(0.86);
+  }
+
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nearby-route-path,
+  .nearby-route-dot {
+    animation: none;
+  }
+
+  .guide-switch-enter-active,
+  .guide-switch-leave-active {
+    transition: none;
+  }
+}
+</style>

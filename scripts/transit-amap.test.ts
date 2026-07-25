@@ -80,11 +80,43 @@ test('AMap transit payload is reduced to safe public route data', () => {
   assert.equal(response.plans[0]?.segments[0]?.viaStops, 18)
 })
 
-test('transit API accepts only the fixed campus travel points', () => {
+test('parallel bus lines for one leg are presented as alternatives, not fake transfers', () => {
+  const response = parseAmapTransitResponse({
+    status: '1',
+    route: {
+      transits: [{
+        duration: '600',
+        walking_distance: '80',
+        segments: [{
+          bus: {
+            buslines: [
+              {
+                name: '55路',
+                departure_stop: { name: '西湖小区' },
+                arrival_stop: { name: '泉州一院城东分院' }
+              },
+              {
+                name: '26路',
+                departure_stop: { name: '西湖小区' },
+                arrival_stop: { name: '泉州一院城东分院' }
+              }
+            ]
+          }
+        }]
+      }]
+    }
+  }, 'campus', 'guide:old-city-walk:kaiyuan-temple')
+
+  assert.deepEqual(response.plans[0]?.segments.map(segment => segment.name), ['55路'])
+})
+
+test('transit API accepts fixed campus and vetted guide points, not arbitrary coordinates', () => {
   assert.equal(isTransitPointId('campus'), true)
   assert.equal(isTransitPointId('quanzhou-east'), true)
+  assert.equal(isTransitPointId('guide:old-city-walk:kaiyuan-temple'), true)
   assert.equal(isTransitPointId('118.1,25.1'), false)
   assert.equal(transitPoints.campus.location, '118.602248,25.107339')
+  assert.equal(transitPoints['guide:old-city-walk:kaiyuan-temple']?.location, '118.585519,24.914168')
 
   const routeSource = readFileSync(resolve('server/api/public/transit/plan.get.ts'), 'utf8')
   assert.match(routeSource, /assertRateLimit/)

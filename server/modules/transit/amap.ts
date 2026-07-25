@@ -1,6 +1,7 @@
 import type { ApiTransitPlan, ApiTransitPlanResponse, ApiTransitSegment } from '../../../shared/types/server'
+import { nearbyGuideItems } from '../../../data/nearby-guide'
 
-export const transitPoints = {
+const campusTransitPoints = {
   'campus': { id: 'campus', label: '仰恩大学第三校区', location: '118.602248,25.107339' },
   'quanzhou-station': { id: 'quanzhou-station', label: '泉州站', location: '118.567400,24.972310' },
   'quanzhou-east': { id: 'quanzhou-east', label: '泉州东站', location: '118.769523,24.921998' },
@@ -8,7 +9,26 @@ export const transitPoints = {
   'city-center': { id: 'city-center', label: '泉州市工人文化宫', location: '118.593378,24.905176' }
 } as const
 
-export type TransitPointId = keyof typeof transitPoints
+type CampusTransitPointId = keyof typeof campusTransitPoints
+type GuideTransitPointId = `guide:${string}:${string}`
+
+export type TransitPointId = CampusTransitPointId | GuideTransitPointId
+
+const guideTransitPoints = Object.fromEntries(nearbyGuideItems.flatMap(item =>
+  item.destinations.map(destination => [
+    `guide:${item.id}:${destination.id}`,
+    {
+      id: `guide:${item.id}:${destination.id}`,
+      label: destination.label,
+      location: `${destination.longitude},${destination.latitude}`
+    }
+  ])
+))
+
+export const transitPoints: Record<string, { id: string, label: string, location: string }> = {
+  ...campusTransitPoints,
+  ...guideTransitPoints
+}
 
 export interface AmapTransitRequestOptions {
   timeoutMs?: number
@@ -47,9 +67,9 @@ function formatServiceTime(value: unknown): string | null {
 function parseBusSegment(value: unknown): ApiTransitSegment[] {
   const segment = record(value)
   const bus = record(segment.bus)
-  return list(bus.buslines).map((lineValue) => {
+  const firstUsableLine = list(bus.buslines).map((lineValue) => {
     const line = record(lineValue)
-    return {
+    const parsed = {
       name: textValue(line.name),
       departureStop: textValue(record(line.departure_stop).name),
       arrivalStop: textValue(record(line.arrival_stop).name),
@@ -57,7 +77,12 @@ function parseBusSegment(value: unknown): ApiTransitSegment[] {
       endTime: formatServiceTime(line.end_time),
       viaStops: numberValue(line.via_num)
     }
-  }).filter(segment => segment.name && segment.departureStop && segment.arrivalStop)
+    return parsed.name && parsed.departureStop && parsed.arrivalStop ? parsed : null
+  }).find((line): line is ApiTransitSegment => line !== null)
+
+  // AMap can return several interchangeable bus lines for the same leg.
+  // They are alternatives, not extra transfers, so only present one usable line.
+  return firstUsableLine ? [firstUsableLine] : []
 }
 
 function parseTransitPlan(value: unknown): ApiTransitPlan | null {
@@ -89,8 +114,8 @@ export function parseAmapTransitResponse(
     .slice(0, 3)
   if (plans.length === 0) throw new Error('Amap returned no usable transit plan')
 
-  const origin = transitPoints[originId]
-  const destination = transitPoints[destinationId]
+  const origin = transitPoints[originId]!
+  const destination = transitPoints[destinationId]!
   return {
     provider: 'amap',
     queriedAt,
@@ -115,8 +140,8 @@ export async function fetchAmapTransitPlan(
   if (!normalizedKey) throw new Error('Amap transit service is not configured')
   if (originId === destinationId) throw new Error('Transit origin and destination must differ')
 
-  const origin = transitPoints[originId]
-  const destination = transitPoints[destinationId]
+  const origin = transitPoints[originId]!
+  const destination = transitPoints[destinationId]!
   const url = new URL('https://restapi.amap.com/v3/direction/transit/integrated')
   url.search = new URLSearchParams({
     key: normalizedKey,

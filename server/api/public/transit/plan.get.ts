@@ -35,8 +35,8 @@ export default defineEventHandler(async (event): Promise<ApiTransitPlanResponse>
   const key = String(runtimeConfig.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || '').trim()
   if (!key) throw createError({ statusCode: 503, statusMessage: 'Transit service is not configured' })
 
-  const origin = transitPoints[originId]
-  const destination = transitPoints[destinationId]
+  const origin = transitPoints[originId]!
+  const destination = transitPoints[destinationId]!
   let payload: unknown
   try {
     payload = await $fetch('https://restapi.amap.com/v3/direction/transit/integrated', {

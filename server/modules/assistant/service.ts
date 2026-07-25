@@ -978,25 +978,30 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   const asksDirectionalTransit = Boolean(transitRouteForQuery(query))
     || (/(?:怎么去|怎么到|怎么回|往返|公交|交通)/.test(normalizedQuery) && /学校|仰恩|校区|K2|K6/i.test(normalizedQuery))
   const asksLifestyleGuide = !asksDirectionalTransit
-    && /吃喝玩乐|附近.{0,8}(?:好吃|吃饭|美食|好玩|游玩|景点)|学生街|马甲.{0,6}(?:吃|美食|玩)|周末.{0,8}(?:去哪|哪里|玩|攻略)|仙公山|海丝.{0,4}动物|永安蝶村|福蝶|虹山|彩虹瀑布|石龙谷|樱梅园|泉州市区|泉州古城|开元寺|西街|钟楼|中山路|府文庙|清净寺|关岳庙|面线糊|土笋冻|四果汤|蟳埔|簪花|海交馆|闽台缘|浦西万达|中骏世界城/.test(normalizedQuery)
+    && /吃喝玩乐|附近.{0,8}(?:好吃|吃饭|美食|好玩|游玩|景点)|学生街|马甲.{0,6}(?:吃|美食|玩)|周末.{0,8}(?:去哪|哪里|玩|攻略)|仙公山|海丝.{0,4}动物|永安蝶村|福蝶|虹山|彩虹瀑布|石龙谷|樱梅园|泉州市区|泉州古城|开元寺|西街|钟楼|中山路|府文庙|清净寺|关岳庙|天后宫|德济门|面线糊|土笋冻|四果汤|蟳埔|簪花|海交馆|闽台缘|木偶|南音|梨园戏|清源山|西湖公园|浔美湾|滨海浪漫线|浦西万达|中骏世界城/.test(normalizedQuery)
   if (asksLifestyleGuide) {
     const guideEvidence = evidence.filter(item => item.url.startsWith('/nearby#guide-'))
     const asksFoodAndPlay = /吃喝玩乐|好吃.{0,8}好玩|好玩.{0,8}好吃/.test(normalizedQuery)
-    const asksCity = /泉州市区|市区|泉州古城|开元寺|西街|钟楼|中山路|府文庙|清净寺|关岳庙|面线糊|土笋冻|四果汤|蟳埔|簪花|海交馆|闽台缘|浦西万达|中骏世界城/.test(normalizedQuery)
+    const asksCity = /泉州市区|市区|泉州古城|开元寺|西街|钟楼|中山路|府文庙|清净寺|关岳庙|天后宫|德济门|面线糊|土笋冻|四果汤|蟳埔|簪花|海交馆|闽台缘|木偶|南音|梨园戏|清源山|西湖公园|浔美湾|滨海浪漫线|浦西万达|中骏世界城/.test(normalizedQuery)
     const asksNearby = /附近|学生街|马甲|仙公山|动物|永安|福蝶|虹山|瀑布|石龙谷|樱梅园/.test(normalizedQuery)
     const nearbyOverviewIds = ['student-streets', 'majia-flavors', 'xiangongshan', 'yongan-butterfly', 'hongshan-weekend']
-    const cityOverviewIds = ['city-food-trail', 'old-city-walk', 'city-night', 'city-museums', 'xunpu-coast', 'city-shopping']
+    const cityOverviewIds = ['city-food-trail', 'old-city-walk', 'city-night', 'city-museums', 'city-heritage-show', 'xunpu-coast', 'qingyuan-west-lake', 'city-shopping']
     let citationIds = asksCity && !asksNearby
       ? cityOverviewIds
       : asksNearby && !asksCity
         ? nearbyOverviewIds
         : ['student-streets', 'majia-flavors', 'old-city-walk', 'city-food-trail', 'city-night', 'city-museums']
-    if (asksCity && !asksFoodAndPlay && /面线糊|土笋冻|四果汤|肉粽|姜母鸭|牛肉|美食|吃什么|好吃/.test(normalizedQuery)) citationIds = ['city-food-trail']
-    else if (asksCity && !asksFoodAndPlay && /海交馆|闽台缘|博物馆|看展|室内|雨天|下雨|太热/.test(normalizedQuery)) citationIds = ['city-museums', 'city-shopping']
-    else if (asksCity && !asksFoodAndPlay && /蟳埔|簪花|蚵壳厝|滨海/.test(normalizedQuery)) citationIds = ['xunpu-coast']
-    else if (asksCity && !asksFoodAndPlay && /浦西万达|中骏世界城|商场|商圈|电影|逛街|购物/.test(normalizedQuery)) citationIds = ['city-shopping']
-    else if (asksCity && !asksFoodAndPlay && /夜游|夜生活|晚上|夜景|夜市|源和/.test(normalizedQuery)) citationIds = ['city-night']
-    else if (asksCity && !asksFoodAndPlay && /古城|开元寺|西街|钟楼|中山路|府文庙|清净寺|关岳庙|路线|怎么玩/.test(normalizedQuery)) citationIds = ['old-city-walk']
+    if (asksCity && !asksFoodAndPlay && /面线糊|土笋冻|四果汤|浮粿|肉粽|姜母鸭|牛肉|美食|吃什么|好吃/.test(normalizedQuery)) citationIds = ['city-food-trail', 'city-main-meal', 'city-snacks-dessert']
+    else if (asksCity && !asksFoodAndPlay && /木偶|南音|梨园戏|看戏|演出|非遗/.test(normalizedQuery)) citationIds = ['city-heritage-show']
+    else if (asksCity && !asksFoodAndPlay && /海交馆|闽台缘|博物馆|看展|室内|雨天|下雨|太热/.test(normalizedQuery)) citationIds = ['city-museums', 'city-heritage-show']
+    else if (asksCity && !asksFoodAndPlay && /蟳埔|簪花|蚵壳厝/.test(normalizedQuery)) citationIds = ['xunpu-coast']
+    else if (asksCity && !asksFoodAndPlay && /浔美湾|滨海浪漫线|海边|滨海/.test(normalizedQuery)) citationIds = ['xunmei-waterfront', 'xunpu-coast']
+    else if (asksCity && !asksFoodAndPlay && /浦西万达/.test(normalizedQuery)) citationIds = ['city-shopping']
+    else if (asksCity && !asksFoodAndPlay && /中骏世界城/.test(normalizedQuery)) citationIds = ['city-world-city']
+    else if (asksCity && !asksFoodAndPlay && /商场|商圈|电影|逛街|购物/.test(normalizedQuery)) citationIds = ['city-shopping', 'city-world-city']
+    else if (asksCity && !asksFoodAndPlay && /清源山|西湖公园|爬山/.test(normalizedQuery)) citationIds = ['qingyuan-west-lake']
+    else if (asksCity && !asksFoodAndPlay && /夜游|夜生活|晚上|夜景|夜市|源和/.test(normalizedQuery)) citationIds = ['city-night', 'xunmei-waterfront']
+    else if (asksCity && !asksFoodAndPlay && /古城|开元寺|西街|钟楼|中山路|府文庙|清净寺|关岳庙|天后宫|德济门|路线|怎么玩/.test(normalizedQuery)) citationIds = ['old-city-walk', 'south-old-city']
     else if (!asksCity && !asksFoodAndPlay && /仙公山/.test(normalizedQuery)) citationIds = ['xiangongshan']
     else if (!asksFoodAndPlay && /动物/.test(normalizedQuery)) citationIds = ['haisi-zoo']
     else if (!asksFoodAndPlay && /永安|福蝶|蝴蝶/.test(normalizedQuery)) citationIds = ['yongan-butterfly']
@@ -1026,19 +1031,25 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
     if (asksNearby && !asksCity && asksFoodAndPlay) {
       answer = '学校与马甲周边已经整理好：临时吃饭先看新区、旧区学生街；想尝本地味道留意凤栖七宝羹和炒猪肝；半天空闲在仙公山与海丝野生动物世界中二选一；傍晚关注永安蝶村、福蝶广场活动；完整周末再考虑虹山的彩虹瀑布、石龙谷或樱梅园。商家营业、景区开放和票价当天复核。'
     } else if (asksCity && asksFoodAndPlay) {
-      answer = '泉州市区已经单独整理：第一次去可走开元寺—西街—钟楼—中山路，体力充足再接府文庙、清净寺和关岳庙；吃的优先尝面线糊、牛肉或牛杂、肉粽、土笋冻、姜母鸭、浮粿和四果汤；晚上可逛西街—中山路—新门街；雨天选海交馆等场馆，想拍照单独去蟳埔，纯放松可选浦西万达或中骏世界城。先查看 K2 到文化宫与返校方案，商家、场馆和班次当天复核。'
+      answer = '泉州市区已经按标签整理好了：第一次去先走开元寺—西街—钟楼；想继续看世遗，再走府文庙—清净寺—关岳庙—天后宫。吃东西可在面线糊或牛肉汤、肉粽或姜母鸭、浮粿或四果汤三组里各挑一种。晚上可选古城夜逛或浔美湾海边；下雨时选博物馆或查一场木偶、南音、梨园戏；想拍照单独去蟳埔，想爬山选清源山，纯放松就在浦西万达和中骏世界城里二选一。先查看 K2 往返方案，不用一天全部跑完。'
     } else if (asksCity && /面线糊|土笋冻|四果汤|肉粽|姜母鸭|牛肉|美食|吃什么|好吃/.test(normalizedQuery)) {
       answer = '泉州市区吃东西建议按品类而不是只排一家网红店：面线糊、牛肉羹或牛杂汤适合第一站；肉粽、姜母鸭、牛排、咸饭可作正餐；浮粿、土笋冻少量尝鲜，逛累再吃四果汤。可以沿西街—钟楼—中山路边走边选，看到长队先继续走；具体店铺营业、菜单和价格看当天现场。'
+    } else if (asksCity && /木偶|南音|梨园戏|看戏|演出|非遗/.test(normalizedQuery)) {
+      answer = '想看泉州非遗，可以在提线木偶、南音、梨园戏里选一场。第一次看通常更容易从提线木偶进入状态；想安静听、慢慢看，可以选南音或梨园戏。先查泉州文旅城市日历和场馆官方信息，确认当天场次、地点、票价和余票，再倒推散场后的返校时间。'
     } else if (asksCity && /海交馆|闽台缘|博物馆|看展|室内|雨天|下雨|太热/.test(normalizedQuery)) {
-      answer = '雨天或太热时，市区可以在泉州海外交通史博物馆、中国闽台缘博物馆、泉州博物馆中选一到两个。场馆不全在古城步行范围内，要用地图或旅游公交重新规划；预约、闭馆日和停止入馆时间以当天官方信息为准。若只想轻松聚会，也可以改去浦西万达或中骏世界城。'
-    } else if (asksCity && /蟳埔|簪花|蚵壳厝|滨海/.test(normalizedQuery)) {
+      answer = '雨天或太热时，市区可以在泉州海外交通史博物馆、中国闽台缘博物馆、泉州博物馆中选一到两个，也可以查一场提线木偶、南音或梨园戏。场馆不全在古城步行范围内，要重新规划交通；预约、闭馆日、场次和停止入馆时间以当天官方信息为准。'
+    } else if (asksCity && /蟳埔|簪花|蚵壳厝/.test(normalizedQuery)) {
       answer = '蟳埔适合单独安排半天看簪花围、蚵壳厝和滨海风貌，不建议硬塞进古城步行日。体验簪花前先问清套餐总价、底片、妆造与附加收费；村落也是居民生活空间，拍摄前尊重隐私。返校路程较长，要预留回到文化宫换乘 K2 的时间。'
+    } else if (asksCity && /浔美湾|滨海浪漫线|海边|滨海/.test(normalizedQuery)) {
+      answer = '想看海边可以在浔美湾滨海步道和蟳埔里选一个：只想吹风散步选浔美湾，想拍簪花围、看蚵壳厝选蟳埔。两边都不在古城步行圈里，先定具体入口再导航；天气差、风大或太晚就取消，并提前安排返校。'
     } else if (asksCity && /浦西万达|中骏世界城|商场|商圈|电影|逛街|购物/.test(normalizedQuery)) {
       answer = '只想逛街、吃饭、看电影或雨天吹空调，可以在浦西万达和中骏世界城中选一个。两处都是公开资料确认的城市商业集中区且公交较多，但彼此距离不近，不必一天都跑；门店、电影场次和团购规则直接看当天平台，返校仍要倒推 K2 时间。'
+    } else if (asksCity && /清源山|西湖公园|爬山/.test(normalizedQuery)) {
+      answer = '想爬山选清源山，穿防滑鞋、带水并先看天气；只想轻松散步可以选西湖公园。两处可以用市区公交衔接，但不要再把整套古城路线塞进同一天。景区门票、开放区域和公交班次以出发当天信息为准。'
     } else if (asksCity && /夜游|夜生活|晚上|夜景|夜市|源和/.test(normalizedQuery)) {
-      answer = '市区夜游可以走西街—中山路—新门街，时间充足再到源和 1916。适合吃完饭看骑楼、街巷和夜景，临时演出、市集与夜间开放并非每天都有。先按 K2 返校时间倒推最晚离开时间，不要把节假日延时公交当成日常班次。'
-    } else if (asksCity && /古城|开元寺|西街|钟楼|中山路|府文庙|清净寺|关岳庙|路线|怎么玩/.test(normalizedQuery)) {
-      answer = '第一次去泉州古城，半日版走开元寺—西街—钟楼—中山路；一日版再接府文庙—清净寺—关岳庙。学校进城先看 K2 到文化宫方案，古城内以步行为主，也可按当天运营选择“小白”；返校前确认 K2 末班与候车点，不用一次打卡完所有巷子。'
+      answer = '市区晚上有两种简单选法：想看街巷就走西街—中山路—新门街，想吹风散步就单独去浔美湾滨海步道。两条线不要硬拼，临时演出、市集和夜间开放也不是每天都有。先按 K2 返校时间倒推最晚离开时间。'
+    } else if (asksCity && /古城|开元寺|西街|钟楼|中山路|府文庙|清净寺|关岳庙|天后宫|德济门|路线|怎么玩/.test(normalizedQuery)) {
+      answer = '第一次去泉州古城，半日版走开元寺—西街—钟楼—中山路；第二条可选府文庙—清净寺—关岳庙—天后宫—德济门。学校进城先看 K2 到文化宫方案，古城内以步行为主；不用两条都走，也不用一次打卡完所有巷子。'
     } else if (!asksCity && /仙公山/.test(normalizedQuery)) {
       answer = '仙公山位于马甲镇，是省级风景名胜区，适合留出半天爬山、看山景和人文古迹。穿防滑鞋、带水，并在出发前核对天气、开放区域、索道和门票；返程前确认交通，不要夜间临时走陌生山路。'
     } else if (/动物/.test(normalizedQuery)) {
