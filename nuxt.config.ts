@@ -65,6 +65,13 @@ export default defineNuxtConfig({
   buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
 
   routeRules: {
+    '/showcase': {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'CDN-Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, nofollow'
+      }
+    },
     '/map': {
       headers: {
         'X-Robots-Tag': 'noindex, nofollow'

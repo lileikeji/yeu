@@ -22,7 +22,13 @@ import type {
   IntroWaterRipple
 } from '~/utils/intro-overlay-physics'
 
-const props = withDefaults(defineProps<{ force?: boolean }>(), { force: false })
+const props = withDefaults(defineProps<{
+  force?: boolean
+  autoCompleteMs?: number | null
+}>(), {
+  force: false,
+  autoCompleteMs: null
+})
 const emit = defineEmits<{ complete: [] }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -645,6 +651,12 @@ onMounted(async () => {
   }, INTRO_INIT_FALLBACK_DELAY)
   await nextTick()
   startAnimation()
+  if (props.autoCompleteMs && props.autoCompleteMs > 0) {
+    schedule(() => {
+      guideActive.value = true
+    }, Math.max(0, props.autoCompleteMs - 900))
+    schedule(leaveIntro, props.autoCompleteMs)
+  }
 })
 
 onUnmounted(clearRuntime)
