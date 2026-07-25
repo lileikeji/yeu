@@ -55,7 +55,8 @@ export default defineEventHandler(async (event) => {
         mcpSearchBearerToken: String(runtime.aiMcpSearchBearerToken || ''),
         mcpAllowedHosts: String(runtime.aiMcpAllowedHosts || 'mcp.firecrawl.dev'),
         mcpToolName: String(runtime.aiMcpToolName || 'firecrawl_search'),
-        mcpTimeoutMs: Math.max(25_000, Number(runtime.aiMcpTimeoutMs) || 25_000)
+        mcpTimeoutMs: Math.max(25_000, Number(runtime.aiMcpTimeoutMs) || 25_000),
+        amapWebServiceKey: String(runtime.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || '')
       }, {
         onStageStarted: async (stage, label, stageStartedAt) => {
           await stream.push({

@@ -3,10 +3,49 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import {
+  fetchAmapTransitPlan,
   isTransitPointId,
   parseAmapTransitResponse,
   transitPoints
 } from '../server/modules/transit/amap'
+
+test('AMap request uses fixed server-side points without exposing arbitrary coordinates', async () => {
+  let requestedUrl = ''
+  const response = await fetchAmapTransitPlan('secret-key', 'quanzhou-station', 'campus', {
+    fetcher: async (input) => {
+      requestedUrl = String(input)
+      return new Response(JSON.stringify({
+        status: '1',
+        route: {
+          transits: [{
+            duration: '4555',
+            cost: '2',
+            walking_distance: '305',
+            segments: [{
+              bus: {
+                buslines: [{
+                  name: 'K6 路',
+                  departure_stop: { name: '福厦铁路泉州站' },
+                  arrival_stop: { name: '仰恩大学第三校区' },
+                  start_time: '0720',
+                  end_time: '1810',
+                  via_num: '18'
+                }]
+              }
+            }]
+          }]
+        }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+  })
+
+  const url = new URL(requestedUrl)
+  assert.equal(url.origin, 'https://restapi.amap.com')
+  assert.equal(url.searchParams.get('key'), 'secret-key')
+  assert.equal(url.searchParams.get('origin'), '118.567400,24.972310')
+  assert.equal(url.searchParams.get('destination'), '118.602248,25.107339')
+  assert.equal(response.plans[0]?.segments[0]?.name, 'K6 路')
+})
 
 test('AMap transit payload is reduced to safe public route data', () => {
   const response = parseAmapTransitResponse({

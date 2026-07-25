@@ -25,7 +25,8 @@ import type {
   ApiAssistantResponse,
   ApiAssistantRetrievalPath,
   ApiAssistantStage,
-  ApiAssistantTraceStep
+  ApiAssistantTraceStep,
+  ApiTransitPlanResponse
 } from '../../../shared/types/server'
 import { normalizeAssistantQuery } from '../../../shared/utils/assistant-query'
 import type { DatabaseClient } from '../../database/client'
@@ -39,6 +40,10 @@ import {
 } from '../../database/schema'
 import { activePublicContentCondition } from '../content/visibility'
 import { activePublicProcedureCondition } from '../procedures/service'
+import {
+  fetchAmapTransitPlan,
+  type TransitPointId
+} from '../transit/amap'
 
 interface AssistantConfig {
   gatewayBaseUrl: string
@@ -50,6 +55,8 @@ interface AssistantConfig {
   mcpAllowedHosts: string
   mcpToolName: string
   mcpTimeoutMs: number
+  amapWebServiceKey?: string
+  transitPlanner?: (originId: TransitPointId, destinationId: TransitPointId) => Promise<ApiTransitPlanResponse>
 }
 
 interface AssistantEvidence extends ApiAssistantCitation {
@@ -120,6 +127,62 @@ const MIN_GATEWAY_TIMEOUT_MS = 60_000
 const MAX_GATEWAY_TIMEOUT_MS = 180_000
 const MIN_MCP_TIMEOUT_MS = 25_000
 const MAX_MCP_TIMEOUT_MS = 60_000
+
+const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
+  { id: 'quanzhou-east', terms: ['泉州东站', '东站'] },
+  { id: 'jinjiang-airport', terms: ['泉州晋江国际机场', '晋江机场', '机场'] },
+  { id: 'quanzhou-station', terms: ['泉州站', '动车站', '高铁站'] },
+  { id: 'city-center', terms: ['泉州市区', '市区', '文化宫', '西街', '开元寺'] }
+]
+
+export function transitRouteForQuery(query: string): {
+  originId: TransitPointId
+  destinationId: TransitPointId
+} | null {
+  const normalized = normalizeAssistantQuery(query)
+  const externalMatch = TRANSIT_QUERY_POINTS
+    .flatMap(point => point.terms.map(term => ({ pointId: point.id, term, index: normalized.indexOf(term) })))
+    .filter(item => item.index >= 0)
+    .sort((left, right) => left.index - right.index || right.term.length - left.term.length)[0]
+  if (!externalMatch) return null
+
+  const campusTerms = ['仰恩大学第三校区', '仰恩大学', '学校', '校区']
+  const campusMatch = campusTerms
+    .map(term => ({ term, index: normalized.indexOf(term) }))
+    .filter(item => item.index >= 0)
+    .sort((left, right) => left.index - right.index || right.term.length - left.term.length)[0]
+  if (!campusMatch) return null
+
+  return campusMatch.index < externalMatch.index
+    ? { originId: 'campus', destinationId: externalMatch.pointId }
+    : { originId: externalMatch.pointId, destinationId: 'campus' }
+}
+
+function transitApiResponse(query: string, response: ApiTransitPlanResponse): ApiAssistantResponse {
+  const plan = response.plans[0]!
+  const fare = plan.fareYuan === null ? '票价以当天结果为准' : `票价约 ${plan.fareYuan} 元`
+  const segments = plan.segments.map((segment) => {
+    const schedule = segment.startTime && segment.endTime
+      ? `，运营时间 ${segment.startTime}-${segment.endTime}`
+      : ''
+    const stops = segment.viaStops === null ? '' : `，途经约 ${segment.viaStops} 站`
+    return `${segment.name}：从“${segment.departureStop}”上车，到“${segment.arrivalStop}”下车${stops}${schedule}`
+  }).join('；')
+  const queriedAt = new Date(response.queriedAt).toLocaleString('zh-CN', { hour12: false })
+  return {
+    query,
+    mode: 'local',
+    answer: `高德公交规划（${queriedAt} 查询）：从${response.origin.label}到${response.destination.label}，首选方案约 ${plan.durationMinutes} 分钟，${fare}，步行约 ${plan.walkingMeters} 米。${segments}。高德当前不提供泉州公交车辆位置或“还有几站”，出发前请再次核对实时路线。`,
+    citations: [{
+      title: '到校与离校交通',
+      url: '/transport',
+      snippet: `${response.origin.label}到${response.destination.label}的高德实时公交规划与静态备用方案。`,
+      source: 'site'
+    }],
+    usedWebSearch: false,
+    confidence: 0.96
+  }
+}
 
 function boundedTimeout(value: number, minimum: number, maximum: number): number {
   return Number.isFinite(value)
@@ -1263,6 +1326,21 @@ export async function answerCampusQuestion(
     const retrievalQuery = assistantRetrievalQuery(query)
     const intentDetail = assistantIntentDetail(query, retrievalQuery)
     const cacheKey = query.toLocaleLowerCase('zh-CN')
+    const transitRoute = transitRouteForQuery(query)
+    if (transitRoute && (config.transitPlanner || config.amapWebServiceKey?.trim())) {
+      return {
+        query,
+        retrievalQuery,
+        intentDetail,
+        cacheKey,
+        route: 'transit_api' as const,
+        transitRoute,
+        cached: null,
+        localEvidence: [] as AssistantEvidence[],
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence: false
+      }
+    }
     // Deterministic local rules must take precedence over stale generic cache entries.
     const transferQuery = isTransferQuery(query)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
@@ -1348,6 +1426,51 @@ export async function answerCampusQuestion(
   if (analysis.route === 'answer_cache' && analysis.cached) {
     const response = await runAssistantStage(tracker, 'answer_cache', '读取答案缓存', () => analysis.cached!)
     return withRunMetadata(response, tracker, 'answer_cache', true)
+  }
+
+  if (analysis.route === 'transit_api') {
+    let liveTransit: ApiTransitPlanResponse | null = null
+    try {
+      liveTransit = await runAssistantStage(
+        tracker,
+        'feature_api',
+        '调用高德公交 API',
+        () => config.transitPlanner
+          ? config.transitPlanner(analysis.transitRoute.originId, analysis.transitRoute.destinationId)
+          : fetchAmapTransitPlan(
+              config.amapWebServiceKey ?? '',
+              analysis.transitRoute.originId,
+              analysis.transitRoute.destinationId
+            ),
+        result => `获取 ${result.plans.length} 条公交方案`
+      )
+    } catch {
+      // Live transit is an enhancement; verified local guidance remains available as a fallback.
+    }
+
+    if (liveTransit) {
+      const response = await runAssistantStage(
+        tracker,
+        'answer_generation',
+        '整理答案',
+        () => transitApiResponse(query, liveTransit!)
+      )
+      return withRunMetadata(response, tracker, 'feature_api')
+    }
+
+    const localEvidence = await runAssistantStage(
+      tracker,
+      'local_database',
+      '读取交通备用资料',
+      () => retrieveCampusEvidence(client, analysis.retrievalQuery)
+    )
+    const response = await runAssistantStage(
+      tracker,
+      'answer_generation',
+      '整理备用答案',
+      () => localEvidence[0] ? buildLocalResponse(query, localEvidence) : localEvidenceGapResponse(query)
+    )
+    return withRunMetadata(response, tracker, 'local_database')
   }
 
   if (analysis.route === 'feature_api' || analysis.route === 'local_database') {

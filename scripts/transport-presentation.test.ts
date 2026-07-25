@@ -11,7 +11,11 @@ import {
 import { searchSystemFeatures } from '../data/system-features'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { answerCampusQuestion, seedCatalogEvidenceForQuery } from '../server/modules/assistant/service'
+import {
+  answerCampusQuestion,
+  seedCatalogEvidenceForQuery,
+  transitRouteForQuery
+} from '../server/modules/assistant/service'
 
 const pageSource = readFileSync(resolve('app/pages/transport.vue'), 'utf8')
 const emptyAssistantConfig = {
@@ -74,6 +78,89 @@ test('assistant answers common transport questions from local evidence', async (
     const city = await answerCampusQuestion(client, '从学校怎么去泉州市区？', emptyAssistantConfig)
     assert.match(city.answer, /K2/)
     assert.ok(city.citations.some(item => item.url === '/transport'))
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('assistant prioritizes AMap for directional transit questions', async () => {
+  assert.deepEqual(transitRouteForQuery('泉州站怎么到仰恩大学'), {
+    originId: 'quanzhou-station',
+    destinationId: 'campus'
+  })
+  assert.deepEqual(transitRouteForQuery('学校怎么去泉州市区'), {
+    originId: 'campus',
+    destinationId: 'city-center'
+  })
+  assert.equal(transitRouteForQuery('K6 末班车几点'), null)
+
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-live-transit-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const calls: string[] = []
+    const response = await answerCampusQuestion(client, '泉州站怎么到仰恩大学？', {
+      ...emptyAssistantConfig,
+      amapWebServiceKey: 'server-only-key',
+      transitPlanner: async (originId, destinationId) => {
+        calls.push(`${originId}:${destinationId}`)
+        return {
+          provider: 'amap',
+          queriedAt: '2026-07-26T10:00:00.000Z',
+          origin: { id: originId, label: '泉州站' },
+          destination: { id: destinationId, label: '仰恩大学第三校区' },
+          plans: [{
+            durationMinutes: 76,
+            fareYuan: 2,
+            walkingMeters: 305,
+            segments: [{
+              name: 'K6 路',
+              departureStop: '福厦铁路泉州站',
+              arrivalStop: '仰恩大学第三校区',
+              startTime: '07:20',
+              endTime: '18:10',
+              viaStops: 18
+            }]
+          }],
+          vehiclePositionsAvailable: false
+        }
+      }
+    })
+
+    assert.deepEqual(calls, ['quanzhou-station:campus'])
+    assert.equal(response.retrievalPath, 'feature_api')
+    assert.match(response.answer, /76 分钟/)
+    assert.match(response.answer, /2 元/)
+    assert.match(response.answer, /K6 路/)
+    assert.match(response.answer, /不提供泉州公交车辆位置/)
+    assert.deepEqual(response.trace?.map(item => item.stage), [
+      'query_analysis',
+      'feature_api',
+      'answer_generation'
+    ])
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('assistant falls back to verified transit evidence when AMap fails', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-transit-fallback-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '泉州东站怎么到学校？', {
+      ...emptyAssistantConfig,
+      amapWebServiceKey: 'server-only-key',
+      transitPlanner: async () => { throw new Error('provider unavailable') }
+    })
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.match(response.answer, /K507/)
+    assert.ok(response.trace?.some(item => item.stage === 'feature_api' && item.status === 'failed'))
+    assert.ok(response.trace?.some(item => item.stage === 'local_database' && item.status === 'completed'))
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

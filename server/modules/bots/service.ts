@@ -18,6 +18,7 @@ export interface BotAssistantConfig {
   mcpAllowedHosts: string
   mcpToolName: string
   mcpTimeoutMs: number
+  amapWebServiceKey?: string
 }
 
 const acceptedMessages = new Map<string, number>()
@@ -129,7 +130,8 @@ export async function answerAndSendBotQuestion(input: {
       mcpSearchBearerToken: input.config.mcpSearchBearerToken,
       mcpAllowedHosts: input.config.mcpAllowedHosts,
       mcpToolName: input.config.mcpToolName,
-      mcpTimeoutMs: input.config.mcpTimeoutMs
+      mcpTimeoutMs: input.config.mcpTimeoutMs,
+      amapWebServiceKey: input.config.amapWebServiceKey
     })
     await input.send(formatBotReply(
       response.answer,

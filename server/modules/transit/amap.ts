@@ -10,6 +10,11 @@ export const transitPoints = {
 
 export type TransitPointId = keyof typeof transitPoints
 
+export interface AmapTransitRequestOptions {
+  timeoutMs?: number
+  fetcher?: typeof fetch
+}
+
 type UnknownRecord = Record<string, unknown>
 
 function record(value: unknown): UnknownRecord {
@@ -98,4 +103,36 @@ export function parseAmapTransitResponse(
 
 export function isTransitPointId(value: unknown): value is TransitPointId {
   return typeof value === 'string' && value in transitPoints
+}
+
+export async function fetchAmapTransitPlan(
+  key: string,
+  originId: TransitPointId,
+  destinationId: TransitPointId,
+  options: AmapTransitRequestOptions = {}
+): Promise<ApiTransitPlanResponse> {
+  const normalizedKey = key.trim()
+  if (!normalizedKey) throw new Error('Amap transit service is not configured')
+  if (originId === destinationId) throw new Error('Transit origin and destination must differ')
+
+  const origin = transitPoints[originId]
+  const destination = transitPoints[destinationId]
+  const url = new URL('https://restapi.amap.com/v3/direction/transit/integrated')
+  url.search = new URLSearchParams({
+    key: normalizedKey,
+    origin: origin.location,
+    destination: destination.location,
+    city: '泉州',
+    cityd: '泉州',
+    strategy: '0',
+    nightflag: '0',
+    extensions: 'all'
+  }).toString()
+
+  const response = await (options.fetcher ?? fetch)(url, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(Math.max(1_000, options.timeoutMs ?? 8_000))
+  })
+  if (!response.ok) throw new Error(`Amap transit service returned HTTP ${response.status}`)
+  return parseAmapTransitResponse(await response.json(), originId, destinationId)
 }
