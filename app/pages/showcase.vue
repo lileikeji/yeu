@@ -57,8 +57,12 @@ const arrivalQuery = computed(() => showcaseTypedText(
   (sceneProgress.value - 0.16) / 0.3
 ))
 const assistantQuestion = computed(() => showcaseTypedText(
-  '宿舍床垫要买多大？',
-  (sceneProgress.value - 0.08) / 0.28
+  '从泉州站到学校怎么走？附近有哪些公交？',
+  (sceneProgress.value - 0.06) / 0.24
+))
+const assistantAnswer = computed(() => showcaseTypedText(
+  '泉州站上车，乘 K6 到“仰恩大学第三校区”站下车，不用换乘。通常约 50–70 分钟，公开线路资料票价 2 元。K6 末班较早，出发前再看一次当天班次。',
+  (sceneProgress.value - 0.57) / 0.3
 ))
 const completedChecklistCount = computed(() => showcaseCheckedCount(
   (sceneProgress.value - 0.15) / 0.68,
@@ -198,8 +202,8 @@ onBeforeUnmount(() => {
             <p class="showcase-kicker showcase-kicker-light">
               2026 FRESHMAN GUIDE
             </p>
-            <h1>第一次进校，<br>不该靠群聊截图认路。</h1>
-            <p>从一个地点开始，把报到当天走成一条清楚的路线。</p>
+            <h1>第一次来仰恩，<br>也能把路走明白。</h1>
+            <p>搜地点、看路线、查流程。新生真正会用到的，都放到一处。</p>
           </div>
 
           <div class="showcase-search-panel">
@@ -207,7 +211,7 @@ onBeforeUnmount(() => {
               <span />
               <span />
               <span />
-              <p>yeu.huiliyill.cn</p>
+              <p>校园地点搜索</p>
             </div>
             <div class="showcase-search-box">
               <UIcon
@@ -253,7 +257,7 @@ onBeforeUnmount(() => {
               <p class="showcase-kicker">
                 REAL CAMPUS DATA
               </p>
-              <h2>搜到地点，也要走得到。</h2>
+              <h2>找到地点，下一步怎么走也一起给你。</h2>
             </div>
           </div>
 
@@ -303,7 +307,7 @@ onBeforeUnmount(() => {
                 ROUTE READY
               </p>
               <h3>从 8 号门到宏翔楼</h3>
-              <p>已定位入口与目的地，步行路线会按地图服务的实时结果规划。</p>
+              <p>入口、目的地和步行方向都放在同一张图里，到校后不用再拼聊天截图。</p>
               <div class="showcase-detail-status">
                 <UIcon name="i-lucide-circle-check-big" />
                 位置数据已核验
@@ -326,7 +330,7 @@ onBeforeUnmount(() => {
               <span class="showcase-brand-mark">YEU</span>
               <span>校园搜索</span>
             </div>
-            <p>数据库优先 · 必要时再检索网页 · 答案保留来源</p>
+            <p>先查系统资料 · 找不到再检索网页 · 每个结论都保留来源</p>
           </div>
 
           <div class="showcase-assistant-layout">
@@ -334,27 +338,32 @@ onBeforeUnmount(() => {
               <p class="showcase-kicker">
                 ASK THE CAMPUS
               </p>
-              <h2>问题不必先改成关键词。</h2>
+              <h2>你只管问，系统自己找对资料。</h2>
               <div class="showcase-question-input">
                 <span>{{ assistantQuestion }}</span>
-                <i v-if="sceneProgress < 0.42" />
+                <i v-if="sceneProgress < 0.36" />
                 <UIcon name="i-lucide-arrow-up" />
               </div>
               <ol class="showcase-trace-list">
-                <li :class="{ 'is-visible': sceneProgress > 0.34 }">
+                <li :class="{ 'is-visible': sceneProgress > 0.28 }">
                   <UIcon name="i-lucide-scan-search" />
                   <span>分析问题</span>
-                  <b>宿舍床与床垫尺寸</b>
+                  <b>到校路线 · 附近公交</b>
+                </li>
+                <li :class="{ 'is-visible': sceneProgress > 0.36 }">
+                  <UIcon name="i-lucide-panels-top-left" />
+                  <span>匹配系统功能</span>
+                  <b>到校与离校交通</b>
                 </li>
                 <li :class="{ 'is-visible': sceneProgress > 0.43 }">
                   <UIcon name="i-lucide-database" />
                   <span>搜索内置数据库</span>
-                  <b>已完成</b>
+                  <b>K6 · K2 · K507</b>
                 </li>
-                <li :class="{ 'is-visible': sceneProgress > 0.52 }">
+                <li :class="{ 'is-visible': sceneProgress > 0.51 }">
                   <UIcon name="i-lucide-file-check-2" />
                   <span>整理答案</span>
-                  <b>保留核验边界</b>
+                  <b>69 ms</b>
                 </li>
               </ol>
             </section>
@@ -365,18 +374,23 @@ onBeforeUnmount(() => {
             >
               <div class="showcase-answer-label">
                 <UIcon name="i-lucide-sparkles" />
-                校园助手
+                校园 AI · 内置资料命中
               </div>
-              <h3>先不要按网传尺寸定制床垫。</h3>
-              <p>
-                目前没有检索到学校官方公开的统一宿舍床尺寸。不同楼栋、房型和床位设施可能不同，拿到楼栋与房型后，再向宿管、辅导员或在校同学实测确认。
+              <h3>泉州站，优先 K6 直达。</h3>
+              <p class="showcase-answer-copy">
+                {{ assistantAnswer }}<i v-if="sceneProgress < 0.9" />
               </p>
+              <div class="showcase-answer-facts">
+                <span><b>50–70</b> 分钟</span>
+                <span><b>2 元</b> 参考票价</span>
+                <span><b>0</b> 次换乘</span>
+              </div>
               <div class="showcase-citation">
                 <UIcon name="i-lucide-shield-check" />
-                <span>未确认的数据，不伪装成学校通知</span>
+                <span>来源：到校交通资料 · K6 线路资料 · 2026-07-26 核对</span>
               </div>
-              <NuxtLink to="/search?q=宿舍床垫要买多大">
-                继续查看
+              <NuxtLink to="/transport">
+                查看完整路线
                 <UIcon name="i-lucide-arrow-up-right" />
               </NuxtLink>
             </article>
@@ -396,8 +410,8 @@ onBeforeUnmount(() => {
             <p class="showcase-kicker">
               BEFORE ARRIVAL
             </p>
-            <h2>不知道先做什么，<br>就按时间一步一步来。</h2>
-            <p>到校前、报到当天、入学第一周，每一项都能继续勾选。</p>
+            <h2>要带什么、什么时候办，<br>按时间一项项完成。</h2>
+            <p>到校前、报到当天、入学第一周，做过的事会一直替你记着。</p>
           </div>
 
           <div class="showcase-countdown">
@@ -439,49 +453,86 @@ onBeforeUnmount(() => {
 
         <section
           v-else
-          key="contact"
-          class="showcase-scene showcase-contact-scene"
+          key="transport"
+          class="showcase-scene showcase-transport-scene"
         >
-          <img
-            src="/images/intro/yeu-campus-hero.webp"
-            alt="仰恩大学校园俯瞰"
-            width="1579"
-            height="889"
-            class="showcase-cover"
-          >
-          <div class="showcase-contact-shade" />
-          <div class="showcase-contact-copy">
-            <div class="showcase-brand showcase-brand-light">
+          <div class="showcase-transport-heading">
+            <div class="showcase-brand">
               <span class="showcase-brand-mark">YEU</span>
-              <span>仰恩新生指南</span>
+              <span>到校与离校交通</span>
             </div>
-            <p class="showcase-kicker showcase-kicker-light">
-              SAVE IT FOR SEPTEMBER
-            </p>
-            <h2>发给同届。<br>开学前一定用得到。</h2>
-            <div class="showcase-contact-stats">
-              <span><b>98</b> 个校园地点</span>
-              <span><b>25</b> 项新生待办</span>
-              <span><b>1</b> 个入口查清楚</span>
-            </div>
-            <p class="showcase-url">
-              yeu.huiliyill.cn
-            </p>
-          </div>
-          <div
-            class="showcase-qr-panel"
-            :class="{ 'is-visible': sceneProgress > 0.2 }"
-          >
-            <img
-              src="/images/contact-wechat.png"
-              alt="联系整理者微信二维码"
-              width="814"
-              height="1151"
-            >
             <div>
-              <strong>有问题，直接联系</strong>
-              <p>也可以加我拉新生群</p>
+              <p class="showcase-kicker">
+                ARRIVE WITH A PLAN
+              </p>
+              <h2>从车站到校门，路线直接给到你。</h2>
             </div>
+          </div>
+
+          <div class="showcase-transport-layout">
+            <article
+              class="showcase-transit-route"
+              :class="{ 'is-visible': sceneProgress > 0.14 }"
+            >
+              <div class="showcase-transit-query">
+                <UIcon name="i-lucide-train-front" />
+                <span>泉州站</span>
+                <UIcon name="i-lucide-arrow-right" />
+                <span>仰恩大学</span>
+              </div>
+              <div class="showcase-bus-line">
+                <span class="showcase-bus-number">K6</span>
+                <div>
+                  <p>福厦铁路泉州站</p>
+                  <i />
+                  <p>仰恩大学第三校区</p>
+                </div>
+              </div>
+              <div class="showcase-transit-meta">
+                <span><b>50–70</b> 分钟</span>
+                <span><b>2 元</b> 参考票价</span>
+                <span><b>直达</b> 不换乘</span>
+              </div>
+              <p class="showcase-transit-note">
+                K6 末班较早。具体发车时间、停靠站和临时调整，出发当天再看一次实时规划。
+              </p>
+            </article>
+
+            <aside
+              class="showcase-nearby-lines"
+              :class="{ 'is-visible': sceneProgress > 0.28 }"
+            >
+              <div class="showcase-nearby-header">
+                <div>
+                  <p class="showcase-kicker">
+                    NEARBY TRANSIT
+                  </p>
+                  <h3>学校周边公交</h3>
+                </div>
+                <UIcon name="i-lucide-bus-front" />
+              </div>
+              <ul>
+                <li>
+                  <b>K6</b>
+                  <span>泉州站 ↔ 仰恩大学第三校区</span>
+                  <em>直达动车站</em>
+                </li>
+                <li>
+                  <b>K2</b>
+                  <span>文化宫 ↔ 仰恩大学第三校区</span>
+                  <em>往返市区</em>
+                </li>
+                <li>
+                  <b>K507</b>
+                  <span>泉州东站方向换乘参考</span>
+                  <em>当天重查</em>
+                </li>
+              </ul>
+              <div class="showcase-transit-status">
+                <UIcon name="i-lucide-circle-check-big" />
+                已接入系统路线库与当天高德规划
+              </div>
+            </aside>
           </div>
         </section>
       </Transition>
@@ -594,8 +645,7 @@ onBeforeUnmount(() => {
   color: #b8ddc9;
 }
 
-.showcase-arrival-shade,
-.showcase-contact-shade {
+.showcase-arrival-shade {
   position: absolute;
   inset: 0;
   background: linear-gradient(90deg, rgba(3, 23, 17, 0.9) 0%, rgba(3, 23, 17, 0.7) 46%, rgba(3, 23, 17, 0.15) 100%);
@@ -615,8 +665,7 @@ onBeforeUnmount(() => {
   color: white;
 }
 
-.showcase-arrival-copy h1,
-.showcase-contact-copy h2 {
+.showcase-arrival-copy h1 {
   margin: 16px 0 0;
   max-width: 760px;
   font-size: 52px;
@@ -922,6 +971,32 @@ onBeforeUnmount(() => {
 .showcase-answer-label { display: flex; align-items: center; gap: 8px; color: #196044; font-size: 13px; font-weight: 800; }
 .showcase-answer-panel h3 { margin: 24px 0 0; color: #153128; font-size: 28px; line-height: 1.3; }
 .showcase-answer-panel > p { margin: 15px 0 0; color: #586760; font-size: 14px; line-height: 1.85; }
+.showcase-answer-copy i {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 3px;
+  background: #1b6d4d;
+  vertical-align: -0.12em;
+  animation: showcase-caret 800ms steps(1) infinite;
+}
+.showcase-answer-facts {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid #e1e7e3;
+  border-bottom: 1px solid #e1e7e3;
+  padding: 13px 0;
+}
+.showcase-answer-facts span {
+  min-width: 0;
+  border-right: 1px solid #e1e7e3;
+  color: #68756f;
+  font-size: 11px;
+  text-align: center;
+}
+.showcase-answer-facts span:last-child { border-right: 0; }
+.showcase-answer-facts b { display: block; color: #173f31; font-size: 18px; line-height: 1.25; }
 .showcase-citation { margin-top: 20px; display: flex; align-items: center; gap: 8px; border-left: 3px solid #db9b40; background: #fff7e8; padding: 12px 14px; color: #6a4d20; font-size: 12px; }
 
 .showcase-checklist-scene {
@@ -966,44 +1041,156 @@ onBeforeUnmount(() => {
 .showcase-task-list li.is-checked { color: #163e2f; font-weight: 700; }
 .showcase-task-list li.is-checked > span { background: #197450; color: white; }
 
-.showcase-contact-shade {
-  background: linear-gradient(90deg, rgba(3, 23, 17, 0.93), rgba(3, 23, 17, 0.68) 55%, rgba(3, 23, 17, 0.3));
+.showcase-transport-scene {
+  overflow: hidden;
+  background: #edf2ef;
+  padding: 4.3% 5.5%;
 }
 
-.showcase-contact-copy {
+.showcase-transport-scene::before {
   position: absolute;
-  left: 6%;
-  top: 8%;
-  width: 55%;
-  color: white;
+  inset: 0 0 auto;
+  height: 7px;
+  background: #174f3a;
+  content: '';
 }
-.showcase-contact-copy .showcase-kicker { margin-top: 12%; }
-.showcase-contact-copy h2 { font-size: 54px; }
-.showcase-contact-stats { margin-top: 34px; display: flex; gap: 24px; color: #cce3d6; font-size: 13px; }
-.showcase-contact-stats span { padding-right: 24px; border-right: 1px solid rgba(255,255,255,0.22); }
-.showcase-contact-stats span:last-child { border-right: 0; }
-.showcase-contact-stats b { display: block; margin-bottom: 5px; color: #ffcc7b; font-size: 28px; }
-.showcase-url { margin: 34px 0 0; color: #ffefd4; font-size: 22px; font-weight: 800; }
 
-.showcase-qr-panel {
-  position: absolute;
-  right: 7%;
-  top: 17%;
-  width: 24%;
-  border: 1px solid rgba(255,255,255,0.62);
+.showcase-transport-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.showcase-transport-heading > div:last-child { text-align: right; }
+.showcase-transport-heading h2 { margin: 7px 0 0; color: #112f24; font-size: 34px; line-height: 1.2; }
+
+.showcase-transport-layout {
+  margin-top: 3.2%;
+  height: 71%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+  gap: 22px;
+}
+
+.showcase-transit-route,
+.showcase-nearby-lines {
+  border: 1px solid #c8d4ce;
   border-radius: 8px;
-  background: white;
-  padding: 18px;
-  box-shadow: 0 30px 70px rgba(0, 18, 13, 0.34);
+  background: #fff;
   opacity: 0;
-  transform: translateY(20px) scale(0.96);
-  transition: opacity 600ms ease, transform 800ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translateY(24px);
+  transition: opacity 600ms ease, transform 750ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.showcase-qr-panel.is-visible { opacity: 1; transform: translateY(0) scale(1); }
-.showcase-qr-panel img { display: block; width: 100%; aspect-ratio: 814 / 1151; object-fit: cover; object-position: center 38%; }
-.showcase-qr-panel > div { border-top: 1px solid #e4e7e5; padding-top: 13px; text-align: center; }
-.showcase-qr-panel strong { color: #173c2e; font-size: 14px; }
-.showcase-qr-panel p { margin: 4px 0 0; color: #748079; font-size: 11px; }
+
+.showcase-transit-route.is-visible,
+.showcase-nearby-lines.is-visible { opacity: 1; transform: translateY(0); }
+
+.showcase-transit-route {
+  display: flex;
+  flex-direction: column;
+  padding: 30px 34px;
+  box-shadow: 0 24px 58px rgba(24, 59, 45, 0.09);
+}
+
+.showcase-transit-query {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #193f31;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.showcase-transit-query svg:first-child { color: #c75535; }
+.showcase-transit-query svg:nth-child(3) { width: 16px; color: #8a9690; }
+
+.showcase-bus-line {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.showcase-bus-number {
+  display: grid;
+  place-items: center;
+  width: 82px;
+  height: 82px;
+  border-radius: 8px;
+  background: #176c4d;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.showcase-bus-line > div { position: relative; padding-left: 26px; }
+.showcase-bus-line > div::before {
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: #73ad94;
+  content: '';
+}
+.showcase-bus-line p { position: relative; margin: 0; color: #1d382e; font-size: 19px; font-weight: 750; }
+.showcase-bus-line p::before {
+  position: absolute;
+  left: -26px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #1c7655;
+  border-radius: 50%;
+  background: #fff;
+  content: '';
+  transform: translateY(-50%);
+}
+.showcase-bus-line i { display: block; height: 32px; }
+
+.showcase-transit-meta {
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid #e1e7e3;
+  border-bottom: 1px solid #e1e7e3;
+  padding: 17px 0;
+}
+.showcase-transit-meta span { border-right: 1px solid #e1e7e3; color: #68756f; font-size: 12px; text-align: center; }
+.showcase-transit-meta span:last-child { border-right: 0; }
+.showcase-transit-meta b { display: block; color: #173f31; font-size: 21px; }
+.showcase-transit-note { margin: auto 0 0; color: #66736d; font-size: 12px; line-height: 1.75; }
+
+.showcase-nearby-lines { padding: 28px; }
+.showcase-nearby-header { display: flex; align-items: center; justify-content: space-between; }
+.showcase-nearby-header h3 { margin: 6px 0 0; color: #17382c; font-size: 25px; }
+.showcase-nearby-header > svg { width: 30px; height: 30px; color: #c55c3b; }
+.showcase-nearby-lines ul { margin: 23px 0 0; padding: 0; list-style: none; }
+.showcase-nearby-lines li {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #e3e8e5;
+}
+.showcase-nearby-lines li b { color: #176c4d; font-size: 17px; }
+.showcase-nearby-lines li span { color: #304a40; font-size: 12px; line-height: 1.45; }
+.showcase-nearby-lines li em { color: #8a5a34; font-size: 10px; font-style: normal; font-weight: 750; }
+.showcase-transit-status {
+  margin-top: 17px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 3px solid #318060;
+  background: #edf7f2;
+  padding: 11px 12px;
+  color: #285b47;
+  font-size: 11px;
+  font-weight: 700;
+}
 
 .showcase-timeline {
   position: absolute;
@@ -1051,8 +1238,7 @@ onBeforeUnmount(() => {
 @keyframes showcase-caret { 50% { opacity: 0; } }
 
 @media (min-width: 1600px) {
-  .showcase-arrival-copy h1,
-  .showcase-contact-copy h2 { font-size: 64px; }
+  .showcase-arrival-copy h1 { font-size: 64px; }
   .showcase-arrival-copy > p:last-child { font-size: 19px; }
   .showcase-map-layout { grid-template-columns: minmax(0, 1fr) 360px; }
   .showcase-question-panel h2 { font-size: 42px; }
@@ -1076,8 +1262,7 @@ onBeforeUnmount(() => {
   }
   .showcase-arrival .showcase-brand { left: 6%; top: 5%; }
   .showcase-arrival-copy { left: 6%; top: 14%; width: 88%; }
-  .showcase-arrival-copy h1,
-  .showcase-contact-copy h2 { margin-top: 12px; font-size: 38px; line-height: 1.16; }
+  .showcase-arrival-copy h1 { margin-top: 12px; font-size: 38px; line-height: 1.16; }
   .showcase-arrival-copy > p:last-child { margin-top: 16px; max-width: 340px; font-size: 14px; line-height: 1.7; }
   .showcase-search-panel {
     top: auto;
@@ -1135,6 +1320,9 @@ onBeforeUnmount(() => {
   .showcase-answer-panel { overflow: hidden; padding: 18px; }
   .showcase-answer-panel h3 { margin-top: 12px; font-size: 21px; }
   .showcase-answer-panel > p { margin-top: 10px; font-size: 12px; line-height: 1.65; }
+  .showcase-answer-facts { margin-top: 10px; padding: 8px 0; }
+  .showcase-answer-facts span { font-size: 9px; }
+  .showcase-answer-facts b { font-size: 14px; }
   .showcase-citation { margin-top: 12px; padding: 9px; font-size: 10px; }
   .showcase-answer-panel a { min-height: 36px; font-size: 11px; }
 
@@ -1167,19 +1355,41 @@ onBeforeUnmount(() => {
   .showcase-task-list li > span { width: 26px; height: 26px; }
   .showcase-task-list a { min-height: 38px; }
 
-  .showcase-contact-shade {
-    background: linear-gradient(180deg, rgba(3, 23, 17, 0.93), rgba(3, 23, 17, 0.72) 58%, rgba(3, 23, 17, 0.9));
+  .showcase-transport-scene { padding: 28px 20px 24px; }
+  .showcase-transport-heading { display: block; }
+  .showcase-transport-heading > div:last-child { margin-top: 18px; text-align: left; }
+  .showcase-transport-heading h2 { font-size: 27px; }
+  .showcase-transport-layout {
+    margin-top: 20px;
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-content: start;
+    gap: 12px;
   }
-  .showcase-contact-copy { left: 6%; top: 7%; width: 88%; }
-  .showcase-contact-copy .showcase-kicker { margin-top: 14%; }
-  .showcase-contact-copy h2 { font-size: 36px; }
-  .showcase-contact-stats { margin-top: 24px; gap: 12px; font-size: 10px; }
-  .showcase-contact-stats span { flex: 1; padding-right: 10px; }
-  .showcase-contact-stats b { font-size: 20px; }
-  .showcase-url { margin-top: 20px; font-size: 16px; }
-  .showcase-qr-panel { top: auto; right: 22%; bottom: 5%; width: 56%; padding: 12px; }
-  .showcase-qr-panel strong { font-size: 11px; }
-  .showcase-qr-panel p { font-size: 9px; }
+  .showcase-transit-route { padding: 16px 18px; }
+  .showcase-transit-query { gap: 8px; font-size: 11px; }
+  .showcase-transit-query svg { width: 16px; }
+  .showcase-bus-line { margin-top: 13px; grid-template-columns: 54px minmax(0, 1fr); gap: 14px; }
+  .showcase-bus-number { width: 54px; height: 54px; font-size: 21px; }
+  .showcase-bus-line > div { padding-left: 20px; }
+  .showcase-bus-line > div::before { left: 4px; top: 7px; bottom: 7px; }
+  .showcase-bus-line p { font-size: 12px; }
+  .showcase-bus-line p::before { left: -20px; width: 10px; height: 10px; border-width: 2px; }
+  .showcase-bus-line i { height: 17px; }
+  .showcase-transit-meta { margin-top: 13px; padding: 8px 0; }
+  .showcase-transit-meta span { font-size: 9px; }
+  .showcase-transit-meta b { font-size: 14px; }
+  .showcase-transit-note { margin-top: 10px; font-size: 9px; line-height: 1.45; }
+  .showcase-nearby-lines { padding: 15px 18px; }
+  .showcase-nearby-header h3 { margin-top: 3px; font-size: 18px; }
+  .showcase-nearby-header > svg { width: 23px; height: 23px; }
+  .showcase-nearby-lines ul { margin-top: 9px; }
+  .showcase-nearby-lines li { min-height: 43px; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 7px; }
+  .showcase-nearby-lines li b { font-size: 13px; }
+  .showcase-nearby-lines li span { font-size: 9px; }
+  .showcase-nearby-lines li em { font-size: 8px; }
+  .showcase-transit-status { margin-top: 8px; padding: 7px 8px; font-size: 9px; }
 
   .showcase-controls { top: 10px; right: 10px; gap: 4px; }
   .showcase-controls button,

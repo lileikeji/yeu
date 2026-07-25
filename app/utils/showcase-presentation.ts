@@ -3,9 +3,9 @@ export const SHOWCASE_INTRO_DURATION_MS = 4_200
 export const showcaseScenes = [
   { id: 'arrival', durationMs: 4_800 },
   { id: 'map', durationMs: 5_600 },
-  { id: 'assistant', durationMs: 5_800 },
+  { id: 'assistant', durationMs: 6_600 },
   { id: 'checklist', durationMs: 4_600 },
-  { id: 'contact', durationMs: 4_800 }
+  { id: 'transport', durationMs: 5_200 }
 ] as const
 
 export type ShowcaseSceneId = typeof showcaseScenes[number]['id']

@@ -21,7 +21,7 @@ test('showcase timeline stays within a short-form video duration', () => {
     'map',
     'assistant',
     'checklist',
-    'contact'
+    'transport'
   ])
   assert.ok(SHOWCASE_TOTAL_DURATION_MS >= 28_000)
   assert.ok(SHOWCASE_TOTAL_DURATION_MS <= 32_000)
@@ -42,7 +42,10 @@ test('showcase progress helpers are bounded and deterministic', () => {
 test('showcase is isolated from the public layout and uses the real site assets', () => {
   assert.match(pageSource, /definePageMeta\(\{ layout: false \}\)/)
   assert.match(pageSource, /\/images\/yeu-campus-plan-2025\.jpg/)
-  assert.match(pageSource, /\/images\/contact-wechat\.png/)
+  assert.match(pageSource, /K6/)
+  assert.match(pageSource, /K2/)
+  assert.match(pageSource, /K507/)
+  assert.doesNotMatch(pageSource, /contact-wechat|showcase-qr|yeu\.huiliyill\.cn/)
   assert.match(pageSource, /<IntroOverlay/)
   assert.match(pageSource, /SHOWCASE_TOTAL_DURATION_MS/)
   assert.match(introSource, /autoCompleteMs/)
