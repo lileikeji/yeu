@@ -43,6 +43,8 @@ test('transport catalog covers the main arrival and departure hubs', () => {
 test('dynamic services are presented with explicit freshness warnings', () => {
   const k6 = campusTransitOptions.find(option => option.id === 'station-k6')
   assert.match(k6?.serviceHours ?? '', /常见资料/)
+  assert.match(k6?.fare ?? '', /2 元起.*上下车站点分段计价/)
+  assert.doesNotMatch(k6?.fare ?? '', /一票制/)
   assert.match(k6?.notes.join(' ') ?? '', /差异/)
   assert.match(pageSource, /班次会变，入口留给你复核/)
   assert.match(pageSource, /以泉州公交、学校最新通知和出发当天地图结果为准/)
@@ -132,7 +134,7 @@ test('assistant prioritizes AMap for directional transit questions', async () =>
     assert.deepEqual(calls, ['quanzhou-station:campus'])
     assert.equal(response.retrievalPath, 'feature_api')
     assert.match(response.answer, /76 分钟/)
-    assert.match(response.answer, /2 元/)
+    assert.match(response.answer, /预估票价约 2 元（按上下车站点计算）/)
     assert.match(response.answer, /K6 路/)
     assert.match(response.answer, /不提供泉州公交车辆位置/)
     assert.deepEqual(response.trace?.map(item => item.stage), [

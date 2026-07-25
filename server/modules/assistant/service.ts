@@ -160,7 +160,9 @@ export function transitRouteForQuery(query: string): {
 
 function transitApiResponse(query: string, response: ApiTransitPlanResponse): ApiAssistantResponse {
   const plan = response.plans[0]!
-  const fare = plan.fareYuan === null ? '票价以当天结果为准' : `票价约 ${plan.fareYuan} 元`
+  const fare = plan.fareYuan === null
+    ? '票价按线路及上下车站点计费'
+    : `本次路线预估票价约 ${plan.fareYuan} 元（按上下车站点计算）`
   const segments = plan.segments.map((segment) => {
     const schedule = segment.startTime && segment.endTime
       ? `，运营时间 ${segment.startTime}-${segment.endTime}`

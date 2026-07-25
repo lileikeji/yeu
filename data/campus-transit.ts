@@ -75,7 +75,7 @@ export const campusTransitOptions: CampusTransitOption[] = [
     badge: '首选直达',
     summary: '福厦铁路泉州站上车，仰恩大学第三校区站下车，不需要换乘。',
     duration: '通常约 60-90 分钟',
-    fare: '公开线路资料为一票制 2 元',
+    fare: '2 元起，按上下车站点分段计价',
     serviceHours: '常见资料：泉州站约 07:20-18:10；学校约 06:30-18:10',
     steps: [
       '抵达泉州站后，按公交指引前往公交上客区。',
@@ -135,7 +135,7 @@ export const campusTransitOptions: CampusTransitOption[] = [
     badge: '市区主线路',
     summary: 'K2 路连接泉州文化宫与仰恩大学第三校区，适合从中心城区进出学校。',
     duration: '通常需预留约 70-100 分钟',
-    fare: '公开线路资料为全程约 5 元',
+    fare: '2 元起，按上下车站点分段计价；全程公开资料约 5 元',
     serviceHours: '常见资料：文化宫约 06:30-22:00；学校约 06:30-21:40',
     steps: [
       '前往文化宫公交站，确认车辆方向为仰恩大学第三校区。',
@@ -155,7 +155,7 @@ export const campusTransitOptions: CampusTransitOption[] = [
     badge: '离校速查',
     summary: '去泉州站优先看 K6；去文化宫和中心城区优先看 K2；去东站或机场需换乘或打车。',
     duration: '按目的地和当天路况变化',
-    fare: 'K6 公开资料 2 元；K2 全程公开资料约 5 元',
+    fare: 'K6、K2 均为 2 元起，按上下车站点分段计价；K2 全程公开资料约 5 元',
     serviceHours: 'K6 末班较早，K2 通常运营到夜间',
     steps: [
       '动车从泉州站出发：优先 K6，并为堵车、进站安检预留至少 60 分钟缓冲。',

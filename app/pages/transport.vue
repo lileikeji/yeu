@@ -281,7 +281,7 @@ const quickFacts = [
                 </div>
                 <div class="grid grid-cols-[5.5rem_1fr] gap-3 py-3">
                   <dt class="text-zinc-500">
-                    参考票价
+                    计价方式
                   </dt><dd>{{ option.fare }}</dd>
                 </div>
                 <div class="grid grid-cols-[5.5rem_1fr] gap-3 py-3">
