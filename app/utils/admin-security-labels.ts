@@ -262,6 +262,7 @@ const adminPageLabels: Array<[prefix: string, label: string]> = [
   ['/content', '指南内容'],
   ['/clubs', '校园社团'],
   ['/nearby', '校园周边'],
+  ['/panorama', '全景云游'],
   ['/campus', '校园平面图'],
   ['/profile', '个人中心'],
   ['/chat', '群聊房间'],

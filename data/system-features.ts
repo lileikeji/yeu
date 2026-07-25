@@ -137,6 +137,17 @@ export const systemFeatures: SystemFeature[] = [
     ]
   },
   {
+    id: 'campus-panorama',
+    title: '全景云游校园',
+    summary: '进入仰恩大学官方校史馆 VR 全景，拖动视角、切换展厅并放大查看展板。',
+    to: '/panorama',
+    icon: 'i-lucide-orbit',
+    keywords: [
+      '全景校园', '校园全景', '全景云游', 'VR校园', 'VR全景', '云游校园',
+      '校史馆全景', '720全景', '提前看校园', '网上逛校园', '在线看校园'
+    ]
+  },
+  {
     id: 'feedback',
     title: '反馈纠错',
     summary: '提交内容错误、信息缺失、地图问题或功能建议。',

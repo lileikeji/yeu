@@ -177,6 +177,14 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-sky-50 text-sky-800'
   },
   {
+    featureKey: 'home.more.panorama',
+    title: '全景云游校园',
+    description: '拖动视角走进官方校史馆，切换场景提前认识仰恩',
+    to: '/panorama',
+    icon: 'i-lucide-orbit',
+    tone: 'bg-emerald-50 text-emerald-800'
+  },
+  {
     featureKey: 'home.more.welearn',
     title: 'WeLearn 学习工具',
     description: '独立第三方工具，打开软件下载页查看版本说明并获取最新版',

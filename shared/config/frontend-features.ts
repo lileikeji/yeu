@@ -119,6 +119,13 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
     icon: 'i-lucide-bus-front'
   },
   {
+    key: 'home.more.panorama',
+    group: '其他常用入口',
+    title: '全景云游校园',
+    description: '进入仰恩大学官方校史馆 VR 全景，拖动视角并切换展厅。',
+    icon: 'i-lucide-orbit'
+  },
+  {
     key: 'home.more.welearn',
     group: '其他常用入口',
     title: 'WeLearn 学习工具',

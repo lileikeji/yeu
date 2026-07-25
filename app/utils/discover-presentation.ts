@@ -149,6 +149,14 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
     icon: 'i-lucide-users-round',
     tone: 'bg-violet-50 text-violet-700',
     when: '开学后留意'
+  },
+  {
+    title: '全景云游校园',
+    description: '进入官方校史馆 VR，拖动视角浏览并切换不同展厅',
+    to: '/panorama',
+    icon: 'i-lucide-orbit',
+    tone: 'bg-emerald-50 text-emerald-700',
+    when: '报到前先逛一遍'
   }
 ]
 

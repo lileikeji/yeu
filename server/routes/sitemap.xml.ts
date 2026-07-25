@@ -59,6 +59,7 @@ export default defineEventHandler((event) => {
     ['/procedures', '0.9', 'weekly'],
     ['/departments', '0.7', 'weekly'],
     ['/clubs', '0.7', 'weekly'],
+    ['/panorama', '0.7', 'monthly'],
     ['/contact', '0.5', 'monthly'],
     ['/sources', '0.4', 'monthly'],
     ['/privacy', '0.3', 'monthly'],
