@@ -112,6 +112,13 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
     icon: 'i-lucide-store'
   },
   {
+    key: 'home.more.transport',
+    group: '其他常用入口',
+    title: '到校与离校交通',
+    description: '查询泉州站、泉州东站、晋江机场和市区往返学校的公交方案。',
+    icon: 'i-lucide-bus-front'
+  },
+  {
     key: 'home.more.welearn',
     group: '其他常用入口',
     title: 'WeLearn 学习工具',

@@ -38,6 +38,7 @@ export default defineNuxtConfig({
     aiMcpAllowedHosts: 'mcp.firecrawl.dev',
     aiMcpToolName: 'firecrawl_search',
     aiMcpTimeoutMs: 25_000,
+    amapWebServiceKey: '',
     botSiteUrl: 'https://yeu.huiliyill.cn/',
     botMaxReplyChars: 1800,
     qqBotWebhookToken: '',

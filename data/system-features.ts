@@ -147,6 +147,17 @@ export const systemFeatures: SystemFeature[] = [
     to: 'https://dz.lileikeji.top/uploads/releases/download.php',
     icon: 'i-lucide-download',
     keywords: ['WeLearn', '英语脚本', '英语学习工具', '软件下载', '下载软件', '脚本下载', '最新版']
+  },
+  {
+    id: 'campus-transport',
+    title: '到校与离校交通',
+    summary: '查询泉州站、泉州东站、泉州晋江国际机场和泉州市区往返仰恩大学的公交与换乘方案。',
+    to: '/transport',
+    icon: 'i-lucide-bus-front',
+    keywords: [
+      '怎么到学校', '怎么去仰恩', '学校怎么出去', '怎么离校', '公交', '交通',
+      'K6', 'K2', '泉州站', '泉州东站', '晋江机场', '文化宫', '去市区', '末班车'
+    ]
   }
 ]
 

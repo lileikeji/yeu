@@ -27,7 +27,7 @@ const adminApiSource = readFileSync(resolve('server/api/admin/features.put.ts'),
 
 test('frontend feature catalog covers every configurable home card with unique keys', () => {
   assert.equal(new Set(FRONTEND_FEATURE_KEYS).size, FRONTEND_FEATURE_KEYS.length)
-  assert.equal(FRONTEND_FEATURE_DEFINITIONS.length, 18)
+  assert.equal(FRONTEND_FEATURE_DEFINITIONS.length, 19)
 
   const catalogKeys = new Set<string>(FRONTEND_FEATURE_KEYS)
   const homeKeys = [

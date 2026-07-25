@@ -40,6 +40,31 @@ export interface ApiPublicFrontendFeatures {
   updatedAt: string | null
 }
 
+export interface ApiTransitSegment {
+  name: string
+  departureStop: string
+  arrivalStop: string
+  startTime: string | null
+  endTime: string | null
+  viaStops: number | null
+}
+
+export interface ApiTransitPlan {
+  durationMinutes: number
+  fareYuan: number | null
+  walkingMeters: number
+  segments: ApiTransitSegment[]
+}
+
+export interface ApiTransitPlanResponse {
+  provider: 'amap'
+  queriedAt: string
+  origin: { id: string, label: string }
+  destination: { id: string, label: string }
+  plans: ApiTransitPlan[]
+  vehiclePositionsAvailable: false
+}
+
 export interface ApiSource {
   id: string
   title: string

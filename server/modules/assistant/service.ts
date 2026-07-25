@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { and, desc, eq, gt, inArray } from 'drizzle-orm'
 import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../data/major-profiles'
+import { campusTransitOptions, campusTransitSearchText } from '../../../data/campus-transit'
 import { searchSystemFeatures } from '../../../data/system-features'
 import { transferMajorHistoricalRule } from '../../../data/transfer-major'
 import {
@@ -98,7 +99,16 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   开学: ['报到', '注册', '入学教育', '上课', '校历'],
   绩点: ['GPA', '平均学分绩点', '课程绩点', '学分', '成绩'],
   奖学金: ['评奖', '参评', '综合测评', '奖项'],
-  综合测评: ['德育', '智育', '体育', '加分', '扣分']
+  综合测评: ['德育', '智育', '体育', '加分', '扣分'],
+  交通: ['公交', '到校', '离校', '换乘', '路线'],
+  公交: ['交通', '班次', '首班车', '末班车', '换乘'],
+  泉州站: ['K6', '动车站', '高铁站'],
+  东站: ['泉州东站', 'K507', '换乘'],
+  机场: ['晋江机场', '泉州晋江国际机场', '飞机'],
+  市区: ['文化宫', 'K2', '西街'],
+  离校: ['学校怎么出去', '返程', 'K6', 'K2'],
+  k6: ['泉州站', '直达公交', '首班车', '末班车'],
+  k2: ['文化宫', '泉州市区', '首班车', '末班车']
 }
 
 const answerCache = new Map<string, { expiresAt: number, response: ApiAssistantResponse }>()
@@ -393,7 +403,23 @@ export function seedCatalogEvidenceForQuery(query: string, limit = 8): Assistant
     }
   })
 
-  return [...procedureEvidence, ...guideEvidence, ...departmentEvidence, ...clubEvidence]
+  const transitEvidence: AssistantEvidence[] = campusTransitOptions.map((option) => {
+    const detail = campusTransitSearchText(option)
+    const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+    const exactKeywordBoost = option.keywords.some(keyword => normalizedQuery.includes(keyword.toLocaleLowerCase('zh-CN')))
+      ? 18
+      : 0
+    return {
+      title: option.title,
+      url: '/transport',
+      snippet: `${option.title}：${option.summary} ${option.serviceHours}`,
+      source: 'site' as const,
+      text: detail,
+      score: evidenceScore(option.title, option.summary, detail, terms) + exactKeywordBoost
+    }
+  })
+
+  return [...procedureEvidence, ...guideEvidence, ...departmentEvidence, ...clubEvidence, ...transitEvidence]
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
     .map(item => ({ ...item, score: Math.max(0, item.score - 6) }))

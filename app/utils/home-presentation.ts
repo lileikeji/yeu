@@ -169,6 +169,14 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-orange-50 text-orange-700'
   },
   {
+    featureKey: 'home.more.transport',
+    title: '到校与离校交通',
+    description: '泉州站、东站、晋江机场和市区往返学校的公交与换乘方案',
+    to: '/transport',
+    icon: 'i-lucide-bus-front',
+    tone: 'bg-sky-50 text-sky-800'
+  },
+  {
     featureKey: 'home.more.welearn',
     title: 'WeLearn 学习工具',
     description: '独立第三方工具，打开软件下载页查看版本说明并获取最新版',
