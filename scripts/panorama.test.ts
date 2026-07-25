@@ -8,12 +8,16 @@ import { homeMoreEntries } from '../app/utils/home-presentation'
 const pageSource = readFileSync(resolve('app/pages/panorama.vue'), 'utf8')
 const sitemapSource = readFileSync(resolve('server/routes/sitemap.xml.ts'), 'utf8')
 
-test('panorama page embeds the verified official tour only after user intent', () => {
+test('panorama page separates campus scenes from the verified official history tour', () => {
+  assert.match(pageSource, /map\.baidu\.com\/poi/)
+  assert.match(pageSource, /26 个校内拍摄点/)
   assert.match(pageSource, /https:\/\/www\.720yun\.com\/vr\/c66jOpeOOa3/)
   assert.match(pageSource, /https:\/\/news\.yeu\.edu\.cn\/2023\/0621\/c704a39166\/page\.htm/)
   assert.match(pageSource, /v-if="viewerLoaded"/)
   assert.match(pageSource, /allowfullscreen/)
-  assert.match(pageSource, /并不是整个校园的户外全景/)
+  assert.match(pageSource, /它不是学校官方拍摄/)
+  assert.match(pageSource, /只拍了校史馆里面/)
+  assert.match(pageSource, /现在开始逛校园/)
 })
 
 test('panorama has direct home, search, AI and sitemap entry points', () => {

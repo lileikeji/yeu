@@ -152,7 +152,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
   },
   {
     title: '全景云游校园',
-    description: '进入官方校史馆 VR，拖动视角浏览并切换不同展厅',
+    description: '在手机或电脑上先看大门、教学楼、部分宿舍和校史馆',
     to: '/panorama',
     icon: 'i-lucide-orbit',
     tone: 'bg-emerald-50 text-emerald-700',

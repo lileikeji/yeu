@@ -25,9 +25,11 @@ import type {
 const props = withDefaults(defineProps<{
   force?: boolean
   autoCompleteMs?: number | null
+  embedded?: boolean
 }>(), {
   force: false,
-  autoCompleteMs: null
+  autoCompleteMs: null,
+  embedded: false
 })
 const emit = defineEmits<{ complete: [] }>()
 
@@ -655,7 +657,7 @@ onMounted(async () => {
     schedule(() => {
       guideActive.value = true
     }, Math.max(0, props.autoCompleteMs - 900))
-    schedule(leaveIntro, props.autoCompleteMs)
+    schedule(() => leaveIntro(), props.autoCompleteMs)
   }
 })
 
@@ -667,7 +669,8 @@ onUnmounted(clearRuntime)
     <div
       v-if="visible"
       ref="stageRef"
-      class="intro-stage fixed inset-0 z-[9999] overflow-hidden bg-[#062219] text-white"
+      class="intro-stage inset-0 z-[9999] overflow-hidden bg-[#062219] text-white"
+      :class="props.embedded ? 'absolute' : 'fixed'"
       role="dialog"
       aria-modal="true"
       aria-label="仰恩新生指南开场动画"

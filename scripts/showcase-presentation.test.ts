@@ -19,13 +19,14 @@ test('showcase timeline stays within a short-form video duration', () => {
   assert.deepEqual(showcaseScenes.map(scene => scene.id), [
     'arrival',
     'map',
+    'panorama',
     'assistant',
     'checklist',
     'transport'
   ])
-  assert.ok(SHOWCASE_TOTAL_DURATION_MS >= 28_000)
-  assert.ok(SHOWCASE_TOTAL_DURATION_MS <= 32_000)
-  assert.equal(showcaseSceneIndex('assistant'), 2)
+  assert.ok(SHOWCASE_TOTAL_DURATION_MS >= 34_000)
+  assert.ok(SHOWCASE_TOTAL_DURATION_MS <= 38_000)
+  assert.equal(showcaseSceneIndex('assistant'), 3)
   assert.equal(showcaseSceneIndex('missing'), 0)
 })
 
@@ -42,11 +43,14 @@ test('showcase progress helpers are bounded and deterministic', () => {
 test('showcase is isolated from the public layout and uses the real site assets', () => {
   assert.match(pageSource, /definePageMeta\(\{ layout: false \}\)/)
   assert.match(pageSource, /\/images\/yeu-campus-plan-2025\.jpg/)
+  assert.match(pageSource, /map\.baidu\.com\/poi/)
+  assert.match(pageSource, /showcase-device/)
+  assert.match(pageSource, /26 个校内实景/)
   assert.match(pageSource, /K6/)
   assert.match(pageSource, /K2/)
   assert.match(pageSource, /K507/)
   assert.doesNotMatch(pageSource, /contact-wechat|showcase-qr|yeu\.huiliyill\.cn/)
-  assert.match(pageSource, /<IntroOverlay/)
+  assert.match(pageSource, /<IntroOverlay[\s\S]*embedded/)
   assert.match(pageSource, /SHOWCASE_TOTAL_DURATION_MS/)
   assert.match(introSource, /autoCompleteMs/)
 })

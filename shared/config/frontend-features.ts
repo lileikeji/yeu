@@ -122,7 +122,7 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
     key: 'home.more.panorama',
     group: '其他常用入口',
     title: '全景云游校园',
-    description: '进入仰恩大学官方校史馆 VR 全景，拖动视角并切换展厅。',
+    description: '查看大门、教学楼、部分宿舍等校内实景，也能进入学校发布的校史馆全景。',
     icon: 'i-lucide-orbit'
   },
   {

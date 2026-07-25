@@ -179,7 +179,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.panorama',
     title: '全景云游校园',
-    description: '拖动视角走进官方校史馆，切换场景提前认识仰恩',
+    description: '先看大门、教学楼和部分宿舍长什么样，再去逛校史馆',
     to: '/panorama',
     icon: 'i-lucide-orbit',
     tone: 'bg-emerald-50 text-emerald-800'

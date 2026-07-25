@@ -1,42 +1,113 @@
 <script setup lang="ts">
-const OFFICIAL_VR_URL = 'https://www.720yun.com/vr/c66jOpeOOa3'
+type TourId = 'campus' | 'history'
+
+interface PanoramaTour {
+  id: TourId
+  eyebrow: string
+  title: string
+  shortTitle: string
+  description: string
+  detail: string
+  url: string
+  sourceUrl: string
+  sourceLabel: string
+  icon: string
+  badge: string
+  official: boolean
+}
+
+const BAIDU_CAMPUS_PANORAMA_URL = 'https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6/@13204528,2871631,21z,87t,-16.6h#panoid=646c1306d4d72bfa631809a2&panotype=inter&heading=358&pitch=0&l=21&tn=B_NORMAL_MAP&sc=0&newmap=1&shareurl=1&pid=1000170000150119145327310IN&iid=646c1306d4d72bfa631809a2'
+const OFFICIAL_HISTORY_VR_URL = 'https://www.720yun.com/vr/c66jOpeOOa3'
 const OFFICIAL_ANNOUNCEMENT_URL = 'https://news.yeu.edu.cn/2023/0621/c704a39166/page.htm'
 
 useSeoMeta({
   title: '全景云游校园',
-  description: '进入仰恩大学官方校史馆 VR 全景，拖拽视角、切换场景，提前了解校园历史与校史馆展陈。'
+  description: '在手机或电脑上查看仰恩大学大门、教学楼、宿舍、体育馆等校内实景，也可以进入学校发布的校史馆全景。'
 })
 
+const tours: PanoramaTour[] = [
+  {
+    id: 'campus',
+    eyebrow: '先看这里',
+    title: '逛校园里的路和楼',
+    shortTitle: '校内实景',
+    description: '从大门一路看到教学楼、部分宿舍、体育馆、医务所和公交站。',
+    detail: '底部可以切换 26 个拍摄点，包括大门、和昌教学楼、普照教学楼、黑龙江楼、吉林楼、辽宁楼、湖北楼、湖南楼、甘肃楼、体育馆、医务所、学生公寓、篮球场、草坪、商店和仰恩公交站。',
+    url: BAIDU_CAMPUS_PANORAMA_URL,
+    sourceUrl: BAIDU_CAMPUS_PANORAMA_URL,
+    sourceLabel: '去百度地图打开',
+    icon: 'i-lucide-school',
+    badge: '26 个校内拍摄点',
+    official: false
+  },
+  {
+    id: 'history',
+    eyebrow: '再了解学校',
+    title: '走进仰恩校史馆',
+    shortTitle: '校史馆',
+    description: '沿着展厅往前看，了解学校从筹建到现在的办学历程。',
+    detail: '可以切换前言、艰苦筹建、学校初创、教育改革、开放办学、校友风采等展厅，展板也能放大看。',
+    url: OFFICIAL_HISTORY_VR_URL,
+    sourceUrl: OFFICIAL_HISTORY_VR_URL,
+    sourceLabel: '去全景原页打开',
+    icon: 'i-lucide-history',
+    badge: '学校发布',
+    official: true
+  }
+]
+
+const activeTourId = ref<TourId>('campus')
 const viewerLoaded = ref(false)
 const viewerReady = ref(false)
 const viewerShell = ref<HTMLElement | null>(null)
 
+const activeTour = computed(() => (
+  tours.find(tour => tour.id === activeTourId.value) ?? tours[0]!
+))
+
 const controlTips = [
   {
-    title: '拖动看四周',
-    description: '电脑按住鼠标拖动；手机用单指左右滑动。',
+    title: '按住画面转一圈',
+    description: '电脑用鼠标拖，手机用手指左右滑。也可以上下看看。',
     icon: 'i-lucide-mouse-pointer-2'
   },
   {
-    title: '缩放看细节',
-    description: '使用滚轮或双指缩放，展板文字可以放大查看。',
+    title: '放大看清一点',
+    description: '电脑滚动鼠标，手机用两根手指缩放。',
     icon: 'i-lucide-scan'
   },
   {
-    title: '切换展厅点位',
-    description: '打开“场景选择”，可直接跳到不同篇章。',
+    title: '点底部换地方',
+    description: '不用自己一路走，直接点想看的楼或拍摄点。',
     icon: 'i-lucide-orbit'
   }
 ] as const
 
-function startViewer() {
-  viewerLoaded.value = true
+function scrollToViewer() {
   nextTick(() => {
-    document.querySelector('#official-vr-viewer')?.scrollIntoView({
+    document.querySelector('#campus-panorama-viewer')?.scrollIntoView({
       behavior: 'smooth',
       block: 'start'
     })
   })
+}
+
+function openTour(id: TourId) {
+  activeTourId.value = id
+  viewerReady.value = false
+  viewerLoaded.value = true
+  scrollToViewer()
+}
+
+function chooseTour(id: TourId) {
+  if (activeTourId.value === id) {
+    openTour(id)
+    return
+  }
+  activeTourId.value = id
+  viewerReady.value = false
+  viewerLoaded.value = false
+  scrollToViewer()
 }
 
 function reloadViewer() {
@@ -49,8 +120,12 @@ function reloadViewer() {
 
 async function enterFullscreen() {
   const target = viewerShell.value
-  if (!target || !target.requestFullscreen) return
-  await target.requestFullscreen()
+  if (!target?.requestFullscreen) return
+  try {
+    await target.requestFullscreen()
+  } catch {
+    // Some mobile browsers only allow the full-screen button inside the panorama itself.
+  }
 }
 </script>
 
@@ -62,43 +137,40 @@ async function enterFullscreen() {
         alt=""
         class="absolute inset-0 size-full object-cover"
       >
-      <div class="absolute inset-0 bg-[linear-gradient(120deg,rgba(4,35,27,.94),rgba(7,67,49,.72)_52%,rgba(9,28,23,.42))]" />
-      <div class="absolute -right-28 top-20 size-96 rounded-full border border-white/15" />
-      <div class="absolute -right-8 top-40 size-72 rounded-full border border-emerald-200/25" />
+      <div class="absolute inset-0 bg-[linear-gradient(112deg,rgba(3,28,22,.94),rgba(6,67,48,.72)_58%,rgba(7,30,24,.48))]" />
+      <div class="absolute -right-24 top-16 size-96 rounded-full border border-white/15" />
+      <div class="absolute right-16 top-44 size-64 rounded-full border border-emerald-100/25" />
 
-      <div class="page-shell relative z-10 grid min-h-[34rem] content-end gap-8 py-12 md:min-h-[40rem] md:grid-cols-[minmax(0,1fr)_19rem] md:items-end md:py-16">
+      <div class="page-shell relative z-10 grid min-h-[35rem] content-end gap-8 py-12 md:min-h-[42rem] md:grid-cols-[minmax(0,1fr)_20rem] md:items-end md:py-16">
         <div class="max-w-3xl">
           <div class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/15 px-4 py-2 text-xs font-semibold backdrop-blur-md">
-            <span class="grid size-7 place-items-center rounded-full bg-emerald-300 font-black text-emerald-950">360°</span>
-            仰恩大学官方全景来源
+            <span class="grid size-8 place-items-center rounded-full bg-emerald-300 font-black text-emerald-950">360°</span>
+            不用到校，先在屏幕里逛一圈
           </div>
           <h1 class="mt-6 text-4xl font-black tracking-tight text-white sm:text-5xl md:text-6xl">
-            拖一拖，<br class="sm:hidden">先走进仰恩校史馆
+            大门、教学楼、宿舍，<br>先看看长什么样
           </h1>
           <p class="mt-5 max-w-2xl text-sm leading-7 text-white/80 md:text-base md:leading-8">
-            不用下载 App。进入后可以转动视角、缩放展板、切换不同篇章，也能在支持的设备上进入 VR 模式。
+            想认路就先逛校内实景，想了解学校故事再去校史馆。电脑和手机都能拖动画面，不用下载 App。
           </p>
 
           <div class="mt-7 flex flex-wrap gap-3">
             <UButton
-              icon="i-lucide-orbit"
-              label="开始全景云游"
+              icon="i-lucide-school"
+              label="现在开始逛校园"
               size="xl"
               color="success"
               class="min-h-12 shadow-xl shadow-black/20"
-              @click="startViewer"
+              @click="openTour('campus')"
             />
             <UButton
-              :to="OFFICIAL_VR_URL"
-              external
-              target="_blank"
-              rel="noopener noreferrer"
-              icon="i-lucide-external-link"
-              label="在官方全景页打开"
+              icon="i-lucide-history"
+              label="先看校史馆"
               size="xl"
               color="neutral"
               variant="soft"
               class="min-h-12 bg-white/90 text-zinc-950 hover:bg-white"
+              @click="openTour('history')"
             />
           </div>
         </div>
@@ -126,27 +198,89 @@ async function enterFullscreen() {
       </div>
     </section>
 
+    <section class="page-shell py-8 md:py-12">
+      <div class="mb-5">
+        <p class="section-kicker">
+          你想先看哪里
+        </p>
+        <h2 class="mt-1 text-2xl font-black tracking-tight text-zinc-950 md:text-3xl">
+          校园实景和校史馆分开看
+        </h2>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+          两套画面来自不同地方，我们把来源和能看的内容都写清楚了。
+        </p>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <button
+          v-for="tour in tours"
+          :key="tour.id"
+          type="button"
+          class="group relative overflow-hidden rounded-3xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 md:p-6"
+          :class="activeTourId === tour.id ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-zinc-200'"
+          @click="chooseTour(tour.id)"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <span
+              class="grid size-12 shrink-0 place-items-center rounded-2xl"
+              :class="tour.id === 'campus' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+            >
+              <UIcon
+                :name="tour.icon"
+                class="size-6"
+              />
+            </span>
+            <UBadge
+              :label="tour.badge"
+              :color="tour.official ? 'success' : 'neutral'"
+              variant="soft"
+            />
+          </div>
+          <p class="mt-5 text-xs font-semibold text-emerald-700">
+            {{ tour.eyebrow }}
+          </p>
+          <h3 class="mt-1 text-xl font-black text-zinc-950">
+            {{ tour.title }}
+          </h3>
+          <p class="mt-2 text-sm leading-6 text-zinc-600">
+            {{ tour.description }}
+          </p>
+          <span class="mt-5 inline-flex items-center gap-1 text-sm font-bold text-emerald-700">
+            打开看看
+            <UIcon
+              name="i-lucide-arrow-right"
+              class="size-4 transition-transform group-hover:translate-x-1"
+            />
+          </span>
+        </button>
+      </div>
+    </section>
+
     <section
-      id="official-vr-viewer"
-      class="page-shell scroll-mt-20 py-8 md:py-12"
+      id="campus-panorama-viewer"
+      class="page-shell scroll-mt-20 pb-8 md:pb-12"
     >
       <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p class="section-kicker">
-            真实 360° 场景
+            正在看：{{ activeTour.shortTitle }}
           </p>
           <h2 class="mt-1 text-2xl font-black tracking-tight text-zinc-950 md:text-3xl">
-            仰恩大学线上校史馆
+            {{ activeTour.title }}
           </h2>
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-            当前可公开核验的官方全景覆盖校史馆室内展陈，并不是整个校园的户外全景。
+          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+            {{ activeTour.detail }}
           </p>
         </div>
-        <UBadge
-          label="党委宣传部 2023 年上线"
-          color="success"
-          variant="soft"
-          size="lg"
+        <UButton
+          :to="activeTour.sourceUrl"
+          external
+          target="_blank"
+          rel="noopener noreferrer"
+          icon="i-lucide-external-link"
+          :label="activeTour.sourceLabel"
+          color="neutral"
+          variant="outline"
         />
       </div>
 
@@ -156,8 +290,9 @@ async function enterFullscreen() {
       >
         <template v-if="viewerLoaded">
           <iframe
-            src="https://www.720yun.com/vr/c66jOpeOOa3"
-            title="仰恩大学官方校史馆 VR 全景"
+            :key="activeTour.id"
+            :src="activeTour.url"
+            :title="`${activeTour.title} 360 度实景`"
             class="absolute inset-0 size-full border-0 bg-black"
             loading="eager"
             referrerpolicy="strict-origin-when-cross-origin"
@@ -177,7 +312,10 @@ async function enterFullscreen() {
                 class="mx-auto size-7 animate-spin text-emerald-300"
               />
               <p class="mt-3 text-sm text-white/75">
-                正在加载官方全景
+                正在打开{{ activeTour.shortTitle }}
+              </p>
+              <p class="mt-1 text-xs text-white/50">
+                第一次打开可能要等几秒
               </p>
             </div>
           </div>
@@ -185,7 +323,7 @@ async function enterFullscreen() {
           <div class="absolute right-3 top-3 z-20 flex gap-2">
             <UButton
               icon="i-lucide-refresh-cw"
-              aria-label="重新加载全景"
+              aria-label="重新打开实景"
               color="neutral"
               variant="solid"
               class="bg-white/90 text-zinc-950 shadow-lg backdrop-blur hover:bg-white"
@@ -193,7 +331,7 @@ async function enterFullscreen() {
             />
             <UButton
               icon="i-lucide-maximize-2"
-              aria-label="全屏查看全景"
+              aria-label="全屏查看实景"
               color="neutral"
               variant="solid"
               class="bg-white/90 text-zinc-950 shadow-lg backdrop-blur hover:bg-white"
@@ -217,79 +355,78 @@ async function enterFullscreen() {
               360°
             </span>
             <h3 class="mt-5 text-2xl font-black">
-              点击后才加载全景
+              准备好就打开{{ activeTour.shortTitle }}
             </h3>
             <p class="mt-2 text-sm leading-6 text-white/65">
-              这样首页和普通浏览不会提前下载第三方全景资源，移动网络下更省流量。
+              点开以后，按住画面拖动就能四处看。
             </p>
             <UButton
               icon="i-lucide-play"
-              label="进入官方全景"
+              :label="`打开${activeTour.shortTitle}`"
               size="xl"
               color="success"
               class="mt-6 min-h-12"
-              @click="startViewer"
+              @click="openTour(activeTour.id)"
             />
           </div>
         </div>
       </div>
 
-      <div class="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,.75fr)]">
-        <section class="rounded-2xl border border-zinc-200 bg-white p-5 md:p-6">
-          <div class="flex items-center gap-3">
-            <span class="grid size-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
+      <div class="mt-6 grid gap-4 lg:grid-cols-2">
+        <section class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
+          <div class="flex items-start gap-3">
+            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-emerald-700 shadow-sm">
               <UIcon
-                name="i-lucide-history"
+                name="i-lucide-school"
                 class="size-5"
               />
             </span>
             <div>
               <p class="text-xs font-semibold text-emerald-700">
-                里面能看什么
+                校内实景从哪里来
               </p>
-              <h3 class="text-lg font-bold text-zinc-950">
-                沿时间轴了解仰恩办学历程
+              <h3 class="mt-1 text-base font-bold text-emerald-950">
+                百度地图用户上传的校园画面
               </h3>
+              <p class="mt-2 text-sm leading-6 text-emerald-950/75">
+                能帮你提前认路，但它不是学校官方拍摄，拍摄时间也没有写清楚。楼栋外观、商店和道路如果变了，以你到校看到的为准。
+              </p>
             </div>
           </div>
-          <p class="mt-4 text-sm leading-7 text-zinc-600">
-            全景中的场景选择包含前言、艰苦筹建、学校初创、教育改革、开放办学、校友风采等篇章。点击展板上的点位可以查看图文，再放大阅读细节。
-          </p>
         </section>
 
-        <aside class="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 md:p-6">
-          <p class="text-xs font-semibold text-amber-800">
-            来源和使用边界
-          </p>
-          <h3 class="mt-1 text-base font-bold text-amber-950">
-            官方全景由 720 云承载
-          </h3>
-          <p class="mt-3 text-sm leading-6 text-amber-900/80">
-            本页只做入口与使用说明，不复制全景素材。第三方页面加载失败时，可以直接打开官方原页。
-          </p>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <UButton
-              :to="OFFICIAL_ANNOUNCEMENT_URL"
-              external
-              target="_blank"
-              rel="noopener noreferrer"
-              icon="i-lucide-badge-check"
-              label="查看学校上线通知"
-              color="warning"
-              variant="outline"
-            />
-            <UButton
-              :to="OFFICIAL_VR_URL"
-              external
-              target="_blank"
-              rel="noopener noreferrer"
-              icon="i-lucide-external-link"
-              label="打开全景原页"
-              color="neutral"
-              variant="ghost"
-            />
+        <section class="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 md:p-6">
+          <div class="flex items-start gap-3">
+            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm">
+              <UIcon
+                name="i-lucide-badge-check"
+                class="size-5"
+              />
+            </span>
+            <div>
+              <p class="text-xs font-semibold text-amber-800">
+                校史馆从哪里来
+              </p>
+              <h3 class="mt-1 text-base font-bold text-amber-950">
+                仰恩大学党委宣传部发布
+              </h3>
+              <p class="mt-2 text-sm leading-6 text-amber-950/75">
+                学校在 2023 年上线了这套校史馆全景。它只拍了校史馆里面，不包含宿舍和教学楼。
+              </p>
+              <UButton
+                :to="OFFICIAL_ANNOUNCEMENT_URL"
+                external
+                target="_blank"
+                rel="noopener noreferrer"
+                icon="i-lucide-external-link"
+                label="看看学校怎么介绍"
+                color="warning"
+                variant="link"
+                class="mt-2 px-0"
+              />
+            </div>
           </div>
-        </aside>
+        </section>
       </div>
     </section>
   </div>

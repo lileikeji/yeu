@@ -12,6 +12,8 @@ import {
 
 definePageMeta({ layout: false })
 
+const BAIDU_CAMPUS_PANORAMA_URL = 'https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6/@13204528,2871631,21z,87t,-16.6h#panoid=646c1306d4d72bfa631809a2&panotype=inter&heading=358&pitch=0&l=21&tn=B_NORMAL_MAP&sc=0&newmap=1&shareurl=1&pid=1000170000150119145327310IN&iid=646c1306d4d72bfa631809a2'
+
 useSeoMeta({
   title: '新生指南展示',
   description: '仰恩新生指南录屏展示模式。',
@@ -33,6 +35,7 @@ const paused = ref(route.query.autoplay === '0')
 const started = ref(!showIntro.value)
 const controlsVisible = ref(true)
 const loopEnabled = computed(() => route.query.loop === '1')
+const showControls = computed(() => route.query.controls !== '0')
 
 let frameId: number | null = null
 let previousFrameAt = 0
@@ -161,20 +164,25 @@ onBeforeUnmount(() => {
     class="showcase-root"
     @pointermove="revealControls"
   >
-    <ClientOnly>
-      <IntroOverlay
-        v-if="showIntro"
-        :key="introCycle"
-        force
-        :auto-complete-ms="SHOWCASE_INTRO_DURATION_MS - 700"
-        @complete="onIntroComplete"
+    <div class="showcase-device">
+      <span
+        class="showcase-device-camera"
+        aria-hidden="true"
       />
-    </ClientOnly>
-
-    <main
-      class="showcase-frame"
-      aria-label="仰恩新生指南展示"
-    >
+      <main
+        class="showcase-frame"
+        aria-label="仰恩新生指南展示"
+      >
+        <ClientOnly>
+          <IntroOverlay
+            v-if="showIntro"
+            :key="introCycle"
+            force
+            embedded
+            :auto-complete-ms="SHOWCASE_INTRO_DURATION_MS - 700"
+            @complete="onIntroComplete"
+          />
+        </ClientOnly>
       <Transition
         name="showcase-scene"
         mode="out-in"
@@ -200,7 +208,7 @@ onBeforeUnmount(() => {
 
           <div class="showcase-arrival-copy">
             <p class="showcase-kicker showcase-kicker-light">
-              2026 FRESHMAN GUIDE
+              2026 新生到校第一步
             </p>
             <h1>第一次来仰恩，<br>也能把路走明白。</h1>
             <p>搜地点、看路线、查流程。新生真正会用到的，都放到一处。</p>
@@ -255,7 +263,7 @@ onBeforeUnmount(() => {
             </div>
             <div>
               <p class="showcase-kicker">
-                REAL CAMPUS DATA
+                校园平面图
               </p>
               <h2>找到地点，下一步怎么走也一起给你。</h2>
             </div>
@@ -304,7 +312,7 @@ onBeforeUnmount(() => {
                 <UIcon name="i-lucide-route" />
               </span>
               <p class="showcase-kicker">
-                ROUTE READY
+                路线已经找好
               </p>
               <h3>从 8 号门到宏翔楼</h3>
               <p>入口、目的地和步行方向都放在同一张图里，到校后不用再拼聊天截图。</p>
@@ -317,6 +325,57 @@ onBeforeUnmount(() => {
                 <UIcon name="i-lucide-arrow-right" />
               </NuxtLink>
             </aside>
+          </div>
+        </section>
+
+        <section
+          v-else-if="activeScene.id === 'panorama'"
+          key="panorama"
+          class="showcase-scene showcase-panorama-scene"
+        >
+          <div class="showcase-panorama-copy">
+            <div class="showcase-brand showcase-brand-light">
+              <span class="showcase-brand-mark">YEU</span>
+              <span>校园 360° 实景</span>
+            </div>
+            <p class="showcase-kicker showcase-kicker-light">
+              先在线逛校园
+            </p>
+            <h2>26 个校内实景，<br>开学前先逛一圈。</h2>
+            <p>大门、教学楼、宿舍、体育馆、篮球场和商店都能提前看看，到校时更容易认路。</p>
+            <div class="showcase-panorama-tags">
+              <span>大门</span>
+              <span>教学楼</span>
+              <span>学生公寓</span>
+              <span>体育馆</span>
+              <span>篮球场</span>
+              <span>商店</span>
+            </div>
+            <p class="showcase-panorama-note">
+              校内实景来自百度地图用户上传；实际环境有变化时，以到校后看到的为准。
+            </p>
+          </div>
+
+          <div
+            class="showcase-panorama-window"
+            :class="{ 'is-visible': sceneProgress > 0.12 }"
+          >
+            <div class="showcase-window-bar">
+              <span />
+              <span />
+              <span />
+              <p>仰恩大学 · 校园实景</p>
+            </div>
+            <iframe
+              :src="BAIDU_CAMPUS_PANORAMA_URL"
+              title="仰恩大学校园 360 度实景"
+              loading="eager"
+              referrerpolicy="strict-origin-when-cross-origin"
+            />
+            <div class="showcase-panorama-hint">
+              <UIcon name="i-lucide-mouse-pointer-2" />
+              拖动画面看四周，点击地点换位置
+            </div>
           </div>
         </section>
 
@@ -336,9 +395,9 @@ onBeforeUnmount(() => {
           <div class="showcase-assistant-layout">
             <section class="showcase-question-panel">
               <p class="showcase-kicker">
-                ASK THE CAMPUS
+                有问题直接问
               </p>
-              <h2>你只管问，系统自己找对资料。</h2>
+              <h2>你只管问，我们帮你把可靠资料找出来。</h2>
               <div class="showcase-question-input">
                 <span>{{ assistantQuestion }}</span>
                 <i v-if="sceneProgress < 0.36" />
@@ -347,23 +406,23 @@ onBeforeUnmount(() => {
               <ol class="showcase-trace-list">
                 <li :class="{ 'is-visible': sceneProgress > 0.28 }">
                   <UIcon name="i-lucide-scan-search" />
-                  <span>分析问题</span>
+                  <span>看懂你想问什么</span>
                   <b>到校路线 · 附近公交</b>
                 </li>
                 <li :class="{ 'is-visible': sceneProgress > 0.36 }">
                   <UIcon name="i-lucide-panels-top-left" />
-                  <span>匹配系统功能</span>
+                  <span>先找站内已有答案</span>
                   <b>到校与离校交通</b>
                 </li>
                 <li :class="{ 'is-visible': sceneProgress > 0.43 }">
                   <UIcon name="i-lucide-database" />
-                  <span>搜索内置数据库</span>
+                  <span>核对线路和票价</span>
                   <b>K6 · K2 · K507</b>
                 </li>
                 <li :class="{ 'is-visible': sceneProgress > 0.51 }">
                   <UIcon name="i-lucide-file-check-2" />
-                  <span>整理答案</span>
-                  <b>69 ms</b>
+                  <span>把重点整理给你</span>
+                  <b>马上看懂</b>
                 </li>
               </ol>
             </section>
@@ -374,7 +433,7 @@ onBeforeUnmount(() => {
             >
               <div class="showcase-answer-label">
                 <UIcon name="i-lucide-sparkles" />
-                校园 AI · 内置资料命中
+                已找到相关资料
               </div>
               <h3>泉州站，优先 K6 直达。</h3>
               <p class="showcase-answer-copy">
@@ -408,7 +467,7 @@ onBeforeUnmount(() => {
               <span>新生清单</span>
             </div>
             <p class="showcase-kicker">
-              BEFORE ARRIVAL
+              到校前准备
             </p>
             <h2>要带什么、什么时候办，<br>按时间一项项完成。</h2>
             <p>到校前、报到当天、入学第一周，做过的事会一直替你记着。</p>
@@ -463,7 +522,7 @@ onBeforeUnmount(() => {
             </div>
             <div>
               <p class="showcase-kicker">
-                ARRIVE WITH A PLAN
+                到校前先看清
               </p>
               <h2>从车站到校门，路线直接给到你。</h2>
             </div>
@@ -530,7 +589,7 @@ onBeforeUnmount(() => {
               </ul>
               <div class="showcase-transit-status">
                 <UIcon name="i-lucide-circle-check-big" />
-                已接入系统路线库与当天高德规划
+                已找到站内线路信息，并结合当天高德路线
               </div>
             </aside>
           </div>
@@ -543,9 +602,25 @@ onBeforeUnmount(() => {
       >
         <i :style="{ width: `${totalProgress * 100}%` }" />
       </div>
-    </main>
+      </main>
+      <div
+        class="showcase-device-chin"
+        aria-hidden="true"
+      >
+        <span>YEU</span>
+      </div>
+      <div
+        class="showcase-device-neck"
+        aria-hidden="true"
+      />
+      <div
+        class="showcase-device-base"
+        aria-hidden="true"
+      />
+    </div>
 
     <div
+      v-if="showControls"
       class="showcase-controls"
       :class="{ 'is-hidden': !controlsVisible }"
     >
@@ -582,19 +657,95 @@ onBeforeUnmount(() => {
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: #03150f;
+  padding: 3.2vh 3vw 9.5vh;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(81, 157, 126, 0.3), transparent 32%),
+    radial-gradient(circle at 86% 16%, rgba(243, 197, 125, 0.2), transparent 25%),
+    linear-gradient(145deg, #071b16 0%, #0d3025 50%, #061510 100%);
   color: #17211d;
   font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
 }
 
+.showcase-root::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 13vh;
+  background: linear-gradient(180deg, rgba(2, 15, 11, 0), rgba(2, 15, 11, 0.72));
+  pointer-events: none;
+}
+
+.showcase-device {
+  position: relative;
+  z-index: 1;
+  width: min(88vw, calc(75vh * 16 / 9));
+  filter: drop-shadow(0 40px 55px rgba(0, 8, 5, 0.54));
+}
+
+.showcase-device-camera {
+  position: absolute;
+  z-index: 7;
+  top: 9px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border: 1px solid rgba(144, 177, 165, 0.32);
+  border-radius: 50%;
+  background: #020706;
+  box-shadow: 0 0 0 2px rgba(6, 15, 12, 0.76);
+  transform: translateX(-50%);
+}
+
 .showcase-frame {
   position: relative;
-  width: min(100vw, calc(100vh * 16 / 9));
-  height: min(100vh, calc(100vw * 9 / 16));
+  width: 100%;
+  height: auto;
   aspect-ratio: 16 / 9;
   overflow: hidden;
+  border: 12px solid #101715;
+  border-bottom-width: 8px;
+  border-radius: 18px 18px 4px 4px;
   background: #f4f7f5;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+    0 0 0 1px rgba(5, 9, 8, 0.84);
   isolation: isolate;
+}
+
+.showcase-device-chin {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  border-radius: 0 0 18px 18px;
+  background: linear-gradient(180deg, #dfe4e1, #bfc7c3);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.85);
+  color: #53615b;
+}
+
+.showcase-device-chin span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.showcase-device-neck {
+  width: 12%;
+  height: 7vh;
+  min-height: 38px;
+  margin: 0 auto;
+  background: linear-gradient(90deg, #9da8a3, #e5e9e7 47%, #a9b3ae);
+  clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
+}
+
+.showcase-device-base {
+  width: 31%;
+  height: 12px;
+  margin: -1px auto 0;
+  border-radius: 50% 50% 8px 8px;
+  background: linear-gradient(180deg, #e2e7e4, #8f9c96);
+  box-shadow: 0 11px 22px rgba(0, 8, 5, 0.4);
 }
 
 .showcase-scene {
@@ -890,6 +1041,117 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 700;
   text-decoration: none;
+}
+
+.showcase-panorama-scene {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.72fr) minmax(0, 1.45fr);
+  align-items: center;
+  gap: 4%;
+  padding: 4.5% 4.8%;
+  background:
+    radial-gradient(circle at 9% 15%, rgba(93, 160, 130, 0.32), transparent 36%),
+    linear-gradient(135deg, #08281e, #0f4a36);
+  color: white;
+}
+
+.showcase-panorama-copy .showcase-kicker {
+  margin-top: 12%;
+}
+
+.showcase-panorama-copy h2 {
+  margin: 4% 0 0;
+  font-size: clamp(32px, 2.45vw, 42px);
+  line-height: 1.13;
+  letter-spacing: -0.04em;
+}
+
+.showcase-panorama-copy > p:not(.showcase-kicker, .showcase-panorama-note) {
+  margin: 5% 0 0;
+  max-width: 500px;
+  color: #d5e8df;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.showcase-panorama-tags {
+  margin-top: 7%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.showcase-panorama-tags span {
+  border: 1px solid rgba(217, 239, 228, 0.28);
+  border-radius: 999px;
+  background: rgba(225, 244, 235, 0.1);
+  padding: 7px 11px;
+  color: #eef8f3;
+  font-size: 11px;
+}
+
+.showcase-panorama-note {
+  margin: 8% 0 0;
+  max-width: 430px;
+  color: rgba(224, 239, 232, 0.67);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.showcase-panorama-window {
+  position: relative;
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(231, 244, 237, 0.44);
+  border-radius: 10px;
+  background: #dfe8e3;
+  box-shadow: 0 26px 60px rgba(0, 13, 8, 0.38);
+  opacity: 0;
+  transform: translateX(28px) scale(0.98);
+  transition: opacity 650ms ease, transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.showcase-panorama-window.is-visible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.showcase-panorama-window .showcase-window-bar {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 34px;
+  border-bottom: 1px solid #d2ddd7;
+  background: rgba(250, 252, 251, 0.96);
+  padding: 0 12px;
+  color: #65736c;
+}
+
+.showcase-panorama-window iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #dfe8e3;
+}
+
+.showcase-panorama-hint {
+  position: absolute;
+  z-index: 4;
+  left: 18px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(4, 28, 20, 0.8);
+  padding: 8px 12px;
+  color: white;
+  font-size: 10px;
+  backdrop-filter: blur(8px);
 }
 
 .showcase-assistant-scene {
@@ -1247,10 +1509,21 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
+  .showcase-root { padding: 0; }
+  .showcase-device {
+    width: 100vw;
+    filter: none;
+  }
+  .showcase-device-camera,
+  .showcase-device-chin,
+  .showcase-device-neck,
+  .showcase-device-base { display: none; }
   .showcase-frame {
     width: 100vw;
     height: 100dvh;
     aspect-ratio: auto;
+    border: 0;
+    border-radius: 0;
   }
 
   .showcase-brand { gap: 8px; font-size: 12px; }
@@ -1301,6 +1574,25 @@ onBeforeUnmount(() => {
   .showcase-detail-status { margin-top: auto; }
   .showcase-map-details a { min-height: 36px; margin-top: 8px; }
   .showcase-detail-icon { width: 34px; height: 34px; }
+
+  .showcase-panorama-scene {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: 18px;
+    padding: 28px 20px 24px;
+  }
+  .showcase-panorama-copy .showcase-kicker { margin-top: 18px; }
+  .showcase-panorama-copy h2 { margin-top: 7px; font-size: 31px; }
+  .showcase-panorama-copy > p:not(.showcase-kicker, .showcase-panorama-note) {
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .showcase-panorama-tags { margin-top: 12px; gap: 5px; }
+  .showcase-panorama-tags span { padding: 5px 8px; font-size: 9px; }
+  .showcase-panorama-note { display: none; }
+  .showcase-panorama-window { min-height: 0; }
 
   .showcase-assistant-scene { padding: 28px 20px 24px; }
   .showcase-assistant-header { display: block; }
