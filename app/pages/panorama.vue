@@ -63,6 +63,9 @@ const viewerLoaded = ref(false)
 const viewerReady = ref(false)
 const viewerShell = ref<HTMLElement | null>(null)
 const campusViewerUrl = ref(BAIDU_CAMPUS_PANORAMA_URL)
+const officialPanoramaFailed = ref(false)
+const runtimeConfig = useRuntimeConfig()
+const baiduMapsBrowserAk = computed(() => String(runtimeConfig.public.baiduMapsBrowserAk || '').trim())
 
 const activeTour = computed(() => (
   tours.find(tour => tour.id === activeTourId.value) ?? tours[0]!
@@ -119,6 +122,7 @@ function chooseTour(id: TourId) {
 function reloadViewer() {
   viewerReady.value = false
   viewerLoaded.value = false
+  officialPanoramaFailed.value = false
   nextTick(() => {
     viewerLoaded.value = true
   })
@@ -315,7 +319,15 @@ onMounted(() => {
         class="panorama-viewer-shell relative overflow-hidden rounded-3xl border border-zinc-200 bg-zinc-950 shadow-2xl shadow-emerald-950/15"
       >
         <template v-if="viewerLoaded">
+          <PanoramaBaiduCampusViewer
+            v-if="activeTour.id === 'campus' && baiduMapsBrowserAk && !officialPanoramaFailed"
+            :key="`official-${activeTour.id}`"
+            :api-key="baiduMapsBrowserAk"
+            @ready="viewerReady = true"
+            @error="officialPanoramaFailed = true"
+          />
           <iframe
+            v-else
             :key="activeTour.id"
             :src="activeViewerUrl"
             :title="`${activeTour.title} 360 度实景`"

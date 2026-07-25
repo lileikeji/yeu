@@ -28,6 +28,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     databasePath: './data/yeu.sqlite',
+    baiduMapsServerAk: '',
     adminSessionSecret: '',
     aiGatewayBaseUrl: '',
     aiGatewayApiKey: '',
@@ -55,6 +56,8 @@ export default defineNuxtConfig({
       mapProvider: 'maplibre-dev',
       amapKey: '',
       amapSecurityCode: '',
+      baiduMapsBrowserAk: '',
+      icpNumber: '',
       // Public map/search overlay of authorized amap owner draft points.
       // Set NUXT_PUBLIC_ENABLE_AMAP_OWNER_DRAFTS=false to disable without code change.
       enableAmapOwnerDrafts: true

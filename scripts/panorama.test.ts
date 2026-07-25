@@ -6,6 +6,7 @@ import { searchSystemFeatures } from '../data/system-features'
 import { homeMoreEntries } from '../app/utils/home-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/panorama.vue'), 'utf8')
+const officialViewerSource = readFileSync(resolve('app/components/panorama/BaiduCampusViewer.vue'), 'utf8')
 const mobileProxySource = readFileSync(resolve('server/api/public/panorama/campus.get.ts'), 'utf8')
 const sitemapSource = readFileSync(resolve('server/routes/sitemap.xml.ts'), 'utf8')
 
@@ -32,6 +33,16 @@ test('mobile campus panorama keeps the desktop scenes in a cross-origin sandbox'
   assert.match(mobileProxySource, /removeHeader\('X-Frame-Options'\)/)
   assert.match(mobileProxySource, /assertRateLimit/)
   assert.match(mobileProxySource, /stale-while-revalidate=86400/)
+})
+
+test('official Baidu panorama viewer exposes all 26 campus scenes with a safe fallback', () => {
+  assert.equal((officialViewerSource.match(/\{ label: '.+?', panoId:/g) ?? []).length, 26)
+  assert.match(officialViewerSource, /BMapGL/)
+  assert.match(officialViewerSource, /setId/)
+  assert.match(officialViewerSource, /想看哪里，点名字就行/)
+  assert.match(pageSource, /officialPanoramaFailed/)
+  assert.match(pageSource, /PanoramaBaiduCampusViewer/)
+  assert.match(pageSource, /v-else/)
 })
 
 test('panorama has direct home, search, AI and sitemap entry points', () => {

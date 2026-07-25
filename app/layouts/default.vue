@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
+const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
 const { user, isAuthenticated, refreshSession } = useUserSession()
 
@@ -9,6 +10,7 @@ const navigation = [
   { label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
   { label: '更多', to: '/discover', icon: 'i-lucide-layout-grid' }
 ]
+const icpNumber = computed(() => String(runtimeConfig.public.icpNumber || '').trim())
 
 function isActive(to: string) {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
@@ -137,10 +139,26 @@ onMounted(() => {
 
     <PwaUpdatePrompt />
 
-    <footer class="hidden border-t border-[var(--line)] bg-white md:block">
-      <div class="page-shell flex items-center justify-between gap-6 py-6 text-xs text-zinc-500">
-        <p>本指南由学生团队整理，重要事项以学校最新通知为准。</p>
-        <div class="flex items-center gap-4">
+    <footer class="border-t border-[var(--line)] bg-white pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0">
+      <div class="page-shell flex flex-col gap-4 py-6 text-xs text-zinc-500 md:flex-row md:items-center md:justify-between md:gap-6">
+        <div class="space-y-2">
+          <p>本指南由学生团队整理，重要事项以学校最新通知为准。</p>
+          <a
+            v-if="icpNumber"
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex min-h-7 items-center font-medium hover:text-green-700"
+          >{{ icpNumber }}</a>
+          <a
+            v-else
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex min-h-7 items-center hover:text-green-700"
+          >工信部备案查询</a>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
           <NuxtLink
             to="/about"
             class="hover:text-green-700"
