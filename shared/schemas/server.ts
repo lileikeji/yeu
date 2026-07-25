@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { FRONTEND_FEATURE_KEYS } from '../config/frontend-features'
 import {
   CONTENT_KINDS,
   COORDINATE_OBSERVATION_METHODS,
@@ -602,3 +603,8 @@ export const muteAllChatRoomSchema = z.object({
     })
   }
 })
+
+export const updateFrontendFeatureSchema = z.object({
+  key: z.enum(FRONTEND_FEATURE_KEYS),
+  enabled: z.boolean()
+}).strict()

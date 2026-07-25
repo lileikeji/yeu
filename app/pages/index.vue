@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { freshmanGuides } from '~~/data/seeds/public-content'
+import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
 import {
   canUseStaticContentKindFallback,
   mergePublicGuides
@@ -66,10 +67,12 @@ function onCardMouseLeave(e: MouseEvent) {
 }
 
 const placeQuery = ref('')
+const featureRequest = usePublicFrontendFeatures()
 const contentRequest = usePublicContentList()
 const procedureRequest = usePublicProcedureList()
-await Promise.all([contentRequest, procedureRequest])
+await Promise.all([featureRequest, contentRequest, procedureRequest])
 
+const { data: publicFeatureResponse } = featureRequest
 const { data: publicContentResponse, error: publicContentError } = contentRequest
 const { data: publicProcedureResponse, error: publicProcedureError } = procedureRequest
 const allowStaticGuideFallback = computed(() => !publicContentError.value
@@ -80,9 +83,14 @@ const guides = computed(() => mergePublicGuides(
   allowStaticGuideFallback.value
 ))
 
-const essentialActions = computed(() => buildHomeEssentialActions(guides.value))
-const timelineStages = homeTimelineStages
-const moreEntries = homeMoreEntries
+const disabledFeatureKeys = computed(() => new Set(publicFeatureResponse.value?.disabledKeys ?? []))
+const featureEnabled = (key: FrontendFeatureKey) => !disabledFeatureKeys.value.has(key)
+const essentialActions = computed(() => buildHomeEssentialActions(guides.value)
+  .filter(action => featureEnabled(action.featureKey)))
+const timelineStages = computed(() => homeTimelineStages
+  .filter(stage => featureEnabled(stage.featureKey)))
+const moreEntries = computed(() => homeMoreEntries
+  .filter(entry => featureEnabled(entry.featureKey)))
 const trustNotice = homeTrustNotice
 const fallbackMessage = computed(() => getHomeFallbackMessage(
   Boolean(publicContentError.value),
@@ -158,6 +166,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
           </div>
 
           <NuxtLink
+            v-if="featureEnabled('home.arrival-summary')"
             :to="arrivalSummary.to"
             class="group p-4 premium-card glow-effect bg-orange-50/60 border-orange-200 md:p-5"
             @mousemove="onCardMouseMove"
@@ -183,7 +192,10 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
           </NuxtLink>
         </div>
 
-        <div class="page-shell pb-5 md:pb-7">
+        <div
+          v-if="featureEnabled('home.trust-notice')"
+          class="page-shell pb-5 md:pb-7"
+        >
           <aside class="rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-emerald-50 p-4 shadow-sm md:p-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div class="min-w-0 max-w-3xl">
@@ -224,7 +236,10 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
         </div>
       </section>
 
-      <section class="page-shell py-7 md:py-10">
+      <section
+        v-if="essentialActions.length"
+        class="page-shell py-7 md:py-10"
+      >
         <div>
           <p class="section-kicker">
             先做这四件事
@@ -284,7 +299,10 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
         </div>
       </section>
 
-      <section class="page-shell pb-2 md:pb-4">
+      <section
+        v-if="featureEnabled('home.checklist')"
+        class="page-shell pb-2 md:pb-4"
+      >
         <NuxtLink
           to="/checklist"
           class="group flex flex-col gap-4 rounded-lg border border-green-200 bg-gradient-to-r from-green-50 via-white to-emerald-50 p-4 transition hover:border-green-300 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
@@ -329,7 +347,10 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
         </NuxtLink>
       </section>
 
-      <section class="border-y border-[var(--line)] bg-white">
+      <section
+        v-if="timelineStages.length"
+        class="border-y border-[var(--line)] bg-white"
+      >
         <div class="page-shell py-8 md:py-10">
           <p class="section-kicker">
             按时间做
@@ -383,7 +404,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
       </section>
 
       <section
-        v-if="featuredProcedures.length"
+        v-if="featureEnabled('home.featured-procedures') && featuredProcedures.length"
         class="page-shell py-8 md:py-10"
       >
         <div class="flex items-end justify-between gap-4">
@@ -436,7 +457,10 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
         </div>
       </section>
 
-      <section class="border-y border-[var(--line)] bg-white">
+      <section
+        v-if="moreEntries.length"
+        class="border-y border-[var(--line)] bg-white"
+      >
         <div class="page-shell py-8 md:py-10">
           <p class="section-kicker">
             继续了解
@@ -479,7 +503,10 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
         </div>
       </section>
 
-      <section class="page-shell py-6 md:py-8">
+      <section
+        v-if="featureEnabled('home.emergency-contact')"
+        class="page-shell py-6 md:py-8"
+      >
         <div class="flex flex-col gap-4 rounded-lg bg-zinc-900 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between">
           <div class="flex items-start gap-3">
             <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-white/10">

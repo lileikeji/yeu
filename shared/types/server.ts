@@ -13,6 +13,7 @@ import type {
   SourceLevel,
   SourceStatus
 } from '../constants/server'
+import type { FrontendFeatureKey } from '../config/frontend-features'
 import type { CoordinateReferenceSystem, PublicationStatus } from '../types'
 
 export interface ApiListResponse<T> {
@@ -22,6 +23,21 @@ export interface ApiListResponse<T> {
   pageSize: number
   hasManagedRecords?: boolean
   managedKinds?: ContentKind[]
+}
+
+export interface ApiFrontendFeature {
+  key: FrontendFeatureKey
+  group: string
+  title: string
+  description: string
+  icon: string
+  enabled: boolean
+  updatedAt: string | null
+}
+
+export interface ApiPublicFrontendFeatures {
+  disabledKeys: FrontendFeatureKey[]
+  updatedAt: string | null
 }
 
 export interface ApiSource {

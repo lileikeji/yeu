@@ -1,4 +1,5 @@
 import type { ApiProcedure } from '~~/shared/types/server'
+import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
 import {
   studentFacingProcedureText,
   studentFacingProcedureTitle
@@ -10,6 +11,7 @@ export interface HomeGuideLike {
 }
 
 export interface HomeAction {
+  featureKey: FrontendFeatureKey
   title: string
   description: string
   meta: string
@@ -19,6 +21,7 @@ export interface HomeAction {
 }
 
 export interface HomeTimelineStage {
+  featureKey: FrontendFeatureKey
   label: string
   title: string
   items: string[]
@@ -36,6 +39,7 @@ export interface HomeProcedureItem {
 }
 
 export interface HomeMoreEntry {
+  featureKey: FrontendFeatureKey
   title: string
   description: string
   to: string
@@ -98,6 +102,7 @@ export const homeProcedureMethodLabels: Record<ApiProcedure['method'], string> =
 
 export const homeTimelineStages: HomeTimelineStage[] = [
   {
+    featureKey: 'home.timeline.before-arrival',
     label: '到校前',
     title: '先确认，不要凭群聊猜',
     items: ['保存录取通知书与官方通知', '核对自己的报到日期和校区', '提前收藏校园地图'],
@@ -105,6 +110,7 @@ export const homeTimelineStages: HomeTimelineStage[] = [
     to: '/procedures/arrival'
   },
   {
+    featureKey: 'home.timeline.arrival-day',
     label: '报到当天',
     title: '先定位，再按步骤办理',
     items: ['先在地图搜索报到点或宿舍', '按现场指引逐项办理', '材料有变化时以现场通知为准'],
@@ -112,6 +118,7 @@ export const homeTimelineStages: HomeTimelineStage[] = [
     to: '/map'
   },
   {
+    featureKey: 'home.timeline.first-week',
     label: '入学第一周',
     title: '把学习和生活入口补齐',
     items: ['处理校园卡与网络', '确认课程、图书馆和安全电话', '再了解社团与周边生活'],
@@ -122,6 +129,7 @@ export const homeTimelineStages: HomeTimelineStage[] = [
 
 export const homeMoreEntries: HomeMoreEntry[] = [
   {
+    featureKey: 'home.more.checklist',
     title: '新生清单',
     description: '勾选到校前和第一周事项，进度会留在这台设备上',
     to: '/checklist',
@@ -129,6 +137,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-emerald-50 text-emerald-700'
   },
   {
+    featureKey: 'home.more.safety',
     title: '安全、医疗与心理支持',
     description: '保存校园 110，知道紧急情况先找谁',
     to: '/guides/safety-health',
@@ -136,6 +145,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-red-50 text-red-700'
   },
   {
+    featureKey: 'home.more.clubs',
     title: '学生社团',
     description: '按兴趣看社团方向和本学期招新消息',
     to: '/clubs',
@@ -143,6 +153,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-violet-50 text-violet-700'
   },
   {
+    featureKey: 'home.more.departments',
     title: '校内部门',
     description: '快速找到招生、教务、学生事务等部门',
     to: '/departments',
@@ -150,6 +161,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-blue-50 text-blue-700'
   },
   {
+    featureKey: 'home.more.nearby',
     title: '周边生活',
     description: '查看学生街、餐饮、便利店和快递信息',
     to: '/nearby',
@@ -157,6 +169,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-orange-50 text-orange-700'
   },
   {
+    featureKey: 'home.more.welearn',
     title: 'WeLearn 学习工具',
     description: '独立第三方工具，打开软件下载页查看版本说明并获取最新版',
     to: 'https://dz.lileikeji.top/uploads/releases/download.php',
@@ -177,6 +190,7 @@ export function findGuideSummary(
 export function buildHomeEssentialActions(guides: HomeGuideLike[]): HomeAction[] {
   return [
     {
+      featureKey: 'home.essential.arrival',
       title: '核对报到安排',
       description: '先看报到日期，再等录取通知书确认个人时段、地点和材料。',
       meta: '第一步',
@@ -185,6 +199,7 @@ export function buildHomeEssentialActions(guides: HomeGuideLike[]): HomeAction[]
       tone: 'bg-green-50 text-green-700'
     },
     {
+      featureKey: 'home.essential.map',
       title: '找宿舍和教学楼',
       description: '搜索楼栋或地点，地图会直接定位并提供可用的导航入口。',
       meta: '到校最常用',
@@ -193,6 +208,7 @@ export function buildHomeEssentialActions(guides: HomeGuideLike[]): HomeAction[]
       tone: 'bg-blue-50 text-blue-700'
     },
     {
+      featureKey: 'home.essential.network',
       title: '校园卡与网络',
       description: findGuideSummary(guides, 'campus-card-network', '了解校园卡、校园网和常见连接问题。'),
       meta: '入学后尽快看',
@@ -201,6 +217,7 @@ export function buildHomeEssentialActions(guides: HomeGuideLike[]): HomeAction[]
       tone: 'bg-violet-50 text-violet-700'
     },
     {
+      featureKey: 'home.essential.delivery',
       title: '快递与外卖',
       description: findGuideSummary(guides, 'express-delivery', '了解新旧区取件、外卖送达和现场确认方法。'),
       meta: '生活常用',

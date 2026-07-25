@@ -351,6 +351,16 @@ export const auditLogs = sqliteTable('audit_logs', {
   index('audit_logs_created_idx').on(table.createdAt)
 ])
 
+export const frontendFeatureSettings = sqliteTable('frontend_feature_settings', {
+  key: text('key').primaryKey(),
+  isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
+  updatedByAdminId: text('updated_by_admin_id')
+    .references(() => adminUsers.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('frontend_feature_settings_enabled_idx').on(table.isEnabled)
+])
+
 export const rateLimitBuckets = sqliteTable('rate_limit_buckets', {
   bucketKey: text('bucket_key').primaryKey(),
   hitCount: integer('hit_count').notNull(),
