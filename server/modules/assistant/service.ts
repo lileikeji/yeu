@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { and, desc, eq, gt, inArray } from 'drizzle-orm'
 import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../data/major-profiles'
 import { searchSystemFeatures } from '../../../data/system-features'
+import { transferMajorHistoricalRule } from '../../../data/transfer-major'
 import {
   comprehensiveEvaluationRules,
   gpaRules,
@@ -481,6 +482,44 @@ function isFeatureSeekingQuery(query: string): boolean {
 
 function isTransferQuery(query: string): boolean {
   return /\u8f6c\u4e13\u4e1a|\u6362\u4e13\u4e1a/.test(normalizeAssistantQuery(query))
+}
+
+function isCurrentTransferQuery(query: string): boolean {
+  return /(?:2025|2026|今年|本学年|本年度|最新|现在|当前|当年)/.test(normalizeAssistantQuery(query))
+}
+
+function transferMajorHistoricalAnswer(query: string): ApiAssistantResponse | null {
+  if (!isTransferQuery(query) || isCurrentTransferQuery(query)) return null
+  const rule = transferMajorHistoricalRule
+  const answer = [
+    `${rule.title}发布于 ${rule.publishedAt}。以下是公开索引到的历史摘要，不能替代教务部最新通知：`,
+    `可申请情形：${rule.eligible.join('；')}`,
+    `不能申请情形：${rule.disallowed.join('；')}`,
+    `申请流程：${rule.process.join('；')}`,
+    `转入后：${rule.afterTransfer.join('；')}`,
+    '教务部当前公开页面正文为空，2025/2026 学年的名额、具体考核和时间安排尚未从官方页面确认。'
+  ].join('\n')
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: [
+      {
+        title: rule.title,
+        url: rule.sourceUrl,
+        snippet: rule.sourceNote,
+        source: 'site'
+      },
+      {
+        title: '教务部校级文件目录',
+        url: rule.catalogUrl,
+        snippet: '目录显示相关转专业管理办法条目日期为 2022-11-29；具体正文和当年度安排仍需以教务部通知为准。',
+        source: 'site'
+      }
+    ],
+    usedWebSearch: false,
+    confidence: 0.78
+  }
 }
 
 export function featureEvidenceForQuery(query: string, limit = 5): AssistantEvidence[] {
@@ -1234,6 +1273,7 @@ export async function answerCampusQuestion(
     const localEvidence = retrieveCampusEvidence(client, retrievalQuery)
     const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
     const transferQuery = isTransferQuery(query)
+    const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     let transferWebEvidence: ApiAssistantCitation[] = []
     if (transferQuery) {
       try {
@@ -1243,7 +1283,7 @@ export async function answerCampusQuestion(
       }
     }
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
-    if (!transferQuery && !requiresSpecificWebEvidence && (deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8))) {
+    if (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8)))) {
       return {
         query,
         retrievalQuery,
@@ -1251,7 +1291,7 @@ export async function answerCampusQuestion(
         cacheKey,
         route: 'local_database' as const,
         cached: null,
-        localEvidence,
+        localEvidence: historicalTransferAnswer ? [] : localEvidence,
         webEvidence: [] as ApiAssistantCitation[],
         requiresSpecificWebEvidence
       }
@@ -1293,15 +1333,17 @@ export async function answerCampusQuestion(
       () => retrieveCampusEvidence(client, analysis.retrievalQuery)
     )
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+    const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
       tracker,
       'answer_generation',
       '整理答案',
-      () => analysis.requiresSpecificWebEvidence
-        ? dormBedEvidenceGapResponse(query, localEvidence)
-        : deterministicRuleAnswer ?? (localEvidence[0]
-          ? buildLocalResponse(query, localEvidence)
-          : localEvidenceGapResponse(query))
+      () => historicalTransferAnswer
+        ?? (analysis.requiresSpecificWebEvidence
+          ? dormBedEvidenceGapResponse(query, localEvidence)
+          : deterministicRuleAnswer ?? (localEvidence[0]
+            ? buildLocalResponse(query, localEvidence)
+            : localEvidenceGapResponse(query)))
     )
     const result = withRunMetadata(
       response,

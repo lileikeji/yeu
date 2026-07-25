@@ -69,6 +69,25 @@ test('assistant answers feature location with a clickable local entry', async ()
   }
 })
 
+test('assistant exposes historical transfer-major rules with an explicit freshness warning', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-transfer-history-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '仰恩大学转专业有哪些要求？', emptyAssistantConfig)
+    assert.equal(response.mode, 'local')
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.match(response.answer, /2017-10-26/)
+    assert.match(response.answer, /不能替代教务部最新通知/)
+    assert.match(response.answer, /12 月下旬/)
+    assert.equal(response.usedWebSearch, false)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('MCP web evidence can be persisted and reused without becoming site evidence', () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-web-cache-'))
   const databasePath = join(directory, 'test.sqlite')
