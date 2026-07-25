@@ -104,7 +104,10 @@ export const campusFeaturedDepartmentSlugs = [
   'library'
 ] as const
 
-export function selectFeaturedDepartments<T extends { slug: string }>(departments: ReadonlyArray<T>): T[] {
+export function selectFeaturedDepartments<T extends { slug: string, isFeatured?: boolean }>(departments: ReadonlyArray<T>): T[] {
+  const explicitlyFeatured = departments.filter(department => department.isFeatured === true)
+  if (explicitlyFeatured.length > 0) return explicitlyFeatured.slice(0, 6)
+
   const bySlug = new Map(departments.map(department => [department.slug, department]))
   return campusFeaturedDepartmentSlugs
     .map(slug => bySlug.get(slug))
@@ -112,7 +115,14 @@ export function selectFeaturedDepartments<T extends { slug: string }>(department
 }
 
 export function selectFeaturedClubs<T>(clubs: ReadonlyArray<T>, limit = 6): T[] {
-  return clubs.slice(0, Math.max(0, limit))
+  const normalizedLimit = Math.max(0, limit)
+  const explicitlyFeatured = clubs.filter(club => (
+    typeof club === 'object'
+    && club !== null
+    && 'isFeatured' in club
+    && club.isFeatured === true
+  ))
+  return (explicitlyFeatured.length > 0 ? explicitlyFeatured : clubs).slice(0, normalizedLimit)
 }
 
 export function resolveCampusFallbackMessage(input: {

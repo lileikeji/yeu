@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, count, desc, eq, like, or, type SQL } from 'drizzle-orm'
+import { and, count, desc, eq, like, or, sql, type SQL } from 'drizzle-orm'
 import type { z } from 'zod'
 import type {
   adminContentQuerySchema,
@@ -91,7 +91,12 @@ export function listContent(
   const offset = (query.page - 1) * query.pageSize
   const rows = client.db.select().from(contents)
     .where(where)
-    .orderBy(desc(contents.isFeatured), desc(contents.publishedAt), contents.title)
+    .orderBy(
+      sql<number>`coalesce(cast(json_extract(${contents.metadataJson}, '$.sortOrder') as integer), 10000) asc`,
+      desc(contents.isFeatured),
+      desc(contents.publishedAt),
+      contents.title
+    )
     .limit(query.pageSize)
     .offset(offset)
     .all()

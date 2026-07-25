@@ -33,6 +33,8 @@ const emit = defineEmits<{
   save: []
 }>()
 
+const imageUploadState = reactive<Record<string, { uploading: boolean, error: string }>>({})
+
 function inputValue(key: string): string {
   return getAdminResourceInputValue(props.formState, key)
 }
@@ -43,6 +45,34 @@ function selectValue(key: string): string | undefined {
 
 function checkboxValue(key: string): boolean {
   return getAdminResourceCheckboxValue(props.formState, key)
+}
+
+function imageState(key: string) {
+  return imageUploadState[key] ??= { uploading: false, error: '' }
+}
+
+async function uploadImage(key: string, event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  const state = imageState(key)
+  state.uploading = true
+  state.error = ''
+  try {
+    const body = new FormData()
+    body.set('image', file)
+    const result = await adminFetch<{ url: string }>('/api/admin/media/images', {
+      method: 'POST',
+      body
+    })
+    emit('updateField', key, result.url)
+  } catch {
+    state.error = '上传失败，请确认图片为 PNG、JPEG 或 WebP，且不超过 5MB。'
+  } finally {
+    state.uploading = false
+    input.value = ''
+  }
 }
 </script>
 
@@ -99,8 +129,60 @@ function checkboxValue(key: string): boolean {
               :required="field.required"
               :class="getAdminResourceFieldSpan(field)"
             >
+              <div
+                v-if="field.type === 'image'"
+                class="space-y-3"
+              >
+                <div
+                  v-if="inputValue(field.key)"
+                  class="flex items-start gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"
+                >
+                  <img
+                    :src="inputValue(field.key)"
+                    :alt="`${field.label}预览`"
+                    class="size-28 shrink-0 rounded-md border border-zinc-200 bg-white object-contain"
+                  >
+                  <div class="min-w-0 flex-1">
+                    <p class="break-all text-xs leading-5 text-zinc-500">
+                      {{ inputValue(field.key) }}
+                    </p>
+                    <UButton
+                      icon="i-lucide-x"
+                      label="清除图片"
+                      color="neutral"
+                      variant="outline"
+                      size="sm"
+                      class="mt-3"
+                      :disabled="imageState(field.key).uploading"
+                      @click="emit('updateField', field.key, '')"
+                    />
+                  </div>
+                </div>
+                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 transition hover:border-green-400 hover:bg-green-50">
+                  <UIcon
+                    :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-image-up'"
+                    class="size-4"
+                    :class="imageState(field.key).uploading ? 'animate-spin' : ''"
+                  />
+                  <span>{{ imageState(field.key).uploading ? '正在上传' : (inputValue(field.key) ? '替换图片' : '上传图片') }}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    class="sr-only"
+                    :disabled="imageState(field.key).uploading"
+                    @change="uploadImage(field.key, $event)"
+                  >
+                </label>
+                <p
+                  v-if="imageState(field.key).error"
+                  class="text-xs leading-5 text-red-700"
+                  role="alert"
+                >
+                  {{ imageState(field.key).error }}
+                </p>
+              </div>
               <UTextarea
-                v-if="field.type === 'textarea' || field.type === 'json'"
+                v-else-if="field.type === 'textarea' || field.type === 'json'"
                 :model-value="inputValue(field.key)"
                 :placeholder="field.placeholder"
                 :rows="field.rows ?? (field.type === 'json' ? 10 : 4)"

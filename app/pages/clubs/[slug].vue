@@ -54,11 +54,18 @@ const clubDirection = computed(() => resolveClubDirection(
 ))
 const overviewItems = computed(() => buildClubOverviewItems(clubDirection.value))
 const hasRecruitmentDetails = computed(() => Boolean(
-  club.value?.recruitmentPeriod || club.value?.activitySchedule || club.value?.contactMethod
+  club.value?.recruitmentPeriod
+  || club.value?.activitySchedule
+  || club.value?.contactMethod
 ))
 const detailSources = computed(() => buildClubDetailSources(club.value?.sources))
 const contactActions = computed(() => resolvePublicContactActions(club.value?.contactMethod))
-const contactSection = computed(() => resolveClubContactSectionState(contactActions.value.length > 0))
+const contactSection = computed(() => resolveClubContactSectionState(Boolean(
+  contactActions.value.length
+  || club.value?.groupQrUrl
+  || club.value?.contactQrUrl
+  || club.value?.contactPhone
+)))
 const { copyText } = useShareActions()
 
 function copyContactAction(value: string) {
@@ -220,17 +227,27 @@ function copyContactAction(value: string) {
                     v-for="action in contactActions"
                     :key="`${action.kind}-${action.label}`"
                   >
-                    <a
+                    <div
                       v-if="action.href"
-                      :href="action.href"
-                      class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                      class="flex flex-wrap justify-end gap-2"
                     >
-                      <UIcon
-                        :name="action.kind === 'email' ? 'i-lucide-mail' : 'i-lucide-phone'"
-                        class="size-4 shrink-0"
+                      <UButton
+                        icon="i-lucide-copy"
+                        label="复制"
+                        color="neutral"
+                        variant="outline"
+                        class="min-h-11"
+                        @click="copyContactAction(action.copyValue)"
                       />
-                      <span>{{ action.actionLabel }}</span>
-                    </a>
+                      <UButton
+                        :to="action.href"
+                        :icon="action.kind === 'email' ? 'i-lucide-mail' : 'i-lucide-phone'"
+                        :label="action.actionLabel"
+                        color="success"
+                        variant="soft"
+                        class="min-h-11"
+                      />
+                    </div>
                     <div
                       v-else
                       class="flex max-w-full flex-col items-end gap-2"
@@ -286,6 +303,13 @@ function copyContactAction(value: string) {
             class="mt-4 min-h-11"
           />
         </section>
+
+        <PublicCommunityContactPanel
+          :group-qr-url="club.groupQrUrl"
+          :contact-qr-url="club.contactQrUrl"
+          :contact-name="club.contactName"
+          :contact-phone="club.contactPhone"
+        />
 
         <PublicSourceDetails
           :sources="detailSources"

@@ -222,9 +222,9 @@ function clearClubFilters() {
             <div class="flex items-center gap-2">
               <span
                 class="size-2 rounded-full"
-                :class="hasClubContactMethod(club.contactMethod) ? 'bg-emerald-500' : 'bg-zinc-300'"
+                :class="hasClubContactMethod(club.contactMethod, club.contactPhone, club.groupQrUrl, club.contactQrUrl) ? 'bg-emerald-500' : 'bg-zinc-300'"
               />
-              {{ resolveClubContactStatusText(club.contactMethod) }}
+              {{ resolveClubContactStatusText(club.contactMethod, club.contactPhone, club.groupQrUrl, club.contactQrUrl) }}
             </div>
           </div>
           <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700">

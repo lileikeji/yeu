@@ -211,6 +211,13 @@ export interface PublicDepartmentView {
   officeHours: string | null
   verificationState: 'verified' | 'partial' | null
   isApiPublished: boolean
+  isFeatured: boolean
+  sortOrder: number
+  featuredSummary: string | null
+  groupQrUrl: string | null
+  contactQrUrl: string | null
+  contactName: string | null
+  contactPhone: string | null
 }
 
 export interface PublicClubView {
@@ -223,6 +230,13 @@ export interface PublicClubView {
   recruitmentPeriod: string | null
   activitySchedule: string | null
   contactMethod: string | null
+  isFeatured: boolean
+  sortOrder: number
+  featuredSummary: string | null
+  groupQrUrl: string | null
+  contactQrUrl: string | null
+  contactName: string | null
+  contactPhone: string | null
   updatedAt: string
   sources: PublicSource[]
 }
@@ -273,6 +287,23 @@ function metadataString(content: ApiContent, key: string): string | null {
 function metadataNumber(content: ApiContent, key: string): number | null {
   const value = content.metadata[key]
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function metadataUploadedImageUrl(content: ApiContent, key: string): string | null {
+  const value = metadataString(content, key)
+  return value && /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i.test(value)
+    ? value
+    : null
+}
+
+function sortConfiguredDirectoryItems<T extends { sortOrder: number, isFeatured: boolean, name: string }>(
+  items: T[]
+): T[] {
+  return [...items].sort((left, right) => (
+    left.sortOrder - right.sortOrder
+    || Number(right.isFeatured) - Number(left.isFeatured)
+    || left.name.localeCompare(right.name, 'zh-CN')
+  ))
 }
 
 function dateOnly(value: string | null): string {
@@ -664,7 +695,14 @@ function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): Pu
       : metadataString(content, 'verificationState') === 'partial'
         ? 'partial'
         : seed?.verificationState ?? null,
-    isApiPublished: true
+    isApiPublished: true,
+    isFeatured: content.isFeatured,
+    sortOrder: Math.max(0, Math.round(metadataNumber(content, 'sortOrder') ?? 10000)),
+    featuredSummary: metadataString(content, 'featuredSummary'),
+    groupQrUrl: metadataUploadedImageUrl(content, 'groupQrUrl'),
+    contactQrUrl: metadataUploadedImageUrl(content, 'contactQrUrl'),
+    contactName: metadataString(content, 'contactName'),
+    contactPhone: metadataString(content, 'contactPhone')
   }
 }
 
@@ -690,7 +728,14 @@ export function mergePublicDepartments(
       address: seed.address ?? null,
       officeHours: null,
       verificationState: seed.verificationState ?? null,
-      isApiPublished: false
+      isApiPublished: false,
+      isFeatured: false,
+      sortOrder: 10000,
+      featuredSummary: null,
+      groupQrUrl: null,
+      contactQrUrl: null,
+      contactName: null,
+      contactPhone: null
     }]
   })
   const seedNames = new Set(seedDepartments.map(department => normalizeName(department.name)))
@@ -698,7 +743,7 @@ export function mergePublicDepartments(
     .filter(content => !seedNames.has(normalizeName(content.title)))
     .map(content => apiDepartmentToView(content))
 
-  return [...merged, ...additional]
+  return sortConfiguredDirectoryItems([...merged, ...additional])
 }
 
 function apiClubToView(content: ApiContent): PublicClubView {
@@ -708,10 +753,18 @@ function apiClubToView(content: ApiContent): PublicClubView {
     name: content.title,
     summary: content.summary,
     body: content.body,
-    category: content.category === 'recent-activity' ? '近期有活动' : content.category,
+    category: metadataString(content, 'group')
+      ?? (content.category === 'recent-activity' ? '近期有活动' : content.category),
     recruitmentPeriod: metadataString(content, 'recruitmentPeriod'),
     activitySchedule: metadataString(content, 'activitySchedule'),
     contactMethod: metadataString(content, 'contactMethod'),
+    isFeatured: content.isFeatured,
+    sortOrder: Math.max(0, Math.round(metadataNumber(content, 'sortOrder') ?? 10000)),
+    featuredSummary: metadataString(content, 'featuredSummary'),
+    groupQrUrl: metadataUploadedImageUrl(content, 'groupQrUrl'),
+    contactQrUrl: metadataUploadedImageUrl(content, 'contactQrUrl'),
+    contactName: metadataString(content, 'contactName'),
+    contactPhone: metadataString(content, 'contactPhone'),
     updatedAt: dateOnly(content.lastVerifiedAt ?? content.updatedAt),
     sources: toPublicSources(content)
   }
@@ -728,6 +781,13 @@ function staticClubToView(club: OfficialClub): PublicClubView {
     recruitmentPeriod: null,
     activitySchedule: null,
     contactMethod: null,
+    isFeatured: false,
+    sortOrder: 10000,
+    featuredSummary: null,
+    groupQrUrl: null,
+    contactQrUrl: null,
+    contactName: null,
+    contactPhone: null,
     updatedAt: club.source.accessedAt,
     sources: [studentFacingSource(club.source)]
   }
@@ -745,7 +805,7 @@ export function publicClubs(contents: ApiContent[], seedClubs: OfficialClub[] = 
     .filter(content => !seedSlugs.has(content.slug))
     .map(apiClubToView)
 
-  return [...merged, ...additional]
+  return sortConfiguredDirectoryItems([...merged, ...additional])
 }
 
 export function publicNotices(contents: ApiContent[]): PublicNoticeView[] {

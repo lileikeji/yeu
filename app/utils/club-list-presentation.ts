@@ -86,12 +86,12 @@ export function filterClubListItems<T extends ClubListFilterableItem>(
   })
 }
 
-export function resolveClubContactStatusText(contactMethod: string | null | undefined): string {
-  return contactMethod?.trim()
+export function resolveClubContactStatusText(...contactMethods: Array<string | null | undefined>): string {
+  return contactMethods.some(value => value?.trim())
     ? clubListMessages.contactReady
     : clubListMessages.contactPending
 }
 
-export function hasClubContactMethod(contactMethod: string | null | undefined): boolean {
-  return Boolean(contactMethod?.trim())
+export function hasClubContactMethod(...contactMethods: Array<string | null | undefined>): boolean {
+  return contactMethods.some(value => Boolean(value?.trim()))
 }

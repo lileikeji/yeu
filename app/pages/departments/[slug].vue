@@ -58,9 +58,21 @@ useSeoMeta({
 })
 const phoneContacts = computed(() => parsePublicPhoneContacts(department.value?.phone))
 const emailHref = computed(() => resolvePublicEmailHref(department.value?.email))
+const { copyText } = useShareActions()
+
+function copyDepartmentPhone(value: string) {
+  return copyText(value, '电话号码')
+}
 
 const contactSection = computed(() => resolveDepartmentContactSectionState(
-  Boolean(phoneContacts.value.length || emailHref.value || department.value?.email?.trim())
+  Boolean(
+    phoneContacts.value.length
+    || emailHref.value
+    || department.value?.email?.trim()
+    || department.value?.groupQrUrl
+    || department.value?.contactQrUrl
+    || department.value?.contactPhone
+  )
 ))
 
 const feedbackLink = computed(() => content.value
@@ -165,7 +177,10 @@ const feedbackLink = computed(() => content.value
           </div>
         </section>
 
-        <section class="py-7">
+        <section
+          v-if="department.address || phoneContacts.length || department.email || department.officeHours || contactSection.kind === 'pending'"
+          class="py-7"
+        >
           <h2 class="text-lg font-bold text-zinc-950">
             {{ departmentSectionLabels.publicContact }}
           </h2>
@@ -196,18 +211,28 @@ const feedbackLink = computed(() => content.value
               </dt>
               <dd class="min-w-0 text-right">
                 <div class="flex flex-col items-end gap-2">
-                  <a
+                  <div
                     v-for="phone in phoneContacts"
                     :key="phone.href"
-                    :href="phone.href"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                    class="flex flex-wrap justify-end gap-2"
                   >
-                    <UIcon
-                      name="i-lucide-phone"
-                      class="size-4 shrink-0"
+                    <UButton
+                      icon="i-lucide-copy"
+                      label="复制号码"
+                      color="neutral"
+                      variant="outline"
+                      class="min-h-11"
+                      @click="copyDepartmentPhone(phone.label)"
                     />
-                    <span>{{ phone.label }}</span>
-                  </a>
+                    <UButton
+                      :to="phone.href"
+                      icon="i-lucide-phone"
+                      :label="phone.label"
+                      color="success"
+                      variant="soft"
+                      class="min-h-11"
+                    />
+                  </div>
                 </div>
               </dd>
             </div>
@@ -283,6 +308,13 @@ const feedbackLink = computed(() => content.value
             class="min-h-11"
           />
         </div>
+
+        <PublicCommunityContactPanel
+          :group-qr-url="department.groupQrUrl"
+          :contact-qr-url="department.contactQrUrl"
+          :contact-name="department.contactName"
+          :contact-phone="department.contactPhone"
+        />
 
         <PublicSourceDetails
           :sources="detailSources"

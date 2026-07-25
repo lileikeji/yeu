@@ -466,7 +466,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             {{ department.name }}
           </h3>
           <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
-            {{ department.summary }}
+            {{ department.featuredSummary || department.summary }}
           </p>
           <div
             v-if="department.phone || department.email || department.officeHours"
@@ -624,7 +624,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 {{ club.name }}
               </h4>
               <p class="mt-2 text-sm leading-6 text-zinc-600">
-                {{ resolveClubDirection(club.summary, clubDirectionBySlug.get(club.slug)) }}
+                {{ club.featuredSummary || resolveClubDirection(club.summary, clubDirectionBySlug.get(club.slug)) }}
               </p>
               <NuxtLink
                 :to="`/clubs/${encodeURIComponent(club.slug)}`"

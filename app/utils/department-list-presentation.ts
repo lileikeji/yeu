@@ -23,6 +23,9 @@ export interface DepartmentListFilterableItem {
   address?: string | null
   officeHours?: string | null
   website?: string | null
+  contactPhone?: string | null
+  groupQrUrl?: string | null
+  contactQrUrl?: string | null
 }
 
 export const departmentListPrioritySlugs = [
@@ -37,9 +40,14 @@ export const departmentListPrioritySlugs = [
   'library'
 ] as const
 
-export function prioritizeDepartmentListItems<T extends { slug: string }>(
+export function prioritizeDepartmentListItems<T extends { slug: string, sortOrder?: number }>(
   departments: ReadonlyArray<T>
 ): T[] {
+  if (departments.some(item => typeof item.sortOrder === 'number' && item.sortOrder < 10000)) {
+    return [...departments].sort((left, right) => (
+      (left.sortOrder ?? 10000) - (right.sortOrder ?? 10000)
+    ))
+  }
   const priority = new Map<string, number>(departmentListPrioritySlugs.map((slug, index) => [slug, index]))
   return [...departments].sort((left, right) => {
     const leftPriority = priority.get(left.slug) ?? Number.MAX_SAFE_INTEGER
@@ -67,7 +75,13 @@ export function filterDepartmentListItems<T extends DepartmentListFilterableItem
 }
 
 export function hasDepartmentContactMethod(department: DepartmentListFilterableItem): boolean {
-  return Boolean(department.phone?.trim() || department.email?.trim())
+  return Boolean(
+    department.phone?.trim()
+    || department.email?.trim()
+    || department.contactPhone?.trim()
+    || department.groupQrUrl?.trim()
+    || department.contactQrUrl?.trim()
+  )
 }
 
 export function resolveDepartmentContactStatusText(department: DepartmentListFilterableItem): string {
@@ -82,6 +96,10 @@ export function departmentListContactPreview(department: DepartmentListFilterabl
 
   const email = department.email?.trim()
   if (email) return email
+
+  if (department.contactPhone?.trim()) return department.contactPhone.trim()
+  if (department.groupQrUrl?.trim()) return '可扫码加入群聊'
+  if (department.contactQrUrl?.trim()) return '可扫码联系负责人'
 
   return departmentListMessages.contactPending
 }

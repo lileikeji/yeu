@@ -361,6 +361,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         valueLabels: { guide: '指南', department: '部门', club: '社团', notice: '公告' }
       },
       { key: 'audience', label: '适用人群' },
+      { key: 'metadata.sortOrder', label: '前台顺序', kind: 'number' },
       { key: 'status', label: '状态', kind: 'status' },
       { key: 'lastVerifiedAt', label: '最后确认', kind: 'date', fallbackKeys: ['last_verified_at'] }
     ],
@@ -573,6 +574,61 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['club'] }
       },
       {
+        key: 'metadata.groupQrUrl',
+        label: '群聊二维码',
+        type: 'image',
+        description: '上传当前有效的群聊二维码；过期后请及时替换或清除。',
+        group: '群聊与负责人',
+        span: 'half',
+        condition: { key: 'kind', values: ['department', 'club'] }
+      },
+      {
+        key: 'metadata.contactQrUrl',
+        label: '负责人二维码',
+        type: 'image',
+        description: '可上传负责人微信、QQ或其他公开联系二维码。',
+        group: '群聊与负责人',
+        span: 'half',
+        condition: { key: 'kind', values: ['department', 'club'] }
+      },
+      {
+        key: 'metadata.contactName',
+        label: '负责人或联系人',
+        placeholder: '例如：招新负责人 / 学生负责人',
+        group: '群聊与负责人',
+        condition: { key: 'kind', values: ['department', 'club'] }
+      },
+      {
+        key: 'metadata.contactPhone',
+        label: '负责人电话',
+        type: 'tel',
+        description: '前台同时提供复制号码和拨打电话两个操作。',
+        group: '群聊与负责人',
+        condition: { key: 'kind', values: ['department', 'club'] }
+      },
+      {
+        key: 'metadata.featuredSummary',
+        label: '精选内容摘要',
+        type: 'textarea',
+        rows: 3,
+        placeholder: '用于校园页精选卡片，留空时使用普通摘要。',
+        group: '发布与排序',
+        span: 'full',
+        condition: { key: 'kind', values: ['department', 'club'] }
+      },
+      {
+        key: 'metadata.sortOrder',
+        label: '前台排序',
+        type: 'number',
+        min: 0,
+        max: 9999,
+        step: 1,
+        defaultValue: 100,
+        description: '数字越小越靠前；相同数字时，精选内容优先。',
+        group: '发布与排序',
+        condition: { key: 'kind', values: ['department', 'club'] }
+      },
+      {
         key: 'metadata.validFrom',
         label: '公告生效时间',
         type: 'datetime-local',
@@ -603,10 +659,11 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'isFeatured',
-        label: '精选内容',
+        label: '加入校园页精选',
         type: 'checkbox',
         defaultValue: false,
-        group: '发布与确认',
+        description: '开启后会优先出现在校园页精选区域，并遵循前台排序值。',
+        group: '发布与排序',
         span: 'full'
       }
     ]

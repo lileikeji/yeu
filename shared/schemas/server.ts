@@ -139,6 +139,7 @@ const CONTENT_METADATA_MAX_KEYS = 64
 const CONTENT_METADATA_MAX_JSON_CHARS = 32_000
 const CONTENT_METADATA_MAX_DEPTH = 6
 const FORBIDDEN_METADATA_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
+const UPLOADED_IMAGE_URL_PATTERN = /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i
 
 function metadataDepth(value: unknown, depth = 0): number {
   if (depth > CONTENT_METADATA_MAX_DEPTH) return depth
@@ -196,6 +197,45 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
     ctx.addIssue({
       code: 'custom',
       message: `metadata JSON exceeds ${CONTENT_METADATA_MAX_JSON_CHARS} characters`
+    })
+  }
+
+  for (const key of ['groupQrUrl', 'contactQrUrl'] as const) {
+    const candidate = value[key]
+    if (candidate !== undefined
+      && candidate !== ''
+      && (typeof candidate !== 'string' || !UPLOADED_IMAGE_URL_PATTERN.test(candidate))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: `${key} must be an uploaded image URL`
+      })
+    }
+  }
+  for (const [key, maxLength] of [
+    ['contactName', 120],
+    ['contactPhone', 120],
+    ['featuredSummary', 800]
+  ] as const) {
+    const candidate = value[key]
+    if (candidate !== undefined
+      && candidate !== ''
+      && (typeof candidate !== 'string' || candidate.trim().length > maxLength)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: `${key} must be a string no longer than ${maxLength} characters`
+      })
+    }
+  }
+  const sortOrder = value.sortOrder
+  if (sortOrder !== undefined
+    && sortOrder !== ''
+    && (typeof sortOrder !== 'number' || !Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 9999)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['sortOrder'],
+      message: 'sortOrder must be an integer between 0 and 9999'
     })
   }
 })
