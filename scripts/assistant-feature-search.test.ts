@@ -82,6 +82,9 @@ test('assistant exposes historical transfer-major rules with an explicit freshne
     assert.match(response.answer, /不能替代教务部最新通知/)
     assert.match(response.answer, /12 月下旬/)
     assert.equal(response.usedWebSearch, false)
+    const cachedResponse = await answerCampusQuestion(client, '仰恩大学转专业有哪些要求？', emptyAssistantConfig)
+    assert.equal(cachedResponse.retrievalPath, 'local_database')
+    assert.equal(cachedResponse.cacheHit, false)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

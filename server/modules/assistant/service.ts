@@ -1237,10 +1237,13 @@ export async function answerCampusQuestion(
     const retrievalQuery = assistantRetrievalQuery(query)
     const intentDetail = assistantIntentDetail(query, retrievalQuery)
     const cacheKey = query.toLocaleLowerCase('zh-CN')
+    // Deterministic local rules must take precedence over stale generic cache entries.
+    const transferQuery = isTransferQuery(query)
+    const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const cached = answerCache.get(cacheKey)
     if (cached && cached.expiresAt <= Date.now()) answerCache.delete(cacheKey)
     const activeCachedResponse = cached && cached.expiresAt > Date.now() ? cached.response : null
-    if (activeCachedResponse) {
+    if (activeCachedResponse && !historicalTransferAnswer) {
       return {
         query,
         retrievalQuery,
@@ -1272,8 +1275,6 @@ export async function answerCampusQuestion(
 
     const localEvidence = retrieveCampusEvidence(client, retrievalQuery)
     const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
-    const transferQuery = isTransferQuery(query)
-    const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     let transferWebEvidence: ApiAssistantCitation[] = []
     if (transferQuery) {
       try {
