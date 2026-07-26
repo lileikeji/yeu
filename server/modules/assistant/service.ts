@@ -29,7 +29,15 @@ import type {
   ApiAssistantTraceStep,
   ApiTransitPlanResponse
 } from '../../../shared/types/server'
-import { assistantIdentitySubject, normalizeAssistantQuery } from '../../../shared/utils/assistant-query'
+import {
+  assertSafeResolvedPublicHttpUrl,
+  parseSafePublicHttpUrl
+} from '../../../shared/utils/public-http-url'
+import {
+  assistantIdentitySubject,
+  containsPromptInjection,
+  normalizeAssistantQuery
+} from '../../../shared/utils/assistant-query'
 import type { DatabaseClient } from '../../database/client'
 import {
   assistantKnowledgeEntries,
@@ -57,6 +65,7 @@ interface AssistantConfig {
   mcpAllowedHosts: string
   mcpToolName: string
   mcpTimeoutMs: number
+  signal?: AbortSignal
   amapWebServiceKey?: string
   transitPlanner?: (originId: TransitPointId, destinationId: TransitPointId) => Promise<ApiTransitPlanResponse>
 }
@@ -89,12 +98,14 @@ interface AssistantRunTracker {
   startedAt: number
   trace: ApiAssistantTraceStep[]
   hooks: AssistantRunHooks
+  signal?: AbortSignal
 }
 
 const GATEWAY_CONTENT_BLOCK_MARKERS = [
   '违禁词', '敏感词', '敏感内容', '内容审核', '内容安全',
   'content_filter', 'content policy', 'moderation_blocked',
-  'safety_violation', 'prohibited content'
+  'safety_violation', 'prohibited content', 'prompt_injection',
+  'content_blocked', 'risk_control', '"blocked":true'
 ] as const
 
 const QUESTION_FILLERS = [
@@ -224,6 +235,21 @@ function boundedTimeout(value: number, minimum: number, maximum: number): number
     : minimum
 }
 
+function combinedAbortSignal(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs)
+  return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal
+}
+
+function throwIfAssistantAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw signal.reason instanceof Error ? signal.reason : new DOMException('Request aborted', 'AbortError')
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'AbortError' || error.message === 'CLIENT_ABORTED')
+}
+
 async function runAssistantStage<T>(
   tracker: AssistantRunTracker,
   stage: ApiAssistantStage,
@@ -231,10 +257,12 @@ async function runAssistantStage<T>(
   task: () => T | Promise<T>,
   detail?: string | ((result: T) => string | undefined)
 ): Promise<T> {
+  throwIfAssistantAborted(tracker.signal)
   const startedAt = Date.now()
   await tracker.hooks.onStageStarted?.(stage, label, new Date(startedAt).toISOString())
   try {
     const result = await task()
+    throwIfAssistantAborted(tracker.signal)
     const resolvedDetail = typeof detail === 'function' ? detail(result) : detail
     const step: ApiAssistantTraceStep = {
       stage,
@@ -277,7 +305,11 @@ function withRunMetadata(
 }
 
 function safeText(value: string | null | undefined, maxLength = 1600): string {
-  return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength)
+  return (value ?? '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
 }
 
 export function isGatewayContentBlocked(payload: string): boolean {
@@ -1303,26 +1335,42 @@ function canSearchWeb(config: AssistantConfig): boolean {
   if (!config.mcpSearchUrl) return false
   try {
     const url = new URL(config.mcpSearchUrl)
-    return parseAllowedHosts(config.mcpAllowedHosts).has(url.hostname.toLowerCase())
+    return isSafePublicExternalUrl(url)
+      && parseAllowedHosts(config.mcpAllowedHosts).has(url.hostname.toLowerCase())
   } catch {
     return false
   }
 }
 
-function safeExternalCitation(value: unknown): ApiAssistantCitation | null {
+function isSafePublicExternalUrl(url: URL): boolean {
+  return url.protocol === 'https:' && parseSafePublicHttpUrl(url.toString()) !== null
+}
+
+function containsEvidenceInjection(value: string): boolean {
+  return containsPromptInjection(value)
+    || /(?:^|\b)(?:system|developer|assistant)\s*(?:prompt|message|instruction)s?\b/i.test(value)
+    || /<\s*\/?\s*(?:system|developer|assistant|tool)\b/i.test(value)
+    || /\b(?:ignore|disregard)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b/i.test(value)
+}
+
+export function safeExternalCitation(value: unknown): ApiAssistantCitation | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const item = value as Record<string, unknown>
   const url = String(item.url ?? '').trim()
+  let parsed: URL
   try {
-    const parsed = new URL(url)
-    if (!['http:', 'https:'].includes(parsed.protocol)) return null
+    parsed = new URL(url)
   } catch {
     return null
   }
+  if (!isSafePublicExternalUrl(parsed)) return null
+  const title = safeText(String(item.title ?? '网页资料'), 200)
+  const snippet = safeText(String(item.description ?? item.snippet ?? item.markdown ?? ''), 800)
+  if (!title || containsEvidenceInjection(`${title} ${snippet}`)) return null
   return {
-    title: safeText(String(item.title ?? '网页资料'), 200),
-    url,
-    snippet: safeText(String(item.description ?? item.snippet ?? item.markdown ?? ''), 800),
+    title,
+    url: parsed.toString(),
+    snippet,
     source: 'web'
   }
 }
@@ -1354,13 +1402,15 @@ async function mcpPost(
   url: string,
   headers: Record<string, string>,
   payload: Record<string, unknown>,
-  timeoutMs: number
+  timeoutMs: number,
+  signal?: AbortSignal
 ): Promise<{ payload: unknown, sessionId: string }> {
   const response = await fetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(timeoutMs)
+    redirect: 'manual',
+    signal: combinedAbortSignal(signal, timeoutMs)
   })
   if (!response.ok) throw new Error(`MCP_${response.status}`)
   const sessionId = response.headers.get('Mcp-Session-Id') ?? ''
@@ -1489,13 +1539,26 @@ export function cachedWebEvidenceForQuery(
       ))
       .run()
   }
-  return rankAssistantEvidence(query, rows.map(row => ({
-    title: row.title,
-    url: row.url,
-    snippet: row.snippet,
-    source: 'web' as const,
-    text: `${row.title} ${row.snippet}`,
-    score: evidenceScore(row.title, row.snippet, row.query, assistantQueryProfile(query).terms)
+  const sanitizedRows = rows
+    .map(row => ({
+      row,
+      citation: safeExternalCitation({
+        title: row.title,
+        url: row.url,
+        snippet: row.snippet
+      })
+    }))
+    .filter((item): item is { row: typeof rows[number], citation: ApiAssistantCitation } => Boolean(item.citation))
+
+  return rankAssistantEvidence(query, sanitizedRows.map(({ row, citation }) => ({
+    ...citation,
+    text: `${citation.title} ${citation.snippet}`,
+    score: evidenceScore(
+      citation.title,
+      citation.snippet,
+      row.query,
+      assistantQueryProfile(query).terms
+    )
   })), limit).map(({ text: _text, score: _score, ...citation }) => citation)
 }
 
@@ -1519,21 +1582,18 @@ export function storeWebEvidence(
   const queryHash = assistantKnowledgeHash(retrievalQuery)
   let stored = 0
   for (const item of evidence.filter(item => item.source === 'web').slice(0, 6)) {
-    let parsedUrl: URL
-    try {
-      parsedUrl = new URL(item.url)
-    } catch {
-      continue
-    }
+    const sanitized = safeExternalCitation(item)
+    if (!sanitized) continue
+    const parsedUrl = new URL(sanitized.url)
     const sourceHost = parsedUrl.hostname.toLowerCase()
-    const id = createHash('sha256').update(`${queryHash}:${item.url}`).digest('hex').slice(0, 32)
+    const id = createHash('sha256').update(`${queryHash}:${sanitized.url}`).digest('hex').slice(0, 32)
     client.db.insert(assistantWebKnowledge).values({
       id,
       queryHash,
       query: safeText(retrievalQuery, 300),
-      title: safeText(item.title, 200),
-      url: item.url,
-      snippet: safeText(item.snippet, 800),
+      title: sanitized.title,
+      url: sanitized.url,
+      snippet: sanitized.snippet,
       sourceHost,
       status: 'active',
       fetchedAt: now,
@@ -1544,8 +1604,8 @@ export function storeWebEvidence(
     }).onConflictDoUpdate({
       target: [assistantWebKnowledge.queryHash, assistantWebKnowledge.url],
       set: {
-        title: safeText(item.title, 200),
-        snippet: safeText(item.snippet, 800),
+        title: sanitized.title,
+        snippet: sanitized.snippet,
         sourceHost,
         status: 'active',
         fetchedAt: now,
@@ -1566,7 +1626,8 @@ async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAss
   activeMcpCalls += 1
 
   try {
-    const url = new URL(config.mcpSearchUrl)
+    const url = await assertSafeResolvedPublicHttpUrl(config.mcpSearchUrl)
+    if (url.protocol !== 'https:') throw new Error('MCP_HTTPS_REQUIRED')
     const timeoutMs = boundedTimeout(config.mcpTimeoutMs, MIN_MCP_TIMEOUT_MS, MAX_MCP_TIMEOUT_MS)
     const headers: Record<string, string> = {
       'Accept': 'application/json, text/event-stream',
@@ -1582,12 +1643,12 @@ async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAss
         capabilities: {},
         clientInfo: { name: 'yeu-campus-assistant', version: '1.0.0' }
       }
-    }, timeoutMs)
+    }, timeoutMs, config.signal)
     if (initialized.sessionId) headers['Mcp-Session-Id'] = initialized.sessionId
     await mcpPost(url.toString(), headers, {
       jsonrpc: '2.0',
       method: 'notifications/initialized'
-    }, timeoutMs)
+    }, timeoutMs, config.signal)
     const result = await mcpPost(url.toString(), headers, {
       jsonrpc: '2.0',
       id: 2,
@@ -1596,10 +1657,11 @@ async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAss
         name: config.mcpToolName,
         arguments: { query: `仰恩大学 ${query}`, limit: 6 }
       }
-    }, timeoutMs)
+    }, timeoutMs, config.signal)
     consecutiveMcpFailures = 0
     return normalizeMcpResult(result.payload)
   } catch (error) {
+    if (isAbortError(error)) throw error
     consecutiveMcpFailures += 1
     if (consecutiveMcpFailures >= 3) mcpOpenUntil = Date.now() + 60_000
     throw error
@@ -1635,7 +1697,18 @@ export function sanitizeAssistantAnswer(value: string): string {
     .replace(/(?:链接|网址)[:：]\s*(?=$|[。；，,])/g, ''), 1800)
 }
 
-async function askGateway(
+export function blockedAssistantResponse(rawQuery: string): ApiAssistantResponse {
+  return {
+    query: normalizeAssistantQuery(rawQuery),
+    mode: 'ai',
+    answer: '禁止回答',
+    citations: [],
+    usedWebSearch: false,
+    confidence: 1
+  }
+}
+
+export async function askGateway(
   query: string,
   evidence: ApiAssistantCitation[],
   config: AssistantConfig
@@ -1667,7 +1740,7 @@ async function askGateway(
           }
         ]
       }),
-      signal: AbortSignal.timeout(boundedTimeout(
+      signal: combinedAbortSignal(config.signal, boundedTimeout(
         config.gatewayTimeoutMs,
         MIN_GATEWAY_TIMEOUT_MS,
         MAX_GATEWAY_TIMEOUT_MS
@@ -1691,6 +1764,7 @@ async function askGateway(
     return result
   } catch (error) {
     if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') throw error
+    if (isAbortError(error)) throw error
     consecutiveGatewayFailures += 1
     if (consecutiveGatewayFailures >= 3) gatewayOpenUntil = Date.now() + 60_000
     throw error
@@ -1699,7 +1773,12 @@ async function askGateway(
   }
 }
 
-function cacheResponse(key: string, response: ApiAssistantResponse): ApiAssistantResponse {
+function cacheResponse(
+  key: string,
+  response: ApiAssistantResponse,
+  signal?: AbortSignal
+): ApiAssistantResponse {
+  throwIfAssistantAborted(signal)
   answerCache.set(key, { expiresAt: Date.now() + 10 * 60 * 1000, response })
   if (answerCache.size > 100) {
     const oldest = answerCache.keys().next().value
@@ -1759,7 +1838,8 @@ export async function answerCampusQuestion(
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],
-    hooks
+    hooks,
+    signal: config.signal
   }
   const analysis = await runAssistantStage(tracker, 'query_analysis', '分析问题', () => {
     const query = normalizeAssistantQuery(rawQuery)
@@ -1942,7 +2022,7 @@ export async function answerCampusQuestion(
       tracker,
       analysis.route
     )
-    return cacheResponse(cacheKey, result)
+    return cacheResponse(cacheKey, result, config.signal)
   }
 
   let webEvidence = analysis.webEvidence
@@ -1958,6 +2038,7 @@ export async function answerCampusQuestion(
     try {
       webEvidence = await runAssistantStage(tracker, 'web_search', '搜索网页', async () => {
         const result = await searchWeb(analysis.retrievalQuery, config)
+        throwIfAssistantAborted(config.signal)
         try {
           storeWebEvidence(client, analysis.retrievalQuery, result)
         } catch {
@@ -1982,14 +2063,7 @@ export async function answerCampusQuestion(
       model = await askGateway(query, evidence, config)
     } catch (error) {
       if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') {
-        return {
-          query,
-          mode: 'ai' as const,
-          answer: '禁止回答',
-          citations: [],
-          usedWebSearch: false,
-          confidence: 1
-        }
+        return blockedAssistantResponse(query)
       }
       if (analysis.requiresSpecificWebEvidence) return dormBedEvidenceGapResponse(query, analysis.localEvidence)
       throw error
@@ -2004,5 +2078,6 @@ export async function answerCampusQuestion(
       confidence: model.confidence
     }
   })
-  return cacheResponse(cacheKey, withRunMetadata(response, tracker, retrievalPath))
+  throwIfAssistantAborted(config.signal)
+  return cacheResponse(cacheKey, withRunMetadata(response, tracker, retrievalPath), config.signal)
 }

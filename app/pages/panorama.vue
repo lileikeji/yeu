@@ -18,7 +18,6 @@ interface PanoramaTour {
 
 const BAIDU_CAMPUS_PANORAMA_HASH = '#panoid=646c1306d4d72bfa631809a2&panotype=inter&heading=358&pitch=0&l=21&tn=B_NORMAL_MAP&sc=0&newmap=1&shareurl=1&pid=1000170000150119145327310IN&iid=646c1306d4d72bfa631809a2'
 const BAIDU_CAMPUS_PANORAMA_URL = `https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6/@13204528,2871631,21z,87t,-16.6h${BAIDU_CAMPUS_PANORAMA_HASH}`
-const MOBILE_CAMPUS_PANORAMA_PATH = '/api/public/panorama/campus'
 const OFFICIAL_HISTORY_VR_URL = 'https://www.720yun.com/vr/c66jOpeOOa3'
 const OFFICIAL_ANNOUNCEMENT_URL = 'https://news.yeu.edu.cn/2023/0621/c704a39166/page.htm'
 
@@ -62,7 +61,6 @@ const activeTourId = ref<TourId>('campus')
 const viewerLoaded = ref(false)
 const viewerReady = ref(false)
 const viewerShell = ref<HTMLElement | null>(null)
-const campusViewerUrl = ref(BAIDU_CAMPUS_PANORAMA_URL)
 const officialPanoramaFailed = ref(false)
 const runtimeConfig = useRuntimeConfig()
 const baiduMapsBrowserAk = computed(() => String(runtimeConfig.public.baiduMapsBrowserAk || '').trim())
@@ -71,7 +69,7 @@ const activeTour = computed(() => (
   tours.find(tour => tour.id === activeTourId.value) ?? tours[0]!
 ))
 const activeViewerUrl = computed(() => (
-  activeTour.value.id === 'campus' ? campusViewerUrl.value : activeTour.value.url
+  activeTour.value.url
 ))
 
 const controlTips = [
@@ -138,25 +136,6 @@ async function enterFullscreen() {
   }
 }
 
-onMounted(() => {
-  const mobile = window.matchMedia('(max-width: 767px), (pointer: coarse)').matches
-  if (!mobile) return
-
-  const { hostname, protocol, port } = window.location
-  let isolatedHostname = hostname
-  if (hostname === 'global.yeu.huiliyill.cn') {
-    isolatedHostname = 'cn.yeu.huiliyill.cn'
-  } else if (hostname.endsWith('.huiliyill.cn')) {
-    isolatedHostname = 'global.yeu.huiliyill.cn'
-  } else if (hostname === 'localhost') {
-    isolatedHostname = '127.0.0.1'
-  } else if (hostname === '127.0.0.1') {
-    isolatedHostname = 'localhost'
-  }
-
-  const portSuffix = port ? `:${port}` : ''
-  campusViewerUrl.value = `${protocol}//${isolatedHostname}${portSuffix}${MOBILE_CAMPUS_PANORAMA_PATH}${BAIDU_CAMPUS_PANORAMA_HASH}`
-})
 </script>
 
 <template>
@@ -334,7 +313,7 @@ onMounted(() => {
             class="absolute inset-0 size-full border-0 bg-black"
             loading="eager"
             referrerpolicy="strict-origin-when-cross-origin"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-pointer-lock"
+            sandbox="allow-scripts allow-forms allow-popups allow-presentation allow-pointer-lock"
             credentialless
             allow="accelerometer; autoplay; fullscreen; gyroscope; xr-spatial-tracking"
             allowfullscreen

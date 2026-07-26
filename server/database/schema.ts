@@ -448,6 +448,7 @@ export const users = sqliteTable('users', {
   displayName: text('display_name').notNull(),
   major: text('major'),
   dormBuilding: text('dorm_building'),
+  chatDormBuilding: text('chat_dorm_building'),
   status: text('status', { enum: ['active', 'disabled', 'banned'] }).notNull().default('active'),
   createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
   lastLoginAt: integer('last_login_at'),
@@ -457,6 +458,7 @@ export const users = sqliteTable('users', {
   uniqueIndex('users_username_unique').on(table.username),
   index('users_status_idx').on(table.status),
   index('users_dorm_idx').on(table.dormBuilding),
+  index('users_chat_dorm_idx').on(table.chatDormBuilding),
   index('users_major_idx').on(table.major),
   check('users_status_check', sql`${table.status} in ('active', 'disabled', 'banned')`)
 ])

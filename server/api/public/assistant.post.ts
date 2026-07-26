@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { assistantQuestionSchema } from '../../../shared/schemas/server'
 import { containsPromptInjection, isQuestionLike } from '../../../shared/utils/assistant-query'
 import { recordAssistantFailure, recordAssistantSuccess } from '../../modules/assistant/analytics'
-import { answerCampusQuestion } from '../../modules/assistant/service'
+import { answerCampusQuestion, blockedAssistantResponse } from '../../modules/assistant/service'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { useAppDatabase } from '../../utils/database'
 import { assertRateLimit } from '../../utils/rate-limit'
+import { createRequestAbortSignal } from '../../utils/request-abort'
 import { parseBody } from '../../utils/validation'
 
 export default defineEventHandler(async (event) => {
@@ -25,16 +26,13 @@ export default defineEventHandler(async (event) => {
     })
   }
   if (containsPromptInjection(body.q)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Unsupported question',
-      data: { code: 'UNSAFE_QUERY' }
-    })
+    return blockedAssistantResponse(body.q)
   }
 
   const runtime = useRuntimeConfig(event)
   const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
   const startedAt = Date.now()
+  const requestAbort = createRequestAbortSignal(event)
   try {
     const response = await answerCampusQuestion(client, body.q, {
       gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
@@ -46,7 +44,8 @@ export default defineEventHandler(async (event) => {
       mcpAllowedHosts: String(runtime.aiMcpAllowedHosts || 'mcp.firecrawl.dev'),
       mcpToolName: String(runtime.aiMcpToolName || 'firecrawl_search'),
       mcpTimeoutMs: Math.max(25_000, Number(runtime.aiMcpTimeoutMs) || 25_000),
-      amapWebServiceKey: String(runtime.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || '')
+      amapWebServiceKey: String(runtime.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || ''),
+      signal: requestAbort.signal
     })
     try {
       recordAssistantSuccess(client, { requestId, query: body.q, ipAddress }, response)
@@ -61,11 +60,14 @@ export default defineEventHandler(async (event) => {
     } catch {
       // Analytics must not affect the public answer during a delayed migration.
     }
+    if (code === 'CLIENT_ABORTED') return
     const busy = code === 'AI_BUSY' || code === 'AI_CIRCUIT_OPEN'
     throw createError({
       statusCode: busy ? 503 : 502,
       statusMessage: 'Assistant unavailable',
       data: { code: busy ? 'AI_BUSY' : 'AI_UNAVAILABLE' }
     })
+  } finally {
+    requestAbort.dispose()
   }
 })

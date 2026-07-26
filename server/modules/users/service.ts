@@ -95,6 +95,7 @@ export async function createAppUser(
     displayName: input.displayName.trim(),
     major: normalizeOptionalText(input.major),
     dormBuilding: normalizeOptionalText(input.dormBuilding),
+    chatDormBuilding: normalizeOptionalText(input.dormBuilding),
     status: 'active',
     createdByAdminId: input.createdByAdminId,
     lastLoginAt: null,
@@ -134,7 +135,11 @@ export async function updateAppUser(
   const patch: Partial<typeof users.$inferInsert> = { updatedAt: now }
   if (input.displayName !== undefined) patch.displayName = input.displayName.trim()
   if (input.major !== undefined) patch.major = normalizeOptionalText(input.major)
-  if (input.dormBuilding !== undefined) patch.dormBuilding = normalizeOptionalText(input.dormBuilding)
+  if (input.dormBuilding !== undefined) {
+    const dormBuilding = normalizeOptionalText(input.dormBuilding)
+    patch.dormBuilding = dormBuilding
+    patch.chatDormBuilding = dormBuilding
+  }
   if (input.status !== undefined) patch.status = input.status
   if (input.password) patch.passwordHash = await hashUserPassword(input.password)
 
@@ -155,5 +160,21 @@ export function updateOwnProfile(
     dormBuilding?: string | null
   }
 ) {
-  return updateAppUser(client, userId, input)
+  const existing = client.db.select().from(users).where(eq(users.id, userId)).get()
+  if (!existing) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'User not found',
+      data: { code: 'USER_NOT_FOUND' }
+    })
+  }
+
+  const patch: Partial<typeof users.$inferInsert> = { updatedAt: Date.now() }
+  if (input.displayName !== undefined) patch.displayName = input.displayName.trim()
+  if (input.major !== undefined) patch.major = normalizeOptionalText(input.major)
+  if (input.dormBuilding !== undefined) patch.dormBuilding = normalizeOptionalText(input.dormBuilding)
+  client.db.update(users).set(patch).where(eq(users.id, userId)).run()
+
+  const row = client.db.select().from(users).where(eq(users.id, userId)).get()!
+  return serializeAppUser(row)
 }

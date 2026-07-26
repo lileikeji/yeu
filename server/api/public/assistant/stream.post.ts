@@ -3,10 +3,11 @@ import { createEventStream } from 'h3'
 import { assistantQuestionSchema } from '../../../../shared/schemas/server'
 import { containsPromptInjection, isQuestionLike } from '../../../../shared/utils/assistant-query'
 import { recordAssistantFailure, recordAssistantSuccess } from '../../../modules/assistant/analytics'
-import { answerCampusQuestion } from '../../../modules/assistant/service'
+import { answerCampusQuestion, blockedAssistantResponse } from '../../../modules/assistant/service'
 import { getClientIpAddress } from '../../../utils/client-ip'
 import { useAppDatabase } from '../../../utils/database'
 import { assertRateLimit } from '../../../utils/rate-limit'
+import { createRequestAbortSignal } from '../../../utils/request-abort'
 import { parseBody } from '../../../utils/validation'
 
 export default defineEventHandler(async (event) => {
@@ -24,18 +25,11 @@ export default defineEventHandler(async (event) => {
       data: { code: 'REGULAR_SEARCH_PREFERRED' }
     })
   }
-  if (containsPromptInjection(body.q)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Unsupported question',
-      data: { code: 'UNSAFE_QUERY' }
-    })
-  }
-
   const runtime = useRuntimeConfig(event)
   const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
   const startedAt = Date.now()
   const stream = createEventStream(event)
+  const requestAbort = createRequestAbortSignal(event)
   const heartbeatTimer = setInterval(() => {
     void stream.push({
       event: 'heartbeat',
@@ -46,6 +40,13 @@ export default defineEventHandler(async (event) => {
 
   void (async () => {
     try {
+      if (containsPromptInjection(body.q)) {
+        await stream.push({
+          event: 'completed',
+          data: JSON.stringify(blockedAssistantResponse(body.q))
+        })
+        return
+      }
       const response = await answerCampusQuestion(client, body.q, {
         gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
         gatewayApiKey: String(runtime.aiGatewayApiKey || ''),
@@ -56,7 +57,8 @@ export default defineEventHandler(async (event) => {
         mcpAllowedHosts: String(runtime.aiMcpAllowedHosts || 'mcp.firecrawl.dev'),
         mcpToolName: String(runtime.aiMcpToolName || 'firecrawl_search'),
         mcpTimeoutMs: Math.max(25_000, Number(runtime.aiMcpTimeoutMs) || 25_000),
-        amapWebServiceKey: String(runtime.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || '')
+        amapWebServiceKey: String(runtime.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || ''),
+        signal: requestAbort.signal
       }, {
         onStageStarted: async (stage, label, stageStartedAt) => {
           await stream.push({
@@ -76,6 +78,7 @@ export default defineEventHandler(async (event) => {
       await stream.push({ event: 'completed', data: JSON.stringify(response) })
     } catch (error) {
       const internalCode = error instanceof Error ? error.message : 'AI_UNAVAILABLE'
+      if (requestAbort.signal.aborted) return
       const publicCode = internalCode === 'AI_BUSY' || internalCode === 'AI_CIRCUIT_OPEN'
         ? 'AI_BUSY'
         : 'AI_UNAVAILABLE'
@@ -87,10 +90,11 @@ export default defineEventHandler(async (event) => {
       await stream.push({
         event: 'error',
         data: JSON.stringify({ code: publicCode, message: '暂时无法继续整理这个问题。' })
-      })
+      }).catch(() => {})
     } finally {
       clearInterval(heartbeatTimer)
-      await stream.close()
+      requestAbort.dispose()
+      await stream.close().catch(() => {})
     }
   })()
 

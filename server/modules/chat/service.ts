@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { and, asc, count, desc, eq, gt, isNotNull, isNull, like, lt, or, sql } from 'drizzle-orm'
+import { createError } from 'h3'
 import type { DatabaseClient } from '../../database/client'
 import {
   chatMembers,
@@ -98,15 +99,15 @@ export function ensureMembership(client: DatabaseClient, roomId: string, userId:
 
 export function listRoomsForUser(
   client: DatabaseClient,
-  user: { id: string; dormBuilding: string | null }
+  user: { id: string; chatDormBuilding: string | null }
 ) {
   ensurePublicRoom(client)
   const publicRoom = ensurePublicRoom(client)
   ensureMembership(client, publicRoom.id, user.id)
 
   const rooms = [publicRoom]
-  if (user.dormBuilding?.trim()) {
-    const dormRoom = ensureDormRoom(client, user.dormBuilding)
+  if (user.chatDormBuilding?.trim()) {
+    const dormRoom = ensureDormRoom(client, user.chatDormBuilding)
     ensureMembership(client, dormRoom.id, user.id)
     rooms.push(dormRoom)
   }
@@ -142,14 +143,14 @@ export function getRoomOrThrow(client: DatabaseClient, roomId: string) {
 export function assertUserCanAccessRoom(
   client: DatabaseClient,
   room: { id: string; kind: string; dormBuilding: string | null },
-  user: { id: string; dormBuilding: string | null }
+  user: { id: string; chatDormBuilding: string | null }
 ) {
   if (room.kind === 'public') {
     ensureMembership(client, room.id, user.id)
     return
   }
   if (room.kind === 'dorm') {
-    if (!user.dormBuilding || user.dormBuilding !== room.dormBuilding) {
+    if (!user.chatDormBuilding || user.chatDormBuilding !== room.dormBuilding) {
       throw createError({
         statusCode: 403,
         statusMessage: 'Not a member of this dorm room',

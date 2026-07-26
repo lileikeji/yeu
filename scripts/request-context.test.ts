@@ -53,7 +53,13 @@ test('public read APIs only enable short caching after successful data preparati
     const source = readFileSync(join(publicApiRoot, relativePath), 'utf8')
     const initialNoStore = source.indexOf('setHeader(event, \'Cache-Control\', \'no-store\')')
     const normalizedPath = relativePath.replaceAll('\\', '/')
-    if (normalizedPath === 'panorama/campus.get.ts' || normalizedPath === 'transit/plan.get.ts') {
+    if (normalizedPath === 'panorama/campus.get.ts') {
+      assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
+      assert.match(source, /sendRedirect\(event, BAIDU_CAMPUS_PAGE_URL, 302\)/)
+      assert.doesNotMatch(source, /'Cache-Control': 'public,/)
+      continue
+    }
+    if (normalizedPath === 'transit/plan.get.ts') {
       const publicCache = source.indexOf('\'Cache-Control\': \'public,')
       assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
       assert.ok(publicCache > initialNoStore, `${relativePath} must only cache successful provider responses`)

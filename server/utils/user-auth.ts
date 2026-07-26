@@ -36,6 +36,7 @@ export interface AppUserIdentity {
   displayName: string
   major: string | null
   dormBuilding: string | null
+  chatDormBuilding: string | null
   status: 'active' | 'disabled' | 'banned'
 }
 
@@ -156,6 +157,7 @@ export async function loginAppUser(
       displayName: user.displayName,
       major: user.major,
       dormBuilding: user.dormBuilding,
+      chatDormBuilding: user.chatDormBuilding,
       status: user.status
     },
     sessionId,
@@ -184,6 +186,7 @@ export function getOptionalUserSession(
     displayName: users.displayName,
     major: users.major,
     dormBuilding: users.dormBuilding,
+    chatDormBuilding: users.chatDormBuilding,
     status: users.status
   }).from(userSessions)
     .innerJoin(users, eq(userSessions.userId, users.id))
@@ -234,6 +237,7 @@ export function getOptionalUserSession(
       displayName: result.displayName,
       major: result.major,
       dormBuilding: result.dormBuilding,
+      chatDormBuilding: result.chatDormBuilding,
       status: result.status
     },
     sessionId: result.sessionId,

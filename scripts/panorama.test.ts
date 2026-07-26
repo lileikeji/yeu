@@ -18,21 +18,20 @@ test('panorama page separates campus scenes from the verified official history t
   assert.match(pageSource, /v-if="viewerLoaded"/)
   assert.match(pageSource, /allowfullscreen/)
   assert.match(pageSource, /activeViewerUrl/)
-  assert.match(pageSource, /global\.yeu\.huiliyill\.cn/)
-  assert.match(pageSource, /sandbox="allow-scripts allow-same-origin/)
+  assert.doesNotMatch(pageSource, /\/api\/public\/panorama\/campus/)
+  assert.match(pageSource, /sandbox="allow-scripts allow-forms/)
+  assert.doesNotMatch(pageSource, /sandbox="[^"]*allow-same-origin/)
   assert.match(pageSource, /credentialless/)
   assert.match(pageSource, /它不是学校官方拍摄/)
   assert.match(pageSource, /只拍了校史馆里面/)
   assert.match(pageSource, /现在开始逛校园/)
 })
 
-test('mobile campus panorama keeps the desktop scenes in a cross-origin sandbox', () => {
-  assert.match(mobileProxySource, /User-Agent': DESKTOP_USER_AGENT/)
-  assert.match(mobileProxySource, /<base href="https:\/\/map\.baidu\.com\/">/)
-  assert.match(mobileProxySource, /frame-ancestors/)
-  assert.match(mobileProxySource, /removeHeader\('X-Frame-Options'\)/)
+test('legacy campus panorama endpoint only redirects to the external provider', () => {
+  assert.match(mobileProxySource, /sendRedirect\(event, BAIDU_CAMPUS_PAGE_URL, 302\)/)
+  assert.doesNotMatch(mobileProxySource, /response\.text\(\)/)
+  assert.doesNotMatch(mobileProxySource, /Content-Type.*text\/html/)
   assert.match(mobileProxySource, /assertRateLimit/)
-  assert.match(mobileProxySource, /stale-while-revalidate=86400/)
 })
 
 test('official Baidu panorama viewer exposes all 26 campus scenes with a safe fallback', () => {

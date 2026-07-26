@@ -12,6 +12,7 @@ import {
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
+  askGateway,
   answerCampusQuestion,
   assistantQueryTerms,
   isGatewayContentBlocked,
@@ -20,6 +21,17 @@ import {
 } from '../server/modules/assistant/service'
 
 const root = resolve(import.meta.dirname, '..')
+const emptyAssistantConfig = {
+  gatewayBaseUrl: '',
+  gatewayApiKey: '',
+  gatewayModel: '',
+  gatewayTimeoutMs: 1000,
+  mcpSearchUrl: '',
+  mcpSearchBearerToken: '',
+  mcpAllowedHosts: '',
+  mcpToolName: '',
+  mcpTimeoutMs: 1000
+}
 
 test('assistant routing keeps keyword search local and escalates unanswered questions only', () => {
   assert.equal(isQuestionLike('校园网'), false)
@@ -70,6 +82,58 @@ test('gateway moderation blocks produce the fixed refusal without treating outag
   const service = readFileSync(resolve(root, 'server/modules/assistant/service.ts'), 'utf8')
   assert.match(service, /message === 'AI_CONTENT_BLOCKED'/)
   assert.match(service, /answer: '禁止回答'/)
+})
+
+test('gateway moderation 403 maps to AI_CONTENT_BLOCKED', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: { category: 'prompt_injection', blocked: true }
+  }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json' }
+  })
+  try {
+    await assert.rejects(
+      askGateway('test question', [], {
+        ...emptyAssistantConfig,
+        gatewayBaseUrl: 'https://gateway.example.com',
+        gatewayApiKey: 'test-key',
+        gatewayModel: 'test-model'
+      }),
+      error => error instanceof Error && error.message === 'AI_CONTENT_BLOCKED'
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('gateway request is canceled when the client abort signal fires', async () => {
+  const originalFetch = globalThis.fetch
+  const controller = new AbortController()
+  let upstreamSignal: AbortSignal | undefined
+  globalThis.fetch = async (_input, init) => {
+    upstreamSignal = init?.signal as AbortSignal
+    return await new Promise<Response>((_resolve, reject) => {
+      upstreamSignal?.addEventListener('abort', () => reject(upstreamSignal?.reason), { once: true })
+    })
+  }
+  try {
+    const pending = askGateway('test cancellation', [], {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model',
+      signal: controller.signal
+    })
+    controller.abort(new Error('CLIENT_ABORTED'))
+    await assert.rejects(
+      pending,
+      error => error instanceof Error && error.message === 'CLIENT_ABORTED'
+    )
+    assert.equal(upstreamSignal?.aborted, true)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })
 
 test('assistant retrieval ranks opening dates and indexes nested article sections', () => {

@@ -294,7 +294,7 @@ onMounted(async () => {
             <UButton
               v-if="deviceKeyAvailable && route.query.password === '1'"
               type="button"
-              icon="i-lucide-key-round-x"
+              icon="i-lucide-key-round"
               label="移除本机密钥"
               color="error"
               variant="ghost"

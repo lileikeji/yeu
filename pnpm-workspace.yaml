@@ -14,3 +14,5 @@ minimumReleaseAgeExclude:
 overrides:
   # Close GHSA-g7r4-m6w7-qqqr path for @nuxt/fonts fontless build tooling.
   fontless>esbuild: 0.28.1
+  # Keep the callable v2 API while using the bounded expansion from 5.0.8.
+  brace-expansion@2.1.2: file:vendor/brace-expansion-compat

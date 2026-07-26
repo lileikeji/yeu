@@ -21,13 +21,13 @@ test('parseBody only accepts application/json content types', () => {
   assert.equal(isAllowedJsonContentType('application/jsonx'), false)
 })
 
-test('JSON body size helper enforces 1 MiB cap', () => {
+test('JSON body size helper enforces 256 KiB cap', () => {
   assert.equal(isJsonBodyWithinLimit(0), true)
   assert.equal(isJsonBodyWithinLimit(MAX_JSON_BODY_BYTES), true)
   assert.equal(isJsonBodyWithinLimit(MAX_JSON_BODY_BYTES + 1), false)
   assert.equal(isJsonBodyWithinLimit(-1), false)
   assert.equal(isJsonBodyWithinLimit(Number.NaN), false)
-  assert.equal(MAX_JSON_BODY_BYTES, 1_048_576)
+  assert.equal(MAX_JSON_BODY_BYTES, 262_144)
 })
 
 test('parseBody source measures raw body and rejects non-JSON content types', () => {
