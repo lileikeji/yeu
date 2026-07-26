@@ -140,20 +140,19 @@ pnpm check:e2e
 首次启动（示意）：
 
 ```bash
-set -a
-source /www/wwwroot/yeu/shared/.env
-set +a
-test "$NUXT_DATABASE_PATH" = "/www/wwwroot/yeu/shared/data/yeu.sqlite"
-pm2 start /www/wwwroot/yeu/current/.output/server/index.mjs \
-  --name yeu \
-  --cwd /www/wwwroot/yeu/current \
-  --interpreter node \
-  --time
-pm2 save
-pm2 startup
+sudo systemctl enable --now yeu.service
+sudo systemctl is-enabled yeu.service
+sudo systemctl is-active yeu.service
 ```
 
-执行 `pm2 startup` 后按其输出、以有权限的管理员完成一次系统级命令。确认重启服务器后 PM2 能恢复，但不要把数据库路径或密钥写入公开的 ecosystem 文件。应用只监听 `127.0.0.1`，不直接暴露 Node 端口。
+生产服务器只使用 `yeu.service` 管理应用，不要再用 PM2 启动同一个 `yeu` 进程。两套守护会争抢
+`127.0.0.1:3000`，旧进程可能继续提供旧版本，而新进程只留下 `EADDRINUSE` 日志。
+
+如果在 Windows 构建 `.output` 后上传到 Linux，切换 `current` 前必须把
+`.output/server/node_modules/better-sqlite3/build/Release/better_sqlite3.node`
+替换为版本匹配的 Linux 构建。使用 `file` 验证结果必须是 ELF 共享对象，不能是 Windows PE32 DLL。
+
+确认 `yeu.service` 已启用且重启服务器后能自动恢复。不要再为同一个应用启用 PM2；应用只监听 `127.0.0.1`，不直接暴露 Node 端口。
 
 ### 4.1 管理员密码轮换与会话撤销
 
@@ -176,7 +175,7 @@ export NUXT_ADMIN_PASSWORD_HASH="$NEW_ADMIN_HASH"
 pnpm db:init --reset-admin
 unset NUXT_ADMIN_PASSWORD_HASH NEW_ADMIN_HASH
 
-pm2 restart yeu --update-env
+sudo systemctl restart yeu.service
 ```
 
 `--reset-admin` 在一个数据库事务中更新密码哈希、重新启用管理员并撤销该管理员的全部旧会话，不需要再手工修改 `admin_sessions`。完成后用新密码登录一次，确认旧浏览器会话已失效，并在受限运维记录中写明轮换时间、执行人和备份位置，不记录密码或哈希。
@@ -286,7 +285,7 @@ curl -sSI https://example.edu.cn/api/admin/auth/session | grep -Ei 'cache-contro
 3. 创建 SQLite 在线一致性备份并验证；
 4. 在与生产数据结构兼容的环境演练迁移；
 5. 运行只向前的生产迁移；
-6. 原子切换 `current` 软链接，`pm2 restart yeu --update-env`；
+6. 原子切换 `current` 软链接，`sudo systemctl restart yeu.service`；
 7. 执行健康检查和核心路径冒烟测试；
 8. 保留至少前两个可运行 release，再按策略清理旧版本。
 
@@ -295,15 +294,12 @@ curl -sSI https://example.edu.cn/api/admin/auth/session | grep -Ei 'cache-contro
 ```bash
 RELEASE=20260714-120000
 cd "/www/wwwroot/yeu/releases/${RELEASE}"
-set -a
-source /www/wwwroot/yeu/shared/.env
-set +a
-test "$NUXT_DATABASE_PATH" = "/www/wwwroot/yeu/shared/data/yeu.sqlite"
+export NUXT_ENV_FILE=/www/wwwroot/yeu/shared/.env
 pnpm db:migrate
 pnpm db:check
 pnpm build
 ln -sfn "/www/wwwroot/yeu/releases/${RELEASE}" /www/wwwroot/yeu/current
-pm2 restart yeu --update-env
+sudo systemctl restart yeu.service
 ```
 
 SQLite 单实例采用短暂停机重启，不用 PM2 cluster 或重叠写入追求“零停机”。
