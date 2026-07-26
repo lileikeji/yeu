@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
                 </span>
                 <span class="showcase-map-pin showcase-map-pin-end">
                   <UIcon name="i-lucide-map-pin" />
-                  <b>宏翔楼</b>
+                  <b>宏船楼</b>
                 </span>
               </div>
 
@@ -367,13 +367,13 @@ onBeforeUnmount(() => {
                 <p class="showcase-kicker">
                   路线已经找好
                 </p>
-                <h3>从 8 号门到宏翔楼</h3>
+                <h3>从 8 号门到宏船楼</h3>
                 <p>入口、目的地和步行方向都放在同一张图里，到校后不用再拼聊天截图。</p>
                 <div class="showcase-detail-status">
                   <UIcon name="i-lucide-circle-check-big" />
                   位置数据已核验
                 </div>
-                <NuxtLink to="/map?q=宏翔楼">
+                <NuxtLink to="/map?q=宏船楼">
                   打开真实地图
                   <UIcon name="i-lucide-arrow-right" />
                 </NuxtLink>

@@ -38,7 +38,7 @@ await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
 let restartOffsetMs = 0
 if (restartAfterLoad) {
   await page.waitForSelector('.showcase-root', { state: 'visible', timeout: 30_000 })
-  await page.waitForTimeout(800)
+  await page.waitForTimeout(2_500)
   restartOffsetMs = Date.now() - recordingStartedAt
   await page.evaluate(() => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }))

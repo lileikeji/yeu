@@ -49,6 +49,8 @@ test('showcase is isolated from the public layout and uses the real site assets'
   assert.match(pageSource, /K6/)
   assert.match(pageSource, /K2/)
   assert.match(pageSource, /K507/)
+  assert.match(pageSource, /宏船楼/)
+  assert.doesNotMatch(pageSource, /宏翔楼/)
   assert.doesNotMatch(pageSource, /contact-wechat|showcase-qr|yeu\.huiliyill\.cn/)
   assert.match(pageSource, /showcase-film-intro/)
   assert.match(pageSource, /新生最容易踩的坑/)
