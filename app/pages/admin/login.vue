@@ -6,6 +6,13 @@ import {
   resolveAdminLoginRedirectTarget,
   resolveAdminPostLoginTarget
 } from '~~/app/utils/admin-login-presentation'
+import {
+  forgetAdminDeviceKey,
+  hasAdminDeviceKey,
+  importAdminDeviceKey,
+  signAdminDeviceChallenge,
+  type AdminDeviceChallengePayload
+} from '~~/app/utils/admin-device-key'
 
 definePageMeta({ layout: false })
 
@@ -20,25 +27,89 @@ const password = ref('')
 const passwordVisible = ref(false)
 const submitting = ref(false)
 const checkingSession = ref(true)
+const deviceLoginActive = ref(false)
+const deviceImporting = ref(false)
+const deviceKeyAvailable = ref(false)
+const deviceKeyInput = ref<HTMLInputElement | null>(null)
 const errorMessage = ref('')
 
 function redirectTarget(): string {
   return resolveAdminLoginRedirectTarget(route.query.redirect)
 }
 
-async function checkExistingSession(): Promise<void> {
+async function checkExistingSession(): Promise<boolean> {
   checkingSession.value = true
 
   try {
     const payload = await $fetch<unknown>('/api/admin/auth/session', {
       credentials: 'include'
     })
-    if (isAdminSessionAuthenticated(payload)) await navigateTo(redirectTarget(), { replace: true })
+    if (isAdminSessionAuthenticated(payload)) {
+      await navigateTo(redirectTarget(), { replace: true })
+      return true
+    }
   } catch {
     // A missing or expired session is the expected login-page state.
   } finally {
     checkingSession.value = false
   }
+  return false
+}
+
+async function loginWithDevice(): Promise<void> {
+  if (!deviceKeyAvailable.value || deviceLoginActive.value) return
+  deviceLoginActive.value = true
+  errorMessage.value = ''
+
+  try {
+    const challenge = await $fetch<AdminDeviceChallengePayload>(
+      '/api/admin/auth/device/challenge',
+      {
+        method: 'POST',
+        credentials: 'include'
+      }
+    )
+    const proof = await signAdminDeviceChallenge(challenge)
+    const payload = await $fetch<unknown>('/api/admin/auth/device/verify', {
+      method: 'POST',
+      body: proof,
+      credentials: 'include'
+    })
+    await navigateTo(resolveAdminPostLoginTarget(payload, route.query.redirect), { replace: true })
+  } catch {
+    errorMessage.value = '设备密钥验证失败，请使用密码登录或重新导入密钥。'
+  } finally {
+    deviceLoginActive.value = false
+  }
+}
+
+function chooseDeviceKey(): void {
+  deviceKeyInput.value?.click()
+}
+
+async function importDeviceKey(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  deviceImporting.value = true
+  errorMessage.value = ''
+  try {
+    await importAdminDeviceKey(await file.text())
+    deviceKeyAvailable.value = true
+    await loginWithDevice()
+  } catch {
+    errorMessage.value = '设备密钥无效，请选择服务器为本设备生成的密钥文件。'
+  } finally {
+    deviceImporting.value = false
+  }
+}
+
+async function forgetDeviceKey(): Promise<void> {
+  await forgetAdminDeviceKey()
+  deviceKeyAvailable.value = false
+  errorMessage.value = ''
 }
 
 async function login(): Promise<void> {
@@ -67,8 +138,14 @@ async function login(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  void checkExistingSession()
+onMounted(async () => {
+  if (await checkExistingSession()) return
+  try {
+    deviceKeyAvailable.value = await hasAdminDeviceKey()
+  } catch {
+    deviceKeyAvailable.value = false
+  }
+  if (route.query.password !== '1') await loginWithDevice()
 })
 </script>
 
@@ -194,6 +271,39 @@ onMounted(() => {
               :loading="submitting || checkingSession"
             />
           </form>
+
+          <div class="mt-5 border-t border-zinc-200 pt-5">
+            <input
+              ref="deviceKeyInput"
+              type="file"
+              accept=".json,application/json"
+              class="hidden"
+              @change="importDeviceKey"
+            >
+            <UButton
+              type="button"
+              icon="i-lucide-key-round"
+              :label="deviceKeyAvailable ? '使用本机设备密钥' : '导入设备密钥'"
+              color="neutral"
+              variant="outline"
+              size="lg"
+              block
+              :loading="deviceLoginActive || deviceImporting"
+              @click="deviceKeyAvailable ? loginWithDevice() : chooseDeviceKey()"
+            />
+            <UButton
+              v-if="deviceKeyAvailable && route.query.password === '1'"
+              type="button"
+              icon="i-lucide-key-round-x"
+              label="移除本机密钥"
+              color="error"
+              variant="ghost"
+              size="sm"
+              block
+              class="mt-2"
+              @click="forgetDeviceKey"
+            />
+          </div>
         </div>
 
         <div class="mt-5 flex items-center justify-between text-xs text-zinc-500">

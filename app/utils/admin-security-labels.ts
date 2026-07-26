@@ -34,6 +34,8 @@ export const adminAuditActionLabels: Record<string, string> = {
   'auth.login': '管理员登录',
   'admin.login_failed': '管理员登录失败',
   'auth.login_failed': '管理员登录失败',
+  'auth.device_login': '设备密钥登录',
+  'auth.device_login_failed': '设备密钥登录失败',
   user_login: '用户登录',
   'admin.logout': '管理员登出',
   'auth.logout': '管理员登出',

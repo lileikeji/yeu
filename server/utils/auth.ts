@@ -196,6 +196,18 @@ export async function loginAdmin(
     })
   }
 
+  return establishAdminSession(event, client, user.id, true, 'auth.login')
+}
+
+function establishAdminSession(
+  event: H3Event,
+  client: DatabaseClient,
+  adminId: string,
+  replaceExisting: boolean,
+  auditAction: string,
+  auditDetails?: Record<string, unknown>
+): AdminSessionContext {
+  const now = Date.now()
   const security = getSecurityConfig(event)
   const sessionToken = createOpaqueToken()
   const csrfToken = createOpaqueToken()
@@ -203,10 +215,12 @@ export async function loginAdmin(
   const expiresAt = now + security.ttlMs
 
   client.db.transaction((transaction) => {
-    transaction.delete(adminSessions).where(eq(adminSessions.adminUserId, user.id)).run()
+    if (replaceExisting) {
+      transaction.delete(adminSessions).where(eq(adminSessions.adminUserId, adminId)).run()
+    }
     transaction.insert(adminSessions).values({
       id: sessionId,
-      adminUserId: user.id,
+      adminUserId: adminId,
       tokenHash: hashOpaqueToken(security.secret, 'session', sessionToken),
       csrfTokenHash: hashOpaqueToken(security.secret, 'csrf', csrfToken),
       expiresAt,
@@ -216,23 +230,67 @@ export async function loginAdmin(
     transaction.update(adminUsers).set({
       lastLoginAt: now,
       updatedAt: now
-    }).where(eq(adminUsers.id, user.id)).run()
+    }).where(eq(adminUsers.id, adminId)).run()
   })
 
   setAuthCookies(event, sessionToken, csrfToken, expiresAt, security.secureCookies)
   writeAudit(client, event, {
-    actorAdminId: user.id,
-    action: 'auth.login',
+    actorAdminId: adminId,
+    action: auditAction,
     entityType: 'admin',
-    entityId: user.id
+    entityId: adminId,
+    details: auditDetails
   })
 
   return {
-    admin: getAdminIdentity(client, user.id) ?? unauthorized(),
+    admin: getAdminIdentity(client, adminId) ?? unauthorized(),
     sessionId,
     expiresAt,
     csrfToken
   }
+}
+
+export function loginAdminWithDevice(
+  event: H3Event,
+  client: DatabaseClient,
+  username: string,
+  keyId: string
+): AdminSessionContext {
+  assertTrustedOrigin(event)
+  const ip = requestIp(event)
+  assertRateLimit(event, `admin-device-login:${ip}`, 6, 15 * 60 * 1000, client)
+
+  const user = client.db.select({
+    id: adminUsers.id,
+    username: adminUsers.username,
+    role: adminUsers.role,
+    isActive: adminUsers.isActive
+  }).from(adminUsers)
+    .where(eq(adminUsers.username, username))
+    .get()
+
+  if (!user || !user.isActive || user.role !== 'super') {
+    writeAudit(client, event, {
+      actorAdminId: null,
+      action: 'auth.device_login_failed',
+      entityType: 'admin',
+      details: { username, keyId }
+    })
+    throw createError({
+      statusCode: 401,
+      statusMessage: 'Device authentication failed',
+      data: { code: 'ADMIN_DEVICE_AUTH_FAILED' }
+    })
+  }
+
+  return establishAdminSession(
+    event,
+    client,
+    user.id,
+    false,
+    'auth.device_login',
+    { keyId }
+  )
 }
 
 export function getOptionalAdminSession(

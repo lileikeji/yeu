@@ -20,12 +20,18 @@ export default defineEventHandler((event) => {
 
   const client = useAppDatabase(event)
 
-  if (pathname !== '/api/admin/auth/login') {
+  const publicAuthPaths = new Set([
+    '/api/admin/auth/login',
+    '/api/admin/auth/device/challenge',
+    '/api/admin/auth/device/verify'
+  ])
+
+  if (!publicAuthPaths.has(pathname)) {
     const ip = getClientIpAddress(event)
     assertRateLimit(event, `admin-api:${ip}`, 240, 60 * 1000, client)
   }
 
-  if (pathname === '/api/admin/auth/login') return
+  if (publicAuthPaths.has(pathname)) return
 
   if (pathname === '/api/admin/auth/session' && method === 'GET') return
 
