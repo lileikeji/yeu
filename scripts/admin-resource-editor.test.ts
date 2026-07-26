@@ -22,6 +22,10 @@ test('admin resource editor owns modal presentation and dynamic field rendering'
   assert.match(editorSource, /field\.type === 'textarea' \|\| field\.type === 'json'/)
   assert.match(editorSource, /field\.type === 'select'/)
   assert.match(editorSource, /field\.type === 'checkbox'/)
+  assert.match(editorSource, /field\.type === 'image-list'/)
+  assert.match(editorSource, /field\.type === 'tel-list'/)
+  assert.match(editorSource, /multiple/)
+  assert.match(editorSource, /添加联系电话/)
   assert.match(editorSource, /getAdminResourceFieldInputType\(field\)/)
 })
 

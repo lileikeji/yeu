@@ -150,6 +150,8 @@ export function getAdminResourceFieldSpan(field: AdminFieldDefinition): string {
   if (field.span === 'full'
     || field.type === 'textarea'
     || field.type === 'json'
+    || field.type === 'image-list'
+    || field.type === 'tel-list'
     || field.type === 'checkbox') {
     return 'sm:col-span-2'
   }

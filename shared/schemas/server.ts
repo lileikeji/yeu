@@ -213,6 +213,24 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
       })
     }
   }
+  const groupQrUrls = value.groupQrUrls
+  if (groupQrUrls !== undefined) {
+    if (!Array.isArray(groupQrUrls)
+      || groupQrUrls.length > 8
+      || groupQrUrls.some(item => typeof item !== 'string' || !UPLOADED_IMAGE_URL_PATTERN.test(item))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['groupQrUrls'],
+        message: 'groupQrUrls must contain at most 8 uploaded image URLs'
+      })
+    } else if (new Set(groupQrUrls).size !== groupQrUrls.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['groupQrUrls'],
+        message: 'groupQrUrls must not contain duplicate URLs'
+      })
+    }
+  }
   for (const [key, maxLength] of [
     ['contactName', 120],
     ['contactPhone', 120],
@@ -226,6 +244,24 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
         code: 'custom',
         path: [key],
         message: `${key} must be a string no longer than ${maxLength} characters`
+      })
+    }
+  }
+  const contactPhones = value.contactPhones
+  if (contactPhones !== undefined) {
+    if (!Array.isArray(contactPhones)
+      || contactPhones.length > 12
+      || contactPhones.some(item => typeof item !== 'string' || !item.trim() || item.trim().length > 40)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['contactPhones'],
+        message: 'contactPhones must contain at most 12 non-empty strings of 40 characters or fewer'
+      })
+    } else if (new Set(contactPhones.map(item => item.trim())).size !== contactPhones.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['contactPhones'],
+        message: 'contactPhones must not contain duplicate numbers'
       })
     }
   }

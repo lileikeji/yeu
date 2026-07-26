@@ -574,10 +574,10 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['club'] }
       },
       {
-        key: 'metadata.groupQrUrl',
-        label: '群聊二维码',
-        type: 'image',
-        description: '上传当前有效的群聊二维码；过期后请及时替换或清除。',
+        key: 'metadata.groupQrUrls',
+        label: '招新与群聊二维码',
+        type: 'image-list',
+        description: '最多上传 8 张，可同时展示不同招新群、校区群或交流群二维码。',
         group: '群聊与负责人',
         span: 'half',
         condition: { key: 'kind', values: ['department', 'club'] }
@@ -599,10 +599,10 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['department', 'club'] }
       },
       {
-        key: 'metadata.contactPhone',
+        key: 'metadata.contactPhones',
         label: '负责人电话',
-        type: 'tel',
-        description: '前台同时提供复制号码和拨打电话两个操作。',
+        type: 'tel-list',
+        description: '可添加多个联系电话，前台会为每个号码提供复制和拨打操作。',
         group: '群聊与负责人',
         condition: { key: 'kind', values: ['department', 'club'] }
       },
@@ -723,7 +723,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
           'amap-workmap': '高德工作地图（授权导入）',
           'social-platform': '社交平台',
           'field-verification': '现场确认',
-          other: '其他'
+          'other': '其他'
         }
       },
       { key: 'publisherName', label: '发布方' },

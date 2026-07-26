@@ -60,8 +60,8 @@ const phoneContacts = computed(() => parsePublicPhoneContacts(department.value?.
 const emailHref = computed(() => resolvePublicEmailHref(department.value?.email))
 const { copyText } = useShareActions()
 
-function copyDepartmentPhone(value: string) {
-  return copyText(value, '电话号码')
+async function copyDepartmentPhone(value: string): Promise<void> {
+  await copyText(value, '电话号码')
 }
 
 const contactSection = computed(() => resolveDepartmentContactSectionState(
@@ -69,9 +69,9 @@ const contactSection = computed(() => resolveDepartmentContactSectionState(
     phoneContacts.value.length
     || emailHref.value
     || department.value?.email?.trim()
-    || department.value?.groupQrUrl
+    || department.value?.groupQrUrls.length
     || department.value?.contactQrUrl
-    || department.value?.contactPhone
+    || department.value?.contactPhones.length
   )
 ))
 
@@ -311,9 +311,11 @@ const feedbackLink = computed(() => content.value
 
         <PublicCommunityContactPanel
           :group-qr-url="department.groupQrUrl"
+          :group-qr-urls="department.groupQrUrls"
           :contact-qr-url="department.contactQrUrl"
           :contact-name="department.contactName"
           :contact-phone="department.contactPhone"
+          :contact-phones="department.contactPhones"
         />
 
         <PublicSourceDetails

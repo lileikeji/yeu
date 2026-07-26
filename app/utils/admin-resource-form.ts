@@ -201,6 +201,14 @@ export function initializeAdminResourceForm(
     if (value === undefined && record && field.key === 'sourceIds') {
       value = getAdminResourceSourceIdsValue(record)
     }
+    if (value === undefined && record && field.key === 'metadata.groupQrUrls') {
+      const legacyValue = readAdminRecordPath(record, 'metadata.groupQrUrl')
+      value = typeof legacyValue === 'string' && legacyValue.trim() ? [legacyValue.trim()] : []
+    }
+    if (value === undefined && record && field.key === 'metadata.contactPhones') {
+      const legacyValue = readAdminRecordPath(record, 'metadata.contactPhone')
+      value = typeof legacyValue === 'string' && legacyValue.trim() ? [legacyValue.trim()] : []
+    }
     if (value === undefined) {
       value = field.defaultValue ?? (field.type === 'checkbox' ? false : '')
     }
@@ -208,6 +216,9 @@ export function initializeAdminResourceForm(
     if (field.type === 'date') value = toAdminResourceInputDate(value, false)
     if (field.type === 'datetime-local') value = toAdminResourceInputDate(value, true)
     if (field.type === 'json') value = serializeAdminResourceJsonField(value)
+    if ((field.type === 'image-list' || field.type === 'tel-list') && Array.isArray(value)) {
+      value = value.filter(item => typeof item === 'string').join('\n')
+    }
 
     if (typeof value === 'string'
       || typeof value === 'number'
@@ -255,6 +266,14 @@ export function normalizeAdminResourceFieldValue(
     } catch {
       throw new Error(`${field.label}格式不正确，请检查括号、引号和逗号。`)
     }
+  }
+
+  if (field.type === 'image-list' || field.type === 'tel-list') {
+    if (typeof value !== 'string') return []
+    return [...new Set(value
+      .split('\n')
+      .map(item => item.trim())
+      .filter(Boolean))]
   }
 
   return value

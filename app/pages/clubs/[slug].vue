@@ -62,14 +62,14 @@ const detailSources = computed(() => buildClubDetailSources(club.value?.sources)
 const contactActions = computed(() => resolvePublicContactActions(club.value?.contactMethod))
 const contactSection = computed(() => resolveClubContactSectionState(Boolean(
   contactActions.value.length
-  || club.value?.groupQrUrl
+  || club.value?.groupQrUrls.length
   || club.value?.contactQrUrl
-  || club.value?.contactPhone
+  || club.value?.contactPhones.length
 )))
 const { copyText } = useShareActions()
 
-function copyContactAction(value: string) {
-  return copyText(value, '联系方式')
+async function copyContactAction(value: string): Promise<void> {
+  await copyText(value, '联系方式')
 }
 </script>
 
@@ -274,7 +274,6 @@ function copyContactAction(value: string) {
           </dl>
         </section>
 
-
         <section
           v-if="contactSection.kind === 'pending'"
           class="border-b border-zinc-200 py-7"
@@ -306,9 +305,11 @@ function copyContactAction(value: string) {
 
         <PublicCommunityContactPanel
           :group-qr-url="club.groupQrUrl"
+          :group-qr-urls="club.groupQrUrls"
           :contact-qr-url="club.contactQrUrl"
           :contact-name="club.contactName"
           :contact-phone="club.contactPhone"
+          :contact-phones="club.contactPhones"
         />
 
         <PublicSourceDetails

@@ -215,9 +215,11 @@ export interface PublicDepartmentView {
   sortOrder: number
   featuredSummary: string | null
   groupQrUrl: string | null
+  groupQrUrls: string[]
   contactQrUrl: string | null
   contactName: string | null
   contactPhone: string | null
+  contactPhones: string[]
 }
 
 export interface PublicClubView {
@@ -234,9 +236,11 @@ export interface PublicClubView {
   sortOrder: number
   featuredSummary: string | null
   groupQrUrl: string | null
+  groupQrUrls: string[]
   contactQrUrl: string | null
   contactName: string | null
   contactPhone: string | null
+  contactPhones: string[]
   updatedAt: string
   sources: PublicSource[]
 }
@@ -294,6 +298,24 @@ function metadataUploadedImageUrl(content: ApiContent, key: string): string | nu
   return value && /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i.test(value)
     ? value
     : null
+}
+
+function metadataStringArray(content: ApiContent, key: string, legacyKey?: string): string[] {
+  const value = content.metadata[key]
+  const hasArrayValue = Array.isArray(value)
+  const items = hasArrayValue
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+  const legacyValue = !hasArrayValue && legacyKey ? metadataString(content, legacyKey) : null
+  return [...new Set([
+    ...items.map(item => item.trim()).filter(Boolean),
+    ...(legacyValue ? [legacyValue] : [])
+  ])]
+}
+
+function metadataUploadedImageUrls(content: ApiContent, key: string, legacyKey?: string): string[] {
+  return metadataStringArray(content, key, legacyKey)
+    .filter(value => /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i.test(value))
 }
 
 function sortConfiguredDirectoryItems<T extends { sortOrder: number, isFeatured: boolean, name: string }>(
@@ -679,6 +701,8 @@ export function resolvePublicGuide(
 function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): PublicDepartmentView {
   const sourceWebsite = content.sources.find(source => source.status === 'active')?.url ?? null
   const metadataWebsite = metadataString(content, 'website')
+  const groupQrUrls = metadataUploadedImageUrls(content, 'groupQrUrls', 'groupQrUrl')
+  const contactPhones = metadataStringArray(content, 'contactPhones', 'contactPhone')
 
   return {
     slug: content.slug,
@@ -699,10 +723,12 @@ function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): Pu
     isFeatured: content.isFeatured,
     sortOrder: Math.max(0, Math.round(metadataNumber(content, 'sortOrder') ?? 10000)),
     featuredSummary: metadataString(content, 'featuredSummary'),
-    groupQrUrl: metadataUploadedImageUrl(content, 'groupQrUrl'),
+    groupQrUrl: groupQrUrls[0] ?? null,
+    groupQrUrls,
     contactQrUrl: metadataUploadedImageUrl(content, 'contactQrUrl'),
     contactName: metadataString(content, 'contactName'),
-    contactPhone: metadataString(content, 'contactPhone')
+    contactPhone: contactPhones.join(' / ') || null,
+    contactPhones
   }
 }
 
@@ -733,9 +759,11 @@ export function mergePublicDepartments(
       sortOrder: 10000,
       featuredSummary: null,
       groupQrUrl: null,
+      groupQrUrls: [],
       contactQrUrl: null,
       contactName: null,
-      contactPhone: null
+      contactPhone: null,
+      contactPhones: []
     }]
   })
   const seedNames = new Set(seedDepartments.map(department => normalizeName(department.name)))
@@ -747,6 +775,8 @@ export function mergePublicDepartments(
 }
 
 function apiClubToView(content: ApiContent): PublicClubView {
+  const groupQrUrls = metadataUploadedImageUrls(content, 'groupQrUrls', 'groupQrUrl')
+  const contactPhones = metadataStringArray(content, 'contactPhones', 'contactPhone')
   return {
     id: content.id,
     slug: content.slug,
@@ -761,10 +791,12 @@ function apiClubToView(content: ApiContent): PublicClubView {
     isFeatured: content.isFeatured,
     sortOrder: Math.max(0, Math.round(metadataNumber(content, 'sortOrder') ?? 10000)),
     featuredSummary: metadataString(content, 'featuredSummary'),
-    groupQrUrl: metadataUploadedImageUrl(content, 'groupQrUrl'),
+    groupQrUrl: groupQrUrls[0] ?? null,
+    groupQrUrls,
     contactQrUrl: metadataUploadedImageUrl(content, 'contactQrUrl'),
     contactName: metadataString(content, 'contactName'),
-    contactPhone: metadataString(content, 'contactPhone'),
+    contactPhone: contactPhones.join(' / ') || null,
+    contactPhones,
     updatedAt: dateOnly(content.lastVerifiedAt ?? content.updatedAt),
     sources: toPublicSources(content)
   }
@@ -785,9 +817,11 @@ function staticClubToView(club: OfficialClub): PublicClubView {
     sortOrder: 10000,
     featuredSummary: null,
     groupQrUrl: null,
+    groupQrUrls: [],
     contactQrUrl: null,
     contactName: null,
     contactPhone: null,
+    contactPhones: [],
     updatedAt: club.source.accessedAt,
     sources: [studentFacingSource(club.source)]
   }

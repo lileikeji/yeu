@@ -155,6 +155,34 @@ test('form initialization applies defaults, nested values, sources and JSON text
   assert.equal(state.publishedAt, '2026-07-16')
 })
 
+test('multi-value community fields preserve arrays and migrate legacy singular metadata', () => {
+  const fields = [
+    field('metadata.groupQrUrls', 'image-list'),
+    field('metadata.contactPhones', 'tel-list')
+  ]
+  const state: FormState = {}
+  initializeAdminResourceForm(state, fields, {
+    metadata: {
+      groupQrUrl: '/uploads/123e4567-e89b-42d3-a456-426614174000.png',
+      contactPhone: '13800000000'
+    }
+  })
+
+  assert.equal(state['metadata.groupQrUrls'], '/uploads/123e4567-e89b-42d3-a456-426614174000.png')
+  assert.equal(state['metadata.contactPhones'], '13800000000')
+
+  state['metadata.groupQrUrls'] = '/uploads/123e4567-e89b-42d3-a456-426614174000.png\n/uploads/123e4567-e89b-42d3-a456-426614174001.webp'
+  state['metadata.contactPhones'] = '13800000000\n0595-12345678\n13800000000'
+  const payload = buildAdminResourcePayload(fields, state)
+  assert.deepEqual(payload.metadata, {
+    groupQrUrls: [
+      '/uploads/123e4567-e89b-42d3-a456-426614174000.png',
+      '/uploads/123e4567-e89b-42d3-a456-426614174001.webp'
+    ],
+    contactPhones: ['13800000000', '0595-12345678']
+  })
+})
+
 test('payload normalization handles dedupe, numbers, dates, select and nested JSON', () => {
   const fields = [
     field('sourceIds', 'textarea'),
