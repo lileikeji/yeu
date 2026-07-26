@@ -40,6 +40,7 @@ const showControls = computed(() => route.query.controls !== '0')
 let frameId: number | null = null
 let previousFrameAt = 0
 let controlsTimer: number | null = null
+let introTimer: number | null = null
 
 const activeScene = computed(() => showcaseScenes[sceneIndex.value] ?? showcaseScenes[0])
 const sceneProgress = computed(() => showcaseSceneProgress(
@@ -71,6 +72,25 @@ const completedChecklistCount = computed(() => showcaseCheckedCount(
   (sceneProgress.value - 0.15) / 0.68,
   3
 ))
+const cursorStyle = computed(() => {
+  const p = sceneProgress.value
+  const paths: Record<string, [number, number, number, number]> = {
+    arrival: [67, 40, 80, 67],
+    map: [38, 67, 76, 63],
+    panorama: [67, 48, 83, 70],
+    assistant: [29, 61, 77, 72],
+    checklist: [67, 50, 80, 72],
+    transport: [38, 57, 76, 62]
+  }
+  const path = paths[activeScene.value.id]
+  if (!path) return { opacity: 0 }
+  const eased = 1 - Math.pow(1 - p, 3)
+  return {
+    left: `${path[0] + (path[2] - path[0]) * eased}%`,
+    top: `${path[1] + (path[3] - path[1]) * eased}%`,
+    opacity: p > 0.08 && p < 0.94 ? 1 : 0
+  }
+})
 
 const checklistItems = [
   '确认自己的报到日期和校区',
@@ -107,6 +127,11 @@ function onIntroComplete(): void {
   previousFrameAt = 0
 }
 
+function scheduleIntroCompletion(): void {
+  if (introTimer !== null) window.clearTimeout(introTimer)
+  introTimer = window.setTimeout(onIntroComplete, SHOWCASE_INTRO_DURATION_MS)
+}
+
 async function restartShowcase(): Promise<void> {
   sceneIndex.value = 0
   sceneElapsedMs.value = 0
@@ -116,6 +141,7 @@ async function restartShowcase(): Promise<void> {
   await nextTick()
   introCycle.value += 1
   showIntro.value = true
+  scheduleIntroCompletion()
   revealControls()
 }
 
@@ -149,12 +175,14 @@ function handleKeydown(event: KeyboardEvent): void {
 onMounted(() => {
   frameId = window.requestAnimationFrame(tick)
   window.addEventListener('keydown', handleKeydown)
+  if (showIntro.value) scheduleIntroCompletion()
   revealControls()
 })
 
 onBeforeUnmount(() => {
   if (frameId !== null) window.cancelAnimationFrame(frameId)
   if (controlsTimer !== null) window.clearTimeout(controlsTimer)
+  if (introTimer !== null) window.clearTimeout(introTimer)
   window.removeEventListener('keydown', handleKeydown)
 })
 </script>
@@ -162,6 +190,8 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="showcase-root"
+    :data-scene="activeScene.id"
+    :style="{ '--scene-progress': sceneProgress }"
     @pointermove="revealControls"
   >
     <div class="showcase-device">
@@ -173,435 +203,492 @@ onBeforeUnmount(() => {
         class="showcase-frame"
         aria-label="仰恩新生指南展示"
       >
-        <ClientOnly>
-          <IntroOverlay
+        <Transition name="showcase-intro">
+          <section
             v-if="showIntro"
             :key="introCycle"
-            force
-            embedded
-            :auto-complete-ms="SHOWCASE_INTRO_DURATION_MS - 700"
-            @complete="onIntroComplete"
-          />
-        </ClientOnly>
-      <Transition
-        name="showcase-scene"
-        mode="out-in"
-      >
-        <section
-          v-if="activeScene.id === 'arrival'"
-          key="arrival"
-          class="showcase-scene showcase-arrival"
-        >
-          <img
-            src="/images/intro/yeu-campus-hero.webp"
-            alt="仰恩大学校园湖区与建筑"
-            width="1579"
-            height="889"
-            class="showcase-cover"
+            class="showcase-film-intro"
           >
-          <div class="showcase-arrival-shade" />
-
-          <div class="showcase-brand showcase-brand-light">
-            <span class="showcase-brand-mark">YEU</span>
-            <span>仰恩新生指南</span>
-          </div>
-
-          <div class="showcase-arrival-copy">
-            <p class="showcase-kicker showcase-kicker-light">
-              2026 新生到校第一步
-            </p>
-            <h1>第一次来仰恩，<br>也能把路走明白。</h1>
-            <p>搜地点、看路线、查流程。新生真正会用到的，都放到一处。</p>
-          </div>
-
-          <div class="showcase-search-panel">
-            <div class="showcase-window-bar">
-              <span />
-              <span />
-              <span />
-              <p>校园地点搜索</p>
-            </div>
-            <div class="showcase-search-box">
-              <UIcon
-                name="i-lucide-search"
-                class="size-5"
-              />
-              <span>{{ arrivalQuery }}</span>
-              <i v-if="sceneProgress < 0.55" />
-            </div>
-            <div
-              class="showcase-place-result"
-              :class="{ 'is-visible': sceneProgress > 0.48 }"
+            <img
+              src="/images/intro/yeu-campus-hero.webp"
+              alt=""
+              width="1579"
+              height="889"
             >
-              <span class="showcase-result-icon">
-                <UIcon
-                  name="i-lucide-building-2"
-                  class="size-5"
-                />
-              </span>
-              <div>
-                <strong>上海楼</strong>
-                <p>宿舍 · 已核验位置 · 可直接导航</p>
-              </div>
-              <UIcon
-                name="i-lucide-arrow-up-right"
-                class="size-5"
+            <div class="showcase-film-intro-shade" />
+            <div class="showcase-film-stars">
+              <i
+                v-for="star in 34"
+                :key="star"
+                :style="{
+                  '--star-index': star,
+                  '--star-x': `${(star * 37) % 96}%`,
+                  '--star-y': `${(star * 61) % 92}%`,
+                  'animationDelay': `${-star * 95}ms`
+                }"
               />
             </div>
-          </div>
-        </section>
-
-        <section
-          v-else-if="activeScene.id === 'map'"
-          key="map"
-          class="showcase-scene showcase-map-scene"
+            <div class="showcase-film-intro-orbit" />
+            <div class="showcase-film-intro-copy">
+              <span>YEU</span>
+              <p>YANG-EN UNIVERSITY</p>
+              <h1>仰恩新生指南</h1>
+              <b>把开学前最容易踩的坑，提前讲清楚</b>
+            </div>
+          </section>
+        </Transition>
+        <Transition
+          name="showcase-scene"
         >
-          <div class="showcase-scene-heading">
-            <div class="showcase-brand">
-              <span class="showcase-brand-mark">YEU</span>
-              <span>校园地图</span>
-            </div>
-            <div>
-              <p class="showcase-kicker">
-                校园平面图
-              </p>
-              <h2>找到地点，下一步怎么走也一起给你。</h2>
-            </div>
-          </div>
-
-          <div class="showcase-map-layout">
-            <div class="showcase-map-canvas">
-              <img
-                src="/images/yeu-campus-plan-2025.jpg"
-                alt="仰恩大学官方平面示意图"
-                width="8504"
-                height="3898"
-              >
-              <svg
-                class="showcase-route-layer"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <path
-                  class="showcase-route-shadow"
-                  d="M79 72 C75 70 73 69 69 68 C65 66 63 62 59 58"
-                  pathLength="100"
-                />
-                <path
-                  class="showcase-route-line"
-                  d="M79 72 C75 70 73 69 69 68 C65 66 63 62 59 58"
-                  pathLength="100"
-                />
-              </svg>
-              <span class="showcase-map-pin showcase-map-pin-start">
-                <UIcon name="i-lucide-door-open" />
-                <b>8号门</b>
-              </span>
-              <span class="showcase-map-pin showcase-map-pin-end">
-                <UIcon name="i-lucide-map-pin" />
-                <b>宏翔楼</b>
-              </span>
-            </div>
-
-            <aside
-              class="showcase-map-details"
-              :class="{ 'is-visible': sceneProgress > 0.32 }"
+          <section
+            v-if="activeScene.id === 'arrival'"
+            key="arrival"
+            class="showcase-scene showcase-arrival"
+          >
+            <img
+              src="/images/intro/yeu-campus-hero.webp"
+              alt="仰恩大学校园湖区与建筑"
+              width="1579"
+              height="889"
+              class="showcase-cover"
             >
-              <span class="showcase-detail-icon">
-                <UIcon name="i-lucide-route" />
-              </span>
-              <p class="showcase-kicker">
-                路线已经找好
-              </p>
-              <h3>从 8 号门到宏翔楼</h3>
-              <p>入口、目的地和步行方向都放在同一张图里，到校后不用再拼聊天截图。</p>
-              <div class="showcase-detail-status">
-                <UIcon name="i-lucide-circle-check-big" />
-                位置数据已核验
-              </div>
-              <NuxtLink to="/map?q=宏翔楼">
-                打开真实地图
-                <UIcon name="i-lucide-arrow-right" />
-              </NuxtLink>
-            </aside>
-          </div>
-        </section>
+            <div class="showcase-arrival-shade" />
 
-        <section
-          v-else-if="activeScene.id === 'panorama'"
-          key="panorama"
-          class="showcase-scene showcase-panorama-scene"
-        >
-          <div class="showcase-panorama-copy">
             <div class="showcase-brand showcase-brand-light">
               <span class="showcase-brand-mark">YEU</span>
-              <span>校园 360° 实景</span>
+              <span>仰恩新生指南</span>
             </div>
-            <p class="showcase-kicker showcase-kicker-light">
-              先在线逛校园
-            </p>
-            <h2>26 个校内实景，<br>开学前先逛一圈。</h2>
-            <p>大门、教学楼、宿舍、体育馆、篮球场和商店都能提前看看，到校时更容易认路。</p>
-            <div class="showcase-panorama-tags">
-              <span>大门</span>
-              <span>教学楼</span>
-              <span>学生公寓</span>
-              <span>体育馆</span>
-              <span>篮球场</span>
-              <span>商店</span>
-            </div>
-            <p class="showcase-panorama-note">
-              校内实景来自百度地图用户上传；实际环境有变化时，以到校后看到的为准。
-            </p>
-          </div>
 
-          <div
-            class="showcase-panorama-window"
-            :class="{ 'is-visible': sceneProgress > 0.12 }"
-          >
-            <div class="showcase-window-bar">
-              <span />
-              <span />
-              <span />
-              <p>仰恩大学 · 校园实景</p>
-            </div>
-            <iframe
-              :src="BAIDU_CAMPUS_PANORAMA_URL"
-              title="仰恩大学校园 360 度实景"
-              loading="eager"
-              referrerpolicy="strict-origin-when-cross-origin"
-            />
-            <div class="showcase-panorama-hint">
-              <UIcon name="i-lucide-mouse-pointer-2" />
-              拖动画面看四周，点击地点换位置
-            </div>
-          </div>
-        </section>
-
-        <section
-          v-else-if="activeScene.id === 'assistant'"
-          key="assistant"
-          class="showcase-scene showcase-assistant-scene"
-        >
-          <div class="showcase-assistant-header">
-            <div class="showcase-brand">
-              <span class="showcase-brand-mark">YEU</span>
-              <span>校园搜索</span>
-            </div>
-            <p>先查系统资料 · 找不到再检索网页 · 每个结论都保留来源</p>
-          </div>
-
-          <div class="showcase-assistant-layout">
-            <section class="showcase-question-panel">
-              <p class="showcase-kicker">
-                有问题直接问
+            <div class="showcase-arrival-copy">
+              <p class="showcase-kicker showcase-kicker-light">
+                2026 新生到校第一步
               </p>
-              <h2>你只管问，我们帮你把可靠资料找出来。</h2>
-              <div class="showcase-question-input">
-                <span>{{ assistantQuestion }}</span>
-                <i v-if="sceneProgress < 0.36" />
-                <UIcon name="i-lucide-arrow-up" />
-              </div>
-              <ol class="showcase-trace-list">
-                <li :class="{ 'is-visible': sceneProgress > 0.28 }">
-                  <UIcon name="i-lucide-scan-search" />
-                  <span>看懂你想问什么</span>
-                  <b>到校路线 · 附近公交</b>
-                </li>
-                <li :class="{ 'is-visible': sceneProgress > 0.36 }">
-                  <UIcon name="i-lucide-panels-top-left" />
-                  <span>先找站内已有答案</span>
-                  <b>到校与离校交通</b>
-                </li>
-                <li :class="{ 'is-visible': sceneProgress > 0.43 }">
-                  <UIcon name="i-lucide-database" />
-                  <span>核对线路和票价</span>
-                  <b>K6 · K2 · K507</b>
-                </li>
-                <li :class="{ 'is-visible': sceneProgress > 0.51 }">
-                  <UIcon name="i-lucide-file-check-2" />
-                  <span>把重点整理给你</span>
-                  <b>马上看懂</b>
-                </li>
-              </ol>
-            </section>
-
-            <article
-              class="showcase-answer-panel"
-              :class="{ 'is-visible': sceneProgress > 0.55 }"
-            >
-              <div class="showcase-answer-label">
-                <UIcon name="i-lucide-sparkles" />
-                已找到相关资料
-              </div>
-              <h3>泉州站，优先 K6 直达。</h3>
-              <p class="showcase-answer-copy">
-                {{ assistantAnswer }}<i v-if="sceneProgress < 0.9" />
-              </p>
-              <div class="showcase-answer-facts">
-                <span><b>50–70</b> 分钟</span>
-                <span><b>2 元</b> 全程一票制</span>
-                <span><b>0</b> 次换乘</span>
-              </div>
-              <div class="showcase-citation">
-                <UIcon name="i-lucide-shield-check" />
-                <span>来源：到校交通资料 · K6 线路资料 · 2026-07-26 核对</span>
-              </div>
-              <NuxtLink to="/transport">
-                查看完整路线
-                <UIcon name="i-lucide-arrow-up-right" />
-              </NuxtLink>
-            </article>
-          </div>
-        </section>
-
-        <section
-          v-else-if="activeScene.id === 'checklist'"
-          key="checklist"
-          class="showcase-scene showcase-checklist-scene"
-        >
-          <div class="showcase-checklist-copy">
-            <div class="showcase-brand">
-              <span class="showcase-brand-mark">YEU</span>
-              <span>新生清单</span>
+              <h1>第一次来仰恩，<br>也能把路走明白。</h1>
+              <p>搜地点、看路线、查流程。新生真正会用到的，都放到一处。</p>
             </div>
-            <p class="showcase-kicker">
-              到校前准备
-            </p>
-            <h2>要带什么、什么时候办，<br>按时间一项项完成。</h2>
-            <p>到校前、报到当天、入学第一周，做过的事会一直替你记着。</p>
-          </div>
 
-          <div class="showcase-countdown">
-            <span>报到倒计时</span>
-            <strong>41</strong>
-            <b>天</b>
-            <p>9月5–6日注册报到</p>
-          </div>
-
-          <div class="showcase-task-list">
-            <div class="showcase-task-progress">
-              <span>到校前</span>
-              <b>{{ completedChecklistCount }} / 3</b>
-            </div>
-            <div class="showcase-task-progress-line">
-              <i :style="{ width: `${completedChecklistCount / 3 * 100}%` }" />
-            </div>
-            <ul>
-              <li
-                v-for="(item, index) in checklistItems"
-                :key="item"
-                :class="{ 'is-checked': index < completedChecklistCount }"
+            <div class="showcase-search-panel">
+              <div class="showcase-window-bar">
+                <span />
+                <span />
+                <span />
+                <p>校园地点搜索</p>
+              </div>
+              <div class="showcase-search-box">
+                <UIcon
+                  name="i-lucide-search"
+                  class="size-5"
+                />
+                <span>{{ arrivalQuery }}</span>
+                <i v-if="sceneProgress < 0.55" />
+              </div>
+              <div
+                class="showcase-place-result"
+                :class="{ 'is-visible': sceneProgress > 0.48 }"
               >
-                <span>
+                <span class="showcase-result-icon">
                   <UIcon
-                    :name="index < completedChecklistCount ? 'i-lucide-check' : 'i-lucide-circle'"
-                    class="size-4"
+                    name="i-lucide-building-2"
+                    class="size-5"
                   />
                 </span>
-                {{ item }}
-              </li>
-            </ul>
-            <NuxtLink to="/checklist">
-              打开完整清单
-              <UIcon name="i-lucide-arrow-right" />
-            </NuxtLink>
-          </div>
-        </section>
-
-        <section
-          v-else
-          key="transport"
-          class="showcase-scene showcase-transport-scene"
-        >
-          <div class="showcase-transport-heading">
-            <div class="showcase-brand">
-              <span class="showcase-brand-mark">YEU</span>
-              <span>到校与离校交通</span>
+                <div>
+                  <strong>上海楼</strong>
+                  <p>宿舍 · 已核验位置 · 可直接导航</p>
+                </div>
+                <UIcon
+                  name="i-lucide-arrow-up-right"
+                  class="size-5"
+                />
+              </div>
             </div>
-            <div>
+          </section>
+
+          <section
+            v-else-if="activeScene.id === 'map'"
+            key="map"
+            class="showcase-scene showcase-map-scene"
+          >
+            <div class="showcase-scene-heading">
+              <div class="showcase-brand">
+                <span class="showcase-brand-mark">YEU</span>
+                <span>校园地图</span>
+              </div>
+              <div>
+                <p class="showcase-kicker">
+                  校园平面图
+                </p>
+                <h2>找到地点，下一步怎么走也一起给你。</h2>
+              </div>
+            </div>
+
+            <div class="showcase-map-layout">
+              <div class="showcase-map-canvas">
+                <img
+                  src="/images/yeu-campus-plan-2025.jpg"
+                  alt="仰恩大学官方平面示意图"
+                  width="8504"
+                  height="3898"
+                >
+                <svg
+                  class="showcase-route-layer"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    class="showcase-route-shadow"
+                    d="M79 72 C75 70 73 69 69 68 C65 66 63 62 59 58"
+                    pathLength="100"
+                  />
+                  <path
+                    class="showcase-route-line"
+                    d="M79 72 C75 70 73 69 69 68 C65 66 63 62 59 58"
+                    pathLength="100"
+                  />
+                </svg>
+                <span class="showcase-map-pin showcase-map-pin-start">
+                  <UIcon name="i-lucide-door-open" />
+                  <b>8号门</b>
+                </span>
+                <span class="showcase-map-pin showcase-map-pin-end">
+                  <UIcon name="i-lucide-map-pin" />
+                  <b>宏翔楼</b>
+                </span>
+              </div>
+
+              <aside
+                class="showcase-map-details"
+                :class="{ 'is-visible': sceneProgress > 0.32 }"
+              >
+                <span class="showcase-detail-icon">
+                  <UIcon name="i-lucide-route" />
+                </span>
+                <p class="showcase-kicker">
+                  路线已经找好
+                </p>
+                <h3>从 8 号门到宏翔楼</h3>
+                <p>入口、目的地和步行方向都放在同一张图里，到校后不用再拼聊天截图。</p>
+                <div class="showcase-detail-status">
+                  <UIcon name="i-lucide-circle-check-big" />
+                  位置数据已核验
+                </div>
+                <NuxtLink to="/map?q=宏翔楼">
+                  打开真实地图
+                  <UIcon name="i-lucide-arrow-right" />
+                </NuxtLink>
+              </aside>
+            </div>
+          </section>
+
+          <section
+            v-else-if="activeScene.id === 'panorama'"
+            key="panorama"
+            class="showcase-scene showcase-panorama-scene"
+          >
+            <div class="showcase-panorama-copy">
+              <div class="showcase-brand showcase-brand-light">
+                <span class="showcase-brand-mark">YEU</span>
+                <span>校园 360° 实景</span>
+              </div>
+              <p class="showcase-kicker showcase-kicker-light">
+                先在线逛校园
+              </p>
+              <h2>26 个校内实景，<br>开学前先逛一圈。</h2>
+              <p>大门、教学楼、宿舍、体育馆、篮球场和商店都能提前看看，到校时更容易认路。</p>
+              <div class="showcase-panorama-tags">
+                <span>大门</span>
+                <span>教学楼</span>
+                <span>学生公寓</span>
+                <span>体育馆</span>
+                <span>篮球场</span>
+                <span>商店</span>
+              </div>
+              <p class="showcase-panorama-note">
+                校内实景来自百度地图用户上传；实际环境有变化时，以到校后看到的为准。
+              </p>
+            </div>
+
+            <div
+              class="showcase-panorama-window"
+              :class="{ 'is-visible': sceneProgress > 0.12 }"
+            >
+              <div class="showcase-window-bar">
+                <span />
+                <span />
+                <span />
+                <p>仰恩大学 · 校园实景</p>
+              </div>
+              <iframe
+                :src="BAIDU_CAMPUS_PANORAMA_URL"
+                title="仰恩大学校园 360 度实景"
+                loading="eager"
+                referrerpolicy="strict-origin-when-cross-origin"
+              />
+              <div class="showcase-panorama-hint">
+                <UIcon name="i-lucide-mouse-pointer-2" />
+                拖动画面看四周，点击地点换位置
+              </div>
+            </div>
+          </section>
+
+          <section
+            v-else-if="activeScene.id === 'assistant'"
+            key="assistant"
+            class="showcase-scene showcase-assistant-scene"
+          >
+            <div class="showcase-assistant-header">
+              <div class="showcase-brand">
+                <span class="showcase-brand-mark">YEU</span>
+                <span>校园搜索</span>
+              </div>
+              <p>先查系统资料 · 找不到再检索网页 · 每个结论都保留来源</p>
+            </div>
+
+            <div class="showcase-assistant-layout">
+              <section class="showcase-question-panel">
+                <p class="showcase-kicker">
+                  有问题直接问
+                </p>
+                <h2>你只管问，我们帮你把可靠资料找出来。</h2>
+                <div class="showcase-question-input">
+                  <span>{{ assistantQuestion }}</span>
+                  <i v-if="sceneProgress < 0.36" />
+                  <UIcon name="i-lucide-arrow-up" />
+                </div>
+                <ol class="showcase-trace-list">
+                  <li :class="{ 'is-visible': sceneProgress > 0.28 }">
+                    <UIcon name="i-lucide-scan-search" />
+                    <span>看懂你想问什么</span>
+                    <b>到校路线 · 附近公交</b>
+                  </li>
+                  <li :class="{ 'is-visible': sceneProgress > 0.36 }">
+                    <UIcon name="i-lucide-panels-top-left" />
+                    <span>先找站内已有答案</span>
+                    <b>到校与离校交通</b>
+                  </li>
+                  <li :class="{ 'is-visible': sceneProgress > 0.43 }">
+                    <UIcon name="i-lucide-database" />
+                    <span>核对线路和票价</span>
+                    <b>K6 · K2 · K507</b>
+                  </li>
+                  <li :class="{ 'is-visible': sceneProgress > 0.51 }">
+                    <UIcon name="i-lucide-file-check-2" />
+                    <span>把重点整理给你</span>
+                    <b>马上看懂</b>
+                  </li>
+                </ol>
+              </section>
+
+              <article
+                class="showcase-answer-panel"
+                :class="{ 'is-visible': sceneProgress > 0.55 }"
+              >
+                <div class="showcase-answer-label">
+                  <UIcon name="i-lucide-sparkles" />
+                  已找到相关资料
+                </div>
+                <h3>泉州站，优先 K6 直达。</h3>
+                <p class="showcase-answer-copy">
+                  {{ assistantAnswer }}<i v-if="sceneProgress < 0.9" />
+                </p>
+                <div class="showcase-answer-facts">
+                  <span><b>50–70</b> 分钟</span>
+                  <span><b>2 元</b> 全程一票制</span>
+                  <span><b>0</b> 次换乘</span>
+                </div>
+                <div class="showcase-citation">
+                  <UIcon name="i-lucide-shield-check" />
+                  <span>来源：到校交通资料 · K6 线路资料 · 2026-07-26 核对</span>
+                </div>
+                <NuxtLink to="/transport">
+                  查看完整路线
+                  <UIcon name="i-lucide-arrow-up-right" />
+                </NuxtLink>
+              </article>
+            </div>
+          </section>
+
+          <section
+            v-else-if="activeScene.id === 'checklist'"
+            key="checklist"
+            class="showcase-scene showcase-checklist-scene"
+          >
+            <div class="showcase-checklist-copy">
+              <div class="showcase-brand">
+                <span class="showcase-brand-mark">YEU</span>
+                <span>新生清单</span>
+              </div>
               <p class="showcase-kicker">
-                到校前先看清
+                到校前准备
               </p>
-              <h2>从车站到校门，路线直接给到你。</h2>
+              <h2>要带什么、什么时候办，<br>按时间一项项完成。</h2>
+              <p>到校前、报到当天、入学第一周，做过的事会一直替你记着。</p>
             </div>
-          </div>
 
-          <div class="showcase-transport-layout">
-            <article
-              class="showcase-transit-route"
-              :class="{ 'is-visible': sceneProgress > 0.14 }"
-            >
-              <div class="showcase-transit-query">
-                <UIcon name="i-lucide-train-front" />
-                <span>泉州站</span>
-                <UIcon name="i-lucide-arrow-right" />
-                <span>仰恩大学</span>
-              </div>
-              <div class="showcase-bus-line">
-                <span class="showcase-bus-number">K6</span>
-                <div>
-                  <p>福厦铁路泉州站</p>
-                  <i />
-                  <p>仰恩大学第三校区</p>
-                </div>
-              </div>
-              <div class="showcase-transit-meta">
-                <span><b>50–70</b> 分钟</span>
-                <span><b>2 元</b> 全程一票制</span>
-                <span><b>直达</b> 不换乘</span>
-              </div>
-              <p class="showcase-transit-note">
-                K6 末班较早。具体发车时间、停靠站和临时调整，出发当天再看一次实时规划。
-              </p>
-            </article>
+            <div class="showcase-countdown">
+              <span>报到倒计时</span>
+              <strong>41</strong>
+              <b>天</b>
+              <p>9月5–6日注册报到</p>
+            </div>
 
-            <aside
-              class="showcase-nearby-lines"
-              :class="{ 'is-visible': sceneProgress > 0.28 }"
-            >
-              <div class="showcase-nearby-header">
-                <div>
-                  <p class="showcase-kicker">
-                    NEARBY TRANSIT
-                  </p>
-                  <h3>学校周边公交</h3>
-                </div>
-                <UIcon name="i-lucide-bus-front" />
+            <div class="showcase-task-list">
+              <div class="showcase-task-progress">
+                <span>到校前</span>
+                <b>{{ completedChecklistCount }} / 3</b>
+              </div>
+              <div class="showcase-task-progress-line">
+                <i :style="{ width: `${completedChecklistCount / 3 * 100}%` }" />
               </div>
               <ul>
-                <li>
-                  <b>K6</b>
-                  <span>泉州站 ↔ 仰恩大学第三校区</span>
-                  <em>直达动车站</em>
-                </li>
-                <li>
-                  <b>K2</b>
-                  <span>文化宫 ↔ 仰恩大学第三校区</span>
-                  <em>往返市区</em>
-                </li>
-                <li>
-                  <b>K507</b>
-                  <span>泉州东站方向换乘参考</span>
-                  <em>当天重查</em>
+                <li
+                  v-for="(item, index) in checklistItems"
+                  :key="item"
+                  :class="{ 'is-checked': index < completedChecklistCount }"
+                >
+                  <span>
+                    <UIcon
+                      :name="index < completedChecklistCount ? 'i-lucide-check' : 'i-lucide-circle'"
+                      class="size-4"
+                    />
+                  </span>
+                  {{ item }}
                 </li>
               </ul>
-              <div class="showcase-transit-status">
-                <UIcon name="i-lucide-circle-check-big" />
-                已找到站内线路信息，并结合当天高德路线
-              </div>
-            </aside>
-          </div>
-        </section>
-      </Transition>
+              <NuxtLink to="/checklist">
+                打开完整清单
+                <UIcon name="i-lucide-arrow-right" />
+              </NuxtLink>
+            </div>
+          </section>
 
-      <div
-        class="showcase-timeline"
-        aria-hidden="true"
-      >
-        <i :style="{ width: `${totalProgress * 100}%` }" />
-      </div>
+          <section
+            v-else-if="activeScene.id === 'transport'"
+            key="transport"
+            class="showcase-scene showcase-transport-scene"
+          >
+            <div class="showcase-transport-heading">
+              <div class="showcase-brand">
+                <span class="showcase-brand-mark">YEU</span>
+                <span>到校与离校交通</span>
+              </div>
+              <div>
+                <p class="showcase-kicker">
+                  到校前先看清
+                </p>
+                <h2>从车站到校门，路线直接给到你。</h2>
+              </div>
+            </div>
+
+            <div class="showcase-transport-layout">
+              <article
+                class="showcase-transit-route"
+                :class="{ 'is-visible': sceneProgress > 0.14 }"
+              >
+                <div class="showcase-transit-query">
+                  <UIcon name="i-lucide-train-front" />
+                  <span>泉州站</span>
+                  <UIcon name="i-lucide-arrow-right" />
+                  <span>仰恩大学</span>
+                </div>
+                <div class="showcase-bus-line">
+                  <span class="showcase-bus-number">K6</span>
+                  <div>
+                    <p>福厦铁路泉州站</p>
+                    <i />
+                    <p>仰恩大学第三校区</p>
+                  </div>
+                </div>
+                <div class="showcase-transit-meta">
+                  <span><b>50–70</b> 分钟</span>
+                  <span><b>2 元</b> 全程一票制</span>
+                  <span><b>直达</b> 不换乘</span>
+                </div>
+                <p class="showcase-transit-note">
+                  K6 末班较早。具体发车时间、停靠站和临时调整，出发当天再看一次实时规划。
+                </p>
+              </article>
+
+              <aside
+                class="showcase-nearby-lines"
+                :class="{ 'is-visible': sceneProgress > 0.28 }"
+              >
+                <div class="showcase-nearby-header">
+                  <div>
+                    <p class="showcase-kicker">
+                      NEARBY TRANSIT
+                    </p>
+                    <h3>学校周边公交</h3>
+                  </div>
+                  <UIcon name="i-lucide-bus-front" />
+                </div>
+                <ul>
+                  <li>
+                    <b>K6</b>
+                    <span>泉州站 ↔ 仰恩大学第三校区</span>
+                    <em>直达动车站</em>
+                  </li>
+                  <li>
+                    <b>K2</b>
+                    <span>文化宫 ↔ 仰恩大学第三校区</span>
+                    <em>往返市区</em>
+                  </li>
+                  <li>
+                    <b>K507</b>
+                    <span>泉州东站方向换乘参考</span>
+                    <em>当天重查</em>
+                  </li>
+                </ul>
+                <div class="showcase-transit-status">
+                  <UIcon name="i-lucide-circle-check-big" />
+                  已找到站内线路信息，并结合当天高德路线
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <section
+            v-else
+            key="outro"
+            class="showcase-scene showcase-outro-scene"
+          >
+            <img
+              src="/images/intro/yeu-campus-hero.webp"
+              alt=""
+              width="1579"
+              height="889"
+              class="showcase-cover"
+            >
+            <div class="showcase-outro-shade" />
+            <div class="showcase-outro-orbit showcase-outro-orbit-one" />
+            <div class="showcase-outro-orbit showcase-outro-orbit-two" />
+            <div class="showcase-outro-copy">
+              <span class="showcase-outro-mark">YEU</span>
+              <p>仰恩新生指南</p>
+              <h2>把新生最容易踩的坑，<br>提前整理清楚。</h2>
+              <div class="showcase-outro-line" />
+              <span>开学前看一遍 · 到校以后少走弯路</span>
+            </div>
+          </section>
+        </Transition>
+
+        <span
+          v-if="!showIntro && activeScene.id !== 'outro'"
+          class="showcase-demo-cursor"
+          :style="cursorStyle"
+          aria-hidden="true"
+        >
+          <UIcon name="i-lucide-mouse-pointer-2" />
+          <i />
+        </span>
+
+        <div
+          class="showcase-timeline"
+          aria-hidden="true"
+        >
+          <i :style="{ width: `${totalProgress * 100}%` }" />
+        </div>
       </main>
       <div
         class="showcase-device-chin"
@@ -653,6 +740,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .showcase-root {
+  --scene-progress: 0;
   min-height: 100dvh;
   overflow: hidden;
   display: grid;
@@ -664,6 +752,17 @@ onBeforeUnmount(() => {
     linear-gradient(145deg, #071b16 0%, #0d3025 50%, #061510 100%);
   color: #17211d;
   font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
+
+.showcase-root::before {
+  position: fixed;
+  inset: -22%;
+  background:
+    radial-gradient(circle at 34% 48%, rgba(105, 207, 164, 0.12), transparent 25%),
+    radial-gradient(circle at 68% 45%, rgba(255, 198, 115, 0.1), transparent 22%);
+  content: "";
+  animation: showcase-ambient-drift 10s ease-in-out infinite alternate;
+  pointer-events: none;
 }
 
 .showcase-root::after {
@@ -682,6 +781,7 @@ onBeforeUnmount(() => {
   z-index: 1;
   width: min(88vw, calc(75vh * 16 / 9));
   filter: drop-shadow(0 40px 55px rgba(0, 8, 5, 0.54));
+  animation: showcase-device-breathe 7s ease-in-out infinite;
 }
 
 .showcase-device-camera {
@@ -712,6 +812,140 @@ onBeforeUnmount(() => {
     inset 0 0 0 1px rgba(255, 255, 255, 0.09),
     0 0 0 1px rgba(5, 9, 8, 0.84);
   isolation: isolate;
+}
+
+.showcase-film-intro {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #052319;
+}
+
+.showcase-film-intro > img {
+  position: absolute;
+  inset: -4%;
+  width: 108%;
+  height: 108%;
+  object-fit: cover;
+  filter: saturate(0.78) contrast(1.08);
+  animation: showcase-intro-push 2.6s ease-out both;
+}
+
+.showcase-film-intro-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 49%, rgba(17, 92, 65, 0.22), transparent 26%),
+    linear-gradient(180deg, rgba(3, 27, 19, 0.78), rgba(3, 27, 19, 0.9));
+}
+
+.showcase-film-stars {
+  position: absolute;
+  inset: 0;
+}
+
+.showcase-film-stars i {
+  position: absolute;
+  left: var(--star-x);
+  top: var(--star-y);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #f8ead2;
+  box-shadow: 0 0 11px rgba(255, 214, 146, 0.72);
+  animation: showcase-star-float 1.8s ease-in-out infinite alternate;
+}
+
+.showcase-film-stars i:nth-child(3n) {
+  width: 2px;
+  height: 2px;
+  background: #91e1bd;
+}
+
+.showcase-film-stars i:nth-child(4n) {
+  width: 5px;
+  height: 5px;
+  opacity: 0.56;
+}
+
+.showcase-film-intro-orbit {
+  position: absolute;
+  left: 50%;
+  top: 49%;
+  width: min(31vw, 310px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(213, 237, 225, 0.23);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: showcase-intro-orbit 2.3s ease-out both;
+}
+
+.showcase-film-intro-orbit::before,
+.showcase-film-intro-orbit::after {
+  position: absolute;
+  border-radius: 50%;
+  content: "";
+}
+
+.showcase-film-intro-orbit::before {
+  inset: 13%;
+  border: 1px dashed rgba(255, 201, 119, 0.36);
+}
+
+.showcase-film-intro-orbit::after {
+  right: 8%;
+  top: 18%;
+  width: 8px;
+  height: 8px;
+  background: #ffc477;
+  box-shadow: 0 0 22px rgba(255, 196, 119, 0.92);
+}
+
+.showcase-film-intro-copy {
+  position: relative;
+  z-index: 2;
+  color: white;
+  text-align: center;
+  animation: showcase-intro-copy 720ms 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.showcase-film-intro-copy > span {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.showcase-film-intro-copy p {
+  margin: 14px 0 0;
+  color: #bbdacb;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.24em;
+}
+
+.showcase-film-intro-copy h1 {
+  margin: 8px 0 0;
+  font-size: clamp(35px, 4vw, 54px);
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.showcase-film-intro-copy b {
+  display: block;
+  margin-top: 15px;
+  color: #e4eee9;
+  font-size: 13px;
+  font-weight: 550;
 }
 
 .showcase-device-chin {
@@ -754,12 +988,27 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+.showcase-scene::after {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(110deg, transparent 42%, rgba(255, 255, 255, 0.035) 50%, transparent 58%);
+  background-position: -120% 0;
+  background-size: 220% 100%;
+  content: "";
+  animation: showcase-screen-sheen 4s ease-in-out forwards;
+  pointer-events: none;
+}
+
 .showcase-cover {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform-origin: 58% 48%;
+  animation: showcase-cover-push 4.2s ease-out forwards;
 }
 
 .showcase-brand {
@@ -843,6 +1092,7 @@ onBeforeUnmount(() => {
   background: rgba(247, 250, 248, 0.94);
   box-shadow: 0 28px 70px rgba(0, 20, 14, 0.32);
   padding: 28px;
+  animation: showcase-panel-rise 900ms 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .showcase-window-bar {
@@ -1454,6 +1704,146 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
+.showcase-outro-scene {
+  display: grid;
+  place-items: center;
+  background: #06261b;
+}
+
+.showcase-outro-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(2, 27, 18, 0.94), rgba(2, 34, 23, 0.82) 54%, rgba(2, 27, 18, 0.68)),
+    radial-gradient(circle at 72% 42%, rgba(250, 195, 112, 0.22), transparent 28%);
+}
+
+.showcase-outro-orbit {
+  position: absolute;
+  left: 69%;
+  top: 45%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(218, 240, 227, 0.23);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.showcase-outro-orbit::before,
+.showcase-outro-orbit::after {
+  position: absolute;
+  border-radius: 50%;
+  content: "";
+}
+
+.showcase-outro-orbit::before {
+  inset: 12%;
+  border: 1px dashed rgba(255, 200, 116, 0.28);
+}
+
+.showcase-outro-orbit::after {
+  left: 50%;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  background: #ffc476;
+  box-shadow: 0 0 24px rgba(255, 196, 118, 0.86);
+}
+
+.showcase-outro-orbit-one {
+  width: 38%;
+  animation: showcase-orbit-spin 12s linear infinite;
+}
+
+.showcase-outro-orbit-two {
+  width: 24%;
+  opacity: 0.72;
+  animation: showcase-orbit-spin 8s linear infinite reverse;
+}
+
+.showcase-outro-copy {
+  position: relative;
+  z-index: 2;
+  width: min(84%, 760px);
+  color: white;
+  text-align: center;
+  animation: showcase-outro-reveal 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.showcase-outro-mark {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.showcase-outro-copy > p {
+  margin: 14px 0 0;
+  color: #c7dfd2;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.18em;
+}
+
+.showcase-outro-copy h2 {
+  margin: 26px 0 0;
+  font-size: clamp(38px, 4.5vw, 62px);
+  line-height: 1.16;
+  letter-spacing: -0.04em;
+}
+
+.showcase-outro-line {
+  width: 68px;
+  height: 3px;
+  margin: 25px auto 18px;
+  background: #ffc476;
+  animation: showcase-line-grow 850ms 500ms ease-out both;
+}
+
+.showcase-outro-copy > span:last-child {
+  color: #d6e7de;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.showcase-demo-cursor {
+  position: absolute;
+  z-index: 18;
+  width: 24px;
+  height: 24px;
+  color: white;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.72));
+  transform: translate(-4px, -3px);
+  transition: left 80ms linear, top 80ms linear, opacity 180ms ease;
+  pointer-events: none;
+}
+
+.showcase-demo-cursor > svg {
+  position: relative;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  fill: #143f30;
+  stroke-width: 1.7;
+}
+
+.showcase-demo-cursor > i {
+  position: absolute;
+  left: -12px;
+  top: -12px;
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgba(255, 190, 103, 0.74);
+  border-radius: 50%;
+  opacity: 0;
+  animation: showcase-cursor-pulse 1.35s ease-out infinite;
+}
+
 .showcase-timeline {
   position: absolute;
   z-index: 20;
@@ -1498,6 +1888,69 @@ onBeforeUnmount(() => {
 
 @keyframes showcase-route-draw { to { stroke-dashoffset: 0; } }
 @keyframes showcase-caret { 50% { opacity: 0; } }
+@keyframes showcase-intro-push {
+  from { transform: scale(1.04); }
+  to { transform: scale(1.11); }
+}
+@keyframes showcase-intro-orbit {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.7) rotate(-24deg); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(24deg); }
+}
+@keyframes showcase-intro-copy {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); filter: blur(6px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes showcase-star-float {
+  from { opacity: 0.25; transform: translate3d(-4px, 5px, 0) scale(0.7); }
+  to { opacity: 0.95; transform: translate3d(5px, -7px, 0) scale(1.25); }
+}
+@keyframes showcase-device-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.002); }
+}
+@keyframes showcase-ambient-drift {
+  from { transform: translate3d(-2%, 0, 0) rotate(-2deg); }
+  to { transform: translate3d(2%, -2%, 0) rotate(2deg); }
+}
+@keyframes showcase-cover-push {
+  from { transform: scale(1.035); }
+  to { transform: scale(1.075); }
+}
+@keyframes showcase-panel-rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes showcase-screen-sheen {
+  0%, 16% { background-position: -120% 0; opacity: 0; }
+  45% { opacity: 1; }
+  78%, 100% { background-position: 135% 0; opacity: 0; }
+}
+@keyframes showcase-cursor-pulse {
+  0%, 55% { opacity: 0; transform: scale(0.35); }
+  67% { opacity: 0.85; }
+  100% { opacity: 0; transform: scale(1.25); }
+}
+@keyframes showcase-orbit-spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes showcase-outro-reveal {
+  from { opacity: 0; transform: translateY(28px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes showcase-line-grow {
+  from { width: 0; opacity: 0; }
+  to { width: 68px; opacity: 1; }
+}
+
+.showcase-intro-leave-active {
+  transition: opacity 420ms ease, filter 420ms ease, transform 520ms ease;
+}
+
+.showcase-intro-leave-to {
+  opacity: 0;
+  filter: blur(5px);
+  transform: scale(1.025);
+}
 
 @media (min-width: 1600px) {
   .showcase-arrival-copy h1 { font-size: 64px; }

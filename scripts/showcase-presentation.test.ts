@@ -13,7 +13,6 @@ import {
 } from '../app/utils/showcase-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/showcase.vue'), 'utf8')
-const introSource = readFileSync(resolve('app/components/IntroOverlay.vue'), 'utf8')
 
 test('showcase timeline stays within a short-form video duration', () => {
   assert.deepEqual(showcaseScenes.map(scene => scene.id), [
@@ -22,10 +21,11 @@ test('showcase timeline stays within a short-form video duration', () => {
     'panorama',
     'assistant',
     'checklist',
-    'transport'
+    'transport',
+    'outro'
   ])
-  assert.ok(SHOWCASE_TOTAL_DURATION_MS >= 34_000)
-  assert.ok(SHOWCASE_TOTAL_DURATION_MS <= 38_000)
+  assert.ok(SHOWCASE_TOTAL_DURATION_MS >= 29_000)
+  assert.ok(SHOWCASE_TOTAL_DURATION_MS <= 31_000)
   assert.equal(showcaseSceneIndex('assistant'), 3)
   assert.equal(showcaseSceneIndex('missing'), 0)
 })
@@ -50,7 +50,7 @@ test('showcase is isolated from the public layout and uses the real site assets'
   assert.match(pageSource, /K2/)
   assert.match(pageSource, /K507/)
   assert.doesNotMatch(pageSource, /contact-wechat|showcase-qr|yeu\.huiliyill\.cn/)
-  assert.match(pageSource, /<IntroOverlay[\s\S]*embedded/)
+  assert.match(pageSource, /showcase-film-intro/)
+  assert.match(pageSource, /新生最容易踩的坑/)
   assert.match(pageSource, /SHOWCASE_TOTAL_DURATION_MS/)
-  assert.match(introSource, /autoCompleteMs/)
 })

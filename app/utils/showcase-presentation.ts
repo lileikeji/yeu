@@ -1,12 +1,13 @@
-export const SHOWCASE_INTRO_DURATION_MS = 4_200
+export const SHOWCASE_INTRO_DURATION_MS = 2_300
 
 export const showcaseScenes = [
-  { id: 'arrival', durationMs: 4_800 },
-  { id: 'map', durationMs: 5_600 },
-  { id: 'panorama', durationMs: 5_200 },
-  { id: 'assistant', durationMs: 6_600 },
-  { id: 'checklist', durationMs: 4_600 },
-  { id: 'transport', durationMs: 5_200 }
+  { id: 'arrival', durationMs: 4_000 },
+  { id: 'map', durationMs: 4_000 },
+  { id: 'panorama', durationMs: 4_000 },
+  { id: 'assistant', durationMs: 4_800 },
+  { id: 'checklist', durationMs: 3_400 },
+  { id: 'transport', durationMs: 4_000 },
+  { id: 'outro', durationMs: 3_200 }
 ] as const
 
 export type ShowcaseSceneId = typeof showcaseScenes[number]['id']
