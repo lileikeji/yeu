@@ -7,7 +7,12 @@ import { scholarships, studentRuleCatalog } from '../data/student-rules'
 import { buildStudentRuleSearchResults } from '../app/utils/student-rules-search'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { answerCampusQuestion, studentRuleEvidenceForQuery } from '../server/modules/assistant/service'
+import {
+  answerCampusQuestion,
+  cachedWebEvidenceForQuery,
+  studentRuleEvidenceForQuery,
+  storeWebEvidence
+} from '../server/modules/assistant/service'
 
 const assistantConfig = {
   gatewayBaseUrl: '',
@@ -44,6 +49,30 @@ test('ordinary search finds GPA, scholarship and leave rules', () => {
 test('assistant evidence ranks exact scholarship and GPA questions', () => {
   assert.equal(studentRuleEvidenceForQuery('吴庆星奖学金有什么要求')[0]?.title, '吴庆星奖学金')
   assert.equal(studentRuleEvidenceForQuery('86分绩点是多少')[0]?.title, '绩点公式与 GPA 计算器')
+})
+
+test('identity questions do not inherit a suffixed rule title', () => {
+  const evidence = studentRuleEvidenceForQuery('\u5434\u5e86\u661f\u662f\u8c01')
+  assert.equal(evidence.length, 0)
+})
+
+test('global RAG ranking ignores related web entries for identity questions', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-identity-rag-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    storeWebEvidence(client, '吴庆星是谁', [{
+      title: '吴庆星奖学金',
+      url: 'https://example.edu/scholarship',
+      snippet: '奖学金评审与申请条件。',
+      source: 'web'
+    }])
+    assert.deepEqual(cachedWebEvidenceForQuery(client, '吴庆星是谁'), [])
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('student rule questions use deterministic local answers', async () => {
