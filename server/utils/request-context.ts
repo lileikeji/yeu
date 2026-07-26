@@ -4,7 +4,21 @@ const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 export const BASE_SECURITY_HEADERS = {
-  'Content-Security-Policy': 'frame-ancestors \'none\'; base-uri \'self\'; object-src \'none\'; form-action \'self\'',
+  'Content-Security-Policy': [
+    'default-src \'self\'',
+    'base-uri \'self\'',
+    'object-src \'none\'',
+    'frame-ancestors \'none\'',
+    'form-action \'self\'',
+    'script-src \'self\' \'unsafe-inline\' https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
+    'style-src \'self\' \'unsafe-inline\' https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
+    'img-src \'self\' data: blob: https:',
+    'font-src \'self\' data:',
+    'connect-src \'self\' https: wss:',
+    'worker-src \'self\' blob:',
+    'manifest-src \'self\'',
+    'frame-src \'self\' https://map.baidu.com https://www.720yun.com'
+  ].join('; '),
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Content-Type-Options': 'nosniff',

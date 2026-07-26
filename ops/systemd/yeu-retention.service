@@ -1,0 +1,17 @@
+[Unit]
+Description=YEU sensitive-data retention cleanup
+After=yeu.service
+
+[Service]
+Type=oneshot
+User=yeu
+Group=yeu
+WorkingDirectory=/www/wwwroot/yeu/current
+EnvironmentFile=/www/wwwroot/yeu/shared/.env
+ExecStart=/opt/node-v22.18.0/bin/corepack pnpm security:cleanup
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/www/wwwroot/yeu/shared/data

@@ -1,0 +1,27 @@
+[Unit]
+Description=YEU QQ OneBot relay
+After=network-online.target yeu.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yeu
+Group=yeu
+WorkingDirectory=/www/wwwroot/yeu/current
+EnvironmentFile=/www/wwwroot/yeu/shared/.env
+ExecStart=/opt/node-v22.18.0/bin/node /www/wwwroot/yeu/current/scripts/qq-onebot-relay.mjs
+Restart=always
+RestartSec=3
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

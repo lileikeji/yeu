@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import type { ZodType } from 'zod'
 
 /** Reject oversized JSON bodies before full parse (DoS / memory). */
-export const MAX_JSON_BODY_BYTES = 1_048_576
+export const MAX_JSON_BODY_BYTES = 262_144
 
 function validationError(issues: Array<{ path: PropertyKey[], message: string }>) {
   return createError({

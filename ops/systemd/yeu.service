@@ -1,0 +1,38 @@
+[Unit]
+Description=YEU freshman guide
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yeu
+Group=yeu
+SupplementaryGroups=www
+WorkingDirectory=/www/wwwroot/yeu/current
+EnvironmentFile=/www/wwwroot/yeu/shared/.env
+Environment=NODE_ENV=production
+Environment=NITRO_HOST=127.0.0.1
+Environment=NITRO_PORT=3000
+ExecStart=/opt/node-v22.18.0/bin/node /www/wwwroot/yeu/current/.output/server/index.mjs
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+ReadWritePaths=/www/wwwroot/yeu/shared/data /www/wwwroot/yeu/shared/uploads /www/wwwroot/yeu/shared/logs /www/wwwroot/yeu/shared/monitor
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

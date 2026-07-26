@@ -131,11 +131,17 @@ const answerCache = new Map<string, { expiresAt: number, response: ApiAssistantR
 let activeGatewayCalls = 0
 let consecutiveGatewayFailures = 0
 let gatewayOpenUntil = 0
+let activeMcpCalls = 0
+let consecutiveMcpFailures = 0
+let mcpOpenUntil = 0
 
 const MIN_GATEWAY_TIMEOUT_MS = 60_000
 const MAX_GATEWAY_TIMEOUT_MS = 180_000
 const MIN_MCP_TIMEOUT_MS = 25_000
 const MAX_MCP_TIMEOUT_MS = 60_000
+const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
+const MAX_GATEWAY_OUTPUT_TOKENS = 800
+const MAX_MCP_CONCURRENCY = 2
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
   { id: 'quanzhou-east', terms: ['泉州东站', '东站'] },
@@ -1160,13 +1166,51 @@ async function mcpPost(
   })
   if (!response.ok) throw new Error(`MCP_${response.status}`)
   const sessionId = response.headers.get('Mcp-Session-Id') ?? ''
-  const text = await response.text()
+  const text = await readBoundedResponseText(response, MAX_EXTERNAL_RESPONSE_BYTES, 'MCP_RESPONSE_TOO_LARGE')
   if (!text) return { payload: {}, sessionId }
   if (response.headers.get('content-type')?.includes('text/event-stream')) {
     const data = text.split(/\r?\n/).filter(line => line.startsWith('data:')).at(-1)?.slice(5).trim()
     return { payload: data ? JSON.parse(data) : {}, sessionId }
   }
   return { payload: JSON.parse(text), sessionId }
+}
+
+async function readBoundedResponseText(
+  response: Response,
+  maxBytes: number,
+  errorCode: string
+): Promise<string> {
+  const declaredLength = Number(response.headers.get('content-length'))
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    throw new Error(errorCode)
+  }
+  if (!response.body) return ''
+
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+  try {
+    while (true) {
+      const result = await reader.read()
+      if (result.done) break
+      totalBytes += result.value.byteLength
+      if (totalBytes > maxBytes) {
+        await reader.cancel(errorCode)
+        throw new Error(errorCode)
+      }
+      chunks.push(result.value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const bytes = new Uint8Array(totalBytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(bytes)
 }
 
 function assistantKnowledgeHash(value: string): string {
@@ -1308,38 +1352,51 @@ export function storeWebEvidence(
 
 async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAssistantCitation[]> {
   if (!canSearchWeb(config)) return []
-  const url = new URL(config.mcpSearchUrl)
-  const timeoutMs = boundedTimeout(config.mcpTimeoutMs, MIN_MCP_TIMEOUT_MS, MAX_MCP_TIMEOUT_MS)
-  const headers: Record<string, string> = {
-    'Accept': 'application/json, text/event-stream',
-    'Content-Type': 'application/json'
+  if (mcpOpenUntil > Date.now()) throw new Error('MCP_CIRCUIT_OPEN')
+  if (activeMcpCalls >= MAX_MCP_CONCURRENCY) throw new Error('MCP_BUSY')
+  activeMcpCalls += 1
+
+  try {
+    const url = new URL(config.mcpSearchUrl)
+    const timeoutMs = boundedTimeout(config.mcpTimeoutMs, MIN_MCP_TIMEOUT_MS, MAX_MCP_TIMEOUT_MS)
+    const headers: Record<string, string> = {
+      'Accept': 'application/json, text/event-stream',
+      'Content-Type': 'application/json'
+    }
+    if (config.mcpSearchBearerToken) headers.Authorization = `Bearer ${config.mcpSearchBearerToken}`
+    const initialized = await mcpPost(url.toString(), headers, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'yeu-campus-assistant', version: '1.0.0' }
+      }
+    }, timeoutMs)
+    if (initialized.sessionId) headers['Mcp-Session-Id'] = initialized.sessionId
+    await mcpPost(url.toString(), headers, {
+      jsonrpc: '2.0',
+      method: 'notifications/initialized'
+    }, timeoutMs)
+    const result = await mcpPost(url.toString(), headers, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: config.mcpToolName,
+        arguments: { query: `仰恩大学 ${query}`, limit: 6 }
+      }
+    }, timeoutMs)
+    consecutiveMcpFailures = 0
+    return normalizeMcpResult(result.payload)
+  } catch (error) {
+    consecutiveMcpFailures += 1
+    if (consecutiveMcpFailures >= 3) mcpOpenUntil = Date.now() + 60_000
+    throw error
+  } finally {
+    activeMcpCalls -= 1
   }
-  if (config.mcpSearchBearerToken) headers.Authorization = `Bearer ${config.mcpSearchBearerToken}`
-  const initialized = await mcpPost(url.toString(), headers, {
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'initialize',
-    params: {
-      protocolVersion: '2025-06-18',
-      capabilities: {},
-      clientInfo: { name: 'yeu-campus-assistant', version: '1.0.0' }
-    }
-  }, timeoutMs)
-  if (initialized.sessionId) headers['Mcp-Session-Id'] = initialized.sessionId
-  await mcpPost(url.toString(), headers, {
-    jsonrpc: '2.0',
-    method: 'notifications/initialized'
-  }, timeoutMs)
-  const result = await mcpPost(url.toString(), headers, {
-    jsonrpc: '2.0',
-    id: 2,
-    method: 'tools/call',
-    params: {
-      name: config.mcpToolName,
-      arguments: { query: `仰恩大学 ${query}`, limit: 6 }
-    }
-  }, timeoutMs)
-  return normalizeMcpResult(result.payload)
 }
 
 function parseModelAnswer(payload: unknown, evidenceCount: number): ModelAnswer {
@@ -1388,6 +1445,7 @@ async function askGateway(
       body: JSON.stringify({
         model: config.gatewayModel,
         temperature: 0,
+        max_tokens: MAX_GATEWAY_OUTPUT_TOKENS,
         response_format: { type: 'json_object' },
         messages: [
           {
@@ -1406,7 +1464,11 @@ async function askGateway(
         MAX_GATEWAY_TIMEOUT_MS
       ))
     })
-    const responseText = await response.text()
+    const responseText = await readBoundedResponseText(
+      response,
+      MAX_EXTERNAL_RESPONSE_BYTES,
+      'AI_RESPONSE_TOO_LARGE'
+    )
     if (isGatewayContentBlocked(responseText)) throw new Error('AI_CONTENT_BLOCKED')
     if (!response.ok) throw new Error(`AI_GATEWAY_${response.status}`)
     let payload: unknown
