@@ -17,10 +17,22 @@ export function normalizeAssistantQuery(value: string): string {
   return value.normalize('NFKC').replace(/\s+/g, ' ').trim()
 }
 
+export function assistantIdentitySubject(value: string): string | null {
+  const normalized = normalizeAssistantQuery(value)
+    .toLocaleLowerCase('zh-CN')
+    .replace(/\s+/g, '')
+    .replace(/[?？。！!，,、；;]+$/u, '')
+  const match = normalized.match(/^(.{2,24}?)(?:是谁|是什么人|哪位|个人简介|简介)$/u)
+  const subject = match?.[1]?.trim()
+  return subject && subject.length >= 2 ? subject : null
+}
+
 export function isQuestionLike(value: string): boolean {
   const query = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
   if (query.length < 4) return false
-  return /[?？]$/.test(query) || QUESTION_MARKERS.some(marker => query.includes(marker))
+  return Boolean(assistantIdentitySubject(query))
+    || /[?？]$/.test(query)
+    || QUESTION_MARKERS.some(marker => query.includes(marker))
 }
 
 export function containsPromptInjection(value: string): boolean {
@@ -29,5 +41,8 @@ export function containsPromptInjection(value: string): boolean {
 }
 
 export function shouldRequestAssistantAnswer(value: string, localResultCount: number): boolean {
-  return localResultCount === 0 && isQuestionLike(value) && !containsPromptInjection(value)
+  const identityQuestion = Boolean(assistantIdentitySubject(value))
+  return (localResultCount === 0 || identityQuestion)
+    && isQuestionLike(value)
+    && !containsPromptInjection(value)
 }

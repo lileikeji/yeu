@@ -44,6 +44,7 @@ test('ordinary search finds GPA, scholarship and leave rules', () => {
   assert.equal(buildStudentRuleSearchResults('绩点怎么算')[0]?.title, '绩点公式与 GPA 计算器')
   assert.ok(buildStudentRuleSearchResults('国家奖学金要求').some(item => item.title === '国家奖学金'))
   assert.ok(buildStudentRuleSearchResults('学生怎么请假').some(item => item.title.includes('请销假')))
+  assert.deepEqual(buildStudentRuleSearchResults('吴庆星是谁'), [])
 })
 
 test('assistant evidence ranks exact scholarship and GPA questions', () => {

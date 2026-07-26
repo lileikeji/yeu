@@ -24,6 +24,7 @@ const root = resolve(import.meta.dirname, '..')
 test('assistant routing keeps keyword search local and escalates unanswered questions only', () => {
   assert.equal(isQuestionLike('校园网'), false)
   assert.equal(isQuestionLike('校园网怎么连接？'), true)
+  assert.equal(isQuestionLike('吴庆星是谁'), true)
   assert.equal(isQuestionLike('会计学属于哪个学院'), true)
   assert.equal(isQuestionLike('会计学新生住新区还是旧区'), true)
   assert.equal(isQuestionLike('宿舍床的尺寸'), true)
@@ -31,6 +32,7 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(isQuestionLike('奖助学金有哪些具体申请条件'), true)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 2), false)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 0), true)
+  assert.equal(shouldRequestAssistantAnswer('吴庆星是谁', 2), true)
   assert.equal(shouldRequestAssistantAnswer('校园网', 0), false)
 })
 

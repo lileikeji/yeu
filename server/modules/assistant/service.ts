@@ -29,7 +29,7 @@ import type {
   ApiAssistantTraceStep,
   ApiTransitPlanResponse
 } from '../../../shared/types/server'
-import { normalizeAssistantQuery } from '../../../shared/utils/assistant-query'
+import { assistantIdentitySubject, normalizeAssistantQuery } from '../../../shared/utils/assistant-query'
 import type { DatabaseClient } from '../../database/client'
 import {
   assistantWebKnowledge,
@@ -368,13 +368,7 @@ export function assistantQueryTerms(value: string): string[] {
 }
 
 function identitySubjectForQuery(value: string): string | null {
-  const normalized = normalizeAssistantQuery(value)
-    .toLocaleLowerCase('zh-CN')
-    .replace(/\s+/g, '')
-    .replace(/[?？。！!，,、；;]+$/u, '')
-  const match = normalized.match(/^(.{2,24}?)(?:是谁|是什么人|哪位|个人简介|简介)$/u)
-  const subject = match?.[1]?.trim()
-  return subject && subject.length >= 2 ? subject : null
+  return assistantIdentitySubject(value)
 }
 
 function assistantQueryProfile(value: string): AssistantQueryProfile {

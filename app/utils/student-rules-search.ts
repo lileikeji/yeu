@@ -1,6 +1,7 @@
 import { gpaRules, scholarships, studentRuleCatalog } from '~~/data/student-rules'
 import type { PublicSearchResult } from './public-search-presentation'
 import type { PublicSearchResultType } from '~~/shared/constants/server'
+import { assistantIdentitySubject } from '~~/shared/utils/assistant-query'
 
 function normalized(value: string): string {
   return value.toLocaleLowerCase('zh-CN').replace(/[\s，。！？、（）()-]/g, '')
@@ -22,6 +23,7 @@ export function buildStudentRuleSearchResults(
   activeType?: PublicSearchResultType
 ): PublicSearchResult[] {
   if (activeType && activeType !== 'guide') return []
+  if (assistantIdentitySubject(query)) return []
 
   const results: PublicSearchResult[] = []
   if (matches(query, [gpaRules.title, ...gpaRules.formulas, ...gpaRules.notes, '绩点 GPA 平均学分绩点 绩点计算器'])) {
