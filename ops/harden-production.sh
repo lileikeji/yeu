@@ -11,6 +11,7 @@ usermod -a -G www yeu
 
 chown root:yeu "$SHARED"
 chmod 0750 "$SHARED"
+setfacl -m u:www:--x "$SHARED"
 chown root:yeu "$SHARED/.env"
 chmod 0640 "$SHARED/.env"
 
@@ -38,6 +39,12 @@ for directory in nuxt-compat; do
   find "$SHARED/$directory" -type f -exec chown root:root {} +
   find "$SHARED/$directory" -type f -exec chmod 0644 {} +
 done
+
+install -d -o root -g root -m 0755 "$SHARED/public-extra"
+find "$SHARED/public-extra" -type d -exec chown root:root {} +
+find "$SHARED/public-extra" -type d -exec chmod 0755 {} +
+find "$SHARED/public-extra" -type f -exec chown root:root {} +
+find "$SHARED/public-extra" -type f -exec chmod 0644 {} +
 
 while IFS= read -r output; do
   find "$output" -type d -exec chown root:root {} +
