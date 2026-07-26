@@ -5,6 +5,7 @@ const props = defineProps<{
   groupQrUrl?: string | null
   groupQrUrls?: string[] | null
   contactQrUrl?: string | null
+  contactQrUrls?: string[] | null
   contactName?: string | null
   contactPhone?: string | null
   contactPhones?: string[] | null
@@ -14,6 +15,10 @@ const groupQrUrls = computed(() => [...new Set([
   ...(props.groupQrUrls ?? []),
   ...(props.groupQrUrl ? [props.groupQrUrl] : [])
 ].filter(Boolean))])
+const contactQrUrls = computed(() => [...new Set([
+  ...(props.contactQrUrls ?? []),
+  ...(props.contactQrUrl ? [props.contactQrUrl] : [])
+].filter(Boolean))])
 const phoneContacts = computed(() => {
   const contacts = [
     ...(props.contactPhones ?? []),
@@ -22,7 +27,7 @@ const phoneContacts = computed(() => {
   return [...new Map(contacts.map(contact => [contact.href, contact])).values()]
 })
 const hasContent = computed(() => Boolean(
-  groupQrUrls.value.length || props.contactQrUrl || props.contactName || phoneContacts.value.length
+  groupQrUrls.value.length || contactQrUrls.value.length || props.contactName || phoneContacts.value.length
 ))
 const { copyText } = useShareActions()
 
@@ -47,7 +52,7 @@ async function copyPhone(value: string): Promise<void> {
     </div>
 
     <div
-      v-if="groupQrUrls.length || contactQrUrl"
+      v-if="groupQrUrls.length || contactQrUrls.length"
       class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
     >
       <figure
@@ -69,7 +74,8 @@ async function copyPhone(value: string): Promise<void> {
         >
       </figure>
       <figure
-        v-if="contactQrUrl"
+        v-for="(qrUrl, index) in contactQrUrls"
+        :key="qrUrl"
         class="rounded-md border border-zinc-200 bg-white p-4"
       >
         <figcaption class="flex items-center gap-2 text-sm font-semibold text-zinc-900">
@@ -77,11 +83,11 @@ async function copyPhone(value: string): Promise<void> {
             name="i-lucide-user-round"
             class="size-4 text-green-700"
           />
-          {{ contactName || '负责人' }}二维码
+          {{ contactName || '负责人' }}二维码{{ contactQrUrls.length > 1 ? ` ${index + 1}` : '' }}
         </figcaption>
         <img
-          :src="contactQrUrl"
-          :alt="`${contactName || '负责人'}二维码`"
+          :src="qrUrl"
+          :alt="`${contactName || '负责人'}二维码第 ${index + 1} 张`"
           class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 bg-white object-contain"
         >
       </figure>

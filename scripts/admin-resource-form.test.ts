@@ -158,26 +158,34 @@ test('form initialization applies defaults, nested values, sources and JSON text
 test('multi-value community fields preserve arrays and migrate legacy singular metadata', () => {
   const fields = [
     field('metadata.groupQrUrls', 'image-list'),
+    field('metadata.contactQrUrls', 'image-list'),
     field('metadata.contactPhones', 'tel-list')
   ]
   const state: FormState = {}
   initializeAdminResourceForm(state, fields, {
     metadata: {
       groupQrUrl: '/uploads/123e4567-e89b-42d3-a456-426614174000.png',
+      contactQrUrl: '/uploads/123e4567-e89b-42d3-a456-426614174002.jpg',
       contactPhone: '13800000000'
     }
   })
 
   assert.equal(state['metadata.groupQrUrls'], '/uploads/123e4567-e89b-42d3-a456-426614174000.png')
+  assert.equal(state['metadata.contactQrUrls'], '/uploads/123e4567-e89b-42d3-a456-426614174002.jpg')
   assert.equal(state['metadata.contactPhones'], '13800000000')
 
   state['metadata.groupQrUrls'] = '/uploads/123e4567-e89b-42d3-a456-426614174000.png\n/uploads/123e4567-e89b-42d3-a456-426614174001.webp'
+  state['metadata.contactQrUrls'] = '/uploads/123e4567-e89b-42d3-a456-426614174002.jpg\n/uploads/123e4567-e89b-42d3-a456-426614174003.png'
   state['metadata.contactPhones'] = '13800000000\n0595-12345678\n13800000000'
   const payload = buildAdminResourcePayload(fields, state)
   assert.deepEqual(payload.metadata, {
     groupQrUrls: [
       '/uploads/123e4567-e89b-42d3-a456-426614174000.png',
       '/uploads/123e4567-e89b-42d3-a456-426614174001.webp'
+    ],
+    contactQrUrls: [
+      '/uploads/123e4567-e89b-42d3-a456-426614174002.jpg',
+      '/uploads/123e4567-e89b-42d3-a456-426614174003.png'
     ],
     contactPhones: ['13800000000', '0595-12345678']
   })

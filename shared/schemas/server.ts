@@ -231,6 +231,24 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
       })
     }
   }
+  const contactQrUrls = value.contactQrUrls
+  if (contactQrUrls !== undefined) {
+    if (!Array.isArray(contactQrUrls)
+      || contactQrUrls.length > 8
+      || contactQrUrls.some(item => typeof item !== 'string' || !UPLOADED_IMAGE_URL_PATTERN.test(item))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['contactQrUrls'],
+        message: 'contactQrUrls must contain at most 8 uploaded image URLs'
+      })
+    } else if (new Set(contactQrUrls).size !== contactQrUrls.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['contactQrUrls'],
+        message: 'contactQrUrls must not contain duplicate URLs'
+      })
+    }
+  }
   for (const [key, maxLength] of [
     ['contactName', 120],
     ['contactPhone', 120],

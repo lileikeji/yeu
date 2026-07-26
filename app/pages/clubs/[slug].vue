@@ -63,7 +63,7 @@ const contactActions = computed(() => resolvePublicContactActions(club.value?.co
 const contactSection = computed(() => resolveClubContactSectionState(Boolean(
   contactActions.value.length
   || club.value?.groupQrUrls.length
-  || club.value?.contactQrUrl
+  || club.value?.contactQrUrls.length
   || club.value?.contactPhones.length
 )))
 const { copyText } = useShareActions()
@@ -307,6 +307,7 @@ async function copyContactAction(value: string): Promise<void> {
           :group-qr-url="club.groupQrUrl"
           :group-qr-urls="club.groupQrUrls"
           :contact-qr-url="club.contactQrUrl"
+          :contact-qr-urls="club.contactQrUrls"
           :contact-name="club.contactName"
           :contact-phone="club.contactPhone"
           :contact-phones="club.contactPhones"

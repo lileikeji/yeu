@@ -205,6 +205,10 @@ export function initializeAdminResourceForm(
       const legacyValue = readAdminRecordPath(record, 'metadata.groupQrUrl')
       value = typeof legacyValue === 'string' && legacyValue.trim() ? [legacyValue.trim()] : []
     }
+    if (value === undefined && record && field.key === 'metadata.contactQrUrls') {
+      const legacyValue = readAdminRecordPath(record, 'metadata.contactQrUrl')
+      value = typeof legacyValue === 'string' && legacyValue.trim() ? [legacyValue.trim()] : []
+    }
     if (value === undefined && record && field.key === 'metadata.contactPhones') {
       const legacyValue = readAdminRecordPath(record, 'metadata.contactPhone')
       value = typeof legacyValue === 'string' && legacyValue.trim() ? [legacyValue.trim()] : []

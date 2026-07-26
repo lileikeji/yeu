@@ -70,7 +70,7 @@ const contactSection = computed(() => resolveDepartmentContactSectionState(
     || emailHref.value
     || department.value?.email?.trim()
     || department.value?.groupQrUrls.length
-    || department.value?.contactQrUrl
+    || department.value?.contactQrUrls.length
     || department.value?.contactPhones.length
   )
 ))
@@ -313,6 +313,7 @@ const feedbackLink = computed(() => content.value
           :group-qr-url="department.groupQrUrl"
           :group-qr-urls="department.groupQrUrls"
           :contact-qr-url="department.contactQrUrl"
+          :contact-qr-urls="department.contactQrUrls"
           :contact-name="department.contactName"
           :contact-phone="department.contactPhone"
           :contact-phones="department.contactPhones"

@@ -583,10 +583,10 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['department', 'club'] }
       },
       {
-        key: 'metadata.contactQrUrl',
+        key: 'metadata.contactQrUrls',
         label: '负责人二维码',
-        type: 'image',
-        description: '可上传负责人微信、QQ或其他公开联系二维码。',
+        type: 'image-list',
+        description: '最多上传 8 张负责人微信、QQ或其他公开联系二维码。',
         group: '群聊与负责人',
         span: 'half',
         condition: { key: 'kind', values: ['department', 'club'] }

@@ -39,7 +39,10 @@ test('community metadata accepts uploaded QR URLs and bounded ordering', () => {
         '/uploads/123e4567-e89b-42d3-a456-426614174000.png',
         '/uploads/123e4567-e89b-42d3-a456-426614174002.jpg'
       ],
-      contactQrUrl: '/uploads/123e4567-e89b-42d3-a456-426614174001.webp',
+      contactQrUrls: [
+        '/uploads/123e4567-e89b-42d3-a456-426614174001.webp',
+        '/uploads/123e4567-e89b-42d3-a456-426614174003.png'
+      ],
       contactName: '招新负责人',
       contactPhones: ['138 0000 0000', '0595-12345678'],
       featuredSummary: '适合新生快速了解的精选摘要。',
@@ -53,6 +56,7 @@ test('community metadata rejects external QR URLs and invalid ordering', () => {
   assert.equal(updateContentSchema.safeParse({ metadata: { groupQrUrl: 'https://example.com/qr.png' } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { groupQrUrl: '/uploads/not-a-uuid.png' } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { groupQrUrls: ['https://example.com/qr.png'] } }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: { contactQrUrls: ['https://example.com/qr.png'] } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { contactPhones: Array.from({ length: 13 }, (_, index) => `138000000${index}`) } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { sortOrder: -1 } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { sortOrder: 2.5 } }).success, false)
@@ -72,6 +76,7 @@ test('club directory exposes QR contacts and follows configured order', () => {
       metadata: {
         sortOrder: 10,
         groupQrUrls: [qrUrl, secondQrUrl],
+        contactQrUrls: [secondQrUrl, qrUrl],
         contactName: '招新负责人',
         contactPhones: ['13800000000', '0595-12345678'],
         featuredSummary: '首页精选摘要'
@@ -82,6 +87,8 @@ test('club directory exposes QR contacts and follows configured order', () => {
   assert.deepEqual(clubs.map(item => item.slug), ['first', 'later'])
   assert.equal(clubs[0]?.groupQrUrl, qrUrl)
   assert.deepEqual(clubs[0]?.groupQrUrls, [qrUrl, secondQrUrl])
+  assert.equal(clubs[0]?.contactQrUrl, secondQrUrl)
+  assert.deepEqual(clubs[0]?.contactQrUrls, [secondQrUrl, qrUrl])
   assert.equal(clubs[0]?.contactName, '招新负责人')
   assert.equal(clubs[0]?.contactPhone, '13800000000 / 0595-12345678')
   assert.deepEqual(clubs[0]?.contactPhones, ['13800000000', '0595-12345678'])
@@ -103,25 +110,30 @@ test('plural contact metadata overrides legacy singular values and can be cleare
       metadata: {
         groupQrUrl: '/uploads/123e4567-e89b-42d3-a456-426614174000.png',
         groupQrUrls: [],
+        contactQrUrl: '/uploads/123e4567-e89b-42d3-a456-426614174001.webp',
+        contactQrUrls: [],
         contactPhone: '13800000000',
         contactPhones: []
       }
     })
   ], [])
   assert.deepEqual(clubs[0]?.groupQrUrls, [])
+  assert.deepEqual(clubs[0]?.contactQrUrls, [])
   assert.deepEqual(clubs[0]?.contactPhones, [])
   assert.equal(clubs[0]?.groupQrUrl, null)
+  assert.equal(clubs[0]?.contactQrUrl, null)
   assert.equal(clubs[0]?.contactPhone, null)
 })
 
 test('QR and负责人 contacts suppress contradictory pending-contact states', () => {
-  assert.match(clubDetailSource, /contactActions\.value\.length[\s\S]*club\.value\?\.groupQrUrls\.length[\s\S]*club\.value\?\.contactQrUrl[\s\S]*club\.value\?\.contactPhones\.length/)
-  assert.match(departmentDetailSource, /department\.value\?\.groupQrUrls\.length[\s\S]*department\.value\?\.contactQrUrl[\s\S]*department\.value\?\.contactPhones\.length/)
+  assert.match(clubDetailSource, /contactActions\.value\.length[\s\S]*club\.value\?\.groupQrUrls\.length[\s\S]*club\.value\?\.contactQrUrls\.length[\s\S]*club\.value\?\.contactPhones\.length/)
+  assert.match(departmentDetailSource, /department\.value\?\.groupQrUrls\.length[\s\S]*department\.value\?\.contactQrUrls\.length[\s\S]*department\.value\?\.contactPhones\.length/)
   assert.doesNotMatch(
     clubDetailSource,
     /const hasRecruitmentDetails[\s\S]{0,300}groupQrUrl/
   )
   assert.match(contactPanelSource, /v-for="\(qrUrl, index\) in groupQrUrls"/)
+  assert.match(contactPanelSource, /v-for="\(qrUrl, index\) in contactQrUrls"/)
   assert.match(contactPanelSource, /v-for="phone in phoneContacts"/)
 })
 
