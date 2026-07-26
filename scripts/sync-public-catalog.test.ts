@@ -92,7 +92,7 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
       applied: preview.applied
     }, {
       createSources: 2,
-      createContents: 23,
+      createContents: 24,
       updateContents: 2,
       conflicts: 0,
       applied: false
@@ -111,7 +111,7 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
       applied: applied.applied
     }, {
       createdSources: 2,
-      createdContents: 23,
+      createdContents: 24,
       updatedContents: 2,
       conflicts: 0,
       applied: true
@@ -119,10 +119,10 @@ test('owned sync upgrades an older catalog and is idempotent', () => {
 
     const checked = new BetterSqlite3(fixture.databasePath, { readonly: true })
     try {
-      assert.equal(count(checked, 'contents'), 59)
+      assert.equal(count(checked, 'contents'), 60)
       assert.equal(
         (checked.prepare(`SELECT count(*) AS count FROM contents WHERE kind = 'club'`).get() as { count: number }).count,
-        23
+        24
       )
       assert.equal(
         (checked.prepare(`

@@ -28,7 +28,7 @@ test('catalog definition keeps source-free guides as unverified drafts', () => {
   const catalog = buildCatalogSeed()
   assert.equal(catalog.contents.filter(content => content.kind === 'guide').length, 9)
   assert.equal(catalog.contents.filter(content => content.kind === 'department').length, 27)
-  assert.equal(catalog.contents.filter(content => content.kind === 'club').length, 23)
+  assert.equal(catalog.contents.filter(content => content.kind === 'club').length, 24)
 
   const draftGuides = catalog.contents
     .filter(content => content.kind === 'guide' && content.status === 'draft')
@@ -65,7 +65,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       createdSources: 0,
       wouldCreateSources: catalog.sources.length,
       createdContents: 0,
-      wouldCreateContents: 59,
+      wouldCreateContents: 60,
       conflicts: 0,
       applied: false
     })
@@ -86,8 +86,8 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       applied: applied.applied
     }, {
       createdSources: catalog.sources.length,
-      createdContents: 59,
-      publishedContents: 59,
+      createdContents: 60,
+      publishedContents: 60,
       draftContents: 0,
       conflicts: 0,
       applied: true
@@ -96,7 +96,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
     database = new BetterSqlite3(fixture.databasePath, { readonly: true })
     database.pragma('foreign_keys = ON')
     assert.equal(count(database, 'sources'), catalog.sources.length)
-    assert.equal(count(database, 'contents'), 59)
+    assert.equal(count(database, 'contents'), 60)
 
     const publicationViolations = database.prepare(`
       SELECT count(*) AS count
@@ -199,7 +199,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       WHERE kind = 'club'
       ORDER BY title
     `).all() as Array<{ title: string, body: string, metadataJson: string }>
-    assert.equal(clubBodies.length, 23)
+    assert.equal(clubBodies.length, 24)
     for (const club of clubBodies) {
       assert.ok(club.body.length > 260, `${club.title} body should be readable for freshmen`)
       assert.match(club.body, /招新时间、摆摊地点、报名二维码/)

@@ -3,7 +3,8 @@ import {
   adminLoginMessages,
   adminLoginRequestMessage,
   isAdminSessionAuthenticated,
-  resolveAdminLoginRedirectTarget
+  resolveAdminLoginRedirectTarget,
+  resolveAdminPostLoginTarget
 } from '~~/app/utils/admin-login-presentation'
 
 definePageMeta({ layout: false })
@@ -50,7 +51,7 @@ async function login(): Promise<void> {
   errorMessage.value = ''
 
   try {
-    await $fetch('/api/admin/auth/login', {
+    const payload = await $fetch<unknown>('/api/admin/auth/login', {
       method: 'POST',
       body: {
         username: username.value.trim(),
@@ -58,7 +59,7 @@ async function login(): Promise<void> {
       },
       credentials: 'include'
     })
-    await navigateTo(redirectTarget(), { replace: true })
+    await navigateTo(resolveAdminPostLoginTarget(payload, route.query.redirect), { replace: true })
   } catch (error) {
     errorMessage.value = adminLoginRequestMessage(error)
   } finally {
@@ -87,13 +88,13 @@ onMounted(() => {
       </div>
       <div class="max-w-md">
         <p class="text-sm font-medium text-green-200">
-          单管理员工作台
+          总管理员与组织管理员共用入口
         </p>
         <h1 class="mt-3 text-3xl font-bold leading-tight">
-          管理地点、指南与信息确认记录
+          维护新生指南与组织公开页面
         </h1>
         <p class="mt-4 text-sm leading-7 text-green-100/80">
-          发布前核对坐标、来源和有效时间；草稿与已下架内容不会进入公开列表。
+          总管理员维护全站内容；社团和部门管理员只会看到自己被授权的页面。
         </p>
       </div>
       <p class="text-xs text-green-200/70">

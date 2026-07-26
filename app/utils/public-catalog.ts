@@ -193,6 +193,15 @@ export function studentFacingGuideText(value: string): string {
     .replace(/归档线索/g, '仅供参考')
 }
 
+export interface PublicContentBox {
+  id: string
+  title: string
+  body: string
+  items: string[]
+  icon: string
+  tone: 'plain' | 'green' | 'blue' | 'amber'
+}
+
 export interface PublicGuideView extends FreshmanGuide {
   contentId: string | null
   body: string
@@ -221,6 +230,7 @@ export interface PublicDepartmentView {
   contactName: string | null
   contactPhone: string | null
   contactPhones: string[]
+  boxes: PublicContentBox[]
 }
 
 export interface PublicClubView {
@@ -243,6 +253,7 @@ export interface PublicClubView {
   contactName: string | null
   contactPhone: string | null
   contactPhones: string[]
+  boxes: PublicContentBox[]
   updatedAt: string
   sources: PublicSource[]
 }
@@ -311,6 +322,36 @@ function metadataStringArray(content: ApiContent, key: string, legacyKey?: strin
 function metadataUploadedImageUrls(content: ApiContent, key: string, legacyKey?: string): string[] {
   return metadataStringArray(content, key, legacyKey)
     .filter(value => /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i.test(value))
+}
+
+function metadataContentBoxes(content: ApiContent): PublicContentBox[] {
+  const value = content.metadata.boxes
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+    const record = item as Record<string, unknown>
+    const id = typeof record.id === 'string' ? record.id.trim() : ''
+    const title = typeof record.title === 'string' ? record.title.trim() : ''
+    if (!id || !title) return []
+    const tone = ['plain', 'green', 'blue', 'amber'].includes(String(record.tone))
+      ? record.tone as PublicContentBox['tone']
+      : 'plain'
+    return [{
+      id,
+      title,
+      body: typeof record.body === 'string' ? record.body.trim() : '',
+      items: Array.isArray(record.items)
+        ? record.items
+            .filter((entry): entry is string => typeof entry === 'string' && Boolean(entry.trim()))
+            .map(entry => entry.trim())
+        : [],
+      icon: typeof record.icon === 'string' && record.icon.trim()
+        ? record.icon.trim()
+        : 'i-lucide-layout-panel-top',
+      tone
+    }]
+  })
 }
 
 function sortConfiguredDirectoryItems<T extends { sortOrder: number, isFeatured: boolean, name: string }>(
@@ -699,6 +740,7 @@ function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): Pu
   const groupQrUrls = metadataUploadedImageUrls(content, 'groupQrUrls', 'groupQrUrl')
   const contactQrUrls = metadataUploadedImageUrls(content, 'contactQrUrls', 'contactQrUrl')
   const contactPhones = metadataStringArray(content, 'contactPhones', 'contactPhone')
+  const boxes = metadataContentBoxes(content)
 
   return {
     slug: content.slug,
@@ -725,7 +767,8 @@ function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): Pu
     contactQrUrls,
     contactName: metadataString(content, 'contactName'),
     contactPhone: contactPhones.join(' / ') || null,
-    contactPhones
+    contactPhones,
+    boxes
   }
 }
 
@@ -761,7 +804,8 @@ export function mergePublicDepartments(
       contactQrUrls: [],
       contactName: null,
       contactPhone: null,
-      contactPhones: []
+      contactPhones: [],
+      boxes: []
     }]
   })
   const seedNames = new Set(seedDepartments.map(department => normalizeName(department.name)))
@@ -776,6 +820,7 @@ function apiClubToView(content: ApiContent): PublicClubView {
   const groupQrUrls = metadataUploadedImageUrls(content, 'groupQrUrls', 'groupQrUrl')
   const contactQrUrls = metadataUploadedImageUrls(content, 'contactQrUrls', 'contactQrUrl')
   const contactPhones = metadataStringArray(content, 'contactPhones', 'contactPhone')
+  const boxes = metadataContentBoxes(content)
   return {
     id: content.id,
     slug: content.slug,
@@ -797,6 +842,7 @@ function apiClubToView(content: ApiContent): PublicClubView {
     contactName: metadataString(content, 'contactName'),
     contactPhone: contactPhones.join(' / ') || null,
     contactPhones,
+    boxes,
     updatedAt: dateOnly(content.lastVerifiedAt ?? content.updatedAt),
     sources: toPublicSources(content)
   }
@@ -823,6 +869,7 @@ function staticClubToView(club: OfficialClub): PublicClubView {
     contactName: null,
     contactPhone: null,
     contactPhones: [],
+    boxes: [],
     updatedAt: club.source.accessedAt,
     sources: [studentFacingSource(club.source)]
   }

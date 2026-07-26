@@ -66,10 +66,10 @@ test('live data parity verifier accepts a fully seeded current SQLite database',
 
     assert.equal(result.ok, true)
     assert.deepEqual(result.counts, {
-      sources: 98,
-      activeSources: 91,
+      sources: 100,
+      activeSources: 93,
       unavailableSources: 7,
-      publishedContents: 58,
+      publishedContents: 60,
       procedures: 5,
       procedureSteps: 23,
       amapDraftPlaces: 76

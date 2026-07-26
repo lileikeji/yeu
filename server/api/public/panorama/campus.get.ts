@@ -66,6 +66,7 @@ async function resolvePanoramaHtml(): Promise<{ html: string, cache: 'HIT' | 'MI
 }
 
 export default defineEventHandler(async (event) => {
+  setHeader(event, 'Cache-Control', 'no-store')
   assertRateLimit(
     event,
     `public:campus-panorama:${getClientIpAddress(event)}`,

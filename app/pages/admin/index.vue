@@ -675,7 +675,11 @@ onMounted(() => {
 
       <div class="rounded-md border border-zinc-200 bg-white p-4">
         <h2 class="text-sm font-semibold text-zinc-950">访问高峰</h2>
-        <ul class="mt-3 max-h-40 space-y-1.5 overflow-y-auto text-xs">
+        <ul
+          class="mt-3 max-h-40 space-y-1.5 overflow-y-auto text-xs"
+          tabindex="0"
+          aria-label="访问高峰记录"
+        >
           <li
             v-for="(row, idx) in securityBurstWindows"
             :key="'bw-' + idx"

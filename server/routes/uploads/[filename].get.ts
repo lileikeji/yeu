@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
 
   const data = await readUploadedImage(filename)
   setHeader(event, 'Content-Type', contentType)
-  setHeader(event, 'Content-Length', String(data.byteLength))
+  setHeader(event, 'Content-Length', data.byteLength)
   setHeader(event, 'Cache-Control', 'public, max-age=31536000, immutable')
   setHeader(event, 'CDN-Cache-Control', 'public, max-age=31536000, immutable')
   setHeader(event, 'X-Content-Type-Options', 'nosniff')

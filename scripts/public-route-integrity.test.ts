@@ -83,7 +83,7 @@ test('seeded public guides, departments and clubs have stable detail routes and 
     content.status === 'published'
     && (content.kind === 'guide' || content.kind === 'department' || content.kind === 'club')
   ))
-  assert.equal(published.length, 59)
+  assert.equal(published.length, 60)
 
   const paths = published.map(content => publicContentPath(content.kind, content.slug))
   assert.equal(new Set(paths).size, paths.length)
@@ -101,7 +101,7 @@ test('front-end catalog fallbacks expose every seed route without placeholder de
 
   assert.equal(guides.length, 9)
   assert.equal(departments.length, 27)
-  assert.equal(clubs.length, 23)
+  assert.equal(clubs.length, 24)
 
   assert.ok(guides.every(guide => publicContentPath('guide', guide.slug).startsWith('/guides/')))
   assert.ok(departments.every(department => publicContentPath('department', department.slug).startsWith('/departments/')))

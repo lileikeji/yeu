@@ -7,7 +7,8 @@ import {
   adminLoginRequestMessage,
   isAdminLoginPayloadObject,
   isAdminSessionAuthenticated,
-  resolveAdminLoginRedirectTarget
+  resolveAdminLoginRedirectTarget,
+  resolveAdminPostLoginTarget
 } from '../app/utils/admin-login-presentation'
 
 const pageSource = readFileSync(resolve('app/pages/admin/login.vue'), 'utf8')
@@ -18,6 +19,7 @@ test('admin login page is a thin shell over admin-login-presentation util', () =
   assert.match(pageSource, /isAdminSessionAuthenticated/)
   assert.match(pageSource, /adminLoginRequestMessage/)
   assert.match(pageSource, /resolveAdminLoginRedirectTarget/)
+  assert.match(pageSource, /resolveAdminPostLoginTarget/)
   assert.match(pageSource, /adminLoginMessages/)
   assert.doesNotMatch(pageSource, /function isObject\(/)
   assert.doesNotMatch(pageSource, /function authenticated\(/)
@@ -26,6 +28,7 @@ test('admin login page is a thin shell over admin-login-presentation util', () =
   assert.match(utilSource, /export function isAdminSessionAuthenticated/)
   assert.match(utilSource, /export function adminLoginRequestMessage/)
   assert.match(utilSource, /export function resolveAdminLoginRedirectTarget/)
+  assert.match(utilSource, /export function resolveAdminPostLoginTarget/)
   assert.match(utilSource, /export const adminLoginMessages/)
 })
 
@@ -66,4 +69,27 @@ test('admin login pure helpers resolve session, errors, and safe redirects', () 
   assert.equal(resolveAdminLoginRedirectTarget('/admin//evil'), '/admin')
   assert.equal(resolveAdminLoginRedirectTarget('/adminfoo'), '/admin')
   assert.equal(resolveAdminLoginRedirectTarget('/admin/places/'), '/admin/places')
+})
+
+test('organization administrators enter their isolated workspace immediately after login', () => {
+  assert.deepEqual(resolveAdminPostLoginTarget({
+    admin: {
+      role: 'organization',
+      mustChangePassword: true
+    }
+  }, '/admin'), {
+    path: '/admin/organization',
+    query: { password: 'required' }
+  })
+  assert.equal(resolveAdminPostLoginTarget({
+    admin: {
+      role: 'organization',
+      mustChangePassword: false
+    }
+  }, '/admin/content'), '/admin/organization')
+  assert.equal(resolveAdminPostLoginTarget({
+    admin: {
+      role: 'super'
+    }
+  }, '/admin/content'), '/admin/content')
 })

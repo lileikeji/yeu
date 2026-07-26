@@ -67,7 +67,7 @@ const viewerHost = ref<HTMLElement | null>(null)
 const activeSceneIndex = ref(0)
 const loadingScene = ref(true)
 let panorama: BaiduPanoramaInstance | null = null
-let readinessTimer: ReturnType<typeof setTimeout> | undefined
+let readinessTimer: number | undefined
 let restoreAlert: (() => void) | undefined
 let resultReported = false
 

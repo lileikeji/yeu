@@ -2,7 +2,12 @@
 import { and, eq, lt } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import type { DatabaseClient } from '../database/client'
-import { adminSessions, adminUsers } from '../database/schema'
+import {
+  adminSessions,
+  adminUsers,
+  contents,
+  organizationAdminScopes
+} from '../database/schema'
 import { verifyPassword } from './password'
 import { getClientIpAddress } from './client-ip'
 import { assertRateLimit } from './rate-limit'
@@ -34,6 +39,14 @@ export interface AdminIdentity {
   id: string
   username: string
   displayName: string
+  role: 'super' | 'organization'
+  mustChangePassword: boolean
+  organization: {
+    contentId: string
+    kind: 'department' | 'club'
+    slug: string
+    title: string
+  } | null
 }
 
 export interface AdminSessionContext {
@@ -53,6 +66,64 @@ function unauthorized(): never {
     statusMessage: 'Authentication required',
     data: { code: 'AUTHENTICATION_REQUIRED' }
   })
+}
+
+function forbidden(code = 'ADMIN_SCOPE_FORBIDDEN'): never {
+  throw createError({
+    statusCode: 403,
+    statusMessage: 'This administrator cannot access the requested resource',
+    data: { code }
+  })
+}
+
+function getAdminIdentity(client: DatabaseClient, adminId: string): AdminIdentity | null {
+  const row = client.db.select({
+    id: adminUsers.id,
+    username: adminUsers.username,
+    displayName: adminUsers.displayName,
+    role: adminUsers.role,
+    mustChangePassword: adminUsers.mustChangePassword,
+    contentId: organizationAdminScopes.contentId,
+    contentKind: contents.kind,
+    contentSlug: contents.slug,
+    contentTitle: contents.title
+  }).from(adminUsers)
+    .leftJoin(organizationAdminScopes, eq(organizationAdminScopes.adminUserId, adminUsers.id))
+    .leftJoin(contents, eq(contents.id, organizationAdminScopes.contentId))
+    .where(eq(adminUsers.id, adminId))
+    .get()
+
+  if (!row) return null
+  const organization = row.role === 'organization'
+    && row.contentId
+    && (row.contentKind === 'department' || row.contentKind === 'club')
+    && row.contentSlug
+    && row.contentTitle
+    ? {
+        contentId: row.contentId,
+        kind: row.contentKind,
+        slug: row.contentSlug,
+        title: row.contentTitle
+      }
+    : null
+
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.displayName,
+    role: row.role,
+    mustChangePassword: row.mustChangePassword,
+    organization
+  }
+}
+
+export function requireSuperAdmin(session: AdminSessionContext): void {
+  if (session.admin.role !== 'super') forbidden('SUPER_ADMIN_REQUIRED')
+}
+
+export function requireAdminContentAccess(session: AdminSessionContext, contentId: string): void {
+  if (session.admin.role === 'super') return
+  if (session.admin.organization?.contentId !== contentId) forbidden()
 }
 
 function assertCsrf(
@@ -157,11 +228,7 @@ export async function loginAdmin(
   })
 
   return {
-    admin: {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName
-    },
+    admin: getAdminIdentity(client, user.id) ?? unauthorized(),
     sessionId,
     expiresAt,
     csrfToken
@@ -189,15 +256,28 @@ export function getOptionalAdminSession(
     adminId: adminUsers.id,
     username: adminUsers.username,
     displayName: adminUsers.displayName,
+    role: adminUsers.role,
+    mustChangePassword: adminUsers.mustChangePassword,
+    contentId: organizationAdminScopes.contentId,
+    contentKind: contents.kind,
+    contentSlug: contents.slug,
+    contentTitle: contents.title,
     isActive: adminUsers.isActive
   }).from(adminSessions)
     .innerJoin(adminUsers, eq(adminSessions.adminUserId, adminUsers.id))
+    .leftJoin(organizationAdminScopes, eq(organizationAdminScopes.adminUserId, adminUsers.id))
+    .leftJoin(contents, eq(contents.id, organizationAdminScopes.contentId))
     .where(eq(adminSessions.tokenHash, tokenHash))
     .get()
 
   const now = Date.now()
   const idleExpired = result ? (now - result.lastSeenAt) > sessionIdleLimitMs() : false
-  if (!result || !result.isActive || result.expiresAt <= now || idleExpired) {
+  const organizationScopeMissing = result?.role === 'organization'
+    && (!result.contentId
+      || !result.contentSlug
+      || !result.contentTitle
+      || (result.contentKind !== 'department' && result.contentKind !== 'club'))
+  if (!result || !result.isActive || result.expiresAt <= now || idleExpired || organizationScopeMissing) {
     if (result) {
       client.db.delete(adminSessions).where(eq(adminSessions.id, result.sessionId)).run()
     }
@@ -237,7 +317,17 @@ export function getOptionalAdminSession(
     admin: {
       id: result.adminId,
       username: result.username,
-      displayName: result.displayName
+      displayName: result.displayName,
+      role: result.role,
+      mustChangePassword: result.mustChangePassword,
+      organization: result.role === 'organization'
+        ? {
+            contentId: result.contentId!,
+            kind: result.contentKind as 'department' | 'club',
+            slug: result.contentSlug!,
+            title: result.contentTitle!
+          }
+        : null
     },
     sessionId: result.sessionId,
     expiresAt: result.expiresAt,

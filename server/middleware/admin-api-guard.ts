@@ -30,5 +30,35 @@ export default defineEventHandler((event) => {
   if (pathname === '/api/admin/auth/session' && method === 'GET') return
 
   const csrf = !['GET', 'HEAD'].includes(method)
-  requireAdminSession(event, client, { csrf })
+  const session = requireAdminSession(event, client, { csrf })
+  if (session.admin.role === 'super') return
+
+  const passwordOnlyPaths = new Set([
+    '/api/admin/auth/session',
+    '/api/admin/auth/logout',
+    '/api/admin/auth/password'
+  ])
+  if (session.admin.mustChangePassword && !passwordOnlyPaths.has(pathname)) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Password change required',
+      data: { code: 'PASSWORD_CHANGE_REQUIRED' }
+    })
+  }
+
+  if (passwordOnlyPaths.has(pathname)) return
+  if (pathname === '/api/admin/media/images' && method === 'POST') return
+
+  const contentMatch = pathname.match(/^\/api\/admin\/content\/([0-9a-f-]+)$/i)
+  if (contentMatch
+    && ['GET', 'PATCH', 'PUT'].includes(method)
+    && contentMatch[1] === session.admin.organization?.contentId) {
+    return
+  }
+
+  throw createError({
+    statusCode: 403,
+    statusMessage: 'This administrator can only edit the assigned organization',
+    data: { code: 'ADMIN_SCOPE_FORBIDDEN' }
+  })
 })

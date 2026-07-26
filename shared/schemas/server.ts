@@ -142,6 +142,10 @@ const CONTENT_METADATA_MAX_DEPTH = 6
 const FORBIDDEN_METADATA_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
 const UPLOADED_IMAGE_URL_PATTERN = /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 function metadataDepth(value: unknown, depth = 0): number {
   if (depth > CONTENT_METADATA_MAX_DEPTH) return depth
   if (!value || typeof value !== 'object') return depth
@@ -246,6 +250,36 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
         code: 'custom',
         path: ['contactQrUrls'],
         message: 'contactQrUrls must not contain duplicate URLs'
+      })
+    }
+  }
+  const boxes = value.boxes
+  if (boxes !== undefined) {
+    const validBox = (item: unknown): boolean => {
+      if (!isPlainObject(item)) return false
+      const allowedKeys = new Set(['id', 'title', 'body', 'items', 'icon', 'tone'])
+      if (Object.keys(item).some(key => !allowedKeys.has(key))) return false
+      if (typeof item.id !== 'string' || !/^[a-z0-9-]{1,64}$/i.test(item.id)) return false
+      if (typeof item.title !== 'string' || !item.title.trim() || item.title.trim().length > 120) return false
+      if (item.body !== undefined && (typeof item.body !== 'string' || item.body.length > 4000)) return false
+      if (item.icon !== undefined && (typeof item.icon !== 'string' || item.icon.length > 80)) return false
+      if (item.tone !== undefined && !['plain', 'green', 'blue', 'amber'].includes(String(item.tone))) return false
+      return item.items === undefined
+        || (Array.isArray(item.items)
+          && item.items.length <= 30
+          && item.items.every(entry => typeof entry === 'string' && entry.trim().length > 0 && entry.length <= 500))
+    }
+    if (!Array.isArray(boxes) || boxes.length > 24 || boxes.some(item => !validBox(item))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['boxes'],
+        message: 'boxes must contain at most 24 valid content boxes'
+      })
+    } else if (new Set(boxes.map(item => (item as { id: string }).id)).size !== boxes.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['boxes'],
+        message: 'boxes must not contain duplicate ids'
       })
     }
   }
@@ -452,6 +486,24 @@ export const loginSchema = z.object({
   username: z.string().trim().min(1).max(80),
   password: z.string().min(8).max(128)
 }).strict()
+
+export const changeAdminPasswordSchema = z.object({
+  currentPassword: z.string().min(8).max(128),
+  newPassword: z.string().min(12).max(128)
+}).strict().refine(
+  value => value.currentPassword !== value.newPassword,
+  { path: ['newPassword'], message: 'New password must be different' }
+)
+
+export const createOrganizationAdminSchema = z.object({
+  contentId: z.string().uuid(),
+  username: z.string().trim().min(2).max(80).regex(/^[a-z0-9._-]+$/i).optional()
+}).strict()
+
+export const updateOrganizationAdminSchema = z.object({
+  isActive: z.boolean().optional(),
+  resetPassword: z.boolean().optional()
+}).strict().refine(value => Object.keys(value).length > 0, 'At least one field is required')
 
 export const paginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),

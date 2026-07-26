@@ -578,6 +578,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                 :to="rule.url"
                 external
                 target="_blank"
+                rel="noopener noreferrer"
                 label="官方原文"
                 trailing-icon="i-lucide-external-link"
                 color="neutral"

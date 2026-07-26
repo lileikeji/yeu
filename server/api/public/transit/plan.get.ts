@@ -12,6 +12,7 @@ const responseCache = new Map<string, { expiresAt: number, response: ApiTransitP
 const CACHE_TTL_MS = 90_000
 
 export default defineEventHandler(async (event): Promise<ApiTransitPlanResponse> => {
+  setHeader(event, 'Cache-Control', 'no-store')
   assertRateLimit(event, `public:transit:${getClientIpAddress(event)}`, 30, 60_000)
 
   const query = getQuery(event)

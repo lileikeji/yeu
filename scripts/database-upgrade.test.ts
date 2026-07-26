@@ -516,3 +516,92 @@ test('0007 creates rate_limit_buckets for shared rate limiting', () => {
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('0012 preserves the super administrator and adds organization account scopes', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-organization-admin-migration-'))
+  const sqlite = new BetterSqlite3(join(directory, 'organization-admin.sqlite'))
+
+  try {
+    sqlite.pragma('foreign_keys = ON')
+    const database = drizzle(sqlite)
+    migrate(database, { migrationsFolder: createMigrationSet(directory, 12) })
+
+    const now = Date.now()
+    sqlite.prepare(`
+      INSERT INTO admin_users (
+        id, username, password_hash, display_name, is_active, created_at, updated_at
+      ) VALUES ('existing-super', 'admin', 'fixture-hash', 'Existing administrator', 1, ?, ?)
+    `).run(now, now)
+    sqlite.prepare(`
+      INSERT INTO contents (
+        id, kind, slug, title, summary, body, status, created_at, updated_at
+      ) VALUES (
+        '00000000-0000-4000-8000-000000000012',
+        'club',
+        'migration-club',
+        'Migration club',
+        'Summary',
+        '',
+        'draft',
+        ?,
+        ?
+      )
+    `).run(now, now)
+
+    migrate(database, { migrationsFolder: createMigrationSet(directory, 13) })
+
+    const existingAdmin = sqlite.prepare(`
+      SELECT role, must_change_password AS mustChangePassword
+      FROM admin_users
+      WHERE id = 'existing-super'
+    `).get()
+    assert.deepEqual(existingAdmin, {
+      role: 'super',
+      mustChangePassword: 0
+    })
+
+    sqlite.prepare(`
+      INSERT INTO admin_users (
+        id, username, password_hash, display_name, role, must_change_password,
+        is_active, created_at, updated_at
+      ) VALUES (
+        'organization-admin',
+        'migrationclub',
+        'fixture-hash',
+        'Migration club administrator',
+        'organization',
+        1,
+        1,
+        ?,
+        ?
+      )
+    `).run(now, now)
+    sqlite.prepare(`
+      INSERT INTO organization_admin_scopes (
+        admin_user_id, content_id, created_by_admin_id, created_at, updated_at
+      ) VALUES (
+        'organization-admin',
+        '00000000-0000-4000-8000-000000000012',
+        'existing-super',
+        ?,
+        ?
+      )
+    `).run(now, now)
+
+    assert.throws(() => sqlite.prepare(`
+      INSERT INTO organization_admin_scopes (
+        admin_user_id, content_id, created_by_admin_id, created_at, updated_at
+      ) VALUES (
+        'second-organization-admin',
+        '00000000-0000-4000-8000-000000000012',
+        'existing-super',
+        ?,
+        ?
+      )
+    `).run(now, now), /FOREIGN KEY constraint failed|UNIQUE constraint failed/)
+    assert.deepEqual(sqlite.pragma('foreign_key_check'), [])
+  } finally {
+    sqlite.close()
+    rmSync(directory, { recursive: true, force: true })
+  }
+})

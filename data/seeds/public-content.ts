@@ -327,6 +327,12 @@ export const officialSources = {
     url: 'https://youth.yeu.edu.cn/2026/0314/c517a54902/page.htm',
     accessedAt: '2026-07-15'
   },
+  warEagleAssociationActivity2025: {
+    title: '战鹰退伍兵协会联合学生书院开展健康校园跑',
+    publisher: '仰恩大学人民武装部',
+    url: 'https://wzb.yeu.edu.cn/2025/0422/c482a48851/page.htm',
+    accessedAt: '2026-07-27'
+  },
   electronicModelingAssociation2025: {
     title: '仰恩大学2025年校内数学建模竞赛的通知',
     publisher: '仰恩大学数学系',
@@ -1068,10 +1074,11 @@ export const freshmanGuides: FreshmanGuide[] = [
           '近期有公开活动：国旗班、音乐协会、公共关系协会、青年志愿者先锋队、就业与创业者协会、青云汉服社、舞蹈协会。',
           '学术、表达和创作方向：孙子兵法研究会、演讲与口才协会、书画社、创新发明协会、计算机协会、电子数模协会、红城文学社、英语学习社、习近平新时代中国特色社会主义思想读书社。',
           '体育方向：体育协会排球分会、体育协会乒乓球分会、体育协会跆拳道分会、体育协会足球分会、体育协会定向越野分会。',
+          '国防教育与体能活动方向还可以关注战鹰退伍兵协会；学校官网记录了其2025年开展的健康校园跑，2026年是否面向普通新生招新仍需确认。',
           '公益与心理健康方向可以关注心理协会、红十字会；电子数模协会曾协办2025年校内数学建模竞赛。',
           '这些名称来自校团委公开资料，社团名称和是否招新可能调整，报名时以本学期通知为准。'
         ],
-        sources: [officialSources.clubShowcase2026, officialSources.psychologyAssociationActivity2026, officialSources.redCrossRecognition2026, officialSources.electronicModelingAssociation2025, officialSources.clubCadreAttachment2024]
+        sources: [officialSources.clubShowcase2026, officialSources.warEagleAssociationActivity2025, officialSources.psychologyAssociationActivity2026, officialSources.redCrossRecognition2026, officialSources.electronicModelingAssociation2025, officialSources.clubCadreAttachment2024]
       },
       {
         title: '学校仍在组织社团活动',
@@ -1125,6 +1132,7 @@ export const freshmanGuides: FreshmanGuide[] = [
       officialSources.clubCarnival2025,
       officialSources.clubAwards2026,
       officialSources.clubSemesterMeeting2026,
+      officialSources.warEagleAssociationActivity2025,
       officialSources.psychologyAssociationActivity2026,
       officialSources.redCrossRecognition2026,
       officialSources.electronicModelingAssociation2025,
@@ -1368,6 +1376,7 @@ export const officialClubs: OfficialClub[] = [
   { slug: 'employment-entrepreneurship-association', name: '就业与创业者协会', group: '就业创业', direction: '就业能力、创业实践、职业规划和项目交流', summary: clubSummary('就业能力、创业实践、职业规划和项目交流', 'active'), source: officialSources.clubShowcase2026 },
   { slug: 'qingyun-hanfu-club', name: '青云汉服社', group: '传统文化', direction: '汉服文化、传统礼仪和传统文化展示', summary: clubSummary('汉服文化、传统礼仪和传统文化展示', 'active'), source: officialSources.clubShowcase2026 },
   { slug: 'dance-association', name: '舞蹈协会', group: '文化艺术', direction: '舞蹈训练、舞台展示和校园文艺活动', summary: clubSummary('舞蹈训练、舞台展示和校园文艺活动', 'active'), source: officialSources.clubShowcase2026 },
+  { slug: 'war-eagle-veterans-association', name: '战鹰退伍兵协会', group: '国防教育与体能', direction: '国防教育、体能活动、校园公益和退役大学生交流', summary: '学校官网记录了战鹰退伍兵协会在2025年联合学生书院开展健康校园跑，说明近年有公开活动。适合关注国防教育、体能活动和退役大学生交流的新生先收藏；2026级是否招新、是否面向非退役学生开放，仍需以人民武装部或协会通知为准。', source: officialSources.warEagleAssociationActivity2025, verification: 'lead' },
   { slug: 'sunzi-art-of-war-research-association', name: '孙子兵法研究会', group: '学术兴趣', direction: '经典研读、战略思维和主题讨论', summary: clubSummary('经典研读、战略思维和主题讨论', 'lead'), source: officialSources.clubCadreAttachment2024 },
   { slug: 'speech-and-eloquence-association', name: '演讲与口才协会', group: '表达与实践', direction: '演讲、主持、辩论表达和口才训练', summary: clubSummary('演讲、主持、辩论表达和口才训练', 'lead'), source: officialSources.clubCadreAttachment2024 },
   { slug: 'calligraphy-and-painting-club', name: '书画社', group: '文化艺术', direction: '书法、绘画、作品交流和校园文化展示', summary: clubSummary('书法、绘画、作品交流和校园文化展示', 'lead'), source: officialSources.clubCadreAttachment2024 },

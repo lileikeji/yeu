@@ -18,11 +18,104 @@ import {
   mergePublicDepartments,
   mergePublicGuides,
   mergePublicMapPlaces,
+  publicClubs,
   studentFacingGuideText,
   studentFacingPlaceBody
 } from '../app/utils/public-catalog'
 import { buildCatalogSeed } from './seed-public-catalog'
 import { amapImportedPlaces } from '../data/seeds/amap-imported-places'
+import { updateContentSchema } from '../shared/schemas/server'
+
+function publishedClub(metadata: Record<string, unknown>): ApiContent {
+  return {
+    id: '00000000-0000-4000-8000-000000000201',
+    kind: 'club',
+    slug: 'visual-editor-club',
+    title: '可视化编辑测试社团',
+    summary: '用于验证可视化编辑的数据能够完整进入前台。',
+    body: '社团正文',
+    category: '科技创新',
+    audience: null,
+    metadata,
+    isFeatured: false,
+    status: 'published',
+    lastVerifiedAt: '2026-07-27T00:00:00.000Z',
+    publishedAt: '2026-07-27T00:00:00.000Z',
+    createdAt: '2026-07-27T00:00:00.000Z',
+    updatedAt: '2026-07-27T00:00:00.000Z',
+    sources: []
+  }
+}
+
+test('visual editor boxes and multiple contacts reach the public club view in order', () => {
+  const metadata = {
+    contactName: '负责人',
+    contactPhones: ['13800000000', '13900000000'],
+    groupQrUrls: [
+      '/uploads/00000000-0000-4000-8000-000000000211.webp',
+      '/uploads/00000000-0000-4000-8000-000000000212.webp'
+    ],
+    contactQrUrls: [
+      '/uploads/00000000-0000-4000-8000-000000000213.webp',
+      '/uploads/00000000-0000-4000-8000-000000000214.webp'
+    ],
+    boxes: [
+      {
+        id: 'join-us',
+        title: '怎么加入',
+        body: '先填写报名表。',
+        items: ['参加见面会', '等待通知'],
+        icon: 'i-lucide-user-plus',
+        tone: 'green'
+      },
+      {
+        id: 'weekly-plan',
+        title: '每周活动',
+        body: '每周三晚见面。',
+        items: [],
+        icon: 'i-lucide-calendar-days',
+        tone: 'blue'
+      }
+    ]
+  }
+  assert.equal(updateContentSchema.safeParse({ metadata }).success, true)
+
+  const club = publicClubs([publishedClub(metadata)])[0]
+  assert.ok(club)
+  assert.deepEqual(club.contactPhones, ['13800000000', '13900000000'])
+  assert.deepEqual(club.groupQrUrls, [
+    '/uploads/00000000-0000-4000-8000-000000000211.webp',
+    '/uploads/00000000-0000-4000-8000-000000000212.webp'
+  ])
+  assert.deepEqual(club.contactQrUrls, [
+    '/uploads/00000000-0000-4000-8000-000000000213.webp',
+    '/uploads/00000000-0000-4000-8000-000000000214.webp'
+  ])
+  assert.deepEqual(club.boxes.map(box => ({
+    id: box.id,
+    title: box.title,
+    tone: box.tone
+  })), [
+    { id: 'join-us', title: '怎么加入', tone: 'green' },
+    { id: 'weekly-plan', title: '每周活动', tone: 'blue' }
+  ])
+  assert.deepEqual(club.boxes[0]?.items, ['参加见面会', '等待通知'])
+})
+
+test('content metadata rejects duplicate boxes and external QR image URLs', () => {
+  const duplicateBoxes = {
+    boxes: [
+      { id: 'duplicate', title: '第一项' },
+      { id: 'duplicate', title: '第二项' }
+    ]
+  }
+  const externalQr = {
+    contactQrUrls: ['https://untrusted.example/qr.png']
+  }
+
+  assert.equal(updateContentSchema.safeParse({ metadata: duplicateBoxes }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: externalQr }).success, false)
+})
 
 test('managed guide catalogs do not restore an unpublished static guide', () => {
   const expressGuide = freshmanGuides.find(guide => guide.slug === 'express-delivery')
@@ -494,7 +587,7 @@ test('study and safety guides expose official sources without inventing pending 
   assert.match(safetyText, /保密会有必要例外/)
 })
 
-test('official club catalog exposes 23 traceable club entries with source levels', () => {
+test('official club catalog keeps every listed organization traceable to a source', () => {
   assert.deepEqual(
     officialClubs.map(club => club.name),
     [
@@ -505,6 +598,7 @@ test('official club catalog exposes 23 traceable club entries with source levels
       '就业与创业者协会',
       '青云汉服社',
       '舞蹈协会',
+      '战鹰退伍兵协会',
       '孙子兵法研究会',
       '演讲与口才协会',
       '书画社',
@@ -523,14 +617,14 @@ test('official club catalog exposes 23 traceable club entries with source levels
       '红十字会'
     ]
   )
-  assert.equal(officialClubs.length, 23)
+  assert.equal(officialClubs.length, 24)
   assert.equal(officialClubs.filter(club => club.source === officialSources.clubShowcase2026).length, 7)
   assert.equal(officialClubs.filter(club => club.source === officialSources.clubCadreAttachment2024).length, 13)
   assert.equal(officialClubs.filter(club => (
     club.source !== officialSources.clubShowcase2026
     && club.source !== officialSources.clubCadreAttachment2024
-  )).length, 3)
-  assert.ok(officialClubs.every(club => /适合.*了解|可确认近期有正式活动证据|可作为社团名称线索/.test(club.summary)))
+  )).length, 4)
+  assert.ok(officialClubs.every(club => /适合.*(?:了解|关注)|可确认近期有正式活动证据|可作为社团名称线索/.test(club.summary)))
   assert.ok(officialClubs.every(club => club.group.length >= 4 && club.direction.length >= 8))
   assert.ok(officialClubs.every(club => officialClubBody(club).length > 260))
   assert.ok(officialClubs.every(club => officialClubBody(club).includes(club.direction)))
@@ -572,7 +666,7 @@ test('fees and aid guide makes 2026 costs discoverable without inventing a payme
 test('published seed summaries are specific enough for freshman cards', () => {
   const catalog = buildCatalogSeed()
   const published = catalog.contents.filter(content => content.status === 'published')
-  assert.equal(published.length, 59)
+  assert.equal(published.length, 60)
   for (const content of published) {
     assert.ok(
       content.summary.trim().length >= 35,

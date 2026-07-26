@@ -184,6 +184,11 @@ async function copyContactAction(value: string): Promise<void> {
           </ul>
         </section>
 
+        <PublicContentBody
+          :body="club.body"
+          title="社团介绍"
+        />
+
         <section
           v-if="hasRecruitmentDetails"
           class="border-b border-zinc-200 py-7"
@@ -273,6 +278,8 @@ async function copyContactAction(value: string): Promise<void> {
             </div>
           </dl>
         </section>
+
+        <PublicContentBoxes :boxes="club.boxes" />
 
         <section
           v-if="contactSection.kind === 'pending'"

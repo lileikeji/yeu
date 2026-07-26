@@ -177,6 +177,11 @@ const feedbackLink = computed(() => content.value
           </div>
         </section>
 
+        <PublicContentBody
+          :body="department.body"
+          title="部门介绍"
+        />
+
         <section
           v-if="department.address || phoneContacts.length || department.email || department.officeHours || contactSection.kind === 'pending'"
           class="py-7"
@@ -294,6 +299,8 @@ const feedbackLink = computed(() => content.value
             {{ departmentSectionLabels.emptyContact }}
           </p>
         </section>
+
+        <PublicContentBoxes :boxes="department.boxes" />
 
         <div
           v-if="contactSection.kind === 'pending'"

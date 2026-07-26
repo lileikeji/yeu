@@ -222,7 +222,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
                   :to="link.to"
                   :external="link.external"
                   :target="link.external ? '_blank' : undefined"
-                  :rel="link.external ? 'noopener noreferrer' : undefined"
+                  rel="noopener noreferrer"
                   :icon="link.icon"
                   :label="link.label"
                   color="neutral"
@@ -475,7 +475,7 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
               :to="entry.to"
               :external="entry.external"
               :target="entry.external ? '_blank' : undefined"
-              :rel="entry.external ? 'noopener noreferrer' : undefined"
+              rel="noopener noreferrer"
               class="flex min-h-28 items-start gap-3 rounded-lg border border-zinc-200 p-4 transition hover:border-green-300"
             >
               <span

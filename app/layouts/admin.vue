@@ -1,29 +1,47 @@
 <script setup lang="ts">
 import {
-  adminNavigationGroups,
-  adminNavigationItems
+  adminNavigationGroups as fullAdminNavigationGroups,
+  adminNavigationItems as fullAdminNavigationItems
 } from '~~/app/utils/admin-dashboard-presentation'
 
 const route = useRoute()
-const navigationGroups = adminNavigationGroups
-const navigation = adminNavigationItems
 
 const authState = ref<'checking' | 'authenticated' | 'error'>('checking')
 const authError = ref('')
 const adminLabel = ref('管理员')
+const adminRole = ref<'super' | 'organization'>('super')
+const organizationTitle = ref('')
+const organizationPublicPath = ref('/')
+const mustChangePassword = ref(false)
 const mobileNavigationOpen = ref(false)
 const mobileNavigationDialog = ref<HTMLDialogElement | null>(null)
 const mobileNavigationButton = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
 const loggingOut = ref(false)
+
+const organizationNavigation = computed(() => [{
+  key: 'organization',
+  label: '组织后台',
+  items: [{
+    label: organizationTitle.value || '我的组织页面',
+    to: '/admin/organization',
+    icon: 'i-lucide-panels-top-left'
+  }]
+}])
+const navigationGroups = computed(() => adminRole.value === 'organization'
+  ? organizationNavigation.value
+  : fullAdminNavigationGroups)
+const navigation = computed(() => adminRole.value === 'organization'
+  ? organizationNavigation.value.flatMap(group => group.items)
+  : fullAdminNavigationItems)
 
 useSeoMeta({
   robots: 'noindex, nofollow'
 })
 
 const currentTitle = computed(() => {
-  const exact = navigation.find(item => item.to === route.path)
+  const exact = navigation.value.find(item => item.to === route.path)
   if (exact) return exact.label
-  return navigation.find(item => item.to !== '/admin' && route.path.startsWith(item.to))?.label ?? '管理后台'
+  return navigation.value.find(item => item.to !== '/admin' && route.path.startsWith(item.to))?.label ?? '管理后台'
 })
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -62,6 +80,20 @@ function resolveAdminLabel(payload: Record<string, unknown>): string {
   return '管理员'
 }
 
+function applyAdminScope(payload: Record<string, unknown>): void {
+  const user = sessionUser(payload)
+  if (!user) return
+  adminRole.value = user.role === 'organization' ? 'organization' : 'super'
+  mustChangePassword.value = user.mustChangePassword === true
+  const organization = isObject(user.organization) ? user.organization : null
+  if (!organization) return
+
+  organizationTitle.value = typeof organization.title === 'string' ? organization.title : ''
+  const kind = organization.kind === 'department' ? 'departments' : 'clubs'
+  const slug = typeof organization.slug === 'string' ? organization.slug : ''
+  organizationPublicPath.value = slug ? `/${kind}/${encodeURIComponent(slug)}` : '/'
+}
+
 async function redirectToLogin(): Promise<void> {
   await navigateTo({
     path: '/admin/login',
@@ -82,6 +114,16 @@ async function checkSession(): Promise<void> {
     }
 
     adminLabel.value = resolveAdminLabel(payload)
+    applyAdminScope(payload)
+    if (adminRole.value === 'organization'
+      && route.path !== '/admin/organization'
+      && !route.path.startsWith('/admin/content/')) {
+      await navigateTo({
+        path: '/admin/organization',
+        query: mustChangePassword.value ? { password: 'required' } : undefined
+      }, { replace: true })
+      return
+    }
     authState.value = 'authenticated'
   } catch (error) {
     const code = statusCode(error)
@@ -204,15 +246,18 @@ onMounted(() => {
     </div>
 
     <template v-else>
-      <aside class="fixed inset-y-0 left-0 z-40 hidden w-60 border-r border-zinc-800 bg-zinc-950 text-white lg:flex lg:flex-col">
+      <aside
+        class="fixed inset-y-0 left-0 z-40 hidden w-60 border-r border-zinc-800 bg-zinc-950 text-white lg:flex lg:flex-col"
+        aria-label="后台主导航"
+      >
         <div class="flex h-16 items-center gap-3 border-b border-white/10 px-4">
           <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-600 text-xs font-bold">YEU</span>
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold">
               新生指南后台
             </p>
-            <p class="truncate text-xs text-zinc-400">
-              单管理员模式
+            <p class="truncate text-xs text-zinc-300">
+              {{ adminRole === 'organization' ? '组织内容管理' : '总管理员模式' }}
             </p>
           </div>
         </div>
@@ -228,7 +273,7 @@ onMounted(() => {
           >
             <p
               v-if="group.key !== 'overview'"
-              class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500"
+              class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-300"
             >
               {{ group.label }}
             </p>
@@ -261,7 +306,7 @@ onMounted(() => {
               <p class="truncate text-xs font-medium text-white">
                 {{ adminLabel }}
               </p>
-              <p class="text-xs text-zinc-500">
+              <p class="text-xs text-zinc-300">
                 已登录
               </p>
             </div>
@@ -297,7 +342,7 @@ onMounted(() => {
             </p>
           </div>
           <UButton
-            to="/"
+            :to="adminRole === 'organization' ? organizationPublicPath : '/'"
             icon="i-lucide-external-link"
             label="查看前台"
             color="neutral"

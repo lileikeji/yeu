@@ -51,3 +51,23 @@ export function resolveAdminLoginRedirectTarget(redirectQuery: unknown): string 
   if (!/^\/admin(?:\/[\w.-]+)*\/?$/.test(value)) return '/admin'
   return value.replace(/\/+$/, '') || '/admin'
 }
+
+/**
+ * Organization accounts always enter their isolated workspace. This avoids
+ * mounting the super-admin dashboard before the layout has loaded the session.
+ */
+export function resolveAdminPostLoginTarget(
+  payload: unknown,
+  redirectQuery: unknown
+): string | { path: string, query?: Record<string, string> } {
+  if (!isAdminLoginPayloadObject(payload)) {
+    return resolveAdminLoginRedirectTarget(redirectQuery)
+  }
+  const admin = isAdminLoginPayloadObject(payload.admin) ? payload.admin : null
+  if (admin?.role !== 'organization') {
+    return resolveAdminLoginRedirectTarget(redirectQuery)
+  }
+  return admin.mustChangePassword === true
+    ? { path: '/admin/organization', query: { password: 'required' } }
+    : '/admin/organization'
+}

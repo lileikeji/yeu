@@ -20,12 +20,16 @@ export const adminUsers = sqliteTable('admin_users', {
   username: text('username').notNull(),
   passwordHash: text('password_hash').notNull(),
   displayName: text('display_name').notNull(),
+  role: text('role', { enum: ['super', 'organization'] }).notNull().default('super'),
+  mustChangePassword: integer('must_change_password', { mode: 'boolean' }).notNull().default(false),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   lastLoginAt: integer('last_login_at'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
-  uniqueIndex('admin_users_username_unique').on(table.username)
+  uniqueIndex('admin_users_username_unique').on(table.username),
+  index('admin_users_role_active_idx').on(table.role, table.isActive),
+  check('admin_users_role_check', sql`${table.role} in ('super', 'organization')`)
 ])
 
 export const adminSessions = sqliteTable('admin_sessions', {
@@ -195,6 +199,17 @@ export const contentSources = sqliteTable('content_sources', {
 }, table => [
   primaryKey({ columns: [table.contentId, table.sourceId] }),
   index('content_sources_source_idx').on(table.sourceId)
+])
+
+export const organizationAdminScopes = sqliteTable('organization_admin_scopes', {
+  adminUserId: text('admin_user_id').primaryKey().references(() => adminUsers.id, { onDelete: 'cascade' }),
+  contentId: text('content_id').notNull().references(() => contents.id, { onDelete: 'cascade' }),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('organization_admin_scopes_content_unique').on(table.contentId),
+  index('organization_admin_scopes_creator_idx').on(table.createdByAdminId)
 ])
 
 export const procedures = sqliteTable('procedures', {
