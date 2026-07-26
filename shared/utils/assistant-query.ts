@@ -4,8 +4,11 @@ const QUESTION_MARKERS = [
   '怎么申请', '怎么办理', '怎么去', '怎么走', '有没有', '有无', '是什么', '哪个',
   '哪一个', '属于', '还是', '住哪', '分到', '区别', '介绍一下', '尺寸', '多大',
   '几号', '哪天', '多少钱', '多长', '多宽', '多高', '哪些', '有什么要求',
-  '申请条件', '具体规则', '评审流程'
+  '申请条件', '具体规则', '评审流程', '能否', '要不要', '该不该', '是不是',
+  '好不好', '怎么样', '多久'
 ] as const
+
+const QUESTION_ENDING_PATTERN = /[?？吗嘛呢]$/u
 
 const PROMPT_INJECTION_MARKERS = [
   '忽略之前的指令', '忽略此前指令', '忽略系统指令', '系统提示词', '开发者指令',
@@ -31,7 +34,7 @@ export function isQuestionLike(value: string): boolean {
   const query = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
   if (query.length < 4) return false
   return Boolean(assistantIdentitySubject(query))
-    || /[?？]$/.test(query)
+    || QUESTION_ENDING_PATTERN.test(query)
     || QUESTION_MARKERS.some(marker => query.includes(marker))
 }
 
