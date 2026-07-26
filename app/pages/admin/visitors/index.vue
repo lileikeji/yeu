@@ -45,6 +45,26 @@ type VisitorRow = {
   locationLabel: string
 }
 
+type VisitorAnalytics = {
+  timeZone: string
+  date: string
+  today: {
+    eventCount: number
+    visitorCount: number
+  }
+  hourly: Array<{
+    hour: string
+    label: string
+    eventCount: number
+    visitorCount: number
+  }>
+  daily: Array<{
+    date: string
+    eventCount: number
+    visitorCount: number
+  }>
+}
+
 type VisitorEvent = {
   id: string
   action: string
@@ -225,6 +245,8 @@ const pageSize = 20
 const q = ref('')
 const ip = ref('')
 const banned = ref<'all' | 'true' | 'false'>('all')
+const sortMode = ref<'last-seen' | 'first-seen' | 'event-count'>('last-seen')
+const visitorAnalytics = ref<VisitorAnalytics | null>(null)
 
 const selectedVisitor = ref<VisitorRow | null>(null)
 const events = ref<VisitorEvent[]>([])
@@ -241,6 +263,8 @@ const banExpiresAt = ref('')
 
 const bannedCountOnPage = computed(() => items.value.filter(row => row.isBanned).length)
 const activeBanCount = computed(() => bans.value.filter(row => banStatusMeta(row).tone === 'active').length)
+const maxHourlyEvents = computed(() => Math.max(1, ...(visitorAnalytics.value?.hourly || []).map(row => row.eventCount)))
+const maxDailyEvents = computed(() => Math.max(1, ...(visitorAnalytics.value?.daily || []).map(row => row.eventCount)))
 
 function formatTime(iso: string | null | undefined): string {
   return formatAdminDateTime(iso)
@@ -381,17 +405,19 @@ async function loadVisitors(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    const payload = await adminFetch<{ items: VisitorRow[]; total: number }>('/api/admin/visitors', {
+    const payload = await adminFetch<{ items: VisitorRow[]; total: number; analytics?: VisitorAnalytics }>('/api/admin/visitors', {
       query: {
         page: page.value,
         pageSize,
         q: q.value.trim() || undefined,
         ip: ip.value.trim() || undefined,
-        banned: banned.value === 'all' ? undefined : banned.value
+        banned: banned.value === 'all' ? undefined : banned.value,
+        sort: sortMode.value
       }
     })
     items.value = payload.items || []
     total.value = payload.total || 0
+    visitorAnalytics.value = payload.analytics || null
       if (ip.value.trim()) {
       void loadIpDossier(ip.value.trim())
     } else {
@@ -625,7 +651,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
       <UFormField label="关键词">
         <UInput
           v-model="q"
@@ -653,6 +679,18 @@ onMounted(async () => {
           class="w-full"
         />
       </UFormField>
+      <UFormField label="访客显示顺序">
+        <USelect
+          v-model="sortMode"
+          :items="[
+            { label: '最近活动（时间顺序）', value: 'last-seen' },
+            { label: '操作次数最多', value: 'event-count' },
+            { label: '最早访问', value: 'first-seen' }
+          ]"
+          class="w-full"
+          @update:model-value="page = 1; loadVisitors()"
+        />
+      </UFormField>
       <div class="flex items-end">
         <UButton
           color="primary"
@@ -664,6 +702,67 @@ onMounted(async () => {
         </UButton>
       </div>
     </div>
+
+    <section
+      v-if="visitorAnalytics"
+      class="grid gap-4 rounded-2xl border border-sky-100 bg-sky-50/40 p-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]"
+    >
+      <div>
+        <div class="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 class="font-semibold text-sky-950">当日访问频率</h2>
+            <p class="mt-1 text-xs text-sky-800/70">
+              {{ visitorAnalytics.date }} · 按中国标准时间统计
+            </p>
+          </div>
+          <div class="flex gap-3 text-xs text-sky-900">
+            <span>访客 {{ visitorAnalytics.today.visitorCount }} 位</span>
+            <span>操作 {{ visitorAnalytics.today.eventCount }} 次</span>
+          </div>
+        </div>
+        <div class="mt-4 grid grid-cols-12 items-end gap-1.5">
+          <div
+            v-for="row in visitorAnalytics.hourly"
+            :key="row.hour"
+            class="group flex min-w-0 flex-col items-center gap-1"
+            :title="`${row.label} · ${row.eventCount} 次操作 · ${row.visitorCount} 位访客`"
+          >
+            <div class="flex h-28 w-full items-end justify-center">
+              <div
+                class="w-full max-w-5 rounded-t bg-sky-500/75 transition-[height] group-hover:bg-sky-600"
+                :style="{ height: `${Math.max(row.eventCount ? 8 : 2, (row.eventCount / maxHourlyEvents) * 100)}%` }"
+              />
+            </div>
+            <span
+              v-if="Number(row.hour) % 2 === 0"
+              class="text-[10px] tabular-nums text-sky-800/70"
+            >{{ row.hour }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-xl border border-white bg-white/80 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-sm font-semibold text-zinc-900">近 14 天</h3>
+          <span class="text-[11px] text-zinc-500">按日汇总</span>
+        </div>
+        <div class="mt-3 space-y-2">
+          <div
+            v-for="row in visitorAnalytics.daily"
+            :key="row.date"
+            class="grid grid-cols-[4.75rem_minmax(0,1fr)_3rem] items-center gap-2 text-xs"
+          >
+            <span class="tabular-nums text-zinc-500">{{ row.date.slice(5) }}</span>
+            <div class="h-2 overflow-hidden rounded-full bg-zinc-100">
+              <div
+                class="h-full rounded-full bg-sky-400"
+                :style="{ width: `${Math.max(row.eventCount ? 6 : 0, (row.eventCount / maxDailyEvents) * 100)}%` }"
+              />
+            </div>
+            <span class="text-right tabular-nums text-zinc-700">{{ row.eventCount }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <div class="grid gap-2 md:hidden" aria-label="访客列表">
       <article

@@ -639,7 +639,8 @@ export const visitorTrackSchema = z.object({
 
 export const adminVisitorsQuerySchema = paginationQuerySchema.extend({
   ip: z.string().trim().max(80).optional(),
-  banned: z.enum(['true', 'false']).optional()
+  banned: z.enum(['true', 'false']).optional(),
+  sort: z.enum(['last-seen', 'first-seen', 'event-count']).optional().default('last-seen')
 })
 
 export const adminVisitorBansQuerySchema = paginationQuerySchema.extend({

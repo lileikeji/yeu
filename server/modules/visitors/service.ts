@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, count, desc, eq, like, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, like, lt, or, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { VISITOR_COOKIE_NAME } from '../../../shared/constants/security'
 import type { DatabaseClient } from '../../database/client'
@@ -190,7 +190,14 @@ export function assertNotBanned(
 
 export function listVisitors(
   client: DatabaseClient,
-  query: { page: number; pageSize: number; q?: string; ip?: string; banned?: 'true' | 'false' }
+  query: {
+    page: number
+    pageSize: number
+    q?: string
+    ip?: string
+    banned?: 'true' | 'false'
+    sort?: 'last-seen' | 'first-seen' | 'event-count'
+  }
 ) {
   const offset = (query.page - 1) * query.pageSize
   const conditions = []
@@ -206,9 +213,15 @@ export function listVisitors(
     ))
   }
 
+  const orderBy = query.sort === 'first-seen'
+    ? [asc(visitors.firstSeenAt), asc(visitors.lastSeenAt)]
+    : query.sort === 'event-count'
+      ? [desc(visitors.eventCount), desc(visitors.lastSeenAt)]
+      : [desc(visitors.lastSeenAt)]
+
   let rows = client.db.select().from(visitors)
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(visitors.lastSeenAt))
+    .orderBy(...orderBy)
     .all()
 
   const now = Date.now()
@@ -254,7 +267,96 @@ export function listVisitors(
     })),
     total,
     page: query.page,
-    pageSize: query.pageSize
+    pageSize: query.pageSize,
+    analytics: buildVisitorAnalytics(client)
+  }
+}
+
+function chinaDateParts(timestamp: number): { year: string; month: string; day: string; hour: string } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date(timestamp))
+  const get = (type: string): string => parts.find(item => item.type === type)?.value ?? ''
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour') }
+}
+
+function chinaDayKey(timestamp: number): string {
+  const parts = chinaDateParts(timestamp)
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
+function chinaDayStart(timestamp: number): number {
+  return Date.parse(`${chinaDayKey(timestamp)}T00:00:00+08:00`)
+}
+
+function buildVisitorAnalytics(client: DatabaseClient) {
+  const now = Date.now()
+  const todayStart = chinaDayStart(now)
+  const periodStart = todayStart - (13 * 24 * 60 * 60 * 1000)
+  const rows = client.db.select({
+    visitorId: visitorEvents.visitorId,
+    createdAt: visitorEvents.createdAt
+  }).from(visitorEvents).where(and(
+    gte(visitorEvents.createdAt, periodStart),
+    lt(visitorEvents.createdAt, now + 1)
+  )).all()
+
+  const daily = new Map<string, { eventCount: number; visitors: Set<string> }>()
+  for (let index = 0; index < 14; index += 1) {
+    const timestamp = todayStart - ((13 - index) * 24 * 60 * 60 * 1000)
+    daily.set(chinaDateParts(timestamp).year + '-' + chinaDateParts(timestamp).month + '-' + chinaDateParts(timestamp).day, {
+      eventCount: 0,
+      visitors: new Set<string>()
+    })
+  }
+  const hourly = Array.from({ length: 24 }, (_, hour) => ({
+    hour: String(hour).padStart(2, '0'),
+    eventCount: 0,
+    visitors: new Set<string>()
+  }))
+
+  for (const row of rows) {
+    if (!row.createdAt) continue
+    const parts = chinaDateParts(Number(row.createdAt))
+    const day = `${parts.year}-${parts.month}-${parts.day}`
+    const dayBucket = daily.get(day)
+    if (dayBucket) {
+      dayBucket.eventCount += 1
+      dayBucket.visitors.add(row.visitorId)
+    }
+    if (Number(row.createdAt) >= todayStart) {
+      const hourBucket = hourly[Number(parts.hour)]
+      if (hourBucket) {
+        hourBucket.eventCount += 1
+        hourBucket.visitors.add(row.visitorId)
+      }
+    }
+  }
+
+  const todayBucket = daily.get(chinaDayKey(now)) ?? { eventCount: 0, visitors: new Set<string>() }
+  return {
+    timeZone: 'Asia/Shanghai',
+    date: chinaDayKey(now),
+    today: {
+      eventCount: todayBucket.eventCount,
+      visitorCount: todayBucket.visitors.size
+    },
+    hourly: hourly.map(bucket => ({
+      hour: bucket.hour,
+      label: `${bucket.hour}:00`,
+      eventCount: bucket.eventCount,
+      visitorCount: bucket.visitors.size
+    })),
+    daily: [...daily.entries()].map(([date, bucket]) => ({
+      date,
+      eventCount: bucket.eventCount,
+      visitorCount: bucket.visitors.size
+    }))
   }
 }
 
