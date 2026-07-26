@@ -26,6 +26,7 @@
     "db:invariants:test": "tsx --test scripts/publishing-invariants.test.ts",
     "db:seed:catalog": "tsx scripts/seed-public-catalog.ts",
     "db:seed:catalog:test": "tsx --test scripts/seed-public-catalog.test.ts scripts/sync-public-catalog.test.ts",
+    "db:seed:assistant": "tsx scripts/seed-assistant-knowledge.ts",
     "db:seed:procedures": "tsx scripts/seed-procedures.ts",
     "db:sync:catalog": "tsx scripts/sync-public-catalog.ts",
     "data:verify": "tsx scripts/verify-live-data-parity.ts",

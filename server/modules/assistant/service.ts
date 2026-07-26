@@ -32,6 +32,7 @@ import type {
 import { assistantIdentitySubject, normalizeAssistantQuery } from '../../../shared/utils/assistant-query'
 import type { DatabaseClient } from '../../database/client'
 import {
+  assistantKnowledgeEntries,
   assistantWebKnowledge,
   contents,
   places,
@@ -150,7 +151,7 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v2'
+const ASSISTANT_CACHE_VERSION = 'rag-v3'
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
   { id: 'quanzhou-east', terms: ['泉州东站', '东站'] },
@@ -407,7 +408,7 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
 function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
   const profile = assistantQueryProfile(query)
   const meaningful = profile.meaningfulQuery.replace(/\s+/g, '')
-  const ranked = evidence.map(item => {
+  const ranked = evidence.map((item) => {
     const title = item.title.toLocaleLowerCase('zh-CN')
     const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
     const titleTerms = profile.terms.filter(term => title.includes(term.toLocaleLowerCase('zh-CN')))
@@ -749,6 +750,118 @@ export function featureEvidenceForQuery(query: string, limit = 5): AssistantEvid
   }))
 }
 
+interface AssistantKnowledgeMatch {
+  id: string
+  kind: 'official_reference' | 'campus_template' | 'student_experience'
+  title: string
+  answer: string
+  publicUrl: string | null
+  confidence: number
+  score: number
+}
+
+function parseKnowledgeKeywords(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+export function assistantKnowledgeMatchesForQuery(
+  client: DatabaseClient,
+  query: string,
+  limit = 6
+): AssistantKnowledgeMatch[] {
+  const terms = assistantQueryTerms(query)
+  if (terms.length === 0) return []
+  const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+
+  return client.db.select({
+    id: assistantKnowledgeEntries.id,
+    kind: assistantKnowledgeEntries.kind,
+    category: assistantKnowledgeEntries.category,
+    title: assistantKnowledgeEntries.title,
+    question: assistantKnowledgeEntries.question,
+    answer: assistantKnowledgeEntries.answer,
+    keywordsJson: assistantKnowledgeEntries.keywordsJson,
+    publicUrl: assistantKnowledgeEntries.publicUrl,
+    confidence: assistantKnowledgeEntries.confidence
+  }).from(assistantKnowledgeEntries)
+    .where(eq(assistantKnowledgeEntries.isActive, true))
+    .all()
+    .map((row) => {
+      const keywords = parseKnowledgeKeywords(row.keywordsJson)
+      const detail = `${row.question} ${row.answer} ${keywords.join(' ')}`
+      const exactKeywordBoost = keywords.reduce((boost, keyword) => (
+        keyword.length >= 2 && normalizedQuery.includes(keyword.toLocaleLowerCase('zh-CN'))
+          ? Math.max(boost, keyword.length >= 4 ? 24 : 16)
+          : boost
+      ), 0)
+      const score = evidenceScore(`${row.title} ${row.category}`, row.question, detail, terms)
+        + exactKeywordBoost
+      return {
+        id: row.id,
+        kind: row.kind,
+        title: row.title,
+        answer: row.answer,
+        publicUrl: row.publicUrl,
+        confidence: row.confidence,
+        score
+      }
+    })
+    .filter(item => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, limit)
+}
+
+function assistantKnowledgeEvidenceForQuery(
+  client: DatabaseClient,
+  query: string,
+  limit = 6
+): AssistantEvidence[] {
+  return assistantKnowledgeMatchesForQuery(client, query, limit).map(item => ({
+    title: item.title,
+    url: item.publicUrl ?? `/search?knowledge=${encodeURIComponent(item.id)}`,
+    snippet: item.answer,
+    source: 'site' as const,
+    text: item.answer,
+    score: item.score
+  }))
+}
+
+function assistantKnowledgeLocalAnswer(
+  client: DatabaseClient,
+  query: string
+): ApiAssistantResponse | null {
+  if (isTransferQuery(query)) return null
+  const match = assistantKnowledgeMatchesForQuery(client, query, 1)[0]
+  if (!match || match.score < 12) return null
+  const experienceNotice = match.kind === 'student_experience'
+    && !/以.+为准|不是官方|不是招生统计|不能只按/.test(match.answer)
+    ? ' 这是学生经验，不是学校正式通知；涉及收费、时间、宿舍和管理要求时，以录取材料、辅导员或学校最新通知为准。'
+    : ''
+  const citations: ApiAssistantCitation[] = match.publicUrl
+    ? [{
+        title: match.title,
+        url: match.publicUrl,
+        snippet: match.answer,
+        source: 'site'
+      }]
+    : []
+  return {
+    query,
+    mode: 'local',
+    answer: `${match.answer}${experienceNotice}`,
+    citations,
+    usedWebSearch: false,
+    confidence: Math.min(0.99, Math.max(0.5, match.confidence / 100))
+  }
+}
+
 export function retrieveCampusEvidence(
   client: DatabaseClient,
   query: string,
@@ -855,8 +968,9 @@ export function retrieveCampusEvidence(
   const majorEvidence = majorEvidenceForQuery(query, limit)
   const seedEvidence = seedCatalogEvidenceForQuery(query, limit)
   const studentRuleEvidence = studentRuleEvidenceForQuery(query, limit)
+  const assistantKnowledgeEvidence = assistantKnowledgeEvidenceForQuery(client, query, limit)
 
-  const ranked = [...featureEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
+  const ranked = [...featureEvidence, ...assistantKnowledgeEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
     .filter((item, index, items) => items.findIndex(candidate => candidate.url === item.url) === index)
@@ -1714,7 +1828,8 @@ export async function answerCampusQuestion(
       }
     }
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
-    if (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8)))) {
+    const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
+    if (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (deterministicKnowledgeAnswer || deterministicRuleAnswer || (localEvidence[0] && localEvidence[0].score >= 8)))) {
       return {
         query,
         retrievalQuery,
@@ -1808,6 +1923,7 @@ export async function answerCampusQuestion(
       retrievalLabel,
       () => retrieveCampusEvidence(client, analysis.retrievalQuery)
     )
+    const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
@@ -1817,7 +1933,7 @@ export async function answerCampusQuestion(
       () => historicalTransferAnswer
         ?? (analysis.requiresSpecificWebEvidence
           ? dormBedEvidenceGapResponse(query, localEvidence)
-          : deterministicRuleAnswer ?? (localEvidence[0]
+          : deterministicKnowledgeAnswer ?? deterministicRuleAnswer ?? (localEvidence[0]
             ? buildLocalResponse(query, localEvidence)
             : localEvidenceGapResponse(query)))
     )

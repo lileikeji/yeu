@@ -551,6 +551,30 @@ export const assistantWebKnowledge = sqliteTable('assistant_web_knowledge', {
   check('assistant_web_knowledge_status_check', sql`${table.status} in ('active', 'expired', 'rejected')`)
 ])
 
+export const assistantKnowledgeEntries = sqliteTable('assistant_knowledge_entries', {
+  id: text('id').primaryKey(),
+  kind: text('kind', {
+    enum: ['official_reference', 'campus_template', 'student_experience']
+  }).notNull(),
+  category: text('category').notNull(),
+  title: text('title').notNull(),
+  question: text('question').notNull(),
+  answer: text('answer').notNull(),
+  keywordsJson: text('keywords_json').notNull().default('[]'),
+  publicUrl: text('public_url'),
+  confidence: integer('confidence').notNull().default(50),
+  sourceNote: text('source_note').notNull().default(''),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  importedAt: integer('imported_at').notNull(),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('assistant_knowledge_kind_active_idx').on(table.kind, table.isActive),
+  index('assistant_knowledge_category_active_idx').on(table.category, table.isActive),
+  check('assistant_knowledge_kind_check', sql`${table.kind} in ('official_reference', 'campus_template', 'student_experience')`),
+  check('assistant_knowledge_confidence_check', sql`${table.confidence} between 0 and 100`)
+])
+
 export const assistantRuns = sqliteTable('assistant_runs', {
   id: text('id').primaryKey(),
   requestId: text('request_id').notNull(),
