@@ -1,0 +1,28 @@
+[Unit]
+Description=YEU WeChatPadPro message relay
+After=network-online.target yeu.service yeu-wechatpadpro.service
+Requires=yeu-wechatpadpro.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yeu
+Group=yeu
+WorkingDirectory=/www/wwwroot/yeu/current
+Environment=NUXT_ENV_FILE=/www/wwwroot/yeu/shared/wechatpadpro/.env
+ExecStart=/opt/node-v22.18.0/bin/node /www/wwwroot/yeu/current/scripts/wechatpadpro-relay.mjs
+Restart=always
+RestartSec=3
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

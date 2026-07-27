@@ -1,0 +1,17 @@
+[Unit]
+Description=YEU isolated WeChatPadPro stack
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/www/wwwroot/yeu/current
+ExecStart=/usr/bin/docker compose --env-file /www/wwwroot/yeu/shared/wechatpadpro/.env -f /www/wwwroot/yeu/current/ops/wechatpadpro/docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose --env-file /www/wwwroot/yeu/shared/wechatpadpro/.env -f /www/wwwroot/yeu/current/ops/wechatpadpro/docker-compose.yml stop
+TimeoutStartSec=180
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target

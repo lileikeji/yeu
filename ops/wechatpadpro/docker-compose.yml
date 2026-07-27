@@ -1,0 +1,136 @@
+name: yeu-wechatpadpro
+
+services:
+  mysql:
+    image: ${WECHATPADPRO_MYSQL_IMAGE}
+    container_name: yeu-wechatpadpro-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=96M
+      - --innodb-log-buffer-size=8M
+      - --max-connections=40
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    mem_limit: 448m
+    mem_reservation: 192m
+    cpus: 0.45
+    pids_limit: 160
+    security_opt:
+      - no-new-privileges:true
+    logging: &local-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - internal
+
+  redis:
+    image: ${WECHATPADPRO_REDIS_IMAGE}
+    container_name: yeu-wechatpadpro-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      TZ: Asia/Shanghai
+    command:
+      - /bin/sh
+      - -ec
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --maxmemory 64mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 96m
+    mem_reservation: 32m
+    cpus: 0.15
+    pids_limit: 80
+    security_opt:
+      - no-new-privileges:true
+    logging: *local-logging
+    networks:
+      - internal
+
+  wechatpadpro:
+    image: ${WECHATPADPRO_IMAGE}
+    container_name: yeu-wechatpadpro
+    restart: unless-stopped
+    init: true
+    env_file:
+      - ${WECHATPADPRO_ENV_FILE}
+    environment:
+      HOST: 0.0.0.0
+      PORT: 1238
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${MYSQL_DATABASE}
+      DB_USERNAME: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_CONNECT_STR: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(mysql:3306)/${MYSQL_DATABASE}?charset=utf8mb4&parseTime=true&loc=Local
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASS: ${REDIS_PASSWORD}
+      DEBUG: "false"
+      TZ: Asia/Shanghai
+      WORKER_POOL_SIZE: 24
+      MAX_WORKER_TASK_LEN: 120
+      QUEUE_EXPIRE_TIME: 3600
+      AUTO_SYNC_INTERVAL_MINUTES: 30
+      NEWS_SYN_WXID: "true"
+      ROCKET_MQ_ENABLED: "false"
+      RABBIT_MQ_ENABLED: "false"
+      KAFKA_ENABLED: "false"
+    ports:
+      - 127.0.0.1:1238:1238
+      - 127.0.0.1:18082:8080
+    volumes:
+      - ${WECHATPADPRO_ENV_FILE}:/app/.env:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 640m
+    mem_reservation: 256m
+    cpus: 0.70
+    pids_limit: 220
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *local-logging
+    networks:
+      - internal
+
+networks:
+  internal:
+    name: yeu-wechatpadpro-internal
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.28.0/24
+          gateway: 172.30.28.1
+
+volumes:
+  mysql_data:
+    name: yeu-wechatpadpro-mysql-data
+  redis_data:
+    name: yeu-wechatpadpro-redis-data

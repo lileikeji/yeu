@@ -72,6 +72,15 @@ NUXT_WECHAT_BOT_ALLOWED_ROOM_IDS=<comma-separated room ids>
 
 The WeChat room allowlist is deny-by-default. An empty value rejects every room. A room is accepted only when its exact ID is present and the relay confirms that the bot itself was mentioned.
 
+The production host uses the isolated configuration in `ops/wechatpadpro/`. Its API ports bind to loopback only, while the signed relay listens only on the dedicated Docker bridge gateway. Start the stack before the relay so that `172.30.28.1` exists:
+
+```bash
+systemctl enable --now yeu-wechatpadpro.service
+systemctl enable --now yeu-wechatpadpro-relay.service
+```
+
+Keep `/www/wwwroot/yeu/shared/wechatpadpro/.env` outside releases and readable only by `root` and the `yeu` group. Do not add a room ID until the dedicated account has logged in and the room owner has approved it. The relay independently enforces the same exact room allowlist, mention requirement, request size limit, replay window and message deduplication before a request reaches YEU.
+
 Shared settings:
 
 ```dotenv
