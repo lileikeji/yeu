@@ -15,9 +15,24 @@ import {
 import type { AdminSessionContext } from '../server/utils/auth'
 import { requireAdminContentAccess } from '../server/utils/auth'
 import { verifyPassword } from '../server/utils/password'
+import { createOrganizationAdminSchema } from '../shared/schemas/server'
 
 const firstContentId = '00000000-0000-4000-8000-000000000101'
 const secondContentId = '00000000-0000-4000-8000-000000000102'
+
+test('organization account usernames accept Chinese while rejecting spaces', () => {
+  const valid = createOrganizationAdminSchema.safeParse({
+    contentId: firstContentId,
+    username: '计算机协会'
+  })
+  const invalid = createOrganizationAdminSchema.safeParse({
+    contentId: firstContentId,
+    username: '计算机 协会'
+  })
+
+  assert.equal(valid.success, true)
+  assert.equal(invalid.success, false)
+})
 
 function insertClub(
   sqlite: ReturnType<typeof getDatabase>['sqlite'],

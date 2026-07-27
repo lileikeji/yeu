@@ -497,7 +497,9 @@ export const changeAdminPasswordSchema = z.object({
 
 export const createOrganizationAdminSchema = z.object({
   contentId: z.string().uuid(),
-  username: z.string().trim().min(2).max(80).regex(/^[a-z0-9._-]+$/i).optional()
+  username: z.string().trim().min(2).max(80)
+    .regex(/^[a-zA-Z0-9_\u4e00-\u9fff.-]+$/, 'Invalid username')
+    .optional()
 }).strict()
 
 export const updateOrganizationAdminSchema = z.object({
