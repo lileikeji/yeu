@@ -47,7 +47,11 @@ test('community metadata accepts uploaded QR URLs and bounded ordering', () => {
       contactPhones: ['138 0000 0000', '0595-12345678'],
       featuredSummary: '适合新生快速了解的精选摘要。',
       sortOrder: 20,
-      signupQuestions: ['零基础可以加入吗？', '每周活动安排是什么？']
+      signupQuestions: ['零基础可以加入吗？', '每周活动安排是什么？'],
+      signupQa: [
+        { question: '零基础可以加入吗？', answer: '可以，招新后会安排基础培训。' },
+        { question: '每周活动安排是什么？', answer: '每周一次，具体时间开学后确定。' }
+      ]
     }
   })
   assert.equal(result.success, true)
@@ -65,6 +69,13 @@ test('community metadata rejects external QR URLs and invalid ordering', () => {
   assert.equal(updateContentSchema.safeParse({ metadata: { signupQuestions: [] } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { signupQuestions: ['重复问题', '重复问题'] } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { signupQuestions: [' 前后有空格'] } }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: { signupQa: [] } }).success, false)
+  assert.equal(updateContentSchema.safeParse({
+    metadata: { signupQa: [{ question: '重复问题', answer: '' }, { question: '重复问题', answer: '回答' }] }
+  }).success, false)
+  assert.equal(updateContentSchema.safeParse({
+    metadata: { signupQa: [{ question: '问题', answer: 'a'.repeat(2001) }] }
+  }).success, false)
 })
 
 test('club directory exposes QR contacts and follows configured order', () => {
@@ -84,6 +95,10 @@ test('club directory exposes QR contacts and follows configured order', () => {
         contactName: '招新负责人',
         contactPhones: ['13800000000', '0595-12345678'],
         signupQuestions: ['需要面试吗？', '活动一般在什么时候？'],
+        signupQa: [
+          { question: '需要面试吗？', answer: '不需要面试。' },
+          { question: '活动一般在什么时候？', answer: '通常安排在周末。' }
+        ],
         featuredSummary: '首页精选摘要'
       }
     })
@@ -98,6 +113,10 @@ test('club directory exposes QR contacts and follows configured order', () => {
   assert.equal(clubs[0]?.contactPhone, '13800000000 / 0595-12345678')
   assert.deepEqual(clubs[0]?.contactPhones, ['13800000000', '0595-12345678'])
   assert.deepEqual(clubs[0]?.signupQuestions, ['需要面试吗？', '活动一般在什么时候？'])
+  assert.deepEqual(clubs[0]?.signupQa, [
+    { question: '需要面试吗？', answer: '不需要面试。' },
+    { question: '活动一般在什么时候？', answer: '通常安排在周末。' }
+  ])
   assert.equal(clubs[0]?.featuredSummary, '首页精选摘要')
   assert.equal(clubs[0]?.isFeatured, true)
 })
@@ -106,6 +125,8 @@ test('club signup questions fall back to the student-facing defaults', () => {
   const club = publicClubs([contentFixture({ metadata: {} })], [])[0]
   assert.ok(club)
   assert.equal(club.signupQuestions.length, 4)
+  assert.equal(club.signupQa.length, 4)
+  assert.equal(club.signupQa[0]?.answer, null)
   assert.match(club.signupQuestions[0] ?? '', /主要活动/)
 })
 

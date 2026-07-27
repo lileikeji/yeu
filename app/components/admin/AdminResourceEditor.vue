@@ -22,6 +22,7 @@ const props = defineProps<{
   formState: Record<string, AdminFormValue>
   saving: boolean
   formError: string
+  visualEditorPath?: string
 }>()
 
 const open = defineModel<boolean>('open', { required: true })
@@ -390,20 +391,31 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
     </template>
 
     <template #footer>
-      <div class="flex w-full justify-end gap-2">
+      <div class="flex w-full flex-wrap items-center justify-between gap-2">
         <UButton
-          label="取消"
+          v-if="visualEditorPath"
+          :to="visualEditorPath"
+          icon="i-lucide-panels-top-left"
+          label="切换到可视化编辑"
           color="neutral"
-          variant="ghost"
-          :disabled="saving"
-          @click="() => { open = false }"
+          variant="outline"
         />
-        <UButton
-          icon="i-lucide-save"
-          label="保存"
-          :loading="saving"
-          @click="() => { emit('save') }"
-        />
+        <span v-else />
+        <div class="flex justify-end gap-2">
+          <UButton
+            label="取消"
+            color="neutral"
+            variant="ghost"
+            :disabled="saving"
+            @click="() => { open = false }"
+          />
+          <UButton
+            icon="i-lucide-save"
+            label="保存"
+            :loading="saving"
+            @click="() => { emit('save') }"
+          />
+        </div>
       </div>
     </template>
   </UModal>

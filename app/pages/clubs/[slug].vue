@@ -168,19 +168,28 @@ async function copyContactAction(value: string): Promise<void> {
           <h2 class="text-lg font-bold text-zinc-950">
             {{ clubSectionLabels.signupChecklist }}
           </h2>
-          <ul class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 md:grid md:grid-cols-2 md:divide-y-0">
-            <li
-              v-for="item in club.signupQuestions"
-              :key="item"
-              class="flex gap-3 py-4 text-sm leading-6 text-zinc-700 md:border-b md:border-zinc-200 md:odd:pr-4 md:even:pl-4"
+          <div class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
+            <details
+              v-for="item in club.signupQa"
+              :key="item.question"
+              class="group"
             >
-              <UIcon
-                name="i-lucide-circle-question-mark"
-                class="mt-0.5 size-4 shrink-0 text-emerald-700"
-              />
-              <span>{{ item }}</span>
-            </li>
-          </ul>
+              <summary class="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3.5 text-sm font-semibold leading-6 text-zinc-800 [&::-webkit-details-marker]:hidden">
+                <UIcon
+                  name="i-lucide-circle-question-mark"
+                  class="size-4 shrink-0 text-emerald-700"
+                />
+                <span class="min-w-0 flex-1">{{ item.question }}</span>
+                <UIcon
+                  name="i-lucide-chevron-down"
+                  class="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <div class="pb-4 pl-7 pr-6 text-sm leading-7 text-zinc-600">
+                {{ item.answer || '该社团暂未补充这项回答，请在本学期招新时向负责人确认。' }}
+              </div>
+            </details>
+          </div>
         </section>
 
         <PublicContentBody

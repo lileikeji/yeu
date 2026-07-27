@@ -26,6 +26,21 @@ function firstSafeMessage(...candidates: unknown[]): string | null {
   return null
 }
 
+const localizedApiMessages: Record<string, string> = {
+  'Current verification and at least one active A/B/C source are required before publishing':
+    '发布前请填写最新核验时间，并关联至少一个可用的 A/B/C 级来源。',
+  'Verified WGS84 coordinates and at least one active A/B/C source are required before publishing':
+    '发布前请完成 WGS84 坐标核验，并关联至少一个可用的 A/B/C 级来源。',
+  'Current verification, ordered steps, and active evidence are required before publishing':
+    '发布前请填写最新核验时间、至少一个有序步骤，并关联可用依据。',
+  'Unpublish dependent records or add another active A/B/C source first':
+    '该来源仍被已发布内容使用。请先下架相关内容，或为它们补充另一个可用的 A/B/C 级来源。'
+}
+
+function localizeApiMessage(message: string): string {
+  return localizedApiMessages[message] ?? message
+}
+
 export function getRequestStatusCode(error: unknown): number | null {
   if (!isRecord(error)) return null
   if (typeof error.statusCode === 'number') return error.statusCode
@@ -44,7 +59,7 @@ export function getRequestMessage(error: unknown, fallback: string): string {
     error.statusMessage,
     error.message
   )
-  return safe ?? fallback
+  return safe ? localizeApiMessage(safe) : fallback
 }
 
 export function isAuthorizationError(error: unknown): boolean {

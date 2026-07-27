@@ -81,6 +81,15 @@ const {
   notify: notification => toast.add(notification)
 })
 
+const visualEditorPath = computed(() => {
+  if (props.config.key !== 'content' || !editingRecord.value) return undefined
+  const kind = typeof editingRecord.value.kind === 'string' ? editingRecord.value.kind : ''
+  const id = typeof editingRecord.value.id === 'string' ? editingRecord.value.id : ''
+  return id && (kind === 'club' || kind === 'department')
+    ? `/admin/content/${encodeURIComponent(id)}/visual`
+    : undefined
+})
+
 async function handleUnauthorized(error: unknown): Promise<boolean> {
   if (!isAuthorizationError(error)) return false
 
@@ -93,6 +102,18 @@ async function handleUnauthorized(error: unknown): Promise<boolean> {
 
 function rowTitle(record: AdminRecord | null): string {
   return getAdminResourceRowTitle(record, props.config.rowTitleKey)
+}
+
+async function openVisualCreate(kind: 'club' | 'department'): Promise<void> {
+  await navigateTo({
+    path: '/admin/content/new/visual',
+    query: { kind }
+  })
+}
+
+function openStructuredCreate(kind: 'guide' | 'notice'): void {
+  openCreate()
+  setFormValue('kind', kind)
 }
 
 async function handleEdit(record: AdminRecord): Promise<void> {
@@ -124,6 +145,29 @@ function initializeForm(record: AdminRecord | null): void {
 }
 
 async function openCreateFromQuery(): Promise<void> {
+  const editId = typeof route.query.edit === 'string' ? route.query.edit.trim() : ''
+  if (editId && canEdit.value && props.config.key === 'content') {
+    try {
+      const record = await adminFetch<AdminRecord>(
+        `/api/admin/content/${encodeURIComponent(editId)}`
+      )
+      openEdit(record)
+    } catch (error) {
+      if (!await handleUnauthorized(error)) {
+        toast.add({
+          title: '详细内容加载失败',
+          description: '请刷新后重试，或从内容列表重新进入。',
+          color: 'error'
+        })
+      }
+    } finally {
+      const query = { ...route.query }
+      delete query.edit
+      await router.replace({ query })
+    }
+    return
+  }
+
   if (route.query.action !== 'create' || !canCreate.value) return
   openCreate()
 
@@ -157,8 +201,32 @@ function validateForm(): string | null {
           aria-label="刷新列表"
           @click="loadRecords"
         />
+        <template v-if="canCreate && config.key === 'content'">
+          <UButton
+            icon="i-lucide-users-round"
+            label="新增社团"
+            :disabled="writeBusy"
+            @click="openVisualCreate('club')"
+          />
+          <UButton
+            icon="i-lucide-landmark"
+            label="新增部门"
+            color="neutral"
+            variant="outline"
+            :disabled="writeBusy"
+            @click="openVisualCreate('department')"
+          />
+          <UButton
+            icon="i-lucide-file-plus-2"
+            label="新增指南 / 公告"
+            color="neutral"
+            variant="outline"
+            :disabled="writeBusy"
+            @click="openStructuredCreate('guide')"
+          />
+        </template>
         <UButton
-          v-if="canCreate"
+          v-else-if="canCreate"
           icon="i-lucide-plus"
           :label="config.createLabel"
           :disabled="writeBusy"
@@ -205,6 +273,7 @@ function validateForm(): string | null {
       :form-state="formState"
       :saving="saving"
       :form-error="formError"
+      :visual-editor-path="visualEditorPath"
       @update-field="setFormValue"
       @coordinate-picked="handleCoordinatePicked"
       @clear-coordinates="clearCoordinates"

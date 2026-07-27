@@ -277,6 +277,39 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
       })
     }
   }
+  const signupQa = value.signupQa
+  if (signupQa !== undefined) {
+    const validQa = (item: unknown): boolean => {
+      if (!isPlainObject(item)) return false
+      if (Object.keys(item).some(key => !['question', 'answer'].includes(key))) return false
+      if (typeof item.question !== 'string'
+        || item.question.trim().length < 1
+        || item.question.trim().length > 300
+        || item.question !== item.question.trim()) return false
+      return typeof item.answer === 'string'
+        && item.answer.trim().length <= 2000
+        && item.answer === item.answer.trim()
+    }
+    if (!Array.isArray(signupQa)
+      || signupQa.length < 1
+      || signupQa.length > 12
+      || signupQa.some(item => !validQa(item))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['signupQa'],
+        message: 'signupQa must contain 1 to 12 question and answer objects'
+      })
+    } else {
+      const questions = signupQa.map(item => (item as { question: string }).question)
+      if (new Set(questions).size !== questions.length) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['signupQa'],
+          message: 'signupQa must not contain duplicate questions'
+        })
+      }
+    }
+  }
   const boxes = value.boxes
   if (boxes !== undefined) {
     const validBox = (item: unknown): boolean => {

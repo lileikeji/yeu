@@ -60,6 +60,10 @@ test('visual editor boxes and multiple contacts reach the public club view in or
       '/uploads/00000000-0000-4000-8000-000000000214.webp'
     ],
     signupQuestions: ['是否需要面试？', '每周活动几次？'],
+    signupQa: [
+      { question: '是否需要面试？', answer: '无需面试，填写报名表即可。' },
+      { question: '每周活动几次？', answer: '通常每周一次。' }
+    ],
     boxes: [
       {
         id: 'join-us',
@@ -93,6 +97,10 @@ test('visual editor boxes and multiple contacts reach the public club view in or
     '/uploads/00000000-0000-4000-8000-000000000214.webp'
   ])
   assert.deepEqual(club.signupQuestions, ['是否需要面试？', '每周活动几次？'])
+  assert.deepEqual(club.signupQa, [
+    { question: '是否需要面试？', answer: '无需面试，填写报名表即可。' },
+    { question: '每周活动几次？', answer: '通常每周一次。' }
+  ])
   assert.deepEqual(club.boxes.map(box => ({
     id: box.id,
     title: box.title,

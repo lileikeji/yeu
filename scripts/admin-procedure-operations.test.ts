@@ -90,6 +90,14 @@ test('request error helpers preserve nested messages and authorization status', 
   assert.equal(getRequestMessage({ message: 'SQLITE_ERROR: no such table' }, '失败'), '失败')
   assert.equal(getRequestMessage({ message: 'Error at foo (/home/user/app.ts:1:1)' }, '失败'), '失败')
   assert.equal(getRequestMessage({ message: 'password hash mismatch for secret token' }, '失败'), '失败')
+  assert.equal(
+    getRequestMessage({
+      data: {
+        statusMessage: 'Current verification and at least one active A/B/C source are required before publishing'
+      }
+    }, '失败'),
+    '发布前请填写最新核验时间，并关联至少一个可用的 A/B/C 级来源。'
+  )
   assert.equal(isSafeUiErrorMessage('字段无效'), true)
   assert.equal(isSafeUiErrorMessage('a'.repeat(201)), false)
   assert.equal(isSafeUiErrorMessage('C:\\Users\\x\\secret.env leak'), false)

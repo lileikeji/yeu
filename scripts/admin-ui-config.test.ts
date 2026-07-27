@@ -32,6 +32,14 @@ const organizationVisualEditorSource = readFileSync(
   resolve('app/components/admin/AdminOrganizationVisualEditor.vue'),
   'utf8'
 )
+const organizationVisualCreatePageSource = readFileSync(
+  resolve('app/pages/admin/content/new/visual.vue'),
+  'utf8'
+)
+const organizationVisualEditPageSource = readFileSync(
+  resolve('app/pages/admin/content/[id]/visual.vue'),
+  'utf8'
+)
 
 function sectionBlock(key: string): string {
   const marker = `  '${key}': {`
@@ -112,18 +120,87 @@ test('organization visual editor entry includes the required first-login passwor
   ], 'AdminPasswordChangePanel')
 })
 
-test('organization visual editor manages signup questions and persists QR uploads immediately', () => {
+test('organization visual editor manages signup Q&A and persists QR uploads immediately', () => {
   assertContains(organizationVisualEditorSource, [
-    /signupQuestions: string\[\]/,
-    /model\.signupQuestions = Array\.isArray\(metadata\.signupQuestions\)/,
+    /interface EditorSignupQa/,
+    /signupQa: EditorSignupQa\[\]/,
+    /function editorSignupQa\(metadata: Record<string, unknown>\)/,
+    /model\.signupQa = editorSignupQa\(metadata\)/,
     /function addSignupQuestion\(\)/,
     /function moveSignupQuestion\(index: number, offset: -1 \| 1\)/,
     /function removeSignupQuestion\(index: number\)/,
-    /v-model="model\.signupQuestions\[index\]"/,
+    /v-model="item\.question"/,
+    /v-model="item\.answer"/,
+    /signupQuestions, signupQa/,
     /Promise\.allSettled/,
     /await persistQrAssociations\(\)/,
     /二维码已上传并保存/
   ], 'AdminOrganizationVisualEditor')
+})
+
+test('organization content creation and every organization field use the visual editor', () => {
+  assertContains(managerSource, [
+    /function openVisualCreate\(kind: 'club' \| 'department'\)/,
+    /path: '\/admin\/content\/new\/visual'/,
+    /label="新增社团"/,
+    /@click="openVisualCreate\('club'\)"/,
+    /label="新增部门"/,
+    /@click="openVisualCreate\('department'\)"/,
+    /label="新增指南 \/ 公告"/
+  ], 'AdminResourceManager visual creation actions')
+  assertContains(organizationVisualCreatePageSource, [
+    /route\.query\.kind === 'department'/,
+    /AdminOrganizationVisualEditor :create-kind="createKind"/
+  ], 'organization visual creation page')
+  assertContains(organizationVisualEditorSource, [
+    /contentId\?: string/,
+    /createKind\?: 'club' \| 'department'/,
+    /const isCreating = computed\(\(\) => !model\.id\)/,
+    /method: 'POST'/,
+    /kind: model\.kind/,
+    /slug: model\.slug\.trim\(\)/,
+    /sourceIds,/,
+    /lastVerifiedAt: isoDateOrNull\(model\.lastVerifiedAt\)/,
+    /verificationState: model\.verificationState/,
+    /featuredSummary: model\.featuredSummary\.trim\(\)/,
+    /sortOrder,/,
+    /v-model="model\.profileUrl"/,
+    /v-model="model\.contactUrl"/,
+    /v-model="model\.sourceIdsText"/,
+    /v-model="model\.lastVerifiedAt"/,
+    /v-model="model\.isFeatured"/,
+    /loadAvailableSources\(\)/,
+    /\/api\/admin\/sources\?/,
+    /toggleSource\(source\.id, \$event === true\)/,
+    /label="设为现在"/,
+    /label="发布依据"/,
+    /创建并继续编辑/
+  ], 'AdminOrganizationVisualEditor complete organization fields')
+})
+
+test('super admins can switch between visual and detailed organization editors', () => {
+  assertContains(organizationVisualEditorSource, [
+    /allowDetailedEdit\?: boolean/,
+    /v-if="!isCreating && allowDetailedEdit"/,
+    /path: '\/admin\/content'/,
+    /query: \{ edit: model\.id \}/,
+    /label="切换到详细编辑"/
+  ], 'AdminOrganizationVisualEditor detailed editor switch')
+  assertContains(organizationVisualEditPageSource, [
+    /session\.admin\?\.role === 'super'/,
+    /:allow-detailed-edit="allowDetailedEdit"/
+  ], 'organization visual edit super-admin gate')
+  assertContains(managerSource, [
+    /const editId = typeof route\.query\.edit === 'string'/,
+    /`\/api\/admin\/content\/\$\{encodeURIComponent\(editId\)\}`/,
+    /openEdit\(record\)/,
+    /:visual-editor-path="visualEditorPath"/
+  ], 'AdminResourceManager detailed editor route')
+  assertContains(editorSource, [
+    /visualEditorPath\?: string/,
+    /v-if="visualEditorPath"/,
+    /label="切换到可视化编辑"/
+  ], 'AdminResourceEditor visual editor switch')
 })
 
 test('core admin modules are configured for maintainable CRUD and publication workflows', () => {

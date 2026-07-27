@@ -255,9 +255,15 @@ export interface PublicClubView {
   contactPhone: string | null
   contactPhones: string[]
   signupQuestions: string[]
+  signupQa: PublicClubSignupQa[]
   boxes: PublicContentBox[]
   updatedAt: string
   sources: PublicSource[]
+}
+
+export interface PublicClubSignupQa {
+  question: string
+  answer: string | null
 }
 
 export interface PublicNoticeView {
@@ -319,6 +325,18 @@ function metadataStringArray(content: ApiContent, key: string, legacyKey?: strin
     ...items.map(item => item.trim()).filter(Boolean),
     ...(legacyValue ? [legacyValue] : [])
   ])]
+}
+
+function metadataSignupQa(content: ApiContent): PublicClubSignupQa[] {
+  const value = content.metadata.signupQa
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item): PublicClubSignupQa[] => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+    const entry = item as Record<string, unknown>
+    const question = typeof entry.question === 'string' ? entry.question.trim() : ''
+    const answer = typeof entry.answer === 'string' ? entry.answer.trim() : ''
+    return question ? [{ question, answer: answer || null }] : []
+  })
 }
 
 function metadataUploadedImageUrls(content: ApiContent, key: string, legacyKey?: string): string[] {
@@ -823,6 +841,11 @@ function apiClubToView(content: ApiContent): PublicClubView {
   const contactQrUrls = metadataUploadedImageUrls(content, 'contactQrUrls', 'contactQrUrl')
   const contactPhones = metadataStringArray(content, 'contactPhones', 'contactPhone')
   const signupQuestions = metadataStringArray(content, 'signupQuestions')
+  const configuredSignupQa = metadataSignupQa(content)
+  const signupQa = configuredSignupQa.length
+    ? configuredSignupQa
+    : (signupQuestions.length ? signupQuestions : [...clubSignupQuestionChecklist])
+        .map(question => ({ question, answer: null }))
   const boxes = metadataContentBoxes(content)
   return {
     id: content.id,
@@ -845,9 +868,8 @@ function apiClubToView(content: ApiContent): PublicClubView {
     contactName: metadataString(content, 'contactName'),
     contactPhone: contactPhones.join(' / ') || null,
     contactPhones,
-    signupQuestions: signupQuestions.length
-      ? signupQuestions
-      : [...clubSignupQuestionChecklist],
+    signupQuestions: signupQa.map(item => item.question),
+    signupQa,
     boxes,
     updatedAt: dateOnly(content.lastVerifiedAt ?? content.updatedAt),
     sources: toPublicSources(content)
@@ -876,6 +898,7 @@ function staticClubToView(club: OfficialClub): PublicClubView {
     contactPhone: null,
     contactPhones: [],
     signupQuestions: [...clubSignupQuestionChecklist],
+    signupQa: clubSignupQuestionChecklist.map(question => ({ question, answer: null })),
     boxes: [],
     updatedAt: club.source.accessedAt,
     sources: [studentFacingSource(club.source)]
