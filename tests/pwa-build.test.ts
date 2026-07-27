@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
-const serviceWorkerPath = resolve('.output/public/sw.js')
+const serviceWorkerFiles = readdirSync(resolve('.output/public'))
+  .filter(filename => /^sw-[a-z0-9-]+\.js$/.test(filename))
+const serviceWorkerPath = resolve('.output/public', serviceWorkerFiles[0] || '')
 const offlinePage = readFileSync(resolve('public/offline.html'), 'utf8')
 
 test('offline fallback uses student-facing language', () => {
@@ -15,6 +17,8 @@ test('offline fallback uses student-facing language', () => {
 })
 
 test('production service worker only provides the explicit offline navigation fallback', () => {
+  assert.equal(serviceWorkerFiles.length, 1)
+  assert.doesNotMatch(serviceWorkerFiles[0]!, /^sw\.js$/)
   const serviceWorker = readFileSync(serviceWorkerPath, 'utf8')
 
   assert.match(serviceWorker, /offline\.html/)

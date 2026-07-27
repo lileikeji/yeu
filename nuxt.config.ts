@@ -2,6 +2,12 @@
 import { clientBundleIcons } from './shared/client-bundle-icons'
 import { EDGE_ROUTE_BOOTSTRAP_SCRIPT } from './app/utils/edge-route-bootstrap'
 
+const serviceWorkerBuildId = String(
+  process.env.GIT_COMMIT_SHA
+  || process.env.NUXT_PUBLIC_BUILD_ID
+  || 'local'
+).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 16) || 'local'
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
@@ -154,6 +160,10 @@ export default defineNuxtConfig({
 
   pwa: {
     registerType: 'autoUpdate',
+    // Some CDN providers cache /sw.js even when it is marked no-store. A
+    // commit-scoped filename lets mobile clients always discover the current
+    // worker and replace an older registration for the same scope.
+    filename: `sw-${serviceWorkerBuildId}.js`,
     manifestFilename: 'site.webmanifest',
     manifest: {
       id: '/',
