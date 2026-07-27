@@ -19,7 +19,6 @@ interface PanoramaTour {
 const BAIDU_CAMPUS_PANORAMA_HASH = '#panoid=646c1306d4d72bfa631809a2&panotype=inter&heading=358&pitch=0&l=21&tn=B_NORMAL_MAP&sc=0&newmap=1&shareurl=1&pid=1000170000150119145327310IN&iid=646c1306d4d72bfa631809a2'
 const BAIDU_CAMPUS_PANORAMA_URL = `https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6/@13204528,2871631,21z,87t,-16.6h${BAIDU_CAMPUS_PANORAMA_HASH}`
 const OFFICIAL_HISTORY_VR_URL = 'https://www.720yun.com/vr/c66jOpeOOa3'
-const OFFICIAL_HISTORY_MOBILE_URL = 'https://www.720yun.com/t/c66jOpeOOa3'
 const OFFICIAL_ANNOUNCEMENT_URL = 'https://news.yeu.edu.cn/2023/0621/c704a39166/page.htm'
 
 useSeoMeta({
@@ -101,7 +100,7 @@ function scrollToViewer() {
 
 function openTour(id: TourId) {
   if (id === 'history' && mobilePanorama.value) {
-    window.location.assign(OFFICIAL_HISTORY_MOBILE_URL)
+    window.location.assign(OFFICIAL_HISTORY_VR_URL)
     return
   }
   activeTourId.value = id

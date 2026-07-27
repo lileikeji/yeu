@@ -14,7 +14,7 @@ test('panorama page separates campus scenes from the verified official history t
   assert.match(pageSource, /map\.baidu\.com\/poi/)
   assert.match(pageSource, /26 个校内拍摄点/)
   assert.match(pageSource, /https:\/\/www\.720yun\.com\/vr\/c66jOpeOOa3/)
-  assert.match(pageSource, /https:\/\/www\.720yun\.com\/t\/c66jOpeOOa3/)
+  assert.doesNotMatch(pageSource, /https:\/\/www\.720yun\.com\/t\/c66jOpeOOa3/)
   assert.match(pageSource, /https:\/\/news\.yeu\.edu\.cn\/2023\/0621\/c704a39166\/page\.htm/)
   assert.match(pageSource, /v-if="viewerLoaded"/)
   assert.match(pageSource, /allowfullscreen/)
