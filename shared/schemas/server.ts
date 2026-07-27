@@ -253,6 +253,30 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
       })
     }
   }
+  const signupQuestions = value.signupQuestions
+  if (signupQuestions !== undefined) {
+    if (!Array.isArray(signupQuestions)
+      || signupQuestions.length < 1
+      || signupQuestions.length > 12
+      || signupQuestions.some(item => (
+        typeof item !== 'string'
+        || item.trim().length < 1
+        || item.trim().length > 300
+        || item !== item.trim()
+      ))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['signupQuestions'],
+        message: 'signupQuestions must contain 1 to 12 trimmed questions of at most 300 characters'
+      })
+    } else if (new Set(signupQuestions).size !== signupQuestions.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['signupQuestions'],
+        message: 'signupQuestions must not contain duplicate questions'
+      })
+    }
+  }
   const boxes = value.boxes
   if (boxes !== undefined) {
     const validBox = (item: unknown): boolean => {

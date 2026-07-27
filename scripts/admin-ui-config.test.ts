@@ -28,6 +28,10 @@ const passwordChangePanelSource = readFileSync(
   resolve('app/components/admin/AdminPasswordChangePanel.vue'),
   'utf8'
 )
+const organizationVisualEditorSource = readFileSync(
+  resolve('app/components/admin/AdminOrganizationVisualEditor.vue'),
+  'utf8'
+)
 
 function sectionBlock(key: string): string {
   const marker = `  '${key}': {`
@@ -106,6 +110,20 @@ test('organization visual editor entry includes the required first-login passwor
     /autocomplete="current-password"/,
     /autocomplete="new-password"/
   ], 'AdminPasswordChangePanel')
+})
+
+test('organization visual editor manages signup questions and persists QR uploads immediately', () => {
+  assertContains(organizationVisualEditorSource, [
+    /signupQuestions: string\[\]/,
+    /model\.signupQuestions = Array\.isArray\(metadata\.signupQuestions\)/,
+    /function addSignupQuestion\(\)/,
+    /function moveSignupQuestion\(index: number, offset: -1 \| 1\)/,
+    /function removeSignupQuestion\(index: number\)/,
+    /v-model="model\.signupQuestions\[index\]"/,
+    /Promise\.allSettled/,
+    /await persistQrAssociations\(\)/,
+    /二维码已上传并保存/
+  ], 'AdminOrganizationVisualEditor')
 })
 
 test('core admin modules are configured for maintainable CRUD and publication workflows', () => {

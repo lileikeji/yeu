@@ -13,6 +13,7 @@ import type { ContentKind } from '~~/shared/constants/server'
 import type { ApiAmapOwnerDraftPlace, ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
 import { isSafePublicHttpUrl } from '~~/shared/utils/public-http-url'
 import { presentStudentSourceContext } from './source-context-presentation'
+import { clubSignupQuestionChecklist } from './club-detail-presentation'
 
 type GuideCategory = FreshmanGuide['category']
 
@@ -253,6 +254,7 @@ export interface PublicClubView {
   contactName: string | null
   contactPhone: string | null
   contactPhones: string[]
+  signupQuestions: string[]
   boxes: PublicContentBox[]
   updatedAt: string
   sources: PublicSource[]
@@ -820,6 +822,7 @@ function apiClubToView(content: ApiContent): PublicClubView {
   const groupQrUrls = metadataUploadedImageUrls(content, 'groupQrUrls', 'groupQrUrl')
   const contactQrUrls = metadataUploadedImageUrls(content, 'contactQrUrls', 'contactQrUrl')
   const contactPhones = metadataStringArray(content, 'contactPhones', 'contactPhone')
+  const signupQuestions = metadataStringArray(content, 'signupQuestions')
   const boxes = metadataContentBoxes(content)
   return {
     id: content.id,
@@ -842,6 +845,9 @@ function apiClubToView(content: ApiContent): PublicClubView {
     contactName: metadataString(content, 'contactName'),
     contactPhone: contactPhones.join(' / ') || null,
     contactPhones,
+    signupQuestions: signupQuestions.length
+      ? signupQuestions
+      : [...clubSignupQuestionChecklist],
     boxes,
     updatedAt: dateOnly(content.lastVerifiedAt ?? content.updatedAt),
     sources: toPublicSources(content)
@@ -869,6 +875,7 @@ function staticClubToView(club: OfficialClub): PublicClubView {
     contactName: null,
     contactPhone: null,
     contactPhones: [],
+    signupQuestions: [...clubSignupQuestionChecklist],
     boxes: [],
     updatedAt: club.source.accessedAt,
     sources: [studentFacingSource(club.source)]

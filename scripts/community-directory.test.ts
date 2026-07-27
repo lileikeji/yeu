@@ -46,7 +46,8 @@ test('community metadata accepts uploaded QR URLs and bounded ordering', () => {
       contactName: '招新负责人',
       contactPhones: ['138 0000 0000', '0595-12345678'],
       featuredSummary: '适合新生快速了解的精选摘要。',
-      sortOrder: 20
+      sortOrder: 20,
+      signupQuestions: ['零基础可以加入吗？', '每周活动安排是什么？']
     }
   })
   assert.equal(result.success, true)
@@ -61,6 +62,9 @@ test('community metadata rejects external QR URLs and invalid ordering', () => {
   assert.equal(updateContentSchema.safeParse({ metadata: { sortOrder: -1 } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { sortOrder: 2.5 } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { sortOrder: 10000 } }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: { signupQuestions: [] } }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: { signupQuestions: ['重复问题', '重复问题'] } }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: { signupQuestions: [' 前后有空格'] } }).success, false)
 })
 
 test('club directory exposes QR contacts and follows configured order', () => {
@@ -79,6 +83,7 @@ test('club directory exposes QR contacts and follows configured order', () => {
         contactQrUrls: [secondQrUrl, qrUrl],
         contactName: '招新负责人',
         contactPhones: ['13800000000', '0595-12345678'],
+        signupQuestions: ['需要面试吗？', '活动一般在什么时候？'],
         featuredSummary: '首页精选摘要'
       }
     })
@@ -92,8 +97,16 @@ test('club directory exposes QR contacts and follows configured order', () => {
   assert.equal(clubs[0]?.contactName, '招新负责人')
   assert.equal(clubs[0]?.contactPhone, '13800000000 / 0595-12345678')
   assert.deepEqual(clubs[0]?.contactPhones, ['13800000000', '0595-12345678'])
+  assert.deepEqual(clubs[0]?.signupQuestions, ['需要面试吗？', '活动一般在什么时候？'])
   assert.equal(clubs[0]?.featuredSummary, '首页精选摘要')
   assert.equal(clubs[0]?.isFeatured, true)
+})
+
+test('club signup questions fall back to the student-facing defaults', () => {
+  const club = publicClubs([contentFixture({ metadata: {} })], [])[0]
+  assert.ok(club)
+  assert.equal(club.signupQuestions.length, 4)
+  assert.match(club.signupQuestions[0] ?? '', /主要活动/)
 })
 
 test('department directory uses featured state as the tie breaker', () => {

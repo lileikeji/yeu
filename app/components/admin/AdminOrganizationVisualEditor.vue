@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { clubSignupQuestionChecklist } from '~/utils/club-detail-presentation'
+
 interface EditorBox {
   id: string
   title: string
@@ -30,6 +32,7 @@ interface EditorModel {
   officeHours: string
   contactName: string
   contactPhonesText: string
+  signupQuestions: string[]
   groupQrUrls: string[]
   contactQrUrls: string[]
   boxes: EditorBox[]
@@ -68,6 +71,7 @@ const model = reactive<EditorModel>({
   officeHours: '',
   contactName: '',
   contactPhonesText: '',
+  signupQuestions: [...clubSignupQuestionChecklist],
   groupQrUrls: [],
   contactQrUrls: [],
   boxes: []
@@ -142,6 +146,9 @@ function hydrate(payload: unknown): void {
   model.officeHours = text(metadata.officeHours)
   model.contactName = text(metadata.contactName)
   model.contactPhonesText = stringList(metadata.contactPhones, metadata.contactPhone).join('\n')
+  model.signupQuestions = Array.isArray(metadata.signupQuestions)
+    ? stringList(metadata.signupQuestions)
+    : [...clubSignupQuestionChecklist]
   model.groupQrUrls = stringList(metadata.groupQrUrls, metadata.groupQrUrl)
   model.contactQrUrls = stringList(metadata.contactQrUrls, metadata.contactQrUrl)
   model.boxes = editorBoxes(metadata.boxes)
@@ -181,6 +188,15 @@ async function save(): Promise<void> {
     saveError.value = '每个 Box 都需要填写标题。'
     return
   }
+  const signupQuestions = model.signupQuestions.map(item => item.trim())
+  if (model.kind === 'club' && signupQuestions.some(item => !item)) {
+    saveError.value = '报名问题不能为空。'
+    return
+  }
+  if (model.kind === 'club' && new Set(signupQuestions).size !== signupQuestions.length) {
+    saveError.value = '报名问题不能重复。'
+    return
+  }
 
   saving.value = true
   try {
@@ -198,6 +214,7 @@ async function save(): Promise<void> {
       officeHours: model.officeHours.trim(),
       contactName: model.contactName.trim(),
       contactPhones: model.contactPhonesText.split('\n').map(item => item.trim()).filter(Boolean),
+      ...(model.kind === 'club' ? { signupQuestions } : {}),
       groupQrUrls: model.groupQrUrls,
       contactQrUrls: model.contactQrUrls,
       boxes: model.boxes.map(boxPayload)
@@ -245,9 +262,46 @@ function removeBox(index: number): void {
   model.boxes.splice(index, 1)
 }
 
-function removeQr(target: 'group' | 'contact', index: number): void {
+function addSignupQuestion(): void {
+  if (model.signupQuestions.length >= 12) return
+  model.signupQuestions.push('')
+}
+
+function moveSignupQuestion(index: number, offset: -1 | 1): void {
+  const target = index + offset
+  if (target < 0 || target >= model.signupQuestions.length) return
+  const [question] = model.signupQuestions.splice(index, 1)
+  if (question !== undefined) model.signupQuestions.splice(target, 0, question)
+}
+
+function removeSignupQuestion(index: number): void {
+  if (model.signupQuestions.length <= 1) return
+  model.signupQuestions.splice(index, 1)
+}
+
+async function persistQrAssociations(): Promise<void> {
+  const result = await adminFetch(`/api/admin/content/${encodeURIComponent(model.id)}`, {
+    method: 'PATCH',
+    body: {
+      metadata: {
+        groupQrUrls: model.groupQrUrls,
+        contactQrUrls: model.contactQrUrls
+      }
+    }
+  })
+  model.metadata = { ...record(record(result).metadata) }
+}
+
+async function removeQr(target: 'group' | 'contact', index: number): Promise<void> {
   const values = target === 'group' ? model.groupQrUrls : model.contactQrUrls
-  values.splice(index, 1)
+  const [removed] = values.splice(index, 1)
+  try {
+    await persistQrAssociations()
+    toast.add({ title: '二维码已删除并保存', color: 'success' })
+  } catch {
+    if (removed) values.splice(index, 0, removed)
+    toast.add({ title: '删除未保存', description: '网络异常，二维码已恢复。', color: 'error' })
+  }
 }
 
 async function uploadQrList(target: 'group' | 'contact', event: Event): Promise<void> {
@@ -263,7 +317,7 @@ async function uploadQrList(target: 'group' | 'contact', event: Event): Promise<
 
   uploadTarget.value = target
   try {
-    const uploaded = await Promise.all(files.map(async (file) => {
+    const results = await Promise.allSettled(files.map(async (file) => {
       const body = new FormData()
       body.set('image', file)
       return await adminFetch<{ url: string }>('/api/admin/media/images', {
@@ -271,9 +325,32 @@ async function uploadQrList(target: 'group' | 'contact', event: Event): Promise<
         body
       })
     }))
+    const uploaded = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
+    const failedCount = results.length - uploaded.length
     values.push(...uploaded.map(item => item.url).filter(url => !values.includes(url)))
-  } catch {
-    toast.add({ title: '二维码上传失败', description: '请使用 PNG、JPEG 或 WebP，单张不超过 5MB。', color: 'error' })
+
+    if (uploaded.length) {
+      try {
+        await persistQrAssociations()
+        toast.add({
+          title: failedCount ? `${uploaded.length} 张已上传并保存` : '二维码已上传并保存',
+          description: failedCount ? `${failedCount} 张上传失败，请检查格式和大小后重试。` : undefined,
+          color: failedCount ? 'warning' : 'success'
+        })
+      } catch {
+        toast.add({
+          title: '图片已上传，但页面关联未保存',
+          description: '请不要离开页面，点击顶部“保存页面”后再刷新确认。',
+          color: 'error'
+        })
+      }
+    } else {
+      toast.add({
+        title: '二维码上传失败',
+        description: '请使用 PNG、JPEG 或 WebP，单张不超过 5MB。',
+        color: 'error'
+      })
+    }
   } finally {
     uploadTarget.value = null
     input.value = ''
@@ -393,6 +470,72 @@ onMounted(() => {
               class="mt-4 w-full"
               placeholder="详细介绍组织、服务范围、活动和新生需要知道的内容"
             />
+          </section>
+
+          <section
+            v-if="model.kind === 'club'"
+            class="border-b border-zinc-200 py-8"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-lg font-bold text-zinc-950">
+                  报名之前问清楚
+                </h2>
+                <p class="mt-1 text-sm text-zinc-500">
+                  前台会按这里的顺序展示，最多 12 项。
+                </p>
+              </div>
+              <UButton
+                icon="i-lucide-circle-plus"
+                label="添加问题"
+                color="neutral"
+                variant="outline"
+                :disabled="model.signupQuestions.length >= 12"
+                @click="addSignupQuestion"
+              />
+            </div>
+            <div class="mt-5 space-y-3">
+              <div
+                v-for="(question, index) in model.signupQuestions"
+                :key="index"
+                class="flex items-center gap-2"
+              >
+                <span class="w-6 shrink-0 text-center text-xs font-semibold text-zinc-500">
+                  {{ index + 1 }}
+                </span>
+                <UInput
+                  v-model="model.signupQuestions[index]"
+                  :aria-label="`报名问题 ${index + 1}`"
+                  maxlength="300"
+                  class="min-w-0 flex-1"
+                  placeholder="填写新生报名前需要确认的问题"
+                />
+                <UButton
+                  icon="i-lucide-arrow-up"
+                  color="neutral"
+                  variant="ghost"
+                  :disabled="index === 0"
+                  aria-label="上移问题"
+                  @click="moveSignupQuestion(index, -1)"
+                />
+                <UButton
+                  icon="i-lucide-arrow-down"
+                  color="neutral"
+                  variant="ghost"
+                  :disabled="index === model.signupQuestions.length - 1"
+                  aria-label="下移问题"
+                  @click="moveSignupQuestion(index, 1)"
+                />
+                <UButton
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="ghost"
+                  :disabled="model.signupQuestions.length <= 1"
+                  aria-label="删除问题"
+                  @click="removeSignupQuestion(index)"
+                />
+              </div>
+            </div>
           </section>
 
           <section class="border-b border-zinc-200 py-8">

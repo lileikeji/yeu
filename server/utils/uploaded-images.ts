@@ -71,7 +71,11 @@ export async function storeUploadedImage(data: Uint8Array): Promise<{
   await mkdir(directory, { recursive: true, mode: 0o755 })
   await chmod(directory, 0o755)
   const filename = `${randomUUID()}.${extension}`
-  await writeFile(resolve(directory, filename), data, { flag: 'wx', mode: 0o644 })
+  const filepath = resolve(directory, filename)
+  await writeFile(filepath, data, { flag: 'wx', mode: 0o644 })
+  // The service process may use a restrictive umask. Enforce the mode after
+  // creation so the Nginx static-file worker can serve uploaded images.
+  await chmod(filepath, 0o644)
 
   return {
     filename,
