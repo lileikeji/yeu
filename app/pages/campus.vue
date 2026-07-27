@@ -605,8 +605,15 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               class="surface-panel p-5"
             >
               <div class="flex items-start justify-between gap-3">
-                <span class="grid size-9 shrink-0 place-items-center rounded-md bg-violet-50 text-violet-700">
+                <span class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+                  <img
+                    v-if="club.iconUrl"
+                    :src="club.iconUrl"
+                    :alt="`${club.name}图标`"
+                    class="size-full object-cover"
+                  >
                   <UIcon
+                    v-else
                     name="i-lucide-users-round"
                     class="size-4"
                   />
@@ -624,7 +631,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 {{ club.name }}
               </h4>
               <p class="mt-2 text-sm leading-6 text-zinc-600">
-                {{ club.featuredSummary || resolveClubDirection(club.summary, clubDirectionBySlug.get(club.slug)) }}
+                {{ club.featuredSummary || resolveClubDirection(club.summary, club.direction || clubDirectionBySlug.get(club.slug)) }}
               </p>
               <NuxtLink
                 :to="`/clubs/${encodeURIComponent(club.slug)}`"

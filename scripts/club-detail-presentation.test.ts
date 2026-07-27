@@ -28,7 +28,7 @@ test('club detail page is a thin shell over club-detail-presentation util', () =
   assert.match(pageSource, /contactActions/)
   assert.match(pageSource, /resolveClubContactSectionState/)
   assert.match(pageSource, /contactSection/)
-  assert.match(pageSource, /contactSection\.kind === 'pending'/) 
+  assert.match(pageSource, /contactSection\.kind === 'pending'/)
   assert.doesNotMatch(pageSource, /\{\{\s*club\.contactMethod\s*\}\}/)
   assert.doesNotMatch(pageSource, /const signupQuestionChecklist = \[/)
   assert.doesNotMatch(pageSource, /function resolveClubSourceStatusText/)
@@ -63,6 +63,14 @@ test('club decision aids use ordinary signup and activity language', () => {
     '开学后怎么找'
   ])
   assert.match(buildClubOverviewItems('声乐、器乐和校园演出')[0]?.text ?? '', /声乐、器乐和校园演出/)
+  const customOverview = buildClubOverviewItems('编程实践', {
+    suitableFor: '适合想做项目的新生。',
+    findingIt: '开学后到招新摊位咨询。'
+  })
+  assert.equal(customOverview[1]?.text, '适合想做项目的新生。')
+  assert.equal(customOverview[2]?.text, '开学后到招新摊位咨询。')
+  assert.match(pageSource, /club\.value\?\.overviewTitle/)
+  assert.match(pageSource, /club\.iconUrl/)
 })
 
 test('club source status and detail source mapping', () => {

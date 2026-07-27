@@ -490,7 +490,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-[34rem] overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:min-h-[40rem] md:grid-rows-1"
+    class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-0 overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:min-h-[40rem] md:grid-rows-1"
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
@@ -862,7 +862,7 @@ onBeforeUnmount(() => {
       <div
         v-if="mobileSheetState === 'collapsed'"
         class="pointer-events-none absolute inset-x-0 bottom-[calc(var(--mobile-nav-height)+0.5rem)] z-30 flex justify-center px-3 md:hidden"
-        :class="selectedPoi ? 'bottom-[calc(var(--mobile-nav-height)+min(52vh,26rem)+0.85rem)]' : ''"
+        :class="selectedPoi ? 'bottom-[calc(var(--mobile-nav-height)+min(38dvh,18rem)+0.85rem)]' : ''"
       >
         <UButton
           icon="i-lucide-list"
@@ -887,7 +887,10 @@ onBeforeUnmount(() => {
 
       <div
         v-if="mapViewMode === 'geographic' && routeSummary"
-        class="absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm bottom-[calc(var(--mobile-nav-height)+5.5rem)] md:bottom-14"
+        class="absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm md:bottom-14"
+        :class="selectedPoi
+          ? 'bottom-[calc(var(--mobile-nav-height)+min(38dvh,18rem)+1.25rem)]'
+          : 'bottom-[calc(var(--mobile-nav-height)+5.5rem)]'"
         role="status"
       >
         <UIcon
@@ -1052,6 +1055,25 @@ onBeforeUnmount(() => {
           这里只显示范围边界，不会挡住里面的商铺点击。
         </p>
       </section>
+
+      <MapPlaceDetailsPanel
+        v-if="selectedPoi"
+        variant="mobile"
+        :place="selectedPoi"
+        :category-label="categoryLabel(selectedPoi.category)"
+        :category-icon="categoryIcon(selectedPoi.category)"
+        :status-text="poiStatusText(selectedPoi)"
+        :checklist="poiUseChecklist(selectedPoi)"
+        :details-target="placeDetailsTarget(selectedPoi)"
+        :feedback-target="placeFeedbackTarget(selectedPoi)"
+        :return-path="returnPath"
+        :route-planning="routePlanning"
+        :can-plan-route="canPlanMapWalkingRoute(activeMapProviderId, selectedPoi.point)"
+        :is-wechat="isWechat"
+        @close="closePoiDetails"
+        @copy="copyPoiLocation(selectedPoi)"
+        @plan-route="startWalkingRoute(selectedPoi.name, selectedPoi.point)"
+      />
 
       <MapPlaceDetailsPanel
         v-if="selectedPoi"

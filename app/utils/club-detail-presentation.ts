@@ -27,7 +27,16 @@ export interface ClubOverviewItem {
   icon: string
 }
 
-export function buildClubOverviewItems(direction: string): ClubOverviewItem[] {
+export const defaultClubSuitableFor = '对这个方向感兴趣、想认识同好或参加校园活动的同学。零基础能否加入，请在招新时直接询问。'
+export const defaultClubFindingIt = '留意开学社团招新现场、校团委通知和社团负责人发布的消息，不要只凭转发二维码入群。'
+
+export function buildClubOverviewItems(
+  direction: string,
+  options: {
+    suitableFor?: string | null
+    findingIt?: string | null
+  } = {}
+): ClubOverviewItem[] {
   const activityText = direction.trim() || '具体活动内容请留意本学期社团介绍。'
   return [
     {
@@ -37,12 +46,12 @@ export function buildClubOverviewItems(direction: string): ClubOverviewItem[] {
     },
     {
       title: clubSectionLabels.suitableFor,
-      text: '对这个方向感兴趣、想认识同好或参加校园活动的同学。零基础能否加入，请在招新时直接询问。',
+      text: options.suitableFor?.trim() || defaultClubSuitableFor,
       icon: 'i-lucide-user-round-check'
     },
     {
       title: clubSectionLabels.findingIt,
-      text: '留意开学社团招新现场、校团委通知和社团负责人发布的消息，不要只凭转发二维码入群。',
+      text: options.findingIt?.trim() || defaultClubFindingIt,
       icon: 'i-lucide-map-pin-check'
     }
   ]
@@ -97,9 +106,9 @@ export function buildClubDetailSources(
   }))
 }
 
-export type ClubContactSectionState =
-  | { kind: 'ready' }
-  | { kind: 'pending'; title: string; notice: string; actionLabel: string }
+export type ClubContactSectionState
+  = | { kind: 'ready' }
+    | { kind: 'pending', title: string, notice: string, actionLabel: string }
 
 export function resolveClubContactSectionState(hasContact: boolean): ClubContactSectionState {
   if (hasContact) return { kind: 'ready' }

@@ -5,14 +5,13 @@ import test from 'node:test'
 
 const pageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
 const detailsSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
+const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 const e2eFixtureSource = readFileSync(resolve('scripts/prepare-e2e-database.ts'), 'utf8')
 
-test('map place details use one floating panel for mobile and desktop', () => {
-  // Intentional UX: selecting a POI collapses the mobile list sheet and shows a single
-  // floating card (desktop variant styles also cover mobile bottom overlay).
-  assert.equal(pageSource.match(/<MapPlaceDetailsPanel\b/g)?.length, 1)
+test('map place details use compact mobile and desktop-only floating panels', () => {
+  assert.equal(pageSource.match(/<MapPlaceDetailsPanel\b/g)?.length, 2)
+  assert.match(pageSource, /variant="mobile"/)
   assert.match(pageSource, /variant="desktop"/)
-  assert.doesNotMatch(pageSource, /variant="mobile"/)
   assert.match(pageSource, /@copy="copyPoiLocation\(selectedPoi\)"/)
   assert.match(pageSource, /@plan-route="startWalkingRoute\(selectedPoi\.name, selectedPoi\.point\)"/)
   assert.match(pageSource, /On mobile, free the bottom list sheet so the floating place card can show over the map/)
@@ -42,8 +41,13 @@ test('map place details use one floating panel for mobile and desktop', () => {
   assert.equal((pageSource.match(/class="size-11"\s+aria-label="(?:全隐藏|半屏显示|展开)地点面板"/g) || []).length, 3)
   assert.match(pageSource, /class="mt-3 min-h-11 w-full"\s+:ui="\{ base: 'min-h-11' \}"/)
   assert.equal((pageSource.match(/\['min-h-11 rounded-none px-3'/g) || []).length, 2)
-  // Desktop variant is the floating card used on both breakpoints.
+  assert.match(detailsSource, /max-h-\[min\(38dvh,18rem\)\]/)
+  assert.match(detailsSource, /md:hidden/)
+  assert.match(detailsSource, /hidden md:absolute/)
   assert.match(detailsSource, /absolute bottom-\[calc\(var\(--mobile-nav-height\)\+0\.75rem\)\]/)
+  assert.match(pageSource, /min-h-0 overflow-hidden bg-white/)
+  assert.doesNotMatch(pageSource, /min-h-\[34rem\]/)
+  assert.match(layoutSource, /v-if="route\.path !== '\/map'"/)
   assert.doesNotMatch(detailsSource, /useRoute|useRouter|createRuntimeMapProvider/)
   assert.match(e2eFixtureSource, /【到这里前先确认】\\n- 核对地点名称和入口标识。/)
 })

@@ -49,6 +49,11 @@ function publishedClub(metadata: Record<string, unknown>): ApiContent {
 
 test('visual editor boxes and multiple contacts reach the public club view in order', () => {
   const metadata = {
+    direction: '编程训练、技术分享和项目实践',
+    overviewTitle: '加入前先看看',
+    suitableFor: '适合想动手做项目的新生。',
+    findingIt: '开学后到招新摊位找负责人。',
+    iconUrl: '/uploads/00000000-0000-4000-8000-000000000210.webp',
     contactName: '负责人',
     contactPhones: ['13800000000', '13900000000'],
     groupQrUrls: [
@@ -87,6 +92,11 @@ test('visual editor boxes and multiple contacts reach the public club view in or
 
   const club = publicClubs([publishedClub(metadata)])[0]
   assert.ok(club)
+  assert.equal(club.direction, '编程训练、技术分享和项目实践')
+  assert.equal(club.overviewTitle, '加入前先看看')
+  assert.equal(club.suitableFor, '适合想动手做项目的新生。')
+  assert.equal(club.findingIt, '开学后到招新摊位找负责人。')
+  assert.equal(club.iconUrl, '/uploads/00000000-0000-4000-8000-000000000210.webp')
   assert.deepEqual(club.contactPhones, ['13800000000', '13900000000'])
   assert.deepEqual(club.groupQrUrls, [
     '/uploads/00000000-0000-4000-8000-000000000211.webp',
@@ -122,9 +132,13 @@ test('content metadata rejects duplicate boxes and external QR image URLs', () =
   const externalQr = {
     contactQrUrls: ['https://untrusted.example/qr.png']
   }
+  const externalIcon = {
+    iconUrl: 'https://untrusted.example/logo.png'
+  }
 
   assert.equal(updateContentSchema.safeParse({ metadata: duplicateBoxes }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: externalQr }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: externalIcon }).success, false)
 })
 
 test('managed guide catalogs do not restore an unpublished static guide', () => {

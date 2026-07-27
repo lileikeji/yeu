@@ -191,8 +191,15 @@ function clearClubFilters() {
           class="surface-panel group flex min-h-48 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
         >
           <div class="flex items-start justify-between gap-3">
-            <span class="grid size-10 place-items-center rounded-md bg-emerald-50 text-emerald-700">
+            <span class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+              <img
+                v-if="club.iconUrl"
+                :src="club.iconUrl"
+                :alt="`${club.name}图标`"
+                class="size-full object-cover"
+              >
               <UIcon
+                v-else
                 name="i-lucide-users-round"
                 class="size-5"
               />
@@ -207,7 +214,7 @@ function clearClubFilters() {
             {{ club.name }}
           </h2>
           <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
-            {{ resolveClubDirection(club.summary, clubDirectionBySlug.get(club.slug)) }}
+            {{ resolveClubDirection(club.summary, club.direction || clubDirectionBySlug.get(club.slug)) }}
           </p>
           <div class="mt-4 space-y-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
             <div class="flex items-center gap-2">

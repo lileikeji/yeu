@@ -33,7 +33,10 @@ if (!club.value) throw createError({ statusCode: 404, statusMessage: '社团不�
 useSeoMeta({
   title: () => club.value?.name ?? '学生社团',
   description: () => club.value
-    ? `${club.value.name}：${resolveClubDirection(club.value.summary, seedClub.value?.direction)}`
+    ? `${club.value.name}：${resolveClubDirection(
+      club.value.summary,
+      club.value.direction || seedClub.value?.direction
+    )}`
     : ''
 })
 const feedbackLink = computed(() => buildDetailFeedbackLink({
@@ -49,9 +52,13 @@ const hasRecentActivity = computed(() => sourceStatusText.value === clubSourceSt
 const clubGroup = computed(() => seedClub.value?.group ?? resolveClubGroup(club.value?.category))
 const clubDirection = computed(() => resolveClubDirection(
   club.value?.summary ?? '',
-  seedClub.value?.direction
+  club.value?.direction || seedClub.value?.direction
 ))
-const overviewItems = computed(() => buildClubOverviewItems(clubDirection.value))
+const overviewItems = computed(() => buildClubOverviewItems(clubDirection.value, {
+  suitableFor: club.value?.suitableFor,
+  findingIt: club.value?.findingIt
+}))
+const overviewTitle = computed(() => club.value?.overviewTitle || clubSectionLabels.overview)
 const hasRecruitmentDetails = computed(() => Boolean(
   club.value?.recruitmentPeriod
   || club.value?.activitySchedule
@@ -91,8 +98,15 @@ async function copyContactAction(value: string): Promise<void> {
           <span>{{ club.name }}</span>
         </nav>
         <div class="mt-5 flex flex-wrap items-center gap-2">
-          <span class="mr-1 grid size-11 place-items-center rounded-md bg-emerald-50 text-emerald-700">
+          <span class="mr-1 grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+            <img
+              v-if="club.iconUrl"
+              :src="club.iconUrl"
+              :alt="`${club.name}图标`"
+              class="size-full object-cover"
+            >
             <UIcon
+              v-else
               name="i-lucide-users-round"
               class="size-5"
             />
@@ -142,7 +156,7 @@ async function copyContactAction(value: string): Promise<void> {
 
         <section class="border-b border-zinc-200 py-8">
           <h2 class="text-lg font-bold text-zinc-950">
-            {{ clubSectionLabels.overview }}
+            {{ overviewTitle }}
           </h2>
           <div class="mt-5 grid gap-5 md:grid-cols-3">
             <div

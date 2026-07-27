@@ -205,7 +205,7 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
     })
   }
 
-  for (const key of ['groupQrUrl', 'contactQrUrl'] as const) {
+  for (const key of ['groupQrUrl', 'contactQrUrl', 'iconUrl'] as const) {
     const candidate = value[key]
     if (candidate !== undefined
       && candidate !== ''
@@ -214,6 +214,17 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
         code: 'custom',
         path: [key],
         message: `${key} must be an uploaded image URL`
+      })
+    }
+  }
+  for (const key of ['overviewTitle', 'direction', 'suitableFor', 'findingIt'] as const) {
+    const candidate = value[key]
+    if (candidate !== undefined
+      && (typeof candidate !== 'string' || candidate.length > 2000)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: `${key} must be a string of at most 2000 characters`
       })
     }
   }

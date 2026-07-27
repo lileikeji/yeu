@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { clubSignupQuestionChecklist } from '~/utils/club-detail-presentation'
+import {
+  clubSectionLabels,
+  clubSignupQuestionChecklist,
+  defaultClubFindingIt,
+  defaultClubSuitableFor
+} from '~/utils/club-detail-presentation'
 import { getRequestMessage } from '~/utils/request-error'
 
 interface EditorBox {
@@ -34,6 +39,10 @@ interface EditorModel {
   sortOrderText: string
   group: string
   direction: string
+  overviewTitle: string
+  suitableFor: string
+  findingIt: string
+  iconUrl: string
   recruitmentPeriod: string
   activitySchedule: string
   contactMethod: string
@@ -73,7 +82,7 @@ const loading = ref(Boolean(props.contentId))
 const saving = ref(false)
 const loadError = ref('')
 const saveError = ref('')
-const uploadTarget = ref<'group' | 'contact' | null>(null)
+const uploadTarget = ref<'group' | 'contact' | 'icon' | null>(null)
 const model = reactive<EditorModel>({
   id: '',
   kind: props.createKind === 'department' ? 'department' : 'club',
@@ -92,6 +101,10 @@ const model = reactive<EditorModel>({
   sortOrderText: '100',
   group: '',
   direction: '',
+  overviewTitle: clubSectionLabels.overview,
+  suitableFor: defaultClubSuitableFor,
+  findingIt: defaultClubFindingIt,
+  iconUrl: '',
   recruitmentPeriod: '',
   activitySchedule: '',
   contactMethod: '',
@@ -302,6 +315,10 @@ function hydrate(payload: unknown): void {
     : '100'
   model.group = text(metadata.group)
   model.direction = text(metadata.direction)
+  model.overviewTitle = text(metadata.overviewTitle) || clubSectionLabels.overview
+  model.suitableFor = text(metadata.suitableFor) || defaultClubSuitableFor
+  model.findingIt = text(metadata.findingIt) || defaultClubFindingIt
+  model.iconUrl = text(metadata.iconUrl)
   model.recruitmentPeriod = text(metadata.recruitmentPeriod)
   model.activitySchedule = text(metadata.activitySchedule)
   model.contactMethod = text(metadata.contactMethod)
@@ -393,6 +410,10 @@ async function save(): Promise<void> {
       ...model.metadata,
       group: model.group.trim(),
       direction: model.direction.trim(),
+      overviewTitle: model.overviewTitle.trim(),
+      suitableFor: model.suitableFor.trim(),
+      findingIt: model.findingIt.trim(),
+      iconUrl: model.iconUrl.trim(),
       recruitmentPeriod: model.recruitmentPeriod.trim(),
       activitySchedule: model.activitySchedule.trim(),
       contactMethod: model.contactMethod.trim(),
@@ -511,7 +532,8 @@ async function persistQrAssociations(): Promise<void> {
     body: {
       metadata: {
         groupQrUrls: model.groupQrUrls,
-        contactQrUrls: model.contactQrUrls
+        contactQrUrls: model.contactQrUrls,
+        iconUrl: model.iconUrl
       }
     }
   })
@@ -528,6 +550,63 @@ async function removeQr(target: 'group' | 'contact', index: number): Promise<voi
   } catch {
     if (removed) values.splice(index, 0, removed)
     toast.add({ title: '删除未保存', description: '网络异常，二维码已恢复。', color: 'error' })
+  }
+}
+
+async function removeClubIcon(): Promise<void> {
+  const removed = model.iconUrl
+  model.iconUrl = ''
+  if (isCreating.value) return
+  try {
+    await persistQrAssociations()
+    toast.add({ title: '社团图标已删除并保存', color: 'success' })
+  } catch {
+    model.iconUrl = removed
+    toast.add({ title: '删除未保存', description: '网络异常，社团图标已恢复。', color: 'error' })
+  }
+}
+
+async function uploadClubIcon(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  uploadTarget.value = 'icon'
+  try {
+    const body = new FormData()
+    body.set('image', file)
+    const uploaded = await adminFetch<{ url: string }>('/api/admin/media/images', {
+      method: 'POST',
+      body
+    })
+    model.iconUrl = uploaded.url
+    if (isCreating.value) {
+      toast.add({
+        title: '社团图标已上传',
+        description: '创建页面时会自动保存图片关联。',
+        color: 'success'
+      })
+      return
+    }
+    try {
+      await persistQrAssociations()
+      toast.add({ title: '社团图标已上传并保存', color: 'success' })
+    } catch {
+      toast.add({
+        title: '图片已上传，但页面关联未保存',
+        description: '请不要离开页面，点击顶部“保存页面”后再刷新确认。',
+        color: 'error'
+      })
+    }
+  } catch {
+    toast.add({
+      title: '社团图标上传失败',
+      description: '请使用 PNG、JPEG 或 WebP，单张不超过 5MB。',
+      color: 'error'
+    })
+  } finally {
+    uploadTarget.value = null
+    input.value = ''
   }
 }
 
@@ -685,8 +764,15 @@ onBeforeUnmount(() => {
         <header class="border-b border-zinc-200 bg-white">
           <div class="mx-auto max-w-4xl px-5 py-8 md:px-8 md:py-11">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="grid size-11 place-items-center rounded-md bg-emerald-50 text-emerald-700">
+              <span class="grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+                <img
+                  v-if="model.kind === 'club' && model.iconUrl"
+                  :src="model.iconUrl"
+                  alt="社团图标预览"
+                  class="size-full object-cover"
+                >
                 <UIcon
+                  v-else
                   :name="model.kind === 'club' ? 'i-lucide-users-round' : 'i-lucide-landmark'"
                   class="size-5"
                 />
@@ -849,15 +935,103 @@ onBeforeUnmount(() => {
             </h2>
             <div class="mt-4 grid gap-4 md:grid-cols-2">
               <template v-if="model.kind === 'club'">
+                <UFormField
+                  label="社团图标"
+                  description="显示在社团列表和社团详情页；不上传时继续使用默认社团图标。"
+                  class="md:col-span-2"
+                >
+                  <div class="flex flex-wrap items-center gap-4 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+                    <span class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+                      <img
+                        v-if="model.iconUrl"
+                        :src="model.iconUrl"
+                        alt="当前社团图标"
+                        class="size-full object-cover"
+                      >
+                      <UIcon
+                        v-else
+                        name="i-lucide-users-round"
+                        class="size-7"
+                      />
+                    </span>
+                    <div class="flex flex-wrap gap-2">
+                      <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-800">
+                        <UIcon
+                          :name="uploadTarget === 'icon' ? 'i-lucide-loader-circle' : 'i-lucide-image-up'"
+                          class="size-4"
+                          :class="uploadTarget === 'icon' ? 'animate-spin' : ''"
+                        />
+                        {{ uploadTarget === 'icon' ? '上传中' : (model.iconUrl ? '替换图标' : '上传图标') }}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          class="sr-only"
+                          :disabled="uploadTarget !== null"
+                          @change="uploadClubIcon"
+                        >
+                      </label>
+                      <UButton
+                        v-if="model.iconUrl"
+                        icon="i-lucide-trash-2"
+                        label="删除图标"
+                        color="neutral"
+                        variant="outline"
+                        :disabled="uploadTarget !== null"
+                        @click="removeClubIcon"
+                      />
+                    </div>
+                  </div>
+                </UFormField>
+                <UFormField
+                  label="介绍区标题"
+                  description="默认显示“先了解这个社团”。"
+                  class="md:col-span-2"
+                >
+                  <UInput
+                    v-model="model.overviewTitle"
+                    maxlength="120"
+                    class="w-full"
+                  />
+                </UFormField>
                 <UFormField label="社团类别">
                   <UInput
                     v-model="model.group"
                     class="w-full"
                   />
                 </UFormField>
-                <UFormField label="社团方向">
-                  <UInput
+                <UFormField
+                  label="主要活动"
+                  class="md:col-span-2"
+                >
+                  <UTextarea
                     v-model="model.direction"
+                    :rows="3"
+                    maxlength="2000"
+                    autoresize
+                    class="w-full"
+                  />
+                </UFormField>
+                <UFormField
+                  label="适合谁"
+                  class="md:col-span-2"
+                >
+                  <UTextarea
+                    v-model="model.suitableFor"
+                    :rows="3"
+                    maxlength="2000"
+                    autoresize
+                    class="w-full"
+                  />
+                </UFormField>
+                <UFormField
+                  label="开学后怎么找"
+                  class="md:col-span-2"
+                >
+                  <UTextarea
+                    v-model="model.findingIt"
+                    :rows="3"
+                    maxlength="2000"
+                    autoresize
                     class="w-full"
                   />
                 </UFormField>

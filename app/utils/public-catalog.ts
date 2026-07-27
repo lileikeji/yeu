@@ -241,6 +241,11 @@ export interface PublicClubView {
   summary: string
   body: string
   category: string | null
+  direction: string | null
+  overviewTitle: string | null
+  suitableFor: string | null
+  findingIt: string | null
+  iconUrl: string | null
   recruitmentPeriod: string | null
   activitySchedule: string | null
   contactMethod: string | null
@@ -855,6 +860,11 @@ function apiClubToView(content: ApiContent): PublicClubView {
     body: content.body,
     category: metadataString(content, 'group')
       ?? (content.category === 'recent-activity' ? '近期有活动' : content.category),
+    direction: metadataString(content, 'direction'),
+    overviewTitle: metadataString(content, 'overviewTitle'),
+    suitableFor: metadataString(content, 'suitableFor'),
+    findingIt: metadataString(content, 'findingIt'),
+    iconUrl: metadataUploadedImageUrls(content, 'iconUrls', 'iconUrl')[0] ?? null,
     recruitmentPeriod: metadataString(content, 'recruitmentPeriod'),
     activitySchedule: metadataString(content, 'activitySchedule'),
     contactMethod: metadataString(content, 'contactMethod'),
@@ -884,6 +894,11 @@ function staticClubToView(club: OfficialClub): PublicClubView {
     summary: club.summary,
     body: officialClubBody(club),
     category: club.group,
+    direction: club.direction,
+    overviewTitle: null,
+    suitableFor: null,
+    findingIt: null,
+    iconUrl: null,
     recruitmentPeriod: null,
     activitySchedule: null,
     contactMethod: null,

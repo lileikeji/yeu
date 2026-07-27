@@ -138,7 +138,14 @@ test('organization visual editor manages signup Q&A and persists QR uploads imme
     /signupQuestions, signupQa/,
     /Promise\.allSettled/,
     /await persistQrAssociations\(\)/,
-    /二维码已上传并保存/
+    /二维码已上传并保存/,
+    /v-model="model\.overviewTitle"/,
+    /v-model="model\.direction"/,
+    /v-model="model\.suitableFor"/,
+    /v-model="model\.findingIt"/,
+    /function uploadClubIcon\(event: Event\)/,
+    /function removeClubIcon\(\)/,
+    /社团图标已上传并保存/
   ], 'AdminOrganizationVisualEditor')
 })
 

@@ -139,7 +139,10 @@ onMounted(() => {
 
     <PwaUpdatePrompt />
 
-    <footer class="border-t border-[var(--line)] bg-white pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0">
+    <footer
+      v-if="route.path !== '/map'"
+      class="border-t border-[var(--line)] bg-white pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
+    >
       <div class="page-shell flex flex-col gap-4 py-6 text-xs text-zinc-500 md:flex-row md:items-center md:justify-between md:gap-6">
         <div class="space-y-2">
           <p>本指南由学生团队整理，重要事项以学校最新通知为准。</p>
