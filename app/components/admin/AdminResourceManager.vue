@@ -95,6 +95,18 @@ function rowTitle(record: AdminRecord | null): string {
   return getAdminResourceRowTitle(record, props.config.rowTitleKey)
 }
 
+async function handleEdit(record: AdminRecord): Promise<void> {
+  const kind = typeof record.kind === 'string' ? record.kind : ''
+  const id = typeof record.id === 'string' ? record.id : ''
+  if (props.config.key === 'content'
+    && id
+    && (kind === 'club' || kind === 'department')) {
+    await navigateTo(`/admin/content/${encodeURIComponent(id)}/visual`)
+    return
+  }
+  openEdit(record)
+}
+
 function setFormValue(key: string, value: unknown): void {
   setAdminResourceFormValue(formState, props.config.key, key, value)
 }
@@ -179,7 +191,7 @@ function validateForm(): string | null {
       :row-action-id="rowActionId"
       @refresh="loadRecords"
       @change-page="changePage"
-      @edit="openEdit"
+      @edit="handleEdit"
       @set-publication-status="setPublicationStatus"
       @request-delete="requestDelete"
     />

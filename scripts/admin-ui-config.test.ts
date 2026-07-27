@@ -24,6 +24,10 @@ const resourceOperationsSource = readFileSync(
 const adminLayoutSource = readFileSync(resolve('app/layouts/admin.vue'), 'utf8')
 const adminIndexSource = readFileSync(resolve('app/pages/admin/index.vue'), 'utf8')
 const adminDashboardPresentationSource = readFileSync(resolve('app/utils/admin-dashboard-presentation.ts'), 'utf8')
+const passwordChangePanelSource = readFileSync(
+  resolve('app/components/admin/AdminPasswordChangePanel.vue'),
+  'utf8'
+)
 
 function sectionBlock(key: string): string {
   const marker = `  '${key}': {`
@@ -50,7 +54,12 @@ test('admin resource manager exposes create, edit, delete, save and publication 
     /const canEdit = computed\(\(\) => props\.config\.canEdit !== false\)/,
     /const canDelete = computed\(\(\) => props\.config\.canDelete !== false\)/,
     /useAdminResourceOperations\(\{/,
+    /async function handleEdit\(record: AdminRecord\)/,
+    /props\.config\.key === 'content'/,
+    /kind === 'club' \|\| kind === 'department'/,
+    /navigateTo\(`\/admin\/content\/\$\{encodeURIComponent\(id\)\}\/visual`\)/,
     /AdminResourceCatalogPanel/,
+    /@edit="handleEdit"/,
     /@set-publication-status="setPublicationStatus"/,
     /AdminResourceEditor/,
     /AdminResourceDeleteDialog/
@@ -85,6 +94,18 @@ test('admin resource manager exposes create, edit, delete, save and publication 
     /JSON\.stringify\(value, null, 2\)/,
     /field\.key === 'sourceIds'/
   ], 'admin resource form utility')
+})
+
+test('organization visual editor entry includes the required first-login password flow', () => {
+  assertContains(passwordChangePanelSource, [
+    /currentPassword = ref\(''\)/,
+    /newPassword\.value\.length < 12/,
+    /newPassword\.value !== confirmPassword\.value/,
+    /adminFetch\('\/api\/admin\/auth\/password'/,
+    /navigateTo\('\/admin\/login\?password=changed'/,
+    /autocomplete="current-password"/,
+    /autocomplete="new-password"/
+  ], 'AdminPasswordChangePanel')
 })
 
 test('core admin modules are configured for maintainable CRUD and publication workflows', () => {
