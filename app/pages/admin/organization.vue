@@ -72,6 +72,7 @@ onMounted(() => {
       <AdminOrganizationVisualEditor
         v-if="!mustChangePassword"
         :content-id="contentId"
+        organization-mode
       />
     </template>
   </div>

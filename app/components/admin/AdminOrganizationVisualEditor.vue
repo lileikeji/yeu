@@ -65,6 +65,7 @@ const props = defineProps<{
   createKind?: 'club' | 'department'
   readonly?: boolean
   allowDetailedEdit?: boolean
+  organizationMode?: boolean
 }>()
 
 const toast = useToast()
@@ -354,12 +355,12 @@ async function save(): Promise<void> {
     saveError.value = '页面标题和简介不能为空。'
     return
   }
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(model.slug.trim())) {
+  if (!props.organizationMode && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(model.slug.trim())) {
     saveError.value = '网页地址名称只能使用小写字母、数字和短横线。'
     return
   }
   const sortOrder = Number(model.sortOrderText)
-  if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 9999) {
+  if (!props.organizationMode && (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 9999)) {
     saveError.value = '前台排序必须是 0 到 9999 之间的整数。'
     return
   }
@@ -388,7 +389,7 @@ async function save(): Promise<void> {
   saving.value = true
   try {
     const creating = isCreating.value
-    const metadata = {
+    const metadata: Record<string, unknown> = {
       ...model.metadata,
       group: model.group.trim(),
       direction: model.direction.trim(),
@@ -412,21 +413,27 @@ async function save(): Promise<void> {
       contactQrUrls: model.contactQrUrls,
       boxes: model.boxes.map(boxPayload)
     }
+    if (props.organizationMode) {
+      delete metadata.verificationState
+      delete metadata.featuredSummary
+      delete metadata.sortOrder
+    }
     const sourceIds = [...new Set(model.sourceIdsText
       .split(/[\s,]+/)
       .map(item => item.trim())
       .filter(Boolean))]
-    const commonBody = {
-      slug: model.slug.trim(),
+    const commonBody: Record<string, unknown> = {
       title: model.title.trim(),
       summary: model.summary.trim(),
       body: model.body,
       category: model.category.trim() || null,
-      audience: null,
-      isFeatured: model.isFeatured,
-      lastVerifiedAt: isoDateOrNull(model.lastVerifiedAt),
-      sourceIds,
       metadata
+    }
+    if (!props.organizationMode) {
+      commonBody.slug = model.slug.trim()
+      commonBody.isFeatured = model.isFeatured
+      commonBody.lastVerifiedAt = isoDateOrNull(model.lastVerifiedAt)
+      commonBody.sourceIds = sourceIds
     }
     const result = creating
       ? await adminFetch('/api/admin/content', {
@@ -712,6 +719,7 @@ onBeforeUnmount(() => {
               :ui="{ base: 'text-2xl font-bold md:text-3xl' }"
             />
             <UFormField
+              v-if="!organizationMode"
               label="网页地址名称"
               description="仅使用小写字母、数字和短横线，修改后会改变公开页面地址。"
               class="mt-4 max-w-xl"
@@ -1029,7 +1037,10 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <section class="border-b border-zinc-200 py-8">
+          <section
+            v-if="!organizationMode"
+            class="border-b border-zinc-200 py-8"
+          >
             <div>
               <h2 class="text-lg font-bold text-zinc-950">
                 发布、确认与排序

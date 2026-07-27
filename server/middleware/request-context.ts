@@ -5,7 +5,8 @@ import {
   requestLoggingEnabled,
   resolveRequestId,
   resolveSecurityHeaders,
-  shouldDisableCache
+  shouldDisableCache,
+  shouldDisableDocumentCache
 } from '../utils/request-context'
 
 export default defineEventHandler((event) => {
@@ -31,6 +32,18 @@ export default defineEventHandler((event) => {
   }
   if (shouldDisableCache(method, pathname)) {
     response.setHeader('Cache-Control', 'no-store')
+    response.setHeader('Pragma', 'no-cache')
+  } else if (shouldDisableDocumentCache(
+    method,
+    pathname,
+    String(request.headers.accept ?? ''),
+    String(request.headers['sec-fetch-dest'] ?? '')
+  )) {
+    response.setHeader('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate')
+    response.setHeader('CDN-Cache-Control', 'no-store')
+    response.setHeader('Cloudflare-CDN-Cache-Control', 'no-store')
+    response.setHeader('Edge-Control', 'no-store')
+    response.setHeader('Surrogate-Control', 'no-store')
     response.setHeader('Pragma', 'no-cache')
   }
 

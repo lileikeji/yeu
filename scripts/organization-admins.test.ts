@@ -13,7 +13,10 @@ import {
   updateOrganizationAdmin
 } from '../server/modules/organization-admins/service'
 import type { AdminSessionContext } from '../server/utils/auth'
-import { requireAdminContentAccess } from '../server/utils/auth'
+import {
+  assertOrganizationContentUpdateAllowed,
+  requireAdminContentAccess
+} from '../server/utils/auth'
 import { verifyPassword } from '../server/utils/password'
 import { createOrganizationAdminSchema } from '../shared/schemas/server'
 
@@ -168,6 +171,66 @@ test('organization content access only allows the assigned content id', () => {
         && (error.data as { code: string }).code === 'ADMIN_SCOPE_FORBIDDEN'
       )
     )
+  } finally {
+    globalThis.createError = originalCreateError
+  }
+})
+
+test('organization administrators can edit organization content but not governance fields', () => {
+  const session = {
+    admin: {
+      id: 'organization-admin',
+      username: 'jisuanjixiehui',
+      displayName: '计算机协会管理员',
+      role: 'organization',
+      mustChangePassword: false,
+      organization: {
+        contentId: firstContentId,
+        kind: 'club',
+        slug: 'computer-association',
+        title: '计算机协会'
+      }
+    },
+    sessionId: 'session',
+    expiresAt: Date.now() + 60_000,
+    csrfToken: 'csrf'
+  } satisfies AdminSessionContext
+
+  assert.doesNotThrow(() => assertOrganizationContentUpdateAllowed(session, {
+    title: '计算机协会',
+    summary: '新的介绍',
+    metadata: {
+      signupQa: [{ question: '是否招新', answer: '是' }],
+      groupQrUrls: ['/uploads/example.jpg']
+    }
+  }))
+
+  const originalCreateError = globalThis.createError
+  globalThis.createError = ((input: {
+    statusCode: number
+    statusMessage: string
+    data: { code: string, field?: string }
+  }) => Object.assign(new Error(input.statusMessage), input)) as typeof createError
+  try {
+    for (const input of [
+      { slug: 'changed-slug' },
+      { isFeatured: true },
+      { lastVerifiedAt: new Date().toISOString() },
+      { sourceIds: [] },
+      { metadata: { sortOrder: 1 } },
+      { metadata: { verificationState: 'verified' } }
+    ]) {
+      assert.throws(
+        () => assertOrganizationContentUpdateAllowed(session, input),
+        error => (
+          error instanceof Error
+          && 'statusCode' in error
+          && error.statusCode === 403
+          && 'data' in error
+          && (error.data as { code: string }).code === 'ORGANIZATION_CONTENT_FIELD_FORBIDDEN'
+        )
+      )
+    }
   } finally {
     globalThis.createError = originalCreateError
   }

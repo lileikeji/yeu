@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto'
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+const NON_DOCUMENT_PREFIXES = [
+  '/_nuxt/',
+  '/__nuxt/',
+  '/api/',
+  '/uploads/'
+] as const
 
 export const BASE_SECURITY_HEADERS = {
   'Content-Security-Policy': [
@@ -44,8 +50,8 @@ export function resolveSecurityHeaders(options: {
   let contentSecurityPolicy = BASE_SECURITY_HEADERS['Content-Security-Policy']
   if (isMapPage) {
     contentSecurityPolicy = contentSecurityPolicy.replace(
-      "script-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+      'script-src \'self\' \'unsafe-inline\'',
+      'script-src \'self\' \'unsafe-inline\' \'unsafe-eval\''
     )
   }
   const productionHttps = nodeEnv === 'production' && /^https:\/\//i.test(siteUrl.trim())
@@ -98,6 +104,19 @@ export function shouldDisableCache(method: string, pathname: string): boolean {
     || pathname.startsWith('/api/public/track/')
     || pathname === '/api/public/feedback'
     || pathname.startsWith('/api/public/feedback/')
+}
+
+export function shouldDisableDocumentCache(
+  method: string,
+  pathname: string,
+  accept = '',
+  fetchDestination = ''
+): boolean {
+  const normalizedMethod = method.toUpperCase()
+  if (normalizedMethod !== 'GET' && normalizedMethod !== 'HEAD') return false
+  if (NON_DOCUMENT_PREFIXES.some(prefix => pathname.startsWith(prefix))) return false
+  if (fetchDestination.toLowerCase() === 'document') return true
+  return accept.toLowerCase().includes('text/html')
 }
 
 export function requestLoggingEnabled(

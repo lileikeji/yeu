@@ -126,6 +126,46 @@ export function requireAdminContentAccess(session: AdminSessionContext, contentI
   if (session.admin.organization?.contentId !== contentId) forbidden()
 }
 
+const ORGANIZATION_PROTECTED_CONTENT_FIELDS = new Set([
+  'slug',
+  'isFeatured',
+  'lastVerifiedAt',
+  'sourceIds',
+  'status'
+])
+
+const ORGANIZATION_PROTECTED_METADATA_FIELDS = new Set([
+  'verificationState',
+  'featuredSummary',
+  'sortOrder'
+])
+
+export function assertOrganizationContentUpdateAllowed(
+  session: AdminSessionContext,
+  input: Record<string, unknown>
+): void {
+  if (session.admin.role === 'super') return
+
+  const protectedField = Object.keys(input)
+    .find(key => ORGANIZATION_PROTECTED_CONTENT_FIELDS.has(key))
+  const metadata = input.metadata
+  const protectedMetadataField = metadata
+    && typeof metadata === 'object'
+    && !Array.isArray(metadata)
+    ? Object.keys(metadata).find(key => ORGANIZATION_PROTECTED_METADATA_FIELDS.has(key))
+    : undefined
+
+  if (!protectedField && !protectedMetadataField) return
+  throw createError({
+    statusCode: 403,
+    statusMessage: '组织管理员不能修改发布、核验、排序或页面标识字段',
+    data: {
+      code: 'ORGANIZATION_CONTENT_FIELD_FORBIDDEN',
+      field: protectedField ?? `metadata.${protectedMetadataField}`
+    }
+  })
+}
+
 function assertCsrf(
   event: H3Event,
   client: DatabaseClient,

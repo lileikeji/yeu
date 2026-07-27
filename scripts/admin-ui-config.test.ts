@@ -40,6 +40,10 @@ const organizationVisualEditPageSource = readFileSync(
   resolve('app/pages/admin/content/[id]/visual.vue'),
   'utf8'
 )
+const organizationPageSource = readFileSync(
+  resolve('app/pages/admin/organization.vue'),
+  'utf8'
+)
 
 function sectionBlock(key: string): string {
   const marker = `  '${key}': {`
@@ -150,7 +154,8 @@ test('organization content creation and every organization field use the visual 
   ], 'AdminResourceManager visual creation actions')
   assertContains(organizationVisualCreatePageSource, [
     /route\.query\.kind === 'department'/,
-    /AdminOrganizationVisualEditor :create-kind="createKind"/
+    /:create-kind="createKind"/,
+    /:allow-detailed-edit="allowDetailedEdit"/
   ], 'organization visual creation page')
   assertContains(organizationVisualEditorSource, [
     /contentId\?: string/,
@@ -158,9 +163,9 @@ test('organization content creation and every organization field use the visual 
     /const isCreating = computed\(\(\) => !model\.id\)/,
     /method: 'POST'/,
     /kind: model\.kind/,
-    /slug: model\.slug\.trim\(\)/,
-    /sourceIds,/,
-    /lastVerifiedAt: isoDateOrNull\(model\.lastVerifiedAt\)/,
+    /commonBody\.slug = model\.slug\.trim\(\)/,
+    /commonBody\.sourceIds = sourceIds/,
+    /commonBody\.lastVerifiedAt = isoDateOrNull\(model\.lastVerifiedAt\)/,
     /verificationState: model\.verificationState/,
     /featuredSummary: model\.featuredSummary\.trim\(\)/,
     /sortOrder,/,
@@ -201,6 +206,25 @@ test('super admins can switch between visual and detailed organization editors',
     /v-if="visualEditorPath"/,
     /label="切换到可视化编辑"/
   ], 'AdminResourceEditor visual editor switch')
+})
+
+test('organization accounts only see day-to-day content controls', () => {
+  assertContains(organizationVisualEditorSource, [
+    /organizationMode\?: boolean/,
+    /v-if="!organizationMode"[\s\S]{0,180}发布、确认与排序/,
+    /delete metadata\.verificationState/,
+    /delete metadata\.featuredSummary/,
+    /delete metadata\.sortOrder/,
+    /if \(!props\.organizationMode\)/,
+    /commonBody\.sourceIds = sourceIds/
+  ], 'AdminOrganizationVisualEditor organization mode')
+  assertContains(organizationPageSource, [
+    /organization-mode/
+  ], 'organization workspace mode')
+  assert.doesNotMatch(
+    organizationVisualEditorSource,
+    /v-if="!organizationMode"[\s\S]{0,180}招新与活动/
+  )
 })
 
 test('core admin modules are configured for maintainable CRUD and publication workflows', () => {

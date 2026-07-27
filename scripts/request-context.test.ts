@@ -9,7 +9,8 @@ import {
   requestLoggingEnabled,
   resolveRequestId,
   resolveSecurityHeaders,
-  shouldDisableCache
+  shouldDisableCache,
+  shouldDisableDocumentCache
 } from '../server/utils/request-context'
 
 test('request IDs accept a restricted proxy-safe format and replace untrusted values', () => {
@@ -39,6 +40,15 @@ test('all writes and sensitive authentication, admin, and feedback reads are no-
   assert.equal(shouldDisableCache('GET', '/api/public/feedback'), true)
   assert.equal(shouldDisableCache('GET', '/api/public/guides'), false)
   assert.equal(shouldDisableCache('HEAD', '/icons/app-icon.svg'), false)
+})
+
+test('HTML documents bypass browser and CDN caches while hashed assets remain cacheable', () => {
+  assert.equal(shouldDisableDocumentCache('GET', '/', 'text/html', 'document'), true)
+  assert.equal(shouldDisableDocumentCache('GET', '/clubs/music-association', 'text/html', ''), true)
+  assert.equal(shouldDisableDocumentCache('HEAD', '/map', '*/*', 'document'), true)
+  assert.equal(shouldDisableDocumentCache('GET', '/_nuxt/entry.hash.css', 'text/css', 'style'), false)
+  assert.equal(shouldDisableDocumentCache('GET', '/uploads/code.jpg', 'image/avif', 'image'), false)
+  assert.equal(shouldDisableDocumentCache('GET', '/api/public/clubs', 'application/json', ''), false)
 })
 
 test('public read APIs only enable short caching after successful data preparation', () => {
@@ -111,6 +121,9 @@ test('global middleware applies request context without collecting client identi
   assert.match(middleware, /event\.context\.requestId = requestId/)
   assert.match(middleware, /response\.setHeader\('X-Request-Id', requestId\)/)
   assert.match(middleware, /shouldDisableCache\(method, pathname\)/)
+  assert.match(middleware, /shouldDisableDocumentCache\(/)
+  assert.match(middleware, /CDN-Cache-Control', 'no-store'/)
+  assert.match(middleware, /Edge-Control', 'no-store'/)
   assert.match(middleware, /new URL\(request\.url \?\? '\/', 'http:\/\/localhost'\)\.pathname/)
   assert.doesNotMatch(middleware, /getRequestURL|getHeader|getMethod|setHeader\(event/)
   assert.match(middleware, /JSON\.stringify\(entry\)/)
