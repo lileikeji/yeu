@@ -1,4 +1,4 @@
-import { normalizeWechatQuestion } from '../../../modules/bots/events'
+import { normalizeWechatQuestion, wechatRoomAllowed } from '../../../modules/bots/events'
 import { botAssistantConfig, botIntegrationDisabled, botRateLimited } from '../../../modules/bots/runtime'
 import { verifyBotWebhookSignature } from '../../../modules/bots/security'
 import { answerAndSendBotQuestion, releaseBotMessage, reserveBotMessage } from '../../../modules/bots/service'
@@ -29,6 +29,9 @@ export default defineEventHandler(async (event) => {
     payload = JSON.parse(rawBody)
   } catch {
     throw createError({ statusCode: 400, statusMessage: 'Invalid JSON body' })
+  }
+  if (!wechatRoomAllowed(payload, String(runtime.wechatBotAllowedRoomIds || ''))) {
+    return { status: 'ignored', reason: 'room_not_allowed' }
   }
   const question = normalizeWechatQuestion(
     payload,

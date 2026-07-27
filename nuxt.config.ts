@@ -51,6 +51,7 @@ export default defineNuxtConfig({
     wechatBotSendUrl: '',
     wechatBotId: '',
     wechatBotName: '',
+    wechatBotAllowedRoomIds: '',
     public: {
       siteUrl: 'http://localhost:3000',
       mapProvider: 'maplibre-dev',

@@ -51,6 +51,12 @@ export function oneBotGroupAllowed(payload: unknown, configuredGroupIds = ''): b
   return allowed.has(requiredId((payload as OneBotEvent).group_id) || '')
 }
 
+export function wechatRoomAllowed(payload: unknown, configuredRoomIds = ''): boolean {
+  const allowed = new Set(configuredRoomIds.split(/[\s,]+/).map(value => value.trim()).filter(Boolean))
+  if (allowed.size === 0 || !payload || typeof payload !== 'object') return false
+  return allowed.has(requiredId((payload as WechatRelayEvent).roomId) || '')
+}
+
 function oneBotText(event: OneBotEvent, selfId: string): { mentioned: boolean, text: string } {
   const segments = oneBotSegments(event.message)
   if (segments.length > 0) {

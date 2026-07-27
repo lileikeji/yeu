@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { normalizeOneBotQuestion, normalizeWechatQuestion, oneBotGroupAllowed } from '../server/modules/bots/events'
+import {
+  normalizeOneBotQuestion,
+  normalizeWechatQuestion,
+  oneBotGroupAllowed,
+  wechatRoomAllowed
+} from '../server/modules/bots/events'
 import {
   clearBotMessageReservationsForTests,
   formatBotReply,
@@ -88,6 +93,14 @@ test('WeChat relay requires a room mention and uses clean text', () => {
     mentionedIds: ['bot-1']
   }, 'bot-1', '新生指南')?.conversationId, 'room-1')
   assert.equal(normalizeWechatQuestion({ ...base, roomId: '', isAt: true }, 'bot-1', '新生指南'), null)
+})
+
+test('WeChat room allowlist is deny-by-default and exact-match only', () => {
+  assert.equal(wechatRoomAllowed({ roomId: 'room-1' }, ''), false)
+  assert.equal(wechatRoomAllowed({ roomId: 'room-1' }, 'room-1'), true)
+  assert.equal(wechatRoomAllowed({ roomId: 'room-1' }, 'room-2, room-1'), true)
+  assert.equal(wechatRoomAllowed({ roomId: 'room-10' }, 'room-1'), false)
+  assert.equal(wechatRoomAllowed({ roomId: '' }, 'room-1'), false)
 })
 
 test('bot replies always retain the canonical website footer', () => {

@@ -27,7 +27,7 @@ Set `NUXT_QQ_BOT_ALLOWED_GROUP_IDS` in production. When it is non-empty, every e
 
 ## WeChat relay
 
-Personal WeChat does not provide an official inbound group-message API. Run a Gewechat/Wechaty relay and translate its message event to this contract:
+Personal WeChat does not provide an official inbound group-message API. Run a maintained relay and translate its message event to this contract. The original Gewechat project has been discontinued and must not be deployed as a privileged container on the production host.
 
 ```json
 {
@@ -67,7 +67,10 @@ NUXT_WECHAT_BOT_WEBHOOK_SECRET=<random secret, at least 32 characters>
 NUXT_WECHAT_BOT_SEND_URL=https://relay.example.com/api/send
 NUXT_WECHAT_BOT_ID=<relay bot id>
 NUXT_WECHAT_BOT_NAME=<display name used after @>
+NUXT_WECHAT_BOT_ALLOWED_ROOM_IDS=<comma-separated room ids>
 ```
+
+The WeChat room allowlist is deny-by-default. An empty value rejects every room. A room is accepted only when its exact ID is present and the relay confirms that the bot itself was mentioned.
 
 Shared settings:
 
