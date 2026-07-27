@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
-import { pathToFileURL } from 'node:url'
+import { basename } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const MAX_BODY_BYTES = 64 * 1024
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000
@@ -308,7 +309,7 @@ function loadConfig() {
   return config
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && basename(process.argv[1]) === basename(fileURLToPath(import.meta.url))) {
   const config = loadConfig()
   createRelayServer(config).listen(config.port, config.host)
 }
