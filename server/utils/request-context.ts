@@ -34,16 +34,27 @@ export const BASE_SECURITY_HEADERS = {
 export function resolveSecurityHeaders(options: {
   nodeEnv?: string
   siteUrl?: string
+  pathname?: string
 } = {}): Record<string, string> {
   const headers: Record<string, string> = { ...BASE_SECURITY_HEADERS }
   const nodeEnv = options.nodeEnv ?? process.env.NODE_ENV
   const siteUrl = options.siteUrl ?? process.env.NUXT_PUBLIC_SITE_URL ?? ''
+  const pathname = options.pathname ?? '/'
+  const isMapPage = pathname === '/map' || pathname.startsWith('/map/')
+  let contentSecurityPolicy = BASE_SECURITY_HEADERS['Content-Security-Policy']
+  if (isMapPage) {
+    contentSecurityPolicy = contentSecurityPolicy.replace(
+      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    )
+  }
   const productionHttps = nodeEnv === 'production' && /^https:\/\//i.test(siteUrl.trim())
   if (productionHttps) {
-    headers['Content-Security-Policy'] = BASE_SECURITY_HEADERS['Content-Security-Policy'] + '; upgrade-insecure-requests'
+    contentSecurityPolicy += '; upgrade-insecure-requests'
     // HSTS only when the public site URL is HTTPS (opt-in via env / deploy).
     headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
   }
+  headers['Content-Security-Policy'] = contentSecurityPolicy
   return headers
 }
 

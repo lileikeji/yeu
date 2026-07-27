@@ -21,7 +21,7 @@ export default defineEventHandler((event) => {
 
   event.context.requestId = requestId
   response.setHeader('X-Request-Id', requestId)
-  for (const [name, value] of Object.entries(resolveSecurityHeaders())) {
+  for (const [name, value] of Object.entries(resolveSecurityHeaders({ pathname }))) {
     response.setHeader(name, value)
   }
   // Fingerprint: Nuxt may re-add x-powered-by for HTML; plugin strip-powered-by

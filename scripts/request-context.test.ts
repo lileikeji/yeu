@@ -136,10 +136,22 @@ test('resolveSecurityHeaders adds upgrade-insecure-requests only for production 
   assert.equal(prodHttp['Strict-Transport-Security'], undefined)
 })
 
+test('map CSP permits the AMap SDK eval requirement without weakening other routes', () => {
+  const map = resolveSecurityHeaders({ pathname: '/map' })
+  const mapChild = resolveSecurityHeaders({ pathname: '/map/place/campus-gate' })
+  const home = resolveSecurityHeaders({ pathname: '/' })
+  const api = resolveSecurityHeaders({ pathname: '/api/public/places' })
+
+  assert.match(map['Content-Security-Policy'], /script-src [^;]*'unsafe-eval'/)
+  assert.match(mapChild['Content-Security-Policy'], /script-src [^;]*'unsafe-eval'/)
+  assert.doesNotMatch(home['Content-Security-Policy'], /'unsafe-eval'/)
+  assert.doesNotMatch(api['Content-Security-Policy'], /'unsafe-eval'/)
+})
+
 test('framework fingerprint header is stripped by middleware and nitro plugin', () => {
   const middleware = readFileSync(join(process.cwd(), 'server/middleware/request-context.ts'), 'utf8')
   const plugin = readFileSync(join(process.cwd(), 'server/plugins/strip-powered-by.ts'), 'utf8')
-  assert.match(middleware, /resolveSecurityHeaders\(\)/)
+  assert.match(middleware, /resolveSecurityHeaders\(\{ pathname \}\)/)
   assert.match(middleware, /removeHeader\(['"]x-powered-by['"]\)/)
   assert.match(plugin, /beforeResponse/)
   assert.match(plugin, /afterResponse/)
