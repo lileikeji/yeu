@@ -13,6 +13,7 @@ const OWN_RATE_LIMIT_PREFIXES = [
   '/api/public/assistant',
   '/api/public/feedback',
   '/api/public/amap-owner-drafts',
+  '/api/public/transit/plan',
   '/api/public/track'
 ]
 
@@ -29,6 +30,7 @@ export default defineEventHandler((event) => {
 
   const client = useAppDatabase(event)
   const ip = getClientIpAddress(event)
-  // Generous for cached catalog reads; still bounds scraping / expensive listing.
-  assertRateLimit(event, `public-api:${ip}`, 180, 60 * 1000, client)
+  // CDN peers can temporarily aggregate several visitors behind one validated
+  // address. Nginx still enforces the hard request-rate ceiling at the origin.
+  assertRateLimit(event, `public-api:${ip}`, 1200, 60 * 1000, client)
 })

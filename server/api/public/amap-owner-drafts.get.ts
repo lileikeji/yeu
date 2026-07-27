@@ -32,7 +32,7 @@ export default defineEventHandler((event) => {
 
   const ipAddress = getClientIpAddress(event)
   const client = useAppDatabase(event)
-  assertRateLimit(event, `public-amap-owner-drafts:${ipAddress}`, 30, 60 * 1000, client)
+  assertRateLimit(event, `public-amap-owner-drafts:${ipAddress}`, 600, 60 * 1000, client)
 
   const items = listPublicAmapOwnerDraftPlaces(client)
   setPublicCache(event, 60)

@@ -1,56 +1,10 @@
-import {
-  buildEdgeUrl,
-  chooseEdgeHost,
-  EDGE_PROBE_TIMEOUT_MS,
-  EDGE_ROUTE_HOSTS,
-  shouldProbeEdgeRoute,
-  type EdgeProbeResult
-} from '~/utils/edge-route'
-
-async function probeHost(host: string): Promise<EdgeProbeResult> {
-  const startedAt = performance.now()
-  const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), EDGE_PROBE_TIMEOUT_MS)
-
-  try {
-    await fetch(`https://${host}/api/health?edge_probe=${Date.now()}`, {
-      cache: 'no-store',
-      credentials: 'omit',
-      mode: 'no-cors',
-      redirect: 'follow',
-      referrerPolicy: 'no-referrer',
-      signal: controller.signal
-    })
-
-    return {
-      host,
-      reachable: true,
-      durationMs: performance.now() - startedAt
-    }
-  } catch {
-    return {
-      host,
-      reachable: false,
-      durationMs: Number.POSITIVE_INFINITY
-    }
-  } finally {
-    window.clearTimeout(timer)
-  }
-}
+import { EDGE_ROUTE_HOSTS } from '~/utils/edge-route'
 
 export default defineNuxtPlugin(() => {
-  const edgeWindow = window as Window & { __YEU_EDGE_ROUTED__?: boolean }
-  if (edgeWindow.__YEU_EDGE_ROUTED__) return
-
   const currentHost = window.location.hostname.toLowerCase()
   if (!EDGE_ROUTE_HOSTS.includes(currentHost as typeof EDGE_ROUTE_HOSTS[number])) return
-  if (!shouldProbeEdgeRoute(window.location.pathname)) return
 
-  void Promise.all(EDGE_ROUTE_HOSTS.map(probeHost)).then((results) => {
-    const targetHost = chooseEdgeHost(currentHost, results)
-
-    if (targetHost !== currentHost) {
-      window.location.replace(buildEdgeUrl(targetHost, new URL(window.location.href)))
-    }
-  }).catch(() => undefined)
+  // Fallback cleanup when an older cached document did not run the current
+  // bootstrap. Never move an active session between independent CDN origins.
+  document.cookie = 'yeu_fast_edge=; Max-Age=0; Path=/; Domain=.huiliyill.cn; SameSite=Lax; Secure'
 })

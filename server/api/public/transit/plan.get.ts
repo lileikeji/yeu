@@ -13,7 +13,6 @@ const CACHE_TTL_MS = 90_000
 
 export default defineEventHandler(async (event): Promise<ApiTransitPlanResponse> => {
   setHeader(event, 'Cache-Control', 'no-store')
-  assertRateLimit(event, `public:transit:${getClientIpAddress(event)}`, 30, 60_000)
 
   const query = getQuery(event)
   const originId = query.from
@@ -31,6 +30,12 @@ export default defineEventHandler(async (event): Promise<ApiTransitPlanResponse>
     })
     return cached.response
   }
+
+  // Only uncached requests consume an upstream AMap call. CDN peers may group
+  // several visitors behind one address, so keep a generous peer ceiling and
+  // a separate global ceiling for provider protection.
+  assertRateLimit(event, `public:transit:${getClientIpAddress(event)}`, 300, 60_000)
+  assertRateLimit(event, 'public:transit:global', 120, 60_000)
 
   const runtimeConfig = useRuntimeConfig(event)
   const key = String(runtimeConfig.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || '').trim()
