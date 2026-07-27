@@ -162,7 +162,7 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v3'
+const ASSISTANT_CACHE_VERSION = 'rag-v4-faculty'
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
   { id: 'quanzhou-east', terms: ['泉州东站', '东站'] },
@@ -433,8 +433,8 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
   const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
   const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
   if (title === normalizedSubject) return true
-  if (title.includes(normalizedSubject) && /简介|个人|履历|人物|教授|老师|校友|研究|任职/.test(title)) return true
-  return new RegExp(`${normalizedSubject}.{0,24}(?:是|为|担任|出生|任职|教授|老师|校友)`).test(text)
+  if (title.includes(normalizedSubject) && /简介|个人|履历|人物|教授|副教授|讲师|助教|教师|老师|校友|研究|任职/.test(title)) return true
+  return new RegExp(`${normalizedSubject}.{0,24}(?:是|为|担任|出生|任职|教授|副教授|讲师|助教|教师|老师|校友)`).test(text)
 }
 
 function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
@@ -785,6 +785,7 @@ export function featureEvidenceForQuery(query: string, limit = 5): AssistantEvid
 interface AssistantKnowledgeMatch {
   id: string
   kind: 'official_reference' | 'campus_template' | 'student_experience'
+  category: string
   title: string
   answer: string
   publicUrl: string | null
@@ -811,6 +812,7 @@ export function assistantKnowledgeMatchesForQuery(
   const terms = assistantQueryTerms(query)
   if (terms.length === 0) return []
   const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const identitySubject = assistantIdentitySubject(query)?.toLocaleLowerCase('zh-CN') ?? null
 
   return client.db.select({
     id: assistantKnowledgeEntries.id,
@@ -833,11 +835,16 @@ export function assistantKnowledgeMatchesForQuery(
           ? Math.max(boost, keyword.length >= 4 ? 24 : 16)
           : boost
       ), 0)
+      const facultyName = row.category === '教职工'
+        ? row.title.split('｜', 1)[0]?.trim().toLocaleLowerCase('zh-CN') ?? ''
+        : ''
       const score = evidenceScore(`${row.title} ${row.category}`, row.question, detail, terms)
         + exactKeywordBoost
+        + (identitySubject && facultyName === identitySubject ? 80 : 0)
       return {
         id: row.id,
         kind: row.kind,
+        category: row.category,
         title: row.title,
         answer: row.answer,
         publicUrl: row.publicUrl,
@@ -870,8 +877,11 @@ function assistantKnowledgeLocalAnswer(
   query: string
 ): ApiAssistantResponse | null {
   if (isTransferQuery(query)) return null
+  const facultyAnswer = facultyKnowledgeLocalAnswer(client, query)
+  if (facultyAnswer) return facultyAnswer
   const match = assistantKnowledgeMatchesForQuery(client, query, 1)[0]
   if (!match || match.score < 12) return null
+  if (match.category === '教职工') return null
   const experienceNotice = match.kind === 'student_experience'
     && !/以.+为准|不是官方|不是招生统计|不能只按/.test(match.answer)
     ? ' 这是学生经验，不是学校正式通知；涉及收费、时间、宿舍和管理要求时，以录取材料、辅导员或学校最新通知为准。'
@@ -891,6 +901,133 @@ function assistantKnowledgeLocalAnswer(
     citations,
     usedWebSearch: false,
     confidence: Math.min(0.99, Math.max(0.5, match.confidence / 100))
+  }
+}
+
+interface FacultyKnowledgeRow {
+  id: string
+  title: string
+  answer: string
+  publicUrl: string | null
+  confidence: number
+  keywords: string[]
+}
+
+function facultyNameFromTitle(title: string): string {
+  return title.split('｜', 1)[0]?.trim() ?? ''
+}
+
+function facultyAffiliationFromTitle(title: string): string {
+  return (title.split('｜', 2)[1] ?? '').replace(/教师$/u, '').trim()
+}
+
+function facultyKnowledgeRows(client: DatabaseClient): FacultyKnowledgeRow[] {
+  return client.db.select({
+    id: assistantKnowledgeEntries.id,
+    title: assistantKnowledgeEntries.title,
+    answer: assistantKnowledgeEntries.answer,
+    publicUrl: assistantKnowledgeEntries.publicUrl,
+    confidence: assistantKnowledgeEntries.confidence,
+    keywordsJson: assistantKnowledgeEntries.keywordsJson
+  }).from(assistantKnowledgeEntries)
+    .where(and(
+      eq(assistantKnowledgeEntries.isActive, true),
+      eq(assistantKnowledgeEntries.category, '教职工')
+    ))
+    .all()
+    .map(row => ({
+      id: row.id,
+      title: row.title,
+      answer: row.answer,
+      publicUrl: row.publicUrl,
+      confidence: row.confidence,
+      keywords: parseKnowledgeKeywords(row.keywordsJson)
+    }))
+}
+
+function facultyCitations(rows: FacultyKnowledgeRow[]): ApiAssistantCitation[] {
+  return rows
+    .filter((row): row is FacultyKnowledgeRow & { publicUrl: string } => Boolean(row.publicUrl))
+    .filter((row, index, items) => items.findIndex(item => item.publicUrl === row.publicUrl) === index)
+    .slice(0, 12)
+    .map(row => ({
+      title: row.title,
+      url: row.publicUrl,
+      snippet: row.answer,
+      source: 'site' as const
+    }))
+}
+
+function facultyKnowledgeLocalAnswer(
+  client: DatabaseClient,
+  query: string
+): ApiAssistantResponse | null {
+  const rows = facultyKnowledgeRows(client)
+  if (rows.length === 0) return null
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+  const identitySubject = assistantIdentitySubject(query)?.toLocaleLowerCase('zh-CN').replace(/\s+/g, '') ?? null
+  const facultyContext = /(?:老师|教师|教授|讲师|助教|师资|教职工|任教|教什么|研究方向|哪个学院|哪位|是谁|简介)/u.test(normalized)
+  const mentioned = rows.filter((row) => {
+    const name = facultyNameFromTitle(row.title).toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+    return name.length >= 2
+      && normalized.includes(name)
+      && (facultyContext || identitySubject === name || normalized === name)
+  })
+
+  if (mentioned.length > 0) {
+    const answer = mentioned.length === 1
+      ? mentioned[0]!.answer
+      : [
+          `官网公开师资中有 ${mentioned.length} 位同名教师：`,
+          ...mentioned.map(row => `\n${row.answer}`)
+        ].join('\n')
+    return {
+      query,
+      mode: 'local',
+      answer,
+      citations: facultyCitations(mentioned),
+      usedWebSearch: false,
+      confidence: Math.min(0.99, Math.max(...mentioned.map(row => row.confidence)) / 100)
+    }
+  }
+
+  const directoryQuery = /(?:有哪些|名单|列表|全部|所有).{0,8}(?:老师|教师|教职工|师资)|(?:老师|教师|教职工|师资).{0,8}(?:有哪些|名单|列表|全部|所有)/u.test(normalized)
+  if (!directoryQuery) return null
+
+  const affiliations = [...new Set(
+    rows
+      .map(row => facultyAffiliationFromTitle(row.title).split('·', 1)[0])
+      .filter((affiliation): affiliation is string => Boolean(affiliation))
+  )]
+  const requestedAffiliation = affiliations
+    .sort((left, right) => right.length - left.length)
+    .find(affiliation => normalized.includes(affiliation.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')))
+
+  if (!requestedAffiliation) {
+    const counts = affiliations
+      .map(affiliation => ({
+        affiliation,
+        count: rows.filter(row => facultyAffiliationFromTitle(row.title).startsWith(affiliation)).length
+      }))
+      .sort((left, right) => right.count - left.count || left.affiliation.localeCompare(right.affiliation, 'zh-CN'))
+    return {
+      query,
+      mode: 'local',
+      answer: `当前已收录 ${rows.length} 条官网公开师资资料：${counts.map(item => `${item.affiliation}${item.count}人`).join('、')}。可以继续输入“某某学院有哪些老师”查看名单，或直接问“某某老师是谁”查看完整公开简介。`,
+      citations: [],
+      usedWebSearch: false,
+      confidence: 0.96
+    }
+  }
+
+  const matches = rows.filter(row => facultyAffiliationFromTitle(row.title).startsWith(requestedAffiliation))
+  return {
+    query,
+    mode: 'local',
+    answer: `${requestedAffiliation}官网公开师资共收录 ${matches.length} 人：${matches.map(row => facultyNameFromTitle(row.title)).join('、')}。输入其中一位老师的姓名，可以查看其职称、研究方向和官网公开履历。`,
+    citations: facultyCitations(matches),
+    usedWebSearch: false,
+    confidence: 0.96
   }
 }
 

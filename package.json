@@ -33,6 +33,7 @@
     "data:verify:local": "tsx scripts/verify-live-data-parity.ts --database .data/codex-map-content-20260713.sqlite",
     "data:verify:test": "tsx --test scripts/verify-live-data-parity.test.ts",
     "feedback:cleanup": "tsx scripts/cleanup-feedback.ts",
+    "faculty:collect": "tsx scripts/collect-official-faculty.ts",
     "security:cleanup": "tsx scripts/cleanup-sensitive-data.ts",
     "env:test": "tsx --test scripts/load-env.test.ts",
     "e2e": "pnpm build && pnpm e2e:run",

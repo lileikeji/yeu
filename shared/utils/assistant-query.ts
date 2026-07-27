@@ -26,7 +26,7 @@ export function assistantIdentitySubject(value: string): string | null {
     .replace(/\s+/g, '')
     .replace(/[?？。！!，,、；;]+$/u, '')
   const match = normalized.match(/^(.{2,24}?)(?:是谁|是什么人|哪位|个人简介|简介)$/u)
-  const subject = match?.[1]?.trim()
+  const subject = match?.[1]?.trim().replace(/(?:老师|教师|教授)$/u, '')
   return subject && subject.length >= 2 ? subject : null
 }
 

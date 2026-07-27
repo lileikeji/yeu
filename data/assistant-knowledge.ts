@@ -1,3 +1,5 @@
+import { facultyProfiles } from './faculty-directory'
+
 export type AssistantKnowledgeKind = 'official_reference' | 'campus_template' | 'student_experience'
 
 export interface AssistantKnowledgeSeed {
@@ -417,6 +419,30 @@ export const campusExperienceKnowledge: AssistantKnowledgeSeed[] = [
 ]
 
 export const assistantKnowledgeSeeds: AssistantKnowledgeSeed[] = [
+  ...facultyProfiles.map((profile): AssistantKnowledgeSeed => {
+    const affiliation = [profile.college, profile.unit].filter(Boolean).join('·')
+    const position = profile.position ? `，公开职务/职称为${profile.position}` : ''
+    return {
+      id: profile.id,
+      kind: 'official_reference',
+      category: '教职工',
+      title: `${profile.name}｜${affiliation}教师`,
+      question: `${profile.name}是谁？${profile.name}是哪个学院的老师？`,
+      answer: `${profile.name}是仰恩大学${affiliation}公开师资页面列出的教师${position}。${profile.profile}`,
+      keywords: [
+        profile.name,
+        profile.college,
+        profile.unit,
+        profile.position,
+        '教师',
+        '老师',
+        '师资简介'
+      ].filter(Boolean),
+      publicUrl: profile.sourceUrl,
+      confidence: 96,
+      sourceNote: `${profile.sourceTitle}，采集于 ${profile.retrievedAt}；仅整理官网公开履职信息。`
+    }
+  }),
   ...comprehensiveEvaluationKnowledge,
   ...campusExperienceKnowledge
 ]
