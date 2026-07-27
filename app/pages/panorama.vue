@@ -19,6 +19,7 @@ interface PanoramaTour {
 const BAIDU_CAMPUS_PANORAMA_HASH = '#panoid=646c1306d4d72bfa631809a2&panotype=inter&heading=358&pitch=0&l=21&tn=B_NORMAL_MAP&sc=0&newmap=1&shareurl=1&pid=1000170000150119145327310IN&iid=646c1306d4d72bfa631809a2'
 const BAIDU_CAMPUS_PANORAMA_URL = `https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6/@13204528,2871631,21z,87t,-16.6h${BAIDU_CAMPUS_PANORAMA_HASH}`
 const OFFICIAL_HISTORY_VR_URL = 'https://www.720yun.com/vr/c66jOpeOOa3'
+const OFFICIAL_HISTORY_MOBILE_URL = 'https://www.720yun.com/t/c66jOpeOOa3'
 const OFFICIAL_ANNOUNCEMENT_URL = 'https://news.yeu.edu.cn/2023/0621/c704a39166/page.htm'
 
 useSeoMeta({
@@ -62,8 +63,7 @@ const viewerLoaded = ref(false)
 const viewerReady = ref(false)
 const viewerShell = ref<HTMLElement | null>(null)
 const officialPanoramaFailed = ref(false)
-const runtimeConfig = useRuntimeConfig()
-const baiduMapsBrowserAk = computed(() => String(runtimeConfig.public.baiduMapsBrowserAk || '').trim())
+const mobilePanorama = ref(false)
 
 const activeTour = computed(() => (
   tours.find(tour => tour.id === activeTourId.value) ?? tours[0]!
@@ -100,6 +100,10 @@ function scrollToViewer() {
 }
 
 function openTour(id: TourId) {
+  if (id === 'history' && mobilePanorama.value) {
+    window.location.assign(OFFICIAL_HISTORY_MOBILE_URL)
+    return
+  }
   activeTourId.value = id
   viewerReady.value = false
   viewerLoaded.value = true
@@ -135,6 +139,11 @@ async function enterFullscreen() {
     // Some mobile browsers only allow the full-screen button inside the panorama itself.
   }
 }
+
+onMounted(() => {
+  mobilePanorama.value = /Android|iPhone|iPad|iPod|Mobile|MicroMessenger/i.test(navigator.userAgent)
+    || window.matchMedia('(pointer: coarse)').matches
+})
 </script>
 
 <template>
@@ -298,12 +307,35 @@ async function enterFullscreen() {
       >
         <template v-if="viewerLoaded">
           <PanoramaBaiduCampusViewer
-            v-if="activeTour.id === 'campus' && baiduMapsBrowserAk && !officialPanoramaFailed"
+            v-if="activeTour.id === 'campus' && !officialPanoramaFailed"
             :key="`official-${activeTour.id}`"
-            :api-key="baiduMapsBrowserAk"
             @ready="viewerReady = true"
             @error="officialPanoramaFailed = true"
           />
+          <div
+            v-else-if="activeTour.id === 'campus'"
+            class="absolute inset-0 grid place-items-center bg-zinc-950 px-6 text-center text-white"
+          >
+            <div class="max-w-sm">
+              <UIcon
+                name="i-lucide-circle-alert"
+                class="mx-auto size-8 text-amber-300"
+              />
+              <h3 class="mt-4 text-lg font-bold">
+                校内实景暂时没有加载成功
+              </h3>
+              <UButton
+                :to="BAIDU_CAMPUS_PANORAMA_URL"
+                external
+                target="_blank"
+                rel="noopener noreferrer"
+                icon="i-lucide-external-link"
+                label="去原页面查看"
+                color="neutral"
+                class="mt-5"
+              />
+            </div>
+          </div>
           <iframe
             v-else
             :key="activeTour.id"

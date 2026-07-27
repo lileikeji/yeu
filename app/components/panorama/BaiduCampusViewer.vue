@@ -1,32 +1,20 @@
 <script setup lang="ts">
+import type {
+  Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  Scene,
+  SphereGeometry,
+  Texture,
+  WebGLRenderer
+} from 'three'
+
 interface CampusPanoramaScene {
   label: string
   panoId: string
   heading: number
   pitch: number
 }
-
-interface BaiduPanoramaInstance {
-  setId: (id: string) => void
-  setPov: (pov: { heading: number, pitch: number }) => void
-  setOptions?: (options: Record<string, boolean>) => void
-  addEventListener?: (name: string, handler: () => void) => void
-}
-
-interface BaiduMapsApi {
-  Panorama: new (container: string) => BaiduPanoramaInstance
-}
-
-declare global {
-  interface Window {
-    BMapGL?: BaiduMapsApi
-    __yeuBaiduMapsReady?: () => void
-  }
-}
-
-const props = defineProps<{
-  apiKey: string
-}>()
 
 const emit = defineEmits<{
   ready: []
@@ -62,142 +50,247 @@ const scenes: CampusPanoramaScene[] = [
   { label: '仰恩公交站', panoId: '1000170000150119145047605IN', heading: 340, pitch: 6 }
 ]
 
-const containerId = `yeu-baidu-panorama-${useId().replace(/[^a-z0-9_-]/gi, '')}`
 const viewerHost = ref<HTMLElement | null>(null)
 const activeSceneIndex = ref(0)
 const loadingScene = ref(true)
-let panorama: BaiduPanoramaInstance | null = null
-let readinessTimer: number | undefined
-let restoreAlert: (() => void) | undefined
+const pointers = new Map<number, { x: number, y: number }>()
+
+let renderer: WebGLRenderer | null = null
+let panoramaScene: Scene | null = null
+let camera: PerspectiveCamera | null = null
+let sphere: Mesh<SphereGeometry, MeshBasicMaterial> | null = null
+let activeTexture: Texture | null = null
+let resizeObserver: ResizeObserver | null = null
+let animationFrame = 0
+let sceneLoadVersion = 0
+let longitude = 0
+let latitude = 0
+let longitudeVelocity = 0
+let latitudeVelocity = 0
+let pinchDistance: number | null = null
 let resultReported = false
+let failureReported = false
 
-function loadBaiduMapsApi(apiKey: string): Promise<BaiduMapsApi> {
-  if (window.BMapGL?.Panorama) return Promise.resolve(window.BMapGL)
+function tileUrl(panoId: string, position: '0_0' | '0_1'): string {
+  const query = new URLSearchParams({
+    qt: 'pdata',
+    sid: panoId,
+    pos: position,
+    z: '2'
+  })
+  return `https://mapsv0.bdimg.com/?${query.toString()}`
+}
 
+function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const callbackName = '__yeuBaiduMapsReady'
-    const existing = document.querySelector<HTMLScriptElement>('script[data-yeu-baidu-maps]')
-    const timeout = window.setTimeout(() => reject(new Error('Baidu Maps API timed out')), 10_000)
-
-    window[callbackName] = () => {
-      window.clearTimeout(timeout)
-      if (window.BMapGL?.Panorama) resolve(window.BMapGL)
-      else reject(new Error('Baidu panorama API is unavailable'))
-    }
-
-    if (existing) return
-
-    const script = document.createElement('script')
-    script.dataset.yeuBaiduMaps = 'true'
-    script.async = true
-    script.src = `https://api.map.baidu.com/api?v=3.0&type=webgl&ak=${encodeURIComponent(apiKey)}&callback=${callbackName}`
-    script.onerror = () => {
-      window.clearTimeout(timeout)
-      reject(new Error('Baidu Maps API failed to load'))
-    }
-    document.head.appendChild(script)
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.decoding = 'async'
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('Panorama tile failed to load'))
+    image.src = url
   })
 }
 
+async function createSceneTexture(
+  three: typeof import('three'),
+  scene: CampusPanoramaScene
+): Promise<Texture> {
+  const [left, right] = await Promise.all([
+    loadImage(tileUrl(scene.panoId, '0_0')),
+    loadImage(tileUrl(scene.panoId, '0_1'))
+  ])
+  const canvas = document.createElement('canvas')
+  canvas.width = 1024
+  canvas.height = 512
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Panorama canvas is unavailable')
+  context.drawImage(left, 0, 0, 512, 512)
+  context.drawImage(right, 512, 0, 512, 512)
+
+  const texture = new three.CanvasTexture(canvas)
+  texture.colorSpace = three.SRGBColorSpace
+  texture.needsUpdate = true
+  return texture
+}
+
 function reportError() {
-  if (resultReported) return
-  resultReported = true
-  restoreAlert?.()
+  if (failureReported) return
+  failureReported = true
   emit('error')
 }
 
 function reportReady() {
-  loadingScene.value = false
   if (resultReported) return
   resultReported = true
-  restoreAlert?.()
   emit('ready')
 }
 
-function guardBaiduAlerts() {
-  const originalAlert = window.alert
-  window.alert = () => reportError()
-  restoreAlert = () => {
-    window.alert = originalAlert
-    restoreAlert = undefined
+function resizeViewer() {
+  const host = viewerHost.value
+  if (!host || !renderer || !camera) return
+  const width = Math.max(host.clientWidth, 1)
+  const height = Math.max(host.clientHeight, 1)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+  renderer.setSize(width, height, false)
+  camera.aspect = width / height
+  camera.updateProjectionMatrix()
+}
+
+function renderFrame() {
+  animationFrame = window.requestAnimationFrame(renderFrame)
+  if (!renderer || !panoramaScene || !camera) return
+
+  if (pointers.size === 0) {
+    longitude += longitudeVelocity
+    latitude += latitudeVelocity
+    longitudeVelocity *= 0.9
+    latitudeVelocity *= 0.9
+  }
+  latitude = Math.max(-78, Math.min(78, latitude))
+
+  const phi = (90 - latitude) * Math.PI / 180
+  const theta = longitude * Math.PI / 180
+  camera.lookAt(
+    100 * Math.sin(phi) * Math.cos(theta),
+    100 * Math.cos(phi),
+    100 * Math.sin(phi) * Math.sin(theta)
+  )
+  renderer.render(panoramaScene, camera)
+}
+
+function pointerDistance(): number | null {
+  const values = [...pointers.values()]
+  if (values.length < 2) return null
+  return Math.hypot(values[0]!.x - values[1]!.x, values[0]!.y - values[1]!.y)
+}
+
+function handlePointerDown(event: PointerEvent) {
+  viewerHost.value?.setPointerCapture(event.pointerId)
+  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  longitudeVelocity = 0
+  latitudeVelocity = 0
+  pinchDistance = pointerDistance()
+}
+
+function handlePointerMove(event: PointerEvent) {
+  const previous = pointers.get(event.pointerId)
+  if (!previous) return
+  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+
+  if (pointers.size === 1) {
+    const deltaX = event.clientX - previous.x
+    const deltaY = event.clientY - previous.y
+    longitudeVelocity = -deltaX * 0.12
+    latitudeVelocity = deltaY * 0.1
+    longitude += longitudeVelocity
+    latitude += latitudeVelocity
+    return
+  }
+
+  const nextDistance = pointerDistance()
+  if (camera && pinchDistance && nextDistance) {
+    camera.fov = Math.max(35, Math.min(85, camera.fov - (nextDistance - pinchDistance) * 0.08))
+    camera.updateProjectionMatrix()
+  }
+  pinchDistance = nextDistance
+}
+
+function handlePointerEnd(event: PointerEvent) {
+  pointers.delete(event.pointerId)
+  pinchDistance = pointerDistance()
+}
+
+function handleWheel(event: WheelEvent) {
+  if (!camera) return
+  event.preventDefault()
+  camera.fov = Math.max(35, Math.min(85, camera.fov + event.deltaY * 0.04))
+  camera.updateProjectionMatrix()
+}
+
+async function openScene(index: number) {
+  const target = scenes[index]
+  if (!target || !sphere) return
+  const loadVersion = ++sceneLoadVersion
+  activeSceneIndex.value = index
+  loadingScene.value = true
+
+  try {
+    const three = await import('three')
+    const texture = await createSceneTexture(three, target)
+    if (loadVersion !== sceneLoadVersion || !sphere) {
+      texture.dispose()
+      return
+    }
+    activeTexture?.dispose()
+    activeTexture = texture
+    sphere.material.map = texture
+    sphere.material.needsUpdate = true
+    longitude = target.heading
+    latitude = target.pitch
+    longitudeVelocity = 0
+    latitudeVelocity = 0
+    loadingScene.value = false
+    reportReady()
+  } catch {
+    if (loadVersion === sceneLoadVersion) reportError()
   }
 }
 
-function confirmViewerReady(attempt = 0) {
-  window.clearTimeout(readinessTimer)
-  readinessTimer = window.setTimeout(() => {
-    const host = viewerHost.value
-    const message = host?.innerText ?? ''
-    const hasVisiblePicture = [...(host?.querySelectorAll<HTMLElement>('canvas, img') ?? [])]
-      .some((element) => {
-        const rect = element.getBoundingClientRect()
-        const style = window.getComputedStyle(element)
-        return rect.width > 8
-          && rect.height > 8
-          && style.display !== 'none'
-          && style.visibility !== 'hidden'
-      })
-
-    if (/密钥|未授权|权限|服务不可用|AK|Referer|校验失败/i.test(message)) {
-      reportError()
-      return
-    }
-
-    if (hasVisiblePicture) {
-      reportReady()
-      return
-    }
-
-    if (attempt >= 11) {
-      reportError()
-      return
-    }
-
-    confirmViewerReady(attempt + 1)
-  }, attempt === 0 ? 1_200 : 400)
-}
-
-function openScene(index: number) {
-  const scene = scenes[index]
-  if (!scene || !panorama) return
-
-  activeSceneIndex.value = index
-  loadingScene.value = true
-  panorama.setId(scene.panoId)
-  panorama.setPov({ heading: scene.heading, pitch: scene.pitch })
-  confirmViewerReady()
-}
-
 onMounted(async () => {
-  guardBaiduAlerts()
+  const host = viewerHost.value
+  if (!host) return
   try {
-    const api = await loadBaiduMapsApi(props.apiKey)
-    panorama = new api.Panorama(containerId)
-    panorama.setOptions?.({
-      linksControl: true,
-      navigationControl: true
-    })
-    panorama.addEventListener?.('position_changed', () => {
-      confirmViewerReady()
-    })
-    openScene(0)
+    const three = await import('three')
+    panoramaScene = new three.Scene()
+    camera = new three.PerspectiveCamera(70, 1, 0.1, 200)
+    const geometry = new three.SphereGeometry(80, 48, 32)
+    geometry.scale(-1, 1, 1)
+    const material = new three.MeshBasicMaterial({ color: 0xffffff })
+    sphere = new three.Mesh(geometry, material)
+    panoramaScene.add(sphere)
+    renderer = new three.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+    renderer.outputColorSpace = three.SRGBColorSpace
+    host.appendChild(renderer.domElement)
+    host.addEventListener('pointerdown', handlePointerDown)
+    host.addEventListener('pointermove', handlePointerMove)
+    host.addEventListener('pointerup', handlePointerEnd)
+    host.addEventListener('pointercancel', handlePointerEnd)
+    host.addEventListener('wheel', handleWheel, { passive: false })
+    renderer.domElement.addEventListener('webglcontextlost', reportError, { once: true })
+    resizeObserver = new ResizeObserver(resizeViewer)
+    resizeObserver.observe(host)
+    resizeViewer()
+    renderFrame()
+    await openScene(0)
   } catch {
     reportError()
   }
 })
 
 onBeforeUnmount(() => {
-  window.clearTimeout(readinessTimer)
-  restoreAlert?.()
+  ++sceneLoadVersion
+  window.cancelAnimationFrame(animationFrame)
+  resizeObserver?.disconnect()
+  const host = viewerHost.value
+  host?.removeEventListener('pointerdown', handlePointerDown)
+  host?.removeEventListener('pointermove', handlePointerMove)
+  host?.removeEventListener('pointerup', handlePointerEnd)
+  host?.removeEventListener('pointercancel', handlePointerEnd)
+  host?.removeEventListener('wheel', handleWheel)
+  activeTexture?.dispose()
+  sphere?.geometry.dispose()
+  sphere?.material.dispose()
+  renderer?.dispose()
+  renderer?.domElement.remove()
 })
 </script>
 
 <template>
   <div class="absolute inset-0 bg-zinc-950">
     <div
-      :id="containerId"
       ref="viewerHost"
-      class="absolute inset-x-0 bottom-[5.75rem] top-0 bg-zinc-950"
+      class="panorama-canvas absolute inset-x-0 bottom-[5.75rem] top-0 cursor-grab bg-zinc-950 active:cursor-grabbing"
       aria-label="仰恩大学校内全景画面"
     />
 
@@ -240,6 +333,16 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.panorama-canvas {
+  touch-action: none;
+}
+
+.panorama-canvas :deep(canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .scene-strip {
   scrollbar-width: thin;
   scrollbar-color: rgb(110 231 183 / 0.7) transparent;

@@ -14,6 +14,7 @@ test('panorama page separates campus scenes from the verified official history t
   assert.match(pageSource, /map\.baidu\.com\/poi/)
   assert.match(pageSource, /26 个校内拍摄点/)
   assert.match(pageSource, /https:\/\/www\.720yun\.com\/vr\/c66jOpeOOa3/)
+  assert.match(pageSource, /https:\/\/www\.720yun\.com\/t\/c66jOpeOOa3/)
   assert.match(pageSource, /https:\/\/news\.yeu\.edu\.cn\/2023\/0621\/c704a39166\/page\.htm/)
   assert.match(pageSource, /v-if="viewerLoaded"/)
   assert.match(pageSource, /allowfullscreen/)
@@ -36,8 +37,10 @@ test('legacy campus panorama endpoint only redirects to the external provider', 
 
 test('official Baidu panorama viewer exposes all 26 campus scenes with a safe fallback', () => {
   assert.equal((officialViewerSource.match(/\{ label: '.+?', panoId:/g) ?? []).length, 26)
-  assert.match(officialViewerSource, /BMapGL/)
-  assert.match(officialViewerSource, /setId/)
+  assert.match(officialViewerSource, /new three\.WebGLRenderer/)
+  assert.match(officialViewerSource, /new three\.SphereGeometry/)
+  assert.match(officialViewerSource, /mapsv0\.bdimg\.com/)
+  assert.match(officialViewerSource, /touch-action: none/)
   assert.match(officialViewerSource, /想看哪里，点名字就行/)
   assert.match(pageSource, /officialPanoramaFailed/)
   assert.match(pageSource, /PanoramaBaiduCampusViewer/)
