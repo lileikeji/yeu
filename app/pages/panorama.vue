@@ -135,7 +135,6 @@ async function enterFullscreen() {
     // Some mobile browsers only allow the full-screen button inside the panorama itself.
   }
 }
-
 </script>
 
 <template>
@@ -313,8 +312,7 @@ async function enterFullscreen() {
             class="absolute inset-0 size-full border-0 bg-black"
             loading="eager"
             referrerpolicy="strict-origin-when-cross-origin"
-            sandbox="allow-scripts allow-forms allow-popups allow-presentation allow-pointer-lock"
-            credentialless
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-pointer-lock"
             allow="accelerometer; autoplay; fullscreen; gyroscope; xr-spatial-tracking"
             allowfullscreen
             @load="viewerReady = true"
