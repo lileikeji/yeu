@@ -38,6 +38,23 @@ test('assistant knowledge seed migrates and reruns idempotently', () => {
   const databasePath = join(directory, 'test.sqlite')
   try {
     const first = seedAssistantKnowledge({ apply: true, databasePath, now: 1_785_120_000_000 })
+    const seededClient = getDatabase(databasePath)
+    seededClient.sqlite.prepare(`
+      INSERT INTO assistant_knowledge_entries (
+        id, kind, category, title, question, answer, keywords_json,
+        confidence, source_note, is_active, imported_at, created_at, updated_at
+      ) VALUES (?, 'official_reference', '教职工', ?, ?, ?, '[]', 90, ?, 1, ?, ?, ?)
+    `).run(
+      'faculty-stale-test',
+      '已删除的教师资料',
+      '这条教师资料还有效吗？',
+      '这是一条用于验证旧资料会被停用的测试记录。',
+      '测试数据',
+      1_785_120_000_000,
+      1_785_120_000_000,
+      1_785_120_000_000
+    )
+
     const second = seedAssistantKnowledge({ apply: true, databasePath, now: 1_785_120_001_000 })
     assert.equal(first.total, assistantKnowledgeSeeds.length)
     assert.equal(second.total, assistantKnowledgeSeeds.length)
@@ -48,6 +65,18 @@ test('assistant knowledge seed migrates and reruns idempotently', () => {
       'SELECT count(*) AS count FROM assistant_knowledge_entries WHERE is_active = 1'
     ).get() as { count: number }
     assert.equal(count.count, assistantKnowledgeSeeds.length)
+
+    const stale = client.sqlite.prepare(
+      'SELECT is_active AS isActive, updated_at AS updatedAt FROM assistant_knowledge_entries WHERE id = ?'
+    ).get('faculty-stale-test') as { isActive: number, updatedAt: number }
+    assert.deepEqual(stale, { isActive: 0, updatedAt: 1_785_120_001_000 })
+
+    const currentFaculty = assistantKnowledgeSeeds.find(entry => entry.category === '教职工')
+    assert.ok(currentFaculty)
+    const current = client.sqlite.prepare(
+      'SELECT is_active AS isActive FROM assistant_knowledge_entries WHERE id = ?'
+    ).get(currentFaculty.id) as { isActive: number }
+    assert.equal(current.isActive, 1)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

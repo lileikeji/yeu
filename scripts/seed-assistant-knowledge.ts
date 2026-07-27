@@ -61,6 +61,12 @@ export function seedAssistantKnowledge(
     `)
 
     client.sqlite.transaction(() => {
+      client.sqlite.prepare(`
+        UPDATE assistant_knowledge_entries
+        SET is_active = 0, updated_at = ?
+        WHERE category = '教职工'
+      `).run(now)
+
       for (const entry of assistantKnowledgeSeeds) {
         upsert.run({
           id: entry.id,

@@ -59,6 +59,17 @@ test('faculty parser only treats a name next to a professional heading as a pers
   assert.equal(profiles[0]?.position, '副教授')
 })
 
+test('faculty parser rejects academic fields that resemble Chinese names', () => {
+  const profiles = parseFacultyDocument({
+    url: 'https://example.yeu.edu.cn/faculty/page.htm',
+    title: '市场营销系师资简介',
+    text: '行为学，讲师，硕士，长期承担组织行为学课程教学。'
+  }, '管理学院', '2026-07-27')
+
+  assert.deepEqual(profiles, [])
+  assert.ok(facultyProfiles.every(profile => profile.name !== '行为学'))
+})
+
 test('faculty parser separates numbered inline profiles and keeps teaching-only biographies', () => {
   const profiles = parseFacultyDocument({
     url: 'https://example.yeu.edu.cn/faculty/page.htm',

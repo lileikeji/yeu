@@ -1608,17 +1608,6 @@ export const facultyProfiles: FacultyProfile[] = [
     "retrievedAt": "2026-07-27"
   },
   {
-    "id": "faculty-kfrzpu",
-    "name": "行为学",
-    "college": "管理学院",
-    "unit": "市场营销系",
-    "position": "讲师",
-    "profile": "行为学。 连景霞 讲师 硕士 管理学院党总支组织委员 本科毕业于闽南师范大学商学院旅游管理专业，取得管理 学士学位；研究生毕业于华侨大学旅游学院旅游管理专业， 取得旅游管理硕士学位。研究领域：区域旅游营销规划、营 销管理。 >",
-    "sourceUrl": "https://glxy.yeu.edu.cn/2026/0624/c1080a57132/page.htm",
-    "sourceTitle": "市场营销系师资简介",
-    "retrievedAt": "2026-07-27"
-  },
-  {
     "id": "faculty-kq2gnb",
     "name": "许惠铭",
     "college": "管理学院",
