@@ -14,6 +14,21 @@ interface GroupRow {
   value: number
 }
 
+interface GraphItemRow {
+  id: string
+  label: string
+  description: string
+  community: string
+  kind: string
+  collection: 'entries' | 'web' | 'documents'
+  url: string | null
+  status: string
+  capturedAt: number
+}
+
+// Keep the landscape legible while totals and the full library remain available elsewhere.
+const GRAPH_ITEMS_PER_COLLECTION = 24
+
 function scalar(client: DatabaseClient, sql: string, params: unknown[] = []): number {
   return Number((client.sqlite.prepare(sql).get(...params) as CountRow | undefined)?.value ?? 0)
 }
@@ -161,5 +176,65 @@ export function getKnowledgeLandscapeGraph(client: DatabaseClient) {
     edges.push({ source: 'structured', target: id })
   }
 
-  return { summary, nodes, edges, generatedAt: new Date().toISOString() }
+  const graphItems = [
+    ...client.sqlite.prepare(`
+      SELECT id, coalesce(nullif(title, ''), question) AS label,
+        substr(answer, 1, 320) AS description, category AS community, kind,
+        'entries' AS collection, public_url AS url,
+        CASE WHEN is_active = 1 THEN 'active' ELSE 'inactive' END AS status,
+        imported_at AS capturedAt
+      FROM assistant_knowledge_entries
+      WHERE is_active = 1
+      ORDER BY confidence DESC, imported_at DESC
+      LIMIT ?
+    `).all(GRAPH_ITEMS_PER_COLLECTION),
+    ...client.sqlite.prepare(`
+      SELECT id, title AS label, substr(snippet, 1, 320) AS description,
+        source_host AS community, 'webpage' AS kind, 'web' AS collection,
+        url, status, fetched_at AS capturedAt
+      FROM assistant_web_knowledge
+      WHERE status = 'active'
+      ORDER BY fetched_at DESC
+      LIMIT ?
+    `).all(GRAPH_ITEMS_PER_COLLECTION),
+    ...client.sqlite.prepare(`
+      SELECT id, title AS label, substr(extracted_text, 1, 320) AS description,
+        kind AS community, kind, 'documents' AS collection, original_url AS url,
+        status, captured_at AS capturedAt
+      FROM knowledge_documents
+      WHERE status = 'ready'
+      ORDER BY captured_at DESC
+      LIMIT ?
+    `).all(GRAPH_ITEMS_PER_COLLECTION)
+  ] as GraphItemRow[]
+
+  const nodeIds = new Set(nodes.map(node => String(node.id)))
+  for (const item of graphItems) {
+    const id = `item:${item.collection}:${item.id}`
+    const groupPrefix = item.collection === 'entries'
+      ? 'entry'
+      : item.collection === 'documents' ? 'document' : 'web'
+    const groupId = `${groupPrefix}:${item.community}`
+    nodes.push({
+      ...item,
+      id,
+      type: item.collection === 'entries'
+        ? 'topic'
+        : item.collection === 'documents' ? 'document' : 'source',
+      count: 1,
+      itemId: item.id
+    })
+    edges.push({
+      source: nodeIds.has(groupId) ? groupId : item.collection,
+      target: id
+    })
+  }
+
+  return {
+    summary,
+    nodes,
+    edges,
+    visibleItems: graphItems.length,
+    generatedAt: new Date().toISOString()
+  }
 }

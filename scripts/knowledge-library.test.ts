@@ -83,6 +83,10 @@ test('digital landscape graph is derived from current knowledge collections', ()
     assert.ok(graph.nodes.some(node => node.label === '教职工' && node.count === 1))
     assert.ok(graph.nodes.some(node => node.label === 'www.yeu.edu.cn' && node.count === 1))
     assert.ok(graph.edges.some(edge => edge.source === 'entries' && edge.target === 'entry:教职工'))
+    assert.ok(graph.nodes.some(node => node.id === 'item:entries:entry-1'))
+    assert.ok(graph.nodes.some(node => node.id === 'item:web:web-1'))
+    assert.ok(graph.nodes.some(node => node.id === 'item:documents:document-1'))
+    assert.equal(graph.visibleItems, 3)
   } finally {
     value.close()
   }
