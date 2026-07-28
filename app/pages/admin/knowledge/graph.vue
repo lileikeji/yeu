@@ -206,6 +206,7 @@ function initializeGraph(payload: GraphPayload): void {
 function nodeRadius(node: GraphNode): number {
   if (node.id === 'root') return 58
   if (node.type === 'collection') return 48
+  if (isLeafNode(node)) return 8
   if (node.count > 1) return 38
   return 26
 }
@@ -213,7 +214,16 @@ function nodeRadius(node: GraphNode): number {
 function nodeWidth(node: GraphNode): number {
   if (node.id === 'root') return 142
   if (node.type === 'collection') return 120
+  if (isLeafNode(node)) return 18
   return Math.max(78, Math.min(154, node.label.length * 12 + 26))
+}
+
+function isLeafNode(node: GraphNode): boolean {
+  return Boolean(node.itemId)
+}
+
+function leafLabelWidth(node: GraphNode): number {
+  return Math.max(92, Math.min(190, node.label.length * 11 + 28))
 }
 
 function nodeFill(node: GraphNode): string {
@@ -612,8 +622,17 @@ onBeforeUnmount(() => simulation?.stop())
               @click.stop="selectNode(node)"
               @keydown.enter.stop="selectNode(node)"
             >
+              <circle
+                v-if="isLeafNode(node)"
+                r="7"
+                :fill="nodeStroke(node)"
+                fill-opacity="0.9"
+                stroke="#fffdf7"
+                :stroke-width="selectedId === node.id ? 3 : 1.8"
+                filter="url(#node-shadow)"
+              />
               <path
-                v-if="node.id !== 'root'"
+                v-else-if="node.id !== 'root'"
                 :d="`M ${-nodeWidth(node) / 2 + 8} -25 h 25 l 7 7 h ${nodeWidth(node) - 40} v 48 h ${-nodeWidth(node)} v -48 h 8 z`"
                 :fill="nodeFill(node)"
                 :stroke="nodeStroke(node)"
@@ -632,7 +651,32 @@ onBeforeUnmount(() => simulation?.stop())
                 stroke-width="2.4"
                 filter="url(#node-shadow)"
               />
+              <g
+                v-if="isLeafNode(node) && (hoveredId === node.id || selectedId === node.id)"
+                class="leaf-label"
+              >
+                <rect
+                  x="12"
+                  y="-18"
+                  :width="leafLabelWidth(node)"
+                  height="36"
+                  rx="4"
+                  fill="#fffdf8"
+                  :stroke="nodeStroke(node)"
+                  stroke-width="1.2"
+                  filter="url(#node-shadow)"
+                />
+                <text
+                  x="20"
+                  y="4"
+                  text-anchor="start"
+                  fill="#292722"
+                  font-size="11"
+                  font-weight="700"
+                >{{ shortLabel(node.label, 16) }}</text>
+              </g>
               <text
+                v-if="!isLeafNode(node)"
                 text-anchor="middle"
                 :y="node.id === 'root' ? -3 : 3"
                 :fill="node.type === 'collection' ? '#ffffff' : '#292722'"
@@ -640,7 +684,7 @@ onBeforeUnmount(() => simulation?.stop())
                 font-weight="700"
               >{{ shortLabel(node.label, node.id === 'root' ? 10 : 13) }}</text>
               <text
-                v-if="node.id === 'root' || node.type === 'collection' || node.count > 1"
+                v-if="!isLeafNode(node) && (node.id === 'root' || node.type === 'collection' || node.count > 1)"
                 text-anchor="middle"
                 :y="node.id === 'root' ? 19 : 18"
                 :fill="node.type === 'collection' ? '#ffffff' : '#675f54'"
@@ -831,9 +875,10 @@ onBeforeUnmount(() => simulation?.stop())
 .graph-canvas:active { cursor: grabbing; }
 .graph-node { cursor: pointer; transition: opacity 160ms ease; outline: none; }
 .graph-node:hover, .graph-node:focus-visible { opacity: 1 !important; }
-.graph-node.matched path, .graph-node.matched rect { stroke-width: 3; }
+.graph-node.matched path, .graph-node.matched > rect, .graph-node.matched > circle { stroke-width: 3; }
 .graph-node.selected { filter: saturate(1.15); }
 .graph-node text { pointer-events: none; letter-spacing: 0; }
+.leaf-label { pointer-events: none; }
 .graph-edges line { transition: opacity 160ms ease, stroke-width 160ms ease; }
 
 .graph-loading {
