@@ -807,6 +807,12 @@ export const adminKnowledgeClaimsQuerySchema = paginationQuerySchema.extend({
   issue: z.enum(['missing-source', 'expired', 'unverified', 'conflict']).optional()
 })
 
+export const adminKnowledgeLibraryQuerySchema = paginationQuerySchema.extend({
+  collection: z.enum(['entries', 'web', 'documents']).default('entries'),
+  category: z.string().trim().max(80).optional(),
+  status: z.string().trim().max(40).optional()
+})
+
 export const createVisitorBanSchema = z.object({
   scope: z.enum(['ip', 'visitor', 'user']),
   value: z.string().trim().min(1).max(200),

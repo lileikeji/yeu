@@ -357,6 +357,20 @@ onMounted(async () => {
     >
       <template #actions>
         <UButton
+          to="/admin/knowledge/library"
+          icon="i-lucide-database"
+          label="全部资料"
+          color="neutral"
+          variant="outline"
+        />
+        <UButton
+          to="/admin/knowledge/graph"
+          icon="i-lucide-git-fork"
+          label="知识图谱"
+          color="neutral"
+          variant="outline"
+        />
+        <UButton
           to="/admin/sources"
           icon="i-lucide-book-marked"
           label="来源"
@@ -370,6 +384,15 @@ onMounted(async () => {
         />
       </template>
     </AdminPageHeader>
+
+    <section class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
+      此页只管理需要人工审核的“知识事实”。AI 已收录的内置知识、官网正文和网页资料，请到
+      <NuxtLink
+        to="/admin/knowledge/library"
+        class="font-semibold underline underline-offset-2"
+      >全部资料</NuxtLink>
+      查看；它们不会因为此处暂无审核事实而丢失。
+    </section>
 
     <div
       v-if="errorMessage"
