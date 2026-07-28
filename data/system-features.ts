@@ -53,6 +53,14 @@ export const systemFeatures: SystemFeature[] = [
     keywords: ['学生手册', '校规', '学校规定', '请假', '处分', '综合测评', '学籍', '困难生认定']
   },
   {
+    id: 'academic-results',
+    title: '教务系统与成绩查询',
+    summary: '从教务部官方页面进入教务系统，查询课表、选课、考试和成绩；不要使用群聊里的陌生登录链接。',
+    to: '/departments/teaching-affairs-office',
+    icon: 'i-lucide-notebook-tabs',
+    keywords: ['成绩哪里查', '怎么查成绩', '查成绩', '成绩查询', '教务系统', '查课表', '考试成绩', '选课入口']
+  },
+  {
     id: 'procedures',
     title: '办事流程',
     summary: '按事项查办理步骤、材料、负责部门、地点和当前公开状态。',

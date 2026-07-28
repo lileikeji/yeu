@@ -19,6 +19,8 @@ export default defineEventHandler(async (event) => {
 
   const body = await parseBody(event, assistantQuestionSchema)
   const blocked = containsPromptInjection(body.q)
+  const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
+  const startedAt = Date.now()
   if (!blocked && !isQuestionLike(body.q)) {
     throw createError({
       statusCode: 422,
@@ -27,8 +29,6 @@ export default defineEventHandler(async (event) => {
     })
   }
   const runtime = useRuntimeConfig(event)
-  const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
-  const startedAt = Date.now()
   const stream = createEventStream(event)
   const requestAbort = createRequestAbortSignal(event)
   const heartbeatTimer = setInterval(() => {
@@ -42,6 +42,11 @@ export default defineEventHandler(async (event) => {
   void (async () => {
     try {
       if (blocked) {
+        try {
+          recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, 'UNSAFE_QUERY', Date.now() - startedAt)
+        } catch {
+          // Analytics remains optional during migrations.
+        }
         await stream.push({
           event: 'completed',
           data: JSON.stringify(blockedAssistantResponse(body.q))

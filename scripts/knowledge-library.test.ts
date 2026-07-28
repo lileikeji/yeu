@@ -96,14 +96,20 @@ test('digital landscape graph is derived from current knowledge collections', ()
   try {
     const graph = getKnowledgeLandscapeGraph(value.client)
     assert.equal(graph.summary.retrievalTotal, 3)
-    assert.ok(graph.nodes.some(node => node.id === 'root' && node.count === 3))
-    assert.ok(graph.nodes.some(node => node.label === '教职工' && node.count === 1))
-    assert.ok(graph.nodes.some(node => node.label === 'www.yeu.edu.cn' && node.count === 1))
-    assert.ok(graph.edges.some(edge => edge.source === 'entries' && edge.target === 'entry:教职工'))
-    assert.ok(graph.nodes.some(node => node.id === 'item:entries:entry-1'))
-    assert.ok(graph.nodes.some(node => node.id === 'item:web:web-1'))
-    assert.ok(graph.nodes.some(node => node.id === 'item:documents:document-1'))
+    assert.equal(graph.meta.total_nodes, 3)
+    assert.equal(graph.meta.total_edges, graph.edges.length)
+    assert.ok(graph.nodes.some(node => node.id === 'knowledge:entries:entry-1'))
+    assert.ok(graph.nodes.some(node => node.id === 'knowledge:web:web-1'))
+    assert.ok(graph.nodes.some(node => node.id === 'knowledge:documents:document-1'))
+    assert.ok(graph.nodes.every(node => node.community.startsWith('community:')))
+    assert.ok(graph.nodes.every(node => node.source_path.startsWith('library://')))
+    assert.ok(graph.nodes.every(node => (
+      ['EXTRACTED', 'INFERRED', 'AMBIGUOUS', 'UNVERIFIED'] as string[]
+    ).includes(node.confidence)))
+    assert.equal(graph.learning.communities.length, 3)
+    assert.equal(graph.learning.views.global.node_ids.length, 3)
     assert.equal(graph.visibleItems, 3)
+    assert.equal(graph.truncatedItems, 0)
   } finally {
     value.close()
   }

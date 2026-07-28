@@ -6,15 +6,18 @@ import { closeDatabase, getDatabase, type DatabaseClient } from '../server/datab
 import { runMigrations } from '../server/database/migrate'
 
 const USER_AGENT = 'YEU-Freshman-Guide-knowledge-crawler/1.0 (public official-source indexing)'
-const CRAWLER_VERSION = 1
+const CRAWLER_VERSION = 2
 const MAX_EXTRACTED_LENGTH = 600_000
 const READER_TIMEOUT_MS = 65_000
+const MAX_PDF_BYTES = 50 * 1024 * 1024
 
 export const DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS = [
   'https://www.yeu.edu.cn/',
   'https://zhaosheng.yeu.edu.cn/',
+  'https://xsb.yeu.edu.cn/',
   'https://jwb.yeu.edu.cn/',
   'https://library.yeu.edu.cn/',
+  'https://web.yeu.edu.cn/',
   'https://jjxy.yeu.edu.cn/',
   'https://glxy.yeu.edu.cn/',
   'https://kjxy.yeu.edu.cn/',
@@ -67,6 +70,7 @@ export interface ParsedOfficialDocument {
   links: Array<{ url: string, label: string }>
   kind: 'webpage' | 'pdf' | 'document' | 'spreadsheet'
   mimeType: string
+  extractionMethod: 'jina' | 'pdfjs'
 }
 
 export interface OfficialCrawlReport {
@@ -153,8 +157,8 @@ function markdownLinks(value: string, base: string): Array<{ url: string, label:
     if (!url || links.some(item => item.url === url)) return
     links.push({ url, label: label.replace(/\s+/g, ' ').trim().slice(0, 180) })
   }
-  for (const match of value.matchAll(/\[([^\]]*)\]\((https?:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/g)) {
-    add(match[2] ?? '', match[1] ?? '')
+  for (const match of value.matchAll(/\[([^\]]*)\]\((<[^>]+>|[^)\s]+)(?:\s+"[^"]*")?\)/g)) {
+    add((match[2] ?? '').replace(/^<|>$/g, ''), match[1] ?? '')
   }
   for (const match of value.matchAll(/(?:^|[\s<(])(https?:\/\/[^\s)>"']+)/gm)) {
     add(match[1] ?? '', '')
@@ -209,6 +213,113 @@ function documentKind(url: string): Pick<ParsedOfficialDocument, 'kind' | 'mimeT
   return { kind: 'webpage', mimeType: 'text/markdown' }
 }
 
+function isAttachmentUrl(url: string): boolean {
+  return /\.(?:pdf|docx?|xlsx?|txt)(?:$|\?)/i.test(url)
+}
+
+function attachmentFileTitle(url: string): string {
+  const filename = decodeURIComponent(new URL(url).pathname.split('/').pop() ?? '')
+    .replace(/\.(?:pdf|docx?|xlsx?|txt)$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+  return filename && !/^[0-9a-f-]{16,}$/i.test(filename)
+    ? filename.slice(0, 300)
+    : '仰恩大学官方附件'
+}
+
+function officialDocumentTitle(document: ParsedOfficialDocument, queueItem: OfficialCrawlQueueItem): string {
+  if (document.kind === 'webpage') return document.title
+  const label = queueItem.label.replace(/\s+/g, ' ').trim()
+  if (label.length >= 3 && !/^(?:官方入口|附件|下载|点击下载|查看|详情|pdf|word)$/i.test(label)) {
+    return label.slice(0, 300)
+  }
+  return document.title || attachmentFileTitle(document.url)
+}
+
+async function fetchPdfBytes(value: string, fresh: boolean, discoveredFrom: string | null): Promise<Uint8Array> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(value, {
+        headers: {
+          'accept': 'application/pdf,application/octet-stream;q=0.8,*/*;q=0.1',
+          'user-agent': USER_AGENT,
+          ...(discoveredFrom ? { referer: discoveredFrom } : {}),
+          ...(fresh ? { 'cache-control': 'no-cache' } : {})
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(READER_TIMEOUT_MS)
+      })
+      if (!response.ok) throw new Error(`official PDF returned HTTP ${response.status}`)
+      const declaredLength = Number(response.headers.get('content-length') ?? 0)
+      if (declaredLength > MAX_PDF_BYTES) throw new Error('PDF is larger than the 50 MB indexing limit')
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      if (bytes.length > MAX_PDF_BYTES) throw new Error('PDF is larger than the 50 MB indexing limit')
+      if (bytes.length < 5 || new TextDecoder('ascii').decode(bytes.slice(0, 5)) !== '%PDF-') {
+        throw new Error('official attachment did not return a PDF file')
+      }
+      return bytes
+    } catch (error) {
+      lastError = error
+      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+    }
+  }
+  throw new Error(lastError instanceof Error ? lastError.message : 'official PDF request failed')
+}
+
+export async function parseOfficialPdf(
+  bytes: Uint8Array,
+  requestedUrl: string,
+  label = ''
+): Promise<ParsedOfficialDocument> {
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const loadingTask = getDocument({
+    data: bytes,
+    disableFontFace: true,
+    isEvalSupported: false,
+    useSystemFonts: true
+  })
+  try {
+    const pdf = await loadingTask.promise
+    const metadata = await pdf.getMetadata().catch(() => null)
+    const metadataTitle = metadata?.info && typeof metadata.info === 'object' && 'Title' in metadata.info
+      ? String(metadata.info.Title ?? '').trim()
+      : ''
+    const pages: string[] = []
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber)
+      const content = await page.getTextContent()
+      let pageText = ''
+      for (const item of content.items) {
+        if (!('str' in item)) continue
+        pageText += item.str
+        pageText += item.hasEOL ? '\n' : ' '
+      }
+      const cleaned = pageText
+        .replace(/[ \t\u00a0]+/g, ' ')
+        .replace(/ *\n */g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+      if (cleaned) pages.push(`第 ${pageNumber} 页\n${cleaned}`)
+      if (pages.reduce((total, value) => total + value.length, 0) >= MAX_EXTRACTED_LENGTH) break
+    }
+    const text = pages.join('\n\n').slice(0, MAX_EXTRACTED_LENGTH).trim()
+    if (text.length < 80) throw new Error('PDF did not contain enough selectable text; it may be a scanned image')
+    return {
+      url: requestedUrl,
+      title: metadataTitle || label.trim() || attachmentFileTitle(requestedUrl),
+      text,
+      publishedAt: null,
+      links: [],
+      kind: 'pdf',
+      mimeType: 'application/pdf',
+      extractionMethod: 'pdfjs'
+    }
+  } finally {
+    await loadingTask.destroy()
+  }
+}
+
 export function parseReaderDocument(value: string, requestedUrl: string): ParsedOfficialDocument {
   const sourceUrl = normalizeOfficialUrl(value.match(/^URL Source:\s*(\S+)/mi)?.[1] ?? requestedUrl) ?? requestedUrl
   const title = (value.match(/^Title:\s*(.+)$/mi)?.[1] ?? new URL(sourceUrl).hostname)
@@ -225,6 +336,7 @@ export function parseReaderDocument(value: string, requestedUrl: string): Parsed
     text,
     publishedAt: parsePublishedAt(value, sourceUrl),
     links: markdownLinks(markdown, sourceUrl),
+    extractionMethod: 'jina',
     ...documentKind(sourceUrl)
   }
 }
@@ -234,7 +346,8 @@ export function crawlPriority(item: OfficialCrawlQueueItem): number {
   const highValue = HIGH_VALUE_TERMS.reduce((score, term) => score + (value.includes(term.toLocaleLowerCase('zh-CN')) ? 28 : 0), 0)
   const article = /\/20\d{2}\/\d{4}\/c\d+a\d+\/page\.(?:htm|psp)/i.test(item.url) ? 18 : 0
   const list = /\/(?:list|index)\.(?:htm|psp)/i.test(item.url) ? 12 : 0
-  return (item.seed ? 400 : 0) + highValue + article + list - item.depth * 5
+  const attachment = isAttachmentUrl(item.url) ? 140 : 0
+  return (item.seed ? 400 : 0) + attachment + highValue + article + list - item.depth * 5
 }
 
 function contentHash(value: string): string {
@@ -249,10 +362,29 @@ function storeOfficialDocument(
   dryRun: boolean
 ): 'inserted' | 'unchanged' {
   const hash = contentHash(document.text)
+  const title = officialDocumentTitle(document, queueItem)
+  const metadataJson = JSON.stringify({
+    crawler: 'official-knowledge',
+    crawlerVersion: CRAWLER_VERSION,
+    depth: queueItem.depth,
+    discoveredFrom: queueItem.discoveredFrom,
+    attachmentLabel: document.kind === 'webpage' ? null : queueItem.label,
+    outgoingOfficialLinks: document.links.length,
+    extractionMethod: document.extractionMethod
+  })
   const existing = client.sqlite.prepare(`
     SELECT id FROM knowledge_documents WHERE original_url = ? AND content_hash = ? LIMIT 1
   `).get(document.url, hash) as { id: string } | undefined
-  if (existing) return 'unchanged'
+  if (existing) {
+    if (!dryRun) {
+      client.sqlite.prepare(`
+        UPDATE knowledge_documents
+        SET title = ?, metadata_json = ?, processed_at = ?, updated_at = ?
+        WHERE id = ?
+      `).run(title, metadataJson, capturedAt, capturedAt, existing.id)
+    }
+    return 'unchanged'
+  }
   if (dryRun) return 'inserted'
 
   client.sqlite.transaction(() => {
@@ -274,7 +406,7 @@ function storeOfficialDocument(
         updated_at = excluded.updated_at
     `).run(
       sourceId,
-      document.title,
+      title,
       document.url,
       document.publishedAt,
       capturedAt,
@@ -298,19 +430,12 @@ function storeOfficialDocument(
       randomUUID(),
       source.id,
       document.kind,
-      document.title,
+      title,
       document.url,
       document.mimeType,
       hash,
       document.text,
-      JSON.stringify({
-        crawler: 'official-knowledge',
-        crawlerVersion: CRAWLER_VERSION,
-        depth: queueItem.depth,
-        discoveredFrom: queueItem.discoveredFrom,
-        outgoingOfficialLinks: document.links.length,
-        reader: 'jina-readonly'
-      }),
+      metadataJson,
       capturedAt,
       capturedAt,
       capturedAt,
@@ -414,6 +539,19 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
     SET status = 'pending', updated_at = ?
     WHERE status = 'processing' AND last_attempt_at < ?
   `).run(startedAt.getTime(), startedAt.getTime() - 15 * 60_000)
+  client.sqlite.prepare(`
+    UPDATE knowledge_crawl_queue
+    SET status = 'pending', next_attempt_at = NULL, last_error = '', updated_at = ?
+    WHERE status = 'completed'
+      AND EXISTS (
+        SELECT 1
+        FROM knowledge_documents
+        WHERE knowledge_documents.original_url = knowledge_crawl_queue.url
+          AND knowledge_documents.status = 'ready'
+          AND knowledge_documents.metadata_json LIKE '%"crawler":"official-knowledge"%'
+          AND knowledge_documents.metadata_json NOT LIKE '%"crawlerVersion":2%'
+      )
+  `).run(startedAt.getTime())
   for (const item of seedItems) enqueueCrawlItem(client, item, startedAt.getTime())
   refreshPendingPriorities(client)
   const report: OfficialCrawlReport = {
@@ -442,16 +580,31 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
       const item = nextItem()
       if (!item) return
       try {
-        const raw = await fetchReader(item.url, options.fresh)
-        const document = parseReaderDocument(raw, item.url)
+        let document: ParsedOfficialDocument
+        if (documentKind(item.url).kind === 'pdf') {
+          try {
+            const bytes = await fetchPdfBytes(item.url, options.fresh, item.discoveredFrom)
+            document = await parseOfficialPdf(bytes, item.url, item.label)
+          } catch (directPdfError) {
+            try {
+              const raw = await fetchReader(item.url, options.fresh)
+              document = parseReaderDocument(raw, item.url)
+            } catch {
+              throw directPdfError
+            }
+          }
+        } else {
+          const raw = await fetchReader(item.url, options.fresh)
+          document = parseReaderDocument(raw, item.url)
+        }
         report.fetched += 1
         const outcome = storeOfficialDocument(client, document, item, Date.now(), options.dryRun)
         report[outcome] += 1
         const host = new URL(document.url).hostname
         report.hosts[host] = (report.hosts[host] ?? 0) + 1
 
-        if (item.depth < options.maxDepth) {
-          for (const link of document.links) {
+        for (const link of document.links) {
+          if (item.depth < options.maxDepth || isAttachmentUrl(link.url)) {
             enqueueCrawlItem(client, {
               url: link.url,
               depth: item.depth + 1,

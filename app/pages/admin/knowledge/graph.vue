@@ -1,15 +1,4 @@
 <script setup lang="ts">
-import {
-  forceCollide,
-  forceLink,
-  forceManyBody,
-  forceSimulation,
-  forceX,
-  forceY,
-  type Simulation,
-  type SimulationLinkDatum,
-  type SimulationNodeDatum
-} from 'd3-force'
 import { adminFetch } from '~~/app/utils/admin-request'
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { safeExternalHref } from '~/utils/safe-external-href'
@@ -17,412 +6,293 @@ import { safeExternalHref } from '~/utils/safe-external-href'
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '数字山水知识图谱', robots: 'noindex, nofollow' })
 
-type CollectionId = 'entries' | 'documents' | 'web' | 'structured' | 'claims'
+type CollectionId = 'entries' | 'documents' | 'web'
+type NodeType = 'entity' | 'topic' | 'source' | 'comparison' | 'synthesis' | 'query'
+type Confidence = 'EXTRACTED' | 'INFERRED' | 'AMBIGUOUS' | 'UNVERIFIED'
 
-interface GraphNode extends SimulationNodeDatum {
+interface GraphNode {
   id: string
   label: string
-  type: 'root' | 'collection' | 'topic' | 'source' | 'document' | 'structured'
-  count: number
-  collection?: 'entries' | 'web' | 'documents'
-  filter?: string
-  description?: string
-  community?: string
-  kind?: string
-  status?: string
-  url?: string | null
-  capturedAt?: number
-  itemId?: string
+  type: NodeType
+  community: string
+  content: string
+  summary: string
+  source_path: string
+  source: string
+  confidence: Confidence
+  weight: number
+  collection: CollectionId
+  itemId: string
+  category: string
+  url: string | null
+  capturedAt: number
 }
 
-interface GraphEdge extends SimulationLinkDatum<GraphNode> {
-  source: string | GraphNode
-  target: string | GraphNode
+interface GraphEdge {
+  id: string
+  from: string
+  to: string
+  relation_type: string
+  confidence: Confidence
+  type: Confidence
+  weight: number
+}
+
+interface GraphCommunity {
+  id: string
+  label: string
+  node_count: number
+  is_primary?: boolean
+  is_weak?: boolean
+  recommended_start_node_id?: string | null
+  members?: string[]
 }
 
 interface GraphPayload {
-  summary: { systemTotal: number, retrievalTotal: number, sources: number }
+  meta: {
+    build_date: string
+    wiki_title: string
+    total_nodes: number
+    total_edges: number
+    degraded?: boolean
+  }
   nodes: GraphNode[]
-  edges: Array<{ source: string, target: string }>
-  visibleItems?: number
+  edges: GraphEdge[]
+  learning?: { communities?: GraphCommunity[] }
+  summary: {
+    systemTotal: number
+    retrievalTotal: number
+    entries: number
+    documents: number
+    web: number
+  }
+  visibleItems: number
+  truncatedItems: number
   generatedAt: string
 }
 
-const CANVAS_WIDTH = 1200
-const CANVAS_HEIGHT = 720
-const MIN_ZOOM = 0.55
-const MAX_ZOOM = 2.5
+interface GraphSelection {
+  nodeIds: string[]
+  communityIds: string[]
+  input?: { kind?: string, id?: string }
+}
 
-const communityOptions: Array<{
-  id: CollectionId
-  label: string
-  shortLabel: string
-  color: string
-  wash: string
-  center: { x: number, y: number }
-}> = [
-  { id: 'entries', label: '内置知识', shortLabel: '知识', color: '#52705d', wash: '#bfd0b8', center: { x: 350, y: 275 } },
-  { id: 'documents', label: '官网正文', shortLabel: '官网', color: '#5f7f99', wash: '#c4d4d8', center: { x: 790, y: 250 } },
-  { id: 'web', label: '网页资料', shortLabel: '网页', color: '#b47a3f', wash: '#e2c693', center: { x: 780, y: 535 } },
-  { id: 'structured', label: '系统数据', shortLabel: '系统', color: '#7d5f7f', wash: '#d2bfd0', center: { x: 390, y: 545 } },
-  { id: 'claims', label: '审核事实', shortLabel: '审核', color: '#a65343', wash: '#dab6a9', center: { x: 595, y: 400 } }
+interface GraphVisibilityState {
+  searchQuery?: string
+  searchResultIds?: string[]
+  focusCommunityId?: string | null
+}
+
+interface GraphEngine {
+  destroy: () => void
+  focusCommunity: (id: string) => GraphSelection
+  resetView: () => void
+  setTypeFilters: (filters: Record<string, boolean>) => void
+  select: (input: { kind: string, id?: string, ids?: string[] }) => GraphSelection
+  focusNode: (path: string) => void
+  accommodateNodeForDrawer?: (nodeId: string, options?: { durationMs?: number }) => void
+}
+
+interface GraphEngineLibrary {
+  createGraphEngine: (container: HTMLElement, options: Record<string, unknown>) => GraphEngine
+  buildCommunityAggregationMarkers?: (data: GraphPayload, options?: Record<string, unknown>) => unknown[]
+}
+
+declare global {
+  interface Window {
+    LlmWikiGraphEngine?: GraphEngineLibrary
+  }
+}
+
+const ENGINE_SOURCE = '/vendor/llm-wiki-graph-engine/engine.iife.js?v=efa2294'
+const PIN_STORAGE_KEY = 'yeu.knowledge-graph.pins.v1'
+
+const typeOptions: Array<{ id: NodeType, label: string, icon: string }> = [
+  { id: 'entity', label: '实体', icon: 'i-lucide-landmark' },
+  { id: 'topic', label: '主题', icon: 'i-lucide-sparkles' },
+  { id: 'source', label: '来源', icon: 'i-lucide-library' },
+  { id: 'synthesis', label: '综合', icon: 'i-lucide-layers-3' },
+  { id: 'comparison', label: '对比', icon: 'i-lucide-git-compare-arrows' },
+  { id: 'query', label: '问答', icon: 'i-lucide-message-circle-question' }
 ]
-const communityById = new Map(communityOptions.map(item => [item.id, item]))
 
+const confidenceOptions: Array<{ id: Confidence, label: string, detail: string }> = [
+  { id: 'EXTRACTED', label: '直接提取', detail: '来自官网正文或明确资料' },
+  { id: 'INFERRED', label: '推断关联', detail: '由多条内容共同支持' },
+  { id: 'AMBIGUOUS', label: '存在歧义', detail: '需要结合原文判断' },
+  { id: 'UNVERIFIED', label: '尚未核实', detail: '网页资料，使用前请核对' }
+]
+
+const graphHost = ref<HTMLElement | null>(null)
+const graph = ref<GraphPayload | null>(null)
 const loading = ref(false)
+const engineLoading = ref(false)
 const errorMessage = ref('')
-const graph = ref<GraphPayload>({
-  summary: { systemTotal: 0, retrievalTotal: 0, sources: 0 },
-  nodes: [], edges: [], generatedAt: ''
+const selectedNodeId = ref<string | null>(null)
+const selectedCommunityId = ref<string | null>(null)
+const activeCommunityId = ref<string | null>(null)
+const readerOpen = ref(false)
+const searchState = ref({ query: '', resultIds: [] as string[] })
+const typeFilters = ref<Record<NodeType, boolean>>({
+  entity: true,
+  topic: true,
+  source: true,
+  comparison: true,
+  synthesis: true,
+  query: true
 })
-const visualNodes = ref<GraphNode[]>([])
-const visualEdges = ref<GraphEdge[]>([])
-const selectedId = ref<string | null>(null)
-const hoveredId = ref<string | null>(null)
-const queryText = ref('')
-const activeCollection = ref<'all' | CollectionId>('all')
-const transform = ref({ x: 0, y: 0, k: 1 })
-const svgElement = ref<SVGSVGElement | null>(null)
 
-let simulation: Simulation<GraphNode, GraphEdge> | null = null
-let pointerMode: 'pan' | 'node' | null = null
-let pointerId: number | null = null
-let pointerStart = { x: 0, y: 0 }
-let transformStart = { x: 0, y: 0 }
-let draggedNode: GraphNode | null = null
-let dragMoved = false
-let suppressNextClick = false
+let engine: GraphEngine | null = null
+let enginePromise: Promise<GraphEngineLibrary> | null = null
 
-const nodeMap = computed(() => new Map(visualNodes.value.map(node => [node.id, node])))
-const selectedNode = computed(() => selectedId.value ? nodeMap.value.get(selectedId.value) ?? null : null)
+const nodesById = computed(() => new Map((graph.value?.nodes ?? []).map(node => [node.id, node])))
+const communities = computed(() => graph.value?.learning?.communities ?? [])
+const communitiesById = computed(() => new Map(communities.value.map(item => [item.id, item])))
+const selectedNode = computed(() => selectedNodeId.value ? nodesById.value.get(selectedNodeId.value) ?? null : null)
+const selectedCommunity = computed(() => {
+  const id = selectedCommunityId.value ?? selectedNode.value?.community ?? null
+  return id ? communitiesById.value.get(id) ?? null : null
+})
 const selectedExternalUrl = computed(() => safeExternalHref(selectedNode.value?.url) ?? null)
-const normalizedQuery = computed(() => queryText.value.trim().toLocaleLowerCase('zh-CN'))
-const matchingIds = computed(() => {
-  if (!normalizedQuery.value) return new Set<string>()
-  return new Set(visualNodes.value
-    .filter(node => [node.label, node.description, node.community, node.kind]
-      .some(value => String(value ?? '').toLocaleLowerCase('zh-CN').includes(normalizedQuery.value)))
-    .map(node => node.id))
-})
-
-function collectionFor(node: GraphNode): CollectionId | null {
-  if (communityById.has(node.id as CollectionId)) return node.id as CollectionId
-  if (node.collection) return node.collection
-  if (node.id.startsWith('structured:')) return 'structured'
-  if (node.id.startsWith('claim:')) return 'claims'
-  return null
-}
-
-const visibleNodes = computed(() => visualNodes.value.filter((node) => {
-  if (activeCollection.value === 'all' || node.id === 'root') return true
-  return collectionFor(node) === activeCollection.value
-}))
-const visibleNodeIds = computed(() => new Set(visibleNodes.value.map(node => node.id)))
-
-function endpointId(endpoint: string | GraphNode): string {
-  return typeof endpoint === 'string' ? endpoint : endpoint.id
-}
-
-const visibleEdges = computed(() => visualEdges.value.filter(edge => (
-  visibleNodeIds.value.has(endpointId(edge.source))
-  && visibleNodeIds.value.has(endpointId(edge.target))
-)))
-
-const emphasisId = computed(() => hoveredId.value ?? selectedId.value)
-const relatedIds = computed(() => {
-  const ids = new Set<string>()
-  if (!emphasisId.value) return ids
-  ids.add(emphasisId.value)
-  for (const edge of visualEdges.value) {
-    const source = endpointId(edge.source)
-    const target = endpointId(edge.target)
-    if (source === emphasisId.value) ids.add(target)
-    if (target === emphasisId.value) ids.add(source)
-  }
-  return ids
-})
-
-const graphStats = computed(() => [
-  `${visualNodes.value.length} 个可见节点`,
-  `${graph.value.edges.length} 条关系`,
-  `${graph.value.summary.retrievalTotal} 条 AI 可检索资料`
-])
-
-function deterministicOffset(id: string): number {
-  let hash = 0
-  for (let index = 0; index < id.length; index += 1) hash = (hash * 31 + id.charCodeAt(index)) | 0
-  return Math.abs(hash)
-}
-
-function centerFor(node: GraphNode): { x: number, y: number } {
-  if (node.id === 'root') return { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 }
-  const collection = collectionFor(node)
-  return communityById.get(collection ?? 'entries')?.center ?? { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 }
-}
-
-function initializeGraph(payload: GraphPayload): void {
-  simulation?.stop()
-  const nodes = payload.nodes.map((node) => {
-    const center = centerFor(node)
-    const hash = deterministicOffset(node.id)
-    return {
-      ...node,
-      x: center.x + (hash % 130) - 65,
-      y: center.y + (Math.floor(hash / 137) % 110) - 55
-    }
-  })
-  const edges: GraphEdge[] = payload.edges.map(edge => ({ ...edge }))
-  visualNodes.value = nodes
-  visualEdges.value = edges
-  let tick = 0
-  simulation = forceSimulation<GraphNode>(nodes)
-    .alpha(0.95)
-    .alphaDecay(0.028)
-    .velocityDecay(0.34)
-    .force('link', forceLink<GraphNode, GraphEdge>(edges)
-      .id(node => node.id)
-      .distance(edge => endpointId(edge.source) === 'root' ? 155 : 78)
-      .strength(0.42))
-    .force('charge', forceManyBody<GraphNode>().strength(node => node.id === 'root' ? -900 : node.count > 1 ? -260 : -115))
-    .force('collide', forceCollide<GraphNode>()
-      .radius(node => Math.max(nodeRadius(node) + 9, nodeWidth(node) / 2 + 7))
-      .iterations(3))
-    .force('x', forceX<GraphNode>(node => centerFor(node).x)
-      .strength(node => node.id === 'root' ? 0.5 : node.type === 'collection' ? 0.18 : 0.045))
-    .force('y', forceY<GraphNode>(node => centerFor(node).y)
-      .strength(node => node.id === 'root' ? 0.5 : node.type === 'collection' ? 0.18 : 0.045))
-    .on('tick', () => {
-      tick += 1
-      for (const node of nodes) {
-        const halfWidth = nodeWidth(node) / 2 + 18
-        const halfHeight = nodeRadius(node) + 18
-        node.x = Math.max(halfWidth, Math.min(CANVAS_WIDTH - halfWidth, node.x ?? CANVAS_WIDTH / 2))
-        node.y = Math.max(halfHeight, Math.min(CANVAS_HEIGHT - halfHeight, node.y ?? CANVAS_HEIGHT / 2))
-      }
-      if (tick % 2 === 0) visualNodes.value = [...nodes]
+const selectedRelations = computed(() => {
+  if (!selectedNode.value || !graph.value) return []
+  return graph.value.edges
+    .filter(edge => edge.from === selectedNode.value?.id || edge.to === selectedNode.value?.id)
+    .slice(0, 8)
+    .map((edge) => {
+      const relatedId = edge.from === selectedNode.value?.id ? edge.to : edge.from
+      return { ...edge, node: nodesById.value.get(relatedId) ?? null }
     })
-}
+})
+const nodeTypeCounts = computed(() => {
+  const counts = new Map<NodeType, number>()
+  for (const node of graph.value?.nodes ?? []) counts.set(node.type, (counts.get(node.type) ?? 0) + 1)
+  return counts
+})
+const collectionStats = computed(() => graph.value
+  ? [
+      { label: '站内知识', value: graph.value.summary.entries, tone: 'green' },
+      { label: '官网正文', value: graph.value.summary.documents, tone: 'blue' },
+      { label: '网页资料', value: graph.value.summary.web, tone: 'red' }
+    ]
+  : [])
 
-function nodeRadius(node: GraphNode): number {
-  if (node.id === 'root') return 58
-  if (node.type === 'collection') return 48
-  if (isLeafNode(node)) return 8
-  if (node.count > 1) return 38
-  return 26
-}
-
-function nodeWidth(node: GraphNode): number {
-  if (node.id === 'root') return 142
-  if (node.type === 'collection') return 120
-  if (isLeafNode(node)) return 18
-  return Math.max(78, Math.min(154, node.label.length * 12 + 26))
-}
-
-function isLeafNode(node: GraphNode): boolean {
-  return Boolean(node.itemId)
-}
-
-function leafLabelWidth(node: GraphNode): number {
-  return Math.max(92, Math.min(190, node.label.length * 11 + 28))
-}
-
-function nodeFill(node: GraphNode): string {
-  if (node.id === 'root') return '#f8f5ec'
-  const collection = collectionFor(node)
-  if (node.type === 'collection') return communityById.get(collection ?? 'entries')?.color ?? '#3f4d43'
-  return '#fffdf7'
-}
-
-function nodeStroke(node: GraphNode): string {
-  const collection = collectionFor(node)
-  return communityById.get(collection ?? 'entries')?.color ?? '#71695f'
-}
-
-function nodeOpacity(node: GraphNode): number {
-  if (normalizedQuery.value && !matchingIds.value.has(node.id) && node.id !== 'root') return 0.18
-  if (emphasisId.value && !relatedIds.value.has(node.id)) return 0.28
-  return 1
-}
-
-function edgeOpacity(edge: GraphEdge): number {
-  if (!emphasisId.value) return 0.28
-  return [endpointId(edge.source), endpointId(edge.target)].includes(emphasisId.value) ? 0.9 : 0.07
-}
-
-function edgePoint(edge: GraphEdge, endpoint: 'source' | 'target'): GraphNode | undefined {
-  const value = edge[endpoint]
-  return typeof value === 'string' ? nodeMap.value.get(value) : value
-}
-
-function shortLabel(value: string, limit = 13): string {
-  return value.length > limit ? `${value.slice(0, limit)}...` : value
-}
-
-function graphPoint(event: PointerEvent | WheelEvent): { x: number, y: number } {
-  const rect = svgElement.value?.getBoundingClientRect()
-  if (!rect) return { x: 0, y: 0 }
-  return {
-    x: (event.clientX - rect.left) * CANVAS_WIDTH / rect.width,
-    y: (event.clientY - rect.top) * CANVAS_HEIGHT / rect.height
+function loadPins(): Record<string, { x: number, y: number, coordinateSpace?: string }> {
+  try {
+    const value = localStorage.getItem(PIN_STORAGE_KEY)
+    return value ? JSON.parse(value) as Record<string, { x: number, y: number, coordinateSpace?: string }> : {}
+  } catch {
+    return {}
   }
 }
 
-function worldPoint(event: PointerEvent): { x: number, y: number } {
-  const point = graphPoint(event)
-  return {
-    x: (point.x - transform.value.x) / transform.value.k,
-    y: (point.y - transform.value.y) / transform.value.k
-  }
-}
-
-function beginPan(event: PointerEvent): void {
-  if (event.button !== 0) return
-  pointerMode = 'pan'
-  pointerId = event.pointerId
-  pointerStart = graphPoint(event)
-  transformStart = { x: transform.value.x, y: transform.value.y }
-  svgElement.value?.setPointerCapture(event.pointerId)
-}
-
-function beginNodeDrag(node: GraphNode, event: PointerEvent): void {
-  if (event.button !== 0) return
-  pointerMode = 'node'
-  pointerId = event.pointerId
-  draggedNode = node
-  dragMoved = false
-  pointerStart = graphPoint(event)
-  node.fx = node.x
-  node.fy = node.y
-  svgElement.value?.setPointerCapture(event.pointerId)
-  simulation?.alphaTarget(0.22).restart()
-}
-
-function movePointer(event: PointerEvent): void {
-  if (event.pointerId !== pointerId || !pointerMode) return
-  const point = graphPoint(event)
-  if (Math.hypot(point.x - pointerStart.x, point.y - pointerStart.y) > 4) dragMoved = true
-  if (pointerMode === 'pan') {
-    transform.value = {
-      ...transform.value,
-      x: transformStart.x + point.x - pointerStart.x,
-      y: transformStart.y + point.y - pointerStart.y
+async function loadEngineLibrary(): Promise<GraphEngineLibrary> {
+  if (window.LlmWikiGraphEngine) return window.LlmWikiGraphEngine
+  if (enginePromise) return enginePromise
+  enginePromise = new Promise<GraphEngineLibrary>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-llm-wiki-engine]')
+    const script = existing ?? document.createElement('script')
+    const handleLoad = () => {
+      if (window.LlmWikiGraphEngine) resolve(window.LlmWikiGraphEngine)
+      else reject(new Error('图谱引擎加载后没有完成初始化'))
     }
+    const handleError = () => reject(new Error('数字山水图谱引擎加载失败'))
+    script.addEventListener('load', handleLoad, { once: true })
+    script.addEventListener('error', handleError, { once: true })
+    if (!existing) {
+      script.src = ENGINE_SOURCE
+      script.async = true
+      script.dataset.llmWikiEngine = 'true'
+      document.head.appendChild(script)
+    }
+  }).catch((error) => {
+    enginePromise = null
+    throw error
+  })
+  return enginePromise
+}
+
+function handleSelection(selection: GraphSelection | null): void {
+  if (!selection) return
+  const inputKind = selection.input?.kind
+  const communityId = inputKind === 'community'
+    ? selection.input?.id ?? selection.communityIds?.[0]
+    : selection.communityIds?.[0]
+  if (communityId) selectedCommunityId.value = communityId
+  if (inputKind === 'community') {
+    selectedNodeId.value = null
+    readerOpen.value = false
     return
   }
-  if (draggedNode) {
-    const world = worldPoint(event)
-    draggedNode.fx = world.x
-    draggedNode.fy = world.y
-  }
+  const nodeId = selection.nodeIds?.[0]
+  if (!nodeId) return
+  selectedNodeId.value = nodeId
+  selectedCommunityId.value = nodesById.value.get(nodeId)?.community ?? communityId ?? null
+  readerOpen.value = false
 }
 
-function endPointer(event: PointerEvent): void {
-  if (event.pointerId !== pointerId) return
-  if (pointerMode === 'node' && draggedNode) {
-    draggedNode.fx = null
-    draggedNode.fy = null
-    simulation?.alphaTarget(0)
-    suppressNextClick = dragMoved
-    setTimeout(() => { suppressNextClick = false }, 0)
-  }
-  pointerMode = null
-  pointerId = null
-  draggedNode = null
+async function mountEngine(): Promise<void> {
+  if (!graph.value || !graphHost.value) return
+  engineLoading.value = true
   try {
-    svgElement.value?.releasePointerCapture(event.pointerId)
-  } catch {
-    // Pointer capture may already be released when leaving the canvas.
-  }
-}
-
-function zoomAt(point: { x: number, y: number }, nextZoom: number): void {
-  const previous = transform.value
-  const k = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom))
-  const worldX = (point.x - previous.x) / previous.k
-  const worldY = (point.y - previous.y) / previous.k
-  transform.value = {
-    k,
-    x: point.x - worldX * k,
-    y: point.y - worldY * k
-  }
-}
-
-function handleWheel(event: WheelEvent): void {
-  zoomAt(graphPoint(event), transform.value.k * Math.exp(-event.deltaY * 0.0014))
-}
-
-function changeZoom(multiplier: number): void {
-  zoomAt({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 }, transform.value.k * multiplier)
-}
-
-function resetView(): void {
-  transform.value = { x: 0, y: 0, k: 1 }
-  activeCollection.value = 'all'
-}
-
-function focusCollection(id: CollectionId): void {
-  activeCollection.value = id
-  const center = communityById.get(id)?.center ?? { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 }
-  const k = 1.35
-  transform.value = {
-    k,
-    x: CANVAS_WIDTH / 2 - center.x * k,
-    y: CANVAS_HEIGHT / 2 - center.y * k
-  }
-}
-
-function selectNode(node: GraphNode): void {
-  if (suppressNextClick) return
-  selectedId.value = node.id
-}
-
-function selectFirstMatch(): void {
-  const query = normalizedQuery.value
-  const match = visualNodes.value
-    .filter(node => matchingIds.value.has(node.id))
-    .sort((left, right) => {
-      const rank = (node: GraphNode) => {
-        const label = node.label.toLocaleLowerCase('zh-CN')
-        if (label === query) return 0
-        if (label.startsWith(query)) return 1
-        if (label.includes(query)) return 2
-        return 3
+    const library = await loadEngineLibrary()
+    engine?.destroy()
+    const aggregationMarkers = library.buildCommunityAggregationMarkers?.(graph.value, {
+      pins: loadPins(),
+      minCommunitySize: 6
+    }) ?? []
+    engine = library.createGraphEngine(graphHost.value, {
+      data: graph.value,
+      pins: loadPins(),
+      theme: 'shan-shui',
+      edgeStyle: { semanticEmphasis: true, focusHighlight: true },
+      typeFilters: typeFilters.value,
+      aggregationMarkers,
+      capabilities: {
+        persistPins: async (pins: unknown) => localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(pins)),
+        onSelectionChange: (selection: GraphSelection) => handleSelection(selection),
+        onSelectionClear: () => {
+          selectedNodeId.value = null
+          selectedCommunityId.value = null
+          readerOpen.value = false
+        },
+        onOpenPage: (payload: { node?: { id?: string } }) => {
+          const nodeId = payload.node?.id
+          if (!nodeId) return
+          selectedNodeId.value = nodeId
+          selectedCommunityId.value = nodesById.value.get(nodeId)?.community ?? null
+          readerOpen.value = true
+          engine?.accommodateNodeForDrawer?.(nodeId, { durationMs: 180 })
+        },
+        onViewReset: () => {
+          activeCommunityId.value = null
+          selectedCommunityId.value = null
+        },
+        onVisibilityStateChange: (state: GraphVisibilityState) => {
+          searchState.value = {
+            query: state.searchQuery ?? '',
+            resultIds: state.searchResultIds ?? []
+          }
+          activeCommunityId.value = state.focusCommunityId ?? activeCommunityId.value
+        }
       }
-      return rank(left) - rank(right)
-    })[0]
-  if (!match) return
-  selectedId.value = match.id
-  const k = Math.max(1.35, transform.value.k)
-  transform.value = {
-    k,
-    x: CANVAS_WIDTH / 2 - (match.x ?? CANVAS_WIDTH / 2) * k,
-    y: CANVAS_HEIGHT / 2 - (match.y ?? CANVAS_HEIGHT / 2) * k
+    })
+  } finally {
+    engineLoading.value = false
   }
-}
-
-async function openNodeLibrary(node: GraphNode): Promise<void> {
-  if (!node.collection) return
-  await navigateTo({
-    path: '/admin/knowledge/library',
-    query: {
-      collection: node.collection,
-      ...(node.itemId ? { q: node.label } : node.filter ? { category: node.filter } : {})
-    }
-  })
-}
-
-function formatDate(value?: number): string {
-  if (!value) return '未记录更新时间'
-  return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(value)
 }
 
 async function loadGraph(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    const payload = await adminFetch<GraphPayload>('/api/admin/knowledge/graph')
-    graph.value = payload
-    initializeGraph(payload)
+    graph.value = await adminFetch<GraphPayload>('/api/admin/knowledge/graph')
+    selectedNodeId.value = null
+    selectedCommunityId.value = null
+    activeCommunityId.value = null
+    readerOpen.value = false
+    await nextTick()
+    await mountEngine()
   } catch (error) {
     if (isAuthorizationError(error)) {
       await navigateTo('/admin/login', { replace: true })
@@ -434,30 +304,98 @@ async function loadGraph(): Promise<void> {
   }
 }
 
+function enterCommunity(community: GraphCommunity): void {
+  if (!engine) return
+  activeCommunityId.value = community.id
+  selectedCommunityId.value = community.id
+  selectedNodeId.value = null
+  readerOpen.value = false
+  handleSelection(engine.focusCommunity(community.id))
+}
+
+function resetView(): void {
+  engine?.resetView()
+  activeCommunityId.value = null
+  selectedCommunityId.value = null
+  selectedNodeId.value = null
+  readerOpen.value = false
+}
+
+function toggleType(type: NodeType): void {
+  typeFilters.value[type] = !typeFilters.value[type]
+  engine?.setTypeFilters({ ...typeFilters.value })
+}
+
+function selectCommunityNode(nodeId: string): void {
+  const node = nodesById.value.get(nodeId)
+  if (!node || !engine) return
+  handleSelection(engine.select({ kind: 'node', id: nodeId }))
+  engine.focusNode(node.source_path)
+}
+
+function openReader(): void {
+  if (!selectedNode.value) return
+  readerOpen.value = true
+  engine?.accommodateNodeForDrawer?.(selectedNode.value.id, { durationMs: 180 })
+}
+
+async function openLibrary(node: GraphNode): Promise<void> {
+  await navigateTo({
+    path: '/admin/knowledge/library',
+    query: { collection: node.collection, q: node.label }
+  })
+}
+
+function openSource(): void {
+  if (!selectedExternalUrl.value) return
+  window.open(selectedExternalUrl.value, '_blank', 'noopener,noreferrer')
+}
+
+function formatDate(value?: number): string {
+  if (!value) return '未记录'
+  return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(value)
+}
+
+function confidenceLabel(value?: Confidence): string {
+  return confidenceOptions.find(item => item.id === value)?.label ?? '尚未核实'
+}
+
+function nodeTypeLabel(value?: NodeType): string {
+  return typeOptions.find(item => item.id === value)?.label ?? '资料'
+}
+
+function relationNodeLabel(node: GraphNode | null): string {
+  if (!node) return '关联资料'
+  return node.label.length > 18 ? `${node.label.slice(0, 18)}…` : node.label
+}
+
 onMounted(loadGraph)
-onBeforeUnmount(() => simulation?.stop())
+onBeforeUnmount(() => {
+  engine?.destroy()
+  engine = null
+})
 </script>
 
 <template>
-  <div class="mx-auto max-w-[96rem] space-y-4">
+  <div class="knowledge-landscape-page">
     <AdminPageHeader
       title="数字山水知识图谱"
-      description="把内置知识、官网正文、网页资料与系统内容放进同一张可探索的知识地图。"
+      description="把站内知识、官网正文和网页资料放在同一张可探索的知识地图里。"
       icon="i-lucide-git-fork"
       eyebrow="知识库"
     >
       <template #actions>
         <UButton
           to="/admin/knowledge/library"
-          icon="i-lucide-database"
+          icon="i-lucide-library"
           label="全部资料"
           color="neutral"
           variant="outline"
         />
         <UButton
           icon="i-lucide-refresh-cw"
-          label="刷新图谱"
-          :loading="loading"
+          label="重新生成"
+          :loading="loading || engineLoading"
           @click="loadGraph"
         />
       </template>
@@ -465,507 +403,806 @@ onBeforeUnmount(() => simulation?.stop())
 
     <div
       v-if="errorMessage"
-      class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="landscape-error"
+      role="alert"
     >
-      {{ errorMessage }}
+      <UIcon
+        name="i-lucide-circle-alert"
+        class="size-5"
+      />
+      <span>{{ errorMessage }}</span>
+      <button
+        type="button"
+        @click="loadGraph"
+      >
+        重试
+      </button>
     </div>
 
-    <section class="graph-shell" aria-label="数字山水知识图谱工作区">
-      <header class="graph-toolbar">
-        <div class="graph-search">
-          <UInput
-            v-model="queryText"
-            icon="i-lucide-search"
-            placeholder="搜索节点、主题或正文摘要"
-            aria-label="搜索知识图谱"
-            @keyup.enter="selectFirstMatch"
-          />
-          <span v-if="normalizedQuery" class="graph-search-count">
-            {{ matchingIds.size }} 个结果
-          </span>
+    <section
+      class="landscape-shell"
+      aria-label="数字山水知识图谱工作区"
+    >
+      <aside class="landscape-sidebar landscape-sidebar-left">
+        <div class="landscape-brand">
+          <span class="landscape-seal">仰恩</span>
+          <div>
+            <p>数字山水</p>
+            <span>{{ graph?.meta.total_nodes ?? 0 }} 个知识节点</span>
+          </div>
         </div>
 
-        <div class="graph-communities" aria-label="知识社区筛选">
-          <button
-            type="button"
-            class="community-chip"
-            :class="{ active: activeCollection === 'all' }"
-            @click="resetView"
-          >
-            全部
-          </button>
-          <button
-            v-for="item in communityOptions"
-            :key="item.id"
-            type="button"
-            class="community-chip"
-            :class="{ active: activeCollection === item.id }"
-            :style="{ '--community-color': item.color }"
-            @click="focusCollection(item.id)"
-          >
-            <span class="community-dot" />{{ item.shortLabel }}
-          </button>
-        </div>
-
-        <div class="graph-actions">
-          <UButton
-            icon="i-lucide-minus"
-            aria-label="缩小图谱"
-            title="缩小"
-            color="neutral"
-            variant="ghost"
-            @click="changeZoom(0.82)"
-          />
-          <span class="zoom-value">{{ Math.round(transform.k * 100) }}%</span>
-          <UButton
-            icon="i-lucide-plus"
-            aria-label="放大图谱"
-            title="放大"
-            color="neutral"
-            variant="ghost"
-            @click="changeZoom(1.22)"
-          />
-          <UButton
-            icon="i-lucide-scan"
-            aria-label="复位图谱"
-            title="复位"
-            color="neutral"
-            variant="ghost"
-            @click="resetView"
-          />
-        </div>
-      </header>
-
-      <div class="graph-meta">
-        <span v-for="item in graphStats" :key="item">{{ item }}</span>
-        <span class="graph-meta-note">滚轮缩放 · 拖动画布 · 拖动节点</span>
-      </div>
-
-      <div class="graph-stage">
         <div
-          v-if="loading && !visualNodes.length"
-          class="graph-loading"
+          class="collection-summary"
+          aria-label="知识来源统计"
         >
-          <UIcon name="i-lucide-loader-circle" class="size-7 animate-spin" />
-          <span>正在展开知识地图</span>
+          <div
+            v-for="item in collectionStats"
+            :key="item.label"
+            :data-tone="item.tone"
+          >
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
         </div>
 
-        <svg
-          v-else
-          ref="svgElement"
-          viewBox="0 0 1200 720"
-          class="graph-canvas"
-          role="img"
-          aria-label="仰恩数字山水知识图谱"
-          @pointerdown="beginPan"
-          @pointermove="movePointer"
-          @pointerup="endPointer"
-          @pointercancel="endPointer"
-          @wheel.prevent="handleWheel"
-        >
-          <defs>
-            <filter id="wash-blur" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="24" />
-            </filter>
-            <filter id="node-shadow" x="-30%" y="-50%" width="160%" height="200%">
-              <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#5f5548" flood-opacity="0.18" />
-            </filter>
-          </defs>
-
-          <g :transform="`translate(${transform.x} ${transform.y}) scale(${transform.k})`">
-            <g class="community-washes" aria-hidden="true">
-              <ellipse
-                v-for="item in communityOptions"
-                :key="item.id"
-                :cx="item.center.x"
-                :cy="item.center.y"
-                rx="215"
-                ry="150"
-                :fill="item.wash"
-                :opacity="activeCollection === 'all' || activeCollection === item.id ? 0.5 : 0.12"
-                filter="url(#wash-blur)"
-              />
-            </g>
-
-            <g class="graph-edges" aria-hidden="true">
-              <line
-                v-for="(edge, index) in visibleEdges"
-                :key="`${endpointId(edge.source)}-${endpointId(edge.target)}-${index}`"
-                :x1="edgePoint(edge, 'source')?.x"
-                :y1="edgePoint(edge, 'source')?.y"
-                :x2="edgePoint(edge, 'target')?.x"
-                :y2="edgePoint(edge, 'target')?.y"
-                :stroke="emphasisId && [endpointId(edge.source), endpointId(edge.target)].includes(emphasisId) ? '#355b48' : '#6d756e'"
-                :stroke-width="emphasisId && [endpointId(edge.source), endpointId(edge.target)].includes(emphasisId) ? 1.8 : 0.85"
-                :opacity="edgeOpacity(edge)"
-              />
-            </g>
-
-            <g
-              v-for="node in visibleNodes"
-              :key="node.id"
-              :transform="`translate(${node.x ?? 0} ${node.y ?? 0})`"
-              class="graph-node"
-              :class="{
-                selected: selectedId === node.id,
-                matched: matchingIds.has(node.id),
-                collection: node.type === 'collection' || node.id === 'root'
-              }"
-              :opacity="nodeOpacity(node)"
-              role="button"
-              tabindex="0"
-              :aria-label="`${node.label}，${node.count} 条`"
-              data-graph-node="true"
-              @pointerdown.stop="beginNodeDrag(node, $event)"
-              @mouseenter="hoveredId = node.id"
-              @mouseleave="hoveredId = null"
-              @click.stop="selectNode(node)"
-              @keydown.enter.stop="selectNode(node)"
+        <div class="sidebar-section community-section">
+          <div class="sidebar-heading">
+            <div>
+              <span class="sidebar-kicker">阅读路径</span>
+              <h2>知识社区</h2>
+            </div>
+            <button
+              v-if="activeCommunityId"
+              type="button"
+              title="返回全图"
+              @click="resetView"
             >
-              <circle
-                v-if="isLeafNode(node)"
-                r="7"
-                :fill="nodeStroke(node)"
-                fill-opacity="0.9"
-                stroke="#fffdf7"
-                :stroke-width="selectedId === node.id ? 3 : 1.8"
-                filter="url(#node-shadow)"
-              />
-              <path
-                v-else-if="node.id !== 'root'"
-                :d="`M ${-nodeWidth(node) / 2 + 8} -25 h 25 l 7 7 h ${nodeWidth(node) - 40} v 48 h ${-nodeWidth(node)} v -48 h 8 z`"
-                :fill="nodeFill(node)"
-                :stroke="nodeStroke(node)"
-                :stroke-width="selectedId === node.id ? 2.5 : 1.1"
-                filter="url(#node-shadow)"
-              />
-              <rect
-                v-else
-                :x="-nodeWidth(node) / 2"
-                y="-34"
-                :width="nodeWidth(node)"
-                height="68"
-                rx="6"
-                :fill="nodeFill(node)"
-                :stroke="nodeStroke(node)"
-                stroke-width="2.4"
-                filter="url(#node-shadow)"
-              />
-              <g
-                v-if="isLeafNode(node) && (hoveredId === node.id || selectedId === node.id)"
-                class="leaf-label"
-              >
-                <rect
-                  x="12"
-                  y="-18"
-                  :width="leafLabelWidth(node)"
-                  height="36"
-                  rx="4"
-                  fill="#fffdf8"
-                  :stroke="nodeStroke(node)"
-                  stroke-width="1.2"
-                  filter="url(#node-shadow)"
-                />
-                <text
-                  x="20"
-                  y="4"
-                  text-anchor="start"
-                  fill="#292722"
-                  font-size="11"
-                  font-weight="700"
-                >{{ shortLabel(node.label, 16) }}</text>
-              </g>
-              <text
-                v-if="!isLeafNode(node)"
-                text-anchor="middle"
-                :y="node.id === 'root' ? -3 : 3"
-                :fill="node.type === 'collection' ? '#ffffff' : '#292722'"
-                :font-size="node.id === 'root' ? 15 : node.type === 'collection' ? 13 : 11"
-                font-weight="700"
-              >{{ shortLabel(node.label, node.id === 'root' ? 10 : 13) }}</text>
-              <text
-                v-if="!isLeafNode(node) && (node.id === 'root' || node.type === 'collection' || node.count > 1)"
-                text-anchor="middle"
-                :y="node.id === 'root' ? 19 : 18"
-                :fill="node.type === 'collection' ? '#ffffff' : '#675f54'"
-                font-size="9"
-                opacity="0.78"
-              >{{ node.count }} 条</text>
-            </g>
-          </g>
-        </svg>
-
-        <div class="graph-legend" aria-label="图例">
-          <strong>图例</strong>
-          <span v-for="item in communityOptions.slice(0, 4)" :key="item.id">
-            <i :style="{ backgroundColor: item.color }" />{{ item.shortLabel }}
-          </span>
+              <UIcon name="i-lucide-scan" />
+            </button>
+          </div>
+          <div class="community-list">
+            <button
+              v-for="(community, index) in communities"
+              :key="community.id"
+              type="button"
+              :class="{ active: activeCommunityId === community.id }"
+              :style="{ '--community-index': index }"
+              @click="enterCommunity(community)"
+            >
+              <span class="community-number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <span class="community-copy">
+                <strong>{{ community.label }}</strong>
+                <small>{{ community.node_count }} 页{{ community.is_weak ? ' · 待补充' : '' }}</small>
+              </span>
+              <UIcon name="i-lucide-chevron-right" />
+            </button>
+          </div>
         </div>
 
-        <div class="graph-minimap" aria-label="小地图">
-          <div class="minimap-title">小地图</div>
-          <svg viewBox="0 0 180 108" aria-hidden="true">
-            <rect x="1" y="1" width="178" height="106" rx="5" fill="#faf6eb" stroke="#b8ab98" />
-            <circle
-              v-for="node in visibleNodes"
-              :key="node.id"
-              :cx="(node.x ?? 0) / 1200 * 180"
-              :cy="(node.y ?? 0) / 720 * 108"
-              :r="node.type === 'collection' ? 2.6 : 1.4"
-              :fill="nodeStroke(node)"
-              opacity="0.78"
+        <div class="sidebar-section type-section">
+          <div class="sidebar-heading compact">
+            <div>
+              <span class="sidebar-kicker">图例</span>
+              <h2>显示内容</h2>
+            </div>
+          </div>
+          <div class="type-filter-list">
+            <button
+              v-for="item in typeOptions"
+              :key="item.id"
+              type="button"
+              :aria-pressed="typeFilters[item.id]"
+              :class="{ muted: !typeFilters[item.id] }"
+              @click="toggleType(item.id)"
+            >
+              <span class="type-mark"><UIcon :name="item.icon" /></span>
+              <span>{{ item.label }}</span>
+              <small>{{ nodeTypeCounts.get(item.id) ?? 0 }}</small>
+              <UIcon :name="typeFilters[item.id] ? 'i-lucide-eye' : 'i-lucide-eye-off'" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="landscape-main">
+        <header class="canvas-heading">
+          <div>
+            <p>{{ activeCommunityId ? communitiesById.get(activeCommunityId)?.label : '仰恩大学新生知识全景' }}</p>
+            <span v-if="searchState.query">“{{ searchState.query }}”找到 {{ searchState.resultIds.length }} 条</span>
+            <span v-else>悬停看提示，点击看摘要，双击直接阅读全文</span>
+          </div>
+          <div class="canvas-metrics">
+            <span>{{ graph?.meta.total_nodes ?? 0 }} 节点</span>
+            <span>{{ graph?.meta.total_edges ?? 0 }} 关联</span>
+            <span>{{ communities.length }} 社区</span>
+          </div>
+        </header>
+
+        <div class="landscape-canvas">
+          <div
+            v-if="loading && !graph"
+            class="canvas-state"
+          >
+            <UIcon
+              name="i-lucide-loader-circle"
+              class="size-7 animate-spin"
             />
-          </svg>
+            <strong>正在展开知识地图</strong>
+            <span>资料较多，第一次生成需要一点时间</span>
+          </div>
+          <div
+            v-else-if="!graph?.nodes.length"
+            class="canvas-state"
+          >
+            <UIcon
+              name="i-lucide-library-big"
+              class="size-7"
+            />
+            <strong>知识库里还没有可绘制的资料</strong>
+            <span>先导入或抓取内容，再回来生成图谱</span>
+          </div>
+          <div
+            ref="graphHost"
+            class="graph-engine-host"
+          />
+          <div
+            v-if="engineLoading"
+            class="engine-loading"
+            aria-live="polite"
+          >
+            <UIcon
+              name="i-lucide-loader-circle"
+              class="animate-spin"
+            />
+            正在加载山水画布
+          </div>
+          <div
+            v-if="graph?.meta.degraded"
+            class="graph-limit-note"
+          >
+            资料超过画布上限，当前优先展示 {{ graph.visibleItems }} 条
+          </div>
         </div>
 
-        <Transition name="graph-drawer">
-          <aside v-if="selectedNode" class="node-drawer" aria-label="节点详情">
-            <div class="node-drawer-header">
-              <div>
-                <p>{{ communityById.get(collectionFor(selectedNode) ?? 'entries')?.label ?? '知识节点' }}</p>
-                <h2>{{ selectedNode.label }}</h2>
-              </div>
-              <UButton
-                icon="i-lucide-x"
-                aria-label="关闭节点详情"
-                color="neutral"
-                variant="ghost"
-                @click="selectedId = null"
-              />
-            </div>
-            <div class="node-drawer-body">
-              <div class="node-facts">
-                <span>{{ selectedNode.kind || selectedNode.type }}</span>
-                <span>{{ selectedNode.count }} 条</span>
-                <span v-if="selectedNode.capturedAt">{{ formatDate(selectedNode.capturedAt) }}</span>
-              </div>
-              <p v-if="selectedNode.description" class="node-description">
-                {{ selectedNode.description }}
-              </p>
-              <p v-else class="node-description muted">
-                这是知识地图中的汇总节点，可进入对应分支查看完整资料。
-              </p>
-              <div class="node-actions">
-                <UButton
-                  v-if="selectedNode.collection"
-                  icon="i-lucide-list-tree"
-                  label="查看对应资料"
-                  block
-                  @click="openNodeLibrary(selectedNode)"
-                />
-                <UButton
-                  v-if="collectionFor(selectedNode) && selectedNode.type === 'collection'"
-                  icon="i-lucide-focus"
-                  label="只看这个分支"
-                  color="neutral"
-                  variant="outline"
-                  block
-                  @click="focusCollection(collectionFor(selectedNode)!)"
-                />
-                <UButton
-                  v-if="selectedExternalUrl"
-                  :to="selectedExternalUrl"
-                  target="_blank"
-                  icon="i-lucide-external-link"
-                  label="打开原始来源"
-                  color="neutral"
-                  variant="outline"
-                  block
-                />
-              </div>
-            </div>
-          </aside>
-        </Transition>
-      </div>
+        <footer class="canvas-footer">
+          <div class="confidence-line">
+            <span
+              v-for="item in confidenceOptions"
+              :key="item.id"
+              :data-confidence="item.id"
+            >
+              <i />{{ item.label }}
+            </span>
+          </div>
+          <span>更新于 {{ formatDate(graph ? Date.parse(graph.generatedAt) : 0) }}</span>
+        </footer>
+      </main>
 
-      <footer class="graph-footer">
-        <span>{{ graph.generatedAt ? `更新于 ${formatDate(Date.parse(graph.generatedAt))}` : '等待图谱数据' }}</span>
-        <span>交互与视觉理念参考 llm-wiki 数字山水图谱</span>
-      </footer>
+      <aside
+        class="landscape-sidebar landscape-sidebar-right"
+        :class="{ reading: readerOpen }"
+      >
+        <template v-if="selectedNode">
+          <header class="reader-heading">
+            <button
+              v-if="readerOpen"
+              type="button"
+              title="返回摘要"
+              @click="readerOpen = false"
+            >
+              <UIcon name="i-lucide-arrow-left" />
+            </button>
+            <div>
+              <span>{{ readerOpen ? '阅读全文' : '知识摘要' }}</span>
+              <small>{{ selectedCommunity?.label ?? selectedNode.category }}</small>
+            </div>
+            <button
+              type="button"
+              title="关闭"
+              @click="selectedNodeId = null; readerOpen = false"
+            >
+              <UIcon name="i-lucide-x" />
+            </button>
+          </header>
+
+          <div
+            v-if="readerOpen"
+            class="reader-body full-reader"
+          >
+            <div class="reader-eyebrow">
+              <span>{{ nodeTypeLabel(selectedNode.type) }}</span>
+              <span :data-confidence="selectedNode.confidence">{{ confidenceLabel(selectedNode.confidence) }}</span>
+            </div>
+            <h2>{{ selectedNode.label }}</h2>
+            <p class="reader-content">
+              {{ selectedNode.content || selectedNode.summary || '这条资料暂时没有可显示的正文。' }}
+            </p>
+            <div class="reader-source-line">
+              <span>来源</span>
+              <strong>{{ selectedNode.source }}</strong>
+              <small>{{ formatDate(selectedNode.capturedAt) }}</small>
+            </div>
+          </div>
+
+          <div
+            v-else
+            class="reader-body summary-reader"
+          >
+            <div class="reader-eyebrow">
+              <span>{{ nodeTypeLabel(selectedNode.type) }}</span>
+              <span :data-confidence="selectedNode.confidence">{{ confidenceLabel(selectedNode.confidence) }}</span>
+            </div>
+            <h2>{{ selectedNode.label }}</h2>
+            <p class="summary-copy">
+              {{ selectedNode.summary || '这条资料暂时没有摘要，可以进入全文查看。' }}
+            </p>
+
+            <div class="reader-actions">
+              <button
+                type="button"
+                class="primary"
+                @click="openReader"
+              >
+                <UIcon name="i-lucide-book-open-text" />阅读全文
+              </button>
+              <button
+                type="button"
+                @click="openLibrary(selectedNode)"
+              >
+                <UIcon name="i-lucide-folder-search" />去资料库
+              </button>
+              <button
+                v-if="selectedExternalUrl"
+                type="button"
+                @click="openSource"
+              >
+                <UIcon name="i-lucide-external-link" />查看来源
+              </button>
+            </div>
+
+            <section
+              v-if="selectedRelations.length"
+              class="related-section"
+            >
+              <div class="reader-section-title">
+                <h3>相关内容</h3>
+                <span>{{ selectedRelations.length }} 条</span>
+              </div>
+              <button
+                v-for="relation in selectedRelations"
+                :key="relation.id"
+                type="button"
+                @click="relation.node && selectCommunityNode(relation.node.id)"
+              >
+                <span>
+                  <strong>{{ relationNodeLabel(relation.node) }}</strong>
+                  <small>{{ relation.relation_type }} · {{ confidenceLabel(relation.confidence) }}</small>
+                </span>
+                <UIcon name="i-lucide-arrow-up-right" />
+              </button>
+            </section>
+          </div>
+        </template>
+
+        <template v-else-if="selectedCommunity">
+          <header class="reader-heading">
+            <div>
+              <span>社区摘要</span>
+              <small>同一类资料放在一起阅读</small>
+            </div>
+            <button
+              type="button"
+              title="关闭"
+              @click="selectedCommunityId = null"
+            >
+              <UIcon name="i-lucide-x" />
+            </button>
+          </header>
+          <div class="reader-body community-reader">
+            <span class="community-stamp">社区</span>
+            <h2>{{ selectedCommunity.label }}</h2>
+            <p>这个社区收录了 {{ selectedCommunity.node_count }} 页资料。进入后，搜索和类型筛选只会作用在当前社区，更适合顺着一个主题读下去。</p>
+            <div class="community-facts">
+              <div><strong>{{ selectedCommunity.node_count }}</strong><span>资料页</span></div>
+              <div><strong>{{ selectedCommunity.is_weak ? '待补充' : '结构清晰' }}</strong><span>整理状态</span></div>
+            </div>
+            <button
+              class="enter-community-button"
+              type="button"
+              @click="enterCommunity(selectedCommunity)"
+            >
+              进入这个社区<UIcon name="i-lucide-arrow-right" />
+            </button>
+            <section class="related-section community-core-list">
+              <div class="reader-section-title">
+                <h3>先看这些</h3>
+              </div>
+              <button
+                v-for="nodeId in (selectedCommunity.members ?? []).slice(0, 8)"
+                :key="nodeId"
+                type="button"
+                @click="selectCommunityNode(nodeId)"
+              >
+                <span><strong>{{ relationNodeLabel(nodesById.get(nodeId) ?? null) }}</strong></span>
+                <UIcon name="i-lucide-chevron-right" />
+              </button>
+            </section>
+          </div>
+        </template>
+
+        <template v-else>
+          <header class="reader-heading">
+            <div>
+              <span>阅读台</span>
+              <small>从图谱中选一条内容</small>
+            </div>
+          </header>
+          <div class="reader-body empty-reader">
+            <div class="empty-ink-mark">
+              <UIcon name="i-lucide-mountain-snow" />
+            </div>
+            <h2>从一座山开始</h2>
+            <p>每片云雾代表一个知识社区。先点社区看整体，再点节点看摘要；确认有用后再进入全文。</p>
+            <ol>
+              <li><span>一</span>悬停节点，快速预览</li>
+              <li><span>二</span>点击节点，阅读摘要</li>
+              <li><span>三</span>双击节点，直接看全文</li>
+            </ol>
+          </div>
+        </template>
+      </aside>
     </section>
   </div>
 </template>
 
 <style scoped>
-.graph-shell {
-  overflow: hidden;
-  border: 1px solid #d7d0c4;
-  border-radius: 6px;
-  background: #f7f4eb;
-  box-shadow: 0 10px 30px rgb(62 54 42 / 8%);
+.knowledge-landscape-page {
+  width: min(100%, 110rem);
+  margin: 0 auto;
+  color: #2f352f;
 }
 
-.graph-toolbar {
-  display: grid;
-  grid-template-columns: minmax(15rem, 1fr) auto auto;
+.landscape-error {
+  display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid #d8d0c2;
-  background: rgb(255 253 248 / 92%);
+  gap: .65rem;
+  margin: 1rem 0;
+  border-left: 3px solid #a84d3f;
+  background: #fff3ef;
+  padding: .8rem 1rem;
+  color: #7f332a;
+  font-size: .875rem;
 }
 
-.graph-search {
+.landscape-error button {
+  margin-left: auto;
+  color: #7f332a;
+  font-weight: 700;
+}
+
+.landscape-shell {
+  display: grid;
+  grid-template-columns: 15rem minmax(34rem, 1fr) 20rem;
+  min-height: 44rem;
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 1px solid #c9c2af;
+  background: #f5f0e3;
+  box-shadow: 0 18px 50px rgb(65 75 62 / 10%);
+}
+
+.landscape-sidebar {
+  min-width: 0;
+  background:
+    linear-gradient(rgb(255 255 255 / 64%), rgb(255 255 255 / 30%)),
+    repeating-linear-gradient(0deg, transparent 0 27px, rgb(95 111 92 / 6%) 27px 28px);
+}
+
+.landscape-sidebar-left { border-right: 1px solid #d5cfbe; }
+.landscape-sidebar-right { border-left: 1px solid #d5cfbe; }
+
+.landscape-brand {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  min-height: 5rem;
+  padding: 1rem;
+  border-bottom: 1px solid #d5cfbe;
+}
+
+.landscape-seal {
+  display: grid;
+  width: 2.65rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 2px;
+  background: #a84d3f;
+  color: white;
+  font-family: serif;
+  font-size: .75rem;
+  box-shadow: inset 0 0 0 3px rgb(255 255 255 / 20%);
+}
+
+.landscape-brand p {
+  margin: 0;
+  font-family: ui-serif, "Songti SC", SimSun, serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.landscape-brand span { color: #72786f; font-size: .72rem; }
+
+.collection-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid #d5cfbe;
+}
+
+.collection-summary > div {
   display: flex;
   min-width: 0;
-  align-items: center;
-  gap: 8px;
-}
-
-.graph-search :deep(.relative) { width: min(100%, 26rem); }
-.graph-search-count, .zoom-value { color: #736b60; font-size: 11px; white-space: nowrap; }
-.graph-communities, .graph-actions { display: flex; align-items: center; gap: 4px; }
-
-.community-chip {
-  display: inline-flex;
-  min-height: 34px;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 0 9px;
-  color: #615b52;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.community-chip:hover { background: #f0ece2; }
-.community-chip.active { border-color: #8f8577; background: #fffdf8; color: #27241f; }
-.community-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--community-color, #5c6f61); }
-
-.graph-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  padding: 8px 15px;
-  border-bottom: 1px dashed #d8d0c2;
-  color: #676157;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.graph-meta-note { margin-left: auto; color: #8a8175; }
-
-.graph-stage {
-  position: relative;
-  min-height: 36rem;
-  aspect-ratio: 5 / 3;
-  overflow: hidden;
-  background-color: #f8f4e9;
-  background-image:
-    linear-gradient(rgb(105 94 77 / 6%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(105 94 77 / 6%) 1px, transparent 1px);
-  background-size: 28px 28px;
-}
-
-.graph-stage::before {
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  bottom: 0;
-  left: 48px;
-  width: 1px;
-  background: #bc675b;
-  content: '';
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.graph-canvas { display: block; width: 100%; height: 100%; min-height: 36rem; cursor: grab; touch-action: none; user-select: none; }
-.graph-canvas:active { cursor: grabbing; }
-.graph-node { cursor: pointer; transition: opacity 160ms ease; outline: none; }
-.graph-node:hover, .graph-node:focus-visible { opacity: 1 !important; }
-.graph-node.matched path, .graph-node.matched > rect, .graph-node.matched > circle { stroke-width: 3; }
-.graph-node.selected { filter: saturate(1.15); }
-.graph-node text { pointer-events: none; letter-spacing: 0; }
-.leaf-label { pointer-events: none; }
-.graph-edges line { transition: opacity 160ms ease, stroke-width 160ms ease; }
-
-.graph-loading {
-  display: grid;
-  position: absolute;
-  inset: 0;
-  place-content: center;
-  gap: 10px;
-  color: #696157;
-  font-size: 13px;
+  flex-direction: column;
+  gap: .2rem;
+  padding: .8rem .45rem;
   text-align: center;
 }
 
-.graph-legend, .graph-minimap {
-  position: absolute;
-  z-index: 3;
-  border: 1px solid #bdb3a4;
-  border-radius: 6px;
-  background: rgb(255 252 244 / 92%);
-  box-shadow: 0 5px 16px rgb(67 57 43 / 10%);
-  backdrop-filter: blur(7px);
-}
+.collection-summary > div + div { border-left: 1px solid #ddd7c7; }
+.collection-summary span { color: #747a72; font-size: .66rem; }
+.collection-summary strong { font-family: ui-monospace, monospace; font-size: .9rem; }
+.collection-summary [data-tone="green"] strong { color: #476b59; }
+.collection-summary [data-tone="blue"] strong { color: #526f83; }
+.collection-summary [data-tone="red"] strong { color: #9c5947; }
 
-.graph-legend { bottom: 18px; left: 18px; display: grid; gap: 7px; width: 126px; padding: 11px; font-size: 11px; color: #625c53; }
-.graph-legend strong { color: #2d2924; font-size: 13px; }
-.graph-legend span { display: flex; align-items: center; gap: 7px; }
-.graph-legend i { width: 9px; height: 9px; border-radius: 2px; }
-.graph-minimap { top: 14px; right: 14px; width: 182px; overflow: hidden; }
-.minimap-title { padding: 5px 8px 3px; color: #746c60; font-size: 10px; }
-.graph-minimap svg { display: block; width: 100%; }
+.sidebar-section { padding: 1rem .8rem; }
+.sidebar-section + .sidebar-section { border-top: 1px solid #d5cfbe; }
 
-.node-drawer {
-  position: absolute;
-  z-index: 5;
-  top: 14px;
-  right: 14px;
-  bottom: 14px;
+.sidebar-heading {
   display: flex;
-  width: min(22rem, calc(100% - 28px));
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #a99e8d;
-  border-radius: 6px;
-  background: rgb(255 253 247 / 97%);
-  box-shadow: 0 16px 40px rgb(52 45 35 / 20%);
-}
-
-.node-drawer-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid #e0d8cc; }
-.node-drawer-header p { color: #8d5649; font-size: 11px; font-weight: 700; }
-.node-drawer-header h2 { margin-top: 5px; color: #27231f; font-size: 17px; font-weight: 750; line-height: 1.45; }
-.node-drawer-body { overflow-y: auto; padding: 16px; }
-.node-facts { display: flex; flex-wrap: wrap; gap: 6px; }
-.node-facts span { border: 1px solid #ddd4c7; border-radius: 4px; background: #f6f1e7; padding: 4px 7px; color: #6e665b; font-size: 10px; }
-.node-description { margin-top: 15px; white-space: pre-line; color: #48433c; font-size: 13px; line-height: 1.8; }
-.node-description.muted { color: #81786c; }
-.node-actions { display: grid; gap: 8px; margin-top: 18px; padding-top: 15px; border-top: 1px solid #e5ddd1; }
-.graph-drawer-enter-active, .graph-drawer-leave-active { transition: transform 180ms ease, opacity 180ms ease; }
-.graph-drawer-enter-from, .graph-drawer-leave-to { transform: translateX(18px); opacity: 0; }
-
-.graph-footer {
-  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 9px 14px;
-  border-top: 1px solid #d8d0c2;
-  background: #fffdf8;
-  color: #8a8175;
-  font-size: 10px;
+  margin-bottom: .75rem;
 }
 
-@media (max-width: 1024px) {
-  .graph-toolbar { grid-template-columns: 1fr auto; }
-  .graph-communities { grid-column: 1 / -1; order: 3; overflow-x: auto; padding-bottom: 2px; }
-  .graph-stage { min-height: 34rem; aspect-ratio: auto; }
-  .graph-canvas { min-height: 34rem; }
+.sidebar-heading h2 {
+  margin: .12rem 0 0;
+  font-family: ui-serif, "Songti SC", SimSun, serif;
+  font-size: 1rem;
+  font-weight: 800;
 }
 
-@media (max-width: 640px) {
-  .graph-toolbar { grid-template-columns: minmax(0, 1fr); padding: 10px; }
-  .graph-actions { position: absolute; z-index: 6; right: 10px; margin-top: 130px; border: 1px solid #d2c9bc; border-radius: 6px; background: #fffdf8; }
-  .graph-search-count, .zoom-value, .graph-meta-note { display: none; }
-  .graph-stage, .graph-canvas { min-height: 31rem; }
-  .graph-stage::before { left: 24px; }
-  .graph-minimap { width: 126px; }
-  .graph-legend { bottom: 10px; left: 10px; width: 104px; }
-  .graph-legend span:nth-of-type(n+4) { display: none; }
-  .node-drawer { top: auto; right: 8px; bottom: 8px; left: 8px; width: auto; max-height: 64%; }
-  .graph-footer { flex-direction: column; }
+.sidebar-kicker {
+  color: #9a5546;
+  font-size: .63rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.sidebar-heading > button {
+  display: grid;
+  width: 2rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid #d2cbbb;
+  background: #faf7ee;
+}
+
+.community-list {
+  display: flex;
+  max-height: 20rem;
+  flex-direction: column;
+  gap: .28rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.community-list button {
+  display: grid;
+  grid-template-columns: 1.65rem minmax(0, 1fr) 1rem;
+  align-items: center;
+  gap: .5rem;
+  min-height: 3.2rem;
+  border-left: 2px solid transparent;
+  padding: .48rem .42rem;
+  text-align: left;
+  transition: background .16s ease, border-color .16s ease;
+}
+
+.community-list button:hover,
+.community-list button.active {
+  border-left-color: #a84d3f;
+  background: rgb(255 253 247 / 88%);
+}
+
+.community-number {
+  color: #a84d3f;
+  font-family: ui-monospace, monospace;
+  font-size: .65rem;
+}
+
+.community-copy { min-width: 0; }
+.community-copy strong,
+.community-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.community-copy strong { font-size: .78rem; }
+.community-copy small { margin-top: .2rem; color: #7b8079; font-size: .65rem; }
+.community-list button > svg { color: #9b9d94; }
+
+.type-filter-list { display: grid; gap: .25rem; }
+.type-filter-list button {
+  display: grid;
+  grid-template-columns: 1.65rem minmax(0, 1fr) auto 1rem;
+  align-items: center;
+  gap: .45rem;
+  min-height: 2.2rem;
+  color: #39423a;
+  font-size: .74rem;
+  text-align: left;
+}
+.type-filter-list button.muted { opacity: .42; }
+.type-filter-list small { color: #81877f; font-family: ui-monospace, monospace; }
+.type-mark {
+  display: grid;
+  width: 1.45rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid #cbc3b1;
+  background: #fffdf7;
+  color: #9d5a47;
+}
+
+.landscape-main {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #efe9da;
+}
+
+.canvas-heading,
+.canvas-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.35rem;
+  padding: .65rem 1rem;
+  border-bottom: 1px solid #cec7b5;
+  background: rgb(249 246 237 / 86%);
+}
+
+.canvas-heading p { margin: 0; font-family: ui-serif, "Songti SC", SimSun, serif; font-size: .9rem; font-weight: 800; }
+.canvas-heading span { color: #767b73; font-size: .67rem; }
+.canvas-metrics { display: flex; gap: .75rem; white-space: nowrap; }
+.canvas-metrics span { color: #59675d; font-family: ui-monospace, monospace; }
+
+.landscape-canvas {
+  position: relative;
+  min-height: 37rem;
+  height: min(70vh, 51rem);
+  overflow: hidden;
+  background: #f2eddf;
+}
+
+.graph-engine-host { position: absolute; inset: 0; }
+
+.canvas-state {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: .55rem;
+  color: #59645a;
+  text-align: center;
+}
+.canvas-state span { color: #7b8179; font-size: .75rem; }
+
+.engine-loading,
+.graph-limit-note {
+  position: absolute;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  border: 1px solid #c9c0aa;
+  background: rgb(255 252 243 / 92%);
+  box-shadow: 0 8px 24px rgb(65 70 61 / 12%);
+  color: #58635a;
+  font-size: .72rem;
+}
+.engine-loading { top: 1rem; left: 50%; padding: .5rem .75rem; transform: translateX(-50%); }
+.graph-limit-note { right: 1rem; bottom: 1rem; padding: .45rem .65rem; }
+
+.canvas-footer {
+  min-height: 2.7rem;
+  border-top: 1px solid #cec7b5;
+  border-bottom: 0;
+  color: #7b8079;
+  font-size: .63rem;
+}
+.confidence-line { display: flex; flex-wrap: wrap; gap: .75rem; }
+.confidence-line span { display: inline-flex; align-items: center; gap: .25rem; }
+.confidence-line i { width: 1.1rem; border-top: 2px solid #52675b; }
+.confidence-line [data-confidence="INFERRED"] i { border-top-style: dashed; }
+.confidence-line [data-confidence="AMBIGUOUS"] i { border-color: #9c743f; border-top-style: dotted; }
+.confidence-line [data-confidence="UNVERIFIED"] i { border-color: #a84d3f; border-top-style: dotted; }
+
+.reader-heading {
+  display: flex;
+  min-height: 5rem;
+  align-items: center;
+  gap: .65rem;
+  padding: .9rem 1rem;
+  border-bottom: 1px solid #d5cfbe;
+}
+.reader-heading > div { min-width: 0; flex: 1; }
+.reader-heading span,
+.reader-heading small { display: block; }
+.reader-heading span { font-family: ui-serif, "Songti SC", SimSun, serif; font-weight: 800; }
+.reader-heading small { margin-top: .25rem; overflow: hidden; color: #797e76; font-size: .67rem; text-overflow: ellipsis; white-space: nowrap; }
+.reader-heading button {
+  display: grid;
+  width: 2rem;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #6d746d;
+}
+
+.reader-body {
+  max-height: calc(min(70vh, 51rem) + 2.7rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.15rem 1rem 1.5rem;
+}
+
+.reader-eyebrow { display: flex; flex-wrap: wrap; gap: .35rem; }
+.reader-eyebrow span {
+  border: 1px solid #d3c9b6;
+  background: #fffaf0;
+  padding: .22rem .45rem;
+  color: #687167;
+  font-size: .64rem;
+}
+.reader-eyebrow [data-confidence="EXTRACTED"] { border-color: #9ab1a0; color: #3f6652; }
+.reader-eyebrow [data-confidence="INFERRED"] { border-style: dashed; color: #596f83; }
+.reader-eyebrow [data-confidence="AMBIGUOUS"] { border-style: dotted; color: #946f39; }
+.reader-eyebrow [data-confidence="UNVERIFIED"] { border-style: dotted; color: #a04e40; }
+
+.reader-body h2 {
+  margin: .85rem 0 .65rem;
+  overflow-wrap: anywhere;
+  color: #30362f;
+  font-family: ui-serif, "Songti SC", SimSun, serif;
+  font-size: 1.28rem;
+  line-height: 1.45;
+}
+.summary-copy,
+.community-reader > p,
+.empty-reader > p {
+  color: #5d655d;
+  font-size: .8rem;
+  line-height: 1.75;
+}
+.reader-content {
+  white-space: pre-wrap;
+  color: #454d45;
+  font-family: ui-serif, "Songti SC", SimSun, serif;
+  font-size: .84rem;
+  line-height: 1.9;
+}
+.reader-source-line {
+  display: grid;
+  gap: .25rem;
+  margin-top: 1.2rem;
+  border-top: 1px solid #d4cdbc;
+  padding-top: .8rem;
+  overflow-wrap: anywhere;
+}
+.reader-source-line span,
+.reader-source-line small { color: #7b8179; font-size: .66rem; }
+.reader-source-line strong { color: #59675d; font-size: .72rem; }
+
+.reader-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; margin-top: 1rem; }
+.reader-actions button,
+.enter-community-button {
+  display: inline-flex;
+  min-height: 2.55rem;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  border: 1px solid #cfc6b3;
+  background: #fffdf7;
+  color: #4e5950;
+  font-size: .75rem;
+  font-weight: 750;
+}
+.reader-actions button.primary { border-color: #9d5141; background: #a84d3f; color: white; }
+
+.related-section { margin-top: 1.2rem; border-top: 1px solid #d6cebd; padding-top: .85rem; }
+.reader-section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: .45rem; }
+.reader-section-title h3 { margin: 0; font-size: .78rem; }
+.reader-section-title span { color: #858a83; font-size: .65rem; }
+.related-section > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  border-bottom: 1px dashed #ddd6c6;
+  padding: .6rem .15rem;
+  text-align: left;
+}
+.related-section button span { min-width: 0; }
+.related-section button strong,
+.related-section button small { display: block; }
+.related-section button strong { overflow: hidden; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.related-section button small { margin-top: .2rem; color: #858a82; font-size: .62rem; }
+
+.community-stamp {
+  display: inline-grid;
+  border: 1px solid #bd6958;
+  padding: .2rem .4rem;
+  color: #a84d3f;
+  font-size: .65rem;
+}
+.community-facts { display: grid; grid-template-columns: 1fr 1fr; margin: 1rem 0; border: 1px solid #d3cbbb; }
+.community-facts div { display: flex; flex-direction: column; gap: .25rem; padding: .75rem; }
+.community-facts div + div { border-left: 1px solid #d3cbbb; }
+.community-facts strong { color: #a04d3e; font-size: .85rem; }
+.community-facts span { color: #7b8179; font-size: .65rem; }
+.enter-community-button { width: 100%; border-color: #a84d3f; color: #8c4033; }
+
+.empty-reader { text-align: center; }
+.empty-ink-mark {
+  display: grid;
+  width: 4.5rem;
+  aspect-ratio: 1;
+  margin: 1rem auto;
+  place-items: center;
+  border: 1px solid #bac5b7;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fdfbf3, #dfe6d9);
+  color: #58705d;
+  font-size: 1.7rem;
+}
+.empty-reader ol { display: grid; gap: .55rem; margin: 1.2rem 0 0; padding: 0; list-style: none; text-align: left; }
+.empty-reader li { display: flex; align-items: center; gap: .55rem; color: #5d655d; font-size: .73rem; }
+.empty-reader li span { display: grid; width: 1.55rem; aspect-ratio: 1; place-items: center; border: 1px solid #c9c2b0; color: #9c5141; font-family: serif; }
+
+@media (max-width: 1280px) {
+  .landscape-shell { grid-template-columns: 13rem minmax(30rem, 1fr) 18rem; }
+}
+
+@media (max-width: 1023px) {
+  .landscape-shell { display: flex; flex-direction: column; overflow: visible; }
+  .landscape-sidebar-left,
+  .landscape-sidebar-right { border: 0; }
+  .landscape-sidebar-left { order: 1; border-bottom: 1px solid #d5cfbe; }
+  .landscape-main { order: 2; }
+  .landscape-sidebar-right { order: 3; border-top: 1px solid #d5cfbe; }
+  .landscape-brand { min-height: 4rem; }
+  .collection-summary { position: absolute; visibility: hidden; }
+  .community-section { padding-bottom: .65rem; }
+  .community-list { max-height: none; flex-direction: row; overflow-x: auto; }
+  .community-list button { min-width: 12rem; }
+  .type-section { padding-top: .7rem; }
+  .type-filter-list { grid-template-columns: repeat(3, 1fr); }
+  .landscape-canvas { min-height: 32rem; height: 64dvh; max-height: 44rem; }
+  .reader-body { max-height: none; }
+}
+
+@media (max-width: 639px) {
+  .landscape-shell { margin-inline: -.75rem; border-right: 0; border-left: 0; }
+  .canvas-heading { align-items: flex-start; flex-direction: column; gap: .35rem; }
+  .canvas-metrics { width: 100%; justify-content: space-between; }
+  .landscape-canvas { min-height: 29rem; height: 62dvh; }
+  .canvas-footer { align-items: flex-start; flex-direction: column; }
+  .confidence-line { gap: .45rem .65rem; }
+  .type-filter-list { grid-template-columns: repeat(2, 1fr); }
+  .community-list button { min-width: 10.5rem; }
+  .reader-actions { grid-template-columns: 1fr; }
 }
 </style>

@@ -29,21 +29,33 @@ Markdown Content:
 报到当天请根据录取学院安排前往对应接待点，现场要求如有变化以学校最新通知为准。
 
 [学生资助办法](https://xsc.yeu.edu.cn/2026/0720/c20a88/page.htm)
+[学生手册 PDF](../files/2026-student-handbook.pdf)
 ![配图](https://www.yeu.edu.cn/_upload/article/images/test.png)
 `, 'https://www.yeu.edu.cn/2026/0728/c100a123/page.htm')
   assert.equal(page.title, '2026级新生报到安排')
   assert.match(page.text, /九月五日到校报到/)
   assert.doesNotMatch(page.text, /https:\/\//)
   assert.equal(page.links[0]?.url, 'https://xsc.yeu.edu.cn/2026/0720/c20a88/page.htm')
+  assert.deepEqual(page.links[1], {
+    url: 'https://www.yeu.edu.cn/2026/0728/files/2026-student-handbook.pdf',
+    label: '学生手册 PDF'
+  })
   assert.equal(new Date(page.publishedAt!).toISOString(), '2026-07-28T00:00:00.000Z')
 })
 
-test('new-student rules are crawled before ordinary news at the same depth', () => {
+test('new-student rules and attachments are crawled before ordinary news at the same depth', () => {
   const priority = crawlPriority({
     url: 'https://xsc.yeu.edu.cn/2026/0720/c20a88/page.htm',
     label: '学生手册与奖学金办法',
     depth: 1,
     discoveredFrom: 'https://xsc.yeu.edu.cn/',
+    seed: false
+  })
+  const attachment = crawlPriority({
+    url: 'https://xsc.yeu.edu.cn/_upload/article/files/student-handbook.pdf',
+    label: '学生手册',
+    depth: 1,
+    discoveredFrom: 'https://xsc.yeu.edu.cn/2026/0720/c20a88/page.htm',
     seed: false
   })
   const ordinary = crawlPriority({
@@ -54,6 +66,7 @@ test('new-student rules are crawled before ordinary news at the same depth', () 
     seed: false
   })
   assert.ok(priority > ordinary)
+  assert.ok(attachment > ordinary)
 })
 
 test('crawl CLI is bounded and supports an explicit seed', () => {

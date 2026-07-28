@@ -18,7 +18,14 @@ export default defineEventHandler(async (event) => {
   assertRateLimit(event, 'assistant:global', 80, 60 * 1000, client)
 
   const body = await parseBody(event, assistantQuestionSchema)
+  const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
+  const startedAt = Date.now()
   if (containsPromptInjection(body.q)) {
+    try {
+      recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, 'UNSAFE_QUERY', Date.now() - startedAt)
+    } catch {
+      // Analytics remains optional during migrations.
+    }
     return blockedAssistantResponse(body.q)
   }
   if (!isQuestionLike(body.q)) {
@@ -30,8 +37,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const runtime = useRuntimeConfig(event)
-  const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
-  const startedAt = Date.now()
   const requestAbort = createRequestAbortSignal(event)
   try {
     const response = await answerCampusQuestion(client, body.q, {
