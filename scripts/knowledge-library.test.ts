@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { getKnowledgeLandscapeGraph, listKnowledgeLibrary } from '../server/modules/knowledge/library'
+
+test('knowledge admin pages are sibling routes instead of hidden nested pages', () => {
+  assert.equal(existsSync('app/pages/admin/knowledge.vue'), false)
+  for (const page of ['index', 'library', 'graph']) {
+    const source = readFileSync(`app/pages/admin/knowledge/${page}.vue`, 'utf8')
+    assert.match(source, /definePageMeta\(\{ layout: ['"]admin['"] \}\)/)
+  }
+})
 
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-knowledge-library-'))

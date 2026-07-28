@@ -2,6 +2,7 @@
 import { adminFetch } from '~~/app/utils/admin-request'
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 
+// Keep this page as the index sibling of library and graph routes.
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '知识库管理', robots: 'noindex, nofollow' })
 
