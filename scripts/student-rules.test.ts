@@ -95,6 +95,10 @@ test('student rule questions use deterministic local answers', async () => {
     const identity = await answerCampusQuestion(client, '请介绍吴庆星的身份和经历？', assistantConfig)
     assert.doesNotMatch(identity.answer, /吴庆星奖学金/)
     assert.ok(identity.citations.every(item => !item.title.includes('吴庆星奖学金')))
+    assert.doesNotMatch(JSON.stringify(identity), /吴庆星奖学金/)
+
+    const naturalIdentity = await answerCampusQuestion(client, '想了解吴庆星的身份与生平？', assistantConfig)
+    assert.doesNotMatch(JSON.stringify(naturalIdentity), /吴庆星奖学金/)
 
     const coexistence = await answerCampusQuestion(client, '吴庆星奖学金和仰恩奖学金能一起拿吗', assistantConfig)
     assert.equal(coexistence.mode, 'local')

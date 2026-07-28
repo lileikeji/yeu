@@ -40,6 +40,7 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(isQuestionLike('吴庆星是谁'), true)
   assert.equal(isQuestionLike('请介绍吴庆星的身份和经历？'), true)
   assert.equal(assistantIdentitySubject('请介绍吴庆星的身份和经历？'), '吴庆星')
+  assert.equal(assistantIdentitySubject('想了解吴庆星的身份与生平？'), '吴庆星')
   assert.equal(isQuestionLike('会计学属于哪个学院'), true)
   assert.equal(isQuestionLike('会计学新生住新区还是旧区'), true)
   assert.equal(isQuestionLike('宿舍床的尺寸'), true)
@@ -53,6 +54,7 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 0), true)
   assert.equal(shouldRequestAssistantAnswer('吴庆星是谁', 2), true)
   assert.equal(shouldRequestAssistantAnswer('请介绍吴庆星的身份和经历？', 2), true)
+  assert.equal(shouldRequestAssistantAnswer('想了解吴庆星的身份与生平？', 2), true)
   assert.equal(shouldRequestAssistantAnswer('校园网', 0), false)
 })
 

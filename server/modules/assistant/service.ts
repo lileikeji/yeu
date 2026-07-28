@@ -513,8 +513,24 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
   const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
   const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
   if (title === normalizedSubject) return true
-  if (title.includes(normalizedSubject) && /简介|个人|履历|人物|教授|副教授|讲师|助教|教师|老师|校友|研究|任职/.test(title)) return true
-  return new RegExp(`${normalizedSubject}.{0,24}(?:是|为|担任|出生|任职|教授|副教授|讲师|助教|教师|老师|校友)`).test(text)
+  if (title.includes(normalizedSubject) && /简介|个人|履历|人物|生平|传记|教授|副教授|讲师|助教|教师|老师|任职/.test(title)) return true
+
+  let offset = 0
+  while (offset < text.length) {
+    const index = text.indexOf(normalizedSubject, offset)
+    if (index < 0) break
+    const before = text.slice(Math.max(0, index - 12), index)
+    const after = text.slice(index + normalizedSubject.length, index + normalizedSubject.length + 40)
+    offset = index + normalizedSubject.length
+
+    // A person's name can also prefix an award, building or research project. Those
+    // mentions prove only that the names are related, not who the person is.
+    if (/^(?:奖学金|助学金|基金|奖项|奖金|教育理念|纪念|雕像|铜像|楼|大楼|馆)/u.test(after)) continue
+    if (/(?:校主|创办人|创始人|发起人|董事长|教授|副教授|讲师|助教|教师|老师|先生|女士|博士|校友)$/u.test(before)) return true
+    if (/^(?:先生|女士|老师|教授|副教授|讲师|助教|教师|博士|校主|创办人|创始人|董事长)/u.test(after)) return true
+    if (/^[，,（(：:]?[^。！？；;]{0,24}(?:是|为|出生|毕业|任职|担任|曾任|现任|创办|创建|发起|提出)/u.test(after)) return true
+  }
+  return false
 }
 
 function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
