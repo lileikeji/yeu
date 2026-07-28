@@ -1785,6 +1785,18 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (featureAnswer) return featureAnswer
 
   const primary = evidence[0]!
+  const focusedFact = focusedLocalFactAnswer(query, primary)
+  if (focusedFact) {
+    const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
+    return {
+      query,
+      mode: 'local',
+      answer: focusedFact,
+      citations: [citation],
+      usedWebSearch: false,
+      confidence: Math.min(0.98, 0.72 + primary.score / 80)
+    }
+  }
   const related = evidence.slice(1, 3).map(item => `“${item.title}”`).join('、')
   const relatedText = related ? `还可以继续查看${related}。` : ''
   const separator = /[。！？!?]$/.test(primary.snippet) ? '' : '。'
@@ -1796,6 +1808,50 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
     usedWebSearch: false,
     confidence: Math.min(0.95, 0.55 + primary.score / 40)
   }
+}
+
+function focusedLocalFactAnswer(query: string, evidence: AssistantEvidence): string | null {
+  const normalizedQuery = normalizeAssistantQuery(query)
+  const quantityMatch = normalizedQuery.match(
+    /([^，。？！?]{2,36}?)(?:有|为|是|共|共有|达到)?(?:多少|几)(?:个|名|人|元|分|米|天|年|月|小时|分钟|学分|平方米|亩|所|门|项|条|次)?/u
+  )
+  if (!quantityMatch?.[1]) return null
+
+  const subject = quantityMatch[1]
+    .split(/(?:里面|其中|之中|里|内|中|关于|的)/u)
+    .at(-1)
+    ?.replace(/(?:请问|麻烦|帮我|告诉我|想知道|仰恩大学|这个学校|学校)/gu, '')
+    .trim()
+  if (!subject || subject.length < 2) return null
+
+  const snippet = evidence.snippet.replace(/\s+/g, ' ').trim()
+  const subjectPosition = snippet.indexOf(subject)
+  if (subjectPosition < 0) return null
+
+  const before = snippet.slice(Math.max(0, subjectPosition - 180), subjectPosition)
+  const sentenceBoundary = Math.max(
+    before.lastIndexOf('。'),
+    before.lastIndexOf('！'),
+    before.lastIndexOf('？'),
+    before.lastIndexOf(';'),
+    before.lastIndexOf('；')
+  )
+  const leadMarkers = ['学校现有', '本校现有', '学院现有', '现有', '共有', '共计']
+  const leadPosition = Math.max(...leadMarkers.map(marker => before.lastIndexOf(marker)))
+  const start = Math.max(
+    Math.max(0, subjectPosition - 180) + sentenceBoundary + 1,
+    leadPosition >= 0 ? Math.max(0, subjectPosition - 180) + leadPosition : 0
+  )
+  const after = snippet.slice(subjectPosition)
+  const sentenceEnd = after.search(/[。！？!?]/u)
+  const end = sentenceEnd >= 0
+    ? Math.min(snippet.length, subjectPosition + sentenceEnd + 1)
+    : Math.min(snippet.length, subjectPosition + 240)
+  const fact = snippet.slice(start, end).trim().replace(/^[，,：:\s]+/u, '')
+  const escapedSubject = subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (!fact || !new RegExp(`${escapedSubject}\\s*\\d`, 'u').test(fact)) return null
+
+  return `根据《${evidence.title}》，${fact}`
 }
 
 function parseAllowedHosts(value: string): Set<string> {

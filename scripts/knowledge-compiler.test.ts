@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { assistantQueryTerms, localEvidenceIsSufficient, retrieveCampusEvidence } from '../server/modules/assistant/service'
+import { answerCampusQuestion, assistantQueryTerms, localEvidenceIsSufficient, retrieveCampusEvidence } from '../server/modules/assistant/service'
 import {
   archiveKnowledgeClaim,
   createKnowledgeClaim,
@@ -66,7 +66,7 @@ test('knowledge migration creates the compiled tables and FTS index', () => {
   }
 })
 
-test('ready A-level official documents are searchable and archived versions are excluded', () => {
+test('ready A-level official documents are searchable and archived versions are excluded', async () => {
   const value = fixture()
   try {
     const now = Date.now()
@@ -133,6 +133,20 @@ test('ready A-level official documents are searchable and archived versions are 
     const reportEvidence = retrieveCampusEvidence(value.client, reportQuery, 6)
     assert.equal(reportEvidence[0]?.title, '仰恩大学本科教学质量报告（含2024年数据）')
     assert.equal(localEvidenceIsSufficient(reportQuery, reportEvidence), true)
+    const reportAnswer = await answerCampusQuestion(value.client, reportQuery, {
+      gatewayBaseUrl: '',
+      gatewayApiKey: '',
+      gatewayModel: '',
+      gatewayTimeoutMs: 1000,
+      mcpSearchUrl: '',
+      mcpSearchBearerToken: '',
+      mcpAllowedHosts: '',
+      mcpToolName: '',
+      mcpTimeoutMs: 1000
+    })
+    assert.match(reportAnswer.answer, /专任教师424人/)
+    assert.equal(reportAnswer.usedWebSearch, false)
+    assert.equal(reportAnswer.citations.length, 1)
     value.client.sqlite.prepare('UPDATE knowledge_documents SET status = \'archived\' WHERE id = ?').run(documentId)
     assert.deepEqual(searchOfficialKnowledgeDocuments(value.client, ['dormitory mattress'], 5), [])
   } finally {
