@@ -264,6 +264,23 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
       })
     }
   }
+  for (const key of ['groupQrTitles', 'contactQrTitles'] as const) {
+    const titles = value[key]
+    if (titles !== undefined
+      && (!Array.isArray(titles)
+        || titles.length > 8
+        || titles.some(title => (
+          typeof title !== 'string'
+          || title.length > 100
+          || title !== title.trim()
+        )))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: `${key} must contain at most 8 trimmed titles of at most 100 characters`
+      })
+    }
+  }
   const signupQuestions = value.signupQuestions
   if (signupQuestions !== undefined) {
     if (!Array.isArray(signupQuestions)

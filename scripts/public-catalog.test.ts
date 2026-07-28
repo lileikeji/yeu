@@ -60,10 +60,12 @@ test('visual editor boxes and multiple contacts reach the public club view in or
       '/uploads/00000000-0000-4000-8000-000000000211.webp',
       '/uploads/00000000-0000-4000-8000-000000000212.webp'
     ],
+    groupQrTitles: ['2026 级招新群', '项目交流二群'],
     contactQrUrls: [
       '/uploads/00000000-0000-4000-8000-000000000213.webp',
       '/uploads/00000000-0000-4000-8000-000000000214.webp'
     ],
+    contactQrTitles: ['负责人微信', '负责人 QQ'],
     signupQuestions: ['是否需要面试？', '每周活动几次？'],
     signupQa: [
       { question: '是否需要面试？', answer: '无需面试，填写报名表即可。' },
@@ -102,10 +104,12 @@ test('visual editor boxes and multiple contacts reach the public club view in or
     '/uploads/00000000-0000-4000-8000-000000000211.webp',
     '/uploads/00000000-0000-4000-8000-000000000212.webp'
   ])
+  assert.deepEqual(club.groupQrTitles, ['2026 级招新群', '项目交流二群'])
   assert.deepEqual(club.contactQrUrls, [
     '/uploads/00000000-0000-4000-8000-000000000213.webp',
     '/uploads/00000000-0000-4000-8000-000000000214.webp'
   ])
+  assert.deepEqual(club.contactQrTitles, ['负责人微信', '负责人 QQ'])
   assert.deepEqual(club.signupQuestions, ['是否需要面试？', '每周活动几次？'])
   assert.deepEqual(club.signupQa, [
     { question: '是否需要面试？', answer: '无需面试，填写报名表即可。' },

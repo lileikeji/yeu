@@ -57,7 +57,9 @@ interface EditorModel {
   contactPhonesText: string
   signupQa: EditorSignupQa[]
   groupQrUrls: string[]
+  groupQrTitles: string[]
   contactQrUrls: string[]
+  contactQrTitles: string[]
   boxes: EditorBox[]
 }
 
@@ -119,7 +121,9 @@ const model = reactive<EditorModel>({
   contactPhonesText: '',
   signupQa: clubSignupQuestionChecklist.map(question => ({ question, answer: '' })),
   groupQrUrls: [],
+  groupQrTitles: [],
   contactQrUrls: [],
+  contactQrTitles: [],
   boxes: []
 })
 const availableSources = ref<AdminSourceSummary[]>([])
@@ -248,6 +252,18 @@ function stringList(value: unknown, legacyValue?: unknown): string[] {
   return [...new Set(items)]
 }
 
+function alignedQrTitles(value: unknown, length: number): string[] {
+  const values = Array.isArray(value) ? value : []
+  return Array.from({ length }, (_, index) => (
+    typeof values[index] === 'string' ? values[index].trim().slice(0, 100) : ''
+  ))
+}
+
+function syncQrTitleLengths(): void {
+  model.groupQrTitles = alignedQrTitles(model.groupQrTitles, model.groupQrUrls.length)
+  model.contactQrTitles = alignedQrTitles(model.contactQrTitles, model.contactQrUrls.length)
+}
+
 function editorBoxes(value: unknown): EditorBox[] {
   if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
@@ -333,7 +349,9 @@ function hydrate(payload: unknown): void {
   model.contactPhonesText = stringList(metadata.contactPhones, metadata.contactPhone).join('\n')
   model.signupQa = editorSignupQa(metadata)
   model.groupQrUrls = stringList(metadata.groupQrUrls, metadata.groupQrUrl)
+  model.groupQrTitles = alignedQrTitles(metadata.groupQrTitles, model.groupQrUrls.length)
   model.contactQrUrls = stringList(metadata.contactQrUrls, metadata.contactQrUrl)
+  model.contactQrTitles = alignedQrTitles(metadata.contactQrTitles, model.contactQrUrls.length)
   model.boxes = editorBoxes(metadata.boxes)
   mergeAvailableSources(content.sources)
 }
@@ -405,6 +423,7 @@ async function save(): Promise<void> {
 
   saving.value = true
   try {
+    syncQrTitleLengths()
     const creating = isCreating.value
     const metadata: Record<string, unknown> = {
       ...model.metadata,
@@ -431,7 +450,9 @@ async function save(): Promise<void> {
       sortOrder,
       ...(model.kind === 'club' ? { signupQuestions, signupQa } : {}),
       groupQrUrls: model.groupQrUrls,
+      groupQrTitles: model.groupQrTitles,
       contactQrUrls: model.contactQrUrls,
+      contactQrTitles: model.contactQrTitles,
       boxes: model.boxes.map(boxPayload)
     }
     if (props.organizationMode) {
@@ -527,12 +548,15 @@ function removeSignupQuestion(index: number): void {
 
 async function persistQrAssociations(): Promise<void> {
   if (!model.id) return
+  syncQrTitleLengths()
   const result = await adminFetch(`/api/admin/content/${encodeURIComponent(model.id)}`, {
     method: 'PATCH',
     body: {
       metadata: {
         groupQrUrls: model.groupQrUrls,
+        groupQrTitles: model.groupQrTitles,
         contactQrUrls: model.contactQrUrls,
+        contactQrTitles: model.contactQrTitles,
         iconUrl: model.iconUrl
       }
     }
@@ -542,14 +566,31 @@ async function persistQrAssociations(): Promise<void> {
 
 async function removeQr(target: 'group' | 'contact', index: number): Promise<void> {
   const values = target === 'group' ? model.groupQrUrls : model.contactQrUrls
+  const titles = target === 'group' ? model.groupQrTitles : model.contactQrTitles
   const [removed] = values.splice(index, 1)
+  const [removedTitle] = titles.splice(index, 1)
   if (isCreating.value) return
   try {
     await persistQrAssociations()
     toast.add({ title: '二维码已删除并保存', color: 'success' })
   } catch {
     if (removed) values.splice(index, 0, removed)
+    titles.splice(index, 0, removedTitle ?? '')
     toast.add({ title: '删除未保存', description: '网络异常，二维码已恢复。', color: 'error' })
+  }
+}
+
+async function persistQrTitles(): Promise<void> {
+  syncQrTitleLengths()
+  if (isCreating.value) return
+  try {
+    await persistQrAssociations()
+  } catch {
+    toast.add({
+      title: '二维码标题暂未保存',
+      description: '请点击顶部“保存页面”后再离开。',
+      color: 'error'
+    })
   }
 }
 
@@ -614,6 +655,7 @@ async function uploadQrList(target: 'group' | 'contact', event: Event): Promise<
   const input = event.target as HTMLInputElement
   const files = [...(input.files ?? [])]
   const values = target === 'group' ? model.groupQrUrls : model.contactQrUrls
+  const titles = target === 'group' ? model.groupQrTitles : model.contactQrTitles
   if (!files.length) return
   if (values.length + files.length > 8) {
     toast.add({ title: '每组最多上传 8 张二维码', color: 'warning' })
@@ -633,7 +675,9 @@ async function uploadQrList(target: 'group' | 'contact', event: Event): Promise<
     }))
     const uploaded = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
     const failedCount = results.length - uploaded.length
-    values.push(...uploaded.map(item => item.url).filter(url => !values.includes(url)))
+    const newUrls = uploaded.map(item => item.url).filter(url => !values.includes(url))
+    values.push(...newUrls)
+    titles.push(...newUrls.map(() => ''))
 
     if (uploaded.length) {
       if (isCreating.value) {
@@ -1430,17 +1474,18 @@ onBeforeUnmount(() => {
                     >
                   </label>
                 </div>
-                <div class="mt-3 grid grid-cols-3 gap-2">
+                <div class="mt-3 grid grid-cols-2 gap-3">
                   <figure
                     v-for="(url, index) in model.groupQrUrls"
                     :key="url"
-                    class="relative rounded-lg border border-zinc-200 bg-white p-2"
+                    class="relative rounded-lg border border-zinc-200 bg-white p-3"
                   >
-                    <img
+                    <ImagePreviewButton
                       :src="url"
-                      alt=""
-                      class="aspect-square w-full object-contain"
-                    >
+                      :alt="model.groupQrTitles[index] || `招新与群聊二维码 ${index + 1}`"
+                      button-class="aspect-square w-full rounded-md border border-zinc-100 bg-white"
+                      image-class="size-full object-contain"
+                    />
                     <UButton
                       icon="i-lucide-x"
                       color="error"
@@ -1449,6 +1494,18 @@ onBeforeUnmount(() => {
                       aria-label="删除二维码"
                       @click="removeQr('group', index)"
                     />
+                    <UFormField
+                      :label="`第 ${index + 1} 张标题`"
+                      class="mt-3"
+                    >
+                      <UInput
+                        v-model="model.groupQrTitles[index]"
+                        :placeholder="`招新与群聊二维码 ${index + 1}`"
+                        :maxlength="100"
+                        class="w-full"
+                        @change="persistQrTitles"
+                      />
+                    </UFormField>
                   </figure>
                 </div>
               </div>
@@ -1473,17 +1530,18 @@ onBeforeUnmount(() => {
                     >
                   </label>
                 </div>
-                <div class="mt-3 grid grid-cols-3 gap-2">
+                <div class="mt-3 grid grid-cols-2 gap-3">
                   <figure
                     v-for="(url, index) in model.contactQrUrls"
                     :key="url"
-                    class="relative rounded-lg border border-zinc-200 bg-white p-2"
+                    class="relative rounded-lg border border-zinc-200 bg-white p-3"
                   >
-                    <img
+                    <ImagePreviewButton
                       :src="url"
-                      alt=""
-                      class="aspect-square w-full object-contain"
-                    >
+                      :alt="model.contactQrTitles[index] || `${model.contactName || '负责人'}二维码 ${index + 1}`"
+                      button-class="aspect-square w-full rounded-md border border-zinc-100 bg-white"
+                      image-class="size-full object-contain"
+                    />
                     <UButton
                       icon="i-lucide-x"
                       color="error"
@@ -1492,6 +1550,18 @@ onBeforeUnmount(() => {
                       aria-label="删除负责人二维码"
                       @click="removeQr('contact', index)"
                     />
+                    <UFormField
+                      :label="`第 ${index + 1} 张标题`"
+                      class="mt-3"
+                    >
+                      <UInput
+                        v-model="model.contactQrTitles[index]"
+                        :placeholder="`${model.contactName || '负责人'}二维码 ${index + 1}`"
+                        :maxlength="100"
+                        class="w-full"
+                        @change="persistQrTitles"
+                      />
+                    </UFormField>
                   </figure>
                 </div>
               </div>

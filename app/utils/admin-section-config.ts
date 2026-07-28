@@ -583,10 +583,32 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['department', 'club'] }
       },
       {
+        key: 'metadata.groupQrTitles',
+        label: '招新与群聊二维码标题',
+        type: 'text-list',
+        rows: 4,
+        placeholder: '每行对应一张二维码；留空行会使用默认标题',
+        description: '按图片顺序填写，每行一个标题，最多 100 个字。',
+        group: '群聊与负责人',
+        span: 'half',
+        condition: { key: 'kind', values: ['department', 'club'] }
+      },
+      {
         key: 'metadata.contactQrUrls',
         label: '负责人二维码',
         type: 'image-list',
         description: '最多上传 8 张负责人微信、QQ或其他公开联系二维码。',
+        group: '群聊与负责人',
+        span: 'half',
+        condition: { key: 'kind', values: ['department', 'club'] }
+      },
+      {
+        key: 'metadata.contactQrTitles',
+        label: '负责人二维码标题',
+        type: 'text-list',
+        rows: 4,
+        placeholder: '每行对应一张二维码；留空行会使用默认标题',
+        description: '按图片顺序填写，每行一个标题，最多 100 个字。',
         group: '群聊与负责人',
         span: 'half',
         condition: { key: 'kind', values: ['department', 'club'] }

@@ -319,8 +319,10 @@ const feedbackLink = computed(() => content.value
         <PublicCommunityContactPanel
           :group-qr-url="department.groupQrUrl"
           :group-qr-urls="department.groupQrUrls"
+          :group-qr-titles="department.groupQrTitles"
           :contact-qr-url="department.contactQrUrl"
           :contact-qr-urls="department.contactQrUrls"
+          :contact-qr-titles="department.contactQrTitles"
           :contact-name="department.contactName"
           :contact-phone="department.contactPhone"
           :contact-phones="department.contactPhones"

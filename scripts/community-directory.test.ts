@@ -39,10 +39,12 @@ test('community metadata accepts uploaded QR URLs and bounded ordering', () => {
         '/uploads/123e4567-e89b-42d3-a456-426614174000.png',
         '/uploads/123e4567-e89b-42d3-a456-426614174002.jpg'
       ],
+      groupQrTitles: ['2026 级招新群', '零基础交流一群'],
       contactQrUrls: [
         '/uploads/123e4567-e89b-42d3-a456-426614174001.webp',
         '/uploads/123e4567-e89b-42d3-a456-426614174003.png'
       ],
+      contactQrTitles: ['招新负责人微信', '招新负责人 QQ'],
       contactName: '招新负责人',
       contactPhones: ['138 0000 0000', '0595-12345678'],
       featuredSummary: '适合新生快速了解的精选摘要。',
@@ -62,6 +64,9 @@ test('community metadata rejects external QR URLs and invalid ordering', () => {
   assert.equal(updateContentSchema.safeParse({ metadata: { groupQrUrl: '/uploads/not-a-uuid.png' } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { groupQrUrls: ['https://example.com/qr.png'] } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { contactQrUrls: ['https://example.com/qr.png'] } }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: { groupQrTitles: Array.from({ length: 9 }, () => '') } }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: { groupQrTitles: [' 前后有空格'] } }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: { contactQrTitles: ['a'.repeat(101)] } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { contactPhones: Array.from({ length: 13 }, (_, index) => `138000000${index}`) } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { sortOrder: -1 } }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: { sortOrder: 2.5 } }).success, false)
@@ -91,7 +96,9 @@ test('club directory exposes QR contacts and follows configured order', () => {
       metadata: {
         sortOrder: 10,
         groupQrUrls: [qrUrl, secondQrUrl],
+        groupQrTitles: ['2026 级招新群', '技术交流二群'],
         contactQrUrls: [secondQrUrl, qrUrl],
+        contactQrTitles: ['负责人微信', '负责人 QQ'],
         contactName: '招新负责人',
         contactPhones: ['13800000000', '0595-12345678'],
         signupQuestions: ['需要面试吗？', '活动一般在什么时候？'],
@@ -107,8 +114,10 @@ test('club directory exposes QR contacts and follows configured order', () => {
   assert.deepEqual(clubs.map(item => item.slug), ['first', 'later'])
   assert.equal(clubs[0]?.groupQrUrl, qrUrl)
   assert.deepEqual(clubs[0]?.groupQrUrls, [qrUrl, secondQrUrl])
+  assert.deepEqual(clubs[0]?.groupQrTitles, ['2026 级招新群', '技术交流二群'])
   assert.equal(clubs[0]?.contactQrUrl, secondQrUrl)
   assert.deepEqual(clubs[0]?.contactQrUrls, [secondQrUrl, qrUrl])
+  assert.deepEqual(clubs[0]?.contactQrTitles, ['负责人微信', '负责人 QQ'])
   assert.equal(clubs[0]?.contactName, '招新负责人')
   assert.equal(clubs[0]?.contactPhone, '13800000000 / 0595-12345678')
   assert.deepEqual(clubs[0]?.contactPhones, ['13800000000', '0595-12345678'])
@@ -168,6 +177,10 @@ test('QR and负责人 contacts suppress contradictory pending-contact states', (
   )
   assert.match(contactPanelSource, /v-for="\(qrUrl, index\) in groupQrUrls"/)
   assert.match(contactPanelSource, /v-for="\(qrUrl, index\) in contactQrUrls"/)
+  assert.match(contactPanelSource, /groupQrTitle\(index\)/)
+  assert.match(contactPanelSource, /<ImagePreviewButton/)
+  assert.match(clubDetailSource, /:group-qr-titles="club\.groupQrTitles"/)
+  assert.match(departmentDetailSource, /:group-qr-titles="department\.groupQrTitles"/)
   assert.match(contactPanelSource, /v-for="phone in phoneContacts"/)
 })
 

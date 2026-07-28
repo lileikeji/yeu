@@ -57,6 +57,19 @@ function listValues(key: string): string[] {
   return value ? value.split('\n').map(item => item.trim()).filter(Boolean) : []
 }
 
+function imageTitleKey(key: string): string | null {
+  if (key === 'metadata.groupQrUrls') return 'metadata.groupQrTitles'
+  if (key === 'metadata.contactQrUrls') return 'metadata.contactQrTitles'
+  return null
+}
+
+function imageTitleValues(key: string): string[] {
+  const titleKey = imageTitleKey(key)
+  if (!titleKey) return []
+  const value = inputValue(titleKey)
+  return value === '' ? [] : value.split('\n')
+}
+
 function phoneListValues(key: string): string[] {
   const value = inputValue(key)
   return value === '' ? [''] : value.split('\n')
@@ -82,6 +95,12 @@ function removeImageListItem(key: string, index: number): void {
   const items = listValues(key)
   items.splice(index, 1)
   emit('updateField', key, items.join('\n'))
+  const titleKey = imageTitleKey(key)
+  if (titleKey) {
+    const titles = imageTitleValues(key)
+    titles.splice(index, 1)
+    emit('updateField', titleKey, titles.join('\n'))
+  }
 }
 
 async function uploadImage(key: string, event: Event): Promise<void> {
@@ -133,7 +152,15 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
       })
       return result.url
     }))
-    emit('updateField', key, [...new Set([...existing, ...uploaded])].join('\n'))
+    const nextUrls = [...new Set([...existing, ...uploaded])]
+    emit('updateField', key, nextUrls.join('\n'))
+    const titleKey = imageTitleKey(key)
+    if (titleKey) {
+      const titles = imageTitleValues(key)
+      while (titles.length < existing.length) titles.push('')
+      titles.push(...Array.from({ length: nextUrls.length - existing.length }, () => ''))
+      emit('updateField', titleKey, titles.join('\n'))
+    }
   } catch {
     state.error = '上传失败，请确认图片为 PNG、JPEG 或 WebP，且每张不超过 5MB。'
   } finally {
@@ -212,11 +239,12 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                     :key="url"
                     class="rounded-md border border-zinc-200 bg-zinc-50 p-3"
                   >
-                    <img
+                    <ImagePreviewButton
                       :src="url"
                       :alt="`${field.label}第 ${index + 1} 张预览`"
-                      class="mx-auto aspect-square w-full max-w-40 rounded-md border border-zinc-200 bg-white object-contain"
-                    >
+                      button-class="mx-auto aspect-square w-full max-w-40 rounded-md border border-zinc-200 bg-white"
+                      image-class="size-full object-contain"
+                    />
                     <div class="mt-2 flex items-center justify-between gap-2">
                       <span class="text-xs font-medium text-zinc-500">
                         第 {{ index + 1 }} 张
@@ -348,7 +376,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                 />
               </div>
               <UTextarea
-                v-else-if="field.type === 'textarea' || field.type === 'json'"
+                v-else-if="field.type === 'textarea' || field.type === 'text-list' || field.type === 'json'"
                 :model-value="inputValue(field.key)"
                 :placeholder="field.placeholder"
                 :rows="field.rows ?? (field.type === 'json' ? 10 : 4)"

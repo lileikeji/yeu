@@ -226,8 +226,10 @@ export interface PublicDepartmentView {
   featuredSummary: string | null
   groupQrUrl: string | null
   groupQrUrls: string[]
+  groupQrTitles: string[]
   contactQrUrl: string | null
   contactQrUrls: string[]
+  contactQrTitles: string[]
   contactName: string | null
   contactPhone: string | null
   contactPhones: string[]
@@ -254,8 +256,10 @@ export interface PublicClubView {
   featuredSummary: string | null
   groupQrUrl: string | null
   groupQrUrls: string[]
+  groupQrTitles: string[]
   contactQrUrl: string | null
   contactQrUrls: string[]
+  contactQrTitles: string[]
   contactName: string | null
   contactPhone: string | null
   contactPhones: string[]
@@ -330,6 +334,14 @@ function metadataStringArray(content: ApiContent, key: string, legacyKey?: strin
     ...items.map(item => item.trim()).filter(Boolean),
     ...(legacyValue ? [legacyValue] : [])
   ])]
+}
+
+function metadataIndexedStringArray(content: ApiContent, key: string, length: number): string[] {
+  const value = content.metadata[key]
+  if (!Array.isArray(value)) return Array.from({ length }, () => '')
+  return Array.from({ length }, (_, index) => (
+    typeof value[index] === 'string' ? value[index].trim() : ''
+  ))
 }
 
 function metadataSignupQa(content: ApiContent): PublicClubSignupQa[] {
@@ -764,6 +776,8 @@ function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): Pu
   const metadataWebsite = metadataString(content, 'website')
   const groupQrUrls = metadataUploadedImageUrls(content, 'groupQrUrls', 'groupQrUrl')
   const contactQrUrls = metadataUploadedImageUrls(content, 'contactQrUrls', 'contactQrUrl')
+  const groupQrTitles = metadataIndexedStringArray(content, 'groupQrTitles', groupQrUrls.length)
+  const contactQrTitles = metadataIndexedStringArray(content, 'contactQrTitles', contactQrUrls.length)
   const contactPhones = metadataStringArray(content, 'contactPhones', 'contactPhone')
   const boxes = metadataContentBoxes(content)
 
@@ -788,8 +802,10 @@ function apiDepartmentToView(content: ApiContent, seed?: OfficialDepartment): Pu
     featuredSummary: metadataString(content, 'featuredSummary'),
     groupQrUrl: groupQrUrls[0] ?? null,
     groupQrUrls,
+    groupQrTitles,
     contactQrUrl: contactQrUrls[0] ?? null,
     contactQrUrls,
+    contactQrTitles,
     contactName: metadataString(content, 'contactName'),
     contactPhone: contactPhones.join(' / ') || null,
     contactPhones,
@@ -825,8 +841,10 @@ export function mergePublicDepartments(
       featuredSummary: null,
       groupQrUrl: null,
       groupQrUrls: [],
+      groupQrTitles: [],
       contactQrUrl: null,
       contactQrUrls: [],
+      contactQrTitles: [],
       contactName: null,
       contactPhone: null,
       contactPhones: [],
@@ -844,6 +862,8 @@ export function mergePublicDepartments(
 function apiClubToView(content: ApiContent): PublicClubView {
   const groupQrUrls = metadataUploadedImageUrls(content, 'groupQrUrls', 'groupQrUrl')
   const contactQrUrls = metadataUploadedImageUrls(content, 'contactQrUrls', 'contactQrUrl')
+  const groupQrTitles = metadataIndexedStringArray(content, 'groupQrTitles', groupQrUrls.length)
+  const contactQrTitles = metadataIndexedStringArray(content, 'contactQrTitles', contactQrUrls.length)
   const contactPhones = metadataStringArray(content, 'contactPhones', 'contactPhone')
   const signupQuestions = metadataStringArray(content, 'signupQuestions')
   const configuredSignupQa = metadataSignupQa(content)
@@ -873,8 +893,10 @@ function apiClubToView(content: ApiContent): PublicClubView {
     featuredSummary: metadataString(content, 'featuredSummary'),
     groupQrUrl: groupQrUrls[0] ?? null,
     groupQrUrls,
+    groupQrTitles,
     contactQrUrl: contactQrUrls[0] ?? null,
     contactQrUrls,
+    contactQrTitles,
     contactName: metadataString(content, 'contactName'),
     contactPhone: contactPhones.join(' / ') || null,
     contactPhones,
@@ -907,8 +929,10 @@ function staticClubToView(club: OfficialClub): PublicClubView {
     featuredSummary: null,
     groupQrUrl: null,
     groupQrUrls: [],
+    groupQrTitles: [],
     contactQrUrl: null,
     contactQrUrls: [],
+    contactQrTitles: [],
     contactName: null,
     contactPhone: null,
     contactPhones: [],

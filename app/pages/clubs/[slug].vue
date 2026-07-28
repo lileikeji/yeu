@@ -335,8 +335,10 @@ async function copyContactAction(value: string): Promise<void> {
         <PublicCommunityContactPanel
           :group-qr-url="club.groupQrUrl"
           :group-qr-urls="club.groupQrUrls"
+          :group-qr-titles="club.groupQrTitles"
           :contact-qr-url="club.contactQrUrl"
           :contact-qr-urls="club.contactQrUrls"
+          :contact-qr-titles="club.contactQrTitles"
           :contact-name="club.contactName"
           :contact-phone="club.contactPhone"
           :contact-phones="club.contactPhones"

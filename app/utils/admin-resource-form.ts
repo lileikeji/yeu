@@ -220,7 +220,7 @@ export function initializeAdminResourceForm(
     if (field.type === 'date') value = toAdminResourceInputDate(value, false)
     if (field.type === 'datetime-local') value = toAdminResourceInputDate(value, true)
     if (field.type === 'json') value = serializeAdminResourceJsonField(value)
-    if ((field.type === 'image-list' || field.type === 'tel-list') && Array.isArray(value)) {
+    if ((field.type === 'image-list' || field.type === 'tel-list' || field.type === 'text-list') && Array.isArray(value)) {
       value = value.filter(item => typeof item === 'string').join('\n')
     }
 
@@ -278,6 +278,13 @@ export function normalizeAdminResourceFieldValue(
       .split('\n')
       .map(item => item.trim())
       .filter(Boolean))]
+  }
+
+  if (field.type === 'text-list') {
+    if (typeof value !== 'string' || value === '') return []
+    const items = value.split('\n').map(item => item.trim())
+    while (items.at(-1) === '') items.pop()
+    return items
   }
 
   return value

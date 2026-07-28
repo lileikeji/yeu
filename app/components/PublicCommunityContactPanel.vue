@@ -4,8 +4,10 @@ import { parsePublicPhoneContacts } from '~/utils/public-phone-contact'
 const props = defineProps<{
   groupQrUrl?: string | null
   groupQrUrls?: string[] | null
+  groupQrTitles?: string[] | null
   contactQrUrl?: string | null
   contactQrUrls?: string[] | null
+  contactQrTitles?: string[] | null
   contactName?: string | null
   contactPhone?: string | null
   contactPhones?: string[] | null
@@ -30,6 +32,18 @@ const hasContent = computed(() => Boolean(
   groupQrUrls.value.length || contactQrUrls.value.length || props.contactName || phoneContacts.value.length
 ))
 const { copyText } = useShareActions()
+
+function groupQrTitle(index: number): string {
+  const customTitle = props.groupQrTitles?.[index]?.trim()
+  if (customTitle) return customTitle
+  return groupQrUrls.value.length > 1 ? `招新与群聊二维码 ${index + 1}` : '招新与群聊二维码'
+}
+
+function contactQrTitle(index: number): string {
+  const customTitle = props.contactQrTitles?.[index]?.trim()
+  if (customTitle) return customTitle
+  return `${props.contactName || '负责人'}二维码${contactQrUrls.value.length > 1 ? ` ${index + 1}` : ''}`
+}
 
 async function copyPhone(value: string): Promise<void> {
   await copyText(value, '负责人电话')
@@ -65,13 +79,14 @@ async function copyPhone(value: string): Promise<void> {
             name="i-lucide-messages-square"
             class="size-4 text-green-700"
           />
-          {{ groupQrUrls.length > 1 ? `招新与群聊二维码 ${index + 1}` : '招新与群聊二维码' }}
+          {{ groupQrTitle(index) }}
         </figcaption>
-        <img
+        <ImagePreviewButton
           :src="qrUrl"
-          :alt="`招新与群聊二维码第 ${index + 1} 张`"
-          class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 bg-white object-contain"
-        >
+          :alt="groupQrTitle(index)"
+          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 bg-white"
+          image-class="size-full object-contain"
+        />
       </figure>
       <figure
         v-for="(qrUrl, index) in contactQrUrls"
@@ -83,13 +98,14 @@ async function copyPhone(value: string): Promise<void> {
             name="i-lucide-user-round"
             class="size-4 text-green-700"
           />
-          {{ contactName || '负责人' }}二维码{{ contactQrUrls.length > 1 ? ` ${index + 1}` : '' }}
+          {{ contactQrTitle(index) }}
         </figcaption>
-        <img
+        <ImagePreviewButton
           :src="qrUrl"
-          :alt="`${contactName || '负责人'}二维码第 ${index + 1} 张`"
-          class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 bg-white object-contain"
-        >
+          :alt="contactQrTitle(index)"
+          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 bg-white"
+          image-class="size-full object-contain"
+        />
       </figure>
     </div>
 
