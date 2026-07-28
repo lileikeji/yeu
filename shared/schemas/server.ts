@@ -754,6 +754,59 @@ export const adminAssistantRunsQuerySchema = paginationQuerySchema.extend({
   success: z.enum(['true', 'false']).optional()
 })
 
+const knowledgePublicUrlSchema = z.union([
+  httpUrlSchema,
+  localPagePathSchema,
+  z.literal(''),
+  z.null()
+]).optional()
+
+const knowledgeClaimSourceSchema = z.object({
+  sourceId: z.string().uuid(),
+  documentId: z.union([z.string().uuid(), z.null()]).optional(),
+  evidenceQuote: z.string().trim().max(4000).default(''),
+  locator: z.string().trim().max(500).default(''),
+  isPrimary: z.boolean().default(false)
+}).strict()
+
+const knowledgeClaimFields = {
+  category: z.string().trim().min(1).max(80),
+  title: z.string().trim().min(2).max(200),
+  statement: z.string().trim().min(4).max(20_000),
+  keywords: z.array(z.string().trim().min(1).max(80)).max(100),
+  confidenceLabel: z.enum(['extracted', 'inferred', 'ambiguous', 'unverified']),
+  confidenceScore: z.number().int().min(0).max(100),
+  reviewStatus: z.enum(['draft', 'review', 'published', 'rejected', 'archived']),
+  publicUrl: knowledgePublicUrlSchema,
+  sourceNote: z.string().trim().max(4000),
+  validFrom: nullableDateSchema,
+  validUntil: nullableDateSchema,
+  supersedesClaimId: nullableUuidSchema,
+  sources: z.array(knowledgeClaimSourceSchema).max(20)
+}
+
+export const createKnowledgeClaimSchema = z.object({
+  ...knowledgeClaimFields,
+  keywords: knowledgeClaimFields.keywords.default([]),
+  confidenceLabel: knowledgeClaimFields.confidenceLabel.default('unverified'),
+  confidenceScore: knowledgeClaimFields.confidenceScore.default(50),
+  reviewStatus: knowledgeClaimFields.reviewStatus.default('draft'),
+  sourceNote: knowledgeClaimFields.sourceNote.default(''),
+  sources: knowledgeClaimFields.sources.default([])
+}).strict()
+
+export const updateKnowledgeClaimSchema = z.object(knowledgeClaimFields)
+  .partial()
+  .strict()
+  .refine(value => Object.keys(value).length > 0, 'At least one field is required')
+
+export const adminKnowledgeClaimsQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(['draft', 'review', 'published', 'rejected', 'archived']).optional(),
+  confidenceLabel: z.enum(['extracted', 'inferred', 'ambiguous', 'unverified']).optional(),
+  category: z.string().trim().max(80).optional(),
+  issue: z.enum(['missing-source', 'expired', 'unverified', 'conflict']).optional()
+})
+
 export const createVisitorBanSchema = z.object({
   scope: z.enum(['ip', 'visitor', 'user']),
   value: z.string().trim().min(1).max(200),

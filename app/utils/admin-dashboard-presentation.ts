@@ -94,6 +94,15 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     group: 'content'
   },
   {
+    key: 'knowledge',
+    label: '知识库',
+    icon: 'i-lucide-brain-circuit',
+    endpoint: '/api/admin/knowledge',
+    to: '/admin/knowledge',
+    color: 'text-teal-700 bg-teal-50',
+    group: 'content'
+  },
+  {
     key: 'feedback',
     label: '待处理反馈',
     icon: 'i-lucide-message-square-warning',
@@ -156,6 +165,7 @@ export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '新增内容', icon: 'i-lucide-file-plus-2', to: '/admin/content?action=create', group: 'content' },
   { label: '新增流程', icon: 'i-lucide-list-plus', to: '/admin/procedures?action=create', group: 'content' },
   { label: '登记来源', icon: 'i-lucide-book-plus', to: '/admin/sources?action=create', group: 'content' },
+  { label: '新增知识', icon: 'i-lucide-file-plus-2', to: '/admin/knowledge?action=create', group: 'content' },
   { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations', group: 'content' },
   { label: '处理反馈', icon: 'i-lucide-message-square-reply', to: '/admin/feedback', group: 'ops' },
   { label: '创建账号', icon: 'i-lucide-user-plus', to: '/admin/users', group: 'ops' },
@@ -183,7 +193,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations' },
       { label: '办事流程', icon: 'i-lucide-list-checks', to: '/admin/procedures' },
       { label: '内容', icon: 'i-lucide-files', to: '/admin/content' },
-      { label: '来源', icon: 'i-lucide-book-marked', to: '/admin/sources' }
+      { label: '来源', icon: 'i-lucide-book-marked', to: '/admin/sources' },
+      { label: '知识库', icon: 'i-lucide-brain-circuit', to: '/admin/knowledge' }
     ]
   },
   {

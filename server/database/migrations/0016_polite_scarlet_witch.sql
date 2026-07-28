@@ -1,0 +1,1 @@
+ALTER TABLE `knowledge_claims` ADD `keywords_json` text DEFAULT '[]' NOT NULL;

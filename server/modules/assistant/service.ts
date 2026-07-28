@@ -49,6 +49,7 @@ import {
   procedureSteps
 } from '../../database/schema'
 import { activePublicContentCondition } from '../content/visibility'
+import { searchOfficialKnowledgeDocuments, searchPublishedKnowledgeClaims } from '../knowledge/service'
 import { activePublicProcedureCondition } from '../procedures/service'
 import {
   fetchAmapTransitPlan,
@@ -114,6 +115,25 @@ const QUESTION_FILLERS = [
   '是否', '为什么', '谁负责', '流程是什么', '怎么申请', '怎么办理', '怎么去', '怎么走',
   '仰恩大学', '仰恩', '这个学校', '学校', '有没有', '有无'
 ] as const
+
+const QUERY_ANCHOR_FILLERS = [
+  ...QUESTION_FILLERS,
+  '有什么条件', '有哪些条件', '需要哪些条件', '需要什么条件',
+  '有什么要求', '有哪些要求', '需要哪些要求', '需要什么要求',
+  '要求是什么', '条件是什么', '规则是什么', '流程是什么',
+  '有什么', '有哪些', '是什么', '买多大', '选多大', '准备多大',
+  '应该', '应当', '可以', '需要', '想要', '想买', '准备买',
+  '具体', '相关', '最新', '现在', '当前'
+] as const
+
+const QUERY_ANCHOR_ASPECTS = new Set([
+  '条件', '要求', '规则', '流程', '时间', '地点', '入口', '介绍', '信息',
+  '详情', '办法', '方式', '方法', '价格', '费用', '标准', '材料', '名单',
+  '申请', '办理', '查询', '查看', '了解'
+])
+
+const QUERY_ANCHOR_SUFFIXES = [...QUERY_ANCHOR_ASPECTS]
+  .sort((left, right) => right.length - left.length)
 
 const TERM_EXPANSIONS: Record<string, string[]> = {
   宿舍: ['住宿', '宿舍楼', '寝室'],
@@ -428,6 +448,66 @@ function assistantQueryProfile(value: string): AssistantQueryProfile {
   }
 }
 
+function assistantQueryAnchors(value: string): string[] {
+  let normalized = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
+  for (const filler of [...QUERY_ANCHOR_FILLERS].sort((left, right) => right.length - left.length)) {
+    normalized = normalized.replaceAll(filler, ' ')
+  }
+
+  const anchors = normalized
+    .replace(/[?？!！,，。；;：:、()（）【】]/g, ' ')
+    .split(/\s+/)
+    .map((item) => {
+      let anchor = item.trim().replace(/^的+|的+$/gu, '')
+      for (const suffix of QUERY_ANCHOR_SUFFIXES) {
+        if (anchor.endsWith(suffix) && anchor.length - suffix.length >= 2) {
+          anchor = anchor.slice(0, -suffix.length)
+          break
+        }
+      }
+      return anchor
+    })
+    .filter(anchor => anchor.length >= 2 && !QUERY_ANCHOR_ASPECTS.has(anchor))
+
+  return [...new Set(anchors)].slice(0, 6)
+}
+
+function evidenceAnchorPosition(value: string, anchor: string): number | null {
+  const candidates = new Set([anchor])
+  for (const [key, expansions] of Object.entries(TERM_EXPANSIONS)) {
+    if (anchor.includes(key) || key.includes(anchor)) expansions.forEach(term => candidates.add(term.toLocaleLowerCase('zh-CN')))
+  }
+  const exactPositions = [...candidates]
+    .map(term => value.indexOf(term))
+    .filter(position => position >= 0)
+  if (exactPositions.length > 0) return Math.min(...exactPositions)
+  if (anchor.length < 3) return null
+
+  const positions = Array.from({ length: anchor.length - 1 }, (_, index) => anchor.slice(index, index + 2))
+    .map(term => value.indexOf(term))
+    .filter(position => position >= 0)
+  return positions.length >= 2 && Math.max(...positions) - Math.min(...positions) <= 160
+    ? Math.min(...positions)
+    : null
+}
+
+function evidenceCoversQuerySubject(query: string, item: AssistantEvidence): boolean {
+  const anchors = assistantQueryAnchors(query)
+  if (anchors.length === 0) return true
+  const value = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+  const positions = anchors
+    .map(anchor => evidenceAnchorPosition(value, anchor))
+    .filter((position): position is number => position !== null)
+    .sort((left, right) => left - right)
+  const required = Math.min(2, anchors.length)
+  if (positions.length < required) return false
+  if (required === 1) return true
+  return positions.some((position, index) => {
+    const next = positions[index + required - 1]
+    return next !== undefined && next - position <= 240
+  })
+}
+
 function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): boolean {
   const normalizedSubject = subject.toLocaleLowerCase('zh-CN')
   const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
@@ -457,7 +537,12 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
     }
     if (profile.intent === 'scholarship' && /奖学金|助学金/.test(title)) score += 8
     if (profile.intent === 'gpa' && /绩点|gpa/.test(title)) score += 8
-    return { ...item, score }
+    const subjectCovered = profile.intent === 'feature'
+      || profile.intent === 'gpa'
+      || profile.intent === 'identity'
+      || score >= 12
+      || evidenceCoversQuerySubject(query, item)
+    return { ...item, score: subjectCovered ? score : 0 }
   }).filter(item => item.score > 0)
   const deduped = ranked
     .sort((left, right) => right.score - left.score)
@@ -1138,8 +1223,26 @@ export function retrieveCampusEvidence(
   const seedEvidence = seedCatalogEvidenceForQuery(query, limit)
   const studentRuleEvidence = studentRuleEvidenceForQuery(query, limit)
   const assistantKnowledgeEvidence = assistantKnowledgeEvidenceForQuery(client, query, limit)
+  const compiledKnowledgeEvidence: AssistantEvidence[] = searchPublishedKnowledgeClaims(client, terms, limit)
+    .map(item => ({
+      title: item.title,
+      url: item.url,
+      snippet: safeText(item.statement, 500),
+      source: 'site' as const,
+      text: item.statement,
+      score: item.score
+    }))
+  const officialDocumentEvidence: AssistantEvidence[] = searchOfficialKnowledgeDocuments(client, terms, limit, query)
+    .map(item => ({
+      title: item.title,
+      url: item.url,
+      snippet: safeText(item.excerpt, 900),
+      source: 'site' as const,
+      text: item.excerpt,
+      score: item.score
+    }))
 
-  const ranked = [...featureEvidence, ...assistantKnowledgeEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
+  const ranked = [...featureEvidence, ...compiledKnowledgeEvidence, ...officialDocumentEvidence, ...assistantKnowledgeEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
     .filter((item, index, items) => items.findIndex(candidate => candidate.url === item.url) === index)
@@ -1652,6 +1755,7 @@ export function cachedWebEvidenceForQuery(
     eq(assistantWebKnowledge.status, 'active'),
     gt(assistantWebKnowledge.expiresAt, now)
   )).orderBy(desc(assistantWebKnowledge.fetchedAt)).limit(limit).all()
+  const exactQueryMatch = rows.length > 0
 
   if (rows.length === 0) {
     const terms = assistantQueryTerms(assistantRetrievalQuery(query))
@@ -1687,7 +1791,11 @@ export function cachedWebEvidenceForQuery(
     }))
     .filter((item): item is { row: typeof rows[number], citation: ApiAssistantCitation } => Boolean(item.citation))
 
-  return rankAssistantEvidence(query, sanitizedRows.map(({ row, citation }) => ({
+  if (exactQueryMatch && !assistantIdentitySubject(query)) {
+    return sanitizedRows.slice(0, limit).map(item => item.citation)
+  }
+
+  return rankAssistantEvidence(assistantRetrievalQuery(query), sanitizedRows.map(({ row, citation }) => ({
     ...citation,
     text: `${citation.title} ${citation.snippet}`,
     score: evidenceScore(

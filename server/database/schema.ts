@@ -577,6 +577,159 @@ export const assistantKnowledgeEntries = sqliteTable('assistant_knowledge_entrie
   check('assistant_knowledge_confidence_check', sql`${table.confidence} between 0 and 100`)
 ])
 
+export const knowledgeDocuments = sqliteTable('knowledge_documents', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').references(() => sources.id, { onDelete: 'set null' }),
+  kind: text('kind', {
+    enum: ['webpage', 'pdf', 'document', 'spreadsheet', 'chat_export', 'manual', 'api']
+  }).notNull(),
+  title: text('title').notNull(),
+  originalUrl: text('original_url'),
+  storagePath: text('storage_path'),
+  mimeType: text('mime_type'),
+  contentHash: text('content_hash').notNull(),
+  extractedText: text('extracted_text').notNull().default(''),
+  metadataJson: text('metadata_json').notNull().default('{}'),
+  status: text('status', {
+    enum: ['imported', 'processing', 'ready', 'failed', 'archived']
+  }).notNull().default('imported'),
+  capturedAt: integer('captured_at').notNull(),
+  processedAt: integer('processed_at'),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('knowledge_documents_origin_hash_unique').on(table.originalUrl, table.contentHash),
+  index('knowledge_documents_hash_idx').on(table.contentHash),
+  index('knowledge_documents_status_captured_idx').on(table.status, table.capturedAt),
+  index('knowledge_documents_source_idx').on(table.sourceId),
+  check('knowledge_documents_kind_check', sql`${table.kind} in ('webpage', 'pdf', 'document', 'spreadsheet', 'chat_export', 'manual', 'api')`),
+  check('knowledge_documents_status_check', sql`${table.status} in ('imported', 'processing', 'ready', 'failed', 'archived')`)
+])
+
+export const knowledgeCrawlQueue = sqliteTable('knowledge_crawl_queue', {
+  url: text('url').primaryKey(),
+  hostname: text('hostname').notNull(),
+  label: text('label').notNull().default(''),
+  depth: integer('depth').notNull().default(0),
+  discoveredFrom: text('discovered_from'),
+  priority: integer('priority').notNull().default(0),
+  status: text('status', { enum: ['pending', 'processing', 'completed', 'failed'] }).notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  lastAttemptAt: integer('last_attempt_at'),
+  nextAttemptAt: integer('next_attempt_at'),
+  lastError: text('last_error').notNull().default(''),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('knowledge_crawl_queue_status_priority_idx').on(table.status, table.priority, table.createdAt),
+  index('knowledge_crawl_queue_retry_idx').on(table.status, table.nextAttemptAt),
+  index('knowledge_crawl_queue_host_idx').on(table.hostname, table.status),
+  check('knowledge_crawl_queue_status_check', sql`${table.status} in ('pending', 'processing', 'completed', 'failed')`),
+  check('knowledge_crawl_queue_depth_check', sql`${table.depth} >= 0`),
+  check('knowledge_crawl_queue_attempts_check', sql`${table.attempts} >= 0`)
+])
+
+export const knowledgeEntities = sqliteTable('knowledge_entities', {
+  id: text('id').primaryKey(),
+  entityType: text('entity_type', {
+    enum: ['person', 'major', 'college', 'place', 'policy', 'procedure', 'organization', 'term', 'other']
+  }).notNull(),
+  canonicalName: text('canonical_name').notNull(),
+  normalizedName: text('normalized_name').notNull(),
+  aliasesJson: text('aliases_json').notNull().default('[]'),
+  summary: text('summary').notNull().default(''),
+  status: text('status', { enum: ['active', 'merged', 'archived'] }).notNull().default('active'),
+  mergedIntoId: text('merged_into_id').references((): AnySQLiteColumn => knowledgeEntities.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('knowledge_entities_type_name_unique').on(table.entityType, table.normalizedName),
+  index('knowledge_entities_status_type_idx').on(table.status, table.entityType),
+  check('knowledge_entities_type_check', sql`${table.entityType} in ('person', 'major', 'college', 'place', 'policy', 'procedure', 'organization', 'term', 'other')`),
+  check('knowledge_entities_status_check', sql`${table.status} in ('active', 'merged', 'archived')`)
+])
+
+export const knowledgeClaims = sqliteTable('knowledge_claims', {
+  id: text('id').primaryKey(),
+  category: text('category').notNull(),
+  title: text('title').notNull(),
+  statement: text('statement').notNull(),
+  keywordsJson: text('keywords_json').notNull().default('[]'),
+  searchText: text('search_text').notNull().default(''),
+  confidenceLabel: text('confidence_label', {
+    enum: ['extracted', 'inferred', 'ambiguous', 'unverified']
+  }).notNull().default('unverified'),
+  confidenceScore: integer('confidence_score').notNull().default(50),
+  reviewStatus: text('review_status', {
+    enum: ['draft', 'review', 'published', 'rejected', 'archived']
+  }).notNull().default('draft'),
+  publicUrl: text('public_url'),
+  sourceNote: text('source_note').notNull().default(''),
+  validFrom: integer('valid_from'),
+  validUntil: integer('valid_until'),
+  publishedAt: integer('published_at'),
+  reviewedAt: integer('reviewed_at'),
+  reviewedByAdminId: text('reviewed_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  supersedesClaimId: text('supersedes_claim_id').references((): AnySQLiteColumn => knowledgeClaims.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('knowledge_claims_review_category_idx').on(table.reviewStatus, table.category),
+  index('knowledge_claims_validity_idx').on(table.reviewStatus, table.validFrom, table.validUntil),
+  check('knowledge_claims_confidence_label_check', sql`${table.confidenceLabel} in ('extracted', 'inferred', 'ambiguous', 'unverified')`),
+  check('knowledge_claims_confidence_score_check', sql`${table.confidenceScore} between 0 and 100`),
+  check('knowledge_claims_review_status_check', sql`${table.reviewStatus} in ('draft', 'review', 'published', 'rejected', 'archived')`),
+  check('knowledge_claims_valid_range_check', sql`${table.validUntil} is null or ${table.validFrom} is null or ${table.validUntil} >= ${table.validFrom}`),
+  check('knowledge_claims_published_at_check', sql`${table.reviewStatus} <> 'published' or ${table.publishedAt} is not null`)
+])
+
+export const knowledgeClaimSources = sqliteTable('knowledge_claim_sources', {
+  id: text('id').primaryKey(),
+  claimId: text('claim_id').notNull().references(() => knowledgeClaims.id, { onDelete: 'cascade' }),
+  sourceId: text('source_id').references(() => sources.id, { onDelete: 'set null' }),
+  documentId: text('document_id').references(() => knowledgeDocuments.id, { onDelete: 'set null' }),
+  evidenceQuote: text('evidence_quote').notNull().default(''),
+  locator: text('locator').notNull().default(''),
+  isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('knowledge_claim_sources_claim_idx').on(table.claimId, table.isPrimary),
+  index('knowledge_claim_sources_source_idx').on(table.sourceId),
+  index('knowledge_claim_sources_document_idx').on(table.documentId),
+  check('knowledge_claim_sources_reference_check', sql`${table.sourceId} is not null or ${table.documentId} is not null`)
+])
+
+export const knowledgeClaimEntities = sqliteTable('knowledge_claim_entities', {
+  claimId: text('claim_id').notNull().references(() => knowledgeClaims.id, { onDelete: 'cascade' }),
+  entityId: text('entity_id').notNull().references(() => knowledgeEntities.id, { onDelete: 'cascade' }),
+  role: text('role', { enum: ['subject', 'object', 'mentioned'] }).notNull().default('mentioned'),
+  createdAt: timestamp('created_at')
+}, table => [
+  primaryKey({ columns: [table.claimId, table.entityId, table.role] }),
+  index('knowledge_claim_entities_entity_idx').on(table.entityId, table.role),
+  check('knowledge_claim_entities_role_check', sql`${table.role} in ('subject', 'object', 'mentioned')`)
+])
+
+export const knowledgeConflicts = sqliteTable('knowledge_conflicts', {
+  id: text('id').primaryKey(),
+  leftClaimId: text('left_claim_id').notNull().references(() => knowledgeClaims.id, { onDelete: 'cascade' }),
+  rightClaimId: text('right_claim_id').notNull().references(() => knowledgeClaims.id, { onDelete: 'cascade' }),
+  reason: text('reason').notNull(),
+  status: text('status', { enum: ['open', 'resolved', 'dismissed'] }).notNull().default('open'),
+  resolutionNote: text('resolution_note').notNull().default(''),
+  resolvedAt: integer('resolved_at'),
+  resolvedByAdminId: text('resolved_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('knowledge_conflicts_pair_unique').on(table.leftClaimId, table.rightClaimId),
+  index('knowledge_conflicts_status_idx').on(table.status, table.createdAt),
+  check('knowledge_conflicts_status_check', sql`${table.status} in ('open', 'resolved', 'dismissed')`),
+  check('knowledge_conflicts_distinct_claims_check', sql`${table.leftClaimId} <> ${table.rightClaimId}`)
+])
+
 export const assistantRuns = sqliteTable('assistant_runs', {
   id: text('id').primaryKey(),
   requestId: text('request_id').notNull(),
