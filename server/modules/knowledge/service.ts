@@ -413,7 +413,7 @@ function relevantExcerpt(value: string, terms: string[], limit = 900): string {
 
 function documentCoreQueryTerms(value: string): string[] {
   const normalized = value.toLocaleLowerCase('zh-CN')
-    .replace(/(?:请问|麻烦|帮我|告诉我|想知道|怎么样|怎么|如何|为什么|为啥|什么时候|什么|是否|能不能|可不可以|可以|需要|一下|呢|吗|呀|啊)/gu, ' ')
+    .replace(/(?:仰恩大学|这个学校|学校|请问|麻烦|帮我|告诉我|想知道|怎么样|怎么|如何|为什么|为啥|什么时候|有多少人|多少人|有多少|多少|什么|是否|能不能|可不可以|可以|需要|一下|里面|其中|里|呢|吗|呀|啊)/gu, ' ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
   return [...new Set(normalized.split(/\s+/).map(term => term.trim()).filter(term => term.length >= 2))].slice(0, 6)
 }
@@ -517,10 +517,16 @@ export function searchOfficialKnowledgeDocuments(
     if (!strongMatch) return null
     const relevance = titleMatches.reduce((score, term) => score + 10 + term.length * 3, 0)
       + textMatches.reduce((score, term) => score + 2 + Math.min(8, term.length), 0)
+    const answerCoreTerms = corePositions
+      .map(item => item.term)
+      .filter(term => !title.includes(term))
+    const excerptTerms = answerCoreTerms.length > 0
+      ? answerCoreTerms
+      : (corePositions.length > 0 ? corePositions.map(item => item.term) : (textMatches.length > 0 ? textMatches : terms))
     return {
       id: row.id,
       title: row.title,
-      excerpt: relevantExcerpt(row.extractedText, corePositions.length > 0 ? corePositions.map(item => item.term) : (textMatches.length > 0 ? textMatches : terms)),
+      excerpt: relevantExcerpt(row.extractedText, excerptTerms),
       url: row.url,
       capturedAt: row.capturedAt,
       score: 20 + relevance + Math.min(26, Math.max(0, -Number(row.ftsRank || 0) * 8))

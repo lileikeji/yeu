@@ -571,7 +571,7 @@ function queryCoreBigrams(value: string): string[] {
     core = core.replaceAll(filler, ' ')
   }
   core = core
-    .replace(/(?:是不是|有没有|可不可以|能不能|好不好|要不要|吗|嘛|呢|呀|啊)/gu, ' ')
+    .replace(/(?:是不是|有没有|可不可以|能不能|好不好|要不要|有多少人|多少人|有多少|有几人|几人|里面|其中|里|有|人|吗|嘛|呢|呀|啊)/gu, ' ')
     .replace(/[?？!！,，。；;：:、()（）【】\s]/g, '')
   if (core.length < 2) return []
   if (core.length === 2) return [core]

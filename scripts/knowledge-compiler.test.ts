@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { retrieveCampusEvidence } from '../server/modules/assistant/service'
+import { assistantQueryTerms, localEvidenceIsSufficient, retrieveCampusEvidence } from '../server/modules/assistant/service'
 import {
   archiveKnowledgeClaim,
   createKnowledgeClaim,
@@ -108,6 +108,31 @@ test('ready A-level official documents are searchable and archived versions are 
       now
     )
     assert.deepEqual(searchOfficialKnowledgeDocuments(value.client, ['新生', '缴费'], 5, '新生怎么缴费'), [])
+    const reportId = '00000000-0000-4000-8000-000000000005'
+    value.client.sqlite.prepare(`
+      INSERT INTO knowledge_documents (
+        id, source_id, kind, title, original_url, mime_type, content_hash,
+        extracted_text, metadata_json, status, captured_at, processed_at, created_at, updated_at
+      ) VALUES (?, ?, 'pdf', ?, ?, 'application/pdf', ?, ?, '{}', 'ready', ?, ?, ?, ?)
+    `).run(
+      reportId,
+      value.sourceId,
+      '仰恩大学本科教学质量报告（含2024年数据）',
+      'https://www.yeu.edu.cn/report-test.pdf',
+      'official-report-document-hash',
+      '本科教育基本情况。学校现有教职工626人，其中专任教师424人，外聘教师数量另行统计。',
+      now,
+      now,
+      now,
+      now
+    )
+    const reportQuery = '仰恩大学本科教学质量报告里专任教师有多少人'
+    const report = searchOfficialKnowledgeDocuments(value.client, assistantQueryTerms(reportQuery), 5, reportQuery)
+    assert.equal(report[0]?.id, reportId)
+    assert.match(report[0]?.excerpt ?? '', /专任教师424人/)
+    const reportEvidence = retrieveCampusEvidence(value.client, reportQuery, 6)
+    assert.equal(reportEvidence[0]?.title, '仰恩大学本科教学质量报告（含2024年数据）')
+    assert.equal(localEvidenceIsSufficient(reportQuery, reportEvidence), true)
     value.client.sqlite.prepare('UPDATE knowledge_documents SET status = \'archived\' WHERE id = ?').run(documentId)
     assert.deepEqual(searchOfficialKnowledgeDocuments(value.client, ['dormitory mattress'], 5), [])
   } finally {
