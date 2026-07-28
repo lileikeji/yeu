@@ -2313,11 +2313,12 @@ export async function answerCampusQuestion(
   }
   const localEvidence = analysis.localEvidence
   const rankedWebEvidence = rankCitationEvidence(query, webEvidence, 8)
-  const evidence = filterEvidenceForIntent(
+  const rankedEvidence = filterEvidenceForIntent(
     query,
     [...localEvidence, ...rankedWebEvidence],
     8
-  ).map(({ text: _text, score: _score, ...item }) => item)
+  )
+  const evidence = rankedEvidence.map(({ text: _text, score: _score, ...item }) => item)
   const response = await runAssistantStage(tracker, 'answer_generation', '整理答案', async () => {
     let model: ModelAnswer
     try {
@@ -2327,7 +2328,13 @@ export async function answerCampusQuestion(
         return blockedAssistantResponse(query)
       }
       if (analysis.requiresSpecificWebEvidence) return dormBedEvidenceGapResponse(query, analysis.localEvidence)
-      throw error
+      if (!rankedEvidence[0]) return localEvidenceGapResponse(query)
+      const fallback = buildLocalResponse(query, rankedEvidence)
+      return {
+        ...fallback,
+        usedWebSearch: fallback.citations.some(item => item.source === 'web'),
+        confidence: Math.min(fallback.confidence, 0.62)
+      }
     }
     const citations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
     return {

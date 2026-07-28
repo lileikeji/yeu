@@ -18,7 +18,8 @@ import {
   assistantQueryTerms,
   isGatewayContentBlocked,
   retrieveCampusEvidence,
-  seedCatalogEvidenceForQuery
+  seedCatalogEvidenceForQuery,
+  storeWebEvidence
 } from '../server/modules/assistant/service'
 
 const root = resolve(import.meta.dirname, '..')
@@ -140,6 +141,51 @@ test('gateway request is canceled when the client abort signal fires', async () 
   } finally {
     globalThis.fetch = originalFetch
   }
+})
+
+test('gateway authentication outages fall back without turning an identity question into an award answer', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-gateway-fallback-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  try {
+    runMigrations(client)
+    storeWebEvidence(client, '宋国富是谁', [{
+      title: '宋国富奖学金评审通知',
+      url: 'https://www.yeu.edu.cn/example-award',
+      snippet: '这是一条奖学金通知，不是宋国富本人的身份资料。',
+      source: 'web'
+    }])
+    globalThis.fetch = async () => new Response(JSON.stringify({ error: { message: 'user inactive' } }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    })
+
+    const response = await answerCampusQuestion(client, '宋国富是谁', {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model'
+    })
+
+    assert.equal(response.mode, 'local')
+    assert.match(response.answer, /内置资料暂时没有找到/)
+    assert.doesNotMatch(response.answer, /奖学金评审通知/)
+    assert.equal(response.citations[0]?.url, '/contact')
+  } finally {
+    globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('assistant admin distinguishes bot origin and hides zero-duration stages', () => {
+  const page = readFileSync(resolve(root, 'app/pages/admin/assistant.vue'), 'utf8')
+  assert.match(page, /QQ 机器人请求，不产生网页访客 IP/)
+  assert.match(page, /AI 中转鉴权失败/)
+  assert.match(page, /\.filter\(stage => stage\.durationMs > 0\)/)
+  assert.match(page, /请求在进入可计时检索阶段前失败/)
+  assert.doesNotMatch(page, /row\.ipAddress \|\| '未记录'/)
 })
 
 test('assistant retrieval ranks opening dates and indexes nested article sections', () => {

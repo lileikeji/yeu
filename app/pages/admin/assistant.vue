@@ -36,6 +36,17 @@ type AssistantRunStats = {
   p95Ms: number
 }
 
+type AssistantStageDurationKey = 'analysisMs' | 'featureApiMs' | 'databaseMs' | 'webCacheMs' | 'webSearchMs' | 'answerMs'
+
+const assistantStageDefinitions: Array<{ key: AssistantStageDurationKey, label: string }> = [
+  { key: 'analysisMs', label: '分析问题' },
+  { key: 'featureApiMs', label: '系统 API' },
+  { key: 'databaseMs', label: '内置数据库' },
+  { key: 'webCacheMs', label: '网页缓存' },
+  { key: 'webSearchMs', label: '网页搜索' },
+  { key: 'answerMs', label: '整理答案' }
+]
+
 const loading = ref(false)
 const errorMessage = ref('')
 const items = ref<AssistantRunRow[]>([])
@@ -84,9 +95,34 @@ function formatPercent(value: number): string {
 }
 
 function formatDuration(value: number): string {
+  if (value <= 0) return '0 秒'
   if (value < 100) return '<0.1 秒'
   if (value < 10_000) return `${(value / 1000).toFixed(1)} 秒`
   return `${Math.round(value / 1000)} 秒`
+}
+
+function visibleStages(row: AssistantRunRow): Array<{ key: AssistantStageDurationKey, label: string, durationMs: number }> {
+  return assistantStageDefinitions
+    .map(stage => ({ ...stage, durationMs: row[stage.key] }))
+    .filter(stage => stage.durationMs > 0)
+}
+
+function requestOrigin(row: AssistantRunRow): string {
+  if (row.requestId.startsWith('bot:qq:')) return 'QQ 机器人请求，不产生网页访客 IP'
+  if (row.requestId.startsWith('bot:wechat:')) return '微信机器人请求，不产生网页访客 IP'
+  return row.ipAddress ? `网页请求 · ${row.ipAddress}` : '网页请求 · IP 未记录'
+}
+
+function errorDescription(code: string): string {
+  const descriptions: Record<string, string> = {
+    AI_GATEWAY_401: 'AI 中转鉴权失败',
+    AI_GATEWAY_403: 'AI 中转拒绝请求',
+    AI_CIRCUIT_OPEN: 'AI 中转连续失败，熔断保护已开启',
+    AI_CONTENT_BLOCKED: '内容安全规则拒绝回答',
+    AI_BUSY: 'AI 当前请求过多',
+    AI_NOT_CONFIGURED: 'AI 中转尚未配置'
+  }
+  return descriptions[code] ?? '问答处理失败'
 }
 
 function formatDate(value: string): string {
@@ -266,16 +302,51 @@ onMounted(() => void loadRuns())
 
           <div v-if="expanded[row.id]" class="mt-3 border-t border-zinc-100 pt-3 text-xs text-zinc-600">
             <dl class="grid gap-x-5 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
-              <div><dt class="text-zinc-400">分析问题</dt><dd class="mt-0.5">{{ formatDuration(row.analysisMs) }}</dd></div>
-              <div><dt class="text-zinc-400">系统 API</dt><dd class="mt-0.5">{{ formatDuration(row.featureApiMs) }}</dd></div>
-              <div><dt class="text-zinc-400">内置数据库</dt><dd class="mt-0.5">{{ formatDuration(row.databaseMs) }}</dd></div>
-              <div><dt class="text-zinc-400">网页缓存</dt><dd class="mt-0.5">{{ formatDuration(row.webCacheMs) }}</dd></div>
-              <div><dt class="text-zinc-400">网页搜索</dt><dd class="mt-0.5">{{ formatDuration(row.webSearchMs) }}</dd></div>
-              <div><dt class="text-zinc-400">整理答案</dt><dd class="mt-0.5">{{ formatDuration(row.answerMs) }}</dd></div>
-              <div><dt class="text-zinc-400">访问 IP</dt><dd class="mt-0.5">{{ row.ipAddress || '未记录' }}</dd></div>
-              <div><dt class="text-zinc-400">请求编号</dt><dd class="mt-0.5" :title="row.requestId">{{ shortValue(row.requestId) }}</dd></div>
+              <div
+                v-for="stage in visibleStages(row)"
+                :key="stage.key"
+              >
+                <dt class="text-zinc-400">
+                  {{ stage.label }}
+                </dt>
+                <dd class="mt-0.5">
+                  {{ formatDuration(stage.durationMs) }}
+                </dd>
+              </div>
+              <div
+                v-if="visibleStages(row).length === 0"
+                class="sm:col-span-2"
+              >
+                <dt class="text-zinc-400">
+                  执行阶段
+                </dt>
+                <dd class="mt-0.5">
+                  请求在进入可计时检索阶段前失败
+                </dd>
+              </div>
+              <div>
+                <dt class="text-zinc-400">
+                  请求来源
+                </dt>
+                <dd class="mt-0.5">
+                  {{ requestOrigin(row) }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-zinc-400">
+                  请求编号
+                </dt>
+                <dd
+                  class="mt-0.5"
+                  :title="row.requestId"
+                >
+                  {{ shortValue(row.requestId) }}
+                </dd>
+              </div>
             </dl>
-            <p v-if="row.errorCode" class="mt-3 text-red-700">错误代码：{{ row.errorCode }}</p>
+            <p v-if="row.errorCode" class="mt-3 text-red-700">
+              {{ errorDescription(row.errorCode) }}（{{ row.errorCode }}）
+            </p>
           </div>
         </li>
       </ul>
