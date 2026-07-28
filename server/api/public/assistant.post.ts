@@ -18,15 +18,15 @@ export default defineEventHandler(async (event) => {
   assertRateLimit(event, 'assistant:global', 80, 60 * 1000, client)
 
   const body = await parseBody(event, assistantQuestionSchema)
+  if (containsPromptInjection(body.q)) {
+    return blockedAssistantResponse(body.q)
+  }
   if (!isQuestionLike(body.q)) {
     throw createError({
       statusCode: 422,
       statusMessage: 'Use regular search for keywords',
       data: { code: 'REGULAR_SEARCH_PREFERRED' }
     })
-  }
-  if (containsPromptInjection(body.q)) {
-    return blockedAssistantResponse(body.q)
   }
 
   const runtime = useRuntimeConfig(event)

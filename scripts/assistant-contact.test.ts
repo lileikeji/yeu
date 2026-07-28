@@ -318,7 +318,9 @@ test('assistant endpoint is server-only, rate limited and excluded from CDN cach
 
   assert.match(route, /assistant:\$\{ipAddress\}.*, 8, 60 \* 1000/)
   assert.match(route, /assistant:global.*, 80, 60 \* 1000/)
+  assert.ok(route.indexOf('containsPromptInjection(body.q)') < route.indexOf('!isQuestionLike(body.q)'))
   assert.match(streamRoute, /createEventStream/)
+  assert.match(streamRoute, /!blocked && !isQuestionLike\(body\.q\)/)
   assert.match(streamRoute, /event: 'stage_started'/)
   assert.match(streamRoute, /event: 'stage_completed'/)
   assert.match(streamRoute, /event: 'heartbeat'/)

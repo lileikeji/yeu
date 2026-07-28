@@ -18,7 +18,8 @@ export default defineEventHandler(async (event) => {
   assertRateLimit(event, 'assistant:global', 80, 60 * 1000, client)
 
   const body = await parseBody(event, assistantQuestionSchema)
-  if (!isQuestionLike(body.q)) {
+  const blocked = containsPromptInjection(body.q)
+  if (!blocked && !isQuestionLike(body.q)) {
     throw createError({
       statusCode: 422,
       statusMessage: 'Use regular search for keywords',
@@ -40,7 +41,7 @@ export default defineEventHandler(async (event) => {
 
   void (async () => {
     try {
-      if (containsPromptInjection(body.q)) {
+      if (blocked) {
         await stream.push({
           event: 'completed',
           data: JSON.stringify(blockedAssistantResponse(body.q))
