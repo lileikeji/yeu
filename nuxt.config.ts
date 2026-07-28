@@ -242,7 +242,10 @@ export default defineNuxtConfig({
       ]
     },
     devOptions: {
-      enabled: true,
+      // Development rebuilds replace .nuxt atomically. Keeping a dev worker
+      // registered makes open tabs request sw.js during that short gap and
+      // leaves Vite's error overlay stuck even after the rebuild recovers.
+      enabled: false,
       type: 'module'
     }
   }
