@@ -55,6 +55,7 @@ test('assistant evidence ranks exact scholarship and GPA questions', () => {
 test('identity questions do not inherit a suffixed rule title', () => {
   const evidence = studentRuleEvidenceForQuery('\u5434\u5e86\u661f\u662f\u8c01')
   assert.equal(evidence.length, 0)
+  assert.deepEqual(studentRuleEvidenceForQuery('请介绍吴庆星的身份和经历？'), [])
 })
 
 test('global RAG ranking ignores related web entries for identity questions', () => {
@@ -70,6 +71,7 @@ test('global RAG ranking ignores related web entries for identity questions', ()
       source: 'web'
     }])
     assert.deepEqual(cachedWebEvidenceForQuery(client, '吴庆星是谁'), [])
+    assert.deepEqual(cachedWebEvidenceForQuery(client, '请介绍吴庆星的身份和经历？'), [])
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
@@ -89,6 +91,10 @@ test('student rule questions use deterministic local answers', async () => {
     const scholarship = await answerCampusQuestion(client, '国家奖学金有什么要求', assistantConfig)
     assert.equal(scholarship.mode, 'local')
     assert.match(scholarship.answer, /前10%/)
+
+    const identity = await answerCampusQuestion(client, '请介绍吴庆星的身份和经历？', assistantConfig)
+    assert.doesNotMatch(identity.answer, /吴庆星奖学金/)
+    assert.ok(identity.citations.every(item => !item.title.includes('吴庆星奖学金')))
 
     const coexistence = await answerCampusQuestion(client, '吴庆星奖学金和仰恩奖学金能一起拿吗', assistantConfig)
     assert.equal(coexistence.mode, 'local')
