@@ -2,14 +2,17 @@ import './load-env'
 import { createHash, randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
+import { load } from 'cheerio'
 import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 
 const USER_AGENT = 'YEU-Freshman-Guide-knowledge-crawler/1.0 (public official-source indexing)'
-const CRAWLER_VERSION = 2
+const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
+const CRAWLER_VERSION = 3
 const MAX_EXTRACTED_LENGTH = 600_000
 const READER_TIMEOUT_MS = 65_000
 const MAX_PDF_BYTES = 50 * 1024 * 1024
+const MAX_HTML_BYTES = 10 * 1024 * 1024
 
 export const DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS = [
   'https://www.yeu.edu.cn/',
@@ -70,7 +73,7 @@ export interface ParsedOfficialDocument {
   links: Array<{ url: string, label: string }>
   kind: 'webpage' | 'pdf' | 'document' | 'spreadsheet'
   mimeType: string
-  extractionMethod: 'jina' | 'pdfjs'
+  extractionMethod: 'jina' | 'pdfjs' | 'direct-html'
 }
 
 export interface OfficialCrawlReport {
@@ -150,6 +153,33 @@ async function fetchReader(value: string, fresh: boolean): Promise<string> {
   throw new Error(lastError instanceof Error ? lastError.message : 'reader request failed')
 }
 
+async function fetchOfficialHtml(value: string, fresh: boolean): Promise<string> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(value, {
+        headers: {
+          'accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1',
+          'user-agent': BROWSER_USER_AGENT,
+          ...(fresh ? { 'cache-control': 'no-cache' } : {})
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(READER_TIMEOUT_MS)
+      })
+      if (!response.ok) throw new Error(`official page returned HTTP ${response.status}`)
+      const declaredLength = Number(response.headers.get('content-length') ?? 0)
+      if (declaredLength > MAX_HTML_BYTES) throw new Error('official page is larger than the 10 MB indexing limit')
+      const html = await response.text()
+      if (Buffer.byteLength(html, 'utf8') > MAX_HTML_BYTES) throw new Error('official page is larger than the 10 MB indexing limit')
+      return html
+    } catch (error) {
+      lastError = error
+      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+    }
+  }
+  throw new Error(lastError instanceof Error ? lastError.message : 'official page request failed')
+}
+
 function markdownLinks(value: string, base: string): Array<{ url: string, label: string }> {
   const links: Array<{ url: string, label: string }> = []
   const add = (rawUrl: string, label: string) => {
@@ -186,6 +216,17 @@ function cleanMarkdown(value: string): string {
     .trim()
   const copyright = content.search(/\n(?:COPYRIGHT|版权所有©?仰恩大学)/i)
   return (copyright > 200 ? content.slice(0, copyright) : content).trim().slice(0, MAX_EXTRACTED_LENGTH)
+}
+
+function cleanDirectText(value: string): string {
+  return value
+    .replace(/\r/g, '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, MAX_EXTRACTED_LENGTH)
 }
 
 function isolateArticleText(value: string, title: string, url: string): string {
@@ -243,7 +284,7 @@ async function fetchPdfBytes(value: string, fresh: boolean, discoveredFrom: stri
       const response = await fetch(value, {
         headers: {
           'accept': 'application/pdf,application/octet-stream;q=0.8,*/*;q=0.1',
-          'user-agent': USER_AGENT,
+          'user-agent': BROWSER_USER_AGENT,
           ...(discoveredFrom ? { referer: discoveredFrom } : {}),
           ...(fresh ? { 'cache-control': 'no-cache' } : {})
         },
@@ -338,6 +379,80 @@ export function parseReaderDocument(value: string, requestedUrl: string): Parsed
     links: markdownLinks(markdown, sourceUrl),
     extractionMethod: 'jina',
     ...documentKind(sourceUrl)
+  }
+}
+
+export function parseOfficialHtml(value: string, requestedUrl: string): ParsedOfficialDocument {
+  const $ = load(value)
+  const sourceUrl = normalizeOfficialUrl(
+    $('link[rel="canonical"]').attr('href') ?? $('meta[property="og:url"]').attr('content') ?? requestedUrl,
+    requestedUrl
+  ) ?? requestedUrl
+  const title = (
+    $('meta[property="og:title"]').attr('content')
+    ?? $('h1').first().text()
+    ?? $('title').text()
+    ?? '仰恩大学官方资料'
+  )
+    .replace(/\s*[-_|]\s*仰恩大学.*$/u, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 300)
+  const links: Array<{ url: string, label: string }> = []
+  $('a[href]').each((_, element) => {
+    const url = normalizeOfficialUrl($(element).attr('href') ?? '', sourceUrl)
+    if (!url || links.some(item => item.url === url)) return
+    const label = ($(element).text() || $(element).attr('title') || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 180)
+    links.push({ url, label })
+  })
+
+  const selectors = [
+    '.wp_articlecontent',
+    '.v_news_content',
+    '#vsb_content',
+    '#content',
+    '.article-content',
+    '.news-content',
+    'article',
+    'main'
+  ]
+  let content = $('body').first()
+  let bestLength = 0
+  for (const selector of selectors) {
+    $(selector).each((_, element) => {
+      const candidate = $(element)
+      const length = candidate.text().replace(/\s+/g, '').length
+      if (length > bestLength) {
+        bestLength = length
+        content = candidate
+      }
+    })
+  }
+  const readable = content.clone()
+  readable.find('script,style,noscript,svg,form,iframe,nav').remove()
+  readable.find('br').replaceWith('\n')
+  readable.find('p,div,li,tr,h1,h2,h3,h4,h5,h6,section').each((_, element) => {
+    $(element).append('\n')
+  })
+  const text = cleanDirectText(readable.text())
+  if (text.length < 80) throw new Error('official page did not contain enough readable text')
+
+  const published = $('meta[property="article:published_time"]').attr('content')
+    ?? $('meta[name="publishdate"]').attr('content')
+    ?? $('meta[name="PubDate"]').attr('content')
+    ?? ''
+  return {
+    url: sourceUrl,
+    title: title || '仰恩大学官方资料',
+    text,
+    publishedAt: parsePublishedAt(published ? `Published Time: ${published}` : '', sourceUrl),
+    links,
+    kind: 'webpage',
+    mimeType: 'text/html',
+    extractionMethod: 'direct-html'
   }
 }
 
@@ -549,8 +664,13 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
         WHERE knowledge_documents.original_url = knowledge_crawl_queue.url
           AND knowledge_documents.status = 'ready'
           AND knowledge_documents.metadata_json LIKE '%"crawler":"official-knowledge"%'
-          AND knowledge_documents.metadata_json NOT LIKE '%"crawlerVersion":2%'
+          AND knowledge_documents.metadata_json NOT LIKE ?
       )
+  `).run(startedAt.getTime(), `%"crawlerVersion":${CRAWLER_VERSION}%`)
+  client.sqlite.prepare(`
+    UPDATE knowledge_crawl_queue
+    SET status = 'pending', attempts = 0, next_attempt_at = NULL, last_error = '', updated_at = ?
+    WHERE last_error = 'fetch failed'
   `).run(startedAt.getTime())
   for (const item of seedItems) enqueueCrawlItem(client, item, startedAt.getTime())
   refreshPendingPriorities(client)
@@ -594,8 +714,13 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
             }
           }
         } else {
-          const raw = await fetchReader(item.url, options.fresh)
-          document = parseReaderDocument(raw, item.url)
+          try {
+            const raw = await fetchReader(item.url, options.fresh)
+            document = parseReaderDocument(raw, item.url)
+          } catch {
+            const html = await fetchOfficialHtml(item.url, options.fresh)
+            document = parseOfficialHtml(html, item.url)
+          }
         }
         report.fetched += 1
         const outcome = storeOfficialDocument(client, document, item, Date.now(), options.dryRun)

@@ -4,6 +4,7 @@ import {
   crawlPriority,
   normalizeOfficialUrl,
   parseOfficialCrawlCli,
+  parseOfficialHtml,
   parseReaderDocument
 } from './crawl-official-knowledge'
 
@@ -41,6 +42,32 @@ Markdown Content:
     label: '学生手册 PDF'
   })
   assert.equal(new Date(page.publishedAt!).toISOString(), '2026-07-28T00:00:00.000Z')
+})
+
+test('official HTML fallback extracts article text and relative attachments without the reader service', () => {
+  const page = parseOfficialHtml(`<!doctype html>
+    <html>
+      <head>
+        <title>学生奖学金评审办法 - 仰恩大学</title>
+        <meta name="publishdate" content="2026-07-18">
+      </head>
+      <body>
+        <nav>首页 新闻 通知</nav>
+        <article class="wp_articlecontent">
+          <h1>学生奖学金评审办法</h1>
+          <p>申请人应当完成规定课程，并按通知提交成绩和综合测评材料。</p>
+          <p>评审按照公开、公平、公正原则进行，具体条件以附件正文为准。</p>
+          <a href="../../_upload/article/files/scholarship-rule.pdf">奖学金评审办法附件</a>
+        </article>
+      </body>
+    </html>`, 'https://xsb.yeu.edu.cn/2026/0718/c644a50000/page.htm')
+  assert.equal(page.extractionMethod, 'direct-html')
+  assert.match(page.text, /申请人应当完成规定课程/)
+  assert.doesNotMatch(page.text, /首页 新闻 通知/)
+  assert.deepEqual(page.links[0], {
+    url: 'https://xsb.yeu.edu.cn/2026/_upload/article/files/scholarship-rule.pdf',
+    label: '奖学金评审办法附件'
+  })
 })
 
 test('new-student rules and attachments are crawled before ordinary news at the same depth', () => {
