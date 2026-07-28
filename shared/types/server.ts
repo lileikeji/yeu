@@ -118,6 +118,8 @@ export interface ApiAmapOwnerDraftPlace {
   sourceRow: number
   name: string
   summary: string
+  scope: 'campus' | 'nearby'
+  type: string
   category: string | null
   address: string | null
   longitude: number

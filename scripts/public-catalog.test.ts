@@ -219,7 +219,7 @@ test('published map places use student-facing copy in the map panel', () => {
     body: '上海楼 已按用户授权的高德地图坐标导入后台草稿；可用于地图定位和维护，具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布。\n\n高德 resourceId：123',
     scope: 'campus',
     type: 'building',
-    category: null,
+    category: 'dorm',
     address: null,
     campusArea: null,
     floor: null,
@@ -246,6 +246,7 @@ test('published map places use student-facing copy in the map panel', () => {
   } as ApiPlace])[0]
 
   assert.ok(place)
+  assert.equal(place.category, 'campus-building')
   assert.equal(place.summary, '上海楼的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
   assert.doesNotMatch(place.summary, /\s的位置|。，/)
   assert.doesNotMatch(place.body, /后台草稿|resourceId|坐标来源|正式发布/)

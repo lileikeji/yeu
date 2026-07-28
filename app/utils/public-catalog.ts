@@ -11,6 +11,7 @@ import type { CampusMapReferencePlace } from '~~/data/seeds/preview-places'
 import type { AmapImportedPlace } from '~~/data/seeds/amap-imported-places'
 import type { ContentKind } from '~~/shared/constants/server'
 import type { ApiAmapOwnerDraftPlace, ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
+import { mapCategoryFromPlaceType } from '~~/shared/utils/place-map-category'
 import { isSafePublicHttpUrl } from '~~/shared/utils/public-http-url'
 import { presentStudentSourceContext } from './source-context-presentation'
 import { clubSignupQuestionChecklist } from './club-detail-presentation'
@@ -31,36 +32,6 @@ const audienceLabels: Record<string, Array<'本科新生' | '专升本新生'>> 
   top_up: ['专升本新生']
 }
 const defaultAudience: FreshmanGuide['audience'] = ['本科新生', '专升本新生']
-
-const mapCategories = new Set([
-  'campus-building',
-  'dorm',
-  'food',
-  'service',
-  'express',
-  'gate',
-  'nearby'
-])
-
-const mapCategoryAliases: Record<string, string> = {
-  building: 'campus-building',
-  teaching: 'campus-building',
-  classroom: 'campus-building',
-  dormitory: 'dorm',
-  accommodation: 'dorm',
-  canteen: 'food',
-  restaurant: 'food',
-  dining: 'food',
-  office: 'service',
-  department: 'service',
-  clinic: 'service',
-  delivery: 'express',
-  courier: 'express',
-  entrance: 'gate',
-  shop: 'nearby',
-  store: 'nearby',
-  merchant: 'nearby'
-}
 
 const ownerMapGenericSummary = '用户授权的高德工作地图标点，尚未经过独立现场核验。'
 
@@ -562,7 +533,7 @@ export function mergeAmapImportedPlacesWithDrafts(
       name: draft.name || seed.name,
       summary: studentFacingPlaceBody(draft.summary || seed.summary) || seed.summary,
       address: draft.address || seed.address,
-      category: mapCategories.has(draft.category ?? '') ? draft.category! : seed.category,
+      category: mapCategoryFromPlaceType(draft.type, draft.scope),
       point: {
         lng: draft.longitude,
         lat: draft.latitude,
@@ -986,10 +957,7 @@ export function publicNotices(contents: ApiContent[]): PublicNoticeView[] {
 }
 
 function normalizeMapCategory(place: ApiPlace): string {
-  const raw = (place.category ?? place.type).trim().toLocaleLowerCase('en-US')
-  if (mapCategories.has(raw)) return raw
-  if (mapCategoryAliases[raw]) return mapCategoryAliases[raw]
-  return place.scope === 'nearby' ? 'nearby' : 'service'
+  return mapCategoryFromPlaceType(place.type, place.scope)
 }
 
 // Preview fixtures contribute searchable names only; their approximate points never reach MapLibre.
@@ -1112,6 +1080,10 @@ export function mergePublicMapPlaces(
 ): PublicMapPlace[] {
   const published = places.filter(place => place.status === 'published')
   const apiNames = new Set(published.flatMap(place => equivalentPlaceNames(place.name)))
+  const apiPlaceByName = new Map<string, ApiPlace>()
+  for (const place of published) {
+    for (const name of equivalentPlaceNames(place.name)) apiPlaceByName.set(name, place)
+  }
   const apiNamesWithRenderablePoints = new Set(published
     .filter(place => (
       place.navigationAvailable
@@ -1148,7 +1120,12 @@ export function mergePublicMapPlaces(
   const ownerViews = ownerMapPois
     .filter(poi => !apiNamesWithRenderablePoints.has(normalizeName(poi.name)))
     .map((poi) => {
-      const view = ownerMapPlace(poi)
+      const matchingApiPlace = equivalentPlaceNames(poi.name)
+        .map(name => apiPlaceByName.get(name))
+        .find(Boolean)
+      const view = ownerMapPlace(matchingApiPlace
+        ? { ...poi, category: normalizeMapCategory(matchingApiPlace) }
+        : poi)
       const matchingPreview = equivalentPlaceNames(poi.name).map(name => previewByName.get(name)).find(Boolean)
       if (!matchingPreview) return view
       return {

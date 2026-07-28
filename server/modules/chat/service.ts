@@ -538,7 +538,7 @@ export function deactivateMute(client: DatabaseClient, muteId: string): boolean 
 }
 
 export function listDormSuggestions(client: DatabaseClient, q?: string) {
-  const conditions = [eq(places.category, 'dorm'), eq(places.status, 'published')]
+  const conditions = [eq(places.type, 'dormitory'), eq(places.status, 'published')]
   if (q?.trim()) conditions.push(like(places.name, `%${q.trim()}%`))
   const rows = client.db.select({
     name: places.name

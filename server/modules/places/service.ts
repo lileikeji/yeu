@@ -8,6 +8,7 @@ import type {
   updatePlaceSchema
 } from '../../../shared/schemas/server'
 import type { ApiAmapOwnerDraftPlace } from '../../../shared/types/server'
+import { mapCategoryFromPlaceType } from '../../../shared/utils/place-map-category'
 import {
   isPointWithinBounds,
   YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS
@@ -254,6 +255,8 @@ export function listPublicAmapOwnerDraftPlaces(client: DatabaseClient): ApiAmapO
         sourceRow: reference.sourceRow,
         name: row.name,
         summary: studentFacingAmapDraftText(row.summary, row.name),
+        scope: row.scope,
+        type: row.type,
         category: row.category,
         address: row.address,
         longitude: row.longitude,
@@ -311,7 +314,7 @@ export function createPlace(client: DatabaseClient, input: CreatePlaceInput) {
         body: input.body,
         scope: input.scope,
         type: input.type,
-        category: input.category ?? null,
+        category: mapCategoryFromPlaceType(input.type, input.scope),
         address: input.address ?? null,
         campusArea: input.campusArea ?? null,
         floor: input.floor ?? null,
@@ -405,6 +408,10 @@ export function updatePlace(client: DatabaseClient, id: string, input: UpdatePla
       ? existing.coordinateVerifiedAt
       : fromIso(fields.coordinateVerifiedAt) ?? null
   }
+  const canonicalCategory = mapCategoryFromPlaceType(
+    fields.type ?? existing.type,
+    fields.scope ?? existing.scope
+  )
   assertCoordinateState(coordinateState)
 
   if (existing.status === 'published') {
@@ -429,7 +436,7 @@ export function updatePlace(client: DatabaseClient, id: string, input: UpdatePla
     client.db.transaction((transaction) => {
       transaction.update(places).set({
         ...fields,
-        category: fields.category,
+        category: canonicalCategory,
         address: fields.address,
         campusArea: fields.campusArea,
         floor: fields.floor,

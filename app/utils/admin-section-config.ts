@@ -55,17 +55,24 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         ]
       },
       {
-        key: 'category',
-        label: '地点分类',
-        allLabel: '全部分类',
+        key: 'type',
+        label: '地点类型',
+        allLabel: '全部类型',
         options: [
-          { label: '教学/学习', value: 'campus-building' },
-          { label: '宿舍', value: 'dorm' },
-          { label: '餐饮', value: 'food' },
-          { label: '服务', value: 'service' },
-          { label: '快递', value: 'express' },
+          { label: '校园建筑', value: 'building' },
+          { label: '教学楼', value: 'teaching-building' },
+          { label: '宿舍', value: 'dormitory' },
+          { label: '餐厅', value: 'dining' },
+          { label: '公共服务', value: 'service' },
+          { label: '医务服务', value: 'health-service' },
+          { label: '快递服务', value: 'express-service' },
           { label: '校门', value: 'gate' },
-          { label: '周边商铺', value: 'nearby' }
+          { label: '公交/交通', value: 'transit-stop' },
+          { label: '图书馆', value: 'library' },
+          { label: '体育设施', value: 'sports-ground' },
+          { label: '礼堂/报告厅', value: 'event-venue' },
+          { label: '周边商铺', value: 'shop' },
+          { label: '其他地点', value: 'place' }
         ]
       },
       {
@@ -162,12 +169,6 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
           { label: '校内', value: 'campus' },
           { label: '周边', value: 'nearby' }
         ],
-        group: '基本信息'
-      },
-      {
-        key: 'category',
-        label: '分类标识',
-        placeholder: '可选，用于更细的内容分组',
         group: '基本信息'
       },
       {
