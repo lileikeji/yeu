@@ -11,8 +11,25 @@ test('knowledge admin pages are sibling routes instead of hidden nested pages', 
   assert.equal(existsSync('app/pages/admin/knowledge.vue'), false)
   for (const page of ['index', 'library', 'graph']) {
     const source = readFileSync(`app/pages/admin/knowledge/${page}.vue`, 'utf8')
-    assert.match(source, /definePageMeta\(\{ layout: ['"]admin['"] \}\)/)
+    assert.match(source, /definePageMeta\([\s\S]*?layout: ['"]admin['"]/)
   }
+})
+
+test('knowledge navigation opens the full library before the empty review queue', () => {
+  const indexSource = readFileSync('app/pages/admin/knowledge/index.vue', 'utf8')
+  const librarySource = readFileSync('app/pages/admin/knowledge/library.vue', 'utf8')
+  assert.match(
+    indexSource,
+    /navigateTo\(['"]\/admin\/knowledge\/library['"]/
+  )
+  assert.match(
+    indexSource,
+    /to\.query\.view === ['"]review['"]/
+  )
+  assert.match(
+    librarySource,
+    /to=['"]\/admin\/knowledge\?view=review['"]/
+  )
 })
 
 function fixture() {

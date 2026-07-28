@@ -2,8 +2,14 @@
 import { adminFetch } from '~~/app/utils/admin-request'
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 
-// Keep this page as the index sibling of library and graph routes.
-definePageMeta({ layout: 'admin' })
+// The knowledge library is the primary view; claim review remains an explicit workflow.
+definePageMeta({
+  layout: 'admin',
+  middleware: [to => {
+    if (to.query.view === 'review' || to.query.action === 'create') return
+    return navigateTo('/admin/knowledge/library', { replace: true })
+  }]
+})
 useSeoMeta({ title: '知识库管理', robots: 'noindex, nofollow' })
 
 type ReviewStatus = 'draft' | 'review' | 'published' | 'rejected' | 'archived'

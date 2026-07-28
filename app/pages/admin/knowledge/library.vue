@@ -37,7 +37,8 @@ interface LibrarySummary {
 
 const route = useRoute()
 const router = useRouter()
-const collection = ref<Collection>(['entries', 'web', 'documents'].includes(String(route.query.collection))
+const hasExplicitCollection = ['entries', 'web', 'documents'].includes(String(route.query.collection))
+const collection = ref<Collection>(hasExplicitCollection
   ? route.query.collection as Collection
   : 'entries')
 const queryText = ref(typeof route.query.q === 'string' ? route.query.q : '')
@@ -46,6 +47,9 @@ const page = ref(1)
 const pageSize = 30
 const loading = ref(false)
 const errorMessage = ref('')
+const shouldAutoSelectPopulatedCollection = ref(
+  !hasExplicitCollection && !queryText.value.trim() && !category.value
+)
 const items = ref<LibraryItem[]>([])
 const total = ref(0)
 const summary = ref<LibrarySummary>({
@@ -87,6 +91,15 @@ async function loadLibrary(): Promise<void> {
     items.value = result.items ?? []
     total.value = result.total ?? 0
     summary.value = result.summary ?? summary.value
+    if (shouldAutoSelectPopulatedCollection.value) {
+      shouldAutoSelectPopulatedCollection.value = false
+      const populatedCollection = collections.find(item => Number(summary.value[item.count] ?? 0) > 0)?.value
+      if (total.value === 0 && populatedCollection && populatedCollection !== collection.value) {
+        collection.value = populatedCollection
+        await loadLibrary()
+        return
+      }
+    }
     await router.replace({
       query: {
         collection: collection.value,
@@ -106,6 +119,7 @@ async function loadLibrary(): Promise<void> {
 }
 
 function switchCollection(value: Collection): void {
+  shouldAutoSelectPopulatedCollection.value = false
   collection.value = value
   page.value = 1
   category.value = ''
@@ -142,7 +156,7 @@ onMounted(loadLibrary)
           variant="outline"
         />
         <UButton
-          to="/admin/knowledge"
+          to="/admin/knowledge?view=review"
           icon="i-lucide-clipboard-check"
           label="审核事实"
           color="neutral"
