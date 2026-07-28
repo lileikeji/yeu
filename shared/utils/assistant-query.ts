@@ -13,7 +13,17 @@ const QUESTION_ENDING_PATTERN = /[?？吗嘛呢]$/u
 const PROMPT_INJECTION_MARKERS = [
   '忽略之前的指令', '忽略此前指令', '忽略系统指令', '系统提示词', '开发者指令',
   '泄露密钥', '显示密钥', '输出apikey', 'jailbreak', 'ignore previous instructions',
-  'reveal system prompt'
+  'reveal system prompt',
+  '制作炸弹', '自制爆炸物', '购买枪支', '制作枪支', '制作冰毒', '制作海洛因',
+  '购买毒品', '贩卖毒品', '未成年人色情', '未成年裸照', '杀人不留痕',
+  '雇凶杀人', '毒杀他人', '制作勒索软件', '部署木马后门', '盗取账号密码',
+  '窃取银行卡密码', '入侵他人服务器', '入侵他人邮箱', '生成钓鱼网站代码',
+  '批量撞库', '短信轰炸平台', '发动ddos攻击', '绕过支付验证', '盗刷信用卡',
+  '破解他人微信', '获取他人数据库', '社工库查询', '查询他人开房记录',
+  '定位他人手机号', '人肉搜索他人', '教我洗钱', '诈骗话术模板', '伪造身份证',
+  '伪造公章', '代开发票', '搭建赌博平台', '博彩网站源码', '策划恐怖袭击',
+  '加入恐怖组织', '制作生化武器', 'how to build a bomb', 'steal credit card numbers',
+  'write ransomware for me', 'build a phishing website', 'bypass payment verification'
 ] as const
 
 export function normalizeAssistantQuery(value: string): string {

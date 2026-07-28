@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
       event: 'heartbeat',
       data: JSON.stringify({ at: new Date().toISOString() })
     }).catch(() => {})
-  }, 10_000)
+  }, 4_000)
   heartbeatTimer.unref()
 
   void (async () => {
