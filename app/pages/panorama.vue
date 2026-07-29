@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type TourId = 'campus' | 'history'
+type TourId = 'campus' | 'history' | 'comfort-dorm'
 
 interface PanoramaTour {
   id: TourId
@@ -14,12 +14,14 @@ interface PanoramaTour {
   icon: string
   badge: string
   official: boolean
+  mediaType: 'panorama' | 'video'
 }
 
 const BAIDU_CAMPUS_PANORAMA_HASH = '#panoid=646c1306d4d72bfa631809a2&panotype=inter&heading=358&pitch=0&l=21&tn=B_NORMAL_MAP&sc=0&newmap=1&shareurl=1&pid=1000170000150119145327310IN&iid=646c1306d4d72bfa631809a2'
 const BAIDU_CAMPUS_PANORAMA_URL = `https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6/@13204528,2871631,21z,87t,-16.6h${BAIDU_CAMPUS_PANORAMA_HASH}`
 const OFFICIAL_HISTORY_VR_URL = 'https://www.720yun.com/vr/c66jOpeOOa3'
 const OFFICIAL_ANNOUNCEMENT_URL = 'https://news.yeu.edu.cn/2023/0621/c704a39166/page.htm'
+const COMFORT_DORM_VIDEO_URL = '/media/comfort-dorm-tour.mp4'
 
 useSeoMeta({
   title: '全景云游校园',
@@ -39,7 +41,8 @@ const tours: PanoramaTour[] = [
     sourceLabel: '去百度地图打开',
     icon: 'i-lucide-school',
     badge: '26 个校内拍摄点',
-    official: false
+    official: false,
+    mediaType: 'panorama'
   },
   {
     id: 'history',
@@ -53,7 +56,23 @@ const tours: PanoramaTour[] = [
     sourceLabel: '去全景原页打开',
     icon: 'i-lucide-history',
     badge: '学校发布',
-    official: true
+    official: true,
+    mediaType: 'panorama'
+  },
+  {
+    id: 'comfort-dorm',
+    eyebrow: '宿舍实拍',
+    title: '看看舒适型宿舍里面',
+    shortTitle: '舒适型宿舍实拍',
+    description: '24 秒走进卧室和独立卫浴，能看到床桌柜、空调、洗衣机和淋浴区域。',
+    detail: '这是一段竖屏走拍视频，不是 360° 全景。素材经过微信压缩，适合提前了解空间布局；家具配置和实际分配结果以入住宿舍为准。',
+    url: COMFORT_DORM_VIDEO_URL,
+    sourceUrl: COMFORT_DORM_VIDEO_URL,
+    sourceLabel: '单独打开视频',
+    icon: 'i-lucide-bed-double',
+    badge: '舒适型宿舍',
+    official: false,
+    mediaType: 'video'
   }
 ]
 
@@ -62,6 +81,7 @@ const viewerLoaded = ref(false)
 const viewerReady = ref(false)
 const viewerShell = ref<HTMLElement | null>(null)
 const officialPanoramaFailed = ref(false)
+const dormVideoFailed = ref(false)
 const mobilePanorama = ref(false)
 
 const activeTour = computed(() => (
@@ -124,6 +144,7 @@ function reloadViewer() {
   viewerReady.value = false
   viewerLoaded.value = false
   officialPanoramaFailed.value = false
+  dormVideoFailed.value = false
   nextTick(() => {
     viewerLoaded.value = true
   })
@@ -188,6 +209,15 @@ onMounted(() => {
               class="min-h-12 bg-white/90 text-zinc-950 hover:bg-white"
               @click="openTour('history')"
             />
+            <UButton
+              icon="i-lucide-bed-double"
+              label="看看舒适型宿舍"
+              size="xl"
+              color="neutral"
+              variant="soft"
+              class="min-h-12 bg-white/90 text-zinc-950 hover:bg-white"
+              @click="openTour('comfort-dorm')"
+            />
           </div>
         </div>
 
@@ -227,7 +257,7 @@ onMounted(() => {
         </p>
       </div>
 
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="grid gap-4 md:grid-cols-3">
         <button
           v-for="tour in tours"
           :key="tour.id"
@@ -239,7 +269,11 @@ onMounted(() => {
           <div class="flex items-start justify-between gap-4">
             <span
               class="grid size-12 shrink-0 place-items-center rounded-2xl"
-              :class="tour.id === 'campus' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+              :class="tour.id === 'campus'
+                ? 'bg-emerald-50 text-emerald-700'
+                : tour.id === 'comfort-dorm'
+                  ? 'bg-sky-50 text-sky-700'
+                  : 'bg-amber-50 text-amber-700'"
             >
               <UIcon
                 :name="tour.icon"
@@ -305,8 +339,46 @@ onMounted(() => {
         class="panorama-viewer-shell relative overflow-hidden rounded-3xl border border-zinc-200 bg-zinc-950 shadow-2xl shadow-emerald-950/15"
       >
         <template v-if="viewerLoaded">
+          <video
+            v-if="activeTour.id === 'comfort-dorm' && !dormVideoFailed"
+            :key="activeTour.id"
+            :src="COMFORT_DORM_VIDEO_URL"
+            poster="/images/panorama/comfort-dorm-poster.jpg"
+            class="absolute inset-0 size-full bg-black object-contain"
+            controls
+            playsinline
+            preload="metadata"
+            @loadeddata="viewerReady = true"
+            @error="dormVideoFailed = true"
+          >
+            当前浏览器不支持播放这段宿舍实拍视频。
+          </video>
+          <div
+            v-else-if="activeTour.id === 'comfort-dorm'"
+            class="absolute inset-0 grid place-items-center bg-zinc-950 px-6 text-center text-white"
+          >
+            <div class="max-w-sm">
+              <UIcon
+                name="i-lucide-circle-alert"
+                class="mx-auto size-8 text-amber-300"
+              />
+              <h3 class="mt-4 text-lg font-bold">
+                宿舍实拍视频暂时没有加载成功
+              </h3>
+              <UButton
+                :to="COMFORT_DORM_VIDEO_URL"
+                external
+                target="_blank"
+                rel="noopener noreferrer"
+                icon="i-lucide-external-link"
+                label="单独打开视频"
+                color="neutral"
+                class="mt-5"
+              />
+            </div>
+          </div>
           <PanoramaBaiduCampusViewer
-            v-if="activeTour.id === 'campus' && !officialPanoramaFailed"
+            v-else-if="activeTour.id === 'campus' && !officialPanoramaFailed"
             :key="`official-${activeTour.id}`"
             @ready="viewerReady = true"
             @error="officialPanoramaFailed = true"
@@ -336,7 +408,7 @@ onMounted(() => {
             </div>
           </div>
           <iframe
-            v-else
+            v-else-if="activeTour.id === 'history'"
             :key="activeTour.id"
             :src="activeViewerUrl"
             :title="`${activeTour.title} 360 度实景`"
@@ -400,13 +472,15 @@ onMounted(() => {
           <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,120,82,.12),rgba(2,15,12,.9))]" />
           <div class="relative z-10 max-w-md px-6 text-center text-white">
             <span class="mx-auto grid size-20 place-items-center rounded-full border border-white/25 bg-white/10 text-2xl font-black backdrop-blur">
-              360°
+              {{ activeTour.mediaType === 'video' ? '实拍' : '360°' }}
             </span>
             <h3 class="mt-5 text-2xl font-black">
               准备好就打开{{ activeTour.shortTitle }}
             </h3>
             <p class="mt-2 text-sm leading-6 text-white/65">
-              点开以后，按住画面拖动就能四处看。
+              {{ activeTour.mediaType === 'video'
+                ? '点开以后可以拖动进度、调节音量或全屏观看。'
+                : '点开以后，按住画面拖动就能四处看。' }}
             </p>
             <UButton
               icon="i-lucide-play"
@@ -420,7 +494,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="mt-6 grid gap-4 lg:grid-cols-3">
         <section class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
           <div class="flex items-start gap-3">
             <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-emerald-700 shadow-sm">
@@ -472,6 +546,28 @@ onMounted(() => {
                 variant="link"
                 class="mt-2 px-0"
               />
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-sky-200 bg-sky-50/70 p-5 md:p-6">
+          <div class="flex items-start gap-3">
+            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-sky-700 shadow-sm">
+              <UIcon
+                name="i-lucide-video"
+                class="size-5"
+              />
+            </span>
+            <div>
+              <p class="text-xs font-semibold text-sky-800">
+                宿舍实拍从哪里来
+              </p>
+              <h3 class="mt-1 text-base font-bold text-sky-950">
+                在校生提供的舒适型宿舍走拍
+              </h3>
+              <p class="mt-2 text-sm leading-6 text-sky-950/75">
+                视频展示床桌柜、空调、独立卫浴、洗衣机和淋浴区域。它不是学校发布的标准样板间，实际楼栋、房型和家具状态可能不同。
+              </p>
             </div>
           </div>
         </section>
