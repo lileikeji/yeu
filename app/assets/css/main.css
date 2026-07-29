@@ -28,6 +28,9 @@
   --color-orange-900: #782911;
   --color-orange-950: #451204;
 
+  /* Destructive actions need enough contrast on white and pale red surfaces. */
+  --color-red-500: #b4232c;
+
   /* Small metadata and controls must remain legible on white and #f7f8f6. */
   --color-zinc-400: #606068;
   --color-zinc-500: #52525b;

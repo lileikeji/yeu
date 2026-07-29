@@ -104,15 +104,35 @@ test('MCP web evidence can be persisted and reused without becoming site evidenc
     runMigrations(client)
     const query = '宿舍床尺寸缓存测试'
     assert.equal(storeWebEvidence(client, query, [{
-      title: '公开网页线索',
+      title: '宿舍床尺寸公开网页线索',
       url: 'https://example.edu/dorm-bed',
-      snippet: '需要按楼栋核验。',
+      snippet: '宿舍床尺寸需要按楼栋核验。',
       source: 'web'
     }]), 1)
     const cached = cachedWebEvidenceForQuery(client, query)
     assert.equal(cached.length, 1)
     assert.equal(cached[0]?.source, 'web')
     assert.equal(cached[0]?.url, 'https://example.edu/dorm-bed')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('irrelevant exact-query web cache is ignored instead of poisoning later answers', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-poisoned-cache-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const query = '仰恩大学校园面积有多大'
+    assert.equal(storeWebEvidence(client, query, [{
+      title: '无关的招生新闻',
+      url: 'https://example.edu/unrelated-admission',
+      snippet: '这条结果只介绍招生咨询会的举办地点和报名方式。',
+      source: 'web'
+    }]), 1)
+    assert.deepEqual(cachedWebEvidenceForQuery(client, query), [])
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
@@ -248,9 +268,9 @@ test('cached web evidence selects only the web-cache route', async () => {
     runMigrations(client)
     const query = '宿舍床尺寸缓存路线测试'
     storeWebEvidence(client, query, [{
-      title: '公开网页线索',
+      title: '宿舍床尺寸公开网页线索',
       url: 'https://example.edu/dorm-bed-route',
-      snippet: '不同楼栋需要分别核验。',
+      snippet: '宿舍床尺寸在不同楼栋需要分别核验。',
       source: 'web'
     }])
     const response = await answerCampusQuestion(client, query, emptyAssistantConfig)

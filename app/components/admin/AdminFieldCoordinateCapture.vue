@@ -217,7 +217,11 @@ onBeforeUnmount(() => {
 
     <div
       class="mt-5 grid grid-cols-7 gap-2"
-              aria-label="定位记录进度"
+      role="progressbar"
+      aria-label="定位记录进度"
+      :aria-valuenow="samples.length"
+      aria-valuemin="0"
+      :aria-valuemax="FIELD_CAPTURE_MAX_SAMPLES"
     >
       <span
         v-for="index in FIELD_CAPTURE_MAX_SAMPLES"
@@ -231,7 +235,7 @@ onBeforeUnmount(() => {
       role="status"
       aria-live="polite"
     >
-              已收录 {{ samples.length }} / {{ FIELD_CAPTURE_MAX_SAMPLES }} 条符合准确度要求的定位记录
+      已收录 {{ samples.length }} / {{ FIELD_CAPTURE_MAX_SAMPLES }} 条符合准确度要求的定位记录
     </p>
     <p
       class="mt-1 text-xs"

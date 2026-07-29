@@ -6,6 +6,14 @@ export const adminLoginMessages = {
   invalidCredentials: '账号或密码不正确。'
 } as const
 
+export const adminDeviceLoginMessages = {
+  disabled: '当前环境未启用设备密钥，请使用密码登录。',
+  keyMismatch: '本机保存的设备密钥与当前站点不匹配，请重新导入。',
+  rateLimited: '设备密钥尝试过于频繁，请稍后再试或使用密码登录。',
+  rejected: '设备密钥未通过验证，请重新导入密钥或使用密码登录。',
+  unavailable: '设备密钥服务暂时不可用，请使用密码登录。'
+} as const
+
 export function isAdminLoginPayloadObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -35,6 +43,46 @@ export function adminLoginRequestMessage(error: unknown): string {
   }
   if (typeof error.statusMessage === 'string') return error.statusMessage
   return adminLoginMessages.invalidCredentials
+}
+
+function findErrorCode(error: unknown): string | null {
+  let current = error
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (!isAdminLoginPayloadObject(current)) return null
+    if (typeof current.code === 'string') return current.code
+    current = current.data
+  }
+  return null
+}
+
+function findStatusCode(error: unknown): number | null {
+  let current = error
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (!isAdminLoginPayloadObject(current)) return null
+    if (typeof current.statusCode === 'number') return current.statusCode
+    if (typeof current.status === 'number') return current.status
+    current = current.data
+  }
+  return null
+}
+
+/** Keep device-login failures actionable without exposing verification details. */
+export function adminDeviceLoginRequestMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+  const code = findErrorCode(error)
+  const status = findStatusCode(error)
+
+  if (code === 'ADMIN_DEVICE_LOGIN_DISABLED' || status === 404) {
+    return adminDeviceLoginMessages.disabled
+  }
+  if (message === 'ADMIN_DEVICE_KEY_NOT_FOUND') {
+    return adminDeviceLoginMessages.keyMismatch
+  }
+  if (status === 429) return adminDeviceLoginMessages.rateLimited
+  if (code === 'ADMIN_DEVICE_AUTH_FAILED' || status === 401) {
+    return adminDeviceLoginMessages.rejected
+  }
+  return adminDeviceLoginMessages.unavailable
 }
 
 /**

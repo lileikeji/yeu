@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  adminDeviceLoginRequestMessage,
   adminLoginMessages,
   adminLoginRequestMessage,
   isAdminSessionAuthenticated,
@@ -76,8 +77,8 @@ async function loginWithDevice(): Promise<void> {
       credentials: 'include'
     })
     await navigateTo(resolveAdminPostLoginTarget(payload, route.query.redirect), { replace: true })
-  } catch {
-    errorMessage.value = '设备密钥验证失败，请使用密码登录或重新导入密钥。'
+  } catch (error) {
+    errorMessage.value = adminDeviceLoginRequestMessage(error)
   } finally {
     deviceLoginActive.value = false
   }

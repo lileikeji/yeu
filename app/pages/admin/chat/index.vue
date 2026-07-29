@@ -74,10 +74,6 @@ const muteRoomId = ref('all')
 const muteReason = ref('')
 const muteExpiresAt = ref('')
 const deletedFilter = ref<'all' | 'true' | 'false'>('all')
-const deletedOnly = computed({
-  get: () => deletedFilter.value === 'true',
-  set: (v: boolean) => { deletedFilter.value = v ? 'true' : 'all' }
-})
 const deletedFilterLabel = computed(() => {
   if (deletedFilter.value === 'true') return '仅已删除'
   if (deletedFilter.value === 'false') return '仅未删除'
@@ -135,7 +131,7 @@ async function loadRooms(): Promise<void> {
 async function loadMessages(): Promise<void> {
   messageLoading.value = true
   try {
-    const payload = await adminFetch<{ items: ChatMessage[]; total: number }>('/api/admin/chat/messages', {
+    const payload = await adminFetch<{ items: ChatMessage[], total: number }>('/api/admin/chat/messages', {
       query: {
         page: page.value,
         pageSize,
@@ -356,18 +352,34 @@ onMounted(() => {
 
     <div class="grid gap-3 sm:grid-cols-3">
       <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
-        <p class="text-xs text-zinc-500">房间数</p>
-        <p class="mt-1 text-2xl font-semibold text-zinc-950">{{ rooms.length }}</p>
-        <p class="mt-1 text-xs text-amber-700">全员禁言 {{ mutedRoomCount }}</p>
+        <p class="text-xs text-zinc-500">
+          房间数
+        </p>
+        <p class="mt-1 text-2xl font-semibold text-zinc-950">
+          {{ rooms.length }}
+        </p>
+        <p class="mt-1 text-xs text-amber-700">
+          全员禁言 {{ mutedRoomCount }}
+        </p>
       </div>
       <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
-        <p class="text-xs text-zinc-500">消息结果</p>
-        <p class="mt-1 text-2xl font-semibold text-zinc-950">{{ total }}</p>
-        <p class="mt-1 text-xs text-zinc-500">本页已删 {{ deletedOnPage }}</p>
+        <p class="text-xs text-zinc-500">
+          消息结果
+        </p>
+        <p class="mt-1 text-2xl font-semibold text-zinc-950">
+          {{ total }}
+        </p>
+        <p class="mt-1 text-xs text-zinc-500">
+          本页已删 {{ deletedOnPage }}
+        </p>
       </div>
       <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
-        <p class="text-xs text-zinc-500">生效禁言</p>
-        <p class="mt-1 text-2xl font-semibold text-rose-700">{{ activeMuteCount }}</p>
+        <p class="text-xs text-zinc-500">
+          生效禁言
+        </p>
+        <p class="mt-1 text-2xl font-semibold text-rose-700">
+          {{ activeMuteCount }}
+        </p>
       </div>
     </div>
 
@@ -390,7 +402,9 @@ onMounted(() => {
                 {{ room.title }}
               </p>
               <p class="text-xs text-zinc-500">
-                {{ roomKindLabel(room.kind) }}<template v-if="room.dormBuilding"> · {{ room.dormBuilding }}</template>
+                {{ roomKindLabel(room.kind) }}<template v-if="room.dormBuilding">
+                  · {{ room.dormBuilding }}
+                </template>
               </p>
               <div class="mt-2 flex flex-wrap gap-1">
                 <span
@@ -502,18 +516,19 @@ onMounted(() => {
           </UButton>
         </div>
 
-        <ul class="mt-4 max-h-[36rem] space-y-2 overflow-y-auto">
-          <div class="mb-2 flex flex-wrap items-center gap-2">
-            <UButton
-              size="xs"
-              :color="deletedFilter === 'true' ? 'warning' : deletedFilter === 'false' ? 'primary' : 'neutral'"
-              :variant="deletedFilter === 'all' ? 'outline' : 'soft'"
-              @click="cycleDeletedFilter"
-            >
-              {{ deletedFilterLabel }}
-            </UButton>
-            <span class="text-xs text-zinc-500">找到 {{ total }} 条，本页显示 {{ visibleMessages.length }} 条</span>
-          </div>
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <UButton
+            size="xs"
+            :color="deletedFilter === 'true' ? 'warning' : deletedFilter === 'false' ? 'primary' : 'neutral'"
+            :variant="deletedFilter === 'all' ? 'outline' : 'soft'"
+            @click="cycleDeletedFilter"
+          >
+            {{ deletedFilterLabel }}
+          </UButton>
+          <span class="text-xs text-zinc-500">找到 {{ total }} 条，本页显示 {{ visibleMessages.length }} 条</span>
+        </div>
+
+        <ul class="mt-2 max-h-[36rem] space-y-2 overflow-y-auto">
           <li
             v-for="message in visibleMessages"
             :key="message.id"
@@ -523,7 +538,10 @@ onMounted(() => {
               <div>
                 <p class="font-medium text-zinc-900">
                   {{ message.displayName }}
-                  <span v-if="message.username" class="ml-1 text-xs font-normal text-zinc-500">@{{ message.username }}</span>
+                  <span
+                    v-if="message.username"
+                    class="ml-1 text-xs font-normal text-zinc-500"
+                  >@{{ message.username }}</span>
                   <span class="ml-2 text-xs font-normal text-zinc-500">
                     {{ roomTitle(message.roomId, message.roomTitle) }} · {{ formatTime(message.createdAt) }}
                   </span>
@@ -620,7 +638,10 @@ onMounted(() => {
                 class="w-full"
               />
             </UFormField>
-            <UFormField label="禁言范围" description="不选择房间时，该账号将在所有群聊中禁言。">
+            <UFormField
+              label="禁言范围"
+              description="不选择房间时，该账号将在所有群聊中禁言。"
+            >
               <USelect
                 v-model="muteRoomId"
                 :items="[
@@ -719,48 +740,95 @@ onMounted(() => {
     >
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 class="font-semibold text-zinc-950">消息详情</h2>
+          <h2 class="font-semibold text-zinc-950">
+            消息详情
+          </h2>
           <p class="mt-1 text-xs text-zinc-500">
-            {{ selectedMessage.displayName }}<template v-if="selectedMessage.username"> @{{ selectedMessage.username }}</template> · {{ formatTime(selectedMessage.createdAt) }}
-            <template v-if="selectedMessage.deletedAt"> · 已删除 {{ formatTime(selectedMessage.deletedAt) }}</template>
+            {{ selectedMessage.displayName }}<template v-if="selectedMessage.username">
+              @{{ selectedMessage.username }}
+            </template> · {{ formatTime(selectedMessage.createdAt) }}
+            <template v-if="selectedMessage.deletedAt">
+              · 已删除 {{ formatTime(selectedMessage.deletedAt) }}
+            </template>
           </p>
         </div>
-        <UButton size="xs" color="neutral" variant="ghost" @click="closeSelectedMessage">关闭</UButton>
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          @click="closeSelectedMessage"
+        >
+          关闭
+        </UButton>
       </div>
       <dl class="mt-3 grid gap-2 sm:grid-cols-2">
         <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">房间</dt>
-          <dd class="text-sm text-zinc-800">{{ roomTitle(selectedMessage.roomId, selectedMessage.roomTitle) }}</dd>
+          <dt class="text-[11px] text-zinc-500">
+            房间
+          </dt>
+          <dd class="text-sm text-zinc-800">
+            {{ roomTitle(selectedMessage.roomId, selectedMessage.roomTitle) }}
+          </dd>
         </div>
         <div class="rounded-md border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">账号编号</dt>
-          <dd class="text-sm text-zinc-800">{{ shortAdminId(selectedMessage.userId, 12) }}</dd>
+          <dt class="text-[11px] text-zinc-500">
+            账号编号
+          </dt>
+          <dd class="text-sm text-zinc-800">
+            {{ shortAdminId(selectedMessage.userId, 12) }}
+          </dd>
         </div>
         <div class="rounded-md border border-white bg-white px-3 py-2 sm:col-span-2">
-          <dt class="text-[11px] text-zinc-500">消息编号</dt>
-          <dd class="text-sm text-zinc-800">{{ shortAdminId(selectedMessage.id, 12) }}</dd>
+          <dt class="text-[11px] text-zinc-500">
+            消息编号
+          </dt>
+          <dd class="text-sm text-zinc-800">
+            {{ shortAdminId(selectedMessage.id, 12) }}
+          </dd>
         </div>
       </dl>
       <div class="mt-3 rounded-xl border border-white bg-white px-3 py-3">
-        <p class="text-[11px] text-zinc-500">正文</p>
-        <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-900">{{ selectedMessage.body }}</p>
+        <p class="text-[11px] text-zinc-500">
+          正文
+        </p>
+        <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-900">
+          {{ selectedMessage.body }}
+        </p>
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
-        <UButton size="sm" color="neutral" variant="outline" @click="filterByUser(selectedMessage.userId)">只看此人</UButton>
-        <UButton size="sm" color="warning" variant="soft" @click="prepMute(selectedMessage); selectedMessage = null">禁言此人</UButton>
+        <UButton
+          size="sm"
+          color="neutral"
+          variant="outline"
+          @click="filterByUser(selectedMessage.userId)"
+        >
+          只看此人
+        </UButton>
+        <UButton
+          size="sm"
+          color="warning"
+          variant="soft"
+          @click="prepMute(selectedMessage); selectedMessage = null"
+        >
+          禁言此人
+        </UButton>
         <UButton
           size="sm"
           color="error"
           variant="soft"
           :disabled="Boolean(selectedMessage.deletedAt)"
           @click="softDeleteMessage(selectedMessage)"
-        >删除消息</UButton>
+        >
+          删除消息
+        </UButton>
         <UButton
           size="sm"
           color="neutral"
           variant="outline"
           :to="`/admin/users?userId=${encodeURIComponent(selectedMessage.userId)}`"
-        >账号资料</UButton>
+        >
+          账号资料
+        </UButton>
       </div>
     </section>
   </div>

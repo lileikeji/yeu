@@ -120,3 +120,26 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('assistant indexes current campus scale and 2026 military-training facts', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-campus-facts-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+
+    const campusScale = await answerCampusQuestion(client, '仰恩大学校园面积有多大？', assistantConfig)
+    assert.equal(campusScale.retrievalPath, 'local_database')
+    assert.match(campusScale.answer, /2000余亩/)
+    assert.equal(campusScale.citations[0]?.url, '/campus')
+
+    const military = await answerCampusQuestion(client, '2026级什么时候军训？', assistantConfig)
+    assert.equal(military.retrievalPath, 'local_database')
+    assert.match(military.answer, /12月13日至26日/)
+    assert.equal(military.citations[0]?.url, '/campus#military-training')
+    assert.doesNotMatch(military.answer, /学生经验称本届首次安排冬训/)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})

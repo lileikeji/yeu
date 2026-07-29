@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import {
+  adminDeviceLoginMessages,
+  adminDeviceLoginRequestMessage,
   adminLoginMessages,
   adminLoginRequestMessage,
   isAdminLoginPayloadObject,
@@ -57,6 +59,23 @@ test('admin login pure helpers resolve session, errors, and safe redirects', () 
   assert.equal(adminLoginRequestMessage({ data: { message: '限流中' } }), '限流中')
   assert.equal(adminLoginRequestMessage({ statusMessage: '服务不可用' }), '服务不可用')
   assert.equal(adminLoginRequestMessage({}), adminLoginMessages.invalidCredentials)
+
+  assert.equal(
+    adminDeviceLoginRequestMessage({ data: { data: { code: 'ADMIN_DEVICE_LOGIN_DISABLED' } }, statusCode: 404 }),
+    adminDeviceLoginMessages.disabled
+  )
+  assert.equal(
+    adminDeviceLoginRequestMessage(new Error('ADMIN_DEVICE_KEY_NOT_FOUND')),
+    adminDeviceLoginMessages.keyMismatch
+  )
+  assert.equal(
+    adminDeviceLoginRequestMessage({ statusCode: 429 }),
+    adminDeviceLoginMessages.rateLimited
+  )
+  assert.equal(
+    adminDeviceLoginRequestMessage({ data: { data: { code: 'ADMIN_DEVICE_AUTH_FAILED' } }, statusCode: 401 }),
+    adminDeviceLoginMessages.rejected
+  )
 
   assert.equal(resolveAdminLoginRedirectTarget('/admin/procedures'), '/admin/procedures')
   assert.equal(resolveAdminLoginRedirectTarget('/admin/login'), '/admin')

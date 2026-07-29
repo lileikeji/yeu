@@ -194,14 +194,14 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v6-evidence-gate'
+const ASSISTANT_CACHE_VERSION = 'rag-v7-campus-facts'
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 600
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
 const KNOWLEDGE_GREETING_SET = new Set(['你好', 'hi', 'hello', '在吗', '谢谢', 'thanks', 'thx', 'ok', '好的'])
 const KNOWLEDGE_META_QUESTION_RE = /(你是(?:什么|哪个)模型|当前模型|模型名称|你能做什么|你的能力|知识(?:结构|图谱|库).{0,8}(?:组成|来源|怎么)|系统提示词|系统指令|api\s*key|接口密钥|内部配置)/i
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
-const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|新生|宿舍|寝室|床垫|床铺|饮水机|叮叮车|报到|开学|入学|军训|上课|课堂|课程|成绩|绩点|学分|综测|奖学金|助学金|学费|退学|休学|复学|转专业|社团|协会|部门|食堂|校园卡|校园网|图书馆|教务|学生手册|新区|旧区|教学楼|快递|澡堂|宿管)/i
+const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|新生|宿舍|寝室|床垫|床铺|饮水机|叮叮车|报到|开学|入学|军训|上课|课堂|课程|成绩|绩点|学分|综测|奖学金|助学金|学费|退学|休学|复学|转专业|社团|协会|部门|食堂|校园卡|校园网|图书馆|教务|学生手册|新区|旧区|教学楼|快递|澡堂|宿管|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
@@ -948,6 +948,45 @@ export function seedCatalogEvidenceForQuery(query: string, limit = 8): Assistant
     .slice(0, limit)
 }
 
+function campusOverviewEvidenceForQuery(query: string): AssistantEvidence[] {
+  const terms = assistantQueryTerms(query)
+  if (terms.length === 0) return []
+  const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const asksMilitary = /军训|冬训/.test(normalizedQuery)
+  const asksCampusScale = /(?:仰恩|学校|校园|校区).{0,8}(?:面积|占地|多大|规模)|(?:面积|占地).{0,8}(?:仰恩|学校|校园|校区)/.test(normalizedQuery)
+  if (!asksMilitary && !asksCampusScale) return []
+  const facts: AssistantEvidence[] = [
+    {
+      title: '仰恩大学校园概况',
+      url: '/campus',
+      snippet: '学校位于福建省泉州市洛江区马甲镇，校园占地2000余亩，全日制学生1.3万余人，设有12个学院。',
+      source: 'site',
+      text: '仰恩大学多大 校园面积 占地面积 学校规模 在校生 学生人数 学院数量 学校位于福建省泉州市洛江区马甲镇，校园占地2000余亩，全日制学生1.3万余人，设有12个学院。',
+      score: 0
+    },
+    {
+      title: '2026级新生军训暂定安排',
+      url: '/campus#military-training',
+      snippet: '学校2026年秋季校历将2026级新生军训暂定为2026年12月13日至26日，并注明部队安排仍可能调整；地点、每天时段、服装装备、体检和请假要求等待当届通知。',
+      source: 'site',
+      text: '2026级新生军训 冬训 军训时间 什么时候军训 12月13日至26日 学校2026年秋季校历 部队初定时间',
+      score: 0
+    }
+  ]
+
+  return facts
+    .filter(item => asksMilitary
+      ? item.url === '/campus#military-training'
+      : item.url === '/campus')
+    .map((item) => {
+      return {
+        ...item,
+        score: evidenceScore(item.title, item.snippet, item.text, terms) + 36
+      }
+    })
+    .filter(item => item.score > 0)
+}
+
 export function studentRuleEvidenceForQuery(query: string, limit = 8): AssistantEvidence[] {
   const terms = assistantQueryTerms(query)
   if (terms.length === 0) return []
@@ -1473,7 +1512,8 @@ export function retrieveCampusEvidence(
       score: item.score
     }))
 
-  const ranked = [...featureEvidence, ...compiledKnowledgeEvidence, ...officialDocumentEvidence, ...assistantKnowledgeEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
+  const campusOverviewEvidence = campusOverviewEvidenceForQuery(query)
+  const ranked = [...featureEvidence, ...campusOverviewEvidence, ...compiledKnowledgeEvidence, ...officialDocumentEvidence, ...assistantKnowledgeEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
     .filter((item, index, items) => items.findIndex(candidate => candidate.url === item.url) === index)
@@ -1630,7 +1670,41 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
   return null
 }
 
+function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
+  const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const citationFor = (url: string): ApiAssistantCitation[] => evidence
+    .filter(item => item.url === url)
+    .slice(0, 1)
+    .map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation)
+
+  if (/军训|冬训/.test(normalizedQuery) && /什么时候|何时|几号|哪天|日期|时间|安排|多久|多长/.test(normalizedQuery)) {
+    return {
+      query,
+      mode: 'local',
+      answer: '学校2026年秋季校历将2026级新生军训暂定为2026年12月13日至26日，并注明这是部队初定时间，后续仍可能调整。具体地点、每天时段、服装装备、体检和请假要求等待学校或学院当届通知。',
+      citations: citationFor('/campus#military-training'),
+      usedWebSearch: false,
+      confidence: 0.98
+    }
+  }
+
+  const asksCampusScale = /(?:仰恩|学校|校园|校区).{0,8}(?:面积|占地|多大|规模)|(?:面积|占地).{0,8}(?:仰恩|学校|校园|校区)/.test(normalizedQuery)
+  if (asksCampusScale) {
+    return {
+      query,
+      mode: 'local',
+      answer: '仰恩大学校园占地2000余亩，目前站内校园概况同时整理为全日制学生1.3万余人、12个学院。学校位于福建省泉州市洛江区马甲镇。',
+      citations: citationFor('/campus'),
+      usedWebSearch: false,
+      confidence: 0.96
+    }
+  }
+  return null
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
+  const campusOverviewAnswer = campusOverviewLocalAnswer(query, evidence)
+  if (campusOverviewAnswer) return campusOverviewAnswer
   const studentRuleAnswer = studentRuleLocalAnswer(query, evidence)
   if (studentRuleAnswer) return studentRuleAnswer
   const opening = evidence.find(item => item.title === '2026级新生报到')
@@ -2029,6 +2103,7 @@ export function cachedWebEvidenceForQuery(
   limit = 6
 ): ApiAssistantCitation[] {
   const now = Date.now()
+  const retrievalQuery = assistantRetrievalQuery(query)
   const queryHashes = assistantKnowledgeQueryHashes(query)
   const selectFields = {
     id: assistantWebKnowledge.id,
@@ -2078,20 +2153,28 @@ export function cachedWebEvidenceForQuery(
     }))
     .filter((item): item is { row: typeof rows[number], citation: ApiAssistantCitation } => Boolean(item.citation))
 
-  if (exactQueryMatch && !assistantIdentitySubject(query)) {
-    return sanitizedRows.slice(0, limit).map(item => item.citation)
+  const retrievalTerms = assistantQueryTerms(retrievalQuery)
+  const relevant = sanitizedRows
+    .map(({ citation }) => ({
+      citation,
+      score: webKnowledgeSimilarityScore(retrievalTerms, {
+        query: '',
+        title: citation.title,
+        snippet: citation.snippet
+      })
+    }))
+    .filter(item => item.score >= 2)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, limit)
+  if (assistantIdentitySubject(query)) {
+    return rankAssistantEvidence(retrievalQuery, relevant.map(({ citation, score }) => ({
+      ...citation,
+      text: `${citation.title} ${citation.snippet}`,
+      score
+    })), limit).map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation)
   }
-
-  return rankAssistantEvidence(assistantRetrievalQuery(query), sanitizedRows.map(({ row, citation }) => ({
-    ...citation,
-    text: `${citation.title} ${citation.snippet}`,
-    score: evidenceScore(
-      citation.title,
-      citation.snippet,
-      row.query,
-      assistantQueryProfile(query).terms
-    )
-  })), limit).map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation)
+  if (exactQueryMatch && relevant.length === 0) return []
+  return relevant.map(item => item.citation)
 }
 
 function rankCitationEvidence(query: string, citations: ApiAssistantCitation[], limit = 8): AssistantEvidence[] {
@@ -2384,12 +2467,20 @@ function localEvidenceGapResponse(query: string): ApiAssistantResponse {
 
 function hasStructuredLocalAnswer(query: string, evidence: AssistantEvidence[]): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (campusOverviewLocalAnswer(query, evidence)) return true
   const openingAnswer = isOpeningDateQuery(query)
     && evidence.some(item => item.title === '2026级新生报到')
   if (openingAnswer) return true
 
   const exactMajor = majorProfiles.some(profile => normalized.includes(profile.name.toLocaleLowerCase('zh-CN')))
   if (exactMajor && evidence.some(item => item.url === '/#major-lookup')) return true
+  const hasTransitGuide = evidence.some(item => item.url === '/transport')
+  if (hasTransitGuide && (
+    Boolean(transitRouteForQuery(query))
+    || /公交|交通|\bK[26]\b|到校|离校|泉州站|泉州东站|机场|市区/i.test(normalized)
+  )) return true
+  const hasLifestyleGuide = evidence.some(item => item.url.startsWith('/nearby#guide-'))
+  if (hasLifestyleGuide && /吃喝玩乐|好吃|美食|好玩|游玩|景点|学生街|马甲|周末|仙公山|动物|虹山|瀑布|泉州古城|西街/.test(normalized)) return true
   return false
 }
 
@@ -2530,9 +2621,11 @@ export async function answerCampusQuestion(
       }
     }
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+    const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
     if (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
-      deterministicKnowledgeAnswer
+      deterministicCampusAnswer
+      || deterministicKnowledgeAnswer
       || deterministicRuleAnswer
       || hasStructuredLocalAnswer(query, localEvidence)
       || localEvidenceIsSufficient(query, localEvidence)
@@ -2654,6 +2747,7 @@ export async function answerCampusQuestion(
     )
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+    const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
       tracker,
@@ -2662,7 +2756,8 @@ export async function answerCampusQuestion(
       () => historicalTransferAnswer
         ?? (analysis.requiresSpecificWebEvidence
           ? dormBedEvidenceGapResponse(query, localEvidence)
-          : deterministicKnowledgeAnswer
+          : deterministicCampusAnswer
+            ?? deterministicKnowledgeAnswer
             ?? deterministicRuleAnswer
             ?? ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false
               ? localEvidenceGapResponse(query)

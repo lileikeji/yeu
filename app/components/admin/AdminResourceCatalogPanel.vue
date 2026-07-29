@@ -49,9 +49,10 @@ function recordStatus(record: AdminRecord): string {
 
 <template>
   <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 bg-white">
-    <dl
+    <div
       v-if="config.stats"
       class="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-zinc-200 bg-white p-3 sm:grid-cols-3 lg:grid-cols-5"
+      role="group"
       aria-label="地点坐标统计"
     >
       <div
@@ -65,16 +66,16 @@ function recordStatus(record: AdminRecord): string {
             class="size-4"
           />
         </span>
-        <div class="min-w-0">
+        <dl class="min-w-0">
           <dt class="truncate text-xs text-zinc-500">
             {{ item.label }}
           </dt>
           <dd class="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950">
             {{ stats[item.key] ?? 0 }}
           </dd>
-        </div>
+        </dl>
       </div>
-    </dl>
+    </div>
 
     <div class="flex flex-col gap-3 border-b border-zinc-200 bg-zinc-50/70 p-3 lg:flex-row lg:items-center">
       <UInput
@@ -235,6 +236,7 @@ function recordStatus(record: AdminRecord): string {
                       color="error"
                       variant="ghost"
                       size="sm"
+                      class="!text-red-800 hover:!bg-red-50"
                       :disabled="writeBusy"
                       :aria-label="`删除${rowTitle(record)}`"
                       @click="emit('requestDelete', record)"
@@ -321,7 +323,7 @@ function recordStatus(record: AdminRecord): string {
               color="error"
               variant="ghost"
               size="sm"
-              class="ml-auto"
+              class="ml-auto !text-red-800 hover:!bg-red-50"
               :disabled="writeBusy"
               @click="emit('requestDelete', record)"
             />
