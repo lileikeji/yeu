@@ -60,6 +60,8 @@ export default defineNuxtConfig({
     wechatBotAllowedRoomIds: '',
     wechatMpAppId: '',
     wechatMpAppSecret: '',
+    wechatMpToken: '',
+    wechatMpEncodingAesKey: '',
     wechatShareAllowedHosts: 'yeu.huiliyill.cn,global.yeu.huiliyill.cn,cn.yeu.huiliyill.cn',
     public: {
       siteUrl: 'http://localhost:3000',
