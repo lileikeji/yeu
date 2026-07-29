@@ -147,6 +147,7 @@ const readerOpen = ref(false)
 const leftPanelOpen = ref(true)
 const rightPanelOpen = ref(false)
 const interactionHelpOpen = ref(false)
+const compactGraphMode = ref(false)
 const searchState = ref({ query: '', resultIds: [] as string[] })
 const typeFilters = ref<Record<NodeType, boolean>>({
   entity: true,
@@ -308,7 +309,10 @@ async function loadGraph(): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
-    graph.value = await adminFetch<GraphPayload>('/api/admin/knowledge/graph')
+    const endpoint = compactGraphMode.value
+      ? '/api/admin/knowledge/graph?compact=1'
+      : '/api/admin/knowledge/graph'
+    graph.value = await adminFetch<GraphPayload>(endpoint)
     selectedNodeId.value = null
     selectedCommunityId.value = null
     activeCommunityId.value = null
@@ -405,7 +409,11 @@ function relationNodeLabel(node: GraphNode | null): string {
 }
 
 onMounted(() => {
-  if (window.matchMedia('(max-width: 1023px)').matches) leftPanelOpen.value = false
+  const compactViewport = window.matchMedia('(max-width: 1023px)').matches
+  const coarsePointer = window.matchMedia('(pointer: coarse)').matches
+  const deviceMemory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 0)
+  compactGraphMode.value = compactViewport || coarsePointer || (deviceMemory > 0 && deviceMemory <= 4)
+  if (compactViewport) leftPanelOpen.value = false
   void loadGraph()
 })
 onBeforeUnmount(() => {
@@ -707,7 +715,12 @@ onBeforeUnmount(() => {
             v-if="graph?.meta.degraded"
             class="graph-limit-note"
           >
-            资料超过画布上限，当前优先展示 {{ graph.visibleItems }} 条
+            <template v-if="compactGraphMode">
+              手机轻量模式，已均衡展示 {{ graph.visibleItems }} 个核心节点
+            </template>
+            <template v-else>
+              资料超过画布上限，当前优先展示 {{ graph.visibleItems }} 条
+            </template>
           </div>
         </div>
 

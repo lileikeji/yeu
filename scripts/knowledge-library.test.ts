@@ -5,7 +5,11 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
-import { getKnowledgeLandscapeGraph, listKnowledgeLibrary } from '../server/modules/knowledge/library'
+import {
+  COMPACT_GRAPH_NODE_LIMIT,
+  getKnowledgeLandscapeGraph,
+  listKnowledgeLibrary
+} from '../server/modules/knowledge/library'
 
 test('knowledge admin pages are sibling routes instead of hidden nested pages', () => {
   assert.equal(existsSync('app/pages/admin/knowledge.vue'), false)
@@ -127,6 +131,42 @@ test('digital landscape graph is derived from current knowledge collections', ()
     assert.equal(graph.learning.views.global.node_ids.length, 4)
     assert.equal(graph.visibleItems, 4)
     assert.equal(graph.truncatedItems, 0)
+  } finally {
+    value.close()
+  }
+})
+
+test('compact landscape graph stays within the mobile WebView budget', () => {
+  const value = fixture()
+  try {
+    const insert = value.client.sqlite.prepare(`
+      INSERT INTO assistant_knowledge_entries (
+        id, kind, category, title, question, answer, keywords_json, confidence,
+        source_note, is_active, imported_at, created_at, updated_at
+      ) VALUES (?, 'official_reference', ?, ?, ?, ?, '[]', 90, '移动端图谱测试', 1, ?, ?, ?)
+    `)
+    const now = Date.now()
+    for (let index = 0; index < COMPACT_GRAPH_NODE_LIMIT + 80; index += 1) {
+      insert.run(
+        `compact-entry-${index}`,
+        index % 2 === 0 ? '宿舍与生活' : '学业与教务',
+        `移动端知识 ${index}`,
+        `移动端问题 ${index}`,
+        `用于验证手机图谱不会一次渲染全部节点的答案 ${index}`,
+        now + index,
+        now + index,
+        now + index
+      )
+    }
+
+    const graph = getKnowledgeLandscapeGraph(value.client, {
+      nodeLimit: COMPACT_GRAPH_NODE_LIMIT
+    })
+    assert.equal(graph.visibleItems, COMPACT_GRAPH_NODE_LIMIT)
+    assert.equal(graph.meta.total_nodes, COMPACT_GRAPH_NODE_LIMIT)
+    assert.equal(graph.meta.degraded, true)
+    assert.ok(graph.truncatedItems > 0)
+    assert.ok(new Set(graph.nodes.map(node => node.collection)).size > 1)
   } finally {
     value.close()
   }

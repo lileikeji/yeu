@@ -58,6 +58,7 @@ interface LandscapeEdge {
 }
 
 const GRAPH_NODE_LIMIT = 1900
+export const COMPACT_GRAPH_NODE_LIMIT = 240
 const MIN_COMMUNITY_SIZE = 3
 
 const COMMUNITY_RULES: Array<{ label: string, pattern: RegExp }> = [
@@ -431,9 +432,34 @@ function communityLabels(items: GraphItemRow[]): Map<string, string> {
   }))
 }
 
-function buildLandscapeNodes(items: GraphItemRow[]): LandscapeNode[] {
+function selectGraphItems(items: GraphItemRow[], limit: number): GraphItemRow[] {
+  if (items.length <= limit) return items
+
+  const buckets = new Map<string, GraphItemRow[]>()
+  for (const item of items) {
+    const key = `${inferredCommunityLabel(item)}:${item.collection}`
+    const bucket = buckets.get(key) ?? []
+    bucket.push(item)
+    buckets.set(key, bucket)
+  }
+
+  const selected: GraphItemRow[] = []
+  const activeBuckets = [...buckets.values()]
+  let offset = 0
+  while (selected.length < limit && activeBuckets.length > 0) {
+    for (let index = activeBuckets.length - 1; index >= 0 && selected.length < limit; index -= 1) {
+      const item = activeBuckets[index]?.[offset]
+      if (item) selected.push(item)
+      else activeBuckets.splice(index, 1)
+    }
+    offset += 1
+  }
+  return selected
+}
+
+function buildLandscapeNodes(items: GraphItemRow[], limit: number): LandscapeNode[] {
   const labels = communityLabels(items)
-  return items.slice(0, GRAPH_NODE_LIMIT).map((item) => {
+  return selectGraphItems(items, limit).map((item) => {
     const sourceKey = `${item.collection}:${item.id}`
     const category = labels.get(sourceKey) ?? item.communityLabel
     const confidence = graphConfidence(item)
@@ -515,10 +541,14 @@ function buildLandscapeEdges(nodes: LandscapeNode[]): LandscapeEdge[] {
   return edges
 }
 
-export function getKnowledgeLandscapeGraph(client: DatabaseClient) {
+export function getKnowledgeLandscapeGraph(
+  client: DatabaseClient,
+  options: { nodeLimit?: number } = {}
+) {
   const summary = knowledgeLibrarySummary(client)
   const allItems = graphItems(client)
-  const nodes = buildLandscapeNodes(allItems)
+  const nodeLimit = Math.max(1, Math.min(GRAPH_NODE_LIMIT, options.nodeLimit ?? GRAPH_NODE_LIMIT))
+  const nodes = buildLandscapeNodes(allItems, nodeLimit)
   const edges = buildLandscapeEdges(nodes)
   const groupedNodes = new Map<string, LandscapeNode[]>()
   for (const node of nodes) {
@@ -559,7 +589,7 @@ export function getKnowledgeLandscapeGraph(client: DatabaseClient) {
       total_nodes: nodes.length,
       total_edges: edges.length,
       initial_view: nodes.slice(0, 180).map(node => node.id),
-      degraded: allItems.length > GRAPH_NODE_LIMIT
+      degraded: allItems.length > nodeLimit
     },
     nodes,
     edges,
