@@ -398,7 +398,7 @@ function ftsQuery(terms: string[]): string {
     .join(' OR ')
 }
 
-function relevantExcerpt(value: string, terms: string[], limit = 900): string {
+function relevantExcerpt(value: string, terms: string[], limit = 1600): string {
   const normalized = value.replace(/\s+/g, ' ').trim()
   if (normalized.length <= limit) return normalized
   const lowered = normalized.toLocaleLowerCase('zh-CN')

@@ -195,9 +195,9 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v8-official-attachments'
+const ASSISTANT_CACHE_VERSION = 'rag-v9-official-attachment-sections'
 const KNOWLEDGE_MAX_PAGES = 6
-const KNOWLEDGE_SNIPPET_MAX_CHARS = 600
+const KNOWLEDGE_SNIPPET_MAX_CHARS = 1200
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
 const KNOWLEDGE_GREETING_SET = new Set(['你好', 'hi', 'hello', '在吗', '谢谢', 'thanks', 'thx', 'ok', '好的'])
 const KNOWLEDGE_META_QUESTION_RE = /(你是(?:什么|哪个)模型|当前模型|模型名称|你能做什么|你的能力|知识(?:结构|图谱|库).{0,8}(?:组成|来源|怎么)|系统提示词|系统指令|api\s*key|接口密钥|内部配置)/i
@@ -884,6 +884,9 @@ export function assistantRetrievalQuery(value: string): string {
   const query = normalizeAssistantQuery(value)
   if (isDormBedDimensionQuery(query)) {
     return '宿舍床和床垫尺寸 长度 宽度 男生女生床位规格'
+  }
+  if (/违纪|处分/.test(query) && /哪些|什么|行为|情形|情况|怎么|如何/.test(query)) {
+    return '学生违纪处分办法 下列行为 处分种类 处理程序 申诉'
   }
   return query
 }

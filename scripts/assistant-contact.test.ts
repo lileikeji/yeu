@@ -15,6 +15,7 @@ import { runMigrations } from '../server/database/migrate'
 import {
   askGateway,
   answerCampusQuestion,
+  assistantRetrievalQuery,
   assistantQueryTerms,
   isGatewayContentBlocked,
   retrieveCampusEvidence,
@@ -72,6 +73,10 @@ test('school rules always use campus retrieval instead of generic model knowledg
   assert.equal(shouldUseCampusKnowledgeBase('哪些行为会受到违纪处分？'), true)
   assert.equal(shouldUseCampusKnowledgeBase('学校规章制度在哪里看？'), true)
   assert.equal(shouldUseCampusKnowledgeBase('神经网络是什么？'), false)
+  assert.equal(
+    assistantRetrievalQuery('哪些行为会受到违纪处分？'),
+    '学生违纪处分办法 下列行为 处分种类 处理程序 申诉'
+  )
 })
 
 test('an exact scholarship question does not expand every unrelated scholarship', async () => {
