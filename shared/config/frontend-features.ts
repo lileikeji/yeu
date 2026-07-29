@@ -126,6 +126,13 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
     icon: 'i-lucide-orbit'
   },
   {
+    key: 'home.more.dorms',
+    group: '其他常用入口',
+    title: '宿舍实拍',
+    description: '查看普通型和舒适型宿舍的竖屏实拍视频。',
+    icon: 'i-lucide-bed-double'
+  },
+  {
     key: 'home.more.welearn',
     group: '其他常用入口',
     title: 'WeLearn 学习工具',

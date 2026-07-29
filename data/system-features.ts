@@ -157,6 +157,17 @@ export const systemFeatures: SystemFeature[] = [
     ]
   },
   {
+    id: 'dorm-tours',
+    title: '宿舍实拍',
+    summary: '查看普通型宿舍和舒适型宿舍的竖屏实拍视频，了解床桌柜、洗衣、洗漱和卫生间区域。',
+    to: '/dorms',
+    icon: 'i-lucide-bed-double',
+    keywords: [
+      '宿舍实拍', '宿舍视频', '普通宿舍视频', '普通型宿舍', '舒适型宿舍', '宿舍长什么样',
+      '普通宿舍内部', '舒适宿舍内部', '宿舍内部图', '宿舍洗衣机', '宿舍卫生间', '宿舍洗漱区'
+    ]
+  },
+  {
     id: 'feedback',
     title: '反馈纠错',
     summary: '提交内容错误、信息缺失、地图问题或功能建议。',

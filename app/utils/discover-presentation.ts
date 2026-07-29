@@ -157,6 +157,14 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
     icon: 'i-lucide-orbit',
     tone: 'bg-emerald-50 text-emerald-700',
     when: '报到前先逛一遍'
+  },
+  {
+    title: '宿舍实拍',
+    description: '分别查看普通型和舒适型宿舍，以及公共洗衣、洗漱和卫生间区域',
+    to: '/dorms',
+    icon: 'i-lucide-bed-double',
+    tone: 'bg-sky-50 text-sky-700',
+    when: '选宿舍前先看看'
   }
 ]
 

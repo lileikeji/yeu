@@ -32,7 +32,7 @@ test('discover page is a thin shell over discover-presentation util', () => {
 })
 
 test('discover catalogs stay student-facing', () => {
-  assert.equal(discoverTaskEntries.length, 13)
+  assert.equal(discoverTaskEntries.length, 14)
   assert.equal(discoverTaskEntries[0]?.title, '新生清单')
   assert.equal(discoverTaskEntries[0]?.to, '/checklist')
   assert.equal(discoverTaskEntries[2]?.title, '学费与资助')
@@ -53,6 +53,7 @@ test('discover catalogs stay student-facing', () => {
   )))
   assert.ok(discoverTaskEntries.some(item => item.title === '周边商铺' && item.to === '/nearby'))
   assert.ok(discoverTaskEntries.some(item => item.title === '全景云游校园' && item.to === '/panorama'))
+  assert.ok(discoverTaskEntries.some(item => item.title === '宿舍实拍' && item.to === '/dorms'))
   assert.ok(discoverTaskEntries.some(item => item.to === '/map?category=express'))
   assert.ok(discoverTaskEntries.some(item => item.description === '查看校园网、校外访问和图书馆登录说明'))
   assert.equal(discoverDirectoryEntries.length, 4)
@@ -102,9 +103,9 @@ test('discover task preview keeps the mobile page manageable', () => {
   assert.equal(discoverTaskPreviewLimit, 6)
   const collapsed = buildDiscoverTaskPreview(discoverTaskEntries, false)
   assert.equal(collapsed.items.length, 6)
-  assert.equal(collapsed.hiddenCount, 7)
+  assert.equal(collapsed.hiddenCount, 8)
   const expanded = buildDiscoverTaskPreview(discoverTaskEntries, true)
-  assert.equal(expanded.items.length, 13)
+  assert.equal(expanded.items.length, 14)
   assert.equal(expanded.hiddenCount, 0)
   assert.match(pageSource, /grid grid-cols-2 gap-3/)
   assert.match(pageSource, /min-h-32 flex-col items-start gap-3[\s\S]*sm:min-h-40 sm:flex-row sm:gap-4/)

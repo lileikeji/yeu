@@ -58,6 +58,7 @@ function concretePageRoutes(): Set<string> {
     '/contact',
     '/departments',
     '/discover',
+    '/dorms',
     '/feedback',
     '/guides',
     '/chat',

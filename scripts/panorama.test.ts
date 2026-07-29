@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import { searchSystemFeatures } from '../data/system-features'
@@ -53,16 +53,10 @@ test('official Baidu panorama viewer exposes all 26 campus scenes with a safe fa
   assert.match(pageSource, /v-else/)
 })
 
-test('comfort dorm walkthrough is presented as a video instead of a fake panorama', () => {
-  assert.match(pageSource, /id: 'comfort-dorm'/)
-  assert.match(pageSource, /mediaType: 'video'/)
-  assert.match(pageSource, /\/media\/comfort-dorm-tour\.mp4/)
-  assert.match(pageSource, /comfort-dorm-poster\.jpg/)
-  assert.match(pageSource, /controls/)
-  assert.match(pageSource, /playsinline/)
-  assert.match(pageSource, /这是一段竖屏走拍视频，不是 360° 全景/)
-  assert.ok(statSync(resolve('public/media/comfort-dorm-tour.mp4')).size > 2_000_000)
-  assert.ok(statSync(resolve('public/images/panorama/comfort-dorm-poster.jpg')).size > 10_000)
+test('panorama keeps non-360 dorm walkthroughs out of the VR viewer', () => {
+  assert.doesNotMatch(pageSource, /comfort-dorm-tour\.mp4/)
+  assert.doesNotMatch(pageSource, /ordinary-dorm-tour\.mp4/)
+  assert.doesNotMatch(pageSource, /<video/)
 })
 
 test('panorama has direct home, search, AI and sitemap entry points', () => {

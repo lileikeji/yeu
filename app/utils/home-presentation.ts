@@ -185,6 +185,14 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-emerald-50 text-emerald-800'
   },
   {
+    featureKey: 'home.more.dorms',
+    title: '宿舍实拍',
+    description: '分别查看普通型和舒适型宿舍、洗漱区与卫生间实拍',
+    to: '/dorms',
+    icon: 'i-lucide-bed-double',
+    tone: 'bg-sky-50 text-sky-800'
+  },
+  {
     featureKey: 'home.more.welearn',
     title: 'WeLearn 学习工具',
     description: '独立第三方工具，打开软件下载页查看版本说明并获取最新版',
