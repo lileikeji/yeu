@@ -437,6 +437,7 @@ export function searchOfficialKnowledgeDocuments(
     title: string
     extractedText: string
     url: string
+    contentHash: string
     capturedAt: number
     ftsRank: number
     attachmentLandingPage: number
@@ -446,6 +447,7 @@ export function searchOfficialKnowledgeDocuments(
     rows = query
       ? client.sqlite.prepare(`
       SELECT kd.id, kd.title, kd.extracted_text AS extractedText,
+        kd.content_hash AS contentHash,
         kd.original_url AS url, kd.captured_at AS capturedAt,
         bm25(knowledge_documents_fts, 0.0, 7.0, 2.0) AS ftsRank,
         coalesce(json_extract(kd.metadata_json, '$.attachmentLandingPage'), 0) AS attachmentLandingPage
@@ -472,6 +474,7 @@ export function searchOfficialKnowledgeDocuments(
       })
       rows = client.sqlite.prepare(`
         SELECT kd.id, kd.title, kd.extracted_text AS extractedText,
+          kd.content_hash AS contentHash,
           kd.original_url AS url, kd.captured_at AS capturedAt, 0 AS ftsRank,
           coalesce(json_extract(kd.metadata_json, '$.attachmentLandingPage'), 0) AS attachmentLandingPage
         FROM knowledge_documents kd
@@ -490,7 +493,7 @@ export function searchOfficialKnowledgeDocuments(
   } catch {
     rows = []
   }
-  return rows.map((row) => {
+  const ranked = rows.map((row) => {
     const title = row.title.toLocaleLowerCase('zh-CN')
     const text = row.extractedText.toLocaleLowerCase('zh-CN')
     const coreTerms = documentCoreQueryTerms(rawQuery)
@@ -531,15 +534,32 @@ export function searchOfficialKnowledgeDocuments(
       title: row.title,
       excerpt: relevantExcerpt(row.extractedText, excerptTerms),
       url: row.url,
+      contentHash: row.contentHash,
       capturedAt: row.capturedAt,
       score: 20 + relevance
         + Math.min(26, Math.max(0, -Number(row.ftsRank || 0) * 8))
         - (row.attachmentLandingPage ? 28 : 0)
     }
   })
-    .filter((row): row is OfficialDocumentMatch => Boolean(row))
+    .filter((row): row is OfficialDocumentMatch & { contentHash: string } => Boolean(row))
     .sort((left, right) => right.score - left.score || right.capturedAt - left.capturedAt)
+
+  const seenContentHashes = new Set<string>()
+  return ranked
+    .filter((row) => {
+      if (seenContentHashes.has(row.contentHash)) return false
+      seenContentHashes.add(row.contentHash)
+      return true
+    })
     .slice(0, Math.max(1, Math.min(30, limit)))
+    .map(row => ({
+      id: row.id,
+      title: row.title,
+      excerpt: row.excerpt,
+      url: row.url,
+      capturedAt: row.capturedAt,
+      score: row.score
+    }))
 }
 
 export function searchPublishedKnowledgeClaims(

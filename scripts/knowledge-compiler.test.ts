@@ -96,6 +96,26 @@ test('ready A-level official documents are searchable and archived versions are 
         extracted_text, metadata_json, status, captured_at, processed_at, created_at, updated_at
       ) VALUES (?, ?, 'webpage', ?, ?, 'text/markdown', ?, ?, '{}', 'ready', ?, ?, ?, ?)
     `).run(
+      '00000000-0000-4000-8000-000000000009',
+      value.sourceId,
+      'Freshman dormitory mattress guide mirror',
+      'https://web.yeu.edu.cn/dorm-test-mirror',
+      'official-document-hash',
+      'Freshmen should measure the dormitory bed before buying a mattress. Dormitory room assignments may change.',
+      now + 1,
+      now + 1,
+      now + 1,
+      now + 1
+    )
+    assert.equal(searchOfficialKnowledgeDocuments(value.client, ['dormitory mattress'], 5).length, 1)
+    value.client.sqlite.prepare('UPDATE knowledge_documents SET status = \'archived\' WHERE id = ?')
+      .run('00000000-0000-4000-8000-000000000009')
+    value.client.sqlite.prepare(`
+      INSERT INTO knowledge_documents (
+        id, source_id, kind, title, original_url, mime_type, content_hash,
+        extracted_text, metadata_json, status, captured_at, processed_at, created_at, updated_at
+      ) VALUES (?, ?, 'webpage', ?, ?, 'text/markdown', ?, ?, '{}', 'ready', ?, ?, ?, ?)
+    `).run(
       '00000000-0000-4000-8000-000000000004',
       value.sourceId,
       '新生开学典礼',

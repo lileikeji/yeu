@@ -747,7 +747,8 @@ export async function parseOfficialPdf(
     data: bytes,
     disableFontFace: true,
     isEvalSupported: false,
-    useSystemFonts: true
+    useSystemFonts: true,
+    verbosity: 0
   })
   try {
     const pdf = await loadingTask.promise
@@ -1227,9 +1228,18 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
           try {
             const html = await fetchOfficialHtml(item.url, options.fresh)
             document = parseOfficialHtml(html, item.url)
-          } catch {
-            const raw = await fetchReader(item.url, options.fresh)
-            document = parseReaderDocument(raw, item.url)
+          } catch (directHtmlError) {
+            try {
+              const raw = await fetchReader(item.url, options.fresh)
+              document = parseReaderDocument(raw, item.url)
+            } catch (readerError) {
+              const directMessage = directHtmlError instanceof Error ? directHtmlError.message : String(directHtmlError)
+              const readerMessage = readerError instanceof Error ? readerError.message : String(readerError)
+              throw new Error(
+                `direct HTML failed: ${directMessage}; reader fallback failed: ${readerMessage}`,
+                { cause: readerError }
+              )
+            }
           }
         } else {
           const raw = await fetchReader(item.url, options.fresh)
