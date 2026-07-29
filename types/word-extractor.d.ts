@@ -4,6 +4,10 @@ declare module 'word-extractor' {
     getFootnotes(): string
     getEndnotes(): string
     getAnnotations(): string
+    getTextboxes(options?: {
+      includeHeadersAndFooters?: boolean
+      includeBody?: boolean
+    }): string
   }
 
   export default class WordExtractor {

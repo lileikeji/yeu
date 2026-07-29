@@ -6,6 +6,7 @@ import {
   crawlPriority,
   DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS,
   EXPLICIT_SEED_PRIORITY,
+  mergeLegacyWordText,
   normalizeOfficialUrl,
   parseOfficialCrawlCli,
   parseOfficialHtml,
@@ -202,6 +203,20 @@ test('legacy XLS calendars are parsed locally with bounded worksheet text', asyn
   assert.equal(document.title, '2026-2027学年第一学期校历')
   assert.match(document.text, /工作表：秋季校历/)
   assert.match(document.text, /新生报到\s+9月5日至6日/)
+})
+
+test('legacy Word flowchart textboxes are merged into searchable text', () => {
+  const text = mergeLegacyWordText({
+    getBody: () => '办理事项\n毕业生补办毕业证明书、学士学位证明',
+    getTextboxes: options => options?.includeHeadersAndFooters === false
+      ? '本人携带身份证原件、复印件和证件照到教务部办理。'
+      : '',
+    getFootnotes: () => '',
+    getEndnotes: () => '',
+    getAnnotations: () => ''
+  })
+  assert.match(text, /毕业生补办毕业证明书/)
+  assert.match(text, /本人携带身份证原件/)
 })
 
 test('new-student rules and attachments are crawled before ordinary news at the same depth', () => {

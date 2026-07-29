@@ -11,7 +11,7 @@ import { runMigrations } from '../server/database/migrate'
 
 const USER_AGENT = 'YEU-Freshman-Guide-knowledge-crawler/1.0 (public official-source indexing)'
 const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
-const CRAWLER_VERSION = 5
+const CRAWLER_VERSION = 6
 const MAX_EXTRACTED_LENGTH = 600_000
 const READER_TIMEOUT_MS = 65_000
 const MAX_PDF_BYTES = 50 * 1024 * 1024
@@ -357,7 +357,10 @@ function attachmentFileTitle(url: string): string {
 
 function officialDocumentTitle(document: ParsedOfficialDocument, queueItem: OfficialCrawlQueueItem): string {
   if (document.kind === 'webpage') return document.title
-  const label = queueItem.label.replace(/\s+/g, ' ').trim()
+  const label = queueItem.label
+    .replace(/\.(?:pdf|docx?|xlsx?|txt)$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
   if (label.length >= 3 && !/^(?:官方入口|附件|下载|点击下载|查看|详情|pdf|word)$/i.test(label)) {
     return label.slice(0, 300)
   }
@@ -587,11 +590,21 @@ export function parseOfficialOpenXml(
 }
 
 function legacyAttachmentTitle(requestedUrl: string, label: string, text: string): string {
-  const normalizedLabel = label.replace(/\s+/g, ' ').trim()
+  const normalizedLabel = label
+    .replace(/\.(?:doc|xls)$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const earlyTitle = text
+    .split(/\n+/)
+    .slice(0, 12)
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .find(line => line.length >= 5
+      && line.length <= 140
+      && /校历|作息时间|办理流程|证明书|学位证明|管理办法|实施办法|规定|细则|章程|指南|手册|培养方案|课程表/u.test(line))
   const fallback = normalizedLabel.length >= 3
     && !/^(?:官方入口|附件|下载|点击下载|查看|详情|word|excel)$/i.test(normalizedLabel)
     ? normalizedLabel
-    : attachmentFileTitle(requestedUrl)
+    : earlyTitle || attachmentFileTitle(requestedUrl)
   return meaningfulAttachmentTitle(fallback, text, requestedUrl)
 }
 
@@ -640,12 +653,7 @@ export async function parseOfficialLegacyOffice(
   let mimeType: string
   if (path.endsWith('.doc')) {
     const document = await new WordExtractor().extract(Buffer.from(bytes))
-    text = cleanDirectText([
-      document.getBody(),
-      document.getFootnotes(),
-      document.getEndnotes(),
-      document.getAnnotations()
-    ].filter(Boolean).join('\n\n')).slice(0, MAX_EXTRACTED_LENGTH)
+    text = mergeLegacyWordText(document)
     kind = 'document'
     mimeType = 'application/msword'
   } else if (path.endsWith('.xls')) {
@@ -666,6 +674,31 @@ export async function parseOfficialLegacyOffice(
     mimeType,
     extractionMethod: 'office-binary'
   }
+}
+
+export function mergeLegacyWordText(document: {
+  getBody: () => string
+  getFootnotes: () => string
+  getEndnotes: () => string
+  getAnnotations: () => string
+  getTextboxes: (options?: {
+    includeHeadersAndFooters?: boolean
+    includeBody?: boolean
+  }) => string
+}): string {
+  const sections = [
+    document.getBody(),
+    document.getTextboxes({
+      includeHeadersAndFooters: false,
+      includeBody: true
+    }),
+    document.getFootnotes(),
+    document.getEndnotes(),
+    document.getAnnotations()
+  ]
+    .map(section => cleanDirectText(section))
+    .filter(Boolean)
+  return [...new Set(sections)].join('\n\n').slice(0, MAX_EXTRACTED_LENGTH)
 }
 
 function ensurePdfTextRuntime(): void {
