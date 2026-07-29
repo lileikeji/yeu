@@ -169,6 +169,7 @@ const typeFilters = ref<Record<NodeType, boolean>>({
 
 let engine: GraphEngine | null = null
 let enginePromise: Promise<GraphEngineLibrary> | null = null
+let communityLabelSpreadTimer: number | null = null
 
 const nodesById = computed(() => new Map((graph.value?.nodes ?? []).map(node => [node.id, node])))
 const communities = computed(() => graph.value?.learning?.communities ?? [])
@@ -410,6 +411,37 @@ function focusGraphSearch(): void {
   graphHost.value?.querySelector<HTMLInputElement>('input[role="searchbox"], input[type="search"]')?.focus()
 }
 
+function spreadCommunityLabels(): void {
+  const host = graphHost.value
+  if (!host) return
+  const labels = Array.from(host.querySelectorAll<HTMLElement>('.sigma-global-community-label'))
+  if (labels.length < 2) return
+
+  const placed: DOMRect[] = []
+  for (const label of labels) {
+    label.style.transform = 'translate(-50%, -50%)'
+    let rect = label.getBoundingClientRect()
+    let offsetX = 0
+    let offsetY = 0
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const overlaps = placed.some(previous =>
+        rect.left < previous.right + 10
+        && rect.right > previous.left - 10
+        && rect.top < previous.bottom + 8
+        && rect.bottom > previous.top - 8
+      )
+      if (!overlaps) break
+      const angle = attempt * 2.399963
+      const radius = 26 + attempt * 15
+      offsetX = Math.cos(angle) * radius
+      offsetY = Math.sin(angle) * radius
+      label.style.transform = `translate(calc(-50% + ${offsetX.toFixed(1)}px), calc(-50% + ${offsetY.toFixed(1)}px))`
+      rect = label.getBoundingClientRect()
+    }
+    placed.push(rect)
+  }
+}
+
 function toggleType(type: NodeType): void {
   typeFilters.value[type] = !typeFilters.value[type]
   engine?.setTypeFilters({ ...typeFilters.value })
@@ -464,9 +496,11 @@ onMounted(() => {
   const deviceMemory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 0)
   compactGraphMode.value = compactViewport || coarsePointer || (deviceMemory > 0 && deviceMemory <= 4)
   if (compactViewport) leftPanelOpen.value = false
+  communityLabelSpreadTimer = window.setInterval(spreadCommunityLabels, 420)
   void loadGraph()
 })
 onBeforeUnmount(() => {
+  if (communityLabelSpreadTimer !== null) window.clearInterval(communityLabelSpreadTimer)
   engine?.destroy()
   engine = null
 })
