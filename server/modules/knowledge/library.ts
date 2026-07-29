@@ -334,6 +334,7 @@ function graphItems(client: DatabaseClient): GraphItemRow[] {
       FROM knowledge_claims kc
       WHERE kc.review_status = 'published'
       ORDER BY kc.confidence_score DESC, kc.updated_at DESC
+      LIMIT 12000
     `).all(),
     ...client.sqlite.prepare(`
       SELECT id, coalesce(nullif(title, ''), question) AS label,
