@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 import {
   createWechatCallbackSignature,
+  createWechatEncryptedTextReply,
+  createWechatTextReplyXml,
   decryptWechatPayload,
   encryptWechatPayload,
   parseWechatMpTextMessage,
@@ -93,6 +95,46 @@ test('official-account text messages become bounded AI questions while other eve
   assert.equal(parseWechatMpTextMessage(xml.replace('1234567890123456', 'not-a-number')), null)
 })
 
+test('passive text replies support plaintext and safe-mode encrypted responses', () => {
+  const plaintext = createWechatTextReplyXml({
+    toUserName: 'openid-user-1',
+    fromUserName: 'gh_server',
+    content: '回答内容 ]]> 继续',
+    timestamp: 1722222222
+  })
+  assert.match(plaintext, /<ToUserName><!\[CDATA\[openid-user-1\]\]><\/ToUserName>/)
+  assert.match(plaintext, /<CreateTime>1722222222<\/CreateTime>/)
+  assert.match(plaintext, /回答内容 \]\]\]\]><!\[CDATA\[> 继续/)
+
+  const encryptedReply = createWechatEncryptedTextReply({
+    token,
+    encodingAesKey,
+    appId,
+    toUserName: 'openid-user-1',
+    fromUserName: 'gh_server',
+    content: '宿舍床尺寸回答',
+    timestamp: 1722222222,
+    nonce: 'reply-nonce',
+    randomPrefix: Buffer.alloc(16, 5)
+  })
+  const encrypted = readWechatXmlField(encryptedReply, 'Encrypt')
+  const signature = readWechatXmlField(encryptedReply, 'MsgSignature')
+  assert.ok(encrypted)
+  assert.ok(signature)
+  assert.equal(verifyWechatCallbackSignature({
+    token,
+    timestamp: '1722222222',
+    nonce: 'reply-nonce',
+    signature: signature!,
+    encrypted: encrypted!
+  }), true)
+  assert.match(decryptWechatPayload({
+    encrypted: encrypted!,
+    encodingAesKey,
+    appId
+  }), /宿舍床尺寸回答/)
+})
+
 test('callback endpoints are server-only, no-store, and support safe mode', () => {
   const getRoute = readFileSync(resolve('server/api/integrations/wechat-mp.get.ts'), 'utf8')
   const postRoute = readFileSync(resolve('server/api/integrations/wechat-mp.post.ts'), 'utf8')
@@ -102,7 +144,8 @@ test('callback endpoints are server-only, no-store, and support safe mode', () =
   assert.match(getRoute, /decryptWechatPayload/)
   assert.match(postRoute, /readRawBody/)
   assert.match(postRoute, /answerAndSendBotQuestion/)
-  assert.match(postRoute, /sendWechatCustomerServiceText/)
+  assert.match(postRoute, /createWechatEncryptedTextReply/)
+  assert.match(postRoute, /PASSIVE_REPLY_BUDGET_MS = 3_800/)
   assert.match(postRoute, /bot:wechat-mp:user:/)
   assert.match(postRoute, /return 'success'/)
   assert.match(getRoute, /CDN-Cache-Control', 'no-store'/)

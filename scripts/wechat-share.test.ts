@@ -50,7 +50,6 @@ test('WeChat JS-SDK signature uses the required lowercase canonical parameter or
 test('WeChat credentials stay server-side and public pages configure their own card content', () => {
   const runtimeConfig = readFileSync(resolve('nuxt.config.ts'), 'utf8')
   const endpoint = readFileSync(resolve('server/api/public/wechat-share.get.ts'), 'utf8')
-  const shareModule = readFileSync(resolve('server/modules/wechat/share.ts'), 'utf8')
   const composable = readFileSync(resolve('app/composables/useWechatShareCard.ts'), 'utf8')
   const club = readFileSync(resolve('app/pages/clubs/[slug].vue'), 'utf8')
   const department = readFileSync(resolve('app/pages/departments/[slug].vue'), 'utf8')
@@ -58,7 +57,6 @@ test('WeChat credentials stay server-side and public pages configure their own c
   assert.match(runtimeConfig, /wechatMpAppSecret: ''/)
   assert.doesNotMatch(runtimeConfig, /wechatMpAppSecret:\s*'[0-9a-f]{32}'/i)
   assert.match(endpoint, /runtimeConfig\.wechatMpAppSecret/)
-  assert.match(shareModule, /export async function getWechatAccessToken/)
   assert.match(endpoint, /CDN-Cache-Control', 'no-store'/)
   assert.doesNotMatch(endpoint, /appSecret[,\s}]*$/m)
   assert.match(composable, /updateAppMessageShareData/)

@@ -188,3 +188,66 @@ export function parseWechatMpTextMessage(xml: string): WechatMpTextMessage | nul
     content: content.slice(0, 300)
   }
 }
+
+function cdata(value: string): string {
+  return `<![CDATA[${value.replaceAll(']]>', ']]]]><![CDATA[>')}]]>`
+}
+
+export function createWechatTextReplyXml(input: {
+  toUserName: string
+  fromUserName: string
+  content: string
+  timestamp?: number
+}): string {
+  const timestamp = Math.max(1, Math.floor(input.timestamp ?? Date.now() / 1000))
+  return [
+    '<xml>',
+    `<ToUserName>${cdata(requiredText(input.toUserName, 'recipient'))}</ToUserName>`,
+    `<FromUserName>${cdata(requiredText(input.fromUserName, 'sender'))}</FromUserName>`,
+    `<CreateTime>${timestamp}</CreateTime>`,
+    '<MsgType><![CDATA[text]]></MsgType>',
+    `<Content>${cdata(requiredText(input.content, 'reply content'))}</Content>`,
+    '</xml>'
+  ].join('')
+}
+
+export function createWechatEncryptedTextReply(input: {
+  token: string
+  encodingAesKey: string
+  appId: string
+  toUserName: string
+  fromUserName: string
+  content: string
+  timestamp?: number
+  nonce?: string
+  randomPrefix?: Buffer
+}): string {
+  const timestamp = Math.max(1, Math.floor(input.timestamp ?? Date.now() / 1000))
+  const nonce = input.nonce?.trim() || randomBytes(8).toString('hex')
+  const message = createWechatTextReplyXml({
+    toUserName: input.toUserName,
+    fromUserName: input.fromUserName,
+    content: input.content,
+    timestamp
+  })
+  const encrypted = encryptWechatPayload({
+    message,
+    encodingAesKey: input.encodingAesKey,
+    appId: input.appId,
+    randomPrefix: input.randomPrefix
+  })
+  const signature = createWechatCallbackSignature({
+    token: input.token,
+    timestamp: String(timestamp),
+    nonce,
+    encrypted
+  })
+  return [
+    '<xml>',
+    `<Encrypt>${cdata(encrypted)}</Encrypt>`,
+    `<MsgSignature>${cdata(signature)}</MsgSignature>`,
+    `<TimeStamp>${timestamp}</TimeStamp>`,
+    `<Nonce>${cdata(nonce)}</Nonce>`,
+    '</xml>'
+  ].join('')
+}

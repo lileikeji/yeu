@@ -1,13 +1,15 @@
 import {
+  createWechatEncryptedTextReply,
+  createWechatTextReplyXml,
   decryptWechatPayload,
   parseWechatMpTextMessage,
   readWechatXmlField,
   verifyWechatCallbackSignature
 } from '../../modules/wechat/callback'
-import { sendWechatCustomerServiceText } from '../../modules/wechat/customer-service'
 import { botAssistantConfig, botRateLimited } from '../../modules/bots/runtime'
 import {
   answerAndSendBotQuestion,
+  formatBotReply,
   releaseBotMessage,
   reserveBotMessage
 } from '../../modules/bots/service'
@@ -15,6 +17,7 @@ import { useAppDatabase } from '../../utils/database'
 import { assertRateLimit } from '../../utils/rate-limit'
 
 const MAX_CALLBACK_BYTES = 128 * 1024
+const PASSIVE_REPLY_BUDGET_MS = 3_800
 
 function queryText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -31,7 +34,6 @@ export default defineEventHandler(async (event) => {
   const token = String(runtime.wechatMpToken || '').trim()
   const encodingAesKey = String(runtime.wechatMpEncodingAesKey || '').trim()
   const appId = String(runtime.wechatMpAppId || '').trim()
-  const appSecret = String(runtime.wechatMpAppSecret || '').trim()
   if (!token || !encodingAesKey || !appId) {
     throw createError({ statusCode: 503, statusMessage: '微信公众号回调尚未完成配置' })
   }
@@ -45,6 +47,7 @@ export default defineEventHandler(async (event) => {
   const timestamp = queryText(query.timestamp)
   const nonce = queryText(query.nonce)
   const encrypted = readWechatXmlField(rawBody, 'Encrypt')
+  const encryptedMode = Boolean(encrypted)
   let messageXml = rawBody
   if (encrypted) {
     if (!verifyWechatCallbackSignature({
@@ -93,17 +96,42 @@ export default defineEventHandler(async (event) => {
   }
   const config = botAssistantConfig(runtime as unknown as Record<string, unknown>)
   config.maxReplyChars = Math.min(config.maxReplyChars, 600)
-  void answerAndSendBotQuestion({
+  let replyMessage = ''
+  const assistantTask = answerAndSendBotQuestion({
     client,
     question,
     config,
-    send: message => sendWechatCustomerServiceText({
-      appId,
-      appSecret,
-      openId: incoming.fromUserName,
-      message
-    })
-  }).catch(() => releaseBotMessage('wechat', incoming.messageId))
+    send: async (message) => {
+      replyMessage = message
+    }
+  })
+  const completedWithinBudget = await Promise.race([
+    assistantTask.then(() => true).catch(() => false),
+    new Promise<false>(resolve => setTimeout(() => resolve(false), PASSIVE_REPLY_BUDGET_MS))
+  ])
+  if (!completedWithinBudget || !replyMessage) {
+    void assistantTask.catch(() => releaseBotMessage('wechat', incoming.messageId))
+    replyMessage = formatBotReply(
+      '这个问题需要多查一会儿，请稍后再发送一次。我会优先使用刚整理好的资料。',
+      config.siteUrl,
+      config.maxReplyChars
+    )
+  }
 
-  return 'success'
+  setHeader(event, 'Content-Type', 'application/xml; charset=utf-8')
+  if (encryptedMode) {
+    return createWechatEncryptedTextReply({
+      token,
+      encodingAesKey,
+      appId,
+      toUserName: incoming.fromUserName,
+      fromUserName: incoming.toUserName,
+      content: replyMessage
+    })
+  }
+  return createWechatTextReplyXml({
+    toUserName: incoming.fromUserName,
+    fromUserName: incoming.toUserName,
+    content: replyMessage
+  })
 })
