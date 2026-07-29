@@ -177,12 +177,12 @@ export class AMapProvider implements MapProvider {
     if (this.selectedPoiId && !this.pois.some(poi => poi.id === this.selectedPoiId)) {
       this.selectedPoiId = null
     }
-    void this.rebuildMarkers()
+    this.startRenderTask(this.rebuildMarkers(), '高德地图标点刷新失败。')
   }
 
   setAreas(areas: MapArea[]): void {
     this.areas = [...areas]
-    void this.rebuildAreas()
+    this.startRenderTask(this.rebuildAreas(), '高德地图区域刷新失败。')
   }
 
   setDisplayOptions(options: MapDisplayOptions): void {
@@ -194,8 +194,12 @@ export class AMapProvider implements MapProvider {
       || options.showLabels !== this.displayOptions.showLabels
       || options.labelSize !== this.displayOptions.labelSize
     this.displayOptions = { ...options }
-    if (markerRenderingChanged) void this.rebuildMarkers()
-    if (areaRenderingChanged) void this.rebuildAreas()
+    if (markerRenderingChanged) {
+      this.startRenderTask(this.rebuildMarkers(), '高德地图标点刷新失败。')
+    }
+    if (areaRenderingChanged) {
+      this.startRenderTask(this.rebuildAreas(), '高德地图区域刷新失败。')
+    }
   }
 
   setBaseStyle(style: MapBaseStyle): boolean {
@@ -568,6 +572,19 @@ export class AMapProvider implements MapProvider {
       map.add([...this.areaOutlines.map(record => record.outline), ...this.areaLabels.map(record => record.marker)])
       this.refreshAreaSelection()
     }
+  }
+
+  /**
+   * Marker/area updates are intentionally fire-and-forget because they can be
+   * triggered by reactive state changes. Contain provider SDK exceptions here
+   * so a rejected AMap promise cannot become an unhandled rejection and take
+   * down the mobile page.
+   */
+  private startRenderTask(task: Promise<void>, fallbackMessage: string): void {
+    void task.catch((error: unknown) => {
+      const normalized = error instanceof Error ? error : new Error(fallbackMessage)
+      this.mapErrorHandler?.(normalized)
+    })
   }
 
   private createMarkerContent(
@@ -972,7 +989,11 @@ export class AMapProvider implements MapProvider {
       this.map.off('click', this.handleMapClick)
       this.map.off('hotspotclick', this.handleHotspotClick)
       this.hotspotInfoWindow?.close()
-      this.map.destroy()
+      try {
+        this.map.destroy()
+      } catch {
+        // AMap may throw while its WebView is already being torn down.
+      }
     }
     this.map = null
     this.amap = null

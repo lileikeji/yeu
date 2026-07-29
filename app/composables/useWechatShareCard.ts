@@ -33,8 +33,10 @@ interface WechatJsSdk {
   }): void
   ready(callback: () => void): void
   error(callback: (error: unknown) => void): void
-  updateAppMessageShareData(input: WechatSharePayload): void
-  updateTimelineShareData(input: WechatSharePayload): void
+  updateAppMessageShareData?: (input: WechatSharePayload) => void
+  updateTimelineShareData?: (input: WechatSharePayload) => void
+  onMenuShareAppMessage?: (input: WechatSharePayload) => void
+  onMenuShareTimeline?: (input: WechatSharePayload) => void
 }
 
 declare global {
@@ -110,8 +112,11 @@ export function useWechatShareCard() {
         link: shareLink,
         imgUrl: imageUrl
       }
-      sdk.updateAppMessageShareData(payload)
-      sdk.updateTimelineShareData(payload)
+      sdk.updateAppMessageShareData?.(payload)
+      sdk.updateTimelineShareData?.(payload)
+      // Older WeChat WebViews still expose only the legacy share hooks.
+      sdk.onMenuShareAppMessage?.(payload)
+      sdk.onMenuShareTimeline?.(payload)
       return true
     } catch {
       return false

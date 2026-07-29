@@ -44,6 +44,20 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
   const mountGate = createMapProviderMountGate()
   const createProvider = options.createProvider ?? createRuntimeMapProvider
 
+  function reportProviderFailure(error: unknown): void {
+    options.mapErrorMessage.value = DEFAULT_MAP_ERROR
+    options.mapStatus.value = 'error'
+    void error
+  }
+
+  function runProviderOperation(operation: () => void): void {
+    try {
+      operation()
+    } catch (error) {
+      reportProviderFailure(error)
+    }
+  }
+
   function clearProvider(provider?: MapProvider | null): void {
     if (!provider || options.mapProvider.value === provider) {
       options.mapProvider.value = null
@@ -59,7 +73,7 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
     options.beforeMount()
     options.mapStatus.value = 'loading'
     options.mapErrorMessage.value = DEFAULT_MAP_ERROR
-    options.mapProvider.value?.destroy()
+    runProviderOperation(() => options.mapProvider.value?.destroy())
     clearProvider()
     let createdProvider: MapProvider | null = null
 
@@ -104,17 +118,17 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
   function destroyMapProvider(): void {
     mountGate.invalidate()
     const provider = options.mapProvider.value
-    provider?.destroy()
+    runProviderOperation(() => provider?.destroy())
     clearProvider(provider)
   }
 
-  watch(options.pois, pois => options.mapProvider.value?.setPois(pois))
-  watch(options.displayOptions, displayOptions => (
+  watch(options.pois, pois => runProviderOperation(() => options.mapProvider.value?.setPois(pois)))
+  watch(options.displayOptions, displayOptions => runProviderOperation(() => (
     options.mapProvider.value?.setDisplayOptions(displayOptions)
-  ), { deep: true })
-  watch(options.areas, areas => options.mapProvider.value?.setAreas(areas))
+  )), { deep: true })
+  watch(options.areas, areas => runProviderOperation(() => options.mapProvider.value?.setAreas(areas)))
   watch(options.resizeSignal, () => {
-    void nextTick(() => options.mapProvider.value?.resize())
+    void nextTick(() => runProviderOperation(() => options.mapProvider.value?.resize()))
   })
 
   onMounted(() => void mountMap())

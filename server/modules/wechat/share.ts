@@ -27,7 +27,12 @@ export interface WechatJsSdkSignature {
   timestamp: number
   signature: string
   url: string
-  jsApiList: ['updateAppMessageShareData', 'updateTimelineShareData']
+  jsApiList: [
+    'updateAppMessageShareData',
+    'updateTimelineShareData',
+    'onMenuShareAppMessage',
+    'onMenuShareTimeline'
+  ]
 }
 
 let tokenCache: CachedCredential | null = null
@@ -188,7 +193,12 @@ export async function createWechatJsSdkSignature(input: {
     timestamp,
     signature: buildWechatJsSdkSignature(ticket, nonceStr, timestamp, input.url),
     url: input.url,
-    jsApiList: ['updateAppMessageShareData', 'updateTimelineShareData']
+    jsApiList: [
+      'updateAppMessageShareData',
+      'updateTimelineShareData',
+      'onMenuShareAppMessage',
+      'onMenuShareTimeline'
+    ]
   }
 }
 

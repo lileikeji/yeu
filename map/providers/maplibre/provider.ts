@@ -52,6 +52,7 @@ const DEFAULT_CENTER: [number, number] = [
 ]
 const DEFAULT_ZOOM = 14
 const SINGLE_POI_ZOOM = 17
+const MAP_LOAD_TIMEOUT_MS = 15_000
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>'
 
 const OSM_PREVIEW_STYLE: StyleSpecification = {
@@ -345,15 +346,24 @@ export class MapLibrePreviewProvider implements MapProvider {
       return Promise.resolve()
     }
 
-    return new Promise((resolve) => {
-      const finish = () => {
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const timeoutRef: { id?: number } = {}
+      const finish = (error?: Error) => {
+        if (settled) return
+        settled = true
         map.off('load', finish)
+        if (timeoutRef.id !== undefined) window.clearTimeout(timeoutRef.id)
         this.cancelPendingLoad = null
-        resolve()
+        if (error) reject(error)
+        else resolve()
       }
 
       this.cancelPendingLoad = finish
       map.on('load', finish)
+      timeoutRef.id = window.setTimeout(() => {
+        finish(new Error('地图底图加载超时，请检查网络后重试。'))
+      }, MAP_LOAD_TIMEOUT_MS)
     })
   }
 
