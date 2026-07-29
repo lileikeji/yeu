@@ -140,6 +140,153 @@ export const comprehensiveEvaluationKnowledge: AssistantKnowledgeSeed[] = [
   }
 ]
 
+export const verifiedNewStudentFaqKnowledge: AssistantKnowledgeSeed[] = [
+  {
+    id: 'faq-2026-military-training',
+    kind: 'official_reference',
+    category: '军训',
+    title: '2026级军训时间和时长',
+    question: '什么时候军训？今年是12月军训吗，多长时间？',
+    answer: '学校2026—2027学年第一学期校历将2026级新生军训暂定为2026年12月13日至26日，共14天；校历同时注明这是部队初定时间，后续若有调整，以学校和学院最新通知为准。才艺表演、训练科目、服装和请假要求目前没有面向2026级的公开细则。',
+    keywords: ['军训', '什么时候军训', '12月军训', '冬训', '军训几天', '军训多长时间', '才艺表演'],
+    publicUrl: '/guides/study-library',
+    confidence: 98,
+    sourceNote: '仰恩大学2026—2027学年第一学期校历；部队安排仍可能调整。'
+  },
+  {
+    id: 'faq-dorm-fees-occupancy',
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '舒适型和普通型宿舍收费与人数',
+    question: '舒适型宿舍多少钱、水电怎么收？女生普通型宿舍是几人间？',
+    answer: '2026年普通高考招生章程列明：女生舒适型4人间2780元/学年，男生舒适型5人间2580元/学年，普通型4至5人间1300元/学年。住宿费包含每生每月5度电和2吨水的定额，空调用电由学生承担；超额水电单价和结算方式以宿舍当年说明为准。学校没有公开普通型女生宿舍固定为4人还是5人的统一结论。',
+    keywords: ['舒适型宿舍', '普通型宿舍', '女生宿舍', '几人间', '住宿费', '水电费', '空调电费', '2780', '2580', '1300'],
+    publicUrl: '/guides/fees-aid',
+    confidence: 99,
+    sourceNote: '仰恩大学2026年普通高考招生章程。'
+  },
+  {
+    id: 'faq-dorm-allocation',
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '新生宿舍和床位如何分配',
+    question: '普通型宿舍床位是系统分配还是自己选？宿舍是不是同专业？可以跨新旧区申请舒适型吗？',
+    answer: '现有学校资料只能确认新生入学时由学校统一安排入住、未经允许不得私自调换宿舍或床位。2026级是否开放舒适型自选、具体抢宿舍流程、能否跨新区旧区申请，以及室友是否同班同专业，学校尚未公布可核验规则；请勿相信代抢、付费占位或群聊口头承诺。',
+    keywords: ['宿舍分配', '床位分配', '自己选床位', '抢宿舍', '舒适型申请', '同专业宿舍', '跨校区宿舍', '新区舒适型', '旧区舒适型'],
+    publicUrl: '/guides/find-campus',
+    confidence: 96,
+    sourceNote: '仰恩大学学生宿舍管理办法与2026年招生资料；未公开事项明确保留。'
+  },
+  {
+    id: 'faq-course-selection',
+    kind: 'official_reference',
+    category: '选课',
+    title: '新生选课和体育课入口',
+    question: '抢课怎么抢，要下载什么？体育课什么时候抢？',
+    answer: '教务部官网提供教务系统和选课主页入口，应从学校官网进入，不使用搜索广告或群聊中的陌生链接。2026级体育课、公共选修课的选课批次、开放时间、补退选规则及是否需要下载App目前尚未公布，等学院、辅导员或教务部通知后再操作，不要提前把账号密码交给他人代抢。',
+    keywords: ['抢课', '选课', '体育课', '什么时候选课', '选课流程', '选课软件', '下载App', '补退选', '教务系统'],
+    publicUrl: '/guides/study-library',
+    confidence: 97,
+    sourceNote: '教务部公开入口与2026级当前公开信息状态。'
+  },
+  {
+    id: 'faq-campus-map-food-express',
+    kind: 'official_reference',
+    category: '地图与生活',
+    title: '校园地图、美食和快递怎么查',
+    question: '有学校地图、美食攻略、新旧区学生街和快递站地图吗？',
+    answer: '本站校园地图可以搜索宿舍、教学楼、餐厅、校门和快递点，并支持步行路线规划；“校园周边”和“找宿舍、教学楼和食堂”页面整理了餐饮与生活服务入口。2025年学生资料提到新区约6个快递点，但2026年的品牌、位置和营业时间可能调整，应以现场标识为准。',
+    keywords: ['学校地图', '校园地图', '美食攻略', '学生街地图', '新区地图', '旧区地图', '快递站', '新区几个快递站', '有什么店'],
+    publicUrl: '/map',
+    confidence: 92,
+    sourceNote: '站内已核验地图与学校餐厅资料；快递点数量属于2025年经验线索。'
+  },
+  {
+    id: 'faq-club-list',
+    kind: 'official_reference',
+    category: '社团',
+    title: '学校有哪些社团',
+    question: '学校都有哪些社团，怎么加入？加入学生会后还要加社团吗？',
+    answer: '当前资料已整理国旗班、音乐协会、公共关系协会、青年志愿者先锋队、就业与创业者协会、青云汉服社、舞蹈协会、计算机协会、电子数模协会、孙子兵法研究会、英语学习社、心理协会、红十字会及多项体育社团等。社团与学生会不是必须同时加入；2026级具体招新时间、报名方式和学生会纳新流程仍要等校团委、学院或组织正式通知。',
+    keywords: ['社团', '有哪些社团', '都有哪些社团', '加入社团', '学生会', '怎么加入学生会', '社团招新', '计算机协会'],
+    publicUrl: '/guides/clubs',
+    confidence: 94,
+    sourceNote: '校团委公开活动、社团干部附件及2026年活动报道。'
+  },
+  {
+    id: 'faq-student-loan',
+    kind: 'official_reference',
+    category: '资助',
+    title: '助学贷款在哪里办',
+    question: '助学贷款是在学校办还是当地办？要等录取通知书到了再办吗？',
+    answer: '生源地信用助学贷款可在入学前到户籍所在地教育局申请，2026年普通高考招生章程写明每生每年最高20000元；校园地国家助学贷款在入校后按学校要求申请，每生每年最高6000元。两类贷款不能同时获得。具体材料、是否需要录取通知书及当地办理时间，应以户籍地资助中心和录取材料要求为准。',
+    keywords: ['助学贷款', '助学贷', '生源地贷款', '校园地贷款', '当地信用社', '当地弄', '学校弄', '教育局', '录取通知书', '贷款怎么办', '绿色通道'],
+    publicUrl: '/guides/fees-aid',
+    confidence: 99,
+    sourceNote: '仰恩大学2026年普通高考招生章程。'
+  },
+  {
+    id: 'faq-financial-aid',
+    kind: 'official_reference',
+    category: '资助',
+    title: '家庭经济困难认定和国家助学金',
+    question: '申请贫困补助容易吗？国家助学金怎么申请？',
+    answer: '国家助学金面向全日制本科在校生中的家庭经济困难学生，现行办法为每年3000元和5000元两档。是否通过不是按“容易或困难”判断，而是按家庭经济困难认定、材料审核和当年名额执行；现行办法原则上要求每年9月20日前由本人通过福建省精准资助学生信息管理系统申请，2026学年时间以学生事务部通知为准。',
+    keywords: ['贫困补助', '困难认定', '家庭经济困难', '国家助学金', '助学金申请', '3000', '5000', '容易申请吗'],
+    publicUrl: '/guides/fees-aid',
+    confidence: 99,
+    sourceNote: '仰恩大学国家助学金评审办法（修订）。'
+  },
+  {
+    id: 'faq-work-study',
+    kind: 'official_reference',
+    category: '兼职与勤工助学',
+    title: '新生怎么找安全的兼职',
+    question: '怎么找兼职，学校兼职机会多吗？',
+    answer: '学校公开有校内勤工助学管理办法，家庭经济困难学生可关注学生资助中心和学院发布的校内岗位。现有资料无法确认2026级具体岗位数量；校外兼职不要交押金、培训费或证件原件，不做刷单、代收款、出租账号和银行卡等高风险工作，优先选择学校发布且能核验用工主体的岗位。',
+    keywords: ['兼职', '找兼职', '兼职机会', '勤工助学', '校内岗位', '资助中心', '兼职押金', '刷单'],
+    publicUrl: '/student-rules#rule-work-study',
+    confidence: 96,
+    sourceNote: '仰恩大学勤工助学管理办法（修订）；校外岗位数量未作推测。'
+  },
+  {
+    id: 'faq-transfer-major-details',
+    kind: 'official_reference',
+    category: '转专业',
+    title: '转专业条件、挂科和宿舍',
+    question: '转专业容易吗？数学没及格一定转不了吗？转专业要换宿舍吗？',
+    answer: '官网目前可检索的是2017年历史细则索引，不能当作2026年现行承诺。历史规则要求符合申请理由、接收专业有名额并通过原学院、接收学院和教务审批，每名学生在校期间原则上只能办理一次；没有证据能确认“数学没及格一定不能转”。转专业后的宿舍由相关部门办理，是否必须换宿舍取决于当年安排。',
+    keywords: ['转专业', '数学没及格', '挂科转专业', '转专业容易吗', '换宿舍', '转专业条件', '转专业名额'],
+    publicUrl: '/student-rules',
+    confidence: 88,
+    sourceNote: '教务部2017年历史实施细则索引；必须等待2026年现行通知。'
+  },
+  {
+    id: 'faq-dorm-appliance-safety',
+    kind: 'official_reference',
+    category: '宿舍安全',
+    title: '宿舍电器和家具改装边界',
+    question: '宿舍可以带吹风机、装桌帘机械臂或自己买洗衣机吗？',
+    answer: '学校公开规则明确禁止热得快、电炉、电煮锅等违规大功率电器，禁止私拉乱接电线，并要求保护宿舍家具和消防通道。但现有公开资料没有给出吹风机功率上限，也没有明确允许私人洗衣机、桌板机械臂或固定式桌帘。入住后应先向宿管确认；不得打孔、破坏桌板、遮挡烟感喷淋或影响散热和逃生。',
+    keywords: ['吹风机', '桌帘', '机械臂', '宿舍洗衣机', '大功率电器', '宿舍电器', '桌板打孔', '消防安全'],
+    publicUrl: '/guides/safety-health',
+    confidence: 94,
+    sourceNote: '宿舍消防安全指南与宿舍管理规则；未公开的设备不作允许承诺。'
+  },
+  {
+    id: 'faq-bedding-preparation',
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '床垫和床上用品怎么准备',
+    question: '开学床垫和床上用品都要自己买吗？学校的床是不是只有木板？',
+    answer: '当前资料建议新生自行准备基础床上用品，但学校尚未公布覆盖所有楼栋、房型的床具配置和统一床板尺寸。床垫、床帘、蚊帐等尺寸相关物品最好等确定宿舍楼栋后实测或按当届通知购买；不要只根据往届图片一次性购买不可退的大件。',
+    keywords: ['床垫', '床上用品', '木板床', '宿舍床', '床板', '蚊帐', '床帘尺寸', '开学要买什么'],
+    publicUrl: '/guides/find-campus',
+    confidence: 86,
+    sourceNote: '新生准备资料与宿舍实拍核验边界；未确认所有楼栋设施。'
+  }
+]
+
 export const campusExperienceKnowledge: AssistantKnowledgeSeed[] = [
   {
     id: 'experience-campus-wall',
@@ -444,5 +591,6 @@ export const assistantKnowledgeSeeds: AssistantKnowledgeSeed[] = [
     }
   }),
   ...comprehensiveEvaluationKnowledge,
+  ...verifiedNewStudentFaqKnowledge,
   ...campusExperienceKnowledge
 ]

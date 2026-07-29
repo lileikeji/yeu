@@ -201,7 +201,7 @@ const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
 const KNOWLEDGE_GREETING_SET = new Set(['你好', 'hi', 'hello', '在吗', '谢谢', 'thanks', 'thx', 'ok', '好的'])
 const KNOWLEDGE_META_QUESTION_RE = /(你是(?:什么|哪个)模型|当前模型|模型名称|你能做什么|你的能力|知识(?:结构|图谱|库).{0,8}(?:组成|来源|怎么)|系统提示词|系统指令|api\s*key|接口密钥|内部配置)/i
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
-const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|新生|宿舍|寝室|床垫|床铺|饮水机|叮叮车|报到|开学|入学|军训|上课|课堂|课程|成绩|绩点|学分|综测|奖学金|助学金|学费|退学|休学|复学|转专业|社团|协会|部门|食堂|校园卡|校园网|图书馆|教务|学生手册|新区|旧区|教学楼|快递|澡堂|宿管|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
+const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|开学|入学|军训|上课|课堂|课程|体育课|选课|抢课|成绩|绩点|学分|综测|奖学金|助学金|助学贷|贫困补助|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|新区|旧区|教学楼|快递|澡堂|宿管|发色|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
@@ -1279,6 +1279,12 @@ function assistantKnowledgeLocalAnswer(
   if (facultyAnswer) return facultyAnswer
   const match = assistantKnowledgeMatchesForQuery(client, query, 6).find((candidate) => {
     if (candidate.score < 12 || candidate.category === '教职工') return false
+    const candidateText = `${candidate.title} ${candidate.question} ${candidate.answer}`
+    const requestedSpecificAspects = [
+      '阳台', '独立卫生间', '独卫', '淋浴', '浴室', '柜子', '衣柜',
+      '床板', '木板', '尺寸', '功率', '题型', '调查问卷', '预报名'
+    ].filter(aspect => query.includes(aspect))
+    if (requestedSpecificAspects.some(aspect => !candidateText.includes(aspect))) return false
     const evidence: AssistantEvidence = {
       title: candidate.title,
       url: candidate.publicUrl ?? `/search?knowledge=${encodeURIComponent(candidate.id)}`,

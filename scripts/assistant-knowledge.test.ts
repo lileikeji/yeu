@@ -3,7 +3,11 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { assistantKnowledgeSeeds, campusExperienceKnowledge } from '../data/assistant-knowledge'
+import {
+  assistantKnowledgeSeeds,
+  campusExperienceKnowledge,
+  verifiedNewStudentFaqKnowledge
+} from '../data/assistant-knowledge'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
@@ -26,6 +30,7 @@ const assistantConfig = {
 
 test('campus experience entries are normalized and do not retain the source platform URL', () => {
   assert.ok(campusExperienceKnowledge.length >= 20)
+  assert.ok(verifiedNewStudentFaqKnowledge.length >= 10)
   assert.ok(assistantKnowledgeSeeds.length >= 30)
   assert.ok(assistantKnowledgeSeeds.every(entry => entry.keywords.length >= 3))
   assert.ok(campusExperienceKnowledge.every(entry => (
@@ -96,6 +101,12 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
       ['开学考什么', /学生手册测试.*英语分班/s],
       ['宿舍洗衣机脏吗', /先清洗内筒/],
       ['学校可以染头发吗', /一般允许染发/],
+      ['今年是12月军训吗，多长时间', /12月13日至26日/],
+      ['女生普通型宿舍是几人间', /4至5人间/],
+      ['助学贷是在学校弄还是当地弄', /户籍所在地教育局.*入校后/s],
+      ['学校有哪些社团', /国旗班.*计算机协会/s],
+      ['体育课什么时候抢', /尚未公布/],
+      ['数学没及格一定转不了吗', /没有证据能确认/],
       ['综测怎么算', /德育25分、智育70分、体育5分/],
       ['综测表格怎么填', /班级代码、学号、姓名/]
     ] as const
