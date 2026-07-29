@@ -202,7 +202,7 @@ const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
 const KNOWLEDGE_GREETING_SET = new Set(['你好', 'hi', 'hello', '在吗', '谢谢', 'thanks', 'thx', 'ok', '好的'])
 const KNOWLEDGE_META_QUESTION_RE = /(你是(?:什么|哪个)模型|当前模型|模型名称|你能做什么|你的能力|知识(?:结构|图谱|库).{0,8}(?:组成|来源|怎么)|系统提示词|系统指令|api\s*key|接口密钥|内部配置)/i
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
-const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|开学|入学|军训|上课|课堂|课程|体育课|选课|抢课|成绩|绩点|学分|综测|奖学金|助学金|助学贷|贫困补助|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|新区|旧区|教学楼|快递|澡堂|宿管|发色|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
+const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|抢课|成绩|绩点|学分|综测|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
@@ -1136,6 +1136,40 @@ function isCurrentTransferQuery(query: string): boolean {
 function transferMajorHistoricalAnswer(query: string): ApiAssistantResponse | null {
   if (!isTransferQuery(query) || isCurrentTransferQuery(query)) return null
   const rule = transferMajorHistoricalRule
+  if (/宿舍|寝室/.test(query)) {
+    return {
+      query,
+      mode: 'local',
+      answer: '转专业后不一定强制换宿舍。据在校经验，可以保留原宿舍，也可以因上课校区、专业集中住宿等需要提出调整申请；是否获批由学院、学生事务部和总务处结合当年床位统一安排。学校现行宿舍办法明确，未经批准不得自行换宿舍或床位。',
+      citations: [
+        {
+          title: '转专业条件、挂科和宿舍',
+          url: '/student-rules',
+          snippet: '现行宿舍规则与在校经验的分层整理；具体调整以当年审批结果为准。',
+          source: 'site'
+        }
+      ],
+      usedWebSearch: false,
+      confidence: 0.82
+    }
+  }
+  if (/数学|挂科|不及格/.test(query)) {
+    return {
+      query,
+      mode: 'local',
+      answer: '目前没有可核验的2026年现行条款能证明“数学没及格就一定不能转专业”。官网可检索到的历史规则强调申请理由、接收名额及原学院、接收学院和教务审批；学生经验常提到不要挂科，但不能把经验直接当成当前硬性条件。请等待教务部当年转专业通知。',
+      citations: [
+        {
+          title: rule.title,
+          url: rule.sourceUrl,
+          snippet: `${rule.sourceNote}；该历史资料不能替代2026年现行通知。`,
+          source: 'site'
+        }
+      ],
+      usedWebSearch: false,
+      confidence: 0.84
+    }
+  }
   const answer = [
     `${rule.title}发布于 ${rule.publishedAt}。以下是公开索引到的历史摘要，不能替代教务部最新通知：`,
     `可申请情形：${rule.eligible.join('；')}`,
@@ -1285,9 +1319,22 @@ function assistantKnowledgeLocalAnswer(
     const candidateText = `${candidate.title} ${candidate.question} ${candidate.answer}`
     const requestedSpecificAspects = [
       '阳台', '独立卫生间', '独卫', '淋浴', '浴室', '柜子', '衣柜',
-      '床板', '木板', '尺寸', '功率', '题型', '调查问卷', '预报名'
+      '床板', '木板', '尺寸', '功率', '题型', '预报名',
+      '新区', '旧区', '水卡', '生活费', '喜鹊儿', '银行卡',
+      '快递地址', '宿舍楼下', '混班', '混专业', '穿孔', '耳饰'
     ].filter(aspect => query.includes(aspect))
     if (requestedSpecificAspects.some(aspect => !candidateText.includes(aspect))) return false
+    if (/什么时候开放/.test(query) && !/(?:什么时候开放|开放(?:日期|时间|时刻)|开学前)/.test(candidateText)) return false
+    if (/在哪抢/.test(query) && !/(?:哪个系统抢|迎新系统|抢宿舍流程)/.test(candidateText)) return false
+    if (/怎么抢|完整流程/.test(query) && !/(?:怎么抢|完整流程|抢宿舍流程|选择房型|完成付款)/.test(candidateText)) return false
+    if (/付款顺序/.test(query) && !/(?:付款顺序|付款完成顺序)/.test(candidateText)) return false
+    if (/苹果电脑|macos|mac/i.test(query) && !/(?:苹果电脑|macOS|Mac|专业实验软件)/.test(candidateText)) return false
+    if (/选课.*(?:系统|app)/i.test(query) && /教务系统.*(?:App|喜鹊儿)/is.test(candidateText)) return candidate.score >= 18
+    if (/抽烟|吸烟/.test(query) && /(?:抽烟|吸烟|禁烟)/.test(candidateText)) return candidate.score >= 18
+    if (/调查问卷|作息.*问卷|空调温度.*问卷/.test(query) && /(?:调查问卷|作息、空调温度|匹配问卷)/.test(candidateText)) return candidate.score >= 18
+    if (/学生会.*(?:报名|纳新|加入)/.test(query) && /(?:学生会报名|纳新群|怎么加入学生会)/.test(candidateText)) return candidate.score >= 18
+    if (/军训.*(?:才艺|晚会)/.test(query) && /(?:才艺展示|才艺表演|晚会)/.test(candidateText)) return candidate.score >= 18
+    if (requestedSpecificAspects.length > 0 && candidate.score >= 18) return true
     const evidence: AssistantEvidence = {
       title: candidate.title,
       url: candidate.publicUrl ?? `/search?knowledge=${encodeURIComponent(candidate.id)}`,

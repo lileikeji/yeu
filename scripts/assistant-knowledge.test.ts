@@ -6,6 +6,7 @@ import test from 'node:test'
 import {
   assistantKnowledgeSeeds,
   campusExperienceKnowledge,
+  userVerifiedNewStudentExperienceKnowledge,
   verifiedNewStudentFaqKnowledge
 } from '../data/assistant-knowledge'
 import { closeDatabase, getDatabase } from '../server/database/client'
@@ -31,7 +32,8 @@ const assistantConfig = {
 test('campus experience entries are normalized and do not retain the source platform URL', () => {
   assert.ok(campusExperienceKnowledge.length >= 20)
   assert.ok(verifiedNewStudentFaqKnowledge.length >= 10)
-  assert.ok(assistantKnowledgeSeeds.length >= 30)
+  assert.ok(userVerifiedNewStudentExperienceKnowledge.length >= 15)
+  assert.ok(assistantKnowledgeSeeds.length >= 45)
   assert.ok(assistantKnowledgeSeeds.every(entry => entry.keywords.length >= 3))
   assert.ok(campusExperienceKnowledge.every(entry => (
     !/抖音|douyin|v\.douyin|http/i.test(JSON.stringify(entry))
@@ -107,6 +109,18 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
       ['学校有哪些社团', /国旗班.*计算机协会/s],
       ['体育课什么时候抢', /尚未公布/],
       ['数学没及格一定转不了吗', /没有证据能确认/],
+      ['舒适型宿舍今年什么时候开放，在哪抢', /开学前约10天.*迎新系统/s],
+      ['新区女生还有舒适型宿舍吗', /女生舒适型宿舍安排在旧区/],
+      ['分宿舍会填作息空调温度问卷吗', /不会先填写作息、空调温度/],
+      ['普通宿舍洗澡要水卡吗', /普通型宿舍洗澡使用水卡/],
+      ['公共洗衣机一次多久', /10分钟单脱水.*25、35、45分钟/s],
+      ['新生一个月生活费多少合适', /1500元.*基础的参考线/s],
+      ['选课用什么系统和App', /教务系统.*喜鹊儿/s],
+      ['苹果电脑上专业软件方便吗', /专业实验软件.*可能只支持Windows/s],
+      ['迎新预报名信息填错不能改怎么办', /保留截图.*班导、辅导员或学院/s],
+      ['新区快递地址怎么写', /第三教学区.*宿舍楼栋/s],
+      ['学校哪里可以抽烟', /不要把厕所当作“允许吸烟区”/],
+      ['报到可以把车开到宿舍楼下吗', /不能进入宿舍区.*宿舍楼下/s],
       ['综测怎么算', /德育25分、智育70分、体育5分/],
       ['综测表格怎么填', /班级代码、学号、姓名/]
     ] as const
