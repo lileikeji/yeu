@@ -77,8 +77,6 @@ function loadWechatJsSdk(): Promise<WechatJsSdk> {
 
 function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<void> {
   return new Promise((resolve, reject) => {
-    sdk.ready(resolve)
-    sdk.error(reject)
     sdk.config({
       debug: false,
       appId: signature.appId,
@@ -87,6 +85,10 @@ function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<vo
       signature: signature.signature,
       jsApiList: signature.jsApiList
     })
+    // Register callbacks after config so older WeChat WebViews cannot miss
+    // the ready event while the SDK is being initialized.
+    sdk.ready(resolve)
+    sdk.error(reject)
   })
 }
 

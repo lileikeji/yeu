@@ -22,6 +22,9 @@ useSeoMeta({
   ogSiteName: '仰恩新生指南',
   ogLocale: 'zh_CN',
   ogImage: '/icons/app-icon-512.png',
+  ogImageWidth: 512,
+  ogImageHeight: 512,
+  ogImageAlt: '仰恩新生指南',
   twitterCard: 'summary_large_image',
   twitterImage: '/icons/app-icon-512.png'
 })

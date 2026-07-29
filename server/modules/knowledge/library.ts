@@ -294,7 +294,11 @@ function graphConfidence(item: GraphItemRow): GraphConfidence {
 function graphNodeType(item: GraphItemRow): GraphNodeType {
   const kind = item.kind.toLowerCase()
   if (item.collection === 'structured' && /^(club|department|place)$/.test(kind)) return 'entity'
-  if (item.collection !== 'entries') return 'source'
+  // Compiled正文知识点 are the searchable topics in the graph. Only the
+  // original document/web records belong to the optional source layer.
+  if (item.collection === 'claims') return 'topic'
+  if (item.collection === 'documents' || item.collection === 'web') return 'source'
+  if (item.collection === 'structured') return 'topic'
   if (/synthesis|summary|digest|综合|汇总/.test(kind)) return 'synthesis'
   if (/query|question|问答/.test(kind)) return 'query'
   if (/compare|comparison|对比/.test(kind)) return 'comparison'

@@ -157,7 +157,7 @@ const searchState = ref({ query: '', resultIds: [] as string[] })
 const typeFilters = ref<Record<NodeType, boolean>>({
   entity: true,
   topic: true,
-  source: true,
+  source: false,
   comparison: true,
   synthesis: true,
   query: true
@@ -184,6 +184,17 @@ const selectedRelations = computed(() => {
       const relatedId = edge.from === selectedNode.value?.id ? edge.to : edge.from
       return { ...edge, node: nodesById.value.get(relatedId) ?? null }
     })
+})
+const visibleCommunityMembers = computed(() => {
+  const community = selectedCommunity.value
+  if (!community) return []
+  const searchIds = new Set(searchState.value.resultIds)
+  return (community.members ?? [])
+    .map(nodeId => nodesById.value.get(nodeId) ?? null)
+    .filter((node): node is GraphNode => Boolean(node))
+    .filter(node => typeFilters.value[node.type])
+    .filter(node => !searchState.value.query || searchIds.has(node.id))
+    .slice(0, 8)
 })
 const nodeTypeCounts = computed(() => {
   const counts = new Map<NodeType, number>()
@@ -745,17 +756,6 @@ onBeforeUnmount(() => {
             />
             正在加载山水画布
           </div>
-          <div
-            v-if="graph?.meta.degraded"
-            class="graph-limit-note"
-          >
-            <template v-if="compactGraphMode">
-              手机轻量模式，已均衡展示 {{ graph.visibleItems }} 个核心节点
-            </template>
-            <template v-else>
-              资料超过画布上限，当前优先展示 {{ graph.visibleItems }} 条
-            </template>
-          </div>
         </div>
 
         <footer class="canvas-footer">
@@ -913,12 +913,12 @@ onBeforeUnmount(() => {
                 <h3>先看这些</h3>
               </div>
               <button
-                v-for="nodeId in (selectedCommunity.members ?? []).slice(0, 8)"
-                :key="nodeId"
+                v-for="node in visibleCommunityMembers"
+                :key="node.id"
                 type="button"
-                @click="selectCommunityNode(nodeId)"
+                @click="selectCommunityNode(node.id)"
               >
-                <span><strong>{{ relationNodeLabel(nodesById.get(nodeId) ?? null) }}</strong></span>
+                <span><strong>{{ relationNodeLabel(node) }}</strong></span>
                 <UIcon name="i-lucide-chevron-right" />
               </button>
             </section>
