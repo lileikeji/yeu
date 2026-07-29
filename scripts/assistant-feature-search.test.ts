@@ -74,6 +74,29 @@ test('assistant answers feature location with a clickable local entry', async ()
   }
 })
 
+test('college aliases resolve their 2026 major list without web search', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-college-major-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '电气学院有哪些专业？', emptyAssistantConfig)
+    assert.equal(response.mode, 'local')
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.equal(response.usedWebSearch, false)
+    assert.match(response.answer, /电气工程及其自动化、电子信息工程/)
+    assert.equal(response.citations[0]?.url, '/#major-lookup')
+    assert.deepEqual(response.trace?.map(item => item.stage), [
+      'query_analysis',
+      'local_database',
+      'answer_generation'
+    ])
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('assistant exposes historical transfer-major rules with an explicit freshness warning', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-transfer-history-'))
   const databasePath = join(directory, 'test.sqlite')

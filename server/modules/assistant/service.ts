@@ -1702,7 +1702,52 @@ function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[])
   return null
 }
 
+const COLLEGE_QUERY_ALIASES = new Map<string, string>([
+  ['计算机学院', '计算机科学与工程学院'],
+  ['人工智能学院', '人工智能与数据科学学院'],
+  ['大数据学院', '人工智能与数据科学学院'],
+  ['电气学院', '电气工程与自动化学院'],
+  ['自动化学院', '电气工程与自动化学院'],
+  ['外语学院', '外国语学院'],
+  ['艺教学院', '艺术与教育学院']
+])
+
+function collegeNameForQuery(query: string): string | null {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const canonical = [...new Set(majorProfiles.map(profile => profile.collegeName))]
+    .find(college => normalized.includes(college.toLocaleLowerCase('zh-CN')))
+  if (canonical) return canonical
+  return [...COLLEGE_QUERY_ALIASES.entries()]
+    .find(([alias]) => normalized.includes(alias.toLocaleLowerCase('zh-CN')))?.[1] ?? null
+}
+
+function collegeMajorsLocalAnswer(query: string): ApiAssistantResponse | null {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (!/专业|开设|学科|招生/.test(normalized)) return null
+  const collegeName = collegeNameForQuery(query)
+  if (!collegeName) return null
+  const majors = majorProfiles
+    .filter(profile => profile.collegeName === collegeName)
+    .map(profile => profile.name)
+  if (majors.length === 0) return null
+  return {
+    query,
+    mode: 'local',
+    answer: `按系统已核对的2026年招生专业目录，${collegeName}包含${majors.join('、')}。专业归属若在录取前后调整，以录取材料和学院最新通知为准。`,
+    citations: [{
+      title: `${collegeName} · 2026年招生专业`,
+      url: '/#major-lookup',
+      snippet: `${collegeName}：${majors.join('、')}。`,
+      source: 'site'
+    }],
+    usedWebSearch: false,
+    confidence: 0.97
+  }
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
+  const collegeMajorsAnswer = collegeMajorsLocalAnswer(query)
+  if (collegeMajorsAnswer) return collegeMajorsAnswer
   const campusOverviewAnswer = campusOverviewLocalAnswer(query, evidence)
   if (campusOverviewAnswer) return campusOverviewAnswer
   const studentRuleAnswer = studentRuleLocalAnswer(query, evidence)
@@ -2467,6 +2512,7 @@ function localEvidenceGapResponse(query: string): ApiAssistantResponse {
 
 function hasStructuredLocalAnswer(query: string, evidence: AssistantEvidence[]): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (collegeMajorsLocalAnswer(query)) return true
   if (campusOverviewLocalAnswer(query, evidence)) return true
   const openingAnswer = isOpeningDateQuery(query)
     && evidence.some(item => item.title === '2026级新生报到')
@@ -2622,9 +2668,11 @@ export async function answerCampusQuestion(
     }
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
+    const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
     if (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
-      deterministicCampusAnswer
+      deterministicCollegeAnswer
+      || deterministicCampusAnswer
       || deterministicKnowledgeAnswer
       || deterministicRuleAnswer
       || hasStructuredLocalAnswer(query, localEvidence)
@@ -2748,6 +2796,7 @@ export async function answerCampusQuestion(
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
+    const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
       tracker,
@@ -2756,7 +2805,8 @@ export async function answerCampusQuestion(
       () => historicalTransferAnswer
         ?? (analysis.requiresSpecificWebEvidence
           ? dormBedEvidenceGapResponse(query, localEvidence)
-          : deterministicCampusAnswer
+          : deterministicCollegeAnswer
+            ?? deterministicCampusAnswer
             ?? deterministicKnowledgeAnswer
             ?? deterministicRuleAnswer
             ?? ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false
