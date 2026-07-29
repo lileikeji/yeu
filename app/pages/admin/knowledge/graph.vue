@@ -116,7 +116,7 @@ declare global {
   }
 }
 
-const ENGINE_SOURCE = '/vendor/llm-wiki-graph-engine/engine.iife.js?v=efa2294'
+const ENGINE_SOURCE = '/vendor/llm-wiki-graph-engine/engine.iife.js?v=b8a47a17'
 const PIN_STORAGE_KEY = 'yeu.knowledge-graph.pins.v1'
 
 const typeOptions: Array<{ id: NodeType, label: string, icon: string }> = [

@@ -57,8 +57,8 @@ interface LandscapeEdge {
   weight: number
 }
 
-const GRAPH_NODE_LIMIT = 1900
-export const COMPACT_GRAPH_NODE_LIMIT = 240
+const GRAPH_NODE_LIMIT = 1200
+export const COMPACT_GRAPH_NODE_LIMIT = 180
 const MIN_COMMUNITY_SIZE = 3
 
 const COMMUNITY_RULES: Array<{ label: string, pattern: RegExp }> = [

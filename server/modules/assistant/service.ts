@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { and, desc, eq, gt, inArray } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, like, or } from 'drizzle-orm'
 import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../data/major-profiles'
 import { campusTransitOptions, campusTransitSearchText } from '../../../data/campus-transit'
 import { nearbyGuideItems, nearbyGuideSearchText } from '../../../data/nearby-guide'
@@ -1025,6 +1025,17 @@ function evidenceScore(title: string, summary: string, body: string, terms: stri
   return score
 }
 
+function textMatchCondition(
+  columns: Array<{ name?: string }>,
+  terms: string[]
+) {
+  const clauses = terms
+    .filter(term => term.length >= 2)
+    .slice(0, 8)
+    .flatMap(term => columns.map(column => like(column as never, `%${term}%`)))
+  return clauses.length > 0 ? or(...clauses) : undefined
+}
+
 export function majorEvidenceForQuery(query: string, limit = 6): AssistantEvidence[] {
   const terms = assistantQueryTerms(query)
   if (terms.length === 0) return []
@@ -1402,6 +1413,15 @@ export function assistantKnowledgeMatchesForQuery(
   const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const identitySubject = assistantIdentitySubject(query)?.toLocaleLowerCase('zh-CN') ?? null
 
+  const candidateCondition = textMatchCondition(
+    [
+      assistantKnowledgeEntries.title,
+      assistantKnowledgeEntries.question,
+      assistantKnowledgeEntries.answer,
+      assistantKnowledgeEntries.keywordsJson
+    ],
+    terms
+  )
   return client.db.select({
     id: assistantKnowledgeEntries.id,
     kind: assistantKnowledgeEntries.kind,
@@ -1413,7 +1433,11 @@ export function assistantKnowledgeMatchesForQuery(
     publicUrl: assistantKnowledgeEntries.publicUrl,
     confidence: assistantKnowledgeEntries.confidence
   }).from(assistantKnowledgeEntries)
-    .where(eq(assistantKnowledgeEntries.isActive, true))
+    .where(and(
+      eq(assistantKnowledgeEntries.isActive, true),
+      candidateCondition
+    ))
+    .limit(Math.max(80, Math.min(320, limit * 48)))
     .all()
     .map((row) => {
       const keywords = parseKnowledgeKeywords(row.keywordsJson)
@@ -1426,9 +1450,19 @@ export function assistantKnowledgeMatchesForQuery(
       const facultyName = row.category === '教职工'
         ? row.title.split('｜', 1)[0]?.trim().toLocaleLowerCase('zh-CN') ?? ''
         : ''
+      const normalizedTitle = row.title.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+      const normalizedIdentity = identitySubject?.replace(/\s+/g, '') ?? ''
+      const identityTitleBoost = normalizedIdentity
+        ? normalizedTitle === normalizedIdentity
+          ? 110
+          : normalizedTitle.startsWith(normalizedIdentity)
+            ? 42
+            : 0
+        : 0
       const score = evidenceScore(`${row.title} ${row.category}`, row.question, detail, terms)
         + exactKeywordBoost
         + (identitySubject && facultyName === identitySubject ? 80 : 0)
+        + identityTitleBoost
       return {
         id: row.id,
         kind: row.kind,
@@ -1663,6 +1697,10 @@ export function retrieveCampusEvidence(
   const featureEvidence = featureEvidenceForQuery(query, limit)
   if (terms.length === 0) return featureEvidence
   const now = Date.now()
+  const campusTextCondition = textMatchCondition(
+    [places.name, places.summary, places.body, places.address],
+    terms
+  )
 
   const placeEvidence: AssistantEvidence[] = client.db.select({
     slug: places.slug,
@@ -1671,7 +1709,10 @@ export function retrieveCampusEvidence(
     body: places.body,
     address: places.address,
     updatedAt: places.updatedAt
-  }).from(places).where(eq(places.status, 'published')).orderBy(desc(places.updatedAt)).all().map((row) => {
+  }).from(places).where(and(
+    eq(places.status, 'published'),
+    campusTextCondition
+  )).orderBy(desc(places.updatedAt)).limit(Math.max(24, Math.min(160, limit * 24))).all().map((row) => {
     const summary = safeText(`${row.summary} ${row.address ?? ''}`, 500)
     const body = safeText(row.body, 6000)
     return {
@@ -1694,8 +1735,9 @@ export function retrieveCampusEvidence(
     updatedAt: contents.updatedAt
   }).from(contents).where(and(
     eq(contents.status, 'published'),
-    activePublicContentCondition(now)
-  )).orderBy(desc(contents.updatedAt)).all().map((row) => {
+    activePublicContentCondition(now),
+    textMatchCondition([contents.title, contents.summary, contents.body, contents.metadataJson], terms)
+  )).orderBy(desc(contents.updatedAt)).limit(Math.max(32, Math.min(220, limit * 32))).all().map((row) => {
     const summary = safeText(row.summary, 500)
     const body = safeText(row.body, 6000)
     const metadata = nestedArticleText(row.metadataJson)
@@ -1719,7 +1761,16 @@ export function retrieveCampusEvidence(
     statusText: procedures.statusText,
     deadlineText: procedures.deadlineText,
     updatedAt: procedures.updatedAt
-  }).from(procedures).where(activePublicProcedureCondition(now)).orderBy(desc(procedures.updatedAt)).all()
+  }).from(procedures).where(and(
+    activePublicProcedureCondition(now),
+    textMatchCondition([
+      procedures.title,
+      procedures.summary,
+      procedures.body,
+      procedures.statusText,
+      procedures.deadlineText
+    ], terms)
+  )).orderBy(desc(procedures.updatedAt)).limit(Math.max(24, Math.min(140, limit * 24))).all()
   const procedureIds = procedureRows.map(row => row.id)
   const stepRows = procedureIds.length > 0
     ? client.db.select({
