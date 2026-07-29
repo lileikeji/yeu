@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 import { load } from 'cheerio'
+import { unzipSync } from 'fflate'
 import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 
@@ -12,6 +13,7 @@ const CRAWLER_VERSION = 4
 const MAX_EXTRACTED_LENGTH = 600_000
 const READER_TIMEOUT_MS = 65_000
 const MAX_PDF_BYTES = 50 * 1024 * 1024
+const MAX_OFFICE_BYTES = 30 * 1024 * 1024
 const MAX_HTML_BYTES = 10 * 1024 * 1024
 export const EXPLICIT_SEED_PRIORITY = 10_000
 
@@ -90,7 +92,7 @@ export interface ParsedOfficialDocument {
   links: Array<{ url: string, label: string }>
   kind: 'webpage' | 'pdf' | 'document' | 'spreadsheet'
   mimeType: string
-  extractionMethod: 'jina' | 'pdfjs' | 'direct-html'
+  extractionMethod: 'jina' | 'pdfjs' | 'direct-html' | 'office-xml'
   pageCount?: number
   attachmentLandingPage?: boolean
 }
@@ -271,22 +273,37 @@ function meaningfulAttachmentTitle(rawTitle: string, text: string, sourceUrl: st
     .replace(/\s+/g, ' ')
     .trim()
   const rawLooksOpaque = !cleanedRawTitle
-    || /^[0-9a-f-]{16,}$/i.test(cleanedRawTitle)
+    || /^[0-9a-f-]{16,}$/i.test(cleanedRawTitle.replace(/\s+/g, ''))
     || /^仰恩大学官方附件$/u.test(cleanedRawTitle)
-  if (!rawLooksOpaque) return cleanedRawTitle.slice(0, 300)
+  const earlyCandidate = text
+    .split(/\n+/)
+    .slice(0, 8)
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .find(line => line.length >= 5
+      && line.length <= 140
+      && !/^(?:工作表|sheet)\s*[：:]/i.test(line)
+      && /办法|规定|细则|章程|指南|手册|流程|通知|报告|培养方案|校历|课程表|申请表|名单/u.test(line))
+  if (!rawLooksOpaque) {
+    const metadataLooksStale = earlyCandidate
+      && earlyCandidate !== cleanedRawTitle
+      && !text.slice(0, 800).replace(/\s+/g, '').includes(cleanedRawTitle.replace(/\s+/g, ''))
+    return (metadataLooksStale ? earlyCandidate : cleanedRawTitle).slice(0, 300)
+  }
+  if (earlyCandidate) return earlyCandidate.slice(0, 300)
 
   const quoted = text.match(/《(仰恩大学[^》]{2,120}(?:办法|规定|细则|章程|指南|手册|流程|通知|报告)[^》]{0,30})》/u)?.[1]
   if (quoted) return quoted.replace(/\s+/g, '').slice(0, 300)
 
   const candidates = text
     .split(/\n+/)
-    .map(line => line.replace(/\s+/g, ' ').trim())
-    .filter(line => line.length >= 5 && line.length <= 140 && /[\u3400-\u9FFF]/u.test(line))
-    .filter(line => /办法|规定|细则|章程|指南|手册|流程|通知|报告|申请表|名单/u.test(line))
-    .map(line => ({
+    .map((line, index) => ({ line: line.replace(/\s+/g, ' ').trim(), index }))
+    .filter(item => item.line.length >= 5 && item.line.length <= 140 && /[\u3400-\u9FFF]/u.test(item.line))
+    .filter(item => /办法|规定|细则|章程|指南|手册|流程|通知|报告|培养方案|校历|课程表|申请表|名单/u.test(item.line))
+    .map(({ line, index }) => ({
       line,
       score: (line.includes('仰恩大学') ? 40 : 0)
-        + (/办法|规定|细则|章程|手册/u.test(line) ? 25 : 0)
+        + (/办法|规定|细则|章程|手册|培养方案|校历/u.test(line) ? 25 : 0)
+        + Math.max(0, 60 - index * 4)
         - (/^(?:关于|附件|办理事项)/u.test(line) ? 4 : 0)
         - (/[：:]直线|Image|签发人/u.test(line) ? 30 : 0)
     }))
@@ -324,11 +341,14 @@ function isAttachmentUrl(url: string): boolean {
 }
 
 function attachmentFileTitle(url: string): string {
-  const filename = decodeURIComponent(new URL(url).pathname.split('/').pop() ?? '')
+  const rawFilename = decodeURIComponent(new URL(url).pathname.split('/').pop() ?? '')
     .replace(/\.(?:pdf|docx?|xlsx?|txt)$/i, '')
+    .trim()
+  const opaque = /^[0-9a-f-]{16,}$/i.test(rawFilename)
+  const filename = rawFilename
     .replace(/[_-]+/g, ' ')
     .trim()
-  return filename && !/^[0-9a-f-]{16,}$/i.test(filename)
+  return filename && !opaque
     ? filename.slice(0, 300)
     : '仰恩大学官方附件'
 }
@@ -371,6 +391,161 @@ async function fetchPdfBytes(value: string, fresh: boolean, discoveredFrom: stri
     }
   }
   throw new Error(lastError instanceof Error ? lastError.message : 'official PDF request failed')
+}
+
+async function fetchOfficeBytes(value: string, fresh: boolean, discoveredFrom: string | null): Promise<Uint8Array> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(value, {
+        headers: {
+          'accept': 'application/vnd.openxmlformats-officedocument.*,application/octet-stream;q=0.8,*/*;q=0.1',
+          'user-agent': BROWSER_USER_AGENT,
+          ...(discoveredFrom ? { referer: discoveredFrom } : {}),
+          ...(fresh ? { 'cache-control': 'no-cache' } : {})
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(READER_TIMEOUT_MS)
+      })
+      if (!response.ok) throw new Error(`official Office attachment returned HTTP ${response.status}`)
+      const declaredLength = Number(response.headers.get('content-length') ?? 0)
+      if (declaredLength > MAX_OFFICE_BYTES) throw new Error('Office attachment is larger than the 30 MB indexing limit')
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      if (bytes.length > MAX_OFFICE_BYTES) throw new Error('Office attachment is larger than the 30 MB indexing limit')
+      if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+        throw new Error('official attachment did not return an Open XML file')
+      }
+      return bytes
+    } catch (error) {
+      lastError = error
+      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+    }
+  }
+  throw new Error(lastError instanceof Error ? lastError.message : 'official Office attachment request failed')
+}
+
+function decodeXmlText(value: string): string {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, '\'')
+    .replace(/&amp;/g, '&')
+}
+
+function textFromOpenXmlFragment(value: string): string {
+  return cleanDirectText(decodeXmlText(value
+    .replace(/<w:tab\b[^>]*\/?>/gi, '\t')
+    .replace(/<w:br\b[^>]*\/?>/gi, '\n')
+    .replace(/<\/w:p>/gi, '\n')
+    .replace(/<\/w:tc>/gi, '\t')
+    .replace(/<\/w:tr>/gi, '\n')
+    .replace(/<\/(?:t|v)>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')))
+}
+
+function openXmlTitle(files: Record<string, Uint8Array>, fallback: string): string {
+  const core = files['docProps/core.xml']
+  if (!core) return fallback
+  const xml = new TextDecoder().decode(core)
+  const title = decodeXmlText(xml.match(/<dc:title\b[^>]*>([\s\S]*?)<\/dc:title>/i)?.[1] ?? '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return title || fallback
+}
+
+function spreadsheetColumnIndex(reference: string): number {
+  const letters = reference.match(/^[A-Z]+/i)?.[0]?.toLocaleUpperCase('en-US') ?? 'A'
+  let index = 0
+  for (const letter of letters) index = index * 26 + letter.charCodeAt(0) - 64
+  return Math.max(0, index - 1)
+}
+
+function parseOpenXmlSpreadsheet(files: Record<string, Uint8Array>): string {
+  const decoder = new TextDecoder()
+  const sharedXml = files['xl/sharedStrings.xml'] ? decoder.decode(files['xl/sharedStrings.xml']) : ''
+  const sharedStrings = [...sharedXml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/gi)]
+    .map(match => textFromOpenXmlFragment(match[1] ?? ''))
+  const workbookXml = files['xl/workbook.xml'] ? decoder.decode(files['xl/workbook.xml']) : ''
+  const sheetNames = [...workbookXml.matchAll(/<sheet\b[^>]*\bname="([^"]+)"/gi)]
+    .map(match => decodeXmlText(match[1] ?? '').trim())
+  const worksheetEntries = Object.entries(files)
+    .filter(([name]) => /^xl\/worksheets\/sheet\d+\.xml$/i.test(name))
+    .sort(([left], [right]) => left.localeCompare(right, 'en-US', { numeric: true }))
+  const output: string[] = []
+
+  for (const [sheetName, bytes] of worksheetEntries) {
+    const index = Number(sheetName.match(/sheet(\d+)\.xml$/i)?.[1] ?? output.length + 1) - 1
+    output.push(`工作表：${sheetNames[index] || `Sheet ${index + 1}`}`)
+    const xml = decoder.decode(bytes)
+    for (const rowMatch of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/gi)) {
+      const cells: string[] = []
+      for (const cellMatch of (rowMatch[1] ?? '').matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/gi)) {
+        const attributes = cellMatch[1] ?? ''
+        const body = cellMatch[2] ?? ''
+        const reference = attributes.match(/\br="([^"]+)"/i)?.[1] ?? `A${cells.length + 1}`
+        const type = attributes.match(/\bt="([^"]+)"/i)?.[1] ?? ''
+        const rawValue = body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/i)?.[1] ?? ''
+        let value = type === 's'
+          ? sharedStrings[Number(rawValue)] ?? ''
+          : type === 'inlineStr'
+            ? textFromOpenXmlFragment(body)
+            : decodeXmlText(rawValue).trim()
+        if (type === 'b') value = value === '1' ? '是' : '否'
+        const cellIndex = spreadsheetColumnIndex(reference)
+        while (cells.length < cellIndex) cells.push('')
+        cells[cellIndex] = value
+      }
+      const line = cells.join('\t').replace(/\t+$/g, '').trim()
+      if (line) output.push(line)
+      if (output.reduce((total, line) => total + line.length, 0) >= MAX_EXTRACTED_LENGTH) break
+    }
+  }
+  return cleanDirectText(output.join('\n'))
+}
+
+export function parseOfficialOpenXml(
+  bytes: Uint8Array,
+  requestedUrl: string,
+  label = ''
+): ParsedOfficialDocument {
+  const files = unzipSync(bytes)
+  const path = new URL(requestedUrl).pathname.toLocaleLowerCase('en-US')
+  const normalizedLabel = label.replace(/\s+/g, ' ').trim()
+  const fallbackTitle = normalizedLabel.length >= 3
+    && !/^(?:官方入口|附件|下载|点击下载|查看|详情|word|excel)$/i.test(normalizedLabel)
+    ? normalizedLabel
+    : attachmentFileTitle(requestedUrl)
+  let text: string
+  let kind: ParsedOfficialDocument['kind']
+  let mimeType: string
+  if (path.endsWith('.docx')) {
+    const documentXml = files['word/document.xml']
+    if (!documentXml) throw new Error('DOCX did not contain word/document.xml')
+    text = textFromOpenXmlFragment(new TextDecoder().decode(documentXml))
+    kind = 'document'
+    mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  } else if (path.endsWith('.xlsx')) {
+    text = parseOpenXmlSpreadsheet(files)
+    kind = 'spreadsheet'
+    mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  } else {
+    throw new Error('unsupported Open XML attachment type')
+  }
+  if (text.length < 20) throw new Error('Office attachment did not contain enough readable text')
+  return {
+    url: requestedUrl,
+    title: meaningfulAttachmentTitle(openXmlTitle(files, fallbackTitle), text, requestedUrl),
+    text,
+    publishedAt: null,
+    links: [],
+    kind,
+    mimeType,
+    extractionMethod: 'office-xml'
+  }
 }
 
 function ensurePdfTextRuntime(): void {
@@ -861,6 +1036,18 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
               document = parseReaderDocument(raw, item.url)
             } catch {
               throw directPdfError
+            }
+          }
+        } else if (/\.(?:docx|xlsx)$/i.test(new URL(item.url).pathname)) {
+          try {
+            const bytes = await fetchOfficeBytes(item.url, options.fresh, item.discoveredFrom)
+            document = parseOfficialOpenXml(bytes, item.url, item.label)
+          } catch (directOfficeError) {
+            try {
+              const raw = await fetchReader(item.url, options.fresh)
+              document = parseReaderDocument(raw, item.url)
+            } catch {
+              throw directOfficeError
             }
           }
         } else if (documentKind(item.url).kind === 'webpage') {

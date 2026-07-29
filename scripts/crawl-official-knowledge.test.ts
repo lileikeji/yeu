@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { strToU8, zipSync } from 'fflate'
 import {
   crawlPriority,
   DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS,
@@ -7,6 +8,7 @@ import {
   normalizeOfficialUrl,
   parseOfficialCrawlCli,
   parseOfficialHtml,
+  parseOfficialOpenXml,
   parseReaderDocument
 } from './crawl-official-knowledge'
 
@@ -125,6 +127,52 @@ test('official HTML discovers PDF players whose attachment is stored outside anc
     url: 'https://xsb.yeu.edu.cn/_upload/article/files/rules/comprehensive-evaluation.pdf',
     label: '仰恩大学学生综合测评实施办法（修订）.pdf'
   }])
+})
+
+test('DOCX attachments are parsed locally without an external reader service', () => {
+  const bytes = zipSync({
+    'docProps/core.xml': strToU8('<cp:coreProperties><dc:title>仰恩大学旧模板通知</dc:title></cp:coreProperties>'),
+    'word/document.xml': strToU8(`
+      <w:document><w:body>
+        <w:p><w:r><w:t>仰恩大学学生请假管理规定</w:t></w:r></w:p>
+        <w:p><w:r><w:t>学生因病请假应提交证明，并按学院流程办理。</w:t></w:r></w:p>
+        <w:tbl><w:tr><w:tc><w:p><w:r><w:t>请假类型</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>病假</w:t></w:r></w:p></w:tc></w:tr></w:tbl>
+      </w:body></w:document>
+    `)
+  })
+  const document = parseOfficialOpenXml(
+    bytes,
+    'https://xsb.yeu.edu.cn/_upload/article/files/student-leave.docx',
+    '学生请假规定.docx'
+  )
+  assert.equal(document.kind, 'document')
+  assert.equal(document.extractionMethod, 'office-xml')
+  assert.equal(document.title, '仰恩大学学生请假管理规定')
+  assert.match(document.text, /学生因病请假应提交证明/)
+  assert.match(document.text, /请假类型/)
+})
+
+test('XLSX attachments are parsed locally with sheet names and shared strings', () => {
+  const bytes = zipSync({
+    'docProps/core.xml': strToU8('<cp:coreProperties><dc:title>2026-2027学年第一学期校历</dc:title></cp:coreProperties>'),
+    'xl/workbook.xml': strToU8('<workbook><sheets><sheet name="秋季校历" sheetId="1"/></sheets></workbook>'),
+    'xl/sharedStrings.xml': strToU8('<sst><si><t>事项</t></si><si><t>新生报到</t></si><si><t>日期</t></si><si><t>9月5日至6日</t></si></sst>'),
+    'xl/worksheets/sheet1.xml': strToU8(`
+      <worksheet><sheetData>
+        <row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>2</v></c></row>
+        <row r="2"><c r="A2" t="s"><v>1</v></c><c r="B2" t="s"><v>3</v></c></row>
+      </sheetData></worksheet>
+    `)
+  })
+  const document = parseOfficialOpenXml(
+    bytes,
+    'https://bgs.yeu.edu.cn/_upload/article/files/2026-calendar.xlsx',
+    '2026校历.xlsx'
+  )
+  assert.equal(document.kind, 'spreadsheet')
+  assert.equal(document.title, '2026-2027学年第一学期校历')
+  assert.match(document.text, /工作表：秋季校历/)
+  assert.match(document.text, /新生报到\s+9月5日至6日/)
 })
 
 test('new-student rules and attachments are crawled before ordinary news at the same depth', () => {
