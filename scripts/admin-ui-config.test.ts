@@ -145,7 +145,13 @@ test('organization visual editor manages signup Q&A and persists QR uploads imme
     /v-model="model\.findingIt"/,
     /function uploadClubIcon\(event: Event\)/,
     /function removeClubIcon\(\)/,
-    /社团图标已上传并保存/
+    /社团图标已上传并保存/,
+    /function uploadBoxImages\(box: EditorBox, event: Event\)/,
+    /function removeBoxImage\(box: EditorBox, index: number\)/,
+    /v-model="box\.placement"/,
+    /v-model="box\.imageTitles\[imageIndex\]"/,
+    /在下方插入 Box/,
+    /前台支持点击放大/
   ], 'AdminOrganizationVisualEditor')
 })
 

@@ -342,13 +342,40 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
   if (boxes !== undefined) {
     const validBox = (item: unknown): boolean => {
       if (!isPlainObject(item)) return false
-      const allowedKeys = new Set(['id', 'title', 'body', 'items', 'icon', 'tone'])
+      const allowedKeys = new Set([
+        'id', 'title', 'body', 'items', 'icon', 'tone',
+        'placement', 'imageUrls', 'imageTitles'
+      ])
       if (Object.keys(item).some(key => !allowedKeys.has(key))) return false
       if (typeof item.id !== 'string' || !/^[a-z0-9-]{1,64}$/i.test(item.id)) return false
       if (typeof item.title !== 'string' || !item.title.trim() || item.title.trim().length > 120) return false
       if (item.body !== undefined && (typeof item.body !== 'string' || item.body.length > 4000)) return false
       if (item.icon !== undefined && (typeof item.icon !== 'string' || item.icon.length > 80)) return false
       if (item.tone !== undefined && !['plain', 'green', 'blue', 'amber'].includes(String(item.tone))) return false
+      if (item.placement !== undefined && ![
+        'default',
+        'after-overview',
+        'after-signup',
+        'after-intro',
+        'after-recruitment',
+        'after-contact',
+        'before-community'
+      ].includes(String(item.placement))) return false
+      const imageUrls = item.imageUrls
+      const imageTitles = item.imageTitles
+      if (imageUrls !== undefined && (
+        !Array.isArray(imageUrls)
+        || imageUrls.length > 8
+        || imageUrls.some(url => (
+          typeof url !== 'string'
+          || !/^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i.test(url)
+        ))
+      )) return false
+      if (imageTitles !== undefined && (
+        !Array.isArray(imageTitles)
+        || imageTitles.length !== (Array.isArray(imageUrls) ? imageUrls.length : 0)
+        || imageTitles.some(title => typeof title !== 'string' || title.trim().length > 120)
+      )) return false
       return item.items === undefined
         || (Array.isArray(item.items)
           && item.items.length <= 30
@@ -808,7 +835,7 @@ export const adminKnowledgeClaimsQuerySchema = paginationQuerySchema.extend({
 })
 
 export const adminKnowledgeLibraryQuerySchema = paginationQuerySchema.extend({
-  collection: z.enum(['entries', 'web', 'documents']).default('entries'),
+  collection: z.enum(['entries', 'web', 'documents', 'structured']).default('entries'),
   category: z.string().trim().max(80).optional(),
   status: z.string().trim().max(40).optional()
 })

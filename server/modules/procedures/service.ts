@@ -29,6 +29,7 @@ import type {
   ApiProcedurePlace
 } from '../../../shared/types/server'
 import type { DatabaseClient } from '../../database/client'
+import { bumpAssistantKnowledgeRevision } from '../assistant/knowledge-revision'
 import {
   contents,
   places,
@@ -601,6 +602,7 @@ export function createProcedure(client: DatabaseClient, input: CreateProcedureIn
   } catch (error) {
     rethrowDatabaseError(error)
   }
+  bumpAssistantKnowledgeRevision()
   return getAdminProcedure(client, id)
 }
 
@@ -751,6 +753,7 @@ export function updateProcedure(
   } catch (error) {
     rethrowDatabaseError(error)
   }
+  bumpAssistantKnowledgeRevision()
   return getAdminProcedure(client, id)
 }
 
@@ -765,6 +768,7 @@ export function publishProcedure(client: DatabaseClient, id: string): ApiProcedu
     publishedAt: now,
     updatedAt: now
   }).where(eq(procedures.id, id)).run()
+  bumpAssistantKnowledgeRevision()
   return getAdminProcedure(client, id)
 }
 
@@ -775,5 +779,6 @@ export function archiveProcedure(client: DatabaseClient, id: string): ApiProcedu
     status: 'archived',
     updatedAt: Date.now()
   }).where(eq(procedures.id, id)).run()
+  bumpAssistantKnowledgeRevision()
   return getAdminProcedure(client, id)
 }

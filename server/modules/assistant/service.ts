@@ -50,6 +50,7 @@ import {
 } from '../../database/schema'
 import { activePublicContentCondition } from '../content/visibility'
 import { searchOfficialKnowledgeDocuments, searchPublishedKnowledgeClaims } from '../knowledge/service'
+import { currentAssistantKnowledgeRevision } from './knowledge-revision'
 import { activePublicProcedureCondition } from '../procedures/service'
 import {
   fetchAmapTransitPlan,
@@ -1185,6 +1186,7 @@ interface AssistantKnowledgeMatch {
   kind: 'official_reference' | 'campus_template' | 'student_experience'
   category: string
   title: string
+  question: string
   answer: string
   publicUrl: string | null
   confidence: number
@@ -1244,6 +1246,7 @@ export function assistantKnowledgeMatchesForQuery(
         kind: row.kind,
         category: row.category,
         title: row.title,
+        question: row.question,
         answer: row.answer,
         publicUrl: row.publicUrl,
         confidence: row.confidence,
@@ -2652,7 +2655,7 @@ export async function answerCampusQuestion(
     const query = normalizeAssistantQuery(rawQuery)
     const retrievalQuery = assistantRetrievalQuery(query)
     const intentDetail = assistantIntentDetail(query, retrievalQuery)
-    const cacheKey = `${ASSISTANT_CACHE_VERSION}:${query.toLocaleLowerCase('zh-CN')}`
+    const cacheKey = `${ASSISTANT_CACHE_VERSION}:${currentAssistantKnowledgeRevision()}:${query.toLocaleLowerCase('zh-CN')}`
     const directKind = directQueryKind(query)
     if (directKind) {
       return {

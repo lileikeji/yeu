@@ -19,7 +19,7 @@ interface GraphItemRow {
   summary: string
   communityLabel: string
   kind: string
-  collection: 'entries' | 'web' | 'documents'
+  collection: 'entries' | 'web' | 'documents' | 'structured'
   url: string | null
   status: string
   capturedAt: number
@@ -89,7 +89,7 @@ export function knowledgeLibrarySummary(client: DatabaseClient) {
   const structured = scalar(client, 'SELECT (SELECT count(*) FROM contents) + (SELECT count(*) FROM places) + (SELECT count(*) FROM procedures) AS value')
   const sources = scalar(client, 'SELECT count(*) AS value FROM sources')
   return {
-    retrievalTotal: entries + web + documents + claims,
+    retrievalTotal: entries + web + documents + claims + structured,
     systemTotal: entries + web + documents + claims + structured,
     entries,
     activeEntries,
@@ -153,6 +153,95 @@ export function listKnowledgeLibrary(client: DatabaseClient, query: LibraryQuery
     return { items: rows, total, summary: knowledgeLibrarySummary(client) }
   }
 
+  if (query.collection === 'structured') {
+    const where = searchClause(query, ['title', 'subtitle', 'body', 'category'])
+    const rows = client.sqlite.prepare(`
+      SELECT id, title, subtitle, body, category, kind, status, url,
+        NULL AS confidence, capturedAt
+      FROM (
+        SELECT 'content:' || id AS id, title, kind AS subtitle,
+          trim(summary || char(10) || body || char(10) || metadata_json) AS body,
+          kind AS category, kind, status,
+          CASE kind
+            WHEN 'club' THEN '/clubs/' || slug
+            WHEN 'department' THEN '/departments/' || slug
+            WHEN 'guide' THEN '/guides/' || slug
+            ELSE '/content/' || slug
+          END AS url,
+          updated_at AS capturedAt
+        FROM contents
+        UNION ALL
+        SELECT 'place:' || id AS id, name AS title,
+          coalesce(nullif(category, ''), type) AS subtitle,
+          trim(summary || char(10) || body || char(10) || coalesce(address, '')) AS body,
+          'place' AS category, 'place' AS kind, status,
+          '/places/' || slug AS url,
+          updated_at AS capturedAt
+        FROM places
+        UNION ALL
+        SELECT 'procedure:' || p.id AS id, p.title,
+          coalesce(nullif(p.category, ''), '办事流程') AS subtitle,
+          trim(
+            p.summary || char(10) || p.body || char(10)
+            || coalesce(p.status_text, '') || char(10)
+            || coalesce(p.processing_time, '') || char(10)
+            || coalesce(p.deadline_text, '') || char(10)
+            || coalesce((
+              SELECT group_concat(ps.title || ' ' || ps.description || ' ' || coalesce(ps.time_text, ''), char(10))
+              FROM procedure_steps ps
+              WHERE ps.procedure_id = p.id
+              ORDER BY ps.step_order
+            ), '') || char(10)
+            || coalesce((
+              SELECT group_concat(pm.name || ' ' || pm.description, char(10))
+              FROM procedure_materials pm
+              WHERE pm.procedure_id = p.id
+              ORDER BY pm.item_order
+            ), '')
+          ) AS body,
+          'procedure' AS category, 'procedure' AS kind, p.status,
+          '/procedures/' || p.slug AS url,
+          p.updated_at AS capturedAt
+        FROM procedures p
+      ) AS structured_index${where.sql}
+      ORDER BY capturedAt DESC, title ASC LIMIT ? OFFSET ?
+    `).all(...where.params, query.pageSize, offset)
+    const total = scalar(client, `
+      SELECT count(*) AS value
+      FROM (
+        SELECT title, kind AS subtitle,
+          trim(summary || char(10) || body || char(10) || metadata_json) AS body,
+          kind AS category, status FROM contents
+        UNION ALL
+        SELECT name AS title, coalesce(nullif(category, ''), type) AS subtitle,
+          trim(summary || char(10) || body || char(10) || coalesce(address, '')) AS body,
+          'place' AS category, status FROM places
+        UNION ALL
+        SELECT p.title, coalesce(nullif(p.category, ''), '办事流程') AS subtitle,
+          trim(
+            p.summary || char(10) || p.body || char(10)
+            || coalesce(p.status_text, '') || char(10)
+            || coalesce(p.processing_time, '') || char(10)
+            || coalesce(p.deadline_text, '') || char(10)
+            || coalesce((
+              SELECT group_concat(ps.title || ' ' || ps.description || ' ' || coalesce(ps.time_text, ''), char(10))
+              FROM procedure_steps ps
+              WHERE ps.procedure_id = p.id
+              ORDER BY ps.step_order
+            ), '') || char(10)
+            || coalesce((
+              SELECT group_concat(pm.name || ' ' || pm.description, char(10))
+              FROM procedure_materials pm
+              WHERE pm.procedure_id = p.id
+              ORDER BY pm.item_order
+            ), '')
+          ) AS body,
+          'procedure' AS category, p.status FROM procedures p
+      ) AS structured_index${where.sql}
+    `, where.params)
+    return { items: rows, total, summary: knowledgeLibrarySummary(client) }
+  }
+
   const where = searchClause(query, ['title', 'extracted_text', 'kind'])
   const sqlWhere = where.sql.replace('category = ?', 'kind = ?')
   const rows = client.sqlite.prepare(`
@@ -176,7 +265,7 @@ function stableGraphId(value: string): string {
 }
 
 function graphConfidence(item: GraphItemRow): GraphConfidence {
-  if (item.collection === 'documents') return 'EXTRACTED'
+  if (item.collection === 'documents' || item.collection === 'structured') return 'EXTRACTED'
   if (item.collection === 'web') {
     return /(^|\.)yeu\.edu\.cn$/i.test(item.communityLabel) ? 'EXTRACTED' : 'UNVERIFIED'
   }
@@ -189,6 +278,7 @@ function graphConfidence(item: GraphItemRow): GraphConfidence {
 
 function graphNodeType(item: GraphItemRow): GraphNodeType {
   const kind = item.kind.toLowerCase()
+  if (item.collection === 'structured' && /^(club|department|place)$/.test(kind)) return 'entity'
   if (item.collection !== 'entries') return 'source'
   if (/synthesis|summary|digest|综合|汇总/.test(kind)) return 'synthesis'
   if (/query|question|问答/.test(kind)) return 'query'
@@ -240,6 +330,58 @@ function graphItems(client: DatabaseClient): GraphItemRow[] {
       FROM knowledge_documents
       WHERE status = 'ready'
       ORDER BY captured_at DESC
+    `).all(),
+    ...client.sqlite.prepare(`
+      SELECT 'content:' || id AS id, title AS label,
+        substr(trim(summary || char(10) || body || char(10) || metadata_json), 1, 2400) AS content,
+        substr(trim(summary || char(10) || body), 1, 420) AS summary,
+        CASE kind
+          WHEN 'club' THEN '学生社团'
+          WHEN 'department' THEN '校内部门'
+          WHEN 'guide' THEN '新生指南'
+          ELSE '平台内容'
+        END AS communityLabel,
+        kind, 'structured' AS collection,
+        CASE kind
+          WHEN 'club' THEN '/clubs/' || slug
+          WHEN 'department' THEN '/departments/' || slug
+          WHEN 'guide' THEN '/guides/' || slug
+          ELSE '/content/' || slug
+        END AS url,
+        status, updated_at AS capturedAt, 100 AS confidence
+      FROM contents WHERE status = 'published'
+      UNION ALL
+      SELECT 'place:' || id AS id, name AS label,
+        substr(trim(summary || char(10) || body || char(10) || coalesce(address, '')), 1, 2400) AS content,
+        substr(trim(summary || char(10) || body), 1, 420) AS summary,
+        '校园地点' AS communityLabel, 'place' AS kind, 'structured' AS collection,
+        '/places/' || slug AS url, status, updated_at AS capturedAt, 100 AS confidence
+      FROM places WHERE status = 'published'
+      UNION ALL
+      SELECT 'procedure:' || p.id AS id, p.title AS label,
+        substr(trim(
+          p.summary || char(10) || p.body || char(10)
+          || coalesce(p.status_text, '') || char(10)
+          || coalesce(p.processing_time, '') || char(10)
+          || coalesce(p.deadline_text, '') || char(10)
+          || coalesce((
+            SELECT group_concat(ps.title || ' ' || ps.description || ' ' || coalesce(ps.time_text, ''), char(10))
+            FROM procedure_steps ps
+            WHERE ps.procedure_id = p.id
+            ORDER BY ps.step_order
+          ), '') || char(10)
+          || coalesce((
+            SELECT group_concat(pm.name || ' ' || pm.description, char(10))
+            FROM procedure_materials pm
+            WHERE pm.procedure_id = p.id
+            ORDER BY pm.item_order
+          ), '')
+        ), 1, 2400) AS content,
+        substr(trim(p.summary || char(10) || p.body), 1, 420) AS summary,
+        '办事流程' AS communityLabel, 'procedure' AS kind, 'structured' AS collection,
+        '/procedures/' || p.slug AS url, p.status, p.updated_at AS capturedAt, 100 AS confidence
+      FROM procedures p WHERE p.status = 'published'
+      ORDER BY capturedAt DESC
     `).all()
   ] as GraphItemRow[]
 }
@@ -322,6 +464,7 @@ function buildLandscapeNodes(items: GraphItemRow[]): LandscapeNode[] {
 function collectionSourceLabel(collection: GraphItemRow['collection']): string {
   if (collection === 'entries') return '站内知识'
   if (collection === 'documents') return '官网正文'
+  if (collection === 'structured') return '平台实时数据'
   return '网页资料'
 }
 

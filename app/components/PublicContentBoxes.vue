@@ -60,6 +60,26 @@ const toneClasses: Record<PublicContentBox['tone'], string> = {
             <span>{{ item }}</span>
           </li>
         </ul>
+        <div
+          v-if="box.images.length"
+          class="mt-5 grid gap-3 sm:grid-cols-2"
+        >
+          <figure
+            v-for="image in box.images"
+            :key="image.url"
+            class="overflow-hidden rounded-md border border-black/10 bg-white p-2"
+          >
+            <ImagePreviewButton
+              :src="image.url"
+              :alt="image.title"
+              button-class="aspect-[4/3] w-full rounded-sm bg-zinc-50"
+              image-class="size-full object-contain"
+            />
+            <figcaption class="px-1 pb-1 pt-2 text-center text-xs font-medium leading-5 text-zinc-600">
+              {{ image.title }}
+            </figcaption>
+          </figure>
+        </div>
       </article>
     </div>
   </section>

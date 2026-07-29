@@ -172,6 +172,22 @@ export interface PublicContentBox {
   items: string[]
   icon: string
   tone: 'plain' | 'green' | 'blue' | 'amber'
+  placement: PublicContentBoxPlacement
+  images: PublicContentBoxImage[]
+}
+
+export type PublicContentBoxPlacement
+  = | 'default'
+    | 'after-overview'
+    | 'after-signup'
+    | 'after-intro'
+    | 'after-recruitment'
+    | 'after-contact'
+    | 'before-community'
+
+export interface PublicContentBoxImage {
+  url: string
+  title: string
 }
 
 export interface PublicGuideView extends FreshmanGuide {
@@ -345,6 +361,24 @@ function metadataContentBoxes(content: ApiContent): PublicContentBox[] {
     const tone = ['plain', 'green', 'blue', 'amber'].includes(String(record.tone))
       ? record.tone as PublicContentBox['tone']
       : 'plain'
+    const placement = [
+      'default',
+      'after-overview',
+      'after-signup',
+      'after-intro',
+      'after-recruitment',
+      'after-contact',
+      'before-community'
+    ].includes(String(record.placement))
+      ? record.placement as PublicContentBoxPlacement
+      : 'default'
+    const imageUrls = Array.isArray(record.imageUrls)
+      ? record.imageUrls.filter((entry): entry is string => (
+          typeof entry === 'string'
+          && /^\/uploads\/[0-9a-f-]+\.(?:png|jpg|webp)$/i.test(entry)
+        ))
+      : []
+    const imageTitles = Array.isArray(record.imageTitles) ? record.imageTitles : []
     return [{
       id,
       title,
@@ -357,7 +391,14 @@ function metadataContentBoxes(content: ApiContent): PublicContentBox[] {
       icon: typeof record.icon === 'string' && record.icon.trim()
         ? record.icon.trim()
         : 'i-lucide-layout-panel-top',
-      tone
+      tone,
+      placement,
+      images: imageUrls.map((url, index) => ({
+        url,
+        title: typeof imageTitles[index] === 'string' && imageTitles[index].trim()
+          ? imageTitles[index].trim()
+          : `${title}图片 ${index + 1}`
+      }))
     }]
   })
 }

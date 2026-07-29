@@ -78,7 +78,13 @@ test('visual editor boxes and multiple contacts reach the public club view in or
         body: '先填写报名表。',
         items: ['参加见面会', '等待通知'],
         icon: 'i-lucide-user-plus',
-        tone: 'green'
+        tone: 'green',
+        placement: 'after-signup',
+        imageUrls: [
+          '/uploads/00000000-0000-4000-8000-000000000215.webp',
+          '/uploads/00000000-0000-4000-8000-000000000216.webp'
+        ],
+        imageTitles: ['活动现场', '项目展示']
       },
       {
         id: 'weekly-plan',
@@ -118,12 +124,17 @@ test('visual editor boxes and multiple contacts reach the public club view in or
   assert.deepEqual(club.boxes.map(box => ({
     id: box.id,
     title: box.title,
-    tone: box.tone
+    tone: box.tone,
+    placement: box.placement
   })), [
-    { id: 'join-us', title: '怎么加入', tone: 'green' },
-    { id: 'weekly-plan', title: '每周活动', tone: 'blue' }
+    { id: 'join-us', title: '怎么加入', tone: 'green', placement: 'after-signup' },
+    { id: 'weekly-plan', title: '每周活动', tone: 'blue', placement: 'default' }
   ])
   assert.deepEqual(club.boxes[0]?.items, ['参加见面会', '等待通知'])
+  assert.deepEqual(club.boxes[0]?.images, [
+    { url: '/uploads/00000000-0000-4000-8000-000000000215.webp', title: '活动现场' },
+    { url: '/uploads/00000000-0000-4000-8000-000000000216.webp', title: '项目展示' }
+  ])
 })
 
 test('content metadata rejects duplicate boxes and external QR image URLs', () => {
@@ -139,10 +150,19 @@ test('content metadata rejects duplicate boxes and external QR image URLs', () =
   const externalIcon = {
     iconUrl: 'https://untrusted.example/logo.png'
   }
+  const externalBoxImage = {
+    boxes: [{
+      id: 'gallery',
+      title: '活动照片',
+      imageUrls: ['https://untrusted.example/photo.png'],
+      imageTitles: ['外部图片']
+    }]
+  }
 
   assert.equal(updateContentSchema.safeParse({ metadata: duplicateBoxes }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: externalQr }).success, false)
   assert.equal(updateContentSchema.safeParse({ metadata: externalIcon }).success, false)
+  assert.equal(updateContentSchema.safeParse({ metadata: externalBoxImage }).success, false)
 })
 
 test('managed guide catalogs do not restore an unpublished static guide', () => {

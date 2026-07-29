@@ -23,6 +23,7 @@ import {
   activePublicContentCondition,
   isPublicContentCurrentlyVisible
 } from './visibility'
+import { bumpAssistantKnowledgeRevision } from '../assistant/knowledge-revision'
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
 
 type CreateContentInput = z.infer<typeof createContentSchema>
@@ -197,6 +198,7 @@ export function createContent(client: DatabaseClient, input: CreateContentInput)
     rethrowDatabaseError(error)
   }
 
+  bumpAssistantKnowledgeRevision()
   return getAdminContent(client, id)
 }
 
@@ -252,6 +254,7 @@ export function updateContent(client: DatabaseClient, id: string, input: UpdateC
     rethrowDatabaseError(error)
   }
 
+  bumpAssistantKnowledgeRevision()
   return getAdminContent(client, id)
 }
 
@@ -270,6 +273,7 @@ export function publishContent(client: DatabaseClient, id: string) {
     publishedAt: now,
     updatedAt: now
   }).where(eq(contents.id, id)).run()
+  bumpAssistantKnowledgeRevision()
   return getAdminContent(client, id)
 }
 
@@ -284,5 +288,6 @@ export function archiveContent(client: DatabaseClient, id: string) {
     status: 'archived',
     updatedAt: Date.now()
   }).where(eq(contents.id, id)).run()
+  bumpAssistantKnowledgeRevision()
   return getAdminContent(client, id)
 }

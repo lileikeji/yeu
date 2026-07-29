@@ -5,7 +5,7 @@ import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-er
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '全部知识资料', robots: 'noindex, nofollow' })
 
-type Collection = 'entries' | 'web' | 'documents'
+type Collection = 'entries' | 'web' | 'documents' | 'structured'
 
 interface LibraryItem {
   id: string
@@ -37,7 +37,7 @@ interface LibrarySummary {
 
 const route = useRoute()
 const router = useRouter()
-const hasExplicitCollection = ['entries', 'web', 'documents'].includes(String(route.query.collection))
+const hasExplicitCollection = ['entries', 'web', 'documents', 'structured'].includes(String(route.query.collection))
 const collection = ref<Collection>(hasExplicitCollection
   ? route.query.collection as Collection
   : 'entries')
@@ -60,6 +60,7 @@ const summary = ref<LibrarySummary>({
 
 const collections: Array<{ value: Collection, label: string, icon: string, count: keyof LibrarySummary }> = [
   { value: 'entries', label: '内置知识', icon: 'i-lucide-book-open-text', count: 'entries' },
+  { value: 'structured', label: '平台实时数据', icon: 'i-lucide-refresh-cw', count: 'structured' },
   { value: 'documents', label: '官网正文', icon: 'i-lucide-library-big', count: 'documents' },
   { value: 'web', label: '网页资料', icon: 'i-lucide-globe-2', count: 'web' }
 ]
@@ -143,7 +144,7 @@ onMounted(loadLibrary)
   <div class="mx-auto max-w-7xl space-y-5">
     <AdminPageHeader
       title="全部知识资料"
-      description="查看 AI 实际会检索的内置知识、官网正文和网页资料缓存。"
+      description="查看 AI 实际会检索的内置知识、平台实时数据、官网正文和网页资料缓存。"
       icon="i-lucide-database"
       eyebrow="知识库"
     >
@@ -212,7 +213,7 @@ onMounted(loadLibrary)
 
     <section class="rounded-md border border-zinc-200 bg-white p-2">
       <div
-        class="grid grid-cols-3 gap-1"
+        class="grid grid-cols-2 gap-1 md:grid-cols-4"
         role="tablist"
         aria-label="资料类型"
       >

@@ -24,6 +24,7 @@ import {
   getPlaceSourceMap
 } from '../verification/service'
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
+import { bumpAssistantKnowledgeRevision } from '../assistant/knowledge-revision'
 
 type CreatePlaceInput = z.infer<typeof createPlaceSchema>
 type UpdatePlaceInput = z.infer<typeof updatePlaceSchema>
@@ -351,6 +352,7 @@ export function createPlace(client: DatabaseClient, input: CreatePlaceInput) {
     rethrowDatabaseError(error)
   }
 
+  bumpAssistantKnowledgeRevision()
   return getAdminPlace(client, id)
 }
 
@@ -467,6 +469,7 @@ export function updatePlace(client: DatabaseClient, id: string, input: UpdatePla
     rethrowDatabaseError(error)
   }
 
+  bumpAssistantKnowledgeRevision()
   return getAdminPlace(client, id)
 }
 
@@ -485,6 +488,7 @@ export function publishPlace(client: DatabaseClient, id: string) {
     publishedAt: now,
     updatedAt: now
   }).where(eq(places.id, id)).run()
+  bumpAssistantKnowledgeRevision()
   return getAdminPlace(client, id)
 }
 
@@ -499,5 +503,6 @@ export function archivePlace(client: DatabaseClient, id: string) {
     status: 'archived',
     updatedAt: Date.now()
   }).where(eq(places.id, id)).run()
+  bumpAssistantKnowledgeRevision()
   return getAdminPlace(client, id)
 }

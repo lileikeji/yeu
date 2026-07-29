@@ -14,6 +14,9 @@ interface EditorBox {
   itemsText: string
   icon: string
   tone: 'plain' | 'green' | 'blue' | 'amber'
+  placement: 'default' | 'after-overview' | 'after-signup' | 'after-intro' | 'after-recruitment' | 'after-contact' | 'before-community'
+  imageUrls: string[]
+  imageTitles: string[]
 }
 
 interface EditorSignupQa {
@@ -84,7 +87,7 @@ const loading = ref(Boolean(props.contentId))
 const saving = ref(false)
 const loadError = ref('')
 const saveError = ref('')
-const uploadTarget = ref<'group' | 'contact' | 'icon' | null>(null)
+const uploadTarget = ref<string | null>(null)
 const model = reactive<EditorModel>({
   id: '',
   kind: props.createKind === 'department' ? 'department' : 'club',
@@ -146,6 +149,18 @@ const verificationOptions = [
   { label: '部分确认', value: 'partial' },
   { label: '等待通知', value: 'awaiting-notice' }
 ]
+const boxPlacementOptions = computed(() => [
+  { label: '默认位置（介绍与联系区域之间）', value: 'default' },
+  { label: model.kind === 'club' ? '“先了解这个社团”后' : '“先了解这个部门”后', value: 'after-overview' },
+  ...(model.kind === 'club'
+    ? [
+        { label: '“报名时可以先问”后', value: 'after-signup' },
+        { label: '“招新与活动”后', value: 'after-recruitment' }
+      ]
+    : [{ label: '公开联系方式后', value: 'after-contact' }]),
+  { label: model.kind === 'club' ? '社团介绍后' : '部门介绍后', value: 'after-intro' },
+  { label: '“加入群聊与联系负责人”前', value: 'before-community' }
+])
 const selectedSourceIds = computed(() => new Set(
   model.sourceIdsText
     .split(/[\s,]+/)
@@ -274,6 +289,18 @@ function editorBoxes(value: unknown): EditorBox[] {
     const tone = ['plain', 'green', 'blue', 'amber'].includes(text(source.tone))
       ? text(source.tone) as EditorBox['tone']
       : 'plain'
+    const placement = [
+      'default',
+      'after-overview',
+      'after-signup',
+      'after-intro',
+      'after-recruitment',
+      'after-contact',
+      'before-community'
+    ].includes(text(source.placement))
+      ? text(source.placement) as EditorBox['placement']
+      : 'default'
+    const imageUrls = stringList(source.imageUrls)
     return [{
       id,
       title,
@@ -282,7 +309,10 @@ function editorBoxes(value: unknown): EditorBox[] {
         ? source.items.filter((entry): entry is string => typeof entry === 'string').join('\n')
         : '',
       icon: text(source.icon) || 'i-lucide-layout-panel-top',
-      tone
+      tone,
+      placement,
+      imageUrls,
+      imageTitles: alignedQrTitles(source.imageTitles, imageUrls.length)
     }]
   })
 }
@@ -379,7 +409,10 @@ function boxPayload(box: EditorBox) {
     body: box.body.trim(),
     items: box.itemsText.split('\n').map(item => item.trim()).filter(Boolean),
     icon: box.icon.trim() || 'i-lucide-layout-panel-top',
-    tone: box.tone
+    tone: box.tone,
+    placement: box.placement,
+    imageUrls: box.imageUrls,
+    imageTitles: Array.from({ length: box.imageUrls.length }, (_, index) => box.imageTitles[index]?.trim() ?? '')
   }
 }
 
@@ -506,16 +539,21 @@ async function save(): Promise<void> {
   }
 }
 
-function addBox(): void {
+function addBox(afterIndex?: number): void {
   if (model.boxes.length >= 24) return
-  model.boxes.push({
+  const box: EditorBox = {
     id: `box-${Date.now().toString(36)}`,
     title: '新的内容',
     body: '',
     itemsText: '',
     icon: 'i-lucide-layout-panel-top',
-    tone: 'plain'
-  })
+    tone: 'plain',
+    placement: 'default',
+    imageUrls: [],
+    imageTitles: []
+  }
+  if (afterIndex === undefined) model.boxes.push(box)
+  else model.boxes.splice(afterIndex + 1, 0, box)
 }
 
 function moveBox(index: number, offset: -1 | 1): void {
@@ -527,6 +565,92 @@ function moveBox(index: number, offset: -1 | 1): void {
 
 function removeBox(index: number): void {
   model.boxes.splice(index, 1)
+}
+
+function boxUploadTarget(box: EditorBox): string {
+  return `box:${box.id}`
+}
+
+async function persistBoxes(): Promise<void> {
+  if (isCreating.value) return
+  const result = await adminFetch(`/api/admin/content/${encodeURIComponent(model.id)}`, {
+    method: 'PATCH',
+    body: {
+      metadata: {
+        boxes: model.boxes.map(boxPayload)
+      }
+    }
+  })
+  model.metadata = { ...record(record(result).metadata) }
+}
+
+async function uploadBoxImages(box: EditorBox, event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const files = [...(input.files ?? [])]
+  if (!files.length) return
+  if (box.imageUrls.length + files.length > 8) {
+    toast.add({ title: '每个 Box 最多 8 张图片', color: 'warning' })
+    input.value = ''
+    return
+  }
+
+  uploadTarget.value = boxUploadTarget(box)
+  try {
+    const results = await Promise.allSettled(files.map(async (file) => {
+      const body = new FormData()
+      body.set('image', file)
+      return await adminFetch<{ url: string }>('/api/admin/media/images', {
+        method: 'POST',
+        body
+      })
+    }))
+    const uploaded = results.flatMap(result => result.status === 'fulfilled' ? [result.value.url] : [])
+    const newUrls = uploaded.filter(url => !box.imageUrls.includes(url))
+    box.imageUrls.push(...newUrls)
+    box.imageTitles.push(...newUrls.map((_, index) => `${box.title || 'Box'}图片 ${box.imageUrls.length - newUrls.length + index + 1}`))
+    if (!newUrls.length) {
+      toast.add({ title: '图片上传失败', description: '请使用 PNG、JPEG 或 WebP，单张不超过 5MB。', color: 'error' })
+      return
+    }
+    if (!isCreating.value) await persistBoxes()
+    toast.add({
+      title: isCreating.value ? '图片已上传' : '图片已上传并保存',
+      description: isCreating.value ? '创建页面时会保存到这个 Box。' : undefined,
+      color: results.some(result => result.status === 'rejected') ? 'warning' : 'success'
+    })
+  } catch {
+    toast.add({
+      title: '图片上传或保存失败',
+      description: '请保留当前页面并点击顶部“保存页面”重试。',
+      color: 'error'
+    })
+  } finally {
+    uploadTarget.value = null
+    input.value = ''
+  }
+}
+
+async function removeBoxImage(box: EditorBox, index: number): Promise<void> {
+  const [removedUrl] = box.imageUrls.splice(index, 1)
+  const [removedTitle] = box.imageTitles.splice(index, 1)
+  if (isCreating.value) return
+  try {
+    await persistBoxes()
+    toast.add({ title: '图片已删除并保存', color: 'success' })
+  } catch {
+    if (removedUrl) box.imageUrls.splice(index, 0, removedUrl)
+    box.imageTitles.splice(index, 0, removedTitle ?? '')
+    toast.add({ title: '删除未保存，图片已恢复', color: 'error' })
+  }
+}
+
+async function persistBoxImageTitles(): Promise<void> {
+  if (isCreating.value) return
+  try {
+    await persistBoxes()
+  } catch {
+    toast.add({ title: '图片标题暂未保存', description: '请点击顶部“保存页面”。', color: 'warning' })
+  }
 }
 
 function addSignupQuestion(): void {
@@ -1173,7 +1297,7 @@ onBeforeUnmount(() => {
                 color="neutral"
                 variant="outline"
                 :disabled="model.boxes.length >= 24"
-                @click="addBox"
+                @click="addBox()"
               />
             </div>
             <div class="mt-5 grid gap-4 md:grid-cols-2">
@@ -1211,6 +1335,15 @@ onBeforeUnmount(() => {
                     size="xs"
                     aria-label="删除 Box"
                     @click="removeBox(index)"
+                  />
+                  <UButton
+                    icon="i-lucide-between-horizontal-start"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    :disabled="model.boxes.length >= 24"
+                    aria-label="在下方插入 Box"
+                    @click="addBox(index)"
                   />
                 </div>
                 <UInput
@@ -1250,6 +1383,78 @@ onBeforeUnmount(() => {
                     label-key="label"
                     class="w-full"
                   />
+                </div>
+                <UFormField
+                  label="插入页面位置"
+                  description="选择这个 Box 出现在前台哪个模块之后。"
+                  class="mt-3"
+                >
+                  <USelect
+                    v-model="box.placement"
+                    :items="boxPlacementOptions"
+                    value-key="value"
+                    label-key="label"
+                    class="w-full"
+                  />
+                </UFormField>
+
+                <div class="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p class="text-sm font-semibold text-zinc-900">
+                        Box 图片
+                      </p>
+                      <p class="mt-1 text-xs text-zinc-500">
+                        最多 8 张，可填写图片标题；前台支持点击放大。
+                      </p>
+                    </div>
+                    <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50">
+                      <UIcon
+                        :name="uploadTarget === boxUploadTarget(box) ? 'i-lucide-loader-circle' : 'i-lucide-images'"
+                        class="size-4"
+                        :class="uploadTarget === boxUploadTarget(box) ? 'animate-spin' : ''"
+                      />
+                      {{ uploadTarget === boxUploadTarget(box) ? '上传中' : '添加图片' }}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        multiple
+                        class="sr-only"
+                        :disabled="uploadTarget !== null || box.imageUrls.length >= 8"
+                        @change="uploadBoxImages(box, $event)"
+                      >
+                    </label>
+                  </div>
+                  <div
+                    v-if="box.imageUrls.length"
+                    class="mt-3 grid gap-3"
+                  >
+                    <div
+                      v-for="(imageUrl, imageIndex) in box.imageUrls"
+                      :key="imageUrl"
+                      class="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-zinc-200 bg-white p-2"
+                    >
+                      <img
+                        :src="imageUrl"
+                        :alt="box.imageTitles[imageIndex] || `${box.title}图片`"
+                        class="size-[72px] rounded object-cover"
+                      >
+                      <UInput
+                        v-model="box.imageTitles[imageIndex]"
+                        placeholder="图片标题"
+                        class="min-w-0 w-full"
+                        @blur="persistBoxImageTitles"
+                      />
+                      <UButton
+                        icon="i-lucide-trash-2"
+                        color="error"
+                        variant="ghost"
+                        size="xs"
+                        aria-label="删除图片"
+                        @click="removeBoxImage(box, imageIndex)"
+                      />
+                    </div>
+                  </div>
                 </div>
               </article>
             </div>

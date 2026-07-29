@@ -33,6 +33,8 @@ if (!department.value) {
   throw createError({ statusCode: 404, statusMessage: '部门不存在' })
 }
 
+const requestUrl = useRequestURL()
+const shareImage = new URL('/icons/app-icon-512.png', requestUrl.origin).toString()
 const verifiedDate = computed(() => resolveDepartmentVerifiedDate(
   content.value?.lastVerifiedAt,
   content.value?.updatedAt,
@@ -53,8 +55,14 @@ const detailSources = computed(() => buildDepartmentDetailSources(
 ))
 
 useSeoMeta({
-  title: () => department.value?.name ?? '部门',
-  description: () => department.value?.summary ?? ''
+  title: () => department.value ? `${department.value.name}｜校内部门` : '校内部门',
+  description: () => department.value?.summary ?? '',
+  ogTitle: () => department.value ? `${department.value.name}｜仰恩新生指南` : '校内部门｜仰恩新生指南',
+  ogDescription: () => department.value?.summary ?? '',
+  ogType: 'website',
+  ogImage: shareImage,
+  twitterCard: 'summary',
+  twitterImage: shareImage
 })
 const phoneContacts = computed(() => parsePublicPhoneContacts(department.value?.phone))
 const emailHref = computed(() => resolvePublicEmailHref(department.value?.email))
@@ -62,6 +70,18 @@ const { copyText } = useShareActions()
 
 async function copyDepartmentPhone(value: string): Promise<void> {
   await copyText(value, '电话号码')
+}
+
+function boxesAt(placement: string) {
+  return department.value?.boxes.filter(box => box.placement === placement) ?? []
+}
+
+async function copyDepartmentShare(): Promise<void> {
+  if (!import.meta.client || !department.value) return
+  await copyText(
+    `${department.value.name}｜仰恩新生指南\n查看部门介绍：${window.location.href}`,
+    '部门分享内容'
+  )
 }
 
 const contactSection = computed(() => resolveDepartmentContactSectionState(
@@ -112,9 +132,19 @@ const feedbackLink = computed(() => content.value
                 class="size-5"
               />
             </span>
-            <h1 class="mt-4 text-2xl font-bold text-zinc-950 md:text-3xl">
-              {{ department.name }}
-            </h1>
+            <div class="mt-4 flex flex-wrap items-center gap-3">
+              <h1 class="text-2xl font-bold text-zinc-950 md:text-3xl">
+                {{ department.name }}
+              </h1>
+              <UButton
+                icon="i-lucide-share-2"
+                label="复制分享链接"
+                color="neutral"
+                variant="outline"
+                class="min-h-11"
+                @click="copyDepartmentShare"
+              />
+            </div>
             <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
               {{ department.summary }}
             </p>
@@ -177,10 +207,14 @@ const feedbackLink = computed(() => content.value
           </div>
         </section>
 
+        <PublicContentBoxes :boxes="boxesAt('after-overview')" />
+
         <PublicContentBody
           :body="department.body"
           title="部门介绍"
         />
+
+        <PublicContentBoxes :boxes="boxesAt('after-intro')" />
 
         <section
           v-if="department.address || phoneContacts.length || department.email || department.officeHours || contactSection.kind === 'pending'"
@@ -300,7 +334,8 @@ const feedbackLink = computed(() => content.value
           </p>
         </section>
 
-        <PublicContentBoxes :boxes="department.boxes" />
+        <PublicContentBoxes :boxes="boxesAt('after-contact')" />
+        <PublicContentBoxes :boxes="[...boxesAt('default'), ...boxesAt('before-community')]" />
 
         <div
           v-if="contactSection.kind === 'pending'"

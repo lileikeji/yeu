@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { relative, resolve, sep } from 'node:path'
 import test from 'node:test'
 import {
   freshmanGuides,
@@ -36,7 +36,20 @@ function staticRouteRefs(file: string): string[] {
 }
 
 function concretePageRoutes(): Set<string> {
+  const pagesRoot = resolve('app/pages')
+  const generatedRoutes = listVueFiles(pagesRoot)
+    .map((file) => {
+      const segments = relative(pagesRoot, file)
+        .split(sep)
+        .map(segment => segment.replace(/\.vue$/, ''))
+      if (segments.some(segment => segment.startsWith('['))) return null
+      if (segments.at(-1) === 'index') segments.pop()
+      return `/${segments.join('/')}`.replace(/\/$/, '') || '/'
+    })
+    .filter((route): route is string => Boolean(route))
+
   return new Set([
+    ...generatedRoutes,
     '/',
     '/about',
     '/campus',
@@ -176,6 +189,14 @@ test('department and club detail pages expose structured freshman decision aids'
   assert.match(clubPresentation, /报名之前问清楚/)
   assert.match(clubPresentation, /是否收费，是否需要自备器材、服装或材料/)
   assert.match(clubPresentation, /是否适合零基础新生/)
+  for (const page of [departmentPage, clubPage]) {
+    assert.match(page, /复制分享链接/)
+    assert.match(page, /ogTitle/)
+    assert.match(page, /ogImage/)
+    assert.match(page, /boxesAt\('after-intro'\)/)
+  }
+  assert.match(clubPage, /boxesAt\('after-signup'\)/)
+  assert.match(departmentPage, /boxesAt\('after-contact'\)/)
 })
 
 test('home page and docs expose the expanded procedure catalog instead of only arrival', () => {

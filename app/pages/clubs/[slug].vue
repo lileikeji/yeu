@@ -30,14 +30,27 @@ const club = computed(() => {
 })
 if (!club.value) throw createError({ statusCode: 404, statusMessage: '社团不存在' })
 
+const requestUrl = useRequestURL()
+const shareImage = computed(() => new URL(
+  club.value?.iconUrl || '/icons/app-icon-512.png',
+  requestUrl.origin
+).toString())
 useSeoMeta({
-  title: () => club.value?.name ?? '学生社团',
+  title: () => club.value ? `${club.value.name}｜学生社团` : '学生社团',
   description: () => club.value
     ? `${club.value.name}：${resolveClubDirection(
       club.value.summary,
       club.value.direction || seedClub.value?.direction
     )}`
-    : ''
+    : '',
+  ogTitle: () => club.value ? `${club.value.name}｜仰恩新生指南` : '学生社团｜仰恩新生指南',
+  ogDescription: () => club.value
+    ? `${club.value.name}：${resolveClubDirection(club.value.summary, club.value.direction || seedClub.value?.direction)}`
+    : '',
+  ogType: 'website',
+  ogImage: () => shareImage.value,
+  twitterCard: 'summary',
+  twitterImage: () => shareImage.value
 })
 const feedbackLink = computed(() => buildDetailFeedbackLink({
   targetType: 'content',
@@ -76,6 +89,18 @@ const { copyText } = useShareActions()
 
 async function copyContactAction(value: string): Promise<void> {
   await copyText(value, '联系方式')
+}
+
+function boxesAt(placement: string) {
+  return club.value?.boxes.filter(box => box.placement === placement) ?? []
+}
+
+async function copyClubShare(): Promise<void> {
+  if (!import.meta.client || !club.value) return
+  await copyText(
+    `${club.value.name}｜仰恩新生指南\n查看社团介绍：${window.location.href}`,
+    '社团分享内容'
+  )
 }
 </script>
 
@@ -129,9 +154,19 @@ async function copyContactAction(value: string): Promise<void> {
             variant="soft"
           />
         </div>
-        <h1 class="mt-4 text-2xl font-bold text-zinc-950 md:text-3xl">
-          {{ club.name }}
-        </h1>
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <h1 class="text-2xl font-bold text-zinc-950 md:text-3xl">
+            {{ club.name }}
+          </h1>
+          <UButton
+            icon="i-lucide-share-2"
+            label="复制分享链接"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+            @click="copyClubShare"
+          />
+        </div>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 md:text-base">
           {{ clubDirection }}
         </p>
@@ -178,6 +213,8 @@ async function copyContactAction(value: string): Promise<void> {
           </div>
         </section>
 
+        <PublicContentBoxes :boxes="boxesAt('after-overview')" />
+
         <section class="border-b border-zinc-200 py-8">
           <h2 class="text-lg font-bold text-zinc-950">
             {{ clubSectionLabels.signupChecklist }}
@@ -206,10 +243,14 @@ async function copyContactAction(value: string): Promise<void> {
           </div>
         </section>
 
+        <PublicContentBoxes :boxes="boxesAt('after-signup')" />
+
         <PublicContentBody
           :body="club.body"
           title="社团介绍"
         />
+
+        <PublicContentBoxes :boxes="boxesAt('after-intro')" />
 
         <section
           v-if="hasRecruitmentDetails"
@@ -301,7 +342,8 @@ async function copyContactAction(value: string): Promise<void> {
           </dl>
         </section>
 
-        <PublicContentBoxes :boxes="club.boxes" />
+        <PublicContentBoxes :boxes="boxesAt('after-recruitment')" />
+        <PublicContentBoxes :boxes="[...boxesAt('default'), ...boxesAt('before-community')]" />
 
         <section
           v-if="contactSection.kind === 'pending'"
