@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { adminFetch } from '~~/app/utils/admin-request'
+import { enableCommunityDragPanning } from '~~/app/utils/knowledge-graph-interaction'
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { safeExternalHref } from '~/utils/safe-external-href'
 
@@ -96,6 +97,17 @@ interface GraphEngine {
 interface GraphEngineLibrary {
   createGraphEngine: (container: HTMLElement, options: Record<string, unknown>) => GraphEngine
   buildCommunityAggregationMarkers?: (data: GraphPayload, options?: Record<string, unknown>) => unknown[]
+  GraphGestureStateMachine?: {
+    prototype: {
+      active?: Record<string, unknown> | null
+      pointerMove: (event: {
+        pointerId: number
+        screenPoint: { x: number, y: number }
+      }) => Array<{ kind: string, [key: string]: unknown }>
+      snapshot?: () => Record<string, unknown> | null
+      __yeuCommunityPanPatched?: boolean
+    }
+  }
 }
 
 declare global {
@@ -132,6 +144,9 @@ const selectedNodeId = ref<string | null>(null)
 const selectedCommunityId = ref<string | null>(null)
 const activeCommunityId = ref<string | null>(null)
 const readerOpen = ref(false)
+const leftPanelOpen = ref(true)
+const rightPanelOpen = ref(false)
+const interactionHelpOpen = ref(false)
 const searchState = ref({ query: '', resultIds: [] as string[] })
 const typeFilters = ref<Record<NodeType, boolean>>({
   entity: true,
@@ -187,14 +202,19 @@ function loadPins(): Record<string, { x: number, y: number, coordinateSpace?: st
 }
 
 async function loadEngineLibrary(): Promise<GraphEngineLibrary> {
-  if (window.LlmWikiGraphEngine) return window.LlmWikiGraphEngine
+  if (window.LlmWikiGraphEngine) {
+    enableCommunityDragPanning(window.LlmWikiGraphEngine)
+    return window.LlmWikiGraphEngine
+  }
   if (enginePromise) return enginePromise
   enginePromise = new Promise<GraphEngineLibrary>((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>('script[data-llm-wiki-engine]')
     const script = existing ?? document.createElement('script')
     const handleLoad = () => {
-      if (window.LlmWikiGraphEngine) resolve(window.LlmWikiGraphEngine)
-      else reject(new Error('图谱引擎加载后没有完成初始化'))
+      if (window.LlmWikiGraphEngine) {
+        enableCommunityDragPanning(window.LlmWikiGraphEngine)
+        resolve(window.LlmWikiGraphEngine)
+      } else reject(new Error('图谱引擎加载后没有完成初始化'))
     }
     const handleError = () => reject(new Error('数字山水图谱引擎加载失败'))
     script.addEventListener('load', handleLoad, { once: true })
@@ -221,6 +241,7 @@ function handleSelection(selection: GraphSelection | null): void {
   if (communityId) selectedCommunityId.value = communityId
   if (inputKind === 'community') {
     selectedNodeId.value = null
+    rightPanelOpen.value = true
     readerOpen.value = false
     return
   }
@@ -228,6 +249,7 @@ function handleSelection(selection: GraphSelection | null): void {
   if (!nodeId) return
   selectedNodeId.value = nodeId
   selectedCommunityId.value = nodesById.value.get(nodeId)?.community ?? communityId ?? null
+  rightPanelOpen.value = true
   readerOpen.value = false
 }
 
@@ -310,6 +332,7 @@ function enterCommunity(community: GraphCommunity): void {
   selectedCommunityId.value = community.id
   selectedNodeId.value = null
   readerOpen.value = false
+  rightPanelOpen.value = true
   handleSelection(engine.focusCommunity(community.id))
 }
 
@@ -319,6 +342,18 @@ function resetView(): void {
   selectedCommunityId.value = null
   selectedNodeId.value = null
   readerOpen.value = false
+}
+
+function triggerEngineControl(label: string): void {
+  const controls = graphHost.value?.querySelectorAll<HTMLButtonElement>('button')
+  const target = controls
+    ? Array.from(controls).find(button => button.getAttribute('aria-label') === label)
+    : null
+  target?.click()
+}
+
+function focusGraphSearch(): void {
+  graphHost.value?.querySelector<HTMLInputElement>('input[role="searchbox"], input[type="search"]')?.focus()
 }
 
 function toggleType(type: NodeType): void {
@@ -421,9 +456,16 @@ onBeforeUnmount(() => {
 
     <section
       class="landscape-shell"
+      :class="{
+        'is-left-collapsed': !leftPanelOpen,
+        'is-right-collapsed': !rightPanelOpen
+      }"
       aria-label="数字山水知识图谱工作区"
     >
-      <aside class="landscape-sidebar landscape-sidebar-left">
+      <aside
+        v-show="leftPanelOpen"
+        class="landscape-sidebar landscape-sidebar-left"
+      >
         <div class="landscape-brand">
           <span class="landscape-seal">仰恩</span>
           <div>
@@ -507,15 +549,75 @@ onBeforeUnmount(() => {
 
       <main class="landscape-main">
         <header class="canvas-heading">
-          <div>
+          <div class="canvas-heading-copy">
             <p>{{ activeCommunityId ? communitiesById.get(activeCommunityId)?.label : '仰恩大学新生知识全景' }}</p>
             <span v-if="searchState.query">“{{ searchState.query }}”找到 {{ searchState.resultIds.length }} 条</span>
-            <span v-else>悬停看提示，点击看摘要，双击直接阅读全文</span>
+            <span v-else>按住空白或云雾拖动画布，滚轮缩放；节点也可以拖动固定</span>
           </div>
-          <div class="canvas-metrics">
-            <span>{{ graph?.meta.total_nodes ?? 0 }} 节点</span>
-            <span>{{ graph?.meta.total_edges ?? 0 }} 关联</span>
-            <span>{{ communities.length }} 社区</span>
+          <div
+            class="canvas-toolstrip"
+            role="toolbar"
+            aria-label="图谱快捷操作"
+          >
+            <button
+              type="button"
+              :aria-pressed="leftPanelOpen"
+              title="显示或隐藏知识社区与类型筛选"
+              @click="leftPanelOpen = !leftPanelOpen"
+            >
+              <UIcon name="i-lucide-panel-left" />
+              <span>目录</span>
+            </button>
+            <button
+              type="button"
+              title="搜索图谱"
+              @click="focusGraphSearch"
+            >
+              <UIcon name="i-lucide-search" />
+              <span>搜索</span>
+            </button>
+            <button
+              type="button"
+              title="缩小图谱"
+              @click="triggerEngineControl('缩小图谱')"
+            >
+              <UIcon name="i-lucide-zoom-out" />
+              <span>缩小</span>
+            </button>
+            <button
+              type="button"
+              title="放大图谱"
+              @click="triggerEngineControl('放大图谱')"
+            >
+              <UIcon name="i-lucide-zoom-in" />
+              <span>放大</span>
+            </button>
+            <button
+              type="button"
+              title="回到知识全景"
+              @click="resetView"
+            >
+              <UIcon name="i-lucide-scan" />
+              <span>全图</span>
+            </button>
+            <button
+              type="button"
+              :aria-pressed="interactionHelpOpen"
+              title="查看图谱操作方法"
+              @click="interactionHelpOpen = !interactionHelpOpen"
+            >
+              <UIcon name="i-lucide-circle-help" />
+              <span>帮助</span>
+            </button>
+            <button
+              type="button"
+              :aria-pressed="rightPanelOpen"
+              title="显示或隐藏阅读台"
+              @click="rightPanelOpen = !rightPanelOpen"
+            >
+              <UIcon name="i-lucide-panel-right" />
+              <span>阅读台</span>
+            </button>
           </div>
         </header>
 
@@ -546,6 +648,37 @@ onBeforeUnmount(() => {
             ref="graphHost"
             class="graph-engine-host"
           />
+          <Transition name="graph-help">
+            <aside
+              v-if="interactionHelpOpen"
+              class="interaction-help"
+              aria-label="图谱操作帮助"
+            >
+              <header>
+                <strong>怎样操作这张图</strong>
+                <button
+                  type="button"
+                  aria-label="关闭图谱操作帮助"
+                  @click="interactionHelpOpen = false"
+                >
+                  <UIcon name="i-lucide-x" />
+                </button>
+              </header>
+              <ul>
+                <li><UIcon name="i-lucide-hand" /><span><b>拖动画布</b>：按住空白或社区云雾移动</span></li>
+                <li><UIcon name="i-lucide-mouse" /><span><b>缩放</b>：滚动鼠标滚轮，触屏双指缩放</span></li>
+                <li><UIcon name="i-lucide-move" /><span><b>固定节点</b>：拖动节点到合适位置后松开</span></li>
+                <li><UIcon name="i-lucide-book-open" /><span><b>查看内容</b>：单击看摘要，双击看全文</span></li>
+              </ul>
+            </aside>
+          </Transition>
+          <div class="canvas-gesture-hint">
+            <UIcon name="i-lucide-hand" />
+            拖动画布
+            <span>·</span>
+            <UIcon name="i-lucide-mouse" />
+            滚轮缩放
+          </div>
           <div
             v-if="engineLoading"
             class="engine-loading"
@@ -580,6 +713,7 @@ onBeforeUnmount(() => {
       </main>
 
       <aside
+        v-show="rightPanelOpen"
         class="landscape-sidebar landscape-sidebar-right"
         :class="{ reading: readerOpen }"
       >
@@ -790,7 +924,12 @@ onBeforeUnmount(() => {
   border: 1px solid #c9c2af;
   background: #f5f0e3;
   box-shadow: 0 18px 50px rgb(65 75 62 / 10%);
+  transition: grid-template-columns .22s ease;
 }
+
+.landscape-shell.is-left-collapsed { grid-template-columns: 0 minmax(34rem, 1fr) 20rem; }
+.landscape-shell.is-right-collapsed { grid-template-columns: 15rem minmax(34rem, 1fr) 0; }
+.landscape-shell.is-left-collapsed.is-right-collapsed { grid-template-columns: 0 minmax(34rem, 1fr) 0; }
 
 .landscape-sidebar {
   min-width: 0;
@@ -973,8 +1112,45 @@ onBeforeUnmount(() => {
 
 .canvas-heading p { margin: 0; font-family: ui-serif, "Songti SC", SimSun, serif; font-size: .9rem; font-weight: 800; }
 .canvas-heading span { color: #767b73; font-size: .67rem; }
-.canvas-metrics { display: flex; gap: .75rem; white-space: nowrap; }
-.canvas-metrics span { color: #59675d; font-family: ui-monospace, monospace; }
+.canvas-heading-copy { min-width: 10rem; }
+.canvas-heading-copy > span { display: block; margin-top: .16rem; }
+
+.canvas-toolstrip {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .24rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.canvas-toolstrip::-webkit-scrollbar { display: none; }
+.canvas-toolstrip button {
+  display: inline-flex;
+  min-width: 2.35rem;
+  min-height: 2.15rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  border: 1px solid transparent;
+  border-radius: .35rem;
+  padding: .35rem .46rem;
+  color: #59675d;
+  font-size: .68rem;
+  font-weight: 750;
+  transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+.canvas-toolstrip button:hover,
+.canvas-toolstrip button:focus-visible,
+.canvas-toolstrip button[aria-pressed="true"] {
+  border-color: #c8beaa;
+  background: #fffdf7;
+  color: #8f4639;
+  outline: none;
+}
+.canvas-toolstrip button svg { width: .9rem; height: .9rem; }
+.canvas-toolstrip button span { color: inherit; font-size: inherit; }
 
 .landscape-canvas {
   position: relative;
@@ -984,7 +1160,99 @@ onBeforeUnmount(() => {
   background: #f2eddf;
 }
 
-.graph-engine-host { position: absolute; inset: 0; }
+.graph-engine-host {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+.graph-engine-host :deep(.llm-wiki-graph-engine),
+.graph-engine-host :deep(.sigma-mouse) {
+  cursor: grab !important;
+}
+.graph-engine-host :deep(.llm-wiki-graph-engine[data-viewport-dragging="true"]),
+.graph-engine-host :deep(.llm-wiki-graph-engine[data-viewport-dragging="true"] .sigma-mouse) {
+  cursor: grabbing !important;
+}
+.graph-engine-host :deep(button),
+.graph-engine-host :deep(input),
+.graph-engine-host :deep([role="button"]) {
+  cursor: pointer;
+}
+
+.interaction-help {
+  position: absolute;
+  z-index: 16;
+  top: .85rem;
+  right: .85rem;
+  width: min(19rem, calc(100% - 1.7rem));
+  border: 1px solid #c8beaa;
+  border-radius: .55rem;
+  background: rgb(255 253 247 / 97%);
+  padding: .8rem;
+  box-shadow: 0 16px 38px rgb(54 60 52 / 18%);
+  color: #485148;
+}
+.interaction-help header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.interaction-help header strong {
+  font-family: ui-serif, "Songti SC", SimSun, serif;
+  font-size: .86rem;
+}
+.interaction-help header button {
+  display: grid;
+  width: 1.8rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  color: #687168;
+}
+.interaction-help header button:hover { background: #eee8da; }
+.interaction-help ul {
+  display: grid;
+  gap: .55rem;
+  margin: .7rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.interaction-help li {
+  display: grid;
+  grid-template-columns: 1.15rem minmax(0, 1fr);
+  align-items: start;
+  gap: .45rem;
+  font-size: .7rem;
+  line-height: 1.55;
+}
+.interaction-help li > svg { margin-top: .12rem; color: #9a5143; }
+.interaction-help b { color: #354037; }
+
+.canvas-gesture-hint {
+  position: absolute;
+  z-index: 10;
+  right: .75rem;
+  bottom: .7rem;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  border: 1px solid rgb(187 177 157 / 74%);
+  border-radius: 999px;
+  background: rgb(255 253 247 / 86%);
+  padding: .32rem .55rem;
+  color: #677067;
+  font-size: .62rem;
+  pointer-events: none;
+  backdrop-filter: blur(5px);
+}
+.canvas-gesture-hint svg { width: .78rem; height: .78rem; color: #8f4c3f; }
+.canvas-gesture-hint span { color: #b4aa98; }
+
+.graph-help-enter-active,
+.graph-help-leave-active { transition: opacity .16s ease, transform .16s ease; }
+.graph-help-enter-from,
+.graph-help-leave-to { opacity: 0; transform: translateY(-.35rem); }
 
 .canvas-state {
   position: absolute;
