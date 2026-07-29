@@ -1346,7 +1346,7 @@ function facultyKnowledgeLocalAnswer(
     }
   }
 
-  const directoryQuery = /(?:有哪些|名单|列表|全部|所有).{0,8}(?:老师|教师|教职工|师资)|(?:老师|教师|教职工|师资).{0,8}(?:有哪些|名单|列表|全部|所有)/u.test(normalized)
+  const directoryQuery = /(?:有哪些|名单|列表|全部|所有|共有|总共|一共|多少|几位|人数|数量).{0,10}(?:老师|教师|教职工|师资)|(?:老师|教师|教职工|师资).{0,10}(?:有哪些|名单|列表|全部|所有|共有|总共|一共|多少|几位|人数|数量)/u.test(normalized)
   if (!directoryQuery) return null
 
   const affiliations = [...new Set(
@@ -2874,7 +2874,10 @@ export async function answerCampusQuestion(
         confidence: Math.min(fallback.confidence, 0.62)
       }
     }
-    const citations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
+    const selectedCitations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
+    const citations = selectedCitations.length > 0
+      ? selectedCitations
+      : evidence.slice(0, Math.min(3, evidence.length))
     return {
       query,
       mode: 'ai' as const,

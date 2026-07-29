@@ -287,6 +287,7 @@ test('cached web evidence selects only the web-cache route', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-bed-cached-route-'))
   const databasePath = join(directory, 'test.sqlite')
   const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
   try {
     runMigrations(client)
     const query = '宿舍床尺寸缓存路线测试'
@@ -296,14 +297,28 @@ test('cached web evidence selects only the web-cache route', async () => {
       snippet: '宿舍床尺寸在不同楼栋需要分别核验。',
       source: 'web'
     }])
-    const response = await answerCampusQuestion(client, query, emptyAssistantConfig)
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        answer: '不同楼栋的宿舍床尺寸需要分别核验。',
+        citation_indexes: [],
+        confidence: 0.8
+      }) } }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    const response = await answerCampusQuestion(client, query, {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model'
+    })
     assert.deepEqual(response.trace?.map(item => item.stage), [
       'query_analysis',
       'web_cache',
       'answer_generation'
     ])
     assert.equal(response.trace?.some(item => item.stage === 'local_database' || item.stage === 'web_search'), false)
+    assert.ok(response.citations.some(item => item.url === 'https://example.edu/dorm-bed-route'))
   } finally {
+    globalThis.fetch = originalFetch
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
   }

@@ -2,11 +2,24 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   crawlPriority,
+  DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS,
   normalizeOfficialUrl,
   parseOfficialCrawlCli,
   parseOfficialHtml,
   parseReaderDocument
 } from './crawl-official-knowledge'
+
+test('official crawl seeds include student rules, calendars and campus services', () => {
+  for (const seed of [
+    'https://xsb.yeu.edu.cn/',
+    'https://bgs.yeu.edu.cn/',
+    'https://jwb.yeu.edu.cn/',
+    'https://shpg.yeu.edu.cn/',
+    'https://zwc.yeu.edu.cn/'
+  ]) {
+    assert.ok(DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS.includes(seed as typeof DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS[number]))
+  }
+})
 
 test('official URL normalization keeps school documents and rejects external or asset URLs', () => {
   assert.equal(

@@ -141,6 +141,11 @@ test('faculty RAG returns exact, duplicate-name, college-list and school-summary
     assert.match(overview.answer, /官网公开师资资料/)
     assert.match(overview.answer, /管理学院\d+人/)
 
+    const count = await answerCampusQuestion(client, '我们学校共有多少老师？', assistantConfig)
+    assert.equal(count.mode, 'local')
+    assert.equal(count.usedWebSearch, false)
+    assert.match(count.answer, /当前已收录\s*\d+\s*条官网公开师资资料/)
+
     const ordinaryPhrase = await answerCampusQuestion(client, '这个办法尚可继续使用吗？', assistantConfig)
     assert.doesNotMatch(ordinaryPhrase.answer, /人文学院公开师资页面列出的教师/)
   } finally {

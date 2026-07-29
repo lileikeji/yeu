@@ -18,9 +18,13 @@ export const DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS = [
   'https://www.yeu.edu.cn/',
   'https://zhaosheng.yeu.edu.cn/',
   'https://xsb.yeu.edu.cn/',
+  'https://bgs.yeu.edu.cn/',
   'https://jwb.yeu.edu.cn/',
   'https://library.yeu.edu.cn/',
   'https://web.yeu.edu.cn/',
+  'https://shpg.yeu.edu.cn/',
+  'https://zwc.yeu.edu.cn/',
+  'https://youth.yeu.edu.cn/',
   'https://jjxy.yeu.edu.cn/',
   'https://glxy.yeu.edu.cn/',
   'https://kjxy.yeu.edu.cn/',
@@ -714,12 +718,22 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
             }
           }
         } else {
-          try {
-            const raw = await fetchReader(item.url, options.fresh)
-            document = parseReaderDocument(raw, item.url)
-          } catch {
-            const html = await fetchOfficialHtml(item.url, options.fresh)
-            document = parseOfficialHtml(html, item.url)
+          if (options.fresh) {
+            try {
+              const html = await fetchOfficialHtml(item.url, true)
+              document = parseOfficialHtml(html, item.url)
+            } catch {
+              const raw = await fetchReader(item.url, true)
+              document = parseReaderDocument(raw, item.url)
+            }
+          } else {
+            try {
+              const raw = await fetchReader(item.url, false)
+              document = parseReaderDocument(raw, item.url)
+            } catch {
+              const html = await fetchOfficialHtml(item.url, false)
+              document = parseOfficialHtml(html, item.url)
+            }
           }
         }
         report.fetched += 1
