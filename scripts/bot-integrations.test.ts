@@ -19,6 +19,7 @@ import {
   verifyBotWebhookSignature,
   verifyOneBotWebhookSignature
 } from '../server/modules/bots/security'
+import { createWechatCustomerServiceTextPayload } from '../server/modules/wechat/customer-service'
 
 test('OneBot group messages require an explicit mention of this bot', () => {
   const base = {
@@ -184,4 +185,14 @@ test('outbound bot URLs require HTTPS unless they are loopback', () => {
   assert.equal(safeOutboundBotUrl('https://relay.example.com/send').hostname, 'relay.example.com')
   assert.equal(safeOutboundBotUrl('http://127.0.0.1:3005/').port, '3005')
   assert.throws(() => safeOutboundBotUrl('http://192.168.1.20:3005/'), /BOT_OUTBOUND_URL_UNSAFE/)
+})
+
+test('official-account customer service messages use the expected text payload', () => {
+  assert.deepEqual(createWechatCustomerServiceTextPayload('openid-1', '回答内容'), {
+    touser: 'openid-1',
+    msgtype: 'text',
+    text: { content: '回答内容' }
+  })
+  assert.throws(() => createWechatCustomerServiceTextPayload('', '回答内容'), /INVALID_RECIPIENT/)
+  assert.throws(() => createWechatCustomerServiceTextPayload('openid-1', '  '), /EMPTY_MESSAGE/)
 })

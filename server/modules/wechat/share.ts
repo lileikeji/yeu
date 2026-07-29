@@ -83,7 +83,7 @@ async function requestWechatJson<T>(url: URL): Promise<T> {
   return await response.json() as T
 }
 
-async function fetchAccessToken(appId: string, appSecret: string): Promise<string> {
+export async function getWechatAccessToken(appId: string, appSecret: string): Promise<string> {
   const cached = cachedValue(tokenCache, appId)
   if (cached) return cached
   if (tokenPromise) return await tokenPromise
@@ -116,7 +116,7 @@ async function fetchJsApiTicket(appId: string, appSecret: string): Promise<strin
   if (ticketPromise) return await ticketPromise
 
   ticketPromise = (async () => {
-    const accessToken = await fetchAccessToken(appId, appSecret)
+    const accessToken = await getWechatAccessToken(appId, appSecret)
     const url = new URL('https://api.weixin.qq.com/cgi-bin/ticket/getticket')
     url.searchParams.set('access_token', accessToken)
     url.searchParams.set('type', 'jsapi')

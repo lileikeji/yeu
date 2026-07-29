@@ -157,3 +157,34 @@ export function readWechatXmlField(xml: string, field: string): string | null {
   const value = match?.[1] ?? match?.[2]
   return typeof value === 'string' ? decodeXmlEntities(value).trim() : null
 }
+
+export interface WechatMpTextMessage {
+  messageId: string
+  toUserName: string
+  fromUserName: string
+  content: string
+}
+
+export function parseWechatMpTextMessage(xml: string): WechatMpTextMessage | null {
+  const messageType = readWechatXmlField(xml, 'MsgType')?.toLowerCase()
+  if (messageType !== 'text') return null
+  const messageId = readWechatXmlField(xml, 'MsgId')
+  const toUserName = readWechatXmlField(xml, 'ToUserName')
+  const fromUserName = readWechatXmlField(xml, 'FromUserName')
+  const content = readWechatXmlField(xml, 'Content')?.replace(/\s+/g, ' ').trim()
+  if (
+    !messageId
+    || !/^\d{1,32}$/.test(messageId)
+    || !toUserName
+    || !fromUserName
+    || !content
+  ) {
+    return null
+  }
+  return {
+    messageId,
+    toUserName: toUserName.slice(0, 160),
+    fromUserName: fromUserName.slice(0, 160),
+    content: content.slice(0, 300)
+  }
+}

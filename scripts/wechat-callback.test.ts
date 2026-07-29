@@ -6,6 +6,7 @@ import {
   createWechatCallbackSignature,
   decryptWechatPayload,
   encryptWechatPayload,
+  parseWechatMpTextMessage,
   readWechatXmlField,
   verifyWechatCallbackSignature
 } from '../server/modules/wechat/callback'
@@ -72,6 +73,26 @@ test('XML field reader supports CDATA without exposing unrelated message content
   assert.equal(readWechatXmlField(xml, '../Content'), null)
 })
 
+test('official-account text messages become bounded AI questions while other events are ignored', () => {
+  const xml = [
+    '<xml>',
+    '<ToUserName><![CDATA[gh_server]]></ToUserName>',
+    '<FromUserName><![CDATA[openid-user-1]]></FromUserName>',
+    '<MsgType><![CDATA[text]]></MsgType>',
+    '<Content><![CDATA[  宿舍床多大？  ]]></Content>',
+    '<MsgId>1234567890123456</MsgId>',
+    '</xml>'
+  ].join('')
+  assert.deepEqual(parseWechatMpTextMessage(xml), {
+    messageId: '1234567890123456',
+    toUserName: 'gh_server',
+    fromUserName: 'openid-user-1',
+    content: '宿舍床多大？'
+  })
+  assert.equal(parseWechatMpTextMessage(xml.replace('text', 'image')), null)
+  assert.equal(parseWechatMpTextMessage(xml.replace('1234567890123456', 'not-a-number')), null)
+})
+
 test('callback endpoints are server-only, no-store, and support safe mode', () => {
   const getRoute = readFileSync(resolve('server/api/integrations/wechat-mp.get.ts'), 'utf8')
   const postRoute = readFileSync(resolve('server/api/integrations/wechat-mp.post.ts'), 'utf8')
@@ -80,6 +101,9 @@ test('callback endpoints are server-only, no-store, and support safe mode', () =
   assert.match(getRoute, /msg_signature/)
   assert.match(getRoute, /decryptWechatPayload/)
   assert.match(postRoute, /readRawBody/)
+  assert.match(postRoute, /answerAndSendBotQuestion/)
+  assert.match(postRoute, /sendWechatCustomerServiceText/)
+  assert.match(postRoute, /bot:wechat-mp:user:/)
   assert.match(postRoute, /return 'success'/)
   assert.match(getRoute, /CDN-Cache-Control', 'no-store'/)
   assert.match(postRoute, /CDN-Cache-Control', 'no-store'/)
