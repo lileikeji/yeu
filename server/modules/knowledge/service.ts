@@ -602,6 +602,31 @@ export function searchPublishedKnowledgeClaims(
   } catch {
     rows = []
   }
+  if (rows.length === 0) {
+    const likeTerms = [...new Set(terms.map(term => term.trim()).filter(term => term.length >= 2))].slice(0, 8)
+    if (likeTerms.length > 0) {
+      const matches = likeTerms
+        .map(() => '(kc.title LIKE ? OR kc.statement LIKE ? OR kc.search_text LIKE ?)')
+        .join(' OR ')
+      const values = likeTerms.flatMap(term => [`%${term}%`, `%${term}%`, `%${term}%`])
+      rows = client.sqlite.prepare(`
+        SELECT kc.id, kc.category, kc.title, kc.statement,
+          kc.public_url AS publicUrl, kc.confidence_score AS confidenceScore,
+          0 AS ftsRank,
+          (SELECT s.url FROM knowledge_claim_sources kcs
+            LEFT JOIN sources s ON s.id = kcs.source_id
+            WHERE kcs.claim_id = kc.id
+            ORDER BY kcs.is_primary DESC, kcs.created_at ASC LIMIT 1) AS sourceUrl
+        FROM knowledge_claims kc
+        WHERE (${matches})
+          AND kc.review_status = 'published'
+          AND (kc.valid_from IS NULL OR kc.valid_from <= ?)
+          AND (kc.valid_until IS NULL OR kc.valid_until >= ?)
+        ORDER BY kc.confidence_score DESC, kc.updated_at DESC
+        LIMIT ?
+      `).all(...values, now, now, Math.max(1, Math.min(30, limit))) as SearchRow[]
+    }
+  }
   return rows.map(row => ({
     id: row.id,
     category: row.category,

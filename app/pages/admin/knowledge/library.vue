@@ -5,7 +5,7 @@ import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-er
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '全部知识资料', robots: 'noindex, nofollow' })
 
-type Collection = 'entries' | 'web' | 'documents' | 'structured'
+type Collection = 'entries' | 'web' | 'documents' | 'claims' | 'structured'
 
 interface LibraryItem {
   id: string
@@ -37,7 +37,7 @@ interface LibrarySummary {
 
 const route = useRoute()
 const router = useRouter()
-const hasExplicitCollection = ['entries', 'web', 'documents', 'structured'].includes(String(route.query.collection))
+const hasExplicitCollection = ['entries', 'web', 'documents', 'claims', 'structured'].includes(String(route.query.collection))
 const collection = ref<Collection>(hasExplicitCollection
   ? route.query.collection as Collection
   : 'entries')
@@ -62,6 +62,7 @@ const collections: Array<{ value: Collection, label: string, icon: string, count
   { value: 'entries', label: '内置知识', icon: 'i-lucide-book-open-text', count: 'entries' },
   { value: 'structured', label: '平台实时数据', icon: 'i-lucide-refresh-cw', count: 'structured' },
   { value: 'documents', label: '官网正文', icon: 'i-lucide-library-big', count: 'documents' },
+  { value: 'claims', label: '官网知识点', icon: 'i-lucide-sparkles', count: 'claims' },
   { value: 'web', label: '网页资料', icon: 'i-lucide-globe-2', count: 'web' }
 ]
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))

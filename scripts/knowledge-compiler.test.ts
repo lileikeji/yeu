@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
+import { compileOfficialKnowledgeDocuments } from '../server/modules/knowledge/document-compiler'
 import { answerCampusQuestion, assistantQueryTerms, localEvidenceIsSufficient, retrieveCampusEvidence } from '../server/modules/assistant/service'
 import {
   archiveKnowledgeClaim,
@@ -61,6 +62,54 @@ test('knowledge migration creates the compiled tables and FTS index', () => {
       'knowledge_documents_fts',
       'knowledge_entities'
     ])
+  } finally {
+    value.close()
+  }
+})
+
+test('official document正文 is compiled into searchable published claims and is idempotent', () => {
+  const value = fixture()
+  try {
+    const now = Date.now()
+    value.client.sqlite.prepare(`
+      INSERT INTO knowledge_documents (
+        id, source_id, kind, title, original_url, mime_type, content_hash,
+        extracted_text, metadata_json, status, captured_at, processed_at, created_at, updated_at
+      ) VALUES (?, ?, 'webpage', ?, ?, 'text/html', ?, ?, '{}', 'ready', ?, ?, ?, ?)
+    `).run(
+      '00000000-0000-4000-8000-000000000010',
+      value.sourceId,
+      '新生报到说明',
+      'https://www.yeu.edu.cn/new-student-compiler-test',
+      'compiler-test-hash',
+      '新生报到安排\n报到时间为9月5日至6日。请携带录取通知书和身份证原件。\n校园卡可在报到现场领取。',
+      now,
+      now,
+      now,
+      now
+    )
+    const first = compileOfficialKnowledgeDocuments(value.client)
+    assert.equal(first.documents, 1)
+    assert.ok(first.claimsInserted >= 2)
+    const claims = value.client.sqlite.prepare(`
+      SELECT kc.title, kc.statement
+      FROM knowledge_claims kc
+      INNER JOIN knowledge_claim_sources kcs ON kcs.claim_id = kc.id
+      WHERE kcs.document_id = ?
+      ORDER BY kc.created_at
+    `).all('00000000-0000-4000-8000-000000000010') as Array<{ title: string, statement: string }>
+    assert.ok(claims.some(item => item.statement.includes('9月5日至6日')))
+    assert.ok(searchPublishedKnowledgeClaims(value.client, ['报到时间'], 5).length > 0)
+
+    const second = compileOfficialKnowledgeDocuments(value.client)
+    assert.equal(second.claimsInserted, 0)
+    assert.ok(second.claimsUpdated >= first.claimsInserted)
+    assert.equal(
+      (value.client.sqlite.prepare(`
+        SELECT count(*) AS value FROM knowledge_claim_sources WHERE document_id = ?
+      `).get('00000000-0000-4000-8000-000000000010') as { value: number }).value,
+      claims.length
+    )
   } finally {
     value.close()
   }

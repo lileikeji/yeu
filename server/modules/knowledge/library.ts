@@ -19,7 +19,7 @@ interface GraphItemRow {
   summary: string
   communityLabel: string
   kind: string
-  collection: 'entries' | 'web' | 'documents' | 'structured'
+  collection: 'entries' | 'web' | 'documents' | 'claims' | 'structured'
   url: string | null
   status: string
   capturedAt: number
@@ -154,6 +154,20 @@ export function listKnowledgeLibrary(client: DatabaseClient, query: LibraryQuery
     return { items: rows, total, summary: knowledgeLibrarySummary(client) }
   }
 
+  if (query.collection === 'claims') {
+    const where = searchClause(query, ['title', 'statement', 'category', 'keywords_json'])
+    const sqlWhere = where.sql.replace('status = ?', 'review_status = ?')
+    const rows = client.sqlite.prepare(`
+      SELECT id, title, category AS subtitle, statement AS body, category,
+        'claim' AS kind, review_status AS status, public_url AS url,
+        confidence_score AS confidence, updated_at AS capturedAt
+      FROM knowledge_claims${sqlWhere}
+      ORDER BY updated_at DESC, title ASC LIMIT ? OFFSET ?
+    `).all(...where.params, query.pageSize, offset)
+    const total = scalar(client, `SELECT count(*) AS value FROM knowledge_claims${sqlWhere}`, where.params)
+    return { items: rows, total, summary: knowledgeLibrarySummary(client) }
+  }
+
   if (query.collection === 'structured') {
     const where = searchClause(query, ['title', 'subtitle', 'body', 'category'])
     const rows = client.sqlite.prepare(`
@@ -266,7 +280,7 @@ function stableGraphId(value: string): string {
 }
 
 function graphConfidence(item: GraphItemRow): GraphConfidence {
-  if (item.collection === 'documents' || item.collection === 'structured') return 'EXTRACTED'
+  if (item.collection === 'documents' || item.collection === 'claims' || item.collection === 'structured') return 'EXTRACTED'
   if (item.collection === 'web') {
     return /(^|\.)yeu\.edu\.cn$/i.test(item.communityLabel) ? 'EXTRACTED' : 'UNVERIFIED'
   }
@@ -300,6 +314,27 @@ function weakestConfidence(left: GraphConfidence, right: GraphConfidence): Graph
 
 function graphItems(client: DatabaseClient): GraphItemRow[] {
   return [
+    ...client.sqlite.prepare(`
+      SELECT kc.id, kc.title AS label,
+        substr(kc.statement, 1, 2400) AS content,
+        substr(kc.statement, 1, 420) AS summary,
+        coalesce(nullif(kc.category, ''), 'official-document') AS communityLabel,
+        'claim' AS kind, 'claims' AS collection,
+        coalesce(kc.public_url, (
+          SELECT coalesce(kd.original_url, s.url)
+          FROM knowledge_claim_sources kcs
+          LEFT JOIN knowledge_documents kd ON kd.id = kcs.document_id
+          LEFT JOIN sources s ON s.id = kcs.source_id
+          WHERE kcs.claim_id = kc.id
+          ORDER BY kcs.is_primary DESC, kcs.created_at ASC
+          LIMIT 1
+        )) AS url,
+        kc.review_status AS status, coalesce(kc.updated_at, kc.created_at) AS capturedAt,
+        kc.confidence_score AS confidence
+      FROM knowledge_claims kc
+      WHERE kc.review_status = 'published'
+      ORDER BY kc.confidence_score DESC, kc.updated_at DESC
+    `).all(),
     ...client.sqlite.prepare(`
       SELECT id, coalesce(nullif(title, ''), question) AS label,
         substr(answer, 1, 2400) AS content, substr(answer, 1, 420) AS summary,
@@ -389,6 +424,7 @@ function graphItems(client: DatabaseClient): GraphItemRow[] {
 
 function fallbackCommunityLabel(item: GraphItemRow): string {
   if (item.collection === 'entries') return '校园知识·其他'
+  if (item.collection === 'claims') return '官网正文知识点'
   if (item.collection === 'documents') return '学校官网资料'
   return /(^|\.)yeu\.edu\.cn$/i.test(item.communityLabel) ? '学校官网资料' : '外部参考资料'
 }
@@ -489,6 +525,7 @@ function buildLandscapeNodes(items: GraphItemRow[], limit: number): LandscapeNod
 
 function collectionSourceLabel(collection: GraphItemRow['collection']): string {
   if (collection === 'entries') return '站内知识'
+  if (collection === 'claims') return '官网正文知识点'
   if (collection === 'documents') return '官网正文'
   if (collection === 'structured') return '平台实时数据'
   return '网页资料'

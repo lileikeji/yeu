@@ -836,7 +836,7 @@ export const adminKnowledgeClaimsQuerySchema = paginationQuerySchema.extend({
 })
 
 export const adminKnowledgeLibraryQuerySchema = paginationQuerySchema.extend({
-  collection: z.enum(['entries', 'web', 'documents', 'structured']).default('entries'),
+  collection: z.enum(['entries', 'web', 'documents', 'claims', 'structured']).default('entries'),
   category: z.string().trim().max(80).optional(),
   status: z.string().trim().max(40).optional()
 })

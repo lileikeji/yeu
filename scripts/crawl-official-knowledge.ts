@@ -8,6 +8,7 @@ import { unzipSync } from 'fflate'
 import WordExtractor from 'word-extractor'
 import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
+import { compileOfficialKnowledgeDocuments } from '../server/modules/knowledge/document-compiler'
 
 const USER_AGENT = 'YEU-Freshman-Guide-knowledge-crawler/1.0 (public official-source indexing)'
 const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
@@ -1285,6 +1286,14 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
 
   try {
     await Promise.all(Array.from({ length: options.concurrency }, () => worker()))
+    if (!options.dryRun) {
+      const compiled = compileOfficialKnowledgeDocuments(client)
+      process.stderr.write(
+        `Compiled official knowledge: ${compiled.documents} documents; ` +
+        `${compiled.claimsInserted} inserted; ${compiled.claimsUpdated} updated; ` +
+        `${compiled.claimsRemoved} removed\n`
+      )
+    }
   } finally {
     report.discovered = (client.sqlite.prepare('SELECT count(1) AS value FROM knowledge_crawl_queue').get() as { value: number }).value
     report.finishedAt = new Date().toISOString()

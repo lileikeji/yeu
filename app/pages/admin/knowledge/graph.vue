@@ -7,7 +7,7 @@ import { safeExternalHref } from '~/utils/safe-external-href'
 definePageMeta({ layout: 'admin' })
 useSeoMeta({ title: '数字山水知识图谱', robots: 'noindex, nofollow' })
 
-type CollectionId = 'entries' | 'documents' | 'web'
+type CollectionId = 'entries' | 'documents' | 'claims' | 'web' | 'structured'
 type NodeType = 'entity' | 'topic' | 'source' | 'comparison' | 'synthesis' | 'query'
 type Confidence = 'EXTRACTED' | 'INFERRED' | 'AMBIGUOUS' | 'UNVERIFIED'
 
