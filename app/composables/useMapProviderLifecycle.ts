@@ -40,6 +40,11 @@ interface UseMapProviderLifecycleOptions {
 
 const DEFAULT_MAP_ERROR = MAP_LOAD_ERROR_MESSAGE
 
+async function createWechatFallbackProvider(): Promise<MapProvider> {
+  const { MapLibrePreviewProvider } = await import('~~/map/providers/maplibre/provider')
+  return new MapLibrePreviewProvider()
+}
+
 export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions) {
   const mountGate = createMapProviderMountGate()
   const createProvider = options.createProvider ?? createRuntimeMapProvider
@@ -142,6 +147,47 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
       scheduleResize()
     } catch {
       if (!mountGate.isCurrent(request)) return
+
+      // WeChat WebViews can reject the AMap script (or its security-domain
+      // check) even when the same URL works in a normal browser. Keep the map
+      // usable with the bundled MapLibre renderer instead of trapping users in
+      // the retry state. This fallback is intentionally limited to WeChat.
+      const shouldUseWechatFallback = typeof navigator !== 'undefined'
+        && /MicroMessenger/i.test(navigator.userAgent)
+      if (shouldUseWechatFallback) {
+        try {
+          const fallback = await initializeMapProvider(createWechatFallbackProvider, {
+            element,
+            displayOptions: options.displayOptions.value,
+            baseStyle: options.baseStyle.value,
+            areas: [],
+            pois: options.pois.value,
+            selectedPoiId: options.selectedPoiId.value,
+            selectedAreaId: null
+          }, {
+            onCreated(created) {
+              createdProvider = created
+              if (!mountGate.isCurrent(request)) return
+              options.mapProvider.value = created
+              options.activeMapProviderId.value = created.id
+            },
+            onPoiSelected: options.onPoiSelected,
+            onAreaSelected: options.onAreaSelected,
+            onError() {}
+          }, () => mountGate.isCurrent(request))
+
+          if (fallback) {
+            options.mapStatus.value = 'ready'
+            options.onReady()
+            scheduleResize()
+            return
+          }
+        } catch {
+          // Fall through to the normal error state if the local fallback also
+          // cannot load its raster tiles.
+        }
+      }
+
       clearProvider(createdProvider)
       options.mapErrorMessage.value = DEFAULT_MAP_ERROR
       options.mapStatus.value = 'error'

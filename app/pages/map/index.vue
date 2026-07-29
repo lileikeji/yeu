@@ -1103,6 +1103,29 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
+.map-workspace {
+  /* Older WeChat WebViews may not parse dvh, so keep a real viewport fallback. */
+  height: calc(100vh - var(--header-height) - var(--mobile-nav-height));
+}
+
+@media (min-width: 768px) {
+  .map-workspace {
+    height: calc(100vh - var(--header-height));
+  }
+}
+
+@supports (height: 100dvh) {
+  .map-workspace {
+    height: calc(100dvh - var(--header-height) - var(--mobile-nav-height));
+  }
+}
+
+@supports (height: 100dvh) and (min-width: 768px) {
+  .map-workspace {
+    height: calc(100dvh - var(--header-height));
+  }
+}
+
 .map-workspace .maplibregl-map {
   position: absolute;
   inset: 0;
