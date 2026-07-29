@@ -43,6 +43,26 @@ const DEFAULT_MAP_ERROR = MAP_LOAD_ERROR_MESSAGE
 export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions) {
   const mountGate = createMapProviderMountGate()
   const createProvider = options.createProvider ?? createRuntimeMapProvider
+  let mountInFlight = false
+  let waitingForVisibleElement = false
+  let resizeFrame = 0
+  let removeViewportListeners: (() => void) | null = null
+
+  function hasUsableSize(element: HTMLElement): boolean {
+    const rect = element.getBoundingClientRect()
+    return rect.width >= 2 && rect.height >= 2
+  }
+
+  function scheduleResize(): void {
+    if (typeof window === 'undefined') return
+    if (resizeFrame) window.cancelAnimationFrame(resizeFrame)
+    resizeFrame = window.requestAnimationFrame(() => {
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = 0
+        runProviderOperation(() => options.mapProvider.value?.resize())
+      })
+    })
+  }
 
   function reportProviderFailure(error: unknown): void {
     options.mapErrorMessage.value = DEFAULT_MAP_ERROR
@@ -69,7 +89,19 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
     const element = options.mapElement.value
     if (!element) return
 
+    // Mobile sheets and v-show transitions can leave the map at 0x0 for a
+    // frame. Do not initialize AMap/MapLibre against that size; wait for the
+    // ResizeObserver below to call us again once the container is visible.
+    if (!hasUsableSize(element)) {
+      waitingForVisibleElement = true
+      options.mapStatus.value = 'loading'
+      return
+    }
+    if (mountInFlight) return
+
     const request = mountGate.begin()
+    mountInFlight = true
+    waitingForVisibleElement = false
     options.beforeMount()
     options.mapStatus.value = 'loading'
     options.mapErrorMessage.value = DEFAULT_MAP_ERROR
@@ -107,11 +139,14 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
       }
       options.mapStatus.value = 'ready'
       options.onReady()
+      scheduleResize()
     } catch {
       if (!mountGate.isCurrent(request)) return
       clearProvider(createdProvider)
       options.mapErrorMessage.value = DEFAULT_MAP_ERROR
       options.mapStatus.value = 'error'
+    } finally {
+      mountInFlight = false
     }
   }
 
@@ -128,11 +163,43 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
   )), { deep: true })
   watch(options.areas, areas => runProviderOperation(() => options.mapProvider.value?.setAreas(areas)))
   watch(options.resizeSignal, () => {
-    void nextTick(() => runProviderOperation(() => options.mapProvider.value?.resize()))
+    void nextTick(scheduleResize)
   })
 
-  onMounted(() => void mountMap())
-  onBeforeUnmount(destroyMapProvider)
+  onMounted(() => {
+    const element = options.mapElement.value
+    const resizeObserver = typeof ResizeObserver !== 'undefined' && element
+      ? new ResizeObserver(() => {
+          if (waitingForVisibleElement && !mountInFlight && hasUsableSize(element)) {
+            void mountMap()
+            return
+          }
+          scheduleResize()
+        })
+      : null
+
+    if (resizeObserver && element) resizeObserver.observe(element)
+
+    const handleViewportResize = () => scheduleResize()
+    window.addEventListener('resize', handleViewportResize, { passive: true })
+    window.addEventListener('orientationchange', handleViewportResize, { passive: true })
+    window.visualViewport?.addEventListener('resize', handleViewportResize, { passive: true })
+    removeViewportListeners = () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', handleViewportResize)
+      window.removeEventListener('orientationchange', handleViewportResize)
+      window.visualViewport?.removeEventListener('resize', handleViewportResize)
+      removeViewportListeners = null
+    }
+
+    void mountMap()
+  })
+  onBeforeUnmount(() => {
+    removeViewportListeners?.()
+    if (resizeFrame && typeof window !== 'undefined') window.cancelAnimationFrame(resizeFrame)
+    resizeFrame = 0
+    destroyMapProvider()
+  })
 
   return { mountMap }
 }

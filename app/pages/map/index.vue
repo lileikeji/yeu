@@ -435,6 +435,11 @@ watch(searchQuery, () => {
   queueNativeSearch()
 })
 watch(mapViewMode, queueNativeSearch)
+const mapLayoutSignal = computed(() => [
+  sidebarCollapsed.value ? 'sidebar-collapsed' : 'sidebar-open',
+  mobileSheetState.value,
+  mapViewMode.value
+].join(':'))
 const { mountMap } = useMapProviderLifecycle({
   mapElement,
   mapProvider,
@@ -447,7 +452,7 @@ const { mountMap } = useMapProviderLifecycle({
   pois: filteredMapPois,
   selectedPoiId: selectedMapPoiId,
   selectedAreaId,
-  resizeSignal: sidebarCollapsed,
+  resizeSignal: mapLayoutSignal,
   onPoiSelected: handlePoiSelected,
   onAreaSelected: handleAreaSelected,
   beforeMount: clearWalkingRoute,
