@@ -366,6 +366,11 @@ function graphItems(client: DatabaseClient): GraphItemRow[] {
         captured_at AS capturedAt, NULL AS confidence
       FROM knowledge_documents
       WHERE status = 'ready'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM knowledge_claim_sources kcs
+          WHERE kcs.document_id = knowledge_documents.id
+        )
       ORDER BY captured_at DESC
     `).all(),
     ...client.sqlite.prepare(`

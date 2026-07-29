@@ -96,6 +96,11 @@ interface GraphEngine {
 
 interface GraphEngineLibrary {
   createGraphEngine: (container: HTMLElement, options: Record<string, unknown>) => GraphEngine
+  GRAPH_RENDER_BUDGETS?: {
+    global?: Record<string, number>
+    community?: Record<string, number>
+    [key: string]: Record<string, number> | undefined
+  }
   buildCommunityAggregationMarkers?: (data: GraphPayload, options?: Record<string, unknown>) => unknown[]
   GraphGestureStateMachine?: {
     prototype: {
@@ -204,6 +209,7 @@ function loadPins(): Record<string, { x: number, y: number, coordinateSpace?: st
 
 async function loadEngineLibrary(): Promise<GraphEngineLibrary> {
   if (window.LlmWikiGraphEngine) {
+    tuneGraphRenderBudgets(window.LlmWikiGraphEngine)
     enableCommunityDragPanning(window.LlmWikiGraphEngine)
     return window.LlmWikiGraphEngine
   }
@@ -213,6 +219,7 @@ async function loadEngineLibrary(): Promise<GraphEngineLibrary> {
     const script = existing ?? document.createElement('script')
     const handleLoad = () => {
       if (window.LlmWikiGraphEngine) {
+        tuneGraphRenderBudgets(window.LlmWikiGraphEngine)
         enableCommunityDragPanning(window.LlmWikiGraphEngine)
         resolve(window.LlmWikiGraphEngine)
       } else reject(new Error('图谱引擎加载后没有完成初始化'))
@@ -231,6 +238,33 @@ async function loadEngineLibrary(): Promise<GraphEngineLibrary> {
     throw error
   })
   return enginePromise
+}
+
+function tuneGraphRenderBudgets(library: GraphEngineLibrary): void {
+  const budgets = library.GRAPH_RENDER_BUDGETS
+  if (!budgets) return
+
+  // Keep the overview readable. Full content remains available through search,
+  // hover and the reader panel; the canvas should only carry the visual index.
+  Object.assign(budgets.global ?? {}, {
+    maxVisibleEdges: 320,
+    maxLabels: 12,
+    maxCards: 0
+  })
+  Object.assign(budgets.community ?? {}, {
+    maxVisibleNodes: 1800,
+    maxVisibleEdges: 420,
+    maxLabels: 24,
+    maxCards: 10
+  })
+  for (const [band, values] of Object.entries(budgets)) {
+    if (!values || band === 'global' || band === 'community') continue
+    Object.assign(values, {
+      maxVisibleEdges: Math.min(Number(values.maxVisibleEdges ?? 420), 420),
+      maxLabels: Math.min(Number(values.maxLabels ?? 12), band === 'small' ? 4 : band === 'medium' ? 8 : 14),
+      maxCards: 0
+    })
+  }
 }
 
 function handleSelection(selection: GraphSelection | null): void {
@@ -1206,6 +1240,18 @@ onBeforeUnmount(() => {
 .graph-engine-host :deep(input),
 .graph-engine-host :deep([role="button"]) {
   cursor: pointer;
+}
+.graph-engine-host :deep(.node) {
+  max-width: 132px;
+}
+.graph-engine-host :deep(.node-name) {
+  max-width: 116px;
+}
+.graph-engine-host :deep(.node.is-compact) {
+  max-width: 124px;
+}
+.graph-engine-host :deep(.node.is-compact .node-name) {
+  max-width: 104px;
 }
 
 .interaction-help {
