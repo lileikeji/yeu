@@ -52,6 +52,8 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(isQuestionLike('学校可以染头发吗'), true)
   assert.equal(isQuestionLike('综测表格要不要签字'), true)
   assert.equal(isQuestionLike('宿舍条件怎么样'), true)
+  assert.equal(isQuestionLike('女生普通型宿舍是几人间'), true)
+  assert.equal(isQuestionLike('艺术教育电脑急不急用'), true)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 2), false)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 0), true)
   assert.equal(shouldRequestAssistantAnswer('吴庆星是谁', 2), true)
