@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   crawlPriority,
   DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS,
+  EXPLICIT_SEED_PRIORITY,
   normalizeOfficialUrl,
   parseOfficialCrawlCli,
   parseOfficialHtml,
@@ -150,6 +151,7 @@ test('new-student rules and attachments are crawled before ordinary news at the 
   })
   assert.ok(priority > ordinary)
   assert.ok(attachment > ordinary)
+  assert.ok(EXPLICIT_SEED_PRIORITY > attachment)
 })
 
 test('crawl CLI is bounded and supports an explicit seed', () => {

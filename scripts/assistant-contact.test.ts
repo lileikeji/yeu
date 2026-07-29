@@ -67,6 +67,31 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(shouldRequestAssistantAnswer('校园网', 0), false)
 })
 
+test('school rules always use campus retrieval instead of generic model knowledge', () => {
+  assert.equal(shouldUseCampusKnowledgeBase('本科生学籍管理有什么规定？'), true)
+  assert.equal(shouldUseCampusKnowledgeBase('哪些行为会受到违纪处分？'), true)
+  assert.equal(shouldUseCampusKnowledgeBase('学校规章制度在哪里看？'), true)
+  assert.equal(shouldUseCampusKnowledgeBase('神经网络是什么？'), false)
+})
+
+test('an exact scholarship question does not expand every unrelated scholarship', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-exact-scholarship-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '国家奖学金申请条件是什么？', emptyAssistantConfig)
+    assert.match(response.answer, /国家奖学金/)
+    assert.match(response.answer, /前10%/)
+    assert.doesNotMatch(response.answer, /吴庆星奖学金/)
+    assert.doesNotMatch(response.answer, /农行泉州分行助学奖学金/)
+    assert.equal(response.usedWebSearch, false)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('concise campus follow-ups keep the previous question subject', () => {
   assert.equal(
     resolveAssistantFollowUpQuery('哪栋楼', '舒适型女生宿舍在哪里？'),

@@ -195,14 +195,14 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v7-campus-facts'
+const ASSISTANT_CACHE_VERSION = 'rag-v8-official-attachments'
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 600
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
 const KNOWLEDGE_GREETING_SET = new Set(['你好', 'hi', 'hello', '在吗', '谢谢', 'thanks', 'thx', 'ok', '好的'])
 const KNOWLEDGE_META_QUESTION_RE = /(你是(?:什么|哪个)模型|当前模型|模型名称|你能做什么|你的能力|知识(?:结构|图谱|库).{0,8}(?:组成|来源|怎么)|系统提示词|系统指令|api\s*key|接口密钥|内部配置)/i
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
-const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|抢课|成绩|绩点|学分|综测|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
+const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 const CAMPUS_HARDSHIP_RE = /(?:没钱|经济困难|生活困难|手头困难).{0,10}(?:吃饭|生活|上学|怎么办)|吃不起饭/i
 
@@ -1753,8 +1753,9 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
     }
   }
 
-  const scholarshipOverviewQuery = /奖助学金|奖学金.*(?:有哪些|全部|所有|各类|汇总|具体规则|申请条件|评审流程|评审时间|怎么评|怎么申请)/.test(normalizedQuery)
-    || mentionedScholarships.length > 1
+  const scholarshipOverviewQuery = mentionedScholarships.length > 1
+    || (mentionedScholarships.length === 0
+      && /奖助学金|奖学金.*(?:有哪些|全部|所有|各类|汇总|具体规则|申请条件|评审流程|评审时间|怎么评|怎么申请)/.test(normalizedQuery))
   if (scholarshipOverviewQuery) {
     const rules = scholarships.map(item => (
       `${item.name}：${item.amount}；${item.scope}；${item.ranking}；主要条件为${item.requirements.slice(0, 3).join('、')}；${item.reviewTime}。`

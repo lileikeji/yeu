@@ -13,6 +13,7 @@ const MAX_EXTRACTED_LENGTH = 600_000
 const READER_TIMEOUT_MS = 65_000
 const MAX_PDF_BYTES = 50 * 1024 * 1024
 const MAX_HTML_BYTES = 10 * 1024 * 1024
+export const EXPLICIT_SEED_PRIORITY = 10_000
 
 export const DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS = [
   'https://www.yeu.edu.cn/',
@@ -813,6 +814,16 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
   `).run(startedAt.getTime())
   for (const item of seedItems) enqueueCrawlItem(client, item, startedAt.getTime())
   refreshPendingPriorities(client)
+  if (seedItems.length > 0) {
+    const prioritizeSeed = client.sqlite.prepare(`
+      UPDATE knowledge_crawl_queue
+      SET priority = max(priority, ${EXPLICIT_SEED_PRIORITY}), next_attempt_at = NULL, updated_at = ?
+      WHERE url = ?
+    `)
+    client.sqlite.transaction(() => {
+      for (const item of seedItems) prioritizeSeed.run(startedAt.getTime(), item.url)
+    })()
+  }
   const report: OfficialCrawlReport = {
     databasePath: client.path,
     startedAt: startedAt.toISOString(),
