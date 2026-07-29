@@ -18,6 +18,7 @@ import {
   assistantQueryTerms,
   isGatewayContentBlocked,
   retrieveCampusEvidence,
+  resolveAssistantFollowUpQuery,
   seedCatalogEvidenceForQuery,
   shouldUseCampusKnowledgeBase,
   storeWebEvidence
@@ -54,12 +55,28 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(isQuestionLike('宿舍条件怎么样'), true)
   assert.equal(isQuestionLike('女生普通型宿舍是几人间'), true)
   assert.equal(isQuestionLike('艺术教育电脑急不急用'), true)
+  assert.equal(isQuestionLike('舒适型女生宿舍是哪栋楼'), true)
+  assert.equal(isQuestionLike('舒适型女生宿舍叫什么'), true)
+  assert.equal(isQuestionLike('哪栋楼'), true)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 2), false)
   assert.equal(shouldRequestAssistantAnswer('校园网怎么连接？', 0), true)
   assert.equal(shouldRequestAssistantAnswer('吴庆星是谁', 2), true)
   assert.equal(shouldRequestAssistantAnswer('请介绍吴庆星的身份和经历？', 2), true)
   assert.equal(shouldRequestAssistantAnswer('想了解吴庆星的身份与生平？', 2), true)
   assert.equal(shouldRequestAssistantAnswer('校园网', 0), false)
+})
+
+test('concise campus follow-ups keep the previous question subject', () => {
+  assert.equal(
+    resolveAssistantFollowUpQuery('哪栋楼', '舒适型女生宿舍在哪里？'),
+    '舒适型女生宿舍在哪里?；追问：哪栋楼'
+  )
+  assert.equal(
+    resolveAssistantFollowUpQuery('叫什么', '舒适型女生宿舍是哪栋楼？'),
+    '舒适型女生宿舍是哪栋楼?；追问：叫什么'
+  )
+  assert.equal(resolveAssistantFollowUpQuery('哪栋楼', '神经网络是什么？'), '哪栋楼')
+  assert.equal(resolveAssistantFollowUpQuery('艺术教育电脑急不急用', '舒适型女生宿舍在哪里？'), '艺术教育电脑急不急用')
 })
 
 test('assistant query normalization and retrieval terms cover common campus wording', () => {
@@ -82,7 +99,7 @@ test('knowledge retrieval is decided independently for every message', () => {
   assert.equal(shouldUseCampusKnowledgeBase('你好'), false)
   assert.equal(shouldUseCampusKnowledgeBase('你是什么模型？'), false)
   assert.equal(shouldUseCampusKnowledgeBase('神经网络是什么？'), false)
-  assert.equal(shouldUseCampusKnowledgeBase('没钱吃饭怎么办？'), false)
+  assert.equal(shouldUseCampusKnowledgeBase('没钱吃饭怎么办？'), true)
   assert.equal(shouldUseCampusKnowledgeBase('/help'), false)
   assert.equal(shouldUseCampusKnowledgeBase('宿舍床多大？'), true)
   assert.equal(shouldUseCampusKnowledgeBase('上课可以玩手机么？'), true)

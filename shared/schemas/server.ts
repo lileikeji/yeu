@@ -709,7 +709,8 @@ export const searchQuerySchema = z.object({
 })
 
 export const assistantQuestionSchema = z.object({
-  q: z.string().trim().min(4).max(160)
+  q: z.string().trim().min(2).max(160),
+  previousQ: z.string().trim().min(2).max(160).optional()
 }).strict()
 
 export const userLoginSchema = z.object({

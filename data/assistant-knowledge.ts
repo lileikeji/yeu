@@ -313,6 +313,54 @@ export const userVerifiedNewStudentExperienceKnowledge: AssistantKnowledgeSeed[]
     sourceNote: '用户于2026-07-29提供的在校经验；男女房型位置和跨区可选范围未在官网公开，迎新系统实际可选项优先。'
   },
   {
+    id: 'experience-comfort-dorm-specific-building',
+    kind: 'student_experience',
+    category: '宿舍与校区',
+    title: '女生舒适型宿舍具体楼栋尚未核实',
+    question: '舒适型女生宿舍是哪栋楼？女生舒适型宿舍叫什么？',
+    answer: '当前能够确认的是：女生舒适型宿舍安排在旧区，男生舒适型宿舍安排在新区。学校官网、本站地图和现有在校经验资料都没有核实女生舒适型宿舍固定对应哪一栋楼，因此不能把某个普通宿舍楼名直接当成答案。具体楼栋以迎新系统抢宿舍页面、付款结果或到校分配信息为准；拿到楼栋名称后可在本站地图直接定位。',
+    keywords: ['舒适型女生宿舍是哪栋楼', '舒适型女生宿舍叫什么', '女生舒适型宿舍楼', '女生舒适型楼栋', '哪栋楼', '宿舍叫什么'],
+    publicUrl: '/map',
+    confidence: 88,
+    sourceNote: '2026-07-29对学校官网、本站地图与现有学生经验交叉核验；仅确认男女舒适型宿舍所在校区，未确认固定楼栋。'
+  },
+  {
+    id: 'official-lin-hui-identity',
+    kind: 'official_reference',
+    category: '学校人物',
+    title: '林惠｜仰恩大学董事会董事长',
+    question: '林惠是谁？',
+    answer: '林惠女士是仰恩大学董事会董事长。学校官网介绍，她与吴庆星先生共同发起仰恩基金会，基金会是仰恩大学的举办者；学校简介同时记载，仰恩大学由吴庆星先生和夫人林惠女士发起成立的仰恩基金会于1987年创办。',
+    keywords: ['林惠', '林惠是谁', '董事长', '仰恩基金会', '学校举办者', '吴庆星夫人'],
+    publicUrl: 'https://www.yeu.edu.cn/_t46/1312/list.htm',
+    confidence: 98,
+    sourceNote: '仰恩大学董事会、学校简介和仰恩基金会简介，核验于2026-07-29。'
+  },
+  {
+    id: 'official-student-immediate-hardship-help',
+    kind: 'official_reference',
+    category: '资助帮扶',
+    title: '暂时没钱吃饭时先找谁',
+    question: '没钱吃饭怎么办？生活费暂时不够怎么办？',
+    answer: '如果已经影响到今天吃饭，不要硬扛，也不要借网贷或把银行卡、账号交给别人。先把“目前吃饭已经困难”直接告诉班导、辅导员或学院学生工作老师，请其协助联系学生资助中心；同时可咨询家庭经济困难认定、国家助学金、绿色通道和校内勤工助学。学校公开有家庭经济困难学生认定办法和勤工助学管理办法，但具体临时帮扶方式与到账时间需由学院或学生事务部确认。',
+    keywords: ['没钱吃饭', '吃不起饭', '生活费不够', '生活困难', '经济困难', '临时困难', '资助中心', '勤工助学'],
+    publicUrl: '/guides/fees-aid',
+    confidence: 94,
+    sourceNote: '仰恩大学家庭经济困难学生认定办法、勤工助学管理办法与本站资助入口整理。'
+  },
+  {
+    id: 'campus-classroom-phone-boundary',
+    kind: 'campus_template',
+    category: '课堂与课程',
+    title: '上课使用手机的边界',
+    question: '上课可以玩手机吗？课堂能不能玩手机？',
+    answer: '当前没有检索到学校面向所有课程统一公开的“手机使用细则”。是否允许用手机查资料、签到或完成课堂任务，应听任课教师当堂要求；与课程无关的游戏、视频、外放和持续聊天会影响课堂秩序，不应把“老师暂时没制止”理解为允许。考试、测验或教师要求收起手机时必须按规则执行。',
+    keywords: ['上课玩手机', '课堂玩手机', '上课可以玩手机吗', '上课可以玩手机么', '手机签到', '课堂纪律', '老师没收手机'],
+    publicUrl: '/student-rules',
+    confidence: 91,
+    sourceNote: '现有学生手册与课程资料的证据边界整理；具体课堂要求以任课教师和考试规则为准。'
+  },
+  {
     id: 'experience-dorm-roommate-allocation',
     kind: 'student_experience',
     category: '宿舍',

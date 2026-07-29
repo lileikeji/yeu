@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { assistantQuestionSchema } from '../../../shared/schemas/server'
 import { containsPromptInjection, isQuestionLike } from '../../../shared/utils/assistant-query'
 import { recordAssistantFailure, recordAssistantSuccess } from '../../modules/assistant/analytics'
-import { answerCampusQuestion, blockedAssistantResponse } from '../../modules/assistant/service'
+import {
+  answerCampusQuestion,
+  blockedAssistantResponse,
+  resolveAssistantFollowUpQuery
+} from '../../modules/assistant/service'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { useAppDatabase } from '../../utils/database'
 import { assertRateLimit } from '../../utils/rate-limit'
@@ -18,9 +22,10 @@ export default defineEventHandler(async (event) => {
   assertRateLimit(event, 'assistant:global', 80, 60 * 1000, client)
 
   const body = await parseBody(event, assistantQuestionSchema)
+  const effectiveQuery = resolveAssistantFollowUpQuery(body.q, body.previousQ)
   const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
   const startedAt = Date.now()
-  if (containsPromptInjection(body.q)) {
+  if (containsPromptInjection(effectiveQuery)) {
     try {
       recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, 'UNSAFE_QUERY', Date.now() - startedAt)
     } catch {
@@ -39,7 +44,7 @@ export default defineEventHandler(async (event) => {
   const runtime = useRuntimeConfig(event)
   const requestAbort = createRequestAbortSignal(event)
   try {
-    const response = await answerCampusQuestion(client, body.q, {
+    const response = await answerCampusQuestion(client, effectiveQuery, {
       gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
       gatewayApiKey: String(runtime.aiGatewayApiKey || ''),
       gatewayModel: String(runtime.aiGatewayModel || 'gpt-5.4'),

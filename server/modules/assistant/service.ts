@@ -204,6 +204,7 @@ const KNOWLEDGE_META_QUESTION_RE = /(你是(?:什么|哪个)模型|当前模型|
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
 const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|抢课|成绩|绩点|学分|综测|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
+const CAMPUS_HARDSHIP_RE = /(?:没钱|经济困难|生活困难|手头困难).{0,10}(?:吃饭|生活|上学|怎么办)|吃不起饭/i
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
   { id: 'quanzhou-east', terms: ['泉州东站', '东站'] },
@@ -478,6 +479,7 @@ function directQueryKind(value: string): DirectQueryKind | null {
   const normalized = query.replace(/[。！？!?.,，\s]/g, '').toLocaleLowerCase('zh-CN')
   if (KNOWLEDGE_GREETING_SET.has(normalized)) return 'greeting'
   if (KNOWLEDGE_META_QUESTION_RE.test(query)) return 'meta'
+  if (CAMPUS_HARDSHIP_RE.test(query)) return null
   if (GENERAL_REASONING_RE.test(query)) return 'general'
   if (assistantIdentitySubject(query)) return null
   return CAMPUS_QUERY_RE.test(query) ? null : 'general'
@@ -485,6 +487,22 @@ function directQueryKind(value: string): DirectQueryKind | null {
 
 export function shouldUseCampusKnowledgeBase(value: string): boolean {
   return directQueryKind(value) === null
+}
+
+const ASSISTANT_FOLLOW_UP_RE = /^(?:(?:那|这个|具体|所以|请问)\s*)?(?:是\s*)?(?:哪栋楼|哪一栋|叫什么|在哪里|在哪|多久|多少钱|怎么弄|怎么申请|什么时候|有吗|可以吗|能吗)[?？。！!]?$/u
+
+export function resolveAssistantFollowUpQuery(value: string, previousValue?: string): string {
+  const query = normalizeAssistantQuery(value)
+  const previousQuery = normalizeAssistantQuery(previousValue ?? '')
+  if (
+    !previousQuery
+    || previousQuery === query
+    || query.length > 16
+    || !ASSISTANT_FOLLOW_UP_RE.test(query)
+    || containsPromptInjection(previousQuery)
+    || !shouldUseCampusKnowledgeBase(previousQuery)
+  ) return query
+  return `${previousQuery}；追问：${query}`
 }
 
 function explicitKnowledgeRefs(query: string): string[] {
@@ -1482,10 +1500,10 @@ function facultyKnowledgeLocalAnswer(
     return {
       query,
       mode: 'local',
-      answer: `当前已收录 ${rows.length} 条官网公开师资资料：${counts.map(item => `${item.affiliation}${item.count}人`).join('、')}。可以继续输入“某某学院有哪些老师”查看名单，或直接问“某某老师是谁”查看完整公开简介。`,
-      citations: [],
+      answer: `本站当前从学校各院部公开师资页收录了 ${rows.length} 条教师资料：${counts.map(item => `${item.affiliation}${item.count}人`).join('、')}。这个数字是“本站已索引的公开简介数”，不是学校官方公布的教职工总人数，不能把未发布个人简介的教师算进去。可以继续输入“某某学院有哪些老师”查看名单，或直接问“某某老师是谁”。`,
+      citations: facultyCitations(rows).slice(0, 4),
       usedWebSearch: false,
-      confidence: 0.96
+      confidence: 0.93
     }
   }
 

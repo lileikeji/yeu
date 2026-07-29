@@ -6,7 +6,8 @@ const QUESTION_MARKERS = [
   '几号', '哪天', '多少钱', '多长', '多宽', '多高', '哪些', '有什么要求',
   '申请条件', '具体规则', '评审流程', '能否', '要不要', '该不该', '是不是',
   '好不好', '怎么样', '多久', '几人间', '几个人', '几人', '几天',
-  '急不急', '允不允许', '会不会', '够不够', '容不容易'
+  '急不急', '允不允许', '会不会', '够不够', '容不容易',
+  '哪栋楼', '哪一栋', '叫什么'
 ] as const
 
 const QUESTION_ENDING_PATTERN = /[?？吗嘛呢]$/u
@@ -48,7 +49,7 @@ export function assistantIdentitySubject(value: string): string | null {
 
 export function isQuestionLike(value: string): boolean {
   const query = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
-  if (query.length < 4) return false
+  if (query.length < 2) return false
   return Boolean(assistantIdentitySubject(query))
     || QUESTION_ENDING_PATTERN.test(query)
     || QUESTION_MARKERS.some(marker => query.includes(marker))

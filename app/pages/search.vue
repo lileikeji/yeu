@@ -60,6 +60,7 @@ const searchInput = ref(activeQuery.value)
 let searchNavigationSequence = 0
 let latestSubmittedQuery = activeQuery.value
 let latestSubmittedType = activeType.value
+let previousAssistantQuery = ''
 let pendingSearchNavigations = 0
 const requestFetch = useRequestFetch()
 const listMessages = searchListMessages
@@ -337,6 +338,12 @@ function parseAssistantSseBlock(block: string): { event: string, data: Record<st
 }
 
 async function requestAssistantStream(query: string, signal: AbortSignal): Promise<ApiAssistantResponse> {
+  const requestBody = {
+    q: query,
+    ...(previousAssistantQuery && previousAssistantQuery !== query
+      ? { previousQ: previousAssistantQuery }
+      : {})
+  }
   const response = await fetch('/api/public/assistant/stream', {
     method: 'POST',
     credentials: 'same-origin',
@@ -344,13 +351,13 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
       'Accept': 'text/event-stream',
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ q: query }),
+    body: JSON.stringify(requestBody),
     signal
   })
   if (response.status === 404 || response.status === 405) {
     return requestFetch<ApiAssistantResponse>('/api/public/assistant', {
       method: 'POST',
-      body: { q: query },
+      body: requestBody,
       signal
     })
   }
@@ -385,7 +392,7 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
     if (!receivedBusinessEvent && (response.status === 404 || response.status === 405)) {
       return requestFetch<ApiAssistantResponse>('/api/public/assistant', {
         method: 'POST',
-        body: { q: query },
+        body: requestBody,
         signal
       })
     }
@@ -426,6 +433,7 @@ async function requestAssistantAnswer(): Promise<void> {
     const response = await requestAssistantStream(query, assistantAbortController.signal)
     if (requestId !== assistantRequestSequence || query !== activeQuery.value) return
     assistantResponse.value = response
+    previousAssistantQuery = query
     assistantLiveTrace.value = (response.trace ?? []).map(step => ({ ...step }))
     assistantStatus.value = 'success'
   } catch {

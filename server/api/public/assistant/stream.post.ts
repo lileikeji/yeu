@@ -3,7 +3,11 @@ import { createEventStream } from 'h3'
 import { assistantQuestionSchema } from '../../../../shared/schemas/server'
 import { containsPromptInjection, isQuestionLike } from '../../../../shared/utils/assistant-query'
 import { recordAssistantFailure, recordAssistantSuccess } from '../../../modules/assistant/analytics'
-import { answerCampusQuestion, blockedAssistantResponse } from '../../../modules/assistant/service'
+import {
+  answerCampusQuestion,
+  blockedAssistantResponse,
+  resolveAssistantFollowUpQuery
+} from '../../../modules/assistant/service'
 import { getClientIpAddress } from '../../../utils/client-ip'
 import { useAppDatabase } from '../../../utils/database'
 import { assertRateLimit } from '../../../utils/rate-limit'
@@ -18,7 +22,8 @@ export default defineEventHandler(async (event) => {
   assertRateLimit(event, 'assistant:global', 80, 60 * 1000, client)
 
   const body = await parseBody(event, assistantQuestionSchema)
-  const blocked = containsPromptInjection(body.q)
+  const effectiveQuery = resolveAssistantFollowUpQuery(body.q, body.previousQ)
+  const blocked = containsPromptInjection(effectiveQuery)
   const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
   const startedAt = Date.now()
   if (!blocked && !isQuestionLike(body.q)) {
@@ -53,7 +58,7 @@ export default defineEventHandler(async (event) => {
         })
         return
       }
-      const response = await answerCampusQuestion(client, body.q, {
+      const response = await answerCampusQuestion(client, effectiveQuery, {
         gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
         gatewayApiKey: String(runtime.aiGatewayApiKey || ''),
         gatewayModel: String(runtime.aiGatewayModel || 'gpt-5.4'),
