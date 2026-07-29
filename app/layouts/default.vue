@@ -2,7 +2,6 @@
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
-const { configureWechatShare } = useWechatShareCard()
 const { user, isAuthenticated, refreshSession } = useUserSession()
 
 const navigation = [
@@ -21,25 +20,8 @@ function shareCurrentPage(): void {
   void sharePage()
 }
 
-function configureCurrentWechatShare(): void {
-  if (!import.meta.client) return
-  const title = document.title || '仰恩新生指南'
-  const description = document.querySelector('meta[name="description"]')?.getAttribute('content') || title
-  void configureWechatShare({
-    title,
-    description,
-    imageUrl: new URL('/icons/app-icon-512.png', window.location.origin).toString(),
-    link: window.location.href
-  })
-}
-
 onMounted(() => {
   void refreshSession()
-  configureCurrentWechatShare()
-})
-
-watch(() => route.fullPath, () => {
-  void nextTick(configureCurrentWechatShare)
 })
 </script>
 

@@ -32,6 +32,8 @@ import {
 } from './marker-image'
 
 const SOURCE_ID = 'yeu-preview-pois'
+const CAMPUS_IMAGE_SOURCE_ID = 'yeu-campus-plan-image'
+const CAMPUS_IMAGE_LAYER_ID = 'yeu-campus-plan-image-layer'
 const CAMPUS_BOUNDARY_SOURCE_ID = 'yeu-campus-boundary'
 const CAMPUS_BOUNDARY_FILL_LAYER_ID = 'yeu-campus-boundary-fill'
 const CAMPUS_BOUNDARY_LINE_LAYER_ID = 'yeu-campus-boundary-line'
@@ -52,8 +54,15 @@ const DEFAULT_CENTER: [number, number] = [
 ]
 const DEFAULT_ZOOM = 14
 const SINGLE_POI_ZOOM = 17
-const MAP_LOAD_TIMEOUT_MS = 15_000
+const MAP_LOAD_TIMEOUT_MS = 5_000
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>'
+
+const CAMPUS_IMAGE_COORDINATES: [[number, number], [number, number], [number, number], [number, number]] = [
+  [YEU_CAMPUS_REFERENCE_BOUNDS.west, YEU_CAMPUS_REFERENCE_BOUNDS.north],
+  [YEU_CAMPUS_REFERENCE_BOUNDS.east, YEU_CAMPUS_REFERENCE_BOUNDS.north],
+  [YEU_CAMPUS_REFERENCE_BOUNDS.east, YEU_CAMPUS_REFERENCE_BOUNDS.south],
+  [YEU_CAMPUS_REFERENCE_BOUNDS.west, YEU_CAMPUS_REFERENCE_BOUNDS.south]
+]
 
 const OSM_PREVIEW_STYLE: StyleSpecification = {
   version: 8,
@@ -74,6 +83,19 @@ const OSM_PREVIEW_STYLE: StyleSpecification = {
       source: 'osm'
     }
   ]
+}
+
+// Keep the WebView fallback independent from third-party tile and glyph hosts.
+// The local campus plan is added after the empty style has loaded, so a slow
+// image request cannot prevent MapLibre from becoming interactive.
+const OFFLINE_PREVIEW_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {},
+  layers: []
+}
+
+interface MapLibrePreviewProviderOptions {
+  offline?: boolean
 }
 
 interface PoiFeatureProperties {
@@ -104,6 +126,7 @@ interface PoiFeatureCollection {
 
 export class MapLibrePreviewProvider implements MapProvider {
   readonly id = 'maplibre-dev' as const
+  private readonly offline: boolean
   private map: MapLibreMap | null = null
   private pois: MapPoi[] = []
   private selectedPoiId: string | null = null
@@ -117,6 +140,10 @@ export class MapLibrePreviewProvider implements MapProvider {
   private fitAfterMount = false
   private lifecycleVersion = 0
   private cancelPendingLoad: (() => void) | null = null
+
+  constructor(options: MapLibrePreviewProviderOptions = {}) {
+    this.offline = options.offline === true
+  }
 
   async mount(element: HTMLElement, options: MapMountOptions = {}): Promise<void> {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -136,7 +163,7 @@ export class MapLibrePreviewProvider implements MapProvider {
 
     const map = new maplibre.Map({
       container: element,
-      style: OSM_PREVIEW_STYLE,
+      style: this.offline ? OFFLINE_PREVIEW_STYLE : OSM_PREVIEW_STYLE,
       center: options.center ? [options.center.lng, options.center.lat] : DEFAULT_CENTER,
       zoom: options.zoom ?? DEFAULT_ZOOM,
       maxZoom: 20,
@@ -157,6 +184,10 @@ export class MapLibrePreviewProvider implements MapProvider {
       return
     }
 
+    if (this.offline) {
+      this.prepareOfflineCanvas(element)
+      this.addOfflineCampusImage(map)
+    }
     this.registerMarkerImages(map)
     this.addCampusBoundaryLayers(map)
     this.addPoiLayers(map)
@@ -415,6 +446,36 @@ export class MapLibrePreviewProvider implements MapProvider {
         'line-dasharray': [2, 1.5]
       }
     })
+  }
+
+  private prepareOfflineCanvas(element: HTMLElement): void {
+    element.style.backgroundColor = '#78b63d'
+    element.style.backgroundImage = 'url("/images/yeu-campus-plan-2025.jpg")'
+    element.style.backgroundPosition = 'center'
+    element.style.backgroundRepeat = 'no-repeat'
+    element.style.backgroundSize = 'cover'
+  }
+
+  private addOfflineCampusImage(map: MapLibreMap): void {
+    try {
+      map.addSource(CAMPUS_IMAGE_SOURCE_ID, {
+        type: 'image',
+        url: '/images/yeu-campus-plan-2025.jpg',
+        coordinates: CAMPUS_IMAGE_COORDINATES
+      })
+      map.addLayer({
+        id: CAMPUS_IMAGE_LAYER_ID,
+        type: 'raster',
+        source: CAMPUS_IMAGE_SOURCE_ID,
+        paint: {
+          'raster-opacity': 0.82,
+          'raster-fade-duration': 0
+        }
+      })
+    } catch {
+      // The CSS background remains available if an older WebView does not
+      // implement MapLibre image sources.
+    }
   }
 
   private addPoiLayers(map: MapLibreMap): void {

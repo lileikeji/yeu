@@ -47,10 +47,13 @@ test('WeChat JS-SDK signature uses the required lowercase canonical parameter or
   )
 })
 
-test('WeChat credentials stay server-side and public pages configure their own card content', () => {
+test('WeChat credentials stay server-side and route sharing uses one automatic SDK entry', () => {
   const runtimeConfig = readFileSync(resolve('nuxt.config.ts'), 'utf8')
   const endpoint = readFileSync(resolve('server/api/public/wechat-share.get.ts'), 'utf8')
   const composable = readFileSync(resolve('app/composables/useWechatShareCard.ts'), 'utf8')
+  const shareActions = readFileSync(resolve('app/composables/useShareActions.ts'), 'utf8')
+  const layout = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
+  const plugin = readFileSync(resolve('app/plugins/wechat-share.client.ts'), 'utf8')
   const club = readFileSync(resolve('app/pages/clubs/[slug].vue'), 'utf8')
   const department = readFileSync(resolve('app/pages/departments/[slug].vue'), 'utf8')
 
@@ -62,6 +65,13 @@ test('WeChat credentials stay server-side and public pages configure their own c
   assert.match(composable, /updateAppMessageShareData/)
   assert.match(composable, /updateTimelineShareData/)
   assert.match(composable, /res\.wx\.qq\.com/)
-  assert.match(club, /configureWechatShare/)
-  assert.match(department, /configureWechatShare/)
+  assert.match(composable, /sdk\.config\([\s\S]*sdk\.ready\(/)
+  assert.doesNotMatch(composable, /signature\.url !== signedUrl/)
+  assert.match(plugin, /configureWechatShare/)
+  assert.match(plugin, /lastScheduledRouteKey/)
+  assert.doesNotMatch(layout, /configureWechatShare/)
+  assert.doesNotMatch(club, /configureWechatShare/)
+  assert.doesNotMatch(department, /configureWechatShare/)
+  assert.match(shareActions, /微信分享未就绪/)
+  assert.match(shareActions, /Do not fall through to clipboard sharing/)
 })

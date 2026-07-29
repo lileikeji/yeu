@@ -49,6 +49,8 @@ declare global {
 let sdkPromise: Promise<WechatJsSdk> | null = null
 let sdkConfigurationQueue: Promise<void> = Promise.resolve()
 let configuredSignatureUrl: string | null = null
+let queuedSignatureUrl: string | null = null
+let queuedSignaturePromise: Promise<void> | null = null
 
 const SDK_READY_TIMEOUT_MS = 8_000
 
@@ -67,7 +69,10 @@ function describeWechatSdkError(error: unknown): Error {
 }
 
 function loadWechatJsSdk(): Promise<WechatJsSdk> {
-  if (window.wx && typeof window.wx.config === 'function' && typeof window.wx.ready === 'function') {
+  if (window.wx
+    && typeof window.wx.config === 'function'
+    && typeof window.wx.ready === 'function'
+    && typeof window.wx.error === 'function') {
     return Promise.resolve(window.wx)
   }
   if (sdkPromise) return sdkPromise
@@ -80,7 +85,10 @@ function loadWechatJsSdk(): Promise<WechatJsSdk> {
     script.dataset.yeuWechatSdk = 'true'
     script.addEventListener('load', () => {
       window.clearTimeout(timeout)
-      if (window.wx && typeof window.wx.config === 'function' && typeof window.wx.ready === 'function') {
+      if (window.wx
+        && typeof window.wx.config === 'function'
+        && typeof window.wx.ready === 'function'
+        && typeof window.wx.error === 'function') {
         resolve(window.wx)
       } else reject(new Error('WeChat JS-SDK unavailable'))
     }, { once: true })
@@ -113,11 +121,10 @@ function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<vo
       else resolve()
     }
 
-    // Register callbacks before config. This is safe for current SDKs and
-    // prevents an older embedded WebView from dropping the first event.
+    // Follow the SDK's documented order: config first, then register the
+    // ready/error callbacks. Configuration callbacks are asynchronous in the
+    // supported SDKs, so they cannot be missed here.
     try {
-      sdk.ready(() => finish())
-      sdk.error(error => finish(error))
       sdk.config({
         debug: false,
         appId: signature.appId,
@@ -126,6 +133,8 @@ function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<vo
         signature: signature.signature,
         jsApiList: signature.jsApiList
       })
+      sdk.ready(() => finish())
+      sdk.error(error => finish(error))
     } catch (error) {
       finish(error)
     }
@@ -133,15 +142,26 @@ function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<vo
 }
 
 function queueSdkConfiguration(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<void> {
+  if (configuredSignatureUrl === signature.url) return Promise.resolve()
+  if (queuedSignatureUrl === signature.url && queuedSignaturePromise) return queuedSignaturePromise
+
   const task = sdkConfigurationQueue.then(async () => {
     if (configuredSignatureUrl === signature.url) return
     await sdkReady(sdk, signature)
     configuredSignatureUrl = signature.url
   })
+  const trackedTask = task.finally(() => {
+    if (queuedSignatureUrl === signature.url) {
+      queuedSignatureUrl = null
+      queuedSignaturePromise = null
+    }
+  })
+  queuedSignatureUrl = signature.url
+  queuedSignaturePromise = trackedTask
   // Keep the queue alive after an individual page/configuration failure so a
   // later route can retry instead of inheriting a rejected promise forever.
   sdkConfigurationQueue = task.catch(() => undefined)
-  return task
+  return trackedTask
 }
 
 function canonicalPageUrl(): string {
@@ -171,10 +191,16 @@ export function useWechatShareCard() {
         }),
         loadWechatJsSdk()
       ])
-      if (signature.url !== signedUrl) {
-        throw new Error('WeChat JS-SDK signature URL mismatch')
+      // The server signs a normalized URL. A CDN may canonicalize the current
+      // browser URL differently (for example, an explicit default port), so
+      // do not reject a valid signature solely because the strings differ.
+      const normalizedSignature = {
+        ...signature,
+        url: typeof signature.url === 'string' && signature.url
+          ? signature.url
+          : signedUrl
       }
-      await queueSdkConfiguration(sdk, signature)
+      await queueSdkConfiguration(sdk, normalizedSignature)
       const payload: WechatSharePayload = {
         title: input.title.slice(0, 100),
         desc: input.description.slice(0, 160),

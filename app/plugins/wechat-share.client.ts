@@ -8,8 +8,12 @@ export default defineNuxtPlugin((nuxtApp) => {
   const route = useRoute()
   const { configureWechatShare } = useWechatShareCard()
   let scheduleVersion = 0
+  let lastScheduledRouteKey: string | null = null
 
   function scheduleShareConfiguration(): void {
+    const routeKey = route.fullPath
+    if (lastScheduledRouteKey === routeKey) return
+    lastScheduledRouteKey = routeKey
     const version = ++scheduleVersion
     void nextTick(async () => {
       // Head tags can be updated one tick after a route transition.

@@ -41,8 +41,8 @@ interface UseMapProviderLifecycleOptions {
 const DEFAULT_MAP_ERROR = MAP_LOAD_ERROR_MESSAGE
 
 async function createWechatFallbackProvider(): Promise<MapProvider> {
-  const { MapLibrePreviewProvider } = await import('~~/map/providers/maplibre/provider')
-  return new MapLibrePreviewProvider()
+  const { WechatOfflineMapProvider } = await import('~~/map/providers/offline/provider')
+  return new WechatOfflineMapProvider()
 }
 
 export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions) {
@@ -183,8 +183,7 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
             return
           }
         } catch {
-          // Fall through to the normal error state if the local fallback also
-          // cannot load its raster tiles.
+          // Keep the normal retry state if even the DOM-only fallback cannot mount.
         }
       }
 

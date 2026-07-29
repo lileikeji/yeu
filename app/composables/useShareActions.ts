@@ -74,8 +74,18 @@ export function useShareActions() {
           description: '请点击右上角“…”选择发送给朋友或分享到朋友圈。',
           color: 'success'
         })
-        return
+      } else {
+        toast.add({
+          title: '微信分享未就绪',
+          description: '请刷新页面后使用右上角“…”菜单分享。',
+          color: 'warning'
+        })
       }
+
+      // The WeChat JS-SDK cannot open the native share sheet programmatically.
+      // Do not fall through to clipboard sharing: that produces a plain URL
+      // and makes a failed card configuration look successful.
+      return
     }
 
     if (navigator.share) {
