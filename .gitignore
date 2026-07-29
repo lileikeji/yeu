@@ -2,6 +2,7 @@
 .output
 .data
 .nuxt
+.nuxt-*/
 .nuxt-build
 .nitro
 .cache
@@ -17,6 +18,12 @@ __pycache__/
 # Logs
 logs
 *.log
+
+# Local deployment and inspection artifacts
+.deploy-*/
+.tmp-*
+.tmp_*
+_yeu_.tmp-*
 
 # Misc
 .DS_Store
