@@ -24,6 +24,29 @@ class FakeGestureStateMachine {
         reason: 'moved'
       }]
     }
+    if (this.active?.kind === 'node') {
+      const previous = this.active.lastScreenPoint as { x: number, y: number }
+      this.active = {
+        ...this.active,
+        lastScreenPoint: { ...event.screenPoint },
+        locked: true
+      }
+      return [{
+        kind: 'node-drag-start',
+        nodeId: this.active.nodeId,
+        pointerId: event.pointerId,
+        screenPoint: { ...event.screenPoint }
+      }, {
+        kind: 'node-drag-move',
+        nodeId: this.active.nodeId,
+        pointerId: event.pointerId,
+        screenPoint: { ...event.screenPoint },
+        delta: {
+          x: event.screenPoint.x - previous.x,
+          y: event.screenPoint.y - previous.y
+        }
+      }]
+    }
     if (this.active?.kind === 'blank-pan') {
       const previous = this.active.lastScreenPoint as { x: number, y: number }
       this.active = { ...this.active, lastScreenPoint: { ...event.screenPoint } }
@@ -108,5 +131,51 @@ describe('knowledge graph community drag panning', () => {
       screenPoint: { x: 9, y: 12 },
       delta: { x: 5, y: 6 }
     }])
+  })
+
+  it('pans from a dense node hit target while preserving shift-drag node movement', () => {
+    const library = { GraphGestureStateMachine: FakeGestureStateMachine }
+    assert.equal(enableCommunityDragPanning(library), true)
+
+    const machine = new FakeGestureStateMachine()
+    machine.active = {
+      kind: 'node',
+      pointerId: 9,
+      nodeId: 'node-1',
+      additive: false,
+      startScreenPoint: { x: 210, y: 160 },
+      lastScreenPoint: { x: 210, y: 160 },
+      locked: false
+    }
+    assert.deepEqual(machine.pointerMove({
+      pointerId: 9,
+      screenPoint: { x: 230, y: 172 }
+    }), [{
+      kind: 'blank-pan-start',
+      pointerId: 9,
+      screenPoint: { x: 230, y: 172 }
+    }, {
+      kind: 'blank-pan-move',
+      pointerId: 9,
+      screenPoint: { x: 230, y: 172 },
+      delta: { x: 20, y: 12 }
+    }])
+    assert.equal(machine.active?.kind, 'blank-pan')
+
+    const shifted = new FakeGestureStateMachine()
+    shifted.active = {
+      kind: 'node',
+      pointerId: 10,
+      nodeId: 'node-2',
+      additive: true,
+      startScreenPoint: { x: 50, y: 50 },
+      lastScreenPoint: { x: 50, y: 50 },
+      locked: false
+    }
+    assert.equal(shifted.pointerMove({
+      pointerId: 10,
+      screenPoint: { x: 62, y: 58 }
+    })[0]?.kind, 'node-drag-start')
+    assert.equal(shifted.active?.kind, 'node')
   })
 })

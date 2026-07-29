@@ -552,7 +552,7 @@ onBeforeUnmount(() => {
           <div class="canvas-heading-copy">
             <p>{{ activeCommunityId ? communitiesById.get(activeCommunityId)?.label : '仰恩大学新生知识全景' }}</p>
             <span v-if="searchState.query">“{{ searchState.query }}”找到 {{ searchState.resultIds.length }} 条</span>
-            <span v-else>按住空白或云雾拖动画布，滚轮缩放；节点也可以拖动固定</span>
+            <span v-else>按住任意位置拖动画布，滚轮缩放；Shift + 拖动节点可固定位置</span>
           </div>
           <div
             class="canvas-toolstrip"
@@ -665,7 +665,8 @@ onBeforeUnmount(() => {
                 </button>
               </header>
               <ul>
-                <li><UIcon name="i-lucide-hand" /><span><b>拖动画布</b>：按住空白或社区云雾移动</span></li>
+                <li><UIcon name="i-lucide-hand" /><span><b>拖动画布</b>：按住空白、社区云雾或节点移动</span></li>
+                <li><UIcon name="i-lucide-pin" /><span><b>固定节点</b>：按住 Shift 再拖动节点</span></li>
                 <li><UIcon name="i-lucide-mouse" /><span><b>缩放</b>：滚动鼠标滚轮，触屏双指缩放</span></li>
                 <li><UIcon name="i-lucide-move" /><span><b>固定节点</b>：拖动节点到合适位置后松开</span></li>
                 <li><UIcon name="i-lucide-book-open" /><span><b>查看内容</b>：单击看摘要，双击看全文</span></li>

@@ -16,6 +16,8 @@ interface GraphGestureIntent {
 interface GraphGestureSnapshot {
   kind?: string
   pointerId?: number
+  nodeId?: string
+  additive?: boolean
   startScreenPoint?: GraphScreenPoint
   lastScreenPoint?: GraphScreenPoint
 }
@@ -42,10 +44,11 @@ function finiteCoordinate(value: unknown, fallback = 0): number {
 }
 
 /**
- * The graph engine treats a community wash as a click-only surface. With dense
- * communities, those washes cover most of the canvas, which makes blank-space
- * panning practically impossible. Promote a moved community click candidate
- * into the same pan gesture used by true blank canvas areas.
+ * Dense graph regions are almost entirely covered by community washes and node
+ * hit targets, leaving no practical blank surface for viewport panning.
+ * Promote ordinary drags on either surface into the same pan gesture used by
+ * true blank areas. Shift-drag remains the explicit way to reposition a node,
+ * while a short ordinary press still selects it.
  */
 export function enableCommunityDragPanning(library: KnowledgeGraphEngineLibraryLike): boolean {
   const prototype = library.GraphGestureStateMachine?.prototype
@@ -59,9 +62,12 @@ export function enableCommunityDragPanning(library: KnowledgeGraphEngineLibraryL
       : this.active as GraphGestureSnapshot | null
     const intents = originalPointerMove.call(this, event)
 
-    const cancelledCommunityClick = before?.kind === 'community-wash'
+    const promoteCommunityDrag = before?.kind === 'community-wash'
       && intents.some(intent => intent.kind === 'community-click-cancelled')
-    if (!cancelledCommunityClick) return intents
+    const promoteOrdinaryNodeDrag = before?.kind === 'node'
+      && before.additive !== true
+      && intents.some(intent => intent.kind === 'node-drag-start')
+    if (!promoteCommunityDrag && !promoteOrdinaryNodeDrag) return intents
 
     const previousPoint = before.lastScreenPoint ?? before.startScreenPoint ?? event.screenPoint
     const screenPoint = {
