@@ -58,11 +58,20 @@ interface LandscapeEdge {
 }
 
 const GRAPH_NODE_LIMIT = 1900
-const COMMUNITY_LIMITS: Record<GraphItemRow['collection'], number> = {
-  entries: 12,
-  documents: 6,
-  web: 8
-}
+const MIN_COMMUNITY_SIZE = 3
+
+const COMMUNITY_RULES: Array<{ label: string, pattern: RegExp }> = [
+  { label: '奖助学金与综合测评', pattern: /奖学金|助学金|国家奖|励志奖|资助|贫困|困难学生|综合测评|综测|绩点|学分绩/ },
+  { label: '宿舍与生活', pattern: /宿舍|寝室|公寓|楼栋|浴室|洗衣|饮水|蚊帐|住宿/ },
+  { label: '报到与军训', pattern: /报到|入学|迎新|新生|录取通知书|军训|冬训|开学准备/ },
+  { label: '学业与教务', pattern: /教务|课程|选课|考试|补考|重修|转专业|学籍|毕业|学位|学业|课堂|课表/ },
+  { label: '校园交通与周边', pattern: /交通|公交|路线|到校|离校|校车|打车|机场|动车|火车|周边/ },
+  { label: '校园生活与服务', pattern: /校园卡|食堂|吃饭|餐厅|快递|外卖|网络|宽带|图书馆|运动|体育|社团|生活|服务/ },
+  { label: '师资与人物', pattern: /教职工|教师|教授|讲师|辅导员|校长|主任|仰恩人物|榜样/ },
+  { label: '学院与专业', pattern: /学院|专业|学系|系部|招生计划|培养方案/ },
+  { label: '校园安全', pattern: /安全|保卫|安保|消防|防骗|诈骗|急救|应急/ },
+  { label: '学校概况与资讯', pattern: /学校概况|学校简介|校史|校园风景|校园新闻|通知公告|仰恩大学/ }
+]
 
 function scalar(client: DatabaseClient, sql: string, params: unknown[] = []): number {
   return Number((client.sqlite.prepare(sql).get(...params) as CountRow | undefined)?.value ?? 0)
@@ -235,33 +244,55 @@ function graphItems(client: DatabaseClient): GraphItemRow[] {
   ] as GraphItemRow[]
 }
 
+function fallbackCommunityLabel(item: GraphItemRow): string {
+  if (item.collection === 'entries') return '校园知识·其他'
+  if (item.collection === 'documents') return '学校官网资料'
+  return /(^|\.)yeu\.edu\.cn$/i.test(item.communityLabel) ? '学校官网资料' : '外部参考资料'
+}
+
+function inferredCommunityLabel(item: GraphItemRow): string {
+  if (item.collection === 'web' && !/(^|\.)yeu\.edu\.cn$/i.test(item.communityLabel)) {
+    return '外部参考资料'
+  }
+  if (item.collection === 'entries') {
+    const categoryMatch = COMMUNITY_RULES.find(rule => rule.pattern.test(item.communityLabel))
+    if (categoryMatch) return categoryMatch.label
+  }
+  const text = `${item.communityLabel} ${item.label} ${item.summary} ${item.content.slice(0, 800)}`
+  return COMMUNITY_RULES.find(rule => rule.pattern.test(text))?.label ?? fallbackCommunityLabel(item)
+}
+
 function communityLabels(items: GraphItemRow[]): Map<string, string> {
+  const inferred = new Map<string, string>()
   const counts = new Map<string, number>()
   for (const item of items) {
-    const key = `${item.collection}:${item.communityLabel}`
-    counts.set(key, (counts.get(key) ?? 0) + 1)
+    const key = `${item.collection}:${item.id}`
+    const label = inferredCommunityLabel(item)
+    inferred.set(key, label)
+    counts.set(label, (counts.get(label) ?? 0) + 1)
   }
 
-  const preferred = new Set<string>()
-  for (const collection of ['entries', 'documents', 'web'] as const) {
-    const ranked = [...counts.entries()]
-      .filter(([key]) => key.startsWith(`${collection}:`))
-      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))
-      .slice(0, COMMUNITY_LIMITS[collection])
-    for (const [key] of ranked) preferred.add(key)
+  const provisional = new Map(items.map((item) => {
+    const key = `${item.collection}:${item.id}`
+    const label = inferred.get(key) ?? fallbackCommunityLabel(item)
+    return [key, (counts.get(label) ?? 0) >= MIN_COMMUNITY_SIZE ? label : fallbackCommunityLabel(item)]
+  }))
+  const provisionalCounts = new Map<string, number>()
+  for (const label of provisional.values()) {
+    provisionalCounts.set(label, (provisionalCounts.get(label) ?? 0) + 1)
   }
 
-  const collectionLabels = { entries: '校园知识', documents: '官网正文', web: '网页资料' }
   return new Map(items.map((item) => {
-    const key = `${item.collection}:${item.communityLabel}`
-    return [key, preferred.has(key) ? item.communityLabel : `${collectionLabels[item.collection]}·其他`]
+    const key = `${item.collection}:${item.id}`
+    const label = provisional.get(key) ?? fallbackCommunityLabel(item)
+    return [key, (provisionalCounts.get(label) ?? 0) >= MIN_COMMUNITY_SIZE ? label : '其他资料']
   }))
 }
 
 function buildLandscapeNodes(items: GraphItemRow[]): LandscapeNode[] {
   const labels = communityLabels(items)
   return items.slice(0, GRAPH_NODE_LIMIT).map((item) => {
-    const sourceKey = `${item.collection}:${item.communityLabel}`
+    const sourceKey = `${item.collection}:${item.id}`
     const category = labels.get(sourceKey) ?? item.communityLabel
     const confidence = graphConfidence(item)
     const sourcePath = `library://${item.collection}/${item.id}`
@@ -269,7 +300,7 @@ function buildLandscapeNodes(items: GraphItemRow[]): LandscapeNode[] {
       id: `knowledge:${item.collection}:${item.id}`,
       label: item.label.trim() || '未命名资料',
       type: graphNodeType(item),
-      community: `community:${item.collection}:${stableGraphId(category)}`,
+      community: `community:${stableGraphId(category)}`,
       content: item.content ?? '',
       summary: item.summary ?? '',
       source_path: sourcePath,

@@ -106,7 +106,8 @@ test('digital landscape graph is derived from current knowledge collections', ()
     assert.ok(graph.nodes.every(node => (
       ['EXTRACTED', 'INFERRED', 'AMBIGUOUS', 'UNVERIFIED'] as string[]
     ).includes(node.confidence)))
-    assert.equal(graph.learning.communities.length, 3)
+    assert.equal(graph.learning.communities.length, 1)
+    assert.ok(graph.learning.communities.every(community => community.node_count >= 3))
     assert.equal(graph.learning.views.global.node_ids.length, 3)
     assert.equal(graph.visibleItems, 3)
     assert.equal(graph.truncatedItems, 0)
