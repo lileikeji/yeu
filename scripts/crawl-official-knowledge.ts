@@ -453,8 +453,11 @@ async function fetchLegacyOfficeBytes(
       const bytes = new Uint8Array(await response.arrayBuffer())
       if (bytes.length > MAX_OFFICE_BYTES) throw new Error('Office attachment is larger than the 30 MB indexing limit')
       const oleSignature = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
-      if (bytes.length < oleSignature.length || !oleSignature.every((byte, index) => bytes[index] === byte)) {
-        throw new Error('official attachment did not return an OLE Office file')
+      const isOle = bytes.length >= oleSignature.length
+        && oleSignature.every((byte, index) => bytes[index] === byte)
+      const isOpenXml = bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b
+      if (!isOle && !isOpenXml) {
+        throw new Error('official attachment did not return a supported Office file')
       }
       return bytes
     } catch (error) {
@@ -563,13 +566,13 @@ export function parseOfficialOpenXml(
   let text: string
   let kind: ParsedOfficialDocument['kind']
   let mimeType: string
-  if (path.endsWith('.docx')) {
+  if (path.endsWith('.docx') || Boolean(files['word/document.xml'])) {
     const documentXml = files['word/document.xml']
     if (!documentXml) throw new Error('DOCX did not contain word/document.xml')
     text = textFromOpenXmlFragment(new TextDecoder().decode(documentXml))
     kind = 'document'
     mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  } else if (path.endsWith('.xlsx')) {
+  } else if (path.endsWith('.xlsx') || Boolean(files['xl/workbook.xml'])) {
     text = parseOpenXmlSpreadsheet(files)
     kind = 'spreadsheet'
     mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -647,6 +650,9 @@ export async function parseOfficialLegacyOffice(
   requestedUrl: string,
   label = ''
 ): Promise<ParsedOfficialDocument> {
+  if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b) {
+    return parseOfficialOpenXml(bytes, requestedUrl, label)
+  }
   const path = new URL(requestedUrl).pathname.toLocaleLowerCase('en-US')
   let text: string
   let kind: ParsedOfficialDocument['kind']

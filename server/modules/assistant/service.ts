@@ -195,7 +195,7 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v10-official-attachment-routing'
+const ASSISTANT_CACHE_VERSION = 'rag-v11-campus-procedure-synthesis'
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 1200
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
@@ -205,6 +205,13 @@ const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资
 const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 const CAMPUS_HARDSHIP_RE = /(?:没钱|经济困难|生活困难|手头困难).{0,10}(?:吃饭|生活|上学|怎么办)|吃不起饭/i
+const CAMPUS_PROCEDURE_INTENT_RE = /怎么办|怎么弄|如何|办理|申请|补办|材料|流程|时间|地点|要带|准备|需要|条件|要求|丢了|遗失/u
+const CAMPUS_PROCEDURE_SUBJECTS = [
+  '学籍异动', '休学', '复学', '退学', '转专业', '毕业证', '学位证', '证明书',
+  '成绩单', '在读证明', '学生证', '补考', '缓考', '重修', '选课', '奖学金',
+  '助学金', '校园卡', '校园网', '宿舍报修', '报修', '档案', '报到', '注册',
+  '缴费', '学费', '请假'
+] as const
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
   { id: 'quanzhou-east', terms: ['泉州东站', '东站'] },
@@ -480,6 +487,7 @@ function directQueryKind(value: string): DirectQueryKind | null {
   if (KNOWLEDGE_GREETING_SET.has(normalized)) return 'greeting'
   if (KNOWLEDGE_META_QUESTION_RE.test(query)) return 'meta'
   if (CAMPUS_HARDSHIP_RE.test(query)) return null
+  if (isCampusProcedureQuery(query)) return null
   if (GENERAL_REASONING_RE.test(query)) return 'general'
   if (assistantIdentitySubject(query)) return null
   return CAMPUS_QUERY_RE.test(query) ? null : 'general'
@@ -487,6 +495,24 @@ function directQueryKind(value: string): DirectQueryKind | null {
 
 export function shouldUseCampusKnowledgeBase(value: string): boolean {
   return directQueryKind(value) === null
+}
+
+function campusProcedureSubjects(value: string): string[] {
+  const normalized = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
+  const subjects: string[] = CAMPUS_PROCEDURE_SUBJECTS.filter(subject => normalized.includes(subject))
+  if (/毕业证|毕业证明/u.test(normalized)) subjects.push('毕业证明书')
+  if (/学位证|学位证明/u.test(normalized)) subjects.push('学士学位证明书')
+  return [...new Set(subjects)]
+}
+
+function isCampusProcedureQuery(value: string): boolean {
+  return CAMPUS_PROCEDURE_INTENT_RE.test(value) && campusProcedureSubjects(value).length > 0
+}
+
+function campusProcedureRetrievalQuery(value: string): string | null {
+  const subjects = campusProcedureSubjects(value)
+  if (subjects.length === 0 || !CAMPUS_PROCEDURE_INTENT_RE.test(value)) return null
+  return `${subjects.join(' ')} 办理流程 申请材料 时间 地点`
 }
 
 const ASSISTANT_FOLLOW_UP_RE = /^(?:(?:那|这个|具体|所以|请问)\s*)?(?:是\s*)?(?:哪栋楼|哪一栋|叫什么|在哪里|在哪|多久|多少钱|怎么弄|怎么申请|什么时候|有吗|可以吗|能吗)[?？。！!]?$/u
@@ -615,6 +641,18 @@ function evidenceCoreCoverage(query: string, item: AssistantEvidence): number {
 
 export function localEvidenceIsSufficient(query: string, evidence: AssistantEvidence[]): boolean {
   if (evidence.length === 0) return false
+  const procedureSubjects = campusProcedureSubjects(query)
+  if (procedureSubjects.length > 0 && CAMPUS_PROCEDURE_INTENT_RE.test(query) && evidence.some((item) => {
+    const rawScore = item.rawScore ?? item.score
+    const title = item.title.toLocaleLowerCase('zh-CN')
+    const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+    const matchedSubjects = procedureSubjects.filter(subject => text.includes(subject))
+    const titleMatchesSubject = procedureSubjects.some(subject => title.includes(subject))
+    const coversProcedure = /办理|流程|申请|材料|身份证|提交|证明|时间|地点|注册|审批/u.test(text)
+    return rawScore >= 6
+      && coversProcedure
+      && (titleMatchesSubject || matchedSubjects.length >= Math.min(2, procedureSubjects.length))
+  })) return true
   const requiredSubjects = requiredEvidenceSubjects(query)
   if (isOfficialPolicySynthesisQuery(query) && evidence.some((item) => {
     const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
@@ -888,6 +926,8 @@ function admissionPlanCountGapResponse(
 
 export function assistantRetrievalQuery(value: string): string {
   const query = normalizeAssistantQuery(value)
+  const procedureQuery = campusProcedureRetrievalQuery(query)
+  if (procedureQuery) return procedureQuery
   if (isDormBedDimensionQuery(query)) {
     return '宿舍床和床垫尺寸 长度 宽度 男生女生床位规格'
   }
@@ -2985,7 +3025,7 @@ export async function answerCampusQuestion(
               ?? deterministicRuleAnswer)
         if (deterministicResponse) return deterministicResponse
 
-        if (isOfficialPolicySynthesisQuery(query) && localEvidence[0]) {
+        if ((isOfficialPolicySynthesisQuery(query) || isCampusProcedureQuery(query)) && localEvidence[0]) {
           const evidence = localEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
           try {
             const model = await askGateway(query, evidence, config)

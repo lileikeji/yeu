@@ -88,6 +88,97 @@ test('school rules always use campus retrieval instead of generic model knowledg
   }]), true)
 })
 
+test('campus procedures normalize conversational questions and trust matching official evidence', () => {
+  assert.equal(shouldUseCampusKnowledgeBase('毕业证丢了怎么补办，需要带什么材料？'), true)
+  assert.equal(shouldUseCampusKnowledgeBase('休学或者复学要准备什么材料？'), true)
+  assert.equal(
+    assistantRetrievalQuery('毕业证丢了怎么补办，需要带什么材料？'),
+    '毕业证 毕业证明书 办理流程 申请材料 时间 地点'
+  )
+  assert.equal(localEvidenceIsSufficient('休学或者复学要准备什么材料？', [{
+    title: '学籍异动（休学、退学、复学）办理流程图',
+    url: 'https://jwb.yeu.edu.cn/files/student-status.doc',
+    snippet: '学生本人提交申请书、家长意见和身份证件；因病复学需康复证明。',
+    source: 'site',
+    text: '学院审核后填写学籍异动申请表，按流程提交教务部审批。',
+    score: 24
+  }]), true)
+})
+
+test('official procedure attachments answer locally without MCP web search', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-campus-procedure-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  const requestedUrls: string[] = []
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    const sourceUrl = 'https://jwb.yeu.edu.cn/files/graduation-certificate.doc'
+    client.sqlite.prepare(`
+      INSERT INTO sources (
+        id, title, url, platform, publisher_name, source_level, is_official,
+        accessed_at, status, created_at, updated_at
+      ) VALUES (
+        'source-graduation-certificate', '毕业证明补办流程', ?, 'official-website',
+        '仰恩大学教务部', 'A', 1, ?, 'active', ?, ?
+      )
+    `).run(sourceUrl, now, now, now)
+    client.sqlite.prepare(`
+      INSERT INTO knowledge_documents (
+        id, source_id, kind, title, original_url, mime_type, content_hash,
+        extracted_text, metadata_json, status, captured_at, processed_at,
+        created_at, updated_at
+      ) VALUES (
+        'document-graduation-certificate', 'source-graduation-certificate', 'document',
+        '毕业生补办毕业证明书、学士学位证明书', ?,
+        'application/msword', 'graduation-certificate-hash',
+        '办理时间为每周五上班时间。本人办理时携带身份证原件、身份证复印件、1寸证件照电子版及纸质版到教务部办理；学位证书补办证明不需要照片。委托办理还需委托书原件、被委托人身份证原件及复印件。',
+        '{"crawler":"official-knowledge","crawlerVersion":6,"extractionMethod":"office-binary"}',
+        'ready', ?, ?, ?, ?
+      )
+    `).run(sourceUrl, now, now, now, now)
+
+    globalThis.fetch = async (input, init) => {
+      const url = String(input)
+      requestedUrls.push(url)
+      assert.match(url, /gateway\.example\.com/)
+      const payload = JSON.parse(String(init?.body)) as {
+        messages: Array<{ role: string, content: string }>
+      }
+      const userMessage = payload.messages.find(item => item.role === 'user')?.content ?? ''
+      assert.match(userMessage, /身份证原件/)
+      assert.match(userMessage, /毕业生补办毕业证明书/)
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          answer: '毕业证遗失后可在每周五上班时间到教务部申请补办毕业证明书。本人办理需带身份证原件及复印件、1寸证件照电子版和纸质版；补办学位证明不需要照片。',
+          citation_indexes: [0],
+          confidence: 0.96
+        }) } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+
+    const response = await answerCampusQuestion(client, '毕业证丢了怎么补办，需要带什么材料？', {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model',
+      mcpSearchUrl: 'https://mcp.firecrawl.dev/search',
+      mcpAllowedHosts: 'mcp.firecrawl.dev'
+    })
+
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.equal(response.usedWebSearch, false)
+    assert.equal(response.citations[0]?.url, sourceUrl)
+    assert.match(response.answer, /身份证原件/)
+    assert.equal(requestedUrls.length, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('an exact scholarship question does not expand every unrelated scholarship', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-exact-scholarship-'))
   const databasePath = join(directory, 'test.sqlite')

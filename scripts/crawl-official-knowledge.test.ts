@@ -205,6 +205,27 @@ test('legacy XLS calendars are parsed locally with bounded worksheet text', asyn
   assert.match(document.text, /新生报到\s+9月5日至6日/)
 })
 
+test('Open XML Word files published with a legacy .doc suffix are detected by content', async () => {
+  const bytes = zipSync({
+    'docProps/core.xml': strToU8('<cp:coreProperties><dc:title>仰恩大学学生办事指南</dc:title></cp:coreProperties>'),
+    'word/document.xml': strToU8(`
+      <w:document><w:body>
+        <w:p><w:r><w:t>仰恩大学学生办事指南</w:t></w:r></w:p>
+        <w:p><w:r><w:t>申请人应携带身份证原件和申请表到教务部办理。</w:t></w:r></w:p>
+      </w:body></w:document>
+    `)
+  })
+  const document = await parseOfficialLegacyOffice(
+    bytes,
+    'https://www.yeu.edu.cn/_upload/article/files/student-service.doc',
+    '学生办事指南.doc'
+  )
+  assert.equal(document.kind, 'document')
+  assert.equal(document.extractionMethod, 'office-xml')
+  assert.equal(document.mimeType, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+  assert.match(document.text, /身份证原件和申请表/)
+})
+
 test('legacy Word flowchart textboxes are merged into searchable text', () => {
   const text = mergeLegacyWordText({
     getBody: () => '办理事项\n毕业生补办毕业证明书、学士学位证明',
