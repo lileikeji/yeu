@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import * as XLSX from '@e965/xlsx'
 import { strToU8, zipSync } from 'fflate'
 import {
   crawlPriority,
@@ -8,6 +9,7 @@ import {
   normalizeOfficialUrl,
   parseOfficialCrawlCli,
   parseOfficialHtml,
+  parseOfficialLegacyOffice,
   parseOfficialOpenXml,
   parseReaderDocument
 } from './crawl-official-knowledge'
@@ -170,6 +172,33 @@ test('XLSX attachments are parsed locally with sheet names and shared strings', 
     '2026校历.xlsx'
   )
   assert.equal(document.kind, 'spreadsheet')
+  assert.equal(document.title, '2026-2027学年第一学期校历')
+  assert.match(document.text, /工作表：秋季校历/)
+  assert.match(document.text, /新生报到\s+9月5日至6日/)
+})
+
+test('legacy XLS calendars are parsed locally with bounded worksheet text', async () => {
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      ['事项', '日期'],
+      ['新生报到', '9月5日至6日'],
+      ['正式上课', '9月14日']
+    ]),
+    '秋季校历'
+  )
+  const bytes = new Uint8Array(XLSX.write(workbook, {
+    type: 'array',
+    bookType: 'xls'
+  }))
+  const document = await parseOfficialLegacyOffice(
+    bytes,
+    'https://bgs.yeu.edu.cn/_upload/article/files/2026-calendar.xls',
+    '2026-2027学年第一学期校历.xls'
+  )
+  assert.equal(document.kind, 'spreadsheet')
+  assert.equal(document.extractionMethod, 'office-binary')
   assert.equal(document.title, '2026-2027学年第一学期校历')
   assert.match(document.text, /工作表：秋季校历/)
   assert.match(document.text, /新生报到\s+9月5日至6日/)

@@ -69,6 +69,7 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@e965/xlsx": "0.20.3",
     "@iconify-json/lucide": "^1.2.114",
     "@iconify-json/simple-icons": "^1.2.87",
     "@nuxt/ui": "^4.9.0",
@@ -86,6 +87,7 @@
     "pinyin-pro": "^3.28.2",
     "tailwindcss": "^4.3.1",
     "three": "0.185.1",
+    "word-extractor": "1.0.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {

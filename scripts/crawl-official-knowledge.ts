@@ -2,14 +2,16 @@ import './load-env'
 import { createHash, randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
+import * as XLSX from '@e965/xlsx'
 import { load } from 'cheerio'
 import { unzipSync } from 'fflate'
+import WordExtractor from 'word-extractor'
 import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 
 const USER_AGENT = 'YEU-Freshman-Guide-knowledge-crawler/1.0 (public official-source indexing)'
 const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
-const CRAWLER_VERSION = 4
+const CRAWLER_VERSION = 5
 const MAX_EXTRACTED_LENGTH = 600_000
 const READER_TIMEOUT_MS = 65_000
 const MAX_PDF_BYTES = 50 * 1024 * 1024
@@ -92,7 +94,7 @@ export interface ParsedOfficialDocument {
   links: Array<{ url: string, label: string }>
   kind: 'webpage' | 'pdf' | 'document' | 'spreadsheet'
   mimeType: string
-  extractionMethod: 'jina' | 'pdfjs' | 'direct-html' | 'office-xml'
+  extractionMethod: 'jina' | 'pdfjs' | 'direct-html' | 'office-xml' | 'office-binary'
   pageCount?: number
   attachmentLandingPage?: boolean
 }
@@ -424,6 +426,42 @@ async function fetchOfficeBytes(value: string, fresh: boolean, discoveredFrom: s
   throw new Error(lastError instanceof Error ? lastError.message : 'official Office attachment request failed')
 }
 
+async function fetchLegacyOfficeBytes(
+  value: string,
+  fresh: boolean,
+  discoveredFrom: string | null
+): Promise<Uint8Array> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(value, {
+        headers: {
+          'accept': 'application/msword,application/vnd.ms-excel,application/octet-stream;q=0.8,*/*;q=0.1',
+          'user-agent': BROWSER_USER_AGENT,
+          ...(discoveredFrom ? { referer: discoveredFrom } : {}),
+          ...(fresh ? { 'cache-control': 'no-cache' } : {})
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(READER_TIMEOUT_MS)
+      })
+      if (!response.ok) throw new Error(`official legacy Office attachment returned HTTP ${response.status}`)
+      const declaredLength = Number(response.headers.get('content-length') ?? 0)
+      if (declaredLength > MAX_OFFICE_BYTES) throw new Error('Office attachment is larger than the 30 MB indexing limit')
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      if (bytes.length > MAX_OFFICE_BYTES) throw new Error('Office attachment is larger than the 30 MB indexing limit')
+      const oleSignature = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
+      if (bytes.length < oleSignature.length || !oleSignature.every((byte, index) => bytes[index] === byte)) {
+        throw new Error('official attachment did not return an OLE Office file')
+      }
+      return bytes
+    } catch (error) {
+      lastError = error
+      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+    }
+  }
+  throw new Error(lastError instanceof Error ? lastError.message : 'official legacy Office attachment request failed')
+}
+
 function decodeXmlText(value: string): string {
   return value
     .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
@@ -545,6 +583,88 @@ export function parseOfficialOpenXml(
     kind,
     mimeType,
     extractionMethod: 'office-xml'
+  }
+}
+
+function legacyAttachmentTitle(requestedUrl: string, label: string, text: string): string {
+  const normalizedLabel = label.replace(/\s+/g, ' ').trim()
+  const fallback = normalizedLabel.length >= 3
+    && !/^(?:官方入口|附件|下载|点击下载|查看|详情|word|excel)$/i.test(normalizedLabel)
+    ? normalizedLabel
+    : attachmentFileTitle(requestedUrl)
+  return meaningfulAttachmentTitle(fallback, text, requestedUrl)
+}
+
+function parseLegacySpreadsheet(bytes: Uint8Array): string {
+  const workbook = XLSX.read(bytes, {
+    type: 'array',
+    cellFormula: false,
+    cellHTML: false,
+    cellStyles: false,
+    cellText: true,
+    sheetRows: 10_000
+  })
+  const output: string[] = []
+  let totalLength = 0
+  for (const sheetName of workbook.SheetNames.slice(0, 80)) {
+    const worksheet = workbook.Sheets[sheetName]
+    if (!worksheet) continue
+    const heading = `工作表：${sheetName}`
+    const text = XLSX.utils.sheet_to_csv(worksheet, {
+      FS: '\t',
+      RS: '\n',
+      blankrows: false,
+      strip: true
+    })
+      .replace(/\t+$/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    if (!text) continue
+    const section = `${heading}\n${text}`
+    const remaining = MAX_EXTRACTED_LENGTH - totalLength
+    if (remaining <= 0) break
+    output.push(section.slice(0, remaining))
+    totalLength += section.length
+  }
+  return cleanDirectText(output.join('\n\n'))
+}
+
+export async function parseOfficialLegacyOffice(
+  bytes: Uint8Array,
+  requestedUrl: string,
+  label = ''
+): Promise<ParsedOfficialDocument> {
+  const path = new URL(requestedUrl).pathname.toLocaleLowerCase('en-US')
+  let text: string
+  let kind: ParsedOfficialDocument['kind']
+  let mimeType: string
+  if (path.endsWith('.doc')) {
+    const document = await new WordExtractor().extract(Buffer.from(bytes))
+    text = cleanDirectText([
+      document.getBody(),
+      document.getFootnotes(),
+      document.getEndnotes(),
+      document.getAnnotations()
+    ].filter(Boolean).join('\n\n')).slice(0, MAX_EXTRACTED_LENGTH)
+    kind = 'document'
+    mimeType = 'application/msword'
+  } else if (path.endsWith('.xls')) {
+    text = parseLegacySpreadsheet(bytes)
+    kind = 'spreadsheet'
+    mimeType = 'application/vnd.ms-excel'
+  } else {
+    throw new Error('unsupported legacy Office attachment type')
+  }
+  if (text.length < 20) throw new Error('legacy Office attachment did not contain enough readable text')
+  return {
+    url: requestedUrl,
+    title: legacyAttachmentTitle(requestedUrl, label, text),
+    text,
+    publishedAt: null,
+    links: [],
+    kind,
+    mimeType,
+    extractionMethod: 'office-binary'
   }
 }
 
@@ -1042,6 +1162,18 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
           try {
             const bytes = await fetchOfficeBytes(item.url, options.fresh, item.discoveredFrom)
             document = parseOfficialOpenXml(bytes, item.url, item.label)
+          } catch (directOfficeError) {
+            try {
+              const raw = await fetchReader(item.url, options.fresh)
+              document = parseReaderDocument(raw, item.url)
+            } catch {
+              throw directOfficeError
+            }
+          }
+        } else if (/\.(?:doc|xls)$/i.test(new URL(item.url).pathname)) {
+          try {
+            const bytes = await fetchLegacyOfficeBytes(item.url, options.fresh, item.discoveredFrom)
+            document = await parseOfficialLegacyOffice(bytes, item.url, item.label)
           } catch (directOfficeError) {
             try {
               const raw = await fetchReader(item.url, options.fresh)
