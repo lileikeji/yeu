@@ -55,6 +55,7 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(isQuestionLike('宿舍条件怎么样'), true)
   assert.equal(isQuestionLike('女生普通型宿舍是几人间'), true)
   assert.equal(isQuestionLike('艺术教育电脑急不急用'), true)
+  assert.equal(isQuestionLike('上课可以玩手机么'), true)
   assert.equal(isQuestionLike('舒适型女生宿舍是哪栋楼'), true)
   assert.equal(isQuestionLike('舒适型女生宿舍叫什么'), true)
   assert.equal(isQuestionLike('哪栋楼'), true)

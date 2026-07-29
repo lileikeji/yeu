@@ -10,7 +10,7 @@ const QUESTION_MARKERS = [
   '哪栋楼', '哪一栋', '叫什么'
 ] as const
 
-const QUESTION_ENDING_PATTERN = /[?？吗嘛呢]$/u
+const QUESTION_ENDING_PATTERN = /[?？吗嘛呢么]$/u
 
 const PROMPT_INJECTION_MARKERS = [
   '忽略之前的指令', '忽略此前指令', '忽略系统指令', '系统提示词', '开发者指令',
