@@ -195,7 +195,7 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v11-campus-procedure-synthesis'
+const ASSISTANT_CACHE_VERSION = 'rag-v12-official-fact-routing'
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 1200
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
@@ -205,12 +205,12 @@ const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资
 const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 const CAMPUS_HARDSHIP_RE = /(?:没钱|经济困难|生活困难|手头困难).{0,10}(?:吃饭|生活|上学|怎么办)|吃不起饭/i
-const CAMPUS_PROCEDURE_INTENT_RE = /怎么办|怎么弄|如何|办理|申请|补办|材料|流程|时间|地点|要带|准备|需要|条件|要求|丢了|遗失/u
+const CAMPUS_PROCEDURE_INTENT_RE = /怎么办|怎么弄|怎么|如何|办理|申请|补办|材料|流程|时间|地点|要带|准备|需要|条件|要求|认定|丢了|遗失/u
 const CAMPUS_PROCEDURE_SUBJECTS = [
   '学籍异动', '休学', '复学', '退学', '转专业', '毕业证', '学位证', '证明书',
   '成绩单', '在读证明', '学生证', '补考', '缓考', '重修', '选课', '奖学金',
   '助学金', '校园卡', '校园网', '宿舍报修', '报修', '档案', '报到', '注册',
-  '缴费', '学费', '请假'
+  '缴费', '学费', '请假', '家庭经济困难', '困难学生认定'
 ] as const
 
 const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'>, terms: string[] }> = [
@@ -641,6 +641,21 @@ function evidenceCoreCoverage(query: string, item: AssistantEvidence): number {
 
 export function localEvidenceIsSufficient(query: string, evidence: AssistantEvidence[]): boolean {
   if (evidence.length === 0) return false
+  if (isClassScheduleQuery(query) && evidence.some((item) => {
+    const text = `${item.title} ${item.snippet} ${item.text}`
+    const requestedLessons = query.match(/第[一二三四五六七八九十\d]+节/g) ?? []
+    const requestedSeason = query.includes('冬') ? '冬季' : query.includes('夏') ? '夏季' : null
+    return /作息时间表/.test(item.title)
+      && (!requestedSeason || text.includes(requestedSeason))
+      && requestedLessons.every(lesson => text.includes(lesson))
+  })) return true
+  const curriculumMajor = majorCurriculumNameForQuery(query)
+  if (curriculumMajor && evidence.some((item) => {
+    const text = `${item.title} ${item.snippet} ${item.text}`
+    return item.title.includes(curriculumMajor)
+      && /人才培养方案|培养方案/.test(item.title)
+      && /培养目标|毕业要求|课程/.test(text)
+  })) return true
   const procedureSubjects = campusProcedureSubjects(query)
   if (procedureSubjects.length > 0 && CAMPUS_PROCEDURE_INTENT_RE.test(query) && evidence.some((item) => {
     const rawScore = item.rawScore ?? item.score
@@ -648,7 +663,7 @@ export function localEvidenceIsSufficient(query: string, evidence: AssistantEvid
     const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
     const matchedSubjects = procedureSubjects.filter(subject => text.includes(subject))
     const titleMatchesSubject = procedureSubjects.some(subject => title.includes(subject))
-    const coversProcedure = /办理|流程|申请|材料|身份证|提交|证明|时间|地点|注册|审批/u.test(text)
+    const coversProcedure = /办理|流程|申请|材料|身份证|提交|证明|时间|地点|注册|审批|认定|公示|建档/u.test(text)
     return rawScore >= 6
       && coversProcedure
       && (titleMatchesSubject || matchedSubjects.length >= Math.min(2, procedureSubjects.length))
@@ -788,6 +803,7 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
 
 function requiredEvidenceSubjects(query: string): string[] {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (/家庭经济困难|困难学生认定/.test(normalized)) return ['家庭经济困难', '困难学生认定']
   if (/学籍/.test(normalized)) return ['学籍']
   if (/违纪|处分/.test(normalized)) return ['违纪', '处分']
   if (/转专业|换专业/.test(normalized)) return ['转专业']
@@ -804,6 +820,9 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
   const asksTransferPlan = /专升本/.test(query)
   const asksRegularUndergraduatePlan = !asksTransferPlan && /普通本科|普通高考|高考招生/.test(query)
   const requestedPlanYear = /(?:^|\D)(20\d{2})(?:\D|$)/.exec(query)?.[1]
+  const classScheduleQuery = isClassScheduleQuery(query)
+  const curriculumMajor = majorCurriculumNameForQuery(query)
+  const hardshipRecognitionQuery = isHardshipRecognitionQuery(query)
   const ranked = evidence.filter((item) => {
     const title = item.title.toLocaleLowerCase('zh-CN')
     const searchable = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
@@ -832,6 +851,9 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
     }
     if (profile.intent === 'scholarship' && /奖学金|助学金/.test(title)) score += 8
     if (profile.intent === 'gpa' && /绩点|gpa/.test(title)) score += 8
+    if (classScheduleQuery && /作息时间表/.test(title)) score += 64
+    if (curriculumMajor && title.includes(curriculumMajor.toLocaleLowerCase('zh-CN')) && /人才培养方案|培养方案/.test(title)) score += 64
+    if (hardshipRecognitionQuery && /家庭经济困难学生认定办法/.test(title)) score += 64
     if (openingDateQuery) {
       if (item.title === '2026级新生报到') score += 100
       else if (/20(?:2[0-5])级|往年|学生经验/.test(`${item.title} ${item.snippet}`)) score -= 24
@@ -857,8 +879,15 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
 
 function isOfficialPolicySynthesisQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
-  return /学籍|违纪|处分|校纪|校规|规章制度|学生管理/.test(normalized)
-    && /规定|办法|哪些|什么|怎么|如何|要求|内容|行为|情形|情况/.test(normalized)
+  return /学籍|违纪|处分|校纪|校规|规章制度|学生管理|家庭经济困难|困难学生认定/.test(normalized)
+    && /规定|办法|哪些|什么|怎么|如何|要求|内容|行为|情形|情况|认定|申请|流程/.test(normalized)
+}
+
+function shouldSynthesizeOfficialEvidence(query: string): boolean {
+  return isOfficialPolicySynthesisQuery(query)
+    || isCampusProcedureQuery(query)
+    || isClassScheduleQuery(query)
+    || Boolean(majorCurriculumNameForQuery(query))
 }
 
 function filterEvidenceForIntent(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
@@ -876,6 +905,30 @@ function isDormBedDimensionQuery(query: string): boolean {
 function isOpeningDateQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   return /(?:什么时候|何时|几号|哪天|日期|时间).{0,6}(?:开学|报到|上课)|(?:开学|报到|上课).{0,6}(?:什么时候|何时|几号|哪天|日期|时间)/.test(normalized)
+}
+
+function isClassScheduleQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (/作息时间表/.test(normalized)) return true
+  const mentionsLesson = /第[一二三四五六七八九十\d]+节/.test(normalized)
+  const mentionsSeasonalClasses = /夏季|冬季/.test(normalized) && /上课|课程/.test(normalized)
+  const asksTime = /几点|时间|什么时候|从几点|到几点|作息/.test(normalized)
+  return (mentionsLesson || mentionsSeasonalClasses) && asksTime
+}
+
+function majorCurriculumNameForQuery(query: string): string | null {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const asksCurriculum = /主要学|学什么|学哪些|课程|培养目标|培养方案|毕业要求|就业方向/.test(normalized)
+  if (!asksCurriculum) return null
+  return [...majorProfiles]
+    .sort((left, right) => right.name.length - left.name.length)
+    .find(profile => normalized.includes(profile.name.toLocaleLowerCase('zh-CN')))?.name ?? null
+}
+
+function isHardshipRecognitionQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  return /家庭经济困难|困难学生认定/.test(normalized)
+    && /认定|申请|类型|等级|流程|材料|怎么|如何|条件/.test(normalized)
 }
 
 function isAdmissionPlanCountQuery(query: string): boolean {
@@ -926,6 +979,18 @@ function admissionPlanCountGapResponse(
 
 export function assistantRetrievalQuery(value: string): string {
   const query = normalizeAssistantQuery(value)
+  if (isClassScheduleQuery(query)) {
+    const season = query.includes('冬') ? '冬季' : query.includes('夏') ? '夏季' : ''
+    const lessons = [...new Set(query.match(/第[一二三四五六七八九十\d]+节/g) ?? [])]
+    return ['仰恩大学作息时间表', season, '学生上课时间', ...lessons].filter(Boolean).join(' ')
+  }
+  const curriculumMajor = majorCurriculumNameForQuery(query)
+  if (curriculumMajor) {
+    return `${curriculumMajor}专业 人才培养方案 培养目标 主要课程 毕业要求`
+  }
+  if (isHardshipRecognitionQuery(query)) {
+    return '家庭经济困难学生认定办法 认定类型 认定等级 个人申请 学校认定 结果公示 建档备案'
+  }
   const procedureQuery = campusProcedureRetrievalQuery(query)
   if (procedureQuery) return procedureQuery
   if (isDormBedDimensionQuery(query)) {
@@ -939,6 +1004,9 @@ export function assistantRetrievalQuery(value: string): string {
 
 function assistantIntentDetail(query: string, retrievalQuery: string): string {
   if (isDormBedDimensionQuery(query)) return '识别为：宿舍床与床垫尺寸'
+  if (isClassScheduleQuery(query)) return '识别为：学校作息与具体节次'
+  if (majorCurriculumNameForQuery(query)) return '识别为：专业培养方案与课程'
+  if (isHardshipRecognitionQuery(query)) return '识别为：家庭经济困难学生认定'
   if (isFeatureSeekingQuery(query)) return '识别为：查找站内功能入口'
   return `检索问题：${safeText(retrievalQuery, 80)}`
 }
@@ -3016,16 +3084,7 @@ export async function answerCampusQuestion(
         if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, localEvidence)) {
           return admissionPlanCountGapResponse(query, localEvidence)
         }
-        const deterministicResponse = historicalTransferAnswer
-          ?? (analysis.requiresSpecificWebEvidence
-            ? dormBedEvidenceGapResponse(query, localEvidence)
-            : deterministicCollegeAnswer
-              ?? deterministicCampusAnswer
-              ?? deterministicKnowledgeAnswer
-              ?? deterministicRuleAnswer)
-        if (deterministicResponse) return deterministicResponse
-
-        if ((isOfficialPolicySynthesisQuery(query) || isCampusProcedureQuery(query)) && localEvidence[0]) {
+        if (!historicalTransferAnswer && shouldSynthesizeOfficialEvidence(query) && localEvidence[0]) {
           const evidence = localEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
           try {
             const model = await askGateway(query, evidence, config)
@@ -3044,6 +3103,15 @@ export async function answerCampusQuestion(
             }
           }
         }
+
+        const deterministicResponse = historicalTransferAnswer
+          ?? (analysis.requiresSpecificWebEvidence
+            ? dormBedEvidenceGapResponse(query, localEvidence)
+            : deterministicCollegeAnswer
+              ?? deterministicCampusAnswer
+              ?? deterministicKnowledgeAnswer
+              ?? deterministicRuleAnswer)
+        if (deterministicResponse) return deterministicResponse
 
         if ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false) {
           return localEvidenceGapResponse(query)

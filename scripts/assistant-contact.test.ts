@@ -105,6 +105,46 @@ test('campus procedures normalize conversational questions and trust matching of
   }]), true)
 })
 
+test('official schedules, curricula and hardship rules use focused local retrieval', () => {
+  assert.equal(
+    assistantRetrievalQuery('夏季下午第五节和第七节几点上课？'),
+    '仰恩大学作息时间表 夏季 学生上课时间 第五节 第七节'
+  )
+  assert.equal(
+    assistantRetrievalQuery('网络与新媒体专业主要学什么？'),
+    '网络与新媒体专业 人才培养方案 培养目标 主要课程 毕业要求'
+  )
+  assert.equal(
+    assistantRetrievalQuery('家庭经济困难学生怎么认定？'),
+    '家庭经济困难学生认定办法 认定类型 认定等级 个人申请 学校认定 结果公示 建档备案'
+  )
+
+  assert.equal(localEvidenceIsSufficient('夏季下午第五节和第七节几点上课？', [{
+    title: '仰恩大学作息时间表（夏季）',
+    url: 'https://www.yeu.edu.cn/files/summer-schedule.doc',
+    snippet: '第五节14:30~15:15，第七节16:25~17:10。',
+    source: 'site',
+    text: '学生上课时间表，夏季每年5月1日至9月30日执行。',
+    score: 20
+  }]), true)
+  assert.equal(localEvidenceIsSufficient('网络与新媒体专业主要学什么？', [{
+    title: '网络与新媒体专业2025版人才培养方案',
+    url: 'https://rwxy.yeu.edu.cn/files/new-media.docx',
+    snippet: '培养目标包括数字化内容生产、产品策划和互联网数据分析。',
+    source: 'site',
+    text: '毕业要求与主要课程按人才培养方案执行。',
+    score: 20
+  }]), true)
+  assert.equal(localEvidenceIsSufficient('家庭经济困难学生怎么认定？', [{
+    title: '仰恩大学家庭经济困难学生认定办法（修订）',
+    url: 'https://xsb.yeu.edu.cn/files/financial-hardship.pdf',
+    snippet: '认定等级分特别困难、困难和一般困难。',
+    source: 'site',
+    text: '认定程序包括个人申请、学校认定、结果公示和建档备案。',
+    score: 20
+  }]), true)
+})
+
 test('official procedure attachments answer locally without MCP web search', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-campus-procedure-'))
   const databasePath = join(directory, 'test.sqlite')
