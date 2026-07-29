@@ -372,11 +372,41 @@ async function fetchPdfBytes(value: string, fresh: boolean, discoveredFrom: stri
   throw new Error(lastError instanceof Error ? lastError.message : 'official PDF request failed')
 }
 
+function ensurePdfTextRuntime(): void {
+  if ('DOMMatrix' in globalThis && typeof globalThis.DOMMatrix === 'function') return
+  class TextOnlyDOMMatrix {
+    a = 1
+    b = 0
+    c = 0
+    d = 1
+    e = 0
+    f = 0
+
+    constructor(initial?: unknown) {
+      if (!Array.isArray(initial) && !ArrayBuffer.isView(initial)) return
+      const values = Array.from(initial as ArrayLike<number>)
+      if (values.length < 6) return
+      this.a = Number(values[0])
+      this.b = Number(values[1])
+      this.c = Number(values[2])
+      this.d = Number(values[3])
+      this.e = Number(values[4])
+      this.f = Number(values[5])
+    }
+  }
+  Object.defineProperty(globalThis, 'DOMMatrix', {
+    configurable: true,
+    writable: true,
+    value: TextOnlyDOMMatrix
+  })
+}
+
 export async function parseOfficialPdf(
   bytes: Uint8Array,
   requestedUrl: string,
   label = ''
 ): Promise<ParsedOfficialDocument> {
+  ensurePdfTextRuntime()
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
   const loadingTask = getDocument({
     data: bytes,
