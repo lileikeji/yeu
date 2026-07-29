@@ -742,15 +742,28 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
   return false
 }
 
+function requiredEvidenceSubjects(query: string): string[] {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (/学籍/.test(normalized)) return ['学籍']
+  if (/违纪|处分/.test(normalized)) return ['违纪', '处分']
+  if (/转专业|换专业/.test(normalized)) return ['转专业']
+  if (/综合测评|综测/.test(normalized)) return ['综合测评', '综测']
+  const scholarship = scholarships.find(item => normalized.includes(item.name.toLocaleLowerCase('zh-CN')))
+  return scholarship ? [scholarship.name.toLocaleLowerCase('zh-CN')] : []
+}
+
 function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
   const profile = assistantQueryProfile(query)
   const meaningful = profile.meaningfulQuery.replace(/\s+/g, '')
+  const requiredSubjects = requiredEvidenceSubjects(query)
   const openingDateQuery = isOpeningDateQuery(query)
   const asksTransferPlan = /专升本/.test(query)
   const asksRegularUndergraduatePlan = !asksTransferPlan && /普通本科|普通高考|高考招生/.test(query)
   const requestedPlanYear = /(?:^|\D)(20\d{2})(?:\D|$)/.exec(query)?.[1]
   const ranked = evidence.filter((item) => {
     const title = item.title.toLocaleLowerCase('zh-CN')
+    const searchable = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+    if (requiredSubjects.length > 0 && !requiredSubjects.some(subject => searchable.includes(subject))) return false
     if (asksTransferPlan && /普通本科/.test(title) && !/专升本/.test(title)) return false
     if (asksRegularUndergraduatePlan && /专升本/.test(title)) return false
     if ((asksTransferPlan || asksRegularUndergraduatePlan) && requestedPlanYear) {
@@ -796,6 +809,12 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
       .slice(0, limit)
   }
   return deduped.slice(0, limit)
+}
+
+function isOfficialPolicySynthesisQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  return /学籍|违纪|处分|校纪|校规|规章制度|学生管理/.test(normalized)
+    && /规定|办法|哪些|什么|怎么|如何|要求|内容|行为|情形|情况/.test(normalized)
 }
 
 function filterEvidenceForIntent(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
@@ -1790,11 +1809,20 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
 
   const scholarship = mentionedScholarships[0]
   if (scholarship) {
+    const citations = citationFor(`/student-rules#scholarship-${scholarship.slug}`)
+    if (citations.length === 0) {
+      citations.push({
+        title: scholarship.name,
+        url: `/student-rules#scholarship-${scholarship.slug}`,
+        snippet: `${scholarship.amount}；${scholarship.ranking}；${scholarship.reviewTime}`,
+        source: 'site'
+      })
+    }
     return {
       query,
       mode: 'local',
       answer: `${scholarship.name}：${scholarship.amount}。参评范围：${scholarship.scope}；排名要求：${scholarship.ranking}。申请条件：${scholarship.requirements.join('；')}。评审时间：${scholarship.reviewTime}。兼得规则：${scholarship.coexistence}依据为${scholarship.version}${scholarship.documentNumber ? `（${scholarship.documentNumber}）` : ''}。`,
-      citations: citationFor(`/student-rules#scholarship-${scholarship.slug}`),
+      citations,
       usedWebSearch: false,
       confidence: 0.97
     }
@@ -2935,20 +2963,46 @@ export async function answerCampusQuestion(
       tracker,
       'answer_generation',
       '整理答案',
-      () => isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, localEvidence)
-        ? admissionPlanCountGapResponse(query, localEvidence)
-        : historicalTransferAnswer
+      async () => {
+        if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, localEvidence)) {
+          return admissionPlanCountGapResponse(query, localEvidence)
+        }
+        const deterministicResponse = historicalTransferAnswer
           ?? (analysis.requiresSpecificWebEvidence
             ? dormBedEvidenceGapResponse(query, localEvidence)
             : deterministicCollegeAnswer
               ?? deterministicCampusAnswer
               ?? deterministicKnowledgeAnswer
-              ?? deterministicRuleAnswer
-              ?? ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false
-                ? localEvidenceGapResponse(query)
-                : localEvidence[0]
-                  ? buildLocalResponse(query, localEvidence)
-                  : localEvidenceGapResponse(query)))
+              ?? deterministicRuleAnswer)
+        if (deterministicResponse) return deterministicResponse
+
+        if (isOfficialPolicySynthesisQuery(query) && localEvidence[0]) {
+          const evidence = localEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
+          try {
+            const model = await askGateway(query, evidence, config)
+            const selectedCitations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
+            return {
+              query,
+              mode: 'ai' as const,
+              answer: model.answer,
+              citations: selectedCitations.length > 0 ? selectedCitations : evidence.slice(0, 1),
+              usedWebSearch: false,
+              confidence: model.confidence
+            }
+          } catch (error) {
+            if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') {
+              return blockedAssistantResponse(query)
+            }
+          }
+        }
+
+        if ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false) {
+          return localEvidenceGapResponse(query)
+        }
+        return localEvidence[0]
+          ? buildLocalResponse(query, localEvidence)
+          : localEvidenceGapResponse(query)
+      }
     )
     const result = withRunMetadata(
       response,

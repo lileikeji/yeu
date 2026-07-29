@@ -86,7 +86,53 @@ test('an exact scholarship question does not expand every unrelated scholarship'
     assert.doesNotMatch(response.answer, /吴庆星奖学金/)
     assert.doesNotMatch(response.answer, /农行泉州分行助学奖学金/)
     assert.equal(response.usedWebSearch, false)
+    assert.equal(response.citations[0]?.url, '/student-rules#scholarship-national')
   } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('broad school-policy questions synthesize local evidence without web search', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-policy-synthesis-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  let gatewayCalls = 0
+  try {
+    runMigrations(client)
+    globalThis.fetch = async (_input, init) => {
+      gatewayCalls += 1
+      const payload = JSON.parse(String(init?.body)) as {
+        messages: Array<{ role: string, content: string }>
+      }
+      const userMessage = payload.messages.find(item => item.role === 'user')?.content ?? ''
+      assert.match(userMessage, /学籍/)
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          answer: '学籍规定覆盖入学注册、课程考核、休复学、转专业、退学、毕业和学位等事项。',
+          citation_indexes: [0],
+          confidence: 0.91
+        }) } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+
+    const response = await answerCampusQuestion(client, '本科生学籍管理有什么规定？', {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model',
+      mcpSearchUrl: 'https://mcp.firecrawl.dev/search',
+      mcpAllowedHosts: 'mcp.firecrawl.dev'
+    })
+
+    assert.equal(gatewayCalls, 1)
+    assert.equal(response.mode, 'ai')
+    assert.equal(response.usedWebSearch, false)
+    assert.match(response.answer, /入学注册/)
+    assert.match(response.citations[0]?.title ?? '', /学籍/)
+  } finally {
+    globalThis.fetch = originalFetch
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
   }
