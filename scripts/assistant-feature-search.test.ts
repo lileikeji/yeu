@@ -324,6 +324,44 @@ test('cached web evidence selects only the web-cache route', async () => {
   }
 })
 
+test('ordinary undergraduate count never borrows the adjacent transfer-plan total', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-admission-plan-count-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  try {
+    runMigrations(client)
+    const query = '仰恩大学2026年普通本科招生计划有多少人'
+    storeWebEvidence(client, query, [{
+      title: '仰恩大学2026年普通本科招生计划',
+      url: 'https://zhaosheng.yeu.edu.cn/2026/0625/c184a57138/page.htm',
+      snippet: '仰恩大学2026年普通本科招生计划有多少人，需要查看页面中的官方表格。',
+      source: 'web'
+    }, {
+      title: '仰恩大学2026年福建省普通专升本教育招生计划',
+      url: 'https://zhaosheng.yeu.edu.cn/2026/0416/c184a55600/page.htm',
+      snippet: '2026年福建省普通专升本教育招生计划总数920人。',
+      source: 'web'
+    }])
+    globalThis.fetch = async () => {
+      throw new Error('gateway must not be called for unsupported numeric evidence')
+    }
+    const response = await answerCampusQuestion(client, query, {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model'
+    })
+    assert.match(response.answer, /不能把其他招生类型或其他年份的数字当作答案/)
+    assert.doesNotMatch(response.answer, /920/)
+    assert.equal(response.citations.some(item => item.url.includes('/2026/0416/c184a55600/')), false)
+  } finally {
+    globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('bed-size fallback survives a delayed web-cache migration', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-bed-cache-migration-'))
   const databasePath = join(directory, 'test.sqlite')
