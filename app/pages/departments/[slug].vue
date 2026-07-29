@@ -67,6 +67,16 @@ useSeoMeta({
 const phoneContacts = computed(() => parsePublicPhoneContacts(department.value?.phone))
 const emailHref = computed(() => resolvePublicEmailHref(department.value?.email))
 const { copyText } = useShareActions()
+const { configureWechatShare } = useWechatShareCard()
+
+onMounted(() => {
+  if (!department.value) return
+  void configureWechatShare({
+    title: `${department.value.name}｜仰恩新生指南`,
+    description: department.value.summary,
+    imageUrl: shareImage
+  })
+})
 
 async function copyDepartmentPhone(value: string): Promise<void> {
   await copyText(value, '电话号码')

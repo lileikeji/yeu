@@ -193,6 +193,8 @@ test('department and club detail pages expose structured freshman decision aids'
     assert.match(page, /复制分享链接/)
     assert.match(page, /ogTitle/)
     assert.match(page, /ogImage/)
+    assert.match(page, /useWechatShareCard/)
+    assert.match(page, /configureWechatShare/)
     assert.match(page, /boxesAt\('after-intro'\)/)
   }
   assert.match(clubPage, /boxesAt\('after-signup'\)/)

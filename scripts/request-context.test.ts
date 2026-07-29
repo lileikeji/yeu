@@ -29,6 +29,7 @@ test('baseline security headers prevent sniffing and framing without blocking fi
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /frame-ancestors 'none'/)
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /object-src 'none'/)
   assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /form-action 'self'/)
+  assert.match(BASE_SECURITY_HEADERS['Content-Security-Policy'], /https:\/\/res\.wx\.qq\.com/)
   assert.match(BASE_SECURITY_HEADERS['Permissions-Policy'], /geolocation=\(self\)/)
   assert.match(BASE_SECURITY_HEADERS['Permissions-Policy'], /camera=\(\)/)
 })
@@ -73,6 +74,12 @@ test('public read APIs only enable short caching after successful data preparati
       const publicCache = source.indexOf('\'Cache-Control\': \'public,')
       assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
       assert.ok(publicCache > initialNoStore, `${relativePath} must only cache successful provider responses`)
+      continue
+    }
+    if (normalizedPath === 'wechat-share.get.ts') {
+      assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
+      assert.match(source, /CDN-Cache-Control', 'no-store'/)
+      assert.doesNotMatch(source, /setPublicCache/)
       continue
     }
     const publicCache = source.indexOf('setPublicCache(event,')

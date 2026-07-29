@@ -16,7 +16,7 @@ export const BASE_SECURITY_HEADERS = {
     'object-src \'none\'',
     'frame-ancestors \'none\'',
     'form-action \'self\'',
-    'script-src \'self\' \'unsafe-inline\' https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
+    'script-src \'self\' \'unsafe-inline\' https://res.wx.qq.com https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
     'style-src \'self\' \'unsafe-inline\' https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
     'img-src \'self\' data: blob: https:',
     'font-src \'self\' data:',

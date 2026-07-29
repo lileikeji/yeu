@@ -86,6 +86,16 @@ const contactSection = computed(() => resolveClubContactSectionState(Boolean(
   || club.value?.contactPhones.length
 )))
 const { copyText } = useShareActions()
+const { configureWechatShare } = useWechatShareCard()
+
+onMounted(() => {
+  if (!club.value) return
+  void configureWechatShare({
+    title: `${club.value.name}｜仰恩新生指南`,
+    description: `${club.value.name}：${clubDirection.value}`,
+    imageUrl: shareImage.value
+  })
+})
 
 async function copyContactAction(value: string): Promise<void> {
   await copyText(value, '联系方式')
