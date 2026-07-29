@@ -17,6 +17,8 @@ const mobileNavigationOpen = ref(false)
 const mobileNavigationDialog = ref<HTMLDialogElement | null>(null)
 const mobileNavigationButton = ref<HTMLElement | { $el?: HTMLElement } | null>(null)
 const loggingOut = ref(false)
+const desktopSidebarCollapsed = ref(false)
+const collapsedNavigationGroups = ref(new Set(['content', 'ops', 'security']))
 
 const organizationNavigation = computed(() => [{
   key: 'organization',
@@ -156,6 +158,25 @@ function isActive(to: string): boolean {
   return to === '/admin' ? route.path === '/admin' : route.path.startsWith(to)
 }
 
+function isStandaloneGroup(key: string): boolean {
+  return key === 'overview' || key === 'graph'
+}
+
+function isNavigationGroupCollapsed(key: string): boolean {
+  return collapsedNavigationGroups.value.has(key)
+}
+
+function toggleNavigationGroup(key: string): void {
+  const next = new Set(collapsedNavigationGroups.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedNavigationGroups.value = next
+}
+
+function toggleDesktopSidebar(): void {
+  desktopSidebarCollapsed.value = !desktopSidebarCollapsed.value
+}
+
 function openMobileNavigation(): void {
   mobileNavigationOpen.value = true
 }
@@ -191,7 +212,12 @@ watch(() => route.path, () => {
 })
 
 onMounted(() => {
+  desktopSidebarCollapsed.value = localStorage.getItem('yeu-admin-sidebar-collapsed') === 'true'
   void checkSession()
+})
+
+watch(desktopSidebarCollapsed, (collapsed) => {
+  if (import.meta.client) localStorage.setItem('yeu-admin-sidebar-collapsed', String(collapsed))
 })
 </script>
 
@@ -247,12 +273,16 @@ onMounted(() => {
 
     <template v-else>
       <aside
-        class="fixed inset-y-0 left-0 z-40 hidden w-60 border-r border-zinc-800 bg-zinc-950 text-white lg:flex lg:flex-col"
+        class="fixed inset-y-0 left-0 z-40 hidden border-r border-zinc-800 bg-zinc-950 text-white transition-[width] duration-200 lg:flex lg:flex-col"
+        :class="desktopSidebarCollapsed ? 'w-16' : 'w-60'"
         aria-label="后台主导航"
       >
         <div class="flex h-16 items-center gap-3 border-b border-white/10 px-4">
           <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-600 text-xs font-bold">YEU</span>
-          <div class="min-w-0">
+          <div
+            v-if="!desktopSidebarCollapsed"
+            class="min-w-0"
+          >
             <p class="truncate text-sm font-semibold">
               新生指南后台
             </p>
@@ -271,30 +301,50 @@ onMounted(() => {
             :key="group.key"
             class="space-y-1"
           >
-            <p
-              v-if="group.key !== 'overview'"
-              class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-300"
+            <button
+              v-if="!isStandaloneGroup(group.key) && !desktopSidebarCollapsed"
+              type="button"
+              class="flex min-h-9 w-full items-center justify-between rounded-md px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-300 hover:bg-white/10 hover:text-white"
+              :aria-expanded="!isNavigationGroupCollapsed(group.key)"
+              @click="toggleNavigationGroup(group.key)"
             >
-              {{ group.label }}
-            </p>
+              <span>{{ group.label }}</span>
+              <UIcon
+                name="i-lucide-chevron-down"
+                class="size-3.5 transition-transform"
+                :class="{ '-rotate-90': isNavigationGroupCollapsed(group.key) }"
+              />
+            </button>
             <NuxtLink
               v-for="item in group.items"
+              v-show="isStandaloneGroup(group.key) || desktopSidebarCollapsed || !isNavigationGroupCollapsed(group.key)"
               :key="item.to"
               :to="item.to"
               class="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
               :class="isActive(item.to) ? 'bg-white text-zinc-950' : 'text-zinc-300 hover:bg-white/10 hover:text-white'"
               :aria-current="isActive(item.to) ? 'page' : undefined"
+              :title="desktopSidebarCollapsed ? item.label : undefined"
             >
               <UIcon
                 :name="item.icon"
                 class="size-4 shrink-0"
               />
-              <span>{{ item.label }}</span>
+              <span v-if="!desktopSidebarCollapsed">{{ item.label }}</span>
             </NuxtLink>
           </div>
         </nav>
 
         <div class="border-t border-white/10 p-3">
+          <UButton
+            :icon="desktopSidebarCollapsed ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close'"
+            color="neutral"
+            variant="ghost"
+            :aria-label="desktopSidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+            :label="desktopSidebarCollapsed ? undefined : '收起侧边栏'"
+            block
+            class="mb-2"
+            @click="toggleDesktopSidebar"
+          />
           <div class="flex items-center gap-3 px-2 py-2">
             <span class="grid size-8 shrink-0 place-items-center rounded-full bg-zinc-800 text-zinc-200">
               <UIcon
@@ -302,7 +352,10 @@ onMounted(() => {
                 class="size-4"
               />
             </span>
-            <div class="min-w-0 flex-1">
+            <div
+              v-if="!desktopSidebarCollapsed"
+              class="min-w-0 flex-1"
+            >
               <p class="truncate text-xs font-medium text-white">
                 {{ adminLabel }}
               </p>
@@ -310,7 +363,10 @@ onMounted(() => {
                 已登录
               </p>
             </div>
-            <UTooltip text="退出登录">
+            <UTooltip
+              v-if="!desktopSidebarCollapsed"
+              text="退出登录"
+            >
               <UButton
                 icon="i-lucide-log-out"
                 color="neutral"
@@ -325,7 +381,10 @@ onMounted(() => {
         </div>
       </aside>
 
-      <div class="min-w-0 overflow-x-hidden lg:pl-60">
+      <div
+        class="min-w-0 overflow-x-hidden transition-[padding] duration-200"
+        :class="desktopSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-60'"
+      >
         <header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-zinc-200 bg-white/95 px-3 backdrop-blur sm:px-5 lg:px-6">
           <UButton
             ref="mobileNavigationButton"
@@ -399,14 +458,23 @@ onMounted(() => {
               :key="group.key"
               class="space-y-1"
             >
-              <p
-                v-if="group.key !== 'overview'"
-                class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-400"
+              <button
+                v-if="!isStandaloneGroup(group.key)"
+                type="button"
+                class="flex min-h-11 w-full items-center justify-between rounded-md px-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                :aria-expanded="!isNavigationGroupCollapsed(group.key)"
+                @click="toggleNavigationGroup(group.key)"
               >
-                {{ group.label }}
-              </p>
+                <span>{{ group.label }}</span>
+                <UIcon
+                  name="i-lucide-chevron-down"
+                  class="size-4 transition-transform"
+                  :class="{ '-rotate-90': isNavigationGroupCollapsed(group.key) }"
+                />
+              </button>
               <NuxtLink
                 v-for="item in group.items"
+                v-show="isStandaloneGroup(group.key) || !isNavigationGroupCollapsed(group.key)"
                 :key="item.to"
                 :to="item.to"
                 class="flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm"

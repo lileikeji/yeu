@@ -185,6 +185,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     ]
   },
   {
+    key: 'graph',
+    label: '知识图谱',
+    items: [
+      { label: '数字山水图谱', icon: 'i-lucide-git-fork', to: '/admin/knowledge/graph' }
+    ]
+  },
+  {
     key: 'content',
     label: '内容管理',
     items: [
@@ -194,8 +201,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: '办事流程', icon: 'i-lucide-list-checks', to: '/admin/procedures' },
       { label: '内容', icon: 'i-lucide-files', to: '/admin/content' },
       { label: '来源', icon: 'i-lucide-book-marked', to: '/admin/sources' },
-      { label: '知识库', icon: 'i-lucide-brain-circuit', to: '/admin/knowledge' },
-      { label: '数字山水图谱', icon: 'i-lucide-git-fork', to: '/admin/knowledge/graph' }
+      { label: '知识库', icon: 'i-lucide-brain-circuit', to: '/admin/knowledge' }
     ]
   },
   {

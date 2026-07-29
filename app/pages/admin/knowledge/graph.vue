@@ -404,7 +404,10 @@ function relationNodeLabel(node: GraphNode | null): string {
   return node.label.length > 18 ? `${node.label.slice(0, 18)}…` : node.label
 }
 
-onMounted(loadGraph)
+onMounted(() => {
+  if (window.matchMedia('(max-width: 1023px)').matches) leftPanelOpen.value = false
+  void loadGraph()
+})
 onBeforeUnmount(() => {
   engine?.destroy()
   engine = null
@@ -414,6 +417,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="knowledge-landscape-page">
     <AdminPageHeader
+      class="graph-page-intro"
       title="数字山水知识图谱"
       description="把站内知识、官网正文和网页资料放在同一张可探索的知识地图里。"
       icon="i-lucide-git-fork"
@@ -472,6 +476,14 @@ onBeforeUnmount(() => {
             <p>数字山水</p>
             <span>{{ graph?.meta.total_nodes ?? 0 }} 个知识节点</span>
           </div>
+          <button
+            type="button"
+            class="mobile-panel-close"
+            aria-label="关闭图谱目录"
+            @click="leftPanelOpen = false"
+          >
+            <UIcon name="i-lucide-x" />
+          </button>
         </div>
 
         <div
@@ -917,6 +929,7 @@ onBeforeUnmount(() => {
 }
 
 .landscape-shell {
+  position: relative;
   display: grid;
   grid-template-columns: 15rem minmax(34rem, 1fr) 20rem;
   min-height: 44rem;
@@ -950,6 +963,8 @@ onBeforeUnmount(() => {
   padding: 1rem;
   border-bottom: 1px solid #d5cfbe;
 }
+
+.mobile-panel-close { display: none; }
 
 .landscape-seal {
   display: grid;
@@ -1446,12 +1461,36 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1023px) {
-  .landscape-shell { display: flex; flex-direction: column; overflow: visible; }
+  .graph-page-intro { display: none; }
+  .landscape-shell {
+    display: block;
+    min-height: 0;
+    margin-top: 0;
+    overflow: hidden;
+  }
   .landscape-sidebar-left,
-  .landscape-sidebar-right { border: 0; }
-  .landscape-sidebar-left { order: 1; border-bottom: 1px solid #d5cfbe; }
-  .landscape-main { order: 2; }
-  .landscape-sidebar-right { order: 3; border-top: 1px solid #d5cfbe; }
+  .landscape-sidebar-right {
+    position: absolute;
+    z-index: 24;
+    top: 3.35rem;
+    bottom: 0;
+    width: min(21rem, 88vw);
+    overflow-y: auto;
+    border: 1px solid #c9c2af;
+    background-color: #f8f5eb;
+    box-shadow: 0 18px 45px rgb(42 49 42 / 24%);
+  }
+  .landscape-sidebar-left { left: 0; border-left: 0; }
+  .landscape-sidebar-right { right: 0; border-right: 0; }
+  .mobile-panel-close {
+    display: grid;
+    width: 2rem;
+    aspect-ratio: 1;
+    margin-left: auto;
+    place-items: center;
+    border-radius: 50%;
+    color: #687168;
+  }
   .landscape-brand { min-height: 4rem; }
   .collection-summary { position: absolute; visibility: hidden; }
   .community-section { padding-bottom: .65rem; }
@@ -1465,10 +1504,19 @@ onBeforeUnmount(() => {
 
 @media (max-width: 639px) {
   .landscape-shell { margin-inline: -.75rem; border-right: 0; border-left: 0; }
-  .canvas-heading { align-items: flex-start; flex-direction: column; gap: .35rem; }
+  .canvas-heading {
+    min-height: 2.85rem;
+    justify-content: flex-end;
+    padding: .35rem .5rem;
+  }
+  .canvas-heading-copy { display: none; }
+  .canvas-toolstrip { width: 100%; justify-content: flex-end; }
+  .canvas-toolstrip button { min-width: 2.1rem; min-height: 2.05rem; padding: .3rem; }
+  .canvas-toolstrip button span { display: none; }
   .canvas-metrics { width: 100%; justify-content: space-between; }
-  .landscape-canvas { min-height: 29rem; height: 62dvh; }
-  .canvas-footer { align-items: flex-start; flex-direction: column; }
+  .landscape-canvas { min-height: 31rem; height: calc(100dvh - 10rem); }
+  .canvas-footer { display: none; }
+  .canvas-gesture-hint { right: .5rem; bottom: .5rem; }
   .confidence-line { gap: .45rem .65rem; }
   .type-filter-list { grid-template-columns: repeat(2, 1fr); }
   .community-list button { min-width: 10.5rem; }
