@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily YEU official knowledge crawl
+
+[Timer]
+OnCalendar=*-*-* 03:40:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=15min
+Unit=yeu-knowledge-crawl.service
+
+[Install]
+WantedBy=timers.target

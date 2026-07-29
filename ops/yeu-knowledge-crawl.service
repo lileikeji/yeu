@@ -1,0 +1,20 @@
+[Unit]
+Description=YEU official knowledge incremental crawl
+After=network-online.target yeu.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=yeu
+Group=yeu
+WorkingDirectory=/www/wwwroot/yeu/repo
+Environment=NUXT_DATABASE_PATH=/www/wwwroot/yeu/shared/data/yeu.sqlite
+ExecStart=/opt/node-v22.18.0/bin/node /www/wwwroot/yeu/repo/node_modules/tsx/dist/cli.mjs scripts/crawl-official-knowledge.ts --max-pages 300 --max-depth 6 --concurrency 1 --delay-ms 700
+TimeoutStartSec=30min
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/www/wwwroot/yeu/shared/data /www/wwwroot/yeu/shared/logs
+
