@@ -57,6 +57,25 @@ Markdown Content:
   assert.equal(new Date(page.publishedAt!).toISOString(), '2026-07-28T00:00:00.000Z')
 })
 
+test('reader output gives opaque Office attachments a meaningful searchable title', () => {
+  const document = parseReaderDocument(`Title: 0bfe3bf3-5dfd-4ccb-a132-a556f46a4300.docx
+URL Source: https://www.yeu.edu.cn/_upload/article/files/rules/0bfe3bf3-5dfd-4ccb-a132-a556f46a4300.docx
+
+Markdown Content:
+\u0007仰大教〔2021〕15号
+
+仰恩大学本科生学籍管理规定（修订）
+
+第一章 总则
+第一条 根据《普通高等学校学生管理规定》，为维护学校正常教育教学秩序，规范全日制普通本科学生的学籍管理，结合学校实际制定本规定。
+第二条 本规定适用于普通本科学生以及专升本学生。
+`, 'https://www.yeu.edu.cn/_upload/article/files/rules/0bfe3bf3-5dfd-4ccb-a132-a556f46a4300.docx')
+
+  assert.equal(document.kind, 'document')
+  assert.equal(document.title, '仰恩大学本科生学籍管理规定（修订）')
+  assert.equal(document.text.includes(String.fromCharCode(7)), false)
+})
+
 test('official HTML fallback extracts article text and relative attachments without the reader service', () => {
   const page = parseOfficialHtml(`<!doctype html>
     <html>
@@ -81,6 +100,30 @@ test('official HTML fallback extracts article text and relative attachments with
     url: 'https://xsb.yeu.edu.cn/2026/_upload/article/files/scholarship-rule.pdf',
     label: '奖学金评审办法附件'
   })
+})
+
+test('official HTML discovers PDF players whose attachment is stored outside anchor tags', () => {
+  const page = parseOfficialHtml(`<!doctype html>
+    <html>
+      <head><title>仰恩大学学生综合测评实施办法（修订）</title></head>
+      <body>
+        <nav>部门首页 部门概况 部门简介 部门职责 联系方式 学工动态 通知公告 学生资助 心理健康 就业指导 创业园 一站式社区 制度文件 规章制度</nav>
+        <div class="wp_articlecontent">
+          <div
+            class="wp_pdf_player"
+            pdfsrc="/_upload/article/files/rules/comprehensive-evaluation.pdf"
+            sudyfile-attr="{'title':'仰恩大学学生综合测评实施办法（修订）.pdf'}"
+          ></div>
+        </div>
+      </body>
+    </html>`, 'https://xsb.yeu.edu.cn/2025/0530/c640a49640/page.htm')
+
+  assert.equal(page.attachmentLandingPage, true)
+  assert.match(page.text, /正文由仰恩大学官网附件展示/)
+  assert.deepEqual(page.links, [{
+    url: 'https://xsb.yeu.edu.cn/_upload/article/files/rules/comprehensive-evaluation.pdf',
+    label: '仰恩大学学生综合测评实施办法（修订）.pdf'
+  }])
 })
 
 test('new-student rules and attachments are crawled before ordinary news at the same depth', () => {

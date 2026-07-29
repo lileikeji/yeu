@@ -147,6 +147,68 @@ test('ready A-level official documents are searchable and archived versions are 
     assert.match(reportAnswer.answer, /专任教师424人/)
     assert.equal(reportAnswer.usedWebSearch, false)
     assert.equal(reportAnswer.citations.length, 1)
+    const transferDocumentId = '00000000-0000-4000-8000-000000000006'
+    value.client.sqlite.prepare(`
+      INSERT INTO knowledge_documents (
+        id, source_id, kind, title, original_url, mime_type, content_hash,
+        extracted_text, metadata_json, status, captured_at, processed_at, created_at, updated_at
+      ) VALUES (?, ?, 'document', ?, ?, 'application/msword', ?, ?, '{}', 'ready', ?, ?, ?, ?)
+    `).run(
+      transferDocumentId,
+      value.sourceId,
+      '仰恩大学学生转专业管理办法（修订）',
+      'https://www.yeu.edu.cn/transfer-major-rule.doc',
+      'official-transfer-major-rule-hash',
+      '仰恩大学学生转专业管理办法（修订）。学生申请转专业应当按照学院公布的时间提交申请，经转出学院和转入学院审核。',
+      now,
+      now,
+      now,
+      now
+    )
+    value.client.sqlite.prepare(`
+      INSERT INTO knowledge_documents (
+        id, source_id, kind, title, original_url, mime_type, content_hash,
+        extracted_text, metadata_json, status, captured_at, processed_at, created_at, updated_at
+      ) VALUES (?, ?, 'webpage', ?, ?, 'text/html', ?, ?, ?, 'ready', ?, ?, ?, ?)
+    `).run(
+      '00000000-0000-4000-8000-000000000008',
+      value.sourceId,
+      '仰恩大学学生转专业管理办法（修订）',
+      'https://www.yeu.edu.cn/transfer-major-rule-landing',
+      'official-transfer-major-rule-landing-hash',
+      '仰恩大学学生转专业管理办法（修订）。本页正文由仰恩大学官网附件展示。',
+      JSON.stringify({ attachmentLandingPage: true }),
+      now + 1,
+      now + 1,
+      now + 1,
+      now + 1
+    )
+    assert.equal(
+      searchOfficialKnowledgeDocuments(value.client, ['转专业', '要求'], 5, '转专业有什么要求')[0]?.id,
+      transferDocumentId
+    )
+    const statusDocumentId = '00000000-0000-4000-8000-000000000007'
+    value.client.sqlite.prepare(`
+      INSERT INTO knowledge_documents (
+        id, source_id, kind, title, original_url, mime_type, content_hash,
+        extracted_text, metadata_json, status, captured_at, processed_at, created_at, updated_at
+      ) VALUES (?, ?, 'document', ?, ?, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ?, ?, '{}', 'ready', ?, ?, ?, ?)
+    `).run(
+      statusDocumentId,
+      value.sourceId,
+      '仰恩大学本科生学籍管理规定（修订）',
+      'https://www.yeu.edu.cn/student-status-rule.docx',
+      'official-student-status-rule-hash',
+      '仰恩大学本科生学籍管理规定（修订）。本规定适用于普通本科学生和专升本学生的入学、注册、考核、成绩记载、休学与复学。',
+      now,
+      now,
+      now,
+      now
+    )
+    assert.equal(
+      searchOfficialKnowledgeDocuments(value.client, ['本科生', '学籍管理', '规定'], 5, '本科生学籍管理有什么规定')[0]?.id,
+      statusDocumentId
+    )
     value.client.sqlite.prepare('UPDATE knowledge_documents SET status = \'archived\' WHERE id = ?').run(documentId)
     assert.deepEqual(searchOfficialKnowledgeDocuments(value.client, ['dormitory mattress'], 5), [])
   } finally {

@@ -8,7 +8,7 @@ import { runMigrations } from '../server/database/migrate'
 
 const USER_AGENT = 'YEU-Freshman-Guide-knowledge-crawler/1.0 (public official-source indexing)'
 const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
-const CRAWLER_VERSION = 3
+const CRAWLER_VERSION = 4
 const MAX_EXTRACTED_LENGTH = 600_000
 const READER_TIMEOUT_MS = 65_000
 const MAX_PDF_BYTES = 50 * 1024 * 1024
@@ -37,7 +37,19 @@ export const DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS = [
   'https://dqgc.yeu.edu.cn/',
   'https://marx.yeu.edu.cn/',
   'https://tiyu.yeu.edu.cn/',
-  'https://xl.yeu.edu.cn/'
+  'https://xl.yeu.edu.cn/',
+  'https://xsb.yeu.edu.cn/2025/0530/c640a49640/page.htm',
+  'https://xsb.yeu.edu.cn/2025/0429/c640a49115/page.htm',
+  'https://xsb.yeu.edu.cn/2025/0311/c644a47889/page.htm',
+  'https://xsb.yeu.edu.cn/2025/0311/c644a47890/page.htm',
+  'https://xsb.yeu.edu.cn/2025/0311/c644a47891/page.htm',
+  'https://xsb.yeu.edu.cn/2024/0903/c640a45584/page.htm',
+  'https://xsb.yeu.edu.cn/2023/0630/c644a39463/page.htm',
+  'https://xsb.yeu.edu.cn/2023/1205/c124a41670/page.htm',
+  'https://jwb.yeu.edu.cn/2025/1030/c1173a53025/page.htm',
+  'https://jwb.yeu.edu.cn/2019/1105/c51a1115/page.htm',
+  'https://www.yeu.edu.cn/_upload/article/files/31/96/4102aa1f401191c22c2586f302bf/6fbb20c4-a915-4f04-9841-f21c56f253e4.doc',
+  'https://www.yeu.edu.cn/_upload/article/files/78/01/ca457e7144299ad59ad99da88460/0bfe3bf3-5dfd-4ccb-a132-a556f46a4300.docx'
 ] as const
 
 const HIGH_VALUE_TERMS = [
@@ -78,6 +90,8 @@ export interface ParsedOfficialDocument {
   kind: 'webpage' | 'pdf' | 'document' | 'spreadsheet'
   mimeType: string
   extractionMethod: 'jina' | 'pdfjs' | 'direct-html'
+  pageCount?: number
+  attachmentLandingPage?: boolean
 }
 
 export interface OfficialCrawlReport {
@@ -200,8 +214,25 @@ function markdownLinks(value: string, base: string): Array<{ url: string, label:
   return links
 }
 
+function stripUnsupportedControlCharacters(value: string): string {
+  let result = ''
+  for (const character of value) {
+    const code = character.charCodeAt(0)
+    const unsupported = (
+      code <= 8
+      || code === 11
+      || code === 12
+      || (code >= 14 && code <= 31)
+      || code === 127
+    )
+    if (unsupported) result += ' '
+    else result += character
+  }
+  return result
+}
+
 function cleanMarkdown(value: string): string {
-  const content = value
+  const content = stripUnsupportedControlCharacters(value)
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<https?:\/\/[^>]+>/g, '')
@@ -223,7 +254,7 @@ function cleanMarkdown(value: string): string {
 }
 
 function cleanDirectText(value: string): string {
-  return value
+  return stripUnsupportedControlCharacters(value)
     .replace(/\r/g, '')
     .replace(/\u00a0/g, ' ')
     .replace(/[ \t]+/g, ' ')
@@ -231,6 +262,35 @@ function cleanDirectText(value: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
     .slice(0, MAX_EXTRACTED_LENGTH)
+}
+
+function meaningfulAttachmentTitle(rawTitle: string, text: string, sourceUrl: string): string {
+  const cleanedRawTitle = rawTitle
+    .replace(/\.(?:pdf|docx?|xlsx?|txt)$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const rawLooksOpaque = !cleanedRawTitle
+    || /^[0-9a-f-]{16,}$/i.test(cleanedRawTitle)
+    || /^仰恩大学官方附件$/u.test(cleanedRawTitle)
+  if (!rawLooksOpaque) return cleanedRawTitle.slice(0, 300)
+
+  const quoted = text.match(/《(仰恩大学[^》]{2,120}(?:办法|规定|细则|章程|指南|手册|流程|通知|报告)[^》]{0,30})》/u)?.[1]
+  if (quoted) return quoted.replace(/\s+/g, '').slice(0, 300)
+
+  const candidates = text
+    .split(/\n+/)
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(line => line.length >= 5 && line.length <= 140 && /[\u3400-\u9FFF]/u.test(line))
+    .filter(line => /办法|规定|细则|章程|指南|手册|流程|通知|报告|申请表|名单/u.test(line))
+    .map(line => ({
+      line,
+      score: (line.includes('仰恩大学') ? 40 : 0)
+        + (/办法|规定|细则|章程|手册/u.test(line) ? 25 : 0)
+        - (/^(?:关于|附件|办理事项)/u.test(line) ? 4 : 0)
+        - (/[：:]直线|Image|签发人/u.test(line) ? 30 : 0)
+    }))
+    .sort((left, right) => right.score - left.score || left.line.length - right.line.length)
+  return (candidates[0]?.line || attachmentFileTitle(sourceUrl)).slice(0, 300)
 }
 
 function isolateArticleText(value: string, title: string, url: string): string {
@@ -358,23 +418,62 @@ export async function parseOfficialPdf(
       links: [],
       kind: 'pdf',
       mimeType: 'application/pdf',
-      extractionMethod: 'pdfjs'
+      extractionMethod: 'pdfjs',
+      pageCount: pdf.numPages
     }
   } finally {
     await loadingTask.destroy()
   }
 }
 
+export function discoverOfficialHtmlLinks(
+  value: string,
+  requestedUrl: string
+): Array<{ url: string, label: string }> {
+  const $ = load(value)
+  const links: Array<{ url: string, label: string }> = []
+  const add = (rawUrl: string, label: string) => {
+    const url = normalizeOfficialUrl(rawUrl, requestedUrl)
+    if (!url || links.some(item => item.url === url)) return
+    links.push({ url, label: label.replace(/\s+/g, ' ').trim().slice(0, 180) })
+  }
+  const attributes = ['href', 'pdfsrc', 'data-file', 'data-url', 'src', 'data']
+  $('a[href], [pdfsrc], [data-file], [data-url], iframe[src], embed[src], object[data]').each((_, element) => {
+    const node = $(element)
+    const metadata = node.attr('sudyfile-attr') ?? ''
+    const metadataTitle = metadata.match(/['"]title['"]\s*:\s*['"]([^'"]+)['"]/i)?.[1] ?? ''
+    const label = (
+      metadataTitle
+      || node.attr('title')
+      || node.attr('aria-label')
+      || node.text()
+      || ''
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 180)
+    for (const attribute of attributes) {
+      const rawUrl = node.attr(attribute)
+      if (rawUrl) add(rawUrl, label)
+    }
+  })
+  return links
+}
+
 export function parseReaderDocument(value: string, requestedUrl: string): ParsedOfficialDocument {
   const sourceUrl = normalizeOfficialUrl(value.match(/^URL Source:\s*(\S+)/mi)?.[1] ?? requestedUrl) ?? requestedUrl
-  const title = (value.match(/^Title:\s*(.+)$/mi)?.[1] ?? new URL(sourceUrl).hostname)
+  const rawTitle = (value.match(/^Title:\s*(.+)$/mi)?.[1] ?? new URL(sourceUrl).hostname)
     .replace(/\s*[-_|]\s*仰恩大学.*$/u, '')
     .trim()
     .slice(0, 300)
   const marker = value.search(/^Markdown Content:\s*$/mi)
   const markdown = marker >= 0 ? value.slice(marker).replace(/^Markdown Content:\s*$/mi, '') : value
-  const text = isolateArticleText(cleanMarkdown(markdown), title, sourceUrl)
+  const text = isolateArticleText(cleanMarkdown(markdown), rawTitle, sourceUrl)
   if (text.length < 80) throw new Error('page did not contain enough readable text')
+  const kind = documentKind(sourceUrl)
+  const title = kind.kind === 'webpage'
+    ? rawTitle
+    : meaningfulAttachmentTitle(rawTitle, text, sourceUrl)
   return {
     url: sourceUrl,
     title: title || '仰恩大学官方资料',
@@ -382,7 +481,7 @@ export function parseReaderDocument(value: string, requestedUrl: string): Parsed
     publishedAt: parsePublishedAt(value, sourceUrl),
     links: markdownLinks(markdown, sourceUrl),
     extractionMethod: 'jina',
-    ...documentKind(sourceUrl)
+    ...kind
   }
 }
 
@@ -402,16 +501,7 @@ export function parseOfficialHtml(value: string, requestedUrl: string): ParsedOf
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 300)
-  const links: Array<{ url: string, label: string }> = []
-  $('a[href]').each((_, element) => {
-    const url = normalizeOfficialUrl($(element).attr('href') ?? '', sourceUrl)
-    if (!url || links.some(item => item.url === url)) return
-    const label = ($(element).text() || $(element).attr('title') || '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 180)
-    links.push({ url, label })
-  })
+  const links = discoverOfficialHtmlLinks(value, sourceUrl)
 
   const selectors = [
     '.wp_articlecontent',
@@ -424,7 +514,7 @@ export function parseOfficialHtml(value: string, requestedUrl: string): ParsedOf
     'main'
   ]
   let content = $('body').first()
-  let bestLength = 0
+  let bestLength = -1
   for (const selector of selectors) {
     $(selector).each((_, element) => {
       const candidate = $(element)
@@ -441,8 +531,19 @@ export function parseOfficialHtml(value: string, requestedUrl: string): ParsedOf
   readable.find('p,div,li,tr,h1,h2,h3,h4,h5,h6,section').each((_, element) => {
     $(element).append('\n')
   })
-  const text = cleanDirectText(readable.text())
-  if (text.length < 80) throw new Error('official page did not contain enough readable text')
+  let text = cleanDirectText(readable.text())
+  const attachmentLinks = links.filter(item => isAttachmentUrl(item.url))
+  const attachmentLandingPage = text.length < 80 && attachmentLinks.length > 0
+  if (attachmentLandingPage) {
+    const attachmentNames = attachmentLinks
+      .map(item => item.label || attachmentFileTitle(item.url))
+      .filter(Boolean)
+      .join('；')
+    text = `${title}\n本页正文由仰恩大学官网附件展示。附件：${attachmentNames}`.trim()
+  }
+  if (text.length < 80 && !attachmentLandingPage) {
+    throw new Error('official page did not contain enough readable text')
+  }
 
   const published = $('meta[property="article:published_time"]').attr('content')
     ?? $('meta[name="publishdate"]').attr('content')
@@ -456,7 +557,8 @@ export function parseOfficialHtml(value: string, requestedUrl: string): ParsedOf
     links,
     kind: 'webpage',
     mimeType: 'text/html',
-    extractionMethod: 'direct-html'
+    extractionMethod: 'direct-html',
+    attachmentLandingPage
   }
 }
 
@@ -489,7 +591,10 @@ function storeOfficialDocument(
     discoveredFrom: queueItem.discoveredFrom,
     attachmentLabel: document.kind === 'webpage' ? null : queueItem.label,
     outgoingOfficialLinks: document.links.length,
-    extractionMethod: document.extractionMethod
+    extractionMethod: document.extractionMethod,
+    pageCount: document.pageCount ?? null,
+    extractedCharacters: document.text.length,
+    attachmentLandingPage: document.attachmentLandingPage ?? false
   })
   const existing = client.sqlite.prepare(`
     SELECT id FROM knowledge_documents WHERE original_url = ? AND content_hash = ? LIMIT 1
@@ -717,24 +822,17 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
               throw directPdfError
             }
           }
-        } else {
-          if (options.fresh) {
-            try {
-              const html = await fetchOfficialHtml(item.url, true)
-              document = parseOfficialHtml(html, item.url)
-            } catch {
-              const raw = await fetchReader(item.url, true)
-              document = parseReaderDocument(raw, item.url)
-            }
-          } else {
-            try {
-              const raw = await fetchReader(item.url, false)
-              document = parseReaderDocument(raw, item.url)
-            } catch {
-              const html = await fetchOfficialHtml(item.url, false)
-              document = parseOfficialHtml(html, item.url)
-            }
+        } else if (documentKind(item.url).kind === 'webpage') {
+          try {
+            const html = await fetchOfficialHtml(item.url, options.fresh)
+            document = parseOfficialHtml(html, item.url)
+          } catch {
+            const raw = await fetchReader(item.url, options.fresh)
+            document = parseReaderDocument(raw, item.url)
           }
+        } else {
+          const raw = await fetchReader(item.url, options.fresh)
+          document = parseReaderDocument(raw, item.url)
         }
         report.fetched += 1
         const outcome = storeOfficialDocument(client, document, item, Date.now(), options.dryRun)

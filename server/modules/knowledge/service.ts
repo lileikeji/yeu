@@ -413,7 +413,7 @@ function relevantExcerpt(value: string, terms: string[], limit = 900): string {
 
 function documentCoreQueryTerms(value: string): string[] {
   const normalized = value.toLocaleLowerCase('zh-CN')
-    .replace(/(?:仰恩大学|这个学校|学校|请问|麻烦|帮我|告诉我|想知道|怎么样|怎么|如何|为什么|为啥|什么时候|有多少人|多少人|有多少|多少|什么|是否|能不能|可不可以|可以|需要|一下|里面|其中|里|呢|吗|呀|啊)/gu, ' ')
+    .replace(/(?:仰恩大学|这个学校|学校|请问|麻烦|帮我|告诉我|想知道|怎么样|怎么|如何|为什么|为啥|什么时候|有多少人|多少人|有多少|多少|申请条件|申请要求|具体条件|具体要求|相关规定|相关办法|什么|是否|能不能|可不可以|可以|需要|要求|条件|规定|办法|有|一下|里面|其中|里|呢|吗|呀|啊)/gu, ' ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
   return [...new Set(normalized.split(/\s+/).map(term => term.trim()).filter(term => term.length >= 2))].slice(0, 6)
 }
@@ -439,6 +439,7 @@ export function searchOfficialKnowledgeDocuments(
     url: string
     capturedAt: number
     ftsRank: number
+    attachmentLandingPage: number
   }
   let rows: SearchRow[]
   try {
@@ -446,7 +447,8 @@ export function searchOfficialKnowledgeDocuments(
       ? client.sqlite.prepare(`
       SELECT kd.id, kd.title, kd.extracted_text AS extractedText,
         kd.original_url AS url, kd.captured_at AS capturedAt,
-        bm25(knowledge_documents_fts, 0.0, 7.0, 2.0) AS ftsRank
+        bm25(knowledge_documents_fts, 0.0, 7.0, 2.0) AS ftsRank,
+        coalesce(json_extract(kd.metadata_json, '$.attachmentLandingPage'), 0) AS attachmentLandingPage
       FROM knowledge_documents_fts
       INNER JOIN knowledge_documents kd ON kd.id = knowledge_documents_fts.document_id
       INNER JOIN sources s ON s.id = kd.source_id
@@ -470,7 +472,8 @@ export function searchOfficialKnowledgeDocuments(
       })
       rows = client.sqlite.prepare(`
         SELECT kd.id, kd.title, kd.extracted_text AS extractedText,
-          kd.original_url AS url, kd.captured_at AS capturedAt, 0 AS ftsRank
+          kd.original_url AS url, kd.captured_at AS capturedAt, 0 AS ftsRank,
+          coalesce(json_extract(kd.metadata_json, '$.attachmentLandingPage'), 0) AS attachmentLandingPage
         FROM knowledge_documents kd
         INNER JOIN sources s ON s.id = kd.source_id
         WHERE (${matches})
@@ -529,7 +532,9 @@ export function searchOfficialKnowledgeDocuments(
       excerpt: relevantExcerpt(row.extractedText, excerptTerms),
       url: row.url,
       capturedAt: row.capturedAt,
-      score: 20 + relevance + Math.min(26, Math.max(0, -Number(row.ftsRank || 0) * 8))
+      score: 20 + relevance
+        + Math.min(26, Math.max(0, -Number(row.ftsRank || 0) * 8))
+        - (row.attachmentLandingPage ? 28 : 0)
     }
   })
     .filter((row): row is OfficialDocumentMatch => Boolean(row))
