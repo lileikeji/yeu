@@ -18,6 +18,7 @@ import {
   assistantRetrievalQuery,
   assistantQueryTerms,
   isGatewayContentBlocked,
+  localEvidenceIsSufficient,
   retrieveCampusEvidence,
   resolveAssistantFollowUpQuery,
   seedCatalogEvidenceForQuery,
@@ -77,6 +78,14 @@ test('school rules always use campus retrieval instead of generic model knowledg
     assistantRetrievalQuery('哪些行为会受到违纪处分？'),
     '学生违纪处分办法 下列行为 处分种类 处理程序 申诉'
   )
+  assert.equal(localEvidenceIsSufficient('哪些行为会受到违纪处分？', [{
+    title: '仰恩大学学生违纪处分办法（修订）.pdf',
+    url: 'https://xsb.yeu.edu.cn/_upload/article/files/student-discipline.pdf',
+    snippet: '学生违纪处分办法规定了违纪行为、处分种类和处理程序。',
+    source: 'site',
+    text: '学生有下列违纪行为之一的，依照本办法给予相应处分。',
+    score: 6
+  }]), true)
 })
 
 test('an exact scholarship question does not expand every unrelated scholarship', async () => {

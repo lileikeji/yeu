@@ -195,7 +195,7 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v9-official-attachment-sections'
+const ASSISTANT_CACHE_VERSION = 'rag-v10-official-attachment-routing'
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 1200
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
@@ -615,6 +615,12 @@ function evidenceCoreCoverage(query: string, item: AssistantEvidence): number {
 
 export function localEvidenceIsSufficient(query: string, evidence: AssistantEvidence[]): boolean {
   if (evidence.length === 0) return false
+  const requiredSubjects = requiredEvidenceSubjects(query)
+  if (isOfficialPolicySynthesisQuery(query) && evidence.some((item) => {
+    const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+    return /\.(?:pdf|docx?)(?:$|\?)/i.test(item.url)
+      && requiredSubjects.some(subject => text.includes(subject))
+  })) return true
   const profile = assistantQueryProfile(query)
   if (profile.identitySubject) {
     return evidence.some(item => identityEvidenceIsExplicit(item, profile.identitySubject!))
