@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 import * as XLSX from '@e965/xlsx'
 import { strToU8, zipSync } from 'fflate'
+import { closeDatabase, getDatabase } from '../server/database/client'
+import { runMigrations } from '../server/database/migrate'
 import {
+  crawlOfficialKnowledge,
   crawlPriority,
   DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS,
   EXPLICIT_SEED_PRIORITY,
@@ -265,6 +271,60 @@ test('new-student rules and attachments are crawled before ordinary news at the 
   assert.ok(priority > ordinary)
   assert.ok(attachment > ordinary)
   assert.ok(EXPLICIT_SEED_PRIORITY > attachment)
+})
+
+test('normal continuation keeps permanently failed URLs out of the pending queue', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-official-crawl-failed-'))
+  const databasePath = join(directory, 'test.sqlite')
+  try {
+    const client = getDatabase(databasePath)
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO knowledge_crawl_queue (
+        url, hostname, label, depth, discovered_from, priority, status, attempts,
+        last_attempt_at, next_attempt_at, last_error, created_at, updated_at
+      ) VALUES (?, ?, ?, 1, NULL, 10, 'failed', 2, ?, NULL, 'fetch failed', ?, ?)
+    `).run(
+      'https://www.yeu.edu.cn/old-unavailable-page.htm',
+      'www.yeu.edu.cn',
+      '历史不可用页面',
+      now,
+      now,
+      now
+    )
+
+    const report = await crawlOfficialKnowledge({
+      databasePath,
+      seeds: [],
+      maxPages: 1,
+      maxDepth: 0,
+      concurrency: 1,
+      delayMs: 0,
+      fresh: false,
+      dryRun: true
+    })
+    assert.equal(report.attempted, 0)
+
+    const reopened = getDatabase(databasePath)
+    const row = reopened.sqlite.prepare(`
+      SELECT status, attempts, last_error AS lastError
+      FROM knowledge_crawl_queue
+      WHERE url = ?
+    `).get('https://www.yeu.edu.cn/old-unavailable-page.htm') as {
+      status: string
+      attempts: number
+      lastError: string
+    }
+    assert.deepEqual(row, {
+      status: 'failed',
+      attempts: 2,
+      lastError: 'fetch failed'
+    })
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('crawl CLI is bounded and supports an explicit seed', () => {

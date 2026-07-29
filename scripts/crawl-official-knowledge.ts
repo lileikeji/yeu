@@ -1141,11 +1141,13 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
           AND knowledge_documents.metadata_json NOT LIKE ?
       )
   `).run(startedAt.getTime(), `%"crawlerVersion":${CRAWLER_VERSION}%`)
-  client.sqlite.prepare(`
-    UPDATE knowledge_crawl_queue
-    SET status = 'pending', attempts = 0, next_attempt_at = NULL, last_error = '', updated_at = ?
-    WHERE last_error = 'fetch failed'
-  `).run(startedAt.getTime())
+  if (options.fresh) {
+    client.sqlite.prepare(`
+      UPDATE knowledge_crawl_queue
+      SET status = 'pending', attempts = 0, next_attempt_at = NULL, last_error = '', updated_at = ?
+      WHERE status = 'failed' AND last_error = 'fetch failed'
+    `).run(startedAt.getTime())
+  }
   for (const item of seedItems) enqueueCrawlItem(client, item, startedAt.getTime())
   refreshPendingPriorities(client)
   if (seedItems.length > 0) {
