@@ -64,8 +64,12 @@ interface GraphPayload {
     systemTotal: number
     retrievalTotal: number
     entries: number
+    activeEntries: number
     documents: number
+    readyDocuments: number
     web: number
+    activeWeb: number
+    publishedClaims: number
   }
   visibleItems: number
   truncatedItems: number
@@ -203,9 +207,10 @@ const nodeTypeCounts = computed(() => {
 })
 const collectionStats = computed(() => graph.value
   ? [
-      { label: '站内知识', value: graph.value.summary.entries, tone: 'green' },
-      { label: '官网正文', value: graph.value.summary.documents, tone: 'blue' },
-      { label: '网页资料', value: graph.value.summary.web, tone: 'red' }
+      { label: '站内知识', value: graph.value.summary.activeEntries, tone: 'green' },
+      { label: '官网知识点', value: graph.value.summary.publishedClaims, tone: 'blue' },
+      { label: '官网正文', value: graph.value.summary.readyDocuments, tone: 'blue' },
+      { label: '网页资料', value: graph.value.summary.activeWeb, tone: 'red' }
     ]
   : [])
 
@@ -258,21 +263,21 @@ function tuneGraphRenderBudgets(library: GraphEngineLibrary): void {
   // Keep the overview readable. Full content remains available through search,
   // hover and the reader panel; the canvas should only carry the visual index.
   Object.assign(budgets.global ?? {}, {
-    maxVisibleEdges: 320,
-    maxLabels: 12,
+    maxVisibleEdges: 160,
+    maxLabels: 8,
     maxCards: 0
   })
   Object.assign(budgets.community ?? {}, {
     maxVisibleNodes: 1800,
-    maxVisibleEdges: 420,
-    maxLabels: 24,
+    maxVisibleEdges: 240,
+    maxLabels: 12,
     maxCards: 10
   })
   for (const [band, values] of Object.entries(budgets)) {
     if (!values || band === 'global' || band === 'community') continue
     Object.assign(values, {
       maxVisibleEdges: Math.min(Number(values.maxVisibleEdges ?? 420), 420),
-      maxLabels: Math.min(Number(values.maxLabels ?? 12), band === 'small' ? 4 : band === 'medium' ? 8 : 14),
+      maxLabels: Math.min(Number(values.maxLabels ?? 12), band === 'small' ? 3 : band === 'medium' ? 6 : 10),
       maxCards: 0
     })
   }
@@ -527,7 +532,9 @@ onBeforeUnmount(() => {
           <span class="landscape-seal">仰恩</span>
           <div>
             <p>数字山水</p>
-            <span>{{ graph?.meta.total_nodes ?? 0 }} 个知识节点</span>
+            <span>
+              {{ graph?.summary.publishedClaims ?? 0 }} 个官网知识点已索引 · 当前绘制 {{ graph?.meta.total_nodes ?? 0 }} 个
+            </span>
           </div>
           <button
             type="button"
@@ -1037,7 +1044,7 @@ onBeforeUnmount(() => {
 
 .collection-summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   border-bottom: 1px solid #d5cfbe;
 }
 
@@ -1246,6 +1253,24 @@ onBeforeUnmount(() => {
 }
 .graph-engine-host :deep(.node-name) {
   max-width: 116px;
+}
+.graph-engine-host :deep(.llm-wiki-graph-engine .node-name) {
+  display: none !important;
+}
+.graph-engine-host :deep(.llm-wiki-graph-engine .node:hover .node-name),
+.graph-engine-host :deep(.llm-wiki-graph-engine .node[aria-pressed="true"] .node-name),
+.graph-engine-host :deep(.llm-wiki-graph-engine .node[data-traceable="true"] .node-name) {
+  display: block !important;
+}
+.graph-engine-host :deep(.llm-wiki-graph-engine .edge) {
+  opacity: .2 !important;
+}
+.graph-engine-host :deep(.llm-wiki-graph-engine .edge.relation-contrast) {
+  opacity: .34 !important;
+}
+.graph-engine-host :deep(.llm-wiki-graph-engine .community-wash),
+.graph-engine-host :deep(.llm-wiki-graph-engine .sigma-global-community-region) {
+  display: none !important;
 }
 .graph-engine-host :deep(.node.is-compact) {
   max-width: 124px;

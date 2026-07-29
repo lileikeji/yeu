@@ -19,14 +19,17 @@ useHead({
 useSeoMeta({
   titleTemplate: title => title ? `${title} | 仰恩新生指南` : '仰恩新生指南',
   description: '面向仰恩大学新生的校园地图、办事流程与校园生活指南。',
+  ogTitle: '仰恩新生指南',
+  ogDescription: '面向仰恩大学新生的校园地图、办事流程与校园生活指南。',
   ogSiteName: '仰恩新生指南',
+  ogType: 'website',
   ogLocale: 'zh_CN',
-  ogImage: '/icons/app-icon-512.png',
+  ogImage: 'https://yeu.huiliyill.cn/icons/app-icon-512.png',
   ogImageWidth: 512,
   ogImageHeight: 512,
   ogImageAlt: '仰恩新生指南',
   twitterCard: 'summary_large_image',
-  twitterImage: '/icons/app-icon-512.png'
+  twitterImage: 'https://yeu.huiliyill.cn/icons/app-icon-512.png'
 })
 </script>
 
