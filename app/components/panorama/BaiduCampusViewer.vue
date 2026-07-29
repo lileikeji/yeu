@@ -16,6 +16,12 @@ interface CampusPanoramaScene {
   pitch: number
 }
 
+interface PanoramaTileLevel {
+  zoom: number
+  columns: number
+  rows: number
+}
+
 const emit = defineEmits<{
   ready: []
   error: []
@@ -71,12 +77,18 @@ let pinchDistance: number | null = null
 let resultReported = false
 let failureReported = false
 
-function tileUrl(panoId: string, position: '0_0' | '0_1'): string {
+const panoramaTileLevels: PanoramaTileLevel[] = [
+  { zoom: 4, columns: 8, rows: 4 },
+  { zoom: 3, columns: 4, rows: 2 },
+  { zoom: 2, columns: 2, rows: 1 }
+]
+
+function tileUrl(panoId: string, row: number, column: number, zoom: number): string {
   const query = new URLSearchParams({
     qt: 'pdata',
     sid: panoId,
-    pos: position,
-    z: '2'
+    pos: `${row}_${column}`,
+    z: String(zoom)
   })
   return `https://mapsv0.bdimg.com/?${query.toString()}`
 }
@@ -96,22 +108,43 @@ async function createSceneTexture(
   three: typeof import('three'),
   scene: CampusPanoramaScene
 ): Promise<Texture> {
-  const [left, right] = await Promise.all([
-    loadImage(tileUrl(scene.panoId, '0_0')),
-    loadImage(tileUrl(scene.panoId, '0_1'))
-  ])
-  const canvas = document.createElement('canvas')
-  canvas.width = 1024
-  canvas.height = 512
-  const context = canvas.getContext('2d')
-  if (!context) throw new Error('Panorama canvas is unavailable')
-  context.drawImage(left, 0, 0, 512, 512)
-  context.drawImage(right, 512, 0, 512, 512)
+  const maxTextureSize = renderer?.capabilities.maxTextureSize ?? 2048
+  const supportedLevels = panoramaTileLevels.filter(level => level.columns * 512 <= maxTextureSize)
+  let lastError: unknown
 
-  const texture = new three.CanvasTexture(canvas)
-  texture.colorSpace = three.SRGBColorSpace
-  texture.needsUpdate = true
-  return texture
+  for (const level of supportedLevels) {
+    try {
+      const tiles = await Promise.all(
+        Array.from({ length: level.rows * level.columns }, (_, index) => {
+          const row = Math.floor(index / level.columns)
+          const column = index % level.columns
+          return loadImage(tileUrl(scene.panoId, row, column, level.zoom))
+        })
+      )
+      const canvas = document.createElement('canvas')
+      canvas.width = level.columns * 512
+      canvas.height = level.rows * 512
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('Panorama canvas is unavailable')
+      for (const [index, image] of tiles.entries()) {
+        const row = Math.floor(index / level.columns)
+        const column = index % level.columns
+        context.drawImage(image, column * 512, row * 512, 512, 512)
+      }
+
+      const texture = new three.CanvasTexture(canvas)
+      texture.colorSpace = three.SRGBColorSpace
+      texture.minFilter = three.LinearMipmapLinearFilter
+      texture.magFilter = three.LinearFilter
+      texture.generateMipmaps = true
+      texture.anisotropy = renderer?.capabilities.getMaxAnisotropy() ?? 1
+      texture.needsUpdate = true
+      return texture
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('No supported panorama texture level')
 }
 
 function reportError() {
@@ -131,7 +164,7 @@ function resizeViewer() {
   if (!host || !renderer || !camera) return
   const width = Math.max(host.clientWidth, 1)
   const height = Math.max(host.clientHeight, 1)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   renderer.setSize(width, height, false)
   camera.aspect = width / height
   camera.updateProjectionMatrix()
