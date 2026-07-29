@@ -1,9 +1,11 @@
 import { isShareCancellation, isWechatUserAgent } from '~/utils/browser-environment'
+import { useWechatShareCard } from '~/composables/useWechatShareCard'
 
 interface PageShareInput {
   title?: string
   text?: string
   url?: string
+  imageUrl?: string
 }
 
 async function writeClipboard(value: string): Promise<boolean> {
@@ -28,6 +30,7 @@ async function writeClipboard(value: string): Promise<boolean> {
 export function useShareActions() {
   const toast = useToast()
   const isWechat = ref(false)
+  const { configureWechatShare } = useWechatShareCard()
 
   onMounted(() => {
     isWechat.value = isWechatUserAgent(navigator.userAgent)
@@ -53,6 +56,27 @@ export function useShareActions() {
     if (!import.meta.client) return
     const url = input.url ?? window.location.href
     const title = input.title ?? document.title
+
+    if (isWechatUserAgent(navigator.userAgent)) {
+      const description = input.text
+        || document.querySelector('meta[name="description"]')?.getAttribute('content')
+        || title
+      const configured = await configureWechatShare({
+        title,
+        description,
+        imageUrl: input.imageUrl
+          || new URL('/icons/app-icon-512.png', window.location.origin).toString(),
+        link: url
+      })
+      if (configured) {
+        toast.add({
+          title: '微信分享已准备好',
+          description: '请点击右上角“…”选择发送给朋友或分享到朋友圈。',
+          color: 'success'
+        })
+        return
+      }
+    }
 
     if (navigator.share) {
       try {

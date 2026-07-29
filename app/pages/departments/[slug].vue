@@ -66,7 +66,7 @@ useSeoMeta({
 })
 const phoneContacts = computed(() => parsePublicPhoneContacts(department.value?.phone))
 const emailHref = computed(() => resolvePublicEmailHref(department.value?.email))
-const { copyText } = useShareActions()
+const { copyText, isWechat, sharePage } = useShareActions()
 const { configureWechatShare } = useWechatShareCard()
 
 onMounted(() => {
@@ -86,8 +86,17 @@ function boxesAt(placement: string) {
   return department.value?.boxes.filter(box => box.placement === placement) ?? []
 }
 
-async function copyDepartmentShare(): Promise<void> {
+async function shareDepartment(): Promise<void> {
   if (!import.meta.client || !department.value) return
+  if (isWechat.value) {
+    await sharePage({
+      title: `${department.value.name}｜仰恩新生指南`,
+      text: department.value.summary,
+      imageUrl: shareImage,
+      url: window.location.href
+    })
+    return
+  }
   await copyText(
     `${department.value.name}｜仰恩新生指南\n查看部门介绍：${window.location.href}`,
     '部门分享内容'
@@ -148,11 +157,11 @@ const feedbackLink = computed(() => content.value
               </h1>
               <UButton
                 icon="i-lucide-share-2"
-                label="复制分享链接"
+                :label="isWechat ? '微信分享' : '复制分享链接'"
                 color="neutral"
                 variant="outline"
                 class="min-h-11"
-                @click="copyDepartmentShare"
+                @click="shareDepartment"
               />
             </div>
             <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">

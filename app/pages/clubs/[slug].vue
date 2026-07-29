@@ -85,7 +85,7 @@ const contactSection = computed(() => resolveClubContactSectionState(Boolean(
   || club.value?.contactQrUrls.length
   || club.value?.contactPhones.length
 )))
-const { copyText } = useShareActions()
+const { copyText, isWechat, sharePage } = useShareActions()
 const { configureWechatShare } = useWechatShareCard()
 
 onMounted(() => {
@@ -105,8 +105,17 @@ function boxesAt(placement: string) {
   return club.value?.boxes.filter(box => box.placement === placement) ?? []
 }
 
-async function copyClubShare(): Promise<void> {
+async function shareClub(): Promise<void> {
   if (!import.meta.client || !club.value) return
+  if (isWechat.value) {
+    await sharePage({
+      title: `${club.value.name}｜仰恩新生指南`,
+      text: `${club.value.name}：${clubDirection.value}`,
+      imageUrl: shareImage.value,
+      url: window.location.href
+    })
+    return
+  }
   await copyText(
     `${club.value.name}｜仰恩新生指南\n查看社团介绍：${window.location.href}`,
     '社团分享内容'
@@ -170,11 +179,11 @@ async function copyClubShare(): Promise<void> {
           </h1>
           <UButton
             icon="i-lucide-share-2"
-            label="复制分享链接"
+            :label="isWechat ? '微信分享' : '复制分享链接'"
             color="neutral"
             variant="outline"
             class="min-h-11"
-            @click="copyClubShare"
+            @click="shareClub"
           />
         </div>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 md:text-base">
