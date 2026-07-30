@@ -379,7 +379,8 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
           { label: '社团', value: 'club' },
           { label: '公告', value: 'notice' }
         ],
-        group: '基本信息'
+        group: '基本信息',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       },
       {
         key: 'title',
@@ -393,7 +394,8 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '网页地址名称',
         required: true,
         placeholder: '例如 freshman-arrival（仅小写字母、数字和短横线）',
-        group: '基本信息'
+        group: '基本信息',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       },
       {
         key: 'summary',
@@ -417,7 +419,8 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'category',
         label: '内容分类',
         placeholder: '可选，例：arrival、campus、life',
-        group: '内容属性'
+        group: '内容属性',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       },
       {
         key: 'audience',
@@ -682,13 +685,15 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         rows: 3,
         description: '每行填写一个来源编号；发布前至少需要一条有效来源。',
         group: '来源与确认',
-        span: 'full'
+        span: 'full',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       },
       {
         key: 'lastVerifiedAt',
         label: '最后确认时间',
         type: 'datetime-local',
-        group: '发布与确认'
+        group: '发布与确认',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       },
       {
         key: 'isFeatured',
@@ -697,7 +702,8 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         defaultValue: false,
         description: '开启后会优先出现在校园页精选区域，并遵循前台排序值。',
         group: '发布与排序',
-        span: 'full'
+        span: 'full',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       }
     ]
   },

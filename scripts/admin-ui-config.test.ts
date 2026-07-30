@@ -163,7 +163,10 @@ test('organization content creation and every organization field use the visual 
     /@click="openVisualCreate\('club'\)"/,
     /label="新增部门"/,
     /@click="openVisualCreate\('department'\)"/,
-    /label="新增指南 \/ 公告"/
+    /label="新增指南"/,
+    /@click="openStructuredCreate\('guide'\)"/,
+    /label="新增公告"/,
+    /@click="openStructuredCreate\('notice'\)"/
   ], 'AdminResourceManager visual creation actions')
   assertContains(organizationVisualCreatePageSource, [
     /route\.query\.kind === 'department'/,

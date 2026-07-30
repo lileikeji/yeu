@@ -14,6 +14,8 @@ export const clientBundleIcons = [
   'lucide:badge-question-mark',
   'lucide:bed-double',
   'lucide:bed-single',
+  'lucide:bell',
+  'lucide:bell-off',
   'lucide:bell-ring',
   'lucide:book',
   'lucide:book-marked',

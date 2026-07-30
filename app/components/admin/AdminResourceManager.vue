@@ -182,7 +182,18 @@ async function openCreateFromQuery(): Promise<void> {
 }
 
 function buildPayload(): AdminRecord {
-  return buildAdminResourcePayload(visibleFields.value, formState)
+  const payload = buildAdminResourcePayload(visibleFields.value, formState)
+  if (props.config.key !== 'content' || formState.kind !== 'notice') return payload
+
+  if (!editingRecord.value) {
+    payload.kind = 'notice'
+    payload.slug = `notice-${Date.now()}`
+    payload.category = null
+    payload.isFeatured = false
+    payload.lastVerifiedAt = null
+  }
+
+  return payload
 }
 
 function validateForm(): string | null {
@@ -223,11 +234,19 @@ function validateForm(): string | null {
           />
           <UButton
             icon="i-lucide-file-plus-2"
-            label="新增指南 / 公告"
+            label="新增指南"
             color="neutral"
             variant="outline"
             :disabled="writeBusy"
             @click="openStructuredCreate('guide')"
+          />
+          <UButton
+            icon="i-lucide-megaphone"
+            label="新增公告"
+            color="warning"
+            variant="soft"
+            :disabled="writeBusy"
+            @click="openStructuredCreate('notice')"
           />
         </template>
         <UButton

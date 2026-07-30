@@ -15,7 +15,8 @@ import {
 import type { AdminSessionContext } from '../server/utils/auth'
 import {
   assertOrganizationContentUpdateAllowed,
-  requireAdminContentAccess
+  requireAdminContentAccess,
+  withAutomaticOrganizationVerification
 } from '../server/utils/auth'
 import { verifyPassword } from '../server/utils/password'
 import { createOrganizationAdminSchema } from '../shared/schemas/server'
@@ -204,6 +205,13 @@ test('organization administrators can edit organization content but not governan
       groupQrUrls: ['/uploads/example.jpg']
     }
   }))
+
+  const automaticVerification = withAutomaticOrganizationVerification(
+    session,
+    { title: '计算机协会' },
+    Date.parse('2026-07-31T10:30:00+08:00')
+  )
+  assert.equal(automaticVerification.lastVerifiedAt, '2026-07-31T02:30:00.000Z')
 
   const originalCreateError = globalThis.createError
   globalThis.createError = ((input: {

@@ -293,6 +293,25 @@ test('disputed low-confidence evidence cannot publish content', () => {
   }
 })
 
+test('administrator-authored notices can publish without external evidence', () => {
+  const fixture = createFixture()
+  try {
+    insertContent(fixture.client, 'notice-without-source', [], 'draft', 'notice')
+    fixture.client.sqlite.prepare(`
+      UPDATE contents SET last_verified_at = NULL WHERE id = 'notice-without-source'
+    `).run()
+
+    assert.equal(publishContent(fixture.client, 'notice-without-source').status, 'published')
+    assert.equal(updateContent(fixture.client, 'notice-without-source', {
+      title: 'Updated notice',
+      lastVerifiedAt: null,
+      sourceIds: []
+    }).title, 'Updated notice')
+  } finally {
+    fixture.cleanup()
+  }
+})
+
 test('missing, unverified, and GCJ-02 coordinates cannot publish a place', () => {
   const fixture = createFixture()
   try {

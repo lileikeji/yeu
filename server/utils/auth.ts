@@ -166,6 +166,18 @@ export function assertOrganizationContentUpdateAllowed(
   })
 }
 
+export function withAutomaticOrganizationVerification<T extends Record<string, unknown>>(
+  session: AdminSessionContext,
+  input: T,
+  now = Date.now()
+): T & { lastVerifiedAt?: string } {
+  if (session.admin.role !== 'organization') return input
+  return {
+    ...input,
+    lastVerifiedAt: new Date(now).toISOString()
+  }
+}
+
 function assertCsrf(
   event: H3Event,
   client: DatabaseClient,

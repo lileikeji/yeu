@@ -4,7 +4,8 @@ import { archiveContent, getAdminContent, publishContent, updateContent } from '
 import { writeAudit } from '../../../utils/audit'
 import {
   assertOrganizationContentUpdateAllowed,
-  requireAdminContentAccess
+  requireAdminContentAccess,
+  withAutomaticOrganizationVerification
 } from '../../../utils/auth'
 import { useAdminRequest } from '../../../utils/http'
 import { parseBody, requireUuidParam } from '../../../utils/validation'
@@ -28,8 +29,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const updated = Object.keys(fields).length > 0
-    ? updateContent(client, id, fields)
+  const update = withAutomaticOrganizationVerification(session, fields)
+  const updated = Object.keys(update).length > 0
+    ? updateContent(client, id, update)
     : getAdminContent(client, id)
 
   const result = status === 'published'
@@ -42,7 +44,10 @@ export default defineEventHandler(async (event) => {
     action: status ? `content.${status}` : 'content.update',
     entityType: 'content',
     entityId: id,
-    details: { fields: Object.keys(input), compatibilityMethod: 'PUT' }
+    details: {
+      fields: [...new Set([...Object.keys(input), ...Object.keys(update)])],
+      compatibilityMethod: 'PUT'
+    }
   })
   return result
 })

@@ -220,7 +220,7 @@ export function updateContent(client: DatabaseClient, id: string, input: UpdateC
     ? existing.lastVerifiedAt
     : fromIso(fields.lastVerifiedAt) ?? null
 
-  if (existing.status === 'published') {
+  if (existing.status === 'published' && existing.kind !== 'notice') {
     const publishableSourceCount = sourceIds === undefined
       ? countPublishableContentSources(client, id)
       : countPublishableSourcesByIds(client, sourceIds)
@@ -266,7 +266,9 @@ export function publishContent(client: DatabaseClient, id: string) {
   }
 
   const now = Date.now()
-  assertContentPublishableState(row.lastVerifiedAt, countPublishableContentSources(client, id), now)
+  if (row.kind !== 'notice') {
+    assertContentPublishableState(row.lastVerifiedAt, countPublishableContentSources(client, id), now)
+  }
 
   client.db.update(contents).set({
     status: 'published',

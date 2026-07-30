@@ -35,6 +35,17 @@ const emit = defineEmits<{
 }>()
 
 const imageUploadState = reactive<Record<string, { uploading: boolean, error: string }>>({})
+const isNoticeEditor = computed(() => props.config.key === 'content' && props.formState.kind === 'notice')
+const editorTitle = computed(() => isNoticeEditor.value
+  ? props.editingRecord ? '编辑公告' : '新增公告'
+  : props.editingRecord ? `编辑${props.config.title}` : props.config.createLabel)
+const editorDescription = computed(() => isNoticeEditor.value
+  ? props.editingRecord
+    ? `更新“${props.editingRecordTitle}”的公告内容、展示时间和置顶状态。`
+    : '填写公告内容和展示时间，保存后可在列表中发布。'
+  : props.editingRecord
+    ? `更新“${props.editingRecordTitle}”的内容和发布状态。`
+    : '填写完成后保存，可稍后继续修改。')
 
 function inputValue(key: string): string {
   return getAdminResourceInputValue(props.formState, key)
@@ -173,8 +184,8 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
 <template>
   <UModal
     v-model:open="open"
-    :title="editingRecord ? `编辑${config.title}` : config.createLabel"
-    :description="editingRecord ? `更新“${editingRecordTitle}”的内容和发布状态。` : '填写完成后保存，可稍后继续修改。'"
+    :title="editorTitle"
+    :description="editorDescription"
     scrollable
     :dismissible="!saving"
     :ui="{ content: 'sm:max-w-4xl' }"
