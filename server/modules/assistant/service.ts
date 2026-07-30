@@ -3448,11 +3448,17 @@ export async function answerCampusQuestion(
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
+    // For identity queries ("X是谁"), only suppress web search when we have a
+    // dedicated high-confidence profile entry (≥0.9). A tangential KB article
+    // title match (~0.78) is not enough — web search usually has richer content.
+    const identitySubject = assistantIdentitySubject(query)
+    const knowledgeBlocksWebSearch = deterministicKnowledgeAnswer !== null
+      && (!identitySubject || (deterministicKnowledgeAnswer.confidence ?? 0) >= 0.9)
     if (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
       deterministicCollegeAnswer
       || deterministicMajorDormAnswer
       || deterministicCampusAnswer
-      || deterministicKnowledgeAnswer
+      || knowledgeBlocksWebSearch
       || deterministicRuleAnswer
       || hasStructuredLocalAnswer(query, localEvidence)
       || localEvidenceIsSufficient(query, localEvidence)
