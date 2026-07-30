@@ -572,9 +572,12 @@ function directQueryKind(value: string): DirectQueryKind | null {
   if (KNOWLEDGE_META_QUESTION_RE.test(query)) return 'meta'
   if (CAMPUS_HARDSHIP_RE.test(query)) return null
   if (isCampusProcedureQuery(query)) return null
-  if (GENERAL_REASONING_RE.test(query)) return 'general'
   if (assistantIdentitySubject(query)) return null
   if (CAMPUS_QUERY_RE.test(query)) return null
+  // Check general reasoning only after campus checks: a query containing both
+  // a campus term ("食堂") and a general-reasoning pattern ("能不能…吃饭") must
+  // be handled by the knowledge base, not routed to a zero-evidence LLM call.
+  if (GENERAL_REASONING_RE.test(query)) return 'general'
   return STABLE_GENERAL_TOPIC_RE.test(query) ? 'general' : null
 }
 
@@ -2478,18 +2481,6 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (featureAnswer) return featureAnswer
 
   const primary = evidence[0]!
-  const focusedFact = focusedLocalFactAnswer(query, primary)
-  if (focusedFact) {
-    const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
-    return {
-      query,
-      mode: 'local',
-      answer: focusedFact,
-      citations: [citation],
-      usedWebSearch: false,
-      confidence: Math.min(0.98, 0.72 + primary.score / 80)
-    }
-  }
   const related = evidence.slice(1, 3).map(item => `“${item.title}”`).join('、')
   const relatedText = related ? `也可以核对${related}。` : ''
   return {
@@ -2517,39 +2508,6 @@ function identityLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiA
     usedWebSearch: false,
     confidence: 0.78
   }
-}
-
-function focusedLocalFactAnswer(query: string, evidence: AssistantEvidence): string | null {
-  const normalizedQuery = normalizeAssistantQuery(query)
-  const quantityMatch = normalizedQuery.match(
-    /([^，。？！?]{2,36}?)(?:有|为|是|共|共有|达到)?(?:多少|几)(?:个|名|人|元|分|米|天|年|月|小时|分钟|学分|平方米|亩|所|门|项|条|次)?/u
-  )
-  if (!quantityMatch?.[1]) return null
-
-  const subject = quantityMatch[1]
-    .split(/(?:里面|其中|之中|里|内|中|关于|的)/u)
-    .at(-1)
-    ?.replace(/(?:请问|麻烦|帮我|告诉我|想知道|仰恩大学|这个学校|学校)/gu, '')
-    .trim()
-  if (!subject || subject.length < 2) return null
-
-  const requestedUnit = normalizedQuery.match(/(?:多少|几)(个|名|人|元|分|米|天|年|月|小时|分钟|学分|平方米|亩|所|门|项|条|次)/u)?.[1]
-  if (!requestedUnit) return null
-  const sentences = evidence.snippet
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[。！？!?；;])/u)
-    .map(item => item.trim())
-    .filter(Boolean)
-  const escapedSubject = subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const escapedUnit = requestedUnit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const directFactPattern = new RegExp(
-    `${escapedSubject}[^，,。！？!?；;]{0,16}?(?:有|为|是|共|共有|达到|约|近|超过)?\\s*\\d+(?:\\.\\d+)?(?:万|千|百)?\\s*${escapedUnit}`,
-    'u'
-  )
-  const fact = sentences.find(sentence => directFactPattern.test(sentence))
-  if (!fact) return null
-
-  return `根据《${evidence.title}》，${fact}`
 }
 
 function parseAllowedHosts(value: string): Set<string> {
@@ -2958,15 +2916,25 @@ export async function askGateway(
   if (activeGatewayCalls >= 2) throw new Error('AI_BUSY')
   activeGatewayCalls += 1
   try {
-    const modelEvidence = evidence.map((item, index) => ({
-      index,
-      authority: assistantEvidenceAuthority(item),
-      authority_rank: EVIDENCE_AUTHORITY_SCORE[assistantEvidenceAuthority(item)],
-      title: item.title,
-      url: item.url,
-      snippet: item.snippet,
-      source: item.source
-    }))
+    const modelEvidence = evidence.map((item, index) => {
+      const sourceLabel
+        = item.source === 'official_site'
+          ? '[官网原文] '
+          : item.source === 'reviewed_site'
+            ? '[站内审核] '
+            : item.source === 'structured_site' || item.source === 'site'
+              ? '[站内整理] '
+              : item.source === 'web' ? '[外部网页] ' : ''
+      return {
+        index,
+        authority: assistantEvidenceAuthority(item),
+        authority_rank: EVIDENCE_AUTHORITY_SCORE[assistantEvidenceAuthority(item)],
+        title: item.title,
+        url: item.url,
+        snippet: sourceLabel + (item.snippet ?? ''),
+        source: item.source
+      }
+    })
     const response = await fetch(`${config.gatewayBaseUrl.replace(/\/+$/, '')}/v1/chat/completions`, {
       method: 'POST',
       headers: {
