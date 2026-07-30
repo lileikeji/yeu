@@ -5,6 +5,7 @@ import { campusTransitOptions, campusTransitSearchText } from '../../../data/cam
 import { nearbyGuideItems, nearbyGuideSearchText } from '../../../data/nearby-guide'
 import { searchSystemFeatures } from '../../../data/system-features'
 import { transferMajorHistoricalRule } from '../../../data/transfer-major'
+import { userSubmittedCampusNotes } from '../../../data/user-submitted-campus-notes'
 import {
   comprehensiveEvaluationRules,
   gpaRules,
@@ -1724,6 +1725,9 @@ function assistantKnowledgeLocalAnswer(
       '新区', '旧区', '水卡', '生活费', '喜鹊儿', '银行卡',
       '快递地址', '宿舍楼下', '混班', '混专业', '穿孔', '耳饰'
     ].filter(aspect => query.includes(aspect))
+    // Do not let a broad comparison entry about comfort rooms answer a
+    // specific ordinary-room question just because both mention a balcony.
+    if (/普通型宿舍.{0,8}阳台/.test(query) && !/普通型宿舍.{0,20}阳台/.test(candidateText)) return false
     if (requestedSpecificAspects.some(aspect => !candidateText.includes(aspect))) return false
     if (/什么时候开放/.test(query) && !/(?:什么时候开放|开放(?:日期|时间|时刻)|开学前)/.test(candidateText)) return false
     if (/在哪抢/.test(query) && !/(?:哪个系统抢|迎新系统|抢宿舍流程)/.test(candidateText)) return false
@@ -2304,6 +2308,9 @@ function majorDormLocalAnswer(query: string, evidence: AssistantEvidence[]): Api
     .sort((left, right) => right.name.length - left.name.length)
     .find(item => normalized.includes(item.name.toLocaleLowerCase('zh-CN')))
   if (!profile) return null
+  const userCampusCorrection = profile.name === '计算机科学与技术'
+    ? userSubmittedCampusNotes.find(item => item.id === 'experience-2026-computer-science-new-campus-correction')
+    : null
   const matched = evidence.find(item => item.title === `${profile.name} · ${profile.collegeName}`)
   const citations: ApiAssistantCitation[] = matched
     ? [{ title: matched.title, url: matched.url, snippet: matched.snippet, source: matched.source }]
@@ -2311,10 +2318,12 @@ function majorDormLocalAnswer(query: string, evidence: AssistantEvidence[]): Api
   return {
     query,
     mode: 'local',
-    answer: `${profile.name}属于${profile.collegeName}。2026级宿舍在新区还是旧区，目前仍是“${profile.dormLabel}”。${profile.dormNote}报到地点、学院上课地点都不能用来推断宿舍片区。`,
+    answer: userCampusCorrection
+      ? userCampusCorrection.answer
+      : `${profile.name}属于${profile.collegeName}。2026级宿舍在新区还是旧区，目前仍是“${profile.dormLabel}”。${profile.dormNote}报到地点、学院上课地点都不能用来推断宿舍片区。`,
     citations,
     usedWebSearch: false,
-    confidence: 0.96
+    confidence: userCampusCorrection ? userCampusCorrection.confidence / 100 : 0.96
   }
 }
 

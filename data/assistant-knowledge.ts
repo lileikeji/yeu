@@ -1,4 +1,5 @@
 import { facultyProfiles } from './faculty-directory'
+import { userSubmittedCampusNotes } from './user-submitted-campus-notes'
 
 export type AssistantKnowledgeKind = 'official_reference' | 'campus_template' | 'student_experience'
 
@@ -908,5 +909,6 @@ export const assistantKnowledgeSeeds: AssistantKnowledgeSeed[] = [
   ...comprehensiveEvaluationKnowledge,
   ...verifiedNewStudentFaqKnowledge,
   ...userVerifiedNewStudentExperienceKnowledge,
-  ...campusExperienceKnowledge
+  ...campusExperienceKnowledge,
+  ...userSubmittedCampusNotes
 ]
