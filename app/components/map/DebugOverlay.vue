@@ -130,7 +130,6 @@ onMounted(() => {
 
     // Distinguish "AMap never sized itself" from "AMap sized itself but the
     // container is hidden or clipped by an ancestor".
-    const container = document.querySelector('.amap-container') as HTMLElement | null
     if (container) {
       const style = getComputedStyle(container)
       log('container css', `disp=${style.display} vis=${style.visibility} op=${style.opacity}`)
