@@ -313,7 +313,9 @@ test('assistant query normalization and retrieval terms cover common campus word
   assert.equal(unknownTerms.includes('仰恩大学') || unknownTerms.includes('仰恩'), false)
   const followUpTerms = assistantQueryTerms('仰恩大学新生报到宿舍校园卡网络奖学金转专业老师是谁；追问：哪栋楼')
   assert.ok(followUpTerms.includes('哪栋楼'))
+  assert.equal(followUpTerms[0], '哪栋楼')
   assert.equal(followUpTerms.includes('谁是'), false)
+  assert.equal(assistantQueryTerms('仰恩大学主要有哪些专业').includes('专业'), false)
 })
 
 test('knowledge retrieval is decided independently for every message', () => {

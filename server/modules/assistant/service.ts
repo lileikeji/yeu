@@ -136,7 +136,7 @@ const QUERY_TERM_STOPWORDS = new Set([
   '什么', '时候', '哪些', '谁是', '是谁', '主要', '专业', '学院', '学校', '大学',
   '学生', '要求', '条件', '规则', '流程', '信息', '内容', '情况', '相关', '具体',
   '可以', '需要', '应该', '现在', '当前', '怎么', '如何', '哪里', '有什', '什么',
-  '上面', '下面', '里面', '其中', '还有', '一下', '方便', '吗呢', '了吗'
+  '上面', '下面', '里面', '其中', '还有', '一下', '方便', '吗呢', '了吗', '追问'
 ])
 
 const QUERY_ANCHOR_FILLERS = [
@@ -445,7 +445,8 @@ export function assistantQueryTerms(value: string): string[] {
 
   // Follow-up questions are appended to the previous query. Their terms must
   // be considered first, otherwise a long first message can consume the cap.
-  const tail = query.split(/追问\s*[：:]/u).pop()?.trim() ?? ''
+  const followUpMatch = query.match(/追问\s*[：:]\s*(.*)$/u)
+  const tail = followUpMatch?.[1]?.trim() ?? ''
   const tailChunks = tail
     .replace(/[?？!！,，。；;：:、()（）【】]/g, ' ')
     .split(/\s+/)
@@ -457,7 +458,11 @@ export function assistantQueryTerms(value: string): string[] {
   const expansionTerms = new Set<string>()
   const shortEntityTerms = new Set<string>()
   const addChunk = (chunk: string): void => {
-    if (chunk.length >= 2) phraseTerms.add(chunk)
+    // Two-character question words ("谁是", "主要", "哪些") are useful for
+    // intent detection but harmful as database terms. Keep short named
+    // entities such as "宿舍" and "床垫", while dropping the generic shape
+    // words before they reach FTS/LIKE fallback queries.
+    if (chunk.length >= 2 && !QUERY_TERM_STOPWORDS.has(chunk)) phraseTerms.add(chunk)
     for (const [key, expansions] of Object.entries(TERM_EXPANSIONS)) {
       if (chunk.includes(key)) {
         phraseTerms.add(key)
@@ -493,7 +498,14 @@ export function assistantQueryTerms(value: string): string[] {
     ...expansionTerms,
     ...shortEntityTerms
   ]
-  return [...new Set(terms)].slice(0, 24)
+  // A follow-up is the most recent user intent. Reserve room for it even when
+  // the previous question contains a long title or a pasted paragraph.
+  const prioritizedTail = followUpMatch
+    ? [...new Set(tailChunks.filter(item => !QUERY_TERM_STOPWORDS.has(item)))]
+    : []
+  const remainder = [...new Set(terms)].filter(item => !prioritizedTail.includes(item))
+  const tailBudget = Math.min(8, prioritizedTail.length)
+  return [...prioritizedTail.slice(0, tailBudget), ...remainder].slice(0, 24)
 }
 
 function identitySubjectForQuery(value: string): string | null {
@@ -663,14 +675,20 @@ function normalizedEvidenceKey(value: string): string {
 
 function dedupeAssistantEvidence(evidence: AssistantEvidence[]): AssistantEvidence[] {
   const contentKeys = new Set<string>()
+  const factKeys = new Set<string>()
   const urlTitleKeys = new Set<string>()
   const titleCounts = new Map<string, number>()
   return [...evidence]
     .sort((left, right) => (right.score ?? 0) - (left.score ?? 0))
     .filter((item) => {
       const titleKey = normalizedEvidenceKey(item.title)
-      const contentKey = `${titleKey}|${normalizedEvidenceKey(item.snippet || item.text)}`
+      const normalizedSnippet = normalizedEvidenceKey(item.snippet || item.text)
+      const contentKey = `${titleKey}|${normalizedSnippet}`
       if (contentKeys.has(contentKey)) return false
+      // Claims and crawled documents often carry the same sentence under
+      // different titles/URLs. Keep the highest-ranked copy so one fact does
+      // not consume the entire answer context or citation list.
+      if (normalizedSnippet.length >= 24 && factKeys.has(normalizedSnippet)) return false
       const urlTitleKey = `${item.url}|${titleKey}`
       if (!item.url.startsWith('/search?') && urlTitleKeys.has(urlTitleKey)) return false
       const count = titleCounts.get(titleKey) ?? 0
@@ -679,6 +697,7 @@ function dedupeAssistantEvidence(evidence: AssistantEvidence[]): AssistantEviden
       const titleLimit = /正文要点|官网正文/.test(titleKey) ? 2 : 3
       if (count >= titleLimit) return false
       contentKeys.add(contentKey)
+      if (normalizedSnippet.length >= 24) factKeys.add(normalizedSnippet)
       if (!item.url.startsWith('/search?')) urlTitleKeys.add(urlTitleKey)
       titleCounts.set(titleKey, count + 1)
       return true

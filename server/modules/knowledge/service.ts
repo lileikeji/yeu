@@ -405,6 +405,14 @@ function normalizedKnowledgeKey(value: string): string {
     .replace(/[\p{P}\p{S}\s]+/gu, '')
 }
 
+function knowledgeTitleBucket(value: string): string {
+  const normalized = normalizedKnowledgeKey(value)
+  // A crawler can expose the same page as either “官网正文” or “正文要点”.
+  // Treat those suffix variants as one bucket so equivalent claims do not
+  // bypass the per-document context limit.
+  return normalized.replace(/(?:官网)?正文(?:要点)?$/u, '') || normalized
+}
+
 const GENERIC_KNOWLEDGE_TERMS = new Set([
   '什么', '时候', '哪些', '谁是', '是谁', '主要', '专业', '学院', '学校', '大学',
   '学生', '要求', '条件', '规则', '流程', '信息', '内容', '情况', '相关', '具体',
@@ -682,22 +690,33 @@ export function searchPublishedKnowledgeClaims(
         + Math.min(24, titleMatches.reduce((total, term) => total + Math.max(2, term.length), 0))
         + Math.min(12, specificMatches.length * 4)
     }
-  }).filter((row): row is NonNullable<typeof row> => Boolean(row)).sort((left, right) => right.score - left.score)
+  }).filter((row): row is NonNullable<typeof row> => Boolean(row)).sort((left, right) => (
+    right.score - left.score
+    || right.confidenceScore - left.confidenceScore
+    || left.title.localeCompare(right.title, 'zh-CN')
+    || left.statement.localeCompare(right.statement, 'zh-CN')
+    || left.id.localeCompare(right.id)
+  ))
 
   const statements = new Set<string>()
+  const claimKeys = new Set<string>()
   const titleCounts = new Map<string, number>()
   return ranked
     .filter((row) => {
       const statementKey = normalizedKnowledgeKey(row.statement)
       const titleKey = normalizedKnowledgeKey(row.title)
-      if (!statementKey || statements.has(statementKey)) return false
+      const claimKey = `${titleKey}\u0000${statementKey}`
+      if (!statementKey || claimKeys.has(claimKey) || statements.has(statementKey)) return false
       // Crawler-generated “正文要点” claims are useful, but only a couple of
       // distinct passages from the same title should enter one answer context.
-      const titleLimit = /正文要点|官网正文/.test(titleKey) ? 2 : 3
-      const count = titleCounts.get(titleKey) ?? 0
+      const compiledTitle = /正文要点|官网正文/.test(titleKey)
+      const titleLimit = compiledTitle ? 2 : 3
+      const titleBucket = compiledTitle ? knowledgeTitleBucket(row.title) : titleKey
+      const count = titleCounts.get(titleBucket) ?? 0
       if (count >= titleLimit) return false
+      claimKeys.add(claimKey)
       statements.add(statementKey)
-      titleCounts.set(titleKey, count + 1)
+      titleCounts.set(titleBucket, count + 1)
       return true
     })
     .slice(0, Math.max(1, Math.min(30, limit)))

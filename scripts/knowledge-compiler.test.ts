@@ -366,9 +366,13 @@ test('published facts are indexed, validity-gated and removed from retrieval aft
 test('published claim retrieval removes duplicate statements and limits crawler title buckets', () => {
   const value = fixture()
   try {
-    const makeClaim = (statement: string, confidenceScore: number) => createKnowledgeClaim(value.client, {
+    const makeClaim = (
+      statement: string,
+      confidenceScore: number,
+      title = '仰恩大学官方资料｜正文要点'
+    ) => createKnowledgeClaim(value.client, {
       category: '官网正文',
-      title: '仰恩大学官方资料｜正文要点',
+      title,
       statement,
       keywords: ['宿舍床垫', '尺寸'],
       confidenceLabel: 'extracted',
@@ -393,9 +397,16 @@ test('published claim retrieval removes duplicate statements and limits crawler 
     const preferred = makeClaim(duplicate, 96)
     makeClaim('宿舍床垫尺寸不要只按商家标称规格下单。', 95)
     makeClaim('宿舍床垫尺寸在购买前应先核对床铺长度和宽度。', 94)
+    makeClaim(
+      '宿舍床垫尺寸的具体规格以最新宿舍安排为准。',
+      93,
+      '仰恩大学官方资料｜官网正文'
+    )
 
     const matches = searchPublishedKnowledgeClaims(value.client, ['宿舍床垫', '尺寸'], 6)
+    const repeatMatches = searchPublishedKnowledgeClaims(value.client, ['宿舍床垫', '尺寸'], 6)
     assert.ok(matches.length <= 2)
+    assert.deepEqual(matches.map(item => item.id), repeatMatches.map(item => item.id))
     assert.equal(matches.filter(item => item.statement === duplicate).length, 1)
     assert.equal(matches.find(item => item.statement === duplicate)?.confidenceScore, preferred.confidenceScore)
   } finally {
