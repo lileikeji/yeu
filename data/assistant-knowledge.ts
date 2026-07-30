@@ -338,6 +338,18 @@ export const userVerifiedNewStudentExperienceKnowledge: AssistantKnowledgeSeed[]
     sourceNote: '仰恩大学董事会、学校简介和仰恩基金会简介，核验于2026-07-29。'
   },
   {
+    id: 'official-wu-qingxing-identity',
+    kind: 'official_reference',
+    category: '学校人物',
+    title: '吴庆星｜仰恩基金会创始人',
+    question: '吴庆星是谁？',
+    answer: '吴庆星先生是仰恩基金会的创始人，与夫人林惠女士共同出资，于1987年在福建省泉州市创办了仰恩大学。学校官网简介记载，仰恩大学是由吴庆星先生和夫人林惠女士发起成立的仰恩基金会举办的私立大学。学校还设有以其命名的"吴庆星奖学金"，以表彰品学兼优的学生。',
+    keywords: ['吴庆星', '吴庆星是谁', '仰恩基金会创始人', '学校创始人', '仰恩大学创始人', '林惠丈夫', '吴庆星奖学金'],
+    publicUrl: 'https://www.yeu.edu.cn/xxgk/xjjj.htm',
+    confidence: 97,
+    sourceNote: '仰恩大学学校简介、仰恩基金会简介，核验于2026-07-30。'
+  },
+  {
     id: 'official-student-immediate-hardship-help',
     kind: 'official_reference',
     category: '资助帮扶',
