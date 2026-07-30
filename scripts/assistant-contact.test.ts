@@ -15,8 +15,11 @@ import { runMigrations } from '../server/database/migrate'
 import {
   askGateway,
   answerCampusQuestion,
+  assistantEvidenceAuthority,
   assistantRetrievalQuery,
   assistantQueryTerms,
+  compareAssistantEvidenceAuthority,
+  hardcodedAssistantFactIsCurrent,
   isGatewayContentBlocked,
   localEvidenceIsSufficient,
   retrieveCampusEvidence,
@@ -322,6 +325,7 @@ test('knowledge retrieval is decided independently for every message', () => {
   assert.equal(shouldUseCampusKnowledgeBase('你好'), false)
   assert.equal(shouldUseCampusKnowledgeBase('你是什么模型？'), false)
   assert.equal(shouldUseCampusKnowledgeBase('神经网络是什么？'), false)
+  assert.equal(shouldUseCampusKnowledgeBase('什么时候封楼？'), true)
   assert.equal(shouldUseCampusKnowledgeBase('没钱吃饭怎么办？'), true)
   assert.equal(shouldUseCampusKnowledgeBase('/help'), false)
   assert.equal(shouldUseCampusKnowledgeBase('宿舍床多大？'), true)
@@ -329,6 +333,141 @@ test('knowledge retrieval is decided independently for every message', () => {
   assert.equal(shouldUseCampusKnowledgeBase('退学'), true)
   assert.equal(shouldUseCampusKnowledgeBase('吴庆星是谁？'), true)
   assert.equal(shouldUseCampusKnowledgeBase('[[/student-rules]]'), true)
+})
+
+test('only allow-listed stable general topics bypass campus retrieval', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-ambiguous-general-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  let gatewayCalls = 0
+  try {
+    runMigrations(client)
+    globalThis.fetch = async () => {
+      gatewayCalls += 1
+      throw new Error('ambiguous campus question must not reach the free-answer route')
+    }
+    const response = await answerCampusQuestion(client, '什么时候封楼？', {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model'
+    })
+    assert.equal(gatewayCalls, 0)
+    assert.equal(response.mode, 'local')
+    assert.match(response.answer, /没有找到|不能直接确认|暂时没有/)
+    assert.deepEqual(response.trace?.map(item => item.stage), [
+      'query_analysis',
+      'local_database',
+      'answer_generation'
+    ])
+  } finally {
+    globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('evidence authority is explicit and hardcoded facts expire into retrieval', () => {
+  assert.equal(assistantEvidenceAuthority({
+    title: '学校官网',
+    url: 'https://jwb.yeu.edu.cn/rule.pdf',
+    snippet: '官网原文',
+    source: 'site'
+  }), 'official_site')
+  assert.equal(assistantEvidenceAuthority({
+    title: '站内审核页',
+    url: '/student-rules',
+    snippet: '人工整理',
+    source: 'site'
+  }), 'reviewed_site')
+  assert.equal(assistantEvidenceAuthority({
+    title: '外部网页',
+    url: 'https://example.com/post',
+    snippet: '二手资料',
+    source: 'web'
+  }), 'external_web')
+  const ordered = [{
+    title: '外部网页',
+    url: 'https://example.com/post',
+    snippet: '相同事实',
+    source: 'web' as const
+  }, {
+    title: '学校官网',
+    url: 'https://jwb.yeu.edu.cn/rule.pdf',
+    snippet: '相同事实',
+    source: 'site' as const
+  }].sort(compareAssistantEvidenceAuthority)
+  assert.equal(ordered[0]?.url, 'https://jwb.yeu.edu.cn/rule.pdf')
+  assert.equal(hardcodedAssistantFactIsCurrent(
+    'openingSchedule2026',
+    Date.parse('2026-09-30T23:59:59+08:00')
+  ), true)
+  assert.equal(hardcodedAssistantFactIsCurrent(
+    'openingSchedule2026',
+    Date.parse('2026-10-01T00:00:00+08:00')
+  ), false)
+})
+
+test('a quantity fallback cannot answer a professional count with a college count', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-quantity-subject-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '仰恩大学有多少个专业？', emptyAssistantConfig)
+    assert.doesNotMatch(response.answer, /12个学院/)
+    assert.match(response.answer, /不能直接确认|没有找到|暂时没有/)
+    assert.ok(response.confidence <= 0.58)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('gateway receives evidence authority and an explicit source hierarchy', async () => {
+  const originalFetch = globalThis.fetch
+  try {
+    globalThis.fetch = async (_input, init) => {
+      const payload = JSON.parse(String(init?.body)) as {
+        messages: Array<{ role: string, content: string }>
+      }
+      const system = payload.messages.find(item => item.role === 'system')?.content ?? ''
+      const user = JSON.parse(payload.messages.find(item => item.role === 'user')?.content ?? '{}') as {
+        evidence: Array<{ authority: string, authority_rank: number }>
+      }
+      assert.match(system, /official_site.*reviewed_site.*structured_site.*external_web/)
+      assert.deepEqual(user.evidence.map(item => [item.authority, item.authority_rank]), [
+        ['official_site', 4],
+        ['external_web', 1]
+      ])
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          answer: '以学校官网原文为准。',
+          citation_indexes: [0],
+          confidence: 0.95
+        }) } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    await askGateway('测试来源优先级', [{
+      title: '官网规则',
+      url: 'https://jwb.yeu.edu.cn/rule.pdf',
+      snippet: '官网原文',
+      source: 'site'
+    }, {
+      title: '外部帖子',
+      url: 'https://example.com/post',
+      snippet: '外部说法',
+      source: 'web'
+    }], {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model'
+    })
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 })
 
 test('prompt-injection shaped questions never reach the assistant gateway', () => {

@@ -158,7 +158,7 @@ function compileDocument(client: DatabaseClient, document: DocumentRow, now: num
       confidence_label, confidence_score, review_status, public_url, source_note,
       valid_from, valid_until, published_at, reviewed_at, reviewed_by_admin_id,
       created_by_admin_id, supersedes_claim_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 'extracted', 88, 'published', ?, ?, NULL, NULL, ?, ?, NULL, NULL, NULL, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, 'extracted', 78, 'review', ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       category = excluded.category,
       title = excluded.title,
@@ -166,12 +166,24 @@ function compileDocument(client: DatabaseClient, document: DocumentRow, now: num
       keywords_json = excluded.keywords_json,
       search_text = excluded.search_text,
       confidence_label = 'extracted',
-      confidence_score = 88,
-      review_status = 'published',
+      confidence_score = CASE
+        WHEN knowledge_claims.reviewed_by_admin_id IS NOT NULL THEN knowledge_claims.confidence_score
+        ELSE 78
+      END,
+      review_status = CASE
+        WHEN knowledge_claims.reviewed_by_admin_id IS NOT NULL THEN knowledge_claims.review_status
+        ELSE 'review'
+      END,
       public_url = excluded.public_url,
       source_note = excluded.source_note,
-      published_at = coalesce(knowledge_claims.published_at, excluded.published_at),
-      reviewed_at = excluded.reviewed_at,
+      published_at = CASE
+        WHEN knowledge_claims.reviewed_by_admin_id IS NOT NULL THEN knowledge_claims.published_at
+        ELSE NULL
+      END,
+      reviewed_at = CASE
+        WHEN knowledge_claims.reviewed_by_admin_id IS NOT NULL THEN knowledge_claims.reviewed_at
+        ELSE NULL
+      END,
       updated_at = excluded.updated_at
   `)
   const sourceUpsert = client.sqlite.prepare(`
@@ -203,8 +215,6 @@ function compileDocument(client: DatabaseClient, document: DocumentRow, now: num
         searchText,
         document.originalUrl,
         note,
-        now,
-        now,
         now,
         now
       )

@@ -67,7 +67,7 @@ test('knowledge migration creates the compiled tables and FTS index', () => {
   }
 })
 
-test('official document正文 is compiled into searchable published claims and is idempotent', () => {
+test('official document正文 is compiled into review claims while the original remains searchable', () => {
   const value = fixture()
   try {
     const now = Date.now()
@@ -92,14 +92,24 @@ test('official document正文 is compiled into searchable published claims and i
     assert.equal(first.documents, 1)
     assert.ok(first.claimsInserted >= 2)
     const claims = value.client.sqlite.prepare(`
-      SELECT kc.title, kc.statement
+      SELECT kc.id, kc.title, kc.statement, kc.review_status AS reviewStatus,
+             kc.confidence_score AS confidenceScore
       FROM knowledge_claims kc
       INNER JOIN knowledge_claim_sources kcs ON kcs.claim_id = kc.id
       WHERE kcs.document_id = ?
       ORDER BY kc.created_at
-    `).all('00000000-0000-4000-8000-000000000010') as Array<{ title: string, statement: string }>
+    `).all('00000000-0000-4000-8000-000000000010') as Array<{
+      id: string
+      title: string
+      statement: string
+      reviewStatus: string
+      confidenceScore: number
+    }>
     assert.ok(claims.some(item => item.statement.includes('9月5日至6日')))
-    assert.ok(searchPublishedKnowledgeClaims(value.client, ['报到时间'], 5).length > 0)
+    assert.ok(claims.every(item => item.reviewStatus === 'review'))
+    assert.ok(claims.every(item => item.confidenceScore === 78))
+    assert.equal(searchPublishedKnowledgeClaims(value.client, ['报到时间'], 5).length, 0)
+    assert.ok(searchOfficialKnowledgeDocuments(value.client, ['报到时间'], 5, '报到时间').length > 0)
 
     const second = compileOfficialKnowledgeDocuments(value.client)
     assert.equal(second.claimsInserted, 0)
@@ -110,6 +120,23 @@ test('official document正文 is compiled into searchable published claims and i
       `).get('00000000-0000-4000-8000-000000000010') as { value: number }).value,
       claims.length
     )
+    const reviewedClaim = claims[0]!
+    value.client.sqlite.prepare(`
+      UPDATE knowledge_claims
+      SET review_status = 'published', confidence_score = 96,
+          reviewed_by_admin_id = ?, reviewed_at = ?, published_at = ?
+      WHERE id = ?
+    `).run(value.adminId, now + 1, now + 1, reviewedClaim.id)
+    compileOfficialKnowledgeDocuments(value.client)
+    assert.deepEqual(value.client.sqlite.prepare(`
+      SELECT review_status AS reviewStatus, confidence_score AS confidenceScore,
+             reviewed_by_admin_id AS reviewedByAdminId
+      FROM knowledge_claims WHERE id = ?
+    `).get(reviewedClaim.id), {
+      reviewStatus: 'published',
+      confidenceScore: 96,
+      reviewedByAdminId: value.adminId
+    })
   } finally {
     value.close()
   }
