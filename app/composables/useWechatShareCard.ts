@@ -33,7 +33,7 @@ interface WechatJsSdk {
     jsApiList: string[]
   }): void
   ready(callback: () => void): void
-  error(callback: (error: unknown) => void): void
+  error?: (callback: (error: unknown) => void) => void
   updateAppMessageShareData?: (input: WechatSharePayload) => void
   updateTimelineShareData?: (input: WechatSharePayload) => void
   onMenuShareAppMessage?: (input: WechatSharePayload) => void
@@ -71,8 +71,7 @@ function describeWechatSdkError(error: unknown): Error {
 function loadWechatJsSdk(): Promise<WechatJsSdk> {
   if (window.wx
     && typeof window.wx.config === 'function'
-    && typeof window.wx.ready === 'function'
-    && typeof window.wx.error === 'function') {
+    && typeof window.wx.ready === 'function') {
     return Promise.resolve(window.wx)
   }
   if (sdkPromise) return sdkPromise
@@ -87,8 +86,7 @@ function loadWechatJsSdk(): Promise<WechatJsSdk> {
       window.clearTimeout(timeout)
       if (window.wx
         && typeof window.wx.config === 'function'
-        && typeof window.wx.ready === 'function'
-        && typeof window.wx.error === 'function') {
+        && typeof window.wx.ready === 'function') {
         resolve(window.wx)
       } else reject(new Error('WeChat JS-SDK unavailable'))
     }, { once: true })
@@ -121,10 +119,12 @@ function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<vo
       else resolve()
     }
 
-    // Follow the SDK's documented order: config first, then register the
-    // ready/error callbacks. Configuration callbacks are asynchronous in the
-    // supported SDKs, so they cannot be missed here.
+    // Register callbacks before config. Older embedded WebViews can dispatch
+    // the first ready/error event immediately after config and otherwise drop
+    // the share configuration before the page has a chance to subscribe.
     try {
+      sdk.ready(() => finish())
+      sdk.error?.(error => finish(error))
       sdk.config({
         debug: false,
         appId: signature.appId,
@@ -133,8 +133,6 @@ function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<vo
         signature: signature.signature,
         jsApiList: signature.jsApiList
       })
-      sdk.ready(() => finish())
-      sdk.error(error => finish(error))
     } catch (error) {
       finish(error)
     }

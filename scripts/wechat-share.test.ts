@@ -65,7 +65,7 @@ test('WeChat credentials stay server-side and route sharing uses one automatic S
   assert.match(composable, /updateAppMessageShareData/)
   assert.match(composable, /updateTimelineShareData/)
   assert.match(composable, /res\.wx\.qq\.com/)
-  assert.match(composable, /sdk\.config\([\s\S]*sdk\.ready\(/)
+  assert.match(composable, /sdk\.ready\([\s\S]*sdk\.config\(/)
   assert.doesNotMatch(composable, /signature\.url !== signedUrl/)
   assert.match(plugin, /configureWechatShare/)
   assert.match(plugin, /lastScheduledRouteKey/)

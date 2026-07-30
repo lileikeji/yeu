@@ -8,6 +8,7 @@ let loaderPromise: Promise<AMapNamespace> | null = null
 const PLUGIN_LOAD_TIMEOUT_MS = 15_000
 
 export const AMAP_REQUIRED_PLUGINS = ['AMap.MarkerCluster', 'AMap.Walking', 'AMap.PlaceSearch'] as const
+const AMAP_BOOT_PLUGINS = ['AMap.MarkerCluster'] as const
 
 export interface AMapLoaderOptions {
   key: string
@@ -22,36 +23,35 @@ export function buildAMapScriptUrl(key: string): string {
   return url.toString()
 }
 
-function hasRequiredPlugins(amap: AMapNamespace): boolean {
-  return typeof amap.MarkerCluster === 'function'
-    && typeof amap.Walking === 'function'
-    && typeof amap.PlaceSearch === 'function'
+function hasPlugin(amap: AMapNamespace, plugin: string): boolean {
+  if (plugin === 'AMap.MarkerCluster') return typeof amap.MarkerCluster === 'function'
+  if (plugin === 'AMap.Walking') return typeof amap.Walking === 'function'
+  if (plugin === 'AMap.PlaceSearch') return typeof amap.PlaceSearch === 'function'
+  return false
 }
 
-function ensureRequiredPlugins(amap: AMapNamespace): Promise<AMapNamespace> {
-  if (hasRequiredPlugins(amap)) return Promise.resolve(amap)
+export function ensureAMapPlugins(
+  amap: AMapNamespace,
+  plugins: readonly string[],
+  timeoutMs = PLUGIN_LOAD_TIMEOUT_MS
+): Promise<boolean> {
+  const missing = plugins.filter(plugin => !hasPlugin(amap, plugin))
+  if (!missing.length) return Promise.resolve(true)
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     let settled = false
-    const finish = (error?: Error) => {
+    const finish = (loaded: boolean) => {
       if (settled) return
       settled = true
       window.clearTimeout(timeout)
-      if (error) reject(error)
-      else resolve(amap)
+      resolve(loaded)
     }
-    const timeout = window.setTimeout(() => {
-      finish(new Error('高德地图点聚合插件加载超时。'))
-    }, PLUGIN_LOAD_TIMEOUT_MS)
+    const timeout = window.setTimeout(() => finish(false), timeoutMs)
 
     try {
-      amap.plugin([...AMAP_REQUIRED_PLUGINS], () => {
-        finish(hasRequiredPlugins(amap)
-          ? undefined
-          : new Error('高德地图点聚合或步行路线插件未初始化。'))
-      })
+      amap.plugin([...missing], () => finish(missing.every(plugin => hasPlugin(amap, plugin))))
     } catch {
-      finish(new Error('高德地图点聚合插件加载失败。'))
+      finish(false)
     }
   })
 }
@@ -62,7 +62,9 @@ export function loadAMap(options: AMapLoaderOptions): Promise<AMapNamespace> {
   }
 
   const amapWindow = window as AMapWindow
-  if (amapWindow.AMap) return ensureRequiredPlugins(amapWindow.AMap)
+  // Do not block the base map on optional route/search plugins. Embedded
+  // browsers can delay those callbacks while AMap itself is ready to render.
+  if (amapWindow.AMap) return Promise.resolve(amapWindow.AMap)
   if (loaderPromise) return loaderPromise
 
   amapWindow._AMapSecurityConfig = {
@@ -89,12 +91,10 @@ export function loadAMap(options: AMapLoaderOptions): Promise<AMapNamespace> {
         reject(new Error('高德地图脚本已加载，但 API 未初始化。'))
         return
       }
-      try {
-        resolve(await ensureRequiredPlugins(amapWindow.AMap))
-      } catch (error) {
-        loaderPromise = null
-        reject(error)
-      }
+      // Marker clustering is an enhancement; ordinary markers remain usable
+      // when an embedded browser blocks the plugin callback.
+      void ensureAMapPlugins(amapWindow.AMap, AMAP_BOOT_PLUGINS)
+      resolve(amapWindow.AMap)
     }
     script.onerror = () => {
       window.clearTimeout(timeout)

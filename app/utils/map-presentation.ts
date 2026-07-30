@@ -383,7 +383,12 @@ export function resolveSelectPoiMapViewMode(input: {
   canShowOfficialPlan: boolean
   currentMode: MapViewMode
 }): MapViewMode {
-  if (input.usesPreviewPoint && input.canShowOfficialPlan) return 'official-plan'
+  // Selecting a place should not replace the active provider with the campus
+  // plan. The map/plan switch is an explicit user choice; keeping the current
+  // mode is especially important in embedded WeChat and QQ browsers where a
+  // sudden plan overlay looks like AMap failed to load.
+  void input.usesPreviewPoint
+  void input.canShowOfficialPlan
   return input.currentMode
 }
 

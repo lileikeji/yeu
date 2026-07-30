@@ -599,7 +599,7 @@ test('selectPoi and map click selection decisions stay pure', () => {
     usesPreviewPoint: true,
     canShowOfficialPlan: true,
     currentMode: 'geographic'
-  }), 'official-plan')
+  }), 'geographic')
   assert.equal(resolveSelectPoiMapViewMode({
     usesPreviewPoint: true,
     canShowOfficialPlan: false,
@@ -643,7 +643,7 @@ test('selectPoi and map click selection decisions stay pure', () => {
     canShowOfficialPlan: true
   })
   assert.equal(ui.mobileSheetState, 'collapsed')
-  assert.equal(ui.mapViewMode, 'official-plan')
+  assert.equal(ui.mapViewMode, 'geographic')
   assert.equal(ui.selectedNativePlace, null)
   assert.equal(ui.providerSelectedPoiId, 'preview-1')
   assert.equal(ui.flyAction, 'fly-to-poi')

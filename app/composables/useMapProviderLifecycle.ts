@@ -11,7 +11,6 @@ import {
   createMapProviderMountGate,
   initializeMapProvider
 } from '~/utils/map-provider-lifecycle'
-import { isWechatUserAgent } from '~/utils/browser-environment'
 import { MAP_LOAD_ERROR_MESSAGE } from '~/utils/map-presentation'
 
 type MapStatus = 'loading' | 'ready' | 'error'
@@ -41,17 +40,13 @@ interface UseMapProviderLifecycleOptions {
 
 const DEFAULT_MAP_ERROR = MAP_LOAD_ERROR_MESSAGE
 
-async function createWechatOfflineProvider(): Promise<MapProvider> {
-  const { WechatOfflineMapProvider } = await import('~~/map/providers/offline/provider')
-  return new WechatOfflineMapProvider()
-}
-
 export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions) {
   const mountGate = createMapProviderMountGate()
   const createProvider = options.createProvider ?? createRuntimeMapProvider
   let mountInFlight = false
   let waitingForVisibleElement = false
   let resizeFrame = 0
+  let visibilityRetryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
   let removeViewportListeners: (() => void) | null = null
 
   function hasUsableSize(element: HTMLElement): boolean {
@@ -68,6 +63,32 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
         runProviderOperation(() => options.mapProvider.value?.resize())
       })
     })
+  }
+
+  function clearVisibilityRetry(): void {
+    if (visibilityRetryTimer !== null) {
+      globalThis.clearTimeout(visibilityRetryTimer)
+      visibilityRetryTimer = null
+    }
+  }
+
+  function scheduleVisibleMountRetry(): void {
+    if (typeof window === 'undefined' || !waitingForVisibleElement || mountInFlight) return
+    if (visibilityRetryTimer !== null) return
+
+    // Older embedded browsers can report a zero-sized v-show container during
+    // the first mounted frame and do not implement ResizeObserver. Keep
+    // checking at a low frequency so the real AMap provider mounts as soon as
+    // the sheet/layout has settled without spinning the main thread.
+    visibilityRetryTimer = globalThis.setTimeout(() => {
+      visibilityRetryTimer = null
+      const element = options.mapElement.value
+      if (element && hasUsableSize(element)) {
+        void mountMap()
+        return
+      }
+      scheduleVisibleMountRetry()
+    }, 120)
   }
 
   function reportProviderFailure(error: unknown): void {
@@ -101,6 +122,7 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
     if (!hasUsableSize(element)) {
       waitingForVisibleElement = true
       options.mapStatus.value = 'loading'
+      scheduleVisibleMountRetry()
       return
     }
     if (mountInFlight) return
@@ -108,28 +130,19 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
     const request = mountGate.begin()
     mountInFlight = true
     waitingForVisibleElement = false
+    clearVisibilityRetry()
     options.beforeMount()
     options.mapStatus.value = 'loading'
     options.mapErrorMessage.value = DEFAULT_MAP_ERROR
     runProviderOperation(() => options.mapProvider.value?.destroy())
     clearProvider()
     let createdProvider: MapProvider | null = null
-    const useWechatOfflineMap = typeof navigator !== 'undefined'
-      && isWechatUserAgent(navigator.userAgent)
-    const providerFactory = useWechatOfflineMap
-      ? createWechatOfflineProvider
-      : createProvider
-    const providerAreas = useWechatOfflineMap ? [] : options.areas.value
-
     try {
-      // WeChat WebViews frequently block AMap/WebGL after the script appears
-      // to load. Use the bundled DOM renderer immediately so the map never
-      // spends several seconds in a retry state or depends on external tiles.
-      const provider = await initializeMapProvider(providerFactory, {
+      const provider = await initializeMapProvider(createProvider, {
         element,
         displayOptions: options.displayOptions.value,
         baseStyle: options.baseStyle.value,
-        areas: providerAreas,
+        areas: options.areas.value,
         pois: options.pois.value,
         selectedPoiId: options.selectedPoiId.value,
         selectedAreaId: options.selectedAreaId.value
@@ -212,6 +225,7 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
   })
   onBeforeUnmount(() => {
     removeViewportListeners?.()
+    clearVisibilityRetry()
     if (resizeFrame && typeof window !== 'undefined') window.cancelAnimationFrame(resizeFrame)
     resizeFrame = 0
     destroyMapProvider()

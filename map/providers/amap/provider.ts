@@ -10,7 +10,7 @@ import type {
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
 import type { GeoPoint, MapArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
-import { loadAMap } from './loader'
+import { ensureAMapPlugins, loadAMap } from './loader'
 import type {
   AMapConvertResult,
   AMapClusterRenderContext,
@@ -140,6 +140,7 @@ export class AMapProvider implements MapProvider {
   private renderVersion = 0
   private areaRenderVersion = 0
   private mapAccessibilityObserver: MutationObserver | null = null
+  private readonly pluginPromises = new Map<string, Promise<boolean>>()
 
   constructor(options: AMapProviderOptions) {
     this.options = options
@@ -170,6 +171,15 @@ export class AMapProvider implements MapProvider {
     map.on('click', this.handleMapClick)
     map.on('hotspotclick', this.handleHotspotClick)
     await Promise.all([this.rebuildMarkers(), this.rebuildAreas()])
+
+    // Clustering is optional. If the embedded browser finishes loading it
+    // later, upgrade the already-visible plain markers without remounting the
+    // AMap instance or interrupting the user.
+    void this.ensurePlugins(['AMap.MarkerCluster']).then((available) => {
+      if (available && this.map === map && this.displayOptions.autoCluster) {
+        this.startRenderTask(this.rebuildMarkers(), '高德地图标点刷新失败。')
+      }
+    })
   }
 
   setPois(pois: MapPoi[]): void {
@@ -296,6 +306,9 @@ export class AMapProvider implements MapProvider {
     const amap = this.amap
     const map = this.map
     if (!amap || !map) throw new Error('高德地图尚未加载完成。')
+    if (!await this.ensurePlugins(['AMap.Walking'])) {
+      throw new Error('高德步行路线插件暂时不可用，请稍后重试。')
+    }
     if (!this.isRenderablePoint(origin) || !this.isRenderablePoint(destination)) {
       throw new Error('起点或终点坐标无法用于路线规划。')
     }
@@ -347,45 +360,49 @@ export class AMapProvider implements MapProvider {
     const map = this.map
     if (!keyword || !amap || !map) return Promise.resolve([])
 
-    const center = map.getCenter()
-    const bounds = map.getBounds()
-    const southWest = bounds.getSouthWest()
-    const northEast = bounds.getNorthEast()
-    const centerPosition: AMapPosition = [center.getLng(), center.getLat()]
-    const radius = this.visibleSearchRadius(centerPosition, [northEast.getLng(), northEast.getLat()])
-    const placeSearch = new amap.PlaceSearch({ pageSize: 50, pageIndex: 1, extensions: 'base' })
+    return this.ensurePlugins(['AMap.PlaceSearch']).then((available) => {
+      if (!available || this.amap !== amap || this.map !== map) return []
 
-    return new Promise((resolve) => {
-      let settled = false
-      const finish = (results: MapPoi[]) => {
-        if (settled) return
-        settled = true
-        globalThis.clearTimeout(timeout)
-        resolve(results)
-      }
-      const timeout = globalThis.setTimeout(() => finish([]), PLACE_SEARCH_TIMEOUT_MS)
+      const center = map.getCenter()
+      const bounds = map.getBounds()
+      const southWest = bounds.getSouthWest()
+      const northEast = bounds.getNorthEast()
+      const centerPosition: AMapPosition = [center.getLng(), center.getLat()]
+      const radius = this.visibleSearchRadius(centerPosition, [northEast.getLng(), northEast.getLat()])
+      const placeSearch = new amap.PlaceSearch({ pageSize: 50, pageIndex: 1, extensions: 'base' })
 
-      try {
-        placeSearch.searchNearBy(keyword, centerPosition, radius, (status, result) => {
-          if (status !== 'complete' || typeof result === 'string') {
-            finish([])
-            return
-          }
-          const pois = this.readPlacePois(result)
-            .filter((poi) => {
-              const lng = poi.location?.getLng()
-              const lat = poi.location?.getLat()
-              return Number.isFinite(lng) && Number.isFinite(lat)
-                && lng! >= southWest.getLng() && lng! <= northEast.getLng()
-                && lat! >= southWest.getLat() && lat! <= northEast.getLat()
-            })
-            .map(poi => this.nativeMapPoi(poi))
-            .filter((poi): poi is MapPoi => poi !== null)
-          finish(pois)
-        })
-      } catch {
-        finish([])
-      }
+      return new Promise<MapPoi[]>((resolve) => {
+        let settled = false
+        const finish = (results: MapPoi[]) => {
+          if (settled) return
+          settled = true
+          globalThis.clearTimeout(timeout)
+          resolve(results)
+        }
+        const timeout = globalThis.setTimeout(() => finish([]), PLACE_SEARCH_TIMEOUT_MS)
+
+        try {
+          placeSearch.searchNearBy(keyword, centerPosition, radius, (status, result) => {
+            if (status !== 'complete' || typeof result === 'string') {
+              finish([])
+              return
+            }
+            const pois = this.readPlacePois(result)
+              .filter((poi) => {
+                const lng = poi.location?.getLng()
+                const lat = poi.location?.getLat()
+                return Number.isFinite(lng) && Number.isFinite(lat)
+                  && lng! >= southWest.getLng() && lng! <= northEast.getLng()
+                  && lat! >= southWest.getLat() && lat! <= northEast.getLat()
+              })
+              .map(poi => this.nativeMapPoi(poi))
+              .filter((poi): poi is MapPoi => poi !== null)
+            finish(pois)
+          })
+        } catch {
+          finish([])
+        }
+      })
     })
   }
 
@@ -439,7 +456,7 @@ export class AMapProvider implements MapProvider {
       })
     }
 
-    if (converted.length && this.displayOptions.autoCluster) {
+    if (converted.length && this.displayOptions.autoCluster && typeof amap.MarkerCluster === 'function') {
       try {
         const cluster = new amap.MarkerCluster(
           map,
@@ -460,26 +477,10 @@ export class AMapProvider implements MapProvider {
         cluster.on('click', this.handleClusterClick)
         this.markerCluster = cluster
       } catch {
-        this.mapErrorHandler?.(new Error('高德地图点聚合初始化失败。'))
+        this.renderPlainMarkers(converted, amap, map)
       }
     } else if (converted.length) {
-      for (const item of converted) {
-        const { content } = this.createMarkerContent(item.poi)
-        const marker = new amap.Marker({
-          position: item.position,
-          anchor: 'bottom-center',
-          title: item.poi.name,
-          content,
-          zIndex: 100
-        })
-        const clickHandler = (event: AMapMouseEvent) => {
-          event.originEvent?.stopPropagation()
-          this.poiSelectHandler?.(item.poi)
-        }
-        marker.on('click', clickHandler)
-        this.plainMarkers.push({ marker, clickHandler })
-      }
-      map.add(this.plainMarkers.map(record => record.marker))
+      this.renderPlainMarkers(converted, amap, map)
     }
 
     this.renderSelectedMarker()
@@ -585,6 +586,41 @@ export class AMapProvider implements MapProvider {
       const normalized = error instanceof Error ? error : new Error(fallbackMessage)
       this.mapErrorHandler?.(normalized)
     })
+  }
+
+  private ensurePlugins(plugins: readonly string[]): Promise<boolean> {
+    const amap = this.amap
+    if (!amap) return Promise.resolve(false)
+    const key = plugins.join(',')
+    const existing = this.pluginPromises.get(key)
+    if (existing) return existing
+
+    const promise = ensureAMapPlugins(amap, plugins, 8_000).then((available) => {
+      if (!available) this.pluginPromises.delete(key)
+      return available
+    })
+    this.pluginPromises.set(key, promise)
+    return promise
+  }
+
+  private renderPlainMarkers(converted: ConvertedPoi[], amap: AMapNamespace, map: AMapMap): void {
+    for (const item of converted) {
+      const { content } = this.createMarkerContent(item.poi)
+      const marker = new amap.Marker({
+        position: item.position,
+        anchor: 'bottom-center',
+        title: item.poi.name,
+        content,
+        zIndex: 100
+      })
+      const clickHandler = (event: AMapMouseEvent) => {
+        event.originEvent?.stopPropagation()
+        this.poiSelectHandler?.(item.poi)
+      }
+      marker.on('click', clickHandler)
+      this.plainMarkers.push({ marker, clickHandler })
+    }
+    map.add(this.plainMarkers.map(record => record.marker))
   }
 
   private createMarkerContent(
