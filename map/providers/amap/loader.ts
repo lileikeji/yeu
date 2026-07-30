@@ -62,15 +62,21 @@ export function loadAMap(options: AMapLoaderOptions): Promise<AMapNamespace> {
   }
 
   const amapWindow = window as AMapWindow
-  // Do not block the base map on optional route/search plugins. Embedded
-  // browsers can delay those callbacks while AMap itself is ready to render.
-  if (amapWindow.AMap) return Promise.resolve(amapWindow.AMap)
-  if (loaderPromise) return loaderPromise
 
+  // Set the security code before any early return. AMap reads it from the
+  // window on every restapi.amap.com call, not just at script load, so a
+  // remount that reuses an existing window.AMap still needs it present.
+  // Without it coordinate conversion fails and the basemap never gets a
+  // center, leaving only locally drawn markers visible.
   amapWindow._AMapSecurityConfig = {
     ...amapWindow._AMapSecurityConfig,
     securityJsCode: options.securityCode
   }
+
+  // Do not block the base map on optional route/search plugins. Embedded
+  // browsers can delay those callbacks while AMap itself is ready to render.
+  if (amapWindow.AMap) return Promise.resolve(amapWindow.AMap)
+  if (loaderPromise) return loaderPromise
 
   loaderPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script')

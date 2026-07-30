@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { MapPoi } from '../map/core/types'
-import { AMAP_REQUIRED_PLUGINS, buildAMapScriptUrl } from '../map/providers/amap/loader'
+import { AMAP_REQUIRED_PLUGINS, buildAMapScriptUrl, loadAMap } from '../map/providers/amap/loader'
 import { AMapProvider } from '../map/providers/amap/provider'
 
 type FakeListener = (event: { stopPropagation(): void }) => void
@@ -390,6 +390,34 @@ test('AMap loader requests the public MarkerCluster plugin without security cred
   assert.equal(url.searchParams.get('key'), 'public-test-key')
   assert.deepEqual(url.searchParams.get('plugin')?.split(','), [...AMAP_REQUIRED_PLUGINS])
   assert.equal(url.searchParams.has('securityJsCode'), false)
+})
+
+test('AMap loader sets the security code even when window.AMap already exists', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+
+  // A remount reuses the already-loaded namespace. The security code must
+  // still be written, otherwise restapi.amap.com rejects coordinate
+  // conversion and the basemap never receives a center.
+  const existingAMap = { Map: function FakeMap() {} }
+  const fakeWindow: Record<string, unknown> = { AMap: existingAMap }
+
+  Object.defineProperty(globalThis, 'window', { value: fakeWindow, configurable: true })
+  Object.defineProperty(globalThis, 'document', {
+    value: { createElement: () => ({ dataset: {}, remove() {} }) },
+    configurable: true
+  })
+
+  try {
+    const resolved = await loadAMap({ key: 'k', securityCode: 'sec-123' })
+    assert.equal(resolved, existingAMap)
+    assert.deepEqual(fakeWindow._AMapSecurityConfig, { securityJsCode: 'sec-123' })
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument)
+    else Reflect.deleteProperty(globalThis, 'document')
+  }
 })
 
 test('AMap provider clusters 76 points, keeps names visible, plans walking routes, and hides area boxes', async () => {

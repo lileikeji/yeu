@@ -150,10 +150,16 @@ export class AMapProvider implements MapProvider {
     this.disposeMap()
     const lifecycleVersion = ++this.lifecycleVersion
     const amap = await loadAMap(this.options)
-    const center = await this.convertPoint(options.center ?? YEU_CAMPUS_REFERENCE_CENTER, amap)
+    const requestedCenter = options.center ?? YEU_CAMPUS_REFERENCE_CENTER
+    const converted = await this.convertPoint(requestedCenter, amap)
 
     if (lifecycleVersion !== this.lifecycleVersion) return
-    if (!center) throw new Error('高德地图无法转换初始 WGS84 中心点。')
+
+    // Conversion goes through restapi.amap.com and can fail in embedded
+    // WebViews. The WGS84/GCJ-02 offset across campus is a few tens of metres,
+    // so falling back to the raw point keeps the basemap visible instead of
+    // failing the whole mount and leaving only locally drawn markers.
+    const center: AMapPosition = converted ?? [requestedCenter.lng, requestedCenter.lat]
 
     const map = new amap.Map(element, {
       center,
