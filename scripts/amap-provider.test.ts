@@ -420,6 +420,65 @@ test('AMap loader sets the security code even when window.AMap already exists', 
   }
 })
 
+test('AMap provider resizes a zero-sized canvas after mount', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  FakeAMapMap.instances = []
+
+  // Mirrors the embedded-WebView failure: the container has a real size but
+  // AMap built its canvas before layout settled, so it stays 0x0.
+  const zeroCanvas = { width: 0, height: 0 }
+  const element = {
+    getBoundingClientRect: () => ({ width: 375, height: 748 }),
+    querySelector: () => zeroCanvas,
+    querySelectorAll: () => [] as unknown[]
+  }
+
+  const fakeWindow: Record<string, unknown> = {
+    AMap: {
+      Map: FakeAMapMap,
+      Marker: FakeMarker,
+      Polygon: FakePolygon,
+      Polyline: FakePolyline,
+      TileLayer: { Satellite: FakeTileLayer, RoadNet: FakeTileLayer },
+      InfoWindow: FakeInfoWindow,
+      Pixel: FakePixel,
+      MarkerCluster: FakeMarkerCluster,
+      plugin: (_plugins: string[], callback: () => void) => callback(),
+      convertFrom: (
+        points: [number, number][],
+        _source: string,
+        callback: (status: string, result: { locations: [number, number][] }) => void
+      ) => callback('complete', { locations: points })
+    }
+  }
+
+  Object.defineProperty(globalThis, 'window', { value: fakeWindow, configurable: true })
+  Object.defineProperty(globalThis, 'document', {
+    value: { createElement: () => new FakeElement() },
+    configurable: true
+  })
+
+  try {
+    const provider = new AMapProvider({ key: 'k', securityCode: 'sec' })
+    await provider.mount(element as unknown as HTMLElement, { zoom: 15 })
+
+    const map = FakeAMapMap.instances.at(-1)
+    assert.ok(map, 'expected a map instance')
+
+    // Polling is timer-driven so the basemap recovers even where rAF is throttled.
+    await new Promise(resolve => setTimeout(resolve, 60))
+    assert.equal(map!.resized, true, 'expected resize() for the 0x0 canvas')
+
+    provider.destroy()
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument)
+    else Reflect.deleteProperty(globalThis, 'document')
+  }
+})
+
 test('AMap provider clusters 76 points, keeps names visible, plans walking routes, and hides area boxes', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')

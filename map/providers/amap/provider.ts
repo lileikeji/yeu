@@ -140,6 +140,8 @@ export class AMapProvider implements MapProvider {
   private renderVersion = 0
   private areaRenderVersion = 0
   private mapAccessibilityObserver: MutationObserver | null = null
+  private initialResizeTimer: ReturnType<typeof globalThis.setTimeout> | null = null
+  private initialResizeObserver: ResizeObserver | null = null
   private readonly pluginPromises = new Map<string, Promise<boolean>>()
 
   constructor(options: AMapProviderOptions) {
@@ -1015,33 +1017,76 @@ export class AMapProvider implements MapProvider {
     element: HTMLElement,
     lifecycleVersion: number
   ): void {
-    if (typeof requestAnimationFrame !== 'function') return
+    if (typeof globalThis.setTimeout !== 'function') return
 
-    let attempts = 0
-    const check = (): void => {
-      if (this.map !== map || lifecycleVersion !== this.lifecycleVersion) return
+    const isStale = (): boolean => (
+      this.map !== map || lifecycleVersion !== this.lifecycleVersion
+    )
 
+    const canvasIsSized = (): boolean => {
+      if (typeof element.getBoundingClientRect !== 'function') return true
       const rect = element.getBoundingClientRect()
+      if (rect.width < 2 || rect.height < 2) return false
       const canvas = typeof element.querySelector === 'function'
         ? element.querySelector('canvas')
         : null
-      const needsResize = rect.width >= 2 && rect.height >= 2
-        && (!canvas || canvas.width < 2 || canvas.height < 2)
-
-      if (needsResize) {
-        try {
-          map.resize()
-        } catch {
-          // A failed resize is not fatal; a later attempt or a user-driven
-          // resize can still recover the basemap.
-        }
-      }
-
-      attempts += 1
-      if (attempts < 6) requestAnimationFrame(check)
+      // AMap scales its backing store by devicePixelRatio, so compare against
+      // the CSS width rather than expecting an exact match.
+      return Boolean(canvas && canvas.width >= rect.width - 1 && canvas.height >= rect.height - 1)
     }
 
-    requestAnimationFrame(check)
+    const forceResize = (): void => {
+      try {
+        map.resize()
+      } catch {
+        // A failed resize is not fatal; a later attempt or a user-driven
+        // resize can still recover the basemap.
+      }
+    }
+
+    // Embedded WebViews throttle requestAnimationFrame and settle layout well
+    // after mount resolves, so poll on timers with a backoff instead. Stop as
+    // soon as the canvas matches the container.
+    const delays = [0, 32, 100, 200, 350, 550, 800, 1200, 1800, 2500]
+    let index = 0
+
+    const step = (): void => {
+      if (isStale()) return
+      if (canvasIsSized()) return
+
+      forceResize()
+
+      if (index < delays.length) {
+        const delay = delays[index] ?? 0
+        index += 1
+        this.initialResizeTimer = globalThis.setTimeout(step, delay)
+      }
+    }
+
+    this.clearInitialResizeTimer()
+    this.initialResizeTimer = globalThis.setTimeout(step, 0)
+
+    // A late-arriving layout (font swap, sheet transition, keyboard dismissal)
+    // can resize the container after polling gives up. ResizeObserver catches
+    // that case without keeping a timer alive.
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => {
+        if (isStale()) {
+          observer.disconnect()
+          return
+        }
+        if (!canvasIsSized()) forceResize()
+      })
+      observer.observe(element)
+      this.initialResizeObserver = observer
+    }
+  }
+
+  private clearInitialResizeTimer(): void {
+    if (this.initialResizeTimer !== null) {
+      globalThis.clearTimeout(this.initialResizeTimer)
+      this.initialResizeTimer = null
+    }
   }
 
   private installMapAccessibility(element: HTMLElement): void {
@@ -1067,6 +1112,9 @@ export class AMapProvider implements MapProvider {
   private disposeMap(): void {
     this.mapAccessibilityObserver?.disconnect()
     this.mapAccessibilityObserver = null
+    this.clearInitialResizeTimer()
+    this.initialResizeObserver?.disconnect()
+    this.initialResizeObserver = null
     this.clearRoute()
     this.clearMarkers()
     this.clearAreas()
