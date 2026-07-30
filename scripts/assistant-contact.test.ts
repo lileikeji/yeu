@@ -20,6 +20,7 @@ import {
   assistantQueryTerms,
   compareAssistantEvidenceAuthority,
   hardcodedAssistantFactIsCurrent,
+  isInternalHandbookCitation,
   isGatewayContentBlocked,
   localEvidenceIsSufficient,
   retrieveCampusEvidence,
@@ -407,6 +408,21 @@ test('evidence authority is explicit and hardcoded facts expire into retrieval',
     'openingSchedule2026',
     Date.parse('2026-10-01T00:00:00+08:00')
   ), false)
+})
+
+test('handbook facts stay searchable without exposing the supplied PDF as a citation', () => {
+  assert.equal(isInternalHandbookCitation({
+    title: '2026 新生手册｜报到流程',
+    url: '/media/handbooks/yeu-freshman-handbook-2026.pdf'
+  }), true)
+  assert.equal(isInternalHandbookCitation({
+    title: '手册检索条目',
+    url: '/search?knowledge=handbook2026:abc'
+  }), true)
+  assert.equal(isInternalHandbookCitation({
+    title: '学校官网报到通知',
+    url: 'https://yeu.edu.cn/notice/arrival'
+  }), false)
 })
 
 test('a quantity fallback cannot answer a professional count with a college count', async () => {

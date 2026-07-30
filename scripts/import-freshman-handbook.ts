@@ -169,7 +169,8 @@ async function main(): Promise<void> {
           official: false,
           pageCount: parsed.pageCount,
           extractedCharacters: parsed.text.length,
-          images: IMAGE_ASSETS
+          images: IMAGE_ASSETS,
+          publicCitation: false
         }),
         now,
         now,
@@ -190,7 +191,7 @@ async function main(): Promise<void> {
             id, kind, category, title, question, answer, keywords_json,
             public_url, confidence, source_note, is_active, imported_at,
             created_at, updated_at
-          ) VALUES (?, 'student_experience', ?, ?, ?, ?, ?, ?, 62, ?, 1, ?, ?, ?)
+          ) VALUES (?, 'student_experience', ?, ?, ?, ?, ?, NULL, 62, ?, 1, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             category = excluded.category,
             title = excluded.title,
@@ -210,7 +211,6 @@ async function main(): Promise<void> {
           `${topic.questions}\n${pageText}`,
           answer,
           JSON.stringify(topic.keywords),
-          PUBLIC_URL,
           `${HANDBOOK_TITLE}第${page}页；学生经验资料，非学校官方通知。`,
           now,
           now,

@@ -374,11 +374,21 @@ function withRunMetadata(
 ): ApiAssistantResponse {
   return {
     ...response,
+    // The supplied freshman handbook is an internal retrieval source. Its
+    // extracted facts and images are useful, but the PDF must not appear as a
+    // public citation or downloadable source in assistant answers.
+    citations: response.citations.filter(citation => !isInternalHandbookCitation(citation)),
     retrievalPath,
     trace: [...tracker.trace],
     totalDurationMs: Math.max(0, Date.now() - tracker.startedAt),
     cacheHit
   }
+}
+
+export function isInternalHandbookCitation(citation: Pick<ApiAssistantCitation, 'title' | 'url'>): boolean {
+  return /(?:freshman-handbook-2026|handbook2026:|\/media\/handbooks\/)/i.test(
+    `${citation.title} ${citation.url}`
+  )
 }
 
 function safeText(value: string | null | undefined, maxLength = 1600): string {
@@ -1258,7 +1268,7 @@ export function majorEvidenceForQuery(query: string, limit = 6): AssistantEviden
     const dormBoost = exactMajorBoost > 0 && asksAboutDorm ? 10 : 0
     return {
       title: `${profile.name} · ${profile.collegeName}`,
-      url: '/#major-lookup',
+      url: '/major-lookup',
       snippet: `${summary}${profile.dormNote}`,
       source: 'site' as const,
       text: `${summary}${detail}`,
@@ -2275,7 +2285,7 @@ function collegeMajorsLocalAnswer(query: string): ApiAssistantResponse | null {
     answer: `按系统已核对的2026年招生专业目录，${collegeName}包含${majors.join('、')}。专业归属若在录取前后调整，以录取材料和学院最新通知为准。`,
     citations: [{
       title: `${collegeName} · 2026年招生专业`,
-      url: '/#major-lookup',
+      url: '/major-lookup',
       snippet: `${collegeName}：${majors.join('、')}。`,
       source: 'site'
     }],
@@ -3097,7 +3107,7 @@ function hasStructuredLocalAnswer(query: string, evidence: AssistantEvidence[]):
   if (openingAnswer) return true
 
   const exactMajor = majorProfiles.some(profile => normalized.includes(profile.name.toLocaleLowerCase('zh-CN')))
-  if (exactMajor && evidence.some(item => item.url === '/#major-lookup')) return true
+  if (exactMajor && evidence.some(item => item.url === '/major-lookup')) return true
   const hasTransitGuide = evidence.some(item => item.url === '/transport')
   if (hasTransitGuide && (
     Boolean(transitRouteForQuery(query))

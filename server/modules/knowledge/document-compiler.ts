@@ -30,6 +30,17 @@ const AUTO_NOTE_PREFIX = 'auto:official-document:'
 const MAX_CLAIMS_PER_DOCUMENT = 80
 const MAX_STATEMENT_LENGTH = 900
 
+function publicUrlForDocument(document: DocumentRow): string | null {
+  if (/^\/media\/handbooks\//i.test(document.originalUrl ?? '')) return null
+  try {
+    const metadata = JSON.parse(document.metadataJson) as { publicCitation?: unknown }
+    if (metadata.publicCitation === false) return null
+  } catch {
+    // Keep legacy documents usable when metadata is absent or malformed.
+  }
+  return document.originalUrl
+}
+
 function stableId(documentId: string, value: string): string {
   const digest = createHash('sha256')
     .update(`${documentId}\n${value.normalize('NFKC')}`)
@@ -152,6 +163,7 @@ function compileDocument(client: DatabaseClient, document: DocumentRow, now: num
   const chunks = extractChunks(document)
   const category = categoryFor(document.title, document.extractedText)
   const note = `${AUTO_NOTE_PREFIX}${document.id}`
+  const publicUrl = publicUrlForDocument(document)
   const upsert = client.sqlite.prepare(`
     INSERT INTO knowledge_claims (
       id, category, title, statement, keywords_json, search_text,
@@ -213,7 +225,7 @@ function compileDocument(client: DatabaseClient, document: DocumentRow, now: num
         chunk.statement,
         JSON.stringify(chunk.keywords),
         searchText,
-        document.originalUrl,
+        publicUrl,
         note,
         now,
         now
