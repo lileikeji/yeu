@@ -156,16 +156,22 @@ test('resolveSecurityHeaders adds upgrade-insecure-requests only for production 
   assert.equal(prodHttp['Strict-Transport-Security'], undefined)
 })
 
-test('map CSP permits the AMap SDK eval requirement without weakening other routes', () => {
+test('CSP allows the AMap eval requirement on every route, not just /map', () => {
+  // The AMap WebGL renderer builds shaders with eval. A /map-only policy broke
+  // client-side navigation: the browser keeps the CSP from the document it
+  // loaded, so arriving from '/' left the map without 'unsafe-eval' and AMap
+  // failed with "Module.WebGLRender is not a constructor" and a 0x0 canvas.
   const map = resolveSecurityHeaders({ pathname: '/map' })
   const mapChild = resolveSecurityHeaders({ pathname: '/map/place/campus-gate' })
   const home = resolveSecurityHeaders({ pathname: '/' })
   const api = resolveSecurityHeaders({ pathname: '/api/public/places' })
 
-  assert.match(map['Content-Security-Policy'], /script-src [^;]*'unsafe-eval'/)
-  assert.match(mapChild['Content-Security-Policy'], /script-src [^;]*'unsafe-eval'/)
-  assert.doesNotMatch(home['Content-Security-Policy'], /'unsafe-eval'/)
-  assert.doesNotMatch(api['Content-Security-Policy'], /'unsafe-eval'/)
+  for (const headers of [map, mapChild, home, api]) {
+    assert.match(headers['Content-Security-Policy'], /script-src [^;]*'unsafe-eval'/)
+  }
+
+  // The policy must not depend on the path at all.
+  assert.equal(home['Content-Security-Policy'], map['Content-Security-Policy'])
 })
 
 test('framework fingerprint header is stripped by middleware and nitro plugin', () => {

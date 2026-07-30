@@ -194,8 +194,6 @@ const selectedPoi = computed(() => resolveSelectedPublicMapPlace({
   selectedPoiId: selectedPoiId.value
 }))
 const returnPath = computed(() => safeLocalPath(route.query.from))
-// Temporary: embedded-WebView basemap diagnostics, opt-in via ?debug=map.
-const showMapDebug = computed(() => mapQueryValue(route.query.debug) === 'map')
 
 function placeDetailsTarget(poi: PublicMapPlace) {
   return buildMapPlaceDetailsTarget(poi, returnPath.value ?? route.fullPath)
@@ -738,13 +736,6 @@ onBeforeUnmount(() => {
           class="h-full w-full"
         />
       </div>
-
-      <MapDebugOverlay
-        v-if="showMapDebug"
-        :map-status="mapStatus"
-        :active-provider-id="activeMapProviderId"
-        :poi-count="filteredMapPois.length"
-      />
 
       <MapOfficialCampusPlan
         v-show="mapViewMode === 'official-plan'"

@@ -6,9 +6,7 @@ const { user, isAuthenticated, refreshSession } = useUserSession()
 
 const navigation = [
   { label: '首页', to: '/', icon: 'i-lucide-house' },
-  // Temporary: route the map entry through the debug overlay so the blank
-  // basemap can be diagnosed from inside WeChat. Revert to '/map' afterwards.
-  { label: '地图', to: '/map?debug=map', icon: 'i-lucide-map' },
+  { label: '地图', to: '/map', icon: 'i-lucide-map' },
   { label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
   { label: '更多', to: '/discover', icon: 'i-lucide-layout-grid' }
 ]

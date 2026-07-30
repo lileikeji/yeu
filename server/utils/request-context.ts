@@ -16,7 +16,13 @@ export const BASE_SECURITY_HEADERS = {
     'object-src \'none\'',
     'frame-ancestors \'none\'',
     'form-action \'self\'',
-    'script-src \'self\' \'unsafe-inline\' https://res.wx.qq.com https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
+    // 'unsafe-eval' is required by the AMap WebGL renderer, which compiles
+    // shader programs from strings. It must be present site-wide, not only on
+    // /map: CSP is fixed by the document response, and a client-side
+    // navigation to /map issues no document request, so the map would inherit
+    // the previous page's policy and fail with
+    // "Module.WebGLRender is not a constructor" and a 0x0 canvas.
+    'script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://res.wx.qq.com https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
     'style-src \'self\' \'unsafe-inline\' https://*.amap.com https://*.autonavi.com https://*.map.baidu.com',
     'img-src \'self\' data: blob: https:',
     'font-src \'self\' data:',
@@ -36,24 +42,21 @@ export const BASE_SECURITY_HEADERS = {
 /**
  * Production HTTPS sites get upgrade-insecure-requests so mixed-content subresource
  * loads are upgraded. Dev/HTTP stays on the base policy to avoid breaking localhost.
+ *
+ * The policy is intentionally identical for every path. A route-specific CSP
+ * cannot work in a single-page app: the browser applies the policy from the
+ * document response, and client-side navigation issues no new document request.
  */
 export function resolveSecurityHeaders(options: {
   nodeEnv?: string
   siteUrl?: string
+  /** Accepted for call-site compatibility; the policy no longer varies by path. */
   pathname?: string
 } = {}): Record<string, string> {
   const headers: Record<string, string> = { ...BASE_SECURITY_HEADERS }
   const nodeEnv = options.nodeEnv ?? process.env.NODE_ENV
   const siteUrl = options.siteUrl ?? process.env.NUXT_PUBLIC_SITE_URL ?? ''
-  const pathname = options.pathname ?? '/'
-  const isMapPage = pathname === '/map' || pathname.startsWith('/map/')
   let contentSecurityPolicy = BASE_SECURITY_HEADERS['Content-Security-Policy']
-  if (isMapPage) {
-    contentSecurityPolicy = contentSecurityPolicy.replace(
-      'script-src \'self\' \'unsafe-inline\'',
-      'script-src \'self\' \'unsafe-inline\' \'unsafe-eval\''
-    )
-  }
   const productionHttps = nodeEnv === 'production' && /^https:\/\//i.test(siteUrl.trim())
   if (productionHttps) {
     contentSecurityPolicy += '; upgrade-insecure-requests'
