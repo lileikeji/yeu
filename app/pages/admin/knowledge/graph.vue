@@ -134,7 +134,7 @@ const typeOptions: Array<{ id: NodeType, label: string, icon: string }> = [
   { id: 'source', label: '来源', icon: 'i-lucide-library' },
   { id: 'synthesis', label: '综合', icon: 'i-lucide-layers-3' },
   { id: 'comparison', label: '对比', icon: 'i-lucide-git-compare-arrows' },
-  { id: 'query', label: '问答', icon: 'i-lucide-message-circle-question' }
+  { id: 'query', label: '问答', icon: 'i-lucide-message-circle' }
 ]
 
 const confidenceOptions: Array<{ id: Confidence, label: string, detail: string }> = [
@@ -712,7 +712,7 @@ onBeforeUnmount(() => {
               title="查看图谱操作方法"
               @click="interactionHelpOpen = !interactionHelpOpen"
             >
-              <UIcon name="i-lucide-circle-help" />
+              <UIcon name="i-lucide-circle-question-mark" />
               <span>帮助</span>
             </button>
             <button

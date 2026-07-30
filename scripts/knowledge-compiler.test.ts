@@ -363,6 +363,46 @@ test('published facts are indexed, validity-gated and removed from retrieval aft
   }
 })
 
+test('published claim retrieval removes duplicate statements and limits crawler title buckets', () => {
+  const value = fixture()
+  try {
+    const makeClaim = (statement: string, confidenceScore: number) => createKnowledgeClaim(value.client, {
+      category: '官网正文',
+      title: '仰恩大学官方资料｜正文要点',
+      statement,
+      keywords: ['宿舍床垫', '尺寸'],
+      confidenceLabel: 'extracted',
+      confidenceScore,
+      reviewStatus: 'published',
+      publicUrl: null,
+      sourceNote: 'crawler test',
+      validFrom: null,
+      validUntil: null,
+      supersedesClaimId: null,
+      sources: [{
+        sourceId: value.sourceId,
+        documentId: null,
+        evidenceQuote: statement,
+        locator: '正文',
+        isPrimary: true
+      }]
+    }, value.adminId)
+
+    const duplicate = '宿舍床垫尺寸应以所在楼栋现场测量结果为准。'
+    makeClaim(duplicate, 70)
+    const preferred = makeClaim(duplicate, 96)
+    makeClaim('宿舍床垫尺寸不要只按商家标称规格下单。', 95)
+    makeClaim('宿舍床垫尺寸在购买前应先核对床铺长度和宽度。', 94)
+
+    const matches = searchPublishedKnowledgeClaims(value.client, ['宿舍床垫', '尺寸'], 6)
+    assert.ok(matches.length <= 2)
+    assert.equal(matches.filter(item => item.statement === duplicate).length, 1)
+    assert.equal(matches.find(item => item.statement === duplicate)?.confidenceScore, preferred.confidenceScore)
+  } finally {
+    value.close()
+  }
+})
+
 test('updating a draft refreshes the FTS index before publication', () => {
   const value = fixture()
   try {

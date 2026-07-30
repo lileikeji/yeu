@@ -126,8 +126,18 @@ const QUESTION_FILLERS = [
   '请问', '我想知道', '告诉我', '一下', '怎么', '如何', '哪里', '在哪', '什么时候',
   '何时', '多少', '能不能', '可不可以', '需要什么', '要带什么', '准备什么', '怎么办',
   '是否', '为什么', '谁负责', '流程是什么', '怎么申请', '怎么办理', '怎么去', '怎么走',
-  '仰恩大学', '仰恩', '这个学校', '学校', '有没有', '有无'
+  '仰恩大学', '仰恩', '这个学校', '学校', '有没有', '有无', '是在', '还是'
 ] as const
+
+// These words describe the question shape rather than the thing being asked
+// about. Keeping them out of the short-token pool reduces broad LIKE/FTS scans
+// and prevents generic pages from outranking a named subject.
+const QUERY_TERM_STOPWORDS = new Set([
+  '什么', '时候', '哪些', '谁是', '是谁', '主要', '专业', '学院', '学校', '大学',
+  '学生', '要求', '条件', '规则', '流程', '信息', '内容', '情况', '相关', '具体',
+  '可以', '需要', '应该', '现在', '当前', '怎么', '如何', '哪里', '有什', '什么',
+  '上面', '下面', '里面', '其中', '还有', '一下', '方便', '吗呢', '了吗'
+])
 
 const QUERY_ANCHOR_FILLERS = [
   ...QUESTION_FILLERS,
@@ -151,6 +161,7 @@ const QUERY_ANCHOR_SUFFIXES = [...QUERY_ANCHOR_ASPECTS]
 const TERM_EXPANSIONS: Record<string, string[]> = {
   宿舍: ['住宿', '宿舍楼', '寝室'],
   学费: ['缴费', '收费', '资助', '助学贷款'],
+  助学贷: ['助学贷款', '生源地贷款', '助学贷款申请'],
   报到: ['入学', '注册', '迎新'],
   校园网: ['网络', '上网', '宽带'],
   快递: ['取件', '驿站', '快递站'],
@@ -432,23 +443,57 @@ export function assistantQueryTerms(value: string): string[] {
     .map(item => item.trim())
     .filter(item => item.length >= 2)
 
-  const terms = new Set<string>()
-  for (const chunk of chunks) {
-    terms.add(chunk)
+  // Follow-up questions are appended to the previous query. Their terms must
+  // be considered first, otherwise a long first message can consume the cap.
+  const tail = query.split(/追问\s*[：:]/u).pop()?.trim() ?? ''
+  const tailChunks = tail
+    .replace(/[?？!！,，。；;：:、()（）【】]/g, ' ')
+    .split(/\s+/)
+    .map(item => item.trim())
+    .filter(item => item.length >= 2)
+  const orderedChunks = [...tailChunks, ...chunks]
+
+  const phraseTerms = new Set<string>()
+  const expansionTerms = new Set<string>()
+  const shortEntityTerms = new Set<string>()
+  const addChunk = (chunk: string): void => {
+    if (chunk.length >= 2) phraseTerms.add(chunk)
     for (const [key, expansions] of Object.entries(TERM_EXPANSIONS)) {
       if (chunk.includes(key)) {
-        terms.add(key)
-        expansions.forEach(item => terms.add(item))
+        phraseTerms.add(key)
+        expansions.forEach(item => expansionTerms.add(item))
       }
     }
+    // Short Chinese entities (names, buildings, products) benefit from
+    // bigrams because SQLite's default tokenizer does not segment them. Do
+    // not emit question-shape bigrams such as “谁是” or “主要”.
     if (/^[\u4e00-\u9fff]{5,}$/.test(chunk)) {
       for (let index = 0; index <= chunk.length - 2; index += 1) {
         const bigram = chunk.slice(index, index + 2)
-        if (!QUESTION_FILLERS.some(filler => filler.includes(bigram))) terms.add(bigram)
+        if (
+          !QUERY_TERM_STOPWORDS.has(bigram)
+          && !/[吗呢呀啊吧是的和与或在有了我你他她它这那要会能可]/u.test(bigram)
+          && !QUESTION_FILLERS.some(filler => filler === bigram)
+        ) shortEntityTerms.add(bigram)
       }
     }
   }
-  return [...terms].slice(0, 20)
+  orderedChunks.forEach(addChunk)
+
+  // Prefer the current follow-up, then named phrases and known expansions.
+  // Keep short entity fragments as a bounded fallback for Chinese names.
+  const identitySubject = assistantIdentitySubject(value)
+  const identityTerms = identitySubject
+    ? [identitySubject.toLocaleLowerCase('zh-CN')]
+    : []
+  const terms = [
+    ...identityTerms,
+    ...tailChunks,
+    ...phraseTerms,
+    ...expansionTerms,
+    ...shortEntityTerms
+  ]
+  return [...new Set(terms)].slice(0, 24)
 }
 
 function identitySubjectForQuery(value: string): string | null {
@@ -584,7 +629,7 @@ function selectCampusKnowledgeContext(
   evidence: AssistantEvidence[],
   maxPages = KNOWLEDGE_MAX_PAGES
 ): AssistantEvidence[] {
-  const matches = evidence
+  const matches = dedupeAssistantEvidence(evidence)
     .map(item => knowledgeHitForEvidence(query, item))
     .sort((left, right) => {
       if (left.hitReason === 'explicit' && right.hitReason !== 'explicit') return -1
@@ -608,6 +653,36 @@ function selectCampusKnowledgeContext(
     usedChars += snippet.length
   }
   return selected
+}
+
+function normalizedEvidenceKey(value: string): string {
+  return normalizeAssistantQuery(value)
+    .toLocaleLowerCase('zh-CN')
+    .replace(/[\p{P}\p{S}\s]+/gu, '')
+}
+
+function dedupeAssistantEvidence(evidence: AssistantEvidence[]): AssistantEvidence[] {
+  const contentKeys = new Set<string>()
+  const urlTitleKeys = new Set<string>()
+  const titleCounts = new Map<string, number>()
+  return [...evidence]
+    .sort((left, right) => (right.score ?? 0) - (left.score ?? 0))
+    .filter((item) => {
+      const titleKey = normalizedEvidenceKey(item.title)
+      const contentKey = `${titleKey}|${normalizedEvidenceKey(item.snippet || item.text)}`
+      if (contentKeys.has(contentKey)) return false
+      const urlTitleKey = `${item.url}|${titleKey}`
+      if (!item.url.startsWith('/search?') && urlTitleKeys.has(urlTitleKey)) return false
+      const count = titleCounts.get(titleKey) ?? 0
+      // “正文要点” is frequently generated once per crawled page. A small
+      // title bucket keeps distinct facts available without flooding context.
+      const titleLimit = /正文要点|官网正文/.test(titleKey) ? 2 : 3
+      if (count >= titleLimit) return false
+      contentKeys.add(contentKey)
+      if (!item.url.startsWith('/search?')) urlTitleKeys.add(urlTitleKey)
+      titleCounts.set(titleKey, count + 1)
+      return true
+    })
 }
 
 function queryCoreBigrams(value: string): string[] {
@@ -652,9 +727,10 @@ export function localEvidenceIsSufficient(query: string, evidence: AssistantEvid
   const curriculumMajor = majorCurriculumNameForQuery(query)
   if (curriculumMajor && evidence.some((item) => {
     const text = `${item.title} ${item.snippet} ${item.text}`
-    return item.title.includes(curriculumMajor)
-      && /人才培养方案|培养方案/.test(item.title)
-      && /培养目标|毕业要求|课程/.test(text)
+    const compactText = text.replace(/\s+/g, '')
+    const subject = curriculumMajor.replace(/专业$/u, '').replace(/\s+/g, '')
+    return compactText.includes(subject)
+      && /人才培养方案|培养方案|培养目标|核心课程|毕业要求|主要课程|就业方向/u.test(compactText)
   })) return true
   const procedureSubjects = campusProcedureSubjects(query)
   if (procedureSubjects.length > 0 && CAMPUS_PROCEDURE_INTENT_RE.test(query) && evidence.some((item) => {
@@ -779,8 +855,24 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
   const normalizedSubject = subject.toLocaleLowerCase('zh-CN')
   const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
   const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+  const relatedTitle = /奖学金|助学金|基金|奖项|奖励|活动|通知|会议|楼|大楼|馆|道路|雕像|铜像|工程|项目|比赛|论坛|讲座/u
   if (title === normalizedSubject) return true
-  if (title.includes(normalizedSubject) && /简介|个人|履历|人物|生平|传记|教授|副教授|讲师|助教|教师|老师|任职/.test(title)) return true
+  const titleSubjectIndex = title.indexOf(normalizedSubject)
+  if (titleSubjectIndex >= 0) {
+    const localTitleContext = title.slice(
+      Math.max(0, titleSubjectIndex - 24),
+      titleSubjectIndex + normalizedSubject.length + 28
+    )
+    const beforeSubject = title.slice(Math.max(0, titleSubjectIndex - 16), titleSubjectIndex)
+    const afterSubject = title.slice(titleSubjectIndex + normalizedSubject.length, titleSubjectIndex + normalizedSubject.length + 16)
+    const directlyRelated = /^(?:奖学金|助学金|基金|奖项|奖励|活动|通知|会议|楼|大楼|馆|道路|雕像|铜像|工程|项目|比赛)/u.test(afterSubject)
+      || /(?:奖学金|助学金|基金|奖项|奖励|活动|通知|会议|楼|大楼|馆|道路|雕像|铜像|工程|项目|比赛)[：:—\-\s]*$/u.test(beforeSubject)
+    if (
+      !directlyRelated
+      && !relatedTitle.test(localTitleContext.replace(/工程|项目/u, ''))
+      && /简介|个人|履历|人物|生平|传记|教授|副教授|讲师|助教|教师|老师|任职/.test(localTitleContext)
+    ) return true
+  }
 
   let offset = 0
   while (offset < text.length) {
@@ -823,9 +915,29 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
   const classScheduleQuery = isClassScheduleQuery(query)
   const curriculumMajor = majorCurriculumNameForQuery(query)
   const hardshipRecognitionQuery = isHardshipRecognitionQuery(query)
+  const dormBedDimensionQuery = isDormBedDimensionQuery(query)
+  const scholarshipRulesQuery = profile.intent === 'scholarship'
+    && /申请|条件|要求|资格|评审|规则|办法|流程|时间/u.test(query)
+  const hasScholarshipPolicyEvidence = scholarshipRulesQuery && evidence.some((item) => {
+    const text = `${item.title} ${item.snippet} ${item.text}`
+    return /奖学金|助学金/.test(text)
+      && /办法|管理|评定|评审|申请条件|资格|规则|要求/.test(text)
+      && !/获得者|获评|人物|专访/.test(item.title)
+  })
   const ranked = evidence.filter((item) => {
     const title = item.title.toLocaleLowerCase('zh-CN')
     const searchable = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+    if (dormBedDimensionQuery && !BED_DIMENSION_EVIDENCE_RE.test(searchable)) return false
+    if (hasScholarshipPolicyEvidence && /获得者|获评|人物|专访/.test(title)) return false
+    const compactSearchable = searchable.replace(/\s+/g, '')
+    const curriculumSubject = curriculumMajor?.replace(/专业$/u, '')
+    const hasCurriculumSubject = Boolean(curriculumSubject && compactSearchable.includes(curriculumSubject.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')))
+    const isCurriculumEvidence = Boolean(
+      curriculumMajor
+      && hasCurriculumSubject
+      && /人才培养方案|培养方案|培养目标|核心课程|毕业要求|主要课程|就业方向/u.test(compactSearchable)
+    )
+    if (curriculumMajor && !isCurriculumEvidence) return false
     if (requiredSubjects.length > 0 && !requiredSubjects.some(subject => searchable.includes(subject))) return false
     if (asksTransferPlan && /普通本科/.test(title) && !/专升本/.test(title)) return false
     if (asksRegularUndergraduatePlan && /专升本/.test(title)) return false
@@ -852,22 +964,34 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
     if (profile.intent === 'scholarship' && /奖学金|助学金/.test(title)) score += 8
     if (profile.intent === 'gpa' && /绩点|gpa/.test(title)) score += 8
     if (classScheduleQuery && /作息时间表/.test(title)) score += 64
-    if (curriculumMajor && title.includes(curriculumMajor.toLocaleLowerCase('zh-CN')) && /人才培养方案|培养方案/.test(title)) score += 64
+    if (curriculumMajor) {
+      const curriculumSubject = curriculumMajor.replace(/专业$/u, '').toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+      const compactText = text.replace(/\s+/g, '')
+      if (compactText.includes(curriculumSubject) && /人才培养方案|培养方案|培养目标|核心课程|毕业要求|主要课程|就业方向/u.test(compactText)) {
+        score += 64
+      }
+    }
     if (hardshipRecognitionQuery && /家庭经济困难学生认定办法/.test(title)) score += 64
     if (openingDateQuery) {
       if (item.title === '2026级新生报到') score += 100
       else if (/20(?:2[0-5])级|往年|学生经验/.test(`${item.title} ${item.snippet}`)) score -= 24
     }
+    const specificTerms = profile.terms
+      .filter(term => term.length >= 3 && !QUERY_TERM_STOPWORDS.has(term))
+    const specificTitleMatch = specificTerms.some(term => title.includes(term.toLocaleLowerCase('zh-CN')))
+    const specificTextMatch = specificTerms.some(term => text.includes(term.toLocaleLowerCase('zh-CN')))
     const subjectCovered = profile.intent === 'feature'
       || profile.intent === 'gpa'
       || profile.intent === 'identity'
-      || score >= 12
       || evidenceCoversQuerySubject(query, item)
+      || (score >= 12 && (specificTitleMatch || specificTextMatch))
     return { ...item, score: subjectCovered ? score : 0 }
   }).filter(item => item.score > 0)
-  const deduped = ranked
-    .sort((left, right) => right.score - left.score)
-    .filter((item, index, items) => items.findIndex(candidate => candidate.url === item.url) === index)
+  const openingEvidence = openingDateQuery
+    ? ranked.filter(item => /2026级新生报到|9月5日至6日|9月5至6日|9月10日/u.test(`${item.title} ${item.snippet} ${item.text}`))
+    : ranked
+  const intentRanked = openingDateQuery && openingEvidence.length > 0 ? openingEvidence : ranked
+  const deduped = dedupeAssistantEvidence(intentRanked)
   if (profile.identitySubject) {
     // 只在证据没有人物语义时排除关联条目；不会限制普通主体、政策或功能检索。
     return deduped
@@ -901,6 +1025,8 @@ function isDormBedDimensionQuery(query: string): boolean {
   const preparingBedding = /(?:买|购买|准备|选|选择|铺).{0,10}(?:床垫|床笠|床褥)/.test(normalized)
   return (mentionsBed && asksForSize) || preparingBedding
 }
+
+const BED_DIMENSION_EVIDENCE_RE = /床垫|床笠|床褥|床铺|床板|寝具|床上用品|床.{0,4}(?:尺寸|规格|长|宽)|(?:尺寸|规格|长宽).{0,4}床|厘米/u
 
 function isOpeningDateQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
@@ -1835,8 +1961,8 @@ export function retrieveCampusEvidence(
   const ranked = [...featureEvidence, ...campusOverviewEvidence, ...compiledKnowledgeEvidence, ...officialDocumentEvidence, ...assistantKnowledgeEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
-    .filter((item, index, items) => items.findIndex(candidate => candidate.url === item.url) === index)
-  return selectCampusKnowledgeContext(query, filterEvidenceForIntent(query, ranked), limit)
+  const deduped = dedupeAssistantEvidence(ranked)
+  return selectCampusKnowledgeContext(query, filterEvidenceForIntent(query, deduped), limit)
 }
 
 function featureLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
@@ -2077,6 +2203,8 @@ function collegeMajorsLocalAnswer(query: string): ApiAssistantResponse | null {
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
   const collegeMajorsAnswer = collegeMajorsLocalAnswer(query)
   if (collegeMajorsAnswer) return collegeMajorsAnswer
+  const identityAnswer = identityLocalAnswer(query, evidence)
+  if (identityAnswer) return identityAnswer
   const campusOverviewAnswer = campusOverviewLocalAnswer(query, evidence)
   if (campusOverviewAnswer) return campusOverviewAnswer
   const studentRuleAnswer = studentRuleLocalAnswer(query, evidence)
@@ -2255,6 +2383,23 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
     citations: evidence.slice(0, 3).map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
     usedWebSearch: false,
     confidence: Math.min(0.95, 0.55 + primary.score / 40)
+  }
+}
+
+function identityLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
+  const subject = assistantIdentitySubject(query)
+  if (!subject) return null
+  const primary = evidence.find(item => identityEvidenceIsExplicit(item, subject))
+  if (!primary) return null
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
+  const title = safeText(primary.title, 180)
+  return {
+    query,
+    mode: 'local',
+    answer: `内置资料找到与“${subject}”直接相关的官方页面《${title}》。当前资料还没有形成可核验的完整人物档案，不能仅凭奖学金、活动或项目名称推断其身份与经历；请打开下方入口查看原文。`,
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 0.78
   }
 }
 
@@ -2802,7 +2947,7 @@ function dormBedEvidenceGapResponse(
   localEvidence: AssistantEvidence[]
 ): ApiAssistantResponse {
   const citations = localEvidence
-    .filter(item => /宿舍|寝室/.test(`${item.title} ${item.snippet}`))
+    .filter(item => BED_DIMENSION_EVIDENCE_RE.test(`${item.title} ${item.snippet} ${item.text}`))
     .slice(0, 2)
     .map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation)
   if (!citations.some(item => item.url === '/contact')) {
@@ -3119,7 +3264,12 @@ export async function answerCampusQuestion(
       tracker,
       retrievalStage,
       retrievalLabel,
-      () => retrieveCampusEvidence(client, analysis.retrievalQuery),
+      // The analysis stage already performed the local search for the normal
+      // database route. Reuse that result instead of scanning every source a
+      // second time; feature routing still performs its one required lookup.
+      () => analysis.route === 'local_database'
+        ? analysis.localEvidence
+        : retrieveCampusEvidence(client, analysis.retrievalQuery),
       result => knowledgeRetrievalDetail(query, result)
     )
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)

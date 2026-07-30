@@ -114,6 +114,7 @@ export const clientBundleIcons = [
   'lucide:menu',
   'lucide:message-circle-warning',
   'lucide:message-circle',
+  'lucide:message-circle-question-mark',
   'lucide:message-square',
   'lucide:message-square-reply',
   'lucide:message-square-warning',

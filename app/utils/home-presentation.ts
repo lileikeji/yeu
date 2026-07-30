@@ -211,42 +211,42 @@ export function findGuideSummary(
   return guides.find(guide => guide.slug === slug)?.summary ?? fallback
 }
 
-export function buildHomeEssentialActions(guides: HomeGuideLike[]): HomeAction[] {
+export function buildHomeEssentialActions(_guides: HomeGuideLike[]): HomeAction[] {
   return [
     {
       featureKey: 'home.essential.arrival',
-      title: '核对报到安排',
-      description: '先看报到日期，再等录取通知书确认个人时段、地点和材料。',
-      meta: '第一步',
+      title: '报到安排',
+      description: '查看报到日期、地点、材料和现场办理顺序。',
+      meta: '入学前先看',
       icon: 'i-lucide-calendar-check-2',
       to: '/procedures/arrival',
       tone: 'bg-green-50 text-green-700'
     },
     {
       featureKey: 'home.essential.map',
-      title: '找宿舍和教学楼',
-      description: '搜索楼栋或地点，地图会直接定位并提供可用的导航入口。',
-      meta: '到校最常用',
+      title: '专业与住宿片区',
+      description: '查询专业所在校区、宿舍片区和相关地图位置。',
+      meta: '按专业查找',
       icon: 'i-lucide-map-pinned',
       to: '/map',
       tone: 'bg-blue-50 text-blue-700'
     },
     {
       featureKey: 'home.essential.network',
-      title: '校园卡与网络',
-      description: findGuideSummary(guides, 'campus-card-network', '了解校园卡、校园网和常见连接问题。'),
-      meta: '入学后尽快看',
-      icon: 'i-lucide-wifi',
-      to: '/guides/campus-card-network',
+      title: '宿舍信息',
+      description: '查看普通型、舒适型宿舍、入住用品和宿舍生活说明。',
+      meta: '住宿前先看',
+      icon: 'i-lucide-bed-double',
+      to: '/dorms',
       tone: 'bg-violet-50 text-violet-700'
     },
     {
       featureKey: 'home.essential.delivery',
-      title: '快递与外卖',
-      description: findGuideSummary(guides, 'express-delivery', '了解新旧区取件、外卖送达和现场确认方法。'),
-      meta: '生活常用',
-      icon: 'i-lucide-package-open',
-      to: '/guides/express-delivery',
+      title: '校园地图与交通',
+      description: '查找宿舍、教学楼、快递点和到校离校的交通路线。',
+      meta: '到校后常用',
+      icon: 'i-lucide-map-pinned',
+      to: '/map',
       tone: 'bg-orange-50 text-orange-700'
     }
   ]
@@ -314,10 +314,13 @@ export function computeHomeCardTilt(
   }
 }
 
-export function buildHomeMapSearchTarget(query: string): { path: string, query?: { q: string } } {
+export function buildHomeSearchTarget(query: string): { path: string, query?: { q: string } } {
   const trimmed = query.trim()
   return {
-    path: '/map',
+    path: '/search',
     ...(trimmed ? { query: { q: trimmed } } : {})
   }
 }
+
+// Kept for older callers; the homepage now uses the unified site search.
+export const buildHomeMapSearchTarget = buildHomeSearchTarget

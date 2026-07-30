@@ -4,11 +4,18 @@ const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
 const { user, isAuthenticated, refreshSession } = useUserSession()
 
-const navigation = [
+const desktopNavigation = [
   { label: '首页', to: '/', icon: 'i-lucide-house' },
   { label: '地图', to: '/map', icon: 'i-lucide-map' },
   { label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
-  { label: '更多', to: '/discover', icon: 'i-lucide-layout-grid' }
+  { label: '新生专题', to: '/guides', icon: 'i-lucide-notebook-tabs' },
+  { label: '服务导航', to: '/discover', icon: 'i-lucide-layout-grid' }
+]
+const mobileNavigation = [
+  { label: '首页', to: '/', icon: 'i-lucide-house' },
+  { label: '地图', to: '/map', icon: 'i-lucide-map' },
+  { label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
+  { label: '服务', to: '/discover', icon: 'i-lucide-layout-grid' }
 ]
 const icpNumber = computed(() => String(runtimeConfig.public.icpNumber || '').trim())
 
@@ -26,13 +33,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--page-bg)]">
+  <div class="min-h-screen bg-white">
     <a
       href="#main-content"
       class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white px-4 text-sm font-semibold text-green-800 shadow-lg focus:translate-y-0"
     >跳至主要内容</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
-      <div class="page-shell flex h-16 items-center justify-between gap-2 md:gap-6">
+      <div class="page-shell flex h-20 items-center justify-between gap-3 md:h-24 md:gap-8">
         <NuxtLink
           to="/"
           class="flex min-h-11 min-w-0 flex-1 items-center gap-2 sm:gap-3 md:flex-none"
@@ -44,22 +51,22 @@ onMounted(() => {
             aria-hidden="true"
             width="325"
             height="72"
-            class="h-9 w-auto max-w-[9.5rem] shrink-0 object-contain object-left sm:max-w-none"
+            class="h-11 w-auto max-w-[13rem] shrink-0 object-contain object-left md:h-14 md:max-w-none"
           >
         </NuxtLink>
 
         <nav
-          class="hidden items-center gap-1 md:flex"
+          class="hidden items-center gap-4 md:flex lg:gap-7"
           aria-label="主导航"
         >
           <UButton
-            v-for="item in navigation"
+            v-for="item in desktopNavigation"
             :key="item.to"
             :to="item.to"
-            :icon="item.icon"
-            :color="isActive(item.to) ? 'primary' : 'neutral'"
-            :variant="isActive(item.to) ? 'soft' : 'ghost'"
+            color="neutral"
+            variant="ghost"
             :aria-current="isActive(item.to) ? 'page' : undefined"
+            :class="isActive(item.to) ? 'rounded-none border-b-2 border-green-700 text-sm font-bold text-green-700' : 'rounded-none border-b-2 border-transparent text-sm text-zinc-700'"
           >
             {{ item.label }}
           </UButton>
@@ -68,15 +75,16 @@ onMounted(() => {
         <div class="flex shrink-0 items-center gap-0 sm:gap-1">
           <UButton
             to="/contact"
-            icon="i-lucide-message-circle"
+            icon="i-lucide-phone"
             color="primary"
-            variant="soft"
+            variant="ghost"
             aria-label="联系我们"
             class="min-h-11 min-w-11"
           >
             <span class="hidden lg:inline">联系我们</span>
           </UButton>
           <UButton
+            v-if="route.path !== '/'"
             to="/search"
             icon="i-lucide-search"
             color="neutral"
@@ -89,7 +97,7 @@ onMounted(() => {
             color="neutral"
             variant="ghost"
             aria-label="分享当前页面"
-            class="min-h-11 min-w-11"
+            class="hidden min-h-11 min-w-11 sm:inline-flex"
             @click="shareCurrentPage"
           />
           <template v-if="isAuthenticated">
@@ -115,8 +123,8 @@ onMounted(() => {
           <UButton
             v-else
             to="/login"
-            icon="i-lucide-log-in"
-            color="neutral"
+            icon="i-lucide-user-round"
+            color="primary"
             variant="ghost"
             aria-label="账号登录"
             class="min-h-11 min-w-11"
@@ -196,7 +204,7 @@ onMounted(() => {
     >
       <div class="grid h-[var(--mobile-nav-height)] grid-cols-4">
         <NuxtLink
-          v-for="item in navigation"
+          v-for="item in mobileNavigation"
           :key="item.to"
           :to="item.to"
           class="flex min-w-0 flex-col items-center justify-center gap-1 text-xs"

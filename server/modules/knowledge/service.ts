@@ -398,6 +398,20 @@ function ftsQuery(terms: string[]): string {
     .join(' OR ')
 }
 
+function normalizedKnowledgeKey(value: string): string {
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase('zh-CN')
+    .replace(/[\p{P}\p{S}\s]+/gu, '')
+}
+
+const GENERIC_KNOWLEDGE_TERMS = new Set([
+  '什么', '时候', '哪些', '谁是', '是谁', '主要', '专业', '学院', '学校', '大学',
+  '学生', '要求', '条件', '规则', '流程', '信息', '内容', '情况', '相关', '具体',
+  '可以', '需要', '现在', '当前', '怎么', '如何', '哪里', '申请', '办理', '地点',
+  '时间', '宿舍', '寝室', '住宿', '生活', '校园'
+])
+
 function relevantExcerpt(value: string, terms: string[], limit = 1600): string {
   const normalized = value.replace(/\s+/g, ' ').trim()
   if (normalized.length <= limit) return normalized
@@ -425,10 +439,14 @@ export function searchOfficialKnowledgeDocuments(
   rawQuery = ''
 ): OfficialDocumentMatch[] {
   const searchableTerms = [...new Set(terms.map(term => term.trim().toLocaleLowerCase('zh-CN')).filter(term => term.length >= 2))]
-  const documentIndexTerms = new Set<string>()
-  for (const term of searchableTerms.filter(term => term.length >= 3)) {
-    documentIndexTerms.add(term)
-    for (let index = 0; index <= term.length - 3; index += 1) documentIndexTerms.add(term.slice(index, index + 3))
+  const documentIndexTerms = new Set<string>(searchableTerms.slice(0, 12))
+  // Put complete phrases first. A small, even trigram budget is enough for
+  // Chinese FTS fallback without allowing one long phrase to crowd out later
+  // entities such as a major name or document type.
+  for (const term of searchableTerms.slice(0, 8).filter(term => term.length >= 3)) {
+    for (let index = 0; index <= term.length - 3 && index < 3; index += 1) {
+      documentIndexTerms.add(term.slice(index, index + 3))
+    }
   }
   const query = ftsQuery([...documentIndexTerms])
   if (searchableTerms.length === 0) return []
@@ -545,10 +563,16 @@ export function searchOfficialKnowledgeDocuments(
     .sort((left, right) => right.score - left.score || right.capturedAt - left.capturedAt)
 
   const seenContentHashes = new Set<string>()
+  const titleCounts = new Map<string, number>()
   return ranked
     .filter((row) => {
       if (seenContentHashes.has(row.contentHash)) return false
+      const titleKey = normalizedKnowledgeKey(row.title)
+      const titleLimit = /正文要点|官网正文/.test(titleKey) ? 2 : 3
+      const count = titleCounts.get(titleKey) ?? 0
+      if (count >= titleLimit) return false
       seenContentHashes.add(row.contentHash)
+      titleCounts.set(titleKey, count + 1)
       return true
     })
     .slice(0, Math.max(1, Math.min(30, limit)))
@@ -598,7 +622,7 @@ export function searchPublishedKnowledgeClaims(
         AND (kc.valid_until IS NULL OR kc.valid_until >= ?)
       ORDER BY ftsRank ASC, kc.confidence_score DESC
       LIMIT ?
-    `).all(query, now, now, Math.max(1, Math.min(30, limit))) as SearchRow[]
+    `).all(query, now, now, Math.max(12, Math.min(160, limit * 10))) as SearchRow[]
   } catch {
     rows = []
   }
@@ -624,16 +648,57 @@ export function searchPublishedKnowledgeClaims(
           AND (kc.valid_until IS NULL OR kc.valid_until >= ?)
         ORDER BY kc.confidence_score DESC, kc.updated_at DESC
         LIMIT ?
-      `).all(...values, now, now, Math.max(1, Math.min(30, limit))) as SearchRow[]
+      `).all(...values, now, now, Math.max(12, Math.min(160, limit * 10))) as SearchRow[]
     }
   }
-  return rows.map(row => ({
-    id: row.id,
-    category: row.category,
-    title: row.title,
-    statement: row.statement,
-    url: row.publicUrl || row.sourceUrl || `/search?q=${encodeURIComponent(row.title)}`,
-    confidenceScore: row.confidenceScore,
-    score: 18 + Math.min(24, Math.max(0, -Number(row.ftsRank || 0) * 8)) + row.confidenceScore / 10
-  }))
+  const normalizedTerms = [...new Set(terms
+    .map(term => normalizedKnowledgeKey(term))
+    .filter(term => term.length >= 2))]
+  const specificTerms = normalizedTerms.filter(term => term.length >= 3 || !GENERIC_KNOWLEDGE_TERMS.has(term))
+  const ranked = rows.map((row) => {
+    const title = normalizedKnowledgeKey(row.title)
+    const statement = normalizedKnowledgeKey(row.statement)
+    const searchable = `${title}${statement}`
+    const titleMatches = normalizedTerms.filter(term => title.includes(term))
+    const textMatches = normalizedTerms.filter(term => searchable.includes(term))
+    const specificMatches = specificTerms.filter(term => searchable.includes(term))
+
+    // FTS is intentionally broad (terms are OR-ed for Chinese text). Do not
+    // let a page that only contains generic words such as “宿舍” or “要求”
+    // become evidence for a more specific question like “床垫尺寸”.
+    if (specificTerms.length > 0 && specificMatches.length === 0) return null
+    if (specificTerms.length === 0 && titleMatches.length === 0 && textMatches.length < 2) return null
+
+    return {
+      id: row.id,
+      category: row.category,
+      title: row.title,
+      statement: row.statement,
+      url: row.publicUrl || row.sourceUrl || `/search?q=${encodeURIComponent(row.title)}`,
+      confidenceScore: row.confidenceScore,
+      score: 18
+        + Math.min(24, Math.max(0, -Number(row.ftsRank || 0) * 8))
+        + row.confidenceScore / 10
+        + Math.min(24, titleMatches.reduce((total, term) => total + Math.max(2, term.length), 0))
+        + Math.min(12, specificMatches.length * 4)
+    }
+  }).filter((row): row is NonNullable<typeof row> => Boolean(row)).sort((left, right) => right.score - left.score)
+
+  const statements = new Set<string>()
+  const titleCounts = new Map<string, number>()
+  return ranked
+    .filter((row) => {
+      const statementKey = normalizedKnowledgeKey(row.statement)
+      const titleKey = normalizedKnowledgeKey(row.title)
+      if (!statementKey || statements.has(statementKey)) return false
+      // Crawler-generated “正文要点” claims are useful, but only a couple of
+      // distinct passages from the same title should enter one answer context.
+      const titleLimit = /正文要点|官网正文/.test(titleKey) ? 2 : 3
+      const count = titleCounts.get(titleKey) ?? 0
+      if (count >= titleLimit) return false
+      statements.add(statementKey)
+      titleCounts.set(titleKey, count + 1)
+      return true
+    })
+    .slice(0, Math.max(1, Math.min(30, limit)))
 }

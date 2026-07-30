@@ -63,7 +63,7 @@ const collections: Array<{ value: Collection, label: string, icon: string, count
   { value: 'structured', label: '平台实时数据', icon: 'i-lucide-refresh-cw', count: 'structured' },
   { value: 'documents', label: '官网正文', icon: 'i-lucide-library-big', count: 'documents' },
   { value: 'claims', label: '官网知识点', icon: 'i-lucide-sparkles', count: 'claims' },
-  { value: 'web', label: '网页资料', icon: 'i-lucide-globe-2', count: 'web' }
+  { value: 'web', label: '网页资料', icon: 'i-lucide-globe', count: 'web' }
 ]
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
@@ -344,6 +344,7 @@ onMounted(loadLibrary)
               v-if="item.url"
               :to="item.url"
               target="_blank"
+              rel="noopener noreferrer"
               icon="i-lucide-external-link"
               aria-label="打开资料来源"
               color="neutral"

@@ -25,6 +25,7 @@ import {
   shouldUseCampusKnowledgeBase,
   storeWebEvidence
 } from '../server/modules/assistant/service'
+import { searchPublishedKnowledgeClaims } from '../server/modules/knowledge/service'
 
 const root = resolve(import.meta.dirname, '..')
 const emptyAssistantConfig = {
@@ -310,6 +311,9 @@ test('assistant query normalization and retrieval terms cover common campus word
   const unknownTerms = assistantQueryTerms('仰恩大学有没有飞行课程？')
   assert.deepEqual(unknownTerms, ['飞行课程'])
   assert.equal(unknownTerms.includes('仰恩大学') || unknownTerms.includes('仰恩'), false)
+  const followUpTerms = assistantQueryTerms('仰恩大学新生报到宿舍校园卡网络奖学金转专业老师是谁；追问：哪栋楼')
+  assert.ok(followUpTerms.includes('哪栋楼'))
+  assert.equal(followUpTerms.includes('谁是'), false)
 })
 
 test('knowledge retrieval is decided independently for every message', () => {
@@ -551,6 +555,37 @@ test('assistant retrieval ranks opening dates and indexes nested article section
   }
 })
 
+test('specific bedding questions do not keep generic dorm articles as evidence', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-specific-bed-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO knowledge_claims (
+        id, category, title, statement, keywords_json, search_text,
+        confidence_label, confidence_score, review_status, source_note,
+        published_at, created_at, updated_at
+      ) VALUES (
+        'generic-dorm-event', '宿舍与生活', '宿舍文化节获奖通知',
+        '宿舍文化活动丰富了学生课余生活，寝室之间开展了评比。',
+        '["宿舍","寝室"]', '宿舍文化节获奖通知 宿舍文化活动丰富了学生课余生活 寝室评比',
+        'extracted', 95, 'published', 'retrieval test', ?, ?, ?
+      )
+    `).run(now, now, now)
+
+    const terms = assistantQueryTerms(assistantRetrievalQuery('宿舍床垫买多大'))
+    const matches = searchPublishedKnowledgeClaims(client, terms, 6)
+    assert.equal(matches.some(item => item.title.includes('宿舍文化节')), false)
+    const evidence = retrieveCampusEvidence(client, '宿舍床垫买多大', 6)
+    assert.equal(evidence.some(item => item.title.includes('宿舍文化节')), false)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('verified seed catalog covers opening dates when the runtime database is stale', () => {
   const opening = seedCatalogEvidenceForQuery('什么时候开学？', 3)
   assert.equal(opening[0]?.title, '2026级新生报到')
@@ -598,6 +633,17 @@ test('identity questions do not turn an organization mention into a person profi
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
   }
+})
+
+test('identity evidence rejects award titles even when the person name matches', () => {
+  assert.equal(localEvidenceIsSufficient('吴庆星是谁', [{
+    title: '吴庆星奖学金评审通知',
+    url: 'https://www.yeu.edu.cn/example-award',
+    snippet: '这是奖学金评审通知，不是人物简介。',
+    source: 'site',
+    text: '吴庆星奖学金用于奖励优秀学生。',
+    score: 80
+  }]), false)
 })
 
 test('major dorm question prioritizes the verified pending allocation', async () => {
