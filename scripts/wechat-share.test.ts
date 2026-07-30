@@ -67,6 +67,11 @@ test('WeChat credentials stay server-side and route sharing uses one automatic S
   assert.match(composable, /res\.wx\.qq\.com/)
   assert.match(composable, /sdk\.ready\([\s\S]*sdk\.config\(/)
   assert.doesNotMatch(composable, /signature\.url !== signedUrl/)
+  // WeChat validates wx.config against the URL that loaded the page. On iOS
+  // that never changes after pushState, so the entry URL must be captured once
+  // and reused for signing instead of reading location.href per route.
+  assert.match(composable, /entryPageUrl/)
+  assert.match(composable, /if \(entryPageUrl\) return entryPageUrl/)
   assert.match(plugin, /configureWechatShare/)
   assert.match(plugin, /lastScheduledRouteKey/)
   assert.doesNotMatch(layout, /configureWechatShare/)

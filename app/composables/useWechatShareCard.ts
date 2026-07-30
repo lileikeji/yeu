@@ -140,6 +140,10 @@ function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<vo
 }
 
 function queueSdkConfiguration(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<void> {
+  // wx.config is only honoured once per page load; later calls are ignored by
+  // the SDK. Since the signature is always for the entry URL, one successful
+  // configuration covers every subsequent route, and share payloads are then
+  // updated per route via updateAppMessageShareData.
   if (configuredSignatureUrl === signature.url) return Promise.resolve()
   if (queuedSignatureUrl === signature.url && queuedSignaturePromise) return queuedSignaturePromise
 
@@ -162,10 +166,21 @@ function queueSdkConfiguration(sdk: WechatJsSdk, signature: WechatShareSignature
   return trackedTask
 }
 
+/**
+ * WeChat validates wx.config against the URL that originally loaded the page.
+ * On iOS that URL never changes for the lifetime of the WebView, even after
+ * history.pushState, so a signature for the current SPA route is rejected and
+ * the share silently degrades to a plain link. Capture the entry URL once and
+ * always sign that.
+ */
+let entryPageUrl: string | null = null
+
 function canonicalPageUrl(): string {
+  if (entryPageUrl) return entryPageUrl
   const url = new URL(window.location.href)
   url.hash = ''
-  return url.toString()
+  entryPageUrl = url.toString()
+  return entryPageUrl
 }
 
 function shareUrl(rawUrl: string): string {
