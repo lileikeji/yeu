@@ -420,6 +420,48 @@ test('AMap loader sets the security code even when window.AMap already exists', 
   }
 })
 
+test('AMap provider creates the map without waiting for coordinate conversion', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  FakeAMapMap.instances = []
+
+  const fakeWindow: Record<string, unknown> = {
+    AMap: {
+      Map: FakeAMapMap,
+      Marker: FakeMarker,
+      Polygon: FakePolygon,
+      Polyline: FakePolyline,
+      TileLayer: { Satellite: FakeTileLayer, RoadNet: FakeTileLayer },
+      InfoWindow: FakeInfoWindow,
+      Pixel: FakePixel,
+      MarkerCluster: FakeMarkerCluster,
+      plugin: (_plugins: string[], callback: () => void) => callback(),
+      // A rejected key leaves this callback pending, as observed in WeChat.
+      convertFrom: () => {}
+    }
+  }
+
+  Object.defineProperty(globalThis, 'window', { value: fakeWindow, configurable: true })
+  Object.defineProperty(globalThis, 'document', {
+    value: { createElement: () => new FakeElement() },
+    configurable: true
+  })
+
+  try {
+    const provider = new AMapProvider({ key: 'k', securityCode: 'sec' })
+    await provider.mount(new FakeElement() as unknown as HTMLElement, { zoom: 15 })
+
+    // The map must exist even though conversion never resolved.
+    assert.equal(FakeAMapMap.instances.length, 1)
+    provider.destroy()
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument)
+    else Reflect.deleteProperty(globalThis, 'document')
+  }
+})
+
 test('AMap provider resizes a zero-sized canvas after mount', async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')

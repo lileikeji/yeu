@@ -152,16 +152,17 @@ export class AMapProvider implements MapProvider {
     this.disposeMap()
     const lifecycleVersion = ++this.lifecycleVersion
     const amap = await loadAMap(this.options)
-    const requestedCenter = options.center ?? YEU_CAMPUS_REFERENCE_CENTER
-    const converted = await this.convertPoint(requestedCenter, amap)
 
     if (lifecycleVersion !== this.lifecycleVersion) return
 
-    // Conversion goes through restapi.amap.com and can fail in embedded
-    // WebViews. The WGS84/GCJ-02 offset across campus is a few tens of metres,
-    // so falling back to the raw point keeps the basemap visible instead of
-    // failing the whole mount and leaving only locally drawn markers.
-    const center: AMapPosition = converted ?? [requestedCenter.lng, requestedCenter.lat]
+    // Create the map against the raw WGS84 point instead of awaiting
+    // convertFrom. That call goes to restapi.amap.com and can stall for the
+    // full conversion timeout when the key is rejected, which delays
+    // construction until after the container has been re-laid out and leaves
+    // AMap with a 0x0 canvas. The campus-wide WGS84/GCJ-02 offset is a few
+    // tens of metres, and the precise centre is applied below once available.
+    const requestedCenter = options.center ?? YEU_CAMPUS_REFERENCE_CENTER
+    const center: AMapPosition = [requestedCenter.lng, requestedCenter.lat]
 
     const map = new amap.Map(element, {
       center,
@@ -179,6 +180,17 @@ export class AMapProvider implements MapProvider {
     this.scheduleInitialResize(map, element, lifecycleVersion)
     map.on('click', this.handleMapClick)
     map.on('hotspotclick', this.handleHotspotClick)
+
+    // Refine the centre in the background. A rejected key simply leaves the
+    // raw WGS84 centre in place rather than blocking the basemap.
+    void this.convertPoint(requestedCenter, amap).then((precise) => {
+      if (!precise || this.map !== map || lifecycleVersion !== this.lifecycleVersion) return
+      try {
+        map.setZoomAndCenter(map.getZoom(), precise)
+      } catch {
+        // Recentring is cosmetic; the basemap is already visible.
+      }
+    })
     await Promise.all([this.rebuildMarkers(), this.rebuildAreas()])
 
     // Clustering is optional. If the embedded browser finishes loading it
