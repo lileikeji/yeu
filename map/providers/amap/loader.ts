@@ -82,6 +82,9 @@ export function loadAMap(options: AMapLoaderOptions): Promise<AMapNamespace> {
     const script = document.createElement('script')
     script.src = buildAMapScriptUrl(options.key)
     script.async = true
+    // Without this, failures inside the AMap bundle surface only as the opaque
+    // "Script error." and cannot be diagnosed.
+    script.crossOrigin = 'anonymous'
     script.dataset.yeuAmapLoader = 'true'
 
     const timeout = window.setTimeout(() => {

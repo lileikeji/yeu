@@ -73,7 +73,7 @@ onMounted(() => {
   log('UA', navigator.userAgent.slice(0, 120))
   log('provider(cfg)', runtimeConfig.public.mapProvider)
   log('key set', Boolean(runtimeConfig.public.amapKey))
-  log('secCode set', Boolean(amapWindow._AMapSecurityConfig?.securityJsCode))
+  // Sampled again in the delayed block below; loadAMap sets this after mount.
   log('WebGL', detectWebgl())
   log('devicePixelRatio', window.devicePixelRatio)
 
@@ -110,6 +110,7 @@ onMounted(() => {
   }
 
   window.setTimeout(() => {
+    log('secCode set', Boolean(amapWindow._AMapSecurityConfig?.securityJsCode))
     log('AMap loaded', Boolean(amapWindow.AMap))
     if (amapWindow.AMap) {
       log('AMap.Map', typeof amapWindow.AMap.Map)
@@ -126,6 +127,19 @@ onMounted(() => {
     log('canvas css', canvas
       ? `${Math.round(canvas.getBoundingClientRect().width)}x${Math.round(canvas.getBoundingClientRect().height)}`
       : 'MISSING')
+
+    // Distinguish "AMap never sized itself" from "AMap sized itself but the
+    // container is hidden or clipped by an ancestor".
+    const container = document.querySelector('.amap-container') as HTMLElement | null
+    if (container) {
+      const style = getComputedStyle(container)
+      log('container css', `disp=${style.display} vis=${style.visibility} op=${style.opacity}`)
+      const maps = container.querySelector('.amap-maps') as HTMLElement | null
+      log('amap-maps', maps ? `${maps.clientWidth}x${maps.clientHeight}` : 'MISSING')
+      const layers = container.querySelector('.amap-layers') as HTMLElement | null
+      log('amap-layers', layers ? `${layers.clientWidth}x${layers.clientHeight}` : 'MISSING')
+    }
+
     for (const entry of timeline) log('tl', entry)
   }, 6500)
 })
