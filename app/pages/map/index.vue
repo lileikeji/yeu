@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-0 overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:min-h-[40rem] md:grid-rows-1"
+    class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-0 overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:grid-rows-1"
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
@@ -1120,9 +1120,11 @@ onBeforeUnmount(() => {
   }
 }
 
-@supports (height: 100dvh) and (min-width: 768px) {
-  .map-workspace {
-    height: calc(100dvh - var(--header-height));
+@media (min-width: 768px) {
+  @supports (height: 100dvh) {
+    .map-workspace {
+      height: calc(100dvh - var(--header-height));
+    }
   }
 }
 

@@ -157,20 +157,20 @@ onMounted(() => {
       <div class="absolute -right-24 top-16 size-96 rounded-full border border-white/15" />
       <div class="absolute right-16 top-44 size-64 rounded-full border border-emerald-100/25" />
 
-      <div class="page-shell relative z-10 grid min-h-[35rem] content-end gap-8 py-12 md:min-h-[42rem] md:grid-cols-[minmax(0,1fr)_20rem] md:items-end md:py-16">
+      <div class="page-shell relative z-10 grid min-h-[28rem] content-end gap-5 py-8 md:min-h-[34rem] md:grid-cols-[minmax(0,1fr)_20rem] md:items-end md:py-12">
         <div class="max-w-3xl">
           <div class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/15 px-4 py-2 text-xs font-semibold backdrop-blur-md">
             <span class="grid size-8 place-items-center rounded-full bg-emerald-300 font-black text-emerald-950">360°</span>
             不用到校，先在屏幕里逛一圈
           </div>
-          <h1 class="mt-6 text-4xl font-black tracking-tight text-white sm:text-5xl md:text-6xl">
+          <h1 class="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl md:text-5xl">
             大门、教学楼、宿舍，<br>先看看长什么样
           </h1>
-          <p class="mt-5 max-w-2xl text-sm leading-7 text-white/80 md:text-base md:leading-8">
+          <p class="mt-4 max-w-2xl text-sm leading-7 text-white/80 md:text-base">
             想认路就先逛校内实景，想了解学校故事再去校史馆。电脑和手机都能拖动画面，不用下载 App。
           </p>
 
-          <div class="mt-7 flex flex-wrap gap-3">
+          <div class="mt-5 flex flex-wrap gap-3">
             <UButton
               icon="i-lucide-school"
               label="现在开始逛校园"

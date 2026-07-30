@@ -18,6 +18,9 @@ const mobileNavigation = [
   { label: '服务', to: '/discover', icon: 'i-lucide-layout-grid' }
 ]
 const icpNumber = computed(() => String(runtimeConfig.public.icpNumber || '').trim())
+const isHomePage = computed(() => route.path === '/')
+const isMapPage = computed(() => route.path === '/map' || route.path.startsWith('/map/'))
+const useCompactPageDensity = computed(() => !isHomePage.value && !isMapPage.value)
 
 function isActive(to: string) {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
@@ -39,19 +42,30 @@ onMounted(() => {
       class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white px-4 text-sm font-semibold text-green-800 shadow-lg focus:translate-y-0"
     >跳至主要内容</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
-      <div class="page-shell flex h-20 items-center justify-between gap-3 md:h-[4.5rem] md:gap-6">
+      <div class="page-shell flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
         <NuxtLink
           to="/"
-          class="flex min-h-11 min-w-0 flex-1 items-center gap-2 sm:gap-3 md:flex-none"
+          class="flex min-h-11 min-w-0 flex-1 items-center gap-2 md:flex-none"
           aria-label="仰恩新生指南首页"
         >
+          <span class="flex min-w-0 items-center gap-2 md:hidden">
+            <img
+              src="/icons/yeu-seal.jpg"
+              alt=""
+              aria-hidden="true"
+              width="36"
+              height="36"
+              class="size-9 shrink-0 rounded-full object-contain"
+            >
+            <span class="truncate text-base font-bold text-zinc-950">仰恩新生指南</span>
+          </span>
           <img
             src="/icons/site-logo.png"
             alt=""
             aria-hidden="true"
             width="325"
             height="72"
-            class="h-11 w-auto max-w-[13rem] shrink-0 object-contain object-left md:h-11 md:max-w-[12rem]"
+            class="hidden h-11 w-auto max-w-[12rem] shrink-0 object-contain object-left md:block"
           >
         </NuxtLink>
 
@@ -72,7 +86,7 @@ onMounted(() => {
           </UButton>
         </nav>
 
-        <div class="flex shrink-0 items-center gap-0 sm:gap-1">
+        <div class="flex shrink-0 items-center gap-0 md:gap-1">
           <PublicNoticeCenter />
           <UButton
             to="/contact"
@@ -80,7 +94,7 @@ onMounted(() => {
             color="primary"
             variant="ghost"
             aria-label="联系我们"
-            class="min-h-11 min-w-11"
+            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
           >
             <span class="hidden lg:inline">联系我们</span>
           </UButton>
@@ -90,7 +104,7 @@ onMounted(() => {
             color="neutral"
             variant="ghost"
             aria-label="AI 搜索与站内搜索"
-            class="min-h-11 min-w-11"
+            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
           />
           <UButton
             icon="i-lucide-share-2"
@@ -115,7 +129,7 @@ onMounted(() => {
               color="primary"
               variant="soft"
               :aria-label="user?.displayName || '个人中心'"
-              class="min-h-11 min-w-11"
+              class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
             >
               <span class="hidden max-w-[5.5rem] truncate sm:inline">{{ user?.displayName || '我的' }}</span>
             </UButton>
@@ -127,7 +141,7 @@ onMounted(() => {
             color="primary"
             variant="ghost"
             aria-label="账号登录"
-            class="min-h-11 min-w-11"
+            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
           >
             <span class="hidden sm:inline">登录</span>
           </UButton>
@@ -137,7 +151,12 @@ onMounted(() => {
 
     <main
       id="main-content"
-      class="safe-bottom min-h-[calc(100vh-4rem)]"
+      :class="[
+        isMapPage
+          ? 'min-h-0 overflow-hidden'
+          : 'safe-bottom min-h-[calc(100vh-var(--header-height))]',
+        useCompactPageDensity ? 'compact-page-density' : ''
+      ]"
       tabindex="-1"
     >
       <slot />
@@ -146,7 +165,7 @@ onMounted(() => {
     <PwaUpdatePrompt />
 
     <footer
-      v-if="route.path !== '/map' && route.path !== '/'"
+      v-if="!isMapPage && !isHomePage"
       class="border-t border-[var(--line)] bg-white pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
     >
       <div class="page-shell flex flex-col gap-4 py-6 text-xs text-zinc-500 md:flex-row md:items-center md:justify-between md:gap-6">

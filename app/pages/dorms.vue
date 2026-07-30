@@ -77,7 +77,7 @@ function selectDorm(id: DormId) {
 
 <template>
   <div class="overflow-x-clip pb-16">
-    <section class="relative isolate min-h-[30rem] overflow-hidden border-b border-zinc-900/10 text-white md:min-h-[36rem]">
+    <section class="relative isolate min-h-[24rem] overflow-hidden border-b border-zinc-900/10 text-white md:min-h-[30rem]">
       <img
         src="/images/panorama/ordinary-dorm-poster.jpg"
         alt=""
@@ -85,18 +85,18 @@ function selectDorm(id: DormId) {
       >
       <div class="absolute inset-0 bg-[linear-gradient(100deg,rgba(8,20,30,.96),rgba(8,35,46,.78)_55%,rgba(8,20,30,.35))]" />
 
-      <div class="page-shell relative z-10 flex min-h-[30rem] items-end py-12 md:min-h-[36rem] md:py-16">
+      <div class="page-shell relative z-10 flex min-h-[24rem] items-end py-8 md:min-h-[30rem] md:py-12">
         <div class="max-w-3xl">
           <p class="text-sm font-semibold text-cyan-200">
             新生住宿参考
           </p>
-          <h1 class="mt-4 text-4xl font-black sm:text-5xl md:text-6xl">
+          <h1 class="mt-3 text-3xl font-black sm:text-4xl md:text-5xl">
             宿舍实拍
           </h1>
-          <p class="mt-5 max-w-2xl text-base leading-8 text-white/80 md:text-lg">
+          <p class="mt-4 max-w-2xl text-sm leading-7 text-white/80 md:text-base">
             普通型和舒适型分开看。视频来自在校生走拍，适合提前了解空间与公共区域，不代表最终分配到的具体房间。
           </p>
-          <div class="mt-7 flex flex-wrap gap-3">
+          <div class="mt-5 flex flex-wrap gap-3">
             <UButton
               icon="i-lucide-bed-single"
               label="普通型宿舍"

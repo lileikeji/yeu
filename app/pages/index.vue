@@ -95,13 +95,13 @@ const {
         <div class="border-b border-orange-200/80 bg-orange-50/80 text-orange-800">
           <button
             type="button"
-            class="page-shell grid min-h-16 w-full grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 py-3 text-left text-xs md:min-h-12 md:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] md:gap-4 md:py-2 md:text-sm"
+            class="page-shell grid min-h-12 w-full grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 py-2 text-left text-[11px] md:min-h-12 md:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] md:gap-4 md:text-sm"
             aria-label="查看2026级新生重要时间"
             @click="openImportantTime"
           >
             <UIcon
               name="i-lucide-volume-2"
-              class="size-5 shrink-0 text-orange-600"
+              class="size-4 shrink-0 text-orange-600 md:size-5"
             />
             <span class="shrink-0 font-semibold">2026级新生重要时间</span>
             <span class="hidden h-5 w-px bg-orange-300 md:block" />
@@ -111,7 +111,7 @@ const {
                 <span aria-hidden="true">9月5–6日报到 · 9月7–9日入学教育 · 9月10日上课</span>
               </span>
             </span>
-            <span class="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-orange-900 hover:bg-orange-100">
+            <span class="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold text-orange-900 hover:bg-orange-100 md:min-h-9 md:px-2 md:text-xs">
               查看
               <UIcon
                 name="i-lucide-chevron-right"
@@ -161,23 +161,23 @@ const {
           </template>
         </UModal>
 
-        <div class="page-shell py-9 text-left md:py-10 md:text-center">
-          <h1 class="text-left text-3xl font-bold tracking-tight text-zinc-950 md:text-center md:text-4xl">
+        <div class="page-shell py-6 text-left md:py-10 md:text-center">
+          <h1 class="text-left text-2xl font-bold tracking-tight text-zinc-950 md:text-center md:text-4xl">
             2026级新生入学指南
           </h1>
-          <p class="mx-auto mt-3 max-w-2xl text-left text-xs leading-6 text-zinc-600 md:text-center md:text-sm">
+          <p class="mx-auto mt-2 max-w-2xl text-left text-xs leading-5 text-zinc-600 md:mt-3 md:text-center md:text-sm md:leading-6">
             集中查询报到、住宿、交通、校园地图、办事流程和校园生活信息。
           </p>
 
           <form
-            class="mx-auto mt-6 flex max-w-3xl gap-0 text-left md:mt-7"
+            class="mx-auto mt-4 flex max-w-3xl gap-0 text-left md:mt-7"
             role="search"
             @submit.prevent="searchSite"
           >
             <UInput
               v-model="placeQuery"
               icon="i-lucide-search"
-              size="xl"
+              size="md"
               class="min-w-0 flex-1"
               placeholder="搜索校园信息，或输入你的问题"
               aria-label="搜索校园信息或提出问题"
@@ -186,8 +186,8 @@ const {
               type="submit"
               icon="i-lucide-sparkles"
               label="AI 搜索"
-              size="xl"
-              class="min-h-11 rounded-l-none px-5 md:px-8"
+              size="md"
+              class="min-h-10 rounded-l-none px-3 text-xs md:min-h-11 md:px-8 md:text-sm"
             />
           </form>
         </div>
@@ -195,36 +195,36 @@ const {
 
       <section
         v-if="essentialActions.length"
-        class="page-shell py-7 md:py-8"
+        class="page-shell py-5 md:py-8"
       >
         <div>
-          <h2 class="text-xl font-bold text-zinc-950">
+          <h2 class="text-lg font-bold text-zinc-950 md:text-xl">
             常用查询
           </h2>
         </div>
 
-        <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="mt-3 grid grid-cols-2 gap-2.5 md:mt-4 md:gap-3 lg:grid-cols-4">
           <NuxtLink
             v-for="action in essentialActions"
             :key="action.to"
             :to="action.to"
-            class="group grid min-h-32 place-items-center rounded-lg border border-zinc-200 bg-white p-4 text-center transition hover:border-green-300 hover:shadow-sm md:min-h-32"
+            class="group grid min-h-[4.75rem] place-items-center rounded-lg border border-zinc-200 bg-white p-2.5 text-left transition hover:border-green-300 hover:shadow-sm md:min-h-32 md:p-4 md:text-center"
           >
-            <div class="flex w-full min-w-0 flex-col items-center justify-center gap-3 text-center">
+            <div class="flex w-full min-w-0 items-center gap-2 md:flex-col md:justify-center md:gap-3 md:text-center">
               <span
-                class="grid size-11 shrink-0 place-items-center rounded-lg md:size-12"
+                class="grid size-8 shrink-0 place-items-center rounded-md md:size-12 md:rounded-lg"
                 :class="action.tone"
               >
                 <UIcon
                   :name="action.icon"
-                  class="size-6 md:size-7"
+                  class="size-4.5 md:size-7"
                 />
               </span>
               <span class="min-w-0">
-                <h3 class="text-sm font-bold leading-5 text-zinc-950 md:text-base">
+                <h3 class="text-[13px] font-bold leading-4.5 text-zinc-950 md:text-base md:leading-5">
                   {{ action.title }}
                 </h3>
-                <span class="mt-1 block text-xs leading-5 text-zinc-500 md:hidden">
+                <span class="mt-0.5 line-clamp-2 block text-[10px] leading-3.5 text-zinc-500 md:hidden">
                   {{ action.description }}
                 </span>
               </span>
@@ -237,18 +237,18 @@ const {
         v-if="timelineStages.length"
         class="border-y border-[var(--line)] bg-white"
       >
-        <div class="page-shell py-8 md:py-9">
-          <h2 class="text-xl font-bold text-zinc-950">
+        <div class="page-shell py-6 md:py-9">
+          <h2 class="text-lg font-bold text-zinc-950 md:text-xl">
             按入学阶段查看
           </h2>
-          <div class="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:items-stretch lg:gap-4">
-            <div class="rounded-lg border border-zinc-200 bg-white p-4 md:p-5">
+          <div class="mt-3 grid gap-5 md:mt-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:items-stretch lg:gap-4">
+            <div class="overflow-hidden rounded-lg border border-zinc-200 bg-white md:p-5">
               <div class="grid grid-cols-3 border-b border-zinc-200">
                 <button
                   v-for="(stage, index) in timelineStages"
                   :key="stage.label"
                   type="button"
-                  class="min-h-11 border-b-2 px-2 text-xs font-medium transition md:text-sm"
+                  class="min-h-10 border-b-2 px-2 text-xs font-medium transition md:min-h-11 md:text-sm"
                   :class="index === activeTimelineIndex ? 'border-green-700 bg-green-700 font-bold text-white md:bg-transparent md:text-green-700' : 'border-transparent text-zinc-600 hover:text-green-700'"
                   @click="activeTimelineIndex = index"
                 >
@@ -258,24 +258,24 @@ const {
 
               <div
                 v-if="activeTimelineStage"
-                class="pt-2"
+                class="px-3 pb-3 pt-1 md:px-0 md:pb-0 md:pt-2"
               >
                 <ul class="divide-y divide-zinc-100">
                   <li
                     v-for="item in activeTimelineStage.items"
                     :key="item"
-                    class="flex items-center gap-3 py-3 text-sm leading-6 text-zinc-700"
+                    class="flex items-center gap-2.5 py-2.5 text-sm leading-5 text-zinc-700 md:gap-3 md:py-3 md:leading-6"
                   >
                     <UIcon
                       name="i-lucide-circle-check"
-                      class="size-5 shrink-0 text-green-700"
+                      class="size-4.5 shrink-0 text-green-700 md:size-5"
                     />
                     <span>{{ item }}</span>
                   </li>
                 </ul>
                 <NuxtLink
                   :to="activeTimelineStage.to"
-                  class="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-green-700"
+                  class="mt-1 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 md:mt-3 md:min-h-11"
                 >
                   {{ activeTimelineStage.actionLabel }}
                   <UIcon
@@ -298,20 +298,20 @@ const {
                     class="size-5"
                   />
                 </span>
-                <h2 class="text-xl font-bold text-zinc-950 lg:text-base">
+                <h2 class="text-lg font-bold text-zinc-950 lg:text-base">
                   新生准备清单
                 </h2>
               </div>
-              <p class="mt-5 text-sm text-zinc-700">
+              <p class="mt-3 text-sm text-zinc-700 lg:mt-5">
                 已完成 <strong class="text-lg text-green-700">{{ checklistSummary.percent }}%</strong>
               </p>
-              <div class="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200">
+              <div class="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 lg:mt-3">
                 <div
                   class="h-full rounded-full bg-green-700 transition-[width]"
                   :style="{ width: `${checklistSummary.percent}%` }"
                 />
               </div>
-              <div class="mt-4 flex items-center justify-between gap-3">
+              <div class="mt-3 flex items-center justify-between gap-3 lg:mt-4">
                 <p class="min-w-0 text-sm leading-6 text-zinc-600">
                   <template v-if="checklistHydrated && checklistSummary.remainingCount > 0">
                     下一项：{{ checklistSummary.nextTitle || '继续完成准备事项' }}
@@ -319,7 +319,7 @@ const {
                   <template v-else-if="checklistHydrated">当前清单已全部勾完，可随时复查。</template>
                   <template v-else>打开后可以继续勾选。</template>
                 </p>
-                <span class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-green-700 px-5 text-sm font-semibold text-green-700 transition group-hover:bg-green-50">
+                <span class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-green-700 px-4 text-sm font-semibold text-green-700 transition group-hover:bg-green-50 lg:min-h-11 lg:px-5">
                   打开清单
                 </span>
               </div>
@@ -331,24 +331,24 @@ const {
       <section
         class="border-y border-[var(--line)] bg-white"
       >
-        <div class="page-shell py-8 md:py-9">
-          <h2 class="text-xl font-bold text-zinc-950">
+        <div class="page-shell py-6 md:py-9">
+          <h2 class="text-lg font-bold text-zinc-950 md:text-xl">
             服务导航
           </h2>
-          <div class="mt-4 grid overflow-hidden rounded-lg border border-zinc-200 bg-white md:grid-cols-5">
+          <div class="mt-3 grid overflow-hidden rounded-lg border border-zinc-200 bg-white md:mt-4 md:grid-cols-5">
             <NuxtLink
               v-for="entry in serviceNavEntries"
               :key="entry.to"
               :to="entry.to"
-              class="group flex min-h-24 items-center gap-3 border-b border-zinc-200 p-4 transition hover:bg-green-50 md:min-h-28 md:flex-col md:justify-center md:border-b-0 md:border-r md:text-center md:last:border-r-0"
+              class="group flex min-h-16 items-center gap-3 border-b border-zinc-200 px-3 py-2.5 transition hover:bg-green-50 md:min-h-28 md:flex-col md:justify-center md:border-b-0 md:border-r md:p-4 md:text-center md:last:border-r-0"
             >
               <UIcon
                 :name="entry.icon"
-                class="size-7 shrink-0 text-green-700"
+                class="size-5.5 shrink-0 text-green-700 md:size-7"
               />
               <span class="min-w-0">
                 <span class="block text-sm font-bold text-zinc-950">{{ entry.title }}</span>
-                <span class="mt-1 block text-xs leading-5 text-zinc-500 md:hidden">{{ entry.description }}</span>
+                <span class="mt-0.5 block text-[11px] leading-4 text-zinc-500 md:hidden">{{ entry.description }}</span>
               </span>
               <UIcon
                 name="i-lucide-chevron-right"
