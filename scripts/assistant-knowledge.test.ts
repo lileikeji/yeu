@@ -13,7 +13,8 @@ import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
   answerCampusQuestion,
-  assistantKnowledgeMatchesForQuery
+  assistantKnowledgeMatchesForQuery,
+  assistantQueryTerms
 } from '../server/modules/assistant/service'
 import { seedAssistantKnowledge } from './seed-assistant-knowledge'
 
@@ -38,6 +39,15 @@ test('campus experience entries are normalized and do not retain the source plat
   assert.ok(campusExperienceKnowledge.every(entry => (
     !/抖音|douyin|v\.douyin|http/i.test(JSON.stringify(entry))
   )))
+})
+
+test('follow-up entity terms stay ahead of a long appended context', () => {
+  const longContext = Array.from({ length: 32 }, (_, index) => `官网资料${index}正文内容`).join(' ')
+  const terms = assistantQueryTerms(`${longContext}；追问：哪栋楼`)
+
+  assert.equal(terms[0], '哪栋楼')
+  assert.ok(terms.indexOf('哪栋楼') < 3)
+  assert.equal(terms.includes('追问'), false)
 })
 
 test('assistant knowledge seed migrates and reruns idempotently', () => {
