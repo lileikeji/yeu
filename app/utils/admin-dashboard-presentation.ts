@@ -161,6 +161,7 @@ export const adminDashboardModules: AdminDashboardModule[] = [
 
 export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '前台功能', icon: 'i-lucide-layout-grid', to: '/admin/features', group: 'content' },
+  { label: '发布公告', icon: 'i-lucide-megaphone', to: '/admin/content?action=create&kind=notice', group: 'content' },
   { label: '新增地点', icon: 'i-lucide-map-pin-plus', to: '/admin/places?action=create', group: 'content' },
   { label: '新增内容', icon: 'i-lucide-file-plus-2', to: '/admin/content?action=create', group: 'content' },
   { label: '新增流程', icon: 'i-lucide-list-plus', to: '/admin/procedures?action=create', group: 'content' },

@@ -30,8 +30,8 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
   {
     key: 'home.essential.network',
     group: '新生常用入口',
-    title: '校园卡与网络',
-    description: '进入校园卡、校园网和连接问题指南。',
+    title: '校园一卡通与网络',
+    description: '进入校园一卡通、校园网和连接问题指南。',
     icon: 'i-lucide-wifi'
   },
   {

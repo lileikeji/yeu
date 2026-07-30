@@ -652,6 +652,16 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['department', 'club'] }
       },
       {
+        key: 'metadata.pinned',
+        label: '置顶公告',
+        type: 'checkbox',
+        defaultValue: false,
+        description: '置顶后会优先显示在前台公告列表。',
+        group: '公告时效',
+        span: 'full',
+        condition: { key: 'kind', values: ['notice'] }
+      },
+      {
         key: 'metadata.validFrom',
         label: '公告生效时间',
         type: 'datetime-local',

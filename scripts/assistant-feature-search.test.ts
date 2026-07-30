@@ -47,7 +47,7 @@ test('public search API result includes direct feature targets', () => {
     runMigrations(client)
     const result = searchPublishedContent(client, '专业在哪查是什么学院', 20)
     assert.equal(result.features?.[0]?.title, '专业与学院查询')
-    assert.equal(result.features?.[0]?.to, '/#major-lookup')
+    assert.equal(result.features?.[0]?.to, '/major-lookup')
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
@@ -63,7 +63,7 @@ test('assistant answers feature location with a clickable local entry', async ()
     const response = await answerCampusQuestion(client, '专业在哪查是什么学院', emptyAssistantConfig)
     assert.equal(response.mode, 'local')
     assert.match(response.answer, /专业与学院查询/)
-    assert.equal(response.citations[0]?.url, '/#major-lookup')
+    assert.equal(response.citations[0]?.url, '/major-lookup')
     assert.deepEqual(response.trace?.map(item => item.stage), [
       'query_analysis',
       'feature_api',
@@ -86,7 +86,7 @@ test('college aliases resolve their 2026 major list without web search', async (
     assert.equal(response.retrievalPath, 'local_database')
     assert.equal(response.usedWebSearch, false)
     assert.match(response.answer, /电气工程及其自动化、电子信息工程/)
-    assert.equal(response.citations[0]?.url, '/#major-lookup')
+    assert.equal(response.citations[0]?.url, '/major-lookup')
     assert.deepEqual(response.trace?.map(item => item.stage), [
       'query_analysis',
       'local_database',

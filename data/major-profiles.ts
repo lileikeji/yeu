@@ -102,6 +102,37 @@ const pendingDorm = {
   verifiedAt: '2026-07-24'
 }
 
+const screenshotDormNote = '根据用户提供的2026级专业片区整理截图标注，属于行前参考，不是学校公开的最终分配名单；迎新系统个人结果、录取材料和学校当届通知优先。'
+
+const screenshotDormAreas: Record<string, Pick<MajorProfile, 'dormArea' | 'dormLabel' | 'dormNote' | 'verifiedAt'>> = {
+  '法学': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '网络工程': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '计算机科学与技术': { dormArea: 'new', dormLabel: '新区（用户更正）', dormNote: '按用户对现有资料的更正，2026级计算机科学与技术先按新区记录；该信息尚未替代学校正式分配名单，最终以迎新系统个人结果和当届通知为准。', verifiedAt: '2026-07-31' },
+  '人工智能': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '物联网工程': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '数据科学与大数据技术': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '金融学': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '国际经济与贸易': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '金融科技': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '经济学': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '英语': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '商务英语': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '广告学': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '新闻学': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '网络与新媒体': { dormArea: 'new', dormLabel: '新区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '电子信息工程': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '电气工程及其自动化': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '汉语言文学': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '工商管理': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '市场营销': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '物流管理': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '人力资源管理': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '工业工程': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '会计学': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '财务管理': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' },
+  '艺术教育': { dormArea: 'old', dormLabel: '旧区（用户整理）', dormNote: screenshotDormNote, verifiedAt: '2026-07-31' }
+}
+
 function major(
   name: string,
   code: string,
@@ -114,7 +145,8 @@ function major(
     admissionTypes: transferMajors.has(name)
       ? ['ordinary-undergraduate', 'transfer-undergraduate']
       : ['ordinary-undergraduate'],
-    ...pendingDorm
+    ...pendingDorm,
+    ...(screenshotDormAreas[name] ?? {})
   }
 }
 

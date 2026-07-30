@@ -170,9 +170,14 @@ async function openCreateFromQuery(): Promise<void> {
 
   if (route.query.action !== 'create' || !canCreate.value) return
   openCreate()
+  const requestedKind = typeof route.query.kind === 'string' ? route.query.kind : ''
+  if (props.config.key === 'content' && (requestedKind === 'guide' || requestedKind === 'notice')) {
+    setFormValue('kind', requestedKind)
+  }
 
   const query = { ...route.query }
   delete query.action
+  delete query.kind
   await router.replace({ query })
 }
 

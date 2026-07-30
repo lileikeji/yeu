@@ -803,7 +803,7 @@ test('identity evidence rejects award titles even when the person name matches',
   }]), false)
 })
 
-test('major dorm question prioritizes the verified pending allocation', async () => {
+test('major dorm question includes the provisional screenshot allocation', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-major-dorm-'))
   const databasePath = join(directory, 'test.sqlite')
   const client = getDatabase(databasePath)
@@ -821,7 +821,8 @@ test('major dorm question prioritizes the verified pending allocation', async ()
       mcpTimeoutMs: 1000
     })
     assert.equal(response.mode, 'local')
-    assert.match(response.answer, /待学校通知/)
+    assert.match(response.answer, /旧区（用户整理）/)
+    assert.match(response.answer, /迎新系统个人结果/)
     assert.equal(response.citations[0]?.title, '会计学 · 会计学院')
   } finally {
     closeDatabase(databasePath)

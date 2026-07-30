@@ -31,10 +31,17 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
   twitterImage: 'https://yeu.huiliyill.cn/icons/app-icon-512.png'
 })
+
+const pwaManifestComponent = import.meta.dev
+  ? null
+  : resolveComponent('VitePwaManifest')
 </script>
 
 <template>
-  <VitePwaManifest />
+  <component
+    :is="pwaManifestComponent"
+    v-if="pwaManifestComponent"
+  />
   <UApp>
     <NuxtLayout>
       <NuxtPage />

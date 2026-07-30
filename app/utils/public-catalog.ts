@@ -117,7 +117,7 @@ export function studentFacingGuideText(value: string): string {
     .replace(/新生处理校园网、统一认证、VPN、网络故障和信息化服务问题的主管部门入口。/g, '新生遇到校园网、在校外打不开校园网站或线上办事页面、网络故障时，可以找这个部门。')
     .replace(/在校外打开校内系统（VPN）/g, '在校外打开校园网站或线上办事页面（VPN）')
     .replace(/在校外打开校内系统/g, '在校外打开校园网站或线上办事页面')
-    .replace(/校园卡网络认证、Wi-Fi(?: 或|、)账号登录问题/g, '校园卡、校园网连接或账号登录问题')
+    .replace(/校园卡网络认证、Wi-Fi(?: 或|、)账号登录问题/g, '校园一卡通、校园网连接或账号登录问题')
     .replace(/系统不会收集或保存/g, '这里不会收集或保存')
     .replace(/本系统不收集/g, '这里不收集')
     .replace(/专升本档案（2026已发布）/g, '专升本档案（2026年说明）')
@@ -163,6 +163,7 @@ export function studentFacingGuideText(value: string): string {
     .replace(/原链接当前不可稳定访问，前台仅保留为归档线索。?/g, '原分享目前打不开。')
     .replace(/原外链当前不可稳定访问，(?:前台|公开页面)仅保留为归档线索。?/g, '原分享目前打不开。')
     .replace(/归档线索/g, '仅供参考')
+    .replace(/校园卡/g, '校园一卡通')
 }
 
 export interface PublicContentBox {
@@ -712,8 +713,8 @@ function apiGuideToView(content: ApiContent, seed?: FreshmanGuide): PublicGuideV
 
   return {
     slug: content.slug,
-    title: content.title,
-    shortTitle: metadataString(content, 'shortTitle') ?? seed?.shortTitle ?? content.title,
+    title: studentFacingGuideText(content.title),
+    shortTitle: studentFacingGuideText(metadataString(content, 'shortTitle') ?? seed?.shortTitle ?? content.title),
     summary: studentFacingGuideText(content.summary),
     icon: metadataString(content, 'icon') ?? seed?.icon ?? guideCategoryDefaults[category].icon,
     category,

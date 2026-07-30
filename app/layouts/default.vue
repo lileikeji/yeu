@@ -39,7 +39,7 @@ onMounted(() => {
       class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white px-4 text-sm font-semibold text-green-800 shadow-lg focus:translate-y-0"
     >跳至主要内容</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
-      <div class="page-shell flex h-20 items-center justify-between gap-3 md:h-24 md:gap-8">
+      <div class="page-shell flex h-20 items-center justify-between gap-3 md:h-[4.5rem] md:gap-6">
         <NuxtLink
           to="/"
           class="flex min-h-11 min-w-0 flex-1 items-center gap-2 sm:gap-3 md:flex-none"
@@ -51,12 +51,12 @@ onMounted(() => {
             aria-hidden="true"
             width="325"
             height="72"
-            class="h-11 w-auto max-w-[13rem] shrink-0 object-contain object-left md:h-14 md:max-w-none"
+            class="h-11 w-auto max-w-[13rem] shrink-0 object-contain object-left md:h-11 md:max-w-[12rem]"
           >
         </NuxtLink>
 
         <nav
-          class="hidden items-center gap-4 md:flex lg:gap-7"
+          class="hidden items-center gap-2 md:flex lg:gap-4"
           aria-label="主导航"
         >
           <UButton
@@ -73,6 +73,7 @@ onMounted(() => {
         </nav>
 
         <div class="flex shrink-0 items-center gap-0 sm:gap-1">
+          <PublicNoticeCenter />
           <UButton
             to="/contact"
             icon="i-lucide-phone"
@@ -84,12 +85,11 @@ onMounted(() => {
             <span class="hidden lg:inline">联系我们</span>
           </UButton>
           <UButton
-            v-if="route.path !== '/'"
-            to="/search"
+            to="/search?mode=ai"
             icon="i-lucide-search"
             color="neutral"
             variant="ghost"
-            aria-label="全站搜索"
+            aria-label="AI 搜索与站内搜索"
             class="min-h-11 min-w-11"
           />
           <UButton
@@ -141,14 +141,12 @@ onMounted(() => {
       tabindex="-1"
     >
       <slot />
-      <HomeStudentRules v-if="route.path === '/'" />
-      <HomeMajorLookup v-if="route.path === '/'" />
     </main>
 
     <PwaUpdatePrompt />
 
     <footer
-      v-if="route.path !== '/map'"
+      v-if="route.path !== '/map' && route.path !== '/'"
       class="border-t border-[var(--line)] bg-white pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
     >
       <div class="page-shell flex flex-col gap-4 py-6 text-xs text-zinc-500 md:flex-row md:items-center md:justify-between md:gap-6">

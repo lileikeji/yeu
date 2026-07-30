@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, count, desc, eq, gte, like, lt, or, sql } from 'drizzle-orm'
+import { and, asc, count, countDistinct, desc, eq, gte, like, lt, max, or, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { VISITOR_COOKIE_NAME } from '../../../shared/constants/security'
 import type { DatabaseClient } from '../../database/client'
@@ -339,6 +339,24 @@ function buildVisitorAnalytics(client: DatabaseClient) {
   }
 
   const todayBucket = daily.get(chinaDayKey(now)) ?? { eventCount: 0, visitors: new Set<string>() }
+  const moduleKey = sql<string>`json_extract(${visitorEvents.metaJson}, '$.moduleKey')`
+  const moduleName = sql<string>`json_extract(${visitorEvents.metaJson}, '$.moduleName')`
+  const moduleViews = client.db.select({
+    moduleKey,
+    moduleName,
+    viewCount: count(),
+    visitorCount: countDistinct(visitorEvents.visitorId),
+    lastViewedAt: max(visitorEvents.createdAt)
+  }).from(visitorEvents)
+    .where(and(
+      eq(visitorEvents.action, 'module_view'),
+      sql`${moduleKey} is not null`
+    ))
+    .groupBy(moduleKey, moduleName)
+    .orderBy(desc(count()))
+    .limit(100)
+    .all()
+
   return {
     timeZone: 'Asia/Shanghai',
     date: chinaDayKey(now),
@@ -356,6 +374,13 @@ function buildVisitorAnalytics(client: DatabaseClient) {
       date,
       eventCount: bucket.eventCount,
       visitorCount: bucket.visitors.size
+    })),
+    moduleViews: moduleViews.map(row => ({
+      moduleKey: row.moduleKey,
+      moduleName: row.moduleName || row.moduleKey,
+      viewCount: row.viewCount,
+      visitorCount: row.visitorCount,
+      lastViewedAt: row.lastViewedAt ? new Date(Number(row.lastViewedAt)).toISOString() : null
     }))
   }
 }

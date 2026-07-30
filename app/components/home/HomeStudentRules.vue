@@ -4,6 +4,7 @@ import { scholarships, studentRuleCatalog } from '~~/data/student-rules'
 
 <template>
   <section
+    id="student-rules-summary"
     class="border-t border-[var(--line)] bg-white"
     aria-labelledby="home-student-rules-title"
   >

@@ -87,7 +87,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
     when: '到校找路'
   },
   {
-    title: '校园卡与网络',
+    title: '校园一卡通与网络',
     description: '查看校园网、校外访问和图书馆登录说明',
     to: '/guides/campus-card-network',
     icon: 'i-lucide-wifi',

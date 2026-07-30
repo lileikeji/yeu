@@ -16,7 +16,7 @@ export const systemFeatures: SystemFeature[] = [
     id: 'major-college-lookup',
     title: '专业与学院查询',
     summary: '输入录取专业，查看所属学院、学院官网和2026级宿舍片区公开状态。',
-    to: '/#major-lookup',
+    to: '/major-lookup',
     icon: 'i-lucide-graduation-cap',
     keywords: ['专业在哪查', '专业属于哪个学院', '专业是什么学院', '所属学院', '学院查询', '专业查询', '录取专业', '专业归属']
   },

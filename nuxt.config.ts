@@ -2,17 +2,37 @@
 import { clientBundleIcons } from './shared/client-bundle-icons'
 import { EDGE_ROUTE_BOOTSTRAP_SCRIPT } from './app/utils/edge-route-bootstrap'
 
+const isDevelopment = process.env.NODE_ENV === 'development'
 const serviceWorkerBuildId = String(
   process.env.GIT_COMMIT_SHA
   || process.env.NUXT_PUBLIC_BUILD_ID
   || 'local'
 ).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 16) || 'local'
 
+const devServiceWorkerCleanupScript = isDevelopment
+  ? [{
+      key: 'yeu-dev-service-worker-cleanup',
+      innerHTML: `(() => {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.getRegistrations().then(async (registrations) => {
+    if (!registrations.length) return;
+    const removed = (await Promise.all(registrations.map(registration => registration.unregister()))).some(Boolean);
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+    }
+    if (removed && navigator.serviceWorker.controller) location.reload();
+  }).catch(() => {});
+})();`,
+      tagPosition: 'head' as const
+    }]
+  : []
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
-    '@vite-pwa/nuxt'
+    ...(!isDevelopment ? ['@vite-pwa/nuxt'] : [])
   ],
 
   devtools: {
@@ -20,11 +40,14 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      script: [{
-        key: 'yeu-edge-route-bootstrap',
-        innerHTML: EDGE_ROUTE_BOOTSTRAP_SCRIPT,
-        tagPosition: 'head'
-      }]
+      script: [
+        {
+          key: 'yeu-edge-route-bootstrap',
+          innerHTML: EDGE_ROUTE_BOOTSTRAP_SCRIPT,
+          tagPosition: 'head'
+        },
+        ...devServiceWorkerCleanupScript
+      ]
     }
   },
 
@@ -134,6 +157,10 @@ export default defineNuxtConfig({
         'Cache-Control': 'private, no-store'
       }
     }
+  },
+
+  experimental: {
+    appManifest: !isDevelopment
   },
 
   compatibilityDate: '2026-06-30',

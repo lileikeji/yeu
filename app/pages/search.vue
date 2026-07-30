@@ -11,7 +11,6 @@ import type {
   ApiAssistantTraceStep,
   ApiSearchResponse
 } from '~~/shared/types/server'
-import { isQuestionLike, shouldRequestAssistantAnswer } from '~~/shared/utils/assistant-query'
 import { buildStudentRuleSearchResults } from '~~/app/utils/student-rules-search'
 import {
   buildPublicSearchResults,
@@ -56,6 +55,8 @@ const router = useRouter()
 
 const activeQuery = computed(() => routeQueryString(route.query.q).trim())
 const activeType = computed(() => routeSearchType(route.query.type))
+type SearchMode = 'site' | 'ai'
+const activeSearchMode = computed<SearchMode>(() => route.query.mode === 'site' ? 'site' : 'ai')
 const searchInput = ref(activeQuery.value)
 let searchNavigationSequence = 0
 let latestSubmittedQuery = activeQuery.value
@@ -151,7 +152,12 @@ async function navigateSearch(query: string, type?: PublicSearchResultType): Pro
   }
   pendingSearchNavigations += 1
   try {
-    await router.replace({ query: searchRouteQuery(query, type) })
+    await router.replace({
+      query: {
+        ...searchRouteQuery(query, type),
+        mode: activeSearchMode.value
+      }
+    })
   } finally {
     pendingSearchNavigations -= 1
   }
@@ -166,9 +172,22 @@ async function navigateSearch(query: string, type?: PublicSearchResultType): Pro
   })
   if (correction?.shouldCorrect) {
     await router.replace({
-      query: searchRouteQuery(correction.query, correction.type)
+      query: {
+        ...searchRouteQuery(correction.query, correction.type),
+        mode: activeSearchMode.value
+      }
     })
   }
+}
+
+async function switchSearchMode(mode: SearchMode): Promise<void> {
+  if (mode === activeSearchMode.value) return
+  await router.replace({
+    query: {
+      ...searchRouteQuery(activeQuery.value, mode === 'ai' ? undefined : activeType.value),
+      mode
+    }
+  })
 }
 
 async function submitSearch(): Promise<void> {
@@ -228,8 +247,6 @@ const results = computed(() => {
 
 const groupedResults = computed(() => groupPublicSearchResults(results.value, activeQuery.value))
 const hasPlaceResults = computed(() => results.value.some(result => result.resultType === 'place'))
-const hasFeatureResult = computed(() => results.value.some(result => result.key.startsWith('system-feature-')))
-
 const assistantResponse = ref<ApiAssistantResponse | null>(null)
 const assistantStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
@@ -404,13 +421,11 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
 async function requestAssistantAnswer(): Promise<void> {
   if (import.meta.server) return
   const query = activeQuery.value
-  const shouldRequest = !activeType.value
+  const shouldRequest = activeSearchMode.value === 'ai'
+    && !activeType.value
     && !searching.value
     && !searchError.value
-    && (
-      shouldRequestAssistantAnswer(query, results.value.length)
-      || (hasFeatureResult.value && isQuestionLike(query))
-    )
+    && query.length >= 2
   if (!shouldRequest) {
     assistantRequestSequence += 1
     assistantAbortController?.abort()
@@ -469,7 +484,7 @@ watch([activeQuery, activeType], ([query, type]) => {
 })
 
 watch(
-  [activeQuery, activeType, searching, searchError, () => results.value.length],
+  [activeQuery, activeType, activeSearchMode, searching, searchError, () => results.value.length],
   () => void requestAssistantAnswer()
 )
 
@@ -494,10 +509,45 @@ onBeforeUnmount(() => {
           找地点、办事和校园信息
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
-          报到流程、校园网、教学楼、部门和社团，都可以先在这里找找。
+          可以直接提问，也可以切换到站内搜索查找地点、办事、部门和社团。
         </p>
 
         <div class="mt-6 max-w-3xl">
+          <div
+            class="mb-3 inline-grid grid-cols-2 rounded-md border border-zinc-200 bg-zinc-50 p-1"
+            role="tablist"
+            aria-label="搜索方式"
+          >
+            <button
+              type="button"
+              role="tab"
+              class="inline-flex min-h-10 items-center justify-center gap-2 rounded px-4 text-sm font-semibold transition"
+              :class="activeSearchMode === 'ai' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-600 hover:text-zinc-900'"
+              :aria-selected="activeSearchMode === 'ai'"
+              @click="switchSearchMode('ai')"
+            >
+              <UIcon
+                name="i-lucide-sparkles"
+                class="size-4"
+              />
+              AI 搜索
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="inline-flex min-h-10 items-center justify-center gap-2 rounded px-4 text-sm font-semibold transition"
+              :class="activeSearchMode === 'site' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-600 hover:text-zinc-900'"
+              :aria-selected="activeSearchMode === 'site'"
+              @click="switchSearchMode('site')"
+            >
+              <UIcon
+                name="i-lucide-list-filter"
+                class="size-4"
+              />
+              站内搜索
+            </button>
+          </div>
+
           <form
             class="grid grid-cols-[minmax(0,1fr)_auto] gap-2"
             role="search"
@@ -508,8 +558,8 @@ onBeforeUnmount(() => {
               icon="i-lucide-search"
               size="xl"
               class="min-w-0"
-              placeholder="搜索地点，或直接问一个校园问题"
-              aria-label="全站搜索"
+              :placeholder="activeSearchMode === 'ai' ? '直接问一个校园问题' : '搜索地点、办事、部门或社团'"
+              :aria-label="activeSearchMode === 'ai' ? 'AI 搜索' : '站内搜索'"
             >
               <template
                 v-if="searchInput"
@@ -529,15 +579,18 @@ onBeforeUnmount(() => {
             </UInput>
             <UButton
               type="submit"
-              icon="i-lucide-search"
-              label="搜索"
+              :icon="activeSearchMode === 'ai' ? 'i-lucide-sparkles' : 'i-lucide-search'"
+              :label="activeSearchMode === 'ai' ? 'AI 搜索' : '搜索'"
               size="xl"
               class="min-h-11 shrink-0"
               :loading="searching"
             />
           </form>
 
-          <div class="mt-3 flex items-center gap-3">
+          <div
+            v-if="activeSearchMode === 'site'"
+            class="mt-3 flex items-center gap-3"
+          >
             <label
               for="search-result-type"
               class="shrink-0 text-xs font-medium text-zinc-600"
@@ -609,7 +662,7 @@ onBeforeUnmount(() => {
 
       <div v-if="activeQuery">
         <section
-          v-if="assistantStatus === 'pending' || assistantResponse || assistantStatus === 'error'"
+          v-if="activeSearchMode === 'ai' && (assistantStatus === 'pending' || assistantResponse || assistantStatus === 'error')"
           class="mb-6 rounded-lg border border-green-200 bg-white p-4 shadow-sm sm:p-5"
           aria-labelledby="assistant-answer-heading"
         >
@@ -781,7 +834,7 @@ onBeforeUnmount(() => {
               “{{ activeQuery }}”{{ listMessages.resultQuerySuffix }}
             </p>
             <h2 class="mt-1 text-lg font-bold text-zinc-950">
-              {{ searching ? listMessages.searching : resultCountLabel(results.length) }}
+              {{ searching ? listMessages.searching : activeSearchMode === 'ai' ? `相关站内内容 ${results.length} 项` : resultCountLabel(results.length) }}
             </h2>
           </div>
           <UButton

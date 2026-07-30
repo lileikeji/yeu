@@ -26,7 +26,7 @@ import {
 
 useSeoMeta({
   title: '新生指南',
-  description: '仰恩大学本科与专升本新生的报到、校园地图、校园卡网络、学习图书馆、安全医疗、快递外卖及社团指南。'
+  description: '仰恩大学本科与专升本新生的报到、校园地图、校园一卡通、校园网、学习图书馆、安全医疗、快递外卖及社团指南。'
 })
 
 const searchQuery = ref('')

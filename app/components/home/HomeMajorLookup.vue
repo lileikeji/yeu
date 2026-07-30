@@ -252,7 +252,7 @@ function admissionLabel(profile: MajorProfile): string {
               name="i-lucide-info"
               class="mt-1 size-4 shrink-0 text-emerald-700"
             />
-            宿舍分区会随年份、性别和学校安排变化。这里仅显示已找到的2026官方信息，不沿用往届分配，也不根据学院教学地点推测。
+            页面中的新区/旧区来自用户提供的2026级专业片区整理，先用于行前参考；最终分配以迎新系统个人结果、录取材料和学校当届通知为准。
           </p>
         </div>
       </div>

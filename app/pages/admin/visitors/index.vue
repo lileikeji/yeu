@@ -63,6 +63,13 @@ type VisitorAnalytics = {
     eventCount: number
     visitorCount: number
   }>
+  moduleViews: Array<{
+    moduleKey: string
+    moduleName: string
+    viewCount: number
+    visitorCount: number
+    lastViewedAt: string | null
+  }>
 }
 
 type VisitorEvent = {
@@ -650,6 +657,47 @@ onMounted(async () => {
         </p>
       </div>
     </div>
+
+    <section
+      v-if="visitorAnalytics?.moduleViews?.length"
+      class="overflow-hidden rounded-2xl border border-zinc-200 bg-white"
+    >
+      <div class="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-100 px-4 py-4">
+        <div>
+          <h2 class="font-semibold text-zinc-950">
+            功能模块访问量
+          </h2>
+          <p class="mt-1 text-xs text-zinc-500">
+            按前台功能归类，同一位访客的多次访问会分别计入访问次数。
+          </p>
+        </div>
+        <span class="text-xs text-zinc-500">
+          共 {{ visitorAnalytics.moduleViews.length }} 个模块
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[38rem] text-left text-sm">
+          <thead class="bg-zinc-50 text-xs text-zinc-500">
+            <tr>
+              <th class="px-4 py-3 font-medium">功能模块</th>
+              <th class="px-4 py-3 text-right font-medium">访问次数</th>
+              <th class="px-4 py-3 text-right font-medium">访客人数</th>
+              <th class="px-4 py-3 text-right font-medium">最近访问</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-100">
+            <tr v-for="module in visitorAnalytics.moduleViews" :key="module.moduleKey">
+              <td class="px-4 py-3 font-medium text-zinc-900">{{ module.moduleName }}</td>
+              <td class="px-4 py-3 text-right tabular-nums text-zinc-700">{{ module.viewCount }}</td>
+              <td class="px-4 py-3 text-right tabular-nums text-zinc-700">{{ module.visitorCount }}</td>
+              <td class="px-4 py-3 text-right text-xs text-zinc-500">
+                {{ module.lastViewedAt ? formatAdminRelativeTime(module.lastViewedAt) : '—' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <div class="grid gap-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
       <UFormField label="关键词">

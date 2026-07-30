@@ -1,21 +1,10 @@
 <script setup lang="ts">
-import { freshmanGuides } from '~~/data/seeds/public-content'
 import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
 import {
-  canUseStaticContentKindFallback,
-  mergePublicGuides
-} from '~/utils/public-catalog'
-import {
   buildHomeEssentialActions,
-  buildHomeFeaturedProcedures,
   buildHomeSearchTarget,
-  computeHomeCardTilt,
-  getHomeFallbackMessage,
-  homeMoreEntries,
-  homeTrustNotice,
   homeTimelineStages
 } from '~~/app/utils/home-presentation'
-import { buildHomeArrivalSummary } from '~~/app/utils/arrival-timeline-presentation'
 
 useSeoMeta({
   title: '首页',
@@ -38,86 +27,57 @@ function onIntroComplete() {
   forceIntro.value = false
 }
 
-async function replayIntro() {
-  showIntro.value = false
-  await nextTick()
-  forceIntro.value = true
-  showIntro.value = true
-}
-
-// 3D 卡片阻尼倾斜与流光定位
-function onCardMouseMove(e: MouseEvent) {
-  const card = e.currentTarget as HTMLElement
-  if (!card) return
-  const rect = card.getBoundingClientRect()
-  const x = e.clientX - rect.left
-  const y = e.clientY - rect.top
-  const { rotateX, rotateY } = computeHomeCardTilt(x, y, rect.width, rect.height)
-
-  card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`
-  card.style.setProperty('--mouse-x', `${x}px`)
-  card.style.setProperty('--mouse-y', `${y}px`)
-}
-
-function onCardMouseLeave(e: MouseEvent) {
-  const card = e.currentTarget as HTMLElement
-  if (!card) return
-  card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)'
-}
-
 const placeQuery = ref('')
+const importantTimeOpen = ref(false)
+const importantDates = [
+  { date: '9月5–6日', title: '注册报到', description: '具体到校时段、报到地点和材料以录取通知书及学校后续通知为准。' },
+  { date: '9月7–9日', title: '入学教育', description: '学院集合地点、时间和安排以辅导员或学院通知为准。' },
+  { date: '9月10日', title: '开始上课', description: '课表、教材和教学安排以教务系统及学院通知为准。' }
+]
 const featureRequest = usePublicFrontendFeatures()
-const contentRequest = usePublicContentList()
-const procedureRequest = usePublicProcedureList()
-await Promise.all([featureRequest, contentRequest, procedureRequest])
+await featureRequest
 
 const { data: publicFeatureResponse } = featureRequest
-const { data: publicContentResponse, error: publicContentError } = contentRequest
-const { data: publicProcedureResponse, error: publicProcedureError } = procedureRequest
-const allowStaticGuideFallback = computed(() => !publicContentError.value
-  && canUseStaticContentKindFallback(publicContentResponse.value, 'guide'))
-const guides = computed(() => mergePublicGuides(
-  freshmanGuides,
-  publicContentResponse.value?.items ?? [],
-  allowStaticGuideFallback.value
-))
 
 const disabledFeatureKeys = computed(() => new Set(publicFeatureResponse.value?.disabledKeys ?? []))
 const featureEnabled = (key: FrontendFeatureKey) => !disabledFeatureKeys.value.has(key)
-const essentialActions = computed(() => buildHomeEssentialActions(guides.value)
+const essentialActions = computed(() => buildHomeEssentialActions([])
   .filter(action => featureEnabled(action.featureKey)))
 const timelineStages = computed(() => homeTimelineStages
   .filter(stage => featureEnabled(stage.featureKey)))
 const activeTimelineIndex = ref(0)
 const activeTimelineStage = computed(() => timelineStages.value[activeTimelineIndex.value] ?? timelineStages.value[0])
-const moreEntries = computed(() => homeMoreEntries
-  .filter(entry => featureEnabled(entry.featureKey)))
 const serviceNavEntries = [
-  { title: '入学与报到', to: '/guides', icon: 'i-lucide-file-text', description: '报到、材料、缴费与入学准备' },
-  { title: '住宿与校园生活', to: '/dorms', icon: 'i-lucide-house', description: '宿舍、快递、外卖与校园生活' },
-  { title: '学业与规章制度', to: '/guides/study-library', icon: 'i-lucide-book-open', description: '课程、图书馆、学生手册与规章制度' },
-  { title: '地图与办事', to: '/map', icon: 'i-lucide-map-pinned', description: '校园地图、地点和办事流程' },
-  { title: '组织与公共服务', to: '/discover', icon: 'i-lucide-users-round', description: '部门、社团、群聊与公共服务' }
+  { title: '到校与离校交通', to: '/transport', icon: 'i-lucide-bus-front', description: '公交、车站、机场与返程路线' },
+  { title: '校园周边生活', to: '/nearby', icon: 'i-lucide-compass', description: '学生街、快递点和吃喝玩乐' },
+  { title: '学生手册与资助', to: '/student-rules', icon: 'i-lucide-book-open-check', description: '校内规定、奖助学金与学习要求' },
+  { title: '社团与学生组织', to: '/clubs', icon: 'i-lucide-users-round', description: '社团介绍、招新信息和报名入口' },
+  { title: '校内部门服务', to: '/departments', icon: 'i-lucide-landmark', description: '招生、教务、学生事务等部门' }
 ]
-const trustNotice = homeTrustNotice
-const fallbackMessage = computed(() => getHomeFallbackMessage(
-  Boolean(publicContentError.value),
-  Boolean(publicProcedureError.value)
-))
-const featuredProcedures = computed(() => buildHomeFeaturedProcedures(
-  publicProcedureResponse.value?.items
-))
 
 function searchSite() {
-  void navigateTo(buildHomeSearchTarget(placeQuery.value))
+  const target = buildHomeSearchTarget(placeQuery.value)
+  void navigateTo({
+    ...target,
+    query: {
+      ...target.query,
+      mode: 'ai'
+    }
+  })
+}
+
+function openImportantTime(): void {
+  importantTimeOpen.value = true
+}
+
+function closeImportantTime(): void {
+  importantTimeOpen.value = false
 }
 
 const {
   homeSummary: checklistSummary,
   hydrated: checklistHydrated
 } = useFreshmanChecklist()
-
-const arrivalSummary = computed(() => buildHomeArrivalSummary())
 </script>
 
 <template>
@@ -133,47 +93,84 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
     <div class="animate-spring-up">
       <section class="border-b border-[var(--line)] bg-white/70 backdrop-blur-md relative overflow-hidden">
         <div class="border-b border-orange-200/80 bg-orange-50/80 text-orange-800">
-          <div class="page-shell flex min-h-16 items-center gap-3 py-3 text-sm md:min-h-12 md:gap-4 md:py-2 md:text-sm">
+          <button
+            type="button"
+            class="page-shell grid min-h-16 w-full grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 py-3 text-left text-xs md:min-h-12 md:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] md:gap-4 md:py-2 md:text-sm"
+            aria-label="查看2026级新生重要时间"
+            @click="openImportantTime"
+          >
             <UIcon
               name="i-lucide-volume-2"
               class="size-5 shrink-0 text-orange-600"
             />
             <span class="shrink-0 font-semibold">2026级新生重要时间</span>
             <span class="hidden h-5 w-px bg-orange-300 md:block" />
-            <span class="truncate">9月5—6日报到 · 9月7—9日入学教育 · 9月10日上课</span>
-            <NuxtLink
-              v-if="featureEnabled('home.arrival-summary')"
-              :to="arrivalSummary.to"
-              class="ml-auto inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-orange-900 hover:bg-orange-100"
-            >
-              查看安排
+            <span class="important-time-window min-w-0 overflow-hidden whitespace-nowrap">
+              <span class="important-time-track inline-flex min-w-max items-center gap-10 pr-10">
+                <span>9月5–6日报到 · 9月7–9日入学教育 · 9月10日上课</span>
+                <span aria-hidden="true">9月5–6日报到 · 9月7–9日入学教育 · 9月10日上课</span>
+              </span>
+            </span>
+            <span class="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold text-orange-900 hover:bg-orange-100">
+              查看
               <UIcon
-                name="i-lucide-arrow-right"
+                name="i-lucide-chevron-right"
                 class="size-3.5"
               />
-            </NuxtLink>
-          </div>
+            </span>
+          </button>
         </div>
 
-        <div class="page-shell py-9 text-center md:py-12">
-          <div class="flex flex-wrap items-center justify-center gap-2 text-xs">
-            <UBadge
-              color="success"
-              variant="soft"
-            >
-              2026 新生入学
-            </UBadge>
-            <span class="text-zinc-500">本科 · 专升本</span>
-          </div>
-          <h1 class="mt-4 text-3xl font-bold tracking-tight text-zinc-950 md:text-4xl">
+        <UModal
+          v-model:open="importantTimeOpen"
+          title="2026级新生重要时间"
+          description="以下日期来自学校2026—2027学年第一学期校历。"
+          :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
+        >
+          <template #body>
+            <ol class="divide-y divide-zinc-100">
+              <li
+                v-for="item in importantDates"
+                :key="item.title"
+                class="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 py-4 first:pt-0"
+              >
+                <span class="text-sm font-bold text-green-700">{{ item.date }}</span>
+                <div>
+                  <h3 class="text-sm font-bold text-zinc-950">
+                    {{ item.title }}
+                  </h3>
+                  <p class="mt-1 text-xs leading-6 text-zinc-600">
+                    {{ item.description }}
+                  </p>
+                </div>
+              </li>
+            </ol>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-4">
+              <p class="text-xs leading-5 text-zinc-500">
+                个人安排有变化时，以学校和学院的最新通知为准。
+              </p>
+              <UButton
+                to="/guides/arrival"
+                icon="i-lucide-arrow-right"
+                trailing
+                label="查看详细"
+                class="min-h-11"
+                @click="closeImportantTime"
+              />
+            </div>
+          </template>
+        </UModal>
+
+        <div class="page-shell py-9 text-left md:py-10 md:text-center">
+          <h1 class="text-left text-3xl font-bold tracking-tight text-zinc-950 md:text-center md:text-4xl">
             2026级新生入学指南
           </h1>
-          <p class="mx-auto mt-3 max-w-2xl text-xs leading-6 text-zinc-600 md:text-sm">
+          <p class="mx-auto mt-3 max-w-2xl text-left text-xs leading-6 text-zinc-600 md:text-center md:text-sm">
             集中查询报到、住宿、交通、校园地图、办事流程和校园生活信息。
           </p>
 
           <form
-            class="mx-auto mt-6 flex max-w-4xl gap-0 text-left md:mt-8"
+            class="mx-auto mt-6 flex max-w-3xl gap-0 text-left md:mt-7"
             role="search"
             @submit.prevent="searchSite"
           >
@@ -187,8 +184,8 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
             />
             <UButton
               type="submit"
-              icon="i-lucide-search"
-              label="搜索"
+              icon="i-lucide-sparkles"
+              label="AI 搜索"
               size="xl"
               class="min-h-11 rounded-l-none px-5 md:px-8"
             />
@@ -198,56 +195,41 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
 
       <section
         v-if="essentialActions.length"
-        class="page-shell py-7 md:py-10"
+        class="page-shell py-7 md:py-8"
       >
         <div>
-          <p class="section-kicker">
+          <h2 class="text-xl font-bold text-zinc-950">
             常用查询
-          </p>
-          <h2 class="mt-1 text-lg font-bold text-zinc-950">
-            新生最常查的四类信息
           </h2>
         </div>
 
-        <div class="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <NuxtLink
             v-for="action in essentialActions"
             :key="action.to"
             :to="action.to"
-            class="group flex min-h-36 flex-col items-center justify-center gap-4 rounded-lg border border-zinc-200 bg-white p-4 text-center transition hover:border-green-300 hover:shadow-sm md:min-h-40"
-            @mousemove="onCardMouseMove"
-            @mouseleave="onCardMouseLeave"
+            class="group grid min-h-32 place-items-center rounded-lg border border-zinc-200 bg-white p-4 text-center transition hover:border-green-300 hover:shadow-sm md:min-h-32"
           >
-            <div class="flex items-center justify-center gap-3">
+            <div class="flex w-full min-w-0 flex-col items-center justify-center gap-3 text-center">
               <span
-                class="grid size-12 place-items-center rounded-lg md:size-14"
+                class="grid size-11 shrink-0 place-items-center rounded-lg md:size-12"
                 :class="action.tone"
               >
                 <UIcon
                   :name="action.icon"
-                  class="size-7 md:size-8"
+                  class="size-6 md:size-7"
                 />
               </span>
+              <span class="min-w-0">
+                <h3 class="text-sm font-bold leading-5 text-zinc-950 md:text-base">
+                  {{ action.title }}
+                </h3>
+                <span class="mt-1 block text-xs leading-5 text-zinc-500 md:hidden">
+                  {{ action.description }}
+                </span>
+              </span>
             </div>
-            <h3 class="text-sm font-bold text-zinc-950 md:text-base">
-              {{ action.title }}
-            </h3>
-            <p class="mt-1 text-xs leading-5 text-zinc-500">
-              {{ action.description }}
-            </p>
           </NuxtLink>
-        </div>
-
-        <div
-          v-if="fallbackMessage"
-          class="mt-4 flex items-start gap-2 border-l-2 border-blue-500 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900"
-          role="status"
-        >
-          <UIcon
-            name="i-lucide-info"
-            class="mt-0.5 size-3.5 shrink-0"
-          />
-          <span>{{ fallbackMessage }}</span>
         </div>
       </section>
 
@@ -255,13 +237,13 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
         v-if="timelineStages.length"
         class="border-y border-[var(--line)] bg-white"
       >
-        <div class="page-shell py-8 md:py-10">
-          <div class="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:items-stretch">
+        <div class="page-shell py-8 md:py-9">
+          <h2 class="text-xl font-bold text-zinc-950">
+            按入学阶段查看
+          </h2>
+          <div class="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:items-stretch lg:gap-4">
             <div class="rounded-lg border border-zinc-200 bg-white p-4 md:p-5">
-              <p class="section-kicker">
-                按入学阶段查看
-              </p>
-              <div class="mt-3 grid grid-cols-3 border-b border-zinc-200">
+              <div class="grid grid-cols-3 border-b border-zinc-200">
                 <button
                   v-for="(stage, index) in timelineStages"
                   :key="stage.label"
@@ -276,12 +258,9 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
 
               <div
                 v-if="activeTimelineStage"
-                class="pt-4"
+                class="pt-2"
               >
-                <h2 class="text-base font-bold text-zinc-950">
-                  {{ activeTimelineStage.title }}
-                </h2>
-                <ul class="mt-3 divide-y divide-zinc-100">
+                <ul class="divide-y divide-zinc-100">
                   <li
                     v-for="item in activeTimelineStage.items"
                     :key="item"
@@ -310,19 +289,18 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
             <NuxtLink
               v-if="featureEnabled('home.checklist')"
               to="/checklist"
-              class="group rounded-lg border border-zinc-200 bg-white p-5 transition hover:border-green-300 hover:shadow-sm"
+              class="group bg-white transition lg:rounded-lg lg:border lg:border-zinc-200 lg:p-5 lg:hover:border-green-300 lg:hover:shadow-sm"
             >
               <div class="flex items-center gap-3">
-                <span class="grid size-10 place-items-center rounded-lg bg-green-50 text-green-700">
+                <span class="hidden size-10 place-items-center rounded-lg bg-green-50 text-green-700 lg:grid">
                   <UIcon
                     name="i-lucide-list-checks"
                     class="size-5"
                   />
                 </span>
-                <div>
-                  <p class="text-xs font-semibold text-green-700">新生准备清单</p>
-                  <h2 class="mt-1 text-base font-bold text-zinc-950">到校前到第一周</h2>
-                </div>
+                <h2 class="text-xl font-bold text-zinc-950 lg:text-base">
+                  新生准备清单
+                </h2>
               </div>
               <p class="mt-5 text-sm text-zinc-700">
                 已完成 <strong class="text-lg text-green-700">{{ checklistSummary.percent }}%</strong>
@@ -333,33 +311,31 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
                   :style="{ width: `${checklistSummary.percent}%` }"
                 />
               </div>
-              <p class="mt-4 text-sm leading-6 text-zinc-600">
-                <template v-if="checklistHydrated && checklistSummary.remainingCount > 0">
-                  下一项：{{ checklistSummary.nextTitle || '继续完成准备事项' }}
-                </template>
-                <template v-else-if="checklistHydrated">当前清单已全部勾完，可随时复查。</template>
-                <template v-else>进度只保存在这台设备，打开后可以继续勾选。</template>
-              </p>
-              <span class="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md border border-green-700 text-sm font-semibold text-green-700 transition group-hover:bg-green-50">
-                打开清单
-              </span>
+              <div class="mt-4 flex items-center justify-between gap-3">
+                <p class="min-w-0 text-sm leading-6 text-zinc-600">
+                  <template v-if="checklistHydrated && checklistSummary.remainingCount > 0">
+                    下一项：{{ checklistSummary.nextTitle || '继续完成准备事项' }}
+                  </template>
+                  <template v-else-if="checklistHydrated">当前清单已全部勾完，可随时复查。</template>
+                  <template v-else>打开后可以继续勾选。</template>
+                </p>
+                <span class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-green-700 px-5 text-sm font-semibold text-green-700 transition group-hover:bg-green-50">
+                  打开清单
+                </span>
+              </div>
             </NuxtLink>
           </div>
         </div>
       </section>
 
       <section
-        v-if="moreEntries.length"
         class="border-y border-[var(--line)] bg-white"
       >
-        <div class="page-shell py-8 md:py-10">
-          <p class="section-kicker">
+        <div class="page-shell py-8 md:py-9">
+          <h2 class="text-xl font-bold text-zinc-950">
             服务导航
-          </p>
-          <h2 class="mt-1 text-lg font-bold text-zinc-950">
-            按需要选择入口
           </h2>
-          <div class="mt-5 grid overflow-hidden rounded-lg border border-zinc-200 bg-white md:grid-cols-5">
+          <div class="mt-4 grid overflow-hidden rounded-lg border border-zinc-200 bg-white md:grid-cols-5">
             <NuxtLink
               v-for="entry in serviceNavEntries"
               :key="entry.to"
@@ -380,198 +356,27 @@ const arrivalSummary = computed(() => buildHomeArrivalSummary())
               />
             </NuxtLink>
           </div>
-
-          <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <NuxtLink
-              v-for="entry in moreEntries"
-              :key="entry.to"
-              :to="entry.to"
-              :external="entry.external"
-              :target="entry.external ? '_blank' : undefined"
-              rel="noopener noreferrer"
-              class="flex min-h-24 items-start gap-3 rounded-lg border border-zinc-200 p-4 transition hover:border-green-300"
-            >
-              <span
-                class="grid size-9 shrink-0 place-items-center rounded-lg"
-                :class="entry.tone"
-              >
-                <UIcon
-                  :name="entry.icon"
-                  class="size-4"
-                />
-              </span>
-              <span>
-                <span class="flex items-center gap-1.5 text-sm font-bold text-zinc-950">
-                  {{ entry.title }}
-                  <UIcon
-                    v-if="entry.external"
-                    name="i-lucide-external-link"
-                    class="size-3.5 text-zinc-400"
-                  />
-                </span>
-                <span class="mt-1 block text-xs leading-5 text-zinc-500">{{ entry.description }}</span>
-              </span>
-            </NuxtLink>
-          </div>
         </div>
       </section>
-
-      <section
-        v-if="featureEnabled('home.featured-procedures') && featuredProcedures.length"
-        class="page-shell py-8 md:py-10"
-      >
-        <div class="flex items-end justify-between gap-4">
-          <div>
-            <p class="section-kicker">
-              常用办事
-            </p>
-            <h2 class="mt-1 text-lg font-bold text-zinc-950">
-              可以照着步骤完成
-            </h2>
-          </div>
-          <NuxtLink
-            to="/procedures"
-            class="-mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-sm font-medium text-green-700 hover:bg-green-50"
-          >
-            全部流程
-            <UIcon
-              name="i-lucide-arrow-right"
-              class="size-4"
-            />
-          </NuxtLink>
-        </div>
-        <div class="mt-5 grid gap-3 md:grid-cols-2">
-          <NuxtLink
-            v-for="procedure in featuredProcedures"
-            :key="procedure.id"
-            :to="procedure.to"
-            class="group flex items-start gap-4 rounded-lg border border-zinc-200 bg-white p-4 transition hover:border-green-300 hover:shadow-sm"
-          >
-            <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-green-50 text-green-700">
-              <UIcon
-                name="i-lucide-list-checks"
-                class="size-5"
-              />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="flex flex-wrap items-center gap-2">
-                <span class="font-bold text-zinc-950">{{ procedure.title }}</span>
-                <span class="text-xs text-zinc-400">{{ procedure.methodLabel }}</span>
-              </span>
-              <span class="mt-1 line-clamp-2 block text-sm leading-6 text-zinc-600">{{ procedure.summary }}</span>
-              <span class="mt-2 block text-xs font-medium text-orange-700">{{ procedure.statusText }}</span>
-            </span>
-            <UIcon
-              name="i-lucide-chevron-right"
-              class="mt-1 size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-green-700"
-            />
-          </NuxtLink>
-        </div>
-      </section>
-
-      <section
-        v-if="featureEnabled('home.trust-notice')"
-        class="page-shell py-6 md:py-8"
-      >
-        <aside class="rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-emerald-50 p-4 shadow-sm md:p-5">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="min-w-0 max-w-3xl">
-              <div class="flex flex-wrap items-center gap-2">
-                <UBadge
-                  :label="trustNotice.badge"
-                  color="warning"
-                  variant="soft"
-                />
-                <span class="text-xs text-zinc-500">{{ trustNotice.checkedText }}</span>
-              </div>
-              <h2 class="mt-3 text-base font-bold text-zinc-950">
-                {{ trustNotice.title }}
-              </h2>
-              <p class="mt-1.5 text-sm leading-6 text-zinc-600">
-                {{ trustNotice.description }}
-              </p>
-            </div>
-            <div class="flex shrink-0 flex-wrap gap-2 lg:max-w-sm lg:justify-end">
-              <UButton
-                v-for="link in trustNotice.links"
-                :key="link.to"
-                :to="link.to"
-                :external="link.external"
-                :target="link.external ? '_blank' : undefined"
-                rel="noopener noreferrer"
-                :icon="link.icon"
-                :label="link.label"
-                color="neutral"
-                :variant="link.external ? 'outline' : 'ghost'"
-                size="sm"
-                class="min-h-11"
-              />
-            </div>
-          </div>
-        </aside>
-      </section>
-
-      <section
-        v-if="featureEnabled('home.emergency-contact')"
-        class="page-shell py-6 md:py-8"
-      >
-        <div class="flex flex-col gap-4 rounded-lg bg-zinc-900 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex items-start gap-3">
-            <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-white/10">
-              <UIcon
-                name="i-lucide-phone-call"
-                class="size-5"
-              />
-            </span>
-            <div>
-              <p class="font-bold">
-                紧急情况先求助
-              </p>
-              <p class="mt-1 text-xs leading-5 text-zinc-300">
-                校园 110：0595-22076110。危及生命或需要公安、消防、急救时，同时按情况拨打下面的电话。
-              </p>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <a
-                  href="tel:110"
-                  class="inline-flex min-h-10 items-center justify-center rounded-md border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white"
-                >拨打 110</a>
-                <a
-                  href="tel:119"
-                  class="inline-flex min-h-10 items-center justify-center rounded-md border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white"
-                >拨打 119</a>
-                <a
-                  href="tel:120"
-                  class="inline-flex min-h-10 items-center justify-center rounded-md border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white"
-                >拨打 120</a>
-              </div>
-            </div>
-          </div>
-          <a
-            href="tel:059522076110"
-            class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-900"
-          >
-            <UIcon
-              name="i-lucide-phone"
-              class="size-4"
-            />
-            拨打校园 110
-          </a>
-        </div>
-      </section>
-
-      <!-- 重新播放动画入口 -->
-      <div class="flex justify-center pb-8">
-        <button
-          class="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-4 text-xs text-zinc-500 transition hover:border-green-300 hover:text-green-700 cursor-pointer"
-          @click="replayIntro"
-        >
-          <UIcon
-            name="i-lucide-sparkles"
-            class="size-3.5 text-green-700 animate-pulse"
-          />
-          <span>再看一次开场动画</span>
-        </button>
-      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.important-time-track {
+  animation: important-time-scroll 16s linear infinite;
+}
+
+.important-time-window:hover .important-time-track {
+  animation-play-state: paused;
+}
+
+@keyframes important-time-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - 1.25rem)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .important-time-track { animation: none; }
+}
+</style>

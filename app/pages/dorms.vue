@@ -277,14 +277,6 @@ function selectDorm(id: DormId) {
               拍摄时间、楼栋、入住人数和个人布置都会影响画面。床位、家具、热水和公共设施以实际分配及学校最新安排为准。
             </p>
           </div>
-          <div class="rounded-lg border border-sky-200 bg-sky-50 p-5">
-            <p class="text-sm font-bold text-sky-950">
-              两段素材均由在校生提供
-            </p>
-            <p class="mt-2 text-sm leading-6 text-sky-950/75">
-              普通型视频为 28 秒竖屏走拍，舒适型视频为 24 秒竖屏走拍；都不是 360° 全景，因此单独放在宿舍模块中。
-            </p>
-          </div>
         </div>
       </section>
     </main>

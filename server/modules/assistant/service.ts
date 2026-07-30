@@ -2284,6 +2284,54 @@ function collegeNameForQuery(query: string): string | null {
 function collegeMajorsLocalAnswer(query: string): ApiAssistantResponse | null {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   if (!/专业|开设|学科|招生/.test(normalized)) return null
+
+  // Total count or full listing — computed live from majorProfiles so the
+  // answer is always accurate without any hardcoded number.
+  const asksTotal = /(?:多少|几)个?(?:本科)?专业|专业.*(?:有哪些|全部|所有|列表|总共|共有|合计)|共?开设.*专业|学校.*专业.*(?:多少|几)|所有专业/.test(normalized)
+  const asksTransfer = /专升本/.test(normalized)
+
+  if (asksTotal) {
+    const ordinaryMajors = majorProfiles.filter(p =>
+      p.admissionTypes.includes('ordinary-undergraduate')
+    )
+    const transferMajors = majorProfiles.filter(p =>
+      p.admissionTypes.includes('transfer-undergraduate')
+    )
+    const byCollege = ordinaryMajors.reduce<Record<string, string[]>>((acc, p) => {
+      acc[p.collegeName] = acc[p.collegeName] ?? []
+      acc[p.collegeName].push(p.name)
+      return acc
+    }, {})
+    const byCollegeLines = Object.entries(byCollege)
+      .map(([college, names]) => `${college}：${names.join('、')}`)
+      .join('；')
+
+    const transferList = asksTransfer
+      ? `；专升本招生专业${transferMajors.length}个：${transferMajors.map(p => p.name).join('、')}`
+      : ''
+
+    const transferNote = asksTransfer ? '' : `专升本另有${transferMajors.length}个专业，可单独查询。`
+
+    return {
+      query,
+      mode: 'local',
+      answer: `按系统已核对的2026年招生专业目录，普通本科共${ordinaryMajors.length}个专业，分属${Object.keys(byCollege).length}个学院：${byCollegeLines}。${transferNote}${transferList}以录取材料和学院最新通知为准，增设或停招以官网公告为准。`,
+      citations: [{
+        title: '2026年招生专业一览',
+        url: '/major-lookup',
+        snippet: `普通本科${ordinaryMajors.length}个专业，专升本${transferMajors.length}个专业。`,
+        source: 'site'
+      }, {
+        title: ordinaryPlanSource.title,
+        url: ordinaryPlanSource.url,
+        snippet: '仰恩大学2026年普通本科招生计划，含各专业招生人数及学费。',
+        source: 'web'
+      }],
+      usedWebSearch: false,
+      confidence: 0.97
+    }
+  }
+
   const collegeName = collegeNameForQuery(query)
   if (!collegeName) return null
   const majors = majorProfiles
@@ -2931,11 +2979,11 @@ export async function askGateway(
   try {
     const modelEvidence = evidence.map((item, index) => {
       const sourceLabel
-        = item.source === 'official_site'
+        = assistantEvidenceAuthority(item) === 'official_site'
           ? '[官网原文] '
-          : item.source === 'reviewed_site'
+          : assistantEvidenceAuthority(item) === 'reviewed_site'
             ? '[站内审核] '
-            : item.source === 'structured_site' || item.source === 'site'
+            : assistantEvidenceAuthority(item) === 'structured_site' || item.source === 'site'
               ? '[站内整理] '
               : item.source === 'web' ? '[外部网页] ' : ''
       return {

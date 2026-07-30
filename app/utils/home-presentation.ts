@@ -105,7 +105,7 @@ export const homeTimelineStages: HomeTimelineStage[] = [
     featureKey: 'home.timeline.before-arrival',
     label: '到校前',
     title: '先确认，不要凭群聊猜',
-    items: ['保存录取通知书与官方通知', '核对自己的报到日期和校区', '提前收藏校园地图'],
+    items: ['确认报到时间与材料', '查询专业和住宿片区', '收藏校园地图'],
     actionLabel: '查看报到准备',
     to: '/procedures/arrival'
   },
@@ -113,7 +113,7 @@ export const homeTimelineStages: HomeTimelineStage[] = [
     featureKey: 'home.timeline.arrival-day',
     label: '报到当天',
     title: '先定位，再按步骤办理',
-    items: ['先在地图搜索报到点或宿舍', '按现场指引逐项办理', '材料有变化时以现场通知为准'],
+    items: ['按现场指引完成报到', '前往宿舍并确认入住', '核对校园一卡通和网络安排'],
     actionLabel: '打开校园地图',
     to: '/map'
   },
@@ -121,7 +121,7 @@ export const homeTimelineStages: HomeTimelineStage[] = [
     featureKey: 'home.timeline.first-week',
     label: '入学第一周',
     title: '把学习和生活入口补齐',
-    items: ['处理校园卡与网络', '确认课程、图书馆和安全电话', '再了解社团与周边生活'],
+    items: ['确认课表与教学楼', '办理校园一卡通与网络', '保存安全与办事入口'],
     actionLabel: '查看全部指南',
     to: '/guides'
   }
@@ -216,7 +216,7 @@ export function buildHomeEssentialActions(_guides: HomeGuideLike[]): HomeAction[
     {
       featureKey: 'home.essential.arrival',
       title: '报到安排',
-      description: '查看报到日期、地点、材料和现场办理顺序。',
+      description: '查询报到时间、地点与流程',
       meta: '入学前先看',
       icon: 'i-lucide-calendar-check-2',
       to: '/procedures/arrival',
@@ -225,16 +225,16 @@ export function buildHomeEssentialActions(_guides: HomeGuideLike[]): HomeAction[
     {
       featureKey: 'home.essential.map',
       title: '专业与住宿片区',
-      description: '查询专业所在校区、宿舍片区和相关地图位置。',
+      description: '查看专业所属及住宿片区',
       meta: '按专业查找',
       icon: 'i-lucide-map-pinned',
-      to: '/map',
+      to: '/major-lookup',
       tone: 'bg-blue-50 text-blue-700'
     },
     {
       featureKey: 'home.essential.network',
       title: '宿舍信息',
-      description: '查看普通型、舒适型宿舍、入住用品和宿舍生活说明。',
+      description: '查询宿舍分配与入住须知',
       meta: '住宿前先看',
       icon: 'i-lucide-bed-double',
       to: '/dorms',
@@ -243,7 +243,7 @@ export function buildHomeEssentialActions(_guides: HomeGuideLike[]): HomeAction[
     {
       featureKey: 'home.essential.delivery',
       title: '校园地图与交通',
-      description: '查找宿舍、教学楼、快递点和到校离校的交通路线。',
+      description: '查看校园地图与到校路线',
       meta: '到校后常用',
       icon: 'i-lucide-map-pinned',
       to: '/map',

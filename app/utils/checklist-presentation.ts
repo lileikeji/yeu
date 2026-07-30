@@ -78,7 +78,7 @@ export const checklistStages: ChecklistStage[] = [
     id: 'first-week',
     label: '入学第一周',
     title: '把学习和生活入口补齐',
-    description: '校园卡、网络、图书馆、安全电话和课程入口尽量第一周搞定。',
+    description: '校园一卡通、网络、图书馆、安全电话和课程入口尽量第一周搞定。',
     icon: 'i-lucide-sparkles',
     tone: 'bg-violet-50 text-violet-700'
   },
@@ -205,8 +205,8 @@ export const checklistItems: ChecklistItem[] = [
   {
     id: 'campus-card-network',
     stageId: 'first-week',
-    title: '办理校园卡与校园网',
-    description: '尽快弄清校园卡充值、校园网连接和常见问题。',
+    title: '办理校园一卡通与校园网',
+    description: '尽快弄清校园一卡通充值、校园网连接和常见问题。',
     to: '/guides/campus-card-network',
     icon: 'i-lucide-wifi',
     audience: [...allFreshmen],
@@ -322,7 +322,7 @@ export const checklistItems: ChecklistItem[] = [
     id: 'pack-cash-card',
     stageId: 'packing',
     title: '银行卡与少量现金',
-    description: '用于学费、生活费和校园卡充值；收费项目以学校通知为准。',
+    description: '用于学费、生活费和校园一卡通充值；收费项目以学校通知为准。',
     icon: 'i-lucide-credit-card',
     audience: [...allFreshmen],
     priority: 30

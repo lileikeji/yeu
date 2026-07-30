@@ -18,7 +18,6 @@ test('dorm module presents ordinary and comfort walkthroughs as videos', () => {
   assert.match(pageSource, /comfort-dorm-poster\.jpg/)
   assert.match(pageSource, /controls/)
   assert.match(pageSource, /playsinline/)
-  assert.match(pageSource, /都不是 360° 全景/)
   assert.doesNotMatch(panoramaSource, /dorm-tour\.mp4/)
 })
 

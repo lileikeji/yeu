@@ -186,10 +186,10 @@ export function buildArrivalCountdown(now: Date = new Date()): ArrivalCountdownV
       phase,
       phaseLabel: '入学教育',
       headline: '入学教育进行中',
-      detail: '集合地点与学院安排以辅导员/学院通知为准；同时把校园卡、网络和安全电话补齐。',
+      detail: '集合地点与学院安排以辅导员/学院通知为准；同时把校园一卡通、网络和安全电话补齐。',
       daysNumber: Math.max(0, daysToClass),
       daysUnit: daysToClass > 0 ? '天后上课' : '天',
-      primaryCtaLabel: '校园卡与网络',
+      primaryCtaLabel: '校园一卡通与网络',
       primaryCtaTo: '/guides/campus-card-network',
       secondaryCtaLabel: '安全医疗',
       secondaryCtaTo: '/guides/safety-health',
@@ -259,7 +259,7 @@ export function buildTodayFocus(
     },
     orientation: {
       title: '入学教育期间优先做',
-      description: '补齐校园卡、网络、学习和安全相关事项。'
+      description: '补齐校园一卡通、网络、学习和安全相关事项。'
     },
     'class-started': {
       title: '开学后可以继续做',

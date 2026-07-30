@@ -58,3 +58,19 @@ data/production-monitor-state.json
 
 # Ad-hoc local probe / sync scripts (never commit secrets)
 _*.py
+
+# Local release bundles and private grade exports
+deploy-output*.tar*
+deploy-source.tar
+个人成绩单_腾讯文档上传/
+data/imports/**/~$*
+
+# Generated promotional media (keep source scripts and copy final media out of Git)
+docs/marketing/exports/
+docs/marketing/showcase-preview/
+docs/marketing/video-assets/
+docs/marketing/xhs-assets/
+docs/marketing/map-promo/*.webm
+docs/marketing/map-promo/*.mp3
+docs/marketing/map-promo/*.png
+docs/marketing/map-promo/*.jpg
