@@ -174,6 +174,7 @@ export class AMapProvider implements MapProvider {
     this.map = map
     this.installMapAccessibility(element)
     this.applyBaseStyle()
+    this.scheduleInitialResize(map, element, lifecycleVersion)
     map.on('click', this.handleMapClick)
     map.on('hotspotclick', this.handleHotspotClick)
     await Promise.all([this.rebuildMarkers(), this.rebuildAreas()])
@@ -999,6 +1000,48 @@ export class AMapProvider implements MapProvider {
       ]
       this.map.add(this.baseLayers)
     }
+  }
+
+  /**
+   * AMap measures its container when the Map is constructed. On the first
+   * client-side navigation the loader awaits the network, so construction can
+   * happen before the container has been laid out. AMap then keeps a 0x0
+   * drawing surface and never re-measures, which leaves the basemap blank
+   * while DOM markers still position correctly. Re-measure once the layout has
+   * settled, and only act when the size is genuinely wrong.
+   */
+  private scheduleInitialResize(
+    map: AMapMap,
+    element: HTMLElement,
+    lifecycleVersion: number
+  ): void {
+    if (typeof requestAnimationFrame !== 'function') return
+
+    let attempts = 0
+    const check = (): void => {
+      if (this.map !== map || lifecycleVersion !== this.lifecycleVersion) return
+
+      const rect = element.getBoundingClientRect()
+      const canvas = typeof element.querySelector === 'function'
+        ? element.querySelector('canvas')
+        : null
+      const needsResize = rect.width >= 2 && rect.height >= 2
+        && (!canvas || canvas.width < 2 || canvas.height < 2)
+
+      if (needsResize) {
+        try {
+          map.resize()
+        } catch {
+          // A failed resize is not fatal; a later attempt or a user-driven
+          // resize can still recover the basemap.
+        }
+      }
+
+      attempts += 1
+      if (attempts < 6) requestAnimationFrame(check)
+    }
+
+    requestAnimationFrame(check)
   }
 
   private installMapAccessibility(element: HTMLElement): void {
