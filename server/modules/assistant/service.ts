@@ -218,7 +218,11 @@ const KNOWLEDGE_META_QUESTION_RE = /(你是(?:什么|哪个)模型|当前模型|
 const VERIFIED_FACT_VALID_UNTIL = {
   studentRules: Date.parse('2027-01-01T00:00:00+08:00'),
   openingSchedule2026: Date.parse('2026-10-01T00:00:00+08:00'),
-  militarySchedule2026: Date.parse('2027-01-01T00:00:00+08:00')
+  militarySchedule2026: Date.parse('2027-01-01T00:00:00+08:00'),
+  // Campus scale: 2000余亩, 1.3万余人, 12个学院 — review each academic year.
+  campusScale: Date.parse('2027-09-01T00:00:00+08:00'),
+  // K2/K6 fares verified against 2024-10-25 公告; re-verify if bus routes change.
+  transitFares: Date.parse('2026-10-01T00:00:00+08:00')
 } as const
 
 export function hardcodedAssistantFactIsCurrent(
@@ -2245,7 +2249,7 @@ function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[])
   }
 
   const asksCampusScale = /(?:仰恩|学校|校园|校区).{0,8}(?:面积|占地|多大|规模)|(?:面积|占地).{0,8}(?:仰恩|学校|校园|校区)/.test(normalizedQuery)
-  if (asksCampusScale) {
+  if (asksCampusScale && hardcodedAssistantFactIsCurrent('campusScale')) {
     return {
       query,
       mode: 'local',
@@ -2352,7 +2356,7 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   }
 
   const normalizedQuery = normalizeAssistantQuery(query)
-  if (/票价|车费|多少钱|收费|计价|价格|分段/.test(normalizedQuery) && /\bK[26]\b|公交/i.test(normalizedQuery)) {
+  if (/票价|车费|多少钱|收费|计价|价格|分段/.test(normalizedQuery) && /\bK[26]\b|公交/i.test(normalizedQuery) && hardcodedAssistantFactIsCurrent('transitFares')) {
     const asksK6 = /\bK6\b/i.test(normalizedQuery)
     const asksK2 = /\bK2\b/i.test(normalizedQuery)
     const k6Answer = 'K6 不是分段计价，泉州站至仰恩大学第三校区全程一票制 2 元。'
