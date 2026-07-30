@@ -2384,6 +2384,140 @@ function majorDormLocalAnswer(query: string, evidence: AssistantEvidence[]): Api
   }
 }
 
+/**
+ * Converts structured in-memory data into evidence citations for the LLM.
+ * Called before every askGateway invocation so the model can compute counts,
+ * filter rows, or cross-reference data that is not stored in the knowledge
+ * database — instead of relying on separate hard-coded answer functions.
+ *
+ * Keep each evidence snippet concise: the LLM receives the full list and
+ * will pick the relevant entries via citation_indexes.
+ */
+function resolveStructuredDataEvidence(query: string): ApiAssistantCitation[] {
+  const q = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const result: ApiAssistantCitation[] = []
+
+  // ── Majors ───────────────────────────────────────────────────────────────
+  // Inject when the query mentions 专业, 学院, 招生, 学科, or a specific
+  // college name. Annotate each major with [可专升本] so the model can answer
+  // cross-cutting questions (e.g. "哪些专业接受专升本") without a regex handler.
+  if (/专业|学院|开设|招生|学科/.test(q)) {
+    const ordinary = majorProfiles.filter(p => p.admissionTypes.includes('ordinary-undergraduate'))
+    const transfer = majorProfiles.filter(p => p.admissionTypes.includes('transfer-undergraduate'))
+    const byCollege: Record<string, string[]> = {}
+    for (const p of ordinary) {
+      byCollege[p.collegeName] ??= []
+      byCollege[p.collegeName].push(
+        p.admissionTypes.includes('transfer-undergraduate') ? `${p.name}[可专升本]` : p.name
+      )
+    }
+    const lines = Object.entries(byCollege)
+      .map(([college, names]) => `${college}：${names.join('、')}`)
+    result.push({
+      title: `2026年招生专业完整目录（普通本科${ordinary.length}个，专升本${transfer.length}个）`,
+      url: '/major-lookup',
+      snippet: lines.join('；'),
+      source: 'site'
+    })
+  }
+
+  // ── Scholarships / financial aid ─────────────────────────────────────────
+  if (/奖学金|助学金|评奖|资助|励志奖/.test(q)) {
+    const lines = scholarships.map(s =>
+      `【${s.name}】金额：${s.amount}；范围：${s.scope}；排名：${s.ranking}；条件：${s.requirements.slice(0, 3).join('、')}；时间：${s.reviewTime}；兼得：${s.coexistence}`
+    )
+    result.push({
+      title: '奖学金与助学金完整规则（结构化数据）',
+      url: '/student-rules#scholarships',
+      snippet: `总规则：${scholarshipGeneralRule.summary}\n${lines.join('\n')}`,
+      source: 'site'
+    })
+  }
+
+  return result
+}
+// ── Part 2 of resolveStructuredDataEvidence is inlined below as a wrapper ──
+function resolveStructuredDataEvidencePart2(query: string, baseResult: ApiAssistantCitation[]): ApiAssistantCitation[] {
+  const q = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const result = [...baseResult]
+
+  // ── Faculty ──────────────────────────────────────────────────────────────
+  // Only inject when a specific teacher name is in the query (name match)
+  // or when asking for faculty counts/stats. Avoid injecting all 483 profiles.
+  const namedFaculty = facultyProfiles.filter(f =>
+    f.name.length >= 2 && q.includes(f.name.toLocaleLowerCase('zh-CN'))
+  )
+  if (namedFaculty.length > 0) {
+    for (const f of namedFaculty.slice(0, 3)) {
+      result.push({
+        title: `${f.name} · ${f.college}${f.unit ? ' ' + f.unit : ''} ${f.position}`,
+        url: f.sourceUrl,
+        snippet: f.profile.slice(0, 400),
+        source: 'site'
+      })
+    }
+  } else if (/(?:老师|教师|教授|讲师|导师|师资).{0,15}(?:多少|几个|有哪些|总数)|教职工数量/.test(q)) {
+    const colleges = [...new Set(facultyProfiles.map(f => f.college))]
+    result.push({
+      title: '师资概况（结构化数据）',
+      url: '/campus',
+      snippet: `系统已整理教职工${facultyProfiles.length}人，所属学院：${colleges.join('、')}`,
+      source: 'site'
+    })
+  }
+
+  // ── GPA formula ──────────────────────────────────────────────────────────
+  if (/绩点|gpa|学分绩点/i.test(q)) {
+    result.push({
+      title: gpaRules.title,
+      url: gpaRules.sourceUrl,
+      snippet: `公式：${gpaRules.formulas.join('；')}。备注：${gpaRules.notes.join('；')}`,
+      source: 'site'
+    })
+  }
+
+  // ── Comprehensive evaluation ──────────────────────────────────────────────
+  if (/综合测评|综测|德育|智育/.test(q)) {
+    result.push({
+      title: comprehensiveEvaluationRules.title,
+      url: comprehensiveEvaluationRules.sourceUrl,
+      snippet: `公式：${comprehensiveEvaluationRules.formulas.join('；')}。备注：${comprehensiveEvaluationRules.notes.join('；')}`,
+      source: 'site'
+    })
+  }
+
+  // ── Procedures ────────────────────────────────────────────────────────────
+  if (/怎么办|如何办|办理|申请|流程|步骤|手续/.test(q)) {
+    const matched = procedureSeeds.filter((p) => {
+      const text = `${p.title} ${p.summary}`.toLocaleLowerCase('zh-CN')
+      return q.split(/\s+/).some(term => term.length >= 2 && text.includes(term))
+    }).slice(0, 2)
+    for (const proc of matched) {
+      const stepText = proc.steps.slice(0, 4)
+        .map((s, i) => `第${i + 1}步：${s.title}`)
+        .join('；')
+      const matText = proc.materials
+        .filter(m => m.isRequired)
+        .slice(0, 4)
+        .map(m => m.name)
+        .join('、')
+      result.push({
+        title: `${proc.title}（办事流程）`,
+        url: `/procedures/${proc.slug}`,
+        snippet: `${proc.summary}。${stepText}${matText ? '。所需材料：' + matText : ''}`,
+        source: 'site'
+      })
+    }
+  }
+
+  return result
+}
+
+function buildStructuredEvidence(query: string): ApiAssistantCitation[] {
+  const base = resolveStructuredDataEvidence(query)
+  return resolveStructuredDataEvidencePart2(query, base)
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
   const collegeMajorsAnswer = collegeMajorsLocalAnswer(query)
   if (collegeMajorsAnswer) return collegeMajorsAnswer
@@ -3437,7 +3571,9 @@ export async function answerCampusQuestion(
           return admissionPlanCountGapResponse(query, localEvidence)
         }
         if (!historicalTransferAnswer && shouldSynthesizeOfficialEvidence(query) && localEvidence[0]) {
-          const evidence = localEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
+          const dbEvidence = localEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
+          const structuredEvidence = buildStructuredEvidence(query)
+          const evidence = dedupeAssistantEvidence([...dbEvidence, ...structuredEvidence])
           try {
             const model = await askGateway(query, evidence, config)
             const selectedCitations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
@@ -3515,7 +3651,8 @@ export async function answerCampusQuestion(
     filterEvidenceForIntent(query, [...localEvidence, ...rankedWebEvidence]),
     KNOWLEDGE_MAX_PAGES
   )
-  const evidence = rankedEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
+  const dbEvidence = rankedEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
+  const evidence = dedupeAssistantEvidence([...dbEvidence, ...buildStructuredEvidence(query)])
   const response = await runAssistantStage(tracker, 'answer_generation', '整理答案', async () => {
     if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, evidence)) {
       return admissionPlanCountGapResponse(query, rankedEvidence)
