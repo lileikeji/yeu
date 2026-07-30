@@ -59,7 +59,7 @@ test('procedure seeds cover high-frequency freshman workflows and rerun safely',
       wouldUpdate: 0,
       procedureCount: 5,
       stepCount: 23,
-      materialCount: 4,
+      materialCount: 5,
       applied: false
     })
 

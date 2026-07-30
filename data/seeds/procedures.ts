@@ -175,7 +175,18 @@ export const procedureSeeds: ProcedureSeed[] = [
         placeSlug: null
       }
     ],
-    materials: []
+    materials: [
+      {
+        id: '9c45e82d-64bf-4f7e-a006-2026handbookpack',
+        name: '到校前可参考准备',
+        description: '2026 新生手册建议先准备：身份证、录取通知书及所需证件照片；少量常用药、洗漱用品和日常衣物；手机、充电器和必要电子设备；床上用品先列清单，床垫、床单、被褥和蚊帐等尺寸等确认楼栋和床型后再购买。军训用品按当届通知准备。这里是手册中的行前建议，不等于学校最终材料清单；正式原件、复印件、照片、银行卡和线上预办理事项仍以录取通知书及迎新通知为准。',
+        audience: [...allFreshmen],
+        isRequired: null,
+        informationState: 'partial',
+        departmentSlug: 'admissions-office',
+        placeSlug: null
+      }
+    ]
   },
   {
     id: '227f6122-507e-4425-80ba-bf59493650e2',

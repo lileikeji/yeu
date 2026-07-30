@@ -433,8 +433,9 @@ test('a quantity fallback cannot answer a professional count with a college coun
     runMigrations(client)
     const response = await answerCampusQuestion(client, '仰恩大学有多少个专业？', emptyAssistantConfig)
     assert.doesNotMatch(response.answer, /12个学院/)
-    assert.match(response.answer, /不能直接确认|没有找到|暂时没有/)
-    assert.ok(response.confidence <= 0.58)
+    assert.match(response.answer, /普通本科共26个专业/)
+    assert.doesNotMatch(response.answer, /12个学院/)
+    assert.ok(response.confidence >= 0.8)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

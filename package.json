@@ -50,6 +50,7 @@
     "map:geocode:audit": "tsx scripts/audit-amap-geocoding.ts",
     "map:owner:sync": "tsx scripts/sync-amap-owner-coordinates.ts",
     "map:owner:classifications": "tsx scripts/sync-amap-owner-classifications.ts",
+    "map:dorm-labels": "tsx scripts/sync-dorm-comfort-labels.ts",
     "map:wia:extract": "tsx scripts/extract-amap-sparse-list.ts",
     "map:data:test": "tsx --test scripts/sync-osm-campus-boundary.test.ts scripts/campus-map-reference.test.ts scripts/coordinate-observations.test.ts",
     "map:plan:check": "tsx scripts/check-official-campus-plan.ts",

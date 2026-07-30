@@ -2298,8 +2298,9 @@ function collegeMajorsLocalAnswer(query: string): ApiAssistantResponse | null {
       p.admissionTypes.includes('transfer-undergraduate')
     )
     const byCollege = ordinaryMajors.reduce<Record<string, string[]>>((acc, p) => {
-      acc[p.collegeName] = acc[p.collegeName] ?? []
-      acc[p.collegeName].push(p.name)
+      const majors = acc[p.collegeName] ?? []
+      majors.push(p.name)
+      acc[p.collegeName] = majors
       return acc
     }, {})
     const byCollegeLines = Object.entries(byCollege)
