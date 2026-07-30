@@ -3449,20 +3449,23 @@ export async function answerCampusQuestion(
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
     // For identity queries ("X是谁"), only suppress web search when we have a
-    // dedicated high-confidence profile entry (≥0.9). A tangential KB article
-    // title match (~0.78) is not enough — web search usually has richer content.
+    // dedicated high-confidence profile entry (≥0.9). Any other local signal
+    // (title match, localEvidenceIsSufficient, etc.) must not block web search
+    // because the web typically has far richer biographical content.
     const identitySubject = assistantIdentitySubject(query)
-    const knowledgeBlocksWebSearch = deterministicKnowledgeAnswer !== null
-      && (!identitySubject || (deterministicKnowledgeAnswer.confidence ?? 0) >= 0.9)
-    if (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
+    const hasExplicitIdentityProfile = identitySubject !== null
+      && deterministicKnowledgeAnswer !== null
+      && (deterministicKnowledgeAnswer.confidence ?? 0) >= 0.9
+    const blockWebSearch = !identitySubject || hasExplicitIdentityProfile
+    if (blockWebSearch && (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
       deterministicCollegeAnswer
       || deterministicMajorDormAnswer
       || deterministicCampusAnswer
-      || knowledgeBlocksWebSearch
+      || deterministicKnowledgeAnswer
       || deterministicRuleAnswer
       || hasStructuredLocalAnswer(query, localEvidence)
       || localEvidenceIsSufficient(query, localEvidence)
-    ))) {
+    )))) {
       return {
         query,
         retrievalQuery,
