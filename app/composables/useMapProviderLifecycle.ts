@@ -11,6 +11,7 @@ import {
   createMapProviderMountGate,
   initializeMapProvider
 } from '~/utils/map-provider-lifecycle'
+import { isWechatUserAgent } from '~/utils/browser-environment'
 import { MAP_LOAD_ERROR_MESSAGE } from '~/utils/map-presentation'
 
 type MapStatus = 'loading' | 'ready' | 'error'
@@ -39,6 +40,11 @@ interface UseMapProviderLifecycleOptions {
 }
 
 const DEFAULT_MAP_ERROR = MAP_LOAD_ERROR_MESSAGE
+
+async function createWechatOfflineProvider(): Promise<MapProvider> {
+  const { WechatOfflineMapProvider } = await import('~~/map/providers/offline/provider')
+  return new WechatOfflineMapProvider()
+}
 
 export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions) {
   const mountGate = createMapProviderMountGate()
@@ -137,12 +143,21 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
     runProviderOperation(() => options.mapProvider.value?.destroy())
     clearProvider()
     let createdProvider: MapProvider | null = null
+    const useWechatOfflineMap = typeof navigator !== 'undefined'
+      && isWechatUserAgent(navigator.userAgent)
+    const providerFactory = useWechatOfflineMap
+      ? createWechatOfflineProvider
+      : createProvider
+    const providerAreas = useWechatOfflineMap ? [] : options.areas.value
     try {
-      const provider = await initializeMapProvider(createProvider, {
+      // WeChat WebViews frequently block AMap/WebGL after the script appears
+      // to load. Use the bundled DOM renderer immediately so the map never
+      // spends several seconds in a retry state or depends on external tiles.
+      const provider = await initializeMapProvider(providerFactory, {
         element,
         displayOptions: options.displayOptions.value,
         baseStyle: options.baseStyle.value,
-        areas: options.areas.value,
+        areas: providerAreas,
         pois: options.pois.value,
         selectedPoiId: options.selectedPoiId.value,
         selectedAreaId: options.selectedAreaId.value
