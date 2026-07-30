@@ -1106,6 +1106,27 @@ function shouldSynthesizeOfficialEvidence(query: string): boolean {
     || Boolean(majorCurriculumNameForQuery(query))
 }
 
+/**
+ * Returns true when structured in-memory data (majorProfiles, scholarships,
+ * facultyProfiles, etc.) is the primary source for answering the query.
+ * When true, the question is routed to AI synthesis with structured evidence
+ * rather than to a deterministic handler or the knowledge-database fallback.
+ */
+function structuredDataCanAnswer(query: string): boolean {
+  const q = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  // Major queries that require counting, filtering, or listing across all
+  // majors (not just one college) — the LLM needs the full catalog.
+  if (/专业/.test(q) && /专升本|哪些|全部|所有|列表|理工|文科|有几个|有哪些/.test(q)) return true
+  // Multi-scholarship or scholarship-comparison queries.
+  if (/奖学金|助学金/.test(q) && /哪些|有几个|金额|条件|汇总|全部|兼得|同时|比较/.test(q)) return true
+  // Named faculty lookup that isn't just a procedure.
+  if (facultyProfiles.some(f => f.name.length >= 2 && q.includes(f.name.toLocaleLowerCase('zh-CN')))) return true
+  // GPA or comprehensive evaluation formula questions.
+  if (/绩点|gpa/i.test(q) && /公式|怎么算|计算|算法/.test(q)) return true
+  if (/综合测评|综测/.test(q) && /公式|怎么算|计算|组成|构成/.test(q)) return true
+  return false
+}
+
 function filterEvidenceForIntent(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
   return rankAssistantEvidence(query, evidence, limit)
 }
@@ -3570,7 +3591,7 @@ export async function answerCampusQuestion(
         if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, localEvidence)) {
           return admissionPlanCountGapResponse(query, localEvidence)
         }
-        if (!historicalTransferAnswer && shouldSynthesizeOfficialEvidence(query) && localEvidence[0]) {
+        if (!historicalTransferAnswer && (shouldSynthesizeOfficialEvidence(query) || structuredDataCanAnswer(query)) && localEvidence[0]) {
           const dbEvidence = localEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
           const structuredEvidence = buildStructuredEvidence(query)
           const evidence = dedupeAssistantEvidence([...dbEvidence, ...structuredEvidence])
