@@ -6,6 +6,7 @@ import test from 'node:test'
 import {
   assistantKnowledgeSeeds,
   campusExperienceKnowledge,
+  sportsElectiveKnowledge,
   userVerifiedNewStudentExperienceKnowledge,
   verifiedNewStudentFaqKnowledge
 } from '../data/assistant-knowledge'
@@ -34,6 +35,8 @@ test('campus experience entries are normalized and do not retain the source plat
   assert.ok(campusExperienceKnowledge.length >= 20)
   assert.ok(verifiedNewStudentFaqKnowledge.length >= 10)
   assert.ok(userVerifiedNewStudentExperienceKnowledge.length >= 15)
+  assert.equal(sportsElectiveKnowledge.length, 1)
+  assert.match(sportsElectiveKnowledge[0].answer, /匹克球.*柔力球/s)
   assert.ok(assistantKnowledgeSeeds.length >= 45)
   assert.ok(assistantKnowledgeSeeds.every(entry => entry.keywords.length >= 3))
   assert.ok(campusExperienceKnowledge.every(entry => (
@@ -125,6 +128,7 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
       ['计算机科学与技术专业住新区还是旧区', /应先按新区记录.*旧区.*不再作为当前答案/s],
       ['新区女生还有舒适型宿舍吗', /女生舒适型宿舍安排在旧区/],
       ['舒适型女生宿舍是哪栋楼', /旧区衡山楼.*男生舒适型宿舍.*新区辽宁楼或陕西楼/s],
+      ['体育选修有哪些项目', /女子篮球.*足球.*羽毛球.*匹克球.*柔力球/s],
       ['没钱吃饭怎么办', /不要硬扛.*学生资助中心/s],
       ['上课可以玩手机么', /任课教师当堂要求.*课堂秩序/s],
       ['林惠是谁', /董事会董事长.*仰恩基金会/s],

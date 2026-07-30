@@ -881,6 +881,50 @@ export const campusExperienceKnowledge: AssistantKnowledgeSeed[] = [
   }
 ]
 
+export const sportsElectiveKnowledge: AssistantKnowledgeSeed[] = [
+  {
+    id: 'user-image-sports-elective-options-2025',
+    kind: 'student_experience',
+    category: '体育选修',
+    title: '体育选修项目、适用性别与上课地点（表格参考）',
+    question: '体育选修有哪些项目？体育2可以选什么？女生和男生分别能选什么体育课？体育课在哪里上？',
+    answer: '用户提供的体育选练课安排表显示：表头包含“2024级大学体育4选练课安排表”和“2025级专升本体育2选练课安排表”。图中体育2项目包括女子篮球、男子篮球、足球、五祖拳、花样跳绳、太极拳、健美操、排舞、啦啦操、网球、排球、瑜伽、轮滑、羽毛球、跆拳道、舞龙舞狮、匹克球和柔力球。表格中标注了女子篮球、瑜伽适用女生，男子篮球适用男生；其他项目未标出性别限制，不能据此保证当届选课一定开放。多数班级安排在周四第3-4节，场地分布在旧区生活区篮球场、桥头体育场、仰恩基金会体育场、共102/共103、普贤楼四楼舞蹈室、旧区网球场、旧区桥头排球场、新区湖边篮球场、新区体育场、普207、文体中心及普照楼前。任课教师和每班43人等信息以图中表格为准，2026级实际项目、性别限制、时间、名额和场地仍以教务部当届选课通知为准。',
+    keywords: [
+      '体育选修有哪些项目',
+      '体育课有哪些项目',
+      '体育2选什么',
+      '体育2项目',
+      '大学体育4选修',
+      '女生体育选修',
+      '男生体育选修',
+      '女子篮球',
+      '男子篮球',
+      '足球',
+      '五祖拳',
+      '花样跳绳',
+      '太极拳',
+      '健美操',
+      '排舞',
+      '啦啦操',
+      '网球',
+      '排球',
+      '瑜伽',
+      '轮滑',
+      '羽毛球',
+      '跆拳道',
+      '舞龙舞狮',
+      '匹克球',
+      '柔力球',
+      '体育课上课地点',
+      '体育课在哪里上',
+      '周四3-4节体育课'
+    ],
+    publicUrl: '/discover?category=sports',
+    confidence: 78,
+    sourceNote: '用户提供的体育选练课安排表图片；属于往届/专升本课程安排参考，不替代2026级教务部正式选课通知。'
+  }
+]
+
 export const assistantKnowledgeSeeds: AssistantKnowledgeSeed[] = [
   ...facultyProfiles.map((profile): AssistantKnowledgeSeed => {
     const affiliation = [profile.college, profile.unit].filter(Boolean).join('·')
@@ -910,5 +954,6 @@ export const assistantKnowledgeSeeds: AssistantKnowledgeSeed[] = [
   ...verifiedNewStudentFaqKnowledge,
   ...userVerifiedNewStudentExperienceKnowledge,
   ...campusExperienceKnowledge,
+  ...sportsElectiveKnowledge,
   ...userSubmittedCampusNotes
 ]

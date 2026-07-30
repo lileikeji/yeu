@@ -6,6 +6,7 @@ import { nearbyGuideItems, nearbyGuideSearchText } from '../../../data/nearby-gu
 import { searchSystemFeatures } from '../../../data/system-features'
 import { transferMajorHistoricalRule } from '../../../data/transfer-major'
 import { userSubmittedCampusNotes } from '../../../data/user-submitted-campus-notes'
+import { facultyProfiles } from '../../../data/faculty-directory'
 import {
   comprehensiveEvaluationRules,
   gpaRules,
@@ -1654,7 +1655,10 @@ export function assistantKnowledgeMatchesForQuery(
       eq(assistantKnowledgeEntries.isActive, true),
       candidateCondition
     ))
-    .limit(Math.max(80, Math.min(320, limit * 48)))
+    // Keep a broad candidate pool before scoring. Generic campus terms such
+    // as "体育" can match many faculty rows; a small SQL limit would discard
+    // the more specific knowledge entry before exact keyword boosts run.
+    .limit(Math.max(320, Math.min(640, limit * 96)))
     .all()
     .map((row) => {
       const keywords = parseKnowledgeKeywords(row.keywordsJson)
