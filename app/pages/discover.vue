@@ -29,7 +29,7 @@ function toggleTaskPreview(): void {
 <template>
   <div>
     <header class="border-b border-[var(--line)] bg-white">
-      <div class="page-shell py-5 md:py-7">
+      <div class="page-shell py-4 md:py-5">
         <div class="flex items-end justify-between gap-4">
           <div class="max-w-2xl">
             <p class="section-kicker">
@@ -56,7 +56,7 @@ function toggleTaskPreview(): void {
     </header>
 
     <div>
-      <section class="page-shell py-5 md:py-7">
+      <section class="page-shell py-4 md:py-5">
         <div class="flex items-end justify-between gap-4">
           <div>
             <p class="section-kicker">
@@ -93,7 +93,7 @@ function toggleTaskPreview(): void {
             v-for="entry in visibleTaskEntries"
             :key="entry.to"
             :to="entry.to"
-            class="surface-panel group relative flex min-h-24 items-center gap-3 p-3 transition hover:border-green-300 hover:shadow-sm sm:min-h-28 sm:gap-4 sm:p-4"
+            class="surface-panel group relative flex min-h-20 items-center gap-2.5 p-2.5 transition hover:border-green-300 hover:shadow-sm sm:min-h-24 sm:gap-3 sm:p-3"
           >
             <span
               class="grid size-9 shrink-0 place-items-center rounded-md sm:size-10"
@@ -118,7 +118,7 @@ function toggleTaskPreview(): void {
       </section>
 
       <section class="border-y border-green-100 bg-green-50/60">
-        <div class="page-shell py-5 md:py-7">
+        <div class="page-shell py-4 md:py-5">
           <p class="section-kicker">
             账号与交流
           </p>
@@ -134,7 +134,7 @@ function toggleTaskPreview(): void {
               v-for="entry in accountEntries"
               :key="entry.to"
               :to="entry.to"
-              class="group flex min-h-20 items-center gap-2.5 rounded-md border border-green-200 bg-white/70 p-3"
+              class="group flex min-h-16 items-center gap-2.5 rounded-md border border-green-200 bg-white/70 p-2.5 sm:min-h-20 sm:p-3"
             >
               <span class="grid size-9 shrink-0 place-items-center rounded-md bg-white text-green-700 shadow-sm">
                 <UIcon
@@ -156,7 +156,7 @@ function toggleTaskPreview(): void {
       </section>
 
       <section class="border-y border-[var(--line)] bg-white">
-        <div class="page-shell py-5 md:py-7">
+        <div class="page-shell py-4 md:py-5">
           <p class="section-kicker">
             继续浏览
           </p>
@@ -169,7 +169,7 @@ function toggleTaskPreview(): void {
               v-for="entry in discoverDirectoryEntries"
               :key="entry.to"
               :to="entry.to"
-              class="group flex min-h-20 items-center gap-2.5 rounded-md border border-zinc-200 p-3 hover:border-green-300"
+              class="group flex min-h-16 items-center gap-2.5 rounded-md border border-zinc-200 p-2.5 hover:border-green-300 sm:min-h-20 sm:p-3"
             >
               <span class="grid size-9 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700 group-hover:bg-green-50 group-hover:text-green-700">
                 <UIcon
@@ -190,7 +190,7 @@ function toggleTaskPreview(): void {
         </div>
       </section>
 
-      <section class="page-shell py-5 md:py-7">
+      <section class="page-shell py-4 md:py-5">
         <p class="section-kicker">
           帮助与说明
         </p>
@@ -203,7 +203,7 @@ function toggleTaskPreview(): void {
             v-for="entry in discoverTrustEntries"
             :key="entry.to"
             :to="entry.to"
-            class="group flex min-h-20 items-center gap-2.5 rounded-md border border-zinc-200 p-3 hover:border-green-300"
+            class="group flex min-h-16 items-center gap-2.5 rounded-md border border-zinc-200 p-2.5 hover:border-green-300 sm:min-h-20 sm:p-3"
           >
             <UIcon
               :name="entry.icon"

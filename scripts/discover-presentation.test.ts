@@ -95,7 +95,7 @@ test('discover account entries adapt to the current login state', () => {
   assert.match(pageSource, /isAuthenticated \? '个人资料与新生群聊' : '群聊和个人资料需要登录'/)
   assert.match(pageSource, /不登录也能继续使用地图、清单和指南/)
   assert.ok(pageSource.indexOf('常用入口') < pageSource.indexOf('账号与交流'))
-  assert.match(pageSource, /class="group flex min-h-20 items-center gap-3 border-t border-green-200 py-4"/)
+  assert.match(pageSource, /class="group flex min-h-16 items-center gap-2\.5 rounded-md border border-green-200[^"]*sm:min-h-20/)
   assert.doesNotMatch(pageSource, /min-h-24 items-center gap-3 rounded-lg/)
 })
 
@@ -107,10 +107,10 @@ test('discover task preview keeps the mobile page manageable', () => {
   const expanded = buildDiscoverTaskPreview(discoverTaskEntries, true)
   assert.equal(expanded.items.length, 14)
   assert.equal(expanded.hiddenCount, 0)
-  assert.match(pageSource, /grid grid-cols-2 gap-3/)
-  assert.match(pageSource, /min-h-32 flex-col items-start gap-3[\s\S]*sm:min-h-40 sm:flex-row sm:gap-4/)
+  assert.match(pageSource, /grid grid-cols-2 gap-2\.5 sm:gap-3/)
+  assert.match(pageSource, /min-h-20 items-center gap-2\.5[\s\S]*sm:min-h-24 sm:gap-3/)
   assert.match(pageSource, /entry\.when/)
-  assert.match(pageSource, /hidden text-sm leading-6 text-zinc-600 sm:block/)
+  assert.match(pageSource, /hidden text-xs leading-5 text-zinc-600 sm:block/)
   assert.doesNotMatch(pageSource, />\s*查看\s*<UIcon/)
 })
 

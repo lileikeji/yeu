@@ -97,7 +97,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
 
           <aside
             id="freshman-dates"
-            class="overflow-hidden rounded-lg border border-green-100 bg-green-50/70"
+            class="overflow-hidden rounded-lg border border-green-100 bg-green-50/70 lg:row-span-2"
           >
             <div class="flex items-start justify-between gap-4 px-4 pb-3 pt-4">
               <div>
@@ -152,30 +152,29 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               </li>
             </ol>
           </aside>
-        </div>
-
-        <div class="mt-6 border-y border-zinc-200 py-4">
-          <dl class="grid grid-cols-3 divide-x divide-zinc-200">
-            <div
-              v-for="stat in campusStats"
-              :key="stat.label"
-              class="min-w-0 px-2 first:pl-0 last:pr-0 sm:px-3"
-            >
-              <dt class="flex items-center gap-1.5 text-xs text-zinc-500">
-                <UIcon
-                  :name="stat.icon"
-                  class="size-4 text-green-700"
-                />
-                <span>{{ stat.label }}</span>
-              </dt>
-              <dd class="mt-2 whitespace-nowrap text-lg font-bold text-zinc-950 sm:text-xl md:text-2xl">
-                {{ stat.value }}<span class="ml-0.5 text-xs font-medium text-zinc-500">{{ stat.unit }}</span>
-              </dd>
-            </div>
-          </dl>
-          <p class="mt-3 text-xs leading-5 text-zinc-400">
-            校园规模会随建设和统计时间变化，具体请以学校官网最新介绍为准。
-          </p>
+          <div class="mt-6 border-y border-zinc-200 py-4 lg:mt-0 lg:self-end">
+            <dl class="grid grid-cols-3 divide-x divide-zinc-200">
+              <div
+                v-for="stat in campusStats"
+                :key="stat.label"
+                class="min-w-0 px-2 first:pl-0 last:pr-0 sm:px-3"
+              >
+                <dt class="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <UIcon
+                    :name="stat.icon"
+                    class="size-4 text-green-700"
+                  />
+                  <span>{{ stat.label }}</span>
+                </dt>
+                <dd class="mt-2 whitespace-nowrap text-lg font-bold text-zinc-950 sm:text-xl md:text-2xl">
+                  {{ stat.value }}<span class="ml-0.5 text-xs font-medium text-zinc-500">{{ stat.unit }}</span>
+                </dd>
+              </div>
+            </dl>
+            <p class="mt-3 text-xs leading-5 text-zinc-400">
+              校园规模会随建设和统计时间变化，具体请以学校官网最新介绍为准。
+            </p>
+          </div>
         </div>
         <nav
           aria-label="校园概览快速入口"
