@@ -248,7 +248,12 @@ const results = computed(() => {
 const groupedResults = computed(() => groupPublicSearchResults(results.value, activeQuery.value))
 const hasPlaceResults = computed(() => results.value.some(result => result.resultType === 'place'))
 const assistantResponse = ref<ApiAssistantResponse | null>(null)
-const assistantStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
+// Start the visible trace as soon as a question is present. The answer stream
+// still starts on the client, but the user never waits behind the site-search
+// request before seeing the first analysis step.
+const assistantStatus = ref<'idle' | 'pending' | 'success' | 'error'>(
+  activeSearchMode.value === 'ai' && activeQuery.value.length >= 2 ? 'pending' : 'idle'
+)
 interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
   status: 'running' | 'completed' | 'failed'
   startedAt?: string
@@ -423,8 +428,6 @@ async function requestAssistantAnswer(): Promise<void> {
   const query = activeQuery.value
   const shouldRequest = activeSearchMode.value === 'ai'
     && !activeType.value
-    && !searching.value
-    && !searchError.value
     && query.length >= 2
   if (!shouldRequest) {
     assistantRequestSequence += 1
@@ -441,7 +444,13 @@ async function requestAssistantAnswer(): Promise<void> {
   assistantAbortController?.abort()
   assistantAbortController = new AbortController()
   assistantResponse.value = null
-  assistantLiveTrace.value = []
+  assistantLiveTrace.value = [{
+    stage: 'query_analysis',
+    label: '分析问题',
+    durationMs: 0,
+    status: 'running',
+    startedAt: new Date().toISOString()
+  }]
   assistantStatus.value = 'pending'
   startAssistantClock()
   try {
@@ -484,7 +493,7 @@ watch([activeQuery, activeType], ([query, type]) => {
 })
 
 watch(
-  [activeQuery, activeType, activeSearchMode, searching, searchError, () => results.value.length],
+  [activeQuery, activeType, activeSearchMode],
   () => void requestAssistantAnswer()
 )
 
