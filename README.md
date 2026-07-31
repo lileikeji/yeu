@@ -120,6 +120,7 @@ public/              公共静态资源与 PWA 资源
 - [首批数据源与核验清单](docs/RESEARCH_SOURCES.md) 与 [内容治理政策](docs/CONTENT_POLICY.md)：资料来源、时效、版权和发布门槛。
 - [现场坐标采集与审核](docs/FIELD_COORDINATE_VERIFICATION.md) 与 [单管理员运行手册](docs/ADMIN_RUNBOOK.md)：采点、审核、纠错、紧急下架和凭据轮换。
 - [技术架构](docs/ARCHITECTURE.md) 与 [宝塔 Linux 部署](docs/DEPLOYMENT.md)：运行边界、环境变量、发布、备份和恢复。
+- [Git 资源与配置说明](docs/GIT_RESOURCES_AND_CONFIGURATION.md)：Git 资源边界、环境配置、数据库私有存放、协作和发布流程。
 
 ## 名称与声明
 

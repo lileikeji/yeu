@@ -17,7 +17,8 @@
 7. [当前工作区拆分与提交计划](./CHANGESET_PLAN_2026-07-15.md)：本轮跨模块改动如何拆成可审查、可回退的提交。
 8. [工程与发布验证记录](./VERIFICATION_RECORD_2026-07-15.md)：当前 commit、工具版本、质量门禁、空库重建和生产产物冒烟证据。
 9. [技术架构](./ARCHITECTURE.md) 与 [数据模型](./DATA_MODEL.md)：实现边界、领域关系和迁移约定。
-10. [任务完成复盘与架构同步规则](./rules/TASK_COMPLETION_REVIEW.md)：每次任务必须记录好处、问题、根因、避免项、验证结果和架构变化。
+10. [Git 资源与配置说明](./GIT_RESOURCES_AND_CONFIGURATION.md)：仓库资源边界、环境变量、数据库私有存放、协作和发布配置。
+11. [任务完成复盘与架构同步规则](./rules/TASK_COMPLETION_REVIEW.md)：每次任务必须记录好处、问题、根因、避免项、验证结果和架构变化。
 
 内容维护与核验人员重点阅读：
 
@@ -55,6 +56,7 @@
 | [MAP_DATA_READINESS.md](./MAP_DATA_READINESS.md) | 76 个地点当前分别卡在哪里、先采哪些 | 地图数据执行台账 |
 | [ADMIN_RUNBOOK.md](./ADMIN_RUNBOOK.md) | 单管理员每天如何维护、纠错、下架和轮换凭据 | 操作手册 |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | 宝塔 Linux 如何发布、备份、恢复和回滚 | 生产运维基线 |
+| [GIT_RESOURCES_AND_CONFIGURATION.md](./GIT_RESOURCES_AND_CONFIGURATION.md) | Git 中保存什么、环境变量如何配置、数据库和发布资源如何分离 | 协作与资源边界基线 |
 
 ## 3. 事实源优先级
 

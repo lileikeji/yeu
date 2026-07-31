@@ -76,6 +76,9 @@ useSeoMeta({
 })
 
 const route = useRoute()
+// Temporarily keep the official floor-plan data available without exposing a
+// public entry point. Re-enable this switch when the plan is ready to return.
+const OFFICIAL_PLAN_ENTRY_VISIBLE = false
 const categories = mapCategories
 const categoryIds = mapCategoryIds
 const initialCategory = mapQueryValue(route.query.category)
@@ -102,13 +105,16 @@ const ownerMapPlacesInScope = computed(() => filterOwnerMapPlacesInScope(
   activeScope.value
 ))
 const initialSelectedPoiId = resolveInitialSelectedMapPoiId(places.value, initialPlace)
-const canShowOfficialPlan = computed(() => canShowOfficialCampusPlan(activeScope.value))
+const canShowOfficialPlan = computed(() => OFFICIAL_PLAN_ENTRY_VISIBLE
+  && canShowOfficialCampusPlan(activeScope.value))
 const mapViewMode = ref<'geographic' | 'official-plan'>(
-  resolveInitialMapViewMode({
-    activeScope: activeScope.value,
-    publishedCount: publishedPlacesInScope.value.length,
-    ownerMapCount: ownerMapPlacesInScope.value.length
-  })
+  canShowOfficialPlan.value
+    ? resolveInitialMapViewMode({
+        activeScope: activeScope.value,
+        publishedCount: publishedPlacesInScope.value.length,
+        ownerMapCount: ownerMapPlacesInScope.value.length
+      })
+    : 'geographic'
 )
 const mobileSheetState = ref<MobileSheetState>(initialSelectedPoiId ? 'collapsed' : 'half')
 const sidebarCollapsed = ref(false)
@@ -340,6 +346,8 @@ function selectPoi(poi: PublicMapPlace) {
 }
 
 function setMapViewMode(nextMode: 'geographic' | 'official-plan') {
+  if (nextMode === 'official-plan' && !canShowOfficialPlan.value) return
+
   const decision = resolveMapViewModeSwitchDecision({
     nextMode,
     currentMode: mapViewMode.value,
@@ -1007,6 +1015,7 @@ onBeforeUnmount(() => {
               : '绿色虚线只表示校园的大致范围。左侧目录仍可搜索；没有确认位置的地点不会硬塞到地图上。' }}
           </p>
           <UButton
+            v-if="canShowOfficialPlan"
             :to="safeExternalHref(officialSources.campusMap.url) || undefined"
             target="_blank"
             rel="noopener noreferrer"
