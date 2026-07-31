@@ -3684,6 +3684,34 @@ export async function answerCampusQuestion(
         requiresSpecificWebEvidence: false
       }
     }
+    // Deterministic answers have their own small in-memory evidence. Resolve
+    // them before opening the large knowledge tables; otherwise a cold SQLite
+    // read can make a known answer look like a slow or failed search.
+    const fastEvidence = [
+      ...seedCatalogEvidenceForQuery(query, 4),
+      ...campusOverviewEvidenceForQuery(query),
+      ...studentRuleEvidenceForQuery(query, 4)
+    ]
+    const fastDeterministicAnswer = studentRuleLocalAnswer(query, fastEvidence)
+      ?? campusOverviewLocalAnswer(query, fastEvidence)
+    const fastOpeningEvidence = isOpeningDateQuery(query)
+      && hardcodedAssistantFactIsCurrent('openingSchedule2026')
+      ? fastEvidence.find(item => item.title === '2026级新生报到')
+      : null
+    if (fastDeterministicAnswer || fastOpeningEvidence) {
+      return {
+        query,
+        retrievalQuery,
+        intentDetail,
+        cacheKey,
+        route: 'local_database' as const,
+        cached: null,
+        localEvidence: fastEvidence,
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence: false,
+        localEvidenceSufficient: true
+      }
+    }
     // Deterministic local rules must take precedence over stale generic cache entries.
     const transferQuery = isTransferQuery(query)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
