@@ -1,8 +1,43 @@
 # Git 资源与配置说明
 
-> 适用仓库：`https://gitee.com/lilei1529/yeu`
+> 适用仓库：`https://gitee.com/newcomers-guide/yeu`
 >
 > 这份说明把 Git 中的代码、数据、环境配置、部署文件和生产持久化资源分开说明，避免把数据库、密钥或服务器运行文件误提交。
+
+## 当前仓库与权限
+
+- **规范远程**：`organization` → `https://gitee.com/newcomers-guide/yeu.git`，用于组织仓库的拉取和发布。
+- **个人远程**：`origin` → `https://gitee.com/lilei1529/yeu.git`，仅作为个人备份或历史来源；发布前不要误推到这里。
+- **默认分支**：`master`。日常改动建议从它创建 `codex/<topic>` 分支，通过合并请求进入默认分支。
+- **仓库可见性**：组织下的私有仓库；代码可以协作，生产数据库、密钥和上传文件仍只留在服务器受限目录。
+- **组织成员管理**：<https://gitee.com/organizations/newcomers-guide/members/list>
+- **仓库成员管理**：进入仓库「管理 → 仓库成员管理 → 管理员」。组织管理员和仓库管理员是两层权限，遇到“访问受限”时两处都要检查。
+
+当前已确认 `andylyj` 在 `newcomers-guide` 组织成员页显示为“管理员”。如果该账号仍无法打开私有仓库，应在仓库成员管理页确认它同时位于“管理员”列表，并让账号重新登录或重新接受邀请；不要通过公开仓库或复制密钥绕过权限。
+
+## 仓库结构（当前）
+
+```text
+app/                         Nuxt 页面、布局、组件和前台/后台路由
+server/                      Server API、数据库访问、AI/知识库和机器人服务
+shared/                      前后端共享类型、校验规则和常量
+map/                         地图 provider、坐标转换和离线/高德适配器
+data/                        可复现种子、导入模板和数据说明（不放运行库）
+server/database/migrations/  Drizzle/SQLite 结构迁移
+scripts/                     初始化、导入、备份、校验和运维脚本
+public/                      可公开的图片、图标、PWA 资源和静态文件
+storage/                     运行时上传目录（生产映射到 shared/uploads）
+ops/                         systemd、Nginx、定时任务和 relay 配置模板
+docs/                        PRD、架构、部署、治理、规则和验收记录
+tests/                       单元、集成、E2E 和无障碍检查
+types/、vendor/              类型补充和已审查的兼容性依赖
+.github/                     CI、依赖更新和仓库自动化
+package.json                 pnpm 命令、运行脚本和依赖入口
+pnpm-lock.yaml               锁定依赖版本，安装时使用 frozen-lockfile
+nuxt.config.ts               Nuxt/Nitro、运行时公开配置和构建配置
+ecosystem.config.cjs         兼容旧环境的进程配置模板，不与生产 systemd 重复启动
+.env.example                 可提交的配置模板，不含真实密钥
+```
 
 ## 1. 资源边界
 
@@ -217,7 +252,38 @@ pnpm check:e2e
 
 <https://gitee.com/organizations/newcomers-guide/members/list>
 
-登录后可邀请成员或添加成员。Gitee 通常不提供可公开转发的通用邀请链接；数据库仓库应创建为组织下的私有仓库，并单独授予需要访问的成员，不要把生产数据库加入公开的 `lilei1529/yeu` 仓库。
+登录后可邀请成员或添加成员。Gitee 通常不提供可公开转发的通用邀请链接；数据库仓库应创建为组织下的私有仓库，并单独授予需要访问的成员。当前代码仓库是 `newcomers-guide/yeu`，不要把生产数据库复制到个人仓库或公开仓库。
+
+### 成员加入后的检查顺序
+
+1. 成员先接受组织邀请，并确认能打开组织首页。
+2. 在仓库「管理 → 仓库成员管理 → 所有」中确认账号存在。
+3. 需要管理仓库时，将账号放入「管理员」列表；只读协作使用「观察者」，提交代码使用「开发者」。
+4. 让成员重新登录后访问 <https://gitee.com/newcomers-guide/yeu>，再测试代码、Issues 和 Pull Request 权限。
+5. 任何权限变更都记录账号、范围和时间，不记录密码、Token 或 Cookie。
+
+### 常用配置命令
+
+```bash
+# 第一次拉取组织仓库
+git clone https://gitee.com/newcomers-guide/yeu.git
+cd yeu
+pnpm install --frozen-lockfile
+
+# 已有本地工作区时补充组织远程
+git remote add organization https://gitee.com/newcomers-guide/yeu.git
+git fetch organization
+git switch master
+git pull --ff-only organization master
+
+# 提交前检查并推送任务分支
+git switch -c codex/<topic>
+git diff --check
+pnpm check
+git push -u organization codex/<topic>
+```
+
+如果组织仓库采用受保护的 `master`，不要直接强推；通过 Pull Request 合并。生产发布只允许从已经审核的 commit 构建，并在发布记录中保存 commit SHA。
 
 ## 9. 变更完成检查
 
