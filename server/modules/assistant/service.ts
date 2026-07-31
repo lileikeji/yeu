@@ -2217,10 +2217,12 @@ function retrieveIdentityEvidence(
       text: item.statement,
       score: item.score
     }))
-  const structuredEntries = assistantKnowledgeEvidenceForQuery(client, query, searchLimit)
   return rankAssistantEvidence(
     query,
-    dedupeAssistantEvidence([...officialDocuments, ...publishedClaims, ...structuredEntries]),
+    // Keep identity lookups on the official-document/claim index. The broad
+    // FAQ and dynamic-entry index is much larger and is the source of the
+    // multi-second analysis delay this path is meant to avoid.
+    dedupeAssistantEvidence([...officialDocuments, ...publishedClaims]),
     limit
   )
 }
