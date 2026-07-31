@@ -248,17 +248,28 @@ const results = computed(() => {
 const groupedResults = computed(() => groupPublicSearchResults(results.value, activeQuery.value))
 const hasPlaceResults = computed(() => results.value.some(result => result.resultType === 'place'))
 const assistantResponse = ref<ApiAssistantResponse | null>(null)
-// Start the visible trace as soon as a question is present. The answer stream
-// still starts on the client, but the user never waits behind the site-search
-// request before seeing the first analysis step.
-const assistantStatus = ref<'idle' | 'pending' | 'success' | 'error'>(
-  activeSearchMode.value === 'ai' && activeQuery.value.length >= 2 ? 'pending' : 'idle'
-)
 interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
   status: 'running' | 'completed' | 'failed'
   startedAt?: string
 }
-const assistantLiveTrace = ref<AssistantDisplayStep[]>([])
+
+const hasInitialAssistantQuery = activeSearchMode.value === 'ai'
+  && !activeType.value
+  && activeQuery.value.length >= 2
+// Start the visible trace as soon as a question is present. The answer stream
+// still starts on the client, but the user never waits behind the site-search
+// request before seeing the first analysis step.
+const assistantStatus = ref<'idle' | 'pending' | 'success' | 'error'>(
+  hasInitialAssistantQuery ? 'pending' : 'idle'
+)
+const assistantLiveTrace = ref<AssistantDisplayStep[]>(hasInitialAssistantQuery
+  ? [{
+      stage: 'query_analysis',
+      label: '分析问题',
+      durationMs: 0,
+      status: 'running'
+    }]
+  : [])
 const assistantClock = ref(Date.now())
 let assistantRequestSequence = 0
 let assistantAbortController: AbortController | null = null
