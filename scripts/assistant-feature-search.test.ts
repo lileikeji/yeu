@@ -10,11 +10,39 @@ import {
   answerCampusQuestion,
   assistantRetrievalQuery,
   cachedWebEvidenceForQuery,
+  identityLocalAnswer,
   safeExternalCitation,
   sanitizeAssistantAnswer,
   storeWebEvidence
 } from '../server/modules/assistant/service'
 import { searchPublishedContent } from '../server/modules/search/service'
+
+test('identity retrieval accepts official biography evidence but rejects award-only mentions', () => {
+  const subject = '\u5434\u5e86\u661f'
+  const awardOnly = {
+    title: `${subject}\u5956\u5b66\u91d1`,
+    url: '/award',
+    snippet: `${subject}\u5956\u5b66\u91d1\u8bc4\u5b9a\u901a\u77e5`,
+    source: 'site' as const,
+    authority: 'official_site' as const,
+    text: `${subject}\u5956\u5b66\u91d1\u8bc4\u5b9a\u901a\u77e5`,
+    score: 30
+  }
+  assert.equal(identityLocalAnswer(`${subject}\u662f\u8c01`, [awardOnly]), null)
+
+  const biography = {
+    title: `${subject}\u548c\u4ef0\u6069\u5927\u5b66`,
+    url: 'https://www.yeu.edu.cn/biography',
+    snippet: `${subject}\u662f\u4ef0\u6069\u5927\u5b66\u6821\u4e3b\u3002`,
+    source: 'site' as const,
+    authority: 'official_site' as const,
+    text: `${subject}\u662f\u4ef0\u6069\u5927\u5b66\u6821\u4e3b\u3002`,
+    score: 80
+  }
+  const response = identityLocalAnswer(`${subject}\u662f\u8c01`, [biography])
+  assert.ok(response)
+  assert.match(response.answer, new RegExp(subject))
+})
 
 const emptyAssistantConfig = {
   gatewayBaseUrl: '',

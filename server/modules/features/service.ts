@@ -15,11 +15,15 @@ export interface FrontendFeatureStatus {
   description: string
   icon: string
   enabled: boolean
+  placement: 'default' | 'quick' | 'timeline' | 'services'
+  sortOrder: number
   updatedAt: string | null
 }
 
 export interface PublicFrontendFeatureSettings {
   disabledKeys: FrontendFeatureKey[]
+  placements: Partial<Record<FrontendFeatureKey, 'default' | 'quick' | 'timeline' | 'services'>>
+  sortOrders: Partial<Record<FrontendFeatureKey, number>>
   updatedAt: string | null
 }
 
@@ -48,6 +52,8 @@ export function listFrontendFeatures(client: DatabaseClient): FrontendFeatureSta
     return {
       ...definition,
       enabled: row?.isEnabled ?? true,
+      placement: row?.placement ?? 'default',
+      sortOrder: row?.sortOrder ?? 100,
       updatedAt: toIso(row?.updatedAt)
     }
   })
@@ -65,6 +71,12 @@ export function getPublicFrontendFeatures(
 
   return {
     disabledKeys: items.filter(item => !item.enabled).map(item => item.key),
+    placements: Object.fromEntries(items
+      .filter(item => item.placement !== 'default')
+      .map(item => [item.key, item.placement])) as PublicFrontendFeatureSettings['placements'],
+    sortOrders: Object.fromEntries(items
+      .filter(item => item.sortOrder !== 100)
+      .map(item => [item.key, item.sortOrder])) as PublicFrontendFeatureSettings['sortOrders'],
     updatedAt: latestUpdate === null ? null : new Date(latestUpdate).toISOString()
   }
 }
@@ -129,6 +141,8 @@ export function updateFrontendFeature(
   input: {
     key: FrontendFeatureKey
     enabled: boolean
+    placement?: 'default' | 'quick' | 'timeline' | 'services'
+    sortOrder?: number
     adminId: string
   }
 ): FrontendFeatureStatus {
@@ -136,12 +150,16 @@ export function updateFrontendFeature(
   client.db.insert(frontendFeatureSettings).values({
     key: input.key,
     isEnabled: input.enabled,
+    ...(input.placement ? { placement: input.placement } : {}),
+    ...(typeof input.sortOrder === 'number' ? { sortOrder: input.sortOrder } : {}),
     updatedByAdminId: input.adminId,
     updatedAt: now
   }).onConflictDoUpdate({
     target: frontendFeatureSettings.key,
     set: {
       isEnabled: input.enabled,
+      ...(input.placement ? { placement: input.placement } : {}),
+      ...(typeof input.sortOrder === 'number' ? { sortOrder: input.sortOrder } : {}),
       updatedByAdminId: input.adminId,
       updatedAt: now
     }

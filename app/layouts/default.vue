@@ -20,6 +20,7 @@ const mobileNavigation = [
 const icpNumber = computed(() => String(runtimeConfig.public.icpNumber || '').trim())
 const isHomePage = computed(() => route.path === '/')
 const isMapPage = computed(() => route.path === '/map' || route.path.startsWith('/map/'))
+const isSearchPage = computed(() => route.path === '/search' || route.path.startsWith('/search/'))
 const useCompactPageDensity = computed(() => !isHomePage.value && !isMapPage.value)
 
 function isActive(to: string) {
@@ -162,7 +163,7 @@ onMounted(() => {
       <slot />
     </main>
 
-    <PublicPageViewStats />
+    <PublicPageViewStats v-if="!isMapPage && !isSearchPage" />
 
     <PwaUpdatePrompt />
 

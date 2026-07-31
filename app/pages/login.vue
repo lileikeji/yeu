@@ -118,6 +118,14 @@ onMounted(() => {
           目前只支持已有账号，暂不能自己注册。没有账号也不影响使用校园指南。
         </p>
 
+        <div class="mt-4 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950" role="note">
+          <UIcon
+            name="i-lucide-info"
+            class="mt-0.5 size-4 shrink-0 text-sky-700"
+          />
+          <span>新生学号暂未录入，当前登录使用已创建的账号；没有账号也可以正常浏览公开内容。</span>
+        </div>
+
         <div class="mt-5 border-y border-zinc-100">
           <div class="flex items-start gap-3 py-3">
             <span class="grid size-8 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">

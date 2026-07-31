@@ -369,6 +369,10 @@ export const auditLogs = sqliteTable('audit_logs', {
 export const frontendFeatureSettings = sqliteTable('frontend_feature_settings', {
   key: text('key').primaryKey(),
   isEnabled: integer('is_enabled', { mode: 'boolean' }).notNull().default(true),
+  placement: text('placement', { enum: ['default', 'quick', 'timeline', 'services'] })
+    .notNull()
+    .default('default'),
+  sortOrder: integer('sort_order').notNull().default(100),
   updatedByAdminId: text('updated_by_admin_id')
     .references(() => adminUsers.id, { onDelete: 'set null' }),
   updatedAt: timestamp('updated_at')

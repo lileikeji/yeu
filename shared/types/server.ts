@@ -32,11 +32,15 @@ export interface ApiFrontendFeature {
   description: string
   icon: string
   enabled: boolean
+  placement: 'default' | 'quick' | 'timeline' | 'services'
+  sortOrder: number
   updatedAt: string | null
 }
 
 export interface ApiPublicFrontendFeatures {
   disabledKeys: FrontendFeatureKey[]
+  placements: Partial<Record<FrontendFeatureKey, 'default' | 'quick' | 'timeline' | 'services'>>
+  sortOrders: Partial<Record<FrontendFeatureKey, number>>
   updatedAt: string | null
 }
 

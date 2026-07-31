@@ -1131,5 +1131,9 @@ onBeforeUnmount(() => {
         </section>
       </div>
     </section>
+
+    <div class="page-shell">
+      <PublicPageViewStats variant="inline" />
+    </div>
   </div>
 </template>

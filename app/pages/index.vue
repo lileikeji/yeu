@@ -44,9 +44,46 @@ const { data: publicHomeEntryResponse } = homeEntryRequest
 
 const disabledFeatureKeys = computed(() => new Set(publicFeatureResponse.value?.disabledKeys ?? []))
 const featureEnabled = (key: FrontendFeatureKey) => !disabledFeatureKeys.value.has(key)
+const featurePlacement = (key: FrontendFeatureKey, fallback: 'quick' | 'timeline' | 'services') => (
+  publicFeatureResponse.value?.placements?.[key] ?? fallback
+)
+const featureSortOrder = (key: FrontendFeatureKey) => publicFeatureResponse.value?.sortOrders?.[key] ?? 100
 const customHomeEntries = computed(() => publicHomeEntryResponse.value?.items ?? [])
+const defaultEssentialActions = buildHomeEssentialActions([])
+const defaultTimelineStages = homeTimelineStages
+const defaultMoreEntries = homeMoreEntries
+
+function asActionEntry(item: {
+  featureKey: FrontendFeatureKey
+  title: string
+  description: string
+  to: string
+  icon: string
+}, tone = 'bg-amber-50 text-amber-700') {
+  return {
+    ...item,
+    featureKey: undefined,
+    meta: '首页入口',
+    tone
+  }
+}
+
 const essentialActions = computed(() => [
-  ...buildHomeEssentialActions([]).filter(action => featureEnabled(action.featureKey)),
+  ...defaultEssentialActions
+    .filter(action => featureEnabled(action.featureKey) && featurePlacement(action.featureKey, 'quick') === 'quick')
+    .sort((left, right) => featureSortOrder(left.featureKey) - featureSortOrder(right.featureKey)),
+  ...defaultTimelineStages
+    .filter(stage => featureEnabled(stage.featureKey) && featurePlacement(stage.featureKey, 'timeline') === 'quick')
+    .map(stage => asActionEntry({
+      featureKey: stage.featureKey,
+      title: stage.title,
+      description: stage.items.join(' · '),
+      to: stage.to,
+      icon: 'i-lucide-list-todo'
+    })),
+  ...defaultMoreEntries
+    .filter(entry => featureEnabled(entry.featureKey) && featurePlacement(entry.featureKey, 'services') === 'quick')
+    .map(entry => asActionEntry(entry, entry.tone)),
   ...customHomeEntries.value
     .filter(entry => entry.placement === 'quick')
     .map(entry => ({
@@ -55,13 +92,50 @@ const essentialActions = computed(() => [
       meta: '首页入口',
       tone: 'bg-amber-50 text-amber-700'
     }))
-])
-const timelineStages = computed(() => homeTimelineStages
-  .filter(stage => featureEnabled(stage.featureKey)))
+].sort((left, right) => featureSortOrder(left.featureKey as FrontendFeatureKey) - featureSortOrder(right.featureKey as FrontendFeatureKey)))
+const timelineStages = computed(() => [
+  ...defaultTimelineStages
+    .filter(stage => featureEnabled(stage.featureKey) && featurePlacement(stage.featureKey, 'timeline') === 'timeline'),
+  ...defaultEssentialActions
+    .filter(action => featureEnabled(action.featureKey) && featurePlacement(action.featureKey, 'quick') === 'timeline')
+    .map(action => ({
+      featureKey: action.featureKey,
+      label: action.title,
+      title: action.title,
+      items: [action.description],
+      actionLabel: '打开入口',
+      to: action.to
+    })),
+  ...defaultMoreEntries
+    .filter(entry => featureEnabled(entry.featureKey) && featurePlacement(entry.featureKey, 'services') === 'timeline')
+    .map(entry => ({
+      featureKey: entry.featureKey,
+      label: entry.title,
+      title: entry.title,
+      items: [entry.description],
+      actionLabel: '打开入口',
+      to: entry.to
+    }))
+].sort((left, right) => featureSortOrder(left.featureKey) - featureSortOrder(right.featureKey)))
 const activeTimelineIndex = ref(0)
 const activeTimelineStage = computed(() => timelineStages.value[activeTimelineIndex.value] ?? timelineStages.value[0])
 const serviceNavEntries = computed(() => [
-  ...homeMoreEntries.filter(entry => featureEnabled(entry.featureKey)),
+  ...defaultMoreEntries
+    .filter(entry => featureEnabled(entry.featureKey) && featurePlacement(entry.featureKey, 'services') === 'services')
+    .sort((left, right) => featureSortOrder(left.featureKey) - featureSortOrder(right.featureKey)),
+  ...defaultEssentialActions
+    .filter(action => featureEnabled(action.featureKey) && featurePlacement(action.featureKey, 'quick') === 'services')
+    .map(action => ({ ...action, external: false })),
+  ...defaultTimelineStages
+    .filter(stage => featureEnabled(stage.featureKey) && featurePlacement(stage.featureKey, 'timeline') === 'services')
+    .map(stage => ({
+      featureKey: stage.featureKey,
+      title: stage.title,
+      description: stage.items.join(' · '),
+      to: stage.to,
+      icon: 'i-lucide-list-todo',
+      tone: 'bg-amber-50 text-amber-700'
+    })),
   ...customHomeEntries.value
     .filter(entry => entry.placement === 'services' || entry.placement === 'more')
     .map(entry => ({

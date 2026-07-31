@@ -727,6 +727,8 @@ onBeforeUnmount(() => {
       class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] md:relative md:inset-auto md:order-2"
       aria-label="校园地图"
     >
+      <PublicPageViewStats variant="overlay" />
+
       <div
         v-show="mapViewMode === 'geographic'"
         class="absolute inset-0"

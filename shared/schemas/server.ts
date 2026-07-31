@@ -891,5 +891,7 @@ export const muteAllChatRoomSchema = z.object({
 
 export const updateFrontendFeatureSchema = z.object({
   key: z.enum(FRONTEND_FEATURE_KEYS),
-  enabled: z.boolean()
+  enabled: z.boolean(),
+  placement: z.enum(['default', 'quick', 'timeline', 'services']).optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional()
 }).strict()

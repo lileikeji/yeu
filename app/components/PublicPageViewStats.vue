@@ -5,12 +5,29 @@ interface PageViewStats {
   visitorCount: number
 }
 
+interface Props {
+  variant?: 'bar' | 'inline' | 'overlay'
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  variant: 'bar'
+})
+
 const route = useRoute()
 const stats = ref<PageViewStats | null>(null)
 let requestToken = 0
 
 const currentPath = computed(() => route.fullPath || '/')
 const shouldTrack = computed(() => !route.path.startsWith('/admin') && !route.path.startsWith('/research'))
+
+function sameTrackedPath(left: string, right: string): boolean {
+  if (left === right) return true
+  try {
+    return decodeURIComponent(left) === decodeURIComponent(right)
+  } catch {
+    return false
+  }
+}
 
 async function loadStats(path: string): Promise<void> {
   if (!shouldTrack.value) {
@@ -23,7 +40,7 @@ async function loadStats(path: string): Promise<void> {
     const result = await $fetch<PageViewStats>('/api/public/track/stats', {
       query: { path }
     })
-    if (token === requestToken && result.path === currentPath.value) {
+    if (token === requestToken && sameTrackedPath(result.path, currentPath.value)) {
       stats.value = result
     }
   } catch {
@@ -33,7 +50,7 @@ async function loadStats(path: string): Promise<void> {
 
 function applyTrackedStats(event: Event): void {
   const detail = (event as CustomEvent<PageViewStats>).detail
-  if (!detail || detail.path !== currentPath.value) return
+  if (!detail || !sameTrackedPath(detail.path, currentPath.value)) return
   requestToken += 1
   stats.value = detail
 }
@@ -56,7 +73,12 @@ watch(currentPath, (path) => {
 <template>
   <div
     v-if="stats"
-    class="border-t border-zinc-100 bg-white px-4 py-2 text-center text-xs text-zinc-400"
+    class="text-center text-xs text-zinc-400"
+    :class="{
+      'border-t border-zinc-100 bg-white px-4 py-2': props.variant === 'bar',
+      'px-1 py-3': props.variant === 'inline',
+      'pointer-events-none absolute bottom-[calc(var(--mobile-nav-height)+0.75rem)] right-3 z-20 rounded-full border border-white/70 bg-white/90 px-3 py-1.5 shadow-md backdrop-blur-sm md:bottom-3 md:right-4': props.variant === 'overlay'
+    }"
     aria-live="polite"
   >
     <span class="inline-flex items-center gap-1.5">

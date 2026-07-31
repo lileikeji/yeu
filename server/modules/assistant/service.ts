@@ -953,6 +953,9 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
   const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
   const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
   const relatedTitle = /奖学金|助学金|基金|奖项|奖励|活动|通知|会议|楼|大楼|馆|道路|雕像|铜像|工程|项目|比赛|论坛|讲座/u
+  const officialBiographyTitle = title.includes(normalizedSubject)
+    && /人物|校主|董事会主席|创办|教育家|企业家|华侨|建设仰恩|和仰恩大学/u.test(title)
+  if (officialBiographyTitle && !relatedTitle.test(title)) return true
   if (title === normalizedSubject) return true
   const titleSubjectIndex = title.indexOf(normalizedSubject)
   if (titleSubjectIndex >= 0) {
@@ -989,6 +992,8 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
     const founderContext = /(?:爱国华侨|创办人|创始人|校主)$/u.test(before)
       && /^[，,（(：:]?(?:先生)?(?:及其家族)?[^。！？；;]{0,12}(?:设立|创办)[^。！？；;]{0,24}(?:仰恩基金会|仰恩大学|学校)/u.test(after)
     if (founderContext) return true
+    const biographyContext = /出生|生于|回到家乡|创办|创建|投资|校主|董事会主席|教育家|华侨|仰恩大学/u.test(`${before} ${after}`)
+    if (biographyContext) return true
     if (/^[（(：:]?[^，,。！？；;]{0,16}(?:先生|女士|是|为|出生|生于|毕业|任职|担任|曾任|现任)/u.test(after)) return true
   }
   return false
@@ -2029,6 +2034,17 @@ export function retrieveCampusEvidence(
   const terms = assistantQueryTerms(query)
   const featureEvidence = featureEvidenceForQuery(query, limit)
   if (terms.length === 0) return featureEvidence
+
+  // Person lookups should use the small, official-document path first. The
+  // normal campus search fans out across places, content, procedures and
+  // dynamic catalogs; that is both slower and more likely to surface an
+  // incidental mention such as a scholarship title.
+  const identitySubject = assistantIdentitySubject(query)
+  if (identitySubject) {
+    const identityEvidence = retrieveIdentityEvidence(client, query, identitySubject, limit)
+    if (identityEvidence.length > 0) return identityEvidence
+  }
+
   const now = Date.now()
   const campusTextCondition = textMatchCondition(
     [places.name, places.summary, places.body, places.address],
@@ -2172,6 +2188,41 @@ export function retrieveCampusEvidence(
     .sort((left, right) => right.score - left.score)
   const deduped = dedupeAssistantEvidence(ranked)
   return selectCampusKnowledgeContext(query, filterEvidenceForIntent(query, deduped), limit)
+}
+
+function retrieveIdentityEvidence(
+  client: DatabaseClient,
+  query: string,
+  subject: string,
+  limit: number
+): AssistantEvidence[] {
+  const searchLimit = Math.max(12, Math.min(48, limit * 8))
+  const officialDocuments = searchOfficialKnowledgeDocuments(client, [subject], searchLimit, query)
+    .map(item => ({
+      title: item.title,
+      url: item.url,
+      snippet: safeText(item.excerpt, 900),
+      source: 'site' as const,
+      authority: 'official_site' as const,
+      text: item.excerpt,
+      score: item.score
+    }))
+  const publishedClaims = searchPublishedKnowledgeClaims(client, [subject], searchLimit)
+    .map(item => ({
+      title: item.title,
+      url: item.url,
+      snippet: safeText(item.statement, 700),
+      source: 'site' as const,
+      authority: 'official_site' as const,
+      text: item.statement,
+      score: item.score
+    }))
+  const structuredEntries = assistantKnowledgeEvidenceForQuery(client, query, searchLimit)
+  return rankAssistantEvidence(
+    query,
+    dedupeAssistantEvidence([...officialDocuments, ...publishedClaims, ...structuredEntries]),
+    limit
+  )
 }
 
 function featureLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
@@ -2866,7 +2917,28 @@ export function identityLocalAnswer(query: string, evidence: AssistantEvidence[]
       seenSources.add(key)
       return true
     })
-  const identitySummary = safeText(orderedFacts.slice(0, 3).join(' '), 620)
+  // Official pages often use narrative sentences instead of a compact
+  // "X is ..." profile. Keep a short, source-shaped sentence in that case,
+  // but only when it contains an identity or biography signal.
+  const fallbackFacts: string[] = []
+  if (orderedFacts.length === 0) {
+    for (const item of evidence) {
+      if (!identityEvidenceIsExplicit(item, subject)) continue
+      const sourceText = (item.text || item.snippet).replace(/\s+/g, ' ').trim()
+      for (const sentence of sourceText.split(/[。！？；\n]+/u)) {
+        const normalized = sentence.trim()
+        if (!normalized.includes(subject) || normalized.length < 12) continue
+        if (!/(董事会主席|校主|创办|创建|教育家|华侨|开拓者|出生|生于|仰恩大学)/u.test(normalized)) continue
+        const subjectIndex = normalized.indexOf(subject)
+        const start = Math.max(0, subjectIndex - 24)
+        const fact = normalized.slice(start).trim()
+        if (fact.length >= 12 && !fallbackFacts.includes(fact)) fallbackFacts.push(fact)
+        if (fallbackFacts.length >= 3) break
+      }
+      if (fallbackFacts.length >= 3) break
+    }
+  }
+  const identitySummary = safeText([...orderedFacts, ...fallbackFacts].slice(0, 3).join(' '), 620)
   return {
     query,
     mode: 'local',
