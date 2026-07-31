@@ -2216,7 +2216,7 @@ function retrieveIdentityEvidence(
   // of thousands of statements and makes the first request noticeably slow.
   const publishedClaims = officialDocuments.length > 0
     ? []
-    : searchPublishedKnowledgeClaims(client, [subject], searchLimit)
+    : searchPublishedKnowledgeClaims(client, [subject], searchLimit, Date.now(), true)
       .map(item => ({
         title: item.title,
         url: item.url,

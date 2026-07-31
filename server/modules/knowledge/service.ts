@@ -598,7 +598,8 @@ export function searchPublishedKnowledgeClaims(
   client: DatabaseClient,
   terms: string[],
   limit = 8,
-  now = Date.now()
+  now = Date.now(),
+  titleOnly = false
 ): PublishedKnowledgeMatch[] {
   const query = ftsQuery(terms)
   if (!query) return []
@@ -637,10 +638,19 @@ export function searchPublishedKnowledgeClaims(
   if (rows.length === 0) {
     const likeTerms = [...new Set(terms.map(term => term.trim()).filter(term => term.length >= 2))].slice(0, 8)
     if (likeTerms.length > 0) {
+      // Identity lookups usually have a name in the title. When the FTS
+      // tokenizer misses that name, searching the long statement/search_text
+      // columns turns an 80k-row fallback into a multi-second scan. Keep the
+      // broad body fallback for policy questions, but use the cheap title-only
+      // path for person lookups.
       const matches = likeTerms
-        .map(() => '(kc.title LIKE ? OR kc.statement LIKE ? OR kc.search_text LIKE ?)')
+        .map(() => titleOnly
+          ? '(kc.title LIKE ? ESCAPE \'\\\')'
+          : '(kc.title LIKE ? OR kc.statement LIKE ? OR kc.search_text LIKE ?)')
         .join(' OR ')
-      const values = likeTerms.flatMap(term => [`%${term}%`, `%${term}%`, `%${term}%`])
+      const values = titleOnly
+        ? likeTerms.map(term => `%${term.replace(/[\\%_]/g, value => `\\${value}`)}%`)
+        : likeTerms.flatMap(term => [`%${term}%`, `%${term}%`, `%${term}%`])
       rows = client.sqlite.prepare(`
         SELECT kc.id, kc.category, kc.title, kc.statement,
           kc.public_url AS publicUrl, kc.confidence_score AS confidenceScore,
