@@ -122,40 +122,30 @@ export function addSegment(
   }
 }
 
-export function buildYEU(width: number, height: number, lowPowerMode: boolean): Array<{ x: number, y: number }> {
+export function buildGuideMark(width: number, height: number, lowPowerMode: boolean): Array<{ x: number, y: number }> {
   const points: Array<{ x: number, y: number }> = []
   const isMobile = width < 768
-  const density = lowPowerMode ? (isMobile ? 11 : 10) : isMobile ? 12 : 14
-  const letterH = isMobile ? Math.min(150, width * 0.35) : Math.min(180, width * 0.18)
-  const letterW = letterH * 0.58
-  const gap = letterH * 0.24
-  const totalW = letterW * 3 + gap * 2
-  const left = width / 2 - totalW / 2
-  const top = height / 2 - letterH * 0.88
+  const density = lowPowerMode ? (isMobile ? 12 : 14) : isMobile ? 16 : 20
+  const radius = isMobile ? Math.min(84, width * 0.22) : Math.min(112, width * 0.12)
+  const centerX = width / 2
+  const centerY = height / 2 - radius * 0.1
 
-  // Y
-  addSegment(points, left, top, left + letterW / 2, top + letterH * 0.48, density)
-  addSegment(points, left + letterW, top, left + letterW / 2, top + letterH * 0.48, density)
-  addSegment(points, left + letterW / 2, top + letterH * 0.48, left + letterW / 2, top + letterH, density)
-
-  // E
-  const eL = left + letterW + gap
-  addSegment(points, eL, top, eL, top + letterH, density)
-  addSegment(points, eL, top, eL + letterW, top, density)
-  addSegment(points, eL, top + letterH / 2, eL + letterW * 0.82, top + letterH / 2, density)
-  addSegment(points, eL, top + letterH, eL + letterW, top + letterH, density)
-
-  // U
-  const uL = eL + letterW + gap
-  addSegment(points, uL, top, uL, top + letterH * 0.72, density)
-  addSegment(points, uL + letterW, top, uL + letterW, top + letterH * 0.72, density)
-  for (let i = 0; i <= density * 2; i++) {
-    const angle = Math.PI - (Math.PI * i) / (density * 2)
+  // A compass/map marker keeps the particle assembly useful without carrying
+  // a school seal or institution initials.
+  const ringCount = density * 5
+  for (let i = 0; i <= ringCount; i++) {
+    const angle = (Math.PI * 2 * i) / ringCount
     points.push({
-      x: uL + letterW / 2 + (Math.cos(angle) * letterW) / 2,
-      y: top + letterH * 0.7 + Math.sin(angle) * letterH * 0.3
+      x: centerX + Math.cos(angle) * radius,
+      y: centerY + Math.sin(angle) * radius
     })
   }
+  addSegment(points, centerX - radius * 0.62, centerY, centerX + radius * 0.62, centerY, density * 2)
+  addSegment(points, centerX, centerY - radius * 0.62, centerX, centerY + radius * 0.62, density * 2)
+  addSegment(points, centerX, centerY - radius * 0.48, centerX + radius * 0.2, centerY + radius * 0.18, density)
+  addSegment(points, centerX + radius * 0.2, centerY + radius * 0.18, centerX, centerY + radius * 0.48, density)
+  addSegment(points, centerX, centerY + radius * 0.48, centerX - radius * 0.2, centerY + radius * 0.18, density)
+  addSegment(points, centerX - radius * 0.2, centerY + radius * 0.18, centerX, centerY - radius * 0.48, density)
 
   return points
 }

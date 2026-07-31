@@ -39,7 +39,7 @@ import {
 
 useSeoMeta({
   title: '校园搜索',
-  description: '按地点、办事和校园信息搜索仰恩大学新生指南。',
+  description: '按地点、办事和校园信息搜索迎新指南。',
   robots: 'noindex, follow'
 })
 

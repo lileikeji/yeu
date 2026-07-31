@@ -22,7 +22,7 @@ const { data, error, refresh } = await usePublicProcedureList()
 
 useSeoMeta({
   title: '新生办事流程',
-  description: '查看仰恩大学新生报到等事项的办理步骤、材料、地点，以及现在可以准备的内容。'
+  description: '查看新生报到等事项的办理步骤、材料、地点，以及现在可以准备的内容。'
 })
 
 const query = ref('')

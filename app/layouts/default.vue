@@ -47,27 +47,18 @@ onMounted(() => {
         <NuxtLink
           to="/"
           class="flex min-h-11 min-w-0 flex-1 items-center gap-2 md:flex-none"
-          aria-label="仰恩新生指南首页"
+          aria-label="迎新指南首页"
         >
-          <span class="flex min-w-0 items-center gap-2 md:hidden">
-            <img
-              src="/icons/yeu-seal.jpg"
-              alt=""
-              aria-hidden="true"
-              width="36"
-              height="36"
-              class="size-9 shrink-0 rounded-full object-contain"
-            >
-            <span class="truncate text-base font-bold text-zinc-950">仰恩新生指南</span>
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-700 text-white">
+              <UIcon
+                name="i-lucide-compass"
+                class="size-5"
+                aria-hidden="true"
+              />
+            </span>
+            <span class="truncate text-base font-bold text-zinc-950">迎新指南</span>
           </span>
-          <img
-            src="/icons/site-logo.png"
-            alt=""
-            aria-hidden="true"
-            width="325"
-            height="72"
-            class="hidden h-11 w-auto max-w-[12rem] shrink-0 object-contain object-left md:block"
-          >
         </NuxtLink>
 
         <nav

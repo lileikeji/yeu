@@ -12,7 +12,7 @@ const props = defineProps<{
 const content = computed(() => resolveErrorPageContent(props.error.statusCode))
 
 useHead({
-  title: () => `${content.value.title} | 仰恩新生指南`,
+  title: () => `${content.value.title} | 迎新指南`,
   htmlAttrs: { lang: 'zh-CN' },
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
@@ -45,17 +45,19 @@ function retryPage(): void {
         <a
           href="/"
           class="flex min-h-11 min-w-0 items-center"
-          aria-label="返回仰恩新生指南首页"
+          aria-label="返回迎新指南首页"
           @click.prevent="recover('/')"
         >
-          <img
-            src="/icons/site-logo.png"
-            alt=""
-            aria-hidden="true"
-            width="325"
-            height="72"
-            class="h-9 w-auto max-w-[9.5rem] object-contain object-left sm:max-w-none"
-          >
+          <span class="inline-flex items-center gap-2 text-base font-bold text-zinc-950">
+            <span class="grid size-9 place-items-center rounded-md bg-green-700 text-white">
+              <UIcon
+                name="i-lucide-compass"
+                class="size-5"
+                aria-hidden="true"
+              />
+            </span>
+            迎新指南
+          </span>
         </a>
         <button
           type="button"

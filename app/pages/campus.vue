@@ -27,7 +27,7 @@ import {
 
 useSeoMeta({
   title: '校园与部门',
-  description: '快速了解仰恩大学校园，找到新生常用部门和学生社团入口。'
+  description: '快速了解校园，找到新生常用部门和学生社团入口。'
 })
 
 const { data: publicContentResponse, error: publicContentError, refresh } = await usePublicContentList()
@@ -67,10 +67,10 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
         <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start">
           <div class="max-w-3xl">
             <p class="section-kicker">
-              仰恩大学
+              校园概览
             </p>
             <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-4xl">
-              从这里认识仰恩校园
+              从这里认识校园
             </h1>
             <p class="mt-4 text-sm leading-7 text-zinc-600 md:text-base">
               学校位于福建省泉州市洛江区马甲镇。先看校园地图，再从常用部门和学生社团入口找到你需要的信息。

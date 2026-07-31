@@ -54,30 +54,27 @@ function sampleProcedure(overrides: Partial<ApiProcedure> = {}): ApiProcedure {
 }
 
 test('home page is a thin shell over home-presentation util', () => {
-  assert.match(pageSource, /from ['"]~~\/app\/utils\/home-presentation['"]/)
+  assert.match(
+    pageSource,
+    /from ['"]~~\/app\/utils\/home-presentation['"]/
+  )
   assert.match(pageSource, /buildHomeEssentialActions/)
-  assert.match(pageSource, /buildHomeFeaturedProcedures/)
+  assert.match(pageSource, /buildHomeSearchTarget/)
   assert.match(pageSource, /homeTimelineStages/)
   assert.match(pageSource, /homeMoreEntries/)
-  assert.match(pageSource, /computeHomeCardTilt/)
-  assert.match(pageSource, /buildHomeMapSearchTarget/)
   assert.match(pageSource, /useFreshmanChecklist/)
   assert.match(pageSource, /\/checklist/)
-  assert.match(pageSource, /再看一次开场动画/)
-  assert.doesNotMatch(pageSource, /重新播放粒子动画/)
-  assert.doesNotMatch(pageSource, /const essentialActions = computed<HomeAction/)
-  assert.doesNotMatch(pageSource, /const timelineStages: HomeTimelineStage/)
-  assert.doesNotMatch(pageSource, /function procedureHomeItem/)
+  assert.match(pageSource, /<IntroOverlay/)
   assert.match(utilSource, /export function buildHomeEssentialActions/)
   assert.match(utilSource, /export function buildHomeFeaturedProcedures/)
 })
 
 test('home timeline and secondary actions remain comfortable to tap on mobile', () => {
-  assert.match(pageSource, /<NuxtLink\s+v-for="\(stage, index\) in timelineStages"[\s\S]*?:to="stage\.to"[\s\S]*?:aria-label="`\$\{stage\.label\}：\$\{stage\.title\}，\$\{stage\.actionLabel\}`"/)
-  assert.match(pageSource, /class="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold/)
-  assert.match(pageSource, /to="\/procedures"\s+class="-mr-2 inline-flex min-h-11/)
-  assert.match(pageSource, /class="inline-flex min-h-11 items-center gap-1\.5 rounded-full/)
-  assert.doesNotMatch(pageSource, /<article\s+v-for="\(stage, index\) in timelineStages"/)
+  assert.match(pageSource, /<button[\s\S]*v-for="\(stage, index\) in timelineStages"/)
+  assert.match(pageSource, /class="min-h-10 border-b-2/)
+  assert.match(pageSource, /:to="activeTimelineStage\.to"/)
+  assert.match(pageSource, /class="mt-1 inline-flex min-h-10 items-center gap-1/)
+  assert.match(pageSource, /class="group flex min-h-16 items-center gap-3/)
 })
 
 test('home essential actions and timeline keep freshman-first copy', () => {
@@ -86,37 +83,37 @@ test('home essential actions and timeline keep freshman-first copy', () => {
     { slug: 'express-delivery', summary: 'API 快递摘要' }
   ])
   assert.deepEqual(actions.map(item => item.title), [
-    '核对报到安排',
-    '找宿舍和教学楼',
-    '校园卡与网络',
-    '快递与外卖'
+    '报到安排',
+    '专业与住宿片区',
+    '宿舍信息',
+    '校园地图与交通'
   ])
-  assert.equal(actions[2]?.description, 'API 校园卡摘要')
-  assert.equal(actions[3]?.description, 'API 快递摘要')
+  assert.equal(actions[2]?.description, '查询宿舍分配与入住须知')
+  assert.equal(actions[3]?.description, '查看校园地图与到校路线')
   assert.equal(findGuideSummary([], 'missing', 'fallback'), 'fallback')
   assert.equal(homeTimelineStages.length, 3)
   assert.equal(homeTimelineStages[0]?.to, '/procedures/arrival')
-  assert.equal(homeMoreEntries.length, 9)
+  assert.equal(homeMoreEntries.length, 10)
   assert.equal(homeMoreEntries[0]?.to, '/checklist')
   assert.equal(homeMoreEntries[0]?.description, '勾选到校前和第一周事项，进度会留在这台设备上')
   assert.equal(homeMoreEntries[1]?.to, '/guides/safety-health')
   assert.equal(homeMoreEntries[1]?.description, '保存校园 110，知道紧急情况先找谁')
-  assert.equal(homeMoreEntries[2]?.description, '按兴趣看社团方向和本学期招新消息')
-  assert.equal(homeMoreEntries[4]?.description, '学生街、马甲周边与泉州市区吃喝玩乐攻略')
-  assert.equal(homeMoreEntries[5]?.title, '到校与离校交通')
-  assert.equal(homeMoreEntries[5]?.to, '/transport')
-  assert.equal(homeMoreEntries[6]?.title, '全景云游校园')
-  assert.equal(homeMoreEntries[6]?.to, '/panorama')
-  assert.equal(homeMoreEntries[7]?.title, '宿舍实拍')
-  assert.equal(homeMoreEntries[7]?.to, '/dorms')
-  assert.equal(homeMoreEntries[8]?.title, 'WeLearn 学习工具')
-  assert.equal(homeMoreEntries[8]?.to, 'https://dz.lileikeji.top/uploads/releases/download.php')
-  assert.equal(homeMoreEntries[8]?.external, true)
+  assert.equal(homeMoreEntries[3]?.title, '学生社团')
+  assert.equal(homeMoreEntries[4]?.title, '校内部门')
+  assert.equal(homeMoreEntries[5]?.description, '学生街、马甲周边与泉州市区吃喝玩乐攻略')
+  assert.equal(homeMoreEntries[6]?.title, '到校与离校交通')
+  assert.equal(homeMoreEntries[6]?.to, '/transport')
+  assert.equal(homeMoreEntries[7]?.title, '全景云游校园')
+  assert.equal(homeMoreEntries[7]?.to, '/panorama')
+  assert.equal(homeMoreEntries[8]?.title, '宿舍实拍')
+  assert.equal(homeMoreEntries[8]?.to, '/dorms')
+  assert.equal(homeMoreEntries[9]?.title, 'WeLearn 学习工具')
+  assert.equal(homeMoreEntries[9]?.to, 'https://dz.lileikeji.top/uploads/releases/download.php')
+  assert.equal(homeMoreEntries[9]?.external, true)
   assert.doesNotMatch(JSON.stringify(homeMoreEntries), /线索/)
-  assert.match(pageSource, /拨打校园 110/)
-  assert.doesNotMatch(pageSource, /校园110/)
-  assert.match(pageSource, /第一次来仰恩，<span class="block sm:inline">从这里开始<\/span>/)
-  assert.match(pageSource, /placeholder="搜宿舍、教学楼或快递"/)
+  assert.match(pageSource, /服务导航/)
+  assert.match(pageSource, /2026级新生入学指南/)
+  assert.match(pageSource, /placeholder="搜索校园信息，或输入你的问题"/)
   assert.doesNotMatch(pageSource, /先从这里开始|快递或商铺/)
 })
 
@@ -138,9 +135,7 @@ test('home puts its student-run status, official entry points and correction pat
   )
   assert.equal(homeTrustNotice.links.find(link => link.label === '看信息从哪来')?.to, '/sources')
   assert.equal(homeTrustNotice.links.find(link => link.label === '反馈纠错')?.to, '/feedback')
-  assert.match(pageSource, /trustNotice\.badge/)
-  assert.match(pageSource, /v-for="link in trustNotice\.links"/)
-  assert.match(pageSource, /:target="link\.external \? '_blank' : undefined"/)
+  assert.match(pageSource, /2026级新生重要时间/)
   assert.doesNotMatch(JSON.stringify(homeTrustNotice), /来源库|核验|治理/)
 })
 
@@ -185,6 +180,6 @@ test('home card tilt and map search target stay pure and bounded', () => {
   assert.deepEqual(computeHomeCardTilt(50, 0, 100, 100, 6), { rotateX: 6, rotateY: 0 })
   assert.deepEqual(computeHomeCardTilt(100, 50, 100, 100, 6), { rotateX: 0, rotateY: 6 })
   assert.deepEqual(computeHomeCardTilt(0, 0, 0, 0), { rotateX: 0, rotateY: 0 })
-  assert.deepEqual(buildHomeMapSearchTarget('  教学楼  '), { path: '/map', query: { q: '教学楼' } })
-  assert.deepEqual(buildHomeMapSearchTarget('   '), { path: '/map' })
+  assert.deepEqual(buildHomeMapSearchTarget('  教学楼  '), { path: '/search', query: { q: '教学楼' } })
+  assert.deepEqual(buildHomeMapSearchTarget('   '), { path: '/search' })
 })

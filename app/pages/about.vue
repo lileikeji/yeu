@@ -16,7 +16,7 @@ const aboutToneClasses: Record<AboutTone, string> = {
 
 useSeoMeta({
   title: '关于这份指南',
-  description: '了解仰恩新生指南能帮你做什么、哪些事项要看学校通知，以及怎样反馈错误。'
+  description: '了解迎新指南能帮你做什么、哪些事项要看学校通知，以及怎样反馈错误。'
 })
 </script>
 
@@ -188,7 +188,7 @@ useSeoMeta({
             target="_blank"
             rel="noopener noreferrer"
             icon="i-lucide-external-link"
-            label="仰恩大学官网"
+            label="学校官网"
             color="neutral"
             variant="outline"
             class="min-h-11 self-start md:self-auto"

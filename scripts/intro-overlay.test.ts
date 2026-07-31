@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 
 import {
-  buildYEU,
+  buildGuideMark,
   getCampusMapLayout,
   insetWaterPolygon,
   interactiveWaterPolygons,
@@ -35,21 +35,18 @@ const geometrySource = readFileSync(resolve('app/utils/intro-overlay-geometry.ts
 const homeSource = readFileSync(resolve('app/pages/index.vue'), 'utf8')
 const defaultLayoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 
-test('站点左上角使用工作区提供的完整品牌标识且不重复字标', () => {
+test('站点左上角使用通用迎新标识且不引用学校校标', () => {
   assert.doesNotMatch(defaultLayoutSource, />YEU<\/span>/)
-  assert.match(defaultLayoutSource, /src="\/icons\/site-logo\.png"/)
-  assert.match(defaultLayoutSource, /class="flex min-h-11 min-w-0 flex-1 items-center gap-2 sm:gap-3 md:flex-none"/)
-  assert.match(defaultLayoutSource, /alt=""/)
-  assert.match(defaultLayoutSource, /aria-hidden="true"/)
-  assert.doesNotMatch(defaultLayoutSource, />仰恩新生指南<\/span>/)
+  assert.doesNotMatch(defaultLayoutSource, /site-logo|yeu-seal/)
+  assert.match(defaultLayoutSource, /i-lucide-compass/)
+  assert.match(defaultLayoutSource, /迎新指南/)
   assert.doesNotMatch(defaultLayoutSource, /仰恩大学校标|yeu-logo/)
-  assert.match(defaultLayoutSource, /class="h-9 w-auto max-w-\[9\.5rem\] shrink-0 object-contain object-left sm:max-w-none"/)
   assert.match(defaultLayoutSource, /inline-flex min-h-11[^\n]+focus:translate-y-0/)
 })
 
-test('开场动画使用代码生成的 YEU 粒子坐标且不依赖运行时图片取样', () => {
+test('开场动画使用代码生成的通用指南粒子坐标且不依赖运行时图片取样', () => {
   assert.doesNotMatch(introSource, /getImageData|new Image\s*\(/)
-  assert.match(introSource, /buildYEU/)
+  assert.match(introSource, /buildGuideMark/)
   assert.match(introSource, /hasLoaded\.value = true/)
   assert.match(introSource, /intro-overlay-geometry/)
 })
@@ -69,10 +66,10 @@ test('动画初始化失败会快速放行首页', () => {
 
 test('动画每次重新打开页面播放一次且可手动重播', () => {
   assert.doesNotMatch(introSource, /sessionStorage|INTRO_SESSION_KEY/)
-  assert.match(homeSource, /useState\('yeu-guide-intro-played-this-visit'/)
-  assert.match(homeSource, /!introPlayedThisVisit\.value/)
-  assert.match(homeSource, /await nextTick\(\)/)
-  assert.match(homeSource, /forceIntro\.value = true/)
+  assert.match(homeSource, /const showIntro = ref\(false\)/)
+  assert.match(homeSource, /const forceIntro = ref\(route\.query\.intro === '1'\)/)
+  assert.match(homeSource, /if \(forceIntro\.value\) \{\s*showIntro\.value = true/)
+  assert.match(homeSource, /showIntro\.value = false/)
   assert.match(homeSource, /:force="forceIntro"/)
   assert.match(homeSource, /route\.query\.intro === '1'/)
   assert.doesNotMatch(homeSource, /window\.location\.reload\(\)/)
@@ -81,7 +78,7 @@ test('动画每次重新打开页面播放一次且可手动重播', () => {
 test('减少动画设置使用短版粒子效果而不是完全跳过', () => {
   assert.match(introSource, /reducedMotion\.value = !props\.force/)
   assert.match(introSource, /flyInDuration = reducedMotion\.value \? 900 : FLY_IN_DURATION/)
-  assert.match(introSource, /buildYEU\(width, height, lowPowerMode\)/)
+  assert.match(introSource, /buildGuideMark\(width, height, lowPowerMode\)/)
 })
 
 test('动画完成后停留并且只在用户点击时进入首页', () => {
@@ -216,12 +213,12 @@ test('开场动画壳只保留生命周期与渲染编排，纯逻辑在 utils',
   assert.doesNotMatch(introSource, /const SPRING =/)
   assert.doesNotMatch(introSource, /const waterPolygons/)
   assert.match(physicsSource, /export function stepIntroParticle/)
-  assert.match(geometrySource, /export function buildYEU/)
+  assert.match(geometrySource, /export function buildGuideMark/)
 })
 
-test('buildYEU 生成桌面与低功耗坐标点且落在画布中心带', () => {
-  const desktop = buildYEU(1280, 720, false)
-  const lowPower = buildYEU(1280, 720, true)
+test('buildGuideMark 生成桌面与低功耗坐标点且落在画布中心带', () => {
+  const desktop = buildGuideMark(1280, 720, false)
+  const lowPower = buildGuideMark(1280, 720, true)
   assert.ok(desktop.length > 80)
   assert.ok(lowPower.length > 60)
   assert.ok(lowPower.length < desktop.length)

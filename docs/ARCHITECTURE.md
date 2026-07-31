@@ -1,7 +1,7 @@
 # 技术架构
 
 > 状态：当前架构基线（2026-07-31）
-> 适用范围：仰恩大学新生指南的公开前台、管理后台、知识库/AI 检索、社团与部门、聊天和消息接入
+> 适用范围：迎新指南的公开前台、管理后台、知识库/AI 检索、社团与部门、聊天和消息接入
 > 事实原则：已实现、已验证、已部署和计划中的内容必须分开表述；实现行为以代码和迁移为准，线上状态以健康检查为准。
 > 更新规则：涉及运行时、数据库、地图供应商、检索流程、缓存、权限或部署拓扑的变更，应同步更新本文并在 [任务复盘规则库](./rules/TASK_COMPLETION_REVIEW.md) 记录原因和验证结果。
 
@@ -231,7 +231,7 @@ AI 不是独立的数据源，而是站内检索和证据整理的编排层。�
 
 ### 开场动画（IntroOverlay）
 
-首页开场粒子动画由 `app/components/IntroOverlay.vue` 负责 canvas/DOM 生命周期与绘制编排；粒子弹簧/指针阻尼物理在 `app/utils/intro-overlay-physics.ts`，YEU 字母点与校园水域几何在 `app/utils/intro-overlay-geometry.ts`。组件不内嵌纯物理常数与多边形数据，便于脚本级单元测试与后续调参。
+首页开场粒子动画由 `app/components/IntroOverlay.vue` 负责 canvas/DOM 生命周期与绘制编排；粒子弹簧/指针阻尼物理在 `app/utils/intro-overlay-physics.ts`，迎新指南标记点与校园水域几何在 `app/utils/intro-overlay-geometry.ts`。组件不内嵌纯物理常数与多边形数据，便于脚本级单元测试与后续调参。
 
 公开搜索页 `app/pages/search.vue` 负责 SEO、地图种子合并、`/api/public/search` 请求与 `router.replace` 导航副作用；关键词归一化/别名、API 与静态回退结果合并、分组与朗读公告、路由匹配/并发导航过期校正/输入同步决策在 `app/utils/public-search-presentation.ts`。
 

@@ -17,7 +17,7 @@ import {
 
 useSeoMeta({
   title: '学生规则与奖学金',
-  description: '仰恩大学公开学生制度、奖学金申请条件、综合测评与平均学分绩点计算工具。'
+  description: '公开学生制度、奖学金申请条件、综合测评与平均学分绩点计算工具。'
 })
 
 interface EditableCourse {

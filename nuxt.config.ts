@@ -199,9 +199,9 @@ export default defineNuxtConfig({
     manifestFilename: 'site.webmanifest',
     manifest: {
       id: '/',
-      name: '仰恩新生指南',
-      short_name: '仰恩指南',
-      description: '仰恩大学本科与专升本新生的校园地图和入学指南',
+      name: '迎新指南',
+      short_name: '迎新指南',
+      description: '本科与专升本新生的校园地图和入学指南',
       lang: 'zh-CN',
       start_url: '/',
       scope: '/',

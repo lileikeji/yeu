@@ -21,7 +21,7 @@ import {
 
 useSeoMeta({
   title: '学生社团',
-  description: '按兴趣浏览仰恩大学学生社团，查看活动方向与最新招新提醒。'
+  description: '按兴趣浏览学生社团，查看活动方向与最新招新提醒。'
 })
 
 const searchQuery = ref('')

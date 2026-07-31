@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import {
-  buildYEU,
+  buildGuideMark,
   getCampusMapLayout as computeCampusMapLayout,
   imagePointToViewport as projectImagePointToViewport,
   interactiveWaterPolygons,
@@ -400,7 +400,7 @@ function renderWaterInteraction(
   ctx.restore()
 }
 
-// buildYEU comes from intro-overlay-geometry
+// buildGuideMark comes from intro-overlay-geometry
 
 function initializeAnimation() {
   const canvas = canvasRef.value
@@ -432,9 +432,9 @@ function initializeAnimation() {
 
   const cx = width / 2
   const cy = height / 2
-  const letterPoints = buildYEU(width, height, lowPowerMode)
+  const letterPoints = buildGuideMark(width, height, lowPowerMode)
 
-  // 配色：交替仰恩绿 / 暖金 / 翡翠绿
+  // 配色：交替主题绿 / 暖金 / 翡翠绿
   const colors = ['#7dc79b', '#ffbd6e', '#b2dfc2', '#ffefd4', '#5eb88a']
 
   particles = letterPoints.map((pt, i) => {
@@ -673,7 +673,7 @@ onUnmounted(clearRuntime)
       :class="props.embedded ? 'absolute' : 'fixed'"
       role="dialog"
       aria-modal="true"
-      aria-label="仰恩新生指南开场动画"
+      aria-label="迎新指南开场动画"
     >
       <div
         class="intro-campus-map absolute inset-0"
@@ -737,10 +737,10 @@ onUnmounted(clearRuntime)
           :class="isLeaving ? 'opacity-0 translate-y-6 scale-95' : 'opacity-100'"
         >
           <p class="text-xs font-semibold uppercase tracking-normal text-[#b2dfc2] opacity-80">
-            Yang-En University
+            CAMPUS WELCOME GUIDE
           </p>
           <h2 class="mt-2 text-xl font-bold tracking-normal text-[#ffefd4]">
-            仰恩新生指南
+            迎新指南
           </h2>
           <p class="mt-2 max-w-[280px] text-xs leading-relaxed text-[#7dc79b]/80">
             从校园地图开始，找到你的大学生活

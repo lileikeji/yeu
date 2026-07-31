@@ -563,7 +563,7 @@ onBeforeUnmount(() => {
         class="landscape-sidebar landscape-sidebar-left"
       >
         <div class="landscape-brand">
-          <span class="landscape-seal">仰恩</span>
+          <span class="landscape-seal">迎新</span>
           <div>
             <p>数字山水</p>
             <span>
@@ -656,7 +656,7 @@ onBeforeUnmount(() => {
       <main class="landscape-main">
         <header class="canvas-heading">
           <div class="canvas-heading-copy">
-            <p>{{ activeCommunityId ? communitiesById.get(activeCommunityId)?.label : '仰恩大学新生知识全景' }}</p>
+            <p>{{ activeCommunityId ? communitiesById.get(activeCommunityId)?.label : '迎新指南知识全景' }}</p>
             <span v-if="searchState.query">“{{ searchState.query }}”找到 {{ searchState.resultIds.length }} 条</span>
             <span v-else>按住任意位置拖动画布，滚轮缩放；Shift + 拖动节点可固定位置</span>
           </div>

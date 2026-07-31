@@ -278,7 +278,13 @@ watch(desktopSidebarCollapsed, (collapsed) => {
         aria-label="后台主导航"
       >
         <div class="flex h-16 items-center gap-3 border-b border-white/10 px-4">
-          <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-600 text-xs font-bold">YEU</span>
+          <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-600 text-white">
+            <UIcon
+              name="i-lucide-compass"
+              class="size-5"
+              aria-hidden="true"
+            />
+          </span>
           <div
             v-if="!desktopSidebarCollapsed"
             class="min-w-0"
@@ -438,7 +444,13 @@ watch(desktopSidebarCollapsed, (collapsed) => {
         <aside class="absolute inset-y-0 left-0 flex w-[min(19rem,88vw)] flex-col border-r border-zinc-200 bg-white shadow-xl">
           <div class="flex h-16 items-center justify-between border-b border-zinc-200 px-4">
             <div class="flex items-center gap-3">
-              <span class="grid size-8 place-items-center rounded-md bg-green-700 text-xs font-bold text-white">YEU</span>
+              <span class="grid size-8 place-items-center rounded-md bg-green-700 text-white">
+                <UIcon
+                  name="i-lucide-compass"
+                  class="size-4"
+                  aria-hidden="true"
+                />
+              </span>
               <span class="text-sm font-semibold text-zinc-950">内容管理</span>
             </div>
             <UButton

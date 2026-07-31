@@ -48,7 +48,7 @@ const sourceToneClasses: Record<SourceTone, {
 
 useSeoMeta({
   title: '信息从哪里来',
-  description: '了解仰恩新生指南引用的参考页面，以及新生查看不同消息时应该注意什么。'
+  description: '了解迎新指南引用的参考页面，以及新生查看不同消息时应该注意什么。'
 })
 
 const sourceQuery = ref('')
@@ -122,7 +122,7 @@ async function refreshSources(): Promise<void> {
             href="https://www.yeu.edu.cn/"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="打开仰恩大学官网 yeu.edu.cn（新窗口）"
+            aria-label="打开学校官网 yeu.edu.cn（新窗口）"
             class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
           >
             <UIcon

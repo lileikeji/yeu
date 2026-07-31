@@ -71,7 +71,7 @@ import { safeLocalPath } from '~/utils/safe-navigation'
 
 useSeoMeta({
   title: '校园地图',
-  description: '查找仰恩大学教学楼、宿舍、食堂、服务点与校园周边地点。',
+  description: '查找教学楼、宿舍、食堂、服务点与校园周边地点。',
   robots: 'noindex, nofollow'
 })
 
@@ -579,7 +579,7 @@ onBeforeUnmount(() => {
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="text-xs font-semibold text-green-700">
-              YEU CAMPUS
+              校园地图
             </p>
             <h1 class="mt-1 text-lg font-bold text-zinc-950">
               校园与周边

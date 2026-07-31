@@ -5,15 +5,6 @@ import test from 'node:test'
 
 const MAX_PUBLIC_RASTER_BYTES = 256 * 1024
 
-function pngDimensions(bytes: Buffer): { width: number, height: number } {
-  assert.equal(bytes.subarray(1, 4).toString('ascii'), 'PNG')
-  assert.equal(bytes.subarray(12, 16).toString('ascii'), 'IHDR')
-  return {
-    width: bytes.readUInt32BE(16),
-    height: bytes.readUInt32BE(20)
-  }
-}
-
 test('public media excludes research derivatives and legacy official logo copies', () => {
   assert.equal(existsSync(resolve('public/images/xiaohongshu-recreations-2026-07-15')), false)
   assert.equal(existsSync(resolve('public/images/yeu-campus-plan-2025.jpg')), true)
@@ -21,19 +12,13 @@ test('public media excludes research derivatives and legacy official logo copies
   assert.equal(existsSync(resolve('app/assets/brand/yeu-logo.svg')), false)
 })
 
-test('site chrome uses the workspace-provided logo without claiming official endorsement', () => {
+test('site chrome uses a generic welcome mark without claiming official endorsement', () => {
   const layout = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
-  const sourceLogo = readFileSync(resolve('logo.png'))
-  const publicLogo = readFileSync(resolve('public/icons/site-logo.png'))
 
-  assert.match(layout, /src="\/icons\/site-logo\.png"/)
-  assert.match(layout, /aria-label="仰恩新生指南首页"/)
-  assert.match(layout, /alt=""/)
-  assert.match(layout, /width="325"/)
-  assert.match(layout, /height="72"/)
-  assert.doesNotMatch(layout, /仰恩大学校标|yeu-logo/)
-  assert.deepEqual(publicLogo, sourceLogo)
-  assert.deepEqual(pngDimensions(publicLogo), { width: 325, height: 72 })
+  assert.doesNotMatch(layout, /site-logo|yeu-seal|仰恩大学校标|yeu-logo/)
+  assert.match(layout, /aria-label="迎新指南首页"/)
+  assert.match(layout, /i-lucide-compass/)
+  assert.match(layout, /迎新指南/)
 })
 
 test('public raster images stay below the direct-delivery budget', () => {

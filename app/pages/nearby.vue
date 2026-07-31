@@ -99,7 +99,7 @@ const route = useRoute()
 
 useSeoMeta({
   title: '校园吃喝玩乐',
-  description: '查看仰恩大学学生街、马甲洛江周边与泉州市区的吃喝玩乐攻略。'
+  description: '查看学生街、马甲洛江周边与泉州市区的吃喝玩乐攻略。'
 })
 
 const searchQuery = ref('')

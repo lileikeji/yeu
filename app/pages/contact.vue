@@ -1,7 +1,7 @@
 <script setup lang="ts">
 useSeoMeta({
   title: '联系我们',
-  description: '联系仰恩新生指南整理者，反馈问题或申请加入新生交流群。'
+  description: '联系迎新指南整理者，反馈问题或申请加入新生交流群。'
 })
 </script>
 

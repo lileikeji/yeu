@@ -9,7 +9,7 @@ interface AuditPage {
 }
 
 const auditPages: AuditPage[] = [
-  { name: '首页', path: '/', heading: '第一次来仰恩，先从这里开始' },
+  { name: '首页', path: '/', heading: '2026级新生入学指南' },
   { name: '全站搜索', path: '/search', heading: '找地点、办事和校园信息' },
   { name: '联系我们', path: '/contact', heading: '有问题，直接来找我' },
   { name: '校园地图', path: '/map', heading: '校园与周边' },
@@ -20,7 +20,7 @@ const auditPages: AuditPage[] = [
 ]
 
 async function dismissIntroIfShown(page: Page): Promise<void> {
-  const intro = page.getByRole('dialog', { name: '仰恩新生指南开场动画' })
+  const intro = page.getByRole('dialog', { name: '迎新指南开场动画' })
   try {
     await intro.waitFor({ state: 'visible', timeout: 2_000 })
   } catch {

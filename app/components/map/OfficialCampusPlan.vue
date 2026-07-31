@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
           <img
             ref="imageElement"
             :src="OFFICIAL_PLAN_IMAGE_URL"
-            alt="仰恩大学官网校园平面图，含四十七项校内地点图例"
+            alt="官网校园平面图，含四十七项校内地点图例"
             class="block h-auto w-full max-w-none select-none"
             draggable="false"
             decoding="async"

@@ -9,7 +9,7 @@ import {
 
 useSeoMeta({
   title: '首页',
-  description: '仰恩大学本科与专升本新生的报到、校园地图、宿舍、校园网和校园生活入口。'
+  description: '本科与专升本新生的报到、校园地图、宿舍、校园网和校园生活入口。'
 })
 
 const showIntro = ref(false)

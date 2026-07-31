@@ -228,7 +228,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
           <section
             v-for="routeGroup in [
               { key: 'outbound', title: '从学校出发', data: outbound },
-              { key: 'inbound', title: '回仰恩大学', data: inbound }
+              { key: 'inbound', title: '回学校', data: inbound }
             ]"
             :key="routeGroup.key"
             class="rounded-2xl border border-zinc-200 bg-white p-4"

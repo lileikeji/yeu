@@ -19,7 +19,7 @@ import {
 
 useSeoMeta({
   title: '校内部门',
-  description: '查找仰恩大学新生常用部门的职责、官网和公开联系方式。'
+  description: '查找新生常用部门的职责、官网和公开联系方式。'
 })
 
 const searchQuery = ref('')

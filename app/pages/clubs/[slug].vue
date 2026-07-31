@@ -43,7 +43,7 @@ useSeoMeta({
       club.value.direction || seedClub.value?.direction
     )}`
     : '',
-  ogTitle: () => club.value ? `${club.value.name}｜仰恩新生指南` : '学生社团｜仰恩新生指南',
+  ogTitle: () => club.value ? `${club.value.name}｜迎新指南` : '学生社团｜迎新指南',
   ogDescription: () => club.value
     ? `${club.value.name}：${resolveClubDirection(club.value.summary, club.value.direction || seedClub.value?.direction)}`
     : '',
@@ -99,7 +99,7 @@ async function shareClub(): Promise<void> {
   if (!import.meta.client || !club.value) return
   if (isWechat.value) {
     await sharePage({
-      title: `${club.value.name}｜仰恩新生指南`,
+      title: `${club.value.name}｜迎新指南`,
       text: `${club.value.name}：${clubDirection.value}`,
       imageUrl: shareImage.value,
       url: window.location.href
@@ -107,7 +107,7 @@ async function shareClub(): Promise<void> {
     return
   }
   await copyText(
-    `${club.value.name}｜仰恩新生指南\n查看社团介绍：${window.location.href}`,
+    `${club.value.name}｜迎新指南\n查看社团介绍：${window.location.href}`,
     '社团分享内容'
   )
 }

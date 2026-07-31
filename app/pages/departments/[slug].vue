@@ -57,7 +57,7 @@ const detailSources = computed(() => buildDepartmentDetailSources(
 useSeoMeta({
   title: () => department.value ? `${department.value.name}｜校内部门` : '校内部门',
   description: () => department.value?.summary ?? '',
-  ogTitle: () => department.value ? `${department.value.name}｜仰恩新生指南` : '校内部门｜仰恩新生指南',
+  ogTitle: () => department.value ? `${department.value.name}｜迎新指南` : '校内部门｜迎新指南',
   ogDescription: () => department.value?.summary ?? '',
   ogType: 'website',
   ogImage: shareImage,
@@ -80,7 +80,7 @@ async function shareDepartment(): Promise<void> {
   if (!import.meta.client || !department.value) return
   if (isWechat.value) {
     await sharePage({
-      title: `${department.value.name}｜仰恩新生指南`,
+      title: `${department.value.name}｜迎新指南`,
       text: department.value.summary,
       imageUrl: shareImage,
       url: window.location.href
@@ -88,7 +88,7 @@ async function shareDepartment(): Promise<void> {
     return
   }
   await copyText(
-    `${department.value.name}｜仰恩新生指南\n查看部门介绍：${window.location.href}`,
+    `${department.value.name}｜迎新指南\n查看部门介绍：${window.location.href}`,
     '部门分享内容'
   )
 }

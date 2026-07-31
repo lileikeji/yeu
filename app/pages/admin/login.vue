@@ -154,10 +154,16 @@ onMounted(async () => {
   <div class="grid min-h-screen bg-[#f5f7f4] lg:grid-cols-[minmax(20rem,0.72fr)_minmax(30rem,1fr)]">
     <section class="hidden border-r border-green-950 bg-green-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
       <div class="flex items-center gap-3">
-        <span class="grid size-10 place-items-center rounded-md bg-green-600 text-sm font-bold">YEU</span>
+        <span class="grid size-10 place-items-center rounded-md bg-green-600 text-white">
+          <UIcon
+            name="i-lucide-compass"
+            class="size-5"
+            aria-hidden="true"
+          />
+        </span>
         <div>
           <p class="font-semibold">
-            仰恩新生指南
+            迎新指南
           </p>
           <p class="text-xs text-green-200">
             内容管理后台
@@ -176,17 +182,23 @@ onMounted(async () => {
         </p>
       </div>
       <p class="text-xs text-green-200/70">
-        非仰恩大学官方系统
+        非学校官方系统
       </p>
     </section>
 
     <main class="grid place-items-center p-5 sm:p-8">
       <div class="w-full max-w-md">
         <div class="mb-7 flex items-center gap-3 lg:hidden">
-          <span class="grid size-10 place-items-center rounded-md bg-green-700 text-sm font-bold text-white">YEU</span>
+          <span class="grid size-10 place-items-center rounded-md bg-green-700 text-white">
+            <UIcon
+              name="i-lucide-compass"
+              class="size-5"
+              aria-hidden="true"
+            />
+          </span>
           <div>
             <p class="font-semibold text-zinc-950">
-              仰恩新生指南
+              迎新指南
             </p>
             <p class="text-xs text-zinc-500">
               内容管理后台

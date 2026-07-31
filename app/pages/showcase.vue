@@ -16,7 +16,7 @@ const BAIDU_CAMPUS_PANORAMA_URL = 'https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%
 
 useSeoMeta({
   title: '新生指南展示',
-  description: '仰恩新生指南录屏展示模式。',
+  description: '迎新指南录屏展示模式。',
   robots: 'noindex, nofollow'
 })
 
@@ -201,7 +201,7 @@ onBeforeUnmount(() => {
       />
       <main
         class="showcase-frame"
-        aria-label="仰恩新生指南展示"
+        aria-label="迎新指南展示"
       >
         <Transition name="showcase-intro">
           <section
@@ -230,9 +230,9 @@ onBeforeUnmount(() => {
             </div>
             <div class="showcase-film-intro-orbit" />
             <div class="showcase-film-intro-copy">
-              <span>YEU</span>
-              <p>YANG-EN UNIVERSITY</p>
-              <h1>仰恩新生指南</h1>
+              <span>迎</span>
+              <p>CAMPUS WELCOME GUIDE</p>
+              <h1>迎新指南</h1>
               <b>把开学前最容易踩的坑，提前讲清楚</b>
             </div>
           </section>
@@ -247,7 +247,7 @@ onBeforeUnmount(() => {
           >
             <img
               src="/images/intro/yeu-campus-hero.webp"
-              alt="仰恩大学校园湖区与建筑"
+              alt="校园湖区与建筑"
               width="1579"
               height="889"
               class="showcase-cover"
@@ -255,15 +255,15 @@ onBeforeUnmount(() => {
             <div class="showcase-arrival-shade" />
 
             <div class="showcase-brand showcase-brand-light">
-              <span class="showcase-brand-mark">YEU</span>
-              <span>仰恩新生指南</span>
+              <span class="showcase-brand-mark">迎</span>
+              <span>迎新指南</span>
             </div>
 
             <div class="showcase-arrival-copy">
               <p class="showcase-kicker showcase-kicker-light">
                 2026 新生到校第一步
               </p>
-              <h1>第一次来仰恩，<br>也能把路走明白。</h1>
+              <h1>第一次到校，<br>也能把路走明白。</h1>
               <p>搜地点、看路线、查流程。新生真正会用到的，都放到一处。</p>
             </div>
 
@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
           >
             <div class="showcase-scene-heading">
               <div class="showcase-brand">
-                <span class="showcase-brand-mark">YEU</span>
+                <span class="showcase-brand-mark">迎</span>
                 <span>校园地图</span>
               </div>
               <div>
@@ -326,7 +326,7 @@ onBeforeUnmount(() => {
               <div class="showcase-map-canvas">
                 <img
                   src="/images/yeu-campus-plan-2025.jpg"
-                  alt="仰恩大学官方平面示意图"
+                  alt="校园官方平面示意图"
                   width="8504"
                   height="3898"
                 >
@@ -388,7 +388,7 @@ onBeforeUnmount(() => {
           >
             <div class="showcase-panorama-copy">
               <div class="showcase-brand showcase-brand-light">
-                <span class="showcase-brand-mark">YEU</span>
+                <span class="showcase-brand-mark">迎</span>
                 <span>校园 360° 实景</span>
               </div>
               <p class="showcase-kicker showcase-kicker-light">
@@ -417,11 +417,11 @@ onBeforeUnmount(() => {
                 <span />
                 <span />
                 <span />
-                <p>仰恩大学 · 校园实景</p>
+                <p>校园 · 实景</p>
               </div>
               <iframe
                 :src="BAIDU_CAMPUS_PANORAMA_URL"
-                title="仰恩大学校园 360 度实景"
+                title="校园 360 度实景"
                 loading="eager"
                 referrerpolicy="strict-origin-when-cross-origin"
               />
@@ -439,7 +439,7 @@ onBeforeUnmount(() => {
           >
             <div class="showcase-assistant-header">
               <div class="showcase-brand">
-                <span class="showcase-brand-mark">YEU</span>
+                <span class="showcase-brand-mark">迎</span>
                 <span>校园搜索</span>
               </div>
               <p>先查系统资料 · 找不到再检索网页 · 每个结论都保留来源</p>
@@ -516,7 +516,7 @@ onBeforeUnmount(() => {
           >
             <div class="showcase-checklist-copy">
               <div class="showcase-brand">
-                <span class="showcase-brand-mark">YEU</span>
+                <span class="showcase-brand-mark">迎</span>
                 <span>新生清单</span>
               </div>
               <p class="showcase-kicker">
@@ -570,7 +570,7 @@ onBeforeUnmount(() => {
           >
             <div class="showcase-transport-heading">
               <div class="showcase-brand">
-                <span class="showcase-brand-mark">YEU</span>
+                <span class="showcase-brand-mark">迎</span>
                 <span>到校与离校交通</span>
               </div>
               <div>
@@ -664,8 +664,8 @@ onBeforeUnmount(() => {
             <div class="showcase-outro-orbit showcase-outro-orbit-one" />
             <div class="showcase-outro-orbit showcase-outro-orbit-two" />
             <div class="showcase-outro-copy">
-              <span class="showcase-outro-mark">YEU</span>
-              <p>仰恩新生指南</p>
+              <span class="showcase-outro-mark">迎</span>
+              <p>迎新指南</p>
               <h2>把新生最容易踩的坑，<br>提前整理清楚。</h2>
               <div class="showcase-outro-line" />
               <span>开学前看一遍 · 到校以后少走弯路</span>
@@ -694,7 +694,7 @@ onBeforeUnmount(() => {
         class="showcase-device-chin"
         aria-hidden="true"
       >
-        <span>YEU</span>
+        <span>迎</span>
       </div>
       <div
         class="showcase-device-neck"

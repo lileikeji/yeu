@@ -10,7 +10,7 @@ import type { ApiTransitPlanResponse } from '~~/shared/types/server'
 
 useSeoMeta({
   title: '到校与离校交通',
-  description: '查询泉州站、泉州东站、泉州晋江国际机场和泉州市区往返仰恩大学的公交与换乘方案。'
+  description: '查询泉州站、泉州东站、泉州晋江国际机场和泉州市区往返学校的公交与换乘方案。'
 })
 
 const selectedOrigin = ref<TransitOriginId>('quanzhou-station')

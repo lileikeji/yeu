@@ -53,7 +53,7 @@ const scenes: CampusPanoramaScene[] = [
   { label: '小路2', panoId: '1000170000150119145306250IN', heading: 353, pitch: 6 },
   { label: '小路3', panoId: '1000170000150119145342630IN', heading: 0, pitch: 6 },
   { label: '商店', panoId: '1000170000150119145235199IN', heading: 188, pitch: 6 },
-  { label: '仰恩公交站', panoId: '1000170000150119145047605IN', heading: 340, pitch: 6 }
+  { label: '校园公交站', panoId: '1000170000150119145047605IN', heading: 340, pitch: 6 }
 ]
 
 const viewerHost = ref<HTMLElement | null>(null)
@@ -324,7 +324,7 @@ onBeforeUnmount(() => {
     <div
       ref="viewerHost"
       class="panorama-canvas absolute inset-x-0 bottom-[5.75rem] top-0 cursor-grab bg-zinc-950 active:cursor-grabbing"
-      aria-label="仰恩大学校内全景画面"
+      aria-label="校园全景画面"
     />
 
     <div

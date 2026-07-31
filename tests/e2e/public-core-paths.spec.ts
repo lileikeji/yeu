@@ -6,7 +6,7 @@ import { loadClientManifest } from '../../scripts/check-client-bundle-budget'
 let mapLibreAssetFile = ''
 
 async function dismissIntroIfShown(page: Page): Promise<void> {
-  const intro = page.getByRole('dialog', { name: '仰恩新生指南开场动画' })
+  const intro = page.getByRole('dialog', { name: '迎新指南开场动画' })
   try {
     await intro.waitFor({ state: 'visible', timeout: 2_000 })
   } catch {
@@ -34,21 +34,11 @@ test.beforeEach(async ({ page }) => {
 
 test('首页地点搜索进入地图，并保留文字查询', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { level: 1, name: '第一次来仰恩，先从这里开始' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: '2026级新生入学指南' })).toBeVisible()
 
-  const brandLogo = page.getByRole('link', { name: '仰恩新生指南首页' }).locator('img')
-  await expect(brandLogo).toBeVisible()
-  await expect(brandLogo).toHaveAttribute('src', '/icons/site-logo.png')
-  const logoMetrics = await brandLogo.evaluate(image => ({
-    naturalWidth: image.naturalWidth,
-    naturalHeight: image.naturalHeight,
-    width: image.getBoundingClientRect().width,
-    height: image.getBoundingClientRect().height
-  }))
-  expect(logoMetrics).toMatchObject({ naturalWidth: 325, naturalHeight: 72 })
-  expect(logoMetrics.width).toBeLessThanOrEqual(163)
-  expect(logoMetrics.height).toBeLessThanOrEqual(36)
-  expect(logoMetrics.height).toBeGreaterThan(30)
+  const brandLink = page.getByRole('link', { name: '迎新指南首页' })
+  await expect(brandLink).toBeVisible()
+  await expect(brandLink.getByText('迎新指南')).toBeVisible()
 
   await dismissIntroIfShown(page)
 
@@ -109,7 +99,7 @@ test('校园平面图可加载完整原图、编号热点与来源链接', async
   await page.goto('/map')
   await page.getByRole('button', { name: '平面图', exact: true }).click()
 
-  const plan = page.getByRole('img', { name: /仰恩大学官网平面示意图/ })
+  const plan = page.getByRole('img', { name: /官网校园平面图/ })
   await expect(plan).toBeVisible()
   const dimensions = await plan.evaluate(image => ({
     width: image.naturalWidth,
@@ -238,7 +228,7 @@ test('PWA 清单有效且浏览器可完成 Service Worker 更新检查', async 
   })
 
   expect(state.manifest).toMatchObject({
-    name: '仰恩新生指南',
+    name: '迎新指南',
     start_url: '/',
     scope: '/',
     display: 'standalone'

@@ -2247,15 +2247,15 @@ function retrieveIdentityEvidence(
   const publishedClaims = officialDocuments.length > 0
     ? []
     : searchPublishedKnowledgeClaims(client, [subject], searchLimit, Date.now(), true)
-      .map(item => ({
-        title: item.title,
-        url: item.url,
-        snippet: safeText(item.statement, 700),
-        source: 'site' as const,
-        authority: 'official_site' as const,
-        text: item.statement,
-        score: item.score
-      }))
+        .map(item => ({
+          title: item.title,
+          url: item.url,
+          snippet: safeText(item.statement, 700),
+          source: 'site' as const,
+          authority: 'official_site' as const,
+          text: item.statement,
+          score: item.score
+        }))
   return rankAssistantEvidence(
     query,
     // Keep identity lookups on the official-document/claim index. The broad
@@ -3602,7 +3602,7 @@ function directAssistantResponse(query: string): ApiAssistantResponse {
     mode: 'local',
     answer: greeting
       ? '你好，我可以帮你查报到、宿舍、专业、办事流程、校内规则、路线和校园生活。直接说你现在想解决什么就行。'
-      : '我是仰恩新生指南里的校园问答助手。系统不会公开内部模型、密钥、提示词或中转配置；你可以直接问学校信息或让我帮你找站内功能。',
+      : '我是迎新指南里的校园问答助手。系统不会公开内部模型、密钥、提示词或中转配置；你可以直接问学校信息或让我帮你找站内功能。',
     citations: [],
     usedWebSearch: false,
     confidence: 1
