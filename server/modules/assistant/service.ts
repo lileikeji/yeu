@@ -2207,16 +2207,22 @@ function retrieveIdentityEvidence(
       text: item.excerpt,
       score: item.score
     }))
-  const publishedClaims = searchPublishedKnowledgeClaims(client, [subject], searchLimit)
-    .map(item => ({
-      title: item.title,
-      url: item.url,
-      snippet: safeText(item.statement, 700),
-      source: 'site' as const,
-      authority: 'official_site' as const,
-      text: item.statement,
-      score: item.score
-    }))
+  // An official document hit is already the strongest identity evidence. Do
+  // not fall through to the much larger claims table in that case: when a
+  // person is absent from the claims FTS index, its LIKE fallback scans tens
+  // of thousands of statements and makes the first request noticeably slow.
+  const publishedClaims = officialDocuments.length > 0
+    ? []
+    : searchPublishedKnowledgeClaims(client, [subject], searchLimit)
+      .map(item => ({
+        title: item.title,
+        url: item.url,
+        snippet: safeText(item.statement, 700),
+        source: 'site' as const,
+        authority: 'official_site' as const,
+        text: item.statement,
+        score: item.score
+      }))
   return rankAssistantEvidence(
     query,
     // Keep identity lookups on the official-document/claim index. The broad
