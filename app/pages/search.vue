@@ -439,12 +439,17 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
         else if (message.event === 'stage_completed') updateAssistantStageCompleted(message.data)
         else if (message.event === 'completed') completed = message.data as unknown as ApiAssistantResponse
         else if (message.event === 'error') throw new Error(String(message.data.code ?? 'AI_UNAVAILABLE'))
+        // A proxy may forward the terminal event without closing the HTTP
+        // connection. Do not keep the answer card waiting for EOF.
+        if (completed) break
       }
+      if (completed) break
       if (chunk.done) break
     }
   } catch (error) {
     streamError = error
   } finally {
+    await reader.cancel().catch(() => {})
     reader.releaseLock()
   }
   if (streamError) {
