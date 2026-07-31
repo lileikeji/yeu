@@ -2197,7 +2197,10 @@ function retrieveIdentityEvidence(
   limit: number
 ): AssistantEvidence[] {
   const searchLimit = Math.max(12, Math.min(48, limit * 8))
-  const officialDocuments = searchOfficialKnowledgeDocuments(client, [subject], searchLimit, query)
+  // Use the person name as the document-core query. Question fillers such as
+  // "是谁" are not evidence terms; passing them as core constraints can
+  // discard a valid official document and trigger the expensive fallback.
+  const officialDocuments = searchOfficialKnowledgeDocuments(client, [subject], searchLimit, subject)
     .map(item => ({
       title: item.title,
       url: item.url,
