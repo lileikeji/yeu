@@ -12,6 +12,7 @@ import type {
   ApiSearchResponse
 } from '~~/shared/types/server'
 import { buildStudentRuleSearchResults } from '~~/app/utils/student-rules-search'
+import { isQuestionLike } from '~~/shared/utils/assistant-query'
 import {
   buildPublicSearchResults,
   buildSearchAnnouncement,
@@ -256,6 +257,7 @@ interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
 const hasInitialAssistantQuery = activeSearchMode.value === 'ai'
   && !activeType.value
   && activeQuery.value.length >= 2
+  && isQuestionLike(activeQuery.value)
 // Start the visible trace as soon as a question is present. The answer stream
 // still starts on the client, but the user never waits behind the site-search
 // request before seeing the first analysis step.
@@ -469,6 +471,7 @@ async function requestAssistantAnswer(): Promise<void> {
   const shouldRequest = activeSearchMode.value === 'ai'
     && !activeType.value
     && query.length >= 2
+    && isQuestionLike(query)
   if (!shouldRequest) {
     assistantRequestSequence += 1
     assistantAbortController?.abort()

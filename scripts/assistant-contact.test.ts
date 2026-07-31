@@ -937,6 +937,7 @@ test('assistant endpoint is server-only, rate limited and excluded from CDN cach
   assert.match(searchPage, /onMounted\(\(\) => \{\s+void requestAssistantAnswer\(\)/)
   assert.match(searchPage, /requestAssistantFallback/)
   assert.match(searchPage, /streamError/)
+  assert.match(searchPage, /isQuestionLike\(query\)/)
   assert.doesNotMatch(searchPage, /requestAssistantAnswer\(\),\s+\{ immediate: true \}/)
   assert.match(config, /'\/api\/public\/assistant'/)
   assert.match(config, /'\/api\/public\/assistant\/stream'/)
