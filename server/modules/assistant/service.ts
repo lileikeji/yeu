@@ -3669,6 +3669,28 @@ export async function answerCampusQuestion(
       }
     }
 
+    // Identity questions have their own official-document retrieval path. Do
+    // not fan them out through every campus catalog and FAQ before answering;
+    // incidental award/project mentions are not an identity profile.
+    const identityQuerySubject = assistantIdentitySubject(query)
+    if (identityQuerySubject) {
+      const identityEvidence = retrieveCampusEvidence(client, retrievalQuery)
+      if (identityEvidence.some(item => identityEvidenceIsExplicit(item, identityQuerySubject))) {
+        return {
+          query,
+          retrievalQuery,
+          intentDetail,
+          cacheKey,
+          route: 'local_database' as const,
+          cached: null,
+          localEvidence: identityEvidence,
+          webEvidence: [] as ApiAssistantCitation[],
+          requiresSpecificWebEvidence: false,
+          localEvidenceSufficient: true
+        }
+      }
+    }
+
     const localEvidence = retrieveCampusEvidence(client, retrievalQuery)
     const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
     let transferWebEvidence: ApiAssistantCitation[] = []
@@ -3823,8 +3845,11 @@ export async function answerCampusQuestion(
         : retrieveCampusEvidence(client, analysis.retrievalQuery),
       result => knowledgeRetrievalDetail(query, result)
     )
+    const identitySubject = assistantIdentitySubject(query)
     const deterministicIdentityAnswer = identityLocalAnswer(query, localEvidence)
-    const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
+    const deterministicKnowledgeAnswer = identitySubject
+      ? null
+      : assistantKnowledgeLocalAnswer(client, query)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
