@@ -85,6 +85,20 @@
 - 根因：身份检索的“审核条目”和“官方长文”共用排序；构建发布在 Windows 端打包了平台相关原生依赖；缓存命中显示未区分旧响应来源。
 - 后续避免：发布包必须在切换前检查 `.output/server/index.mjs` 和所有 `.node` 文件格式；身份、政策、功能入口等高风险意图必须有独立优先级和回归问题；域名/CDN 验证同时执行源站直连、响应头和请求日志核对。
 - 验证环境与结果：`pnpm exec tsx --test scripts/assistant-contact.test.ts scripts/assistant-knowledge.test.ts scripts/student-rules.test.ts`，45 项通过；线上 `yeu.service` active，`/api/health` 200，旧版回滚点保留；新 release 的 Linux `better_sqlite3.node` 为 ELF 64-bit。
-- 发布/回滚信息：提交 `2a58f03` 已部署到 `/www/wwwroot/yeu/releases/20260731-171758-2a58f03`，旧 release `/www/wwwroot/yeu/releases/20260731-162100-dfb4676` 保留为回滚点；后续身份逻辑修复待新提交发布。
+- 发布/回滚信息：提交 `2a58f03` 已部署到 `/www/wwwroot/yeu/releases/20260731-171758-2a58f03`，旧 release `/www/wwwroot/yeu/releases/20260731-162100-dfb4676` 保留为回滚点；后续身份逻辑修复已由 `51b650a`、`3695b98` 完成并在本轮发布。
 - 架构变化：AI 本地检索增加“审核身份条目 -> 官方文档 -> 已发布声明”的意图优先级；回答缓存版本随路由语义变更递增；发布检查增加平台原生依赖核验。
 - 后续动作：提交本轮身份检索修复并重新构建 Linux 兼容发布包；源站直连验证“吴庆星是谁”“什么时候开学”“体育选修有哪些项目”，再验证 CDN 域名返回一致。
+
+## 2026-07-31 · AI 检索计时与确定性回答发布复盘
+
+- 本次目标：修复知识库接入后身份问题被普通官网长文覆盖、确定性问题冷启动扫描过慢，以及答案缓存命中后把前面真实耗时显示成 `<0.1 秒` 的问题。
+- 实际完成：身份问题优先读取审核身份条目；开学日期、校规和校园概览先走轻量内存证据；答案缓存版本升级为 `rag-v14-identity-entry-priority`；确定性答案短路检索并保留真实 trace 累计耗时；保留来源权威级别，避免把文章导语直接当人物简介。
+- 未完成或待确认：未在真实微信/QQ WebView 内重新跑 AI 问答；本轮只验证生产 HTTPS 域名和服务器源站健康，第三方网页搜索服务未作为成功路径依赖。
+- 做得好的地方：先用回归测试锁定身份、开学日期和体育选修三个代表问题，再发布；新 release 切换前检查 `index.mjs`、替换并校验 Linux 原生 SQLite 模块；保留旧 release，服务重启失败时可立即回滚。
+- 做得不好的地方：首次线上健康请求发出得太早，服务仍在监听窗口，造成一次误判；发布前的 Windows 打包物仍携带 Windows 原生模块，需要上线前额外替换。
+- 根因：知识库扩容后普通全文结果与审核身份条目共用排序；缓存/阶段计时分别计算，命中缓存时没有使用已经发生的分析耗时；Windows 构建环境与 Linux 生产环境的原生依赖不同。
+- 后续避免：发布脚本必须等待监听端口和 `/api/health` 连续通过后再判定成功；高风险身份、政策和入口问题必须有独立回归样例；每个答案的 `totalDurationMs` 必须不小于 trace 各阶段耗时之和，并在 CDN 域名和源站各验证一次。
+- 验证环境与结果：本地 `pnpm exec tsx --test scripts/assistant-contact.test.ts scripts/assistant-knowledge.test.ts scripts/student-rules.test.ts` 45 项通过，`pnpm typecheck` 通过；生产 `yeu.service` 为 active，源站与 `https://yeu.huiliyill.cn/api/health` 均返回 `status=ok`、`database=ready`；生产域名实测“吴庆星是谁”走审核身份缓存，“什么时候开学”走本地数据库（总计约 45ms），“体育选修有哪些项目”走本地数据库（总计约 1.8s），trace 时间与总耗时一致。
+- 发布/回滚信息：提交 `51b650a`、`3695b98` 已部署到 `/www/wwwroot/yeu/releases/20260731-174600-3695b98`，`current` 已原子切换；上一版 `/www/wwwroot/yeu/releases/20260731-173706-51b650a` 保留为直接回滚点，服务由 `systemd yeu.service` 管理。
+- 架构变化：AI 编排增加确定性答案的轻量短路层，缓存版本和 trace 计时成为同一回答契约；生产发布继续采用 `release/current/shared + systemd`，并把平台原生依赖检查列为切换前门禁。已同步 `docs/ARCHITECTURE.md` 的 AI 检索优先级说明。
+- 后续动作：把“等待监听 -> 健康检查 -> 源站/公开域名双验 -> 原生模块格式检查”固化到发布脚本；下一轮在微信/QQ WebView 验证流式 AI 与地图兼容，不把桌面浏览器结果当作替代。
