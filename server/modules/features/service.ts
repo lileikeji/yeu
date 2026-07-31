@@ -1,10 +1,12 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import {
   FRONTEND_FEATURE_DEFINITIONS,
   type FrontendFeatureKey
 } from '../../../shared/config/frontend-features'
 import type { DatabaseClient } from '../../database/client'
-import { frontendFeatureSettings } from '../../database/schema'
+import { contents, frontendFeatureSettings } from '../../database/schema'
+import { activePublicContentCondition } from '../content/visibility'
+import { safeMetadata } from '../../utils/serializers'
 
 export interface FrontendFeatureStatus {
   key: FrontendFeatureKey
@@ -19,6 +21,18 @@ export interface FrontendFeatureStatus {
 export interface PublicFrontendFeatureSettings {
   disabledKeys: FrontendFeatureKey[]
   updatedAt: string | null
+}
+
+export type HomeEntryPlacement = 'quick' | 'services' | 'more'
+
+export interface PublicHomeEntry {
+  id: string
+  title: string
+  description: string
+  to: string
+  icon: string
+  placement: HomeEntryPlacement
+  sortOrder: number
 }
 
 function toIso(value: number | null | undefined): string | null {
@@ -53,6 +67,61 @@ export function getPublicFrontendFeatures(
     disabledKeys: items.filter(item => !item.enabled).map(item => item.key),
     updatedAt: latestUpdate === null ? null : new Date(latestUpdate).toISOString()
   }
+}
+
+function contentEntryPath(kind: string, slug: string): string {
+  if (kind === 'department') return `/departments/${encodeURIComponent(slug)}`
+  if (kind === 'club') return `/clubs/${encodeURIComponent(slug)}`
+  return `/guides/${encodeURIComponent(slug)}`
+}
+
+export function listPublicHomeEntries(client: DatabaseClient): PublicHomeEntry[] {
+  const rows = client.db.select({
+    id: contents.id,
+    kind: contents.kind,
+    slug: contents.slug,
+    title: contents.title,
+    summary: contents.summary,
+    metadataJson: contents.metadataJson
+  }).from(contents).where(and(
+    eq(contents.status, 'published'),
+    activePublicContentCondition()
+  )).all()
+
+  return rows.flatMap((row): PublicHomeEntry[] => {
+    if (row.kind === 'notice') return []
+    const metadata = safeMetadata(row.metadataJson)
+    if (metadata.homeEntryEnabled !== true) return []
+    const placement = metadata.homeEntryPlacement
+    if (placement !== 'quick' && placement !== 'services' && placement !== 'more') return []
+    const title = typeof metadata.homeEntryTitle === 'string' && metadata.homeEntryTitle.trim()
+      ? metadata.homeEntryTitle.trim().slice(0, 80)
+      : row.title
+    const description = typeof metadata.homeEntryDescription === 'string' && metadata.homeEntryDescription.trim()
+      ? metadata.homeEntryDescription.trim().slice(0, 240)
+      : row.summary
+    const icon = typeof metadata.homeEntryIcon === 'string'
+      && /^i-lucide-[a-z0-9-]{2,64}$/u.test(metadata.homeEntryIcon)
+      ? metadata.homeEntryIcon
+      : 'i-lucide-arrow-up-right'
+    const rawSortOrder = metadata.homeEntrySortOrder
+    const sortOrder = typeof rawSortOrder === 'number' && Number.isInteger(rawSortOrder)
+      ? Math.max(0, Math.min(9999, rawSortOrder))
+      : 10000
+    return [{
+      id: row.id,
+      title,
+      description,
+      to: contentEntryPath(row.kind, row.slug),
+      icon,
+      placement,
+      sortOrder
+    }]
+  }).sort((left, right) => (
+    left.placement.localeCompare(right.placement)
+    || left.sortOrder - right.sortOrder
+    || left.title.localeCompare(right.title, 'zh-CN')
+  ))
 }
 
 export function updateFrontendFeature(

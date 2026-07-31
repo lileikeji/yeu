@@ -210,7 +210,7 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v12-official-fact-routing'
+const ASSISTANT_CACHE_VERSION = 'rag-v13-identity-context-routing'
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 1200
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
@@ -743,7 +743,12 @@ function normalizedEvidenceKey(value: string): string {
     .replace(/[\p{P}\p{S}\s]+/gu, '')
 }
 
-function dedupeAssistantEvidence(evidence: AssistantEvidence[]): AssistantEvidence[] {
+function dedupeAssistantEvidence<T extends ApiAssistantCitation & {
+  text?: string
+  score?: number
+  rawScore?: number
+  hitReason?: string
+}>(evidence: T[]): T[] {
   const contentKeys = new Set<string>()
   const factKeys = new Set<string>()
   const urlTitleKeys = new Set<string>()
@@ -755,7 +760,7 @@ function dedupeAssistantEvidence(evidence: AssistantEvidence[]): AssistantEviden
     ))
     .filter((item) => {
       const titleKey = normalizedEvidenceKey(item.title)
-      const normalizedSnippet = normalizedEvidenceKey(item.snippet || item.text)
+      const normalizedSnippet = normalizedEvidenceKey(item.snippet || item.text || '')
       const contentKey = `${titleKey}|${normalizedSnippet}`
       if (contentKeys.has(contentKey)) return false
       // Claims and crawled documents often carry the same sentence under
@@ -977,10 +982,14 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
     // A person's name can also prefix an award, building or research project. Those
     // mentions prove only that the names are related, not who the person is.
     if (/^(?:奖学金|助学金|基金|奖项|奖金|教育理念|纪念|雕像|铜像|楼|大楼|馆)/u.test(after)) continue
+    // Official biographies often put the role before the name (for example
+    // “校主吴庆星” or “董事会主席吴庆星”), so accept that context as
+    // identity evidence while retaining the explicit award/building exclusions.
+    if (/(?:校主|董事会主席|董事长|主席|创办人|创始人|开拓者|企业家|教育家|华侨)$/u.test(before)) return true
     const founderContext = /(?:爱国华侨|创办人|创始人|校主)$/u.test(before)
       && /^[，,（(：:]?(?:先生)?(?:及其家族)?[^。！？；;]{0,12}(?:设立|创办)[^。！？；;]{0,24}(?:仰恩基金会|仰恩大学|学校)/u.test(after)
     if (founderContext) return true
-    if (/^[（(：:]?[^，,。！？；;]{0,16}(?:是|为|出生|毕业|任职|担任|曾任|现任)/u.test(after)) return true
+    if (/^[（(：:]?[^，,。！？；;]{0,16}(?:先生|女士|是|为|出生|生于|毕业|任职|担任|曾任|现任)/u.test(after)) return true
   }
   return false
 }
@@ -1527,6 +1536,37 @@ export function studentRuleEvidenceForQuery(query: string, limit = 8): Assistant
 
 function isFeatureSeekingQuery(query: string): boolean {
   return /在哪|哪里|入口|哪个页面|什么页面|怎么打开|怎么进入|去哪|功能/.test(query)
+}
+
+function isSpecificDirectoryFeatureQuery(query: string): boolean {
+  if (!/(?:社团|协会|学生组织|部门|办公室)/u.test(query)) return false
+  const subject = normalizeAssistantQuery(query)
+    .replace(/^(?:请|麻烦|帮我|我想|想要|想找|帮忙)?(?:找|查看|打开|进入)?/u, '')
+    .replace(/(?:入口|哪个页面|什么页面|在哪里|在哪|哪里|怎么打开|怎么进入|去哪|功能)/gu, '')
+    .replace(/[?？。！!，,、\s]/gu, '')
+  return subject.length >= 3
+    && !/^(?:社团|协会|学生组织|部门|办公室)(?:列表|目录|页面)?$/u.test(subject)
+}
+
+function directDirectoryEvidence(
+  query: string,
+  evidence: AssistantEvidence[]
+): AssistantEvidence | null {
+  if (!isSpecificDirectoryFeatureQuery(query)) return null
+  const terms = assistantQueryTerms(query)
+    .filter(term => term.length >= 2)
+    .filter(term => !/^(?:入口|页面|功能|在哪里|在哪|哪里|怎么|打开|进入|社团|协会|学生组织|部门|办公室)$/u.test(term))
+  const candidates = evidence
+    .filter(item => /^\/(?:clubs|departments)\//u.test(item.url))
+    .map((item) => {
+      const value = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+      const exactTermMatches = terms.filter(term => value.includes(term.toLocaleLowerCase('zh-CN'))).length
+      const exactTitle = terms.some(term => item.title.toLocaleLowerCase('zh-CN').includes(term.toLocaleLowerCase('zh-CN')))
+      return { item, rank: (exactTitle ? 100 : 0) + exactTermMatches * 20 + item.score }
+    })
+    .filter(item => item.rank > item.item.score)
+    .sort((left, right) => right.rank - left.rank)
+  return candidates[0]?.item ?? null
 }
 
 function isTransferQuery(query: string): boolean {
@@ -2089,6 +2129,18 @@ export function retrieveCampusEvidence(
 
 function featureLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
   if (!isFeatureSeekingQuery(query)) return null
+  const directEntry = directDirectoryEvidence(query, evidence)
+  if (directEntry) {
+    const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = directEntry
+    return {
+      query,
+      mode: 'local',
+      answer: `已找到“${directEntry.title}”的专属页面。${directEntry.snippet || '这里可以查看该社团或部门的介绍、联系方式和最新信息。'}点击下方入口即可直接打开，不需要再从上级列表查找。`,
+      citations: [citation],
+      usedWebSearch: false,
+      confidence: 0.99
+    }
+  }
   const features = searchSystemFeatures(query, 3)
   if (!features[0] || features[0].score < 8) return null
   const citations = features.map((feature) => {
@@ -2427,8 +2479,9 @@ function resolveStructuredDataEvidence(query: string): ApiAssistantCitation[] {
     const transfer = majorProfiles.filter(p => p.admissionTypes.includes('transfer-undergraduate'))
     const byCollege: Record<string, string[]> = {}
     for (const p of ordinary) {
-      byCollege[p.collegeName] ??= []
-      byCollege[p.collegeName].push(
+      const names = byCollege[p.collegeName] ?? []
+      byCollege[p.collegeName] = names
+      names.push(
         p.admissionTypes.includes('transfer-undergraduate') ? `${p.name}[可专升本]` : p.name
       )
     }
@@ -2714,17 +2767,64 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   }
 }
 
-function identityLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
+export function identityLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
   const subject = assistantIdentitySubject(query)
   if (!subject) return null
   const primary = evidence.find(item => identityEvidenceIsExplicit(item, subject))
   if (!primary) return null
   const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
   const title = safeText(primary.title, 180)
+  const escapedSubject = subject.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  const identityFacts: string[] = []
+  const subjectSentences: string[] = []
+  const seenSources = new Set<string>()
+
+  for (const item of evidence) {
+    if (!identityEvidenceIsExplicit(item, subject)) continue
+    const sourceText = (item.text || item.snippet).replace(/\s+/g, ' ').trim()
+    for (const chunk of sourceText.split(/(?<=[。！？；])/u)) {
+      const sentence = chunk.trim()
+      const subjectIndex = sentence.indexOf(subject)
+      if (subjectIndex < 0) continue
+      const before = sentence.slice(0, subjectIndex)
+
+      // Turn explicit "作为...，吴庆星" / "吴庆星作为..." wording into a
+      // short, readable fact without starting at a dangling role word.
+      const roleAfter = new RegExp(`${escapedSubject}(?:先生|女士)?作为([^，,。！？；]{2,48})`, 'u').exec(sentence)?.[1]
+      const roleBefore = /(?:香港和昌集团|仰恩大学)?(?:董事会主席|董事长|校主|创办人|创始人|企业家|教育家)$/.exec(before)
+      if (roleAfter) identityFacts.push(`${subject}是${roleAfter.trim()}。`)
+      if (roleBefore?.[0]) identityFacts.push(`${subject}是${roleBefore[0]}。`)
+
+      const founded = new RegExp(`${escapedSubject}(?:先生|女士)?[^。！？；]{0,80}(?:创办|创立|发起)[^。！？；]{0,30}(?:仰恩大学|仰恩基金会)`, 'u').test(sentence)
+      if (founded) identityFacts.push(`${subject}参与创办了仰恩大学。`)
+
+      // Keep a complete source sentence only when it starts with the person
+      // name and contains an explicit identity predicate. This prevents title
+      // metadata or a fragment such as "开拓者，吴庆星" from leaking out.
+      const fromSubject = sentence.slice(subjectIndex).trim()
+      if (fromSubject.length >= 12
+        && new RegExp(`^${escapedSubject}(?:先生|女士)?(?:是|为|作为|出生|生于|任职|担任|曾任|现任)`, 'u').test(fromSubject)) {
+        subjectSentences.push(fromSubject)
+      }
+    }
+  }
+
+  const orderedFacts = [...identityFacts, ...subjectSentences]
+    .map(item => item.replace(/\s+/g, ' ').trim())
+    .filter(item => item.length >= 10 && item.includes(subject))
+    .filter((item) => {
+      const key = item.replace(/[。；，,:：\s]/gu, '')
+      if (seenSources.has(key)) return false
+      seenSources.add(key)
+      return true
+    })
+  const identitySummary = safeText(orderedFacts.slice(0, 3).join(' '), 620)
   return {
     query,
     mode: 'local',
-    answer: `内置资料找到与“${subject}”直接相关的官方页面《${title}》。当前资料还没有形成可核验的完整人物档案，不能仅凭奖学金、活动或项目名称推断其身份与经历；请打开下方入口查看原文。`,
+    answer: identitySummary
+      ? `官网公开资料显示：${identitySummary} 以上为来源页面中的公开信息，具体内容请以原文为准。`
+      : `内置资料找到与“${subject}”直接相关的官方页面《${title}》。当前资料还没有形成可核验的完整人物档案，不能仅凭奖学金、活动或项目名称推断其身份与经历；请打开下方入口查看原文。`,
     citations: [citation],
     usedWebSearch: false,
     confidence: 0.78
@@ -3419,7 +3519,7 @@ export async function answerCampusQuestion(
 
     const featureSeeking = isFeatureSeekingQuery(query)
     const featureMatch = featureSeeking ? searchSystemFeatures(query, 1)[0] : null
-    if (featureMatch && featureMatch.score >= 8) {
+    if (featureMatch && featureMatch.score >= 8 && !isSpecificDirectoryFeatureQuery(query)) {
       return {
         query,
         retrievalQuery,
@@ -3463,6 +3563,7 @@ export async function answerCampusQuestion(
       || deterministicCampusAnswer
       || deterministicKnowledgeAnswer
       || deterministicRuleAnswer
+      || directDirectoryEvidence(query, localEvidence)
       || hasStructuredLocalAnswer(query, localEvidence)
       || localEvidenceIsSufficient(query, localEvidence)
     )))) {
@@ -3586,6 +3687,7 @@ export async function answerCampusQuestion(
         : retrieveCampusEvidence(client, analysis.retrievalQuery),
       result => knowledgeRetrievalDetail(query, result)
     )
+    const deterministicIdentityAnswer = identityLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
@@ -3627,6 +3729,7 @@ export async function answerCampusQuestion(
             ? dormBedEvidenceGapResponse(query, localEvidence)
             : deterministicCollegeAnswer
               ?? deterministicMajorDormAnswer
+              ?? deterministicIdentityAnswer
               ?? deterministicCampusAnswer
               ?? deterministicKnowledgeAnswer
               ?? deterministicRuleAnswer)

@@ -643,6 +643,65 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['department', 'club'] }
       },
       {
+        key: 'metadata.homeEntryEnabled',
+        label: '加入首页入口',
+        type: 'checkbox',
+        description: '打开后可把当前已发布页面加入首页，AI 搜索也会直接返回这个页面入口。',
+        group: '首页入口配置',
+        span: 'full',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
+      },
+      {
+        key: 'metadata.homeEntryPlacement',
+        label: '放置位置',
+        type: 'select',
+        options: [
+          { label: '常用查询', value: 'quick' },
+          { label: '服务导航', value: 'services' },
+          { label: '更多入口', value: 'more' }
+        ],
+        description: '选择首页模块；保存后前台会按顺序显示。',
+        group: '首页入口配置',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
+      },
+      {
+        key: 'metadata.homeEntryTitle',
+        label: '入口标题',
+        placeholder: '留空时使用当前页面标题',
+        group: '首页入口配置',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
+      },
+      {
+        key: 'metadata.homeEntryDescription',
+        label: '入口说明',
+        type: 'textarea',
+        rows: 2,
+        placeholder: '留空时使用当前页面摘要',
+        group: '首页入口配置',
+        span: 'full',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
+      },
+      {
+        key: 'metadata.homeEntryIcon',
+        label: '入口图标',
+        placeholder: '例如 i-lucide-music-2',
+        description: '使用 Lucide 图标名；不填写时使用默认箭头图标。',
+        group: '首页入口配置',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
+      },
+      {
+        key: 'metadata.homeEntrySortOrder',
+        label: '入口顺序',
+        type: 'number',
+        min: 0,
+        max: 9999,
+        step: 1,
+        defaultValue: 100,
+        description: '数字越小越靠前。',
+        group: '首页入口配置',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
+      },
+      {
         key: 'metadata.sortOrder',
         label: '前台排序',
         type: 'number',

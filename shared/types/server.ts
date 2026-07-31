@@ -40,6 +40,20 @@ export interface ApiPublicFrontendFeatures {
   updatedAt: string | null
 }
 
+export interface ApiPublicHomeEntry {
+  id: string
+  title: string
+  description: string
+  to: string
+  icon: string
+  placement: 'quick' | 'services' | 'more'
+  sortOrder: number
+}
+
+export interface ApiPublicHomeEntries {
+  items: ApiPublicHomeEntry[]
+}
+
 export interface ApiTransitSegment {
   name: string
   departureStop: string
@@ -312,21 +326,21 @@ export interface ApiAssistantCitation {
   source: 'site' | 'web'
 }
 
-export type ApiAssistantStage =
-  | 'query_analysis'
-  | 'feature_api'
-  | 'local_database'
-  | 'answer_cache'
-  | 'web_cache'
-  | 'web_search'
-  | 'answer_generation'
+export type ApiAssistantStage
+  = | 'query_analysis'
+    | 'feature_api'
+    | 'local_database'
+    | 'answer_cache'
+    | 'web_cache'
+    | 'web_search'
+    | 'answer_generation'
 
-export type ApiAssistantRetrievalPath =
-  | 'feature_api'
-  | 'local_database'
-  | 'answer_cache'
-  | 'web_cache'
-  | 'web_search'
+export type ApiAssistantRetrievalPath
+  = | 'feature_api'
+    | 'local_database'
+    | 'answer_cache'
+    | 'web_cache'
+    | 'web_search'
 
 export interface ApiAssistantTraceStep {
   stage: ApiAssistantStage

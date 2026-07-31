@@ -75,6 +75,45 @@ test('assistant answers feature location with a clickable local entry', async ()
   }
 })
 
+test('assistant resolves a named club to its direct page instead of the club directory', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-feature-direct-club-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO contents (
+        id, kind, slug, title, summary, body, metadata_json, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'music-association-entry',
+      'club',
+      'music-association',
+      '音乐协会',
+      '校园音乐交流与演出。',
+      '查看音乐协会的活动方向、招新说明和负责人信息。',
+      '{}',
+      'published',
+      now,
+      now
+    )
+    const response = await answerCampusQuestion(client, '音乐协会入口在哪', emptyAssistantConfig)
+    assert.equal(response.mode, 'local')
+    assert.match(response.answer, /音乐协会/)
+    assert.match(response.answer, /专属页面/)
+    assert.equal(response.citations[0]?.url, '/clubs/music-association')
+    assert.deepEqual(response.trace?.map(item => item.stage), [
+      'query_analysis',
+      'local_database',
+      'answer_generation'
+    ])
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('college aliases resolve their 2026 major list without web search', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-college-major-answer-'))
   const databasePath = join(directory, 'test.sqlite')

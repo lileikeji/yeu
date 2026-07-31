@@ -12,6 +12,7 @@ import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
   getPublicFrontendFeatures,
+  listPublicHomeEntries,
   listFrontendFeatures,
   updateFrontendFeature
 } from '../server/modules/features/service'
@@ -27,7 +28,7 @@ const adminApiSource = readFileSync(resolve('server/api/admin/features.put.ts'),
 
 test('frontend feature catalog covers every configurable home card with unique keys', () => {
   assert.equal(new Set(FRONTEND_FEATURE_KEYS).size, FRONTEND_FEATURE_KEYS.length)
-  assert.equal(FRONTEND_FEATURE_DEFINITIONS.length, 21)
+  assert.equal(FRONTEND_FEATURE_DEFINITIONS.length, 18)
 
   const catalogKeys = new Set<string>(FRONTEND_FEATURE_KEYS)
   const homeKeys = [
@@ -38,9 +39,6 @@ test('frontend feature catalog covers every configurable home card with unique k
   for (const key of homeKeys) assert.equal(catalogKeys.has(key), true, `Missing ${key}`)
 
   assert.match(pageSource, /usePublicFrontendFeatures\(\)/)
-  assert.match(pageSource, /featureEnabled\('home\.arrival-summary'\)/)
-  assert.match(pageSource, /featureEnabled\('home\.featured-procedures'\)/)
-  assert.match(pageSource, /featureEnabled\('home\.emergency-contact'\)/)
   assert.match(pageSource, /\.filter\(action => featureEnabled\(action\.featureKey\)\)/)
 })
 
@@ -97,4 +95,50 @@ test('admin feature controls are guarded, audited, and use binary switches', () 
   assert.match(adminApiSource, /useAdminRequest\(event\)/)
   assert.match(adminApiSource, /writeAudit\(client, event/)
   assert.match(adminApiSource, /frontend-feature\.disable/)
+})
+
+test('published content can become a directly searchable home entry at a chosen module', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-home-entries-'))
+  const databasePath = join(directory, 'home-entries.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO contents (
+        id, kind, slug, title, summary, body, metadata_json, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'music-association-entry',
+      'club',
+      'music-association',
+      '音乐协会',
+      '校园音乐交流与演出。',
+      '',
+      JSON.stringify({
+        homeEntryEnabled: true,
+        homeEntryPlacement: 'services',
+        homeEntryTitle: '音乐协会入口',
+        homeEntryDescription: '查看音乐协会介绍和招新信息。',
+        homeEntryIcon: 'i-lucide-music-2',
+        homeEntrySortOrder: 12
+      }),
+      'published',
+      now,
+      now
+    )
+    const entries = listPublicHomeEntries(client)
+    assert.deepEqual(entries, [{
+      id: 'music-association-entry',
+      title: '音乐协会入口',
+      description: '查看音乐协会介绍和招新信息。',
+      to: '/clubs/music-association',
+      icon: 'i-lucide-music-2',
+      placement: 'services',
+      sortOrder: 12
+    }])
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
 })

@@ -1,19 +1,5 @@
 export const FRONTEND_FEATURE_DEFINITIONS = [
   {
-    key: 'home.trust-notice',
-    group: '首页重点',
-    title: '信息来源提示',
-    description: '首页顶部的非官方说明、学校官网和反馈纠错入口。',
-    icon: 'i-lucide-badge-info'
-  },
-  {
-    key: 'home.arrival-summary',
-    group: '首页重点',
-    title: '报到时间卡片',
-    description: '首页顶部右侧的报到日期、入学教育和上课时间入口。',
-    icon: 'i-lucide-calendar-days'
-  },
-  {
     key: 'home.essential.arrival',
     group: '新生常用入口',
     title: '核对报到安排',
@@ -70,13 +56,6 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
     icon: 'i-lucide-calendar-range'
   },
   {
-    key: 'home.featured-procedures',
-    group: '办事与服务',
-    title: '常用办事',
-    description: '首页自动展示的常用办事流程区域。单条流程仍在办事流程中上下架。',
-    icon: 'i-lucide-list-checks'
-  },
-  {
     key: 'home.more.checklist',
     group: '其他常用入口',
     title: '新生清单',
@@ -89,6 +68,13 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
     title: '安全、医疗与心理支持',
     description: '进入安全、医疗和心理支持指南。',
     icon: 'i-lucide-shield-plus'
+  },
+  {
+    key: 'home.more.student-rules',
+    group: '其他常用入口',
+    title: '学生手册与资助',
+    description: '进入校内规则、奖助学金和学习要求。',
+    icon: 'i-lucide-book-open-check'
   },
   {
     key: 'home.more.clubs',
@@ -138,13 +124,6 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
     title: 'WeLearn 学习工具',
     description: '打开第三方 WeLearn 工具下载入口。',
     icon: 'i-lucide-download'
-  },
-  {
-    key: 'home.emergency-contact',
-    group: '办事与服务',
-    title: '应急联系',
-    description: '首页底部的校园 110、110、119 和 120 快捷联系卡片。',
-    icon: 'i-lucide-phone-call'
   }
 ] as const
 

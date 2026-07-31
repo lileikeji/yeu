@@ -752,6 +752,10 @@ export const visitorTrackSchema = z.object({
   meta: z.record(z.string(), z.unknown()).optional()
 }).strict()
 
+export const publicPageViewStatsQuerySchema = z.object({
+  path: z.string().trim().min(1).max(2048).default('/')
+}).strict()
+
 export const adminVisitorsQuerySchema = paginationQuerySchema.extend({
   ip: z.string().trim().max(80).optional(),
   banned: z.enum(['true', 'false']).optional(),

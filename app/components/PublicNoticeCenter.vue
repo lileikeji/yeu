@@ -28,6 +28,17 @@ const notices = computed(() => data.value?.items ?? [])
 const unreadCount = computed(() => noticeUnreadCount(notices.value))
 const selectedNotice = computed(() => notices.value.find(notice => notice.id === selectedNoticeId.value) ?? null)
 const modalTitle = computed(() => selectedNotice.value ? '公告详情' : '公告通知')
+
+function replaceNotice(id: string, patch: Partial<PublicNotice>): void {
+  if (!data.value) return
+  data.value = {
+    ...data.value,
+    items: data.value.items.map(notice => notice.id === id
+      ? { ...notice, ...patch }
+      : notice)
+  }
+}
+
 const modalDescription = computed(() => selectedNotice.value
   ? '查看公告的完整内容和发布时间。'
   : unreadCount.value > 0
@@ -51,8 +62,10 @@ async function confirmNotice(notice: PublicNotice): Promise<void> {
   if (notice.confirmed || confirmingId.value === notice.id) return
 
   const previousCount = notice.confirmationCount
-  notice.confirmed = true
-  notice.confirmationCount += 1
+  replaceNotice(notice.id, {
+    confirmed: true,
+    confirmationCount: previousCount + 1
+  })
   confirmingId.value = notice.id
 
   try {
@@ -60,11 +73,15 @@ async function confirmNotice(notice: PublicNotice): Promise<void> {
       `/api/public/notices/${encodeURIComponent(notice.id)}/confirm`,
       { method: 'POST' }
     )
-    notice.confirmed = result.confirmed
-    notice.confirmationCount = result.confirmationCount
+    replaceNotice(notice.id, {
+      confirmed: result.confirmed,
+      confirmationCount: result.confirmationCount
+    })
   } catch {
-    notice.confirmed = false
-    notice.confirmationCount = previousCount
+    replaceNotice(notice.id, {
+      confirmed: false,
+      confirmationCount: previousCount
+    })
     toast.add({
       title: '已打开公告',
       description: '阅读状态暂时没有保存，稍后再次打开时会重试。',

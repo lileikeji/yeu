@@ -144,6 +144,24 @@ export function recordVisitorEvent(
   return { visitorId: visitor.id, eventId }
 }
 
+export function getPublicPageViewStats(client: DatabaseClient, path: string) {
+  const normalizedPath = path.trim() || '/'
+  const condition = and(
+    eq(visitorEvents.action, 'page_view'),
+    eq(visitorEvents.path, normalizedPath)
+  )
+  const row = client.db.select({
+    viewCount: count(),
+    visitorCount: countDistinct(visitorEvents.visitorId)
+  }).from(visitorEvents).where(condition).get()
+
+  return {
+    path: normalizedPath,
+    viewCount: Number(row?.viewCount ?? 0),
+    visitorCount: Number(row?.visitorCount ?? 0)
+  }
+}
+
 export function findActiveBan(
   client: DatabaseClient,
   params: { ip?: string | null; visitorId?: string | null; userId?: string | null }

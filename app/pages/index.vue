@@ -3,6 +3,7 @@ import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
 import {
   buildHomeEssentialActions,
   buildHomeSearchTarget,
+  homeMoreEntries,
   homeTimelineStages
 } from '~~/app/utils/home-presentation'
 
@@ -35,25 +36,40 @@ const importantDates = [
   { date: '9月10日', title: '开始上课', description: '课表、教材和教学安排以教务系统及学院通知为准。' }
 ]
 const featureRequest = usePublicFrontendFeatures()
-await featureRequest
+const homeEntryRequest = usePublicHomeEntries()
+await Promise.all([featureRequest, homeEntryRequest])
 
 const { data: publicFeatureResponse } = featureRequest
+const { data: publicHomeEntryResponse } = homeEntryRequest
 
 const disabledFeatureKeys = computed(() => new Set(publicFeatureResponse.value?.disabledKeys ?? []))
 const featureEnabled = (key: FrontendFeatureKey) => !disabledFeatureKeys.value.has(key)
-const essentialActions = computed(() => buildHomeEssentialActions([])
-  .filter(action => featureEnabled(action.featureKey)))
+const customHomeEntries = computed(() => publicHomeEntryResponse.value?.items ?? [])
+const essentialActions = computed(() => [
+  ...buildHomeEssentialActions([]).filter(action => featureEnabled(action.featureKey)),
+  ...customHomeEntries.value
+    .filter(entry => entry.placement === 'quick')
+    .map(entry => ({
+      ...entry,
+      featureKey: undefined,
+      meta: '首页入口',
+      tone: 'bg-amber-50 text-amber-700'
+    }))
+])
 const timelineStages = computed(() => homeTimelineStages
   .filter(stage => featureEnabled(stage.featureKey)))
 const activeTimelineIndex = ref(0)
 const activeTimelineStage = computed(() => timelineStages.value[activeTimelineIndex.value] ?? timelineStages.value[0])
-const serviceNavEntries = [
-  { title: '到校与离校交通', to: '/transport', icon: 'i-lucide-bus-front', description: '公交、车站、机场与返程路线' },
-  { title: '校园周边生活', to: '/nearby', icon: 'i-lucide-compass', description: '学生街、快递点和吃喝玩乐' },
-  { title: '学生手册与资助', to: '/student-rules', icon: 'i-lucide-book-open-check', description: '校内规定、奖助学金与学习要求' },
-  { title: '社团与学生组织', to: '/clubs', icon: 'i-lucide-users-round', description: '社团介绍、招新信息和报名入口' },
-  { title: '校内部门服务', to: '/departments', icon: 'i-lucide-landmark', description: '招生、教务、学生事务等部门' }
-]
+const serviceNavEntries = computed(() => [
+  ...homeMoreEntries.filter(entry => featureEnabled(entry.featureKey)),
+  ...customHomeEntries.value
+    .filter(entry => entry.placement === 'services' || entry.placement === 'more')
+    .map(entry => ({
+      ...entry,
+      featureKey: undefined,
+      tone: 'bg-amber-50 text-amber-700'
+    }))
+])
 
 function searchSite() {
   const target = buildHomeSearchTarget(placeQuery.value)

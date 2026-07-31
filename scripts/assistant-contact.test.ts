@@ -20,6 +20,7 @@ import {
   assistantQueryTerms,
   compareAssistantEvidenceAuthority,
   hardcodedAssistantFactIsCurrent,
+  identityLocalAnswer,
   isInternalHandbookCitation,
   isGatewayContentBlocked,
   localEvidenceIsSufficient,
@@ -802,6 +803,69 @@ test('identity evidence rejects award titles even when the person name matches',
     text: '吴庆星奖学金用于奖励优秀学生。',
     score: 80
   }]), false)
+})
+
+test('identity answer keeps the person subject and synthesizes explicit official roles', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-identity-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO knowledge_claims (
+        id, category, title, statement, keywords_json, search_text,
+        confidence_label, confidence_score, review_status, source_note,
+        published_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'wu-qingxing-profile',
+      '校史人物',
+      '吴庆星与仰恩大学',
+      '吴庆星先生作为中国民办高等教育的开拓者。香港和昌集团董事会主席吴庆星先生在家乡创办仰恩大学。',
+      JSON.stringify(['吴庆星', '仰恩大学']),
+      '吴庆星先生作为中国民办高等教育的开拓者 香港和昌集团董事会主席吴庆星先生在家乡创办仰恩大学',
+      'extracted',
+      95,
+      'published',
+      'identity regression test',
+      now,
+      now,
+      now
+    )
+    client.sqlite.prepare(`
+      INSERT INTO contents (
+        id, kind, slug, title, summary, body, metadata_json, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'wu-qingxing-profile-page',
+      'guide',
+      'wu-qingxing-profile-page',
+      '吴庆星人物资料',
+      '吴庆星先生作为中国民办高等教育的开拓者。',
+      '吴庆星先生作为中国民办高等教育的开拓者。香港和昌集团董事会主席吴庆星先生在家乡创办仰恩大学。',
+      '{}',
+      'published',
+      now,
+      now
+    )
+
+    const response = identityLocalAnswer('吴庆星是谁？', [{
+      title: '吴庆星与仰恩大学',
+      url: 'https://www.yeu.edu.cn/wu-qingxing',
+      snippet: '吴庆星先生作为中国民办高等教育的开拓者。香港和昌集团董事会主席吴庆星先生在家乡创办仰恩大学。',
+      source: 'site',
+      text: '吴庆星先生作为中国民办高等教育的开拓者。香港和昌集团董事会主席吴庆星先生在家乡创办仰恩大学。',
+      score: 90
+    }])
+    assert.ok(response)
+    assert.match(response.answer, /吴庆星是中国民办高等教育的开拓者/)
+    assert.match(response.answer, /吴庆星是香港和昌集团董事会主席/)
+    assert.doesNotMatch(response.answer, /^官网公开资料显示：开拓者/)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('major dorm question includes the provisional screenshot allocation', async () => {

@@ -145,6 +145,14 @@ export const homeMoreEntries: HomeMoreEntry[] = [
     tone: 'bg-red-50 text-red-700'
   },
   {
+    featureKey: 'home.more.student-rules',
+    title: '学生手册与资助',
+    description: '校内规则、奖助学金和学习要求',
+    to: '/student-rules',
+    icon: 'i-lucide-book-open-check',
+    tone: 'bg-indigo-50 text-indigo-700'
+  },
+  {
     featureKey: 'home.more.clubs',
     title: '学生社团',
     description: '按兴趣看社团方向和本学期招新消息',

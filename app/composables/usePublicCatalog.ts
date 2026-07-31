@@ -2,6 +2,7 @@
 import type {
   ApiAmapOwnerDraftPlace,
   ApiContent,
+  ApiPublicHomeEntries,
   ApiPublicFrontendFeatures,
   ApiListResponse,
   ApiPlace,
@@ -13,6 +14,12 @@ const PUBLIC_PAGE_SIZE = 100
 export function usePublicFrontendFeatures() {
   return useFetch<ApiPublicFrontendFeatures>('/api/public/features', {
     key: 'public-frontend-features'
+  })
+}
+
+export function usePublicHomeEntries() {
+  return useFetch<ApiPublicHomeEntries>('/api/public/home-entries', {
+    key: 'public-home-entries'
   })
 }
 

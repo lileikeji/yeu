@@ -44,7 +44,9 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   async function sendTrack(action: string, path: string, meta?: Record<string, unknown>) {
     try {
-      await $fetch('/api/public/track', {
+      const result = await $fetch<{
+        stats?: { path: string, viewCount: number, visitorCount: number }
+      }>('/api/public/track', {
         method: 'POST',
         body: {
           action,
@@ -53,6 +55,11 @@ export default defineNuxtPlugin((nuxtApp) => {
         },
         credentials: 'include'
       })
+      if (action === 'page_view' && result.stats) {
+        window.dispatchEvent(new CustomEvent('public-page-view-stats', {
+          detail: result.stats
+        }))
+      }
     } catch {
       // non-fatal
     }

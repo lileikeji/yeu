@@ -162,6 +162,8 @@ onMounted(() => {
       <slot />
     </main>
 
+    <PublicPageViewStats />
+
     <PwaUpdatePrompt />
 
     <footer

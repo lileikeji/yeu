@@ -7,7 +7,7 @@ import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { visitorEvents, visitors } from '../server/database/schema'
-import { listVisitors } from '../server/modules/visitors/service'
+import { getPublicPageViewStats, listVisitors } from '../server/modules/visitors/service'
 
 test('visitor list supports activity sorting and daily/hourly analytics', () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-visitors-'))
@@ -45,6 +45,7 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
         id: randomUUID(),
         visitorId: firstId,
         action: 'page_view',
+        path: '/guides/example',
         createdAt: now - 3_600_000,
         metaJson: '{}'
       },
@@ -52,6 +53,7 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
         id: randomUUID(),
         visitorId: secondId,
         action: 'page_view',
+        path: '/guides/example',
         createdAt: now - 7_200_000,
         metaJson: '{}'
       },
@@ -59,6 +61,7 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
         id: randomUUID(),
         visitorId: secondId,
         action: 'search',
+        path: '/search',
         createdAt: now - 7_100_000,
         metaJson: '{}'
       }
@@ -72,6 +75,12 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
 
     const mostActive = listVisitors(client, { page: 1, pageSize: 10, sort: 'event-count' })
     assert.equal(mostActive.items[0]?.id, secondId)
+
+    assert.deepEqual(getPublicPageViewStats(client, '/guides/example'), {
+      path: '/guides/example',
+      viewCount: 2,
+      visitorCount: 2
+    })
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
