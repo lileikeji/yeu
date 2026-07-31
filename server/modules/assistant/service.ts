@@ -210,7 +210,7 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v13-identity-context-routing'
+const ASSISTANT_CACHE_VERSION = 'rag-v14-identity-entry-priority'
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 1200
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
@@ -2222,6 +2222,11 @@ function retrieveIdentityEvidence(
   // the person's name.
   const curatedIdentity = assistantKnowledgeEvidenceForQuery(client, subject, searchLimit)
     .filter(item => identityEvidenceIsExplicit(item, subject))
+  // Reviewed identity entries are complete answers. Keep them ahead of long
+  // official articles that may mention the person in a narrative context.
+  if (curatedIdentity.length > 0) {
+    return curatedIdentity.slice(0, limit)
+  }
   // Use the person name as the document-core query. Question fillers such as
   // “是谁” are not evidence terms; passing them as core constraints can
   // discard a valid official document and trigger the expensive fallback.
@@ -2909,6 +2914,7 @@ export function identityLocalAnswer(query: string, evidence: AssistantEvidence[]
   if (!primary) return null
   const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
   const title = safeText(primary.title, 180)
+  const isReviewedIdentityEntry = primary.authority === 'reviewed_site'
   const escapedSubject = subject.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
 
   // Curated profile entries already contain a reviewed, readable answer. Use
@@ -2916,7 +2922,7 @@ export function identityLocalAnswer(query: string, evidence: AssistantEvidence[]
   // as “她与吴庆星共同发起仰恩基金会” loses its subject and gets dropped,
   // making a correct profile look incomplete.
   const curatedTitle = new RegExp(`^${escapedSubject}[：:|｜]`, 'u').test(primary.title)
-  if (curatedTitle && primary.snippet.trim().includes(subject)) {
+  if (isReviewedIdentityEntry && curatedTitle && primary.snippet.trim().includes(subject)) {
     const curatedAnswer = primary.snippet
       .replace(/\s+/g, ' ')
       .split(/(?<=[。！？；])/u)

@@ -909,6 +909,22 @@ test('contact page exposes the supplied QR image and visible entry points', () =
   assert.match(discover, /联系我们 \/ 加新生群/)
 })
 
+test('identity answer ignores article lead metadata', () => {
+  const response = identityLocalAnswer('吴庆星是谁？', [{
+    title: '吴庆星：挥金如土为故里',
+    url: 'https://web.yeu.edu.cn/2025/0829/c1278a51212/page.htm',
+    snippet: '作者：郭成荣 他在偏远山乡建起了现代化大学。制造这个现代化大学的是香港和昌集团董事会主席吴庆星先生。',
+    source: 'site',
+    authority: 'official_site',
+    text: '作者：郭成荣 他在偏远山乡建起了现代化大学。制造这个现代化大学的是香港和昌集团董事会主席吴庆星先生。',
+    score: 80
+  }])
+
+  assert.ok(response)
+  assert.doesNotMatch(response.answer, /作者：郭成荣/)
+  assert.match(response.answer, /吴庆星/)
+})
+
 test('assistant endpoint is server-only, rate limited and excluded from CDN cache', () => {
   const route = readFileSync(resolve(root, 'server/api/public/assistant.post.ts'), 'utf8')
   const streamRoute = readFileSync(resolve(root, 'server/api/public/assistant/stream.post.ts'), 'utf8')

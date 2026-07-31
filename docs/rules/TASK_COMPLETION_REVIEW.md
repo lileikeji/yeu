@@ -75,3 +75,16 @@
 - 发布/回滚信息：无代码发布；文档变更可通过 Git 回退。
 - 架构变化：建立复盘规则库；`ARCHITECTURE.md`、`DATA_MODEL.md` 和 `DEPLOYMENT.md` 明确 Nuxt/Nitro 单体、SQLite/Drizzle、`systemd yeu.service`、release/current/shared 发布布局、AI 检索路径、知识库实体、账号/聊天/访客边界和地图 provider 边界。
 - 后续动作：把规则库链接加入项目级贡献/发布检查；在下一次跨模块任务中验证复盘记录是否完整，并按实际变化继续更新架构文档。
+
+## 2026-07-31 - AI 身份检索与线上发布复盘
+
+- 本次目标：修复“吴庆星是谁”被官网文章开头和网页缓存误导的问题，修正答案阶段耗时显示，并把已验证的 AI/地图修复发布到线上。
+- 实际完成：审核身份条目优先于叙事型官网文章；普通文章不再进入身份问题的快速摘要分支；身份检索缓存版本升级；新增文章元数据回归测试；发布 `2a58f03` 对应 release。
+- 做得好的地方：先用源站和生产日志区分了 CDN/应用缓存、数据库命中和模型回答；新包切换失败时保留并自动回滚旧 release；发现 Windows 原生 `better_sqlite3.node` 后改用线上 Linux ELF 依赖再发布。
+- 做得不好的地方：第一次发布包解压层级错误，第二次才发现构建包携带了 Windows 原生模块；线上冒烟一度只看域名响应，没有第一时间对比源站直连响应。
+- 根因：身份检索的“审核条目”和“官方长文”共用排序；构建发布在 Windows 端打包了平台相关原生依赖；缓存命中显示未区分旧响应来源。
+- 后续避免：发布包必须在切换前检查 `.output/server/index.mjs` 和所有 `.node` 文件格式；身份、政策、功能入口等高风险意图必须有独立优先级和回归问题；域名/CDN 验证同时执行源站直连、响应头和请求日志核对。
+- 验证环境与结果：`pnpm exec tsx --test scripts/assistant-contact.test.ts scripts/assistant-knowledge.test.ts scripts/student-rules.test.ts`，45 项通过；线上 `yeu.service` active，`/api/health` 200，旧版回滚点保留；新 release 的 Linux `better_sqlite3.node` 为 ELF 64-bit。
+- 发布/回滚信息：提交 `2a58f03` 已部署到 `/www/wwwroot/yeu/releases/20260731-171758-2a58f03`，旧 release `/www/wwwroot/yeu/releases/20260731-162100-dfb4676` 保留为回滚点；后续身份逻辑修复待新提交发布。
+- 架构变化：AI 本地检索增加“审核身份条目 -> 官方文档 -> 已发布声明”的意图优先级；回答缓存版本随路由语义变更递增；发布检查增加平台原生依赖核验。
+- 后续动作：提交本轮身份检索修复并重新构建 Linux 兼容发布包；源站直连验证“吴庆星是谁”“什么时候开学”“体育选修有哪些项目”，再验证 CDN 域名返回一致。
