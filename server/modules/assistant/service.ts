@@ -1569,6 +1569,53 @@ function directDirectoryEvidence(
   return candidates[0]?.item ?? null
 }
 
+function directDirectoryPreview(item: AssistantEvidence): string {
+  const cleaned = (item.snippet || item.text || '')
+    .replace(/\/uploads\/[^\s]+/giu, ' ')
+    .replace(/\b(?:public-catalog-seed|partial|published|draft|club:[a-z0-9-]+|department:[a-z0-9-]+)\b/giu, ' ')
+    .replace(/\b1[3-9]\d{9}\b/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+  const sentences = cleaned
+    .split(/(?<=[。！？])/u)
+    .map(sentence => sentence.trim())
+    .filter(Boolean)
+  return safeText(sentences.slice(0, 2).join(' ') || cleaned, 280)
+}
+
+function retrieveDirectDirectoryEvidence(
+  client: DatabaseClient,
+  query: string
+): AssistantEvidence[] {
+  if (!isSpecificDirectoryFeatureQuery(query)) return []
+  const rows = client.db.select({
+    slug: contents.slug,
+    title: contents.title,
+    summary: contents.summary,
+    body: contents.body,
+    metadataJson: contents.metadataJson,
+    kind: contents.kind
+  }).from(contents).where(and(
+    eq(contents.status, 'published'),
+    inArray(contents.kind, ['club', 'department'])
+  )).all()
+  const terms = assistantQueryTerms(query)
+  const evidence = rows.map((row): AssistantEvidence => {
+    const summary = safeText(row.summary, 500)
+    const detail = `${safeText(row.body, 3000)} ${nestedArticleText(row.metadataJson)}`
+    return {
+      title: row.title,
+      url: contentUrl(row.kind, row.slug),
+      snippet: evidenceSnippet(summary, detail, terms),
+      source: 'site',
+      text: `${summary} ${detail}`,
+      score: evidenceScore(row.title, summary, detail, terms)
+    }
+  })
+  const directEntry = directDirectoryEvidence(query, evidence)
+  return directEntry ? [directEntry] : []
+}
+
 function isTransferQuery(query: string): boolean {
   return /\u8f6c\u4e13\u4e1a|\u6362\u4e13\u4e1a/.test(normalizeAssistantQuery(query))
 }
@@ -2132,11 +2179,12 @@ function featureLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAs
   const directEntry = directDirectoryEvidence(query, evidence)
   if (directEntry) {
     const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = directEntry
+    const preview = directDirectoryPreview(directEntry)
     return {
       query,
       mode: 'local',
-      answer: `已找到“${directEntry.title}”的专属页面。${directEntry.snippet || '这里可以查看该社团或部门的介绍、联系方式和最新信息。'}点击下方入口即可直接打开，不需要再从上级列表查找。`,
-      citations: [citation],
+      answer: `已找到“${directEntry.title}”的专属页面。${preview || '这里可以查看该社团或部门的介绍、联系方式和最新信息。'}点击下方入口即可直接打开，不需要再从上级列表查找。`,
+      citations: [{ ...citation, snippet: preview || citation.snippet }],
       usedWebSearch: false,
       confidence: 0.99
     }
@@ -3530,6 +3578,22 @@ export async function answerCampusQuestion(
         localEvidence: [] as AssistantEvidence[],
         webEvidence: [] as ApiAssistantCitation[],
         requiresSpecificWebEvidence: false
+      }
+    }
+
+    const directDirectoryEntry = retrieveDirectDirectoryEvidence(client, query)
+    if (directDirectoryEntry.length > 0) {
+      return {
+        query,
+        retrievalQuery,
+        intentDetail,
+        cacheKey,
+        route: 'local_database' as const,
+        cached: null,
+        localEvidence: directDirectoryEntry,
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence: false,
+        localEvidenceSufficient: true
       }
     }
 

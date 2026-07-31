@@ -93,7 +93,11 @@ test('assistant resolves a named club to its direct page instead of the club dir
       '音乐协会',
       '校园音乐交流与演出。',
       '查看音乐协会的活动方向、招新说明和负责人信息。',
-      '{}',
+      JSON.stringify({
+        organizerPhone: '13799730013',
+        image: '/uploads/music-association.jpg',
+        source: 'public-catalog-seed'
+      }),
       'published',
       now,
       now
@@ -102,6 +106,8 @@ test('assistant resolves a named club to its direct page instead of the club dir
     assert.equal(response.mode, 'local')
     assert.match(response.answer, /音乐协会/)
     assert.match(response.answer, /专属页面/)
+    assert.doesNotMatch(response.answer, /\/uploads\/|13799730013|public-catalog-seed/u)
+    assert.doesNotMatch(response.citations[0]?.snippet ?? '', /\/uploads\/|13799730013|public-catalog-seed/u)
     assert.equal(response.citations[0]?.url, '/clubs/music-association')
     assert.deepEqual(response.trace?.map(item => item.stage), [
       'query_analysis',
