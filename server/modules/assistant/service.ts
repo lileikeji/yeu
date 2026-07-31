@@ -955,7 +955,11 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
   const relatedTitle = /奖学金|助学金|基金|奖项|奖励|活动|通知|会议|楼|大楼|馆|道路|雕像|铜像|工程|项目|比赛|论坛|讲座/u
   const officialBiographyTitle = title.includes(normalizedSubject)
     && /人物|校主|董事会主席|创办|教育家|企业家|华侨|建设仰恩|和仰恩大学/u.test(title)
-  if (officialBiographyTitle && !relatedTitle.test(title)) return true
+  const subjectLedBiographyTitle = title.startsWith(`${normalizedSubject}:`)
+    || title.startsWith(`${normalizedSubject}：`)
+    || title.startsWith(`${normalizedSubject}|`)
+    || title.startsWith(`${normalizedSubject}｜`)
+  if ((officialBiographyTitle || subjectLedBiographyTitle) && !relatedTitle.test(title)) return true
   if (title === normalizedSubject) return true
   const titleSubjectIndex = title.indexOf(normalizedSubject)
   if (titleSubjectIndex >= 0) {
