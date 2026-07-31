@@ -15,7 +15,15 @@ import { createRequestAbortSignal } from '../../../utils/request-abort'
 import { parseBody } from '../../../utils/validation'
 
 export default defineEventHandler(async (event) => {
+  // Keep the stream unbuffered across Nginx/CDN layers. The client has a
+  // normal JSON endpoint fallback, but an early first byte prevents healthy
+  // long-running searches from being mistaken for a dead connection.
+  setHeader(event, 'Content-Type', 'text/event-stream; charset=utf-8')
+  setHeader(event, 'Cache-Control', 'no-cache, no-store, no-transform')
   setHeader(event, 'CDN-Cache-Control', 'no-store')
+  setHeader(event, 'Surrogate-Control', 'no-store')
+  setHeader(event, 'X-Accel-Buffering', 'no')
+  setHeader(event, 'Connection', 'keep-alive')
   const client = useAppDatabase(event)
   const ipAddress = getClientIpAddress(event)
   assertRateLimit(event, `assistant:${ipAddress}`, 8, 60 * 1000, client)
@@ -46,6 +54,10 @@ export default defineEventHandler(async (event) => {
 
   void (async () => {
     try {
+      await stream.push({
+        event: 'heartbeat',
+        data: JSON.stringify({ at: new Date().toISOString() })
+      })
       if (blocked) {
         try {
           recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, 'UNSAFE_QUERY', Date.now() - startedAt)

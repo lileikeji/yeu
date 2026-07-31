@@ -370,37 +370,62 @@ function parseAssistantSseBlock(block: string): { event: string, data: Record<st
   return { event, data: data as Record<string, unknown> }
 }
 
-async function requestAssistantStream(query: string, signal: AbortSignal): Promise<ApiAssistantResponse> {
-  const requestBody = {
+type AssistantRequestBody = {
+  q: string
+  previousQ?: string
+}
+
+function buildAssistantRequestBody(query: string): AssistantRequestBody {
+  return {
     q: query,
     ...(previousAssistantQuery && previousAssistantQuery !== query
       ? { previousQ: previousAssistantQuery }
       : {})
   }
-  const response = await fetch('/api/public/assistant/stream', {
+}
+
+async function requestAssistantFallback(
+  requestBody: AssistantRequestBody,
+  signal: AbortSignal
+): Promise<ApiAssistantResponse> {
+  return requestFetch<ApiAssistantResponse>('/api/public/assistant', {
     method: 'POST',
-    credentials: 'same-origin',
-    headers: {
-      'Accept': 'text/event-stream',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(requestBody),
+    body: requestBody,
     signal
   })
-  if (response.status === 404 || response.status === 405) {
-    return requestFetch<ApiAssistantResponse>('/api/public/assistant', {
+}
+
+async function requestAssistantStream(query: string, signal: AbortSignal): Promise<ApiAssistantResponse> {
+  const requestBody = buildAssistantRequestBody(query)
+  let response: Response
+  try {
+    response = await fetch('/api/public/assistant/stream', {
       method: 'POST',
-      body: requestBody,
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'text/event-stream',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody),
       signal
     })
+  } catch (error) {
+    if (signal.aborted) throw error
+    return requestAssistantFallback(requestBody, signal)
   }
-  if (!response.ok || !response.body) throw new Error(`ASSISTANT_STREAM_${response.status}`)
+  if (response.status === 404 || response.status === 405) {
+    return requestAssistantFallback(requestBody, signal)
+  }
+  if (!response.ok || !response.body) {
+    if (signal.aborted) throw new Error('ASSISTANT_STREAM_ABORTED')
+    return requestAssistantFallback(requestBody, signal)
+  }
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
   let completed: ApiAssistantResponse | null = null
-  let receivedBusinessEvent = false
+  let streamError: unknown = null
   try {
     while (true) {
       const chunk = await reader.read()
@@ -410,7 +435,6 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
       for (const block of blocks) {
         const message = parseAssistantSseBlock(block)
         if (!message) continue
-        receivedBusinessEvent = true
         if (message.event === 'stage_started') updateAssistantStageStarted(message.data)
         else if (message.event === 'stage_completed') updateAssistantStageCompleted(message.data)
         else if (message.event === 'completed') completed = message.data as unknown as ApiAssistantResponse
@@ -418,18 +442,18 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
       }
       if (chunk.done) break
     }
+  } catch (error) {
+    streamError = error
   } finally {
     reader.releaseLock()
   }
+  if (streamError) {
+    if (signal.aborted) throw streamError
+    return requestAssistantFallback(requestBody, signal)
+  }
   if (!completed) {
-    if (!receivedBusinessEvent && (response.status === 404 || response.status === 405)) {
-      return requestFetch<ApiAssistantResponse>('/api/public/assistant', {
-        method: 'POST',
-        body: requestBody,
-        signal
-      })
-    }
-    throw new Error('ASSISTANT_STREAM_INCOMPLETE')
+    if (signal.aborted) throw new Error('ASSISTANT_STREAM_ABORTED')
+    return requestAssistantFallback(requestBody, signal)
   }
   return completed
 }
