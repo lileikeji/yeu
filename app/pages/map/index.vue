@@ -319,10 +319,23 @@ function selectPoi(poi: PublicMapPlace) {
   mobileSheetState.value = decision.mobileSheetState
   mapViewMode.value = decision.mapViewMode
   mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
+  // Opening the desktop details panel changes the settled map layout even
+  // though the sidebar remains in the same grid column. AMap can keep the
+  // previous viewport after the immediate camera move, leaving a blank strip
+  // on wide screens. Resize before and after the camera update.
+  if (decision.mapViewMode === 'geographic') {
+    mapProvider.value?.resize()
+  }
   if (decision.flyAction === 'fly-to-point' && poi.point) {
     mapProvider.value?.flyToPoint(poi.point, 18)
   } else if (decision.flyAction === 'fly-to-poi') {
     mapProvider.value?.flyToPoi(poi.id)
+  }
+  if (decision.mapViewMode === 'geographic' && typeof window !== 'undefined') {
+    void nextTick(() => {
+      mapProvider.value?.resize()
+      window.requestAnimationFrame(() => mapProvider.value?.resize())
+    })
   }
 }
 

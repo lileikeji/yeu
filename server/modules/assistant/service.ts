@@ -378,6 +378,8 @@ function withRunMetadata(
   retrievalPath: ApiAssistantRetrievalPath,
   cacheHit = false
 ): ApiAssistantResponse {
+  const measuredDurationMs = Math.max(0, Date.now() - tracker.startedAt)
+  const traceDurationMs = tracker.trace.reduce((total, step) => total + step.durationMs, 0)
   return {
     ...response,
     // The supplied freshman handbook is an internal retrieval source. Its
@@ -386,7 +388,10 @@ function withRunMetadata(
     citations: response.citations.filter(citation => !isInternalHandbookCitation(citation)),
     retrievalPath,
     trace: [...tracker.trace],
-    totalDurationMs: Math.max(0, Date.now() - tracker.startedAt),
+    // Keep the summary time at least as large as the visible stages. This
+    // matters on cache hits and through streamed responses where the UI can
+    // receive the final payload after the stage clock has already rendered.
+    totalDurationMs: Math.max(measuredDurationMs, traceDurationMs),
     cacheHit
   }
 }
@@ -720,6 +725,16 @@ function isOfficialUniversityUrl(value: string): boolean {
   } catch {
     return false
   }
+}
+
+function filterWebEvidenceForQuery(query: string, evidence: ApiAssistantCitation[]): ApiAssistantCitation[] {
+  // A person lookup must not turn a name collision into a biography from a
+  // random web page. External search is still useful for ordinary campus
+  // questions, but identity answers are accepted only from the university's
+  // own domain and the curated/claim indexes handled above.
+  return assistantIdentitySubject(query)
+    ? evidence.filter(item => isOfficialUniversityUrl(item.url))
+    : evidence
 }
 
 export function assistantEvidenceAuthority(item: Pick<ApiAssistantCitation, 'url' | 'source'> & { authority?: EvidenceAuthority }): EvidenceAuthority {
@@ -2201,8 +2216,14 @@ function retrieveIdentityEvidence(
   limit: number
 ): AssistantEvidence[] {
   const searchLimit = Math.max(12, Math.min(48, limit * 8))
+  // Curated identity entries are the first source for "X是谁" questions.
+  // They are kept separate from the broad document index so an unrelated
+  // award, project, or external article cannot win merely because it repeats
+  // the person's name.
+  const curatedIdentity = assistantKnowledgeEvidenceForQuery(client, subject, searchLimit)
+    .filter(item => identityEvidenceIsExplicit(item, subject))
   // Use the person name as the document-core query. Question fillers such as
-  // "是谁" are not evidence terms; passing them as core constraints can
+  // “是谁” are not evidence terms; passing them as core constraints can
   // discard a valid official document and trigger the expensive fallback.
   const officialDocuments = searchOfficialKnowledgeDocuments(client, [subject], searchLimit, subject)
     .map(item => ({
@@ -2235,7 +2256,7 @@ function retrieveIdentityEvidence(
     // Keep identity lookups on the official-document/claim index. The broad
     // FAQ and dynamic-entry index is much larger and is the source of the
     // multi-second analysis delay this path is meant to avoid.
-    dedupeAssistantEvidence([...officialDocuments, ...publishedClaims]),
+    dedupeAssistantEvidence([...curatedIdentity, ...officialDocuments, ...publishedClaims]),
     limit
   )
 }
@@ -2889,6 +2910,31 @@ export function identityLocalAnswer(query: string, evidence: AssistantEvidence[]
   const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
   const title = safeText(primary.title, 180)
   const escapedSubject = subject.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+
+  // Curated profile entries already contain a reviewed, readable answer. Use
+  // that complete text before sentence extraction; otherwise a sentence such
+  // as “她与吴庆星共同发起仰恩基金会” loses its subject and gets dropped,
+  // making a correct profile look incomplete.
+  const curatedTitle = new RegExp(`^${escapedSubject}[：:|｜]`, 'u').test(primary.title)
+  if (curatedTitle && primary.snippet.trim().includes(subject)) {
+    const curatedAnswer = primary.snippet
+      .replace(/\s+/g, ' ')
+      .split(/(?<=[。！？；])/u)
+      .map(item => item.trim())
+      .filter(Boolean)
+      .slice(0, 4)
+      .join(' ')
+    if (curatedAnswer.length >= 12) {
+      return {
+        query,
+        mode: 'local',
+        answer: `官网公开资料显示：${safeText(curatedAnswer, 620)} 以上为来源页面中的公开信息，具体内容请以原文为准。`,
+        citations: [citation],
+        usedWebSearch: false,
+        confidence: 0.96
+      }
+    }
+  }
   const identityFacts: string[] = []
   const subjectSentences: string[] = []
   const seenSources = new Set<string>()
@@ -3760,6 +3806,7 @@ export async function answerCampusQuestion(
     } catch {
       // A delayed cache migration must not prevent the planner from choosing live search.
     }
+    webEvidence = filterWebEvidenceForQuery(query, webEvidence)
     return {
       query,
       retrievalQuery,
@@ -3942,12 +3989,13 @@ export async function answerCampusQuestion(
       webEvidence = await runAssistantStage(tracker, 'web_search', '搜索网页', async () => {
         const result = await searchWeb(analysis.retrievalQuery, config)
         throwIfAssistantAborted(config.signal)
+        const filtered = filterWebEvidenceForQuery(query, result)
         try {
-          storeWebEvidence(client, analysis.retrievalQuery, result)
+          storeWebEvidence(client, analysis.retrievalQuery, filtered)
         } catch {
           // A cache write must never turn a successful search into a failed answer.
         }
-        return result
+        return filtered
       }, result => `找到 ${result.length} 条网页资料并写入缓存`)
     } catch {
       // MCP search is optional; the fallback still reports that evidence is insufficient.

@@ -1,21 +1,21 @@
 # 宝塔 Linux 部署与运维
 
-> 目标拓扑：Nginx -> PM2 单实例 -> Nuxt/Nitro -> SQLite
+> 目标拓扑：Nginx/CDN -> `systemd yeu.service` 单实例 -> Nuxt/Nitro -> SQLite
 > 目标仓库：`https://gitee.com/lilei1529/yeu`
-> 状态：部署基线。当前仓库已加入 Drizzle/SQLite 迁移与初始化脚本、单管理员认证和 PWA；PM2/Nginx 配置仍需在取得宝塔服务器信息后按实际域名和目录落地。
+> 状态：生产部署基线。当前仓库已加入 Drizzle/SQLite 迁移与初始化脚本、管理员/用户认证、AI/知识库和 PWA；生产应用由 `systemd yeu.service` 管理，QQ/微信 relay 使用独立 systemd 单元。
 
 ## 1. 生产原则
 
 - 推荐 Node.js 22 LTS，并在部署前以 `package.json` 和 Nuxt 当前版本的 engines 要求复核；pnpm 使用仓库声明的 10.28.1 版本。
 - 应用进程使用独立低权限 Linux 用户运行，不使用 root；Nginx 只读静态文件和公开上传目录。
-- SQLite 只由一个 PM2 实例写入，禁止 PM2 cluster/多实例。扩展为多实例前先迁移到服务型数据库。
+- SQLite 只由一个 `yeu.service` 实例写入，禁止 PM2、cluster 或多实例并发。扩展为多实例前先迁移到服务型数据库。
 - 代码版本、持久化数据库、上传文件、环境变量和备份分离；新版本发布不得覆盖持久化数据。
 - 生产只用高德 JS API 2.0；MapLibre/公共 OSM 瓦片仅用于开发或低流量预览。
 - 所有结构变更通过已提交的 Drizzle migration，生产禁止直接 `push` schema。
 
 ## 2. 服务器准备
 
-宝塔中安装 Nginx、Node.js 22 LTS、PM2、Git，并启用 HTTPS 证书自动续期。SQLite CLI 用于一致性备份和恢复检查。若采用原生 SQLite Node 驱动，还需按驱动安装说明准备编译工具或兼容的预编译二进制。
+宝塔中安装 Nginx、Node.js 22 LTS、Git，并启用 HTTPS 证书自动续期；应用守护由仓库提供的 `systemd` 单元负责，不要再为同一应用安装或启用 PM2。SQLite CLI 用于一致性备份和恢复检查。若采用原生 SQLite Node 驱动，还需按驱动安装说明准备编译工具或兼容的预编译二进制。
 
 建议目录：
 
@@ -61,9 +61,9 @@
 
 高德 JS Key 和安全密钥不可当作真正秘密，因为浏览器必须接收它们；安全性依赖域名白名单、配额和告警。会话密钥、管理员初始化凭据不得使用 `NUXT_PUBLIC_` 前缀。`NUXT_UPLOAD_DIR`、`NUXT_AMAP_WEB_SERVICE_KEY`、`NUXT_LOG_LEVEL` 等尚未被当前代码消费的预留名不属于现行生产契约，相关能力实现后再加入 `.env.example` 和本表。
 
-`.env` 不提交仓库、不放进前端构建产物、不打印到 CI/PM2 日志。通过宝塔 PM2 环境变量界面或受限部署会话注入变量；变更 public runtime config 后也执行完整构建和回归检查。
+`.env` 不提交仓库、不放进前端构建产物、不打印到 CI 或 systemd 日志。通过 shared 环境文件或受限部署会话注入变量；变更 public runtime config 后也执行完整构建和回归检查。
 
-仓库内的 TypeScript 维护脚本支持用 `NUXT_ENV_FILE` 显式选择环境文件，且 Shell 已有变量优先；这个变量不作用于 Nuxt 构建、Nitro 或 PM2，不能替代生产发布会话的环境注入。生产迁移、构建和 PM2 启动/重启前，都应在同一个受限 Shell 会话中用 `set -a` + `source /www/wwwroot/yeu/shared/.env` 导出 shared 环境，并核对 `NUXT_DATABASE_PATH`，防止命令静默落到 release 内的 `./data/yeu.sqlite`。
+仓库内的 TypeScript 维护脚本支持用 `NUXT_ENV_FILE` 显式选择环境文件，且 Shell 已有变量优先；这个变量不作用于 Nuxt 构建、Nitro 或 systemd 服务环境，不能替代生产发布会话的环境注入。生产迁移、构建和 systemd 重启前，都应在同一个受限 Shell 会话中用 `set -a` + `source /www/wwwroot/yeu/shared/.env` 导出 shared 环境，并核对 `NUXT_DATABASE_PATH`，防止命令静默落到 release 内的 `./data/yeu.sqlite`。
 
 ## 4. 首次发布
 
@@ -107,6 +107,15 @@ pnpm db:seed:procedures --apply
 ```
 
 流程脚本要求关联部门、指南和来源已存在；人工同名流程会使整批操作停止。当前种子覆盖 2026 级报到、校园网与统一认证、宿舍维修报修、图书馆借阅证/微信绑定和专升本学生档案邮寄。生产更新前先备份数据库，并核对预检中的新增/更新数量。
+
+校园问答的内置知识种子是运行时检索的基础数据，不是只存在于构建产物里的静态文件。每次发布在迁移完成后都要执行一次幂等同步；它会更新内置条目并保留动态内容，不能省略，否则身份问答和新生经验会退回网页搜索或显示资料不足：
+
+```bash
+pnpm db:seed:assistant --database "$NUXT_DATABASE_PATH"
+pnpm db:seed:assistant --apply --database "$NUXT_DATABASE_PATH"
+```
+
+第一条只做预检，第二条才写入。发布记录必须记录预检总数与应用总数；当前种子规模以命令输出为准，不要把本地开发库的条数当成线上事实。完成后用“吴庆星是谁”“什么时候开学”“体育选修有哪些项目”做一次本地命中冒烟，确认 `retrievalPath=local_database` 且没有无关网页引用。
 
 首次建立地图草稿库时，按以下顺序预检并应用；已有人工地点数据的生产库必须先备份并逐项审查预检结果：
 
@@ -274,7 +283,7 @@ curl -sSI https://example.edu.cn/ | grep -Ei 'x-request-id|x-content-type-option
 curl -sSI https://example.edu.cn/api/admin/auth/session | grep -Ei 'cache-control|pragma|x-request-id'
 ```
 
-生产默认输出一行一个 JSON 的请求日志。`NUXT_REQUEST_LOGGING=false` 只允许在已经由受监控的上游访问日志完整替代时使用；无论是否关闭应用请求日志，数据库后台审计仍保留同一个请求 ID。运行时 `app/server/map` 源码禁止直接使用 `console.*`，服务端请求错误由统一结构化日志记录；维护脚本的 stdout/stderr 是命令行契约，不应与 PM2 请求日志混写。
+生产默认输出一行一个 JSON 的请求日志。`NUXT_REQUEST_LOGGING=false` 只允许在已经由受监控的上游访问日志完整替代时使用；无论是否关闭应用请求日志，数据库后台审计仍保留同一个请求 ID。运行时 `app/server/map` 源码禁止直接使用 `console.*`，服务端请求错误由统一结构化日志记录；维护脚本的 stdout/stderr 是命令行契约，不应与 systemd 应用日志混写。
 
 ## 6. 日常发布与回滚
 
@@ -302,7 +311,7 @@ ln -sfn "/www/wwwroot/yeu/releases/${RELEASE}" /www/wwwroot/yeu/current
 sudo systemctl restart yeu.service
 ```
 
-SQLite 单实例采用短暂停机重启，不用 PM2 cluster 或重叠写入追求“零停机”。
+SQLite 单实例采用短暂停机重启，不用 PM2 cluster 或重叠写入追求“零停机”；应用重启只通过 `systemctl restart yeu.service`。
 
 代码回滚可以把 `current` 指向上一 release 并重启；数据库不能假设可随代码自动降级。每个迁移必须说明旧代码是否仍兼容：
 
@@ -374,7 +383,7 @@ NUXT_MONITOR_MAX_LOGIN_FAILURES=4
 NUXT_MONITOR_MAX_RATE_LIMITED=0
 ```
 
-  `NUXT_MONITOR_REQUEST_LOG_PATH` 必须指向 PM2 `out_file` 的 shared 非公开绝对路径，不能指向包含环境变量、数据库输出或用户内容的混合调试日志。Webhook 地址必须是无内嵌账号密码的 HTTPS URL；发送前会再解析 DNS 并拒绝落到私网/元数据地址（防 DNS rebinding）。通知只包含故障码与聚合指标；首次故障、故障集合变化、超过提醒间隔和恢复会发送，相同状态在间隔内不会重复发送。若不配置 webhook，命令仍在异常时返回非零，必须让宝塔计划任务或 cron 对非零状态告警。
+  `NUXT_MONITOR_REQUEST_LOG_PATH` 必须指向 shared 非公开绝对路径，不能指向包含环境变量、数据库输出或用户内容的混合调试日志。Webhook 地址必须是无内嵌账号密码的 HTTPS URL；发送前会再解析 DNS 并拒绝落到私网/元数据地址（防 DNS rebinding）。通知只包含故障码与聚合指标；首次故障、故障集合变化、超过提醒间隔和恢复会发送，相同状态在间隔内不会重复发送。若不配置 webhook，命令仍在异常时返回非零，必须让宝塔计划任务或 cron 对非零状态告警。
 - 每分钟运行监控命令，日志写入 shared 非公开目录。实际 `pnpm` 绝对路径以 `command -v pnpm` 为准，不依赖交互式 shell 的 PATH：
 
 ```cron
@@ -382,15 +391,15 @@ NUXT_MONITOR_MAX_RATE_LIMITED=0
 ```
 
   首次启用时应临时将健康 URL 指向不可达端口验证 `unhealthy` 通知，再恢复正确地址验证 `recovery`；同时确认 webhook 接收端和 monitor 日志均未出现路径、密钥或用户数据。默认阈值为备份 26 小时、磁盘至少 5 GiB 且 15%、WAL 最大 256 MiB、可用内存至少 10%、单 CPU 一分钟负载不高于 2；请求指标默认检查最近 15 分钟，任一 5xx、任一 429 或超过 4 次管理员登录 401 即告警，可按机器容量通过 `NUXT_MONITOR_*` 调整。
-- PM2 `out_file` 指向 `NUXT_MONITOR_REQUEST_LOG_PATH`，错误日志单独存放；两者启用轮转并限制磁盘。结构化请求日志包含时间戳、请求 ID、路由、状态和耗时，不记录 Cookie、密码、查询串、完整纠错联系方式或精确用户定位。监控最多读取日志尾部 4 MiB；若该尾部不能覆盖完整时间窗，会返回 `request_log_window_incomplete`，此时必须缩短轮转周期、增加轮转频率或缩短监控时间窗，不能忽略。
+- `yeu.service` 的应用日志指向 `NUXT_MONITOR_REQUEST_LOG_PATH`，错误日志单独存放；两者启用轮转并限制磁盘。结构化请求日志包含时间戳、请求 ID、路由、状态和耗时，不记录 Cookie、密码、查询串、完整纠错联系方式或精确用户定位。监控最多读取日志尾部 4 MiB；若该尾部不能覆盖完整时间窗，会返回 `request_log_window_incomplete`，此时必须缩短轮转周期、增加轮转频率或缩短监控时间窗，不能忽略。
 - 在宝塔计划任务中每日运行一次 `pnpm feedback:cleanup`，清除到期的反馈网络标识、联系方式和记录；执行失败应进入运维告警。
 - 监控 CPU、内存、磁盘、inode、数据库/WAL 大小、备份最近成功时间、5xx、登录失败和纠错滥用。
-- 管理员发布、下线、坐标修改和来源变更写入数据库审计日志，不能只依赖 PM2 文本日志。
+- 管理员发布、下线、坐标修改和来源变更写入数据库审计日志，不能只依赖 systemd 文本日志。
 
 ## 10. 发布验收
 
 - [ ] `pnpm install --frozen-lockfile`、lint、typecheck、test、build 和 migration 全部成功。
-- [ ] 服务器 Node/pnpm 与仓库要求一致，PM2 只有一个 `yeu` 实例且非 root 运行。
+- [ ] 服务器 Node/pnpm 与仓库要求一致，`yeu.service` 只有一个非 root 实例且已启用；没有同端口 PM2 进程。
 - [ ] 数据库、uploads、备份和 `.env` 位于 shared 目录，权限最小化且不可经 URL 下载。
 - [ ] HTTPS、证书续期、反向代理真实 IP、上传上限和安全响应头正确。
 - [ ] 生产 `/api/health` 返回 HTTP 200、`status=ok`、`database=ready`、`configuration=ready` 且 `issues=[]`；不能忽略带问题码的 503。

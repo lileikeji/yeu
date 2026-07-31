@@ -1,6 +1,6 @@
 # 数据模型
 
-> 状态：v1 逻辑模型；核心 Drizzle schema 已实现，扩展实体仍按路线图迭代
+> 状态：当前逻辑模型（2026-07-31）；核心内容、账号、聊天、访客和 AI/知识库表已实现
 > 数据库：SQLite（生产单机），由 Drizzle 管理 schema 与迁移
 > 核心原则：发布内容、来源、核验时间和坐标系必须可追溯。
 
@@ -214,29 +214,39 @@ erDiagram
 - `admin_users`：`id`、`username`、`password_hash`、`display_name`、`is_active`、`last_login_at`、时间戳；用户名唯一，绝不保存明文密码。
 - `admin_sessions`：`id`、`admin_user_id`、`token_hash`、`expires_at`、`last_seen_at`、`ip_hash`、`user_agent_summary`、`revoked_at`。数据库只保存会话 token 的哈希。
 
-学生/公众账号不在 v1 schema。收藏、待办、浏览历史使用浏览器本地存储，并允许用户一键清除。
+`users`/`user_sessions` 保存普通用户账号和哈希会话；用户状态为 `active | disabled | banned`，专业和宿舍楼属于可修改资料。公开指南和地图不要求登录，但聊天写入必须有有效用户会话。`organization_admin_scopes` 将组织管理员限制到被授权的社团/部门内容，不能把组织管理员权限当作全局管理员权限。
 
-### 6.2 `correction_reports`
+### 6.2 `chat_rooms`、`chat_members`、`chat_messages` 与 `chat_mutes`
+
+群聊使用独立实体：当前房间类型为公共群或宿舍群，成员通过联合主键关联用户；消息保存发送者快照、正文、创建时间和软删除时间；禁言支持房间级/个人级、原因、执行管理员和到期时间。未登录用户可以浏览公开内容，但不能创建聊天消息。社团/部门专属房间若要从入口升级为独立房间，必须新增受控类型和成员授权迁移。
+
+### 6.3 `frontend_feature_settings`、`visitors` 与 `visitor_events`
+
+`frontend_feature_settings` 控制前台功能卡片的开关、位置和排序，后台修改后由公开配置接口读取；它不应直接删除业务数据。`visitors` 保存首访/末访、最近路径、地域摘要、操作次数和可选用户关联；`visitor_events` 保存必要的路径、动作、设备/地域摘要和时间。后台统计按北京时间聚合最近活动、当日汇总、24 小时和近 14 日频率；IP、地域和 user-agent 必须按隐私政策限期保留并清理。
+
+### 6.4 `correction_reports`
 
 字段：`id`、`entity_type`、`entity_id`、`reason_type`、`message`、可选 `contact`、`evidence_url`、`status`（new/reviewing/resolved/rejected/spam）、`resolution_note`、`resolved_by`、`resolved_at`、`submitter_ip_hash`、时间戳。
 
 纠错可以匿名提交。联系方式加密或严格限制后台展示，解决后按保留期删除；IP 仅保存带轮换盐的哈希用于限流，不能当作用户身份。由于目标使用多态引用，服务层写入时必须确认实体存在，删除实体前检查未处理纠错。
 
-### 6.3 `audit_logs`
+### 6.5 `audit_logs`
 
 字段：`id`、`actor_admin_id`、`action`、`entity_type`、`entity_id`、`request_id`、`before_revision_id`、`after_revision_id`、`metadata_json`、`created_at`。审计日志只追加，不提供普通编辑/删除接口，不记录密码、会话 token 或完整联系方式。
 
-## 7. 搜索与未来扩展
+## 7. 搜索与知识库
 
-### 7.1 v1 搜索
+### 7.1 公开结构化搜索
 
-可使用 SQLite FTS5 建可重建的 `content_search` 虚拟表，索引已发布实体的名称、别名、摘要和正文纯文本。它是投影，不是真实数据源：发布、下线、修改后由服务层同步，部署后可用脚本全量重建。
+`GET /api/public/search` 当前直接查询已发布地点、内容和流程，并把标题、摘要、正文、流程步骤、材料和受控元数据归一化排序；系统功能入口作为独立结果返回。公开搜索是结构化事实入口，不直接调用模型。
 
-不支持 FTS5 的运行环境应降级为名称前缀/分类筛选，并在健康检查中报告能力状态，不能静默返回不完整结果。
+知识文档/声明使用可重建的 SQLite FTS5 投影，索引名称、关键词和正文纯文本。FTS 只是投影，不是真实数据源：发布、下线、修改或来源撤回后由服务层同步失效，部署后可脚本全量重建。不支持 FTS5 的运行环境应降级为受限名称/分类筛选，并在健康检查中报告能力状态，不能静默返回不完整结果。
 
-### 7.2 AI 检索（非 v1）
+### 7.2 AI 检索与知识库（当前实现）
 
-未来增加 `search_documents`、`search_chunks` 和外部向量索引时，文档必须引用稳定实体 ID、修订号、来源 ID、`last_verified_at` 和发布状态。内容下线或修订后必须使旧 chunk 失效。AI 不应直接把对话或学生身份写入内容表。
+当前知识链由 `assistant_web_knowledge`、`assistant_knowledge_entries`、`knowledge_documents`、`knowledge_crawl_queue`、`knowledge_entities`、`knowledge_claims`、`knowledge_claim_sources`、`knowledge_claim_entities`、`knowledge_conflicts` 和 `assistant_runs` 组成。文档保存来源/URL、内容哈希、抽取文本、媒体/页面元数据和处理状态；声明保存关键词、置信度、审核状态、有效期、来源证据和实体关系；冲突保留两条声明的关系与处理结果；运行记录保存检索路径、各阶段耗时、引用数、成功状态和错误码。
+
+导入必须经历“去重 -> 抽取 -> 编译候选声明 -> `draft/review` -> 管理员审核 -> `published`”。只有 `published`、未过期、有来源且通过置信度门槛的声明进入公开 AI 上下文。全文检索优先使用可重建的 SQLite FTS5 投影，不支持 FTS5 时降级到受限 LIKE；任何索引都是投影，不是真实数据源。内容下线、修订或来源撤回时要让相关声明/索引失效，并保留可追溯的历史记录。AI 不应把聊天内容、学生身份或模型自由发挥写入事实表。
 
 ### 7.3 商户认领、优惠与推广（非 v1）
 

@@ -27,10 +27,23 @@ function signatureValid(value, body) {
   return timingSafeEqual(Buffer.from(provided), Buffer.from(expected))
 }
 
+function logRelayEvent(event, fields = {}) {
+  process.stderr.write(`${JSON.stringify({ event, ...fields })}\n`)
+}
+
 function targetMentioned(message) {
-  return Array.isArray(message) && message.some(segment => (
-    segment?.type === 'at' && String(segment?.data?.qq || '') === selfId
-  ))
+  if (Array.isArray(message)) {
+    return message.some(segment => (
+      segment?.type === 'at' && String(segment?.data?.qq || '').trim() === selfId
+    ))
+  }
+
+  if (typeof message === 'string') {
+    const escapedSelfId = selfId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`\\[CQ:at,qq=${escapedSelfId}(?:,[^\\]]*)?\\]`).test(message)
+  }
+
+  return false
 }
 
 const server = createServer((request, response) => {
@@ -68,8 +81,15 @@ const server = createServer((request, response) => {
     const allowed = event?.post_type === 'message'
       && event?.message_type === 'group'
       && allowedGroups.has(String(event?.group_id || ''))
-      && targetMentioned(event?.message)
+      && targetMentioned(event?.message ?? event?.raw_message)
     if (!allowed) {
+      logRelayEvent('qq_relay_ignored', {
+        reason: event?.post_type !== 'message' || event?.message_type !== 'group'
+          ? 'not_group_message'
+          : !allowedGroups.has(String(event?.group_id || ''))
+            ? 'group_not_allowed'
+            : 'mention_required'
+      })
       send(response, 200, { status: 'ignored' })
       return
     }
@@ -83,10 +103,15 @@ const server = createServer((request, response) => {
       })
       response.writeHead(upstream.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
       response.end(await upstream.text())
-    } catch {
+      logRelayEvent('qq_relay_forwarded', { statusCode: upstream.status })
+    } catch (error) {
+      logRelayEvent('qq_relay_upstream_failed', {
+        code: error instanceof Error ? error.message : 'UPSTREAM_UNAVAILABLE'
+      })
       send(response, 502, { status: 'upstream_unavailable' })
     }
   })
 })
 
 server.listen(port, host)
+logRelayEvent('qq_relay_started', { host, port })

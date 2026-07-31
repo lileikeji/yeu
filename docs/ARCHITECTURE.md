@@ -1,8 +1,9 @@
 # 技术架构
 
-> 状态：V0.1 已实现架构基线
-> 适用范围：仰恩大学新生入学指南 v1 及其单人管理后台
-> 更新规则：涉及运行时、数据库、地图供应商或部署拓扑的变更，应同步更新本文并记录原因。
+> 状态：当前架构基线（2026-07-31）
+> 适用范围：仰恩大学新生指南的公开前台、管理后台、知识库/AI 检索、社团与部门、聊天和消息接入
+> 事实原则：已实现、已验证、已部署和计划中的内容必须分开表述；实现行为以代码和迁移为准，线上状态以健康检查为准。
+> 更新规则：涉及运行时、数据库、地图供应商、检索流程、缓存、权限或部署拓扑的变更，应同步更新本文并在 [任务复盘规则库](./rules/TASK_COMPLETION_REVIEW.md) 记录原因和验证结果。
 
 ## 1. 目标与约束
 
@@ -13,7 +14,7 @@
 - 支持手机浏览器、PWA 安装和微信内置浏览器；
 - 地图供应商可替换，业务数据不依赖某一家地图 SDK；
 - 内容有来源、核验时间、发布状态和纠错闭环；
-- 首版不做学生账号、AI 问答、商户认领或推广投放，但为这些能力保留清晰边界；
+- 学生账号、AI 检索、聊天和机器人接入均已具备独立边界；未开放或未验证的能力不得伪装成已上线功能；
 - 可部署到宝塔 Linux 服务器，初期使用单机 SQLite，避免不必要的运维复杂度。
 
 ## 2. 架构决策
@@ -26,11 +27,13 @@
 | 地图 | `MapProvider` 适配层 | 页面和业务模型不直接依赖高德或 MapLibre SDK |
 | 开发地图 | MapLibre GL JS + OSM 兼容底图，仅开发和低流量预览 | 无需生产密钥，便于本地联调；不得把公共 OSM 瓦片当作正式生产 CDN |
 | 生产地图 | 高德地图 JavaScript API 2.0 | 国内访问和 GCJ-02 展示、地点及导航生态更合适 |
-| 进程 | Node.js 单实例 + PM2，Nginx 反向代理 | SQLite 写入约束清楚，宝塔易管理 |
+| 进程 | Node.js 单实例 + `systemd yeu.service`，Nginx 反向代理 | SQLite 写入约束清楚，服务可随系统恢复；禁止用 PM2 与 systemd 同时守护同一端口 |
 | 静态资源 | Nuxt 构建资源长缓存；上传文件放共享目录 | 发布版本可回滚，用户上传不随代码发布丢失 |
 | PWA | V1 仅预缓存断网说明页及必要 CSS/图标/字体，不预缓存 JS；页面导航和内容 API 使用 `NetworkOnly` | 避免缓存地图/后台代码或把强时效内容当作最新事实 |
+| AI 与知识 | `server/modules/assistant` 统一编排系统 API、内置知识、回答缓存、网页缓存/搜索和可选 MCP；`server/modules/knowledge` 负责文档、实体、声明、来源和审核 | 先走低成本、可审计的站内路径，证据不足时再降级；不允许模型绕过发布和审核状态 |
+| 集成服务 | QQ OneBot、WeChatPadPro 中转、微信公众平台回调作为独立 relay/service | 外部账号故障不应拖垮主站；每个接入有独立密钥、限流、日志和重启边界 |
 
-当前仓库已实现 Nuxt/Nuxt UI 前台、MapLibre 开发预览、高德 JS API 2.0 生产 provider、Drizzle/SQLite 数据层、单管理员认证、公开与后台 API、反馈入口及 PWA 断网回退。后台已能维护来源、指南/部门/社团内容、地点、流程、反馈和现场坐标观测；公开内容与流程可通过 seed/sync 脚本进入真实库，并用 `pnpm data:verify:local` 验收前后台是否分叉。高德 provider 仍需使用正式域名 Key 完成多设备验收；P0 地点真实坐标核验和服务器生产部署仍属于后续工作，任何候选或未核验坐标都不能作为正式发布地点。
+当前仓库已实现 Nuxt/Nuxt UI 前台、MapLibre 开发预览、高德 JS API 2.0 生产 provider、微信/QQ 内嵌环境兼容 provider、Drizzle/SQLite 数据层、管理员与学生账号、内容/公告/社团/部门/聊天/访客/反馈 API、知识库和 AI 检索、地图/全景/路线、PWA 断网回退及独立机器人 relay。生产发布采用只读 release、`current` 软链接和 `shared` 持久化目录，由 `systemd yeu.service` 启动 `.output/server/index.mjs`；Nginx 反向代理公开页面和 API，CDN 只缓存允许缓存的公开页面/静态资源，管理接口、会话、聊天写入和 AI 流式响应明确绕过缓存，数据库、环境变量、上传和日志留在 shared。AI 运行时由 `assistantRuns` 记录检索路径、耗时、成功状态和请求标识；知识库文档、声明、实体和冲突通过审核状态控制是否可用于公开回答。任何候选坐标、未审核抓取结果、外部网页或未验证集成都不能当作正式事实。
 
 ## 3. 运行拓扑
 
@@ -43,17 +46,17 @@
                   |
           127.0.0.1:3000
                   v
-       Nuxt 4 / Nitro 单实例（PM2）
+        Nuxt 4 / Nitro 单实例（systemd yeu.service）
           |                    |
           v                    v
   SQLite + Drizzle       地图供应商前端 SDK
   共享 data 目录        开发 MapLibre / 生产高德
           |
           v
-  共享 uploads 与备份目录
+  共享 uploads、日志、监控与备份目录
 ```
 
-公开页面可以按内容特征选择 SSR、预渲染或客户端加载。地图页必须在客户端初始化 SDK；内容详情应保留可被搜索引擎和微信预览读取的 SSR 文本。管理接口始终动态执行且禁止被 CDN 或 Service Worker 缓存。
+公开页面可以按内容特征选择 SSR、预渲染或客户端加载。地图页必须在客户端初始化 SDK；内容详情、公告详情和分享入口应保留可被搜索引擎和微信预览读取的 SSR 文本。管理接口、登录会话、聊天写入、访客追踪和 AI 流式响应始终动态执行，禁止被 CDN 或 Service Worker 缓存。发布时先构建新 release，再原子切换 `current`，最后重启 `yeu.service`；旧 release 保留到健康检查和回滚窗口结束。
 
 ## 4. 建议目录与职责
 
@@ -76,7 +79,7 @@ server/
     admin/                    受保护的增删改、发布、核验接口
     health.get.ts             进程与数据库健康检查
   middleware/                管理员会话、CSRF、请求追踪
-  modules/                   content、places、verification 等服务端业务域
+  modules/                   按领域拆分的服务：content、places、procedures、knowledge、assistant、notices、visitors、users、chat、bots、wechat 等
   database/
     client.ts                 SQLite 连接、WAL、外键与 busy_timeout
     schema.ts                 当前 Drizzle schema
@@ -89,7 +92,7 @@ shared/
   constants/                 状态、坐标系、来源等级等枚举
 map/
   core/                      provider 契约与地图 DTO
-  providers/                 MapLibre 开发适配器与高德生产适配器
+  providers/                 MapLibre、高德和微信/QQ 离线兼容适配器
 data/
   seeds/                    最小开发数据与来源记录
   imports/                  带坐标系声明的导入模板
@@ -98,6 +101,9 @@ public/
   icons/                     PWA 图标
   site.webmanifest           由 @vite-pwa/nuxt 在构建时生成
 scripts/                     初始化、导入、校验和一次性维护脚本
+ops/
+  systemd/                   yeu 主服务、清理任务、QQ/微信 relay 和知识抓取服务
+  nginx/                     反向代理、流式响应、可信客户端 IP 与上传边界
 docs/                        产品、架构、数据、内容和部署文档
 ```
 
@@ -158,7 +164,7 @@ MapLibre/OSM 仅用于开发和低流量预览。使用 `tile.openstreetmap.org`
 
 ### 5.3 管理后台
 
-首版只有一名管理员，但仍须有独立的管理员认证、会话、审计日志和发布确认。这里的“首版不做账号”指不做学生/公众账号，不代表后台可以无认证。
+系统同时存在三类身份边界：管理员、获得授权范围的组织管理员和普通学生用户。管理员负责全局内容、来源、发布、知识审核、访客安全和系统配置；组织管理员只能编辑授权的社团/部门范围；普通用户的登录用于个人资料、群聊等需要身份的能力，公开指南和地图仍可免登录访问。三类会话、权限和审计不能混用。
 
 管理操作至少分为：保存草稿、预览、发布、下线、标记已核验、处理纠错。删除默认采用归档；真正清除媒体或记录应是单独且可审计的动作。
 
@@ -168,15 +174,44 @@ MapLibre/OSM 仅用于开发和低流量预览。使用 `tile.openstreetmap.org`
 
 现场采点页只负责请求注入、鉴权衔接、刷新和跨模块组合。`useFieldObservationCatalog` 与 `app/utils/field-observation-catalog.ts` 负责地点/观测目录、筛选防抖、请求版本、分页、选中项恢复和独立错误；`AdminCoordinateCaptureEntry` 负责地点选择、会话锁、定位子组件和同步快捷入口，浏览器采样仍封装在 `AdminFieldCoordinateCapture`；质量色调/标签/详情、提交门槛与样本接受门禁纯决策在 `app/utils/field-coordinate-capture-presentation.ts`，组件只保留 geolocation watch 与模板接线；`AdminCoordinateObservationReviewList` 只负责筛选控件、观测列表、分页和详情插槽；`AdminCoordinateOfflineQueuePanel` 只负责队列展示；`useFieldObservationQueue` 注入现有 IndexedDB 存储函数与提交请求，`app/utils/field-observation-queue-operations.ts` 负责幂等提交、读取版本门禁、单条/批量互斥、部分失败和删除目标快照，只有无状态码/5xx 才允许离线入队。`AdminCoordinateObservationReviewDetails` 只负责选中观测、核验提示、审核地图、说明模型和类型化审核事件；`useFieldObservationReview` 与 `app/utils/field-observation-review-operations.ts` 负责审核说明字典、全局操作互斥、批准/驳回请求、错误保留和鉴权委托；`field-observation-presentation.ts` 提供展示降级；`field-observation-review.ts` 只解释核验状态。坐标审阅地图 `AdminCoordinateReviewMap` 的 WGS84 可渲染判定、邻域筛选、GeoJSON 点集/精度圈与视野适配纯决策在 `app/utils/admin-coordinate-review-map-presentation.ts`，组件只保留 MapLibre 生命周期与图层副作用。 官网平面图 `OfficialCampusPlan` 的缩放钳制、滚轮/捏合/按钮缩放、焦点滚动与选中标签等纯决策在 `app/utils/official-campus-plan-presentation.ts`，组件只保留 viewport 事件与 DOM 滚动副作用。所有客户端审核代码均不得自行批准观测或升级地点，服务端仍是唯一权威。当前页面为 5,531 B / 194 行；现场采点页主要代码边界已完成拆分，真实定位、弱网、配额耗尽和双人/双时段证据必须保留真机/现场验收门禁。
 
-### 5.4 未来能力的预留边界
+### 5.4 AI 检索与知识库
 
-- **AI 检索**：未来只通过 `SearchProvider`/`AnswerProvider` 读取已发布内容及来源，不允许模型直接访问管理表或绕过发布状态。回答必须携带内容 ID、来源和核验时间。首版不建向量索引。
-- **学生账号**：首版收藏、清单和最近浏览只存浏览器本地。未来身份模块通过稳定的内容 ID 关联，不把用户字段提前塞入内容表。
-- **商户能力**：商铺仍是普通地点；未来的商户主体、认领申请、优惠和推广订单放在独立商业域。自然内容和付费推广的排序及展示字段必须分离。
+AI 不是独立的数据源，而是站内检索和证据整理的编排层。公开入口为 `/api/public/assistant` 和 `/api/public/assistant/stream`，后台统计入口为 `/api/admin/assistant`。当前路径按成本和可信度从低到高排列：
+
+1. 解析问题、跟进上下文、敏感/提示注入检查和普通关键词判定；关键词优先走 `/api/public/search`，不强制调用模型。
+2. 系统 API 路径（`feature_api`）读取地点、指南、流程、社团、部门、公告、交通等已发布动态数据，优先返回可跳转入口。
+3. 本地知识路径（`local_database`）读取启用的 `assistant_knowledge_entries`、已发布 `knowledge_claims` 和官方文档索引；知识文档支持网页、PDF、表格、聊天导出、手册和 API 等类型。
+4. 回答缓存和网页缓存（`answer_cache` / `web_cache`）只复用未过期、经过安全过滤的结果。
+5. 仍无足够证据时才调用网页搜索或受限 MCP（`web_search`），并把结果写入可审核的缓存/知识记录；外部网页不能覆盖已审核的官方声明。
+6. 最后才调用 AI 网关整理答案。模型输入必须带证据来源、权威级别、核验/有效时间和禁止臆测约束；没有足够证据时应明确说明未找到，而不是补写学校事实。
+
+每次运行由 `assistantRuns` 记录请求 ID、入口、检索路径、耗时、成功状态和错误码；流式接口发送 `stage_started`、`stage_completed` 和 `completed` 事件，并通过心跳、无缓存头和 JSON 回退避免 CDN/Nginx 长连接卡死。IP 只用于限流和安全审计，必须遵守隐私文档的最小化和保留期限。
+
+知识库由 `server/modules/knowledge` 管理：`knowledge_documents` 保存原始文档和抽取文本，`knowledge_entities` 保存人、专业、学院、地点、政策等实体，`knowledge_claims` 保存可审核的事实声明，`knowledge_claim_sources`/`knowledge_claim_entities` 保存关联，`knowledge_conflicts` 保存冲突。导入流程为“去重 -> 抽取（含 PDF 文本/图片元数据） -> 编译候选声明 -> `draft/review` -> 管理员审核 -> `published`”，只有带来源、未过期且满足置信度门槛的声明可进入回答。全文检索优先 SQLite FTS5，必要时使用受限 LIKE 回退；每次抓取或编译都必须可追溯、可撤回。
+
+### 5.5 账号、聊天与外部消息
+
+- `users`/`userSessions` 支持普通用户登录；不登录仍可访问公开页面，但未登录不能发送群聊消息。
+- `chatRooms`、`chatMembers`、`chatMessages` 和 `chatMutes` 当前支持公共群与宿舍群；社团/部门页面提供群入口但不改变现有房间类型，新增专属房间类型必须先做迁移和权限设计。管理员可查看、禁言、删除和审计，消息展示使用用户名与时间。
+- `organizationAdminScopes` 限制社团/部门管理员的编辑范围；可视化编辑、媒体上传和密码修改仍由服务端权限与审计约束。
+- QQ OneBot 和 WeChatPadPro relay 只转发艾特触发的消息，调用与网页相同的 AI/站内检索流程；白名单、限流、违禁词拦截、官网尾注和失败降级在 relay 层与主 API 双重执行。微信公众平台回调使用独立签名/加解密配置，凭据只放 shared 环境变量。
+- 外部 relay、WeChatPadPro 容器和知识抓取任务使用独立 systemd 单元，不能因为单个账号掉线而影响 `yeu.service`。
+
+### 5.6 访客、统计与治理
+
+请求追踪中间件为公开请求生成受限 `X-Request-Id`；`visitors`、`visitorEvents`、`visitorBans` 记录脱敏访客标识、最后活动、操作次数、封禁和必要安全事件。后台按中国标准时间提供最近活动、访问次数、当日汇总、24 小时分时和近 14 日频率视图。页面阅读量和公告已读状态属于独立业务统计，不得与安全日志混为一表。所有统计接口只返回聚合结果，导出和保留受隐私政策约束。
+
+### 5.7 后续扩展边界
+
+- **向量/语义检索**：只有当 SQLite FTS 和结构化检索无法满足数据规模时再单独引入；必须保留原文、来源、版本和撤回能力，不能以向量结果替代审核状态。
+- **商户能力**：商铺仍是普通地点；未来的商户主体、认领申请、优惠和推广订单放在独立商业域，自然内容与付费推广排序字段分离。
+- **多实例/服务型数据库**：当前 SQLite 单实例是明确约束。需要多实例前先迁移数据库、锁、队列和文件存储，并完成备份、回滚和一致性演练。
 
 ## 6. API 约定
 
 - 公开 API 前缀：`/api/public`；后台 API 前缀：`/api/admin`。
+- AI 公开接口：`POST /api/public/assistant`（JSON）与 `POST /api/public/assistant/stream`（SSE）；普通关键词使用 `GET /api/public/search`，后台 AI 统计使用 `GET /api/admin/assistant`。
+- 内容域接口按 `content`、`places`、`procedures`、`clubs`、`departments`、`notices`、`panorama`、`transit`、`track` 等资源拆分；后台写入必须经过会话、CSRF/来源校验、运行时 schema、发布规则和审计。
 - 使用 JSON，字段使用 `camelCase`，时间使用带时区的 ISO 8601 字符串，对外坐标始终同时返回 `coordinateSystem`。
 - 列表统一返回 `{ items, total, page, pageSize }`；参数设置硬上限，避免一次加载全部地图详情。
 - 变更接口执行运行时校验，不信任 TypeScript 类型；失败采用稳定错误码，不把数据库错误或堆栈返回客户端。
@@ -273,10 +308,10 @@ MapLibre/OSM 仅用于开发和低流量预览。使用 `tile.openstreetmap.org`
 
 - 地图初次只返回视野/筛选所需的轻量标点，详情按需加载；大量标点采用聚合和边界框查询。
 - 图片生成多尺寸 WebP/AVIF 与合理占位，保留原图只供后台；首屏不加载不可见详情图。
-- SQLite 启用 WAL、外键和 `busy_timeout`；PM2 固定单实例，不使用 cluster 模式并发写入。
+- SQLite 启用 WAL、外键和 `busy_timeout`；`yeu.service` 固定单实例，不使用 cluster 或第二个进程并发写入。
 - 所有写入用短事务，媒体文件先安全落盘再提交引用，失败时清理孤儿文件。
 - 健康检查区分进程存活与数据库可读；外部地图不可用时内容列表和文字地址仍应可用。
-- 当前结构化请求日志由应用生成 ISO 时间戳，并包含请求 ID、方法、无查询串路径、状态码、耗时和稳定 HTTP 错误码。`pnpm ops:monitor` 可从 PM2 `out_file` 的受限尾部按时间窗聚合 5xx、管理员登录 401 和 429；日志路径和逐请求字段不会进入监控报告或 webhook。运行时代码的 `app/server/map` 目录由 ESLint 禁止 `console.*`，避免临时调试输出进入浏览器或 PM2；可恢复的纯装饰前端失败直接走既定降级，服务端请求错误统一通过结构化请求日志上报。维护 CLI 仍可使用显式 stdout/stderr 返回机器可读结果。错误日志轮转、生产日志路径和磁盘告警仍由生产运维配置。
+- 当前结构化请求日志由应用生成 ISO 时间戳，并包含请求 ID、方法、无查询串路径、状态码、耗时和稳定 HTTP 错误码。`pnpm ops:monitor` 从 shared 的受限应用日志尾部按时间窗聚合 5xx、管理员登录 401 和 429；日志路径和逐请求字段不会进入监控报告或 webhook。运行时代码的 `app/server/map` 目录由 ESLint 禁止 `console.*`，避免临时调试输出进入浏览器或 systemd 日志；可恢复的纯装饰前端失败直接走既定降级，服务端请求错误统一通过结构化请求日志上报。维护 CLI 仍可使用显式 stdout/stderr 返回机器可读结果。错误日志轮转、生产日志路径和磁盘告警仍由生产运维配置。
 - `scripts/monitor-production.ts` 将 `/api/health`、SQLite/WAL、磁盘、内存、系统负载和备份新鲜度组合成一个可由 cron/宝塔调用的非零门禁，并可向通用 HTTPS webhook 发送脱敏、去重的故障与恢复通知；生产是否真正获得通知仍取决于服务器计划任务和 webhook 配置。
 - `pnpm bundle:budget` 从 Nuxt 生产构建清单读取实际未压缩产物，限制全局入口、首页、搜索、地图、流程详情、后台资源编辑、流程编辑、现场观测和研究说明的初始 JavaScript/CSS；MapLibre SDK 与 CSS 必须分别保持独立动态资源，不得进入受保护路由初始依赖。地图样式不再由 Nuxt 全局 CSS 加载，而是在 provider 或后台坐标审核地图初始化时与 SDK 一起动态导入。该门禁用于防止构建体积回退，不替代真机 Lighthouse、LCP、CLS、INP 和地图可交互时间测试。
 - `pnpm e2e` 为最新生产构建重建隔离 SQLite，并通过正式服务生成受控已发布地点、两个项目隔离的内容草稿和专用测试管理员，随后在桌面 Chromium 与 Pixel 5 移动视口执行 19 个公开/管理/PWA/故障/无障碍场景，共 38 条检查；覆盖搜索到共享地点详情、解析并显示自定义学生使用清单、返回地图、区域 URL 首次恢复与关闭写回、地图显示设置交互、流程材料/来源/键盘进度、管理员编辑/发布/下线和审计、反馈提交与解决、PWA 注册与更新提示、六类核心页面 Axe 扫描、搜索 API 降级、MapLibre 动态分包失败和 Service Worker 断网导航。E2E 地点说明必须使用 `【到这里前先确认】` 标记，避免夹具静默回退默认清单。外部瓦片和官网请求在浏览器测试中被阻断，保证页面文字与交互测试不依赖第三方网络。当前自动化浏览器覆盖不代表真实 Android/iOS Safari、微信 WebView、实际安装态 PWA 或生产高德域名验收。
@@ -292,4 +327,3 @@ MapLibre/OSM 仅用于开发和低流量预览。使用 `tile.openstreetmap.org`
 - [ ] 微信内浏览器完成查地点、看详情、查看报到流程和打开导航的主路径。
 - [ ] SQLite 以单实例运行，迁移、备份、恢复和回滚流程按 `DEPLOYMENT.md` 演练通过。
 - [ ] 地图供应商失败不会阻断文字指南；健康检查和日志能定位故障。
-

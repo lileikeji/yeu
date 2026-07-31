@@ -192,7 +192,13 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
   )), { deep: true })
   watch(options.areas, areas => runProviderOperation(() => options.mapProvider.value?.setAreas(areas)))
   watch(options.resizeSignal, () => {
-    void nextTick(scheduleResize)
+    void nextTick(() => {
+      // Give embedded WebViews an immediate repaint after a sheet/layout
+      // change, then keep the double-frame resize for providers that settle
+      // their canvas dimensions one frame later.
+      runProviderOperation(() => options.mapProvider.value?.resize())
+      scheduleResize()
+    })
   })
 
   onMounted(() => {

@@ -46,6 +46,14 @@ find "$SHARED/public-extra" -type d -exec chmod 0755 {} +
 find "$SHARED/public-extra" -type f -exec chown root:root {} +
 find "$SHARED/public-extra" -type f -exec chmod 0644 {} +
 
+# Keep relay code outside release directories. Some deploy artifacts contain
+# only `.output`, while the relay must survive every atomic `current` switch.
+if [ -f "$ROOT/current/scripts/qq-onebot-relay.mjs" ]; then
+  install -o root -g yeu -m 0640 \
+    "$ROOT/current/scripts/qq-onebot-relay.mjs" \
+    "$SHARED/qq-onebot-relay.mjs"
+fi
+
 while IFS= read -r output; do
   find "$output" -type d -exec chown root:root {} +
   find "$output" -type d -exec chmod 0755 {} +
