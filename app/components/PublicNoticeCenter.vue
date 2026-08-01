@@ -103,7 +103,10 @@ function openNoticeDetail(notice: PublicNotice): void {
 
 function openAutomaticNotice(): void {
   if (!autoPopupReady.value || autoPopupShown.value || open.value) return
-  const notice = notices.value.find(item => item.autoPopup && !item.confirmed)
+  // `autoPopup` controls entry-time display. Read state is only for the
+  // list badge/color; a read notice should still open when the editor has
+  // explicitly enabled entry-time announcements.
+  const notice = notices.value.find(item => item.autoPopup)
   if (!notice) return
   autoPopupShown.value = true
   openNoticeDetail(notice)

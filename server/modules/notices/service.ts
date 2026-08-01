@@ -1,4 +1,4 @@
-import { and, countDistinct, desc, eq, sql } from 'drizzle-orm'
+import { and, countDistinct, desc, eq, gte, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import type { DatabaseClient } from '../../database/client'
 import { contents, visitorEvents } from '../../database/schema'
@@ -7,11 +7,15 @@ import { ensureVisitor, recordVisitorEvent } from '../visitors/service'
 import { safeMetadata, serializeContent } from '../../utils/serializers'
 import { getContentSourceMap } from '../verification/service'
 
-function confirmationCondition(noticeId: string) {
-  return and(
+function confirmationCondition(noticeId: string, afterUpdatedAt?: number) {
+  const conditions = [
     eq(visitorEvents.action, 'notice_confirm'),
     sql`json_extract(${visitorEvents.metaJson}, '$.noticeId') = ${noticeId}`
-  )
+  ]
+  if (afterUpdatedAt !== undefined) {
+    conditions.push(gte(visitorEvents.createdAt, afterUpdatedAt))
+  }
+  return and(...conditions)
 }
 
 export function listPublicNotices(event: H3Event, client: DatabaseClient) {
@@ -35,7 +39,9 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
     const confirmed = Boolean(client.db.select({ id: visitorEvents.id })
       .from(visitorEvents)
       .where(and(
-        confirmationCondition(row.id),
+        // A published edit is a new announcement version. A visitor who read
+        // an older version should see the updated notice once more.
+        confirmationCondition(row.id, row.updatedAt),
         eq(visitorEvents.visitorId, visitor.id)
       ))
       .limit(1)
@@ -56,7 +62,7 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
 }
 
 export function confirmPublicNotice(event: H3Event, client: DatabaseClient, noticeId: string) {
-  const notice = client.db.select({ id: contents.id }).from(contents)
+  const notice = client.db.select({ id: contents.id, updatedAt: contents.updatedAt }).from(contents)
     .where(and(
       eq(contents.id, noticeId),
       eq(contents.kind, 'notice'),
@@ -71,7 +77,7 @@ export function confirmPublicNotice(event: H3Event, client: DatabaseClient, noti
   const visitor = ensureVisitor(event, client, { path: getRequestURL(event).pathname })
   const existing = client.db.select({ id: visitorEvents.id }).from(visitorEvents)
     .where(and(
-      confirmationCondition(noticeId),
+      confirmationCondition(noticeId, notice.updatedAt),
       eq(visitorEvents.visitorId, visitor.id)
     ))
     .limit(1)
