@@ -2,7 +2,6 @@
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
-const { user, isAuthenticated, refreshSession } = useUserSession()
 
 const desktopNavigation = [
   { label: '首页', to: '/', icon: 'i-lucide-house' },
@@ -31,9 +30,6 @@ function shareCurrentPage(): void {
   void sharePage()
 }
 
-onMounted(() => {
-  void refreshSession()
-})
 </script>
 
 <template>
@@ -107,37 +103,6 @@ onMounted(() => {
             class="hidden min-h-11 min-w-11 sm:inline-flex"
             @click="shareCurrentPage"
           />
-          <template v-if="isAuthenticated">
-            <UButton
-              to="/chat"
-              icon="i-lucide-messages-square"
-              color="neutral"
-              variant="ghost"
-              aria-label="群聊"
-              class="hidden min-h-11 min-w-11 sm:inline-flex"
-            />
-            <UButton
-              to="/me"
-              icon="i-lucide-user-round"
-              color="primary"
-              variant="soft"
-              :aria-label="user?.displayName || '个人中心'"
-              class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
-            >
-              <span class="hidden max-w-[5.5rem] truncate sm:inline">{{ user?.displayName || '我的' }}</span>
-            </UButton>
-          </template>
-          <UButton
-            v-else
-            to="/login"
-            icon="i-lucide-user-round"
-            color="primary"
-            variant="ghost"
-            aria-label="账号登录"
-            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
-          >
-            <span class="hidden sm:inline">登录</span>
-          </UButton>
         </div>
       </div>
     </header>
@@ -202,10 +167,6 @@ onMounted(() => {
             to="/sources"
             class="hover:text-green-700"
           >信息从哪里来</NuxtLink>
-          <NuxtLink
-            to="/login"
-            class="hover:text-green-700"
-          >账号登录</NuxtLink>
         </div>
       </div>
     </footer>

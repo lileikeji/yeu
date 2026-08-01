@@ -6,6 +6,7 @@ VHOST=/www/server/panel/vhost/nginx/yx.huiliyill.cn.conf
 EXTENSION=/www/server/panel/vhost/nginx/extension/yx.huiliyill.cn
 LEGACY_VHOST=/www/server/panel/vhost/nginx/yeu.huiliyill.cn.conf
 LEGACY_EXTENSION=/www/server/panel/vhost/nginx/extension/yeu.huiliyill.cn
+LEGACY_REDIRECT_VHOST=/www/server/panel/vhost/nginx/yeu.huiliyill.cn.conf
 HTTP_INCLUDE=/www/server/panel/vhost/nginx/0.yeu_trusted_client_ip.conf
 NGINX=/www/server/nginx/sbin/nginx
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -14,6 +15,23 @@ if [[ ! -f "$VHOST" && -f "$LEGACY_VHOST" ]]; then
   install -o root -g root -m 0644 "$LEGACY_VHOST" "$VHOST"
 fi
 test -f "$VHOST"
+
+# Keep the retired hostname as a tiny redirect-only vhost. It preserves the
+# path and query string while preventing the old application from rendering.
+cat > "$LEGACY_REDIRECT_VHOST" <<'NGINX'
+server {
+    listen 80;
+    listen [::]:80;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    ssl_certificate /www/server/panel/vhost/cert/yeu.huiliyill.cn/fullchain.pem;
+    ssl_certificate_key /www/server/panel/vhost/cert/yeu.huiliyill.cn/privkey.pem;
+    server_name yeu.huiliyill.cn;
+    return 301 https://yx.huiliyill.cn$request_uri;
+}
+NGINX
+chmod 0644 "$LEGACY_REDIRECT_VHOST"
 install -d -o root -g root -m 0755 "$EXTENSION"
 if [[ -d "$LEGACY_EXTENSION" ]]; then
   cp -a "$LEGACY_EXTENSION"/. "$EXTENSION"/

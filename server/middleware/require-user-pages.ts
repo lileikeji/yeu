@@ -1,23 +1,26 @@
 /**
- * Hard gate for private HTML pages: guests cannot open /chat or /me at all.
- * Complements Nuxt route middleware (client SPA nav) and API requireUserSession (401).
- * Nuxt middleware alone may still SSR the protected page shell as 200 for guests.
+ * Keep the retired student account surfaces out of the public site.
+ *
+ * The account APIs remain available to the server integrations and admin tools,
+ * but the old student-facing pages must not be reachable through a saved link.
+ * A server-side redirect is important here because Nuxt route middleware can
+ * still render a page shell during SSR before the client middleware runs.
  */
 import { getMethod, getRequestURL, sendRedirect, setHeader } from 'h3'
-import { getOptionalUserSession } from '../utils/user-auth'
-import { useAppDatabase } from '../utils/database'
 
 function normalizePath(pathname: string): string {
   const path = pathname.replace(/\/+$/, '') || '/'
   return path
 }
 
-function isProtectedAppPage(pathname: string): boolean {
+function isDisabledStudentPage(pathname: string): boolean {
   const path = normalizePath(pathname)
   if (path.startsWith('/api') || path.startsWith('/_nuxt') || path.startsWith('/__nuxt')) {
     return false
   }
-  return path === '/chat'
+  return path === '/login'
+    || path.startsWith('/login/')
+    || path === '/chat'
     || path.startsWith('/chat/')
     || path === '/me'
     || path.startsWith('/me/')
@@ -37,28 +40,8 @@ export default defineEventHandler((event) => {
   if (method !== 'GET' && method !== 'HEAD') return
 
   const url = getRequestURL(event)
-  if (!isProtectedAppPage(url.pathname)) return
+  if (!isDisabledStudentPage(url.pathname)) return
 
   applyPrivatePageHeaders(event)
-
-  let authenticated = false
-  try {
-    const session = getOptionalUserSession(event, useAppDatabase(event))
-    authenticated = Boolean(session?.user)
-  } catch {
-    authenticated = false
-  }
-
-  if (authenticated) return
-
-  const redirectTarget = `${normalizePath(url.pathname)}${url.search || ''}`
-  const safeRedirect = redirectTarget.startsWith('/') && !redirectTarget.startsWith('//')
-    ? redirectTarget
-    : '/me'
-
-  return sendRedirect(
-    event,
-    `/login?redirect=${encodeURIComponent(safeRedirect)}`,
-    302
-  )
+  return sendRedirect(event, '/', 302)
 })

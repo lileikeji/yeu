@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  buildDiscoverAccountEntries,
   buildDiscoverTaskPreview,
   discoverDirectoryEntries,
   discoverTaskPreviewLimit,
@@ -13,13 +12,9 @@ useSeoMeta({
   description: '按新生当前要做的事，快速进入校园地图、报到、指南、部门、社团与周边目录。'
 })
 
-const { isAuthenticated, refreshSession } = useUserSession()
-await refreshSession()
-
 const tasksExpanded = ref(false)
 const taskPreview = computed(() => buildDiscoverTaskPreview(discoverTaskEntries, tasksExpanded.value))
 const visibleTaskEntries = computed(() => taskPreview.value.items)
-const accountEntries = computed(() => buildDiscoverAccountEntries(isAuthenticated.value))
 
 function toggleTaskPreview(): void {
   tasksExpanded.value = !tasksExpanded.value
@@ -114,44 +109,6 @@ function toggleTaskPreview(): void {
               class="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-green-700 sm:static sm:mt-1 sm:translate-y-0"
             />
           </NuxtLink>
-        </div>
-      </section>
-
-      <section class="border-y border-green-100 bg-green-50/60">
-        <div class="page-shell py-4 md:py-5">
-          <p class="section-kicker">
-            账号与交流
-          </p>
-          <h2 class="mt-1 text-xl font-bold text-zinc-950">
-            {{ isAuthenticated ? '个人资料与新生群聊' : '群聊和个人资料需要登录' }}
-          </h2>
-          <p class="mt-1.5 max-w-2xl text-xs leading-5 text-zinc-600 sm:text-sm sm:leading-6">
-            {{ isAuthenticated ? '查看或修改个人资料，也可以进入公共群和宿舍楼群。' : '不登录也能继续使用地图、清单和指南。已有账号登录后，可以进入群聊并填写专业和宿舍楼。' }}
-          </p>
-
-          <div class="mt-3 grid grid-cols-2 gap-2 sm:gap-3">
-            <NuxtLink
-              v-for="entry in accountEntries"
-              :key="entry.to"
-              :to="entry.to"
-              class="group flex min-h-16 items-center gap-2.5 rounded-md border border-green-200 bg-white/70 p-2.5 sm:min-h-20 sm:p-3"
-            >
-              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-white text-green-700 shadow-sm">
-                <UIcon
-                  :name="entry.icon"
-                  class="size-4"
-                />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block text-sm font-bold text-zinc-950">{{ entry.title }}</span>
-                <span class="mt-1 hidden text-xs leading-5 text-zinc-600 sm:block">{{ entry.description }}</span>
-              </span>
-              <UIcon
-                name="i-lucide-chevron-right"
-                class="size-4 shrink-0 text-zinc-300 transition-colors group-hover:text-green-700"
-              />
-            </NuxtLink>
-          </div>
         </div>
       </section>
 

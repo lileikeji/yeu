@@ -10,32 +10,6 @@ export interface DiscoverTaskEntry extends DiscoverLinkEntry {
   when: string
 }
 
-export function buildDiscoverAccountEntries(authenticated: boolean): DiscoverLinkEntry[] {
-  return [
-    authenticated
-      ? {
-          title: '个人中心',
-          description: '修改昵称、专业和宿舍楼',
-          to: '/me',
-          icon: 'i-lucide-user-round'
-        }
-      : {
-          title: '登录已有账号',
-          description: '暂不开放自行注册；不登录也能使用地图、清单和指南',
-          to: '/login',
-          icon: 'i-lucide-log-in'
-        },
-    {
-      title: authenticated ? '进入新生群聊' : '新生群聊',
-      description: authenticated
-        ? '进入公共群或自己的宿舍楼群'
-        : '公共群和宿舍楼群，登录后才能发消息',
-      to: '/chat',
-      icon: 'i-lucide-messages-square'
-    }
-  ]
-}
-
 export const discoverTaskPreviewLimit = 6
 
 export function buildDiscoverTaskPreview<T>(

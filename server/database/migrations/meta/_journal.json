@@ -141,6 +141,13 @@
       "when": 1785500000000,
       "tag": "0019_frontend_feature_layout",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1785586614620,
+      "tag": "0020_workable_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

@@ -180,12 +180,11 @@ MapLibre/OSM 仅用于开发和低流量预览。使用 `tile.openstreetmap.org`
 
 AI 不是独立的数据源，而是站内检索和证据整理的编排层。公开入口为 `/api/public/assistant` 和 `/api/public/assistant/stream`，后台统计入口为 `/api/admin/assistant`。当前路径按成本和可信度从低到高排列：
 
-1. 解析问题、跟进上下文、敏感/提示注入检查和普通关键词判定；关键词优先走 `/api/public/search`，不强制调用模型。
-2. 系统 API 路径（`feature_api`）读取地点、指南、流程、社团、部门、公告、交通等已发布动态数据，优先返回可跳转入口。
-3. 本地知识路径（`local_database`）读取启用的 `assistant_knowledge_entries`、已发布 `knowledge_claims` 和官方文档索引；知识文档支持网页、PDF、表格、聊天导出、手册和 API 等类型。
-4. 回答缓存和网页缓存（`answer_cache` / `web_cache`）只复用未过期、经过安全过滤的结果。
-5. 仍无足够证据时才调用网页搜索或受限 MCP（`web_search`），并把结果写入可审核的缓存/知识记录；外部网页不能覆盖已审核的官方声明。
-6. 最后才调用 AI 网关整理答案。模型输入必须带证据来源、权威级别、核验/有效时间和禁止臆测约束；没有足够证据时应明确说明未找到，而不是补写学校事实。
+1. 先查 `assistant_answer_cache`（进程内热缓存 + SQLite 持久化缓存）；命中未过期答案时直接返回，不扫描知识库、不调用模型或网页。
+2. 未命中后只做轻量意图判断、敏感/提示注入检查和关键词提取；关键词优先走 `/api/public/search`，不强制调用模型。
+3. 系统 API 路径（`feature_api`）和本地知识路径（`local_database`）只读取少量高相关候选，动态数据、启用的 `assistant_knowledge_entries`、已发布 `knowledge_claims` 和官方文档索引均可参与检索；知识文档支持网页、PDF、表格、聊天导出、手册和 API 等类型。
+4. 仍无足够证据时才读取网页缓存或调用受限 MCP（`web_search`），成功网页证据写入 `assistant_web_knowledge`，成功整理答案写入 `assistant_answer_cache`；外部网页不能覆盖已审核的官方声明。
+5. 最后才调用 AI 网关整理答案。模型输入必须带证据来源、权威级别、核验/有效时间和禁止臆测约束；没有足够证据时应明确说明未找到，而不是补写学校事实。
 
 每次运行由 `assistantRuns` 记录请求 ID、入口、检索路径、耗时、成功状态和错误码；流式接口发送 `stage_started`、`stage_completed` 和 `completed` 事件，并通过心跳、无缓存头和 JSON 回退避免 CDN/Nginx 长连接卡死。IP 只用于限流和安全审计，必须遵守隐私文档的最小化和保留期限。
 

@@ -557,6 +557,22 @@ export const assistantWebKnowledge = sqliteTable('assistant_web_knowledge', {
   check('assistant_web_knowledge_status_check', sql`${table.status} in ('active', 'expired', 'rejected')`)
 ])
 
+export const assistantAnswerCache = sqliteTable('assistant_answer_cache', {
+  id: text('id').primaryKey(),
+  cacheKey: text('cache_key').notNull(),
+  query: text('query').notNull(),
+  responseJson: text('response_json').notNull(),
+  knowledgeRevision: integer('knowledge_revision').notNull().default(0),
+  expiresAt: integer('expires_at').notNull(),
+  lastUsedAt: integer('last_used_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('assistant_answer_cache_key_unique').on(table.cacheKey),
+  index('assistant_answer_cache_expiry_idx').on(table.expiresAt),
+  index('assistant_answer_cache_query_idx').on(table.query)
+])
+
 export const assistantKnowledgeEntries = sqliteTable('assistant_knowledge_entries', {
   id: text('id').primaryKey(),
   kind: text('kind', {

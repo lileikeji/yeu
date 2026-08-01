@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import {
-  buildDiscoverAccountEntries,
   buildDiscoverTaskPreview,
   discoverDirectoryEntries,
   discoverTaskPreviewLimit,
@@ -16,7 +15,6 @@ const utilSource = readFileSync(resolve('app/utils/discover-presentation.ts'), '
 
 test('discover page is a thin shell over discover-presentation util', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/discover-presentation['"]/)
-  assert.match(pageSource, /buildDiscoverAccountEntries/)
   assert.match(pageSource, /discoverTaskEntries/)
   assert.match(pageSource, /buildDiscoverTaskPreview/)
   assert.match(pageSource, /discoverDirectoryEntries/)
@@ -25,7 +23,6 @@ test('discover page is a thin shell over discover-presentation util', () => {
   assert.doesNotMatch(pageSource, /const directoryEntries = \[/)
   assert.doesNotMatch(pageSource, /const trustEntries = \[/)
   assert.match(utilSource, /export const discoverTaskEntries/)
-  assert.match(utilSource, /export function buildDiscoverAccountEntries/)
   assert.match(utilSource, /export function buildDiscoverTaskPreview/)
   assert.match(utilSource, /export const discoverDirectoryEntries/)
   assert.match(utilSource, /export const discoverTrustEntries/)
@@ -79,24 +76,9 @@ test('discover catalogs stay student-facing', () => {
   assert.doesNotMatch(utilSource, /发布标准|确认情况|资料分级|服务边界|已发布引用|信息出处/)
 })
 
-test('discover account entries adapt to the current login state', () => {
-  const guest = buildDiscoverAccountEntries(false)
-  assert.deepEqual(guest.map(item => item.title), ['登录已有账号', '新生群聊'])
-  assert.deepEqual(guest.map(item => item.to), ['/login', '/chat'])
-  assert.match(guest[0]?.description ?? '', /暂不开放自行注册/)
-  assert.match(guest[0]?.description ?? '', /不登录也能使用/)
-  assert.match(guest[1]?.description ?? '', /登录后才能发消息/)
-
-  const signedIn = buildDiscoverAccountEntries(true)
-  assert.deepEqual(signedIn.map(item => item.title), ['个人中心', '进入新生群聊'])
-  assert.deepEqual(signedIn.map(item => item.to), ['/me', '/chat'])
-  assert.doesNotMatch(signedIn.map(item => item.description).join(' '), /登录/)
-  assert.match(pageSource, /await refreshSession\(\)/)
-  assert.match(pageSource, /isAuthenticated \? '个人资料与新生群聊' : '群聊和个人资料需要登录'/)
-  assert.match(pageSource, /不登录也能继续使用地图、清单和指南/)
-  assert.ok(pageSource.indexOf('常用入口') < pageSource.indexOf('账号与交流'))
-  assert.match(pageSource, /class="group flex min-h-16 items-center gap-2\.5 rounded-md border border-green-200[^"]*sm:min-h-20/)
-  assert.doesNotMatch(pageSource, /min-h-24 items-center gap-3 rounded-lg/)
+test('discover page keeps account and chat routes out of the public catalog', () => {
+  assert.doesNotMatch(pageSource, /buildDiscoverAccountEntries|isAuthenticated|账号与交流|\/login|\/chat|\/me/)
+  assert.doesNotMatch(utilSource, /buildDiscoverAccountEntries/)
 })
 
 test('discover task preview keeps the mobile page manageable', () => {

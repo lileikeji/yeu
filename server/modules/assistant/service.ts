@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { and, desc, eq, gt, inArray, like, or } from 'drizzle-orm'
 import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../data/major-profiles'
 import { campusTransitOptions, campusTransitSearchText } from '../../../data/campus-transit'
@@ -42,6 +42,7 @@ import {
 } from '../../../shared/utils/assistant-query'
 import type { DatabaseClient } from '../../database/client'
 import {
+  assistantAnswerCache,
   assistantKnowledgeEntries,
   assistantWebKnowledge,
   contents,
@@ -210,7 +211,9 @@ const MAX_MCP_TIMEOUT_MS = 60_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v14-identity-entry-priority'
+const ASSISTANT_CACHE_VERSION = 'rag-v15-cache-first-light-retrieval'
+const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
+const ASSISTANT_CANDIDATE_LIMIT = 4
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 1200
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
@@ -3519,17 +3522,82 @@ export async function askGateway(
 }
 
 function cacheResponse(
+  client: DatabaseClient,
   key: string,
   response: ApiAssistantResponse,
   signal?: AbortSignal
 ): ApiAssistantResponse {
   throwIfAssistantAborted(signal)
-  answerCache.set(key, { expiresAt: Date.now() + 10 * 60 * 1000, response })
+  const now = Date.now()
+  const expiresAt = now + ASSISTANT_ANSWER_CACHE_TTL_MS
+  answerCache.set(key, { expiresAt, response })
   if (answerCache.size > 100) {
     const oldest = answerCache.keys().next().value
     if (oldest) answerCache.delete(oldest)
   }
+  if (response.confidence >= 0.6) {
+    try {
+      client.db.insert(assistantAnswerCache).values({
+        id: randomUUID(),
+        cacheKey: key,
+        query: response.query.slice(0, 300),
+        responseJson: JSON.stringify(response),
+        knowledgeRevision: currentAssistantKnowledgeRevision(),
+        expiresAt,
+        lastUsedAt: now,
+        createdAt: now,
+        updatedAt: now
+      }).onConflictDoUpdate({
+        target: assistantAnswerCache.cacheKey,
+        set: {
+          query: response.query.slice(0, 300),
+          responseJson: JSON.stringify(response),
+          knowledgeRevision: currentAssistantKnowledgeRevision(),
+          expiresAt,
+          lastUsedAt: now,
+          updatedAt: now
+        }
+      }).run()
+    } catch {
+      // A cache write must never turn a successful answer into a failed answer.
+    }
+  }
   return response
+}
+
+function readCachedAssistantResponse(
+  client: DatabaseClient,
+  key: string,
+  signal?: AbortSignal
+): ApiAssistantResponse | null {
+  throwIfAssistantAborted(signal)
+  const now = Date.now()
+  const memory = answerCache.get(key)
+  if (memory) {
+    if (memory.expiresAt > now) return memory.response
+    answerCache.delete(key)
+  }
+  try {
+    const row = client.db.select({
+      id: assistantAnswerCache.id,
+      responseJson: assistantAnswerCache.responseJson,
+      expiresAt: assistantAnswerCache.expiresAt
+    }).from(assistantAnswerCache).where(and(
+      eq(assistantAnswerCache.cacheKey, key),
+      gt(assistantAnswerCache.expiresAt, now)
+    )).get()
+    if (!row) return null
+    const response = JSON.parse(row.responseJson) as ApiAssistantResponse
+    if (!response || typeof response.answer !== 'string' || !Array.isArray(response.citations)) return null
+    answerCache.set(key, { expiresAt: row.expiresAt, response })
+    client.db.update(assistantAnswerCache)
+      .set({ lastUsedAt: now, updatedAt: now })
+      .where(eq(assistantAnswerCache.id, row.id))
+      .run()
+    return response
+  } catch {
+    return null
+  }
 }
 
 function dormBedEvidenceGapResponse(
@@ -3653,6 +3721,23 @@ export async function answerCampusQuestion(
     const retrievalQuery = assistantRetrievalQuery(query)
     const intentDetail = assistantIntentDetail(query, retrievalQuery)
     const cacheKey = `${ASSISTANT_CACHE_VERSION}:${currentAssistantKnowledgeRevision()}:${query.toLocaleLowerCase('zh-CN')}`
+    const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
+    const activeCachedResponse = historicalTransferAnswer
+      ? null
+      : readCachedAssistantResponse(client, cacheKey, config.signal)
+    if (activeCachedResponse) {
+      return {
+        query,
+        retrievalQuery,
+        intentDetail,
+        cacheKey,
+        route: 'answer_cache' as const,
+        cached: activeCachedResponse,
+        localEvidence: [] as AssistantEvidence[],
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence: false
+      }
+    }
     const directKind = directQueryKind(query)
     if (directKind) {
       return {
@@ -3684,6 +3769,20 @@ export async function answerCampusQuestion(
         requiresSpecificWebEvidence: false
       }
     }
+    if (historicalTransferAnswer) {
+      return {
+        query,
+        retrievalQuery,
+        intentDetail,
+        cacheKey,
+        route: 'local_database' as const,
+        cached: null,
+        localEvidence: [] as AssistantEvidence[],
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence: false,
+        localEvidenceSufficient: true
+      }
+    }
     // Deterministic answers have their own small in-memory evidence. Resolve
     // them before opening the large knowledge tables; otherwise a cold SQLite
     // read can make a known answer look like a slow or failed search.
@@ -3712,25 +3811,7 @@ export async function answerCampusQuestion(
         localEvidenceSufficient: true
       }
     }
-    // Deterministic local rules must take precedence over stale generic cache entries.
     const transferQuery = isTransferQuery(query)
-    const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
-    const cached = answerCache.get(cacheKey)
-    if (cached && cached.expiresAt <= Date.now()) answerCache.delete(cacheKey)
-    const activeCachedResponse = cached && cached.expiresAt > Date.now() ? cached.response : null
-    if (activeCachedResponse && !historicalTransferAnswer) {
-      return {
-        query,
-        retrievalQuery,
-        intentDetail,
-        cacheKey,
-        route: 'answer_cache' as const,
-        cached: activeCachedResponse,
-        localEvidence: [] as AssistantEvidence[],
-        webEvidence: [] as ApiAssistantCitation[],
-        requiresSpecificWebEvidence: false
-      }
-    }
 
     const featureSeeking = isFeatureSeekingQuery(query)
     const featureMatch = featureSeeking ? searchSystemFeatures(query, 1)[0] : null
@@ -3786,7 +3867,7 @@ export async function answerCampusQuestion(
       }
     }
 
-    const localEvidence = retrieveCampusEvidence(client, retrievalQuery)
+    const localEvidence = retrieveCampusEvidence(client, retrievalQuery, ASSISTANT_CANDIDATE_LIMIT)
     const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
     let transferWebEvidence: ApiAssistantCitation[] = []
     if (transferQuery) {
@@ -3864,7 +3945,7 @@ export async function answerCampusQuestion(
       '整理答案',
       () => directAssistantResponse(query)
     )
-    return withRunMetadata(response, tracker, 'local_database')
+    return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, 'local_database'), config.signal)
   }
   if (analysis.route === 'direct_model') {
     const response = await runAssistantStage(
@@ -3873,7 +3954,7 @@ export async function answerCampusQuestion(
       '整理答案',
       () => directGeneralResponse(query, config)
     )
-    return withRunMetadata(response, tracker, 'local_database')
+    return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, 'local_database'), config.signal)
   }
   if (analysis.route === 'answer_cache' && analysis.cached) {
     const response = await runAssistantStage(tracker, 'answer_cache', '读取答案缓存', () => analysis.cached!)
@@ -3907,7 +3988,7 @@ export async function answerCampusQuestion(
         '整理答案',
         () => transitApiResponse(query, liveTransit!)
       )
-      return withRunMetadata(response, tracker, 'feature_api')
+      return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, 'feature_api'), config.signal)
     }
 
     const localEvidence = await runAssistantStage(
@@ -3923,7 +4004,7 @@ export async function answerCampusQuestion(
       '整理备用答案',
       () => localEvidence[0] ? buildLocalResponse(query, localEvidence) : localEvidenceGapResponse(query)
     )
-    return withRunMetadata(response, tracker, 'local_database')
+    return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, 'local_database'), config.signal)
   }
 
   if (analysis.route === 'feature_api' || analysis.route === 'local_database') {
@@ -3938,7 +4019,7 @@ export async function answerCampusQuestion(
       // second time; feature routing still performs its one required lookup.
       () => analysis.route === 'local_database'
         ? analysis.localEvidence
-        : retrieveCampusEvidence(client, analysis.retrievalQuery),
+        : retrieveCampusEvidence(client, analysis.retrievalQuery, ASSISTANT_CANDIDATE_LIMIT),
       result => knowledgeRetrievalDetail(query, result)
     )
     const identitySubject = assistantIdentitySubject(query)
@@ -4005,7 +4086,7 @@ export async function answerCampusQuestion(
       tracker,
       analysis.route
     )
-    return cacheResponse(cacheKey, result, config.signal)
+    return cacheResponse(client, cacheKey, result, config.signal)
   }
 
   let webEvidence = analysis.webEvidence
@@ -4078,5 +4159,5 @@ export async function answerCampusQuestion(
     }
   })
   throwIfAssistantAborted(config.signal)
-  return cacheResponse(cacheKey, withRunMetadata(response, tracker, retrievalPath), config.signal)
+  return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, retrievalPath), config.signal)
 }
