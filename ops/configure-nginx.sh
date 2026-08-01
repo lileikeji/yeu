@@ -28,6 +28,8 @@ server {
     ssl_certificate /www/server/panel/vhost/cert/yeu.huiliyill.cn/fullchain.pem;
     ssl_certificate_key /www/server/panel/vhost/cert/yeu.huiliyill.cn/privkey.pem;
     server_name yeu.huiliyill.cn;
+    add_header Cache-Control "no-store" always;
+    add_header CDN-Cache-Control "no-store" always;
     return 301 https://yx.huiliyill.cn$request_uri;
 }
 NGINX

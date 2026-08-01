@@ -29,7 +29,6 @@ function isActive(to: string) {
 function shareCurrentPage(): void {
   void sharePage()
 }
-
 </script>
 
 <template>
@@ -166,7 +165,7 @@ function shareCurrentPage(): void {
           <NuxtLink
             to="/sources"
             class="hover:text-green-700"
-          >信息从哪里来</NuxtLink>
+          >信息来源</NuxtLink>
         </div>
       </div>
     </footer>

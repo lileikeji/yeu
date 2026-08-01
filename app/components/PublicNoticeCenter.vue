@@ -109,11 +109,20 @@ function openAutomaticNotice(): void {
   openNoticeDetail(notice)
 }
 
-watch(notices, openAutomaticNotice)
+// The notice request can resolve during SSR hydration or just after the
+// component mounts. Watching both sources and deferring to the next tick keeps
+// the modal trigger reliable in either case.
+watch(
+  [notices, autoPopupReady],
+  () => {
+    if (autoPopupReady.value) void nextTick(openAutomaticNotice)
+  },
+  { deep: true }
+)
 
 onMounted(() => {
   autoPopupReady.value = true
-  openAutomaticNotice()
+  void nextTick(openAutomaticNotice)
 })
 </script>
 
