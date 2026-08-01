@@ -47,7 +47,7 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   assert.match(detailsSource, /absolute bottom-\[calc\(var\(--mobile-nav-height\)\+0\.75rem\)\]/)
   assert.match(pageSource, /min-h-0 overflow-hidden bg-white/)
   assert.doesNotMatch(pageSource, /min-h-\[34rem\]/)
-  assert.match(layoutSource, /v-if="route\.path !== '\/map'"/)
+  assert.match(layoutSource, /v-if="!isMapPage && !isSearchPage"/)
   assert.doesNotMatch(detailsSource, /useRoute|useRouter|createRuntimeMapProvider/)
   assert.match(e2eFixtureSource, /【到这里前先确认】\\n- 核对地点名称和入口标识。/)
 })
@@ -56,8 +56,11 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
   assert.match(pageSource, /md:pointer-events-auto/)
   assert.match(
     pageSource,
-    /selectedPoi && mobileSheetState !== 'collapsed'[\s\S]*?'overflow-y-auto overscroll-y-contain md:overflow-hidden'/
+    /mobileSheetState === 'collapsed'[\s\S]*?'hidden md:block' : 'block'/
   )
-  assert.match(pageSource, /class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"/)
+  assert.match(pageSource, /class="map-place-list min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"/)
+  assert.match(pageSource, /@wheel\.stop/)
+  assert.match(pageSource, /@touchmove\.stop/)
+  assert.match(pageSource, /'overflow-hidden'/)
   assert.match(pageSource, /mobileSheetState === 'collapsed'[\s\S]*?'hidden md:block' : 'block'/)
 })

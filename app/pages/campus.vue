@@ -24,6 +24,7 @@ import {
   publicClubs,
   publicNotices
 } from '~/utils/public-catalog'
+import { safeNoticeActionHref } from '~~/shared/utils/notice-actions'
 
 useSeoMeta({
   title: '校园与部门',
@@ -382,6 +383,21 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           >
             {{ notice.body }}
           </p>
+          <div
+            v-if="notice.actions.length"
+            class="mt-4 flex flex-wrap gap-2"
+          >
+            <UButton
+              v-for="action in notice.actions"
+              :key="`${action.label}-${action.href}`"
+              :to="safeNoticeActionHref(action.href) || undefined"
+              :icon="action.icon || 'i-lucide-arrow-up-right'"
+              :label="action.label"
+              color="primary"
+              variant="soft"
+              size="sm"
+            />
+          </div>
           <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
             <span>{{ notice.audience }}</span>
             <span v-if="notice.validUntil">有效至 {{ notice.validUntil.slice(0, 10) }}</span>

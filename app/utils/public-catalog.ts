@@ -10,8 +10,15 @@ import type { GeoPoint, MapPoi } from '~~/map/core/types'
 import type { CampusMapReferencePlace } from '~~/data/seeds/preview-places'
 import type { AmapImportedPlace } from '~~/data/seeds/amap-imported-places'
 import type { ContentKind } from '~~/shared/constants/server'
-import type { ApiAmapOwnerDraftPlace, ApiContent, ApiListResponse, ApiPlace } from '~~/shared/types/server'
+import type {
+  ApiAmapOwnerDraftPlace,
+  ApiContent,
+  ApiListResponse,
+  ApiNoticeAction,
+  ApiPlace
+} from '~~/shared/types/server'
 import { mapCategoryFromPlaceType } from '~~/shared/utils/place-map-category'
+import { normalizeNoticeActions } from '~~/shared/utils/notice-actions'
 import { isSafePublicHttpUrl } from '~~/shared/utils/public-http-url'
 import { presentStudentSourceContext } from './source-context-presentation'
 import { clubSignupQuestionChecklist } from './club-detail-presentation'
@@ -272,6 +279,7 @@ export interface PublicNoticeView {
   audience: string
   validFrom: string | null
   validUntil: string | null
+  actions: ApiNoticeAction[]
   updatedAt: string
   sources: PublicSource[]
 }
@@ -993,6 +1001,7 @@ export function publicNotices(contents: ApiContent[]): PublicNoticeView[] {
       audience: normalizeAudience(content.audience).join('、'),
       validFrom: metadataString(content, 'validFrom'),
       validUntil: metadataString(content, 'validUntil'),
+      actions: normalizeNoticeActions(content.metadata.noticeActions),
       updatedAt: dateOnly(content.lastVerifiedAt ?? content.updatedAt),
       sources: toPublicSources(content)
     }))

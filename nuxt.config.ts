@@ -263,6 +263,9 @@ export default defineNuxtConfig({
       skipWaiting: true,
       clientsClaim: true,
       globPatterns: ['**/*.{css,html,ico,png,svg,webp,woff2}'],
+      // Large promotional artwork is fetched on demand; keeping it out of
+      // the offline precache avoids exceeding Workbox's per-file limit.
+      globIgnores: ['**/images/posters/freshman-guide-campus-map.png'],
       navigateFallback: null,
       manifestTransforms: [async entries => ({ manifest: entries, warnings: [] })],
       cleanupOutdatedCaches: true,

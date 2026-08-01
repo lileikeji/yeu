@@ -426,8 +426,13 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                   @click="addListItem(field.key)"
                 />
               </div>
+              <AdminNoticeActionsField
+                v-else-if="field.type === 'link-list'"
+                :model-value="inputValue(field.key)"
+                @update:model-value="emit('updateField', field.key, $event)"
+              />
               <UTextarea
-                v-else-if="field.type === 'textarea' || field.type === 'text-list' || field.type === 'json'"
+                v-else-if="field.type === 'textarea' || field.type === 'json' || field.type === 'text-list'"
                 :model-value="inputValue(field.key)"
                 :placeholder="field.placeholder"
                 :rows="field.rows ?? (field.type === 'json' ? 10 : 4)"

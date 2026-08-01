@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ApiContent } from '~~/shared/types/server'
+import type { ApiContent, ApiNoticeAction } from '~~/shared/types/server'
+import { safeNoticeActionHref } from '~~/shared/utils/notice-actions'
 import {
   noticePublishedTime,
   noticeRelativeTime,
@@ -9,6 +10,7 @@ import {
 interface PublicNotice extends ApiContent {
   pinned: boolean
   autoPopup: boolean
+  actions: ApiNoticeAction[]
   confirmationCount: number
   confirmed: boolean
 }
@@ -51,6 +53,10 @@ const modalDescription = computed(() => selectedNotice.value
 
 function noticeTime(notice: PublicNotice): string {
   return notice.publishedAt || notice.updatedAt
+}
+
+function noticeActionHref(action: ApiNoticeAction): string | null {
+  return safeNoticeActionHref(action.href)
 }
 
 function openNoticeCenter(): void {
@@ -186,14 +192,30 @@ onMounted(() => {
     v-model:open="open"
     :title="modalTitle"
     :description="modalDescription"
-    :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
+    :ui="{
+      content: 'w-[calc(100vw-1rem)] overflow-hidden sm:max-w-xl',
+      header: 'border-b border-zinc-200 px-4 py-3 sm:px-5 sm:py-4',
+      body: 'p-0'
+    }"
   >
+    <template #title>
+      <span class="inline-flex items-center gap-2">
+        <span class="grid size-7 shrink-0 place-items-center rounded-full bg-green-100 text-green-700">
+          <UIcon
+            name="i-lucide-bell"
+            class="size-4"
+            aria-hidden="true"
+          />
+        </span>
+        <span>{{ modalTitle }}</span>
+      </span>
+    </template>
     <template #body>
       <div
         v-if="selectedNotice"
-        class="flex max-h-[72dvh] min-h-0 flex-col"
+        class="flex max-h-[min(72dvh,42rem)] min-h-0 flex-col px-4 pb-4 sm:px-5 sm:pb-5"
       >
-        <div class="mb-4 flex items-center justify-between gap-3 border-b border-zinc-200 pb-3">
+        <div class="mb-3 flex items-center justify-between gap-3 border-b border-zinc-200 py-2.5">
           <UButton
             icon="i-lucide-arrow-left"
             label="返回公告列表"
@@ -215,7 +237,7 @@ onMounted(() => {
           </span>
         </div>
 
-        <article class="min-h-0 overflow-y-auto pr-1">
+        <article class="min-h-0 overflow-y-auto overscroll-y-contain pr-1">
           <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
             <UBadge
               v-if="selectedNotice.pinned"
@@ -223,6 +245,7 @@ onMounted(() => {
               color="warning"
               variant="soft"
               size="sm"
+              icon="i-lucide-pin"
             />
             <time :datetime="noticeTime(selectedNotice)">
               {{ noticePublishedTime(noticeTime(selectedNotice)) }}
@@ -230,20 +253,41 @@ onMounted(() => {
             <span aria-hidden="true">·</span>
             <span>{{ selectedNotice.confirmationCount }} 人已读</span>
           </div>
-          <h2 class="mt-4 text-xl font-bold leading-8 text-zinc-950 sm:text-2xl">
+          <h2 class="mt-2 text-xl font-bold leading-8 text-zinc-950 sm:text-2xl">
             {{ selectedNotice.title }}
           </h2>
           <p
             v-if="selectedNotice.summary"
-            class="mt-3 rounded-md border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-zinc-700"
+            class="mt-2 rounded-md border-l-4 border-amber-400 bg-amber-50 px-3 py-2.5 text-sm leading-6 text-zinc-700"
           >
             {{ selectedNotice.summary }}
           </p>
-          <div class="mt-5 whitespace-pre-line text-[15px] leading-8 text-zinc-800">
+          <div class="mt-3 whitespace-pre-line text-[15px] leading-7 text-zinc-800">
             {{ selectedNotice.body || selectedNotice.summary }}
           </div>
 
-          <div class="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 pt-4">
+          <div
+            v-if="selectedNotice.actions?.length"
+            class="mt-4 border-t border-zinc-200 pt-3"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              快捷入口
+            </p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <UButton
+                v-for="action in selectedNotice.actions"
+                :key="`${action.label}-${action.href}`"
+                :to="noticeActionHref(action) || undefined"
+                :icon="action.icon || 'i-lucide-arrow-up-right'"
+                :label="action.label"
+                color="primary"
+                variant="soft"
+                size="sm"
+              />
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 pt-3">
             <UButton
               v-if="selectedNotice.autoPopup"
               icon="i-lucide-calendar-off"
@@ -259,13 +303,13 @@ onMounted(() => {
 
       <div
         v-else-if="notices.length"
-        class="max-h-[72dvh] space-y-3 overflow-y-auto pr-1"
+        class="max-h-[min(72dvh,42rem)] space-y-2 overflow-y-auto overscroll-y-contain px-4 pb-4 pr-1 sm:px-5 sm:pb-5"
       >
         <button
           v-for="notice in notices"
           :key="notice.id"
           type="button"
-          class="group w-full rounded-md border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          class="group w-full rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           :class="notice.confirmed
             ? 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50'
             : 'border-amber-300 bg-amber-50/80 hover:border-amber-400 hover:bg-amber-50'"
@@ -290,6 +334,7 @@ onMounted(() => {
                   color="warning"
                   variant="soft"
                   size="sm"
+                  icon="i-lucide-pin"
                 />
                 <span
                   v-if="!notice.confirmed"

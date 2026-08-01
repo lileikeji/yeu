@@ -208,6 +208,12 @@ export interface ApiContent {
   sources: ApiSource[]
 }
 
+export interface ApiNoticeAction {
+  label: string
+  href: string
+  icon?: string
+}
+
 export interface ApiProcedureDepartment {
   id: string
   slug: string

@@ -734,6 +734,15 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['notice'] }
       },
       {
+        key: 'metadata.noticeActions',
+        label: '正文快捷入口',
+        type: 'link-list',
+        description: '在公告正文下方添加可点击按钮；可以直接选择已有功能，也可以填写站内路径或安全的 https 链接。',
+        group: '正文快捷入口',
+        span: 'full',
+        condition: { key: 'kind', values: ['notice'] }
+      },
+      {
         key: 'metadata.validFrom',
         label: '公告生效时间',
         type: 'datetime-local',

@@ -21,6 +21,7 @@ import {
 } from '../constants/server'
 import { evaluateCoordinateCapture } from '../utils/coordinate-sampling'
 import { isSafePublicHttpUrl } from '../utils/public-http-url'
+import { isSafeLocalPagePath } from '../utils/notice-actions'
 
 const slugSchema = z.string()
   .trim()
@@ -426,6 +427,23 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
         code: 'custom',
         path: ['contactPhones'],
         message: 'contactPhones must not contain duplicate numbers'
+      })
+    }
+  }
+  const noticeActions = value.noticeActions
+  if (noticeActions !== undefined) {
+    const validAction = (item: unknown): boolean => {
+      if (!isPlainObject(item)) return false
+      if (Object.keys(item).some(key => !['label', 'href', 'icon'].includes(key))) return false
+      if (typeof item.label !== 'string' || item.label.trim().length < 1 || item.label.trim().length > 60) return false
+      if (typeof item.href !== 'string' || (!isSafeLocalPagePath(item.href.trim()) && !isSafePublicHttpUrl(item.href.trim()))) return false
+      return item.icon === undefined || (typeof item.icon === 'string' && item.icon.trim().length <= 80)
+    }
+    if (!Array.isArray(noticeActions) || noticeActions.length > 12 || noticeActions.some(item => !validAction(item))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['noticeActions'],
+        message: 'noticeActions must contain at most 12 safe links with labels'
       })
     }
   }

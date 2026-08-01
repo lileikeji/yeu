@@ -6,6 +6,7 @@ import { activePublicContentCondition } from '../content/visibility'
 import { ensureVisitor, recordVisitorEvent } from '../visitors/service'
 import { safeMetadata, serializeContent } from '../../utils/serializers'
 import { getContentSourceMap } from '../verification/service'
+import { normalizeNoticeActions } from '../../../shared/utils/notice-actions'
 
 function confirmationCondition(noticeId: string, afterUpdatedAt?: number) {
   const conditions = [
@@ -51,6 +52,7 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
       ...serializeContent(row, sourceMap.get(row.id) ?? []),
       pinned: metadata.pinned === true,
       autoPopup: metadata.autoPopup === true,
+      actions: normalizeNoticeActions(metadata.noticeActions),
       confirmationCount,
       confirmed
     }

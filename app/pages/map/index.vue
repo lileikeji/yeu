@@ -526,9 +526,9 @@ onBeforeUnmount(() => {
         mobileSheetState === 'collapsed'
           ? 'border-0 shadow-none'
           : 'border-t border-[var(--line)] shadow-[0_-6px_24px_rgb(0_0_0/12%)]',
-        selectedPoi && mobileSheetState !== 'collapsed'
-          ? 'overflow-y-auto overscroll-y-contain md:overflow-hidden'
-          : 'overflow-hidden',
+        // Keep the sheet itself out of the scroll chain. The place list below
+        // is the only scroll region on mobile.
+        'overflow-hidden',
         sidebarCollapsed ? 'md:hidden' : ''
       ]"
     >
@@ -695,8 +695,10 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"
+        class="map-place-list min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"
         :class="mobileSheetState === 'collapsed' ? 'hidden md:block' : 'block'"
+        @wheel.stop
+        @touchmove.stop
         aria-label="地点列表"
       >
         <button
@@ -748,8 +750,6 @@ onBeforeUnmount(() => {
       class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] md:relative md:inset-auto md:order-2"
       aria-label="校园地图"
     >
-      <PublicPageViewStats variant="overlay" />
-
       <div
         v-show="mapViewMode === 'geographic'"
         class="absolute inset-0"
@@ -889,8 +889,8 @@ onBeforeUnmount(() => {
       <!-- Mobile: reopen fully-hidden place list -->
       <div
         v-if="mobileSheetState === 'collapsed'"
-        class="pointer-events-none absolute inset-x-0 bottom-[calc(var(--mobile-nav-height)+0.5rem)] z-30 flex justify-center px-3 md:hidden"
-        :class="selectedPoi ? 'bottom-[calc(var(--mobile-nav-height)+min(38dvh,18rem)+0.85rem)]' : ''"
+        class="pointer-events-none absolute inset-x-3 bottom-3 z-30 flex justify-start px-0 md:hidden"
+        :class="selectedPoi ? 'bottom-[calc(min(38dvh,18rem)+0.85rem)]' : ''"
       >
         <UButton
           icon="i-lucide-list"
@@ -902,6 +902,8 @@ onBeforeUnmount(() => {
           @click="() => { mobileSheetState = 'half' }"
         />
       </div>
+
+      <PublicPageViewStats variant="map-dock" />
 
       <MapDisplaySettingsPanel
         v-if="mapViewMode === 'geographic' && displaySettingsOpen"
@@ -1175,6 +1177,13 @@ onBeforeUnmount(() => {
 .map-workspace .maplibregl-canvas:focus-visible {
   outline: 2px solid #176f46;
   outline-offset: -2px;
+}
+
+.map-workspace .map-place-list {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
 }
 
 .map-workspace :deep(.map-float-btn),

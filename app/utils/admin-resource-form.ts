@@ -219,7 +219,7 @@ export function initializeAdminResourceForm(
 
     if (field.type === 'date') value = toAdminResourceInputDate(value, false)
     if (field.type === 'datetime-local') value = toAdminResourceInputDate(value, true)
-    if (field.type === 'json') value = serializeAdminResourceJsonField(value)
+    if (field.type === 'json' || field.type === 'link-list') value = serializeAdminResourceJsonField(value)
     if ((field.type === 'image-list' || field.type === 'tel-list' || field.type === 'text-list') && Array.isArray(value)) {
       value = value.filter(item => typeof item === 'string').join('\n')
     }
@@ -263,10 +263,15 @@ export function normalizeAdminResourceFieldValue(
 
   if (field.type === 'select' && value === '') return null
 
-  if (field.type === 'json') {
+  if (field.type === 'json' || field.type === 'link-list') {
+    if (field.type === 'link-list' && (value === '' || value === null)) return []
     if (typeof value !== 'string' || value.trim() === '') return null
     try {
-      return JSON.parse(value)
+      const parsed = JSON.parse(value)
+      if (field.type === 'link-list' && !Array.isArray(parsed)) {
+        throw new Error('not an array')
+      }
+      return parsed
     } catch {
       throw new Error(`${field.label}格式不正确，请检查括号、引号和逗号。`)
     }
