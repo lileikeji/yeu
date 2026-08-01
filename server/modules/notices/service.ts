@@ -7,6 +7,7 @@ import { ensureVisitor, recordVisitorEvent } from '../visitors/service'
 import { safeMetadata, serializeContent } from '../../utils/serializers'
 import { getContentSourceMap } from '../verification/service'
 import { normalizeNoticeActions } from '../../../shared/utils/notice-actions'
+import { sortPublicNoticeItems } from './sorting'
 
 function confirmationCondition(noticeId: string, afterUpdatedAt?: number) {
   const conditions = [
@@ -51,6 +52,11 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
     return {
       ...serializeContent(row, sourceMap.get(row.id) ?? []),
       pinned: metadata.pinned === true,
+      sortOrder: typeof metadata.sortOrder === 'number'
+        && Number.isInteger(metadata.sortOrder)
+        && metadata.sortOrder >= 0
+        ? metadata.sortOrder
+        : null,
       autoPopup: metadata.autoPopup === true,
       actions: normalizeNoticeActions(metadata.noticeActions),
       confirmationCount,
@@ -58,9 +64,7 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
     }
   })
 
-  items.sort((a, b) => Number(b.pinned) - Number(a.pinned)
-    || Date.parse(b.publishedAt ?? b.updatedAt) - Date.parse(a.publishedAt ?? a.updatedAt))
-  return { items, total: items.length }
+  return { items: sortPublicNoticeItems(items), total: items.length }
 }
 
 export function confirmPublicNotice(event: H3Event, client: DatabaseClient, noticeId: string) {

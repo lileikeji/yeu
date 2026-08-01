@@ -60,7 +60,7 @@
 
 公开页面可以按内容特征选择 SSR、预渲染或客户端加载。地图页必须在客户端初始化 SDK；内容详情、公告详情和分享入口应保留可被搜索引擎和微信预览读取的 SSR 文本。管理接口、登录会话、聊天写入、访客追踪和 AI 流式响应始终动态执行，禁止被 CDN 或 Service Worker 缓存。发布时先构建新 release，再原子切换 `current`，最后重启 `yeu.service`；旧 release 保留到健康检查和回滚窗口结束。
 
-公告由 `contents(kind='notice')` 统一维护，`metadata.pinned` 控制排序、`metadata.validFrom/validUntil` 控制可见时间、`metadata.autoPopup` 控制用户进入公开站点时是否自动打开第一条启用弹出的公告。打开详情会写入 `notice_confirm` 访客事件；公告被编辑后，旧版本的已读事件不会阻止新版本再次提示。前台公告中心据此显示未读数和阅读人数；自动弹出只在客户端挂载并等待数据水合后执行，避免 SSR 阻塞页面。组织管理员进入 `/admin/organization` 时显示一次新域名提醒，可复制 `https://yx.huiliyill.cn/admin/organization`；旧域名的请求（包括 `/admin` 路径）只执行 301 跳转，不渲染旧后台。
+公告由 `contents(kind='notice')` 统一维护，`metadata.pinned` 控制置顶、`metadata.sortOrder` 控制可选的手动顺序（未填写时按发布时间倒序）、`metadata.validFrom/validUntil` 控制可见时间、`metadata.autoPopup` 控制用户进入公开站点时是否自动打开第一条启用弹出的公告。打开详情会写入 `notice_confirm` 访客事件；公告被编辑后，旧版本的已读事件不会阻止新版本再次提示。前台公告中心据此显示未读数和阅读人数；自动弹出只在客户端挂载并等待数据水合后执行，避免 SSR 阻塞页面。组织管理员进入 `/admin/organization` 时显示一次新域名提醒，可复制 `https://yx.huiliyill.cn/admin/organization`；旧域名的请求（包括 `/admin` 路径）只执行 301 跳转，不渲染旧后台。
 
 ## 4. 建议目录与职责
 

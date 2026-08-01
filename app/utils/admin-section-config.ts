@@ -703,15 +703,15 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
       },
       {
         key: 'metadata.sortOrder',
-        label: '前台排序',
+        label: '前台/公告排序',
         type: 'number',
         min: 0,
         max: 9999,
         step: 1,
         defaultValue: 100,
-        description: '数字越小越靠前；相同数字时，精选内容优先。',
+        description: '数字越小越靠前；公告不填写时按发布时间倒序。',
         group: '发布与排序',
-        condition: { key: 'kind', values: ['department', 'club'] }
+        condition: { key: 'kind', values: ['department', 'club', 'notice'] }
       },
       {
         key: 'metadata.pinned',

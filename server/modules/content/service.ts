@@ -90,14 +90,23 @@ export function listContent(
 
   const where = conditions.length > 0 ? and(...conditions) : undefined
   const offset = (query.page - 1) * query.pageSize
+  const orderBy = query.kind === 'notice'
+    ? [
+        sql<number>`case when json_extract(${contents.metadataJson}, '$.pinned') = 1 then 0 else 1 end asc`,
+        sql<number>`coalesce(cast(json_extract(${contents.metadataJson}, '$.sortOrder') as integer), 10000) asc`,
+        desc(contents.publishedAt),
+        desc(contents.updatedAt),
+        contents.title
+      ]
+    : [
+        sql<number>`coalesce(cast(json_extract(${contents.metadataJson}, '$.sortOrder') as integer), 10000) asc`,
+        desc(contents.isFeatured),
+        desc(contents.publishedAt),
+        contents.title
+      ]
   const rows = client.db.select().from(contents)
     .where(where)
-    .orderBy(
-      sql<number>`coalesce(cast(json_extract(${contents.metadataJson}, '$.sortOrder') as integer), 10000) asc`,
-      desc(contents.isFeatured),
-      desc(contents.publishedAt),
-      contents.title
-    )
+    .orderBy(...orderBy)
     .limit(query.pageSize)
     .offset(offset)
     .all()
