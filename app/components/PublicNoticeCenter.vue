@@ -25,6 +25,7 @@ const selectedNoticeId = ref('')
 const confirmingId = ref('')
 const autoPopupReady = ref(false)
 const autoPopupShown = ref(false)
+const detailSource = ref<'list' | 'auto' | null>(null)
 const toast = useToast()
 const autoPopupDismissalKey = 'yeu-notice-auto-popup-dismissed-v1'
 const { data } = await useFetch<{ items: PublicNotice[], total: number }>('/api/public/notices', {
@@ -61,11 +62,8 @@ function noticeActionHref(action: ApiNoticeAction): string | null {
 
 function openNoticeCenter(): void {
   selectedNoticeId.value = ''
+  detailSource.value = null
   open.value = true
-}
-
-function showNoticeList(): void {
-  selectedNoticeId.value = ''
 }
 
 async function confirmNotice(notice: PublicNotice): Promise<void> {
@@ -102,10 +100,31 @@ async function confirmNotice(notice: PublicNotice): Promise<void> {
   }
 }
 
-function openNoticeDetail(notice: PublicNotice): void {
+function openNoticeDetail(notice: PublicNotice, source: 'list' | 'auto' = 'list'): void {
   selectedNoticeId.value = notice.id
+  detailSource.value = source
   open.value = true
   void confirmNotice(notice)
+}
+
+function handleModalOpenChange(nextOpen: boolean): void {
+  if (nextOpen) {
+    open.value = true
+    return
+  }
+
+  // Closing a detail opened from the list returns to that list. A forced
+  // entry popup closes completely, so it does not trap the visitor in a list.
+  if (selectedNoticeId.value && detailSource.value === 'list') {
+    selectedNoticeId.value = ''
+    detailSource.value = null
+    open.value = true
+    return
+  }
+
+  selectedNoticeId.value = ''
+  detailSource.value = null
+  open.value = false
 }
 
 function todayKey(): string {
@@ -151,7 +170,7 @@ function openAutomaticNotice(): void {
   const notice = notices.value.find(item => item.autoPopup)
   if (!notice || hasDismissedAutoPopupToday(notice.id)) return
   autoPopupShown.value = true
-  openNoticeDetail(notice)
+  openNoticeDetail(notice, 'auto')
 }
 
 // The notice request can resolve during SSR hydration or just after the
@@ -189,7 +208,7 @@ onMounted(() => {
   </UButton>
 
   <UModal
-    v-model:open="open"
+    :open="open"
     :title="modalTitle"
     :description="modalDescription"
     :ui="{
@@ -197,6 +216,7 @@ onMounted(() => {
       header: 'border-b border-zinc-200 px-4 py-3 sm:px-5 sm:py-4',
       body: 'p-0'
     }"
+    @update:open="handleModalOpenChange"
   >
     <template #title>
       <span class="inline-flex items-center gap-2">
@@ -215,43 +235,35 @@ onMounted(() => {
         v-if="selectedNotice"
         class="flex max-h-[min(72dvh,42rem)] min-h-0 flex-col px-4 pb-4 sm:px-5 sm:pb-5"
       >
-        <div class="mb-3 flex items-center justify-between gap-3 border-b border-zinc-200 py-2.5">
-          <UButton
-            icon="i-lucide-arrow-left"
-            label="返回公告列表"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="-ml-2 min-h-10"
-            @click="showNoticeList"
-          />
-          <span
-            class="inline-flex shrink-0 items-center gap-1 text-xs font-medium"
-            :class="selectedNotice.confirmed ? 'text-emerald-700' : 'text-amber-700'"
-          >
-            <UIcon
-              :name="selectedNotice.confirmed ? 'i-lucide-circle-check' : 'i-lucide-circle'"
-              class="size-3.5"
-            />
-            {{ selectedNotice.confirmed ? '已读' : '未读' }}
-          </span>
-        </div>
-
         <article class="min-h-0 overflow-y-auto overscroll-y-contain pr-1">
-          <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-            <UBadge
-              v-if="selectedNotice.pinned"
-              label="置顶公告"
-              color="warning"
-              variant="soft"
-              size="sm"
-              icon="i-lucide-pin"
-            />
-            <time :datetime="noticeTime(selectedNotice)">
-              {{ noticePublishedTime(noticeTime(selectedNotice)) }}
-            </time>
-            <span aria-hidden="true">·</span>
-            <span>{{ selectedNotice.confirmationCount }} 人已读</span>
+          <div class="flex items-center justify-between gap-3 text-xs text-zinc-500">
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+              <UBadge
+                v-if="selectedNotice.pinned"
+                label="置顶公告"
+                color="warning"
+                variant="soft"
+                size="sm"
+                icon="i-lucide-pin"
+              />
+              <time :datetime="noticeTime(selectedNotice)">
+                {{ noticePublishedTime(noticeTime(selectedNotice)) }}
+              </time>
+              <span aria-hidden="true">·</span>
+            </div>
+            <span class="ml-auto inline-flex shrink-0 items-center gap-2">
+              <span>{{ selectedNotice.confirmationCount }} 人已读</span>
+              <span
+                class="inline-flex items-center gap-1 font-medium"
+                :class="selectedNotice.confirmed ? 'text-emerald-700' : 'text-amber-700'"
+              >
+                <UIcon
+                  :name="selectedNotice.confirmed ? 'i-lucide-circle-check' : 'i-lucide-circle'"
+                  class="size-3.5"
+                />
+                {{ selectedNotice.confirmed ? '已读' : '未读' }}
+              </span>
+            </span>
           </div>
           <h2 class="mt-2 text-xl font-bold leading-8 text-zinc-950 sm:text-2xl">
             {{ selectedNotice.title }}
