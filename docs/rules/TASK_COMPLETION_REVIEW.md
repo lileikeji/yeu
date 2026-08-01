@@ -71,10 +71,10 @@
 - 做得不好的地方：上一轮把“自动弹出”错误地绑定到“未读”，导致后台开关对已读用户看起来失效；本地验收端口也没有与当前开发服务对应。
 - 根因：自动弹出条件额外要求 `confirmed === false`，与后台“进入即弹”语义冲突；浏览器已有已读事件时该条件永远不成立。
 - 后续避免：公告验收必须覆盖新访客、已读访客和编辑后新版本；同时检查当前页面端口、`/api/public/notices` 的 `autoPopup/confirmed/updatedAt` 和弹窗 DOM。
-- 验证环境与结果：`pnpm exec eslint app/components/PublicNoticeCenter.vue`、`pnpm typecheck` 和 `pnpm build` 通过；生产接口返回 `autoPopup: true`，当前工作区生产构建成功，部署后再复核生产弹窗。
-- 发布/回滚信息：待本轮提交和生产发布后填写；保留上一生产 release 作为直接回滚点。
+- 验证环境与结果：`pnpm exec eslint app/components/PublicNoticeCenter.vue`、`pnpm typecheck` 和 `pnpm build` 通过；生产接口返回 `autoPopup: true`；发布后 `yeu.service` 为 active，源站与 `https://yx.huiliyill.cn/api/health` 均返回 `status: ok`，已读访客刷新线上首页仍实际出现“公告详情”弹窗。
+- 发布/回滚信息：提交 `4275261` 已推送 `origin/master` 并发布到 `/www/wwwroot/yeu/releases/20260801-223300-4275261`；旧 release `/www/wwwroot/yeu/releases/20260801-221833-33e0c11` 保留为直接回滚点。
 - 架构变化：公告弹出策略由“自动弹出且未读”调整为“后台开启即弹出一次；已读只影响列表状态”，已同步 `docs/ARCHITECTURE.md`。
-- 后续动作：发布后分别使用新访客和已有已读记录的访客打开 `https://yx.huiliyill.cn/`，确认两者均能看到弹窗；关闭开关后确认不弹出。
+- 后续动作：新公告关闭 `autoPopup` 后再做一次负向验收，确认关闭开关时不会弹出；继续保留新访客、已读访客和编辑后新版本三个公告回归场景。
 
 ## 2026-08-01 · 公告实际不弹出复核与新版本已读修复
 
