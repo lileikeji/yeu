@@ -29,6 +29,9 @@ test('notice presentation reports unread counts and useful relative times', () =
 test('public notice center uses a list-detail flow and marks details read automatically', () => {
   assert.match(noticeCenter, /noticeUnreadCount\(notices\.value\)/)
   assert.match(noticeCenter, /autoPopup/)
+  assert.match(noticeCenter, /autoPopupDismissalKey/)
+  assert.match(noticeCenter, /localStorage\.setItem/)
+  assert.match(noticeCenter, /dismissAutoPopupForToday/)
   assert.match(noticeCenter, /onMounted\(\(\) =>/)
   assert.match(noticeCenter, /open\.value = true/)
   assert.match(noticeCenter, /openNoticeDetail\(notice\)/)

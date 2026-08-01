@@ -24,6 +24,7 @@ const confirmingId = ref('')
 const autoPopupReady = ref(false)
 const autoPopupShown = ref(false)
 const toast = useToast()
+const autoPopupDismissalKey = 'yeu-notice-auto-popup-dismissed-v1'
 const { data } = await useFetch<{ items: PublicNotice[], total: number }>('/api/public/notices', {
   key: 'public-notices'
 })
@@ -101,13 +102,48 @@ function openNoticeDetail(notice: PublicNotice): void {
   void confirmNotice(notice)
 }
 
+function todayKey(): string {
+  // `sv-SE` gives a stable YYYY-MM-DD value in the visitor's local timezone.
+  return new Date().toLocaleDateString('sv-SE')
+}
+
+function hasDismissedAutoPopupToday(noticeId: string): boolean {
+  if (import.meta.server) return false
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(autoPopupDismissalKey) || 'null') as {
+      noticeId?: string
+      date?: string
+    } | null
+    return saved?.noticeId === noticeId && saved.date === todayKey()
+  } catch {
+    return false
+  }
+}
+
+function dismissAutoPopupForToday(): void {
+  const notice = selectedNotice.value
+  if (!notice || !notice.autoPopup || import.meta.server) return
+
+  try {
+    localStorage.setItem(autoPopupDismissalKey, JSON.stringify({
+      noticeId: notice.id,
+      date: todayKey()
+    }))
+  } catch {
+    // Private browsing modes can deny localStorage; closing still works.
+  }
+
+  open.value = false
+}
+
 function openAutomaticNotice(): void {
   if (!autoPopupReady.value || autoPopupShown.value || open.value) return
   // `autoPopup` controls entry-time display. Read state is only for the
   // list badge/color; a read notice should still open when the editor has
   // explicitly enabled entry-time announcements.
   const notice = notices.value.find(item => item.autoPopup)
-  if (!notice) return
+  if (!notice || hasDismissedAutoPopupToday(notice.id)) return
   autoPopupShown.value = true
   openNoticeDetail(notice)
 }
@@ -205,6 +241,18 @@ onMounted(() => {
           </p>
           <div class="mt-5 whitespace-pre-line text-[15px] leading-8 text-zinc-800">
             {{ selectedNotice.body || selectedNotice.summary }}
+          </div>
+
+          <div class="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 pt-4">
+            <UButton
+              v-if="selectedNotice.autoPopup"
+              icon="i-lucide-calendar-off"
+              label="今日不再弹出"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              @click="dismissAutoPopupForToday"
+            />
           </div>
         </article>
       </div>
