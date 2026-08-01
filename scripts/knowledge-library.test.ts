@@ -115,6 +115,8 @@ test('digital landscape graph is derived from current knowledge collections', ()
   try {
     const graph = getKnowledgeLandscapeGraph(value.client)
     assert.equal(graph.summary.retrievalTotal, 4)
+    assert.equal(graph.meta.wiki_title, '迎新资料知识图谱')
+    assert.doesNotMatch(graph.meta.wiki_title, /仰恩大学|仰恩新生指南/)
     assert.equal(graph.meta.total_nodes, 4)
     assert.equal(graph.meta.total_edges, graph.edges.length)
     assert.ok(graph.nodes.some(node => node.id === 'knowledge:entries:entry-1'))
