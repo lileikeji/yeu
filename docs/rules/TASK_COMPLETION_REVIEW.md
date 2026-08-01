@@ -208,7 +208,7 @@
 - 做得不好的地方：发布前误把另一套业务占用的 3011 端口当成 smoke test 进程，所幸在确认进程命令后未执行停止；当前发布脚本仍需明确区分测试端口与其他项目端口。
 - 根因：地图列表和外层面板共享滚动上下文，底部信息没有形成稳定布局层；公告内容区使用了过大的固定留白；大尺寸静态资源被默认纳入 Workbox 预缓存。
 - 后续避免：移动端验收必须同时检查列表 `scrollTop`、页面 `scrollTop`、底部元素边界和长标题换行；远程清理进程前必须核对 PID 的完整命令行和监听端口；发布前检查所有超过预缓存阈值的静态资源。
-- 验证环境与结果：`pnpm typecheck`、定向测试 33 项和 `pnpm build` 通过；新 release 独立启动时 `/api/health` 返回 `status=ok`、`database=ready`；现网旧版本仍保持 active，切换后需再次验证首页、`/map`、公告接口和公开域名。
-- 发布/回滚信息：待切换版本 `93c723e`，目标目录 `/www/wwwroot/yeu/releases/20260802-063000-93c723e`；切换前保留当前 `/www/wwwroot/yeu/releases/20260802-014200-0602eea` 作为直接回滚点，服务由 `systemd yeu.service` 管理。
+- 验证环境与结果：`pnpm typecheck`、定向测试 33 项和 `pnpm build` 通过；新 release 独立启动时 `/api/health` 返回 `status=ok`、`database=ready`；切换后生产服务 active，本机源站与 `https://yx.huiliyill.cn` 的首页、`/map`、`/api/health`、`/api/public/notices` 均返回 200；浏览器实测地点列表独立滚动且页面 `scrollY` 保持 0，底部浏览量不重叠。
+- 发布/回滚信息：版本 `93c723e` 已部署并原子切换到 `/www/wwwroot/yeu/releases/20260802-063000-93c723e`；上一版 `/www/wwwroot/yeu/releases/20260802-014200-0602eea` 保留为直接回滚点，服务由 `systemd yeu.service` 管理。
 - 架构变化：移动端地图交互明确为“外层页面 + 地点列表 + 底部统计”三层滚动/停靠边界；公告详情内容采用独立滚动区；大图从离线预缓存迁移到运行时按需加载。
-- 后续动作：完成原子切换后等待服务监听并连续检查健康接口，再从源站和 `https://yx.huiliyill.cn` 验证首页、地图、公告；若 CDN 仍返回旧资源，只刷新对应页面缓存，不删除共享数据或旧 release。
+- 后续动作：后续若 CDN 仍返回旧资源，只刷新对应页面缓存，不删除共享数据或旧 release；新一轮移动端改动继续同时检查列表滚动、底部统计和公告弹窗。
