@@ -728,7 +728,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '用户进入时自动弹出',
         type: 'checkbox',
         defaultValue: false,
-        description: '开启后，用户首次进入网站且尚未读过这条公告时，会直接打开公告详情。',
+        description: '开启后，用户进入网站时会直接打开公告详情；关闭后仍可从前台公告入口手动查看。',
         group: '公告时效',
         span: 'full',
         condition: { key: 'kind', values: ['notice'] }

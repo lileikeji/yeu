@@ -239,7 +239,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                 前台显示方式
               </h3>
               <p class="mt-1 text-xs leading-5 text-amber-900/75">
-                控制用户打开网站时是否直接看到这条公告。公告只会对尚未读过的用户自动弹出一次。
+                控制用户打开网站时是否直接看到这条公告。已读状态仍用于未读角标、列表颜色和阅读统计。
               </p>
               <UCheckbox
                 class="mt-3"
