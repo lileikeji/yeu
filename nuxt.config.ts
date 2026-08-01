@@ -174,6 +174,20 @@ export default defineNuxtConfig({
     }
   },
 
+  // Production builds use the declared system-font fallbacks and must not
+  // depend on remote font metadata providers being reachable.
+  fonts: {
+    providers: {
+      adobe: false,
+      bunny: false,
+      fontshare: false,
+      fontsource: false,
+      google: false,
+      googleicons: false,
+      npm: false
+    }
+  },
+
   // SSR needs provider=server so serverBundle is built (CSS-mode --svg).
   // clientBundle covers client hydration; fallbackToApi=false avoids CDN
   // poisoning partial /api/_nuxt_icon collection responses.

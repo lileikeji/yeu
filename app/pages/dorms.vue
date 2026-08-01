@@ -94,7 +94,7 @@ function selectDorm(id: DormId) {
             宿舍实拍
           </h1>
           <p class="mt-4 max-w-2xl text-sm leading-7 text-white/80 md:text-base">
-            普通型和舒适型分开看。视频来自在校生走拍，适合提前了解空间与公共区域，不代表最终分配到的具体房间。
+            普通型和舒适型分开看。两段视频由本站维护者自行拍摄并整理，适合提前了解空间与公共区域，不代表学校官方样板，也不代表最终分配到的具体房间。
           </p>
           <div class="mt-5 flex flex-wrap gap-3">
             <UButton
@@ -275,6 +275,14 @@ function selectDorm(id: DormId) {
             </p>
             <p class="mt-2 text-sm leading-6 text-amber-950/75">
               拍摄时间、楼栋、入住人数和个人布置都会影响画面。床位、家具、热水和公共设施以实际分配及学校最新安排为准。
+            </p>
+          </div>
+          <div class="rounded-lg border border-sky-200 bg-sky-50 p-5">
+            <p class="text-sm font-bold text-sky-950">
+              影像来源与隐私说明
+            </p>
+            <p class="mt-2 text-sm leading-6 text-sky-950/75">
+              视频由本站维护者自行拍摄，本站只提供行前参考，不代表学校官方宣传。发布或转载时应确认入镜人员同意，并避免展示房号、联系方式和其他可识别的私人信息；如发现相关内容，请通过反馈联系处理。
             </p>
           </div>
         </div>

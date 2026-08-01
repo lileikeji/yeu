@@ -335,6 +335,14 @@ test('assistant answer text strips raw URLs while citations remain separate', ()
   )
 })
 
+test('assistant answer caps direct source excerpts before display', () => {
+  const longQuote = '甲'.repeat(60)
+  assert.equal(
+    sanitizeAssistantAnswer(`“${longQuote}”`),
+    `“${'甲'.repeat(40)}…”`
+  )
+})
+
 test('bed-size question still gets a safe answer when MCP has no verified result', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-bed-answer-'))
   const databasePath = join(directory, 'test.sqlite')
@@ -391,6 +399,15 @@ test('cached web evidence selects only the web-cache route', async () => {
     ])
     assert.equal(response.trace?.some(item => item.stage === 'local_database' || item.stage === 'web_search'), false)
     assert.ok(response.citations.some(item => item.url === 'https://example.edu/dorm-bed-route'))
+    assert.equal(
+      response.citations.find(item => item.url === 'https://example.edu/dorm-bed-route')?.snippet,
+      '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
+    )
+    const cachedAnswer = client.sqlite.prepare(
+      'SELECT response_json AS responseJson FROM assistant_answer_cache WHERE query = ?'
+    ).get(query) as { responseJson?: string } | undefined
+    assert.ok(cachedAnswer?.responseJson)
+    assert.doesNotMatch(cachedAnswer.responseJson, /宿舍床尺寸在不同楼栋需要分别核验/u)
   } finally {
     globalThis.fetch = originalFetch
     closeDatabase(databasePath)

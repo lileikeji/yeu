@@ -18,6 +18,9 @@ test('dorm module presents ordinary and comfort walkthroughs as videos', () => {
   assert.match(pageSource, /comfort-dorm-poster\.jpg/)
   assert.match(pageSource, /controls/)
   assert.match(pageSource, /playsinline/)
+  assert.match(pageSource, /本站维护者自行拍摄并整理/)
+  assert.match(pageSource, /影像来源与隐私说明/)
+  assert.match(pageSource, /入镜人员同意/)
   assert.doesNotMatch(panoramaSource, /dorm-tour\.mp4/)
 })
 

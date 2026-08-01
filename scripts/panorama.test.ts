@@ -10,7 +10,7 @@ const officialViewerSource = readFileSync(resolve('app/components/panorama/Baidu
 const mobileProxySource = readFileSync(resolve('server/api/public/panorama/campus.get.ts'), 'utf8')
 const sitemapSource = readFileSync(resolve('server/routes/sitemap.xml.ts'), 'utf8')
 
-test('panorama page separates campus scenes from the verified official history tour', () => {
+test('panorama page separates Baidu user scenes from the school VR history tour', () => {
   assert.match(pageSource, /map\.baidu\.com\/poi/)
   assert.match(pageSource, /26 个校内拍摄点/)
   assert.match(pageSource, /https:\/\/www\.720yun\.com\/vr\/c66jOpeOOa3/)
@@ -23,7 +23,10 @@ test('panorama page separates campus scenes from the verified official history t
   assert.match(pageSource, /sandbox="allow-scripts allow-same-origin allow-forms/)
   assert.match(pageSource, /allow-popups-to-escape-sandbox/)
   assert.doesNotMatch(pageSource, /credentialless/)
-  assert.match(pageSource, /它不是学校官方拍摄/)
+  assert.match(pageSource, /百度地图用户上传的校园全景/)
+  assert.match(pageSource, /不是学校官方拍摄/)
+  assert.match(pageSource, /学校党委宣传部发布的 VR 校史馆/)
+  assert.match(pageSource, /本站只提供学校原页入口/)
   assert.match(pageSource, /只拍了校史馆里面/)
   assert.match(pageSource, /现在开始逛校园/)
 })
@@ -35,7 +38,7 @@ test('legacy campus panorama endpoint only redirects to the external provider', 
   assert.match(mobileProxySource, /assertRateLimit/)
 })
 
-test('official Baidu panorama viewer exposes all 26 campus scenes with a safe fallback', () => {
+test('Baidu panorama viewer exposes all 26 campus scenes with a safe fallback', () => {
   assert.equal((officialViewerSource.match(/\{ label: '.+?', panoId:/g) ?? []).length, 26)
   assert.match(officialViewerSource, /new three\.WebGLRenderer/)
   assert.match(officialViewerSource, /new three\.SphereGeometry/)
@@ -48,7 +51,7 @@ test('official Baidu panorama viewer exposes all 26 campus scenes with a safe fa
   assert.match(officialViewerSource, /devicePixelRatio \|\| 1, 2/)
   assert.match(officialViewerSource, /touch-action: none/)
   assert.match(officialViewerSource, /想看哪里，点名字就行/)
-  assert.match(pageSource, /officialPanoramaFailed/)
+  assert.match(pageSource, /campusPanoramaFailed/)
   assert.match(pageSource, /PanoramaBaiduCampusViewer/)
   assert.match(pageSource, /v-else/)
 })

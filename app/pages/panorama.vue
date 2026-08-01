@@ -32,11 +32,11 @@ const tours: PanoramaTour[] = [
     eyebrow: '先看这里',
     title: '逛校园里的路和楼',
     shortTitle: '校内实景',
-    description: '从大门一路看到教学楼、部分宿舍、体育馆、医务所和公交站。',
-    detail: '底部可以切换 26 个拍摄点，包括大门、和昌教学楼、普照教学楼、黑龙江楼、吉林楼、辽宁楼、湖北楼、湖南楼、甘肃楼、体育馆、医务所、学生公寓、篮球场、草坪、商店和校园公交站。',
+    description: '这是百度地图用户上传的校园全景，从大门一路看到教学楼、部分宿舍、体育馆、医务所和公交站。',
+    detail: '底部可以切换 26 个拍摄点，包括大门、和昌教学楼、普照教学楼、黑龙江楼、吉林楼、辽宁楼、湖北楼、湖南楼、甘肃楼、体育馆、医务所、学生公寓、篮球场、草坪、商店和校园公交站；画面来自百度地图用户上传，不是学校官方拍摄。',
     url: BAIDU_CAMPUS_PANORAMA_URL,
     sourceUrl: BAIDU_CAMPUS_PANORAMA_URL,
-    sourceLabel: '去百度地图打开',
+    sourceLabel: '打开百度地图用户全景',
     icon: 'i-lucide-school',
     badge: '26 个校内拍摄点',
     official: false
@@ -46,11 +46,11 @@ const tours: PanoramaTour[] = [
     eyebrow: '再了解学校',
     title: '走进校史馆',
     shortTitle: '校史馆',
-    description: '沿着展厅往前看，了解学校从筹建到现在的办学历程。',
-    detail: '可以切换前言、艰苦筹建、学校初创、教育改革、开放办学、校友风采等展厅，展板也能放大看。',
+    description: '这是学校发布的 VR 校史馆，沿着展厅往前看，了解学校从筹建到现在的办学历程。',
+    detail: '可以切换前言、艰苦筹建、学校初创、教育改革、开放办学、校友风采等展厅，展板也能放大看；本站只提供入口，不复制校史馆全景内容。',
     url: OFFICIAL_HISTORY_VR_URL,
     sourceUrl: OFFICIAL_HISTORY_VR_URL,
-    sourceLabel: '去全景原页打开',
+    sourceLabel: '打开学校发布的 VR 校史馆',
     icon: 'i-lucide-history',
     badge: '学校发布',
     official: true
@@ -61,7 +61,7 @@ const activeTourId = ref<TourId>('campus')
 const viewerLoaded = ref(false)
 const viewerReady = ref(false)
 const viewerShell = ref<HTMLElement | null>(null)
-const officialPanoramaFailed = ref(false)
+const campusPanoramaFailed = ref(false)
 const mobilePanorama = ref(false)
 
 const activeTour = computed(() => (
@@ -123,7 +123,7 @@ function chooseTour(id: TourId) {
 function reloadViewer() {
   viewerReady.value = false
   viewerLoaded.value = false
-  officialPanoramaFailed.value = false
+  campusPanoramaFailed.value = false
   nextTick(() => {
     viewerLoaded.value = true
   })
@@ -306,10 +306,10 @@ onMounted(() => {
       >
         <template v-if="viewerLoaded">
           <PanoramaBaiduCampusViewer
-            v-if="activeTour.id === 'campus' && !officialPanoramaFailed"
-            :key="`official-${activeTour.id}`"
+            v-if="activeTour.id === 'campus' && !campusPanoramaFailed"
+            :key="`baidu-${activeTour.id}`"
             @ready="viewerReady = true"
-            @error="officialPanoramaFailed = true"
+            @error="campusPanoramaFailed = true"
           />
           <div
             v-else-if="activeTour.id === 'campus'"
@@ -434,10 +434,10 @@ onMounted(() => {
                 校内实景从哪里来
               </p>
               <h3 class="mt-1 text-base font-bold text-emerald-950">
-                百度地图用户上传的校园画面
+                百度地图用户上传的校园全景
               </h3>
               <p class="mt-2 text-sm leading-6 text-emerald-950/75">
-                能帮你提前认路，但它不是学校官方拍摄，拍摄时间也没有写清楚。楼栋外观、商店和道路如果变了，以你到校看到的为准。
+                这是百度地图用户上传的校园全景，不是学校官方拍摄；拍摄时间也没有写清楚。它只用于提前认路，楼栋外观、商店和道路如果变了，以你到校看到的为准。
               </p>
             </div>
           </div>
@@ -456,10 +456,10 @@ onMounted(() => {
                 校史馆从哪里来
               </p>
               <h3 class="mt-1 text-base font-bold text-amber-950">
-                学校党委宣传部发布
+                学校党委宣传部发布的 VR 校史馆
               </h3>
               <p class="mt-2 text-sm leading-6 text-amber-950/75">
-                学校在 2023 年上线了这套校史馆全景。它只拍了校史馆里面，不包含宿舍和教学楼。
+                学校在 2023 年上线了这套 VR 校史馆全景。本站只提供学校原页入口，不复制全景内容；它只拍了校史馆里面，不包含宿舍和教学楼。
               </p>
               <UButton
                 :to="OFFICIAL_ANNOUNCEMENT_URL"
