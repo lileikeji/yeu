@@ -8,6 +8,7 @@ import {
 
 interface PublicNotice extends ApiContent {
   pinned: boolean
+  autoPopup: boolean
   confirmationCount: number
   confirmed: boolean
 }
@@ -20,6 +21,8 @@ interface ConfirmNoticeResponse {
 const open = ref(false)
 const selectedNoticeId = ref('')
 const confirmingId = ref('')
+const autoPopupReady = ref(false)
+const autoPopupShown = ref(false)
 const toast = useToast()
 const { data } = await useFetch<{ items: PublicNotice[], total: number }>('/api/public/notices', {
   key: 'public-notices'
@@ -94,8 +97,24 @@ async function confirmNotice(notice: PublicNotice): Promise<void> {
 
 function openNoticeDetail(notice: PublicNotice): void {
   selectedNoticeId.value = notice.id
+  open.value = true
   void confirmNotice(notice)
 }
+
+function openAutomaticNotice(): void {
+  if (!autoPopupReady.value || autoPopupShown.value || open.value) return
+  const notice = notices.value.find(item => item.autoPopup && !item.confirmed)
+  if (!notice) return
+  autoPopupShown.value = true
+  openNoticeDetail(notice)
+}
+
+watch(notices, openAutomaticNotice)
+
+onMounted(() => {
+  autoPopupReady.value = true
+  openAutomaticNotice()
+})
 </script>
 
 <template>

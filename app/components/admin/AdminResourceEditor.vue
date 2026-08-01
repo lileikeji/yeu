@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GeoPoint } from '~~/map/core/types'
-import type { AdminFormValue, AdminRecord, AdminResourceConfig } from './types'
+import type { AdminFieldDefinition, AdminFormValue, AdminRecord, AdminResourceConfig } from './types'
 import type { AdminResourceFieldGroup } from '~/utils/admin-resource-form'
 import {
   getAdminResourceCheckboxValue,
@@ -57,6 +57,10 @@ function selectValue(key: string): string | undefined {
 
 function checkboxValue(key: string): boolean {
   return getAdminResourceCheckboxValue(props.formState, key)
+}
+
+function shouldRenderField(field: AdminFieldDefinition): boolean {
+  return !(isNoticeEditor.value && field.key === 'metadata.autoPopup')
 }
 
 function imageState(key: string) {
@@ -215,6 +219,39 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
           @clear="emit('clearCoordinates')"
         />
 
+        <section
+          v-if="isNoticeEditor"
+          class="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm"
+          aria-labelledby="notice-display-settings-title"
+        >
+          <div class="flex items-start gap-3">
+            <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+              <UIcon
+                name="i-lucide-megaphone"
+                class="size-5"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <h3
+                id="notice-display-settings-title"
+                class="text-sm font-semibold text-amber-950"
+              >
+                前台显示方式
+              </h3>
+              <p class="mt-1 text-xs leading-5 text-amber-900/75">
+                控制用户打开网站时是否直接看到这条公告。公告只会对尚未读过的用户自动弹出一次。
+              </p>
+              <UCheckbox
+                class="mt-3"
+                :model-value="checkboxValue('metadata.autoPopup')"
+                label="进入前台时自动弹出"
+                description="关闭后，用户仍可从前台公告入口手动查看。"
+                @update:model-value="emit('updateField', 'metadata.autoPopup', $event === true)"
+              />
+            </div>
+          </div>
+        </section>
+
         <details
           v-for="group in groupedFields"
           :key="group.label"
@@ -229,14 +266,17 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
             />
           </summary>
           <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <UFormField
+            <template
               v-for="field in group.fields"
               :key="field.key"
-              :label="field.label"
-              :description="field.description"
-              :required="field.required"
-              :class="getAdminResourceFieldSpan(field)"
             >
+              <UFormField
+                v-if="shouldRenderField(field)"
+                :label="field.label"
+                :description="field.description"
+                :required="field.required"
+                :class="getAdminResourceFieldSpan(field)"
+              >
               <div
                 v-if="field.type === 'image-list'"
                 class="space-y-3"
@@ -423,7 +463,8 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                 class="w-full"
                 @update:model-value="emit('updateField', field.key, $event)"
               />
-            </UFormField>
+              </UFormField>
+            </template>
           </div>
         </details>
       </div>

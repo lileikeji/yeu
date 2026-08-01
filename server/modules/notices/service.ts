@@ -27,6 +27,7 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
   const sourceMap = getContentSourceMap(client, rows.map(row => row.id))
 
   const items = rows.map((row) => {
+    const metadata = safeMetadata(row.metadataJson)
     const confirmationCount = client.db.select({ value: countDistinct(visitorEvents.visitorId) })
       .from(visitorEvents)
       .where(confirmationCondition(row.id))
@@ -42,7 +43,8 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
 
     return {
       ...serializeContent(row, sourceMap.get(row.id) ?? []),
-      pinned: safeMetadata(row.metadataJson).pinned === true,
+      pinned: metadata.pinned === true,
+      autoPopup: metadata.autoPopup === true,
       confirmationCount,
       confirmed
     }

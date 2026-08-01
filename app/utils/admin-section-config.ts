@@ -724,6 +724,16 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['notice'] }
       },
       {
+        key: 'metadata.autoPopup',
+        label: '用户进入时自动弹出',
+        type: 'checkbox',
+        defaultValue: false,
+        description: '开启后，用户首次进入网站且尚未读过这条公告时，会直接打开公告详情。',
+        group: '公告时效',
+        span: 'full',
+        condition: { key: 'kind', values: ['notice'] }
+      },
+      {
         key: 'metadata.validFrom',
         label: '公告生效时间',
         type: 'datetime-local',

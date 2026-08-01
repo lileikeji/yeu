@@ -11,6 +11,7 @@ import {
 
 const noticeCenter = readFileSync(resolve('app/components/PublicNoticeCenter.vue'), 'utf8')
 const resourceManager = readFileSync(resolve('app/components/admin/AdminResourceManager.vue'), 'utf8')
+const resourceEditor = readFileSync(resolve('app/components/admin/AdminResourceEditor.vue'), 'utf8')
 
 test('notice presentation reports unread counts and useful relative times', () => {
   const now = Date.parse('2026-07-31T12:00:00+08:00')
@@ -27,6 +28,9 @@ test('notice presentation reports unread counts and useful relative times', () =
 
 test('public notice center uses a list-detail flow and marks details read automatically', () => {
   assert.match(noticeCenter, /noticeUnreadCount\(notices\.value\)/)
+  assert.match(noticeCenter, /autoPopup/)
+  assert.match(noticeCenter, /onMounted\(\(\) =>/)
+  assert.match(noticeCenter, /open\.value = true/)
   assert.match(noticeCenter, /openNoticeDetail\(notice\)/)
   assert.match(noticeCenter, /void confirmNotice\(notice\)/)
   assert.match(noticeCenter, /返回公告列表/)
@@ -46,4 +50,11 @@ test('notice editor hides URL and verification-only fields while generating an i
   assert.match(resourceManager, /label="新增公告"/)
   assert.match(resourceManager, /payload\.slug = `notice-\$\{Date\.now\(\)\}`/)
   assert.match(resourceManager, /payload\.kind = 'notice'/)
+
+  const autoPopupField = contentFields.find(item => item.key === 'metadata.autoPopup')
+  assert.equal(autoPopupField?.type, 'checkbox')
+  assert.equal(autoPopupField?.condition?.values.includes('notice'), true)
+  assert.match(resourceEditor, /前台显示方式/)
+  assert.match(resourceEditor, /进入前台时自动弹出/)
+  assert.match(resourceEditor, /metadata\.autoPopup/)
 })
