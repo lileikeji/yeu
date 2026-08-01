@@ -7,30 +7,26 @@ import {
   normalizeWechatShareUrl
 } from '../server/modules/wechat/share'
 
-const allowedHosts = [
-  'yeu.huiliyill.cn',
-  'global.yeu.huiliyill.cn',
-  'cn.yeu.huiliyill.cn'
-]
+const allowedHosts = ['yx.huiliyill.cn']
 
 test('WeChat share signing accepts only the configured HTTPS sites and removes fragments', () => {
   assert.equal(
     normalizeWechatShareUrl(
-      'https://yeu.huiliyill.cn/clubs/computer-association?a=1#contact',
+      'https://yx.huiliyill.cn/clubs/computer-association?a=1#contact',
       allowedHosts
     ),
-    'https://yeu.huiliyill.cn/clubs/computer-association?a=1'
+    'https://yx.huiliyill.cn/clubs/computer-association?a=1'
   )
   assert.equal(
-    normalizeWechatShareUrl('https://global.yeu.huiliyill.cn/departments/student-union', allowedHosts),
-    'https://global.yeu.huiliyill.cn/departments/student-union'
+    normalizeWechatShareUrl('https://yx.huiliyill.cn/departments/student-union', allowedHosts),
+    'https://yx.huiliyill.cn/departments/student-union'
   )
   assert.throws(
-    () => normalizeWechatShareUrl('https://yeu.huiliyill.cn.evil.example/clubs/test', allowedHosts),
+    () => normalizeWechatShareUrl('https://yx.huiliyill.cn.evil.example/clubs/test', allowedHosts),
     /分享页面地址不受支持/
   )
   assert.throws(
-    () => normalizeWechatShareUrl('http://yeu.huiliyill.cn/clubs/test', allowedHosts),
+    () => normalizeWechatShareUrl('http://yx.huiliyill.cn/clubs/test', allowedHosts),
     /分享页面地址不受支持/
   )
 })
@@ -41,9 +37,9 @@ test('WeChat JS-SDK signature uses the required lowercase canonical parameter or
       'ticket-demo',
       'nonce-demo',
       1722222222,
-      'https://yeu.huiliyill.cn/clubs/computer-association?a=1'
+      'https://yx.huiliyill.cn/clubs/computer-association?a=1'
     ),
-    'e10c15acaa480b10157652a10ae71a56512b957a'
+    '88433fd165b55ff861944c530f12f27e14c1e167'
   )
 })
 

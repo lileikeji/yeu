@@ -11,7 +11,6 @@ import type {
 import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from '../../core/types'
 import { YEU_CAMPUS_REFERENCE_BOUNDS } from '../../core/campus'
 
-const CAMPUS_IMAGE_URL = '/images/yeu-campus-plan-2025.jpg'
 const MIN_SCALE = 1
 const MAX_SCALE = 3
 
@@ -43,8 +42,9 @@ function isRenderablePoint(point: GeoPoint): boolean {
 }
 
 /**
- * A deliberately boring WebView fallback. It uses only DOM, a bundled image,
- * and pointer events, so WeChat does not need WebGL, AMap, glyphs, or tiles.
+ * A WebView-safe fallback. It uses only DOM, CSS, structured coordinates and
+ * pointer events, so it neither republishes a third-party plan nor depends on
+ * WebGL, AMap, glyphs, or external tiles.
  */
 export class WechatOfflineMapProvider implements MapProvider {
   readonly id = 'maplibre-dev' as const
@@ -97,7 +97,7 @@ export class WechatOfflineMapProvider implements MapProvider {
       cursor: 'grab',
       userSelect: 'none',
       touchAction: 'none',
-      background: '#9fc778'
+      background: '#dfe9e2'
     })
 
     const scene = document.createElement('div')
@@ -106,20 +106,14 @@ export class WechatOfflineMapProvider implements MapProvider {
       position: 'absolute',
       inset: '0',
       transformOrigin: 'center center',
-      willChange: 'transform'
-    })
-
-    const image = document.createElement('img')
-    image.src = CAMPUS_IMAGE_URL
-    image.alt = '仰恩大学校园平面图'
-    image.draggable = false
-    Object.assign(image.style, {
-      position: 'absolute',
-      inset: '0',
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover',
-      pointerEvents: 'none'
+      willChange: 'transform',
+      backgroundColor: '#e7efe9',
+      backgroundImage: [
+        'linear-gradient(rgb(23 111 70 / 8%) 1px, transparent 1px)',
+        'linear-gradient(90deg, rgb(23 111 70 / 8%) 1px, transparent 1px)',
+        'radial-gradient(circle at 47% 48%, rgb(255 255 255 / 78%), transparent 58%)'
+      ].join(','),
+      backgroundSize: '32px 32px, 32px 32px, 100% 100%'
     })
 
     const markerLayer = document.createElement('div')
@@ -130,7 +124,7 @@ export class WechatOfflineMapProvider implements MapProvider {
       pointerEvents: 'none'
     })
 
-    scene.append(image, markerLayer)
+    scene.append(markerLayer)
     root.append(scene)
     element.append(root)
     this.root = root

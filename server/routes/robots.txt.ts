@@ -1,5 +1,5 @@
 export default defineEventHandler((event) => {
-  const siteUrl = String(useRuntimeConfig(event).public.siteUrl || 'https://yeu.huiliyill.cn').replace(/\/$/, '')
+  const siteUrl = String(useRuntimeConfig(event).public.siteUrl || 'https://yx.huiliyill.cn').replace(/\/$/, '')
   setHeader(event, 'Content-Type', 'text/plain; charset=utf-8')
   setHeader(event, 'Cache-Control', 'no-store')
   setHeader(event, 'CDN-Cache-Control', 'no-store')

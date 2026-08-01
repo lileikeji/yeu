@@ -5,9 +5,7 @@ import { useAppDatabase } from '../../utils/database'
 import { assertRateLimit } from '../../utils/rate-limit'
 
 const DEFAULT_ALLOWED_HOSTS = [
-  'yeu.huiliyill.cn',
-  'global.yeu.huiliyill.cn',
-  'cn.yeu.huiliyill.cn'
+  'yx.huiliyill.cn'
 ]
 
 export default defineEventHandler(async (event) => {

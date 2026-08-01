@@ -1,13 +1,13 @@
 const https = require('node:https')
 const data = JSON.stringify({ username: 'admin', password: '***REMOVED***' })
 const req = https.request({
-  host: 'yeu.huiliyill.cn',
+  host: 'yx.huiliyill.cn',
   path: '/api/admin/auth/login',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(data),
-    'Origin': 'https://yeu.huiliyill.cn'
+    'Origin': 'https://yx.huiliyill.cn'
   }
 }, (res) => {
   let body = ''

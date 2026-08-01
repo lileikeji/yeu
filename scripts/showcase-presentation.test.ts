@@ -42,7 +42,7 @@ test('showcase progress helpers are bounded and deterministic', () => {
 
 test('showcase is isolated from the public layout and uses the real site assets', () => {
   assert.match(pageSource, /definePageMeta\(\{ layout: false \}\)/)
-  assert.match(pageSource, /\/images\/yeu-campus-plan-2025\.jpg/)
+  assert.match(pageSource, /\/images\/intro\/yeu-campus-hero\.webp/)
   assert.match(pageSource, /map\.baidu\.com\/poi/)
   assert.match(pageSource, /showcase-device/)
   assert.match(pageSource, /26 个校内实景/)

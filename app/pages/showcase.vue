@@ -325,10 +325,10 @@ onBeforeUnmount(() => {
             <div class="showcase-map-layout">
               <div class="showcase-map-canvas">
                 <img
-                  src="/images/yeu-campus-plan-2025.jpg"
-                  alt="校园官方平面示意图"
-                  width="8504"
-                  height="3898"
+                  src="/images/intro/yeu-campus-hero.webp"
+                  alt="校园风格地图背景"
+                  width="1536"
+                  height="1024"
                 >
                 <svg
                   class="showcase-route-layer"

@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import { officialCampusPlanAnchors } from '../data/seeds/official-campus-plan-anchors'
@@ -218,14 +217,11 @@ test('official campus plan anchors cover every numbered reference without becomi
   }
 })
 
-test('committed campus plan asset is the exact reviewed official image', () => {
+test('official campus plan metadata is retained without republishing the image', () => {
   const assetPath = resolve('public', officialCampusPlanReference.localAssetUrl.slice(1))
-  const bytes = readFileSync(assetPath)
-  assert.equal(bytes.byteLength, officialCampusPlanReference.imageContentLength)
-  assert.equal(
-    createHash('sha256').update(bytes).digest('hex'),
-    officialCampusPlanReference.imageSha256
-  )
+  assert.equal(existsSync(assetPath), false)
+  assert.match(officialCampusPlanReference.pageUrl, /^https:\/\/www\.yeu\.edu\.cn\//)
+  assert.equal(officialCampusPlanReference.redistributionAllowed, false)
 })
 
 test('map page uses the Nuxt auto-import name for the nested map component', () => {
@@ -240,7 +236,7 @@ test('map page uses the Nuxt auto-import name for the nested map component', () 
   const providerLifecycleSource = readFileSync(resolve('app/composables/useMapProviderLifecycle.ts'), 'utf8')
   const mapPresentationSource = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
   assert.match(source, /<MapOfficialCampusPlan\b/)
-  assert.match(source, /<MapOfficialCampusPlan\b[\s\S]*?v-show="mapViewMode === 'official-plan'"/)
+  assert.match(source, /<MapOfficialCampusPlan\b[\s\S]*?v-if="canShowOfficialPlan && mapViewMode === 'official-plan'"/)
   assert.match(source, /label="平面图"/)
   assert.doesNotMatch(source, /label="文字索引"/)
   assert.doesNotMatch(source, /<OfficialCampusPlan\b/)

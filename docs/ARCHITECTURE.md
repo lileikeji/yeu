@@ -35,6 +35,8 @@
 
 当前仓库已实现 Nuxt/Nuxt UI 前台、MapLibre 开发预览、高德 JS API 2.0 生产 provider、微信/QQ 内嵌环境兼容 provider、Drizzle/SQLite 数据层、管理员与学生账号、内容/公告/社团/部门/聊天/访客/反馈 API、知识库和 AI 检索、地图/全景/路线、PWA 断网回退及独立机器人 relay。生产发布采用只读 release、`current` 软链接和 `shared` 持久化目录，由 `systemd yeu.service` 启动 `.output/server/index.mjs`；Nginx 反向代理公开页面和 API，CDN 只缓存允许缓存的公开页面/静态资源，管理接口、会话、聊天写入和 AI 流式响应明确绕过缓存，数据库、环境变量、上传和日志留在 shared。AI 运行时由 `assistantRuns` 记录检索路径、耗时、成功状态和请求标识；知识库文档、声明、实体和冲突通过审核状态控制是否可用于公开回答。任何候选坐标、未审核抓取结果、外部网页或未验证集成都不能当作正式事实。
 
+生产唯一公开入口为 `https://yx.huiliyill.cn`。旧 `yeu`、`cn.yeu` 和 `global.yeu` 三线路不再参与客户端探测、跳转、微信分享签名、机器人尾链或允许来源校验；CDN 和源站必须把 `yx.huiliyill.cn` 作为唯一 Host。内置浏览器地图降级使用 CSS 底层与结构化地点坐标，不公开分发学校官网平面图。
+
 ## 3. 运行拓扑
 
 ```text

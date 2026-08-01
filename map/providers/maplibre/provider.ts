@@ -32,8 +32,6 @@ import {
 } from './marker-image'
 
 const SOURCE_ID = 'yeu-preview-pois'
-const CAMPUS_IMAGE_SOURCE_ID = 'yeu-campus-plan-image'
-const CAMPUS_IMAGE_LAYER_ID = 'yeu-campus-plan-image-layer'
 const CAMPUS_BOUNDARY_SOURCE_ID = 'yeu-campus-boundary'
 const CAMPUS_BOUNDARY_FILL_LAYER_ID = 'yeu-campus-boundary-fill'
 const CAMPUS_BOUNDARY_LINE_LAYER_ID = 'yeu-campus-boundary-line'
@@ -57,13 +55,6 @@ const SINGLE_POI_ZOOM = 17
 const MAP_LOAD_TIMEOUT_MS = 5_000
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>'
 
-const CAMPUS_IMAGE_COORDINATES: [[number, number], [number, number], [number, number], [number, number]] = [
-  [YEU_CAMPUS_REFERENCE_BOUNDS.west, YEU_CAMPUS_REFERENCE_BOUNDS.north],
-  [YEU_CAMPUS_REFERENCE_BOUNDS.east, YEU_CAMPUS_REFERENCE_BOUNDS.north],
-  [YEU_CAMPUS_REFERENCE_BOUNDS.east, YEU_CAMPUS_REFERENCE_BOUNDS.south],
-  [YEU_CAMPUS_REFERENCE_BOUNDS.west, YEU_CAMPUS_REFERENCE_BOUNDS.south]
-]
-
 const OSM_PREVIEW_STYLE: StyleSpecification = {
   version: 8,
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
@@ -85,9 +76,8 @@ const OSM_PREVIEW_STYLE: StyleSpecification = {
   ]
 }
 
-// Keep the WebView fallback independent from third-party tile and glyph hosts.
-// The local campus plan is added after the empty style has loaded, so a slow
-// image request cannot prevent MapLibre from becoming interactive.
+// Keep the WebView fallback independent from third-party tile, glyph and
+// copyrighted campus-plan assets.
 const OFFLINE_PREVIEW_STYLE: StyleSpecification = {
   version: 8,
   sources: {},
@@ -186,7 +176,6 @@ export class MapLibrePreviewProvider implements MapProvider {
 
     if (this.offline) {
       this.prepareOfflineCanvas(element)
-      this.addOfflineCampusImage(map)
     }
     this.registerMarkerImages(map)
     this.addCampusBoundaryLayers(map)
@@ -449,33 +438,11 @@ export class MapLibrePreviewProvider implements MapProvider {
   }
 
   private prepareOfflineCanvas(element: HTMLElement): void {
-    element.style.backgroundColor = '#78b63d'
-    element.style.backgroundImage = 'url("/images/yeu-campus-plan-2025.jpg")'
+    element.style.backgroundColor = '#e7efe9'
+    element.style.backgroundImage = 'linear-gradient(rgb(23 111 70 / 8%) 1px, transparent 1px), linear-gradient(90deg, rgb(23 111 70 / 8%) 1px, transparent 1px)'
     element.style.backgroundPosition = 'center'
     element.style.backgroundRepeat = 'no-repeat'
-    element.style.backgroundSize = 'cover'
-  }
-
-  private addOfflineCampusImage(map: MapLibreMap): void {
-    try {
-      map.addSource(CAMPUS_IMAGE_SOURCE_ID, {
-        type: 'image',
-        url: '/images/yeu-campus-plan-2025.jpg',
-        coordinates: CAMPUS_IMAGE_COORDINATES
-      })
-      map.addLayer({
-        id: CAMPUS_IMAGE_LAYER_ID,
-        type: 'raster',
-        source: CAMPUS_IMAGE_SOURCE_ID,
-        paint: {
-          'raster-opacity': 0.82,
-          'raster-fade-duration': 0
-        }
-      })
-    } catch {
-      // The CSS background remains available if an older WebView does not
-      // implement MapLibre image sources.
-    }
+    element.style.backgroundSize = '32px 32px, 32px 32px'
   }
 
   private addPoiLayers(map: MapLibreMap): void {

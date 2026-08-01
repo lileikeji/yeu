@@ -1,6 +1,6 @@
 export function botAssistantConfig(runtime: Record<string, unknown>) {
   return {
-    siteUrl: String(runtime.botSiteUrl || 'https://yeu.huiliyill.cn/'),
+    siteUrl: String(runtime.botSiteUrl || 'https://yx.huiliyill.cn/'),
     maxReplyChars: Number(runtime.botMaxReplyChars || 1800),
     gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
     gatewayApiKey: String(runtime.aiGatewayApiKey || ''),

@@ -18,7 +18,7 @@ test('admin device challenge verifies once and stays bound to its origin', () =>
   const challenge = issueAdminDeviceChallenge(
     secret,
     config.keyId,
-    'https://cn.yeu.huiliyill.cn',
+    'https://yx.huiliyill.cn',
     now,
     'fixed-test-nonce'
   )
@@ -31,7 +31,7 @@ test('admin device challenge verifies once and stays bound to its origin', () =>
   verifyAndConsumeAdminDeviceProof({
     secret,
     config,
-    origin: 'https://cn.yeu.huiliyill.cn',
+    origin: 'https://yx.huiliyill.cn',
     token: challenge.token,
     signature,
     now: now + 1_000
@@ -40,7 +40,7 @@ test('admin device challenge verifies once and stays bound to its origin', () =>
   assert.throws(() => verifyAndConsumeAdminDeviceProof({
     secret,
     config,
-    origin: 'https://cn.yeu.huiliyill.cn',
+    origin: 'https://yx.huiliyill.cn',
     token: challenge.token,
     signature,
     now: now + 2_000
@@ -49,7 +49,7 @@ test('admin device challenge verifies once and stays bound to its origin', () =>
   const otherOrigin = issueAdminDeviceChallenge(
     secret,
     config.keyId,
-    'https://yeu.huiliyill.cn',
+    'https://yx.huiliyill.cn',
     now,
     'other-origin-nonce'
   )
@@ -61,7 +61,7 @@ test('admin device challenge verifies once and stays bound to its origin', () =>
   assert.throws(() => verifyAndConsumeAdminDeviceProof({
     secret,
     config,
-    origin: 'https://global.yeu.huiliyill.cn',
+    origin: 'https://other.example.test',
     token: otherOrigin.token,
     signature: otherSignature,
     now: now + 1_000

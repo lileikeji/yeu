@@ -58,6 +58,7 @@ onMounted(() => {
               />
             </span>
             <span class="truncate text-base font-bold text-zinc-950">迎新指南</span>
+            <span class="hidden shrink-0 text-[11px] font-medium text-zinc-500 sm:inline">学生整理 · 非官方</span>
           </span>
         </NuxtLink>
 

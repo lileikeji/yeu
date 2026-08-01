@@ -47,7 +47,7 @@ function collectPaged<T extends { slug?: string | null, updatedAt?: string | num
 }
 
 export default defineEventHandler((event) => {
-  const siteUrl = String(useRuntimeConfig(event).public.siteUrl || 'https://yeu.huiliyill.cn').replace(/\/$/, '')
+  const siteUrl = String(useRuntimeConfig(event).public.siteUrl || 'https://yx.huiliyill.cn').replace(/\/$/, '')
   const today = new Date().toISOString().slice(0, 10)
   const client = useAppDatabase(event)
 

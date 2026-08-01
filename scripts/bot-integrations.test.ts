@@ -104,15 +104,15 @@ test('WeChat room allowlist is deny-by-default and exact-match only', () => {
 })
 
 test('bot replies always retain the canonical website footer', () => {
-  const short = formatBotReply('答案内容', 'https://yeu.huiliyill.cn/path', 300)
-  assert.equal(short, '答案内容\n\n官网：https://yeu.huiliyill.cn/')
-  const clipped = formatBotReply('很长的答案'.repeat(100), 'https://yeu.huiliyill.cn/', 220)
+  const short = formatBotReply('答案内容', 'https://yx.huiliyill.cn/path', 300)
+  assert.equal(short, '答案内容\n\n官网：https://yx.huiliyill.cn/')
+  const clipped = formatBotReply('很长的答案'.repeat(100), 'https://yx.huiliyill.cn/', 220)
   assert.ok(clipped.length <= 220)
-  assert.ok(clipped.endsWith('官网：https://yeu.huiliyill.cn/'))
+  assert.ok(clipped.endsWith('官网：https://yx.huiliyill.cn/'))
 })
 
 test('bot replies expose safe assistant result links within the reply limit', () => {
-  const reply = formatBotReply('答案内容', 'https://yeu.huiliyill.cn/path', 500, [
+  const reply = formatBotReply('答案内容', 'https://yx.huiliyill.cn/path', 500, [
     { title: '绩点计算器', url: '/student-rules#gpa-calculator', snippet: '', source: 'site' },
     { title: '学校通知', url: 'https://www.yeu.edu.cn/news/1', snippet: '', source: 'web' },
     { title: '重复入口', url: '/student-rules#gpa-calculator', snippet: '', source: 'site' },
@@ -120,12 +120,12 @@ test('bot replies expose safe assistant result links within the reply limit', ()
     { title: '危险协议', url: 'javascript:alert(1)', snippet: '', source: 'web' }
   ])
   assert.match(reply, /相关入口：/)
-  assert.match(reply, /https:\/\/yeu\.huiliyill\.cn\/student-rules#gpa-calculator/)
+  assert.match(reply, /https:\/\/yx\.huiliyill\.cn\/student-rules#gpa-calculator/)
   assert.match(reply, /https:\/\/www\.yeu\.edu\.cn\/news\/1/)
   assert.equal(reply.match(/gpa-calculator/g)?.length, 1)
   assert.doesNotMatch(reply, /example\.com|javascript:/)
   assert.ok(reply.length <= 500)
-  assert.ok(reply.endsWith('官网：https://yeu.huiliyill.cn/'))
+  assert.ok(reply.endsWith('官网：https://yx.huiliyill.cn/'))
 })
 
 test('bot message reservations suppress duplicate platform deliveries', () => {

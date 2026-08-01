@@ -2,15 +2,28 @@
 set -Eeuo pipefail
 
 ROOT=/www/wwwroot/yeu
-VHOST=/www/server/panel/vhost/nginx/yeu.huiliyill.cn.conf
-EXTENSION=/www/server/panel/vhost/nginx/extension/yeu.huiliyill.cn
+VHOST=/www/server/panel/vhost/nginx/yx.huiliyill.cn.conf
+EXTENSION=/www/server/panel/vhost/nginx/extension/yx.huiliyill.cn
+LEGACY_VHOST=/www/server/panel/vhost/nginx/yeu.huiliyill.cn.conf
+LEGACY_EXTENSION=/www/server/panel/vhost/nginx/extension/yeu.huiliyill.cn
 HTTP_INCLUDE=/www/server/panel/vhost/nginx/0.yeu_trusted_client_ip.conf
 NGINX=/www/server/nginx/sbin/nginx
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
+if [[ ! -f "$VHOST" && -f "$LEGACY_VHOST" ]]; then
+  install -o root -g root -m 0644 "$LEGACY_VHOST" "$VHOST"
+fi
 test -f "$VHOST"
 install -d -o root -g root -m 0755 "$EXTENSION"
+if [[ -d "$LEGACY_EXTENSION" ]]; then
+  cp -a "$LEGACY_EXTENSION"/. "$EXTENSION"/
+fi
 install -o root -g root -m 0644 "$VHOST" "$VHOST.before-security-$STAMP"
+
+sed -i \
+  -e 's/server_name [^;]*;/server_name yx.huiliyill.cn;/' \
+  -e 's#extension/yeu\.huiliyill\.cn/#extension/yx.huiliyill.cn/#g' \
+  "$VHOST"
 
 # Only observed CDN peers may provide the client address. Direct requests and
 # unknown/new edges fall back to their TCP source address.

@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 
 const outputDir = 'docs/marketing/map-promo/assets'
-const targetUrl = 'https://yeu.huiliyill.cn/map?place=amap-workmap-20260713-r074'
+const targetUrl = 'https://yx.huiliyill.cn/map?place=amap-workmap-20260713-r074'
 
 await mkdir(outputDir, { recursive: true })
 

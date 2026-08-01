@@ -1,13 +1,13 @@
 # QQ and WeChat bot integration
 
-The site exposes disabled-by-default server webhooks. Group messages are answered only when the bot is explicitly mentioned. Every reply ends with `官网：https://yeu.huiliyill.cn/`.
+The site exposes disabled-by-default server webhooks. Group messages are answered only when the bot is explicitly mentioned. Every reply ends with `官网：https://yx.huiliyill.cn/`.
 
 ## QQ via OneBot 11
 
 Use NapCat or Lagrange as the OneBot gateway. Configure its HTTP event callback as:
 
 ```text
-POST https://yeu.huiliyill.cn/api/integrations/bots/qq-onebot
+POST https://yx.huiliyill.cn/api/integrations/bots/qq-onebot
 Authorization: Bearer <NUXT_QQ_BOT_WEBHOOK_TOKEN>
 ```
 
@@ -56,7 +56,7 @@ The relay send endpoint receives the following signed JSON from YEU:
 {
   "roomId": "group-room-id",
   "replyToMessageId": "unique-message-id",
-  "text": "answer\n\n官网：https://yeu.huiliyill.cn/"
+  "text": "answer\n\n官网：https://yx.huiliyill.cn/"
 }
 ```
 
@@ -84,7 +84,7 @@ Keep `/www/wwwroot/yeu/shared/wechatpadpro/.env` outside releases and readable o
 Shared settings:
 
 ```dotenv
-NUXT_BOT_SITE_URL=https://yeu.huiliyill.cn/
+NUXT_BOT_SITE_URL=https://yx.huiliyill.cn/
 NUXT_BOT_MAX_REPLY_CHARS=1800
 ```
 

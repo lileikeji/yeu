@@ -1,6 +1,8 @@
 # 宝塔 Linux 部署与运维
 
 > 目标拓扑：Nginx/CDN -> `systemd yeu.service` 单实例 -> Nuxt/Nitro -> SQLite
+
+当前生产唯一公开域名为 `yx.huiliyill.cn`。部署环境中的 `NUXT_PUBLIC_SITE_URL`、`NUXT_BOT_SITE_URL`、`NUXT_ALLOWED_ORIGINS`、`NUXT_WECHAT_SHARE_ALLOWED_HOSTS`，以及 Nginx `server_name`、腾讯 CDN 加速域名、回源 Host、HTTPS 证书和高德域名白名单必须全部使用该域名。旧 `yeu.huiliyill.cn`、`cn.yeu.huiliyill.cn`、`global.yeu.huiliyill.cn` 不再作为可用线路。
 > 目标仓库：`https://gitee.com/lilei1529/yeu`
 > 状态：生产部署基线。当前仓库已加入 Drizzle/SQLite 迁移与初始化脚本、管理员/用户认证、AI/知识库和 PWA；生产应用由 `systemd yeu.service` 管理，QQ/微信 relay 使用独立 systemd 单元。
 

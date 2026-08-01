@@ -31,9 +31,7 @@
       const title = document.getElementById('recovery-title')
       const status = document.getElementById('recovery-status')
       const candidates = [
-        location.hostname,
-        'cn.yeu.huiliyill.cn',
-        'global.yeu.huiliyill.cn'
+        location.hostname
       ].filter((host, index, hosts) => host && hosts.indexOf(host) === index)
 
       async function probe(host) {

@@ -69,7 +69,7 @@ export default defineNuxtConfig({
     aiMcpToolName: 'firecrawl_search',
     aiMcpTimeoutMs: 25_000,
     amapWebServiceKey: '',
-    botSiteUrl: 'https://yeu.huiliyill.cn/',
+    botSiteUrl: 'https://yx.huiliyill.cn/',
     botMaxReplyChars: 1800,
     qqBotWebhookToken: '',
     qqBotApiUrl: '',
@@ -85,7 +85,7 @@ export default defineNuxtConfig({
     wechatMpAppSecret: '',
     wechatMpToken: '',
     wechatMpEncodingAesKey: '',
-    wechatShareAllowedHosts: 'yeu.huiliyill.cn,global.yeu.huiliyill.cn,cn.yeu.huiliyill.cn',
+    wechatShareAllowedHosts: 'yx.huiliyill.cn',
     public: {
       siteUrl: 'http://localhost:3000',
       mapProvider: 'maplibre-dev',

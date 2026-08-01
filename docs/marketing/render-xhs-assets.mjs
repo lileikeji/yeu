@@ -1,4 +1,4 @@
-﻿import { chromium } from '@playwright/test';
+import { chromium } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
@@ -45,7 +45,7 @@ const posters = [
         </div>
         <div class="card"><b>9月5–6日 报到</b><span>流程可点 · 地点可跳转地图</span></div>
       </div>
-      <div class="cta"><div class="btn">免费打开</div><div class="url">yeu.huiliyill.cn</div></div>
+      <div class="cta"><div class="btn">免费打开</div><div class="url">yx.huiliyill.cn</div></div>
       <p class="note">非学校官方平台 · 学生团队维护 · 重要信息以学校通知为准</p>
     </div></body></html>`
   },
@@ -88,7 +88,7 @@ const posters = [
         </div>
       </div>
       <div class="bottom"><b>一个站覆盖入学高频场景</b><span>校园地图 · 官方平面图 · 办事流程 · 生活服务 · 后续 Agent 搜索</span></div>
-      <p class="foot">yeu.huiliyill.cn · 本科 / 专升本 · 非学校官方</p>
+      <p class="foot">yx.huiliyill.cn · 本科 / 专升本 · 非学校官方</p>
     </body></html>`
   },
   {
@@ -120,7 +120,7 @@ const posters = [
         <div class="card"><div class="icon" style="background:#be123c">6</div><h3>搜索与社团</h3><p>站内检索 + 社团招新信息聚合</p></div>
       </div>
       <div class="ribbon">后续接入 Agent 智能搜索<small>你问“宿舍怎么走 / 校园卡怎么办”，直接给答案和地点</small></div>
-      <p class="foot">yeu.huiliyill.cn · 本科 / 专升本 · 手机优先 · 可加到主屏幕</p>
+      <p class="foot">yx.huiliyill.cn · 本科 / 专升本 · 手机优先 · 可加到主屏幕</p>
     </body></html>`
   }
 ];
@@ -139,9 +139,9 @@ for (const p of posters) {
 }
 
 const live = [
-  { url: 'https://yeu.huiliyill.cn/', out: 'page-home.png', w: 390, h: 844 },
-  { url: 'https://yeu.huiliyill.cn/map', out: 'page-map.png', w: 390, h: 844 },
-  { url: 'https://yeu.huiliyill.cn/procedures', out: 'page-procedures.png', w: 390, h: 844 }
+  { url: 'https://yx.huiliyill.cn/', out: 'page-home.png', w: 390, h: 844 },
+  { url: 'https://yx.huiliyill.cn/map', out: 'page-map.png', w: 390, h: 844 },
+  { url: 'https://yx.huiliyill.cn/procedures', out: 'page-procedures.png', w: 390, h: 844 }
 ];
 for (const s of live) {
   try {

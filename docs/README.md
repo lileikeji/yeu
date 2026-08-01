@@ -26,6 +26,7 @@
 2. [2026-07-15 官网、迎新、社团与周边资料审计](./RESEARCH_AUDIT_2026-07-15.md)。
 3. [2026-07-15 小红书公开资料核验记录](./XIAOHONGSHU_RESEARCH_2026-07-15.md)。
 4. [2026-07-15 公开媒体与授权审计](./PUBLIC_MEDIA_AUDIT_2026-07-15.md)。
+5. [2026-08-01 品牌与内容风险审计](./BRAND_AND_CONTENT_RISK_AUDIT_2026-08-01.md)：当前域名、非官方边界、已撤下资源与后续发布门槛。
 5. [内容来源与治理政策](./CONTENT_POLICY.md)。
 6. [地图数据就绪台账](./MAP_DATA_READINESS.md)。
 7. [现场坐标采集与审核](./FIELD_COORDINATE_VERIFICATION.md)。

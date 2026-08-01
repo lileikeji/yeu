@@ -126,7 +126,7 @@
 - 做得不好的地方：首次线上健康请求发出得太早，服务仍在监听窗口，造成一次误判；发布前的 Windows 打包物仍携带 Windows 原生模块，需要上线前额外替换。
 - 根因：知识库扩容后普通全文结果与审核身份条目共用排序；缓存/阶段计时分别计算，命中缓存时没有使用已经发生的分析耗时；Windows 构建环境与 Linux 生产环境的原生依赖不同。
 - 后续避免：发布脚本必须等待监听端口和 `/api/health` 连续通过后再判定成功；高风险身份、政策和入口问题必须有独立回归样例；每个答案的 `totalDurationMs` 必须不小于 trace 各阶段耗时之和，并在 CDN 域名和源站各验证一次。
-- 验证环境与结果：本地 `pnpm exec tsx --test scripts/assistant-contact.test.ts scripts/assistant-knowledge.test.ts scripts/student-rules.test.ts` 45 项通过，`pnpm typecheck` 通过；生产 `yeu.service` 为 active，源站与 `https://yeu.huiliyill.cn/api/health` 均返回 `status=ok`、`database=ready`；生产域名实测“吴庆星是谁”走审核身份缓存，“什么时候开学”走本地数据库（总计约 45ms），“体育选修有哪些项目”走本地数据库（总计约 1.8s），trace 时间与总耗时一致。
+- 验证环境与结果：本地 `pnpm exec tsx --test scripts/assistant-contact.test.ts scripts/assistant-knowledge.test.ts scripts/student-rules.test.ts` 45 项通过，`pnpm typecheck` 通过；生产 `yeu.service` 为 active，源站与 `https://yx.huiliyill.cn/api/health` 均返回 `status=ok`、`database=ready`；生产域名实测“吴庆星是谁”走审核身份缓存，“什么时候开学”走本地数据库（总计约 45ms），“体育选修有哪些项目”走本地数据库（总计约 1.8s），trace 时间与总耗时一致。
 - 发布/回滚信息：提交 `51b650a`、`3695b98` 已部署到 `/www/wwwroot/yeu/releases/20260731-174600-3695b98`，`current` 已原子切换；上一版 `/www/wwwroot/yeu/releases/20260731-173706-51b650a` 保留为直接回滚点，服务由 `systemd yeu.service` 管理。
 - 架构变化：AI 编排增加确定性答案的轻量短路层，缓存版本和 trace 计时成为同一回答契约；生产发布继续采用 `release/current/shared + systemd`，并把平台原生依赖检查列为切换前门禁。已同步 `docs/ARCHITECTURE.md` 的 AI 检索优先级说明。
 - 后续动作：把“等待监听 -> 健康检查 -> 源站/公开域名双验 -> 原生模块格式检查”固化到发布脚本；下一轮在微信/QQ WebView 验证流式 AI 与地图兼容，不把桌面浏览器结果当作替代。

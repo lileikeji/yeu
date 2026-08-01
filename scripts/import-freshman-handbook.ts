@@ -7,8 +7,7 @@ import { runMigrations } from '../server/database/migrate'
 import { compileOfficialKnowledgeDocuments } from '../server/modules/knowledge/document-compiler'
 import { parseOfficialPdf } from './crawl-official-knowledge'
 
-const DEFAULT_PDF_PATH = './public/media/handbooks/yeu-freshman-handbook-2026.pdf'
-const PUBLIC_URL = '/media/handbooks/yeu-freshman-handbook-2026.pdf'
+const INTERNAL_SOURCE_KEY = 'internal:freshman-handbook-2026'
 const HANDBOOK_TITLE = '仰恩大学新生手册 2026（阿杰整理）'
 
 const PAGE_TOPICS = new Map<number, {
@@ -69,14 +68,6 @@ const PAGE_TOPICS = new Map<number, {
   }]
 ])
 
-const IMAGE_ASSETS = [
-  { page: 2, url: '/images/freshman-handbook-2026/hechang-lecture-hall.jpg', alt: '新区和昌教学楼' },
-  { page: 3, url: '/images/freshman-handbook-2026/puzhao-auditorium.jpg', alt: '旧区普照大礼堂' },
-  { page: 4, url: '/images/freshman-handbook-2026/k2-k6-bus-stop.jpg', alt: '校园附近 K2、K6 公交站牌' },
-  { page: 4, url: '/images/freshman-handbook-2026/campus-shuttle.jpg', alt: '校园叮叮车' },
-  { page: 7, url: '/images/freshman-handbook-2026/military-training-canteens.jpg', alt: '军训水壶' }
-]
-
 function stableId(prefix: string, value: string): string {
   return `${prefix}:${createHash('sha256').update(value.normalize('NFKC')).digest('hex').slice(0, 32)}`
 }
@@ -96,15 +87,17 @@ function splitPdfPages(value: string): Map<number, string> {
 }
 
 async function main(): Promise<void> {
-  const pdfPath = resolve(process.argv[2] || DEFAULT_PDF_PATH)
+  const inputPath = process.argv[2]
+  if (!inputPath) throw new Error('Usage: import-freshman-handbook.ts <local-pdf-path> [database-path]')
+  const pdfPath = resolve(inputPath)
   const databasePath = process.argv[3] || process.env.NUXT_DATABASE_PATH || './data/yeu.sqlite'
   const bytes = new Uint8Array(readFileSync(pdfPath))
-  const parsed = await parseOfficialPdf(bytes, PUBLIC_URL, HANDBOOK_TITLE)
+  const parsed = await parseOfficialPdf(bytes, INTERNAL_SOURCE_KEY, HANDBOOK_TITLE)
   const pages = splitPdfPages(parsed.text)
   const client = getDatabase(databasePath)
   const now = Date.now()
-  const sourceId = stableId('source', PUBLIC_URL)
-  const documentId = stableId('document', `${PUBLIC_URL}\n${parsed.text}`)
+  const sourceId = stableId('source', INTERNAL_SOURCE_KEY)
+  const documentId = stableId('document', `${INTERNAL_SOURCE_KEY}\n${parsed.text}`)
   const contentHash = createHash('sha256').update(parsed.text.normalize('NFKC')).digest('hex')
 
   try {
@@ -128,17 +121,17 @@ async function main(): Promise<void> {
       `).run(
         sourceId,
         HANDBOOK_TITLE,
-        PUBLIC_URL,
+        INTERNAL_SOURCE_KEY,
         now,
         '用户提供的2026新生手册，作者署名阿杰；属于学生经验资料，不是学校官方通知。',
         now,
         now
       )
-      const actualSource = client.sqlite.prepare('SELECT id FROM sources WHERE url = ?').get(PUBLIC_URL) as { id: string }
+      const actualSource = client.sqlite.prepare('SELECT id FROM sources WHERE url = ?').get(INTERNAL_SOURCE_KEY) as { id: string }
       client.sqlite.prepare(`
         UPDATE knowledge_documents SET status = 'archived', updated_at = ?
         WHERE original_url = ? AND status = 'ready' AND id <> ?
-      `).run(now, PUBLIC_URL, documentId)
+      `).run(now, INTERNAL_SOURCE_KEY, documentId)
       client.sqlite.prepare(`
         INSERT INTO knowledge_documents (
           id, source_id, kind, title, original_url, storage_path, mime_type,
@@ -159,7 +152,7 @@ async function main(): Promise<void> {
         documentId,
         actualSource.id,
         HANDBOOK_TITLE,
-        PUBLIC_URL,
+        INTERNAL_SOURCE_KEY,
         pdfPath,
         contentHash,
         parsed.text,
@@ -169,7 +162,7 @@ async function main(): Promise<void> {
           official: false,
           pageCount: parsed.pageCount,
           extractedCharacters: parsed.text.length,
-          images: IMAGE_ASSETS,
+          images: [],
           publicCitation: false
         }),
         now,
@@ -227,7 +220,7 @@ async function main(): Promise<void> {
       pageCount: parsed.pageCount,
       extractedCharacters: parsed.text.length,
       knowledgeEntries: PAGE_TOPICS.size,
-      imageAssets: IMAGE_ASSETS.length,
+      imageAssets: 0,
       reviewClaims: compileReport.claimsInserted + compileReport.claimsUpdated
     })}\n`)
   } finally {

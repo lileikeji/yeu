@@ -26,10 +26,10 @@ const DEDUPE_TTL_MS = 30 * 60 * 1000
 
 function canonicalSiteUrl(value: string): string {
   try {
-    const url = new URL(value || 'https://yeu.huiliyill.cn/')
+    const url = new URL(value || 'https://yx.huiliyill.cn/')
     return `${url.origin}/`
   } catch {
-    return 'https://yeu.huiliyill.cn/'
+    return 'https://yx.huiliyill.cn/'
   }
 }
 

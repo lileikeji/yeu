@@ -24,12 +24,12 @@ useSeoMeta({
   ogSiteName: '迎新指南',
   ogType: 'website',
   ogLocale: 'zh_CN',
-  ogImage: 'https://yeu.huiliyill.cn/icons/app-icon-512.png',
+  ogImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png',
   ogImageWidth: 512,
   ogImageHeight: 512,
   ogImageAlt: '迎新指南',
   twitterCard: 'summary_large_image',
-  twitterImage: 'https://yeu.huiliyill.cn/icons/app-icon-512.png'
+  twitterImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png'
 })
 
 const pwaManifestComponent = import.meta.dev

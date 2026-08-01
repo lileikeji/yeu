@@ -1,8 +1,8 @@
 # 生产修复与系统完善记录（2026-07-17 续）
 
-> 服务器：`***REMOVED***`（SSH 密钥本地：`C:\Users\15294\.ssh\***REMOVED***`）  
-> 域名：`https://yeu.huiliyill.cn`  
-> 发布：`/www/wwwroot/yeu/current` → `releases/20260717-041320`  
+> 服务器：`***REMOVED***`（SSH 密钥本地：`C:\Users\15294\.ssh\***REMOVED***`）
+> 域名：`https://yx.huiliyill.cn`
+> 发布：`/www/wwwroot/yeu/current` → `releases/20260717-041320`
 > 数据库：`/www/wwwroot/yeu/shared/data/yeu.sqlite`
 
 本文承接用户诉求：系统可优化点与后续完善、Logo 替换、平面图恢复、线上 bug 检查、生产修复。
@@ -54,9 +54,9 @@
 **本轮生产侧新增待办**
 
 10. **EdgeOne 刷新缓存**：在腾讯云 EdgeOne / 宝塔 `txeo` 配置 SecretId/SecretKey 后，对以下 URL 做 URL 刷新：
-    - `https://yeu.huiliyill.cn/sitemap.xml`
-    - `https://yeu.huiliyill.cn/robots.txt`
-    - （可选）`https://yeu.huiliyill.cn/seo/sitemap.xml`、`/seo/robots.txt`
+    - `https://yx.huiliyill.cn/sitemap.xml`
+    - `https://yx.huiliyill.cn/robots.txt`
+    - （可选）`https://yx.huiliyill.cn/seo/sitemap.xml`、`/seo/robots.txt`
 11. 下次完整发布时带上 Nuxt 动态路由 `server/routes/robots.txt.ts`、`server/routes/sitemap.xml.ts`，并继续用 `shared/public-extra/` 作 CDN 旁路静态底稿。
 12. 地点 76 条草稿 **不要** 批量公开；走现场核验 → A/B/C 证据 → 审批坐标流程。
 
@@ -86,7 +86,7 @@
 | 元数据 | `data/seeds/official-campus-plan-reference.ts`（`localAssetUrl`） |
 | 组件 | `app/components/map/OfficialCampusPlan.vue` |
 
-### 2.4 线上 bug 检查（yeu.huiliyill.cn）
+### 2.4 线上 bug 检查（yx.huiliyill.cn）
 
 **未发现阻断性应用崩溃。** 已知差异与策略行为：
 
@@ -104,20 +104,20 @@
 
 ## 3. 本轮已在生产落地的修复
 
-1. **SEO 静态底稿**（存活于 `shared/public-extra/`，不随 release 切换丢失）  
-   - `sitemap.xml`：131 URL  
-   - `robots.txt`：Allow + Disallow `/admin/` + 三条 Sitemap  
-2. **Nginx**（`/www/server/panel/vhost/nginx/yeu.huiliyill.cn.conf`）  
-   - 规范路径 `/robots.txt`、`/sitemap.xml` → public-extra + `no-store` / `CDN-Cache-Control: no-store`  
-   - 旁路：`/seo/*`、`/seo/live/*`  
-   - 备份：`*.bak.cdn-nocache-*`、`*.bak.live-seo-*`  
-3. **地点草稿**  
-   - `import-amap-drafts.ts --apply`  
-   - `sync-amap-owner-coordinates.ts --apply`  
-   - 结果：76 draft，GCJ-02，unverified，均有经纬度  
-4. **仓库侧（待下次完整部署生效于 Nuxt 层）**  
-   - `server/routes/robots.txt.ts`  
-   - `server/routes/sitemap.xml.ts`  
+1. **SEO 静态底稿**（存活于 `shared/public-extra/`，不随 release 切换丢失）
+   - `sitemap.xml`：131 URL
+   - `robots.txt`：Allow + Disallow `/admin/` + 三条 Sitemap
+2. **Nginx**（`/www/server/panel/vhost/nginx/yx.huiliyill.cn.conf`）
+   - 规范路径 `/robots.txt`、`/sitemap.xml` → public-extra + `no-store` / `CDN-Cache-Control: no-store`
+   - 旁路：`/seo/*`、`/seo/live/*`
+   - 备份：`*.bak.cdn-nocache-*`、`*.bak.live-seo-*`
+3. **地点草稿**
+   - `import-amap-drafts.ts --apply`
+   - `sync-amap-owner-coordinates.ts --apply`
+   - 结果：76 draft，GCJ-02，unverified，均有经纬度
+4. **仓库侧（待下次完整部署生效于 Nuxt 层）**
+   - `server/routes/robots.txt.ts`
+   - `server/routes/sitemap.xml.ts`
    - `public/robots.txt` 与线上一致（含 live Sitemap）
 
 ### 运维命令备忘
@@ -126,12 +126,12 @@
 ssh -i C:\Users\15294\.ssh\***REMOVED*** root@***REMOVED***
 
 # 源站核对（绕过 CDN）
-curl -sS -H 'Host: yeu.huiliyill.cn' http://127.0.0.1/sitemap.xml | grep -c '<url>'
-curl -sS -H 'Host: yeu.huiliyill.cn' http://127.0.0.1/robots.txt
+curl -sS -H 'Host: yx.huiliyill.cn' http://127.0.0.1/sitemap.xml | grep -c '<url>'
+curl -sS -H 'Host: yx.huiliyill.cn' http://127.0.0.1/robots.txt
 
 # 公网旁路（当前正确）
-curl -sS https://yeu.huiliyill.cn/seo/live/sitemap.xml | grep -c '<url>'
-curl -sS https://yeu.huiliyill.cn/seo/live/robots.txt
+curl -sS https://yx.huiliyill.cn/seo/live/sitemap.xml | grep -c '<url>'
+curl -sS https://yx.huiliyill.cn/seo/live/robots.txt
 
 # 业务脚本（必须用 Node 22）
 cd /www/wwwroot/yeu/current && set -a && . ./.env && set +a
@@ -146,7 +146,7 @@ cd /www/wwwroot/yeu/current && set -a && . ./.env && set +a
 ```text
 1. 用户在 EdgeOne/宝塔 txeo 配置密钥 → 刷新 /sitemap.xml 与 /robots.txt
 2. 刷新后公网核对：131 URL + robots 含 Sitemap 行 + Age 重新累计且 body 正确
-3. Search Console 可临时提交 https://yeu.huiliyill.cn/seo/live/sitemap.xml
+3. Search Console 可临时提交 https://yx.huiliyill.cn/seo/live/sitemap.xml
 4. 现场核验 P0 地点 → 审批发布（不要一键公开 76 草稿）
 5. 真机/微信/弱网验收 + 备份告警演练
 6. 用户明确后打 v0.3-alpha / 内测包
@@ -168,7 +168,7 @@ cd /www/wwwroot/yeu/current && set -a && . ./.env && set +a
 
 | 项 | 值 |
 | --- | --- |
-| CNAME | yeu.huiliyill.cn → zghutujm.cn.speedonline.xyz |
+| CNAME | yx.huiliyill.cn → zghutujm.cn.speedonline.xyz |
 | 控制台 | https://console.cdn.speedonline.cloud |
 | 刷新 API | POST /prod-api/site_refresh，Authorization: sk-...（访问令牌原文，不要加 Bearer） |
 | 任务 | id **2680**，	ype=clean_url，6 条 URL，提交时间 2026-07-17 04:54:32 |
@@ -176,12 +176,12 @@ cd /www/wwwroot/yeu/current && set -a && . ./.env && set +a
 
 ### 已刷新 URL
 
-- https://yeu.huiliyill.cn/sitemap.xml
-- https://yeu.huiliyill.cn/robots.txt
-- https://yeu.huiliyill.cn/seo/sitemap.xml
-- https://yeu.huiliyill.cn/seo/robots.txt
-- https://yeu.huiliyill.cn/seo/live/sitemap.xml
-- https://yeu.huiliyill.cn/seo/live/robots.txt
+- https://yx.huiliyill.cn/sitemap.xml
+- https://yx.huiliyill.cn/robots.txt
+- https://yx.huiliyill.cn/seo/sitemap.xml
+- https://yx.huiliyill.cn/seo/robots.txt
+- https://yx.huiliyill.cn/seo/live/sitemap.xml
+- https://yx.huiliyill.cn/seo/live/robots.txt
 
 ### 刷新后公开校验（同日）
 
@@ -207,9 +207,9 @@ cd /www/wwwroot/yeu/current && set -a && . ./.env && set +a
 `ash
 # PowerShell 示例（令牌从本机安全位置读取，勿硬编码进仓库）
  = (Get-Content C:\Users\15294\.secrets\speedonline-sk.txt -Raw).Trim()
- = @{ type = "clean_url"; content = "https://yeu.huiliyill.cn/sitemap.xml
-https://yeu.huiliyill.cn/robots.txt"; encoding = False } | ConvertTo-Json
-Invoke-RestMethod -Uri "https://console.cdn.speedonline.cloud/prod-api/site_refresh" -Headers @{ Authorization = ; "Content-Type" = "application/json" } -Method POST -Body 
+ = @{ type = "clean_url"; content = "https://yx.huiliyill.cn/sitemap.xml
+https://yx.huiliyill.cn/robots.txt"; encoding = False } | ConvertTo-Json
+Invoke-RestMethod -Uri "https://console.cdn.speedonline.cloud/prod-api/site_refresh" -Headers @{ Authorization = ; "Content-Type" = "application/json" } -Method POST -Body
 `
 
 也可在控制台：**站点 → 刷新预热 → 清除 URL**。

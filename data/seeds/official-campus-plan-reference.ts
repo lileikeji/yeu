@@ -10,6 +10,7 @@ export const officialCampusPlanReference = {
   imageEtag: '"1315b6-6425c66a729ce"',
   imageLastModifiedAt: '2025-10-30T08:54:46.000Z',
   retrievedAt: '2026-07-14',
+  redistributionAllowed: false,
   georeferenced: false,
   coordinateSemantics: 'image-relative-only',
   verificationScope: 'relative-campus-orientation-only'

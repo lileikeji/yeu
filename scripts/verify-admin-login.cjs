@@ -8,8 +8,8 @@ const req = http.request({
   headers: {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(data),
-    'Origin': 'https://yeu.huiliyill.cn',
-    'Referer': 'https://yeu.huiliyill.cn/admin/login'
+    'Origin': 'https://yx.huiliyill.cn',
+    'Referer': 'https://yx.huiliyill.cn/admin/login'
   }
 }, (res) => {
   let body = ''

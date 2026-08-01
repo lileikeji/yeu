@@ -3,12 +3,8 @@ import test from 'node:test'
 import { EDGE_ROUTE_HOSTS } from '../app/utils/edge-route'
 import { EDGE_ROUTE_BOOTSTRAP_SCRIPT } from '../app/utils/edge-route-bootstrap'
 
-test('all three public CDN hosts are recognized as stable entry points', () => {
-  assert.deepEqual(EDGE_ROUTE_HOSTS, [
-    'yeu.huiliyill.cn',
-    'cn.yeu.huiliyill.cn',
-    'global.yeu.huiliyill.cn'
-  ])
+test('the canonical CDN host is the only public entry point', () => {
+  assert.deepEqual(EDGE_ROUTE_HOSTS, ['yx.huiliyill.cn'])
 })
 
 test('edge bootstrap keeps each CDN hostname as a stable entry point', () => {

@@ -17,8 +17,8 @@ test('forceHttpsEnabled only accepts true/1', () => {
 })
 
 test('isSafeRedirectHost rejects header injection and junk hosts', () => {
-  assert.equal(isSafeRedirectHost('yeu.huiliyill.cn'), true)
-  assert.equal(isSafeRedirectHost('yeu.huiliyill.cn:443'), true)
+  assert.equal(isSafeRedirectHost('yx.huiliyill.cn'), true)
+  assert.equal(isSafeRedirectHost('yx.huiliyill.cn:443'), true)
   assert.equal(isSafeRedirectHost('[::1]'), true)
   assert.equal(isSafeRedirectHost('evil.com\r\nLocation: https://phish'), false)
   assert.equal(isSafeRedirectHost('evil.com,other'), false)

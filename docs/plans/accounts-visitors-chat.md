@@ -30,7 +30,7 @@
 
 ## 上线验证
 
-- 生产站点: https://yeu.huiliyill.cn
+- 生产站点: https://yx.huiliyill.cn
 - 发布目录: /www/wwwroot/yeu/releases/20260718-045910
 - guest /api/chat/* /api/me => 401
 - admin 开号 / 用户登录 / 发消息 / 宿舍群 / 全员与个人禁言 / 访客埋点与 IP 封禁：已用服务器 curl E2E 验证
@@ -63,8 +63,8 @@
 
 ## 全量验收（2026-07-18 续 · 42/42）
 
-生产：https://yeu.huiliyill.cn  
-发布：/www/wwwroot/yeu/releases/20260718-061629（部署加固后更新）  
+生产：https://yx.huiliyill.cn
+发布：/www/wwwroot/yeu/releases/20260718-061629（部署加固后更新）
 脚本：服务器 /tmp/yeu-full-req-audit3.py → **42 PASS / 0 FAIL**
 
 | 需求 | 结果 |

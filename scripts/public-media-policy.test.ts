@@ -5,11 +5,14 @@ import test from 'node:test'
 
 const MAX_PUBLIC_RASTER_BYTES = 256 * 1024
 
-test('public media excludes research derivatives and legacy official logo copies', () => {
+test('public media excludes official-plan, handbook and legacy logo copies', () => {
   assert.equal(existsSync(resolve('public/images/xiaohongshu-recreations-2026-07-15')), false)
-  assert.equal(existsSync(resolve('public/images/yeu-campus-plan-2025.jpg')), true)
+  assert.equal(existsSync(resolve('public/images/yeu-campus-plan-2025.jpg')), false)
   assert.equal(existsSync(resolve('public/images/yeu-logo.svg')), false)
   assert.equal(existsSync(resolve('app/assets/brand/yeu-logo.svg')), false)
+  assert.equal(existsSync(resolve('public/icons/yeu-seal.jpg')), false)
+  assert.equal(existsSync(resolve('public/icons/site-logo.png')), false)
+  assert.equal(existsSync(resolve('public/media/handbooks/yeu-freshman-handbook-2026.pdf')), false)
 })
 
 test('site chrome uses a generic welcome mark without claiming official endorsement', () => {
@@ -30,12 +33,7 @@ test('public raster images stay below the direct-delivery budget', () => {
 
   assert.ok(rasterFiles.length > 0)
   for (const relativePath of rasterFiles) {
-    const normalizedPath = relativePath.replaceAll('\\', '/')
     const bytes = statSync(resolve(publicRoot, relativePath)).size
-    if (normalizedPath === 'images/yeu-campus-plan-2025.jpg') {
-      assert.equal(bytes, 1_250_742)
-      continue
-    }
     assert.ok(
       bytes <= MAX_PUBLIC_RASTER_BYTES,
       `${relativePath} is ${bytes} bytes; generate a thumbnail or use an explicit media loading strategy`
