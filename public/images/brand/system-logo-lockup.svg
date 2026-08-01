@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 180" role="img" aria-labelledby="title desc">
+  <title id="title">新生指南</title>
+  <desc id="desc">由指南针、路线和书签组成的独立系统标志</desc>
+  <image href="system-logo-mark.png" x="0" y="10" width="160" height="160" preserveAspectRatio="xMidYMid meet"/>
+  <text x="194" y="96" fill="#123B3D" font-family="Microsoft YaHei, PingFang SC, Noto Sans SC, sans-serif" font-size="66" font-weight="800">新生指南</text>
+  <text x="198" y="137" fill="#E97E45" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="2">FRESHMAN GUIDE</text>
+</svg>

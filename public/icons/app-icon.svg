@@ -1,8 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
-  <title id="title">迎新指南</title>
-  <rect width="512" height="512" rx="96" fill="#104830"/>
-  <circle cx="256" cy="238" r="142" fill="#f7f8f6"/>
-  <path d="M184 168h52l20 42 20-42h52l-49 86v72h-46v-72z" fill="#104830"/>
-  <circle cx="342" cy="142" r="23" fill="#f47712"/>
-  <path d="M174 368h164" stroke="#f7f8f6" stroke-width="18" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">新生指南</title>
+  <desc id="desc">指南针、路线和书签组成的系统标志</desc>
+  <rect width="512" height="512" rx="96" fill="#123B3D"/>
+  <image href="../images/brand/system-logo-mark.png" x="68" y="68" width="376" height="376" preserveAspectRatio="xMidYMid meet"/>
 </svg>

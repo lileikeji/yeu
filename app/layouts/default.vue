@@ -45,12 +45,14 @@ function shareCurrentPage(): void {
           aria-label="迎新指南首页"
         >
           <span class="flex min-w-0 items-center gap-2">
-            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-700 text-white">
-              <UIcon
-                name="i-lucide-compass"
-                class="size-5"
+            <span class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-[#123B3D] p-0.5">
+              <img
+                src="/images/brand/system-logo-mark.png"
+                alt=""
                 aria-hidden="true"
-              />
+                class="size-full object-contain"
+                decoding="async"
+              >
             </span>
             <span class="truncate text-base font-bold text-zinc-950">迎新指南</span>
             <span class="hidden shrink-0 text-[11px] font-medium text-zinc-500 sm:inline">学生整理 · 非官方</span>

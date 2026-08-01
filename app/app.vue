@@ -11,7 +11,7 @@ useHead({
     { name: 'apple-mobile-web-app-status-bar-style', content: 'default' }
   ],
   link: [
-    { rel: 'icon', href: '/favicon.ico' },
+    { rel: 'icon', type: 'image/png', href: '/icons/app-icon-192.png' },
     { rel: 'apple-touch-icon', href: '/icons/app-icon-192.png' }
   ]
 })

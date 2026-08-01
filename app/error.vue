@@ -19,7 +19,7 @@ useHead({
     { name: 'theme-color', content: '#0f5132' }
   ],
   link: [
-    { rel: 'icon', href: '/favicon.ico' },
+    { rel: 'icon', type: 'image/png', href: '/icons/app-icon-192.png' },
     { rel: 'apple-touch-icon', href: '/icons/app-icon-192.png' }
   ]
 })
@@ -49,12 +49,14 @@ function retryPage(): void {
           @click.prevent="recover('/')"
         >
           <span class="inline-flex items-center gap-2 text-base font-bold text-zinc-950">
-            <span class="grid size-9 place-items-center rounded-md bg-green-700 text-white">
-              <UIcon
-                name="i-lucide-compass"
-                class="size-5"
+            <span class="grid size-9 place-items-center overflow-hidden rounded-md bg-[#123B3D] p-0.5">
+              <img
+                src="/images/brand/system-logo-mark.png"
+                alt=""
                 aria-hidden="true"
-              />
+                class="size-full object-contain"
+                decoding="async"
+              >
             </span>
             迎新指南
           </span>
