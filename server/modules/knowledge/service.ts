@@ -473,7 +473,8 @@ export function searchOfficialKnowledgeDocuments(
   try {
     rows = query
       ? client.sqlite.prepare(`
-      SELECT kd.id, kd.title, kd.extracted_text AS extractedText,
+      SELECT kd.id, kd.title,
+        snippet(knowledge_documents_fts, 2, '', '', ' ... ', 192) AS extractedText,
         kd.content_hash AS contentHash,
         kd.original_url AS url, kd.captured_at AS capturedAt,
         bm25(knowledge_documents_fts, 0.0, 7.0, 2.0) AS ftsRank,

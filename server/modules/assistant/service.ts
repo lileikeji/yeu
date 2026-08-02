@@ -233,7 +233,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v25-bounded-document-ranking-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v26-fts-snippet-ranking-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -1832,6 +1832,39 @@ function teachingLocationLocalAnswer(
   }
 }
 
+function officialQuantitativeLocalAnswer(
+  query: string,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse | null {
+  if (!/(?:多少|几名|几人|人数|总数|数量)/u.test(query)) return null
+  const subjectTerms = assistantQueryTerms(query)
+    .filter(term => term.length >= 3)
+    .filter(term => !QUERY_TERM_STOPWORDS.has(term))
+    .filter(term => !/(?:多少|几名|几人|人数|总数|数量)/u.test(term))
+    .sort((left, right) => right.length - left.length)
+  if (subjectTerms.length === 0) return null
+
+  for (const item of evidence) {
+    if (assistantEvidenceAuthority(item) !== 'official_site') continue
+    const sentence = item.snippet
+      .replace(/\s+/g, ' ')
+      .split(/(?<=[。！？；])/u)
+      .map(value => value.trim())
+      .find(value => /\d/u.test(value) && subjectTerms.some(term => value.includes(term)))
+    if (!sentence) continue
+    const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = item
+    return {
+      query,
+      mode: 'local',
+      answer: `学校官网资料显示：${safeText(sentence, 300)}具体统计口径和年份以原文为准。`,
+      citations: [citation],
+      usedWebSearch: false,
+      confidence: 0.9
+    }
+  }
+  return null
+}
+
 function isSpecificDirectoryFeatureQuery(query: string): boolean {
   if (!/(?:社团|协会|学生组织|部门|办公室)/u.test(query)) return false
   const subject = normalizeAssistantQuery(query)
@@ -3124,6 +3157,8 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (campusOverviewAnswer) return campusOverviewAnswer
   const studentRuleAnswer = studentRuleLocalAnswer(query, evidence)
   if (studentRuleAnswer) return studentRuleAnswer
+  const quantitativeAnswer = officialQuantitativeLocalAnswer(query, evidence)
+  if (quantitativeAnswer) return quantitativeAnswer
   const overviewFallback = broadCampusOverviewFallback(query, evidence)
   if (overviewFallback) return overviewFallback
   const opening = evidence.find(item => item.title === '2026级新生报到')
