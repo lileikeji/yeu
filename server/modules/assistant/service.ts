@@ -175,6 +175,7 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   平面图: ['地图', '学校地图', '校园地图', '校园平面图', '导览图', '校区图'],
   导览图: ['地图', '校园地图', '平面图', '校园平面图', '校区图'],
   宿舍: ['住宿', '宿舍楼', '寝室', '房型', '住宿条件'],
+  多少钱: ['价格', '费用', '收费', '住宿费', '每学年'],
   学费: ['缴费', '收费', '资助', '助学贷款'],
   助学贷: ['助学贷款', '生源地贷款', '助学贷款申请'],
   报到: ['入学', '注册', '迎新'],
@@ -197,15 +198,55 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   选课: ['教务系统', '喜鹊儿', '抢课', '体育课', '公共选修课', '补退选'],
   体育课: ['选课', '抢课', '教务系统', '喜鹊儿', '公共体育'],
   团委: ['校团委', '共青团', '团学活动', '青年工作'],
+  校团委: ['团委', '共青团', '社团招新', '校园文化', '志愿服务', '团学活动', '青年工作'],
   绩点: ['GPA', '平均学分绩点', '课程绩点', '学分', '成绩'],
   奖学金: ['评奖', '参评', '综合测评', '奖项'],
   综合测评: ['德育', '智育', '体育', '加分', '扣分'],
+  混班: ['混专业', '室友分配', '按学号分宿舍', '床位分配'],
+  混专业: ['混班', '室友分配', '按学号分宿舍', '床位分配'],
+  水卡: ['洗澡', '热水', '全天热水', '宿舍水电费'],
+  洗澡: ['水卡', '热水', '公共浴室', '洗澡多少钱'],
+  洗衣机: ['洗衣液', '洗衣机排队', '脱水', '卫生'],
+  洗衣液: ['公共洗衣机', '洗衣机', '脱水', '排队'],
+  桌帘: ['床帘', '桌板机械臂', '宿舍家具改装', '宿舍电器', '消防安全'],
+  床帘: ['桌帘', '床上用品', '宿舍家具改装', '宿舍电器'],
+  机械臂: ['桌板机械臂', '桌帘', '宿舍家具改装', '宿舍电器', '桌板打孔'],
+  抢课: ['选课', '体育课', '教务系统', '下载App', '公共选修课', '补退选'],
+  水课: ['公共选修课', '公选课', '线上选修课', '轻松公选课', '选课'],
+  抢宿舍: ['宿舍分配', '床位分配', '舒适型宿舍', '迎新系统', '抢宿舍流程'],
+  内部图样: ['宿舍内部图', '普通宿舍实拍', '舒适型宿舍实拍', '宿舍实拍'],
+  宿舍图: ['宿舍内部图', '普通宿舍实拍', '舒适型宿舍实拍', '宿舍实拍'],
+  实拍: ['宿舍内部图', '普通宿舍实拍', '舒适型宿舍实拍', '宿舍视频'],
+  windows: ['Windows', '电脑软件', '专业软件', 'macOS'],
+  macos: ['Mac', '苹果电脑', '专业软件', 'Windows'],
+  苹果: ['Mac', 'macOS', '苹果电脑', '专业软件'],
+  兼容: ['Windows', 'macOS', '苹果电脑', '专业软件'],
+  课程软件: ['专业软件', 'Windows', 'macOS', '兼容'],
+  电脑: ['笔记本电脑', '个人电脑', '专业电脑', '专业软件', 'Windows', 'macOS'],
+  买电脑: ['电脑', '笔记本电脑', '个人电脑', '专业软件', 'Windows', 'macOS'],
+  电气专业: ['电气工程', '电气工程及其自动化', '电气专业电脑', '专业电脑', '专业软件'],
+  物联网工程: ['物联网', '物联网专业电脑', '专业电脑', '专业软件'],
+  艺术教育: ['艺术教育专业电脑', '专业电脑', '专业软件'],
+  电子信息工程: ['电子信息', '电子系', '电气工程与自动化学院', '教学区', '上课地点', '授课地点'],
+  教学区: ['第一教学区', '第三教学区', '新区', '旧区', '教学楼', '上课地点', '授课地点'],
+  上课: ['教学区', '教学楼', '上课地点', '授课地点', '课程安排', '课表'],
+  英语分班: ['英语开学考', '分班考试', '题型', '高考', '难度'],
+  题型: ['英语分班考试', '考试范围', '高考难度'],
+  辅导员: ['班导', '建群', '联系新生', '八月初', '八月中旬'],
+  建群: ['辅导员', '班导', '联系新生', '建立班级群'],
+  联系新生: ['辅导员', '班导', '建群', '建立班级群'],
+  吸烟: ['抽烟', '禁烟', '吸烟区', '处分'],
+  抽烟: ['吸烟', '禁烟', '吸烟区', '处分'],
+  转专业: ['换专业', '转专业条件', '接收名额', '教务审批'],
+  挂科: ['数学没及格', '不及格', '转专业条件', '转专业'],
+  数学挂科: ['数学没及格', '不及格', '转专业', '挂科'],
   交通: ['公交', '到校', '离校', '换乘', '路线'],
   公交: ['交通', '班次', '首班车', '末班车', '换乘'],
   泉州站: ['K6', '动车站', '高铁站'],
   东站: ['泉州东站', 'K507', '换乘'],
   机场: ['晋江机场', '泉州晋江国际机场', '飞机'],
   市区: ['文化宫', 'K2', '西街', '泉州古城', '开元寺', '中山路', '蟳埔', '海交馆', '商圈'],
+  市里: ['市区', '泉州市区', '文化宫', 'K2', '进城', '公交', '路线'],
   离校: ['学校怎么出去', '返程', 'K6', 'K2'],
   吃喝玩乐: ['附近美食', '周边游玩', '学生街', '马甲镇', '半日游', '周末游'],
   美食: ['吃饭', '小吃', '本地菜', '学生街', '马甲镇'],
@@ -236,7 +277,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v30-responsibility-overview-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v35-query-intent-fallback-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -282,7 +323,7 @@ const TRANSIT_QUERY_POINTS: ReadonlyArray<{ id: Exclude<TransitPointId, 'campus'
   { id: 'quanzhou-east', terms: ['泉州东站', '东站'] },
   { id: 'jinjiang-airport', terms: ['泉州晋江国际机场', '晋江机场', '机场'] },
   { id: 'quanzhou-station', terms: ['泉州站', '动车站', '高铁站'] },
-  { id: 'city-center', terms: ['泉州市区', '市区', '文化宫', '西街', '开元寺'] }
+  { id: 'city-center', terms: ['泉州市区', '市区', '市里', '文化宫', '西街', '开元寺'] }
 ]
 
 export function transitRouteForQuery(query: string): {
@@ -301,7 +342,15 @@ export function transitRouteForQuery(query: string): {
     .map(term => ({ term, index: normalized.indexOf(term) }))
     .filter(item => item.index >= 0)
     .sort((left, right) => left.index - right.index || right.term.length - left.term.length)[0]
-  if (!campusMatch) return null
+  // 新生常把“去市里要多久”当作从学校出发的简称。只对明确的
+  // 出发/耗时问法启用这个隐含起点，避免把“市里有什么”误判成路线规划。
+  if (!campusMatch) {
+    const implicitCampusToCity = externalMatch.pointId === 'city-center'
+      && /(?:去|到|前往|进城|回市里).{0,12}(?:市里|市区|泉州市区)|(?:市里|市区|泉州市区).{0,12}(?:要多久|多长时间|怎么去|怎么走|公交|路线)/.test(normalized)
+    return implicitCampusToCity
+      ? { originId: 'campus', destinationId: externalMatch.pointId }
+      : null
+  }
 
   return campusMatch.index < externalMatch.index
     ? { originId: 'campus', destinationId: externalMatch.pointId }
@@ -917,7 +966,13 @@ function evidenceCoreCoverage(query: string, item: AssistantEvidence): number {
 
 function isBroadCampusOverviewQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  // A sentence may end with “情况如何” while still asking for several
+  // concrete facts. Keep those questions on the precise FAQ path; otherwise
+  // the broad-topic guard would discard the matching entry (for example,
+  // public laundry duration and hygiene).
+  const hasSpecificAspect = /(?:混班|混专业|水卡|洗澡|洗衣机|洗衣液|床垫|床帘|吹风机|机械臂|题型|分班考试|建群|联系新生|吸烟|抽烟|转专业|挂科|不及格|windows|macos|苹果|兼容|银行卡|预报名|选课|抢课)/i.test(normalized)
   return CAMPUS_QUERY_RE.test(normalized)
+    && !hasSpecificAspect
     && /怎么样|什么样|好不好|介绍(?:一下)?|讲讲|情况如何|(?:整体|基本|大概)情况|概况|概览|(?:平时)?(?:主要)?(?:负责|做)(?:什么|哪些|啥)|职责(?:是|有|包括)?(?:什么|哪些|啥)?/.test(normalized)
 }
 
@@ -1184,10 +1239,15 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
     ) return false
     if (dormBedDimensionQuery && !BED_DIMENSION_EVIDENCE_RE.test(searchable)) return false
     if (placeLocationQuery && !registrationLocationQuery && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(searchable)) return false
+    const hasRegistrationEvidence = Boolean(
+      teachingLocationMajor
+      && searchable.includes(teachingLocationMajor.toLocaleLowerCase('zh-CN'))
+      && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(searchable)
+    )
     if (
       teachingLocationQuery
       && (
-        !TEACHING_LOCATION_EVIDENCE_RE.test(searchable)
+        (!TEACHING_LOCATION_EVIDENCE_RE.test(searchable) && !hasRegistrationEvidence)
         || Boolean(teachingLocationMajor && !searchable.includes(teachingLocationMajor.toLocaleLowerCase('zh-CN')))
       )
     ) return false
@@ -1444,9 +1504,13 @@ function textMatchCondition(
   columns: Array<{ name?: string }>,
   terms: string[]
 ) {
+  // The first terms preserve exact phrases, but Chinese questions often put
+  // the useful subject in a later bigram or expansion (for example
+  // “电气专业 + 买电脑”). Keep a wider bounded SQL candidate pool and let
+  // the TypeScript scorer decide relevance afterwards.
   const clauses = terms
     .filter(term => term.length >= 2)
-    .slice(0, 8)
+    .slice(0, 24)
     .flatMap(term => columns.map(column => like(column as never, `%${term}%`)))
   return clauses.length > 0 ? or(...clauses) : undefined
 }
@@ -1732,6 +1796,7 @@ function isFeatureSeekingQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   if (/在哪|哪里|入口|哪个页面|什么页面|怎么打开|怎么进入|去哪|功能/.test(normalized)) return true
   return /(?:给(?:我)?(?:个|一份)?|发(?:我)?(?:个|一份)?|打开|带我看|帮我找|帮我查|看一下|看看|展示).{0,16}(?:地图|平面图|导览图|校区图|路线|导航|页面|入口)/.test(normalized)
+    || /(?:有|有没有|可以|查看|看看|给我).{0,12}(?:地图|平面图|导览图|校区图)/.test(normalized)
 }
 
 function exactPlaceEvidenceForQuery(
@@ -1816,15 +1881,40 @@ function teachingLocationLocalAnswer(
     const text = `${item.title} ${item.snippet} ${item.text}`
     return text.includes(major) && TEACHING_LOCATION_EVIDENCE_RE.test(text)
   })
-  if (!primary) return null
+  const registrationOnly = evidence.find((item) => {
+    const text = `${item.title} ${item.snippet} ${item.text}`
+    return !primary
+      && text.length >= 180
+      && text.includes(major)
+      && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(text)
+  })
+  if (!primary && !registrationOnly) return null
 
-  const relevantSentence = primary.snippet
+  if (registrationOnly) {
+    const registrationSentence = `${registrationOnly.title} ${registrationOnly.snippet} ${registrationOnly.text}`
+      .replace(/\s+/g, ' ')
+      .split(/(?<=[。！？；])/u)
+      .map(item => item.trim())
+      .find(item => item.includes(major) && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(item))
+    const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = registrationOnly
+    return {
+      query,
+      mode: 'local',
+      answer: `目前站内资料只核实到：${safeText(registrationSentence || registrationOnly.snippet, 320)}这属于新生报到地点，不等同于该专业后续上课的教学区。电子课表、教学楼和当学期授课安排尚未在已索引资料中确认，请以学院课表或最新通知为准。`,
+      citations: [citation],
+      usedWebSearch: false,
+      confidence: 0.78
+    }
+  }
+
+  if (!primary) return null
+  const relevantSentence = primary!.snippet
     .replace(/\s+/g, ' ')
     .split(/(?<=[。！？；])/u)
     .map(item => item.trim())
     .find(item => item.includes(major) && TEACHING_LOCATION_EVIDENCE_RE.test(item))
   const answer = safeText(relevantSentence || primary.snippet, 360)
-  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary!
   return {
     query,
     mode: 'local',
@@ -1954,8 +2044,17 @@ function isCurrentTransferQuery(query: string): boolean {
   return /(?:2025|2026|今年|本学年|本年度|最新|现在|当前|当年)/.test(normalizeAssistantQuery(query))
 }
 
+function isTransferCourseCombinationQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query)
+  return /(?:宿舍|寝室)/.test(normalized) && /(?:专升本|孙子兵法)/.test(normalized)
+}
+
 function transferMajorHistoricalAnswer(query: string): ApiAssistantResponse | null {
   if (!isTransferQuery(query) || isCurrentTransferQuery(query)) return null
+  // A combined question about transfer-dorm arrangements and the 《孙子兵法》
+  // course has a reviewed two-topic knowledge entry. Do not let the generic
+  // historical transfer fallback answer only the dormitory half.
+  if (isTransferCourseCombinationQuery(query)) return null
   const rule = transferMajorHistoricalRule
   if (/宿舍|寝室/.test(query)) {
     return {
@@ -2046,6 +2145,7 @@ interface AssistantKnowledgeMatch {
   publicUrl: string | null
   confidence: number
   score: number
+  keywords: string[]
 }
 
 function parseKnowledgeKeywords(value: string): string[] {
@@ -2078,7 +2178,7 @@ export function assistantKnowledgeMatchesForQuery(
     ],
     terms
   )
-  return client.db.select({
+  const selectFields = {
     id: assistantKnowledgeEntries.id,
     kind: assistantKnowledgeEntries.kind,
     category: assistantKnowledgeEntries.category,
@@ -2088,7 +2188,8 @@ export function assistantKnowledgeMatchesForQuery(
     keywordsJson: assistantKnowledgeEntries.keywordsJson,
     publicUrl: assistantKnowledgeEntries.publicUrl,
     confidence: assistantKnowledgeEntries.confidence
-  }).from(assistantKnowledgeEntries)
+  }
+  const initialRows = client.db.select(selectFields).from(assistantKnowledgeEntries)
     .where(and(
       eq(assistantKnowledgeEntries.isActive, true),
       candidateCondition
@@ -2098,42 +2199,58 @@ export function assistantKnowledgeMatchesForQuery(
     // the more specific knowledge entry before exact keyword boosts run.
     .limit(Math.max(320, Math.min(640, limit * 96)))
     .all()
-    .map((row) => {
-      const keywords = parseKnowledgeKeywords(row.keywordsJson)
-      const detail = `${row.question} ${row.answer} ${keywords.join(' ')}`
-      const exactKeywordBoost = keywords.reduce((boost, keyword) => (
-        keyword.length >= 2 && normalizedQuery.includes(keyword.toLocaleLowerCase('zh-CN'))
-          ? Math.max(boost, keyword.length >= 4 ? 24 : 16)
-          : boost
-      ), 0)
-      const facultyName = row.category === '教职工'
-        ? row.title.split('｜', 1)[0]?.trim().toLocaleLowerCase('zh-CN') ?? ''
-        : ''
-      const normalizedTitle = row.title.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
-      const normalizedIdentity = identitySubject?.replace(/\s+/g, '') ?? ''
-      const identityTitleBoost = normalizedIdentity
-        ? normalizedTitle === normalizedIdentity
-          ? 110
-          : normalizedTitle.startsWith(normalizedIdentity)
-            ? 42
-            : 0
-        : 0
-      const score = evidenceScore(`${row.title} ${row.category}`, row.question, detail, terms)
-        + exactKeywordBoost
-        + (identitySubject && facultyName === identitySubject ? 80 : 0)
-        + identityTitleBoost
-      return {
-        id: row.id,
-        kind: row.kind,
-        category: row.category,
-        title: row.title,
-        question: row.question,
-        answer: row.answer,
-        publicUrl: row.publicUrl,
-        confidence: row.confidence,
-        score
-      }
-    })
+  // A phrase-oriented LIKE query is deliberately cheap, but it can still
+  // return no rows when a user paraphrases a stored FAQ (for example “买电脑”
+  // versus “什么时候必须用电脑”). In that case scan a bounded active pool
+  // and let the scorer use the stored keywords/question text. This keeps the
+  // fallback finite even when the faculty directory is large.
+  const broadFallbackRows = initialRows.length < Math.max(16, limit * 4)
+    ? client.db.select(selectFields)
+        .from(assistantKnowledgeEntries)
+        .where(eq(assistantKnowledgeEntries.isActive, true))
+        .limit(2400)
+        .all()
+    : []
+  const rows = [...new Map(
+    [...initialRows, ...broadFallbackRows].map(row => [row.id, row])
+  ).values()]
+  return rows.map((row) => {
+    const keywords = parseKnowledgeKeywords(row.keywordsJson)
+    const detail = `${row.question} ${row.answer} ${keywords.join(' ')}`
+    const exactKeywordBoost = keywords.reduce((boost, keyword) => (
+      keyword.length >= 2 && normalizedQuery.includes(keyword.toLocaleLowerCase('zh-CN'))
+        ? Math.max(boost, keyword.length >= 4 ? 24 : 16)
+        : boost
+    ), 0)
+    const facultyName = row.category === '教职工'
+      ? row.title.split('｜', 1)[0]?.trim().toLocaleLowerCase('zh-CN') ?? ''
+      : ''
+    const normalizedTitle = row.title.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+    const normalizedIdentity = identitySubject?.replace(/\s+/g, '') ?? ''
+    const identityTitleBoost = normalizedIdentity
+      ? normalizedTitle === normalizedIdentity
+        ? 110
+        : normalizedTitle.startsWith(normalizedIdentity)
+          ? 42
+          : 0
+      : 0
+    const score = evidenceScore(`${row.title} ${row.category}`, row.question, detail, terms)
+      + exactKeywordBoost
+      + (identitySubject && facultyName === identitySubject ? 80 : 0)
+      + identityTitleBoost
+    return {
+      id: row.id,
+      kind: row.kind,
+      category: row.category,
+      title: row.title,
+      question: row.question,
+      answer: row.answer,
+      publicUrl: row.publicUrl,
+      confidence: row.confidence,
+      score,
+      keywords
+    }
+  })
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
     .slice(0, limit)
@@ -2150,8 +2267,12 @@ function assistantKnowledgeEvidenceForQuery(
     snippet: item.answer,
     source: 'site' as const,
     authority: item.kind === 'official_reference' ? 'reviewed_site' as const : 'structured_site' as const,
-    text: `${item.question} ${item.answer}`,
-    score: item.score
+    text: `${item.question} ${item.answer} ${item.keywords.join(' ')}`,
+    // For overview wording, curated FAQ entries describe the topic more
+    // directly than a generic procedure page. Give them a bounded boost so
+    // the context selector can combine room type, cost, allocation and daily
+    // life instead of returning only the highest-frequency guide page.
+    score: item.score + (isBroadCampusOverviewQuery(query) ? 32 : 0)
   }))
 }
 
@@ -2159,7 +2280,21 @@ function assistantKnowledgeLocalAnswer(
   client: DatabaseClient,
   query: string
 ): ApiAssistantResponse | null {
-  if (isTransferQuery(query)) return null
+  // Student-rule handlers carry the reviewed scholarship/GPA/综合测评
+  // formulas and should win over a similarly-worded FAQ or crawled article.
+  // Otherwise a generic “how is comprehensive evaluation assessed” entry can
+  // mask a request for the actual scholarship application rules.
+  const studentRuleQuery = /(?:奖学金|助学金|绩点|gpa|综合测评|综测)/i.test(query)
+  const comprehensiveTableQuery = /(?:综测|综合测评).*(?:表格|统计|怎么填|填写|填表)|(?:表格|统计|怎么填|填写|填表).*(?:综测|综合测评)/i.test(query)
+  const comprehensiveDetailQuery = /(?:班内互评|互评分|智育|体育|德育奖励|志愿|献血|扣分|加分|排名|评审|流程|奖励|处分|旷课|迟到|表格|统计|怎么填|填写|填表|班级代码|学号|姓名)/i.test(query)
+  if (studentRuleQuery && !comprehensiveTableQuery && !comprehensiveDetailQuery) return null
+  // Historical transfer rules have their own guarded answer. Current-year
+  // questions should still use the reviewed campus FAQ when it contains the
+  // requested condition (for example, whether a failed math course is an
+  // automatic blocker).
+  if (isTransferQuery(query)
+    && !isCurrentTransferQuery(query)
+    && !isTransferCourseCombinationQuery(query)) return null
   // “宿舍怎么样 / 校园卡怎么样” asks for a topic overview. A single FAQ
   // that merely mentions the topic (for example a discipline rule mentioning
   // dormitories) must not be emitted as the whole answer. These questions are
@@ -2170,9 +2305,107 @@ function assistantKnowledgeLocalAnswer(
   const teachingLocationMajor = isTeachingLocationQuery(query)
     ? knownMajorNameForQuery(query)
     : null
-  const match = assistantKnowledgeMatchesForQuery(client, query, 6).find((candidate) => {
-    if (candidate.score < 12 || candidate.category === '教职工') return false
-    const candidateText = `${candidate.title} ${candidate.question} ${candidate.answer}`
+  const majorComputerQuery = /(?:电脑|笔记本|购机|买机|苹果|macos|windows|专业软件)/i.test(query)
+    && /(?:电气|物联网|艺术教育|电子信息|计算机|网络工程|人工智能|数据科学)/i.test(query)
+  const computerCompatibilityQuery = /(?:windows|macos|mac|苹果|苹果电脑|软件兼容|兼容不兼容|兼容性|专业软件)/i.test(query)
+  const dormApplianceQuery = /(?:桌帘|床帘|机械臂|吹风机|私人洗衣机|宿舍洗衣机|大功率)/.test(query)
+  const courseSelectionQuery = /(?:抢课|选课|体育课|公共选修课|公选课|水课|补退选)/.test(query)
+  const counselorContactQuery = /(?:辅导员|班导).{0,24}(?:联系|建群|什么时候|何时|几号)|(?:联系|建群).{0,24}(?:辅导员|班导)/.test(query)
+  const compoundCourseDormQuery = courseSelectionQuery
+    && /(?:宿舍|寝室|抢宿舍|床位|内部图样|内部图|实拍|房型)/.test(query)
+
+  if (compoundCourseDormQuery) {
+    const courseMatch = assistantKnowledgeMatchesForQuery(
+      client,
+      '抢课 选课 体育课 公共选修课 教务系统 下载App',
+      12
+    ).find(candidate => candidate.category === '选课' && /选课|教务系统|公共选修课|体育课/.test(
+      candidate.title + ' ' + candidate.question + ' ' + candidate.answer
+    ))
+    const dormMatches = assistantKnowledgeMatchesForQuery(
+      client,
+      '抢宿舍流程 什么时候开放 迎新系统 付款顺序 宿舍分配',
+      16
+    )
+    const dormMatch = dormMatches.find(candidate => [
+      'experience-2026-comfort-dorm-booking',
+      'experience-2026-welcome-comfort-dorm-window',
+      'faq-dorm-allocation',
+      'experience-dorm-roommate-allocation'
+    ].includes(candidate.id))
+    ?? dormMatches.find(candidate => /申请时间与流程|提交时间与付款顺序|宿舍分配|抢宿舍/.test(
+      candidate.title + ' ' + candidate.question + ' ' + candidate.answer
+    ))
+    const photoMatch = assistantKnowledgeMatchesForQuery(
+      client,
+      '宿舍内部图 普通宿舍实拍 舒适型宿舍实拍 宿舍视频',
+      12
+    ).find(candidate => /实拍|内部图|床具/.test(
+      candidate.title + ' ' + candidate.question + ' ' + candidate.answer
+    ))
+    if (courseMatch && dormMatch) {
+      const citations: ApiAssistantCitation[] = [
+        {
+          title: courseMatch.title,
+          url: courseMatch.publicUrl ?? '/search?knowledge=' + encodeURIComponent(courseMatch.id),
+          snippet: courseMatch.answer,
+          source: 'site'
+        },
+        {
+          title: dormMatch.title,
+          url: dormMatch.publicUrl ?? '/search?knowledge=' + encodeURIComponent(dormMatch.id),
+          snippet: dormMatch.answer,
+          source: 'site'
+        }
+      ]
+      if (photoMatch) {
+        citations.push({
+          title: '宿舍实拍',
+          url: '/dorms',
+          snippet: '普通型和舒适型宿舍实拍入口；页面中的视频为房型参考，不代表所有楼栋。',
+          source: 'site'
+        })
+      }
+      return {
+        query,
+        mode: 'local',
+        answer: [
+          '这条消息里有三个问题：',
+          '选课：' + courseMatch.answer,
+          '宿舍：' + dormMatch.answer,
+          '内部图样：' + (photoMatch
+            ? '本站宿舍模块可以直接查看普通型和舒适型宿舍实拍，点击“宿舍实拍”入口即可打开。当前素材是房型参考，不代表每一栋楼完全一致。'
+            : '当前站内只检索到宿舍文字说明，暂未找到可核验的两种房型内部图样；可以先打开宿舍模块，或提交具体楼栋后再核对。')
+        ].join('\n\n'),
+        citations,
+        usedWebSearch: false,
+        confidence: Math.min(courseMatch.confidence, dormMatch.confidence) / 100
+      }
+    }
+  }
+  // Keep a wider ranked pool for precise natural-language questions. The
+  // first few candidates can be generic topic entries (for example, room
+  // fees) even when a later candidate contains every requested aspect.
+  const match = assistantKnowledgeMatchesForQuery(client, query, counselorContactQuery ? 120 : 24).find((candidate) => {
+    if (candidate.category === '教职工') return false
+    const candidateFactText = `${candidate.title} ${candidate.question} ${candidate.answer}`
+    const candidateText = `${candidateFactText} ${candidate.keywords.join(' ')}`
+    const compactQuestion = (value: string) => normalizeAssistantQuery(value)
+      .replace(/^(?:请问|麻烦问一下|麻烦)/u, '')
+      .replace(/[?？!！,，。；;：:、]/gu, '')
+      .replace(/\s+/g, '')
+    const queryQuestion = compactQuestion(query)
+    const candidateQuestion = compactQuestion(candidate.question)
+    const exactQuestionOverlap = candidateQuestion.length >= 6
+      && (queryQuestion.includes(candidateQuestion) || candidateQuestion.includes(queryQuestion))
+    if (
+      candidate.score < 12
+      && !exactQuestionOverlap
+      && !computerCompatibilityQuery
+      && !dormApplianceQuery
+      && !courseSelectionQuery
+      && !counselorContactQuery
+    ) return false
     const aspectQuery = /(?:快递.{0,10}(?:寄到|地址)|(?:寄到|地址).{0,10}快递)/.test(query)
       ? `${query} 快递地址`
       : query
@@ -2184,26 +2417,36 @@ function assistantKnowledgeLocalAnswer(
     ].filter(aspect => aspectQuery.includes(aspect))
     // Do not let a broad comparison entry about comfort rooms answer a
     // specific ordinary-room question just because both mention a balcony.
-    if (/普通型宿舍.{0,8}阳台/.test(query) && !/普通型宿舍.{0,20}阳台/.test(candidateText)) return false
+    if (/普通型宿舍.{0,8}阳台/.test(query) && !/普通型宿舍.{0,20}阳台/.test(candidateFactText)) return false
     if (
       isPlaceLocationQuery(query)
       && !/报名地点|报到地点|在哪(?:里)?报名|在哪(?:里)?报到/.test(query)
       && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(candidateText)
     ) return false
-    if (requestedSpecificAspects.some(aspect => !candidateText.includes(aspect))) return false
+    if (requestedSpecificAspects.some(aspect => !candidateFactText.includes(aspect))) return false
     if (/什么时候开放/.test(query) && !/(?:什么时候开放|开放(?:日期|时间|时刻)|开学前)/.test(candidateText)) return false
     if (/在哪抢/.test(query) && !/(?:哪个系统抢|迎新系统|抢宿舍流程)/.test(candidateText)) return false
     if (/怎么抢|完整流程/.test(query) && !/(?:怎么抢|完整流程|抢宿舍流程|选择房型|完成付款)/.test(candidateText)) return false
     if (/付款顺序/.test(query) && !/(?:付款顺序|付款完成顺序)/.test(candidateText)) return false
-    if (/苹果电脑|macos|mac/i.test(query) && !/(?:苹果电脑|macOS|Mac|专业实验软件)/.test(candidateText)) return false
+    if (/苹果电脑|macos|mac/i.test(query)) {
+      return candidate.score >= 18 && /(?:苹果电脑|macOS|Mac|专业实验软件)/.test(candidateText)
+    }
+    if (/转专业/.test(query) && /(?:数学|挂科|不及格)/.test(query)) {
+      return candidate.score >= 18
+        && /转专业/.test(candidateText)
+        && /(?:数学|挂科|不及格)/.test(candidateText)
+    }
     if (/选课.*(?:系统|app)/i.test(query) && /教务系统.*(?:App|喜鹊儿)/is.test(candidateText)) return candidate.score >= 18
     if (/抽烟|吸烟/.test(query) && /(?:抽烟|吸烟|禁烟)/.test(candidateText)) return candidate.score >= 18
     if (/调查问卷|作息.*问卷|空调温度.*问卷/.test(query) && /(?:调查问卷|作息、空调温度|匹配问卷)/.test(candidateText)) return candidate.score >= 18
     if (/学生会.*(?:报名|纳新|加入)/.test(query) && /(?:学生会报名|纳新群|怎么加入学生会)/.test(candidateText)) return candidate.score >= 18
     if (/军训.*(?:才艺|晚会)/.test(query) && /(?:才艺展示|才艺表演|晚会)/.test(candidateText)) return candidate.score >= 18
-    if (/(?:多少钱|收费|费用|价格|水电怎么收)/.test(query) && !/(?:\d+(?:\.\d+)?元|收费|费用|价格|水费|电费)/.test(candidateText)) return false
-    if (/女生/.test(query) && !candidateText.includes('女生')) return false
-    if (/男生/.test(query) && !candidateText.includes('男生')) return false
+    if (/(?:多少钱|收费|费用|价格|单价|水费|电费|水电怎么收)/.test(query) && !/(?:\d+(?:\.\d+)?元|收费|费用|价格|单价|水费|电费)/.test(candidateText)) return false
+    const asksSpecificWaterRate = /(?:超额|单价|每(?:吨|度)|水费|电费|水电费.*(?:多少|价格)|(?:水|电).{0,4}(?:多少钱|单价))/u.test(query)
+    if (asksSpecificWaterRate
+      && !/(?:水.{0,8}\d+(?:\.\d+)?元|电.{0,8}\d+(?:\.\d+)?元|水卡|水电.{0,12}\d+(?:\.\d+)?元)/.test(candidateText)) return false
+    if (/女生/.test(query) && !candidateFactText.includes('女生')) return false
+    if (/男生/.test(query) && !candidateFactText.includes('男生')) return false
     if (/(?:开车|家长车辆|报到车辆|车牌|停车)/.test(query) && /(?:报到车辆|家长车辆|车辆预约|车牌报备|停车|进校)/.test(candidateText)) return candidate.score >= 18
     if (/(?:快递.{0,10}(?:寄到|地址)|(?:寄到|地址).{0,10}快递)/.test(query) && /(?:快递地址|收件地址|第一教学区|第三教学区)/.test(candidateText)) return candidate.score >= 18
     if (
@@ -2214,12 +2457,53 @@ function assistantKnowledgeLocalAnswer(
       )
     ) return false
     if (requestedSpecificAspects.length > 0 && candidate.score >= 18) return true
+    const queryTerms = assistantQueryTerms(query)
+      .filter(term => term.length >= 2 && !QUERY_TERM_STOPWORDS.has(term))
+    const keywordOverlap = candidate.keywords.some((keyword) => {
+      const normalizedKeyword = normalizeAssistantQuery(keyword).toLocaleLowerCase('zh-CN')
+      return queryTerms.some((term) => {
+        const normalizedTerm = term.toLocaleLowerCase('zh-CN')
+        return normalizedKeyword.includes(normalizedTerm) || normalizedTerm.includes(normalizedKeyword)
+      })
+    })
+    if (dormApplianceQuery
+      && keywordOverlap
+      && candidate.score >= 16
+      && /(?:宿舍电器|家具改装|桌帘|床帘|机械臂|吹风机|私人洗衣机|大功率)/.test(candidateFactText)) return true
+    if (courseSelectionQuery
+      && keywordOverlap
+      && candidate.score >= 16
+      && /(?:选课|教务系统|公共选修课|体育课|喜鹊儿)/.test(candidateFactText)) return true
+    if (computerCompatibilityQuery
+      && keywordOverlap
+      && candidate.score >= 10
+      && /(?:Windows|macOS|Mac|专业软件|专业实验软件|驱动|考试客户端)/i.test(candidateFactText)) return true
+    if (counselorContactQuery
+      && candidate.category !== '教职工'
+      && keywordOverlap
+      && candidate.score >= 8
+      && /(?:班导|辅导员|联系新生|建立班级群|建群)/.test(candidateFactText)) return true
+    // Stored FAQ keywords are curated subject aliases. When one of them
+    // overlaps the user's subject, prefer the grounded answer even if the
+    // natural-language sentence has a low contiguous bigram coverage.
+    if (majorComputerQuery
+      && keywordOverlap
+      && candidate.score >= 18
+      && /电脑|笔记本|专业软件|windows|macos|mac/i.test(candidateText)) return true
+    if (keywordOverlap && candidate.score >= 28 && evidenceCoreCoverage(query, {
+      title: candidate.title,
+      url: candidate.publicUrl ?? '',
+      snippet: candidate.answer,
+      source: 'site',
+      text: candidateText,
+      score: candidate.score
+    }) >= 0.45) return true
     const evidence: AssistantEvidence = {
       title: candidate.title,
       url: candidate.publicUrl ?? `/search?knowledge=${encodeURIComponent(candidate.id)}`,
       snippet: candidate.answer,
       source: 'site',
-      text: candidate.answer,
+      text: candidateText,
       score: candidate.score,
       rawScore: candidate.score
     }
@@ -2228,6 +2512,7 @@ function assistantKnowledgeLocalAnswer(
       || (candidate.score >= 18 && coverage >= 0.6)
       || (candidate.score >= 30 && coverage >= 0.5)
       || candidate.score >= 36
+      || exactQuestionOverlap
   })
   if (!match) return null
   const experienceNotice = match.kind === 'student_experience'
@@ -2704,7 +2989,12 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
     }
   }
 
-  if (/综合测评|德育|智育/.test(normalizedQuery)) {
+  const comprehensiveCalculationQuery = /(?:怎么算|怎么计算|如何计算|计算公式|总分|满分|由哪些部分组成|构成|德育.*(?:多少|几分|占比)|智育.*(?:多少|几分|占比)|体育.*(?:多少|几分|占比)|德育.*智育|智育.*体育)/.test(normalizedQuery)
+  const comprehensiveSpecificTopic = /(?:班内互评|互评分|智育分|体育分|德育奖励|志愿|献血|扣分|加分|排名|评审|流程)/.test(normalizedQuery)
+  if (/(?:综合测评|综测|德育|智育)/.test(normalizedQuery)
+    && comprehensiveCalculationQuery
+    && !comprehensiveSpecificTopic
+    && !/(?:扣分|加分|排名|表格|统计|怎么填|填写|填表|班级代码|学号|姓名|奖励|处分|旷课|迟到)/.test(normalizedQuery)) {
     return {
       query,
       mode: 'local',
@@ -2809,6 +3099,29 @@ function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[])
     .slice(0, 1)
     .map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation)
 
+  const teachingAreaQuery = /教学区|校区/.test(normalizedQuery)
+    && /有哪些|几个|分别|区别|分为|分布|新区|旧区/.test(normalizedQuery)
+    && !isTeachingLocationQuery(query)
+  if (teachingAreaQuery) {
+    const citations = citationFor('/guides/find-campus')
+    if (citations.length === 0) {
+      citations.push({
+        title: '找宿舍与教学楼',
+        url: '/guides/find-campus',
+        snippet: '地图按第一教学区（旧区）和第三教学区（新区）整理校园地点。',
+        source: 'site'
+      })
+    }
+    return {
+      query,
+      mode: 'local',
+      answer: '当前新生资料主要按两个教学区使用：第一教学区通常称“旧区”，第三教学区通常称“新区”。两区都有教学楼、宿舍和生活服务点；具体专业后续在哪个教学区上课，不能只按报到地点推断，应以学院课表和当学期通知为准。',
+      citations,
+      usedWebSearch: false,
+      confidence: 0.9
+    }
+  }
+
   const textbookPurchaseQuery = /教材|课本|二手书|材料费/.test(normalizedQuery)
     && /买|购买|领取|订购|缴费|交费|不交|少交|退费|二手|自购/.test(normalizedQuery)
   if (textbookPurchaseQuery) {
@@ -2866,14 +3179,47 @@ function broadCampusOverviewFallback(
 ): ApiAssistantResponse | null {
   if (!isBroadCampusOverviewQuery(query)) return null
   const topicTerms = broadCampusOverviewTopicTerms(query)
-  const relevant = evidence
-    .filter(item => topicTerms.some(term => item.title.toLocaleLowerCase('zh-CN').includes(term)))
+  const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const topicEvidence = evidence
+    .map((item) => {
+      const title = item.title.toLocaleLowerCase('zh-CN')
+      const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+      const titleHits = topicTerms.filter(term => title.includes(term)).length
+      const bodyHits = topicTerms.filter(term => text.includes(term)).length
+      let relevance = item.score + titleHits * 28 + Math.min(6, bodyHits) * 3
+      // Broad dorm questions should describe room types, allocation, utilities
+      // and daily life before returning a repair or parking procedure.
+      if (/宿舍|住宿|寝室/.test(normalizedQuery)) {
+        if (/宿舍|住宿|寝室|房型|床位|洗浴|水电|室友|新旧区/.test(title)) relevance += 24
+        if (/报修|维修|停车|车辆|综测|处分/.test(title)) relevance -= 32
+      }
+      if (/校园卡|一卡通/.test(normalizedQuery)) {
+        if (/校园卡|一卡通|校园网|门禁|充值/.test(title)) relevance += 24
+        if (/手机流量/.test(title)) relevance += 8
+      }
+      if (/团委/.test(normalizedQuery) && /团委|社团|志愿|学生会|校园文化/.test(title)) relevance += 28
+      return { item, relevance, titleHits }
+    })
+    .filter(item => item.titleHits > 0)
+    .sort((left, right) => right.relevance - left.relevance)
+  const seen = new Set<string>()
+  const relevant = topicEvidence
+    .map(({ item }) => item)
+    .filter((item) => {
+      const key = item.url || item.title
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
     .slice(0, 4)
   if (relevant.length === 0) return null
 
   const facts = relevant
     .map((item) => {
-      const snippet = safeText(item.snippet, 180)
+      const sourceText = /团委|校园卡|一卡通/.test(normalizedQuery) && item.text
+        ? item.text
+        : item.snippet
+      const snippet = safeText(sourceText, 220)
         .replace(/\s+/g, ' ')
         .replace(/[。；;]+$/u, '')
         .trim()
@@ -3704,7 +4050,10 @@ export function cachedWebEvidenceForQuery(
     .sort((left, right) => right.score - left.score)
     .slice(0, limit)
   if (assistantIdentitySubject(query) || isTeachingLocationQuery(query)) {
-    return rankAssistantEvidence(retrievalQuery, relevant.map(({ citation, score }) => ({
+    const rankedRelevant = isTeachingLocationQuery(query)
+      ? relevant.filter(({ citation }) => TEACHING_LOCATION_EVIDENCE_RE.test(`${citation.title} ${citation.snippet}`))
+      : relevant
+    return rankAssistantEvidence(retrievalQuery, rankedRelevant.map(({ citation, score }) => ({
       ...citation,
       text: `${citation.title} ${citation.snippet}`,
       score
@@ -4237,7 +4586,7 @@ export async function answerCampusQuestion(
         requiresSpecificWebEvidence: false
       }
     }
-    if (transitRoute && (config.transitPlanner || config.amapWebServiceKey?.trim())) {
+    if (transitRoute) {
       return {
         query,
         retrievalQuery,
@@ -4470,22 +4819,24 @@ export async function answerCampusQuestion(
 
   if (analysis.route === 'transit_api') {
     let liveTransit: ApiTransitPlanResponse | null = null
-    try {
-      liveTransit = await runAssistantStage(
-        tracker,
-        'feature_api',
-        '调用高德公交 API',
-        () => config.transitPlanner
-          ? config.transitPlanner(analysis.transitRoute.originId, analysis.transitRoute.destinationId)
-          : fetchAmapTransitPlan(
-              config.amapWebServiceKey ?? '',
-              analysis.transitRoute.originId,
-              analysis.transitRoute.destinationId
-            ),
-        result => `获取 ${result.plans.length} 条公交方案`
-      )
-    } catch {
-      // Live transit is an enhancement; verified local guidance remains available as a fallback.
+    if (config.transitPlanner || config.amapWebServiceKey?.trim()) {
+      try {
+        liveTransit = await runAssistantStage(
+          tracker,
+          'feature_api',
+          '调用高德公交 API',
+          () => config.transitPlanner
+            ? config.transitPlanner(analysis.transitRoute.originId, analysis.transitRoute.destinationId)
+            : fetchAmapTransitPlan(
+                config.amapWebServiceKey ?? '',
+                analysis.transitRoute.originId,
+                analysis.transitRoute.destinationId
+              ),
+          result => `获取 ${result.plans.length} 条公交方案`
+        )
+      } catch {
+        // Live transit is an enhancement; verified local guidance remains available as a fallback.
+      }
     }
 
     if (liveTransit) {
@@ -4558,8 +4909,8 @@ export async function answerCampusQuestion(
               ?? deterministicTeachingLocationAnswer
               ?? deterministicIdentityAnswer
               ?? deterministicCampusAnswer
-              ?? deterministicKnowledgeAnswer
-              ?? deterministicRuleAnswer)
+              ?? deterministicRuleAnswer
+              ?? deterministicKnowledgeAnswer)
         const requiresDocumentSynthesis = shouldSynthesizeOfficialEvidence(query) || structuredDataCanAnswer(query)
         const canSynthesizeGeneralLocalAnswer = !deterministicResponse
           && !identitySubject

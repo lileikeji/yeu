@@ -58,7 +58,9 @@ import {
   resolveMapFallbackMessage,
   resolveMapPoiStatusText,
   resolveMapUnsupportedBaseStyleMessage,
+  resolveMobileSheetAnchors,
   resolveMobileSheetHeightClass,
+  resolveMobileSheetStateFromHeight,
   resolveOfficialPlanNumber,
   resolveSelectedMapPoiId,
   resolveSelectedPublicMapPlace,
@@ -117,11 +119,23 @@ const mapViewMode = ref<'geographic' | 'official-plan'>(
     : 'geographic'
 )
 const mobileSheetState = ref<MobileSheetState>(initialSelectedPoiId ? 'collapsed' : 'half')
+const mobileSheetElement = ref<HTMLElement | null>(null)
+const mobileSheetDragHeight = ref<number | null>(null)
+const mobileSheetDragPointerId = ref<number | null>(null)
+const mobileSheetDragStartY = ref(0)
+const mobileSheetDragStartHeight = ref(0)
+const mobileSheetDragging = ref(false)
 const sidebarCollapsed = ref(false)
 const displaySettingsOpen = ref(false)
 const mapBaseStyle = ref<MapBaseStyle>('standard')
 const mapDisplayOptions = ref<MapDisplayOptions>({ ...defaultMapDisplayOptions })
 const mobileSheetHeightClass = computed(() => resolveMobileSheetHeightClass(mobileSheetState.value))
+const mobileSheetStyle = computed(() => mobileSheetDragHeight.value === null
+  ? undefined
+  : {
+      height: `${mobileSheetDragHeight.value}px`,
+      transition: 'none'
+    })
 const mapDataLabel = computed(() => resolveMapDataLabel({
   publishedCount: publishedPlacesInScope.value.length,
   ownerMapCount: ownerMapPlacesInScope.value.length,
@@ -429,6 +443,53 @@ function closeAreaDetails(): void {
   mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
 }
 
+function mobileSheetAnchors() {
+  const sheet = mobileSheetElement.value
+  const containerHeight = sheet?.parentElement?.getBoundingClientRect().height ?? 0
+  const viewportHeight = typeof window === 'undefined' ? containerHeight : window.innerHeight
+  return resolveMobileSheetAnchors(containerHeight, viewportHeight)
+}
+
+function finishMobileSheetDrag(pointerId?: number): void {
+  const sheet = mobileSheetElement.value
+  if (pointerId !== undefined && sheet?.hasPointerCapture(pointerId)) {
+    sheet.releasePointerCapture(pointerId)
+  }
+
+  if (!mobileSheetDragging.value) return
+  const anchors = mobileSheetAnchors()
+  const nextState = resolveMobileSheetStateFromHeight(mobileSheetDragHeight.value ?? mobileSheetDragStartHeight.value, anchors)
+  mobileSheetDragging.value = false
+  mobileSheetDragPointerId.value = null
+  mobileSheetDragHeight.value = null
+  mobileSheetState.value = nextState
+}
+
+function handleMobileSheetPointerDown(event: PointerEvent): void {
+  if (mobileSheetState.value === 'collapsed' || mobileSheetDragging.value) return
+  const target = event.target
+  if (target instanceof HTMLElement && target.closest('button, a, input, textarea, select')) return
+  const sheet = mobileSheetElement.value
+  if (!sheet) return
+
+  mobileSheetDragPointerId.value = event.pointerId
+  mobileSheetDragStartY.value = event.clientY
+  mobileSheetDragStartHeight.value = sheet.getBoundingClientRect().height
+  mobileSheetDragging.value = true
+  mobileSheetDragHeight.value = mobileSheetDragStartHeight.value
+  event.preventDefault()
+  sheet.setPointerCapture(event.pointerId)
+}
+
+function handleMobileSheetPointerMove(event: PointerEvent): void {
+  if (!mobileSheetDragging.value || mobileSheetDragPointerId.value !== event.pointerId) return
+  const anchors = mobileSheetAnchors()
+  const maxHeight = anchors.expanded
+  const height = mobileSheetDragStartHeight.value + (mobileSheetDragStartY.value - event.clientY)
+  mobileSheetDragHeight.value = Math.min(maxHeight, Math.max(0, height))
+  event.preventDefault()
+}
+
 function setCategory(categoryId: string) {
   const decision = resolveSetCategoryDecision(categoryId)
   activeCategory.value = decision.activeCategory
@@ -520,7 +581,9 @@ onBeforeUnmount(() => {
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
+      ref="mobileSheetElement"
       class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md bg-white transition-[height] duration-200 md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      :style="mobileSheetStyle"
       :class="[
         mobileSheetHeightClass,
         mobileSheetState === 'collapsed'
@@ -529,12 +592,30 @@ onBeforeUnmount(() => {
         // Keep the sheet itself out of the scroll chain. The place list below
         // is the only scroll region on mobile.
         'overflow-hidden',
+        mobileSheetDragging ? 'select-none' : '',
         sidebarCollapsed ? 'md:hidden' : ''
       ]"
+      @pointermove="handleMobileSheetPointerMove"
+      @pointerup="finishMobileSheetDrag($event.pointerId)"
+      @pointercancel="finishMobileSheetDrag($event.pointerId)"
+      @lostpointercapture="finishMobileSheetDrag()"
     >
-      <div class="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] px-4 md:hidden">
+      <div
+        class="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] px-4 md:hidden"
+        @pointerdown="handleMobileSheetPointerDown"
+      >
         <div class="min-w-0">
-          <div class="mx-auto mb-2 h-1 w-10 rounded-full bg-zinc-300" />
+          <button
+            type="button"
+            class="mx-auto mb-2 block h-5 w-14 touch-none rounded-md p-2 text-zinc-400 active:bg-zinc-100 active:text-zinc-700"
+            aria-label="Drag place panel"
+            @pointerdown="handleMobileSheetPointerDown"
+          >
+            <span
+              aria-hidden="true"
+              class="block h-1 w-10 rounded-full bg-zinc-300"
+            />
+          </button>
           <p class="truncate text-sm font-semibold text-zinc-900">
             地点列表 · {{ filteredPois.length }}
           </p>

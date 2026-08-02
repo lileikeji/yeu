@@ -192,6 +192,39 @@ export function resolveOfficialPlanNumber(
 
 export type MobileSheetState = 'collapsed' | 'half' | 'expanded'
 
+export type MobileSheetAnchors = Record<MobileSheetState, number>
+
+/**
+ * Keep the draggable sheet aligned with the CSS height classes used by the
+ * mobile map. The container height is preferred over the viewport so nested
+ * layouts and safe-area insets do not let the sheet run past the map.
+ */
+export function resolveMobileSheetAnchors(
+  containerHeight: number,
+  viewportHeight: number
+): MobileSheetAnchors {
+  const maxHeight = Math.max(0, containerHeight - 12)
+  const halfHeight = Math.min(Math.max(0, Math.round(viewportHeight * 0.58)), maxHeight)
+  return {
+    collapsed: 0,
+    half: halfHeight,
+    expanded: maxHeight
+  }
+}
+
+export function resolveMobileSheetStateFromHeight(
+  height: number,
+  anchors: MobileSheetAnchors
+): MobileSheetState {
+  const candidates: MobileSheetState[] = ['collapsed', 'half', 'expanded']
+  const clampedHeight = Math.max(0, height)
+  return candidates.reduce<MobileSheetState>((closest, state) => (
+    Math.abs(anchors[state] - clampedHeight) < Math.abs(anchors[closest] - clampedHeight)
+      ? state
+      : closest
+  ), 'collapsed')
+}
+
 export function resolveMobileSheetHeightClass(state: MobileSheetState): string {
   return ({
     // Fully hide the list sheet on mobile so the map and floating place card stay usable.

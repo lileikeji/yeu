@@ -168,6 +168,92 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
   }
 })
 
+test('natural paraphrases keep feature, appliance, course and transit answers grounded', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-paraphrase-rag-'))
+  const databasePath = join(directory, 'test.sqlite')
+  try {
+    seedAssistantKnowledge({ apply: true, databasePath })
+    const client = getDatabase(databasePath)
+
+    const curtain = await answerCampusQuestion(client, '可以布置桌帘吗', assistantConfig)
+    assert.match(curtain.answer, /没有明确允许私人洗衣机、桌板机械臂或固定式桌帘/)
+    assert.equal(curtain.citations[0]?.url, '/guides/safety-health')
+
+    const waterCourse = await answerCampusQuestion(client, '水课都有什么', assistantConfig)
+    assert.match(waterCourse.answer, /教务系统.*喜鹊儿.*线上公共选修课/s)
+
+    const map = await answerCampusQuestion(client, '有学校的地图吗', assistantConfig)
+    assert.equal(map.citations[0]?.url, '/map')
+    assert.match(map.answer, /校园地图与路线规划/)
+
+    const compatibility = await answerCampusQuestion(
+      client,
+      '学校很多软件只支持Windows的吗？苹果会不会不方便？',
+      assistantConfig
+    )
+    assert.match(compatibility.answer, /专业实验软件.*可能只支持Windows/s)
+
+    const counselor = await answerCampusQuestion(client, '辅导员的话是什么时候可以联系的', assistantConfig)
+    assert.match(counselor.answer, /8月初至8月中旬.*联系新生/s)
+
+    const compound = await answerCampusQuestion(
+      client,
+      '抢课怎么抢，有什么要下载的吗？抢宿舍有什么流程吗？有没有两个的内部图样？',
+      assistantConfig
+    )
+    assert.match(compound.answer, /选课：.*教务系统/s)
+    assert.match(compound.answer, /宿舍：.*迎新系统/s)
+    assert.ok(compound.citations.some(item => item.url === '/dorms'))
+
+    const city = await answerCampusQuestion(client, '去市里要多久', assistantConfig)
+    assert.match(city.answer, /K2/)
+    assert.ok(city.citations.some(item => item.url === '/transport'))
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('natural rule wording keeps specific entries ahead of broad summaries', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-natural-rule-priority-'))
+  const databasePath = join(directory, 'test.sqlite')
+  try {
+    seedAssistantKnowledge({ apply: true, databasePath })
+    const client = getDatabase(databasePath)
+
+    const water = await answerCampusQuestion(client, '舒适型宿舍超额水费、电费具体单价是多少？', assistantConfig)
+    assert.equal(water.citations[0]?.title, '宿舍水电单价、热水与水卡')
+    assert.match(water.answer, /超额水约5元\/吨、电约1元\/度/)
+
+    const deductions = await answerCampusQuestion(client, '综测哪些情况会扣分', assistantConfig)
+    assert.equal(deductions.citations[0]?.title, '综测哪些情况会扣分')
+    assert.match(deductions.answer, /警告、严重警告、记过、留校察看分别扣3、4、5、6分/)
+
+    const calculation = await answerCampusQuestion(client, '综测怎么算', assistantConfig)
+    assert.match(calculation.answer, /德育25分、智育70分、体育5分/)
+    assert.doesNotMatch(calculation.answer, /警告、严重警告/)
+
+    const peerReview = await answerCampusQuestion(client, '综测班内互评分怎么计算', assistantConfig)
+    assert.equal(peerReview.citations[0]?.title, '班内互评分怎么算')
+    assert.match(peerReview.answer, /最高6分/)
+
+    const process = await answerCampusQuestion(client, '综测什么时候开始，评审流程是什么', assistantConfig)
+    assert.equal(process.citations[0]?.title, '综合测评什么时候评、怎么评')
+    assert.match(process.answer, /个人自评.*班内互评.*学院审核/s)
+
+    const identity = await answerCampusQuestion(client, '请问林惠是谁', assistantConfig)
+    assert.equal(identity.citations[0]?.title, '林惠｜仰恩大学董事会董事长')
+    assert.match(identity.answer, /董事会董事长/)
+
+    const combined = await answerCampusQuestion(client, '转专业后要换宿舍吗？专升本学生要学孙子兵法吗', assistantConfig)
+    assert.equal(combined.citations[0]?.title, '转专业后宿舍与专升本孙子兵法')
+    assert.match(combined.answer, /孙子兵法.*公共必修/s)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('assistant indexes current campus scale and 2026 military-training facts', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-campus-facts-'))
   const databasePath = join(directory, 'test.sqlite')

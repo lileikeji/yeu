@@ -21,7 +21,9 @@ import {
   resolveMapDataLabel,
   resolveMapFallbackMessage,
   resolveMapPoiStatusText,
+  resolveMobileSheetAnchors,
   resolveMobileSheetHeightClass,
+  resolveMobileSheetStateFromHeight,
   resolveOfficialPlanNumber,
   filterMapAreasForProviderScope,
   findPublicMapPlaceByOfficialPlanNumber,
@@ -397,6 +399,12 @@ test('map list filtering and mobile sheet helpers stay pure', () => {
   )
   assert.equal(resolveMobileSheetHeightClass('half'), 'h-[min(58vh,calc(100%_-_0.75rem))]')
   assert.equal(resolveMobileSheetHeightClass('expanded'), 'h-[calc(100%_-_0.75rem)]')
+
+  const anchors = resolveMobileSheetAnchors(800, 800)
+  assert.deepEqual(anchors, { collapsed: 0, half: 464, expanded: 788 })
+  assert.equal(resolveMobileSheetStateFromHeight(40, anchors), 'collapsed')
+  assert.equal(resolveMobileSheetStateFromHeight(300, anchors), 'half')
+  assert.equal(resolveMobileSheetStateFromHeight(700, anchors), 'expanded')
 
   assert.equal(resolveInitialMapViewMode({
     activeScope: 'nearby',

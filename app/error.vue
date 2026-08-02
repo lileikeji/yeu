@@ -49,9 +49,9 @@ function retryPage(): void {
           @click.prevent="recover('/')"
         >
           <span class="inline-flex items-center gap-2 text-base font-bold text-zinc-950">
-            <span class="grid size-9 place-items-center overflow-hidden rounded-md bg-[#123B3D] p-0.5">
+            <span class="grid size-9 place-items-center overflow-hidden rounded-md bg-transparent p-0">
               <img
-                src="/images/brand/system-logo-mark.png"
+                src="/images/brand/system-logo-mark-light.png"
                 alt=""
                 aria-hidden="true"
                 class="size-full object-contain"
