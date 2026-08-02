@@ -282,3 +282,16 @@
 - 发布/回滚信息：生产 `current` 已切换到 `/www/wwwroot/yeu/releases/20260802-api-origin-f27fe8f`，`yeu.service` 当前 `active`；上一版 `/www/wwwroot/yeu/releases/20260802-anti-crawl-1748` 保留为直接回滚点。
 - 架构变化：数据 API 增加“网页来源边界”层，边界位于所有 API handler 之前；集成回调和健康探针仍是服务端例外，CDN 不再缓存 API 数据。
 - 后续动作：继续观察 4C4G 服务器的 403/5xx、CDN 缓存和正常浏览器请求；若接入新域名，先把域名加入生产来源配置并分别验证源站、CDN 和内嵌浏览器。
+
+## 2026-08-02 - 腾讯云 CDN 防护配置
+
+- 本次目标：在腾讯云 CDN 为 `yx.huiliyill.cn` 增加防护，同时保证普通浏览器、微信/QQ 内置浏览器和网站自身 API 正常访问。
+- 实际完成：开启单 IP 单节点访问限频 `30 QPS`；新增 `/api` 目录节点缓存规则为“不缓存”；开启 UA 黑名单并加入 10 个明确的 AI/采集器标识：`GPTBot`、`OAI-SearchBot`、`ChatGPT-User`、`ClaudeBot`、`Bytespider`、`CCBot`、`Google-Extended`、`PerplexityBot`、`Amazonbot`、`Applebot-Extended`。
+- 做得好的地方：没有启用高误伤风险的防盗链、区域封禁或全站鉴权；没有拦截 `HeadlessChrome`、`curl`、Chrome、微信和 QQ 标识，保留自动化测试与内嵌浏览器兼容性；API 缓存规则和应用层来源守卫形成双层边界。
+- 做得不好的地方：第一次提交 18 个 UA 模式被腾讯云拒绝，错误为规则数量超过 10 条；控制台短暂显示“配置正在部署中”，需要刷新后确认最终状态，不能只依据提交动作判断已生效。
+- 根因：腾讯云 CDN UA 黑名单按分隔模式计数且单域名上限为 10 条，超过上限会整批失败；CDN 控制台的配置下发是异步的。
+- 后续避免：提交 CDN UA 规则前先按平台上限压缩并记录模式数量；每次配置变更都要刷新控制台确认持久化，再从公网分别验证普通 UA、微信 UA、同源 API、无来源 API 和已拦截 UA。
+- 验证环境与结果：腾讯云控制台显示限频 `30QPS`、`/api` 不缓存和 UA 黑名单已保存；公网普通浏览器首页 `200`，微信 UA 首页 `200`，同源 API `200`，无来源 API `403`，`GPTBot/1.0` 首页 `403`；API 响应保持 `CDN-Cache-Control: no-store`，测试节点均为 Cache Miss。
+- 发布/回滚信息：本次为腾讯云 CDN 配置变更，无代码 release；应用代码仍运行 `/www/wwwroot/yeu/releases/20260802-api-origin-f27fe8f`，旧 release `/www/wwwroot/yeu/releases/20260802-anti-crawl-1748` 保留。
+- 架构变化：CDN 边缘层增加单 IP 限频、AI/采集器 UA 拦截和 API 私有缓存规则；应用层来源校验、Nginx 反爬和 CDN 防护保持叠加，不依赖单一 UA 规则。
+- 后续动作：观察 24 小时 CDN 403、429、5xx 和正常访问指标；若误拦截，先停用对应 UA 规则，不关闭 API 来源守卫或限频整体配置。
