@@ -295,3 +295,16 @@
 - 发布/回滚信息：本次为腾讯云 CDN 配置变更，无代码 release；应用代码仍运行 `/www/wwwroot/yeu/releases/20260802-api-origin-f27fe8f`，旧 release `/www/wwwroot/yeu/releases/20260802-anti-crawl-1748` 保留。
 - 架构变化：CDN 边缘层增加单 IP 限频、AI/采集器 UA 拦截和 API 私有缓存规则；应用层来源校验、Nginx 反爬和 CDN 防护保持叠加，不依赖单一 UA 规则。
 - 后续动作：观察 24 小时 CDN 403、429、5xx 和正常访问指标；若误拦截，先停用对应 UA 规则，不关闭 API 来源守卫或限频整体配置。
+
+## 2026-08-02 - 微信/QQ 内嵌浏览器入口页 API 上下文修复
+
+- 本次目标：修复 AI 返回功能入口后，微信/QQ 内置浏览器打开页面却显示“页面现在有点忙”的问题。
+- 实际完成：页面请求生成 7 天有效的 HMAC 签名 `yeu_page_context` Cookie；API 来源守卫在缺少 `Origin`、`Referer` 和 `Sec-Fetch-Site` 时校验该上下文，兼容内嵌浏览器和 Nuxt 服务端首屏渲染；裸 API 直连、伪造/篡改/过期上下文仍拒绝。
+- 做得好的地方：先用纯函数测试覆盖签名、篡改、过期和来源决策，再用真实微信 UA 请求链路验证；发布包使用已验证的 Linux `better_sqlite3.node`，切换前保留旧 release，健康检查失败会自动回滚。
+- 做得不好的地方：首次上传归档缺少 `.output` 顶层目录，校验在切换前发现并停止；本地 HTTP smoke test 的 `Secure` Cookie 不会自动回传，后续必须用 HTTPS 或手动 Cookie 头验证，不能把 PowerShell 会话结果误判为线上失败。
+- 根因：来源守卫原先只信任浏览器来源头，而微信/QQ X5 WebView 经常不发送这些头；入口页因此能打开，但页面随后调用的 API 被统一返回 `403 API_ORIGIN_REJECTED`。
+- 后续避免：新增 API 来源限制时必须同时测试普通浏览器、微信/QQ UA、无来源头、跨站来源、服务端渲染和裸 API；发布归档必须检查 `.output/server/index.mjs`、`.output/public` 和 Linux 原生模块布局。
+- 验证环境与结果：`scripts/api-origin.test.ts` 5 项通过；本地生产产物页面 `200`，带签名上下文的无来源 API `200`；线上 `https://yx.huiliyill.cn/` 与 `/map` 页面 `200`，微信 UA 下 `/api/auth/session`、`/api/public/content`、`/api/public/places` 均 `200`；`yeu.service` active，`/api/health` `200`。
+- 发布/回滚信息：生产 `current` 已原子切换到 `/www/wwwroot/yeu/releases/20260802-214800-api-origin-context`；上一版 `/www/wwwroot/yeu/releases/20260802-api-origin-f27fe8f` 保留为直接回滚点。
+- 架构变化：数据 API 来源边界增加“签名页面上下文”这一兼容层，仍位于所有 API handler 之前；集成回调和健康探针例外规则保持不变。
+- 后续动作：继续观察微信/QQ 真机页面首屏和地图入口；若新增公开域名，先同步来源配置、Cookie 安全属性和 CDN API 不缓存规则，再做同样的内嵌浏览器回归。

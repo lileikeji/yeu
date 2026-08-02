@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
+  createPageContextToken,
   evaluateApiOrigin,
-  isApiOriginExempt
+  isApiOriginExempt,
+  isValidPageContextToken
 } from '../server/utils/api-origin'
 
 const SITE_ORIGINS = new Set(['https://yx.huiliyill.cn'])
@@ -20,6 +22,14 @@ test('API origin guard accepts explicit same-origin browser signals', () => {
   assert.deepEqual(
     evaluateApiOrigin({ referer: 'https://yx.huiliyill.cn/map?place=library' }, SITE_ORIGINS),
     { allowed: true, reason: 'referer' }
+  )
+  assert.deepEqual(
+    evaluateApiOrigin({ pageContext: true }, SITE_ORIGINS),
+    { allowed: true, reason: 'page-context' }
+  )
+  assert.deepEqual(
+    evaluateApiOrigin({ internalRender: true }, SITE_ORIGINS),
+    { allowed: true, reason: 'internal-render' }
   )
 })
 
@@ -51,6 +61,16 @@ test('health and server callbacks remain reachable without page headers', () => 
   assert.equal(isApiOriginExempt('/api/integrations/wechat-mp'), true)
   assert.equal(isApiOriginExempt('/api/integrations/bots/qq-onebot'), true)
   assert.equal(isApiOriginExempt('/api/public/content'), false)
+})
+
+test('page context is signed, short-lived, and rejects tampering', () => {
+  const secret = 'page-context-test-secret-that-is-long-enough'
+  const now = Date.parse('2026-08-02T00:00:00.000Z')
+  const token = createPageContextToken(secret, now, 'fixed-nonce')
+  assert.equal(isValidPageContextToken(token, secret, now), true)
+  assert.equal(isValidPageContextToken(token.replace('fixed-nonce', 'other-nonce'), secret, now), false)
+  assert.equal(isValidPageContextToken(token, 'another-secret-that-is-long-enough', now), false)
+  assert.equal(isValidPageContextToken(token, secret, now + 8 * 24 * 60 * 60 * 1000), false)
 })
 
 test('global API middleware and response context are wired', () => {
