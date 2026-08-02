@@ -269,3 +269,16 @@
 - Avoid: do not rely on CORS alone, do not allow `same-site` as a substitute for the exact public origin, and do not add a broad no-header exception for convenience. Advanced clients can forge browser headers, so keep CDN/WAF, rate limits, logging and endpoint-level authentication in place.
 - Verification: targeted TypeScript tests, ESLint and Nuxt typecheck passed; an isolated production build completed in `.output-api-origin`; local runtime returned 403 for a bare API request, 200 with same-origin headers, 503/200-class reachability for health depending on local readiness, and 200 for the SSR homepage.
 - Deployment follow-up: publish with `release/current/shared + systemd yeu.service`; set `NUXT_PUBLIC_SITE_URL=https://yx.huiliyill.cn` and review `NUXT_ALLOWED_ORIGINS` in the shared environment; configure Tencent CDN `/api/*` as no-cache and purge existing API cache entries after switching.
+
+## 2026-08-02 - Same-origin API transport boundary deployed
+
+- 本次目标：让数据传输 API 只接受来自迎新指南网页的浏览器请求，拒绝无来源直连和跨站读取，同时保留健康检查、微信/QQ/公众号等服务端回调。
+- 实际完成：提交 `f27fe8f` 已发布；全局 API 来源守卫已在 `server/middleware/01-api-origin-guard.ts` 启用，统一使用 `Origin`、`Sec-Fetch-Site` 和同源 `Referer` 判断；API 响应增加 `no-store` 边缘缓存头，Transit 的进程内缓存不再共享到 CDN；`/api/health` 与 `/api/integrations/**` 保持明确放行。
+- 做得好的地方：先保留并验证旧版本，再原子切换 `current`；切换前确认 Linux `better_sqlite3.node` 为 ELF，避免 Windows 原生模块导致服务启动失败；同时做源站和公网 CDN 验证，确认普通网页请求不受影响。
+- 做得不好的地方：来源头校验只能阻止普通无上下文直连，不能阻止攻击者伪造 `Origin` 或浏览器元数据；它不是身份认证，不能单独当作防复制的绝对保证。
+- 根因：此前 API 只依赖前端调用约定，公开路径缺少统一的请求来源边界，外部客户端可以直接读取 JSON；CDN 也没有统一的 API 私有缓存策略。
+- 后续避免：不要为了兼容脚本增加无来源放行；需要更高保护时叠加腾讯 CDN/WAF、限流、登录/签名令牌和接口级授权；新增服务端回调必须明确写入集成白名单并做回归测试。
+- 验证环境与结果：`scripts/api-origin.test.ts` 4 项通过；源站 `/api/health` 返回 `200`、`database=ready`；源站和 `https://yx.huiliyill.cn` 上无来源 `/api/public/features` 均返回 `403`，带 `Origin: https://yx.huiliyill.cn` 和 `Sec-Fetch-Site: same-origin` 均返回 `200`，`cross-site` 返回 `403`；公网首页返回 `200`，API 响应为 `Cache-Control: private/no-store`、`CDN-Cache-Control: no-store`，CDN 检查为 Cache Miss；微信回调路径未被来源守卫拦截。
+- 发布/回滚信息：生产 `current` 已切换到 `/www/wwwroot/yeu/releases/20260802-api-origin-f27fe8f`，`yeu.service` 当前 `active`；上一版 `/www/wwwroot/yeu/releases/20260802-anti-crawl-1748` 保留为直接回滚点。
+- 架构变化：数据 API 增加“网页来源边界”层，边界位于所有 API handler 之前；集成回调和健康探针仍是服务端例外，CDN 不再缓存 API 数据。
+- 后续动作：继续观察 4C4G 服务器的 403/5xx、CDN 缓存和正常浏览器请求；若接入新域名，先把域名加入生产来源配置并分别验证源站、CDN 和内嵌浏览器。
