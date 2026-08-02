@@ -395,7 +395,7 @@ test('map list filtering and mobile sheet helpers stay pure', () => {
     resolveMobileSheetHeightClass('collapsed'),
     'h-0 overflow-hidden border-0 shadow-none pointer-events-none'
   )
-  assert.equal(resolveMobileSheetHeightClass('half'), 'h-[44%]')
+  assert.equal(resolveMobileSheetHeightClass('half'), 'h-[min(58vh,calc(100%_-_0.75rem))]')
   assert.equal(resolveMobileSheetHeightClass('expanded'), 'h-[calc(100%_-_0.75rem)]')
 
   assert.equal(resolveInitialMapViewMode({

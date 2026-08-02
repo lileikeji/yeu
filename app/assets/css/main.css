@@ -147,6 +147,37 @@ select {
   padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
 }
 
+/*
+ * The map is a viewport surface, not a page section. Keeping its height on
+ * the main element reserves space below the sticky header and above the
+ * fixed mobile navigation. The stable viewport unit prevents WebView chrome
+ * animations from moving the map while a user scrolls the place list.
+ */
+main.map-page {
+  height: calc(100vh - var(--header-height) - var(--mobile-nav-height) - env(safe-area-inset-bottom));
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+@supports (height: 100svh) {
+  main.map-page {
+    height: calc(100svh - var(--header-height) - var(--mobile-nav-height) - env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 768px) {
+  main.map-page {
+    height: calc(100vh - var(--header-height));
+  }
+
+  @supports (height: 100svh) {
+    main.map-page {
+      height: calc(100svh - var(--header-height));
+    }
+  }
+}
+
 .scrollbar-none {
   scrollbar-width: none;
 }

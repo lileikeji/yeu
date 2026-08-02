@@ -516,7 +516,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="map-workspace relative h-[calc(100dvh-var(--header-height)-var(--mobile-nav-height))] min-h-0 overflow-hidden bg-white md:grid md:h-[calc(100dvh-var(--header-height))] md:grid-rows-1"
+    class="map-workspace relative h-full min-h-0 overflow-hidden bg-white overscroll-none md:grid md:grid-rows-1"
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
@@ -697,9 +697,9 @@ onBeforeUnmount(() => {
       <div
         class="map-place-list min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"
         :class="mobileSheetState === 'collapsed' ? 'hidden md:block' : 'block'"
+        aria-label="地点列表"
         @wheel.stop
         @touchmove.stop
-        aria-label="地点列表"
       >
         <button
           v-for="poi in filteredPois"
@@ -1130,28 +1130,10 @@ onBeforeUnmount(() => {
 
 <style>
 .map-workspace {
-  /* Older WeChat WebViews may not parse dvh, so keep a real viewport fallback. */
-  height: calc(100vh - var(--header-height) - var(--mobile-nav-height));
-}
-
-@media (min-width: 768px) {
-  .map-workspace {
-    height: calc(100vh - var(--header-height));
-  }
-}
-
-@supports (height: 100dvh) {
-  .map-workspace {
-    height: calc(100dvh - var(--header-height) - var(--mobile-nav-height));
-  }
-}
-
-@media (min-width: 768px) {
-  @supports (height: 100dvh) {
-    .map-workspace {
-      height: calc(100dvh - var(--header-height));
-    }
-  }
+  height: 100%;
+  min-height: 0;
+  overscroll-behavior: none;
+  contain: layout paint;
 }
 
 .map-workspace .maplibregl-map {

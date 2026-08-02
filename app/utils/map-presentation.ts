@@ -196,7 +196,10 @@ export function resolveMobileSheetHeightClass(state: MobileSheetState): string {
   return ({
     // Fully hide the list sheet on mobile so the map and floating place card stay usable.
     collapsed: 'h-0 overflow-hidden border-0 shadow-none pointer-events-none',
-    half: 'h-[44%]',
+    // The controls above the list need more than half of a short phone
+    // viewport. Give the list a real scroll area so gestures do not fall
+    // through to the map canvas.
+    half: 'h-[min(58vh,calc(100%_-_0.75rem))]',
     expanded: 'h-[calc(100%_-_0.75rem)]'
   } as const)[state]
 }

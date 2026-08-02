@@ -45,9 +45,9 @@ function shareCurrentPage(): void {
           aria-label="迎新指南首页"
         >
           <span class="flex min-w-0 items-center gap-2">
-            <span class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-[#123B3D] p-0.5">
+            <span class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0">
               <img
-                src="/images/brand/system-logo-mark.png"
+                src="/images/brand/system-logo-mark-light.png"
                 alt=""
                 aria-hidden="true"
                 class="size-full object-contain"
@@ -112,7 +112,7 @@ function shareCurrentPage(): void {
       id="main-content"
       :class="[
         isMapPage
-          ? 'min-h-0 overflow-hidden'
+          ? 'map-page min-h-0 overflow-hidden overscroll-none'
           : 'safe-bottom min-h-[calc(100vh-var(--header-height))]',
         useCompactPageDensity ? 'compact-page-density' : ''
       ]"
