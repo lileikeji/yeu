@@ -251,3 +251,10 @@
 - 发布/回滚信息：提交 `60ec23f` 与构建资源修复提交 `8feb6e4` 已推送个人和组织仓库；当前 release 为 `/www/wwwroot/yeu/releases/20260802-011500-8feb6e4`，上一版 `/www/wwwroot/yeu/releases/20260802-074522-f2a6627` 保留为直接回滚点。
 - 架构变化：移动端地图明确为“固定地图工作区 + 独立地点列表 + 底部统计”的滚动边界；发布流程增加临时端口 smoke test、原生模块格式检查和原子 current 切换。
 - 后续动作：在微信/QQ WebView 真实设备上再次核对地图手势；若 CDN 仍返回旧页面，只刷新页面资源缓存，不删除共享数据或旧 release。
+## 2026-08-02 - Anti-crawl and honeypot review
+
+- Evidence: the 2026-07-31 to 2026-08-02 origin logs contain repeated GPTBot, HeadlessChrome, Bytespider and Go-http-client requests across public pages and APIs. The Coze mirror is treated as a public-content copy; no secret, admin endpoint or database leak was found in its downloaded HTML.
+- Completed: explicit automation-UA blocking at Nginx with path exemptions, application-layer fallback for direct-origin requests, an unlisted honeypot route that records `crawler_honeypot` and creates a 30-minute IP ban, and AI crawler disallow rules in `robots.txt`.
+- Good: Nginx and Nitro protections are layered; ordinary Chrome, Android and WeChat UAs remain allowed; robots, sitemap, health, admin and verification paths are not blocked. The trap is rate-limited and returns no cacheable content.
+- Avoid: UA matching cannot stop a forged browser header. Do not treat this as a guarantee against copying; sensitive material should move behind signed/session APIs, and Tencent CDN/WAF bot challenges, rate limits, content watermarking and platform/legal complaints remain the stronger controls.
+- Verification: run `pnpm exec tsx --test scripts/anti-crawl.test.ts`, `pnpm typecheck`, `pnpm build`, `nginx -t`, then verify normal browser, blocked automation UA, robots, health and honeypot responses. Keep all timestamps in China Standard Time (UTC+8), including the July 31 evidence window.

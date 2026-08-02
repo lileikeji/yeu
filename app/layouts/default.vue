@@ -37,6 +37,13 @@ function shareCurrentPage(): void {
       href="#main-content"
       class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white px-4 text-sm font-semibold text-green-800 shadow-lg focus:translate-y-0"
     >跳至主要内容</a>
+    <a
+      href="/__yeu_crawl_trap__"
+      aria-hidden="true"
+      tabindex="-1"
+      rel="nofollow noindex"
+      class="pointer-events-none fixed -left-[9999px] -top-[9999px] size-px overflow-hidden opacity-0"
+    >site index</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
       <div class="page-shell flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
         <NuxtLink

@@ -138,6 +138,7 @@ export const adminHttpMethodLabels: Record<string, string> = {
 }
 
 export const adminVisitorActionLabels: Record<string, string> = {
+  crawler_honeypot: '蜜罐命中',
   page_view: '浏览页面',
   route_view: '浏览页面',
   search: '搜索',
