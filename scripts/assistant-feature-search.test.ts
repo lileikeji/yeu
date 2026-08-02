@@ -153,6 +153,10 @@ test('registration evidence cannot answer a teaching-location question', async (
     const conversationalResponse = await answerCampusQuestion(client, '电子信息工程去哪个教学区上课', emptyAssistantConfig)
     assert.doesNotMatch(conversationalResponse.answer, /旧区普照大礼堂报到/)
     assert.match(conversationalResponse.answer, /没有找到|无法确认|不能直接确认/)
+    assert.equal(
+      assistantRetrievalQuery('电子信息工程去哪个教学区上课'),
+      '电子信息工程 上课地点 授课地点 教学区 教学楼安排'
+    )
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

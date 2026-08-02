@@ -233,11 +233,12 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v22-topic-grounded-synthesis-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v23-focused-topic-synthesis-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
 const ASSISTANT_CANDIDATE_LIMIT = 4
+const ASSISTANT_OVERVIEW_CANDIDATE_LIMIT = 6
 const KNOWLEDGE_MAX_PAGES = 6
 const KNOWLEDGE_SNIPPET_MAX_CHARS = 1200
 const KNOWLEDGE_CONTEXT_BUDGET_CHARS = 4000
@@ -1161,6 +1162,7 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
   const placeLocationQuery = isPlaceLocationQuery(query)
   const registrationLocationQuery = /报名地点|报到地点|在哪(?:里)?报名|在哪(?:里)?报到/.test(query)
   const teachingLocationQuery = isTeachingLocationQuery(query)
+  const teachingLocationMajor = teachingLocationQuery ? knownMajorNameForQuery(query) : null
   const broadOverviewTerms = broadCampusOverviewTopicTerms(query)
   const scholarshipRulesQuery = profile.intent === 'scholarship'
     && /申请|条件|要求|资格|评审|规则|办法|流程|时间/u.test(query)
@@ -1181,8 +1183,10 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
     if (placeLocationQuery && !registrationLocationQuery && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(searchable)) return false
     if (
       teachingLocationQuery
-      && /报到/.test(searchable)
-      && !/上课地点|授课地点|课程主要在|教学安排|教学区分布/.test(searchable)
+      && (
+        !TEACHING_LOCATION_EVIDENCE_RE.test(searchable)
+        || Boolean(teachingLocationMajor && !searchable.includes(teachingLocationMajor.toLocaleLowerCase('zh-CN')))
+      )
     ) return false
     if (hasScholarshipPolicyEvidence && /获得者|获评|人物|专访/.test(title)) return false
     const compactSearchable = searchable.replace(/\s+/g, '')
@@ -1393,6 +1397,10 @@ export function assistantRetrievalQuery(value: string): string {
   }
   if (isHardshipRecognitionQuery(query)) {
     return '家庭经济困难学生认定办法 认定类型 认定等级 个人申请 学校认定 结果公示 建档备案'
+  }
+  if (isTeachingLocationQuery(query)) {
+    const major = knownMajorNameForQuery(query)
+    return `${major ?? query} 上课地点 授课地点 教学区 教学楼安排`
   }
   const procedureQuery = campusProcedureRetrievalQuery(query)
   if (procedureQuery) return procedureQuery
@@ -1707,6 +1715,15 @@ function isTeachingLocationQuery(query: string): boolean {
     && /上课|授课/.test(normalized)
   )
 }
+
+function knownMajorNameForQuery(query: string): string | null {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  return [...majorProfiles]
+    .sort((left, right) => right.name.length - left.name.length)
+    .find(profile => normalized.includes(profile.name.toLocaleLowerCase('zh-CN')))?.name ?? null
+}
+
+const TEACHING_LOCATION_EVIDENCE_RE = /上课地点|授课地点|课程主要在|教学安排|教学区分布|教学楼安排|(?:上课|授课).{0,20}(?:新区|旧区|第[一三]教学区|教学楼)/u
 
 function isFeatureSeekingQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
@@ -2084,6 +2101,9 @@ function assistantKnowledgeLocalAnswer(
   if (isBroadCampusOverviewQuery(query)) return null
   const facultyAnswer = facultyKnowledgeLocalAnswer(client, query)
   if (facultyAnswer) return facultyAnswer
+  const teachingLocationMajor = isTeachingLocationQuery(query)
+    ? knownMajorNameForQuery(query)
+    : null
   const match = assistantKnowledgeMatchesForQuery(client, query, 6).find((candidate) => {
     if (candidate.score < 12 || candidate.category === '教职工') return false
     const candidateText = `${candidate.title} ${candidate.question} ${candidate.answer}`
@@ -2122,8 +2142,10 @@ function assistantKnowledgeLocalAnswer(
     if (/(?:快递.{0,10}(?:寄到|地址)|(?:寄到|地址).{0,10}快递)/.test(query) && /(?:快递地址|收件地址|第一教学区|第三教学区)/.test(candidateText)) return candidate.score >= 18
     if (
       isTeachingLocationQuery(query)
-      && /报到/.test(candidateText)
-      && !/上课地点|授课地点|课程主要在|教学安排|教学区分布/.test(candidateText)
+      && (
+        !TEACHING_LOCATION_EVIDENCE_RE.test(candidateText)
+        || Boolean(teachingLocationMajor && !candidateText.includes(teachingLocationMajor))
+      )
     ) return false
     if (requestedSpecificAspects.length > 0 && candidate.score >= 18) return true
     const evidence: AssistantEvidence = {
@@ -4230,7 +4252,10 @@ export async function answerCampusQuestion(
       }
     }
 
-    const localEvidence = retrieveCampusEvidence(client, retrievalQuery, ASSISTANT_CANDIDATE_LIMIT)
+    const retrievalLimit = isBroadCampusOverviewQuery(query)
+      ? ASSISTANT_OVERVIEW_CANDIDATE_LIMIT
+      : ASSISTANT_CANDIDATE_LIMIT
+    const localEvidence = retrieveCampusEvidence(client, retrievalQuery, retrievalLimit)
     const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
     let transferWebEvidence: ApiAssistantCitation[] = []
     if (transferQuery) {
