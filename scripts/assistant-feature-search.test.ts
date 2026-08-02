@@ -116,7 +116,6 @@ test('assistant prioritizes an exact published place over a related registration
         '["普照大礼堂","报到地点"]', NULL, 95, 'test', 1, ?, ?, ?
       )
     `).run(now, now, now)
-
     const response = await answerCampusQuestion(client, '报名的普照大礼堂在哪啊', emptyAssistantConfig)
     assert.equal(response.retrievalPath, 'local_database')
     assert.match(response.answer, /已在校园地图中精确标注/)
@@ -294,6 +293,15 @@ test('broad campus overviews synthesize ranked local pages instead of an inciden
         '["综测","扣分","宿舍管理"]', '/student-rules', 95, 'test', 1, ?, ?, ?
       )
     `).run(now, now, now)
+    client.sqlite.prepare(`
+      INSERT INTO contents (
+        id, kind, slug, title, summary, body, metadata_json, status, created_at, updated_at
+      ) VALUES (
+        'youth-overview', 'guide', 'youth-overview', '校团委职责与服务',
+        '校团委负责团学活动、志愿服务、社团工作和青年工作通知。',
+        '具体活动安排和报名要求以校团委当期通知为准。', '{}', 'published', ?, ?
+      )
+    `).run(now, now)
     globalThis.fetch = async (_input, init) => {
       gatewayCalls += 1
       const payload = JSON.parse(String(init?.body)) as { messages: Array<{ role: string, content: string }> }
@@ -324,6 +332,11 @@ test('broad campus overviews synthesize ranked local pages instead of an inciden
     assert.equal(localFallback.mode, 'local')
     assert.match(localFallback.answer, /宿舍类型与住宿条件/)
     assert.doesNotMatch(localFallback.answer, /综测扣分/)
+
+    const responsibilityOverview = await answerCampusQuestion(client, '校团委平时主要负责哪些事情', emptyAssistantConfig)
+    assert.equal(responsibilityOverview.mode, 'local')
+    assert.match(responsibilityOverview.answer, /校团委职责与服务/)
+    assert.equal(responsibilityOverview.usedWebSearch, false)
   } finally {
     globalThis.fetch = originalFetch
     closeDatabase(databasePath)

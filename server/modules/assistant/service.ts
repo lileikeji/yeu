@@ -148,6 +148,9 @@ const QUERY_ANCHOR_FILLERS = [
   ...QUESTION_FILLERS,
   '怎么样', '什么样', '好不好', '介绍一下', '讲讲',
   '整体情况', '基本情况', '大概情况', '概况', '概览',
+  '平时主要负责哪些事情', '平时主要负责什么', '主要负责哪些事情',
+  '主要负责什么', '平时负责哪些事情', '平时负责什么', '平时做什么',
+  '负责哪些事情', '负责什么', '职责有哪些', '职责是什么',
   '有什么条件', '有哪些条件', '需要哪些条件', '需要什么条件',
   '有什么要求', '有哪些要求', '需要哪些要求', '需要什么要求',
   '要求是什么', '条件是什么', '规则是什么', '流程是什么',
@@ -233,7 +236,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v29-compiled-knowledge-first-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v30-responsibility-overview-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -915,7 +918,7 @@ function evidenceCoreCoverage(query: string, item: AssistantEvidence): number {
 function isBroadCampusOverviewQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   return CAMPUS_QUERY_RE.test(normalized)
-    && /怎么样|什么样|好不好|介绍(?:一下)?|讲讲|情况如何|(?:整体|基本|大概)情况|概况|概览/.test(normalized)
+    && /怎么样|什么样|好不好|介绍(?:一下)?|讲讲|情况如何|(?:整体|基本|大概)情况|概况|概览|(?:平时)?(?:主要)?(?:负责|做)(?:什么|哪些|啥)|职责(?:是|有|包括)?(?:什么|哪些|啥)?/.test(normalized)
 }
 
 function broadCampusOverviewTopicTerms(query: string): string[] {
