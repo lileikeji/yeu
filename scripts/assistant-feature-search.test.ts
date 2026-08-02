@@ -65,6 +65,121 @@ test('feature catalog resolves natural function-finding questions', () => {
   assert.equal(searchSystemFeatures('泉州站怎么到学校')[0]?.id, 'campus-transport')
   assert.equal(searchSystemFeatures('全景云游校园在哪里')[0]?.id, 'campus-panorama')
   assert.equal(searchSystemFeatures('普通宿舍内部视频在哪看')[0]?.id, 'dorm-tours')
+  assert.equal(searchSystemFeatures('给个学校地图')[0]?.id, 'campus-map')
+  assert.equal(searchSystemFeatures('请问可以给个学校的平面图吗')[0]?.id, 'campus-map')
+})
+
+test('assistant resolves command-style map requests to the same local feature', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-map-command-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    for (const query of ['给个学校地图', '请问可以给个学校的平面图吗']) {
+      const response = await answerCampusQuestion(client, query, emptyAssistantConfig)
+      assert.equal(response.retrievalPath, 'feature_api')
+      assert.match(response.answer, /校园地图与路线规划/)
+      assert.equal(response.citations[0]?.url, '/map')
+    }
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('assistant prioritizes an exact published place over a related registration article', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-exact-place-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO places (
+        id, slug, name, summary, body, scope, type, address, campus_area,
+        longitude, latitude, coordinate_system, coordinate_verification,
+        status, created_at, updated_at
+      ) VALUES (
+        'puzhao-hall', 'puzhao-hall', '普照大礼堂', '旧区大型活动场地。', '',
+        'campus', 'service', '旧区普照大礼堂', '旧区',
+        118.61131235, 25.114932, 'GCJ-02', 'verified', 'published', ?, ?
+      )
+    `).run(now, now)
+    client.sqlite.prepare(`
+      INSERT INTO assistant_knowledge_entries (
+        id, kind, category, title, question, answer, keywords_json,
+        public_url, confidence, source_note, is_active, imported_at, created_at, updated_at
+      ) VALUES (
+        'registration-groups', 'student_experience', '报到', '2026 新生手册｜报到时间、地点与专业分组',
+        '各专业在哪里报到？', '电子信息工程等专业暂列在旧区普照大礼堂报到。',
+        '["普照大礼堂","报到地点"]', NULL, 95, 'test', 1, ?, ?, ?
+      )
+    `).run(now, now, now)
+
+    const response = await answerCampusQuestion(client, '报名的普照大礼堂在哪啊', emptyAssistantConfig)
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.match(response.answer, /已在校园地图中精确标注/)
+    assert.doesNotMatch(response.answer, /专业暂列|报到专业/)
+    assert.equal(response.citations[0]?.url, '/map?place=puzhao-hall')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('registration evidence cannot answer a teaching-location question', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-teaching-location-intent-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO assistant_knowledge_entries (
+        id, kind, category, title, question, answer, keywords_json,
+        public_url, confidence, source_note, is_active, imported_at, created_at, updated_at
+      ) VALUES (
+        'registration-only', 'student_experience', '报到', '2026 新生手册｜报到时间、地点与专业分组',
+        '电子信息工程在哪里报到？', '电子信息工程暂列在旧区普照大礼堂报到。',
+        '["电子信息工程","旧区","普照大礼堂","报到地点"]', NULL, 95, 'test', 1, ?, ?, ?
+      )
+    `).run(now, now, now)
+
+    const response = await answerCampusQuestion(client, '电子信息工程教学楼在哪个区', emptyAssistantConfig)
+    assert.doesNotMatch(response.answer, /旧区普照大礼堂报到/)
+    assert.match(response.answer, /没有找到|无法确认|不能直接确认/)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('deterministic knowledge answers keep a clickable database citation', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-knowledge-citation-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO assistant_knowledge_entries (
+        id, kind, category, title, question, answer, keywords_json,
+        public_url, confidence, source_note, is_active, imported_at, created_at, updated_at
+      ) VALUES (
+        'comfort-dorm-opening', 'student_experience', '宿舍', '舒适型宿舍开放与抢宿舍流程',
+        '舒适型宿舍什么时候开放？', '舒适型宿舍一般在开学前十天于迎新系统开放，按付款完成顺序计算名额。',
+        '["舒适型宿舍","什么时候开放","迎新系统"]', NULL, 95, 'test', 1, ?, ?, ?
+      )
+    `).run(now, now, now)
+
+    const response = await answerCampusQuestion(client, '舒适型宿舍什么时候开放？', emptyAssistantConfig)
+    assert.match(response.answer, /开学前十天/)
+    assert.equal(response.citations.length, 1)
+    assert.equal(response.citations[0]?.url, '/search?knowledge=comfort-dorm-opening')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('public search API result includes direct feature targets', () => {

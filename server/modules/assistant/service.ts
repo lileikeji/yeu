@@ -163,7 +163,12 @@ const QUERY_ANCHOR_ASPECTS = new Set([
 const QUERY_ANCHOR_SUFFIXES = [...QUERY_ANCHOR_ASPECTS]
   .sort((left, right) => right.length - left.length)
 
+const REGISTRATION_ASSIGNMENT_EVIDENCE_RE = /新生手册.{0,30}报到|报到.{0,20}专业分组|专业分组.{0,20}报到|专业.{0,30}暂列在.{0,30}报到|暂列在.{0,30}报到/u
+
 const TERM_EXPANSIONS: Record<string, string[]> = {
+  地图: ['学校地图', '校园地图', '平面图', '校园平面图', '导览图', '校区图', '地点定位', '路线规划'],
+  平面图: ['地图', '学校地图', '校园地图', '校园平面图', '导览图', '校区图'],
+  导览图: ['地图', '校园地图', '平面图', '校园平面图', '校区图'],
   宿舍: ['住宿', '宿舍楼', '寝室'],
   学费: ['缴费', '收费', '资助', '助学贷款'],
   助学贷: ['助学贷款', '生源地贷款', '助学贷款申请'],
@@ -213,7 +218,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v17-summarized-answer-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v18-intent-grounded-answer-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -316,6 +321,39 @@ function transitApiResponse(query: string, response: ApiTransitPlanResponse): Ap
     }],
     usedWebSearch: false,
     confidence: 0.96
+  }
+}
+
+function transitFallbackResponse(
+  query: string,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse {
+  const route = transitRouteForQuery(query)
+  const option = route?.originId === 'campus'
+    ? campusTransitOptions.find(item => item.originId === 'from-campus')
+    : campusTransitOptions.find(item => item.originId === route?.originId)
+  if (!option) return buildLocalResponse(query, evidence)
+  const matched = evidence.find(item => item.url === '/transport')
+  const citation: ApiAssistantCitation = matched
+    ? {
+        title: matched.title,
+        url: matched.url,
+        snippet: matched.snippet,
+        source: matched.source
+      }
+    : {
+        title: '到校与离校交通',
+        url: '/transport',
+        snippet: '高德实时规划不可用时，显示已核对的静态公交与换乘提示。',
+        source: 'site'
+      }
+  return {
+    query,
+    mode: 'local',
+    answer: `高德实时公交规划暂时不可用，先按已核对的备用方案：${option.title}。${option.summary}${option.duration}；${option.fare}。${option.steps.join('')}班次和换乘可能变化，出发前请在高德或泉州公交重新确认。`,
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 0.88
   }
 }
 
@@ -1052,6 +1090,10 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
   const curriculumMajor = majorCurriculumNameForQuery(query)
   const hardshipRecognitionQuery = isHardshipRecognitionQuery(query)
   const dormBedDimensionQuery = isDormBedDimensionQuery(query)
+  const placeLocationQuery = isPlaceLocationQuery(query)
+  const registrationLocationQuery = /报名地点|报到地点|在哪(?:里)?报名|在哪(?:里)?报到/.test(query)
+  const teachingLocationQuery = /教学楼|上课地点|授课地点/.test(query)
+    && /在哪|哪里|位置|哪个区|哪一片|哪边|哪栋楼/.test(query)
   const scholarshipRulesQuery = profile.intent === 'scholarship'
     && /申请|条件|要求|资格|评审|规则|办法|流程|时间/u.test(query)
   const hasScholarshipPolicyEvidence = scholarshipRulesQuery && evidence.some((item) => {
@@ -1064,6 +1106,12 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
     const title = item.title.toLocaleLowerCase('zh-CN')
     const searchable = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
     if (dormBedDimensionQuery && !BED_DIMENSION_EVIDENCE_RE.test(searchable)) return false
+    if (placeLocationQuery && !registrationLocationQuery && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(searchable)) return false
+    if (
+      teachingLocationQuery
+      && /报到/.test(searchable)
+      && !/上课地点|授课地点|课程主要在|教学安排|教学区分布/.test(searchable)
+    ) return false
     if (hasScholarshipPolicyEvidence && /获得者|获评|人物|专访/.test(title)) return false
     const compactSearchable = searchable.replace(/\s+/g, '')
     const curriculumSubject = curriculumMajor?.replace(/专业$/u, '')
@@ -1290,6 +1338,7 @@ function assistantIntentDetail(query: string, retrievalQuery: string): string {
   if (isClassScheduleQuery(query)) return '识别为：学校作息与具体节次'
   if (majorCurriculumNameForQuery(query)) return '识别为：专业培养方案与课程'
   if (isHardshipRecognitionQuery(query)) return '识别为：家庭经济困难学生认定'
+  if (isPlaceLocationQuery(query)) return '识别为：校内地点定位'
   if (isFeatureSeekingQuery(query)) return '识别为：查找站内功能入口'
   return `检索问题：${safeText(retrievalQuery, 80)}`
 }
@@ -1569,8 +1618,87 @@ export function studentRuleEvidenceForQuery(query: string, limit = 8): Assistant
   return filterEvidenceForIntent(query, ranked).slice(0, limit)
 }
 
+function isPlaceLocationQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  return /在哪|哪里|什么位置|具体位置|哪个区|哪一片|哪边|哪栋楼|怎么去|怎么走|导航到|路线/.test(normalized)
+    && !/(?:功能|入口|页面).{0,4}(?:在哪|哪里)|(?:在哪|哪里).{0,4}(?:功能|入口|页面)/.test(normalized)
+}
+
 function isFeatureSeekingQuery(query: string): boolean {
-  return /在哪|哪里|入口|哪个页面|什么页面|怎么打开|怎么进入|去哪|功能/.test(query)
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (/在哪|哪里|入口|哪个页面|什么页面|怎么打开|怎么进入|去哪|功能/.test(normalized)) return true
+  return /(?:给(?:我)?(?:个|一份)?|发(?:我)?(?:个|一份)?|打开|带我看|帮我找|帮我查|看一下|看看|展示).{0,16}(?:地图|平面图|导览图|校区图|路线|导航|页面|入口)/.test(normalized)
+}
+
+function exactPlaceEvidenceForQuery(
+  client: DatabaseClient,
+  query: string
+): AssistantEvidence[] {
+  if (!isPlaceLocationQuery(query)) return []
+  const compactQuery = normalizeAssistantQuery(query)
+    .toLocaleLowerCase('zh-CN')
+    .replace(/[\p{P}\p{S}\s]/gu, '')
+  const rows = client.db.select({
+    slug: places.slug,
+    title: places.name,
+    summary: places.summary,
+    body: places.body,
+    address: places.address,
+    campusArea: places.campusArea,
+    coordinateVerification: places.coordinateVerification
+  }).from(places).where(eq(places.status, 'published')).limit(600).all()
+
+  return rows
+    .filter((row) => {
+      const name = row.title.toLocaleLowerCase('zh-CN').replace(/[\p{P}\p{S}\s]/gu, '')
+      return name.length >= 3 && compactQuery.includes(name)
+    })
+    .sort((left, right) => {
+      const lengthDifference = right.title.length - left.title.length
+      if (lengthDifference !== 0) return lengthDifference
+      return Number(right.coordinateVerification === 'verified') - Number(left.coordinateVerification === 'verified')
+    })
+    .slice(0, 2)
+    .map((row) => {
+      const location = [...new Set([row.campusArea, row.address].filter((item): item is string => Boolean(item?.trim())))]
+        .join(' · ')
+      const summary = safeText([location, row.summary].filter(Boolean).join('。'), 500)
+      const body = safeText(row.body, 3000)
+      return {
+        title: row.title,
+        url: `/map?place=${encodeURIComponent(row.slug)}`,
+        snippet: summary || `${row.title}已收录在校园地图中。`,
+        source: 'site' as const,
+        authority: 'reviewed_site' as const,
+        text: `${summary} ${body}`,
+        score: 10_000
+      }
+    })
+}
+
+function placeLocationLocalAnswer(
+  query: string,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse | null {
+  if (!isPlaceLocationQuery(query)) return null
+  const compactQuery = normalizeAssistantQuery(query)
+    .toLocaleLowerCase('zh-CN')
+    .replace(/[\p{P}\p{S}\s]/gu, '')
+  const place = evidence.find((item) => {
+    if (!item.url.startsWith('/map?place=')) return false
+    const name = item.title.toLocaleLowerCase('zh-CN').replace(/[\p{P}\p{S}\s]/gu, '')
+    return name.length >= 3 && compactQuery.includes(name)
+  })
+  if (!place) return null
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = place
+  return {
+    query,
+    mode: 'local',
+    answer: `${place.title}已在校园地图中精确标注。${place.snippet}点击下方入口会直接定位到该地点，也可以继续规划校内步行路线。`,
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 0.99
+  }
 }
 
 function isSpecificDirectoryFeatureQuery(query: string): boolean {
@@ -1879,6 +2007,11 @@ function assistantKnowledgeLocalAnswer(
     // Do not let a broad comparison entry about comfort rooms answer a
     // specific ordinary-room question just because both mention a balcony.
     if (/普通型宿舍.{0,8}阳台/.test(query) && !/普通型宿舍.{0,20}阳台/.test(candidateText)) return false
+    if (
+      isPlaceLocationQuery(query)
+      && !/报名地点|报到地点|在哪(?:里)?报名|在哪(?:里)?报到/.test(query)
+      && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(candidateText)
+    ) return false
     if (requestedSpecificAspects.some(aspect => !candidateText.includes(aspect))) return false
     if (/什么时候开放/.test(query) && !/(?:什么时候开放|开放(?:日期|时间|时刻)|开学前)/.test(candidateText)) return false
     if (/在哪抢/.test(query) && !/(?:哪个系统抢|迎新系统|抢宿舍流程)/.test(candidateText)) return false
@@ -1890,6 +2023,12 @@ function assistantKnowledgeLocalAnswer(
     if (/调查问卷|作息.*问卷|空调温度.*问卷/.test(query) && /(?:调查问卷|作息、空调温度|匹配问卷)/.test(candidateText)) return candidate.score >= 18
     if (/学生会.*(?:报名|纳新|加入)/.test(query) && /(?:学生会报名|纳新群|怎么加入学生会)/.test(candidateText)) return candidate.score >= 18
     if (/军训.*(?:才艺|晚会)/.test(query) && /(?:才艺展示|才艺表演|晚会)/.test(candidateText)) return candidate.score >= 18
+    if (
+      /教学楼|上课地点|授课地点/.test(query)
+      && /在哪|哪里|位置|哪个区|哪一片|哪边|哪栋楼/.test(query)
+      && /报到/.test(candidateText)
+      && !/上课地点|授课地点|课程主要在|教学安排|教学区分布/.test(candidateText)
+    ) return false
     if (requestedSpecificAspects.length > 0 && candidate.score >= 18) return true
     const evidence: AssistantEvidence = {
       title: candidate.title,
@@ -1911,14 +2050,12 @@ function assistantKnowledgeLocalAnswer(
     && !/以.+为准|不是(?:学校)?(?:正式)?通知|不是官方|不是招生统计|学生(?:整理|经验)|不能只按/.test(match.answer)
     ? ' 这是学生经验，不是学校正式通知；涉及收费、时间、宿舍和管理要求时，以录取材料、辅导员或学校最新通知为准。'
     : ''
-  const citations: ApiAssistantCitation[] = match.publicUrl
-    ? [{
-        title: match.title,
-        url: match.publicUrl,
-        snippet: match.answer,
-        source: 'site'
-      }]
-    : []
+  const citations: ApiAssistantCitation[] = [{
+    title: match.title,
+    url: match.publicUrl ?? `/search?knowledge=${encodeURIComponent(match.id)}`,
+    snippet: match.answer,
+    source: 'site'
+  }]
   return {
     query,
     mode: 'local',
@@ -2743,7 +2880,20 @@ function buildStructuredEvidence(query: string): ApiAssistantCitation[] {
   return resolveStructuredDataEvidencePart2(query, base)
 }
 
+function ensureGroundedLocalCitation(
+  response: ApiAssistantResponse,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse {
+  if (response.citations.length > 0 || response.answer === '禁止回答') return response
+  const first = evidence[0]
+  if (!first) return response
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = first
+  return { ...response, citations: [citation] }
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
+  const placeLocationAnswer = placeLocationLocalAnswer(query, evidence)
+  if (placeLocationAnswer) return placeLocationAnswer
   const collegeMajorsAnswer = collegeMajorsLocalAnswer(query)
   if (collegeMajorsAnswer) return collegeMajorsAnswer
   const majorDormAnswer = majorDormLocalAnswer(query, evidence)
@@ -3763,7 +3913,11 @@ export async function answerCampusQuestion(
     const query = normalizeAssistantQuery(rawQuery)
     const retrievalQuery = assistantRetrievalQuery(query)
     const intentDetail = assistantIntentDetail(query, retrievalQuery)
-    const cacheKey = `${ASSISTANT_CACHE_VERSION}:${currentAssistantKnowledgeRevision()}:${query.toLocaleLowerCase('zh-CN')}`
+    const transitRoute = transitRouteForQuery(query)
+    const cacheVariant = transitRoute && (config.transitPlanner || config.amapWebServiceKey?.trim())
+      ? 'live-transit'
+      : 'standard'
+    const cacheKey = `${ASSISTANT_CACHE_VERSION}:${cacheVariant}:${currentAssistantKnowledgeRevision()}:${query.toLocaleLowerCase('zh-CN')}`
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const activeCachedResponse = historicalTransferAnswer
       ? null
@@ -3797,7 +3951,6 @@ export async function answerCampusQuestion(
         requiresSpecificWebEvidence: false
       }
     }
-    const transitRoute = transitRouteForQuery(query)
     if (transitRoute && (config.transitPlanner || config.amapWebServiceKey?.trim())) {
       return {
         query,
@@ -3855,6 +4008,22 @@ export async function answerCampusQuestion(
       }
     }
     const transferQuery = isTransferQuery(query)
+
+    const exactPlaceEvidence = exactPlaceEvidenceForQuery(client, query)
+    if (exactPlaceEvidence.length > 0) {
+      return {
+        query,
+        retrievalQuery,
+        intentDetail,
+        cacheKey,
+        route: 'local_database' as const,
+        cached: null,
+        localEvidence: exactPlaceEvidence,
+        webEvidence: [] as ApiAssistantCitation[],
+        requiresSpecificWebEvidence: false,
+        localEvidenceSufficient: true
+      }
+    }
 
     const featureSeeking = isFeatureSeekingQuery(query)
     const featureMatch = featureSeeking ? searchSystemFeatures(query, 1)[0] : null
@@ -3924,6 +4093,7 @@ export async function answerCampusQuestion(
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
+    const deterministicPlaceAnswer = placeLocationLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
     // For identity queries ("X是谁"), only suppress web search when we have a
     // dedicated high-confidence profile entry (≥0.9). Any other local signal
@@ -3936,6 +4106,7 @@ export async function answerCampusQuestion(
     const blockWebSearch = !identitySubject || hasExplicitIdentityProfile
     if (blockWebSearch && (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
       deterministicCollegeAnswer
+      || deterministicPlaceAnswer
       || deterministicMajorDormAnswer
       || deterministicCampusAnswer
       || deterministicKnowledgeAnswer
@@ -4045,7 +4216,7 @@ export async function answerCampusQuestion(
       tracker,
       'answer_generation',
       '整理备用答案',
-      () => localEvidence[0] ? buildLocalResponse(query, localEvidence) : localEvidenceGapResponse(query)
+      () => localEvidence[0] ? transitFallbackResponse(query, localEvidence) : localEvidenceGapResponse(query)
     )
     return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, 'local_database'), config.signal)
   }
@@ -4074,6 +4245,7 @@ export async function answerCampusQuestion(
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
+    const deterministicPlaceAnswer = placeLocationLocalAnswer(query, localEvidence)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
       tracker,
@@ -4108,7 +4280,8 @@ export async function answerCampusQuestion(
         const deterministicResponse = historicalTransferAnswer
           ?? (analysis.requiresSpecificWebEvidence
             ? dormBedEvidenceGapResponse(query, localEvidence)
-            : deterministicCollegeAnswer
+            : deterministicPlaceAnswer
+              ?? deterministicCollegeAnswer
               ?? deterministicMajorDormAnswer
               ?? deterministicIdentityAnswer
               ?? deterministicCampusAnswer
@@ -4125,7 +4298,7 @@ export async function answerCampusQuestion(
       }
     )
     const result = withRunMetadata(
-      response,
+      ensureGroundedLocalCitation(response, localEvidence),
       tracker,
       analysis.route
     )

@@ -12,6 +12,8 @@ const QUESTION_MARKERS = [
 
 const QUESTION_ENDING_PATTERN = /[?？吗嘛呢么]$/u
 
+const ASSISTANT_COMMAND_PATTERN = /(?:给(?:我)?(?:个|一份)?|发(?:我)?(?:个|一份)?|打开|进入|带我(?:去|看)?|帮我(?:查|找|看)?|查一下|找一下|看一下|看看|展示|跳转到).{0,20}(?:校园|学校|地图|平面图|导览图|校区图|入口|页面|路线|导航|流程|清单|宿舍|社团|成绩|教务|规则|奖学金)/u
+
 const PROMPT_INJECTION_MARKERS = [
   '忽略之前的指令', '忽略此前指令', '忽略系统指令', '系统提示词', '开发者指令',
   '泄露密钥', '显示密钥', '输出apikey', 'jailbreak', 'ignore previous instructions',
@@ -53,6 +55,7 @@ export function isQuestionLike(value: string): boolean {
   return Boolean(assistantIdentitySubject(query))
     || QUESTION_ENDING_PATTERN.test(query)
     || QUESTION_MARKERS.some(marker => query.includes(marker))
+    || ASSISTANT_COMMAND_PATTERN.test(query)
 }
 
 export function containsPromptInjection(value: string): boolean {
