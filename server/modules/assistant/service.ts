@@ -233,7 +233,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v28-focused-document-search-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v29-compiled-knowledge-first-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -2532,22 +2532,30 @@ export function retrieveCampusEvidence(
       text: item.statement,
       score: item.score
     }))
-  const officialDocumentEvidence: AssistantEvidence[] = searchOfficialKnowledgeDocuments(
-    client,
-    indexedKnowledgeTerms,
-    limit,
-    query,
-    !teachingLocationQuery
-  )
-    .map(item => ({
-      title: item.title,
-      url: item.url,
-      snippet: safeText(item.excerpt, 900),
-      source: 'site' as const,
-      authority: 'official_site' as const,
-      text: item.excerpt,
-      score: item.score
-    }))
+  // Compiled claims are the bounded, reviewable search layer for the official
+  // corpus. Do not reopen multi-megabyte source documents when those claims
+  // already provide enough context. Teaching-location questions are stricter:
+  // raw news and admission pages often mention a major next to a registration
+  // venue, which is not evidence of where its classes are taught.
+  const hasCompiledDocumentContext = compiledKnowledgeEvidence.length >= Math.min(3, limit)
+  const officialDocumentEvidence: AssistantEvidence[] = teachingLocationQuery || hasCompiledDocumentContext
+    ? []
+    : searchOfficialKnowledgeDocuments(
+        client,
+        indexedKnowledgeTerms,
+        limit,
+        query,
+        true
+      )
+        .map(item => ({
+          title: item.title,
+          url: item.url,
+          snippet: safeText(item.excerpt, 900),
+          source: 'site' as const,
+          authority: 'official_site' as const,
+          text: item.excerpt,
+          score: item.score
+        }))
 
   const campusOverviewEvidence = campusOverviewEvidenceForQuery(query)
   const ranked = [...featureEvidence, ...campusOverviewEvidence, ...compiledKnowledgeEvidence, ...officialDocumentEvidence, ...assistantKnowledgeEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
