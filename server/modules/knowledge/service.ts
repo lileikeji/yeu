@@ -532,12 +532,12 @@ export function searchOfficialKnowledgeDocuments(
     const textMatches = searchableTerms.filter(term => text.includes(term))
     if (coreTerms.length === 1 && corePositions.length === 0 && !titleMatches.some(term => term.length >= 3)) return null
     const primary = searchableTerms[0] ?? ''
-    const primaryBigrams = primary.length >= 3
+    const primaryBigrams = (primary.length >= 3
       ? Array.from({ length: primary.length - 1 }, (_, index) => primary.slice(index, index + 2))
-      : [primary]
-    const primaryTrigrams = primary.length >= 3
+      : [primary]).slice(0, 10)
+    const primaryTrigrams = (primary.length >= 3
       ? Array.from({ length: primary.length - 2 }, (_, index) => primary.slice(index, index + 3))
-      : []
+      : []).slice(0, 10)
     const bigramPositions = primaryBigrams.map(term => text.indexOf(term)).filter(position => position >= 0)
     const nearbyCore = bigramPositions.length >= 2
       && text.includes(primaryBigrams[0] ?? primary)

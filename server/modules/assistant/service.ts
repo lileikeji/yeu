@@ -233,7 +233,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v24-fast-exact-location-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v25-bounded-document-ranking-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -2348,6 +2348,11 @@ export function retrieveCampusEvidence(
 ): AssistantEvidence[] {
   const terms = assistantQueryTerms(query)
   const teachingLocationQuery = isTeachingLocationQuery(query)
+  const teachingLocationMajor = teachingLocationQuery ? knownMajorNameForQuery(query) : null
+  const indexedKnowledgeTerms = teachingLocationQuery
+    ? [teachingLocationMajor, '上课地点', '授课地点', '教学区', '教学楼安排']
+        .filter((term): term is string => Boolean(term))
+    : terms
   const featureEvidence = featureEvidenceForQuery(query, limit)
   if (terms.length === 0) return featureEvidence
 
@@ -2479,7 +2484,7 @@ export function retrieveCampusEvidence(
   const assistantKnowledgeEvidence = assistantKnowledgeEvidenceForQuery(client, query, limit)
   const compiledKnowledgeEvidence: AssistantEvidence[] = searchPublishedKnowledgeClaims(
     client,
-    terms,
+    indexedKnowledgeTerms,
     limit,
     Date.now(),
     false,
@@ -2496,7 +2501,7 @@ export function retrieveCampusEvidence(
     }))
   const officialDocumentEvidence: AssistantEvidence[] = searchOfficialKnowledgeDocuments(
     client,
-    terms,
+    indexedKnowledgeTerms,
     limit,
     query,
     !teachingLocationQuery
