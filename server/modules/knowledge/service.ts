@@ -448,16 +448,10 @@ export function searchOfficialKnowledgeDocuments(
   allowLikeFallback = true
 ): OfficialDocumentMatch[] {
   const searchableTerms = [...new Set(terms.map(term => term.trim().toLocaleLowerCase('zh-CN')).filter(term => term.length >= 2))]
-  const documentIndexTerms = new Set<string>(searchableTerms.slice(0, 12))
-  // Put complete phrases first. A small, even trigram budget is enough for
-  // Chinese FTS fallback without allowing one long phrase to crowd out later
-  // entities such as a major name or document type.
-  for (const term of searchableTerms.slice(0, 8).filter(term => term.length >= 3)) {
-    for (let index = 0; index <= term.length - 3 && index < 3; index += 1) {
-      documentIndexTerms.add(term.slice(index, index + 3))
-    }
-  }
-  const query = ftsQuery([...documentIndexTerms])
+  // knowledge_documents_fts already uses SQLite's trigram tokenizer. Adding
+  // every manual three-character fragment turns a focused query into a large
+  // OR expression and makes bm25/snippet ranking scan most of the corpus.
+  const query = ftsQuery(searchableTerms.slice(0, 12))
   if (searchableTerms.length === 0) return []
   type SearchRow = {
     id: string
