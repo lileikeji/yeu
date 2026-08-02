@@ -448,11 +448,17 @@ export function searchOfficialKnowledgeDocuments(
   allowLikeFallback = true
 ): OfficialDocumentMatch[] {
   const searchableTerms = [...new Set(terms.map(term => term.trim().toLocaleLowerCase('zh-CN')).filter(term => term.length >= 2))]
-  // knowledge_documents_fts already uses SQLite's trigram tokenizer. Adding
-  // every manual three-character fragment turns a focused query into a large
-  // OR expression and makes bm25/snippet ranking scan most of the corpus.
-  const query = ftsQuery(searchableTerms.slice(0, 12))
   if (searchableTerms.length === 0) return []
+  // Run focused terms independently. A single OR expression that combines a
+  // named entity with generic terms such as "teaching area" makes FTS rank
+  // and extract snippets from a large part of the long-document corpus on a
+  // cold connection. The trigram index cannot use terms shorter than three
+  // characters, so leave those to the bounded title fallback below.
+  const documentQueries = searchableTerms
+    .filter(term => term.length >= 3)
+    .slice(0, 4)
+    .map(term => ftsQuery([term]))
+    .filter(Boolean)
   type SearchRow = {
     id: string
     title: string
@@ -465,8 +471,8 @@ export function searchOfficialKnowledgeDocuments(
   }
   let rows: SearchRow[]
   try {
-    rows = query
-      ? client.sqlite.prepare(`
+    const fetchLimit = Math.max(12, Math.min(120, limit * 10))
+    const statement = client.sqlite.prepare(`
       SELECT kd.id, kd.title,
         snippet(knowledge_documents_fts, 2, '', '', ' ... ', 192) AS extractedText,
         kd.content_hash AS contentHash,
@@ -485,14 +491,20 @@ export function searchOfficialKnowledgeDocuments(
         AND (s.url LIKE 'https://yeu.edu.cn/%' OR s.url LIKE 'https://%.yeu.edu.cn/%')
       ORDER BY ftsRank ASC, kd.captured_at DESC
       LIMIT ?
-    `).all(query, Math.max(12, Math.min(120, limit * 10))) as SearchRow[]
-      : []
+    `)
+    rows = []
+    for (const documentQuery of documentQueries) {
+      const matches = statement.all(documentQuery, fetchLimit) as SearchRow[]
+      if (matches.length === 0) continue
+      rows = matches
+      break
+    }
     if (rows.length === 0 && allowLikeFallback) {
       const likeTerms = searchableTerms.slice(0, 6)
-      const matches = likeTerms.map(() => '(kd.title LIKE ? ESCAPE \'\\\' OR kd.extracted_text LIKE ? ESCAPE \'\\\')').join(' OR ')
-      const values = likeTerms.flatMap((term) => {
+      const matches = likeTerms.map(() => 'kd.title LIKE ? ESCAPE \'\\\'').join(' OR ')
+      const values = likeTerms.map((term) => {
         const escaped = term.replace(/[\\%_]/g, value => `\\${value}`)
-        return [`%${escaped}%`, `%${escaped}%`]
+        return `%${escaped}%`
       })
       rows = client.sqlite.prepare(`
         SELECT kd.id, kd.title, kd.extracted_text AS extractedText,

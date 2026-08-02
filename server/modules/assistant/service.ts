@@ -233,7 +233,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v27-native-trigram-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v28-focused-document-search-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -2356,7 +2356,7 @@ function facultyKnowledgeLocalAnswer(
     return {
       query,
       mode: 'local',
-      answer: `本站当前从学校各院部公开师资页收录了 ${rows.length} 条教师资料：${counts.map(item => `${item.affiliation}${item.count}人`).join('、')}。这个数字是“本站已索引的公开简介数”，不是学校官方公布的教职工总人数，不能把未发布个人简介的教师算进去。可以继续输入“某某学院有哪些老师”查看名单，或直接问“某某老师是谁”。`,
+      answer: `本站当前已收录 ${rows.length} 条官网公开师资资料，来自学校各院部公开师资页：${counts.map(item => `${item.affiliation}${item.count}人`).join('、')}。这个数字是“本站已索引的公开简介数”，不是学校官方公布的教职工总人数，不能把未发布个人简介的教师算进去。可以继续输入“某某学院有哪些老师”查看名单，或直接问“某某老师是谁”。`,
       citations: facultyCitations(rows).slice(0, 4),
       usedWebSearch: false,
       confidence: 0.93
@@ -3328,6 +3328,24 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
 export function identityLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
   const subject = assistantIdentitySubject(query)
   if (!subject) return null
+  const sameNameFaculty = evidence.filter((item) => {
+    const [name, affiliation] = item.title.split('｜', 2).map(part => part.trim())
+    return name === subject && Boolean(affiliation) && identityEvidenceIsExplicit(item, subject)
+  })
+  if (sameNameFaculty.length > 1) {
+    return {
+      query,
+      mode: 'local',
+      answer: [
+        `官网公开师资中有 ${sameNameFaculty.length} 位同名教师：`,
+        ...sameNameFaculty.map(item => `\n${safeText(item.snippet, 520)}`)
+      ].join('\n'),
+      citations: sameNameFaculty
+        .map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
+      usedWebSearch: false,
+      confidence: 0.96
+    }
+  }
   const primary = evidence.find(item => identityEvidenceIsExplicit(item, subject))
   if (!primary) return null
   const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
