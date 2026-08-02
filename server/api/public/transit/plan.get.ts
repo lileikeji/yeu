@@ -25,7 +25,10 @@ export default defineEventHandler(async (event): Promise<ApiTransitPlanResponse>
   const cached = responseCache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) {
     setResponseHeaders(event, {
-      'Cache-Control': 'public, max-age=30, s-maxage=90, stale-while-revalidate=180',
+      'Cache-Control': 'private, max-age=30, s-maxage=0, stale-while-revalidate=180',
+      'CDN-Cache-Control': 'no-store',
+      'Cloudflare-CDN-Cache-Control': 'no-store',
+      'Surrogate-Control': 'no-store',
       'X-Transit-Cache': 'HIT'
     })
     return cached.response
@@ -71,7 +74,10 @@ export default defineEventHandler(async (event): Promise<ApiTransitPlanResponse>
   }
   responseCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, response })
   setResponseHeaders(event, {
-    'Cache-Control': 'public, max-age=30, s-maxage=90, stale-while-revalidate=180',
+    'Cache-Control': 'private, max-age=30, s-maxage=0, stale-while-revalidate=180',
+    'CDN-Cache-Control': 'no-store',
+    'Cloudflare-CDN-Cache-Control': 'no-store',
+    'Surrogate-Control': 'no-store',
     'X-Transit-Cache': 'MISS'
   })
   return response

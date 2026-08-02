@@ -103,6 +103,14 @@ export default defineNuxtConfig({
   // only when a concurrent nuxt dev would otherwise clobber the same folder.
   buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
 
+  // Allow an isolated output directory for release builds while a local
+  // preview server still owns .output. Production defaults remain unchanged.
+  nitro: {
+    output: {
+      dir: process.env.NUXT_OUTPUT_DIR || '.output'
+    }
+  },
+
   routeRules: {
     '/showcase': {
       headers: {

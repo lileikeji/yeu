@@ -121,7 +121,8 @@ test('transit API accepts fixed campus and vetted guide points, not arbitrary co
   const routeSource = readFileSync(resolve('server/api/public/transit/plan.get.ts'), 'utf8')
   assert.match(routeSource, /assertRateLimit/)
   assert.match(routeSource, /AMAP_WEB_SERVICE_KEY/)
-  assert.match(routeSource, /s-maxage=90/)
+  assert.match(routeSource, /s-maxage=0/)
+  assert.match(routeSource, /CDN-Cache-Control.*no-store/)
   assert.doesNotMatch(routeSource, /query\.key/)
 })
 

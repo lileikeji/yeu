@@ -1,4 +1,5 @@
 ﻿import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+import { getMethod, getRequestURL } from 'h3'
 import type { H3Event } from 'h3'
 
 import {
@@ -28,12 +29,42 @@ export interface SecurityConfig {
   secureCookies: boolean
 }
 
-function normalizeOrigin(value: string): string | null {
+export function normalizeOrigin(value: string): string | null {
   try {
     return new URL(value).origin
   } catch {
     return null
   }
+}
+
+/**
+ * Resolve the origins that are allowed to use application APIs.
+ * The public site URL is always trusted; additional origins are explicit.
+ * Development also trusts the current local request so alternate dev ports
+ * continue to work without weakening production configuration.
+ */
+export function resolveTrustedOrigins(event: H3Event): Set<string> {
+  const runtimeConfig = useRuntimeConfig(event)
+  const allowed = new Set<string>()
+  const configuredOrigin = normalizeOrigin(String(runtimeConfig.public.siteUrl || ''))
+  const requestOrigin = normalizeOrigin(getRequestURL(event).origin)
+
+  if (configuredOrigin) {
+    allowed.add(configuredOrigin)
+  }
+
+  if (process.env.NODE_ENV !== 'production' && requestOrigin) {
+    allowed.add(requestOrigin)
+  }
+
+  for (const value of (process.env.NUXT_ALLOWED_ORIGINS || '').split(',')) {
+    const extraOrigin = normalizeOrigin(value.trim())
+    if (extraOrigin) {
+      allowed.add(extraOrigin)
+    }
+  }
+
+  return allowed
 }
 
 export function getSecurityConfig(event: H3Event): SecurityConfig {
@@ -69,28 +100,7 @@ export function assertTrustedOrigin(event: H3Event): void {
   }
 
   const origin = normalizeOrigin(getHeader(event, 'origin') || '')
-  const runtimeConfig = useRuntimeConfig(event)
-  const allowed = new Set<string>()
-  const configuredOrigin = normalizeOrigin(String(runtimeConfig.public.siteUrl || ''))
-  const requestOrigin = normalizeOrigin(getRequestURL(event).origin)
-
-  if (configuredOrigin) {
-    allowed.add(configuredOrigin)
-  }
-
-  // Local development only: allow the current request host so localhost ports work
-  // without duplicating every dev origin in NUXT_ALLOWED_ORIGINS. Production must
-  // use an explicit allowlist (siteUrl + NUXT_ALLOWED_ORIGINS).
-  if (process.env.NODE_ENV !== 'production' && requestOrigin) {
-    allowed.add(requestOrigin)
-  }
-
-  for (const value of (process.env.NUXT_ALLOWED_ORIGINS || '').split(',')) {
-    const extraOrigin = normalizeOrigin(value.trim())
-    if (extraOrigin) {
-      allowed.add(extraOrigin)
-    }
-  }
+  const allowed = resolveTrustedOrigins(event)
 
   // Production with no configured allowlist is a deploy misconfiguration, not a client fault.
   if (process.env.NODE_ENV === 'production' && allowed.size === 0) {

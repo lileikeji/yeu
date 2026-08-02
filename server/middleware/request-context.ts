@@ -32,6 +32,10 @@ export default defineEventHandler((event) => {
   }
   if (shouldDisableCache(method, pathname)) {
     response.setHeader('Cache-Control', 'no-store')
+    response.setHeader('CDN-Cache-Control', 'no-store')
+    response.setHeader('Cloudflare-CDN-Cache-Control', 'no-store')
+    response.setHeader('Surrogate-Control', 'no-store')
+    response.setHeader('Edge-Control', 'no-store')
     response.setHeader('Pragma', 'no-cache')
   } else if (shouldDisableDocumentCache(
     method,

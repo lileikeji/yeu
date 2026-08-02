@@ -260,3 +260,12 @@
 - Verification: run `pnpm exec tsx --test scripts/anti-crawl.test.ts`, `pnpm typecheck`, `pnpm build`, `nginx -t`, then verify normal browser, blocked automation UA, robots, health and honeypot responses. Keep all timestamps in China Standard Time (UTC+8), including the July 31 evidence window.
 - Deployment result: release `20260802-anti-crawl-1748` is active, the service health endpoint is ready, the public CDN checks returned normal 200 / WeChat 200 / known automation 403, and the honeypot returned 404 while recording the event.
 - Deployment mistake caught: the first upload was unpacked without the `.output` directory level; the service failed fast, the cause was identified from `journalctl`, the release was repaired in place before final verification, and the old release remains available for rollback.
+
+## 2026-08-02 - Same-origin API transport boundary
+
+- Goal: allow browser requests from the public site to read application data while rejecting direct no-context API access and keeping health checks and server callbacks available.
+- Completed: centralized the trusted-origin allowlist in `server/utils/security.ts`; added `server/utils/api-origin.ts` and the global `01-api-origin-guard` middleware; API responses now send no-store edge headers and `s-maxage=0`; transit responses keep an in-process cache but are private and never shared by CDN.
+- Good: the guard runs before handlers, uses Origin plus Fetch Metadata/Referer evidence, keeps `/api/health` and `/api/integrations/**` as explicit exceptions, and has pure decision tests for same-origin, cross-site and missing-source cases.
+- Avoid: do not rely on CORS alone, do not allow `same-site` as a substitute for the exact public origin, and do not add a broad no-header exception for convenience. Advanced clients can forge browser headers, so keep CDN/WAF, rate limits, logging and endpoint-level authentication in place.
+- Verification: targeted TypeScript tests, ESLint and Nuxt typecheck passed; an isolated production build completed in `.output-api-origin`; local runtime returned 403 for a bare API request, 200 with same-origin headers, 503/200-class reachability for health depending on local readiness, and 200 for the SSR homepage.
+- Deployment follow-up: publish with `release/current/shared + systemd yeu.service`; set `NUXT_PUBLIC_SITE_URL=https://yx.huiliyill.cn` and review `NUXT_ALLOWED_ORIGINS` in the shared environment; configure Tencent CDN `/api/*` as no-cache and purge existing API cache entries after switching.

@@ -95,6 +95,7 @@ export function resolveRequestId(
 export function shouldDisableCache(method: string, pathname: string): boolean {
   const normalizedMethod = method.toUpperCase()
   if (!SAFE_METHODS.has(normalizedMethod)) return true
+  if (pathname === '/api' || pathname.startsWith('/api/')) return true
   return pathname === '/api/admin'
     || pathname.startsWith('/api/admin/')
     || pathname === '/api/auth'

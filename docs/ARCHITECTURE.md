@@ -220,7 +220,7 @@ AI 不是独立的数据源，而是站内检索和证据整理的编排层。�
 - 变更接口执行运行时校验，不信任 TypeScript 类型；失败采用稳定错误码，不把数据库错误或堆栈返回客户端。
 - 全局请求中间件生成或接受受限格式的 `X-Request-Id`，写入响应和后台审计记录；生产结构化请求日志只记录 ISO 时间戳、方法、路径、状态、耗时及 `HTTP_<status>` 错误码，不记录查询串或客户端标识。
 - 公开详情可使用 `ETag`/`Last-Modified`；发布、下线或核验后使对应缓存失效。
-- 所有写请求以及管理、认证、纠错接口设置 `Cache-Control: no-store`；全局响应带基础 CSP framing/object 限制、`nosniff`、Referrer Policy 和不禁用现场定位的 Permissions Policy。
+- 所有写请求以及管理、认证、纠错接口设置 `Cache-Control: no-store`；所有 `/api/**` 响应同时使用 `CDN-Cache-Control: no-store`、`s-maxage=0` 和边缘禁用头，避免 CDN 直接返回数据绕过源站策略。除 `/api/health` 和 `/api/integrations/**` 回调外，API 必须带当前公开网页的 `Origin`、`Sec-Fetch-Site: same-origin` 或同源 `Referer`；这不是 CORS 替代品，伪造完整浏览器头的高级客户端仍需 CDN/WAF、限流和签名策略。全局响应带基础 CSP framing/object 限制、`nosniff`、Referrer Policy 和不禁用现场定位的 Permissions Policy。
 - 批量导入采用“解析 -> 校验报告 -> 人工确认 -> 事务写入”，不得上传文件后直接发布。
 
 ## 7. 渲染、PWA 与微信适配

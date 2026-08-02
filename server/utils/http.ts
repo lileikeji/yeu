@@ -25,7 +25,9 @@ export function useAdminRequest(event: H3Event, csrf?: boolean) {
  * bodies to banned clients.
  */
 export function setPublicCache(event: H3Event, maxAge = 60): void {
-  setHeader(event, 'Cache-Control', `private, max-age=${maxAge}, stale-while-revalidate=${maxAge * 5}`)
+  setHeader(event, 'Cache-Control', `private, max-age=${maxAge}, stale-while-revalidate=${maxAge * 5}, s-maxage=0`)
   setHeader(event, 'CDN-Cache-Control', 'no-store')
   setHeader(event, 'Cloudflare-CDN-Cache-Control', 'no-store')
+  setHeader(event, 'Surrogate-Control', 'no-store')
+  setHeader(event, 'Edge-Control', 'no-store')
 }

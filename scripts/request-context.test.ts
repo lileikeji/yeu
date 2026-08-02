@@ -39,7 +39,7 @@ test('all writes and sensitive authentication, admin, and feedback reads are no-
   assert.equal(shouldDisableCache('GET', '/api/admin/places'), true)
   assert.equal(shouldDisableCache('GET', '/api/auth/status'), true)
   assert.equal(shouldDisableCache('GET', '/api/public/feedback'), true)
-  assert.equal(shouldDisableCache('GET', '/api/public/guides'), false)
+  assert.equal(shouldDisableCache('GET', '/api/public/guides'), true)
   assert.equal(shouldDisableCache('HEAD', '/icons/app-icon.svg'), false)
 })
 
@@ -70,10 +70,15 @@ test('public read APIs only enable short caching after successful data preparati
       assert.doesNotMatch(source, /'Cache-Control': 'public,/)
       continue
     }
-    if (normalizedPath === 'transit/plan.get.ts') {
-      const publicCache = source.indexOf('\'Cache-Control\': \'public,')
+    if (normalizedPath === 'notices/index.get.ts' || normalizedPath === 'track/stats.get.ts') {
       assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
-      assert.ok(publicCache > initialNoStore, `${relativePath} must only cache successful provider responses`)
+      assert.doesNotMatch(source, /'Cache-Control': 'public,/)
+      continue
+    }
+    if (normalizedPath === 'transit/plan.get.ts') {
+      assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)
+      assert.match(source, /private, max-age=30, s-maxage=0/)
+      assert.match(source, /CDN-Cache-Control.*no-store/)
       continue
     }
     if (normalizedPath === 'wechat-share.get.ts') {
