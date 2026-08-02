@@ -146,6 +146,8 @@ const QUERY_TERM_STOPWORDS = new Set([
 
 const QUERY_ANCHOR_FILLERS = [
   ...QUESTION_FILLERS,
+  '怎么样', '什么样', '好不好', '介绍一下', '讲讲',
+  '整体情况', '基本情况', '大概情况', '概况', '概览',
   '有什么条件', '有哪些条件', '需要哪些条件', '需要什么条件',
   '有什么要求', '有哪些要求', '需要哪些要求', '需要什么要求',
   '要求是什么', '条件是什么', '规则是什么', '流程是什么',
@@ -169,16 +171,29 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   地图: ['学校地图', '校园地图', '平面图', '校园平面图', '导览图', '校区图', '地点定位', '路线规划'],
   平面图: ['地图', '学校地图', '校园地图', '校园平面图', '导览图', '校区图'],
   导览图: ['地图', '校园地图', '平面图', '校园平面图', '校区图'],
-  宿舍: ['住宿', '宿舍楼', '寝室'],
+  宿舍: ['住宿', '宿舍楼', '寝室', '房型', '住宿条件'],
   学费: ['缴费', '收费', '资助', '助学贷款'],
   助学贷: ['助学贷款', '生源地贷款', '助学贷款申请'],
   报到: ['入学', '注册', '迎新'],
   校园网: ['网络', '上网', '宽带'],
-  快递: ['取件', '驿站', '快递站'],
+  校园卡: ['校园一卡通', '一卡通', '学生卡', '充值', '门禁', '校内消费'],
+  一卡通: ['校园一卡通', '校园卡', '学生卡', '充值', '门禁', '校内消费'],
+  快递: ['取件', '驿站', '快递站', '收件地址', '寄件地址', '教学区', '宿舍楼栋'],
   食堂: ['餐厅', '吃饭', '用餐'],
   军训: ['训练', '军训安排'],
   档案: ['邮寄', '转接', '专升本档案'],
+  教材: ['教材费', '教材订购', '课本', '书本', '自购教材', '二手书'],
+  二手书: ['教材', '课本', '自购教材', '教材订购', '教材费'],
+  材料费: ['教材费', '教材订购', '教材', '课本', '缴费'],
   开学: ['报到', '注册', '入学教育', '上课', '校历'],
+  开车: ['家长车辆', '报到车辆进校', '车辆预约', '车牌报备', '停车', '宿舍区车辆'],
+  车辆: ['家长车辆', '报到车辆进校', '车辆预约', '车牌报备', '停车', '宿舍区车辆'],
+  停车: ['家长车辆', '报到车辆进校', '车辆预约', '车牌报备', '停车区域'],
+  实习: ['专业实习', '实践教学', '实习单位', '校外实习', '见习'],
+  兼职: ['勤工助学', '校内岗位', '招聘', '实习', '外卖兼职'],
+  选课: ['教务系统', '喜鹊儿', '抢课', '体育课', '公共选修课', '补退选'],
+  体育课: ['选课', '抢课', '教务系统', '喜鹊儿', '公共体育'],
+  团委: ['校团委', '共青团', '团学活动', '青年工作'],
   绩点: ['GPA', '平均学分绩点', '课程绩点', '学分', '成绩'],
   奖学金: ['评奖', '参评', '综合测评', '奖项'],
   综合测评: ['德育', '智育', '体育', '加分', '扣分'],
@@ -218,7 +233,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v18-intent-grounded-answer-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v22-topic-grounded-synthesis-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -245,7 +260,7 @@ export function hardcodedAssistantFactIsCurrent(
   return now < VERIFIED_FACT_VALID_UNTIL[fact]
 }
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
-const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
+const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|教材|课本|二手书|材料费|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|团委|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 // The general route is deliberately allow-listed. Unknown questions are searched
 // first so a missed campus synonym cannot silently become a zero-evidence answer.
@@ -543,6 +558,7 @@ export function assistantQueryTerms(value: string): string[] {
 
   const phraseTerms = new Set<string>()
   const expansionTerms = new Set<string>()
+  const shortEntityTrigrams = new Set<string>()
   const shortEntityTerms = new Set<string>()
   const addChunk = (chunk: string): void => {
     // Two-character question words ("谁是", "主要", "哪些") are useful for
@@ -559,6 +575,15 @@ export function assistantQueryTerms(value: string): string[] {
     // Short Chinese entities (names, buildings, products) benefit from
     // bigrams because SQLite's default tokenizer does not segment them. Do
     // not emit question-shape bigrams such as “谁是” or “主要”.
+    if (/^[\u4e00-\u9fff]{5,}$/.test(chunk)) {
+      for (let index = 0; index <= chunk.length - 3; index += 1) {
+        const trigram = chunk.slice(index, index + 3)
+        if (
+          !QUERY_TERM_STOPWORDS.has(trigram)
+          && !QUESTION_FILLERS.some(filler => filler === trigram)
+        ) shortEntityTrigrams.add(trigram)
+      }
+    }
     if (/^[\u4e00-\u9fff]{5,}$/.test(chunk)) {
       for (let index = 0; index <= chunk.length - 2; index += 1) {
         const bigram = chunk.slice(index, index + 2)
@@ -578,12 +603,18 @@ export function assistantQueryTerms(value: string): string[] {
   const identityTerms = identitySubject
     ? [identitySubject.toLocaleLowerCase('zh-CN')]
     : []
+  const focusedPhraseTerms = [...phraseTerms]
+    .filter(term => term.length <= 16)
+    .sort((left, right) => right.length - left.length)
+  const longPhraseTerms = [...phraseTerms].filter(term => term.length > 16)
   const terms = [
     ...identityTerms,
     ...tailChunks,
-    ...phraseTerms,
+    ...focusedPhraseTerms,
     ...expansionTerms,
-    ...shortEntityTerms
+    ...shortEntityTrigrams,
+    ...shortEntityTerms,
+    ...longPhraseTerms
   ]
   // A follow-up is the most recent user intent. Reserve room for it even when
   // the previous question contains a long title or a pasted paragraph.
@@ -654,10 +685,15 @@ function campusProcedureSubjects(value: string): string[] {
 }
 
 function isCampusProcedureQuery(value: string): boolean {
-  return CAMPUS_PROCEDURE_INTENT_RE.test(value) && campusProcedureSubjects(value).length > 0
+  return !isBroadCampusOverviewQuery(value)
+    && CAMPUS_PROCEDURE_INTENT_RE.test(value)
+    && campusProcedureSubjects(value).length > 0
 }
 
 function campusProcedureRetrievalQuery(value: string): string | null {
+  // “校园卡怎么样” contains “怎么”, but it asks for an overview rather than
+  // a step-by-step procedure. Preserve the original topic wording here.
+  if (isBroadCampusOverviewQuery(value)) return null
   const subjects = campusProcedureSubjects(value)
   if (subjects.length === 0 || !CAMPUS_PROCEDURE_INTENT_RE.test(value)) return null
   return `${subjects.join(' ')} 办理流程 申请材料 时间 地点`
@@ -875,6 +911,29 @@ function evidenceCoreCoverage(query: string, item: AssistantEvidence): number {
   return matched / bigrams.length
 }
 
+function isBroadCampusOverviewQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  return CAMPUS_QUERY_RE.test(normalized)
+    && /怎么样|什么样|好不好|介绍(?:一下)?|讲讲|情况如何|(?:整体|基本|大概)情况|概况|概览/.test(normalized)
+}
+
+function broadCampusOverviewTopicTerms(query: string): string[] {
+  if (!isBroadCampusOverviewQuery(query)) return []
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const terms = new Set<string>()
+  for (const [key, expansions] of Object.entries(TERM_EXPANSIONS)) {
+    if (!normalized.includes(key)) continue
+    terms.add(key)
+    const titleAliases = key === '校园卡' || key === '一卡通'
+      ? expansions.filter(term => /校园一卡通|校园卡|一卡通|学生卡/.test(term))
+      : key === '团委'
+        ? expansions.filter(term => /校团委|团委/.test(term))
+        : expansions
+    titleAliases.forEach(term => terms.add(term.toLocaleLowerCase('zh-CN')))
+  }
+  return [...terms].filter(term => term.length >= 2)
+}
+
 export function localEvidenceIsSufficient(query: string, evidence: AssistantEvidence[]): boolean {
   if (evidence.length === 0) return false
   if (isClassScheduleQuery(query) && evidence.some((item) => {
@@ -917,6 +976,15 @@ export function localEvidenceIsSufficient(query: string, evidence: AssistantEvid
   }
   if (explicitKnowledgeRefs(query).length > 0) {
     return evidence.some(item => item.hitReason === 'explicit')
+  }
+
+  if (isBroadCampusOverviewQuery(query)) {
+    const anchors = assistantQueryAnchors(query)
+    if (anchors.length > 0 && evidence.some((item) => {
+      const rawScore = item.rawScore ?? item.score
+      const title = normalizeAssistantQuery(item.title).toLocaleLowerCase('zh-CN')
+      return rawScore >= 6 && anchors.some(anchor => title.includes(anchor))
+    })) return true
   }
 
   const meaningful = profile.meaningfulQuery.replace(/\s+/g, '')
@@ -1092,8 +1160,8 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
   const dormBedDimensionQuery = isDormBedDimensionQuery(query)
   const placeLocationQuery = isPlaceLocationQuery(query)
   const registrationLocationQuery = /报名地点|报到地点|在哪(?:里)?报名|在哪(?:里)?报到/.test(query)
-  const teachingLocationQuery = /教学楼|上课地点|授课地点/.test(query)
-    && /在哪|哪里|位置|哪个区|哪一片|哪边|哪栋楼/.test(query)
+  const teachingLocationQuery = isTeachingLocationQuery(query)
+  const broadOverviewTerms = broadCampusOverviewTopicTerms(query)
   const scholarshipRulesQuery = profile.intent === 'scholarship'
     && /申请|条件|要求|资格|评审|规则|办法|流程|时间/u.test(query)
   const hasScholarshipPolicyEvidence = scholarshipRulesQuery && evidence.some((item) => {
@@ -1105,6 +1173,10 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
   const ranked = evidence.filter((item) => {
     const title = item.title.toLocaleLowerCase('zh-CN')
     const searchable = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+    if (
+      broadOverviewTerms.length > 0
+      && !broadOverviewTerms.some(term => title.includes(term))
+    ) return false
     if (dormBedDimensionQuery && !BED_DIMENSION_EVIDENCE_RE.test(searchable)) return false
     if (placeLocationQuery && !registrationLocationQuery && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(searchable)) return false
     if (
@@ -1624,6 +1696,18 @@ function isPlaceLocationQuery(query: string): boolean {
     && !/(?:功能|入口|页面).{0,4}(?:在哪|哪里)|(?:在哪|哪里).{0,4}(?:功能|入口|页面)/.test(normalized)
 }
 
+function isTeachingLocationQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const asksLocation = /在哪|哪里|位置|哪个区|哪个教学区|哪一片|哪边|哪栋楼|去哪个/.test(normalized)
+  return (
+    /教学楼|教学区|上课地点|授课地点/.test(normalized)
+    && (asksLocation || /上课/.test(normalized))
+  ) || (
+    asksLocation
+    && /上课|授课/.test(normalized)
+  )
+}
+
 function isFeatureSeekingQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   if (/在哪|哪里|入口|哪个页面|什么页面|怎么打开|怎么进入|去哪|功能/.test(normalized)) return true
@@ -1993,17 +2077,25 @@ function assistantKnowledgeLocalAnswer(
   query: string
 ): ApiAssistantResponse | null {
   if (isTransferQuery(query)) return null
+  // “宿舍怎么样 / 校园卡怎么样” asks for a topic overview. A single FAQ
+  // that merely mentions the topic (for example a discipline rule mentioning
+  // dormitories) must not be emitted as the whole answer. These questions are
+  // synthesized from the ranked multi-page evidence below.
+  if (isBroadCampusOverviewQuery(query)) return null
   const facultyAnswer = facultyKnowledgeLocalAnswer(client, query)
   if (facultyAnswer) return facultyAnswer
   const match = assistantKnowledgeMatchesForQuery(client, query, 6).find((candidate) => {
     if (candidate.score < 12 || candidate.category === '教职工') return false
     const candidateText = `${candidate.title} ${candidate.question} ${candidate.answer}`
+    const aspectQuery = /(?:快递.{0,10}(?:寄到|地址)|(?:寄到|地址).{0,10}快递)/.test(query)
+      ? `${query} 快递地址`
+      : query
     const requestedSpecificAspects = [
       '阳台', '独立卫生间', '独卫', '淋浴', '浴室', '柜子', '衣柜',
       '床板', '木板', '尺寸', '功率', '题型', '预报名',
       '新区', '旧区', '水卡', '生活费', '喜鹊儿', '银行卡',
       '快递地址', '宿舍楼下', '混班', '混专业', '穿孔', '耳饰'
-    ].filter(aspect => query.includes(aspect))
+    ].filter(aspect => aspectQuery.includes(aspect))
     // Do not let a broad comparison entry about comfort rooms answer a
     // specific ordinary-room question just because both mention a balcony.
     if (/普通型宿舍.{0,8}阳台/.test(query) && !/普通型宿舍.{0,20}阳台/.test(candidateText)) return false
@@ -2023,9 +2115,13 @@ function assistantKnowledgeLocalAnswer(
     if (/调查问卷|作息.*问卷|空调温度.*问卷/.test(query) && /(?:调查问卷|作息、空调温度|匹配问卷)/.test(candidateText)) return candidate.score >= 18
     if (/学生会.*(?:报名|纳新|加入)/.test(query) && /(?:学生会报名|纳新群|怎么加入学生会)/.test(candidateText)) return candidate.score >= 18
     if (/军训.*(?:才艺|晚会)/.test(query) && /(?:才艺展示|才艺表演|晚会)/.test(candidateText)) return candidate.score >= 18
+    if (/(?:多少钱|收费|费用|价格|水电怎么收)/.test(query) && !/(?:\d+(?:\.\d+)?元|收费|费用|价格|水费|电费)/.test(candidateText)) return false
+    if (/女生/.test(query) && !candidateText.includes('女生')) return false
+    if (/男生/.test(query) && !candidateText.includes('男生')) return false
+    if (/(?:开车|家长车辆|报到车辆|车牌|停车)/.test(query) && /(?:报到车辆|家长车辆|车辆预约|车牌报备|停车|进校)/.test(candidateText)) return candidate.score >= 18
+    if (/(?:快递.{0,10}(?:寄到|地址)|(?:寄到|地址).{0,10}快递)/.test(query) && /(?:快递地址|收件地址|第一教学区|第三教学区)/.test(candidateText)) return candidate.score >= 18
     if (
-      /教学楼|上课地点|授课地点/.test(query)
-      && /在哪|哪里|位置|哪个区|哪一片|哪边|哪栋楼/.test(query)
+      isTeachingLocationQuery(query)
       && /报到/.test(candidateText)
       && !/上课地点|授课地点|课程主要在|教学安排|教学区分布/.test(candidateText)
     ) return false
@@ -2598,6 +2694,28 @@ function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[])
     .slice(0, 1)
     .map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation)
 
+  const textbookPurchaseQuery = /教材|课本|二手书|材料费/.test(normalizedQuery)
+    && /买|购买|领取|订购|缴费|交费|不交|少交|退费|二手|自购/.test(normalizedQuery)
+  if (textbookPurchaseQuery) {
+    const citations = citationFor('/guides/study-library')
+    if (citations.length === 0) {
+      citations.push({
+        title: '学习、选课与图书馆',
+        url: '/guides/study-library',
+        snippet: '教材领取、购买方式及是否允许自购，要以教务部和所在学院当届通知为准。',
+        source: 'site'
+      })
+    }
+    return {
+      query,
+      mode: 'local',
+      answer: '当前已核验资料只能确认：2026级教材领取、购买方式以及是否允许自行购买，要等教务部和所在学院通知；现有资料不能确认“材料费或教材费可以直接不交”。不要自行少缴迎新或缴费系统中的项目，先核对收费项目名称并向学院或教务部确认。若当届明确允许自购或购买二手书，再逐门核对教材名称、ISBN、版次和是否需要配套学习码。',
+      citations,
+      usedWebSearch: false,
+      confidence: 0.9
+    }
+  }
+
   if (
     hardcodedAssistantFactIsCurrent('militarySchedule2026')
     && /军训|冬训/.test(normalizedQuery)
@@ -2625,6 +2743,37 @@ function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[])
     }
   }
   return null
+}
+
+function broadCampusOverviewFallback(
+  query: string,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse | null {
+  if (!isBroadCampusOverviewQuery(query)) return null
+  const topicTerms = broadCampusOverviewTopicTerms(query)
+  const relevant = evidence
+    .filter(item => topicTerms.some(term => item.title.toLocaleLowerCase('zh-CN').includes(term)))
+    .slice(0, 4)
+  if (relevant.length === 0) return null
+
+  const facts = relevant
+    .map((item) => {
+      const snippet = safeText(item.snippet, 180)
+        .replace(/\s+/g, ' ')
+        .replace(/[。；;]+$/u, '')
+        .trim()
+      return snippet ? `- ${item.title}：${snippet}` : ''
+    })
+    .filter(Boolean)
+  if (facts.length === 0) return null
+  return {
+    query,
+    mode: 'local',
+    answer: `站内资料把这个问题分成了几个方面：\n${facts.join('\n')}\n具体年份、费用和办理要求仍以对应页面及学校最新通知为准。`,
+    citations: relevant.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
+    usedWebSearch: false,
+    confidence: 0.78
+  }
 }
 
 const COLLEGE_QUERY_ALIASES = new Map<string, string>([
@@ -2904,6 +3053,8 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (campusOverviewAnswer) return campusOverviewAnswer
   const studentRuleAnswer = studentRuleLocalAnswer(query, evidence)
   if (studentRuleAnswer) return studentRuleAnswer
+  const overviewFallback = broadCampusOverviewFallback(query, evidence)
+  if (overviewFallback) return overviewFallback
   const opening = evidence.find(item => item.title === '2026级新生报到')
   if (opening && isOpeningDateQuery(query) && hardcodedAssistantFactIsCurrent('openingSchedule2026')) {
     const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = opening
@@ -3844,7 +3995,7 @@ function hasStructuredLocalAnswer(query: string, evidence: AssistantEvidence[]):
   if (openingAnswer) return true
 
   const exactMajor = majorProfiles.some(profile => normalized.includes(profile.name.toLocaleLowerCase('zh-CN')))
-  if (exactMajor && evidence.some(item => item.url === '/major-lookup')) return true
+  if (exactMajor && !isTeachingLocationQuery(query) && evidence.some(item => item.url === '/major-lookup')) return true
   const hasTransitGuide = evidence.some(item => item.url === '/transport')
   if (hasTransitGuide && (
     Boolean(transitRouteForQuery(query))
@@ -4255,7 +4406,24 @@ export async function answerCampusQuestion(
         if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, localEvidence)) {
           return admissionPlanCountGapResponse(query, localEvidence)
         }
-        if (!historicalTransferAnswer && (shouldSynthesizeOfficialEvidence(query) || structuredDataCanAnswer(query)) && localEvidence[0]) {
+        const deterministicResponse = historicalTransferAnswer
+          ?? (analysis.requiresSpecificWebEvidence
+            ? dormBedEvidenceGapResponse(query, localEvidence)
+            : deterministicPlaceAnswer
+              ?? deterministicCollegeAnswer
+              ?? deterministicMajorDormAnswer
+              ?? deterministicIdentityAnswer
+              ?? deterministicCampusAnswer
+              ?? deterministicKnowledgeAnswer
+              ?? deterministicRuleAnswer)
+        const requiresDocumentSynthesis = shouldSynthesizeOfficialEvidence(query) || structuredDataCanAnswer(query)
+        const canSynthesizeGeneralLocalAnswer = !deterministicResponse
+          && !identitySubject
+          && !isFeatureSeekingQuery(query)
+          && !isPlaceLocationQuery(query)
+          && !isDormBedDimensionQuery(query)
+          && (!('localEvidenceSufficient' in analysis) || analysis.localEvidenceSufficient !== false)
+        if (!historicalTransferAnswer && localEvidence[0] && (requiresDocumentSynthesis || canSynthesizeGeneralLocalAnswer)) {
           const dbEvidence = localEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
           const structuredEvidence = buildStructuredEvidence(query)
           const evidence = dedupeAssistantEvidence([...dbEvidence, ...structuredEvidence])
@@ -4276,17 +4444,6 @@ export async function answerCampusQuestion(
             }
           }
         }
-
-        const deterministicResponse = historicalTransferAnswer
-          ?? (analysis.requiresSpecificWebEvidence
-            ? dormBedEvidenceGapResponse(query, localEvidence)
-            : deterministicPlaceAnswer
-              ?? deterministicCollegeAnswer
-              ?? deterministicMajorDormAnswer
-              ?? deterministicIdentityAnswer
-              ?? deterministicCampusAnswer
-              ?? deterministicKnowledgeAnswer
-              ?? deterministicRuleAnswer)
         if (deterministicResponse) return deterministicResponse
 
         if ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false) {
@@ -4338,6 +4495,7 @@ export async function answerCampusQuestion(
   const dbEvidence = rankedEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
   const evidence = dedupeAssistantEvidence([...dbEvidence, ...buildStructuredEvidence(query)])
   const response = await runAssistantStage(tracker, 'answer_generation', '整理答案', async () => {
+    if (evidence.length === 0) return localEvidenceGapResponse(query)
     if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, evidence)) {
       return admissionPlanCountGapResponse(query, rankedEvidence)
     }

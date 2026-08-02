@@ -157,7 +157,7 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
     }
 
     const experience = await answerCampusQuestion(client, '学校可以染头发吗', assistantConfig)
-    assert.deepEqual(experience.citations, [])
+    assert.equal(experience.citations[0]?.url, '/search?knowledge=experience-hair-dye')
 
     const unsupportedDormDetail = await answerCampusQuestion(client, '普通型宿舍有阳台吗', assistantConfig)
     assert.match(unsupportedDormDetail.answer, /内置资料暂时没有找到/)

@@ -8,6 +8,7 @@ import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
   answerCampusQuestion,
+  assistantQueryTerms,
   assistantRetrievalQuery,
   cachedWebEvidenceForQuery,
   identityLocalAnswer,
@@ -148,6 +149,10 @@ test('registration evidence cannot answer a teaching-location question', async (
     const response = await answerCampusQuestion(client, '电子信息工程教学楼在哪个区', emptyAssistantConfig)
     assert.doesNotMatch(response.answer, /旧区普照大礼堂报到/)
     assert.match(response.answer, /没有找到|无法确认|不能直接确认/)
+
+    const conversationalResponse = await answerCampusQuestion(client, '电子信息工程去哪个教学区上课', emptyAssistantConfig)
+    assert.doesNotMatch(conversationalResponse.answer, /旧区普照大礼堂报到/)
+    assert.match(conversationalResponse.answer, /没有找到|无法确认|不能直接确认/)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
@@ -176,6 +181,137 @@ test('deterministic knowledge answers keep a clickable database citation', async
     assert.match(response.answer, /开学前十天/)
     assert.equal(response.citations.length, 1)
     assert.equal(response.citations[0]?.url, '/search?knowledge=comfort-dorm-opening')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('natural vehicle wording expands to the reviewed arrival-parking answer', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-arrival-vehicle-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO assistant_knowledge_entries (
+        id, kind, category, title, question, answer, keywords_json,
+        public_url, confidence, source_note, is_active, imported_at, created_at, updated_at
+      ) VALUES (
+        'arrival-parking', 'student_experience', '报到', '报到车辆入校与停车',
+        '家长车辆报到需要预约吗？',
+        '报到车辆经预约并向保安报备后可以进入校内，但不能进入宿舍区或开到宿舍楼下。',
+        '["家长车辆预约","报到车辆进校","车牌报备","宿舍区车辆"]',
+        '/guides/arrival', 95, 'test', 1, ?, ?, ?
+      )
+    `).run(now, now, now)
+
+    const terms = assistantQueryTerms('开学可以开车进学校吗')
+    assert.ok(terms.includes('家长车辆'))
+    assert.ok(terms.includes('报到车辆进校'))
+    const response = await answerCampusQuestion(client, '开学可以开车进学校吗', emptyAssistantConfig)
+    assert.match(response.answer, /预约并向保安报备/)
+    assert.equal(response.citations[0]?.url, '/guides/arrival')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('broad campus overviews synthesize ranked local pages instead of an incidental FAQ', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-broad-local-synthesis-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  let gatewayCalls = 0
+  try {
+    assert.equal(assistantRetrievalQuery('校园卡怎么样'), '校园卡怎么样')
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO contents (
+        id, kind, slug, title, summary, body, metadata_json, status, created_at, updated_at
+      ) VALUES
+        ('dorm-overview', 'guide', 'dorm-overview', '宿舍类型与住宿条件',
+          '普通型与舒适型宿舍的人数、费用和生活设施概览。',
+          '普通型和舒适型宿舍的人数、热水、洗衣与住宿费应分别核对。', '{}', 'published', ?, ?),
+        ('dorm-life', 'guide', 'dorm-life', '宿舍生活准备',
+          '整理床上用品、洗衣和宿舍用电注意事项。',
+          '新生可按楼栋和房型准备床上用品，具体管理要求以当届通知为准。', '{}', 'published', ?, ?)
+    `).run(now, now, now, now)
+    client.sqlite.prepare(`
+      INSERT INTO assistant_knowledge_entries (
+        id, kind, category, title, question, answer, keywords_json,
+        public_url, confidence, source_note, is_active, imported_at, created_at, updated_at
+      ) VALUES (
+        'incidental-dorm-rule', 'campus_template', '校内规则', '综测扣分',
+        '综测哪些情况会扣分？', '宿舍管理违纪可能影响综合测评。',
+        '["综测","扣分","宿舍管理"]', '/student-rules', 95, 'test', 1, ?, ?, ?
+      )
+    `).run(now, now, now)
+    globalThis.fetch = async (_input, init) => {
+      gatewayCalls += 1
+      const payload = JSON.parse(String(init?.body)) as { messages: Array<{ role: string, content: string }> }
+      const userMessage = payload.messages.find(item => item.role === 'user')?.content ?? ''
+      assert.match(userMessage, /宿舍类型与住宿条件/)
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          answer: '学校宿舍分普通型和舒适型，人数、费用、热水和洗衣条件不同；准备用品前应先确认自己的楼栋与房型。',
+          citation_indexes: [0, 1],
+          confidence: 0.92
+        }) } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+
+    const response = await answerCampusQuestion(client, '学校宿舍怎么样', {
+      ...emptyAssistantConfig,
+      gatewayBaseUrl: 'https://gateway.example.com',
+      gatewayApiKey: 'test-key',
+      gatewayModel: 'test-model'
+    })
+    assert.equal(gatewayCalls, 1)
+    assert.equal(response.mode, 'ai')
+    assert.match(response.answer, /普通型和舒适型/)
+    assert.ok(response.citations.some(item => item.url === '/guides/dorm-overview'))
+    assert.doesNotMatch(response.answer, /综测扣分/)
+
+    const localFallback = await answerCampusQuestion(client, '请讲讲学校宿舍的基本情况', emptyAssistantConfig)
+    assert.equal(localFallback.mode, 'local')
+    assert.match(localFallback.answer, /宿舍类型与住宿条件/)
+    assert.doesNotMatch(localFallback.answer, /综测扣分/)
+  } finally {
+    globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('textbook purchase questions return the verified boundary instead of unrelated faculty pages', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-textbook-payment-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '材料费可以不交然后买二手书吗', emptyAssistantConfig)
+    assert.match(response.answer, /不能确认.*可以直接不交/)
+    assert.match(response.answer, /ISBN/)
+    assert.equal(response.citations[0]?.url, '/guides/study-library')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('department overview wording keeps the exact department page ahead of incidental mentions', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-department-overview-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '校团委怎么样', emptyAssistantConfig)
+    assert.match(response.answer, /社团招新|团学活动|青年工作/)
+    assert.equal(response.citations[0]?.url, '/departments/youth-league')
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
