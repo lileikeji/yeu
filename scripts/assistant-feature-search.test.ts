@@ -157,6 +157,46 @@ test('registration evidence cannot answer a teaching-location question', async (
       assistantRetrievalQuery('电子信息工程去哪个教学区上课'),
       '电子信息工程 上课地点 授课地点 教学区 教学楼安排'
     )
+
+    storeWebEvidence(client, '电子信息工程去哪个教学区上课', [{
+      title: '2026 新生报到地点与专业分组',
+      url: 'https://www.yeu.edu.cn/2026-registration',
+      snippet: '电子信息工程暂列在旧区普照大礼堂报到。',
+      source: 'web'
+    }])
+    assert.deepEqual(cachedWebEvidenceForQuery(client, '电子信息工程去哪个教学区上课'), [])
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('explicit teaching-location knowledge answers the matching major only', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-teaching-location-evidence-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO assistant_knowledge_entries (
+        id, kind, category, title, question, answer, keywords_json,
+        public_url, confidence, source_note, is_active, imported_at, created_at, updated_at
+      ) VALUES (
+        'electronics-teaching-area', 'student_experience', '专业', '电子信息工程上课地点',
+        '电子信息工程新生在哪个教学区上课？', '电子信息工程课程主要在旧区的教学楼安排。',
+        '["电子信息工程","上课地点","旧区"]', NULL, 92, 'test', 1, ?, ?, ?
+      )
+    `).run(now, now, now)
+
+    const response = await answerCampusQuestion(client, '电子信息工程新生以后在哪个教学区上课', emptyAssistantConfig)
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.match(response.answer, /旧区/)
+    assert.equal(response.citations[0]?.title, '电子信息工程上课地点')
+
+    const otherMajor = await answerCampusQuestion(client, '计算机科学与技术新生以后在哪个教学区上课', emptyAssistantConfig)
+    assert.doesNotMatch(otherMajor.answer, /电子信息工程课程主要在旧区/)
+    assert.match(otherMajor.answer, /没有找到|无法确认|不能直接确认/)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

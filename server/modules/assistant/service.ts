@@ -233,7 +233,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v23-focused-topic-synthesis-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v24-fast-exact-location-cache'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -1802,6 +1802,36 @@ function placeLocationLocalAnswer(
   }
 }
 
+function teachingLocationLocalAnswer(
+  query: string,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse | null {
+  if (!isTeachingLocationQuery(query)) return null
+  const major = knownMajorNameForQuery(query)
+  if (!major) return null
+  const primary = evidence.find((item) => {
+    const text = `${item.title} ${item.snippet} ${item.text}`
+    return text.includes(major) && TEACHING_LOCATION_EVIDENCE_RE.test(text)
+  })
+  if (!primary) return null
+
+  const relevantSentence = primary.snippet
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[。！？；])/u)
+    .map(item => item.trim())
+    .find(item => item.includes(major) && TEACHING_LOCATION_EVIDENCE_RE.test(item))
+  const answer = safeText(relevantSentence || primary.snippet, 360)
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = primary
+  return {
+    query,
+    mode: 'local',
+    answer: `现有站内资料显示：${answer}具体教室和课程安排仍以课表及学院当学期通知为准。`,
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 0.9
+  }
+}
+
 function isSpecificDirectoryFeatureQuery(query: string): boolean {
   if (!/(?:社团|协会|学生组织|部门|办公室)/u.test(query)) return false
   const subject = normalizeAssistantQuery(query)
@@ -2317,6 +2347,7 @@ export function retrieveCampusEvidence(
   limit = 6
 ): AssistantEvidence[] {
   const terms = assistantQueryTerms(query)
+  const teachingLocationQuery = isTeachingLocationQuery(query)
   const featureEvidence = featureEvidenceForQuery(query, limit)
   if (terms.length === 0) return featureEvidence
 
@@ -2446,7 +2477,14 @@ export function retrieveCampusEvidence(
   const seedEvidence = seedCatalogEvidenceForQuery(query, limit)
   const studentRuleEvidence = studentRuleEvidenceForQuery(query, limit)
   const assistantKnowledgeEvidence = assistantKnowledgeEvidenceForQuery(client, query, limit)
-  const compiledKnowledgeEvidence: AssistantEvidence[] = searchPublishedKnowledgeClaims(client, terms, limit)
+  const compiledKnowledgeEvidence: AssistantEvidence[] = searchPublishedKnowledgeClaims(
+    client,
+    terms,
+    limit,
+    Date.now(),
+    false,
+    !teachingLocationQuery
+  )
     .map(item => ({
       title: item.title,
       url: item.url,
@@ -2456,7 +2494,13 @@ export function retrieveCampusEvidence(
       text: item.statement,
       score: item.score
     }))
-  const officialDocumentEvidence: AssistantEvidence[] = searchOfficialKnowledgeDocuments(client, terms, limit, query)
+  const officialDocumentEvidence: AssistantEvidence[] = searchOfficialKnowledgeDocuments(
+    client,
+    terms,
+    limit,
+    query,
+    !teachingLocationQuery
+  )
     .map(item => ({
       title: item.title,
       url: item.url,
@@ -3590,7 +3634,7 @@ export function cachedWebEvidenceForQuery(
     .filter(item => item.score >= 2)
     .sort((left, right) => right.score - left.score)
     .slice(0, limit)
-  if (assistantIdentitySubject(query)) {
+  if (assistantIdentitySubject(query) || isTeachingLocationQuery(query)) {
     return rankAssistantEvidence(retrievalQuery, relevant.map(({ citation, score }) => ({
       ...citation,
       text: `${citation.title} ${citation.snippet}`,
@@ -4270,7 +4314,10 @@ export async function answerCampusQuestion(
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
     const deterministicPlaceAnswer = placeLocationLocalAnswer(query, localEvidence)
-    const deterministicKnowledgeAnswer = assistantKnowledgeLocalAnswer(client, query)
+    const deterministicTeachingLocationAnswer = teachingLocationLocalAnswer(query, localEvidence)
+    const deterministicKnowledgeAnswer = isTeachingLocationQuery(query)
+      ? null
+      : assistantKnowledgeLocalAnswer(client, query)
     // For identity queries ("X是谁"), only suppress web search when we have a
     // dedicated high-confidence profile entry (≥0.9). Any other local signal
     // (title match, localEvidenceIsSufficient, etc.) must not block web search
@@ -4283,6 +4330,7 @@ export async function answerCampusQuestion(
     if (blockWebSearch && (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
       deterministicCollegeAnswer
       || deterministicPlaceAnswer
+      || deterministicTeachingLocationAnswer
       || deterministicMajorDormAnswer
       || deterministicCampusAnswer
       || deterministicKnowledgeAnswer
@@ -4414,7 +4462,7 @@ export async function answerCampusQuestion(
     )
     const identitySubject = assistantIdentitySubject(query)
     const deterministicIdentityAnswer = identityLocalAnswer(query, localEvidence)
-    const deterministicKnowledgeAnswer = identitySubject
+    const deterministicKnowledgeAnswer = identitySubject || isTeachingLocationQuery(query)
       ? null
       : assistantKnowledgeLocalAnswer(client, query)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
@@ -4422,6 +4470,7 @@ export async function answerCampusQuestion(
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
     const deterministicPlaceAnswer = placeLocationLocalAnswer(query, localEvidence)
+    const deterministicTeachingLocationAnswer = teachingLocationLocalAnswer(query, localEvidence)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
       tracker,
@@ -4437,6 +4486,7 @@ export async function answerCampusQuestion(
             : deterministicPlaceAnswer
               ?? deterministicCollegeAnswer
               ?? deterministicMajorDormAnswer
+              ?? deterministicTeachingLocationAnswer
               ?? deterministicIdentityAnswer
               ?? deterministicCampusAnswer
               ?? deterministicKnowledgeAnswer

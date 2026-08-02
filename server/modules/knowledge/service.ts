@@ -444,7 +444,8 @@ export function searchOfficialKnowledgeDocuments(
   client: DatabaseClient,
   terms: string[],
   limit = 8,
-  rawQuery = ''
+  rawQuery = '',
+  allowLikeFallback = true
 ): OfficialDocumentMatch[] {
   const searchableTerms = [...new Set(terms.map(term => term.trim().toLocaleLowerCase('zh-CN')).filter(term => term.length >= 2))]
   const documentIndexTerms = new Set<string>(searchableTerms.slice(0, 12))
@@ -491,7 +492,7 @@ export function searchOfficialKnowledgeDocuments(
       LIMIT ?
     `).all(query, Math.max(12, Math.min(120, limit * 10))) as SearchRow[]
       : []
-    if (rows.length === 0) {
+    if (rows.length === 0 && allowLikeFallback) {
       const likeTerms = searchableTerms.slice(0, 6)
       const matches = likeTerms.map(() => '(kd.title LIKE ? ESCAPE \'\\\' OR kd.extracted_text LIKE ? ESCAPE \'\\\')').join(' OR ')
       const values = likeTerms.flatMap((term) => {
@@ -599,7 +600,8 @@ export function searchPublishedKnowledgeClaims(
   terms: string[],
   limit = 8,
   now = Date.now(),
-  titleOnly = false
+  titleOnly = false,
+  allowLikeFallback = true
 ): PublishedKnowledgeMatch[] {
   const query = ftsQuery(terms)
   if (!query) return []
@@ -635,7 +637,7 @@ export function searchPublishedKnowledgeClaims(
   } catch {
     rows = []
   }
-  if (rows.length === 0) {
+  if (rows.length === 0 && allowLikeFallback) {
     const likeTerms = [...new Set(terms.map(term => term.trim()).filter(term => term.length >= 2))].slice(0, 8)
     if (likeTerms.length > 0) {
       // Identity lookups usually have a name in the title. When the FTS
