@@ -78,6 +78,7 @@ useSeoMeta({
 })
 
 const route = useRoute()
+const mapHeaderTitle = useState<string>('map-header-title', () => '')
 // Temporarily keep the official floor-plan data available without exposing a
 // public entry point. Re-enable this switch when the plan is ready to return.
 const OFFICIAL_PLAN_ENTRY_VISIBLE = false
@@ -213,6 +214,9 @@ const selectedPoi = computed(() => resolveSelectedPublicMapPlace({
   nativeSearchResults: nativeSearchResults.value,
   selectedPoiId: selectedPoiId.value
 }))
+watch([selectedPoi, selectedArea], ([poi, area]) => {
+  mapHeaderTitle.value = poi?.name ?? area?.name ?? ''
+}, { immediate: true })
 const returnPath = computed(() => safeLocalPath(route.query.from))
 
 function placeDetailsTarget(poi: PublicMapPlace) {
@@ -466,9 +470,16 @@ function finishMobileSheetDrag(pointerId?: number): void {
 }
 
 function handleMobileSheetPointerDown(event: PointerEvent): void {
-  if (mobileSheetState.value === 'collapsed' || mobileSheetDragging.value) return
+  if (!event.isPrimary || mobileSheetState.value === 'collapsed' || mobileSheetDragging.value) return
   const target = event.target
-  if (target instanceof HTMLElement && target.closest('button, a, input, textarea, select')) return
+  const explicitDragHandle = target instanceof HTMLElement
+    ? target.closest('[data-sheet-drag-handle]')
+    : null
+  if (
+    !explicitDragHandle
+    && target instanceof HTMLElement
+    && target.closest('button, a, input, textarea, select')
+  ) return
   const sheet = mobileSheetElement.value
   if (!sheet) return
 
@@ -569,6 +580,7 @@ const { cancelMapRouteSync } = useMapRouteSync({
 })
 
 onBeforeUnmount(() => {
+  mapHeaderTitle.value = ''
   cancelMapRouteSync()
   cancelNativeSearch()
   clearWalkingRoute()
@@ -601,21 +613,23 @@ onBeforeUnmount(() => {
       @lostpointercapture="finishMobileSheetDrag()"
     >
       <div
-        class="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] px-4 md:hidden"
+        data-sheet-drag-zone
+        class="relative flex h-14 shrink-0 touch-none cursor-ns-resize items-center justify-between gap-2 border-b border-[var(--line)] px-3 md:hidden"
         @pointerdown="handleMobileSheetPointerDown"
       >
-        <div class="min-w-0">
-          <button
-            type="button"
-            class="mx-auto mb-2 block h-5 w-14 touch-none rounded-md p-2 text-zinc-400 active:bg-zinc-100 active:text-zinc-700"
-            aria-label="Drag place panel"
-            @pointerdown="handleMobileSheetPointerDown"
-          >
-            <span
-              aria-hidden="true"
-              class="block h-1 w-10 rounded-full bg-zinc-300"
-            />
-          </button>
+        <button
+          type="button"
+          data-sheet-drag-handle
+          class="absolute left-1/2 top-1 flex h-5 w-16 -translate-x-1/2 touch-none items-center justify-center rounded-md text-zinc-400 active:bg-zinc-100 active:text-zinc-700"
+          aria-label="上下拖动地点面板"
+          @pointerdown="handleMobileSheetPointerDown"
+        >
+          <span
+            aria-hidden="true"
+            class="block h-1 w-10 rounded-full bg-zinc-300"
+          />
+        </button>
+        <div class="min-w-0 pt-3">
           <p class="truncate text-sm font-semibold text-zinc-900">
             地点列表 · {{ filteredPois.length }}
           </p>
@@ -630,7 +644,8 @@ onBeforeUnmount(() => {
               icon="i-lucide-chevrons-down"
               color="neutral"
               variant="ghost"
-              class="size-11"
+              size="xs"
+              class="size-9"
               aria-label="全隐藏地点面板"
               :aria-pressed="mobileSheetState === 'collapsed'"
               @click="() => { mobileSheetState = 'collapsed' }"
@@ -641,7 +656,8 @@ onBeforeUnmount(() => {
               icon="i-lucide-minus"
               color="neutral"
               variant="ghost"
-              class="size-11"
+              size="xs"
+              class="size-9"
               aria-label="半屏显示地点面板"
               :aria-pressed="mobileSheetState === 'half'"
               @click="() => { mobileSheetState = 'half' }"
@@ -652,7 +668,8 @@ onBeforeUnmount(() => {
               icon="i-lucide-chevrons-up"
               color="neutral"
               variant="ghost"
-              class="size-11"
+              size="xs"
+              class="size-9"
               aria-label="展开地点面板"
               :aria-pressed="mobileSheetState === 'expanded'"
               @click="() => { mobileSheetState = 'expanded' }"
@@ -662,10 +679,10 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        class="shrink-0 border-b border-[var(--line)] px-4 py-3 md:block md:px-5 md:py-4"
+        class="shrink-0 border-b border-[var(--line)] px-3 py-2 md:block md:px-5 md:py-4"
         :class="mobileSheetState === 'collapsed' ? 'hidden' : 'block'"
       >
-        <div class="flex items-start justify-between gap-3">
+        <div class="hidden items-start justify-between gap-3 md:flex">
           <div class="min-w-0">
             <p class="text-xs font-semibold text-green-700">
               校园地图
@@ -698,9 +715,9 @@ onBeforeUnmount(() => {
 
         <UInput
           v-model="searchQuery"
-          size="lg"
-          class="mt-3 min-h-11 w-full"
-          :ui="{ base: 'min-h-11' }"
+          size="md"
+          class="min-h-10 w-full md:mt-3 md:min-h-11"
+          :ui="{ base: 'min-h-10 md:min-h-11' }"
           icon="i-lucide-search"
           placeholder="搜索地点或附近商家"
           aria-label="搜索地图地点"
@@ -721,7 +738,7 @@ onBeforeUnmount(() => {
         </UInput>
 
         <div
-          class="mt-3 grid grid-cols-4 gap-1.5 md:flex md:overflow-x-auto md:pb-1"
+          class="mt-2 grid grid-cols-4 gap-1 md:mt-3 md:flex md:overflow-x-auto md:pb-1"
           aria-label="地点分类"
         >
           <UButton
@@ -732,7 +749,7 @@ onBeforeUnmount(() => {
             :color="activeCategory === category.id ? 'primary' : 'neutral'"
             :variant="activeCategory === category.id ? 'soft' : 'ghost'"
             size="xs"
-            class="min-h-11 min-w-0 justify-center px-1 md:shrink-0 md:px-2.5"
+            class="min-h-9 min-w-0 justify-center px-1 text-[11px] md:min-h-11 md:shrink-0 md:px-2.5 md:text-xs"
             :aria-pressed="activeCategory === category.id"
             @click="setCategory(category.id)"
           />
@@ -762,12 +779,12 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        class="items-center justify-between border-b border-[var(--line)] px-4 py-2 text-xs text-zinc-500 md:flex md:px-5"
+        class="items-center justify-between border-b border-[var(--line)] px-3 py-1 text-xs text-zinc-500 md:flex md:px-5 md:py-2"
         :class="mobileSheetState === 'collapsed' ? 'hidden md:flex' : 'flex'"
       >
         <span>{{ filteredPois.length }} 个地点</span>
         <button
-          class="min-h-11 min-w-11 px-2 font-medium text-green-700 hover:text-green-800"
+          class="min-h-9 min-w-11 px-2 font-medium text-green-700 hover:text-green-800 md:min-h-11"
           type="button"
           @click="fitToVisiblePois"
         >
@@ -787,12 +804,12 @@ onBeforeUnmount(() => {
           :key="poi.id"
           :ref="poiRowRef(poi.id)"
           type="button"
-          class="flex w-full items-center gap-3 border-b border-zinc-100 px-4 py-3 text-left transition hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 md:px-5"
+          class="flex w-full items-center gap-2.5 border-b border-zinc-100 px-3 py-2 text-left transition hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 md:gap-3 md:px-5 md:py-3"
           :class="selectedPoiId === poi.id ? 'bg-green-50' : 'bg-white'"
           @click="selectPoi(poi)"
         >
           <span
-            class="grid size-9 shrink-0 place-items-center rounded-md"
+            class="grid size-8 shrink-0 place-items-center rounded-md md:size-9"
             :class="selectedPoiId === poi.id ? 'bg-green-700 text-white' : 'bg-zinc-100 text-zinc-600'"
           >
             <UIcon
@@ -929,15 +946,15 @@ onBeforeUnmount(() => {
         </div>
         <div
           v-if="mapViewMode === 'geographic'"
-          class="pointer-events-auto flex flex-col gap-2"
+          class="pointer-events-auto flex flex-col divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200/90 bg-white/95 shadow-lg backdrop-blur"
         >
           <UTooltip text="地图显示设置">
             <UButton
               icon="i-lucide-layers-3"
               color="neutral"
-              variant="outline"
-              class="map-float-btn size-11"
-              :class="displaySettingsOpen ? 'ring-2 ring-green-600' : ''"
+              variant="ghost"
+              class="map-control-btn size-10 rounded-none md:size-11"
+              :class="displaySettingsOpen ? 'bg-green-50 text-green-800' : ''"
               aria-label="地图显示设置"
               :aria-expanded="displaySettingsOpen"
               @click="() => { displaySettingsOpen = !displaySettingsOpen }"
@@ -947,8 +964,8 @@ onBeforeUnmount(() => {
             <UButton
               icon="i-lucide-scan"
               color="neutral"
-              variant="outline"
-              class="map-float-btn size-11"
+              variant="ghost"
+              class="map-control-btn size-10 rounded-none md:size-11"
               aria-label="显示全部地点"
               @click="fitToVisiblePois"
             />
@@ -957,9 +974,9 @@ onBeforeUnmount(() => {
             <UButton
               icon="i-lucide-locate-fixed"
               color="neutral"
-              variant="outline"
+              variant="ghost"
               :loading="locating"
-              class="map-float-btn size-11"
+              class="map-control-btn size-10 rounded-none md:size-11"
               aria-label="定位到我的位置"
               @click="locateUser"
             />
@@ -1271,6 +1288,27 @@ onBeforeUnmount(() => {
 .map-workspace :deep(button.map-float-btn:disabled) {
   background: #ffffff !important;
   opacity: 0.75;
+}
+
+.map-workspace :deep(.map-control-btn),
+.map-workspace :deep(button.map-control-btn) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #27272a !important;
+}
+
+.map-workspace :deep(.map-control-btn:hover),
+.map-workspace :deep(button.map-control-btn:hover) {
+  background: #f4f4f5 !important;
+}
+
+.map-workspace :deep(.map-control-btn:focus-visible),
+.map-workspace :deep(button.map-control-btn:focus-visible) {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #15803d;
+  outline-offset: -2px;
 }
 
 .map-workspace :deep(.map-float-btn .iconify),

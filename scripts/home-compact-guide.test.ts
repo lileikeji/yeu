@@ -8,6 +8,9 @@ const componentSource = readFileSync(componentPath, 'utf8')
 const previewContentSource = readFileSync(resolve('data/compact-preview-content.ts'), 'utf8')
 const homeSource = readFileSync(resolve('app/pages/index.vue'), 'utf8')
 const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
+const panoramaSource = readFileSync(resolve('app/pages/panorama.vue'), 'utf8')
+const dormSource = readFileSync(resolve('app/pages/dorms.vue'), 'utf8')
+const transportSource = readFileSync(resolve('app/pages/transport.vue'), 'utf8')
 
 test('homepage switches between full and compact modes without a separate route entry', () => {
   assert.match(homeSource, /HomeCompactWechatGuide/)
@@ -43,8 +46,8 @@ test('compact cards open a content-first bottom sheet with a configurable source
   assert.match(componentSource, /item\.detailContent/)
   assert.match(componentSource, /https:\/\/doc\.sourl\.cc\/jkyxfu/)
   assert.match(componentSource, /label="打开小程序"/)
-  assert.match(componentSource, /https:\/\/www\.720yun\.com\/vr\/c66jOpeOOa3/)
-  assert.match(componentSource, /https:\/\/www\.yeu\.edu\.cn\/xydt\/list\.htm/)
+  assert.match(componentSource, /to="\/contact"/)
+  assert.match(componentSource, /aria-label="联系整理者"/)
 })
 
 test('single-link entries use the compact centered link preview', () => {
@@ -72,11 +75,35 @@ test('contact preview includes the existing organizer QR code', () => {
   assert.match(componentSource, /长按识别二维码/)
 })
 
+test('direct-open cards stay inside the guide before exposing third-party sources', () => {
+  for (const route of [
+    '/panorama?tour=campus',
+    '/panorama?tour=history',
+    '/map',
+    '/transport?origin=quanzhou-station',
+    '/transport?origin=quanzhou-east',
+    '/transport?origin=jinjiang-airport',
+    '/transport?origin=city-center',
+    '/dorms?type=ordinary',
+    '/dorms?type=comfort',
+    '/nearby'
+  ]) assert.match(componentSource, new RegExp(`to: '${route.replace(/[?]/gu, '\\?')}'`))
+
+  assert.match(panoramaSource, /route\.query\.tour === 'history'/)
+  assert.match(dormSource, /route\.query\.type === 'comfort'/)
+  assert.match(transportSource, /route\.query\.origin/)
+  assert.match(transportSource, /transitOriginIds\.has/)
+})
+
 test('every public subpage gets one shared back action', () => {
   assert.match(layoutSource, /v-if="!isHomePage"/)
   assert.match(layoutSource, /aria-label="返回上一步"/)
   assert.match(layoutSource, /window\.history\.state\?\.back/)
   assert.match(layoutSource, /router\.back\(\)/)
+})
+
+test('desktop home mode switch stays outside the main navigation space', () => {
+  assert.match(layoutSource, /md:static md:z-auto md:ml-auto md:shrink-0 md:translate-x-0 md:translate-y-0/)
 })
 
 test('wechat guide reads live catalogs and keeps direct web media', () => {

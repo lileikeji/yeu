@@ -116,8 +116,8 @@ test('map page is a thin shell over map-presentation util for labels and checkli
 })
 
 test('all map categories remain visible in a two-row mobile grid', () => {
-  assert.match(pageSource, /class="mt-3 grid grid-cols-4 gap-1\.5 md:flex md:overflow-x-auto md:pb-1"/)
-  assert.match(pageSource, /class="min-h-11 min-w-0 justify-center px-1 md:shrink-0 md:px-2\.5"/)
+  assert.match(pageSource, /class="mt-2 grid grid-cols-4 gap-1 md:mt-3 md:flex md:overflow-x-auto md:pb-1"/)
+  assert.match(pageSource, /class="min-h-9 min-w-0 justify-center px-1 text-\[11px\] md:min-h-11/)
   assert.equal(mapCategories.length, 8)
 })
 

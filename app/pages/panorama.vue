@@ -20,6 +20,7 @@ const BAIDU_CAMPUS_PANORAMA_HASH = '#panoid=646c1306d4d72bfa631809a2&panotype=in
 const BAIDU_CAMPUS_PANORAMA_URL = `https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6/@13204528,2871631,21z,87t,-16.6h${BAIDU_CAMPUS_PANORAMA_HASH}`
 const OFFICIAL_HISTORY_VR_URL = 'https://www.720yun.com/vr/c66jOpeOOa3'
 const OFFICIAL_ANNOUNCEMENT_URL = 'https://news.yeu.edu.cn/2023/0621/c704a39166/page.htm'
+const route = useRoute()
 
 useSeoMeta({
   title: '全景云游校园',
@@ -57,7 +58,7 @@ const tours: PanoramaTour[] = [
   }
 ]
 
-const activeTourId = ref<TourId>('campus')
+const activeTourId = ref<TourId>(route.query.tour === 'history' ? 'history' : 'campus')
 const viewerLoaded = ref(false)
 const viewerReady = ref(false)
 const viewerShell = ref<HTMLElement | null>(null)

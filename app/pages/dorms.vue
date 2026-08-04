@@ -1,6 +1,8 @@
 <script setup lang="ts">
 type DormId = 'ordinary' | 'comfort'
 
+const route = useRoute()
+
 interface DormTour {
   id: DormId
   name: string
@@ -57,7 +59,7 @@ const dormTours: DormTour[] = [
   }
 ]
 
-const activeDormId = ref<DormId>('ordinary')
+const activeDormId = ref<DormId>(route.query.type === 'comfort' ? 'comfort' : 'ordinary')
 const videoFailed = ref(false)
 const activeDorm = computed(() => (
   dormTours.find(item => item.id === activeDormId.value) ?? dormTours[0]!

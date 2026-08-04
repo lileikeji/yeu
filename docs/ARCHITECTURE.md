@@ -158,6 +158,8 @@ interface MapProvider {
 
 地图页面是跨模块业务状态的编排层：页面持有搜索输入、选点、provider 引用以及路线、原生搜索和 URL 同步之间的协作状态，但不再直接创建或挂载 provider。搜索词规范化、教学楼别名、地点/区域文本匹配等无副作用规则放在 `app/utils/map-search.ts`。图层显示设置和地点详情等纯展示界面放在 `app/components/map/`，通过类型化 props 和事件请求页面变更状态，不直接创建 provider、读取路由、访问剪贴板或持有地图 SDK 对象。`MapDisplaySettingsPanel`、`PlaceDetailsPanel` 与 `map-search.ts` 已按该规则拆出；详情组件用 `desktop` / `mobile` 变体复用同一数据契约，页面继续负责详情/纠错链接、复制和关闭后的状态同步。
 
+移动端地图头部不展示站点 Logo；`map-header-title` 共享状态只在用户选中地点或区域后显示对应名称，离开地图页时清空，避免旧地点污染其他页面。底部地点面板保留隐藏、半屏、展开三个吸附档位，拖拽手柄和标题空白区使用 Pointer Capture 与 `touch-action: none` 驱动真实高度，按钮、搜索框和筛选项不触发拖拽；结束手势后按最近高度吸附。移动端搜索、分类、计数和地点行使用紧凑间距，地点列表是唯一纵向滚动区。右上角显示设置、查看全部和定位按钮必须放在统一白色分组中，使用一致尺寸、分隔线和焦点态，不再叠加三个独立阴影按钮。
+
 浏览器定位与网页内步行路线由 `useMapGeolocation` 编排：composable 接收当前 provider 引用、provider ID 和通知函数，持有定位/路线状态并处理用户可见错误；`app/utils/map-geolocation.ts` 负责无 Vue 依赖的定位 Promise、显式 WGS84 起点转换、超时参数、路线摘要格式和 provider 路线调用。页面不得直接访问 `navigator.geolocation`，纯工具不得读取 Vue 状态或路由。
 
 高德当前视野原生搜索由 `useMapNativeSearch` 编排：composable 负责 320 ms 防抖、loading、失败归零和卸载取消，并使用纯工具提供的最新请求门禁；`app/utils/map-native-search.ts` 负责请求版本状态机、把供应商 `MapPoi` 转为仅会话可用、GCJ-02、非发布的 `PublicMapPlace`，以及按规范化名称、地址和目录搜索文本排除正式目录重复项。页面决定触发时机、自动选中和临时详情保留，但不得直接调用 `searchVisiblePois` 或持有搜索计时器/版本号。
@@ -347,7 +349,7 @@ AI 不是独立的数据源，而是站内检索和证据整理的编排层。�
 - 简洁模式由 `app/components/home/HomeCompactWechatGuide.vue` 渲染，数据只读取主站现有公开 API 与 `data/major-profiles.ts`，不复制一套静态数据库。公告、办事、指南、社团、部门、附近地点和阅读统计因此沿用主站实时发布结果。
 - 简洁模式按移动端小程序式信息流连续展示“新生常用入口、校园服务、迎新指南功能、直接打开、了解与反馈”五个核心区块；顶部使用四张同源图片轮播，常用入口为五列图标宫格，服务区使用带图横向卡片，工具、直达和反馈区使用双列紧凑卡片。账号、聊天、个人中心和隐藏平面图入口不在该模式中。
 - 18 个后台可控功能由 `managedEntryDefinitions` 建立唯一主入口映射：公开功能开关决定是否显示，`placement` 决定进入常用、入学阶段或校园服务区，`sortOrder` 决定区内顺序；管理员为指南、部门或社团发布的 `homeEntry` 继续按公开 API 的 `quick/services/more` 位置合入，避免简洁模式维护第二套后台数据。
-- 地图、全景、交通、清单、校规、AI 搜索和联系方式使用同源页面入口；宿舍普通型与舒适型实拍使用站内 `/media` 资源并设置 `playsinline`。简洁模式同时显示实时公告、内容数量、精选指南、专业住宿片区和周边地点，目录详情仍进入主站对应页面。
+- 地图、全景、交通、清单、校规、AI 搜索和联系方式使用同源页面入口；宿舍普通型与舒适型实拍由站内 `/dorms` 页面承载，页面内部再播放 `/media` 资源。简洁模式“直接打开”的 10 个入口也必须先进入站内 `/panorama`、`/map`、`/transport`、`/dorms` 或 `/nearby`，不得从首页直接跳往百度、高德、学校官网、政府网页或裸媒体文件；具体全景、来源和实时路线由站内详情页统一说明和管理。交通、宿舍与全景通过经过白名单校验的查询参数打开对应初始选项。简洁模式同时显示实时公告、内容数量、精选指南、专业住宿片区和周边地点，目录详情仍进入主站对应页面。
 - 公开首页依赖的前台功能配置接口必须在发布前完成数据库迁移。`frontend_feature_settings.placement` 与 `sort_order` 属于 0019 迁移，开发、预发布和生产均应先执行 `pnpm db:migrate`，再启动新 release；接口异常不得静默当作“全部关闭”。
 - 动态首页入口的图标必须同时出现在 `shared/client-bundle-icons.ts`，否则 provider:none 的生产构建会在浏览器显示空图标并产生控制台警告。
 - 简洁模式的入口卡片先打开预览，不直接离开首页。内容型入口使用固定 `72svh` 的底部半屏，标题和底部动作固定，中间正文允许触摸滚动但隐藏浏览器滚动条，并按“分段正文 -> 底部来源地址 -> 进入完整页面”展示；内置正文集中维护在 `data/compact-preview-content.ts` 并与即链 `edit=roommate` 预览逐项对齐。单链接入口使用独立的居中小弹窗，只显示“将跳转至”及可点击真实地址，不继承半屏高度、正文或底部动作。指向 `/contact` 的内容预览复用 `/images/contact-wechat.png` 展示整理者二维码。指南、部门、社团的后台首页入口仍可通过 `metadata.homeEntryContent` 配置分段正文、通过 `metadata.homeEntrySourceUrl` 配置独立来源地址；公开 API 对正文限制长度，对来源只返回安全的站内路径或公开 HTTP(S) URL，未配置来源时以当前详情页地址回退。简洁页顶部提供 `https://doc.sourl.cc/jkyxfu` 小程序入口，网页完整内容仍以主站公开 API 为唯一数据源。

@@ -4,6 +4,7 @@ const router = useRouter()
 const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
+const mapHeaderTitle = useState<string>('map-header-title', () => '')
 
 const desktopNavigation = [
   { label: '首页', to: '/', icon: 'i-lucide-house' },
@@ -68,6 +69,7 @@ function navigateBack(): void {
           @click="navigateBack"
         />
         <NuxtLink
+          v-if="!isMapPage"
           to="/"
           class="flex min-h-11 min-w-0 flex-none items-center gap-2"
           aria-label="迎新指南首页"
@@ -86,6 +88,14 @@ function navigateBack(): void {
             <span class="hidden shrink-0 text-[11px] font-medium text-zinc-500 sm:inline">学生整理 · 非官方</span>
           </span>
         </NuxtLink>
+
+        <p
+          v-else-if="mapHeaderTitle"
+          class="pointer-events-none absolute left-1/2 top-1/2 max-w-[42vw] -translate-x-1/2 -translate-y-1/2 truncate text-sm font-bold text-zinc-950 md:hidden"
+          aria-live="polite"
+        >
+          {{ mapHeaderTitle }}
+        </p>
 
         <nav
           class="hidden items-center gap-2 md:mr-auto md:ml-4 md:flex lg:gap-4"
@@ -106,7 +116,7 @@ function navigateBack(): void {
 
         <div
           v-if="isHomePage"
-          class="absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-2 rounded-md bg-zinc-100 p-0.5"
+          class="absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-2 rounded-md bg-zinc-100 p-0.5 md:static md:z-auto md:ml-auto md:shrink-0 md:translate-x-0 md:translate-y-0"
           aria-label="首页显示模式"
         >
           <button

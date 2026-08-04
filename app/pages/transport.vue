@@ -13,7 +13,20 @@ useSeoMeta({
   description: '查询泉州站、泉州东站、泉州晋江国际机场和泉州市区往返学校的公交与换乘方案。'
 })
 
-const selectedOrigin = ref<TransitOriginId>('quanzhou-station')
+const route = useRoute()
+const transitOriginIds = new Set<TransitOriginId>([
+  'quanzhou-station',
+  'quanzhou-east',
+  'jinjiang-airport',
+  'city-center',
+  'from-campus'
+])
+const requestedOrigin = typeof route.query.origin === 'string' ? route.query.origin : ''
+const selectedOrigin = ref<TransitOriginId>(
+  transitOriginIds.has(requestedOrigin as TransitOriginId)
+    ? requestedOrigin as TransitOriginId
+    : 'quanzhou-station'
+)
 const departureDestination = ref<Exclude<TransitOriginId, 'from-campus'>>('quanzhou-station')
 const visibleOptions = computed(() => transitOptionsForOrigin(selectedOrigin.value))
 const selectedOriginLabel = computed(() => campusTransitOrigins.find(item => item.id === selectedOrigin.value)?.label ?? '交通路线')
