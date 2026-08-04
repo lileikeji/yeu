@@ -40,6 +40,10 @@ import {
   containsPromptInjection,
   normalizeAssistantQuery
 } from '../../../shared/utils/assistant-query'
+import {
+  canonicalCampusPlaceForQuery,
+  expandCampusSearchTerms
+} from '../../../shared/utils/campus-search-aliases'
 import type { DatabaseClient } from '../../database/client'
 import {
   assistantAnswerCache,
@@ -179,6 +183,12 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   学费: ['缴费', '收费', '资助', '助学贷款'],
   助学贷: ['助学贷款', '生源地贷款', '助学贷款申请'],
   报到: ['入学', '注册', '迎新'],
+  班级: ['所在班级', '查询班级', '分班', '编班', '迎新系统'],
+  分班: ['班级', '所在班级', '编班', '迎新系统'],
+  编班: ['班级', '所在班级', '分班', '迎新系统'],
+  迎新系统: ['新生报到', '预报名', '所在班级', '编班查询'],
+  泽川: ['泽钏教学楼', '泽钏楼', '泽川楼'],
+  泽钏: ['泽钏教学楼', '泽钏楼', '泽川楼'],
   校园网: ['网络', '上网', '宽带'],
   校园卡: ['校园一卡通', '一卡通', '学生卡', '充值', '门禁', '校内消费'],
   一卡通: ['校园一卡通', '校园卡', '学生卡', '充值', '门禁', '校内消费'],
@@ -277,7 +287,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v35-query-intent-fallback-cache'
+const ASSISTANT_CACHE_VERSION = 'rag-v36-class-lookup-place-aliases'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -305,7 +315,7 @@ export function hardcodedAssistantFactIsCurrent(
   return now < VERIFIED_FACT_VALID_UNTIL[fact]
 }
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
-const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|教材|课本|二手书|材料费|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|团委|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
+const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|班级|编班|分班|迎新系统|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|教材|课本|二手书|材料费|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|团委|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|泽川|泽钏|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 // The general route is deliberately allow-listed. Unknown questions are searched
 // first so a missed campus synonym cannot silently become a zero-evidence answer.
@@ -662,6 +672,7 @@ export function assistantQueryTerms(value: string): string[] {
   const longPhraseTerms = [...phraseTerms].filter(term => term.length > 16)
   const terms = [
     ...identityTerms,
+    ...expandCampusSearchTerms(value).map(item => item.toLocaleLowerCase('zh-CN')),
     ...tailChunks,
     ...focusedPhraseTerms,
     ...expansionTerms,
@@ -1479,9 +1490,10 @@ export function assistantRetrievalQuery(value: string): string {
 function assistantIntentDetail(query: string, retrievalQuery: string): string {
   if (isDormBedDimensionQuery(query)) return '识别为：宿舍床与床垫尺寸'
   if (isClassScheduleQuery(query)) return '识别为：学校作息与具体节次'
+  if (isFreshmanClassLookupQuery(query)) return '识别为：新生所在班级查询'
   if (majorCurriculumNameForQuery(query)) return '识别为：专业培养方案与课程'
   if (isHardshipRecognitionQuery(query)) return '识别为：家庭经济困难学生认定'
-  if (isPlaceLocationQuery(query)) return '识别为：校内地点定位'
+  if (isPlaceLocationQuery(query) || canonicalCampusPlaceForQuery(query)) return '识别为：校内地点定位'
   if (isFeatureSeekingQuery(query)) return '识别为：查找站内功能入口'
   return `检索问题：${safeText(retrievalQuery, 80)}`
 }
@@ -1771,6 +1783,58 @@ function isPlaceLocationQuery(query: string): boolean {
     && !/(?:功能|入口|页面).{0,4}(?:在哪|哪里)|(?:在哪|哪里).{0,4}(?:功能|入口|页面)/.test(normalized)
 }
 
+function compactPlaceText(value: string): string {
+  return normalizeAssistantQuery(value)
+    .toLocaleLowerCase('zh-CN')
+    .replace(/[\p{P}\p{S}\s]/gu, '')
+}
+
+function placeNameMatchesQuery(placeName: string, query: string): boolean {
+  const compactName = compactPlaceText(placeName)
+  const compactQuery = compactPlaceText(query)
+  const canonicalPlace = canonicalCampusPlaceForQuery(query)
+  if (canonicalPlace && compactName === compactPlaceText(canonicalPlace)) return true
+  return compactName.length >= 3 && compactQuery.includes(compactName)
+}
+
+function isFreshmanClassLookupQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const mentionsClass = /所在班级|查询班级|查班级|班级查询|分班查询|编班查询|新生分班|我在哪个班/.test(normalized)
+  const asksLookup = /怎么|如何|哪里|在哪|查询|查看|知道|哪个班/.test(normalized)
+  return mentionsClass && asksLookup
+}
+
+function freshmanClassLookupEvidenceForQuery(query: string): AssistantEvidence[] {
+  if (!isFreshmanClassLookupQuery(query)) return []
+  return [{
+    title: '新生班级查询',
+    url: '/procedures/arrival',
+    snippet: '新生编班和所在班级需在学校迎新系统开放后查询；尚未显示时，以班导或学院当届通知为准。',
+    source: 'site',
+    authority: 'reviewed_site',
+    text: '所在班级 查询班级 分班查询 编班查询 新生班级 迎新系统 新生报到 班导 学院通知',
+    score: 10_000
+  }]
+}
+
+function freshmanClassLookupLocalAnswer(
+  query: string,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse | null {
+  if (!isFreshmanClassLookupQuery(query)) return null
+  const entry = evidence.find(item => item.title === '新生班级查询')
+  if (!entry) return null
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = entry
+  return {
+    query,
+    mode: 'local',
+    answer: '新生的所在班级需要在学校迎新系统里查询。迎新系统开放并完成个人信息后，查看个人信息、报到信息或编班信息中的班级字段；如果暂时没有显示，通常是当届编班尚未发布，等班导或学院通知即可。请只从录取材料、学校当届通知或本站核验过的入口进入，不要在群聊里的陌生链接输入账号和验证码。',
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 0.96
+  }
+}
+
 function isTeachingLocationQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const asksLocation = /在哪|哪里|位置|哪个区|哪个教学区|哪一片|哪边|哪栋楼|去哪个/.test(normalized)
@@ -1803,10 +1867,7 @@ function exactPlaceEvidenceForQuery(
   client: DatabaseClient,
   query: string
 ): AssistantEvidence[] {
-  if (!isPlaceLocationQuery(query)) return []
-  const compactQuery = normalizeAssistantQuery(query)
-    .toLocaleLowerCase('zh-CN')
-    .replace(/[\p{P}\p{S}\s]/gu, '')
+  if (!isPlaceLocationQuery(query) && !canonicalCampusPlaceForQuery(query)) return []
   const rows = client.db.select({
     slug: places.slug,
     title: places.name,
@@ -1819,8 +1880,7 @@ function exactPlaceEvidenceForQuery(
 
   return rows
     .filter((row) => {
-      const name = row.title.toLocaleLowerCase('zh-CN').replace(/[\p{P}\p{S}\s]/gu, '')
-      return name.length >= 3 && compactQuery.includes(name)
+      return placeNameMatchesQuery(row.title, query)
     })
     .sort((left, right) => {
       const lengthDifference = right.title.length - left.title.length
@@ -1849,14 +1909,10 @@ function placeLocationLocalAnswer(
   query: string,
   evidence: AssistantEvidence[]
 ): ApiAssistantResponse | null {
-  if (!isPlaceLocationQuery(query)) return null
-  const compactQuery = normalizeAssistantQuery(query)
-    .toLocaleLowerCase('zh-CN')
-    .replace(/[\p{P}\p{S}\s]/gu, '')
+  if (!isPlaceLocationQuery(query) && !canonicalCampusPlaceForQuery(query)) return null
   const place = evidence.find((item) => {
     if (!item.url.startsWith('/map?place=')) return false
-    const name = item.title.toLocaleLowerCase('zh-CN').replace(/[\p{P}\p{S}\s]/gu, '')
-    return name.length >= 3 && compactQuery.includes(name)
+    return placeNameMatchesQuery(item.title, query)
   })
   if (!place) return null
   const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = place
@@ -3502,6 +3558,8 @@ function ensureGroundedLocalCitation(
 }
 
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
+  const classLookupAnswer = freshmanClassLookupLocalAnswer(query, evidence)
+  if (classLookupAnswer) return classLookupAnswer
   const placeLocationAnswer = placeLocationLocalAnswer(query, evidence)
   if (placeLocationAnswer) return placeLocationAnswer
   const collegeMajorsAnswer = collegeMajorsLocalAnswer(query)
@@ -4618,11 +4676,13 @@ export async function answerCampusQuestion(
     // them before opening the large knowledge tables; otherwise a cold SQLite
     // read can make a known answer look like a slow or failed search.
     const fastEvidence = [
+      ...freshmanClassLookupEvidenceForQuery(query),
       ...seedCatalogEvidenceForQuery(query, 4),
       ...campusOverviewEvidenceForQuery(query),
       ...studentRuleEvidenceForQuery(query, 4)
     ]
-    const fastDeterministicAnswer = studentRuleLocalAnswer(query, fastEvidence)
+    const fastDeterministicAnswer = freshmanClassLookupLocalAnswer(query, fastEvidence)
+      ?? studentRuleLocalAnswer(query, fastEvidence)
       ?? campusOverviewLocalAnswer(query, fastEvidence)
     const fastOpeningEvidence = isOpeningDateQuery(query)
       && hardcodedAssistantFactIsCurrent('openingSchedule2026')
@@ -4732,6 +4792,7 @@ export async function answerCampusQuestion(
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
     const deterministicPlaceAnswer = placeLocationLocalAnswer(query, localEvidence)
+    const deterministicClassLookupAnswer = freshmanClassLookupLocalAnswer(query, localEvidence)
     const deterministicTeachingLocationAnswer = teachingLocationLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = isTeachingLocationQuery(query)
       ? null
@@ -4747,6 +4808,7 @@ export async function answerCampusQuestion(
     const blockWebSearch = !identitySubject || hasExplicitIdentityProfile
     if (blockWebSearch && (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
       deterministicCollegeAnswer
+      || deterministicClassLookupAnswer
       || deterministicPlaceAnswer
       || deterministicTeachingLocationAnswer
       || deterministicMajorDormAnswer
@@ -4890,6 +4952,7 @@ export async function answerCampusQuestion(
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
     const deterministicPlaceAnswer = placeLocationLocalAnswer(query, localEvidence)
+    const deterministicClassLookupAnswer = freshmanClassLookupLocalAnswer(query, localEvidence)
     const deterministicTeachingLocationAnswer = teachingLocationLocalAnswer(query, localEvidence)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
@@ -4903,7 +4966,8 @@ export async function answerCampusQuestion(
         const deterministicResponse = historicalTransferAnswer
           ?? (analysis.requiresSpecificWebEvidence
             ? dormBedEvidenceGapResponse(query, localEvidence)
-            : deterministicPlaceAnswer
+            : deterministicClassLookupAnswer
+              ?? deterministicPlaceAnswer
               ?? deterministicCollegeAnswer
               ?? deterministicMajorDormAnswer
               ?? deterministicTeachingLocationAnswer

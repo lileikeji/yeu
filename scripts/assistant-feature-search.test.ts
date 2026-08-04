@@ -68,6 +68,25 @@ test('feature catalog resolves natural function-finding questions', () => {
   assert.equal(searchSystemFeatures('普通宿舍内部视频在哪看')[0]?.id, 'dorm-tours')
   assert.equal(searchSystemFeatures('给个学校地图')[0]?.id, 'campus-map')
   assert.equal(searchSystemFeatures('请问可以给个学校的平面图吗')[0]?.id, 'campus-map')
+  assert.equal(searchSystemFeatures('所在班级怎么查询')[0]?.id, 'freshman-class-lookup')
+})
+
+test('assistant answers freshman class lookup from the welcome-system rule without web search', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-class-lookup-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '所在班级怎么查询', emptyAssistantConfig)
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.equal(response.usedWebSearch, false)
+    assert.match(response.answer, /迎新系统/)
+    assert.equal(response.citations[0]?.url, '/procedures/arrival')
+    assert.ok(response.trace?.some(step => step.stage === 'local_database'))
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('assistant resolves command-style map requests to the same local feature', async () => {
@@ -121,6 +140,36 @@ test('assistant prioritizes an exact published place over a related registration
     assert.match(response.answer, /已在校园地图中精确标注/)
     assert.doesNotMatch(response.answer, /专业暂列|报到专业/)
     assert.equal(response.citations[0]?.url, '/map?place=puzhao-hall')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('assistant resolves the common 泽川 spelling to 泽钏教学楼', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-place-alias-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO places (
+        id, slug, name, summary, body, scope, type, address, campus_area,
+        longitude, latitude, coordinate_system, coordinate_verification,
+        status, created_at, updated_at
+      ) VALUES (
+        'zechuan-building', 'zechuan-building', '泽钏教学楼', '工程技术学院常用教学楼。', '',
+        'campus', 'building', '第三教学区泽钏教学楼', '新区',
+        118.1, 25.1, 'GCJ-02', 'verified', 'published', ?, ?
+      )
+    `).run(now, now)
+    for (const query of ['泽川', '泽川楼在哪里']) {
+      const response = await answerCampusQuestion(client, query, emptyAssistantConfig)
+      assert.equal(response.retrievalPath, 'local_database')
+      assert.match(response.answer, /泽钏教学楼已在校园地图中精确标注/)
+      assert.equal(response.citations[0]?.url, '/map?place=zechuan-building')
+    }
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

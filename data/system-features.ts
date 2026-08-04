@@ -81,6 +81,17 @@ export const systemFeatures: SystemFeature[] = [
     keywords: ['新生报到', '入学报到', '什么时候开学', '报到材料', '到校流程', '注册报到']
   },
   {
+    id: 'freshman-class-lookup',
+    title: '新生班级查询',
+    summary: '新生编班和所在班级在学校迎新系统开放后查询；尚未显示时，以班导或学院当届通知为准。',
+    to: '/procedures/arrival',
+    icon: 'i-lucide-users-round',
+    keywords: [
+      '所在班级怎么查询', '查询所在班级', '我在哪个班', '怎么查班级', '查询班级',
+      '班级查询', '分班查询', '编班查询', '新生分班', '迎新系统查班级'
+    ]
+  },
+  {
     id: 'campus-network',
     title: '校园网办理与排障',
     summary: '查看校园网覆盖、连接步骤、账号异常和校外访问说明。',

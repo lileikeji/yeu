@@ -290,6 +290,18 @@ export const verifiedNewStudentFaqKnowledge: AssistantKnowledgeSeed[] = [
 
 export const userVerifiedNewStudentExperienceKnowledge: AssistantKnowledgeSeed[] = [
   {
+    id: 'experience-freshman-class-lookup',
+    kind: 'student_experience',
+    category: '迎新',
+    title: '新生所在班级查询',
+    question: '所在班级怎么查询？新生怎么知道自己在哪个班？',
+    answer: '新生的编班和所在班级需要在学校迎新系统开放后查询。进入迎新系统并完成个人信息后，查看个人信息、报到信息或编班信息里的班级字段；如果暂时没有显示，通常是当届编班尚未发布，等待班导或学院通知即可。只从录取材料、学校当届通知或本站核验过的入口进入，不要在陌生链接输入账号、验证码。',
+    keywords: ['所在班级怎么查询', '查询所在班级', '我在哪个班', '怎么查班级', '查询班级', '班级查询', '分班查询', '编班查询', '新生分班', '迎新系统查班级'],
+    publicUrl: '/procedures/arrival',
+    confidence: 96,
+    sourceNote: '用户于2026-08-05确认当前新生班级在迎新系统查询；系统开放状态和显示时间以当届页面、班导或学院通知为准。'
+  },
+  {
     id: 'experience-2026-comfort-dorm-booking',
     kind: 'student_experience',
     category: '宿舍',

@@ -123,6 +123,20 @@ test('punctuation-only search terms do not match the full catalog', () => {
   }
 })
 
+test('place search resolves 泽川 aliases to the official 泽钏教学楼 name', () => {
+  const fixture = createFixture()
+  try {
+    insertPlace(fixture.client, 'zechuan-building', '泽钏教学楼', '第三教学区教学楼', Date.now())
+    for (const query of ['泽川', '泽川楼']) {
+      const result = searchPublishedContent(fixture.client, query, 20)
+      assert.equal(result.items[0]?.id, 'zechuan-building')
+      assert.equal(result.items[0]?.title, '泽钏教学楼')
+    }
+  } finally {
+    fixture.cleanup()
+  }
+})
+
 test('a single Chinese character is a valid search term', () => {
   const fixture = createFixture()
   try {

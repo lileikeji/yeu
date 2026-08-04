@@ -13,6 +13,7 @@ import { getManagedContentKinds } from '../content/catalog-state'
 import { activePublicContentCondition } from '../content/visibility'
 import { activePublicProcedureCondition } from '../procedures/service'
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
+import { expandCampusSearchTerms } from '../../../shared/utils/campus-search-aliases'
 import { safeMetadata } from '../../utils/serializers'
 import { searchSystemFeatures } from '../../../data/system-features'
 
@@ -25,6 +26,10 @@ function matchScore(title: string, detail: string | null, search: string): numbe
   if (normalizedTitle.includes(normalizedSearch)) return 1
   if (normalizedDetail.includes(normalizedSearch)) return 2
   return 3
+}
+
+function bestMatchScore(title: string, detail: string | null, searches: string[]): number {
+  return Math.min(...searches.map(search => matchScore(title, detail, search)))
 }
 
 function publicMetadataSearchText(metadataJson: string): string {
@@ -64,6 +69,7 @@ export function searchPublishedContent(
   type?: PublicSearchResultType
 ): ApiSearchResponse {
   const search = cleanSearchTerm(query)
+  const searchTerms = expandCampusSearchTerms(query)
   const managedKinds = getManagedContentKinds(client)
   const hasManagedContent = managedKinds.length > 0
   if (!search) {
@@ -84,11 +90,11 @@ export function searchPublishedContent(
         updatedAt: places.updatedAt
       }).from(places).where(and(
         eq(places.status, 'published'),
-        or(
-          like(places.name, `%${search}%`),
-          like(places.summary, `%${search}%`),
-          like(places.address, `%${search}%`)
-        )
+        or(...searchTerms.flatMap(term => [
+          like(places.name, `%${term}%`),
+          like(places.summary, `%${term}%`),
+          like(places.address, `%${term}%`)
+        ]))
       )).orderBy(desc(places.isFeatured), desc(places.updatedAt)).all()
     : []
 
@@ -107,20 +113,22 @@ export function searchPublishedContent(
         eq(contents.status, 'published'),
         activePublicContentCondition(now),
         contentKind ? eq(contents.kind, contentKind) : undefined,
-        or(
-          like(contents.title, `%${search}%`),
-          like(contents.summary, `%${search}%`),
-          like(contents.body, `%${search}%`),
-          like(contents.metadataJson, `%${search}%`)
-        )
+        or(...searchTerms.flatMap(term => [
+          like(contents.title, `%${term}%`),
+          like(contents.summary, `%${term}%`),
+          like(contents.body, `%${term}%`),
+          like(contents.metadataJson, `%${term}%`)
+        ]))
       )).orderBy(desc(contents.isFeatured), desc(contents.updatedAt)).all()
     : []
 
   const searchableContentRows = contentRows.flatMap((row) => {
     const metadataSearchText = publicMetadataSearchText(row.metadataJson)
     const detail = `${row.summary} ${row.body} ${metadataSearchText}`
-    return detail.toLocaleLowerCase('zh-CN').includes(search.toLocaleLowerCase('zh-CN'))
-      || row.title.toLocaleLowerCase('zh-CN').includes(search.toLocaleLowerCase('zh-CN'))
+    return searchTerms.some(term => (
+      detail.toLocaleLowerCase('zh-CN').includes(term.toLocaleLowerCase('zh-CN'))
+      || row.title.toLocaleLowerCase('zh-CN').includes(term.toLocaleLowerCase('zh-CN'))
+    ))
       ? [{ row, metadataSearchText }]
       : []
   })
@@ -160,7 +168,7 @@ export function searchPublishedContent(
         .where(inArray(procedureMaterials.procedureId, procedureIds))
         .all()
     : []
-  const normalizedSearch = search.toLocaleLowerCase('zh-CN')
+  const normalizedSearchTerms = searchTerms.map(term => term.toLocaleLowerCase('zh-CN'))
   const searchableProcedureRows = procedureRows.flatMap((row) => {
     const stepText = stepRows
       .filter(step => step.procedureId === row.id)
@@ -171,8 +179,10 @@ export function searchPublishedContent(
       .map(material => `${material.name} ${material.description}`)
       .join(' ')
     const detail = `${row.summary} ${row.body} ${row.statusText} ${stepText} ${materialText}`
-    return row.title.toLocaleLowerCase('zh-CN').includes(normalizedSearch)
-      || detail.toLocaleLowerCase('zh-CN').includes(normalizedSearch)
+    return normalizedSearchTerms.some(term => (
+      row.title.toLocaleLowerCase('zh-CN').includes(term)
+      || detail.toLocaleLowerCase('zh-CN').includes(term)
+    ))
       ? [{ row, detail }]
       : []
   })
@@ -188,7 +198,7 @@ export function searchPublishedContent(
       category: row.category,
       kind: null,
       updatedAt: new Date(row.updatedAt).toISOString(),
-      score: matchScore(row.title, `${row.summary} ${row.address ?? ''}`, search)
+      score: bestMatchScore(row.title, `${row.summary} ${row.address ?? ''}`, searchTerms)
     })),
     ...searchableContentRows.map(({ row, metadataSearchText }) => ({
       entityType: 'content' as const,
@@ -200,7 +210,7 @@ export function searchPublishedContent(
       category: row.category,
       kind: row.kind,
       updatedAt: new Date(row.updatedAt).toISOString(),
-      score: matchScore(row.title, `${row.summary} ${row.body} ${metadataSearchText}`, search)
+      score: bestMatchScore(row.title, `${row.summary} ${row.body} ${metadataSearchText}`, searchTerms)
     })),
     ...searchableProcedureRows.map(({ row, detail }) => ({
       entityType: 'procedure' as const,
@@ -212,7 +222,7 @@ export function searchPublishedContent(
       category: row.category,
       kind: null,
       updatedAt: new Date(row.updatedAt).toISOString(),
-      score: matchScore(row.title, detail, search)
+      score: bestMatchScore(row.title, detail, searchTerms)
     }))
   ]
     .sort((left, right) => left.score - right.score || right.updatedAt.localeCompare(left.updatedAt))
