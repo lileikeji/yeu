@@ -434,6 +434,6 @@
 - 做得不好的地方：第一次并行执行 `pnpm exec` 时触发依赖状态检查，与正在运行的开发进程争用 `.nuxt/types`；第一次独立构建又因命令会话过早超时留下无输出的孤立进程，需要重启受控构建。
 - 根因：本地 `pnpm` 在依赖链接异常时会自动执行 install/postinstall，而 Nuxt dev 正占用默认构建目录；长构建不能交给短超时 shell 会话，否则子进程可能继续运行但失去输出通道。
 - 后续避免：已有 `node_modules` 时用本地 Node 直接调用 `tsx`、ESLint 和 Nuxt CLI；并发开发期间始终为生产构建指定独立 `NUXT_BUILD_DIR`，长构建从一开始使用可等待的执行会话；前端数据完整性验收至少覆盖生产数量、分类切换、详情链接、空接口降级和移动端无横向溢出。
-- 验证环境与结果：定向测试 12 项通过，受影响文件 ESLint 通过，Nuxt typecheck 通过，隔离生产构建通过；本地 360px 宽度下 `scrollWidth === clientWidth`，无破图，办事流程分类显示 5 条且详情链接全部正确。云端发布与生产数量复查在本条后续补充。
-- 发布/回滚信息：待 Git 提交、推送和云端 release 原子切换后补充；本次无数据库迁移。
+- 验证环境与结果：定向测试 12 项通过，受影响文件 ESLint 通过，Nuxt typecheck 通过，隔离生产构建通过；本地 360px 宽度下 `scrollWidth === clientWidth`，无破图，办事流程分类显示 5 条且详情链接全部正确。云端隔离实例 `/api/health` 返回 `status=ok`、`database=ready`；公网 390px 移动端实测显示指南 9、流程 5、地点 76、社团 32、部门 27，分类可切换，地点详情入口正确，375px 内容区无横向溢出且无破图。
+- 发布/回滚信息：提交 `caeab58` 已推送并部署到 `/www/wwwroot/yeu/releases/20260805-021257-caeab58`；切换前数据库备份为 `/www/wwwroot/yeu/shared/backups/yeu-before-20260805-021257-caeab58.sqlite`，上一回滚版本为 `/www/wwwroot/yeu/releases/20260805-013324-f710b10`。本次无数据库迁移，`yeu.service` 已恢复 active。
 - 架构变化：简洁模式从“动态数量 + 少量指南样例”升级为“五类 API 实时目录 + 现有吃喝玩乐资料精选”，仍不新增数据表或写接口。
