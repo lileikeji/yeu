@@ -447,6 +447,18 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
       })
     }
   }
+  const homeEntrySourceUrl = value.homeEntrySourceUrl
+  if (homeEntrySourceUrl !== undefined
+    && homeEntrySourceUrl !== ''
+    && (typeof homeEntrySourceUrl !== 'string'
+      || (!isSafeLocalPagePath(homeEntrySourceUrl.trim())
+        && !isSafePublicHttpUrl(homeEntrySourceUrl.trim())))) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['homeEntrySourceUrl'],
+      message: 'homeEntrySourceUrl must be a safe local path or public http(s) URL'
+    })
+  }
   const sortOrder = value.sortOrder
   if (sortOrder !== undefined
     && sortOrder !== ''

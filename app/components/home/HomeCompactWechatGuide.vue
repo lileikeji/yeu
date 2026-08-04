@@ -39,6 +39,7 @@ interface CompactHomeEntry {
   title: string
   summary: string
   to: string
+  sourceUrl?: string | null
   icon: string
   placement: CompactPlacement
   sortOrder: number
@@ -82,6 +83,9 @@ const activeCatalogId = ref<CompactCatalogId>('guides')
 const expandedCatalogId = ref<CompactCatalogId | null>(null)
 const selectedNotice = ref<PublicNotice | null>(null)
 const noticeOpen = ref(false)
+const selectedEntry = ref<CompactHomeEntry | null>(null)
+const entrySheetOpen = ref(false)
+const runtimeConfig = useRuntimeConfig()
 let bannerTimer: ReturnType<typeof setInterval> | undefined
 
 const noticeRequest = useFetch<ApiListResponse<PublicNotice>>('/api/public/notices', {
@@ -546,6 +550,7 @@ const managedEntries = computed<CompactHomeEntry[]>(() => {
     title: item.title,
     summary: item.description,
     to: item.to,
+    sourceUrl: item.sourceUrl,
     icon: item.icon,
     placement: item.placement,
     sortOrder: item.sortOrder
@@ -603,6 +608,51 @@ function toggleCatalogExpansion(): void {
 
 function noticeActionHref(action: ApiNoticeAction): string | undefined {
   return safeNoticeActionHref(action.href) ?? undefined
+}
+
+const selectedEntrySourceHref = computed(() => (
+  selectedEntry.value?.sourceUrl || selectedEntry.value?.to || ''
+))
+const selectedEntrySourceLabel = computed(() => {
+  const href = selectedEntrySourceHref.value
+  if (!href) return ''
+  if (/^https?:\/\//i.test(href)) return href
+  const origin = String(runtimeConfig.public.siteUrl || 'https://yx.huiliyill.cn').replace(/\/$/, '')
+  return `${origin}${href.startsWith('/') ? href : `/${href}`}`
+})
+const selectedEntrySourceExternal = computed(() => /^https?:\/\//i.test(selectedEntrySourceHref.value))
+const selectedEntryHasSeparateSource = computed(() => Boolean(
+  selectedEntry.value?.sourceUrl
+  && selectedEntry.value.sourceUrl !== selectedEntry.value.to
+))
+
+function openEntry(entry: CompactHomeEntry): void {
+  selectedEntry.value = entry
+  entrySheetOpen.value = true
+}
+
+function openCatalogItem(item: CompactCatalogItem): void {
+  openEntry({
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    to: item.to,
+    icon: activeCatalog.value?.icon || 'i-lucide-book-open-text',
+    placement: 'more',
+    sortOrder: 0
+  })
+}
+
+function openNearbyItem(item: typeof nearbyGuideItems[number]): void {
+  openEntry({
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    to: `/nearby#guide-${encodeURIComponent(item.id)}`,
+    icon: item.icon,
+    placement: 'more',
+    sortOrder: 0
+  })
 }
 
 async function openNotice(notice: PublicNotice): Promise<void> {
@@ -772,12 +822,12 @@ onBeforeUnmount(() => {
           <span class="text-xs text-zinc-400">{{ quickEntries.length }} 项</span>
         </div>
         <div class="mt-3 grid grid-cols-5 gap-x-1 gap-y-4 sm:gap-x-3">
-          <NuxtLink
+          <button
             v-for="entry in quickEntries"
             :key="`quick-${entry.id}`"
-            :to="entry.to"
-            :external="entry.external"
+            type="button"
             class="flex min-w-0 flex-col items-center text-center"
+            @click="openEntry(entry)"
           >
             <span class="grid size-10 place-items-center rounded-md bg-sky-50 text-sky-700 sm:size-11">
               <UIcon
@@ -786,7 +836,7 @@ onBeforeUnmount(() => {
               />
             </span>
             <span class="mt-1.5 line-clamp-2 w-full text-[11px] font-semibold leading-4 text-zinc-700 sm:text-xs">{{ entry.title }}</span>
-          </NuxtLink>
+          </button>
         </div>
       </section>
 
@@ -804,12 +854,12 @@ onBeforeUnmount(() => {
           <span class="text-xs text-zinc-400">{{ serviceEntries.length }} 项</span>
         </div>
         <div class="mt-3 flex snap-x gap-2 overflow-x-auto pb-1 overscroll-x-contain">
-          <NuxtLink
+          <button
             v-for="entry in serviceEntries"
             :key="`service-${entry.id}`"
-            :to="entry.to"
-            :external="entry.external"
+            type="button"
             class="w-[48%] shrink-0 snap-start overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 sm:w-[32%]"
+            @click="openEntry(entry)"
           >
             <img
               v-if="serviceEntryImage(entry)"
@@ -833,7 +883,7 @@ onBeforeUnmount(() => {
               <h3 class="line-clamp-1 text-xs font-bold sm:text-sm">{{ entry.title }}</h3>
               <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-zinc-500">{{ entry.summary }}</p>
             </div>
-          </NuxtLink>
+          </button>
         </div>
       </section>
 
@@ -851,11 +901,12 @@ onBeforeUnmount(() => {
           <span class="text-xs text-zinc-400">{{ guideTools.length }} 项</span>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <NuxtLink
+          <button
             v-for="entry in guideTools"
             :key="entry.id"
-            :to="entry.to"
-            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5"
+            type="button"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 text-left"
+            @click="openEntry(entry)"
           >
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-bold">{{ entry.title }}</span>
@@ -865,7 +916,7 @@ onBeforeUnmount(() => {
               :name="entry.icon"
               class="size-4 shrink-0 text-emerald-700"
             />
-          </NuxtLink>
+          </button>
         </div>
         <div
           v-if="timelineEntries.length"
@@ -875,19 +926,19 @@ onBeforeUnmount(() => {
             入学三步
           </h3>
           <div class="mt-2 grid gap-2 sm:grid-cols-3">
-            <NuxtLink
+            <button
               v-for="(entry, index) in timelineEntries"
               :key="`timeline-${entry.id}`"
-              :to="entry.to"
-              :external="entry.external"
-              class="flex items-center gap-3 rounded-md border border-zinc-200 px-3 py-3"
+              type="button"
+              class="flex items-center gap-3 rounded-md border border-zinc-200 px-3 py-3 text-left"
+              @click="openEntry(entry)"
             >
               <span class="grid size-7 shrink-0 place-items-center rounded-full bg-zinc-900 text-xs font-bold text-white">{{ index + 1 }}</span>
               <span class="min-w-0">
                 <span class="block text-sm font-bold">{{ entry.title }}</span>
                 <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500">{{ entry.summary }}</span>
               </span>
-            </NuxtLink>
+            </button>
           </div>
         </div>
       </section>
@@ -906,11 +957,12 @@ onBeforeUnmount(() => {
           <span class="text-xs text-zinc-400">{{ directEntries.length }} 项</span>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <NuxtLink
+          <button
             v-for="entry in directEntries"
             :key="entry.id"
-            :to="entry.to"
-            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 hover:border-emerald-300"
+            type="button"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 text-left hover:border-emerald-300"
+            @click="openEntry(entry)"
           >
             <span class="min-w-0 flex-1">
               <span class="block line-clamp-1 text-sm font-bold">{{ entry.title }}</span>
@@ -920,7 +972,7 @@ onBeforeUnmount(() => {
               :name="entry.icon"
               class="size-4 shrink-0 text-sky-700"
             />
-          </NuxtLink>
+          </button>
         </div>
         <div
           v-if="featureEnabled('home.more.dorms')"
@@ -977,12 +1029,12 @@ onBeforeUnmount(() => {
           <span class="text-xs text-zinc-400">{{ moreEntries.length }} 项</span>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <NuxtLink
+          <button
             v-for="entry in moreEntries"
             :key="`more-${entry.id}`"
-            :to="entry.to"
-            :external="entry.external"
-            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 hover:border-emerald-300"
+            type="button"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 text-left hover:border-emerald-300"
+            @click="openEntry(entry)"
           >
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-bold">{{ entry.title }}</span>
@@ -992,7 +1044,7 @@ onBeforeUnmount(() => {
               :name="entry.icon"
               class="size-4 shrink-0 text-emerald-700"
             />
-          </NuxtLink>
+          </button>
         </div>
       </section>
 
@@ -1042,15 +1094,16 @@ onBeforeUnmount(() => {
           :key="activeCatalogId"
           class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"
         >
-          <NuxtLink
+          <button
             v-for="item in visibleCatalogItems"
             :key="item.id"
-            :to="item.to"
-            class="min-w-0 rounded-md border border-zinc-200 px-3 py-3 transition hover:border-emerald-300 hover:bg-emerald-50/30"
+            type="button"
+            class="min-w-0 rounded-md border border-zinc-200 px-3 py-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/30"
+            @click="openCatalogItem(item)"
           >
             <p class="line-clamp-2 text-sm font-bold leading-5">{{ item.title }}</p>
             <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ item.summary }}</p>
-          </NuxtLink>
+          </button>
         </div>
         <button
           v-if="(activeCatalog?.items.length ?? 0) > 10"
@@ -1127,11 +1180,12 @@ onBeforeUnmount(() => {
           />
         </div>
         <div class="mt-3 flex gap-2 overflow-x-auto pb-1 overscroll-x-contain">
-          <NuxtLink
+          <button
             v-for="item in nearbyHighlights"
             :key="item.id"
-            :to="`/nearby#guide-${encodeURIComponent(item.id)}`"
-            class="w-48 shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-white"
+            type="button"
+            class="w-48 shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-white text-left"
+            @click="openNearbyItem(item)"
           >
             <img
               v-if="item.image"
@@ -1154,10 +1208,81 @@ onBeforeUnmount(() => {
               <span class="mt-1 line-clamp-2 block text-sm font-bold leading-5">{{ item.title }}</span>
               <span class="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-500">{{ item.summary }}</span>
             </span>
-          </NuxtLink>
+          </button>
         </div>
       </section>
     </main>
+
+    <UModal
+      v-model:open="entrySheetOpen"
+      :title="selectedEntry?.title || '入口详情'"
+      description="先看说明，需要时再进入完整页面"
+      :ui="{
+        content: 'left-1/2 right-auto top-auto bottom-0 w-full max-w-3xl -translate-x-1/2 translate-y-0 rounded-t-2xl rounded-b-none max-h-[72dvh]',
+        header: 'relative px-5 pb-4 pt-6 sm:px-6',
+        body: 'overflow-y-auto px-5 py-5 sm:px-6',
+        footer: 'flex-col items-stretch gap-2 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:px-6'
+      }"
+    >
+      <template #body>
+        <article
+          v-if="selectedEntry"
+          class="space-y-5"
+        >
+          <div class="flex items-start gap-3">
+            <span class="grid size-11 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700">
+              <UIcon
+                :name="selectedEntry.icon"
+                class="size-5"
+              />
+            </span>
+            <p class="text-sm leading-7 text-zinc-700">
+              {{ selectedEntry.summary }}
+            </p>
+          </div>
+
+          <div class="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3">
+            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400">
+              来源地址
+            </p>
+            <NuxtLink
+              :to="selectedEntrySourceHref"
+              :external="selectedEntrySourceExternal"
+              :target="selectedEntrySourceExternal ? '_blank' : undefined"
+              :rel="selectedEntrySourceExternal ? 'noopener noreferrer' : undefined"
+              class="mt-1 block break-all text-sm font-semibold leading-6 text-emerald-700 underline decoration-emerald-200 underline-offset-4"
+            >
+              {{ selectedEntrySourceLabel }}
+            </NuxtLink>
+          </div>
+        </article>
+      </template>
+
+      <template #footer>
+        <UButton
+          v-if="selectedEntry"
+          :to="selectedEntry.to"
+          :external="selectedEntry.external"
+          :target="selectedEntry.external ? '_blank' : undefined"
+          :rel="selectedEntry.external ? 'noopener noreferrer' : undefined"
+          icon="i-lucide-arrow-up-right"
+          label="进入完整页面"
+          block
+        />
+        <UButton
+          v-if="selectedEntryHasSeparateSource"
+          :to="selectedEntrySourceHref"
+          :external="selectedEntrySourceExternal"
+          :target="selectedEntrySourceExternal ? '_blank' : undefined"
+          :rel="selectedEntrySourceExternal ? 'noopener noreferrer' : undefined"
+          icon="i-lucide-link"
+          label="查看来源"
+          color="neutral"
+          variant="outline"
+          block
+        />
+      </template>
+    </UModal>
 
     <UModal
       v-model:open="noticeOpen"

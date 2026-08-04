@@ -682,6 +682,15 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       },
       {
+        key: 'metadata.homeEntrySourceUrl',
+        label: '来源地址',
+        placeholder: '例如 https://example.com/source 或 /sources',
+        description: '可选。简洁模式半屏详情底部会显示这个来源入口；留空时显示当前页面地址。',
+        group: '首页入口配置',
+        span: 'full',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
+      },
+      {
         key: 'metadata.homeEntryIcon',
         label: '入口图标',
         placeholder: '例如 i-lucide-music-2',

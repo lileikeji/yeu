@@ -16,6 +16,28 @@ test('homepage switches between full and compact modes without a separate route 
   assert.match(homeSource, /useHomeMode\(\)/)
 })
 
+test('mobile header keeps the centered mode switch clear of action buttons', () => {
+  assert.match(layoutSource, /min-w-10[^"]*sm:min-w-12/)
+  assert.match(layoutSource, /hidden truncate text-base font-bold text-zinc-950 sm:inline/)
+  assert.match(layoutSource, /class="hidden min-h-10 min-w-10 sm:inline-flex/)
+})
+
+test('compact cards open a bottom sheet with a configurable source link', () => {
+  assert.match(componentSource, /entrySheetOpen/)
+  assert.match(componentSource, /@click="openEntry\(entry\)"/)
+  assert.match(componentSource, /max-h-\[72dvh\]/)
+  assert.match(componentSource, /来源地址/)
+  assert.match(componentSource, /selectedEntrySourceHref/)
+  assert.match(componentSource, /item\.sourceUrl/)
+})
+
+test('every public subpage gets one shared back action', () => {
+  assert.match(layoutSource, /v-if="!isHomePage"/)
+  assert.match(layoutSource, /aria-label="返回上一步"/)
+  assert.match(layoutSource, /window\.history\.state\?\.back/)
+  assert.match(layoutSource, /router\.back\(\)/)
+})
+
 test('wechat guide reads live catalogs and keeps direct web media', () => {
   assert.match(componentSource, /\/api\/public\/notices/)
   assert.match(componentSource, /usePublicProcedureList\(\)/)

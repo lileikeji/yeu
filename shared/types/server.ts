@@ -49,6 +49,7 @@ export interface ApiPublicHomeEntry {
   title: string
   description: string
   to: string
+  sourceUrl: string | null
   icon: string
   placement: 'quick' | 'services' | 'more'
   sortOrder: number

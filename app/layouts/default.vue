@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
+const router = useRouter()
 const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
@@ -30,6 +31,14 @@ function isActive(to: string) {
 function shareCurrentPage(): void {
   void sharePage()
 }
+
+function navigateBack(): void {
+  if (import.meta.client && window.history.state?.back) {
+    router.back()
+    return
+  }
+  void navigateTo('/')
+}
 </script>
 
 <template>
@@ -47,9 +56,20 @@ function shareCurrentPage(): void {
     >site index</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
       <div class="page-shell relative flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
+        <UButton
+          v-if="!isHomePage"
+          type="button"
+          icon="i-lucide-arrow-left"
+          label="返回"
+          color="neutral"
+          variant="ghost"
+          aria-label="返回上一步"
+          class="min-h-10 shrink-0 px-2 sm:px-3"
+          @click="navigateBack"
+        />
         <NuxtLink
           to="/"
-          class="flex min-h-11 min-w-0 flex-1 items-center gap-2 md:flex-none"
+          class="flex min-h-11 min-w-0 flex-none items-center gap-2"
           aria-label="迎新指南首页"
         >
           <span class="flex min-w-0 items-center gap-2">
@@ -62,7 +82,7 @@ function shareCurrentPage(): void {
                 decoding="async"
               >
             </span>
-            <span class="truncate text-base font-bold text-zinc-950">迎新指南</span>
+            <span class="hidden truncate text-base font-bold text-zinc-950 sm:inline">迎新指南</span>
             <span class="hidden shrink-0 text-[11px] font-medium text-zinc-500 sm:inline">学生整理 · 非官方</span>
           </span>
         </NuxtLink>
@@ -91,7 +111,7 @@ function shareCurrentPage(): void {
         >
           <button
             type="button"
-            class="inline-flex min-h-8 min-w-14 items-center justify-center rounded px-2.5 text-[11px] font-semibold transition"
+            class="inline-flex min-h-8 min-w-10 items-center justify-center rounded px-2 text-[11px] font-semibold transition sm:min-w-12 sm:px-2.5"
             :class="activeHomeMode === 'full' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
             :aria-pressed="activeHomeMode === 'full'"
             @click="setHomeMode('full')"
@@ -100,7 +120,7 @@ function shareCurrentPage(): void {
           </button>
           <button
             type="button"
-            class="inline-flex min-h-8 min-w-14 items-center justify-center rounded px-2.5 text-[11px] font-semibold transition"
+            class="inline-flex min-h-8 min-w-10 items-center justify-center rounded px-2 text-[11px] font-semibold transition sm:min-w-12 sm:px-2.5"
             :class="activeHomeMode === 'compact' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
             :aria-pressed="activeHomeMode === 'compact'"
             @click="setHomeMode('compact')"
@@ -117,7 +137,7 @@ function shareCurrentPage(): void {
             color="primary"
             variant="ghost"
             aria-label="联系我们"
-            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+            class="hidden min-h-10 min-w-10 sm:inline-flex md:min-h-11 md:min-w-11"
           >
             <span class="hidden lg:inline">联系我们</span>
           </UButton>

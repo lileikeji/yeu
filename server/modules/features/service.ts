@@ -7,6 +7,7 @@ import type { DatabaseClient } from '../../database/client'
 import { contents, frontendFeatureSettings } from '../../database/schema'
 import { activePublicContentCondition } from '../content/visibility'
 import { safeMetadata } from '../../utils/serializers'
+import { safeNoticeActionHref } from '../../../shared/utils/notice-actions'
 
 export interface FrontendFeatureStatus {
   key: FrontendFeatureKey
@@ -34,6 +35,7 @@ export interface PublicHomeEntry {
   title: string
   description: string
   to: string
+  sourceUrl: string | null
   icon: string
   placement: HomeEntryPlacement
   sortOrder: number
@@ -125,6 +127,7 @@ export function listPublicHomeEntries(client: DatabaseClient): PublicHomeEntry[]
       title,
       description,
       to: contentEntryPath(row.kind, row.slug),
+      sourceUrl: safeNoticeActionHref(metadata.homeEntrySourceUrl),
       icon,
       placement,
       sortOrder

@@ -120,6 +120,7 @@ test('published content can become a directly searchable home entry at a chosen 
         homeEntryPlacement: 'services',
         homeEntryTitle: '音乐协会入口',
         homeEntryDescription: '查看音乐协会介绍和招新信息。',
+        homeEntrySourceUrl: 'https://example.com/music-association',
         homeEntryIcon: 'i-lucide-music-2',
         homeEntrySortOrder: 12
       }),
@@ -133,6 +134,7 @@ test('published content can become a directly searchable home entry at a chosen 
       title: '音乐协会入口',
       description: '查看音乐协会介绍和招新信息。',
       to: '/clubs/music-association',
+      sourceUrl: 'https://example.com/music-association',
       icon: 'i-lucide-music-2',
       placement: 'services',
       sortOrder: 12
