@@ -188,39 +188,28 @@ const {
 <template>
   <div class="overflow-x-clip">
     <section class="border-b border-zinc-200 bg-white">
-      <div class="page-shell flex items-center justify-between gap-3 py-2.5">
-        <p class="hidden text-xs text-zinc-500 sm:block">
-          选择适合你的浏览方式
-        </p>
+      <div class="page-shell flex justify-center py-1.5">
         <div
-          class="ml-auto grid grid-cols-2 rounded-md bg-zinc-100 p-1"
+          class="grid grid-cols-2 rounded-md bg-zinc-100 p-0.5"
           aria-label="首页显示模式"
         >
           <button
             type="button"
-            class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition sm:min-w-28 sm:text-sm"
+            class="inline-flex min-h-8 min-w-16 items-center justify-center rounded px-3 text-xs font-semibold transition"
             :class="activeHomeMode === 'full' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
             :aria-pressed="activeHomeMode === 'full'"
             @click="setHomeMode('full')"
           >
-            <UIcon
-              name="i-lucide-layout-template"
-              class="size-4"
-            />
-            完整模式
+            完整
           </button>
           <button
             type="button"
-            class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition sm:min-w-28 sm:text-sm"
+            class="inline-flex min-h-8 min-w-16 items-center justify-center rounded px-3 text-xs font-semibold transition"
             :class="activeHomeMode === 'compact' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
             :aria-pressed="activeHomeMode === 'compact'"
             @click="setHomeMode('compact')"
           >
-            <UIcon
-              name="i-lucide-smartphone"
-              class="size-4"
-            />
-            简洁模式
+            简洁
           </button>
         </div>
       </div>

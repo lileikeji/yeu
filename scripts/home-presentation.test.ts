@@ -84,12 +84,21 @@ test('home essential actions and timeline keep freshman-first copy', () => {
   ])
   assert.deepEqual(actions.map(item => item.title), [
     '报到安排',
-    '专业与住宿片区',
-    '宿舍信息',
-    '校园地图与交通'
+    '校园地图',
+    '校园一卡通与网络',
+    '快递与外卖'
   ])
-  assert.equal(actions[2]?.description, '查询宿舍分配与入住须知')
-  assert.equal(actions[3]?.description, '查看校园地图与到校路线')
+  assert.deepEqual(
+    actions.map(item => [item.featureKey, item.to]),
+    [
+      ['home.essential.arrival', '/procedures/arrival'],
+      ['home.essential.map', '/map'],
+      ['home.essential.network', '/procedures/campus-network'],
+      ['home.essential.delivery', '/guides/express-delivery']
+    ]
+  )
+  assert.equal(actions[2]?.description, '查看校园网、校园卡和连接问题')
+  assert.equal(actions[3]?.description, '查看取件站点、外卖送达和取餐说明')
   assert.equal(findGuideSummary([], 'missing', 'fallback'), 'fallback')
   assert.equal(homeTimelineStages.length, 3)
   assert.equal(homeTimelineStages[0]?.to, '/procedures/arrival')

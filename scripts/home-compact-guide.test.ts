@@ -9,8 +9,8 @@ const homeSource = readFileSync(resolve('app/pages/index.vue'), 'utf8')
 
 test('homepage switches between full and compact modes without a separate route entry', () => {
   assert.match(homeSource, /HomeCompactWechatGuide/)
-  assert.match(homeSource, /完整模式/)
-  assert.match(homeSource, /简洁模式/)
+  assert.match(homeSource, />\s*完整\s*<\/button>/)
+  assert.match(homeSource, />\s*简洁\s*<\/button>/)
   assert.match(homeSource, /useCookie<'full' \| 'compact'>/)
 })
 
@@ -48,6 +48,8 @@ test('compact homepage exposes complete live catalog categories', () => {
 
   assert.match(componentSource, /contentCatalogs/)
   assert.match(componentSource, /visibleCatalogItems/)
+  assert.match(componentSource, /toggleCatalogExpansion/)
+  assert.match(componentSource, /展开其余/)
   assert.match(componentSource, /activeCatalogId/)
   assert.match(componentSource, /nearbyHighlights/)
   assert.match(componentSource, /\/places\/\$\{encodeURIComponent\(item\.slug\)\}/)
@@ -57,6 +59,13 @@ test('compact map and delivery entries use their matching backend feature switch
   assert.match(componentSource, /id: 'compact-map',[\s\S]*?featureKey: 'home\.essential\.map'/)
   assert.match(componentSource, /id: 'compact-delivery',[\s\S]*?featureKey: 'home\.essential\.delivery'/)
   assert.doesNotMatch(componentSource, /id: 'compact-major',[^}]*featureKey: 'home\.essential\.map'/)
+})
+
+test('full homepage essential entries use the same routes as their backend feature keys', () => {
+  const presentationSource = readFileSync(resolve('app/utils/home-presentation.ts'), 'utf8')
+  assert.match(presentationSource, /featureKey: 'home\.essential\.map',[\s\S]*?to: '\/map'/)
+  assert.match(presentationSource, /featureKey: 'home\.essential\.network',[\s\S]*?to: '\/procedures\/campus-network'/)
+  assert.match(presentationSource, /featureKey: 'home\.essential\.delivery',[\s\S]*?to: '\/guides\/express-delivery'/)
 })
 
 test('compact homepage follows the five-section mobile preview without nested tabs', () => {

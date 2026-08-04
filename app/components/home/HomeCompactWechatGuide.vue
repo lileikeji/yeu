@@ -74,6 +74,7 @@ interface CompactCatalog {
 const searchQuery = ref('')
 const activeBannerIndex = ref(0)
 const activeCatalogId = ref<CompactCatalogId>('guides')
+const expandedCatalogId = ref<CompactCatalogId | null>(null)
 const selectedNotice = ref<PublicNotice | null>(null)
 const noticeOpen = ref(false)
 let bannerTimer: ReturnType<typeof setInterval> | undefined
@@ -469,7 +470,14 @@ const activeCatalog = computed(() => (
   contentCatalogs.value.find(catalog => catalog.id === activeCatalogId.value)
   ?? contentCatalogs.value[0]
 ))
-const visibleCatalogItems = computed(() => activeCatalog.value?.items.slice(0, 10) ?? [])
+const visibleCatalogItems = computed(() => {
+  const items = activeCatalog.value?.items ?? []
+  return expandedCatalogId.value === activeCatalogId.value ? items : items.slice(0, 10)
+})
+const hiddenCatalogItemCount = computed(() => Math.max(
+  0,
+  (activeCatalog.value?.items.length ?? 0) - visibleCatalogItems.value.length
+))
 const nearbyHighlights = computed(() => [
   ...nearbyGuideItems.filter(item => item.image),
   ...nearbyGuideItems.filter(item => !item.image)
@@ -545,6 +553,22 @@ const moreEntries = computed(() => sortEntries([
   ...supplementalMoreEntries
 ]))
 
+function serviceEntryImage(entry: CompactHomeEntry): string | undefined {
+  if (entry.id === 'compact-panorama') return '/images/intro/yeu-campus-hero.webp'
+  return undefined
+}
+
+function selectCatalog(id: CompactCatalogId): void {
+  activeCatalogId.value = id
+  expandedCatalogId.value = null
+}
+
+function toggleCatalogExpansion(): void {
+  expandedCatalogId.value = expandedCatalogId.value === activeCatalogId.value
+    ? null
+    : activeCatalogId.value
+}
+
 function noticeActionHref(action: ApiNoticeAction): string | undefined {
   return safeNoticeActionHref(action.href) ?? undefined
 }
@@ -584,13 +608,13 @@ onBeforeUnmount(() => {
 <template>
   <div class="min-h-screen bg-[#f3f6f8] pb-10 text-zinc-900">
     <section class="border-b border-zinc-200 bg-white">
-      <div class="mx-auto max-w-3xl px-4 py-4 sm:px-6 sm:py-5">
+      <div class="mx-auto max-w-3xl px-4 py-2.5 sm:px-6 sm:py-3">
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <h1 class="truncate text-xl font-black text-zinc-950 sm:text-2xl">
+            <h1 class="truncate text-base font-black text-zinc-950 sm:text-lg">
               迎新指南
             </h1>
-            <p class="mt-1 text-xs text-zinc-500 sm:text-sm">
+            <p class="mt-0.5 truncate text-[11px] text-zinc-500 sm:text-xs">
               新生报到、校园生活与办事信息，一页快速找到
             </p>
           </div>
@@ -600,11 +624,12 @@ onBeforeUnmount(() => {
             color="neutral"
             variant="outline"
             aria-label="联系整理者"
-            class="min-h-10 shrink-0"
+            size="sm"
+            class="min-h-8 shrink-0"
           />
         </div>
         <form
-          class="mt-3 flex"
+          class="mt-2 flex"
           role="search"
           @submit.prevent="submitSearch"
         >
@@ -613,14 +638,14 @@ onBeforeUnmount(() => {
             icon="i-lucide-search"
             placeholder="搜专业、地点、办事，或直接提问"
             aria-label="搜索迎新信息"
-            size="lg"
+            size="md"
             class="min-w-0 flex-1"
           />
           <UButton
             type="submit"
             icon="i-lucide-arrow-right"
             aria-label="开始搜索"
-            class="min-h-11 rounded-l-none"
+            class="min-h-9 rounded-l-none"
           />
         </form>
       </div>
@@ -629,7 +654,7 @@ onBeforeUnmount(() => {
     <main class="mx-auto max-w-3xl space-y-4 px-3 py-3 sm:space-y-5 sm:px-6 sm:py-6">
       <section
         v-if="currentBanner"
-        class="relative isolate min-h-44 overflow-hidden rounded-md bg-zinc-900 text-white sm:min-h-56"
+        class="relative isolate aspect-[16/7] overflow-hidden rounded-md bg-zinc-900 text-white sm:aspect-[16/6]"
         aria-label="焦点内容"
       >
         <img
@@ -640,12 +665,12 @@ onBeforeUnmount(() => {
         <div class="absolute inset-0 bg-black/45" />
         <NuxtLink
           :to="currentBanner.to"
-          class="relative flex min-h-44 flex-col justify-end p-5 sm:min-h-56 sm:p-7"
+          class="relative flex size-full flex-col justify-end p-4 sm:p-6"
         >
           <p class="text-xs font-semibold text-emerald-200">
             2026 级新生
           </p>
-          <h2 class="mt-1 max-w-xl text-2xl font-black leading-tight sm:text-3xl">
+          <h2 class="mt-1 max-w-xl text-xl font-black leading-tight sm:text-2xl">
             {{ currentBanner.title }}
           </h2>
           <p class="mt-2 max-w-xl text-sm leading-6 text-white/90">
@@ -746,28 +771,36 @@ onBeforeUnmount(() => {
           </h2>
           <span class="text-xs text-zinc-400">{{ serviceEntries.length }} 项</span>
         </div>
-        <div class="mt-3 flex snap-x gap-3 overflow-x-auto pb-1 overscroll-x-contain">
+        <div class="mt-3 flex snap-x gap-2 overflow-x-auto pb-1 overscroll-x-contain">
           <NuxtLink
             v-for="entry in serviceEntries"
             :key="`service-${entry.id}`"
             :to="entry.to"
             :external="entry.external"
-            class="min-h-32 w-[72%] shrink-0 snap-start overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 p-3 sm:w-[44%]"
+            class="w-[48%] shrink-0 snap-start overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 sm:w-[32%]"
           >
-            <div class="flex items-start justify-between gap-3">
-              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-white text-emerald-700 shadow-sm">
+            <img
+              v-if="serviceEntryImage(entry)"
+              :src="serviceEntryImage(entry)"
+              :alt="entry.title"
+              class="aspect-[16/9] w-full object-cover"
+              loading="lazy"
+            >
+            <div
+              v-else
+              class="grid aspect-[16/9] w-full place-items-center bg-gradient-to-br from-emerald-50 to-sky-50"
+            >
+              <span class="grid size-9 place-items-center rounded-md bg-white text-emerald-700 shadow-sm">
                 <UIcon
                   :name="entry.icon"
                   class="size-5"
                 />
               </span>
-              <UIcon
-                name="i-lucide-arrow-up-right"
-                class="size-4 text-zinc-400"
-              />
             </div>
-            <h3 class="mt-3 line-clamp-1 text-sm font-bold">{{ entry.title }}</h3>
-            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ entry.summary }}</p>
+            <div class="p-2.5">
+              <h3 class="line-clamp-1 text-xs font-bold sm:text-sm">{{ entry.title }}</h3>
+              <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-zinc-500">{{ entry.summary }}</p>
+            </div>
           </NuxtLink>
         </div>
       </section>
@@ -785,12 +818,12 @@ onBeforeUnmount(() => {
           </h2>
           <span class="text-xs text-zinc-400">{{ guideTools.length }} 项</span>
         </div>
-        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+        <div class="mt-3 grid grid-cols-2 gap-2">
           <NuxtLink
             v-for="entry in guideTools"
             :key="entry.id"
             :to="entry.to"
-            class="flex min-h-16 items-center gap-3 rounded-md bg-gradient-to-r from-emerald-50 to-sky-50 px-3 py-2.5"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5"
           >
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-bold">{{ entry.title }}</span>
@@ -798,7 +831,7 @@ onBeforeUnmount(() => {
             </span>
             <UIcon
               :name="entry.icon"
-              class="size-5 shrink-0 text-emerald-700"
+              class="size-4 shrink-0 text-emerald-700"
             />
           </NuxtLink>
         </div>
@@ -840,19 +873,21 @@ onBeforeUnmount(() => {
           </h2>
           <span class="text-xs text-zinc-400">{{ directEntries.length }} 项</span>
         </div>
-        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div class="mt-3 grid grid-cols-2 gap-2">
           <NuxtLink
             v-for="entry in directEntries"
             :key="entry.id"
             :to="entry.to"
-            class="min-h-24 rounded-md border border-zinc-200 p-3 hover:border-emerald-300"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 hover:border-emerald-300"
           >
+            <span class="min-w-0 flex-1">
+              <span class="block line-clamp-1 text-sm font-bold">{{ entry.title }}</span>
+              <span class="mt-0.5 block line-clamp-1 text-[11px] leading-4 text-zinc-500">{{ entry.summary }}</span>
+            </span>
             <UIcon
               :name="entry.icon"
-              class="size-5 text-emerald-700"
+              class="size-4 shrink-0 text-sky-700"
             />
-            <h3 class="mt-2 line-clamp-1 text-sm font-bold">{{ entry.title }}</h3>
-            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ entry.summary }}</p>
           </NuxtLink>
         </div>
         <div
@@ -909,27 +944,21 @@ onBeforeUnmount(() => {
           </h2>
           <span class="text-xs text-zinc-400">{{ moreEntries.length }} 项</span>
         </div>
-        <div class="mt-3 overflow-hidden rounded-md border border-zinc-200">
+        <div class="mt-3 grid grid-cols-2 gap-2">
           <NuxtLink
             v-for="entry in moreEntries"
             :key="`more-${entry.id}`"
             :to="entry.to"
             :external="entry.external"
-            class="flex min-h-16 items-center gap-3 border-b border-zinc-100 px-3 py-3 last:border-b-0 hover:bg-zinc-50"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 hover:border-emerald-300"
           >
-            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700">
-              <UIcon
-                :name="entry.icon"
-                class="size-4"
-              />
-            </span>
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-bold">{{ entry.title }}</span>
               <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500">{{ entry.summary }}</span>
             </span>
             <UIcon
-              name="i-lucide-chevron-right"
-              class="size-4 shrink-0 text-zinc-400"
+              :name="entry.icon"
+              class="size-4 shrink-0 text-emerald-700"
             />
           </NuxtLink>
         </div>
@@ -966,7 +995,7 @@ onBeforeUnmount(() => {
               ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
               : 'border-zinc-200 bg-white text-zinc-600'"
             :aria-selected="activeCatalogId === catalog.id"
-            @click="activeCatalogId = catalog.id"
+            @click="selectCatalog(catalog.id)"
           >
             <UIcon
               :name="catalog.icon"
@@ -991,6 +1020,18 @@ onBeforeUnmount(() => {
             <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ item.summary }}</p>
           </NuxtLink>
         </div>
+        <button
+          v-if="(activeCatalog?.items.length ?? 0) > 10"
+          type="button"
+          class="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-300"
+          @click="toggleCatalogExpansion"
+        >
+          <UIcon
+            :name="expandedCatalogId === activeCatalogId ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            class="size-4"
+          />
+          {{ expandedCatalogId === activeCatalogId ? '收起' : `展开其余 ${hiddenCatalogItemCount} 条` }}
+        </button>
       </section>
 
       <section

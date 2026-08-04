@@ -232,29 +232,29 @@ export function buildHomeEssentialActions(_guides: HomeGuideLike[]): HomeAction[
     },
     {
       featureKey: 'home.essential.map',
-      title: '专业与住宿片区',
-      description: '查看专业所属及住宿片区',
-      meta: '按专业查找',
+      title: '校园地图',
+      description: '查找宿舍、教学楼和校园服务点',
+      meta: '到校后常用',
       icon: 'i-lucide-map-pinned',
-      to: '/major-lookup',
+      to: '/map',
       tone: 'bg-blue-50 text-blue-700'
     },
     {
       featureKey: 'home.essential.network',
-      title: '宿舍信息',
-      description: '查询宿舍分配与入住须知',
-      meta: '住宿前先看',
-      icon: 'i-lucide-bed-double',
-      to: '/dorms',
+      title: '校园一卡通与网络',
+      description: '查看校园网、校园卡和连接问题',
+      meta: '入校后办理',
+      icon: 'i-lucide-wifi',
+      to: '/procedures/campus-network',
       tone: 'bg-violet-50 text-violet-700'
     },
     {
       featureKey: 'home.essential.delivery',
-      title: '校园地图与交通',
-      description: '查看校园地图与到校路线',
-      meta: '到校后常用',
-      icon: 'i-lucide-map-pinned',
-      to: '/map',
+      title: '快递与外卖',
+      description: '查看取件站点、外卖送达和取餐说明',
+      meta: '校园生活',
+      icon: 'i-lucide-package-open',
+      to: '/guides/express-delivery',
       tone: 'bg-orange-50 text-orange-700'
     }
   ]
