@@ -17,6 +17,7 @@ import {
   nearbyGuideCategoryLabels,
   nearbyGuideItems
 } from '~~/data/nearby-guide'
+import { compactPreviewContentByPath } from '~~/data/compact-preview-content'
 import { safeNoticeActionHref } from '~~/shared/utils/notice-actions'
 
 type CompactPlacement = 'quick' | 'timeline' | 'services' | 'more'
@@ -46,6 +47,7 @@ interface CompactHomeEntry {
   sortOrder: number
   featureKey?: FrontendFeatureKey
   external?: boolean
+  linkPreviewOnly?: boolean
 }
 
 interface ManagedEntryDefinition extends Omit<CompactHomeEntry, 'placement' | 'sortOrder'> {
@@ -152,102 +154,6 @@ const banners: BannerItem[] = [
     to: '/nearby'
   }
 ]
-
-const compactEntryDetailByPath: Record<string, string> = {
-  '/checklist': `录取材料到手后
-核对录取通知书、身份证和个人信息，保存学院、辅导员和迎新通知里的联系方式。
-
-出发前
-按当年通知准备纸质材料、证件照和生活用品。大件物品先别买太多，到宿舍确认尺寸和空间后再补。
-
-到校当天
-完成身份核验、住宿办理和物品领取，并检查门锁、水电、床桌柜和消防设施。`,
-  '/dorms': `先看宿舍类型
-普通型和舒适型宿舍的布局、床桌柜和公共空间不完全相同，先看实拍再准备行李。
-
-购买用品前
-床垫、床帘和收纳用品要以本人楼栋和实际床位尺寸为准，不要只凭群聊消息提前买齐。`,
-  '/transport': `出发前先确认
-先选自己实际到达的车站或机场，再比较公交、换乘和打车方案。
-
-当天怎么走
-出发当天重新查看实时公交、预计用时和末班时间；行李较多时给换乘留出余量。`,
-  '/procedures/campus-network': `开通前准备
-先确认学校当届校园网通知、账号范围和办理方式，不要使用来路不明的共享账号。
-
-连不上时
-依次检查账号、密码、网络选择和设备限制，再按页面里的官方办理方式处理。`,
-  '/nearby': `先按场景选择
-可以查看校内周边吃饭、补日用品、泉州市区游玩和返校路线，不需要一次把所有地点都排进去。
-
-出发前再确认
-营业时间、票价、公交班次和返校末班时间可能变化，出发当天再看实时信息。`,
-  '/procedures/arrival': `到校前
-核对报到日期、个人时段、材料和住宿信息，把录取通知书及正式通知随身保存。
-
-报到当天
-按现场指引完成身份核验、登记和入住；不确定的事项直接询问现场老师或学院联系人。`,
-  '/search': `可以怎么问
-可以直接问报到、宿舍、专业、办事流程，也可以说“帮我找某个功能入口”。
-
-答案怎么用
-系统会优先检索站内资料；涉及时间、收费和政策时，仍要以当年正式通知为准。`,
-  '/contact': `适合反馈什么
-可以反馈页面错误、内容过期、入口失效，也可以咨询如何加入新生交流渠道。
-
-联系前准备
-尽量带上具体页面、问题描述和截图，方便更快核对。`,
-  '/student-rules': `这里能查什么
-可查看绩点计算、综合测评、奖助学金和学生管理规则的整理内容。
-
-注意版本
-校内规则可能按学年调整，申请和评审时要再核对当前学年的正式文件。`,
-  '/major-lookup': `先查专业归属
-输入专业名称后可以查看所属学院，并了解目前整理的新区或旧区住宿片区。
-
-住宿以什么为准
-片区信息用于提前了解，个人楼栋和房间最终以学校安排及现场入住信息为准。`,
-  '/map': `先找地点
-可以搜索宿舍、教学楼、食堂和校园服务点，打开地点后再看详情和路线。
-
-到现场后
-地图用于找方向，入口开放情况、施工绕行和实际步行路线以现场为准。`,
-  '/panorama': `先在线逛校园
-可以提前查看校门、教学楼、宿舍和部分校园环境，帮助报到前建立方向感。
-
-查看方式
-选择具体点位进入全景；如果内置浏览器加载受限，可以改用系统浏览器打开。`,
-  '/procedures': `按事情找流程
-校园网、报修、图书馆、档案等事项都按步骤整理，先找到对应事项再逐项办理。
-
-办理前核对
-带有“以通知为准”的内容需要再看当年部门通知和现场要求。`,
-  '/clubs': `先了解方向
-可以按兴趣查看社团介绍、主要活动和联系方式，再决定开学后重点关注哪些招新信息。
-
-加入前确认
-二维码、群聊和负责人可能调整，以社团当期招新现场和最新发布为准。`,
-  '/departments': `先找对部门
-按职责查看招生、教务、学生事务和学院信息，减少来回询问。
-
-联系时说明
-准备好姓名、学院、具体事项和相关截图，避免只说“有问题”而无法定位。`,
-  '/sources': `内容怎么整理
-本站会区分正式通知、公开资料和个人整理内容，重要事项优先参考正式来源。
-
-发现不一致时
-以学校及有关部门最新通知为准，并可通过反馈入口提醒整理者更新。`,
-  '/feedback': `反馈时写清楚
-说明具体页面、错误位置、正确内容和可核对的来源，有截图时一并提供。
-
-提交之后
-整理者核对后会更新内容；紧急办事问题不要只等待网页反馈。`,
-  '/about': `这是什么网站
-这是面向新生的个人公益整理工具，用于梳理报到、校园生活和常用办事入口。
-
-使用边界
-本站不是学校官方网站，关键政策、时间和办理要求以正式通知为准。`
-}
 
 const managedEntryDefinitions: ManagedEntryDefinition[] = [
   {
@@ -508,26 +414,26 @@ const sharedHomeEntryByFeature = new Map<FrontendFeatureKey, Partial<CompactHome
 ])
 
 const guideToolDefinitions: CompactHomeEntry[] = [
-  { id: 'tool-checklist', title: '新生待办工具', summary: '勾选任务并保存进度', to: '/checklist', icon: 'i-lucide-clipboard-list', placement: 'timeline', sortOrder: 0, featureKey: 'home.more.checklist' },
-  { id: 'tool-map', title: '互动校园地图', summary: '查地点、看详情和路线', to: '/map', icon: 'i-lucide-map', placement: 'timeline', sortOrder: 10, featureKey: 'home.essential.map' },
-  { id: 'tool-transport', title: '到校交通查询', summary: '查公交、进城和返校方案', to: '/transport', icon: 'i-lucide-bus-front', placement: 'timeline', sortOrder: 20, featureKey: 'home.more.transport' },
-  { id: 'tool-arrival', title: '报到流程详情', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival' },
-  { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40 },
-  { id: 'tool-rules', title: '学生规则与奖助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-notebook-tabs', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules' },
-  { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-help', placement: 'timeline', sortOrder: 60 }
+  { id: 'tool-checklist', title: '新生待办工具', summary: '勾选任务并保存进度', to: '/checklist', icon: 'i-lucide-clipboard-list', placement: 'timeline', sortOrder: 0, featureKey: 'home.more.checklist', linkPreviewOnly: true },
+  { id: 'tool-map', title: '互动校园地图', summary: '查地点、看详情和路线', to: '/map', icon: 'i-lucide-map', placement: 'timeline', sortOrder: 10, featureKey: 'home.essential.map', linkPreviewOnly: true },
+  { id: 'tool-transport', title: '到校交通查询', summary: '查公交、进城和返校方案', to: '/transport', icon: 'i-lucide-bus-front', placement: 'timeline', sortOrder: 20, featureKey: 'home.more.transport', linkPreviewOnly: true },
+  { id: 'tool-arrival', title: '报到流程详情', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival', linkPreviewOnly: true },
+  { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40, linkPreviewOnly: true },
+  { id: 'tool-rules', title: '学生规则与奖助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-notebook-tabs', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules', linkPreviewOnly: true },
+  { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-help', placement: 'timeline', sortOrder: 60, linkPreviewOnly: true }
 ]
 
 const directEntryDefinitions: CompactHomeEntry[] = [
-  { id: 'direct-campus', title: '校内全景', summary: '打开校内 360 度实景', to: '/panorama', icon: 'i-lucide-camera', placement: 'services', sortOrder: 0, featureKey: 'home.more.panorama' },
-  { id: 'direct-history', title: 'VR 校史馆', summary: '进入学校发布的全景展厅', to: '/panorama', icon: 'i-lucide-landmark', placement: 'services', sortOrder: 10, featureKey: 'home.more.panorama' },
-  { id: 'direct-map', title: '互动校园地图', summary: '查楼栋、地点和步行路线', to: '/map', icon: 'i-lucide-map', placement: 'services', sortOrder: 20, featureKey: 'home.essential.map' },
-  { id: 'direct-station', title: '泉州站到校', summary: '公交、打车和换乘方案', to: '/transport', icon: 'i-lucide-route', placement: 'services', sortOrder: 30, featureKey: 'home.more.transport' },
-  { id: 'direct-east-station', title: '泉州东站到校', summary: '查看换乘和预计用时', to: '/transport', icon: 'i-lucide-route', placement: 'services', sortOrder: 40, featureKey: 'home.more.transport' },
-  { id: 'direct-airport', title: '晋江机场到校', summary: '比较公交和打车方案', to: '/transport', icon: 'i-lucide-plane', placement: 'services', sortOrder: 50, featureKey: 'home.more.transport' },
-  { id: 'direct-return', title: '市区返校', summary: '查看路线和末班时间', to: '/transport', icon: 'i-lucide-bus-front', placement: 'services', sortOrder: 60, featureKey: 'home.more.transport' },
-  { id: 'direct-ordinary-dorm', title: '普通型宿舍实拍', summary: '直接查看宿舍实拍视频', to: '/dorms', icon: 'i-lucide-bed-double', placement: 'services', sortOrder: 70, featureKey: 'home.more.dorms' },
-  { id: 'direct-comfort-dorm', title: '舒适型宿舍实拍', summary: '直接查看宿舍实拍视频', to: '/dorms', icon: 'i-lucide-bed-single', placement: 'services', sortOrder: 80, featureKey: 'home.more.dorms' },
-  { id: 'direct-food', title: '泉州美食参考', summary: '打开市区吃喝攻略', to: '/nearby', icon: 'i-lucide-utensils', placement: 'services', sortOrder: 90, featureKey: 'home.more.nearby' }
+  { id: 'direct-campus', title: '校内全景', summary: '直接打开百度校园实景', to: 'https://map.baidu.com/poi/%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6/@13204528,2871631,21z,87t,-16.6h#panoid=646c1306d4d72bfa631809a2&panotype=inter&heading=358&pitch=0&l=21&tn=B_NORMAL_MAP&sc=0&newmap=1&shareurl=1&pid=1000170000150119145327310IN&iid=646c1306d4d72bfa631809a2', icon: 'i-lucide-camera', placement: 'services', sortOrder: 0, featureKey: 'home.more.panorama', external: true, linkPreviewOnly: true },
+  { id: 'direct-history', title: 'VR 校史馆', summary: '直接进入学校发布的全景展厅', to: 'https://www.720yun.com/vr/c66jOpeOOa3', icon: 'i-lucide-landmark', placement: 'services', sortOrder: 10, featureKey: 'home.more.panorama', external: true, linkPreviewOnly: true },
+  { id: 'direct-map', title: '校园地图来源', summary: '查看学校公开校园地图页面', to: 'https://www.yeu.edu.cn/xydt/list.htm', icon: 'i-lucide-map', placement: 'services', sortOrder: 20, featureKey: 'home.essential.map', external: true, linkPreviewOnly: true },
+  { id: 'direct-station', title: '泉州站到校', summary: '高德公交路线，出发前再看实时方案', to: 'https://ditu.amap.com/dir?from%5Bname%5D=%E6%B3%89%E5%B7%9E%E7%AB%99&to%5Bname%5D=%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6&type=bus', icon: 'i-lucide-route', placement: 'services', sortOrder: 30, featureKey: 'home.more.transport', external: true, linkPreviewOnly: true },
+  { id: 'direct-east-station', title: '泉州东站到校', summary: '高德公交路线，通常需要换乘', to: 'https://ditu.amap.com/dir?from%5Bname%5D=%E6%B3%89%E5%B7%9E%E4%B8%9C%E7%AB%99&to%5Bname%5D=%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6&type=bus', icon: 'i-lucide-route', placement: 'services', sortOrder: 40, featureKey: 'home.more.transport', external: true, linkPreviewOnly: true },
+  { id: 'direct-airport', title: '晋江机场到校', summary: '高德公交路线，行李多时比较打车', to: 'https://ditu.amap.com/dir?from%5Bname%5D=%E6%B3%89%E5%B7%9E%E6%99%8B%E6%B1%9F%E5%9B%BD%E9%99%85%E6%9C%BA%E5%9C%BA&to%5Bname%5D=%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6&type=bus', icon: 'i-lucide-plane', placement: 'services', sortOrder: 50, featureKey: 'home.more.transport', external: true, linkPreviewOnly: true },
+  { id: 'direct-return', title: '市区返校', summary: '高德公交路线，注意末班时间', to: 'https://ditu.amap.com/dir?from%5Bname%5D=%E6%B3%89%E5%B7%9E%E6%96%87%E5%8C%96%E5%AE%AB&to%5Bname%5D=%E4%BB%B0%E6%81%A9%E5%A4%A7%E5%AD%A6&type=bus', icon: 'i-lucide-bus-front', placement: 'services', sortOrder: 60, featureKey: 'home.more.transport', external: true, linkPreviewOnly: true },
+  { id: 'direct-ordinary-dorm', title: '普通型宿舍实拍', summary: '直接播放宿舍实拍视频', to: '/media/ordinary-dorm-tour.mp4', icon: 'i-lucide-bed-double', placement: 'services', sortOrder: 70, featureKey: 'home.more.dorms', linkPreviewOnly: true },
+  { id: 'direct-comfort-dorm', title: '舒适型宿舍实拍', summary: '直接播放宿舍实拍视频', to: '/media/comfort-dorm-tour.mp4', icon: 'i-lucide-bed-single', placement: 'services', sortOrder: 80, featureKey: 'home.more.dorms', linkPreviewOnly: true },
+  { id: 'direct-food', title: '泉州美食参考', summary: '查看泉州市政府公开介绍', to: 'https://www.quanzhou.gov.cn/gastronomy/ch/msdh/xwqz/202505/t20250509_3167615.htm', icon: 'i-lucide-utensils', placement: 'services', sortOrder: 90, featureKey: 'home.more.nearby', external: true, linkPreviewOnly: true }
 ]
 
 const notices = computed(() => noticeResponse.value?.items ?? [])
@@ -725,6 +631,7 @@ const selectedEntrySourceLabel = computed(() => {
   return `${origin}${href.startsWith('/') ? href : `/${href}`}`
 })
 const selectedEntrySourceExternal = computed(() => /^https?:\/\//i.test(selectedEntrySourceHref.value))
+const selectedEntryIsLinkPreview = computed(() => selectedEntry.value?.linkPreviewOnly === true)
 
 function entryPath(entry: CompactHomeEntry): string {
   if (/^https?:\/\//i.test(entry.to)) return entry.to
@@ -733,7 +640,7 @@ function entryPath(entry: CompactHomeEntry): string {
 
 function defaultEntryDetailContent(entry: CompactHomeEntry): string {
   const path = entryPath(entry)
-  const exact = compactEntryDetailByPath[path]
+  const exact = compactPreviewContentByPath[path]
   if (exact) return exact
   if (path.startsWith('/guides/')) {
     return `先看这份指南\n${entry.summary}\n\n继续查看\n进入完整页面后可以查看具体说明、相关入口和需要再次确认的事项。`
@@ -1033,8 +940,12 @@ onBeforeUnmount(() => {
               </span>
             </div>
             <div class="p-2.5">
-              <h3 class="line-clamp-1 text-xs font-bold sm:text-sm">{{ entry.title }}</h3>
-              <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-zinc-500">{{ entry.summary }}</p>
+              <h3 class="line-clamp-1 text-xs font-bold sm:text-sm">
+                {{ entry.title }}
+              </h3>
+              <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-zinc-500">
+                {{ entry.summary }}
+              </p>
             </div>
           </button>
         </div>
@@ -1254,8 +1165,12 @@ onBeforeUnmount(() => {
             class="min-w-0 rounded-md border border-zinc-200 px-3 py-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/30"
             @click="openCatalogItem(item)"
           >
-            <p class="line-clamp-2 text-sm font-bold leading-5">{{ item.title }}</p>
-            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ item.summary }}</p>
+            <p class="line-clamp-2 text-sm font-bold leading-5">
+              {{ item.title }}
+            </p>
+            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
+              {{ item.summary }}
+            </p>
           </button>
         </div>
         <button
@@ -1369,31 +1284,19 @@ onBeforeUnmount(() => {
     <UModal
       v-model:open="entrySheetOpen"
       :title="selectedEntry?.title || '入口详情'"
-      description="先看主要内容，需要时再进入完整页面"
+      :description="selectedEntryIsLinkPreview ? '将跳转至以下地址' : '查看完整内容，需要时再进入对应页面'"
       :ui="{
-        content: 'left-1/2 right-auto top-auto bottom-0 w-full max-w-3xl -translate-x-1/2 translate-y-0 rounded-t-2xl rounded-b-none max-h-[72dvh]',
-        header: 'relative px-5 pb-4 pt-6 sm:px-6',
-        body: 'overflow-y-auto px-5 py-5 sm:px-6',
-        footer: 'flex-col items-stretch gap-2 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:px-6'
+        content: 'left-1/2 right-auto top-auto bottom-0 flex h-[72svh] min-h-[72svh] w-full max-w-3xl -translate-x-1/2 translate-y-0 flex-col overflow-hidden rounded-t-2xl rounded-b-none',
+        header: 'relative shrink-0 px-5 pb-4 pt-6 sm:px-6',
+        body: 'scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6',
+        footer: 'shrink-0 flex-col items-stretch gap-2 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:px-6'
       }"
     >
       <template #body>
         <article
-          v-if="selectedEntry"
+          v-if="selectedEntry && !selectedEntryIsLinkPreview"
           class="space-y-5"
         >
-          <div class="flex items-start gap-3 rounded-md bg-emerald-50 px-4 py-3">
-            <span class="grid size-11 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700">
-              <UIcon
-                :name="selectedEntry.icon"
-                class="size-5"
-              />
-            </span>
-            <p class="pt-1 text-sm leading-7 text-zinc-700">
-              {{ selectedEntry.summary }}
-            </p>
-          </div>
-
           <section
             class="space-y-3"
             aria-label="入口主要内容"
@@ -1427,6 +1330,24 @@ onBeforeUnmount(() => {
             </NuxtLink>
           </div>
         </article>
+
+        <article
+          v-else-if="selectedEntry"
+          class="flex min-h-full flex-col justify-center"
+        >
+          <p class="text-sm font-semibold text-zinc-500">
+            将跳转至：
+          </p>
+          <NuxtLink
+            :to="selectedEntrySourceHref"
+            :external="selectedEntrySourceExternal"
+            :target="selectedEntrySourceExternal ? '_blank' : undefined"
+            :rel="selectedEntrySourceExternal ? 'noopener noreferrer' : undefined"
+            class="mt-3 block break-all rounded-md border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm font-semibold leading-7 text-emerald-700 underline decoration-emerald-200 underline-offset-4"
+          >
+            {{ selectedEntrySourceLabel }}
+          </NuxtLink>
+        </article>
       </template>
 
       <template #footer>
@@ -1437,7 +1358,7 @@ onBeforeUnmount(() => {
           :target="selectedEntry.external ? '_blank' : undefined"
           :rel="selectedEntry.external ? 'noopener noreferrer' : undefined"
           icon="i-lucide-arrow-up-right"
-          label="进入完整页面"
+          :label="selectedEntryIsLinkPreview ? '打开链接' : '进入完整页面'"
           block
         />
       </template>
