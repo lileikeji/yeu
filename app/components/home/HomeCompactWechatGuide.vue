@@ -155,6 +155,13 @@ const banners: BannerItem[] = [
   }
 ]
 
+const serviceEntryCoverById: Record<string, string> = {
+  'compact-panorama': '/images/intro/yeu-campus-hero.webp',
+  'compact-map': '/images/posters/freshman-guide-campus-map.png',
+  'compact-delivery': '/images/nearby/city-food.webp',
+  'compact-procedures': '/images/promo/new-student-guide-no-qr.png'
+}
+
 const managedEntryDefinitions: ManagedEntryDefinition[] = [
   {
     id: 'compact-checklist',
@@ -600,9 +607,14 @@ const moreEntries = computed(() => sortEntries([
   ...supplementalMoreEntries
 ]))
 
-function serviceEntryImage(entry: CompactHomeEntry): string | undefined {
-  if (entry.id === 'compact-panorama') return '/images/intro/yeu-campus-hero.webp'
-  return undefined
+function serviceEntryImage(entry: CompactHomeEntry): string {
+  const configuredCover = serviceEntryCoverById[entry.id]
+  if (configuredCover) return configuredCover
+  const path = entryPath(entry)
+  if (path.includes('map')) return '/images/posters/freshman-guide-campus-map.png'
+  if (/express|delivery|food/u.test(path)) return '/images/nearby/city-food.webp'
+  if (path.includes('panorama')) return '/images/intro/yeu-campus-hero.webp'
+  return '/images/intro/yeu-campus-hero.webp'
 }
 
 function selectCatalog(id: CompactCatalogId): void {
@@ -632,6 +644,22 @@ const selectedEntrySourceLabel = computed(() => {
 })
 const selectedEntrySourceExternal = computed(() => /^https?:\/\//i.test(selectedEntrySourceHref.value))
 const selectedEntryIsLinkPreview = computed(() => selectedEntry.value?.linkPreviewOnly === true)
+const selectedEntryShowsContactQr = computed(() => (
+  selectedEntry.value ? entryPath(selectedEntry.value) === '/contact' : false
+))
+const entryModalUi = computed(() => selectedEntryIsLinkPreview.value
+  ? {
+      content: 'left-1/2 right-auto top-1/2 bottom-auto flex h-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl',
+      header: 'relative shrink-0 px-5 pb-3 pt-5',
+      body: 'px-5 py-5',
+      footer: 'hidden'
+    }
+  : {
+      content: 'left-1/2 right-auto top-auto bottom-0 flex h-[72svh] min-h-[72svh] w-full max-w-3xl -translate-x-1/2 translate-y-0 flex-col overflow-hidden rounded-t-2xl rounded-b-none',
+      header: 'relative shrink-0 px-5 pb-4 pt-6 sm:px-6',
+      body: 'scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6',
+      footer: 'shrink-0 flex-col items-stretch gap-2 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:px-6'
+    })
 
 function entryPath(entry: CompactHomeEntry): string {
   if (/^https?:\/\//i.test(entry.to)) return entry.to
@@ -922,23 +950,11 @@ onBeforeUnmount(() => {
             @click="openEntry(entry)"
           >
             <img
-              v-if="serviceEntryImage(entry)"
               :src="serviceEntryImage(entry)"
               :alt="entry.title"
               class="aspect-[16/9] w-full object-cover"
               loading="lazy"
             >
-            <div
-              v-else
-              class="grid aspect-[16/9] w-full place-items-center bg-gradient-to-br from-emerald-50 to-sky-50"
-            >
-              <span class="grid size-9 place-items-center rounded-md bg-white text-emerald-700 shadow-sm">
-                <UIcon
-                  :name="entry.icon"
-                  class="size-5"
-                />
-              </span>
-            </div>
             <div class="p-2.5">
               <h3 class="line-clamp-1 text-xs font-bold sm:text-sm">
                 {{ entry.title }}
@@ -1283,14 +1299,9 @@ onBeforeUnmount(() => {
 
     <UModal
       v-model:open="entrySheetOpen"
-      :title="selectedEntry?.title || '入口详情'"
-      :description="selectedEntryIsLinkPreview ? '将跳转至以下地址' : '查看完整内容，需要时再进入对应页面'"
-      :ui="{
-        content: 'left-1/2 right-auto top-auto bottom-0 flex h-[72svh] min-h-[72svh] w-full max-w-3xl -translate-x-1/2 translate-y-0 flex-col overflow-hidden rounded-t-2xl rounded-b-none',
-        header: 'relative shrink-0 px-5 pb-4 pt-6 sm:px-6',
-        body: 'scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6',
-        footer: 'shrink-0 flex-col items-stretch gap-2 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:px-6'
-      }"
+      :title="selectedEntryIsLinkPreview ? '链接预览' : (selectedEntry?.title || '入口详情')"
+      :description="selectedEntryIsLinkPreview ? undefined : '查看完整内容，需要时再进入对应页面'"
+      :ui="entryModalUi"
     >
       <template #body>
         <article
@@ -1315,6 +1326,34 @@ onBeforeUnmount(() => {
             </article>
           </section>
 
+          <section
+            v-if="selectedEntryShowsContactQr"
+            class="rounded-md border border-emerald-100 bg-emerald-50/60 px-4 py-4 text-center"
+            aria-label="联系整理者二维码"
+          >
+            <h3 class="text-sm font-black text-zinc-900">
+              联系整理者
+            </h3>
+            <p class="mt-1 text-xs leading-5 text-zinc-500">
+              有问题、想补充资料或加入新生交流群，可以长按识别二维码。
+            </p>
+            <NuxtLink
+              to="/images/contact-wechat.png"
+              external
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mx-auto mt-3 block w-fit rounded-md bg-white p-2 shadow-sm ring-1 ring-zinc-200"
+              aria-label="打开联系整理者二维码原图"
+            >
+              <img
+                src="/images/contact-wechat.png"
+                alt="联系整理者二维码"
+                class="size-48 max-w-full object-contain"
+                loading="lazy"
+              >
+            </NuxtLink>
+          </section>
+
           <div class="border-t border-zinc-200 pt-4">
             <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400">
               来源地址
@@ -1333,7 +1372,7 @@ onBeforeUnmount(() => {
 
         <article
           v-else-if="selectedEntry"
-          class="flex min-h-full flex-col justify-center"
+          class="rounded-md bg-zinc-50 px-4 py-4"
         >
           <p class="text-sm font-semibold text-zinc-500">
             将跳转至：
@@ -1352,13 +1391,13 @@ onBeforeUnmount(() => {
 
       <template #footer>
         <UButton
-          v-if="selectedEntry"
+          v-if="selectedEntry && !selectedEntryIsLinkPreview"
           :to="selectedEntry.to"
           :external="selectedEntry.external"
           :target="selectedEntry.external ? '_blank' : undefined"
           :rel="selectedEntry.external ? 'noopener noreferrer' : undefined"
           icon="i-lucide-arrow-up-right"
-          :label="selectedEntryIsLinkPreview ? '打开链接' : '进入完整页面'"
+          label="进入完整页面"
           block
         />
       </template>

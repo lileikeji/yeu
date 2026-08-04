@@ -30,6 +30,7 @@ test('compact cards open a content-first bottom sheet with a configurable source
   assert.match(componentSource, /scrollbar-none/)
   assert.match(componentSource, /selectedEntryContentBlocks/)
   assert.match(componentSource, /selectedEntryIsLinkPreview/)
+  assert.match(componentSource, /entryModalUi/)
   assert.match(componentSource, /将跳转至：/)
   assert.match(componentSource, /入口主要内容/)
   assert.match(previewContentSource, /录取材料到手后/)
@@ -44,6 +45,31 @@ test('compact cards open a content-first bottom sheet with a configurable source
   assert.match(componentSource, /label="打开小程序"/)
   assert.match(componentSource, /https:\/\/www\.720yun\.com\/vr\/c66jOpeOOa3/)
   assert.match(componentSource, /https:\/\/www\.yeu\.edu\.cn\/xydt\/list\.htm/)
+})
+
+test('single-link entries use the compact centered link preview', () => {
+  assert.match(componentSource, /selectedEntryIsLinkPreview \? '链接预览'/)
+  assert.match(componentSource, /top-1\/2 bottom-auto/)
+  assert.match(componentSource, /max-w-sm/)
+  assert.match(componentSource, /-translate-y-1\/2/)
+  assert.match(componentSource, /footer: 'hidden'/)
+  assert.match(componentSource, /v-if="selectedEntry && !selectedEntryIsLinkPreview"/)
+})
+
+test('campus service cards always render image covers', () => {
+  assert.match(componentSource, /serviceEntryCoverById/)
+  assert.match(componentSource, /compact-panorama.*yeu-campus-hero\.webp/s)
+  assert.match(componentSource, /compact-map.*freshman-guide-campus-map\.png/s)
+  assert.match(componentSource, /compact-delivery.*city-food\.webp/s)
+  assert.match(componentSource, /compact-procedures.*new-student-guide-no-qr\.png/s)
+  assert.doesNotMatch(componentSource, /v-if="serviceEntryImage\(entry\)"/)
+})
+
+test('contact preview includes the existing organizer QR code', () => {
+  assert.match(componentSource, /selectedEntryShowsContactQr/)
+  assert.match(componentSource, /entryPath\(selectedEntry\.value\) === '\/contact'/)
+  assert.match(componentSource, /src="\/images\/contact-wechat\.png"/)
+  assert.match(componentSource, /长按识别二维码/)
 })
 
 test('every public subpage gets one shared back action', () => {
