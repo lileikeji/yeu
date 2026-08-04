@@ -69,7 +69,11 @@ test('WeChat credentials stay server-side and route sharing uses one automatic S
   // that never changes after pushState, so the entry URL must be captured once
   // and reused for signing instead of reading location.href per route.
   assert.match(composable, /entryPageUrl/)
-  assert.match(composable, /if \(entryPageUrl\) return entryPageUrl/)
+  assert.match(composable, /function signingPageUrl\(userAgent: string\)/)
+  assert.match(composable, /iP\(\?:hone\|ad\|od\)/)
+  assert.match(composable, /: currentPageUrl\(\)/)
+  assert.match(composable, /reportWechatShareDiagnostic\('wx_config', 'error'/)
+  assert.match(composable, /reportWechatShareDiagnostic\('share_data', 'success'/)
   assert.match(plugin, /configureWechatShare/)
   assert.match(plugin, /lastScheduledRouteKey/)
   assert.doesNotMatch(layout, /configureWechatShare/)
@@ -83,4 +87,17 @@ test('WeChat credentials stay server-side and route sharing uses one automatic S
   assert.ok(nginxSetup.includes('location \\/icons\\/'))
   assert.ok(nginxSetup.includes('location \\/images\\/'))
   assert.ok(nginxSetup.includes('try_files \\$uri @nuxt;'))
+})
+
+test('WeChat client diagnostics are bounded, rate limited and omit request secrets', () => {
+  const endpoint = readFileSync(
+    resolve('server/api/public/wechat-share/report.post.ts'),
+    'utf8'
+  )
+  assert.match(endpoint, /assertTrustedOrigin\(event\)/)
+  assert.match(endpoint, /assertRateLimit\(/)
+  assert.match(endpoint, /max\(160\)/)
+  assert.match(endpoint, /wechat_share_client/)
+  assert.doesNotMatch(endpoint, /getHeader\(event, ['"]user-agent/)
+  assert.doesNotMatch(endpoint, /input\.(?:signature|nonceStr|appSecret)/)
 })

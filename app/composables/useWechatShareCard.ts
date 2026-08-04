@@ -21,6 +21,8 @@ interface WechatSharePayload {
   desc?: string
   link: string
   imgUrl: string
+  success?: () => void
+  fail?: (error: unknown) => void
 }
 
 interface WechatJsSdk {
@@ -51,6 +53,7 @@ let sdkConfigurationQueue: Promise<void> = Promise.resolve()
 let configuredSignatureUrl: string | null = null
 let queuedSignatureUrl: string | null = null
 let queuedSignaturePromise: Promise<void> | null = null
+const reportedDiagnostics = new Set<string>()
 
 const SDK_READY_TIMEOUT_MS = 8_000
 
@@ -66,6 +69,37 @@ function describeWechatSdkError(error: unknown): Error {
     if (message) return new Error(message)
   }
   return new Error('WeChat JS-SDK configuration failed')
+}
+
+function safeDiagnosticMessage(error: unknown): string {
+  return describeWechatSdkError(error).message
+    .replace(/https?:\/\/\S+/gi, '[url]')
+    .replace(/[a-f0-9]{24,}/gi, '[token]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160) || 'unknown error'
+}
+
+function reportWechatShareDiagnostic(
+  stage: 'sdk_load' | 'signature' | 'wx_config' | 'share_data',
+  status: 'success' | 'error',
+  error?: unknown
+): void {
+  const message = error ? safeDiagnosticMessage(error) : ''
+  const key = `${stage}:${status}:${message}`
+  if (reportedDiagnostics.has(key)) return
+  reportedDiagnostics.add(key)
+
+  void $fetch('/api/public/wechat-share/report', {
+    method: 'POST',
+    body: {
+      stage,
+      status,
+      message: message || undefined,
+      platform: /iP(?:hone|ad|od)/i.test(navigator.userAgent) ? 'ios' : 'android',
+      path: window.location.pathname
+    }
+  }).catch(() => undefined)
 }
 
 function loadWechatJsSdk(): Promise<WechatJsSdk> {
@@ -140,10 +174,8 @@ function sdkReady(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<vo
 }
 
 function queueSdkConfiguration(sdk: WechatJsSdk, signature: WechatShareSignature): Promise<void> {
-  // wx.config is only honoured once per page load; later calls are ignored by
-  // the SDK. Since the signature is always for the entry URL, one successful
-  // configuration covers every subsequent route, and share payloads are then
-  // updated per route via updateAppMessageShareData.
+  // iOS validates the original WebView URL while Android validates the current
+  // SPA URL. Android therefore needs another config call after a route change.
   if (configuredSignatureUrl === signature.url) return Promise.resolve()
   if (queuedSignatureUrl === signature.url && queuedSignaturePromise) return queuedSignaturePromise
 
@@ -167,20 +199,28 @@ function queueSdkConfiguration(sdk: WechatJsSdk, signature: WechatShareSignature
 }
 
 /**
- * WeChat validates wx.config against the URL that originally loaded the page.
- * On iOS that URL never changes for the lifetime of the WebView, even after
- * history.pushState, so a signature for the current SPA route is rejected and
- * the share silently degrades to a plain link. Capture the entry URL once and
- * always sign that.
+ * iOS keeps validating the URL that originally loaded the WebView after an SPA
+ * route change. Android validates the current address. Signing the entry URL
+ * on both platforms makes Android silently degrade to a plain link.
  */
 let entryPageUrl: string | null = null
 
-function canonicalPageUrl(): string {
+function entryUrl(): string {
   if (entryPageUrl) return entryPageUrl
   const url = new URL(window.location.href)
   url.hash = ''
   entryPageUrl = url.toString()
   return entryPageUrl
+}
+
+function currentPageUrl(): string {
+  const url = new URL(window.location.href)
+  url.hash = ''
+  return url.toString()
+}
+
+function signingPageUrl(userAgent: string): string {
+  return /iP(?:hone|ad|od)/i.test(userAgent) ? entryUrl() : currentPageUrl()
 }
 
 function shareUrl(rawUrl: string): string {
@@ -193,17 +233,22 @@ export function useWechatShareCard() {
   async function configureWechatShare(input: WechatShareCardInput): Promise<boolean> {
     if (!import.meta.client || !isWechatUserAgent(navigator.userAgent)) return false
 
-    const signedUrl = canonicalPageUrl()
+    const signedUrl = signingPageUrl(navigator.userAgent)
     const shareLink = shareUrl(input.link || signedUrl)
     const imageUrl = new URL(input.imageUrl, window.location.origin).toString()
 
     try {
-      const [signature, sdk] = await Promise.all([
-        $fetch<WechatShareSignature>('/api/public/wechat-share', {
-          query: { url: signedUrl }
-        }),
-        loadWechatJsSdk()
-      ])
+      const signaturePromise = $fetch<WechatShareSignature>('/api/public/wechat-share', {
+        query: { url: signedUrl }
+      }).catch((error) => {
+        reportWechatShareDiagnostic('signature', 'error', error)
+        throw error
+      })
+      const sdkPromise = loadWechatJsSdk().catch((error) => {
+        reportWechatShareDiagnostic('sdk_load', 'error', error)
+        throw error
+      })
+      const [signature, sdk] = await Promise.all([signaturePromise, sdkPromise])
       // The server signs a normalized URL. A CDN may canonicalize the current
       // browser URL differently (for example, an explicit default port), so
       // do not reject a valid signature solely because the strings differ.
@@ -213,15 +258,26 @@ export function useWechatShareCard() {
           ? signature.url
           : signedUrl
       }
-      await queueSdkConfiguration(sdk, normalizedSignature)
+      try {
+        await queueSdkConfiguration(sdk, normalizedSignature)
+        reportWechatShareDiagnostic('wx_config', 'success')
+      } catch (error) {
+        reportWechatShareDiagnostic('wx_config', 'error', error)
+        throw error
+      }
       const payload: WechatSharePayload = {
         title: input.title.slice(0, 100),
         desc: input.description.slice(0, 160),
         link: shareLink,
         imgUrl: imageUrl
       }
-      sdk.updateAppMessageShareData?.(payload)
-      sdk.updateTimelineShareData?.(payload)
+      const modernPayload: WechatSharePayload = {
+        ...payload,
+        success: () => reportWechatShareDiagnostic('share_data', 'success'),
+        fail: error => reportWechatShareDiagnostic('share_data', 'error', error)
+      }
+      sdk.updateAppMessageShareData?.(modernPayload)
+      sdk.updateTimelineShareData?.(modernPayload)
       // Older WeChat WebViews still expose only the legacy share hooks.
       sdk.onMenuShareAppMessage?.(payload)
       sdk.onMenuShareTimeline?.(payload)
