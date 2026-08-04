@@ -20,7 +20,7 @@ const quickEntryOptions: QuickEntryOption[] = [
   { value: '/checklist', label: '新生待办清单', href: '/checklist', icon: 'i-lucide-list-checks' },
   { value: '/dorms', label: '宿舍信息', href: '/dorms', icon: 'i-lucide-bed-double' },
   { value: '/nearby', label: '吃喝玩乐', href: '/nearby', icon: 'i-lucide-coffee' },
-  { value: '/panorama', label: '校园全景', href: '/panorama', icon: 'i-lucide-panorama' },
+  { value: '/panorama', label: '校园全景', href: '/panorama', icon: 'i-lucide-orbit' },
   { value: '/major-lookup', label: '专业查询', href: '/major-lookup', icon: 'i-lucide-graduation-cap' },
   { value: '/student-rules', label: '学生手册', href: '/student-rules', icon: 'i-lucide-book-open' },
   { value: '/clubs', label: '社团入口', href: '/clubs', icon: 'i-lucide-users-round' },

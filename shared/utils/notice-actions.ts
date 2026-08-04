@@ -33,8 +33,10 @@ export function normalizeNoticeActions(value: unknown): ApiNoticeAction[] {
     const label = typeof record.label === 'string' ? record.label.trim() : ''
     const href = safeNoticeActionHref(record.href)
     if (!label || label.length > NOTICE_ACTION_LABEL_MAX_LENGTH || !href) return []
-    const icon = typeof record.icon === 'string' && record.icon.trim().length <= NOTICE_ACTION_ICON_MAX_LENGTH
-      ? record.icon.trim()
+    const rawIcon = typeof record.icon === 'string' ? record.icon.trim() : ''
+    const normalizedIcon = rawIcon === 'i-lucide-panorama' ? 'i-lucide-orbit' : rawIcon
+    const icon = normalizedIcon.length <= NOTICE_ACTION_ICON_MAX_LENGTH
+      ? normalizedIcon
       : undefined
     return [{
       label,

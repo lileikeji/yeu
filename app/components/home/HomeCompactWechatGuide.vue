@@ -3,10 +3,15 @@ import type {
   ApiContent,
   ApiListResponse,
   ApiNoticeAction,
+  ApiPlace,
   ApiPublicHomeEntry
 } from '~~/shared/types/server'
 import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
 import { majorCollegeCount, majorProfiles } from '~~/data/major-profiles'
+import {
+  nearbyGuideCategoryLabels,
+  nearbyGuideItems
+} from '~~/data/nearby-guide'
 import { safeNoticeActionHref } from '~~/shared/utils/notice-actions'
 
 type CompactPlacement = 'quick' | 'timeline' | 'services' | 'more'
@@ -49,8 +54,26 @@ interface BannerItem {
   to: string
 }
 
+type CompactCatalogId = 'guides' | 'procedures' | 'places' | 'clubs' | 'departments'
+
+interface CompactCatalogItem {
+  id: string
+  title: string
+  summary: string
+  to: string
+}
+
+interface CompactCatalog {
+  id: CompactCatalogId
+  label: string
+  icon: string
+  to: string
+  items: CompactCatalogItem[]
+}
+
 const searchQuery = ref('')
 const activeBannerIndex = ref(0)
+const activeCatalogId = ref<CompactCatalogId>('guides')
 const selectedNotice = ref<PublicNotice | null>(null)
 const noticeOpen = ref(false)
 let bannerTimer: ReturnType<typeof setInterval> | undefined
@@ -64,7 +87,7 @@ const procedureRequest = usePublicProcedureList()
 const guideRequest = usePublicGuideList()
 const clubRequest = usePublicClubList()
 const departmentRequest = usePublicDepartmentList()
-const nearbyRequest = usePublicPlaceList('nearby')
+const campusPlaceRequest = usePublicPlaceList('campus')
 
 await Promise.all([
   noticeRequest,
@@ -74,7 +97,7 @@ await Promise.all([
   guideRequest,
   clubRequest,
   departmentRequest,
-  nearbyRequest
+  campusPlaceRequest
 ])
 
 const { data: noticeResponse } = noticeRequest
@@ -84,7 +107,7 @@ const { data: procedureResponse } = procedureRequest
 const { data: guideResponse } = guideRequest
 const { data: clubResponse } = clubRequest
 const { data: departmentResponse } = departmentRequest
-const { data: nearbyResponse } = nearbyRequest
+const { data: campusPlaceResponse } = campusPlaceRequest
 
 const banners: BannerItem[] = [
   {
@@ -185,24 +208,24 @@ const managedEntryDefinitions: ManagedEntryDefinition[] = [
     defaultOrder: 80
   },
   {
-    id: 'compact-major',
-    featureKey: 'home.essential.map',
-    title: '专业与住宿片区',
-    summary: '查学院、新区和旧区',
-    to: '/major-lookup',
-    icon: 'i-lucide-graduation-cap',
-    defaultPlacement: 'quick',
-    defaultOrder: 90
-  },
-  {
     id: 'compact-map',
-    featureKey: 'home.essential.delivery',
+    featureKey: 'home.essential.map',
     title: '校园地图',
     summary: '旧区、新区和高频地点快速查找',
     to: '/map',
     icon: 'i-lucide-map-pinned',
     defaultPlacement: 'services',
     defaultOrder: 10
+  },
+  {
+    id: 'compact-delivery',
+    featureKey: 'home.essential.delivery',
+    title: '快递与外卖',
+    summary: '取件站点、外卖送达和取餐说明',
+    to: '/guides/express-delivery',
+    icon: 'i-lucide-package-open',
+    defaultPlacement: 'services',
+    defaultOrder: 15
   },
   {
     id: 'compact-panorama',
@@ -305,6 +328,15 @@ const supplementalQuickEntries: CompactHomeEntry[] = [
     icon: 'i-lucide-message-square-text',
     placement: 'quick',
     sortOrder: 70
+  },
+  {
+    id: 'compact-major',
+    title: '专业与住宿片区',
+    summary: '查学院、新区和旧区',
+    to: '/major-lookup',
+    icon: 'i-lucide-graduation-cap',
+    placement: 'quick',
+    sortOrder: 90
   }
 ]
 
@@ -340,10 +372,10 @@ const supplementalMoreEntries: CompactHomeEntry[] = [
 
 const guideToolDefinitions: CompactHomeEntry[] = [
   { id: 'tool-checklist', title: '新生待办工具', summary: '勾选任务并保存进度', to: '/checklist', icon: 'i-lucide-clipboard-list', placement: 'timeline', sortOrder: 0, featureKey: 'home.more.checklist' },
-  { id: 'tool-map', title: '互动校园地图', summary: '查地点、看详情和路线', to: '/map', icon: 'i-lucide-map', placement: 'timeline', sortOrder: 10, featureKey: 'home.essential.delivery' },
+  { id: 'tool-map', title: '互动校园地图', summary: '查地点、看详情和路线', to: '/map', icon: 'i-lucide-map', placement: 'timeline', sortOrder: 10, featureKey: 'home.essential.map' },
   { id: 'tool-transport', title: '到校交通查询', summary: '查公交、进城和返校方案', to: '/transport', icon: 'i-lucide-bus-front', placement: 'timeline', sortOrder: 20, featureKey: 'home.more.transport' },
   { id: 'tool-arrival', title: '报到流程详情', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival' },
-  { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40, featureKey: 'home.essential.map' },
+  { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40 },
   { id: 'tool-rules', title: '学生规则与奖助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-notebook-tabs', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules' },
   { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-help', placement: 'timeline', sortOrder: 60 }
 ]
@@ -351,7 +383,7 @@ const guideToolDefinitions: CompactHomeEntry[] = [
 const directEntryDefinitions: CompactHomeEntry[] = [
   { id: 'direct-campus', title: '校内全景', summary: '打开校内 360 度实景', to: '/panorama', icon: 'i-lucide-camera', placement: 'services', sortOrder: 0, featureKey: 'home.more.panorama' },
   { id: 'direct-history', title: 'VR 校史馆', summary: '进入学校发布的全景展厅', to: '/panorama', icon: 'i-lucide-landmark', placement: 'services', sortOrder: 10, featureKey: 'home.more.panorama' },
-  { id: 'direct-map', title: '互动校园地图', summary: '查楼栋、地点和步行路线', to: '/map', icon: 'i-lucide-map', placement: 'services', sortOrder: 20, featureKey: 'home.essential.delivery' },
+  { id: 'direct-map', title: '互动校园地图', summary: '查楼栋、地点和步行路线', to: '/map', icon: 'i-lucide-map', placement: 'services', sortOrder: 20, featureKey: 'home.essential.map' },
   { id: 'direct-station', title: '泉州站到校', summary: '公交、打车和换乘方案', to: '/transport', icon: 'i-lucide-route', placement: 'services', sortOrder: 30, featureKey: 'home.more.transport' },
   { id: 'direct-east-station', title: '泉州东站到校', summary: '查看换乘和预计用时', to: '/transport', icon: 'i-lucide-route', placement: 'services', sortOrder: 40, featureKey: 'home.more.transport' },
   { id: 'direct-airport', title: '晋江机场到校', summary: '比较公交和打车方案', to: '/transport', icon: 'i-lucide-plane', placement: 'services', sortOrder: 50, featureKey: 'home.more.transport' },
@@ -366,8 +398,82 @@ const procedures = computed(() => procedureResponse.value?.items ?? [])
 const guides = computed(() => guideResponse.value?.items ?? [])
 const clubs = computed(() => clubResponse.value?.items ?? [])
 const departments = computed(() => departmentResponse.value?.items ?? [])
-const nearbyPlaces = computed(() => nearbyResponse.value?.items ?? [])
+const campusPlaces = computed(() => campusPlaceResponse.value?.items ?? [])
 const currentBanner = computed(() => banners[activeBannerIndex.value] ?? banners[0])
+
+const contentCatalogs = computed<CompactCatalog[]>(() => [
+  {
+    id: 'guides',
+    label: '校园指南',
+    icon: 'i-lucide-book-open-text',
+    to: '/guides',
+    items: guides.value.map(item => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      to: `/guides/${encodeURIComponent(item.slug)}`
+    }))
+  },
+  {
+    id: 'procedures',
+    label: '办事流程',
+    icon: 'i-lucide-list-checks',
+    to: '/procedures',
+    items: procedures.value.map(item => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      to: `/procedures/${encodeURIComponent(item.slug)}`
+    }))
+  },
+  {
+    id: 'places',
+    label: '校园地点',
+    icon: 'i-lucide-map-pin',
+    to: '/map',
+    items: campusPlaces.value.map((item: ApiPlace) => ({
+      id: item.id,
+      title: item.name,
+      summary: item.campusArea
+        ? `${item.campusArea} · ${item.summary}`
+        : item.summary,
+      to: `/places/${encodeURIComponent(item.slug)}`
+    }))
+  },
+  {
+    id: 'clubs',
+    label: '学生社团',
+    icon: 'i-lucide-users-round',
+    to: '/clubs',
+    items: clubs.value.map(item => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      to: `/clubs/${encodeURIComponent(item.slug)}`
+    }))
+  },
+  {
+    id: 'departments',
+    label: '部门学院',
+    icon: 'i-lucide-building-2',
+    to: '/departments',
+    items: departments.value.map(item => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      to: `/departments/${encodeURIComponent(item.slug)}`
+    }))
+  }
+])
+const activeCatalog = computed(() => (
+  contentCatalogs.value.find(catalog => catalog.id === activeCatalogId.value)
+  ?? contentCatalogs.value[0]
+))
+const visibleCatalogItems = computed(() => activeCatalog.value?.items.slice(0, 10) ?? [])
+const nearbyHighlights = computed(() => [
+  ...nearbyGuideItems.filter(item => item.image),
+  ...nearbyGuideItems.filter(item => !item.image)
+].slice(0, 8))
 
 const disabledFeatureKeys = computed(() => new Set(featureResponse.value?.disabledKeys ?? []))
 const featureEnabled = (key?: FrontendFeatureKey): boolean => !key || !disabledFeatureKeys.value.has(key)
@@ -841,49 +947,48 @@ onBeforeUnmount(() => {
             已整理内容
           </h2>
           <NuxtLink
-            to="/discover"
+            :to="activeCatalog?.to || '/discover'"
             class="text-xs font-semibold text-emerald-700"
-          >查看全部</NuxtLink>
+          >查看全部 {{ activeCatalog?.items.length ?? 0 }} 项</NuxtLink>
         </div>
-        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <NuxtLink
-            to="/guides"
-            class="rounded-md bg-sky-50 p-3"
+        <div
+          class="mt-3 flex snap-x gap-2 overflow-x-auto pb-1 overscroll-x-contain"
+          role="tablist"
+          aria-label="选择已整理内容分类"
+        >
+          <button
+            v-for="catalog in contentCatalogs"
+            :key="catalog.id"
+            type="button"
+            role="tab"
+            class="inline-flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-md border px-3 text-left transition"
+            :class="activeCatalogId === catalog.id
+              ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
+              : 'border-zinc-200 bg-white text-zinc-600'"
+            :aria-selected="activeCatalogId === catalog.id"
+            @click="activeCatalogId = catalog.id"
           >
-            <span class="text-xl font-black text-sky-800">{{ guides.length }}</span>
-            <span class="mt-1 block text-xs text-sky-900">篇校园指南</span>
-          </NuxtLink>
-          <NuxtLink
-            to="/procedures"
-            class="rounded-md bg-emerald-50 p-3"
-          >
-            <span class="text-xl font-black text-emerald-800">{{ procedures.length }}</span>
-            <span class="mt-1 block text-xs text-emerald-900">项办事流程</span>
-          </NuxtLink>
-          <NuxtLink
-            to="/clubs"
-            class="rounded-md bg-amber-50 p-3"
-          >
-            <span class="text-xl font-black text-amber-800">{{ clubs.length }}</span>
-            <span class="mt-1 block text-xs text-amber-900">个社团组织</span>
-          </NuxtLink>
-          <NuxtLink
-            to="/departments"
-            class="rounded-md bg-zinc-100 p-3"
-          >
-            <span class="text-xl font-black text-zinc-800">{{ departments.length }}</span>
-            <span class="mt-1 block text-xs text-zinc-700">个部门学院</span>
-          </NuxtLink>
+            <UIcon
+              :name="catalog.icon"
+              class="size-4"
+            />
+            <span class="text-xs font-bold">{{ catalog.label }}</span>
+            <span class="text-[11px] tabular-nums opacity-65">{{ catalog.items.length }}</span>
+          </button>
         </div>
-        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+
+        <div
+          :key="activeCatalogId"
+          class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"
+        >
           <NuxtLink
-            v-for="guide in guides.slice(0, 4)"
-            :key="guide.id"
-            :to="`/guides/${encodeURIComponent(guide.slug)}`"
-            class="rounded-md border border-zinc-200 px-3 py-3"
+            v-for="item in visibleCatalogItems"
+            :key="item.id"
+            :to="item.to"
+            class="min-w-0 rounded-md border border-zinc-200 px-3 py-3 transition hover:border-emerald-300 hover:bg-emerald-50/30"
           >
-            <p class="line-clamp-1 text-sm font-bold">{{ guide.title }}</p>
-            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ guide.summary }}</p>
+            <p class="line-clamp-2 text-sm font-bold leading-5">{{ item.title }}</p>
+            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ item.summary }}</p>
           </NuxtLink>
         </div>
       </section>
@@ -929,7 +1034,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        v-if="nearbyPlaces.length"
+        v-if="nearbyHighlights.length"
         class="rounded-md bg-white p-4 shadow-sm"
         aria-labelledby="compact-nearby-title"
       >
@@ -950,13 +1055,32 @@ onBeforeUnmount(() => {
         </div>
         <div class="mt-3 flex gap-2 overflow-x-auto pb-1 overscroll-x-contain">
           <NuxtLink
-            v-for="place in nearbyPlaces.slice(0, 8)"
-            :key="place.id"
-            :to="`/places/${encodeURIComponent(place.slug)}`"
-            class="w-40 shrink-0 rounded-md border border-zinc-200 p-3"
+            v-for="item in nearbyHighlights"
+            :key="item.id"
+            :to="`/nearby#guide-${encodeURIComponent(item.id)}`"
+            class="w-48 shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-white"
           >
-            <p class="line-clamp-1 text-sm font-bold">{{ place.name }}</p>
-            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ place.summary }}</p>
+            <img
+              v-if="item.image"
+              :src="item.image.src"
+              :alt="item.image.alt"
+              class="aspect-[16/9] w-full object-cover"
+              loading="lazy"
+            >
+            <span
+              v-else
+              class="grid aspect-[16/9] w-full place-items-center bg-gradient-to-br from-emerald-50 to-sky-50 text-emerald-700"
+            >
+              <UIcon
+                :name="item.icon"
+                class="size-7"
+              />
+            </span>
+            <span class="block p-3">
+              <span class="text-[11px] font-semibold text-emerald-700">{{ nearbyGuideCategoryLabels[item.category] }}</span>
+              <span class="mt-1 line-clamp-2 block text-sm font-bold leading-5">{{ item.title }}</span>
+              <span class="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-500">{{ item.summary }}</span>
+            </span>
           </NuxtLink>
         </div>
       </section>

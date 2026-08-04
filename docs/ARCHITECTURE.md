@@ -350,3 +350,10 @@ AI 不是独立的数据源，而是站内检索和证据整理的编排层。�
 - 地图、全景、交通、清单、校规、AI 搜索和联系方式使用同源页面入口；宿舍普通型与舒适型实拍使用站内 `/media` 资源并设置 `playsinline`。简洁模式同时显示实时公告、内容数量、精选指南、专业住宿片区和周边地点，目录详情仍进入主站对应页面。
 - 公开首页依赖的前台功能配置接口必须在发布前完成数据库迁移。`frontend_feature_settings.placement` 与 `sort_order` 属于 0019 迁移，开发、预发布和生产均应先执行 `pnpm db:migrate`，再启动新 release；接口异常不得静默当作“全部关闭”。
 - 动态首页入口的图标必须同时出现在 `shared/client-bundle-icons.ts`，否则 provider:none 的生产构建会在浏览器显示空图标并产生控制台警告。
+
+### 简洁模式实时目录（2026-08-05）
+
+- `HomeCompactWechatGuide` 的前半段继续对齐即链移动预览的连续信息流；后半段使用一个紧凑分类切换区承载主站实时目录，避免为了“内容完整”把数十条社团、部门和地点纵向铺满首页。
+- 实时目录同时读取指南、办事流程、校园地点、学生社团和部门学院五类公开 API。分类按钮显示完整数量，当前分类展示前 10 条并提供对应完整目录入口；条目标题、摘要和详情地址均来自同一 API 响应，不维护静态副本。
+- 校园地点必须读取 `usePublicPlaceList('campus')`。吃喝玩乐正文目前来自 `data/nearby-guide.ts`，不能依赖尚无已发布记录的 `scope=nearby` 地点接口；首页精选按有图内容优先，链接回 `/nearby#guide-*` 的现有阅读位置。
+- `home.essential.map` 只控制校园地图相关入口，`home.essential.delivery` 只控制快递与外卖入口；专业住宿查询没有独立后台 feature key，不得再借用地图开关。旧公告动作中的 `i-lucide-panorama` 在公开输出时归一化为有效的 `i-lucide-orbit`。

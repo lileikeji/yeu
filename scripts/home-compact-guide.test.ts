@@ -20,7 +20,8 @@ test('wechat guide reads live catalogs and keeps direct web media', () => {
   assert.match(componentSource, /usePublicGuideList\(\)/)
   assert.match(componentSource, /usePublicClubList\(\)/)
   assert.match(componentSource, /usePublicDepartmentList\(\)/)
-  assert.match(componentSource, /usePublicPlaceList\('nearby'\)/)
+  assert.match(componentSource, /usePublicPlaceList\('campus'\)/)
+  assert.match(componentSource, /nearbyGuideItems/)
   assert.match(componentSource, /majorProfiles/)
   assert.match(componentSource, /playsinline/)
   assert.match(componentSource, /preload="metadata"/)
@@ -34,6 +35,28 @@ test('wechat guide reads live catalogs and keeps direct web media', () => {
     'public/images/panorama/ordinary-dorm-poster.jpg',
     'public/images/panorama/comfort-dorm-poster.jpg'
   ]) assert.equal(existsSync(resolve(asset)), true, `Missing ${asset}`)
+})
+
+test('compact homepage exposes complete live catalog categories', () => {
+  for (const category of [
+    'id: \'guides\'',
+    'id: \'procedures\'',
+    'id: \'places\'',
+    'id: \'clubs\'',
+    'id: \'departments\''
+  ]) assert.match(componentSource, new RegExp(category))
+
+  assert.match(componentSource, /contentCatalogs/)
+  assert.match(componentSource, /visibleCatalogItems/)
+  assert.match(componentSource, /activeCatalogId/)
+  assert.match(componentSource, /nearbyHighlights/)
+  assert.match(componentSource, /\/places\/\$\{encodeURIComponent\(item\.slug\)\}/)
+})
+
+test('compact map and delivery entries use their matching backend feature switches', () => {
+  assert.match(componentSource, /id: 'compact-map',[\s\S]*?featureKey: 'home\.essential\.map'/)
+  assert.match(componentSource, /id: 'compact-delivery',[\s\S]*?featureKey: 'home\.essential\.delivery'/)
+  assert.doesNotMatch(componentSource, /id: 'compact-major',[^}]*featureKey: 'home\.essential\.map'/)
 })
 
 test('compact homepage follows the five-section mobile preview without nested tabs', () => {
