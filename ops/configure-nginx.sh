@@ -74,6 +74,14 @@ if ! sed -n '/location @nuxt {/,/^    }/p' "$VHOST" | grep -q 'client_max_body_s
   sed -i '/location @nuxt {/a\\        client_max_body_size 256k;' "$VHOST"
 fi
 
+# Static assets are normally served directly by Nginx. If a newly extracted
+# release temporarily has restrictive ownership, fall back to Nitro instead
+# of returning a cached 404 for logos and WeChat share thumbnails.
+sed -i \
+  -e '/location \/icons\/ {/,/^    }/ s/try_files \$uri =404;/try_files \$uri @nuxt;/' \
+  -e '/location \/images\/ {/,/^    }/ s/try_files \$uri =404;/try_files \$uri @nuxt;/' \
+  "$VHOST"
+
 install -o root -g root -m 0644 \
   "$OPS_DIR/nginx/assistant-stream.conf" \
   "$EXTENSION/assistant-stream.conf"

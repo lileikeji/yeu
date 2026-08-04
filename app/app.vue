@@ -18,18 +18,18 @@ useHead({
 
 useSeoMeta({
   titleTemplate: title => title ? `${title} | 迎新指南` : '迎新指南',
-  description: '面向新生的校园地图、办事流程与校园生活指南。',
-  ogTitle: '迎新指南',
-  ogDescription: '面向新生的校园地图、办事流程与校园生活指南。',
+  description: '新生报到、宿舍、校园地图、办事流程与校园生活信息，一处快速查找。',
+  ogTitle: '迎新指南｜报到、地图与校园生活',
+  ogDescription: '查报到时间、宿舍、校园地图、办事流程和新生常见问题。',
   ogSiteName: '迎新指南',
   ogType: 'website',
   ogLocale: 'zh_CN',
-  ogImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png',
+  ogImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20260805b',
   ogImageWidth: 512,
   ogImageHeight: 512,
   ogImageAlt: '迎新指南',
   twitterCard: 'summary_large_image',
-  twitterImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png'
+  twitterImage: 'https://yx.huiliyill.cn/icons/app-icon-512.png?v=20260805b'
 })
 
 const pwaManifestComponent = import.meta.dev

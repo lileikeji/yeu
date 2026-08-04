@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import {
@@ -52,6 +52,8 @@ test('WeChat credentials stay server-side and route sharing uses one automatic S
   const plugin = readFileSync(resolve('app/plugins/wechat-share.client.ts'), 'utf8')
   const club = readFileSync(resolve('app/pages/clubs/[slug].vue'), 'utf8')
   const department = readFileSync(resolve('app/pages/departments/[slug].vue'), 'utf8')
+  const app = readFileSync(resolve('app/app.vue'), 'utf8')
+  const nginxSetup = readFileSync(resolve('ops/configure-nginx.sh'), 'utf8')
 
   assert.match(runtimeConfig, /wechatMpAppSecret: ''/)
   assert.doesNotMatch(runtimeConfig, /wechatMpAppSecret:\s*'[0-9a-f]{32}'/i)
@@ -75,4 +77,10 @@ test('WeChat credentials stay server-side and route sharing uses one automatic S
   assert.doesNotMatch(department, /configureWechatShare/)
   assert.match(shareActions, /微信分享未就绪/)
   assert.match(shareActions, /Do not fall through to clipboard sharing/)
+  assert.match(app, /ogTitle: '迎新指南｜报到、地图与校园生活'/)
+  assert.match(app, /https:\/\/yx\.huiliyill\.cn\/icons\/app-icon-512\.png\?v=[a-z0-9]+/i)
+  assert.equal(existsSync(resolve('public/icons/app-icon-512.png')), true)
+  assert.ok(nginxSetup.includes('location \\/icons\\/'))
+  assert.ok(nginxSetup.includes('location \\/images\\/'))
+  assert.ok(nginxSetup.includes('try_files \\$uri @nuxt;'))
 })
