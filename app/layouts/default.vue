@@ -2,6 +2,7 @@
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
+const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
 
 const desktopNavigation = [
   { label: '首页', to: '/', icon: 'i-lucide-house' },
@@ -45,7 +46,7 @@ function shareCurrentPage(): void {
       class="pointer-events-none fixed -left-[9999px] -top-[9999px] size-px overflow-hidden opacity-0"
     >site index</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
-      <div class="page-shell flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
+      <div class="page-shell relative flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
         <NuxtLink
           to="/"
           class="flex min-h-11 min-w-0 flex-1 items-center gap-2 md:flex-none"
@@ -67,7 +68,7 @@ function shareCurrentPage(): void {
         </NuxtLink>
 
         <nav
-          class="hidden items-center gap-2 md:flex lg:gap-4"
+          class="hidden items-center gap-2 md:mr-auto md:ml-4 md:flex lg:gap-4"
           aria-label="主导航"
         >
           <UButton
@@ -82,6 +83,31 @@ function shareCurrentPage(): void {
             {{ item.label }}
           </UButton>
         </nav>
+
+        <div
+          v-if="isHomePage"
+          class="absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-2 rounded-md bg-zinc-100 p-0.5"
+          aria-label="首页显示模式"
+        >
+          <button
+            type="button"
+            class="inline-flex min-h-8 min-w-14 items-center justify-center rounded px-2.5 text-[11px] font-semibold transition"
+            :class="activeHomeMode === 'full' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
+            :aria-pressed="activeHomeMode === 'full'"
+            @click="setHomeMode('full')"
+          >
+            完整
+          </button>
+          <button
+            type="button"
+            class="inline-flex min-h-8 min-w-14 items-center justify-center rounded px-2.5 text-[11px] font-semibold transition"
+            :class="activeHomeMode === 'compact' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
+            :aria-pressed="activeHomeMode === 'compact'"
+            @click="setHomeMode('compact')"
+          >
+            简洁
+          </button>
+        </div>
 
         <div class="flex shrink-0 items-center gap-0 md:gap-1">
           <PublicNoticeCenter />

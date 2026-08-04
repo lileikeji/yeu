@@ -6,12 +6,14 @@ import test from 'node:test'
 const componentPath = resolve('app/components/home/HomeCompactWechatGuide.vue')
 const componentSource = readFileSync(componentPath, 'utf8')
 const homeSource = readFileSync(resolve('app/pages/index.vue'), 'utf8')
+const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 
 test('homepage switches between full and compact modes without a separate route entry', () => {
   assert.match(homeSource, /HomeCompactWechatGuide/)
-  assert.match(homeSource, />\s*完整\s*<\/button>/)
-  assert.match(homeSource, />\s*简洁\s*<\/button>/)
-  assert.match(homeSource, /useCookie<'full' \| 'compact'>/)
+  assert.match(layoutSource, />\s*完整\s*<\/button>/)
+  assert.match(layoutSource, />\s*简洁\s*<\/button>/)
+  assert.match(layoutSource, /useHomeMode\(\)/)
+  assert.match(homeSource, /useHomeMode\(\)/)
 })
 
 test('wechat guide reads live catalogs and keeps direct web media', () => {

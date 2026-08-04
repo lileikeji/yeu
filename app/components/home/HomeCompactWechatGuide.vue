@@ -7,6 +7,11 @@ import type {
   ApiPublicHomeEntry
 } from '~~/shared/types/server'
 import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
+import {
+  buildHomeEssentialActions,
+  homeMoreEntries,
+  homeTimelineStages
+} from '~~/app/utils/home-presentation'
 import { majorCollegeCount, majorProfiles } from '~~/data/major-profiles'
 import {
   nearbyGuideCategoryLabels,
@@ -371,6 +376,30 @@ const supplementalMoreEntries: CompactHomeEntry[] = [
   }
 ]
 
+// Keep compact cards aligned with the definitions used by the full homepage.
+// The backend still controls enabled state, placement and ordering; this map
+// only prevents the two views from drifting in title, description or route.
+const sharedHomeEntryByFeature = new Map<FrontendFeatureKey, Partial<CompactHomeEntry>>([
+  ...buildHomeEssentialActions([]).map(entry => [entry.featureKey, {
+    title: entry.title,
+    summary: entry.description,
+    to: entry.to,
+    icon: entry.icon
+  }] as const),
+  ...homeTimelineStages.map(entry => [entry.featureKey, {
+    title: entry.title,
+    summary: entry.items.join(' · '),
+    to: entry.to
+  }] as const),
+  ...homeMoreEntries.map(entry => [entry.featureKey, {
+    title: entry.title,
+    summary: entry.description,
+    to: entry.to,
+    icon: entry.icon,
+    external: entry.external
+  }] as const)
+])
+
 const guideToolDefinitions: CompactHomeEntry[] = [
   { id: 'tool-checklist', title: '新生待办工具', summary: '勾选任务并保存进度', to: '/checklist', icon: 'i-lucide-clipboard-list', placement: 'timeline', sortOrder: 0, featureKey: 'home.more.checklist' },
   { id: 'tool-map', title: '互动校园地图', summary: '查地点、看详情和路线', to: '/map', icon: 'i-lucide-map', placement: 'timeline', sortOrder: 10, featureKey: 'home.essential.map' },
@@ -498,17 +527,20 @@ const featureSortOrder = (definition: ManagedEntryDefinition): number => (
 const managedEntries = computed<CompactHomeEntry[]>(() => {
   const defaults = managedEntryDefinitions
     .filter(definition => featureEnabled(definition.featureKey))
-    .map(definition => ({
-      id: definition.id,
-      title: definition.title,
-      summary: definition.summary,
-      to: definition.to,
-      icon: definition.icon,
-      featureKey: definition.featureKey,
-      external: definition.external,
-      placement: featurePlacement(definition),
-      sortOrder: featureSortOrder(definition)
-    }))
+    .map((definition) => {
+      const shared = sharedHomeEntryByFeature.get(definition.featureKey)
+      return {
+        id: definition.id,
+        title: shared?.title ?? definition.title,
+        summary: shared?.summary ?? definition.summary,
+        to: shared?.to ?? definition.to,
+        icon: shared?.icon ?? definition.icon,
+        featureKey: definition.featureKey,
+        external: shared?.external ?? definition.external,
+        placement: featurePlacement(definition),
+        sortOrder: featureSortOrder(definition)
+      }
+    })
   const custom = (homeEntryResponse.value?.items ?? []).map((item: ApiPublicHomeEntry) => ({
     id: item.id,
     title: item.title,
