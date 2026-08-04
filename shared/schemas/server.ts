@@ -399,7 +399,8 @@ const contentMetadataSchema = z.record(z.string().max(80), z.unknown()).superRef
   for (const [key, maxLength] of [
     ['contactName', 120],
     ['contactPhone', 120],
-    ['featuredSummary', 800]
+    ['featuredSummary', 800],
+    ['homeEntryContent', 5000]
   ] as const) {
     const candidate = value[key]
     if (candidate !== undefined

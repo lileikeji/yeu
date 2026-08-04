@@ -34,6 +34,7 @@ export interface PublicHomeEntry {
   id: string
   title: string
   description: string
+  detailContent: string
   to: string
   sourceUrl: string | null
   icon: string
@@ -114,6 +115,9 @@ export function listPublicHomeEntries(client: DatabaseClient): PublicHomeEntry[]
     const description = typeof metadata.homeEntryDescription === 'string' && metadata.homeEntryDescription.trim()
       ? metadata.homeEntryDescription.trim().slice(0, 240)
       : row.summary
+    const detailContent = typeof metadata.homeEntryContent === 'string' && metadata.homeEntryContent.trim()
+      ? metadata.homeEntryContent.trim().slice(0, 5000)
+      : description
     const icon = typeof metadata.homeEntryIcon === 'string'
       && /^i-lucide-[a-z0-9-]{2,64}$/u.test(metadata.homeEntryIcon)
       ? metadata.homeEntryIcon
@@ -126,6 +130,7 @@ export function listPublicHomeEntries(client: DatabaseClient): PublicHomeEntry[]
       id: row.id,
       title,
       description,
+      detailContent,
       to: contentEntryPath(row.kind, row.slug),
       sourceUrl: safeNoticeActionHref(metadata.homeEntrySourceUrl),
       icon,

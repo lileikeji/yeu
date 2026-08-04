@@ -22,13 +22,19 @@ test('mobile header keeps the centered mode switch clear of action buttons', () 
   assert.match(layoutSource, /class="hidden min-h-10 min-w-10 sm:inline-flex/)
 })
 
-test('compact cards open a bottom sheet with a configurable source link', () => {
+test('compact cards open a content-first bottom sheet with a configurable source link', () => {
   assert.match(componentSource, /entrySheetOpen/)
   assert.match(componentSource, /@click="openEntry\(entry\)"/)
   assert.match(componentSource, /max-h-\[72dvh\]/)
+  assert.match(componentSource, /selectedEntryContentBlocks/)
+  assert.match(componentSource, /入口主要内容/)
+  assert.match(componentSource, /录取材料到手后/)
   assert.match(componentSource, /来源地址/)
   assert.match(componentSource, /selectedEntrySourceHref/)
   assert.match(componentSource, /item\.sourceUrl/)
+  assert.match(componentSource, /item\.detailContent/)
+  assert.match(componentSource, /https:\/\/doc\.sourl\.cc\/jkyxfu/)
+  assert.match(componentSource, /label="打开小程序"/)
 })
 
 test('every public subpage gets one shared back action', () => {

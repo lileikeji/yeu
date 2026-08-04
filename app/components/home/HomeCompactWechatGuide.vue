@@ -38,6 +38,7 @@ interface CompactHomeEntry {
   id: string
   title: string
   summary: string
+  detailContent?: string | null
   to: string
   sourceUrl?: string | null
   icon: string
@@ -77,6 +78,11 @@ interface CompactCatalog {
   items: CompactCatalogItem[]
 }
 
+interface CompactEntryContentBlock {
+  title: string
+  body: string
+}
+
 const searchQuery = ref('')
 const activeBannerIndex = ref(0)
 const activeCatalogId = ref<CompactCatalogId>('guides')
@@ -86,6 +92,7 @@ const noticeOpen = ref(false)
 const selectedEntry = ref<CompactHomeEntry | null>(null)
 const entrySheetOpen = ref(false)
 const runtimeConfig = useRuntimeConfig()
+const miniProgramUrl = 'https://doc.sourl.cc/jkyxfu'
 let bannerTimer: ReturnType<typeof setInterval> | undefined
 
 const noticeRequest = useFetch<ApiListResponse<PublicNotice>>('/api/public/notices', {
@@ -145,6 +152,102 @@ const banners: BannerItem[] = [
     to: '/nearby'
   }
 ]
+
+const compactEntryDetailByPath: Record<string, string> = {
+  '/checklist': `录取材料到手后
+核对录取通知书、身份证和个人信息，保存学院、辅导员和迎新通知里的联系方式。
+
+出发前
+按当年通知准备纸质材料、证件照和生活用品。大件物品先别买太多，到宿舍确认尺寸和空间后再补。
+
+到校当天
+完成身份核验、住宿办理和物品领取，并检查门锁、水电、床桌柜和消防设施。`,
+  '/dorms': `先看宿舍类型
+普通型和舒适型宿舍的布局、床桌柜和公共空间不完全相同，先看实拍再准备行李。
+
+购买用品前
+床垫、床帘和收纳用品要以本人楼栋和实际床位尺寸为准，不要只凭群聊消息提前买齐。`,
+  '/transport': `出发前先确认
+先选自己实际到达的车站或机场，再比较公交、换乘和打车方案。
+
+当天怎么走
+出发当天重新查看实时公交、预计用时和末班时间；行李较多时给换乘留出余量。`,
+  '/procedures/campus-network': `开通前准备
+先确认学校当届校园网通知、账号范围和办理方式，不要使用来路不明的共享账号。
+
+连不上时
+依次检查账号、密码、网络选择和设备限制，再按页面里的官方办理方式处理。`,
+  '/nearby': `先按场景选择
+可以查看校内周边吃饭、补日用品、泉州市区游玩和返校路线，不需要一次把所有地点都排进去。
+
+出发前再确认
+营业时间、票价、公交班次和返校末班时间可能变化，出发当天再看实时信息。`,
+  '/procedures/arrival': `到校前
+核对报到日期、个人时段、材料和住宿信息，把录取通知书及正式通知随身保存。
+
+报到当天
+按现场指引完成身份核验、登记和入住；不确定的事项直接询问现场老师或学院联系人。`,
+  '/search': `可以怎么问
+可以直接问报到、宿舍、专业、办事流程，也可以说“帮我找某个功能入口”。
+
+答案怎么用
+系统会优先检索站内资料；涉及时间、收费和政策时，仍要以当年正式通知为准。`,
+  '/contact': `适合反馈什么
+可以反馈页面错误、内容过期、入口失效，也可以咨询如何加入新生交流渠道。
+
+联系前准备
+尽量带上具体页面、问题描述和截图，方便更快核对。`,
+  '/student-rules': `这里能查什么
+可查看绩点计算、综合测评、奖助学金和学生管理规则的整理内容。
+
+注意版本
+校内规则可能按学年调整，申请和评审时要再核对当前学年的正式文件。`,
+  '/major-lookup': `先查专业归属
+输入专业名称后可以查看所属学院，并了解目前整理的新区或旧区住宿片区。
+
+住宿以什么为准
+片区信息用于提前了解，个人楼栋和房间最终以学校安排及现场入住信息为准。`,
+  '/map': `先找地点
+可以搜索宿舍、教学楼、食堂和校园服务点，打开地点后再看详情和路线。
+
+到现场后
+地图用于找方向，入口开放情况、施工绕行和实际步行路线以现场为准。`,
+  '/panorama': `先在线逛校园
+可以提前查看校门、教学楼、宿舍和部分校园环境，帮助报到前建立方向感。
+
+查看方式
+选择具体点位进入全景；如果内置浏览器加载受限，可以改用系统浏览器打开。`,
+  '/procedures': `按事情找流程
+校园网、报修、图书馆、档案等事项都按步骤整理，先找到对应事项再逐项办理。
+
+办理前核对
+带有“以通知为准”的内容需要再看当年部门通知和现场要求。`,
+  '/clubs': `先了解方向
+可以按兴趣查看社团介绍、主要活动和联系方式，再决定开学后重点关注哪些招新信息。
+
+加入前确认
+二维码、群聊和负责人可能调整，以社团当期招新现场和最新发布为准。`,
+  '/departments': `先找对部门
+按职责查看招生、教务、学生事务和学院信息，减少来回询问。
+
+联系时说明
+准备好姓名、学院、具体事项和相关截图，避免只说“有问题”而无法定位。`,
+  '/sources': `内容怎么整理
+本站会区分正式通知、公开资料和个人整理内容，重要事项优先参考正式来源。
+
+发现不一致时
+以学校及有关部门最新通知为准，并可通过反馈入口提醒整理者更新。`,
+  '/feedback': `反馈时写清楚
+说明具体页面、错误位置、正确内容和可核对的来源，有截图时一并提供。
+
+提交之后
+整理者核对后会更新内容；紧急办事问题不要只等待网页反馈。`,
+  '/about': `这是什么网站
+这是面向新生的个人公益整理工具，用于梳理报到、校园生活和常用办事入口。
+
+使用边界
+本站不是学校官方网站，关键政策、时间和办理要求以正式通知为准。`
+}
 
 const managedEntryDefinitions: ManagedEntryDefinition[] = [
   {
@@ -549,6 +652,7 @@ const managedEntries = computed<CompactHomeEntry[]>(() => {
     id: item.id,
     title: item.title,
     summary: item.description,
+    detailContent: item.detailContent,
     to: item.to,
     sourceUrl: item.sourceUrl,
     icon: item.icon,
@@ -621,10 +725,47 @@ const selectedEntrySourceLabel = computed(() => {
   return `${origin}${href.startsWith('/') ? href : `/${href}`}`
 })
 const selectedEntrySourceExternal = computed(() => /^https?:\/\//i.test(selectedEntrySourceHref.value))
-const selectedEntryHasSeparateSource = computed(() => Boolean(
-  selectedEntry.value?.sourceUrl
-  && selectedEntry.value.sourceUrl !== selectedEntry.value.to
-))
+
+function entryPath(entry: CompactHomeEntry): string {
+  if (/^https?:\/\//i.test(entry.to)) return entry.to
+  return entry.to.split(/[?#]/u, 1)[0] || entry.to
+}
+
+function defaultEntryDetailContent(entry: CompactHomeEntry): string {
+  const path = entryPath(entry)
+  const exact = compactEntryDetailByPath[path]
+  if (exact) return exact
+  if (path.startsWith('/guides/')) {
+    return `先看这份指南\n${entry.summary}\n\n继续查看\n进入完整页面后可以查看具体说明、相关入口和需要再次确认的事项。`
+  }
+  if (path.startsWith('/procedures/')) {
+    return `先确认要办的事情\n${entry.summary}\n\n办理前\n按完整页面列出的步骤准备，遇到当年安排变化时以负责部门最新通知为准。`
+  }
+  if (path.startsWith('/places/')) {
+    return `地点简介\n${entry.summary}\n\n怎么去\n进入完整页面查看地点信息和路线；开放入口与现场通行情况以当天为准。`
+  }
+  if (path.startsWith('/clubs/')) {
+    return `先了解社团\n${entry.summary}\n\n开学后怎么找\n进入完整页面查看活动和联系方式，招新时间与群聊入口以当期发布为准。`
+  }
+  if (path.startsWith('/departments/')) {
+    return `部门职责\n${entry.summary}\n\n联系前准备\n进入完整页面查看办事范围和联系方式，并准备好需要说明的具体事项。`
+  }
+  return `主要内容\n${entry.summary}\n\n继续查看\n进入完整页面后可以查看更详细的信息和可用功能。`
+}
+
+const selectedEntryContentBlocks = computed<CompactEntryContentBlock[]>(() => {
+  const entry = selectedEntry.value
+  if (!entry) return []
+  const raw = entry.detailContent?.trim() || defaultEntryDetailContent(entry)
+  return raw.split(/\n\s*\n/u).map((block) => {
+    const lines = block.split('\n').map(line => line.trim()).filter(Boolean)
+    const title = lines.shift() || '主要内容'
+    return {
+      title,
+      body: lines.join('\n') || entry.summary
+    }
+  }).filter(block => block.title || block.body)
+})
 
 function openEntry(entry: CompactHomeEntry): void {
   selectedEntry.value = entry
@@ -700,15 +841,27 @@ onBeforeUnmount(() => {
               新生报到、校园生活与办事信息，一页快速找到
             </p>
           </div>
-          <UButton
-            to="/contact"
-            icon="i-lucide-message-circle"
-            color="neutral"
-            variant="outline"
-            aria-label="联系整理者"
-            size="sm"
-            class="min-h-8 shrink-0"
-          />
+          <div class="flex shrink-0 items-center gap-1.5">
+            <UButton
+              :to="miniProgramUrl"
+              external
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-smartphone"
+              label="打开小程序"
+              size="xs"
+              class="min-h-8 whitespace-nowrap"
+            />
+            <UButton
+              to="/contact"
+              icon="i-lucide-message-circle"
+              color="neutral"
+              variant="outline"
+              aria-label="联系整理者"
+              size="sm"
+              class="min-h-8 shrink-0"
+            />
+          </div>
         </div>
         <form
           class="mt-2 flex"
@@ -1216,7 +1369,7 @@ onBeforeUnmount(() => {
     <UModal
       v-model:open="entrySheetOpen"
       :title="selectedEntry?.title || '入口详情'"
-      description="先看说明，需要时再进入完整页面"
+      description="先看主要内容，需要时再进入完整页面"
       :ui="{
         content: 'left-1/2 right-auto top-auto bottom-0 w-full max-w-3xl -translate-x-1/2 translate-y-0 rounded-t-2xl rounded-b-none max-h-[72dvh]',
         header: 'relative px-5 pb-4 pt-6 sm:px-6',
@@ -1229,19 +1382,37 @@ onBeforeUnmount(() => {
           v-if="selectedEntry"
           class="space-y-5"
         >
-          <div class="flex items-start gap-3">
+          <div class="flex items-start gap-3 rounded-md bg-emerald-50 px-4 py-3">
             <span class="grid size-11 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700">
               <UIcon
                 :name="selectedEntry.icon"
                 class="size-5"
               />
             </span>
-            <p class="text-sm leading-7 text-zinc-700">
+            <p class="pt-1 text-sm leading-7 text-zinc-700">
               {{ selectedEntry.summary }}
             </p>
           </div>
 
-          <div class="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3">
+          <section
+            class="space-y-3"
+            aria-label="入口主要内容"
+          >
+            <article
+              v-for="(block, index) in selectedEntryContentBlocks"
+              :key="`${selectedEntry.id}-detail-${index}`"
+              class="rounded-md border border-zinc-200 bg-white px-4 py-3"
+            >
+              <h3 class="text-sm font-black text-zinc-900">
+                {{ block.title }}
+              </h3>
+              <p class="mt-1.5 whitespace-pre-line text-sm leading-7 text-zinc-600">
+                {{ block.body }}
+              </p>
+            </article>
+          </section>
+
+          <div class="border-t border-zinc-200 pt-4">
             <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400">
               来源地址
             </p>
@@ -1267,18 +1438,6 @@ onBeforeUnmount(() => {
           :rel="selectedEntry.external ? 'noopener noreferrer' : undefined"
           icon="i-lucide-arrow-up-right"
           label="进入完整页面"
-          block
-        />
-        <UButton
-          v-if="selectedEntryHasSeparateSource"
-          :to="selectedEntrySourceHref"
-          :external="selectedEntrySourceExternal"
-          :target="selectedEntrySourceExternal ? '_blank' : undefined"
-          :rel="selectedEntrySourceExternal ? 'noopener noreferrer' : undefined"
-          icon="i-lucide-link"
-          label="查看来源"
-          color="neutral"
-          variant="outline"
           block
         />
       </template>

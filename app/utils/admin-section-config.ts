@@ -682,6 +682,17 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       },
       {
+        key: 'metadata.homeEntryContent',
+        label: '半屏正文',
+        type: 'textarea',
+        rows: 7,
+        placeholder: '例如：\n先看什么\n这里填写具体说明。\n\n下一步怎么做\n这里填写操作建议。',
+        description: '入口点击后先显示这里的内容。用空行分段，每段第一行会作为小标题；留空时使用入口说明。',
+        group: '首页入口配置',
+        span: 'full',
+        condition: { key: 'kind', values: ['guide', 'department', 'club'] }
+      },
+      {
         key: 'metadata.homeEntrySourceUrl',
         label: '来源地址',
         placeholder: '例如 https://example.com/source 或 /sources',

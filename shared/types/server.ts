@@ -48,6 +48,7 @@ export interface ApiPublicHomeEntry {
   id: string
   title: string
   description: string
+  detailContent: string
   to: string
   sourceUrl: string | null
   icon: string
