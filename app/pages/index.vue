@@ -15,12 +15,21 @@ useSeoMeta({
 const showIntro = ref(false)
 const route = useRoute()
 const forceIntro = ref(route.query.intro === '1')
+const homeMode = useCookie<'full' | 'compact'>('yeu-home-mode', {
+  default: () => 'full',
+  sameSite: 'lax',
+  maxAge: 60 * 60 * 24 * 365
+})
+// Keep the visible mode in a local ref so embedded browsers update the page
+// immediately; the cookie only persists the user's choice between visits.
+const activeHomeMode = ref<'full' | 'compact'>(homeMode.value)
 onMounted(() => {
   // The guide must be usable immediately. The full-screen animation is opt-in
   // after the first visit, or can be forced with ?intro=1.
   if (forceIntro.value) {
     showIntro.value = true
   }
+  activeHomeMode.value = homeMode.value
 })
 
 function onIntroComplete() {
@@ -66,6 +75,12 @@ function asActionEntry(item: {
     meta: '首页入口',
     tone
   }
+}
+
+function setHomeMode(mode: 'full' | 'compact'): void {
+  activeHomeMode.value = mode
+  homeMode.value = mode
+  if (mode === 'compact') showIntro.value = false
 }
 
 const essentialActions = computed(() => [
@@ -172,15 +187,59 @@ const {
 
 <template>
   <div class="overflow-x-clip">
+    <section class="border-b border-zinc-200 bg-white">
+      <div class="page-shell flex items-center justify-between gap-3 py-2.5">
+        <p class="hidden text-xs text-zinc-500 sm:block">
+          选择适合你的浏览方式
+        </p>
+        <div
+          class="ml-auto grid grid-cols-2 rounded-md bg-zinc-100 p-1"
+          aria-label="首页显示模式"
+        >
+          <button
+            type="button"
+            class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition sm:min-w-28 sm:text-sm"
+            :class="activeHomeMode === 'full' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
+            :aria-pressed="activeHomeMode === 'full'"
+            @click="setHomeMode('full')"
+          >
+            <UIcon
+              name="i-lucide-layout-template"
+              class="size-4"
+            />
+            完整模式
+          </button>
+          <button
+            type="button"
+            class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded px-3 text-xs font-semibold transition sm:min-w-28 sm:text-sm"
+            :class="activeHomeMode === 'compact' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
+            :aria-pressed="activeHomeMode === 'compact'"
+            @click="setHomeMode('compact')"
+          >
+            <UIcon
+              name="i-lucide-smartphone"
+              class="size-4"
+            />
+            简洁模式
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <HomeCompactWechatGuide v-if="activeHomeMode === 'compact'" />
+
     <ClientOnly>
       <IntroOverlay
-        v-if="showIntro"
+        v-if="activeHomeMode === 'full' && showIntro"
         :force="forceIntro"
         @complete="onIntroComplete"
       />
     </ClientOnly>
 
-    <div class="animate-spring-up">
+    <div
+      v-show="activeHomeMode === 'full'"
+      class="animate-spring-up"
+    >
       <section class="border-b border-[var(--line)] bg-white/70 backdrop-blur-md relative overflow-hidden">
         <div class="border-b border-orange-200/80 bg-orange-50/80 text-orange-800">
           <button

@@ -39,7 +39,7 @@ test('frontend feature catalog covers every configurable home card with unique k
   for (const key of homeKeys) assert.equal(catalogKeys.has(key), true, `Missing ${key}`)
 
   assert.match(pageSource, /usePublicFrontendFeatures\(\)/)
-  assert.match(pageSource, /\.filter\(action => featureEnabled\(action\.featureKey\)\)/)
+  assert.match(pageSource, /\.filter\(action => featureEnabled\(action\.featureKey\) && featurePlacement\(action\.featureKey,/)
 })
 
 test('feature settings default to visible and persist individual admin changes', () => {

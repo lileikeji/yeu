@@ -1,0 +1,1008 @@
+<script setup lang="ts">
+import type {
+  ApiContent,
+  ApiListResponse,
+  ApiNoticeAction,
+  ApiPublicHomeEntry
+} from '~~/shared/types/server'
+import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
+import { majorCollegeCount, majorProfiles } from '~~/data/major-profiles'
+import { safeNoticeActionHref } from '~~/shared/utils/notice-actions'
+
+type CompactPlacement = 'quick' | 'timeline' | 'services' | 'more'
+
+interface PublicNotice extends ApiContent {
+  pinned: boolean
+  autoPopup: boolean
+  actions: ApiNoticeAction[]
+  confirmationCount: number
+  confirmed: boolean
+}
+
+interface ConfirmNoticeResponse {
+  confirmed: boolean
+  confirmationCount: number
+}
+
+interface CompactHomeEntry {
+  id: string
+  title: string
+  summary: string
+  to: string
+  icon: string
+  placement: CompactPlacement
+  sortOrder: number
+  featureKey?: FrontendFeatureKey
+  external?: boolean
+}
+
+interface ManagedEntryDefinition extends Omit<CompactHomeEntry, 'placement' | 'sortOrder'> {
+  featureKey: FrontendFeatureKey
+  defaultPlacement: CompactPlacement
+  defaultOrder: number
+}
+
+interface BannerItem {
+  title: string
+  summary: string
+  image: string
+  to: string
+}
+
+const searchQuery = ref('')
+const activeBannerIndex = ref(0)
+const selectedNotice = ref<PublicNotice | null>(null)
+const noticeOpen = ref(false)
+let bannerTimer: ReturnType<typeof setInterval> | undefined
+
+const noticeRequest = useFetch<ApiListResponse<PublicNotice>>('/api/public/notices', {
+  key: 'compact-guide-notices'
+})
+const featureRequest = usePublicFrontendFeatures()
+const homeEntryRequest = usePublicHomeEntries()
+const procedureRequest = usePublicProcedureList()
+const guideRequest = usePublicGuideList()
+const clubRequest = usePublicClubList()
+const departmentRequest = usePublicDepartmentList()
+const nearbyRequest = usePublicPlaceList('nearby')
+
+await Promise.all([
+  noticeRequest,
+  featureRequest,
+  homeEntryRequest,
+  procedureRequest,
+  guideRequest,
+  clubRequest,
+  departmentRequest,
+  nearbyRequest
+])
+
+const { data: noticeResponse } = noticeRequest
+const { data: featureResponse } = featureRequest
+const { data: homeEntryResponse } = homeEntryRequest
+const { data: procedureResponse } = procedureRequest
+const { data: guideResponse } = guideRequest
+const { data: clubResponse } = clubRequest
+const { data: departmentResponse } = departmentRequest
+const { data: nearbyResponse } = nearbyRequest
+
+const banners: BannerItem[] = [
+  {
+    title: '迎新指南，先看重点',
+    summary: '报到、住宿、地图和校园生活，一页快速找到',
+    image: '/images/intro/yeu-campus-hero.webp',
+    to: '/procedures/arrival'
+  },
+  {
+    title: '宿舍什么样，提前看看',
+    summary: '普通型和舒适型宿舍都有实拍',
+    image: '/images/panorama/comfort-dorm-poster.jpg',
+    to: '/dorms'
+  },
+  {
+    title: '到校以后，不怕找路',
+    summary: '查楼栋、服务点和步行路线',
+    image: '/images/nearby/citywalk.webp',
+    to: '/map'
+  },
+  {
+    title: '周末进城，先把路线存好',
+    summary: '交通、吃喝和泉州市区攻略都在这里',
+    image: '/images/nearby/city-night.webp',
+    to: '/nearby'
+  }
+]
+
+const managedEntryDefinitions: ManagedEntryDefinition[] = [
+  {
+    id: 'compact-checklist',
+    featureKey: 'home.checklist',
+    title: '新生待办',
+    summary: '按阶段勾选准备事项',
+    to: '/checklist',
+    icon: 'i-lucide-clipboard-list',
+    defaultPlacement: 'quick',
+    defaultOrder: 0
+  },
+  {
+    id: 'compact-dorms',
+    featureKey: 'home.more.dorms',
+    title: '宿舍实拍',
+    summary: '普通型与舒适型宿舍',
+    to: '/dorms',
+    icon: 'i-lucide-bed-double',
+    defaultPlacement: 'quick',
+    defaultOrder: 10
+  },
+  {
+    id: 'compact-transport',
+    featureKey: 'home.more.transport',
+    title: '到校与返校',
+    summary: '车站、机场和市区路线',
+    to: '/transport',
+    icon: 'i-lucide-bus-front',
+    defaultPlacement: 'quick',
+    defaultOrder: 20
+  },
+  {
+    id: 'compact-network',
+    featureKey: 'home.essential.network',
+    title: '校园网络',
+    summary: '连接、账号与常见问题',
+    to: '/procedures/campus-network',
+    icon: 'i-lucide-wifi',
+    defaultPlacement: 'quick',
+    defaultOrder: 30
+  },
+  {
+    id: 'compact-nearby',
+    featureKey: 'home.more.nearby',
+    title: '吃喝玩乐',
+    summary: '学校周边与泉州市区',
+    to: '/nearby',
+    icon: 'i-lucide-utensils',
+    defaultPlacement: 'quick',
+    defaultOrder: 40
+  },
+  {
+    id: 'compact-arrival',
+    featureKey: 'home.essential.arrival',
+    title: '报到流程',
+    summary: '时间、材料与现场步骤',
+    to: '/procedures/arrival',
+    icon: 'i-lucide-calendar-check-2',
+    defaultPlacement: 'quick',
+    defaultOrder: 50
+  },
+  {
+    id: 'compact-rules',
+    featureKey: 'home.more.student-rules',
+    title: '学生手册与奖助',
+    summary: '绩点、综测和奖助规则',
+    to: '/student-rules',
+    icon: 'i-lucide-notebook-tabs',
+    defaultPlacement: 'quick',
+    defaultOrder: 80
+  },
+  {
+    id: 'compact-major',
+    featureKey: 'home.essential.map',
+    title: '专业与住宿片区',
+    summary: '查学院、新区和旧区',
+    to: '/major-lookup',
+    icon: 'i-lucide-graduation-cap',
+    defaultPlacement: 'quick',
+    defaultOrder: 90
+  },
+  {
+    id: 'compact-map',
+    featureKey: 'home.essential.delivery',
+    title: '校园地图',
+    summary: '旧区、新区和高频地点快速查找',
+    to: '/map',
+    icon: 'i-lucide-map-pinned',
+    defaultPlacement: 'services',
+    defaultOrder: 10
+  },
+  {
+    id: 'compact-panorama',
+    featureKey: 'home.more.panorama',
+    title: '全景云游校园',
+    summary: '先看校园环境和宿舍实景',
+    to: '/panorama',
+    icon: 'i-lucide-orbit',
+    defaultPlacement: 'services',
+    defaultOrder: 0
+  },
+  {
+    id: 'compact-before-arrival',
+    featureKey: 'home.timeline.before-arrival',
+    title: '到校前准备',
+    summary: '确认时间、材料、交通和住宿',
+    to: '/procedures/arrival',
+    icon: 'i-lucide-luggage',
+    defaultPlacement: 'timeline',
+    defaultOrder: 0
+  },
+  {
+    id: 'compact-arrival-day',
+    featureKey: 'home.timeline.arrival-day',
+    title: '报到当天',
+    summary: '定位报到点并按步骤办理',
+    to: '/map',
+    icon: 'i-lucide-map-pin-check',
+    defaultPlacement: 'timeline',
+    defaultOrder: 10
+  },
+  {
+    id: 'compact-first-week',
+    featureKey: 'home.timeline.first-week',
+    title: '入学第一周',
+    summary: '补齐学习与校园生活入口',
+    to: '/guides',
+    icon: 'i-lucide-calendar-range',
+    defaultPlacement: 'timeline',
+    defaultOrder: 20
+  },
+  {
+    id: 'compact-safety',
+    featureKey: 'home.more.safety',
+    title: '安全与健康',
+    summary: '医疗、心理支持和应急信息',
+    to: '/guides/safety-health',
+    icon: 'i-lucide-shield-plus',
+    defaultPlacement: 'more',
+    defaultOrder: 30
+  },
+  {
+    id: 'compact-clubs',
+    featureKey: 'home.more.clubs',
+    title: '学生社团',
+    summary: '按兴趣了解社团和招新信息',
+    to: '/clubs',
+    icon: 'i-lucide-users-round',
+    defaultPlacement: 'more',
+    defaultOrder: 0
+  },
+  {
+    id: 'compact-departments',
+    featureKey: 'home.more.departments',
+    title: '校内部门',
+    summary: '按职责找到办事部门',
+    to: '/departments',
+    icon: 'i-lucide-building-2',
+    defaultPlacement: 'more',
+    defaultOrder: 10
+  },
+  {
+    id: 'compact-welearn',
+    featureKey: 'home.more.welearn',
+    title: 'WeLearn 学习工具',
+    summary: '查看版本说明与下载入口',
+    to: 'https://dz.lileikeji.top/uploads/releases/download.php',
+    icon: 'i-lucide-download',
+    external: true,
+    defaultPlacement: 'more',
+    defaultOrder: 40
+  }
+]
+
+const supplementalQuickEntries: CompactHomeEntry[] = [
+  {
+    id: 'compact-search',
+    title: '校园问答',
+    summary: '检索资料并找到功能入口',
+    to: '/search?mode=ai',
+    icon: 'i-lucide-circle-help',
+    placement: 'quick',
+    sortOrder: 60
+  },
+  {
+    id: 'compact-contact',
+    title: '联系整理者',
+    summary: '反馈问题或咨询新生群',
+    to: '/contact',
+    icon: 'i-lucide-message-square-text',
+    placement: 'quick',
+    sortOrder: 70
+  }
+]
+
+const supplementalMoreEntries: CompactHomeEntry[] = [
+  {
+    id: 'compact-sources',
+    title: '信息来源',
+    summary: '先看正式通知，再参考整理内容',
+    to: '/sources',
+    icon: 'i-lucide-shield-check',
+    placement: 'more',
+    sortOrder: 50
+  },
+  {
+    id: 'compact-feedback',
+    title: '反馈纠错',
+    summary: '提交过期、错误或缺失的信息',
+    to: '/feedback',
+    icon: 'i-lucide-message-square-warning',
+    placement: 'more',
+    sortOrder: 60
+  },
+  {
+    id: 'compact-about',
+    title: '关于这份指南',
+    summary: '个人公益整理说明',
+    to: '/about',
+    icon: 'i-lucide-info',
+    placement: 'more',
+    sortOrder: 70
+  }
+]
+
+const guideToolDefinitions: CompactHomeEntry[] = [
+  { id: 'tool-checklist', title: '新生待办工具', summary: '勾选任务并保存进度', to: '/checklist', icon: 'i-lucide-clipboard-list', placement: 'timeline', sortOrder: 0, featureKey: 'home.more.checklist' },
+  { id: 'tool-map', title: '互动校园地图', summary: '查地点、看详情和路线', to: '/map', icon: 'i-lucide-map', placement: 'timeline', sortOrder: 10, featureKey: 'home.essential.delivery' },
+  { id: 'tool-transport', title: '到校交通查询', summary: '查公交、进城和返校方案', to: '/transport', icon: 'i-lucide-bus-front', placement: 'timeline', sortOrder: 20, featureKey: 'home.more.transport' },
+  { id: 'tool-arrival', title: '报到流程详情', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival' },
+  { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40, featureKey: 'home.essential.map' },
+  { id: 'tool-rules', title: '学生规则与奖助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-notebook-tabs', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules' },
+  { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-help', placement: 'timeline', sortOrder: 60 }
+]
+
+const directEntryDefinitions: CompactHomeEntry[] = [
+  { id: 'direct-campus', title: '校内全景', summary: '打开校内 360 度实景', to: '/panorama', icon: 'i-lucide-camera', placement: 'services', sortOrder: 0, featureKey: 'home.more.panorama' },
+  { id: 'direct-history', title: 'VR 校史馆', summary: '进入学校发布的全景展厅', to: '/panorama', icon: 'i-lucide-landmark', placement: 'services', sortOrder: 10, featureKey: 'home.more.panorama' },
+  { id: 'direct-map', title: '互动校园地图', summary: '查楼栋、地点和步行路线', to: '/map', icon: 'i-lucide-map', placement: 'services', sortOrder: 20, featureKey: 'home.essential.delivery' },
+  { id: 'direct-station', title: '泉州站到校', summary: '公交、打车和换乘方案', to: '/transport', icon: 'i-lucide-route', placement: 'services', sortOrder: 30, featureKey: 'home.more.transport' },
+  { id: 'direct-east-station', title: '泉州东站到校', summary: '查看换乘和预计用时', to: '/transport', icon: 'i-lucide-route', placement: 'services', sortOrder: 40, featureKey: 'home.more.transport' },
+  { id: 'direct-airport', title: '晋江机场到校', summary: '比较公交和打车方案', to: '/transport', icon: 'i-lucide-plane', placement: 'services', sortOrder: 50, featureKey: 'home.more.transport' },
+  { id: 'direct-return', title: '市区返校', summary: '查看路线和末班时间', to: '/transport', icon: 'i-lucide-bus-front', placement: 'services', sortOrder: 60, featureKey: 'home.more.transport' },
+  { id: 'direct-ordinary-dorm', title: '普通型宿舍实拍', summary: '直接查看宿舍实拍视频', to: '/dorms', icon: 'i-lucide-bed-double', placement: 'services', sortOrder: 70, featureKey: 'home.more.dorms' },
+  { id: 'direct-comfort-dorm', title: '舒适型宿舍实拍', summary: '直接查看宿舍实拍视频', to: '/dorms', icon: 'i-lucide-bed-single', placement: 'services', sortOrder: 80, featureKey: 'home.more.dorms' },
+  { id: 'direct-food', title: '泉州美食参考', summary: '打开市区吃喝攻略', to: '/nearby', icon: 'i-lucide-utensils', placement: 'services', sortOrder: 90, featureKey: 'home.more.nearby' }
+]
+
+const notices = computed(() => noticeResponse.value?.items ?? [])
+const procedures = computed(() => procedureResponse.value?.items ?? [])
+const guides = computed(() => guideResponse.value?.items ?? [])
+const clubs = computed(() => clubResponse.value?.items ?? [])
+const departments = computed(() => departmentResponse.value?.items ?? [])
+const nearbyPlaces = computed(() => nearbyResponse.value?.items ?? [])
+const currentBanner = computed(() => banners[activeBannerIndex.value] ?? banners[0])
+
+const disabledFeatureKeys = computed(() => new Set(featureResponse.value?.disabledKeys ?? []))
+const featureEnabled = (key?: FrontendFeatureKey): boolean => !key || !disabledFeatureKeys.value.has(key)
+const featurePlacement = (definition: ManagedEntryDefinition): CompactPlacement => {
+  const configured = featureResponse.value?.placements?.[definition.featureKey]
+  return configured === 'quick' || configured === 'timeline' || configured === 'services'
+    ? configured
+    : definition.defaultPlacement
+}
+const featureSortOrder = (definition: ManagedEntryDefinition): number => (
+  featureResponse.value?.sortOrders?.[definition.featureKey] ?? definition.defaultOrder
+)
+
+const managedEntries = computed<CompactHomeEntry[]>(() => {
+  const defaults = managedEntryDefinitions
+    .filter(definition => featureEnabled(definition.featureKey))
+    .map(definition => ({
+      id: definition.id,
+      title: definition.title,
+      summary: definition.summary,
+      to: definition.to,
+      icon: definition.icon,
+      featureKey: definition.featureKey,
+      external: definition.external,
+      placement: featurePlacement(definition),
+      sortOrder: featureSortOrder(definition)
+    }))
+  const custom = (homeEntryResponse.value?.items ?? []).map((item: ApiPublicHomeEntry) => ({
+    id: item.id,
+    title: item.title,
+    summary: item.description,
+    to: item.to,
+    icon: item.icon,
+    placement: item.placement,
+    sortOrder: item.sortOrder
+  }))
+  return [...defaults, ...custom]
+})
+
+function sortEntries(entries: CompactHomeEntry[]): CompactHomeEntry[] {
+  return [...entries].sort((left, right) => (
+    left.sortOrder - right.sortOrder || left.title.localeCompare(right.title, 'zh-CN')
+  ))
+}
+
+const quickEntries = computed(() => sortEntries([
+  ...managedEntries.value.filter(entry => entry.placement === 'quick'),
+  ...supplementalQuickEntries
+]))
+const serviceEntries = computed(() => sortEntries([
+  ...managedEntries.value.filter(entry => entry.placement === 'services'),
+  {
+    id: 'compact-procedures',
+    title: '全部办事流程',
+    summary: `校园网、报修、图书馆等 ${procedures.value.length} 项办理说明`,
+    to: '/procedures',
+    icon: 'i-lucide-list-checks',
+    placement: 'services',
+    sortOrder: 20
+  }
+]))
+const timelineEntries = computed(() => sortEntries(
+  managedEntries.value.filter(entry => entry.placement === 'timeline')
+))
+const guideTools = computed(() => guideToolDefinitions.filter(entry => featureEnabled(entry.featureKey)))
+const directEntries = computed(() => directEntryDefinitions.filter(entry => featureEnabled(entry.featureKey)))
+const moreEntries = computed(() => sortEntries([
+  ...managedEntries.value.filter(entry => entry.placement === 'more'),
+  ...supplementalMoreEntries
+]))
+
+function noticeActionHref(action: ApiNoticeAction): string | undefined {
+  return safeNoticeActionHref(action.href) ?? undefined
+}
+
+async function openNotice(notice: PublicNotice): Promise<void> {
+  selectedNotice.value = notice
+  noticeOpen.value = true
+  if (notice.confirmed) return
+  try {
+    const result = await $fetch<ConfirmNoticeResponse>(
+      `/api/public/notices/${encodeURIComponent(notice.id)}/confirm`,
+      { method: 'POST' }
+    )
+    notice.confirmed = result.confirmed
+    notice.confirmationCount = result.confirmationCount
+  } catch {
+    // The announcement remains readable if the view counter is unavailable.
+  }
+}
+
+function submitSearch(): void {
+  const query = searchQuery.value.trim()
+  void navigateTo({ path: '/search', query: { mode: 'ai', ...(query ? { q: query } : {}) } })
+}
+
+onMounted(() => {
+  bannerTimer = setInterval(() => {
+    activeBannerIndex.value = (activeBannerIndex.value + 1) % banners.length
+  }, 5_000)
+})
+
+onBeforeUnmount(() => {
+  if (bannerTimer) clearInterval(bannerTimer)
+})
+</script>
+
+<template>
+  <div class="min-h-screen bg-[#f3f6f8] pb-10 text-zinc-900">
+    <section class="border-b border-zinc-200 bg-white">
+      <div class="mx-auto max-w-3xl px-4 py-4 sm:px-6 sm:py-5">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h1 class="truncate text-xl font-black text-zinc-950 sm:text-2xl">
+              迎新指南
+            </h1>
+            <p class="mt-1 text-xs text-zinc-500 sm:text-sm">
+              新生报到、校园生活与办事信息，一页快速找到
+            </p>
+          </div>
+          <UButton
+            to="/contact"
+            icon="i-lucide-message-circle"
+            color="neutral"
+            variant="outline"
+            aria-label="联系整理者"
+            class="min-h-10 shrink-0"
+          />
+        </div>
+        <form
+          class="mt-3 flex"
+          role="search"
+          @submit.prevent="submitSearch"
+        >
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="搜专业、地点、办事，或直接提问"
+            aria-label="搜索迎新信息"
+            size="lg"
+            class="min-w-0 flex-1"
+          />
+          <UButton
+            type="submit"
+            icon="i-lucide-arrow-right"
+            aria-label="开始搜索"
+            class="min-h-11 rounded-l-none"
+          />
+        </form>
+      </div>
+    </section>
+
+    <main class="mx-auto max-w-3xl space-y-4 px-3 py-3 sm:space-y-5 sm:px-6 sm:py-6">
+      <section
+        v-if="currentBanner"
+        class="relative isolate min-h-44 overflow-hidden rounded-md bg-zinc-900 text-white sm:min-h-56"
+        aria-label="焦点内容"
+      >
+        <img
+          :src="currentBanner.image"
+          :alt="currentBanner.title"
+          class="absolute inset-0 size-full object-cover"
+        >
+        <div class="absolute inset-0 bg-black/45" />
+        <NuxtLink
+          :to="currentBanner.to"
+          class="relative flex min-h-44 flex-col justify-end p-5 sm:min-h-56 sm:p-7"
+        >
+          <p class="text-xs font-semibold text-emerald-200">
+            2026 级新生
+          </p>
+          <h2 class="mt-1 max-w-xl text-2xl font-black leading-tight sm:text-3xl">
+            {{ currentBanner.title }}
+          </h2>
+          <p class="mt-2 max-w-xl text-sm leading-6 text-white/90">
+            {{ currentBanner.summary }}
+          </p>
+        </NuxtLink>
+        <div
+          class="absolute bottom-3 right-3 z-10 flex gap-1.5"
+          aria-label="切换轮播图"
+        >
+          <button
+            v-for="(_, index) in banners"
+            :key="index"
+            type="button"
+            class="h-1.5 rounded-full bg-white/60 transition-all"
+            :class="activeBannerIndex === index ? 'w-5 bg-white' : 'w-1.5'"
+            :aria-label="`查看第 ${index + 1} 张轮播图`"
+            @click="activeBannerIndex = index"
+          />
+        </div>
+      </section>
+
+      <section
+        v-if="notices.length"
+        class="overflow-hidden rounded-md border border-amber-200 bg-white"
+        aria-labelledby="compact-notice-title"
+      >
+        <div class="flex items-center justify-between border-b border-amber-100 bg-amber-50 px-4 py-2.5">
+          <h2
+            id="compact-notice-title"
+            class="text-sm font-black text-amber-950"
+          >
+            最新公告
+          </h2>
+          <span class="text-xs text-amber-800">{{ notices.length }} 条</span>
+        </div>
+        <button
+          v-for="notice in notices.slice(0, 3)"
+          :key="notice.id"
+          type="button"
+          class="flex min-h-14 w-full items-center gap-3 border-b border-zinc-100 px-4 py-3 text-left last:border-b-0 hover:bg-zinc-50"
+          @click="openNotice(notice)"
+        >
+          <span
+            class="size-2 shrink-0 rounded-full"
+            :class="notice.confirmed ? 'bg-zinc-300' : 'bg-amber-500'"
+          />
+          <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{ notice.title }}</span>
+          <UIcon
+            name="i-lucide-chevron-right"
+            class="size-4 shrink-0 text-zinc-400"
+          />
+        </button>
+      </section>
+
+      <section
+        class="rounded-md bg-white p-4 shadow-sm"
+        aria-labelledby="compact-quick-title"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <h2
+            id="compact-quick-title"
+            class="text-base font-black"
+          >
+            新生常用入口
+          </h2>
+          <span class="text-xs text-zinc-400">{{ quickEntries.length }} 项</span>
+        </div>
+        <div class="mt-3 grid grid-cols-5 gap-x-1 gap-y-4 sm:gap-x-3">
+          <NuxtLink
+            v-for="entry in quickEntries"
+            :key="`quick-${entry.id}`"
+            :to="entry.to"
+            :external="entry.external"
+            class="flex min-w-0 flex-col items-center text-center"
+          >
+            <span class="grid size-10 place-items-center rounded-md bg-sky-50 text-sky-700 sm:size-11">
+              <UIcon
+                :name="entry.icon"
+                class="size-5"
+              />
+            </span>
+            <span class="mt-1.5 line-clamp-2 w-full text-[11px] font-semibold leading-4 text-zinc-700 sm:text-xs">{{ entry.title }}</span>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section
+        class="rounded-md bg-white p-4 shadow-sm"
+        aria-labelledby="compact-service-title"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <h2
+            id="compact-service-title"
+            class="text-base font-black"
+          >
+            校园服务
+          </h2>
+          <span class="text-xs text-zinc-400">{{ serviceEntries.length }} 项</span>
+        </div>
+        <div class="mt-3 flex snap-x gap-3 overflow-x-auto pb-1 overscroll-x-contain">
+          <NuxtLink
+            v-for="entry in serviceEntries"
+            :key="`service-${entry.id}`"
+            :to="entry.to"
+            :external="entry.external"
+            class="min-h-32 w-[72%] shrink-0 snap-start overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 p-3 sm:w-[44%]"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-white text-emerald-700 shadow-sm">
+                <UIcon
+                  :name="entry.icon"
+                  class="size-5"
+                />
+              </span>
+              <UIcon
+                name="i-lucide-arrow-up-right"
+                class="size-4 text-zinc-400"
+              />
+            </div>
+            <h3 class="mt-3 line-clamp-1 text-sm font-bold">{{ entry.title }}</h3>
+            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ entry.summary }}</p>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section
+        class="rounded-md bg-white p-4 shadow-sm"
+        aria-labelledby="compact-tools-title"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <h2
+            id="compact-tools-title"
+            class="text-base font-black"
+          >
+            迎新指南功能
+          </h2>
+          <span class="text-xs text-zinc-400">{{ guideTools.length }} 项</span>
+        </div>
+        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+          <NuxtLink
+            v-for="entry in guideTools"
+            :key="entry.id"
+            :to="entry.to"
+            class="flex min-h-16 items-center gap-3 rounded-md bg-gradient-to-r from-emerald-50 to-sky-50 px-3 py-2.5"
+          >
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-bold">{{ entry.title }}</span>
+              <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500">{{ entry.summary }}</span>
+            </span>
+            <UIcon
+              :name="entry.icon"
+              class="size-5 shrink-0 text-emerald-700"
+            />
+          </NuxtLink>
+        </div>
+        <div
+          v-if="timelineEntries.length"
+          class="mt-4 border-t border-zinc-100 pt-4"
+        >
+          <h3 class="text-sm font-bold">
+            入学三步
+          </h3>
+          <div class="mt-2 grid gap-2 sm:grid-cols-3">
+            <NuxtLink
+              v-for="(entry, index) in timelineEntries"
+              :key="`timeline-${entry.id}`"
+              :to="entry.to"
+              :external="entry.external"
+              class="flex items-center gap-3 rounded-md border border-zinc-200 px-3 py-3"
+            >
+              <span class="grid size-7 shrink-0 place-items-center rounded-full bg-zinc-900 text-xs font-bold text-white">{{ index + 1 }}</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-bold">{{ entry.title }}</span>
+                <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500">{{ entry.summary }}</span>
+              </span>
+            </NuxtLink>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="rounded-md bg-white p-4 shadow-sm"
+        aria-labelledby="compact-direct-title"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <h2
+            id="compact-direct-title"
+            class="text-base font-black"
+          >
+            直接打开
+          </h2>
+          <span class="text-xs text-zinc-400">{{ directEntries.length }} 项</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <NuxtLink
+            v-for="entry in directEntries"
+            :key="entry.id"
+            :to="entry.to"
+            class="min-h-24 rounded-md border border-zinc-200 p-3 hover:border-emerald-300"
+          >
+            <UIcon
+              :name="entry.icon"
+              class="size-5 text-emerald-700"
+            />
+            <h3 class="mt-2 line-clamp-1 text-sm font-bold">{{ entry.title }}</h3>
+            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ entry.summary }}</p>
+          </NuxtLink>
+        </div>
+        <div
+          v-if="featureEnabled('home.more.dorms')"
+          class="mt-4 grid gap-3 sm:grid-cols-2"
+        >
+          <article class="overflow-hidden rounded-md border border-zinc-200">
+            <video
+              class="aspect-video w-full bg-black object-cover"
+              controls
+              playsinline
+              preload="metadata"
+              poster="/images/panorama/ordinary-dorm-poster.jpg"
+            >
+              <source
+                src="/media/ordinary-dorm-tour.mp4"
+                type="video/mp4"
+              >
+            </video>
+            <p class="px-3 py-2 text-sm font-bold">
+              普通型宿舍实拍
+            </p>
+          </article>
+          <article class="overflow-hidden rounded-md border border-zinc-200">
+            <video
+              class="aspect-video w-full bg-black object-cover"
+              controls
+              playsinline
+              preload="metadata"
+              poster="/images/panorama/comfort-dorm-poster.jpg"
+            >
+              <source
+                src="/media/comfort-dorm-tour.mp4"
+                type="video/mp4"
+              >
+            </video>
+            <p class="px-3 py-2 text-sm font-bold">
+              舒适型宿舍实拍
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="rounded-md bg-white p-4 shadow-sm"
+        aria-labelledby="compact-more-title"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <h2
+            id="compact-more-title"
+            class="text-base font-black"
+          >
+            了解与反馈
+          </h2>
+          <span class="text-xs text-zinc-400">{{ moreEntries.length }} 项</span>
+        </div>
+        <div class="mt-3 overflow-hidden rounded-md border border-zinc-200">
+          <NuxtLink
+            v-for="entry in moreEntries"
+            :key="`more-${entry.id}`"
+            :to="entry.to"
+            :external="entry.external"
+            class="flex min-h-16 items-center gap-3 border-b border-zinc-100 px-3 py-3 last:border-b-0 hover:bg-zinc-50"
+          >
+            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700">
+              <UIcon
+                :name="entry.icon"
+                class="size-4"
+              />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-bold">{{ entry.title }}</span>
+              <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500">{{ entry.summary }}</span>
+            </span>
+            <UIcon
+              name="i-lucide-chevron-right"
+              class="size-4 shrink-0 text-zinc-400"
+            />
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section
+        class="rounded-md bg-white p-4 shadow-sm"
+        aria-labelledby="compact-content-title"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <h2
+            id="compact-content-title"
+            class="text-base font-black"
+          >
+            已整理内容
+          </h2>
+          <NuxtLink
+            to="/discover"
+            class="text-xs font-semibold text-emerald-700"
+          >查看全部</NuxtLink>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <NuxtLink
+            to="/guides"
+            class="rounded-md bg-sky-50 p-3"
+          >
+            <span class="text-xl font-black text-sky-800">{{ guides.length }}</span>
+            <span class="mt-1 block text-xs text-sky-900">篇校园指南</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/procedures"
+            class="rounded-md bg-emerald-50 p-3"
+          >
+            <span class="text-xl font-black text-emerald-800">{{ procedures.length }}</span>
+            <span class="mt-1 block text-xs text-emerald-900">项办事流程</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/clubs"
+            class="rounded-md bg-amber-50 p-3"
+          >
+            <span class="text-xl font-black text-amber-800">{{ clubs.length }}</span>
+            <span class="mt-1 block text-xs text-amber-900">个社团组织</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/departments"
+            class="rounded-md bg-zinc-100 p-3"
+          >
+            <span class="text-xl font-black text-zinc-800">{{ departments.length }}</span>
+            <span class="mt-1 block text-xs text-zinc-700">个部门学院</span>
+          </NuxtLink>
+        </div>
+        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+          <NuxtLink
+            v-for="guide in guides.slice(0, 4)"
+            :key="guide.id"
+            :to="`/guides/${encodeURIComponent(guide.slug)}`"
+            class="rounded-md border border-zinc-200 px-3 py-3"
+          >
+            <p class="line-clamp-1 text-sm font-bold">{{ guide.title }}</p>
+            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ guide.summary }}</p>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section
+        class="rounded-md border border-zinc-200 bg-white p-4"
+        aria-labelledby="compact-major-title"
+      >
+        <div class="flex items-end justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold text-emerald-700">
+              26 个专业 · {{ majorCollegeCount }} 个学院
+            </p>
+            <h2
+              id="compact-major-title"
+              class="mt-1 text-base font-black"
+            >
+              专业与住宿片区
+            </h2>
+          </div>
+          <UButton
+            to="/major-lookup"
+            label="完整查询"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+          />
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div
+            v-for="major in majorProfiles.slice(0, 8)"
+            :key="major.code"
+            class="min-w-0 rounded-md bg-zinc-50 p-3"
+          >
+            <p class="truncate text-xs font-bold text-zinc-900">
+              {{ major.name }}
+            </p>
+            <p class="mt-1 truncate text-[11px] text-zinc-500">
+              {{ major.dormLabel }}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section
+        v-if="nearbyPlaces.length"
+        class="rounded-md bg-white p-4 shadow-sm"
+        aria-labelledby="compact-nearby-title"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <h2
+            id="compact-nearby-title"
+            class="text-base font-black"
+          >
+            吃喝玩乐推荐
+          </h2>
+          <UButton
+            to="/nearby"
+            label="完整攻略"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+          />
+        </div>
+        <div class="mt-3 flex gap-2 overflow-x-auto pb-1 overscroll-x-contain">
+          <NuxtLink
+            v-for="place in nearbyPlaces.slice(0, 8)"
+            :key="place.id"
+            :to="`/places/${encodeURIComponent(place.slug)}`"
+            class="w-40 shrink-0 rounded-md border border-zinc-200 p-3"
+          >
+            <p class="line-clamp-1 text-sm font-bold">{{ place.name }}</p>
+            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">{{ place.summary }}</p>
+          </NuxtLink>
+        </div>
+      </section>
+    </main>
+
+    <UModal
+      v-model:open="noticeOpen"
+      title="公告详情"
+      description="查看公告完整内容"
+    >
+      <template #body>
+        <article
+          v-if="selectedNotice"
+          class="max-h-[70dvh] overflow-y-auto overscroll-contain"
+        >
+          <div class="flex items-center justify-between gap-3 text-xs text-zinc-500">
+            <span>{{ selectedNotice.confirmationCount }} 人已读</span>
+            <span :class="selectedNotice.confirmed ? 'text-green-700' : 'text-amber-700'">{{ selectedNotice.confirmed ? '已读' : '未读' }}</span>
+          </div>
+          <h2 class="mt-2 text-xl font-black text-zinc-950">
+            {{ selectedNotice.title }}
+          </h2>
+          <p
+            v-if="selectedNotice.summary"
+            class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950"
+          >
+            {{ selectedNotice.summary }}
+          </p>
+          <div class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-700">
+            {{ selectedNotice.body || selectedNotice.summary }}
+          </div>
+          <div
+            v-if="selectedNotice.actions.length"
+            class="mt-5 flex flex-wrap gap-2 border-t border-zinc-200 pt-4"
+          >
+            <UButton
+              v-for="action in selectedNotice.actions"
+              :key="`${action.label}-${action.href}`"
+              :to="noticeActionHref(action)"
+              :icon="action.icon || 'i-lucide-arrow-up-right'"
+              :label="action.label"
+              variant="soft"
+            />
+          </div>
+        </article>
+      </template>
+    </UModal>
+  </div>
+</template>
