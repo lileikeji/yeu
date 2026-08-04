@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { recoverClientPage } from '~~/app/utils/client-recovery'
+
 const { $pwa } = useNuxtApp()
 const updating = ref(false)
 const dismissed = ref(false)
@@ -6,18 +8,14 @@ const dismissed = ref(false)
 async function applyUpdate(): Promise<void> {
   if (!$pwa || updating.value) return
   updating.value = true
-  const reloadFallback = window.setTimeout(() => {
-    window.location.reload()
-  }, 2000)
 
   try {
-    await $pwa.updateServiceWorker(true)
-    window.location.reload()
-  } catch {
-    window.location.reload()
+    await Promise.race([
+      $pwa.updateServiceWorker(true),
+      new Promise(resolve => window.setTimeout(resolve, 2500))
+    ])
   } finally {
-    window.clearTimeout(reloadFallback)
-    updating.value = false
+    await recoverClientPage()
   }
 }
 

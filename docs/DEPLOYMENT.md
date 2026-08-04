@@ -230,14 +230,21 @@ location /_nuxt/ {
     add_header Cache-Control "public, max-age=31536000, immutable";
 }
 
-location = /sw.js {
+location ~ ^/(?:sw-[a-z0-9-]+\.js|registerSW\.js)$ {
     root /www/wwwroot/yeu/current/.output/public;
-    add_header Cache-Control "no-cache";
+    try_files $uri =404;
+    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    add_header CDN-Cache-Control "no-store" always;
+    add_header Edge-Control "no-store" always;
+    add_header Pragma "no-cache" always;
 }
 
 location = /site.webmanifest {
     root /www/wwwroot/yeu/current/.output/public;
-    add_header Cache-Control "no-cache";
+    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    add_header CDN-Cache-Control "no-store" always;
+    add_header Edge-Control "no-store" always;
+    add_header Pragma "no-cache" always;
 }
 
 location /uploads/ {

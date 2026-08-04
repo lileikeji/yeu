@@ -6,8 +6,15 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 const serviceWorkerBuildId = String(
   process.env.GIT_COMMIT_SHA
   || process.env.NUXT_PUBLIC_BUILD_ID
-  || 'local'
-).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 16) || 'local'
+  || `build-${Date.now().toString(36)}`
+).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 24)
+const pwaBootstrapNoCacheHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+  'Surrogate-Control': 'no-store',
+  'Pragma': 'no-cache',
+  'Expires': '0'
+}
 
 const devServiceWorkerCleanupScript = isDevelopment
   ? [{
@@ -34,7 +41,6 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     ...(!isDevelopment ? ['@vite-pwa/nuxt'] : [])
   ],
-
   devtools: {
     enabled: false
   },
@@ -103,15 +109,16 @@ export default defineNuxtConfig({
   // only when a concurrent nuxt dev would otherwise clobber the same folder.
   buildDir: process.env.NUXT_BUILD_DIR || '.nuxt',
 
-  // Allow an isolated output directory for release builds while a local
-  // preview server still owns .output. Production defaults remain unchanged.
-  nitro: {
-    output: {
-      dir: process.env.NUXT_OUTPUT_DIR || '.output'
-    }
-  },
-
   routeRules: {
+    [`/sw-${serviceWorkerBuildId}.js`]: {
+      headers: pwaBootstrapNoCacheHeaders
+    },
+    '/registerSW.js': {
+      headers: pwaBootstrapNoCacheHeaders
+    },
+    '/site.webmanifest': {
+      headers: pwaBootstrapNoCacheHeaders
+    },
     '/showcase': {
       headers: {
         'Cache-Control': 'private, no-store',
@@ -172,6 +179,14 @@ export default defineNuxtConfig({
   },
 
   compatibilityDate: '2026-06-30',
+
+  // Allow an isolated output directory for release builds while a local
+  // preview server still owns .output. Production defaults remain unchanged.
+  nitro: {
+    output: {
+      dir: process.env.NUXT_OUTPUT_DIR || '.output'
+    }
+  },
 
   eslint: {
     config: {

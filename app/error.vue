@@ -4,12 +4,14 @@ import {
   errorRecoveryActions,
   resolveErrorPageContent
 } from '~~/app/utils/error-page-presentation'
+import { recoverClientPage } from '~~/app/utils/client-recovery'
 
 const props = defineProps<{
   error: NuxtError
 }>()
 
 const content = computed(() => resolveErrorPageContent(props.error.statusCode))
+const recovering = ref(false)
 
 useHead({
   title: () => `${content.value.title} | 迎新指南`,
@@ -29,12 +31,20 @@ useSeoMeta({
 })
 
 function recover(to: string): void {
-  void clearError({ redirect: to })
+  if (recovering.value) return
+  recovering.value = true
+  void recoverClientPage({
+    destination: to,
+    clearNuxtError: () => clearError()
+  })
 }
 
 function retryPage(): void {
-  if (!import.meta.client) return
-  window.location.reload()
+  if (recovering.value) return
+  recovering.value = true
+  void recoverClientPage({
+    clearNuxtError: () => clearError()
+  })
 }
 </script>
 
@@ -111,17 +121,19 @@ function retryPage(): void {
             v-if="content.canRetry"
             type="button"
             class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            :disabled="recovering"
             @click="retryPage"
           >
             <UIcon
               name="i-lucide-refresh-cw"
               class="size-4"
             />
-            重新打开
+            {{ recovering ? '正在恢复…' : '重新打开' }}
           </button>
           <button
             type="button"
             class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 transition-colors hover:border-green-300 hover:text-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            :disabled="recovering"
             @click="recover('/')"
           >
             <UIcon
@@ -142,6 +154,7 @@ function retryPage(): void {
               :key="action.to"
               type="button"
               class="group flex min-h-20 items-center gap-3 rounded-md border border-[var(--line)] bg-white px-4 text-left transition-colors hover:border-green-300 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              :disabled="recovering"
               @click="recover(action.to)"
             >
               <span class="grid size-9 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700 group-hover:bg-green-50 group-hover:text-green-800">
