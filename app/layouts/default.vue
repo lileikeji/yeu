@@ -1,6 +1,5 @@
 <script setup lang="ts">
 const route = useRoute()
-const router = useRouter()
 const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
@@ -32,14 +31,6 @@ function isActive(to: string) {
 function shareCurrentPage(): void {
   void sharePage()
 }
-
-function navigateBack(): void {
-  if (import.meta.client && window.history.state?.back) {
-    router.back()
-    return
-  }
-  void navigateTo('/')
-}
 </script>
 
 <template>
@@ -57,17 +48,6 @@ function navigateBack(): void {
     >site index</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
       <div class="page-shell relative flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
-        <UButton
-          v-if="!isHomePage"
-          type="button"
-          icon="i-lucide-arrow-left"
-          label="返回"
-          color="neutral"
-          variant="ghost"
-          aria-label="返回上一步"
-          class="min-h-10 shrink-0 px-2 sm:px-3"
-          @click="navigateBack"
-        />
         <NuxtLink
           v-if="!isMapPage"
           to="/"

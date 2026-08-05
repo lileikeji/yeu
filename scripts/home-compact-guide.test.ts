@@ -11,6 +11,13 @@ const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 const panoramaSource = readFileSync(resolve('app/pages/panorama.vue'), 'utf8')
 const dormSource = readFileSync(resolve('app/pages/dorms.vue'), 'utf8')
 const transportSource = readFileSync(resolve('app/pages/transport.vue'), 'utf8')
+const publicDetailSources = [
+  ['app/pages/procedures/[slug].vue', '/procedures'],
+  ['app/pages/guides/[slug].vue', '/guides'],
+  ['app/pages/clubs/[slug].vue', '/clubs'],
+  ['app/pages/departments/[slug].vue', '/departments'],
+  ['app/pages/places/[slug].vue', '/map']
+] as const
 
 test('homepage switches between full and compact modes without a separate route entry', () => {
   assert.match(homeSource, /HomeCompactWechatGuide/)
@@ -95,11 +102,13 @@ test('direct-open cards stay inside the guide before exposing third-party source
   assert.match(transportSource, /transitOriginIds\.has/)
 })
 
-test('every public subpage gets one shared back action', () => {
-  assert.match(layoutSource, /v-if="!isHomePage"/)
-  assert.match(layoutSource, /aria-label="返回上一步"/)
-  assert.match(layoutSource, /window\.history\.state\?\.back/)
-  assert.match(layoutSource, /router\.back\(\)/)
+test('outer navigation avoids a duplicate back action while detail modules retain context links', () => {
+  assert.doesNotMatch(layoutSource, /aria-label="返回上一步"/)
+  assert.doesNotMatch(layoutSource, /router\.back\(\)/)
+  for (const [file, parentRoute] of publicDetailSources) {
+    const source = readFileSync(resolve(file), 'utf8')
+    assert.match(source, new RegExp(`to="${parentRoute}"`))
+  }
 })
 
 test('desktop home mode switch stays outside the main navigation space', () => {
