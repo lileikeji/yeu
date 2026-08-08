@@ -102,6 +102,7 @@ test('assistant answers the official 2026 transfer application month without web
     runMigrations(client)
     const response = await answerCampusQuestion(client, '2026级新生什么时候申请转专业？', emptyAssistantConfig)
     assert.equal(response.retrievalPath, 'local_database')
+    assert.equal(response.mode, 'local')
     assert.equal(response.usedWebSearch, false)
     assert.match(response.answer, /12月份向所在学院申请/)
     assert.ok(response.citations.some(item => item.url.includes('mp.weixin.qq.com/')))

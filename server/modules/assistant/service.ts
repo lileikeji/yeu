@@ -288,7 +288,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v39-welcome-class-group-intent'
+const ASSISTANT_CACHE_VERSION = 'rag-v40-deterministic-before-synthesis'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -5081,6 +5081,9 @@ export async function answerCampusQuestion(
               ?? deterministicCampusAnswer
               ?? deterministicRuleAnswer
               ?? deterministicKnowledgeAnswer)
+        // A reviewed deterministic handler has already answered the user's
+        // exact intent. Do not send it through the model synthesis path again.
+        if (deterministicResponse) return deterministicResponse
         const requiresDocumentSynthesis = shouldSynthesizeOfficialEvidence(query) || structuredDataCanAnswer(query)
         const canSynthesizeGeneralLocalAnswer = !deterministicResponse
           && !identitySubject
@@ -5109,8 +5112,6 @@ export async function answerCampusQuestion(
             }
           }
         }
-        if (deterministicResponse) return deterministicResponse
-
         if ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false) {
           return localEvidenceGapResponse(query)
         }
