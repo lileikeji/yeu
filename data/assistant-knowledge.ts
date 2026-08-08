@@ -17,7 +17,7 @@ export interface AssistantKnowledgeSeed {
 }
 
 const comprehensiveEvaluationUrl = '/student-rules#rule-comprehensive-evaluation'
-const official2026FreshmanQaUrl = 'https://mp.weixin.qq.com/s/w_nbi3RvjG7ziczG0pp3vQ'
+export const official2026FreshmanQaUrl = 'https://mp.weixin.qq.com/s/w_nbi3RvjG7ziczG0pp3vQ'
 export const officialWelcomeSystemUrl = 'https://yedx_yx.leyunykt.com/student/index.html#/Login?entCode=yedx'
 
 export const comprehensiveEvaluationKnowledge: AssistantKnowledgeSeed[] = [

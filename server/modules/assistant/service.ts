@@ -4,7 +4,7 @@ import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../
 import { campusTransitOptions, campusTransitSearchText } from '../../../data/campus-transit'
 import { nearbyGuideItems, nearbyGuideSearchText } from '../../../data/nearby-guide'
 import { searchSystemFeatures } from '../../../data/system-features'
-import { officialWelcomeSystemUrl } from '../../../data/assistant-knowledge'
+import { official2026FreshmanQaUrl, officialWelcomeSystemUrl } from '../../../data/assistant-knowledge'
 import { transferMajorHistoricalRule } from '../../../data/transfer-major'
 import { userSubmittedCampusNotes } from '../../../data/user-submitted-campus-notes'
 import { facultyProfiles } from '../../../data/faculty-directory'
@@ -288,7 +288,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v37-official-welcome-system'
+const ASSISTANT_CACHE_VERSION = 'rag-v38-welcome-citation-transfer-month'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -1841,6 +1841,45 @@ function officialWelcomeSystemLocalAnswer(
     citations: [citation],
     usedWebSearch: false,
     confidence: 1
+  }
+}
+
+function isOfficial2026TransferMonthQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  return /转专业/.test(normalized)
+    && /2026|新生/.test(normalized)
+    && /什么时候|何时|几月|月份|申请时间|12月/.test(normalized)
+}
+
+function official2026TransferMonthEvidenceForQuery(query: string): AssistantEvidence[] {
+  if (!isOfficial2026TransferMonthQuery(query)) return []
+  return [{
+    title: '2026级新生转专业申请月份',
+    url: official2026FreshmanQaUrl,
+    snippet: '学校2026级官方新生问答写明，新生转专业在12月份向所在学院申请。',
+    source: 'site',
+    authority: 'official_site',
+    text: '2026级 新生 转专业 12月份 所在学院 申请 管理办法',
+    score: 10_000
+  }]
+}
+
+function official2026TransferMonthLocalAnswer(
+  query: string,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse | null {
+  if (!isOfficial2026TransferMonthQuery(query)) return null
+  const entry = evidence.find(item => item.url === official2026FreshmanQaUrl)
+    ?? official2026TransferMonthEvidenceForQuery(query)[0]
+  if (!entry) return null
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = entry
+  return {
+    query,
+    mode: 'local',
+    answer: '学校2026级官方新生问答写明：新生转专业在12月份向所在学院申请。这里确认的是申请月份和提交学院；资格条件、接收名额、考核方式、材料和最终审批仍以当年转专业通知及现行管理办法为准。',
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 0.98
   }
 }
 
@@ -3600,6 +3639,8 @@ function ensureGroundedLocalCitation(
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
   const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
   if (welcomeSystemAnswer) return welcomeSystemAnswer
+  const transferMonthAnswer = official2026TransferMonthLocalAnswer(query, evidence)
+  if (transferMonthAnswer) return transferMonthAnswer
   const classLookupAnswer = freshmanClassLookupLocalAnswer(query, evidence)
   if (classLookupAnswer) return classLookupAnswer
   const placeLocationAnswer = placeLocationLocalAnswer(query, evidence)
@@ -4456,20 +4497,35 @@ function cacheResponse(
   signal?: AbortSignal
 ): ApiAssistantResponse {
   throwIfAssistantAborted(signal)
+  const normalizedResponse = response.answer.includes('迎新系统')
+    && !response.citations.some(item => item.url === officialWelcomeSystemUrl)
+    ? {
+        ...response,
+        citations: [
+          ...response.citations,
+          {
+            title: '学校官方迎新系统',
+            url: officialWelcomeSystemUrl,
+            snippet: '学校2026级官方新生问答公布的迎新系统登录入口。',
+            source: 'site' as const
+          }
+        ]
+      }
+    : response
   const now = Date.now()
   const expiresAt = now + ASSISTANT_ANSWER_CACHE_TTL_MS
-  answerCache.set(key, { expiresAt, response })
+  answerCache.set(key, { expiresAt, response: normalizedResponse })
   if (answerCache.size > 100) {
     const oldest = answerCache.keys().next().value
     if (oldest) answerCache.delete(oldest)
   }
-  if (response.confidence >= 0.6) {
+  if (normalizedResponse.confidence >= 0.6) {
     try {
       client.db.insert(assistantAnswerCache).values({
         id: randomUUID(),
         cacheKey: key,
         query: response.query.slice(0, 300),
-        responseJson: JSON.stringify(response),
+        responseJson: JSON.stringify(normalizedResponse),
         knowledgeRevision: currentAssistantKnowledgeRevision(),
         expiresAt,
         lastUsedAt: now,
@@ -4479,7 +4535,7 @@ function cacheResponse(
         target: assistantAnswerCache.cacheKey,
         set: {
           query: response.query.slice(0, 300),
-          responseJson: JSON.stringify(response),
+          responseJson: JSON.stringify(normalizedResponse),
           knowledgeRevision: currentAssistantKnowledgeRevision(),
           expiresAt,
           lastUsedAt: now,
@@ -4490,7 +4546,7 @@ function cacheResponse(
       // A cache write must never turn a successful answer into a failed answer.
     }
   }
-  return response
+  return normalizedResponse
 }
 
 function readCachedAssistantResponse(
@@ -4719,12 +4775,14 @@ export async function answerCampusQuestion(
     // read can make a known answer look like a slow or failed search.
     const fastEvidence = [
       ...officialWelcomeSystemEvidenceForQuery(query),
+      ...official2026TransferMonthEvidenceForQuery(query),
       ...freshmanClassLookupEvidenceForQuery(query),
       ...seedCatalogEvidenceForQuery(query, 4),
       ...campusOverviewEvidenceForQuery(query),
       ...studentRuleEvidenceForQuery(query, 4)
     ]
     const fastDeterministicAnswer = officialWelcomeSystemLocalAnswer(query, fastEvidence)
+      ?? official2026TransferMonthLocalAnswer(query, fastEvidence)
       ?? freshmanClassLookupLocalAnswer(query, fastEvidence)
       ?? studentRuleLocalAnswer(query, fastEvidence)
       ?? campusOverviewLocalAnswer(query, fastEvidence)

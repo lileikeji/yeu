@@ -83,7 +83,25 @@ test('assistant answers freshman class lookup from the welcome-system rule witho
     assert.equal(response.usedWebSearch, false)
     assert.match(response.answer, /迎新系统/)
     assert.equal(response.citations[0]?.url, '/procedures/arrival')
+    assert.ok(response.citations.some(item => item.url === officialWelcomeSystemUrl))
     assert.ok(response.trace?.some(step => step.stage === 'local_database'))
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('assistant answers the official 2026 transfer application month without web search', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-transfer-month-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '2026级新生什么时候申请转专业？', emptyAssistantConfig)
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.equal(response.usedWebSearch, false)
+    assert.match(response.answer, /12月份向所在学院申请/)
+    assert.ok(response.citations.some(item => item.url.includes('mp.weixin.qq.com/')))
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
@@ -297,8 +315,8 @@ test('deterministic knowledge answers keep a clickable database citation', async
 
     const response = await answerCampusQuestion(client, '舒适型宿舍什么时候开放？', emptyAssistantConfig)
     assert.match(response.answer, /开学前十天/)
-    assert.equal(response.citations.length, 1)
-    assert.equal(response.citations[0]?.url, '/search?knowledge=comfort-dorm-opening')
+    assert.ok(response.citations.some(item => item.url === '/search?knowledge=comfort-dorm-opening'))
+    assert.ok(response.citations.some(item => item.url === officialWelcomeSystemUrl))
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
