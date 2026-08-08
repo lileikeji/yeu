@@ -6,6 +6,7 @@ import test from 'node:test'
 import {
   assistantKnowledgeSeeds,
   campusExperienceKnowledge,
+  official2026FreshmanQaKnowledge,
   sportsElectiveKnowledge,
   userVerifiedNewStudentExperienceKnowledge,
   verifiedNewStudentFaqKnowledge
@@ -36,6 +37,9 @@ test('campus experience entries are normalized and do not retain the source plat
   assert.ok(verifiedNewStudentFaqKnowledge.length >= 10)
   assert.ok(userVerifiedNewStudentExperienceKnowledge.length >= 15)
   assert.equal(sportsElectiveKnowledge.length, 1)
+  assert.ok(official2026FreshmanQaKnowledge.length >= 10)
+  assert.ok(official2026FreshmanQaKnowledge.every(entry => entry.kind === 'official_reference'))
+  assert.ok(official2026FreshmanQaKnowledge.some(entry => entry.id === 'official-2026-welcome-system-entry'))
   assert.match(sportsElectiveKnowledge[0].answer, /匹克球.*柔力球/s)
   assert.ok(assistantKnowledgeSeeds.length >= 45)
   assert.ok(assistantKnowledgeSeeds.every(entry => entry.keywords.length >= 3))
@@ -134,6 +138,9 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
       ['林惠是谁', /董事会董事长.*仰恩基金会/s],
       ['吴庆星是谁', /仰恩基金会的创始人.*创办了仰恩大学/s],
       ['分宿舍会填作息空调温度问卷吗', /不会先填写作息、空调温度/],
+      ['学校要求统一买被子吗', /不会售卖被子.*不会强制/s],
+      ['学校快递地址怎么填', /第一教学区.*第三教学区/s],
+      ['开学前要准备什么东西', /枕头、被子.*证件照.*U盘/s],
       ['普通宿舍洗澡要水卡吗', /普通型宿舍洗澡使用水卡/],
       ['公共洗衣机一次多久', /10分钟单脱水.*25、35、45分钟/s],
       ['新生一个月生活费多少合适', /1500元.*基础的参考线/s],

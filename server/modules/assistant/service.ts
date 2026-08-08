@@ -4,6 +4,7 @@ import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../
 import { campusTransitOptions, campusTransitSearchText } from '../../../data/campus-transit'
 import { nearbyGuideItems, nearbyGuideSearchText } from '../../../data/nearby-guide'
 import { searchSystemFeatures } from '../../../data/system-features'
+import { officialWelcomeSystemUrl } from '../../../data/assistant-knowledge'
 import { transferMajorHistoricalRule } from '../../../data/transfer-major'
 import { userSubmittedCampusNotes } from '../../../data/user-submitted-campus-notes'
 import { facultyProfiles } from '../../../data/faculty-directory'
@@ -287,7 +288,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v36-class-lookup-place-aliases'
+const ASSISTANT_CACHE_VERSION = 'rag-v37-official-welcome-system'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -1802,6 +1803,45 @@ function isFreshmanClassLookupQuery(query: string): boolean {
   const mentionsClass = /所在班级|查询班级|查班级|班级查询|分班查询|编班查询|新生分班|我在哪个班/.test(normalized)
   const asksLookup = /怎么|如何|哪里|在哪|查询|查看|知道|哪个班/.test(normalized)
   return mentionsClass && asksLookup
+}
+
+function isOfficialWelcomeSystemQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const mentionsWelcomeSystem = /迎新系统|迎新平台|迎新网站|新生系统|新生报到系统|报到平台|预报名系统|预报名入口/.test(normalized)
+  const asksEntry = /在哪|哪里|入口|网址|链接|怎么进|怎么打开|怎么登录|登录地址|发我|给我|进不去/.test(normalized)
+  return mentionsWelcomeSystem && asksEntry
+}
+
+function officialWelcomeSystemEvidenceForQuery(query: string): AssistantEvidence[] {
+  if (!isOfficialWelcomeSystemQuery(query)) return []
+  return [{
+    title: '学校官方迎新系统',
+    url: officialWelcomeSystemUrl,
+    snippet: '学校2026级官方新生问答公布的迎新系统登录入口，用于新生信息采集和入学通知。',
+    source: 'site',
+    authority: 'official_site',
+    text: '迎新系统 迎新平台 新生报到系统 预报名系统 登录入口 新生信息采集 入学通知',
+    score: 10_000
+  }]
+}
+
+function officialWelcomeSystemLocalAnswer(
+  query: string,
+  evidence: AssistantEvidence[]
+): ApiAssistantResponse | null {
+  if (!isOfficialWelcomeSystemQuery(query)) return null
+  const entry = evidence.find(item => item.url === officialWelcomeSystemUrl)
+    ?? officialWelcomeSystemEvidenceForQuery(query)[0]
+  if (!entry) return null
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = entry
+  return {
+    query,
+    mode: 'local',
+    answer: '学校2026级官方迎新系统用于采集新生个人信息并发布入学通知。点击下方“学校官方迎新系统”即可直接进入；首次登录前请先核对录取材料中的账号说明，不要在群聊转发的陌生页面输入账号、验证码或付款信息。',
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 1
+  }
 }
 
 function freshmanClassLookupEvidenceForQuery(query: string): AssistantEvidence[] {
@@ -3558,6 +3598,8 @@ function ensureGroundedLocalCitation(
 }
 
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
+  const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
+  if (welcomeSystemAnswer) return welcomeSystemAnswer
   const classLookupAnswer = freshmanClassLookupLocalAnswer(query, evidence)
   if (classLookupAnswer) return classLookupAnswer
   const placeLocationAnswer = placeLocationLocalAnswer(query, evidence)
@@ -4676,12 +4718,14 @@ export async function answerCampusQuestion(
     // them before opening the large knowledge tables; otherwise a cold SQLite
     // read can make a known answer look like a slow or failed search.
     const fastEvidence = [
+      ...officialWelcomeSystemEvidenceForQuery(query),
       ...freshmanClassLookupEvidenceForQuery(query),
       ...seedCatalogEvidenceForQuery(query, 4),
       ...campusOverviewEvidenceForQuery(query),
       ...studentRuleEvidenceForQuery(query, 4)
     ]
-    const fastDeterministicAnswer = freshmanClassLookupLocalAnswer(query, fastEvidence)
+    const fastDeterministicAnswer = officialWelcomeSystemLocalAnswer(query, fastEvidence)
+      ?? freshmanClassLookupLocalAnswer(query, fastEvidence)
       ?? studentRuleLocalAnswer(query, fastEvidence)
       ?? campusOverviewLocalAnswer(query, fastEvidence)
     const fastOpeningEvidence = isOpeningDateQuery(query)
@@ -4793,6 +4837,7 @@ export async function answerCampusQuestion(
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
     const deterministicPlaceAnswer = placeLocationLocalAnswer(query, localEvidence)
     const deterministicClassLookupAnswer = freshmanClassLookupLocalAnswer(query, localEvidence)
+    const deterministicWelcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, localEvidence)
     const deterministicTeachingLocationAnswer = teachingLocationLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = isTeachingLocationQuery(query)
       ? null
@@ -4808,6 +4853,7 @@ export async function answerCampusQuestion(
     const blockWebSearch = !identitySubject || hasExplicitIdentityProfile
     if (blockWebSearch && (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
       deterministicCollegeAnswer
+      || deterministicWelcomeSystemAnswer
       || deterministicClassLookupAnswer
       || deterministicPlaceAnswer
       || deterministicTeachingLocationAnswer
@@ -4953,6 +4999,7 @@ export async function answerCampusQuestion(
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
     const deterministicPlaceAnswer = placeLocationLocalAnswer(query, localEvidence)
     const deterministicClassLookupAnswer = freshmanClassLookupLocalAnswer(query, localEvidence)
+    const deterministicWelcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, localEvidence)
     const deterministicTeachingLocationAnswer = teachingLocationLocalAnswer(query, localEvidence)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
@@ -4966,7 +5013,8 @@ export async function answerCampusQuestion(
         const deterministicResponse = historicalTransferAnswer
           ?? (analysis.requiresSpecificWebEvidence
             ? dormBedEvidenceGapResponse(query, localEvidence)
-            : deterministicClassLookupAnswer
+            : deterministicWelcomeSystemAnswer
+              ?? deterministicClassLookupAnswer
               ?? deterministicPlaceAnswer
               ?? deterministicCollegeAnswer
               ?? deterministicMajorDormAnswer

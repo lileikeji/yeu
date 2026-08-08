@@ -17,6 +17,8 @@ export interface AssistantKnowledgeSeed {
 }
 
 const comprehensiveEvaluationUrl = '/student-rules#rule-comprehensive-evaluation'
+const official2026FreshmanQaUrl = 'https://mp.weixin.qq.com/s/w_nbi3RvjG7ziczG0pp3vQ'
+export const officialWelcomeSystemUrl = 'https://yedx_yx.leyunykt.com/student/index.html#/Login?entCode=yedx'
 
 export const comprehensiveEvaluationKnowledge: AssistantKnowledgeSeed[] = [
   {
@@ -285,6 +287,141 @@ export const verifiedNewStudentFaqKnowledge: AssistantKnowledgeSeed[] = [
     publicUrl: '/guides/find-campus',
     confidence: 86,
     sourceNote: '新生准备资料与宿舍实拍核验边界；未确认所有楼栋设施。'
+  }
+]
+
+export const official2026FreshmanQaKnowledge: AssistantKnowledgeSeed[] = [
+  {
+    id: 'official-2026-welcome-system-entry',
+    kind: 'official_reference',
+    category: '迎新',
+    title: '2026级学校官方迎新系统入口',
+    question: '学校迎新系统在哪里登录？新生报到平台、预报名入口和迎新网站怎么进？',
+    answer: '学校2026级官方新生问答公布的迎新系统用于采集头像、身高、体重、鞋码等新生个人信息，并发布入学通知。请只通过学校官方文章、录取材料或下方“学校官方迎新系统”入口登录；不要在群聊转发的仿冒页面输入账号、验证码或付款信息。',
+    keywords: ['迎新系统', '学校迎新系统', '迎新系统入口', '迎新网站', '迎新平台', '新生系统', '新生报到系统', '报到平台', '预报名入口', '预报名系统', '分班入口'],
+    publicUrl: officialWelcomeSystemUrl,
+    confidence: 100,
+    sourceNote: `仰恩大学官方微信《@2026级新生 | 新生问答来啦~充满好奇心的你们快来到此集合！》，发布于2026-08-07；原文：${official2026FreshmanQaUrl}`
+  },
+  {
+    id: 'official-2026-tuition-dorm-fees',
+    kind: 'official_reference',
+    category: '学费与住宿费',
+    title: '2026级学费与住宿费问答',
+    question: '2026级一年学费和住宿费是多少？各专业怎么收费？',
+    answer: '学校2026级官方新生问答列明：经济学、金融学、金融科技、国际经济与贸易、法学、汉语言文学、英语、新闻学、广告学、工商管理、市场营销、会计学、财务管理、物流管理、工业工程、商务英语、网络与新媒体、人力资源管理等专业每学年23000元；艺术教育每学年24000元；电气工程及其自动化、电子信息工程、计算机科学与技术、网络工程、人工智能、物联网工程、数据科学与大数据技术每学年25000元。住宿费为女生舒适型4人间2780元/学年、男生舒适型5人间2580元/学年、普通型5人间1300元/学年。最终缴费项目和金额仍以个人迎新系统及学校收费通知为准。',
+    keywords: ['2026学费', '一年学费', '各专业学费', '住宿费', '23000', '24000', '25000', '2780', '2580', '1300'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 99,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07；个人缴费结果以迎新系统为准。'
+  },
+  {
+    id: 'official-2026-bank-card-payment',
+    kind: 'official_reference',
+    category: '缴费',
+    title: '随录取通知书寄送的银行卡与现场办理',
+    question: '划扣学费的银行卡怎么办？录取通知书里没有银行卡怎么办？',
+    answer: '学校2026级官方新生问答说明，学校委托中国农业银行统一办理银行卡，并随录取通知书寄送。若因一类、二类账户开户限制没有收到银行卡，不必因此延误报到；报到注册当天银行工作人员会到校驻点，可按现场指引办理。涉及存款、划扣和账户信息时，只按录取材料、迎新系统或校内银行驻点要求操作。',
+    keywords: ['学费银行卡', '划扣学费', '录取通知书银行卡', '没有银行卡', '农业银行', '现场办卡', '报到办卡'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 98,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07。'
+  },
+  {
+    id: 'official-2026-class-and-group',
+    kind: 'official_reference',
+    category: '分班与新生群',
+    title: '2026级分班查询与班级群加入方式',
+    question: '新生怎么查分班、加入班级群或学校新生群？',
+    answer: '收到录取通知书快递后，可按随附通知进入学校迎新系统查看分班。班级确定后，辅导员、班主任或班导会通过新生预留联系方式发送短信邀请入群，遗漏时可能电话联系确认。学校新生交流群需要严格身份核验，群号和入群方式可能调整，优先向学校官方微信公众号核验，不要仅凭转发二维码入群。',
+    keywords: ['分班怎么查', '查看分班', '班级群', '新生群', '怎么进群', '辅导员短信', '班导邀请', '迎新系统查班级'],
+    publicUrl: officialWelcomeSystemUrl,
+    confidence: 99,
+    sourceNote: `仰恩大学官方微信2026级新生问答，发布于2026-08-07；原文：${official2026FreshmanQaUrl}`
+  },
+  {
+    id: 'official-2026-transfer-application-month',
+    kind: 'official_reference',
+    category: '转专业',
+    title: '2026级转专业申请月份',
+    question: '2026级新生什么时候申请转专业？',
+    answer: '学校2026级官方新生问答写明，新生转专业按《仰恩大学转专业管理办法》执行，12月份向所在学院申请。这里确认的是申请月份和提交学院；资格条件、接收名额、考核方式、材料和最终审批仍以当年转专业通知及现行办法为准。',
+    keywords: ['转专业什么时候申请', '12月转专业', '转专业月份', '向学院申请', '新生转专业', '转专业流程'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 98,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07；只确认申请月份，不扩展未公开条件。'
+  },
+  {
+    id: 'official-2026-student-loan-process',
+    kind: 'official_reference',
+    category: '助学贷款',
+    title: '2026级生源地助学贷款和到校缴费',
+    question: '助学贷款怎么申请，贷款后到校怎么交学费？',
+    answer: '家庭经济困难学生可在入学前到户籍所在地教育局申请生源地信用助学贷款，每人每年最高申请20000元。到校后前往学生资助注册点面谈并提交《助学贷款受理证明》，再办理学费缴纳手续。汇款账户等敏感信息请以录取材料、迎新系统或学生资助中心当面提供的当届信息为准，不根据转发截图操作。',
+    keywords: ['助学贷款申请', '生源地信用助学贷款', '20000', '贷款受理证明', '到校缴费', '学生资助注册点', '户籍地教育局'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 99,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07；未在知识答案中复制银行账号。'
+  },
+  {
+    id: 'official-2026-second-degree',
+    kind: 'official_reference',
+    category: '第二学历',
+    title: '本科第二学历项目',
+    question: '学校可以申请双学位或第二学历吗？有哪些专业和名额？',
+    answer: '学校面向本校全日制本科在校生开设高等教育自学考试本科第二学历项目。完成全部课程和学分后，可取得福建省高等教育自学考试委员会与仰恩大学联合盖章、学信网可查的本科毕业证书；满足条件可申请对应学士学位。2026级官方新生问答列出的本年度招生为法学60人、汉语言文学60人。它属于自考本科第二学历项目，不应直接等同于普通意义上的校内“双学位”；报名条件和当年名额以正式招生通知为准。',
+    keywords: ['双学位', '第二学历', '自考本科', '法学第二学历', '汉语言文学第二学历', '60人', '学信网'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 97,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07；按原文区分第二学历与泛称双学位。'
+  },
+  {
+    id: 'official-2026-bedding-not-mandatory',
+    kind: 'official_reference',
+    category: '行前准备',
+    title: '学校不强制购买统一床上用品',
+    question: '开学必须买学校统一的被子和床上用品吗？',
+    answer: '学校2026级官方新生问答明确：学校不会售卖被子，也不会强制新生购买统一床上用品。离家近可自带，路途较远可自行网购并按确认后的宿舍收件信息邮寄。不要相信冒充学校官方售卖被子、电话卡或提供代办服务的账号。床垫、床帘等尺寸相关物品仍建议等房型和楼栋确认后购买。',
+    keywords: ['统一被子', '统一床上用品', '必须买被子', '学校要求统一买被子', '开学必须购买学校统一的被子', '学校卖被子', '床品购买', '电话卡骗局', '自己带被褥'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 100,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07。'
+  },
+  {
+    id: 'official-2026-campus-transfer-time',
+    kind: 'official_reference',
+    category: '校园交通',
+    title: '新旧校区步行与叮叮车通行',
+    question: '新旧校区之间走路要多久？可以坐叮叮车吗？',
+    answer: '学校2026级官方新生问答给出的参考是：新旧校区之间步行约30分钟，校内有电瓶车（叮叮车）接驳。原文中的叮叮车具体分钟数字在页面排版中不完整，因此不对车程作精确承诺；候车、站点和运行安排以现场为准。',
+    keywords: ['新旧校区通行', '走路多久', '步行30分钟', '叮叮车', '电瓶车', '校内接驳', '跨区上课'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 96,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07；原文车程数字显示不完整，未补猜。'
+  },
+  {
+    id: 'official-2026-express-addresses',
+    kind: 'official_reference',
+    category: '快递',
+    title: '新旧区快递收件地址和取件片区',
+    question: '学校快递地址怎么填？新区旧区分别寄到哪里？快递站在哪里？',
+    answer: '学校2026级官方新生问答给出的基础地址为：旧区填写“福建省泉州市洛江区马甲镇仰恩大学第一教学区”，新区填写“福建省泉州市洛江区马甲镇仰恩大学第三教学区”。原文还列出旧区学生街周边和新区二街至五街的多个快递点，但品牌和取件位置可能调整；寄件前应补全姓名、手机号码和已确认的宿舍楼栋，并以物流短信、现场标识和本站地图最新标注为准。',
+    keywords: ['学校快递地址', '旧区快递地址', '新区快递地址', '第一教学区', '第三教学区', '快递站', '取快递', '宿舍楼栋'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 98,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07；快递品牌和站点位置属于易变信息。'
+  },
+  {
+    id: 'official-2026-packing-checklist',
+    kind: 'official_reference',
+    category: '行前准备',
+    title: '2026级开学前基础准备清单',
+    question: '开学前要准备什么？新生行李要带哪些东西？',
+    answer: '学校2026级官方新生问答建议准备：床上用品可带枕头、被子、床帘、床垫等；日用品可带牙膏、牙刷、牙杯、纸巾、洗发露和沐浴露；其他常用品可带花露水、小风扇、腰带、水杯和不同尺寸、底色的证件照；学习用品可带笔记本电脑、纸笔和U盘。没有带齐也可到学生街购买或网购到校。证件原件、录取材料和个人报到清单仍应按录取通知书及迎新系统逐项核对。',
+    keywords: ['开学准备什么', '新生行李清单', '要带什么', '床上用品', '证件照', 'U盘', '洗漱用品', '报到清单'],
+    publicUrl: official2026FreshmanQaUrl,
+    confidence: 98,
+    sourceNote: '仰恩大学官方微信2026级新生问答，发布于2026-08-07。'
   }
 ]
 
@@ -976,6 +1113,7 @@ export const assistantKnowledgeSeeds: AssistantKnowledgeSeed[] = [
   }),
   ...comprehensiveEvaluationKnowledge,
   ...verifiedNewStudentFaqKnowledge,
+  ...official2026FreshmanQaKnowledge,
   ...userVerifiedNewStudentExperienceKnowledge,
   ...campusExperienceKnowledge,
   ...sportsElectiveKnowledge,

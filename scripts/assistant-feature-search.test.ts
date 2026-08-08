@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { searchSystemFeatures } from '../data/system-features'
+import { officialWelcomeSystemUrl } from '../data/assistant-knowledge'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
@@ -83,6 +84,31 @@ test('assistant answers freshman class lookup from the welcome-system rule witho
     assert.match(response.answer, /迎新系统/)
     assert.equal(response.citations[0]?.url, '/procedures/arrival')
     assert.ok(response.trace?.some(step => step.stage === 'local_database'))
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('assistant returns the verified official welcome-system link for common entry questions', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-welcome-system-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    for (const query of ['学校迎新系统在哪', '新生报到系统入口', '迎新平台怎么进', '预报名系统登录地址']) {
+      const response = await answerCampusQuestion(client, query, emptyAssistantConfig)
+      assert.equal(response.retrievalPath, 'local_database')
+      assert.equal(response.usedWebSearch, false)
+      assert.match(response.answer, /点击下方“学校官方迎新系统”/)
+      assert.equal(response.citations[0]?.title, '学校官方迎新系统')
+      assert.equal(response.citations[0]?.url, officialWelcomeSystemUrl)
+      assert.deepEqual(response.trace?.map(item => item.stage), [
+        'query_analysis',
+        'local_database',
+        'answer_generation'
+      ])
+    }
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
