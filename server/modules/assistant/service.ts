@@ -288,7 +288,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v38-welcome-citation-transfer-month'
+const ASSISTANT_CACHE_VERSION = 'rag-v39-welcome-class-group-intent'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -1800,8 +1800,8 @@ function placeNameMatchesQuery(placeName: string, query: string): boolean {
 
 function isFreshmanClassLookupQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
-  const mentionsClass = /所在班级|查询班级|查班级|班级查询|分班查询|编班查询|新生分班|我在哪个班/.test(normalized)
-  const asksLookup = /怎么|如何|哪里|在哪|查询|查看|知道|哪个班/.test(normalized)
+  const mentionsClass = /所在班级|查询班级|查班级|班级查询|分班查询|编班查询|新生分班|我在哪个班|班群|班级群|新生群/.test(normalized)
+  const asksLookup = /怎么|如何|哪里|在哪|查询|查看|知道|哪个班|进群|入群|加入|邀请/.test(normalized)
   return mentionsClass && asksLookup
 }
 
@@ -1886,12 +1886,12 @@ function official2026TransferMonthLocalAnswer(
 function freshmanClassLookupEvidenceForQuery(query: string): AssistantEvidence[] {
   if (!isFreshmanClassLookupQuery(query)) return []
   return [{
-    title: '新生班级查询',
+    title: '新生班级与班群查询',
     url: '/procedures/arrival',
-    snippet: '新生编班和所在班级需在学校迎新系统开放后查询；尚未显示时，以班导或学院当届通知为准。',
+    snippet: '收到录取通知书后可按随附通知进入学校迎新系统查看分班；班级确定后，辅导员、班主任或班导会通过新生预留联系方式邀请入群。',
     source: 'site',
     authority: 'reviewed_site',
-    text: '所在班级 查询班级 分班查询 编班查询 新生班级 迎新系统 新生报到 班导 学院通知',
+    text: '所在班级 查询班级 分班查询 编班查询 新生班级 班群 班级群 新生群 迎新系统 辅导员 班主任 班导 短信邀请 学院通知',
     score: 10_000
   }]
 }
@@ -1901,13 +1901,13 @@ function freshmanClassLookupLocalAnswer(
   evidence: AssistantEvidence[]
 ): ApiAssistantResponse | null {
   if (!isFreshmanClassLookupQuery(query)) return null
-  const entry = evidence.find(item => item.title === '新生班级查询')
+  const entry = evidence.find(item => item.title === '新生班级与班群查询')
   if (!entry) return null
   const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = entry
   return {
     query,
     mode: 'local',
-    answer: '新生的所在班级需要在学校迎新系统里查询。迎新系统开放并完成个人信息后，查看个人信息、报到信息或编班信息中的班级字段；如果暂时没有显示，通常是当届编班尚未发布，等班导或学院通知即可。请只从录取材料、学校当届通知或本站核验过的入口进入，不要在群聊里的陌生链接输入账号和验证码。',
+    answer: '收到录取通知书后，可按随附通知进入学校迎新系统查看分班。班级确定后，辅导员、班主任或班导会通过新生预留的手机号码发送短信邀请入群，遗漏时也可能电话联系确认；如果迎新系统暂时没有显示班级，通常是当届编班尚未发布，等待学院通知即可。学校新生交流群会核验身份，不要只凭转发二维码进群，也不要在陌生链接输入账号和验证码。',
     citations: [citation],
     usedWebSearch: false,
     confidence: 0.96

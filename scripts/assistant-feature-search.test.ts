@@ -78,13 +78,16 @@ test('assistant answers freshman class lookup from the welcome-system rule witho
   const client = getDatabase(databasePath)
   try {
     runMigrations(client)
-    const response = await answerCampusQuestion(client, '所在班级怎么查询', emptyAssistantConfig)
-    assert.equal(response.retrievalPath, 'local_database')
-    assert.equal(response.usedWebSearch, false)
-    assert.match(response.answer, /迎新系统/)
-    assert.equal(response.citations[0]?.url, '/procedures/arrival')
-    assert.ok(response.citations.some(item => item.url === officialWelcomeSystemUrl))
-    assert.ok(response.trace?.some(step => step.stage === 'local_database'))
+    for (const query of ['所在班级怎么查询', '新生在哪看班级和班群？']) {
+      const response = await answerCampusQuestion(client, query, emptyAssistantConfig)
+      assert.equal(response.retrievalPath, 'local_database')
+      assert.equal(response.usedWebSearch, false)
+      assert.match(response.answer, /迎新系统/)
+      assert.match(response.answer, /辅导员、班主任或班导/)
+      assert.equal(response.citations[0]?.url, '/procedures/arrival')
+      assert.ok(response.citations.some(item => item.url === officialWelcomeSystemUrl))
+      assert.ok(response.trace?.some(step => step.stage === 'local_database'))
+    }
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
