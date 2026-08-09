@@ -325,6 +325,23 @@ AI 不是独立的数据源，而是站内检索和证据整理的编排层。�
 - `pnpm bundle:budget` 从 Nuxt 生产构建清单读取实际未压缩产物，限制全局入口、首页、搜索、地图、流程详情、后台资源编辑、流程编辑、现场观测和研究说明的初始 JavaScript/CSS；MapLibre SDK 与 CSS 必须分别保持独立动态资源，不得进入受保护路由初始依赖。地图样式不再由 Nuxt 全局 CSS 加载，而是在 provider 或后台坐标审核地图初始化时与 SDK 一起动态导入。该门禁用于防止构建体积回退，不替代真机 Lighthouse、LCP、CLS、INP 和地图可交互时间测试。
 - `pnpm e2e` 为最新生产构建重建隔离 SQLite，并通过正式服务生成受控已发布地点、两个项目隔离的内容草稿和专用测试管理员，随后在桌面 Chromium 与 Pixel 5 移动视口执行 19 个公开/管理/PWA/故障/无障碍场景，共 38 条检查；覆盖搜索到共享地点详情、解析并显示自定义学生使用清单、返回地图、区域 URL 首次恢复与关闭写回、地图显示设置交互、流程材料/来源/键盘进度、管理员编辑/发布/下线和审计、反馈提交与解决、PWA 注册与更新提示、六类核心页面 Axe 扫描、搜索 API 降级、MapLibre 动态分包失败和 Service Worker 断网导航。E2E 地点说明必须使用 `【到这里前先确认】` 标记，避免夹具静默回退默认清单。外部瓦片和官网请求在浏览器测试中被阻断，保证页面文字与交互测试不依赖第三方网络。当前自动化浏览器覆盖不代表真实 Android/iOS Safari、微信 WebView、实际安装态 PWA 或生产高德域名验收。
 
+## Reliability follow-up (2026-08-09)
+
+- Client recovery is bounded: the first recovery may clear stale service-worker
+  and cache state and append `_recover`; a repeated recovery never appends a
+  second token, skips expensive cleanup, and lands on a stable route. Explicit
+  error-page actions remain usable after a failed retry.
+- The search page has one initial assistant trigger (`watch(..., { immediate:
+  true })`). It no longer combines an immediate watcher with `onMounted`, which
+  previously doubled stream/fallback requests and could exhaust the normal
+  per-client budget.
+- Assistant limits remain layered at Nginx and Nitro: 20 requests/minute per
+  client and 200 requests/minute globally. WeChat diagnostics allow 120
+  reports/hour, while the client reporter deduplicates identical diagnostics.
+- Query-term extraction drops the original full sentence when it is only a
+  question wrapper, while retaining focused entities and campus aliases. This
+  keeps unknown questions from triggering broad LIKE/FTS scans.
+
 ## 10. 架构验收要点
 
 - [ ] 前台、后台和 API 由一个 Nuxt/Nitro 部署单元运行，后台接口有真实服务端认证。
@@ -378,3 +395,16 @@ AI 不是独立的数据源，而是站内检索和证据整理的编排层。�
 - 实时目录同时读取指南、办事流程、校园地点、学生社团和部门学院五类公开 API。分类按钮显示完整数量，当前分类展示前 10 条并提供对应完整目录入口；条目标题、摘要和详情地址均来自同一 API 响应，不维护静态副本。
 - 校园地点必须读取 `usePublicPlaceList('campus')`。吃喝玩乐正文目前来自 `data/nearby-guide.ts`，不能依赖尚无已发布记录的 `scope=nearby` 地点接口；首页精选按有图内容优先，链接回 `/nearby#guide-*` 的现有阅读位置。
 - `home.essential.map` 只控制校园地图相关入口，`home.essential.delivery` 只控制快递与外卖入口；专业住宿查询没有独立后台 feature key，不得再借用地图开关。旧公告动作中的 `i-lucide-panorama` 在公开输出时归一化为有效的 `i-lucide-orbit`。
+## Public welcome-system knowledge ingestion (2026-08-09)
+
+The welcome-system importer is intentionally allowlisted. It reads only the public guide and public-file endpoints, then follows attachments only when the hostname and `/files/*.doc(x)` path match the fixed allowlist. It never calls personal endpoints such as `GetMe`, `GetPreRegister`, `GetDorms`, `GetDormOrder`, payment, face, upload, or identity-login APIs.
+
+`scripts/import-welcome-public-knowledge.ts` uses the short-lived `WELCOME_SYSTEM_TOKEN` process variable only. The token is not written to the database, source metadata, logs, release files, or the repository. The importer strips HTML executable/embed elements, deduplicates by `(original_url, SHA-256)`, stores documents as `ready`, and compiles claims as `review` so public material is searchable without silently publishing unreviewed fragments. Image-only public guides use a manually checked text transcription kept in `server/modules/knowledge/welcome-public.ts`; no personal assignment data is included.
+
+The importer is repeatable and safe to run after the welcome system changes: unexpected response fields, personal-field names, non-allowlisted attachment hosts, and unsupported file types fail closed. Use `pnpm knowledge:import:welcome` with `WELCOME_SYSTEM_TOKEN` supplied by the operator at runtime, then run the normal database backup and production smoke checks.
+
+Official document retrieval accepts the explicit `仰恩大学官方迎新系统` platform alongside the `yeu.edu.cn` host allowlist. This keeps the source boundary narrow while making authenticated-public freshman guides searchable after import.
+
+Question normalization expands conversational arrival wording such as `到校前` and `开学前` into evidence phrases including `应带证件和材料`, `报到材料`, and `录取通知书`. A source-level-A official document can satisfy local retrieval without web search when at least two bounded semantic terms match its text. The post-FTS relevance guard accepts those multiple strong evidence matches while still rejecting a single loose synonym hit.
+
+Assistant answer-cache keys carry a retrieval-policy version. Any change to source eligibility, semantic expansion, sufficiency scoring, or route reporting must bump that version so a previously cached answer cannot bypass the new policy. Production release smoke checks use a writable SQLite backup on a separate port and must assert answer content, `retrievalPath=local_database`, and `usedWebSearch=false` for representative local-only questions before switching `current`.

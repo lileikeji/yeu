@@ -537,12 +537,9 @@ watch([activeQuery, activeType], ([query, type]) => {
 
 watch(
   [activeQuery, activeType, activeSearchMode],
-  () => void requestAssistantAnswer()
+  () => void requestAssistantAnswer(),
+  { immediate: true }
 )
-
-onMounted(() => {
-  void requestAssistantAnswer()
-})
 
 onBeforeUnmount(() => {
   assistantAbortController?.abort()

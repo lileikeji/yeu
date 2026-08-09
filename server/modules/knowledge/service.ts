@@ -488,7 +488,11 @@ export function searchOfficialKnowledgeDocuments(
         AND s.status = 'active'
         AND s.is_official = 1
         AND s.source_level = 'A'
-        AND (s.url LIKE 'https://yeu.edu.cn/%' OR s.url LIKE 'https://%.yeu.edu.cn/%')
+        AND (
+          s.url LIKE 'https://yeu.edu.cn/%'
+          OR s.url LIKE 'https://%.yeu.edu.cn/%'
+          OR s.platform = '仰恩大学官方迎新系统'
+        )
       ORDER BY ftsRank ASC, kd.captured_at DESC
       LIMIT ?
     `)
@@ -519,7 +523,11 @@ export function searchOfficialKnowledgeDocuments(
           AND s.status = 'active'
           AND s.is_official = 1
           AND s.source_level = 'A'
-          AND (s.url LIKE 'https://yeu.edu.cn/%' OR s.url LIKE 'https://%.yeu.edu.cn/%')
+          AND (
+            s.url LIKE 'https://yeu.edu.cn/%'
+            OR s.url LIKE 'https://%.yeu.edu.cn/%'
+            OR s.platform = '仰恩大学官方迎新系统'
+          )
         ORDER BY kd.captured_at DESC
         LIMIT ?
       `).all(...values, Math.max(20, Math.min(160, limit * 12))) as SearchRow[]
@@ -534,10 +542,16 @@ export function searchOfficialKnowledgeDocuments(
     const corePositions = coreTerms
       .map(term => ({ term, position: `${title} ${text}`.indexOf(term) }))
       .filter(item => item.position >= 0)
-    if (coreTerms.length >= 2 && corePositions.length < 2) return null
     const titleMatches = searchableTerms.filter(term => title.includes(term))
     const textMatches = searchableTerms.filter(term => text.includes(term))
-    if (coreTerms.length === 1 && corePositions.length === 0 && !titleMatches.some(term => term.length >= 3)) return null
+    const strongSearchMatches = [...new Set([...titleMatches, ...textMatches].filter(term => term.length >= 4))]
+    if (coreTerms.length >= 2 && corePositions.length < 2 && strongSearchMatches.length < 2) return null
+    if (
+      coreTerms.length === 1
+      && corePositions.length === 0
+      && !titleMatches.some(term => term.length >= 3)
+      && !textMatches.some(term => term.length >= 4)
+    ) return null
     const primary = searchableTerms[0] ?? ''
     const primaryBigrams = (primary.length >= 3
       ? Array.from({ length: primary.length - 1 }, (_, index) => primary.slice(index, index + 2))

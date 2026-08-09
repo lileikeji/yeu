@@ -96,6 +96,7 @@ test('WeChat client diagnostics are bounded, rate limited and omit request secre
   )
   assert.match(endpoint, /assertTrustedOrigin\(event\)/)
   assert.match(endpoint, /assertRateLimit\(/)
+  assert.match(endpoint, /wechat-share-report:\$\{ipAddress\}.*, 120, 60 \* 60 \* 1000/)
   assert.match(endpoint, /max\(160\)/)
   assert.match(endpoint, /wechat_share_client/)
   assert.doesNotMatch(endpoint, /getHeader\(event, ['"]user-agent/)

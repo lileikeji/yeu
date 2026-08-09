@@ -26,8 +26,8 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'Connection', 'keep-alive')
   const client = useAppDatabase(event)
   const ipAddress = getClientIpAddress(event)
-  assertRateLimit(event, `assistant:${ipAddress}`, 8, 60 * 1000, client)
-  assertRateLimit(event, 'assistant:global', 80, 60 * 1000, client)
+  assertRateLimit(event, `assistant:${ipAddress}`, 20, 60 * 1000, client)
+  assertRateLimit(event, 'assistant:global', 200, 60 * 1000, client)
 
   const body = await parseBody(event, assistantQuestionSchema)
   const effectiveQuery = resolveAssistantFollowUpQuery(body.q, body.previousQ)

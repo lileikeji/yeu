@@ -31,17 +31,32 @@ export function resolveRecoveryUrl(
 ): URL {
   const current = new URL(currentHref)
   const requested = new URL(destination || `${current.pathname}${current.search}${current.hash}`, current.origin)
-  const isRepeatedAttempt = current.searchParams.has(RECOVERY_QUERY_KEY)
+  const isRepeatedAttempt = isRepeatedRecoveryAttempt(current, requested, previousAttempt, now)
+
+  // An explicit action from the error page is a user choice and should be
+  // honored even after a failed recovery. Only the implicit retry falls back
+  // to the stable home route.
+  const target = isRepeatedAttempt && !destination ? new URL('/', current.origin) : requested
+  target.searchParams.delete('_recovered')
+  // A second recovery must land on a stable URL. Appending another recovery
+  // token here makes the error page navigate back into itself indefinitely.
+  if (isRepeatedAttempt) target.searchParams.delete(RECOVERY_QUERY_KEY)
+  else target.searchParams.set(RECOVERY_QUERY_KEY, String(now))
+  return target
+}
+
+function isRepeatedRecoveryAttempt(
+  current: URL,
+  requested: URL,
+  previousAttempt: RecoveryAttempt | null,
+  now: number
+): boolean {
+  return current.searchParams.has(RECOVERY_QUERY_KEY)
     || Boolean(
       previousAttempt
       && now - previousAttempt.at < RECOVERY_WINDOW_MS
       && previousAttempt.pathname === requested.pathname
     )
-
-  const target = isRepeatedAttempt ? new URL('/', current.origin) : requested
-  target.searchParams.delete('_recovered')
-  target.searchParams.set(RECOVERY_QUERY_KEY, String(now))
-  return target
 }
 
 async function removeStaleApplicationCaches(): Promise<void> {
@@ -77,6 +92,12 @@ export async function recoverClientPage(options: RecoverClientPageOptions = {}):
 
   const now = Date.now()
   const previousAttempt = readRecoveryAttempt(window.sessionStorage)
+  const current = new URL(window.location.href)
+  const requested = new URL(
+    options.destination || `${current.pathname}${current.search}${current.hash}`,
+    current.origin
+  )
+  const repeatedAttempt = isRepeatedRecoveryAttempt(current, requested, previousAttempt, now)
   const target = resolveRecoveryUrl(window.location.href, options.destination, previousAttempt, now)
 
   try {
@@ -88,7 +109,10 @@ export async function recoverClientPage(options: RecoverClientPageOptions = {}):
     // Recovery still works when private browsing blocks session storage.
   }
 
-  await removeStaleApplicationCaches()
+  // Cache and service-worker cleanup is expensive. Once recovery has already
+  // been attempted, keep the browser responsive and let the user choose a
+  // stable route instead of repeating the same cleanup/navigation cycle.
+  if (!repeatedAttempt) await removeStaleApplicationCaches()
 
   try {
     void Promise.resolve(options.clearNuxtError?.()).catch(() => undefined)

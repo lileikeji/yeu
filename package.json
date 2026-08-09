@@ -37,6 +37,7 @@
     "knowledge:crawl:official": "tsx scripts/crawl-official-knowledge.ts",
     "knowledge:compile": "tsx scripts/compile-official-knowledge.ts",
     "knowledge:import:handbook": "tsx scripts/import-freshman-handbook.ts",
+    "knowledge:import:welcome": "tsx scripts/import-welcome-public-knowledge.ts",
     "security:cleanup": "tsx scripts/cleanup-sensitive-data.ts",
     "env:test": "tsx --test scripts/load-env.test.ts",
     "e2e": "pnpm build && pnpm e2e:run",

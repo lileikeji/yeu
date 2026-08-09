@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
   const client = useAppDatabase(event)
   const ipAddress = getClientIpAddress(event)
-  assertRateLimit(event, `wechat-share-report:${ipAddress}`, 40, 60 * 60 * 1000, client)
+  assertRateLimit(event, `wechat-share-report:${ipAddress}`, 120, 60 * 60 * 1000, client)
   const input = await parseBody(event, wechatShareDiagnosticSchema)
 
   console.info(JSON.stringify({

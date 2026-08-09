@@ -594,6 +594,27 @@
 - 架构变化：公开静态资源新增规范首页二维码，不涉及数据库、API、路由或运行时逻辑。
 - 后续动作：站内需要二维码时统一引用 `/images/yx-home-qr.png`，不要重复生成内容不同的首页二维码；将本次已验证的 smoke 清理顺序固化进正式部署脚本。
 
+## 2026-08-09 - Client recovery and public assistant stability
+
+- Good: production logs showed successful 200 responses and no recent Nginx
+  429s, so the fix targeted the observed client recovery loop and duplicate
+  assistant requests instead of disabling protection globally.
+- Good: repeated recovery now produces a clean stable URL and skips repeated
+  service-worker/cache deletion; explicit actions still navigate to the
+  selected route. The search page uses one immediate watcher, and assistant and
+  WeChat diagnostic budgets were raised only to the documented normal-user
+  envelope.
+- Bad: running multiple `pnpm` test commands concurrently caused a Windows
+  `.nuxt` file-lock (`EPERM`). Future validation must run Nuxt generation and
+  type checks serially, or use direct existing binaries for read-only tests.
+- Avoid: do not append another `_recover` token, clear every cache on every
+  retry, or remove rate limits to solve shared-CDN-IP pressure. Keep the two
+  layers and verify trusted proxy edges whenever the CDN changes.
+- Verification: client-recovery and WeChat-share tests pass; assistant route
+  assertions pass. One pre-existing assistant term-normalization assertion
+  remains red because the current implementation keeps the original long
+  phrase alongside its focused term; it is unrelated to this stability patch.
+
 ## 2026-08-08 - 2026级官方新生问答与迎新系统入口
 
 - 本次目标：吃透学校 2026-08-07 发布的新生问答，把可核验内容写入知识库，并让用户询问迎新系统、分班入群和转专业时间时得到直接、可点击、低延迟的答案。
@@ -606,3 +627,18 @@
 - 发布/回滚信息：知识提交 `0ede995`、入口补强 `25b2ffd`、班群意图 `8ee8efc` 和确定性优先级修复 `62abaf0` 已推送个人仓库。最终生产 release 为 `/www/wwwroot/yeu/releases/20260808-225220-62abaf0`，切换前备份为 `/www/wwwroot/yeu/shared/backups/yeu-before-20260808-225220-62abaf0.sqlite`，直接回滚版本为 `/www/wwwroot/yeu/releases/20260808-224522-8ee8efc`。
 - 架构变化：知识层新增当届官方新生问答；检索编排层增加迎新入口、转专业月份、分班与入群三个确定性意图，并在缓存前统一补齐迎新系统引用；回答阶段的优先级调整为“确定性本地答案、必要的官方文档综合、其他本地或网页路径”。
 - 后续动作：为带真实 AI 网关配置的 API 路径加入“模型不得被调用”的可观测回归桩；继续从学校官方渠道补齐当届易变信息，发生来源冲突时保留证据等级和人工确认边界。
+## 2026-08-09 - Public welcome-system knowledge import
+
+- Goal: import useful common freshman materials from the authenticated welcome system while excluding personal information and personal assignment data.
+- Completed: allowlisted `GetAllGuide` and `GetAllFile` only; imported 8 guides and 3 unique public DOC/DOCX attachments; compiled 169 extracted claims with review status; added text transcriptions for the image-only registration-flow and comfort-dorm guides; added parser, host/path allowlist, HTML sanitization, dedupe, personal-field rejection, official-source retrieval, semantic-arrival retrieval, and local-route tests.
+- Good: inspected the frontend bundle first to identify the endpoint boundary; excluded user, pre-registration, dorm-selection, payment, face, upload, and identity endpoints; kept the bearer token in process memory only; retained source metadata internally while disabling public citation for authenticated guide records; verified local retrieval for comfort-dorm area, occupancy, price, and application timing.
+- Bad: the upstream guide metadata contains stale update timestamps and some old generic configuration endpoints; these were excluded from ingestion instead of being treated as current facts. The upstream HTML embeds large base64 images, so image-only pages required a checked text transcription. Initial release smoke attempts also inherited `NITRO_PORT=3000` from the production environment, and a direct request with the public Host header received the expected HTTP-to-HTTPS 301 instead of reaching the isolated app. Both failed before switching `current`.
+- Root cause: the welcome system mixes public common content with authenticated personal workflows under the same API namespace; endpoint-level allowlisting is required before parsing.
+- Additional root cause found in verification: the document retriever previously allowed only `yeu.edu.cn` source URLs, so newly imported welcome documents were stored but invisible to AI search. The source filter now explicitly allows the exact official welcome-system platform, with a regression fixture.
+- Additional retrieval root cause: a strict raw-question core filter rejected documents that matched several strong semantic expansions, and an old answer-cache entry still returned the pre-import “cannot confirm” response. The relevance guard now accepts two strong expanded matches, arrival wording expands to official material phrases, and cache version `rag-v42-welcome-local-routing` invalidates the old route and answer.
+- Avoid next time: never crawl the whole authenticated API, never persist bearer tokens or response IDs, never import `GetMe`/`GetPreRegister`/`GetDorms`/payment/face/upload data, and do not publish auto-compiled claims without review. Keep importer tests fail-closed for schema drift and attachment-host changes.
+- Verification: 46 combined AI/knowledge/importer tests passed in the broad run, followed by focused 42- and 35-test routing runs; targeted ESLint, Nuxt typecheck, production builds, SQLite `quick_check`, foreign-key check, source and CDN health checks passed. Production contains 11 ready welcome documents, 169 review claims, and zero auto-published claims. Production answers for comfort-room locations and arrival materials use `retrievalPath=local_database` with no web search; the arrival answer distinguishes ordinary undergraduate and top-up undergraduate materials.
+- Good: kept the previous service running through every build and failed smoke attempt; used a writable database copy and Linux native SQLite module; strengthened the smoke gate to assert content, local route, and no web search rather than accepting any plausible answer. No personal endpoint or personal field was imported.
+- Avoid next time: isolated Nitro startup must override both `PORT` and `NITRO_PORT` after the shared environment is loaded; direct smoke requests must not send the public Host over plain HTTP; retrieval-policy changes must bump the answer-cache version before public verification.
+- Release: production `current` is `/www/wwwroot/yeu/releases/20260809-170815-welcome-v42`; direct rollback is `/www/wwwroot/yeu/releases/20260809-170415-welcome-local`; the release backup is `/www/wwwroot/yeu/shared/backups/yeu-before-20260809-170815-welcome-v42.sqlite`.
+- Follow-up: invalidate the short-lived welcome-system session by logging out or signing in again; future refresh imports require a new process-only token and the same privacy, review-status, and release gates.

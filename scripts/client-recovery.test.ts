@@ -26,8 +26,32 @@ test('a repeated recovery falls back to the home page', () => {
   )
 
   assert.equal(target.pathname, '/')
-  assert.equal(target.searchParams.get('_recover'), '123456')
+  assert.equal(target.searchParams.has('_recover'), false)
   assert.equal(target.searchParams.has('place'), false)
+})
+
+test('a recovery URL never appends another recovery token', () => {
+  const target = resolveRecoveryUrl(
+    'https://yeu.example/search?q=dorm&_recover=123000',
+    undefined,
+    null,
+    123456
+  )
+
+  assert.equal(target.pathname, '/')
+  assert.equal(target.search, '')
+})
+
+test('explicit recovery actions remain usable after a failed attempt', () => {
+  const target = resolveRecoveryUrl(
+    'https://yeu.example/search?q=dorm&_recover=123000',
+    '/map',
+    null,
+    123456
+  )
+
+  assert.equal(target.pathname, '/map')
+  assert.equal(target.search, '')
 })
 
 test('error and update views use the full recovery flow instead of reload', () => {
