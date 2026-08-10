@@ -642,3 +642,11 @@
 - Avoid next time: isolated Nitro startup must override both `PORT` and `NITRO_PORT` after the shared environment is loaded; direct smoke requests must not send the public Host over plain HTTP; retrieval-policy changes must bump the answer-cache version before public verification.
 - Release: production `current` is `/www/wwwroot/yeu/releases/20260809-170815-welcome-v42`; direct rollback is `/www/wwwroot/yeu/releases/20260809-170415-welcome-local`; the release backup is `/www/wwwroot/yeu/shared/backups/yeu-before-20260809-170815-welcome-v42.sqlite`.
 - Follow-up: invalidate the short-lived welcome-system session by logging out or signing in again; future refresh imports require a new process-only token and the same privacy, review-status, and release gates.
+## 2026-08-11 - Official dormitory knowledge and retrieval priority
+
+- Goal: import the supplied official 2026 dormitory article, make dorm questions retrieve the right campus/gender/aspect globally, and deploy without interrupting the current service.
+- Done well: facts were split into bounded knowledge entries; official dorm data outranks experience notes; aliases cover old/new campus, comfort rooms, facilities, schedules, and building lookups; no personal assignment data or WeChat credentials were imported; cache policy was bumped to `rag-v43-dorm-guide-priority`.
+- What went poorly: the previous seed contained conflicting dorm wording and a malformed time value, so the new entries needed an explicit conflict update and regression coverage. This shows that every new official article must be checked against existing entries before release.
+- Avoid next time: do not add a one-question special case, do not treat promotional prose as policy, do not depend on external image hotlinks, and do not switch production before a writable-database smoke test checks `retrievalPath=local_database` and `usedWebSearch=false`.
+- Verification: `scripts/assistant-knowledge.test.ts` passed 8/8 in the targeted run; full assistant tests, lint, typecheck, build, deployment, and online smoke checks remain required before declaring release complete.
+- Architecture impact: official dorm content is now a first-party, time-scoped source; the assistant has a shared dorm semantic-priority layer; production remains `release/current/shared` with idempotent SQLite seeding and rollback retention.

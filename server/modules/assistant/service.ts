@@ -291,7 +291,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v42-welcome-local-routing'
+const ASSISTANT_CACHE_VERSION = 'rag-v43-dorm-guide-priority'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -2310,6 +2310,49 @@ function parseKnowledgeKeywords(value: string): string[] {
   }
 }
 
+const DORM_ASPECT_ALIASES: Record<string, RegExp> = {
+  '独立卫生间': /独立卫生间|独立卫浴|独卫|独立厕所/u,
+  '独卫': /独立卫生间|独立卫浴|独卫|独立厕所/u,
+  '阳台': /阳台/u,
+  '床尺寸': /床尺寸|床铺尺寸|宽.?0\.9|长.?1\.9|男生床位长度|床垫/u,
+  '热水': /热水|淋浴|洗澡|水卡/u,
+  '供电': /供电|断电|电源|大功率|1000W|1000瓦/u,
+  '门禁': /门禁|23:00|关门/u,
+  '楼栋': /宿舍楼|楼栋|黄山楼|华山楼|天山楼|嵩山楼|泰山楼|衡山楼|威海楼|珠海楼|渤海楼|黄海楼|东海楼|北海楼|南海楼|宁夏楼|海南楼|云南楼|四川楼|贵州楼|安徽楼|重庆楼|甘肃楼|湖南楼|湖北楼|吉林楼|辽宁楼|黑龙江楼|陕西楼/u,
+  '申请': /申请|提交|支付|付款|迎新系统|8月24日|先到先得/u
+}
+
+function dormAspectMatches(aspect: string, text: string): boolean {
+  return DORM_ASPECT_ALIASES[aspect]?.test(text) ?? text.includes(aspect)
+}
+
+function dormKnowledgePriority(query: string, row: {
+  kind: string
+  title: string
+  question: string
+  answer: string
+  keywords: string[]
+}): number {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (!/(宿舍|寝室|床垫|床铺|新区|旧区|宿管|洗澡|洗衣|水电|门禁|室友)/u.test(normalized)) return 0
+  const text = `${row.title} ${row.question} ${row.answer} ${row.keywords.join(' ')}`
+  let boost = row.kind === 'official_reference' ? 18 : 0
+  if (/女生|男生/.test(normalized) && text.includes(normalized.match(/女生|男生/)?.[0] ?? '')) boost += 8
+  if (/新区|旧区/.test(normalized) && /新区|旧区/.test(text)) boost += 12
+  if (/几人间|多少人|人数/.test(normalized) && /[45]人间|几人间|人数/.test(text)) boost += 18
+  if (/独卫|独立卫生间|阳台|床垫|床铺|尺寸|空调|风扇|水卡|热水|断电|供电|门禁|几点|什么时候|申请|怎么抢/.test(normalized)) {
+    const aspects = [
+      ['独卫', '独卫'], ['独立卫生间', '独立卫生间'], ['阳台', '阳台'],
+      ['床尺寸', '床尺寸'], ['热水', '热水'], ['供电', '供电'], ['门禁', '门禁'], ['申请', '申请']
+    ] as const
+    for (const [key, aspect] of aspects) if (normalized.includes(key) && dormAspectMatches(aspect, text)) boost += 16
+  }
+  if (/宿舍楼|女生宿舍|男生宿舍|宿舍在哪|住哪/.test(normalized) && /宿舍楼|楼栋|书院/.test(text)) boost += 22
+  if (/(提交|抢|开放|支付|付款|先到先得)/.test(normalized) && /提交|支付|付款|迎新系统|8月24日|先到先得/.test(text)) boost += 40
+  if (/总体|整体|情况|怎么样|介绍|宿舍篇/.test(normalized) && /楼栋|配置|热水|供电|门禁|收费/.test(text)) boost += 10
+  return boost
+}
+
 export function assistantKnowledgeMatchesForQuery(
   client: DatabaseClient,
   query: string,
@@ -2389,6 +2432,7 @@ export function assistantKnowledgeMatchesForQuery(
       + exactKeywordBoost
       + (identitySubject && facultyName === identitySubject ? 80 : 0)
       + identityTitleBoost
+      + dormKnowledgePriority(query, { ...row, keywords })
     return {
       id: row.id,
       kind: row.kind,
@@ -2574,7 +2618,11 @@ function assistantKnowledgeLocalAnswer(
       && !/报名地点|报到地点|在哪(?:里)?报名|在哪(?:里)?报到/.test(query)
       && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(candidateText)
     ) return false
-    if (requestedSpecificAspects.some(aspect => !candidateFactText.includes(aspect))) return false
+    if (requestedSpecificAspects.some(aspect => (
+      DORM_ASPECT_ALIASES[aspect]
+        ? !dormAspectMatches(aspect, candidateFactText)
+        : !candidateFactText.includes(aspect)
+    ))) return false
     if (/什么时候开放/.test(query) && !/(?:什么时候开放|开放(?:日期|时间|时刻)|开学前)/.test(candidateText)) return false
     if (/在哪抢/.test(query) && !/(?:哪个系统抢|迎新系统|抢宿舍流程)/.test(candidateText)) return false
     if (/怎么抢|完整流程/.test(query) && !/(?:怎么抢|完整流程|抢宿舍流程|选择房型|完成付款)/.test(candidateText)) return false
@@ -4608,18 +4656,18 @@ function dormBedEvidenceGapResponse(
     .filter(item => BED_DIMENSION_EVIDENCE_RE.test(`${item.title} ${item.snippet} ${item.text}`))
     .slice(0, 2)
     .map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation)
-  if (!citations.some(item => item.url === '/contact')) {
+  if (!citations.some(item => item.url === '/dorms')) {
     citations.push({
-      title: '联系整理者',
-      url: '/contact',
-      snippet: '提供宿舍楼栋或现场照片后，可以继续核对具体床型。',
+      title: '宿舍分区与房型',
+      url: '/dorms',
+      snippet: '查看普通型、舒适型宿舍的楼栋、配置和床位说明。',
       source: 'site'
     })
   }
   return {
     query,
     mode: 'local',
-    answer: '目前没有检索到仰恩大学官方公开的统一宿舍床尺寸，现有资料也明确提示不同楼栋、房型和床位设施可能不同，因此不能把常见的0.9米床规格当成学校确认值。先不要按未经核验的尺寸定制床帘或床垫；拿到楼栋和房型后向宿管、辅导员或在校同学实测确认。',
+    answer: '2026级官方宿舍篇介绍：宿舍床宽约0.9米、长1.9米、高1.2米，男生床位长度约2米。床垫、床帘和蚊帐仍建议等楼栋和房型确认后复核实际尺寸再购买；不同楼栋如有差异，以现场测量和宿管说明为准。',
     citations,
     usedWebSearch: false,
     confidence: 0.86

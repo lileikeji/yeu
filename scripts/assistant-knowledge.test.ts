@@ -126,8 +126,8 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
       ['学校有哪些社团', /国旗班.*计算机协会/s],
       ['体育课什么时候抢', /尚未公布/],
       ['数学没及格一定转不了吗', /没有证据能确认/],
-      ['舒适型宿舍今年什么时候开放，在哪抢', /开学前约10天.*迎新系统/s],
-      ['2026级舒适型宿舍什么时候提交', /2026-08-24.*2026-08-31.*支付时间/s],
+      ['舒适型宿舍今年什么时候开放，在哪抢', /2026年8月24日9:00.*迎新系统/s],
+      ['2026级舒适型宿舍什么时候提交', /2026年8月24日9:00.*支付时间/s],
       ['舒适型宿舍女生多少钱、男生多少钱', /2780元(?:\/人·年|\/学年).*2580元(?:\/人·年|\/学年)/s],
       ['计算机科学与技术专业住新区还是旧区', /应先按新区记录.*旧区.*不再作为当前答案/s],
       ['新区女生还有舒适型宿舍吗', /女生舒适型宿舍安排在旧区/],
@@ -230,7 +230,7 @@ test('natural rule wording keeps specific entries ahead of broad summaries', asy
 
     const water = await answerCampusQuestion(client, '舒适型宿舍超额水费、电费具体单价是多少？', assistantConfig)
     assert.equal(water.citations[0]?.title, '宿舍水电单价、热水与水卡')
-    assert.match(water.answer, /超额水约5元\/吨、电约1元\/度/)
+    assert.match(water.answer, /没有可靠的超额水电单价/)
 
     const deductions = await answerCampusQuestion(client, '综测哪些情况会扣分', assistantConfig)
     assert.equal(deductions.citations[0]?.title, '综测哪些情况会扣分')
@@ -255,6 +255,33 @@ test('natural rule wording keeps specific entries ahead of broad summaries', asy
     const combined = await answerCampusQuestion(client, '转专业后要换宿舍吗？专升本学生要学孙子兵法吗', assistantConfig)
     assert.equal(combined.citations[0]?.title, '转专业后宿舍与专升本孙子兵法')
     assert.match(combined.answer, /孙子兵法.*公共必修/s)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('official 2026 dorm guide answers specific room, building and application wording', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-official-dorm-guide-'))
+  const databasePath = join(directory, 'test.sqlite')
+  try {
+    seedAssistantKnowledge({ apply: true, databasePath })
+    const client = getDatabase(databasePath)
+    const cases = [
+      ['新区普通宿舍几人间', /新区普通宿舍为5人间/],
+      ['宿舍床垫买多大', /0\.9米.*1\.9米/s],
+      ['女生宿舍在哪些楼', /黄山楼.*衡山楼.*宁夏楼/s],
+      ['男生宿舍在哪个区', /旧区男生.*新区男生/s],
+      ['宿舍有独卫吗', /独立阳台.*卫生间|独立卫浴/],
+      ['舒适型宿舍什么时候提交', /2026年8月24日9:00.*支付时间/s],
+      ['宿舍几点关门', /门禁时间为23:00/]
+    ] as const
+    for (const [query, expected] of cases) {
+      const response = await answerCampusQuestion(client, query, assistantConfig)
+      assert.equal(response.mode, 'local', query)
+      assert.equal(response.usedWebSearch, false, query)
+      assert.match(response.answer, expected, query)
+    }
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

@@ -748,16 +748,16 @@ test('assistant answer caps direct source excerpts before display', () => {
   )
 })
 
-test('bed-size question still gets a safe answer when MCP has no verified result', async () => {
+test('bed-size question uses the reviewed official dorm guide when MCP has no verified result', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-bed-answer-'))
   const databasePath = join(directory, 'test.sqlite')
   const client = getDatabase(databasePath)
   try {
     runMigrations(client)
     const response = await answerCampusQuestion(client, '宿舍床的尺寸', emptyAssistantConfig)
-    assert.match(response.answer, /没有检索到仰恩大学官方公开的统一宿舍床尺寸/)
-    assert.match(response.answer, /不要按未经核验的尺寸/)
-    assert.ok(response.citations.some(item => item.url === '/contact'))
+    assert.match(response.answer, /0\.9/)
+    assert.match(response.answer, /1\.9/)
+    assert.ok(response.citations.some(item => item.url === '/dorms'))
     assert.deepEqual(response.trace?.map(item => item.stage), [
       'query_analysis',
       'local_database',
@@ -858,7 +858,7 @@ test('ordinary undergraduate count never borrows the adjacent transfer-plan tota
   }
 })
 
-test('bed-size fallback survives a delayed web-cache migration', async () => {
+test('bed-size answer survives a delayed web-cache migration', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-bed-cache-migration-'))
   const databasePath = join(directory, 'test.sqlite')
   const client = getDatabase(databasePath)
@@ -866,8 +866,9 @@ test('bed-size fallback survives a delayed web-cache migration', async () => {
     runMigrations(client)
     client.sqlite.exec('drop table assistant_web_knowledge')
     const response = await answerCampusQuestion(client, '宿舍床多大', emptyAssistantConfig)
-    assert.match(response.answer, /没有检索到仰恩大学官方公开的统一宿舍床尺寸/)
-    assert.ok(response.citations.some(item => item.url === '/contact'))
+    assert.match(response.answer, /0\.9/)
+    assert.match(response.answer, /1\.9/)
+    assert.ok(response.citations.some(item => item.url === '/dorms'))
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
