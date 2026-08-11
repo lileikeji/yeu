@@ -720,12 +720,13 @@ test('bed and mattress wording share one normalized web-knowledge cache', async 
     assert.equal(cached[0]?.url, 'https://example.edu/dorm-mattress-size')
 
     const response = await answerCampusQuestion(client, '新生要买多大的床垫', emptyAssistantConfig)
-    assert.equal(response.retrievalPath, 'web_cache')
+    assert.equal(response.retrievalPath, 'local_database')
     assert.deepEqual(response.trace?.map(item => item.stage), [
       'query_analysis',
-      'web_cache',
+      'local_database',
       'answer_generation'
     ])
+    assert.match(response.answer, /0\.9/)
     assert.equal(response.trace?.[0]?.detail, '识别为：宿舍床与床垫尺寸')
   } finally {
     closeDatabase(databasePath)
@@ -770,27 +771,61 @@ test('bed-size question uses the reviewed official dorm guide when MCP has no ve
   }
 })
 
-test('cached web evidence selects only the web-cache route', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'yeu-bed-cached-route-'))
+test('reviewed official bed dimensions outrank stale conflicting web cache', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-bed-official-over-web-cache-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    storeWebEvidence(client, '宿舍床尺寸', [{
+      title: '旧宿舍床尺寸网页缓存',
+      url: 'https://example.edu/stale-dorm-bed',
+      snippet: '旧资料称学校没有公布统一宿舍床尺寸。',
+      source: 'web'
+    }])
+    const response = await answerCampusQuestion(client, '宿舍床尺寸', emptyAssistantConfig)
+    assert.match(response.answer, /0\.9/)
+    assert.match(response.answer, /1\.9/)
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.equal(response.usedWebSearch, false)
+    assert.equal(response.citations.some(item => item.url === 'https://example.edu/stale-dorm-bed'), false)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('cached relevant web evidence selects only the web-cache route', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-web-cached-route-'))
   const databasePath = join(directory, 'test.sqlite')
   const client = getDatabase(databasePath)
   const originalFetch = globalThis.fetch
   try {
     runMigrations(client)
-    const query = '宿舍床尺寸缓存路线测试'
+    const query = '校内天文台开放时间缓存路线测试'
     storeWebEvidence(client, query, [{
-      title: '宿舍床尺寸公开网页线索',
-      url: 'https://example.edu/dorm-bed-route',
-      snippet: '宿舍床尺寸在不同楼栋需要分别核验。',
+      title: '校内天文台开放时间公开网页线索',
+      url: 'https://example.edu/observatory-hours',
+      snippet: '据公开活动页，校内天文台开放时间需要根据当天活动安排核验。',
       source: 'web'
     }])
-    globalThis.fetch = async () => new Response(JSON.stringify({
-      choices: [{ message: { content: JSON.stringify({
-        answer: '不同楼栋的宿舍床尺寸需要分别核验。',
-        citation_indexes: [],
-        confidence: 0.8
-      }) } }]
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    globalThis.fetch = async (_input, init) => {
+      const payload = JSON.parse(String(init?.body)) as {
+        messages: Array<{ role: string, content: string }>
+      }
+      const user = JSON.parse(payload.messages.find(item => item.role === 'user')?.content ?? '{}') as {
+        evidence: Array<{ url: string }>
+      }
+      const webCitationIndex = user.evidence.findIndex(item => item.url === 'https://example.edu/observatory-hours')
+      assert.ok(webCitationIndex >= 0)
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          answer: '校内天文台开放时间需要根据当天活动安排核验。',
+          citation_indexes: [webCitationIndex],
+          confidence: 0.8
+        }) } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
     const response = await answerCampusQuestion(client, query, {
       ...emptyAssistantConfig,
       gatewayBaseUrl: 'https://gateway.example.com',
@@ -803,16 +838,16 @@ test('cached web evidence selects only the web-cache route', async () => {
       'answer_generation'
     ])
     assert.equal(response.trace?.some(item => item.stage === 'local_database' || item.stage === 'web_search'), false)
-    assert.ok(response.citations.some(item => item.url === 'https://example.edu/dorm-bed-route'))
+    assert.ok(response.citations.some(item => item.url === 'https://example.edu/observatory-hours'))
     assert.equal(
-      response.citations.find(item => item.url === 'https://example.edu/dorm-bed-route')?.snippet,
+      response.citations.find(item => item.url === 'https://example.edu/observatory-hours')?.snippet,
       '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
     )
     const cachedAnswer = client.sqlite.prepare(
       'SELECT response_json AS responseJson FROM assistant_answer_cache WHERE query = ?'
     ).get(query) as { responseJson?: string } | undefined
     assert.ok(cachedAnswer?.responseJson)
-    assert.doesNotMatch(cachedAnswer.responseJson, /宿舍床尺寸在不同楼栋需要分别核验/u)
+    assert.doesNotMatch(cachedAnswer.responseJson, /据公开活动页，校内天文台开放时间需要根据当天活动安排核验/u)
   } finally {
     globalThis.fetch = originalFetch
     closeDatabase(databasePath)

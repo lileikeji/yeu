@@ -46,7 +46,7 @@ export function assistantIdentitySubject(value: string): string | null {
     .replace(/^(?:请问|问一下|麻烦问一下|请|麻烦)?(?:介绍一下|介绍|讲讲|说说|我想了解|想了解)/u, '')
     .replace(/^请问/u, '')
   const match = normalized.match(/^(.{2,24}?)(?:是谁|是什么人|哪位|个人简介|简介|的?(?:身份(?:和|与)?(?:经历|生平|履历)?|经历|生平|履历))$/u)
-  const subject = match?.[1]?.trim().replace(/(?:老师|教师|教授)$/u, '')
+  const subject = match?.[1]?.trim().replace(/(?:老师|教师|教授|老板|董事长|创始人|创办人)$/u, '')
   return subject && subject.length >= 2 ? subject : null
 }
 

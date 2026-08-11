@@ -19,6 +19,7 @@ import {
   assistantRetrievalQuery,
   assistantQueryTerms,
   compareAssistantEvidenceAuthority,
+  filterWebEvidenceForQuery,
   hardcodedAssistantFactIsCurrent,
   identityLocalAnswer,
   isInternalHandbookCitation,
@@ -52,6 +53,7 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(isQuestionLike('请介绍吴庆星的身份和经历？'), true)
   assert.equal(assistantIdentitySubject('请介绍吴庆星的身份和经历？'), '吴庆星')
   assert.equal(assistantIdentitySubject('想了解吴庆星的身份与生平？'), '吴庆星')
+  assert.equal(assistantIdentitySubject('绿联老板是谁？'), '绿联')
   assert.equal(isQuestionLike('会计学属于哪个学院'), true)
   assert.equal(isQuestionLike('会计学新生住新区还是旧区'), true)
   assert.equal(isQuestionLike('宿舍床的尺寸'), true)
@@ -76,6 +78,39 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(shouldRequestAssistantAnswer('想了解吴庆星的身份与生平？', 2), true)
   assert.equal(shouldRequestAssistantAnswer('给个学校地图', 0), true)
   assert.equal(shouldRequestAssistantAnswer('校园网', 0), false)
+})
+
+test('identity web evidence keeps explicit profiles and rejects incidental mentions', () => {
+  const results = filterWebEvidenceForQuery('绿联老板是谁？', [{
+    title: '绿联科技董事长、创始人张清森简介',
+    url: 'https://example.com/ugreen-founder',
+    snippet: '绿联科技董事长张清森介绍了公司的创办经历。',
+    source: 'web'
+  }, {
+    title: '绿联科技新品活动通知',
+    url: 'https://example.com/ugreen-event',
+    snippet: '活动现场发布了多款新品。',
+    source: 'web'
+  }])
+
+  assert.deepEqual(results.map(item => item.url), ['https://example.com/ugreen-founder'])
+})
+
+test('low-confidence evidence gaps are not reused as answer-cache hits', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-gap-cache-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const query = '学校天文台预约流程是什么？'
+    const first = await answerCampusQuestion(client, query, emptyAssistantConfig)
+    const second = await answerCampusQuestion(client, query, emptyAssistantConfig)
+    assert.equal(first.confidence < 0.6, true)
+    assert.notEqual(second.retrievalPath, 'answer_cache')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('school rules always use campus retrieval instead of generic model knowledge', () => {

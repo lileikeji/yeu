@@ -291,7 +291,7 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v43-dorm-guide-priority'
+const ASSISTANT_CACHE_VERSION = 'rag-v44-web-evidence-answer'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -306,6 +306,7 @@ const VERIFIED_FACT_VALID_UNTIL = {
   studentRules: Date.parse('2027-01-01T00:00:00+08:00'),
   openingSchedule2026: Date.parse('2026-10-01T00:00:00+08:00'),
   militarySchedule2026: Date.parse('2027-01-01T00:00:00+08:00'),
+  dormGuide2026: Date.parse('2027-09-01T00:00:00+08:00'),
   // Campus scale: 2000余亩, 1.3万余人, 12个学院 — review each academic year.
   campusScale: Date.parse('2027-09-01T00:00:00+08:00'),
   // K2/K6 fares verified against 2024-10-25 公告; re-verify if bus routes change.
@@ -887,14 +888,19 @@ function isOfficialUniversityUrl(value: string): boolean {
   }
 }
 
-function filterWebEvidenceForQuery(query: string, evidence: ApiAssistantCitation[]): ApiAssistantCitation[] {
-  // A person lookup must not turn a name collision into a biography from a
-  // random web page. External search is still useful for ordinary campus
-  // questions, but identity answers are accepted only from the university's
-  // own domain and the curated/claim indexes handled above.
-  return assistantIdentitySubject(query)
-    ? evidence.filter(item => isOfficialUniversityUrl(item.url))
-    : evidence
+export function filterWebEvidenceForQuery(query: string, evidence: ApiAssistantCitation[]): ApiAssistantCitation[] {
+  const identitySubject = assistantIdentitySubject(query)
+  if (!identitySubject) return evidence
+
+  // Identity searches may use external biographies and company profiles, but
+  // only when the result explicitly describes the requested subject. This
+  // preserves useful general-person searches while still rejecting awards,
+  // buildings, activities, and other pages that merely contain the same name.
+  return evidence.filter(item => identityEvidenceIsExplicit({
+    ...item,
+    text: `${item.title} ${item.snippet}`,
+    score: 0
+  }, identitySubject))
 }
 
 export function assistantEvidenceAuthority(item: Pick<ApiAssistantCitation, 'url' | 'source'> & { authority?: EvidenceAuthority }): EvidenceAuthority {
@@ -1193,7 +1199,7 @@ function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): b
     if (
       !directlyRelated
       && !relatedTitle.test(localTitleContext.replace(/工程|项目/u, ''))
-      && /简介|个人|履历|人物|生平|传记|教授|副教授|讲师|助教|教师|老师|任职/.test(localTitleContext)
+      && /简介|个人|履历|人物|生平|传记|教授|副教授|讲师|助教|教师|老师|董事长|创始人|创办人|总经理|法人|任职/.test(localTitleContext)
     ) return true
   }
 
@@ -2311,15 +2317,15 @@ function parseKnowledgeKeywords(value: string): string[] {
 }
 
 const DORM_ASPECT_ALIASES: Record<string, RegExp> = {
-  '独立卫生间': /独立卫生间|独立卫浴|独卫|独立厕所/u,
-  '独卫': /独立卫生间|独立卫浴|独卫|独立厕所/u,
-  '阳台': /阳台/u,
-  '床尺寸': /床尺寸|床铺尺寸|宽.?0\.9|长.?1\.9|男生床位长度|床垫/u,
-  '热水': /热水|淋浴|洗澡|水卡/u,
-  '供电': /供电|断电|电源|大功率|1000W|1000瓦/u,
-  '门禁': /门禁|23:00|关门/u,
-  '楼栋': /宿舍楼|楼栋|黄山楼|华山楼|天山楼|嵩山楼|泰山楼|衡山楼|威海楼|珠海楼|渤海楼|黄海楼|东海楼|北海楼|南海楼|宁夏楼|海南楼|云南楼|四川楼|贵州楼|安徽楼|重庆楼|甘肃楼|湖南楼|湖北楼|吉林楼|辽宁楼|黑龙江楼|陕西楼/u,
-  '申请': /申请|提交|支付|付款|迎新系统|8月24日|先到先得/u
+  独立卫生间: /独立卫生间|独立卫浴|独卫|独立厕所/u,
+  独卫: /独立卫生间|独立卫浴|独卫|独立厕所/u,
+  阳台: /阳台/u,
+  床尺寸: /床尺寸|床铺尺寸|宽.?0\.9|长.?1\.9|男生床位长度|床垫/u,
+  热水: /热水|淋浴|洗澡|水卡/u,
+  供电: /供电|断电|电源|大功率|1000W|1000瓦/u,
+  门禁: /门禁|23:00|关门/u,
+  楼栋: /宿舍楼|楼栋|黄山楼|华山楼|天山楼|嵩山楼|泰山楼|衡山楼|威海楼|珠海楼|渤海楼|黄海楼|东海楼|北海楼|南海楼|宁夏楼|海南楼|云南楼|四川楼|贵州楼|安徽楼|重庆楼|甘肃楼|湖南楼|湖北楼|吉林楼|辽宁楼|黑龙江楼|陕西楼/u,
+  申请: /申请|提交|支付|付款|迎新系统|8月24日|先到先得/u
 }
 
 function dormAspectMatches(aspect: string, text: string): boolean {
@@ -4578,12 +4584,12 @@ function cacheResponse(
     : response
   const now = Date.now()
   const expiresAt = now + ASSISTANT_ANSWER_CACHE_TTL_MS
-  answerCache.set(key, { expiresAt, response: normalizedResponse })
-  if (answerCache.size > 100) {
-    const oldest = answerCache.keys().next().value
-    if (oldest) answerCache.delete(oldest)
-  }
   if (normalizedResponse.confidence >= 0.6) {
+    answerCache.set(key, { expiresAt, response: normalizedResponse })
+    if (answerCache.size > 100) {
+      const oldest = answerCache.keys().next().value
+      if (oldest) answerCache.delete(oldest)
+    }
     try {
       client.db.insert(assistantAnswerCache).values({
         id: randomUUID(),
@@ -4609,6 +4615,10 @@ function cacheResponse(
     } catch {
       // A cache write must never turn a successful answer into a failed answer.
     }
+  } else {
+    // A gap response is request-scoped. A later retry may have fresher search
+    // evidence or a recovered gateway and must not replay this result.
+    answerCache.delete(key)
   }
   return normalizedResponse
 }
@@ -4944,7 +4954,7 @@ export async function answerCampusQuestion(
       ? ASSISTANT_OVERVIEW_CANDIDATE_LIMIT
       : ASSISTANT_CANDIDATE_LIMIT
     const localEvidence = retrieveCampusEvidence(client, retrievalQuery, retrievalLimit)
-    const requiresSpecificWebEvidence = isDormBedDimensionQuery(query)
+    const dormBedDimensionQuery = isDormBedDimensionQuery(query)
     let transferWebEvidence: ApiAssistantCitation[] = []
     if (transferQuery) {
       try {
@@ -4964,6 +4974,9 @@ export async function answerCampusQuestion(
     const deterministicKnowledgeAnswer = isTeachingLocationQuery(query)
       ? null
       : assistantKnowledgeLocalAnswer(client, query)
+    const verifiedDormBedAnswerAvailable = dormBedDimensionQuery
+      && hardcodedAssistantFactIsCurrent('dormGuide2026')
+    const requiresSpecificWebEvidence = dormBedDimensionQuery
     // For identity queries ("X是谁"), only suppress web search when we have a
     // dedicated high-confidence profile entry (≥0.9). Any other local signal
     // (title match, localEvidenceIsSufficient, etc.) must not block web search
@@ -4973,7 +4986,7 @@ export async function answerCampusQuestion(
       && deterministicKnowledgeAnswer !== null
       && (deterministicKnowledgeAnswer.confidence ?? 0) >= 0.9
     const blockWebSearch = !identitySubject || hasExplicitIdentityProfile
-    if (blockWebSearch && (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
+    if (verifiedDormBedAnswerAvailable || (blockWebSearch && (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
       deterministicCollegeAnswer
       || deterministicWelcomeSystemAnswer
       || deterministicClassLookupAnswer
@@ -4986,7 +4999,7 @@ export async function answerCampusQuestion(
       || directDirectoryEvidence(query, localEvidence)
       || hasStructuredLocalAnswer(query, localEvidence)
       || localEvidenceIsSufficient(query, localEvidence)
-    )))) {
+    ))))) {
       return {
         query,
         retrievalQuery,
