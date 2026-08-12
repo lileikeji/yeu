@@ -671,3 +671,10 @@
 - Verification: 26 focused visitor, security, dashboard, and anti-crawl tests passed; Nuxt typecheck, production build, and `git diff --check` passed. Production inspection found the four visible rows were all `crawler_honeypot` temporary IP restrictions and already expired, including one shared-network IP with a large normal visitor footprint. The isolated Linux process loaded the production SQLite native module and opened the copied database; after the atomic switch, `yeu.service`, `/api/health`, the public home page, and `/admin/bans` all returned healthy results. Actual active bans after deployment: 0.
 - Avoid next time: any time-limited record must have one shared "effectively active" definition for enforcement, lists, dashboard counts, and detail actions. Dashboard metrics must use aggregate queries or capped samples, never scan the full visitor table merely to show a count. Detail routes must fetch a direct record rather than relying on whichever paginated page happened to load first.
 - Release: commit `bd0d84e` is deployed at `/www/wwwroot/yeu/releases/20260812-200500-bd0d84e`; the database backup before the switch is `/www/wwwroot/yeu/shared/backups/yeu-before-20260812-200500-bd0d84e.sqlite`. The prior production release remains available at `/www/wwwroot/yeu/releases/20260811-202602-web-evidence-v44` for rollback.
+
+## 2026-08-12 - Honeypot ban detail wording and navigation
+
+- Goal: make automatic crawler-trap records understandable and actionable from the ban list.
+- Fix: automatic records now use Chinese reason text throughout the list and detail. Their action opens the matching IP's historical visitor trail instead of the administrator audit page, because system-created trap rows have no administrator audit event. Ban detail is now a modal so it is visible immediately instead of expanding below a long paginated list.
+- Verification: targeted security and visitor tests passed (19/19); Nuxt typecheck and diff whitespace checks passed.
+- Avoid next time: buttons must name the data they can actually show. Do not label a visitor-originated system event as an administrator operation record.

@@ -37,6 +37,12 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = 30
 const selectedBan = ref<BanRow | null>(null)
+const detailOpen = computed({
+  get: () => selectedBan.value !== null,
+  set: (open: boolean) => {
+    if (!open) selectedBan.value = null
+  }
+})
 
 const active = ref<'true' | 'false' | 'all'>('true')
 const scope = ref<'all' | 'ip' | 'visitor' | 'user'>('all')
@@ -188,6 +194,13 @@ function banReasonText(reason: string): string {
 
 function isAutomaticHoneypotBan(ban: BanRow): boolean {
   return ban.reason === 'crawler_honeypot'
+}
+
+function banActivityHref(ban: BanRow): string {
+  if (isAutomaticHoneypotBan(ban) && ban.scope === 'ip') {
+    return `/admin/visitors?ip=${encodeURIComponent(ban.value)}`
+  }
+  return adminAuditHref('visitor_ban', ban.id)
 }
 
 onMounted(async () => {
@@ -445,7 +458,7 @@ onMounted(async () => {
                   <template v-else> · 永久</template>
                 </p>
                 <p class="mt-1 text-xs text-zinc-700">
-                  原因：{{ ban.reason || '—' }}
+                  原因：{{ banReasonText(ban.reason) }}
                 </p>
                 <p class="mt-1 break-all text-[11px] text-zinc-400">
                   封禁记录 {{ shortAdminId(ban.id, 10) }}
@@ -465,9 +478,9 @@ onMounted(async () => {
                   size="xs"
                   color="neutral"
                   variant="ghost"
-                  :to="adminAuditHref('visitor_ban', ban.id)"
+                  :to="banActivityHref(ban)"
                 >
-                  操作记录
+                  {{ isAutomaticHoneypotBan(ban) ? '命中轨迹' : '操作记录' }}
                 </UButton>
                 <UButton
                   v-if="ban.isActive"
@@ -515,90 +528,96 @@ onMounted(async () => {
       </section>
     </div>
 
-    <section
-      v-if="selectedBan"
-      class="rounded-2xl border border-red-200 bg-red-50/30 p-4"
+    <UModal
+      v-model:open="detailOpen"
+      title="封禁详情"
+      :description="selectedBan ? `${adminLabel(adminBanScopeLabels, selectedBan.scope)} · ${selectedBan.value}` : ''"
+      :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-2xl' }"
     >
-      <div class="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 class="font-semibold text-zinc-950">
-            封禁详情 · {{ adminLabel(adminBanScopeLabels, selectedBan.scope) }}
-          </h2>
-          <p class="mt-1 break-all text-sm text-zinc-700">
-            {{ selectedBan.value }}
-          </p>
-          <p
+      <template #body>
+        <div
+          v-if="selectedBan"
+          class="space-y-4"
+        >
+          <div
             v-if="isAutomaticHoneypotBan(selectedBan)"
-            class="mt-2 max-w-2xl text-xs leading-5 text-amber-800"
+            class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950"
           >
-            这是系统自动生成的临时限制记录，不是管理员手动封禁。
-          </p>
+            这是系统自动生成的临时限制记录，不是管理员手动封禁。可查看该网络地址当时的访问轨迹。
+          </div>
+          <dl class="grid gap-2 sm:grid-cols-2">
+            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500">状态</dt>
+              <dd class="text-sm font-medium text-zinc-900">{{ banStatusMeta(selectedBan).label }}</dd>
+            </div>
+            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500">原因</dt>
+              <dd class="text-sm text-zinc-800">{{ banReasonText(selectedBan.reason) }}</dd>
+            </div>
+            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500">创建时间</dt>
+              <dd class="text-sm text-zinc-800">{{ formatTime(selectedBan.createdAt) }}</dd>
+            </div>
+            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500">到期</dt>
+              <dd class="text-sm text-zinc-800">{{ selectedBan.expiresAt ? formatTime(selectedBan.expiresAt) : '永久' }}</dd>
+            </div>
+            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500">操作管理员</dt>
+              <dd class="text-sm text-zinc-800">{{ selectedBan.bannedByAdminId ? shortAdminId(selectedBan.bannedByAdminId, 12) : '系统自动处理' }}</dd>
+            </div>
+            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500">封禁记录</dt>
+              <dd class="text-sm text-zinc-800">{{ shortAdminId(selectedBan.id, 12) }}</dd>
+            </div>
+          </dl>
         </div>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          @click="closeBanDetail"
+      </template>
+      <template #footer>
+        <div
+          v-if="selectedBan"
+          class="flex w-full flex-wrap justify-end gap-2"
         >
-          关闭
-        </UButton>
-      </div>
-      <dl class="mt-3 grid gap-2 sm:grid-cols-2">
-        <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">状态</dt>
-          <dd class="text-sm font-medium text-zinc-900">{{ banStatusMeta(selectedBan).label }}</dd>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="outline"
+            :to="banActivityHref(selectedBan)"
+            icon="i-lucide-radar"
+            @click="closeBanDetail"
+          >
+            {{ isAutomaticHoneypotBan(selectedBan) ? '查看命中轨迹' : '查看相关操作记录' }}
+          </UButton>
+          <UButton
+            v-if="relatedVisitorHref(selectedBan) && !isAutomaticHoneypotBan(selectedBan)"
+            size="sm"
+            color="neutral"
+            variant="outline"
+            :to="relatedVisitorHref(selectedBan) || undefined"
+            icon="i-lucide-radar"
+            @click="closeBanDetail"
+          >
+            关联访客/账号
+          </UButton>
+          <UButton
+            v-if="selectedBan.isActive"
+            size="sm"
+            color="error"
+            variant="soft"
+            @click="deactivateBan(selectedBan.id)"
+          >
+            解除封禁
+          </UButton>
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            @click="closeBanDetail"
+          >
+            关闭
+          </UButton>
         </div>
-        <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">原因</dt>
-          <dd class="text-sm text-zinc-800">{{ banReasonText(selectedBan.reason) }}</dd>
-        </div>
-        <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">创建时间</dt>
-          <dd class="text-sm text-zinc-800">{{ formatTime(selectedBan.createdAt) }}</dd>
-        </div>
-        <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">到期</dt>
-          <dd class="text-sm text-zinc-800">{{ selectedBan.expiresAt ? formatTime(selectedBan.expiresAt) : '永久' }}</dd>
-        </div>
-        <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">操作管理员编号</dt>
-          <dd class="text-sm text-zinc-800">{{ selectedBan.bannedByAdminId ? shortAdminId(selectedBan.bannedByAdminId, 12) : '—' }}</dd>
-        </div>
-        <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">封禁记录编号</dt>
-          <dd class="text-sm text-zinc-800">{{ shortAdminId(selectedBan.id, 12) }}</dd>
-        </div>
-      </dl>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="outline"
-          :to="adminAuditHref('visitor_ban', selectedBan.id)"
-          icon="i-lucide-scroll-text"
-        >
-                  查看相关操作记录
-        </UButton>
-        <UButton
-          v-if="relatedVisitorHref(selectedBan)"
-          size="sm"
-          color="neutral"
-          variant="outline"
-          :to="relatedVisitorHref(selectedBan) || undefined"
-          icon="i-lucide-radar"
-        >
-          关联访客/账号
-        </UButton>
-        <UButton
-          v-if="selectedBan.isActive"
-          size="sm"
-          color="error"
-          variant="soft"
-          @click="deactivateBan(selectedBan.id)"
-        >
-          解除封禁
-        </UButton>
-      </div>
-    </section>
+      </template>
+    </UModal>
   </div>
 </template>

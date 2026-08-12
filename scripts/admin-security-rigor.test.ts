@@ -431,6 +431,7 @@ test('ban detail distinguishes automatic temporary restrictions and resolves dir
   const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
   assert.match(bansPage, /系统自动生成的临时限制记录/)
   assert.match(bansPage, /系统自动限制：访问到了仅用于识别自动抓取的隐藏地址/)
+  assert.match(bansPage, /原因：\{\{ banReasonText\(ban.reason\) \}\}/)
   assert.match(bansPage, /query: \{ page: 1, pageSize: 1, id: banIdQuery \}/)
   assert.match(visitorsPage, /The timeline is the useful first response/)
   assert.match(visitorsService, /Keep historical IP matches visible/)
