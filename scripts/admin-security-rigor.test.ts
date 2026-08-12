@@ -106,8 +106,9 @@ test('admin depth: visitors expose isBanned, labels and richer panels', () => {
   assert.match(chatPage, /softDeleteMessage/)
   assert.match(chatPage, /expiresAt/)
   assert.match(usersPage, /\/admin\/chat/)
-  assert.match(dashboardPage, /\/api\/admin\/visitors\/bans/)
-  assert.match(dashboardPage, /recentBans|recent-bans/)
+  assert.match(dashboardPage, /\/api\/admin\/security\/snapshot/)
+  assert.match(dashboardPage, /securitySnapshotBans/)
+  assert.match(dashboardPage, /analytics: 'false'/)
   assert.match(labels, /prettyAdminDetails/)
   assert.match(labels, /banStatusMeta/)
   assert.match(labels, /adminAuditActionLabels/)
@@ -424,6 +425,17 @@ test('admin security pages use administrator-friendly language and mobile visito
   assert.match(visitorsPage, /activeHourlyRows/)
   assert.match(visitorsPage, /formatHourLabel/)
   assert.match(dashboardPage, /更多安全数据/)
+})
+
+test('ban detail distinguishes automatic temporary restrictions and resolves direct records', () => {
+  const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
+  assert.match(bansPage, /系统自动生成的临时限制记录/)
+  assert.match(bansPage, /系统自动限制：访问到了仅用于识别自动抓取的隐藏地址/)
+  assert.match(bansPage, /query: \{ page: 1, pageSize: 1, id: banIdQuery \}/)
+  assert.match(visitorsPage, /The timeline is the useful first response/)
+  assert.match(visitorsService, /Keep historical IP matches visible/)
+  assert.match(visitorsService, /effectivelyActive/)
+  assert.match(securityService, /Do not load every visitor merely to populate a dashboard number/)
 })
 
 test('admin daily workflows hide internal codes and use mobile account cards', () => {

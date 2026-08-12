@@ -181,6 +181,15 @@ function relatedVisitorHref(ban: BanRow): string | null {
   return null
 }
 
+function banReasonText(reason: string): string {
+  if (reason === 'crawler_honeypot') return '系统自动限制：访问到了仅用于识别自动抓取的隐藏地址。该限制为临时措施，到期后不会继续拦截。'
+  return reason || '未填写原因'
+}
+
+function isAutomaticHoneypotBan(ban: BanRow): boolean {
+  return ban.reason === 'crawler_honeypot'
+}
+
 onMounted(async () => {
   const activeQuery = typeof route.query.active === 'string' ? route.query.active : ''
   const scopeQuery = typeof route.query.scope === 'string' ? route.query.scope : ''
@@ -196,16 +205,14 @@ onMounted(async () => {
     const hit = items.value.find(row => row.id === banIdQuery)
     if (hit) selectedBan.value = hit
     else {
-      selectedBan.value = {
-        id: banIdQuery,
-        scope: 'ip',
-        value: banIdQuery,
-        reason: '从链接打开',
-        isActive: true,
-        expiresAt: null,
-        createdAt: '',
-        bannedByAdminId: null
-      } as BanRow
+      try {
+        const payload = await adminFetch<{ items: BanRow[] }>('/api/admin/visitors/bans', {
+          query: { page: 1, pageSize: 1, id: banIdQuery }
+        })
+        selectedBan.value = payload.items?.[0] || null
+      } catch (error) {
+        if (!(await handleAuth(error))) toast.add({ title: '封禁详情加载失败', color: 'error' })
+      }
     }
   }
 })
@@ -520,6 +527,12 @@ onMounted(async () => {
           <p class="mt-1 break-all text-sm text-zinc-700">
             {{ selectedBan.value }}
           </p>
+          <p
+            v-if="isAutomaticHoneypotBan(selectedBan)"
+            class="mt-2 max-w-2xl text-xs leading-5 text-amber-800"
+          >
+            这是系统自动生成的临时限制记录，不是管理员手动封禁。
+          </p>
         </div>
         <UButton
           size="xs"
@@ -537,7 +550,7 @@ onMounted(async () => {
         </div>
         <div class="rounded-xl border border-white bg-white px-3 py-2">
           <dt class="text-[11px] text-zinc-500">原因</dt>
-          <dd class="text-sm text-zinc-800">{{ selectedBan.reason || '—' }}</dd>
+          <dd class="text-sm text-zinc-800">{{ banReasonText(selectedBan.reason) }}</dd>
         </div>
         <div class="rounded-xl border border-white bg-white px-3 py-2">
           <dt class="text-[11px] text-zinc-500">创建时间</dt>

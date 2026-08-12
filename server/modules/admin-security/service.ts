@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
   adminUsers,
@@ -382,8 +382,12 @@ export function getSecuritySnapshot(client: DatabaseClient) {
   const now = Date.now()
   const since24h = now - DAY_MS
   const since7d = now - DAY_MS * 7
+  const effectivelyActiveBanWhere = and(
+    eq(visitorBans.isActive, true),
+    or(isNull(visitorBans.expiresAt), gt(visitorBans.expiresAt, now))
+  )
 
-  const activeBans = countWhere(client, visitorBans, eq(visitorBans.isActive, true))
+  const activeBans = countWhere(client, visitorBans, effectivelyActiveBanWhere)
   const inactiveBans = countWhere(client, visitorBans, eq(visitorBans.isActive, false))
   const activeMutes = countWhere(
     client,
@@ -476,27 +480,21 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     scope: visitorBans.scope,
     value: visitorBans.value
   }).from(visitorBans)
-    .where(eq(visitorBans.isActive, true))
+    .where(effectivelyActiveBanWhere)
     .all()
   const bannedVisitorIds = new Set(banRows.filter(r => r.scope === 'visitor').map(r => r.value))
   const bannedIps = new Set(banRows.filter(r => r.scope === 'ip').map(r => r.value))
   const bannedUserIds = new Set(banRows.filter(r => r.scope === 'user').map(r => r.value))
 
-  const visitorSample = client.db.select({
-    id: visitors.id,
-    lastIp: visitors.lastIp,
-    userId: visitors.userId
-  }).from(visitors).all()
-  let bannedVisitors = 0
-  for (const row of visitorSample) {
-    if (
-      bannedVisitorIds.has(row.id)
-      || (row.lastIp && bannedIps.has(row.lastIp))
-      || (row.userId && bannedUserIds.has(row.userId))
-    ) {
-      bannedVisitors += 1
-    }
-  }
+  const bannedVisitorConditions = []
+  if (bannedVisitorIds.size) bannedVisitorConditions.push(inArray(visitors.id, [...bannedVisitorIds]))
+  if (bannedIps.size) bannedVisitorConditions.push(inArray(visitors.lastIp, [...bannedIps]))
+  if (bannedUserIds.size) bannedVisitorConditions.push(inArray(visitors.userId, [...bannedUserIds]))
+  // Do not load every visitor merely to populate a dashboard number. This
+  // remains a database count even after visitor history grows substantially.
+  const bannedVisitors = bannedVisitorConditions.length
+    ? countWhere(client, visitors, or(...bannedVisitorConditions))
+    : 0
 
   const topPaths = client.db.select({
     path: visitorEvents.path,
@@ -596,7 +594,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     value: count()
   }).from(visitorBans)
     .where(and(
-      eq(visitorBans.isActive, true),
+      effectivelyActiveBanWhere,
       isNotNull(visitorBans.reason),
       sql`trim(${visitorBans.reason}) != ''`
     ))
@@ -635,7 +633,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     bannedByAdminId: visitorBans.bannedByAdminId,
     createdAt: visitorBans.createdAt
   }).from(visitorBans)
-    .where(eq(visitorBans.isActive, true))
+    .where(effectivelyActiveBanWhere)
     .orderBy(desc(visitorBans.createdAt))
     .limit(6)
     .all()

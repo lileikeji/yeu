@@ -790,13 +790,15 @@ export const publicPageViewStatsQuerySchema = z.object({
 export const adminVisitorsQuerySchema = paginationQuerySchema.extend({
   ip: z.string().trim().max(80).optional(),
   banned: z.enum(['true', 'false']).optional(),
-  sort: z.enum(['last-seen', 'first-seen', 'event-count']).optional().default('last-seen')
+  sort: z.enum(['last-seen', 'first-seen', 'event-count']).optional().default('last-seen'),
+  analytics: z.enum(['true', 'false']).optional().default('true')
 })
 
 export const adminVisitorBansQuerySchema = paginationQuerySchema.extend({
   active: z.enum(['true', 'false', 'all']).optional().default('all'),
   scope: z.enum(['ip', 'visitor', 'user']).optional(),
-  q: z.string().trim().max(200).optional()
+  q: z.string().trim().max(200).optional(),
+  id: z.uuid().optional()
 })
 
 export const adminAuditLogsQuerySchema = paginationQuerySchema.extend({

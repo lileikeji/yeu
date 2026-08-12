@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gte, isNull, lte, or } from 'drizzle-orm'
 import { getHeader, getMethod, getRequestURL, setHeader, setResponseStatus } from 'h3'
 import { visitorBans } from '../database/schema'
 import { recordVisitorEvent } from '../modules/visitors/service'
@@ -30,10 +30,23 @@ export default defineEventHandler((event) => {
     })
 
     if (ip !== 'unknown') {
+      // Expired temporary blocks should be historical records, not rows that
+      // appear active forever in operations screens.
+      client.db.update(visitorBans).set({
+        isActive: false,
+        updatedAt: now
+      }).where(and(
+        eq(visitorBans.scope, 'ip'),
+        eq(visitorBans.value, ip),
+        eq(visitorBans.isActive, true),
+        lte(visitorBans.expiresAt, now)
+      )).run()
+
       const existing = client.db.select({ id: visitorBans.id }).from(visitorBans).where(and(
         eq(visitorBans.scope, 'ip'),
         eq(visitorBans.value, ip),
-        eq(visitorBans.isActive, true)
+        eq(visitorBans.isActive, true),
+        or(isNull(visitorBans.expiresAt), gte(visitorBans.expiresAt, now))
       )).get()
 
       if (!existing) {

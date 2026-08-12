@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, count, countDistinct, desc, eq, gte, like, lt, max, or, sql } from 'drizzle-orm'
+import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, like, lt, lte, max, or, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { VISITOR_COOKIE_NAME } from '../../../shared/constants/security'
 import type { DatabaseClient } from '../../database/client'
@@ -215,11 +215,25 @@ export function listVisitors(
     ip?: string
     banned?: 'true' | 'false'
     sort?: 'last-seen' | 'first-seen' | 'event-count'
+    analytics?: 'true' | 'false'
   }
 ) {
   const offset = (query.page - 1) * query.pageSize
   const conditions = []
-  if (query.ip) conditions.push(eq(visitors.lastIp, query.ip))
+  if (query.ip) {
+    // A ban is IP-based, but a visitor may have moved on to another network.
+    // Keep historical IP matches visible so the ban detail never leads to an
+    // apparently empty visitor list.
+    const historicalVisitorIds = client.db.select({ visitorId: visitorEvents.visitorId })
+      .from(visitorEvents)
+      .where(eq(visitorEvents.ip, query.ip))
+      .groupBy(visitorEvents.visitorId)
+      .all()
+      .map(row => row.visitorId)
+    const ipConditions = [eq(visitors.lastIp, query.ip)]
+    if (historicalVisitorIds.length) ipConditions.push(inArray(visitors.id, historicalVisitorIds))
+    conditions.push(or(...ipConditions))
+  }
   if (query.q) {
     const likeValue = `%${query.q}%`
     conditions.push(or(
@@ -237,11 +251,6 @@ export function listVisitors(
       ? [desc(visitors.eventCount), desc(visitors.lastSeenAt)]
       : [desc(visitors.lastSeenAt)]
 
-  let rows = client.db.select().from(visitors)
-    .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(...orderBy)
-    .all()
-
   const now = Date.now()
   const activeBans = client.db.select().from(visitorBans)
     .where(eq(visitorBans.isActive, true))
@@ -256,17 +265,48 @@ export function listVisitors(
   const bannedUserIds = new Set(
     activeBans.filter(row => row.scope === 'user').map(row => row.value)
   )
-  const isBanned = (row: typeof rows[number]) =>
+  const isBanned = (row: { id: string; lastIp: string | null; userId: string | null }) =>
     bannedVisitorIds.has(row.id)
     || (row.lastIp ? bannedIps.has(row.lastIp) : false)
     || (row.userId ? bannedUserIds.has(row.userId) : false)
 
-  if (query.banned === 'true' || query.banned === 'false') {
-    rows = rows.filter(row => query.banned === 'true' ? isBanned(row) : !isBanned(row))
+  const banConditions = []
+  if (bannedVisitorIds.size) banConditions.push(inArray(visitors.id, [...bannedVisitorIds]))
+  if (bannedIps.size) banConditions.push(inArray(visitors.lastIp, [...bannedIps]))
+  if (bannedUserIds.size) banConditions.push(inArray(visitors.userId, [...bannedUserIds]))
+  const banWhere = banConditions.length ? or(...banConditions) : undefined
+  if (query.banned === 'true' && !banWhere) {
+    return {
+      items: [], total: 0, page: query.page, pageSize: query.pageSize,
+      analytics: query.analytics === 'false' ? undefined : buildVisitorAnalytics(client)
+    }
   }
+  if (query.banned === 'true' && banWhere) conditions.push(banWhere)
 
-  const total = rows.length
-  const pageRows = rows.slice(offset, offset + query.pageSize)
+  const where = conditions.length ? and(...conditions) : undefined
+  // A negative ban filter is uncommon and cannot be expressed safely with
+  // nullable account/IP columns without changing its meaning. Apply it after
+  // the database query. The default and banned-only views stay fully paged
+  // instead of loading every visitor before slicing one page.
+  let total: number
+  let pageRows: Array<typeof visitors.$inferSelect>
+  if (query.banned === 'false') {
+    const rows = client.db.select().from(visitors)
+      .where(where)
+      .orderBy(...orderBy)
+      .all()
+      .filter(row => !isBanned(row))
+    total = rows.length
+    pageRows = rows.slice(offset, offset + query.pageSize)
+  } else {
+    total = Number(client.db.select({ value: count() }).from(visitors).where(where).get()?.value ?? 0)
+    pageRows = client.db.select().from(visitors)
+      .where(where)
+      .orderBy(...orderBy)
+      .limit(query.pageSize)
+      .offset(offset)
+      .all()
+  }
   return {
     items: pageRows.map(row => ({
       id: row.id,
@@ -286,7 +326,7 @@ export function listVisitors(
     total,
     page: query.page,
     pageSize: query.pageSize,
-    analytics: buildVisitorAnalytics(client)
+    analytics: query.analytics === 'false' ? undefined : buildVisitorAnalytics(client)
   }
 }
 
@@ -473,13 +513,24 @@ export function listVisitorBans(
     active?: 'true' | 'false' | 'all'
     scope?: 'ip' | 'visitor' | 'user'
     q?: string
+    id?: string
   }
 ) {
   const offset = (query.page - 1) * query.pageSize
   const conditions = []
-  if (query.active === 'true') conditions.push(eq(visitorBans.isActive, true))
-  if (query.active === 'false') conditions.push(eq(visitorBans.isActive, false))
+  const now = Date.now()
+  const effectivelyActive = and(
+    eq(visitorBans.isActive, true),
+    or(isNull(visitorBans.expiresAt), gt(visitorBans.expiresAt, now))
+  )
+  const notEffectivelyActive = or(
+    eq(visitorBans.isActive, false),
+    and(eq(visitorBans.isActive, true), lte(visitorBans.expiresAt, now))
+  )
+  if (query.active === 'true') conditions.push(effectivelyActive)
+  if (query.active === 'false') conditions.push(notEffectivelyActive)
   if (query.scope) conditions.push(eq(visitorBans.scope, query.scope))
+  if (query.id) conditions.push(eq(visitorBans.id, query.id))
   if (query.q?.trim()) {
     const needle = `%${query.q.trim()}%`
     conditions.push(or(
@@ -501,7 +552,7 @@ export function listVisitorBans(
       scope: row.scope,
       value: row.value,
       reason: row.reason,
-      isActive: row.isActive,
+      isActive: Boolean(row.isActive && (!row.expiresAt || row.expiresAt > now)),
       bannedByAdminId: row.bannedByAdminId ?? null,
       expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
       createdAt: new Date(row.createdAt).toISOString(),

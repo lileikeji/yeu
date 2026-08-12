@@ -277,7 +277,9 @@ async function loadDashboard(): Promise<void> {
 
   requests.push((async () => {
     const response = await adminFetch<unknown>('/api/admin/visitors', {
-      query: { page: 1, pageSize: 5 }
+      // The overview only needs a recent-visitor sample. The 14-day visitor
+      // chart belongs to the dedicated visitor page and is loaded there.
+      query: { page: 1, pageSize: 5, analytics: 'false' }
     })
     return { key: 'recent-visitors', ...normalizeAdminDashboardResponse(response) }
   })())

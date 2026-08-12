@@ -57,7 +57,7 @@ test('admin dashboard catalogs cover content, ops, and security routes', () => {
   assert.equal(adminDashboardModulesByGroup('content').length, 5)
   assert.equal(adminDashboardModulesByGroup('ops').length, 4)
   assert.equal(adminDashboardModulesByGroup('security').length, 2)
-  assert.equal(adminDashboardQuickActions.length, 14)
+  assert.equal(adminDashboardQuickActions.length, 15)
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/places?action=create'))
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/field-observations'))
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/knowledge?action=create'))
@@ -71,8 +71,8 @@ test('admin dashboard catalogs cover content, ops, and security routes', () => {
 })
 
 test('admin navigation is grouped and shared with the layout shell', () => {
-  assert.equal(adminNavigationGroups.length, 4)
-  assert.deepEqual(adminNavigationGroups.map(group => group.key), ['overview', 'content', 'ops', 'security'])
+  assert.equal(adminNavigationGroups.length, 5)
+  assert.deepEqual(adminNavigationGroups.map(group => group.key), ['overview', 'graph', 'content', 'ops', 'security'])
   assert.ok(adminNavigationItems.some(item => item.to === '/admin/places'))
   assert.ok(adminNavigationItems.some(item => item.to === '/admin/knowledge'))
   assert.ok(adminNavigationItems.some(item => item.to === '/admin/users'))

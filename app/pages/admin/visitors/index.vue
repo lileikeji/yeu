@@ -419,7 +419,8 @@ async function loadVisitors(): Promise<void> {
         q: q.value.trim() || undefined,
         ip: ip.value.trim() || undefined,
         banned: banned.value === 'all' ? undefined : banned.value,
-        sort: sortMode.value
+        sort: sortMode.value,
+        analytics: 'true'
       }
     })
     items.value = payload.items || []
@@ -456,31 +457,34 @@ async function loadBans(): Promise<void> {
 async function openEvents(row: VisitorRow): Promise<void> {
   selectedVisitor.value = row
   eventsLoading.value = true
-  dossierLoading.value = true
+  dossierLoading.value = false
   visitorDossier.value = null
   try {
-    const [eventsPayload, dossierPayload] = await Promise.all([
-      adminFetch<{ items: VisitorEvent[]; total: number }>(
-        `/api/admin/visitors/${encodeURIComponent(row.id)}/events`,
-        { query: { page: 1, pageSize: 60 } }
-      ),
-      adminFetch<VisitorSecurityDossier>(
-        `/api/admin/visitors/${encodeURIComponent(row.id)}/security`
-      ).catch((error) => {
-        console.warn('visitor security dossier failed', error)
-        return null
-      })
-    ])
+    const eventsPayload = await adminFetch<{ items: VisitorEvent[]; total: number }>(
+      `/api/admin/visitors/${encodeURIComponent(row.id)}/events`,
+      { query: { page: 1, pageSize: 60 } }
+    )
     events.value = eventsPayload.items || []
     eventTotal.value = eventsPayload.total || events.value.length
-    visitorDossier.value = dossierPayload
   } catch (error) {
     if (await handleAuth(error)) return
     toast.add({ title: getRequestMessage(error, '操作记录加载失败'), color: 'error' })
   } finally {
     eventsLoading.value = false
-    dossierLoading.value = false
   }
+
+  // The timeline is the useful first response. The long risk analysis follows
+  // without keeping the detail panel blank while aggregate queries complete.
+  dossierLoading.value = true
+  void adminFetch<VisitorSecurityDossier>(
+    `/api/admin/visitors/${encodeURIComponent(row.id)}/security`
+  ).then((payload) => {
+    if (selectedVisitor.value?.id === row.id) visitorDossier.value = payload
+  }).catch((error) => {
+    console.warn('visitor security dossier failed', error)
+  }).finally(() => {
+    if (selectedVisitor.value?.id === row.id) dossierLoading.value = false
+  })
 }
 
 function clearSelectedVisitor(): void {
