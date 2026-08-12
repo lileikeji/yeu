@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
+import { visitorBanReasonLabel } from '~~/shared/utils/visitor-ban-reason'
 import {
   adminUserStatusLabels,
   adminLabel,
@@ -1057,7 +1058,7 @@ onMounted(async () => {
                   class="rounded-lg bg-zinc-50 px-2 py-1.5"
                 >
                   <span :class="b.isActive ? 'text-red-700' : 'text-zinc-500'">{{ b.isActive ? '生效' : '失效' }}</span>
-                  · {{ b.reason || '—' }}
+                  · {{ visitorBanReasonLabel(b.reason) }}
                   <p class="text-zinc-400">{{ formatTime(b.createdAt) }}</p>
                 </li>
                 <li v-if="!userDossier.bans.length" class="text-zinc-400">无账号级封禁</li>

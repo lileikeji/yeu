@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
+import { isCrawlerHoneypotReason, visitorBanReasonLabel } from '~~/shared/utils/visitor-ban-reason'
 import {
   adminAuditHref,
   adminBanScopeLabels,
@@ -188,12 +189,11 @@ function relatedVisitorHref(ban: BanRow): string | null {
 }
 
 function banReasonText(reason: string): string {
-  if (reason === 'crawler_honeypot') return '系统自动限制：访问到了仅用于识别自动抓取的隐藏地址。该限制为临时措施，到期后不会继续拦截。'
-  return reason || '未填写原因'
+  return visitorBanReasonLabel(reason)
 }
 
 function isAutomaticHoneypotBan(ban: BanRow): boolean {
-  return ban.reason === 'crawler_honeypot'
+  return isCrawlerHoneypotReason(ban.reason)
 }
 
 function banActivityHref(ban: BanRow): string {

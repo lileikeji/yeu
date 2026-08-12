@@ -10,6 +10,7 @@ import {
   muteChatUserSchema,
   muteAllChatRoomSchema
 } from '../shared/schemas/server'
+import { visitorBanReasonLabel } from '../shared/utils/visitor-ban-reason'
 
 const bansPage = readFileSync(resolve('app/pages/admin/bans/index.vue'), 'utf8')
 const chatPage = readFileSync(resolve('app/pages/admin/chat/index.vue'), 'utf8')
@@ -23,6 +24,7 @@ const presentation = readFileSync(resolve('app/utils/admin-dashboard-presentatio
 const banPost = readFileSync(resolve('server/api/admin/visitors/bans.post.ts'), 'utf8')
 const mutePost = readFileSync(resolve('server/api/admin/chat/mutes.post.ts'), 'utf8')
 const auditApi = readFileSync(resolve('server/api/admin/audit.get.ts'), 'utf8')
+const visitorBanReason = readFileSync(resolve('shared/utils/visitor-ban-reason.ts'), 'utf8')
 
 test('ban reason is required and trimmed', () => {
   assert.throws(() => createVisitorBanSchema.parse({ scope: 'ip', value: '1.1.1.1' }))
@@ -36,6 +38,15 @@ test('admin ban query filters parse', () => {
   assert.equal(q.active, 'true')
   assert.equal(q.scope, 'visitor')
   assert.equal(q.q, 'spam')
+})
+
+test('legacy visitor ban reasons are always presented in Chinese', () => {
+  assert.match(visitorBanReasonLabel('crawler_honeypot'), /^系统自动限制：/)
+  assert.equal(visitorBanReasonLabel('full-audit temp ban'), '历史系统测试记录（已失效）')
+  assert.equal(visitorBanReasonLabel('mech html ban smoke 1784332835'), '历史系统测试记录（已失效）')
+  assert.equal(visitorBanReasonLabel('probe'), '历史系统测试记录（已失效）')
+  assert.equal(visitorBanReasonLabel('unclassified legacy text'), '历史系统记录（原因未注明）')
+  assert.equal(visitorBanReasonLabel('频繁请求接口'), '频繁请求接口')
 })
 
 test('admin audit query filters parse', () => {
@@ -430,13 +441,17 @@ test('admin security pages use administrator-friendly language and mobile visito
 test('ban detail distinguishes automatic temporary restrictions and resolves direct records', () => {
   const securityService = readFileSync(resolve('server/modules/admin-security/service.ts'), 'utf8')
   assert.match(bansPage, /系统自动生成的临时限制记录/)
-  assert.match(bansPage, /系统自动限制：访问到了仅用于识别自动抓取的隐藏地址/)
+  assert.match(visitorBanReason, /系统自动限制：访问到了仅用于识别自动抓取的隐藏地址/)
   assert.match(bansPage, /原因：\{\{ banReasonText\(ban.reason\) \}\}/)
   assert.match(bansPage, /query: \{ page: 1, pageSize: 1, id: banIdQuery \}/)
   assert.match(visitorsPage, /The timeline is the useful first response/)
   assert.match(visitorsService, /Keep historical IP matches visible/)
   assert.match(visitorsService, /effectivelyActive/)
   assert.match(securityService, /Do not load every visitor merely to populate a dashboard number/)
+  assert.match(visitorBanReason, /历史系统测试记录（已失效）/)
+  assert.match(visitorBanReason, /历史系统记录（原因未注明）/)
+  assert.match(visitorsPage, /visitorBanReasonLabel\(ban.reason\)/)
+  assert.match(usersPage, /visitorBanReasonLabel\(b.reason\)/)
 })
 
 test('admin daily workflows hide internal codes and use mobile account cards', () => {

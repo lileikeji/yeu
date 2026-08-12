@@ -678,3 +678,10 @@
 - Fix: automatic records now use Chinese reason text throughout the list and detail. Their action opens the matching IP's historical visitor trail instead of the administrator audit page, because system-created trap rows have no administrator audit event. Ban detail is now a modal so it is visible immediately instead of expanding below a long paginated list.
 - Verification: targeted security and visitor tests passed (19/19); Nuxt typecheck and diff whitespace checks passed.
 - Avoid next time: buttons must name the data they can actually show. Do not label a visitor-originated system event as an administrator operation record.
+
+## 2026-08-12 - Chinese labels for all visitor-ban reasons
+
+- Goal: prevent internal English identifiers and historical test labels from appearing anywhere in administrator-facing ban views.
+- Fix: a shared reason presentation rule keeps administrator-written Chinese text unchanged, translates crawler-trap reasons, and converts all legacy smoke, audit, debug, and automated-test reasons into clear Chinese historical-record labels. The same rule is used by the ban list, visitor/IP/account dossiers, recent-ban timeline, and dashboard reason statistics.
+- Verification: focused visitor/security tests passed (20/20), Nuxt typecheck and diff whitespace checks passed.
+- Avoid next time: persist stable machine identifiers only when necessary, but always use a shared presentation mapper at every administrator-facing boundary rather than exposing raw database text.

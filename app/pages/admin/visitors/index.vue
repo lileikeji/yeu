@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 import { adminFetch } from '~~/app/utils/admin-request'
+import { visitorBanReasonLabel } from '~~/shared/utils/visitor-ban-reason'
 import {
   adminAuditHref,
   adminBanScopeLabels,
@@ -1088,7 +1089,7 @@ onMounted(async () => {
                   v-if="ban.reason"
                   class="mt-1 text-xs text-zinc-600"
                 >
-                  {{ ban.reason }}
+                  {{ visitorBanReasonLabel(ban.reason) }}
                 </p>
               </div>
               <div class="flex shrink-0 flex-col gap-1">
@@ -1710,7 +1711,7 @@ onMounted(async () => {
                     {{ banStatusMeta(ban).label }}
                   </span>
                 </p>
-                <p class="mt-0.5 line-clamp-2 text-zinc-600">{{ ban.reason || '—' }}</p>
+                <p class="mt-0.5 line-clamp-2 text-zinc-600">{{ visitorBanReasonLabel(ban.reason) }}</p>
               </div>
               <NuxtLink
                 :to="'/admin/bans?banId=' + encodeURIComponent(ban.id)"

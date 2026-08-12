@@ -14,6 +14,7 @@ import {
   visitors
 } from '../../database/schema'
 import { serializeAppUser } from '../users/service'
+import { visitorBanReasonLabel } from '../../../shared/utils/visitor-ban-reason'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -602,7 +603,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
     .orderBy(desc(count()))
     .limit(6)
     .all()
-    .map(row => ({ reason: row.reason || '未填写', count: Number(row.value) }))
+    .map(row => ({ reason: visitorBanReasonLabel(row.reason), count: Number(row.value) }))
 
   const hourBucketExpr = sql`cast((${visitorEvents.createdAt} / 3600000) as integer)`
   const hourlyRaw = client.db.select({
@@ -641,7 +642,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
       id: row.id,
       scope: row.scope,
       value: row.value,
-      reason: row.reason,
+      reason: visitorBanReasonLabel(row.reason),
       isActive: row.isActive,
       expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
       bannedByAdminId: row.bannedByAdminId,
@@ -771,7 +772,7 @@ export function getSecuritySnapshot(client: DatabaseClient) {
       id: `ban:${ban.id}`,
       kind: 'ban',
       title: `封禁 · ${ban.scope} · ${ban.value}`,
-      subtitle: ban.reason || '无原因',
+      subtitle: visitorBanReasonLabel(ban.reason),
       createdAt: ban.createdAt,
       href: `/admin/bans?banId=${encodeURIComponent(ban.id)}`
     })
@@ -1301,7 +1302,7 @@ export function getUserSecurityDossier(client: DatabaseClient, userId: string) {
       id: row.id,
       scope: row.scope,
       value: row.value,
-      reason: row.reason,
+      reason: visitorBanReasonLabel(row.reason),
       isActive: row.isActive,
       expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
       createdAt: new Date(row.createdAt).toISOString()
@@ -1324,7 +1325,7 @@ export function getUserSecurityDossier(client: DatabaseClient, userId: string) {
     .map(row => ({
       id: row.id,
       roomId: row.roomId,
-      reason: row.reason,
+      reason: visitorBanReasonLabel(row.reason),
       isActive: row.isActive && (!row.expiresAt || row.expiresAt > now),
       expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
       createdAt: new Date(row.createdAt).toISOString(),
@@ -1662,7 +1663,7 @@ export function getVisitorSecurityDossier(client: DatabaseClient, visitorId: str
       id: row.id,
       scope: row.scope,
       value: row.value,
-      reason: row.reason,
+      reason: visitorBanReasonLabel(row.reason),
       isActive: row.isActive,
       expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
       bannedByAdminId: row.bannedByAdminId,
@@ -2204,7 +2205,7 @@ export function getIpSecurityDossier(client: DatabaseClient, rawIp: string) {
       id: row.id,
       scope: row.scope,
       value: row.value,
-      reason: row.reason,
+      reason: visitorBanReasonLabel(row.reason),
       isActive: row.isActive,
       expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null,
       bannedByAdminId: row.bannedByAdminId,
