@@ -43,7 +43,10 @@ const emptyAssistantConfig = {
   mcpSearchBearerToken: '',
   mcpAllowedHosts: '',
   mcpToolName: '',
-  mcpTimeoutMs: 1000
+  mcpTimeoutMs: 1000,
+  // Tests must not depend on ambient DNS (which can be fake-ip'd): resolve
+  // every gateway hostname to a public address for the SSRF gate.
+  gatewayLookup: async () => ['93.184.216.34']
 }
 
 test('assistant routing keeps keyword search local and escalates unanswered questions only', () => {

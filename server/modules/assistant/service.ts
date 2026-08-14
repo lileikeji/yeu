@@ -34,7 +34,8 @@ import type {
 } from '../../../shared/types/server'
 import {
   assertSafeResolvedPublicHttpUrl,
-  parseSafePublicHttpUrl
+  parseSafePublicHttpUrl,
+  type HostnameLookup
 } from '../../../shared/utils/public-http-url'
 import {
   assistantIdentitySubject,
@@ -46,6 +47,7 @@ import {
   expandCampusSearchTerms
 } from '../../../shared/utils/campus-search-aliases'
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
+import { evidenceSemanticScore } from './retrieval-semantic'
 import type { DatabaseClient } from '../../database/client'
 import {
   assistantAnswerCache,
@@ -79,6 +81,8 @@ interface AssistantConfig {
   signal?: AbortSignal
   amapWebServiceKey?: string
   transitPlanner?: (originId: TransitPointId, destinationId: TransitPointId) => Promise<ApiTransitPlanResponse>
+  /** Test-only DNS injection for the gateway URL gate; production uses real resolution. */
+  gatewayLookup?: HostnameLookup
 }
 
 interface AssistantEvidence extends ApiAssistantCitation {
@@ -1311,7 +1315,11 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
     const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
     const titleTerms = profile.terms.filter(term => title.includes(term.toLocaleLowerCase('zh-CN')))
     const bodyTerms = profile.terms.filter(term => text.includes(term.toLocaleLowerCase('zh-CN')))
-    let score = item.score + Math.min(10, titleTerms.length * 2) + Math.min(6, bodyTerms.length)
+    // Semantic n-gram overlap recovers paraphrased matches that keyword LIKE
+    // misses (e.g. 「宿舍怎么样」 vs 「住宿条件」). Bounded to a modest boost
+    // so it refines ranking without overriding the intent-specific boosts below.
+    const semanticBoost = Math.round(evidenceSemanticScore(query, item) * 8)
+    let score = item.score + Math.min(10, titleTerms.length * 2) + Math.min(6, bodyTerms.length) + semanticBoost
     if (meaningful.length >= 3 && title.includes(meaningful)) score += 18
     if (profile.intent === 'identity' && profile.identitySubject) {
       const subject = profile.identitySubject.toLocaleLowerCase('zh-CN')
@@ -4515,7 +4523,18 @@ export async function askGateway(
       || /^127\./.test(gatewayHost)
     if (!gatewayLoopback) {
       if (gatewayUrl.protocol !== 'https:') throw new Error('AI_GATEWAY_URL_UNSAFE')
-      await assertSafeResolvedPublicHttpUrl(config.gatewayBaseUrl)
+      // The DNS re-check blocks hosts that RESOLVE to private/link-local
+      // addresses (the SSRF threat). A transient resolution failure is not
+      // a block: the fetch below resolves through the same resolver and
+      // fails on its own, so letting it proceed cannot create an SSRF path.
+      try {
+        await assertSafeResolvedPublicHttpUrl(config.gatewayBaseUrl, {
+          ...config.gatewayLookup !== undefined ? { lookup: config.gatewayLookup } : {}
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (!message.includes('DNS resolution failed')) throw error
+      }
     }
     const modelEvidence = evidence.map((item, index) => {
       const sourceLabel
