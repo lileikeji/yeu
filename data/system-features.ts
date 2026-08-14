@@ -223,10 +223,36 @@ function normalizeFeatureText(value: string): string {
   return value.toLocaleLowerCase('zh-CN').replace(/[\s，。！？、（）()：:？?]/g, '')
 }
 
+/**
+ * Recognizes meta questions about the site itself instead of campus content:
+ * asking how to reach the people who build/maintain the site (contact), or
+ * reporting problems with site content (feedback). These queries must resolve
+ * to the matching system feature instead of falling through to web search.
+ */
+export function featureIntentForQuery(query: string): 'contact' | 'feedback' | null {
+  const normalized = normalizeFeatureText(query)
+  if (normalized.length < 2) return null
+  if (/联系我们|联系整理者|人工咨询/.test(normalized)) return 'contact'
+  if (/(?:客服|人工).{0,6}(?:在哪|怎么|入口|联系|转接)/.test(normalized)) return 'contact'
+  const siteWords = '(?:网站|平台|小程序|公众号|页面|系统)'
+  if (/联系.{0,12}(?:制作|开发|维护|运营|搭建)/.test(normalized) && new RegExp(siteWords).test(normalized)) return 'contact'
+  if (new RegExp(`(?:制作|开发|维护|运营|搭建).{0,10}${siteWords}.{0,12}(?:的?人|者|是谁|谁做|谁在)`).test(normalized)) return 'contact'
+  if (new RegExp(`${siteWords}.{0,12}(?:谁做|是谁做|谁开发|谁维护|谁运营|谁在|开发者|制作人|维护者|运营者|站长)`).test(normalized)) return 'contact'
+  if (/联系.{0,12}(?:站长|管理员|开发者|运营者|维护者|客服|人工)/.test(normalized)) return 'contact'
+  if (/(?:站长|管理员|开发者|运营者|维护者).{0,8}(?:是谁|怎么联系|在哪里|怎么找)/.test(normalized)) return 'contact'
+  if (/联系.{0,4}(?:你们|你)/.test(normalized)
+    && !/(?:学校|学院|大学|部门|办公室|辅导员|班导|老师|宿管|保卫处|教务|后勤)/.test(normalized)) return 'contact'
+  if (/反馈|纠错|功能建议|提个?建议|提交问题|投诉/.test(normalized)) return 'feedback'
+  if (/(?:报错|有错|出错|错误|不对|错别字).{0,10}(?:提交|反馈|联系|给你?们)/.test(normalized)) return 'feedback'
+  if (new RegExp(`${siteWords}.{0,12}(?:报错|有错|出错|不对)`).test(normalized)) return 'feedback'
+  return null
+}
+
 export function searchSystemFeatures(query: string, limit = 8): SystemFeatureMatch[] {
   const normalizedQuery = normalizeFeatureText(query)
   if (normalizedQuery.length < 2) return []
   const intent = normalizedQuery.replace(/请问|我想|用户|想要|想|可以|能不能|是什么|有什么|在哪里|在哪|哪里|怎么|如何|功能|入口|快速|一下/g, '')
+  const forcedFeatureId = featureIntentForQuery(normalizedQuery)
 
   return systemFeatures
     .map((feature) => {
@@ -244,6 +270,10 @@ export function searchSystemFeatures(query: string, limit = 8): SystemFeatureMat
         const overlap = pairs.filter(pair => values.some(value => value.includes(pair))).length
         if (overlap >= Math.ceil(pairs.length * 0.6)) score += overlap * 3
       }
+      // Meta questions about the site (contact the maintainer / report content
+      // problems) always resolve to their dedicated feature entry so the
+      // assistant never falls back to web search for them.
+      if (forcedFeatureId !== null && feature.id === forcedFeatureId) score += 100
       const { keywords: _keywords, ...result } = feature
       return { ...result, score }
     })

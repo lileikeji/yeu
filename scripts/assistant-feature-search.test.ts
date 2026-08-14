@@ -155,6 +155,53 @@ test('assistant resolves command-style map requests to the same local feature', 
   }
 })
 
+test('site-meta contact and feedback questions resolve to the contact/feedback features', () => {
+  assert.equal(searchSystemFeatures('怎么联系制作网站的人')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('联系制作网站的人')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('网站是谁做的')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('学校网站是谁做的')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('怎么联系站长')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('怎么联系你们')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('怎么联系客服')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('联系我们')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('人工咨询')[0]?.id, 'contact')
+  assert.equal(searchSystemFeatures('怎么反馈问题')[0]?.id, 'feedback')
+  assert.equal(searchSystemFeatures('这个页面有错怎么提交反馈')[0]?.id, 'feedback')
+  // Campus people and general tech questions must not be hijacked.
+  assert.notEqual(searchSystemFeatures('怎么联系辅导员')[0]?.id, 'contact')
+  assert.notEqual(searchSystemFeatures('怎么联系学校')[0]?.id, 'contact')
+  assert.notEqual(searchSystemFeatures('怎么维护网站')[0]?.id, 'contact')
+  assert.notEqual(searchSystemFeatures('网站打不开怎么办')[0]?.id, 'feedback')
+})
+
+test('assistant routes contact-the-site questions to the search-system API without web search', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-contact-feature-answer-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    for (const query of ['怎么联系制作网站的人', '网站是谁做的', '怎么联系站长', '联系我们']) {
+      const response = await answerCampusQuestion(client, query, emptyAssistantConfig)
+      assert.equal(response.retrievalPath, 'feature_api')
+      assert.equal(response.usedWebSearch, false)
+      assert.match(response.answer, /联系整理者/)
+      assert.ok(response.citations.some(item => item.url === '/contact'))
+      assert.deepEqual(response.trace?.map(item => item.stage), [
+        'query_analysis',
+        'feature_api',
+        'answer_generation'
+      ])
+    }
+    const feedback = await answerCampusQuestion(client, '怎么反馈问题', emptyAssistantConfig)
+    assert.equal(feedback.retrievalPath, 'feature_api')
+    assert.equal(feedback.usedWebSearch, false)
+    assert.ok(feedback.citations.some(item => item.url === '/feedback'))
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('assistant prioritizes an exact published place over a related registration article', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-exact-place-answer-'))
   const databasePath = join(directory, 'test.sqlite')

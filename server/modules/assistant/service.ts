@@ -3,7 +3,7 @@ import { and, desc, eq, gt, inArray, like, or } from 'drizzle-orm'
 import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../data/major-profiles'
 import { campusTransitOptions, campusTransitSearchText } from '../../../data/campus-transit'
 import { nearbyGuideItems, nearbyGuideSearchText } from '../../../data/nearby-guide'
-import { searchSystemFeatures } from '../../../data/system-features'
+import { featureIntentForQuery, searchSystemFeatures, systemFeatures } from '../../../data/system-features'
 import { official2026FreshmanQaUrl, officialWelcomeSystemUrl } from '../../../data/assistant-knowledge'
 import { transferMajorHistoricalRule } from '../../../data/transfer-major'
 import { userSubmittedCampusNotes } from '../../../data/user-submitted-campus-notes'
@@ -291,7 +291,10 @@ const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
 const MIN_SOURCE_OVERLAP_CHARS = 96
 const MAX_MCP_CONCURRENCY = 2
-const ASSISTANT_CACHE_VERSION = 'rag-v44-web-evidence-answer'
+// v45: site-meta contact/feedback queries now route to the search-system
+// features (contact / feedback) instead of the web-search fallback. Bumping
+// the version invalidates any previously cached web-route answers.
+const ASSISTANT_CACHE_VERSION = 'rag-v45-site-meta-feature-route'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
@@ -1958,6 +1961,7 @@ function knownMajorNameForQuery(query: string): string | null {
 const TEACHING_LOCATION_EVIDENCE_RE = /上课地点|授课地点|课程主要在|教学安排|教学区分布|教学楼安排|(?:上课|授课).{0,20}(?:新区|旧区|第[一三]教学区|教学楼)/u
 
 function isFeatureSeekingQuery(query: string): boolean {
+  if (featureIntentForQuery(query) !== null) return true
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   if (/在哪|哪里|入口|哪个页面|什么页面|怎么打开|怎么进入|去哪|功能/.test(normalized)) return true
   return /(?:给(?:我)?(?:个|一份)?|发(?:我)?(?:个|一份)?|打开|带我看|帮我找|帮我查|看一下|看看|展示).{0,16}(?:地图|平面图|导览图|校区图|路线|导航|页面|入口)/.test(normalized)
@@ -3145,6 +3149,38 @@ function featureLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAs
       source: 'site' as const
     }
   })
+  // Questions about reaching the people behind the site get a dedicated
+  // answer instead of the generic “this feature lives at …” wording, and
+  // always cite both the contact and the feedback entries.
+  const contactFeature = features.find(item => item.id === 'contact')
+  if (featureIntentForQuery(query) === 'contact' && contactFeature && contactFeature.score >= 8) {
+    const contactCitation = citations[0]?.url === '/contact'
+      ? citations[0]!
+      : {
+          title: contactFeature.title,
+          url: contactFeature.to,
+          snippet: contactFeature.summary,
+          source: 'site' as const
+        }
+    const feedbackFeature = systemFeatures.find(item => item.id === 'feedback')
+    const contactCitations: ApiAssistantCitation[] = [contactCitation]
+    if (feedbackFeature) {
+      contactCitations.push({
+        title: feedbackFeature.title,
+        url: feedbackFeature.to,
+        snippet: feedbackFeature.summary,
+        source: 'site' as const
+      })
+    }
+    return {
+      query,
+      mode: 'local',
+      answer: '这个网站（仰恩大学新生指南）由站内整理者制作和维护，站内没有公开网站制作方的名单。要联系制作网站的人，打开下方“联系整理者”页面扫码添加微信即可；发现内容错误、信息缺失或想提建议，也可以先到“反馈纠错”页面提交。',
+      citations: contactCitations,
+      usedWebSearch: false,
+      confidence: 0.98
+    }
+  }
   const alternatives = features.slice(1).map(item => `“${item.title}”`).join('、')
   return {
     query,
