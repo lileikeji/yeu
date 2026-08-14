@@ -846,6 +846,20 @@ function knowledgeHitForEvidence(query: string, item: AssistantEvidence): Knowle
   }
 }
 
+// A title match is a stronger relevance signal than provenance. A body-only
+// official PDF that incidentally mentions the topic must not outrank a
+// reviewed guide whose title actually names the subject, even though the
+// authority score (official_site > reviewed_site) would otherwise win. The
+// ranks mirror the retrievalScore bonuses assigned in knowledgeHitForEvidence.
+const KNOWLEDGE_HIT_REASON_RANK: Record<KnowledgeHitReason, number> = {
+  explicit: 6,
+  title: 5,
+  kb_meta: 4,
+  recent_synthesis: 3,
+  filename: 2,
+  body: 1
+}
+
 function selectCampusKnowledgeContext(
   query: string,
   evidence: AssistantEvidence[],
@@ -854,8 +868,9 @@ function selectCampusKnowledgeContext(
   const matches = dedupeAssistantEvidence(evidence)
     .map(item => knowledgeHitForEvidence(query, item))
     .sort((left, right) => {
-      if (left.hitReason === 'explicit' && right.hitReason !== 'explicit') return -1
-      if (right.hitReason === 'explicit' && left.hitReason !== 'explicit') return 1
+      const reasonDifference = (KNOWLEDGE_HIT_REASON_RANK[right.hitReason] ?? 0)
+        - (KNOWLEDGE_HIT_REASON_RANK[left.hitReason] ?? 0)
+      if (reasonDifference !== 0) return reasonDifference
       const authorityDifference = compareAssistantEvidenceAuthority(left.evidence, right.evidence)
       if (authorityDifference !== 0) return authorityDifference
       return right.retrievalScore - left.retrievalScore
