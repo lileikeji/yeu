@@ -31,6 +31,34 @@ const selectedContentId = ref('')
 const username = ref('')
 const createdCredentials = ref<{ username: string, password: string } | null>(null)
 const busyAccountId = ref('')
+const copied = ref(false)
+const siteOrigin = useRequestURL().origin
+
+const inviteText = computed(() => {
+  const credentials = createdCredentials.value
+  if (!credentials) return ''
+  return [
+    '【仰恩新生指南】组织管理员账号',
+    '',
+    `后台地址：${siteOrigin}/admin`,
+    `账号：${credentials.username}`,
+    `初始密码：${credentials.password}`,
+    '',
+    '请打开后台地址登录，首次登录后需立即修改密码。'
+  ].join('\n')
+})
+
+async function copyInvite(): Promise<void> {
+  if (!inviteText.value) return
+  try {
+    await navigator.clipboard.writeText(inviteText.value)
+    copied.value = true
+    toast.add({ title: '邀请信息已复制', description: '可直接粘贴发送给组织管理员。' })
+    setTimeout(() => { copied.value = false }, 2000)
+  } catch {
+    toast.add({ title: '复制失败', description: '请手动选择文本复制。', color: 'error' })
+  }
+}
 
 const organizationItems = computed(() => organizations.value
   .filter(item => !accounts.value.some(account => account.contentId === item.id))
@@ -132,7 +160,7 @@ onMounted(() => {
         创建组织账号
       </h2>
       <p class="mt-1 text-sm leading-6 text-zinc-500">
-        账号默认使用社团或部门中文名的全拼；初始密码为 asd123456789，首次登录必须修改。
+        账号默认使用社团或部门中文名的全拼；初始密码为一次性随机密码，创建后立即显示，首次登录必须修改。
       </p>
       <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] md:items-end">
         <UFormField label="授权社团或部门">
@@ -169,8 +197,20 @@ onMounted(() => {
         class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4"
         role="status"
       >
-        <p class="font-semibold text-emerald-950">
-          账号已创建或重置，请把下面两项交给负责人
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="font-semibold text-emerald-950">
+            账号已创建或重置，请把邀请信息发给负责人
+          </p>
+          <UButton
+            icon="i-lucide-copy"
+            :label="copied ? '已复制' : '复制邀请信息'"
+            color="success"
+            size="sm"
+            @click="copyInvite"
+          />
+        </div>
+        <p class="mt-2 text-sm text-emerald-800">
+          后台地址：<span class="font-mono font-semibold">{{ siteOrigin }}/admin</span>
         </p>
         <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <div>

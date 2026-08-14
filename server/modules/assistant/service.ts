@@ -4100,7 +4100,12 @@ async function mcpPost(
   timeoutMs: number,
   signal?: AbortSignal
 ): Promise<{ payload: unknown, sessionId: string }> {
-  const response = await fetch(url, {
+  // Re-validate DNS immediately before each outbound fetch so a rebinding
+  // window between searchWeb's initial check and the actual request stays
+  // closed to the sub-second range (bounded by DNS TTL), on top of the
+  // mcpAllowedHosts allowlist and redirect:'manual' mitigations.
+  const safeUrl = await assertSafeResolvedPublicHttpUrl(url)
+  const response = await fetch(safeUrl.toString(), {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
@@ -4461,6 +4466,11 @@ export async function askGateway(
   if (activeGatewayCalls >= 2) throw new Error('AI_BUSY')
   activeGatewayCalls += 1
   try {
+    // Enforce the same fail-closed URL gate as the MCP search path: block
+    // non-HTTPS, credentials, loopback/link-local/private hosts and DNS
+    // rebinding so a misconfigured gateway URL cannot become an outbound SSRF.
+    const gatewayUrl = await assertSafeResolvedPublicHttpUrl(config.gatewayBaseUrl)
+    if (gatewayUrl.protocol !== 'https:') throw new Error('AI_GATEWAY_URL_UNSAFE')
     const modelEvidence = evidence.map((item, index) => {
       const sourceLabel
         = assistantEvidenceAuthority(item) === 'official_site'
@@ -4480,7 +4490,7 @@ export async function askGateway(
         source: item.source
       }
     })
-    const response = await fetch(`${config.gatewayBaseUrl.replace(/\/+$/, '')}/v1/chat/completions`, {
+    const response = await fetch(`${gatewayUrl.toString().replace(/\/+$/, '')}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.gatewayApiKey}`,

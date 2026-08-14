@@ -1,4 +1,4 @@
-import { createBotWebhookSignature, safeOutboundBotUrl } from './security'
+import { assertSafeOutboundBotUrl, createBotWebhookSignature } from './security'
 
 async function fetchBotEndpoint(url: URL, init: RequestInit, timeoutMs = 10_000): Promise<Response> {
   const controller = new AbortController()
@@ -16,7 +16,7 @@ export async function sendOneBotGroupMessage(input: {
   groupId: string
   message: string
 }): Promise<void> {
-  const base = safeOutboundBotUrl(input.apiUrl)
+  const base = await assertSafeOutboundBotUrl(input.apiUrl)
   const url = new URL('send_group_msg', base.href.endsWith('/') ? base : `${base.href}/`)
   const response = await fetchBotEndpoint(url, {
     method: 'POST',
@@ -38,7 +38,7 @@ export async function sendWechatRelayMessage(input: {
   replyToMessageId: string
   message: string
 }): Promise<void> {
-  const url = safeOutboundBotUrl(input.sendUrl)
+  const url = await assertSafeOutboundBotUrl(input.sendUrl)
   const body = JSON.stringify({
     roomId: input.roomId,
     replyToMessageId: input.replyToMessageId,

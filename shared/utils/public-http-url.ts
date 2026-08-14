@@ -69,14 +69,51 @@ function expandIpv6(hostname: string): string | null {
   }
 }
 
+/**
+ * Extract an embedded IPv4 address from the trailing 32 bits of an
+ * IPv4-mapped (::ffff:...) or IPv4-compatible (::...) IPv6 form. Handles both
+ * dotted-quad tails (::ffff:127.0.0.1) and the hex form that URL hostname
+ * normalization produces (::ffff:7f00:1, ::7f00:1). Returns null otherwise.
+ */
+function ipv4FromIpv6Tail(tail: string): number[] | null {
+  const trimmed = tail.trim()
+  if (!trimmed) return null
+  const dotted = trimmed.match(/^(\d{1,3}(?:\.\d{1,3}){3})$/)
+  if (dotted) return parseIpv4(dotted[1]!)
+
+  const hexGroups = trimmed.split(':')
+  if (hexGroups.length === 1) {
+    const group = hexGroups[0]!
+    if (!/^[0-9a-f]{1,4}$/.test(group)) return null
+    const lo = parseInt(group, 16)
+    return [0, 0, lo >> 8, lo & 0xff]
+  }
+  if (hexGroups.length === 2) {
+    const hi = hexGroups[0]!
+    const lo = hexGroups[1]!
+    if (!/^[0-9a-f]{1,4}$/.test(hi) || !/^[0-9a-f]{1,4}$/.test(lo)) return null
+    const hiValue = parseInt(hi, 16)
+    const loValue = parseInt(lo, 16)
+    return [hiValue >> 8, hiValue & 0xff, loValue >> 8, loValue & 0xff]
+  }
+  return null
+}
+
 function isBlockedIpv6(hostname: string): boolean {
-  const host = hostname.toLowerCase()
-  if (host === '::1' || host === '0:0:0:0:0:0:0:1') return true
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (!host) return true
+  if (host === '::1' || host === '0:0:0:0:0:0:0:1') return true // loopback
+  if (host === '::' || host === '0:0:0:0:0:0:0:0') return true // unspecified
   if (host.startsWith('fe80:')) return true // link-local
   if (host.startsWith('fc') || host.startsWith('fd')) return true // unique local
-  if (host.startsWith('::ffff:')) {
-    const mapped = host.slice('::ffff:'.length)
-    const v4 = parseIpv4(mapped)
+
+  // IPv4-mapped (::ffff:x) and IPv4-compatible (::x) forms embed an IPv4
+  // address whose blocked status must be honored (private/loopback/link-local).
+  const mapped = host.startsWith('::ffff:')
+  const compatible = host.startsWith('::') && host !== '::1' && !mapped
+  if (mapped || compatible) {
+    const tail = mapped ? host.slice('::ffff:'.length) : host.slice('::'.length)
+    const v4 = ipv4FromIpv6Tail(tail)
     if (v4) return isBlockedIpv4(v4)
   }
   return false

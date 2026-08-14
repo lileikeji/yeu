@@ -1,5 +1,9 @@
 import { createHmac } from 'node:crypto'
 import { safeEqual } from '../../utils/security'
+import {
+  assertSafeResolvedPublicHttpUrl,
+  isBlockedNetworkHostname
+} from '../../../shared/utils/public-http-url'
 
 const MAX_WEBHOOK_CLOCK_SKEW_MS = 5 * 60 * 1000
 
@@ -58,9 +62,31 @@ export function safeOutboundBotUrl(rawValue: string): URL {
     throw new Error('BOT_OUTBOUND_URL_INVALID')
   }
   if (url.username || url.password) throw new Error('BOT_OUTBOUND_URL_INVALID')
-  const loopback = ['127.0.0.1', '::1', 'localhost'].includes(url.hostname.toLowerCase())
+
+  const hostname = url.hostname.toLowerCase()
+  const loopback = ['127.0.0.1', '::1', 'localhost'].includes(hostname)
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
     throw new Error('BOT_OUTBOUND_URL_UNSAFE')
   }
+
+  // HTTPS outbound must not resolve/point at loopback, link-local, private,
+  // or cloud-metadata hosts. This mirrors the application's SSRF policy and
+  // closes the gap where an https relay URL could reach internal services.
+  if (url.protocol === 'https:' && isBlockedNetworkHostname(hostname)) {
+    throw new Error('BOT_OUTBOUND_URL_UNSAFE')
+  }
+
   return url
+}
+
+/**
+ * Fail-closed outbound bot URL gate for actual fetches: synchronous policy
+ * (safeOutboundBotUrl) plus a DNS A/AAAA re-check to defeat rebinding.
+ * Local http://loopback relay URLs are a test/dev exception and are returned
+ * without DNS resolution.
+ */
+export async function assertSafeOutboundBotUrl(rawValue: string): Promise<URL> {
+  const url = safeOutboundBotUrl(rawValue)
+  if (url.protocol === 'http:') return url
+  return assertSafeResolvedPublicHttpUrl(url.toString())
 }

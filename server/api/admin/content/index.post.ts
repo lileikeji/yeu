@@ -1,11 +1,13 @@
 import { createContentSchema } from '../../../../shared/schemas/server'
 import { createContent } from '../../../modules/content/service'
+import { requireSuperAdmin } from '../../../utils/auth'
 import { writeAudit } from '../../../utils/audit'
 import { useAdminRequest } from '../../../utils/http'
 import { parseBody } from '../../../utils/validation'
 
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event, true)
+  requireSuperAdmin(session)
   const input = await parseBody(event, createContentSchema)
   const result = createContent(client, input)
   writeAudit(client, event, {

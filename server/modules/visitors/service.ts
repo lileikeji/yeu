@@ -491,17 +491,57 @@ export function createVisitorBan(
 ) {
   const now = Date.now()
   const id = randomUUID()
-  client.db.insert(visitorBans).values({
-    id,
-    scope: input.scope,
-    value: input.value,
-    reason: input.reason?.trim() || '',
-    isActive: true,
-    bannedByAdminId: input.bannedByAdminId,
-    expiresAt: input.expiresAt ? Date.parse(input.expiresAt) : null,
-    createdAt: now,
-    updatedAt: now
-  }).run()
+  const reason = input.reason?.trim() || ''
+  const expiresAt = input.expiresAt ? Date.parse(input.expiresAt) : null
+
+  // A visitor-scoped ban alone is trivially bypassed by clearing the visitor
+  // cookie (a fresh visitorId is issued). Bind the visitor's most recent IP as
+  // an additional IP-scoped ban so the same client stays blocked even after
+  // rotating its cookie, unless that IP is already banned.
+  let linkedIp: string | null = null
+  if (input.scope === 'visitor') {
+    const row = client.db.select({ lastIp: visitors.lastIp }).from(visitors)
+      .where(eq(visitors.id, input.value))
+      .get()
+    const candidate = row?.lastIp?.trim() || null
+    if (candidate) {
+      const existingIpBan = client.db.select({ id: visitorBans.id }).from(visitorBans)
+        .where(and(
+          eq(visitorBans.scope, 'ip'),
+          eq(visitorBans.value, candidate),
+          eq(visitorBans.isActive, true)
+        ))
+        .get()
+      if (!existingIpBan) linkedIp = candidate
+    }
+  }
+
+  client.db.transaction((transaction) => {
+    transaction.insert(visitorBans).values({
+      id,
+      scope: input.scope,
+      value: input.value,
+      reason,
+      isActive: true,
+      bannedByAdminId: input.bannedByAdminId,
+      expiresAt,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+    if (linkedIp) {
+      transaction.insert(visitorBans).values({
+        id: randomUUID(),
+        scope: 'ip',
+        value: linkedIp,
+        reason,
+        isActive: true,
+        bannedByAdminId: input.bannedByAdminId,
+        expiresAt,
+        createdAt: now,
+        updatedAt: now
+      }).run()
+    }
+  })
   return id
 }
 

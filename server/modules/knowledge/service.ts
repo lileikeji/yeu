@@ -669,11 +669,12 @@ export function searchPublishedKnowledgeClaims(
       const matches = likeTerms
         .map(() => titleOnly
           ? '(kc.title LIKE ? ESCAPE \'\\\')'
-          : '(kc.title LIKE ? OR kc.statement LIKE ? OR kc.search_text LIKE ?)')
+          : '(kc.title LIKE ? ESCAPE \'\\\' OR kc.statement LIKE ? ESCAPE \'\\\' OR kc.search_text LIKE ? ESCAPE \'\\\')')
         .join(' OR ')
+      const escapeLike = (term: string) => `%${term.replace(/[\\%_]/g, value => `\\${value}`)}%`
       const values = titleOnly
-        ? likeTerms.map(term => `%${term.replace(/[\\%_]/g, value => `\\${value}`)}%`)
-        : likeTerms.flatMap(term => [`%${term}%`, `%${term}%`, `%${term}%`])
+        ? likeTerms.map(escapeLike)
+        : likeTerms.flatMap(term => [escapeLike(term), escapeLike(term), escapeLike(term)])
       rows = client.sqlite.prepare(`
         SELECT kc.id, kc.category, kc.title, kc.statement,
           kc.public_url AS publicUrl, kc.confidence_score AS confidenceScore,

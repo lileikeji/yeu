@@ -9,7 +9,6 @@ import { runMigrations } from '../server/database/migrate'
 import {
   changeAdminPassword,
   createOrganizationAdmin,
-  ORGANIZATION_ADMIN_INITIAL_PASSWORD,
   updateOrganizationAdmin
 } from '../server/modules/organization-admins/service'
 import type { AdminSessionContext } from '../server/utils/auth'
@@ -72,7 +71,9 @@ test('organization authorization creates a pinyin account and enforces first pas
     const second = await createOrganizationAdmin(client, { contentId: secondContentId }, superAdmin.id)
     assert.equal(first.username, 'jisuanjixiehui')
     assert.equal(second.username, 'jisuanjixiehui-2')
-    assert.equal(first.initialPassword, ORGANIZATION_ADMIN_INITIAL_PASSWORD)
+    assert.equal(typeof first.initialPassword, 'string')
+    assert.ok((first.initialPassword as string).length >= 16)
+    assert.notEqual(first.initialPassword, second.initialPassword)
 
     const created = client.sqlite.prepare(`
       SELECT password_hash AS passwordHash, role,
@@ -86,7 +87,7 @@ test('organization authorization creates a pinyin account and enforces first pas
     }
     assert.equal(created.role, 'organization')
     assert.equal(created.mustChangePassword, 1)
-    assert.equal(await verifyPassword(ORGANIZATION_ADMIN_INITIAL_PASSWORD, created.passwordHash), true)
+    assert.equal(await verifyPassword(first.initialPassword, created.passwordHash), true)
 
     const now = Date.now()
     client.sqlite.prepare(`
@@ -100,7 +101,7 @@ test('organization authorization creates a pinyin account and enforces first pas
       client,
       first.id,
       'organization-session',
-      ORGANIZATION_ADMIN_INITIAL_PASSWORD,
+      first.initialPassword,
       'replacement-password-123'
     )
     const changed = client.sqlite.prepare(`
@@ -118,7 +119,9 @@ test('organization authorization creates a pinyin account and enforces first pas
     )
 
     const reset = await updateOrganizationAdmin(client, first.id, { resetPassword: true })
-    assert.equal(reset.initialPassword, ORGANIZATION_ADMIN_INITIAL_PASSWORD)
+    assert.equal(typeof reset.initialPassword, 'string')
+    assert.ok((reset.initialPassword as string).length >= 16)
+    assert.notEqual(reset.initialPassword, first.initialPassword)
     const resetAdmin = client.sqlite.prepare(`
       SELECT password_hash AS passwordHash,
         must_change_password AS mustChangePassword
@@ -126,7 +129,7 @@ test('organization authorization creates a pinyin account and enforces first pas
       WHERE id = ?
     `).get(first.id) as { passwordHash: string, mustChangePassword: number }
     assert.equal(resetAdmin.mustChangePassword, 1)
-    assert.equal(await verifyPassword(ORGANIZATION_ADMIN_INITIAL_PASSWORD, resetAdmin.passwordHash), true)
+    assert.equal(await verifyPassword(reset.initialPassword as string, resetAdmin.passwordHash), true)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

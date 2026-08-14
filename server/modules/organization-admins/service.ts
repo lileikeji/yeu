@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { pinyin } from 'pinyin-pro'
 import type { DatabaseClient } from '../../database/client'
@@ -10,7 +10,16 @@ import {
 } from '../../database/schema'
 import { hashPassword, verifyPassword } from '../../utils/password'
 
-export const ORGANIZATION_ADMIN_INITIAL_PASSWORD = 'asd123456789'
+/**
+ * One-time random initial password for organization administrators.
+ * Never use a shared fixed password: a predictable credential combined with
+ * the predictable pinyin username would allow account takeover before the
+ * legitimate admin's first login. Each account/reset gets a fresh value that
+ * is shown once to the super admin and hashed before storage.
+ */
+export function generateOrganizationAdminInitialPassword(): string {
+  return randomBytes(18).toString('base64url')
+}
 
 function conflict(message: string, code: string): never {
   throw createError({
@@ -106,7 +115,8 @@ export async function createOrganizationAdmin(
   const preferred = input.username?.trim().toLowerCase()
     || defaultUsername(content.title, content.slug, content.id)
   const username = uniqueUsername(client, preferred)
-  const passwordHash = await hashPassword(ORGANIZATION_ADMIN_INITIAL_PASSWORD)
+  const initialPassword = generateOrganizationAdminInitialPassword()
+  const passwordHash = await hashPassword(initialPassword)
   const adminUserId = randomUUID()
   const now = Date.now()
 
@@ -134,7 +144,7 @@ export async function createOrganizationAdmin(
   return {
     id: adminUserId,
     username,
-    initialPassword: ORGANIZATION_ADMIN_INITIAL_PASSWORD,
+    initialPassword,
     mustChangePassword: true,
     organization: content
   }
@@ -151,8 +161,11 @@ export async function updateOrganizationAdmin(
   if (!existing || existing.role !== 'organization') notFound()
 
   const now = Date.now()
-  const passwordHash = input.resetPassword
-    ? await hashPassword(ORGANIZATION_ADMIN_INITIAL_PASSWORD)
+  const resetInitialPassword = input.resetPassword
+    ? generateOrganizationAdminInitialPassword()
+    : undefined
+  const passwordHash = resetInitialPassword
+    ? await hashPassword(resetInitialPassword)
     : undefined
 
   client.db.transaction((transaction) => {
@@ -173,7 +186,7 @@ export async function updateOrganizationAdmin(
     id: adminUserId,
     isActive: input.isActive ?? existing.isActive,
     passwordReset: Boolean(input.resetPassword),
-    ...(input.resetPassword && { initialPassword: ORGANIZATION_ADMIN_INITIAL_PASSWORD })
+    ...(input.resetPassword && { initialPassword: resetInitialPassword })
   }
 }
 
