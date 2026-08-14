@@ -38,6 +38,35 @@ export function normalizeAssistantQuery(value: string): string {
   return value.normalize('NFKC').replace(/\s+/g, ' ').trim()
 }
 
+// Generic school-role references that resolve to a concrete person. The
+// identity route searches for evidence about the SUBJECT NAME, so a bare
+// role word (e.g. 「学校创始人」→「学校」) is too broad to retrieve a profile.
+// These are the school's documented facts (see server/modules/assistant/
+// assistant-knowledge.ts): 吴庆星 founded the Yang-En Foundation with 林惠,
+// and 林惠 chairs the university's board.
+const IDENTITY_SUBJECT_ALIASES: Readonly<Record<string, string>> = {
+  创始人: '吴庆星',
+  创办人: '吴庆星',
+  校主: '吴庆星',
+  学校创始人: '吴庆星',
+  学校创办人: '吴庆星',
+  仰恩大学创始人: '吴庆星',
+  仰恩大学创办人: '吴庆星',
+  仰恩基金会创始人: '吴庆星',
+  仰恩基金会创办人: '吴庆星',
+  董事长: '林惠',
+  校董: '林惠',
+  学校董事长: '林惠',
+  举办者: '林惠',
+  学校举办者: '林惠',
+  仰恩大学董事长: '林惠'
+}
+
+// A school-role term that, when stripped of its trailing role word, leaves
+// only a generic noun (「学校」「仰恩大学」) which cannot anchor an identity
+// profile on its own.
+const GENERIC_IDENTITY_TARGET_RE = /^(?:学校|本校|仰恩大学|仰恩学院|这所学校|我们学校|仰恩基金会)$/u
+
 export function assistantIdentitySubject(value: string): string | null {
   const normalized = normalizeAssistantQuery(value)
     .toLocaleLowerCase('zh-CN')
@@ -45,9 +74,23 @@ export function assistantIdentitySubject(value: string): string | null {
     .replace(/[?？。！!，,、；;]+$/u, '')
     .replace(/^(?:请问|问一下|麻烦问一下|请|麻烦)?(?:介绍一下|介绍|讲讲|说说|我想了解|想了解)/u, '')
     .replace(/^请问/u, '')
+
+  // "谁创办了仰恩大学" / "仰恩大学是谁创办的" style founder questions,
+  // which do not carry the subject name at all.
+  const founderTarget = normalized.match(/^谁(?:创办|创立|创建|建立|发起|出资|投资)了?([^。！？?]{0,20})$/u)?.[1]
+  if (founderTarget !== undefined && GENERIC_IDENTITY_TARGET_RE.test(founderTarget)) return '吴庆星'
+  const foundedByTarget = normalized.match(/^([^。！？?]{2,20})是谁(?:创办|创立|创建|建立|发起|出资)的/u)?.[1]
+  if (foundedByTarget && GENERIC_IDENTITY_TARGET_RE.test(foundedByTarget)) return '吴庆星'
+
   const match = normalized.match(/^(.{2,24}?)(?:是谁|是什么人|哪位|个人简介|简介|的?(?:身份(?:和|与)?(?:经历|生平|履历)?|经历|生平|履历))$/u)
-  const subject = match?.[1]?.trim().replace(/(?:老师|教师|教授|老板|董事长|创始人|创办人)$/u, '')
-  return subject && subject.length >= 2 ? subject : null
+  const rawSubject = match?.[1]?.trim()
+  if (!rawSubject) return null
+  // Resolve generic role references before stripping the trailing role word,
+  // so 「学校创始人」 maps to 吴庆星 instead of degrading to 「学校」.
+  const alias = IDENTITY_SUBJECT_ALIASES[rawSubject]
+  if (alias) return alias
+  const subject = rawSubject.replace(/(?:老师|教师|教授|老板|董事长|创始人|创办人)$/u, '')
+  return subject.length >= 2 ? subject : null
 }
 
 export function isQuestionLike(value: string): boolean {

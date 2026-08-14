@@ -57,6 +57,21 @@ test('assistant routing keeps keyword search local and escalates unanswered ques
   assert.equal(assistantIdentitySubject('请介绍吴庆星的身份和经历？'), '吴庆星')
   assert.equal(assistantIdentitySubject('想了解吴庆星的身份与生平？'), '吴庆星')
   assert.equal(assistantIdentitySubject('绿联老板是谁？'), '绿联')
+  // Generic school-role references resolve to the documented person instead of
+  // degrading to a bare role word that cannot anchor an identity profile.
+  assert.equal(assistantIdentitySubject('学校创始人是谁'), '吴庆星')
+  assert.equal(assistantIdentitySubject('学校创办人是谁？'), '吴庆星')
+  assert.equal(assistantIdentitySubject('谁创办了仰恩大学'), '吴庆星')
+  assert.equal(assistantIdentitySubject('仰恩大学是谁创办的'), '吴庆星')
+  assert.equal(assistantIdentitySubject('学校董事长是谁'), '林惠')
+  assert.equal(assistantIdentitySubject('学校举办者是谁'), '林惠')
+  assert.equal(assistantIdentitySubject('创始人是谁'), '吴庆星')
+  assert.equal(isQuestionLike('学校创始人是谁'), true)
+  assert.equal(isQuestionLike('谁创办了仰恩大学'), true)
+  // A bare role word with no known person must still pass through (and fail
+  // retrieval gracefully) rather than being rejected as a non-question.
+  assert.equal(assistantIdentitySubject('校长是谁'), '校长')
+  assert.equal(isQuestionLike('校长是谁'), true)
   assert.equal(isQuestionLike('会计学属于哪个学院'), true)
   assert.equal(isQuestionLike('会计学新生住新区还是旧区'), true)
   assert.equal(isQuestionLike('宿舍床的尺寸'), true)

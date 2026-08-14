@@ -19,6 +19,19 @@ const CAMPUS_SEARCH_ALIAS_GROUPS: readonly CampusSearchAliasGroup[] = [
   }
 ]
 
+// Term-level synonyms that recover transpositions and regional variants the
+// character n-gram similarity cannot (e.g. 「住宿」↔「宿舍」share only one
+// unigram after the order swap). Each pair adds the canonical form to the
+// retrieval terms when the source appears verbatim, so a canonical term is
+// never polluted by an unrelated expansion.
+const CAMPUS_TERM_SYNONYMS: readonly (readonly [string, string])[] = [
+  ['住宿', '宿舍'],
+  ['寝室', '宿舍'],
+  ['饭堂', '食堂'],
+  ['饭卡', '校园卡'],
+  ['一卡通', '校园卡']
+]
+
 function compactSearchText(value: string): string {
   return cleanSearchTerm(value)
     .toLocaleLowerCase('zh-CN')
@@ -35,6 +48,10 @@ export function expandCampusSearchTerms(value: string): string[] {
     if (!group.aliases.some(alias => compact.includes(compactSearchText(alias)))) continue
     terms.add(group.canonical)
     group.aliases.forEach(alias => terms.add(alias))
+  }
+
+  for (const [source, target] of CAMPUS_TERM_SYNONYMS) {
+    if (compact.includes(compactSearchText(source))) terms.add(target)
   }
 
   return [...terms]
