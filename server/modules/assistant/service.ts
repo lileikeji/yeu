@@ -4502,11 +4502,21 @@ export async function askGateway(
   if (activeGatewayCalls >= 2) throw new Error('AI_BUSY')
   activeGatewayCalls += 1
   try {
-    // Enforce the same fail-closed URL gate as the MCP search path: block
-    // non-HTTPS, credentials, loopback/link-local/private hosts and DNS
-    // rebinding so a misconfigured gateway URL cannot become an outbound SSRF.
-    const gatewayUrl = await assertSafeResolvedPublicHttpUrl(config.gatewayBaseUrl)
-    if (gatewayUrl.protocol !== 'https:') throw new Error('AI_GATEWAY_URL_UNSAFE')
+    // Gate the gateway URL against SSRF without breaking the supported local
+    // topology: a same-host loopback proxy (http://127.0.0.1:18080) is the
+    // production pattern and stays allowed, while any other host must be an
+    // https public URL that passes private-network and DNS-rebinding checks.
+    const gatewayUrl = parseSafePublicHttpUrl(config.gatewayBaseUrl, { allowPrivateNetwork: true })
+    if (!gatewayUrl) throw new Error('AI_GATEWAY_URL_UNSAFE')
+    const gatewayHost = gatewayUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()
+    const gatewayLoopback = gatewayHost === '127.0.0.1'
+      || gatewayHost === '::1'
+      || gatewayHost === 'localhost'
+      || /^127\./.test(gatewayHost)
+    if (!gatewayLoopback) {
+      if (gatewayUrl.protocol !== 'https:') throw new Error('AI_GATEWAY_URL_UNSAFE')
+      await assertSafeResolvedPublicHttpUrl(config.gatewayBaseUrl)
+    }
     const modelEvidence = evidence.map((item, index) => {
       const sourceLabel
         = assistantEvidenceAuthority(item) === 'official_site'
