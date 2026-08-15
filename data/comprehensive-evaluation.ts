@@ -317,6 +317,7 @@ export const zongceStructure = {
   total: 100,
   moral: { points: 25, base: 6, peerReview: 6, rewardCap: 13 },
   intellectual: { points: 70, base: 60, rewardCap: 10 },
+  // base 60 为满分上限：智育基础分 =（本人本学年度平均成绩 ÷ 本年级本专业最高平均成绩）× 60，随成绩浮动；计算器按该公式折算。
   sports: { points: 5, base: 3, rewardCap: 2 }
 }
 

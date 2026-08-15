@@ -14,6 +14,17 @@ const props = defineProps<{ resourceBase?: never }>()
 const selectedLevel = ref<Record<string, string>>({})
 /** 数量：itemId -> qty */
 const qty = ref<Record<string, number>>({})
+/** 智育基础分按成绩计算：=（本人平均成绩 ÷ 本专业最高平均成绩）× 60；未填写按满分 60 估算。 */
+const myAvgScore = ref<number | string>('')
+const maxAvgScore = ref<number | string>('')
+const intellectualBase = computed(() => {
+  const mine = Number(myAvgScore.value)
+  const max = Number(maxAvgScore.value)
+  if (!Number.isFinite(mine) || !Number.isFinite(max) || max <= 0) {
+    return zongceStructure.intellectual.base
+  }
+  return Math.max(0, Math.min(1, mine / max)) * zongceStructure.intellectual.base
+})
 
 function pointsOfItem(item: ZongceItem, category: ZongceCategory): number {
   if (!item.id) return 0
@@ -52,7 +63,7 @@ const sections = computed(() => {
   }
 
   const moral = build('moral', '德育', pick(moralIds), zongceStructure.moral.base + zongceStructure.moral.peerReview)
-  const intellectual = build('intellectual', '智育', pick(intellectualIds), zongceStructure.intellectual.base)
+  const intellectual = build('intellectual', '智育', pick(intellectualIds), intellectualBase.value)
   const sports = build('sports', '体育', pick(new Set(['sports'])), zongceStructure.sports.base)
   const total = moral.subtotal + intellectual.subtotal + sports.subtotal
   return { moral, intellectual, sports, total }
@@ -63,6 +74,8 @@ const deductionRows = computed(() => zongceDeductions)
 const reset = (): void => {
   selectedLevel.value = {}
   qty.value = {}
+  myAvgScore.value = ''
+  maxAvgScore.value = ''
 }
 </script>
 
@@ -109,7 +122,7 @@ const reset = (): void => {
       <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-2.5">
         <p class="text-base font-semibold text-zinc-900">
           德育
-          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.moral.base }} + 奖励（上限 {{ zongceStructure.moral.rewardCap }}）</span>
+          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.moral.base }}（含班内互评 6，按满分估算）+ 奖励（上限 {{ zongceStructure.moral.rewardCap }}）</span>
         </p>
         <p class="text-lg font-bold text-zinc-900 tabular-nums">
           {{ sections.moral.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400">/ 25 分</span>
@@ -173,12 +186,59 @@ const reset = (): void => {
       <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-2.5">
         <p class="text-base font-semibold text-zinc-900">
           智育
-          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.intellectual.base }} + 奖励（上限 {{ zongceStructure.intellectual.rewardCap }}）</span>
+          <span class="ml-2 text-xs font-normal text-zinc-500">基础（按成绩，当前 {{ sections.intellectual.base.toFixed(2) }}）+ 奖励（上限 {{ zongceStructure.intellectual.rewardCap }}）</span>
         </p>
         <p class="text-lg font-bold text-zinc-900 tabular-nums">
           {{ sections.intellectual.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400">/ 70 分</span>
         </p>
       </div>
+
+      <!-- 智育基础分：按成绩折算 -->
+      <div class="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm font-semibold text-zinc-800">
+            智育基础分（按成绩）
+            <span class="ml-1 font-normal text-zinc-500">=（本人平均成绩 ÷ 本专业最高平均成绩）× 60</span>
+          </p>
+          <p class="text-sm text-zinc-600">
+            基础分
+            <strong class="ml-1 text-lg font-bold text-zinc-900 tabular-nums">{{ intellectualBase.toFixed(2) }}</strong>
+            <span class="text-xs text-zinc-400">/ 60</span>
+          </p>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <label class="flex items-center gap-2 text-zinc-600">
+            我的平均成绩
+            <input
+              v-model.number="myAvgScore"
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              class="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+              placeholder="如 86"
+              aria-label="我的平均成绩"
+            />
+          </label>
+          <label class="flex items-center gap-2 text-zinc-600">
+            本专业最高平均成绩
+            <input
+              v-model.number="maxAvgScore"
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              class="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+              placeholder="如 90"
+              aria-label="本专业最高平均成绩"
+            />
+          </label>
+        </div>
+        <p class="mt-2 text-xs leading-5 text-zinc-500">
+          智育基础分随成绩浮动：平均成绩越接近本专业最高平均成绩，基础分越接近 60；两个输入框都填写后自动折算，未填写按满分 60 估算。
+        </p>
+      </div>
+
       <div class="mt-3 grid gap-4 lg:grid-cols-2">
         <div
           v-for="category in zongceBonusCategories.filter(c => ['intellectual-research','intellectual-cert'].includes(c.id))"
