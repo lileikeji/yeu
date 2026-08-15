@@ -449,11 +449,20 @@ export function mergeVectorEvidence(
   if (vectorEvidence.length === 0) return base as Array<VectorEvidence>
   const seen = new Set(base.map(item => item.url || item.title))
   const additions: VectorEvidence[] = []
+  let added = 0
   for (const item of vectorEvidence) {
     const key = item.url || item.title
     if (seen.has(key)) continue
     seen.add(key)
-    additions.push(item)
+    // Keyword evidence is scored by the RRF-fused value (~0..0.18). The vector
+    // cosine (0..100) and graph fixed (46/32) scores sit on an incompatible
+    // scale and would outrank every keyword title hit in the later dedupe/rank
+    // sort, letting a semantically-similar-but-wrong hybrid chunk win. Normalize
+    // hybrid candidates to a rank-based value in the RRF range instead; title
+    // matches (the +56/+90 hitReason bonus) still let genuinely relevant hybrid
+    // hits surface while irrelevant ones stop dominating.
+    additions.push({ ...item, score: 1 / (60 + added) })
+    added += 1
   }
   return [...base as Array<VectorEvidence>, ...additions]
 }
