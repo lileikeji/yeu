@@ -325,3 +325,18 @@ open_question | 我刚才说我一般喜欢什么时候学习         | <ts>
 | D 问句校验 | `isQuestionLike` 增加 `SELF_REFERENTIAL_PATTERN`（我/俺/咱 + 喜欢/觉得/习惯/是…），自指会话句不再 422；纯关键词仍走搜索 | shared/utils/assistant-query.ts |
 
 测试：vector-search 7 项（含记忆嵌入/会话隔离语义分）、memory-extraction 4 项（含回忆作答）、assistant-contact 新增 isQuestionLike 放宽与学校介绍本地作答各 1 项；server typecheck 通过。
+
+### 10.6 A/B/C/D 线上复测记录（2026-08-15，合并部署 a20d6fb 后）
+
+> 部署：平行 agent 于 14:28 部署合并版本 releases/20260815-142802-a20d6fb（含 8bf1c16 我的 A/B/C/D 修复 + 7a12f9a/a20d6fb 综测接线与宿舍路由修正 + ad2d43e 综测数据，已 db:seed:assistant --apply 播种）。线上 bundle 核验含 buildMemoryRecallAnswer/zongce/campusSubTopicAnchor。
+
+| 用例 | 修复前（10.1） | 修复后线上 | 结论 |
+| --- | --- | --- | --- |
+| B：简单介绍一下这所学校 | web_search 兜底「内置资料暂时没有找到」 | path=local_database, mode=local, conf=0.9，回答含 1987 创办/吴庆星/林惠/2000余亩/1.3万余人/12学院 | ✅ 本地概况生效 |
+| C：入学的时候要带齐哪些东西（语义改写） | path 误标 web_search | path=local_database, mode=ai, conf=0.95，清单完整 | ✅ 路径标签修正 |
+| D：我喜欢在晚上学习效率更高（陈述句） | 422 REGULAR_SEARCH_PREFERRED | 200 接受，且偏好被 P2 抽取落库 | ✅ 问句校验放宽 |
+| A：我刚才说我一般喜欢什么时候学习（回忆） | web 兜底「没找到」 | mode=local, conf=0.85，「根据我们之前的对话记录：- [此前偏好] 用户喜欢在晚上学习，认为效率更高 - [此前问过] …」 | ✅ 记忆回忆生效 |
+| 综测（平行 agent 功能）：综合测评加分有哪些项目 | - | path=local_database, conf=0.99，德育25/智育70/体育5 满分规则 | ✅ 一并上线生效 |
+
+A/B/C/D 四项修复与平行 agent 综测功能合并上线后，10.1 中的四个发现全部闭环：宽泛介绍题本地作答、路径标记真实、陈述句可进入会话记忆、回忆类问题由记忆直接作答。
+
