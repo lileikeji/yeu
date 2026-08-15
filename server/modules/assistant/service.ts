@@ -3487,6 +3487,39 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
   return null
 }
 
+// "仰恩大学是什么性质的学校 / 公办还是民办 / 是不是私立" are deliberately
+// detached from retrieval because QUESTION_FILLERS strip 仰恩大学/学校 from the
+// query terms, leaving only "性质/公办/民办" which never matches real content —
+// so they used to fall through to web search or an unrelated club profile. Pin
+// the institution's nature with a reviewed official fact instead.
+function isInstitutionNatureQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(normalizeAssistantQuery(query).replace(/[，。？?！!：:、s]/g, '')).toLocaleLowerCase('zh-CN')
+  let q = normalized
+  const anchor = /仰恩|仰恩大学|咱们学校|我们学校|本校/.test(q) ? true : false
+  if (!anchor) return false
+  if (/公办还是民办|公立还是私立|是民办还是公办|是私立还是公立|民办还是公办|公办|民办|私立|公立/.test(q)) return true
+  if (/性质|属性|类型|办学.{0,4}(性质|类型)|是一所.{0,6}(本科|高校)|什么.{0,4}(类型|性质)|是不是.{0,4}(本科|大学)|几本|一本|二本/.test(q)) return true
+  return false
+}
+
+function institutionNatureLocalAnswer(query: string): ApiAssistantResponse | null {
+  if (!isInstitutionNatureQuery(query)) return null
+  const citation: ApiAssistantCitation[] = [{
+    title: '仰恩大学学校简介',
+    url: 'https://www.yeu.edu.cn/xxgk/xjjj.htm',
+    snippet: '仰恩大学是由吴庆星先生和夫人林惠女士发起成立的仰恩基金会举办的民办（私立）本科高校，于1987年创办。',
+    source: 'web'
+  }]
+  return {
+    query,
+    mode: 'local',
+    answer: '仰恩大学是一所民办（私立）本科高校，不是公办院校。学校由吴庆星先生和夫人林惠女士发起的仰恩基金会举办，1987年创办，位于福建省泉州市洛江区。以学校官网"学校简介"为准，最新的录取批次、办学层次和主管部门信息请以当年招生简章与教育部公布名单为准。',
+    citations: citation,
+    usedWebSearch: false,
+    confidence: 0.95
+  }
+}
+
 function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
   const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const citationFor = (url: string): ApiAssistantCitation[] => evidence
@@ -5338,6 +5371,7 @@ async function answerCampusQuestionCore(
       }
     }
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+    const deterministicInstitutionNatureAnswer = institutionNatureLocalAnswer(query)
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
@@ -5368,6 +5402,7 @@ async function answerCampusQuestionCore(
       || deterministicTeachingLocationAnswer
       || deterministicMajorDormAnswer
       || deterministicCampusAnswer
+      || deterministicInstitutionNatureAnswer
       || deterministicKnowledgeAnswer
       || deterministicRuleAnswer
       || zongceBonusLocalAnswer(query) !== null
@@ -5505,6 +5540,7 @@ async function answerCampusQuestionCore(
       ? null
       : assistantKnowledgeLocalAnswer(client, query)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+    const deterministicInstitutionNatureAnswer = institutionNatureLocalAnswer(query)
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
     const deterministicMajorDormAnswer = majorDormLocalAnswer(query, localEvidence)
@@ -5531,6 +5567,7 @@ async function answerCampusQuestionCore(
               ?? deterministicMajorDormAnswer
               ?? deterministicTeachingLocationAnswer
               ?? deterministicIdentityAnswer
+              ?? deterministicInstitutionNatureAnswer
               ?? deterministicCampusAnswer
               ?? deterministicRuleAnswer
               ?? zongceBonusLocalAnswer(query)
