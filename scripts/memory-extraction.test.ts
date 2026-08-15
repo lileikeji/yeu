@@ -6,7 +6,12 @@ import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { answerCampusQuestion } from '../server/modules/assistant/service'
-import { hashSessionKey, sessionMemoryStats, sessionMemoryTtlMs } from '../server/modules/assistant/memory'
+import {
+  hashSessionKey,
+  rememberExtractedFacts,
+  sessionMemoryStats,
+  sessionMemoryTtlMs
+} from '../server/modules/assistant/memory'
 
 const gatewayConfig = {
   gatewayBaseUrl: 'https://gateway.example.com',
@@ -131,5 +136,44 @@ test('memory TTL respects the environment override', () => {
   } finally {
     if (previous === undefined) delete process.env.NUXT_ASSISTANT_MEMORY_TTL_DAYS
     else process.env.NUXT_ASSISTANT_MEMORY_TTL_DAYS = previous
+  }
+})
+
+test('memory-recall questions answer from session memories instead of the gap response', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-memory-recall-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  try {
+    runMigrations(client)
+    const sessionKey = hashSessionKey('recall-session')
+    // Pre-store a preference as if a previous turn had extracted it.
+    rememberExtractedFacts(client, sessionKey, '我喜欢在晚上学习', [
+      { kind: 'preference', content: '用户认为自己晚上学习效率更高' }
+    ])
+
+    // The gateway is absent: the retrieval pipeline would normally short-circuit
+    // to the canned gap response. The memory-recall handler must answer instead.
+    globalThis.fetch = (async () => {
+      throw new Error('gateway must not be called for a memory recall')
+    }) as unknown as typeof fetch
+
+    const config = { ...gatewayConfig, sessionKey }
+    const response = await answerCampusQuestion(client, '我刚才说我一般喜欢什么时候学习', config)
+    assert.equal(response.mode, 'local')
+    assert.equal(response.usedWebSearch, false)
+    assert.ok(response.answer.includes('晚上学习'), 'recall answer surfaces the stored preference')
+    assert.ok(response.answer.includes('之前的对话'), 'recall answer is labeled as session memory')
+    assert.ok(response.confidence >= 0.8)
+
+    // A statement that introduces NEW information must not be hijacked by the
+    // recall handler (no past-reference): it should go through the normal
+    // pipeline (which with no gateway degrades gracefully).
+    const plain = await answerCampusQuestion(client, '我喜欢在操场上夜跑', config)
+    assert.ok(!plain.answer.includes('根据我们之前的对话记录'), 'new statements are not treated as recall')
+  } finally {
+    globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
   }
 })

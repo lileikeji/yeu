@@ -38,6 +38,8 @@ import {
   type EmbeddingConfig,
   type EmbeddingProvider
 } from './embedding'
+import { SESSION_MEMORY_KINDS } from './memory'
+import type { SessionMemoryKind } from './memory'
 
 export const VECTOR_EVIDENCE_LIMIT = 8
 export const VECTOR_CHUNK_CHARS = 600
@@ -439,6 +441,192 @@ export async function retrieveVectorEvidence(
       text: row.content,
       score: Math.round((1 - row.distance) * 100)
     }))
+}
+
+/**
+ * Embed this session's memory rows (kinds = answered/fact/preference) into the
+ * vector index so recall questions phrased differently from the stored fact
+ * can still surface it (P4 semantic recall). Rows whose embedding already
+ * matches the current content hash are skipped. Best-effort: any failure
+ * returns 0 and leaves the n-gram recall path untouched.
+ */
+export async function embedSessionMemoryRows(
+  client: DatabaseClient,
+  sessionKey: string,
+  kinds: readonly SessionMemoryKind[],
+  config: EmbeddingConfig,
+  embedder: EmbeddingProvider = openAiCompatibleEmbedder,
+  limit = 60
+): Promise<number> {
+  if (!embeddingConfigReady(config) || !vectorSearchReady(client) || sessionKey.length === 0) return 0
+  const allowed = new Set(SESSION_MEMORY_KINDS)
+  const safeKinds = kinds.filter(kind => allowed.has(kind))
+  if (safeKinds.length === 0) return 0
+  const kindList = safeKinds.map(kind => "'" + kind + "'").join(',')
+
+  let rows: Array<{ id: string, kind: string, content: string, contentHash: string }>
+  try {
+    const sql = 'SELECT id, kind, content, content_hash AS contentHash FROM assistant_session_memory'
+      + ' WHERE session_key = ? AND kind IN (' + kindList + ') AND (expires_at IS NULL OR expires_at > ?)'
+      + ' ORDER BY created_at DESC LIMIT ?'
+    rows = client.sqlite.prepare(sql).all(sessionKey, Date.now(), limit) as Array<{ id: string, kind: string, content: string, contentHash: string }>
+  } catch {
+    return 0
+  }
+  if (rows.length === 0) return 0
+
+  let existingByMemoryId = new Map<string, string>()
+  try {
+    const placeholders = rows.map(() => '?').join(',')
+    const existing = client.sqlite.prepare(
+      'SELECT id, text_hash AS textHash FROM assistant_embeddings'
+      + " WHERE source_type = 'memory' AND source_id IN (" + placeholders + ')'
+    ).all(...rows.map(row => row.id)) as Array<{ id: string, textHash: string }>
+    existingByMemoryId = new Map(existing.map(row => [row.id, row.textHash]))
+  } catch {
+    // The embeddings table may not exist yet; treat everything as new.
+  }
+
+  const vectorByContent = new Map<string, number[]>()
+  const toEmbed: string[] = []
+  // rememberExtractedFacts does not populate content_hash, so fall back to the
+  // embedding text hash to keep the staleness key non-null (text_hash is NOT NULL).
+  const contentHashOf = (row: { id: string, content: string, contentHash: string | null }): string =>
+    row.contentHash || embeddingTextHash(row.content)
+  for (const row of rows) {
+    const cached = cachedEmbedding(row.content)
+    if (cached) {
+      vectorByContent.set(row.content, cached)
+      continue
+    }
+    const chunkId = embeddingChunkId('memory', row.id, 0)
+    if (existingByMemoryId.get(chunkId) !== contentHashOf(row)) toEmbed.push(row.content)
+  }
+  if (toEmbed.length > 0) {
+    let vectors: number[][]
+    try {
+      vectors = await embedder.embedTexts(toEmbed, config)
+    } catch {
+      return 0
+    }
+    toEmbed.forEach((content, index) => {
+      const vector = vectors[index]
+      if (vector) {
+        vectorByContent.set(content, vector)
+        rememberEmbedding(content, vector)
+      }
+    })
+  }
+
+  const now = Date.now()
+  const insert = client.sqlite.prepare(
+    'INSERT INTO assistant_embeddings ('
+    + ' id, source_type, source_id, chunk_index, content, text_hash, embedding,'
+    + ' model, dimension, title, url, snippet, source, created_at, updated_at'
+    + " ) VALUES (?, 'memory', ?, 0, ?, ?, ?, ?, ?, ?, '', ?, 'session', ?, ?)"
+    + ' ON CONFLICT(id) DO UPDATE SET'
+    + ' content = excluded.content, text_hash = excluded.text_hash,'
+    + ' embedding = excluded.embedding, model = excluded.model,'
+    + ' dimension = excluded.dimension, title = excluded.title,'
+    + ' snippet = excluded.snippet, updated_at = excluded.updated_at'
+  )
+
+  let embedded = 0
+  for (const row of rows) {
+    const chunkId = embeddingChunkId('memory', row.id, 0)
+    if (existingByMemoryId.get(chunkId) === contentHashOf(row)) continue
+    const vector = vectorByContent.get(row.content)
+    if (!vector) continue
+    try {
+      insert.run(
+        chunkId,
+        row.id,
+        row.content,
+        contentHashOf(row),
+        vectorToBlob(vector),
+        config.model,
+        vector.length,
+        row.kind,
+        excerpt(row.content),
+        now,
+        now
+      )
+      embedded += 1
+    } catch {
+      // A single row must not abort the batch.
+    }
+  }
+  return embedded
+}
+
+/**
+ * Compute per-memory semantic cosine scores for one session's memory rows
+ * against the query (memoryId -> 0..1). Uses the sqlite-vec native scan when
+ * available and falls back to a JS cosine scan. Best-effort: returns an empty
+ * map when embeddings are unconfigured, the extension is missing, or the
+ * session has no embedded memories.
+ */
+export async function sessionMemorySemanticScores(
+  client: DatabaseClient,
+  sessionKey: string,
+  query: string,
+  config: EmbeddingConfig,
+  limit = 12,
+  embedder: EmbeddingProvider = openAiCompatibleEmbedder
+): Promise<Map<string, number>> {
+  const scores = new Map<string, number>()
+  if (!embeddingConfigReady(config) || !vectorSearchReady(client) || !query.trim()) return scores
+
+  let queryVector = cachedEmbedding(query)
+  if (!queryVector) {
+    let vectors: number[][]
+    try {
+      vectors = await embedder.embedTexts([query], config)
+    } catch {
+      return scores
+    }
+    const vector = vectors[0]
+    if (!vector || vector.length === 0) return scores
+    rememberEmbedding(query, vector)
+    queryVector = vector
+  }
+  const queryBlob = vectorToBlob(queryVector)
+
+  try {
+    const rows = client.sqlite.prepare(
+      'SELECT m.id AS memoryId,'
+      + ' vec_distance_cosine(e.embedding, ?) AS distance'
+      + ' FROM assistant_embeddings e'
+      + ' JOIN assistant_session_memory m ON m.id = e.source_id'
+      + " WHERE e.source_type = 'memory' AND m.session_key = ?"
+      + ' ORDER BY distance ASC'
+      + ' LIMIT ?'
+    ).all(queryBlob, sessionKey, limit) as Array<{ memoryId: string, distance: number }>
+    for (const row of rows) {
+      const cosine = 1 - Number(row.distance)
+      if (Number.isFinite(cosine) && cosine > 0) {
+        scores.set(row.memoryId, Math.min(1, Math.max(0, cosine)))
+      }
+    }
+    return scores
+  } catch {
+    // Native extension unavailable: JS cosine scan scoped to this session.
+    try {
+      const rows = client.sqlite.prepare(
+        'SELECT m.id AS memoryId, e.embedding AS embedding'
+        + ' FROM assistant_embeddings e'
+        + ' JOIN assistant_session_memory m ON m.id = e.source_id'
+        + " WHERE e.source_type = 'memory' AND m.session_key = ?"
+      ).all(sessionKey) as Array<{ memoryId: string, embedding: Buffer }>
+      for (const row of rows) {
+        const cosine = cosineSimilarity(queryVector, blobToVector(row.embedding))
+        if (cosine > 0) scores.set(row.memoryId, Math.min(1, Math.max(0, cosine)))
+      }
+    } catch {
+      return new Map()
+    }
+    return scores
+  }
 }
 
 /** Merge vector evidence into a keyword evidence list, de-duplicating by URL. */

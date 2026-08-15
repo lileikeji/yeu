@@ -49,12 +49,18 @@ import {
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
 import { evidenceSemanticScore, reciprocalRankFusion, semanticTextSimilarity } from './retrieval-semantic'
 import {
+  embedSessionMemoryRows,
+  sessionMemorySemanticScores
+} from './vector-search'
+import type { EmbeddingConfig } from './embedding'
+import {
   SESSION_MEMORY_CONTEXT_LIMIT,
   readLastSessionQuery,
   rememberExtractedFacts,
   rememberSessionTurn,
   retrieveSessionMemories,
-  sessionMemoryContextLine
+  sessionMemoryContextLine,
+  type SessionMemoryRecord
 } from './memory'
 
 import { retrieveGraphEvidence } from './graph-search'
@@ -329,6 +335,16 @@ const MAX_MCP_CONCURRENCY = 2
 // the version invalidates any previously cached web-route answers.
 const ASSISTANT_CACHE_VERSION = 'rag-v45-site-meta-feature-route'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
+/** Build the vector-channel embedding config from assistant runtime config. */
+function assistantEmbeddingConfig(config: AssistantConfig): EmbeddingConfig {
+  return {
+    baseUrl: config.embeddingBaseUrl ?? '',
+    apiKey: config.embeddingApiKey ?? '',
+    model: config.embeddingModel ?? 'text-embedding-v3',
+    timeoutMs: config.embeddingTimeoutMs ?? 15_000,
+    signal: config.signal
+  }
+}
 /** P2 memory extraction prompt: pull only user-stated identity/preference facts. */
 const ASSISTANT_MEMORY_EXTRACTION_PROMPT = `你是一个匿名会话记忆抽取器。从用户问题中抽取与用户个人身份、偏好或关注点相关的持久事实（例如："用户是专升本学生""用户关注宿舍条件""用户家在省外"）。只抽取用户本人明确陈述的信息，不要推断、不要猜测，不要抽取学校政策本身。输出 JSON：{"memories":[{"kind":"fact"|"preference","content":"一句话中文陈述"}]}。最多 3 条；没有可抽取内容时输出 {"memories":[]}。每条 content 5-60 字，只描述用户，不得编造。`
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
@@ -1782,14 +1798,19 @@ function campusOverviewEvidenceForQuery(query: string): AssistantEvidence[] {
   const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const asksMilitary = /军训|冬训/.test(normalizedQuery)
   const asksCampusScale = /(?:仰恩|学校|校园|校区).{0,8}(?:面积|占地|多大|规模)|(?:面积|占地).{0,8}(?:仰恩|学校|校园|校区)/.test(normalizedQuery)
-  if (!asksMilitary && !asksCampusScale) return []
+  // Fix B: broad school-introduction questions ("介绍一下这所学校", "学校是什么样
+  // 的") previously produced no local evidence and fell back to web search. The
+  // school profile fact now covers those so the answer stays grounded locally.
+  const asksIntroduction = /(?:介绍|简介|概况|什么样|怎么样|如何|是一所|一所怎样|了解).{0,6}(?:学校|仰恩|校园|这所|我们|你们)/.test(normalizedQuery)
+    || /(?:学校|仰恩|校园).{0,6}(?:介绍|简介|概况|情况|怎么样|如何|背景|历史)/.test(normalizedQuery)
+  if (!asksMilitary && !asksCampusScale && !asksIntroduction) return []
   const facts: AssistantEvidence[] = [
     {
       title: '仰恩大学校园概况',
       url: '/campus',
-      snippet: '学校位于福建省泉州市洛江区马甲镇，校园占地2000余亩，全日制学生1.3万余人，设有12个学院。',
+      snippet: '仰恩大学是1987年由吴庆星先生与夫人林惠女士发起创办的民办普通本科高校，位于福建省泉州市洛江区马甲镇，校园占地2000余亩，全日制学生1.3万余人，设有12个学院。',
       source: 'site',
-      text: '仰恩大学多大 校园面积 占地面积 学校规模 在校生 学生人数 学院数量 学校位于福建省泉州市洛江区马甲镇，校园占地2000余亩，全日制学生1.3万余人，设有12个学院。',
+      text: '仰恩大学 学校简介 校园概况 介绍一下 1987年创办 吴庆星 林惠 学校位于福建省泉州市洛江区马甲镇 校园占地2000余亩 全日制学生1.3万余人 设有12个学院',
       score: 0
     },
     {
@@ -3523,6 +3544,21 @@ function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[])
       citations: citationFor('/campus'),
       usedWebSearch: false,
       confidence: 0.96
+    }
+  }
+
+  // Fix B: broad school-introduction questions get a grounded local profile
+  // instead of falling through to web search.
+  const asksIntroduction = /(?:介绍|简介|概况|什么样|怎么样|如何|是一所|一所怎样|了解).{0,6}(?:学校|仰恩|校园|这所|我们|你们)/.test(normalizedQuery)
+    || /(?:学校|仰恩|校园).{0,6}(?:介绍|简介|概况|情况|怎么样|如何|背景|历史)/.test(normalizedQuery)
+  if (asksIntroduction && hardcodedAssistantFactIsCurrent('campusScale')) {
+    return {
+      query,
+      mode: 'local',
+      answer: '仰恩大学是一所由吴庆星先生与夫人林惠女士于1987年发起创办的民办普通本科高校，位于福建省泉州市洛江区马甲镇，校园占地2000余亩，全日制学生1.3万余人，设有12个学院。以上为站内整理的校园概况，专业设置、学费和招生信息请以学校官网与当年招生简章为准。',
+      citations: citationFor('/campus'),
+      usedWebSearch: false,
+      confidence: 0.9
     }
   }
   return null
@@ -5562,7 +5598,14 @@ async function answerCampusQuestionCore(
     }
   })
   throwIfAssistantAborted(config.signal)
-  return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, retrievalPath), config.signal)
+  // Fix C: the web path runs for web_cache/web_search routes, but when the
+  // synthesized answer only cited local/hybrid evidence (usedWebSearch false —
+  // e.g. a paraphrased question answered by vector evidence while web search
+  // added nothing), label the path local_database instead of web_search.
+  const effectiveRetrievalPath: ApiAssistantRetrievalPath = !response.usedWebSearch
+    ? 'local_database'
+    : retrievalPath
+  return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, effectiveRetrievalPath), config.signal)
 }
 /**
  * Answer a campus question with optional per-session memory (P0).
@@ -5580,6 +5623,34 @@ async function answerCampusQuestionCore(
  * Session memory is strictly best-effort: every failure degrades to the plain
  * path, and the API layer hashes the client session id before it reaches here.
  */
+// P4: answer pure memory-recall questions from the session memories directly.
+// The retrieval pipeline can short-circuit with a canned gap response before
+// the model ever sees the injected session context, and the answer cache is
+// query-keyed (not session-keyed), so caching a memory answer would leak it to
+// other sessions. Answering deterministically here avoids both problems.
+const MEMORY_RECALL_RE = /(?:刚才|之前|上次|此前|昨天|我记得|我说过|我问过|我之前|我上次|你刚才|回忆)/u
+const MEMORY_RECALL_SELF_RE = /(?:我的|我这人|我平时|我一般).{0,10}(?:习惯|偏好|喜欢|情况|是什么|什么|哪|吗|呢)/u
+
+function buildMemoryRecallAnswer(query: string, memories: SessionMemoryRecord[]): ApiAssistantResponse | null {
+  if (memories.length === 0) return null
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const recallsMemory = MEMORY_RECALL_RE.test(normalized) || MEMORY_RECALL_SELF_RE.test(normalized)
+  if (!recallsMemory) return null
+  const lines = memories
+    .slice(0, SESSION_MEMORY_CONTEXT_LIMIT)
+    .map(item => sessionMemoryContextLine(item))
+    .filter(Boolean)
+  if (lines.length === 0) return null
+  return {
+    query,
+    mode: 'local',
+    answer: `根据我们之前的对话记录：\n${lines.map(line => `- ${line}`).join('\n')}\n（以上来自本会话的记忆，仅作参考；涉及学校政策的信息仍以官方最新通知为准。）`,
+    citations: [],
+    usedWebSearch: false,
+    confidence: 0.85
+  }
+}
+
 export async function answerCampusQuestion(
   client: DatabaseClient,
   rawQuery: string,
@@ -5596,8 +5667,28 @@ export async function answerCampusQuestion(
   try {
     const lastQuery = readLastSessionQuery(client, sessionKey)
     const effectiveQuery = compose(rawQuery, lastQuery ?? config.previousQuery)
-    const memories = retrieveSessionMemories(client, sessionKey, effectiveQuery, SESSION_MEMORY_CONTEXT_LIMIT)
+    // P4 semantic recall: blend per-memory cosine scores into the n-gram
+    // scoring so recall questions phrased differently from the stored fact
+    // ("我刚才说我一般喜欢什么时候学习" vs the stored preference) still surface.
+    // Best-effort: an empty map keeps the legacy lexical path unchanged.
+    const semanticMemoryScores = await sessionMemorySemanticScores(
+      client,
+      sessionKey,
+      effectiveQuery,
+      assistantEmbeddingConfig(config)
+    )
+    const memories = retrieveSessionMemories(
+      client,
+      sessionKey,
+      effectiveQuery,
+      SESSION_MEMORY_CONTEXT_LIMIT,
+      semanticMemoryScores
+    )
     const sessionContext = memories.map(item => sessionMemoryContextLine(item))
+    // P4: pure memory-recall questions are answered from the session memories
+    // before the retrieval pipeline can short-circuit to a canned gap response.
+    const memoryRecall = buildMemoryRecallAnswer(effectiveQuery, memories)
+    if (memoryRecall) return memoryRecall
     const response = await answerCampusQuestionCore(client, effectiveQuery, { ...config, sessionContext }, hooks)
     try {
       rememberSessionTurn(client, sessionKey, {
@@ -5608,6 +5699,13 @@ export async function answerCampusQuestion(
       })
       // P2: LLM-based fact extraction (shares the gateway circuit breaker).
       await extractSessionMemoryFacts(client, sessionKey, rawQuery, response.answer, config)
+      // P4: index new/changed session memory rows for future semantic recall.
+      await embedSessionMemoryRows(
+        client,
+        sessionKey,
+        ['answered', 'fact', 'preference'],
+        assistantEmbeddingConfig(config)
+      )
     } catch {
       // A memory write must never turn a good answer into a failure.
     }

@@ -1017,3 +1017,33 @@ test('assistant endpoint is server-only, rate limited and excluded from CDN cach
   assert.match(config, /aiGatewayTimeoutMs: 60_000/)
   assert.match(config, /aiMcpTimeoutMs: 25_000/)
 })
+
+test('self-referential and conversational statements reach the assistant instead of the keyword redirect', () => {
+  // Statements about the user's own state are chat/memory material.
+  assert.equal(isQuestionLike('我喜欢在晚上学习效率更高'), true)
+  assert.equal(isQuestionLike('我这人有什么学习习惯'), true)
+  assert.equal(isQuestionLike('我晚上学习效率更高，你觉得我适合晚上学习吗'), true)
+  assert.equal(isQuestionLike('我刚才说我一般喜欢什么时候学习'), true)
+  // Pure keyword queries still route to regular search.
+  assert.equal(isQuestionLike('校园网'), false)
+  assert.equal(isQuestionLike('学费'), false)
+  assert.equal(isQuestionLike('宿舍条件'), false)
+})
+
+test('broad school-introduction questions answer locally from the campus profile', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-intro-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const response = await answerCampusQuestion(client, '简单介绍一下这所学校', emptyAssistantConfig)
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.equal(response.usedWebSearch, false)
+    assert.ok(response.answer.includes('仰恩大学'), 'campus profile is the answer')
+    assert.equal(response.citations.some(item => item.url === '/campus'), true)
+    assert.ok(response.confidence >= 0.8)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})

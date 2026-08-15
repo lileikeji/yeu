@@ -252,8 +252,19 @@ export function rememberSessionTurn(
 }
 
 /** Score one memory entry against the query (similarity + importance + recency). */
-function memoryScore(query: string, record: SessionMemoryRecord, now: number): number {
-  const similarity = semanticTextSimilarity(query, record.content)
+function memoryScore(
+  query: string,
+  record: SessionMemoryRecord,
+  now: number,
+  semantic = 0
+): number {
+  // Semantic cosine (0..1) from the vector channel acts as an alternative
+  // similarity signal: a recall question phrased differently from the stored
+  // fact ("我刚才说我喜欢什么时候学习" vs "用户认为自己晚上学习效率更高")
+  // shares few character n-grams, so pure lexical Dice would drop it below the
+  // threshold. When the semantic score is stronger, use it instead of the
+  // lexical Dice similarity; importance/recency keep their original weight.
+  const similarity = Math.max(semanticTextSimilarity(query, record.content), semantic)
   const ageMs = Math.max(0, now - record.createdAt)
   const recency = Math.max(0, 1 - ageMs / SESSION_MEMORY_DEFAULT_TTL_MS)
   return similarity * 0.6 + (record.importance / 100) * 0.2 + recency * 0.2
@@ -267,7 +278,9 @@ export function retrieveSessionMemories(
   client: DatabaseClient,
   sessionKey: string,
   query: string,
-  limit = SESSION_MEMORY_CONTEXT_LIMIT
+  limit = SESSION_MEMORY_CONTEXT_LIMIT,
+  /** Optional memoryId -> cosine similarity (0..1) from the vector channel. */
+  semanticScores?: ReadonlyMap<string, number>
 ): SessionMemoryRecord[] {
   if (!query.trim()) return []
   const now = Date.now()
@@ -281,7 +294,10 @@ export function retrieveSessionMemories(
   }
   const records = rows.map(rowToRecord)
   const scored = records
-    .map(record => ({ record, score: memoryScore(query, record, now) }))
+    .map(record => ({
+      record,
+      score: memoryScore(query, record, now, semanticScores?.get(record.id) ?? 0)
+    }))
     .filter(item => item.score >= SESSION_MEMORY_MIN_SCORE)
     .sort((left, right) => right.score - left.score)
     .slice(0, limit)

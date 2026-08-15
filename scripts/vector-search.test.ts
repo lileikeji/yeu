@@ -15,12 +15,20 @@ import {
 import {
   chunkText,
   collectVectorIndexRows,
+  embedSessionMemoryRows,
   mergeVectorEvidence,
   pruneVectorIndex,
   retrieveVectorEvidence,
+  sessionMemorySemanticScores,
   upsertVectorIndex,
   vectorSearchReady
 } from '../server/modules/assistant/vector-search'
+import {
+  hashSessionKey,
+  rememberExtractedFacts,
+  rememberSessionTurn,
+  type SessionMemoryRecord
+} from '../server/modules/assistant/memory'
 import { seedAssistantKnowledge } from './seed-assistant-knowledge'
 
 const fakeConfig = {
@@ -174,6 +182,83 @@ test('vector search degrades gracefully when unconfigured or empty', async () =>
     assert.equal(pruned, 1)
     const after = client.sqlite.prepare('SELECT count(*) AS n FROM assistant_embeddings').get() as { n: number }
     assert.equal(after.n, 0)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('session memory facts embed into the vector index and skip unchanged rows', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-vector-mem-embed-'))
+  const databasePath = join(directory, 'test.sqlite')
+  try {
+    const client = getDatabase(databasePath)
+    runMigrations(client)
+    const sessionKey = hashSessionKey('mem-embed-session')
+
+    const added = rememberExtractedFacts(client, sessionKey, '我喜欢晚上学习效率更高', [
+      { kind: 'preference', content: '用户认为自己晚上学习效率更高' }
+    ])
+    assert.equal(added, 1)
+
+    const first = await embedSessionMemoryRows(client, sessionKey, ['preference'], fakeConfig, fakeEmbedder)
+    assert.equal(first, 1, 'one preference row embedded')
+    const rows = client.sqlite.prepare(
+      "SELECT source_type, source_id, title FROM assistant_embeddings WHERE source_type = 'memory'"
+    ).all() as Array<{ source_type: string, source_id: string, title: string }>
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0]!.source_id.length > 0, true)
+    assert.equal(rows[0]!.title, 'preference')
+
+    // Unchanged content is skipped on a second pass.
+    const second = await embedSessionMemoryRows(client, sessionKey, ['preference'], fakeConfig, fakeEmbedder)
+    assert.equal(second, 0, 'unchanged memory rows are skipped')
+
+    // Only requested kinds are embedded; answered turns are embedded too once present.
+    rememberSessionTurn(client, sessionKey, {
+      query: '我晚上学习效率更高',
+      answer: '测试回答',
+      confidence: 0.9,
+      mode: 'ai'
+    })
+    const third = await embedSessionMemoryRows(client, sessionKey, ['answered'], fakeConfig, fakeEmbedder)
+    assert.equal(third, 1, 'answered turn embedded when requested')
+    const fourth = await embedSessionMemoryRows(client, sessionKey, ['answered'], fakeConfig, fakeEmbedder)
+    assert.equal(fourth, 0, 'answered turn skipped when unchanged')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('session memory semantic scores are session-scoped and return cosine similarities', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-vector-mem-scores-'))
+  const databasePath = join(directory, 'test.sqlite')
+  try {
+    const client = getDatabase(databasePath)
+    runMigrations(client)
+    const sessionA = hashSessionKey('mem-scores-a')
+    const sessionB = hashSessionKey('mem-scores-b')
+    rememberExtractedFacts(client, sessionA, '我喜欢晚上学习', [
+      { kind: 'preference', content: '用户认为自己晚上学习效率更高' }
+    ])
+    rememberExtractedFacts(client, sessionB, '我喜欢踢足球', [
+      { kind: 'preference', content: '用户喜欢踢足球' }
+    ])
+    await embedSessionMemoryRows(client, sessionA, ['preference'], fakeConfig, fakeEmbedder)
+    await embedSessionMemoryRows(client, sessionB, ['preference'], fakeConfig, fakeEmbedder)
+
+    const scoresA = await sessionMemorySemanticScores(client, sessionA, '我刚才说我一般喜欢什么时候学习', fakeConfig, 8, fakeEmbedder)
+    assert.ok(scoresA.size >= 1, 'session A has semantic scores')
+    for (const value of scoresA.values()) {
+      assert.ok(value > 0 && value <= 1)
+    }
+
+    // Session B memories must not leak into session A's scores.
+    const memoryB = client.sqlite.prepare(
+      'SELECT id FROM assistant_session_memory WHERE session_key = ? AND kind = ?'
+    ).get(sessionB, 'preference') as { id: string }
+    assert.equal(scoresA.has(memoryB.id), false, 'other-session memory is excluded')
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

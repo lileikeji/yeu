@@ -93,6 +93,12 @@ export function assistantIdentitySubject(value: string): string | null {
   return subject.length >= 2 ? subject : null
 }
 
+// Self-referential conversational statements ("我喜欢在晚上学习效率更高",
+// "我这人有什么学习习惯") are chat/memory material rather than search keywords.
+// Without this they hit the 422 keyword-search redirect and can never be
+// remembered or recalled by the session-memory layer.
+const SELF_REFERENTIAL_PATTERN = /(?:我|俺|咱|本人)(?:.{0,16}?)(?:喜欢|觉得|认为|希望|想要|打算|习惯|爱|是|在|住|学|考|选|报|买|带|吃|用|玩|想|家|专业|班|宿舍)/u
+
 export function isQuestionLike(value: string): boolean {
   const query = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
   if (query.length < 2) return false
@@ -100,6 +106,7 @@ export function isQuestionLike(value: string): boolean {
     || QUESTION_ENDING_PATTERN.test(query)
     || QUESTION_MARKERS.some(marker => query.includes(marker))
     || ASSISTANT_COMMAND_PATTERN.test(query)
+    || SELF_REFERENTIAL_PATTERN.test(query)
 }
 
 export function containsPromptInjection(value: string): boolean {
