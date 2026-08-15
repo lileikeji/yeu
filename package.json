@@ -72,7 +72,8 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "memory:cleanup": "tsx scripts/cleanup-session-memory.ts",
-    "embeddings:rebuild": "tsx scripts/rebuild-embeddings.ts"
+    "embeddings:rebuild": "tsx scripts/rebuild-embeddings.ts",
+    "caches:cleanup": "tsx scripts/cleanup-assistant-caches.ts"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",
