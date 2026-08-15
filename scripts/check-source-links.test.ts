@@ -1,35 +1,32 @@
 import assert from 'node:assert/strict'
-import { createServer } from 'node:http'
 import test from 'node:test'
 import { checkSourceLink, checkSourceLinks } from './check-source-links'
 
-test('source checker follows redirects and falls back to GET when HEAD is unsupported', async (context) => {
-  const server = createServer((request, response) => {
-    if (request.url === '/redirect') {
-      response.writeHead(302, { Location: '/ok' }).end()
-      return
+test('source checker follows redirects and falls back to GET when HEAD is unsupported', async () => {
+  // Fully mocked: no real socket/DNS so the suite stays deterministic under
+  // parallel load. The mock routes by path and honours HEAD-vs-GET fallback.
+  const base = 'http://check-source.test';
+  const mockedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const href = String(input)
+    const url = new URL(href)
+    const method = (init?.method ?? 'GET').toUpperCase()
+    if (url.pathname === '/redirect') {
+      return new Response(null, { status: 302, headers: { Location: base + '/ok' } })
     }
-    if (request.url === '/fallback' && request.method === 'HEAD') {
-      response.writeHead(405).end()
-      return
+    if (url.pathname === '/fallback' && method === 'HEAD') {
+      return new Response(null, { status: 405 })
     }
-    if (request.url === '/missing') {
-      response.writeHead(404).end()
-      return
+    if (url.pathname === '/missing') {
+      return new Response(null, { status: 404 })
     }
-    response.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok')
-  })
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  context.after(() => new Promise(resolve => server.close(() => resolve())))
-  const address = server.address()
-  assert.ok(address && typeof address === 'object')
-  const base = `http://127.0.0.1:${address.port}`
+    return new Response('ok', { status: 200, headers: { 'Content-Type': 'text/plain' } })
+  }
 
   const results = await checkSourceLinks([
-    { id: 'redirect', title: 'Redirect', url: `${base}/redirect` },
-    { id: 'fallback', title: 'Fallback', url: `${base}/fallback` },
-    { id: 'missing', title: 'Missing', url: `${base}/missing` }
-  ], { concurrency: 2, timeoutMs: 2_000, allowPrivateNetwork: true })
+    { id: 'redirect', title: 'Redirect', url: base + '/redirect' },
+    { id: 'fallback', title: 'Fallback', url: base + '/fallback' },
+    { id: 'missing', title: 'Missing', url: base + '/missing' }
+  ], { concurrency: 2, timeoutMs: 2_000, allowPrivateNetwork: true }, mockedFetch)
 
   assert.deepEqual(results.map(result => ({
     id: result.id,
@@ -41,7 +38,7 @@ test('source checker follows redirects and falls back to GET when HEAD is unsupp
     { id: 'fallback', state: 'healthy', status: 200, method: 'GET' },
     { id: 'missing', state: 'broken', status: 404, method: 'HEAD' }
   ])
-  assert.equal(results[0]?.finalUrl, `${base}/ok`)
+  assert.equal(results[0]?.finalUrl, base + '/ok')
 })
 
 test('source checker rejects non-HTTP URLs without issuing a request', async () => {

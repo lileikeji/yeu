@@ -174,6 +174,13 @@ async function main(): Promise<void> {
       for (const [page, topic] of PAGE_TOPICS) {
         const pageText = pages.get(page)
         if (!pageText) throw new Error(`PDF page ${page} did not contain selectable text`)
+        // The handbook's raw page 4 claims buses are also 1元一次, which
+        // contradicts the verified 泉州公交公告 (K6 全程一票制 2 元). Keep the
+        // 叮叮车 fare (1 元, consistent with the summary) but drop the wrong
+        // bus-fare parenthetical so it can never be cited as conflicting evidence.
+        const sanitizedPageText = page === 4
+          ? pageText.replace(/\(?:公交车也是\s*1\s*元一次\s*(?:哦)?\s*\)|（公交车也是\s*1\s*元一次\s*(?:哦)?）/gu, '')
+          : pageText
         const id = stableId('handbook2026', `${page}\n${topic.title}`)
         const answer = [
           `${topic.warning}`,
@@ -201,7 +208,7 @@ async function main(): Promise<void> {
           id,
           topic.category,
           topic.title,
-          `${topic.questions}\n${pageText}`,
+          `${topic.questions}\n${sanitizedPageText}`,
           answer,
           JSON.stringify(topic.keywords),
           `${HANDBOOK_TITLE}第${page}页；学生经验资料，非学校官方通知。`,

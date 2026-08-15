@@ -1778,7 +1778,7 @@ export function seedCatalogEvidenceForQuery(query: string, limit = 8): Assistant
     return {
       title: option.title,
       url: '/transport',
-      snippet: `${option.title}：${option.summary} ${option.serviceHours}`,
+      snippet: `${option.title}：${option.summary} ${option.fare} ${option.serviceHours}`,
       source: 'site' as const,
       text: detail,
       score: evidenceScore(option.title, option.summary, detail, terms) + exactKeywordBoost
