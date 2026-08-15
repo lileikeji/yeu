@@ -70,6 +70,18 @@ export const comprehensiveEvaluationKnowledge: AssistantKnowledgeSeed[] = [
     sourceNote: '仰大学〔2021〕16号；具体可认定项目以学院当年审核口径为准。'
   },
   {
+    id: 'comprehensive-moral-base',
+    kind: 'official_reference',
+    category: '综合测评',
+    title: '德育基础分怎么评',
+    question: '综测德育基础分是多少，怎么算？',
+    answer: '德育满分25分，由德育基础分、班内互评分、德育奖励分和德育扣分构成：德育基础分满分为6分，由辅导员、班主任依据思想品德、遵纪守法、集体活动等标准酌情评分，其中5.4-6分的人数不超过班级参评人数的20%；班内互评最高6分；德育奖励分最多13分。多数同学的德育基础分并不都是6分。',
+    keywords: ['德育基础分', '德育分', '辅导员评分', '思想品德', '基础分'],
+    publicUrl: comprehensiveEvaluationUrl,
+    confidence: 96,
+    sourceNote: '官网2025版《仰恩大学学生综合测评实施办法（修订）》第五条。'
+  },
+  {
     id: 'comprehensive-volunteer',
     kind: 'official_reference',
     category: '综合测评',

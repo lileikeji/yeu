@@ -315,9 +315,11 @@ export const zongceDeductions: Array<{ name: string; points: number; unit: strin
 
 export const zongceStructure = {
   total: 100,
+  // base/peerReview 均为满分上限：德育基础分由辅导员/班主任按标准酌情评分（0-6，5.4-6 分人数不超过 20%），班内互评 =（自评+他评总和）÷ 参评人数（最高 6）
   moral: { points: 25, base: 6, peerReview: 6, rewardCap: 13 },
   intellectual: { points: 70, base: 60, rewardCap: 10 },
   // base 60 为满分上限：智育基础分 =（本人本学年度平均成绩 ÷ 本年级本专业最高平均成绩）× 60，随成绩浮动；计算器按该公式折算。
+  // base 3 为及格档：体育课成绩与体质健康测试均 ≥ 60 分得 3 分，任一项不及格得 1 分；rewardCap 2 为体育奖励上限
   sports: { points: 5, base: 3, rewardCap: 2 }
 }
 

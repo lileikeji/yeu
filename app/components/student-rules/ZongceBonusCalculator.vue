@@ -25,6 +25,18 @@ const intellectualBase = computed(() => {
   }
   return Math.max(0, Math.min(1, mine / max)) * zongceStructure.intellectual.base
 })
+/** 德育基础分：辅导员/班主任按标准酌情评分，满分 6 分（5.4-6 分人数不超过 20%）；未调整按满分 6 估算。 */
+const moralBaseScore = ref<number | string>(6)
+/** 班内互评分：=（个人自评 + 其他参评人员评分总和）÷ 参评人数，最高 6 分；未调整按满分 6 估算。 */
+const peerReviewScore = ref<number | string>(6)
+/** 体育基础分：体育课成绩与体质健康测试均 ≥ 60 分得 3 分；任一项不及格得 1 分。 */
+const sportsPass = ref(true)
+
+function clampScore(v: number | string, max: number): number {
+  const value = Number(v)
+  if (!Number.isFinite(value)) return max
+  return Math.max(0, Math.min(max, value))
+}
 
 function pointsOfItem(item: ZongceItem, category: ZongceCategory): number {
   if (!item.id) return 0
@@ -62,9 +74,11 @@ const sections = computed(() => {
     return { key, name, base, reward: rewardCapped, rawReward: reward, subtotal }
   }
 
-  const moral = build('moral', '德育', pick(moralIds), zongceStructure.moral.base + zongceStructure.moral.peerReview)
+  const moralBase = clampScore(moralBaseScore.value, zongceStructure.moral.base) + clampScore(peerReviewScore.value, zongceStructure.moral.peerReview)
+  const moral = build('moral', '德育', pick(moralIds), moralBase)
   const intellectual = build('intellectual', '智育', pick(intellectualIds), intellectualBase.value)
-  const sports = build('sports', '体育', pick(new Set(['sports'])), zongceStructure.sports.base)
+  const sportsBase = sportsPass.value ? zongceStructure.sports.base : 1
+  const sports = build('sports', '体育', pick(new Set(['sports'])), sportsBase)
   const total = moral.subtotal + intellectual.subtotal + sports.subtotal
   return { moral, intellectual, sports, total }
 })
@@ -76,6 +90,9 @@ const reset = (): void => {
   qty.value = {}
   myAvgScore.value = ''
   maxAvgScore.value = ''
+  moralBaseScore.value = 6
+  peerReviewScore.value = 6
+  sportsPass.value = true
 }
 </script>
 
@@ -122,12 +139,57 @@ const reset = (): void => {
       <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-2.5">
         <p class="text-base font-semibold text-zinc-900">
           德育
-          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.moral.base }}（含班内互评 6，按满分估算）+ 奖励（上限 {{ zongceStructure.moral.rewardCap }}）</span>
+          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.moral.base.toFixed(2) }} + 奖励（上限 {{ zongceStructure.moral.rewardCap }}）</span>
         </p>
         <p class="text-lg font-bold text-zinc-900 tabular-nums">
           {{ sections.moral.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400">/ 25 分</span>
         </p>
       </div>
+
+      <!-- 德育基础分：辅导员评分 + 班内互评（均按满分估算） -->
+      <div class="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm font-semibold text-zinc-800">
+            德育基础分（评分制）
+            <span class="ml-1 font-normal text-zinc-500">基础分由辅导员/班主任按标准评分，满分 6 分（5.4-6 分人数不超过 20%）</span>
+          </p>
+          <p class="text-sm text-zinc-600">
+            基础合计
+            <strong class="ml-1 text-lg font-bold text-zinc-900 tabular-nums">{{ sections.moral.base.toFixed(2) }}</strong>
+            <span class="text-xs text-zinc-400">/ 12</span>
+          </p>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <label class="flex items-center gap-2 text-zinc-600">
+            德育基础分
+            <input
+              v-model.number="moralBaseScore"
+              type="number"
+              min="0"
+              max="6"
+              step="0.1"
+              class="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+              aria-label="德育基础分"
+            /><span class="text-xs text-zinc-400">/ 6</span>
+          </label>
+          <label class="flex items-center gap-2 text-zinc-600">
+            班内互评分
+            <input
+              v-model.number="peerReviewScore"
+              type="number"
+              min="0"
+              max="6"
+              step="0.1"
+              class="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+              aria-label="班内互评分"
+            /><span class="text-xs text-zinc-400">/ 6</span>
+          </label>
+        </div>
+        <p class="mt-2 text-xs leading-5 text-zinc-500">
+          班内互评分 =（个人自评 + 其他参评人员评分总和）÷ 全部参评人数，最高 6 分。德育基础分多数同学不足 6 分（5.4-6 分人数不超过 20%），不调整时按满分估算。
+        </p>
+      </div>
+
       <div class="mt-3 grid gap-4 lg:grid-cols-2">
         <div
           v-for="category in zongceBonusCategories.filter(c => ['moral-honor','moral-work','moral-competition','moral-others'].includes(c.id))"
@@ -285,12 +347,35 @@ const reset = (): void => {
       <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-2.5">
         <p class="text-base font-semibold text-zinc-900">
           体育
-          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.sports.base }} + 奖励（上限 {{ zongceStructure.sports.rewardCap }}）</span>
+          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.sports.base }}（及格 3 / 不及格 1）+ 奖励（上限 {{ zongceStructure.sports.rewardCap }}）</span>
         </p>
         <p class="text-lg font-bold text-zinc-900 tabular-nums">
           {{ sections.sports.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400">/ 5 分</span>
         </p>
       </div>
+
+      <!-- 体育基础分：看体育课与体测是否及格 -->
+      <div class="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4">
+        <p class="text-sm font-semibold text-zinc-800">
+          体育基础分（看体测）
+          <span class="ml-1 font-normal text-zinc-500">体育课成绩与体质健康测试均 ≥ 60 分得 3 分；任一项不及格得 1 分</span>
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2 text-sm">
+          <button
+            type="button"
+            class="rounded-md border px-3 py-1.5 transition-colors"
+            :class="sportsPass ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
+            @click="sportsPass = true"
+          >体育课与体测均及格（基础 3 分）</button>
+          <button
+            type="button"
+            class="rounded-md border px-3 py-1.5 transition-colors"
+            :class="!sportsPass ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
+            @click="sportsPass = false"
+          >任一项不及格（基础 1 分）</button>
+        </div>
+      </div>
+
       <div class="mt-3 grid gap-4 lg:grid-cols-2">
         <div
           v-for="category in zongceBonusCategories.filter(c => c.id === 'sports')"
