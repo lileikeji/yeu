@@ -167,7 +167,10 @@ test('permanent knowledge RAG matches common experience and comprehensive-evalua
     assert.equal(experience.citations[0]?.url, '/search?knowledge=experience-hair-dye')
 
     const unsupportedDormDetail = await answerCampusQuestion(client, '普通型宿舍有阳台吗', assistantConfig)
-    assert.match(unsupportedDormDetail.answer, /内置资料暂时没有找到/)
+    // The dorm comparison note now surfaces for balcony questions (it lists
+    // 阳台 for 舒适型). The answer must stay conservative and must not leak
+    // the note's 洗衣机/住宿费 details as a confident balcony answer.
+    assert.match(unsupportedDormDetail.answer, /内置资料暂时没有找到|片段不能直接确认/)
     assert.doesNotMatch(unsupportedDormDetail.answer, /洗衣机|宿舍价格/)
   } finally {
     closeDatabase(databasePath)
