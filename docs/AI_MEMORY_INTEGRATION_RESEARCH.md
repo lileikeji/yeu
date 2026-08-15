@@ -207,3 +207,9 @@
 - **实测发现并修复**：生产 `NUXT_AI_GATEWAY_MODEL=gpt-5.4` 不被本机网关（127.0.0.1:18080，仅支持 deepseek-v4-pro/flash）接受，导致 AI 网关调用一直失败、只能本地 fallback、P2 抽取不落盘。已改为 `deepseek-v4-flash` 并重启复测：网关回答正常（conf 0.95）、LLM 抽取落盘（fact「用户是专升本学生」+ preference「用户关注宿舍条件」）。`.env.bak-20260815` 保留原值。
 - 页面级：首页/搜索(AI)/地图/宿舍/联系/断网页全部 200。
 - 测试数据已清理（`assistant_session_memory` 归零）。
+
+## 八、后续优化（2026-08-15）
+
+- **回答/网络缓存过期清理**：新增 `scripts/cleanup-assistant-caches.ts`（`pnpm caches:cleanup`），删除过期 `assistant_answer_cache` 与 `assistant_web_knowledge` 行。线上首次清理：answer 149→9、web 728→42。
+- **每日定时维护**：服务器新增 `yeu-maintenance.service` + `.timer`（每天 03:40，`RandomizedDelaySec=10m`，User=yeu）。执行：memory:cleanup（过期会话记忆）→ caches:cleanup（过期缓存）→ embeddings:rebuild --apply（按 text_hash 增量，无变化时 0 次 API 调用）。注意 systemd `ProtectHome=true` 下 pnpm/corepack 无法访问 yeu 用户缓存（EACCES），脚本改用 `node …/tsx/dist/cli.mjs` 直接执行，规避 corepack。
+- 遗留：`data:verify` 的「黑龙江楼 must stay draft」为既有数据问题（published+verified 但无 approved 坐标观测），需后台退回 draft 或补齐观测后通过。
