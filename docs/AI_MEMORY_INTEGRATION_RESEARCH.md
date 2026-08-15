@@ -379,3 +379,43 @@ P6 参考 Mem0 的 consolidation 与 Letta 的 sleep-time compute，无模型调
 
 - `rerank.ts` 独立 tsc 通过；`nuxt typecheck` 通过；记忆/管线改动均为纯增量、未配置 rerank 时行为不变。
 - 离线评测基线（`pnpm eval:retrieval`，codex 生产快照库 16643 claims/591 entries，22 条案例）：**Recall@5 0.909 / Recall@10 0.955 / MRR 0.827**，仅漏「军训时间」（该快照缺 2026 军训 12 月 claims）。注：本地开发库 `data/yeu.sqlite` 为旧快照（169 claims/0 entries），评估请用 `--database=` 指向数据完整库或先 `pnpm db:seed:assistant`。
+
+## 十二、线上全面验证记录（2026-08-15 第三轮：P8 上线）
+
+> 部署 release `20260815-205713-2ca959f`（master = eeba711 P8 + 2ca959f 并行 calculator 修复），生产库 744MB，systemd 重启后健康。服务器 .env 新增 `NUXT_AI_RERANK_*`（复用 embedding key，模型 BAAI/bge-reranker-v2-m3）。release 首次**包含 node_modules**，修复 yeu-maintenance.timer 引用的 `current/node_modules/tsx`（此前 release 无 node_modules，定时器从未成功执行）。
+
+### 12.1 离线评测（生产库 22 案例）
+
+| 指标 | 基线（无 rerank） | 重排后（bge-reranker-v2-m3） |
+| --- | --- | --- |
+| Recall@5 | 0.909 | 0.909 |
+| Recall@10 | 0.909 | 0.909 |
+| **MRR** | **0.820** | **0.864（+5.4%）** |
+
+- 19/22 查询真实调用硅基 rerank API 并生效；重排提升排序精度（MRR +0.044），召回不变（重排不负责召回，符合预期）。
+- 2 个 miss（军训时间/门禁时间）为评测集口径：事实由确定性处理器/硬编码（militarySchedule2026、dormGuide2026）直接回答，不在检索 claims 中——线上实测这两问均返回正确本地答案。
+
+### 12.2 线上 API 实测（10 类查询全过，status 200）
+
+| 查询 | 路由 | 结果 |
+| --- | --- | --- |
+| 军训时间 | local | 2026-12-13~26 冬训，正确 |
+| 舒适型宿舍费用 | local | 2780/2580/1300，正确 |
+| 综合测评怎么算 | local | 德育25/智育70/体育5，正确 |
+| 学费（KB 问法） | local | 23000/24000/25000 全专业清单，正确 |
+| 住宿条件怎么样（改述） | ai+6 cites | 综合答，rerank 相关路径正常 |
+| 转专业条件流程 | local | 历史细则+提示，正确 |
+| 2026 招生计划 | ai+web | 920/26 专业/17 专升本，web 兜底正常 |
+| 吴庆星是谁 | local identity | 创始人简介，正确 |
+| 学费（改述，无金额） | ai | 保守答（改述路由差异，KB 问法正确） |
+
+### 12.3 会话记忆（hitCount 信号上线验证）
+
+- turn1 陈述「习惯晚上十点以后学习」→ 存为 preference（importance 60）；
+- turn2 改述召回 → 命中记忆（hit_count=1）；turn3 显式回忆 → 引用「此前偏好：习惯晚上十点以后学习」（hit_count=2）。
+- DB 确认：preference 行 hit_count=2（每次召回 +1），hitCount 消费逻辑生效；服务日志无错误。
+
+### 12.4 遗留
+
+- 「军训时间/门禁时间」离线评测 miss 属评测集口径（确定性处理优先），如需纳入评测需把确定性答案也建模为期望证据。
+- 线上 rerank 依赖硅基 API，若 key 失效自动降级为原 RRF 排序（静默，无错误日志）；可考虑在 analytics 记录 rerank 失败计数便于观测。
