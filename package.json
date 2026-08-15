@@ -73,7 +73,8 @@
     "typecheck": "nuxt typecheck",
     "memory:cleanup": "tsx scripts/cleanup-session-memory.ts",
     "embeddings:rebuild": "tsx scripts/rebuild-embeddings.ts",
-    "caches:cleanup": "tsx scripts/cleanup-assistant-caches.ts"
+    "caches:cleanup": "tsx scripts/cleanup-assistant-caches.ts",
+    "memory:consolidate": "tsx scripts/consolidate-session-memory.ts"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",

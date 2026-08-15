@@ -7,6 +7,7 @@ import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { answerCampusQuestion } from '../server/modules/assistant/service'
 import {
+  consolidateSessionMemories,
   hashSessionKey,
   rememberExtractedFacts,
   sessionMemoryStats,
@@ -173,6 +174,47 @@ test('memory-recall questions answer from session memories instead of the gap re
     assert.ok(!plain.answer.includes('根据我们之前的对话记录'), 'new statements are not treated as recall')
   } finally {
     globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('consolidation merges near-duplicate extracted facts per session', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-memory-consolidate-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const sessionKey = hashSessionKey('consolidate-session')
+    // Near-duplicate preferences (same meaning, slightly different wording).
+    rememberExtractedFacts(client, sessionKey, '我喜欢晚上学习', [
+      { kind: 'preference', content: '用户喜欢在晚上学习' },
+      { kind: 'preference', content: '用户喜欢在晚上学习效率更高' }
+    ])
+    // A distinct fact that must survive.
+    rememberExtractedFacts(client, sessionKey, '我是专升本学生', [
+      { kind: 'fact', content: '用户是专升本学生' }
+    ])
+
+    const dry = consolidateSessionMemories(client, { apply: false })
+    assert.ok(dry.scanned >= 3)
+    assert.ok(dry.removed >= 1, 'near-duplicate preference detected')
+    assert.ok(dry.duplicates.every(d => d.kind === 'preference'))
+    // Dry run must not delete anything.
+    const before = client.sqlite.prepare(
+      'SELECT count(*) AS n FROM assistant_session_memory WHERE session_key = ?'
+    ).get(sessionKey) as { n: number }
+    assert.equal(before.n, 3)
+
+    const applied = consolidateSessionMemories(client, { apply: true })
+    assert.ok(applied.removed >= 1)
+    const after = client.sqlite.prepare(
+      'SELECT count(*) AS n, group_concat(content) AS contents FROM assistant_session_memory WHERE session_key = ?'
+    ).get(sessionKey) as { n: number, contents: string }
+    assert.equal(after.n, 2, 'one duplicate removed, distinct fact kept')
+    assert.ok(after.contents.includes('专升本'), 'distinct fact survives')
+    assert.ok(after.contents.includes('晚上学习'), 'newest preference survives')
+  } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
   }

@@ -455,3 +455,90 @@ export function rememberExtractedFacts(
   }
   return added
 }
+
+
+export interface ConsolidationReport {
+  sessions: number
+  scanned: number
+  removed: number
+  kept: number
+  duplicates: Array<{ sessionKey: string, kind: SessionMemoryKind, keptId: string, removedId: string, content: string }>
+}
+
+export interface ConsolidateSessionMemoryOptions {
+  /** Persist deletions. Default false = dry run (report only). */
+  apply?: boolean
+  /** Similarity threshold (0..1) above which two entries are duplicates. Default 0.78. */
+  similarityThreshold?: number
+}
+
+/**
+ * Offline memory consolidation (P6): within each session, merge near-duplicate
+ * extracted facts/preferences. The newest entry of a duplicate cluster is kept
+ * (it reflects the user's most recent statement), older near-duplicates are
+ * removed — mirroring Mem0's consolidation and Letta's sleep-time compaction
+ * without a model call: dedupe is exact content-hash first, then character
+ * n-gram similarity. Dry-run by default; set `apply` to persist deletions.
+ */
+export function consolidateSessionMemories(
+  client: DatabaseClient,
+  options: ConsolidateSessionMemoryOptions = {}
+): ConsolidationReport {
+  const apply = options.apply === true
+  const threshold = Math.min(1, Math.max(0, options.similarityThreshold ?? 0.78))
+  const now = Date.now()
+  let rows: Array<{ id: string, sessionKey: string, kind: SessionMemoryKind, content: string, updatedAt: number }>
+  try {
+    rows = client.sqlite.prepare(
+      'SELECT id, session_key AS sessionKey, kind, content, updated_at AS updatedAt FROM assistant_session_memory'
+      + ' WHERE kind IN (?, ?) AND (expires_at IS NULL OR expires_at > ?) ORDER BY updated_at DESC'
+    ).all('preference', 'fact', now) as Array<{ id: string, sessionKey: string, kind: SessionMemoryKind, content: string, updatedAt: number }>
+  } catch {
+    return { sessions: 0, scanned: 0, removed: 0, kept: 0, duplicates: [] }
+  }
+
+  const report: ConsolidationReport = { sessions: 0, scanned: 0, removed: 0, kept: 0, duplicates: [] }
+  const bySession = new Map<string, typeof rows>()
+  for (const row of rows) {
+    const list = bySession.get(row.sessionKey) ?? []
+    list.push(row)
+    bySession.set(row.sessionKey, list)
+  }
+  report.sessions = bySession.size
+
+  const removeIds: string[] = []
+  for (const [sessionKey, sessionRows] of bySession) {
+    const keptPerKind = new Map<SessionMemoryKind, typeof rows>()
+    for (const row of sessionRows) {
+      const kept = keptPerKind.get(row.kind) ?? []
+      const duplicate = kept.find(candidate => semanticTextSimilarity(row.content, candidate.content) >= threshold)
+      if (duplicate) {
+        report.duplicates.push({
+          sessionKey,
+          kind: row.kind,
+          keptId: duplicate.id,
+          removedId: row.id,
+          content: row.content
+        })
+        removeIds.push(row.id)
+        continue
+      }
+      kept.push(row)
+      keptPerKind.set(row.kind, kept)
+    }
+  }
+  report.scanned = rows.length
+  report.removed = removeIds.length
+  report.kept = rows.length - removeIds.length
+
+  if (apply && removeIds.length > 0) {
+    try {
+      client.sqlite.prepare(
+        'DELETE FROM assistant_session_memory WHERE id IN (' + removeIds.map(() => '?').join(',') + ')'
+      ).run(...removeIds)
+    } catch {
+      // Best-effort: a failed delete leaves the rows in place.
+    }
+  }
+  return report
+}
