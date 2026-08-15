@@ -103,6 +103,40 @@ test('vector index builds, retrieves and prunes with a deterministic embedder', 
   }
 })
 
+test('index scaling limits cap documents and claims', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-vector-limits-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    // seed a document with long text + many claims
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO knowledge_documents (id, kind, title, content_hash, extracted_text, status, captured_at, processed_at, created_at, updated_at)
+      VALUES ('doc-long', 'webpage', '长文档', 'h1', ?, 'ready', ?, ?, ?, ?)
+    `).run('甲'.repeat(3000), now, now, now, now)
+    for (let i = 0; i < 12; i += 1) {
+      client.sqlite.prepare(`
+        INSERT INTO knowledge_claims (id, category, title, statement, review_status, published_at, created_at, updated_at)
+        VALUES (?, 'c', ?, ?, 'published', ?, ?, ?)
+      `).run('claim-' + i, '声明' + i, '声明内容' + i, now, now, now)
+    }
+
+    const all = collectVectorIndexRows(client)
+    const docs = all.filter(row => row.sourceType === 'document')
+    const claims = all.filter(row => row.sourceType === 'claim')
+    assert.equal(docs.length, 1, 'long document is capped to one chunk by default')
+    assert.ok(claims.length <= 8000 && claims.length >= 12)
+
+    // explicit limits: all document chunks, no claim cap
+    const expanded = collectVectorIndexRows(client, { documentChunksPerItem: 0, claimLimit: 0 })
+    assert.ok(expanded.filter(row => row.sourceType === 'document').length > 1, 'documentChunksPerItem: 0 keeps all chunks')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('vector search degrades gracefully when unconfigured or empty', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-vector-off-'))
   const databasePath = join(directory, 'test.sqlite')

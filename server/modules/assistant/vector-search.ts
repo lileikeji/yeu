@@ -15,7 +15,7 @@
  * @module server/modules/assistant/vector-search
  */
 
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
   assistantKnowledgeEntries,
@@ -42,6 +42,19 @@ import {
 export const VECTOR_EVIDENCE_LIMIT = 8
 export const VECTOR_CHUNK_CHARS = 600
 export const VECTOR_CHUNK_OVERLAP = 80
+
+/**
+ * Index-scaling controls. The production knowledge library holds tens of
+ * thousands of claims and documents; embedding every chunk is neither cheap
+ * nor fast, so the default caps keep the index at a few thousand chunks while
+ * preserving the most recent claims and one summary chunk per document.
+ */
+export interface VectorIndexLimits {
+  /** Chunks indexed per document (0 = all). Default 1 (first ~600 chars). */
+  documentChunksPerItem?: number
+  /** Max published claims indexed (0 = all). Default 8000, newest first. */
+  claimLimit?: number
+}
 
 export interface VectorIndexRow {
   sourceType: string
@@ -109,7 +122,10 @@ export function chunkText(text: string, chunkChars = VECTOR_CHUNK_CHARS, overlap
  * Enumerate every chunk that should be embedded, straight from the current
  * database content. Deterministic ids let rebuilds upsert in place.
  */
-export function collectVectorIndexRows(client: DatabaseClient): VectorIndexRow[] {
+export function collectVectorIndexRows(
+  client: DatabaseClient,
+  limits: VectorIndexLimits = {}
+): VectorIndexRow[] {
   const rows: VectorIndexRow[] = []
 
   const entries = client.db.select({
@@ -133,12 +149,16 @@ export function collectVectorIndexRows(client: DatabaseClient): VectorIndexRow[]
     })
   }
 
-  const claims = client.db.select({
+  const claimLimit = limits.claimLimit ?? 8000
+  const claimQuery = client.db.select({
     id: knowledgeClaims.id,
     title: knowledgeClaims.title,
     statement: knowledgeClaims.statement,
     publicUrl: knowledgeClaims.publicUrl
-  }).from(knowledgeClaims).where(eq(knowledgeClaims.reviewStatus, 'published')).all()
+  }).from(knowledgeClaims).where(eq(knowledgeClaims.reviewStatus, 'published'))
+  const claims = claimLimit > 0
+    ? claimQuery.orderBy(desc(knowledgeClaims.updatedAt)).limit(claimLimit).all()
+    : claimQuery.all()
   for (const claim of claims) {
     rows.push({
       sourceType: 'claim',
@@ -158,9 +178,11 @@ export function collectVectorIndexRows(client: DatabaseClient): VectorIndexRow[]
     originalUrl: knowledgeDocuments.originalUrl,
     extractedText: knowledgeDocuments.extractedText
   }).from(knowledgeDocuments).where(eq(knowledgeDocuments.status, 'ready')).all()
+  const documentChunks = limits.documentChunksPerItem ?? 1
   for (const document of documents) {
     const chunks = chunkText(document.extractedText)
-    chunks.forEach((chunk, chunkIndex) => {
+    const capped = documentChunks > 0 ? chunks.slice(0, documentChunks) : chunks
+    capped.forEach((chunk, chunkIndex) => {
       rows.push({
         sourceType: 'document',
         sourceId: document.id,
