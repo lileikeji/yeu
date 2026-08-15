@@ -12,6 +12,8 @@ const props = defineProps<{ resourceBase?: never }>()
 
 /** 单选级别：itemId -> level string */
 const selectedLevel = ref<Record<string, string>>({})
+/** 多选条目：itemId -> 已选级别列表（不同项目可累计，板块封顶） */
+const multiSelected = ref<Record<string, string[]>>({})
 /** 数量：itemId -> qty */
 const qty = ref<Record<string, number>>({})
 /** 智育基础分按成绩计算：=（本人平均成绩 ÷ 本专业最高平均成绩）× 60；未填写按满分 60 估算。 */
@@ -38,6 +40,20 @@ function clampScore(v: number | string, max: number): number {
   return Math.max(0, Math.min(max, value))
 }
 
+function selectedLevelPoints(item: ZongceItem): number {
+  if (item.multi) {
+    // 多选：同大类下不同项目（不同比赛/证书/专利/论文）可累计，条目自身 cap 存在时先封顶
+    const sum = (multiSelected.value[item.id] ?? []).reduce((total, level) => {
+      const matched = item.levels?.find(l => l.level === level)
+      return total + (matched?.points ?? 0)
+    }, 0)
+    return item.cap ? Math.min(item.cap, sum) : sum
+  }
+  const level = selectedLevel.value[item.id]
+  const matched = item.levels?.find(l => l.level === level)
+  return matched ? matched.points : 0
+}
+
 function pointsOfItem(item: ZongceItem, category: ZongceCategory): number {
   if (!item.id) return 0
   if (item.points !== undefined) {
@@ -45,9 +61,23 @@ function pointsOfItem(item: ZongceItem, category: ZongceCategory): number {
     const raw = item.points * q
     return item.cap ? Math.min(item.cap, raw) : raw
   }
-  const level = selectedLevel.value[item.id]
-  const matched = item.levels?.find(l => l.level === level)
-  return matched ? matched.points : 0
+  return selectedLevelPoints(item)
+}
+
+function isLevelSelected(item: ZongceItem, level: string): boolean {
+  if (item.multi) return (multiSelected.value[item.id] ?? []).includes(level)
+  return selectedLevel.value[item.id] === level
+}
+
+function toggleLevel(item: ZongceItem, level: string): void {
+  if (item.multi) {
+    const current = multiSelected.value[item.id] ?? []
+    multiSelected.value[item.id] = current.includes(level)
+      ? current.filter(itemLevel => itemLevel !== level)
+      : [...current, level]
+    return
+  }
+  selectedLevel.value[item.id] = selectedLevel.value[item.id] === level ? '' : level
 }
 
 function categoryTotal(category: ZongceCategory): number {
@@ -87,6 +117,7 @@ const deductionRows = computed(() => zongceDeductions)
 
 const reset = (): void => {
   selectedLevel.value = {}
+  multiSelected.value = {}
   qty.value = {}
   myAvgScore.value = ''
   maxAvgScore.value = ''
@@ -209,13 +240,19 @@ const reset = (): void => {
                 :key="lv.level"
                 type="button"
                 class="rounded-md border px-2.5 py-1 text-xs transition-colors"
-                :class="selectedLevel[item.id] === lv.level
+                :class="isLevelSelected(item, lv.level)
                   ? 'border-zinc-900 bg-zinc-900 text-white'
                   : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
-                @click="selectedLevel[item.id] = selectedLevel[item.id] === lv.level ? '' : lv.level"
+                @click="toggleLevel(item, lv.level)"
               >{{ lv.level }} +{{ lv.points }}
               </button>
             </div>
+            <p
+              v-if="item.multi && selectedLevelPoints(item) > 0"
+              class="mt-1.5 text-xs text-zinc-500"
+            >
+              已选累计 {{ selectedLevelPoints(item).toFixed(2) }} 分（可多选，计入本板块上限；同一比赛/作品/证书只选最高档）
+            </p>
             <div v-else-if="item.points !== undefined && item.cap != null" class="mt-2 flex flex-wrap items-center gap-2">
               <input
                 type="number"
@@ -320,13 +357,19 @@ const reset = (): void => {
                 :key="lv.level"
                 type="button"
                 class="rounded-md border px-2.5 py-1 text-xs transition-colors"
-                :class="selectedLevel[item.id] === lv.level
+                :class="isLevelSelected(item, lv.level)
                   ? 'border-zinc-900 bg-zinc-900 text-white'
                   : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
-                @click="selectedLevel[item.id] = selectedLevel[item.id] === lv.level ? '' : lv.level"
+                @click="toggleLevel(item, lv.level)"
               >{{ lv.level }} +{{ lv.points }}
               </button>
             </div>
+            <p
+              v-if="item.multi && selectedLevelPoints(item) > 0"
+              class="mt-1.5 text-xs text-zinc-500"
+            >
+              已选累计 {{ selectedLevelPoints(item).toFixed(2) }} 分（可多选，计入本板块上限；同一比赛/作品/证书只选最高档）
+            </p>
             <div v-else-if="item.points !== undefined && item.cap != null" class="mt-2 flex flex-wrap items-center gap-2">
               <input
                 type="number"
@@ -395,13 +438,19 @@ const reset = (): void => {
                 :key="lv.level"
                 type="button"
                 class="rounded-md border px-2.5 py-1 text-xs transition-colors"
-                :class="selectedLevel[item.id] === lv.level
+                :class="isLevelSelected(item, lv.level)
                   ? 'border-zinc-900 bg-zinc-900 text-white'
                   : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
-                @click="selectedLevel[item.id] = selectedLevel[item.id] === lv.level ? '' : lv.level"
+                @click="toggleLevel(item, lv.level)"
               >{{ lv.level }} +{{ lv.points }}
               </button>
             </div>
+            <p
+              v-if="item.multi && selectedLevelPoints(item) > 0"
+              class="mt-1.5 text-xs text-zinc-500"
+            >
+              已选累计 {{ selectedLevelPoints(item).toFixed(2) }} 分（可多选，计入本板块上限；同一比赛/作品/证书只选最高档）
+            </p>
           </div>
         </div>
       </div>

@@ -18,6 +18,8 @@ export interface ZongceItem {
   levels?: ZongceItemLevel[]
   points?: number
   cap?: number
+  /** 多选：同一大类下不同项目（不同比赛/证书/专利/论文）可多选累计，计入板块上限；单选项按"最高项不重复"只取一档。 */
+  multi?: boolean
   note?: string
   keywords: string[]
 }
@@ -131,7 +133,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
     id: 'moral-competition', label: '德育奖励·文化艺术/思想道德/综合素质竞赛', cap: 13,
     items: [
       {
-        id: 'comp-culture', name: '文化艺术/思想建设竞赛获奖',
+        id: 'comp-culture', name: '文化艺术/思想建设竞赛获奖', multi: true,
         levels: [
           { level: '国家级一等奖', points: 5 }, { level: '国家级二等奖', points: 4 },
           { level: '国家级三等奖', points: 3 }, { level: '国家级优秀奖', points: 2 },
@@ -206,7 +208,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
         keywords: ['科研课题', '创新创业训练计划', '大创', '结项', '科研成果']
       },
       {
-        id: 'academic-competition', name: '学科与技能竞赛获奖',
+        id: 'academic-competition', name: '学科与技能竞赛获奖', multi: true,
         levels: [
           { level: '省级以上A类 一等', points: 6 }, { level: 'A类 二等', points: 5 },
           { level: 'A类 三等', points: 4 }, { level: 'A类 优秀奖', points: 2 },
@@ -221,7 +223,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
         keywords: ['学科竞赛', '技能竞赛', '创新创业大赛', '挑战杯', '互联网+', 'A类', 'B类', 'C类']
       },
       {
-        id: 'paper', name: '论文与新闻报道发表',
+        id: 'paper', name: '论文与新闻报道发表', multi: true,
         levels: [
           { level: 'SCI/SSCI/EI/ISTP收录', points: 10 }, { level: '中文核心期刊', points: 6 },
           { level: '正式出版著作（10万字以上）', points: 6 }, { level: '正式出版著作（10万字以下）', points: 3 },
@@ -230,11 +232,11 @@ export const zongceBonusCategories: ZongceCategory[] = [
           { level: '普通媒体（市级以上）发表新闻/图片', points: 1 },
           { level: '校园网主页/校报发表新闻/图片', points: 0.1 }
         ],
-        note: '普通媒体新闻图片累计不超2分；校园网/校报累计不超1分。以仰恩大学名义发表，第一作者得一半，其余平均分剩余。',
+        note: '不同论文/报道可多选累计（以篇计）；普通媒体累计不超2分，校园网/校报累计不超1分。以仰恩大学名义发表，第一作者得一半，其余平均分剩余。',
         keywords: ['SCI', 'SSCI', 'EI', 'ISTP', '核心期刊', '论文', '著作', '新闻报道', '校报']
       },
       {
-        id: 'patent', name: '专利与软著',
+        id: 'patent', name: '专利与软著', multi: true,
         levels: [
           { level: '发明专利 第一专利权人', points: 8 }, { level: '发明专利 一般成员', points: 4 },
           { level: '实用新型 第一专利权人', points: 6 }, { level: '实用新型 一般成员', points: 3 },
@@ -250,7 +252,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
     id: 'intellectual-cert', label: '智育奖励·职业资格与水平测试（上限10分）', cap: 10,
     items: [
       {
-        id: 'cert-vocational', name: '国家职业资格/职业技能鉴定',
+        id: 'cert-vocational', name: '国家职业资格/职业技能鉴定', multi: true,
         levels: [
           { level: '高级师级（国家一级）', points: 6 }, { level: '师级（国家二级）', points: 4 },
           { level: '助理师级（国家三级）', points: 3 }, { level: '高级员级（国家四级）', points: 2 },
@@ -260,7 +262,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
         keywords: ['职业资格', '职业技能鉴定', '从业资格', '执业资格', '证书', '资格证']
       },
       {
-        id: 'cert-proficiency', name: '外语与计算机水平测试',
+        id: 'cert-proficiency', name: '外语与计算机水平测试', multi: true,
         levels: [
           { level: 'TOEFL 80-90', points: 3 }, { level: 'TOEFL 90-105', points: 3.5 }, { level: 'TOEFL 105及以上', points: 4 },
           { level: 'IELTS 6.0-6.5', points: 3 }, { level: 'IELTS 6.5-7.0', points: 3.5 }, { level: 'IELTS 7.0及以上', points: 4 },
@@ -282,14 +284,14 @@ export const zongceBonusCategories: ZongceCategory[] = [
     id: 'sports', label: '体育奖励（上限2分）', cap: 2,
     items: [
       {
-        id: 'sports-competition', name: '体育比赛',
+        id: 'sports-competition', name: '体育比赛', multi: true,
         levels: [
           { level: '国家/省部/市级 第1-3名', points: 2 }, { level: '国家/省部/市级 第4-8名', points: 1.5 },
           { level: '国家/省部/市级 参赛未获奖', points: 0.5 },
           { level: '校级 第1-3名', points: 1 }, { level: '校级 第4-8名', points: 0.5 },
           { level: '校级 参赛未获奖', points: 0.25 }
         ],
-        note: '个人/团体同分；多次参赛或多项目可累计，但总分不高于2分。',
+        note: '个人/团体同分；多次参赛或多项目可多选累计，但总分不高于2分。',
         keywords: ['体育比赛', '运动会', '田径', '篮球', '足球', '羽毛球', '冠军', '第1名']
       }
     ]
