@@ -658,6 +658,14 @@ test('gateway request is canceled when the client abort signal fires', async () 
   globalThis.fetch = async (_input, init) => {
     upstreamSignal = init?.signal as AbortSignal
     return await new Promise<Response>((_resolve, reject) => {
+      // The client can abort before the fetch even starts; an abort listener on
+      // an already-aborted signal never fires, so handle that state immediately.
+      if (upstreamSignal?.aborted) {
+        reject(upstreamSignal.reason instanceof Error
+          ? upstreamSignal.reason
+          : new DOMException('Request aborted', 'AbortError'))
+        return
+      }
       upstreamSignal?.addEventListener('abort', () => reject(upstreamSignal?.reason), { once: true })
     })
   }

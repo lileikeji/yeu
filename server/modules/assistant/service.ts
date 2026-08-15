@@ -3199,7 +3199,12 @@ export function retrieveCampusEvidence(
     const keys: string[] = []
     for (const item of list) {
       const key = item.url || item.title
-      if (!evidenceByKey.has(key)) evidenceByKey.set(key, item)
+      // Several sources may point at the same destination URL (a cached feature
+      // entry and the real procedure/share): keep whichever carries the richer
+      // pre-fusion score so the authoritative title/snippet for that URL wins
+      // instead of a low-scored synthetic entry shadowing the real document.
+      const existing = evidenceByKey.get(key)
+      if (!existing || (item.score ?? 0) > (existing.score ?? 0)) evidenceByKey.set(key, item)
       keys.push(key)
     }
     return keys
