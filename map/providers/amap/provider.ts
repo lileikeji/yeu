@@ -136,6 +136,7 @@ export class AMapProvider implements MapProvider {
   private displayOptions: MapDisplayOptions = { ...DEFAULT_DISPLAY_OPTIONS }
   private baseStyle: MapBaseStyle = 'standard'
   private fitAfterRender = false
+  private initialCanvasSettled = false
   private lifecycleVersion = 0
   private renderVersion = 0
   private areaRenderVersion = 0
@@ -477,6 +478,19 @@ export class AMapProvider implements MapProvider {
       })
     }
 
+    this.renderMarkerOverlay(converted, amap, map)
+    if (this.fitAfterRender) {
+      this.fitAfterRender = false
+      this.fitToPois()
+    }
+  }
+
+  /**
+   * Builds the visible marker overlay (cluster or plain pins) for a set of
+   * already-converted positions. Shared by the initial render and the cached
+   * re-render that runs once the AMap canvas has settled at its real size.
+   */
+  private renderMarkerOverlay(converted: ConvertedPoi[], amap: AMapNamespace, map: AMapMap): void {
     if (converted.length && this.displayOptions.autoCluster && typeof amap.MarkerCluster === 'function') {
       try {
         const cluster = new amap.MarkerCluster(
@@ -505,9 +519,46 @@ export class AMapProvider implements MapProvider {
     }
 
     this.renderSelectedMarker()
-    if (this.fitAfterRender) {
-      this.fitAfterRender = false
-      this.fitToPois()
+  }
+
+  /**
+   * Re-renders the marker overlay from the already-converted positions cached
+   * in this.markers without calling the AMap coordinate-conversion API again.
+   *
+   * AMap.MarkerCluster lays markers out lazily against the canvas size present
+   * at creation time. In embedded WebViews the canvas can still be 0x0 (or
+   * otherwise wrong) when the cluster is first built, so pins end up missing
+   * until a camera move forces AMap to re-layout them. Once the canvas settles
+   * at its real size we rebuild the overlay from the cache so every marker is
+   * visible immediately on load.
+   */
+  private rebuildMarkerOverlay(): void {
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap) return
+
+    const records = [...this.markers.values()]
+    if (!records.length) return
+
+    ++this.renderVersion
+    const converted: ConvertedPoi[] = records.map(record => ({
+      poi: record.poi,
+      position: record.position
+    }))
+    this.clearMarkers()
+    for (const record of records) {
+      this.markers.set(record.poi.id, record)
+    }
+    if (this.displayOptions.showPois) {
+      this.renderMarkerOverlay(converted, amap, map)
+    }
+  }
+
+  private onCanvasSettled(map: AMapMap, lifecycleVersion: number): void {
+    if (this.initialCanvasSettled) return
+    this.initialCanvasSettled = true
+    if (this.map === map && lifecycleVersion === this.lifecycleVersion) {
+      this.rebuildMarkerOverlay()
     }
   }
 
@@ -1064,7 +1115,10 @@ export class AMapProvider implements MapProvider {
 
     const step = (): void => {
       if (isStale()) return
-      if (canvasIsSized()) return
+      if (canvasIsSized()) {
+        this.onCanvasSettled(map, lifecycleVersion)
+        return
+      }
 
       forceResize()
 
@@ -1087,7 +1141,11 @@ export class AMapProvider implements MapProvider {
           observer.disconnect()
           return
         }
-        if (!canvasIsSized()) forceResize()
+        if (canvasIsSized()) {
+          this.onCanvasSettled(map, lifecycleVersion)
+          return
+        }
+        forceResize()
       })
       observer.observe(element)
       this.initialResizeObserver = observer
@@ -1143,6 +1201,7 @@ export class AMapProvider implements MapProvider {
     this.map = null
     this.amap = null
     this.baseLayers = []
+    this.initialCanvasSettled = false
     this.hotspotInfoWindow = null
   }
 }

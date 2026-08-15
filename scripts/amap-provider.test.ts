@@ -749,3 +749,87 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     else Reflect.deleteProperty(globalThis, 'document')
   }
 })
+
+test('AMap provider re-renders every marker once the canvas settles at its real size', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  FakeAMapMap.instances = []
+  FakeMarkerCluster.instances = []
+
+  // Mirrors the embedded-WebView case: the container has a real size but the
+  // AMap canvas stays 0x0 for a while, so the cluster is first built against a
+  // broken layout and pins only appear after a camera move. Once the canvas
+  // settles at the real size, the provider must rebuild the overlay from its
+  // cached conversions so every pin is visible immediately on load.
+  const zeroCanvas = { width: 0, height: 0 }
+  const element = {
+    getBoundingClientRect: () => ({ width: 375, height: 748 }),
+    querySelector: () => zeroCanvas,
+    querySelectorAll: () => [] as unknown[]
+  }
+
+  let conversionCalls = 0
+  const fakeWindow: Record<string, unknown> = {
+    AMap: {
+      Map: FakeAMapMap,
+      Marker: FakeMarker,
+      Polygon: FakePolygon,
+      Polyline: FakePolyline,
+      TileLayer: { Satellite: FakeTileLayer, RoadNet: FakeTileLayer },
+      InfoWindow: FakeInfoWindow,
+      Pixel: FakePixel,
+      MarkerCluster: FakeMarkerCluster,
+      plugin: (_plugins: string[], callback: () => void) => callback(),
+      convertFrom: (
+        points: [number, number][],
+        _source: string,
+        callback: (status: string, result: { locations: [number, number][] }) => void
+      ) => {
+        conversionCalls += 1
+        callback('complete', { locations: points })
+      }
+    }
+  }
+
+  Object.defineProperty(globalThis, 'window', { value: fakeWindow, configurable: true })
+  Object.defineProperty(globalThis, 'document', {
+    value: { createElement: () => new FakeElement() },
+    configurable: true
+  })
+
+  try {
+    const provider = new AMapProvider({ key: 'k', securityCode: 'sec' })
+    await provider.mount(element as unknown as HTMLElement, { zoom: 15 })
+    provider.setPois(createPois(12))
+    await nextTurn()
+
+    const firstCluster = FakeMarkerCluster.instances.at(-1)
+    assert.ok(firstCluster, 'expected the initial cluster')
+    assert.equal(firstCluster.data.length, 12)
+    const callsBeforeSettle = conversionCalls
+
+    // The canvas finally settles at the container's real size.
+    zeroCanvas.width = 375
+    zeroCanvas.height = 748
+
+    // Wait past the resize-polling tick so onCanvasSettled can fire.
+    await new Promise(resolve => setTimeout(resolve, 450))
+
+    const settledCluster = FakeMarkerCluster.instances.at(-1)
+    assert.ok(settledCluster)
+    assert.notEqual(settledCluster, firstCluster, 'expected the overlay to be rebuilt after the canvas settles')
+    assert.equal(settledCluster.data.length, 12)
+    assert.equal(settledCluster.renderedMarkers.length, 12)
+    // The rebuild reuses cached conversions; it must not hit the conversion API again.
+    assert.equal(conversionCalls, callsBeforeSettle)
+    // The stale cluster is removed from the map.
+    assert.equal(firstCluster.map, null)
+
+    provider.destroy()
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument)
+    else Reflect.deleteProperty(globalThis, 'document')
+  }
+})
