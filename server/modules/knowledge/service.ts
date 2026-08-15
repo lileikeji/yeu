@@ -392,7 +392,10 @@ export function archiveKnowledgeClaim(client: DatabaseClient, id: string, adminI
 }
 
 function ftsQuery(terms: string[]): string {
-  return [...new Set(terms.map(term => term.trim().toLocaleLowerCase('zh-CN')).filter(term => term.length >= 2))]
+  // The trigram tokenizer cannot use the index for sub-3-character terms and
+  // would fall back to a full scan; keep those for the bounded LIKE fallback
+  // in the callers instead.
+  return [...new Set(terms.map(term => term.trim().toLocaleLowerCase('zh-CN')).filter(term => term.length >= 3))]
     .slice(0, 16)
     .map(term => `"${term.replaceAll('"', '""')}"`)
     .join(' OR ')

@@ -47,7 +47,7 @@ import {
   expandCampusSearchTerms
 } from '../../../shared/utils/campus-search-aliases'
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
-import { evidenceSemanticScore } from './retrieval-semantic'
+import { evidenceSemanticScore, reciprocalRankFusion, semanticTextSimilarity } from './retrieval-semantic'
 import {
   SESSION_MEMORY_CONTEXT_LIMIT,
   readLastSessionQuery,
@@ -893,6 +893,10 @@ const KNOWLEDGE_HIT_REASON_RANK: Record<KnowledgeHitReason, number> = {
   body: 1
 }
 
+// Maximum Marginal Relevance: keep the most relevant evidence while demoting
+// near-duplicate snippets so one topic facet does not flood the context window.
+const MMR_DIVERSITY_LAMBDA = 0.3
+
 function selectCampusKnowledgeContext(
   query: string,
   evidence: AssistantEvidence[],
@@ -909,18 +913,34 @@ function selectCampusKnowledgeContext(
       return right.retrievalScore - left.retrievalScore
     })
 
+  const maxPagesAllowed = Math.max(1, Math.min(KNOWLEDGE_MAX_PAGES, maxPages))
   const selected: AssistantEvidence[] = []
+  const remaining = [...matches]
   let usedChars = 0
-  for (const match of matches) {
-    if (selected.length >= Math.max(1, Math.min(KNOWLEDGE_MAX_PAGES, maxPages))) break
-    const snippet = safeText(match.evidence.snippet, KNOWLEDGE_SNIPPET_MAX_CHARS)
+  while (remaining.length > 0 && selected.length < maxPagesAllowed) {
+    let bestIndex = 0
+    let bestMmr = Number.NEGATIVE_INFINITY
+    for (let index = 0; index < remaining.length; index += 1) {
+      const candidate = remaining[index]!
+      const relevance = candidate.retrievalScore
+      const maxOverlap = selected.length > 0
+        ? Math.max(...selected.map(item => semanticTextSimilarity(candidate.evidence.snippet ?? '', item.snippet ?? '')))
+        : 0
+      const mmr = relevance - MMR_DIVERSITY_LAMBDA * maxOverlap * 100
+      if (mmr > bestMmr) {
+        bestMmr = mmr
+        bestIndex = index
+      }
+    }
+    const best = remaining.splice(bestIndex, 1)[0]!
+    const snippet = safeText(best.evidence.snippet, KNOWLEDGE_SNIPPET_MAX_CHARS)
     if (selected.length > 0 && usedChars + snippet.length > KNOWLEDGE_CONTEXT_BUDGET_CHARS) continue
     selected.push({
-      ...match.evidence,
+      ...best.evidence,
       snippet,
-      rawScore: match.evidence.rawScore ?? match.evidence.score,
-      hitReason: match.hitReason,
-      score: match.retrievalScore
+      rawScore: best.evidence.rawScore ?? best.evidence.score,
+      hitReason: best.hitReason,
+      score: best.retrievalScore
     })
     usedChars += snippet.length
   }
@@ -3122,7 +3142,34 @@ export function retrieveCampusEvidence(
         }))
 
   const campusOverviewEvidence = campusOverviewEvidenceForQuery(query)
-  const ranked = [...featureEvidence, ...campusOverviewEvidence, ...compiledKnowledgeEvidence, ...officialDocumentEvidence, ...assistantKnowledgeEvidence, ...studentRuleEvidence, ...majorEvidence, ...seedEvidence, ...placeEvidence, ...contentEvidence, ...procedureEvidence]
+  // Reciprocal Rank Fusion normalizes the heterogeneous per-source score
+  // scales (keyword evidenceScore, FTS bm25, curated) into one rank-based
+  // ordering, so no single source's raw magnitude dominates the combined pool.
+  // The original score is preserved in rawScore for the sufficiency checks,
+  // while score carries the fused rank so dedupe/ranking compare fairly.
+  const sourceLists = [
+    featureEvidence, campusOverviewEvidence, compiledKnowledgeEvidence,
+    officialDocumentEvidence, assistantKnowledgeEvidence, studentRuleEvidence,
+    majorEvidence, seedEvidence, placeEvidence, contentEvidence, procedureEvidence
+  ]
+    .map(list => list.filter(item => item.score > 0).sort((left, right) => right.score - left.score))
+    .filter(list => list.length > 0)
+  const evidenceByKey = new Map<string, AssistantEvidence>()
+  const rankedLists: string[][] = sourceLists.map((list) => {
+    const keys: string[] = []
+    for (const item of list) {
+      const key = item.url || item.title
+      if (!evidenceByKey.has(key)) evidenceByKey.set(key, item)
+      keys.push(key)
+    }
+    return keys
+  })
+  const fusedScores = reciprocalRankFusion(rankedLists, 60)
+  const ranked = [...evidenceByKey.values()]
+    .map((item) => {
+      const fusedScore = fusedScores.get(item.url || item.title) ?? 0
+      return { ...item, rawScore: item.rawScore ?? item.score, score: fusedScore }
+    })
     .filter(item => item.score > 0)
     .sort((left, right) => right.score - left.score)
   const deduped = dedupeAssistantEvidence(ranked)

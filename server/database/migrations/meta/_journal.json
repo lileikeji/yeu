@@ -169,6 +169,13 @@
       "when": 1786752871880,
       "tag": "0023_thin_sunset_bain",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1786757249955,
+      "tag": "0024_claims_fts_trigram",
+      "breakpoints": true
     }
   ]
 }
