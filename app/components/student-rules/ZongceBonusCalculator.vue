@@ -89,6 +89,21 @@ const reset = (): void => {
       </button>
     </div>
 
+    <!-- 实时汇总：选择加分项时始终可见 -->
+    <div class="sticky top-[calc(var(--header-height)+0.75rem)] z-20 mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-zinc-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
+        <span>德育 <strong class="ml-0.5 font-bold text-zinc-900 tabular-nums">{{ sections.moral.subtotal.toFixed(2) }}</strong></span>
+        <span class="text-zinc-300">+</span>
+        <span>智育 <strong class="ml-0.5 font-bold text-zinc-900 tabular-nums">{{ sections.intellectual.subtotal.toFixed(2) }}</strong></span>
+        <span class="text-zinc-300">+</span>
+        <span>体育 <strong class="ml-0.5 font-bold text-zinc-900 tabular-nums">{{ sections.sports.subtotal.toFixed(2) }}</strong></span>
+        <span class="text-zinc-300">=</span>
+      </div>
+      <p class="text-2xl font-bold text-zinc-900 tabular-nums">
+        {{ sections.total.toFixed(2) }}<span class="ml-1 text-sm font-normal text-zinc-400">/ 100 分</span>
+      </p>
+    </div>
+
     <!-- 德育板块 -->
     <section class="mt-7">
       <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-2.5">
@@ -271,7 +286,7 @@ const reset = (): void => {
           德育 {{ sections.moral.subtotal.toFixed(2) }} + 智育 {{ sections.intellectual.subtotal.toFixed(2) }} + 体育 {{ sections.sports.subtotal.toFixed(2) }}
           <span class="text-zinc-400">=</span>
         </p>
-        <p class="text-3xl font-bold text-zinc-900 tabular-nums">
+        <p class="text-4xl font-bold text-zinc-900 tabular-nums">
           {{ sections.total.toFixed(2) }}
           <span class="text-base font-normal text-zinc-400">/ 100 分</span>
         </p>

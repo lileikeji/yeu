@@ -103,7 +103,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
       <div class="page-shell py-8 md:py-12">
         <div class="flex flex-wrap items-center gap-2 text-xs">
           <UBadge
-            color="success"
+            color="neutral"
             variant="soft"
           >
             官网公开制度整理
@@ -126,6 +126,13 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             to="#scholarships"
             label="比较奖学金"
             icon="i-lucide-award"
+            color="neutral"
+            variant="outline"
+          />
+          <UButton
+            to="#zongce-calculator"
+            label="算综合测评"
+            icon="i-lucide-scale"
             color="neutral"
             variant="outline"
           />
@@ -159,7 +166,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
       <div class="page-shell py-9 md:py-14">
         <div class="grid gap-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
           <div class="min-w-0">
-            <p class="section-kicker">
+            <p class="text-xs font-bold uppercase tracking-wide text-zinc-500">
               平均学分绩点
             </p>
             <div class="mt-2 flex flex-wrap items-end justify-between gap-4">
@@ -247,11 +254,11 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                     <input
                       v-model="course.isRetake"
                       type="checkbox"
-                      class="size-4 accent-emerald-700"
+                      class="size-4 accent-zinc-700"
                     >
                     补考
                   </label>
-                  <strong class="text-sm text-emerald-800">{{ gradePointAt(index).toFixed(2) }}</strong>
+                  <strong class="text-sm text-zinc-800">{{ gradePointAt(index).toFixed(2) }}</strong>
                 </div>
                 <UButton
                   icon="i-lucide-trash-2"
@@ -266,34 +273,34 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
           </div>
 
           <aside class="lg:sticky lg:top-24 lg:self-start">
-            <div class="rounded-lg border border-emerald-200 bg-emerald-950 p-5 text-white">
-              <p class="text-xs font-semibold text-emerald-200">
+            <div class="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+              <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 当前试算
               </p>
-              <p class="mt-2 text-5xl font-bold">
+              <p class="mt-2 text-5xl font-bold text-zinc-900 tabular-nums">
                 {{ calculation.gpa === null ? '—' : calculation.gpa.toFixed(2) }}
               </p>
-              <p class="mt-1 text-sm text-emerald-100/70">
+              <p class="mt-1 text-sm text-zinc-600">
                 平均学分绩点
               </p>
-              <dl class="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-md bg-white/15">
-                <div class="bg-emerald-950 p-3">
-                  <dt class="text-xs text-emerald-100/65">
+              <dl class="mt-5 grid grid-cols-2 gap-2">
+                <div class="rounded-md bg-zinc-50 p-3 ring-1 ring-zinc-100">
+                  <dt class="text-xs text-zinc-500">
                     计入学分
-                  </dt><dd class="mt-1 font-bold">
+                  </dt><dd class="mt-1 text-lg font-bold text-zinc-900 tabular-nums">
                     {{ calculation.totalCredits }}
                   </dd>
                 </div>
-                <div class="bg-emerald-950 p-3">
-                  <dt class="text-xs text-emerald-100/65">
+                <div class="rounded-md bg-zinc-50 p-3 ring-1 ring-zinc-100">
+                  <dt class="text-xs text-zinc-500">
                     计入课程
-                  </dt><dd class="mt-1 font-bold">
+                  </dt><dd class="mt-1 text-lg font-bold text-zinc-900 tabular-nums">
                     {{ calculation.includedCourses }}
                   </dd>
                 </div>
               </dl>
             </div>
-            <div class="mt-4 border-l-2 border-emerald-600 pl-4 text-sm leading-6 text-zinc-600">
+            <div class="mt-4 border-l-2 border-zinc-300 pl-4 text-sm leading-6 text-zinc-600">
               <p
                 v-for="formula in gpaRules.formulas"
                 :key="formula"
@@ -306,7 +313,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
               :href="gpaRules.sourceUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-emerald-800 hover:text-emerald-950"
+              class="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-zinc-800 hover:text-zinc-950"
             >
               查看学校公开原文件 <UIcon
                 name="i-lucide-external-link"
@@ -332,7 +339,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
       class="scroll-mt-20 border-b border-[var(--line)] bg-white"
     >
       <div class="page-shell py-9 md:py-14">
-        <p class="section-kicker">
+        <p class="text-xs font-bold uppercase tracking-wide text-zinc-500">
           当前公开奖项
         </p>
         <h2 class="mt-2 text-2xl font-bold text-zinc-950">
@@ -354,7 +361,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             role="tab"
             :aria-selected="selectedScholarship === item.slug"
             class="min-h-11 shrink-0 rounded-md border px-3 text-sm font-semibold"
-            :class="selectedScholarship === item.slug ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300'"
+            :class="selectedScholarship === item.slug ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400'"
             @click="selectedScholarship = item.slug"
           >
             {{ item.name }}
@@ -363,7 +370,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
 
         <article
           :id="`scholarship-${activeScholarship.slug}`"
-          class="mt-5 scroll-mt-24 border-t-2 border-emerald-700 pt-5"
+          class="mt-5 scroll-mt-24 border-t-2 border-zinc-200 pt-5"
         >
           <div class="grid gap-7 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
             <div>
@@ -421,7 +428,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                 >
                   <UIcon
                     name="i-lucide-check"
-                    class="mt-1 size-4 shrink-0 text-emerald-700"
+                    class="mt-1 size-4 shrink-0 text-zinc-700"
                   />{{ requirement }}
                 </li>
               </ul>
@@ -432,7 +439,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                 :href="activeScholarship.sourceUrl"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-emerald-800 hover:text-emerald-950"
+                class="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-zinc-800 hover:text-zinc-950"
               >
                 查看 {{ activeScholarship.documentNumber }} 原文 <UIcon
                   name="i-lucide-external-link"
@@ -449,66 +456,9 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             :href="scholarshipGeneralRule.sourceUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="ml-1 font-semibold text-emerald-800 hover:text-emerald-950"
+            class="ml-1 font-semibold text-zinc-800 hover:text-zinc-950"
           >查看原文</a>
         </p>
-      </div>
-    </section>
-
-    <section class="border-b border-[var(--line)] bg-emerald-950 text-white">
-      <div class="page-shell grid gap-7 py-9 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)] md:py-12">
-        <div>
-          <p class="text-xs font-semibold text-emerald-300">
-            综合测评
-          </p>
-          <h2 class="mt-2 text-2xl font-bold">
-            100分由三部分构成
-          </h2>
-          <p class="mt-3 text-sm leading-6 text-emerald-50/75">
-            综合测评不是 GPA。它同时用于多项评奖排名，2025版办法自2025年1月起施行。
-          </p>
-        </div>
-        <div class="grid gap-px overflow-hidden rounded-lg bg-white/15 sm:grid-cols-3">
-          <div class="bg-emerald-950 p-5">
-            <p class="text-xs text-emerald-100/65">
-              德育
-            </p><p class="mt-1 text-3xl font-bold">
-              25
-            </p>
-          </div>
-          <div class="bg-emerald-950 p-5">
-            <p class="text-xs text-emerald-100/65">
-              智育
-            </p><p class="mt-1 text-3xl font-bold">
-              70
-            </p>
-          </div>
-          <div class="bg-emerald-950 p-5">
-            <p class="text-xs text-emerald-100/65">
-              体育
-            </p><p class="mt-1 text-3xl font-bold">
-              5
-            </p>
-          </div>
-        </div>
-        <div class="md:col-start-2">
-          <p
-            v-for="formula in comprehensiveEvaluationRules.formulas.slice(2)"
-            :key="formula"
-            class="mb-2 text-sm leading-6 text-emerald-50/85 last:mb-0"
-          >
-            {{ formula }}
-          </p>
-          <a
-            :href="comprehensiveEvaluationRules.sourceUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-white"
-          >查看完整加扣分办法 <UIcon
-            name="i-lucide-external-link"
-            class="size-4"
-          /></a>
-        </div>
       </div>
     </section>
 
@@ -517,7 +467,65 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
       class="scroll-mt-20 bg-white"
     >
       <div class="page-shell py-9 md:py-14">
-        <ZongceBonusCalculator />
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="max-w-3xl">
+            <p class="text-xs font-bold uppercase tracking-wide text-zinc-500">
+              综合测评
+            </p>
+            <h2 class="mt-2 text-2xl font-bold text-zinc-950">
+              综测加分计算器
+            </h2>
+            <p class="mt-2 text-sm leading-6 text-zinc-600">
+              综合测评 ≠ GPA，满分 100 分，2025 版办法自 2025 年 1 月起施行，用于多项评奖排名。下方点选各板块加分项，总分实时更新。
+            </p>
+          </div>
+          <a
+            :href="comprehensiveEvaluationRules.sourceUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-zinc-800 hover:text-zinc-950"
+          >查看完整加扣分办法 <UIcon
+            name="i-lucide-external-link"
+            class="size-4"
+          /></a>
+        </div>
+
+        <div class="mt-5 grid max-w-md grid-cols-3 gap-2">
+          <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-center">
+            <p class="text-xs text-zinc-500">
+              德育
+            </p><p class="mt-0.5 text-lg font-bold text-zinc-900 tabular-nums">
+              25
+            </p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-center">
+            <p class="text-xs text-zinc-500">
+              智育
+            </p><p class="mt-0.5 text-lg font-bold text-zinc-900 tabular-nums">
+              70
+            </p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-center">
+            <p class="text-xs text-zinc-500">
+              体育
+            </p><p class="mt-0.5 text-lg font-bold text-zinc-900 tabular-nums">
+              5
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <ZongceBonusCalculator />
+        </div>
+
+        <div class="mt-4 grid gap-x-8 gap-y-1 text-xs leading-5 text-zinc-500 sm:grid-cols-2">
+          <p
+            v-for="formula in comprehensiveEvaluationRules.formulas.slice(2)"
+            :key="formula"
+          >
+            {{ formula }}
+          </p>
+        </div>
       </div>
     </section>
 
@@ -526,7 +534,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
       class="scroll-mt-20 bg-zinc-50"
     >
       <div class="page-shell py-9 md:py-14">
-        <p class="section-kicker">
+        <p class="text-xs font-bold uppercase tracking-wide text-zinc-500">
           公开学生制度
         </p>
         <div class="mt-2 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -570,7 +578,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             class="scroll-mt-24 py-5"
           >
             <div class="grid gap-3 md:grid-cols-[10rem_minmax(0,1fr)_auto] md:items-start md:gap-5">
-              <p class="text-xs font-semibold text-emerald-800">
+              <p class="text-xs font-semibold text-zinc-800">
                 {{ rule.category }}
               </p>
               <div>
