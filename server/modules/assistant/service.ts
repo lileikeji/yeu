@@ -185,6 +185,8 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   平面图: ['地图', '学校地图', '校园地图', '校园平面图', '导览图', '校区图'],
   导览图: ['地图', '校园地图', '平面图', '校园平面图', '校区图'],
   宿舍: ['住宿', '宿舍楼', '寝室', '房型', '住宿条件'],
+  住宿: ['宿舍', '宿舍楼', '寝室', '房型', '住宿条件', '住宿费'],
+  寝室: ['宿舍', '宿舍楼', '住宿', '房型', '住宿条件', '住宿费'],
   多少钱: ['价格', '费用', '收费', '住宿费', '每学年'],
   学费: ['缴费', '收费', '资助', '助学贷款'],
   助学贷: ['助学贷款', '生源地贷款', '助学贷款申请'],
@@ -327,7 +329,7 @@ export function hardcodedAssistantFactIsCurrent(
   return now < VERIFIED_FACT_VALID_UNTIL[fact]
 }
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
-const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|班级|编班|分班|迎新系统|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|教材|课本|二手书|材料费|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|团委|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|泽川|泽钏|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
+const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|班级|编班|分班|迎新系统|新生|宿舍|寝室|住宿|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|教材|课本|二手书|材料费|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|团委|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|泽川|泽钏|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 // The general route is deliberately allow-listed. Unknown questions are searched
 // first so a missed campus synonym cannot silently become a zero-evidence answer.
@@ -993,6 +995,15 @@ function queryCoreBigrams(value: string): string[] {
   core = core
     .replace(/(?:是不是|有没有|可不可以|能不能|好不好|要不要|有多少人|多少人|有多少|有几人|几人|里面|其中|里|有|人|吗|嘛|呢|呀|啊)/gu, ' ')
     .replace(/[?？!！,，。；;：:、()（）【】\s]/g, '')
+  // Strip the generic aspect suffix (条件/要求/费用/流程…) so the core is the
+  // SUBJECT the evidence must name, not the facet the question asks about. The
+  // facet is already validated by the intent-specific checks above.
+  for (const suffix of QUERY_ANCHOR_SUFFIXES) {
+    if (core.endsWith(suffix) && core.length - suffix.length >= 2) {
+      core = core.slice(0, -suffix.length)
+      break
+    }
+  }
   if (core.length < 2) return []
   if (core.length === 2) return [core]
   return [...new Set(Array.from({ length: core.length - 1 }, (_, index) => core.slice(index, index + 2)))]
@@ -1004,6 +1015,8 @@ function canonicalizeEvidenceCore(value: string): string {
     .replaceAll('怎么算', '计算')
     .replaceAll('怎么填', '填写')
     .replaceAll('染头发', '染发')
+    .replaceAll('住宿', '宿舍')
+    .replaceAll('寝室', '宿舍')
 }
 
 function evidenceCoreCoverage(query: string, item: AssistantEvidence): number {
@@ -1023,7 +1036,7 @@ function isBroadCampusOverviewQuery(query: string): boolean {
   const hasSpecificAspect = /(?:混班|混专业|水卡|洗澡|洗衣机|洗衣液|床垫|床帘|吹风机|机械臂|题型|分班考试|建群|联系新生|吸烟|抽烟|转专业|挂科|不及格|windows|macos|苹果|兼容|银行卡|预报名|选课|抢课)/i.test(normalized)
   return CAMPUS_QUERY_RE.test(normalized)
     && !hasSpecificAspect
-    && /怎么样|什么样|好不好|介绍(?:一下)?|讲讲|情况如何|(?:整体|基本|大概)情况|概况|概览|(?:平时)?(?:主要)?(?:负责|做)(?:什么|哪些|啥)|职责(?:是|有|包括)?(?:什么|哪些|啥)?/.test(normalized)
+    && /怎么样|什么样|好不好|介绍(?:一下)?|讲讲|(?:情况|条件)如何|(?:整体|基本|大概)情况|概况|概览|(?:平时)?(?:主要)?(?:负责|做)(?:什么|哪些|啥)|职责(?:是|有|包括)?(?:什么|哪些|啥)?/.test(normalized)
 }
 
 function broadCampusOverviewTopicTerms(query: string): string[] {
