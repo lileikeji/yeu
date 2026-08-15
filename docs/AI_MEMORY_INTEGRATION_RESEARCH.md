@@ -312,3 +312,16 @@ open_question | 我刚才说我一般喜欢什么时候学习         | <ts>
 3. 路径标记细化（发现 C）与 API 问句判定放宽（发现 D）为小优化项。
 
 > 与 9.4 结论一致：现有 P0–P3 主体方向正确且在线可用（身份/时间/课程/宿舍/模糊/混合/注入/降级全部通过），下一步收益最高的是把「向量语义召回」延伸到会话记忆层。
+
+### 10.5 修复落地记录（2026-08-15 第三轮：A/B/C/D 全部修复）
+
+提交 `8bf1c16`（平行 agent 综测数据模块另为 `ad2d43e`）。
+
+| 发现 | 修复 | 位置 |
+| --- | --- | --- |
+| A 会话记忆语义召回 | 记忆行（answered/fact/preference）每轮写入后嵌入 `assistant_embeddings`（`source_type=memory`，按内容哈希增量）；召回时 `sessionMemorySemanticScores` 计算余弦并入 `memoryScore`（max(词面 Dice, 语义余弦)）；纯回忆类问题（刚才/我记得/我的…习惯）在检索兜底前直接用记忆确定性作答，避免 gap 响应短路且不被全局答案缓存污染 | vector-search.ts：`embedSessionMemoryRows`/`sessionMemorySemanticScores`；memory.ts：`memoryScore` 语义参数；service.ts：`buildMemoryRecallAnswer` + answerCampusQuestion 接线 |
+| B 学校概况数据缺口 | `campusOverviewEvidenceForQuery`/`campusOverviewLocalAnswer` 增加 `asksIntroduction` 触发（介绍/简介/怎么样/是什么 一类），输出含创办时间与创始人信息的校园概况条目（url /campus），宽泛介绍题本地作答 | service.ts |
+| C 路径标记 | web 路径最终 wrap：答案 `usedWebSearch=false`（仅引用本地/混合证据）时 `retrievalPath` 标 `local_database`，不再误标 web_search | service.ts |
+| D 问句校验 | `isQuestionLike` 增加 `SELF_REFERENTIAL_PATTERN`（我/俺/咱 + 喜欢/觉得/习惯/是…），自指会话句不再 422；纯关键词仍走搜索 | shared/utils/assistant-query.ts |
+
+测试：vector-search 7 项（含记忆嵌入/会话隔离语义分）、memory-extraction 4 项（含回忆作答）、assistant-contact 新增 isQuestionLike 放宽与学校介绍本地作答各 1 项；server typecheck 通过。
