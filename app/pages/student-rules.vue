@@ -14,6 +14,7 @@ import {
   type FiveLevelGrade,
   type GpaCourseMode
 } from '~/utils/gpa-calculator'
+import ZongceBonusCalculator from '~/components/student-rules/ZongceBonusCalculator.vue'
 
 useSeoMeta({
   title: '学生规则与奖学金',
@@ -508,6 +509,15 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             class="size-4"
           /></a>
         </div>
+      </div>
+    </section>
+
+    <section
+      id="zongce-calculator"
+      class="scroll-mt-20 bg-white"
+    >
+      <div class="page-shell py-9 md:py-14">
+        <ZongceBonusCalculator />
       </div>
     </section>
 
