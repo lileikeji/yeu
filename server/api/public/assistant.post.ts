@@ -61,6 +61,10 @@ export default defineEventHandler(async (event) => {
       embeddingApiKey: String(runtime.aiEmbeddingApiKey || ''),
       embeddingModel: String(runtime.aiEmbeddingModel || 'text-embedding-v3'),
       embeddingTimeoutMs: Math.max(5_000, Number(runtime.aiEmbeddingTimeoutMs) || 15_000),
+      rerankBaseUrl: String(runtime.aiRerankBaseUrl || ''),
+      rerankApiKey: String(runtime.aiRerankApiKey || ''),
+      rerankModel: String(runtime.aiRerankModel || 'BAAI/bge-reranker-v2-m3'),
+      rerankTimeoutMs: Math.max(5_000, Number(runtime.aiRerankTimeoutMs) || 15_000),
       signal: requestAbort.signal
     })
     try {

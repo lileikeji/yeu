@@ -75,6 +75,7 @@ import {
   mergeVectorEvidence,
   retrieveVectorEvidence
 } from './vector-search'
+import { rerankConfigReady, rerankEvidence } from './rerank'
 import type { DatabaseClient } from '../../database/client'
 import {
   assistantAnswerCache,
@@ -116,6 +117,11 @@ interface AssistantConfig {
   embeddingApiKey?: string
   embeddingModel?: string
   embeddingTimeoutMs?: number
+  /** OpenAI-compatible cross-encoder rerank endpoint (P8). */
+  rerankBaseUrl?: string
+  rerankApiKey?: string
+  rerankModel?: string
+  rerankTimeoutMs?: number
   signal?: AbortSignal
   amapWebServiceKey?: string
   transitPlanner?: (originId: TransitPointId, destinationId: TransitPointId) => Promise<ApiTransitPlanResponse>
@@ -5368,6 +5374,25 @@ async function answerCampusQuestionCore(
       }
     } catch {
       // Graph retrieval is an enhancement; keyword retrieval remains the baseline.
+    }
+    // P8 cross-encoder rerank: when a rerank endpoint is configured, reorder
+    // the fused candidate pool by (query, candidate) relevance. Reordering
+    // only — original scores are preserved so deterministic handlers and
+    // sufficiency checks are unaffected. Best-effort like the other channels.
+    const rerankConfig = {
+      baseUrl: config.rerankBaseUrl ?? '',
+      apiKey: config.rerankApiKey ?? '',
+      model: config.rerankModel ?? 'BAAI/bge-reranker-v2-m3',
+      timeoutMs: config.rerankTimeoutMs ?? 15_000,
+      signal: config.signal
+    }
+    if (rerankConfigReady(rerankConfig)) {
+      try {
+        const reranked = await rerankEvidence(retrievalQuery, localEvidence, rerankConfig)
+        if (reranked.outcome.applied) localEvidence = reranked.evidence
+      } catch {
+        // Rerank is an enhancement; keep the RRF-ordered pool on failure.
+      }
     }
     const dormBedDimensionQuery = isDormBedDimensionQuery(query)
     let transferWebEvidence: ApiAssistantCitation[] = []

@@ -267,7 +267,15 @@ function memoryScore(
   const similarity = Math.max(semanticTextSimilarity(query, record.content), semantic)
   const ageMs = Math.max(0, now - record.createdAt)
   const recency = Math.max(0, 1 - ageMs / SESSION_MEMORY_DEFAULT_TTL_MS)
-  return similarity * 0.6 + (record.importance / 100) * 0.2 + recency * 0.2
+  // Frequency signal: hitCount is incremented on every successful recall but
+  // was never consumed by ranking. Memories the user keeps coming back to are
+  // more likely to be what they are reaching for again; log2 saturates so a
+  // few hits help without letting a runaway entry dominate pure relevance.
+  const hitSignal = Math.min(1, Math.log2(1 + record.hitCount) / 5)
+  return Math.min(
+    1,
+    similarity * 0.6 + (record.importance / 100) * 0.15 + hitSignal * 0.05 + recency * 0.2
+  )
 }
 
 /**

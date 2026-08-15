@@ -350,3 +350,32 @@ A/B/C/D 四项修复与平行 agent 综测功能合并上线后，10.1 中的四
 | P6 离线记忆整合 | `consolidateSessionMemories`（memory.ts）：同会话 preference/fact 近似重复（content_hash 精确 + 字符 n-gram 相似度 ≥ 0.78）去重，保留最新/更详细陈述；`scripts/consolidate-session-memory.ts`（`pnpm memory:consolidate`，默认 dry-run，--apply 落删）；挂入每日维护 `yeu-maintenance.sh`（memory:cleanup → memory:consolidate → caches:cleanup） | 单元测试 5/5；线上 dry-run：3 会话/3 行/0 重复 |
 
 P6 参考 Mem0 的 consolidation 与 Letta 的 sleep-time compute，无模型调用（纯内容哈希 + n-gram 相似度），在每日维护定时器内顺带完成。
+
+
+## 十一、检索优化落地（2026-08-15 第三轮：rerank + hitCount + 离线评测 + 仰恩 skill 融入）
+
+> 基于第十节的线上实测与第三轮开源对标（Hybrid Search + Rerank 为 2025-2026 共识），落地以下改动；九节的 P4–P7 候选已有 **P5（记忆注入安全）与 P6（记忆整合去重）落地**，本轮为 P8 系列。
+
+### 11.1 cross-encoder 重排通道（P8-1）
+
+- 新增 `server/modules/assistant/rerank.ts`：OpenAI 兼容 rerank 端点（默认硅基流动 `BAAI/bge-reranker-v2-m3`），对 RRF 融合后的 top-24 候选按 (query, candidate) 联合打分**重排**。
+- 设计要点：只重排不改分——保留每条证据原始 score，确定性处理器、充分性检查与引用渲染不受影响；任何失败静默降级为原 RRF 顺序。
+- 接线：`service.ts` 管线在向量/图谱腿合并后调用；配置 `NUXT_AI_RERANK_BASE_URL/API_KEY/MODEL`（nuxt.config runtimeConfig + 两个 assistant 路由）。未配置时零行为变化。
+
+### 11.2 记忆命中频率信号（P8-2）
+
+- 修复审计发现：`hitCount` 只在召回时自增、从未参与打分。`memoryScore` 现按 `min(1, log2(1+hitCount)/5)` 并入（权重 0.05），高频记忆更易被再次想起且饱和防失控；总权重仍归一为 1。
+
+### 11.3 离线检索评测集（P8-5）
+
+- 新增 `scripts/eval-retrieval.ts`（`pnpm eval:retrieval`）：22 条人工标注 {query → 期望证据关键词}，输出 Recall@5 / Recall@10 / MRR + 每条 top5 与未命中清单；`--rerank` 可同时跑重排通道对比（需 AI_RERANK_* 环境变量）。只读本地库、零写入。
+
+### 11.4 仰恩 skill 融入仓库（P8-9）
+
+- 女娲蒸馏出的 `yeu-campus` 三件套（SKILL.md / FIDELITY.md / references/knowledge-points.md）复制进 `skills/yeu-campus/`，仓库成为唯一来源；`scripts/install-ye-campus-skill.mjs` 一键安装/刷新到 DSH 用户技能目录（`~/.agents/skills/yeu-campus`）；`skills/README.md` 记录更新流程（知识库种子变化 → 重新蒸馏 → 覆盖 → 安装）。
+- 与站内 assistant 的关系：站内知识库是"服务端在线检索"底座；skill 是同一知识库的"agent 侧离线蒸馏"形态，二者共享 `data/assistant-knowledge.ts` 数据源，互不依赖。
+
+### 11.5 验证
+
+- `rerank.ts` 独立 tsc 通过；`nuxt typecheck` 通过；记忆/管线改动均为纯增量、未配置 rerank 时行为不变。
+- 离线评测基线（`pnpm eval:retrieval`，codex 生产快照库 16643 claims/591 entries，22 条案例）：**Recall@5 0.909 / Recall@10 0.955 / MRR 0.827**，仅漏「军训时间」（该快照缺 2026 军训 12 月 claims）。注：本地开发库 `data/yeu.sqlite` 为旧快照（169 claims/0 entries），评估请用 `--database=` 指向数据完整库或先 `pnpm db:seed:assistant`。
