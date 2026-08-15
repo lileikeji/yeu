@@ -428,6 +428,84 @@ const {
       </section>
 
       <section
+        class="border-t border-[var(--line)] bg-green-50/60"
+      >
+        <div class="page-shell py-6 md:py-8">
+          <div class="flex items-center gap-2">
+            <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-green-700 text-white">
+              <UIcon
+                name="i-lucide-phone-call"
+                class="size-4"
+              />
+            </span>
+            <h2 class="text-base font-bold text-zinc-950 md:text-lg">
+              紧急求助
+            </h2>
+          </div>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-700">
+            在校遇到火情、治安或校园设施紧急故障，先拨校园110报修；危及生命或需要公安、消防、急救时，同时拨打相应应急电话。
+          </p>
+          <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <a
+              href="tel:059522076110"
+              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
+            >
+              <span class="flex items-center gap-2">
+                <UIcon
+                  name="i-lucide-shield"
+                  class="size-4 text-green-700"
+                />
+                <span>拨打校园 110</span>
+              </span>
+              <span class="text-zinc-500">0595-22076110</span>
+            </a>
+            <a
+              href="tel:110"
+              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
+            >
+              <span class="flex items-center gap-2">
+                <UIcon
+                  name="i-lucide-siren"
+                  class="size-4 text-green-700"
+                />
+                <span>公安 110</span>
+              </span>
+              <span class="text-zinc-500">拨打</span>
+            </a>
+            <a
+              href="tel:119"
+              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
+            >
+              <span class="flex items-center gap-2">
+                <UIcon
+                  name="i-lucide-flame"
+                  class="size-4 text-green-700"
+                />
+                <span>消防 119</span>
+              </span>
+              <span class="text-zinc-500">拨打</span>
+            </a>
+            <a
+              href="tel:120"
+              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
+            >
+              <span class="flex items-center gap-2">
+                <UIcon
+                  name="i-lucide-activity"
+                  class="size-4 text-green-700"
+                />
+                <span>急救 120</span>
+              </span>
+              <span class="text-zinc-500">拨打</span>
+            </a>
+          </div>
+          <p class="mt-3 text-xs leading-5 text-zinc-500">
+            报修与紧急求助详情以校保卫处、医务室及到场人员指引为准。
+          </p>
+        </div>
+      </section>
+
+      <section
         class="border-y border-[var(--line)] bg-white"
       >
         <div class="page-shell py-6 md:py-9">

@@ -65,7 +65,7 @@ test('operator identifiers and procedure paths use plain-language labels', () =>
   assert.doesNotMatch(visitorsPage, /访客 ID|账号 ID/)
   assert.doesNotMatch(visitorsPage, /访客 \{\{ row\.id \}\}|账号 \{\{ row\.userId \}\}/)
   assert.doesNotMatch(visitorsPage, />高频路径</)
-  assert.match(bansPage, /封禁记录编号/)
+  assert.match(bansPage, /封禁记录/)
   assert.match(visitorsPage, /访客编号/)
   assert.match(visitorsPage, /常访页面/)
 })

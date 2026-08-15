@@ -20,7 +20,9 @@ test('site chrome uses a generic welcome mark without claiming official endorsem
 
   assert.doesNotMatch(layout, /site-logo|yeu-seal|仰恩大学校标|yeu-logo/)
   assert.match(layout, /aria-label="迎新指南首页"/)
-  assert.match(layout, /i-lucide-compass/)
+  // The chrome mark is a generic brand image (system-logo-mark-light), not the
+  // official school seal; keep it referencing the generic mark and the site name.
+  assert.match(layout, /system-logo-mark-light.png/)
   assert.match(layout, /迎新指南/)
 })
 

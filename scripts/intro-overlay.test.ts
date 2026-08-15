@@ -38,7 +38,7 @@ const defaultLayoutSource = readFileSync(resolve('app/layouts/default.vue'), 'ut
 test('站点左上角使用通用迎新标识且不引用学校校标', () => {
   assert.doesNotMatch(defaultLayoutSource, />YEU<\/span>/)
   assert.doesNotMatch(defaultLayoutSource, /site-logo|yeu-seal/)
-  assert.match(defaultLayoutSource, /i-lucide-compass/)
+  assert.match(defaultLayoutSource, /system-logo-mark-light\.png/)
   assert.match(defaultLayoutSource, /迎新指南/)
   assert.doesNotMatch(defaultLayoutSource, /仰恩大学校标|yeu-logo/)
   assert.match(defaultLayoutSource, /inline-flex min-h-11[^\n]+focus:translate-y-0/)
@@ -153,7 +153,8 @@ test('粒子渲染限制高分屏开销并避免每帧重画背景网格', () =>
 test('首页不因装饰动画而被隐藏或禁用', () => {
   assert.doesNotMatch(homeSource, /introActive/)
   assert.doesNotMatch(homeSource, /pointer-events-none[^\n]*intro/)
-  assert.match(homeSource, /<div class="animate-spring-up">/)
+  assert.match(homeSource, /animate-spring-up/)
+  assert.match(homeSource, /v-show="activeHomeMode === 'full'"/)
 })
 
 test('开场动画失败静默降级且不向生产控制台写调试错误', () => {

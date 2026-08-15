@@ -27,7 +27,10 @@ test('public update and offline copy avoid admin-facing language', () => {
   assert.match(updatePromptSource, /正在输入反馈或聊天时，可以先点稍后/)
   assert.match(updatePromptSource, /有新的校园内容/)
   assert.match(updatePromptSource, /window\.setTimeout/)
-  assert.match(updatePromptSource, /window\.location\.reload/)
+  // Refreshing is delegated to updateServiceWorker + the shared recovery/navigation
+  // helper rather than a bare location.reload, so assert that wiring.
+  assert.match(updatePromptSource, /updateServiceWorker(\(true\))?/)
+  assert.match(updatePromptSource, /recoverClientPage/)
   assert.match(updatePromptSource, /dismissed\.value = true/)
   assert.match(updatePromptSource, /\$pwa\?\.needRefresh && !dismissed/)
   assert.match(updatePromptSource, /z-\[100\]/)
@@ -74,7 +77,7 @@ test('privacy sections stay student-facing', () => {
 test('privacy summary presents the important choices before the detailed rules', () => {
   assert.match(pageSource, /先记住这三点/)
   assert.match(pageSource, /常用功能怎么保护你的信息/)
-  assert.match(pageSource, /不会向你索要学号、校园卡密码或校园网密码/)
+  assert.match(pageSource, /不会向你索要学号、校园一卡通密码或校园网密码/)
   assert.match(pageSource, /class="mt-4 grid gap-3 sm:grid-cols-3"/)
   assert.match(pageSource, /highlight\.tone === 'blue'/)
   assert.match(pageSource, /highlight\.tone === 'amber'/)

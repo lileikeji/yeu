@@ -342,7 +342,7 @@ const supplementalQuickEntries: CompactHomeEntry[] = [
     title: '校园问答',
     summary: '检索资料并找到功能入口',
     to: '/search?mode=ai',
-    icon: 'i-lucide-circle-help',
+    icon: 'i-lucide-circle-question-mark',
     placement: 'quick',
     sortOrder: 60
   },
@@ -427,7 +427,7 @@ const guideToolDefinitions: CompactHomeEntry[] = [
   { id: 'tool-arrival', title: '报到流程详情', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival', linkPreviewOnly: true },
   { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40, linkPreviewOnly: true },
   { id: 'tool-rules', title: '学生规则与奖助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-notebook-tabs', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules', linkPreviewOnly: true },
-  { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-help', placement: 'timeline', sortOrder: 60, linkPreviewOnly: true }
+  { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-question-mark', placement: 'timeline', sortOrder: 60, linkPreviewOnly: true }
 ]
 
 const directEntryDefinitions: CompactHomeEntry[] = [

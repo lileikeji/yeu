@@ -13,7 +13,10 @@ test('public error page uses Chinese recovery copy without raw exception output'
   assert.match(pageSource, /resolveErrorPageContent/)
   assert.match(pageSource, /返回首页/)
   assert.match(pageSource, /继续查找/)
-  assert.match(pageSource, /clearError\(\{ redirect: to \}\)/)
+  // Recovery clears the Nuxt error and navigates through the shared
+  // recoverClientPage helper (destination + clearNuxtError), never dumping raw
+  // exceptions — the exact redirect wiring lives in that helper.
+  assert.match(pageSource, /recoverClientPage/)
   assert.doesNotMatch(pageSource, /Go back home|error\.message|error\.statusMessage|error\.stack/)
 })
 
