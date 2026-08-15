@@ -218,6 +218,15 @@ const QUERY_ANCHOR_SUFFIXES = [...QUERY_ANCHOR_ASPECTS]
 
 const REGISTRATION_ASSIGNMENT_EVIDENCE_RE = /新生手册.{0,30}报到|报到.{0,20}专业分组|专业分组.{0,20}报到|专业.{0,30}暂列在.{0,30}报到|暂列在.{0,30}报到/u
 
+// A question that names a concrete campus-life sub-topic (宿舍/食堂/专业/学费 …)
+// is not asking about the university as a whole, so the generic school-intro profile
+// must not claim it — those questions route to their topic-specific local handlers
+// or to evidence synthesis instead of being flattened to the /campus overview.
+const campusSubTopicAnchor = new RegExp(
+  '宿舍|住宿|寝室|宿舍楼|食堂|餐厅|专业|学费|奖学金|助学金|校园卡|一卡通|校园网|图书馆|教学楼|教室|操场|体育馆|社团|军训|就业|校区',
+  'u'
+)
+
 const TERM_EXPANSIONS: Record<string, string[]> = {
   地图: ['学校地图', '校园地图', '平面图', '校园平面图', '导览图', '校区图', '地点定位', '路线规划'],
   平面图: ['地图', '学校地图', '校园地图', '校园平面图', '导览图', '校区图'],
@@ -1806,8 +1815,13 @@ function campusOverviewEvidenceForQuery(query: string): AssistantEvidence[] {
   // Fix B: broad school-introduction questions ("介绍一下这所学校", "学校是什么样
   // 的") previously produced no local evidence and fell back to web search. The
   // school profile fact now covers those so the answer stays grounded locally.
-  const asksIntroduction = /(?:介绍|简介|概况|什么样|怎么样|如何|是一所|一所怎样|了解).{0,6}(?:学校|仰恩|校园|这所|我们|你们)/.test(normalizedQuery)
+  // A question naming a specific campus-life sub-topic (宿舍/食堂/专业/学费 etc.)
+  // is NOT asking about the school as a whole, so it must not be shunted to the
+  // generic /campus profile — it should reach dorm/overview synthesis instead.
+  const asksIntroduction = !campusSubTopicAnchor.test(normalizedQuery) && (
+    /(?:介绍|简介|概况|什么样|怎么样|如何|是一所|一所怎样|了解).{0,6}(?:学校|仰恩|校园|这所|我们|你们)/.test(normalizedQuery)
     || /(?:学校|仰恩|校园).{0,6}(?:介绍|简介|概况|情况|怎么样|如何|背景|历史)/.test(normalizedQuery)
+  )
   if (!asksMilitary && !asksCampusScale && !asksIntroduction) return []
   const facts: AssistantEvidence[] = [
     {
@@ -3553,9 +3567,14 @@ function campusOverviewLocalAnswer(query: string, evidence: AssistantEvidence[])
   }
 
   // Fix B: broad school-introduction questions get a grounded local profile
-  // instead of falling through to web search.
-  const asksIntroduction = /(?:介绍|简介|概况|什么样|怎么样|如何|是一所|一所怎样|了解).{0,6}(?:学校|仰恩|校园|这所|我们|你们)/.test(normalizedQuery)
+  // instead of falling through to web search. A question naming a specific
+  // campus-life sub-topic (宿舍/食堂/专业/学费 etc.) is NOT asking about the
+  // school as a whole, so it must not be shunted to the generic /campus profile
+  // — it should reach dorm/overview synthesis or its focused fallback.
+  const asksIntroduction = !campusSubTopicAnchor.test(normalizedQuery) && (
+    /(?:介绍|简介|概况|什么样|怎么样|如何|是一所|一所怎样|了解).{0,6}(?:学校|仰恩|校园|这所|我们|你们)/.test(normalizedQuery)
     || /(?:学校|仰恩|校园).{0,6}(?:介绍|简介|概况|情况|怎么样|如何|背景|历史)/.test(normalizedQuery)
+  )
   if (asksIntroduction && hardcodedAssistantFactIsCurrent('campusScale')) {
     return {
       query,
