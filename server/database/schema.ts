@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import {
   type AnySQLiteColumn,
+  blob,
   check,
   index,
   integer,
@@ -780,4 +781,56 @@ export const assistantRuns = sqliteTable('assistant_runs', {
   index('assistant_runs_success_created_idx').on(table.success, table.createdAt),
   check('assistant_runs_mode_check', sql`${table.mode} in ('local', 'ai', 'error')`),
   check('assistant_runs_path_check', sql`${table.retrievalPath} in ('feature_api', 'local_database', 'answer_cache', 'web_cache', 'web_search', 'error')`)
+])
+
+export const assistantSessionMemory = sqliteTable('assistant_session_memory', {
+  id: text('id').primaryKey(),
+  sessionKey: text('session_key').notNull(),
+  kind: text('kind', {
+    enum: ['preference', 'fact', 'answered', 'open_question']
+  }).notNull(),
+  content: text('content').notNull(),
+  contentHash: text('content_hash'),
+  sourceQueryHash: text('source_query_hash').notNull(),
+  sourceQuery: text('source_query').notNull(),
+  answerDigest: text('answer_digest'),
+  importance: integer('importance').notNull().default(50),
+  hitCount: integer('hit_count').notNull().default(0),
+  lastHitAt: integer('last_hit_at'),
+  expiresAt: integer('expires_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('assistant_session_memory_session_kind_idx').on(table.sessionKey, table.kind),
+  index('assistant_session_memory_session_hit_idx').on(table.sessionKey, table.lastHitAt),
+  index('assistant_session_memory_content_dedupe_idx').on(table.sessionKey, table.kind, table.contentHash),
+  index('assistant_session_memory_expiry_idx').on(table.expiresAt),
+  check('assistant_session_memory_kind_check', sql`${table.kind} in ('preference', 'fact', 'answered', 'open_question')`),
+  check('assistant_session_memory_importance_check', sql`${table.importance} between 0 and 100`)
+])
+
+export const assistantEmbeddings = sqliteTable('assistant_embeddings', {
+  id: text('id').primaryKey(),
+  sourceType: text('source_type', {
+    enum: ['entry', 'claim', 'document', 'place', 'content', 'procedure', 'memory']
+  }).notNull(),
+  sourceId: text('source_id').notNull(),
+  chunkIndex: integer('chunk_index').notNull().default(0),
+  content: text('content').notNull(),
+  textHash: text('text_hash').notNull(),
+  embedding: blob('embedding', { mode: 'buffer' }).notNull(),
+  model: text('model').notNull(),
+  dimension: integer('dimension').notNull(),
+  title: text('title').notNull().default(''),
+  url: text('url').notNull().default(''),
+  snippet: text('snippet').notNull().default(''),
+  source: text('source').notNull().default('site'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('assistant_embeddings_source_unique').on(table.sourceType, table.sourceId, table.chunkIndex),
+  index('assistant_embeddings_source_idx').on(table.sourceType, table.sourceId),
+  index('assistant_embeddings_updated_idx').on(table.updatedAt),
+  check('assistant_embeddings_source_type_check', sql`${table.sourceType} in ('entry', 'claim', 'document', 'place', 'content', 'procedure', 'memory')`),
+  check('assistant_embeddings_dimension_check', sql`${table.dimension} between 1 and 4096`)
 ])

@@ -8,7 +8,7 @@
     "node": ">=22 <25"
   },
   "scripts": {
-    "build": "nuxt build",
+    "build": "nuxt build && tsx scripts/copy-sqlite-vec-binary.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm bundle:budget && pnpm pwa:build:test",
     "bundle:budget": "tsx scripts/check-client-bundle-budget.ts",
     "amap:coordinates": "tsx scripts/import-amap-coordinates.ts",
@@ -70,7 +70,9 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "memory:cleanup": "tsx scripts/cleanup-session-memory.ts",
+    "embeddings:rebuild": "tsx scripts/rebuild-embeddings.ts"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",
@@ -89,6 +91,7 @@
     "nuxt": "^4.5.2",
     "pdfjs-dist": "5.4.624",
     "pinyin-pro": "^3.28.2",
+    "sqlite-vec": "^0.1.9",
     "tailwindcss": "^4.3.1",
     "three": "0.185.1",
     "word-extractor": "1.0.4",
@@ -108,5 +111,12 @@
     "vue-router": "5.1.0",
     "vue-tsc": "^3.3.5"
   },
-  "packageManager": "pnpm@10.28.1"
+  "packageManager": "pnpm@10.28.1",
+  "optionalDependencies": {
+    "sqlite-vec-linux-x64": "0.1.9",
+    "sqlite-vec-linux-arm64": "0.1.9",
+    "sqlite-vec-windows-x64": "0.1.9",
+    "sqlite-vec-darwin-x64": "0.1.9",
+    "sqlite-vec-darwin-arm64": "0.1.9"
+  }
 }

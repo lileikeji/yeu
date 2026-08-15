@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { assistantQuestionSchema } from '../../../shared/schemas/server'
 import { containsPromptInjection, isQuestionLike } from '../../../shared/utils/assistant-query'
 import { recordAssistantFailure, recordAssistantSuccess } from '../../modules/assistant/analytics'
+import { hashSessionKey } from '../../modules/assistant/memory'
 import {
   answerCampusQuestion,
-  blockedAssistantResponse,
-  resolveAssistantFollowUpQuery
+  blockedAssistantResponse
 } from '../../modules/assistant/service'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { useAppDatabase } from '../../utils/database'
@@ -22,10 +22,10 @@ export default defineEventHandler(async (event) => {
   assertRateLimit(event, 'assistant:global', 200, 60 * 1000, client)
 
   const body = await parseBody(event, assistantQuestionSchema)
-  const effectiveQuery = resolveAssistantFollowUpQuery(body.q, body.previousQ)
+  const sessionKey = body.sessionId ? hashSessionKey(body.sessionId) : undefined
   const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
   const startedAt = Date.now()
-  if (containsPromptInjection(effectiveQuery)) {
+  if (containsPromptInjection(body.q)) {
     try {
       recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, 'UNSAFE_QUERY', Date.now() - startedAt)
     } catch {
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
   const runtime = useRuntimeConfig(event)
   const requestAbort = createRequestAbortSignal(event)
   try {
-    const response = await answerCampusQuestion(client, effectiveQuery, {
+    const response = await answerCampusQuestion(client, body.q, {
       gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
       gatewayApiKey: String(runtime.aiGatewayApiKey || ''),
       gatewayModel: String(runtime.aiGatewayModel || 'gpt-5.4'),
@@ -55,6 +55,12 @@ export default defineEventHandler(async (event) => {
       mcpToolName: String(runtime.aiMcpToolName || 'firecrawl_search'),
       mcpTimeoutMs: Math.max(25_000, Number(runtime.aiMcpTimeoutMs) || 25_000),
       amapWebServiceKey: String(runtime.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || ''),
+      sessionKey,
+      previousQuery: body.previousQ,
+      embeddingBaseUrl: String(runtime.aiEmbeddingBaseUrl || ''),
+      embeddingApiKey: String(runtime.aiEmbeddingApiKey || ''),
+      embeddingModel: String(runtime.aiEmbeddingModel || 'text-embedding-v3'),
+      embeddingTimeoutMs: Math.max(5_000, Number(runtime.aiEmbeddingTimeoutMs) || 15_000),
       signal: requestAbort.signal
     })
     try {

@@ -1,0 +1,135 @@
+import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import test from 'node:test'
+import { closeDatabase, getDatabase } from '../server/database/client'
+import { runMigrations } from '../server/database/migrate'
+import { answerCampusQuestion } from '../server/modules/assistant/service'
+import { hashSessionKey, sessionMemoryStats, sessionMemoryTtlMs } from '../server/modules/assistant/memory'
+
+const gatewayConfig = {
+  gatewayBaseUrl: 'https://gateway.example.com',
+  gatewayApiKey: 'test-key',
+  gatewayModel: 'test-model',
+  gatewayTimeoutMs: 3000,
+  mcpSearchUrl: '',
+  mcpSearchBearerToken: '',
+  mcpAllowedHosts: '',
+  mcpToolName: '',
+  mcpTimeoutMs: 1000,
+  // Tests must not depend on ambient DNS for the SSRF gate.
+  gatewayLookup: async () => ['93.184.216.34']
+}
+
+interface FetchStub {
+  (input: string | URL, init?: { body?: string }): Promise<Response>
+}
+
+function fakeGateway(extractionMemories: Array<{ kind: string, content: string }>): FetchStub {
+  return async (input, init) => {
+    const body = JSON.parse(String(init?.body ?? '{}')) as {
+      messages: Array<{ role: string, content: string }>
+    }
+    const system = body.messages.find(message => message.role === 'system')?.content ?? ''
+    const isExtraction = system.includes('记忆抽取')
+    const content = isExtraction
+      ? JSON.stringify({ memories: extractionMemories })
+      : JSON.stringify({ answer: '这是测试回答。', citation_indexes: [], confidence: 0.9 })
+    return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+}
+
+test('LLM extraction writes user facts ADD-only into session memory', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-memory-extract-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  try {
+    runMigrations(client)
+    const sessionKey = hashSessionKey('extract-session')
+    globalThis.fetch = fakeGateway([
+      { kind: 'fact', content: '用户是专升本学生' },
+      { kind: 'preference', content: '用户关注宿舍条件' }
+    ]) as unknown as typeof fetch
+
+    const config = { ...gatewayConfig, sessionKey }
+    const response = await answerCampusQuestion(client, '我是专升本的学生，宿舍条件怎么样', config)
+    assert.ok(response.answer.length > 0)
+
+    const facts = client.sqlite.prepare(
+      'SELECT kind, content FROM assistant_session_memory WHERE session_key = ? AND kind IN (?, ?)'
+    ).all(sessionKey, 'fact', 'preference') as Array<{ kind: string, content: string }>
+    assert.ok(facts.some(item => item.kind === 'fact' && item.content.includes('专升本')), 'fact entry written')
+    assert.ok(facts.some(item => item.kind === 'preference' && item.content.includes('宿舍')), 'preference entry written')
+
+    // ADD-only: re-running the same turn does not duplicate the entries.
+    await answerCampusQuestion(client, '我是专升本的学生，宿舍条件怎么样', config)
+    const after = client.sqlite.prepare(
+      'SELECT count(*) AS n FROM assistant_session_memory WHERE session_key = ? AND kind IN (?, ?)'
+    ).get(sessionKey, 'fact', 'preference') as { n: number }
+    assert.equal(after.n, facts.length, 'identical extraction is not duplicated')
+
+    const stats = sessionMemoryStats(client, sessionKey)
+    assert.ok(stats.fact >= 1)
+    assert.ok(stats.preference >= 1)
+  } finally {
+    globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('extraction failures never break the answer or poison the gateway circuit', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-memory-extract-fail-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  const originalFetch = globalThis.fetch
+  try {
+    runMigrations(client)
+    const sessionKey = hashSessionKey('extract-fail-session')
+    // Answer succeeds; every extraction call (system prompt contains 记忆抽取) fails.
+    globalThis.fetch = (async (input, init) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { messages: Array<{ role: string, content: string }> }
+      const system = body.messages.find(message => message.role === 'system')?.content ?? ''
+      if (system.includes('记忆抽取')) {
+        return new Response('{}', { status: 500 })
+      }
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ answer: '正常回答', citation_indexes: [], confidence: 0.9 }) } }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }) as unknown as typeof fetch
+
+    const config = { ...gatewayConfig, sessionKey }
+    const response = await answerCampusQuestion(client, '我想了解一下奖学金政策', config)
+    assert.ok(response.answer.length > 0, 'answer still succeeds despite extraction failure')
+    const facts = client.sqlite.prepare(
+      'SELECT count(*) AS n FROM assistant_session_memory WHERE session_key = ? AND kind IN (?, ?)'
+    ).get(sessionKey, 'fact', 'preference') as { n: number }
+    assert.equal(facts.n, 0, 'no extracted facts written on failure')
+  } finally {
+    globalThis.fetch = originalFetch
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('memory TTL respects the environment override', () => {
+  const previous = process.env.NUXT_ASSISTANT_MEMORY_TTL_DAYS
+  try {
+    delete process.env.NUXT_ASSISTANT_MEMORY_TTL_DAYS
+    const defaultMs = sessionMemoryTtlMs()
+    assert.equal(defaultMs, 30 * 24 * 60 * 60 * 1000)
+    process.env.NUXT_ASSISTANT_MEMORY_TTL_DAYS = '7'
+    assert.equal(sessionMemoryTtlMs(), 7 * 24 * 60 * 60 * 1000)
+    process.env.NUXT_ASSISTANT_MEMORY_TTL_DAYS = '999'
+    assert.equal(sessionMemoryTtlMs(), 30 * 24 * 60 * 60 * 1000, 'out-of-range falls back to default')
+  } finally {
+    if (previous === undefined) delete process.env.NUXT_ASSISTANT_MEMORY_TTL_DAYS
+    else process.env.NUXT_ASSISTANT_MEMORY_TTL_DAYS = previous
+  }
+})

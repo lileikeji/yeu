@@ -741,7 +741,10 @@ export const searchQuerySchema = z.object({
 
 export const assistantQuestionSchema = z.object({
   q: z.string().trim().min(2).max(160),
-  previousQ: z.string().trim().min(2).max(160).optional()
+  previousQ: z.string().trim().min(2).max(160).optional(),
+  sessionId: z.string().trim().min(8).max(128)
+    .regex(/^[A-Za-z0-9._~-]+$/, 'Invalid session id')
+    .optional()
 }).strict()
 
 export const userLoginSchema = z.object({

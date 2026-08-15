@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { basename, dirname, isAbsolute, resolve } from 'node:path'
 import BetterSqlite3 from 'better-sqlite3'
+import * as sqliteVec from 'sqlite-vec'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema'
 
@@ -46,6 +47,15 @@ export function getDatabase(databasePath: string): DatabaseClient {
   sqlite.pragma('journal_mode = WAL')
   sqlite.pragma('busy_timeout = 5000')
   sqlite.pragma('synchronous = NORMAL')
+
+  // Optional vector search extension (P1). Loading is best-effort: when the
+  // prebuilt binary is unavailable or the platform is unsupported, semantic
+  // retrieval simply stays on the zero-dependency n-gram path.
+  try {
+    sqlite.loadExtension(sqliteVec.getLoadablePath())
+  } catch {
+    // Vector search is an enhancement, not a dependency.
+  }
 
   const client: DatabaseClient = {
     sqlite,

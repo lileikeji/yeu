@@ -13,6 +13,7 @@ import type {
 } from '~~/shared/types/server'
 import { buildStudentRuleSearchResults } from '~~/app/utils/student-rules-search'
 import { isQuestionLike } from '~~/shared/utils/assistant-query'
+import { getOrCreateAssistantSessionId } from '~~/app/utils/assistant-session'
 import {
   buildPublicSearchResults,
   buildSearchAnnouncement,
@@ -375,14 +376,17 @@ function parseAssistantSseBlock(block: string): { event: string, data: Record<st
 type AssistantRequestBody = {
   q: string
   previousQ?: string
+  sessionId?: string
 }
 
 function buildAssistantRequestBody(query: string): AssistantRequestBody {
+  const sessionId = getOrCreateAssistantSessionId()
   return {
     q: query,
     ...(previousAssistantQuery && previousAssistantQuery !== query
       ? { previousQ: previousAssistantQuery }
-      : {})
+      : {}),
+    ...(sessionId ? { sessionId } : {})
   }
 }
 

@@ -1,0 +1,2 @@
+ALTER TABLE `assistant_session_memory` ADD `content_hash` text;--> statement-breakpoint
+CREATE INDEX `assistant_session_memory_content_dedupe_idx` ON `assistant_session_memory` (`session_key`,`kind`,`content_hash`);

@@ -34,7 +34,7 @@ pnpm dev
 
 PowerShell 下可使用 `Copy-Item .env.example .env`。首次执行 `db:init` 前，应在 `.env` 中设置随机的 `NUXT_ADMIN_SESSION_SECRET` 和管理员密码；生产环境不要使用示例值。
 
-`db:*`、`amap:drafts`、`amap:coordinates`、`map:owner:sync`、`map:sources:sync`、`feedback:cleanup` 等 TypeScript 维护脚本和 Drizzle 配置会读取项目根目录下可选的 `.env`；Shell 中已经设置的变量优先，不会被文件覆盖。需要为单次维护命令选择其他文件时，可先设置 `NUXT_ENV_FILE`（相对路径按当前工作目录解析）。该变量只供这些维护脚本使用，不会替 Nuxt 构建、Nitro 或 PM2 注入环境变量。
+`db:*`、`amap:drafts`、`amap:coordinates`、`map:owner:sync`、`map:sources:sync`、`feedback:cleanup`、`memory:cleanup` 等 TypeScript 维护脚本和 Drizzle 配置会读取项目根目录下可选的 `.env`；Shell 中已经设置的变量优先，不会被文件覆盖。需要为单次维护命令选择其他文件时，可先设置 `NUXT_ENV_FILE`（相对路径按当前工作目录解析）。该变量只供这些维护脚本使用，不会替 Nuxt 构建、Nitro 或 PM2 注入环境变量。
 
 公开指南与部门目录默认仍可使用 `data/seeds/public-content.ts` 的静态回退。需要把首批公开目录纳入后台维护时，先只读预检，再明确应用：
 
