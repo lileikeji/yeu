@@ -15,6 +15,11 @@ import {
   scholarships,
   studentRuleCatalog
 } from '../../../data/student-rules'
+import {
+  matchZongceItem,
+  zongceEvidenceText,
+  zongceVersion
+} from '../../../data/comprehensive-evaluation'
 import { procedureSeeds } from '../../../data/seeds/procedures'
 import {
   freshmanGuideBody,
@@ -3840,11 +3845,12 @@ function resolveStructuredDataEvidencePart2(query: string, baseResult: ApiAssist
   }
 
   // ── Comprehensive evaluation ──────────────────────────────────────────────
-  if (/综合测评|综测|德育|智育/.test(q)) {
+  if (/综合测评|综测|德育|智育|加分|扣分/.test(q)) {
     result.push({
       title: comprehensiveEvaluationRules.title,
       url: comprehensiveEvaluationRules.sourceUrl,
-      snippet: `公式：${comprehensiveEvaluationRules.formulas.join('；')}。备注：${comprehensiveEvaluationRules.notes.join('；')}`,
+      snippet: `公式：${comprehensiveEvaluationRules.formulas.join('；')}。备注：${comprehensiveEvaluationRules.notes.join('；')}
+完整加分/扣分明细（${zongceVersion}）：${zongceEvidenceText()}`,
       source: 'site'
     })
   }
@@ -3892,6 +3898,29 @@ function ensureGroundedLocalCitation(
   return { ...response, citations: [citation] }
 }
 
+function zongceBonusLocalAnswer(query: string): ApiAssistantResponse | null {
+  const q = normalizeAssistantQuery(query)
+  if (!/(综合测评|综测)/.test(q) && !/加分|加几分|加多少分|怎么加分|能加/.test(q)) return null
+  const matches = matchZongceItem(q)
+  if (matches.length === 0) return null
+  const lines = matches.slice(0, 6).map(m => '• ' + m.hint)
+  const citation: ApiAssistantCitation = {
+    title: comprehensiveEvaluationRules.title,
+    url: comprehensiveEvaluationRules.sourceUrl,
+    snippet: '2025版综合测评加分/扣分明细（' + zongceVersion + '）',
+    source: 'site'
+  }
+  return {
+    query,
+    mode: 'local',
+    answer: '按2025版《仰恩大学学生综合测评实施办法》与你问题相关的加分项：\n' + lines.join('\n')
+      + '\n同项目、同一作品或同类任职按最高项计、不重复累计；团体获奖分数减半（最低0.1分）；智育奖励上限10分、德育奖励上限13分、体育奖励上限2分。若补充每一项的具体等级/名次（如校级二等奖、六级567分以上），我可以帮你把这些分汇总成一个估算总分。具体以学院当年审核为准、以申报材料为准。',
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 0.9
+  }
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
   const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
   if (welcomeSystemAnswer) return welcomeSystemAnswer
@@ -3911,6 +3940,8 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (campusOverviewAnswer) return campusOverviewAnswer
   const studentRuleAnswer = studentRuleLocalAnswer(query, evidence)
   if (studentRuleAnswer) return studentRuleAnswer
+  const zongceBonusAnswer = zongceBonusLocalAnswer(query)
+  if (zongceBonusAnswer) return zongceBonusAnswer
   const quantitativeAnswer = officialQuantitativeLocalAnswer(query, evidence)
   if (quantitativeAnswer) return quantitativeAnswer
   const overviewFallback = broadCampusOverviewFallback(query, evidence)
@@ -5320,6 +5351,7 @@ async function answerCampusQuestionCore(
       || deterministicCampusAnswer
       || deterministicKnowledgeAnswer
       || deterministicRuleAnswer
+      || zongceBonusLocalAnswer(query) !== null
       || directDirectoryEvidence(query, localEvidence)
       || hasStructuredLocalAnswer(query, localEvidence)
       || localEvidenceIsSufficient(query, localEvidence)
@@ -5482,6 +5514,7 @@ async function answerCampusQuestionCore(
               ?? deterministicIdentityAnswer
               ?? deterministicCampusAnswer
               ?? deterministicRuleAnswer
+              ?? zongceBonusLocalAnswer(query)
               ?? deterministicKnowledgeAnswer)
         // A reviewed deterministic handler has already answered the user's
         // exact intent. Do not send it through the model synthesis path again.
@@ -5516,11 +5549,11 @@ async function answerCampusQuestionCore(
           }
         }
         if ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false) {
-          return localEvidenceGapResponse(query)
+          return zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query)
         }
         return localEvidence[0]
           ? buildLocalResponse(query, localEvidence)
-          : localEvidenceGapResponse(query)
+          : (zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
       }
     )
     const result = withRunMetadata(
