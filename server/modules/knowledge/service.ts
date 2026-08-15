@@ -628,7 +628,6 @@ export function searchPublishedKnowledgeClaims(
   allowLikeFallback = true
 ): PublishedKnowledgeMatch[] {
   const query = ftsQuery(terms)
-  if (!query) return []
   type SearchRow = {
     id: string
     category: string
@@ -639,9 +638,15 @@ export function searchPublishedKnowledgeClaims(
     ftsRank: number
     sourceUrl: string | null
   }
-  let rows: SearchRow[]
-  try {
-    rows = client.sqlite.prepare(`
+  let rows: SearchRow[] = []
+  // When every term is shorter than 3 chars the trigram FTS index can't be used
+  // (ftsQuery is empty), but the terms may still be meaningful (e.g. 床垫/尺寸);
+  // fall through to the bounded LIKE fallback below instead of returning empty.
+  if (!query) {
+    if (!allowLikeFallback) return []
+  } else {
+    try {
+      rows = client.sqlite.prepare(`
       SELECT kc.id, kc.category, kc.title, kc.statement,
         kc.public_url AS publicUrl, kc.confidence_score AS confidenceScore,
         bm25(knowledge_claims_fts, 0.0, 6.0, 3.0, 2.0) AS ftsRank,
@@ -658,8 +663,9 @@ export function searchPublishedKnowledgeClaims(
       ORDER BY ftsRank ASC, kc.confidence_score DESC
       LIMIT ?
     `).all(query, now, now, Math.max(12, Math.min(160, limit * 10))) as SearchRow[]
-  } catch {
-    rows = []
+    } catch {
+      rows = []
+    }
   }
   if (rows.length === 0 && allowLikeFallback) {
     const likeTerms = [...new Set(terms.map(term => term.trim()).filter(term => term.length >= 2))].slice(0, 8)

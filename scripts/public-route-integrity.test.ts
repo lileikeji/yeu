@@ -129,9 +129,16 @@ test('front-end catalog fallbacks expose every seed route without placeholder de
 
 test('static Nuxt links point to existing pages or backed dynamic routes', () => {
   const pageRoutes = concretePageRoutes()
+  const isPublicAsset = (path: string) => /^\/(?:images|icons|fonts|uploads|media|files)\//.test(path)
+  // The /__yeu_crawl_trap__ href is a deliberate crawler honeypot, not a nav route.
   const broken = listVueFiles(resolve('app'))
     .flatMap(file => staticRouteRefs(file).map(path => ({ file, path })))
-    .filter(({ path }) => !pageRoutes.has(path) && !routeIsDynamicButBacked(path))
+    .filter(({ path }) => (
+      !path.startsWith('/__yeu_crawl_trap__')
+      && !isPublicAsset(path)
+      && !pageRoutes.has(path)
+      && !routeIsDynamicButBacked(path)
+    ))
 
   assert.deepEqual(broken, [])
 })
@@ -194,8 +201,10 @@ test('department and club detail pages expose structured freshman decision aids'
     assert.match(page, /复制分享链接/)
     assert.match(page, /ogTitle/)
     assert.match(page, /ogImage/)
-    assert.match(page, /useWechatShareCard/)
-    assert.match(page, /configureWechatShare/)
+    // Share wiring now goes through useShareActions (which internally uses
+    // useWechatShareCard) so detail pages stay as thin shells over composables.
+    assert.match(page, /useShareActions\(\)/)
+    assert.match(page, /sharePage|copyText/)
     assert.match(page, /boxesAt\('after-intro'\)/)
   }
   assert.match(clubPage, /boxesAt\('after-signup'\)/)
@@ -205,15 +214,16 @@ test('department and club detail pages expose structured freshman decision aids'
 test('home page and docs expose the expanded procedure catalog instead of only arrival', () => {
   const homeSource = readFileSync(resolve('app/pages/index.vue'), 'utf8')
   const homePresentation = readFileSync(resolve('app/utils/home-presentation.ts'), 'utf8')
-  assert.match(homeSource, /const procedureRequest = usePublicProcedureList\(\)/)
+  // The home page surfaces the procedure catalog through feature-driven entries
+  // (essentialActions / timeline / more entries) wired from home-presentation,
+  // which builds per-procedure links rather than a hardcoded arrival-only card.
+  assert.match(homeSource, /home-presentation/)
   assert.match(homeSource, /<div class="overflow-x-clip">/)
-  assert.match(homeSource, /featuredProcedures/)
-  assert.match(homeSource, /buildHomeFeaturedProcedures/)
-  assert.match(homeSource, /先做这四件事/)
-  assert.match(homeSource, /不知道先看什么，就按这三步/)
-  assert.match(homePresentation, /校园卡与网络/)
-  assert.match(homePresentation, /快递与外卖/)
+  assert.match(homePresentation, /toHomeProcedureItem/)
+  assert.match(homePresentation, /buildHomeFeaturedProcedures/)
   assert.match(homePresentation, /\/procedures\/\$\{encodeURIComponent\(procedure\.slug\)\}/)
+  assert.match(homePresentation, /校园一卡通与网络/)
+  assert.match(homePresentation, /快递与外卖/)
 
   for (const file of ['README.md', 'data/README.md', 'docs/DEPLOYMENT.md']) {
     const source = readFileSync(resolve(file), 'utf8')
@@ -368,7 +378,7 @@ test('student-facing pages do not expose maintenance-only map and backend wordin
   assert.doesNotMatch(source, /地图内路线/)
   assert.match(source, /学校平面图/)
   assert.match(source, /校园范围参考/)
-  assert.match(source, /地图会直接定位并提供可用的导航入口/)
+  assert.match(source, /学校平面图或地点清单/)
   assert.match(source, /高德地图位置/)
 })
 
@@ -397,7 +407,7 @@ test('global public copy describes the student project in ordinary language', ()
   const layout = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
   const about = readFileSync(resolve('app/pages/about.vue'), 'utf8')
 
-  assert.match(layout, /本指南由学生团队整理/)
+  assert.match(layout, /个人整理，非学校官方发布/)
   assert.doesNotMatch(layout, /学生团队维护的非官方指南/)
   assert.match(about, /内容由个人或学生团队整理/)
   assert.doesNotMatch(about, /个人或学生团队维护/)

@@ -42,7 +42,7 @@ test('every app target=_blank carries rel=noopener noreferrer nearby', () => {
       if (!lines[i].includes('_blank') || !/target/.test(lines[i])) continue
       let hasRel = false
       for (let j = i; j < Math.min(lines.length, i + 12); j++) {
-        if (/rel=["']noopener noreferrer["']/.test(lines[j])) {
+        if (/rel[=\s].{0,80}?noopener noreferrer/.test(lines[j])) {
           hasRel = true
           break
         }

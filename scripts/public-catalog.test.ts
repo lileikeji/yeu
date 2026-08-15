@@ -361,11 +361,11 @@ test('guide copy hides maintainer language from student pages', () => {
   )
   assert.equal(
     studentFacingGuideText('新生遇到校园卡网络认证、Wi-Fi 或账号登录问题。'),
-    '新生遇到校园卡、校园网连接或账号登录问题。'
+    '新生遇到校园一卡通、校园网连接或账号登录问题。'
   )
   assert.equal(
     studentFacingGuideText('新生遇到校园卡网络认证、Wi-Fi、账号登录问题。'),
-    '新生遇到校园卡、校园网连接或账号登录问题。'
+    '新生遇到校园一卡通、校园网连接或账号登录问题。'
   )
   assert.equal(studentFacingGuideText('本系统不收集账号或密码。'), '这里不收集账号或密码。')
   assert.equal(
@@ -608,7 +608,7 @@ test('verified campus facts retain their official source and scope', () => {
 
   assert.match(networkText, /不包括教师、学生宿舍区/)
   assert.match(networkText, /校园一卡通门禁系统刷脸进出宿舍区/)
-  assert.match(networkText, /不代表校园卡资金账户或完整服务流程/)
+  assert.match(networkText, /不代表校园一卡通资金账户或完整服务流程/)
   assert.ok(networkGuide.sources.includes(officialSources.dormRules2025))
   assert.doesNotMatch(networkText, /Yeu@/)
 })

@@ -1460,6 +1460,9 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
     const subjectCovered = profile.intent === 'feature'
       || profile.intent === 'gpa'
       || profile.intent === 'identity'
+      || item.url.startsWith('/nearby#')
+      || item.url === '/transport'
+      || item.url.startsWith('/transport#')
       || evidenceCoversQuerySubject(query, item)
       || (score >= 12 && (specificTitleMatch || specificTextMatch))
     return { ...item, score: subjectCovered ? score : 0 }

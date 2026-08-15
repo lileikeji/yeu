@@ -118,13 +118,14 @@ test('procedure seeds cover high-frequency freshman workflows and rerun safely',
         { title: '按课表开始上课', informationState: 'confirmed' }
       ]
     )
-    assert.equal((
-      database.prepare(`
-        SELECT count(*) AS count
-        FROM procedure_materials
-        WHERE procedure_id = (SELECT id FROM procedures WHERE slug = 'arrival')
-      `).get() as { count: number }
-    ).count, 0)
+    const arrivalMaterials = database.prepare(`
+      SELECT name FROM procedure_materials
+      WHERE procedure_id = (SELECT id FROM procedures WHERE slug = 'arrival')
+    `).all() as Array<{ name: string }>
+    // The arrival workflow legitimately carries one 2026 新生手册 prep material
+    // (行前可参考准备) — it must list student-facing prep, not a non-material.
+    assert.equal(arrivalMaterials.length, 1)
+    assert.match(arrivalMaterials[0]!.name, /可参考准备/)
     const sourceClaims = database.prepare(`
       SELECT relation.claim_scope AS claimScope, relation.is_primary AS isPrimary,
         source.url
@@ -185,7 +186,8 @@ test('procedure seeds cover high-frequency freshman workflows and rerun safely',
       JOIN procedures AS procedure ON procedure.id = material.procedure_id
       ORDER BY procedure.slug, material.item_order
     `).all() as Array<{ slug: string, name: string, isRequired: number | null, informationState: string }>
-    assert.equal(materialRows.length, 4)
+    assert.equal(materialRows.length, 5)
+    assert.ok(materialRows.some(row => row.slug === 'arrival' && row.informationState === 'partial'))
     assert.ok(materialRows.some(row => row.slug === 'dorm-repair' && row.name.includes('故障照片') && row.isRequired === 1))
     assert.ok(materialRows.some(row => row.slug === 'campus-network' && row.informationState === 'confirmed'))
     assert.ok(materialRows.some(row => row.slug === 'transfer-archive-mailing' && row.isRequired === 1))
