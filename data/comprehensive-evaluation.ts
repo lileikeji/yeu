@@ -191,7 +191,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
       {
         id: 'show-activist', name: '校级文艺演出积极分子/先进个人', points: 0.5, cap: 1,
         note: '国庆晚会、迎接晚会、元旦晚会、元宵晚会等，每场0.5分，小类目上限1分。',
-        keywords: ['国庆晚会', '迎接晚会', '元旦晚会', '元宵晚会', '文艺演出']
+        keywords: ['国庆晚会', '迎接晚会', '元旦晚会', '元宵晚会', '文艺演出', '演出']
       }
     ]
   },

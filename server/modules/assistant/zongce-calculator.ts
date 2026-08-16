@@ -123,6 +123,40 @@ function round2(v: number): number {
   return Math.round(v * 100) / 100
 }
 
+/** 数量类条目：从提问里解析志愿时长/献血次数/讲座次数/演出场次。 */
+function resolveQuantityItem(item: ZongceItem, query: string): number | null {
+  if (item.id === 'volunteer-hours') {
+    const match = query.match(/志愿[^\d]{0,14}(\d{1,3}(?:\.\d+)?)\s*小时/)
+    return match ? Number(match[1]) : null
+  }
+  if (item.id === 'blood-donation') {
+    const match = query.match(/献血[^\d]{0,8}(\d{1,2})\s*次/)
+    return match ? Number(match[1]) : null
+  }
+  if (item.id === 'lecture') {
+    const match = query.match(/讲座[^\d]{0,8}(\d{1,2})\s*(?:次|场)/)
+    return match ? Number(match[1]) : null
+  }
+  if (item.id === 'show-activist') {
+    const match = query.match(/演出[^\d]{0,8}(\d{1,2})\s*场/)
+    return match ? Number(match[1]) : null
+  }
+  return null
+}
+
+function quantityUnit(item: ZongceItem): string {
+  return item.id === 'volunteer-hours' ? '小时' : '次'
+}
+
+/** 体育比赛按名次区间解析（第1-3名 / 第4-8名 / 参赛未获奖）。 */
+function sportsBucketsForQuery(query: string): string[] {
+  const out: string[] = []
+  if (/第[1-3]名|第1名|第2名|第3名|第一|冠军|亚军|季军|金牌|银牌|铜牌/.test(query)) out.push('第1-3名')
+  if (/第[4-8]名|第四|第五|第六|第七|第八/.test(query)) out.push('第4-8名')
+  if (/未获奖|参与奖|参赛奖/.test(query)) out.push('参赛未获奖')
+  return out
+}
+
 /** 尝试为某条目解析奖项分数；返回 {points, note}。 */
 function resolveItemPoints(
   item: ZongceItem,
@@ -131,9 +165,15 @@ function resolveItemPoints(
   tiers: string[]
 ): { points: number; note?: string } {
   if (item.points !== undefined) {
-    // 固定分值条目：数量类（志愿/献血/讲座/演出）需要数量，先不自动加分
+    // 数量类条目：志愿时长/献血/讲座/演出 优先从提问解析数量
+    const qty = resolveQuantityItem(item, query)
+    if (qty !== null && qty > 0) {
+      const raw = item.points * qty
+      const capped = item.cap !== undefined ? Math.min(item.cap, raw) : raw
+      return { points: round2(capped), note: `${item.name}：${qty}${quantityUnit(item)} × ${item.points} = ${round2(capped)} 分（上限 ${item.cap}）` }
+    }
     if (item.cap !== undefined) {
-      return { points: 0, note: `${item.name}按数量计（${item.points}分/次，上限${item.cap}分），需提供时长/次数` }
+      return { points: 0, note: `${item.name}按数量计（${item.points}分/${quantityUnit(item)}，上限${item.cap}分），需提供时长/次数` }
     }
     return { points: item.points, note: undefined }
   }
@@ -141,9 +181,10 @@ function resolveItemPoints(
   if (levels.length === 0) return { points: 0, note: `${item.name}暂无自动计分规则` }
 
   const tier = tiers.find(t => levels.some(l => l.level.includes(t)))
+  const effectiveGrades = item.id === 'sports-competition' ? sportsBucketsForQuery(query) : grades
   const picks: Array<{ level: string; points: number }> = []
   const seenGrades = new Set<string>()
-  for (const grade of grades) {
+  for (const grade of effectiveGrades) {
     if (seenGrades.has(grade)) continue
     seenGrades.add(grade)
     // 先找同时匹配级别+等级的档位；没有再退回任意档位的该等级（取分值最低的保守档）
@@ -250,8 +291,10 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
   const awardNotes: string[] = []
 
   const matches = matchZongceItemsForQuery(query)
+  let competitionResolved = false
   for (const { item } of matches) {
     const r = resolveItemPoints(item, query, grades, tiers)
+    if (r.points > 0 && (item.id === 'academic-competition' || item.id === 'comp-culture')) competitionResolved = true
     const section = sectionOfItem(item)
     if (section === 'intellectual') {
       intellectualReward.points += r.points
@@ -267,6 +310,11 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
   const intellectualRewardCapped = Math.min(zongceStructure.intellectual.rewardCap, intellectualReward.points)
   const moralRewardCapped = Math.min(zongceStructure.moral.rewardCap, moralReward.points)
   const sportsRewardCapped = Math.min(zongceStructure.sports.rewardCap, sportsReward.points)
+
+  // 检测到获奖等级但没有任何竞赛项命中 → 提示补充分类，避免静默漏算
+  if (grades.length > 0 && !competitionResolved) {
+    notes.push('检测到获奖等级（如一等奖/二等奖）但未匹配到具体竞赛：文化艺术类（征文、演讲、书法、舞蹈等）算德育竞赛；学科技能类（数学建模、挑战杯、学科竞赛等）算智育竞赛。请补充竞赛类型。')
+  }
 
   // 3) 德育基础分 + 班内互评（默认按满分估算）
   const moralBase = zongceStructure.moral.base + zongceStructure.moral.peerReview

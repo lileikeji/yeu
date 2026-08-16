@@ -26,6 +26,35 @@ test('computes bare average phrasing', () => {
   assert.match(r.answer, /80 ÷ 85 × 60 = 56\.47/)
 })
 
+test('computes volunteer hours and blood donation quantity', () => {
+  const r = tryComputeZongce('我平均成绩85 专业最高平均成绩90 志愿时长20小时 献血2次 综测大概多少')
+  assert.ok(r)
+  assert.equal(r.total, 75.67)
+  assert.match(r.answer, /志愿服务时长：20小时 × 0\.15 = 3 分/)
+  assert.match(r.answer, /无偿献血：2次 × 0\.5 = 1 分/)
+})
+
+test('computes sports rank buckets', () => {
+  const r = tryComputeZongce('我平均成绩85 专业最高平均成绩90 体育比赛拿了校级第一和校级第四 综测多少')
+  assert.ok(r)
+  assert.equal(r.total, 73.17)
+  assert.match(r.answer, /校级 第1-3名 1分 \+ 校级 第4-8名 0\.5分/)
+})
+
+test('computes lecture and show quantity', () => {
+  const r = tryComputeZongce('我平均成绩85 专业最高平均成绩90 讲座10次 演出1场 综测多少')
+  assert.ok(r)
+  assert.equal(r.total, 73.17)
+  assert.match(r.answer, /讲座）：10次 × 0\.1 = 1 分/)
+  assert.match(r.answer, /文艺演出积极分子\/先进个人：1次 × 0\.5 = 0\.5 分/)
+})
+
+test('flags competition ambiguity instead of silent omission', () => {
+  const r = tryComputeZongce('我平均成绩85 专业最高平均成绩90 拿了校级一等奖和三好学生 综测多少')
+  assert.ok(r)
+  assert.match(r.answer, /未匹配到具体竞赛/)
+})
+
 test('returns null for non-computable queries', () => {
   assert.equal(tryComputeZongce('综测怎么算'), null)
   assert.equal(tryComputeZongce('综测智育基础分怎么算'), null)
