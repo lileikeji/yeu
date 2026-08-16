@@ -90,6 +90,7 @@ import {
 import { activePublicContentCondition } from '../content/visibility'
 import { searchOfficialKnowledgeDocuments, searchPublishedKnowledgeClaims } from '../knowledge/service'
 import { currentAssistantKnowledgeRevision } from './knowledge-revision'
+import { tryComputeZongce } from './zongce-calculator'
 import { activePublicProcedureCondition } from '../procedures/service'
 import {
   fetchAmapTransitPlan,
@@ -3360,6 +3361,32 @@ function featureLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAs
   }
 }
 
+/** 综测算分：用户给出成绩/奖项时按 2025 版办法直接估算总分（放在静态公式回答之前）。 */
+function zongceCalculationLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
+  const result = tryComputeZongce(query)
+  if (!result) return null
+  const ruleEvidence = evidence.find(item => (
+    item.url === comprehensiveEvaluationRules.sourceUrl
+    || item.url === '/student-rules#rule-comprehensive-evaluation'
+  ))
+  const citations: ApiAssistantCitation[] = ruleEvidence
+    ? [{ title: ruleEvidence.title, url: ruleEvidence.url, snippet: ruleEvidence.snippet, source: ruleEvidence.source }]
+    : [{
+        title: comprehensiveEvaluationRules.title,
+        url: comprehensiveEvaluationRules.sourceUrl,
+        snippet: '2025版综合测评实施办法（' + zongceVersion + '）',
+        source: 'site'
+      }]
+  return {
+    query,
+    mode: 'local',
+    answer: result.answer,
+    citations,
+    usedWebSearch: false,
+    confidence: 0.9
+  }
+}
+
 function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
   const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const citationFor = (url: string): ApiAssistantCitation[] => evidence
@@ -5246,6 +5273,7 @@ async function answerCampusQuestionCore(
     const fastDeterministicAnswer = officialWelcomeSystemLocalAnswer(query, fastEvidence)
       ?? official2026TransferMonthLocalAnswer(query, fastEvidence)
       ?? freshmanClassLookupLocalAnswer(query, fastEvidence)
+      ?? zongceCalculationLocalAnswer(query, fastEvidence)
       ?? studentRuleLocalAnswer(query, fastEvidence)
       ?? campusOverviewLocalAnswer(query, fastEvidence)
     const fastOpeningEvidence = isOpeningDateQuery(query)

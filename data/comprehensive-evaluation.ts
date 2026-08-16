@@ -27,7 +27,7 @@ export interface ZongceCategory { id: string; label: string; cap?: number; items
 
 export const zongceBonusCategories: ZongceCategory[] = [
   {
-    id: 'moral-honor', label: '德育奖励·荣誉称号', cap: 13,
+    id: 'moral-honor', label: '德育奖励·荣誉称号',
     items: [
       {
         id: 'honor-title', name: '个人荣誉称号',
@@ -65,7 +65,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
     ]
   },
   {
-    id: 'moral-work', label: '德育奖励·社会工作（学生干部）', cap: 13,
+    id: 'moral-work', label: '德育奖励·社会工作（学生干部）',
     items: [
       {
         id: 'work-min-union-top', name: '校团委/学生会/社团管理部部长团等正副职',
@@ -130,7 +130,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
     ]
   },
   {
-    id: 'moral-competition', label: '德育奖励·文化艺术/思想道德/综合素质竞赛', cap: 13,
+    id: 'moral-competition', label: '德育奖励·文化艺术/思想道德/综合素质竞赛',
     items: [
       {
         id: 'comp-culture', name: '文化艺术/思想建设竞赛获奖', multi: true,
@@ -152,7 +152,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
     ]
   },
   {
-    id: 'moral-others', label: '德育奖励·创业/公益/志愿/献血/讲座/演出', cap: 13,
+    id: 'moral-others', label: '德育奖励·创业/公益/志愿/献血/讲座/演出',
     items: [
       {
         id: 'entrepreneurship', name: '创业活动',
@@ -175,28 +175,28 @@ export const zongceBonusCategories: ZongceCategory[] = [
       },
       {
         id: 'volunteer-hours', name: '志愿服务时长', points: 0.15, cap: 3,
-        note: '每2小时志愿服务加0.15分；以校/院青年志愿者先锋队记录为准，红十字会以红博云平台记录为准。',
+        note: '每2小时志愿服务加0.15分，小类目上限3分；以校/院青年志愿者先锋队记录为准，红十字会以红博云平台记录为准。',
         keywords: ['志愿时长', '志愿服务', '志愿者', '志愿小时']
       },
       {
         id: 'blood-donation', name: '无偿献血', points: 0.5, cap: 1.5,
-        note: '每次0.5分，以献血证记录为准。',
+        note: '每次0.5分，小类目上限1.5分；以献血证记录为准。',
         keywords: ['无偿献血', '献血']
       },
       {
         id: 'lecture', name: '不设奖项的学校/学院活动（讲座）', points: 0.1, cap: 1,
-        note: '道德讲堂、名师讲坛、专家讲座、优秀校友讲座等，需组织方活动证明。',
+        note: '道德讲堂、名师讲坛、专家讲座、优秀校友讲座等，小类目上限1分；需组织方活动证明。',
         keywords: ['道德讲堂', '名师讲坛', '专家讲座', '校友讲座', '讲座']
       },
       {
         id: 'show-activist', name: '校级文艺演出积极分子/先进个人', points: 0.5, cap: 1,
-        note: '国庆晚会、迎接晚会、元旦晚会、元宵晚会等，每场0.5分。',
+        note: '国庆晚会、迎接晚会、元旦晚会、元宵晚会等，每场0.5分，小类目上限1分。',
         keywords: ['国庆晚会', '迎接晚会', '元旦晚会', '元宵晚会', '文艺演出']
       }
     ]
   },
   {
-    id: 'intellectual-research', label: '智育奖励·科研课题/竞赛/论文/专利/证书（上限10分）', cap: 10,
+    id: 'intellectual-research', label: '智育奖励·科研课题/竞赛/论文/专利',
     items: [
       {
         id: 'research-project', name: '科研课题（大学生创新创业训练计划项目等）',
@@ -220,7 +220,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
           { level: '校级 一等', points: 1 }, { level: '校级 二等', points: 0.5 }, { level: '校级 三等', points: 0.25 }
         ],
         note: 'A类=教育部国家级竞赛/全国职业院校技能大赛/省厅认定重大赛事；B类=A类省赛选拔、全国性行业协会学会赛事、福建省级赛事；C类=A/B以外的学科技能竞赛。同一活动多级别取最高分不重复。',
-        keywords: ['学科竞赛', '技能竞赛', '创新创业大赛', '挑战杯', '互联网+', 'A类', 'B类', 'C类']
+        keywords: ['学科竞赛', '技能竞赛', '学术竞赛', '学术比赛', '学术类', '校赛', '创新创业大赛', '挑战杯', '互联网+', 'A类', 'B类', 'C类']
       },
       {
         id: 'paper', name: '论文与新闻报道发表', multi: true,
@@ -232,7 +232,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
           { level: '普通媒体（市级以上）发表新闻/图片', points: 1 },
           { level: '校园网主页/校报发表新闻/图片', points: 0.1 }
         ],
-        note: '不同论文/报道可多选累计（以篇计）；普通媒体累计不超2分，校园网/校报累计不超1分。以仰恩大学名义发表，第一作者得一半，其余平均分剩余。',
+        note: '不同论文/报道可多选累计（以篇计）；小类目上限：普通媒体（市级以上）累计不超2分，校园网/校报累计不超1分。以仰恩大学名义发表，第一作者得一半，其余平均分剩余。',
         keywords: ['SCI', 'SSCI', 'EI', 'ISTP', '核心期刊', '论文', '著作', '新闻报道', '校报']
       },
       {
@@ -249,7 +249,7 @@ export const zongceBonusCategories: ZongceCategory[] = [
     ]
   },
   {
-    id: 'intellectual-cert', label: '智育奖励·职业资格与水平测试（上限10分）', cap: 10,
+    id: 'intellectual-cert', label: '智育奖励·职业资格与水平测试',
     items: [
       {
         id: 'cert-vocational', name: '国家职业资格/职业技能鉴定', multi: true,
