@@ -5432,6 +5432,7 @@ async function answerCampusQuestionCore(
       }
     }
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+    const deterministicZongceCalcAnswer = zongceCalculationLocalAnswer(query, localEvidence)
     const deterministicInstitutionNatureAnswer = institutionNatureLocalAnswer(query)
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
@@ -5601,6 +5602,7 @@ async function answerCampusQuestionCore(
       ? null
       : assistantKnowledgeLocalAnswer(client, query)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
+    const deterministicZongceCalcAnswer = zongceCalculationLocalAnswer(query, localEvidence)
     const deterministicInstitutionNatureAnswer = institutionNatureLocalAnswer(query)
     const deterministicCampusAnswer = campusOverviewLocalAnswer(query, localEvidence)
     const deterministicCollegeAnswer = collegeMajorsLocalAnswer(query)
@@ -5630,6 +5632,7 @@ async function answerCampusQuestionCore(
               ?? deterministicIdentityAnswer
               ?? deterministicInstitutionNatureAnswer
               ?? deterministicCampusAnswer
+              ?? deterministicZongceCalcAnswer
               ?? deterministicRuleAnswer
               ?? zongceBonusLocalAnswer(query)
               ?? deterministicKnowledgeAnswer)
