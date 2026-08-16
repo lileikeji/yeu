@@ -68,3 +68,32 @@ test('flags unverifiable assumptions instead of inventing facts', () => {
   // 专利未注明类型 → 按最低档计入并明确说明
   assert.match(r.answer, /未注明等级\/类型，暂按最低档/)
 })
+
+test('computes attendance deductions', () => {
+  const r = tryComputeZongce('我平均成绩85 专业最高平均成绩90 旷课4学时 综测多少')
+  assert.ok(r)
+  assert.equal(r.total, 69.67)
+  assert.match(r.answer, /旷课 4 学时 -2 分/)
+})
+
+test('computes discipline and late deductions with rounded detail', () => {
+  const r = tryComputeZongce('我平均成绩85 专业最高平均成绩90 留校察看 迟到3次 综测多少')
+  assert.ok(r)
+  assert.equal(r.total, 65.37)
+  assert.match(r.answer, /迟到 3 次 -0\.3 分/)
+})
+
+test('accepts explicit moral base and peer review scores', () => {
+  const r = tryComputeZongce('我平均成绩85 专业最高平均成绩90 德育基础分5 班内互评5 综测多少')
+  assert.ok(r)
+  assert.equal(r.total, 69.67)
+  assert.match(r.answer, /基础分\+互评 10/)
+})
+
+test('combines moral base input with deduction', () => {
+  const r = tryComputeZongce('我平均成绩85 专业最高平均成绩90 德育基础分5 互评4 旷课2学时 综测多少')
+  assert.ok(r)
+  assert.equal(r.total, 67.67)
+  assert.match(r.answer, /基础分\+互评 9/)
+})
+

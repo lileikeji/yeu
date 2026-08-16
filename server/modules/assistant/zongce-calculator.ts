@@ -247,6 +247,54 @@ function sectionOfItem(item: ZongceItem): 'moral' | 'intellectual' | 'sports' {
   return 'moral'
 }
 
+/** 解析用户给出的德育基础分（辅导员评分，0-6）。 */
+function parseMoralBaseScore(query: string): number | null {
+  const match = query.match(/德育基础分[为是]?\s*(\d(?:\.\d)?)/)
+  return match ? Math.max(0, Math.min(6, Number(match[1]))) : null
+}
+
+/** 解析用户给出的班内互评分（0-6）。 */
+function parsePeerReviewScore(query: string): number | null {
+  const match = query.match(/(?:班内互评|互评分|互评)[分]?[为是]?\s*(\d(?:\.\d)?)/)
+  return match ? Math.max(0, Math.min(6, Number(match[1]))) : null
+}
+
+/** 解析扣分项（旷课/迟到/处分/通报批评等），返回扣分合计。 */
+function parseDeductions(query: string): { total: number; details: string[] } {
+  const details: string[] = []
+  let total = 0
+  const add = (label: string, points: number) => {
+    const rounded = Math.round(points * 100) / 100
+    total += rounded
+    details.push(label + ' -' + rounded + ' 分')
+  }
+
+  if (/留校察看/.test(query)) add('留校察看', 6)
+  else if (/记过/.test(query)) add('记过', 5)
+  else if (/严重警告/.test(query)) add('严重警告', 4)
+  else if (/警告/.test(query)) add('警告', 3)
+
+  if (/通报批评/.test(query)) add('通报批评', 2)
+
+  const kuangke = query.match(/旷课(\d{1,3})\s*(?:学时|节)/)
+  if (kuangke) add('旷课 ' + kuangke[1] + ' 学时', 0.5 * Number(kuangke[1]))
+  const chidao = query.match(/迟到(\d{1,3})\s*次/)
+  if (chidao) add('迟到 ' + chidao[1] + ' 次', 0.1 * Number(chidao[1]))
+
+  if (/卫生评比不合格|卫生.*不合格/.test(query)) add('卫生评比不合格', 0.5)
+  if (/无故缺席|缺席/.test(query)) add('无故缺席', 0.5)
+  if (/传销/.test(query)) {
+    add('参加传销（按最低档）', 4)
+    details.push('传销扣分官方为 4-10 分，此处按最低档 4 分计入')
+  }
+  if (/造假|虚假信息/.test(query)) {
+    add('造假谋利（按最低档）', 2)
+    details.push('造假扣分官方为 2-5 分，此处按最低档 2 分计入')
+  }
+
+  return { total: Math.round(total * 100) / 100, details }
+}
+
 /**
  * 尝试把一条"综测算分"提问解析成估算结果；不是可计算提问时返回 null。
  */
@@ -316,10 +364,19 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
     notes.push('检测到获奖等级（如一等奖/二等奖）但未匹配到具体竞赛：文化艺术类（征文、演讲、书法、舞蹈等）算德育竞赛；学科技能类（数学建模、挑战杯、学科竞赛等）算智育竞赛。请补充竞赛类型。')
   }
 
-  // 3) 德育基础分 + 班内互评（默认按满分估算）
-  const moralBase = zongceStructure.moral.base + zongceStructure.moral.peerReview
-  if (moralReward.points === 0) {
-    notes.push('未识别到德育奖励项；德育基础分+班内互评按满分 12 估算（辅导员评分与互评以实际为准）。')
+  // 3) 德育基础分 + 班内互评（可输入，默认按满分估算）
+  const moralBaseScore = parseMoralBaseScore(query)
+  const peerReviewScore = parsePeerReviewScore(query)
+  const moralBase = (moralBaseScore ?? zongceStructure.moral.base) + (peerReviewScore ?? zongceStructure.moral.peerReview)
+  if (moralBaseScore === null || peerReviewScore === null) {
+    notes.push('德育基础分与班内互评未全部提供，按满分 12 估算（可写"德育基础分5 班内互评5"细化；辅导员评分与互评以实际为准）。')
+  }
+  const deduction = parseDeductions(query)
+  if (deduction.details.length > 0) {
+    notes.push('德育扣分：' + deduction.details.join('、'))
+  }
+  if (moralReward.points === 0 && deduction.total === 0) {
+    notes.push('未识别到德育奖励项，德育按基础分+互评计。')
   }
 
   // 4) 体育
@@ -337,7 +394,7 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
     notes.push('未提及体育，按体育课与体质健康测试均及格（基础 3 分）估算。')
   }
 
-  const moralTotal = moralBase + moralRewardCapped
+  const moralTotal = Math.max(0, moralBase + moralRewardCapped - deduction.total)
   const intellectualTotal = intellectualBase + intellectualRewardCapped
   const sportsTotal = sportsBase + sportsRewardCapped
   const total = round2(moralTotal + intellectualTotal + sportsTotal)
@@ -352,7 +409,7 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
         : '未识别到项目（0 分）',
       points: intellectualRewardCapped
     },
-    { label: '德育', detail: `基础分+互评 ${moralBase} + 奖励 ${moralRewardCapped}`, points: round2(moralTotal) },
+    { label: '德育', detail: `基础分+互评 ${moralBase} + 奖励 ${moralRewardCapped}${deduction.total > 0 ? ' − 扣分 ' + deduction.total : ''}`, points: round2(moralTotal) },
     { label: '体育', detail: `基础 ${sportsBase} + 奖励 ${sportsRewardCapped}`, points: round2(sportsTotal) }
   )
   for (const n of awardNotes.slice(0, 6)) notes.push(n)
