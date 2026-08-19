@@ -91,6 +91,12 @@ export default defineEventHandler(async (event) => {
       rerankApiKey: String(runtime.aiRerankApiKey || ''),
       rerankModel: String(runtime.aiRerankModel || 'BAAI/bge-reranker-v2-m3'),
       rerankTimeoutMs: Math.max(5_000, Number(runtime.aiRerankTimeoutMs) || 15_000),
+      rewriteEnabled: runtime.aiRewriteEnabled === true || String(runtime.aiRewriteEnabled) === 'true',
+      rewriteModel: String(runtime.aiRewriteModel || ''),
+      rewriteMaxVariants: Math.max(1, Math.min(3, Number(runtime.aiRewriteMaxVariants) || 2)),
+      rewriteTimeoutMs: Math.max(5_000, Number(runtime.aiRewriteTimeoutMs) || 12_000),
+        rerankLocalEnabled: runtime.aiRerankLocalEnabled === true || String(runtime.aiRerankLocalEnabled) === 'true',
+        rerankLocalModel: String(runtime.aiRerankLocalModel || ''),
         signal: requestAbort.signal
       }, {
         onStageStarted: async (stage, label, stageStartedAt) => {

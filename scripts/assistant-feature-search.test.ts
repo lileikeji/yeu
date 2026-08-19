@@ -603,6 +603,35 @@ test('assistant resolves a named club to its direct page instead of the club dir
   }
 })
 
+test('club intent answers what it does and how to contact from uploaded info', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-club-intent-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO contents (id, kind, slug, title, summary, body, metadata_json, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'music-association-intent', 'club', 'music-association', '音乐协会',
+      '音乐社团', '日常开展音乐交流、排练与校园演出。',
+      JSON.stringify({ direction: '音乐交流、排练与校园演出', contactMethod: '微信群：音乐协会招新群', contactPhone: '13700000000', suitableFor: '零基础也欢迎加入' }),
+      'published', now, now
+    )
+    const activity = await answerCampusQuestion(client, '音协是做什么的', emptyAssistantConfig)
+    assert.equal(activity.mode, 'local')
+    assert.match(activity.answer, /音乐交流|演出/)
+    assert.equal(activity.citations[0]?.url, '/clubs/music-association')
+    const contact = await answerCampusQuestion(client, '音乐协会联系方式是什么', emptyAssistantConfig)
+    assert.match(contact.answer, /微信群|13700000000/)
+    assert.equal(contact.citations[0]?.url, '/clubs/music-association')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('college aliases resolve their 2026 major list without web search', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-college-major-answer-'))
   const databasePath = join(directory, 'test.sqlite')

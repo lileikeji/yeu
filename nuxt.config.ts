@@ -82,6 +82,12 @@ export default defineNuxtConfig({
     aiRerankApiKey: '',
     aiRerankModel: 'BAAI/bge-reranker-v2-m3',
     aiRerankTimeoutMs: 15_000,
+    aiRewriteEnabled: false,
+    aiRewriteModel: '',
+    aiRewriteMaxVariants: 2,
+    aiRewriteTimeoutMs: 12_000,
+    aiRerankLocalEnabled: false,
+    aiRerankLocalModel: '',
     amapWebServiceKey: '',
     botSiteUrl: 'https://yx.huiliyill.cn/',
     botMaxReplyChars: 1800,
@@ -236,7 +242,14 @@ export default defineNuxtConfig({
   },
 
   pwa: {
-    registerType: 'autoUpdate',
+    // 'prompt' (not 'autoUpdate'): autoUpdate + skipWaiting + clientsClaim forces an
+    // automatic location.reload() on every returning user whenever a new release
+    // changes sw-<buildId>.js, and the reload can race the new worker's activation
+    // (navigation served from /offline.html or a not-yet-ready precache), leaving
+    // ordinary users stuck in a reload loop / unable to enter. 'prompt' instead makes
+    // the update opt-in via PwaUpdatePrompt.vue (which is written for this mode), so
+    // returning users are never force-reloaded and choose when to refresh.
+    registerType: 'prompt',
     // Some CDN providers cache /sw.js even when it is marked no-store. A
     // commit-scoped filename lets mobile clients always discover the current
     // worker and replace an older registration for the same scope.

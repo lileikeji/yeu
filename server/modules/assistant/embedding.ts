@@ -28,17 +28,44 @@ export interface EmbeddingProvider {
   embedTexts(texts: string[], config: EmbeddingConfig): Promise<number[][]>
 }
 
-/** Batch size per API call; large batches risk provider timeouts. */
-const EMBEDDING_BATCH_SIZE = 32
+/** Batch size per API call; smaller batches are gentler on rate limits. */
+const EMBEDDING_BATCH_SIZE = 16
 const MAX_EMBEDDING_TEXT_LENGTH = 2000
+
+/** Retry budget for transient provider failures (429 / 5xx / timeout). */
+const EMBEDDING_MAX_RETRIES = 8
+const EMBEDDING_BACKOFF_BASE_MS = 1200
+const EMBEDDING_BACKOFF_MAX_MS = 45_000
+/** Pacer between successive batches during a bulk re-index (avoids burst 429s). */
+const EMBEDDING_INTER_BATCH_DELAY_MS = 120
 
 function combinedAbortSignal(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
   if (!signal) return AbortSignal.timeout(timeoutMs)
   return AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
 }
 
+function sleepMs(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve()
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
+}
+
+/** Backoff delay honoring a provider `Retry-After` header when present. */
+function backoffDelayMs(attempt: number, retryAfterHeader: string | null): number {
+  const exponential = Math.min(
+    EMBEDDING_BACKOFF_MAX_MS,
+    EMBEDDING_BACKOFF_BASE_MS * (2 ** attempt)
+  ) + Math.floor(Math.random() * 300)
+  if (retryAfterHeader) {
+    const parsed = Number(retryAfterHeader)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.min(EMBEDDING_BACKOFF_MAX_MS, Math.max(exponential, parsed * 1000))
+    }
+  }
+  return exponential
 }
 
 /** True when an embedding endpoint is configured. */
@@ -54,8 +81,65 @@ function trimText(value: string): string {
 }
 
 /**
+ * Embed one batch with retry + exponential backoff. A bulk re-index embeds tens
+ * of thousands of chunks; providers (e.g. SiliconFlow bge-m3) rate-limit burst
+ * traffic with HTTP 429, and a naive single-try loop turns one such response
+ * into a whole-pipeline failure. Transient responses (429, 5xx, per-attempt
+ * timeout, transport) are retried with backoff; user cancellation and fatal
+ * 4xx are thrown immediately.
+ */
+async function embedBatchWithRetry(batch: string[], config: EmbeddingConfig): Promise<number[][]> {
+  const url = `${config.baseUrl.replace(/\/+$/, '')}/embeddings`
+  let lastError: Error | null = null
+  let retryAfter: string | null = null
+  for (let attempt = 0; attempt < EMBEDDING_MAX_RETRIES; attempt += 1) {
+    const attemptSignal = combinedAbortSignal(config.signal, config.timeoutMs)
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ model: config.model, input: batch }),
+        signal: attemptSignal
+      })
+      if (response.ok) {
+        const payload = await response.json() as { data?: Array<{ embedding?: number[] }> }
+        const vectors = (payload.data ?? []).map(item => item.embedding ?? [])
+        if (vectors.length !== batch.length || vectors.some(vector => vector.length === 0)) {
+          throw new Error('EMBEDDING_BAD_RESPONSE')
+        }
+        return vectors
+      }
+      retryAfter = response.headers.get('retry-after')
+      if (response.status !== 429 && response.status < 500) {
+        // Fatal client error (e.g. 401/400): no point retrying.
+        throw new Error(`EMBEDDING_HTTP_${response.status}`)
+      }
+      lastError = new Error(`EMBEDDING_HTTP_${response.status}`)
+    } catch (error) {
+      if (isAbortError(error)) {
+        // Per-attempt timeout: retry unless the caller cancelled the request.
+        if (config.signal?.aborted) throw error
+        lastError = new Error('EMBEDDING_TIMEOUT', { cause: error })
+      } else if (error instanceof Error && error.message === 'EMBEDDING_BAD_RESPONSE') {
+        throw error
+      } else {
+        // Transport/other → treat as transient and retry.
+        lastError = error instanceof Error ? error : new Error('EMBEDDING_TRANSPORT')
+      }
+    }
+    if (attempt < EMBEDDING_MAX_RETRIES - 1) {
+      await sleepMs(backoffDelayMs(attempt, retryAfter))
+    }
+  }
+  throw lastError ?? new Error('EMBEDDING_FAILED')
+}
+
+/**
  * OpenAI-compatible /v1/embeddings provider. Returns one vector per input
- * text in the same order. Throws EmbeddingError on transport/provider issues;
+ * text in the same order. Throws EmbeddingError on persistent provider issues;
  * callers treat it as a soft failure (degrade to n-gram retrieval).
  */
 export const openAiCompatibleEmbedder: EmbeddingProvider = {
@@ -67,28 +151,10 @@ export const openAiCompatibleEmbedder: EmbeddingProvider = {
         .map(trimText)
         .filter(text => text.length > 0)
       if (batch.length === 0) continue
-      let response: Response
-      try {
-        response = await fetch(`${config.baseUrl.replace(/\/+$/, '')}/embeddings`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${config.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ model: config.model, input: batch }),
-          signal: combinedAbortSignal(config.signal, config.timeoutMs)
-        })
-      } catch (error) {
-        if (isAbortError(error)) throw new Error('EMBEDDING_TIMEOUT', { cause: error })
-        throw error
-      }
-      if (!response.ok) throw new Error(`EMBEDDING_HTTP_${response.status}`)
-      const payload = await response.json() as { data?: Array<{ embedding?: number[] }> }
-      const vectors = (payload.data ?? []).map(item => item.embedding ?? [])
-      if (vectors.length !== batch.length || vectors.some(vector => vector.length === 0)) {
-        throw new Error('EMBEDDING_BAD_RESPONSE')
-      }
-      results.push(...vectors)
+      results.push(...await embedBatchWithRetry(batch, config))
+      // Pace between batches to stay under provider rate limits during a bulk
+      // re-index; embeddedN mini-requests back-to-back is what trips 429s.
+      await sleepMs(EMBEDDING_INTER_BATCH_DELAY_MS)
     }
     return results
   }

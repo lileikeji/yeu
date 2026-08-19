@@ -3,20 +3,28 @@ import { closeDatabase, getDatabase } from '../server/database/client'
 import {
   assistantRetrievalQuery,
   retrieveCampusEvidence,
+  retrieveMultiQueryEvidence,
   type AssistantEvidence
 } from '../server/modules/assistant/service'
 import { rerankEvidence, rerankConfigReady, type RerankConfig } from '../server/modules/assistant/rerank'
+import { retrieveGraphEvidence } from '../server/modules/assistant/graph-search'
+import { mergeVectorEvidence, retrieveVectorEvidence } from '../server/modules/assistant/vector-search'
+import { embeddingConfigReady } from '../server/modules/assistant/embedding'
+import { expandCampusSearchTerms } from '../shared/utils/campus-search-aliases'
 
 /**
  * Offline retrieval evaluation harness (P8-5).
  *
  * Measures how well the local evidence retrieval (RRF + intent rerank, plus
- * the optional cross-encoder rerank channel) surfaces the expected evidence
- * for a hand-curated set of campus questions. Metrics: Recall@5, Recall@10 and
- * MRR. Run `pnpm eval:retrieval` (baseline) and `pnpm eval:retrieval --rerank`
- * (also exercises the rerank channel when AI_RERANK_* env is configured) to
- * compare changes. Everything reads the local SQLite database; nothing is
- * written.
+ * the optional cross-encoder rerank channel and the P9 multi-query rewrite
+ * channel) surfaces the expected evidence for a hand-curated set of campus
+ * questions. Metrics: Recall@5, Recall@10 and MRR. Run `pnpm eval:retrieval`
+ * (baseline), `pnpm eval:retrieval --rerank` (also exercises the rerank
+ * channel when AI_RERANK_* env is configured) and `pnpm eval:retrieval
+ * --rewrite` to exercise the multi-query rewrite channel: it uses the real
+ * gateway when AI_GATEWAY_* env is configured, otherwise a deterministic stub
+ * transport so the fusion plumbing can be verified without a model. Everything
+ * reads the local SQLite database; nothing is written.
  */
 
 interface EvalCase {
@@ -59,7 +67,71 @@ function hit(item: { title: string; snippet?: string; text?: string }, require: 
 const databaseArg = process.argv.find(arg => arg.startsWith('--database='))
 const databasePath = databaseArg ? databaseArg.split('=')[1] : (process.env.NUXT_DATABASE_PATH || './data/yeu.sqlite')
 const useRerank = process.argv.includes('--rerank')
+const useRewrite = process.argv.includes('--rewrite')
+// Exercise the semantic + graph legs too (when configured) so the harness
+// measures the SAME full pipeline production runs, not just keyword+rewrite.
+const useVector = process.argv.includes('--vector')
+const useGraph = process.argv.includes('--graph')
 const topK = 10
+
+const embeddingConfig = {
+  baseUrl: process.env.AI_EMBEDDING_BASE_URL || process.env.NUXT_AI_EMBEDDING_BASE_URL || '',
+  apiKey: process.env.AI_EMBEDDING_API_KEY || process.env.NUXT_AI_EMBEDDING_API_KEY || '',
+  model: process.env.AI_EMBEDDING_MODEL || process.env.NUXT_AI_EMBEDDING_MODEL || 'BAAI/bge-m3',
+  timeoutMs: Number(process.env.AI_EMBEDDING_TIMEOUT_MS || process.env.NUXT_AI_EMBEDDING_TIMEOUT_MS) || 15_000
+}
+const embeddingReady = useVector && embeddingConfigReady(embeddingConfig)
+
+/** OpenAI-compatible chat transport used when AI_GATEWAY_* env is configured. */
+async function llmRewriteChat(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  messages: Array<{ role: 'system' | 'user', content: string }>
+): Promise<unknown> {
+  const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      temperature: 0,
+      max_tokens: 300,
+      response_format: { type: 'json_object' },
+      messages
+    }),
+    signal: AbortSignal.timeout(12_000)
+  })
+  if (!res.ok) throw new Error(`gateway ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Deterministic stub transport for plumbing verification without a model:
+ * variants are derived from the raw query via the existing preprocessing
+ * helpers (retrieval query + alias expansion). This exercises the multi-query
+ * fusion path; it does NOT measure LLM rewrite quality — use --rewrite with
+ * AI_GATEWAY_* env (or the production server) for that.
+ */
+function stubRewriteChat(rawQuery: string): Promise<unknown> {
+  const variants: string[] = []
+  const retrievalQuery = assistantRetrievalQuery(rawQuery)
+  if (retrievalQuery && retrievalQuery !== rawQuery) variants.push(retrievalQuery)
+  const expanded = expandCampusSearchTerms(rawQuery)
+  if (expanded.length > 0) {
+    const joined = expanded.join(' ')
+    if (joined !== rawQuery && !variants.includes(joined)) variants.push(joined)
+  }
+  return Promise.resolve({
+    choices: [{ message: { content: JSON.stringify({ queries: variants }) } }]
+  })
+}
+
+const rewriteGatewayBaseUrl = process.env.AI_GATEWAY_BASE_URL || process.env.NUXT_AI_GATEWAY_BASE_URL || ''
+const rewriteGatewayApiKey = process.env.AI_GATEWAY_API_KEY || process.env.NUXT_AI_GATEWAY_API_KEY || ''
+const rewriteGatewayModel = process.env.AI_GATEWAY_MODEL || process.env.NUXT_AI_GATEWAY_MODEL || 'gpt-5.4'
+const rewriteMode = !useRewrite
+  ? 'off' as const
+  : (rewriteGatewayBaseUrl && rewriteGatewayApiKey ? 'llm' as const : 'stub' as const)
 
 try {
   const client = getDatabase(databasePath)
@@ -76,10 +148,32 @@ try {
   let recall10 = 0
   let mrrSum = 0
   let rerankedCount = 0
+  let rewriteAppliedCount = 0
 
   for (const c of EVAL_CASES) {
     const retrievalQuery = assistantRetrievalQuery(c.q)
-    let evidence = retrieveCampusEvidence(client, retrievalQuery, topK)
+    let evidence: AssistantEvidence[]
+    if (rewriteMode !== 'off') {
+      const multi = await retrieveMultiQueryEvidence(client, c.q, topK, {
+        embedding: embeddingReady ? embeddingConfig : undefined,
+        maxVariants: 2,
+        chat: rewriteMode === 'llm'
+          ? messages => llmRewriteChat(rewriteGatewayBaseUrl, rewriteGatewayApiKey, rewriteGatewayModel, messages)
+          : () => stubRewriteChat(c.q)
+      })
+      evidence = multi.evidence
+      if (multi.applied) rewriteAppliedCount += 1
+    } else {
+      evidence = retrieveCampusEvidence(client, retrievalQuery, topK)
+      if (embeddingReady) {
+        const vectorEvidence = await retrieveVectorEvidence(client, retrievalQuery, embeddingConfig, 40)
+        if (vectorEvidence.length > 0) evidence = mergeVectorEvidence(evidence, vectorEvidence) as AssistantEvidence[]
+      }
+    }
+    if (useGraph) {
+      const graphEvidence = retrieveGraphEvidence(client, retrievalQuery, 8)
+      if (graphEvidence.length > 0) evidence = mergeVectorEvidence(evidence, graphEvidence) as AssistantEvidence[]
+    }
     if (rerankWanted) {
       const reranked = await rerankEvidence(retrievalQuery, evidence, rerankConfig, { topK })
       if (reranked.outcome.applied) {
@@ -105,6 +199,8 @@ try {
     database: client.path,
     rerank: rerankWanted ? `${rerankConfig.model}` : 'off',
     rerankedQueries: rerankedCount,
+    rewrite: rewriteMode,
+    rewriteAppliedQueries: rewriteAppliedCount,
     cases: n,
     recallAt5: Number((recall5 / n).toFixed(3)),
     recallAt10: Number((recall10 / n).toFixed(3)),

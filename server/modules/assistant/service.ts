@@ -76,6 +76,14 @@ import {
   retrieveVectorEvidence
 } from './vector-search'
 import { rerankConfigReady, rerankEvidence } from './rerank'
+import { localRerankReady } from './local-rerank'
+import {
+  buildRewriteMessages,
+  parseRewriteVariants,
+  rewriteConfigReady,
+  QUERY_REWRITE_DEFAULT_VARIANTS,
+  QUERY_REWRITE_MAX_VARIANTS
+} from './query-rewrite'
 import type { DatabaseClient } from '../../database/client'
 import {
   assistantAnswerCache,
@@ -123,6 +131,21 @@ interface AssistantConfig {
   rerankApiKey?: string
   rerankModel?: string
   rerankTimeoutMs?: number
+  /** LLM multi-query rewrite channel (P9): rewrite the question into variants,
+   *  recall through each, then RRF-merge the pools. Config-gated; when off the
+   *  retrieval pipeline is unchanged. Uses the answering gateway for the call. */
+  rewriteEnabled?: boolean
+  /** Chat model used for rewriting; defaults to the answering gateway model. */
+  rewriteModel?: string
+  /** How many LLM variants to request (default 2, max 3). */
+  rewriteMaxVariants?: number
+  /** Time budget for the rewrite call in ms (default 12s). */
+  rewriteTimeoutMs?: number
+  /** Optional in-process cross-encoder rerank (P8-2). When enabled + model are
+   *  set, the local scorer is tried first and falls back to the HTTP rerank
+   *  endpoint on any failure. Off by default. */
+  rerankLocalEnabled?: boolean
+  rerankLocalModel?: string
   signal?: AbortSignal
   amapWebServiceKey?: string
   transitPlanner?: (originId: TransitPointId, destinationId: TransitPointId) => Promise<ApiTransitPlanResponse>
@@ -278,6 +301,10 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   综合测评: ['德育', '智育', '体育', '加分', '扣分'],
   混班: ['混专业', '室友分配', '按学号分宿舍', '床位分配'],
   混专业: ['混班', '室友分配', '按学号分宿舍', '床位分配'],
+  多宽: ['宽', '尺寸', '床宽', '床尺寸', '宽度'],
+  床宽: ['床尺寸', '尺寸', '多宽', '宽度'],
+  尺寸: ['多宽', '床宽', '床尺寸', '宽度', '规格'],
+  宽度: ['宽', '尺寸', '床宽', '床尺寸'],
   水卡: ['洗澡', '热水', '全天热水', '宿舍水电费'],
   洗澡: ['水卡', '热水', '公共浴室', '洗澡多少钱'],
   洗衣机: ['洗衣液', '洗衣机排队', '脱水', '卫生'],
@@ -371,7 +398,7 @@ const ASSISTANT_MEMORY_EXTRACTION_PROMPT = `你是一个匿名会话记忆抽取
 const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题直接相关的事实和行动建议，不要整段复述任何来源或拼接检索片段。只有确有必要时才保留直接引文，单次直接引用不得超过 40 个汉字，并放在引号内；超过长度必须改写。引用编号只用于返回来源入口，不要把来源原文当成答案。'
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
 const ASSISTANT_CANDIDATE_LIMIT = 4
-const ASSISTANT_VECTOR_EVIDENCE_LIMIT = 8
+const ASSISTANT_VECTOR_EVIDENCE_LIMIT = 40
 const ASSISTANT_GRAPH_EVIDENCE_LIMIT = 6
 const ASSISTANT_OVERVIEW_CANDIDATE_LIMIT = 6
 const KNOWLEDGE_MAX_PAGES = 6
@@ -849,7 +876,16 @@ function campusProcedureRetrievalQuery(value: string): string | null {
   if (isBroadCampusOverviewQuery(value)) return null
   const subjects = campusProcedureSubjects(value)
   if (subjects.length === 0 || !CAMPUS_PROCEDURE_INTENT_RE.test(value)) return null
-  return `${subjects.join(' ')} 办理流程 申请材料 时间 地点`
+  // When the subject extractor yields a single short noun (e.g. 「档案」 in
+  // 「专升本学生的档案怎么邮寄」) it has dropped collocated qualifiers (「专升本」「邮寄」),
+  // letting an off-subject procedure claim match on the generic boilerplate. Keep
+  // the original query's words in that case. When it already captures a real
+  // subject (e.g. 「毕业证 毕业证明书」), keep the clean conversational-filler
+  // normalization that the campus-procedures test suite relies on.
+  const singleSparseSubject = subjects.length === 1 && subjects[0]!.replace(/\s+/g, '').length <= 3
+  const boilerplate = ' 办理流程 申请材料 时间 地点'
+  if (singleSparseSubject) return `${value} ${subjects.join(' ')}${boilerplate}`
+  return `${subjects.join(' ')}${boilerplate}`
 }
 
 const ASSISTANT_FOLLOW_UP_RE = /^(?:(?:那|这个|具体|所以|请问)\s*)?(?:是\s*)?(?:哪栋楼|哪一栋|叫什么|在哪里|在哪|多久|多少钱|怎么弄|怎么申请|什么时候|有吗|可以吗|能吗)[?？。！!]?$/u
@@ -2481,13 +2517,13 @@ function dormKnowledgePriority(query: string, row: {
   keywords: string[]
 }): number {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
-  if (!/(宿舍|寝室|床垫|床铺|新区|旧区|宿管|洗澡|洗衣|水电|门禁|室友)/u.test(normalized)) return 0
+  if (!/(宿舍|寝室|床垫|床铺|新区|旧区|宿管|洗澡|洗衣|水电|门禁|室友|床宽|多宽|宽度|床头|床尾)/u.test(normalized)) return 0
   const text = `${row.title} ${row.question} ${row.answer} ${row.keywords.join(' ')}`
   let boost = row.kind === 'official_reference' ? 18 : 0
   if (/女生|男生/.test(normalized) && text.includes(normalized.match(/女生|男生/)?.[0] ?? '')) boost += 8
   if (/新区|旧区/.test(normalized) && /新区|旧区/.test(text)) boost += 12
   if (/几人间|多少人|人数/.test(normalized) && /[45]人间|几人间|人数/.test(text)) boost += 18
-  if (/独卫|独立卫生间|阳台|床垫|床铺|尺寸|空调|风扇|水卡|热水|断电|供电|门禁|几点|什么时候|申请|怎么抢/.test(normalized)) {
+  if (/独卫|独立卫生间|阳台|床垫|床铺|尺寸|多宽|床宽|宽度|空调|风扇|水卡|热水|断电|供电|门禁|几点|什么时候|申请|怎么抢/.test(normalized)) {
     const aspects = [
       ['独卫', '独卫'], ['独立卫生间', '独立卫生间'], ['阳台', '阳台'],
       ['床尺寸', '床尺寸'], ['热水', '热水'], ['供电', '供电'], ['门禁', '门禁'], ['申请', '申请']
@@ -2728,6 +2764,11 @@ function assistantKnowledgeLocalAnswer(
   // Keep a wider ranked pool for precise natural-language questions. The
   // first few candidates can be generic topic entries (for example, room
   // fees) even when a later candidate contains every requested aspect.
+  // Concrete SUBJECT terms of the query (dropping generic action/function words)
+  // are used to reject off-subject curated entries that merely share an entity.
+  const queryConcreteTerms = assistantQueryTerms(query)
+    .filter(term => term.length >= 2 && !QUERY_TERM_STOPWORDS.has(term)
+      && !/^(申请|办理|流程|材料|时间|地点|需要|什么|怎么|如何|哪些|多少|哪里|为什么|可以|能不能|请问|学校|大学|学院|学生|同学|专业|情况|问题|方式|方法)$/u.test(term))
   const match = assistantKnowledgeMatchesForQuery(client, query, counselorContactQuery ? 120 : 24).find((candidate) => {
     if (candidate.category === '教职工') return false
     const candidateFactText = `${candidate.title} ${candidate.question} ${candidate.answer}`
@@ -2854,10 +2895,15 @@ function assistantKnowledgeLocalAnswer(
       rawScore: candidate.score
     }
     const coverage = evidenceCoreCoverage(query, evidence)
+    const uncoveredConcrete = queryConcreteTerms.some(term => !candidateText.includes(term))
     return coverage >= 0.7
       || (candidate.score >= 18 && coverage >= 0.6)
       || (candidate.score >= 30 && coverage >= 0.5)
-      || candidate.score >= 36
+      // A raw high score on a shared entity (e.g. 「专升本」) must not let an
+      // off-subject curated entry answer a query about a different subject
+      // (「档案/邮寄」). Once it covers the query's concrete terms, the high
+      // score is trusted again.
+      || (candidate.score >= 36 && !uncoveredConcrete)
       || exactQuestionOverlap
   })
   if (!match) return null
@@ -3229,6 +3275,193 @@ export function retrieveCampusEvidence(
     .sort((left, right) => right.score - left.score)
   const deduped = dedupeAssistantEvidence(ranked)
   return selectCampusKnowledgeContext(query, filterEvidenceForIntent(query, deduped), limit)
+}
+
+export interface MultiQueryRetrievalResult {
+  /** Fused evidence pool (RRF over the per-variant pools), capped at limit. */
+  evidence: AssistantEvidence[]
+  /** The original query followed by the variants actually used for recall. */
+  variants: string[]
+  /** Whether the rewrite channel ran (the LLM produced at least one usable variant). */
+  applied: boolean
+  /** Whether the vector leg contributed to any variant pool. */
+  usedVector: boolean
+}
+
+export interface RewriteChatTransportOptions {
+  /** Embedding config; when ready the vector leg runs per variant (P1). */
+  embedding?: EmbeddingConfig
+  /** Chat model id for the rewrite call. */
+  model?: string
+  /** Number of LLM variants to request (default 2, max 3). */
+  maxVariants?: number
+  /** Time budget for the rewrite call in ms. */
+  timeoutMs?: number
+  /** OpenAI-compatible chat transport; a thrown error degrades to baseline. */
+  chat: (messages: Array<{ role: 'system' | 'user', content: string }>) => Promise<unknown>
+}
+
+/**
+ * P9a — deterministic compound-intent splitter (no model call).
+ *
+ * One surface question frequently bundles several intents: 「助学金怎么申请？
+ * 报销要什么材料？」 or 「宿舍和军训怎么安排」. A single keyword recall over the
+ * fused question often surfaces evidence for only one intent. Splitting on
+ * explicit sentence/segment boundaries yields one recall query per sub-intent,
+ * so each can retrieve its own evidence before the RRF merge. Purely a recall
+ * broadener, best-effort and generic — callers treat any output as an
+ * enhancement (an empty array keeps the baseline single query).
+ */
+export function splitCompoundIntentQueries(query: string): string[] {
+  const original = query.replace(/\s+/g, '')
+  if (!original || original.length < 8) return []
+
+  // 1) Strong sentence boundaries ("。" "？" "！" "；"). If we recover 2+ real
+  // segments the query is compound at the sentence level. A segment that opens
+  // with a bare verb ("怎么申请" "需要什么") is a continuation dropped by the
+  // split, so attach it back onto the head noun of the previous segment.
+  const strong = original
+    .split(/[。！？!?；;]+/u)
+    .map(seg => seg.trim().replace(/[?？]$/u, ''))
+    .filter(seg => seg.length >= 3)
+  if (strong.length >= 2) {
+    const recovered: string[] = []
+    for (const seg of strong) {
+      if (/^(怎么|如何|怎样|需要|办理|申请|在|去)/u.test(seg) && recovered.length > 0) {
+        recovered[recovered.length - 1] = `${recovered[recovered.length - 1]!}${seg}`
+      } else {
+        recovered.push(seg)
+      }
+    }
+    if (recovered.length >= 2) return [...new Set(recovered)].slice(0, 4)
+  }
+
+  // 2) Single sentence carrying an explicit 和/与/还有/以及 list.
+  const list = original.split(/和|与|还有|以及/u).filter(seg => seg.length >= 2)
+  if (list.length >= 2) return [...new Set(list)].slice(0, 4)
+
+  return []
+}
+
+/** Timing/outcome record for one retrieval leg (P9b/observability). */
+export interface RetrievalLeg {
+  leg: string
+  ms: number
+  note?: string
+}
+
+/**
+ * Build the `query_analysis` stage detail from the intent plus the
+ * retrieval-leg timings recorded during recall (P9b/observability). Purely
+ * additive: when no leg ran (cache hit, direct/feature route, or retrieval
+ * short-circuited), the detail is just the intent — identical to before.
+ */
+export function retrievalDetailForAnalysis(result: { intentDetail: string }, legs: RetrievalLeg[]): string {
+  const base = result.intentDetail
+  if (legs.length === 0) return base
+  const parts = legs
+    .filter(leg => leg.ms > 0)
+    .map(leg => `${leg.leg}=${leg.ms}ms${leg.note ? `(${leg.note})` : ''}`)
+    .join(' ')
+  return parts ? `${base} · 检索: ${parts}` : base
+}
+
+/**
+ * P9 multi-query recall: rewrite the raw question into variants via the LLM,
+ * run the keyword (+ optional vector) legs for each variant, then merge the
+ * per-variant pools with a second Reciprocal Rank Fusion. The original query's
+ * list is fused twice so the authoritative intent outweighs recall-boosting
+ * variants. Returns the fused pool; never throws — every failure path degrades
+ * to the caller's single-query baseline.
+ */
+export async function retrieveMultiQueryEvidence(
+  client: DatabaseClient,
+  rawQuery: string,
+  limit: number,
+  opts: RewriteChatTransportOptions
+): Promise<MultiQueryRetrievalResult> {
+  const maxVariants = Math.min(
+    QUERY_REWRITE_MAX_VARIANTS,
+    Math.max(1, Math.round(Number(opts.maxVariants) || QUERY_REWRITE_DEFAULT_VARIANTS))
+  )
+  let variants: string[]
+  try {
+    const raw = await opts.chat(buildRewriteMessages(rawQuery, maxVariants))
+    const content = (raw as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content
+    variants = typeof content === 'string'
+      ? parseRewriteVariants(content, rawQuery, maxVariants)
+      : []
+  } catch {
+    variants = []
+  }
+
+  // Recall set = the original query + LLM variants + deterministic compound
+  // sub-intents. The original is the authoritative intent and is fused with
+  // double rank weight below, so rewrite/split variants only broaden recall.
+  const queries = [rawQuery, ...variants, ...splitCompoundIntentQueries(rawQuery)]
+  const embeddingReady = opts.embedding ? embeddingConfigReady(opts.embedding) : false
+  const rankedLists: string[][] = []
+  const evidenceByKey = new Map<string, AssistantEvidence>()
+
+  // P9b: each query's keyword (+ optional vector) recall is independent, so the
+  // per-variant legs run concurrently instead of serially. Rewrite already adds
+  // a model hop; parallel recall keeps the added wall-clock bounded. The vector
+  // leg itself is best-effort per variant (throws degrade to that varant's
+  // keyword pool only).
+  const pools = await Promise.all(queries.map(async (query, index) => {
+    const retrievalQuery = assistantRetrievalQuery(query)
+    let pool = retrieveCampusEvidence(client, retrievalQuery, limit)
+    let usedVector = false
+    if (embeddingReady && opts.embedding) {
+      try {
+        const vectorEvidence = await retrieveVectorEvidence(
+          client,
+          retrievalQuery,
+          opts.embedding,
+          ASSISTANT_VECTOR_EVIDENCE_LIMIT
+        )
+        if (vectorEvidence.length > 0) {
+          pool = mergeVectorEvidence(pool, vectorEvidence)
+          usedVector = true
+        }
+      } catch {
+        // Vector search is an enhancement; the keyword pool for this variant stands.
+      }
+    }
+    return { index, retrievalQuery, pool, usedVector }
+  }))
+
+  const usedVector = pools.some(poolResult => poolResult.usedVector)
+  for (const { index, pool } of pools) {
+    const keys: string[] = []
+    for (const item of pool) {
+      const key = item.url || item.title
+      const existing = evidenceByKey.get(key)
+      if (!existing || (item.score ?? 0) > (existing.score ?? 0)) evidenceByKey.set(key, item)
+      keys.push(key)
+    }
+    rankedLists.push(keys)
+    // The original query is the authoritative intent: fuse its ranks twice so
+    // the user's phrasing outweighs recall-boosting variants.
+    if (index === 0) rankedLists.push(keys)
+  }
+
+  const fusedScores = reciprocalRankFusion(rankedLists, 60)
+  const ranked = [...evidenceByKey.values()]
+    .map(item => ({
+      ...item,
+      rawScore: item.rawScore ?? item.score,
+      score: fusedScores.get(item.url || item.title) ?? 0
+    }))
+    .filter(item => item.score > 0)
+    .sort((left, right) => right.score - left.score)
+  const deduped = dedupeAssistantEvidence(ranked)
+  return {
+    evidence: deduped.slice(0, limit),
+    variants: queries,
+    applied: variants.length > 0,
+    usedVector
+  }
 }
 
 function retrieveIdentityEvidence(
@@ -4774,7 +5007,7 @@ export function blockedAssistantResponse(rawQuery: string): ApiAssistantResponse
 async function postGatewayChat(
   config: AssistantConfig,
   messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }>,
-  options: { maxTokens?: number, trackFailures?: boolean } = {}
+  options: { maxTokens?: number, trackFailures?: boolean, timeoutMs?: number } = {}
 ): Promise<unknown> {
   if (!config.gatewayBaseUrl || !config.gatewayApiKey) throw new Error('AI_NOT_CONFIGURED')
   if (gatewayOpenUntil > Date.now()) throw new Error('AI_CIRCUIT_OPEN')
@@ -4821,8 +5054,8 @@ async function postGatewayChat(
         messages
       }),
       signal: combinedAbortSignal(config.signal, boundedTimeout(
-        config.gatewayTimeoutMs,
-        MIN_GATEWAY_TIMEOUT_MS,
+        options.timeoutMs ?? config.gatewayTimeoutMs,
+        options.timeoutMs ? 5_000 : MIN_GATEWAY_TIMEOUT_MS,
         MAX_GATEWAY_TIMEOUT_MS
       ))
     })
@@ -5189,6 +5422,7 @@ async function answerCampusQuestionCore(
     hooks,
     signal: config.signal
   }
+  const retrievalLegs: RetrievalLeg[] = []
   const analysis = await runAssistantStage(tracker, 'query_analysis', '分析问题', async () => {
     const query = normalizeAssistantQuery(rawQuery)
     const retrievalQuery = assistantRetrievalQuery(query)
@@ -5369,11 +5603,6 @@ async function answerCampusQuestionCore(
     const retrievalLimit = isBroadCampusOverviewQuery(query)
       ? ASSISTANT_OVERVIEW_CANDIDATE_LIMIT
       : ASSISTANT_CANDIDATE_LIMIT
-    let localEvidence = retrieveCampusEvidence(client, retrievalQuery, retrievalLimit)
-    let hybridEvidenceAdded = false
-    // P1 semantic channel: when an embedding endpoint is configured, add the
-    // nearest vector chunks as extra candidates. Best-effort — any failure
-    // keeps the keyword/n-gram baseline untouched.
     const embeddingConfig = {
       baseUrl: config.embeddingBaseUrl ?? '',
       apiKey: config.embeddingApiKey ?? '',
@@ -5381,23 +5610,85 @@ async function answerCampusQuestionCore(
       timeoutMs: config.embeddingTimeoutMs ?? 15_000,
       signal: config.signal
     }
-    if (embeddingConfigReady(embeddingConfig)) {
+    let localEvidence: AssistantEvidence[] = []
+    let hybridEvidenceAdded = false
+    // P9 multi-query rewrite channel: when enabled, the LLM rewrites the
+    // question into 1..n variants and each variant (plus the original, fused
+    // double) runs through keyword + vector recall; the pools are merged with
+    // a second Reciprocal Rank Fusion. Best-effort — any failure falls through
+    // to the single-query baseline below.
+    const rewriteConfig = {
+      enabled: config.rewriteEnabled ?? false,
+      model: config.rewriteModel ?? config.gatewayModel,
+      maxVariants: config.rewriteMaxVariants,
+      timeoutMs: config.rewriteTimeoutMs
+    }
+    if (rewriteConfigReady(rewriteConfig)) {
       try {
-        const vectorEvidence = await retrieveVectorEvidence(client, retrievalQuery, embeddingConfig, ASSISTANT_VECTOR_EVIDENCE_LIMIT)
-        if (vectorEvidence.length > 0) {
-          localEvidence = mergeVectorEvidence(localEvidence, vectorEvidence)
-          hybridEvidenceAdded = true
+        const multi = await runAssistantStage(tracker, 'retrieval_rewrite', '改写查询', async () => {
+          const rewriteStart = Date.now()
+          const result = await retrieveMultiQueryEvidence(client, query, retrievalLimit, {
+            embedding: embeddingConfigReady(embeddingConfig) ? embeddingConfig : undefined,
+            model: rewriteConfig.model,
+            maxVariants: rewriteConfig.maxVariants,
+            timeoutMs: rewriteConfig.timeoutMs,
+            chat: messages => postGatewayChat(config, messages, {
+              maxTokens: 300,
+              timeoutMs: rewriteConfig.timeoutMs,
+              trackFailures: true
+            })
+          })
+          retrievalLegs.push({
+            leg: 'rewrite',
+            ms: Date.now() - rewriteStart,
+            note: result.applied ? `variants=${Math.max(0, result.variants.length - 1)}` : 'no-variants'
+          })
+          return result
+        }, result => result.applied ? `改写 ${Math.max(0, result.variants.length - 1)} 条` : '未改写')
+        if (multi.applied && multi.evidence.length > 0) {
+          localEvidence = multi.evidence
+          hybridEvidenceAdded = multi.usedVector
         }
       } catch {
-        // Vector search is an enhancement; keyword retrieval remains the baseline.
+        // Rewrite is an enhancement; a failed step is recorded, fall through to baseline.
+      }
+    }
+    if (localEvidence.length === 0) {
+      localEvidence = retrieveCampusEvidence(client, retrievalQuery, retrievalLimit)
+      // P1 semantic channel: when an embedding endpoint is configured, add the
+      // nearest vector chunks as extra candidates. Best-effort — any failure
+      // keeps the keyword/n-gram baseline untouched.
+      if (embeddingConfigReady(embeddingConfig)) {
+        try {
+          const vectorEvidence = await runAssistantStage(tracker, 'retrieval_vector', '向量检索', async () => {
+            const vectorStart = Date.now()
+            const ev = await retrieveVectorEvidence(client, retrievalQuery, embeddingConfig, ASSISTANT_VECTOR_EVIDENCE_LIMIT)
+            retrievalLegs.push({ leg: 'vector', ms: Date.now() - vectorStart, note: `hits=${ev.length}` })
+            return ev
+          }, ev => `命中 ${ev.length} 条`)
+          if (vectorEvidence.length > 0) {
+            localEvidence = mergeVectorEvidence(localEvidence, vectorEvidence)
+            hybridEvidenceAdded = true
+          }
+        } catch {
+          // Vector search is an enhancement; keyword retrieval remains the baseline.
+        }
       }
     }
     // P3 graph leg: pure SQL over the knowledge library, independent of any
-    // embedding configuration.
+    // embedding configuration. The graph stage is only recorded when it actually
+    // returns evidence, so an empty graph pass does not clutter the UI trace or
+    // change the expected stage sequence for local/web-cache answers.
+    const graphStart = Date.now()
     try {
       const graphEvidence = retrieveGraphEvidence(client, retrievalQuery, ASSISTANT_GRAPH_EVIDENCE_LIMIT)
       if (graphEvidence.length > 0) {
-        localEvidence = mergeVectorEvidence(localEvidence, graphEvidence)
+        // Record the graph leg (stage + compact detail) only when it actually
+        // returns evidence, so a 0-hit pass neither clutters the trace nor
+        // changes the exact detail string for deterministic local answers.
+        retrievalLegs.push({ leg: 'graph', ms: Date.now() - graphStart, note: `hits=${graphEvidence.length}` })
+        const staged = await runAssistantStage(tracker, 'retrieval_graph', '图谱检索', () => graphEvidence, ev => `命中 ${ev.length} 条`)
+        localEvidence = mergeVectorEvidence(localEvidence, staged)
         hybridEvidenceAdded = true
       }
     } catch {
@@ -5412,11 +5703,23 @@ async function answerCampusQuestionCore(
       apiKey: config.rerankApiKey ?? '',
       model: config.rerankModel ?? 'BAAI/bge-reranker-v2-m3',
       timeoutMs: config.rerankTimeoutMs ?? 15_000,
-      signal: config.signal
+      signal: config.signal,
+      local: (config.rerankLocalEnabled && config.rerankLocalModel?.trim())
+        ? { enabled: true, model: config.rerankLocalModel.trim() }
+        : undefined
     }
-    if (rerankConfigReady(rerankConfig)) {
+    if (rerankConfigReady(rerankConfig) || (rerankConfig.local && localRerankReady(rerankConfig.local))) {
       try {
-        const reranked = await rerankEvidence(retrievalQuery, localEvidence, rerankConfig)
+        const reranked = await runAssistantStage(tracker, 'retrieval_rerank', '相关度精排', async () => {
+          const rerankStart = Date.now()
+          const r = await rerankEvidence(retrievalQuery, localEvidence, rerankConfig)
+          retrievalLegs.push({
+            leg: 'rerank',
+            ms: Date.now() - rerankStart,
+            note: r.outcome.applied ? `top=${r.outcome.reranked}` : 'skip'
+          })
+          return r
+        }, r => r.outcome.applied ? `重排 ${r.outcome.reranked} 条` : '无候选跳过')
         if (reranked.outcome.applied) localEvidence = reranked.evidence
       } catch {
         // Rerank is an enhancement; keep the RRF-ordered pool on failure.
@@ -5444,6 +5747,7 @@ async function answerCampusQuestionCore(
     const deterministicKnowledgeAnswer = isTeachingLocationQuery(query)
       ? null
       : assistantKnowledgeLocalAnswer(client, query)
+    const deterministicClubAnswer = clubIdentityLocalAnswer(client, query)
     const verifiedDormBedAnswerAvailable = dormBedDimensionQuery
       && hardcodedAssistantFactIsCurrent('dormGuide2026')
     const requiresSpecificWebEvidence = dormBedDimensionQuery
@@ -5465,6 +5769,7 @@ async function answerCampusQuestionCore(
       || deterministicMajorDormAnswer
       || deterministicCampusAnswer
       || deterministicInstitutionNatureAnswer
+      || deterministicClubAnswer
       || deterministicKnowledgeAnswer
       || deterministicRuleAnswer
       || zongceBonusLocalAnswer(query) !== null
@@ -5508,7 +5813,7 @@ async function answerCampusQuestionCore(
       localEvidenceSufficient: false,
       hasHybridEvidence: hybridEvidenceAdded
     }
-  }, result => result.intentDetail)
+  }, result => retrievalDetailForAnalysis(result, retrievalLegs))
   const { query, cacheKey } = analysis
   if (analysis.route === 'direct') {
     const response = await runAssistantStage(
@@ -5611,6 +5916,7 @@ async function answerCampusQuestionCore(
     const deterministicClassLookupAnswer = freshmanClassLookupLocalAnswer(query, localEvidence)
     const deterministicWelcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, localEvidence)
     const deterministicTeachingLocationAnswer = teachingLocationLocalAnswer(query, localEvidence)
+    const deterministicClubAnswer = clubIdentityLocalAnswer(client, query)
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     const response = await runAssistantStage(
       tracker,
@@ -5635,7 +5941,8 @@ async function answerCampusQuestionCore(
               ?? deterministicZongceCalcAnswer
               ?? deterministicRuleAnswer
               ?? zongceBonusLocalAnswer(query)
-              ?? deterministicKnowledgeAnswer)
+              ?? deterministicKnowledgeAnswer
+              ?? deterministicClubAnswer)
         // A reviewed deterministic handler has already answered the user's
         // exact intent. Do not send it through the model synthesis path again.
         if (deterministicResponse) return deterministicResponse
@@ -5804,6 +6111,168 @@ function buildMemoryRecallAnswer(query: string, memories: SessionMemoryRecord[])
   }
 }
 
+/**
+ * Preference/self-statement detection for session-memory routing (P10).
+ *
+ * A pure self-statement ("我喜欢晚上学习，效率更高", "我住E栋") is a memory WRITE,
+ * not a knowledge/web question. Routing it through the full pipeline ends up
+ * sent to web search, which wastes an LLM call and answers "无法确认" while the
+ * actual preference is only extracted afterwards. Returns the preference text
+ * to store, or null when the input is a real question or carries no stable
+ * self-preference. Order matters: any question marker or interrogative makes
+ * this NOT a statement regardless of the self-prefix present.
+ */
+/* ---- 社团（学生组织）意图检索（P11）：做什么 / 门槛 / 联系方式 ---- */
+interface ResolvedClub {
+  name: string
+  slug: string
+  summary: string
+  body: string
+  meta: Record<string, unknown>
+}
+
+function parseClubMetadata(metadataJson: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(metadataJson || '{}') as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function clubMetaText(meta: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = meta[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+
+/** 归一化问话，判定对特定社团的意图：活动 / 门槛 / 联系方式 / 概览。 */
+function clubIntentOf(query: string): 'activity' | 'requirement' | 'contact' | 'overview' {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (/(?:联系|联系方式|如何.{0,4}联系|电话|手机|qq|微信|群|二维码|招新|报名|怎么.{0,5}(?:加|进|找)|负责人)/iu.test(normalized)) return 'contact'
+  if (/(?:门槛|要求|条件|适合|零基础|基础|能不能|能否|需要.{0,4}(?:基础|会|技能)|面试)/iu.test(normalized)) return 'requirement'
+  if (/(?:是做什么|做什么|主要.{0,3}(?:活动|干)|活动|内容|干什么|介绍|方向|简介|性质|加入后)/iu.test(normalized)) return 'activity'
+  return 'overview'
+}
+
+function clubTitleCore(title: string): string {
+  return title.replace(/(?:学生社团)?(?:社团|协会|俱乐部)$/u, '').trim()
+}
+
+/** 从 contents(kind='club') 解析问句指向的社团；找不到返回 null。 */
+function resolveClubForQuery(client: DatabaseClient, query: string): ResolvedClub | null {
+  const normalized = query.replace(/\s+/g, '').toLocaleLowerCase('zh-CN')
+  const rows = client.db.select({
+    slug: contents.slug,
+    title: contents.title,
+    summary: contents.summary,
+    body: contents.body,
+    metadataJson: contents.metadataJson
+  }).from(contents).where(and(
+    eq(contents.kind, 'club'),
+    activePublicContentCondition(Date.now())
+  )).all()
+  // 1) 全名出现在问句中
+  for (const row of rows) {
+    const title = (row.title || '').replace(/\s+/g, '').toLocaleLowerCase('zh-CN')
+    if (title.length >= 2 && normalized.includes(title)) {
+      return { name: row.title, slug: row.slug, summary: row.summary ?? '', body: row.body ?? '', meta: parseClubMetadata(row.metadataJson) }
+    }
+  }
+  // 2) 简称：问句里「音协」→ 核心以「音」开头的社团（音乐协会）
+  const stem = normalized.match(/([\u4e00-\u9fff]{1,3})(?:协会|社团|俱乐部|协)/u)?.[1]?.toLocaleLowerCase('zh-CN')
+  if (stem) {
+    for (const row of rows) {
+      const core = clubTitleCore(row.title || '').replace(/\s+/g, '').toLocaleLowerCase('zh-CN')
+      if (core.startsWith(stem) || core.includes(stem)) {
+        return { name: row.title, slug: row.slug, summary: row.summary ?? '', body: row.body ?? '', meta: parseClubMetadata(row.metadataJson) }
+      }
+    }
+  }
+  return null
+}
+
+export function clubIdentityLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  // 门控尽量宽（含简称里的「协/组织」），因为最终靠 resolveClubForQuery 判定是否真有对应社团；
+  // 宽松门控只多付一次 club 检索，命中率对不上就返回 null。
+  if (!/(?:社团|协会|俱乐部|协|组织)/u.test(query)) return null
+  // 纯"入口/在哪/页面/打开"类查询交给既有的 direct-directory 处理器（返回“专属页面”+ 入口链接），
+  // 这里只分析“做什么/门槛/联系方式/概况”等实质意图。
+  if (/(?:入口|专属页面|在哪|哪里|怎么(?:进|打开)|打开|跳转|找到|目录|列表)/u.test(query)) return null
+  const club = resolveClubForQuery(client, query)
+  if (!club) return null
+  const intent = clubIntentOf(query)
+  const meta = club.meta
+  const direction = clubMetaText(meta, 'direction', 'activityDirection')
+  const suitableFor = clubMetaText(meta, 'suitableFor')
+  const findingIt = clubMetaText(meta, 'findingIt')
+  const contactMethod = clubMetaText(meta, 'contactMethod')
+  const contactName = clubMetaText(meta, 'contactName')
+  const contactPhone = clubMetaText(meta, 'contactPhone', 'contactPhones')
+  const recruitment = clubMetaText(meta, 'recruitmentPeriod')
+  const body = ` ${club.summary} ${club.body}`.replace(/\s+/g, ' ').trim().slice(0, 400)
+
+  let answer: string
+  switch (intent) {
+    case 'activity':
+      answer = direction
+        ? `${club.name}主要做：${direction}。`
+        : `${club.name}：${body || '具体活动内容请留意本学期社团介绍。'}`
+      break
+    case 'requirement':
+      answer = suitableFor
+        ? `${club.name}的加入门槛：${suitableFor}`
+        : `${club.name}暂未单独公布门槛；一般零基础的新生大多可加入，具体以招新时负责人说明为准。`
+      break
+    case 'contact':
+      answer = `${club.name}联系方式：${contactMethod || '暂未单独公布联系方式'}`
+        + (contactName ? `（负责人：${contactName}）` : '')
+        + (contactPhone ? `；联系：${contactPhone}` : '')
+        + (recruitment ? `；招新安排：${recruitment}` : '')
+        + `。群二维码与更多入口请以社团页面为准。`
+      break
+    default:
+      answer = `${club.name}：${direction || body || '这是一个学生社团。'}`
+        + (suitableFor ? ` 适合：${suitableFor}` : '')
+        + (findingIt ? ` 开学后：${findingIt}` : '')
+  }
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: [{
+      title: `${club.name}｜学生社团`,
+      url: `/clubs/${encodeURIComponent(club.slug)}`,
+      snippet: (club.summary || direction || '').slice(0, 120),
+      source: 'site'
+    }],
+    usedWebSearch: false,
+    confidence: 0.8
+  }
+}
+
+export function isMemoryPreferenceStatement(query: string): string | null {
+  const raw = (query ?? '').replace(/\s+/g, ' ').trim()
+  if (!raw) return null
+  // Reject explicit question forms and strong interrogatives.
+  if (/[?？]$/u.test(raw)) return null
+  if (/(怎么办|如何|是什么|有哪些|哪些|什么时候|几点|能不能|可以吗|多少|哪里|谁能|咋办|为何|为啥)/u.test(raw)) return null
+  // Must carry a stable self-referential state/preference marker.
+  const marker = raw.match(/(我喜欢|我习惯|我通常|我更|我希望|我觉得|我认为|我住在|我住)/u)
+  if (!marker) return null
+  const content = raw
+    .slice(raw.indexOf(marker[0]!))
+    .replace(/[。！!，,、；;：:\s]+$/u, '')
+    .trim()
+    .slice(0, 48)
+  if (content.length < 4) return null
+  return content
+}
+
 export async function answerCampusQuestion(
   client: DatabaseClient,
   rawQuery: string,
@@ -5842,6 +6311,25 @@ export async function answerCampusQuestion(
     // before the retrieval pipeline can short-circuit to a canned gap response.
     const memoryRecall = buildMemoryRecallAnswer(effectiveQuery, memories)
     if (memoryRecall) return memoryRecall
+    // P10: pure preference/self statements are stored as session memory and
+    // acknowledged locally instead of being routed to web search (which wasted
+    // an LLM call and answered "无法确认" for "我喜欢晚上学习效率更高").
+    const preferenceStatement = isMemoryPreferenceStatement(rawQuery)
+    if (preferenceStatement) {
+      try {
+        rememberExtractedFacts(client, sessionKey, rawQuery, [{ kind: 'preference', content: preferenceStatement }])
+      } catch {
+        // A memory write must never fail the acknowledgment below.
+      }
+      return {
+        query: rawQuery,
+        mode: 'local' as const,
+        answer: `好的，我记住了：「${preferenceStatement}」。之后我会结合这一点给你更贴合的建议。`,
+        citations: [],
+        usedWebSearch: false,
+        confidence: 1
+      }
+    }
     const response = await answerCampusQuestionCore(client, effectiveQuery, { ...config, sessionContext }, hooks)
     try {
       rememberSessionTurn(client, sessionKey, {

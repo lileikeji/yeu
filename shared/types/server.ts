@@ -340,6 +340,10 @@ export interface ApiAssistantCitation {
 
 export type ApiAssistantStage
   = | 'query_analysis'
+    | 'retrieval_rewrite'
+    | 'retrieval_vector'
+    | 'retrieval_graph'
+    | 'retrieval_rerank'
     | 'feature_api'
     | 'local_database'
     | 'answer_cache'

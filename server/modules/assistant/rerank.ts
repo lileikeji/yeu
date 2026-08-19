@@ -21,6 +21,8 @@
  * @module server/modules/assistant/rerank
  */
 
+import { localRerankReady, localRerankScores, type LocalRerankConfig } from './local-rerank'
+
 /** How many top candidates (by the fused RRF score) are sent to the reranker. */
 export const RERANK_CANDIDATE_LIMIT = 24
 
@@ -32,6 +34,9 @@ export interface RerankConfig {
   model: string
   timeoutMs: number
   signal?: AbortSignal
+  /** Optional in-process cross-encoder (P8-2). When ready, tried first; on any
+   *  failure the HTTP `/rerank` endpoint below is used as the fallback. */
+  local?: LocalRerankConfig
 }
 
 export function rerankConfigReady(config: RerankConfig): boolean {
@@ -75,6 +80,22 @@ export async function rerankEvidence<T extends Rerankable>(
     return (head || item.text || '').slice(0, 400)
   })
 
+  // P8-2: local in-process cross-encoder first (when enabled). Any failure —
+  // missing dependency, model/load error, scoring error — falls through to the
+  // HTTP `/rerank` endpoint, so the local channel is purely an enhancement.
+  if (config.local && localRerankReady(config.local)) {
+    try {
+      const localScores = await localRerankScores(query, documents, config.local)
+      if (localScores.length === documents.length) {
+        const localMap = new Map<number, number>()
+        localScores.forEach((value, index) => localMap.set(index, value))
+        return reorderedPool(pool, tail, localMap)
+      }
+    } catch {
+      // Local rerank degraded; fall through to HTTP below.
+    }
+  }
+
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), config.timeoutMs || 15_000)
   const signal = config.signal
@@ -106,16 +127,27 @@ export async function rerankEvidence<T extends Rerankable>(
       }
     }
     if (scores.size === 0) return { evidence, outcome: { applied: false, reranked: 0 } }
-
-    // Reorder the pool by rerank relevance; stable tie-break by original order.
-    const reranked = [...pool]
-      .map((item, index) => ({ item, index, relevance: scores.get(index) ?? 0 }))
-      .sort((a, b) => b.relevance - a.relevance || a.index - b.index)
-      .map((entry) => entry.item)
-    return { evidence: [...reranked, ...tail], outcome: { applied: true, reranked: pool.length } }
+    return reorderedPool(pool, tail, scores)
   } catch {
     return { evidence, outcome: { applied: false, reranked: 0 } }
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * Reorder the pool by the rerank score map (document index -> relevance) with a
+ * stable tie-break on original order, then append the untouched tail. Shared by
+ * the local (P8-2) and HTTP (P8-1) rerank paths.
+ */
+function reorderedPool<T extends Rerankable>(
+  pool: T[],
+  tail: T[],
+  scores: Map<number, number>
+): { evidence: T[]; outcome: RerankOutcome } {
+  const reranked = [...pool]
+    .map((item, index) => ({ item, index, relevance: scores.get(index) ?? 0 }))
+    .sort((a, b) => b.relevance - a.relevance || a.index - b.index)
+    .map(entry => entry.item)
+  return { evidence: [...reranked, ...tail], outcome: { applied: true, reranked: pool.length } }
 }

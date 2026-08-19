@@ -25,17 +25,24 @@ import { embeddingChunkId } from '../server/modules/assistant/embedding'
 interface RebuildOptions {
   apply: boolean
   databasePath?: string
+  /** Passed to collectVectorIndexRows; see VectorIndexLimits (0 = all). */
+  claimLimit?: number
+  documentChunks?: number
 }
 
 function parseCli(argv: string[]): RebuildOptions {
   let apply = false
   let databasePath: string | undefined
+  let claimLimit: number | undefined
+  let documentChunks: number | undefined
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index]
     if (value === '--apply') apply = true
     if (value === '--database') databasePath = argv[index + 1]
+    if (value === '--claims') claimLimit = Number(argv[index + 1])
+    if (value === '--chunks') documentChunks = Number(argv[index + 1])
   }
-  return { apply, databasePath }
+  return { apply, databasePath, claimLimit, documentChunks }
 }
 
 function embeddingEnv(): { baseUrl: string, apiKey: string, model: string, timeoutMs: number } | null {
@@ -60,7 +67,10 @@ async function main(options: RebuildOptions): Promise<void> {
       process.exitCode = 1
       return
     }
-    const rows = collectVectorIndexRows(client)
+    const rows = collectVectorIndexRows(client, {
+      claimLimit: options.claimLimit,
+      documentChunksPerItem: options.documentChunks
+    })
     const uniqueChunks = new Set(rows.map(row => row.content)).size
     process.stdout.write(JSON.stringify({
       database: client.path,

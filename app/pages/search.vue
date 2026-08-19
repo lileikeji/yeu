@@ -748,7 +748,7 @@ onBeforeUnmount(() => {
                 v-if="assistantStatus === 'pending'"
                 class="mt-2 text-sm leading-6 text-zinc-600"
               >
-                正在分析问题，随后只执行最合适的一条检索路径。
+                正在分析问题并检索校园知识库，必要时再联网补充。
               </p>
               <div
                 v-if="assistantDisplayTrace.length"

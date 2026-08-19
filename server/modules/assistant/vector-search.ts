@@ -41,7 +41,7 @@ import {
 import { SESSION_MEMORY_KINDS } from './memory'
 import type { SessionMemoryKind } from './memory'
 
-export const VECTOR_EVIDENCE_LIMIT = 8
+export const VECTOR_EVIDENCE_LIMIT = 40
 export const VECTOR_CHUNK_CHARS = 600
 export const VECTOR_CHUNK_OVERLAP = 80
 
@@ -50,12 +50,25 @@ export const VECTOR_CHUNK_OVERLAP = 80
  * thousands of claims and documents; embedding every chunk is neither cheap
  * nor fast, so the default caps keep the index at a few thousand chunks while
  * preserving the most recent claims and one summary chunk per document.
+ *
+ * Both knobs can also be overridden at runtime via `NUXT_VECTOR_CLAIM_LIMIT`
+ * and `NUXT_VECTOR_DOCUMENT_CHUNKS` (0 = all), which is how a deploy can widen
+ * semantic coverage without code changes. Explicit `limits` passed in always
+ * win over the environment.
  */
 export interface VectorIndexLimits {
   /** Chunks indexed per document (0 = all). Default 1 (first ~600 chars). */
   documentChunksPerItem?: number
   /** Max published claims indexed (0 = all). Default 8000, newest first. */
   claimLimit?: number
+}
+
+/** Read a non-negative integer env override; invalid/missing → fallback. */
+function envVectorLimit(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim()
+  if (!raw) return fallback
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 0 ? n : fallback
 }
 
 export interface VectorIndexRow {
@@ -151,7 +164,7 @@ export function collectVectorIndexRows(
     })
   }
 
-  const claimLimit = limits.claimLimit ?? 8000
+  const claimLimit = limits.claimLimit ?? envVectorLimit('NUXT_VECTOR_CLAIM_LIMIT', 8000)
   const claimQuery = client.db.select({
     id: knowledgeClaims.id,
     title: knowledgeClaims.title,
@@ -180,7 +193,7 @@ export function collectVectorIndexRows(
     originalUrl: knowledgeDocuments.originalUrl,
     extractedText: knowledgeDocuments.extractedText
   }).from(knowledgeDocuments).where(eq(knowledgeDocuments.status, 'ready')).all()
-  const documentChunks = limits.documentChunksPerItem ?? 1
+  const documentChunks = limits.documentChunksPerItem ?? envVectorLimit('NUXT_VECTOR_DOCUMENT_CHUNKS', 1)
   for (const document of documents) {
     const chunks = chunkText(document.extractedText)
     const capped = documentChunks > 0 ? chunks.slice(0, documentChunks) : chunks
@@ -283,31 +296,37 @@ export async function upsertVectorIndex(
   let skipped = 0
 
   const existing = client.sqlite.prepare(
-    'SELECT id, text_hash AS textHash, model, dimension FROM assistant_embeddings'
-  ).all() as Array<{ id: string, textHash: string, model: string, dimension: number }>
+    'SELECT id, text_hash AS textHash, model FROM assistant_embeddings'
+  ).all() as Array<{ id: string, textHash: string, model: string }>
   const existingByHash = new Map(existing.map(row => [row.id, row]))
 
-  // Batch by unique content to avoid duplicate API calls.
+  // A content chunk is "already done" when every row carrying it is present with
+  // a matching hash + model. Skipping those at EMBED time is what makes a resumed
+  // re-run cheap: prior successful slices live in the DB, so we never re-call the
+  // provider for work already persisted (the in-process cache is lost on restart).
+  const contentDone = new Map<string, boolean>()
+  for (const row of rows) {
+    const id = embeddingChunkId(row.sourceType, row.sourceId, row.chunkIndex)
+    const existingRow = existingByHash.get(id)
+    const ok = Boolean(existingRow && existingRow.textHash === row.textHash && existingRow.model === options.config.model)
+    const prev = contentDone.get(row.content)
+    contentDone.set(row.content, prev === false ? false : ok)
+    // Rows already correct in the DB are skipped work; count them once here so an
+    // idempotent re-run reports them as skipped (embedded + skipped = rows touched).
+    if (ok) skipped += 1
+  }
+
+  // Batch by unique content to avoid duplicate API calls, skipping contents that
+  // are already correct in-process or already persisted to the DB.
   const uniqueContents = [...new Set(rows.map(row => row.content))]
   const indexByContent = new Map<string, number[]>()
   const toEmbed: string[] = []
   for (const content of uniqueContents) {
-    const cached = cachedEmbedding(content)
-    if (cached) {
-      indexByContent.set(content, cached)
-    } else {
+    if (cachedEmbedding(content)) {
+      indexByContent.set(content, cachedEmbedding(content)!)
+    } else if (contentDone.get(content) !== true) {
       toEmbed.push(content)
     }
-  }
-  if (toEmbed.length > 0) {
-    const vectors = await embedder.embedTexts(toEmbed, options.config)
-    toEmbed.forEach((content, index) => {
-      const vector = vectors[index]
-      if (vector) {
-        indexByContent.set(content, vector)
-        rememberEmbedding(content, vector)
-      }
-    })
   }
 
   const insert = client.sqlite.prepare(`
@@ -327,34 +346,58 @@ export async function upsertVectorIndex(
       updated_at = excluded.updated_at
   `)
 
-  for (let index = 0; index < rows.length; index += 1) {
-    const row = rows[index]!
-    const id = embeddingChunkId(row.sourceType, row.sourceId, row.chunkIndex)
-    const existingRow = existingByHash.get(id)
-    if (existingRow && existingRow.textHash === row.textHash && existingRow.model === options.config.model) {
-      skipped += 1
-      continue
+  // Slice size for incremental persistence: each slice is embedded, then every
+  // row whose content came from this slice is written to the DB immediately. A
+  // crash then loses at most one slice, and the next run resumes from the DB.
+  // `touched` guarantees each row is processed exactly once — without it, later
+  // slices would re-upsert earlier slices' rows on every pass.
+  const SLICE = 96
+  const touched = new Set<string>()
+  let progressed = 0
+  for (let sliceStart = 0; sliceStart < toEmbed.length; sliceStart += SLICE) {
+    const slice = toEmbed.slice(sliceStart, sliceStart + SLICE)
+    if (slice.length > 0) {
+      const vectors = await embedder.embedTexts(slice, options.config)
+      slice.forEach((content, index) => {
+        const vector = vectors[index]
+        if (vector) {
+          indexByContent.set(content, vector)
+          rememberEmbedding(content, vector)
+        }
+      })
     }
-    const vector = indexByContent.get(row.content)
-    if (!vector) continue
-    insert.run(
-      id,
-      row.sourceType,
-      row.sourceId,
-      row.chunkIndex,
-      row.content,
-      row.textHash,
-      vectorToBlob(vector),
-      options.config.model,
-      vector.length,
-      row.title,
-      row.url,
-      row.snippet,
-      now,
-      now
-    )
-    embedded += 1
-    options.onProgress?.(index + 1, rows.length)
+    // Persist every row whose content was (re)embedded by this slice.
+    for (const row of rows) {
+      const vector = indexByContent.get(row.content)
+      if (!vector) continue
+      const id = embeddingChunkId(row.sourceType, row.sourceId, row.chunkIndex)
+      if (touched.has(id)) continue
+      touched.add(id)
+      const existingRow = existingByHash.get(id)
+      if (existingRow && existingRow.textHash === row.textHash && existingRow.model === options.config.model) {
+        // Already correct and counted as skipped during pre-scan.
+        continue
+      }
+      insert.run(
+        id,
+        row.sourceType,
+        row.sourceId,
+        row.chunkIndex,
+        row.content,
+        row.textHash,
+        vectorToBlob(vector),
+        options.config.model,
+        vector.length,
+        row.title,
+        row.url,
+        row.snippet,
+        now,
+        now
+      )
+      embedded += 1
+    }
+    progressed += slice.length
+    options.onProgress?.(progressed, toEmbed.length)
   }
   return { embedded, skipped }
 }
