@@ -21,7 +21,6 @@ import {
   resolveProcedureChecklistFromStorageText,
   resolveProcedureInformationStateBadgeColor,
   resolveProcedureMaterialPackPresentation,
-  resolveProcedureMaterialsCountBadge,
   resolveProcedureMaterialsPackBadge,
   resolveProcedureOfficialSource,
   resolveProcedureStepCompletionPresentation,
@@ -246,14 +245,6 @@ test('Stage 65 procedure presentation decisions stay pure and student-facing', (
   assert.equal(resolveProcedureInformationStateBadgeColor('confirmed'), 'success')
   assert.equal(resolveProcedureInformationStateBadgeColor('partial'), 'warning')
   assert.equal(resolveProcedureInformationStateBadgeColor(null), 'warning')
-  assert.deepEqual(resolveProcedureMaterialsCountBadge(0), {
-    color: 'warning',
-    label: '暂未公布'
-  })
-  assert.deepEqual(resolveProcedureMaterialsCountBadge(3), {
-    color: 'neutral',
-    label: '3 项'
-  })
   assert.deepEqual(
     resolveProcedureAudienceOptionPresentation('all', 'all'),
     { color: 'primary', variant: 'solid', ariaPressed: true }

@@ -216,12 +216,11 @@ test('home page and docs expose the expanded procedure catalog instead of only a
   const homePresentation = readFileSync(resolve('app/utils/home-presentation.ts'), 'utf8')
   // The home page surfaces the procedure catalog through feature-driven entries
   // (essentialActions / timeline / more entries) wired from home-presentation,
-  // which builds per-procedure links rather than a hardcoded arrival-only card.
+  // which links to the expanded procedure pages rather than a hardcoded arrival-only card.
   assert.match(homeSource, /home-presentation/)
   assert.match(homeSource, /<div class="overflow-x-clip">/)
-  assert.match(homePresentation, /toHomeProcedureItem/)
-  assert.match(homePresentation, /buildHomeFeaturedProcedures/)
-  assert.match(homePresentation, /\/procedures\/\$\{encodeURIComponent\(procedure\.slug\)\}/)
+  assert.match(homePresentation, /\/procedures\/arrival/)
+  assert.match(homePresentation, /\/procedures\/campus-network/)
   assert.match(homePresentation, /校园一卡通与网络/)
   assert.match(homePresentation, /快递与外卖/)
 

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
+import { currentCohort, currentCohortLabel } from '~~/shared/config/cohort'
+import { homeHotlines } from '~~/data/hotlines'
 import {
   buildHomeEssentialActions,
   buildHomeImportantDates,
@@ -209,14 +211,14 @@ const {
           <button
             type="button"
             class="page-shell grid min-h-12 w-full grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 py-2 text-left text-[11px] md:min-h-12 md:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] md:gap-4 md:text-sm"
-            aria-label="查看2026级新生重要时间"
+            aria-label="查看{{ currentCohortLabel }}重要时间"
             @click="openImportantTime"
           >
             <UIcon
               name="i-lucide-volume-2"
               class="size-4 shrink-0 text-orange-600 md:size-5"
             />
-            <span class="shrink-0 font-semibold">2026级新生重要时间</span>
+            <span class="shrink-0 font-semibold">{{ currentCohortLabel }}重要时间</span>
             <span class="hidden h-5 w-px bg-orange-300 md:block" />
             <span class="important-time-window min-w-0 overflow-hidden whitespace-nowrap">
               <span class="important-time-track inline-flex min-w-max items-center gap-10 pr-10">
@@ -236,7 +238,7 @@ const {
 
         <UModal
           v-model:open="importantTimeOpen"
-          title="2026级新生重要时间"
+          title="{{ currentCohortLabel }}重要时间"
           description="以下日期来自学校最新校历，具体到校时段与材料以录取通知书及学校后续通知为准。"
           :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
         >
@@ -276,7 +278,7 @@ const {
 
         <div class="page-shell py-6 text-left md:py-10 md:text-center">
           <h1 class="text-left text-2xl font-bold tracking-tight text-zinc-950 md:text-center md:text-4xl">
-            2026级新生入学指南
+            {{ currentCohortLabel }}入学指南
           </h1>
           <p class="mx-auto mt-2 max-w-2xl text-left text-xs leading-5 text-zinc-600 md:mt-3 md:text-center md:text-sm md:leading-6">
             报到、住宿、地图、办事这些新生要弄明白的事项，集中整理在这里，便于你按需查询。信息以录取通知书和学校最新通知为准。
@@ -400,7 +402,7 @@ const {
             </div>
 
             <NuxtLink
-              v-if="featureEnabled('home.checklist')"
+              v-if="featureEnabled('home.more.checklist')"
               to="/checklist"
               class="group bg-white transition lg:rounded-lg lg:border lg:border-zinc-200 lg:p-5 lg:hover:border-green-300 lg:hover:shadow-sm"
             >
@@ -461,56 +463,19 @@ const {
           </p>
           <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <a
-              href="tel:059522076110"
+              v-for="hotline in homeHotlines"
+              :key="hotline.id"
+              :href="`tel:${hotline.phone.replace(/\D/g, '')}`"
               class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
             >
               <span class="flex items-center gap-2">
                 <UIcon
-                  name="i-lucide-shield"
+                  :name="hotline.icon"
                   class="size-4 text-green-700"
                 />
-                <span>拨打校园 110</span>
+                <span>{{ hotline.label }}</span>
               </span>
-              <span class="text-zinc-500">报修 / 求助</span>
-            </a>
-            <a
-              href="tel:059522099033"
-              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
-            >
-              <span class="flex items-center gap-2">
-                <UIcon
-                  name="i-lucide-heart-handshake"
-                  class="size-4 text-green-700"
-                />
-                <span>心理健康中心</span>
-              </span>
-              <span class="text-zinc-500">0595-22099033</span>
-            </a>
-            <a
-              href="tel:059522082006"
-              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
-            >
-              <span class="flex items-center gap-2">
-                <UIcon
-                  name="i-lucide-graduation-cap"
-                  class="size-4 text-green-700"
-                />
-                <span>教务部</span>
-              </span>
-              <span class="text-zinc-500">学籍 / 课表</span>
-            </a>
-            <a
-              href="tel:059522099018"
-              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
-            >
-              <span class="flex items-center gap-2">
-                <UIcon
-                  name="i-lucide-hand-coins"
-                  class="size-4 text-green-700"
-                />
-                <span>学生资助中心</span>
-              </span>
-              <span class="text-zinc-500">贷款 / 助学金</span>
+              <span class="text-zinc-500">{{ hotline.note }}</span>
             </a>
           </div>
           <p class="mt-3 text-xs leading-5 text-zinc-500">

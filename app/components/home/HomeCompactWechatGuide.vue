@@ -165,7 +165,7 @@ const serviceEntryCoverById: Record<string, string> = {
 const managedEntryDefinitions: ManagedEntryDefinition[] = [
   {
     id: 'compact-checklist',
-    featureKey: 'home.checklist',
+    featureKey: 'home.more.checklist',
     title: '新生待办',
     summary: '按阶段勾选准备事项',
     to: '/checklist',
@@ -424,12 +424,12 @@ const sharedHomeEntryByFeature = new Map<FrontendFeatureKey, Partial<CompactHome
 ])
 
 const guideToolDefinitions: CompactHomeEntry[] = [
-  { id: 'tool-checklist', title: '新生待办工具', summary: '勾选任务并保存进度', to: '/checklist', icon: 'i-lucide-clipboard-list', placement: 'timeline', sortOrder: 0, featureKey: 'home.more.checklist', linkPreviewOnly: true },
-  { id: 'tool-map', title: '互动校园地图', summary: '查地点、看详情和路线', to: '/map', icon: 'i-lucide-map', placement: 'timeline', sortOrder: 10, featureKey: 'home.essential.map', linkPreviewOnly: true },
-  { id: 'tool-transport', title: '到校交通查询', summary: '查公交、进城和返校方案', to: '/transport', icon: 'i-lucide-bus-front', placement: 'timeline', sortOrder: 20, featureKey: 'home.more.transport', linkPreviewOnly: true },
-  { id: 'tool-arrival', title: '报到流程详情', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival', linkPreviewOnly: true },
+  { id: 'tool-checklist', title: '新生清单', summary: '勾选任务并保存进度', to: '/checklist', icon: 'i-lucide-list-checks', placement: 'timeline', sortOrder: 0, featureKey: 'home.more.checklist', linkPreviewOnly: true },
+  { id: 'tool-map', title: '校园地图', summary: '查地点、看详情和路线', to: '/map', icon: 'i-lucide-map-pinned', placement: 'timeline', sortOrder: 10, featureKey: 'home.essential.map', linkPreviewOnly: true },
+  { id: 'tool-transport', title: '到校与离校交通', summary: '查公交、进城和返校方案', to: '/transport', icon: 'i-lucide-bus-front', placement: 'timeline', sortOrder: 20, featureKey: 'home.more.transport', linkPreviewOnly: true },
+  { id: 'tool-arrival', title: '报到安排', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival', linkPreviewOnly: true },
   { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40, linkPreviewOnly: true },
-  { id: 'tool-rules', title: '学生规则与奖助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-notebook-tabs', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules', linkPreviewOnly: true },
+  { id: 'tool-rules', title: '学生手册与资助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-book-open-check', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules', linkPreviewOnly: true },
   { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-question-mark', placement: 'timeline', sortOrder: 60, linkPreviewOnly: true }
 ]
 

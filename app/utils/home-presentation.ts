@@ -1,9 +1,5 @@
 import type { ApiProcedure } from '~~/shared/types/server'
 import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
-import {
-  studentFacingProcedureText,
-  studentFacingProcedureTitle
-} from './procedure-detail-presentation'
 
 export interface HomeGuideLike {
   slug: string
@@ -26,15 +22,6 @@ export interface HomeTimelineStage {
   title: string
   items: string[]
   actionLabel: string
-  to: string
-}
-
-export interface HomeProcedureItem {
-  id: string
-  title: string
-  summary: string
-  statusText: string
-  methodLabel: string
   to: string
 }
 
@@ -93,12 +80,6 @@ export const homeTrustNotice = {
     }
   ] satisfies HomeTrustLink[]
 } as const
-
-export const homeProcedureMethodLabels: Record<ApiProcedure['method'], string> = {
-  online: '线上办理',
-  offline: '到校办理',
-  mixed: '网上确认 + 到校办理'
-}
 
 export const homeTimelineStages: HomeTimelineStage[] = [
   {
@@ -313,68 +294,6 @@ export function buildHomeImportantDates(
   })
 }
 
-export function toHomeProcedureItem(procedure: ApiProcedure): HomeProcedureItem {
-  return {
-    id: procedure.id,
-    title: studentFacingProcedureTitle(procedure.title),
-    summary: studentFacingProcedureText(procedure.summary),
-    statusText: studentFacingProcedureText(procedure.statusText),
-    methodLabel: homeProcedureMethodLabels[procedure.method],
-    to: `/procedures/${encodeURIComponent(procedure.slug)}`
-  }
-}
-
-const homeProcedurePriority: Readonly<Record<string, number>> = {
-  'campus-network': 0,
-  'dorm-repair': 1,
-  'library-card-wechat': 2,
-  'transfer-archive-mailing': 100
-}
-
-export function buildHomeFeaturedProcedures(
-  procedures: ApiProcedure[] | null | undefined,
-  limit = 4
-): HomeProcedureItem[] {
-  return (procedures ?? [])
-    .filter(procedure => procedure.slug !== 'arrival')
-    .map((procedure, index) => ({ procedure, index }))
-    .sort((left, right) => (
-      (homeProcedurePriority[left.procedure.slug] ?? 50)
-      - (homeProcedurePriority[right.procedure.slug] ?? 50)
-      || left.index - right.index
-    ))
-    .slice(0, limit)
-    .map(({ procedure }) => toHomeProcedureItem(procedure))
-}
-
-export function getHomeFallbackMessage(
-  hasContentError: boolean,
-  hasProcedureError: boolean
-): string | null {
-  if (hasContentError || hasProcedureError) {
-    return '有些新生信息暂时没显示出来，可以先查校园地图和基础指南。'
-  }
-  return null
-}
-
-export function computeHomeCardTilt(
-  mouseX: number,
-  mouseY: number,
-  width: number,
-  height: number,
-  maxTiltDeg = 6
-): { rotateX: number, rotateY: number } {
-  if (width <= 0 || height <= 0) {
-    return { rotateX: 0, rotateY: 0 }
-  }
-  const rotateX = -((mouseY - height / 2) / (height / 2)) * maxTiltDeg
-  const rotateY = ((mouseX - width / 2) / (width / 2)) * maxTiltDeg
-  return {
-    rotateX: Object.is(rotateX, -0) ? 0 : rotateX,
-    rotateY: Object.is(rotateY, -0) ? 0 : rotateY
-  }
-}
-
 export function buildHomeSearchTarget(query: string): { path: string, query?: { q: string } } {
   const trimmed = query.trim()
   return {
@@ -383,5 +302,3 @@ export function buildHomeSearchTarget(query: string): { path: string, query?: { 
   }
 }
 
-// Kept for older callers; the homepage now uses the unified site search.
-export const buildHomeMapSearchTarget = buildHomeSearchTarget

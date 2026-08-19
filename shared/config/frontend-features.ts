@@ -28,10 +28,13 @@ export const FRONTEND_FEATURE_DEFINITIONS = [
     icon: 'i-lucide-package-open'
   },
   {
+    // Deprecated: unified under home.more.checklist so the checklist entry
+    // (progress banner on home + quick/service entries in both views) follows
+    // a single switch. Kept only for existing DB rows.
     key: 'home.checklist',
     group: '新生任务',
-    title: '新生清单横幅',
-    description: '首页的新生清单进度和继续勾选入口。',
+    title: '新生清单横幅（已并入 home.more.checklist）',
+    description: '已统一到 home.more.checklist，本开关不再生效。',
     icon: 'i-lucide-list-checks'
   },
   {

@@ -102,12 +102,19 @@ test('public pages expose dialable public phone contacts', () => {
   assert.match(campusPage, /parsePublicPhoneContacts/)
   assert.match(campusPage, /departmentPhoneContacts/)
   assert.match(campusPage, /:href="phone\.href"/)
-  assert.match(homePage, /href="tel:059522076110"/)
-  assert.match(homePage, /href="tel:059522099033"/)
-  assert.match(homePage, /href="tel:059522082006"/)
-  assert.match(homePage, /href="tel:059522099018"/)
-  assert.match(homePage, /拨打校园 110/)
+  assert.match(homePage, /homeHotlines/)
+  assert.match(homePage, /v-for="hotline in homeHotlines"/)
+  assert.match(homePage, /hotline\.phone/)
   assert.doesNotMatch(homePage, /href="tel:110"|href="tel:119"|href="tel:120"/)
+
+  const hotlinesSource = readFileSync(resolve('data/hotlines.ts'), 'utf8')
+  assert.match(hotlinesSource, /拨打校园 110/)
+  for (const phone of [
+    '0595-22076110',
+    '0595-22099033',
+    '0595-22082006',
+    '0595-22099018'
+  ]) assert.match(hotlinesSource, new RegExp(phone.replace(/-/g, '-')))
   assert.match(clubPage, /resolvePublicContactActions/)
   assert.match(clubPage, /contactActions/)
   assert.match(clubPage, /copyContactAction/)

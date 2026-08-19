@@ -229,13 +229,6 @@ export function resolveProcedureChecklistProgress(
   }
 }
 
-export function resolveProcedureMaterialPackProgress(
-  visibleMaterialIds: Iterable<string>,
-  packedMaterialIds: Iterable<string>
-): ProcedureChecklistProgress {
-  return resolveProcedureChecklistProgress(visibleMaterialIds, packedMaterialIds)
-}
-
 export function buildProcedureMapLink(
   procedureSlug: string,
   placeSlug: string,
@@ -256,22 +249,6 @@ export function resolveProcedureInformationStateBadgeColor(
   informationState: string | null | undefined
 ): 'success' | 'warning' {
   return informationState === 'confirmed' ? 'success' : 'warning'
-}
-
-export function resolveProcedureMaterialsCountBadge(count: number): {
-  color: 'neutral' | 'warning'
-  label: string
-} {
-  if (count > 0) {
-    return {
-      color: 'neutral',
-      label: `${count} 项`
-    }
-  }
-  return {
-    color: 'warning',
-    label: '暂未公布'
-  }
 }
 
 export function resolveProcedureMaterialsPackBadge(
