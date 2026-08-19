@@ -44,6 +44,26 @@ export function studentFacingGuideSectionTitle(value: string): string {
   return value.replace(/(?:当前可核验的|目前能确认的)餐厅名称/, '现在可以确认的餐厅')
 }
 
+/** A short, scannable one-line hook for a section: what the reader can find here. */
+export function guideSectionHook(section: {
+  description?: string
+  items?: readonly string[]
+}): string | null {
+  const description = section.description?.trim()
+  if (description) {
+    const sentence = description.split(/(?<=[。！？；])/u)[0]?.trim()
+    const candidate = (sentence || description).slice(0, 46)
+    return candidate.length < description.length ? `${candidate}…` : candidate
+  }
+  const firstItem = section.items?.find(item => item.trim())
+  if (firstItem) {
+    const trimmed = firstItem.trim()
+    const candidate = trimmed.slice(0, 46)
+    return trimmed.length > candidate.length ? `${candidate}…` : candidate
+  }
+  return null
+}
+
 export interface GuideRelatedAction {
   label: string
   to: string

@@ -9,6 +9,7 @@ import { resolvePublicGuide } from '~/utils/public-catalog'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import {
   buildGuideDetailSources,
+  guideSectionHook,
   guideSectionId,
   guideStatePresentation,
   resolveGuideFallbackMessage,
@@ -177,13 +178,6 @@ onBeforeUnmount(() => {
             <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
               {{ guide.summary }}
             </p>
-            <p class="mt-4 flex max-w-2xl items-start gap-2 text-sm leading-6 text-zinc-600">
-              <UIcon
-                name="i-lucide-info"
-                class="mt-1 size-4 shrink-0 text-orange-600"
-              />
-              <span><strong class="font-semibold text-zinc-800">目前：</strong>{{ studentFacingGuideStatusText(guide.statusText) }}</span>
-            </p>
           </div>
 
           <div class="flex flex-wrap gap-2 self-start md:max-w-xs md:justify-end">
@@ -226,17 +220,23 @@ onBeforeUnmount(() => {
         </div>
 
         <div
-          class="border-l-4 px-4 py-3 text-sm leading-6"
+          class="border-l-4 px-4 py-3.5 text-sm leading-6"
           :class="guide.status === 'verified' ? 'border-blue-600 bg-blue-50 text-blue-950' : 'border-orange-500 bg-orange-50 text-orange-950'"
           role="status"
         >
-          <div class="flex items-start gap-2">
+          <p class="font-semibold">
             <UIcon
               :name="guide.status === 'verified' ? 'i-lucide-info' : 'i-lucide-triangle-alert'"
-              class="mt-0.5 size-4 shrink-0"
+              class="mr-1.5 -mt-0.5 inline size-4 shrink-0 align-middle"
             />
-            <p>{{ guide.leadNotice }}</p>
-          </div>
+            {{ guide.status === 'verified' ? '现在能确认' : '以下还要等学校通知' }}：{{ studentFacingGuideStatusText(guide.statusText) }}
+          </p>
+          <p
+            v-if="guide.leadNotice"
+            class="mt-1.5 leading-6 opacity-90"
+          >
+            {{ guide.leadNotice }}
+          </p>
         </div>
 
         <details
@@ -302,6 +302,12 @@ onBeforeUnmount(() => {
             <h2 class="text-lg font-bold text-zinc-950">
               {{ studentFacingGuideSectionTitle(section.title) }}
             </h2>
+            <p
+              v-if="!section.items.length && guideSectionHook(section)"
+              class="mt-1.5 line-clamp-1 text-sm font-medium text-zinc-600"
+            >
+              先看：{{ guideSectionHook(section) }}
+            </p>
           </div>
           <p
             v-if="section.description"

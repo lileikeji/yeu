@@ -2,9 +2,12 @@
 import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
 import {
   buildHomeEssentialActions,
+  buildHomeImportantDates,
   buildHomeSearchTarget,
   homeMoreEntries,
-  homeTimelineStages
+  homeTimelineStages,
+  homeTrustNotice,
+  type HomeGuideLike
 } from '~~/app/utils/home-presentation'
 
 useSeoMeta({
@@ -34,17 +37,23 @@ function onIntroComplete() {
 
 const placeQuery = ref('')
 const importantTimeOpen = ref(false)
-const importantDates = [
-  { date: '9月5–6日', title: '注册报到', description: '具体到校时段、报到地点和材料以录取通知书及学校后续通知为准。' },
-  { date: '9月7–9日', title: '入学教育', description: '学院集合地点、时间和安排以辅导员或学院通知为准。' },
-  { date: '9月10日', title: '开始上课', description: '课表、教材和教学安排以教务系统及学院通知为准。' }
-]
 const featureRequest = usePublicFrontendFeatures()
 const homeEntryRequest = usePublicHomeEntries()
-await Promise.all([featureRequest, homeEntryRequest])
+const guideListRequest = usePublicGuideList()
+const procedureListRequest = usePublicProcedureList()
+await Promise.all([featureRequest, homeEntryRequest, guideListRequest, procedureListRequest])
 
 const { data: publicFeatureResponse } = featureRequest
 const { data: publicHomeEntryResponse } = homeEntryRequest
+const { data: publicGuideListResponse } = guideListRequest
+const { data: publicProcedureListResponse } = procedureListRequest
+
+const importantDates = computed(() => buildHomeImportantDates(publicProcedureListResponse.value?.items))
+const importantDatesLine = computed(() => (
+  importantDates.value
+    .map(item => `${item.date}${item.title}`)
+    .join(' · ')
+))
 
 const disabledFeatureKeys = computed(() => new Set(publicFeatureResponse.value?.disabledKeys ?? []))
 const featureEnabled = (key: FrontendFeatureKey) => !disabledFeatureKeys.value.has(key)
@@ -53,7 +62,12 @@ const featurePlacement = (key: FrontendFeatureKey, fallback: 'quick' | 'timeline
 )
 const featureSortOrder = (key: FrontendFeatureKey) => publicFeatureResponse.value?.sortOrders?.[key] ?? 100
 const customHomeEntries = computed(() => publicHomeEntryResponse.value?.items ?? [])
-const defaultEssentialActions = buildHomeEssentialActions([])
+const dbGuides = computed<HomeGuideLike[]>(() => (
+  (publicGuideListResponse.value?.items ?? [])
+    .filter(item => item.kind === 'guide' && item.status === 'published')
+    .map(item => ({ slug: item.slug, summary: item.summary }))
+))
+const defaultEssentialActions = buildHomeEssentialActions(dbGuides.value)
 const defaultTimelineStages = homeTimelineStages
 const defaultMoreEntries = homeMoreEntries
 
@@ -206,8 +220,8 @@ const {
             <span class="hidden h-5 w-px bg-orange-300 md:block" />
             <span class="important-time-window min-w-0 overflow-hidden whitespace-nowrap">
               <span class="important-time-track inline-flex min-w-max items-center gap-10 pr-10">
-                <span>9月5–6日报到 · 9月7–9日入学教育 · 9月10日上课</span>
-                <span aria-hidden="true">9月5–6日报到 · 9月7–9日入学教育 · 9月10日上课</span>
+                <span>{{ importantDatesLine }}</span>
+                <span aria-hidden="true">{{ importantDatesLine }}</span>
               </span>
             </span>
             <span class="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold text-orange-900 hover:bg-orange-100 md:min-h-9 md:px-2 md:text-xs">
@@ -223,7 +237,7 @@ const {
         <UModal
           v-model:open="importantTimeOpen"
           title="2026级新生重要时间"
-          description="以下日期来自学校2026—2027学年第一学期校历。"
+          description="以下日期来自学校最新校历，具体到校时段与材料以录取通知书及学校后续通知为准。"
           :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
         >
           <template #body>
@@ -265,7 +279,7 @@ const {
             2026级新生入学指南
           </h1>
           <p class="mx-auto mt-2 max-w-2xl text-left text-xs leading-5 text-zinc-600 md:mt-3 md:text-center md:text-sm md:leading-6">
-            集中查询报到、住宿、交通、校园地图、办事流程和校园生活信息。
+            报到、住宿、地图、办事这些新生要弄明白的事项，集中整理在这里，便于你按需查询。信息以录取通知书和学校最新通知为准。
           </p>
 
           <form
@@ -439,11 +453,11 @@ const {
               />
             </span>
             <h2 class="text-base font-bold text-zinc-950 md:text-lg">
-              紧急求助
+              校内求助与常用电话
             </h2>
           </div>
           <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-700">
-            在校遇到火情、治安或校园设施紧急故障，先拨校园110报修；危及生命或需要公安、消防、急救时，同时拨打相应应急电话。
+            校内遇到火情、治安或宿舍设施紧急故障，先拨校园 110 报修求助。就医、心理支持和学籍问题上，按下面电话找对应部门。
           </p>
           <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <a
@@ -457,50 +471,50 @@ const {
                 />
                 <span>拨打校园 110</span>
               </span>
-              <span class="text-zinc-500">0595-22076110</span>
+              <span class="text-zinc-500">报修 / 求助</span>
             </a>
             <a
-              href="tel:110"
+              href="tel:059522099033"
               class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
             >
               <span class="flex items-center gap-2">
                 <UIcon
-                  name="i-lucide-siren"
+                  name="i-lucide-heart-handshake"
                   class="size-4 text-green-700"
                 />
-                <span>公安 110</span>
+                <span>心理健康中心</span>
               </span>
-              <span class="text-zinc-500">拨打</span>
+              <span class="text-zinc-500">0595-22099033</span>
             </a>
             <a
-              href="tel:119"
+              href="tel:059522082006"
               class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
             >
               <span class="flex items-center gap-2">
                 <UIcon
-                  name="i-lucide-flame"
+                  name="i-lucide-graduation-cap"
                   class="size-4 text-green-700"
                 />
-                <span>消防 119</span>
+                <span>教务部</span>
               </span>
-              <span class="text-zinc-500">拨打</span>
+              <span class="text-zinc-500">学籍 / 课表</span>
             </a>
             <a
-              href="tel:120"
+              href="tel:059522099018"
               class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
             >
               <span class="flex items-center gap-2">
                 <UIcon
-                  name="i-lucide-activity"
+                  name="i-lucide-hand-coins"
                   class="size-4 text-green-700"
                 />
-                <span>急救 120</span>
+                <span>学生资助中心</span>
               </span>
-              <span class="text-zinc-500">拨打</span>
+              <span class="text-zinc-500">贷款 / 助学金</span>
             </a>
           </div>
           <p class="mt-3 text-xs leading-5 text-zinc-500">
-            报修与紧急求助详情以校保卫处、医务室及到场人员指引为准。
+            医务室实行全年 24 小时值班，具体入口可在校园地图搜索「医务所」；报修和求助详情以校保卫处、医务室及到场人员指引为准。
           </p>
         </div>
       </section>
@@ -532,6 +546,47 @@ const {
                 class="ml-auto size-4 shrink-0 text-zinc-400 md:hidden"
               />
             </NuxtLink>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="border-t border-[var(--line)] bg-zinc-50/60"
+      >
+        <div class="page-shell py-8 md:py-10">
+          <div class="mx-auto max-w-3xl text-center">
+            <span class="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
+              <UIcon
+                name="i-lucide-heart-handshake"
+                class="size-4 text-green-700"
+              />
+              {{ homeTrustNotice.badge }}
+            </span>
+            <h2 class="mt-4 text-lg font-bold text-zinc-950 md:text-xl">
+              {{ homeTrustNotice.title }}
+            </h2>
+            <p class="mx-auto mt-2 max-w-2xl text-sm leading-7 text-zinc-600">
+              {{ homeTrustNotice.description }}
+            </p>
+            <p class="mt-3 text-xs leading-5 text-zinc-500">
+              {{ homeTrustNotice.checkedText }}
+            </p>
+            <div class="mt-5 flex flex-wrap justify-center gap-2">
+              <UButton
+                v-for="link in homeTrustNotice.links"
+                :key="link.label"
+                :to="link.to"
+                :icon="link.icon"
+                :label="link.label"
+                :external="link.external"
+                :target="link.external ? '_blank' : undefined"
+                :rel="link.external ? 'noopener noreferrer' : undefined"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="min-h-10"
+              />
+            </div>
           </div>
         </div>
       </section>

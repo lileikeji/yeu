@@ -399,8 +399,11 @@ const supplementalMoreEntries: CompactHomeEntry[] = [
 // Keep compact cards aligned with the definitions used by the full homepage.
 // The backend still controls enabled state, placement and ordering; this map
 // only prevents the two views from drifting in title, description or route.
+const liveGuideSummaries = (guideResponse.value?.items ?? [])
+  .filter(item => item.kind === 'guide' && item.status === 'published')
+  .map(item => ({ slug: item.slug, summary: item.summary }))
 const sharedHomeEntryByFeature = new Map<FrontendFeatureKey, Partial<CompactHomeEntry>>([
-  ...buildHomeEssentialActions([]).map(entry => [entry.featureKey, {
+  ...buildHomeEssentialActions(liveGuideSummaries).map(entry => [entry.featureKey, {
     title: entry.title,
     summary: entry.description,
     to: entry.to,
@@ -773,7 +776,7 @@ onBeforeUnmount(() => {
               迎新指南
             </h1>
             <p class="mt-0.5 truncate text-[11px] text-zinc-500 sm:text-xs">
-              新生报到、校园生活与办事信息，一页快速找到
+              新生报到、校园生活与办事信息，一页快速找到；重要内容以学校最新通知为准
             </p>
           </div>
           <div class="flex shrink-0 items-center gap-1.5">

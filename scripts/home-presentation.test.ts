@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   buildHomeEssentialActions,
   buildHomeFeaturedProcedures,
+  buildHomeImportantDates,
   buildHomeMapSearchTarget,
   computeHomeCardTilt,
   findGuideSummary,
@@ -53,6 +54,21 @@ function sampleProcedure(overrides: Partial<ApiProcedure> = {}): ApiProcedure {
   }
 }
 
+function sampleProcedureStep(title: string, timeText: string) {
+  return {
+    id: `step-${title}`,
+    order: 0,
+    title,
+    description: '',
+    audience: ['undergraduate', 'transfer'],
+    informationState: 'confirmed',
+    timeText,
+    place: null,
+    department: null,
+    actionUrl: null
+  }
+}
+
 test('home page is a thin shell over home-presentation util', () => {
   assert.match(
     pageSource,
@@ -98,8 +114,16 @@ test('home essential actions and timeline keep freshman-first copy', () => {
     ]
   )
   assert.equal(actions[2]?.description, '查看校园网、校园卡和连接问题')
-  assert.equal(actions[3]?.description, '查看取件站点、外卖送达和取餐说明')
+  // Delivery/arrival descriptions hydrate from the passed DB guide summaries;
+  // the network card has no matching guide so it keeps its fallback copy.
+  assert.equal(actions[3]?.description, 'API 快递摘要')
   assert.equal(findGuideSummary([], 'missing', 'fallback'), 'fallback')
+  assert.deepEqual(buildHomeEssentialActions([]).map(item => item.description), [
+    '查询报到时间、地点与流程',
+    '查找宿舍、教学楼和校园服务点',
+    '查看校园网、校园卡和连接问题',
+    '查看取件站点、外卖送达和取餐说明'
+  ])
   assert.equal(homeTimelineStages.length, 3)
   assert.equal(homeTimelineStages[0]?.to, '/procedures/arrival')
   assert.equal(homeMoreEntries.length, 10)
@@ -191,4 +215,27 @@ test('home card tilt and map search target stay pure and bounded', () => {
   assert.deepEqual(computeHomeCardTilt(0, 0, 0, 0), { rotateX: 0, rotateY: 0 })
   assert.deepEqual(buildHomeMapSearchTarget('  教学楼  '), { path: '/search', query: { q: '教学楼' } })
   assert.deepEqual(buildHomeMapSearchTarget('   '), { path: '/search' })
+})
+
+test('home important dates derive from the arrival procedure and fall back safely', () => {
+  const arrival = sampleProcedure({
+    slug: 'arrival',
+    steps: [
+      { ...sampleProcedureStep('记录报到日期', '2026年9月5日至6日'), order: 1 },
+      { ...sampleProcedureStep('参加新生入学教育', '2026年9月7日至9日'), order: 2 },
+      { ...sampleProcedureStep('按课表开始上课', '2026年9月10日'), order: 3 }
+    ]
+  })
+
+  const dates = buildHomeImportantDates([arrival])
+  assert.deepEqual(dates.map(item => [item.date, item.title]), [
+    ['9月5–6日', '注册报到'],
+    ['9月7–9日', '入学教育'],
+    ['9月10日', '开始上课']
+  ])
+
+  // Missing procedures/unknown steps fall back to curated defaults.
+  const fallback = buildHomeImportantDates(null)
+  assert.deepEqual(fallback.map(item => item.date), ['9月5–6日', '9月7–9日', '9月10日'])
+  assert.deepEqual(buildHomeImportantDates([sampleProcedure({ slug: 'campus-network' })]), fallback)
 })

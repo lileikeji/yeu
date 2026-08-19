@@ -104,24 +104,24 @@ export const homeTimelineStages: HomeTimelineStage[] = [
   {
     featureKey: 'home.timeline.before-arrival',
     label: '到校前',
-    title: '先确认，不要凭群聊猜',
-    items: ['确认报到时间与材料', '查询专业和住宿片区', '收藏校园地图'],
+    title: '先确认报到安排，不要凭群聊猜',
+    items: ['确认报到时间和要带的材料', '查专业对应的住宿片区', '收藏校园地图认方向'],
     actionLabel: '查看报到准备',
     to: '/procedures/arrival'
   },
   {
     featureKey: 'home.timeline.arrival-day',
     label: '报到当天',
-    title: '先定位，再按步骤办理',
-    items: ['按现场指引完成报到', '前往宿舍并确认入住', '核对校园一卡通和网络安排'],
+    title: '先看清报到方位，再按步骤办理',
+    items: ['按现场指引完成报到', '到宿舍确认入住', '核对一卡通和网络'],
     actionLabel: '打开校园地图',
     to: '/map'
   },
   {
     featureKey: 'home.timeline.first-week',
     label: '入学第一周',
-    title: '把学习和生活入口补齐',
-    items: ['确认课表与教学楼', '办理校园一卡通与网络', '保存安全与办事入口'],
+    title: '补齐学习和生活入口',
+    items: ['确认课表和教学楼', '办理一卡通和网络', '保存安全和办事入口'],
     actionLabel: '查看全部指南',
     to: '/guides'
   }
@@ -219,12 +219,13 @@ export function findGuideSummary(
   return guides.find(guide => guide.slug === slug)?.summary ?? fallback
 }
 
-export function buildHomeEssentialActions(_guides: HomeGuideLike[]): HomeAction[] {
+export function buildHomeEssentialActions(guides: HomeGuideLike[]): HomeAction[] {
+  const summary = (slug: string, fallback: string) => findGuideSummary(guides, slug, fallback)
   return [
     {
       featureKey: 'home.essential.arrival',
       title: '报到安排',
-      description: '查询报到时间、地点与流程',
+      description: summary('arrival', '查询报到时间、地点与流程'),
       meta: '入学前先看',
       icon: 'i-lucide-calendar-check-2',
       to: '/procedures/arrival',
@@ -251,13 +252,65 @@ export function buildHomeEssentialActions(_guides: HomeGuideLike[]): HomeAction[
     {
       featureKey: 'home.essential.delivery',
       title: '快递与外卖',
-      description: '查看取件站点、外卖送达和取餐说明',
+      description: summary('express-delivery', '查看取件站点、外卖送达和取餐说明'),
       meta: '校园生活',
       icon: 'i-lucide-package-open',
       to: '/guides/express-delivery',
       tone: 'bg-orange-50 text-orange-700'
     }
   ]
+}
+
+export interface HomeImportantDate {
+  date: string
+  title: string
+  description: string
+}
+
+const homeImportantDateFallback: HomeImportantDate[] = [
+  { date: '9月5–6日', title: '注册报到', description: '具体到校时段、报到地点和材料以录取通知书及学校后续通知为准。' },
+  { date: '9月7–9日', title: '入学教育', description: '学院集合地点、时间和安排以辅导员或学院通知为准。' },
+  { date: '9月10日', title: '开始上课', description: '课表、教材和教学安排以教务系统及学院通知为准。' }
+]
+
+/** Turn a step timeText like "2026年9月5日至6日" into "9月5–6日". */
+function homeDateFromTimeText(timeText: string): string {
+  return timeText
+    .replace(/2026年/, '')
+    .replace(/月(\d+)日?(?:至|–|—)(\d+)日/, '月$1–$2日')
+    .replace(/至/g, '–')
+    .replace(/\s+/g, '')
+}
+
+/**
+ * Derive the homepage "important time" block from the live arrival procedure so
+ * date changes in the database propagate to the home page. Each of the three key
+ * dates is matched against the procedure steps by a title keyword; a step without
+ * a usable timeText falls back to the curated default.
+ */
+export function buildHomeImportantDates(
+  procedures: ApiProcedure[] | null | undefined
+): HomeImportantDate[] {
+  const arrival = (procedures ?? []).find(procedure => procedure.slug === 'arrival')
+  const steps = arrival?.steps ?? []
+
+  const keywordByTitle: Array<{ title: string, keyword: RegExp }> = [
+    { title: '注册报到', keyword: /报到/ },
+    { title: '入学教育', keyword: /入学教育/ },
+    { title: '开始上课', keyword: /上课/ }
+  ]
+
+  return homeImportantDateFallback.map((fallback) => {
+    const keyword = keywordByTitle.find(entry => entry.title === fallback.title)?.keyword
+    const match = keyword
+      ? steps.find(step => step.timeText && keyword.test(step.title))
+      : undefined
+    return {
+      date: match?.timeText ? homeDateFromTimeText(match.timeText) : fallback.date,
+      title: fallback.title,
+      description: fallback.description
+    }
+  })
 }
 
 export function toHomeProcedureItem(procedure: ApiProcedure): HomeProcedureItem {

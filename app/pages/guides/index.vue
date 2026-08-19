@@ -107,7 +107,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
               从报到到开学后的常用事项
             </h1>
             <p class="mt-3 text-sm leading-7 text-zinc-600">
-              本科和专升本的安排会分开说明。时间、地点、材料和费用，以录取通知书和学校最新通知为准。
+              本站把常用的新生事项集中整理，优先给出已确认信息，未落实的会标注待通知。本科和专升本的安排会分开说明，具体时间与材料以录取通知书及学校最新通知为准。
             </p>
           </div>
           <UButton
