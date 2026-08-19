@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { and, eq, lt } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import type { DatabaseClient } from '../database/client'
@@ -216,6 +216,13 @@ export async function loginAdmin(
   const ip = requestIp(event)
   assertRateLimit(event, `admin-login-ip:${ip}`, 20, 15 * 60 * 1000, client)
   assertRateLimit(event, `admin-login:${ip}:${username.toLowerCase()}`, 5, 15 * 60 * 1000, client)
+  // Bound distributed credential-spraying of a known username across many source
+  // IPs: the per-IP and per-(IP,user) limits above do not stop an attacker who
+  // rotates addresses. This global-per-username sliding window caps the app-wide
+  // attempt rate for that account. Deliberate, availability-safe trade-off: the
+  // same window also throttles post-typo retries, but a single admin will not
+  // exceed this within 15 minutes while a multi-IP spray is slowed to a crawl.
+  assertRateLimit(event, `admin-login:user:${username.toLowerCase()}`, 10, 15 * 60 * 1000, client)
 
   // Cap password work factor if callers bypass parseBody (scrypt DoS).
   // Short passwords still hit dummy verify for timing parity with real failures.

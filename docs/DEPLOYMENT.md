@@ -281,6 +281,8 @@ location @nuxt {
 - 上传文件由应用生成安全文件名并校验类型；Nginx 不执行 uploads 中的脚本。
 - HSTS 只在 HTTPS 和所有子域准备完成后开启，避免误锁域名。
   当 `NODE_ENV=production` 且 `NUXT_PUBLIC_SITE_URL`（或 `public.siteUrl`）为 `https://` 时，应用会自动下发 `Strict-Transport-Security: max-age=31536000; includeSubDomains`；仍建议在 Nginx 同步配置。
+- **HSTS 去重（重要）**：应用（`server/utils/request-context.ts`，prod+HTTPS 时）会自动给所有动态/Nitro 响应下发 `Strict-Transport-Security`。因此反向代理动态请求的 `location @nuxt`（`proxy_pass http://127.0.0.1:3000`）**不要**再重复添加同一 HSTS 头，否则动态路由会返回两条重复 HSTS（值相同，浏览器取第一条、无害，但会触发安全扫描告警）。经应用代理的静态 location（如 `/_nuxt/`、`/icons/`、`/uploads/`、robots/sitemap 等，不经过应用）仍须自行添加该头，否则这些路径会缺失 HSTS。**验收要点：所有路由（`/`、`/map`、`/api/*`、`/robots.txt`、`/sitemap.xml`…）合并后应恰好返回 1 条 `Strict-Transport-Security`。** 现场已按此去重：删除 `@nuxt` 块内 HSTS 后动态路由由应用那份承担、静态路由由 Nginx 承担，全路由=1。
+- **多 Nginx 实例注意**：本机部署了宝塔 Nginx（master 由 `/www/server/nginx/conf/nginx.conf` 启动，宿主 80/443 由它及其 worker 监听）与若干 `nginx -g daemon off` 的容器 Nginx 并存。修改宝塔站点 vhost 后，应通过**宝塔面板「重载配置」**可靠指向该 master；不要依赖 `/usr/bin/nginx -s reload`（默认配置路径可能重载到错误的实例）或直接看 `nginx -T`（读默认配置树，与生效配置不一定一致）。判定真正生效配置请用：`/www/server/nginx/sbin/nginx -T -c /www/server/nginx/conf/nginx.conf`。
 - 生产环境必须配置 `NUXT_PUBLIC_SITE_URL` 和/或 `NUXT_ALLOWED_ORIGINS`；若写接口来源白名单为空，会返回 500 `ORIGIN_ALLOWLIST_EMPTY`（部署误配），而不是一律 403。
 - 反向代理应强制 HTTP→HTTPS；可选设置 `NUXT_FORCE_HTTPS=true` 作为应用层兜底（不要替代 Nginx 证书终止）。`NITRO_HOST` 必须为 `127.0.0.1` 再考虑 `NUXT_TRUST_PROXY=true`。
 - 部署后确认响应无 `X-Powered-By`（由全局中间件和响应钩子共同移除）；CSP 至少含 `form-action 'self'`。

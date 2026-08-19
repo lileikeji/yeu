@@ -779,7 +779,7 @@ export function canPlanMapWalkingRoute(
   activeMapProviderId: string | null | undefined,
   point: { lng: number, lat: number } | null | undefined
 ): boolean {
-  return activeMapProviderId === 'amap' && Boolean(point)
+  return (activeMapProviderId === 'amap' || activeMapProviderId === 'offline') && Boolean(point)
 }
 
 export type MapRouteCameraAction

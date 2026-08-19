@@ -6,9 +6,12 @@ import {
   resolveMapProviderConfig
 } from '../map/providers/factory'
 
-test('resolves the two supported map providers without exposing credentials', () => {
+test('resolves the supported map providers without exposing credentials', () => {
   assert.deepEqual(resolveMapProviderConfig({ mapProvider: 'maplibre-dev' }), {
     id: 'maplibre-dev'
+  })
+  assert.deepEqual(resolveMapProviderConfig({ mapProvider: 'offline' }), {
+    id: 'offline'
   })
   assert.deepEqual(resolveMapProviderConfig({
     mapProvider: ' amap ',
@@ -46,7 +49,9 @@ test('factory creates provider instances without loading either browser SDK', as
     amapKey: 'public-key',
     amapSecurityCode: 'security-code'
   })
+  const offline = await createMapProvider({ mapProvider: 'offline' })
 
   assert.equal(maplibre.id, 'maplibre-dev')
   assert.equal(amap.id, 'amap')
+  assert.equal(offline.id, 'offline')
 })

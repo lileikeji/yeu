@@ -75,8 +75,8 @@ function extractScores(query: string): { mine: number | null; highest: number | 
       others.push(n)
     }
   }
-  if (mine === null && others.length > 0) mine = others[0].value
-  if (highest === null && others.length > 1) highest = others[1].value
+  if (mine === null && others.length > 0) mine = others[0]!.value
+  if (highest === null && others.length > 1) highest = others[1]!.value
   return { mine, highest }
 }
 
@@ -192,15 +192,15 @@ function resolveItemPoints(
     if (matched.length === 0) matched = levels.filter(l => l.level.includes(grade))
     if (matched.length === 0) continue
     matched.sort((a, b) => a.points - b.points)
-    picks.push({ level: matched[0].level, points: matched[0].points })
+    picks.push({ level: matched[0]!.level, points: matched[0]!.points })
   }
   if (picks.length === 0) {
     // 没解析出等级：给不出精确档位时，按该大类最低档计入并明确标注范围，避免漏算也不冒充准确
     const pool = tier ? levels.filter(l => l.level.includes(tier)) : levels
     if (pool.length === 0) return { points: 0, note: `${item.name}未注明等级，暂不计分` }
     pool.sort((a, b) => a.points - b.points)
-    const min = pool[0]
-    const max = pool[pool.length - 1]
+    const min = pool[0]!
+    const max = pool[pool.length - 1]!
     return {
       points: min.points,
       note: `${item.name}未注明等级/类型，暂按最低档"${min.level}" ${min.points} 分计入（该大类 ${min.points}~${max.points} 分），请补充实际档位`
@@ -217,7 +217,7 @@ function resolveItemPoints(
   }
   // 单选条目取最高档
   picks.sort((a, b) => b.points - a.points)
-  return { points: picks[0].points, note: `${item.name}：${picks[0].level} ${picks[0].points}分` }
+  return { points: picks[0]!.points, note: `${item.name}：${picks[0]!.level} ${picks[0]!.points}分` }
 }
 
 /** 用关键词命中的条目（复用 matchZongceItem 的匹配逻辑，但返回条目对象）。 */

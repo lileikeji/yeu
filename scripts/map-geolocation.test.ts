@@ -172,12 +172,17 @@ test('locate and walking-route guards keep student-facing notices pure', () => {
   })
   assert.deepEqual(resolveMapWalkingRouteStartGuard({
     hasDestination: true,
-    activeMapProviderId: 'maplibre',
+    activeMapProviderId: 'maplibre-dev',
     hasGeolocation: true
   }), {
     ok: false,
-    notice: { title: '切换到高德地图后才能在页面里规划路线', color: 'warning' }
+    notice: { title: '当前地图模式暂不支持页面内规划路线', color: 'warning' }
   })
+  assert.deepEqual(resolveMapWalkingRouteStartGuard({
+    hasDestination: true,
+    activeMapProviderId: 'offline',
+    hasGeolocation: true
+  }), { ok: true })
   assert.equal(resolveMapWalkingRouteStartGuard({
     hasDestination: true,
     activeMapProviderId: 'amap',

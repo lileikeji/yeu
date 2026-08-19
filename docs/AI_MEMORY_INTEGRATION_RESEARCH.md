@@ -419,3 +419,43 @@ P6 参考 Mem0 的 consolidation 与 Letta 的 sleep-time compute，无模型调
 
 - 「军训时间/门禁时间」离线评测 miss 属评测集口径（确定性处理优先），如需纳入评测需把确定性答案也建模为期望证据。
 - 线上 rerank 依赖硅基 API，若 key 失效自动降级为原 RRF 排序（静默，无错误日志）；可考虑在 analytics 记录 rerank 失败计数便于观测。
+
+## 十三、LLM 多查询改写通道（2026-08-16 第四轮：P9）
+
+> 基于第三轮开源对标「Hybrid Search + Rerank 为共识、查询改写（RAG-Fusion / Multi-Query / HyDE）为下一层收益」，落地 **P9 多查询改写通道**：查询时用 LLM 把问题改写成 1..n 个变体，每个变体（+ 原问题，权重加倍）各自走关键词 + 向量召回，再用一次 Reciprocal Rank Fusion 合并各路候选池，最后由既有的 P8 cross-encoder rerank 对扩大后的候选池精排。
+
+### 13.1 设计
+
+- `server/modules/assistant/query-rewrite.ts`（纯模块）：`buildRewriteMessages` 构造改写提示（仅输出 JSON `{"queries":[...]}`、每条 ≤48 字符、保留校园专有名词、不编造）；`parseRewriteVariants` 解析/清洗变体（支持 JSON 对象/裸数组/代码围栏/非 JSON 行式兜底，去重、去掉与原文归一化相同的变体、截断并按请求数上限）；`rewriteConfigReady`/`rewriteVariantCount`（默认 2，上限 3）。传输层由调用方注入，可测。
+- `service.ts`：新增 `retrieveMultiQueryEvidence(client, query, limit, opts)`——对原问题 + 各变体调用 `assistantRetrievalQuery` → `retrieveCampusEvidence`（+ 可选向量腿），按 url/title 去重保留更优 score，二次 `reciprocalRankFusion(k=60)` 合并；原问题列表融合两次以加重权威意图。复用 P8 rerank 对新池精排。
+- 配置门控（默认关闭，未配置时管线零变化）：`NUXT_AI_REWRITE_ENABLED`（默认 false）、`NUXT_AI_REWRITE_MODEL`（缺省用 answering gateway 模型）、`NUXT_AI_REWRITE_MAX_VARIANTS`（默认 2）、`NUXT_AI_REWRITE_TIMEOUT_MS`（默认 12s）。改写走 `postGatewayChat`（同享 SSRF 门、熔断、并发上限）；`postGatewayChat` 新增 `options.timeoutMs`（显式给定时地板 5s，便于给改写这种一次性小调用设短超时，不影响 answer/记忆路径的 60s+ 地板）。
+
+### 13.2 配置清单
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `NUXT_AI_REWRITE_ENABLED` | `false` | 开关；开启才新增 1 次 LLM 改写调用 + 每变体 1 次向量调用 |
+| `NUXT_AI_REWRITE_MODEL` | 空（= gateway） | 改写用聊天模型 |
+| `NUXT_AI_REWRITE_MAX_VARIANTS` | `2` | 请求的 LLM 变体数（1..3） |
+| `NUXT_AI_REWRITE_TIMEOUT_MS` | `12000` | 改写调用时间预算 |
+
+接线点：`server/api/public/assistant.post.ts` 与 `assistant/stream.post.ts` 透传；`nuxt.config.ts` runtimeConfig 新增同名校（`aiRewriteEnabled/Model/MaxVariants/TimeoutMs`）。
+
+### 13.3 验证
+
+- 单元测试 `scripts/query-rewrite.test.ts`（10 用例：开关、计数钳制、提示构造、JSON/围栏/数组/行式解析、去重/去原文/截断/上限）——`tsx --test scripts/query-rewrite.test.ts` 全过（属 `pnpm test`）。
+- 离线评测 `pnpm eval:retrieval --rewrite`：无 `AI_GATEWAY_*` env 时走**确定性 stub**（用 `assistantRetrievalQuery` + `expandCampusSearchTerms` 派生变体）验证融合管线本身，不测 LLM 改写质量。全量库（.data/codex-map-content-20260713.sqlite，16643 claims）对比：
+
+| 指标 | 基线 | 改写(stub) |
+| --- | --- | --- |
+| Recall@5 | 0.909 | 0.909 |
+| Recall@10 | 0.955 | 0.955 |
+| **MRR** | **0.827** | **0.864（+4.5%）** |
+
+- 说明：stub 仅 2/22 案例产生了可区分变体（多数案例的 retrievalQuery/扩展与原文归一化相同被丢弃），即便如此多查询融合已带来 +0.037 MRR；管道端到端无回归、无崩溃。**真 LLM 收益需在服务器配 `AI_GATEWAY_*` 后用 `--rewrite` 复测**（预计变体覆盖远多于 stub）。
+
+### 13.4 后续观测项
+
+- 服务器开 `NUXT_AI_REWRITE_ENABLED=true` 后，用生产库跑 `pnpm eval:retrieval --database=<生产库> --rewrite`（带 `AI_GATEWAY_*`）对比 Recall/MRR。
+- 建议在 analytics 记录 `rewriteApplied` 计数与改写失败计数（与 rerank 失败观测同一类），便于监控改写通道实际生效比例与费用。
+- 若改写为改写通道单独计费敏感，可考虑只对「向量腿已配置且关键词召回不足」的查询启用改写，进一步压成本。

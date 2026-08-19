@@ -2,10 +2,18 @@ const RECOVERY_QUERY_KEY = '_recover'
 const RECOVERY_SESSION_KEY = 'yeu:client-recovery'
 const RECOVERY_WINDOW_MS = 5 * 60 * 1000
 const CACHE_CLEANUP_TIMEOUT_MS = 1800
+// Hard ceiling on full-document recovery navigations within the window. A
+// persistent client error (or a misbehaving service worker) must not turn the
+// error page into an infinite /?_recover <-> / reload loop, which is exactly
+// the "keeps reloading, still can't get in" failure users reported. Past this
+// cap we stop full-document replace, clear caches/service-workers once to break
+// a stale-worker loop, and leave the user on a stable terminal page instead.
+const MAX_FULL_RECOVERY_ATTEMPTS = 2
 
 interface RecoveryAttempt {
   at: number
   pathname: string
+  attempts: number
 }
 
 interface RecoverClientPageOptions {
@@ -17,7 +25,11 @@ function readRecoveryAttempt(storage: Storage): RecoveryAttempt | null {
   try {
     const value = JSON.parse(storage.getItem(RECOVERY_SESSION_KEY) || 'null') as Partial<RecoveryAttempt> | null
     if (!value || typeof value.at !== 'number' || typeof value.pathname !== 'string') return null
-    return { at: value.at, pathname: value.pathname }
+    return {
+      at: value.at,
+      pathname: value.pathname,
+      attempts: typeof value.attempts === 'number' ? value.attempts : 0
+    }
   } catch {
     return null
   }
@@ -98,12 +110,16 @@ export async function recoverClientPage(options: RecoverClientPageOptions = {}):
     current.origin
   )
   const repeatedAttempt = isRepeatedRecoveryAttempt(current, requested, previousAttempt, now)
+  const attempts = previousAttempt && now - previousAttempt.at < RECOVERY_WINDOW_MS
+    ? previousAttempt.attempts + 1
+    : 1
   const target = resolveRecoveryUrl(window.location.href, options.destination, previousAttempt, now)
 
   try {
     window.sessionStorage.setItem(RECOVERY_SESSION_KEY, JSON.stringify({
       at: now,
-      pathname: target.pathname
+      pathname: target.pathname,
+      attempts
     } satisfies RecoveryAttempt))
   } catch {
     // Recovery still works when private browsing blocks session storage.
@@ -113,6 +129,22 @@ export async function recoverClientPage(options: RecoverClientPageOptions = {}):
   // been attempted, keep the browser responsive and let the user choose a
   // stable route instead of repeating the same cleanup/navigation cycle.
   if (!repeatedAttempt) await removeStaleApplicationCaches()
+
+  // Terminal protection against recovery loops: after MAX_FULL_RECOVERY_ATTEMPTS
+  // full-document recoveries in a short window the underlying problem is not
+  // being fixed by reloading (e.g. a stale service worker re-serving a broken
+  // precache). Break the loop once: clear caches + unregister the worker, clear
+  // the in-app Nuxt error, and DO NOT perform another full document replace —
+  // leaving the user on a stable terminal page they can act on manually.
+  if (repeatedAttempt && attempts > MAX_FULL_RECOVERY_ATTEMPTS) {
+    await removeStaleApplicationCaches()
+    try {
+      void Promise.resolve(options.clearNuxtError?.()).catch(() => undefined)
+    } catch {
+      // best-effort
+    }
+    return
+  }
 
   try {
     void Promise.resolve(options.clearNuxtError?.()).catch(() => undefined)

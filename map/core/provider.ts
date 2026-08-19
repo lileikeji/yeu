@@ -4,7 +4,7 @@ export type PointPickedHandler = (point: GeoPoint) => void
 export type PoiSelectHandler = (poi: MapPoi | null) => void
 export type AreaSelectHandler = (area: MapArea | null) => void
 export type MapErrorHandler = (error: Error) => void
-export type MapProviderId = 'maplibre-dev' | 'amap'
+export type MapProviderId = 'maplibre-dev' | 'amap' | 'offline'
 export type MapBaseStyle = 'standard' | 'satellite'
 export type MapLabelSize = 'extra-small' | 'small' | 'medium' | 'large'
 

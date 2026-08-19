@@ -89,10 +89,10 @@ export function resolveMapWalkingRouteStartGuard(input: {
       notice: { title: '这个地点还不能直接规划路线', color: 'warning' }
     }
   }
-  if (input.activeMapProviderId !== 'amap') {
+  if (input.activeMapProviderId !== 'amap' && input.activeMapProviderId !== 'offline') {
     return {
       ok: false,
-      notice: { title: '切换到高德地图后才能在页面里规划路线', color: 'warning' }
+      notice: { title: '当前地图模式暂不支持页面内规划路线', color: 'warning' }
     }
   }
   if (!input.hasGeolocation) {

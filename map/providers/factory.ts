@@ -1,4 +1,5 @@
 import type { MapProvider, MapProviderId } from '../core/provider'
+import { resolveProviderFallback } from './fallback'
 
 export interface MapProviderRuntimeConfig {
   mapProvider?: unknown
@@ -30,6 +31,10 @@ export function resolveMapProviderConfig(config: MapProviderRuntimeConfig): Reso
     return { id }
   }
 
+  if (id === 'offline') {
+    return { id }
+  }
+
   if (id === 'amap') {
     const amapKey = requiredString(config.amapKey)
     const amapSecurityCode = requiredString(config.amapSecurityCode)
@@ -52,6 +57,11 @@ export function resolveMapProviderConfig(config: MapProviderRuntimeConfig): Reso
 }
 
 export async function createMapProvider(config: MapProviderRuntimeConfig): Promise<MapProvider> {
+  if (config.mapProvider === 'offline') {
+    const { WechatOfflineMapProvider } = await import('./offline/provider')
+    return new WechatOfflineMapProvider()
+  }
+
   const resolved = resolveMapProviderConfig(config)
 
   if (resolved.id === 'amap') {
@@ -68,8 +78,15 @@ export async function createMapProvider(config: MapProviderRuntimeConfig): Promi
 
 export async function createRuntimeMapProvider(): Promise<MapProvider> {
   const runtimeConfig = useRuntimeConfig()
+  const configured = typeof runtimeConfig.public.mapProvider === 'string' ? runtimeConfig.public.mapProvider : ''
+  const decided = resolveProviderFallback({
+    configuredProvider: configured,
+    amapKey: runtimeConfig.public.amapKey,
+    amapSecurityCode: runtimeConfig.public.amapSecurityCode,
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined
+  })
   return createMapProvider({
-    mapProvider: runtimeConfig.public.mapProvider,
+    mapProvider: decided,
     amapKey: runtimeConfig.public.amapKey,
     amapSecurityCode: runtimeConfig.public.amapSecurityCode
   })
