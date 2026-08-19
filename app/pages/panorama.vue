@@ -422,60 +422,70 @@ onMounted(() => {
       </div>
 
       <div class="mt-6 grid gap-4 lg:grid-cols-2">
-        <section class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
-          <div class="flex items-start gap-3">
+        <details class="group rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
+          <summary class="flex cursor-pointer list-none items-start gap-3 marker:hidden">
             <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-emerald-700 shadow-sm">
               <UIcon
                 name="i-lucide-school"
                 class="size-5"
               />
             </span>
-            <div>
-              <p class="text-xs font-semibold text-emerald-700">
+            <span class="min-w-0 flex-1">
+              <span class="block text-xs font-semibold text-emerald-700">
                 校内实景从哪里来
-              </p>
-              <h3 class="mt-1 text-base font-bold text-emerald-950">
+              </span>
+              <span class="mt-1 block text-base font-bold text-emerald-950">
                 百度地图用户上传的校园全景
-              </h3>
-              <p class="mt-2 text-sm leading-6 text-emerald-950/75">
-                这是百度地图用户上传的校园全景，不是学校官方拍摄；拍摄时间也没有写清楚。它只用于提前认路，楼栋外观、商店和道路如果变了，以你到校看到的为准。
-              </p>
-            </div>
-          </div>
-        </section>
+              </span>
+            </span>
+            <UIcon
+              name="i-lucide-chevron-down"
+              class="mt-1 size-4 shrink-0 text-emerald-600 transition group-open:rotate-180"
+            />
+          </summary>
+          <p class="mt-4 text-sm leading-6 text-emerald-950/75">
+            这是百度地图用户上传的校园全景，不是学校官方拍摄；拍摄时间也没有写清楚。它只用于提前认路，楼栋外观、商店和道路如果变了，以你到校看到的为准。
+          </p>
+        </details>
 
-        <section class="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 md:p-6">
-          <div class="flex items-start gap-3">
+        <details class="group rounded-2xl border border-amber-200 bg-amber-50/70 p-5 md:p-6">
+          <summary class="flex cursor-pointer list-none items-start gap-3 marker:hidden">
             <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm">
               <UIcon
                 name="i-lucide-badge-check"
                 class="size-5"
               />
             </span>
-            <div>
-              <p class="text-xs font-semibold text-amber-800">
+            <span class="min-w-0 flex-1">
+              <span class="block text-xs font-semibold text-amber-800">
                 校史馆从哪里来
-              </p>
-              <h3 class="mt-1 text-base font-bold text-amber-950">
+              </span>
+              <span class="mt-1 block text-base font-bold text-amber-950">
                 学校党委宣传部发布的 VR 校史馆
-              </h3>
-              <p class="mt-2 text-sm leading-6 text-amber-950/75">
-                学校在 2023 年上线了这套 VR 校史馆全景。本站只提供学校原页入口，不复制全景内容；它只拍了校史馆里面，不包含宿舍和教学楼。
-              </p>
-              <UButton
-                :to="OFFICIAL_ANNOUNCEMENT_URL"
-                external
-                target="_blank"
-                rel="noopener noreferrer"
-                icon="i-lucide-external-link"
-                label="看看学校怎么介绍"
-                color="warning"
-                variant="link"
-                class="mt-2 px-0"
-              />
-            </div>
+              </span>
+            </span>
+            <UIcon
+              name="i-lucide-chevron-down"
+              class="mt-1 size-4 shrink-0 text-amber-600 transition group-open:rotate-180"
+            />
+          </summary>
+          <div class="mt-4">
+            <p class="text-sm leading-6 text-amber-950/75">
+              学校在 2023 年上线了这套 VR 校史馆全景。本站只提供学校原页入口，不复制全景内容；它只拍了校史馆里面，不包含宿舍和教学楼。
+            </p>
+            <UButton
+              :to="OFFICIAL_ANNOUNCEMENT_URL"
+              external
+              target="_blank"
+              rel="noopener noreferrer"
+              icon="i-lucide-external-link"
+              label="看看学校怎么介绍"
+              color="warning"
+              variant="link"
+              class="mt-2 px-0"
+            />
           </div>
-        </section>
+        </details>
       </div>
     </section>
   </div>

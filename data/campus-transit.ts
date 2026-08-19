@@ -26,6 +26,29 @@ export interface TransitSource {
 
 export const campusTransitUpdatedAt = '2026-07-26'
 
+export interface CampusTransitQuickFact {
+  route: string
+  destination: string
+  detail: string
+  tone: string
+}
+
+/** 交通页顶部速览卡（K6/K2/换乘），与下方方案卡同源维护。 */
+export const campusTransitQuickFacts = [
+  { route: 'K6', destination: '泉州站', detail: '直达，末班较早', tone: 'text-emerald-800 bg-emerald-50' },
+  { route: 'K2', destination: '文化宫 / 市区', detail: '直达，运营较晚', tone: 'text-blue-800 bg-blue-50' },
+  { route: '换乘', destination: '东站 / 机场', detail: '出发前实时规划', tone: 'text-amber-900 bg-amber-50' }
+] as const satisfies ReadonlyArray<CampusTransitQuickFact>
+
+/**
+ * 实时公交方案中的固定票价备注。线路名匹配时优先显示已知票价，
+ * 其余线路回退到高德返回的 fareYuan 或"以乘车为准"。
+ */
+export const transitRouteFareNotes: Readonly<Record<string, string>> = {
+  K6: 'K6 全程 2 元',
+  K2: 'K2 分段计价，全程 5 元'
+}
+
 export const campusTransitOrigins = [
   { id: 'quanzhou-station', label: '泉州站', icon: 'i-lucide-train-front' },
   { id: 'quanzhou-east', label: '泉州东站', icon: 'i-lucide-train-front-tunnel' },

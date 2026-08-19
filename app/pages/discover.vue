@@ -34,7 +34,7 @@ function toggleTaskPreview(): void {
               你现在想做什么
             </h1>
             <p class="mt-2 text-sm leading-6 text-zinc-600">
-              按要办的事直接进入，也可以搜索地点、部门和社团。
+              首页只放了最常用的几个入口，这里把全部入口按要办的事汇总在一起，也支持直接搜索地点、部门和社团。
             </p>
           </div>
           <UButton

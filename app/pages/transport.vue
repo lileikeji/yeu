@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import {
   campusTransitOrigins,
+  campusTransitQuickFacts,
   campusTransitSources,
   campusTransitUpdatedAt,
   transitOptionsForOrigin,
+  transitRouteFareNotes,
   type TransitOriginId
 } from '~~/data/campus-transit'
 import type { ApiTransitPlanResponse } from '~~/shared/types/server'
@@ -56,20 +58,16 @@ function formatQueryTime(value: string): string {
 
 function formatPlanFare(plan: ApiTransitPlanResponse['plans'][number]): string {
   const routeNames = plan.segments.map(segment => segment.name).join(' ')
-  if (/\bK6\b/i.test(routeNames)) return 'K6 全程 2 元'
-  if (/\bK2\b/i.test(routeNames)) {
-    return plan.fareYuan === null
-      ? 'K2 分段计价，全程 5 元'
-      : `K2 本次约 ${plan.fareYuan} 元`
+  const fixedFare = Object.entries(transitRouteFareNotes)
+    .find(([route]) => new RegExp(`\\b${route}\\b`, 'i').test(routeNames))
+  if (fixedFare) {
+    if (!fixedFare[0].startsWith('K2')) return fixedFare[1]
+    return plan.fareYuan === null ? fixedFare[1] : `K2 本次约 ${plan.fareYuan} 元`
   }
   return plan.fareYuan === null ? '票价以乘车为准' : `约 ${plan.fareYuan} 元`
 }
 
-const quickFacts = [
-  { route: 'K6', destination: '泉州站', detail: '直达，末班较早', tone: 'text-emerald-800 bg-emerald-50' },
-  { route: 'K2', destination: '文化宫 / 市区', detail: '直达，运营较晚', tone: 'text-blue-800 bg-blue-50' },
-  { route: '换乘', destination: '东站 / 机场', detail: '出发前实时规划', tone: 'text-amber-900 bg-amber-50' }
-]
+const quickFacts = campusTransitQuickFacts
 </script>
 
 <template>

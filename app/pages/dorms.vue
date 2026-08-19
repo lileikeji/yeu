@@ -271,22 +271,34 @@ function selectDorm(id: DormId) {
 
       <section class="border-t border-zinc-200 pt-8">
         <div class="grid gap-5 md:grid-cols-2">
-          <div class="rounded-lg border border-amber-200 bg-amber-50 p-5">
-            <p class="text-sm font-bold text-amber-950">
-              实拍不是标准样板间
-            </p>
+          <details class="group rounded-lg border border-amber-200 bg-amber-50 p-5">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 marker:hidden">
+              <span class="text-sm font-bold text-amber-950">
+                实拍不是标准样板间
+              </span>
+              <UIcon
+                name="i-lucide-chevron-down"
+                class="size-4 shrink-0 text-amber-700 transition group-open:rotate-180"
+              />
+            </summary>
             <p class="mt-2 text-sm leading-6 text-amber-950/75">
               拍摄时间、楼栋、入住人数和个人布置都会影响画面。床位、家具、热水和公共设施以实际分配及学校最新安排为准。
             </p>
-          </div>
-          <div class="rounded-lg border border-sky-200 bg-sky-50 p-5">
-            <p class="text-sm font-bold text-sky-950">
-              影像来源与隐私说明
-            </p>
+          </details>
+          <details class="group rounded-lg border border-sky-200 bg-sky-50 p-5">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 marker:hidden">
+              <span class="text-sm font-bold text-sky-950">
+                影像来源与隐私说明
+              </span>
+              <UIcon
+                name="i-lucide-chevron-down"
+                class="size-4 shrink-0 text-sky-700 transition group-open:rotate-180"
+              />
+            </summary>
             <p class="mt-2 text-sm leading-6 text-sky-950/75">
               视频由本站维护者自行拍摄，本站只提供行前参考，不代表学校官方宣传。发布或转载时应确认入镜人员同意，并避免展示房号、联系方式和其他可识别的私人信息；如发现相关内容，请通过反馈联系处理。
             </p>
-          </div>
+          </details>
         </div>
       </section>
     </main>
