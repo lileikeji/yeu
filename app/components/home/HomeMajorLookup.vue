@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { majorCollegeCount, majorProfiles, ordinaryPlanSource, transferPlanSource } from '~~/data/major-profiles'
 import type { MajorProfile } from '~~/data/major-profiles'
+import { currentCohort, currentCohortYear } from '~~/shared/config/cohort'
 
 const query = ref('')
 const selected = ref<MajorProfile | null>(null)
@@ -55,7 +56,7 @@ function admissionLabel(profile: MajorProfile): string {
           录取专业属于哪个学院？
         </h2>
         <p class="mt-3 text-sm leading-7 text-emerald-50/75">
-          已按学校2026年招生计划整理 {{ majorProfiles.length }} 个普通本科专业、{{ majorCollegeCount }} 个学院。输入录取专业，可同时核对学院入口与宿舍片区公开状态。
+          已按学校{{ currentCohortYear }}年招生计划整理 {{ majorProfiles.length }} 个普通本科专业、{{ majorCollegeCount }} 个学院。输入录取专业，可同时核对学院入口与宿舍片区公开状态。
         </p>
 
         <dl class="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-white/15">
@@ -226,7 +227,7 @@ function admissionLabel(profile: MajorProfile): string {
 
             <div>
               <p class="text-xs font-medium text-zinc-500">
-                2026级宿舍片区
+                {{ currentCohort }}宿舍片区
               </p>
               <p class="mt-1 inline-flex items-center gap-2 font-bold text-amber-700">
                 <UIcon
@@ -252,7 +253,7 @@ function admissionLabel(profile: MajorProfile): string {
               name="i-lucide-info"
               class="mt-1 size-4 shrink-0 text-emerald-700"
             />
-            页面中的新区/旧区来自用户提供的2026级专业片区整理，先用于行前参考；最终分配以迎新系统个人结果、录取材料和学校当届通知为准。
+            页面中的新区/旧区来自用户提供的{{ currentCohort }}专业片区整理，先用于行前参考；最终分配以迎新系统个人结果、录取材料和学校当届通知为准。
           </p>
         </div>
       </div>
