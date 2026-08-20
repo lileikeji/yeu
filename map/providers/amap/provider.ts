@@ -136,7 +136,9 @@ export class AMapProvider implements MapProvider {
   private displayOptions: MapDisplayOptions = { ...DEFAULT_DISPLAY_OPTIONS }
   private baseStyle: MapBaseStyle = 'standard'
   private fitAfterRender = false
-  private initialCanvasSettled = false
+  /** 最近一次确认就绪的 canvas 尺寸 key（如 "750x1334"）；尺寸变化时允许再次重建 overlay。 */
+  private settledCanvasKey = ''
+  private mapElement: HTMLElement | null = null
   /** 标点全量重建（含坐标转换）是否仍在进行；canvas 就绪恢复需等它完成再重建 overlay。 */
   private markersRebuildInFlight = false
   /** canvas 就绪恢复在重建进行中被挂起时置位，重建结束后补跑。 */
@@ -155,6 +157,7 @@ export class AMapProvider implements MapProvider {
 
   async mount(element: HTMLElement, options: MapMountOptions = {}): Promise<void> {
     this.disposeMap()
+    this.mapElement = element
     const lifecycleVersion = ++this.lifecycleVersion
     const amap = await loadAMap(this.options)
 
@@ -492,8 +495,9 @@ export class AMapProvider implements MapProvider {
     } finally {
       this.markersRebuildInFlight = false
       // Canvas 就绪恢复在本次重建进行中被挂起时，重建完成后用完整缓存补跑，
-      // 避免只按「已转换的部分标点」重建 overlay。
-      if (this.pendingOverlayRebuild) {
+      // 避免只按「已转换的部分标点」重建 overlay。重建被 renderVersion 中止
+      // （缓存仍为空）时保留挂起，等下一次完整重建完成后补跑。
+      if (this.pendingOverlayRebuild && this.markers.size > 0) {
         this.pendingOverlayRebuild = false
         this.rebuildMarkerOverlay()
       }
@@ -576,11 +580,11 @@ export class AMapProvider implements MapProvider {
   }
 
   private onCanvasSettled(map: AMapMap, lifecycleVersion: number): void {
-    if (this.initialCanvasSettled) return
-    this.initialCanvasSettled = true
-    if (this.map === map && lifecycleVersion === this.lifecycleVersion) {
-      this.rebuildMarkerOverlay()
-    }
+    if (this.map !== map || lifecycleVersion !== this.lifecycleVersion) return
+    const key = this.readCanvasSizeKey()
+    if (!key || key === this.settledCanvasKey) return
+    this.settledCanvasKey = key
+    this.rebuildMarkerOverlay()
   }
 
   private async rebuildAreas(): Promise<void> {
@@ -1095,6 +1099,10 @@ export class AMapProvider implements MapProvider {
    * drawing surface and never re-measures, which leaves the basemap blank
    * while DOM markers still position correctly. Re-measure once the layout has
    * settled, and only act when the size is genuinely wrong.
+   *
+   * The same wrong-size surface also breaks MarkerCluster: it lays markers out
+   * against the canvas size present at creation time, so pins stay missing
+   * until the canvas settles and the overlay is rebuilt from the cache.
    */
   private scheduleInitialResize(
     map: AMapMap,
@@ -1106,18 +1114,6 @@ export class AMapProvider implements MapProvider {
     const isStale = (): boolean => (
       this.map !== map || lifecycleVersion !== this.lifecycleVersion
     )
-
-    const canvasIsSized = (): boolean => {
-      if (typeof element.getBoundingClientRect !== 'function') return true
-      const rect = element.getBoundingClientRect()
-      if (rect.width < 2 || rect.height < 2) return false
-      const canvas = typeof element.querySelector === 'function'
-        ? element.querySelector('canvas')
-        : null
-      // AMap scales its backing store by devicePixelRatio, so compare against
-      // the CSS width rather than expecting an exact match.
-      return Boolean(canvas && canvas.width >= rect.width - 1 && canvas.height >= rect.height - 1)
-    }
 
     const forceResize = (): void => {
       try {
@@ -1139,7 +1135,7 @@ export class AMapProvider implements MapProvider {
 
     const step = (): void => {
       if (isStale()) return
-      if (canvasIsSized()) {
+      if (this.isCanvasSettled(element)) {
         this.onCanvasSettled(map, lifecycleVersion)
         return
       }
@@ -1161,22 +1157,73 @@ export class AMapProvider implements MapProvider {
 
     // A late-arriving layout (font swap, sheet transition, keyboard dismissal)
     // can resize the container after polling gives up. ResizeObserver catches
-    // that case without keeping a timer alive.
+    // that case without keeping a timer alive. Watch both the container and
+    // every canvas inside it: AMap may swap its drawing surface (2D/WebGL,
+    // dpr change) while the container stays the same size.
     if (typeof ResizeObserver !== 'undefined') {
+      const observeSizes = (): void => {
+        const targets = [element, ...this.canvasesIn(element)]
+        for (const target of targets) observer.observe(target)
+      }
       const observer = new ResizeObserver(() => {
         if (isStale()) {
           observer.disconnect()
           return
         }
-        if (canvasIsSized()) {
+        if (this.isCanvasSettled(element)) {
           this.onCanvasSettled(map, lifecycleVersion)
           return
         }
         forceResize()
       })
-      observer.observe(element)
+      observeSizes()
       this.initialResizeObserver = observer
     }
+  }
+
+  private canvasesIn(element: HTMLElement): HTMLCanvasElement[] {
+    if (typeof element.querySelectorAll !== 'function') return []
+    const found: HTMLCanvasElement[] = []
+    element.querySelectorAll<HTMLCanvasElement>('canvas').forEach(canvas => found.push(canvas))
+    return found
+  }
+
+  /**
+   * Largest canvas inside the AMap container. AMap renders into one main
+   * canvas but may keep extra zero-sized or tiny canvases around; scanning for
+   * the largest avoids mistaking a hidden surface for the settled one.
+   */
+  private largestCanvas(element: HTMLElement): HTMLCanvasElement | null {
+    let largest: HTMLCanvasElement | null = null
+    for (const canvas of this.canvasesIn(element)) {
+      if (!largest || canvas.width * canvas.height > largest.width * largest.height) {
+        largest = canvas
+      }
+    }
+    return largest
+  }
+
+  /**
+   * True when the AMap drawing surface has settled at the container size.
+   * AMap scales its backing store by devicePixelRatio, so the physical canvas
+   * pixels are compared against the CSS size rather than an exact match.
+   */
+  private isCanvasSettled(element: HTMLElement): boolean {
+    if (typeof element.getBoundingClientRect !== 'function') return true
+    const rect = element.getBoundingClientRect()
+    if (rect.width < 2 || rect.height < 2) return false
+    const canvas = this.largestCanvas(element)
+    if (!canvas) return false
+    return canvas.width >= rect.width - 1 && canvas.height >= rect.height - 1
+  }
+
+  /** Stable key of the current settled canvas size, e.g. "750x1334". */
+  private readCanvasSizeKey(): string {
+    const element = this.mapElement
+    const canvas = element ? this.largestCanvas(element) : null
+    return canvas && canvas.width > 0 && canvas.height > 0
+      ? `${canvas.width}x${canvas.height}`
+      : ''
   }
 
   private clearInitialResizeTimer(): void {
@@ -1228,7 +1275,8 @@ export class AMapProvider implements MapProvider {
     this.map = null
     this.amap = null
     this.baseLayers = []
-    this.initialCanvasSettled = false
+    this.mapElement = null
+    this.settledCanvasKey = ''
     this.hotspotInfoWindow = null
   }
 }

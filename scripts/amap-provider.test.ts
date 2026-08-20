@@ -473,7 +473,7 @@ test('AMap provider resizes a zero-sized canvas after mount', async () => {
   const element = {
     getBoundingClientRect: () => ({ width: 375, height: 748 }),
     querySelector: () => zeroCanvas,
-    querySelectorAll: () => [] as unknown[]
+    querySelectorAll: () => [zeroCanvas] as unknown[]
   }
 
   const fakeWindow: Record<string, unknown> = {
@@ -765,7 +765,7 @@ test('AMap provider re-renders every marker once the canvas settles at its real 
   const element = {
     getBoundingClientRect: () => ({ width: 375, height: 748 }),
     querySelector: () => zeroCanvas,
-    querySelectorAll: () => [] as unknown[]
+    querySelectorAll: () => [zeroCanvas] as unknown[]
   }
 
   let conversionCalls = 0
