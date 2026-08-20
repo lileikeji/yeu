@@ -87,7 +87,7 @@ export class CampusClusterIndex {
         const coordinates = item.geometry.coordinates
         clusters.push({
           clusterId: props.cluster_id,
-          centroid: { lng: coordinates[0], lat: coordinates[1], crs: 'WGS84' },
+          centroid: { lng: coordinates[0]!, lat: coordinates[1]!, crs: 'WGS84' },
           count: props.point_count
         })
       } else if (props.poiId) {

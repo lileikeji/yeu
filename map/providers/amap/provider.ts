@@ -137,6 +137,10 @@ export class AMapProvider implements MapProvider {
   private baseStyle: MapBaseStyle = 'standard'
   private fitAfterRender = false
   private initialCanvasSettled = false
+  /** 标点全量重建（含坐标转换）是否仍在进行；canvas 就绪恢复需等它完成再重建 overlay。 */
+  private markersRebuildInFlight = false
+  /** canvas 就绪恢复在重建进行中被挂起时置位，重建结束后补跑。 */
+  private pendingOverlayRebuild = false
   private lifecycleVersion = 0
   private renderVersion = 0
   private areaRenderVersion = 0
@@ -447,41 +451,52 @@ export class AMapProvider implements MapProvider {
   }
 
   private async rebuildMarkers(): Promise<void> {
-    const map = this.map
-    const amap = this.amap
-    if (!map || !amap) return
+    this.markersRebuildInFlight = true
+    try {
+      const map = this.map
+      const amap = this.amap
+      if (!map || !amap) return
 
-    const renderVersion = ++this.renderVersion
-    this.clearMarkers()
-    if (!this.displayOptions.showPois) return
-    const renderable = this.pois.filter(poi => this.isRenderablePoint(poi.point))
-    const converted: ConvertedPoi[] = []
+      const renderVersion = ++this.renderVersion
+      this.clearMarkers()
+      if (!this.displayOptions.showPois) return
+      const renderable = this.pois.filter(poi => this.isRenderablePoint(poi.point))
+      const converted: ConvertedPoi[] = []
 
-    for (let index = 0; index < renderable.length; index += CONVERSION_BATCH_SIZE) {
-      const batch = renderable.slice(index, index + CONVERSION_BATCH_SIZE)
-      const positions = await this.convertPoints(batch.map(poi => poi.point), amap)
-      if (renderVersion !== this.renderVersion || this.map !== map) return
-      batch.forEach((poi, positionIndex) => {
-        const position = positions[positionIndex]
-        if (position) converted.push({ poi, position })
-      })
-    }
-
-    for (const item of converted) {
-      this.markers.set(item.poi.id, {
-        ...item,
-        fitMarker: new amap.Marker({
-          position: item.position,
-          anchor: 'bottom-center',
-          title: item.poi.name
+      for (let index = 0; index < renderable.length; index += CONVERSION_BATCH_SIZE) {
+        const batch = renderable.slice(index, index + CONVERSION_BATCH_SIZE)
+        const positions = await this.convertPoints(batch.map(poi => poi.point), amap)
+        if (renderVersion !== this.renderVersion || this.map !== map) return
+        batch.forEach((poi, positionIndex) => {
+          const position = positions[positionIndex]
+          if (position) converted.push({ poi, position })
         })
-      })
-    }
+      }
 
-    this.renderMarkerOverlay(converted, amap, map)
-    if (this.fitAfterRender) {
-      this.fitAfterRender = false
-      this.fitToPois()
+      for (const item of converted) {
+        this.markers.set(item.poi.id, {
+          ...item,
+          fitMarker: new amap.Marker({
+            position: item.position,
+            anchor: 'bottom-center',
+            title: item.poi.name
+          })
+        })
+      }
+
+      this.renderMarkerOverlay(converted, amap, map)
+      if (this.fitAfterRender) {
+        this.fitAfterRender = false
+        this.fitToPois()
+      }
+    } finally {
+      this.markersRebuildInFlight = false
+      // Canvas 就绪恢复在本次重建进行中被挂起时，重建完成后用完整缓存补跑，
+      // 避免只按「已转换的部分标点」重建 overlay。
+      if (this.pendingOverlayRebuild) {
+        this.pendingOverlayRebuild = false
+        this.rebuildMarkerOverlay()
+      }
     }
   }
 
@@ -537,10 +552,16 @@ export class AMapProvider implements MapProvider {
     const amap = this.amap
     if (!map || !amap) return
 
+    // 全量重建（含坐标转换）仍在进行时挂起：等它在 finally 里用完整缓存补跑，
+    // 否则会把进行中的转换循环作废，只渲染到已转换的部分标点。
+    if (this.markersRebuildInFlight) {
+      this.pendingOverlayRebuild = true
+      return
+    }
+
     const records = [...this.markers.values()]
     if (!records.length) return
 
-    ++this.renderVersion
     const converted: ConvertedPoi[] = records.map(record => ({
       poi: record.poi,
       position: record.position
@@ -1109,9 +1130,12 @@ export class AMapProvider implements MapProvider {
 
     // Embedded WebViews throttle requestAnimationFrame and settle layout well
     // after mount resolves, so poll on timers with a backoff instead. Stop as
-    // soon as the canvas matches the container.
-    const delays = [0, 32, 100, 200, 350, 550, 800, 1200, 1800, 2500]
+    // soon as the canvas matches the container. After the backoff list is
+    // exhausted keep trying at low frequency: late layout (fonts, sheets,
+    // keyboard dismissal) can arrive well past the initial window.
+    const delays = [0, 32, 100, 200, 350, 550, 800, 1200, 1800, 2500, 3500, 5000, 8000]
     let index = 0
+    let trailingRetries = 0
 
     const step = (): void => {
       if (isStale()) return
@@ -1126,6 +1150,9 @@ export class AMapProvider implements MapProvider {
         const delay = delays[index] ?? 0
         index += 1
         this.initialResizeTimer = globalThis.setTimeout(step, delay)
+      } else if (trailingRetries < 6) {
+        trailingRetries += 1
+        this.initialResizeTimer = globalThis.setTimeout(step, 3000)
       }
     }
 

@@ -6,7 +6,7 @@ import type {
   MapProvider,
   MapProviderId
 } from '~~/map/core/provider'
-import { createRuntimeMapProvider } from '~~/map/providers/factory'
+import { createRuntimeMapProvider, MapProviderConfigurationError } from '~~/map/providers/factory'
 import {
   createMapProviderMountGate,
   initializeMapProvider
@@ -14,6 +14,10 @@ import {
 import { MAP_LOAD_ERROR_MESSAGE } from '~/utils/map-presentation'
 
 type MapStatus = 'loading' | 'ready' | 'error'
+
+/** 瞬时加载失败（脚本超时/网络抖动）的自动重试次数上限；配置错误不重试。 */
+const MAX_MOUNT_RETRIES = 2
+const MOUNT_RETRY_DELAYS_MS = [800, 1600] as const
 
 type ValueRef<T> = Ref<T>
 type ReadonlyValueRef<T> = Ref<T> | ComputedRef<T>
@@ -45,9 +49,26 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
   const createProvider = options.createProvider ?? createRuntimeMapProvider
   let mountInFlight = false
   let waitingForVisibleElement = false
+  let mountFailures = 0
   let resizeFrame = 0
   let visibilityRetryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
+  let mountRetryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
   let removeViewportListeners: (() => void) | null = null
+
+  function clearMountRetryTimer(): void {
+    if (mountRetryTimer !== null) {
+      globalThis.clearTimeout(mountRetryTimer)
+      mountRetryTimer = null
+    }
+  }
+
+  function isConfigurationError(error: unknown): boolean {
+    if (error instanceof MapProviderConfigurationError) return true
+    return typeof error === 'object'
+      && error !== null
+      && 'name' in error
+      && (error as { name?: unknown }).name === 'MapProviderConfigurationError'
+  }
 
   function hasUsableSize(element: HTMLElement): boolean {
     const rect = element.getBoundingClientRect()
@@ -165,13 +186,27 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
         clearProvider(createdProvider)
         return
       }
+      mountFailures = 0
       options.mapStatus.value = 'ready'
       options.onReady()
       scheduleResize()
-    } catch {
+    } catch (error) {
       if (!mountGate.isCurrent(request)) return
 
       clearProvider(createdProvider)
+      // 瞬时失败（高德脚本超时/网络抖动）自动重试，配置错误不重试。
+      if (mountFailures < MAX_MOUNT_RETRIES && !isConfigurationError(error)) {
+        mountFailures += 1
+        options.mapStatus.value = 'loading'
+        options.mapErrorMessage.value = DEFAULT_MAP_ERROR
+        const delay = MOUNT_RETRY_DELAYS_MS[mountFailures - 1] ?? 1600
+        mountRetryTimer = globalThis.setTimeout(() => {
+          mountRetryTimer = null
+          void mountMap()
+        }, delay)
+        return
+      }
+      mountFailures = 0
       options.mapErrorMessage.value = DEFAULT_MAP_ERROR
       options.mapStatus.value = 'error'
     } finally {
@@ -232,6 +267,7 @@ export function useMapProviderLifecycle(options: UseMapProviderLifecycleOptions)
   onBeforeUnmount(() => {
     removeViewportListeners?.()
     clearVisibilityRetry()
+    clearMountRetryTimer()
     if (resizeFrame && typeof window !== 'undefined') window.cancelAnimationFrame(resizeFrame)
     resizeFrame = 0
     destroyMapProvider()
