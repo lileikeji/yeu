@@ -1,3 +1,5 @@
+import { createError } from 'h3'
+
 export function throwNotFound(entity: string): never {
   throw createError({
     statusCode: 404,

@@ -1,0 +1,525 @@
+/**
+ * YeU 评测补库（精选条目）：修复评测发现的语义路由/召回/如实回答缺口。
+ * 写入 assistant_knowledge_entries（is_active=1，随助手检索生效，无需构建）。
+ *
+ * 纪律：官方有口径 → official_reference；学生经验 → student_experience；
+ *       官方未公开 → 如实说明 + 引导，绝不编造数值/电话。
+ *
+ * 用法：pnpm tsx scripts/yeu-eval-supplement-entries.ts
+ */
+import { randomUUID } from 'node:crypto'
+import { eq } from 'drizzle-orm'
+import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
+import { runMigrations } from '../server/database/migrate'
+import { assistantKnowledgeEntries } from '../server/database/schema'
+
+const NOW = Date.now()
+
+interface Entry {
+  kind: 'official_reference' | 'campus_template' | 'student_experience'
+  category: string
+  title: string
+  question: string
+  answer: string
+  keywords: string[]
+  confidence: number
+  sourceNote: string
+  publicUrl?: string
+}
+
+const ENTRIES: Entry[] = [
+  {
+    kind: 'official_reference',
+    category: '学校概况',
+    title: '仰恩大学所在城市与学校性质',
+    question: '仰恩大学在哪个城市？',
+    answer: '仰恩大学位于福建省泉州市（校址：泉州市洛江区马甲镇），是民办全日制普通本科高校，由仰恩基金会举办，1987年创办，分旧区第一教学区与新区第三教学区等。',
+    keywords: ['仰恩大学', '在哪个城市', '哪个城市', '什么城市', '泉州', '洛江', '马甲', '民办', '本科', '学校在哪里', '学校在哪个市'],
+    confidence: 92,
+    sourceNote: '评测补库（2026-08-22）：官网/百科核验',
+    publicUrl: 'https://web.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '图书馆',
+    title: '图书馆借阅册数与期限',
+    question: '仰恩大学图书馆能借几本书？借多久？',
+    answer: '图书馆借阅部与自习室开放时间为周一至周日 8:00-22:00，每周四下午 12:00-18:00 暂停办理借还（馆内业务学习）。具体可借册数、借阅期限与续借规则以图书馆现场和官网（library.yeu.edu.cn）公布为准，官方未公开统一数字时不要凭经验猜。',
+    keywords: ['图书馆', '借书', '借几本', '借多久', '借阅', '册数', '期限', '续借', '还书', '多少本', '几本书', '借阅数量'],
+    confidence: 92,
+    sourceNote: '评测补库（2026-08-22）：图书馆官网 + 百科开放时间已核验；册数/期限未公开，如实引导',
+    publicUrl: 'https://library.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍水电费怎么算',
+    question: '仰恩大学宿舍水电费怎么算？',
+    answer: '宿舍费与水电费按学年/实际用量收取：普通宿舍学生经验参考价约每学年1300元，舒适型宿舍更高，以缴费页面为准。水电单价官方未公开统一标准，一般按实际用量计费，具体以宿管和缴费通知为准。',
+    keywords: ['宿舍', '水电', '水费', '电费', '收费', '宿舍费', '住宿费'],
+    confidence: 70,
+    sourceNote: '评测补库（2026-08-22）：宿舍费1300为学生经验参考价，水电未公开',
+    publicUrl: 'https://zwc.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '军训',
+    title: '军训服是否自购',
+    question: '仰恩大学军训服要自己买吗？多少钱？',
+    answer: '官方未公开军训服购买方式与价格。往年一般由学院或军训承训方统一安排，具体是否自购、款式与价格以当年学院/军训通知为准。',
+    keywords: ['军训', '军训服', '服装', '迷彩', '买', '价格'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-22）：官方未公开，如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'student_experience',
+    category: '军训',
+    title: '军训能否带手机',
+    question: '仰恩大学军训能带手机吗？',
+    answer: '官方未公开军训手机规定。往年学生经验：一般可携带手机，但训练期间需按教官要求统一存放或关闭，休息时方可使用；具体以当年军训通知和教官要求为准。',
+    keywords: ['军训', '手机', '携带', '训练'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-22）：学生经验，未官方确认',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '校园卡',
+    title: '校园卡与学生证用途',
+    question: '仰恩大学校园卡有什么用？学生证怎么用？',
+    answer: '校园卡用于校内消费、门禁等；也可用于自助打印终端缴费，超出免费份数的成绩单、在读证明、毕业证明等可通过校园卡刷卡或乐云APP付款码支付。学生证具体使用（购票优惠、证明用途等）以《学生手册》和学校通知为准。',
+    keywords: ['校园卡', '一卡通', '学生证', '打印', '成绩单', '证明'],
+    confidence: 80,
+    sourceNote: '评测补库（2026-08-22）：打印缴费为官方资料，学生证用法以手册为准',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '校园网',
+    title: '校园网月费与资费',
+    question: '仰恩大学校园网多少钱一个月？',
+    answer: '官方未公开校园网月费标准。校内教学、办公区域已覆盖有线和无线网络；具体资费、开通方式与套餐以实验室与信息化管理处通知为准。',
+    keywords: ['校园网', '网费', '宽带', '月费', '资费', '网络', 'wifi'],
+    confidence: 70,
+    sourceNote: '评测补库（2026-08-22）：官方未公开资费，如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '校园网',
+    title: '校园网连接方式',
+    question: '仰恩大学校园网怎么连？要装路由器吗？',
+    answer: '官方未公开宿舍网络连接步骤与路由器要求。已确认校内教学、办公区域覆盖有线和无线网络；宿舍网络细节（是否需自备路由器、账号开通方式）以实验室与信息化管理处当年通知为准。',
+    keywords: ['校园网', '连接', '路由器', '无线', '有线', '账号'],
+    confidence: 70,
+    sourceNote: '评测补库（2026-08-22）：官方未公开连接细节，如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '教务',
+    title: '补考与重修安排',
+    question: '仰恩大学补考什么时候？没过怎么办？',
+    answer: '官方未公开补考时间与规则。一般课程不及格需参加补考，补考仍不及格需重修；具体时间、范围与重修费用以教务部当年通知为准。',
+    keywords: ['补考', '重修', '挂科', '不及格', '补考时间'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：官方未公开，如实引导',
+    publicUrl: 'https://jwb.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '奖助',
+    title: '勤工助学岗位申请',
+    question: '仰恩大学勤工助学岗位怎么申请？',
+    answer: '学校有校内勤工助学管理办法，家庭经济困难学生可关注学生资助中心和所在学院发布的校内岗位；岗位数量、申请时间与用工要求以当年通知为准。校外兼职注意通过正规渠道，谨防诈骗。',
+    keywords: ['勤工助学', '兼职', '岗位', '勤工', '工作'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-22）：管理办法存在，具体岗位以通知为准',
+    publicUrl: 'https://xsc.yeu.edu.cn/'
+  },
+  {
+    kind: 'campus_template',
+    category: '校园生活',
+    title: '超市与生活用品购买',
+    question: '仰恩大学附近有超市吗？生活用品在哪买？',
+    answer: '校内与周边有超市和学生街商铺：第一教学区北苑餐厅、第三教学区西苑餐厅附近及旧区、新区学生街可购买生活用品、零食饮料等；大件生活用品也可网购寄到学校（收件地址按官方问答填写第一/第三教学区）。具体店铺以现场为准。',
+    keywords: ['超市', '购物', '生活用品', '便利店', '学生街', '买'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-22）：校园模板级信息，店铺以现场为准',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '医疗',
+    title: '医保使用与报销',
+    question: '仰恩大学医保怎么用？在校看病怎么报销？',
+    answer: '在校生原则上参加泉州市城乡居民医保。校医务室承担全校师生医疗卫生、预防保健等职责。看病与报销：门诊/住院按泉州医保政策执行，报销材料与流程以校医务室和医保部门通知为准。',
+    keywords: ['医保', '报销', '看病', '医疗', '医务室', '校医院'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-22）：医务室官方资料已核验；报销流程以医保通知为准',
+    publicUrl: 'https://www.yeu.edu.cn/yws/list.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '设施',
+    title: '运动场地',
+    question: '仰恩大学有操场和篮球场吗？',
+    answer: '有。学校公开资料显示拥有三个标准 400 米田径场，并配有多处篮球场等运动场地（社会体育指导与管理专业设置申请表/教学质量报告口径）。具体场地分布与开放时间以现场为准。',
+    keywords: ['操场', '田径场', '篮球场', '运动场', '体育场', '400米'],
+    confidence: 80,
+    sourceNote: '评测补库（2026-08-22）：社体专业设置申请表中确认三个标准400米田径场',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '学习',
+    title: '晚自习安排',
+    question: '仰恩大学晚上有晚自习吗？',
+    answer: '学校有《仰恩大学学生晚自习管理办法（修订）》，说明存在晚自习管理制度；具体是否强制、时间安排与适用范围以学院和教务部门当年通知为准。',
+    keywords: ['晚自习', '自习', '晚上', '管理办法'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-22）：官方文件存在，细节未公开如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍内能否做饭',
+    question: '仰恩大学宿舍能做饭吗？',
+    answer: '不能。官方宿舍篇明确：宿舍不得使用超过 1000W 的大功率电器，电磁炉、电饭煲、电热棒等属于违规电器不要使用；因此宿舍内不能做饭。需要加热可用符合规定的低功率设备，具体以宿舍管理办法为准。',
+    keywords: ['宿舍', '做饭', '电磁炉', '电饭煲', '电热棒', '大功率', '烹饪'],
+    confidence: 90,
+    sourceNote: '评测补库（2026-08-22）：官方宿舍篇大功率电器规定',
+    publicUrl: 'https://zwc.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '党团',
+    title: '新生入党申请',
+    question: '仰恩大学新生怎么申请入党？什么时候能申请？',
+    answer: '官方未公开新生入党的具体时间安排。一般流程：本人向所在学院党组织递交入党申请书，经确定为入党积极分子后按程序培养考察，再列为发展对象、接收预备党员、转为正式党员。具体批次与要求以学院党组织通知为准。',
+    keywords: ['入党', '党员', '入党申请', '党组织', '积极分子'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：通用流程+引导，学院通知为准',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '党团',
+    title: '团员关系转接',
+    question: '仰恩大学团员关系怎么转到学校？',
+    answer: '新生团员团组织关系一般通过“智慧团建”系统转接至学校对应团支部，同时保留纸质团员档案；具体转入团支部名称、办理时间与流程以校团委和所在学院通知为准。',
+    keywords: ['团员', '团组织关系', '智慧团建', '转接', '团籍'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-22）：通用流程+引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '考试',
+    title: '四六级考试安排',
+    question: '仰恩大学四六级什么时候考？要过级吗？',
+    answer: '大学英语四六级考试每年 6 月和 12 月各一次（全国统一），学校是否统一组织报名、报名时间与是否要求过级以教务部当年通知为准；英语专业另有专业四级等考试。',
+    keywords: ['四六级', '英语四级', '英语六级', 'CET', '过级'],
+    confidence: 70,
+    sourceNote: '评测补库（2026-08-22）：全国考试时间+教务通知引导',
+    publicUrl: 'https://jwb.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '教务',
+    title: '请假流程',
+    question: '仰恩大学请假找谁？流程是什么？',
+    answer: '官方未公开统一请假流程。一般应提前向辅导员/班主任申请，按学院和《学生手册》要求办理审批；上课期间请假涉及教务安排的，还需按教务部门要求处理。具体以所在学院通知为准。',
+    keywords: ['请假', '流程', '辅导员', '审批', '销假'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：通用引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '管理',
+    title: '校园电动车管理',
+    question: '仰恩大学电动车能进校园吗？要办证吗？',
+    answer: '学校对校园内电动车通行有规范（2025-2026学年学生工作简报提及电动车规范与行人通行规则）。具体要求（是否需登记办证、通行区域、充电管理）以保卫处和学校当年通知为准。',
+    keywords: ['电动车', '电瓶车', '通行证', '校园内', '骑行'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：简报证实有规范，细节未公开',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '设施',
+    title: '教室空调与校内ATM',
+    question: '仰恩大学教室有空调吗？学校里有ATM机吗？',
+    answer: '教室空调配置与校内 ATM 分布官方未公开，以现场与学校通知为准。缴费、一卡通充值等支持线上渠道（银行卡绑定等），日常消费多用手机支付。',
+    keywords: ['教室', '空调', 'ATM', '取款机', '银行'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-22）：未公开如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '就业',
+    title: '就业情况',
+    question: '仰恩大学就业怎么样？好找工作吗？',
+    answer: '学校设有就业指导与服务中心，提供招聘信息与就业指导。官方未公开统一的就业率口径，具体就业情况受专业、个人能力与当年就业市场影响，可关注就业中心发布的招聘与统计信息。',
+    keywords: ['就业', '找工作', '就业率', '就业中心', '招聘'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-22）：如实引导',
+    publicUrl: 'https://jyzdzx.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍宠物与外宿',
+    question: '仰恩大学宿舍能养宠物吗？能在外租房吗？',
+    answer: '宿舍管理一般不允许饲养宠物（以《学生宿舍管理办法》为准）；在校外租房属于外宿，需符合学校住宿管理规定并按流程申请/报备，具体以学生手册和辅导员通知为准。',
+    keywords: ['宠物', '养猫', '养狗', '租房', '外宿', '走读'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-22）：一般规则引导',
+    publicUrl: 'https://zwc.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '考试',
+    title: '普通话与计算机考试报名',
+    question: '仰恩大学普通话考试怎么报名？计算机等级考试有用吗？',
+    answer: '普通话水平测试一般由省语言文字部门或学校统一组织报名（时间以学校通知为准）；全国计算机等级考试（一级/二级等）学校有组织，报名与考试安排以教务部或继续教育部门通知为准。是否“有用”视个人求职与专业需要。',
+    keywords: ['普通话', '计算机等级', '报名', '考试', '证书'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：引导为主',
+    publicUrl: 'https://jwb.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '组织',
+    title: '班委产生方式',
+    question: '仰恩大学班委怎么选？当班委有什么用？',
+    answer: '官方未公开班委产生方式。一般在开学初由班级组织竞选、辅导员主持或班级民主推选产生；担任班委可锻炼组织协调能力，综测中可能有社会工作加分（以2025版综测办法为准）。具体以辅导员和学院安排为准。',
+    keywords: ['班委', '班长', '团支书', '竞选', '班干部'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：通用引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '校历',
+    title: '2026级开学时间安排',
+    question: '仰恩大学2026级新生什么时候开学上课？',
+    answer: '按学校校历：2026级新生9月5日至6日报到，9月7日至9日入学教育，9月10日开始上课。其他年级返校上课时间以学校通知为准。',
+    keywords: ['开学', '上课', '报到时间', '校历', '9月', '入学教育'],
+    confidence: 90,
+    sourceNote: '评测补库（2026-08-22）：校历资料确认',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '洗澡水卡与热水时间',
+    question: '仰恩大学洗澡用什么卡？怎么充？',
+    answer: '普通型宿舍洗澡使用水卡：官方宿舍篇说明普通型宿舍楼层设公共淋浴间，洗澡使用水卡，热水时间为 7:00-8:00、12:00-14:00、16:00 后（以楼栋实际为准）。水卡充值方式以宿舍楼与总务处通知为准。',
+    keywords: ['洗澡', '水卡', '热水', '淋浴', '浴室', '公共浴室', '充值'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-22）：官方宿舍篇热水时间/水卡',
+    publicUrl: 'https://zwc.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '学费',
+    title: '住宿费标准',
+    question: '仰恩大学住宿费多少？按什么标准收？',
+    answer: '住宿费按宿舍类型和校区标准收取：普通宿舍学生经验参考价约每学年1300元，舒适型宿舍更高，最终以缴费页面为准；2026级普通型宿舍旧区4人间、新区5人间（招生章程口径）。',
+    keywords: ['住宿费', '宿舍费', '住宿', '房型', '收费', '多少钱'],
+    confidence: 70,
+    sourceNote: '评测补库（2026-08-22）：学生经验参考价+章程口径',
+    publicUrl: 'https://zwc.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '设施',
+    title: '图书馆电子资源',
+    question: '仰恩大学图书馆有电子资源吗？可以上知网吗？',
+    answer: '图书馆官网（library.yeu.edu.cn）设有“电子资源导航”“馆藏书目查询”等栏目，提供电子资源入口；具体数据库（是否含知网）与使用权限以图书馆官网和校内网络环境为准。',
+    keywords: ['电子资源', '知网', '数据库', '图书馆', '文献', '电子书'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-22）：图书馆官网栏目核验',
+    publicUrl: 'https://library.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '设施',
+    title: '宿舍报修流程',
+    question: '仰恩大学宿舍报修找谁？怎么报修？',
+    answer: '学校官网办事指南栏目设有“报修流程”，具体报修对象与操作步骤以官网办事指南和宿管/总务处通知为准；紧急问题可先联系宿管或楼栋管理员。',
+    keywords: ['报修', '维修', '坏了', '宿管', '总务处'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-22）：官网办事指南有报修流程',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '活动',
+    title: '志愿者与献血活动',
+    question: '仰恩大学有志愿者活动吗？献血活动有吗？',
+    answer: '有。学校有青年志愿者先锋队等志愿服务组织（社团名单含青年志愿者先锋队），校团委和学院会组织志愿服务、无偿献血等活动（学校有学生无偿捐献造血干细胞等公开报道）。报名以校团委、青协和学院通知为准。',
+    keywords: ['志愿者', '志愿', '献血', '造血干细胞', '公益', '青协'],
+    confidence: 70,
+    sourceNote: '评测补库（2026-08-22）：社团名单+公开报道',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '报到',
+    title: '新生体检与保险',
+    question: '仰恩大学新生报到要体检吗？要买保险吗？',
+    answer: '官方未公开新生体检与保险的具体要求，以录取通知书和学校当年通知为准；高校新生一般会安排入学体检，大学生医保按当地政策参保。',
+    keywords: ['体检', '保险', '疫苗', '新生', '参保'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-22）：未公开如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '作息',
+    title: '上课时间表',
+    question: '仰恩大学上课时间表是什么样的？几点上课？',
+    answer: '官方未公开统一上课时间表，以各学院课表和教务系统为准；一般上午8点左右开始第一节课、一节课约45分钟（具体以教务系统课表为准）。',
+    keywords: ['上课时间', '课表', '几点上课', '作息', '时间表', '一节课'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-22）：未公开引导',
+    publicUrl: 'https://jwb.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '学习',
+    title: '考研与考公',
+    question: '仰恩大学考研的多吗？可以考公务员吗？',
+    answer: '官方未公开考研/考公统计；学校有学生考研成功（公开报道）并有就业指导服务中心提供指导。考研、考公是否适合自己取决于个人规划，报名与备考以当年考试院/公务员主管部门通知为准。',
+    keywords: ['考研', '考公', '公务员', '研究生', '升学'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-22）：如实引导',
+    publicUrl: 'https://jyzdzx.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '设施',
+    title: '实验室与机房',
+    question: '仰恩大学有实验室和机房吗？',
+    answer: '学校设有专业实验室和机房（教学质量报告等资料提及实习场所与机房），具体开放范围与使用安排以学院和实验中心通知为准；新生按课程安排使用。',
+    keywords: ['实验室', '机房', '实验', '电脑室', '实践'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：引导为主',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '校园',
+    title: '失物招领与教学楼',
+    question: '仰恩大学失物招领在哪？新生上课在哪些楼？',
+    answer: '失物招领官方未公开固定地点，可咨询辅导员、宿管、保卫处或学生组织；新生上课教学楼按学院和专业安排，第一教学区（旧区）与第三教学区（新区）均有教学楼，具体以课表为准。',
+    keywords: ['失物招领', '丢东西', '捡到', '教学楼', '上课教室', '在哪个楼'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：引导为主',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '生活',
+    title: '洗衣机使用',
+    question: '仰恩大学洗衣机怎么用？要扫码吗？',
+    answer: '宿舍楼配有洗衣机（舒适型宿舍每间通常配洗衣机，其他楼栋设公共洗衣机）。具体使用方式（是否扫码付费、洗衣卡）以楼栋现场说明和总务处通知为准。',
+    keywords: ['洗衣机', '洗衣', '扫码', '付费'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：引导为主',
+    publicUrl: 'https://zwc.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '校历',
+    title: '校历查看方式',
+    question: '仰恩大学校历在哪看？',
+    answer: '校历可在学校官网查看（首页/通知公告等栏目，一般在学期初发布），开学上课时间以校历和学校通知为准；2026级新生9月5日至6日报到、9月10日开始上课。',
+    keywords: ['校历', '看校历', '校历在哪', '学期安排', '放假安排'],
+    confidence: 80,
+    sourceNote: '评测补库（2026-08-22）：校历资料确认',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '作息',
+    title: '上课时间表与课时',
+    question: '仰恩大学上课时间表是什么样的？一节课多久？',
+    answer: '官方未公开统一上课时间表，以教务系统课表和学院通知为准；高校一节课一般约45分钟，上午第一节课通常8:00左右开始（具体以教务系统课表为准）。',
+    keywords: ['上课时间表', '课表', '几点上课', '作息', '一节课', '课时', '45分钟', '上课'],
+    confidence: 62,
+    sourceNote: '评测补库（2026-08-22）：未公开+通用引导',
+    publicUrl: 'https://jwb.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '学籍',
+    title: '本科院校专升本说明',
+    question: '仰恩大学可以专升本吗？',
+    answer: '仰恩大学本身是全日制本科高校（民办本科），在校本科生直接就读本科，不适用专科层次的“专升本”升学考试。若询问的是专科在读或跨校升学政策，需以福建省教育考试院当年公告为准。',
+    keywords: ['专升本', '升学', '本科', '专本', '学历'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-22）：语义澄清——本科院校无专升本概念，避免答非所问',
+    publicUrl: 'https://web.yeu.edu.cn/'
+  }
+]
+
+
+function upsertEntry(client: DatabaseClient, e: Entry): void {
+  const existing = client.db.select({ id: assistantKnowledgeEntries.id }).from(assistantKnowledgeEntries)
+    .where(eq(assistantKnowledgeEntries.question, e.question)).get()
+  if (existing) {
+    client.db.update(assistantKnowledgeEntries).set({
+      kind: e.kind,
+      category: e.category,
+      title: e.title,
+      answer: e.answer,
+      keywordsJson: JSON.stringify(e.keywords),
+      publicUrl: e.publicUrl ?? null,
+      confidence: e.confidence,
+      sourceNote: e.sourceNote,
+      isActive: true,
+      updatedAt: NOW
+    }).where(eq(assistantKnowledgeEntries.id, existing.id)).run()
+    console.log(`↻ 更新 entry[${existing.id.slice(0, 8)}] ${e.title}`)
+  } else {
+    const id = randomUUID()
+    client.db.insert(assistantKnowledgeEntries).values({
+      id,
+      kind: e.kind,
+      category: e.category,
+      title: e.title,
+      question: e.question,
+      answer: e.answer,
+      keywordsJson: JSON.stringify(e.keywords),
+      publicUrl: e.publicUrl ?? null,
+      confidence: e.confidence,
+      sourceNote: e.sourceNote,
+      isActive: true,
+      importedAt: NOW,
+      createdAt: NOW,
+      updatedAt: NOW
+    }).run()
+    console.log(`✓ 新增 entry[${id.slice(0, 8)}] ${e.title}`)
+  }
+}
+
+function main(): void {
+  const dbPath = process.env.NUXT_DATABASE_PATH ?? '.data/yeu-eval-local.sqlite'
+  const client = getDatabase(dbPath)
+  try {
+    runMigrations(client)
+    for (const e of ENTRIES) upsertEntry(client, e)
+    console.log(`补库完成（${ENTRIES.length} 条）->`, dbPath)
+  } finally {
+    closeDatabase(dbPath)
+  }
+}
+
+main()
