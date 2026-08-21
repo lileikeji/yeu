@@ -344,6 +344,18 @@ function updateAssistantStageStarted(payload: Record<string, unknown>): void {
     ...assistantLiveTrace.value.filter(item => item.stage !== stage),
     next
   ]
+  // 同一时刻只保留一个“加载中”行：外层阶段（如“分析问题”）与它内部嵌套的
+  // 检索腿（改写查询/向量检索…）会先后发出 stage_started，若都保持 running，
+  // 界面上会出现两个转圈 + 计时同时转。新阶段开始时，把之前仍在 running 的
+  // 阶段先降为 completed 展示；若它随后有真实的 stage_completed 事件，
+  // 会用真实耗时覆盖回来。
+  if (assistantLiveTrace.value.some(item => item.stage !== stage && item.status === 'running')) {
+    assistantLiveTrace.value = assistantLiveTrace.value.map(item =>
+      item.stage !== stage && item.status === 'running'
+        ? { ...item, status: 'completed' }
+        : item
+    )
+  }
 }
 
 function updateAssistantStageCompleted(payload: Record<string, unknown>): void {
