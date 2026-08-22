@@ -1163,6 +1163,83 @@ const ENTRIES: Entry[] = [
   },
   {
     kind: 'official_reference',
+    category: '报到',
+    title: '军训装备与报到清单',
+    question: '仰恩大学军训要准备什么装备？报到材料详细清单？',
+    answer: '军训装备官方未公开清单，建议准备防晒用品、水杯、舒适运动鞋等（以当年军训通知为准）；报到材料以录取通知书和随附《入学须知》为准（通常含录取通知书、身份证、证件照、个人档案等）。',
+    keywords: ['军训', '装备', '清单', '防晒', '水杯', '报到材料'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://web.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '学费',
+    title: '学费与住宿费包含项',
+    question: '仰恩大学学费包含什么？住宿费包含什么？',
+    answer: '学费为专业学费（2026章程三档）；住宿费含定额水电（每生每月5度电、2吨水），超支学年末统一收取。教材、保险等其他费用以学校通知为准。',
+    keywords: ['学费', '包含', '住宿费', '包含什么', '水电', '定额'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-23）：2026招生章程+宿舍篇',
+    publicUrl: 'https://zhaosheng.yeu.edu.cn/2026/0512/c185a56087/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '报到',
+    title: '银行卡与校园卡绑定',
+    question: '仰恩大学要办农行卡吗？校园卡怎么绑定？',
+    answer: '官方未公开统一银行卡要求；校园卡用于门禁/消费/自助打印等，绑定与充值以学校一卡通通知为准。是否需办理特定银行卡以录取材料为准。',
+    keywords: ['农行卡', '银行卡', '绑定', '校园卡', '一卡通'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '教学楼',
+    title: '教学楼与自习',
+    question: '仰恩大学教学楼晚上开放自习吗？',
+    answer: '教学楼开放与晚间自习安排官方未公开统一口径；自习可前往图书馆（8:00-22:00）与一站式学生社区自习室（8:30起）。具体以教务与后勤通知为准。',
+    keywords: ['教学楼', '自习', '晚上', '开放'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-23）：自习空间引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '生活',
+    title: '生活费参考',
+    question: '仰恩大学一个月生活费多少合适？',
+    answer: '生活费按家庭条件和个人消费习惯安排；学生经验认为校内基础餐饮较实惠，每月约1500元可作为基础参考线（非学校标准），新区商店相对多。',
+    keywords: ['生活费', '一个月', '多少', '花费', '消费'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-23）：学生经验参考',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '周边',
+    title: '周边医院',
+    question: '仰恩大学附近有医院吗？',
+    answer: '周边医院分布官方未公开；校医务室承担校内医疗，夜间急症或大病建议前往马甲镇/泉州市区医院（以现场与导航为准）。',
+    keywords: ['医院', '看病', '急诊', '医务室', '附近'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/yws/list.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '就业',
+    title: '三方协议',
+    question: '仰恩大学毕业生要签三方协议吗？',
+    answer: '毕业生就业一般涉及就业协议书（三方协议）等手续，具体签约要求、流程以学校就业指导中心和学院当年就业通知为准。',
+    keywords: ['三方协议', '就业协议', '签约', '就业手续'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-23）：通用引导',
+    publicUrl: 'https://jyzdzx.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
     category: '学籍',
     title: '专升本招生说明',
     question: '仰恩大学可以专升本吗？',
