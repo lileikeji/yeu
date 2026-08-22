@@ -5763,7 +5763,12 @@ async function answerCampusQuestionCore(
       && deterministicKnowledgeAnswer !== null
       && (deterministicKnowledgeAnswer.confidence ?? 0) >= 0.9
     const blockWebSearch = !identitySubject || hasExplicitIdentityProfile
-    if (verifiedDormBedAnswerAvailable || (blockWebSearch && (historicalTransferAnswer || (!transferQuery && !requiresSpecificWebEvidence && (
+    // 某些问题被判定为“需要特定网页证据”（requiresSpecificWebEvidence），此时原逻辑跳过
+    // 全部本地确定性答案直接走网页。但若精选条目（assistantKnowledgeEntries）已能回答
+    // （经过审核的站内知识），应优先用条目，避免“上课时间表/住宿费”类问题在网页无果时
+    // 直接落回“没有找到”。网页路径仅对无条目命中的查询保留。
+    const entryAnswersSpecificWebQuery = Boolean(!transferQuery && requiresSpecificWebEvidence && deterministicKnowledgeAnswer)
+    if (verifiedDormBedAnswerAvailable || (blockWebSearch && (historicalTransferAnswer || entryAnswersSpecificWebQuery || (!transferQuery && !requiresSpecificWebEvidence && (
       deterministicCollegeAnswer
       || deterministicWelcomeSystemAnswer
       || deterministicClassLookupAnswer
