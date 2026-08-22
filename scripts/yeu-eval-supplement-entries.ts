@@ -1317,6 +1317,39 @@ const ENTRIES: Entry[] = [
   },
   {
     kind: 'official_reference',
+    category: '交通',
+    title: '校车与叮叮车',
+    question: '仰恩大学有校车时刻表吗？叮叮车怎么坐？',
+    answer: '校内接驳车“叮叮车”用于校区代步，具体站点、票价和运行时间以现场标识和学校通知为准；官方未公开统一时刻表。',
+    keywords: ['校车', '叮叮车', '接驳', '时刻表', '代步'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-23）：叮叮车口径+引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '教务',
+    title: '补考费用',
+    question: '仰恩大学补考要交费吗？',
+    answer: '补考是否收费官方未公开，以教务部当年通知为准；一般课程不及格需补考，补考仍不及格需重修（重修费用同样以通知为准）。',
+    keywords: ['补考', '交费', '费用', '重修'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://jwb.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '安全',
+    title: '新生群防骗',
+    question: '仰恩大学新生群怎么识别真假？',
+    answer: '官方新生群入口以录取通知书和学校官方通知为准；遇到自称官方群聊的陌生QQ/微信，先不交钱、不发个人信息，可通过学校官网/招生办核实。',
+    keywords: ['新生群', '群聊', '防骗', '诈骗', '真假'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-23）：防骗提示',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
     category: '学籍',
     title: '专升本招生说明',
     question: '仰恩大学可以专升本吗？',
