@@ -1035,7 +1035,7 @@ const ENTRIES: Entry[] = [
     title: '校医院夜间与药房',
     question: '仰恩大学晚上生病校医院开门吗？有药房吗？',
     answer: '官方未公开校医院夜间值班与药房情况；校医务室承担师生医疗卫生职责，夜间急症建议联系辅导员并视情况前往医院或拨打120。以校医院实际与通知为准。',
-    keywords: ['校医院', '医务室', '晚上', '夜间', '急诊', '药房'],
+    keywords: ['校医院', '医务室', '生病', '不舒服', '去哪看', '晚上', '夜间', '急诊', '药房'],
     confidence: 55,
     sourceNote: '评测补库（2026-08-22）：如实引导',
     publicUrl: 'https://www.yeu.edu.cn/yws/list.htm'
@@ -1061,6 +1061,39 @@ const ENTRIES: Entry[] = [
     confidence: 60,
     sourceNote: '评测补库（2026-08-22）：如实引导',
     publicUrl: 'https://library.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '学校概况',
+    title: '仰恩大学位置（在哪）',
+    question: '仰恩大学在哪？',
+    answer: '仰恩大学位于福建省泉州市洛江区马甲镇（泉州市北郊），是民办全日制普通本科高校；分旧区第一教学区与新区第三教学区。',
+    keywords: ['仰恩大学在哪', '在哪', '在哪里', '地址', '位置', '学校在哪'],
+    confidence: 92,
+    sourceNote: '评测补库（2026-08-22）：2026招生章程第二条',
+    publicUrl: 'https://zhaosheng.yeu.edu.cn/2026/0512/c185a56087/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '学校概况',
+    title: '校园规模',
+    question: '仰恩大学大不大？校园规模怎么样？',
+    answer: '仰恩大学校园占地2000余亩，在校生13000余人，设有12个学院、26个本科专业（官网首页口径）；校园分旧区（第一教学区）与新区（第三教学区）。',
+    keywords: ['大不大', '多大', '规模', '面积', '亩', '2000亩'],
+    confidence: 85,
+    sourceNote: '评测补库（2026-08-22）：官网首页+招生章程',
+    publicUrl: 'https://web.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍独卫与空调',
+    question: '仰恩大学宿舍有独卫吗？有空调吗？',
+    answer: '宿舍配置以2026级官方宿舍篇和楼栋实际为准：宿舍楼分普通型与舒适型（舒适型通常配洗衣机等设施），空调与独卫配置因楼栋而异，建议以宿舍篇说明和现场为准。',
+    keywords: ['独卫', '独立卫浴', '空调', '卫生间', '浴室', '宿舍配置'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-22）：宿舍篇口径+如实引导',
+    publicUrl: 'https://zwc.yeu.edu.cn/'
   },
   {
     kind: 'official_reference',
