@@ -1241,6 +1241,83 @@ const ENTRIES: Entry[] = [
   {
     kind: 'official_reference',
     category: '学籍',
+    title: '专升本编班与学费',
+    question: '仰恩大学专升本新生怎么上课？学费一样吗？',
+    answer: '专升本新生编班与授课方式以学院和教务安排为准（官方未公开统一口径）；学费按专业标准执行（人文经管23000/艺术24000/工科25000，2026章程），以当年缴费通知为准。',
+    keywords: ['专升本', '编班', '上课', '插班', '学费'],
+    confidence: 70,
+    sourceNote: '评测补库（2026-08-23）：章程学费口径+引导',
+    publicUrl: 'https://zhaosheng.yeu.edu.cn/2026/0512/c185a56087/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '军训',
+    title: '军训鞋服',
+    question: '仰恩大学军训穿什么鞋？军训服几套？',
+    answer: '军训鞋服配置官方未公开，以学院/承训方发放时通知为准；建议准备舒适运动鞋备用，具体以当年军训通知为准。',
+    keywords: ['军训', '鞋', '军训服', '几套', '服装'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍入住流程',
+    question: '仰恩大学宿舍入住流程？怎么领钥匙？',
+    answer: '报到后凭录取通知书到二级学院报到处报到、由辅导员安排宿舍，凭住宿安排到宿舍楼向楼管员领取钥匙入住（官方流程口径）。具体以报到现场安排为准。',
+    keywords: ['入住', '钥匙', '宿舍', '楼管', '报到流程'],
+    confidence: 70,
+    sourceNote: '评测补库（2026-08-23）：报到流程口径',
+    publicUrl: 'https://web.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '校园卡',
+    title: '校园卡激活与照片',
+    question: '仰恩大学校园卡需要激活吗？要传照片吗？',
+    answer: '校园卡激活与照片上传要求以学校一卡通通知为准（一般报到后按提示启用）；具体流程以数字校园服务和卡务通知为准。',
+    keywords: ['校园卡', '激活', '照片', '上传', '一卡通'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '图书馆',
+    title: '读者证与电子阅览室',
+    question: '仰恩大学图书馆要办读者证吗？有电子阅览室吗？',
+    answer: '图书馆借阅一般使用校园一卡通（凭卡入馆/借阅），读者证办理与电子阅览室配置以图书馆官网（library.yeu.edu.cn）和现场为准。',
+    keywords: ['读者证', '借书证', '电子阅览室', '图书馆'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-23）：图书馆官网引导',
+    publicUrl: 'https://library.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '教务',
+    title: '课表查询',
+    question: '仰恩大学课表用什么App查？',
+    answer: '课表查询以教务系统和学校官方渠道为准（教务部官网提供教务系统入口），请从学校官网进入，不使用搜索广告或陌生链接。',
+    keywords: ['课表', '查课表', '教务系统', 'App'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-23）：教务系统引导',
+    publicUrl: 'https://jwb.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍送电时间',
+    question: '仰恩大学宿舍几点送电？',
+    answer: '宿舍供电时段以楼栋实际为准：周日至周四供电至23:00（门禁同时23:00），周五、周六供电时间可能延长（以宿舍篇口径和楼栋实际为准）。',
+    keywords: ['送电', '供电', '断电', '来电', '宿舍'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-23）：宿舍篇供电口径',
+    publicUrl: 'https://zwc.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '学籍',
     title: '专升本招生说明',
     question: '仰恩大学可以专升本吗？',
     answer: '可以。仰恩大学招收专升本新生：2026年面向全国21省招收普通本科新生3100名、专升本新生930名（录取通知书新闻口径）。专科在读学生可通过福建省专升本考试报考仰恩大学等本科院校；具体报考条件、专业与计划以福建省教育考试院和学校当年招生公告为准。',
