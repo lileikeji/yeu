@@ -1097,6 +1097,72 @@ const ENTRIES: Entry[] = [
   },
   {
     kind: 'official_reference',
+    category: '教务',
+    title: '提前毕业与大一四级',
+    question: '仰恩大学可以提前毕业吗？大一能考四级吗？',
+    answer: '官方未公开提前毕业政策与大一考四级的资格限制；英语四级报名以教务部当年通知为准（部分学校允许大一报考）。具体以教务系统与教务部通知为准。',
+    keywords: ['提前毕业', '大一', '四级', '英语四级', '报名'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：如实引导',
+    publicUrl: 'https://jwb.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '设施',
+    title: '舞蹈室与琴房',
+    question: '仰恩大学有舞蹈室吗？琴房呢？',
+    answer: '舞蹈室、琴房等场地配置官方未公开；学校设有艺术与教育学院等，相关场地与使用安排以学院和活动中心通知为准。',
+    keywords: ['舞蹈室', '琴房', '艺术', '场地', '排练'],
+    confidence: 55,
+    sourceNote: '评测补库（2026-08-22）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '周边',
+    title: '周边超市与银行',
+    question: '仰恩大学附近有大型超市吗？周边有银行网点吗？',
+    answer: '周边商业设施官方未公开；校内与马甲镇区有超市等生活服务（学生街可购生活用品），银行网点以现场为准（学校财务支持线上缴费与银行卡绑定）。',
+    keywords: ['超市', '购物', '银行', '网点', 'ATM'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-22）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '就业',
+    title: '实习证明',
+    question: '仰恩大学实习要开证明吗？',
+    answer: '实习证明的开具以学院和实习单位要求为准；学校有《学生外出实习安全责任书》等表格（教务部学生下载）。具体材料与流程以学院实习通知为准。',
+    keywords: ['实习', '证明', '实习证明', '安全责任书'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-22）：教务部学生下载表格',
+    publicUrl: 'https://jwb.yeu.edu.cn/89/list.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍张贴与宠物',
+    question: '仰恩大学宿舍能贴海报吗？能养仓鼠吗？',
+    answer: '按《学生宿舍管理办法》：不得在墙壁涂写、刻画和乱张贴；宿舍区严禁养宠物（含猫狗等，仓鼠等小型宠物一般同样禁止，以宿管要求为准）。',
+    keywords: ['贴海报', '张贴', '养仓鼠', '宠物', '墙壁'],
+    confidence: 75,
+    sourceNote: '评测补库（2026-08-22）：宿舍管理办法第十一/十二条',
+    publicUrl: 'https://zwc.yeu.edu.cn/2025/1015/c497a52035/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '安全',
+    title: '宿舍楼锁门',
+    question: '仰恩大学宿舍楼晚上锁门吗？',
+    answer: '宿舍实行门禁管理（门禁时间23:00，刷脸进出），宿舍楼晚上是否锁门以楼栋实际与宿管规定为准；晚归建议提前联系辅导员或宿管说明。',
+    keywords: ['锁门', '宿舍楼', '晚上', '门禁', '晚归'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-22）：门禁口径+引导',
+    publicUrl: 'https://zwc.yeu.edu.cn/2025/1015/c497a52035/page.htm'
+  },
+  {
+    kind: 'official_reference',
     category: '学籍',
     title: '专升本招生说明',
     question: '仰恩大学可以专升本吗？',
