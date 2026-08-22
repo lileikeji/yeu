@@ -42,11 +42,20 @@ test('amap missing a key degrades to offline', () => {
   }), 'offline')
 })
 
-test('WeChat WebView degrades to offline even with a complete amap key', () => {
+test('WeChat WebView with a complete amap key stays amap', () => {
   assert.equal(resolveProviderFallback({
     configuredProvider: 'amap',
     amapKey: 'key',
     amapSecurityCode: 'code',
+    userAgent: WECHAT_UA
+  }), 'amap')
+})
+
+test('WeChat WebView without a complete amap key degrades to offline', () => {
+  assert.equal(resolveProviderFallback({
+    configuredProvider: 'amap',
+    amapKey: 'key',
+    amapSecurityCode: '',
     userAgent: WECHAT_UA
   }), 'offline')
 })
