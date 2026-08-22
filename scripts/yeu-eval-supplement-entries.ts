@@ -1350,6 +1350,50 @@ const ENTRIES: Entry[] = [
   },
   {
     kind: 'official_reference',
+    category: '活动',
+    title: '开学与毕业典礼',
+    question: '仰恩大学开学典礼在哪举行？毕业典礼什么时候？',
+    answer: '开学典礼与毕业典礼的具体时间、地点以学校当年通知为准（开学典礼一般在入学教育期间，毕业典礼在6月前后）；详情关注学校官网和学院通知。',
+    keywords: ['开学典礼', '毕业典礼', '典礼', '举行'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '体育',
+    title: '体育课与体测',
+    question: '仰恩大学体育课有哪些项目？有游泳课吗？体测什么时候？',
+    answer: '体育课项目（是否含游泳）与体测时间官方未公开统一口径，以体育教研部和教务通知为准；体测一般按国家学生体质健康标准在学期中安排。',
+    keywords: ['体育课', '游泳', '体测', '体能', '800米', '项目'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '设施',
+    title: '朗读亭与咖啡店',
+    question: '仰恩大学图书馆有朗读亭吗？有咖啡店吗？',
+    answer: '朗读亭、咖啡店等设施官方未公开；图书馆与校内休闲设施以现场和学校通知为准。',
+    keywords: ['朗读亭', '咖啡', '奶茶', '休闲'],
+    confidence: 50,
+    sourceNote: '评测补库（2026-08-23）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '生活',
+    title: '宿舍冰箱与快递柜',
+    question: '仰恩大学宿舍能放冰箱吗？有快递柜吗？',
+    answer: '宿舍电器受大功率限制（不得使用电热水壶、电炉、电热棒、电热锅、电热毯等），冰箱能否放置以宿舍管理办法和宿管实际为准；快递柜配置以快递站现场为准。',
+    keywords: ['冰箱', '快递柜', '快递', '电器'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-23）：办法电器条款+引导',
+    publicUrl: 'https://zwc.yeu.edu.cn/2025/1015/c497a52035/page.htm'
+  },
+  {
+    kind: 'official_reference',
     category: '学籍',
     title: '专升本招生说明',
     question: '仰恩大学可以专升本吗？',
