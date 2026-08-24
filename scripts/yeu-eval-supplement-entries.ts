@@ -1526,6 +1526,28 @@ const ENTRIES: Entry[] = [
   },
   {
     kind: 'official_reference',
+    category: '学习',
+    title: '第二课堂与志愿时长',
+    question: '仰恩大学第二课堂有学分要求吗？志愿时长要多少？',
+    answer: '第二课堂学分要求与志愿时长标准官方未公开统一口径，以学院培养方案和第二课堂管理办法为准；志愿活动一般由校团委和学院组织（含无偿献血等），具体认定与要求以当年通知为准。',
+    keywords: ['第二课堂', '志愿时长', '志愿', '学分', '第二课堂学分', '时长'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-25）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
+    category: '医疗',
+    title: '新生疫苗接种',
+    question: '仰恩大学新生要打疫苗吗？',
+    answer: '官方未公开新生统一疫苗接种安排；高校新生一般按当地疾控和学校通知完成相关疫苗（如乙肝等）接种或查验，具体以录取通知书和学校当年通知为准。',
+    keywords: ['疫苗', '接种', '乙肝', '体检', '预防接种'],
+    confidence: 60,
+    sourceNote: '评测补库（2026-08-25）：如实引导',
+    publicUrl: 'https://www.yeu.edu.cn/yws/list.htm'
+  },
+  {
+    kind: 'official_reference',
     category: '学籍',
     title: '专升本招生说明',
     question: '仰恩大学可以专升本吗？',
