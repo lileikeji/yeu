@@ -526,13 +526,13 @@ const ENTRIES: Entry[] = [
   {
     kind: 'official_reference',
     category: '安全',
-    title: '校园报警与安全渠道',
+    title: '校园110与报修电话',
     question: '仰恩大学校园110报警电话是多少？遇到安全问题找谁？',
-    answer: '官方未公开统一的“校园110”报警电话。紧急情况可拨打 110 报警，或联系辅导员、宿管、学校保卫部门；学校为学生安全设有相应管理机制，具体以学校当年通知为准。',
-    keywords: ['校园110', '报警', '电话', '安全', '保卫', '紧急'],
-    confidence: 65,
-    sourceNote: '评测补库（2026-08-22）：官方未公开，如实引导',
-    publicUrl: 'https://www.yeu.edu.cn/'
+    answer: '校园110（校园事务报修/求助电话）：0595-22076110，宿舍设施报修等校园事务可拨打（《宿舍日常维修管理规定》口径，维修免费、"小修不过夜、大修不过天"）。紧急情况请拨打110或联系辅导员、宿管、学校保卫部门；具体以学校当年通知为准。',
+    keywords: ['校园110', '报警', '电话', '报修', '22076110', '安全', '保卫', '紧急'],
+    confidence: 88,
+    sourceNote: '评测补库（2026-08-24）：维修管理规定确认报修电话0595-22076110',
+    publicUrl: 'https://zwc.yeu.edu.cn/2025/1016/c1350a52107/page.htm'
   },
   {
     kind: 'official_reference',
@@ -1391,6 +1391,72 @@ const ENTRIES: Entry[] = [
     confidence: 60,
     sourceNote: '评测补库（2026-08-23）：办法电器条款+引导',
     publicUrl: 'https://zwc.yeu.edu.cn/2025/1015/c497a52035/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍报修流程',
+    question: '仰恩大学宿舍东西坏了怎么报修？',
+    answer: '宿舍设施损坏可拨打校园110报修（0595-22076110），维修免费，承诺"小修不过夜、大修不过天"；维修人员未到之前严禁私自维修、乱拉电线。',
+    keywords: ['报修', '维修', '坏', '校园110', '22076110', '宿舍'],
+    confidence: 90,
+    sourceNote: '评测补库（2026-08-24）：宿舍日常维修管理规定',
+    publicUrl: 'https://zwc.yeu.edu.cn/2025/1016/c1350a52107/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '宿舍空调管理',
+    question: '仰恩大学宿舍空调什么时候能开？电费怎么算？',
+    answer: '按空调管理规定：空调供电时段为每年4月20日至11月20日，温度设定25-28℃；空调用专用电表计量、电费由使用者自付；空调遥控器损坏或遗失需照价赔偿。',
+    keywords: ['空调', '电费', '遥控器', '供电', '25度', '开空调'],
+    confidence: 88,
+    sourceNote: '评测补库（2026-08-24）：空调管理规定',
+    publicUrl: 'https://zwc.yeu.edu.cn/2025/1016/c1350a52106/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '毕业退宿手续',
+    question: '仰恩大学毕业退宿要办什么手续？',
+    answer: '毕业离校时宿舍设施设备由总务处检查验收，合格后在离校手续单上盖章签字；最后一名离开宿舍的学生需负责本舍设施和家具验收，合格后方可办理离校手续。',
+    keywords: ['退宿', '毕业', '离校', '验收', '离校手续'],
+    confidence: 85,
+    sourceNote: '评测补库（2026-08-24）：维修管理规定毕业验收条款',
+    publicUrl: 'https://zwc.yeu.edu.cn/2025/1016/c1350a52107/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '图书馆',
+    title: '图书馆借阅册数与期限',
+    question: '仰恩大学图书馆能借几本书？借多久？逾期罚款吗？',
+    answer: '按借阅规定：非毕业班学生每人限借10册、借期30天、可续借1次（30天）；毕业班学生20册/60天、可续借1次（60天）；音像制品限借5种、借期7天。逾期未还每册每天0.1元滞纳金。',
+    keywords: ['借书', '几本', '借阅', '册数', '期限', '逾期', '罚款', '续借'],
+    confidence: 92,
+    sourceNote: '评测补库（2026-08-24）：图书馆借阅规定',
+    publicUrl: 'http://library.yeu.edu.cn/198/list.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '图书馆',
+    title: '图书馆电子设备',
+    question: '仰恩大学图书馆有电子书借阅机吗？能上知网吗？',
+    answer: '图书馆一楼、二楼各设歌德电子书借阅机（扫码下载电子书），借阅库入口有图书杀菌机（30秒自助消毒）；借阅库1有检索终端20台、借阅库2入口8台，校园网IP可访问知网等数据库。',
+    keywords: ['电子书', '借阅机', '知网', '检索', '杀菌', '数据库'],
+    confidence: 85,
+    sourceNote: '评测补库（2026-08-24）：图书馆设施服务页面',
+    publicUrl: 'https://library.yeu.edu.cn/2024/0312/c1149a42630/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '食堂',
+    title: '食堂投诉反馈',
+    question: '在仰恩大学食堂遇到问题怎么投诉反馈？',
+    answer: '食堂问题可通过企业微信学工平台反馈，或投递餐厅大厅意见箱；档口须明码标价、不得擅自涨价减量，总务处负责监督（含领导教师陪餐制度，问题整改不超过48小时）。',
+    keywords: ['食堂', '投诉', '反馈', '意见箱', '涨价', '监督'],
+    confidence: 85,
+    sourceNote: '评测补库（2026-08-24）：食堂管理制度页面',
+    publicUrl: 'https://zwc.yeu.edu.cn/2025/1016/c1349a52145/page.htm'
   },
   {
     kind: 'official_reference',
