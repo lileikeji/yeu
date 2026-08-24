@@ -1471,6 +1471,39 @@ const ENTRIES: Entry[] = [
   },
   {
     kind: 'official_reference',
+    category: '学院介绍',
+    title: '电气工程与自动化学院',
+    question: '仰恩大学电气工程与自动化学院怎么样？',
+    answer: '电气工程与自动化学院于2026年7月1日正式揭牌成立，由原工程技术学院拆分重组设立，是学校对接国家能源与数字产业战略、服务泉州区域制造业转型升级的重要办学载体（学院介绍口径）；学院设有电气工程及其自动化等专业。具体以学院官网（dqgc.yeu.edu.cn）为准。',
+    keywords: ['电气', '自动化', '工程学院', '新成立', '揭牌', '电气工程'],
+    confidence: 80,
+    sourceNote: '评测补库（2026-08-24）：电气学院官网学院介绍',
+    publicUrl: 'https://dqgc.yeu.edu.cn/2026/0717/c1431a57650/page.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '学院介绍',
+    title: '人工智能与数据科学学院成立',
+    question: '仰恩大学人工智能学院什么时候成立的？',
+    answer: '人工智能与数据科学学院于2026年5月28日成立（学院介绍口径），在校生约1027人，规划增设机器人工程、低空技术工程、数字媒体技术等专业方向；学院位于新区第三教学区。具体以学院官网（ai.yeu.edu.cn）为准。',
+    keywords: ['人工智能', '数据科学', '学院', '成立', '机器人', '2026'],
+    confidence: 78,
+    sourceNote: '评测补库（2026-08-24）：AI学院官网学院介绍',
+    publicUrl: 'https://ai.yeu.edu.cn/xygk/list.htm'
+  },
+  {
+    kind: 'official_reference',
+    category: '学费与收费',
+    title: '历年学费标准',
+    question: '仰恩大学2019级到2021级学费多少？',
+    answer: '按《仰恩大学关于调整各专业学费标准的请示》（仰大办〔2017〕17号）：2019-2021级按专业不同学费为18000、19000、20000元/生/学年三档；2022级起执行仰大办〔2022〕9号标准（23000/24000/25000元）。以当年缴费通知为准。',
+    keywords: ['学费', '2019级', '2020级', '2021级', '18000', '19000', '20000', '老生', '仰大办'],
+    confidence: 85,
+    sourceNote: '评测补库（2026-08-24）：信息公开报告收费依据文件',
+    publicUrl: 'https://web.yeu.edu.cn/2025/1030/c1374a53063/page.htm'
+  },
+  {
+    kind: 'official_reference',
     category: '学籍',
     title: '专升本招生说明',
     question: '仰恩大学可以专升本吗？',
