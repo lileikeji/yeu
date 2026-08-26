@@ -217,6 +217,17 @@ const ENTRIES: Entry[] = [
   },
   {
     kind: 'official_reference',
+    category: '党团',
+    title: '团员转接与介绍信',
+    question: '仰恩大学团员转接需要介绍信吗？',
+    answer: '新生团员团组织关系一般通过“智慧团建”系统线上办理转接，通常不需要纸质介绍信，同时保留纸质团员档案；如学院或校团委因接收单位要求另有说明（如仍需提交纸质介绍信或补充材料），以其当年通知为准。',
+    keywords: ['团员', '介绍信', '团组织关系', '智慧团建', '转接', '团籍', '团员关系'],
+    confidence: 65,
+    sourceNote: '评测补库（2026-08-26）：团员转接+介绍信引导（谨慎措辞不编造）',
+    publicUrl: 'https://www.yeu.edu.cn/'
+  },
+  {
+    kind: 'official_reference',
     category: '考试',
     title: '四六级考试安排',
     question: '仰恩大学四六级什么时候考？要过级吗？',

@@ -1157,7 +1157,7 @@ function isBroadCampusOverviewQuery(query: string): boolean {
   // concrete facts. Keep those questions on the precise FAQ path; otherwise
   // the broad-topic guard would discard the matching entry (for example,
   // public laundry duration and hygiene).
-  const hasSpecificAspect = /(?:混班|混专业|水卡|洗澡|洗衣机|洗衣液|床垫|床帘|吹风机|机械臂|题型|分班考试|建群|联系新生|吸烟|抽烟|转专业|挂科|不及格|windows|macos|苹果|兼容|银行卡|预报名|选课|抢课)/i.test(normalized)
+  const hasSpecificAspect = /(?:混班|混专业|水卡|洗澡|洗衣机|洗衣液|床垫|床帘|吹风机|机械臂|题型|分班考试|建群|联系新生|吸烟|抽烟|转专业|挂科|不及格|windows|macos|苹果|兼容|银行卡|预报名|选课|抢课|考研|考公|升学|研究生|保研)/i.test(normalized)
   return CAMPUS_QUERY_RE.test(normalized)
     && !hasSpecificAspect
     && /怎么样|什么样|好不好|介绍(?:一下)?|讲讲|情况如何|(?:整体|基本|大概)情况|概况|概览|(?:平时)?(?:主要)?(?:负责|做)(?:什么|哪些|啥)|职责(?:是|有|包括)?(?:什么|哪些|啥)?/.test(normalized)
@@ -2222,7 +2222,21 @@ function teachingLocationLocalAnswer(
       && text.includes(major)
       && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(text)
   })
-  if (!primary && !registrationOnly) return null
+  if (!primary && !registrationOnly) {
+    // 教学区查询且已识别出专业名，但站内资料没有该专业的教学区证据：
+    // 返回引导性回答而非 null。注意 dormArea 是宿舍区、新生手册专业分组是报到
+    // 地点，都不能当作“上课教学区”来答；本引导不编造任何具体地点，只明确以
+    // 当学期课表/教务系统/学院通知为准。置信度 0.55，低于 entryPreempt 精条目
+    // 抢占阈值 0.85，若有把握的精选条目仍可覆盖本引导。
+    return {
+      query,
+      mode: 'local',
+      answer: `站内资料暂未收录${major}固定的上课教学区。具体上课地点取决于当学期排课：入学后登录学校教务系统可查看本人课表与上课教室，报到时学院也会发放课表并说明上课安排，请以课表、学院通知和教务系统排课为准。`,
+      citations: [],
+      usedWebSearch: false,
+      confidence: 0.55
+    }
+  }
 
   if (registrationOnly) {
     const registrationSentence = `${registrationOnly.title} ${registrationOnly.snippet} ${registrationOnly.text}`
@@ -2800,7 +2814,11 @@ function assistantKnowledgeLocalAnswer(
     ].filter(aspect => aspectQuery.includes(aspect))
     // Do not let a broad comparison entry about comfort rooms answer a
     // specific ordinary-room question just because both mention a balcony.
-    if (/普通型宿舍.{0,8}阳台/.test(query) && !/普通型宿舍.{0,20}阳台/.test(candidateFactText)) return false
+    // 普通型段落明确写公共卫浴（隐含无独立阳台）时仍应允许命中，避免把
+    // “普通型宿舍有阳台吗”误拒成“请打开原文”。
+    if (/普通型宿舍.{0,8}阳台/.test(query)
+      && !/普通型宿舍.{0,20}阳台/.test(candidateFactText)
+      && !/普通型宿舍.{0,40}(?:公共卫生间|公共洗浴|无阳台|没有阳台)/.test(candidateFactText)) return false
     if (
       isPlaceLocationQuery(query)
       && !/报名地点|报到地点|在哪(?:里)?报名|在哪(?:里)?报到/.test(query)
@@ -2812,7 +2830,7 @@ function assistantKnowledgeLocalAnswer(
         : !candidateFactText.includes(aspect)
     ))) return false
     if (/什么时候开放/.test(query) && !/(?:什么时候开放|开放(?:日期|时间|时刻)|开学前)/.test(candidateText)) return false
-    if (/在哪抢/.test(query) && !/(?:哪个系统抢|迎新系统|抢宿舍流程)/.test(candidateText)) return false
+    if (/在哪抢宿舍/.test(query) && !/(?:哪个系统抢|迎新系统|抢宿舍流程)/.test(candidateText)) return false
     if (/怎么抢|完整流程/.test(query) && !/(?:怎么抢|完整流程|抢宿舍流程|选择房型|完成付款)/.test(candidateText)) return false
     if (/付款顺序/.test(query) && !/(?:付款顺序|付款完成顺序)/.test(candidateText)) return false
     if (/苹果电脑|macos|mac/i.test(query)) {
@@ -2844,6 +2862,13 @@ function assistantKnowledgeLocalAnswer(
       )
     ) return false
     if (requestedSpecificAspects.length > 0 && candidate.score >= 18) return true
+    // 精确问题覆盖优先：条目 question 完整包含用户问题（或反之且长度差≤10）
+    // 时直接采用已审核条目，避免文档标题/证据片段抢占导致"请打开原文"
+    // （新闻学专业/综测查询/入学教育/心理中心等已知案例）。
+    const queryCoveredByCandidate = exactQuestionOverlap && candidateQuestion.includes(queryQuestion)
+    const candidateCoveredByQuery = exactQuestionOverlap && queryQuestion.includes(candidateQuestion)
+      && (queryQuestion.length - candidateQuestion.length) <= 10
+    if ((queryCoveredByCandidate || candidateCoveredByQuery) && candidate.score >= 12) return true
     const queryTerms = assistantQueryTerms(query)
       .filter(term => term.length >= 2 && !QUERY_TERM_STOPWORDS.has(term))
     const keywordOverlap = candidate.keywords.some((keyword) => {
@@ -5551,17 +5576,29 @@ async function answerCampusQuestionCore(
 
     const featureSeeking = isFeatureSeekingQuery(query)
     const featureMatch = featureSeeking ? searchSystemFeatures(query, 1)[0] : null
+    // 精选条目（已审核站内知识）精确命中时优先于功能路由：如"仰恩大学在哪"
+    // 应答城市而非到校交通功能卡、"人文学院在哪"应答学院介绍而非部门目录。
     if (featureMatch && featureMatch.score >= 8 && !isSpecificDirectoryFeatureQuery(query)) {
-      return {
-        query,
-        retrievalQuery,
-        intentDetail,
-        cacheKey,
-        route: 'feature_api' as const,
-        cached: null,
-        localEvidence: [] as AssistantEvidence[],
-        webEvidence: [] as ApiAssistantCitation[],
-        requiresSpecificWebEvidence: false
+      const featureEntryWins = (() => {
+        try {
+          const entry = assistantKnowledgeLocalAnswer(client, query)
+          return Boolean(entry && (entry.confidence ?? 0) >= 0.75)
+        } catch {
+          return false
+        }
+      })()
+      if (!featureEntryWins) {
+        return {
+          query,
+          retrievalQuery,
+          intentDetail,
+          cacheKey,
+          route: 'feature_api' as const,
+          cached: null,
+          localEvidence: [] as AssistantEvidence[],
+          webEvidence: [] as ApiAssistantCitation[],
+          requiresSpecificWebEvidence: false
+        }
       }
     }
 
@@ -6006,6 +6043,20 @@ async function answerCampusQuestionCore(
 
   let webEvidence = analysis.webEvidence
   const retrievalPath: ApiAssistantRetrievalPath = analysis.route
+  // 精选条目（已审核站内知识）高置信度命中时优先于网页：避免 web 片段不足时
+  // 对精确问题（如入学教育/心理中心）答"请打开原文/无法确认"。低置信度条目
+  // 不抢占，保留网页综合（网页可能给出更丰富的官方细节）。
+  const entryPreempt = (() => {
+    try {
+      const entry = assistantKnowledgeLocalAnswer(client, query)
+      return entry && (entry.confidence ?? 0) >= 0.85 ? entry : null
+    } catch {
+      return null
+    }
+  })()
+  if (entryPreempt) {
+    return cacheResponse(client, cacheKey, entryPreempt, config.signal)
+  }
   if (analysis.route === 'web_cache') {
     webEvidence = await runAssistantStage(
       tracker,
