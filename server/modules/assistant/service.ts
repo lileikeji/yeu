@@ -253,7 +253,7 @@ const REGISTRATION_ASSIGNMENT_EVIDENCE_RE = /新生手册.{0,30}报到|报到.{0
 // must not claim it — those questions route to their topic-specific local handlers
 // or to evidence synthesis instead of being flattened to the /campus overview.
 const campusSubTopicAnchor = new RegExp(
-  '宿舍|住宿|寝室|宿舍楼|食堂|餐厅|专业|学费|奖学金|助学金|校园卡|一卡通|校园网|图书馆|教学楼|教室|操场|体育馆|社团|军训|就业|校区',
+  '宿舍|住宿|寝室|宿舍楼|食堂|餐厅|专业|学费|奖学金|助学金|校园卡|一卡通|校园网|图书馆|教学楼|教室|操场|体育馆|社团|军训|就业|考研|考公|升学|保研|研究生|专升本|校区',
   'u'
 )
 
