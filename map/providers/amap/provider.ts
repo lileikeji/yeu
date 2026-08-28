@@ -848,9 +848,31 @@ export class AMapProvider implements MapProvider {
   }
 
   private readonly handleHotspotClick = (event: AMapHotspotEvent): void => {
-    if (!this.map || !this.amap || !event.lnglat || !event.name?.trim()) return
+    if (!this.map || !this.amap || !event.lnglat) return
     const position: AMapPosition = [event.lnglat.getLng(), event.lnglat.getLat()]
     if (!position.every(Number.isFinite)) return
+
+    const poiId = event.id?.trim()
+    const name = event.name?.trim()
+    if (poiId && name) {
+      // Native base-map merchant (no curated marker on this map): route it
+      // through the same selection flow as catalog / native-search POIs so the
+      // place card (with ratings) opens. The AMap POI id is a stable key that
+      // also matches seeded AMap ratings (place_amap_ratings).
+      this.selectArea(null)
+      this.poiSelectHandler?.({
+        id: poiId,
+        name,
+        category: 'nearby',
+        point: { lng: position[0], lat: position[1], crs: 'GCJ-02' },
+        status: 'draft',
+        source: 'amap-native'
+      })
+      return
+    }
+
+    // Hotspot without a usable POI id/name falls back to AMap's own info
+    // window. Base-map POIs never enter the app index or sidebar.
     const content = document.createElement('div')
     content.style.cssText = 'min-width:150px;max-width:240px;padding:3px 2px;color:#18181b;font:400 13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;'
     const title = document.createElement('strong')
@@ -877,8 +899,8 @@ export class AMapProvider implements MapProvider {
     this.hotspotInfoWindow.open(this.map, position)
     this.selectArea(null)
     this.poiSelectHandler?.(null)
-    // Native AMap hotspots use AMap's own info window only. They are base-map
-    // POIs, not curated guide points, so they must not enter the app index or sidebar.
+    // Fallback path only: hotspots without a usable POI id keep the AMap
+    // info window and never enter the app index or sidebar.
   }
 
   private selectArea(area: MapArea | null): void {

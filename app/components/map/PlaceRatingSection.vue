@@ -109,8 +109,10 @@ const sourceLabel = computed<string>(() => {
 
 const hasAnyContent = computed(() => Boolean(
   payload.value
-  && (payload.value.aggregate || payload.value.amap?.score !== null || payload.value.amap?.score !== undefined
-    || payload.value.reviews.length > 0 || payload.value.mine.submitted)
+  && (payload.value.aggregate
+    || (payload.value.amap !== null && payload.value.amap.score !== null)
+    || payload.value.reviews.length > 0
+    || payload.value.mine.submitted)
 ))
 
 const loginHref = computed(() => {
