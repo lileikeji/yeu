@@ -7,6 +7,7 @@ import { closeDatabase, getDatabase, type DatabaseClient } from '../server/datab
 import { runMigrations } from '../server/database/migrate'
 import { parsePoiRating } from '../server/modules/place-reviews/amap'
 import {
+  adminListAmapRatings,
   adminListPlaceReviews,
   adminReviewPlace,
   createPlaceReview,
@@ -182,6 +183,26 @@ test('amap rating cache is served fresh and ignored when expired', () => {
     client.sqlite.prepare('UPDATE place_amap_ratings SET expires_at = 1').run()
     const expired = listPublicPlaceReviews(client, PLACE_ID)
     assert.equal(expired.amap, null)
+  } finally {
+    cleanup()
+  }
+})
+
+test('adminListAmapRatings lists cached seed ratings with expiry state', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    upsertAmapRating(client, PLACE_ID, { poiId: 'B0X1', poiName: '测试店', score: 4.2, cost: 30 })
+
+    const all = adminListAmapRatings(client)
+    assert.equal(all.length, 1)
+    assert.equal(all[0]!.poiName, '测试店')
+    assert.equal(all[0]!.score, 4.2)
+    assert.equal(all[0]!.cost, 30)
+    assert.equal(all[0]!.expired, false)
+
+    client.sqlite.prepare('UPDATE place_amap_ratings SET expires_at = 1').run()
+    const expired = adminListAmapRatings(client)
+    assert.equal(expired[0]!.expired, true)
   } finally {
     cleanup()
   }

@@ -251,6 +251,35 @@ export function upsertAmapRating(
   }).run()
 }
 
+export interface AdminAmapRatingView {
+  placeId: string
+  poiId: string
+  poiName: string
+  score: number | null
+  cost: number | null
+  fetchedAt: string
+  expiresAt: string
+  expired: boolean
+}
+
+export function adminListAmapRatings(client: DatabaseClient): AdminAmapRatingView[] {
+  const now = Date.now()
+  const rows = client.db.select()
+    .from(placeAmapRatings)
+    .orderBy(placeAmapRatings.placeId)
+    .all()
+  return rows.map(row => ({
+    placeId: row.placeId,
+    poiId: row.amapPoiId,
+    poiName: row.amapPoiName,
+    score: row.score,
+    cost: row.cost,
+    fetchedAt: new Date(row.fetchedAt).toISOString(),
+    expiresAt: new Date(row.expiresAt).toISOString(),
+    expired: row.expiresAt <= now
+  }))
+}
+
 export function adminListPlaceReviews(
   client: DatabaseClient,
   query: AdminPlaceReviewsQuery
