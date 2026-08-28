@@ -771,6 +771,7 @@ export const assistantRuns = sqliteTable('assistant_runs', {
   webSearchMs: integer('web_search_ms').notNull().default(0),
   answerMs: integer('answer_ms').notNull().default(0),
   totalMs: integer('total_ms').notNull().default(0),
+  firstTokenMs: integer('first_token_ms').notNull().default(0),
   citationCount: integer('citation_count').notNull().default(0),
   ipAddress: text('ip_address'),
   createdAt: timestamp('created_at')
@@ -807,6 +808,54 @@ export const assistantSessionMemory = sqliteTable('assistant_session_memory', {
   index('assistant_session_memory_expiry_idx').on(table.expiresAt),
   check('assistant_session_memory_kind_check', sql`${table.kind} in ('preference', 'fact', 'answered', 'open_question')`),
   check('assistant_session_memory_importance_check', sql`${table.importance} between 0 and 100`)
+])
+
+/**
+ * User-generated place reviews. Keyed by the *public map place id* (for example
+ * `amap-import-row-030` or a DB place uuid), because the map catalog merges
+ * preview fixtures, AMap owner-map imports and DB places — most of which are
+ * not rows in the `places` table. One review per user per place.
+ */
+export const placeReviews = sqliteTable('place_reviews', {
+  id: text('id').primaryKey(),
+  placeId: text('place_id').notNull(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  score: integer('score').notNull(),
+  content: text('content').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull().default('pending'),
+  reviewedByAdminId: text('reviewed_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
+  reviewedAt: integer('reviewed_at'),
+  reviewNote: text('review_note'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('place_reviews_user_place_unique').on(table.userId, table.placeId),
+  index('place_reviews_place_status_idx').on(table.placeId, table.status),
+  index('place_reviews_status_created_idx').on(table.status, table.createdAt),
+  check('place_reviews_score_check', sql`${table.score} between 1 and 5`),
+  check('place_reviews_status_check', sql`${table.status} in ('pending', 'approved', 'rejected')`)
+])
+
+/**
+ * Cached AMap POI rating seed data per public map place id. Fetched by the
+ * `db:seed:amap-ratings` script and served to the map popup with the source
+ * clearly labelled (never copies third-party review text — the project policy
+ * only allows referencing the platform's aggregate score).
+ */
+export const placeAmapRatings = sqliteTable('place_amap_ratings', {
+  placeId: text('place_id').primaryKey(),
+  amapPoiId: text('amap_poi_id').notNull(),
+  amapPoiName: text('amap_poi_name').notNull(),
+  score: real('score'),
+  cost: real('cost'),
+  fetchedAt: integer('fetched_at').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('place_amap_ratings_expiry_idx').on(table.expiresAt),
+  check('place_amap_ratings_score_check', sql`${table.score} is null or ${table.score} between 0 and 5`),
+  check('place_amap_ratings_cost_check', sql`${table.cost} is null or ${table.cost} >= 0`)
 ])
 
 export const assistantEmbeddings = sqliteTable('assistant_embeddings', {

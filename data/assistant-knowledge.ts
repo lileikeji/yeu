@@ -265,6 +265,18 @@ export const verifiedNewStudentFaqKnowledge: AssistantKnowledgeSeed[] = [
     sourceNote: '仰恩大学2026—2027学年第一学期校历；部队安排仍可能调整。'
   },
   {
+    id: 'faq-dorm-ordinary-balcony',
+    kind: 'official_reference',
+    category: '宿舍',
+    title: '普通型宿舍有没有阳台',
+    question: '普通型宿舍有阳台吗？普通型宿舍有没有独立卫生间？',
+    answer: '按2026级官方宿舍篇：普通型宿舍使用楼层公共卫生间、公共洗漱间等公共设施，没有独立阳台、独立卫生间和独立淋浴间；舒适型宿舍才配有独立阳台、独立卫生间（两间）、独立淋浴间、洗漱池和洗衣槽。具体房型配置和当届分配以迎新系统和学校最新通知为准。',
+    keywords: ['普通型宿舍有阳台吗', '普通型宿舍阳台', '普通宿舍有阳台吗', '普通型宿舍独立卫生间', '普通宿舍独卫', '普通型宿舍有没有独立卫生间', '普通型公共卫生间', '普通型宿舍没有阳台'],
+    publicUrl: '/guides/find-campus',
+    confidence: 98,
+    sourceNote: '仰恩大学2026级宿舍篇：普通型为公共卫浴（无独立阳台），舒适型才有独立阳台与独立卫生间。'
+  },
+  {
     id: 'faq-dorm-fees-occupancy',
     kind: 'official_reference',
     category: '宿舍',
@@ -426,11 +438,11 @@ export const verifiedNewStudentFaqKnowledge: AssistantKnowledgeSeed[] = [
     category: '宿舍',
     title: '床垫和床上用品怎么准备',
     question: '开学床垫和床上用品都要自己买吗？学校的床是不是只有木板？',
-    answer: '当前资料建议新生自行准备基础床上用品，但学校尚未公布覆盖所有楼栋、房型的床具配置和统一床板尺寸。床垫、床帘、蚊帐等尺寸相关物品最好等确定宿舍楼栋后实测或按当届通知购买；不要只根据往届图片一次性购买不可退的大件。',
-    keywords: ['床垫', '床上用品', '木板床', '宿舍床', '床板', '蚊帐', '床帘尺寸', '开学要买什么'],
+    answer: '按2026级官方宿舍篇，宿舍床上床铺宽约0.9米、长1.9米、高1.2米，男生床位长度约2米；学校没有统一承诺提供床垫或床上用品，床垫、床帘、蚊帐等尺寸相关物品建议等确定宿舍楼栋后按实际床位复核或按当届通知购买，不要只根据往届图片一次性购买不可退的大件。',
+    keywords: ['床垫', '床上用品', '木板床', '宿舍床', '床板', '床垫买多大', '宿舍床尺寸', '床铺尺寸', '0.9x1.9', '蚊帐', '床帘尺寸', '开学要买什么'],
     publicUrl: '/guides/find-campus',
-    confidence: 86,
-    sourceNote: '新生准备资料与宿舍实拍核验边界；未确认所有楼栋设施。'
+    confidence: 88,
+    sourceNote: '床铺尺寸来自仰恩大学2026级宿舍篇；学校未统一承诺提供床上用品。'
   }
 ]
 

@@ -12,6 +12,10 @@ import {
   FEEDBACK_STATUSES,
   FEEDBACK_TARGET_TYPES,
   PLACE_SCOPES,
+  PLACE_REVIEW_STATUSES,
+  REVIEW_SCORE_MAX,
+  REVIEW_SCORE_MIN,
+  PLACE_REVIEW_CONTENT_MAX,
   PUBLIC_SEARCH_RESULT_TYPES,
   PROCEDURE_AUDIENCES,
   PROCEDURE_INFORMATION_STATES,
@@ -930,4 +934,36 @@ export const updateFrontendFeatureSchema = z.object({
   enabled: z.boolean(),
   placement: z.enum(['default', 'quick', 'timeline', 'services']).optional(),
   sortOrder: z.number().int().min(0).max(9999).optional()
+}).strict()
+
+/**
+ * Public map place ids come from merged catalogs: AMap owner-map imports
+ * (`amap-import-row-030`), native AMap POI ids (`B0FFGK62L3`), DB place
+ * uuids, or preview fixture ids. Allow only stable identifier shapes so
+ * arbitrary strings cannot be used as review keys.
+ */
+const publicPlaceIdSchema = z.string().trim().min(1).max(120).regex(
+  /^(?:amap-import-row-\d{3}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[A-Z0-9]{8,20}|[a-z0-9][a-z0-9-]{0,99})$/,
+  'Invalid place identifier'
+)
+
+export const createPlaceReviewSchema = z.object({
+  placeId: publicPlaceIdSchema,
+  score: z.number().int().min(REVIEW_SCORE_MIN).max(REVIEW_SCORE_MAX),
+  content: z.string().trim().min(1).max(PLACE_REVIEW_CONTENT_MAX)
+}).strict()
+
+export const publicPlaceReviewsQuerySchema = z.object({
+  placeId: publicPlaceIdSchema
+}).strict()
+
+export const adminPlaceReviewsQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(PLACE_REVIEW_STATUSES).optional(),
+  placeId: z.string().trim().max(120).optional(),
+  userId: z.string().uuid().optional()
+})
+
+export const reviewPlaceReviewSchema = z.object({
+  status: z.enum(['approved', 'rejected']),
+  note: z.string().trim().max(500).optional()
 }).strict()

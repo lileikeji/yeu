@@ -175,6 +175,12 @@ const navigationTooltip = computed(() => {
       </div>
     </dl>
 
+    <PlaceRatingSection
+      :place-id="props.place.id"
+      :place-name="props.place.name"
+      :variant="props.variant"
+    />
+
     <div
       class="border-t border-zinc-100 pt-3"
       :class="props.variant === 'mobile' ? 'mt-3' : 'mt-4'"

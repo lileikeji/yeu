@@ -184,6 +184,8 @@ interface ModelAnswer {
   answer: string
   citationIndexes: number[]
   confidence: number
+  /** Elapsed ms from gateway call start to the first content token (streaming only). */
+  firstTokenMs?: number
 }
 
 export interface AssistantRunHooks {
@@ -4732,6 +4734,95 @@ async function readBoundedResponseText(
   return new TextDecoder().decode(bytes)
 }
 
+/**
+ * Read an OpenAI-compatible SSE chat completion stream and aggregate the
+ * content deltas into one string. The gateway model emits reasoning_content
+ * deltas before content; TTFT is measured on the FIRST content delta so the
+ * reported "首字耗时" reflects when the visible answer begins, not when the
+ * hidden reasoning started. Bounded by MAX_EXTERNAL_RESPONSE_BYTES.
+ */
+async function readStreamingChatCompletion(
+  response: Response,
+  onFirstToken?: (elapsedMs: number) => void
+): Promise<{ content: string, text: string }> {
+  if (!response.body) throw new Error('AI_RESPONSE_TOO_LARGE')
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  const contentParts: string[] = []
+  let buffer = ''
+  let totalBytes = 0
+  let firstTokenAt: number | null = null
+  const startedAt = Date.now()
+  let sseDetected: boolean | null = null
+  try {
+    while (true) {
+      const result = await reader.read()
+      if (result.done) break
+      totalBytes += result.value.byteLength
+      if (totalBytes > MAX_EXTERNAL_RESPONSE_BYTES) {
+        await reader.cancel('AI_RESPONSE_TOO_LARGE')
+        throw new Error('AI_RESPONSE_TOO_LARGE')
+      }
+      buffer += decoder.decode(result.value, { stream: true })
+      if (sseDetected === null) {
+        const firstLine = buffer.split('\n', 1)[0]?.trim() ?? ''
+        sseDetected = firstLine.startsWith('data:') || firstLine.startsWith(':')
+      }
+      if (sseDetected === false) {
+        // The gateway (or a test stub) answered with a plain JSON body instead
+        // of an SSE stream. Read it to the end and parse the aggregated message.
+        continue
+      }
+      // SSE events are separated by blank lines; each event may carry
+      // multiple `data:` lines (only the first matters here).
+      let boundary: number
+      while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+        const rawEvent = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        for (const line of rawEvent.split('\n')) {
+          if (!line.startsWith('data:')) continue
+          const data = line.slice(5).trim()
+          if (!data || data === '[DONE]') continue
+          let chunk: unknown
+          try {
+            chunk = JSON.parse(data) as unknown
+          } catch {
+            continue
+          }
+          const delta = (chunk as { choices?: Array<{ delta?: { content?: unknown } }> })
+            .choices?.[0]?.delta
+          if (typeof delta?.content === 'string' && delta.content.length > 0) {
+            if (firstTokenAt === null) {
+              firstTokenAt = Date.now()
+              if (onFirstToken) onFirstToken(firstTokenAt - startedAt)
+            }
+            contentParts.push(delta.content)
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  if (sseDetected === false) {
+    // Plain JSON completion body: the content lives in choices[0].message.content.
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(buffer) as unknown
+    } catch {
+      throw new Error('INVALID_MODEL_RESPONSE')
+    }
+    const content = (parsed as { choices?: Array<{ message?: { content?: unknown } }> })
+      .choices?.[0]?.message?.content
+    if (typeof content !== 'string' || content.length === 0) throw new Error('INVALID_MODEL_RESPONSE')
+    if (onFirstToken) onFirstToken(Date.now() - startedAt)
+    return { content, text: buffer }
+  }
+  const content = contentParts.join('')
+  const text = `${content} ${buffer}`.trim()
+  return { content, text }
+}
+
 function assistantKnowledgeHash(value: string): string {
   return createHash('sha256')
     .update(normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN'))
@@ -5035,12 +5126,21 @@ export function blockedAssistantResponse(rawQuery: string): ApiAssistantResponse
 async function postGatewayChat(
   config: AssistantConfig,
   messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }>,
-  options: { maxTokens?: number, trackFailures?: boolean, timeoutMs?: number } = {}
+  options: {
+    maxTokens?: number
+    trackFailures?: boolean
+    timeoutMs?: number
+    /** Request a streaming completion; the first content delta triggers onFirstToken. */
+    stream?: boolean
+    /** Called once when the first content token arrives (elapsed ms since call start). */
+    onFirstToken?: (elapsedMs: number) => void
+  } = {}
 ): Promise<unknown> {
   if (!config.gatewayBaseUrl || !config.gatewayApiKey) throw new Error('AI_NOT_CONFIGURED')
   if (gatewayOpenUntil > Date.now()) throw new Error('AI_CIRCUIT_OPEN')
   if (activeGatewayCalls >= 2) throw new Error('AI_BUSY')
   activeGatewayCalls += 1
+  const callStartedAt = Date.now()
   try {
     // Gate the gateway URL against SSRF without breaking the supported local
     // topology: a same-host loopback proxy (http://127.0.0.1:18080) is the
@@ -5078,6 +5178,7 @@ async function postGatewayChat(
         model: config.gatewayModel,
         temperature: 0,
         max_tokens: options.maxTokens ?? MAX_GATEWAY_OUTPUT_TOKENS,
+        ...options.stream === true ? { stream: true } : {},
         response_format: { type: 'json_object' },
         messages
       }),
@@ -5087,13 +5188,25 @@ async function postGatewayChat(
         MAX_GATEWAY_TIMEOUT_MS
       ))
     })
+    if (!response.ok) throw new Error(`AI_GATEWAY_${response.status}`)
+    if (options.stream === true) {
+      const { content, text } = await readStreamingChatCompletion(
+        response,
+        options.onFirstToken
+          ? (elapsedMs) => { if (options.onFirstToken) options.onFirstToken(elapsedMs) }
+          : undefined
+      )
+      if (isGatewayContentBlocked(text)) throw new Error('AI_CONTENT_BLOCKED')
+      // Shape the aggregated stream into the same payload structure the
+      // non-stream path returns, so parseModelAnswer stays untouched.
+      return { choices: [{ message: { content } }] }
+    }
     const responseText = await readBoundedResponseText(
       response,
       MAX_EXTERNAL_RESPONSE_BYTES,
       'AI_RESPONSE_TOO_LARGE'
     )
     if (isGatewayContentBlocked(responseText)) throw new Error('AI_CONTENT_BLOCKED')
-    if (!response.ok) throw new Error(`AI_GATEWAY_${response.status}`)
     try {
       return JSON.parse(responseText)
     } catch {
@@ -5116,7 +5229,10 @@ export async function askGateway(
   query: string,
   evidence: ApiAssistantCitation[],
   config: AssistantConfig,
-  options: { allowGeneralKnowledge?: boolean } = {}
+  options: {
+    allowGeneralKnowledge?: boolean
+    onFirstToken?: (elapsedMs: number) => void
+  } = {}
 ): Promise<ModelAnswer> {
   const modelEvidence = evidence.map((item, index) => {
     const sourceLabel
@@ -5175,8 +5291,12 @@ export async function askGateway(
         evidence: modelEvidence
       }, null, 0)
     }
-  ])
-  return parseModelAnswer(payload, evidence)
+  ], {
+    stream: true,
+    onFirstToken: options.onFirstToken
+  })
+  const parsed = parseModelAnswer(payload, evidence)
+  return parsed
 }
 function parseMemoryExtractionPayload(payload: unknown): Array<{ kind: 'preference' | 'fact', content: string }> {
   if (!payload || typeof payload !== 'object') return []
@@ -5942,6 +6062,9 @@ async function answerCampusQuestionCore(
   }
 
   if (analysis.route === 'feature_api' || analysis.route === 'local_database') {
+    // Elapsed ms from request start to the first content token of any model
+    // synthesis call in this branch (TTFT). 0 means no model call happened.
+    let firstTokenAt = 0
     const retrievalStage: ApiAssistantStage = analysis.route
     const retrievalLabel = analysis.route === 'feature_api' ? '搜索系统 API' : '搜索内置数据库'
     const localEvidence = await runAssistantStage(
@@ -6019,7 +6142,9 @@ async function answerCampusQuestionCore(
           const structuredEvidence = buildStructuredEvidence(query)
           const evidence = dedupeAssistantEvidence([...dbEvidence, ...structuredEvidence])
           try {
-            const model = await askGateway(query, evidence, config)
+            const model = await askGateway(query, evidence, config, {
+              onFirstToken: () => { if (firstTokenAt === 0) firstTokenAt = Date.now() - tracker.startedAt }
+            })
             const selectedCitations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
             return {
               query,
@@ -6027,7 +6152,8 @@ async function answerCampusQuestionCore(
               answer: model.answer,
               citations: selectedCitations.length > 0 ? selectedCitations : evidence.slice(0, 1),
               usedWebSearch: false,
-              confidence: model.confidence
+              confidence: model.confidence,
+              firstTokenMs: firstTokenAt > 0 ? firstTokenAt : undefined
             }
           } catch (error) {
             if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') {

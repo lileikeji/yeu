@@ -131,6 +131,15 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     group: 'ops'
   },
   {
+    key: 'place-reviews',
+    label: '评价审核',
+    icon: 'i-lucide-star',
+    endpoint: '/api/admin/place-reviews',
+    to: '/admin/place-reviews',
+    color: 'text-amber-700 bg-amber-50',
+    group: 'ops'
+  },
+  {
     key: 'assistant-runs',
     label: 'AI 检索',
     icon: 'i-lucide-bot',
@@ -169,6 +178,7 @@ export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '新增知识', icon: 'i-lucide-file-plus-2', to: '/admin/knowledge?action=create', group: 'content' },
   { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations', group: 'content' },
   { label: '处理反馈', icon: 'i-lucide-message-square-reply', to: '/admin/feedback', group: 'ops' },
+  { label: '评价审核', icon: 'i-lucide-star', to: '/admin/place-reviews', group: 'ops' },
   { label: '创建账号', icon: 'i-lucide-user-plus', to: '/admin/users', group: 'ops' },
   { label: '群聊管理', icon: 'i-lucide-messages-square', to: '/admin/chat', group: 'ops' },
   { label: 'AI 检索统计', icon: 'i-lucide-bot', to: '/admin/assistant', group: 'ops' },
@@ -210,6 +220,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     label: '用户与互动',
     items: [
       { label: '反馈', icon: 'i-lucide-message-square-warning', to: '/admin/feedback' },
+      { label: '评价审核', icon: 'i-lucide-star', to: '/admin/place-reviews' },
       { label: '账号', icon: 'i-lucide-users', to: '/admin/users' },
       { label: '组织管理员', icon: 'i-lucide-shield-user', to: '/admin/organization-accounts' },
       { label: '群聊', icon: 'i-lucide-messages-square', to: '/admin/chat' },

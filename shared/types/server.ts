@@ -376,6 +376,8 @@ export interface ApiAssistantResponse {
   retrievalPath?: ApiAssistantRetrievalPath
   trace?: ApiAssistantTraceStep[]
   totalDurationMs?: number
+  /** Milliseconds from request start to the first content token of the model answer. */
+  firstTokenMs?: number
   cacheHit?: boolean
 }
 

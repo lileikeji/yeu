@@ -176,6 +176,20 @@
       "when": 1786757249955,
       "tag": "0024_claims_fts_trigram",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1787936833933,
+      "tag": "0025_dry_whizzer",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1787937874915,
+      "tag": "0026_bouncy_maelstrom",
+      "breakpoints": true
     }
   ]
 }

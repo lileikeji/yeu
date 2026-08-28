@@ -1,0 +1,1 @@
+ALTER TABLE `assistant_runs` ADD `first_token_ms` integer DEFAULT 0 NOT NULL;

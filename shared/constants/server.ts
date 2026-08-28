@@ -36,6 +36,11 @@ export const FEEDBACK_TARGET_TYPES = ['general', 'place', 'content', 'procedure'
 export const PROCEDURE_METHODS = ['online', 'offline', 'mixed'] as const
 export const PROCEDURE_INFORMATION_STATES = ['confirmed', 'partial', 'awaiting-notice'] as const
 export const PROCEDURE_AUDIENCES = ['undergraduate', 'transfer'] as const
+export const PLACE_REVIEW_STATUSES = ['pending', 'approved', 'rejected'] as const
+export const REVIEW_SCORE_MIN = 1
+export const REVIEW_SCORE_MAX = 5
+export const PLACE_REVIEW_CONTENT_MAX = 500
+export const PUBLIC_PLACE_REVIEW_PAGE_SIZE = 5
 
 export type ContentKind = typeof CONTENT_KINDS[number]
 export type PublicSearchResultType = typeof PUBLIC_SEARCH_RESULT_TYPES[number]
@@ -50,3 +55,4 @@ export type FeedbackTargetType = typeof FEEDBACK_TARGET_TYPES[number]
 export type ProcedureMethod = typeof PROCEDURE_METHODS[number]
 export type ProcedureInformationState = typeof PROCEDURE_INFORMATION_STATES[number]
 export type ProcedureAudience = typeof PROCEDURE_AUDIENCES[number]
+export type PlaceReviewStatus = typeof PLACE_REVIEW_STATUSES[number]
