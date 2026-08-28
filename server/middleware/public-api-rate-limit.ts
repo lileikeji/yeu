@@ -2,6 +2,7 @@ import { getMethod, getRequestURL } from 'h3'
 import { getClientIpAddress } from '../utils/client-ip'
 import { useAppDatabase } from '../utils/database'
 import { assertRateLimit } from '../utils/rate-limit'
+import { recordAutoBanStrike } from '../utils/auto-ban'
 
 /**
  * Baseline abuse protection for public read APIs that do not define their own limits.
@@ -32,5 +33,20 @@ export default defineEventHandler((event) => {
   const ip = getClientIpAddress(event)
   // CDN peers can temporarily aggregate several visitors behind one validated
   // address. Nginx still enforces the hard request-rate ceiling at the origin.
-  assertRateLimit(event, `public-api:${ip}`, 1200, 60 * 1000, client)
+  try {
+    assertRateLimit(event, `public-api:${ip}`, 1200, 60 * 1000, client)
+  } catch (error) {
+    // A burst that keeps tripping the per-minute budget is crawler-like.
+    // Escalate repeated strikes to an automatic IP ban (24h).
+    if (isRateLimitError(error)) {
+      recordAutoBanStrike(client, ip)
+    }
+    throw error
+  }
 })
+
+function isRateLimitError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null
+    && 'statusCode' in error
+    && (error as { statusCode?: unknown }).statusCode === 429
+}

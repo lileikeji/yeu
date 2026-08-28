@@ -294,11 +294,12 @@ test('registration evidence cannot answer a teaching-location question', async (
 
     const response = await answerCampusQuestion(client, '电子信息工程教学楼在哪个区', emptyAssistantConfig)
     assert.doesNotMatch(response.answer, /旧区普照大礼堂报到/)
-    assert.match(response.answer, /没有找到|无法确认|不能直接确认/)
+    // 教学区引导回答：不编造地点，明确以教务系统/课表为准。
+    assert.match(response.answer, /暂未收录|没有找到|无法确认|不能直接确认/)
 
     const conversationalResponse = await answerCampusQuestion(client, '电子信息工程去哪个教学区上课', emptyAssistantConfig)
     assert.doesNotMatch(conversationalResponse.answer, /旧区普照大礼堂报到/)
-    assert.match(conversationalResponse.answer, /没有找到|无法确认|不能直接确认/)
+    assert.match(conversationalResponse.answer, /暂未收录|没有找到|无法确认|不能直接确认/)
     assert.equal(
       assistantRetrievalQuery('电子信息工程去哪个教学区上课'),
       '电子信息工程 上课地点 授课地点 教学区 教学楼安排'
@@ -342,7 +343,8 @@ test('explicit teaching-location knowledge answers the matching major only', asy
 
     const otherMajor = await answerCampusQuestion(client, '计算机科学与技术新生以后在哪个教学区上课', emptyAssistantConfig)
     assert.doesNotMatch(otherMajor.answer, /电子信息工程课程主要在旧区/)
-    assert.match(otherMajor.answer, /没有找到|无法确认|不能直接确认/)
+    // 无该专业教学区证据 → 引导性回答（教务系统/课表为准），不得借用其他专业地点。
+    assert.match(otherMajor.answer, /暂未收录|没有找到|无法确认|不能直接确认/)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

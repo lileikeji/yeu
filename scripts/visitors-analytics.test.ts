@@ -18,11 +18,17 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
     const now = Date.now()
     const firstId = randomUUID()
     const secondId = randomUUID()
+    // Events are placed inside "today" in the China timezone regardless of
+    // when the suite runs (this fails at 00:00-02:00 if a 2-hour offset
+    // crosses the midnight boundary). Use small offsets from now.
+    const firstEventAt = now - 60_000
+    const secondEventAt = now - 120_000
+    const searchEventAt = now - 180_000
     client.db.insert(visitors).values([
       {
         id: firstId,
         firstSeenAt: now - 86_400_000,
-        lastSeenAt: now - 3_600_000,
+        lastSeenAt: firstEventAt,
         lastIp: '192.0.2.1',
         lastPath: '/',
         eventCount: 1,
@@ -32,7 +38,7 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
       {
         id: secondId,
         firstSeenAt: now - 7_200_000,
-        lastSeenAt: now - 7_200_000,
+        lastSeenAt: secondEventAt,
         lastIp: '192.0.2.2',
         lastPath: '/search',
         eventCount: 2,
@@ -46,7 +52,7 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
         visitorId: firstId,
         action: 'page_view',
         path: '/guides/example',
-        createdAt: now - 3_600_000,
+        createdAt: firstEventAt,
         metaJson: '{}'
       },
       {
@@ -54,7 +60,7 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
         visitorId: secondId,
         action: 'page_view',
         path: '/guides/example',
-        createdAt: now - 7_200_000,
+        createdAt: secondEventAt,
         metaJson: '{}'
       },
       {
@@ -62,7 +68,7 @@ test('visitor list supports activity sorting and daily/hourly analytics', () => 
         visitorId: secondId,
         action: 'search',
         path: '/search',
-        createdAt: now - 7_100_000,
+        createdAt: searchEventAt,
         metaJson: '{}'
       }
     ]).run()
