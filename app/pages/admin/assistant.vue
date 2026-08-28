@@ -22,6 +22,7 @@ type AssistantRunRow = {
   webSearchMs: number
   answerMs: number
   totalMs: number
+  firstTokenMs: number | null
   citationCount: number
   ipAddress: string | null
   createdAt: string
@@ -287,7 +288,8 @@ onMounted(() => void loadRuns())
               </div>
               <p class="mt-2 break-words text-sm font-medium leading-6 text-zinc-900">{{ row.query }}</p>
               <p class="mt-1 text-xs text-zinc-500">
-                {{ formatDate(row.createdAt) }} · {{ formatDuration(row.totalMs) }} · {{ row.citationCount }} 条引用
+                {{ formatDate(row.createdAt) }} · 总耗时 {{ formatDuration(row.totalMs) }} · 首字
+                {{ row.firstTokenMs ? formatDuration(row.firstTokenMs) : '—' }} · {{ row.citationCount }} 条引用
               </p>
             </div>
             <UButton
@@ -330,6 +332,14 @@ onMounted(() => void loadRuns())
                 </dt>
                 <dd class="mt-0.5">
                   {{ requestOrigin(row) }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-zinc-400">
+                  首字耗时
+                </dt>
+                <dd class="mt-0.5">
+                  {{ row.firstTokenMs ? formatDuration(row.firstTokenMs) : '—' }}
                 </dd>
               </div>
               <div>

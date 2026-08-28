@@ -51,6 +51,7 @@ export function recordAssistantSuccess(
     webSearchMs: stageDuration(response, 'web_search'),
     answerMs: stageDuration(response, 'answer_generation'),
     totalMs: response.totalDurationMs ?? 0,
+    firstTokenMs: response.firstTokenMs ?? 0,
     citationCount: response.citations.length,
     ipAddress: context.ipAddress?.slice(0, 100) || null,
     createdAt: Date.now()
