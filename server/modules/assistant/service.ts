@@ -5538,6 +5538,14 @@ async function answerCampusQuestionCore(
       ?? zongceCalculationLocalAnswer(query, fastEvidence)
       ?? studentRuleLocalAnswer(query, fastEvidence)
       ?? campusOverviewLocalAnswer(query, fastEvidence)
+      // Reviewed knowledge entries (assistantKnowledgeLocalAnswer) do not need
+      // the large evidence pool — they query the curated table directly. Adding
+      // them to the fast chain short-circuits before the LLM rewrite / vector /
+      // rerank pipeline, which otherwise waits 0.6..25s (rewrite inherits the
+      // gateway timeout) even when the local entry already answers exactly.
+      ?? ((!assistantIdentitySubject(query) && !isTeachingLocationQuery(query))
+        ? assistantKnowledgeLocalAnswer(client, query)
+        : null)
     const fastOpeningEvidence = isOpeningDateQuery(query)
       && hardcodedAssistantFactIsCurrent('openingSchedule2026')
       ? fastEvidence.find(item => item.title === '2026级新生报到')
@@ -5656,14 +5664,16 @@ async function answerCampusQuestionCore(
     // question into 1..n variants and each variant (plus the original, fused
     // double) runs through keyword + vector recall; the pools are merged with
     // a second Reciprocal Rank Fusion. Best-effort — any failure falls through
-    // to the single-query baseline below.
+    // to the single-query baseline below. Teaching-location questions are
+    // skipped: their retrieval terms are already specialized (上课地点/教学区/
+    // 教学楼安排), so an LLM rewrite adds latency without broadening recall.
     const rewriteConfig = {
       enabled: config.rewriteEnabled ?? false,
       model: config.rewriteModel ?? config.gatewayModel,
       maxVariants: config.rewriteMaxVariants,
       timeoutMs: config.rewriteTimeoutMs
     }
-    if (rewriteConfigReady(rewriteConfig)) {
+    if (rewriteConfigReady(rewriteConfig) && !isTeachingLocationQuery(query)) {
       try {
         const multi = await runAssistantStage(tracker, 'retrieval_rewrite', '改写查询', async () => {
           const rewriteStart = Date.now()
