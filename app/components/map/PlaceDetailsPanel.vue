@@ -175,7 +175,7 @@ const navigationTooltip = computed(() => {
       </div>
     </dl>
 
-    <PlaceRatingSection
+    <MapPlaceRatingSection
       :place-id="props.place.id"
       :place-name="props.place.name"
       :variant="props.variant"
