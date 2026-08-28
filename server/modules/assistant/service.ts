@@ -6179,6 +6179,9 @@ async function answerCampusQuestionCore(
 
   let webEvidence = analysis.webEvidence
   const retrievalPath: ApiAssistantRetrievalPath = analysis.route
+  // Elapsed ms from request start to the first content token of the model
+  // synthesis call in the web branch (TTFT). 0 means no model call happened.
+  let firstTokenAt = 0
   // 精选条目（已审核站内知识）高置信度命中时优先于网页：避免 web 片段不足时
   // 对精确问题（如入学教育/心理中心）答"请打开原文/无法确认"。低置信度条目
   // 不抢占，保留网页综合（网页可能给出更丰富的官方细节）。
@@ -6230,7 +6233,9 @@ async function answerCampusQuestionCore(
     }
     let model: ModelAnswer
     try {
-      model = await askGateway(query, evidence, config)
+      model = await askGateway(query, evidence, config, {
+        onFirstToken: () => { if (firstTokenAt === 0) firstTokenAt = Date.now() - tracker.startedAt }
+      })
     } catch (error) {
       if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') {
         return blockedAssistantResponse(query)
@@ -6254,7 +6259,8 @@ async function answerCampusQuestionCore(
       answer: model.answer,
       citations,
       usedWebSearch: citations.some(item => item.source === 'web'),
-      confidence: model.confidence
+      confidence: model.confidence,
+      firstTokenMs: firstTokenAt > 0 ? firstTokenAt : undefined
     }
   })
   throwIfAssistantAborted(config.signal)
