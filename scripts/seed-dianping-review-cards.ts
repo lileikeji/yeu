@@ -74,12 +74,21 @@ async function main(): Promise<void> {
         shop.thin ? '评价较少' : null
       ].filter(Boolean)
       const content = `${card.content}\n${ATTRIBUTION}${shop.thin ? THIN_NOTE : ''}`
+      // Card score keeps real star precision: base each card on the shop's
+      // average star (avgStar) with a small per-tag offset, rounded to 0.1 so
+      // the front-end can render partial stars instead of uniform 4/5s.
+      const base = typeof shop.avgStar === 'number' ? shop.avgStar : card.score
+      const tagOffset = card.tag === '需要注意' ? -0.4
+        : card.tag === '学生常点' ? 0.2
+          : 0
+      const rawScore = base + tagOffset
+      const score = Math.round(Math.max(1, Math.min(5, rawScore)) * 10) / 10
       client.db.insert(placeReviews).values({
         id: randomUUID(),
         placeId,
         userId: null,
         anonymousKey: anonKey,
-        score: Math.max(1, Math.min(5, Math.round(card.score))),
+        score,
         content,
         status: 'approved',
         reviewNote: noteBits.join('｜'),

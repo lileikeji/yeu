@@ -66,6 +66,14 @@ function roundScore(value: number | null | undefined): number {
   return Math.round(value)
 }
 
+/** Fractional fill (0..1) of the star at 1-based position, for partial stars. */
+function starFill(value: number | null | undefined, position: number): number {
+  if (value === null || value === undefined) return 0
+  const clamped = Math.max(0, Math.min(5, value))
+  const fill = clamped - (position - 1)
+  return Math.max(0, Math.min(1, fill))
+}
+
 async function loadReviews(): Promise<void> {
   loading.value = true
   loadError.value = ''
@@ -204,15 +212,25 @@ const mineStatusText = computed<string | null>(() => {
           class="flex flex-wrap items-center gap-x-3 gap-y-1"
         >
           <div class="flex items-center gap-1">
-            <UIcon
+            <span
               v-for="star in 5"
               :key="star"
-              name="i-lucide-star"
-              class="size-3.5"
-              :class="star <= roundScore(displayScore)
-                ? 'fill-amber-400 text-amber-400'
-                : 'text-zinc-300'"
-            />
+              class="relative inline-block size-3.5"
+            >
+              <UIcon
+                name="i-lucide-star"
+                class="absolute inset-0 size-3.5 text-zinc-300"
+              />
+              <span
+                class="absolute inset-y-0 left-0 overflow-hidden"
+                :style="{ width: (starFill(displayScore, star) * 100) + '%' }"
+              >
+                <UIcon
+                  name="i-lucide-star"
+                  class="size-3.5 fill-amber-400 text-amber-400"
+                />
+              </span>
+            </span>
             <span
               v-if="displayScore !== null"
               class="ml-1 text-sm font-semibold text-zinc-900"
@@ -260,13 +278,25 @@ const mineStatusText = computed<string | null>(() => {
               >
                 来自点评整理
               </span>
-              <UIcon
+              <span
                 v-for="star in 5"
                 :key="star"
-                name="i-lucide-star"
-                class="size-2.5"
-                :class="star <= review.score ? 'fill-amber-400 text-amber-400' : 'text-zinc-300'"
-              />
+                class="relative inline-block size-2.5"
+              >
+                <UIcon
+                  name="i-lucide-star"
+                  class="absolute inset-0 size-2.5 text-zinc-300"
+                />
+                <span
+                  class="absolute inset-y-0 left-0 overflow-hidden"
+                  :style="{ width: (starFill(review.score, star) * 100) + '%' }"
+                >
+                  <UIcon
+                    name="i-lucide-star"
+                    class="size-2.5 fill-amber-400 text-amber-400"
+                  />
+                </span>
+              </span>
               <span class="ml-auto text-[10px] text-zinc-400">
                 {{ formatDate(review.createdAt) }}
               </span>
