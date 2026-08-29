@@ -20,6 +20,8 @@ interface PublicReviewView {
   displayName: string
   createdAt: string
   mine: boolean
+  source: 'user' | 'seed'
+  sourcePlatform: 'dianping' | 'meituan' | null
 }
 
 interface PublicPlaceReviewsPayload {
@@ -28,6 +30,7 @@ interface PublicPlaceReviewsPayload {
   aggregate: { score: number, count: number } | null
   reviews: PublicReviewView[]
   mine: { submitted: boolean, status: 'pending' | 'approved' | 'rejected' | null }
+  seedCount: number
 }
 
 const props = defineProps<{
@@ -110,6 +113,7 @@ const hasAnyContent = computed(() => Boolean(
   && (payload.value.aggregate
     || (payload.value.amap !== null && payload.value.amap.score !== null)
     || payload.value.reviews.length > 0
+    || payload.value.seedCount > 0
     || payload.value.mine.submitted)
 ))
 
@@ -248,7 +252,13 @@ const mineStatusText = computed<string | null>(() => {
           >
             <div class="flex items-center gap-2">
               <span class="text-xs font-medium text-zinc-800">
-                {{ review.displayName }}
+                {{ review.source === 'seed' ? '整理评价' : review.displayName }}
+              </span>
+              <span
+                v-if="review.source === 'seed'"
+                class="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-medium text-amber-700"
+              >
+                来自点评整理
               </span>
               <UIcon
                 v-for="star in 5"
@@ -268,10 +278,17 @@ const mineStatusText = computed<string | null>(() => {
         </ul>
 
         <p
-          v-else-if="payload.aggregate"
+          v-else-if="payload.aggregate && payload.seedCount === 0"
           class="mt-1 text-[11px] text-zinc-400"
         >
           还没有文字评价，成为第一个写评价的人。
+        </p>
+
+        <p
+          v-if="payload.seedCount > 0 && !payload.reviews.some(r => r.source === 'user')"
+          class="mt-1 text-[11px] text-zinc-400"
+        >
+          以上为整理评价，也欢迎你写下真实到店体验。
         </p>
 
         <!-- 我的评价状态 -->

@@ -827,6 +827,13 @@ export const placeReviews = sqliteTable('place_reviews', {
   reviewedByAdminId: text('reviewed_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
   reviewedAt: integer('reviewed_at'),
   reviewNote: text('review_note'),
+  // Seed reviews (rewritten third-party user reviews imported as initial
+  // content) are marked source='seed' and excluded from the public aggregate
+  // score so they cannot skew the student-submitted average.
+  source: text('source', { enum: ['user', 'seed'] }).notNull().default('user'),
+  sourceUrl: text('source_url'),
+  sourcePlatform: text('source_platform', { enum: ['dianping', 'meituan'] }),
+  collectedAt: integer('collected_at'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [

@@ -34,6 +34,8 @@ export interface PublicPlaceReviewView {
   displayName: string
   createdAt: string
   mine: boolean
+  source: 'user' | 'seed'
+  sourcePlatform: 'dianping' | 'meituan' | null
 }
 
 export interface PlaceAmapRatingView {
@@ -51,6 +53,8 @@ export interface PublicPlaceReviewsPayload {
   aggregate: { score: number, count: number } | null
   reviews: PublicPlaceReviewView[]
   mine: { submitted: boolean, status: PlaceReviewStatus | null }
+  /** Number of rewritten seed reviews for this place (excluded from aggregate). */
+  seedCount: number
 }
 
 export interface AdminPlaceReviewView {
@@ -63,6 +67,7 @@ export interface AdminPlaceReviewView {
   score: number
   content: string
   status: PlaceReviewStatus
+  source: 'user' | 'seed'
   reviewNote: string | null
   reviewedAt: number | null
   createdAt: number
@@ -152,6 +157,8 @@ function toPublicReviewView(
     displayName: string | null
     userId: string | null
     anonymousKey: string | null
+    source: 'user' | 'seed'
+    sourcePlatform: 'dianping' | 'meituan' | null
     createdAt: number
   },
   currentIdentity: { userId?: string, anonymousKey?: string } | null
@@ -165,9 +172,11 @@ function toPublicReviewView(
     placeId: row.placeId,
     score: row.score,
     content: row.content,
-    displayName: row.displayName ?? '匿名同学',
+    displayName: row.displayName ?? (row.source === 'seed' ? '系统整理' : '匿名同学'),
     createdAt: new Date(row.createdAt).toISOString(),
-    mine
+    mine,
+    source: row.source,
+    sourcePlatform: row.sourcePlatform
   }
 }
 
@@ -205,6 +214,8 @@ export function listPublicPlaceReviews(
     displayName: users.displayName,
     userId: placeReviews.userId,
     anonymousKey: placeReviews.anonymousKey,
+    source: placeReviews.source,
+    sourcePlatform: placeReviews.sourcePlatform,
     createdAt: placeReviews.createdAt
   }).from(placeReviews)
     .leftJoin(users, eq(placeReviews.userId, users.id))
@@ -216,13 +227,26 @@ export function listPublicPlaceReviews(
     .limit(PUBLIC_REVIEWS_LIMIT)
     .all()
 
+  // Aggregate score counts STUDENT reviews only; rewritten seed reviews are
+  // listed separately so a batch of 5-star seeds cannot skew the average.
   const aggregateRow = client.db.select({
     score: sql<number>`cast(round(avg(${placeReviews.score}) * 10) / 10 as real)`,
     count: sql<number>`count(*)`
   }).from(placeReviews)
     .where(and(
       eq(placeReviews.placeId, key),
-      eq(placeReviews.status, 'approved')
+      eq(placeReviews.status, 'approved'),
+      eq(placeReviews.source, 'user')
+    ))
+    .get()
+
+  const seedCountRow = client.db.select({
+    count: sql<number>`count(*)`
+  }).from(placeReviews)
+    .where(and(
+      eq(placeReviews.placeId, key),
+      eq(placeReviews.status, 'approved'),
+      eq(placeReviews.source, 'seed')
     ))
     .get()
 
@@ -250,7 +274,8 @@ export function listPublicPlaceReviews(
       ? { score: aggregateRow.score, count: aggregateRow.count }
       : null,
     reviews: rows.map(row => toPublicReviewView(row, currentIdentity)),
-    mine
+    mine,
+    seedCount: Number(seedCountRow?.count ?? 0)
   }
 }
 
@@ -341,6 +366,7 @@ export function adminListPlaceReviews(
     score: placeReviews.score,
     content: placeReviews.content,
     status: placeReviews.status,
+    source: placeReviews.source,
     reviewNote: placeReviews.reviewNote,
     reviewedAt: placeReviews.reviewedAt,
     createdAt: placeReviews.createdAt,
@@ -357,8 +383,9 @@ export function adminListPlaceReviews(
     items: rows.map(row => ({
       ...row,
       // Anonymous reviews carry no user row; surface them clearly to admins.
+      // Seed rows (rewritten third-party reviews) show as 系统整理.
       username: row.username ?? null,
-      displayName: row.displayName ?? (row.userId ? null : '匿名评价')
+      displayName: row.displayName ?? (row.source === 'seed' ? '系统整理' : '匿名评价')
     })) as unknown as AdminPlaceReviewView[],
     total: Number(totalRow?.count ?? 0),
     page,

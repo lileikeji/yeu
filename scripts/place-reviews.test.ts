@@ -273,3 +273,40 @@ test('anonymous reviewers are deduplicated by anonymousKey and surfaced as 匿�
     cleanup()
   }
 })
+
+test('seed reviews are listed separately and excluded from the aggregate score', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    createPlaceReview(client, { placeId: PLACE_ID, score: 5, content: '学生评价' }, { userId: USER_A.id })
+
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO place_reviews
+        (id, place_id, user_id, anonymous_key, score, content, status, source, source_platform, collected_at, created_at, updated_at)
+      VALUES (?, ?, NULL, ?, ?, ?, 'approved', 'seed', 'dianping', ?, ?, ?)
+    `).run('seed-1', PLACE_ID, 'seed-dp-1', 5, '整理评价文案（来自点评）', now, now, now)
+    client.sqlite.prepare(`
+      INSERT INTO place_reviews
+        (id, place_id, user_id, anonymous_key, score, content, status, source, created_at, updated_at)
+      VALUES (?, ?, NULL, ?, 2, ?, 'approved', 'seed', ?, ?)
+    `).run('seed-2', PLACE_ID, 'seed-dp-2', '另一条整理评价', now, now)
+
+    // Student review approved so it counts in aggregate.
+    const all = adminListPlaceReviews(client, { page: 1, pageSize: 20 })
+    const studentRow = all.items.find(item => item.content === '学生评价')!
+    adminReviewPlace(client, studentRow.id, { status: 'approved' }, ADMIN_ID)
+
+    const payload = listPublicPlaceReviews(client, PLACE_ID, { userId: USER_A.id })
+    // Aggregate counts only the student 5-star review.
+    assert.equal(payload.aggregate?.count, 1)
+    assert.equal(payload.aggregate?.score, 5)
+    // Seed reviews are visible with source info and counted separately.
+    assert.equal(payload.seedCount, 2)
+    const seedViews = payload.reviews.filter(r => r.source === 'seed')
+    assert.equal(seedViews.length, 2)
+    assert.equal(seedViews.some(r => r.sourcePlatform === 'dianping'), true)
+    assert.ok(seedViews.some(r => r.content.includes('来自点评')))
+  } finally {
+    cleanup()
+  }
+})
