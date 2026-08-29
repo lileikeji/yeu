@@ -854,11 +854,13 @@ export class AMapProvider implements MapProvider {
 
     const poiId = event.id?.trim()
     const name = event.name?.trim()
+    // Every hotspot click routes through the same selection flow so a yeu
+    // place card ALWAYS opens. Never clear the current selection or fall back
+    // to AMap's own info window on a miss — that made base-map merchants look
+    // unclickable and wiped an already-open card.
     if (poiId && name) {
-      // Native base-map merchant (no curated marker on this map): route it
-      // through the same selection flow as catalog / native-search POIs so the
-      // place card (with ratings) opens. The AMap POI id is a stable key that
-      // also matches seeded AMap ratings (place_amap_ratings).
+      // Native base-map merchant with a stable POI id: the id also matches
+      // seeded AMap ratings (place_amap_ratings).
       this.selectArea(null)
       this.poiSelectHandler?.({
         id: poiId,
@@ -870,13 +872,24 @@ export class AMapProvider implements MapProvider {
       })
       return
     }
+
+    // Without a POI id, try to resolve one via PlaceSearch so the seeded
+    // rating (keyed by the AMap POI id) can show. On miss, still open a
+    // synthetic card so the click is never swallowed.
+    const capturedMap = this.map
+    const openSynthetic = (): void => {
+      if (this.map !== capturedMap) return
+      this.selectArea(null)
+      this.poiSelectHandler?.({
+        id: `amap-hotspot:${position[0].toFixed(6)},${position[1].toFixed(6)}`,
+        name: name ?? '地图地点',
+        category: 'nearby',
+        point: { lng: position[0], lat: position[1], crs: 'GCJ-02' },
+        status: 'draft',
+        source: 'amap-native'
+      })
+    }
     if (name) {
-      // AMap v2 hotspotclick events often carry NO POI id (only name/lnglat).
-      // Reverse-look up the POI via PlaceSearch so the card (and its seeded
-      // rating keyed by the AMap POI id) can open instead of silently showing
-      // nothing. Best-effort: on timeout/empty result fall back to the AMap
-      // info window below.
-      const capturedMap = this.map
       void this.searchVisiblePois(name).then((pois) => {
         // Lifecycle guard: ignore the result if the map was remounted while
         // the async PlaceSearch was in flight.
@@ -892,43 +905,17 @@ export class AMapProvider implements MapProvider {
             if (leftExact !== rightExact) return rightExact - leftExact
             return left.index - right.index
           })[0]?.poi
-        if (!matched) return
+        if (!matched) {
+          openSynthetic()
+          return
+        }
         this.selectArea(null)
         this.poiSelectHandler?.(matched)
       })
       return
     }
 
-    // Hotspot without a usable POI id/name falls back to AMap's own info
-    // window. Base-map POIs never enter the app index or sidebar.
-    const content = document.createElement('div')
-    content.style.cssText = 'min-width:150px;max-width:240px;padding:3px 2px;color:#18181b;font:400 13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;'
-    const title = document.createElement('strong')
-    title.textContent = event.name.trim()
-    title.style.cssText = 'display:block;margin-bottom:5px;font-size:14px;'
-    const source = document.createElement('span')
-    source.textContent = '高德地图收录地点'
-    source.style.cssText = 'display:block;margin-bottom:7px;color:#71717a;font-size:12px;'
-    const link = document.createElement('a')
-    const url = new URL('https://uri.amap.com/search')
-    url.searchParams.set('keyword', event.name.trim())
-    url.searchParams.set('center', position.join(','))
-    url.searchParams.set('src', 'yeu-freshman-guide')
-    url.searchParams.set('coordinate', 'gaode')
-    link.href = url.toString()
-    link.target = '_blank'
-    link.rel = 'noopener noreferrer'
-    link.textContent = '在高德地图查看'
-    link.style.cssText = 'color:#176f46;font-weight:600;text-decoration:none;'
-    content.append(title, source, link)
-
-    this.hotspotInfoWindow ??= new this.amap.InfoWindow({ offset: new this.amap.Pixel(0, -10) })
-    this.hotspotInfoWindow.setContent(content)
-    this.hotspotInfoWindow.open(this.map, position)
-    this.selectArea(null)
-    this.poiSelectHandler?.(null)
-    // Fallback path only: hotspots without a usable POI id keep the AMap
-    // info window and never enter the app index or sidebar.
+    openSynthetic()
   }
 
   private selectArea(area: MapArea | null): void {
