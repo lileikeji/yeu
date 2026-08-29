@@ -121,6 +121,7 @@ export interface AMapPlacePoi {
   address?: string
   type?: string
   location?: AMapLngLat
+  distance?: number
 }
 
 export interface AMapPlaceSearchResult {

@@ -41,6 +41,19 @@ const CLUSTER_GRID_SIZE = 56
 const CLUSTER_MAX_ZOOM = 17
 const ROUTE_TIMEOUT_MS = 15_000
 const PLACE_SEARCH_TIMEOUT_MS = 8_000
+// A map click resolves to a base-map POI only when a merchant is within this
+// distance of the click point. Larger radii surfaced distant POIs for clicks
+// on empty map area (random cards); 40m keeps real marker clicks precise.
+const PROXIMITY_ACCEPT_METRES = 40
+
+function haversineMetres(from: AMapPosition, to: AMapPosition): number {
+  const rad = Math.PI / 180
+  const dLat = (to[1] - from[1]) * rad
+  const dLng = (to[0] - from[0]) * rad
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(from[1] * rad) * Math.cos(to[1] * rad) * Math.sin(dLng / 2) ** 2
+  return 6_371_000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showPois: true,
@@ -438,9 +451,11 @@ export class AMapProvider implements MapProvider {
 
   /**
    * Resolve the nearest POI at a given map position via PlaceSearch's
-   * blank-keyword nearby search. Returns the closest candidate within radius
-   * metres, or null when nothing is found. Used by map clicks so base-map
-   * merchants open a yeu card instead of being treated as empty space.
+   * blank-keyword nearby search. Returns the closest candidate within
+   * PROXIMITY_ACCEPT_METRES of the click point, or null when nothing is that
+   * close. Used by map clicks so clicking a base-map merchant opens a yeu
+   * card, while clicking empty map area still clears the selection instead of
+   * randomly surfacing a distant POI.
    */
   private poiAtPosition(position: AMapPosition, radius: number): Promise<MapPoi | null> {
     const amap = this.amap
@@ -465,14 +480,20 @@ export class AMapProvider implements MapProvider {
               return
             }
             const pois = this.readPlacePois(result)
-              .filter((poi) => {
+              .map((poi) => {
                 const lng = poi.location?.getLng()
                 const lat = poi.location?.getLat()
-                return Number.isFinite(lng) && Number.isFinite(lat)
+                if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+                return { poi, metres: haversineMetres(position, [lng!, lat!]) }
               })
-              .map(poi => this.nativeMapPoi(poi))
-              .filter((poi): poi is MapPoi => poi !== null)
-            finish(pois[0] ?? null)
+              .filter((item): item is { poi: AMapPlacePoi, metres: number } => item !== null)
+              .sort((left, right) => left.metres - right.metres)
+            const nearest = pois[0]
+            if (!nearest || nearest.metres > PROXIMITY_ACCEPT_METRES) {
+              finish(null)
+              return
+            }
+            finish(this.nativeMapPoi(nearest.poi))
           })
         } catch {
           finish(null)
@@ -908,7 +929,7 @@ export class AMapProvider implements MapProvider {
       return
     }
     const capturedMap = this.map
-    void this.poiAtPosition(position, 500).then((poi) => {
+    void this.poiAtPosition(position, 150).then((poi) => {
       if (this.map !== capturedMap) return
       if (poi) {
         this.selectArea(null)

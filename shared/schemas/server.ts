@@ -943,7 +943,7 @@ export const updateFrontendFeatureSchema = z.object({
  * arbitrary strings cannot be used as review keys.
  */
 const publicPlaceIdSchema = z.string().trim().min(1).max(120).regex(
-  /^(?:amap-import-row-\d{3}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[A-Z0-9]{8,20}|[a-z0-9][a-z0-9-]{0,99})$/,
+  /^(?:amap-import-row-\d{3}|amap-native-[A-Z0-9]{6,20}|amap-hotspot:[0-9.]+,[0-9.]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[A-Z0-9]{8,20}|[a-z0-9][a-z0-9-]{0,99})$/,
   'Invalid place identifier'
 )
 
