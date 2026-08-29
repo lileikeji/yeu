@@ -21,6 +21,13 @@ export interface RouteSummary {
   durationSeconds: number
 }
 
+/** 用户实时位置（浏览器 geolocation 返回 WGS84）。 */
+export interface MapUserLocation {
+  point: GeoPoint
+  /** 定位精度半径（米），用于绘制精度圈。 */
+  accuracyMeters?: number
+}
+
 export interface MapProvider {
   readonly id: MapProviderId
   mount(element: HTMLElement, options?: MapMountOptions): Promise<void>
@@ -36,6 +43,8 @@ export interface MapProvider {
   setSelectedArea(id: string | null): void
   flyToPoi(id: string): boolean
   flyToPoint(point: GeoPoint, zoom?: number): boolean
+  /** 显示/更新「我的位置」蓝点与精度圈；传 null 清除。 */
+  setUserLocation(location: MapUserLocation | null): void
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>
   searchVisiblePois(query: string): Promise<MapPoi[]>
   clearRoute(): void

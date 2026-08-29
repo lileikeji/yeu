@@ -14,6 +14,7 @@ import type {
   MapBaseStyle,
   MapDisplayOptions,
   MapProvider,
+  MapUserLocation,
   PoiSelectHandler,
   PointPickedHandler,
   RouteSummary
@@ -40,6 +41,9 @@ const CLUSTER_COUNT_LAYER_ID = 'yeu-preview-cluster-count'
 const POI_LAYER_ID = 'yeu-preview-poi-pins'
 const POI_LABEL_LAYER_ID = 'yeu-preview-poi-labels'
 const SELECTED_POI_LABEL_LAYER_ID = 'yeu-preview-selected-poi-label'
+const USER_LOCATION_SOURCE_ID = 'yeu-user-location'
+const USER_LOCATION_ACCURACY_LAYER_ID = 'yeu-user-location-accuracy'
+const USER_LOCATION_DOT_LAYER_ID = 'yeu-user-location-dot'
 const INTERACTIVE_LAYER_IDS = [
   CLUSTER_LAYER_ID,
   POI_LAYER_ID,
@@ -114,6 +118,15 @@ interface PoiFeatureCollection {
   features: PoiFeature[]
 }
 
+interface UserLocationFeatureCollection {
+  type: 'FeatureCollection'
+  features: Array<{
+    type: 'Feature'
+    geometry: { type: 'Point', coordinates: [number, number] }
+    properties: { kind: 'dot' | 'accuracy', accuracyMeters: number }
+  }>
+}
+
 export class MapLibrePreviewProvider implements MapProvider {
   readonly id = 'maplibre-dev' as const
   private readonly offline: boolean
@@ -130,6 +143,7 @@ export class MapLibrePreviewProvider implements MapProvider {
   private fitAfterMount = false
   private lifecycleVersion = 0
   private cancelPendingLoad: (() => void) | null = null
+  private userLocation: MapUserLocation | null = null
 
   constructor(options: MapLibrePreviewProviderOptions = {}) {
     this.offline = options.offline === true
@@ -331,6 +345,83 @@ export class MapLibrePreviewProvider implements MapProvider {
     return true
   }
 
+  /**
+   * Renders the user's live location as a blue dot (with a translucent
+   * accuracy circle) via a dedicated GeoJSON source. WGS84 is used directly
+   * since the preview basemap is WGS84-native. Passing null removes both.
+   */
+  setUserLocation(location: MapUserLocation | null): void {
+    this.userLocation = location
+    const map = this.map
+    if (!map) return
+
+    if (!location || !this.isRenderablePoint(location.point)) {
+      if (map.getSource(USER_LOCATION_SOURCE_ID)) {
+        this.updateUserLocationSource({
+          type: 'FeatureCollection',
+          features: []
+        })
+      }
+      return
+    }
+
+    const dot: [number, number] = [location.point.lng, location.point.lat]
+    this.ensureUserLocationLayers(map)
+    this.updateUserLocationSource({
+      type: 'FeatureCollection',
+      features: [
+        { type: 'Feature', geometry: { type: 'Point', coordinates: dot }, properties: { kind: 'dot', accuracyMeters: location.accuracyMeters ?? 30 } },
+        { type: 'Feature', geometry: { type: 'Point', coordinates: dot }, properties: { kind: 'accuracy', accuracyMeters: location.accuracyMeters ?? 30 } }
+      ]
+    })
+  }
+
+  private ensureUserLocationLayers(map: MapLibreMap): void {
+    if (map.getSource(USER_LOCATION_SOURCE_ID)) return
+
+    map.addSource(USER_LOCATION_SOURCE_ID, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    })
+    map.addLayer({
+      id: USER_LOCATION_ACCURACY_LAYER_ID,
+      type: 'circle',
+      source: USER_LOCATION_SOURCE_ID,
+      filter: ['==', ['get', 'kind'], 'accuracy'],
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          13,
+          ['/', ['get', 'accuracyMeters'], 2],
+          19,
+          ['/', ['get', 'accuracyMeters'], 1.5]
+        ],
+        'circle-color': 'rgba(37, 99, 235, 0.12)',
+        'circle-stroke-color': 'rgba(37, 99, 235, 0.5)',
+        'circle-stroke-width': 1
+      }
+    })
+    map.addLayer({
+      id: USER_LOCATION_DOT_LAYER_ID,
+      type: 'circle',
+      source: USER_LOCATION_SOURCE_ID,
+      filter: ['==', ['get', 'kind'], 'dot'],
+      paint: {
+        'circle-radius': 7,
+        'circle-color': '#2563eb',
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 3
+      }
+    })
+  }
+
+  private updateUserLocationSource(data: UserLocationFeatureCollection): void {
+    const source = this.map?.getSource(USER_LOCATION_SOURCE_ID) as GeoJSONSource | undefined
+    source?.setData(data)
+  }
+
   planWalkingRoute(_origin: GeoPoint, _destination: GeoPoint): Promise<RouteSummary> {
     return Promise.reject(new Error('网页内步行路线仅在高德地图模式下可用。'))
   }
@@ -359,6 +450,7 @@ export class MapLibrePreviewProvider implements MapProvider {
     this.areaSelectHandler = null
     this.mapErrorHandler = null
     this.fitAfterMount = false
+    this.userLocation = null
   }
 
   private waitForLoad(map: MapLibreMap): Promise<void> {

@@ -169,9 +169,14 @@ const {
   routeSummary,
   routeDestinationName,
   routeSummaryText,
+  tracking,
+  following,
+  remainingSummary,
   locateUser,
   startWalkingRoute,
-  clearWalkingRoute
+  clearWalkingRoute,
+  toggleTracking,
+  toggleFollowing
 } = useMapGeolocation({
   mapProvider,
   activeMapProviderId,
@@ -970,15 +975,30 @@ onBeforeUnmount(() => {
               @click="fitToVisiblePois"
             />
           </UTooltip>
-          <UTooltip text="定位到我的位置">
+          <UTooltip :text="tracking ? '停止实时定位' : '定位到我的位置并开启实时跟踪'">
             <UButton
-              icon="i-lucide-locate-fixed"
+              :icon="tracking ? 'i-lucide-locate-fixed' : 'i-lucide-locate'"
               color="neutral"
               variant="ghost"
               :loading="locating"
               class="map-control-btn size-10 rounded-none md:size-11"
-              aria-label="定位到我的位置"
-              @click="locateUser"
+              :class="tracking ? 'bg-blue-50 text-blue-700' : ''"
+              aria-label="定位到我的位置并开启实时跟踪"
+              :aria-pressed="tracking"
+              @click="tracking ? toggleTracking() : locateUser()"
+            />
+          </UTooltip>
+          <UTooltip :text="following ? '暂停相机跟随' : '相机跟随我的位置'">
+            <UButton
+              icon="i-lucide-crosshair"
+              color="neutral"
+              variant="ghost"
+              :disabled="!tracking"
+              class="map-control-btn size-10 rounded-none md:size-11"
+              :class="following ? 'bg-blue-50 text-blue-700' : ''"
+              aria-label="相机跟随我的位置"
+              :aria-pressed="following"
+              @click="toggleFollowing"
             />
           </UTooltip>
         </div>
@@ -1030,7 +1050,13 @@ onBeforeUnmount(() => {
             步行至 {{ routeDestinationName }}
           </p>
           <p class="mt-0.5 text-xs text-zinc-600">
-            {{ routeSummaryText(routeSummary) }}
+            <template v-if="tracking && remainingSummary">
+              距目的地 {{ routeSummaryText(remainingSummary) }}
+              <span class="text-zinc-400">（实时）</span>
+            </template>
+            <template v-else>
+              {{ routeSummaryText(routeSummary) }}
+            </template>
           </p>
         </div>
         <UButton

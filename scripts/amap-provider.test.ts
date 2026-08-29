@@ -214,13 +214,25 @@ class FakePlaceSearch {
   }
 }
 
+class FakeCircle {
+  static instances: FakeCircle[] = []
+  map: FakeAMapMap | null
+
+  constructor(readonly options: Record<string, unknown>) {
+    this.map = null
+    FakeCircle.instances.push(this)
+  }
+
+  setMap(map: FakeAMapMap | null): void {
+    this.map = map
+  }
+}
+
 interface FakeClusterData {
   lnglat: [number, number]
   weight?: number
   poiId: string
-}
-
-interface FakeClusterOptions {
+}interface FakeClusterOptions {
   gridSize?: number
   maxZoom?: number
   averageCenter?: boolean
@@ -708,11 +720,11 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.equal(FakeWalking.instances.at(-1)?.cleared, true)
 
     map.emitHotspot('学生街商家', [118.6, 25.1])
-    const infoWindow = FakeInfoWindow.instances.at(-1)
-    assert.deepEqual(infoWindow?.openedAt, [118.6, 25.1])
-    assert.equal(infoWindow?.content?.children[0]?.textContent, '学生街商家')
-    assert.match(infoWindow?.content?.children[2]?.href ?? '', /^https:\/\/uri\.amap\.com\/search\?/)
-    assert.equal(selected.at(-1), null)
+    // 当前行为：hotspot 点击经 PlaceSearch 反查，命中原生商家后直接开 yeu 卡片，
+    // 不再弹 AMap 原生 InfoWindow（避免空白点击弹出远处商家卡片）。
+    await nextTurn()
+    assert.equal(selected.at(-1), 'amap-native-native-shop-1')
+    assert.equal(selectedAreas.at(-1), null)
     provider.resize()
     assert.equal(map.resized, true)
 
@@ -824,6 +836,77 @@ test('AMap provider re-renders every marker once the canvas settles at its real 
     assert.equal(conversionCalls, callsBeforeSettle)
     // The stale cluster is removed from the map.
     assert.equal(firstCluster.map, null)
+
+    provider.destroy()
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument)
+    else Reflect.deleteProperty(globalThis, 'document')
+  }
+})
+
+test('AMap provider renders and clears the user location blue dot', async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  FakeAMapMap.instances = []
+  FakeCircle.instances = []
+
+  const element = {
+    getBoundingClientRect: () => ({ width: 375, height: 748 }),
+    querySelector: () => ({ width: 375, height: 748 }),
+    querySelectorAll: () => [{ width: 375, height: 748 }] as unknown[]
+  }
+
+  const fakeWindow: Record<string, unknown> = {
+    AMap: {
+      Map: FakeAMapMap,
+      Marker: FakeMarker,
+      Circle: FakeCircle,
+      Polygon: FakePolygon,
+      Polyline: FakePolyline,
+      TileLayer: { Satellite: FakeTileLayer, RoadNet: FakeTileLayer },
+      InfoWindow: FakeInfoWindow,
+      Pixel: FakePixel,
+      MarkerCluster: FakeMarkerCluster,
+      plugin: (_plugins: string[], callback: () => void) => callback(),
+      convertFrom: (
+        points: [number, number][],
+        _source: string,
+        callback: (status: string, result: { locations: [number, number][] }) => void
+      ) => callback('complete', { locations: points })
+    }
+  }
+
+  Object.defineProperty(globalThis, 'window', { value: fakeWindow, configurable: true })
+  Object.defineProperty(globalThis, 'document', {
+    value: { createElement: () => new FakeElement() },
+    configurable: true
+  })
+
+  try {
+    const provider = new AMapProvider({ key: 'k', securityCode: 'sec' })
+    await provider.mount(element as unknown as HTMLElement, { zoom: 15 })
+    const map = FakeAMapMap.instances[0]!
+
+    // WGS84 location converts through convertFrom and lands as a dot + circle.
+    provider.setUserLocation({
+      point: { lng: 118.6, lat: 25.1, crs: 'WGS84' },
+      accuracyMeters: 40
+    })
+    await nextTurn()
+
+    const circle = FakeCircle.instances.at(-1)
+    assert.ok(circle, 'expected an accuracy circle')
+    assert.equal(circle.options.radius, 40)
+    const dot = map.added.find(marker => marker.content?.title === '我的位置')
+    assert.ok(dot, 'expected the blue dot marker')
+    assert.match(dot?.content?.style.cssText ?? '', /background:#2563eb/)
+
+    // Clearing removes both overlays.
+    provider.setUserLocation(null)
+    assert.equal(map.removed.includes(circle), true)
+    assert.equal(map.removed.includes(dot), true)
 
     provider.destroy()
   } finally {

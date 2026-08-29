@@ -4,6 +4,7 @@ import type {
   MapBaseStyle,
   MapDisplayOptions,
   MapProvider,
+  MapUserLocation,
   PoiSelectHandler,
   PointPickedHandler,
   RouteSummary
@@ -12,6 +13,7 @@ import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
 import type { GeoPoint, MapArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
 import { ensureAMapPlugins, loadAMap } from './loader'
 import type {
+  AMapCircle,
   AMapConvertResult,
   AMapClusterRenderContext,
   AMapHotspotEvent,
@@ -147,6 +149,9 @@ export class AMapProvider implements MapProvider {
   private areaSelectHandler: AreaSelectHandler | null = null
   private selectedAreaId: string | null = null
   private mapErrorHandler: MapErrorHandler | null = null
+  private userLocationMarker: AMapMarker | null = null
+  private userLocationAccuracyCircle: AMapCircle | null = null
+  private userLocation: MapUserLocation | null = null
   private displayOptions: MapDisplayOptions = { ...DEFAULT_DISPLAY_OPTIONS }
   private baseStyle: MapBaseStyle = 'standard'
   private fitAfterRender = false
@@ -343,6 +348,80 @@ export class AMapProvider implements MapProvider {
       }
     })
     return true
+  }
+
+  /**
+   * Renders the user's live location as a blue dot plus an accuracy circle.
+   * The browser geolocation API reports WGS84, so the point goes through the
+   * usual convertFrom('gps') path before being drawn on the GCJ-02 basemap.
+   * Passing null removes both overlays.
+   */
+  setUserLocation(location: MapUserLocation | null): void {
+    this.userLocation = location
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap) return
+
+    if (!location || !this.isRenderablePoint(location.point)) {
+      this.clearUserLocation()
+      return
+    }
+
+    const point = location.point
+    const draw = (position: AMapPosition): void => {
+      if (this.userLocation !== location) return // A newer update superseded this one.
+      this.clearUserLocation()
+      this.userLocationAccuracyCircle = new amap.Circle({
+        center: position,
+        radius: this.clampedAccuracy(location.accuracyMeters),
+        strokeColor: 'rgba(37, 99, 235, 0.55)',
+        strokeOpacity: 0.8,
+        strokeWeight: 1,
+        fillColor: 'rgba(37, 99, 235, 0.12)',
+        fillOpacity: 0.28,
+        zIndex: 900
+      })
+      this.userLocationMarker = new amap.Marker({
+        position,
+        anchor: 'center',
+        content: this.createUserLocationDot(),
+        zIndex: 950
+      })
+      map.add([this.userLocationAccuracyCircle, this.userLocationMarker])
+    }
+
+    if (point.crs === 'GCJ-02') {
+      draw([point.lng, point.lat])
+      return
+    }
+    void this.convertPoint(point, amap).then((converted) => {
+      if (converted && this.userLocation === location) draw(converted)
+    })
+  }
+
+  private createUserLocationDot(): HTMLElement {
+    const element = document.createElement('button')
+    element.type = 'button'
+    element.title = '我的位置'
+    element.setAttribute('aria-label', '我的位置')
+    element.style.cssText = 'display:block;box-sizing:border-box;width:20px;height:20px;padding:0;border:3px solid #fff;border-radius:50%;background:#2563eb;box-shadow:0 0 0 2px rgb(37 99 235 / 35%),0 2px 6px rgb(0 0 0 / 25%);cursor:default;'
+    return element
+  }
+
+  private clampedAccuracy(accuracyMeters: number | undefined): number {
+    if (typeof accuracyMeters !== 'number' || !Number.isFinite(accuracyMeters)) return 30
+    return Math.min(500, Math.max(8, accuracyMeters))
+  }
+
+  private clearUserLocation(): void {
+    if (this.map) {
+      const overlays: Array<AMapMarker | AMapCircle> = []
+      if (this.userLocationMarker) overlays.push(this.userLocationMarker)
+      if (this.userLocationAccuracyCircle) overlays.push(this.userLocationAccuracyCircle)
+      if (overlays.length) this.map.remove(overlays)
+    }
+    this.userLocationMarker = null
+    this.userLocationAccuracyCircle = null
   }
 
   async planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary> {
@@ -1396,6 +1475,7 @@ export class AMapProvider implements MapProvider {
     this.clearRoute()
     this.clearMarkers()
     this.clearAreas()
+    this.clearUserLocation()
     if (this.map) {
       this.map.off('click', this.handleMapClick)
       this.map.off('hotspotclick', this.handleHotspotClick)
@@ -1411,6 +1491,7 @@ export class AMapProvider implements MapProvider {
     this.baseLayers = []
     this.mapElement = null
     this.settledCanvasKey = ''
+    this.userLocation = null
     this.hotspotInfoWindow = null
   }
 }

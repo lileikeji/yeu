@@ -4,6 +4,7 @@ import type {
   MapBaseStyle,
   MapDisplayOptions,
   MapProvider,
+  MapUserLocation,
   PoiSelectHandler,
   PointPickedHandler,
   RouteSummary
@@ -125,6 +126,9 @@ export class WechatOfflineMapProvider implements MapProvider {
   private poiSelectHandler: PoiSelectHandler | null = null
   private areaSelectHandler: AreaSelectHandler | null = null
   private mapErrorHandler: MapErrorHandler | null = null
+  private userLocation: MapUserLocation | null = null
+  private userLocationDot: HTMLButtonElement | null = null
+  private userLocationAccuracyRing: HTMLDivElement | null = null
 
   async mount(element: HTMLElement, options: MapMountOptions = {}): Promise<void> {
     this.destroyDom()
@@ -244,6 +248,77 @@ export class WechatOfflineMapProvider implements MapProvider {
   setSelectedPoi(id: string | null): void {
     this.selectedPoiId = id && this.pois.some(poi => poi.id === id) ? id : null
     this.renderMarkers()
+  }
+
+  /**
+   * Renders the user's live location as a DOM blue dot inside the marker
+   * layer, positioned with the same percentage mapping as POI markers.
+   * Accuracy is drawn as a translucent ring whose pixel radius is a rough
+   * visual hint (campus-scale meters do not map 1:1 to the schematic plane).
+   */
+  setUserLocation(location: MapUserLocation | null): void {
+    this.userLocation = location
+    this.renderUserLocation()
+  }
+
+  private renderUserLocation(): void {
+    const layer = this.markerLayer
+    if (!layer) return
+    if (this.userLocationDot) this.userLocationDot.remove()
+    this.userLocationDot = null
+    if (this.userLocationAccuracyRing) this.userLocationAccuracyRing.remove()
+    this.userLocationAccuracyRing = null
+
+    const location = this.userLocation
+    if (!location || !isRenderablePoint(location.point)) return
+
+    const x = this.longitudePercent(location.point.lng)
+    const y = this.latitudePercent(location.point.lat)
+
+    const accuracy = typeof location.accuracyMeters === 'number' && Number.isFinite(location.accuracyMeters)
+      ? Math.min(80, Math.max(16, location.accuracyMeters / 4))
+      : 24
+
+    const ring = document.createElement('div')
+    ring.className = 'yeu-wechat-offline-map-user-accuracy'
+    Object.assign(ring.style, {
+      position: 'absolute',
+      left: `${x}%`,
+      top: `${y}%`,
+      width: `${accuracy * 2}px`,
+      height: `${accuracy * 2}px`,
+      marginLeft: `${-accuracy}px`,
+      marginTop: `${-accuracy}px`,
+      borderRadius: '50%',
+      border: '1px solid rgb(37 99 235 / 50%)',
+      background: 'rgb(37 99 235 / 10%)',
+      pointerEvents: 'none'
+    })
+
+    const dot = document.createElement('button')
+    dot.type = 'button'
+    dot.className = 'yeu-wechat-offline-map-user-dot'
+    dot.title = '我的位置'
+    dot.setAttribute('aria-label', '我的位置')
+    Object.assign(dot.style, {
+      position: 'absolute',
+      left: `${x}%`,
+      top: `${y}%`,
+      width: '18px',
+      height: '18px',
+      marginLeft: '-9px',
+      marginTop: '-9px',
+      padding: '0',
+      borderRadius: '50%',
+      border: '3px solid #fff',
+      background: '#2563eb',
+      boxShadow: '0 0 0 2px rgb(37 99 235 / 35%), 0 2px 6px rgb(0 0 0 / 25%)',
+      pointerEvents: 'none'
+    })
+
+    this.userLocationAccuracyRing = ring
+    this.userLocationDot = dot
+    layer.append(ring, dot)
   }
 
   setSelectedArea(_id: string | null): void {}
@@ -771,5 +846,8 @@ export class WechatOfflineMapProvider implements MapProvider {
     this.overlayLayer = null
     this.dragging = false
     this.pointerId = null
+    this.userLocation = null
+    this.userLocationDot = null
+    this.userLocationAccuracyRing = null
   }
 }
