@@ -8,9 +8,10 @@ definePageMeta({ layout: 'admin' })
 interface AdminPlaceReview {
   id: string
   placeId: string
-  userId: string
-  username: string
-  displayName: string
+  userId: string | null
+  anonymousKey: string | null
+  username: string | null
+  displayName: string | null
   score: number
   content: string
   status: PlaceReviewStatus
@@ -261,7 +262,7 @@ onMounted(loadReviews)
               {{ review.displayName }}
             </span>
             <span class="text-xs text-zinc-500">
-              @{{ review.username }}
+              {{ review.username ? `@${review.username}` : '' }}
             </span>
             <span class="flex items-center gap-0.5">
               <UIcon

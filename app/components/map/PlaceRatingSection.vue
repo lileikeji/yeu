@@ -36,9 +36,7 @@ const props = defineProps<{
   variant?: 'mobile' | 'desktop'
 }>()
 
-const { isAuthenticated, refreshSession } = useUserSession()
-const route = useRoute()
-
+const { refreshSession } = useUserSession()
 const payload = ref<PublicPlaceReviewsPayload | null>(null)
 const loading = ref(false)
 const loadError = ref('')
@@ -114,11 +112,6 @@ const hasAnyContent = computed(() => Boolean(
     || payload.value.reviews.length > 0
     || payload.value.mine.submitted)
 ))
-
-const loginHref = computed(() => {
-  const from = encodeURIComponent(route.fullPath)
-  return `/login?from=${from}`
-})
 
 function pickScore(score: number): void {
   draftScore.value = score
@@ -294,19 +287,7 @@ const mineStatusText = computed<string | null>(() => {
           v-else
           class="mt-2"
         >
-          <template v-if="!isAuthenticated">
-            <ULink
-              :to="loginHref"
-              class="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800"
-            >
-              <UIcon
-                name="i-lucide-pen-line"
-                class="size-3.5"
-              />
-              登录后写评价
-            </ULink>
-          </template>
-          <template v-else-if="!formOpen">
+          <template v-if="!formOpen">
             <UButton
               color="neutral"
               variant="outline"

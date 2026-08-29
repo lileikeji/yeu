@@ -3,7 +3,6 @@ import { and, desc, eq, sql } from 'drizzle-orm'
 import type { PlaceReviewStatus } from '../../../shared/constants/server'
 import type { DatabaseClient } from '../../database/client'
 import { placeAmapRatings, placeReviews, users } from '../../database/schema'
-import type { AppUserIdentity } from '../../utils/user-auth'
 
 export const AMAP_RATING_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const PUBLIC_REVIEWS_LIMIT = 5
@@ -44,9 +43,10 @@ export interface PublicPlaceReviewsPayload {
 export interface AdminPlaceReviewView {
   id: string
   placeId: string
-  userId: string
-  username: string
-  displayName: string
+  userId: string | null
+  anonymousKey: string | null
+  username: string | null
+  displayName: string | null
   score: number
   content: string
   status: PlaceReviewStatus
@@ -83,15 +83,21 @@ function reviewConflictError(): never {
 export function createPlaceReview(
   client: DatabaseClient,
   input: CreatePlaceReviewInput,
-  user: AppUserIdentity
+  identity: { userId?: string, anonymousKey?: string }
 ) {
-  const existing = client.db.select({ id: placeReviews.id })
-    .from(placeReviews)
-    .where(and(
-      eq(placeReviews.userId, user.id),
-      eq(placeReviews.placeId, input.placeId)
-    ))
-    .get()
+  const dedupeKey = identity.userId ?? identity.anonymousKey
+  if (!dedupeKey) throw new Error('REVIEW_IDENTITY_REQUIRED')
+  const existing = dedupeKey
+    ? client.db.select({ id: placeReviews.id })
+        .from(placeReviews)
+        .where(and(
+          identity.userId
+            ? eq(placeReviews.userId, identity.userId)
+            : eq(placeReviews.anonymousKey, identity.anonymousKey),
+          eq(placeReviews.placeId, input.placeId)
+        ))
+        .get()
+    : null
   if (existing) {
     reviewConflictError()
   }
@@ -102,7 +108,8 @@ export function createPlaceReview(
     client.db.insert(placeReviews).values({
       id,
       placeId: input.placeId,
-      userId: user.id,
+      userId: identity.userId ?? null,
+      anonymousKey: identity.anonymousKey ?? null,
       score: input.score,
       content: input.content,
       status: 'pending',
@@ -128,19 +135,25 @@ function toPublicReviewView(
     placeId: string
     score: number
     content: string
-    displayName: string
+    displayName: string | null
+    userId: string | null
+    anonymousKey: string | null
     createdAt: number
   },
-  currentUserId: string | null
+  currentIdentity: { userId?: string, anonymousKey?: string } | null
 ): PublicPlaceReviewView {
+  const mine = currentIdentity !== null && (
+    (row.userId !== null && row.userId === currentIdentity.userId)
+    || (row.anonymousKey !== null && row.anonymousKey === currentIdentity.anonymousKey)
+  )
   return {
     id: row.id,
     placeId: row.placeId,
     score: row.score,
     content: row.content,
-    displayName: row.displayName,
+    displayName: row.displayName ?? '匿名同学',
     createdAt: new Date(row.createdAt).toISOString(),
-    mine: currentUserId !== null
+    mine
   }
 }
 
@@ -166,7 +179,7 @@ export function getFreshAmapRating(
 export function listPublicPlaceReviews(
   client: DatabaseClient,
   placeId: string,
-  currentUserId: string | null = null
+  currentIdentity: { userId?: string, anonymousKey?: string } | null = null
 ): PublicPlaceReviewsPayload {
   const rows = client.db.select({
     id: placeReviews.id,
@@ -174,9 +187,11 @@ export function listPublicPlaceReviews(
     score: placeReviews.score,
     content: placeReviews.content,
     displayName: users.displayName,
+    userId: placeReviews.userId,
+    anonymousKey: placeReviews.anonymousKey,
     createdAt: placeReviews.createdAt
   }).from(placeReviews)
-    .innerJoin(users, eq(placeReviews.userId, users.id))
+    .leftJoin(users, eq(placeReviews.userId, users.id))
     .where(and(
       eq(placeReviews.placeId, placeId),
       eq(placeReviews.status, 'approved')
@@ -197,12 +212,14 @@ export function listPublicPlaceReviews(
 
   let mine: { submitted: boolean, status: PlaceReviewStatus | null }
     = { submitted: false, status: null }
-  if (currentUserId) {
+  if (currentIdentity?.userId || currentIdentity?.anonymousKey) {
     const mineRow = client.db.select({ status: placeReviews.status })
       .from(placeReviews)
       .where(and(
         eq(placeReviews.placeId, placeId),
-        eq(placeReviews.userId, currentUserId)
+        currentIdentity.userId
+          ? eq(placeReviews.userId, currentIdentity.userId)
+          : eq(placeReviews.anonymousKey, currentIdentity.anonymousKey)
       ))
       .get()
     if (mineRow) {
@@ -216,7 +233,7 @@ export function listPublicPlaceReviews(
     aggregate: aggregateRow && aggregateRow.count > 0
       ? { score: aggregateRow.score, count: aggregateRow.count }
       : null,
-    reviews: rows.map(row => toPublicReviewView(row, currentUserId)),
+    reviews: rows.map(row => toPublicReviewView(row, currentIdentity)),
     mine
   }
 }
@@ -302,6 +319,7 @@ export function adminListPlaceReviews(
     id: placeReviews.id,
     placeId: placeReviews.placeId,
     userId: placeReviews.userId,
+    anonymousKey: placeReviews.anonymousKey,
     username: users.username,
     displayName: users.displayName,
     score: placeReviews.score,
@@ -312,7 +330,7 @@ export function adminListPlaceReviews(
     createdAt: placeReviews.createdAt,
     updatedAt: placeReviews.updatedAt
   }).from(placeReviews)
-    .innerJoin(users, eq(placeReviews.userId, users.id))
+    .leftJoin(users, eq(placeReviews.userId, users.id))
     .where(where)
     .orderBy(desc(placeReviews.createdAt))
     .limit(pageSize)
@@ -320,7 +338,12 @@ export function adminListPlaceReviews(
     .all()
 
   return {
-    items: rows as AdminPlaceReviewView[],
+    items: rows.map(row => ({
+      ...row,
+      // Anonymous reviews carry no user row; surface them clearly to admins.
+      username: row.username ?? null,
+      displayName: row.displayName ?? (row.userId ? null : '匿名评价')
+    })) as unknown as AdminPlaceReviewView[],
     total: Number(totalRow?.count ?? 0),
     page,
     pageSize

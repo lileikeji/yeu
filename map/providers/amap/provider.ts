@@ -870,6 +870,34 @@ export class AMapProvider implements MapProvider {
       })
       return
     }
+    if (name) {
+      // AMap v2 hotspotclick events often carry NO POI id (only name/lnglat).
+      // Reverse-look up the POI via PlaceSearch so the card (and its seeded
+      // rating keyed by the AMap POI id) can open instead of silently showing
+      // nothing. Best-effort: on timeout/empty result fall back to the AMap
+      // info window below.
+      const capturedMap = this.map
+      void this.searchVisiblePois(name).then((pois) => {
+        // Lifecycle guard: ignore the result if the map was remounted while
+        // the async PlaceSearch was in flight.
+        if (this.map !== capturedMap) return
+        const target = name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+        const matched = pois
+          .map((poi, index) => ({ poi, index }))
+          .sort((left, right) => {
+            const leftName = left.poi.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+            const rightName = right.poi.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+            const leftExact = leftName === target ? 1 : 0
+            const rightExact = rightName === target ? 1 : 0
+            if (leftExact !== rightExact) return rightExact - leftExact
+            return left.index - right.index
+          })[0]?.poi
+        if (!matched) return
+        this.selectArea(null)
+        this.poiSelectHandler?.(matched)
+      })
+      return
+    }
 
     // Hotspot without a usable POI id/name falls back to AMap's own info
     // window. Base-map POIs never enter the app index or sidebar.

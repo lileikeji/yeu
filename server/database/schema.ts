@@ -819,7 +819,8 @@ export const assistantSessionMemory = sqliteTable('assistant_session_memory', {
 export const placeReviews = sqliteTable('place_reviews', {
   id: text('id').primaryKey(),
   placeId: text('place_id').notNull(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  anonymousKey: text('anonymous_key'),
   score: integer('score').notNull(),
   content: text('content').notNull(),
   status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull().default('pending'),
@@ -830,6 +831,7 @@ export const placeReviews = sqliteTable('place_reviews', {
   updatedAt: timestamp('updated_at')
 }, table => [
   uniqueIndex('place_reviews_user_place_unique').on(table.userId, table.placeId),
+  uniqueIndex('place_reviews_anon_place_unique').on(table.anonymousKey, table.placeId),
   index('place_reviews_place_status_idx').on(table.placeId, table.status),
   index('place_reviews_status_created_idx').on(table.status, table.createdAt),
   check('place_reviews_score_check', sql`${table.score} between 1 and 5`),

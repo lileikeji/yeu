@@ -94,7 +94,7 @@ test('createPlaceReview creates a pending review and blocks duplicates per user'
       placeId: PLACE_ID,
       score: 4,
       content: '味道不错，价格实惠。'
-    }, USER_A)
+    }, { userId: USER_A.id })
     assert.equal(created.status, 'pending')
     assert.equal(created.placeId, PLACE_ID)
 
@@ -103,7 +103,7 @@ test('createPlaceReview creates a pending review and blocks duplicates per user'
         placeId: PLACE_ID,
         score: 2,
         content: '第二次提交应该被拒绝。'
-      }, USER_A),
+      }, { userId: USER_A.id }),
       (error: TestHttpError) => error.statusCode === 409 && error.data?.code === 'REVIEW_ALREADY_EXISTS'
     )
   } finally {
@@ -114,8 +114,8 @@ test('createPlaceReview creates a pending review and blocks duplicates per user'
 test('listPublicPlaceReviews hides pending reviews and aggregates approved ones', () => {
   const { client, cleanup } = createFixture()
   try {
-    createPlaceReview(client, { placeId: PLACE_ID, score: 5, content: '很好' }, USER_A)
-    createPlaceReview(client, { placeId: PLACE_ID, score: 3, content: '一般' }, USER_B)
+    createPlaceReview(client, { placeId: PLACE_ID, score: 5, content: '很好' }, { userId: USER_A.id })
+    createPlaceReview(client, { placeId: PLACE_ID, score: 3, content: '一般' }, { userId: USER_B.id })
 
     const before = listPublicPlaceReviews(client, PLACE_ID)
     assert.equal(before.aggregate, null)
@@ -135,14 +135,14 @@ test('listPublicPlaceReviews hides pending reviews and aggregates approved ones'
     adminReviewPlace(client, highScore.id, { status: 'approved' }, ADMIN_ID)
     adminReviewPlace(client, lowScore.id, { status: 'rejected', note: '无实质内容' }, ADMIN_ID)
 
-    const after = listPublicPlaceReviews(client, PLACE_ID, USER_A.id)
+    const after = listPublicPlaceReviews(client, PLACE_ID, { userId: USER_A.id })
     assert.equal(after.reviews.length, 1)
     assert.equal(after.aggregate?.count, 1)
     assert.equal(after.aggregate?.score, 5)
     assert.equal(after.reviews[0]!.displayName, '学生甲')
     assert.equal(after.reviews[0]!.mine, true)
 
-    const mine = listPublicPlaceReviews(client, PLACE_ID, USER_B.id)
+    const mine = listPublicPlaceReviews(client, PLACE_ID, { userId: USER_B.id })
     assert.deepEqual(mine.mine, { submitted: true, status: 'rejected' })
   } finally {
     cleanup()
@@ -224,4 +224,43 @@ test('parsePoiRating tolerates missing or malformed biz_ext', () => {
   assert.equal(bad?.score, null)
   assert.equal(bad?.cost, null)
   assert.equal(parsePoiRating({ id: '  ', name: '' }), null)
+})
+
+test('anonymous reviewers are deduplicated by anonymousKey and surfaced as 匿名同学', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const guestKey = 'anon-guest-hash'
+    const created = createPlaceReview(client, {
+      placeId: PLACE_ID,
+      score: 4,
+      content: '游客评价'
+    }, { anonymousKey: guestKey })
+    assert.equal(created.status, 'pending')
+
+    assert.throws(
+      () => createPlaceReview(client, {
+        placeId: PLACE_ID,
+        score: 2,
+        content: '同一游客重复提交'
+      }, { anonymousKey: guestKey }),
+      (error: TestHttpError) => error.statusCode === 409 && error.data?.code === 'REVIEW_ALREADY_EXISTS'
+    )
+
+    // A different anonymous key can still review the same place.
+    createPlaceReview(client, {
+      placeId: PLACE_ID,
+      score: 3,
+      content: '另一游客'
+    }, { anonymousKey: 'anon-other-guest' })
+
+    const pending = listPublicPlaceReviews(client, PLACE_ID, { anonymousKey: guestKey })
+    assert.equal(pending.mine.submitted, true)
+    assert.equal(pending.mine.status, 'pending')
+
+    const all = adminListPlaceReviews(client, { page: 1, pageSize: 20 })
+    assert.equal(all.total, 2)
+    assert.equal(all.items.every(item => item.displayName === '匿名评价'), true)
+  } finally {
+    cleanup()
+  }
 })
