@@ -90,6 +90,7 @@ import {
   assistantKnowledgeEntries,
   assistantWebKnowledge,
   contents,
+  placeAmapRatings,
   places,
   procedureMaterials,
   procedures,
@@ -2670,6 +2671,68 @@ function assistantKnowledgeEvidenceForQuery(
   }))
 }
 
+/**
+ * Dynamic "what to eat nearby" recommendation built from the seeded AMap
+ * ratings (place_amap_ratings). Answers questions like "附近吃什么/学生街
+ * 有什么推荐/哪家店评分高" with the actual stored scores and average cost —
+ * the same data shown on the map popup. Returns null when the query is not a
+ * food-recommendation question or when no fresh ratings exist.
+ */
+function assistantFoodRecommendationAnswer(
+  client: DatabaseClient,
+  query: string
+): ApiAssistantResponse | null {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食)/u.test(normalized)
+  const isQuestion = /(?:推荐|有什么|哪家|吃什么|去哪|怎么样|好吃吗|评分|好吃)/u.test(normalized)
+  if (!foodIntent || !isQuestion) return null
+  // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
+  if (isBroadCampusOverviewQuery(query)) return null
+
+  const now = Date.now()
+  const rows = client.db.select({
+    placeId: placeAmapRatings.placeId,
+    name: placeAmapRatings.amapPoiName,
+    score: placeAmapRatings.score,
+    cost: placeAmapRatings.cost
+  }).from(placeAmapRatings)
+    .where(and(
+      // Only fresh ratings; expired cache rows would mislead.
+      gt(placeAmapRatings.expiresAt, now),
+      gt(placeAmapRatings.score, 0)
+    ))
+    .orderBy(desc(placeAmapRatings.score))
+    .limit(12)
+    .all()
+
+  const rated = rows.filter(row => row.score !== null)
+  if (rated.length < 3) return null
+
+  const lines = rated.map((row, index) => {
+    const costText = row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''
+    return `${index + 1}. ${row.name}：${row.score!.toFixed(1)} 分${costText}`
+  })
+  const answer = [
+    '根据校园内已收录商家的评分数据（数据来自高德聚合评分，标注在校园地图卡片上），为你整理附近评分较高的选择：',
+    lines.join('\n'),
+    '以上评分来自高德地图聚合数据，实际口味因人而异。打开校园地图（学生街区域）点击对应商家，可以查看评分详情；如果想知道具体某一家的更多信息，直接问我店名即可。'
+  ].join('\n\n')
+
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: rated.slice(0, 5).map(row => ({
+      title: row.name,
+      url: '/map?place=' + encodeURIComponent(row.placeId),
+      snippet: `${row.name}：${row.score!.toFixed(1)} 分${row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''}`,
+      source: 'site' as const
+    })),
+    usedWebSearch: false,
+    confidence: 0.72
+  }
+}
+
 function assistantKnowledgeLocalAnswer(
   client: DatabaseClient,
   query: string
@@ -2689,6 +2752,12 @@ function assistantKnowledgeLocalAnswer(
   if (isTransferQuery(query)
     && !isCurrentTransferQuery(query)
     && !isTransferCourseCombinationQuery(query)) return null
+  // "附近吃什么/学生街推荐" answers come from the seeded AMap ratings table
+  // (the same data shown on the map popup), not from static FAQ entries.
+  // Checked BEFORE the broad-overview guard so "学生街有什么推荐" is not
+  // swallowed by the generic overview path.
+  const foodAnswer = assistantFoodRecommendationAnswer(client, query)
+  if (foodAnswer) return foodAnswer
   // “宿舍怎么样 / 校园卡怎么样” asks for a topic overview. A single FAQ
   // that merely mentions the topic (for example a discipline rule mentioning
   // dormitories) must not be emitted as the whole answer. These questions are

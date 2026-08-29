@@ -990,3 +990,42 @@ test('bed-size answer survives a delayed web-cache migration', async () => {
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('assistant recommends nearby food from seeded AMap ratings', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-food-recommend-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    const expires = now + 7 * 24 * 60 * 60 * 1000
+    const seed = client.sqlite.prepare(`
+      INSERT OR REPLACE INTO place_amap_ratings
+        (place_id, amap_poi_id, amap_poi_name, score, cost, fetched_at, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const shops = [
+      ['B0AAA1', 'B0AAA1', '牛先生火锅', 4.3, 76],
+      ['B0AAA2', 'B0AAA2', '塔斯汀汉堡', 3.7, 20],
+      ['B0AAA3', 'B0AAA3', '太姥山福鼎肉片', 4.2, 14],
+      ['B0AAA4', 'B0AAA4', '沙县小吃', 3.7, 20],
+      ['B0AAA5', 'B0AAA5', '蜜雪冰城', 3.9, 9]
+    ] as const
+    for (const [id, poiId, name, score, cost] of shops) {
+      seed.run(id, poiId, name, score, cost, now, expires, now, now)
+    }
+
+    const response = await answerCampusQuestion(client, '学生街有什么推荐的餐厅', emptyAssistantConfig)
+    assert.equal(response.retrievalPath, 'local_database')
+    assert.equal(response.usedWebSearch, false)
+    assert.match(response.answer, /牛先生火锅/)
+    assert.match(response.answer, /4\.3/)
+    assert.match(response.answer, /太姥山福鼎肉片/)
+    assert.ok(response.citations.length >= 3)
+    assert.ok(response.citations.every(item => item.url.startsWith('/map')))
+    assert.equal(response.confidence, 0.72)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
