@@ -22,7 +22,7 @@ export default defineEventHandler((event) => {
           .digest('hex')
           .slice(0, 32)
       }
-  const payload = listPublicPlaceReviews(client, query.placeId, identity)
+  const payload = listPublicPlaceReviews(client, query.placeId, identity, query.sort ?? 'newest')
   setPublicCache(event, 30)
   return payload
 })

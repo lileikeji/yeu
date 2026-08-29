@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { PlaceReviewStatus } from '../../../shared/constants/server'
 import type { DatabaseClient } from '../../database/client'
-import { placeAmapRatings, placeReviews, users } from '../../database/schema'
+import { placeAmapRatings, placeReviews, reviewLikes, users } from '../../database/schema'
 
 export const AMAP_RATING_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const PUBLIC_REVIEWS_LIMIT = 5
@@ -36,6 +36,8 @@ export interface PublicPlaceReviewView {
   mine: boolean
   source: 'user' | 'seed'
   sourcePlatform: 'dianping' | 'meituan' | null
+  likeCount: number
+  likedByMe: boolean
 }
 
 export interface PlaceAmapRatingView {
@@ -161,7 +163,8 @@ function toPublicReviewView(
     sourcePlatform: 'dianping' | 'meituan' | null
     createdAt: number
   },
-  currentIdentity: { userId?: string, anonymousKey?: string } | null
+  currentIdentity: { userId?: string, anonymousKey?: string } | null,
+  likeStats: { likeCount: number, likedByMe: boolean }
 ): PublicPlaceReviewView {
   const mine = currentIdentity !== null && (
     (row.userId !== null && row.userId === currentIdentity.userId)
@@ -176,7 +179,9 @@ function toPublicReviewView(
     createdAt: new Date(row.createdAt).toISOString(),
     mine,
     source: row.source,
-    sourcePlatform: row.sourcePlatform
+    sourcePlatform: row.sourcePlatform,
+    likeCount: likeStats.likeCount,
+    likedByMe: likeStats.likedByMe
   }
 }
 
@@ -203,7 +208,8 @@ export function getFreshAmapRating(
 export function listPublicPlaceReviews(
   client: DatabaseClient,
   placeId: string,
-  currentIdentity: { userId?: string, anonymousKey?: string } | null = null
+  currentIdentity: { userId?: string, anonymousKey?: string } | null = null,
+  sort: 'newest' | 'hot' = 'newest'
 ): PublicPlaceReviewsPayload {
   const key = normalizePlaceId(placeId)
   const rows = client.db.select({
@@ -267,16 +273,95 @@ export function listPublicPlaceReviews(
     }
   }
 
+  const reviewIds = rows.map(row => row.id)
+  const likeStats = resolveReviewLikes(client, reviewIds, currentIdentity?.userId ?? null)
+  const reviews = rows.map(row => toPublicReviewView(
+    row,
+    currentIdentity,
+    likeStats.get(row.id) ?? { likeCount: 0, likedByMe: false }
+  ))
+  if (sort === 'hot') {
+    reviews.sort((a, b) => b.likeCount - a.likeCount || b.createdAt.localeCompare(a.createdAt))
+  }
+
   return {
     placeId: key,
     amap: getFreshAmapRating(client, key),
     aggregate: aggregateRow && aggregateRow.count > 0
       ? { score: aggregateRow.score, count: aggregateRow.count }
       : null,
-    reviews: rows.map(row => toPublicReviewView(row, currentIdentity)),
+    reviews,
     mine,
     seedCount: Number(seedCountRow?.count ?? 0)
   }
+}
+
+function resolveReviewLikes(
+  client: DatabaseClient,
+  reviewIds: string[],
+  currentUserId: string | null
+): Map<string, { likeCount: number, likedByMe: boolean }> {
+  const stats = new Map<string, { likeCount: number, likedByMe: boolean }>()
+  if (reviewIds.length === 0) return stats
+  const countRows = client.db.select({
+    reviewId: reviewLikes.reviewId,
+    count: sql<number>`count(*)`
+  }).from(reviewLikes)
+    .where(inArray(reviewLikes.reviewId, reviewIds))
+    .groupBy(reviewLikes.reviewId)
+    .all()
+  for (const row of countRows) {
+    stats.set(row.reviewId, { likeCount: Number(row.count), likedByMe: false })
+  }
+  if (currentUserId) {
+    const likedRows = client.db.select({ reviewId: reviewLikes.reviewId })
+      .from(reviewLikes)
+      .where(and(
+        eq(reviewLikes.userId, currentUserId),
+        inArray(reviewLikes.reviewId, reviewIds)
+      ))
+      .all()
+    for (const row of likedRows) {
+      const stat = stats.get(row.reviewId) ?? { likeCount: 0, likedByMe: false }
+      stat.likedByMe = true
+      stats.set(row.reviewId, stat)
+    }
+  }
+  return stats
+}
+
+export function setReviewLike(
+  client: DatabaseClient,
+  reviewId: string,
+  userId: string,
+  liked: boolean
+): { liked: boolean, likeCount: number } {
+  const existing = client.db.select({ id: placeReviews.id })
+    .from(placeReviews)
+    .where(eq(placeReviews.id, reviewId))
+    .get()
+  if (!existing) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Review not found',
+      data: { code: 'REVIEW_NOT_FOUND' }
+    })
+  }
+  if (liked) {
+    client.db.insert(reviewLikes).values({ reviewId, userId, createdAt: Date.now() })
+      .onConflictDoNothing()
+      .run()
+  } else {
+    client.db.delete(reviewLikes).where(and(
+      eq(reviewLikes.reviewId, reviewId),
+      eq(reviewLikes.userId, userId)
+    )).run()
+  }
+  const countRow = client.db.select({ count: sql<number>`count(*)` })
+    .from(reviewLikes)
+    .where(eq(reviewLikes.reviewId, reviewId))
+    .get()
+  return { liked, likeCount: Number(countRow?.count ?? 0) }
 }
 
 export function upsertAmapRating(

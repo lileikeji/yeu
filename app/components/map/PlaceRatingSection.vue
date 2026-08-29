@@ -22,6 +22,8 @@ interface PublicReviewView {
   mine: boolean
   source: 'user' | 'seed'
   sourcePlatform: 'dianping' | 'meituan' | null
+  likeCount: number
+  likedByMe: boolean
 }
 
 interface PublicPlaceReviewsPayload {
@@ -39,10 +41,14 @@ const props = defineProps<{
   variant?: 'mobile' | 'desktop'
 }>()
 
-const { refreshSession } = useUserSession()
+const { isAuthenticated, refreshSession } = useUserSession()
+const route = useRoute()
 const payload = ref<PublicPlaceReviewsPayload | null>(null)
 const loading = ref(false)
 const loadError = ref('')
+const sort = ref<'newest' | 'hot'>('newest')
+const likingIds = ref(new Set<string>())
+const likeError = ref('')
 
 const formOpen = ref(false)
 const draftScore = ref(0)
@@ -79,7 +85,7 @@ async function loadReviews(): Promise<void> {
   loadError.value = ''
   try {
     payload.value = await userFetch<PublicPlaceReviewsPayload>('/api/public/place-reviews', {
-      query: { placeId: props.placeId }
+      query: { placeId: props.placeId, sort: sort.value }
     })
   } catch (error) {
     loadError.value = getRequestMessage(error, '评分加载失败')
@@ -124,6 +130,11 @@ const hasAnyContent = computed(() => Boolean(
     || payload.value.seedCount > 0
     || payload.value.mine.submitted)
 ))
+
+const loginHref = computed(() => {
+  const from = encodeURIComponent(route.fullPath)
+  return `/login?from=${from}`
+})
 
 function pickScore(score: number): void {
   draftScore.value = score
@@ -174,6 +185,37 @@ async function submitReview(): Promise<void> {
   } finally {
     submitting.value = false
   }
+}
+
+async function changeSort(next: 'newest' | 'hot'): Promise<void> {
+  if (sort.value === next) return
+  sort.value = next
+  await loadReviews()
+}
+
+async function toggleLike(review: PublicReviewView): Promise<void> {
+  if (likingIds.value.has(review.id)) return
+  likingIds.value = new Set(likingIds.value).add(review.id)
+  likeError.value = ''
+  try {
+    const method = review.likedByMe ? 'DELETE' : 'POST'
+    await userFetch(`/api/place-reviews/${review.id}/like`, { method })
+    await loadReviews()
+  } catch (error) {
+    likeError.value = getRequestMessage(error, '点赞失败，请稍后再试')
+  } finally {
+    const next = new Set(likingIds.value)
+    next.delete(review.id)
+    likingIds.value = next
+  }
+}
+
+function handleLikeClick(review: PublicReviewView): void {
+  if (!isAuthenticated.value) {
+    void navigateTo(loginHref.value)
+    return
+  }
+  void toggleLike(review)
 }
 
 const mineStatusText = computed<string | null>(() => {
@@ -258,6 +300,35 @@ const mineStatusText = computed<string | null>(() => {
           </span>
         </div>
 
+        <!-- 排序切换 -->
+        <div
+          v-if="payload.reviews.length > 1"
+          class="mt-2 flex items-center gap-1"
+        >
+          <button
+            type="button"
+            class="rounded px-2 py-0.5 text-[10px] font-medium transition-colors"
+            :class="sort === 'newest' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'"
+            @click="changeSort('newest')"
+          >
+            最新
+          </button>
+          <button
+            type="button"
+            class="rounded px-2 py-0.5 text-[10px] font-medium transition-colors"
+            :class="sort === 'hot' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'"
+            @click="changeSort('hot')"
+          >
+            最热
+          </button>
+        </div>
+        <p
+          v-if="likeError"
+          class="mt-1 text-[11px] text-red-600"
+        >
+          {{ likeError }}
+        </p>
+
         <!-- 评价列表 -->
         <ul
           v-if="payload.reviews.length"
@@ -300,6 +371,22 @@ const mineStatusText = computed<string | null>(() => {
               <span class="ml-auto text-[10px] text-zinc-400">
                 {{ formatDate(review.createdAt) }}
               </span>
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] transition-colors"
+                :class="review.likedByMe ? 'text-amber-600' : 'text-zinc-500 hover:text-amber-600'"
+                :disabled="likingIds.has(review.id)"
+                :aria-pressed="review.likedByMe"
+                aria-label="点赞这条评价"
+                @click="handleLikeClick(review)"
+              >
+                <UIcon
+                  name="i-lucide-thumbs-up"
+                  class="size-3"
+                  :class="review.likedByMe ? 'fill-amber-500 text-amber-500' : ''"
+                />
+                <span>{{ review.likeCount > 0 ? review.likeCount : '赞' }}</span>
+              </button>
             </div>
             <p class="mt-1 whitespace-pre-line text-xs leading-5 text-zinc-600">
               {{ review.content }}

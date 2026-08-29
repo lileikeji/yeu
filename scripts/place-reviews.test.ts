@@ -14,6 +14,7 @@ import {
   createPlaceReview,
   listPublicPlaceReviews,
   normalizePlaceId,
+  setReviewLike,
   upsertAmapRating
 } from '../server/modules/place-reviews/service'
 import type { AppUserIdentity } from '../server/utils/user-auth'
@@ -326,4 +327,49 @@ test('resolveSeedCardScore keeps fractional precision and clamps edges', () => {
   assert.equal(resolveSeedCardScore({ score: 1, tag: '需要注意', content: '' }, 1.2), 1)
   // Falls back to card.score when avgStar is missing.
   assert.equal(resolveSeedCardScore({ score: 4, tag: '综合口碑', content: '' }, undefined), 4)
+})
+
+test('review likes: idempotent like, unlike, counts and hot sort', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const reviewA = createPlaceReview(client, { placeId: PLACE_ID, score: 5, content: '好吃' }, { userId: USER_A.id })
+    const reviewB = createPlaceReview(client, { placeId: PLACE_ID, score: 3, content: '一般' }, { userId: USER_B.id })
+    adminReviewPlace(client, reviewA.id, { status: 'approved' }, ADMIN_ID)
+    adminReviewPlace(client, reviewB.id, { status: 'approved' }, ADMIN_ID)
+
+    // A likes B's review; duplicate like is a no-op.
+    const r1 = setReviewLike(client, reviewB.id, USER_A.id, true)
+    assert.equal(r1.liked, true)
+    assert.equal(r1.likeCount, 1)
+    const r2 = setReviewLike(client, reviewB.id, USER_A.id, true)
+    assert.equal(r2.likeCount, 1)
+
+    // B likes both reviews -> reviewB has 2, reviewA has 1.
+    setReviewLike(client, reviewA.id, USER_B.id, true)
+    setReviewLike(client, reviewB.id, USER_B.id, true)
+
+    const newest = listPublicPlaceReviews(client, PLACE_ID, { userId: USER_A.id }, 'newest')
+    assert.equal(newest.reviews.length, 2)
+    const byId = (id: string) => newest.reviews.find(r => r.id === id)!
+    assert.equal(byId(reviewA.id).likeCount, 1)
+    assert.equal(byId(reviewB.id).likeCount, 2)
+    assert.equal(byId(reviewB.id).likedByMe, true)
+    assert.equal(byId(reviewA.id).likedByMe, false)
+
+    const hot = listPublicPlaceReviews(client, PLACE_ID, { userId: USER_A.id }, 'hot')
+    assert.equal(hot.reviews[0]!.id, reviewB.id)
+    assert.equal(hot.reviews[0]!.likeCount, 2)
+
+    // Unlike.
+    const r3 = setReviewLike(client, reviewB.id, USER_B.id, false)
+    assert.equal(r3.likeCount, 1)
+
+    // Unknown review id -> 404.
+    assert.throws(
+      () => setReviewLike(client, '00000000-0000-4000-8000-000000000000', USER_A.id, true),
+      (error: TestHttpError) => error.statusCode === 404
+    )
+  } finally {
+    cleanup()
+  }
 })

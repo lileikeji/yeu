@@ -892,3 +892,18 @@ export const assistantEmbeddings = sqliteTable('assistant_embeddings', {
   check('assistant_embeddings_source_type_check', sql`${table.sourceType} in ('entry', 'claim', 'document', 'place', 'content', 'procedure', 'memory')`),
   check('assistant_embeddings_dimension_check', sql`${table.dimension} between 1 and 4096`)
 ])
+
+
+/**
+ * Likes on place reviews. One row per (review, user); the composite primary
+ * key is the dedupe — a repeated like by the same user is a no-op.
+ */
+export const reviewLikes = sqliteTable('review_likes', {
+  reviewId: text('review_id').notNull().references(() => placeReviews.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at')
+}, table => [
+  primaryKey({ columns: [table.reviewId, table.userId] }),
+  index('review_likes_user_idx').on(table.userId),
+  index('review_likes_review_idx').on(table.reviewId)
+])

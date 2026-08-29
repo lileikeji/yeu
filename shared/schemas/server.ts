@@ -954,7 +954,8 @@ export const createPlaceReviewSchema = z.object({
 }).strict()
 
 export const publicPlaceReviewsQuerySchema = z.object({
-  placeId: publicPlaceIdSchema
+  placeId: publicPlaceIdSchema,
+  sort: z.enum(['newest', 'hot']).optional()
 }).strict()
 
 export const adminPlaceReviewsQuerySchema = paginationQuerySchema.extend({
