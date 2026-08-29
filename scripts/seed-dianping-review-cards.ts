@@ -40,8 +40,9 @@ const ATTRIBUTION = '（整理自大众点评用户评价，非原文）'
 const THIN_NOTE = '（该店点评评价较少，以上仅供参考）'
 
 async function main(): Promise<void> {
-  await runMigrations()
-  const client = getDatabase()
+  const databasePath = process.env.NUXT_DATABASE_PATH || './data/yeu.sqlite'
+  const client = getDatabase(databasePath)
+  runMigrations(client)
   const shops = JSON.parse(readFileSync(INPUT, 'utf8')) as ShopCards[]
   let inserted = 0
   let skipped = 0
@@ -94,7 +95,7 @@ async function main(): Promise<void> {
     }
   }
   console.log(`done: inserted ${inserted}, skipped ${skipped} (missing placeId / already present)`)
-  closeDatabase()
+  closeDatabase(databasePath)
 }
 
 main().catch((error) => {
