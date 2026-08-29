@@ -7,6 +7,19 @@ import { placeAmapRatings, placeReviews, users } from '../../database/schema'
 export const AMAP_RATING_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const PUBLIC_REVIEWS_LIMIT = 5
 
+/**
+ * Normalize a place id before rating lookups. Map providers may pass native
+ * AMap POI ids with the `amap-native-` UI prefix (or a hotspot synthetic id);
+ * the ratings table is keyed by the bare AMap POI id (e.g. `B0M6VHJ12T`), so
+ * the prefix must be stripped or the seeded rating is never found.
+ */
+export function normalizePlaceId(placeId: string): string {
+  const trimmed = placeId.trim()
+  const native = trimmed.match(/^amap-native-(.+)$/)
+  if (native) return native[1]!
+  return trimmed
+}
+
 export interface CreatePlaceReviewInput {
   placeId: string
   score: number
@@ -87,6 +100,7 @@ export function createPlaceReview(
 ) {
   const dedupeKey = identity.userId ?? identity.anonymousKey
   if (!dedupeKey) throw new Error('REVIEW_IDENTITY_REQUIRED')
+  const key = normalizePlaceId(input.placeId)
   const existing = dedupeKey
     ? client.db.select({ id: placeReviews.id })
         .from(placeReviews)
@@ -94,7 +108,7 @@ export function createPlaceReview(
           identity.userId
             ? eq(placeReviews.userId, identity.userId)
             : eq(placeReviews.anonymousKey, identity.anonymousKey),
-          eq(placeReviews.placeId, input.placeId)
+          eq(placeReviews.placeId, key)
         ))
         .get()
     : null
@@ -107,7 +121,7 @@ export function createPlaceReview(
   try {
     client.db.insert(placeReviews).values({
       id,
-      placeId: input.placeId,
+      placeId: key,
       userId: identity.userId ?? null,
       anonymousKey: identity.anonymousKey ?? null,
       score: input.score,
@@ -161,9 +175,10 @@ export function getFreshAmapRating(
   client: DatabaseClient,
   placeId: string
 ): PlaceAmapRatingView | null {
+  const key = normalizePlaceId(placeId)
   const row = client.db.select()
     .from(placeAmapRatings)
-    .where(eq(placeAmapRatings.placeId, placeId))
+    .where(eq(placeAmapRatings.placeId, key))
     .get()
   if (!row || row.expiresAt <= Date.now()) return null
   return {
@@ -181,6 +196,7 @@ export function listPublicPlaceReviews(
   placeId: string,
   currentIdentity: { userId?: string, anonymousKey?: string } | null = null
 ): PublicPlaceReviewsPayload {
+  const key = normalizePlaceId(placeId)
   const rows = client.db.select({
     id: placeReviews.id,
     placeId: placeReviews.placeId,
@@ -193,7 +209,7 @@ export function listPublicPlaceReviews(
   }).from(placeReviews)
     .leftJoin(users, eq(placeReviews.userId, users.id))
     .where(and(
-      eq(placeReviews.placeId, placeId),
+      eq(placeReviews.placeId, key),
       eq(placeReviews.status, 'approved')
     ))
     .orderBy(desc(placeReviews.createdAt))
@@ -205,7 +221,7 @@ export function listPublicPlaceReviews(
     count: sql<number>`count(*)`
   }).from(placeReviews)
     .where(and(
-      eq(placeReviews.placeId, placeId),
+      eq(placeReviews.placeId, key),
       eq(placeReviews.status, 'approved')
     ))
     .get()
@@ -216,7 +232,7 @@ export function listPublicPlaceReviews(
     const mineRow = client.db.select({ status: placeReviews.status })
       .from(placeReviews)
       .where(and(
-        eq(placeReviews.placeId, placeId),
+        eq(placeReviews.placeId, key),
         currentIdentity.userId
           ? eq(placeReviews.userId, currentIdentity.userId)
           : eq(placeReviews.anonymousKey, currentIdentity.anonymousKey)
@@ -228,8 +244,8 @@ export function listPublicPlaceReviews(
   }
 
   return {
-    placeId,
-    amap: getFreshAmapRating(client, placeId),
+    placeId: key,
+    amap: getFreshAmapRating(client, key),
     aggregate: aggregateRow && aggregateRow.count > 0
       ? { score: aggregateRow.score, count: aggregateRow.count }
       : null,

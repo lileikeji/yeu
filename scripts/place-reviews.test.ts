@@ -12,6 +12,7 @@ import {
   adminReviewPlace,
   createPlaceReview,
   listPublicPlaceReviews,
+  normalizePlaceId,
   upsertAmapRating
 } from '../server/modules/place-reviews/service'
 import type { AppUserIdentity } from '../server/utils/user-auth'
@@ -224,6 +225,14 @@ test('parsePoiRating tolerates missing or malformed biz_ext', () => {
   assert.equal(bad?.score, null)
   assert.equal(bad?.cost, null)
   assert.equal(parsePoiRating({ id: '  ', name: '' }), null)
+})
+
+test('normalizePlaceId strips the amap-native prefix for rating lookups', () => {
+  assert.equal(normalizePlaceId('B0M6VHJ12T'), 'B0M6VHJ12T')
+  assert.equal(normalizePlaceId('amap-native-B0M6VHJ12T'), 'B0M6VHJ12T')
+  assert.equal(normalizePlaceId('amap-import-row-027'), 'amap-import-row-027')
+  assert.equal(normalizePlaceId('amap-hotspot:118.6,25.1'), 'amap-hotspot:118.6,25.1')
+  assert.equal(normalizePlaceId('  B0X  '), 'B0X')
 })
 
 test('anonymous reviewers are deduplicated by anonymousKey and surfaced as 匿名同学', () => {
