@@ -6,6 +6,7 @@ import test from 'node:test'
 import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { parsePoiRating } from '../server/modules/place-reviews/amap'
+import { resolveSeedCardScore } from '../scripts/seed-dianping-review-cards'
 import {
   adminListAmapRatings,
   adminListPlaceReviews,
@@ -309,4 +310,20 @@ test('seed reviews are listed separately and excluded from the aggregate score',
   } finally {
     cleanup()
   }
+})
+
+test('resolveSeedCardScore keeps fractional precision and clamps edges', () => {
+  // Base avgStar with tag offsets.
+  assert.equal(resolveSeedCardScore({ score: 5, tag: '综合口碑', content: '' }, 4.3), 4.3)
+  assert.equal(resolveSeedCardScore({ score: 5, tag: '学生常点', content: '' }, 4.3), 4.5)
+  assert.equal(resolveSeedCardScore({ score: 5, tag: '需要注意', content: '' }, 4.3), 3.9)
+  // 0.1 precision after rounding.
+  assert.equal(resolveSeedCardScore({ score: 5, tag: '综合口碑', content: '' }, 4.26), 4.3)
+  // Clamp at upper boundary (avgStar 4.9 + 学生常点 0.2 → 5.0, not 5.1).
+  assert.equal(resolveSeedCardScore({ score: 5, tag: '学生常点', content: '' }, 4.9), 5)
+  assert.equal(resolveSeedCardScore({ score: 5, tag: '综合口碑', content: '' }, 5), 5)
+  // Clamp at lower boundary (avgStar 1.2 + 需要注意 -0.4 → 0.8 → 1.0).
+  assert.equal(resolveSeedCardScore({ score: 1, tag: '需要注意', content: '' }, 1.2), 1)
+  // Falls back to card.score when avgStar is missing.
+  assert.equal(resolveSeedCardScore({ score: 4, tag: '综合口碑', content: '' }, undefined), 4)
 })

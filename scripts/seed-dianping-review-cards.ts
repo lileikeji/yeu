@@ -13,6 +13,7 @@
 import './load-env'
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { placeReviews } from '../server/database/schema'
@@ -30,16 +31,30 @@ interface ShopCards {
   cards: Card[]
 }
 
-const INPUT = process.argv[2]
-if (!INPUT) {
-  console.error('usage: npx tsx scripts/seed-dianping-review-cards.ts <rewritten-cards.json>')
-  process.exit(1)
+/**
+ * Resolve the star score for one seed card: base on the shop's average star
+ * (avgStar) with a small per-tag offset, clamped to 1..5 with 0.1 precision so
+ * the front-end partial-star renderer can show real fractional stars instead
+ * of uniform 4/5s.
+ */
+export function resolveSeedCardScore(card: Card, avgStar: number | undefined): number {
+  const base = typeof avgStar === 'number' ? avgStar : card.score
+  const tagOffset = card.tag === '需要注意' ? -0.4
+    : card.tag === '学生常点' ? 0.2
+      : 0
+  const raw = base + tagOffset
+  return Math.round(Math.max(1, Math.min(5, raw)) * 10) / 10
 }
 
 const ATTRIBUTION = '（整理自大众点评用户评价，非原文）'
 const THIN_NOTE = '（该店点评评价较少，以上仅供参考）'
 
 async function main(): Promise<void> {
+  const INPUT = process.argv[2]
+  if (!INPUT) {
+    console.error('usage: npx tsx scripts/seed-dianping-review-cards.ts <rewritten-cards.json>')
+    process.exit(1)
+  }
   const databasePath = process.env.NUXT_DATABASE_PATH || './data/yeu.sqlite'
   const client = getDatabase(databasePath)
   runMigrations(client)
@@ -74,15 +89,8 @@ async function main(): Promise<void> {
         shop.thin ? '评价较少' : null
       ].filter(Boolean)
       const content = `${card.content}\n${ATTRIBUTION}${shop.thin ? THIN_NOTE : ''}`
-      // Card score keeps real star precision: base each card on the shop's
-      // average star (avgStar) with a small per-tag offset, rounded to 0.1 so
-      // the front-end can render partial stars instead of uniform 4/5s.
-      const base = typeof shop.avgStar === 'number' ? shop.avgStar : card.score
-      const tagOffset = card.tag === '需要注意' ? -0.4
-        : card.tag === '学生常点' ? 0.2
-          : 0
-      const rawScore = base + tagOffset
-      const score = Math.round(Math.max(1, Math.min(5, rawScore)) * 10) / 10
+      // Card score keeps real star precision (0.1), see resolveSeedCardScore.
+      const score = resolveSeedCardScore(card, shop.avgStar)
       client.db.insert(placeReviews).values({
         id: randomUUID(),
         placeId,
@@ -107,7 +115,12 @@ async function main(): Promise<void> {
   closeDatabase(databasePath)
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+// Run only when executed directly (not when imported by tests).
+const isDirectRun = typeof process.argv[1] === 'string'
+  && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error)
+    process.exit(1)
+  })
+}
