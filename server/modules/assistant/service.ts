@@ -2707,7 +2707,7 @@ function assistantFoodRecommendationAnswer(
 
   // Keep food/drink merchants only: drop express, telecom, banking, repair,
   // salon and other non-eating services that also carry AMap ratings.
-  const NON_FOOD_PATTERN = /(?:快递|物流|驿站|电信|移动|联通|银行|维修|美发|理发|美甲|眼镜|洗衣|干洗|打印|复印|照相|药店|诊所|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印)/u
+  const NON_FOOD_PATTERN = /(?:快递|物流|驿站|电信|移动|联通|银行|维修|美发|理发|美甲|眼镜|洗衣|干洗|打印|复印|照相|药店|诊所|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷)/u
   const seenNames = new Set<string>()
   const rated = rows.filter(row => row.score !== null && !NON_FOOD_PATTERN.test(row.name))
     .filter(row => {
