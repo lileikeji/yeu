@@ -124,6 +124,7 @@ export class AMapProvider implements MapProvider {
   private areaLabels: AreaLabelRecord[] = []
   private baseLayers: AMapTileLayer[] = []
   private hotspotInfoWindow: AMapInfoWindow | null = null
+  private lastHotspotSelectedAt = 0
   private markerCluster: AMapMarkerCluster | null = null
   private walking: AMapWalking | null = null
   private selectedMarker: AMapMarker | null = null
@@ -430,6 +431,51 @@ export class AMapProvider implements MapProvider {
           })
         } catch {
           finish([])
+        }
+      })
+    })
+  }
+
+  /**
+   * Resolve the nearest POI at a given map position via PlaceSearch's
+   * blank-keyword nearby search. Returns the closest candidate within radius
+   * metres, or null when nothing is found. Used by map clicks so base-map
+   * merchants open a yeu card instead of being treated as empty space.
+   */
+  private poiAtPosition(position: AMapPosition, radius: number): Promise<MapPoi | null> {
+    const amap = this.amap
+    const map = this.map
+    if (!amap || !map) return Promise.resolve(null)
+    return this.ensurePlugins(['AMap.PlaceSearch']).then((available) => {
+      if (!available || this.amap !== amap || this.map !== map) return null
+      const placeSearch = new amap.PlaceSearch({ pageSize: 10, pageIndex: 1, extensions: 'base' })
+      return new Promise<MapPoi | null>((resolve) => {
+        let settled = false
+        const finish = (poi: MapPoi | null) => {
+          if (settled) return
+          settled = true
+          globalThis.clearTimeout(timeout)
+          resolve(poi)
+        }
+        const timeout = globalThis.setTimeout(() => finish(null), PLACE_SEARCH_TIMEOUT_MS)
+        try {
+          placeSearch.searchNearBy('', position, radius, (status, result) => {
+            if (status !== 'complete' || typeof result === 'string') {
+              finish(null)
+              return
+            }
+            const pois = this.readPlacePois(result)
+              .filter((poi) => {
+                const lng = poi.location?.getLng()
+                const lat = poi.location?.getLat()
+                return Number.isFinite(lng) && Number.isFinite(lat)
+              })
+              .map(poi => this.nativeMapPoi(poi))
+              .filter((poi): poi is MapPoi => poi !== null)
+            finish(pois[0] ?? null)
+          })
+        } catch {
+          finish(null)
         }
       })
     })
@@ -842,15 +888,45 @@ export class AMapProvider implements MapProvider {
     if (record) this.poiSelectHandler?.(record.poi)
   }
 
-  private readonly handleMapClick = (): void => {
-    this.poiSelectHandler?.(null)
-    this.selectArea(null)
+  private readonly handleMapClick = (event: AMapMouseEvent): void => {
+    // Map clicks on the base map may be a merchant the user wants to see.
+    // Instead of blindly clearing the selection (which wiped an open card and
+    // made base-map POIs feel unclickable), try to resolve a POI at the click
+    // point; only clear when nothing is there. When the same click already
+    // triggered a hotspot selection, do not let this generic handler override
+    // it with a fuzzier nearby-search result.
+    if (Date.now() - this.lastHotspotSelectedAt < 600) return
+    if (!this.map || !this.amap || !event.lnglat) {
+      this.poiSelectHandler?.(null)
+      this.selectArea(null)
+      return
+    }
+    const position: AMapPosition = [event.lnglat.getLng(), event.lnglat.getLat()]
+    if (!position.every(Number.isFinite)) {
+      this.poiSelectHandler?.(null)
+      this.selectArea(null)
+      return
+    }
+    const capturedMap = this.map
+    void this.poiAtPosition(position, 500).then((poi) => {
+      if (this.map !== capturedMap) return
+      if (poi) {
+        this.selectArea(null)
+        this.poiSelectHandler?.(poi)
+      } else {
+        this.poiSelectHandler?.(null)
+        this.selectArea(null)
+      }
+    })
   }
 
   private readonly handleHotspotClick = (event: AMapHotspotEvent): void => {
     if (!this.map || !this.amap || !event.lnglat) return
     const position: AMapPosition = [event.lnglat.getLng(), event.lnglat.getLat()]
     if (!position.every(Number.isFinite)) return
+    // Mark this click as hotspot-handled so the generic map click handler
+    // does not override the more precise POI with a fuzzy nearby search.
+    this.lastHotspotSelectedAt = Date.now()
 
     const poiId = event.id?.trim()
     const name = event.name?.trim()

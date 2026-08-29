@@ -16,6 +16,7 @@ export interface AMapBounds {
 }
 export interface AMapMouseEvent {
   originEvent?: Event
+  lnglat?: AMapLngLat
 }
 
 export interface AMapHotspotEvent extends AMapMouseEvent {
