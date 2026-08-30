@@ -325,6 +325,19 @@ interface AssistantAnswerSegment {
  * Each marker becomes an inline link to /map?q=<shop name> which locates the
  * merchant on the campus map.
  */
+/**
+ * Clean a merchant name for map search: strip parenthetical suffixes and
+ * region tags so AMap PlaceSearch matches the core name. e.g.
+ * "串烧烤肉(仰恩大学新区店)" -> "串烧烤肉"; "[学生街] 芭比Q(仰恩大学店)" -> "芭比Q".
+ */
+function locateSearchTerm(shopName: string): string {
+  const stripped = shopName
+    .replace(/^\[[^\]]+\]\s*/u, '')
+    .replace(/\s*[（(][^）)]*[）)]\s*$/u, '')
+    .trim()
+  return stripped || shopName
+}
+
 function splitAssistantAnswer(answer: string): AssistantAnswerSegment[] {
   const segments: AssistantAnswerSegment[] = []
   const parts = answer.split('〔地图定位〕')
@@ -874,7 +887,7 @@ onBeforeUnmount(() => {
                     <template v-if="!segment.locate">{{ segment.text }}</template>
                     <NuxtLink
                       v-else
-                      :to="`/map?q=${encodeURIComponent(segment.shopName)}`"
+                      :to="`/map?q=${encodeURIComponent(locateSearchTerm(segment.shopName))}`"
                       class="mx-1 inline-flex items-center gap-0.5 rounded bg-green-50 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-green-700 hover:bg-green-100"
                       @click.stop
                     >

@@ -381,12 +381,22 @@ export function resolveAutoSelectSearchDecision(input: {
   const currentArea = input.visibleAreas.find(area => area.id === input.selectedAreaId)
   const currentPoi = input.visiblePois.find(poi => poi.id === input.selectedPoiId)
     ?? input.nativeSearchResults.find(poi => poi.id === input.selectedPoiId)
+  // Prefer a native-search hit whose NAME matches the query over an arbitrary
+  // first result: a core-name search ("串烧烤肉") can return several nearby
+  // merchants, and selecting the first one may land on the wrong shop.
+  const queryNameMatch = (poi: PublicMapPlace): boolean => {
+    const normalized = poi.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+    const needle = query.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+    return needle.length >= 2 && normalized.includes(needle)
+  }
+  const nativeMatch = input.nativeSearchResults.find(poi => poi.point && queryNameMatch(poi))
+    ?? input.nativeSearchResults.find(poi => poi.point)
   const target = currentArea
     ? null
     : currentPoi
-      ?? input.visiblePois.find(poi => poi.point)
+      ?? input.visiblePois.find(poi => poi.point && queryNameMatch(poi))
       ?? (input.visiblePois.length && input.nativeSearchResults.length === 0 ? input.visiblePois[0] : null)
-      ?? input.nativeSearchResults.find(poi => poi.point)
+      ?? nativeMatch
       ?? input.visiblePois[0]
       ?? null
   const targetArea = currentArea ?? input.visibleAreas[0] ?? null
