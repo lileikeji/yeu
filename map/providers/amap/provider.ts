@@ -523,32 +523,29 @@ export class AMapProvider implements MapProvider {
       this.walkRoutePolyline = null
     }
 
-    const line = new amap.Polyline({
-      path: points.map(point => [point.lng, point.lat] as AMapPosition),
-      strokeColor: '#16a34a',
-      strokeWeight: 6,
-      strokeOpacity: 0.9,
-      strokeStyle: 'solid',
-      zIndex: 120
-    })
-    map.add(line)
-    try {
-      // 先用 WGS84 近似路径把视野拉到路线上：保证即使坐标转换失败也能看到线。
-      map.setFitView([line], false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
-    } catch {
-      // fitView 失败不致命；转换成功后还会再 fit 一次。
-    }
+    // AMap 只按 GCJ-02 渲染覆盖物：先把 WGS84 路径整体转换，转换成功后才创建
+    // Polyline 并 add（用未转换坐标先画会偏出视野，甚至让 setFitView 飞到错误位置）。
     const mapRef = map
     void this.convertPoints(points, amap).then((converted) => {
-      if (this.map !== mapRef || !converted.every((position): position is AMapPosition => position !== null)) return
-      line.setOptions?.({ path: converted })
+      if (this.map !== mapRef) return
+      if (!converted.every((position): position is AMapPosition => position !== null)) return
+
+      const line = new amap.Polyline({
+        path: converted,
+        strokeColor: '#16a34a',
+        strokeWeight: 6,
+        strokeOpacity: 0.9,
+        strokeStyle: 'solid',
+        zIndex: 120
+      })
+      mapRef.add(line)
+      this.walkRoutePolyline = line
       try {
         mapRef.setFitView([line], false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
       } catch {
         // 视野调整是优化项，失败不影响路线显示。
       }
     })
-    this.walkRoutePolyline = line
     return true
   }
 
