@@ -18,7 +18,7 @@ const QUESTION_MARKERS = [
   // questions even without a trailing 吗/呢 marker.
   '有什么', '有什么推荐', '推荐', '推荐吃什么', '吃什么', '去哪吃', '哪家',
   '有什么好吃的', '有什么吃的', '推荐一家', '评分高', '好吃吗', '附近吃什么',
-  '附近有什么', '附近吃'
+  '附近有什么', '附近吃', '吃啥', '吃点啥', '吃点什么', '吃啥好', '吃什么好'
 ] as const
 
 const QUESTION_ENDING_PATTERN = /[?？吗嘛呢么]$/u
