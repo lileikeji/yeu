@@ -269,7 +269,7 @@ const mineStatusText = computed<string | null>(() => {
               >
                 <UIcon
                   name="i-lucide-star"
-                  class="size-3.5 fill-amber-400 text-amber-400"
+                  class="block size-3.5 fill-amber-400 text-amber-400"
                 />
               </span>
             </span>
@@ -364,7 +364,7 @@ const mineStatusText = computed<string | null>(() => {
                 >
                   <UIcon
                     name="i-lucide-star"
-                    class="size-2.5 fill-amber-400 text-amber-400"
+                    class="block size-2.5 fill-amber-400 text-amber-400"
                   />
                 </span>
               </span>
