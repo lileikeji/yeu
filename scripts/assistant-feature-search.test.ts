@@ -1029,3 +1029,50 @@ test('assistant recommends nearby food from seeded AMap ratings', async () => {
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('food recommendation filters by category and answers single-shop details', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-food-category-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    const expires = now + 7 * 24 * 60 * 60 * 1000
+    const seed = client.sqlite.prepare(`
+      INSERT OR REPLACE INTO place_amap_ratings
+        (place_id, amap_poi_id, amap_poi_name, score, cost, fetched_at, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const shops = [
+      ['B0BBB1', 'B0BBB1', '蜜雪冰城', 4.3, 9],
+      ['B0BBB2', 'B0BBB2', '古茗奶茶', 4.4, 16],
+      ['B0BBB3', 'B0BBB3', '桥都火锅店', 4.2, 58],
+      ['B0BBB4', 'B0BBB4', '沙县小吃', 3.7, 20]
+    ] as const
+    for (const [id, poiId, name, score, cost] of shops) {
+      seed.run(id, poiId, name, score, cost, now, expires, now, now)
+    }
+    // Seed review cards for one shop (single-shop detail path).
+    const nowTs = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO place_reviews
+        (id, place_id, user_id, anonymous_key, score, content, status, source, source_platform, collected_at, created_at, updated_at)
+      VALUES (?, ?, NULL, ?, ?, ?, 'approved', 'seed', 'dianping', ?, ?, ?)
+    `).run('seed-bbb1', 'B0BBB1', 'seed-dp-bbb1-0', 4.3, '冰鲜柠檬水三块一大杯，酸甜冰爽。\n（整理自大众点评用户评价，非原文）', nowTs, nowTs, nowTs)
+
+    // Category filter: 奶茶 should return only milk-tea shops.
+    const category = await answerCampusQuestion(client, '学生街有什么奶茶推荐', emptyAssistantConfig)
+    assert.match(category.answer, /蜜雪冰城/)
+    assert.match(category.answer, /古茗奶茶/)
+    assert.doesNotMatch(category.answer, /桥都火锅店/)
+
+    // Single-shop detail: asking about 蜜雪冰城 returns its review card.
+    const detail = await answerCampusQuestion(client, '蜜雪冰城怎么样', emptyAssistantConfig)
+    assert.match(detail.answer, /蜜雪冰城/)
+    assert.match(detail.answer, /冰鲜柠檬水/)
+    assert.equal(detail.confidence, 0.78)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})

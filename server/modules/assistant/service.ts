@@ -2679,16 +2679,68 @@ function assistantKnowledgeEvidenceForQuery(
  * the same data shown on the map popup. Returns null when the query is not a
  * food-recommendation question or when no fresh ratings exist.
  */
+/**
+ * Fetch all rewritten seed review cards for one place (source='seed').
+ */
+function seedRowsForPlace(
+  client: DatabaseClient,
+  placeId: string
+): Array<{ tag: string, score: number, content: string }> {
+  const rows = client.db.select({
+    score: placeReviews.score,
+    content: placeReviews.content
+  }).from(placeReviews)
+    .where(and(
+      eq(placeReviews.placeId, placeId),
+      eq(placeReviews.source, 'seed'),
+      eq(placeReviews.status, 'approved')
+    ))
+    .orderBy(desc(placeReviews.score))
+    .all()
+  return rows.map(row => {
+    const firstLine = row.content.split('\n', 1)[0]?.trim() ?? ''
+    const tag = row.score >= 4.5 ? '综合口碑' : row.score >= 3.5 ? '学生常点' : '需要注意'
+    return { tag, score: row.score, content: firstLine }
+  })
+}
+
 function assistantFoodRecommendationAnswer(
   client: DatabaseClient,
   query: string
 ): ApiAssistantResponse | null {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
-  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食)/u.test(normalized)
-  const isQuestion = /(?:推荐|有什么|哪家|吃什么|去哪|怎么样|好吃吗|评分|好吃)/u.test(normalized)
+  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店)/u.test(normalized)
+  const isQuestion = /(?:推荐|有什么|哪家|吃什么|去哪|怎么样|好吃吗|评分|好吃|评价)/u.test(normalized)
   if (!foodIntent || !isQuestion) return null
   // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
   if (isBroadCampusOverviewQuery(query)) return null
+
+  // Category filter: "推荐奶茶/火锅/烧烤/面/便宜的" narrows the merchant pool.
+  const CATEGORY_PATTERNS: Array<[RegExp, RegExp]> = [
+    [/奶茶|饮品|柠檬茶|茶饮|咖啡|冰城|雪王/u, /(?:奶茶|柠檬茶|咖啡|茶饮|水吧|饮品|冰城|雪王)/u],
+    [/火锅|自助火锅|牛肉火锅/u, /(?:火锅|涮)/u],
+    [/烧烤|烤串|烤肉|铁板/u, /(?:烧烤|烤串|烤肉|铁板|烤鱼)/u],
+    [/麻辣烫|麻辣拌/u, /(?:麻辣烫|麻辣拌)/u],
+    [/面|粉|面条|牛肉粉|螺蛳粉|砂锅粉|卤面/u, /(?:面|粉|馄饨|云吞|米线)/u],
+    [/汉堡|鸡排|炸鸡|快餐|盖饭|拌饭|鸡公煲/u, /(?:汉堡|鸡排|炸鸡|快餐|盖饭|拌饭|鸡公煲|脆皮鸡)/u],
+    [/烘焙|蛋糕|甜品|西点|面包|甜品店/u, /(?:烘焙|蛋糕|甜品|西点|面包|奶茶.*甜品)/u],
+    [/包子|水饺|饺子|馒头/u, /(?:包子|水饺|饺子)/u],
+    [/寿司|日料|料理/u, /(?:寿司|日料|料理|刺身)/u],
+    [/小炒|家常菜|中餐|私房菜/u, /(?:小炒|家常|私房菜)/u],
+    [/早餐|早点|豆浆|油条/u, /(?:早餐|早点|面线糊|包子|豆浆)/u],
+    [/夜宵|烧烤.*夜宵/u, /(?:烧烤|炸串|大排档)/u]
+  ]
+  let categoryMatch: RegExp | null = null
+  for (const [trigger, namePattern] of CATEGORY_PATTERNS) {
+    if (trigger.test(normalized)) {
+      categoryMatch = namePattern
+      break
+    }
+  }
+
+  // Price filter: 便宜/实惠 → per-person under 20; 人均高/贵 → over 50.
+  const cheapQuery = /(?:便宜|实惠|平价|性价比|穷|省钱|低价|学生党)/u.test(normalized)
+  const expensiveQuery = /(?:贵|高档|大餐|聚餐|请客|人均高|豪华)/u.test(normalized)
 
   const now = Date.now()
   const rows = client.db.select({
@@ -2703,22 +2755,71 @@ function assistantFoodRecommendationAnswer(
       gt(placeAmapRatings.score, 0)
     ))
     .orderBy(desc(placeAmapRatings.score))
-    .limit(60)
+    .limit(80)
     .all()
 
   // Keep food/drink merchants only: drop express, telecom, banking, repair,
   // salon and other non-eating services that also carry AMap ratings.
-  const NON_FOOD_PATTERN = /(?:快递|物流|驿站|电信|移动|联通|银行|维修|美发|理发|美甲|眼镜|洗衣|干洗|打印|复印|照相|药店|诊所|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷)/u
+  const NON_FOOD_PATTERN = /(?:快递|物流|驿站|电信|移动|联通|银行|维修|美发|理发|美甲|眼镜|洗衣|干洗|打印|复印|照相|药店|诊所|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷|邮政|造型|美睫)/u
   const seenNames = new Set<string>()
-  const rated = rows.filter(row => row.score !== null && !NON_FOOD_PATTERN.test(row.name))
+  let rated = rows.filter(row => row.score !== null && !NON_FOOD_PATTERN.test(row.name))
     .filter(row => {
       const key = row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
       if (seenNames.has(key)) return false
       seenNames.add(key)
       return true
     })
-    .slice(0, 12)
-  if (rated.length < 3) return null
+  if (categoryMatch) {
+    rated = rated.filter(row => categoryMatch!.test(row.name))
+  }
+  if (cheapQuery) {
+    rated = rated.filter(row => row.cost === null || row.cost <= 20)
+  }
+  if (expensiveQuery) {
+    rated = rated.filter(row => row.cost === null || row.cost >= 50)
+  }
+  rated = rated.slice(0, 12)
+  // Category/price-filtered results can be thin (e.g. only 2 milk-tea shops);
+  // a single solid answer still beats falling through to the generic guide.
+  if (rated.length < (categoryMatch || cheapQuery || expensiveQuery ? 1 : 3)) return null
+
+  // Single-shop detail: "塔斯汀怎么样 / XX好吃吗" returns that shop's full
+  // review cards when the query names a specific merchant.
+  const shopNameQuery = normalized
+    .replace(/^(?:请问|麻烦|帮我|推荐一下|介绍一下|说说|讲讲|知道)/u, '')
+    .replace(/[?？!！,，。；;：:、\s]/gu, '')
+    .replace(/(?:怎么样|好不好|好吃吗|好吃不|怎么样啊|咋样|如何|评价|评价如何|值得去吗|值得吗|推荐吗|在哪|在哪啊|在哪里|怎么去|几点营业|人均|贵不贵|多少钱)$/u, '')
+    .replace(/(?:这家|这家店|那个|那边|一下|想了解)/gu, '')
+  const shopMatch = rated.find(row => {
+    const candidate = row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+    return shopNameQuery.length >= 2 && candidate.includes(shopNameQuery)
+  })
+  if (shopMatch) {
+    const shopSeed = seedRowsForPlace(client, shopMatch.placeId)
+    if (shopSeed.length > 0) {
+      const detailLines = shopSeed.map(card => (
+        `【${card.tag}】${card.score.toFixed(1)} 分：${card.content}`
+      ))
+      return {
+        query,
+        mode: 'local',
+        answer: [
+          `${shopMatch.name}：高德评分 ${shopMatch.score!.toFixed(1)} 分${shopMatch.cost !== null ? `，人均约 ¥${Math.round(shopMatch.cost)}` : ''}。`,
+          '整理自大众点评用户评价：',
+          ...detailLines,
+          '以上为评价整理（非原文），实际口味因人而异，到店前可在地图卡片再核对。'
+        ].join('\n\n'),
+        citations: [{
+          title: shopMatch.name,
+          url: '/map?place=' + encodeURIComponent(shopMatch.placeId),
+          snippet: `${shopMatch.name}：${shopMatch.score!.toFixed(1)} 分，${shopSeed.length} 条整理评价`,
+          source: 'site' as const
+        }],
+        usedWebSearch: false,
+        confidence: 0.78
+      }
+    }
+  }
 
   // Enrich with rewritten seed review cards (from Dianping, source='seed'):
   // one card per rated shop, so the recommendation carries real user
@@ -2748,8 +2849,20 @@ function assistantFoodRecommendationAnswer(
     const tipText = tips.length > 0 ? `（${tips.join('；')}）` : ''
     return `${index + 1}. ${row.name}：${row.score!.toFixed(1)} 分${costText}${tipText}`
   })
+  const filterNote = categoryMatch
+    ? cheapQuery || expensiveQuery
+      ? '（已按你要的类型和价格筛选）'
+      : '（已按你要的类型筛选）'
+    : cheapQuery || expensiveQuery
+      ? '（已按你要的价格筛选）'
+      : ''
+  const intro = categoryMatch
+    ? `按你问的类型，校园内评分较高的选择如下${filterNote}：`
+    : cheapQuery || expensiveQuery
+      ? `按你问的价格档位，校园内评分较高的选择如下${filterNote}：`
+      : '校园内评分较高的选择如下：'
   const answer = [
-    '根据校园内已收录商家的评分数据（评分来自高德聚合，口碑摘录自大众点评用户评价整理，均标注在地图卡片上），为你整理附近评分较高的选择：',
+    `根据校园内已收录商家的评分数据（评分来自高德聚合，口碑摘录自大众点评用户评价整理），${intro}`,
     lines.join('\n'),
     '实际口味因人而异。打开校园地图（学生街区域）点击对应商家，可查看评分详情和整理评价；如果想知道具体某一家的更多信息，直接问我店名即可。'
   ].join('\n\n')
