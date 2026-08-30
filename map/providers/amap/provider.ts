@@ -527,21 +527,32 @@ export class AMapProvider implements MapProvider {
     // Polyline 并 add（用未转换坐标先画会偏出视野，甚至让 setFitView 飞到错误位置）。
     const mapRef = map
     void this.convertPoints(points, amap).then((converted) => {
-      if (this.map !== mapRef) return
-      if (!converted.every((position): position is AMapPosition => position !== null)) return
-
-      const line = new amap.Polyline({
-        path: converted,
+      const mapNow = this.map
+      const amapNow = this.amap
+      if (!mapNow || !amapNow) return
+      const path: AMapPosition[] = converted.every((position): position is AMapPosition => position !== null)
+        ? converted
+        : points.map(point => [point.lng, point.lat] as AMapPosition)
+      if (this.walkRoutePolyline) {
+        try {
+          mapNow.remove(this.walkRoutePolyline)
+        } catch {
+          // 清理失败不致命；新线即将 add。
+        }
+        this.walkRoutePolyline = null
+      }
+      const line = new amapNow.Polyline({
+        path,
         strokeColor: '#16a34a',
         strokeWeight: 6,
         strokeOpacity: 0.9,
         strokeStyle: 'solid',
         zIndex: 120
       })
-      mapRef.add(line)
+      mapNow.add(line)
       this.walkRoutePolyline = line
       try {
-        mapRef.setFitView([line], false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
+        mapNow.setFitView([line], false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
       } catch {
         // 视野调整是优化项，失败不影响路线显示。
       }
