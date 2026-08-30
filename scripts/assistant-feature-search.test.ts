@@ -1076,3 +1076,47 @@ test('food recommendation filters by category and answers single-shop details', 
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('food recommendation filters by campus area and budget cap', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-food-area-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    const expires = now + 7 * 24 * 60 * 60 * 1000
+    const seed = client.sqlite.prepare(`
+      INSERT OR REPLACE INTO place_amap_ratings
+        (place_id, amap_poi_id, amap_poi_name, score, cost, fetched_at, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const shops = [
+      ['B0CCC1', 'B0CCC1', '蜜雪冰城(仰恩大学新校区店)', 4.3, 9],
+      ['B0CCC2', 'B0CCC2', '古茗奶茶(仰恩大学店)', 4.4, 16],
+      ['B0CCC3', 'B0CCC3', '桥都火锅店(旧区)', 4.2, 58],
+      ['B0CCC4', 'B0CCC4', '沙县小吃(旧区学生街店)', 3.7, 20]
+    ] as const
+    for (const [id, poiId, name, score, cost] of shops) {
+      seed.run(id, poiId, name, score, cost, now, expires, now, now)
+    }
+
+    // 新区 filter: only new-campus shops.
+    const newArea = await answerCampusQuestion(client, '新区有什么好吃的', emptyAssistantConfig)
+    assert.match(newArea.answer, /蜜雪冰城/)
+    assert.match(newArea.answer, /古茗奶茶/)
+    assert.doesNotMatch(newArea.answer, /桥都火锅店/)
+
+    // 旧区 filter: only old-campus shops.
+    const oldArea = await answerCampusQuestion(client, '旧区有什么好吃的', emptyAssistantConfig)
+    assert.match(oldArea.answer, /桥都火锅店/)
+    assert.doesNotMatch(oldArea.answer, /蜜雪冰城/)
+
+    // Budget cap: 预算 15 以内 only per-person ≤15.
+    const budget = await answerCampusQuestion(client, '中午吃什么 预算15以内', emptyAssistantConfig)
+    assert.match(budget.answer, /蜜雪冰城/)  // ¥9
+    assert.doesNotMatch(budget.answer, /桥都火锅店/)  // ¥58
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})

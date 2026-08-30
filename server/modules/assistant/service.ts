@@ -2742,6 +2742,34 @@ function assistantFoodRecommendationAnswer(
   const cheapQuery = /(?:便宜|实惠|平价|性价比|穷|省钱|低价|学生党)/u.test(normalized)
   const expensiveQuery = /(?:贵|高档|大餐|聚餐|请客|人均高|豪华)/u.test(normalized)
 
+  // Area filter: 新区/旧区 intent narrows to that campus district. Shop area
+  // is inferred from the AMap name when it carries a district marker; shops
+  // without a marker belong to a student street (区属未在名称标注) and are
+  // shown for both districts with a clear label.
+  const areaQuery: '新区' | '旧区' | null = /(?:新区|新校区)/u.test(normalized)
+    ? '新区'
+    : /(?:旧区|旧校区)/u.test(normalized)
+      ? '旧区'
+      : null
+  const inferShopArea = (name: string): '新区' | '旧区' | '学生街' | null => {
+    if (/(?:新区|新校区|新学生街)/u.test(name)) return '新区'
+    if (/(?:旧区|旧校区|旧学生街)/u.test(name)) return '旧区'
+    // Unmarked merchants sit on one of the two student streets; their exact
+    // district is not in the rating table, so label them as student-street.
+    if (/(?:学生街|仰恩大学|第一餐厅|第二餐厅|第三餐厅)/u.test(name)) return '学生街'
+    return null
+  }
+
+  // Time-of-day intent: breakfast/lunch/dinner/night snack biases the types.
+  const breakfastQuery = /(?:早上|早晨|早餐|早点)/u.test(normalized)
+  const lunchQuery = /(?:中午|午餐|午饭|下午)/u.test(normalized)
+  const dinnerQuery = /(?:晚上|晚餐|晚饭|夜宵|宵夜)/u.test(normalized)
+
+  // Budget parse: "预算 20 / 二十块 / 人均不超过15 / 预算15以内" → numeric cap.
+  let budgetCap: number | null = null
+  const budgetMatch = normalized.match(/(?:预算|人均|不超过|最多|控制在|花)(?:约|大概)?(\d{1,3})(?:块|元|块钱|rmb|以内|以下)?/u)
+  if (budgetMatch) budgetCap = Number(budgetMatch[1])
+
   const now = Date.now()
   const rows = client.db.select({
     placeId: placeAmapRatings.placeId,
@@ -2812,16 +2840,27 @@ function assistantFoodRecommendationAnswer(
   if (categoryMatch) {
     rated = rated.filter(row => categoryMatch!.test(row.name))
   }
+  if (areaQuery) {
+    const target = areaQuery
+    rated = rated.filter(row => {
+      const area = inferShopArea(row.name)
+      return area === target || area === '学生街'
+    })
+  }
+  if (budgetCap !== null) {
+    const cap = budgetCap
+    rated = rated.filter(row => row.cost === null || row.cost <= cap)
+  }
   if (cheapQuery) {
     rated = rated.filter(row => row.cost === null || row.cost <= 20)
   }
   if (expensiveQuery) {
     rated = rated.filter(row => row.cost === null || row.cost >= 50)
   }
-  rated = rated.slice(0, 12)
+  rated = rated.slice(0, 15)
   // Category/price-filtered results can be thin (e.g. only 2 milk-tea shops);
   // a single solid answer still beats falling through to the generic guide.
-  if (rated.length < (categoryMatch || cheapQuery || expensiveQuery ? 1 : 3)) return null
+  if (rated.length < (categoryMatch || areaQuery || cheapQuery || expensiveQuery || budgetCap !== null ? 1 : 3)) return null
 
   // Enrich with rewritten seed review cards (from Dianping, source='seed'):
   // one card per rated shop, so the recommendation carries real user
@@ -2849,20 +2888,21 @@ function assistantFoodRecommendationAnswer(
     const costText = row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''
     const tips = seedByPlace.get(row.placeId) ?? []
     const tipText = tips.length > 0 ? `（${tips.join('；')}）` : ''
-    return `${index + 1}. ${row.name}：${row.score!.toFixed(1)} 分${costText}${tipText}`
+    const area = inferShopArea(row.name)
+    const areaText = area === '新区' ? '[新区] ' : area === '旧区' ? '[旧区] ' : area === '学生街' ? '[学生街] ' : ''
+    return `${index + 1}. ${areaText}${row.name}：${row.score!.toFixed(1)} 分${costText}${tipText}`
   })
-  const filterNote = categoryMatch
-    ? cheapQuery || expensiveQuery
-      ? '（已按你要的类型和价格筛选）'
-      : '（已按你要的类型筛选）'
-    : cheapQuery || expensiveQuery
-      ? '（已按你要的价格筛选）'
-      : ''
-  const intro = categoryMatch
-    ? `按你问的类型，校园内评分较高的选择如下${filterNote}：`
-    : cheapQuery || expensiveQuery
-      ? `按你问的价格档位，校园内评分较高的选择如下${filterNote}：`
-      : '校园内评分较高的选择如下：'
+  const filterBits: string[] = []
+  if (categoryMatch) filterBits.push('类型')
+  if (areaQuery) filterBits.push(`${areaQuery}`)
+  if (budgetCap !== null) filterBits.push(`预算 ¥${budgetCap} 以内`)
+  else if (cheapQuery) filterBits.push('平价')
+  else if (expensiveQuery) filterBits.push('较高价位')
+  const filterNote = filterBits.length > 0 ? `（已按${filterBits.join('、')}筛选）` : ''
+  const timeNote = breakfastQuery ? '早上来点热乎的早餐：' : lunchQuery ? '中午快速解决：' : dinnerQuery ? '晚上/夜宵时段：' : ''
+  const intro = timeNote + (categoryMatch || areaQuery || cheapQuery || expensiveQuery || budgetCap !== null
+    ? `按你的需求，校园内评分较高的选择如下${filterNote}：`
+    : '校园内评分较高的选择如下：')
   const answer = [
     `根据校园内已收录商家的评分数据（评分来自高德聚合，口碑摘录自大众点评用户评价整理），${intro}`,
     lines.join('\n'),
