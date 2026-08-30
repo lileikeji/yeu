@@ -385,7 +385,7 @@ const mineStatusText = computed<string | null>(() => {
                   class="size-3"
                   :class="review.likedByMe ? 'fill-amber-500 text-amber-500' : ''"
                 />
-                <span>{{ review.likeCount > 0 ? review.likeCount : '赞' }}</span>
+                <span v-if="review.likeCount > 0">{{ review.likeCount }}</span>
               </button>
             </div>
             <p class="mt-1 whitespace-pre-line text-xs leading-5 text-zinc-600">
