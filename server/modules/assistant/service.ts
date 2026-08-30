@@ -892,16 +892,22 @@ function campusProcedureRetrievalQuery(value: string): string | null {
   return `${subjects.join(' ')}${boilerplate}`
 }
 
-const ASSISTANT_FOLLOW_UP_RE = /^(?:(?:那|这个|具体|所以|请问)\s*)?(?:是\s*)?(?:哪栋楼|哪一栋|叫什么|在哪里|在哪|多久|多少钱|怎么弄|怎么申请|什么时候|有吗|可以吗|能吗)[?？。！!]?$/u
+const ASSISTANT_FOLLOW_UP_RE = /^(?:(?:那|这个|具体|所以|请问|顺便)\s*)?(?:是\s*)?(?:哪栋楼|哪一栋|叫什么|在哪里|在哪|多久|多少钱|怎么弄|怎么申请|什么时候|有吗|可以吗|能吗)[?？。！!]?$/u
+
+// Food-dialog follow-ups keep the previous context: "那奶茶呢 / 吃面呢 /
+// 便宜点的 / 那火锅呢 / 新区的呢" continue the budget/area/category thread.
+const FOOD_FOLLOW_UP_RE = /^(?:那|那.{0,6}|吃)?(?:奶茶|咖啡|火锅|烧烤|面|粉|饭|汉堡|鸡排|快餐|甜品|烘焙|包子|饺子|寿司|早餐|夜宵|便宜|实惠|贵|平价|学生街|新区|旧区|预算|人均|再推荐|别的|其他|换一家|再来|还有|蜜雪|冰城|古茗|沙县|塔斯汀|正新)(?:的呢|的|点|点的|呢)?[?？。！!]?$/u
 
 export function resolveAssistantFollowUpQuery(value: string, previousValue?: string): string {
   const query = normalizeAssistantQuery(value)
   const previousQuery = normalizeAssistantQuery(previousValue ?? '')
+  const isFollowUp = ASSISTANT_FOLLOW_UP_RE.test(query)
+    || (FOOD_FOLLOW_UP_RE.test(query) && /(?:吃|美食|推荐|学生街|奶茶|火锅|餐厅|小吃|食堂)/u.test(previousQuery))
   if (
     !previousQuery
     || previousQuery === query
     || query.length > 16
-    || !ASSISTANT_FOLLOW_UP_RE.test(query)
+    || !isFollowUp
     || containsPromptInjection(previousQuery)
     || !shouldUseCampusKnowledgeBase(previousQuery)
   ) return query
