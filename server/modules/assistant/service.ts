@@ -91,6 +91,7 @@ import {
   assistantWebKnowledge,
   contents,
   placeAmapRatings,
+  placeReviews,
   places,
   procedureMaterials,
   procedures,
@@ -2719,14 +2720,38 @@ function assistantFoodRecommendationAnswer(
     .slice(0, 12)
   if (rated.length < 3) return null
 
+  // Enrich with rewritten seed review cards (from Dianping, source='seed'):
+  // one card per rated shop, so the recommendation carries real user
+  // impressions, not just the aggregate score.
+  const seedRows = client.db.select({
+    placeId: placeReviews.placeId,
+    score: placeReviews.score,
+    content: placeReviews.content
+  }).from(placeReviews)
+    .where(and(
+      eq(placeReviews.source, 'seed'),
+      eq(placeReviews.status, 'approved')
+    ))
+    .orderBy(desc(placeReviews.score))
+    .all()
+  const seedByPlace = new Map<string, string[]>()
+  for (const row of seedRows) {
+    const list = seedByPlace.get(row.placeId) ?? []
+    const firstLine = row.content.split('\n', 1)[0]?.trim() ?? ''
+    if (firstLine && list.length < 2) list.push(firstLine)
+    seedByPlace.set(row.placeId, list)
+  }
+
   const lines = rated.map((row, index) => {
     const costText = row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''
-    return `${index + 1}. ${row.name}：${row.score!.toFixed(1)} 分${costText}`
+    const tips = seedByPlace.get(row.placeId) ?? []
+    const tipText = tips.length > 0 ? `（${tips.join('；')}）` : ''
+    return `${index + 1}. ${row.name}：${row.score!.toFixed(1)} 分${costText}${tipText}`
   })
   const answer = [
-    '根据校园内已收录商家的评分数据（数据来自高德聚合评分，标注在校园地图卡片上），为你整理附近评分较高的选择：',
+    '根据校园内已收录商家的评分数据（评分来自高德聚合，口碑摘录自大众点评用户评价整理，均标注在地图卡片上），为你整理附近评分较高的选择：',
     lines.join('\n'),
-    '以上评分来自高德地图聚合数据，实际口味因人而异。打开校园地图（学生街区域）点击对应商家，可以查看评分详情；如果想知道具体某一家的更多信息，直接问我店名即可。'
+    '实际口味因人而异。打开校园地图（学生街区域）点击对应商家，可查看评分详情和整理评价；如果想知道具体某一家的更多信息，直接问我店名即可。'
   ].join('\n\n')
 
   return {
