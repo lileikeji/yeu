@@ -341,15 +341,25 @@ function locateSearchTerm(shopName: string): string {
 function splitAssistantAnswer(answer: string): AssistantAnswerSegment[] {
   const segments: AssistantAnswerSegment[] = []
   const parts = answer.split('〔地图定位〕')
+  // Intro paragraphs ("根据…选择如下：") end with a colon too; require a
+  // numbered list item ("1. 店名：…") or a bare shop name line that does not
+  // start with intro phrasing, so the opening paragraph never gets a locate
+  // link pointing at the whole answer.
+  const INTRO_PREFIX = /^(?:根据|按|以下是|为你整理|结合|校园内|附近|学生街)/u
   for (let i = 0; i < parts.length; i += 1) {
     const text = parts[i]!
     if (text) {
-      // Recover the shop name from the segment start ("1. 店名：..." or "店名：...").
-      const match = text.match(/(?:^\d+\.\s*(?:\[[^\]]+\]\s*)?|^)([^：:]+?)(?:：|:)/u)
+      // Recover the shop name from the segment start.
+      // Prefer "1. [区域] 店名："; fall back to "店名：" when not intro-ish.
+      const numbered = text.match(/^\s*\d+\.\s*(?:\[[^\]]+\]\s*)?([^：:]+?)(?:：|:)/u)
+      const bare = !numbered && !INTRO_PREFIX.test(text.trim())
+        ? text.match(/^([^：:]{1,24}?)(?:：|:)/u)
+        : null
+      const shopName = (numbered?.[1] ?? bare?.[1] ?? '').trim()
       segments.push({
         text,
         locate: false,
-        shopName: match ? match[1]!.trim() : ''
+        shopName
       })
     }
     if (i < parts.length - 1) {
