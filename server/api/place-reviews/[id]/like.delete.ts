@@ -1,9 +1,9 @@
-import { setReviewLike } from '../../../../modules/place-reviews/service'
-import { useAppDatabase } from '../../../../utils/database'
-import { getClientIpAddress } from '../../../../utils/client-ip'
-import { assertRateLimit } from '../../../../utils/rate-limit'
-import { requireUserSession } from '../../../../utils/user-auth'
-import { requireUuidParam } from '../../../../utils/validation'
+import { setReviewLike } from '../../../modules/place-reviews/service'
+import { useAppDatabase } from '../../../utils/database'
+import { getClientIpAddress } from '../../../utils/client-ip'
+import { assertRateLimit } from '../../../utils/rate-limit'
+import { requireUserSession } from '../../../utils/user-auth'
+import { requireUuidParam } from '../../../utils/validation'
 
 export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
