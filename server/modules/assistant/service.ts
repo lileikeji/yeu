@@ -2825,7 +2825,7 @@ function assistantFoodRecommendationAnswer(
         query,
         mode: 'local',
         answer: [
-          `${shopMatch.name}：高德评分 ${shopMatch.score!.toFixed(1)} 分${shopMatch.cost !== null ? `，人均约 ¥${Math.round(shopMatch.cost)}` : ''}。`,
+          `${shopMatch.name}：高德评分 ${shopMatch.score!.toFixed(1)} 分${shopMatch.cost !== null ? `，人均约 ¥${Math.round(shopMatch.cost)}` : ''}。〔地图定位〕`,
           '整理自大众点评用户评价：',
           ...detailLines,
           '以上为评价整理（非原文），实际口味因人而异，到店前可在地图卡片再核对。'
@@ -2896,7 +2896,8 @@ function assistantFoodRecommendationAnswer(
     const tipText = tips.length > 0 ? `（${tips.join('；')}）` : ''
     const area = inferShopArea(row.name)
     const areaText = area === '新区' ? '[新区] ' : area === '旧区' ? '[旧区] ' : area === '学生街' ? '[学生街] ' : ''
-    return `${index + 1}. ${areaText}${row.name}：${row.score!.toFixed(1)} 分${costText}${tipText}`
+    // 〔地图定位〕 marker → rendered as an inline link to /map?q=<shop name>.
+    return `${index + 1}. ${areaText}${row.name}：${row.score!.toFixed(1)} 分${costText}${tipText}〔地图定位〕`
   })
   const filterBits: string[] = []
   if (categoryMatch) filterBits.push('类型')

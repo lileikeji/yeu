@@ -1024,6 +1024,9 @@ test('assistant recommends nearby food from seeded AMap ratings', async () => {
     assert.ok(response.citations.length >= 3)
     assert.ok(response.citations.every(item => item.url.startsWith('/map')))
     assert.equal(response.confidence, 0.72)
+    // Every recommendation line carries a map-locate marker.
+    assert.ok(response.answer.includes('〔地图定位〕'))
+    assert.equal((response.answer.match(/〔地图定位〕/g) ?? []).length, 5)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

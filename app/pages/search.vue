@@ -314,6 +314,44 @@ function assistantModeLabel(response: ApiAssistantResponse): string {
     ?? (response.mode === 'local' ? '本站资料' : response.usedWebSearch ? 'AI + 网页检索' : 'AI 整理')
 }
 
+interface AssistantAnswerSegment {
+  text: string
+  locate: boolean
+  shopName: string
+}
+
+/**
+ * Split the assistant answer into text segments and 〔地图定位〕 markers.
+ * Each marker becomes an inline link to /map?q=<shop name> which locates the
+ * merchant on the campus map.
+ */
+function splitAssistantAnswer(answer: string): AssistantAnswerSegment[] {
+  const segments: AssistantAnswerSegment[] = []
+  const parts = answer.split('〔地图定位〕')
+  for (let i = 0; i < parts.length; i += 1) {
+    const text = parts[i]!
+    if (text) {
+      // Recover the shop name from the segment start ("1. 店名：..." or "店名：...").
+      const match = text.match(/(?:^\d+\.\s*(?:\[[^\]]+\]\s*)?|^)([^：:]+?)(?:：|:)/u)
+      segments.push({
+        text,
+        locate: false,
+        shopName: match ? match[1]!.trim() : ''
+      })
+    }
+    if (i < parts.length - 1) {
+      // The shop name for the marker belongs to the current segment.
+      const prev = segments[segments.length - 1]
+      segments.push({
+        text: '',
+        locate: true,
+        shopName: prev?.shopName ?? ''
+      })
+    }
+  }
+  return segments
+}
+
 function startAssistantClock(): void {
   if (assistantClockTimer) clearInterval(assistantClockTimer)
   assistantClock.value = Date.now()
@@ -829,7 +867,24 @@ onBeforeUnmount(() => {
               </div>
               <template v-if="assistantResponse">
                 <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700">
-                  {{ assistantResponse.answer }}
+                  <template
+                    v-for="(segment, segIndex) in splitAssistantAnswer(assistantResponse.answer)"
+                    :key="segIndex"
+                  >
+                    <template v-if="!segment.locate">{{ segment.text }}</template>
+                    <NuxtLink
+                      v-else
+                      :to="`/map?q=${encodeURIComponent(segment.shopName)}`"
+                      class="mx-1 inline-flex items-center gap-0.5 rounded bg-green-50 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-green-700 hover:bg-green-100"
+                      @click.stop
+                    >
+                      <UIcon
+                        name="i-lucide-map-pin"
+                        class="size-3"
+                      />
+                      地图定位
+                    </NuxtLink>
+                  </template>
                 </p>
                 <div
                   v-if="assistantResponse.citations.length"
