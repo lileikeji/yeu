@@ -11,6 +11,8 @@ import type {
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
 import type { GeoPoint, MapArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
+import { campusWalkGraph } from '../../../data/seeds/campus-walk-graph'
+import { solveCampusWalkRoute, walkRoutePolyline } from '../../../app/utils/walk-route'
 import { ensureAMapPlugins, loadAMap } from './loader'
 import type {
   AMapCircle,
@@ -142,6 +144,7 @@ export class AMapProvider implements MapProvider {
   private lastHotspotSelectedAt = 0
   private markerCluster: AMapMarkerCluster | null = null
   private walking: AMapWalking | null = null
+  private walkRoutePolyline: AMapPolyline | null = null
   private selectedMarker: AMapMarker | null = null
   private selectedMarkerClickHandler: ((event: AMapMouseEvent) => void) | null = null
   private selectedPoiId: string | null = null
@@ -428,11 +431,26 @@ export class AMapProvider implements MapProvider {
     const amap = this.amap
     const map = this.map
     if (!amap || !map) throw new Error('高德地图尚未加载完成。')
-    if (!await this.ensurePlugins(['AMap.Walking'])) {
-      throw new Error('高德步行路线插件暂时不可用，请稍后重试。')
-    }
     if (!this.isRenderablePoint(origin) || !this.isRenderablePoint(destination)) {
       throw new Error('起点或终点坐标无法用于路线规划。')
+    }
+
+    // 校内路由优先走本地步行图：图上可达时用 Dijkstra 真实可走路径，避免
+    // 高德不知道校园围墙/门禁而规划出「穿墙、假门」的路线。仅当起终点无法
+    // 吸附到图（或图中不可达）时才回退高德在线步行 API。
+    const graphResult = solveCampusWalkRoute(campusWalkGraph, origin, destination)
+    if (graphResult.ok && !graphResult.schematic && graphResult.nodeIds.length >= 2) {
+      const polyline = walkRoutePolyline(campusWalkGraph, graphResult.nodeIds)
+      this.clearRoute()
+      this.walkRoutePolyline = this.drawWalkRoutePolyline(polyline)
+      return {
+        distanceMeters: graphResult.distanceMeters,
+        durationSeconds: graphResult.durationSeconds
+      }
+    }
+
+    if (!await this.ensurePlugins(['AMap.Walking'])) {
+      throw new Error('高德步行路线插件暂时不可用，请稍后重试。')
     }
 
     const [convertedOrigin, convertedDestination] = await this.convertPoints([origin, destination], amap)
@@ -474,6 +492,32 @@ export class AMapProvider implements MapProvider {
         finish(new Error('步行路线规划调用失败。'))
       }
     })
+  }
+
+  /**
+   * Draws a local walk-graph polyline on the AMap basemap. Points are WGS84
+   * (walk-graph discipline), so they are converted to GCJ-02 for display.
+   */
+  private drawWalkRoutePolyline(points: GeoPoint[]): AMapPolyline | null {
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap || points.length < 2) return null
+
+    const line = new amap.Polyline({
+      path: points.map(point => [point.lng, point.lat] as AMapPosition),
+      strokeColor: '#16a34a',
+      strokeWeight: 6,
+      strokeOpacity: 0.9,
+      strokeStyle: 'solid',
+      zIndex: 120
+    })
+    map.add(line)
+    void this.convertPoints(points, amap).then((converted) => {
+      if (!converted.every((position): position is AMapPosition => position !== null)) return
+      line.setOptions?.({ path: converted })
+      map.setFitView([line], false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
+    })
+    return line
   }
 
   searchVisiblePois(query: string): Promise<MapPoi[]> {
@@ -584,6 +628,10 @@ export class AMapProvider implements MapProvider {
   clearRoute(): void {
     this.walking?.clear()
     this.walking = null
+    if (this.map && this.walkRoutePolyline) {
+      this.map.remove(this.walkRoutePolyline)
+    }
+    this.walkRoutePolyline = null
   }
 
   destroy(): void {
