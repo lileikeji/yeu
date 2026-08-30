@@ -436,17 +436,24 @@ export class AMapProvider implements MapProvider {
     }
 
     // 校内路由优先走本地步行图：图上可达时用 Dijkstra 真实可走路径，避免
-    // 高德不知道校园围墙/门禁而规划出「穿墙、假门」的路线。仅当起终点无法
-    // 吸附到图（或图中不可达）时才回退高德在线步行 API。
-    const graphResult = solveCampusWalkRoute(campusWalkGraph, origin, destination)
-    if (graphResult.ok && !graphResult.schematic && graphResult.nodeIds.length >= 2) {
-      const polyline = walkRoutePolyline(campusWalkGraph, graphResult.nodeIds)
-      this.clearRoute()
-      this.walkRoutePolyline = this.drawWalkRoutePolyline(polyline)
-      return {
-        distanceMeters: graphResult.distanceMeters,
-        durationSeconds: graphResult.durationSeconds
+    // 高德不知道校园围墙/门禁而规划出「穿墙、假门」的路线。本地图任何一步
+    // 失败（不可吸附、不可达、画线异常）都立即回退高德在线步行 API——
+    // 高德是兜底，不是可选项。
+    try {
+      // GPS 定位点可能偏离图节点数十米，吸附半径放宽到 180m（校内节点密度足够，
+      // 且吸附点之间仍走图上真实路径，不会引入假门）。
+      const graphResult = solveCampusWalkRoute(campusWalkGraph, origin, destination, { snapRadiusMeters: 180 })
+      if (graphResult.ok && !graphResult.schematic && graphResult.nodeIds.length >= 2) {
+        const polyline = walkRoutePolyline(campusWalkGraph, graphResult.nodeIds)
+        if (this.drawWalkRoutePolyline(polyline)) {
+          return {
+            distanceMeters: graphResult.distanceMeters,
+            durationSeconds: graphResult.durationSeconds
+          }
+        }
       }
+    } catch {
+      // 本地图异常不阻断导航：落到高德兜底。
     }
 
     if (!await this.ensurePlugins(['AMap.Walking'])) {
@@ -497,11 +504,24 @@ export class AMapProvider implements MapProvider {
   /**
    * Draws a local walk-graph polyline on the AMap basemap. Points are WGS84
    * (walk-graph discipline), so they are converted to GCJ-02 for display.
+   * The map is fitted to the (WGS84-approximated) path immediately so the
+   * route is visible even if the conversion call fails; the conversion then
+   * refines the path in place. Returns false when nothing could be drawn.
    */
-  private drawWalkRoutePolyline(points: GeoPoint[]): AMapPolyline | null {
+  private drawWalkRoutePolyline(points: GeoPoint[]): boolean {
     const map = this.map
     const amap = this.amap
-    if (!map || !amap || points.length < 2) return null
+    if (!map || !amap || points.length < 2) return false
+
+    // 清掉上一次的本地图路线（高德 Walking 路线的清理由其自身流程负责）。
+    if (this.walkRoutePolyline) {
+      try {
+        map.remove(this.walkRoutePolyline)
+      } catch {
+        // 清理失败不致命；新线即将 add。
+      }
+      this.walkRoutePolyline = null
+    }
 
     const line = new amap.Polyline({
       path: points.map(point => [point.lng, point.lat] as AMapPosition),
@@ -512,12 +532,24 @@ export class AMapProvider implements MapProvider {
       zIndex: 120
     })
     map.add(line)
-    void this.convertPoints(points, amap).then((converted) => {
-      if (!converted.every((position): position is AMapPosition => position !== null)) return
-      line.setOptions?.({ path: converted })
+    try {
+      // 先用 WGS84 近似路径把视野拉到路线上：保证即使坐标转换失败也能看到线。
       map.setFitView([line], false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
+    } catch {
+      // fitView 失败不致命；转换成功后还会再 fit 一次。
+    }
+    const mapRef = map
+    void this.convertPoints(points, amap).then((converted) => {
+      if (this.map !== mapRef || !converted.every((position): position is AMapPosition => position !== null)) return
+      line.setOptions?.({ path: converted })
+      try {
+        mapRef.setFitView([line], false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
+      } catch {
+        // 视野调整是优化项，失败不影响路线显示。
+      }
     })
-    return line
+    this.walkRoutePolyline = line
+    return true
   }
 
   searchVisiblePois(query: string): Promise<MapPoi[]> {

@@ -147,6 +147,11 @@ export interface WalkRouteResult {
   schematic: boolean
 }
 
+export interface WalkRouteOptions {
+  /** 起终点到图节点的最大吸附半径（米）；默认 DEFAULT_MAX_SNAP_RADIUS_METERS。 */
+  snapRadiusMeters?: number
+}
+
 /**
  * 求解起终点步行路线。
  *
@@ -157,9 +162,11 @@ export interface WalkRouteResult {
 export function solveCampusWalkRoute(
   graph: CampusWalkGraph,
   origin: Pick<GeoPoint, 'lng' | 'lat'>,
-  destination: Pick<GeoPoint, 'lng' | 'lat'>
+  destination: Pick<GeoPoint, 'lng' | 'lat'>,
+  options: WalkRouteOptions = {}
 ): WalkRouteResult {
   const straightLine = Math.round(haversineMeters(origin, destination))
+  const snapRadius = options.snapRadiusMeters ?? DEFAULT_MAX_SNAP_RADIUS_METERS
 
   if (graph.nodes.length === 0) {
     return {
@@ -171,8 +178,8 @@ export function solveCampusWalkRoute(
     }
   }
 
-  const start = nearestWalkNode(graph, origin)
-  const goal = nearestWalkNode(graph, destination)
+  const start = nearestWalkNode(graph, origin, snapRadius)
+  const goal = nearestWalkNode(graph, destination, snapRadius)
 
   if (!start || !goal) {
     return {
