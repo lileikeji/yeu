@@ -2710,7 +2710,7 @@ function assistantFoodRecommendationAnswer(
 ): ApiAssistantResponse | null {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店)/u.test(normalized)
-  const isQuestion = /(?:推荐|有什么|哪家|吃什么|去哪|怎么样|好吃吗|评分|好吃|评价)/u.test(normalized)
+  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么)/u.test(normalized)
   if (!foodIntent || !isQuestion) return null
   // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
   if (isBroadCampusOverviewQuery(query)) return null
