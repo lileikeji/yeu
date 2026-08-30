@@ -11,8 +11,6 @@ import type {
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
 import type { GeoPoint, MapArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
-import { campusWalkGraph } from '../../../data/seeds/campus-walk-graph'
-import { solveCampusWalkRoute, walkRoutePolyline } from '../../../app/utils/walk-route'
 import { ensureAMapPlugins, loadAMap } from './loader'
 import type {
   AMapCircle,
@@ -144,7 +142,6 @@ export class AMapProvider implements MapProvider {
   private lastHotspotSelectedAt = 0
   private markerCluster: AMapMarkerCluster | null = null
   private walking: AMapWalking | null = null
-  private walkRoutePolyline: AMapPolyline | null = null
   private selectedMarker: AMapMarker | null = null
   private selectedMarkerClickHandler: ((event: AMapMouseEvent) => void) | null = null
   private selectedPoiId: string | null = null
@@ -431,33 +428,11 @@ export class AMapProvider implements MapProvider {
     const amap = this.amap
     const map = this.map
     if (!amap || !map) throw new Error('高德地图尚未加载完成。')
-    if (!this.isRenderablePoint(origin) || !this.isRenderablePoint(destination)) {
-      throw new Error('起点或终点坐标无法用于路线规划。')
-    }
-
-    // 校内路由优先走本地步行图：图上可达时用 Dijkstra 真实可走路径，避免
-    // 高德不知道校园围墙/门禁而规划出「穿墙、假门」的路线。本地图任何一步
-    // 失败（不可吸附、不可达、画线异常）都立即回退高德在线步行 API——
-    // 高德是兜底，不是可选项。
-    try {
-      // GPS 定位点可能偏离图节点数十米，吸附半径放宽到 180m（校内节点密度足够，
-      // 且吸附点之间仍走图上真实路径，不会引入假门）。
-      const graphResult = solveCampusWalkRoute(campusWalkGraph, origin, destination, { snapRadiusMeters: 180 })
-      if (graphResult.ok && !graphResult.schematic && graphResult.nodeIds.length >= 2) {
-        const polyline = walkRoutePolyline(campusWalkGraph, graphResult.nodeIds)
-        if (this.drawWalkRoutePolyline(polyline)) {
-          return {
-            distanceMeters: graphResult.distanceMeters,
-            durationSeconds: graphResult.durationSeconds
-          }
-        }
-      }
-    } catch {
-      // 本地图异常不阻断导航：落到高德兜底。
-    }
-
     if (!await this.ensurePlugins(['AMap.Walking'])) {
       throw new Error('高德步行路线插件暂时不可用，请稍后重试。')
+    }
+    if (!this.isRenderablePoint(origin) || !this.isRenderablePoint(destination)) {
+      throw new Error('起点或终点坐标无法用于路线规划。')
     }
 
     const [convertedOrigin, convertedDestination] = await this.convertPoints([origin, destination], amap)
@@ -499,65 +474,6 @@ export class AMapProvider implements MapProvider {
         finish(new Error('步行路线规划调用失败。'))
       }
     })
-  }
-
-  /**
-   * Draws a local walk-graph polyline on the AMap basemap. Points are WGS84
-   * (walk-graph discipline), so they are converted to GCJ-02 for display.
-   * The map is fitted to the (WGS84-approximated) path immediately so the
-   * route is visible even if the conversion call fails; the conversion then
-   * refines the path in place. Returns false when nothing could be drawn.
-   */
-  private drawWalkRoutePolyline(points: GeoPoint[]): boolean {
-    const map = this.map
-    const amap = this.amap
-    if (!map || !amap || points.length < 2) return false
-
-    // 清掉上一次的本地图路线（高德 Walking 路线的清理由其自身流程负责）。
-    if (this.walkRoutePolyline) {
-      try {
-        map.remove(this.walkRoutePolyline)
-      } catch {
-        // 清理失败不致命；新线即将 add。
-      }
-      this.walkRoutePolyline = null
-    }
-
-    // AMap 只按 GCJ-02 渲染覆盖物：先把 WGS84 路径整体转换，转换成功后才创建
-    // Polyline 并 add（用未转换坐标先画会偏出视野，甚至让 setFitView 飞到错误位置）。
-    const mapRef = map
-    void this.convertPoints(points, amap).then((converted) => {
-      const mapNow = this.map
-      const amapNow = this.amap
-      if (!mapNow || !amapNow) return
-      const path: AMapPosition[] = converted.every((position): position is AMapPosition => position !== null)
-        ? converted
-        : points.map(point => [point.lng, point.lat] as AMapPosition)
-      if (this.walkRoutePolyline) {
-        try {
-          mapNow.remove(this.walkRoutePolyline)
-        } catch {
-          // 清理失败不致命；新线即将 add。
-        }
-        this.walkRoutePolyline = null
-      }
-      const line = new amapNow.Polyline({
-        path,
-        strokeColor: '#16a34a',
-        strokeWeight: 6,
-        strokeOpacity: 0.9,
-        strokeStyle: 'solid',
-        zIndex: 120
-      })
-      mapNow.add(line)
-      this.walkRoutePolyline = line
-      try {
-        mapNow.setFitView([line], false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
-      } catch {
-        // 视野调整是优化项，失败不影响路线显示。
-      }
-    })
-    return true
   }
 
   searchVisiblePois(query: string): Promise<MapPoi[]> {
@@ -668,10 +584,6 @@ export class AMapProvider implements MapProvider {
   clearRoute(): void {
     this.walking?.clear()
     this.walking = null
-    if (this.map && this.walkRoutePolyline) {
-      this.map.remove(this.walkRoutePolyline)
-    }
-    this.walkRoutePolyline = null
   }
 
   destroy(): void {
