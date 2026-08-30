@@ -2762,38 +2762,25 @@ function assistantFoodRecommendationAnswer(
   // salon and other non-eating services that also carry AMap ratings.
   const NON_FOOD_PATTERN = /(?:快递|物流|驿站|电信|移动|联通|银行|维修|美发|理发|美甲|眼镜|洗衣|干洗|打印|复印|照相|药店|诊所|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷|邮政|造型|美睫)/u
   const seenNames = new Set<string>()
-  let rated = rows.filter(row => row.score !== null && !NON_FOOD_PATTERN.test(row.name))
+  const allFood = rows.filter(row => row.score !== null && !NON_FOOD_PATTERN.test(row.name))
     .filter(row => {
       const key = row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
       if (seenNames.has(key)) return false
       seenNames.add(key)
       return true
     })
-  if (categoryMatch) {
-    rated = rated.filter(row => categoryMatch!.test(row.name))
-  }
-  if (cheapQuery) {
-    rated = rated.filter(row => row.cost === null || row.cost <= 20)
-  }
-  if (expensiveQuery) {
-    rated = rated.filter(row => row.cost === null || row.cost >= 50)
-  }
-  rated = rated.slice(0, 12)
-  // Category/price-filtered results can be thin (e.g. only 2 milk-tea shops);
-  // a single solid answer still beats falling through to the generic guide.
-  if (rated.length < (categoryMatch || cheapQuery || expensiveQuery ? 1 : 3)) return null
 
-  // Single-shop detail: "塔斯汀怎么样 / XX好吃吗" returns that shop's full
-  // review cards when the query names a specific merchant.
+  // Single-shop detail takes priority: "老贵阳牛肉粉怎么样 / 蜜雪冰城好不好"
+  // returns that shop's full review cards, matched against the WHOLE food
+  // pool BEFORE category/price filtering narrows it away.
   const shopNameQuery = normalized
     .replace(/^(?:请问|麻烦|帮我|推荐一下|介绍一下|说说|讲讲|知道)/u, '')
     .replace(/[?？!！,，。；;：:、\s]/gu, '')
     .replace(/(?:怎么样|好不好|好吃吗|好吃不|怎么样啊|咋样|如何|评价|评价如何|值得去吗|值得吗|推荐吗|在哪|在哪啊|在哪里|怎么去|几点营业|人均|贵不贵|多少钱)$/u, '')
     .replace(/(?:这家|这家店|那个|那边|一下|想了解)/gu, '')
-  const shopMatch = rated.find(row => {
-    const candidate = row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
-    return shopNameQuery.length >= 2 && candidate.includes(shopNameQuery)
-  })
+  const shopMatch = shopNameQuery.length >= 2
+    ? allFood.find(row => row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '').includes(shopNameQuery))
+    : undefined
   if (shopMatch) {
     const shopSeed = seedRowsForPlace(client, shopMatch.placeId)
     if (shopSeed.length > 0) {
@@ -2820,6 +2807,21 @@ function assistantFoodRecommendationAnswer(
       }
     }
   }
+
+  let rated = allFood
+  if (categoryMatch) {
+    rated = rated.filter(row => categoryMatch!.test(row.name))
+  }
+  if (cheapQuery) {
+    rated = rated.filter(row => row.cost === null || row.cost <= 20)
+  }
+  if (expensiveQuery) {
+    rated = rated.filter(row => row.cost === null || row.cost >= 50)
+  }
+  rated = rated.slice(0, 12)
+  // Category/price-filtered results can be thin (e.g. only 2 milk-tea shops);
+  // a single solid answer still beats falling through to the generic guide.
+  if (rated.length < (categoryMatch || cheapQuery || expensiveQuery ? 1 : 3)) return null
 
   // Enrich with rewritten seed review cards (from Dianping, source='seed'):
   // one card per rated shop, so the recommendation carries real user
