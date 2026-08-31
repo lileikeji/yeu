@@ -2863,7 +2863,19 @@ function assistantFoodRecommendationAnswer(
   if (expensiveQuery) {
     rated = rated.filter(row => row.cost === null || row.cost >= 50)
   }
-  rated = rated.slice(0, 15)
+  // Randomize the recommendation: the same query must not always return the
+  // identical list. Score-biased shuffle keeps high-rated shops likely (but
+  // not guaranteed) to appear early while varying the order and membership
+  // between calls, so repeated "附近吃什么" questions feel fresh. The count
+  // also varies (8-12) instead of a fixed 15.
+  const biasedShuffle = (items: typeof rated): typeof rated => {
+    return items
+      .map(item => ({ item, bias: (item.score ?? 0) + Math.random() * 0.45 }))
+      .sort((left, right) => right.bias - left.bias)
+      .map(entry => entry.item)
+  }
+  const desiredCount = 8 + Math.floor(Math.random() * 5) // 8..12
+  rated = biasedShuffle(rated).slice(0, desiredCount)
   // Category/price-filtered results can be thin (e.g. only 2 milk-tea shops);
   // a single solid answer still beats falling through to the generic guide.
   if (rated.length < (categoryMatch || areaQuery || cheapQuery || expensiveQuery || budgetCap !== null ? 1 : 3)) return null
@@ -2907,9 +2919,18 @@ function assistantFoodRecommendationAnswer(
   else if (expensiveQuery) filterBits.push('较高价位')
   const filterNote = filterBits.length > 0 ? `（已按${filterBits.join('、')}筛选）` : ''
   const timeNote = breakfastQuery ? '早上来点热乎的早餐：' : lunchQuery ? '中午快速解决：' : dinnerQuery ? '晚上/夜宵时段：' : ''
+  // Vary the phrasing between calls so the assistant does not read as a
+  // canned template.
+  const introVariants = [
+    '校园内评分较高的选择如下',
+    '这几家口碑和评分都不错，供你参考',
+    '可以看看这些评分靠前的选择',
+    '替你挑了一些评分不错的店'
+  ]
+  const introPick = introVariants[Math.floor(Math.random() * introVariants.length)]!
   const intro = timeNote + (categoryMatch || areaQuery || cheapQuery || expensiveQuery || budgetCap !== null
-    ? `按你的需求，校园内评分较高的选择如下${filterNote}：`
-    : '校园内评分较高的选择如下：')
+    ? `按你的需求，${introPick}${filterNote}：`
+    : `${introPick}：`)
   const answer = [
     `根据校园内已收录商家的评分数据（评分来自高德聚合，口碑摘录自大众点评用户评价整理），${intro}`,
     lines.join('\n'),
