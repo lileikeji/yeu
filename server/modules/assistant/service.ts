@@ -2860,14 +2860,16 @@ function assistantFoodRecommendationAnswer(
     })
   }
   if (budgetCap !== null) {
+    // Strict budget: shops without a per-person cost cannot be verified as
+    // within budget, so exclude them (they would otherwise flood a tiny cap).
     const cap = budgetCap
-    rated = rated.filter(row => row.cost === null || row.cost <= cap)
+    rated = rated.filter(row => row.cost !== null && row.cost <= cap)
   }
   if (cheapQuery) {
-    rated = rated.filter(row => row.cost === null || row.cost <= 20)
+    rated = rated.filter(row => row.cost !== null && row.cost <= 20)
   }
   if (expensiveQuery) {
-    rated = rated.filter(row => row.cost === null || row.cost >= 50)
+    rated = rated.filter(row => row.cost !== null && row.cost >= 50)
   }
   if (mealQuery) {
     // "吃饭/聚餐" → drop drink-only merchants (奶茶/咖啡/柠檬茶/冰城/雪王
