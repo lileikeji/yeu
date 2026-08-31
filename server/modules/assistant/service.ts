@@ -2715,8 +2715,8 @@ function assistantFoodRecommendationAnswer(
   query: string
 ): ApiAssistantResponse | null {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
-  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味)/u.test(normalized)
-  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃)/u.test(normalized)
+  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味|换口味|换换口味|早饭|不辣|不吃辣|清真)/u.test(normalized)
+  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃|换口味|早饭|不辣|清真)/u.test(normalized)
   if (!foodIntent || !isQuestion) return null
   // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
   if (isBroadCampusOverviewQuery(query)) return null
@@ -2768,13 +2768,27 @@ function assistantFoodRecommendationAnswer(
   }
 
   // Time-of-day intent: breakfast/lunch/dinner/night snack biases the types.
-  const breakfastQuery = /(?:早上|早晨|早餐|早点)/u.test(normalized)
+  const breakfastQuery = /(?:早上|早晨|早餐|早点|早饭)/u.test(normalized)
   const lunchQuery = /(?:中午|午餐|午饭|下午)/u.test(normalized)
   const dinnerQuery = /(?:晚上|晚餐|晚饭|夜宵|宵夜)/u.test(normalized)
 
   // Meal intent: "吃饭/聚餐/两个人吃饭" asks for actual food, so drink-only
   // shops (奶茶/咖啡/柠檬茶/冰城) are excluded from the results.
   const mealQuery = /(?:吃饭|聚餐|两个人|几人|请客|正餐|干饭)/u.test(normalized)
+  // No-spicy intent: "不辣/不吃辣/有没有不辣的" excludes spicy-heavy shops.
+  const noSpicyQuery = /(?:不辣|不吃辣|不辣的|免辣)/u.test(normalized)
+  // Halal: no campus merchant is recorded as halal — answer honestly instead
+  // of falling through to an irrelevant document.
+  if (/(?:清真|回民|halal|清真的)/iu.test(normalized)) {
+    return {
+      query,
+      mode: 'local',
+      answer: '目前校园内已收录的商家里没有标注清真/回民认证的店铺。如果对食材有严格要求，建议到店前先电话确认（尤其牛肉面、鸡公煲这类店），或到马甲镇区看看有没有专门的清真餐厅。',
+      citations: [],
+      usedWebSearch: false,
+      confidence: 0.5
+    }
+  }
   let relaxedFilter = false
 
   // Budget parse: "预算 20 / 二十块 / 人均不超过15 / 预算15以内" → numeric cap.
@@ -2876,6 +2890,11 @@ function assistantFoodRecommendationAnswer(
     // and common milk-tea brand names that carry no food word).
     const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|CoCo|coco|霸王茶姬|喜茶|奈雪|柠季|大茶杯)/iu
     rated = rated.filter(row => !DRINK_ONLY.test(row.name))
+  }
+  if (noSpicyQuery) {
+    // "不辣" → drop spicy-heavy shops (麻辣烫/火锅/川菜/鸡公煲/螺蛳粉/烤鱼).
+    const SPICY = /(?:麻辣烫|麻辣拌|火锅|川菜|湘菜|鸡公煲|螺蛳粉|烤鱼|辣|重庆|老贵阳)/u
+    rated = rated.filter(row => !SPICY.test(row.name))
   }
   // Randomize the recommendation: the same query must not always return the
   // identical list. Score-biased shuffle keeps high-rated shops likely (but
