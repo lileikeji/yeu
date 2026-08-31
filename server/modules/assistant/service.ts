@@ -2869,8 +2869,9 @@ function assistantFoodRecommendationAnswer(
     rated = rated.filter(row => row.cost === null || row.cost >= 50)
   }
   if (mealQuery) {
-    // "吃饭/聚餐" → drop drink-only merchants (奶茶/咖啡/柠檬茶/冰城/雪王).
-    const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪)/u
+    // "吃饭/聚餐" → drop drink-only merchants (奶茶/咖啡/柠檬茶/冰城/雪王
+    // and common milk-tea brand names that carry no food word).
+    const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|CoCo|coco|霸王茶姬|喜茶|奈雪|柠季|大茶杯)/iu
     rated = rated.filter(row => !DRINK_ONLY.test(row.name))
   }
   // Randomize the recommendation: the same query must not always return the
