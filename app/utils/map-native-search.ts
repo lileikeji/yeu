@@ -31,10 +31,6 @@ export function createNativeSearchRequestGate(): NativeSearchRequestGate {
   }
 }
 
-function searchTerms(values: Array<string | null | undefined>): string[] {
-  return values.flatMap(value => equivalentMapSearchTerms(value ?? ''))
-}
-
 export function createNativeMapPlace(
   poi: MapPoi,
   scope: MapPlaceScope | null
@@ -76,17 +72,20 @@ export function buildNativeSearchPlaces(
   catalogPlaces: PublicMapPlace[],
   scope: MapPlaceScope | null
 ): PublicMapPlace[] {
-  const catalogTerms = catalogPlaces.flatMap(place => searchTerms([
-    place.name,
-    place.searchText
-  ]))
+  const catalogNames = new Set(
+    catalogPlaces.flatMap(place => equivalentMapSearchTerms(place.name))
+  )
 
   return results
     .filter((poi) => {
-      const nativeTerms = searchTerms([poi.name, poi.address])
-      return !nativeTerms.some(term => catalogTerms.some(catalogTerm => (
-        catalogTerm.includes(term) || term.includes(catalogTerm)
-      )))
+      // Only drop a native hit when it is EXACTLY the same merchant as a
+      // catalog place (normalized name equality). Substring overlap was too
+      // aggressive: searching "串烧烤肉" returned several nearby merchants
+      // and any overlap with a catalog term filtered ALL of them, so the
+      // map could never auto-select the searched shop. Exact-match keeps
+      // genuine duplicates out while still letting real hits through.
+      const nativeNames = equivalentMapSearchTerms(poi.name)
+      return !nativeNames.some(name => catalogNames.has(name))
     })
     .map(poi => createNativeMapPlace(poi, scope))
 }

@@ -71,13 +71,21 @@ test('native places default to nearby scope when the map has no explicit scope',
   assert.equal(createNativeMapPlace(nativePoi(), null).scope, 'nearby')
 })
 
-test('native search removes catalog aliases while keeping unrelated visible places', () => {
+test('native search removes exact catalog duplicates while keeping partial-name hits', () => {
+  // "图书馆" overlaps the catalog place name "仰恩大学图书馆" but is NOT the
+  // same merchant string — it must stay so searching a shop name can still
+  // auto-select the native result. An EXACT duplicate ("仰恩大学图书馆") is
+  // dropped to avoid showing the catalog place twice.
   const results = buildNativeSearchPlaces([
     nativePoi({ id: 'amap-native-library', name: '图书馆', address: '校内' }),
+    nativePoi({ id: 'amap-native-exact', name: '仰恩大学图书馆', address: '校内' }),
     nativePoi()
   ], [catalogPlace()], 'campus')
 
-  assert.deepEqual(results.map(place => place.id), ['amap-native-coffee'])
+  const ids = results.map(place => place.id)
+  assert.ok(ids.includes('amap-native-library'), 'partial-name hit must be kept')
+  assert.ok(!ids.includes('amap-native-exact'), 'exact catalog duplicate must be dropped')
+  assert.ok(ids.includes('amap-native-coffee'), 'unrelated place must be kept')
   assert.equal(results[0]?.scope, 'campus')
   assert.match(results[0]?.searchText ?? '', /高德 原生 商家 当前地图/)
 })
