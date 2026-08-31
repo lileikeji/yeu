@@ -2775,6 +2775,7 @@ function assistantFoodRecommendationAnswer(
   // Meal intent: "吃饭/聚餐/两个人吃饭" asks for actual food, so drink-only
   // shops (奶茶/咖啡/柠檬茶/冰城) are excluded from the results.
   const mealQuery = /(?:吃饭|聚餐|两个人|几人|请客|正餐|干饭)/u.test(normalized)
+  let relaxedFilter = false
 
   // Budget parse: "预算 20 / 二十块 / 人均不超过15 / 预算15以内" → numeric cap.
   let budgetCap: number | null = null
@@ -2799,7 +2800,7 @@ function assistantFoodRecommendationAnswer(
 
   // Keep food/drink merchants only: drop express, telecom, banking, repair,
   // salon and other non-eating services that also carry AMap ratings.
-  const NON_FOOD_PATTERN = /(?:快递|物流|驿站|电信|移动|联通|银行|维修|美发|理发|美甲|眼镜|洗衣|干洗|打印|复印|照相|药店|诊所|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷|邮政|造型|美睫)/u
+  const NON_FOOD_PATTERN = /(?:快递|物流|驿站|电信|移动|联通|银行|维修|美发|理发|美甲|眼镜|洗衣|干洗|打印|复印|照相|药店|诊所|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷|邮政|造型|美睫|兔喜|妈妈驿站|熊猫快收|自选店|食杂)/u
   const seenNames = new Set<string>()
   const allFood = rows.filter(row => row.score !== null && !NON_FOOD_PATTERN.test(row.name))
     .filter(row => {
@@ -2889,8 +2890,13 @@ function assistantFoodRecommendationAnswer(
   rated = biasedShuffle(rated).slice(0, desiredCount)
   // Category/price-filtered results can be thin (e.g. only 2 milk-tea shops);
   // a single solid answer still beats falling through to the generic guide.
-  if (rated.length < (categoryMatch || areaQuery || cheapQuery || expensiveQuery || budgetCap !== null ? 1 : 3)) return null
-
+  if (rated.length < (categoryMatch || areaQuery || cheapQuery || expensiveQuery || budgetCap !== null ? 1 : 3)) {
+    // Too strict: relax to the whole food pool so the user still gets a
+    // useful answer (e.g. "预算5块" has no matches → show overall top shops).
+    rated = biasedShuffle(allFood).slice(0, desiredCount)
+    relaxedFilter = true
+    if (rated.length < 3) return null
+  }
   // Enrich with rewritten seed review cards (from Dianping, source='seed'):
   // one card per rated shop, so the recommendation carries real user
   // impressions, not just the aggregate score.
@@ -2940,7 +2946,9 @@ function assistantFoodRecommendationAnswer(
   ]
   const introPick = introVariants[Math.floor(Math.random() * introVariants.length)]!
   const intro = timeNote + (categoryMatch || areaQuery || cheapQuery || expensiveQuery || budgetCap !== null
-    ? `按你的需求，${introPick}${filterNote}：`
+    ? relaxedFilter
+      ? `没有完全符合你条件的店，先看看${introPick}：`
+      : `按你的需求，${introPick}${filterNote}：`
     : `${introPick}：`)
   const answer = [
     `根据校园内已收录商家的评分数据（评分来自高德聚合，口碑摘录自大众点评用户评价整理），${intro}`,
