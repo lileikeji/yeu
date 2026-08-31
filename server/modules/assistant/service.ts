@@ -2717,6 +2717,11 @@ function assistantFoodRecommendationAnswer(
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味|换口味|换换口味|早饭|不辣|不吃辣|清真|水果|新开|有哪些)/u.test(normalized)
   const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃|换口味|早饭|不辣|清真|水果|新开|有哪些|有哪家)/u.test(normalized)
+  // A bare "推荐/哪家" would match the food intent, but explicit non-food
+  // topics (理发/拍照/玩/药店/打印/快递…) must NOT be answered with
+  // restaurant rankings — let those fall through to their own handlers.
+  const NON_FOOD_INTENT = /(?:理发|美发|剪发|烫发|染发|造型|美甲|拍照|摄影|景点|好玩|玩的地方|KTV|网吧|健身|运动|药店|诊所|买药|打印|复印|图文|快递|取件|寄件|银行|取钱|自习|图书馆|上课|考试|补课|修手机|维修|买衣服|服装|鞋子|超市|购物|文具|眼镜)/u
+  if (NON_FOOD_INTENT.test(normalized)) return null
   if (!foodIntent || !isQuestion) return null
   // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
   if (isBroadCampusOverviewQuery(query)) return null
