@@ -2893,7 +2893,10 @@ function assistantFoodRecommendationAnswer(
   }
   if (noSpicyQuery) {
     // "不辣" → drop spicy-heavy shops (麻辣烫/火锅/川菜/鸡公煲/螺蛳粉/烤鱼).
-    const SPICY = /(?:麻辣烫|麻辣拌|火锅|川菜|湘菜|鸡公煲|螺蛳粉|烤鱼|辣|重庆|老贵阳)/u
+    // Match explicit spicy signals only — a bare "辣" or "重庆" substring is
+    // too broad and would empty the pool (relax fallback then shows everything
+    // with a misleading "no match" note).
+    const SPICY = /(?:麻辣烫|麻辣拌|川菜|湘菜|鸡公煲|螺蛳粉|烤鱼|麻辣|香辣|酸辣|重庆火锅|川渝)/u
     rated = rated.filter(row => !SPICY.test(row.name))
   }
   // Randomize the recommendation: the same query must not always return the
