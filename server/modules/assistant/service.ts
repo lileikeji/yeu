@@ -2715,8 +2715,8 @@ function assistantFoodRecommendationAnswer(
   query: string
 ): ApiAssistantResponse | null {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
-  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味|换口味|换换口味|早饭|不辣|不吃辣|清真)/u.test(normalized)
-  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃|换口味|早饭|不辣|清真)/u.test(normalized)
+  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味|换口味|换换口味|早饭|不辣|不吃辣|清真|水果|新开|有哪些)/u.test(normalized)
+  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃|换口味|早饭|不辣|清真|水果|新开|有哪些|有哪家)/u.test(normalized)
   if (!foodIntent || !isQuestion) return null
   // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
   if (isBroadCampusOverviewQuery(query)) return null
@@ -2735,7 +2735,8 @@ function assistantFoodRecommendationAnswer(
     [/小炒|家常菜|中餐|私房菜/u, /(?:小炒|家常|私房菜)/u],
     [/早餐|早点|豆浆|油条/u, /(?:早餐|早点|面线糊|包子|豆浆)/u],
     [/夜宵|烧烤.*夜宵/u, /(?:烧烤|炸串|大排档)/u],
-    [/辣的|麻辣|川菜|湘菜|辣味|重口/u, /(?:麻辣烫|麻辣拌|川菜|湘菜|辣|火锅|烤鱼|鸡公煲|螺蛳粉|牛肉粉)/u]
+    [/辣的|麻辣|川菜|湘菜|辣味|重口/u, /(?:麻辣烫|麻辣拌|川菜|湘菜|辣|火锅|烤鱼|鸡公煲|螺蛳粉|牛肉粉)/u],
+    [/水果|果切|鲜果/u, /(?:水果|果切|鲜果|果捞|果茶)/u]
   ]
   let categoryMatch: RegExp | null = null
   for (const [trigger, namePattern] of CATEGORY_PATTERNS) {
