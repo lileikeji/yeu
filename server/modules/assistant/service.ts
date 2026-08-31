@@ -5869,7 +5869,12 @@ async function answerCampusQuestionCore(
       : 'standard'
     const cacheKey = `${ASSISTANT_CACHE_VERSION}:${cacheVariant}:${currentAssistantKnowledgeRevision()}:${query.toLocaleLowerCase('zh-CN')}`
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
-    const activeCachedResponse = historicalTransferAnswer
+    // Food recommendations are randomized on purpose (biased shuffle + varied
+    // phrasing) — serving a cached answer would freeze one random outcome and
+    // make every repeat of "附近吃什么" identical. Bypass the cache read so
+    // each food-recommendation question is answered fresh.
+    const foodIntentQuery = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉)/u.test(query)
+    const activeCachedResponse = historicalTransferAnswer || foodIntentQuery
       ? null
       : readCachedAssistantResponse(client, cacheKey, config.signal)
     if (activeCachedResponse) {
