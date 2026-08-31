@@ -2781,6 +2781,10 @@ function assistantFoodRecommendationAnswer(
   // Meal intent: "吃饭/聚餐/两个人吃饭" asks for actual food, so drink-only
   // shops (奶茶/咖啡/柠檬茶/冰城) are excluded from the results.
   const mealQuery = /(?:吃饭|聚餐|两个人|几人|请客|正餐|干饭)/u.test(normalized)
+  // Canteen intent: "食堂/校内餐厅" — the campus canteens have no per-dish
+  // ratings, so be honest about that instead of pretending the student
+  // street shops ARE the canteens.
+  const canteenQuery = /(?:食堂|校内餐厅|学校餐厅|北苑|西苑)/u.test(normalized)
   // No-spicy intent: "不辣/不吃辣/有没有不辣的" excludes spicy-heavy shops.
   const noSpicyQuery = /(?:不辣|不吃辣|不辣的|免辣)/u.test(normalized)
   // Halal: no campus merchant is recorded as halal — answer honestly instead
@@ -2980,8 +2984,11 @@ function assistantFoodRecommendationAnswer(
       ? `没有完全符合你条件的店，先看看${introPick}：`
       : `按你的需求，${introPick}${filterNote}：`
     : `${introPick}：`)
+  const canteenNote = canteenQuery
+    ? '校内食堂（第一教学区北苑餐厅、第三教学区西苑餐厅）以套餐档口为主，暂无可比对的档口评分；下面先给出学生街商家的评分参考，食堂具体档口菜品建议到现场或看后勤通知。'
+    : ''
   const answer = [
-    `根据校园内已收录商家的评分数据（评分来自高德聚合，口碑摘录自大众点评用户评价整理），${intro}`,
+    `${canteenNote}${canteenNote ? '\n\n' : ''}根据校园内已收录商家的评分数据（评分来自高德聚合，口碑摘录自大众点评用户评价整理），${intro}`,
     lines.join('\n'),
     '实际口味因人而异。打开校园地图（学生街区域）点击对应商家，可查看评分详情和整理评价；如果想知道具体某一家的更多信息，直接问我店名即可。'
   ].join('\n\n')
