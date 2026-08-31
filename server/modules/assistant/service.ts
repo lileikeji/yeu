@@ -2715,8 +2715,8 @@ function assistantFoodRecommendationAnswer(
   query: string
 ): ApiAssistantResponse | null {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
-  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店)/u.test(normalized)
-  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么)/u.test(normalized)
+  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味)/u.test(normalized)
+  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃)/u.test(normalized)
   if (!foodIntent || !isQuestion) return null
   // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
   if (isBroadCampusOverviewQuery(query)) return null
@@ -2734,7 +2734,8 @@ function assistantFoodRecommendationAnswer(
     [/寿司|日料|料理/u, /(?:寿司|日料|料理|刺身)/u],
     [/小炒|家常菜|中餐|私房菜/u, /(?:小炒|家常|私房菜)/u],
     [/早餐|早点|豆浆|油条/u, /(?:早餐|早点|面线糊|包子|豆浆)/u],
-    [/夜宵|烧烤.*夜宵/u, /(?:烧烤|炸串|大排档)/u]
+    [/夜宵|烧烤.*夜宵/u, /(?:烧烤|炸串|大排档)/u],
+    [/辣的|麻辣|川菜|湘菜|辣味|重口/u, /(?:麻辣烫|麻辣拌|川菜|湘菜|辣|火锅|烤鱼|鸡公煲|螺蛳粉|牛肉粉)/u]
   ]
   let categoryMatch: RegExp | null = null
   for (const [trigger, namePattern] of CATEGORY_PATTERNS) {
@@ -2770,6 +2771,10 @@ function assistantFoodRecommendationAnswer(
   const breakfastQuery = /(?:早上|早晨|早餐|早点)/u.test(normalized)
   const lunchQuery = /(?:中午|午餐|午饭|下午)/u.test(normalized)
   const dinnerQuery = /(?:晚上|晚餐|晚饭|夜宵|宵夜)/u.test(normalized)
+
+  // Meal intent: "吃饭/聚餐/两个人吃饭" asks for actual food, so drink-only
+  // shops (奶茶/咖啡/柠檬茶/冰城) are excluded from the results.
+  const mealQuery = /(?:吃饭|聚餐|两个人|几人|请客|正餐|干饭)/u.test(normalized)
 
   // Budget parse: "预算 20 / 二十块 / 人均不超过15 / 预算15以内" → numeric cap.
   let budgetCap: number | null = null
@@ -2862,6 +2867,11 @@ function assistantFoodRecommendationAnswer(
   }
   if (expensiveQuery) {
     rated = rated.filter(row => row.cost === null || row.cost >= 50)
+  }
+  if (mealQuery) {
+    // "吃饭/聚餐" → drop drink-only merchants (奶茶/咖啡/柠檬茶/冰城/雪王).
+    const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪)/u
+    rated = rated.filter(row => !DRINK_ONLY.test(row.name))
   }
   // Randomize the recommendation: the same query must not always return the
   // identical list. Score-biased shuffle keeps high-rated shops likely (but
