@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import type { PlaceReviewStatus } from '../../../shared/constants/server'
 import type { DatabaseClient } from '../../database/client'
 import { placeAmapRatings, placeMerchants, placeReviews, reviewLikes, users } from '../../database/schema'
@@ -232,7 +232,13 @@ export function listPublicPlaceReviews(
     .leftJoin(users, eq(placeReviews.userId, users.id))
     .where(and(
       eq(placeReviews.placeId, key),
-      eq(placeReviews.status, 'approved')
+      eq(placeReviews.status, 'approved'),
+      // 前台只展示整理卡(seed)与学生评价(user)；抓取的原文评论(original)
+      // 仅供后台查看，不在前台列表混入。
+      or(
+        eq(placeReviews.source, 'seed'),
+        eq(placeReviews.source, 'user')
+      )
     ))
     .orderBy(desc(placeReviews.createdAt))
     .limit(PUBLIC_REVIEWS_LIMIT)
