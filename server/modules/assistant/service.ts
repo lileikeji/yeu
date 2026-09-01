@@ -433,7 +433,7 @@ export function hardcodedAssistantFactIsCurrent(
   return now < VERIFIED_FACT_VALID_UNTIL[fact]
 }
 const KNOWLEDGE_GENERIC_QUERY_RE = /(总结|概括|归纳|这些资料|全部资料|整个知识库|当前知识库|共同主题|内容讲什么|综合分析|新生指南)/i
-const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|班级|编班|分班|迎新系统|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|教材|课本|二手书|材料费|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|团委|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|泽川|泽钏|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山)/i
+const CAMPUS_QUERY_RE = /(仰恩|学校|校内|校园|校区|学院|专业|老师|教师|教授|辅导员|班导|班级|编班|分班|迎新系统|新生|宿舍|寝室|床垫|床铺|床帘|饮水机|洗衣机|吹风机|机械臂|叮叮车|报到|迎新|预报名|开学|入学|军训|上课|课堂|课程|体育课|选课|公选课|教材|课本|二手书|材料费|抢课|成绩|绩点|学分|学籍|综测|综合测评|违纪|处分|校纪|校规|规章制度|学生管理|学生规则|奖学金|助学金|助学贷|贫困补助|生活费|学费|兼职|勤工助学|退学|休学|复学|转专业|换专业|转不了|社团|协会|学生会|团委|部门|食堂|校园卡|校园网|银行卡|图书馆|教务|学生手册|英语分班|分班考试|电脑|电气|物联网|艺术教育|windows|macos|孙子兵法|专升本|新区|旧区|教学楼|泽川|泽钏|快递|澡堂|宿管|发色|穿孔|耳饰|夜不归宿|停车|交通|公交|\bK[26]\b|泉州站|泉州东站|泉州市区|晋江机场|马甲|学生街|本地美食|吃喝玩乐|仙公山|虹山|竞赛|比赛|大赛|数学建模|互联网\+|挑战杯|创新创业大赛|电子设计)/i
 const GENERAL_REASONING_RE = /(?:(?:假如|假设|如果|能不能|可不可以|应该|该不该|怎么办|为什么)|我.{0,40}(?:能|可以|应该)).{0,80}(?:米|厘米|cm|竹竿|空腹|洗车|吃饭)/i
 // The general route is deliberately allow-listed. Unknown questions are searched
 // first so a missed campus synonym cannot silently become a zero-evidence answer.
@@ -3133,7 +3133,7 @@ function assistantKnowledgeLocalAnswer(
   // Competition intent wins over comprehensive-evaluation entries: "竞赛获奖
   // 加多少分/奖金多少" must answer from the 学科竞赛 category (仰大教〔2021〕
   // 33号), NOT from the 综测 entry that also covers 竞赛获奖加分.
-  const competitionQuery = /(?:学科竞赛|技能竞赛|竞赛获奖|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖))/u.test(query)
+  const competitionQuery = /(?:学科竞赛|技能竞赛|竞赛获奖|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖)|竞赛.*(?:报名|参加|参赛|怎么参加|如何参加)|(?:数学建模|电子设计|挑战杯|互联网).*级别)/u.test(query)
     // AI intent support: the classifier may recognize competition intent even
     // when the regex above misses an unusual phrasing.
     || (lastAiIntent?.intent === 'competition')
@@ -3178,7 +3178,8 @@ function assistantKnowledgeLocalAnswer(
       const competitionMatch = pickByIntent(/(?:区别|对比|差异|和综测|与综测)/u, /区别/)
         ?? pickByIntent(/(?:加多少分|加几分|加分|免修|学分)/u, /加分标准|学分免修/)
         ?? pickByIntent(/奖金|奖励|多少钱/u, /奖金标准|奖励标准/)
-        ?? pickByIntent(/(?:互联网\+|挑战杯|哪些竞赛|竞赛项目|项目一览)/u, /项目一览|A.B类竞赛/)
+        ?? pickByIntent(/(?:互联网\+|挑战杯|哪些竞赛|竞赛项目|项目一览|什么级别|级别)/u, /项目一览|A.B类竞赛/)
+        ?? pickByIntent(/(?:报名|参加|参赛|怎么参加|如何参加)/u, /组织机构与职责|报名/)
         ?? competitionMatches[0]
       if (competitionMatch) {
         return {
