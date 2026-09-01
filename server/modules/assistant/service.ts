@@ -3121,6 +3121,70 @@ function assistantKnowledgeLocalAnswer(
       }
     }
   }
+  // Competition intent wins over comprehensive-evaluation entries: "竞赛获奖
+  // 加多少分/奖金多少" must answer from the 学科竞赛 category (仰大教〔2021〕
+  // 33号), NOT from the 综测 entry that also covers 竞赛获奖加分.
+  const competitionQuery = /(?:学科竞赛|技能竞赛|竞赛获奖|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖))/u.test(query)
+  if (competitionQuery) {
+    // Query the 学科竞赛 category DIRECTLY (no LIKE-term gate): the term
+    // splitter can collapse "竞赛A类一等奖加多少分" into one long phrase
+    // that misses the SQL candidate pool entirely. The category has only a
+    // handful of entries, so a full scan is cheap.
+    const competitionRows = client.db.select({
+      id: assistantKnowledgeEntries.id,
+      kind: assistantKnowledgeEntries.kind,
+      category: assistantKnowledgeEntries.category,
+      title: assistantKnowledgeEntries.title,
+      question: assistantKnowledgeEntries.question,
+      answer: assistantKnowledgeEntries.answer,
+      keywordsJson: assistantKnowledgeEntries.keywordsJson,
+      publicUrl: assistantKnowledgeEntries.publicUrl,
+      confidence: assistantKnowledgeEntries.confidence
+    }).from(assistantKnowledgeEntries)
+      .where(and(
+        eq(assistantKnowledgeEntries.isActive, true),
+        eq(assistantKnowledgeEntries.category, '学科竞赛')
+      ))
+      .all()
+    if (competitionRows.length > 0) {
+      // Score each row by keyword overlap with the query, then pick by intent.
+      const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+      const scoreCompetitionRow = (row: typeof competitionRows[number]): number => {
+        const keywords = JSON.parse(row.keywordsJson) as string[]
+        const haystack = `${row.title} ${row.question} ${keywords.join(' ')}`.toLocaleLowerCase('zh-CN')
+        return keywords.reduce((sum, kw) => normalizedQuery.includes(kw) ? sum + 4 : sum, 0)
+          + (haystack.includes(normalizedQuery) ? 20 : 0)
+      }
+      const competitionMatches = competitionRows
+        .map(row => ({ ...row, keywords: JSON.parse(row.keywordsJson) as string[] }))
+        .sort((left, right) => scoreCompetitionRow(right) - scoreCompetitionRow(left))
+        .filter(row => scoreCompetitionRow(row) > 0 || /竞赛/.test(query))
+      const pickByIntent = (pattern: RegExp, prefer: RegExp): typeof competitionMatches[0] | undefined => {
+        if (!pattern.test(query)) return undefined
+        return competitionMatches.find(m => prefer.test(m.title + m.question)) ?? competitionMatches[0]
+      }
+      const competitionMatch = pickByIntent(/(?:区别|对比|差异|和综测|与综测)/u, /区别/)
+        ?? pickByIntent(/(?:加多少分|加几分|加分|免修|学分)/u, /加分标准|学分免修/)
+        ?? pickByIntent(/奖金|奖励|多少钱/u, /奖金标准|奖励标准/)
+        ?? pickByIntent(/(?:互联网\+|挑战杯|哪些竞赛|竞赛项目|项目一览)/u, /项目一览|A.B类竞赛/)
+        ?? competitionMatches[0]
+      if (competitionMatch) {
+        return {
+          query,
+          mode: 'local',
+          answer: competitionMatch.answer,
+          citations: [{
+            title: competitionMatch.title,
+            url: competitionMatch.publicUrl ?? '',
+            snippet: competitionMatch.question,
+            source: 'site' as const
+          }],
+          usedWebSearch: false,
+          confidence: competitionMatch.confidence / 100
+        }
+      }
+    }
+  }
   // Keep a wider ranked pool for precise natural-language questions. The
   // first few candidates can be generic topic entries (for example, room
   // fees) even when a later candidate contains every requested aspect.
@@ -4601,6 +4665,14 @@ function ensureGroundedLocalCitation(
 function zongceBonusLocalAnswer(query: string): ApiAssistantResponse | null {
   const q = normalizeAssistantQuery(query)
   if (!/(综合测评|综测)/.test(q) && !/加分|加几分|加多少分|怎么加分|能加/.test(q)) return null
+  // Competition-focused questions ("竞赛获奖加多少分/竞赛加分") are answered
+  // by the 学科竞赛 entries (仰大教〔2021〕33号), NOT by the 综测 bonus
+  // lookup — the two bonus systems are independent. Also route "竞赛 vs 综测"
+  // comparison questions to the dedicated comparison entry. Only fall back to
+  // the comprehensive-evaluation bonus table when the query is not explicitly
+  // about 学科/技能竞赛.
+  if ((/竞赛|比赛|大赛|A类|B类|C类|互联网\+|挑战杯/.test(q) && !/(综测|综合测评)/.test(q))
+    || /(?:竞赛|比赛).{0,10}(?:区别|对比|和综测|与综测)/.test(q)) return null
   const matches = matchZongceItem(q)
   if (matches.length === 0) return null
   const lines = matches.slice(0, 6).map(m => '• ' + m.hint)

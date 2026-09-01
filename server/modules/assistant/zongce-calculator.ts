@@ -302,6 +302,8 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
   if (!/综测|综合测评/.test(query)) return null
   // 奖学金/助学金是评选资格问题，不是综测加分项，交给奖学金回答
   if (/奖学金|助学金/.test(query)) return null
+  // "竞赛加分和综测有什么区别"是体系对比问题，不是算分请求——交给竞赛/综测知识条目回答
+  if (/(?:区别|对比|差异|关系|一样吗|有什么不同)/.test(query)) return null
   const hasNumbers = /\d/.test(query)
   const hasAwardKeyword = /奖|专利|论文|证书|资格|志愿|献血|竞赛|比赛|荣誉称号|学生干部/.test(query)
   if (!hasNumbers && !hasAwardKeyword) return null
