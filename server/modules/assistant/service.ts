@@ -372,6 +372,11 @@ let gatewayOpenUntil = 0
 let activeMcpCalls = 0
 let consecutiveMcpFailures = 0
 let mcpOpenUntil = 0
+/** AI intent classification for the most recent ambiguous query (set in the
+ * query_analysis stage; consumed by the food/competition routers below).
+ * Reset to null at the start of every analysis so stale intents never leak
+ * across calls. */
+let lastAiIntent: Awaited<ReturnType<typeof classifyAssistantIntent>> | null = null
 
 const MIN_GATEWAY_TIMEOUT_MS = 60_000
 const MAX_GATEWAY_TIMEOUT_MS = 180_000
@@ -2722,6 +2727,10 @@ function assistantFoodRecommendationAnswer(
   // restaurant rankings — let those fall through to their own handlers.
   const NON_FOOD_INTENT = /(?:理发|美发|剪发|烫发|染发|造型|美甲|拍照|摄影|景点|好玩|玩的地方|KTV|网吧|健身|运动|药店|诊所|买药|打印|复印|图文|快递|取件|寄件|银行|取钱|自习|图书馆|上课|考试|补课|修手机|维修|买衣服|服装|鞋子|超市|购物|文具|眼镜)/u
   if (NON_FOOD_INTENT.test(normalized)) return null
+  // AI intent disambiguation: when the analysis stage classified this query
+  // as a NON-food intent (e.g. "理发店推荐" whose 推荐 word triggered food),
+  // do not answer with restaurant rankings.
+  if (lastAiIntent && lastAiIntent.intent !== 'food' && lastAiIntent.intent !== 'competition') return null
   if (!foodIntent || !isQuestion) return null
   // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
   if (isBroadCampusOverviewQuery(query)) return null
@@ -3125,6 +3134,9 @@ function assistantKnowledgeLocalAnswer(
   // 加多少分/奖金多少" must answer from the 学科竞赛 category (仰大教〔2021〕
   // 33号), NOT from the 综测 entry that also covers 竞赛获奖加分.
   const competitionQuery = /(?:学科竞赛|技能竞赛|竞赛获奖|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖))/u.test(query)
+    // AI intent support: the classifier may recognize competition intent even
+    // when the regex above misses an unusual phrasing.
+    || (lastAiIntent?.intent === 'competition')
   if (competitionQuery) {
     // Query the 学科竞赛 category DIRECTLY (no LIKE-term gate): the term
     // splitter can collapse "竞赛A类一等奖加多少分" into one long phrase
@@ -5714,6 +5726,73 @@ export async function askGateway(
   const parsed = parseModelAnswer(payload, evidence)
   return parsed
 }
+
+/**
+ * AI intent classifier — resolves ambiguous queries that the regex intent
+ * detectors disagree on (e.g. "竞赛加分和综测有什么区别" matches both food
+ * and comprehensive-evaluation patterns, "理发店推荐" matches the food
+ * recommendation word). Kept deliberately cheap: one short gateway call, JSON
+ * out, silent null on any failure so the regex path always remains the
+ * fallback. Called only when regex intent detection is conflicted or weak.
+ */
+export async function classifyAssistantIntent(
+  query: string,
+  config: AssistantConfig
+): Promise<{
+  intent: 'food' | 'competition' | 'zongce' | 'dorm' | 'course' | 'service' | 'transit' | 'campus' | 'other'
+  topic: string
+} | null> {
+  if (!config.gatewayBaseUrl || !config.gatewayApiKey) return null
+  try {
+    const payload = await postGatewayChat(config, [
+      {
+        role: 'system',
+        content: [
+          '你是仰恩大学新生指南的查询意图分类器。只输出一个 JSON 对象，不要输出任何其他文字。',
+          '意图选项：',
+          'food=问吃的/喝的学生街餐厅奶茶；competition=问学科竞赛/比赛/获奖加分奖金；',
+          'zongce=问综合测评/综测评分加分；dorm=问宿舍住宿；course=问课程学业选课；',
+          'service=问校园服务(快递/打印/银行/理发/药店等)；transit=问交通出行；',
+          'campus=问校园概况/地点/活动；other=其他。',
+          '同时给出 topic：一句话中文主题（如"竞赛加分标准"、"学生街美食推荐"）。',
+          '如果查询同时涉及多个意图（如"竞赛加分和综测的区别"），选最贴切的一个。',
+          '输出格式：{"intent":"food","topic":"学生街奶茶推荐"}'
+        ].join('\n')
+      },
+      {
+        role: 'user',
+        content: `请分类这个查询的意图：${query}`
+      }
+    ], {
+      maxTokens: 120,
+      timeoutMs: 4000
+    })
+    const text = extractGatewayText(payload)
+    if (!text) return null
+    const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
+    const parsed = JSON.parse(cleaned) as { intent?: string, topic?: string }
+    const intent = parsed.intent
+    const allowed = ['food', 'competition', 'zongce', 'dorm', 'course', 'service', 'transit', 'campus', 'other'] as const
+    if (!intent || !allowed.includes(intent as never)) return null
+    return {
+      intent: intent as typeof allowed[number],
+      topic: typeof parsed.topic === 'string' ? parsed.topic.slice(0, 40) : ''
+    }
+  } catch {
+    return null
+  }
+}
+
+function extractGatewayText(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  const obj = payload as Record<string, unknown>
+  if (Array.isArray(obj.choices)) {
+    const first = obj.choices[0] as Record<string, unknown> | undefined
+    const message = first?.message as Record<string, unknown> | undefined
+    if (message && typeof message.content === 'string') return message.content
+  }
+  return null
+}
 function parseMemoryExtractionPayload(payload: unknown): Array<{ kind: 'preference' | 'fact', content: string }> {
   if (!payload || typeof payload !== 'object') return []
   const obj = payload as Record<string, unknown>
@@ -5991,6 +6070,22 @@ async function answerCampusQuestionCore(
     const query = normalizeAssistantQuery(rawQuery)
     const retrievalQuery = assistantRetrievalQuery(query)
     const intentDetail = assistantIntentDetail(query, retrievalQuery)
+    // AI intent disambiguation for ambiguous queries: when the regex intent
+    // detectors fire for MULTIPLE competing intents (e.g. "理发店推荐" hits
+    // food's 推荐 word; "竞赛加分和综测的区别" hits both competition and
+    // zongce), ask the gateway once to pick the true intent. The result feeds
+    // the router below; any failure keeps the regex behavior (never blocks).
+    let aiIntent: Awaited<ReturnType<typeof classifyAssistantIntent>> = null
+    const foodSignal = /(?:吃|推荐|有什么|哪家|奶茶|火锅|烧烤|学生街|餐厅|小吃)/u.test(query)
+    const competitionSignal = /(?:竞赛|比赛|大赛|互联网\+|挑战杯)/u.test(query)
+    const zongceSignal = /(?:综测|综合测评)/u.test(query)
+    const nonFoodSignal = /(?:理发|美发|拍照|药店|打印|快递|银行|自习|图书馆|健身|KTV|网吧)/u.test(query)
+    const ambiguous = (foodSignal && (competitionSignal || zongceSignal || nonFoodSignal))
+      || (competitionSignal && zongceSignal)
+    if (ambiguous) {
+      aiIntent = await classifyAssistantIntent(query, config)
+    }
+    lastAiIntent = aiIntent
     const transitRoute = transitRouteForQuery(query)
     const cacheVariant = transitRoute && (config.transitPlanner || config.amapWebServiceKey?.trim())
       ? 'live-transit'
