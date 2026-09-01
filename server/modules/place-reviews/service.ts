@@ -749,6 +749,70 @@ export function adminUpdateSeedReview(
   } as unknown as AdminPlaceReviewView
 }
 
+/** 后台创建整理卡（source='seed'，前台展示用）。 */
+export function adminCreateSeedReview(
+  client: DatabaseClient,
+  input: { placeId: string, score: number, content: string, sourcePlatform?: 'dianping' | 'meituan' }
+): AdminPlaceReviewView {
+  const key = normalizePlaceId(input.placeId)
+  if (input.score < 1 || input.score > 5) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Score must be between 1 and 5',
+      data: { code: 'INVALID_SCORE' }
+    })
+  }
+  const now = Date.now()
+  const id = randomUUID()
+  client.db.insert(placeReviews).values({
+    id,
+    placeId: key,
+    userId: null,
+    anonymousKey: `seed-admin-${id.slice(0, 12)}`,
+    score: input.score,
+    content: input.content.trim(),
+    status: 'approved',
+    source: 'seed',
+    sourcePlatform: input.sourcePlatform ?? null,
+    collectedAt: now,
+    createdAt: now,
+    updatedAt: now
+  }).run()
+  return {
+    id,
+    placeId: key,
+    userId: null,
+    anonymousKey: null,
+    username: null,
+    displayName: '系统整理',
+    score: input.score,
+    content: input.content.trim(),
+    status: 'approved',
+    source: 'seed',
+    sourceUrl: null,
+    sourcePlatform: input.sourcePlatform ?? null,
+    collectedAt: now,
+    reviewNote: null,
+    reviewedAt: now,
+    createdAt: now,
+    updatedAt: now
+  } as unknown as AdminPlaceReviewView
+}
+
+/** 后台删除评论（整理卡或原文）。 */
+export function adminDeleteReview(client: DatabaseClient, id: string): void {
+  const existing = client.db.select({ id: placeReviews.id }).from(placeReviews)
+    .where(eq(placeReviews.id, id)).get()
+  if (!existing) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Review not found',
+      data: { code: 'REVIEW_NOT_FOUND' }
+    })
+  }
+  client.db.delete(placeReviews).where(eq(placeReviews.id, id)).run()
+}
+
 /* ------------------------------------------------------------------ */
 /* 商家推广设置：美团跳转链接、排行占比（promo_weight）、AI 出现频率    */
 /* ------------------------------------------------------------------ */

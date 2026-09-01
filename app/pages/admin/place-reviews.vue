@@ -286,6 +286,63 @@ async function saveSeedEdit(): Promise<void> {
   }
 }
 
+/* 添加/删除整理卡 */
+const addingSeed = ref(false)
+const newSeedContent = ref('')
+const newSeedScore = ref(4)
+const newSeedPlatform = ref<'dianping' | 'meituan'>('dianping')
+const deletingSeedId = ref('')
+
+async function addSeedCard(): Promise<void> {
+  if (!selectedMerchant.value || addingSeed.value || !newSeedContent.value.trim()) return
+  addingSeed.value = true
+  try {
+    const created = await adminFetch<MerchantReview>('/api/admin/place-reviews', {
+      method: 'POST',
+      body: {
+        placeId: selectedMerchant.value.placeId,
+        score: newSeedScore.value,
+        content: newSeedContent.value.trim(),
+        sourcePlatform: newSeedPlatform.value
+      }
+    })
+    selectedMerchant.value.seedCards.unshift(created)
+    newSeedContent.value = ''
+    newSeedScore.value = 4
+    toast.add({ title: '整理卡已添加', color: 'success' })
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await navigateTo('/admin/login', { replace: true })
+      return
+    }
+    toast.add({ title: getRequestMessage(error, '添加失败'), color: 'error' })
+  } finally {
+    addingSeed.value = false
+  }
+}
+
+async function deleteSeedCard(review: MerchantReview): Promise<void> {
+  if (deletingSeedId.value) return
+  if (!window.confirm('确定删除这条整理卡？前台将不再展示。')) return
+  deletingSeedId.value = review.id
+  try {
+    await adminFetch(`/api/admin/place-reviews/${review.id}`, { method: 'DELETE' })
+    const detail = selectedMerchant.value
+    if (detail) {
+      detail.seedCards = detail.seedCards.filter(card => card.id !== review.id)
+    }
+    toast.add({ title: '整理卡已删除', color: 'success' })
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await navigateTo('/admin/login', { replace: true })
+      return
+    }
+    toast.add({ title: getRequestMessage(error, '删除失败'), color: 'error' })
+  } finally {
+    deletingSeedId.value = ''
+  }
+}
+
 function renderStars(score: number | null | undefined): string {
   if (score === null || score === undefined) return '—'
   return '★'.repeat(Math.round(score)) + '☆'.repeat(5 - Math.round(score))
@@ -573,7 +630,7 @@ onMounted(loadReviews)
       </div>
     </template>
 
-    <template v-else>
+    <template v-else-if="viewTab === 'amap'">
       <div class="flex max-w-md items-center gap-2">
         <UInput
           v-model="amapQuery"
@@ -853,11 +910,67 @@ onMounted(loadReviews)
             </div>
           </section>
 
-          <!-- 整理卡（前台展示版，可编辑） -->
+          <!-- 整理卡（前台展示版，可编辑/添加/删除） -->
           <section>
-            <h3 class="mb-2 text-sm font-bold text-zinc-800">
-              整理卡（前台展示）
-            </h3>
+            <div class="flex items-center justify-between">
+              <h3 class="mb-2 text-sm font-bold text-zinc-800">
+                整理卡（前台展示）
+              </h3>
+              <button
+                type="button"
+                class="mb-2 rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-amber-500"
+                @click="addingSeed = !addingSeed"
+              >
+                {{ addingSeed ? '收起' : '+ 添加整理卡' }}
+              </button>
+            </div>
+
+            <!-- 添加表单 -->
+            <div
+              v-if="addingSeed"
+              class="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3"
+            >
+              <div class="flex items-center gap-2">
+                <label class="text-xs font-medium text-zinc-600">
+                  星级
+                </label>
+                <input
+                  v-model.number="newSeedScore"
+                  type="number"
+                  min="1"
+                  max="5"
+                  step="0.1"
+                  class="w-20 rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-amber-500"
+                >
+                <label class="ml-2 text-xs font-medium text-zinc-600">
+                  来源
+                </label>
+                <select
+                  v-model="newSeedPlatform"
+                  class="rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-amber-500"
+                >
+                  <option value="dianping">点评整理</option>
+                  <option value="meituan">美团整理</option>
+                </select>
+              </div>
+              <textarea
+                v-model="newSeedContent"
+                rows="3"
+                placeholder="输入整理后的评价内容（前台展示的标准格式：推荐菜/亮点/注意点）…"
+                class="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm leading-5 outline-none focus:border-amber-500"
+              />
+              <div class="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  class="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                  :disabled="!newSeedContent.trim()"
+                  @click="addSeedCard"
+                >
+                  {{ addingSeed ? '保存' : '添加' }}
+                </button>
+              </div>
+            </div>
+
             <ul class="space-y-2">
               <li
                 v-for="card in selectedMerchant.seedCards"
@@ -877,6 +990,14 @@ onMounted(loadReviews)
                     @click="startEditSeed(card)"
                   >
                     编辑
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded px-2 py-0.5 text-[11px] text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    :disabled="deletingSeedId === card.id"
+                    @click="deleteSeedCard(card)"
+                  >
+                    {{ deletingSeedId === card.id ? '删除中…' : '删除' }}
                   </button>
                 </div>
                 <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-700">

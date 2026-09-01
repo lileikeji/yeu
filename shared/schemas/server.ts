@@ -984,3 +984,11 @@ export const updateMerchantPromoSchema = z.object({
   aiFrequency: z.number().int().min(0).max(100).optional(),
   enabled: z.boolean().optional()
 }).strict()
+
+/** 后台创建整理卡（source='seed'）。 */
+export const createSeedReviewSchema = z.object({
+  placeId: z.string().trim().min(1).max(100),
+  score: z.number().min(1).max(5),
+  content: z.string().trim().min(1).max(2000),
+  sourcePlatform: z.enum(['dianping', 'meituan']).optional()
+}).strict()
