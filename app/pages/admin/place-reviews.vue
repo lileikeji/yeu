@@ -614,7 +614,7 @@ onMounted(loadReviews)
       </ul>
     </template>
 
-    <template v-else-if="viewTab === 'merchants'">
+    <template v-if="viewTab === 'merchants'">
       <div v-if="!selectedMerchant" class="space-y-3">
         <div class="flex items-center gap-2">
           <input
