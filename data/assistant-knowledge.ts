@@ -481,6 +481,17 @@ export const verifiedNewStudentFaqKnowledge: AssistantKnowledgeSeed[] = [
     sourceNote: '站内已核验地图与学校餐厅资料；快递点数量属于2025年经验线索。'
   },
   {
+    id: 'faq-canteen-hours',
+    kind: 'official_reference',
+    category: '食堂',
+    title: '食堂开放时间',
+    question: '食堂几点开门？餐厅营业时间是什么？',
+    answer: '官方未公开食堂统一开放时间。校内第一教学区北苑餐厅、第三教学区西苑餐厅设有多个档口；具体营业时间以餐厅现场和后勤通知为准。',
+    keywords: ['食堂', '餐厅', '开放时间', '几点开门', '几点关门', '营业时间', '北苑', '西苑', '吃饭', '什么时候开'],
+    confidence: 92,
+    sourceNote: '官方未公开统一开放时间；北苑/西苑餐厅档口信息来自站内已核验资料。'
+  },
+  {
     id: 'faq-club-list',
     kind: 'official_reference',
     category: '社团',

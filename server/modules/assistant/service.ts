@@ -3029,6 +3029,30 @@ function assistantKnowledgeLocalAnswer(
   const comprehensiveTableQuery = /(?:综测|综合测评).*(?:表格|统计|怎么填|填写|填表)|(?:表格|统计|怎么填|填写|填表).*(?:综测|综合测评)/i.test(query)
   const comprehensiveDetailQuery = /(?:班内互评|互评分|智育|体育|德育奖励|志愿|献血|扣分|加分|排名|评审|流程|奖励|处分|旷课|迟到|表格|统计|怎么填|填写|填表|班级代码|学号|姓名)/i.test(query)
   if (studentRuleQuery && !comprehensiveTableQuery && !comprehensiveDetailQuery) return null
+  // Canteen hours: "食堂几点开门/营业时间" must hit the 食堂开放时间 entry
+  // directly — the term splitter can collapse the query into one long phrase
+  // that misses the SQL LIKE candidate pool and lets the LIBRARY hours entry
+  // win by overlapping "开放时间".
+  const canteenHoursQuery = /(?:食堂|北苑|西苑|餐厅).{0,8}(?:几点|开放时间|营业时间|开门|关门|什么时候开)/u.test(query)
+  if (canteenHoursQuery) {
+    const canteenHoursMatch = assistantKnowledgeMatchesForQuery(client, '食堂开放时间 北苑 西苑 几点开门', 12)
+      .find(candidate => /食堂开放时间|食堂时间/.test(candidate.title + candidate.question))
+    if (canteenHoursMatch) {
+      return {
+        query,
+        mode: 'local',
+        answer: canteenHoursMatch.answer,
+        citations: [{
+          title: canteenHoursMatch.title,
+          url: canteenHoursMatch.publicUrl ?? '',
+          snippet: canteenHoursMatch.question,
+          source: 'site' as const
+        }],
+        usedWebSearch: false,
+        confidence: canteenHoursMatch.confidence / 100
+      }
+    }
+  }
   // Historical transfer rules have their own guarded answer. Current-year
   // questions should still use the reviewed campus FAQ when it contains the
   // requested condition (for example, whether a failed math course is an
