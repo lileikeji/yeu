@@ -867,6 +867,24 @@ export const placeAmapRatings = sqliteTable('place_amap_ratings', {
   check('place_amap_ratings_cost_check', sql`${table.cost} is null or ${table.cost} >= 0`)
 ])
 
+/**
+ * Merchant promotion settings (backoffice): per-place Meituan jump link,
+ * promo weight for ranking boosts and AI recommendation frequency. The AI
+ * food recommender and the map popup read these to surface promoted shops.
+ */
+export const placeMerchants = sqliteTable('place_merchants', {
+  placeId: text('place_id').primaryKey(),
+  meituanUrl: text('meituan_url'),
+  promoWeight: integer('promo_weight').notNull().default(0),
+  aiFrequency: integer('ai_frequency').notNull().default(0),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('place_merchants_enabled_idx').on(table.enabled),
+  check('place_merchants_promo_weight_check', sql`${table.promoWeight} between 0 and 100`),
+  check('place_merchants_ai_frequency_check', sql`${table.aiFrequency} between 0 and 100`)
+])
+
 export const assistantEmbeddings = sqliteTable('assistant_embeddings', {
   id: text('id').primaryKey(),
   sourceType: text('source_type', {

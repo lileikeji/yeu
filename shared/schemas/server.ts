@@ -976,3 +976,11 @@ export const updateSeedReviewSchema = z.object({
 }).strict().refine(data => data.content !== undefined || data.score !== undefined, {
   message: '至少提供 content 或 score 之一'
 })
+
+/** 后台商家推广设置：美团跳转链接、排行占比、AI 出现频率。 */
+export const updateMerchantPromoSchema = z.object({
+  meituanUrl: z.string().trim().max(500).nullable().optional(),
+  promoWeight: z.number().int().min(0).max(100).optional(),
+  aiFrequency: z.number().int().min(0).max(100).optional(),
+  enabled: z.boolean().optional()
+}).strict()

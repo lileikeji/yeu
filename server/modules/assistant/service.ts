@@ -91,6 +91,7 @@ import {
   assistantWebKnowledge,
   contents,
   placeAmapRatings,
+  placeMerchants,
   placeReviews,
   places,
   procedureMaterials,
@@ -2922,10 +2923,18 @@ function assistantFoodRecommendationAnswer(
   // identical list. Score-biased shuffle keeps high-rated shops likely (but
   // not guaranteed) to appear early while varying the order and membership
   // between calls, so repeated "附近吃什么" questions feel fresh. The count
-  // also varies (8-12) instead of a fixed 15.
+  // also varies (8-12) instead of a fixed 15. Promoted merchants (backoffice
+  // aiFrequency) get an extra bias so they surface more often.
+  const promoRows = client.db.select({
+    placeId: placeMerchants.placeId,
+    aiFrequency: placeMerchants.aiFrequency
+  }).from(placeMerchants)
+    .where(eq(placeMerchants.enabled, true))
+    .all()
+  const promoBias = new Map(promoRows.map(row => [row.placeId, (row.aiFrequency ?? 0) / 100 * 0.6]))
   const biasedShuffle = (items: typeof rated): typeof rated => {
     return items
-      .map(item => ({ item, bias: (item.score ?? 0) + Math.random() * 0.45 }))
+      .map(item => ({ item, bias: (item.score ?? 0) + Math.random() * 0.45 + (promoBias.get(item.placeId) ?? 0) }))
       .sort((left, right) => right.bias - left.bias)
       .map(entry => entry.item)
   }

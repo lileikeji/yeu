@@ -33,6 +33,7 @@ interface PublicPlaceReviewsPayload {
   reviews: PublicReviewView[]
   mine: { submitted: boolean, status: 'pending' | 'approved' | 'rejected' | null }
   seedCount: number
+  promo: { meituanUrl: string | null, promoWeight: number, aiFrequency: number } | null
 }
 
 const props = defineProps<{
@@ -298,6 +299,16 @@ const mineStatusText = computed<string | null>(() => {
           >
             {{ sourceLabel }}
           </span>
+          <a
+            v-if="payload.promo?.meituanUrl"
+            :href="payload.promo.meituanUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 rounded bg-yellow-400 px-2 py-0.5 text-[11px] font-semibold text-yellow-950 hover:bg-yellow-300"
+          >
+            <UIcon name="i-lucide-bike" class="size-3" />
+            美团下单
+          </a>
         </div>
 
         <!-- 排序切换 -->

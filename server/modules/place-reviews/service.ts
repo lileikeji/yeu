@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { PlaceReviewStatus } from '../../../shared/constants/server'
 import type { DatabaseClient } from '../../database/client'
-import { placeAmapRatings, placeReviews, reviewLikes, users } from '../../database/schema'
+import { placeAmapRatings, placeMerchants, placeReviews, reviewLikes, users } from '../../database/schema'
 
 export const AMAP_RATING_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const PUBLIC_REVIEWS_LIMIT = 5
@@ -57,6 +57,8 @@ export interface PublicPlaceReviewsPayload {
   mine: { submitted: boolean, status: PlaceReviewStatus | null }
   /** Number of rewritten seed reviews for this place (excluded from aggregate). */
   seedCount: number
+  /** Merchant promotion info (Meituan jump link) when enabled by the backoffice. */
+  promo: { meituanUrl: string | null, promoWeight: number, aiFrequency: number } | null
 }
 
 export interface AdminPlaceReviewView {
@@ -295,7 +297,8 @@ export function listPublicPlaceReviews(
       : null,
     reviews,
     mine,
-    seedCount: Number(seedCountRow?.count ?? 0)
+    seedCount: Number(seedCountRow?.count ?? 0),
+    promo: publicMerchantPromo(client, key)
   }
 }
 
@@ -744,4 +747,106 @@ export function adminUpdateSeedReview(
     username: null,
     displayName: '系统整理'
   } as unknown as AdminPlaceReviewView
+}
+
+/* ------------------------------------------------------------------ */
+/* 商家推广设置：美团跳转链接、排行占比（promo_weight）、AI 出现频率    */
+/* ------------------------------------------------------------------ */
+
+export interface MerchantPromoView {
+  placeId: string
+  meituanUrl: string | null
+  promoWeight: number
+  aiFrequency: number
+  enabled: boolean
+}
+
+export function getMerchantPromo(client: DatabaseClient, placeId: string): MerchantPromoView {
+  const row = client.db.select().from(placeMerchants)
+    .where(eq(placeMerchants.placeId, placeId)).get()
+  return {
+    placeId,
+    meituanUrl: row?.meituanUrl ?? null,
+    promoWeight: row?.promoWeight ?? 0,
+    aiFrequency: row?.aiFrequency ?? 0,
+    enabled: row?.enabled ?? false
+  }
+}
+
+export function updateMerchantPromo(
+  client: DatabaseClient,
+  placeId: string,
+  input: { meituanUrl?: string | null, promoWeight?: number, aiFrequency?: number, enabled?: boolean }
+): MerchantPromoView {
+  const now = Date.now()
+  const existing = client.db.select({ placeId: placeMerchants.placeId }).from(placeMerchants)
+    .where(eq(placeMerchants.placeId, placeId)).get()
+
+  if (input.meituanUrl !== undefined && input.meituanUrl !== null) {
+    const url = input.meituanUrl.trim()
+    if (url && !/^https?:\/\//i.test(url)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Meituan URL must start with http(s)://',
+        data: { code: 'INVALID_MEITUAN_URL' }
+      })
+    }
+    input.meituanUrl = url || null
+  }
+  if (input.promoWeight !== undefined) {
+    if (input.promoWeight < 0 || input.promoWeight > 100) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'promoWeight must be 0-100',
+        data: { code: 'INVALID_PROMO_WEIGHT' }
+      })
+    }
+  }
+  if (input.aiFrequency !== undefined) {
+    if (input.aiFrequency < 0 || input.aiFrequency > 100) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'aiFrequency must be 0-100',
+        data: { code: 'INVALID_AI_FREQUENCY' }
+      })
+    }
+  }
+
+  if (existing) {
+    const set: Record<string, unknown> = { updatedAt: now }
+    if (input.meituanUrl !== undefined) set.meituanUrl = input.meituanUrl
+    if (input.promoWeight !== undefined) set.promoWeight = input.promoWeight
+    if (input.aiFrequency !== undefined) set.aiFrequency = input.aiFrequency
+    if (input.enabled !== undefined) set.enabled = input.enabled
+    client.db.update(placeMerchants).set(set).where(eq(placeMerchants.placeId, placeId)).run()
+  } else {
+    client.db.insert(placeMerchants).values({
+      placeId,
+      meituanUrl: input.meituanUrl ?? null,
+      promoWeight: input.promoWeight ?? 0,
+      aiFrequency: input.aiFrequency ?? 0,
+      enabled: input.enabled ?? false,
+      updatedAt: now
+    }).run()
+  }
+  return getMerchantPromo(client, placeId)
+}
+
+/** 公开详情附加推广信息（地图弹窗/AI 用）——enabled 且有关联时才暴露。 */
+export function publicMerchantPromo(client: DatabaseClient, placeId: string): {
+  meituanUrl: string | null
+  promoWeight: number
+  aiFrequency: number
+} | null {
+  const row = client.db.select().from(placeMerchants)
+    .where(and(
+      eq(placeMerchants.placeId, placeId),
+      eq(placeMerchants.enabled, true)
+    )).get()
+  if (!row) return null
+  return {
+    meituanUrl: row.meituanUrl,
+    promoWeight: row.promoWeight,
+    aiFrequency: row.aiFrequency
+  }
 }

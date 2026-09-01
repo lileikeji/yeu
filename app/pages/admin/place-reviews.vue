@@ -146,6 +146,69 @@ const editContent = ref('')
 const editScore = ref(4)
 const savingSeed = ref(false)
 
+/* ---------- 推广设置 ---------- */
+interface MerchantPromo {
+  placeId: string
+  meituanUrl: string | null
+  promoWeight: number
+  aiFrequency: number
+  enabled: boolean
+}
+
+const promo = ref<MerchantPromo | null>(null)
+const promoLoading = ref(false)
+const savingPromo = ref(false)
+const promoMeituanUrl = ref('')
+const promoWeight = ref(0)
+const promoAiFrequency = ref(0)
+const promoEnabled = ref(false)
+
+async function loadPromo(placeId: string): Promise<void> {
+  promoLoading.value = true
+  try {
+    const data = await adminFetch<MerchantPromo>(`/api/admin/place-reviews/merchants/${encodeURIComponent(placeId)}/promo`)
+    promo.value = data
+    promoMeituanUrl.value = data.meituanUrl ?? ''
+    promoWeight.value = data.promoWeight
+    promoAiFrequency.value = data.aiFrequency
+    promoEnabled.value = data.enabled
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await navigateTo('/admin/login', { replace: true })
+      return
+    }
+    toast.add({ title: getRequestMessage(error, '推广设置加载失败'), color: 'error' })
+  } finally {
+    promoLoading.value = false
+  }
+}
+
+async function savePromo(): Promise<void> {
+  if (!selectedMerchant.value || savingPromo.value) return
+  savingPromo.value = true
+  try {
+    const updated = await adminFetch<MerchantPromo>(`/api/admin/place-reviews/merchants/${encodeURIComponent(selectedMerchant.value.placeId)}/promo`, {
+      method: 'PATCH',
+      body: {
+        meituanUrl: promoMeituanUrl.value.trim() || null,
+        promoWeight: promoWeight.value,
+        aiFrequency: promoAiFrequency.value,
+        enabled: promoEnabled.value
+      }
+    })
+    promo.value = updated
+    toast.add({ title: '推广设置已保存', color: 'success' })
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await navigateTo('/admin/login', { replace: true })
+      return
+    }
+    toast.add({ title: getRequestMessage(error, '保存失败'), color: 'error' })
+  } finally {
+    savingPromo.value = false
+  }
+}
+
 const filteredMerchants = computed(() => {
   const query = merchantQuery.value.trim().toLowerCase()
   if (!query) return merchants.value
@@ -175,9 +238,11 @@ async function loadMerchants(): Promise<void> {
 async function openMerchant(placeId: string): Promise<void> {
   selectedMerchant.value = null
   merchantDetailLoading.value = true
+  promo.value = null
   try {
     const detail = await adminFetch<AdminMerchantDetail>(`/api/admin/place-reviews/merchants/${encodeURIComponent(placeId)}`)
     selectedMerchant.value = detail
+    void loadPromo(placeId)
   } catch (error) {
     if (isAuthorizationError(error)) {
       await navigateTo('/admin/login', { replace: true })
@@ -712,6 +777,82 @@ onMounted(loadReviews)
         </div>
 
         <template v-else>
+          <!-- 推广设置 -->
+          <section class="rounded-lg border border-violet-200 bg-violet-50/40 p-4">
+            <h3 class="text-sm font-bold text-zinc-800">
+              商家推广设置
+            </h3>
+            <p class="mt-0.5 text-xs text-zinc-500">
+              挂美团链接后，地图弹窗与 AI 推荐会出现该商家的快捷跳转；排行占比与 AI 频率用于提升推荐权重。
+            </p>
+            <div v-if="promoLoading" class="mt-3 text-xs text-zinc-500">
+              加载中…
+            </div>
+            <div v-else class="mt-3 grid gap-3 sm:grid-cols-2">
+              <div class="sm:col-span-2">
+                <label class="text-xs font-medium text-zinc-600">
+                  美团店铺链接
+                </label>
+                <input
+                  v-model="promoMeituanUrl"
+                  type="url"
+                  placeholder="https://waimai.meituan.com/… 或 https://www.meituan.com/…"
+                  class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-violet-500"
+                >
+              </div>
+              <div>
+                <label class="text-xs font-medium text-zinc-600">
+                  排行占比：{{ promoWeight }}%
+                </label>
+                <input
+                  v-model.number="promoWeight"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  class="mt-2 w-full accent-violet-600"
+                >
+                <p class="mt-1 text-[11px] text-zinc-400">
+                  越高排名越靠前（0 = 不干预）
+                </p>
+              </div>
+              <div>
+                <label class="text-xs font-medium text-zinc-600">
+                  AI 出现频率：{{ promoAiFrequency }}%
+                </label>
+                <input
+                  v-model.number="promoAiFrequency"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  class="mt-2 w-full accent-violet-600"
+                >
+                <p class="mt-1 text-[11px] text-zinc-400">
+                  越高 AI 推荐时越常出现
+                </p>
+              </div>
+              <div class="sm:col-span-2 flex items-center justify-between">
+                <label class="flex items-center gap-2 text-xs font-medium text-zinc-600">
+                  <input
+                    v-model="promoEnabled"
+                    type="checkbox"
+                    class="accent-violet-600"
+                  >
+                  启用推广（前台显示跳转与权重生效）
+                </label>
+                <button
+                  type="button"
+                  class="rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-600 disabled:opacity-50"
+                  :disabled="savingPromo"
+                  @click="savePromo"
+                >
+                  {{ savingPromo ? '保存中…' : '保存推广设置' }}
+                </button>
+              </div>
+            </div>
+          </section>
+
           <!-- 整理卡（前台展示版，可编辑） -->
           <section>
             <h3 class="mb-2 text-sm font-bold text-zinc-800">

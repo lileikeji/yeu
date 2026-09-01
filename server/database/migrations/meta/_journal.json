@@ -211,6 +211,13 @@
       "when": 1788014371385,
       "tag": "0029_old_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788332400000,
+      "tag": "0030_frosty_merchant",
+      "breakpoints": true
     }
   ]
 }
