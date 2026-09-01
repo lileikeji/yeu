@@ -8,9 +8,12 @@ import { runMigrations } from '../server/database/migrate'
 import { parsePoiRating } from '../server/modules/place-reviews/amap'
 import { resolveSeedCardScore } from '../scripts/seed-dianping-review-cards'
 import {
+  adminGetPlaceMerchantDetail,
   adminListAmapRatings,
+  adminListPlaceMerchants,
   adminListPlaceReviews,
   adminReviewPlace,
+  adminUpdateSeedReview,
   createPlaceReview,
   listPublicPlaceReviews,
   normalizePlaceId,
@@ -368,6 +371,80 @@ test('review likes: idempotent like, unlike, counts and hot sort', () => {
     assert.throws(
       () => setReviewLike(client, '00000000-0000-4000-8000-000000000000', USER_A.id, true),
       (error: TestHttpError) => error.statusCode === 404
+    )
+  } finally {
+    cleanup()
+  }
+})
+
+test('merchant management aggregates seed/original/user reviews and edits seed cards', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const now = Date.now()
+    // 高德评分
+    upsertAmapRating(client, PLACE_ID, {
+      poiId: 'B0TEST1', poiName: '测试烧烤店', score: 4.3, cost: 42
+    })
+    // seed/original 卡需要 user_id 外键指向真实用户（本地迁移 0025 user_id NOT NULL）
+    const fakeUsers = ['seed-user-1', 'seed-user-2', 'orig-user-0', 'orig-user-1', 'orig-user-2']
+    for (const uid of fakeUsers) {
+      client.sqlite.prepare(`
+        INSERT INTO users (id, username, password_hash, display_name, status, created_at, updated_at)
+        VALUES (?, ?, 'x', '整理', 'active', ?, ?)
+      `).run(uid, uid, now, now)
+    }
+    // seed 整理卡 × 2（本地测试迁移 0025 的 user_id 为 NOT NULL——用假用户 id 避开；
+    // 生产 schema user_id 可空，seed 卡实际为 NULL + anonymous_key）
+    client.sqlite.prepare(`
+      INSERT INTO place_reviews (id, place_id, user_id, anonymous_key, score, content, status, source, source_platform, collected_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'approved', 'seed', 'dianping', ?, ?, ?)
+    `).run('seed-1', PLACE_ID, 'seed-user-1', 'seed-dp-1', 4.5, '招牌五花肉好吃。\n（整理自点评）', now, now, now)
+    client.sqlite.prepare(`
+      INSERT INTO place_reviews (id, place_id, user_id, anonymous_key, score, content, status, source, source_platform, collected_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'approved', 'seed', 'dianping', ?, ?, ?)
+    `).run('seed-2', PLACE_ID, 'seed-user-2', 'seed-dp-2', 3.8, '性价比一般。\n（整理自点评）', now, now, now)
+    // 原始评论 × 3
+    for (let i = 0; i < 3; i++) {
+      client.sqlite.prepare(`
+        INSERT INTO place_reviews (id, place_id, user_id, anonymous_key, score, content, status, source, source_platform, source_url, collected_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'approved', 'original', 'dianping', 'https://www.dianping.com/shop/123', ?, ?, ?)
+      `).run(`orig-${i}`, PLACE_ID, `orig-user-${i}`, `orig-anon-${i}`, 3 + i, `原文评论${i}，味道很好。`, now, now, now)
+    }
+    // 用户评价 × 1
+    createPlaceReview(client, { placeId: PLACE_ID, score: 5, content: '学生评价' }, { userId: USER_A.id })
+
+    // 聚合列表
+    const merchants = adminListPlaceMerchants(client)
+    const merchant = merchants.find(m => m.placeId === PLACE_ID)
+    assert.ok(merchant, 'merchant should appear in aggregated list')
+    assert.equal(merchant?.poiName, '测试烧烤店')
+    assert.equal(merchant?.amapScore, 4.3)
+    assert.equal(merchant?.seedCardCount, 2)
+    assert.equal(merchant?.originalReviewCount, 3)
+    assert.equal(merchant?.userReviewCount, 1)
+
+    // 商家详情
+    const detail = adminGetPlaceMerchantDetail(client, PLACE_ID)
+    assert.ok(detail)
+    assert.equal(detail?.seedCards.length, 2)
+    assert.equal(detail?.originalReviews.length, 3)
+    assert.equal(detail?.userReviews.length, 1)
+    assert.equal(detail?.originalReviews[0]?.sourcePlatform, 'dianping')
+
+    // 编辑 seed 卡
+    const edited = adminUpdateSeedReview(client, 'seed-1', { content: '编辑后的文案', score: 4.2 }, ADMIN_ID)
+    assert.equal(edited.content, '编辑后的文案')
+    assert.equal(edited.score, 4.2)
+
+    // 非 seed 卡不可编辑
+    assert.throws(
+      () => adminUpdateSeedReview(client, 'orig-0', { content: 'x' }, ADMIN_ID),
+      (error: TestHttpError) => error.statusCode === 400 && error.data?.code === 'NOT_SEED_REVIEW'
+    )
+    // 分数越界拒绝
+    assert.throws(
+      () => adminUpdateSeedReview(client, 'seed-1', { score: 9 }, ADMIN_ID),
+      (error: TestHttpError) => error.statusCode === 400
     )
   } finally {
     cleanup()

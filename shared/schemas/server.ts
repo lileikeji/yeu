@@ -968,3 +968,11 @@ export const reviewPlaceReviewSchema = z.object({
   status: z.enum(['approved', 'rejected']),
   note: z.string().trim().max(500).optional()
 }).strict()
+
+/** 后台编辑整理卡（source='seed'）：改文案和/或星级。 */
+export const updateSeedReviewSchema = z.object({
+  content: z.string().trim().min(1).max(2000).optional(),
+  score: z.number().min(1).max(5).optional()
+}).strict().refine(data => data.content !== undefined || data.score !== undefined, {
+  message: '至少提供 content 或 score 之一'
+})

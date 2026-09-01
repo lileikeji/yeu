@@ -69,7 +69,10 @@ export interface AdminPlaceReviewView {
   score: number
   content: string
   status: PlaceReviewStatus
-  source: 'user' | 'seed'
+  source: 'user' | 'seed' | 'original'
+  sourceUrl: string | null
+  sourcePlatform: 'dianping' | 'meituan' | null
+  collectedAt: number | null
   reviewNote: string | null
   reviewedAt: number | null
   createdAt: number
@@ -522,4 +525,223 @@ export function adminReviewPlace(
     username: user?.username ?? '',
     displayName: user?.displayName ?? ''
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* 商家管理（后台）——按商家聚合评分与评论，展示完整原始评论，并可编辑  */
+/* 整理卡。原始抓取评论以 source='original' 入库（全文原文），前台仅  */
+/* 展示 source='seed' 的整理卡；后台可同时查看两者。                    */
+/* ------------------------------------------------------------------ */
+
+export interface AdminMerchantSummary {
+  placeId: string
+  poiName: string | null
+  amapScore: number | null
+  amapCost: number | null
+  amapExpired: boolean
+  seedCardCount: number
+  originalReviewCount: number
+  userReviewCount: number
+  seedAvgScore: number | null
+  originalAvgScore: number | null
+}
+
+export function adminListPlaceMerchants(client: DatabaseClient): AdminMerchantSummary[] {
+  const now = Date.now()
+  const ratings = client.db.select().from(placeAmapRatings).all()
+  const ratingByName = new Map(ratings.map(r => [r.placeId, r]))
+  const placeIds = new Set(ratings.map(r => r.placeId))
+
+  // 聚合评论（按 place_id + source 分组）
+  const reviewRows = client.db.select({
+    placeId: placeReviews.placeId,
+    source: placeReviews.source,
+    score: placeReviews.score,
+    count: sql<number>`count(*)`
+  }).from(placeReviews)
+    .groupBy(placeReviews.placeId, placeReviews.source)
+    .all()
+
+  const summaries = new Map<string, AdminMerchantSummary>()
+  for (const row of reviewRows) {
+    const existing = summaries.get(row.placeId) ?? {
+      placeId: row.placeId,
+      poiName: ratingByName.get(row.placeId)?.amapPoiName ?? null,
+      amapScore: ratingByName.get(row.placeId)?.score ?? null,
+      amapCost: ratingByName.get(row.placeId)?.cost ?? null,
+      amapExpired: (ratingByName.get(row.placeId)?.expiresAt ?? 0) <= now,
+      seedCardCount: 0,
+      originalReviewCount: 0,
+      userReviewCount: 0,
+      seedAvgScore: null,
+      originalAvgScore: null
+    }
+    if (row.source === 'seed') {
+      existing.seedCardCount = Number(row.count)
+      existing.seedAvgScore = row.score
+    } else if (row.source === 'original') {
+      existing.originalReviewCount = Number(row.count)
+      existing.originalAvgScore = row.score
+    } else {
+      existing.userReviewCount = Number(row.count)
+    }
+    summaries.set(row.placeId, existing)
+  }
+
+  // 有评分但无评论的商家也列出（评分数据本身有价值）
+  for (const rating of ratings) {
+    if (!summaries.has(rating.placeId)) {
+      summaries.set(rating.placeId, {
+        placeId: rating.placeId,
+        poiName: rating.amapPoiName,
+        amapScore: rating.score,
+        amapCost: rating.cost,
+        amapExpired: rating.expiresAt <= now,
+        seedCardCount: 0,
+        originalReviewCount: 0,
+        userReviewCount: 0,
+        seedAvgScore: null,
+        originalAvgScore: null
+      })
+    }
+  }
+
+  void placeIds
+  return [...summaries.values()]
+    .sort((left, right) => (right.amapScore ?? 0) - (left.amapScore ?? 0))
+}
+
+export interface AdminMerchantDetail {
+  placeId: string
+  poiName: string | null
+  amapScore: number | null
+  amapCost: number | null
+  amapExpired: boolean
+  seedCards: AdminPlaceReviewView[]
+  originalReviews: AdminPlaceReviewView[]
+  userReviews: AdminPlaceReviewView[]
+}
+
+export function adminGetPlaceMerchantDetail(
+  client: DatabaseClient,
+  placeId: string
+): AdminMerchantDetail | null {
+  const rating = client.db.select().from(placeAmapRatings)
+    .where(eq(placeAmapRatings.placeId, placeId)).get()
+  const rows = client.db.select({
+    id: placeReviews.id,
+    placeId: placeReviews.placeId,
+    userId: placeReviews.userId,
+    anonymousKey: placeReviews.anonymousKey,
+    username: users.username,
+    displayName: users.displayName,
+    score: placeReviews.score,
+    content: placeReviews.content,
+    status: placeReviews.status,
+    source: placeReviews.source,
+    sourceUrl: placeReviews.sourceUrl,
+    sourcePlatform: placeReviews.sourcePlatform,
+    collectedAt: placeReviews.collectedAt,
+    reviewNote: placeReviews.reviewNote,
+    reviewedAt: placeReviews.reviewedAt,
+    createdAt: placeReviews.createdAt,
+    updatedAt: placeReviews.updatedAt
+  }).from(placeReviews)
+    .leftJoin(users, eq(placeReviews.userId, users.id))
+    .where(eq(placeReviews.placeId, placeId))
+    .orderBy(desc(placeReviews.createdAt))
+    .all()
+
+  if (rows.length === 0 && !rating) return null
+
+  const toView = (row: typeof rows[number]): AdminPlaceReviewView => ({
+    ...row,
+    username: row.username ?? null,
+    displayName: row.displayName ?? (row.source === 'seed' ? '系统整理' : row.source === 'original' ? '平台原文' : '匿名评价'),
+    sourceUrl: row.sourceUrl ?? null,
+    sourcePlatform: row.sourcePlatform ?? null,
+    collectedAt: row.collectedAt ?? null
+  }) as unknown as AdminPlaceReviewView
+
+  const seedCards = rows.filter(r => r.source === 'seed').map(toView)
+  const originalReviews = rows.filter(r => r.source === 'original').map(toView)
+  const userReviews = rows.filter(r => r.source === 'user').map(toView)
+
+  return {
+    placeId,
+    poiName: rating?.amapPoiName ?? null,
+    amapScore: rating?.score ?? null,
+    amapCost: rating?.cost ?? null,
+    amapExpired: (rating?.expiresAt ?? 0) <= Date.now(),
+    seedCards,
+    originalReviews,
+    userReviews
+  }
+}
+
+export function adminUpdateSeedReview(
+  client: DatabaseClient,
+  id: string,
+  input: { content?: string, score?: number },
+  adminId: string
+): AdminPlaceReviewView {
+  const now = Date.now()
+  const existing = client.db.select({
+    id: placeReviews.id,
+    source: placeReviews.source
+  }).from(placeReviews).where(eq(placeReviews.id, id)).get()
+  if (!existing) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Review not found',
+      data: { code: 'REVIEW_NOT_FOUND' }
+    })
+  }
+  if (existing.source !== 'seed') {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Only seed cards can be edited',
+      data: { code: 'NOT_SEED_REVIEW' }
+    })
+  }
+
+  const set: Record<string, unknown> = { updatedAt: now }
+  if (input.content !== undefined) set.content = input.content.trim()
+  if (input.score !== undefined) {
+    const score = Number(input.score)
+    if (!Number.isFinite(score) || score < 1 || score > 5) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Score must be between 1 and 5',
+        data: { code: 'INVALID_SCORE' }
+      })
+    }
+    set.score = score
+  }
+
+  const row = client.db.update(placeReviews).set(set)
+    .where(eq(placeReviews.id, id))
+    .returning({
+      id: placeReviews.id,
+      placeId: placeReviews.placeId,
+      userId: placeReviews.userId,
+      anonymousKey: placeReviews.anonymousKey,
+      score: placeReviews.score,
+      content: placeReviews.content,
+      status: placeReviews.status,
+      source: placeReviews.source,
+      sourceUrl: placeReviews.sourceUrl,
+      sourcePlatform: placeReviews.sourcePlatform,
+      collectedAt: placeReviews.collectedAt,
+      reviewNote: placeReviews.reviewNote,
+      reviewedAt: placeReviews.reviewedAt,
+      createdAt: placeReviews.createdAt,
+      updatedAt: placeReviews.updatedAt
+    }).get()
+
+  return {
+    ...row,
+    username: null,
+    displayName: '系统整理'
+  } as unknown as AdminPlaceReviewView
 }

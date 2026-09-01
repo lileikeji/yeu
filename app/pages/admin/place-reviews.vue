@@ -40,7 +40,7 @@ interface AdminAmapRating {
 }
 
 const toast = useToast()
-const viewTab = ref<'reviews' | 'amap'>('reviews')
+const viewTab = ref<'reviews' | 'amap' | 'merchants'>('reviews')
 const items = ref<AdminPlaceReview[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -85,12 +85,150 @@ async function loadAmapRatings(): Promise<void> {
   }
 }
 
-function switchTab(next: 'reviews' | 'amap'): void {
+function switchTab(next: 'reviews' | 'amap' | 'merchants'): void {
   if (viewTab.value === next) return
   viewTab.value = next
   if (next === 'amap' && amapRatings.value.length === 0) {
     void loadAmapRatings()
   }
+  if (next === 'merchants' && merchants.value.length === 0) {
+    void loadMerchants()
+  }
+}
+
+/* ---------- 商家管理 ---------- */
+interface AdminMerchant {
+  placeId: string
+  poiName: string | null
+  amapScore: number | null
+  amapCost: number | null
+  amapExpired: boolean
+  seedCardCount: number
+  originalReviewCount: number
+  userReviewCount: number
+  seedAvgScore: number | null
+  originalAvgScore: number | null
+}
+
+interface MerchantReview {
+  id: string
+  placeId: string
+  score: number
+  content: string
+  status: string
+  source: 'user' | 'seed' | 'original'
+  sourceUrl: string | null
+  sourcePlatform: 'dianping' | 'meituan' | null
+  collectedAt: number | null
+  displayName: string | null
+  createdAt: number
+}
+
+interface AdminMerchantDetail {
+  placeId: string
+  poiName: string | null
+  amapScore: number | null
+  amapCost: number | null
+  amapExpired: boolean
+  seedCards: MerchantReview[]
+  originalReviews: MerchantReview[]
+  userReviews: MerchantReview[]
+}
+
+const merchants = ref<AdminMerchant[]>([])
+const merchantsLoading = ref(false)
+const merchantsError = ref('')
+const merchantQuery = ref('')
+const selectedMerchant = ref<AdminMerchantDetail | null>(null)
+const merchantDetailLoading = ref(false)
+const editingSeed = ref<MerchantReview | null>(null)
+const editContent = ref('')
+const editScore = ref(4)
+const savingSeed = ref(false)
+
+const filteredMerchants = computed(() => {
+  const query = merchantQuery.value.trim().toLowerCase()
+  if (!query) return merchants.value
+  return merchants.value.filter(m =>
+    (m.poiName ?? '').toLowerCase().includes(query)
+    || m.placeId.toLowerCase().includes(query)
+  )
+})
+
+async function loadMerchants(): Promise<void> {
+  merchantsLoading.value = true
+  merchantsError.value = ''
+  try {
+    const response = await adminFetch<AdminMerchant[]>('/api/admin/place-reviews/merchants')
+    merchants.value = response ?? []
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await navigateTo('/admin/login', { replace: true })
+      return
+    }
+    merchantsError.value = getRequestMessage(error, '商家列表加载失败')
+  } finally {
+    merchantsLoading.value = false
+  }
+}
+
+async function openMerchant(placeId: string): Promise<void> {
+  selectedMerchant.value = null
+  merchantDetailLoading.value = true
+  try {
+    const detail = await adminFetch<AdminMerchantDetail>(`/api/admin/place-reviews/merchants/${encodeURIComponent(placeId)}`)
+    selectedMerchant.value = detail
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await navigateTo('/admin/login', { replace: true })
+      return
+    }
+    toast.add({ title: getRequestMessage(error, '商家详情加载失败'), color: 'error' })
+  } finally {
+    merchantDetailLoading.value = false
+  }
+}
+
+function startEditSeed(review: MerchantReview): void {
+  editingSeed.value = review
+  editContent.value = review.content
+  editScore.value = review.score
+}
+
+async function saveSeedEdit(): Promise<void> {
+  if (!editingSeed.value || savingSeed.value) return
+  savingSeed.value = true
+  try {
+    const updated = await adminFetch<MerchantReview>(`/api/admin/place-reviews/${editingSeed.value.id}`, {
+      method: 'PATCH',
+      body: { content: editContent.value.trim(), score: editScore.value }
+    })
+    const detail = selectedMerchant.value
+    if (detail) {
+      const index = detail.seedCards.findIndex(card => card.id === updated.id)
+      if (index >= 0) detail.seedCards.splice(index, 1, updated)
+    }
+    editingSeed.value = null
+    toast.add({ title: '整理卡已更新', color: 'success' })
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await navigateTo('/admin/login', { replace: true })
+      return
+    }
+    toast.add({ title: getRequestMessage(error, '保存失败'), color: 'error' })
+  } finally {
+    savingSeed.value = false
+  }
+}
+
+function renderStars(score: number | null | undefined): string {
+  if (score === null || score === undefined) return '—'
+  return '★'.repeat(Math.round(score)) + '☆'.repeat(5 - Math.round(score))
+}
+
+function formatCollectedAt(timestamp: number | null): string {
+  if (!timestamp) return ''
+  return formatTime(timestamp)
 }
 
 const STATUS_LABELS: Record<PlaceReviewStatus, string> = {
@@ -209,6 +347,14 @@ onMounted(loadReviews)
           @click="switchTab('amap')"
         >
           高德评分数据
+        </button>
+        <button
+          type="button"
+          class="rounded-md px-3 py-1 text-xs font-medium transition-colors"
+          :class="viewTab === 'merchants' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'"
+          @click="switchTab('merchants')"
+        >
+          商家管理
         </button>
       </div>
     </div>
@@ -466,6 +612,279 @@ onMounted(loadReviews)
           </div>
         </li>
       </ul>
+    </template>
+
+    <template v-else-if="viewTab === 'merchants'">
+      <div v-if="!selectedMerchant" class="space-y-3">
+        <div class="flex items-center gap-2">
+          <input
+            v-model="merchantQuery"
+            type="search"
+            placeholder="搜索店名或 placeId…"
+            class="w-64 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+          >
+          <span class="text-xs text-zinc-500">
+            共 {{ filteredMerchants.length }} 家商家
+          </span>
+        </div>
+        <p
+          v-if="merchantsError"
+          class="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700"
+        >
+          {{ merchantsError }}
+        </p>
+        <div
+          v-if="merchantsLoading"
+          class="py-8 text-center text-sm text-zinc-500"
+        >
+          加载中…
+        </div>
+        <ul
+          v-else
+          class="space-y-2"
+        >
+          <li
+            v-for="merchant in filteredMerchants"
+            :key="merchant.placeId"
+            class="cursor-pointer rounded-lg border border-zinc-200 bg-white p-3 transition-colors hover:border-zinc-400"
+            @click="openMerchant(merchant.placeId)"
+          >
+            <div class="flex items-center gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-semibold text-zinc-900">
+                  {{ merchant.poiName ?? merchant.placeId }}
+                </div>
+                <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
+                  <span class="font-mono">
+                    {{ merchant.placeId }}
+                  </span>
+                  <span>
+                    高德分 {{ merchant.amapScore?.toFixed(1) ?? '—' }}{{ merchant.amapCost != null ? ` · 人均¥${Math.round(merchant.amapCost)}` : '' }}
+                  </span>
+                  <span :class="merchant.amapExpired ? 'text-red-500' : ''">
+                    {{ merchant.amapExpired ? '评分已过期' : '' }}
+                  </span>
+                </div>
+              </div>
+              <div class="flex shrink-0 items-center gap-2 text-right text-[11px] text-zinc-600">
+                <span class="rounded bg-amber-50 px-2 py-1">
+                  整理卡 {{ merchant.seedCardCount }}
+                </span>
+                <span class="rounded bg-blue-50 px-2 py-1">
+                  原文 {{ merchant.originalReviewCount }}
+                </span>
+                <span class="rounded bg-green-50 px-2 py-1">
+                  学生评 {{ merchant.userReviewCount }}
+                </span>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div v-else class="space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <button
+              type="button"
+              class="mb-1 text-xs text-zinc-500 hover:text-zinc-800"
+              @click="selectedMerchant = null"
+            >
+              ← 返回商家列表
+            </button>
+            <h2 class="text-base font-bold text-zinc-900">
+              {{ selectedMerchant.poiName ?? selectedMerchant.placeId }}
+            </h2>
+            <p class="mt-0.5 text-xs text-zinc-500">
+              <span class="font-mono">{{ selectedMerchant.placeId }}</span>
+              · 高德评分 {{ selectedMerchant.amapScore?.toFixed(1) ?? '—' }}
+              {{ selectedMerchant.amapCost != null ? ` · 人均约 ¥${Math.round(selectedMerchant.amapCost)}` : '' }}
+              · 整理卡 {{ selectedMerchant.seedCards.length }} · 原文评论 {{ selectedMerchant.originalReviews.length }} · 学生评价 {{ selectedMerchant.userReviews.length }}
+            </p>
+          </div>
+        </div>
+
+        <div
+          v-if="merchantDetailLoading"
+          class="py-8 text-center text-sm text-zinc-500"
+        >
+          加载中…
+        </div>
+
+        <template v-else>
+          <!-- 整理卡（前台展示版，可编辑） -->
+          <section>
+            <h3 class="mb-2 text-sm font-bold text-zinc-800">
+              整理卡（前台展示）
+            </h3>
+            <ul class="space-y-2">
+              <li
+                v-for="card in selectedMerchant.seedCards"
+                :key="card.id"
+                class="rounded-lg border border-amber-200 bg-amber-50/40 p-3"
+              >
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="text-amber-600">
+                    {{ renderStars(card.score) }} {{ card.score.toFixed(1) }} 分
+                  </span>
+                  <span class="text-zinc-500">
+                    来自{{ card.sourcePlatform === 'dianping' ? '点评' : card.sourcePlatform === 'meituan' ? '美团' : '' }}整理
+                  </span>
+                  <button
+                    type="button"
+                    class="ml-auto rounded px-2 py-0.5 text-[11px] text-zinc-600 hover:bg-amber-100"
+                    @click="startEditSeed(card)"
+                  >
+                    编辑
+                  </button>
+                </div>
+                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-700">
+                  {{ card.content }}
+                </p>
+              </li>
+              <li
+                v-if="selectedMerchant.seedCards.length === 0"
+                class="rounded-lg border border-dashed border-zinc-200 py-4 text-center text-xs text-zinc-500"
+              >
+                暂无整理卡
+              </li>
+            </ul>
+          </section>
+
+          <!-- 原始评论（完整原文） -->
+          <section>
+            <h3 class="mb-2 text-sm font-bold text-zinc-800">
+              完整原文评论（{{ selectedMerchant.originalReviews.length }} 条）
+            </h3>
+            <ul class="space-y-2">
+              <li
+                v-for="review in selectedMerchant.originalReviews"
+                :key="review.id"
+                class="rounded-lg border border-zinc-200 bg-white p-3"
+              >
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="text-zinc-700">
+                    {{ renderStars(review.score) }}
+                  </span>
+                  <span class="text-zinc-500">
+                    {{ review.displayName ?? '匿名' }} · {{ formatCollectedAt(review.collectedAt) }}
+                  </span>
+                  <a
+                    v-if="review.sourceUrl"
+                    :href="review.sourceUrl"
+                    target="_blank"
+                    rel="noopener"
+                    class="ml-auto text-blue-600 hover:underline"
+                  >
+                    来源链接
+                  </a>
+                </div>
+                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-600">
+                  {{ review.content }}
+                </p>
+              </li>
+              <li
+                v-if="selectedMerchant.originalReviews.length === 0"
+                class="rounded-lg border border-dashed border-zinc-200 py-4 text-center text-xs text-zinc-500"
+              >
+                暂无原文评论（抓取后入库）
+              </li>
+            </ul>
+          </section>
+
+          <!-- 学生评价 -->
+          <section v-if="selectedMerchant.userReviews.length > 0">
+            <h3 class="mb-2 text-sm font-bold text-zinc-800">
+              学生评价（{{ selectedMerchant.userReviews.length }} 条）
+            </h3>
+            <ul class="space-y-2">
+              <li
+                v-for="review in selectedMerchant.userReviews"
+                :key="review.id"
+                class="rounded-lg border border-zinc-200 bg-white p-3"
+              >
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="text-zinc-700">
+                    {{ renderStars(review.score) }}
+                  </span>
+                  <span class="text-zinc-500">
+                    {{ review.displayName ?? '匿名' }}
+                  </span>
+                  <span
+                    class="ml-auto rounded px-1.5 py-0.5 text-[10px]"
+                    :class="review.status === 'approved' ? 'bg-green-50 text-green-700' : review.status === 'rejected' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-700'"
+                  >
+                    {{ review.status === 'approved' ? '已通过' : review.status === 'rejected' ? '已拒绝' : '待审核' }}
+                  </span>
+                </div>
+                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-600">
+                  {{ review.content }}
+                </p>
+              </li>
+            </ul>
+          </section>
+        </template>
+      </div>
+
+      <!-- 编辑整理卡弹窗 -->
+      <div
+        v-if="editingSeed"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        @click.self="editingSeed = null"
+      >
+        <div class="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+          <h3 class="text-sm font-bold text-zinc-900">
+            编辑整理卡
+          </h3>
+          <div class="mt-3 space-y-3">
+            <div>
+              <label class="text-xs font-medium text-zinc-600">
+                星级（1-5）
+              </label>
+              <div class="mt-1 flex items-center gap-1">
+                <input
+                  v-model.number="editScore"
+                  type="number"
+                  min="1"
+                  max="5"
+                  step="0.1"
+                  class="w-24 rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-zinc-500"
+                >
+                <span class="text-sm text-amber-600">
+                  {{ renderStars(editScore) }}
+                </span>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-zinc-600">
+                内容（前台展示的整理文案）
+              </label>
+              <textarea
+                v-model="editContent"
+                rows="6"
+                class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm leading-5 outline-none focus:border-zinc-500"
+              />
+            </div>
+          </div>
+          <div class="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              class="rounded-lg px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100"
+              @click="editingSeed = null"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              class="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:opacity-50"
+              :disabled="savingSeed || !editContent.trim()"
+              @click="saveSeedEdit"
+            >
+              {{ savingSeed ? '保存中…' : '保存' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </template>
   </div>
 </template>
