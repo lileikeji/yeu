@@ -4830,7 +4830,7 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   }
 
   const normalizedQuery = normalizeAssistantQuery(query)
-  if (/票价|车费|多少钱|收费|计价|价格|分段|坐几路|几路车|几路|坐什么车|怎么坐|公交线路|坐公交/.test(normalizedQuery) && /K[26]|公交|到校|去学校|到学校/.test(normalizedQuery) && hardcodedAssistantFactIsCurrent('transitFares')) {
+  if (/票价|车费|多少钱|收费|计价|价格|分段|坐几路|几路车|几路|坐什么车|怎么坐|公交线路|坐公交/.test(normalizedQuery) && /K[26]|公交|到校|去学校|到学校|仰恩/.test(normalizedQuery) && hardcodedAssistantFactIsCurrent('transitFares')) {
     const asksK6 = /\bK6\b/i.test(normalizedQuery)
     const asksK2 = /\bK2\b/i.test(normalizedQuery)
     const k6Answer = 'K6 不是分段计价，泉州站至仰恩大学第三校区全程一票制 2 元。'
