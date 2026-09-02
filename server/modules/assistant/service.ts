@@ -3174,7 +3174,7 @@ function assistantKnowledgeLocalAnswer(
   // Competition intent wins over comprehensive-evaluation entries: "竞赛获奖
   // 加多少分/奖金多少" must answer from the 学科竞赛 category (仰大教〔2021〕
   // 33号), NOT from the 综测 entry that also covers 竞赛获奖加分.
-  const competitionQuery = /(?:学科竞赛|技能竞赛|竞赛获奖|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖)|竞赛.*(?:报名|参加|参赛|怎么参加|如何参加)|(?:数学建模|电子设计|挑战杯|互联网).*级别)/u.test(query)
+  const competitionQuery = /(?:学科竞赛|技能竞赛|竞赛|比赛|大赛|获奖加分|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|数模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖)|比赛.*(?:加分|获奖|加多少分)|竞赛.*(?:报名|参加|参赛|怎么参加|如何参加)|(?:数学建模|电子设计|挑战杯|互联网).*级别)/u.test(query)
     // AI intent support: the classifier may recognize competition intent even
     // when the regex above misses an unusual phrasing.
     || (lastAiIntent?.intent === 'competition')
@@ -3252,8 +3252,8 @@ function assistantKnowledgeLocalAnswer(
       const competitionMatch = pickByIntent(/(?:区别|对比|差异|和综测|与综测)/u, /区别/)
         // 精确判定智育/德育：学科类竞赛（数学建模/编程/电子设计/ACM/挑战杯/大创）→智育；
         // 文艺类竞赛（征文/演讲/舞蹈/书法/摄影/辩论）→德育。跨 category 查对应条目。
-        ?? (safeCompetitionDimension(client, /(?:数学建模|编程|程序设计|电子设计|ACM|智能|挑战杯|大创|创新创业|学科|技能|电子|机械|数学竞赛)/u.test(query), /智育奖励|学科与技能竞赛/u)
-          ?? safeCompetitionDimension(client, /(?:征文|演讲|舞蹈|书法|摄影|辩论|文艺|文化|思想建设|综合素质)/u.test(query), /文化艺术/u))
+        ?? (safeCompetitionDimension(client, /(?:数学建模|编程|程序设计|电子设计|ACM|智能|挑战杯|大创|创新创业|学科|技能|电子|机械|数学竞赛)/u.test(query), /学科技能|智育奖励|学科与技能竞赛/u)
+          ?? safeCompetitionDimension(client, /(?:征文|演讲|舞蹈|书法|摄影|辩论|文艺|文化|思想建设|综合素质)/u.test(query), /文化艺术|综合素质竞赛/u))
         ?? pickByIntent(/(?:加多少分|加几分|加分|免修|学分)/u, /加分标准|学分免修/)
         ?? pickByIntent(/奖金|奖励|多少钱/u, /奖金标准|奖励标准/)
         ?? pickByIntent(/(?:互联网\+|挑战杯|哪些竞赛|竞赛项目|项目一览|什么级别|级别)/u, /项目一览|A.B类竞赛/)
