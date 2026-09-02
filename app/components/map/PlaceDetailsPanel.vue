@@ -39,7 +39,7 @@ const navigationTooltip = computed(() => {
 <template>
   <section
     :class="props.variant === 'mobile'
-      ? 'absolute bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] left-3 right-3 z-40 max-h-[min(38dvh,18rem)] overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-white p-4 shadow-xl md:hidden'
+      ? 'absolute bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.5rem)] inset-x-0 z-40 mx-2.5 max-h-[min(56dvh,30rem)] overflow-y-auto overscroll-y-contain rounded-2xl border border-zinc-200/80 bg-white/95 px-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-sm md:hidden'
       : 'hidden md:absolute md:bottom-12 md:left-4 md:z-20 md:block md:max-h-[min(52vh,26rem)] md:w-[min(24rem,calc(100%-2rem))] md:overflow-y-auto md:rounded-lg md:border md:border-zinc-200 md:bg-white md:p-4 md:shadow-xl'"
     aria-live="polite"
   >
@@ -48,16 +48,16 @@ const navigationTooltip = computed(() => {
       :class="props.variant === 'mobile' ? 'justify-between gap-3' : 'justify-between gap-4'"
     >
       <div class="min-w-0">
-        <div class="flex items-center gap-2 text-xs font-medium text-green-700">
+        <div class="flex items-center gap-1.5 text-[11px] font-semibold text-green-700">
           <UIcon
             :name="props.categoryIcon"
-            class="size-4"
+            class="size-3.5"
           />
           <span>{{ props.categoryLabel }}</span>
         </div>
         <h2
-          class="mt-1 truncate font-bold text-zinc-950"
-          :class="props.variant === 'desktop' ? 'text-base' : ''"
+          class="mt-0.5 truncate font-bold text-zinc-950"
+          :class="props.variant === 'mobile' ? 'text-[15px]' : 'text-base'"
         >
           {{ props.place.name }}
         </h2>
@@ -67,7 +67,7 @@ const navigationTooltip = computed(() => {
         color="neutral"
         variant="ghost"
         size="xs"
-        class="size-11"
+        :class="props.variant === 'mobile' ? '-mr-1.5 size-8' : 'size-11'"
         aria-label="关闭地点详情"
         @click="emit('close')"
       />
@@ -76,7 +76,7 @@ const navigationTooltip = computed(() => {
     <p
       class="text-zinc-600"
       :class="props.variant === 'mobile'
-        ? 'mt-2 text-xs leading-5'
+        ? 'mt-1.5 line-clamp-3 text-xs leading-5 text-zinc-700'
         : 'mt-3 whitespace-pre-line text-sm leading-6'"
     >
       {{ props.place.summary }}
@@ -90,39 +90,45 @@ const navigationTooltip = computed(() => {
     </p>
 
     <div
-      v-if="props.variant === 'mobile' && (props.place.campusArea || props.place.openingHours || phoneContacts.length)"
-      class="mt-2 space-y-2"
+      v-if="props.variant === 'mobile' && (props.place.campusArea || props.place.openingHours)"
+      class="mt-2 flex flex-wrap items-center gap-1.5"
     >
-      <p
+      <span
         v-if="props.place.campusArea"
-        class="text-xs leading-5 text-zinc-500"
+        class="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600"
       >
-        片区：{{ props.place.campusArea }}
-      </p>
-      <p
+        <UIcon
+          name="i-lucide-map-pin"
+          class="size-3 text-zinc-400"
+        />
+        {{ props.place.campusArea }}
+      </span>
+      <span
         v-if="props.place.openingHours"
-        class="text-xs leading-5 text-zinc-500"
+        class="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600"
       >
-        开放时间：{{ props.place.openingHours }}
-      </p>
-      <div
-        v-if="phoneContacts.length"
-        class="flex flex-col items-start gap-2"
-      >
-        <a
-          v-for="phone in phoneContacts"
-          :key="phone.href"
-          :href="phone.href"
-          class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors active:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
-        >
-          <UIcon
-            name="i-lucide-phone"
-            class="size-4 shrink-0"
-          />
-          <span>拨打 {{ phone.label }}</span>
-        </a>
-      </div>
+        <UIcon
+          name="i-lucide-clock-3"
+          class="size-3 text-zinc-400"
+        />
+        {{ props.place.openingHours }}
+      </span>
     </div>
+
+    <template v-if="props.variant === 'mobile' && phoneContacts.length">
+      <a
+        v-for="phone in phoneContacts"
+        :key="phone.href"
+        :href="phone.href"
+        class="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors active:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+      >
+        <UIcon
+          name="i-lucide-phone"
+          class="size-4 shrink-0"
+        />
+        <span>拨打 {{ phone.label }}</span>
+      </a>
+    </template>
 
     <dl
       v-if="props.variant === 'desktop' && (props.place.address || props.place.campusArea || props.place.openingHours || props.place.phone)"
@@ -186,7 +192,7 @@ const navigationTooltip = computed(() => {
       :class="props.variant === 'mobile' ? 'mt-3' : 'mt-4'"
     >
       <span
-        class="text-xs"
+        class="text-[11px] font-medium"
         :class="props.place.pointIsVerified ? 'text-green-700' : 'text-orange-700'"
       >{{ props.statusText }}</span>
 
@@ -263,14 +269,20 @@ const navigationTooltip = computed(() => {
 
       <span
         v-if="props.isWechat && safeNavigationUrl"
-        class="mt-2 block text-xs leading-5 text-zinc-500"
+        class="mt-2 block text-[11px] leading-5 text-zinc-500"
       >微信内未唤起地图时，可复制位置后搜索。</span>
 
-      <div class="mt-3 rounded-md bg-zinc-50 p-3">
+      <div
+        class="mt-2.5 rounded-lg bg-zinc-50 px-2.5 py-2"
+        :class="props.variant === 'mobile' ? '' : 'mt-3 p-3'"
+      >
         <p class="text-xs font-semibold text-zinc-900">
           到这里前先确认
         </p>
-        <ul class="mt-2 space-y-1.5 text-xs leading-5 text-zinc-600">
+        <ul
+          class="mt-1.5 space-y-1 text-xs leading-5 text-zinc-600"
+          :class="props.variant === 'mobile' ? '' : 'mt-2 space-y-1.5'"
+        >
           <li
             v-for="item in props.checklist"
             :key="item"
@@ -285,14 +297,17 @@ const navigationTooltip = computed(() => {
         </ul>
       </div>
 
-      <div class="mt-3 flex flex-wrap gap-2">
+      <div
+        class="flex flex-wrap gap-2"
+        :class="props.variant === 'mobile' ? 'mt-2.5' : 'mt-3'"
+      >
         <UButton
           v-if="props.detailsTarget"
           :to="props.detailsTarget"
           icon="i-lucide-info"
           label="详情"
           size="sm"
-          class="min-h-11"
+          :class="props.variant === 'mobile' ? 'min-h-9 px-2.5 text-xs' : 'min-h-11'"
         />
         <UButton
           v-if="props.feedbackTarget"
@@ -302,7 +317,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="outline"
           size="sm"
-          class="min-h-11"
+          :class="props.variant === 'mobile' ? 'min-h-9 px-2.5 text-xs' : 'min-h-11'"
         />
         <UButton
           icon="i-lucide-copy"
@@ -310,7 +325,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="outline"
           size="sm"
-          class="min-h-11"
+          :class="props.variant === 'mobile' ? 'min-h-9 px-2.5 text-xs' : 'min-h-11'"
           @click="emit('copy')"
         />
         <UButton
@@ -321,7 +336,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="ghost"
           size="sm"
-          class="min-h-11"
+          :class="props.variant === 'mobile' ? 'min-h-9 px-2 text-xs' : 'min-h-11'"
         />
       </div>
     </div>

@@ -827,6 +827,8 @@ export function adminDeleteReview(client: DatabaseClient, id: string): void {
 export interface MerchantPromoView {
   placeId: string
   meituanUrl: string | null
+  /** Uploaded QR image path shown on the map popup; click to zoom for scanning. */
+  qrCodeUrl: string | null
   promoWeight: number
   aiFrequency: number
   enabled: boolean
@@ -844,6 +846,7 @@ export function getMerchantPromo(client: DatabaseClient, placeId: string): Merch
   return {
     placeId,
     meituanUrl: row?.meituanUrl ?? null,
+    qrCodeUrl: row?.qrCodeUrl ?? null,
     promoWeight: row?.promoWeight ?? 0,
     aiFrequency: row?.aiFrequency ?? 0,
     enabled: row?.enabled ?? false,
@@ -881,7 +884,7 @@ export function recordPromoClick(
 export function updateMerchantPromo(
   client: DatabaseClient,
   placeId: string,
-  input: { meituanUrl?: string | null, promoWeight?: number, aiFrequency?: number, enabled?: boolean }
+  input: { meituanUrl?: string | null, qrCodeUrl?: string | null, promoWeight?: number, aiFrequency?: number, enabled?: boolean }
 ): MerchantPromoView {
   const now = Date.now()
   const existing = client.db.select({ placeId: placeMerchants.placeId }).from(placeMerchants)
@@ -897,6 +900,15 @@ export function updateMerchantPromo(
       })
     }
     input.meituanUrl = url || null
+  }
+  if (input.qrCodeUrl !== undefined && input.qrCodeUrl !== null) {
+    if (!/^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i.test(input.qrCodeUrl)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Invalid QR image path',
+        data: { code: 'INVALID_QR_CODE_URL' }
+      })
+    }
   }
   if (input.promoWeight !== undefined) {
     if (input.promoWeight < 0 || input.promoWeight > 100) {
@@ -920,6 +932,7 @@ export function updateMerchantPromo(
   if (existing) {
     const set: Record<string, unknown> = { updatedAt: now }
     if (input.meituanUrl !== undefined) set.meituanUrl = input.meituanUrl
+    if (input.qrCodeUrl !== undefined) set.qrCodeUrl = input.qrCodeUrl
     if (input.promoWeight !== undefined) set.promoWeight = input.promoWeight
     if (input.aiFrequency !== undefined) set.aiFrequency = input.aiFrequency
     if (input.enabled !== undefined) set.enabled = input.enabled
@@ -928,6 +941,7 @@ export function updateMerchantPromo(
     client.db.insert(placeMerchants).values({
       placeId,
       meituanUrl: input.meituanUrl ?? null,
+      qrCodeUrl: input.qrCodeUrl ?? null,
       promoWeight: input.promoWeight ?? 0,
       aiFrequency: input.aiFrequency ?? 0,
       enabled: input.enabled ?? false,
@@ -952,6 +966,7 @@ export function publicMerchantPromo(client: DatabaseClient, placeId: string): {
   const now = Date.now()
   return {
     meituanUrl: row.meituanUrl,
+    qrCodeUrl: row.qrCodeUrl,
     promoWeight: row.promoWeight,
     aiFrequency: row.aiFrequency,
     clickCount7d: countPromoClicks(client, placeId, now - 7 * 24 * 60 * 60 * 1000),

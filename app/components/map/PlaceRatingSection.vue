@@ -33,7 +33,7 @@ interface PublicPlaceReviewsPayload {
   reviews: PublicReviewView[]
   mine: { submitted: boolean, status: 'pending' | 'approved' | 'rejected' | null }
   seedCount: number
-  promo: { meituanUrl: string | null, promoWeight: number, aiFrequency: number, clickCount7d: number, clickCount30d: number } | null
+  promo: { meituanUrl: string | null, qrCodeUrl: string | null, promoWeight: number, aiFrequency: number, clickCount7d: number, clickCount30d: number } | null
 }
 
 const props = defineProps<{
@@ -318,7 +318,10 @@ const mineStatusText = computed<string | null>(() => {
               class="inline-flex items-center gap-1 rounded bg-yellow-400 px-2 py-0.5 text-[11px] font-semibold text-yellow-950 hover:bg-yellow-300"
               @click="trackPromoClick"
             >
-              <UIcon name="i-lucide-bike" class="size-3" />
+              <UIcon
+                name="i-lucide-bike"
+                class="size-3"
+              />
               美团下单
             </a>
             <span class="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
@@ -331,6 +334,19 @@ const mineStatusText = computed<string | null>(() => {
               已 {{ payload.promo.clickCount30d }} 人跳转
             </span>
           </span>
+          <ImagePreviewButton
+            v-if="payload.promo?.qrCodeUrl"
+            :src="payload.promo.qrCodeUrl"
+            :alt="`${props.placeName} 小程序码`"
+            :button-class="'mt-1 inline-block'"
+            :image-class="'size-16 rounded-md border border-zinc-200 object-contain'"
+          />
+          <p
+            v-if="payload.promo?.qrCodeUrl"
+            class="mt-1 text-[10px] text-zinc-400"
+          >
+            点击二维码可放大，用微信扫码
+          </p>
         </div>
 
         <!-- 排序切换 -->

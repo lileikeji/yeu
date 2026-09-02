@@ -984,6 +984,8 @@ export const recordPromoClickSchema = z.object({
 
 export const updateMerchantPromoSchema = z.object({
   meituanUrl: z.string().trim().max(500).nullable().optional(),
+  /** Uploaded QR image path (/uploads/<uuid>.<ext>); null clears it. */
+  qrCodeUrl: z.string().regex(UPLOADED_IMAGE_URL_PATTERN).nullable().optional(),
   promoWeight: z.number().int().min(0).max(100).optional(),
   aiFrequency: z.number().int().min(0).max(100).optional(),
   enabled: z.boolean().optional()

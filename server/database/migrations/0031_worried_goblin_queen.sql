@@ -1,0 +1,1 @@
+ALTER TABLE `place_merchants` ADD `qr_code_url` text;

@@ -1008,7 +1008,7 @@ onBeforeUnmount(() => {
       <div
         v-if="mobileSheetState === 'collapsed'"
         class="pointer-events-none absolute inset-x-3 bottom-3 z-30 flex justify-start px-0 md:hidden"
-        :class="selectedPoi ? 'bottom-[calc(min(38dvh,18rem)+0.85rem)]' : ''"
+        :class="selectedPoi ? 'bottom-[calc(min(56dvh,30rem)+0.75rem)]' : ''"
       >
         <UButton
           icon="i-lucide-list"
@@ -1037,7 +1037,7 @@ onBeforeUnmount(() => {
         v-if="mapViewMode === 'geographic' && routeSummary"
         class="absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm md:bottom-14"
         :class="selectedPoi
-          ? 'bottom-[calc(var(--mobile-nav-height)+min(38dvh,18rem)+1.25rem)]'
+          ? 'bottom-[calc(var(--mobile-nav-height)+min(56dvh,30rem)+1rem)]'
           : 'bottom-[calc(var(--mobile-nav-height)+5.5rem)]'"
         role="status"
       >

@@ -491,39 +491,58 @@ export class AMapProvider implements MapProvider {
       const northEast = bounds.getNorthEast()
       const centerPosition: AMapPosition = [center.getLng(), center.getLat()]
       const radius = this.visibleSearchRadius(centerPosition, [northEast.getLng(), northEast.getLat()])
-      const placeSearch = new amap.PlaceSearch({ pageSize: 50, pageIndex: 1, extensions: 'base' })
 
-      return new Promise<MapPoi[]>((resolve) => {
-        let settled = false
-        const finish = (results: MapPoi[]) => {
-          if (settled) return
-          settled = true
-          globalThis.clearTimeout(timeout)
-          resolve(results)
-        }
-        const timeout = globalThis.setTimeout(() => finish([]), PLACE_SEARCH_TIMEOUT_MS)
+      const runSearch = (searchRadius: number | null, viewportFilter: boolean): Promise<MapPoi[]> => {
+        const placeSearch = new amap.PlaceSearch({ pageSize: 50, pageIndex: 1, extensions: 'base' })
+        return new Promise<MapPoi[]>((resolve) => {
+          let settled = false
+          const finish = (results: MapPoi[]) => {
+            if (settled) return
+            settled = true
+            globalThis.clearTimeout(timeout)
+            resolve(results)
+          }
+          const timeout = globalThis.setTimeout(() => finish([]), PLACE_SEARCH_TIMEOUT_MS)
 
-        try {
-          placeSearch.searchNearBy(keyword, centerPosition, radius, (status, result) => {
-            if (status !== 'complete' || typeof result === 'string') {
-              finish([])
-              return
+          try {
+            const callback = (status: string, result: unknown) => {
+              if (status !== 'complete' || typeof result === 'string') {
+                finish([])
+                return
+              }
+              const pois = this.readPlacePois(result)
+                .filter((poi) => {
+                  if (!viewportFilter) return true
+                  const lng = poi.location?.getLng()
+                  const lat = poi.location?.getLat()
+                  return Number.isFinite(lng) && Number.isFinite(lat)
+                    && lng! >= southWest.getLng() && lng! <= northEast.getLng()
+                    && lat! >= southWest.getLat() && lat! <= northEast.getLat()
+                })
+                .map(poi => this.nativeMapPoi(poi))
+                .filter((poi): poi is MapPoi => poi !== null)
+              finish(pois)
             }
-            const pois = this.readPlacePois(result)
-              .filter((poi) => {
-                const lng = poi.location?.getLng()
-                const lat = poi.location?.getLat()
-                return Number.isFinite(lng) && Number.isFinite(lat)
-                  && lng! >= southWest.getLng() && lng! <= northEast.getLng()
-                  && lat! >= southWest.getLat() && lat! <= northEast.getLat()
-              })
-              .map(poi => this.nativeMapPoi(poi))
-              .filter((poi): poi is MapPoi => poi !== null)
-            finish(pois)
-          })
-        } catch {
-          finish([])
-        }
+            if (searchRadius === null) {
+              placeSearch.searchNearBy(keyword, centerPosition, radius, callback)
+            } else {
+              placeSearch.searchNearBy(keyword, centerPosition, searchRadius, callback)
+            }
+          } catch {
+            finish([])
+          }
+        })
+      }
+
+      // Stage 1: viewport-scoped search (fast, precise). When the keyword is
+      // not visible in the current view (e.g. the AMap app finds it but the
+      // map is centred elsewhere), fall through to a wider school-region
+      // search (30 km, no viewport filter) so merchants like "八洛克" that
+      // sit outside the current camera still surface — same data the AMap
+      // app shows. The auto-select flow then flies the camera to the hit.
+      return runSearch(radius, true).then((visible) => {
+        if (visible.length > 0) return visible
+        return runSearch(30_000, false)
       })
     })
   }

@@ -153,6 +153,7 @@ interface MerchantPromo {
   promoWeight: number
   aiFrequency: number
   enabled: boolean
+  qrCodeUrl: string | null
   clickCount7d: number
   clickCount30d: number
 }
@@ -161,6 +162,7 @@ const promo = ref<MerchantPromo | null>(null)
 const promoLoading = ref(false)
 const savingPromo = ref(false)
 const promoMeituanUrl = ref('')
+const promoQrCodeUrl = ref('')
 const promoWeight = ref(0)
 const promoAiFrequency = ref(0)
 const promoEnabled = ref(false)
@@ -171,6 +173,7 @@ async function loadPromo(placeId: string): Promise<void> {
     const data = await adminFetch<MerchantPromo>(`/api/admin/place-reviews/merchants/${encodeURIComponent(placeId)}/promo`)
     promo.value = data
     promoMeituanUrl.value = data.meituanUrl ?? ''
+    promoQrCodeUrl.value = data.qrCodeUrl ?? ''
     promoWeight.value = data.promoWeight
     promoAiFrequency.value = data.aiFrequency
     promoEnabled.value = data.enabled
@@ -185,6 +188,31 @@ async function loadPromo(placeId: string): Promise<void> {
   }
 }
 
+const uploadingQr = ref(false)
+
+async function uploadPromoQr(file: File): Promise<void> {
+  if (!selectedMerchant.value) return
+  uploadingQr.value = true
+  try {
+    const body = new FormData()
+    body.append('image', file)
+    const result = await adminFetch<{ url: string }>('/api/admin/media/images', {
+      method: 'POST',
+      body
+    })
+    promoQrCodeUrl.value = result.url
+    toast.add({ title: '二维码已上传，保存后生效', color: 'success' })
+  } catch (error) {
+    if (isAuthorizationError(error)) {
+      await navigateTo('/admin/login', { replace: true })
+      return
+    }
+    toast.add({ title: getRequestMessage(error, '上传失败'), color: 'error' })
+  } finally {
+    uploadingQr.value = false
+  }
+}
+
 async function savePromo(): Promise<void> {
   if (!selectedMerchant.value || savingPromo.value) return
   savingPromo.value = true
@@ -193,6 +221,7 @@ async function savePromo(): Promise<void> {
       method: 'PATCH',
       body: {
         meituanUrl: promoMeituanUrl.value.trim() || null,
+        qrCodeUrl: promoQrCodeUrl.value.trim() || null,
         promoWeight: promoWeight.value,
         aiFrequency: promoAiFrequency.value,
         enabled: promoEnabled.value
@@ -739,7 +768,10 @@ onMounted(loadReviews)
     </template>
 
     <template v-if="viewTab === 'merchants'">
-      <div v-if="!selectedMerchant" class="space-y-3">
+      <div
+        v-if="!selectedMerchant"
+        class="space-y-3"
+      >
         <div class="flex items-center gap-2">
           <input
             v-model="merchantQuery"
@@ -806,7 +838,10 @@ onMounted(loadReviews)
         </ul>
       </div>
 
-      <div v-else class="space-y-4">
+      <div
+        v-else
+        class="space-y-4"
+      >
         <div class="flex items-center justify-between gap-3">
           <div>
             <button
@@ -844,10 +879,16 @@ onMounted(loadReviews)
             <p class="mt-0.5 text-xs text-zinc-500">
               挂美团链接后，地图弹窗与 AI 推荐会出现该商家的快捷跳转；排行占比与 AI 频率用于提升推荐权重。
             </p>
-            <div v-if="promoLoading" class="mt-3 text-xs text-zinc-500">
+            <div
+              v-if="promoLoading"
+              class="mt-3 text-xs text-zinc-500"
+            >
               加载中…
             </div>
-            <div v-else class="mt-3 grid gap-3 sm:grid-cols-2">
+            <div
+              v-else
+              class="mt-3 grid gap-3 sm:grid-cols-2"
+            >
               <div class="sm:col-span-2">
                 <label class="text-xs font-medium text-zinc-600">
                   美团店铺链接
@@ -858,6 +899,52 @@ onMounted(loadReviews)
                   placeholder="https://waimai.meituan.com/… 或 https://www.meituan.com/…"
                   class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-violet-500"
                 >
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-xs font-medium text-zinc-600">
+                  二维码图片（小程序码/点餐码，前台点击可放大扫码）
+                </label>
+                <div class="mt-1 flex items-center gap-3">
+                  <img
+                    v-if="promoQrCodeUrl"
+                    :src="promoQrCodeUrl"
+                    alt="二维码预览"
+                    class="size-16 rounded-lg border border-zinc-200 object-contain"
+                  >
+                  <div class="flex flex-col gap-1.5">
+                    <label
+                      class="inline-flex w-fit cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                    >
+                      <UIcon
+                        name="i-lucide-upload"
+                        class="size-3.5"
+                      />
+                      {{ uploadingQr ? '上传中…' : (promoQrCodeUrl ? '更换图片' : '上传图片') }}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        class="hidden"
+                        :disabled="uploadingQr"
+                        @change="e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void uploadPromoQr(f) }"
+                      >
+                    </label>
+                    <button
+                      v-if="promoQrCodeUrl"
+                      type="button"
+                      class="inline-flex w-fit items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] text-red-600 hover:bg-red-50"
+                      @click="promoQrCodeUrl = ''"
+                    >
+                      <UIcon
+                        name="i-lucide-trash-2"
+                        class="size-3"
+                      />
+                      移除图片
+                    </button>
+                  </div>
+                </div>
+                <p class="mt-1 text-[11px] text-zinc-400">
+                  建议上传正方形小程序码图片（PNG/JPG/WebP，≤5MB）
+                </p>
               </div>
               <div>
                 <label class="text-xs font-medium text-zinc-600">
@@ -957,8 +1044,12 @@ onMounted(loadReviews)
                   v-model="newSeedPlatform"
                   class="rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-amber-500"
                 >
-                  <option value="dianping">点评整理</option>
-                  <option value="meituan">美团整理</option>
+                  <option value="dianping">
+                    点评整理
+                  </option>
+                  <option value="meituan">
+                    美团整理
+                  </option>
                 </select>
               </div>
               <textarea

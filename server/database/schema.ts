@@ -875,6 +875,8 @@ export const placeAmapRatings = sqliteTable('place_amap_ratings', {
 export const placeMerchants = sqliteTable('place_merchants', {
   placeId: text('place_id').primaryKey(),
   meituanUrl: text('meituan_url'),
+  /** QR code image (mini-program/merchant QR) uploaded by the backoffice; shown on the map popup and zoomable for scanning. */
+  qrCodeUrl: text('qr_code_url'),
   promoWeight: integer('promo_weight').notNull().default(0),
   aiFrequency: integer('ai_frequency').notNull().default(0),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
