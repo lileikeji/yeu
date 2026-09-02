@@ -4762,7 +4762,11 @@ function ensureGroundedLocalCitation(
 
 function zongceBonusLocalAnswer(query: string): ApiAssistantResponse | null {
   const q = normalizeAssistantQuery(query)
-  if (!/(综合测评|综测)/.test(q) && !/加分|加几分|加多少分|怎么加分|能加/.test(q)) return null
+  // Transit/lifestyle queries ("公交坐几路"/"学生街好玩") live in this same
+  // function (historical layout) — do not gate them behind the 综测 check.
+  const qLower = q.toLocaleLowerCase('zh-CN')
+  const isTransitOrLifestyle = /票价|车费|坐几路|几路车|公交线路|怎么坐|坐公交|吃喝玩乐|学生街|仙公山|泉州市区|西街|开元寺|面线糊|周边|好玩|游玩|K2|K6/i.test(qLower)
+  if (!isTransitOrLifestyle && !/(综合测评|综测)/.test(q) && !/加分|加几分|加多少分|怎么加分|能加/.test(q)) return null
   // Competition-focused questions ("竞赛获奖加多少分/竞赛加分") are answered
   // by the 学科竞赛 entries (仰大教〔2021〕33号), NOT by the 综测 bonus
   // lookup — the two bonus systems are independent. Also route "竞赛 vs 综测"
@@ -6764,7 +6768,13 @@ async function answerCampusQuestionCore(
           }
         }
         if ('localEvidenceSufficient' in analysis && analysis.localEvidenceSufficient === false && !strongLocalEvidence) {
-          return zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query)
+          // Transit/bus queries ("坐几路车到仰恩") have a hardcoded K2/K6
+          // answer inside buildLocalResponse — do NOT shortcut to the gap
+          // response when vector evidence is thin.
+          const transitLike = /票价|车费|坐几路|几路车|公交线路|怎么坐|坐公交|K2|K6/.test(query)
+          return transitLike
+            ? buildLocalResponse(query, localEvidence)
+            : (zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
         }
         return localEvidence[0]
           ? buildLocalResponse(query, localEvidence)
