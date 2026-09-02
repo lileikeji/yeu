@@ -4795,6 +4795,37 @@ function zongceBonusLocalAnswer(query: string): ApiAssistantResponse | null {
   }
 }
 
+/** 内置公交 K2/K6 回答（无证据依赖）——transit 类问句在任何检索/web 之前直接命中。 */
+function transitBusAnswer(query: string): ApiAssistantResponse | null {
+  const normalizedQuery = normalizeAssistantQuery(query)
+  if (!(/票价|车费|多少钱|收费|计价|价格|分段|坐几路|几路车|几路|坐什么车|怎么坐|公交线路|坐公交/.test(normalizedQuery)
+    && /K[26]|公交|到校|去学校|到学校|仰恩/.test(normalizedQuery)
+    && hardcodedAssistantFactIsCurrent('transitFares'))) return null
+  const asksK6 = /\bK6\b/i.test(normalizedQuery)
+  const asksK2 = /\bK2\b/i.test(normalizedQuery)
+  const k6Answer = 'K6 不是分段计价，泉州站至仰恩大学第三校区全程一票制 2 元。'
+  const k2Answer = 'K2 分段累计计价：文化宫—坪山洞东侧 1 元、坪山洞东侧—万虹路口 1 元、万虹路口—前洋社区路口 1 元、前洋社区路口—埔边 1 元、埔边—仰恩大学第三校区 1.5 元；跨段累计，乘满五段按全程 5 元。公告中的“埔边”是 2024 年道路施工改道期间的临时分段点，当前乘车前仍应核验实际分段点。'
+  const answer = asksK6 && !asksK2
+    ? k6Answer
+    : asksK2 && !asksK6
+      ? k2Answer
+      : `${k6Answer}${k2Answer}`
+  const citations: ApiAssistantCitation[] = [{
+    title: '泉州公交 K2、K6 线路调整公告',
+    url: 'https://www.fjdaily.com/app/content/2024-10/25/content_2875425.html',
+    snippet: '2024 年 10 月 25 日公告，信息来自泉州公交集团。',
+    source: 'web' as const
+  }]
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations,
+    usedWebSearch: false,
+    confidence: 0.97
+  }
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
   const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
   if (welcomeSystemAnswer) return welcomeSystemAnswer
@@ -4834,40 +4865,8 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   }
 
   const normalizedQuery = normalizeAssistantQuery(query)
-  if (/票价|车费|多少钱|收费|计价|价格|分段|坐几路|几路车|几路|坐什么车|怎么坐|公交线路|坐公交/.test(normalizedQuery) && /K[26]|公交|到校|去学校|到学校|仰恩/.test(normalizedQuery) && hardcodedAssistantFactIsCurrent('transitFares')) {
-    const asksK6 = /\bK6\b/i.test(normalizedQuery)
-    const asksK2 = /\bK2\b/i.test(normalizedQuery)
-    const k6Answer = 'K6 不是分段计价，泉州站至仰恩大学第三校区全程一票制 2 元。'
-    const k2Answer = 'K2 分段累计计价：文化宫—坪山洞东侧 1 元、坪山洞东侧—万虹路口 1 元、万虹路口—前洋社区路口 1 元、前洋社区路口—埔边 1 元、埔边—仰恩大学第三校区 1.5 元；跨段累计，乘满五段按全程 5 元。公告中的“埔边”是 2024 年道路施工改道期间的临时分段点，当前乘车前仍应核验实际分段点。'
-    const answer = asksK6 && !asksK2
-      ? k6Answer
-      : asksK2 && !asksK6
-        ? k2Answer
-        : `${k6Answer}${k2Answer}`
-    const transitCitation = evidence.find(item => item.url === '/transport')
-    const citations: ApiAssistantCitation[] = transitCitation
-      ? [{
-          title: transitCitation.title,
-          url: transitCitation.url,
-          snippet: transitCitation.snippet,
-          source: transitCitation.source
-        }]
-      : []
-    citations.push({
-      title: '泉州公交 K2、K6 线路调整公告',
-      url: 'https://www.fjdaily.com/app/content/2024-10/25/content_2875425.html',
-      snippet: '2024 年 10 月 25 日公告，信息来自泉州公交集团。',
-      source: 'web'
-    })
-    return {
-      query,
-      mode: 'local',
-      answer,
-      citations,
-      usedWebSearch: false,
-      confidence: 0.97
-    }
-  }
+  const transitBus = transitBusAnswer(query)
+  if (transitBus) return transitBus
 
   const asksDirectionalTransit = Boolean(transitRouteForQuery(query))
     || (/(?:怎么去|怎么到|怎么回|往返|公交|交通)/.test(normalizedQuery) && /学校|仰恩|校区|K2|K6/i.test(normalizedQuery))
@@ -6149,6 +6148,10 @@ async function answerCampusQuestionCore(
   hooks: AssistantRunHooks = {}
 ): Promise<ApiAssistantResponse> {
   if (containsPromptInjection(rawQuery)) return blockedAssistantResponse(rawQuery)
+  // Built-in transit (K2/K6) answers must fire before any retrieval/web path:
+  // "坐几路车到仰恩" was reaching web search (5.9s) and missing the answer.
+  const earlyTransit = transitBusAnswer(rawQuery)
+  if (earlyTransit) return earlyTransit
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],
