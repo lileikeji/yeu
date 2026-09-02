@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
+import { recordVisitorEvent } from '../visitors/service'
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import type { PlaceReviewStatus } from '../../../shared/constants/server'
 import type { DatabaseClient } from '../../database/client'
-import { placeAmapRatings, placeMerchants, placeReviews, reviewLikes, users } from '../../database/schema'
+import { placeAmapRatings, placeMerchants, placeReviews, reviewLikes, users, visitorEvents } from '../../database/schema'
 
 export const AMAP_RATING_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const PUBLIC_REVIEWS_LIMIT = 5
@@ -829,18 +830,52 @@ export interface MerchantPromoView {
   promoWeight: number
   aiFrequency: number
   enabled: boolean
+  /** Outbound Meituan jump clicks recorded via visitor_events (7 / 30 days). */
+  clickCount7d: number
+  clickCount30d: number
 }
 
 export function getMerchantPromo(client: DatabaseClient, placeId: string): MerchantPromoView {
   const row = client.db.select().from(placeMerchants)
     .where(eq(placeMerchants.placeId, placeId)).get()
+  const now = Date.now()
+  const week = now - 7 * 24 * 60 * 60 * 1000
+  const month = now - 30 * 24 * 60 * 60 * 1000
   return {
     placeId,
     meituanUrl: row?.meituanUrl ?? null,
     promoWeight: row?.promoWeight ?? 0,
     aiFrequency: row?.aiFrequency ?? 0,
-    enabled: row?.enabled ?? false
+    enabled: row?.enabled ?? false,
+    clickCount7d: row ? countPromoClicks(client, placeId, week) : 0,
+    clickCount30d: row ? countPromoClicks(client, placeId, month) : 0
   }
+}
+
+/** Count outbound promo clicks in visitor_events for one place since a time. */
+function countPromoClicks(client: DatabaseClient, placeId: string, sinceMs: number): number {
+  const row = client.db.select({ count: sql<number>`count(*)` })
+    .from(visitorEvents)
+    .where(and(
+      eq(visitorEvents.action, 'merchant_promo_click'),
+      sql`json_extract(${visitorEvents.metaJson}, '$.placeId') = ${placeId}`,
+      sql`${visitorEvents.createdAt} >= ${sinceMs}`
+    ))
+    .get()
+  return Number(row?.count ?? 0)
+}
+
+/** Record an outbound Meituan jump click from the map popup (visitor-level). */
+export function recordPromoClick(
+  client: DatabaseClient,
+  event: import('h3').H3Event,
+  placeId: string
+): void {
+  recordVisitorEvent(event, client, {
+    action: 'merchant_promo_click',
+    path: '/map',
+    meta: { placeId }
+  })
 }
 
 export function updateMerchantPromo(
@@ -914,9 +949,12 @@ export function publicMerchantPromo(client: DatabaseClient, placeId: string): {
       eq(placeMerchants.enabled, true)
     )).get()
   if (!row) return null
+  const now = Date.now()
   return {
     meituanUrl: row.meituanUrl,
     promoWeight: row.promoWeight,
-    aiFrequency: row.aiFrequency
+    aiFrequency: row.aiFrequency,
+    clickCount7d: countPromoClicks(client, placeId, now - 7 * 24 * 60 * 60 * 1000),
+    clickCount30d: countPromoClicks(client, placeId, now - 30 * 24 * 60 * 60 * 1000)
   }
 }

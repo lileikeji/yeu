@@ -978,6 +978,10 @@ export const updateSeedReviewSchema = z.object({
 })
 
 /** 后台商家推广设置：美团跳转链接、排行占比、AI 出现频率。 */
+export const recordPromoClickSchema = z.object({
+  placeId: publicPlaceIdSchema
+}).strict()
+
 export const updateMerchantPromoSchema = z.object({
   meituanUrl: z.string().trim().max(500).nullable().optional(),
   promoWeight: z.number().int().min(0).max(100).optional(),

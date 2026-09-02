@@ -33,7 +33,7 @@ interface PublicPlaceReviewsPayload {
   reviews: PublicReviewView[]
   mine: { submitted: boolean, status: 'pending' | 'approved' | 'rejected' | null }
   seedCount: number
-  promo: { meituanUrl: string | null, promoWeight: number, aiFrequency: number } | null
+  promo: { meituanUrl: string | null, promoWeight: number, aiFrequency: number, clickCount7d: number, clickCount30d: number } | null
 }
 
 const props = defineProps<{
@@ -219,6 +219,14 @@ function handleLikeClick(review: PublicReviewView): void {
   void toggleLike(review)
 }
 
+function trackPromoClick(): void {
+  if (!payload.value?.promo?.meituanUrl) return
+  void userFetch('/api/public/merchant-promo/click', {
+    method: 'POST',
+    body: { placeId: props.placeId }
+  }).catch(() => {})
+}
+
 const mineStatusText = computed<string | null>(() => {
   const mine = payload.value?.mine
   if (!mine?.submitted) return null
@@ -299,16 +307,30 @@ const mineStatusText = computed<string | null>(() => {
           >
             {{ sourceLabel }}
           </span>
-          <a
+          <span
             v-if="payload.promo?.meituanUrl"
-            :href="payload.promo.meituanUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center gap-1 rounded bg-yellow-400 px-2 py-0.5 text-[11px] font-semibold text-yellow-950 hover:bg-yellow-300"
+            class="inline-flex items-center gap-1.5"
           >
-            <UIcon name="i-lucide-bike" class="size-3" />
-            美团下单
-          </a>
+            <a
+              :href="payload.promo.meituanUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1 rounded bg-yellow-400 px-2 py-0.5 text-[11px] font-semibold text-yellow-950 hover:bg-yellow-300"
+              @click="trackPromoClick"
+            >
+              <UIcon name="i-lucide-bike" class="size-3" />
+              美团下单
+            </a>
+            <span class="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+              合作商家
+            </span>
+            <span
+              v-if="(payload.promo.clickCount30d ?? 0) > 0"
+              class="text-[10px] text-zinc-400"
+            >
+              已 {{ payload.promo.clickCount30d }} 人跳转
+            </span>
+          </span>
         </div>
 
         <!-- 排序切换 -->

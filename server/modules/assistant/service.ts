@@ -2844,20 +2844,6 @@ function assistantFoodRecommendationAnswer(
       return true
     })
 
-  // Promoted merchants (backoffice place_merchants) get a bias in ranking and
-  // AI appearance; their Meituan jump link is surfaced in citations/promo.
-  const promoRows = client.db.select({
-    placeId: placeMerchants.placeId,
-    aiFrequency: placeMerchants.aiFrequency,
-    promoWeight: placeMerchants.promoWeight,
-    meituanUrl: placeMerchants.meituanUrl
-  }).from(placeMerchants)
-    .where(eq(placeMerchants.enabled, true))
-    .all()
-  const promoBias = new Map(promoRows.map(row => [row.placeId, ((row.aiFrequency ?? 0) + (row.promoWeight ?? 0)) / 200 * 0.6]))
-  const promoMeituan = new Map(promoRows.filter(row => row.meituanUrl)
-    .map(row => [row.placeId, row.meituanUrl!]))
-
   // Single-shop detail takes priority: "老贵阳牛肉粉怎么样 / 蜜雪冰城好不好"
   // returns that shop's full review cards, matched against the WHOLE food
   // pool BEFORE category/price filtering narrows it away.
@@ -2875,22 +2861,20 @@ function assistantFoodRecommendationAnswer(
       const detailLines = shopSeed.map(card => (
         `【${card.tag}】${card.score.toFixed(1)} 分：${card.content}`
       ))
-      const meituan = promoMeituan.get(shopMatch.placeId)
-      const promoted = (promoBias.get(shopMatch.placeId) ?? 0) > 0
       return {
         query,
         mode: 'local',
         answer: [
-          `${shopMatch.name}：高德评分 ${shopMatch.score!.toFixed(1)} 分${shopMatch.cost !== null ? `，人均约 ¥${Math.round(shopMatch.cost)}` : ''}${promoted ? '（推广）' : ''}。〔地图定位〕`,
+          `${shopMatch.name}：高德评分 ${shopMatch.score!.toFixed(1)} 分${shopMatch.cost !== null ? `，人均约 ¥${Math.round(shopMatch.cost)}` : ''}。〔地图定位〕`,
           '整理自大众点评用户评价：',
           ...detailLines,
           '以上为评价整理（非原文），实际口味因人而异，到店前可在地图卡片再核对。'
         ].join('\n\n'),
         citations: [{
-          title: promoted ? `${shopMatch.name}（推广）` : shopMatch.name,
-          url: meituan ?? '/map?place=' + encodeURIComponent(shopMatch.placeId),
+          title: shopMatch.name,
+          url: '/map?place=' + encodeURIComponent(shopMatch.placeId),
           snippet: `${shopMatch.name}：${shopMatch.score!.toFixed(1)} 分，${shopSeed.length} 条整理评价`,
-          source: meituan ? 'web' as const : 'site' as const
+          source: 'site' as const
         }],
         usedWebSearch: false,
         confidence: 0.78
@@ -2940,7 +2924,19 @@ function assistantFoodRecommendationAnswer(
   // not guaranteed) to appear early while varying the order and membership
   // between calls, so repeated "附近吃什么" questions feel fresh. The count
   // also varies (8-12) instead of a fixed 15. Promoted merchants (backoffice
-  // aiFrequency + promoWeight) get an extra bias so they surface more often.
+  // aiFrequency) get an extra bias so they surface more often.
+  const promoRows = client.db.select({
+    placeId: placeMerchants.placeId,
+    aiFrequency: placeMerchants.aiFrequency,
+    promoWeight: placeMerchants.promoWeight
+  }).from(placeMerchants)
+    .where(eq(placeMerchants.enabled, true))
+    .all()
+  // Promoted merchants get two independent linear biases: aiFrequency lifts
+  // how often they surface in AI recommendations; promoWeight lifts their
+  // rank position. 100% frequency adds up to +0.8, 100% promo weight +0.5.
+  const promoBias = new Map(promoRows.map(row => [row.placeId,
+    (row.aiFrequency ?? 0) / 100 * 0.8 + (row.promoWeight ?? 0) / 100 * 0.5]))
   const biasedShuffle = (items: typeof rated): typeof rated => {
     return items
       .map(item => ({ item, bias: (item.score ?? 0) + Math.random() * 0.45 + (promoBias.get(item.placeId) ?? 0) }))
@@ -2986,9 +2982,8 @@ function assistantFoodRecommendationAnswer(
     const tipText = tips.length > 0 ? `（${tips.join('；')}）` : ''
     const area = inferShopArea(row.name)
     const areaText = area === '新区' ? '[新区] ' : area === '旧区' ? '[旧区] ' : area === '学生街' ? '[学生街] ' : ''
-    const promoTag = promoBias.has(row.placeId) ? '（推广）' : ''
     // 〔地图定位〕 marker → rendered as an inline link to /map?q=<shop name>.
-    return `${index + 1}. ${areaText}${row.name}：${row.score!.toFixed(1)} 分${costText}${promoTag}${tipText}〔地图定位〕`
+    return `${index + 1}. ${areaText}${row.name}：${row.score!.toFixed(1)} 分${costText}${tipText}〔地图定位〕`
   })
   const filterBits: string[] = []
   if (categoryMatch) filterBits.push('类型')
@@ -3025,16 +3020,12 @@ function assistantFoodRecommendationAnswer(
     query,
     mode: 'local',
     answer,
-    citations: rated.slice(0, 5).map(row => {
-      const meituan = promoMeituan.get(row.placeId)
-      const promoted = (promoBias.get(row.placeId) ?? 0) > 0
-      return {
-        title: promoted ? `${row.name}（推广）` : row.name,
-        url: meituan ?? '/map?place=' + encodeURIComponent(row.placeId),
-        snippet: `${row.name}：${row.score!.toFixed(1)} 分${row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''}`,
-        source: meituan ? 'web' as const : 'site' as const
-      }
-    }),
+    citations: rated.slice(0, 5).map(row => ({
+      title: row.name,
+      url: '/map?place=' + encodeURIComponent(row.placeId),
+      snippet: `${row.name}：${row.score!.toFixed(1)} 分${row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''}`,
+      source: 'site' as const
+    })),
     usedWebSearch: false,
     confidence: 0.72
   }

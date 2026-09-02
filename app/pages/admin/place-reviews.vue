@@ -153,6 +153,8 @@ interface MerchantPromo {
   promoWeight: number
   aiFrequency: number
   enabled: boolean
+  clickCount7d: number
+  clickCount30d: number
 }
 
 const promo = ref<MerchantPromo | null>(null)
@@ -887,6 +889,12 @@ onMounted(loadReviews)
                 >
                 <p class="mt-1 text-[11px] text-zinc-400">
                   越高 AI 推荐时越常出现
+                </p>
+                <p
+                  v-if="promo && (promo.clickCount7d > 0 || promo.clickCount30d > 0)"
+                  class="mt-2 text-[11px] text-zinc-500"
+                >
+                  推广效果：近 7 天 {{ promo.clickCount7d }} 次跳转 · 近 30 天 {{ promo.clickCount30d }} 次
                 </p>
               </div>
               <div class="sm:col-span-2 flex items-center justify-between">
