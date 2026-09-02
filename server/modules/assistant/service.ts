@@ -3211,64 +3211,49 @@ function assistantKnowledgeLocalAnswer(
       const competitionMatches = competitionRows
         .map(row => ({ ...row, keywords: JSON.parse(row.keywordsJson) as string[] }))
         .sort((left, right) => scoreCompetitionRow(right) - scoreCompetitionRow(left))
-        .filter(row => scoreCompetitionRow(row) > 0 || /竞赛/.test(query))
+        .filter(row => scoreCompetitionRow(row) > 0 || /竞赛|比赛|大赛|数学建模|电子设计|ACM|挑战杯|互联网|大创|加分|获奖/.test(query))
       const pickByIntent = (pattern: RegExp, prefer: RegExp): typeof competitionMatches[0] | undefined => {
         if (!pattern.test(query)) return undefined
         return competitionMatches.find(m => prefer.test(m.title + m.question)) ?? competitionMatches[0]
       }
+      // Cross-category dimension lookup (智育 vs 德育 reward entries) — wrapped
+      // in a safe helper so a DB hiccup never aborts the whole pick chain.
+      const safeCompetitionDimension = (client2: DatabaseClient, matched: boolean, titlePattern: RegExp): typeof competitionMatches[0] | undefined => {
+        if (!matched) return undefined
+        try {
+          const rows = client2.db.select({
+            id: assistantKnowledgeEntries.id,
+            title: assistantKnowledgeEntries.title,
+            answer: assistantKnowledgeEntries.answer,
+            question: assistantKnowledgeEntries.question,
+            publicUrl: assistantKnowledgeEntries.publicUrl,
+            confidence: assistantKnowledgeEntries.confidence,
+            keywordsJson: assistantKnowledgeEntries.keywordsJson
+          }).from(assistantKnowledgeEntries)
+            .where(and(
+              eq(assistantKnowledgeEntries.isActive, true),
+              eq(assistantKnowledgeEntries.category, '综合测评')
+            )).all()
+          const hit = rows.find(r => titlePattern.test(r.title))
+          if (!hit) return undefined
+          return {
+            id: hit.id,
+            title: hit.title,
+            answer: hit.answer,
+            question: hit.question,
+            publicUrl: hit.publicUrl ?? '',
+            confidence: hit.confidence,
+            keywords: JSON.parse(hit.keywordsJson ?? '[]') as string[]
+          } as unknown as typeof competitionMatches[0]
+        } catch {
+          return undefined
+        }
+      }
       const competitionMatch = pickByIntent(/(?:区别|对比|差异|和综测|与综测)/u, /区别/)
         // 精确判定智育/德育：学科类竞赛（数学建模/编程/电子设计/ACM/挑战杯/大创）→智育；
         // 文艺类竞赛（征文/演讲/舞蹈/书法/摄影/辩论）→德育。跨 category 查对应条目。
-        ?? (/(?:数学建模|编程|程序设计|电子设计|ACM|智能|挑战杯|大创|创新创业|学科|技能|电子|机械|数学竞赛)/.test(query)
-          ? (() => {
-            const zhiyuRows = client.db.select({
-              title: assistantKnowledgeEntries.title,
-              answer: assistantKnowledgeEntries.answer,
-              question: assistantKnowledgeEntries.question,
-              publicUrl: assistantKnowledgeEntries.publicUrl,
-              confidence: assistantKnowledgeEntries.confidence,
-              id: assistantKnowledgeEntries.id
-            }).from(assistantKnowledgeEntries)
-              .where(and(
-                eq(assistantKnowledgeEntries.isActive, true),
-                eq(assistantKnowledgeEntries.category, '综合测评')
-              )).all()
-            const zhiyu = zhiyuRows.find(r => /智育奖励|学科与技能竞赛/.test(r.title))
-            return zhiyu ? {
-              id: zhiyu.id,
-              title: zhiyu.title,
-              answer: zhiyu.answer,
-              question: zhiyu.question,
-              publicUrl: zhiyu.publicUrl ?? '',
-              confidence: zhiyu.confidence
-            } : undefined
-          })()
-          : undefined)
-        ?? (/(?:征文|演讲|舞蹈|书法|摄影|辩论|文艺|文化|思想建设|综合素质)/.test(query)
-          ? (() => {
-            const deyuRows = client.db.select({
-              title: assistantKnowledgeEntries.title,
-              answer: assistantKnowledgeEntries.answer,
-              question: assistantKnowledgeEntries.question,
-              publicUrl: assistantKnowledgeEntries.publicUrl,
-              confidence: assistantKnowledgeEntries.confidence,
-              id: assistantKnowledgeEntries.id
-            }).from(assistantKnowledgeEntries)
-              .where(and(
-                eq(assistantKnowledgeEntries.isActive, true),
-                eq(assistantKnowledgeEntries.category, '综合测评')
-              )).all()
-            const deyu = deyuRows.find(r => /文化艺术/.test(r.title))
-            return deyu ? {
-              id: deyu.id,
-              title: deyu.title,
-              answer: deyu.answer,
-              question: deyu.question,
-              publicUrl: deyu.publicUrl ?? '',
-              confidence: deyu.confidence
-            } : undefined
-          })()
-          : undefined)
+        ?? (safeCompetitionDimension(client, /(?:数学建模|编程|程序设计|电子设计|ACM|智能|挑战杯|大创|创新创业|学科|技能|电子|机械|数学竞赛)/u.test(query), /智育奖励|学科与技能竞赛/u)
+          ?? safeCompetitionDimension(client, /(?:征文|演讲|舞蹈|书法|摄影|辩论|文艺|文化|思想建设|综合素质)/u.test(query), /文化艺术/u))
         ?? pickByIntent(/(?:加多少分|加几分|加分|免修|学分)/u, /加分标准|学分免修/)
         ?? pickByIntent(/奖金|奖励|多少钱/u, /奖金标准|奖励标准/)
         ?? pickByIntent(/(?:互联网\+|挑战杯|哪些竞赛|竞赛项目|项目一览|什么级别|级别)/u, /项目一览|A.B类竞赛/)
@@ -6178,7 +6163,7 @@ async function answerCampusQuestionCore(
     // the router below; any failure keeps the regex behavior (never blocks).
     let aiIntent: Awaited<ReturnType<typeof classifyAssistantIntent>> = null
     const foodSignal = /(?:吃|推荐|有什么|哪家|奶茶|火锅|烧烤|学生街|餐厅|小吃)/u.test(query)
-    const competitionSignal = /(?:竞赛|比赛|大赛|互联网\+|挑战杯)/u.test(query)
+    const competitionSignal = /(?:竞赛|比赛|大赛|互联网\+|挑战杯|数学建模|电子设计|ACM|大创|数模|学科技能)/u.test(query)
     const zongceSignal = /(?:综测|综合测评)/u.test(query)
     const nonFoodSignal = /(?:理发|美发|拍照|药店|打印|快递|银行|自习|图书馆|健身|KTV|网吧)/u.test(query)
     const ambiguous = (foodSignal && (competitionSignal || zongceSignal || nonFoodSignal))
