@@ -2732,7 +2732,14 @@ function assistantFoodRecommendationAnswer(
   // as a NON-food intent (e.g. "理发店推荐" whose 推荐 word triggered food),
   // do not answer with restaurant rankings.
   if (lastAiIntent && lastAiIntent.intent !== 'food' && lastAiIntent.intent !== 'competition') return null
-  if (!foodIntent || !isQuestion) return null
+  // Single-shop intent ("古茗怎么样/塔斯汀好吃吗") does not carry a food
+  // keyword in the shop name — allow it through when the query ends with an
+  // evaluative marker and is not a bare/overview question. The shop name is
+  // matched against AMap rows below.
+  const evaluativeEnding = /(?:怎么样|好吃吗|好吃不|咋样|如何|好不好|评价如何|值得去吗)$/u.test(normalized)
+  const bareWord = /^(?:学生街|学校|食堂|什么|哪里|附近|这家|那个|你|他|她|我|这|那)[^，。]{0,6}$/u.test(normalized)
+  if (!foodIntent && !(evaluativeEnding && !bareWord)) return null
+  if (!isQuestion && !evaluativeEnding) return null
   // Campus-wide overview questions (宿舍怎么样) must not be hijacked by food.
   if (isBroadCampusOverviewQuery(query)) return null
 
@@ -4831,6 +4838,55 @@ function transitBusAnswer(query: string): ApiAssistantResponse | null {
   }
 }
 
+/** 单店美食详情预检："古茗怎么样/塔斯汀好吃吗" → 本地评分+seed卡直接答，不走 web。 */
+function earlyShopDetailAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const shopNameQuery = normalized
+    .replace(/^(?:请问|麻烦|帮我|推荐一下|介绍一下|说说|讲讲|知道)/u, '')
+    .replace(/[?？!！,，。；;：:、\s]/gu, '')
+    .replace(/(?:怎么样|好不好|好吃吗|好吃不|怎么样啊|咋样|如何|评价|评价如何|值得去吗|值得吗|推荐吗|在哪|在哪啊|在哪里|怎么去|几点营业|人均|贵不贵|多少钱)$/u, '')
+    .replace(/(?:这家|这家店|那个|那边|一下|想了解)/gu, '')
+  if (shopNameQuery.length < 2) return null
+  if (/^(?:学生街|学校|食堂|什么|哪里|附近|这家|那个|你|我)[^，。]{0,6}$/u.test(shopNameQuery)) return null
+  if (!/(?:怎么样|好不好|好吃吗|好吃不|咋样|如何|评价|值得去吗|评分)/u.test(normalized)) return null
+  const row = client.db.select({
+    placeId: placeAmapRatings.placeId,
+    name: placeAmapRatings.amapPoiName,
+    score: placeAmapRatings.score,
+    cost: placeAmapRatings.cost
+  }).from(placeAmapRatings)
+    .where(and(
+      gt(placeAmapRatings.expiresAt, Date.now()),
+      gt(placeAmapRatings.score, 0)
+    ))
+    .all()
+    .find(r => r.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '').includes(shopNameQuery))
+  if (!row) return null
+  const shopSeed = seedRowsForPlace(client, row.placeId)
+  if (shopSeed.length === 0) return null
+  const detailLines = shopSeed.map(card => (
+    `【${card.tag}】${card.score.toFixed(1)} 分：${card.content}`
+  ))
+  return {
+    query,
+    mode: 'local',
+    answer: [
+      `${row.name}：高德评分 ${row.score!.toFixed(1)} 分${row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''}。〔地图定位〕`,
+      '整理自大众点评用户评价：',
+      ...detailLines,
+      '以上为评价整理（非原文），实际口味因人而异，到店前可在地图卡片再核对。'
+    ].join('\n\n'),
+    citations: [{
+      title: row.name,
+      url: '/map?place=' + encodeURIComponent(row.placeId),
+      snippet: `${row.name}：${row.score!.toFixed(1)} 分，${shopSeed.length} 条整理评价`,
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: 0.78
+  }
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
   const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
   if (welcomeSystemAnswer) return welcomeSystemAnswer
@@ -6157,6 +6213,11 @@ async function answerCampusQuestionCore(
   // "坐几路车到仰恩" was reaching web search (5.9s) and missing the answer.
   const earlyTransit = transitBusAnswer(rawQuery)
   if (earlyTransit) return earlyTransit
+  // Single-shop food detail ("古茗怎么样/塔斯汀好吃吗") must be answered from
+  // local ratings + seed cards, NOT routed to web search (which takes seconds
+  // and returns nothing useful). Match the shop against place_amap_ratings.
+  const earlyShopDetail = earlyShopDetailAnswer(client, rawQuery)
+  if (earlyShopDetail) return earlyShopDetail
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],
