@@ -304,6 +304,9 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
   if (/奖学金|助学金/.test(query)) return null
   // "竞赛加分和综测有什么区别"是体系对比问题，不是算分请求——交给竞赛/综测知识条目回答
   if (/(?:区别|对比|差异|关系|一样吗|有什么不同)/.test(query)) return null
+  // "献血综测加多少分 / 综测加分有哪些"是查询规则（问加分标准），不是算分请求——
+  // 交给综测知识条目回答；只有用户给出具体成绩/项目时才估算总分。
+  if (/(?:多少分|加几分|加多少|怎么加|怎么算分|有哪些|有哪几项|什么项目|能加多少)/.test(query)) return null
   const hasNumbers = /\d/.test(query)
   const hasAwardKeyword = /奖|专利|论文|证书|资格|志愿|献血|竞赛|比赛|荣誉称号|学生干部/.test(query)
   if (!hasNumbers && !hasAwardKeyword) return null
