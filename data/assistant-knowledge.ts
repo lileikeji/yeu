@@ -124,7 +124,7 @@ export const comprehensiveEvaluationKnowledge: AssistantKnowledgeSeed[] = [
     title: '综合测评什么时候评、怎么评',
     question: '综测什么时候开始，评审流程是什么？',
     answer: '原则上每学年开学后评上一学年（上年9月1日至当年8月31日）的表现。流程是个人自评和提交证明、班内互评、班级初评、学院审核、公示、复议、报学生事务部备案。2021版要求学院公示3个工作日，异议应在公示期内提出；毕业班另按学期安排。',
-    keywords: ['综测时间', '评审流程', '个人自评', '班内互评', '公示', '复议', '9月'],
+    keywords: ['综测时间', '评审流程', '个人自评', '班内互评', '公示', '复议', '9月', '什么时候评', '怎么评', '什么时候开始', '评审', '流程'],
     publicUrl: comprehensiveEvaluationUrl,
     confidence: 94,
     sourceNote: '仰大学〔2021〕16号；具体日期以学院当年通知为准。'
