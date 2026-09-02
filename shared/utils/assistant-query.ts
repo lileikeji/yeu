@@ -25,6 +25,7 @@ const QUESTION_MARKERS = [
   '早饭', '午餐', '晚餐', '有哪些', '有哪家', '新开', '新开的', '最近开',
   '营业时间', '开放时间', '开门时间', '关门时间', '条件', '条件是什么', '要求',
   '扣分', '加分项', '加分项有哪些', '加分', '加多少分', '加几分',
+  '贵不贵', '贵吗', '便宜吗', '坐几路', '坐什么车', '乘几路', '几路车',
   // Nominal-entity questions (exams, certificates, standards, offices):
   // "普通话考试/教师资格证/住宿费标准/体育馆开放" are questions without
   // any trailing marker — treat them as entity lookups.
