@@ -6853,7 +6853,12 @@ async function answerCampusQuestionCore(
         return blockedAssistantResponse(query)
       }
       if (analysis.requiresSpecificWebEvidence) return dormBedEvidenceGapResponse(query, analysis.localEvidence)
-      if (!rankedEvidence[0]) return localEvidenceGapResponse(query)
+      if (!rankedEvidence[0]) {
+        const transitLike = /票价|车费|坐几路|几路车|公交线路|怎么坐|坐公交|K2|K6/.test(query)
+        return transitLike
+          ? buildLocalResponse(query, rankedEvidence)
+          : localEvidenceGapResponse(query)
+      }
       const fallback = buildLocalResponse(query, rankedEvidence)
       return {
         ...fallback,
