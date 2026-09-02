@@ -3036,7 +3036,7 @@ function assistantKnowledgeLocalAnswer(
   // mask a request for the actual scholarship application rules.
   const studentRuleQuery = /(?:奖学金|助学金|绩点|gpa|综合测评|综测)/i.test(query)
   const comprehensiveTableQuery = /(?:综测|综合测评).*(?:表格|统计|怎么填|填写|填表)|(?:表格|统计|怎么填|填写|填表).*(?:综测|综合测评)/i.test(query)
-  const comprehensiveDetailQuery = /(?:班内互评|互评分|智育|体育|德育奖励|志愿|献血|扣分|加分|排名|评审|流程|奖励|处分|旷课|迟到|表格|统计|怎么填|填写|填表|班级代码|学号|姓名)/i.test(query)
+  const comprehensiveDetailQuery = /(?:班内互评|互评分|智育|体育|德育奖励|志愿|献血|扣分|加分|排名|评审|流程|奖励|处分|旷课|迟到|表格|统计|怎么填|填写|填表|班级代码|学号|姓名|什么时候评|什么时候开始|什么时候进行|何时评|和奖学金|与奖学金|奖学金关系)/i.test(query)
   if (studentRuleQuery && !comprehensiveTableQuery && !comprehensiveDetailQuery) return null
   // Canteen hours: "食堂几点开门/营业时间" must hit the 食堂开放时间 entry
   // directly — the term splitter can collapse the query into one long phrase
@@ -3342,6 +3342,13 @@ function assistantKnowledgeLocalAnswer(
       && keywordOverlap
       && candidate.score >= 16
       && /(?:选课|教务系统|公共选修课|体育课|喜鹊儿)/.test(candidateFactText)) return true
+    // 综测/竞赛/奖学金等实体类别：高关键字重叠 + 足够分数即可直接采用审核条目，
+    // 避免 "综测什么时候评"（与条目 question "综测什么时候开始" 非完全包含）
+    // 落回 "请打开原文核对" 或 "内置资料没有找到"。
+    if ((/(?:综测|综合测评|奖学金|助学金|竞赛|献血|志愿|绩点)/i.test(query))
+      && keywordOverlap
+      && candidate.score >= 12
+      && /(?:综测|综合测评|奖学金|助学金|竞赛|献血|志愿|绩点)/i.test(candidateFactText)) return true
     if (computerCompatibilityQuery
       && keywordOverlap
       && candidate.score >= 10
