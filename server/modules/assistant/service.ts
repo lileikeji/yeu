@@ -4850,7 +4850,7 @@ function earlyShopDetailAnswer(client: DatabaseClient, query: string): ApiAssist
   if (shopNameQuery.length < 2) return null
   if (/^(?:学生街|学校|食堂|什么|哪里|附近|这家|那个|你|我)[^，。]{0,6}$/u.test(shopNameQuery)) return null
   if (!/(?:怎么样|好不好|好吃吗|好吃不|咋样|如何|评价|值得去吗|评分)/u.test(normalized)) return null
-  const row = client.db.select({
+  const rows = client.db.select({
     placeId: placeAmapRatings.placeId,
     name: placeAmapRatings.amapPoiName,
     score: placeAmapRatings.score,
@@ -4861,8 +4861,11 @@ function earlyShopDetailAnswer(client: DatabaseClient, query: string): ApiAssist
       gt(placeAmapRatings.score, 0)
     ))
     .all()
-    .find(r => r.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '').includes(shopNameQuery))
-  if (!row) return null
+    .filter(r => r.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '').includes(shopNameQuery))
+  if (rows.length === 0) return null
+  // Some merchants exist under multiple place ids (one without seed cards);
+  // prefer the row that actually carries review cards.
+  const row = rows.find(r => seedRowsForPlace(client, r.placeId).length > 0) ?? rows[0]!
   const shopSeed = seedRowsForPlace(client, row.placeId)
   if (shopSeed.length === 0) return null
   const detailLines = shopSeed.map(card => (
