@@ -3080,8 +3080,16 @@ function assistantKnowledgeLocalAnswer(
   // dormitories) must not be emitted as the whole answer. These questions are
   // synthesized from the ranked multi-page evidence below.
   if (isBroadCampusOverviewQuery(query)) return null
-  const facultyAnswer = facultyKnowledgeLocalAnswer(client, query)
-  if (facultyAnswer) return facultyAnswer
+  // Competition intent wins over faculty matching: "数学建模一等奖加多少分"
+  // asks about the competition reward rules, NOT about the 数学系 teacher —
+  // facultyKnowledgeLocalAnswer would otherwise match 李政阳(数学系教师) and
+  // swallow the query before the competition branch runs. Skip faculty for
+  // competition-ish queries so the competition branch below can answer.
+  const COMPETITION_QUERY_PRE = /(?:竞赛|比赛|大赛|数学建模|电子设计|挑战杯|互联网\+|A类|B类|C类|获奖|加分|奖金)/u.test(query)
+  if (!COMPETITION_QUERY_PRE) {
+    const facultyAnswer = facultyKnowledgeLocalAnswer(client, query)
+    if (facultyAnswer) return facultyAnswer
+  }
   const teachingLocationMajor = isTeachingLocationQuery(query)
     ? knownMajorNameForQuery(query)
     : null
@@ -3209,6 +3217,58 @@ function assistantKnowledgeLocalAnswer(
         return competitionMatches.find(m => prefer.test(m.title + m.question)) ?? competitionMatches[0]
       }
       const competitionMatch = pickByIntent(/(?:区别|对比|差异|和综测|与综测)/u, /区别/)
+        // 精确判定智育/德育：学科类竞赛（数学建模/编程/电子设计/ACM/挑战杯/大创）→智育；
+        // 文艺类竞赛（征文/演讲/舞蹈/书法/摄影/辩论）→德育。跨 category 查对应条目。
+        ?? (/(?:数学建模|编程|程序设计|电子设计|ACM|智能|挑战杯|大创|创新创业|学科|技能|电子|机械|数学竞赛)/.test(query)
+          ? (() => {
+            const zhiyuRows = client.db.select({
+              title: assistantKnowledgeEntries.title,
+              answer: assistantKnowledgeEntries.answer,
+              question: assistantKnowledgeEntries.question,
+              publicUrl: assistantKnowledgeEntries.publicUrl,
+              confidence: assistantKnowledgeEntries.confidence,
+              id: assistantKnowledgeEntries.id
+            }).from(assistantKnowledgeEntries)
+              .where(and(
+                eq(assistantKnowledgeEntries.isActive, true),
+                eq(assistantKnowledgeEntries.category, '综合测评')
+              )).all()
+            const zhiyu = zhiyuRows.find(r => /智育奖励|学科与技能竞赛/.test(r.title))
+            return zhiyu ? {
+              id: zhiyu.id,
+              title: zhiyu.title,
+              answer: zhiyu.answer,
+              question: zhiyu.question,
+              publicUrl: zhiyu.publicUrl ?? '',
+              confidence: zhiyu.confidence
+            } : undefined
+          })()
+          : undefined)
+        ?? (/(?:征文|演讲|舞蹈|书法|摄影|辩论|文艺|文化|思想建设|综合素质)/.test(query)
+          ? (() => {
+            const deyuRows = client.db.select({
+              title: assistantKnowledgeEntries.title,
+              answer: assistantKnowledgeEntries.answer,
+              question: assistantKnowledgeEntries.question,
+              publicUrl: assistantKnowledgeEntries.publicUrl,
+              confidence: assistantKnowledgeEntries.confidence,
+              id: assistantKnowledgeEntries.id
+            }).from(assistantKnowledgeEntries)
+              .where(and(
+                eq(assistantKnowledgeEntries.isActive, true),
+                eq(assistantKnowledgeEntries.category, '综合测评')
+              )).all()
+            const deyu = deyuRows.find(r => /文化艺术/.test(r.title))
+            return deyu ? {
+              id: deyu.id,
+              title: deyu.title,
+              answer: deyu.answer,
+              question: deyu.question,
+              publicUrl: deyu.publicUrl ?? '',
+              confidence: deyu.confidence
+            } : undefined
+          })()
+          : undefined)
         ?? pickByIntent(/(?:加多少分|加几分|加分|免修|学分)/u, /加分标准|学分免修/)
         ?? pickByIntent(/奖金|奖励|多少钱/u, /奖金标准|奖励标准/)
         ?? pickByIntent(/(?:互联网\+|挑战杯|哪些竞赛|竞赛项目|项目一览|什么级别|级别)/u, /项目一览|A.B类竞赛/)
@@ -4724,7 +4784,7 @@ function zongceBonusLocalAnswer(query: string): ApiAssistantResponse | null {
   // comparison questions to the dedicated comparison entry. Only fall back to
   // the comprehensive-evaluation bonus table when the query is not explicitly
   // about 学科/技能竞赛.
-  if ((/竞赛|比赛|大赛|A类|B类|C类|互联网\+|挑战杯/.test(q) && !/(综测|综合测评)/.test(q))
+  if ((/竞赛|比赛|大赛|A类|B类|C类|互联网\+|挑战杯|数学建模|电子设计|ACM|大创|创新创业大赛|数模/.test(q) && !/(综测|综合测评)/.test(q))
     || /(?:竞赛|比赛).{0,10}(?:区别|对比|和综测|与综测)/.test(q)) return null
   const matches = matchZongceItem(q)
   if (matches.length === 0) return null
