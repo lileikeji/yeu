@@ -145,6 +145,26 @@ export function containsPromptInjection(value: string): boolean {
     || TARGETED_ABUSE_PATTERN.test(query)
 }
 
+// Queries seeking administrator/backend credentials or secrets must never
+// reach retrieval: the knowledge base legitimately holds operation manuals
+// whose text mentions "管理员"-like actors, and RAG would otherwise quote one
+// of them as an answer ("管理员密码是什么" used to match a research-office
+// system manual and echo its content). The patterns deliberately stay narrow
+// so ordinary self-service password questions (教务系统密码忘了、校园卡密码
+// 怎么改 etc.) keep working — only admin/backend/privileged-account wording
+// triggers the refusal.
+const ADMIN_CREDENTIAL_PATTERN = /(?:管理员|超级管理员|系统管理员|管理后台|运维|root|admin|服务器|数据库).{0,8}(?:账号|帐号|账户|用户名|密码|口令|密钥|登录密码)/iu
+const BACKEND_CREDENTIAL_PATTERN = /(?:账号|帐号|账户|用户名|密码|口令|密钥).{0,8}(?:管理员|超级管理员|后台|root|admin)/iu
+const EN_CREDENTIAL_PATTERN = /\b(?:admin|root|superadmin|server|database|db|firewall|gateway)\b.{0,24}\b(?:password|passwd|credential|secret|access[- ]?key|login)\b/i
+
+export function containsCredentialSeeking(value: string): boolean {
+  const normalized = normalizeAssistantQuery(value)
+  const compact = normalized.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+  return ADMIN_CREDENTIAL_PATTERN.test(compact)
+    || BACKEND_CREDENTIAL_PATTERN.test(compact)
+    || EN_CREDENTIAL_PATTERN.test(normalized)
+}
+
 export function shouldRequestAssistantAnswer(value: string, localResultCount: number): boolean {
   const identityQuestion = Boolean(assistantIdentitySubject(value))
   return (localResultCount === 0 || identityQuestion)

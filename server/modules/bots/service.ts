@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import type { DatabaseClient } from '../../database/client'
 import { recordAssistantFailure, recordAssistantSuccess } from '../assistant/analytics'
 import { answerCampusQuestion } from '../assistant/service'
-import { containsPromptInjection } from '../../../shared/utils/assistant-query'
+import { containsCredentialSeeking, containsPromptInjection } from '../../../shared/utils/assistant-query'
 import type { ApiAssistantCitation } from '../../../shared/types/server'
 import type { NormalizedBotQuestion } from './events'
 
@@ -110,7 +110,7 @@ export async function answerAndSendBotQuestion(input: {
   const requestId = `bot:${input.question.platform}:${input.question.messageId}`.slice(0, 200)
   const context = { requestId, query: input.question.question, ipAddress: null }
 
-  if (containsPromptInjection(input.question.question)) {
+  if (containsPromptInjection(input.question.question) || containsCredentialSeeking(input.question.question)) {
     try {
       recordAssistantFailure(input.client, context, 'UNSAFE_QUERY', Date.now() - startedAt)
     } catch {

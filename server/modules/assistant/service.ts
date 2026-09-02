@@ -44,6 +44,7 @@ import {
 } from '../../../shared/utils/public-http-url'
 import {
   assistantIdentitySubject,
+  containsCredentialSeeking,
   containsPromptInjection,
   normalizeAssistantQuery
 } from '../../../shared/utils/assistant-query'
@@ -6208,7 +6209,7 @@ async function answerCampusQuestionCore(
   config: AssistantConfig,
   hooks: AssistantRunHooks = {}
 ): Promise<ApiAssistantResponse> {
-  if (containsPromptInjection(rawQuery)) return blockedAssistantResponse(rawQuery)
+  if (containsPromptInjection(rawQuery) || containsCredentialSeeking(rawQuery)) return blockedAssistantResponse(rawQuery)
   // Built-in transit (K2/K6) answers must fire before any retrieval/web path:
   // "坐几路车到仰恩" was reaching web search (5.9s) and missing the answer.
   const earlyTransit = transitBusAnswer(rawQuery)
@@ -7171,7 +7172,7 @@ export async function answerCampusQuestion(
   config: AssistantConfig,
   hooks: AssistantRunHooks = {}
 ): Promise<ApiAssistantResponse> {
-  if (containsPromptInjection(rawQuery)) return blockedAssistantResponse(rawQuery)
+  if (containsPromptInjection(rawQuery) || containsCredentialSeeking(rawQuery)) return blockedAssistantResponse(rawQuery)
   const sessionKey = config.sessionKey?.trim() ? config.sessionKey : undefined
   const compose = (query: string, previousQuery: string | undefined): string =>
     resolveAssistantFollowUpQuery(query, previousQuery)

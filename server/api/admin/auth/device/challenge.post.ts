@@ -21,9 +21,18 @@ export default defineEventHandler((event) => {
   const ip = getClientIpAddress(event)
   assertRateLimit(event, `admin-device-challenge:${ip}`, 12, 60 * 1000, client)
 
-  return issueAdminDeviceChallenge(
+  const challenge = issueAdminDeviceChallenge(
     getSecurityConfig(event).secret,
     config.keyId,
     getRequestURL(event).origin
   )
+  // The keyId is not a secret (it also rides inside the HMAC-protected token
+  // payload), but echoing it as a top-level JSON field hands unauthenticated
+  // callers a stable deployment identifier for recon/fingerprinting. The
+  // device client already knows its own keyId and only needs the token.
+  return {
+    algorithm: challenge.algorithm,
+    token: challenge.token,
+    expiresAt: challenge.expiresAt
+  }
 })

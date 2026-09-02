@@ -17,7 +17,8 @@ interface AdminDeviceKeyFile {
 
 export interface AdminDeviceChallengePayload {
   algorithm: 'ECDSA_P256_SHA256'
-  keyId: string
+  /** Present on older servers; newer builds omit it (client uses its stored keyId). */
+  keyId?: string
   token: string
   expiresAt: number
 }
@@ -113,7 +114,9 @@ export async function signAdminDeviceChallenge(
   challenge: AdminDeviceChallengePayload
 ): Promise<{ keyId: string, token: string, signature: string }> {
   const stored = await readStoredKey()
-  if (!stored || stored.keyId !== challenge.keyId) {
+  // Compare against the server keyId only when the challenge still carries it;
+  // newer servers omit the field and the mismatch is caught server-side anyway.
+  if (!stored || (challenge.keyId !== undefined && stored.keyId !== challenge.keyId)) {
     throw new Error('ADMIN_DEVICE_KEY_NOT_FOUND')
   }
   const signature = await crypto.subtle.sign(
