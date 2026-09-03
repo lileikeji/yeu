@@ -195,6 +195,8 @@ interface ModelAnswer {
 export interface AssistantRunHooks {
   onStageStarted?: (stage: ApiAssistantStage, label: string, startedAt: string) => void | Promise<void>
   onStageCompleted?: (step: ApiAssistantTraceStep) => void | Promise<void>
+  /** 美食推荐 LLM 正文按小段推送（SSE content_delta 打字机效果）。 */
+  onContentDelta?: (delta: string) => void | Promise<void>
 }
 
 interface AssistantRunTracker {
@@ -2717,10 +2719,149 @@ function seedRowsForPlace(
   })
 }
 
+/**
+ * AI 美食推荐（mode:'ai'）的候选与意图信息。本地候选筛选逻辑（区域/预算/品类/
+ * 正餐过滤）与正文生成解耦：筛选结果写入 capture，供 LLM 生成时作为真实数据底座，
+ * LLM 不可用时整段降级回 capture 对应的本地模板答案（assistantFoodRecommendationAnswer
+ * 返回对象）。
+ */
+interface FoodAiCandidate {
+  placeId: string
+  name: string
+  score: number
+  cost: number | null
+  area: '新区' | '旧区' | '学生街' | null
+  tips: string[]
+}
+
+interface FoodRecommendationCapture {
+  /** fixed=清真说明/单店详情等既有固定回答（不走 LLM）；list=可 LLM 生成的候选列表。 */
+  kind: 'none' | 'fixed' | 'list'
+  candidates: FoodAiCandidate[]
+  /** 正餐意图（非饮品/甜品诉求）——LLM 正文需在结尾提醒可另问奶茶/甜品。 */
+  mealIntent: boolean
+}
+
+const FOOD_AI_CANDIDATE_LIMIT = 8
+const FOOD_AI_MAX_TOKENS = 700
+
+/**
+ * 把一段完整答案切成 10~22 字的小段，按 content_delta 逐段推给前端，形成打字机
+ * 效果。段长与节奏随文本长度自适应：短答案用小段更像逐字敲出，长答案用大段避免
+ * 拖慢完成事件太久（总附加延迟 ~0.5-1.2s）。无 onContentDelta 时静默跳过。
+ */
+async function pushFoodAnswerDeltas(
+  hooks: AssistantRunHooks,
+  text: string
+): Promise<void> {
+  if (!hooks.onContentDelta || !text) return
+  const chars = Array.from(text)
+  const step = chars.length <= 160 ? 10 : chars.length <= 400 ? 16 : 22
+  const pauseMs = 22
+  for (let offset = 0; offset < chars.length; offset += step) {
+    await hooks.onContentDelta(chars.slice(offset, offset + step).join(''))
+    if (offset + step < chars.length) {
+      await new Promise(resolve => setTimeout(resolve, pauseMs))
+    }
+  }
+}
+
+function foodRecommendationGatewayReady(config: AssistantConfig): boolean {
+  return Boolean(config.gatewayBaseUrl && config.gatewayApiKey && config.gatewayModel)
+}
+
+/**
+ * 美食推荐的 LLM 正文生成入口（本地候选筛选后调用）：
+ * - 候选来自真实收录数据（评分/人均/区域/整理口碑），LLM 只能在候选内挑选，不编造店铺；
+ * - 任何失败（未配置/AI_BUSY/超时/空内容/JSON 异常/内容拦截）一律降级为本地模板 fallback，
+ *   保证“附近吃什么”类问题永远有答案；
+ * - 正餐意图且模型没提饮品时，确定性补一句「想喝奶茶/吃甜品可再问我」。
+ */
+async function foodRecommendationAiAnswer(
+  query: string,
+  capture: FoodRecommendationCapture,
+  fallback: ApiAssistantResponse,
+  config: AssistantConfig,
+  hooks: AssistantRunHooks
+): Promise<ApiAssistantResponse> {
+  if (!foodRecommendationGatewayReady(config)) return fallback
+  if (capture.kind !== 'list' || capture.candidates.length === 0) return fallback
+  const candidates = capture.candidates.slice(0, FOOD_AI_CANDIDATE_LIMIT)
+  const candidateJson = candidates.map(candidate => JSON.stringify({
+    name: candidate.name,
+    score: Number(candidate.score.toFixed(1)),
+    cost: candidate.cost !== null ? Math.round(candidate.cost) : null,
+    area: candidate.area ?? '',
+    tips: candidate.tips
+  }))
+  const systemText = [
+    '你是校园美食推荐助手，服务对象是大学校园里的学生。用户会问“附近吃什么/有什么推荐/预算XX吃什么/某区域哪家好/想吃XX”，并附上一批真实商家候选。',
+    '回答要求：',
+    '1. 只推荐候选列表里存在的店铺，绝不编造候选外的店；',
+    '2. 挑 2~4 家最合适的店，自然口语、直接紧凑，每家给一两句具体理由（招牌、口味、适合什么场景）；',
+    '3. 禁止逐条罗列统计数字，不要抄评分/人均/候选清单，也别说“以下是推荐”这类套话；',
+    '4. 结合用户的预算、区域、品类、时段需求挑选；高分店可以优先，但要在候选里轮换组合，不要每次只推同一两家；',
+    '5. 全文不超过 300 字；不要用 Markdown 标题、列表符号或链接，可用换行分段。',
+    '只输出一个 JSON 对象：{"answer": "推荐正文"}，answer 里不要再嵌 JSON 或多余键。'
+  ].join('\n')
+  const mealNote = capture.mealIntent
+    ? '注意：用户问的是正餐类用餐（不是奶茶/甜品），候选已排除纯饮品甜品店，请从候选里挑真正的餐食。'
+    : ''
+  const userText = [
+    `用户问题：${query}`,
+    mealNote,
+    '',
+    `候选商家（score=高德评分，cost=人均价，area=区域，tips=整理口碑，每条<=40字）：`,
+    '[',
+    candidateJson.join(',\n'),
+    ']'
+  ].filter(line => line !== '').join('\n')
+  let answer: string
+  try {
+    const payload = await postGatewayChat(config, [
+      { role: 'system', content: systemText },
+      { role: 'user', content: userText }
+    ], {
+      maxTokens: FOOD_AI_MAX_TOKENS,
+      timeoutMs: Math.min(config.gatewayTimeoutMs, 35_000),
+      trackFailures: true
+    })
+    const content = (payload as { choices?: Array<{ message?: { content?: unknown } }> })
+      .choices?.[0]?.message?.content
+    if (typeof content !== 'string' || !content.trim()) throw new Error('INVALID_MODEL_RESPONSE')
+    const parsed = JSON.parse(content) as { answer?: unknown }
+    if (typeof parsed.answer !== 'string') throw new Error('INVALID_MODEL_RESPONSE')
+    answer = sanitizeAssistantAnswer(parsed.answer)
+    if (!answer) throw new Error('INVALID_MODEL_RESPONSE')
+  } catch {
+    // LLM 通道不可用/输出异常 → 原本地模板答案兜底。
+    return fallback
+  }
+  if (capture.mealIntent && !/(?:奶茶|甜品|饮品|喝杯)/u.test(answer)) {
+    answer = `${answer}\n（你问的是正餐；想喝奶茶或吃甜品，可以再问我～）`
+  }
+  await pushFoodAnswerDeltas(hooks, answer)
+  return {
+    query,
+    mode: 'ai',
+    answer,
+    citations: candidates.slice(0, 5).map(candidate => ({
+      title: candidate.name,
+      url: '/map?place=' + encodeURIComponent(candidate.placeId),
+      snippet: `${candidate.name}：${candidate.score.toFixed(1)} 分${candidate.cost !== null ? `，人均约 ¥${Math.round(candidate.cost)}` : ''}`,
+      source: 'site' as const
+    })),
+    usedWebSearch: false,
+    confidence: 0.8
+  }
+}
+
 function assistantFoodRecommendationAnswer(
   client: DatabaseClient,
-  query: string
+  query: string,
+  capture?: FoodRecommendationCapture
 ): ApiAssistantResponse | null {
+  if (capture) capture.kind = 'none'
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味|换口味|换换口味|早饭|不辣|不吃辣|清真|水果|新开|有哪些)/u.test(normalized)
   const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃|换口味|早饭|不辣|清真|水果|新开|有哪些|有哪家|有没有|有无)/u.test(normalized)
@@ -2796,9 +2937,11 @@ function assistantFoodRecommendationAnswer(
   const lunchQuery = /(?:中午|午餐|午饭|下午)/u.test(normalized)
   const dinnerQuery = /(?:晚上|晚餐|晚饭|夜宵|宵夜)/u.test(normalized)
 
-  // Meal intent: "吃饭/聚餐/两个人吃饭" asks for actual food, so drink-only
-  // shops (奶茶/咖啡/柠檬茶/冰城) are excluded from the results.
-  const mealQuery = /(?:吃饭|聚餐|两个人|几人|请客|正餐|干饭)/u.test(normalized)
+  // 正餐意图：用户要的是“吃饭/食堂/正餐/聚餐/炒菜/火锅/烧烤/吃什么…”这类实际用餐
+  // （且没点名奶茶/咖啡/饮品/甜品）时，候选必须排除纯饮品甜品店——预算20“吃什么”
+  // 不能把一杯奶茶当正餐推。显式想喝奶茶/咖啡/吃甜品的查询不受影响，走自己的品类筛选。
+  const drinkIntentQuery = /(?:奶茶|饮品|柠檬茶|茶饮|咖啡|冰城|雪王|水吧|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|霸王茶姬|喜茶|奈雪|甜品|蛋糕|奶盖|果茶|西点|甜点|面包)/u.test(normalized)
+  const mealQuery = !drinkIntentQuery && /(?:吃|食堂|正餐|聚餐|炒菜|小炒|火锅|烧烤|烤鱼|麻辣烫|螺蛳粉|快餐|盖饭|鸡公煲|干饭|请客|两个人|几人|早饭|午饭|晚饭)/u.test(normalized)
   // Canteen intent: "食堂/校内餐厅" — the campus canteens have no per-dish
   // ratings, so be honest about that instead of pretending the student
   // street shops ARE the canteens.
@@ -2808,6 +2951,7 @@ function assistantFoodRecommendationAnswer(
   // Halal: no campus merchant is recorded as halal — answer honestly instead
   // of falling through to an irrelevant document.
   if (/(?:清真|回民|halal|清真的)/iu.test(normalized)) {
+    if (capture) capture.kind = 'fixed'
     return {
       query,
       mode: 'local',
@@ -2869,6 +3013,7 @@ function assistantFoodRecommendationAnswer(
       const detailLines = shopSeed.map(card => (
         `【${card.tag}】${card.score.toFixed(1)} 分：${card.content}`
       ))
+      if (capture) capture.kind = 'fixed'
       return {
         query,
         mode: 'local',
@@ -2914,9 +3059,9 @@ function assistantFoodRecommendationAnswer(
     rated = rated.filter(row => row.cost !== null && row.cost >= 50)
   }
   if (mealQuery) {
-    // "吃饭/聚餐" → drop drink-only merchants (奶茶/咖啡/柠檬茶/冰城/雪王
-    // and common milk-tea brand names that carry no food word).
-    const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|CoCo|coco|霸王茶姬|喜茶|奈雪|柠季|大茶杯)/iu
+    // 正餐/吃饭 → 剔除纯饮品甜品店（奶茶/咖啡/柠檬茶/冰城/雪王/甜品/蛋糕及常见
+    // 奶茶品牌名等不带正餐词的门店）。
+    const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|CoCo|coco|霸王茶姬|喜茶|奈雪|柠季|大茶杯|甜品|蛋糕|西点|甜点|面包)/iu
     rated = rated.filter(row => !DRINK_ONLY.test(row.name))
   }
   if (noSpicyQuery) {
@@ -3023,6 +3168,20 @@ function assistantFoodRecommendationAnswer(
     lines.join('\n'),
     '实际口味因人而异。打开校园地图（学生街区域）点击对应商家，可查看评分详情和整理评价；如果想知道具体某一家的更多信息，直接问我店名即可。'
   ].join('\n\n')
+
+  if (capture) {
+    capture.kind = 'list'
+    capture.mealIntent = mealQuery
+    capture.candidates = rated.slice(0, FOOD_AI_CANDIDATE_LIMIT).map(row => ({
+      placeId: row.placeId,
+      name: row.name,
+      score: row.score ?? 0,
+      cost: row.cost,
+      area: inferShopArea(row.name),
+      tips: (seedByPlace.get(row.placeId) ?? []).slice(0, 2)
+        .map(line => line.length > 40 ? `${line.slice(0, 40)}…` : line)
+    }))
+  }
 
   return {
     query,
@@ -6782,6 +6941,17 @@ async function answerCampusQuestionCore(
       async () => {
         if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, localEvidence)) {
           return admissionPlanCountGapResponse(query, localEvidence)
+        }
+        // AI 美食推荐：候选筛选（区域/预算/品类/正餐过滤 + 随机化）仍由本地逻辑完成
+        // （assistantFoodRecommendationAnswer），正文改由 LLM 按真实候选生成并以
+        // content_delta 逐段推送；LLM 不可用/失败时自动降级为同一次筛选得到的本地模板
+        // 答案（fallback），行为与改造前一致。非 food 路由不受影响。
+        if (analysis.route === 'local_database' && !analysis.requiresSpecificWebEvidence && !historicalTransferAnswer) {
+          const foodCapture: FoodRecommendationCapture = { kind: 'none', candidates: [], mealIntent: false }
+          const foodFallback = assistantFoodRecommendationAnswer(client, query, foodCapture)
+          if (foodFallback && foodCapture.kind === 'list' && foodCapture.candidates.length > 0) {
+            return await foodRecommendationAiAnswer(query, foodCapture, foodFallback, config, tracker.hooks)
+          }
         }
         const deterministicResponse = historicalTransferAnswer
           ?? (analysis.requiresSpecificWebEvidence

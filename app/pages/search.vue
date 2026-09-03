@@ -250,6 +250,9 @@ const results = computed(() => {
 const groupedResults = computed(() => groupPublicSearchResults(results.value, activeQuery.value))
 const hasPlaceResults = computed(() => results.value.some(result => result.resultType === 'place'))
 const assistantResponse = ref<ApiAssistantResponse | null>(null)
+// 流式正文草稿：美食推荐 LLM 通道通过 content_delta 事件逐段送达，completed 事件
+// 到达后用完整 answer 接管渲染（草稿清空，避免重复）。
+const assistantDraftAnswer = ref('')
 interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
   status: 'running' | 'completed' | 'failed'
   startedAt?: string
@@ -516,7 +519,10 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
         if (!message) continue
         if (message.event === 'stage_started') updateAssistantStageStarted(message.data)
         else if (message.event === 'stage_completed') updateAssistantStageCompleted(message.data)
-        else if (message.event === 'completed') completed = message.data as unknown as ApiAssistantResponse
+        else if (message.event === 'content_delta') {
+          const delta = typeof message.data.delta === 'string' ? message.data.delta : ''
+          if (delta) assistantDraftAnswer.value += delta
+        } else if (message.event === 'completed') completed = message.data as unknown as ApiAssistantResponse
         else if (message.event === 'error') throw new Error(String(message.data.code ?? 'AI_UNAVAILABLE'))
         // A proxy may forward the terminal event without closing the HTTP
         // connection. Do not keep the answer card waiting for EOF.
@@ -555,6 +561,7 @@ async function requestAssistantAnswer(): Promise<void> {
     assistantAbortController = null
     stopAssistantClock()
     assistantResponse.value = null
+    assistantDraftAnswer.value = ''
     assistantLiveTrace.value = []
     assistantStatus.value = 'idle'
     return
@@ -564,6 +571,7 @@ async function requestAssistantAnswer(): Promise<void> {
   assistantAbortController?.abort()
   assistantAbortController = new AbortController()
   assistantResponse.value = null
+  assistantDraftAnswer.value = ''
   assistantLiveTrace.value = [{
     stage: 'query_analysis',
     label: '分析问题',
@@ -577,6 +585,7 @@ async function requestAssistantAnswer(): Promise<void> {
     const response = await requestAssistantStream(query, assistantAbortController.signal)
     if (requestId !== assistantRequestSequence || query !== activeQuery.value) return
     assistantResponse.value = response
+    assistantDraftAnswer.value = ''
     previousAssistantQuery = query
     assistantLiveTrace.value = (response.trace ?? []).map(step => ({ ...step }))
     assistantStatus.value = 'success'
@@ -888,6 +897,13 @@ onBeforeUnmount(() => {
                 />
                 正在连接检索服务
               </div>
+              <p
+                v-if="assistantStatus === 'pending' && assistantDraftAnswer"
+                class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700"
+              >
+                {{ assistantDraftAnswer }}
+                <span class="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-green-600 align-text-bottom" />
+              </p>
               <template v-if="assistantResponse">
                 <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700">
                   <template

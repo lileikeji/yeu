@@ -107,6 +107,13 @@ export default defineEventHandler(async (event) => {
         },
         onStageCompleted: async step => {
           await stream.push({ event: 'stage_completed', data: JSON.stringify(step) })
+        },
+        onContentDelta: async delta => {
+          // 美食推荐 LLM 正文：content_delta 增量事件打字机式推到前端。
+          await stream.push({
+            event: 'content_delta',
+            data: JSON.stringify({ delta })
+          }).catch(() => {})
         }
       })
       try {
