@@ -2941,7 +2941,11 @@ function assistantFoodRecommendationAnswer(
   // （且没点名奶茶/咖啡/饮品/甜品）时，候选必须排除纯饮品甜品店——预算20“吃什么”
   // 不能把一杯奶茶当正餐推。显式想喝奶茶/咖啡/吃甜品的查询不受影响，走自己的品类筛选。
   const drinkIntentQuery = /(?:奶茶|饮品|柠檬茶|茶饮|咖啡|冰城|雪王|水吧|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|霸王茶姬|喜茶|奈雪|甜品|蛋糕|奶盖|果茶|西点|甜点|面包)/u.test(normalized)
-  const mealQuery = !drinkIntentQuery && /(?:吃|食堂|正餐|聚餐|炒菜|小炒|火锅|烧烤|烤鱼|麻辣烫|螺蛳粉|快餐|盖饭|鸡公煲|干饭|请客|两个人|几人|早饭|午饭|晚饭)/u.test(normalized)
+  // 正餐意图必须落在"吃一顿饭"的明确措辞上：吃什么/吃啥/吃点啥/吃饭/吃个饭/
+  // 想(去)吃/正餐/聚餐/干饭/请客/午饭/晚饭等。bare "吃"（好吃的/想吃/有什么吃的）
+  // 是泛指零食与喝的全域美食问法，不能当正餐意图排除奶茶甜品——否则"新区有什么
+  // 好吃的"这类区域问会把整条学生街的饮品店都滤掉。
+  const mealQuery = !drinkIntentQuery && /(?:吃(?:什么|啥|点什么|点啥|饭|个饭|顿饭|东西)|想吃|去吃|正餐|干饭|聚餐|请客|(?:两|几|三)个(?:人|同学|室友)|早饭|午饭|晚饭|宵夜|夜宵|食堂|点菜)/u.test(normalized)
   // Canteen intent: "食堂/校内餐厅" — the campus canteens have no per-dish
   // ratings, so be honest about that instead of pretending the student
   // street shops ARE the canteens.
@@ -3058,11 +3062,19 @@ function assistantFoodRecommendationAnswer(
   if (expensiveQuery) {
     rated = rated.filter(row => row.cost !== null && row.cost >= 50)
   }
+  let mealDrinkExclusionApplied = false
   if (mealQuery) {
     // 正餐/吃饭 → 剔除纯饮品甜品店（奶茶/咖啡/柠檬茶/冰城/雪王/甜品/蛋糕及常见
-    // 奶茶品牌名等不带正餐词的门店）。
+    // 奶茶品牌名等不带正餐词的门店）。但剔除后若池子被清空（预算/区域/品类过滤后只剩
+    // 奶茶甜品，如"中午吃什么 预算15以内"只有蜜雪在预算内），保留剔除前的过滤池——
+    // 宁可有奶茶，也不能触发下方全池 relax 把区域/预算之外的店混进来。
     const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|CoCo|coco|霸王茶姬|喜茶|奈雪|柠季|大茶杯|甜品|蛋糕|西点|甜点|面包)/iu
-    rated = rated.filter(row => !DRINK_ONLY.test(row.name))
+    const preMealRated = rated
+    const mealPool = preMealRated.filter(row => !DRINK_ONLY.test(row.name))
+    if (mealPool.length > 0) {
+      rated = mealPool
+      mealDrinkExclusionApplied = true
+    }
   }
   if (noSpicyQuery) {
     // "不辣" → drop spicy-heavy shops (麻辣烫/火锅/川菜/鸡公煲/螺蛳粉/烤鱼).
@@ -3171,7 +3183,7 @@ function assistantFoodRecommendationAnswer(
 
   if (capture) {
     capture.kind = 'list'
-    capture.mealIntent = mealQuery
+    capture.mealIntent = mealDrinkExclusionApplied
     capture.candidates = rated.slice(0, FOOD_AI_CANDIDATE_LIMIT).map(row => ({
       placeId: row.placeId,
       name: row.name,
