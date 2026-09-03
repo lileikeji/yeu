@@ -74,7 +74,8 @@ const CASES: SweepCase[] = [
   { name: '羽毛球场', group: '知识', q: '学校有羽毛球场吗？', require: ['羽毛球'] },
   { name: '夜不归宿', group: '知识', q: '夜不归宿怎么认定？', require: ['夜不归宿'] },
   { name: '助学金', group: '知识', q: '国家助学金怎么申请？', require: ['助学金'] },
-  { name: '食堂开门', group: '知识', q: '食堂几点开门？', require: ['食堂'] },
+  { name: '食堂开门', group: '知识', q: '食堂几点开门？', require: ['食堂'], notFoodList: true, forbid: ['评分较高的选择', '评分靠前'] },
+  { name: '食堂营业时间', group: '知识', q: '食堂营业时间到几点', require: ['食堂'], notFoodList: true, forbid: ['评分较高的选择', '评分靠前'] },
   { name: '宿舍概览不被美食劫持', group: '知识', q: '宿舍怎么样', notFoodList: true },
   { name: '来源链接', group: '知识', q: '你的知识库来源链接是什么' },
 

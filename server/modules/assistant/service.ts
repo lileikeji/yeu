@@ -2924,6 +2924,11 @@ function assistantFoodRecommendationAnswer(
   // restaurant rankings — let those fall through to their own handlers.
   const NON_FOOD_INTENT = /(?:理发|美发|剪发|烫发|染发|造型|美甲|拍照|摄影|景点|好玩|玩的地方|KTV|网吧|健身|运动|药店|诊所|买药|打印|复印|图文|快递|取件|寄件|银行|取钱|自习|图书馆|上课|考试|补课|修手机|维修|买衣服|服装|鞋子|超市|购物|文具|眼镜|综测|综合测评|德育|智育|体育分|献血|奖学金|助学金|学分|绩点|gpa|加分|评优|三好|荣誉称号|学生干部|志愿时长|社团|协会|学生会|团委|部门|转专业|换专业)/u
   if (NON_FOOD_INTENT.test(normalized)) return null
+  // Canteen opening-hours questions ("食堂几点开门/餐厅营业时间") are answered
+  // by the 食堂开放时间 knowledge entry — never by the recommendation list,
+  // and never by the food LLM channel (its fallback would otherwise turn
+  // "几点开门" into street-shop suggestions).
+  if (/(?:食堂|北苑|西苑|餐厅).{0,8}(?:几点|开放时间|营业时间|开门|关门|什么时候开)/u.test(normalized)) return null
   // AI intent disambiguation: when the analysis stage classified this query
   // as a NON-food intent (e.g. "理发店推荐" whose 推荐 word triggered food),
   // do not answer with restaurant rankings.
