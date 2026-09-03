@@ -296,6 +296,7 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   材料费: ['教材费', '教材订购', '教材', '课本', '缴费'],
   开学: ['报到', '注册', '入学教育', '上课', '校历'],
   开车: ['家长车辆', '报到车辆进校', '车辆预约', '车牌报备', '停车', '宿舍区车辆'],
+  车停: ['停车', '家长车辆', '报到车辆进校', '车辆预约', '车牌报备', '停车位'],
   车辆: ['家长车辆', '报到车辆进校', '车辆预约', '车牌报备', '停车', '宿舍区车辆'],
   停车: ['家长车辆', '报到车辆进校', '车辆预约', '车牌报备', '停车区域'],
   实习: ['专业实习', '实践教学', '实习单位', '校外实习', '见习'],
@@ -817,6 +818,31 @@ export function assistantQueryTerms(value: string): string[] {
   const remainder = [...new Set(terms)].filter(item => !prioritizedTail.includes(item))
   const tailBudget = Math.min(8, prioritizedTail.length)
   return [...prioritizedTail.slice(0, tailBudget), ...remainder].slice(0, 24)
+}
+
+/**
+ * Content-chunk terms only: the same chunking as `assistantQueryTerms` but
+ * WITHOUT expansion values (expansion KEYS still count) and without long-phrase
+ * noise. Used by the knowledge scorer to measure how many distinct topics an
+ * entry actually covers versus sharing a weak year/phrase qualifier.
+ */
+export function assistantQueryCoreTerms(value: string): string[] {
+  let query = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
+  for (const filler of QUESTION_FILLERS) query = query.replaceAll(filler, ' ')
+  const chunks = query
+    .replace(/[?？!！,，。；;：:、()（）【】]/g, ' ')
+    .split(/\s+/)
+    .map(item => item.trim())
+    .filter(item => item.length >= 2)
+  const core = new Set<string>()
+  for (const chunk of chunks) {
+    if (!QUERY_TERM_STOPWORDS.has(chunk)) core.add(chunk)
+    for (const [key] of Object.entries(TERM_EXPANSIONS)) {
+      if (chunk.includes(key)) core.add(key)
+    }
+  }
+  const deduped = [...core].filter(term => term.length >= 2)
+  return deduped.filter(term => !deduped.some(other => other !== term && other.length > term.length && other.includes(term)))
 }
 
 function identitySubjectForQuery(value: string): string | null {
@@ -2624,6 +2650,11 @@ export function assistantKnowledgeMatchesForQuery(
   const rows = [...new Map(
     [...initialRows, ...broadFallbackRows].map(row => [row.id, row])
   ).values()]
+  // Topic-coverage scoring inputs: which distinct query topics does each entry
+  // actually address? A parking question ("新生报到 车停哪里") must outrank an
+  // entry that only shares the 新生报到 phrase, and a year qualifier (2026级)
+  // must not let the 军训 entry beat the entry that covers 2026级 AND 报到.
+  const coreTerms = assistantQueryCoreTerms(query)
   return rows.map((row) => {
     const keywords = parseKnowledgeKeywords(row.keywordsJson)
     const detail = `${row.question} ${row.answer} ${keywords.join(' ')}`
@@ -2632,6 +2663,22 @@ export function assistantKnowledgeMatchesForQuery(
         ? Math.max(boost, keyword.length >= 4 ? 24 : 16)
         : boost
     ), 0)
+    const headerText = `${row.title.toLocaleLowerCase('zh-CN')} ${row.question.toLocaleLowerCase('zh-CN')}`
+    const matchedCoreTerms = coreTerms.filter(term => headerText.includes(term))
+    const aliasMatchedCoreTerms = coreTerms
+      .filter(term => !matchedCoreTerms.includes(term))
+      .filter(term => (TERM_EXPANSIONS[term] ?? []).some(alias => headerText.includes(alias.toLocaleLowerCase('zh-CN'))))
+    const coveredCore = matchedCoreTerms.length + aliasMatchedCoreTerms.length
+    // A multi-topic query answered by an entry covering only part of it gets
+    // its keyword boost halved: the keyword likely matches a weak qualifier
+    // (e.g. keyword 新生 matching 新生报到) rather than the actual topic.
+    const partialCoverage = coreTerms.length >= 2 && coveredCore < coreTerms.length
+    const keywordBoost = partialCoverage ? Math.round(exactKeywordBoost / 2) : exactKeywordBoost
+    // Entries addressing a core topic through its alias (车停 ≈ 停车/家长车辆)
+    // deserve real credit — without this, alias-only hits lose to entries that
+    // merely repeat the query's leading phrase.
+    const aliasBoost = aliasMatchedCoreTerms.length > 0 ? Math.min(24, aliasMatchedCoreTerms.length * 12) : 0
+    const coverageBoost = coveredCore >= 2 ? Math.min(16, (coveredCore - 1) * 8) : 0
     const facultyName = row.category === '教职工'
       ? row.title.split('｜', 1)[0]?.trim().toLocaleLowerCase('zh-CN') ?? ''
       : ''
@@ -2645,7 +2692,9 @@ export function assistantKnowledgeMatchesForQuery(
           : 0
       : 0
     const score = evidenceScore(`${row.title} ${row.category}`, row.question, detail, terms)
-      + exactKeywordBoost
+      + keywordBoost
+      + aliasBoost
+      + coverageBoost
       + (identitySubject && facultyName === identitySubject ? 80 : 0)
       + identityTitleBoost
       + dormKnowledgePriority(query, { ...row, keywords })
@@ -2856,6 +2905,11 @@ async function foodRecommendationAiAnswer(
   }
 }
 
+// Bare category words ("那火锅呢" → 火锅) are NOT shop names: the single-shop
+// path must not hijack a category recommendation query just because some
+// shop's name contains the category word.
+const SHOP_CATEGORY_WORD_RE = /^(?:火锅|火锅店|烧烤|烧烤店|烤肉|奶茶|奶茶店|咖啡|咖啡店|咖啡厅|面|面馆|粉|米粉|米线|汉堡|汉堡店|寿司|日料|包子|包子铺|水饺|饺子|快餐|盖饭|拌饭|麻辣烫|麻辣拌|甜品|甜品店|蛋糕|烘焙|早餐|夜宵|宵夜|水果|果切|饮料|自助|小龙虾|螺蛳粉|鸡排|炸鸡|食堂|学生街)$/u
+
 function assistantFoodRecommendationAnswer(
   client: DatabaseClient,
   query: string,
@@ -2863,8 +2917,8 @@ function assistantFoodRecommendationAnswer(
 ): ApiAssistantResponse | null {
   if (capture) capture.kind = 'none'
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
-  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味|换口味|换换口味|早饭|不辣|不吃辣|清真|水果|新开|有哪些)/u.test(normalized)
-  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃|换口味|早饭|不辣|清真|水果|新开|有哪些|有哪家|有没有|有无)/u.test(normalized)
+  const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味|换口味|换换口味|早饭|不辣|不吃辣|清真|水果|新开|有哪些|喝的|喝什么|饮料|大餐|搓一顿|撮一顿|人均|预算)/u.test(normalized)
+  const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃|换口味|早饭|不辣|清真|水果|新开|有哪些|有哪家|有没有|有无|食堂|大餐|人均|预算|以内|[铺店]|[呢呀啊][?？!！]*$)/u.test(normalized)
   // A bare "推荐/哪家" would match the food intent, but explicit non-food
   // topics (理发/拍照/玩/药店/打印/快递…) must NOT be answered with
   // restaurant rankings — let those fall through to their own handlers.
@@ -2887,6 +2941,7 @@ function assistantFoodRecommendationAnswer(
 
   // Category filter: "推荐奶茶/火锅/烧烤/面/便宜的" narrows the merchant pool.
   const CATEGORY_PATTERNS: Array<[RegExp, RegExp]> = [
+    [/喝的|饮料|喝什么/u, /(?:奶茶|柠檬茶|咖啡|茶饮|水吧|饮品|冰城|雪王|饮料)/u],
     [/奶茶|饮品|柠檬茶|茶饮|咖啡|冰城|雪王/u, /(?:奶茶|柠檬茶|咖啡|茶饮|水吧|饮品|冰城|雪王)/u],
     [/火锅|自助火锅|牛肉火锅/u, /(?:火锅|涮)/u],
     [/烧烤|烤串|烤肉|铁板/u, /(?:烧烤|烤串|烤肉|铁板|烤鱼)/u],
@@ -2903,9 +2958,11 @@ function assistantFoodRecommendationAnswer(
     [/水果|果切|鲜果/u, /(?:水果|果切|鲜果|果捞|果茶)/u]
   ]
   let categoryMatch: RegExp | null = null
+  let categoryLabel = ''
   for (const [trigger, namePattern] of CATEGORY_PATTERNS) {
     if (trigger.test(normalized)) {
       categoryMatch = namePattern
+      categoryLabel = normalized.match(trigger)?.[0] ?? ''
       break
     }
   }
@@ -3005,10 +3062,14 @@ function assistantFoodRecommendationAnswer(
   // pool BEFORE category/price filtering narrows it away.
   const shopNameQuery = normalized
     .replace(/^(?:请问|麻烦|帮我|推荐一下|介绍一下|说说|讲讲|知道)/u, '')
+    // Follow-up shorthands arrive without thread context too ("那蜜雪冰城呢",
+    // "这火锅呢"): strip the demonstrative head so the shop still matches.
+    .replace(/^[那这](?:个|家|家店)?(?=[\u4e00-\u9fff]{2,})/u, '')
     .replace(/[?？!！,，。；;：:、\s]/gu, '')
-    .replace(/(?:怎么样|好不好|好吃吗|好吃不|怎么样啊|咋样|如何|评价|评价如何|值得去吗|值得吗|推荐吗|在哪|在哪啊|在哪里|怎么去|几点营业|人均|贵不贵|多少钱)$/u, '')
+    .replace(/(?:怎么样|好不好|好吃吗|好吃不|怎么样啊|咋样|如何|评价|评价如何|值得去吗|值得吗|推荐吗|在哪|在哪啊|在哪里|怎么去|几点营业|人均|贵不贵|多少钱|[呢呀啊])$/u, '')
     .replace(/(?:这家|这家店|那个|那边|一下|想了解)/gu, '')
   const shopMatch = shopNameQuery.length >= 2
+    && !SHOP_CATEGORY_WORD_RE.test(shopNameQuery)
     ? allFood.find(row => row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '').includes(shopNameQuery))
     : undefined
   if (shopMatch) {
@@ -3068,7 +3129,7 @@ function assistantFoodRecommendationAnswer(
     // 奶茶品牌名等不带正餐词的门店）。但剔除后若池子被清空（预算/区域/品类过滤后只剩
     // 奶茶甜品，如"中午吃什么 预算15以内"只有蜜雪在预算内），保留剔除前的过滤池——
     // 宁可有奶茶，也不能触发下方全池 relax 把区域/预算之外的店混进来。
-    const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|CoCo|coco|霸王茶姬|喜茶|奈雪|柠季|大茶杯|甜品|蛋糕|西点|甜点|面包)/iu
+    const DRINK_ONLY = /(?:奶茶|咖啡|柠檬茶|茶饮|冰城|雪王|水吧|饮品|蜜雪|古茗|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|CoCo|coco|霸王茶姬|喜茶|奈雪|柠季|大茶杯|甜品|蛋糕|西点|甜点|面包|喜又|壶见|绵绵冰|冰淇淋|冰室|糖水|烧仙草|果饮)/iu
     const preMealRated = rated
     const mealPool = preMealRated.filter(row => !DRINK_ONLY.test(row.name))
     if (mealPool.length > 0) {
@@ -3169,7 +3230,9 @@ function assistantFoodRecommendationAnswer(
   const introPick = introVariants[Math.floor(Math.random() * introVariants.length)]!
   const intro = timeNote + (categoryMatch || areaQuery || cheapQuery || expensiveQuery || budgetCap !== null
     ? relaxedFilter
-      ? `没有完全符合你条件的店，先看看${introPick}：`
+      ? categoryMatch && categoryLabel
+        ? `校园周边暂时没有收录${categoryLabel}类的商家，先看看${introPick}：`
+        : `没有完全符合你条件的店，先看看${introPick}：`
       : `按你的需求，${introPick}${filterNote}：`
     : `${introPick}：`)
   const canteenNote = canteenQuery
@@ -3537,7 +3600,7 @@ function assistantKnowledgeLocalAnswer(
       && !/(?:水.{0,8}\d+(?:\.\d+)?元|电.{0,8}\d+(?:\.\d+)?元|水卡|水电.{0,12}\d+(?:\.\d+)?元)/.test(candidateText)) return false
     if (/女生/.test(query) && !candidateFactText.includes('女生')) return false
     if (/男生/.test(query) && !candidateFactText.includes('男生')) return false
-    if (/(?:开车|家长车辆|报到车辆|车牌|停车)/.test(query) && /(?:报到车辆|家长车辆|车辆预约|车牌报备|停车|进校)/.test(candidateText)) return candidate.score >= 18
+    if (/(?:开车|家长车辆|报到车辆|车牌|停车|车停)/.test(query) && /(?:报到车辆|家长车辆|车辆预约|车牌报备|停车|进校)/.test(candidateText)) return candidate.score >= 18
     if (/(?:快递.{0,10}(?:寄到|地址)|(?:寄到|地址).{0,10}快递)/.test(query) && /(?:快递地址|收件地址|第一教学区|第三教学区)/.test(candidateText)) return candidate.score >= 18
     if (
       isTeachingLocationQuery(query)
@@ -5015,12 +5078,19 @@ function earlyShopDetailAnswer(client: DatabaseClient, query: string): ApiAssist
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const shopNameQuery = normalized
     .replace(/^(?:请问|麻烦|帮我|推荐一下|介绍一下|说说|讲讲|知道)/u, '')
+    // Follow-up shorthands arrive without thread context too ("那蜜雪冰城呢",
+    // "这火锅呢"): strip the demonstrative head so the shop still matches.
+    .replace(/^[那这](?:个|家|家店)?(?=[\u4e00-\u9fff]{2,})/u, '')
     .replace(/[?？!！,，。；;：:、\s]/gu, '')
-    .replace(/(?:怎么样|好不好|好吃吗|好吃不|怎么样啊|咋样|如何|评价|评价如何|值得去吗|值得吗|推荐吗|在哪|在哪啊|在哪里|怎么去|几点营业|人均|贵不贵|多少钱)$/u, '')
+    .replace(/(?:怎么样|好不好|好吃吗|好吃不|怎么样啊|咋样|如何|评价|评价如何|值得去吗|值得吗|推荐吗|在哪|在哪啊|在哪里|怎么去|几点营业|人均|贵不贵|多少钱|[呢呀啊])$/u, '')
     .replace(/(?:这家|这家店|那个|那边|一下|想了解)/gu, '')
   if (shopNameQuery.length < 2) return null
   if (/^(?:学生街|学校|食堂|什么|哪里|附近|这家|那个|你|我)[^，。]{0,6}$/u.test(shopNameQuery)) return null
-  if (!/(?:怎么样|好不好|好吃吗|好吃不|咋样|如何|评价|值得去吗|评分)/u.test(normalized)) return null
+  // A bare category word ("那火锅呢") is a recommendation request, not a
+  // single-shop detail question — let the category ranking path answer it.
+  if (SHOP_CATEGORY_WORD_RE.test(shopNameQuery)) return null
+  // Evaluative endings include the bare follow-up particle ("那蜜雪冰城呢").
+  if (!/(?:怎么样|好不好|好吃吗|好吃不|咋样|如何|评价|值得去吗|评分)/u.test(normalized) && !/[呢呀啊]$/u.test(normalized)) return null
   const rows = client.db.select({
     placeId: placeAmapRatings.placeId,
     name: placeAmapRatings.amapPoiName,

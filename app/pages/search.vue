@@ -14,6 +14,7 @@ import type {
 import { buildStudentRuleSearchResults } from '~~/app/utils/student-rules-search'
 import { isQuestionLike } from '~~/shared/utils/assistant-query'
 import { getOrCreateAssistantSessionId } from '~~/app/utils/assistant-session'
+import { parseAssistantFoodAnswer, parseAssistantShopDetail } from '~~/app/utils/assistant-answer-cards'
 import {
   buildPublicSearchResults,
   buildSearchAnnouncement,
@@ -253,6 +254,13 @@ const assistantResponse = ref<ApiAssistantResponse | null>(null)
 // 流式正文草稿：美食推荐 LLM 通道通过 content_delta 事件逐段送达，completed 事件
 // 到达后用完整 answer 接管渲染（草稿清空，避免重复）。
 const assistantDraftAnswer = ref('')
+// 结构化答案卡片：美食榜单 → 商家卡；单店详情 → 评价卡。解析失败一律回退纯文本。
+const assistantFoodCards = computed(() => assistantResponse.value
+  ? parseAssistantFoodAnswer(assistantResponse.value.answer)
+  : null)
+const assistantShopCards = computed(() => assistantResponse.value
+  ? parseAssistantShopDetail(assistantResponse.value.answer)
+  : null)
 interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
   status: 'running' | 'completed' | 'failed'
   startedAt?: string
@@ -905,12 +913,127 @@ onBeforeUnmount(() => {
                 <span class="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-green-600 align-text-bottom" />
               </p>
               <template v-if="assistantResponse">
-                <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700">
+                <!-- 美食榜单：结构化商家卡片（移动端主视觉，解析失败回退纯文本） -->
+                <template v-if="assistantFoodCards">
+                  <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700">
+                    {{ assistantFoodCards.intro }}
+                  </p>
+                  <ul class="mt-3 grid gap-2 sm:grid-cols-2">
+                    <li
+                      v-for="(item, itemIndex) in assistantFoodCards.items"
+                      :key="`${item.name}-${itemIndex}`"
+                      class="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm transition-colors active:border-green-300"
+                    >
+                      <div class="flex items-start justify-between gap-2">
+                        <p class="min-w-0 text-sm font-bold leading-5 text-zinc-950">
+                          <span
+                            v-if="item.area"
+                            class="mr-1 inline-block rounded bg-green-50 px-1 py-0.5 align-middle text-[10px] font-semibold text-green-700"
+                          >{{ item.area }}</span>{{ item.name }}
+                        </p>
+                        <span class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-bold tabular-nums text-amber-700">
+                          <UIcon
+                            name="i-lucide-star"
+                            class="size-3"
+                          />{{ item.score !== null ? item.score.toFixed(1) : '—' }}
+                        </span>
+                      </div>
+                      <p
+                        v-if="item.cost !== null"
+                        class="mt-1 text-xs font-medium tabular-nums text-zinc-500"
+                      >
+                        人均约 ¥{{ item.cost }}
+                      </p>
+                      <p
+                        v-if="item.tips.length"
+                        class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500"
+                      >
+                        {{ item.tips.join('；') }}
+                      </p>
+                      <NuxtLink
+                        :to="`/map?q=${encodeURIComponent(locateSearchTerm(item.name))}`"
+                        class="mt-2 inline-flex min-h-8 items-center gap-1 rounded-md bg-green-50 px-2.5 text-[11px] font-semibold text-green-700 active:bg-green-100"
+                        @click.stop
+                      >
+                        <UIcon
+                          name="i-lucide-map-pin"
+                          class="size-3"
+                        />
+                        地图定位
+                      </NuxtLink>
+                    </li>
+                  </ul>
+                  <p
+                    v-if="assistantFoodCards.tail"
+                    class="mt-3 whitespace-pre-line text-xs leading-5 text-zinc-500"
+                  >
+                    {{ assistantFoodCards.tail }}
+                  </p>
+                </template>
+                <!-- 单店详情：评分头 + 评价卡片 -->
+                <template v-else-if="assistantShopCards">
+                  <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <p class="text-sm font-bold text-zinc-950">
+                      {{ assistantShopCards.shopName }}
+                    </p>
+                    <span class="inline-flex items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-bold tabular-nums text-amber-700">
+                      <UIcon
+                        name="i-lucide-star"
+                        class="size-3"
+                      />高德 {{ assistantShopCards.amapScore !== null ? assistantShopCards.amapScore.toFixed(1) : '—' }}
+                    </span>
+                    <span
+                      v-if="assistantShopCards.cost !== null"
+                      class="rounded-md bg-zinc-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-zinc-600"
+                    >人均约 ¥{{ assistantShopCards.cost }}</span>
+                    <NuxtLink
+                      :to="`/map?q=${encodeURIComponent(locateSearchTerm(assistantShopCards.shopName))}`"
+                      class="inline-flex min-h-8 items-center gap-1 rounded-md bg-green-50 px-2.5 text-[11px] font-semibold text-green-700 active:bg-green-100"
+                      @click.stop
+                    >
+                      <UIcon
+                        name="i-lucide-map-pin"
+                        class="size-3"
+                      />
+                      地图定位
+                    </NuxtLink>
+                  </div>
+                  <ul class="mt-2 space-y-2">
+                    <li
+                      v-for="(review, reviewIndex) in assistantShopCards.reviews"
+                      :key="reviewIndex"
+                      class="rounded-xl bg-zinc-50 p-3"
+                    >
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 ring-1 ring-zinc-200">{{ review.tag }}</span>
+                        <span
+                          v-if="review.score !== null"
+                          class="text-xs font-bold tabular-nums text-amber-700"
+                        >{{ review.score.toFixed(1) }} 分</span>
+                      </div>
+                      <p class="mt-1.5 text-xs leading-5 text-zinc-600">
+                        {{ review.content }}
+                      </p>
+                    </li>
+                  </ul>
+                  <p
+                    v-if="assistantShopCards.tail"
+                    class="mt-3 whitespace-pre-line text-xs leading-5 text-zinc-500"
+                  >
+                    {{ assistantShopCards.tail }}
+                  </p>
+                </template>
+                <p
+                  v-else
+                  class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700"
+                >
                   <template
                     v-for="(segment, segIndex) in splitAssistantAnswer(assistantResponse.answer)"
                     :key="segIndex"
                   >
-                    <template v-if="!segment.locate">{{ segment.text }}</template>
+                    <template v-if="!segment.locate">
+                      {{ segment.text }}
+                    </template>
                     <NuxtLink
                       v-else
                       :to="`/map?q=${encodeURIComponent(locateSearchTerm(segment.shopName))}`"
