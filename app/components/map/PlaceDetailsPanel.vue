@@ -48,10 +48,13 @@ const navigationTooltip = computed(() => {
       :class="props.variant === 'mobile' ? 'justify-between gap-3' : 'justify-between gap-4'"
     >
       <div class="min-w-0">
-        <div class="flex items-center gap-1.5 text-[11px] font-semibold text-green-700">
+        <div
+          class="inline-flex items-center gap-1 rounded-full py-0.5 pl-1 pr-2"
+          :class="props.variant === 'mobile' ? 'bg-green-50 text-[10px] font-semibold text-green-700' : 'bg-transparent text-[11px] font-medium text-green-700'"
+        >
           <UIcon
             :name="props.categoryIcon"
-            class="size-3.5"
+            :class="props.variant === 'mobile' ? 'size-3.5 text-green-600' : 'size-4'"
           />
           <span>{{ props.categoryLabel }}</span>
         </div>
@@ -76,7 +79,7 @@ const navigationTooltip = computed(() => {
     <p
       class="text-zinc-600"
       :class="props.variant === 'mobile'
-        ? 'mt-1.5 line-clamp-3 text-xs leading-5 text-zinc-700'
+        ? 'mt-2 line-clamp-2 text-xs leading-5 text-zinc-600'
         : 'mt-3 whitespace-pre-line text-sm leading-6'"
     >
       {{ props.place.summary }}
@@ -84,9 +87,13 @@ const navigationTooltip = computed(() => {
 
     <p
       v-if="props.variant === 'mobile' && props.place.address"
-      class="mt-1 text-xs leading-5 text-zinc-500"
+      class="mt-1 flex items-start gap-1 text-[11px] leading-5 text-zinc-400"
     >
-      {{ props.place.address }}
+      <UIcon
+        name="i-lucide-map-pin"
+        class="mt-0.5 size-3 shrink-0"
+      />
+      <span class="min-w-0">{{ props.place.address }}</span>
     </p>
 
     <div
@@ -95,7 +102,7 @@ const navigationTooltip = computed(() => {
     >
       <span
         v-if="props.place.campusArea"
-        class="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600"
+        class="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-600"
       >
         <UIcon
           name="i-lucide-map-pin"
@@ -105,7 +112,7 @@ const navigationTooltip = computed(() => {
       </span>
       <span
         v-if="props.place.openingHours"
-        class="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600"
+        class="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-600"
       >
         <UIcon
           name="i-lucide-clock-3"
@@ -120,7 +127,7 @@ const navigationTooltip = computed(() => {
         v-for="phone in phoneContacts"
         :key="phone.href"
         :href="phone.href"
-        class="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors active:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+        class="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-3 text-sm font-semibold text-white shadow-sm shadow-green-600/20 transition-transform active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
       >
         <UIcon
           name="i-lucide-phone"
@@ -192,9 +199,15 @@ const navigationTooltip = computed(() => {
       :class="props.variant === 'mobile' ? 'mt-3' : 'mt-4'"
     >
       <span
-        class="text-[11px] font-medium"
+        class="inline-flex items-center gap-1 text-[11px] font-medium"
         :class="props.place.pointIsVerified ? 'text-green-700' : 'text-orange-700'"
-      >{{ props.statusText }}</span>
+      >
+        <UIcon
+          :name="props.place.pointIsVerified ? 'i-lucide-badge-check' : 'i-lucide-circle-alert'"
+          class="size-3.5"
+        />
+        {{ props.statusText }}
+      </span>
 
       <div
         v-if="props.canPlanRoute || safeNavigationUrl"

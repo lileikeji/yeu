@@ -258,139 +258,158 @@ const mineStatusText = computed<string | null>(() => {
       </p>
 
       <template v-if="payload">
-        <!-- 评分摘要 -->
-        <div
-          v-if="displayScore !== null || displayCost !== null || displayCount > 0"
-          class="flex flex-wrap items-center gap-x-3 gap-y-1"
-        >
-          <div class="flex items-center gap-1">
-            <span
-              v-for="star in 5"
-              :key="star"
-              class="relative inline-block size-3.5"
-            >
-              <UIcon
-                name="i-lucide-star"
-                class="absolute inset-0 size-3.5 text-zinc-300"
-              />
+        <!-- 评分摘要：评分行 + 元信息 -->
+        <div v-if="displayScore !== null || displayCost !== null || displayCount > 0">
+          <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <div class="flex items-center gap-1">
               <span
-                class="absolute inset-y-0 left-0 overflow-hidden"
-                :style="{ width: (starFill(displayScore, star) * 100) + '%' }"
+                v-for="star in 5"
+                :key="star"
+                class="relative inline-block size-4"
               >
                 <UIcon
                   name="i-lucide-star"
-                  class="block size-3.5 fill-amber-400 text-amber-400"
+                  class="absolute inset-0 size-4 text-zinc-200"
                 />
+                <span
+                  class="absolute inset-y-0 left-0 overflow-hidden"
+                  :style="{ width: (starFill(displayScore, star) * 100) + '%' }"
+                >
+                  <UIcon
+                    name="i-lucide-star"
+                    class="block size-4 fill-amber-400 text-amber-400"
+                  />
+                </span>
               </span>
+              <span
+                v-if="displayScore !== null"
+                class="ml-1 text-[15px] font-bold leading-none text-zinc-900"
+              >
+                {{ displayScore.toFixed(1) }}
+              </span>
+            </div>
+            <span
+              v-if="displayCount > 0"
+              class="text-[11px] text-zinc-400"
+            >
+              {{ displayCount }} 条评价
             </span>
             <span
-              v-if="displayScore !== null"
-              class="ml-1 text-sm font-semibold text-zinc-900"
+              v-if="displayCost !== null"
+              class="text-[11px] text-zinc-400"
             >
-              {{ displayScore.toFixed(1) }}
+              人均 ¥{{ displayCost.toFixed(0) }}
+            </span>
+            <span
+              v-if="sourceLabel"
+              class="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500"
+            >
+              {{ sourceLabel }}
             </span>
           </div>
-          <span
-            v-if="displayCount > 0"
-            class="text-xs text-zinc-500"
+
+          <!-- 商家推广条：美团下单 + 合作商家 + 二维码 -->
+          <div
+            v-if="payload.promo?.meituanUrl || payload.promo?.qrCodeUrl"
+            class="mt-2 flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 px-2.5 py-2"
           >
-            {{ displayCount }} 条评价
-          </span>
-          <span
-            v-if="displayCost !== null"
-            class="text-xs text-zinc-500"
-          >
-            人均 ¥{{ displayCost.toFixed(0) }}
-          </span>
-          <span
-            v-if="sourceLabel"
-            class="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-500"
-          >
-            {{ sourceLabel }}
-          </span>
-          <span
-            v-if="payload.promo?.meituanUrl"
-            class="inline-flex items-center gap-1.5"
-          >
-            <a
-              :href="payload.promo.meituanUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="inline-flex items-center gap-1 rounded bg-yellow-400 px-2 py-0.5 text-[11px] font-semibold text-yellow-950 hover:bg-yellow-300"
-              @click="trackPromoClick"
-            >
-              <UIcon
-                name="i-lucide-bike"
-                class="size-3"
-              />
-              美团下单
-            </a>
-            <span class="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
-              合作商家
-            </span>
-            <span
-              v-if="(payload.promo.clickCount30d ?? 0) > 0"
-              class="text-[10px] text-zinc-400"
-            >
-              已 {{ payload.promo.clickCount30d }} 人跳转
-            </span>
-          </span>
-          <button
-            v-if="payload.promo?.qrCodeUrl"
-            type="button"
-            class="group relative mt-1.5 block shrink-0 overflow-hidden rounded-lg border border-zinc-200"
-            aria-label="放大查看二维码，用微信扫码"
-            @click="qrPreviewOpen = true"
-          >
-            <img
-              :src="payload.promo.qrCodeUrl"
-              :alt="`${props.placeName} 小程序码`"
-              class="size-[4.5rem] object-contain"
-            >
-            <span class="absolute bottom-0.5 right-0.5 grid size-4.5 place-items-center rounded bg-zinc-950/60 text-white/90">
-              <UIcon
-                name="i-lucide-zoom-in"
-                class="size-3"
-              />
-            </span>
-          </button>
-          <UModal
-            v-model:open="qrPreviewOpen"
-            :title="`${props.placeName} 小程序码`"
-            :ui="{ content: 'w-[calc(100vw-2rem)] max-w-none sm:w-full sm:max-w-md' }"
-          >
-            <template #body>
-              <div class="flex items-center justify-center bg-white p-4">
-                <img
-                  :src="payload.promo?.qrCodeUrl"
-                  :alt="`${props.placeName} 小程序码`"
-                  class="max-h-[70dvh] w-auto max-w-full object-contain"
+            <div class="flex min-w-0 flex-col gap-1">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <a
+                  v-if="payload.promo?.meituanUrl"
+                  :href="payload.promo.meituanUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-1 rounded-full bg-yellow-400 px-2.5 py-1 text-[11px] font-bold text-yellow-950 shadow-sm transition-transform active:scale-95 hover:bg-yellow-300"
+                  @click="trackPromoClick"
                 >
+                  <UIcon
+                    name="i-lucide-bike"
+                    class="size-3"
+                  />
+                  美团下单
+                </a>
+                <span
+                  v-if="payload.promo?.meituanUrl"
+                  class="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700"
+                >
+                  <UIcon
+                    name="i-lucide-badge-check"
+                    class="size-3"
+                  />
+                  合作商家
+                </span>
+                <span
+                  v-if="(payload.promo.clickCount30d ?? 0) > 0"
+                  class="text-[10px] text-zinc-400"
+                >
+                  已 {{ payload.promo.clickCount30d }} 人跳转
+                </span>
               </div>
-              <p class="pb-3 text-center text-[11px] text-zinc-500">
-                用微信扫一扫即可打开
-              </p>
-            </template>
-          </UModal>
+              <span
+                v-if="payload.promo?.qrCodeUrl"
+                class="text-[10px] text-zinc-400"
+              >
+                微信扫码打开小程序
+              </span>
+            </div>
+            <button
+              v-if="payload.promo?.qrCodeUrl"
+              type="button"
+              class="group relative shrink-0 overflow-hidden rounded-lg border border-white bg-white shadow-sm"
+              aria-label="放大查看二维码，用微信扫码"
+              @click="qrPreviewOpen = true"
+            >
+              <img
+                :src="payload.promo.qrCodeUrl"
+                :alt="`${props.placeName} 小程序码`"
+                class="size-14 object-contain"
+              >
+              <span class="absolute bottom-0.5 right-0.5 grid size-4.5 place-items-center rounded bg-zinc-950/60 text-white/90">
+                <UIcon
+                  name="i-lucide-zoom-in"
+                  class="size-3"
+                />
+              </span>
+            </button>
+            <UModal
+              v-model:open="qrPreviewOpen"
+              :title="`${props.placeName} 小程序码`"
+              :ui="{ content: 'w-[calc(100vw-2rem)] max-w-none sm:w-full sm:max-w-md' }"
+            >
+              <template #body>
+                <div class="flex items-center justify-center bg-white p-4">
+                  <img
+                    :src="payload.promo?.qrCodeUrl"
+                    :alt="`${props.placeName} 小程序码`"
+                    class="max-h-[70dvh] w-auto max-w-full object-contain"
+                  >
+                </div>
+                <p class="pb-3 text-center text-[11px] text-zinc-500">
+                  用微信扫一扫即可打开
+                </p>
+              </template>
+            </UModal>
+          </div>
         </div>
 
         <!-- 排序切换 -->
         <div
           v-if="payload.reviews.length > 1"
-          class="mt-2 flex items-center gap-1"
+          class="mt-2.5 inline-flex items-center rounded-full bg-zinc-100 p-0.5"
         >
           <button
             type="button"
-            class="rounded px-2 py-0.5 text-[10px] font-medium transition-colors"
-            :class="sort === 'newest' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'"
+            class="rounded-full px-2.5 py-1 text-[10px] font-medium transition-all"
+            :class="sort === 'newest' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'"
             @click="changeSort('newest')"
           >
             最新
           </button>
           <button
             type="button"
-            class="rounded px-2 py-0.5 text-[10px] font-medium transition-colors"
-            :class="sort === 'hot' ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100'"
+            class="rounded-full px-2.5 py-1 text-[10px] font-medium transition-all"
+            :class="sort === 'hot' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'"
             @click="changeSort('hot')"
           >
             最热
@@ -411,22 +430,28 @@ const mineStatusText = computed<string | null>(() => {
           <li
             v-for="review in payload.reviews"
             :key="review.id"
-            class="rounded-md bg-zinc-50 px-2.5 py-2"
+            class="rounded-xl border border-zinc-100 bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
           >
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-medium text-zinc-800">
+            <div class="flex items-center gap-1.5">
+              <span
+                class="grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+                :class="review.source === 'seed' ? 'bg-amber-400' : 'bg-green-600'"
+              >
+                {{ review.source === 'seed' ? '整' : (review.displayName || '同').slice(0, 1) }}
+              </span>
+              <span class="text-xs font-semibold text-zinc-800">
                 {{ review.source === 'seed' ? '整理评价' : review.displayName }}
               </span>
               <span
                 v-if="review.source === 'seed'"
-                class="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-medium text-amber-700"
+                class="rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-600"
               >
-                来自点评整理
+                点评整理
               </span>
               <span
                 v-for="star in 5"
                 :key="star"
-                class="relative inline-block size-2.5"
+                class="relative ml-1 inline-block size-2.5"
               >
                 <UIcon
                   name="i-lucide-star"
@@ -462,7 +487,7 @@ const mineStatusText = computed<string | null>(() => {
                 <span v-if="review.likeCount > 0">{{ review.likeCount }}</span>
               </button>
             </div>
-            <p class="mt-1 whitespace-pre-line text-xs leading-5 text-zinc-600">
+            <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-600">
               {{ review.content }}
             </p>
           </li>
