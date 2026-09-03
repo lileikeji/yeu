@@ -50,6 +50,7 @@ const loadError = ref('')
 const sort = ref<'newest' | 'hot'>('newest')
 const likingIds = ref(new Set<string>())
 const likeError = ref('')
+const qrPreviewOpen = ref(false)
 
 const formOpen = ref(false)
 const draftScore = ref(0)
@@ -334,19 +335,43 @@ const mineStatusText = computed<string | null>(() => {
               已 {{ payload.promo.clickCount30d }} 人跳转
             </span>
           </span>
-          <ImagePreviewButton
+          <button
             v-if="payload.promo?.qrCodeUrl"
-            :src="payload.promo.qrCodeUrl"
-            :alt="`${props.placeName} 小程序码`"
-            :button-class="'mt-1 inline-block'"
-            :image-class="'size-16 rounded-md border border-zinc-200 object-contain'"
-          />
-          <p
-            v-if="payload.promo?.qrCodeUrl"
-            class="mt-1 text-[10px] text-zinc-400"
+            type="button"
+            class="group relative mt-1.5 block shrink-0 overflow-hidden rounded-lg border border-zinc-200"
+            aria-label="放大查看二维码，用微信扫码"
+            @click="qrPreviewOpen = true"
           >
-            点击二维码可放大，用微信扫码
-          </p>
+            <img
+              :src="payload.promo.qrCodeUrl"
+              :alt="`${props.placeName} 小程序码`"
+              class="size-[4.5rem] object-contain"
+            >
+            <span class="absolute bottom-0.5 right-0.5 grid size-4.5 place-items-center rounded bg-zinc-950/60 text-white/90">
+              <UIcon
+                name="i-lucide-zoom-in"
+                class="size-3"
+              />
+            </span>
+          </button>
+          <UModal
+            v-model:open="qrPreviewOpen"
+            :title="`${props.placeName} 小程序码`"
+            :ui="{ content: 'w-[calc(100vw-2rem)] max-w-none sm:w-full sm:max-w-md' }"
+          >
+            <template #body>
+              <div class="flex items-center justify-center bg-white p-4">
+                <img
+                  :src="payload.promo?.qrCodeUrl"
+                  :alt="`${props.placeName} 小程序码`"
+                  class="max-h-[70dvh] w-auto max-w-full object-contain"
+                >
+              </div>
+              <p class="pb-3 text-center text-[11px] text-zinc-500">
+                用微信扫一扫即可打开
+              </p>
+            </template>
+          </UModal>
         </div>
 
         <!-- 排序切换 -->

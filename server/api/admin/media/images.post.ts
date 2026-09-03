@@ -2,6 +2,7 @@ import { getHeader, readMultipartFormData } from 'h3'
 import { writeAudit } from '../../../utils/audit'
 import { useAdminRequest } from '../../../utils/http'
 import { MAX_UPLOADED_IMAGE_BYTES, storeUploadedImage } from '../../../utils/uploaded-images'
+import { warmUpUploadedAsset } from '../../../utils/uploaded-cdn'
 
 const MAX_MULTIPART_BYTES = MAX_UPLOADED_IMAGE_BYTES + 64 * 1024
 
@@ -36,6 +37,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const result = await storeUploadedImage(image.data)
+  // Warm the CDN edge so the first visitor does not eat an origin fetch.
+  warmUpUploadedAsset(event, result.url)
   writeAudit(client, event, {
     actorAdminId: session.admin.id,
     action: 'media.image.upload',
