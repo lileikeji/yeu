@@ -364,7 +364,7 @@ const {
                   :key="stage.label"
                   type="button"
                   class="min-h-10 border-b-2 px-2 text-xs font-medium transition md:min-h-11 md:text-sm"
-                  :class="index === activeTimelineIndex ? 'border-green-700 bg-green-700 font-bold text-white md:bg-transparent md:text-green-700' : 'border-transparent text-zinc-600 dark:text-zinc-300 dark:text-zinc-300 hover:text-green-700 dark:hover:text-green-400'"
+                  :class="index === activeTimelineIndex ? 'border-green-700 bg-green-700 font-bold text-white md:bg-transparent dark:md:bg-transparent md:text-green-700 dark:md:text-green-400' : 'border-transparent text-zinc-600 dark:text-zinc-300 hover:text-green-700 dark:hover:text-green-400'"
                   @click="activeTimelineIndex = index"
                 >
                   {{ stage.label }}
@@ -404,7 +404,7 @@ const {
             <NuxtLink
               v-if="featureEnabled('home.more.checklist')"
               to="/checklist"
-              class="group bg-white dark:bg-zinc-900 transition lg:rounded-lg lg:border lg:border-zinc-200 lg:p-5 lg:hover:border-green-300 dark:hover:border-green-700 lg:hover:shadow-sm"
+              class="group bg-white dark:bg-zinc-900 transition lg:rounded-lg lg:border lg:border-zinc-200 dark:lg:border-zinc-800 lg:p-5 lg:hover:border-green-300 dark:hover:border-green-700 dark:lg:hover:border-green-600 lg:hover:shadow-sm"
             >
               <div class="flex items-center gap-3">
                 <span class="hidden size-10 place-items-center rounded-lg bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 lg:grid">

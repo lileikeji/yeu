@@ -443,7 +443,7 @@ onMounted(() => {
               class="mt-1 size-4 shrink-0 text-emerald-600 transition group-open:rotate-180"
             />
           </summary>
-          <p class="mt-4 text-sm leading-6 text-emerald-950/75">
+          <p class="mt-4 text-sm leading-6 text-emerald-950/75 dark:text-emerald-100/75">
             这是百度地图用户上传的校园全景，不是学校官方拍摄；拍摄时间也没有写清楚。它只用于提前认路，楼栋外观、商店和道路如果变了，以你到校看到的为准。
           </p>
         </details>
@@ -460,7 +460,7 @@ onMounted(() => {
               <span class="block text-xs font-semibold text-amber-800 dark:text-amber-300">
                 校史馆从哪里来
               </span>
-              <span class="mt-1 block text-base font-bold text-amber-950">
+              <span class="mt-1 block text-base font-bold text-amber-950 dark:text-amber-100">
                 学校党委宣传部发布的 VR 校史馆
               </span>
             </span>

@@ -156,7 +156,11 @@ const mapProvider = shallowRef<MapProvider | null>(null)
 const activeMapProviderId = ref<MapProviderId | null>(null)
 const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const mapErrorMessage = ref(MAP_LOAD_ERROR_MESSAGE)
-const searchQuery = ref(mapQueryValue(route.query.q))
+// 仅当 query 来自分享/直达链接时，首次列表就绪后自动定位一次；
+// 手动输入只更新列表，由用户点选后再定位。
+const deepLinkSearchQuery = mapQueryValue(route.query.q)
+const deepLinkAutoSelectFired = ref(false)
+const searchQuery = ref(deepLinkSearchQuery)
 // 中文输入法（拼音/手写）组词期间 value 是中间拼音，不能触发搜索/筛选。
 // 组词结束（compositionend）后按最终值提交一次。
 const searchIsComposing = ref(false)
@@ -219,7 +223,7 @@ const {
   activeScope,
   searchQuery,
   catalogPlaces,
-  onResultsReady: autoSelectSearchResult
+  onResultsReady: maybeAutoSelectDeepLink
 })
 const { copyText, isWechat } = useShareActions()
 const poiRowElements = new Map<string, HTMLElement>()
@@ -420,6 +424,12 @@ function setMapViewMode(nextMode: 'geographic' | 'official-plan') {
   }
 }
 
+function maybeAutoSelectDeepLink(): void {
+  if (!deepLinkSearchQuery || deepLinkAutoSelectFired.value) return
+  deepLinkAutoSelectFired.value = true
+  autoSelectSearchResult()
+}
+
 function autoSelectSearchResult(): void {
   const decision = resolveAutoSelectSearchDecision({
     query: searchQuery.value,
@@ -553,9 +563,10 @@ function fitToVisiblePois() {
 }
 
 watch(searchQuery, () => {
-  const reset = resolveSearchQueryChangeReset()
+  const reset = resolveSearchQueryChangeReset({ mobileSheetState: mobileSheetState.value })
   lastAutoLocatedSearchKey = reset.lastAutoLocatedSearchKey
   selectedNativePlace.value = reset.selectedNativePlace
+  if (reset.mobileSheetState) mobileSheetState.value = reset.mobileSheetState
   queueNativeSearch()
 })
 watch(mapViewMode, queueNativeSearch)
@@ -580,7 +591,11 @@ const { mountMap } = useMapProviderLifecycle({
   onPoiSelected: handlePoiSelected,
   onAreaSelected: handleAreaSelected,
   beforeMount: clearWalkingRoute,
-  onReady: queueNativeSearch
+  onReady: () => {
+    queueNativeSearch()
+    // 分享/直达链接带 ?q= 时：地图就绪后再自动定位一次
+    maybeAutoSelectDeepLink()
+  }
 })
 
 watch(filteredPois, (pois) => {
@@ -592,7 +607,6 @@ watch(filteredPois, (pois) => {
   })) {
     closePoiDetails()
   }
-  autoSelectSearchResult()
 }, { immediate: true })
 
 const { cancelMapRouteSync } = useMapRouteSync({
@@ -803,13 +817,29 @@ onBeforeUnmount(() => {
         >
           正在搜索地图里的地点…
         </p>
-        <p
+        <ul
           v-else-if="searchQuery.trim() && nativeSearchResults.length"
-          class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
+          class="mt-2 max-h-48 space-y-0.5 overflow-y-auto"
           role="status"
+          aria-label="地图搜索找到的附近地点，点击查看"
         >
-          地图搜索找到 {{ nativeSearchResults.length }} 个附近地点；会自动定位到最相关的地点，但不会加入地点列表。
-        </p>
+          <li
+            v-for="place in nativeSearchResults"
+            :key="place.id"
+          >
+            <button
+              type="button"
+              class="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs leading-5 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-green-50 dark:hover:bg-green-950/60 hover:text-green-800 dark:hover:text-green-200"
+              @click="selectPoi(place)"
+            >
+              <UIcon
+                name="i-lucide-map-pin"
+                class="size-3.5 shrink-0 text-green-700 dark:text-green-400"
+              />
+              <span class="min-w-0 truncate">{{ place.name }}</span>
+            </button>
+          </li>
+        </ul>
       </div>
 
       <div

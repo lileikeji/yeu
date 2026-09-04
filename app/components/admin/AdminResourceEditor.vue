@@ -234,7 +234,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
             <div class="min-w-0 flex-1">
               <h3
                 id="notice-display-settings-title"
-                class="text-sm font-semibold text-amber-950"
+                class="text-sm font-semibold text-amber-950 dark:text-amber-200"
               >
                 前台显示方式
               </h3>

@@ -307,7 +307,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             class="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300"
           />
           <div class="min-w-0 flex-1">
-            <h2 class="text-sm font-bold text-amber-950">
+            <h2 class="text-sm font-bold text-amber-950 dark:text-amber-200">
               校园里的部分内容还没更新出来
             </h2>
             <p class="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-300">

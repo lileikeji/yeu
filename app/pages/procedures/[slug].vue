@@ -331,7 +331,7 @@ watch(selectedAudience, (value) => {
 
     <div class="page-shell py-7 md:py-10">
       <div class="mx-auto min-w-0 max-w-4xl">
-        <section class="border-l-2 border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-4 py-3 text-sm leading-6 text-orange-950">
+        <section class="border-l-2 border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-4 py-3 text-sm leading-6 text-orange-950 dark:text-orange-100">
           <div class="flex items-start gap-2">
             <UIcon
               name="i-lucide-bell-ring"

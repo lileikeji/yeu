@@ -94,7 +94,7 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
         : reviewHint.stage === 'possible-dual'
           ? 'border-blue-700 bg-blue-50 dark:bg-blue-950 text-blue-950 dark:text-blue-300'
           : reviewHint.stage === 'replacement'
-            ? 'border-amber-600 bg-amber-50 dark:bg-amber-950 text-amber-950'
+            ? 'border-amber-600 bg-amber-50 dark:bg-amber-950 text-amber-950 dark:text-amber-100'
             : 'border-zinc-500 bg-zinc-50 dark:bg-zinc-800/60 text-zinc-800 dark:text-zinc-100'"
       role="status"
     >

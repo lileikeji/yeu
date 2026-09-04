@@ -239,7 +239,7 @@ function admissionLabel(profile: MajorProfile): string {
             </div>
           </div>
 
-          <p class="border-l-2 border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-3 py-2.5 text-xs leading-5 text-amber-950">
+          <p class="border-l-2 border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-3 py-2.5 text-xs leading-5 text-amber-950 dark:text-amber-100">
             {{ selected.dormNote }}
           </p>
         </div>

@@ -695,13 +695,18 @@ export function resolveFitToVisiblePoisDecision(): {
   }
 }
 
-export function resolveSearchQueryChangeReset(): {
+export function resolveSearchQueryChangeReset(input?: {
+  mobileSheetState: MobileSheetState
+}): {
   lastAutoLocatedSearchKey: ''
   selectedNativePlace: null
+  mobileSheetState?: 'half'
 } {
+  // 移动端在收起地点卡时开始输入搜索：把底部列表弹到半屏，让结果可点选。
   return {
     lastAutoLocatedSearchKey: '',
-    selectedNativePlace: null
+    selectedNativePlace: null,
+    ...(input?.mobileSheetState === 'collapsed' ? { mobileSheetState: 'half' as const } : {})
   }
 }
 

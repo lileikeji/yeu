@@ -240,7 +240,7 @@ onMounted(() => {
               <span class="font-semibold text-zinc-800 dark:text-zinc-100">目前：</span>
               {{ procedureListStatusText(item.statusText) }}
             </p>
-            <div class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
+            <div class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 md:mt-5 md:border-t md:border-zinc-100 dark:md:border-zinc-800 md:pt-4">
               <div class="flex items-center justify-between gap-3">
                 <span class="truncate">{{ procedureMethodLabel(item.method) }}</span>
                 <span class="inline-flex items-center gap-1 font-medium text-green-700 dark:text-green-400">

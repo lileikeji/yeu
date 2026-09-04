@@ -874,7 +874,7 @@ onBeforeUnmount(() => {
         <div class="flex items-center justify-between border-b border-amber-100 bg-amber-50 dark:bg-amber-950 px-4 py-2.5">
           <h2
             id="compact-notice-title"
-            class="text-sm font-black text-amber-950"
+            class="text-sm font-black text-amber-950 dark:text-amber-100"
           >
             最新公告
           </h2>
@@ -1425,7 +1425,7 @@ onBeforeUnmount(() => {
           </h2>
           <p
             v-if="selectedNotice.summary"
-            class="mt-3 rounded-md bg-amber-50 dark:bg-amber-950 px-3 py-2 text-sm leading-6 text-amber-950"
+            class="mt-3 rounded-md bg-amber-50 dark:bg-amber-950 px-3 py-2 text-sm leading-6 text-amber-950 dark:text-amber-100"
           >
             {{ selectedNotice.summary }}
           </p>

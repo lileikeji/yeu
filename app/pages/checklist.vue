@@ -121,7 +121,7 @@ function confirmResetProgress() {
             :key="milestone.id"
             class="min-h-20 bg-white/90 dark:bg-zinc-900/90 p-3 text-xs leading-5"
             :class="milestone.active
-              ? 'font-semibold text-orange-950 ring-2 ring-inset ring-orange-400'
+              ? 'font-semibold text-orange-950 dark:text-orange-200 ring-2 ring-inset ring-orange-400 dark:ring-orange-400'
               : milestone.done
                 ? 'text-green-800 dark:text-green-300'
                 : 'text-zinc-600 dark:text-zinc-300'"
@@ -465,7 +465,7 @@ function confirmResetProgress() {
           <li
             v-for="item in overview.packing.items"
             :key="item.id"
-            class="flex items-start gap-3 px-1 py-4 sm:border-b sm:border-zinc-200 sm:odd:pr-4 sm:even:pl-4"
+            class="flex items-start gap-3 px-1 py-4 sm:border-b sm:border-zinc-200 dark:sm:border-zinc-800 sm:odd:pr-4 sm:even:pl-4"
             :class="isCompleted(item.id) ? 'bg-amber-50/50 dark:bg-amber-950/50' : ''"
           >
             <button
