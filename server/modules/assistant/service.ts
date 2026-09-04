@@ -5380,6 +5380,48 @@ function englishOpeningDateLocalAnswer(query: string): ApiAssistantResponse | nu
   }
 }
 
+/**
+ * 裸地图地点名词（“创业园/图书馆/新区操场”）→ 直接给地图定位+简介，不抢答、不漂移。
+ * 仅在查询去掉语气尾字后与已收录地点名完全一致时命中。
+ */
+function mapPlaceNameLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const compactQuery = compactPlaceText(query)
+  if (compactQuery.length < 2) return null
+  const rows = client.db.select({
+    slug: places.slug,
+    name: places.name,
+    summary: places.summary,
+    body: places.body,
+    address: places.address,
+    campusArea: places.campusArea
+  }).from(places).where(and(eq(places.status, 'published'), eq(places.scope, 'campus'))).all()
+  const row = rows.find(item => compactPlaceText(item.name ?? '') === compactQuery)
+  if (!row) return null
+  const location = [...new Set([row.campusArea, row.address].filter((item): item is string => Boolean(item?.trim())))]
+    .join(' · ')
+  const rawSummary = safeText(row.summary, 300).replace(/[。\s]*$/u, '')
+  // 部分地图点摘要含“后台草稿/待核验”等维护用语，不适合直接读给用户
+  const isDraftPlaceholder = /已按用户授权的高德地图坐标导入后台草稿；可用于地图定位和维护，具体入口、楼层、开放时间仍需现场或官方资料核验后再正式发布/u.test(rawSummary)
+  const summary = isDraftPlaceholder ? '' : rawSummary
+  const lead = `${row.name}${location ? '位于' + location : '已收录在校园地图中'}`
+  const answer = summary
+    ? `${lead}。${summary}。点击下方入口可以查看地图定位和更多信息。`
+    : `${lead}。点击下方入口可以查看地图定位和更多信息。`
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: [{
+      title: row.name,
+      url: `/map?place=${encodeURIComponent(row.slug)}`,
+      snippet: summary || `${row.name}已收录在校园地图中。`,
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: 0.85
+  }
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
   // eslint-disable-next-line no-console
   const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
@@ -6721,6 +6763,9 @@ async function answerCampusQuestionCore(
   // 英文开学问法走早路（gap 分支不会进入 buildLocalResponse）
   const earlyEnglishOpening = englishOpeningDateLocalAnswer(rawQuery)
   if (earlyEnglishOpening) return earlyEnglishOpening
+  // 裸地点名词（“创业园/新区操场”）精确命中地图收录 → 直接定位简介
+  const earlyPlaceName = mapPlaceNameLocalAnswer(client, rawQuery)
+  if (earlyPlaceName) return earlyPlaceName
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],

@@ -174,3 +174,18 @@ export function shouldRequestAssistantAnswer(value: string, localResultCount: nu
     && isQuestionLike(value)
     && !containsPromptInjection(value)
 }
+
+// 地点名词句（如“创业园”“图书馆在哪”中名词直接命中地点记录）——单字到 8 字、
+// 不混入问句的裸名词：允许走对话（由站内地点记录直接回答），避免被 422 引导走
+// 站内搜索。只放行能落在地图地点/宿舍/楼宇上的实体词，通用名词不在此列。
+export function isPlaceNounQuery(value: string): boolean {
+  const query = normalizeAssistantQuery(value).trim()
+  if (!query || /[?？!！。，,；;：:、（）()【】“”"'']/u.test(query)) return false
+  if (/[a-z]{3,}/i.test(query)) return false
+  if (query.length < 2 || query.length > 8) return false
+  // 去掉常见疑问尾字后剩余部分就是候选名词
+  const noun = query.replace(/(?:吗|呢|啊|呀|吧|是|在哪|在哪里|在哪呀|在哪呢|在哪啊|哪里|哪里呀|怎么走|怎么去|多远|在|哪个区|哪一片|在哪栋|是几号楼)$/u, '').trim()
+  if (noun.length < 2 || noun.length > 8) return false
+  // 必须像“地点/建筑/场所”实体，而不是任意短句
+  return /(?:楼|馆|园|操场|广场|球场|场|站|校|区|街|宿舍|食堂|餐厅|医务|医院|中心|部|室|所|院|湖|桥|路|门|车|快递|打印|超市|理发|台球|网吧|图书馆|体育|活动中心|礼堂|创业|行政|教学楼|校史|博物馆|公园|山|亭|廊|轩|庄|店|城|站台)/u.test(noun)
+}

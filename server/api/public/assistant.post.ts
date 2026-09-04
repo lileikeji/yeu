@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { assistantQuestionSchema } from '../../../shared/schemas/server'
-import { containsPromptInjection, isQuestionLike } from '../../../shared/utils/assistant-query'
+import { containsPromptInjection, isQuestionLike, isPlaceNounQuery } from '../../../shared/utils/assistant-query'
 import { recordAssistantFailure, recordAssistantSuccess } from '../../modules/assistant/analytics'
 import { hashSessionKey } from '../../modules/assistant/memory'
 import {
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
     }
     return blockedAssistantResponse(body.q)
   }
-  if (!isQuestionLike(body.q)) {
+  if (!isQuestionLike(body.q) && !isPlaceNounQuery(body.q)) {
     throw createError({
       statusCode: 422,
       statusMessage: 'Use regular search for keywords',

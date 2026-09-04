@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createEventStream } from 'h3'
 import { assistantQuestionSchema } from '../../../../shared/schemas/server'
-import { containsPromptInjection, isQuestionLike } from '../../../../shared/utils/assistant-query'
+import { containsPromptInjection, isPlaceNounQuery, isQuestionLike } from '../../../../shared/utils/assistant-query'
 import { recordAssistantFailure, recordAssistantSuccess } from '../../../modules/assistant/analytics'
 import { hashSessionKey } from '../../../modules/assistant/memory'
 import {

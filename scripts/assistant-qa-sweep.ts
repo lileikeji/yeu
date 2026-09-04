@@ -82,6 +82,9 @@ const CASES: SweepCase[] = [
   { name: '英文开学时间', group: '知识', q: 'when does school start?', require: ['September|9月'] },
   { name: '英文开学短写法', group: '知识', q: 'school start date', require: ['September|9月'] },
   { name: '电子信息工程教学区引导', group: '知识', q: '电子信息工程教学楼在哪个区', require: ['教学区'], forbid: ['舒适型宿舍'] },
+  { name: '创业园名词', group: '服务设施', q: '创业园', require: ['创业园', '地图定位'], forbid: ['快递地址'] },
+  { name: '图书馆名词', group: '服务设施', q: '图书馆', require: ['图书馆'], forbid: ['舒适型宿舍'] },
+  { name: '新区操场名词', group: '服务设施', q: '新区操场', require: ['新区操场', '地图定位'] },
 
   // ── 服务设施 / 非美食意图（不得答成餐厅榜单）────────────────────────
   { name: '打印', group: '服务设施', q: '打印在哪', notFoodList: true, require: ['打印|复印|图文'] },
