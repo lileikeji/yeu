@@ -215,15 +215,15 @@ watch(selectedAudience, (value) => {
 
 <template>
   <div v-if="procedure">
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <nav
-          class="flex items-center gap-2 text-xs text-zinc-500"
+          class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
           aria-label="当前位置"
         >
           <NuxtLink
             to="/procedures"
-            class="inline-flex min-h-10 items-center hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700 dark:hover:text-green-400"
           >办事流程</NuxtLink>
           <UIcon
             name="i-lucide-chevron-right"
@@ -250,18 +250,18 @@ watch(selectedAudience, (value) => {
                 {{ audienceLabel[audience] }}
               </UBadge>
             </div>
-            <h1 class="mt-4 text-2xl font-bold text-zinc-950 md:text-3xl">
+            <h1 class="mt-4 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               {{ studentFacingProcedureTitle(procedure.title) }}
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
+            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
               {{ studentFacingProcedureText(procedure.summary) }}
             </p>
-            <p class="mt-4 flex max-w-2xl items-start gap-2 text-sm leading-6 text-zinc-600">
+            <p class="mt-4 flex max-w-2xl items-start gap-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
               <UIcon
                 name="i-lucide-info"
-                class="mt-1 size-4 shrink-0 text-orange-600"
+                class="mt-1 size-4 shrink-0 text-orange-600 dark:text-orange-300"
               />
-              <span><strong class="font-semibold text-zinc-800">目前：</strong>{{ studentFacingProcedureText(procedure.statusText) }}</span>
+              <span><strong class="font-semibold text-zinc-800 dark:text-zinc-100">目前：</strong>{{ studentFacingProcedureText(procedure.statusText) }}</span>
             </p>
             <UButton
               v-if="officialSourceHref"
@@ -275,7 +275,7 @@ watch(selectedAudience, (value) => {
               class="mt-5 min-h-11"
             />
             <div
-              class="scrollbar-none mt-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-md border border-zinc-200 bg-zinc-50 p-1"
+              class="scrollbar-none mt-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-1"
               role="group"
               aria-label="选择新生类型"
             >
@@ -293,12 +293,12 @@ watch(selectedAudience, (value) => {
             </div>
           </div>
 
-          <dl class="divide-y divide-zinc-100 border-y border-zinc-200 text-sm">
+          <dl class="divide-y divide-zinc-100 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 text-sm">
             <div class="flex items-start justify-between gap-4 py-3">
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 办理方式
               </dt>
-              <dd class="text-right font-medium text-zinc-900">
+              <dd class="text-right font-medium text-zinc-900 dark:text-zinc-100">
                 {{ methodLabel[procedure.method] }}
               </dd>
             </div>
@@ -306,10 +306,10 @@ watch(selectedAudience, (value) => {
               v-if="procedure.deadlineText"
               class="py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 时间说明
               </dt>
-              <dd class="mt-1 leading-6 text-zinc-900">
+              <dd class="mt-1 leading-6 text-zinc-900 dark:text-zinc-100">
                 {{ studentFacingProcedureText(procedure.deadlineText) }}
               </dd>
             </div>
@@ -317,10 +317,10 @@ watch(selectedAudience, (value) => {
               v-if="procedure.processingTime"
               class="flex items-start justify-between gap-4 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 预计耗时
               </dt>
-              <dd class="text-right font-medium text-zinc-900">
+              <dd class="text-right font-medium text-zinc-900 dark:text-zinc-100">
                 {{ studentFacingProcedureText(procedure.processingTime) }}
               </dd>
             </div>
@@ -331,7 +331,7 @@ watch(selectedAudience, (value) => {
 
     <div class="page-shell py-7 md:py-10">
       <div class="mx-auto min-w-0 max-w-4xl">
-        <section class="border-l-2 border-orange-500 bg-orange-50 px-4 py-3 text-sm leading-6 text-orange-950">
+        <section class="border-l-2 border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-4 py-3 text-sm leading-6 text-orange-950">
           <div class="flex items-start gap-2">
             <UIcon
               name="i-lucide-bell-ring"
@@ -350,19 +350,19 @@ watch(selectedAudience, (value) => {
 
         <section
           id="materials"
-          class="scroll-mt-24 border-b border-zinc-200 py-7"
+          class="scroll-mt-24 border-b border-zinc-200 dark:border-zinc-800 py-7"
         >
           <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p class="text-xs font-semibold text-green-700">
+              <p class="text-xs font-semibold text-green-700 dark:text-green-400">
                 材料清单
               </p>
-              <h2 class="mt-1 text-lg font-bold text-zinc-950">
+              <h2 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
                 {{ materialTitle }}
               </h2>
               <p
                 v-if="visibleMaterials.length"
-                class="mt-1 text-xs text-zinc-500"
+                class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
               >
                 点一下就能标记已备齐，只保存在这台设备上。
               </p>
@@ -409,25 +409,25 @@ watch(selectedAudience, (value) => {
             v-if="visibleMaterials.length"
             class="mt-5 rounded-lg border p-4 md:p-5"
             :class="materialPackProgress.isComplete
-              ? 'border-green-200 bg-green-50/70'
-              : 'border-zinc-200 bg-zinc-50'"
+              ? 'border-green-200 dark:border-green-800 bg-green-50/70 dark:bg-green-950/70'
+              : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60'"
             aria-live="polite"
           >
             <div class="flex items-center justify-between gap-4">
               <p
                 class="text-sm font-bold"
-                :class="materialPackProgress.isComplete ? 'text-green-900' : 'text-zinc-900'"
+                :class="materialPackProgress.isComplete ? 'text-green-900 dark:text-green-300' : 'text-zinc-900 dark:text-zinc-100'"
               >
                 {{ materialPackProgress.isComplete
                   ? '这份材料已经全部备齐'
                   : `已备齐 ${materialPackProgress.completedCount} / ${materialPackProgress.totalCount} 项` }}
               </p>
-              <span class="shrink-0 text-sm font-bold text-green-700">
+              <span class="shrink-0 text-sm font-bold text-green-700 dark:text-green-400">
                 {{ materialPackProgress.percent }}%
               </span>
             </div>
             <div
-              class="mt-3 h-2 overflow-hidden rounded-full bg-white ring-1 ring-zinc-200"
+              class="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-zinc-900 ring-1 ring-zinc-200 dark:ring-zinc-700"
               role="progressbar"
               :aria-valuenow="materialPackProgress.percent"
               aria-valuemin="0"
@@ -441,14 +441,14 @@ watch(selectedAudience, (value) => {
             </div>
             <p
               v-if="materialPackProgress.isComplete"
-              class="mt-3 text-sm leading-6 text-green-900"
+              class="mt-3 text-sm leading-6 text-green-900 dark:text-green-300"
             >
               出发前再对照录取通知书或学校最新通知，确认材料没有变化。
             </p>
             <a
               v-else-if="nextPackedMaterial"
               :href="`#material-${nextPackedMaterial.id}`"
-              class="mt-2 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-800"
+              class="mt-2 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
             >
               下一项：{{ nextPackedMaterial.name }}
               <UIcon
@@ -470,7 +470,7 @@ watch(selectedAudience, (value) => {
             >
               <button
                 type="button"
-                class="grid min-h-24 place-items-center border-r border-zinc-100 bg-zinc-50 text-green-700 transition hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
+                class="grid min-h-24 place-items-center border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 text-green-700 dark:text-green-400 transition hover:bg-green-50 dark:hover:bg-green-950 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
                 :aria-label="materialPackPresentation(material.id, material.name).ariaLabel"
                 :aria-pressed="materialPackPresentation(material.id, material.name).ariaPressed"
                 @click="toggleMaterial(material.id)"
@@ -491,14 +491,14 @@ watch(selectedAudience, (value) => {
                   </UBadge>
                 </div>
                 <h3
-                  class="mt-2 text-sm font-semibold text-zinc-900"
+                  class="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
                   :class="materialPackPresentation(material.id, material.name).titleClass"
                 >
                   {{ material.name }}
                 </h3>
                 <p
                   v-if="material.description"
-                  class="mt-1 text-sm leading-6 text-zinc-600"
+                  class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
                 >
                   {{ studentFacingProcedureText(material.description) }}
                 </p>
@@ -507,7 +507,7 @@ watch(selectedAudience, (value) => {
           </ul>
           <p
             v-else
-            class="mt-4 border-y border-zinc-200 bg-white py-5 text-sm leading-6 text-zinc-600"
+            class="mt-4 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
           >
             {{ emptyMaterialText }}
           </p>
@@ -519,13 +519,13 @@ watch(selectedAudience, (value) => {
         >
           <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p class="text-xs font-semibold text-green-700">
+              <p class="text-xs font-semibold text-green-700 dark:text-green-400">
                 你的进度
               </p>
-              <h2 class="mt-1 text-lg font-bold text-zinc-950">
+              <h2 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
                 按顺序完成
               </h2>
-              <p class="mt-1 text-xs text-zinc-500">
+              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                 勾选内容只留在这台设备上。
               </p>
             </div>
@@ -565,25 +565,25 @@ watch(selectedAudience, (value) => {
             v-if="visibleSteps.length"
             class="mt-5 rounded-lg border p-4 md:p-5"
             :class="checklistProgress.isComplete
-              ? 'border-green-200 bg-green-50/70'
-              : 'border-zinc-200 bg-zinc-50'"
+              ? 'border-green-200 dark:border-green-800 bg-green-50/70 dark:bg-green-950/70'
+              : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60'"
             aria-live="polite"
           >
             <div class="flex items-center justify-between gap-4">
               <p
                 class="text-sm font-bold"
-                :class="checklistProgress.isComplete ? 'text-green-900' : 'text-zinc-900'"
+                :class="checklistProgress.isComplete ? 'text-green-900 dark:text-green-300' : 'text-zinc-900 dark:text-zinc-100'"
               >
                 {{ checklistProgress.isComplete
                   ? '这份流程已经全部勾完'
                   : `已完成 ${checklistProgress.completedCount} / ${checklistProgress.totalCount} 项` }}
               </p>
-              <span class="shrink-0 text-sm font-bold text-green-700">
+              <span class="shrink-0 text-sm font-bold text-green-700 dark:text-green-400">
                 {{ checklistProgress.percent }}%
               </span>
             </div>
             <div
-              class="mt-3 h-2 overflow-hidden rounded-full bg-white ring-1 ring-zinc-200"
+              class="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-zinc-900 ring-1 ring-zinc-200 dark:ring-zinc-700"
               role="progressbar"
               :aria-valuenow="checklistProgress.percent"
               aria-valuemin="0"
@@ -597,14 +597,14 @@ watch(selectedAudience, (value) => {
             </div>
             <p
               v-if="checklistProgress.isComplete"
-              class="mt-3 text-sm leading-6 text-green-900"
+              class="mt-3 text-sm leading-6 text-green-900 dark:text-green-300"
             >
               办理前再看一眼学校最新通知，确认时间、地点和材料没有变化。
             </p>
             <a
               v-else-if="nextVisibleStep"
               :href="`#step-${nextVisibleStep.id}`"
-              class="mt-2 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 hover:text-green-800"
+              class="mt-2 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
             >
               下一步：{{ studentFacingProcedureText(nextVisibleStep.title) }}
               <UIcon
@@ -623,7 +623,7 @@ watch(selectedAudience, (value) => {
             >
               <button
                 type="button"
-                class="grid min-h-32 place-items-center border-r border-zinc-100 bg-zinc-50 text-green-700 transition hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
+                class="grid min-h-32 place-items-center border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 text-green-700 dark:text-green-400 transition hover:bg-green-50 dark:hover:bg-green-950 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
                 :aria-label="stepCompletionPresentation(step.id, stepIndex + 1).ariaLabel"
                 :aria-pressed="stepCompletionPresentation(step.id, stepIndex + 1).ariaPressed"
                 @click="toggleStep(step.id)"
@@ -636,7 +636,7 @@ watch(selectedAudience, (value) => {
 
               <div class="min-w-0 p-4 md:p-5">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-xs font-bold text-green-700">第 {{ stepIndex + 1 }} 步</span>
+                  <span class="text-xs font-bold text-green-700 dark:text-green-400">第 {{ stepIndex + 1 }} 步</span>
                   <UBadge
                     :color="informationStateBadgeColor(step.informationState)"
                     variant="soft"
@@ -647,7 +647,7 @@ watch(selectedAudience, (value) => {
                   </UBadge>
                   <span
                     v-if="step.timeText"
-                    class="inline-flex items-center gap-1 text-xs text-zinc-500"
+                    class="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400"
                   >
                     <UIcon
                       name="i-lucide-clock-3"
@@ -668,12 +668,12 @@ watch(selectedAudience, (value) => {
                   </template>
                 </div>
                 <h3
-                  class="mt-2 text-sm font-bold text-zinc-950 md:text-base"
+                  class="mt-2 text-sm font-bold text-zinc-950 dark:text-zinc-100 md:text-base"
                   :class="stepCompletionPresentation(step.id, stepIndex + 1).titleClass"
                 >
                   {{ studentFacingProcedureText(step.title) }}
                 </h3>
-                <p class="mt-2 text-sm leading-6 text-zinc-600">
+                <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                   {{ studentFacingProcedureText(step.description) }}
                 </p>
                 <div
@@ -717,7 +717,7 @@ watch(selectedAudience, (value) => {
           </ol>
           <p
             v-if="visibleSteps.length === 0"
-            class="mt-5 border-y border-zinc-200 bg-white py-5 text-sm leading-6 text-zinc-600"
+            class="mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
           >
             没有适合这一新生类型的步骤。
           </p>
@@ -725,9 +725,9 @@ watch(selectedAudience, (value) => {
 
         <section
           v-if="procedure.department || procedure.relatedGuide"
-          class="mt-8 border-t border-zinc-200 pt-6"
+          class="mt-8 border-t border-zinc-200 dark:border-zinc-800 pt-6"
         >
-          <h2 class="text-sm font-bold text-zinc-950">
+          <h2 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
             需要帮助时
           </h2>
           <div class="mt-3 flex flex-wrap gap-2">

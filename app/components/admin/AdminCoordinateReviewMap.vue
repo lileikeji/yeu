@@ -306,12 +306,12 @@ onBeforeUnmount(disposeMap)
 
 <template>
   <section>
-    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 pb-3">
+    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
       <div>
-        <p class="text-xs font-medium text-green-700">
+        <p class="text-xs font-medium text-green-700 dark:text-green-400">
           共享审核地图
         </p>
-        <h3 class="mt-1 text-sm font-bold text-zinc-950 sm:text-base">
+        <h3 class="mt-1 text-sm font-bold text-zinc-950 dark:text-zinc-100 sm:text-base">
           {{ observation.placeName }}的定位记录
         </h3>
       </div>
@@ -329,7 +329,7 @@ onBeforeUnmount(disposeMap)
       </div>
     </div>
 
-    <div class="relative mt-3 h-80 min-h-80 overflow-hidden rounded-md border border-zinc-200 bg-zinc-100 sm:h-96">
+    <div class="relative mt-3 h-80 min-h-80 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 sm:h-96">
       <div
         ref="mapElement"
         class="absolute inset-0"
@@ -337,7 +337,7 @@ onBeforeUnmount(disposeMap)
       />
       <div
         v-if="mapStatus === 'loading'"
-        class="absolute inset-0 grid place-items-center bg-zinc-100 text-zinc-500"
+        class="absolute inset-0 grid place-items-center bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
         role="status"
       >
         <UIcon
@@ -347,11 +347,11 @@ onBeforeUnmount(disposeMap)
       </div>
       <div
         v-else-if="mapStatus === 'error'"
-        class="absolute inset-0 grid place-items-center bg-zinc-100 p-6 text-center"
+        class="absolute inset-0 grid place-items-center bg-zinc-100 dark:bg-zinc-800 p-6 text-center"
         role="alert"
       >
         <div>
-          <p class="text-sm text-zinc-600">
+          <p class="text-sm text-zinc-600 dark:text-zinc-300">
             审核地图暂时无法加载。
           </p>
           <UButton
@@ -368,7 +368,7 @@ onBeforeUnmount(disposeMap)
     </div>
 
     <div
-      class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-600"
+      class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-600 dark:text-zinc-300"
       aria-label="地图图例"
     >
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-blue-600" />现场定位记录</span>
@@ -376,12 +376,12 @@ onBeforeUnmount(disposeMap)
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-amber-600" />{{ currentPlacePointLabel }}</span>
       <span class="inline-flex items-center gap-1.5"><i class="size-2.5 rounded-full bg-zinc-600" />附近已确认地点</span>
     </div>
-    <p class="mt-2 text-xs leading-5 text-zinc-500">
+    <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
       已显示 {{ neighboringPlaces.length }} 个附近的已确认地点。误差圈表示定位可能存在的偏差范围，底图与校界只用于人工比对。
     </p>
     <p
       v-if="currentCoordinateNotDisplayable"
-      class="mt-1 text-xs leading-5 text-amber-700"
+      class="mt-1 text-xs leading-5 text-amber-700 dark:text-amber-300"
     >
       地点当前使用另一种坐标类型，为避免位置偏移，本图暂不显示该点。
     </p>

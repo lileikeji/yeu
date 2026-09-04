@@ -19,7 +19,7 @@ const emit = defineEmits<{
     :dismissible="!deleting"
   >
     <template #body>
-      <p class="text-sm leading-6 text-zinc-600">
+      <p class="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
         删除操作不能在当前界面撤销。如果记录仍被其他内容使用，系统会阻止删除。
       </p>
     </template>

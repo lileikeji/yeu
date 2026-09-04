@@ -25,24 +25,24 @@ const sourceToneClasses: Record<SourceTone, {
   text: string
 }> = {
   blue: {
-    border: 'border-blue-200',
-    soft: 'bg-blue-50',
-    text: 'text-blue-700'
+    border: 'border-blue-200 dark:border-blue-900',
+    soft: 'bg-blue-50 dark:bg-blue-950',
+    text: 'text-blue-700 dark:text-blue-300'
   },
   green: {
-    border: 'border-green-200',
-    soft: 'bg-green-50',
-    text: 'text-green-700'
+    border: 'border-green-200 dark:border-green-800',
+    soft: 'bg-green-50 dark:bg-green-950',
+    text: 'text-green-700 dark:text-green-400'
   },
   amber: {
-    border: 'border-amber-200',
-    soft: 'bg-amber-50',
-    text: 'text-amber-700'
+    border: 'border-amber-200 dark:border-amber-900',
+    soft: 'bg-amber-50 dark:bg-amber-950',
+    text: 'text-amber-700 dark:text-amber-300'
   },
   zinc: {
-    border: 'border-zinc-200',
-    soft: 'bg-zinc-100',
-    text: 'text-zinc-700'
+    border: 'border-zinc-200 dark:border-zinc-800',
+    soft: 'bg-zinc-100 dark:bg-zinc-800',
+    text: 'text-zinc-700 dark:text-zinc-200'
   }
 }
 
@@ -106,15 +106,15 @@ async function refreshSources(): Promise<void> {
 
 <template>
   <div>
-    <section class="border-b border-[var(--line)] bg-white">
+    <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           信息从哪里来
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           校园消息，<span class="block sm:inline">先看能不能直接用</span>
         </h1>
-        <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">
+        <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           报到、缴费和学籍等重要事项，请优先看学校和主管部门的最新通知。地图、商铺和社团消息变化较快，页面会保留参考链接，方便你自己再看一眼。
         </p>
         <div class="mt-5 flex flex-wrap gap-2">
@@ -133,7 +133,7 @@ async function refreshSources(): Promise<void> {
           </a>
           <a
             href="#source-list"
-            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition-colors hover:border-green-300 hover:text-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-700 dark:text-zinc-200 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             @click="clearSourceFilters"
           >
             <UIcon
@@ -150,16 +150,16 @@ async function refreshSources(): Promise<void> {
       id="recent-updates"
       class="page-shell scroll-mt-20 py-8 md:py-10"
     >
-      <div class="overflow-hidden rounded-lg border border-green-100 bg-gradient-to-br from-green-50 via-white to-amber-50 shadow-sm">
-        <div class="grid gap-5 border-b border-green-100 px-5 py-6 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+      <div class="overflow-hidden rounded-lg border border-green-100 dark:border-green-900 bg-gradient-to-br from-green-50 via-white to-amber-50 shadow-sm">
+        <div class="grid gap-5 border-b border-green-100 dark:border-green-900 px-5 py-6 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <div>
             <p class="section-kicker">
               最近更新
             </p>
-            <h2 class="mt-2 text-xl font-bold text-zinc-950">
+            <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
               最近补充了这些内容
             </h2>
-            <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
               有新的学校通知时，我们会继续补充。下面会写清最近整理的内容和时间，方便你判断是不是最新的。
             </p>
           </div>
@@ -193,10 +193,10 @@ async function refreshSources(): Promise<void> {
                 />
               </span>
               <span class="min-w-0 flex-1">
-                <span class="block text-xs font-semibold text-zinc-500">{{ item.date }}</span>
-                <span class="mt-1.5 block text-sm font-bold leading-6 text-zinc-950 group-hover:text-green-800">{{ item.title }}</span>
-                <span class="mt-1.5 block text-xs leading-5 text-zinc-600">{{ item.description }}</span>
-                <span class="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-green-700">
+                <span class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400">{{ item.date }}</span>
+                <span class="mt-1.5 block text-sm font-bold leading-6 text-zinc-950 dark:text-zinc-100 group-hover:text-green-800 dark:group-hover:text-green-300">{{ item.title }}</span>
+                <span class="mt-1.5 block text-xs leading-5 text-zinc-600 dark:text-zinc-300">{{ item.description }}</span>
+                <span class="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-green-700 dark:text-green-400">
                   去看看
                   <UIcon
                     name="i-lucide-arrow-right"
@@ -216,10 +216,10 @@ async function refreshSources(): Promise<void> {
           <p class="section-kicker">
             怎么判断
           </p>
-          <h2 class="mt-2 text-xl font-bold text-zinc-950">
+          <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
             不同消息，适合用在不同地方
           </h2>
-          <p class="mt-3 text-sm leading-7 text-zinc-600">
+          <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
             同一件事可能同时出现在官网、群聊和地图上。下面四类提醒可以帮你快速决定先看哪一个。
           </p>
         </div>
@@ -228,7 +228,7 @@ async function refreshSources(): Promise<void> {
           <li
             v-for="item in sourceLevelGuides"
             :key="item.level"
-            class="rounded-md border bg-white p-4 shadow-sm"
+            class="rounded-md border bg-white dark:bg-zinc-900 p-4 shadow-sm"
             :class="sourceToneClasses[item.tone].border"
           >
             <div class="flex items-center gap-3">
@@ -243,11 +243,11 @@ async function refreshSources(): Promise<void> {
                 />
               </span>
               <div>
-                <span class="block text-xs font-semibold text-zinc-500">{{ item.level }}</span>
-                <span class="mt-0.5 block text-sm font-bold text-zinc-950">{{ item.title }}</span>
+                <span class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400">{{ item.level }}</span>
+                <span class="mt-0.5 block text-sm font-bold text-zinc-950 dark:text-zinc-100">{{ item.title }}</span>
               </div>
             </div>
-            <p class="mt-3 text-sm leading-6 text-zinc-600">
+            <p class="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
               {{ item.description }}
             </p>
           </li>
@@ -255,15 +255,15 @@ async function refreshSources(): Promise<void> {
       </div>
     </section>
 
-    <section class="border-y border-[var(--line)] bg-white">
+    <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
           地图怎么用
         </p>
-        <h2 class="mt-2 text-xl font-bold text-zinc-950">
+        <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
           地图边界只帮助你辨认方向
         </h2>
-        <div class="mt-4 grid gap-5 text-sm leading-7 text-zinc-600 md:grid-cols-2">
+        <div class="mt-4 grid gap-5 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:grid-cols-2">
           <p>
             地图上的绿色虚线来自公开社区地图，只帮助辨认校园大致范围，不代表学校公布的正式边界。找楼栋和入口时，请继续看地图上的地点与现场指示牌。
           </p>
@@ -305,11 +305,11 @@ async function refreshSources(): Promise<void> {
           <p class="section-kicker">
             原文链接
           </p>
-          <h2 class="mt-2 text-xl font-bold text-zinc-950">
+          <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
             查看学校原文和其他参考链接
           </h2>
         </div>
-        <span class="text-sm text-zinc-500">共 {{ sources.length }} 条链接</span>
+        <span class="text-sm text-zinc-500 dark:text-zinc-400">共 {{ sources.length }} 条链接</span>
       </div>
 
       <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -322,7 +322,7 @@ async function refreshSources(): Promise<void> {
           class="min-h-11 w-full sm:max-w-md"
           :ui="{ base: 'min-h-11' }"
         />
-        <span class="text-xs text-zinc-500">
+        <span class="text-xs text-zinc-500 dark:text-zinc-400">
           {{ sourceFilterActive ? `找到 ${filteredSources.length} 条` : '可按学校、部门或信息名称查找' }}
         </span>
       </div>
@@ -338,7 +338,7 @@ async function refreshSources(): Promise<void> {
           class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 sm:px-3"
           :class="activeSourceKind === option.id
             ? 'border-green-700 bg-green-700 text-white'
-            : 'border-zinc-200 bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50'"
+            : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
           :aria-pressed="activeSourceKind === option.id"
           @click="activeSourceKind = option.id"
         >
@@ -348,17 +348,17 @@ async function refreshSources(): Promise<void> {
 
       <div
         v-if="loadError"
-        class="mt-5 border-y border-amber-200 bg-amber-50 px-5 py-8 text-center"
+        class="mt-5 border-y border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-5 py-8 text-center"
         role="alert"
       >
         <UIcon
           name="i-lucide-circle-alert"
-          class="mx-auto size-6 text-amber-700"
+          class="mx-auto size-6 text-amber-700 dark:text-amber-300"
         />
         <h3 class="mt-3 text-base font-bold text-amber-950">
           原文链接暂时没显示出来
         </h3>
-        <p class="mt-2 text-sm leading-6 text-amber-900">
+        <p class="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-300">
           {{ sourceListMessages.serviceUnavailable }}
         </p>
         <div class="mt-5 flex flex-wrap justify-center gap-2">
@@ -383,7 +383,7 @@ async function refreshSources(): Promise<void> {
 
       <ul
         v-if="!loadError && visibleSources.length"
-        class="divide-y divide-zinc-100"
+        class="divide-y divide-zinc-100 dark:divide-zinc-800"
       >
         <li
           v-for="source in visibleSources"
@@ -409,10 +409,10 @@ async function refreshSources(): Promise<void> {
               />
             </span>
             <span class="min-w-0 flex-1">
-              <span class="block font-semibold leading-6 text-zinc-900 group-hover:text-green-700">
+              <span class="block font-semibold leading-6 text-zinc-900 dark:text-zinc-100 group-hover:text-green-700 dark:group-hover:text-green-400">
                 {{ studentFacingSourceTitle(source.title) }}
               </span>
-              <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500">
+              <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                 <span>{{ sourcePlatformLabel(source.platform) }}</span>
                 <span aria-hidden="true">·</span>
                 <span>{{ studentFacingSourcePublisher(source.publisherName) }}</span>
@@ -427,7 +427,7 @@ async function refreshSources(): Promise<void> {
                 >
                   {{ sourceLevelLabels[source.sourceLevel] }}
                 </span>
-                <span class="text-xs text-zinc-500">
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">
                   <UIcon
                     name="i-lucide-calendar-clock"
                     class="mr-1 inline-block size-3.5 align-[-2px]"
@@ -438,7 +438,7 @@ async function refreshSources(): Promise<void> {
             </span>
             <UIcon
               name="i-lucide-external-link"
-              class="mt-1 size-4 shrink-0 text-zinc-400 group-hover:text-green-700"
+              class="mt-1 size-4 shrink-0 text-zinc-400 dark:text-zinc-500 group-hover:text-green-700 dark:group-hover:text-green-400"
             />
           </a>
         </li>
@@ -461,17 +461,17 @@ async function refreshSources(): Promise<void> {
 
       <div
         v-if="!loadError && !visibleSources.length"
-        class="mt-5 border-y border-zinc-200 bg-white px-5 py-10 text-center"
+        class="mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-10 text-center"
         role="status"
       >
         <UIcon
           name="i-lucide-search-x"
-          class="mx-auto size-6 text-zinc-400"
+          class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
         />
-        <h3 class="mt-3 text-base font-bold text-zinc-900">
+        <h3 class="mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
           {{ sourceFilterActive ? sourceListMessages.emptyMatch : sourceListMessages.emptyList }}
         </h3>
-        <p class="mt-2 text-sm leading-6 text-zinc-600">
+        <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
           {{ sourceFilterActive ? '换个学校、部门或信息名称试试。' : '可以先从各篇指南中查看对应通知和链接。' }}
         </p>
         <div class="mt-5 flex flex-wrap justify-center gap-2">

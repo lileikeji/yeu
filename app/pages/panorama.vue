@@ -161,7 +161,7 @@ onMounted(() => {
       <div class="page-shell relative z-10 grid min-h-[28rem] content-end gap-5 py-8 md:min-h-[34rem] md:grid-cols-[minmax(0,1fr)_20rem] md:items-end md:py-12">
         <div class="max-w-3xl">
           <div class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/15 px-4 py-2 text-xs font-semibold backdrop-blur-md">
-            <span class="grid size-8 place-items-center rounded-full bg-emerald-300 font-black text-emerald-950">360°</span>
+            <span class="grid size-8 place-items-center rounded-full bg-emerald-300 font-black text-emerald-950 dark:text-emerald-300">360°</span>
             不用到校，先在屏幕里逛一圈
           </div>
           <h1 class="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl md:text-5xl">
@@ -186,7 +186,7 @@ onMounted(() => {
               size="xl"
               color="neutral"
               variant="soft"
-              class="min-h-12 bg-white/90 text-zinc-950 hover:bg-white"
+              class="min-h-12 bg-white/90 dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 hover:bg-white dark:hover:bg-white:bg-zinc-900"
               @click="openTour('history')"
             />
           </div>
@@ -220,10 +220,10 @@ onMounted(() => {
         <p class="section-kicker">
           你想先看哪里
         </p>
-        <h2 class="mt-1 text-2xl font-black tracking-tight text-zinc-950 md:text-3xl">
+        <h2 class="mt-1 text-2xl font-black tracking-tight text-zinc-950 dark:text-zinc-100 md:text-3xl">
           校园实景和校史馆分开看
         </h2>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
           两套画面来自不同地方，我们把来源和能看的内容都写清楚了。
         </p>
       </div>
@@ -233,14 +233,14 @@ onMounted(() => {
           v-for="tour in tours"
           :key="tour.id"
           type="button"
-          class="group relative overflow-hidden rounded-3xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 md:p-6"
-          :class="activeTourId === tour.id ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-zinc-200'"
+          class="group relative overflow-hidden rounded-3xl border bg-white dark:bg-zinc-900 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 md:p-6"
+          :class="activeTourId === tour.id ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-zinc-200 dark:border-zinc-800'"
           @click="chooseTour(tour.id)"
         >
           <div class="flex items-start justify-between gap-4">
             <span
               class="grid size-12 shrink-0 place-items-center rounded-2xl"
-              :class="tour.id === 'campus' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+              :class="tour.id === 'campus' ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300'"
             >
               <UIcon
                 :name="tour.icon"
@@ -253,16 +253,16 @@ onMounted(() => {
               variant="soft"
             />
           </div>
-          <p class="mt-5 text-xs font-semibold text-emerald-700">
+          <p class="mt-5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
             {{ tour.eyebrow }}
           </p>
-          <h3 class="mt-1 text-xl font-black text-zinc-950">
+          <h3 class="mt-1 text-xl font-black text-zinc-950 dark:text-zinc-100">
             {{ tour.title }}
           </h3>
-          <p class="mt-2 text-sm leading-6 text-zinc-600">
+          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             {{ tour.description }}
           </p>
-          <span class="mt-5 inline-flex items-center gap-1 text-sm font-bold text-emerald-700">
+          <span class="mt-5 inline-flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">
             打开看看
             <UIcon
               name="i-lucide-arrow-right"
@@ -282,10 +282,10 @@ onMounted(() => {
           <p class="section-kicker">
             正在看：{{ activeTour.shortTitle }}
           </p>
-          <h2 class="mt-1 text-2xl font-black tracking-tight text-zinc-950 md:text-3xl">
+          <h2 class="mt-1 text-2xl font-black tracking-tight text-zinc-950 dark:text-zinc-100 md:text-3xl">
             {{ activeTour.title }}
           </h2>
-          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             {{ activeTour.detail }}
           </p>
         </div>
@@ -303,7 +303,7 @@ onMounted(() => {
 
       <div
         ref="viewerShell"
-        class="panorama-viewer-shell relative overflow-hidden rounded-3xl border border-zinc-200 bg-zinc-950 shadow-2xl shadow-emerald-950/15"
+        class="panorama-viewer-shell relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-zinc-950 dark:bg-zinc-800 shadow-2xl shadow-emerald-950/15"
       >
         <template v-if="viewerLoaded">
           <PanoramaBaiduCampusViewer
@@ -314,7 +314,7 @@ onMounted(() => {
           />
           <div
             v-else-if="activeTour.id === 'campus'"
-            class="absolute inset-0 grid place-items-center bg-zinc-950 px-6 text-center text-white"
+            class="absolute inset-0 grid place-items-center bg-zinc-950 dark:bg-zinc-800 px-6 text-center text-white"
           >
             <div class="max-w-sm">
               <UIcon
@@ -341,7 +341,7 @@ onMounted(() => {
             :key="activeTour.id"
             :src="activeViewerUrl"
             :title="`${activeTour.title} 360 度实景`"
-            class="absolute inset-0 size-full border-0 bg-black"
+            class="absolute inset-0 size-full border-0 bg-black dark:bg-zinc-900"
             loading="eager"
             referrerpolicy="strict-origin-when-cross-origin"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-pointer-lock"
@@ -352,7 +352,7 @@ onMounted(() => {
 
           <div
             v-if="!viewerReady"
-            class="absolute inset-0 z-10 grid place-items-center bg-zinc-950 text-white"
+            class="absolute inset-0 z-10 grid place-items-center bg-zinc-950 dark:bg-zinc-800 text-white"
             role="status"
           >
             <div class="text-center">
@@ -375,7 +375,7 @@ onMounted(() => {
               aria-label="重新打开实景"
               color="neutral"
               variant="solid"
-              class="bg-white/90 text-zinc-950 shadow-lg backdrop-blur hover:bg-white"
+              class="bg-white/90 dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 shadow-lg backdrop-blur hover:bg-white dark:hover:bg-white:bg-zinc-900"
               @click="reloadViewer"
             />
             <UButton
@@ -383,7 +383,7 @@ onMounted(() => {
               aria-label="全屏查看实景"
               color="neutral"
               variant="solid"
-              class="bg-white/90 text-zinc-950 shadow-lg backdrop-blur hover:bg-white"
+              class="bg-white/90 dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 shadow-lg backdrop-blur hover:bg-white dark:hover:bg-white:bg-zinc-900"
               @click="enterFullscreen"
             />
           </div>
@@ -400,7 +400,7 @@ onMounted(() => {
           >
           <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,120,82,.12),rgba(2,15,12,.9))]" />
           <div class="relative z-10 max-w-md px-6 text-center text-white">
-            <span class="mx-auto grid size-20 place-items-center rounded-full border border-white/25 bg-white/10 text-2xl font-black backdrop-blur">
+            <span class="mx-auto grid size-20 place-items-center rounded-full border border-white/25 bg-white/10 dark:bg-zinc-900/10 text-2xl font-black backdrop-blur">
               360°
             </span>
             <h3 class="mt-5 text-2xl font-black">
@@ -422,19 +422,19 @@ onMounted(() => {
       </div>
 
       <div class="mt-6 grid gap-4 lg:grid-cols-2">
-        <details class="group rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
+        <details class="group rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/60 p-5 md:p-6">
           <summary class="flex cursor-pointer list-none items-start gap-3 marker:hidden">
-            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-emerald-700 shadow-sm">
+            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-300 shadow-sm">
               <UIcon
                 name="i-lucide-school"
                 class="size-5"
               />
             </span>
             <span class="min-w-0 flex-1">
-              <span class="block text-xs font-semibold text-emerald-700">
+              <span class="block text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                 校内实景从哪里来
               </span>
-              <span class="mt-1 block text-base font-bold text-emerald-950">
+              <span class="mt-1 block text-base font-bold text-emerald-950 dark:text-emerald-300">
                 百度地图用户上传的校园全景
               </span>
             </span>
@@ -448,16 +448,16 @@ onMounted(() => {
           </p>
         </details>
 
-        <details class="group rounded-2xl border border-amber-200 bg-amber-50/70 p-5 md:p-6">
+        <details class="group rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/70 p-5 md:p-6">
           <summary class="flex cursor-pointer list-none items-start gap-3 marker:hidden">
-            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm">
+            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white dark:bg-zinc-900 text-amber-700 dark:text-amber-300 shadow-sm">
               <UIcon
                 name="i-lucide-badge-check"
                 class="size-5"
               />
             </span>
             <span class="min-w-0 flex-1">
-              <span class="block text-xs font-semibold text-amber-800">
+              <span class="block text-xs font-semibold text-amber-800 dark:text-amber-300">
                 校史馆从哪里来
               </span>
               <span class="mt-1 block text-base font-bold text-amber-950">
@@ -466,7 +466,7 @@ onMounted(() => {
             </span>
             <UIcon
               name="i-lucide-chevron-down"
-              class="mt-1 size-4 shrink-0 text-amber-600 transition group-open:rotate-180"
+              class="mt-1 size-4 shrink-0 text-amber-600 dark:text-amber-300 transition group-open:rotate-180"
             />
           </summary>
           <div class="mt-4">

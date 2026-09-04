@@ -116,7 +116,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
         >
           <p
             id="guide-destination-title"
-            class="text-xs font-semibold text-zinc-700"
+            class="text-xs font-semibold text-zinc-700 dark:text-zinc-200"
           >
             这张攻略有 {{ item.destinations.length }} 个地点，先选一个
           </p>
@@ -127,8 +127,8 @@ function selectDestination(destination: NearbyGuideDestination): void {
               type="button"
               class="min-h-11 shrink-0 rounded-xl border px-3 text-left text-xs transition"
               :class="destination.id === selectedDestination.id
-                ? 'border-green-700 bg-green-50 text-green-900'
-                : 'border-zinc-200 bg-white text-zinc-600 hover:border-green-300'"
+                ? 'border-green-700 bg-green-50 dark:bg-green-950 text-green-900 dark:text-green-300'
+                : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:border-green-300 dark:hover:border-green-700'"
               @click="selectDestination(destination)"
             >
               <span class="block font-semibold">{{ index + 1 }}. {{ destination.label }}</span>
@@ -140,24 +140,24 @@ function selectDestination(destination: NearbyGuideDestination): void {
           </div>
         </section>
 
-        <section class="rounded-2xl border border-green-100 bg-green-50/70 p-4">
+        <section class="rounded-2xl border border-green-100 dark:border-green-900 bg-green-50/70 dark:bg-green-950/70 p-4">
           <div class="flex items-start gap-3">
-            <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-green-700 shadow-sm">
+            <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 shadow-sm">
               <UIcon
                 name="i-lucide-map-pin-check-inside"
                 class="size-4.5"
               />
             </span>
             <div>
-              <p class="text-sm font-bold text-zinc-950">
+              <p class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
                 导航目标：{{ selectedDestination.label }}
               </p>
-              <p class="mt-1 text-xs leading-5 text-zinc-600">
+              <p class="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
                 {{ selectedDestination.poiId ? '已用高德 POI 与经纬度交叉核对，不再使用可能搜不到的模糊关键词。' : '已使用系统内核验过的区域中心坐标，不依赖模糊关键词。' }}
               </p>
               <p
                 v-if="selectedDestination.note"
-                class="mt-1 text-xs leading-5 text-amber-800"
+                class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-300"
               >
                 {{ selectedDestination.note }}
               </p>
@@ -231,15 +231,15 @@ function selectDestination(destination: NearbyGuideDestination): void {
               { key: 'inbound', title: '回学校', data: inbound }
             ]"
             :key="routeGroup.key"
-            class="rounded-2xl border border-zinc-200 bg-white p-4"
+            class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
           >
             <div class="flex items-center justify-between gap-3">
-              <h3 class="text-sm font-bold text-zinc-950">
+              <h3 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
                 {{ routeGroup.title }}
               </h3>
               <span
                 v-if="routeGroup.data"
-                class="text-[11px] text-zinc-400"
+                class="text-[11px] text-zinc-400 dark:text-zinc-500"
               >查询于 {{ formatQueryTime(routeGroup.data.queriedAt) }}</span>
             </div>
             <ol
@@ -249,19 +249,19 @@ function selectDestination(destination: NearbyGuideDestination): void {
               <li
                 v-for="(plan, planIndex) in routeGroup.data.plans.slice(0, 2)"
                 :key="`${routeGroup.key}-${planIndex}`"
-                class="rounded-xl bg-zinc-50 p-3"
+                class="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-3"
               >
-                <p class="text-xs font-bold leading-5 text-zinc-900">
+                <p class="text-xs font-bold leading-5 text-zinc-900 dark:text-zinc-100">
                   {{ planTitle(plan) }}
                 </p>
-                <p class="mt-1 text-[11px] leading-5 text-zinc-500">
+                <p class="mt-1 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">
                   约 {{ plan.durationMinutes }} 分钟 · 步行约 {{ plan.walkingMeters }} 米 · {{ formatFare(plan) }}
                 </p>
                 <ul class="mt-2 space-y-1.5">
                   <li
                     v-for="segment in plan.segments"
                     :key="`${segment.name}-${segment.departureStop}`"
-                    class="text-[11px] leading-4 text-zinc-600"
+                    class="text-[11px] leading-4 text-zinc-600 dark:text-zinc-300"
                   >
                     {{ segment.departureStop }} 上 {{ segment.name }}，到 {{ segment.arrivalStop }}
                   </li>
@@ -270,23 +270,23 @@ function selectDestination(destination: NearbyGuideDestination): void {
             </ol>
             <p
               v-else
-              class="mt-3 text-xs leading-5 text-zinc-500"
+              class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
             >
               这一方向暂未取得实时公交结果，请用高德公交或打车按钮重新规划。
             </p>
           </section>
         </div>
 
-        <section class="rounded-2xl bg-zinc-950 p-4 text-white">
+        <section class="rounded-2xl bg-zinc-950 dark:bg-zinc-800 p-4 text-white">
           <p class="text-xs font-bold text-green-300">
             组合地点怎么走
           </p>
-          <p class="mt-2 text-sm leading-6 text-zinc-200">
+          <p class="mt-2 text-sm leading-6 text-zinc-200 dark:text-zinc-600">
             {{ item.travelNote }}
           </p>
           <p
             v-if="item.destinations.length > 1"
-            class="mt-2 text-xs leading-5 text-zinc-400"
+            class="mt-2 text-xs leading-5 text-zinc-400 dark:text-zinc-500"
           >
             上面的公交 API 每次只规划到你选中的一个地点。切换地点即可分别查看，不会把多个相距较远的点误当成同一个终点。
           </p>

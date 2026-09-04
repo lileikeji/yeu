@@ -42,11 +42,11 @@ test('map place details use compact mobile and desktop-only floating panels', ()
     < detailsSource.indexOf('到这里前先确认')
   )
   assert.match(detailsSource, /label="规划步行路线"[\s\S]*?variant="solid"/)
-  assert.equal((detailsSource.match(/class="min-h-11 w-full justify-center"/g) || []).length, 4)
-  assert.equal((detailsSource.match(/class="min-h-11"/g) || []).length, 4)
+  assert.equal((detailsSource.match(/class="min-h-11(?:\s+dark:[^"\s]+)*\s+w-full(?:\s+dark:[^"\s]+)*\s+justify-center(?:\s+dark:[^"\s]+)*"/g) || []).length, 4)
+  assert.equal((detailsSource.match(/class="min-h-11(?:\s+dark:[^"\s]+)*"/g) || []).length, 4)
   assert.match(pageSource, /aria-label="全隐藏地点面板"[\s\S]{0,120}?mobileSheetState === 'collapsed'/)
   assert.equal((pageSource.match(/class="size-9"\s+aria-label="(?:全隐藏|半屏显示|展开)地点面板"/g) || []).length, 3)
-  assert.match(pageSource, /class="min-h-10 w-full md:mt-3 md:min-h-11"/)
+  assert.match(pageSource, /class="min-h-10(?:\s+dark:[^"\s]+)*\s+w-full(?:\s+dark:[^"\s]+)*\s+md:mt-3(?:\s+dark:[^"\s]+)*\s+md:min-h-11(?:\s+dark:[^"\s]+)*"/)
   assert.equal((pageSource.match(/\['min-h-11 rounded-none px-3'/g) || []).length, 2)
   assert.match(detailsSource, /max-h-\[min\(38dvh,18rem\)\]/)
   assert.match(detailsSource, /md:hidden/)
@@ -72,7 +72,7 @@ test('mobile map search and controls use the compact interaction layout', () => 
   assert.match(pageSource, /class="mt-2 grid grid-cols-4 gap-1/)
   assert.match(pageSource, /class="min-h-9 min-w-0 justify-center/)
   assert.match(pageSource, /map-control-btn size-10 rounded-none md:size-11/)
-  assert.match(pageSource, /divide-y divide-zinc-200 overflow-hidden rounded-xl/)
+  assert.match(pageSource, /divide-y(?:\s+dark:[^"\s]+)*\s+divide-zinc-200(?:\s+dark:[^"\s]+)*\s+overflow-hidden(?:\s+dark:[^"\s]+)*\s+rounded-xl(?:\s+dark:[^"\s]+)*/)
 })
 
 test('desktop place list keeps mouse and wheel control after mobile sheet collapse', () => {
@@ -81,7 +81,7 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
     pageSource,
     /mobileSheetState === 'collapsed'[\s\S]*?'hidden md:block' : 'block'/
   )
-  assert.match(pageSource, /class="map-place-list min-h-0 flex-1 overflow-y-auto overscroll-y-contain md:block"/)
+  assert.match(pageSource, /class="map-place-list(?:\s+dark:[^"\s]+)*\s+min-h-0(?:\s+dark:[^"\s]+)*\s+flex-1(?:\s+dark:[^"\s]+)*\s+overflow-y-auto(?:\s+dark:[^"\s]+)*\s+overscroll-y-contain(?:\s+dark:[^"\s]+)*\s+md:block(?:\s+dark:[^"\s]+)*"/)
   assert.match(pageSource, /@wheel\.stop/)
   assert.match(pageSource, /@touchmove\.stop/)
   assert.match(pageSource, /'overflow-hidden'/)

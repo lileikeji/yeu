@@ -69,22 +69,22 @@ function clearClubFilters() {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           发现同好
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           找到你感兴趣的社团
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           先按兴趣看看学校里有哪些社团。2026 级招新时间、地点和群聊入口还没公布，开学后记得留意校团委和现场通知。
         </p>
-        <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500">
+        <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500 dark:text-zinc-400">
           <span class="inline-flex items-center gap-1.5">
             <UIcon
               name="i-lucide-compass"
-              class="size-4 text-green-700"
+              class="size-4 text-green-700 dark:text-green-400"
             />
             {{ clubs.length }} 个社团
           </span>
@@ -121,7 +121,7 @@ function clearClubFilters() {
               class="inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-xs font-medium transition"
               :class="selectedGroup === group
                 ? 'bg-green-700 text-white'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'"
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200'"
               :aria-pressed="selectedGroup === group"
               @click="selectedGroup = group"
             >
@@ -135,19 +135,19 @@ function clearClubFilters() {
     <div class="page-shell page-section">
       <div
         v-if="error"
-        class="mb-5 border-l-2 border-amber-500 bg-amber-50 px-4 py-3"
+        class="mb-5 border-l-2 border-amber-500 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-4 py-3"
         role="status"
       >
         <div class="flex items-start gap-3">
           <UIcon
             name="i-lucide-info"
-            class="mt-0.5 size-4 shrink-0 text-amber-700"
+            class="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300"
           />
           <div class="min-w-0 flex-1">
             <h2 class="text-sm font-bold text-amber-950">
               部分社团信息还没更新出来
             </h2>
-            <p class="mt-1 text-xs leading-5 text-amber-900">
+            <p class="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-300">
               {{ clubListMessages.serviceUnavailable }}
             </p>
             <UButton
@@ -166,7 +166,7 @@ function clearClubFilters() {
         class="mb-4"
       >
         <div class="flex items-center justify-between gap-4">
-          <h2 class="text-sm font-semibold text-zinc-900">
+          <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             找到 {{ filteredClubs.length }} 个社团
           </h2>
           <UButton
@@ -188,10 +188,10 @@ function clearClubFilters() {
           v-for="club in visibleClubs"
           :key="club.id"
           :to="`/clubs/${club.slug}`"
-          class="surface-panel group flex min-h-48 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
+          class="surface-panel group flex min-h-48 flex-col p-5 transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm"
         >
           <div class="flex items-start justify-between gap-3">
-            <span class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+            <span class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
               <img
                 v-if="club.iconUrl"
                 :src="club.iconUrl"
@@ -210,13 +210,13 @@ function clearClubFilters() {
               variant="soft"
             />
           </div>
-          <h2 class="mt-4 font-bold text-zinc-950">
+          <h2 class="mt-4 font-bold text-zinc-950 dark:text-zinc-100">
             {{ club.name }}
           </h2>
-          <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
+          <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             {{ resolveClubDirection(club.summary, club.direction || clubDirectionBySlug.get(club.slug)) }}
           </p>
-          <div class="mt-4 space-y-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+          <div class="mt-4 space-y-2 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs text-zinc-500 dark:text-zinc-400">
             <div class="flex items-center gap-2">
               <span
                 class="size-2 rounded-full"
@@ -229,12 +229,12 @@ function clearClubFilters() {
             <div class="flex items-center gap-2">
               <span
                 class="size-2 rounded-full"
-                :class="hasClubContactMethod(club.contactMethod, club.contactPhone, club.groupQrUrl, club.contactQrUrl) ? 'bg-emerald-500' : 'bg-zinc-300'"
+                :class="hasClubContactMethod(club.contactMethod, club.contactPhone, club.groupQrUrl, club.contactQrUrl) ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'"
               />
               {{ resolveClubContactStatusText(club.contactMethod, club.contactPhone, club.groupQrUrl, club.contactQrUrl) }}
             </div>
           </div>
-          <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700">
+          <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400">
             打开介绍
             <UIcon
               name="i-lucide-arrow-right"
@@ -260,13 +260,13 @@ function clearClubFilters() {
 
       <div
         v-if="!error && !filteredClubs.length"
-        class="border-y border-zinc-200 bg-white px-5 py-12 text-center"
+        class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-12 text-center"
       >
         <UIcon
           name="i-lucide-search-x"
-          class="mx-auto size-6 text-zinc-400"
+          class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
         />
-        <p class="mt-3 text-sm text-zinc-600">
+        <p class="mt-3 text-sm text-zinc-600 dark:text-zinc-300">
           {{ clubListMessages.emptyMatch }}
         </p>
         <UButton

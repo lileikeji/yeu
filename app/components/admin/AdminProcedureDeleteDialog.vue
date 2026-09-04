@@ -19,7 +19,7 @@ const emit = defineEmits<{
     :dismissible="!deleting"
   >
     <template #body>
-      <p class="text-sm leading-6 text-zinc-600">
+      <p class="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
         删除后流程会自动归档并从前台隐藏，历史记录和操作记录仍会保留。
       </p>
     </template>

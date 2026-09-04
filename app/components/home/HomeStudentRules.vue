@@ -5,7 +5,7 @@ import { scholarships, studentRuleCatalog } from '~~/data/student-rules'
 <template>
   <section
     id="student-rules-summary"
-    class="border-t border-[var(--line)] bg-white"
+    class="border-t border-[var(--line)] bg-white dark:bg-zinc-900"
     aria-labelledby="home-student-rules-title"
   >
     <div class="page-shell grid gap-6 py-9 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:py-12">
@@ -15,32 +15,32 @@ import { scholarships, studentRuleCatalog } from '~~/data/student-rules'
         </p>
         <h2
           id="home-student-rules-title"
-          class="mt-2 text-2xl font-bold text-zinc-950"
+          class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100"
         >
           绩点、奖学金和学生规则，一处查清
         </h2>
-        <p class="mt-3 text-sm leading-7 text-zinc-600">
+        <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           已按学校官网公开文件整理 {{ scholarships.length }} 类奖学金、{{ studentRuleCatalog.length }} 项学生制度，并提供可直接试算的 GPA 计算器。
         </p>
-        <div class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-700">
+        <div class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-700 dark:text-zinc-200">
           <span class="inline-flex items-center gap-2">
             <UIcon
               name="i-lucide-calculator"
-              class="size-4 text-emerald-700"
+              class="size-4 text-emerald-700 dark:text-emerald-300"
             />
             百分制、五级制、补考
           </span>
           <span class="inline-flex items-center gap-2">
             <UIcon
               name="i-lucide-award"
-              class="size-4 text-amber-600"
+              class="size-4 text-amber-600 dark:text-amber-300"
             />
             奖项条件与兼得规则
           </span>
           <span class="inline-flex items-center gap-2">
             <UIcon
               name="i-lucide-shield-check"
-              class="size-4 text-sky-700"
+              class="size-4 text-sky-700 dark:text-sky-300"
             />
             每条保留官方来源
           </span>

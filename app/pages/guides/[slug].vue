@@ -133,15 +133,15 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-7 md:py-10">
         <nav
-          class="flex items-center gap-2 text-xs text-zinc-500"
+          class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
           aria-label="当前位置"
         >
           <NuxtLink
             to="/guides"
-            class="inline-flex min-h-10 items-center hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700 dark:hover:text-green-400"
           >
             新生指南
           </NuxtLink>
@@ -149,13 +149,13 @@ onBeforeUnmount(() => {
             name="i-lucide-chevron-right"
             class="size-3.5"
           />
-          <span class="truncate text-zinc-700">{{ guide.shortTitle }}</span>
+          <span class="truncate text-zinc-700 dark:text-zinc-200">{{ guide.shortTitle }}</span>
         </nav>
 
         <div class="mt-5 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div class="max-w-3xl">
             <div class="flex items-center gap-3">
-              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
                 <UIcon
                   :name="guide.icon"
                   class="size-5"
@@ -172,10 +172,10 @@ onBeforeUnmount(() => {
                 {{ guideStatePresentation(guide.status).label }}
               </UBadge>
             </div>
-            <h1 class="mt-4 text-2xl font-bold text-zinc-950 md:text-3xl">
+            <h1 class="mt-4 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               {{ guide.title }}
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
+            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
               {{ guide.summary }}
             </p>
           </div>
@@ -209,7 +209,7 @@ onBeforeUnmount(() => {
       <article class="mx-auto min-w-0 max-w-4xl">
         <div
           v-if="fallbackMessage"
-          class="mb-4 flex items-start gap-2 border-l-2 border-blue-500 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900"
+          class="mb-4 flex items-start gap-2 border-l-2 border-blue-500 bg-blue-50 dark:bg-blue-950 px-3 py-2 text-xs leading-5 text-blue-900 dark:text-blue-300"
           role="status"
         >
           <UIcon
@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
 
         <div
           class="border-l-4 px-4 py-3.5 text-sm leading-6"
-          :class="guide.status === 'verified' ? 'border-blue-600 bg-blue-50 text-blue-950' : 'border-orange-500 bg-orange-50 text-orange-950'"
+          :class="guide.status === 'verified' ? 'border-blue-600 bg-blue-50 dark:bg-blue-950 dark:bg-blue-950 text-blue-950 dark:text-blue-300' : 'border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 dark:bg-orange-950 text-orange-950'"
           role="status"
         >
           <p class="font-semibold">
@@ -243,19 +243,19 @@ onBeforeUnmount(() => {
           v-if="guide.sections.length > 1"
           id="guide-contents"
           ref="contentsDetails"
-          class="group mt-5 overflow-hidden rounded-md border border-zinc-200 bg-white"
+          class="group mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
         >
           <summary
-            class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3.5 text-sm font-semibold text-zinc-800 marker:hidden focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
+            class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3.5 text-sm font-semibold text-zinc-800 dark:text-zinc-100 marker:hidden focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
           >
             <span class="flex items-center gap-2">
               <UIcon
                 name="i-lucide-list"
-                class="size-4 text-green-700"
+                class="size-4 text-green-700 dark:text-green-400"
               />
               快速跳到
             </span>
-            <span class="flex items-center gap-2 text-xs font-normal text-zinc-500">
+            <span class="flex items-center gap-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">
               共 {{ guide.sections.length }} 个部分
               <UIcon
                 name="i-lucide-chevron-down"
@@ -264,14 +264,14 @@ onBeforeUnmount(() => {
             </span>
           </summary>
           <nav
-            class="grid grid-cols-2 gap-2 border-t border-zinc-200 bg-zinc-50/70 p-2.5 sm:grid-cols-3"
+            class="grid grid-cols-2 gap-2 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/70 p-2.5 sm:grid-cols-3"
             aria-label="本页内容"
           >
             <a
               v-for="(section, index) in guide.sections"
               :key="section.title"
               :href="`#${guideSectionId(guide.slug, section.title, index)}`"
-              class="inline-flex min-h-11 min-w-0 items-center rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium leading-5 text-zinc-700 transition-colors hover:border-green-300 hover:text-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="inline-flex min-h-11 min-w-0 items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-xs font-medium leading-5 text-zinc-700 dark:text-zinc-200 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             >
               <span class="line-clamp-2">{{ studentFacingGuideSectionTitle(section.title) }}</span>
             </a>
@@ -287,31 +287,31 @@ onBeforeUnmount(() => {
           <span
             v-if="index < guide.sections.length - 1"
             aria-hidden="true"
-            class="absolute -bottom-7 left-4 top-16 w-px bg-zinc-200"
+            class="absolute -bottom-7 left-4 top-16 w-px bg-zinc-200 dark:bg-zinc-800"
           />
           <div class="min-w-0">
-            <span class="absolute left-0 top-7 grid size-8 place-items-center rounded-md border border-zinc-200 bg-white text-green-700 shadow-sm transition-colors group-hover:border-green-300 group-hover:bg-green-50">
+            <span class="absolute left-0 top-7 grid size-8 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 shadow-sm transition-colors group-hover:border-green-300 dark:group-hover:border-green-700 group-hover:bg-green-50 dark:group-hover:bg-green-950">
               <UIcon
                 :name="section.icon"
                 class="size-4"
               />
             </span>
-            <p class="text-xs font-medium text-zinc-400">
+            <p class="text-xs font-medium text-zinc-400 dark:text-zinc-500">
               {{ String(index + 1).padStart(2, '0') }}
             </p>
-            <h2 class="text-lg font-bold text-zinc-950">
+            <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
               {{ studentFacingGuideSectionTitle(section.title) }}
             </h2>
             <p
               v-if="!section.items.length && guideSectionHook(section)"
-              class="mt-1.5 line-clamp-1 text-sm font-medium text-zinc-600"
+              class="mt-1.5 line-clamp-1 text-sm font-medium text-zinc-600 dark:text-zinc-300"
             >
               先看：{{ guideSectionHook(section) }}
             </p>
           </div>
           <p
             v-if="section.description"
-            class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600"
+            class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600 dark:text-zinc-300"
           >
             {{ section.description }}
           </p>
@@ -322,18 +322,18 @@ onBeforeUnmount(() => {
             <li
               v-for="item in section.items"
               :key="item"
-              class="flex items-start gap-3 text-sm leading-7 text-zinc-700"
+              class="flex items-start gap-3 text-sm leading-7 text-zinc-700 dark:text-zinc-200"
             >
               <UIcon
                 name="i-lucide-check"
-                class="mt-1.5 size-4 shrink-0 text-green-700"
+                class="mt-1.5 size-4 shrink-0 text-green-700 dark:text-green-400"
               />
               <span>{{ item }}</span>
             </li>
           </ul>
           <p
             v-if="section.notice"
-            class="mt-5 text-sm leading-6 text-orange-800"
+            class="mt-5 text-sm leading-6 text-orange-800 dark:text-orange-300"
           >
             {{ section.notice }}
           </p>
@@ -390,13 +390,13 @@ onBeforeUnmount(() => {
       <a
         v-if="showContentsShortcut"
         href="#guide-contents"
-        class="fixed bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] right-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-800 shadow-lg shadow-zinc-950/10 hover:border-green-300 hover:text-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 md:hidden"
+        class="fixed bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] right-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 shadow-lg shadow-zinc-950/10 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 md:hidden"
         aria-label="返回本页目录"
         @click="openContents"
       >
         <UIcon
           name="i-lucide-list"
-          class="size-4 text-green-700"
+          class="size-4 text-green-700 dark:text-green-400"
         />
         查看目录
       </a>

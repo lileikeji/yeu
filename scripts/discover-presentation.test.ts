@@ -92,7 +92,7 @@ test('discover task preview keeps the mobile page manageable', () => {
   assert.match(pageSource, /grid grid-cols-2 gap-2\.5 sm:gap-3/)
   assert.match(pageSource, /min-h-20 items-center gap-2\.5[\s\S]*sm:min-h-24 sm:gap-3/)
   assert.match(pageSource, /entry\.when/)
-  assert.match(pageSource, /hidden text-xs leading-5 text-zinc-600 sm:block/)
+  assert.match(pageSource, /hidden(?:\s+dark:[^"\s]+)*\s+text-xs(?:\s+dark:[^"\s]+)*\s+leading-5(?:\s+dark:[^"\s]+)*\s+text-zinc-600(?:\s+dark:[^"\s]+)*\s+sm:block(?:\s+dark:[^"\s]+)*/)
   assert.doesNotMatch(pageSource, />\s*查看\s*<UIcon/)
 })
 

@@ -117,15 +117,15 @@ const feedbackLink = computed(() => content.value
 
 <template>
   <div v-if="department">
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <nav
-          class="flex items-center gap-2 text-xs text-zinc-500"
+          class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
           aria-label="当前位置"
         >
           <NuxtLink
             to="/departments"
-            class="inline-flex min-h-10 items-center hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700 dark:hover:text-green-400"
           >校内部门</NuxtLink>
           <UIcon
             name="i-lucide-chevron-right"
@@ -135,14 +135,14 @@ const feedbackLink = computed(() => content.value
         </nav>
         <div class="mt-5 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div class="max-w-3xl">
-            <span class="grid size-11 place-items-center rounded-md bg-blue-50 text-blue-700">
+            <span class="grid size-11 place-items-center rounded-md bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
               <UIcon
                 name="i-lucide-landmark"
                 class="size-5"
               />
             </span>
             <div class="mt-4 flex flex-wrap items-center gap-3">
-              <h1 class="text-2xl font-bold text-zinc-950 md:text-3xl">
+              <h1 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
                 {{ department.name }}
               </h1>
               <UButton
@@ -154,7 +154,7 @@ const feedbackLink = computed(() => content.value
                 @click="shareDepartment"
               />
             </div>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
+            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
               {{ department.summary }}
             </p>
           </div>
@@ -176,16 +176,16 @@ const feedbackLink = computed(() => content.value
       <article class="mx-auto min-w-0 max-w-4xl">
         <section
           v-if="departmentUseCases.length || contactPreparation || usageSuggestion"
-          class="border-b border-zinc-200 pb-8"
+          class="border-b border-zinc-200 dark:border-zinc-800 pb-8"
         >
-          <h2 class="text-lg font-bold text-zinc-950">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ departmentSectionLabels.firstLook }}
           </h2>
           <div class="mt-4 grid gap-3 md:grid-cols-3">
             <div
               v-for="item in departmentUseCases"
               :key="item"
-              class="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm leading-6 text-blue-950"
+              class="rounded-lg border border-blue-100 bg-blue-50/60 dark:bg-blue-950/60 p-4 text-sm leading-6 text-blue-950 dark:text-blue-300"
             >
               {{ item }}
             </div>
@@ -193,23 +193,23 @@ const feedbackLink = computed(() => content.value
           <div class="mt-4 grid gap-3 md:grid-cols-2">
             <div
               v-if="contactPreparation"
-              class="rounded-lg border border-zinc-200 bg-white p-4"
+              class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
             >
-              <p class="text-xs font-semibold text-zinc-500">
+              <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 咨询前准备
               </p>
-              <p class="mt-2 text-sm leading-6 text-zinc-700">
+              <p class="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
                 {{ contactPreparation }}
               </p>
             </div>
             <div
               v-if="usageSuggestion"
-              class="rounded-lg border border-zinc-200 bg-white p-4"
+              class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
             >
-              <p class="text-xs font-semibold text-zinc-500">
+              <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 使用建议
               </p>
-              <p class="mt-2 text-sm leading-6 text-zinc-700">
+              <p class="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
                 {{ usageSuggestion }}
               </p>
             </div>
@@ -229,24 +229,24 @@ const feedbackLink = computed(() => content.value
           v-if="department.address || phoneContacts.length || department.email || department.officeHours || contactSection.kind === 'pending'"
           class="py-7"
         >
-          <h2 class="text-lg font-bold text-zinc-950">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ departmentSectionLabels.publicContact }}
           </h2>
           <p
             v-if="verificationSummary"
-            class="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950"
+            class="mt-3 rounded-lg border border-emerald-100 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm leading-6 text-emerald-950 dark:text-emerald-300"
           >
             {{ verificationSummary }}
           </p>
-          <dl class="mt-4 divide-y divide-zinc-100 border-y border-zinc-200 text-sm">
+          <dl class="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 text-sm">
             <div
               v-if="department.address"
               class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 地址
               </dt>
-              <dd class="text-right font-medium text-zinc-900">
+              <dd class="text-right font-medium text-zinc-900 dark:text-zinc-100">
                 {{ department.address }}
               </dd>
             </div>
@@ -254,7 +254,7 @@ const feedbackLink = computed(() => content.value
               v-if="phoneContacts.length"
               class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="shrink-0 text-zinc-500">
+              <dt class="shrink-0 text-zinc-500 dark:text-zinc-400">
                 电话
               </dt>
               <dd class="min-w-0 text-right">
@@ -288,18 +288,18 @@ const feedbackLink = computed(() => content.value
               v-if="department.email"
               class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="shrink-0 text-zinc-500">
+              <dt class="shrink-0 text-zinc-500 dark:text-zinc-400">
                 邮箱
               </dt>
               <dd class="min-w-0 break-all text-right">
                 <a
                   v-if="emailHref"
                   :href="emailHref"
-                  class="inline-flex min-h-11 items-center break-all font-medium text-green-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                  class="inline-flex min-h-11 items-center break-all font-medium text-green-700 dark:text-green-400 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
                 >{{ department.email }}</a>
                 <span
                   v-else
-                  class="font-medium text-zinc-900"
+                  class="font-medium text-zinc-900 dark:text-zinc-100"
                 >{{ department.email }}</span>
               </dd>
             </div>
@@ -307,17 +307,17 @@ const feedbackLink = computed(() => content.value
               v-if="department.officeHours"
               class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 服务时间
               </dt>
-              <dd class="text-right font-medium text-zinc-900">
+              <dd class="text-right font-medium text-zinc-900 dark:text-zinc-100">
                 {{ department.officeHours }}
               </dd>
             </div>
           </dl>
           <div
             v-if="contactSection.kind === 'pending'"
-            class="mt-4 border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+            class="mt-4 border-l-4 border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-sm leading-6 text-amber-950"
             role="status"
           >
             <div class="flex items-start gap-2">
@@ -337,7 +337,7 @@ const feedbackLink = computed(() => content.value
           </div>
           <p
             v-else-if="!department.address && !department.officeHours"
-            class="mt-4 text-sm leading-6 text-zinc-500"
+            class="mt-4 text-sm leading-6 text-zinc-500 dark:text-zinc-400"
           >
             {{ departmentSectionLabels.emptyContact }}
           </p>
@@ -348,7 +348,7 @@ const feedbackLink = computed(() => content.value
 
         <div
           v-if="contactSection.kind === 'pending'"
-          class="border-b border-zinc-200 pb-7"
+          class="border-b border-zinc-200 dark:border-zinc-800 pb-7"
         >
           <UButton
             :to="feedbackLink"

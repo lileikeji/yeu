@@ -128,22 +128,22 @@ const reset = (): void => {
 </script>
 
 <template>
-  <div class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm md:p-7">
+  <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm md:p-7">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="max-w-2xl">
-        <p class="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <p class="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           综合测评加分计算器
         </p>
-        <h3 class="mt-1 text-xl font-bold text-zinc-900 md:text-2xl">
+        <h3 class="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100 md:text-2xl">
           按 2025 版办法估算总成绩
         </h3>
-        <p class="mt-1.5 text-sm leading-6 text-zinc-600">
+        <p class="mt-1.5 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
           综测由德育、智育、体育三部分构成，下方先选各板块的加分项，再自动累加出总分。同一项目、同一作品或同类任职按最高项计、不重复累计；各板块奖励设上限，最终以学院当年审核为准。
         </p>
       </div>
       <button
         type="button"
-        class="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-zinc-300 px-3.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+        class="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 px-3.5 text-sm font-medium text-zinc-700 dark:text-zinc-200 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
         @click="reset"
       >
         清空重选
@@ -151,47 +151,47 @@ const reset = (): void => {
     </div>
 
     <!-- 实时汇总：选择加分项时始终可见 -->
-    <div class="sticky top-[calc(var(--header-height)+0.75rem)] z-20 mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-zinc-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-        <span>德育 <strong class="ml-0.5 font-bold text-zinc-900 tabular-nums">{{ sections.moral.subtotal.toFixed(2) }}</strong></span>
-        <span class="text-zinc-300">+</span>
-        <span>智育 <strong class="ml-0.5 font-bold text-zinc-900 tabular-nums">{{ sections.intellectual.subtotal.toFixed(2) }}</strong></span>
-        <span class="text-zinc-300">+</span>
-        <span>体育 <strong class="ml-0.5 font-bold text-zinc-900 tabular-nums">{{ sections.sports.subtotal.toFixed(2) }}</strong></span>
-        <span class="text-zinc-300">=</span>
+    <div class="sticky top-[calc(var(--header-height)+0.75rem)] z-20 mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 shadow-sm backdrop-blur">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+        <span>德育 <strong class="ml-0.5 font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ sections.moral.subtotal.toFixed(2) }}</strong></span>
+        <span class="text-zinc-300 dark:text-zinc-600">+</span>
+        <span>智育 <strong class="ml-0.5 font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ sections.intellectual.subtotal.toFixed(2) }}</strong></span>
+        <span class="text-zinc-300 dark:text-zinc-600">+</span>
+        <span>体育 <strong class="ml-0.5 font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ sections.sports.subtotal.toFixed(2) }}</strong></span>
+        <span class="text-zinc-300 dark:text-zinc-600">=</span>
       </div>
-      <p class="text-2xl font-bold text-zinc-900 tabular-nums">
-        {{ sections.total.toFixed(2) }}<span class="ml-1 text-sm font-normal text-zinc-400">/ 100 分</span>
+      <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+        {{ sections.total.toFixed(2) }}<span class="ml-1 text-sm font-normal text-zinc-400 dark:text-zinc-500">/ 100 分</span>
       </p>
     </div>
 
     <!-- 德育板块 -->
     <section class="mt-7">
-      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-2.5">
-        <p class="text-base font-semibold text-zinc-900">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+        <p class="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           德育
-          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.moral.base.toFixed(2) }} + 奖励（上限 {{ zongceStructure.moral.rewardCap }}）</span>
+          <span class="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">基础 {{ sections.moral.base.toFixed(2) }} + 奖励（上限 {{ zongceStructure.moral.rewardCap }}）</span>
         </p>
-        <p class="text-lg font-bold text-zinc-900 tabular-nums">
-          {{ sections.moral.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400">/ 25 分</span>
+        <p class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+          {{ sections.moral.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400 dark:text-zinc-500">/ 25 分</span>
         </p>
       </div>
 
       <!-- 德育基础分：辅导员评分 + 班内互评（均按满分估算） -->
-      <div class="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4">
+      <div class="mt-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/60 p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="text-sm font-semibold text-zinc-800">
+          <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             德育基础分（评分制）
-            <span class="ml-1 font-normal text-zinc-500">基础分由辅导员/班主任按标准评分，满分 6 分（5.4-6 分人数不超过 20%）</span>
+            <span class="ml-1 font-normal text-zinc-500 dark:text-zinc-400">基础分由辅导员/班主任按标准评分，满分 6 分（5.4-6 分人数不超过 20%）</span>
           </p>
-          <p class="text-sm text-zinc-600">
+          <p class="text-sm text-zinc-600 dark:text-zinc-300">
             基础合计
-            <strong class="ml-1 text-lg font-bold text-zinc-900 tabular-nums">{{ sections.moral.base.toFixed(2) }}</strong>
-            <span class="text-xs text-zinc-400">/ 12</span>
+            <strong class="ml-1 text-lg font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ sections.moral.base.toFixed(2) }}</strong>
+            <span class="text-xs text-zinc-400 dark:text-zinc-500">/ 12</span>
           </p>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          <label class="flex items-center gap-2 text-zinc-600">
+          <label class="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
             德育基础分
             <input
               v-model.number="moralBaseScore"
@@ -199,11 +199,11 @@ const reset = (): void => {
               min="0"
               max="6"
               step="0.1"
-              class="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+              class="w-20 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
               aria-label="德育基础分"
-            /><span class="text-xs text-zinc-400">/ 6</span>
+            /><span class="text-xs text-zinc-400 dark:text-zinc-500">/ 6</span>
           </label>
-          <label class="flex items-center gap-2 text-zinc-600">
+          <label class="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
             班内互评分
             <input
               v-model.number="peerReviewScore"
@@ -211,12 +211,12 @@ const reset = (): void => {
               min="0"
               max="6"
               step="0.1"
-              class="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+              class="w-20 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
               aria-label="班内互评分"
-            /><span class="text-xs text-zinc-400">/ 6</span>
+            /><span class="text-xs text-zinc-400 dark:text-zinc-500">/ 6</span>
           </label>
         </div>
-        <p class="mt-2 text-xs leading-5 text-zinc-500">
+        <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
           班内互评分 =（个人自评 + 其他参评人员评分总和）÷ 全部参评人数，最高 6 分。德育基础分多数同学不足 6 分（5.4-6 分人数不超过 20%），不调整时按满分估算。
         </p>
       </div>
@@ -225,15 +225,15 @@ const reset = (): void => {
         <div
           v-for="category in zongceBonusCategories.filter(c => ['moral-honor','moral-work','moral-competition','moral-others'].includes(c.id))"
           :key="category.id"
-          class="rounded-lg border border-zinc-200 bg-zinc-50/50 p-4"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/50 p-4"
         >
-          <p class="text-sm font-semibold text-zinc-800">
+          <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             {{ category.label.replace(/^德育奖励·/, '') }}
-            <span v-if="category.cap" class="ml-1 text-xs font-normal text-zinc-400">上限 {{ category.cap }} 分</span>
+            <span v-if="category.cap" class="ml-1 text-xs font-normal text-zinc-400 dark:text-zinc-500">上限 {{ category.cap }} 分</span>
           </p>
-          <div v-for="item in category.items" :key="item.id" class="mt-3 border-t border-zinc-100 pt-3">
-            <p class="text-sm font-medium text-zinc-800">{{ item.name }}</p>
-            <p v-if="item.note" class="mt-0.5 text-xs leading-5 text-zinc-500">{{ item.note }}</p>
+          <div v-for="item in category.items" :key="item.id" class="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+            <p class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ item.name }}</p>
+            <p v-if="item.note" class="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{{ item.note }}</p>
             <div v-if="item.levels && item.levels.length" class="mt-2 flex flex-wrap gap-1.5">
               <button
                 v-for="lv in item.levels"
@@ -241,15 +241,15 @@ const reset = (): void => {
                 type="button"
                 class="rounded-md border px-2.5 py-1 text-xs transition-colors"
                 :class="isLevelSelected(item, lv.level)
-                  ? 'border-zinc-900 bg-zinc-900 text-white'
-                  : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
+                  ? 'border-zinc-900 bg-zinc-900 dark:bg-zinc-700 text-white'
+                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-zinc-500 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'"
                 @click="toggleLevel(item, lv.level)"
               >{{ lv.level }} +{{ lv.points }}
               </button>
             </div>
             <p
               v-if="item.multi && selectedLevelPoints(item) > 0"
-              class="mt-1.5 text-xs text-zinc-500"
+              class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400"
             >
               已选累计 {{ selectedLevelPoints(item).toFixed(2) }} 分（可多选，计入本板块上限；同一比赛/作品/证书只选最高档）
             </p>
@@ -257,20 +257,20 @@ const reset = (): void => {
               <input
                 type="number"
                 min="0"
-                class="w-24 rounded-md border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+                class="w-24 rounded-md border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
                 v-model.number="qty[item.id]"
                 :aria-label="item.name + '数量'"
               />
-              <span class="text-xs text-zinc-500">次 / 项 × {{ item.points }} 分{{ item.cap ? '（最多 ' + item.cap + ' 分）' : '' }}</span>
+              <span class="text-xs text-zinc-500 dark:text-zinc-400">次 / 项 × {{ item.points }} 分{{ item.cap ? '（最多 ' + item.cap + ' 分）' : '' }}</span>
             </div>
             <div v-else class="mt-2 flex items-center gap-2">
-              <span class="text-sm font-medium text-zinc-700">+{{ item.points }} 分</span>
+              <span class="text-sm font-medium text-zinc-700 dark:text-zinc-200">+{{ item.points }} 分</span>
               <button
                 type="button"
                 class="rounded-md border px-2.5 py-1 text-xs transition-colors"
                 :class="qty[item.id] === undefined || qty[item.id] === 0
-                  ? 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'
-                  : 'border-zinc-900 bg-zinc-900 text-white'"
+                  ? 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-zinc-500 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  : 'border-zinc-900 bg-zinc-900 dark:bg-zinc-700 text-white'"
                 @click="qty[item.id] = qty[item.id] ? 0 : 1"
               >{{ qty[item.id] ? '已计入' : '计入' }}
               </button>
@@ -282,31 +282,31 @@ const reset = (): void => {
 
     <!-- 智育板块 -->
     <section class="mt-8">
-      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-2.5">
-        <p class="text-base font-semibold text-zinc-900">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+        <p class="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           智育
-          <span class="ml-2 text-xs font-normal text-zinc-500">基础（按成绩，当前 {{ sections.intellectual.base.toFixed(2) }}）+ 奖励（上限 {{ zongceStructure.intellectual.rewardCap }}）</span>
+          <span class="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">基础（按成绩，当前 {{ sections.intellectual.base.toFixed(2) }}）+ 奖励（上限 {{ zongceStructure.intellectual.rewardCap }}）</span>
         </p>
-        <p class="text-lg font-bold text-zinc-900 tabular-nums">
-          {{ sections.intellectual.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400">/ 70 分</span>
+        <p class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+          {{ sections.intellectual.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400 dark:text-zinc-500">/ 70 分</span>
         </p>
       </div>
 
       <!-- 智育基础分：按成绩折算 -->
-      <div class="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4">
+      <div class="mt-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/60 p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="text-sm font-semibold text-zinc-800">
+          <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             智育基础分（按成绩）
-            <span class="ml-1 font-normal text-zinc-500">=（本人平均成绩 ÷ 本专业最高平均成绩）× 60</span>
+            <span class="ml-1 font-normal text-zinc-500 dark:text-zinc-400">=（本人平均成绩 ÷ 本专业最高平均成绩）× 60</span>
           </p>
-          <p class="text-sm text-zinc-600">
+          <p class="text-sm text-zinc-600 dark:text-zinc-300">
             基础分
-            <strong class="ml-1 text-lg font-bold text-zinc-900 tabular-nums">{{ intellectualBase.toFixed(2) }}</strong>
-            <span class="text-xs text-zinc-400">/ 60</span>
+            <strong class="ml-1 text-lg font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ intellectualBase.toFixed(2) }}</strong>
+            <span class="text-xs text-zinc-400 dark:text-zinc-500">/ 60</span>
           </p>
         </div>
         <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          <label class="flex items-center gap-2 text-zinc-600">
+          <label class="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
             我的平均成绩
             <input
               v-model.number="myAvgScore"
@@ -314,12 +314,12 @@ const reset = (): void => {
               min="0"
               max="100"
               step="0.1"
-              class="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+              class="w-24 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
               placeholder="如 86"
               aria-label="我的平均成绩"
             />
           </label>
-          <label class="flex items-center gap-2 text-zinc-600">
+          <label class="flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
             本专业最高平均成绩
             <input
               v-model.number="maxAvgScore"
@@ -327,13 +327,13 @@ const reset = (): void => {
               min="0"
               max="100"
               step="0.1"
-              class="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+              class="w-24 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
               placeholder="如 90"
               aria-label="本专业最高平均成绩"
             />
           </label>
         </div>
-        <p class="mt-2 text-xs leading-5 text-zinc-500">
+        <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
           智育基础分 = 我的平均成绩 ÷ <strong>本专业最高平均成绩</strong> × 60（满分 60）。只有达到本专业最高平均成绩才得满分 60，成绩低一截就按比例折算——<strong>分母是本专业最高分，不是班级平均分</strong>；低于最高分不会自动拿满分。两个输入框都填好即自动折算，未填按满分 60 估算。
         </p>
       </div>
@@ -342,15 +342,15 @@ const reset = (): void => {
         <div
           v-for="category in zongceBonusCategories.filter(c => ['intellectual-research','intellectual-cert'].includes(c.id))"
           :key="category.id"
-          class="rounded-lg border border-zinc-200 bg-zinc-50/50 p-4"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/50 p-4"
         >
-          <p class="text-sm font-semibold text-zinc-800">
+          <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             {{ category.label.replace(/^智育奖励·/, '') }}
-            <span v-if="category.cap" class="ml-1 text-xs font-normal text-zinc-400">上限 {{ category.cap }} 分</span>
+            <span v-if="category.cap" class="ml-1 text-xs font-normal text-zinc-400 dark:text-zinc-500">上限 {{ category.cap }} 分</span>
           </p>
-          <div v-for="item in category.items" :key="item.id" class="mt-3 border-t border-zinc-100 pt-3">
-            <p class="text-sm font-medium text-zinc-800">{{ item.name }}</p>
-            <p v-if="item.note" class="mt-0.5 text-xs leading-5 text-zinc-500">{{ item.note }}</p>
+          <div v-for="item in category.items" :key="item.id" class="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+            <p class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ item.name }}</p>
+            <p v-if="item.note" class="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{{ item.note }}</p>
             <div v-if="item.levels && item.levels.length" class="mt-2 flex flex-wrap gap-1.5">
               <button
                 v-for="lv in item.levels"
@@ -358,15 +358,15 @@ const reset = (): void => {
                 type="button"
                 class="rounded-md border px-2.5 py-1 text-xs transition-colors"
                 :class="isLevelSelected(item, lv.level)
-                  ? 'border-zinc-900 bg-zinc-900 text-white'
-                  : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
+                  ? 'border-zinc-900 bg-zinc-900 dark:bg-zinc-700 text-white'
+                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-zinc-500 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'"
                 @click="toggleLevel(item, lv.level)"
               >{{ lv.level }} +{{ lv.points }}
               </button>
             </div>
             <p
               v-if="item.multi && selectedLevelPoints(item) > 0"
-              class="mt-1.5 text-xs text-zinc-500"
+              class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400"
             >
               已选累计 {{ selectedLevelPoints(item).toFixed(2) }} 分（可多选，计入本板块上限；同一比赛/作品/证书只选最高档）
             </p>
@@ -374,11 +374,11 @@ const reset = (): void => {
               <input
                 type="number"
                 min="0"
-                class="w-24 rounded-md border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+                class="w-24 rounded-md border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
                 v-model.number="qty[item.id]"
                 :aria-label="item.name + '数量'"
               />
-              <span class="text-xs text-zinc-500">次 / 项 × {{ item.points }} 分{{ item.cap ? '（最多 ' + item.cap + ' 分）' : '' }}</span>
+              <span class="text-xs text-zinc-500 dark:text-zinc-400">次 / 项 × {{ item.points }} 分{{ item.cap ? '（最多 ' + item.cap + ' 分）' : '' }}</span>
             </div>
           </div>
         </div>
@@ -387,33 +387,33 @@ const reset = (): void => {
 
     <!-- 体育板块 -->
     <section class="mt-8">
-      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-2.5">
-        <p class="text-base font-semibold text-zinc-900">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2.5">
+        <p class="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           体育
-          <span class="ml-2 text-xs font-normal text-zinc-500">基础 {{ sections.sports.base }}（及格 3 / 不及格 1）+ 奖励（上限 {{ zongceStructure.sports.rewardCap }}）</span>
+          <span class="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">基础 {{ sections.sports.base }}（及格 3 / 不及格 1）+ 奖励（上限 {{ zongceStructure.sports.rewardCap }}）</span>
         </p>
-        <p class="text-lg font-bold text-zinc-900 tabular-nums">
-          {{ sections.sports.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400">/ 5 分</span>
+        <p class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+          {{ sections.sports.subtotal.toFixed(2) }} <span class="text-xs font-normal text-zinc-400 dark:text-zinc-500">/ 5 分</span>
         </p>
       </div>
 
       <!-- 体育基础分：看体育课与体测是否及格 -->
-      <div class="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4">
-        <p class="text-sm font-semibold text-zinc-800">
+      <div class="mt-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/60 p-4">
+        <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           体育基础分（看体测）
-          <span class="ml-1 font-normal text-zinc-500">体育课成绩与体质健康测试均 ≥ 60 分得 3 分；任一项不及格得 1 分</span>
+          <span class="ml-1 font-normal text-zinc-500 dark:text-zinc-400">体育课成绩与体质健康测试均 ≥ 60 分得 3 分；任一项不及格得 1 分</span>
         </p>
         <div class="mt-3 flex flex-wrap gap-2 text-sm">
           <button
             type="button"
             class="rounded-md border px-3 py-1.5 transition-colors"
-            :class="sportsPass ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
+            :class="sportsPass ? 'border-zinc-900 bg-zinc-900 dark:bg-zinc-700 dark:bg-zinc-700 text-white' : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 dark:text-zinc-300 hover:border-zinc-500 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'"
             @click="sportsPass = true"
           >体育课与体测均及格（基础 3 分）</button>
           <button
             type="button"
             class="rounded-md border px-3 py-1.5 transition-colors"
-            :class="!sportsPass ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
+            :class="!sportsPass ? 'border-zinc-900 bg-zinc-900 dark:bg-zinc-700 dark:bg-zinc-700 text-white' : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 dark:text-zinc-300 hover:border-zinc-500 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'"
             @click="sportsPass = false"
           >任一项不及格（基础 1 分）</button>
         </div>
@@ -423,15 +423,15 @@ const reset = (): void => {
         <div
           v-for="category in zongceBonusCategories.filter(c => c.id === 'sports')"
           :key="category.id"
-          class="rounded-lg border border-zinc-200 bg-zinc-50/50 p-4"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/50 p-4"
         >
-          <p class="text-sm font-semibold text-zinc-800">
+          <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             {{ category.label.replace(/^体育奖励（.+）/, '体育比赛') }}
-            <span v-if="category.cap" class="ml-1 text-xs font-normal text-zinc-400">上限 {{ category.cap }} 分</span>
+            <span v-if="category.cap" class="ml-1 text-xs font-normal text-zinc-400 dark:text-zinc-500">上限 {{ category.cap }} 分</span>
           </p>
-          <div v-for="item in category.items" :key="item.id" class="mt-3 border-t border-zinc-100 pt-3">
-            <p class="text-sm font-medium text-zinc-800">{{ item.name }}</p>
-            <p v-if="item.note" class="mt-0.5 text-xs leading-5 text-zinc-500">{{ item.note }}</p>
+          <div v-for="item in category.items" :key="item.id" class="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-3">
+            <p class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ item.name }}</p>
+            <p v-if="item.note" class="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{{ item.note }}</p>
             <div v-if="item.levels && item.levels.length" class="mt-2 flex flex-wrap gap-1.5">
               <button
                 v-for="lv in item.levels"
@@ -439,15 +439,15 @@ const reset = (): void => {
                 type="button"
                 class="rounded-md border px-2.5 py-1 text-xs transition-colors"
                 :class="isLevelSelected(item, lv.level)
-                  ? 'border-zinc-900 bg-zinc-900 text-white'
-                  : 'border-zinc-300 text-zinc-600 hover:border-zinc-500 hover:text-zinc-900'"
+                  ? 'border-zinc-900 bg-zinc-900 dark:bg-zinc-700 text-white'
+                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-zinc-500 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'"
                 @click="toggleLevel(item, lv.level)"
               >{{ lv.level }} +{{ lv.points }}
               </button>
             </div>
             <p
               v-if="item.multi && selectedLevelPoints(item) > 0"
-              class="mt-1.5 text-xs text-zinc-500"
+              class="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400"
             >
               已选累计 {{ selectedLevelPoints(item).toFixed(2) }} 分（可多选，计入本板块上限；同一比赛/作品/证书只选最高档）
             </p>
@@ -457,47 +457,47 @@ const reset = (): void => {
     </section>
 
     <!-- 总成绩 -->
-    <div class="mt-8 rounded-xl border border-zinc-200 bg-zinc-50 p-5 md:p-6">
-      <p class="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+    <div class="mt-8 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-5 md:p-6">
+      <p class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         总成绩估算
       </p>
       <div class="mt-4 grid gap-3 sm:grid-cols-3">
-        <div class="rounded-lg bg-white p-3 ring-1 ring-zinc-100">
-          <p class="text-xs text-zinc-500">德育小计</p>
-          <p class="mt-1 text-xl font-bold text-zinc-900 tabular-nums">{{ sections.moral.subtotal.toFixed(2) }}</p>
+        <div class="rounded-lg bg-white dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">德育小计</p>
+          <p class="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ sections.moral.subtotal.toFixed(2) }}</p>
         </div>
-        <div class="rounded-lg bg-white p-3 ring-1 ring-zinc-100">
-          <p class="text-xs text-zinc-500">智育小计</p>
-          <p class="mt-1 text-xl font-bold text-zinc-900 tabular-nums">{{ sections.intellectual.subtotal.toFixed(2) }}</p>
+        <div class="rounded-lg bg-white dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">智育小计</p>
+          <p class="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ sections.intellectual.subtotal.toFixed(2) }}</p>
         </div>
-        <div class="rounded-lg bg-white p-3 ring-1 ring-zinc-100">
-          <p class="text-xs text-zinc-500">体育小计</p>
-          <p class="mt-1 text-xl font-bold text-zinc-900 tabular-nums">{{ sections.sports.subtotal.toFixed(2) }}</p>
+        <div class="rounded-lg bg-white dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">体育小计</p>
+          <p class="mt-1 text-xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ sections.sports.subtotal.toFixed(2) }}</p>
         </div>
       </div>
-      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4">
-        <p class="text-sm text-zinc-600">
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-4">
+        <p class="text-sm text-zinc-600 dark:text-zinc-300">
           德育 {{ sections.moral.subtotal.toFixed(2) }} + 智育 {{ sections.intellectual.subtotal.toFixed(2) }} + 体育 {{ sections.sports.subtotal.toFixed(2) }}
-          <span class="text-zinc-400">=</span>
+          <span class="text-zinc-400 dark:text-zinc-500">=</span>
         </p>
-        <p class="text-4xl font-bold text-zinc-900 tabular-nums">
+        <p class="text-4xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
           {{ sections.total.toFixed(2) }}
-          <span class="text-base font-normal text-zinc-400">/ 100 分</span>
+          <span class="text-base font-normal text-zinc-400 dark:text-zinc-500">/ 100 分</span>
         </p>
       </div>
     </div>
 
     <!-- 常见扣分项 -->
     <div class="mt-7">
-      <p class="text-sm font-semibold text-zinc-900">常见扣分项（参考）</p>
-      <ul class="mt-2 grid gap-x-6 gap-y-0.5 text-xs text-zinc-600 sm:grid-cols-2">
-        <li v-for="d in deductionRows" :key="d.name" class="flex justify-between gap-2 border-b border-zinc-100 py-1.5">
-          <span>{{ d.name }}</span><span class="shrink-0 text-zinc-400">-{{ d.points }} 分{{ d.unit }}</span>
+      <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">常见扣分项（参考）</p>
+      <ul class="mt-2 grid gap-x-6 gap-y-0.5 text-xs text-zinc-600 dark:text-zinc-300 sm:grid-cols-2">
+        <li v-for="d in deductionRows" :key="d.name" class="flex justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 py-1.5">
+          <span>{{ d.name }}</span><span class="shrink-0 text-zinc-400 dark:text-zinc-500">-{{ d.points }} 分{{ d.unit }}</span>
         </li>
       </ul>
     </div>
 
-    <p class="mt-4 text-xs leading-5 text-zinc-400">
+    <p class="mt-4 text-xs leading-5 text-zinc-400 dark:text-zinc-500">
       本工具按 2025 版《仰恩大学学生综合测评实施办法》估算，覆盖德育 / 智育 / 体育三大板块（各含基础分与可选奖励项）。加分项目、级别归属和名额发放以学院当年审核与申报材料为准；同一称号 / 作品 / 任职按最高级别计一次，团体获奖分数减半。
     </p>
   </div>

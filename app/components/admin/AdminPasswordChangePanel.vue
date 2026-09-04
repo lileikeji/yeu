@@ -46,19 +46,19 @@ async function changePassword(): Promise<void> {
 <template>
   <section
     class="rounded-lg border p-5"
-    :class="required ? 'border-amber-300 bg-amber-50' : 'border-zinc-200 bg-white'"
+    :class="required ? 'border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'"
   >
     <div class="flex items-start gap-3">
       <UIcon
         :name="required ? 'i-lucide-shield-alert' : 'i-lucide-key-round'"
         class="mt-0.5 size-5 shrink-0"
-        :class="required ? 'text-amber-700' : 'text-zinc-600'"
+        :class="required ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-600 dark:text-zinc-300'"
       />
       <div>
-        <h2 class="font-bold text-zinc-950">
+        <h2 class="font-bold text-zinc-950 dark:text-zinc-100">
           {{ required ? '首次登录，请先修改密码' : '修改登录密码' }}
         </h2>
-        <p class="mt-1 text-sm leading-6 text-zinc-600">
+        <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
           新密码至少 12 位。修改后当前登录会退出，请使用新密码重新登录。
         </p>
       </div>
@@ -95,7 +95,7 @@ async function changePassword(): Promise<void> {
       <div class="md:col-span-3">
         <p
           v-if="errorMessage"
-          class="mb-3 text-sm text-red-700"
+          class="mb-3 text-sm text-red-700 dark:text-red-300"
           role="alert"
         >
           {{ errorMessage }}

@@ -107,15 +107,15 @@ function resetForm() {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
           {{ formCopy.kicker }}
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           {{ formCopy.title }}
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           {{ formCopy.description }}
         </p>
       </div>
@@ -125,7 +125,7 @@ function resetForm() {
       <section class="min-w-0">
         <div
           v-if="submitted"
-          class="border-y border-green-200 bg-green-50 px-5 py-10 text-center"
+          class="border-y border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-5 py-10 text-center"
           role="status"
         >
           <span class="mx-auto grid size-11 place-items-center rounded-full bg-green-700 text-white">
@@ -134,10 +134,10 @@ function resetForm() {
               class="size-5"
             />
           </span>
-          <h2 class="mt-4 text-lg font-bold text-green-950">
+          <h2 class="mt-4 text-lg font-bold text-green-950 dark:text-green-300">
             {{ formCopy.successTitle }}
           </h2>
-          <p class="mt-2 text-sm leading-6 text-green-800">
+          <p class="mt-2 text-sm leading-6 text-green-800 dark:text-green-300">
             {{ formCopy.successDescription }}
           </p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
@@ -163,45 +163,45 @@ function resetForm() {
         >
           <div
             v-if="isPrivacyRequest || targetType !== 'general' || pageUrl"
-            class="flex items-start gap-3 border-l-2 border-green-600 bg-green-50 px-4 py-3"
+            class="flex items-start gap-3 border-l-2 border-green-600 bg-green-50 dark:bg-green-950 px-4 py-3"
             role="status"
           >
             <UIcon
               :name="isPrivacyRequest ? 'i-lucide-shield-check' : targetIcon"
-              class="mt-0.5 size-4 shrink-0 text-green-700"
+              class="mt-0.5 size-4 shrink-0 text-green-700 dark:text-green-400"
             />
             <div class="min-w-0">
               <template v-if="isPrivacyRequest">
-                <p class="text-xs font-medium text-green-800">
+                <p class="text-xs font-medium text-green-800 dark:text-green-300">
                   申请内容
                 </p>
-                <p class="mt-0.5 text-sm font-bold text-green-950">
+                <p class="mt-0.5 text-sm font-bold text-green-950 dark:text-green-300">
                   查询或删除自己的信息
                 </p>
                 <p
                   v-if="pageUrl"
-                  class="mt-2 text-xs text-green-900"
+                  class="mt-2 text-xs text-green-900 dark:text-green-300"
                 >
                   从“隐私说明”进入
                 </p>
               </template>
               <template v-else>
                 <template v-if="targetType !== 'general'">
-                  <p class="text-xs font-medium text-green-800">
+                  <p class="text-xs font-medium text-green-800 dark:text-green-300">
                     正在反馈：{{ targetLabel }}
                   </p>
-                  <p class="mt-0.5 break-words text-sm font-bold text-green-950">
+                  <p class="mt-0.5 break-words text-sm font-bold text-green-950 dark:text-green-300">
                     {{ targetDisplayName }}
                   </p>
                 </template>
                 <template v-if="pageUrl">
                   <p
-                    class="text-xs font-semibold text-green-900"
+                    class="text-xs font-semibold text-green-900 dark:text-green-300"
                     :class="targetType !== 'general' ? 'mt-2' : ''"
                   >
                     {{ pageContextCopy.title }}
                   </p>
-                  <p class="mt-0.5 text-xs leading-5 text-green-800">
+                  <p class="mt-0.5 text-xs leading-5 text-green-800 dark:text-green-300">
                     {{ pageContextCopy.description }}
                   </p>
                 </template>
@@ -213,12 +213,12 @@ function resetForm() {
             <label
               v-if="!isDedicatedPrivacyRequest"
               for="feedback-reason"
-              class="text-sm font-semibold text-zinc-900"
+              class="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
             >{{ formCopy.reasonLabel }}</label>
             <p
               v-else
               id="feedback-reason-label"
-              class="text-sm font-semibold text-zinc-900"
+              class="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
             >
               {{ formCopy.reasonLabel }}
             </p>
@@ -226,7 +226,7 @@ function resetForm() {
               v-if="!isDedicatedPrivacyRequest"
               id="feedback-reason"
               v-model="reasonType"
-              class="mt-2 min-h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+              class="mt-2 min-h-11 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
             >
               <option
                 v-for="option in reasonOptions"
@@ -240,11 +240,11 @@ function resetForm() {
               v-else
               id="feedback-reason"
               aria-labelledby="feedback-reason-label"
-              class="mt-2 flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-900"
+              class="mt-2 flex min-h-11 items-center gap-2 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-3 text-sm font-semibold text-green-900 dark:text-green-300"
             >
               <UIcon
                 name="i-lucide-shield-check"
-                class="size-4 shrink-0 text-green-700"
+                class="size-4 shrink-0 text-green-700 dark:text-green-400"
               />
               查询或删除我的信息
             </div>
@@ -253,9 +253,9 @@ function resetForm() {
           <div>
             <label
               for="feedback-message"
-              class="text-sm font-semibold text-zinc-900"
-            >{{ formCopy.messageLabel }} <span class="text-red-600">*</span></label>
-            <p class="mt-1 text-xs leading-5 text-zinc-500">
+              class="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+            >{{ formCopy.messageLabel }} <span class="text-red-600 dark:text-red-400">*</span></label>
+            <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               {{ formCopy.messageHint }}
             </p>
             <UTextarea
@@ -271,48 +271,48 @@ function resetForm() {
             <div class="mt-1 flex items-start justify-between gap-3">
               <p
                 v-if="messageNeedsMoreDetail"
-                class="text-xs leading-5 text-orange-700"
+                class="text-xs leading-5 text-orange-700 dark:text-orange-300"
                 role="status"
               >
                 还需要再写一点才能提交。
               </p>
               <span v-else />
-              <p class="shrink-0 text-right text-xs text-zinc-400">
+              <p class="shrink-0 text-right text-xs text-zinc-400 dark:text-zinc-500">
                 {{ message.length }} / 4000
               </p>
             </div>
           </div>
 
           <details
-            class="group border-y border-zinc-200 bg-white"
+            class="group border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
             :open="isPrivacyRequest"
           >
             <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-1 py-3 [&::-webkit-details-marker]:hidden">
               <span class="flex min-w-0 items-start gap-3">
-                <span class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-sky-50 text-sky-700">
+                <span class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
                   <UIcon
                     name="i-lucide-paperclip"
                     class="size-4"
                   />
                 </span>
                 <span class="min-w-0">
-                  <span class="block text-sm font-semibold text-zinc-900">补充信息（选填）</span>
-                  <span class="mt-0.5 block text-xs leading-5 text-zinc-500">
+                  <span class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">补充信息（选填）</span>
+                  <span class="mt-0.5 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                     有学校通知链接，或希望我们回复时再填写
                   </span>
                 </span>
               </span>
               <UIcon
                 name="i-lucide-chevron-down"
-                class="size-5 shrink-0 text-zinc-500 transition-transform group-open:rotate-180"
+                class="size-5 shrink-0 text-zinc-500 dark:text-zinc-400 transition-transform group-open:rotate-180"
               />
             </summary>
 
-            <div class="grid gap-5 border-t border-zinc-100 px-1 py-5 md:grid-cols-2">
+            <div class="grid gap-5 border-t border-zinc-100 dark:border-zinc-800 px-1 py-5 md:grid-cols-2">
               <div>
                 <label
                   for="feedback-evidence"
-                  class="text-sm font-semibold text-zinc-900"
+                  class="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
                 >可以核对的链接</label>
                 <UInput
                   id="feedback-evidence"
@@ -328,7 +328,7 @@ function resetForm() {
               <div>
                 <label
                   for="feedback-contact"
-                  class="text-sm font-semibold text-zinc-900"
+                  class="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
                 >{{ formCopy.contactLabel }}</label>
                 <UInput
                   id="feedback-contact"
@@ -359,12 +359,12 @@ function resetForm() {
           </div>
 
           <div class="flex flex-col-reverse gap-3 border-t border-[var(--line)] pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs leading-5 text-zinc-500">
+            <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               请勿提交账号密码、证件、宿舍房间、他人私人手机号或未经同意的群二维码。
               提交即表示你已阅读
               <NuxtLink
                 to="/privacy"
-                class="-mx-1 inline-flex min-h-10 items-center px-1 align-middle font-medium text-green-700 hover:underline"
+                class="-mx-1 inline-flex min-h-10 items-center px-1 align-middle font-medium text-green-700 dark:text-green-400 hover:underline"
               >隐私说明</NuxtLink>。
             </p>
             <UButton
@@ -381,11 +381,11 @@ function resetForm() {
       </section>
 
       <aside class="order-first min-w-0 md:order-none">
-        <div class="border-l-2 border-sky-500 bg-sky-50/70 px-4 py-4 md:sticky md:top-24">
-          <h2 class="flex items-center gap-2 text-sm font-bold text-zinc-950">
+        <div class="border-l-2 border-sky-500 bg-sky-50/70 dark:bg-sky-950/70 px-4 py-4 md:sticky md:top-24">
+          <h2 class="flex items-center gap-2 text-sm font-bold text-zinc-950 dark:text-zinc-100">
             <UIcon
               name="i-lucide-list-checks"
-              class="size-4 text-sky-700"
+              class="size-4 text-sky-700 dark:text-sky-300"
             />
             {{ formCopy.sidebarTitle }}
           </h2>
@@ -393,7 +393,7 @@ function resetForm() {
             <li
               v-for="(item, index) in formCopy.sidebarItems"
               :key="item"
-              class="flex items-start gap-3 py-3 text-xs leading-5 text-zinc-700 first:pt-1 last:pb-0"
+              class="flex items-start gap-3 py-3 text-xs leading-5 text-zinc-700 dark:text-zinc-200 first:pt-1 last:pb-0"
             >
               <span
                 class="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"

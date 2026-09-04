@@ -39,7 +39,7 @@ const open = ref(false)
     :ui="{ content: 'w-[calc(100vw-1rem)] max-w-none sm:w-full sm:max-w-4xl' }"
   >
     <template #body>
-      <div class="flex min-h-0 items-center justify-center bg-zinc-50 p-1 sm:p-3">
+      <div class="flex min-h-0 items-center justify-center bg-zinc-50 dark:bg-zinc-800/60 p-1 sm:p-3">
         <img
           :src="src"
           :alt="alt"

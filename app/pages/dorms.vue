@@ -33,7 +33,7 @@ const dormTours: DormTour[] = [
     video: '/media/ordinary-dorm-tour.mp4',
     poster: '/images/panorama/ordinary-dorm-poster.jpg',
     icon: 'i-lucide-bed-single',
-    tone: 'border-sky-200 bg-sky-50 text-sky-950',
+    tone: 'border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950 text-sky-950 dark:text-sky-300',
     highlights: [
       '视频内可见上床下桌和储物柜',
       '洗衣、洗漱与卫生间位于公共区域',
@@ -50,7 +50,7 @@ const dormTours: DormTour[] = [
     video: '/media/comfort-dorm-tour.mp4',
     poster: '/images/panorama/comfort-dorm-poster.jpg',
     icon: 'i-lucide-bed-double',
-    tone: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+    tone: 'border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-950 dark:text-emerald-300',
     highlights: [
       '视频内可见床桌柜、空调和独立卫浴',
       '舒适型宿舍全天有热水，不使用普通宿舍水卡',
@@ -104,7 +104,7 @@ function selectDorm(id: DormId) {
               label="普通型宿舍"
               size="xl"
               color="neutral"
-              class="min-h-12 bg-white text-zinc-950 hover:bg-zinc-100"
+              class="min-h-12 bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
               @click="selectDorm('ordinary')"
             />
             <UButton
@@ -113,7 +113,7 @@ function selectDorm(id: DormId) {
               size="xl"
               color="neutral"
               variant="soft"
-              class="min-h-12 bg-white/85 text-zinc-950 hover:bg-white"
+              class="min-h-12 bg-white/85 dark:bg-zinc-900/85 text-zinc-950 dark:text-zinc-100 hover:bg-white dark:hover:bg-white:bg-zinc-900"
               @click="selectDorm('comfort')"
             />
           </div>
@@ -124,12 +124,12 @@ function selectDorm(id: DormId) {
     <main class="page-shell py-10 md:py-14">
       <section aria-labelledby="dorm-options-title">
         <div class="max-w-2xl">
-          <p class="text-sm font-semibold text-emerald-700">
+          <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
             两种住宿类型
           </p>
           <h2
             id="dorm-options-title"
-            class="mt-2 text-2xl font-black text-zinc-950 md:text-3xl"
+            class="mt-2 text-2xl font-black text-zinc-950 dark:text-zinc-100 md:text-3xl"
           >
             先选你想看的宿舍
           </h2>
@@ -180,16 +180,16 @@ function selectDorm(id: DormId) {
       >
         <div class="grid items-start gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
           <div>
-            <p class="text-sm font-semibold text-emerald-700">
+            <p class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
               正在看 · {{ activeDorm.duration }}
             </p>
             <h2
               :id="`${activeDorm.id}-title`"
-              class="mt-2 text-3xl font-black text-zinc-950"
+              class="mt-2 text-3xl font-black text-zinc-950 dark:text-zinc-100"
             >
               {{ activeDorm.name }}
             </h2>
-            <p class="mt-4 text-sm leading-7 text-zinc-600">
+            <p class="mt-4 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
               {{ activeDorm.detail }}
             </p>
 
@@ -197,7 +197,7 @@ function selectDorm(id: DormId) {
               <li
                 v-for="item in activeDorm.highlights"
                 :key="item"
-                class="flex gap-3 text-sm leading-6 text-zinc-700"
+                class="flex gap-3 text-sm leading-6 text-zinc-700 dark:text-zinc-200"
               >
                 <UIcon
                   name="i-lucide-circle-check"
@@ -228,13 +228,13 @@ function selectDorm(id: DormId) {
             </div>
           </div>
 
-          <div class="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-950 shadow-xl shadow-zinc-950/10">
+          <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-950 dark:bg-zinc-800 shadow-xl shadow-zinc-950/10">
             <video
               v-if="!videoFailed"
               :key="activeDorm.id"
               :src="activeDorm.video"
               :poster="activeDorm.poster"
-              class="mx-auto block aspect-[9/16] max-h-[48rem] w-full max-w-[27rem] bg-black object-contain"
+              class="mx-auto block aspect-[9/16] max-h-[48rem] w-full max-w-[27rem] bg-black dark:bg-zinc-900 object-contain"
               controls
               playsinline
               preload="metadata"
@@ -269,30 +269,30 @@ function selectDorm(id: DormId) {
         </div>
       </section>
 
-      <section class="border-t border-zinc-200 pt-8">
+      <section class="border-t border-zinc-200 dark:border-zinc-800 pt-8">
         <div class="grid gap-5 md:grid-cols-2">
-          <details class="group rounded-lg border border-amber-200 bg-amber-50 p-5">
+          <details class="group rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-5">
             <summary class="flex cursor-pointer list-none items-center justify-between gap-3 marker:hidden">
               <span class="text-sm font-bold text-amber-950">
                 实拍不是标准样板间
               </span>
               <UIcon
                 name="i-lucide-chevron-down"
-                class="size-4 shrink-0 text-amber-700 transition group-open:rotate-180"
+                class="size-4 shrink-0 text-amber-700 dark:text-amber-300 transition group-open:rotate-180"
               />
             </summary>
             <p class="mt-2 text-sm leading-6 text-amber-950/75">
               拍摄时间、楼栋、入住人数和个人布置都会影响画面。床位、家具、热水和公共设施以实际分配及学校最新安排为准。
             </p>
           </details>
-          <details class="group rounded-lg border border-sky-200 bg-sky-50 p-5">
+          <details class="group rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950 p-5">
             <summary class="flex cursor-pointer list-none items-center justify-between gap-3 marker:hidden">
-              <span class="text-sm font-bold text-sky-950">
+              <span class="text-sm font-bold text-sky-950 dark:text-sky-300">
                 影像来源与隐私说明
               </span>
               <UIcon
                 name="i-lucide-chevron-down"
-                class="size-4 shrink-0 text-sky-700 transition group-open:rotate-180"
+                class="size-4 shrink-0 text-sky-700 dark:text-sky-300 transition group-open:rotate-180"
               />
             </summary>
             <p class="mt-2 text-sm leading-6 text-sky-950/75">

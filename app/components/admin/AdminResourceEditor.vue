@@ -197,7 +197,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
     <template #body>
       <div
         v-if="formError"
-        class="mb-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        class="mb-4 flex items-start gap-2 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-300"
         role="alert"
       >
         <UIcon
@@ -221,11 +221,11 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
 
         <section
           v-if="isNoticeEditor"
-          class="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm"
+          class="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-4 shadow-sm"
           aria-labelledby="notice-display-settings-title"
         >
           <div class="flex items-start gap-3">
-            <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+            <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
               <UIcon
                 name="i-lucide-megaphone"
                 class="size-5"
@@ -258,11 +258,11 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
           :open="!group.label.includes('高级设置')"
           class="group"
         >
-          <summary class="flex cursor-pointer list-none items-center justify-between gap-2 border-b border-zinc-200 pb-2 text-sm font-semibold text-zinc-900 [&::-webkit-details-marker]:hidden">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100 [&::-webkit-details-marker]:hidden">
             <span>{{ group.label }}</span>
             <UIcon
               name="i-lucide-chevron-down"
-              class="size-4 text-zinc-400 transition-transform group-open:rotate-180"
+              class="size-4 text-zinc-400 dark:text-zinc-500 transition-transform group-open:rotate-180"
             />
           </summary>
           <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -288,16 +288,16 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                   <figure
                     v-for="(url, index) in listValues(field.key)"
                     :key="url"
-                    class="rounded-md border border-zinc-200 bg-zinc-50 p-3"
+                    class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
                   >
                     <ImagePreviewButton
                       :src="url"
                       :alt="`${field.label}第 ${index + 1} 张预览`"
-                      button-class="mx-auto aspect-square w-full max-w-40 rounded-md border border-zinc-200 bg-white"
+                      button-class="mx-auto aspect-square w-full max-w-40 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
                       image-class="size-full object-contain"
                     />
                     <div class="mt-2 flex items-center justify-between gap-2">
-                      <span class="text-xs font-medium text-zinc-500">
+                      <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                         第 {{ index + 1 }} 张
                       </span>
                       <UButton
@@ -312,7 +312,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                     </div>
                   </figure>
                 </div>
-                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 transition hover:border-green-400 hover:bg-green-50">
+                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
                   <UIcon
                     :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-images'"
                     class="size-4"
@@ -328,12 +328,12 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                     @change="uploadImageList(field.key, $event)"
                   >
                 </label>
-                <p class="text-xs leading-5 text-zinc-500">
+                <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                   已上传 {{ listValues(field.key).length }} / 8 张
                 </p>
                 <p
                   v-if="imageState(field.key).error"
-                  class="text-xs leading-5 text-red-700"
+                  class="text-xs leading-5 text-red-700 dark:text-red-300"
                   role="alert"
                 >
                   {{ imageState(field.key).error }}
@@ -345,15 +345,15 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
               >
                 <div
                   v-if="inputValue(field.key)"
-                  class="flex items-start gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3"
+                  class="flex items-start gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
                 >
                   <img
                     :src="inputValue(field.key)"
                     :alt="`${field.label}预览`"
-                    class="size-28 shrink-0 rounded-md border border-zinc-200 bg-white object-contain"
+                    class="size-28 shrink-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 object-contain"
                   >
                   <div class="min-w-0 flex-1">
-                    <p class="break-all text-xs leading-5 text-zinc-500">
+                    <p class="break-all text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                       {{ inputValue(field.key) }}
                     </p>
                     <UButton
@@ -368,7 +368,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                     />
                   </div>
                 </div>
-                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 transition hover:border-green-400 hover:bg-green-50">
+                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950">
                   <UIcon
                     :name="imageState(field.key).uploading ? 'i-lucide-loader-circle' : 'i-lucide-image-up'"
                     class="size-4"
@@ -385,7 +385,7 @@ async function uploadImageList(key: string, event: Event): Promise<void> {
                 </label>
                 <p
                   v-if="imageState(field.key).error"
-                  class="text-xs leading-5 text-red-700"
+                  class="text-xs leading-5 text-red-700 dark:text-red-300"
                   role="alert"
                 >
                   {{ imageState(field.key).error }}

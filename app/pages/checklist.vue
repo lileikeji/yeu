@@ -63,17 +63,17 @@ function confirmResetProgress() {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div class="max-w-2xl">
             <p class="section-kicker">
               新生清单
             </p>
-            <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+            <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               新生入学清单
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600">
+            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
               按到校前、报到当天、第一周和行李材料逐项勾选。进度只保存在这台设备，不会上传，也不需要登录。
               标有「以通知为准」的内容请再核对本年官方通知。
             </p>
@@ -99,19 +99,19 @@ function confirmResetProgress() {
     </header>
 
     <div class="page-shell py-8 md:py-10">
-      <section class="rounded-lg border border-orange-200 bg-orange-50/60 p-4 md:p-6">
-        <p class="text-xs font-semibold text-orange-800">
+      <section class="rounded-lg border border-orange-200 bg-orange-50/60 dark:bg-orange-950/60 p-4 md:p-6">
+        <p class="text-xs font-semibold text-orange-800 dark:text-orange-300">
           {{ arrival.phaseLabel }} · {{ arrival.reportWindowLabel }}
         </p>
-        <h2 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+        <h2 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           <template v-if="arrival.daysNumber != null && arrival.phase === 'before-report'">
-            还有 <span class="text-orange-700">{{ arrival.daysNumber }}</span> 天报到
+            还有 <span class="text-orange-700 dark:text-orange-300">{{ arrival.daysNumber }}</span> 天报到
           </template>
           <template v-else>
             {{ arrival.headline }}
           </template>
         </h2>
-        <p class="mt-2 text-sm leading-6 text-zinc-600">
+        <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
           {{ arrival.detail }}
         </p>
 
@@ -119,12 +119,12 @@ function confirmResetProgress() {
           <li
             v-for="milestone in arrival.milestones"
             :key="milestone.id"
-            class="min-h-20 bg-white/90 p-3 text-xs leading-5"
+            class="min-h-20 bg-white/90 dark:bg-zinc-900/90 p-3 text-xs leading-5"
             :class="milestone.active
               ? 'font-semibold text-orange-950 ring-2 ring-inset ring-orange-400'
               : milestone.done
-                ? 'text-green-800'
-                : 'text-zinc-600'"
+                ? 'text-green-800 dark:text-green-300'
+                : 'text-zinc-600 dark:text-zinc-300'"
             :aria-current="milestone.active ? 'step' : undefined"
           >
             <p class="font-semibold">
@@ -136,24 +136,24 @@ function confirmResetProgress() {
           </li>
         </ol>
 
-        <p class="mt-3 text-xs leading-5 text-zinc-500">
+        <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
           {{ arrival.honestyNote }}
         </p>
       </section>
 
-      <section class="mt-6 border-y border-green-200 bg-green-50/60 py-4 md:px-5 md:py-5">
+      <section class="mt-6 border-y border-green-200 dark:border-green-800 bg-green-50/60 dark:bg-green-950/60 py-4 md:px-5 md:py-5">
         <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div class="min-w-0">
             <div class="flex items-baseline gap-3">
-              <p class="text-2xl font-bold text-zinc-950">
+              <p class="text-2xl font-bold text-zinc-950 dark:text-zinc-100">
                 {{ overview.percent }}%
               </p>
-              <p class="text-sm text-zinc-600">
+              <p class="text-sm text-zinc-600 dark:text-zinc-300">
                 已完成 {{ overview.completedCount }} / {{ overview.totalCount }} 项
               </p>
             </div>
             <div
-              class="mt-2 h-2 overflow-hidden rounded-full bg-white ring-1 ring-green-100"
+              class="mt-2 h-2 overflow-hidden rounded-full bg-white dark:bg-zinc-900 ring-1 ring-green-100 dark:ring-green-900"
               role="progressbar"
               :aria-valuenow="overview.percent"
               aria-valuemin="0"
@@ -165,13 +165,13 @@ function confirmResetProgress() {
                 :style="{ width: `${overview.percent}%` }"
               />
             </div>
-            <p class="mt-2 text-xs leading-5 text-zinc-500">
+            <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               {{ hydrated ? '进度只保存在这台设备' : '正在读取已保存进度…' }}
             </p>
           </div>
 
           <div>
-            <p class="text-xs font-semibold text-zinc-600">
+            <p class="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               我的身份
             </p>
             <div class="mt-2 flex flex-wrap gap-2">
@@ -218,7 +218,7 @@ function confirmResetProgress() {
         </div>
       </section>
 
-      <section class="mt-6 rounded-lg border border-zinc-200 bg-white p-4 md:p-5">
+      <section class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-5">
         <div class="flex items-start gap-3">
           <button
             v-if="todayFocus.items[0]"
@@ -232,7 +232,7 @@ function confirmResetProgress() {
               class="grid size-7 place-items-center rounded-md border transition"
               :class="isCompleted(todayFocus.items[0].id)
                 ? 'border-green-600 bg-green-600 text-white'
-                : 'border-zinc-300 bg-white text-transparent group-hover:border-green-500'"
+                : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-transparent group-hover:border-green-500 dark:group-hover:border-green-600'"
             >
               <UIcon
                 name="i-lucide-check"
@@ -242,12 +242,12 @@ function confirmResetProgress() {
           </button>
 
           <div class="min-w-0 flex-1">
-            <p class="text-xs font-semibold text-green-700">
+            <p class="text-xs font-semibold text-green-700 dark:text-green-400">
               下一件事 · {{ arrival.phaseLabel }}
             </p>
             <template v-if="todayFocus.items[0]">
               <div class="mt-1 flex flex-wrap items-center gap-2">
-                <h2 class="text-base font-bold text-zinc-950">
+                <h2 class="text-base font-bold text-zinc-950 dark:text-zinc-100">
                   {{ todayFocus.items[0].title }}
                 </h2>
                 <UBadge
@@ -258,13 +258,13 @@ function confirmResetProgress() {
                   size="sm"
                 />
               </div>
-              <p class="mt-1 text-sm leading-6 text-zinc-600">
+              <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                 {{ todayFocus.items[0].description }}
               </p>
               <NuxtLink
                 v-if="todayFocus.items[0].to"
                 :to="todayFocus.items[0].to"
-                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700 hover:text-green-800"
+                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
               >
                 打开相关页面
                 <UIcon
@@ -275,7 +275,7 @@ function confirmResetProgress() {
             </template>
             <p
               v-else
-              class="mt-1 text-sm leading-6 text-zinc-600"
+              class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
             >
               {{ todayFocus.emptyLabel }}
             </p>
@@ -294,25 +294,25 @@ function confirmResetProgress() {
             </p>
             <h2
               id="checklist-section-nav-title"
-              class="mt-1 text-base font-bold text-zinc-950"
+              class="mt-1 text-base font-bold text-zinc-950 dark:text-zinc-100"
             >
               快速跳到
             </h2>
           </div>
-          <p class="text-xs text-zinc-500">
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
             {{ checklistSectionLinks.length }} 个阶段
           </p>
         </div>
 
-        <div class="mt-3 grid grid-cols-5 gap-px overflow-hidden rounded-md border border-zinc-200 bg-zinc-200">
+        <div class="mt-3 grid grid-cols-5 gap-px overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-200 dark:bg-zinc-800">
           <a
             v-for="section in checklistSectionLinks"
             :key="section.id"
             :href="`#${section.id}`"
-            class="flex min-h-16 flex-col items-center justify-center bg-white px-1 py-2 text-center transition hover:bg-green-50 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
+            class="flex min-h-16 flex-col items-center justify-center bg-white dark:bg-zinc-900 px-1 py-2 text-center transition hover:bg-green-50 dark:hover:bg-green-950 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
           >
-            <span class="text-xs font-semibold leading-4 text-zinc-900">{{ section.label }}</span>
-            <span class="mt-1 text-[11px] leading-4 text-zinc-500">
+            <span class="text-xs font-semibold leading-4 text-zinc-900 dark:text-zinc-100">{{ section.label }}</span>
+            <span class="mt-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
               {{ section.completedCount }}/{{ section.totalCount }} 项
             </span>
           </a>
@@ -338,29 +338,29 @@ function confirmResetProgress() {
                 />
               </span>
               <div>
-                <p class="text-xs font-semibold text-zinc-500">
+                <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                   {{ stage.stage.label }}
                 </p>
-                <h2 class="text-lg font-bold text-zinc-950">
+                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
                   {{ stage.stage.title }}
                 </h2>
               </div>
             </div>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
               {{ stage.stage.description }}
             </p>
           </div>
-          <p class="text-xs font-medium text-zinc-500">
+          <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
             {{ stage.completedCount }}/{{ stage.totalCount }} · {{ stage.percent }}%
           </p>
         </div>
 
-        <ul class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
+        <ul class="mt-4 divide-y divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800">
           <li
             v-for="item in stage.items"
             :key="item.id"
             class="flex items-start gap-3 px-1 py-4 transition"
-            :class="isCompleted(item.id) ? 'bg-green-50/50' : 'hover:bg-zinc-50'"
+            :class="isCompleted(item.id) ? 'bg-green-50/50 dark:bg-green-950/50' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60'"
           >
             <button
               type="button"
@@ -373,7 +373,7 @@ function confirmResetProgress() {
                 class="grid size-6 place-items-center rounded-md border transition"
                 :class="isCompleted(item.id)
                   ? 'border-green-600 bg-green-600 text-white'
-                  : 'border-zinc-300 bg-white text-transparent group-hover:border-green-500'"
+                  : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-transparent group-hover:border-green-500 dark:group-hover:border-green-600'"
               >
                 <UIcon
                   name="i-lucide-check"
@@ -385,7 +385,7 @@ function confirmResetProgress() {
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <p
-                  class="font-semibold text-zinc-950"
+                  class="font-semibold text-zinc-950 dark:text-zinc-100"
                   :class="isCompleted(item.id) ? 'line-through decoration-zinc-400' : ''"
                 >
                   {{ item.title }}
@@ -398,13 +398,13 @@ function confirmResetProgress() {
                   size="sm"
                 />
               </div>
-              <p class="mt-1 text-sm leading-6 text-zinc-600">
+              <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                 {{ item.description }}
               </p>
               <NuxtLink
                 v-if="item.to"
                 :to="item.to"
-                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700 hover:text-green-800"
+                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
               >
                 打开相关页面
                 <UIcon
@@ -415,7 +415,7 @@ function confirmResetProgress() {
             </div>
 
             <span
-              class="hidden size-9 shrink-0 place-items-center rounded-lg bg-zinc-100 text-zinc-500 sm:grid"
+              class="hidden size-9 shrink-0 place-items-center rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 sm:grid"
             >
               <UIcon
                 :name="item.icon"
@@ -444,29 +444,29 @@ function confirmResetProgress() {
                 />
               </span>
               <div>
-                <p class="text-xs font-semibold text-zinc-500">
+                <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                   {{ overview.packing.stage.label }}
                 </p>
-                <h2 class="text-lg font-bold text-zinc-950">
+                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
                   {{ overview.packing.stage.title }}
                 </h2>
               </div>
             </div>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
               {{ overview.packing.stage.description }}
             </p>
           </div>
-          <p class="text-xs font-medium text-zinc-500">
+          <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
             {{ overview.packing.completedCount }}/{{ overview.packing.totalCount }} · {{ overview.packing.percent }}%
           </p>
         </div>
 
-        <ul class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 sm:grid sm:grid-cols-2 sm:divide-y-0">
+        <ul class="mt-4 divide-y divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 sm:grid sm:grid-cols-2 sm:divide-y-0">
           <li
             v-for="item in overview.packing.items"
             :key="item.id"
             class="flex items-start gap-3 px-1 py-4 sm:border-b sm:border-zinc-200 sm:odd:pr-4 sm:even:pl-4"
-            :class="isCompleted(item.id) ? 'bg-amber-50/50' : ''"
+            :class="isCompleted(item.id) ? 'bg-amber-50/50 dark:bg-amber-950/50' : ''"
           >
             <button
               type="button"
@@ -479,7 +479,7 @@ function confirmResetProgress() {
                 class="grid size-6 place-items-center rounded-md border transition"
                 :class="isCompleted(item.id)
                   ? 'border-amber-600 bg-amber-600 text-white'
-                  : 'border-zinc-300 bg-white text-transparent group-hover:border-amber-500'"
+                  : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-transparent group-hover:border-amber-500 dark:group-hover:border-amber-700'"
               >
                 <UIcon
                   name="i-lucide-check"
@@ -490,7 +490,7 @@ function confirmResetProgress() {
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <p
-                  class="text-sm font-semibold text-zinc-950"
+                  class="text-sm font-semibold text-zinc-950 dark:text-zinc-100"
                   :class="isCompleted(item.id) ? 'line-through decoration-zinc-400' : ''"
                 >
                   {{ item.title }}
@@ -503,13 +503,13 @@ function confirmResetProgress() {
                   size="sm"
                 />
               </div>
-              <p class="mt-1 text-xs leading-5 text-zinc-600">
+              <p class="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
                 {{ item.description }}
               </p>
               <NuxtLink
                 v-if="item.to"
                 :to="item.to"
-                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700"
+                class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-green-700 dark:text-green-400"
               >
                 相关页面
                 <UIcon
@@ -522,8 +522,8 @@ function confirmResetProgress() {
         </ul>
       </section>
 
-      <section class="mt-10 border-y border-zinc-200 bg-zinc-50 px-4 py-4 text-xs leading-6 text-zinc-600">
-        <p class="font-semibold text-zinc-800">
+      <section class="mt-10 border-y border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-4 py-4 text-xs leading-6 text-zinc-600 dark:text-zinc-300">
+        <p class="font-semibold text-zinc-800 dark:text-zinc-100">
           使用说明
         </p>
         <ul class="mt-2 list-disc space-y-1 pl-4">

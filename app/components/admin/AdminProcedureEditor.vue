@@ -69,7 +69,7 @@ const emit = defineEmits<{
       >
         <div
           v-if="formError"
-          class="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          class="flex items-start gap-2 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-300"
           role="alert"
         >
           <UIcon
@@ -81,7 +81,7 @@ const emit = defineEmits<{
 
         <div
           v-if="referencesError"
-          class="flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"
+          class="flex flex-col gap-3 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-900 dark:text-amber-300 sm:flex-row sm:items-center sm:justify-between"
           role="alert"
         >
           <span>{{ referencesError }}</span>
@@ -145,7 +145,7 @@ const emit = defineEmits<{
           @set-required="(...args) => emit('setRequired', ...args)"
         />
 
-        <aside class="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        <aside class="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950 p-4 text-sm text-blue-900 dark:text-blue-300">
           <div class="flex items-start gap-2">
             <UIcon
               name="i-lucide-shield-check"

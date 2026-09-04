@@ -13,7 +13,7 @@ const form = defineModel<ProcedureForm>('form', { required: true })
 
 <template>
   <section>
-    <h3 class="border-b border-zinc-200 pb-2 text-sm font-semibold text-zinc-900">
+    <h3 class="border-b border-zinc-200 dark:border-zinc-800 pb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
       状态与时间
     </h3>
     <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">

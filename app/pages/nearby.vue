@@ -194,15 +194,15 @@ async function selectNearbyNeed(category: string): Promise<void> {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           吃喝玩乐
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           从下课随手吃，到周末出去玩
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           学生街吃什么、马甲周边能去哪、泉州市区怎么逛，已经按范围和时间成本整理好。商家营业、景区开放和票价变化较快，出发前再用地图复核。
         </p>
         <div class="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
@@ -231,7 +231,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
     <div class="page-shell page-section">
       <div
         v-if="error"
-        class="border-l-2 border-orange-400 bg-orange-50 px-3 py-2 text-sm text-orange-900"
+        class="border-l-2 border-orange-400 bg-orange-50 dark:bg-orange-950 px-3 py-2 text-sm text-orange-900 dark:text-orange-300"
         role="status"
       >
         部分周边介绍暂时没显示出来，下面的地图地点仍然可以查看。
@@ -241,22 +241,22 @@ async function selectNearbyNeed(category: string): Promise<void> {
         class="mb-10"
         aria-labelledby="nearby-guide-heading"
       >
-        <div class="nearby-guide-shell overflow-hidden rounded-3xl border border-emerald-200/70 bg-[linear-gradient(145deg,#f0fdf4_0%,#ffffff_48%,#fff7ed_100%)]">
-          <div class="relative grid gap-6 overflow-hidden border-b border-emerald-100 px-5 py-6 md:grid-cols-[minmax(0,1fr)_19rem] md:px-7 md:py-8">
+        <div class="nearby-guide-shell overflow-hidden rounded-3xl border border-emerald-200/70 bg-[linear-gradient(145deg,#f0fdf4_0%,#ffffff_48%,#fff7ed_100%)] dark:bg-[linear-gradient(145deg,#0e1f13_0%,#171b17_48%,#241a10_100%)]">
+          <div class="relative grid gap-6 overflow-hidden border-b border-emerald-100 dark:border-emerald-900 px-5 py-6 md:grid-cols-[minmax(0,1fr)_19rem] md:px-7 md:py-8">
             <div class="relative z-10">
               <p class="section-kicker">
                 先选范围，再选想做的事
               </p>
               <h2
                 id="nearby-guide-heading"
-                class="mt-2 text-xl font-bold text-zinc-950 md:text-2xl"
+                class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100 md:text-2xl"
               >
                 不用从一长页攻略里慢慢翻
               </h2>
-              <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+              <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                 选“学校周边”或“泉州市区”，再点吃饭、景点、夜游、看展等标签。每个标签会给出几种不同地点，挑一个适合当天时间和预算的就行。
               </p>
-              <p class="mt-5 inline-flex items-center gap-2 rounded-xl border border-green-200 bg-white/80 px-3 py-2 text-xs font-semibold text-green-900">
+              <p class="mt-5 inline-flex items-center gap-2 rounded-xl border border-green-200 dark:border-green-800 bg-white/80 dark:bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-green-900 dark:text-green-300">
                 <UIcon
                   name="i-lucide-route"
                   class="size-4"
@@ -316,13 +316,13 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 class="group flex min-h-16 items-center gap-3 rounded-2xl border px-4 text-left transition"
                 :class="activeGuideScope === scope.id
                   ? 'border-green-600 bg-green-700 text-white shadow-sm'
-                  : 'border-zinc-200 bg-white text-zinc-800 hover:border-green-300 hover:bg-green-50/50'"
+                  : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-100 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/50'"
                 :aria-selected="activeGuideScope === scope.id"
                 @click="selectGuideScope(scope.id)"
               >
                 <span
                   class="grid size-10 shrink-0 place-items-center rounded-xl"
-                  :class="activeGuideScope === scope.id ? 'bg-white/15 text-white' : 'bg-green-50 text-green-700'"
+                  :class="activeGuideScope === scope.id ? 'bg-white/15 dark:bg-zinc-900/15 text-white' : 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400'"
                 >
                   <UIcon
                     :name="scope.icon"
@@ -333,14 +333,14 @@ async function selectNearbyNeed(category: string): Promise<void> {
                   <span class="block font-bold">{{ scope.label }}</span>
                   <span
                     class="mt-0.5 block text-xs"
-                    :class="activeGuideScope === scope.id ? 'text-green-50' : 'text-zinc-500'"
+                    :class="activeGuideScope === scope.id ? 'text-green-50' : 'text-zinc-500 dark:text-zinc-400'"
                   >{{ scope.description }}</span>
                 </span>
               </button>
             </div>
 
             <div class="mt-5">
-              <p class="text-xs font-semibold text-zinc-500">
+              <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 这次想做什么
               </p>
               <div
@@ -355,8 +355,8 @@ async function selectNearbyNeed(category: string): Promise<void> {
                   role="tab"
                   class="inline-flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-full border px-4 text-sm font-semibold transition"
                   :class="activeGuideTag === tag.id
-                    ? 'border-orange-500 bg-orange-50 text-orange-800'
-                    : 'border-zinc-200 bg-white text-zinc-700 hover:border-orange-300 hover:text-orange-800'"
+                    ? 'border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 text-orange-800 dark:text-orange-300'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-orange-300 hover:text-orange-800 dark:hover:text-orange-300'"
                   :aria-selected="activeGuideTag === tag.id"
                   @click="selectGuideTag(tag.id)"
                 >
@@ -374,14 +374,14 @@ async function selectNearbyNeed(category: string): Promise<void> {
 
             <div class="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-zinc-200/80 pt-4">
               <div>
-                <p class="text-xs font-semibold text-green-700">
+                <p class="text-xs font-semibold text-green-700 dark:text-green-400">
                   {{ activeGuideScopeOption.label }} · {{ selectedGuideTag?.label }}
                 </p>
-                <p class="mt-1 text-sm text-zinc-600">
+                <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
                   下面有 {{ selectedGuideItems.length }} 个选择，不用全部去。
                 </p>
               </div>
-              <p class="text-xs text-zinc-500">
+              <p class="text-xs text-zinc-500 dark:text-zinc-400">
                 图片来自对应来源页面，营业、票价和场次出发前再查。
               </p>
             </div>
@@ -414,7 +414,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
       >
         <p
           id="nearby-need-shortcuts-heading"
-          class="text-xs font-semibold text-zinc-600"
+          class="text-xs font-semibold text-zinc-600 dark:text-zinc-300"
         >
           {{ listMessages.needShortcutsTitle }}
         </p>
@@ -425,8 +425,8 @@ async function selectNearbyNeed(category: string): Promise<void> {
             type="button"
             class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             :class="isNeedShortcutActive(shortcut, activeCategory)
-              ? 'border-green-600 bg-green-50 text-green-800'
-              : 'border-[var(--line)] bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50/40'"
+              ? 'border-green-600 bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300'
+              : 'border-[var(--line)] bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40'"
             :aria-pressed="isNeedShortcutActive(shortcut, activeCategory)"
             @click="selectNearbyNeed(shortcut.category)"
           >
@@ -449,7 +449,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
             </p>
             <h2
               id="nearby-published-heading"
-              class="mt-1 text-lg font-bold text-zinc-950"
+              class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100"
             >
               {{ listMessages.publishedHeading }}
             </h2>
@@ -476,10 +476,10 @@ async function selectNearbyNeed(category: string): Promise<void> {
             v-for="place in filteredPlaces"
             :key="place.id"
             :to="`/places/${place.slug}`"
-            class="surface-panel group flex min-h-52 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
+            class="surface-panel group flex min-h-52 flex-col p-5 transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm"
           >
             <div class="flex items-start justify-between gap-3">
-              <span class="grid size-10 place-items-center rounded-md bg-orange-50 text-orange-700">
+              <span class="grid size-10 place-items-center rounded-md bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300">
                 <UIcon
                   name="i-lucide-store"
                   class="size-5"
@@ -491,19 +491,19 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 variant="soft"
               />
             </div>
-            <h3 class="mt-4 font-bold text-zinc-950">
+            <h3 class="mt-4 font-bold text-zinc-950 dark:text-zinc-100">
               {{ place.name }}
             </h3>
-            <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
+            <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
               {{ place.summary }}
             </p>
             <p
               v-if="place.address"
-              class="mt-3 text-xs leading-5 text-zinc-500"
+              class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
             >
               {{ place.address }}
             </p>
-            <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-green-700">
+            <span class="mt-4 inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400">
               {{ listMessages.viewPlace }}
               <UIcon
                 name="i-lucide-arrow-right"
@@ -525,7 +525,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
             </p>
             <h2
               id="nearby-needs-heading"
-              class="mt-1 text-lg font-bold text-zinc-950"
+              class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100"
             >
               先按要做的事找
             </h2>
@@ -546,23 +546,23 @@ async function selectNearbyNeed(category: string): Promise<void> {
           >
             <button
               type="button"
-              class="group flex min-h-24 w-full items-start gap-3 rounded-md border border-[var(--line)] bg-white p-4 text-left transition hover:border-green-300 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="group flex min-h-24 w-full items-start gap-3 rounded-md border border-[var(--line)] bg-white dark:bg-zinc-900 p-4 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               :aria-label="`查看${tip.title}地点`"
               @click="selectNearbyNeed(tip.category)"
             >
-              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
                 <UIcon
                   :name="tip.icon"
                   class="size-4.5"
                 />
               </span>
               <span class="min-w-0 flex-1">
-                <span class="font-bold text-zinc-950">{{ tip.title }}</span>
-                <span class="mt-1 block text-sm leading-6 text-zinc-600">{{ tip.text }}</span>
+                <span class="font-bold text-zinc-950 dark:text-zinc-100">{{ tip.title }}</span>
+                <span class="mt-1 block text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ tip.text }}</span>
               </span>
               <UIcon
                 name="i-lucide-arrow-right"
-                class="mt-2 size-4 shrink-0 text-zinc-400 transition group-hover:translate-x-0.5 group-hover:text-green-700"
+                class="mt-2 size-4 shrink-0 text-zinc-400 dark:text-zinc-500 transition group-hover:translate-x-0.5 group-hover:text-green-700 dark:group-hover:text-green-400"
               />
             </button>
           </li>
@@ -571,10 +571,10 @@ async function selectNearbyNeed(category: string): Promise<void> {
 
       <div
         v-else-if="!error && filteredCandidates.length"
-        class="flex flex-wrap items-center justify-between gap-3 border-l-2 border-green-600 bg-green-50 px-4 py-3"
+        class="flex flex-wrap items-center justify-between gap-3 border-l-2 border-green-600 bg-green-50 dark:bg-green-950 px-4 py-3"
         role="status"
       >
-        <p class="text-sm font-medium text-green-950">
+        <p class="text-sm font-medium text-green-950 dark:text-green-300">
           {{ matchCountLabel(filteredCandidates.length) }}
         </p>
         <UButton
@@ -589,13 +589,13 @@ async function selectNearbyNeed(category: string): Promise<void> {
 
       <div
         v-else-if="!error"
-        class="border-l-2 border-amber-400 bg-amber-50 px-4 py-3"
+        class="border-l-2 border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-4 py-3"
         role="status"
       >
         <p class="text-sm font-semibold text-amber-950">
           {{ listMessages.emptyMatchTitle }}
         </p>
-        <p class="mt-1 text-xs leading-5 text-amber-900">
+        <p class="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-300">
           {{ listMessages.emptyMatchHint }}
         </p>
         <div class="mt-3 flex flex-wrap gap-2">
@@ -622,13 +622,13 @@ async function selectNearbyNeed(category: string): Promise<void> {
       <section
         v-if="filteredCandidates.length || !candidateFilterActive"
         id="nearby-results"
-        class="mt-10 scroll-mt-20 border-t border-zinc-200 pt-8"
+        class="mt-10 scroll-mt-20 border-t border-zinc-200 dark:border-zinc-800 pt-8"
       >
         <div>
-          <h2 class="text-lg font-bold text-zinc-950">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ listMessages.candidatesHeading }}
           </h2>
-          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
+          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             <template v-if="candidateFilterActive">
               按当前条件找到 {{ filteredCandidates.length }} 个地点。点开后可以在{{ safeExternalHref(candidateCatalog.providerDocumentation) ? '高德地图' : '地图' }}查看位置和近期营业信息。
             </template>
@@ -636,39 +636,39 @@ async function selectNearbyNeed(category: string): Promise<void> {
               这里整理了 {{ filteredCandidates.length }} 个新区、旧区的餐饮、便利、快递和生活服务地点。点开后可以在{{ safeExternalHref(candidateCatalog.providerDocumentation) ? '高德地图' : '地图' }}查看位置，营业时间和价格请以近期信息或现场为准。
             </template>
           </p>
-          <p class="mt-2 flex max-w-3xl items-start gap-2 text-xs leading-5 text-zinc-500">
+          <p class="mt-2 flex max-w-3xl items-start gap-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
             <UIcon
               name="i-lucide-info"
-              class="mt-0.5 size-3.5 shrink-0 text-green-700"
+              class="mt-0.5 size-3.5 shrink-0 text-green-700 dark:text-green-400"
             />
             <span>卡片里的距离是商铺到新区或旧区学生街参考位置的大致距离，不是从你当前位置算起。</span>
           </p>
         </div>
 
-        <details class="group mt-5 border-y border-zinc-200 bg-white">
-          <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-zinc-800 marker:hidden">
+        <details class="group mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 marker:hidden">
             <span class="inline-flex items-center gap-2">
               <UIcon
                 name="i-lucide-list-checks"
-                class="size-4 text-green-700"
+                class="size-4 text-green-700 dark:text-green-400"
               />
               出发前确认这几件事
             </span>
             <UIcon
               name="i-lucide-chevron-down"
-              class="size-4 text-zinc-400 transition group-open:rotate-180"
+              class="size-4 text-zinc-400 dark:text-zinc-500 transition group-open:rotate-180"
             />
           </summary>
-          <div class="border-t border-zinc-100 py-4">
-            <ul class="grid gap-2 text-xs leading-5 text-zinc-700 md:grid-cols-2">
+          <div class="border-t border-zinc-100 dark:border-zinc-800 py-4">
+            <ul class="grid gap-2 text-xs leading-5 text-zinc-700 dark:text-zinc-200 md:grid-cols-2">
               <li
                 v-for="item in verificationChecklist"
                 :key="item"
-                class="flex gap-2 rounded-md bg-zinc-50 px-3 py-2"
+                class="flex gap-2 rounded-md bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2"
               >
                 <UIcon
                   name="i-lucide-circle-check"
-                  class="mt-0.5 size-3.5 shrink-0 text-green-700"
+                  class="mt-0.5 size-3.5 shrink-0 text-green-700 dark:text-green-400"
                 />
                 <span>{{ item }}</span>
               </li>
@@ -676,7 +676,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           </div>
         </details>
 
-        <p class="mt-4 text-xs text-zinc-500">
+        <p class="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
           <template v-if="candidateFilterActive">
             找到 {{ filteredCandidates.length }} 个地点
           </template>
@@ -685,21 +685,21 @@ async function selectNearbyNeed(category: string): Promise<void> {
           </template>
           · 名单更新于 {{ candidateCatalog.generatedAt.slice(0, 10) }}
         </p>
-        <details class="group mt-4 border-y border-zinc-200 bg-white">
-          <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-xs font-semibold text-zinc-700 marker:hidden">
+        <details class="group mt-4 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 marker:hidden">
             <span class="inline-flex items-center gap-2">
               <UIcon
                 name="i-lucide-book-open"
-                class="size-4 text-green-700"
+                class="size-4 text-green-700 dark:text-green-400"
               />
               这些地点从哪里整理
             </span>
             <UIcon
               name="i-lucide-chevron-down"
-              class="size-4 text-zinc-400 transition group-open:rotate-180"
+              class="size-4 text-zinc-400 dark:text-zinc-500 transition group-open:rotate-180"
             />
           </summary>
-          <ul class="grid gap-3 border-t border-zinc-100 py-4 md:grid-cols-3">
+          <ul class="grid gap-3 border-t border-zinc-100 dark:border-zinc-800 py-4 md:grid-cols-3">
             <li
               v-for="source in nearbyResearchSources"
               :key="source.url"
@@ -709,7 +709,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 :href="safeExternalHref(source.url) || undefined"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="group flex items-start gap-2 text-xs leading-5 text-zinc-700 hover:text-green-700"
+                class="group flex items-start gap-2 text-xs leading-5 text-zinc-700 dark:text-zinc-200 hover:text-green-700 dark:hover:text-green-400"
               >
                 <UIcon
                   name="i-lucide-external-link"
@@ -717,21 +717,21 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 />
                 <span>
                   <span class="font-medium">{{ source.title }}</span>
-                  <span class="block text-zinc-500">{{ sourceContextForStudents(source.context) }}</span>
+                  <span class="block text-zinc-500 dark:text-zinc-400">{{ sourceContextForStudents(source.context) }}</span>
                 </span>
               </a>
               <div
                 v-else
-                class="flex items-start gap-2 text-xs leading-5 text-zinc-700"
+                class="flex items-start gap-2 text-xs leading-5 text-zinc-700 dark:text-zinc-200"
               >
                 <UIcon
                   name="i-lucide-link-2-off"
-                  class="mt-0.5 size-3.5 shrink-0 text-orange-600"
+                  class="mt-0.5 size-3.5 shrink-0 text-orange-600 dark:text-orange-300"
                 />
                 <span>
                   <span class="font-medium">{{ source.title }}</span>
-                  <span class="block text-zinc-500">{{ sourceContextForStudents(source.context) }}</span>
-                  <span class="block text-orange-700">原分享目前打不开，以上内容只作参考。</span>
+                  <span class="block text-zinc-500 dark:text-zinc-400">{{ sourceContextForStudents(source.context) }}</span>
+                  <span class="block text-orange-700 dark:text-orange-300">原分享目前打不开，以上内容只作参考。</span>
                 </span>
               </div>
             </li>
@@ -755,9 +755,9 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 color="neutral"
                 variant="soft"
               />
-              <span class="text-right text-xs leading-5 text-zinc-500">{{ candidateDistanceLabel(candidate) }}</span>
+              <span class="text-right text-xs leading-5 text-zinc-500 dark:text-zinc-400">{{ candidateDistanceLabel(candidate) }}</span>
             </div>
-            <h3 class="mt-3 font-bold text-zinc-950">
+            <h3 class="mt-3 font-bold text-zinc-950 dark:text-zinc-100">
               {{ candidate.name }}
             </h3>
             <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -767,15 +767,15 @@ async function selectNearbyNeed(category: string): Promise<void> {
                 variant="soft"
               />
             </div>
-            <p class="mt-2 text-xs leading-5 text-zinc-500">
+            <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               {{ candidate.address || '暂时没有详细地址' }}
             </p>
-            <p class="mt-3 rounded-md bg-orange-50 px-3 py-2 text-xs leading-5 text-orange-900">
+            <p class="mt-3 rounded-md bg-orange-50 dark:bg-orange-950 px-3 py-2 text-xs leading-5 text-orange-900 dark:text-orange-300">
               {{ candidateHint(candidate) }}
             </p>
             <div class="mt-auto flex items-end justify-between gap-3 pt-4">
-              <span class="text-xs text-orange-700">出发前看营业情况</span>
-              <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+              <span class="text-xs text-orange-700 dark:text-orange-300">出发前看营业情况</span>
+              <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400">
                 在高德地图打开
                 <UIcon
                   name="i-lucide-external-link"

@@ -107,54 +107,54 @@ onMounted(() => {
 <template>
   <div class="page-shell py-8 sm:py-12">
     <div class="mx-auto max-w-md">
-      <section class="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm sm:p-7">
-        <p class="text-xs font-semibold text-green-700">
+      <section class="rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 p-5 shadow-sm sm:p-7">
+        <p class="text-xs font-semibold text-green-700 dark:text-green-400">
           新生账号
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950">
+        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
           账号登录
         </h1>
-        <p class="mt-2 text-sm leading-6 text-zinc-500">
+        <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
           目前只支持已有账号，暂不能自己注册。没有账号也不影响使用校园指南。
         </p>
 
-        <div class="mt-4 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950" role="note">
+        <div class="mt-4 flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950 p-3 text-sm text-sky-950 dark:text-sky-300" role="note">
           <UIcon
             name="i-lucide-info"
-            class="mt-0.5 size-4 shrink-0 text-sky-700"
+            class="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
           />
           <span>新生学号暂未录入，当前登录使用已创建的账号；没有账号也可以正常浏览公开内容。</span>
         </div>
 
-        <div class="mt-5 border-y border-zinc-100">
+        <div class="mt-5 border-y border-zinc-100 dark:border-zinc-800">
           <div class="flex items-start gap-3 py-3">
-            <span class="grid size-8 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+            <span class="grid size-8 shrink-0 place-items-center rounded-md bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
               <UIcon
                 name="i-lucide-compass"
                 class="size-4"
               />
             </span>
             <div class="min-w-0">
-              <p class="text-sm font-semibold text-zinc-900">
+              <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 不登录也能用
               </p>
-              <p class="mt-0.5 text-xs leading-5 text-zinc-500">
+              <p class="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 查地图、看办事指南、勾选新生清单
               </p>
             </div>
           </div>
-          <div class="flex items-start gap-3 border-t border-zinc-100 py-3">
-            <span class="grid size-8 shrink-0 place-items-center rounded-md bg-sky-50 text-sky-700">
+          <div class="flex items-start gap-3 border-t border-zinc-100 dark:border-zinc-800 py-3">
+            <span class="grid size-8 shrink-0 place-items-center rounded-md bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
               <UIcon
                 name="i-lucide-users-round"
                 class="size-4"
               />
             </span>
             <div class="min-w-0">
-              <p class="text-sm font-semibold text-zinc-900">
+              <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 登录后可以
               </p>
-              <p class="mt-0.5 text-xs leading-5 text-zinc-500">
+              <p class="mt-0.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 修改个人资料，进入公共群和宿舍楼群
               </p>
             </div>
@@ -163,7 +163,7 @@ onMounted(() => {
 
         <div
           v-if="loginHint"
-          class="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+          class="mt-4 flex items-start gap-2 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-3 text-sm text-amber-950"
           role="status"
         >
           <UIcon
@@ -175,7 +175,7 @@ onMounted(() => {
 
         <div
           v-if="errorMessage"
-          class="mt-5 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          class="mt-5 flex items-start gap-2 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-300"
           role="alert"
         >
           <UIcon
@@ -236,12 +236,12 @@ onMounted(() => {
               </template>
             </UInput>
             <div class="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-              <p class="text-xs text-zinc-500">
+              <p class="text-xs text-zinc-500 dark:text-zinc-400">
                 请不要向任何人提供密码
               </p>
               <NuxtLink
                 :to="accountHelpLink"
-                class="-mr-1 inline-flex min-h-10 items-center gap-1 px-1 text-xs font-semibold text-green-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                class="-mr-1 inline-flex min-h-10 items-center gap-1 px-1 text-xs font-semibold text-green-700 dark:text-green-400 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               >
                 登录有问题？告诉我们
                 <UIcon
@@ -265,7 +265,7 @@ onMounted(() => {
           </UButton>
         </form>
 
-        <div class="mt-6 flex flex-wrap gap-2 border-t border-zinc-100 pt-5">
+        <div class="mt-6 flex flex-wrap gap-2 border-t border-zinc-100 dark:border-zinc-800 pt-5">
           <template v-if="isChatRedirect">
             <UButton
               to="/map"

@@ -45,7 +45,7 @@ test('feedback page is a thin shell over feedback-presentation util', () => {
 })
 
 test('feedback short fields keep a comfortable mobile touch height', () => {
-  assert.equal((pageSource.match(/class="mt-2 min-h-11 w-full"/g) || []).length, 2)
+  assert.equal((pageSource.match(/class="mt-2(?:\s+dark:[^"\s]+)*\s+min-h-11(?:\s+dark:[^"\s]+)*\s+w-full(?:\s+dark:[^"\s]+)*"/g) || []).length, 2)
   assert.equal((pageSource.match(/:ui="\{ base: 'min-h-11' \}"/g) || []).length, 2)
   assert.match(pageSource, /scroll-mb-\[calc\(var\(--mobile-nav-height\)\+1rem\)\]/)
 })
@@ -87,7 +87,7 @@ test('feedback prompts read as complete questions instead of cramped labels', ()
 })
 
 test('feedback privacy link keeps a comfortable mobile touch target', () => {
-  assert.match(pageSource, /class="-mx-1 inline-flex min-h-10 items-center px-1 align-middle font-medium text-green-700 hover:underline"/)
+  assert.match(pageSource, /class="-mx-1 inline-flex(?:\s+dark:[^"\s]+)*\s+min-h-10(?:\s+dark:[^"\s]+)*\s+items-center(?:\s+dark:[^"\s]+)*\s+px-1(?:\s+dark:[^"\s]+)*\s+align-middle(?:\s+dark:[^"\s]+)*\s+font-medium(?:\s+dark:[^"\s]+)*\s+text-green-700(?:\s+dark:[^"\s]+)*\s+hover:underline(?:\s+dark:[^"\s]+)*"/)
 })
 
 test('feedback target resolution requires typed target and uuid', () => {

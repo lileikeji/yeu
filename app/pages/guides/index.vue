@@ -96,17 +96,17 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
 
 <template>
   <div>
-    <section class="border-b border-[var(--line)] bg-white">
+    <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div class="max-w-2xl">
             <p class="section-kicker">
               新生办事入口
             </p>
-            <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+            <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               从报到到开学后的常用事项
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600">
+            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
               本站把常用的新生事项集中整理，优先给出已确认信息，未落实的会标注待通知。本科和专升本的安排会分开说明，具体时间与材料以录取通知书及学校最新通知为准。
             </p>
           </div>
@@ -165,7 +165,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
         </div>
 
         <div class="mt-4 max-w-3xl">
-          <p class="text-xs font-semibold text-zinc-600">
+          <p class="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             按要办的事找
           </p>
           <div class="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8">
@@ -176,7 +176,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
               class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               :class="isGuideNeedShortcutActive(shortcut, { query: searchQuery, category: activeCategory })
                 ? 'border-green-700 bg-green-700 text-white'
-                : 'border-zinc-200 bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50'"
+                : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
               :aria-label="`按${shortcut.label}查找指南`"
               :aria-pressed="isGuideNeedShortcutActive(shortcut, { query: searchQuery, category: activeCategory })"
               @click="selectGuideNeed(shortcut)"
@@ -191,17 +191,17 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
     <section class="page-shell page-section">
       <div
         v-if="publicGuideError"
-        class="mb-5 border-y border-amber-200 bg-amber-50 px-5 py-8 text-center"
+        class="mb-5 border-y border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-5 py-8 text-center"
         role="alert"
       >
         <UIcon
           name="i-lucide-cloud-off"
-          class="mx-auto size-6 text-amber-700"
+          class="mx-auto size-6 text-amber-700 dark:text-amber-300"
         />
         <h2 class="mt-3 text-base font-bold text-amber-950">
           指南暂时没有显示出来
         </h2>
-        <p class="mt-2 text-sm leading-6 text-amber-900">
+        <p class="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-300">
           {{ guideListFallbackMessages.serviceUnavailable }}
         </p>
         <div class="mt-5 flex flex-wrap justify-center gap-2">
@@ -234,7 +234,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
 
       <div
         v-else-if="fallbackMessage"
-        class="mb-5 flex items-start gap-2 border-l-2 border-blue-500 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900"
+        class="mb-5 flex items-start gap-2 border-l-2 border-blue-500 bg-blue-50 dark:bg-blue-950 px-3 py-2 text-xs leading-5 text-blue-900 dark:text-blue-300"
         role="status"
       >
         <UIcon
@@ -245,12 +245,12 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
       </div>
 
       <div class="mb-4 flex items-center justify-between gap-4">
-        <h2 class="text-sm font-semibold text-zinc-900">
+        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {{ filteredGuides.length }} 篇指南
         </h2>
         <NuxtLink
           to="/campus"
-          class="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-green-700 hover:text-green-800"
+          class="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
         >
           校园与部门
           <UIcon
@@ -268,7 +268,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
           v-for="guide in visibleGuides"
           :key="guide.slug"
           :to="`/guides/${guide.slug}`"
-          class="surface-panel group flex min-h-0 flex-col p-4 transition hover:border-green-300 hover:shadow-sm md:min-h-56 md:p-5"
+          class="surface-panel group flex min-h-0 flex-col p-4 transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm md:min-h-56 md:p-5"
         >
           <div class="flex items-start justify-between gap-3">
             <span
@@ -293,10 +293,10 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
             </UBadge>
           </div>
 
-          <h2 class="mt-3 text-base font-bold text-zinc-950 md:mt-5">
+          <h2 class="mt-3 text-base font-bold text-zinc-950 dark:text-zinc-100 md:mt-5">
             {{ guide.title }}
           </h2>
-          <p class="mt-1.5 line-clamp-2 flex-1 text-sm leading-6 text-zinc-600 md:mt-2 md:line-clamp-none">
+          <p class="mt-1.5 line-clamp-2 flex-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300 md:mt-2 md:line-clamp-none">
             {{ guide.summary }}
           </p>
           <p
@@ -308,13 +308,13 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
               :class="guideListStatusDotClass(guide.status)"
             />
             <span class="line-clamp-2 md:line-clamp-none">
-              <span class="font-semibold text-zinc-800">目前：</span>
+              <span class="font-semibold text-zinc-800 dark:text-zinc-100">目前：</span>
               {{ studentFacingGuideStatusText(guide.statusText) }}
             </span>
           </p>
-          <div class="mt-3 flex items-center justify-between gap-3 text-xs text-zinc-500 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
+          <div class="mt-3 flex items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
             <span class="truncate">{{ guideListReadMinutesLabel(guide.readMinutes) }} · {{ guide.audience.join(' · ') }}</span>
-            <span class="inline-flex shrink-0 items-center gap-1 font-medium text-green-700">
+            <span class="inline-flex shrink-0 items-center gap-1 font-medium text-green-700 dark:text-green-400">
               {{ guideListMessages.openGuide }}
               <UIcon
                 name="i-lucide-arrow-right"
@@ -341,16 +341,16 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
 
       <div
         v-else-if="!publicGuideError && !filteredGuides.length"
-        class="border-y border-[var(--line)] bg-white px-5 py-12 text-center"
+        class="border-y border-[var(--line)] bg-white dark:bg-zinc-900 px-5 py-12 text-center"
       >
         <UIcon
           name="i-lucide-search-x"
-          class="mx-auto size-6 text-zinc-400"
+          class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
         />
-        <p class="mt-3 text-sm font-semibold text-zinc-800">
+        <p class="mt-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {{ guideListMessages.emptyMatchTitle }}
         </p>
-        <p class="mt-1 text-xs leading-5 text-zinc-500">
+        <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
           {{ guideListMessages.emptyMatchHint }}
         </p>
         <div class="mt-4 flex flex-wrap justify-center gap-2">

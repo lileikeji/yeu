@@ -48,7 +48,7 @@ defineExpose({ markSubmitted })
 
 <template>
   <section class="mt-5">
-    <div class="flex flex-col gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center">
+    <div class="flex flex-col gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-4 py-3 sm:flex-row sm:items-center">
       <UFormField
         label="采点地点"
         class="min-w-0 flex-1"
@@ -96,7 +96,7 @@ defineExpose({ markSubmitted })
     />
     <div
       v-else-if="!placesLoading"
-      class="border-y border-zinc-200 bg-white px-4 py-12 text-center text-sm text-zinc-500"
+      class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400"
     >
       暂无可采点地点
     </div>

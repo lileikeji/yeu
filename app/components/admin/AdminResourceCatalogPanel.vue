@@ -48,10 +48,10 @@ function recordStatus(record: AdminRecord): string {
 </script>
 
 <template>
-  <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 bg-white">
+  <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
     <div
       v-if="config.stats"
-      class="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-zinc-200 bg-white p-3 sm:grid-cols-3 lg:grid-cols-5"
+      class="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:grid-cols-3 lg:grid-cols-5"
       role="group"
       aria-label="地点坐标统计"
     >
@@ -60,24 +60,24 @@ function recordStatus(record: AdminRecord): string {
         :key="item.key"
         class="flex min-w-0 items-center gap-3"
       >
-        <span class="grid size-8 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-500">
+        <span class="grid size-8 shrink-0 place-items-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
           <UIcon
             :name="item.icon"
             class="size-4"
           />
         </span>
         <dl class="min-w-0">
-          <dt class="truncate text-xs text-zinc-500">
+          <dt class="truncate text-xs text-zinc-500 dark:text-zinc-400">
             {{ item.label }}
           </dt>
-          <dd class="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950">
+          <dd class="mt-0.5 text-lg font-semibold tabular-nums text-zinc-950 dark:text-zinc-100">
             {{ stats[item.key] ?? 0 }}
           </dd>
         </dl>
       </div>
     </div>
 
-    <div class="flex flex-col gap-3 border-b border-zinc-200 bg-zinc-50/70 p-3 lg:flex-row lg:items-center">
+    <div class="flex flex-col gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/70 p-3 lg:flex-row lg:items-center">
       <UInput
         v-if="config.searchable !== false"
         v-model="searchQuery"
@@ -103,10 +103,10 @@ function recordStatus(record: AdminRecord): string {
 
     <div
       v-if="loadError"
-      class="flex flex-col items-start gap-3 border-b border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+      class="flex flex-col items-start gap-3 border-b border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-4 sm:flex-row sm:items-center sm:justify-between"
       role="alert"
     >
-      <div class="flex items-start gap-2 text-sm text-red-800">
+      <div class="flex items-start gap-2 text-sm text-red-800 dark:text-red-300">
         <UIcon
           name="i-lucide-circle-alert"
           class="mt-0.5 size-4 shrink-0"
@@ -125,7 +125,7 @@ function recordStatus(record: AdminRecord): string {
 
     <div
       v-if="loading && records.length === 0"
-      class="divide-y divide-zinc-100"
+      class="divide-y divide-zinc-100 dark:divide-zinc-800"
       aria-label="正在加载"
     >
       <div
@@ -142,22 +142,22 @@ function recordStatus(record: AdminRecord): string {
     <template v-else-if="records.length">
       <div class="hidden overflow-x-auto md:block">
         <table class="w-full min-w-[920px] border-collapse text-left text-sm">
-          <thead class="bg-zinc-50 text-xs font-semibold text-zinc-500">
+          <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             <tr>
               <th
                 v-for="column in config.columns"
                 :key="column.key"
-                class="border-b border-zinc-200 px-4 py-2.5"
+                class="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5"
                 :class="column.class"
               >
                 {{ column.label }}
               </th>
-              <th class="w-44 border-b border-zinc-200 px-4 py-2.5 text-right">
+              <th class="w-44 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 text-right">
                 操作
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-100">
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
             <tr
               v-for="record in records"
               :key="recordId(record)"
@@ -166,7 +166,7 @@ function recordStatus(record: AdminRecord): string {
               <td
                 v-for="column in config.columns"
                 :key="column.key"
-                class="max-w-xs px-4 py-3 text-zinc-600"
+                class="max-w-xs px-4 py-3 text-zinc-600 dark:text-zinc-300"
                 :class="column.class"
               >
                 <AdminStatusBadge
@@ -176,7 +176,7 @@ function recordStatus(record: AdminRecord): string {
                 <span
                   v-else
                   class="line-clamp-2"
-                  :class="column.key === config.rowTitleKey ? 'font-semibold text-zinc-950' : ''"
+                  :class="column.key === config.rowTitleKey ? 'font-semibold text-zinc-950 dark:text-zinc-100' : ''"
                 >
                   {{ displayAdminResourceCell(record, column) }}
                 </span>
@@ -249,7 +249,7 @@ function recordStatus(record: AdminRecord): string {
         </table>
       </div>
 
-      <div class="divide-y divide-zinc-100 md:hidden">
+      <div class="divide-y divide-zinc-100 dark:divide-zinc-800 md:hidden">
         <article
           v-for="record in records"
           :key="recordId(record)"
@@ -257,7 +257,7 @@ function recordStatus(record: AdminRecord): string {
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="truncate text-sm font-semibold text-zinc-950">
+              <p class="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-100">
                 {{ rowTitle(record) }}
               </p>
               <dl class="mt-2 space-y-1.5 text-xs">
@@ -266,10 +266,10 @@ function recordStatus(record: AdminRecord): string {
                   :key="column.key"
                   class="flex gap-2"
                 >
-                  <dt class="w-16 shrink-0 text-zinc-400">
+                  <dt class="w-16 shrink-0 text-zinc-400 dark:text-zinc-500">
                     {{ column.label }}
                   </dt>
-                  <dd class="min-w-0 text-zinc-600">
+                  <dd class="min-w-0 text-zinc-600 dark:text-zinc-300">
                     <AdminStatusBadge
                       v-if="column.kind === 'status'"
                       :value="readAdminColumnValue(record, column)"
@@ -283,7 +283,7 @@ function recordStatus(record: AdminRecord): string {
               </dl>
             </div>
           </div>
-          <div class="mt-3 flex flex-wrap items-center gap-1 border-t border-zinc-100 pt-2">
+          <div class="mt-3 flex flex-wrap items-center gap-1 border-t border-zinc-100 dark:border-zinc-800 pt-2">
             <UButton
               v-if="canEdit"
               icon="i-lucide-pencil"
@@ -337,22 +337,22 @@ function recordStatus(record: AdminRecord): string {
       class="grid min-h-64 place-items-center p-8 text-center"
     >
       <div>
-        <span class="mx-auto grid size-10 place-items-center rounded-md bg-zinc-100 text-zinc-500">
+        <span class="mx-auto grid size-10 place-items-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
           <UIcon
             name="i-lucide-inbox"
             class="size-5"
           />
         </span>
-        <p class="mt-3 text-sm font-semibold text-zinc-800">
+        <p class="mt-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           没有匹配记录
         </p>
-        <p class="mt-1 text-xs text-zinc-500">
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           {{ config.searchable === false ? '暂无记录。' : '调整搜索或筛选条件后重试。' }}
         </p>
       </div>
     </div>
 
-    <footer class="flex flex-col gap-3 border-t border-zinc-200 bg-zinc-50/70 px-4 py-3 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+    <footer class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/70 px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
       <span>共 {{ total }} 条，第 {{ page }} / {{ pageCount }} 页</span>
       <div class="flex items-center gap-2">
         <UButton

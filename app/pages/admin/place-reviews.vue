@@ -391,9 +391,9 @@ const STATUS_LABELS: Record<PlaceReviewStatus, string> = {
 }
 
 const STATUS_COLORS: Record<PlaceReviewStatus, string> = {
-  pending: 'text-orange-700',
-  approved: 'text-green-700',
-  rejected: 'text-red-600'
+  pending: 'text-orange-700 dark:text-orange-300',
+  approved: 'text-green-700 dark:text-green-400',
+  rejected: 'text-red-600 dark:text-red-400'
 }
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -475,20 +475,20 @@ onMounted(loadReviews)
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-lg font-bold text-zinc-900">
+        <h1 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
           商家评价审核
         </h1>
-        <p class="mt-1 text-xs text-zinc-500">
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           {{ viewTab === 'reviews'
             ? `共 ${total} 条用户评价，通过后在校园地图弹窗公开展示`
             : `高德评分种子数据 ${amapRatings.length} 家（其中已过期 ${amapExpiredCount} 家），用于地图弹窗评分展示，过期后需重新拉取` }}
         </p>
       </div>
-      <div class="flex items-center gap-1 rounded-lg border border-zinc-200 p-1">
+      <div class="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 p-1">
         <button
           type="button"
           class="rounded-md px-3 py-1 text-xs font-medium transition-colors"
-          :class="viewTab === 'reviews' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'"
+          :class="viewTab === 'reviews' ? 'bg-zinc-900 dark:bg-zinc-700 text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
           @click="switchTab('reviews')"
         >
           用户评价
@@ -496,7 +496,7 @@ onMounted(loadReviews)
         <button
           type="button"
           class="rounded-md px-3 py-1 text-xs font-medium transition-colors"
-          :class="viewTab === 'amap' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'"
+          :class="viewTab === 'amap' ? 'bg-zinc-900 dark:bg-zinc-700 text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
           @click="switchTab('amap')"
         >
           高德评分数据
@@ -504,7 +504,7 @@ onMounted(loadReviews)
         <button
           type="button"
           class="rounded-md px-3 py-1 text-xs font-medium transition-colors"
-          :class="viewTab === 'merchants' ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'"
+          :class="viewTab === 'merchants' ? 'bg-zinc-900 dark:bg-zinc-700 text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
           @click="switchTab('merchants')"
         >
           商家管理
@@ -513,13 +513,13 @@ onMounted(loadReviews)
     </div>
 
     <template v-if="viewTab === 'reviews'">
-      <div class="flex items-center gap-1 rounded-lg border border-zinc-200 p-1">
+      <div class="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 p-1">
         <button
           v-for="option in ([{ value: 'pending', label: '待审核' }, { value: 'all', label: '全部' }, { value: 'approved', label: '已通过' }, { value: 'rejected', label: '已拒绝' }] as const)"
           :key="option.value"
           type="button"
           class="rounded-md px-3 py-1 text-xs font-medium transition-colors"
-          :class="statusFilter === option.value ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'"
+          :class="statusFilter === option.value ? 'bg-zinc-900 dark:bg-zinc-700 text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
           @click="statusFilter = option.value; page = 1; loadReviews()"
         >
           {{ option.label }}
@@ -528,21 +528,21 @@ onMounted(loadReviews)
 
       <p
         v-if="errorMessage"
-        class="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700"
+        class="rounded-md bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300"
       >
         {{ errorMessage }}
       </p>
 
       <div
         v-if="loading"
-        class="py-8 text-center text-sm text-zinc-500"
+        class="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         加载中…
       </div>
 
       <div
         v-else-if="items.length === 0"
-        class="rounded-lg border border-dashed border-zinc-200 py-10 text-center text-sm text-zinc-500"
+        class="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         暂无用户评价——用户在校园地图弹窗里提交的评价会出现在这里，审核通过后公开展示。
       </div>
@@ -554,13 +554,13 @@ onMounted(loadReviews)
         <li
           v-for="review in items"
           :key="review.id"
-          class="rounded-lg border border-zinc-200 bg-white p-4"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
         >
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span class="text-sm font-semibold text-zinc-900">
+            <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {{ review.displayName }}
             </span>
-            <span class="text-xs text-zinc-500">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">
               {{ review.username ? `@${review.username}` : '' }}
             </span>
             <span class="flex items-center gap-0.5">
@@ -569,9 +569,9 @@ onMounted(loadReviews)
                 :key="star"
                 name="i-lucide-star"
                 class="size-3"
-                :class="star <= review.score ? 'fill-amber-400 text-amber-400' : 'text-zinc-300'"
+                :class="star <= review.score ? 'fill-amber-400 text-amber-400 dark:text-amber-300' : 'text-zinc-300 dark:text-zinc-600'"
               />
-              <span class="ml-1 text-xs text-zinc-600">
+              <span class="ml-1 text-xs text-zinc-600 dark:text-zinc-300">
                 {{ review.score }} 星
               </span>
             </span>
@@ -581,15 +581,15 @@ onMounted(loadReviews)
             >
               {{ STATUS_LABELS[review.status] }}
             </span>
-            <span class="ml-auto text-xs text-zinc-400">
+            <span class="ml-auto text-xs text-zinc-400 dark:text-zinc-500">
               {{ formatTime(review.createdAt) }}
             </span>
           </div>
-          <p class="mt-2 text-sm leading-6 text-zinc-700">
+          <p class="mt-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
             {{ review.content }}
           </p>
-          <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-            <span class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono">
+          <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <span class="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono">
               {{ review.placeId }}
             </span>
             <span v-if="review.reviewedAt">
@@ -597,7 +597,7 @@ onMounted(loadReviews)
             </span>
             <span
               v-if="review.reviewNote"
-              class="text-red-600"
+              class="text-red-600 dark:text-red-400"
             >
               拒绝原因：{{ review.reviewNote }}
             </span>
@@ -609,7 +609,7 @@ onMounted(loadReviews)
             <input
               :value="noteDrafts.get(review.id) ?? ''"
               placeholder="拒绝原因（可选）"
-              class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-xs"
+              class="min-w-0 flex-1 rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-1.5 text-xs"
               @input="noteDrafts.set(review.id, ($event.target as HTMLInputElement).value)"
             >
             <UButton
@@ -646,7 +646,7 @@ onMounted(loadReviews)
           :disabled="page <= 1 || loading"
           @click="page -= 1; loadReviews()"
         />
-        <span class="text-xs text-zinc-500">
+        <span class="text-xs text-zinc-500 dark:text-zinc-400">
           {{ page }} / {{ pageCount }}
         </span>
         <UButton
@@ -683,21 +683,21 @@ onMounted(loadReviews)
 
       <p
         v-if="amapError"
-        class="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700"
+        class="rounded-md bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300"
       >
         {{ amapError }}
       </p>
 
       <div
         v-if="amapLoading"
-        class="py-8 text-center text-sm text-zinc-500"
+        class="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         加载中…
       </div>
 
       <div
         v-else-if="filteredAmapRatings.length === 0"
-        class="rounded-lg border border-dashed border-zinc-200 py-10 text-center text-sm text-zinc-500"
+        class="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         暂无高德评分数据（可运行 pnpm db:seed:amap-ratings 拉取）
       </div>
@@ -709,10 +709,10 @@ onMounted(loadReviews)
         <li
           v-for="rating in filteredAmapRatings"
           :key="rating.placeId"
-          class="rounded-lg border border-zinc-200 bg-white px-4 py-3"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3"
         >
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span class="text-sm font-medium text-zinc-900">
+            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
               {{ rating.poiName }}
             </span>
             <span
@@ -724,33 +724,33 @@ onMounted(loadReviews)
                 :key="star"
                 name="i-lucide-star"
                 class="size-3"
-                :class="star <= Math.round(rating.score) ? 'fill-amber-400 text-amber-400' : 'text-zinc-300'"
+                :class="star <= Math.round(rating.score) ? 'fill-amber-400 text-amber-400 dark:text-amber-300' : 'text-zinc-300 dark:text-zinc-600'"
               />
-              <span class="ml-1 text-xs text-zinc-600">
+              <span class="ml-1 text-xs text-zinc-600 dark:text-zinc-300">
                 {{ rating.score.toFixed(1) }}
               </span>
             </span>
             <span
               v-else
-              class="text-xs text-zinc-400"
+              class="text-xs text-zinc-400 dark:text-zinc-500"
             >
               暂无评分
             </span>
             <span
               v-if="rating.cost !== null"
-              class="text-xs text-zinc-500"
+              class="text-xs text-zinc-500 dark:text-zinc-400"
             >
               人均 ¥{{ rating.cost.toFixed(0) }}
             </span>
             <span
               class="ml-auto rounded px-1.5 py-0.5 text-[10px]"
-              :class="rating.expired ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'"
+              :class="rating.expired ? 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' : 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400'"
             >
               {{ rating.expired ? '已过期' : '有效' }}
             </span>
           </div>
-          <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
-            <span class="rounded bg-zinc-100 px-1.5 py-0.5 font-mono">
+          <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span class="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono">
               {{ rating.placeId }}
             </span>
             <span>
@@ -777,21 +777,21 @@ onMounted(loadReviews)
             v-model="merchantQuery"
             type="search"
             placeholder="搜索店名或 placeId…"
-            class="w-64 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+            class="w-64 rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 dark:focus:border-zinc-500"
           >
-          <span class="text-xs text-zinc-500">
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">
             共 {{ filteredMerchants.length }} 家商家
           </span>
         </div>
         <p
           v-if="merchantsError"
-          class="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700"
+          class="rounded-md bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300"
         >
           {{ merchantsError }}
         </p>
         <div
           v-if="merchantsLoading"
-          class="py-8 text-center text-sm text-zinc-500"
+          class="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
         >
           加载中…
         </div>
@@ -802,15 +802,15 @@ onMounted(loadReviews)
           <li
             v-for="merchant in filteredMerchants"
             :key="merchant.placeId"
-            class="cursor-pointer rounded-lg border border-zinc-200 bg-white p-3 transition-colors hover:border-zinc-400"
+            class="cursor-pointer rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 transition-colors hover:border-zinc-400 dark:hover:border-zinc-600"
             @click="openMerchant(merchant.placeId)"
           >
             <div class="flex items-center gap-3">
               <div class="min-w-0 flex-1">
-                <div class="truncate text-sm font-semibold text-zinc-900">
+                <div class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                   {{ merchant.poiName ?? merchant.placeId }}
                 </div>
-                <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500">
+                <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                   <span class="font-mono">
                     {{ merchant.placeId }}
                   </span>
@@ -822,14 +822,14 @@ onMounted(loadReviews)
                   </span>
                 </div>
               </div>
-              <div class="flex shrink-0 items-center gap-2 text-right text-[11px] text-zinc-600">
-                <span class="rounded bg-amber-50 px-2 py-1">
+              <div class="flex shrink-0 items-center gap-2 text-right text-[11px] text-zinc-600 dark:text-zinc-300">
+                <span class="rounded bg-amber-50 dark:bg-amber-950 px-2 py-1">
                   整理卡 {{ merchant.seedCardCount }}
                 </span>
-                <span class="rounded bg-blue-50 px-2 py-1">
+                <span class="rounded bg-blue-50 dark:bg-blue-950 px-2 py-1">
                   原文 {{ merchant.originalReviewCount }}
                 </span>
-                <span class="rounded bg-green-50 px-2 py-1">
+                <span class="rounded bg-green-50 dark:bg-green-950 px-2 py-1">
                   学生评 {{ merchant.userReviewCount }}
                 </span>
               </div>
@@ -846,15 +846,15 @@ onMounted(loadReviews)
           <div>
             <button
               type="button"
-              class="mb-1 text-xs text-zinc-500 hover:text-zinc-800"
+              class="mb-1 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100"
               @click="selectedMerchant = null"
             >
               ← 返回商家列表
             </button>
-            <h2 class="text-base font-bold text-zinc-900">
+            <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">
               {{ selectedMerchant.poiName ?? selectedMerchant.placeId }}
             </h2>
-            <p class="mt-0.5 text-xs text-zinc-500">
+            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               <span class="font-mono">{{ selectedMerchant.placeId }}</span>
               · 高德评分 {{ selectedMerchant.amapScore?.toFixed(1) ?? '—' }}
               {{ selectedMerchant.amapCost != null ? ` · 人均约 ¥${Math.round(selectedMerchant.amapCost)}` : '' }}
@@ -865,23 +865,23 @@ onMounted(loadReviews)
 
         <div
           v-if="merchantDetailLoading"
-          class="py-8 text-center text-sm text-zinc-500"
+          class="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
         >
           加载中…
         </div>
 
         <template v-else>
           <!-- 推广设置 -->
-          <section class="rounded-lg border border-violet-200 bg-violet-50/40 p-4">
-            <h3 class="text-sm font-bold text-zinc-800">
+          <section class="rounded-lg border border-violet-200 bg-violet-50/40 dark:bg-violet-950/40 p-4">
+            <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-100">
               商家推广设置
             </h3>
-            <p class="mt-0.5 text-xs text-zinc-500">
+            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               挂美团链接后，地图弹窗与 AI 推荐会出现该商家的快捷跳转；排行占比与 AI 频率用于提升推荐权重。
             </p>
             <div
               v-if="promoLoading"
-              class="mt-3 text-xs text-zinc-500"
+              class="mt-3 text-xs text-zinc-500 dark:text-zinc-400"
             >
               加载中…
             </div>
@@ -890,18 +890,18 @@ onMounted(loadReviews)
               class="mt-3 grid gap-3 sm:grid-cols-2"
             >
               <div class="sm:col-span-2">
-                <label class="text-xs font-medium text-zinc-600">
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                   美团店铺链接
                 </label>
                 <input
                   v-model="promoMeituanUrl"
                   type="url"
                   placeholder="https://waimai.meituan.com/… 或 https://www.meituan.com/…"
-                  class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-violet-500"
+                  class="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-sm outline-none focus:border-violet-500"
                 >
               </div>
               <div class="sm:col-span-2">
-                <label class="text-xs font-medium text-zinc-600">
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                   二维码图片（小程序码/点餐码，前台点击可放大扫码）
                 </label>
                 <div class="mt-1 flex items-center gap-3">
@@ -909,11 +909,11 @@ onMounted(loadReviews)
                     v-if="promoQrCodeUrl"
                     :src="promoQrCodeUrl"
                     alt="二维码预览"
-                    class="size-16 rounded-lg border border-zinc-200 object-contain"
+                    class="size-16 rounded-lg border border-zinc-200 dark:border-zinc-800 object-contain"
                   >
                   <div class="flex flex-col gap-1.5">
                     <label
-                      class="inline-flex w-fit cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                      class="inline-flex w-fit cursor-pointer items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                     >
                       <UIcon
                         name="i-lucide-upload"
@@ -931,7 +931,7 @@ onMounted(loadReviews)
                     <button
                       v-if="promoQrCodeUrl"
                       type="button"
-                      class="inline-flex w-fit items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] text-red-600 hover:bg-red-50"
+                      class="inline-flex w-fit items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
                       @click="promoQrCodeUrl = ''"
                     >
                       <UIcon
@@ -942,12 +942,12 @@ onMounted(loadReviews)
                     </button>
                   </div>
                 </div>
-                <p class="mt-1 text-[11px] text-zinc-400">
+                <p class="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
                   建议上传正方形小程序码图片（PNG/JPG/WebP，≤5MB）
                 </p>
               </div>
               <div>
-                <label class="text-xs font-medium text-zinc-600">
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                   排行占比：{{ promoWeight }}%
                 </label>
                 <input
@@ -958,12 +958,12 @@ onMounted(loadReviews)
                   step="5"
                   class="mt-2 w-full accent-violet-600"
                 >
-                <p class="mt-1 text-[11px] text-zinc-400">
+                <p class="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
                   越高排名越靠前（0 = 不干预）
                 </p>
               </div>
               <div>
-                <label class="text-xs font-medium text-zinc-600">
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                   AI 出现频率：{{ promoAiFrequency }}%
                 </label>
                 <input
@@ -974,18 +974,18 @@ onMounted(loadReviews)
                   step="5"
                   class="mt-2 w-full accent-violet-600"
                 >
-                <p class="mt-1 text-[11px] text-zinc-400">
+                <p class="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
                   越高 AI 推荐时越常出现
                 </p>
                 <p
                   v-if="promo && (promo.clickCount7d > 0 || promo.clickCount30d > 0)"
-                  class="mt-2 text-[11px] text-zinc-500"
+                  class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400"
                 >
                   推广效果：近 7 天 {{ promo.clickCount7d }} 次跳转 · 近 30 天 {{ promo.clickCount30d }} 次
                 </p>
               </div>
               <div class="sm:col-span-2 flex items-center justify-between">
-                <label class="flex items-center gap-2 text-xs font-medium text-zinc-600">
+                <label class="flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
                   <input
                     v-model="promoEnabled"
                     type="checkbox"
@@ -1008,7 +1008,7 @@ onMounted(loadReviews)
           <!-- 整理卡（前台展示版，可编辑/添加/删除） -->
           <section>
             <div class="flex items-center justify-between">
-              <h3 class="mb-2 text-sm font-bold text-zinc-800">
+              <h3 class="mb-2 text-sm font-bold text-zinc-800 dark:text-zinc-100">
                 整理卡（前台展示）
               </h3>
               <button
@@ -1023,10 +1023,10 @@ onMounted(loadReviews)
             <!-- 添加表单 -->
             <div
               v-if="addingSeed"
-              class="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3"
+              class="mb-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 p-3"
             >
               <div class="flex items-center gap-2">
-                <label class="text-xs font-medium text-zinc-600">
+                <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                   星级
                 </label>
                 <input
@@ -1035,14 +1035,14 @@ onMounted(loadReviews)
                   min="1"
                   max="5"
                   step="0.1"
-                  class="w-20 rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-amber-500"
+                  class="w-20 rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-sm outline-none focus:border-amber-500 dark:focus:border-amber-700"
                 >
-                <label class="ml-2 text-xs font-medium text-zinc-600">
+                <label class="ml-2 text-xs font-medium text-zinc-600 dark:text-zinc-300">
                   来源
                 </label>
                 <select
                   v-model="newSeedPlatform"
-                  class="rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-amber-500"
+                  class="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-sm outline-none focus:border-amber-500 dark:focus:border-amber-700"
                 >
                   <option value="dianping">
                     点评整理
@@ -1056,7 +1056,7 @@ onMounted(loadReviews)
                 v-model="newSeedContent"
                 rows="3"
                 placeholder="输入整理后的评价内容（前台展示的标准格式：推荐菜/亮点/注意点）…"
-                class="mt-2 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm leading-5 outline-none focus:border-amber-500"
+                class="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-sm leading-5 outline-none focus:border-amber-500 dark:focus:border-amber-700"
               />
               <div class="mt-2 flex justify-end">
                 <button
@@ -1074,38 +1074,38 @@ onMounted(loadReviews)
               <li
                 v-for="card in selectedMerchant.seedCards"
                 :key="card.id"
-                class="rounded-lg border border-amber-200 bg-amber-50/40 p-3"
+                class="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50/40 dark:bg-amber-950/40 p-3"
               >
                 <div class="flex items-center gap-2 text-xs">
-                  <span class="text-amber-600">
+                  <span class="text-amber-600 dark:text-amber-300">
                     {{ renderStars(card.score) }} {{ card.score.toFixed(1) }} 分
                   </span>
-                  <span class="text-zinc-500">
+                  <span class="text-zinc-500 dark:text-zinc-400">
                     来自{{ card.sourcePlatform === 'dianping' ? '点评' : card.sourcePlatform === 'meituan' ? '美团' : '' }}整理
                   </span>
                   <button
                     type="button"
-                    class="ml-auto rounded px-2 py-0.5 text-[11px] text-zinc-600 hover:bg-amber-100"
+                    class="ml-auto rounded px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300 hover:bg-amber-100"
                     @click="startEditSeed(card)"
                   >
                     编辑
                   </button>
                   <button
                     type="button"
-                    class="rounded px-2 py-0.5 text-[11px] text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    class="rounded px-2 py-0.5 text-[11px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
                     :disabled="deletingSeedId === card.id"
                     @click="deleteSeedCard(card)"
                   >
                     {{ deletingSeedId === card.id ? '删除中…' : '删除' }}
                   </button>
                 </div>
-                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-700">
+                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-700 dark:text-zinc-200">
                   {{ card.content }}
                 </p>
               </li>
               <li
                 v-if="selectedMerchant.seedCards.length === 0"
-                class="rounded-lg border border-dashed border-zinc-200 py-4 text-center text-xs text-zinc-500"
+                class="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 py-4 text-center text-xs text-zinc-500 dark:text-zinc-400"
               >
                 暂无整理卡
               </li>
@@ -1114,20 +1114,20 @@ onMounted(loadReviews)
 
           <!-- 原始评论（完整原文） -->
           <section>
-            <h3 class="mb-2 text-sm font-bold text-zinc-800">
+            <h3 class="mb-2 text-sm font-bold text-zinc-800 dark:text-zinc-100">
               完整原文评论（{{ selectedMerchant.originalReviews.length }} 条）
             </h3>
             <ul class="space-y-2">
               <li
                 v-for="review in selectedMerchant.originalReviews"
                 :key="review.id"
-                class="rounded-lg border border-zinc-200 bg-white p-3"
+                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
               >
                 <div class="flex items-center gap-2 text-xs">
-                  <span class="text-zinc-700">
+                  <span class="text-zinc-700 dark:text-zinc-200">
                     {{ renderStars(review.score) }}
                   </span>
-                  <span class="text-zinc-500">
+                  <span class="text-zinc-500 dark:text-zinc-400">
                     {{ review.displayName ?? '匿名' }} · {{ formatCollectedAt(review.collectedAt) }}
                   </span>
                   <a
@@ -1140,13 +1140,13 @@ onMounted(loadReviews)
                     来源链接
                   </a>
                 </div>
-                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-600">
+                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-600 dark:text-zinc-300">
                   {{ review.content }}
                 </p>
               </li>
               <li
                 v-if="selectedMerchant.originalReviews.length === 0"
-                class="rounded-lg border border-dashed border-zinc-200 py-4 text-center text-xs text-zinc-500"
+                class="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 py-4 text-center text-xs text-zinc-500 dark:text-zinc-400"
               >
                 暂无原文评论（抓取后入库）
               </li>
@@ -1155,30 +1155,30 @@ onMounted(loadReviews)
 
           <!-- 学生评价 -->
           <section v-if="selectedMerchant.userReviews.length > 0">
-            <h3 class="mb-2 text-sm font-bold text-zinc-800">
+            <h3 class="mb-2 text-sm font-bold text-zinc-800 dark:text-zinc-100">
               学生评价（{{ selectedMerchant.userReviews.length }} 条）
             </h3>
             <ul class="space-y-2">
               <li
                 v-for="review in selectedMerchant.userReviews"
                 :key="review.id"
-                class="rounded-lg border border-zinc-200 bg-white p-3"
+                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
               >
                 <div class="flex items-center gap-2 text-xs">
-                  <span class="text-zinc-700">
+                  <span class="text-zinc-700 dark:text-zinc-200">
                     {{ renderStars(review.score) }}
                   </span>
-                  <span class="text-zinc-500">
+                  <span class="text-zinc-500 dark:text-zinc-400">
                     {{ review.displayName ?? '匿名' }}
                   </span>
                   <span
                     class="ml-auto rounded px-1.5 py-0.5 text-[10px]"
-                    :class="review.status === 'approved' ? 'bg-green-50 text-green-700' : review.status === 'rejected' ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-700'"
+                    :class="review.status === 'approved' ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400' : review.status === 'rejected' ? 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' : 'bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300'"
                   >
                     {{ review.status === 'approved' ? '已通过' : review.status === 'rejected' ? '已拒绝' : '待审核' }}
                   </span>
                 </div>
-                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-600">
+                <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-600 dark:text-zinc-300">
                   {{ review.content }}
                 </p>
               </li>
@@ -1193,13 +1193,13 @@ onMounted(loadReviews)
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
         @click.self="editingSeed = null"
       >
-        <div class="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
-          <h3 class="text-sm font-bold text-zinc-900">
+        <div class="w-full max-w-lg rounded-xl bg-white dark:bg-zinc-900 p-5 shadow-xl">
+          <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
             编辑整理卡
           </h3>
           <div class="mt-3 space-y-3">
             <div>
-              <label class="text-xs font-medium text-zinc-600">
+              <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                 星级（1-5）
               </label>
               <div class="mt-1 flex items-center gap-1">
@@ -1209,35 +1209,35 @@ onMounted(loadReviews)
                   min="1"
                   max="5"
                   step="0.1"
-                  class="w-24 rounded-lg border border-zinc-300 px-2 py-1 text-sm outline-none focus:border-zinc-500"
+                  class="w-24 rounded-lg border border-zinc-300 dark:border-zinc-700 px-2 py-1 text-sm outline-none focus:border-zinc-500 dark:focus:border-zinc-500"
                 >
-                <span class="text-sm text-amber-600">
+                <span class="text-sm text-amber-600 dark:text-amber-300">
                   {{ renderStars(editScore) }}
                 </span>
               </div>
             </div>
             <div>
-              <label class="text-xs font-medium text-zinc-600">
+              <label class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                 内容（前台展示的整理文案）
               </label>
               <textarea
                 v-model="editContent"
                 rows="6"
-                class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm leading-5 outline-none focus:border-zinc-500"
+                class="mt-1 w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-sm leading-5 outline-none focus:border-zinc-500 dark:focus:border-zinc-500"
               />
             </div>
           </div>
           <div class="mt-4 flex justify-end gap-2">
             <button
               type="button"
-              class="rounded-lg px-3 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100"
+              class="rounded-lg px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
               @click="editingSeed = null"
             >
               取消
             </button>
             <button
               type="button"
-              class="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:opacity-50"
+              class="rounded-lg bg-zinc-900 dark:bg-zinc-700 px-3 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:opacity-50"
               :disabled="savingSeed || !editContent.trim()"
               @click="saveSeedEdit"
             >

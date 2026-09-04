@@ -213,14 +213,14 @@ onMounted(() => {
     :description="modalDescription"
     :ui="{
       content: 'w-[calc(100vw-1rem)] overflow-hidden sm:max-w-xl',
-      header: 'border-b border-zinc-200 px-4 py-3 sm:px-5 sm:py-4',
+      header: 'border-b border-zinc-200 dark:border-zinc-800 px-4 py-3 sm:px-5 sm:py-4',
       body: 'p-0'
     }"
     @update:open="handleModalOpenChange"
   >
     <template #title>
       <span class="inline-flex items-center gap-2">
-        <span class="grid size-7 shrink-0 place-items-center rounded-full bg-green-100 text-green-700">
+        <span class="grid size-7 shrink-0 place-items-center rounded-full bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-400">
           <UIcon
             name="i-lucide-bell"
             class="size-4"
@@ -236,7 +236,7 @@ onMounted(() => {
         class="flex max-h-[min(72dvh,42rem)] min-h-0 flex-col px-4 pb-4 sm:px-5 sm:pb-5"
       >
         <article class="min-h-0 overflow-y-auto overscroll-y-contain pr-1">
-          <div class="flex items-center justify-between gap-3 text-xs text-zinc-500">
+          <div class="flex items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <div class="flex min-w-0 flex-wrap items-center gap-2">
               <UBadge
                 v-if="selectedNotice.pinned"
@@ -255,7 +255,7 @@ onMounted(() => {
               <span>{{ selectedNotice.confirmationCount }} 人已读</span>
               <span
                 class="inline-flex items-center gap-1 font-medium"
-                :class="selectedNotice.confirmed ? 'text-emerald-700' : 'text-amber-700'"
+                :class="selectedNotice.confirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'"
               >
                 <UIcon
                   :name="selectedNotice.confirmed ? 'i-lucide-circle-check' : 'i-lucide-circle'"
@@ -265,24 +265,24 @@ onMounted(() => {
               </span>
             </span>
           </div>
-          <h2 class="mt-2 text-xl font-bold leading-8 text-zinc-950 sm:text-2xl">
+          <h2 class="mt-2 text-xl font-bold leading-8 text-zinc-950 dark:text-zinc-100 sm:text-2xl">
             {{ selectedNotice.title }}
           </h2>
           <p
             v-if="selectedNotice.summary"
-            class="mt-2 rounded-md border-l-4 border-amber-400 bg-amber-50 px-3 py-2.5 text-sm leading-6 text-zinc-700"
+            class="mt-2 rounded-md border-l-4 border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-3 py-2.5 text-sm leading-6 text-zinc-700 dark:text-zinc-200"
           >
             {{ selectedNotice.summary }}
           </p>
-          <div class="mt-3 whitespace-pre-line text-[15px] leading-7 text-zinc-800">
+          <div class="mt-3 whitespace-pre-line text-[15px] leading-7 text-zinc-800 dark:text-zinc-100">
             {{ selectedNotice.body || selectedNotice.summary }}
           </div>
 
           <div
             v-if="selectedNotice.actions?.length"
-            class="mt-4 border-t border-zinc-200 pt-3"
+            class="mt-4 border-t border-zinc-200 dark:border-zinc-800 pt-3"
           >
-            <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               快捷入口
             </p>
             <div class="mt-2 flex flex-wrap gap-2">
@@ -299,7 +299,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 pt-3">
+          <div class="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-3">
             <UButton
               v-if="selectedNotice.autoPopup"
               icon="i-lucide-calendar-off"
@@ -323,15 +323,15 @@ onMounted(() => {
           type="button"
           class="group w-full rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           :class="notice.confirmed
-            ? 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50'
-            : 'border-amber-300 bg-amber-50/80 hover:border-amber-400 hover:bg-amber-50'"
+            ? 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
+            : 'border-amber-300 dark:border-amber-800 bg-amber-50/80 hover:border-amber-400 dark:hover:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950'"
           :aria-label="`${notice.confirmed ? '已读' : '未读'}公告：${notice.title}`"
           @click="openNoticeDetail(notice)"
         >
           <div class="flex items-start gap-3">
             <span
               class="mt-1 grid size-8 shrink-0 place-items-center rounded-full"
-              :class="notice.confirmed ? 'bg-zinc-100 text-zinc-500' : 'bg-amber-500 text-white'"
+              :class="notice.confirmed ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400' : 'bg-amber-500 text-white'"
             >
               <UIcon
                 name="i-lucide-megaphone"
@@ -350,22 +350,22 @@ onMounted(() => {
                 />
                 <span
                   v-if="!notice.confirmed"
-                  class="text-xs font-semibold text-amber-700"
+                  class="text-xs font-semibold text-amber-700 dark:text-amber-300"
                 >未读</span>
                 <time
                   :datetime="noticeTime(notice)"
-                  class="text-xs text-zinc-500"
+                  class="text-xs text-zinc-500 dark:text-zinc-400"
                 >{{ noticeRelativeTime(noticeTime(notice)) }}</time>
               </span>
-              <span class="mt-1.5 block text-base font-bold leading-6 text-zinc-950">
+              <span class="mt-1.5 block text-base font-bold leading-6 text-zinc-950 dark:text-zinc-100">
                 {{ notice.title }}
               </span>
-              <span class="mt-1 line-clamp-2 block text-sm leading-6 text-zinc-600">
+              <span class="mt-1 line-clamp-2 block text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                 {{ notice.summary }}
               </span>
-              <span class="mt-2 flex items-center justify-between gap-3 text-xs text-zinc-500">
+              <span class="mt-2 flex items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                 <span>{{ notice.confirmationCount }} 人已读</span>
-                <span class="inline-flex items-center gap-1 font-semibold text-zinc-700">
+                <span class="inline-flex items-center gap-1 font-semibold text-zinc-700 dark:text-zinc-200">
                   查看详情
                   <UIcon
                     name="i-lucide-chevron-right"
@@ -380,12 +380,12 @@ onMounted(() => {
 
       <div
         v-else
-        class="grid min-h-40 place-items-center text-center text-sm text-zinc-500"
+        class="grid min-h-40 place-items-center text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         <div>
           <UIcon
             name="i-lucide-bell-off"
-            class="mx-auto size-6 text-zinc-400"
+            class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
           />
           <p class="mt-2">
             目前没有新公告

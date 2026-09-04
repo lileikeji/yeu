@@ -82,17 +82,17 @@ onMounted(() => {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           按步骤办理
         </p>
         <div class="mt-2 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div class="max-w-3xl">
-            <h1 class="text-2xl font-bold text-zinc-950 md:text-3xl">
+            <h1 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               新生办事流程
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600">
+            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
               先找你要办的事，再按步骤准备时间、材料和地点。尚未公布的安排会直接标明，费用请以录取通知书和学校最新通知为准。
             </p>
           </div>
@@ -110,12 +110,12 @@ onMounted(() => {
           aria-label="常找的办事入口"
           class="scrollbar-none mt-5 flex items-center gap-2 overflow-x-auto pb-1"
         >
-          <span class="shrink-0 text-xs font-semibold text-zinc-500">常找</span>
+          <span class="shrink-0 text-xs font-semibold text-zinc-500 dark:text-zinc-400">常找</span>
           <NuxtLink
             v-for="entry in procedureListQuickEntries"
             :key="entry.to"
             :to="entry.to"
-            class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 text-xs font-semibold text-zinc-700 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-800"
+            class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950 hover:text-green-800 dark:hover:text-green-300"
           >
             <UIcon
               :name="entry.icon"
@@ -157,17 +157,17 @@ onMounted(() => {
     <div class="page-shell page-section">
       <div
         v-if="error"
-        class="border-y border-amber-200 bg-amber-50 px-5 py-10 text-center"
+        class="border-y border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-5 py-10 text-center"
         role="alert"
       >
         <UIcon
           name="i-lucide-circle-alert"
-          class="mx-auto size-6 text-amber-700"
+          class="mx-auto size-6 text-amber-700 dark:text-amber-300"
         />
         <h2 class="mt-3 text-base font-bold text-amber-950">
           办事信息暂时没有显示出来
         </h2>
-        <p class="mt-2 text-sm leading-6 text-amber-900">
+        <p class="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-300">
           {{ procedureListMessages.serviceUnavailable }}
         </p>
         <div class="mt-5 flex flex-wrap justify-center gap-2">
@@ -192,10 +192,10 @@ onMounted(() => {
 
       <template v-else>
         <div class="mb-4 flex items-center justify-between gap-4">
-          <h2 class="text-sm font-semibold text-zinc-900">
+          <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             {{ procedures.length }} 件事
           </h2>
-          <span class="text-xs text-zinc-500">点开查看步骤</span>
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">点开查看步骤</span>
         </div>
 
         <div
@@ -209,10 +209,10 @@ onMounted(() => {
               path: `/procedures/${item.slug}`,
               query: procedureListDetailQuery(audience)
             }"
-            class="surface-panel group flex min-h-0 flex-col p-4 transition hover:border-green-300 hover:shadow-sm md:min-h-64 md:p-5"
+            class="surface-panel group flex min-h-0 flex-col p-4 transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm md:min-h-64 md:p-5"
           >
             <div class="flex items-start justify-between gap-3">
-              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700 md:size-10">
+              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 md:size-10">
                 <UIcon
                   name="i-lucide-list-checks"
                   class="size-5"
@@ -230,20 +230,20 @@ onMounted(() => {
                 {{ procedureListStatePresentation(item.informationState).label }}
               </UBadge>
             </div>
-            <h2 class="mt-3 text-base font-bold text-zinc-950 md:mt-5">
+            <h2 class="mt-3 text-base font-bold text-zinc-950 dark:text-zinc-100 md:mt-5">
               {{ studentFacingProcedureTitle(item.title) }}
             </h2>
-            <p class="mt-1.5 line-clamp-2 flex-1 text-sm leading-6 text-zinc-600 md:mt-2 md:line-clamp-none">
+            <p class="mt-1.5 line-clamp-2 flex-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300 md:mt-2 md:line-clamp-none">
               {{ studentFacingProcedureText(item.summary) }}
             </p>
-            <p class="mt-2 line-clamp-1 border-l-2 border-orange-300 pl-2.5 text-xs leading-5 text-zinc-600 md:mt-4 md:line-clamp-none md:pl-3">
-              <span class="font-semibold text-zinc-800">目前：</span>
+            <p class="mt-2 line-clamp-1 border-l-2 border-orange-300 pl-2.5 text-xs leading-5 text-zinc-600 dark:text-zinc-300 md:mt-4 md:line-clamp-none md:pl-3">
+              <span class="font-semibold text-zinc-800 dark:text-zinc-100">目前：</span>
               {{ procedureListStatusText(item.statusText) }}
             </p>
-            <div class="mt-3 text-xs text-zinc-500 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
+            <div class="mt-3 text-xs text-zinc-500 dark:text-zinc-400 md:mt-5 md:border-t md:border-zinc-100 md:pt-4">
               <div class="flex items-center justify-between gap-3">
                 <span class="truncate">{{ procedureMethodLabel(item.method) }}</span>
-                <span class="inline-flex items-center gap-1 font-medium text-green-700">
+                <span class="inline-flex items-center gap-1 font-medium text-green-700 dark:text-green-400">
                   {{ procedureListCardActionLabel(item.informationState) }}
                   <UIcon
                     name="i-lucide-arrow-right"
@@ -253,12 +253,12 @@ onMounted(() => {
               </div>
               <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 leading-5 md:mt-2">
                 <span>{{ cardProgressFor(item).stepLabel }}</span>
-                <span class="text-zinc-300">·</span>
+                <span class="text-zinc-300 dark:text-zinc-600">·</span>
                 <span>{{ cardProgressFor(item).materialLabel }}</span>
               </div>
               <p
                 v-if="cardProgressFor(item).progressHint"
-                class="mt-1 font-medium text-green-700"
+                class="mt-1 font-medium text-green-700 dark:text-green-400"
               >
                 {{ cardProgressFor(item).progressHint }}
               </p>
@@ -274,17 +274,17 @@ onMounted(() => {
 
         <div
           v-else
-          class="border-y border-zinc-200 bg-white px-5 py-12 text-center"
+          class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-12 text-center"
           role="status"
         >
           <UIcon
             name="i-lucide-list-x"
-            class="mx-auto size-6 text-zinc-400"
+            class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
           />
-          <h2 class="mt-3 text-base font-bold text-zinc-900">
+          <h2 class="mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
             {{ filtersActive ? procedureListMessages.emptyMatch : procedureListMessages.emptyList }}
           </h2>
-          <p class="mt-2 text-sm leading-6 text-zinc-600">
+          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             {{ filtersActive ? '换个关键词或适用人群试试。' : '可以先看看入学指南，了解现在能准备什么。' }}
           </p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">

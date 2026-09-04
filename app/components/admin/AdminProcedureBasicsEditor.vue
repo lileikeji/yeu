@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 <template>
   <section>
-    <h3 class="border-b border-zinc-200 pb-2 text-sm font-semibold text-zinc-900">
+    <h3 class="border-b border-zinc-200 dark:border-zinc-800 pb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
       基本信息
     </h3>
     <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -73,7 +73,7 @@ const emit = defineEmits<{
         required
         class="sm:col-span-2"
       >
-        <div class="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-zinc-200 px-3 py-2">
+        <div class="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-2">
           <UCheckbox
             v-for="option in audienceOptions"
             :key="option.value"

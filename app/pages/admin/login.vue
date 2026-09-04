@@ -151,7 +151,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="grid min-h-screen bg-[#f5f7f4] lg:grid-cols-[minmax(20rem,0.72fr)_minmax(30rem,1fr)]">
+  <div class="grid min-h-screen bg-[#f5f7f4] dark:bg-zinc-950 lg:grid-cols-[minmax(20rem,0.72fr)_minmax(30rem,1fr)]">
     <section class="hidden border-r border-green-950 bg-green-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
       <div class="flex items-center gap-3">
         <span class="grid size-10 place-items-center rounded-md bg-green-600 text-white">
@@ -197,28 +197,28 @@ onMounted(async () => {
             />
           </span>
           <div>
-            <p class="font-semibold text-zinc-950">
+            <p class="font-semibold text-zinc-950 dark:text-zinc-100">
               迎新指南
             </p>
-            <p class="text-xs text-zinc-500">
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
               内容管理后台
             </p>
           </div>
         </div>
 
-        <div class="rounded-md border border-zinc-200 bg-white p-5 shadow-sm sm:p-7">
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm sm:p-7">
           <div>
-            <p class="text-xs font-semibold text-green-700">
+            <p class="text-xs font-semibold text-green-700 dark:text-green-400">
               ADMIN
             </p>
-            <h1 class="mt-2 text-2xl font-bold text-zinc-950">
+            <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
               管理员登录
             </h1>
           </div>
 
           <div
             v-if="errorMessage"
-            class="mt-5 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+            class="mt-5 flex items-start gap-2 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-3 text-sm text-red-800 dark:text-red-300"
             role="alert"
           >
             <UIcon
@@ -285,7 +285,7 @@ onMounted(async () => {
             />
           </form>
 
-          <div class="mt-5 border-t border-zinc-200 pt-5">
+          <div class="mt-5 border-t border-zinc-200 dark:border-zinc-800 pt-5">
             <input
               ref="deviceKeyInput"
               type="file"
@@ -319,11 +319,11 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="mt-5 flex items-center justify-between text-xs text-zinc-500">
+        <div class="mt-5 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
           <span>仅限维护者访问</span>
           <NuxtLink
             to="/"
-            class="inline-flex items-center gap-1 font-medium text-green-700 hover:text-green-800"
+            class="inline-flex items-center gap-1 font-medium text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
           >
             返回前台
             <UIcon

@@ -767,15 +767,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f3f6f8] pb-10 text-zinc-900">
-    <section class="border-b border-zinc-200 bg-white">
+  <div class="min-h-screen bg-[#f3f6f8] dark:bg-zinc-950 pb-10 text-zinc-900 dark:text-zinc-100">
+    <section class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
       <div class="mx-auto max-w-3xl px-4 py-2.5 sm:px-6 sm:py-3">
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <h1 class="truncate text-base font-black text-zinc-950 sm:text-lg">
+            <h1 class="truncate text-base font-black text-zinc-950 dark:text-zinc-100 sm:text-lg">
               迎新指南
             </h1>
-            <p class="mt-0.5 truncate text-[11px] text-zinc-500 sm:text-xs">
+            <p class="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400 sm:text-xs">
               新生报到、校园生活与办事信息，一页快速找到；重要内容以学校最新通知为准
             </p>
           </div>
@@ -827,7 +827,7 @@ onBeforeUnmount(() => {
     <main class="mx-auto max-w-3xl space-y-4 px-3 py-3 sm:space-y-5 sm:px-6 sm:py-6">
       <section
         v-if="currentBanner"
-        class="relative isolate aspect-[16/7] overflow-hidden rounded-md bg-zinc-900 text-white sm:aspect-[16/6]"
+        class="relative isolate aspect-[16/7] overflow-hidden rounded-md bg-zinc-900 dark:bg-zinc-700 text-white sm:aspect-[16/6]"
         aria-label="焦点内容"
       >
         <img
@@ -858,8 +858,8 @@ onBeforeUnmount(() => {
             v-for="(_, index) in banners"
             :key="index"
             type="button"
-            class="h-1.5 rounded-full bg-white/60 transition-all"
-            :class="activeBannerIndex === index ? 'w-5 bg-white' : 'w-1.5'"
+            class="h-1.5 rounded-full bg-white/60 dark:bg-zinc-900/60 transition-all"
+            :class="activeBannerIndex === index ? 'w-5 bg-white dark:bg-zinc-900' : 'w-1.5'"
             :aria-label="`查看第 ${index + 1} 张轮播图`"
             @click="activeBannerIndex = index"
           />
@@ -868,39 +868,39 @@ onBeforeUnmount(() => {
 
       <section
         v-if="notices.length"
-        class="overflow-hidden rounded-md border border-amber-200 bg-white"
+        class="overflow-hidden rounded-md border border-amber-200 dark:border-amber-900 bg-white dark:bg-zinc-900"
         aria-labelledby="compact-notice-title"
       >
-        <div class="flex items-center justify-between border-b border-amber-100 bg-amber-50 px-4 py-2.5">
+        <div class="flex items-center justify-between border-b border-amber-100 bg-amber-50 dark:bg-amber-950 px-4 py-2.5">
           <h2
             id="compact-notice-title"
             class="text-sm font-black text-amber-950"
           >
             最新公告
           </h2>
-          <span class="text-xs text-amber-800">{{ notices.length }} 条</span>
+          <span class="text-xs text-amber-800 dark:text-amber-300">{{ notices.length }} 条</span>
         </div>
         <button
           v-for="notice in notices.slice(0, 3)"
           :key="notice.id"
           type="button"
-          class="flex min-h-14 w-full items-center gap-3 border-b border-zinc-100 px-4 py-3 text-left last:border-b-0 hover:bg-zinc-50"
+          class="flex min-h-14 w-full items-center gap-3 border-b border-zinc-100 dark:border-zinc-800 px-4 py-3 text-left last:border-b-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
           @click="openNotice(notice)"
         >
           <span
             class="size-2 shrink-0 rounded-full"
-            :class="notice.confirmed ? 'bg-zinc-300' : 'bg-amber-500'"
+            :class="notice.confirmed ? 'bg-zinc-300 dark:bg-zinc-700' : 'bg-amber-500'"
           />
           <span class="min-w-0 flex-1 truncate text-sm font-semibold">{{ notice.title }}</span>
           <UIcon
             name="i-lucide-chevron-right"
-            class="size-4 shrink-0 text-zinc-400"
+            class="size-4 shrink-0 text-zinc-400 dark:text-zinc-500"
           />
         </button>
       </section>
 
       <section
-        class="rounded-md bg-white p-4 shadow-sm"
+        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-quick-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -910,7 +910,7 @@ onBeforeUnmount(() => {
           >
             新生常用入口
           </h2>
-          <span class="text-xs text-zinc-400">{{ quickEntries.length }} 项</span>
+          <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ quickEntries.length }} 项</span>
         </div>
         <div class="mt-3 grid grid-cols-5 gap-x-1 gap-y-4 sm:gap-x-3">
           <button
@@ -920,19 +920,19 @@ onBeforeUnmount(() => {
             class="flex min-w-0 flex-col items-center text-center"
             @click="openEntry(entry)"
           >
-            <span class="grid size-10 place-items-center rounded-md bg-sky-50 text-sky-700 sm:size-11">
+            <span class="grid size-10 place-items-center rounded-md bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 sm:size-11">
               <UIcon
                 :name="entry.icon"
                 class="size-5"
               />
             </span>
-            <span class="mt-1.5 line-clamp-2 w-full text-[11px] font-semibold leading-4 text-zinc-700 sm:text-xs">{{ entry.title }}</span>
+            <span class="mt-1.5 line-clamp-2 w-full text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200 sm:text-xs">{{ entry.title }}</span>
           </button>
         </div>
       </section>
 
       <section
-        class="rounded-md bg-white p-4 shadow-sm"
+        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-service-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -942,14 +942,14 @@ onBeforeUnmount(() => {
           >
             校园服务
           </h2>
-          <span class="text-xs text-zinc-400">{{ serviceEntries.length }} 项</span>
+          <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ serviceEntries.length }} 项</span>
         </div>
         <div class="mt-3 flex snap-x gap-2 overflow-x-auto pb-1 overscroll-x-contain">
           <button
             v-for="entry in serviceEntries"
             :key="`service-${entry.id}`"
             type="button"
-            class="w-[48%] shrink-0 snap-start overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 sm:w-[32%]"
+            class="w-[48%] shrink-0 snap-start overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 sm:w-[32%]"
             @click="openEntry(entry)"
           >
             <img
@@ -962,7 +962,7 @@ onBeforeUnmount(() => {
               <h3 class="line-clamp-1 text-xs font-bold sm:text-sm">
                 {{ entry.title }}
               </h3>
-              <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-zinc-500">
+              <p class="mt-1 line-clamp-2 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
                 {{ entry.summary }}
               </p>
             </div>
@@ -971,7 +971,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white p-4 shadow-sm"
+        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-tools-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -981,29 +981,29 @@ onBeforeUnmount(() => {
           >
             迎新指南功能
           </h2>
-          <span class="text-xs text-zinc-400">{{ guideTools.length }} 项</span>
+          <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ guideTools.length }} 项</span>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
           <button
             v-for="entry in guideTools"
             :key="entry.id"
             type="button"
-            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 text-left"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2.5 text-left"
             @click="openEntry(entry)"
           >
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-bold">{{ entry.title }}</span>
-              <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500">{{ entry.summary }}</span>
+              <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500 dark:text-zinc-400">{{ entry.summary }}</span>
             </span>
             <UIcon
               :name="entry.icon"
-              class="size-4 shrink-0 text-emerald-700"
+              class="size-4 shrink-0 text-emerald-700 dark:text-emerald-300"
             />
           </button>
         </div>
         <div
           v-if="timelineEntries.length"
-          class="mt-4 border-t border-zinc-100 pt-4"
+          class="mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-4"
         >
           <h3 class="text-sm font-bold">
             入学三步
@@ -1013,13 +1013,13 @@ onBeforeUnmount(() => {
               v-for="(entry, index) in timelineEntries"
               :key="`timeline-${entry.id}`"
               type="button"
-              class="flex items-center gap-3 rounded-md border border-zinc-200 px-3 py-3 text-left"
+              class="flex items-center gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-3 text-left"
               @click="openEntry(entry)"
             >
-              <span class="grid size-7 shrink-0 place-items-center rounded-full bg-zinc-900 text-xs font-bold text-white">{{ index + 1 }}</span>
+              <span class="grid size-7 shrink-0 place-items-center rounded-full bg-zinc-900 dark:bg-zinc-700 text-xs font-bold text-white">{{ index + 1 }}</span>
               <span class="min-w-0">
                 <span class="block text-sm font-bold">{{ entry.title }}</span>
-                <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500">{{ entry.summary }}</span>
+                <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500 dark:text-zinc-400">{{ entry.summary }}</span>
               </span>
             </button>
           </div>
@@ -1027,7 +1027,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white p-4 shadow-sm"
+        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-direct-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1037,23 +1037,23 @@ onBeforeUnmount(() => {
           >
             直接打开
           </h2>
-          <span class="text-xs text-zinc-400">{{ directEntries.length }} 项</span>
+          <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ directEntries.length }} 项</span>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
           <button
             v-for="entry in directEntries"
             :key="entry.id"
             type="button"
-            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 text-left hover:border-emerald-300"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2.5 text-left hover:border-emerald-300 dark:hover:border-emerald-800"
             @click="openEntry(entry)"
           >
             <span class="min-w-0 flex-1">
               <span class="block line-clamp-1 text-sm font-bold">{{ entry.title }}</span>
-              <span class="mt-0.5 block line-clamp-1 text-[11px] leading-4 text-zinc-500">{{ entry.summary }}</span>
+              <span class="mt-0.5 block line-clamp-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">{{ entry.summary }}</span>
             </span>
             <UIcon
               :name="entry.icon"
-              class="size-4 shrink-0 text-sky-700"
+              class="size-4 shrink-0 text-sky-700 dark:text-sky-300"
             />
           </button>
         </div>
@@ -1061,9 +1061,9 @@ onBeforeUnmount(() => {
           v-if="featureEnabled('home.more.dorms')"
           class="mt-4 grid gap-3 sm:grid-cols-2"
         >
-          <article class="overflow-hidden rounded-md border border-zinc-200">
+          <article class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800">
             <video
-              class="aspect-video w-full bg-black object-cover"
+              class="aspect-video w-full bg-black dark:bg-zinc-900 object-cover"
               controls
               playsinline
               preload="metadata"
@@ -1078,9 +1078,9 @@ onBeforeUnmount(() => {
               普通型宿舍实拍
             </p>
           </article>
-          <article class="overflow-hidden rounded-md border border-zinc-200">
+          <article class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800">
             <video
-              class="aspect-video w-full bg-black object-cover"
+              class="aspect-video w-full bg-black dark:bg-zinc-900 object-cover"
               controls
               playsinline
               preload="metadata"
@@ -1099,7 +1099,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white p-4 shadow-sm"
+        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-more-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1109,30 +1109,30 @@ onBeforeUnmount(() => {
           >
             了解与反馈
           </h2>
-          <span class="text-xs text-zinc-400">{{ moreEntries.length }} 项</span>
+          <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ moreEntries.length }} 项</span>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-2">
           <button
             v-for="entry in moreEntries"
             :key="`more-${entry.id}`"
             type="button"
-            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 px-3 py-2.5 text-left hover:border-emerald-300"
+            class="flex min-h-16 items-center gap-2 rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2.5 text-left hover:border-emerald-300 dark:hover:border-emerald-800"
             @click="openEntry(entry)"
           >
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-bold">{{ entry.title }}</span>
-              <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500">{{ entry.summary }}</span>
+              <span class="mt-0.5 line-clamp-1 block text-xs text-zinc-500 dark:text-zinc-400">{{ entry.summary }}</span>
             </span>
             <UIcon
               :name="entry.icon"
-              class="size-4 shrink-0 text-emerald-700"
+              class="size-4 shrink-0 text-emerald-700 dark:text-emerald-300"
             />
           </button>
         </div>
       </section>
 
       <section
-        class="rounded-md bg-white p-4 shadow-sm"
+        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-content-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1144,7 +1144,7 @@ onBeforeUnmount(() => {
           </h2>
           <NuxtLink
             :to="activeCatalog?.to || '/discover'"
-            class="text-xs font-semibold text-emerald-700"
+            class="text-xs font-semibold text-emerald-700 dark:text-emerald-300"
           >查看全部 {{ activeCatalog?.items.length ?? 0 }} 项</NuxtLink>
         </div>
         <div
@@ -1159,8 +1159,8 @@ onBeforeUnmount(() => {
             role="tab"
             class="inline-flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-md border px-3 text-left transition"
             :class="activeCatalogId === catalog.id
-              ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
-              : 'border-zinc-200 bg-white text-zinc-600'"
+              ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950 text-emerald-900'
+              : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300'"
             :aria-selected="activeCatalogId === catalog.id"
             @click="selectCatalog(catalog.id)"
           >
@@ -1181,13 +1181,13 @@ onBeforeUnmount(() => {
             v-for="item in visibleCatalogItems"
             :key="item.id"
             type="button"
-            class="min-w-0 rounded-md border border-zinc-200 px-3 py-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/30"
+            class="min-w-0 rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-3 text-left transition hover:border-emerald-300 dark:hover:border-emerald-800 hover:bg-emerald-50/30"
             @click="openCatalogItem(item)"
           >
             <p class="line-clamp-2 text-sm font-bold leading-5">
               {{ item.title }}
             </p>
-            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
+            <p class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               {{ item.summary }}
             </p>
           </button>
@@ -1195,7 +1195,7 @@ onBeforeUnmount(() => {
         <button
           v-if="(activeCatalog?.items.length ?? 0) > 10"
           type="button"
-          class="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs font-semibold text-zinc-700 hover:border-emerald-300"
+          class="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:border-emerald-300 dark:hover:border-emerald-800"
           @click="toggleCatalogExpansion"
         >
           <UIcon
@@ -1207,12 +1207,12 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md border border-zinc-200 bg-white p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
         aria-labelledby="compact-major-title"
       >
         <div class="flex items-end justify-between gap-3">
           <div>
-            <p class="text-xs font-semibold text-emerald-700">
+            <p class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
               26 个专业 · {{ majorCollegeCount }} 个学院
             </p>
             <h2
@@ -1234,12 +1234,12 @@ onBeforeUnmount(() => {
           <div
             v-for="major in majorProfiles.slice(0, 8)"
             :key="major.code"
-            class="min-w-0 rounded-md bg-zinc-50 p-3"
+            class="min-w-0 rounded-md bg-zinc-50 dark:bg-zinc-800/60 p-3"
           >
-            <p class="truncate text-xs font-bold text-zinc-900">
+            <p class="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">
               {{ major.name }}
             </p>
-            <p class="mt-1 truncate text-[11px] text-zinc-500">
+            <p class="mt-1 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
               {{ major.dormLabel }}
             </p>
           </div>
@@ -1248,7 +1248,7 @@ onBeforeUnmount(() => {
 
       <section
         v-if="nearbyHighlights.length"
-        class="rounded-md bg-white p-4 shadow-sm"
+        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-nearby-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1271,7 +1271,7 @@ onBeforeUnmount(() => {
             v-for="item in nearbyHighlights"
             :key="item.id"
             type="button"
-            class="w-48 shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-white text-left"
+            class="w-48 shrink-0 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-left"
             @click="openNearbyItem(item)"
           >
             <img
@@ -1283,7 +1283,7 @@ onBeforeUnmount(() => {
             >
             <span
               v-else
-              class="grid aspect-[16/9] w-full place-items-center bg-gradient-to-br from-emerald-50 to-sky-50 text-emerald-700"
+              class="grid aspect-[16/9] w-full place-items-center bg-gradient-to-br from-emerald-50 to-sky-50 text-emerald-700 dark:text-emerald-300"
             >
               <UIcon
                 :name="item.icon"
@@ -1291,9 +1291,9 @@ onBeforeUnmount(() => {
               />
             </span>
             <span class="block p-3">
-              <span class="text-[11px] font-semibold text-emerald-700">{{ nearbyGuideCategoryLabels[item.category] }}</span>
+              <span class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">{{ nearbyGuideCategoryLabels[item.category] }}</span>
               <span class="mt-1 line-clamp-2 block text-sm font-bold leading-5">{{ item.title }}</span>
-              <span class="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-500">{{ item.summary }}</span>
+              <span class="mt-1 line-clamp-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{{ item.summary }}</span>
             </span>
           </button>
         </div>
@@ -1318,12 +1318,12 @@ onBeforeUnmount(() => {
             <article
               v-for="(block, index) in selectedEntryContentBlocks"
               :key="`${selectedEntry.id}-detail-${index}`"
-              class="rounded-md border border-zinc-200 bg-white px-4 py-3"
+              class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3"
             >
-              <h3 class="text-sm font-black text-zinc-900">
+              <h3 class="text-sm font-black text-zinc-900 dark:text-zinc-100">
                 {{ block.title }}
               </h3>
-              <p class="mt-1.5 whitespace-pre-line text-sm leading-7 text-zinc-600">
+              <p class="mt-1.5 whitespace-pre-line text-sm leading-7 text-zinc-600 dark:text-zinc-300">
                 {{ block.body }}
               </p>
             </article>
@@ -1331,13 +1331,13 @@ onBeforeUnmount(() => {
 
           <section
             v-if="selectedEntryShowsContactQr"
-            class="rounded-md border border-emerald-100 bg-emerald-50/60 px-4 py-4 text-center"
+            class="rounded-md border border-emerald-100 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/60 px-4 py-4 text-center"
             aria-label="联系整理者二维码"
           >
-            <h3 class="text-sm font-black text-zinc-900">
+            <h3 class="text-sm font-black text-zinc-900 dark:text-zinc-100">
               联系整理者
             </h3>
-            <p class="mt-1 text-xs leading-5 text-zinc-500">
+            <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               有问题、想补充资料或加入新生交流群，可以长按识别二维码。
             </p>
             <NuxtLink
@@ -1345,7 +1345,7 @@ onBeforeUnmount(() => {
               external
               target="_blank"
               rel="noopener noreferrer"
-              class="mx-auto mt-3 block w-fit rounded-md bg-white p-2 shadow-sm ring-1 ring-zinc-200"
+              class="mx-auto mt-3 block w-fit rounded-md bg-white dark:bg-zinc-900 p-2 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
               aria-label="打开联系整理者二维码原图"
             >
               <img
@@ -1357,8 +1357,8 @@ onBeforeUnmount(() => {
             </NuxtLink>
           </section>
 
-          <div class="border-t border-zinc-200 pt-4">
-            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400">
+          <div class="border-t border-zinc-200 dark:border-zinc-800 pt-4">
+            <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
               来源地址
             </p>
             <NuxtLink
@@ -1366,7 +1366,7 @@ onBeforeUnmount(() => {
               :external="selectedEntrySourceExternal"
               :target="selectedEntrySourceExternal ? '_blank' : undefined"
               :rel="selectedEntrySourceExternal ? 'noopener noreferrer' : undefined"
-              class="mt-1 block break-all text-sm font-semibold leading-6 text-emerald-700 underline decoration-emerald-200 underline-offset-4"
+              class="mt-1 block break-all text-sm font-semibold leading-6 text-emerald-700 dark:text-emerald-300 underline decoration-emerald-200 underline-offset-4"
             >
               {{ selectedEntrySourceLabel }}
             </NuxtLink>
@@ -1375,9 +1375,9 @@ onBeforeUnmount(() => {
 
         <article
           v-else-if="selectedEntry"
-          class="rounded-md bg-zinc-50 px-4 py-4"
+          class="rounded-md bg-zinc-50 dark:bg-zinc-800/60 px-4 py-4"
         >
-          <p class="text-sm font-semibold text-zinc-500">
+          <p class="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
             将跳转至：
           </p>
           <NuxtLink
@@ -1385,7 +1385,7 @@ onBeforeUnmount(() => {
             :external="selectedEntrySourceExternal"
             :target="selectedEntrySourceExternal ? '_blank' : undefined"
             :rel="selectedEntrySourceExternal ? 'noopener noreferrer' : undefined"
-            class="mt-3 block break-all rounded-md border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm font-semibold leading-7 text-emerald-700 underline decoration-emerald-200 underline-offset-4"
+            class="mt-3 block break-all rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-4 py-4 text-sm font-semibold leading-7 text-emerald-700 dark:text-emerald-300 underline decoration-emerald-200 underline-offset-4"
           >
             {{ selectedEntrySourceLabel }}
           </NuxtLink>
@@ -1416,25 +1416,25 @@ onBeforeUnmount(() => {
           v-if="selectedNotice"
           class="max-h-[70dvh] overflow-y-auto overscroll-contain"
         >
-          <div class="flex items-center justify-between gap-3 text-xs text-zinc-500">
+          <div class="flex items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <span>{{ selectedNotice.confirmationCount }} 人已读</span>
-            <span :class="selectedNotice.confirmed ? 'text-green-700' : 'text-amber-700'">{{ selectedNotice.confirmed ? '已读' : '未读' }}</span>
+            <span :class="selectedNotice.confirmed ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-300'">{{ selectedNotice.confirmed ? '已读' : '未读' }}</span>
           </div>
-          <h2 class="mt-2 text-xl font-black text-zinc-950">
+          <h2 class="mt-2 text-xl font-black text-zinc-950 dark:text-zinc-100">
             {{ selectedNotice.title }}
           </h2>
           <p
             v-if="selectedNotice.summary"
-            class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950"
+            class="mt-3 rounded-md bg-amber-50 dark:bg-amber-950 px-3 py-2 text-sm leading-6 text-amber-950"
           >
             {{ selectedNotice.summary }}
           </p>
-          <div class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-700">
+          <div class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-700 dark:text-zinc-200">
             {{ selectedNotice.body || selectedNotice.summary }}
           </div>
           <div
             v-if="selectedNotice.actions.length"
-            class="mt-5 flex flex-wrap gap-2 border-t border-zinc-200 pt-4"
+            class="mt-5 flex flex-wrap gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-4"
           >
             <UButton
               v-for="action in selectedNotice.actions"

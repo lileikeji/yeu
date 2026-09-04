@@ -196,12 +196,12 @@ onMounted(() => {
 
     <div
       v-if="errorMessage"
-      class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
     >
       {{ errorMessage }}
     </div>
 
-    <section class="rounded-md border border-zinc-200 bg-white p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
       <div class="mb-3 flex flex-wrap gap-2">
         <UButton
           v-for="preset in adminAuditPresets"
@@ -262,37 +262,37 @@ onMounted(() => {
           v-for="group in auditDayGroups"
           :key="group.day"
         >
-          <p class="sticky top-0 z-[1] mb-2 bg-white/90 py-1 text-xs font-semibold text-zinc-700 backdrop-blur">
+          <p class="sticky top-0 z-[1] mb-2 bg-white/90 dark:bg-zinc-900/90 py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200 backdrop-blur">
             {{ group.day }} · {{ group.items.length }} 条
           </p>
           <ul class="space-y-2">
         <li
           v-for="row in group.items"
           :key="row.id"
-          class="rounded-md border border-zinc-100 px-3 py-3 text-sm"
+          class="rounded-md border border-zinc-100 dark:border-zinc-800 px-3 py-3 text-sm"
         >
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
-                <p class="font-medium text-zinc-900">
+                <p class="font-medium text-zinc-900 dark:text-zinc-100">
                   {{ actionLabel(row.action) }}
                 </p>
               </div>
-              <p class="mt-1 text-xs text-zinc-500">
+              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                 {{ entityLabel(row.entityType) }}
                 <template v-if="row.entityId"> · 编号 {{ shortAdminId(row.entityId, 10) }}</template>
                 · {{ formatTime(row.createdAt) }}
               </p>
-              <p class="mt-1 text-xs text-zinc-400">
+              <p class="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
                 操作人：{{ actorLabel(row) }}
                 · {{ formatAdminRelativeTime(row.createdAt) }}
               </p>
 
               <div
                 v-if="expanded[row.id]"
-                class="mt-2 rounded-md border border-zinc-100 bg-zinc-50 p-3"
+                class="mt-2 rounded-md border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3"
               >
-                <dl class="mb-3 grid gap-1 text-xs text-zinc-500 sm:grid-cols-2">
+                <dl class="mb-3 grid gap-1 text-xs text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
                   <div><dt class="inline font-medium">操作记录：</dt><dd class="inline">{{ shortAdminId(row.id, 12) }}</dd></div>
                   <div v-if="row.requestId"><dt class="inline font-medium">操作记录编号：</dt><dd class="inline">{{ shortAdminId(row.requestId, 12) }}</dd></div>
                 </dl>
@@ -305,17 +305,17 @@ onMounted(() => {
                     :key="item.key"
                     class="grid gap-1 sm:grid-cols-[7rem_minmax(0,1fr)]"
                   >
-                    <dt class="text-xs font-medium text-zinc-500">
+                    <dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                       {{ detailLabel(item.key) }}
                     </dt>
-                    <dd class="break-all text-xs text-zinc-800 whitespace-pre-wrap">
+                    <dd class="break-all text-xs text-zinc-800 dark:text-zinc-100 whitespace-pre-wrap">
                       {{ item.value }}
                     </dd>
                   </div>
                 </dl>
                 <p
                   v-else
-                  class="text-xs text-zinc-400"
+                  class="text-xs text-zinc-400 dark:text-zinc-500"
                 >
                   没有补充说明
                 </p>
@@ -346,13 +346,13 @@ onMounted(() => {
         </div>
         <p
           v-if="!items.length && !loading"
-          class="py-10 text-center text-sm text-zinc-400"
+          class="py-10 text-center text-sm text-zinc-400 dark:text-zinc-500"
         >
           暂无操作记录
         </p>
       </div>
 
-      <div class="mt-3 flex items-center justify-between text-sm text-zinc-500">
+      <div class="mt-3 flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
         <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
         <div class="flex gap-2">
           <UButton

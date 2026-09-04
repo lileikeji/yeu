@@ -345,63 +345,63 @@ onMounted(() => {
 
     <div
       v-if="errorMessage"
-      class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
     >
       {{ errorMessage }}
     </div>
 
     <div class="grid gap-3 sm:grid-cols-3">
-      <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           房间数
         </p>
-        <p class="mt-1 text-2xl font-semibold text-zinc-950">
+        <p class="mt-1 text-2xl font-semibold text-zinc-950 dark:text-zinc-100">
           {{ rooms.length }}
         </p>
-        <p class="mt-1 text-xs text-amber-700">
+        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">
           全员禁言 {{ mutedRoomCount }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           消息结果
         </p>
-        <p class="mt-1 text-2xl font-semibold text-zinc-950">
+        <p class="mt-1 text-2xl font-semibold text-zinc-950 dark:text-zinc-100">
           {{ total }}
         </p>
-        <p class="mt-1 text-xs text-zinc-500">
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           本页已删 {{ deletedOnPage }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 bg-white px-4 py-3">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           生效禁言
         </p>
-        <p class="mt-1 text-2xl font-semibold text-rose-700">
+        <p class="mt-1 text-2xl font-semibold text-rose-700 dark:text-rose-300">
           {{ activeMuteCount }}
         </p>
       </div>
     </div>
 
-    <section class="rounded-md border border-zinc-200 bg-white p-4">
-      <h2 class="font-semibold text-zinc-950">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
         房间与全员禁言
       </h2>
-      <p class="mt-1 text-xs text-zinc-500">
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
         开启全员禁言前，请先在下方「个人禁言」区域填写原因；全员禁言会使用同一原因。
       </p>
       <ul class="mt-3 grid gap-2 md:grid-cols-2">
         <li
           v-for="room in rooms"
           :key="room.id"
-          class="rounded-md border border-zinc-100 px-3 py-3"
+          class="rounded-md border border-zinc-100 dark:border-zinc-800 px-3 py-3"
         >
           <div class="flex items-start justify-between gap-2">
             <div>
-              <p class="font-medium text-zinc-900">
+              <p class="font-medium text-zinc-900 dark:text-zinc-100">
                 {{ room.title }}
               </p>
-              <p class="text-xs text-zinc-500">
+              <p class="text-xs text-zinc-500 dark:text-zinc-400">
                 {{ roomKindLabel(room.kind) }}<template v-if="room.dormBuilding">
                   · {{ room.dormBuilding }}
                 </template>
@@ -409,32 +409,32 @@ onMounted(() => {
               <div class="mt-2 flex flex-wrap gap-1">
                 <span
                   class="inline-flex rounded-full px-2 py-0.5 text-[11px]"
-                  :class="room.isMutedAll ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+                  :class="room.isMutedAll ? 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300' : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'"
                 >
                   {{ room.isMutedAll ? '全员禁言中' : '可发言' }}
                 </span>
-                <span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600">
+                <span class="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
                   消息 {{ room.messageCount ?? 0 }}
                 </span>
-                <span class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600">
+                <span class="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
                   成员 {{ room.memberCount ?? 0 }}
                 </span>
                 <span
                   v-if="(room.activeMuteCount || 0) > 0"
-                  class="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700"
+                  class="inline-flex rounded-full bg-rose-50 dark:bg-rose-950 px-2 py-0.5 text-[11px] text-rose-700 dark:text-rose-300"
                 >
                   禁言 {{ room.activeMuteCount }}
                 </span>
                 <span
                   v-if="(room.deletedMessageCount || 0) > 0"
-                  class="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500"
+                  class="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500 dark:text-zinc-400"
                 >
                   已删 {{ room.deletedMessageCount }}
                 </span>
               </div>
               <p
                 v-if="room.lastMessagePreview"
-                class="mt-2 line-clamp-1 text-[11px] text-zinc-500"
+                class="mt-2 line-clamp-1 text-[11px] text-zinc-500 dark:text-zinc-400"
               >
                 最近：{{ room.lastMessageAuthor || '—' }} · {{ room.lastMessagePreview }}
               </p>
@@ -461,7 +461,7 @@ onMounted(() => {
         </li>
         <li
           v-if="!rooms.length"
-          class="py-6 text-center text-sm text-zinc-400 md:col-span-2"
+          class="py-6 text-center text-sm text-zinc-400 dark:text-zinc-500 md:col-span-2"
         >
           暂无房间
         </li>
@@ -469,7 +469,7 @@ onMounted(() => {
     </section>
 
     <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <div class="rounded-md border border-zinc-200 bg-white p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
         <div class="flex flex-wrap items-end gap-3">
           <UFormField
             label="房间"
@@ -525,24 +525,24 @@ onMounted(() => {
           >
             {{ deletedFilterLabel }}
           </UButton>
-          <span class="text-xs text-zinc-500">找到 {{ total }} 条，本页显示 {{ visibleMessages.length }} 条</span>
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">找到 {{ total }} 条，本页显示 {{ visibleMessages.length }} 条</span>
         </div>
 
         <ul class="mt-2 max-h-[36rem] space-y-2 overflow-y-auto">
           <li
             v-for="message in visibleMessages"
             :key="message.id"
-            class="rounded-md border border-zinc-100 px-3 py-3"
+            class="rounded-md border border-zinc-100 dark:border-zinc-800 px-3 py-3"
           >
             <div class="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p class="font-medium text-zinc-900">
+                <p class="font-medium text-zinc-900 dark:text-zinc-100">
                   {{ message.displayName }}
                   <span
                     v-if="message.username"
-                    class="ml-1 text-xs font-normal text-zinc-500"
+                    class="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400"
                   >@{{ message.username }}</span>
-                  <span class="ml-2 text-xs font-normal text-zinc-500">
+                  <span class="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                     {{ roomTitle(message.roomId, message.roomTitle) }} · {{ formatTime(message.createdAt) }}
                   </span>
                 </p>
@@ -585,20 +585,20 @@ onMounted(() => {
             </div>
             <p
               class="mt-2 whitespace-pre-wrap break-words text-sm leading-6"
-              :class="message.deletedAt ? 'text-zinc-400 line-through' : 'text-zinc-800'"
+              :class="message.deletedAt ? 'text-zinc-400 dark:text-zinc-500 line-through' : 'text-zinc-800 dark:text-zinc-100'"
             >
               {{ message.deletedAt ? '（已删除）' + message.body : message.body }}
             </p>
           </li>
           <li
             v-if="!messages.length && !messageLoading"
-            class="py-10 text-center text-sm text-zinc-400"
+            class="py-10 text-center text-sm text-zinc-400 dark:text-zinc-500"
           >
             暂无消息
           </li>
         </ul>
 
-        <div class="mt-3 flex items-center justify-between text-sm text-zinc-500">
+        <div class="mt-3 flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
           <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
           <div class="flex gap-2">
             <UButton
@@ -626,9 +626,9 @@ onMounted(() => {
       <div class="space-y-4">
         <section
           id="chat-mute-form"
-          class="rounded-md border border-zinc-200 bg-white p-4"
+          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
         >
-          <h2 class="font-semibold text-zinc-950">
+          <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
             个人禁言
           </h2>
           <div class="mt-3 space-y-3">
@@ -675,9 +675,9 @@ onMounted(() => {
           </div>
         </section>
 
-        <section class="rounded-md border border-zinc-200 bg-white p-4">
+        <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
           <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-zinc-950">
+            <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
               生效中的禁言
             </h2>
             <UButton
@@ -694,21 +694,21 @@ onMounted(() => {
             <li
               v-for="mute in mutes"
               :key="mute.id"
-              class="rounded-md border border-zinc-100 px-3 py-2 text-sm"
+              class="rounded-md border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-sm"
             >
               <div class="flex items-start justify-between gap-2">
                 <div>
-                  <p class="font-medium text-zinc-900">
+                  <p class="font-medium text-zinc-900 dark:text-zinc-100">
                     {{ mute.displayName || mute.username || mute.userId.slice(0, 8) }}
                   </p>
-                  <p class="text-xs text-zinc-500">
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
                     {{ mute.roomTitle || (mute.roomId ? roomTitle(mute.roomId) : '全部房间') }}
                     · {{ formatTime(mute.createdAt) }}
                   </p>
-                  <p class="mt-1 text-xs text-amber-700">
+                  <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">
                     {{ muteExpiryLabel(mute) }}
                   </p>
-                  <p class="mt-1 text-xs text-zinc-700">
+                  <p class="mt-1 text-xs text-zinc-700 dark:text-zinc-200">
                     原因：{{ mute.reason || '（未填写）' }}
                   </p>
                 </div>
@@ -725,7 +725,7 @@ onMounted(() => {
             </li>
             <li
               v-if="!mutes.length"
-              class="py-6 text-center text-sm text-zinc-400"
+              class="py-6 text-center text-sm text-zinc-400 dark:text-zinc-500"
             >
               暂无禁言
             </li>
@@ -740,10 +740,10 @@ onMounted(() => {
     >
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 class="font-semibold text-zinc-950">
+          <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
             消息详情
           </h2>
-          <p class="mt-1 text-xs text-zinc-500">
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {{ selectedMessage.displayName }}<template v-if="selectedMessage.username">
               @{{ selectedMessage.username }}
             </template> · {{ formatTime(selectedMessage.createdAt) }}
@@ -762,36 +762,36 @@ onMounted(() => {
         </UButton>
       </div>
       <dl class="mt-3 grid gap-2 sm:grid-cols-2">
-        <div class="rounded-xl border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">
+        <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+          <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
             房间
           </dt>
-          <dd class="text-sm text-zinc-800">
+          <dd class="text-sm text-zinc-800 dark:text-zinc-100">
             {{ roomTitle(selectedMessage.roomId, selectedMessage.roomTitle) }}
           </dd>
         </div>
-        <div class="rounded-md border border-white bg-white px-3 py-2">
-          <dt class="text-[11px] text-zinc-500">
+        <div class="rounded-md border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+          <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
             账号编号
           </dt>
-          <dd class="text-sm text-zinc-800">
+          <dd class="text-sm text-zinc-800 dark:text-zinc-100">
             {{ shortAdminId(selectedMessage.userId, 12) }}
           </dd>
         </div>
-        <div class="rounded-md border border-white bg-white px-3 py-2 sm:col-span-2">
-          <dt class="text-[11px] text-zinc-500">
+        <div class="rounded-md border border-white bg-white dark:bg-zinc-900 px-3 py-2 sm:col-span-2">
+          <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
             消息编号
           </dt>
-          <dd class="text-sm text-zinc-800">
+          <dd class="text-sm text-zinc-800 dark:text-zinc-100">
             {{ shortAdminId(selectedMessage.id, 12) }}
           </dd>
         </div>
       </dl>
-      <div class="mt-3 rounded-xl border border-white bg-white px-3 py-3">
-        <p class="text-[11px] text-zinc-500">
+      <div class="mt-3 rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-3">
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
           正文
         </p>
-        <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-900">
+        <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-900 dark:text-zinc-100">
           {{ selectedMessage.body }}
         </p>
       </div>

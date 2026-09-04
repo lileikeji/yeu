@@ -222,7 +222,7 @@ onMounted(() => void loadRuns())
 
     <div
       v-if="errorMessage"
-      class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
     >
       {{ errorMessage }}
     </div>
@@ -231,15 +231,15 @@ onMounted(() => void loadRuns())
       <div
         v-for="card in statCards"
         :key="card.label"
-        class="rounded-md border border-zinc-200 bg-white p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
       >
-        <UIcon :name="card.icon" class="size-4 text-green-700" />
-        <p class="mt-3 text-xs text-zinc-500">{{ card.label }}</p>
-        <p class="mt-1 text-lg font-bold tabular-nums text-zinc-950">{{ card.value }}</p>
+        <UIcon :name="card.icon" class="size-4 text-green-700 dark:text-green-400" />
+        <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{{ card.label }}</p>
+        <p class="mt-1 text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-100">{{ card.value }}</p>
       </div>
     </section>
 
-    <section class="rounded-md border border-zinc-200 bg-white p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
       <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_10rem_auto] md:items-end">
         <UFormField label="问题关键词">
           <UInput
@@ -259,20 +259,20 @@ onMounted(() => void loadRuns())
       </div>
     </section>
 
-    <section class="overflow-hidden rounded-md border border-zinc-200 bg-white">
-      <div class="border-b border-zinc-100 px-4 py-3">
-        <h2 class="text-sm font-bold text-zinc-950">运行记录</h2>
-        <p class="mt-1 text-xs text-zinc-500">当前筛选共 {{ total }} 次</p>
+    <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <div class="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
+        <h2 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">运行记录</h2>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">当前筛选共 {{ total }} 次</p>
       </div>
 
-      <div v-if="loading && !items.length" class="grid min-h-48 place-items-center text-sm text-zinc-500">
-        <UIcon name="i-lucide-loader-circle" class="mb-2 size-5 animate-spin text-green-700" />
+      <div v-if="loading && !items.length" class="grid min-h-48 place-items-center text-sm text-zinc-500 dark:text-zinc-400">
+        <UIcon name="i-lucide-loader-circle" class="mb-2 size-5 animate-spin text-green-700 dark:text-green-400" />
         正在加载
       </div>
-      <div v-else-if="!items.length" class="grid min-h-48 place-items-center px-4 text-sm text-zinc-500">
+      <div v-else-if="!items.length" class="grid min-h-48 place-items-center px-4 text-sm text-zinc-500 dark:text-zinc-400">
         暂无符合条件的 AI 检索记录
       </div>
-      <ul v-else class="divide-y divide-zinc-100">
+      <ul v-else class="divide-y divide-zinc-100 dark:divide-zinc-800">
         <li v-for="row in items" :key="row.id" class="px-4 py-4">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
@@ -284,10 +284,10 @@ onMounted(() => void loadRuns())
                   size="sm"
                 />
                 <UBadge :label="pathLabel(row.retrievalPath)" color="neutral" variant="soft" size="sm" />
-                <span v-if="row.cacheHit" class="text-xs font-medium text-emerald-700">缓存命中</span>
+                <span v-if="row.cacheHit" class="text-xs font-medium text-emerald-700 dark:text-emerald-300">缓存命中</span>
               </div>
-              <p class="mt-2 break-words text-sm font-medium leading-6 text-zinc-900">{{ row.query }}</p>
-              <p class="mt-1 text-xs text-zinc-500">
+              <p class="mt-2 break-words text-sm font-medium leading-6 text-zinc-900 dark:text-zinc-100">{{ row.query }}</p>
+              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                 {{ formatDate(row.createdAt) }} · 总耗时 {{ formatDuration(row.totalMs) }} · 首字
                 {{ row.firstTokenMs ? formatDuration(row.firstTokenMs) : '—' }} · {{ row.citationCount }} 条引用
               </p>
@@ -302,13 +302,13 @@ onMounted(() => void loadRuns())
             />
           </div>
 
-          <div v-if="expanded[row.id]" class="mt-3 border-t border-zinc-100 pt-3 text-xs text-zinc-600">
+          <div v-if="expanded[row.id]" class="mt-3 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs text-zinc-600 dark:text-zinc-300">
             <dl class="grid gap-x-5 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
               <div
                 v-for="stage in visibleStages(row)"
                 :key="stage.key"
               >
-                <dt class="text-zinc-400">
+                <dt class="text-zinc-400 dark:text-zinc-500">
                   {{ stage.label }}
                 </dt>
                 <dd class="mt-0.5">
@@ -319,7 +319,7 @@ onMounted(() => void loadRuns())
                 v-if="visibleStages(row).length === 0"
                 class="sm:col-span-2"
               >
-                <dt class="text-zinc-400">
+                <dt class="text-zinc-400 dark:text-zinc-500">
                   执行阶段
                 </dt>
                 <dd class="mt-0.5">
@@ -327,7 +327,7 @@ onMounted(() => void loadRuns())
                 </dd>
               </div>
               <div>
-                <dt class="text-zinc-400">
+                <dt class="text-zinc-400 dark:text-zinc-500">
                   请求来源
                 </dt>
                 <dd class="mt-0.5">
@@ -335,7 +335,7 @@ onMounted(() => void loadRuns())
                 </dd>
               </div>
               <div>
-                <dt class="text-zinc-400">
+                <dt class="text-zinc-400 dark:text-zinc-500">
                   首字耗时
                 </dt>
                 <dd class="mt-0.5">
@@ -343,7 +343,7 @@ onMounted(() => void loadRuns())
                 </dd>
               </div>
               <div>
-                <dt class="text-zinc-400">
+                <dt class="text-zinc-400 dark:text-zinc-500">
                   请求编号
                 </dt>
                 <dd
@@ -354,14 +354,14 @@ onMounted(() => void loadRuns())
                 </dd>
               </div>
             </dl>
-            <p v-if="row.errorCode" class="mt-3 text-red-700">
+            <p v-if="row.errorCode" class="mt-3 text-red-700 dark:text-red-300">
               {{ errorDescription(row.errorCode) }}（{{ row.errorCode }}）
             </p>
           </div>
         </li>
       </ul>
 
-      <div v-if="totalPages > 1" class="flex items-center justify-between border-t border-zinc-100 px-4 py-3">
+      <div v-if="totalPages > 1" class="flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 px-4 py-3">
         <UButton
           icon="i-lucide-chevron-left"
           label="上一页"
@@ -371,7 +371,7 @@ onMounted(() => void loadRuns())
           :disabled="page <= 1"
           @click="changePage(page - 1)"
         />
-        <span class="text-xs tabular-nums text-zinc-500">{{ page }} / {{ totalPages }}</span>
+        <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">{{ page }} / {{ totalPages }}</span>
         <UButton
           icon="i-lucide-chevron-right"
           trailing

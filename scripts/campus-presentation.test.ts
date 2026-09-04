@@ -31,14 +31,14 @@ test('campus page is a thin shell over campus-presentation util', () => {
 })
 
 test('campus department website icons keep a comfortable touch size', () => {
-  assert.match(pageSource, /class="grid size-11 place-items-center rounded-md text-zinc-400 hover:bg-green-50 hover:text-green-700"/)
+  assert.match(pageSource, /class="grid(?:\s+dark:[^"\s]+)*\s+size-11(?:\s+dark:[^"\s]+)*\s+place-items-center(?:\s+dark:[^"\s]+)*\s+rounded-md(?:\s+dark:[^"\s]+)*\s+text-zinc-400(?:\s+dark:[^"\s]+)*\s+hover:bg-green-50(?:\s+dark:[^"\s]+)*\s+hover:text-green-700(?:\s+dark:[^"\s]+)*"/)
 })
 
 test('campus stats keep student-facing overview labels', () => {
-  assert.match(pageSource, /class="min-w-0 px-2 first:pl-0 last:pr-0 sm:px-3"/)
+  assert.match(pageSource, /class="min-w-0(?:\s+dark:[^"\s]+)*\s+px-2(?:\s+dark:[^"\s]+)*\s+first:pl-0(?:\s+dark:[^"\s]+)*\s+last:pr-0(?:\s+dark:[^"\s]+)*\s+sm:px-3(?:\s+dark:[^"\s]+)*"/)
   assert.match(
     pageSource,
-    /class="mt-2 whitespace-nowrap text-lg font-bold text-zinc-950 sm:text-xl md:text-2xl"/
+    /class="mt-2(?:\s+dark:[^"\s]+)*\s+whitespace-nowrap(?:\s+dark:[^"\s]+)*\s+text-lg(?:\s+dark:[^"\s]+)*\s+font-bold(?:\s+dark:[^"\s]+)*\s+text-zinc-950(?:\s+dark:[^"\s]+)*\s+sm:text-xl(?:\s+dark:[^"\s]+)*\s+md:text-2xl(?:\s+dark:[^"\s]+)*"/
   )
   assert.equal(campusStats.length, 3)
   assert.equal(campusStats[0]?.label, '校园占地')

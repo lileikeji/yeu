@@ -620,12 +620,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="map-workspace relative h-full min-h-0 overflow-hidden bg-white overscroll-none md:grid md:grid-rows-1"
+    class="map-workspace relative h-full min-h-0 overflow-hidden bg-white dark:bg-zinc-900 overscroll-none md:grid md:grid-rows-1"
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
       ref="mobileSheetElement"
-      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md bg-white transition-[height] duration-200 md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md bg-white dark:bg-zinc-900 transition-[height] duration-200 md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
       :class="[
         mobileSheetHeightClass,
@@ -651,17 +651,17 @@ onBeforeUnmount(() => {
         <button
           type="button"
           data-sheet-drag-handle
-          class="absolute left-1/2 top-1 flex h-5 w-16 -translate-x-1/2 touch-none items-center justify-center rounded-md text-zinc-400 active:bg-zinc-100 active:text-zinc-700"
+          class="absolute left-1/2 top-1 flex h-5 w-16 -translate-x-1/2 touch-none items-center justify-center rounded-md text-zinc-400 dark:text-zinc-500 active:bg-zinc-100 dark:active:bg-zinc-800 active:text-zinc-700 dark:active:text-zinc-200"
           aria-label="上下拖动地点面板"
           @pointerdown="handleMobileSheetPointerDown"
         >
           <span
             aria-hidden="true"
-            class="block h-1 w-10 rounded-full bg-zinc-300"
+            class="block h-1 w-10 rounded-full bg-zinc-300 dark:bg-zinc-700"
           />
         </button>
         <div class="min-w-0 pt-3">
-          <p class="truncate text-sm font-semibold text-zinc-900">
+          <p class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             地点列表 · {{ filteredPois.length }}
           </p>
         </div>
@@ -715,10 +715,10 @@ onBeforeUnmount(() => {
       >
         <div class="hidden items-start justify-between gap-3 md:flex">
           <div class="min-w-0">
-            <p class="text-xs font-semibold text-green-700">
+            <p class="text-xs font-semibold text-green-700 dark:text-green-400">
               校园地图
             </p>
-            <h1 class="mt-1 text-lg font-bold text-zinc-950">
+            <h1 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
               校园与周边
             </h1>
           </div>
@@ -798,14 +798,14 @@ onBeforeUnmount(() => {
         </p>
         <p
           v-if="nativeSearchLoading"
-          class="mt-2 text-xs text-zinc-500"
+          class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
           role="status"
         >
           正在搜索地图里的地点…
         </p>
         <p
           v-else-if="searchQuery.trim() && nativeSearchResults.length"
-          class="mt-2 text-xs leading-5 text-zinc-500"
+          class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
           role="status"
         >
           地图搜索找到 {{ nativeSearchResults.length }} 个附近地点；会自动定位到最相关的地点，但不会加入地点列表。
@@ -813,12 +813,12 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        class="items-center justify-between border-b border-[var(--line)] px-3 py-1 text-xs text-zinc-500 md:flex md:px-5 md:py-2"
+        class="items-center justify-between border-b border-[var(--line)] px-3 py-1 text-xs text-zinc-500 dark:text-zinc-400 md:flex md:px-5 md:py-2"
         :class="mobileSheetState === 'collapsed' ? 'hidden md:flex' : 'flex'"
       >
         <span>{{ filteredPois.length }} 个地点</span>
         <button
-          class="min-h-9 min-w-11 px-2 font-medium text-green-700 hover:text-green-800 md:min-h-11"
+          class="min-h-9 min-w-11 px-2 font-medium text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 md:min-h-11"
           type="button"
           @click="fitToVisiblePois"
         >
@@ -838,13 +838,13 @@ onBeforeUnmount(() => {
           :key="poi.id"
           :ref="poiRowRef(poi.id)"
           type="button"
-          class="flex w-full items-center gap-2.5 border-b border-zinc-100 px-3 py-2 text-left transition hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 md:gap-3 md:px-5 md:py-3"
-          :class="selectedPoiId === poi.id ? 'bg-green-50' : 'bg-white'"
+          class="flex w-full items-center gap-2.5 border-b border-zinc-100 dark:border-zinc-800 px-3 py-2 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 md:gap-3 md:px-5 md:py-3"
+          :class="selectedPoiId === poi.id ? 'bg-green-50 dark:bg-green-950' : 'bg-white dark:bg-zinc-900'"
           @click="selectPoi(poi)"
         >
           <span
             class="grid size-8 shrink-0 place-items-center rounded-md md:size-9"
-            :class="selectedPoiId === poi.id ? 'bg-green-700 text-white' : 'bg-zinc-100 text-zinc-600'"
+            :class="selectedPoiId === poi.id ? 'bg-green-700 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'"
           >
             <UIcon
               :name="categoryIcon(poi.category)"
@@ -852,12 +852,12 @@ onBeforeUnmount(() => {
             />
           </span>
           <span class="min-w-0 flex-1">
-            <span class="block truncate text-sm font-semibold text-zinc-900">{{ poi.name }}</span>
-            <span class="mt-0.5 block text-xs text-zinc-500">{{ categoryLabel(poi.category) }} · {{ poiStatusText(poi) }}</span>
+            <span class="block truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ poi.name }}</span>
+            <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{{ categoryLabel(poi.category) }} · {{ poiStatusText(poi) }}</span>
           </span>
           <UIcon
             name="i-lucide-chevron-right"
-            class="size-4 shrink-0 text-zinc-400"
+            class="size-4 shrink-0 text-zinc-400 dark:text-zinc-500"
           />
         </button>
 
@@ -868,9 +868,9 @@ onBeforeUnmount(() => {
           <div>
             <UIcon
               name="i-lucide-map-pin-off"
-              class="mx-auto size-6 text-zinc-400"
+              class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
             />
-            <p class="mt-2 text-sm font-medium text-zinc-700">
+            <p class="mt-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">
               没有匹配的地点
             </p>
           </div>
@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <section
-      class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] md:relative md:inset-auto md:order-2"
+      class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] dark:bg-[#1c231e] md:relative md:inset-auto md:order-2"
       aria-label="校园地图"
     >
       <div
@@ -953,7 +953,7 @@ onBeforeUnmount(() => {
         </div>
         <div
           v-if="canShowOfficialPlan"
-          class="pointer-events-auto absolute left-1/2 top-0 flex -translate-x-1/2 overflow-hidden rounded-md border border-white/40 bg-white shadow-sm"
+          class="pointer-events-auto absolute left-1/2 top-0 flex -translate-x-1/2 overflow-hidden rounded-md border border-white/40 bg-white dark:bg-zinc-900 shadow-sm"
           role="group"
           aria-label="地图显示模式"
         >
@@ -980,7 +980,7 @@ onBeforeUnmount(() => {
         </div>
         <div
           v-if="mapViewMode === 'geographic'"
-          class="pointer-events-auto flex flex-col divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200/90 bg-white/95 shadow-lg backdrop-blur"
+          class="pointer-events-auto flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800 overflow-hidden rounded-xl border border-zinc-200/90 bg-white/95 dark:bg-zinc-900/95 shadow-lg backdrop-blur"
         >
           <UTooltip text="地图显示设置">
             <UButton
@@ -988,7 +988,7 @@ onBeforeUnmount(() => {
               color="neutral"
               variant="ghost"
               class="map-control-btn size-10 rounded-none md:size-11"
-              :class="displaySettingsOpen ? 'bg-green-50 text-green-800' : ''"
+              :class="displaySettingsOpen ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300' : ''"
               aria-label="地图显示设置"
               :aria-expanded="displaySettingsOpen"
               @click="() => { displaySettingsOpen = !displaySettingsOpen }"
@@ -1011,7 +1011,7 @@ onBeforeUnmount(() => {
               variant="ghost"
               :loading="locating"
               class="map-control-btn size-10 rounded-none md:size-11"
-              :class="tracking ? 'bg-blue-50 text-blue-700' : ''"
+              :class="tracking ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : ''"
               aria-label="定位到我的位置并开启实时跟踪"
               :aria-pressed="tracking"
               @click="tracking ? toggleTracking() : locateUser()"
@@ -1024,7 +1024,7 @@ onBeforeUnmount(() => {
               variant="ghost"
               :disabled="!tracking"
               class="map-control-btn size-10 rounded-none md:size-11"
-              :class="following ? 'bg-blue-50 text-blue-700' : ''"
+              :class="following ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : ''"
               aria-label="相机跟随我的位置"
               :aria-pressed="following"
               @click="toggleFollowing"
@@ -1064,7 +1064,7 @@ onBeforeUnmount(() => {
 
       <div
         v-if="mapViewMode === 'geographic' && routeSummary"
-        class="absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm md:bottom-14"
+        class="absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 dark:border-green-800 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 shadow-lg backdrop-blur-sm md:bottom-14"
         :class="selectedPoi
           ? 'bottom-[calc(var(--mobile-nav-height)+min(56dvh,30rem)+1rem)]'
           : 'bottom-[calc(var(--mobile-nav-height)+5.5rem)]'"
@@ -1072,16 +1072,16 @@ onBeforeUnmount(() => {
       >
         <UIcon
           name="i-lucide-route"
-          class="size-5 shrink-0 text-green-700"
+          class="size-5 shrink-0 text-green-700 dark:text-green-400"
         />
         <div class="min-w-0 whitespace-nowrap">
-          <p class="max-w-48 truncate text-xs font-semibold text-zinc-900">
+          <p class="max-w-48 truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
             步行至 {{ routeDestinationName }}
           </p>
-          <p class="mt-0.5 text-xs text-zinc-600">
+          <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
             <template v-if="tracking && remainingSummary">
               距目的地 {{ routeSummaryText(remainingSummary) }}
-              <span class="text-zinc-400">（实时）</span>
+              <span class="text-zinc-400 dark:text-zinc-500">（实时）</span>
             </template>
             <template v-else>
               {{ routeSummaryText(routeSummary) }}
@@ -1101,30 +1101,30 @@ onBeforeUnmount(() => {
       <div
         v-if="mapViewMode === 'geographic' && mapStatus !== 'ready'"
         class="absolute inset-0 z-40 grid place-items-start p-4 pt-32 text-center md:place-items-center md:p-6"
-        :class="mapStatus === 'loading' ? 'pointer-events-auto bg-[#e5ebe7]/95' : 'pointer-events-none'"
+        :class="mapStatus === 'loading' ? 'pointer-events-auto bg-[#e5ebe7] dark:bg-[#1c231e]/95' : 'pointer-events-none'"
         :role="mapStatus === 'loading' ? 'status' : 'alert'"
       >
         <div v-if="mapStatus === 'loading'">
           <UIcon
             name="i-lucide-loader-circle"
-            class="mx-auto size-7 animate-spin text-green-700"
+            class="mx-auto size-7 animate-spin text-green-700 dark:text-green-400"
           />
-          <p class="mt-3 text-sm font-semibold text-zinc-800">
+          <p class="mt-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             正在载入地图
           </p>
         </div>
         <div
           v-else
-          class="pointer-events-auto max-w-sm rounded-lg border border-zinc-200 bg-white/95 p-5 shadow-lg backdrop-blur-sm"
+          class="pointer-events-auto max-w-sm rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 p-5 shadow-lg backdrop-blur-sm"
         >
           <UIcon
             name="i-lucide-map-pin-off"
-            class="mx-auto size-8 text-zinc-500"
+            class="mx-auto size-8 text-zinc-500 dark:text-zinc-400"
           />
-          <p class="mt-3 text-sm font-semibold text-zinc-900">
+          <p class="mt-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             地图画面暂时没有显示出来
           </p>
-          <p class="mt-1 text-xs leading-5 text-zinc-500">
+          <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
             {{ mapErrorMessage }}
           </p>
           <div class="mt-4 flex flex-wrap justify-center gap-2">
@@ -1156,15 +1156,15 @@ onBeforeUnmount(() => {
         class="pointer-events-none absolute inset-x-4 top-32 z-10 flex justify-center md:top-20"
         role="status"
       >
-        <div class="max-w-sm border border-zinc-200 bg-white/95 px-4 py-3 text-center shadow-sm backdrop-blur-sm">
+        <div class="max-w-sm border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 text-center shadow-sm backdrop-blur-sm">
           <UIcon
             name="i-lucide-map-pin-off"
-            class="mx-auto size-5 text-zinc-500"
+            class="mx-auto size-5 text-zinc-500 dark:text-zinc-400"
           />
-          <p class="mt-2 text-sm font-semibold text-zinc-900">
+          <p class="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             当前地图还没有可直接显示的地点
           </p>
-          <p class="mt-1 text-xs leading-5 text-zinc-500">
+          <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
             {{ activeMapProviderId === 'amap'
               ? '左侧目录仍可搜索；部分地图地点可以直接显示，平面图中的文字地点不会被强行放到错误的位置。'
               : '绿色虚线只表示校园的大致范围。左侧目录仍可搜索；没有确认位置的地点不会硬塞到地图上。' }}
@@ -1186,7 +1186,7 @@ onBeforeUnmount(() => {
 
       <section
         v-if="selectedArea"
-        class="absolute left-3 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 bg-white p-4 shadow-xl md:bottom-12 md:left-4"
+        class="absolute left-3 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-xl md:bottom-12 md:left-4"
         :class="mobileSheetState === 'collapsed' || selectedPoi
           ? 'bottom-[calc(var(--mobile-nav-height)+0.75rem)] md:bottom-12'
           : 'bottom-[calc(44%+1rem)] md:bottom-12'"
@@ -1194,14 +1194,14 @@ onBeforeUnmount(() => {
       >
         <div class="flex items-start justify-between gap-3">
           <div>
-            <div class="flex items-center gap-2 text-xs font-medium text-green-700">
+            <div class="flex items-center gap-2 text-xs font-medium text-green-700 dark:text-green-400">
               <UIcon
                 name="i-lucide-pentagon"
                 class="size-4"
               />
               地图范围
             </div>
-            <h2 class="mt-1 text-base font-bold text-zinc-950">
+            <h2 class="mt-1 text-base font-bold text-zinc-950 dark:text-zinc-100">
               {{ selectedArea.name }}
             </h2>
           </div>
@@ -1214,28 +1214,28 @@ onBeforeUnmount(() => {
             @click="closeAreaDetails"
           />
         </div>
-        <p class="mt-3 text-xs leading-5 text-zinc-600">
+        <p class="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
           {{ selectedArea.description ?? '这个范围来自地图绘制，只用来帮助你辨认校园方向。' }}
         </p>
-        <dl class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-3 text-xs">
+        <dl class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs">
           <div>
-            <dt class="text-zinc-400">
+            <dt class="text-zinc-400 dark:text-zinc-500">
               面积
             </dt>
-            <dd class="mt-1 font-medium text-zinc-800">
+            <dd class="mt-1 font-medium text-zinc-800 dark:text-zinc-100">
               {{ formatAreaSquareMeters(selectedArea.areaSquareMeters) }}
             </dd>
           </div>
           <div>
-            <dt class="text-zinc-400">
+            <dt class="text-zinc-400 dark:text-zinc-500">
               周长
             </dt>
-            <dd class="mt-1 font-medium text-zinc-800">
+            <dd class="mt-1 font-medium text-zinc-800 dark:text-zinc-100">
               {{ formatPerimeter(selectedArea.perimeterMeters) }}
             </dd>
           </div>
         </dl>
-        <p class="mt-3 text-[11px] leading-4 text-zinc-500">
+        <p class="mt-3 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
           这里只显示范围边界，不会挡住里面的商铺点击。
         </p>
       </section>

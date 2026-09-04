@@ -118,8 +118,8 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="mb-6">
-    <div class="flex flex-wrap items-center gap-2 border-b border-zinc-200 pb-2">
-      <h3 class="text-sm font-semibold text-zinc-900">
+    <div class="flex flex-wrap items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-2">
+      <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
         地图拾点
       </h3>
       <UBadge
@@ -177,7 +177,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="relative mt-3 h-72 min-h-72 overflow-hidden rounded-md border border-zinc-200 bg-zinc-100 sm:h-80">
+    <div class="relative mt-3 h-72 min-h-72 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 sm:h-80">
       <div
         ref="mapElement"
         class="absolute inset-0"
@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
       />
       <div
         v-if="mapStatus === 'loading'"
-        class="absolute inset-0 grid place-items-center bg-zinc-100 text-sm text-zinc-500"
+        class="absolute inset-0 grid place-items-center bg-zinc-100 dark:bg-zinc-800 text-sm text-zinc-500 dark:text-zinc-400"
         role="status"
       >
         <UIcon
@@ -195,14 +195,14 @@ onBeforeUnmount(() => {
       </div>
       <div
         v-else-if="mapStatus === 'error'"
-        class="absolute inset-0 grid place-items-center bg-zinc-100 p-6 text-center text-sm text-zinc-600"
+        class="absolute inset-0 grid place-items-center bg-zinc-100 dark:bg-zinc-800 p-6 text-center text-sm text-zinc-600 dark:text-zinc-300"
         role="alert"
       >
         地图暂时无法加载，可继续使用下方坐标字段。
       </div>
     </div>
 
-    <p class="mt-2 text-xs leading-5 text-zinc-500">
+    <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
       地图选点会保存标准地理坐标，并自动标记为“待确认”。校界范围只用于发现明显偏差，完成两次独立确认后才会显示“已确认”。
     </p>
   </section>

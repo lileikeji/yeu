@@ -53,14 +53,14 @@ async function copyPhone(value: string): Promise<void> {
 <template>
   <section
     v-if="hasContent"
-    class="border-b border-zinc-200 py-8"
+    class="border-b border-zinc-200 dark:border-zinc-800 py-8"
   >
     <div class="flex items-center gap-2">
       <UIcon
         name="i-lucide-contact-round"
-        class="size-5 text-green-700"
+        class="size-5 text-green-700 dark:text-green-400"
       />
-      <h2 class="text-lg font-bold text-zinc-950">
+      <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
         加入群聊与联系负责人
       </h2>
     </div>
@@ -72,38 +72,38 @@ async function copyPhone(value: string): Promise<void> {
       <figure
         v-for="(qrUrl, index) in groupQrUrls"
         :key="qrUrl"
-        class="rounded-md border border-zinc-200 bg-white p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
       >
-        <figcaption class="flex items-center gap-2 text-sm font-semibold text-zinc-900">
+        <figcaption class="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <UIcon
             name="i-lucide-messages-square"
-            class="size-4 text-green-700"
+            class="size-4 text-green-700 dark:text-green-400"
           />
           {{ groupQrTitle(index) }}
         </figcaption>
         <ImagePreviewButton
           :src="qrUrl"
           :alt="groupQrTitle(index)"
-          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 bg-white"
+          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
           image-class="size-full object-contain"
         />
       </figure>
       <figure
         v-for="(qrUrl, index) in contactQrUrls"
         :key="qrUrl"
-        class="rounded-md border border-zinc-200 bg-white p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
       >
-        <figcaption class="flex items-center gap-2 text-sm font-semibold text-zinc-900">
+        <figcaption class="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <UIcon
             name="i-lucide-user-round"
-            class="size-4 text-green-700"
+            class="size-4 text-green-700 dark:text-green-400"
           />
           {{ contactQrTitle(index) }}
         </figcaption>
         <ImagePreviewButton
           :src="qrUrl"
           :alt="contactQrTitle(index)"
-          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 bg-white"
+          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
           image-class="size-full object-contain"
         />
       </figure>
@@ -111,21 +111,21 @@ async function copyPhone(value: string): Promise<void> {
 
     <div
       v-if="contactName || phoneContacts.length"
-      class="mt-4 flex flex-col gap-3 border-y border-zinc-200 py-4 sm:flex-row sm:items-center sm:justify-between"
+      class="mt-4 flex flex-col gap-3 border-y border-zinc-200 dark:border-zinc-800 py-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div class="min-w-0">
-        <p class="text-xs font-semibold text-zinc-500">
+        <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
           负责人
         </p>
         <p
           v-if="contactName"
-          class="mt-1 text-sm font-semibold text-zinc-900"
+          class="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
         >
           {{ contactName }}
         </p>
         <p
           v-if="phoneContacts.length"
-          class="mt-1 text-sm text-zinc-500"
+          class="mt-1 text-sm text-zinc-500 dark:text-zinc-400"
         >
           {{ phoneContacts.length }} 个公开联系电话
         </p>
@@ -139,7 +139,7 @@ async function copyPhone(value: string): Promise<void> {
           :key="phone.href"
           class="flex flex-wrap items-center justify-end gap-2"
         >
-          <span class="mr-1 break-all text-sm font-semibold text-zinc-900">
+          <span class="mr-1 break-all text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             {{ phone.label }}
           </span>
           <UButton

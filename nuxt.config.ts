@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { clientBundleIcons } from './shared/client-bundle-icons'
 import { EDGE_ROUTE_BOOTSTRAP_SCRIPT } from './app/utils/edge-route-bootstrap'
+import { THEME_BOOT_SCRIPT } from './app/utils/theme-mode'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const serviceWorkerBuildId = String(
@@ -50,6 +51,11 @@ export default defineNuxtConfig({
         {
           key: 'yeu-edge-route-bootstrap',
           innerHTML: EDGE_ROUTE_BOOTSTRAP_SCRIPT,
+          tagPosition: 'head'
+        },
+        {
+          key: 'yeu-theme-boot',
+          innerHTML: THEME_BOOT_SCRIPT,
           tagPosition: 'head'
         },
         ...devServiceWorkerCleanupScript

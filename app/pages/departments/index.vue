@@ -62,15 +62,15 @@ function selectDepartmentNeed(query: string) {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           校内办事
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           新生常用部门
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           联系方式来自学校或部门官网。办公地点和时间可能调整，出发前请再确认。
         </p>
         <UInput
@@ -98,7 +98,7 @@ function selectDepartmentNeed(query: string) {
           </template>
         </UInput>
         <div class="mt-4 max-w-2xl">
-          <p class="text-xs font-semibold text-zinc-600">
+          <p class="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             按要办的事情找
           </p>
           <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -109,7 +109,7 @@ function selectDepartmentNeed(query: string) {
               class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               :class="searchQuery === shortcut.query
                 ? 'border-green-700 bg-green-700 text-white'
-                : 'border-zinc-200 bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50'"
+                : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
               :aria-label="`按${shortcut.label}查找部门`"
               :aria-pressed="searchQuery === shortcut.query"
               @click="selectDepartmentNeed(shortcut.query)"
@@ -124,19 +124,19 @@ function selectDepartmentNeed(query: string) {
     <div class="page-shell page-section">
       <div
         v-if="error"
-        class="mb-5 border-l-2 border-amber-500 bg-amber-50 px-4 py-3"
+        class="mb-5 border-l-2 border-amber-500 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-4 py-3"
         role="status"
       >
         <div class="flex items-start gap-3">
           <UIcon
             name="i-lucide-info"
-            class="mt-0.5 size-4 shrink-0 text-amber-700"
+            class="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300"
           />
           <div class="min-w-0 flex-1">
             <h2 class="text-sm font-bold text-amber-950">
               部分部门信息还没更新出来
             </h2>
-            <p class="mt-1 text-xs leading-5 text-amber-900">
+            <p class="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-300">
               {{ departmentListMessages.serviceUnavailable }}
             </p>
             <UButton
@@ -154,7 +154,7 @@ function selectDepartmentNeed(query: string) {
       <div
         class="mb-4 flex items-center justify-between gap-4"
       >
-        <h2 class="text-sm font-semibold text-zinc-900">
+        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {{ filteredDepartments.length }} 个部门
         </h2>
         <UButton
@@ -175,36 +175,36 @@ function selectDepartmentNeed(query: string) {
           v-for="department in visibleDepartments"
           :key="department.slug"
           :to="`/departments/${department.slug}`"
-          class="surface-panel group flex min-h-48 flex-col p-5 transition hover:border-green-300 hover:shadow-sm"
+          class="surface-panel group flex min-h-48 flex-col p-5 transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm"
         >
-          <span class="grid size-10 place-items-center rounded-md bg-blue-50 text-blue-700">
+          <span class="grid size-10 place-items-center rounded-md bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
             <UIcon
               name="i-lucide-landmark"
               class="size-5"
             />
           </span>
-          <h2 class="mt-4 font-bold text-zinc-950">
+          <h2 class="mt-4 font-bold text-zinc-950 dark:text-zinc-100">
             {{ department.name }}
           </h2>
-          <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600">
+          <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             {{ department.summary }}
           </p>
-          <div class="mt-4 space-y-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+          <div class="mt-4 space-y-2 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs text-zinc-500 dark:text-zinc-400">
             <div class="flex items-center gap-2">
               <span
                 class="size-2 rounded-full"
-                :class="hasDepartmentContactMethod(department) ? 'bg-emerald-500' : 'bg-zinc-300'"
+                :class="hasDepartmentContactMethod(department) ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'"
               />
               {{ resolveDepartmentContactStatusText(department) }}
             </div>
             <div
               v-if="hasDepartmentContactMethod(department)"
-              class="truncate text-zinc-600"
+              class="truncate text-zinc-600 dark:text-zinc-300"
             >
               {{ departmentListContactPreview(department) }}
             </div>
           </div>
-          <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700">
+          <span class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400">
             {{ departmentListMessages.openIntro }}
             <UIcon
               name="i-lucide-arrow-right"
@@ -230,13 +230,13 @@ function selectDepartmentNeed(query: string) {
 
       <div
         v-if="!error && !filteredDepartments.length"
-        class="border-y border-zinc-200 bg-white px-5 py-12 text-center"
+        class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-12 text-center"
       >
         <UIcon
           name="i-lucide-search-x"
-          class="mx-auto size-6 text-zinc-400"
+          class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
         />
-        <p class="mt-3 text-sm text-zinc-600">
+        <p class="mt-3 text-sm text-zinc-600 dark:text-zinc-300">
           {{ departmentListMessages.emptyMatch }}
         </p>
         <UButton

@@ -3,6 +3,7 @@ const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
+const { isDark: isSiteDark } = useThemeMode()
 const mapHeaderTitle = useState<string>('map-header-title', () => '')
 
 const desktopNavigation = [
@@ -34,10 +35,10 @@ function shareCurrentPage(): void {
 </script>
 
 <template>
-  <div class="min-h-screen bg-white">
+  <div class="min-h-screen bg-white dark:bg-zinc-900">
     <a
       href="#main-content"
-      class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white px-4 text-sm font-semibold text-green-800 shadow-lg focus:translate-y-0"
+      class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-green-800 dark:text-green-300 shadow-lg focus:translate-y-0"
     >跳至主要内容</a>
     <a
       href="/__yeu_crawl_trap__"
@@ -46,7 +47,7 @@ function shareCurrentPage(): void {
       rel="nofollow noindex"
       class="pointer-events-none fixed -left-[9999px] -top-[9999px] size-px overflow-hidden opacity-0"
     >site index</a>
-    <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur">
+    <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 dark:bg-zinc-900/95 backdrop-blur">
       <div class="page-shell relative flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
         <NuxtLink
           v-if="!isMapPage"
@@ -57,21 +58,21 @@ function shareCurrentPage(): void {
           <span class="flex min-w-0 items-center gap-2">
             <span class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0">
               <img
-                src="/images/brand/system-logo-mark-light.png"
+                :src="isSiteDark ? '/images/brand/system-logo-mark.png' : '/images/brand/system-logo-mark-light.png'"
                 alt=""
                 aria-hidden="true"
                 class="size-full object-contain"
                 decoding="async"
               >
             </span>
-            <span class="hidden truncate text-base font-bold text-zinc-950 sm:inline">迎新指南</span>
-            <span class="hidden shrink-0 text-[11px] font-medium text-zinc-500 sm:inline">学生整理 · 非官方</span>
+            <span class="hidden truncate text-base font-bold text-zinc-950 dark:text-zinc-100 sm:inline">迎新指南</span>
+            <span class="hidden shrink-0 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 sm:inline">学生整理 · 非官方</span>
           </span>
         </NuxtLink>
 
         <p
           v-else-if="mapHeaderTitle"
-          class="pointer-events-none absolute left-1/2 top-1/2 max-w-[42vw] -translate-x-1/2 -translate-y-1/2 truncate text-sm font-bold text-zinc-950 md:hidden"
+          class="pointer-events-none absolute left-1/2 top-1/2 max-w-[42vw] -translate-x-1/2 -translate-y-1/2 truncate text-sm font-bold text-zinc-950 dark:text-zinc-100 md:hidden"
           aria-live="polite"
         >
           {{ mapHeaderTitle }}
@@ -88,7 +89,7 @@ function shareCurrentPage(): void {
             color="neutral"
             variant="ghost"
             :aria-current="isActive(item.to) ? 'page' : undefined"
-            :class="isActive(item.to) ? 'rounded-none border-b-2 border-green-700 text-sm font-bold text-green-700' : 'rounded-none border-b-2 border-transparent text-sm text-zinc-700'"
+            :class="isActive(item.to) ? 'rounded-none border-b-2 border-green-700 text-sm font-bold text-green-700 dark:text-green-400' : 'rounded-none border-b-2 border-transparent text-sm text-zinc-700 dark:text-zinc-200'"
           >
             {{ item.label }}
           </UButton>
@@ -96,13 +97,13 @@ function shareCurrentPage(): void {
 
         <div
           v-if="isHomePage"
-          class="absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-2 rounded-md bg-zinc-100 p-0.5 md:static md:z-auto md:ml-auto md:shrink-0 md:translate-x-0 md:translate-y-0"
+          class="absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-2 rounded-md bg-zinc-100 dark:bg-zinc-800 p-0.5 md:static md:z-auto md:ml-auto md:shrink-0 md:translate-x-0 md:translate-y-0"
           aria-label="首页显示模式"
         >
           <button
             type="button"
             class="inline-flex min-h-8 min-w-10 items-center justify-center rounded px-2 text-[11px] font-semibold transition sm:min-w-12 sm:px-2.5"
-            :class="activeHomeMode === 'full' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
+            :class="activeHomeMode === 'full' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'"
             :aria-pressed="activeHomeMode === 'full'"
             @click="setHomeMode('full')"
           >
@@ -111,7 +112,7 @@ function shareCurrentPage(): void {
           <button
             type="button"
             class="inline-flex min-h-8 min-w-10 items-center justify-center rounded px-2 text-[11px] font-semibold transition sm:min-w-12 sm:px-2.5"
-            :class="activeHomeMode === 'compact' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'"
+            :class="activeHomeMode === 'compact' ? 'bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100'"
             :aria-pressed="activeHomeMode === 'compact'"
             @click="setHomeMode('compact')"
           >
@@ -120,6 +121,7 @@ function shareCurrentPage(): void {
         </div>
 
         <div class="flex shrink-0 items-center gap-0 md:gap-1">
+          <ThemeModeToggle />
           <PublicNoticeCenter />
           <UButton
             to="/contact"
@@ -170,9 +172,9 @@ function shareCurrentPage(): void {
 
     <footer
       v-if="!isMapPage"
-      class="border-t border-[var(--line)] bg-white pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
+      class="border-t border-[var(--line)] bg-white dark:bg-zinc-900 pb-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+1rem)] md:pb-0"
     >
-      <div class="page-shell flex flex-col gap-4 py-6 text-xs text-zinc-500 md:flex-row md:items-center md:justify-between md:gap-6">
+      <div class="page-shell flex flex-col gap-4 py-6 text-xs text-zinc-500 dark:text-zinc-400 md:flex-row md:items-center md:justify-between md:gap-6">
         <div class="space-y-2">
           <p>本网站为个人整理，非学校官方发布；重要事项以学校最新通知为准。</p>
           <a
@@ -180,43 +182,43 @@ function shareCurrentPage(): void {
             href="https://beian.miit.gov.cn/"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex min-h-7 items-center font-medium hover:text-green-700"
+            class="inline-flex min-h-7 items-center font-medium hover:text-green-700 dark:hover:text-green-400"
           >{{ icpNumber }}</a>
           <a
             v-else
             href="https://beian.miit.gov.cn/"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex min-h-7 items-center hover:text-green-700"
+            class="inline-flex min-h-7 items-center hover:text-green-700 dark:hover:text-green-400"
           >工信部备案查询</a>
         </div>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
           <NuxtLink
             to="/about"
-            class="hover:text-green-700"
+            class="hover:text-green-700 dark:hover:text-green-400"
           >关于本站</NuxtLink>
           <NuxtLink
             to="/feedback"
-            class="hover:text-green-700"
+            class="hover:text-green-700 dark:hover:text-green-400"
           >反馈纠错</NuxtLink>
           <NuxtLink
             to="/contact"
-            class="font-semibold text-green-700 hover:text-green-800"
+            class="font-semibold text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
           >联系我们</NuxtLink>
           <NuxtLink
             to="/privacy"
-            class="hover:text-green-700"
+            class="hover:text-green-700 dark:hover:text-green-400"
           >隐私说明</NuxtLink>
           <NuxtLink
             to="/sources"
-            class="hover:text-green-700"
+            class="hover:text-green-700 dark:hover:text-green-400"
           >信息来源</NuxtLink>
         </div>
       </div>
     </footer>
 
     <nav
-      class="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-white/95 dark:bg-zinc-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       aria-label="移动端主导航"
     >
       <div class="grid h-[var(--mobile-nav-height)] grid-cols-4">
@@ -225,7 +227,7 @@ function shareCurrentPage(): void {
           :key="item.to"
           :to="item.to"
           class="flex min-w-0 flex-col items-center justify-center gap-1 text-xs"
-          :class="isActive(item.to) ? 'text-green-700' : 'text-zinc-500'"
+          :class="isActive(item.to) ? 'text-green-700 dark:text-green-400' : 'text-zinc-500 dark:text-zinc-400'"
           :aria-current="isActive(item.to) ? 'page' : undefined"
         >
           <UIcon

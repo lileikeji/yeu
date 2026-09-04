@@ -155,11 +155,11 @@ onMounted(() => {
       icon="i-lucide-shield-user"
     />
 
-    <section class="mt-5 rounded-lg border border-zinc-200 bg-white p-5">
-      <h2 class="font-bold text-zinc-950">
+    <section class="mt-5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+      <h2 class="font-bold text-zinc-950 dark:text-zinc-100">
         创建组织账号
       </h2>
-      <p class="mt-1 text-sm leading-6 text-zinc-500">
+      <p class="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
         账号默认使用社团或部门中文名的全拼；初始密码为一次性随机密码，创建后立即显示，首次登录必须修改。
       </p>
       <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)_auto] md:items-end">
@@ -194,11 +194,11 @@ onMounted(() => {
       </div>
       <div
         v-if="createdCredentials"
-        class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4"
+        class="mt-4 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 p-4"
         role="status"
       >
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="font-semibold text-emerald-950">
+          <p class="font-semibold text-emerald-950 dark:text-emerald-300">
             账号已创建或重置，请把邀请信息发给负责人
           </p>
           <UButton
@@ -209,23 +209,23 @@ onMounted(() => {
             @click="copyInvite"
           />
         </div>
-        <p class="mt-2 text-sm text-emerald-800">
+        <p class="mt-2 text-sm text-emerald-800 dark:text-emerald-300">
           后台地址：<span class="font-mono font-semibold">{{ siteOrigin }}/admin</span>
         </p>
         <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <div>
-            <dt class="text-emerald-700">
+            <dt class="text-emerald-700 dark:text-emerald-300">
               账号
             </dt>
-            <dd class="mt-1 font-mono font-bold text-emerald-950">
+            <dd class="mt-1 font-mono font-bold text-emerald-950 dark:text-emerald-300">
               {{ createdCredentials.username }}
             </dd>
           </div>
           <div>
-            <dt class="text-emerald-700">
+            <dt class="text-emerald-700 dark:text-emerald-300">
               初始密码
             </dt>
-            <dd class="mt-1 font-mono font-bold text-emerald-950">
+            <dd class="mt-1 font-mono font-bold text-emerald-950 dark:text-emerald-300">
               {{ createdCredentials.password }}
             </dd>
           </div>
@@ -233,9 +233,9 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="mt-5 overflow-hidden rounded-lg border border-zinc-200 bg-white">
-      <div class="border-b border-zinc-200 px-5 py-4">
-        <h2 class="font-bold text-zinc-950">
+    <section class="mt-5 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
+        <h2 class="font-bold text-zinc-950 dark:text-zinc-100">
           已授权账号
         </h2>
       </div>
@@ -246,19 +246,19 @@ onMounted(() => {
       >
         <UIcon
           name="i-lucide-loader-circle"
-          class="size-6 animate-spin text-green-700"
+          class="size-6 animate-spin text-green-700 dark:text-green-400"
         />
       </div>
       <p
         v-else-if="errorMessage"
-        class="p-5 text-sm text-red-700"
+        class="p-5 text-sm text-red-700 dark:text-red-300"
         role="alert"
       >
         {{ errorMessage }}
       </p>
       <div
         v-else-if="accounts.length"
-        class="divide-y divide-zinc-100"
+        class="divide-y divide-zinc-100 dark:divide-zinc-800"
       >
         <article
           v-for="account in accounts"
@@ -267,7 +267,7 @@ onMounted(() => {
         >
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
-              <p class="font-bold text-zinc-950">
+              <p class="font-bold text-zinc-950 dark:text-zinc-100">
                 {{ account.contentTitle }}
               </p>
               <UBadge
@@ -281,10 +281,10 @@ onMounted(() => {
                 variant="soft"
               />
             </div>
-            <p class="mt-2 text-sm text-zinc-600">
-              账号：<span class="font-mono font-semibold text-zinc-900">{{ account.username }}</span>
+            <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+              账号：<span class="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{{ account.username }}</span>
             </p>
-            <p class="mt-1 text-xs text-zinc-500">
+            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               {{ account.mustChangePassword ? '等待负责人首次修改密码' : `最近登录：${formatTime(account.lastLoginAt)}` }}
             </p>
           </div>
@@ -317,7 +317,7 @@ onMounted(() => {
       </div>
       <p
         v-else
-        class="p-8 text-center text-sm text-zinc-500"
+        class="p-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         还没有组织管理员账号。
       </p>

@@ -392,7 +392,7 @@ onMounted(async () => {
       </template>
     </AdminPageHeader>
 
-    <section class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
+    <section class="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm leading-6 text-blue-950 dark:text-blue-300">
       此页只管理需要人工审核的“知识事实”。AI 已收录的内置知识、官网正文和网页资料，请到
       <NuxtLink
         to="/admin/knowledge/library"
@@ -403,7 +403,7 @@ onMounted(async () => {
 
     <div
       v-if="errorMessage"
-      class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
     >
       {{ errorMessage }}
     </div>
@@ -416,23 +416,23 @@ onMounted(async () => {
         v-for="card in healthCards"
         :key="card.label"
         type="button"
-        class="min-h-24 rounded-md border border-zinc-200 bg-white p-4 text-left transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+        class="min-h-24 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-left transition hover:border-green-400 dark:hover:border-green-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
         @click="applyHealthFilter(card)"
       >
         <UIcon
           :name="card.icon"
-          class="size-4 text-green-700"
+          class="size-4 text-green-700 dark:text-green-400"
         />
-        <p class="mt-3 text-xs text-zinc-500">
+        <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
           {{ card.label }}
         </p>
-        <p class="mt-1 text-xl font-bold tabular-nums text-zinc-950">
+        <p class="mt-1 text-xl font-bold tabular-nums text-zinc-950 dark:text-zinc-100">
           {{ card.value }}
         </p>
       </button>
     </section>
 
-    <section class="rounded-md border border-zinc-200 bg-white p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
       <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem_11rem_11rem_auto] md:items-end">
         <UFormField label="关键词">
           <UInput
@@ -477,11 +477,11 @@ onMounted(async () => {
         <div>
           <h2
             id="knowledge-list-title"
-            class="text-sm font-bold text-zinc-950"
+            class="text-sm font-bold text-zinc-950 dark:text-zinc-100"
           >
             知识事实
           </h2>
-          <p class="mt-1 text-xs text-zinc-500">
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             当前筛选 {{ total }} 条
           </p>
         </div>
@@ -497,16 +497,16 @@ onMounted(async () => {
 
       <div
         v-if="loading && !items.length"
-        class="grid min-h-48 place-items-center text-sm text-zinc-500"
+        class="grid min-h-48 place-items-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         <UIcon
           name="i-lucide-loader-circle"
-          class="size-6 animate-spin text-green-700"
+          class="size-6 animate-spin text-green-700 dark:text-green-400"
         />
       </div>
       <div
         v-else-if="!items.length"
-        class="rounded-md border border-dashed border-zinc-300 bg-white px-4 py-14 text-center text-sm text-zinc-500"
+        class="rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-14 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         暂无符合条件的知识
       </div>
@@ -517,7 +517,7 @@ onMounted(async () => {
         <li
           v-for="row in items"
           :key="row.id"
-          class="rounded-md border border-zinc-200 bg-white p-4"
+          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -532,9 +532,9 @@ onMounted(async () => {
                   color="neutral"
                   variant="soft"
                 />
-                <span class="text-xs text-zinc-500">{{ row.category }}</span>
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ row.category }}</span>
               </div>
-              <h3 class="mt-2 break-words text-sm font-bold leading-6 text-zinc-950">
+              <h3 class="mt-2 break-words text-sm font-bold leading-6 text-zinc-950 dark:text-zinc-100">
                 {{ row.title }}
               </h3>
             </div>
@@ -557,10 +557,10 @@ onMounted(async () => {
               />
             </div>
           </div>
-          <p class="mt-3 line-clamp-4 whitespace-pre-line text-sm leading-6 text-zinc-700">
+          <p class="mt-3 line-clamp-4 whitespace-pre-line text-sm leading-6 text-zinc-700 dark:text-zinc-200">
             {{ row.statement }}
           </p>
-          <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+          <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs text-zinc-500 dark:text-zinc-400">
             <span>可信度 {{ row.confidenceScore }}</span>
             <span>{{ row.sources.length }} 个来源</span>
             <span>{{ formatDate(row.updatedAt) }}</span>
@@ -580,7 +580,7 @@ onMounted(async () => {
           :disabled="page <= 1"
           @click="changePage(page - 1)"
         />
-        <span class="text-xs tabular-nums text-zinc-500">{{ page }} / {{ totalPages }}</span>
+        <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">{{ page }} / {{ totalPages }}</span>
         <UButton
           icon="i-lucide-chevron-right"
           trailing
@@ -595,19 +595,19 @@ onMounted(async () => {
 
     <dialog
       ref="editorDialog"
-      class="m-auto max-h-[92dvh] w-[min(94vw,860px)] overflow-hidden rounded-md border border-zinc-200 bg-white p-0 shadow-2xl backdrop:bg-black/45"
+      class="m-auto max-h-[92dvh] w-[min(94vw,860px)] overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0 shadow-2xl backdrop:bg-black/45"
       @close="resetForm"
     >
       <form
         class="flex max-h-[92dvh] flex-col"
         @submit.prevent="saveClaim"
       >
-        <header class="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+        <header class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
           <div>
-            <h2 class="text-base font-bold text-zinc-950">
+            <h2 class="text-base font-bold text-zinc-950 dark:text-zinc-100">
               {{ editingId ? '编辑知识' : '新增知识' }}
             </h2>
-            <p class="mt-1 text-xs text-zinc-500">
+            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               {{ editingId ? editingId.slice(0, 12) : '先保存草稿，再提交审核' }}
             </p>
           </div>
@@ -726,7 +726,7 @@ onMounted(async () => {
             <div class="flex items-center justify-between gap-3">
               <h3
                 id="claim-sources-title"
-                class="text-sm font-bold text-zinc-950"
+                class="text-sm font-bold text-zinc-950 dark:text-zinc-100"
               >
                 证据来源
               </h3>
@@ -743,14 +743,14 @@ onMounted(async () => {
             </div>
             <p
               v-if="!form.sources.length"
-              class="mt-3 rounded-md border border-dashed border-zinc-300 px-3 py-5 text-center text-xs text-zinc-500"
+              class="mt-3 rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 px-3 py-5 text-center text-xs text-zinc-500 dark:text-zinc-400"
             >
               待审核和已发布内容必须添加来源
             </p>
             <div
               v-for="(source, index) in form.sources"
               :key="`${source.sourceId}-${index}`"
-              class="mt-3 border-t border-zinc-200 pt-4"
+              class="mt-3 border-t border-zinc-200 dark:border-zinc-800 pt-4"
             >
               <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-end">
                 <UFormField label="来源">
@@ -797,7 +797,7 @@ onMounted(async () => {
           </section>
         </div>
 
-        <footer class="flex justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-4">
+        <footer class="flex justify-end gap-2 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-5 py-4">
           <UButton
             type="button"
             label="取消"

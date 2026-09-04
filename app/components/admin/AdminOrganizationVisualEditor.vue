@@ -871,25 +871,25 @@ onBeforeUnmount(() => {
     >
       <UIcon
         name="i-lucide-loader-circle"
-        class="size-7 animate-spin text-green-700"
+        class="size-7 animate-spin text-green-700 dark:text-green-400"
       />
     </div>
 
     <div
       v-else-if="loadError"
-      class="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-800"
+      class="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-5 text-sm text-red-800 dark:text-red-300"
       role="alert"
     >
       {{ loadError }}
     </div>
 
     <div v-else>
-      <div class="sticky top-16 z-20 -mx-4 mb-5 flex flex-wrap items-center gap-3 border-y border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6">
+      <div class="sticky top-16 z-20 -mx-4 mb-5 flex flex-wrap items-center gap-3 border-y border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6">
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-semibold text-green-700">
+          <p class="text-xs font-semibold text-green-700 dark:text-green-400">
             {{ isCreating ? '可视化新增' : '可视化编辑' }}
           </p>
-          <p class="truncate text-sm font-bold text-zinc-950">
+          <p class="truncate text-sm font-bold text-zinc-950 dark:text-zinc-100">
             {{ model.title }}
           </p>
         </div>
@@ -922,17 +922,17 @@ onBeforeUnmount(() => {
 
       <p
         v-if="saveError"
-        class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        class="mb-4 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
         role="alert"
       >
         {{ saveError }}
       </p>
 
-      <div class="overflow-hidden rounded-lg border border-zinc-200 bg-[#fafafa]">
-        <header class="border-b border-zinc-200 bg-white">
+      <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#fafafa] dark:bg-zinc-900">
+        <header class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
           <div class="mx-auto max-w-4xl px-5 py-8 md:px-8 md:py-11">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+              <span class="grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
                 <img
                   v-if="model.kind === 'club' && model.iconUrl"
                   :src="model.iconUrl"
@@ -998,8 +998,8 @@ onBeforeUnmount(() => {
         </header>
 
         <main class="mx-auto max-w-4xl px-5 py-7 md:px-8 md:py-10">
-          <section class="border-b border-zinc-200 pb-8">
-            <h2 class="text-lg font-bold text-zinc-950">
+          <section class="border-b border-zinc-200 dark:border-zinc-800 pb-8">
+            <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
               页面正文
             </h2>
             <UTextarea
@@ -1013,14 +1013,14 @@ onBeforeUnmount(() => {
 
           <section
             v-if="model.kind === 'club'"
-            class="border-b border-zinc-200 py-8"
+            class="border-b border-zinc-200 dark:border-zinc-800 py-8"
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 class="text-lg font-bold text-zinc-950">
+                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
                   报名之前问清楚
                 </h2>
-                <p class="mt-1 text-sm text-zinc-500">
+                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   前台会按这里的顺序展示，最多 12 项。
                 </p>
               </div>
@@ -1037,9 +1037,9 @@ onBeforeUnmount(() => {
               <div
                 v-for="(item, index) in model.signupQa"
                 :key="index"
-                class="grid gap-3 border-b border-zinc-200 pb-4 last:border-b-0 md:grid-cols-[1.5rem_minmax(0,1fr)_auto]"
+                class="grid gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-4 last:border-b-0 md:grid-cols-[1.5rem_minmax(0,1fr)_auto]"
               >
-                <span class="pt-3 text-center text-xs font-semibold text-zinc-500">
+                <span class="pt-3 text-center text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                   {{ index + 1 }}
                 </span>
                 <div class="min-w-0 space-y-3">
@@ -1097,8 +1097,8 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <section class="border-b border-zinc-200 py-8">
-            <h2 class="text-lg font-bold text-zinc-950">
+          <section class="border-b border-zinc-200 dark:border-zinc-800 py-8">
+            <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
               {{ model.kind === 'club' ? '招新与活动' : '部门公开信息' }}
             </h2>
             <div class="mt-4 grid gap-4 md:grid-cols-2">
@@ -1108,8 +1108,8 @@ onBeforeUnmount(() => {
                   description="显示在社团列表和社团详情页；不上传时继续使用默认社团图标。"
                   class="md:col-span-2"
                 >
-                  <div class="flex flex-wrap items-center gap-4 rounded-md border border-zinc-200 bg-zinc-50 p-4">
-                    <span class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+                  <div class="flex flex-wrap items-center gap-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-4">
+                    <span class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
                       <img
                         v-if="model.iconUrl"
                         :src="model.iconUrl"
@@ -1123,7 +1123,7 @@ onBeforeUnmount(() => {
                       />
                     </span>
                     <div class="flex flex-wrap gap-2">
-                      <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-800">
+                      <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                         <UIcon
                           :name="uploadTarget === 'icon' ? 'i-lucide-loader-circle' : 'i-lucide-image-up'"
                           class="size-4"
@@ -1281,13 +1281,13 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <section class="border-b border-zinc-200 py-8">
+          <section class="border-b border-zinc-200 dark:border-zinc-800 py-8">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 class="text-lg font-bold text-zinc-950">
+                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
                   自定义 Box
                 </h2>
-                <p class="mt-1 text-sm text-zinc-500">
+                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                   可添加最多 24 个内容块，前台会按这里的顺序展示。
                 </p>
               </div>
@@ -1304,10 +1304,10 @@ onBeforeUnmount(() => {
               <article
                 v-for="(box, index) in model.boxes"
                 :key="box.id"
-                class="rounded-lg border border-zinc-200 bg-white p-4"
+                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
               >
                 <div class="flex items-center gap-1">
-                  <span class="mr-auto text-xs font-semibold text-zinc-500">
+                  <span class="mr-auto text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     Box {{ index + 1 }}
                   </span>
                   <UButton
@@ -1398,17 +1398,17 @@ onBeforeUnmount(() => {
                   />
                 </UFormField>
 
-                <div class="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                <div class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-3">
                   <div class="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p class="text-sm font-semibold text-zinc-900">
+                      <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                         Box 图片
                       </p>
-                      <p class="mt-1 text-xs text-zinc-500">
+                      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                         最多 8 张，可填写图片标题；前台支持点击放大。
                       </p>
                     </div>
-                    <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50">
+                    <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
                       <UIcon
                         :name="uploadTarget === boxUploadTarget(box) ? 'i-lucide-loader-circle' : 'i-lucide-images'"
                         class="size-4"
@@ -1432,7 +1432,7 @@ onBeforeUnmount(() => {
                     <div
                       v-for="(imageUrl, imageIndex) in box.imageUrls"
                       :key="imageUrl"
-                      class="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-zinc-200 bg-white p-2"
+                      class="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2"
                     >
                       <img
                         :src="imageUrl"
@@ -1462,13 +1462,13 @@ onBeforeUnmount(() => {
 
           <section
             v-if="!organizationMode"
-            class="border-b border-zinc-200 py-8"
+            class="border-b border-zinc-200 dark:border-zinc-800 py-8"
           >
             <div>
-              <h2 class="text-lg font-bold text-zinc-950">
+              <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
                 发布、确认与排序
               </h2>
-              <p class="mt-1 text-sm text-zinc-500">
+              <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 与内容管理新增表单使用相同字段；正式发布仍由总管理员在内容列表操作。
               </p>
             </div>
@@ -1557,22 +1557,22 @@ onBeforeUnmount(() => {
                   </div>
                   <div
                     v-if="sourcesLoading && !publishableSources.length"
-                    class="grid min-h-24 place-items-center rounded-md border border-zinc-200 bg-white"
+                    class="grid min-h-24 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
                     role="status"
                   >
                     <UIcon
                       name="i-lucide-loader-circle"
-                      class="size-5 animate-spin text-green-700"
+                      class="size-5 animate-spin text-green-700 dark:text-green-400"
                     />
                   </div>
                   <div
                     v-else-if="publishableSources.length"
-                    class="max-h-64 space-y-2 overflow-y-auto rounded-md border border-zinc-200 bg-white p-2"
+                    class="max-h-64 space-y-2 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2"
                   >
                     <label
                       v-for="source in publishableSources"
                       :key="source.id"
-                      class="flex cursor-pointer items-start gap-3 rounded-md px-3 py-2.5 hover:bg-zinc-50"
+                      class="flex cursor-pointer items-start gap-3 rounded-md px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                     >
                       <UCheckbox
                         :model-value="selectedSourceIds.has(source.id)"
@@ -1581,8 +1581,8 @@ onBeforeUnmount(() => {
                         @update:model-value="toggleSource(source.id, $event === true)"
                       />
                       <span class="min-w-0 flex-1">
-                        <span class="block text-sm font-semibold text-zinc-900">{{ source.title }}</span>
-                        <span class="mt-0.5 block text-xs text-zinc-500">
+                        <span class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ source.title }}</span>
+                        <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
                           {{ source.sourceLevel }} 级 · {{ source.isOfficial ? '官方来源' : '非官方来源' }}
                         </span>
                       </span>
@@ -1590,21 +1590,21 @@ onBeforeUnmount(() => {
                   </div>
                   <div
                     v-else
-                    class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                    class="rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-sm text-amber-900 dark:text-amber-300"
                   >
                     没有找到可用于发布的来源，请先在来源管理中登记有效来源。
                   </div>
                   <p
                     v-if="sourcesError"
-                    class="text-sm text-red-700"
+                    class="text-sm text-red-700 dark:text-red-300"
                     role="alert"
                   >
                     {{ sourcesError }}
                   </p>
-                  <p class="text-xs text-zinc-500">
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
                     已关联 {{ selectedSourceIds.size }} 条来源。A/B 级来源必须标记为官方，C 级有效来源可直接作为发布依据。
                   </p>
-                  <details class="text-xs text-zinc-500">
+                  <details class="text-xs text-zinc-500 dark:text-zinc-400">
                     <summary class="cursor-pointer font-medium">
                       高级：手动编辑来源编号
                     </summary>
@@ -1627,7 +1627,7 @@ onBeforeUnmount(() => {
             </div>
             <div
               v-if="!isCreating"
-              class="mt-5 flex items-center gap-2 border-t border-zinc-200 pt-4 text-sm text-zinc-600"
+              class="mt-5 flex items-center gap-2 border-t border-zinc-200 dark:border-zinc-800 pt-4 text-sm text-zinc-600 dark:text-zinc-300"
             >
               <span>当前发布状态</span>
               <UBadge
@@ -1639,7 +1639,7 @@ onBeforeUnmount(() => {
           </section>
 
           <section class="py-8">
-            <h2 class="text-lg font-bold text-zinc-950">
+            <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
               联系负责人
             </h2>
             <div class="mt-4 grid gap-4 md:grid-cols-2">
@@ -1660,10 +1660,10 @@ onBeforeUnmount(() => {
             <div class="mt-5 grid gap-5 md:grid-cols-2">
               <div>
                 <div class="flex items-center justify-between gap-3">
-                  <p class="text-sm font-semibold text-zinc-900">
+                  <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     招新与群聊二维码
                   </p>
-                  <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-800">
+                  <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                     <UIcon
                       name="i-lucide-image-plus"
                       class="size-4"
@@ -1683,12 +1683,12 @@ onBeforeUnmount(() => {
                   <figure
                     v-for="(url, index) in model.groupQrUrls"
                     :key="url"
-                    class="relative rounded-lg border border-zinc-200 bg-white p-3"
+                    class="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
                   >
                     <ImagePreviewButton
                       :src="url"
                       :alt="model.groupQrTitles[index] || `招新与群聊二维码 ${index + 1}`"
-                      button-class="aspect-square w-full rounded-md border border-zinc-100 bg-white"
+                      button-class="aspect-square w-full rounded-md border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
                       image-class="size-full object-contain"
                     />
                     <UButton
@@ -1716,10 +1716,10 @@ onBeforeUnmount(() => {
               </div>
               <div>
                 <div class="flex items-center justify-between gap-3">
-                  <p class="text-sm font-semibold text-zinc-900">
+                  <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     负责人二维码
                   </p>
-                  <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-800">
+                  <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                     <UIcon
                       name="i-lucide-image-plus"
                       class="size-4"
@@ -1739,12 +1739,12 @@ onBeforeUnmount(() => {
                   <figure
                     v-for="(url, index) in model.contactQrUrls"
                     :key="url"
-                    class="relative rounded-lg border border-zinc-200 bg-white p-3"
+                    class="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
                   >
                     <ImagePreviewButton
                       :src="url"
                       :alt="model.contactQrTitles[index] || `${model.contactName || '负责人'}二维码 ${index + 1}`"
-                      button-class="aspect-square w-full rounded-md border border-zinc-100 bg-white"
+                      button-class="aspect-square w-full rounded-md border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
                       image-class="size-full object-contain"
                     />
                     <UButton

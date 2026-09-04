@@ -23,17 +23,17 @@ function toggleTaskPreview(): void {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-4 md:py-5">
         <div class="flex items-end justify-between gap-4">
           <div class="max-w-2xl">
             <p class="section-kicker">
               所有入口
             </p>
-            <h1 class="mt-1 text-2xl font-bold text-zinc-950 md:text-3xl">
+            <h1 class="mt-1 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               你现在想做什么
             </h1>
-            <p class="mt-2 text-sm leading-6 text-zinc-600">
+            <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
               首页只放了最常用的几个入口，这里把全部入口按要办的事汇总在一起，也支持直接搜索地点、部门和社团。
             </p>
           </div>
@@ -57,7 +57,7 @@ function toggleTaskPreview(): void {
             <p class="section-kicker">
               常用入口
             </p>
-            <h2 class="mt-1 text-xl font-bold text-zinc-950">
+            <h2 class="mt-1 text-xl font-bold text-zinc-950 dark:text-zinc-100">
               开学最常用的入口
             </h2>
           </div>
@@ -88,7 +88,7 @@ function toggleTaskPreview(): void {
             v-for="entry in visibleTaskEntries"
             :key="entry.to"
             :to="entry.to"
-            class="surface-panel group relative flex min-h-20 items-center gap-2.5 p-2.5 transition hover:border-green-300 hover:shadow-sm sm:min-h-24 sm:gap-3 sm:p-3"
+            class="surface-panel group relative flex min-h-20 items-center gap-2.5 p-2.5 transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm sm:min-h-24 sm:gap-3 sm:p-3"
           >
             <span
               class="grid size-9 shrink-0 place-items-center rounded-md sm:size-10"
@@ -100,24 +100,24 @@ function toggleTaskPreview(): void {
               />
             </span>
             <span class="min-w-0 flex-1 pr-3 sm:pr-0">
-              <span class="block truncate text-[10px] font-medium leading-4 text-green-700 sm:text-[11px] sm:leading-5">{{ entry.when }}</span>
-              <span class="mt-0.5 block text-sm font-bold leading-5 text-zinc-950 sm:text-base">{{ entry.title }}</span>
-              <span class="mt-1.5 hidden text-xs leading-5 text-zinc-600 sm:block">{{ entry.description }}</span>
+              <span class="block truncate text-[10px] font-medium leading-4 text-green-700 dark:text-green-400 sm:text-[11px] sm:leading-5">{{ entry.when }}</span>
+              <span class="mt-0.5 block text-sm font-bold leading-5 text-zinc-950 dark:text-zinc-100 sm:text-base">{{ entry.title }}</span>
+              <span class="mt-1.5 hidden text-xs leading-5 text-zinc-600 dark:text-zinc-300 sm:block">{{ entry.description }}</span>
             </span>
             <UIcon
               name="i-lucide-arrow-right"
-              class="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-green-700 sm:static sm:mt-1 sm:translate-y-0"
+              class="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 shrink-0 text-zinc-300 dark:text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-green-700 dark:group-hover:text-green-400 sm:static sm:mt-1 sm:translate-y-0"
             />
           </NuxtLink>
         </div>
       </section>
 
-      <section class="border-y border-[var(--line)] bg-white">
+      <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
         <div class="page-shell py-4 md:py-5">
           <p class="section-kicker">
             继续浏览
           </p>
-          <h2 class="mt-1 text-xl font-bold text-zinc-950">
+          <h2 class="mt-1 text-xl font-bold text-zinc-950 dark:text-zinc-100">
             按内容找
           </h2>
 
@@ -126,21 +126,21 @@ function toggleTaskPreview(): void {
               v-for="entry in discoverDirectoryEntries"
               :key="entry.to"
               :to="entry.to"
-              class="group flex min-h-16 items-center gap-2.5 rounded-md border border-zinc-200 p-2.5 hover:border-green-300 sm:min-h-20 sm:p-3"
+              class="group flex min-h-16 items-center gap-2.5 rounded-md border border-zinc-200 dark:border-zinc-800 p-2.5 hover:border-green-300 dark:hover:border-green-700 sm:min-h-20 sm:p-3"
             >
-              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700 group-hover:bg-green-50 group-hover:text-green-700">
+              <span class="grid size-9 shrink-0 place-items-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 group-hover:bg-green-50 dark:group-hover:bg-green-950 group-hover:text-green-700 dark:group-hover:text-green-400">
                 <UIcon
                   :name="entry.icon"
                   class="size-4"
                 />
               </span>
               <span class="min-w-0 flex-1">
-                <span class="block text-sm font-bold text-zinc-950">{{ entry.title }}</span>
-                <span class="mt-1 hidden text-xs leading-5 text-zinc-500 sm:block">{{ entry.description }}</span>
+                <span class="block text-sm font-bold text-zinc-950 dark:text-zinc-100">{{ entry.title }}</span>
+                <span class="mt-1 hidden text-xs leading-5 text-zinc-500 dark:text-zinc-400 sm:block">{{ entry.description }}</span>
               </span>
               <UIcon
                 name="i-lucide-chevron-right"
-                class="size-4 shrink-0 text-zinc-300 group-hover:text-green-700"
+                class="size-4 shrink-0 text-zinc-300 dark:text-zinc-600 group-hover:text-green-700 dark:group-hover:text-green-400"
               />
             </NuxtLink>
           </div>
@@ -151,7 +151,7 @@ function toggleTaskPreview(): void {
         <p class="section-kicker">
           帮助与说明
         </p>
-        <h2 class="mt-1 text-xl font-bold text-zinc-950">
+        <h2 class="mt-1 text-xl font-bold text-zinc-950 dark:text-zinc-100">
           信息从哪来，哪里错了怎么说
         </h2>
 
@@ -160,15 +160,15 @@ function toggleTaskPreview(): void {
             v-for="entry in discoverTrustEntries"
             :key="entry.to"
             :to="entry.to"
-            class="group flex min-h-16 items-center gap-2.5 rounded-md border border-zinc-200 p-2.5 hover:border-green-300 sm:min-h-20 sm:p-3"
+            class="group flex min-h-16 items-center gap-2.5 rounded-md border border-zinc-200 dark:border-zinc-800 p-2.5 hover:border-green-300 dark:hover:border-green-700 sm:min-h-20 sm:p-3"
           >
             <UIcon
               :name="entry.icon"
-              class="size-4 shrink-0 text-green-700"
+              class="size-4 shrink-0 text-green-700 dark:text-green-400"
             />
             <span class="min-w-0">
-              <span class="block text-sm font-bold text-zinc-950 group-hover:text-green-700">{{ entry.title }}</span>
-              <span class="mt-1 hidden text-xs leading-5 text-zinc-500 sm:block">{{ entry.description }}</span>
+              <span class="block text-sm font-bold text-zinc-950 dark:text-zinc-100 group-hover:text-green-700 dark:group-hover:text-green-400">{{ entry.title }}</span>
+              <span class="mt-1 hidden text-xs leading-5 text-zinc-500 dark:text-zinc-400 sm:block">{{ entry.description }}</span>
             </span>
           </NuxtLink>
         </div>

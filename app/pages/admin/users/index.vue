@@ -111,17 +111,17 @@ function statusLabel(value: string): string {
 }
 
 function statusClass(value: string): string {
-  if (value === 'active') return 'bg-emerald-50 text-emerald-700'
-  if (value === 'disabled') return 'bg-amber-50 text-amber-700'
-  if (value === 'banned') return 'bg-red-50 text-red-700'
-  return 'bg-zinc-100 text-zinc-600'
+  if (value === 'active') return 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+  if (value === 'disabled') return 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+  if (value === 'banned') return 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300'
+  return 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
 }
 
 function riskToneClass(level: string | null | undefined): string {
-  if (level === 'high') return 'bg-red-100 text-red-800'
-  if (level === 'medium') return 'bg-amber-100 text-amber-900'
-  if (level === 'low') return 'bg-sky-100 text-sky-900'
-  return 'bg-zinc-100 text-zinc-700'
+  if (level === 'high') return 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'
+  if (level === 'medium') return 'bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300'
+  if (level === 'low') return 'bg-sky-100 text-sky-900 dark:text-sky-300'
+  return 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200'
 }
 
 async function handleAuth(error: unknown): Promise<boolean> {
@@ -369,7 +369,7 @@ onMounted(async () => {
 
     <div
       v-if="errorMessage"
-      class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
     >
       {{ errorMessage }}
     </div>
@@ -409,15 +409,15 @@ onMounted(async () => {
       </UButton>
     </div>
 
-    <details class="group rounded-md border border-zinc-200 bg-white">
-      <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-zinc-950 [&::-webkit-details-marker]:hidden">
+    <details class="group rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-zinc-950 dark:text-zinc-100 [&::-webkit-details-marker]:hidden">
         <span>创建账号</span>
-        <span class="flex items-center gap-1 text-xs font-normal text-zinc-500">
+        <span class="flex items-center gap-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
           注册暂未开放，由管理员创建
           <UIcon name="i-lucide-chevron-down" class="size-4 transition-transform group-open:rotate-180" />
         </span>
       </summary>
-      <div class="border-t border-zinc-100 px-4 pb-4">
+      <div class="border-t border-zinc-100 dark:border-zinc-800 px-4 pb-4">
       <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <UFormField label="登录名">
           <UInput v-model="form.username" class="w-full" />
@@ -443,7 +443,7 @@ onMounted(async () => {
       </div>
     </details>
 
-    <div class="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="grid gap-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:grid-cols-2 lg:grid-cols-5">
       <UFormField label="关键词">
         <UInput
           v-model="q"
@@ -485,7 +485,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <p class="text-xs text-zinc-500">
+    <p class="text-xs text-zinc-500 dark:text-zinc-400">
       本页概览：正常 {{ statusSummary.active }} · 停用 {{ statusSummary.disabled }} · 封禁 {{ statusSummary.banned }}
     </p>
 
@@ -495,23 +495,23 @@ onMounted(async () => {
           <article
             v-for="row in items"
             :key="'mobile-' + row.id"
-            class="min-w-0 rounded-md border border-zinc-200 bg-white p-3"
-            :class="selectedUser?.id === row.id ? 'border-emerald-300 bg-emerald-50/40' : ''"
+            class="min-w-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
+            :class="selectedUser?.id === row.id ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/40' : ''"
           >
             <div class="flex min-w-0 items-start justify-between gap-3">
               <button type="button" class="min-w-0 text-left" @click="openUserDetail(row)">
-                <p class="truncate text-sm font-semibold text-zinc-900">{{ row.displayName }}</p>
-                <p class="mt-0.5 truncate text-xs text-zinc-500">{{ row.username }}</p>
+                <p class="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ row.displayName }}</p>
+                <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">{{ row.username }}</p>
               </button>
               <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px]" :class="statusClass(row.status)">
                 {{ statusLabel(row.status) }}
               </span>
             </div>
-            <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600">
+            <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
               <p class="truncate">{{ row.major || '未填专业' }}</p>
               <p class="truncate">{{ row.dormBuilding || '未填宿舍' }}</p>
             </div>
-            <p class="mt-2 text-[11px] text-zinc-400">
+            <p class="mt-2 text-[11px] text-zinc-400 dark:text-zinc-500">
               最近登录 {{ formatTime(row.lastLoginAt) }} · 编号 {{ shortAdminId(row.id, 8) }}
             </p>
             <div class="mt-3 flex flex-wrap gap-1.5">
@@ -523,12 +523,12 @@ onMounted(async () => {
               <UButton v-if="row.status !== 'banned'" size="xs" color="error" variant="soft" @click="quickStatus(row, 'banned')">封禁</UButton>
             </div>
           </article>
-          <p v-if="!items.length && !loading" class="rounded-md border border-zinc-200 bg-white px-3 py-8 text-center text-sm text-zinc-400">暂无账号</p>
+          <p v-if="!items.length && !loading" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">暂无账号</p>
         </div>
 
-        <div class="hidden overflow-x-auto rounded-md border border-zinc-200 bg-white md:block">
+        <div class="hidden overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 md:block">
           <table class="min-w-full text-left text-sm">
-            <thead class="bg-zinc-50 text-xs text-zinc-500">
+            <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-xs text-zinc-500 dark:text-zinc-400">
               <tr>
                 <th class="px-3 py-3 font-medium">账号</th>
                 <th class="px-3 py-3 font-medium">专业 / 宿舍</th>
@@ -541,8 +541,8 @@ onMounted(async () => {
               <tr
                 v-for="row in items"
                 :key="row.id"
-                class="border-t border-zinc-100 align-top transition-colors hover:bg-zinc-50/80"
-                :class="selectedUser?.id === row.id ? 'bg-emerald-50/50' : ''"
+                class="border-t border-zinc-100 dark:border-zinc-800 align-top transition-colors hover:bg-zinc-50/80"
+                :class="selectedUser?.id === row.id ? 'bg-emerald-50/50 dark:bg-emerald-950/50' : ''"
               >
                 <td class="px-3 py-3">
                   <button
@@ -550,18 +550,18 @@ onMounted(async () => {
                     class="text-left"
                     @click="openUserDetail(row)"
                   >
-                    <div class="font-medium text-zinc-900">
+                    <div class="font-medium text-zinc-900 dark:text-zinc-100">
                       {{ row.displayName }}
                     </div>
-                    <div class="text-xs text-zinc-500">
+                    <div class="text-xs text-zinc-500 dark:text-zinc-400">
                       {{ row.username }}
                     </div>
-                    <div class="mt-1 text-[11px] text-zinc-400">
+                    <div class="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
                       编号 {{ shortAdminId(row.id, 10) }}
                     </div>
                   </button>
                 </td>
-                <td class="px-3 py-3 text-xs text-zinc-600">
+                <td class="px-3 py-3 text-xs text-zinc-600 dark:text-zinc-300">
                   <div>{{ row.major || '未填专业' }}</div>
                   <div class="mt-1">
                     {{ row.dormBuilding || '未填宿舍' }}
@@ -575,7 +575,7 @@ onMounted(async () => {
                     {{ statusLabel(row.status) }}
                   </span>
                 </td>
-                <td class="px-3 py-3 text-xs text-zinc-500">
+                <td class="px-3 py-3 text-xs text-zinc-500 dark:text-zinc-400">
                   <div>登录 {{ formatTime(row.lastLoginAt) }}</div>
                   <div class="mt-1">
                     创建 {{ formatTime(row.createdAt) }}
@@ -640,7 +640,7 @@ onMounted(async () => {
               <tr v-if="!items.length && !loading">
                 <td
                   colspan="5"
-                  class="px-3 py-10 text-center text-zinc-400"
+                  class="px-3 py-10 text-center text-zinc-400 dark:text-zinc-500"
                 >
                   暂无账号
                 </td>
@@ -649,7 +649,7 @@ onMounted(async () => {
           </table>
         </div>
 
-        <div class="flex items-center justify-between text-sm text-zinc-500">
+        <div class="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
           <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
           <div class="flex gap-2">
             <UButton
@@ -675,9 +675,9 @@ onMounted(async () => {
 
         <section
           v-if="editId"
-          class="rounded-2xl border border-green-200 bg-green-50/40 p-4"
+          class="rounded-2xl border border-green-200 dark:border-green-800 bg-green-50/40 dark:bg-green-950/40 p-4"
         >
-          <h2 class="font-semibold text-zinc-950">
+          <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
             编辑账号
           </h2>
           <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -723,16 +723,16 @@ onMounted(async () => {
 
       <aside
         v-if="selectedUser"
-        class="h-fit rounded-2xl border border-emerald-200 bg-emerald-50/30 p-4 lg:sticky lg:top-4"
+        class="h-fit rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/30 dark:bg-emerald-950/30 p-4 lg:sticky lg:top-4"
       >
         <div class="flex items-start justify-between gap-2">
           <div>
-            <h2 class="font-semibold text-zinc-950">
+            <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
               账号详情
             </h2>
-            <p class="mt-1 text-sm text-zinc-700">
+            <p class="mt-1 text-sm text-zinc-700 dark:text-zinc-200">
               {{ selectedUser.displayName }}
-              <span class="text-zinc-500">· {{ selectedUser.username }}</span>
+              <span class="text-zinc-500 dark:text-zinc-400">· {{ selectedUser.username }}</span>
             </p>
           </div>
           <UButton
@@ -746,8 +746,8 @@ onMounted(async () => {
         </div>
 
         <dl class="mt-3 grid gap-2">
-          <div class="rounded-xl border border-white bg-white px-3 py-2">
-            <dt class="text-[11px] text-zinc-500">状态</dt>
+          <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">状态</dt>
             <dd>
               <span
                 class="rounded-full px-2 py-0.5 text-xs"
@@ -757,25 +757,25 @@ onMounted(async () => {
               </span>
             </dd>
           </div>
-          <div class="rounded-xl border border-white bg-white px-3 py-2">
-            <dt class="text-[11px] text-zinc-500">专业</dt>
-            <dd class="text-sm text-zinc-800">{{ selectedUser.major || '—' }}</dd>
+          <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">专业</dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ selectedUser.major || '—' }}</dd>
           </div>
-          <div class="rounded-xl border border-white bg-white px-3 py-2">
-            <dt class="text-[11px] text-zinc-500">宿舍楼</dt>
-            <dd class="text-sm text-zinc-800">{{ selectedUser.dormBuilding || '—' }}</dd>
+          <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">宿舍楼</dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ selectedUser.dormBuilding || '—' }}</dd>
           </div>
-          <div class="rounded-xl border border-white bg-white px-3 py-2">
-            <dt class="text-[11px] text-zinc-500">最近登录</dt>
-            <dd class="text-sm text-zinc-800">{{ formatTime(selectedUser.lastLoginAt) }}</dd>
+          <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">最近登录</dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ formatTime(selectedUser.lastLoginAt) }}</dd>
           </div>
-          <div class="rounded-xl border border-white bg-white px-3 py-2">
-            <dt class="text-[11px] text-zinc-500">创建时间</dt>
-            <dd class="text-sm text-zinc-800">{{ formatTime(selectedUser.createdAt) }}</dd>
+          <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">创建时间</dt>
+            <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ formatTime(selectedUser.createdAt) }}</dd>
           </div>
-          <div class="rounded-xl border border-white bg-white px-3 py-2">
-            <dt class="text-[11px] text-zinc-500">账号编号</dt>
-            <dd class="text-xs text-zinc-700">{{ shortAdminId(selectedUser.id, 12) }}</dd>
+          <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+            <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">账号编号</dt>
+            <dd class="text-xs text-zinc-700 dark:text-zinc-200">{{ shortAdminId(selectedUser.id, 12) }}</dd>
           </div>
         </dl>
 
@@ -856,46 +856,46 @@ onMounted(async () => {
 
         <div
           v-if="dossierError"
-          class="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+          class="mt-3 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-3 py-2 text-xs text-red-700 dark:text-red-300"
         >
           {{ dossierError }}
         </div>
 
-        <div v-if="dossierLoading && !userDossier" class="mt-3 text-xs text-zinc-500">
+        <div v-if="dossierLoading && !userDossier" class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
           账号详细情况加载中…
         </div>
 
         <template v-if="userDossier">
           <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <div class="rounded-xl border border-white bg-white px-3 py-2">
-              <p class="text-[11px] text-zinc-500">关联访客</p>
+            <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">关联访客</p>
               <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.linkedVisitorCount ?? 0 }}</p>
             </div>
-            <div class="rounded-xl border border-white bg-white px-3 py-2">
-              <p class="text-[11px] text-zinc-500">生效封禁</p>
-              <p class="mt-1 text-lg font-semibold tabular-nums text-red-700">{{ userDossier.summary.activeBanCount ?? 0 }}</p>
+            <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">生效封禁</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-red-700 dark:text-red-300">{{ userDossier.summary.activeBanCount ?? 0 }}</p>
             </div>
-            <div class="rounded-xl border border-white bg-white px-3 py-2">
-              <p class="text-[11px] text-zinc-500">生效禁言</p>
-              <p class="mt-1 text-lg font-semibold tabular-nums text-amber-700">{{ userDossier.summary.activeMuteCount ?? 0 }}</p>
+            <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">生效禁言</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums text-amber-700 dark:text-amber-300">{{ userDossier.summary.activeMuteCount ?? 0 }}</p>
             </div>
-            <div class="rounded-xl border border-white bg-white px-3 py-2">
-              <p class="text-[11px] text-zinc-500">消息总数</p>
+            <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">消息总数</p>
               <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.messageTotal ?? 0 }}</p>
             </div>
-            <div class="rounded-xl border border-white bg-white px-3 py-2">
-              <p class="text-[11px] text-zinc-500">已删消息</p>
+            <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">已删消息</p>
               <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.messageDeleted ?? 0 }}</p>
             </div>
-            <div class="rounded-xl border border-white bg-white px-3 py-2">
-              <p class="text-[11px] text-zinc-500">当前在线</p>
+            <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+              <p class="text-[11px] text-zinc-500 dark:text-zinc-400">当前在线</p>
               <p class="mt-1 text-lg font-semibold tabular-nums">{{ userDossier.summary.activeSessions ?? 0 }}</p>
             </div>
           </div>
 
           <div
             v-if="userDossier.riskLevel || userDossier.riskFactors?.length || userDossier.ipFootprint?.length"
-            class="mt-3 space-y-2 rounded-xl border border-violet-100 bg-violet-50/40 p-3"
+            class="mt-3 space-y-2 rounded-xl border border-violet-100 dark:border-violet-900 bg-violet-50/40 dark:bg-violet-950/40 p-3"
           >
             <div
               v-if="userDossier.confidence || userDossier.suggestedActions?.length"
@@ -904,14 +904,14 @@ onMounted(async () => {
               <div class="flex flex-wrap items-center gap-2 text-[11px]">
                 <span
                   v-if="userDossier.confidence"
-                  class="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900"
+                  class="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900 dark:text-violet-300"
                 >
                   {{ adminLabel(adminConfidenceLabels, userDossier.confidence, userDossier.confidence) }}
                   · 相关记录 {{ userDossier.evidenceEvents ?? userDossier.summary?.evidenceEvents ?? '—' }}
                 </span>
                 <span
                   v-if="userDossier.relationship?.ips?.length"
-                  class="rounded-full bg-zinc-100 px-2 py-0.5 text-zinc-700"
+                  class="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-zinc-700 dark:text-zinc-200"
                 >
                   关联 IP {{ userDossier.relationship.ips.length }}
                 </span>
@@ -921,7 +921,7 @@ onMounted(async () => {
                   v-for="(action, idx) in userDossier.suggestedActions"
                   :key="'usa-' + action.kind + '-' + idx"
                   :to="action.href"
-                  class="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-200 hover:bg-sky-50"
+                  class="rounded-full bg-white dark:bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-sky-900 dark:text-sky-300 ring-1 ring-sky-200 hover:bg-sky-50 dark:hover:bg-sky-950"
                   :title="action.reason"
                 >
                   {{ adminLabel(adminSuggestedActionLabels, action.kind, action.label) }}
@@ -930,7 +930,7 @@ onMounted(async () => {
             </div>
 
             <div class="flex flex-wrap items-center gap-1.5">
-              <span class="text-xs font-semibold text-violet-950">账号风险</span>
+              <span class="text-xs font-semibold text-violet-950 dark:text-violet-300">账号风险</span>
               <span
                 v-if="userDossier.riskLevel"
                 class="rounded-full px-2 py-0.5 text-[11px] font-medium"
@@ -947,14 +947,14 @@ onMounted(async () => {
               <li
                 v-for="factor in userDossier.riskFactors"
                 :key="'urf-' + factor.code + '-' + factor.points"
-                class="rounded-full bg-white px-2 py-0.5 text-[11px] text-rose-900 ring-1 ring-rose-100"
+                class="rounded-full bg-white dark:bg-zinc-900 px-2 py-0.5 text-[11px] text-rose-900 dark:text-rose-300 ring-1 ring-rose-100"
               >
                 {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
                 +{{ factor.points }} · {{ factor.message }}
               </li>
             </ul>
             <div v-if="userDossier.ipFootprint?.length">
-              <p class="text-[11px] font-medium text-violet-900">常用网络</p>
+              <p class="text-[11px] font-medium text-violet-900 dark:text-violet-300">常用网络</p>
               <ul class="mt-1 max-h-28 space-y-1 overflow-y-auto">
                 <li
                   v-for="row in userDossier.ipFootprint"
@@ -963,11 +963,11 @@ onMounted(async () => {
                 >
                   <NuxtLink
                     :to="'/admin/visitors?ip=' + encodeURIComponent(row.ip)"
-                    class="truncate text-sky-700 hover:underline"
+                    class="truncate text-sky-700 dark:text-sky-300 hover:underline"
                   >
                     {{ row.ip }}
                   </NuxtLink>
-                  <span class="shrink-0 text-zinc-500">
+                  <span class="shrink-0 text-zinc-500 dark:text-zinc-400">
                     {{ row.count }} · {{ formatAdminRelativeTime(row.lastAt) }}
                   </span>
                 </li>
@@ -979,17 +979,17 @@ onMounted(async () => {
             v-if="userDossier.evidenceLedger?.length || userDossier.playbook?.length"
             class="mt-3 grid gap-3 lg:grid-cols-2"
           >
-            <section class="rounded-xl border border-rose-100 bg-rose-50/40 p-3">
+            <section class="rounded-xl border border-rose-100 dark:border-rose-900 bg-rose-50/40 dark:bg-rose-950/40 p-3">
               <div class="flex items-center justify-between gap-2">
                 <h3 class="text-xs font-semibold text-rose-950">判断依据</h3>
-                <span class="text-[10px] text-rose-700">
+                <span class="text-[10px] text-rose-700 dark:text-rose-300">
                   重要依据 {{ userDossier.investigationSummary?.strongEvidenceCount ?? 0 }} / {{ userDossier.investigationSummary?.evidenceCount ?? 0 }}
                 </span>
               </div>
               <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
-                <li v-for="item in userDossier.evidenceLedger" :key="'ue-' + item.code" class="rounded-md bg-white px-2 py-1.5 text-[11px]">
+                <li v-for="item in userDossier.evidenceLedger" :key="'ue-' + item.code" class="rounded-md bg-white dark:bg-zinc-900 px-2 py-1.5 text-[11px]">
                   <div class="flex items-center justify-between gap-2">
-                    <span class="truncate font-medium text-zinc-800">{{ item.message }}</span>
+                    <span class="truncate font-medium text-zinc-800 dark:text-zinc-100">{{ item.message }}</span>
                     <span class="shrink-0 text-[10px] text-rose-800">
                       {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · {{ item.weight }}
                     </span>
@@ -997,19 +997,19 @@ onMounted(async () => {
                 </li>
               </ul>
             </section>
-            <section class="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+            <section class="rounded-xl border border-emerald-100 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/40 p-3">
               <div class="flex items-center justify-between gap-2">
-                <h3 class="text-xs font-semibold text-emerald-950">处理建议</h3>
-                <span class="text-[10px] text-emerald-700">建议 {{ userDossier.investigationSummary?.recommendedSteps ?? 0 }} 步</span>
+                <h3 class="text-xs font-semibold text-emerald-950 dark:text-emerald-300">处理建议</h3>
+                <span class="text-[10px] text-emerald-700 dark:text-emerald-300">建议 {{ userDossier.investigationSummary?.recommendedSteps ?? 0 }} 步</span>
               </div>
               <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
                 <li v-for="step in userDossier.playbook" :key="'upb-' + step.code" class="text-[11px]">
-                  <NuxtLink :to="step.href" class="block rounded-md bg-white px-2 py-1.5 hover:bg-emerald-50">
+                  <NuxtLink :to="step.href" class="block rounded-md bg-white dark:bg-zinc-900 px-2 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950">
                     <div class="flex items-center justify-between gap-2">
-                      <span class="font-medium text-zinc-900">{{ step.step }}. {{ adminLabel(adminInvestigationStepLabels, step.code, step.title) }}</span>
-                      <span class="shrink-0 text-[10px] text-emerald-800">{{ adminLabel(adminPlaybookStatusLabels, step.status, step.status) }}</span>
+                      <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ step.step }}. {{ adminLabel(adminInvestigationStepLabels, step.code, step.title) }}</span>
+                      <span class="shrink-0 text-[10px] text-emerald-800 dark:text-emerald-300">{{ adminLabel(adminPlaybookStatusLabels, step.status, step.status) }}</span>
                     </div>
-                    <p class="mt-0.5 line-clamp-2 text-zinc-500">{{ step.detail }}</p>
+                    <p class="mt-0.5 line-clamp-2 text-zinc-500 dark:text-zinc-400">{{ step.detail }}</p>
                   </NuxtLink>
                 </li>
               </ol>
@@ -1017,100 +1017,100 @@ onMounted(async () => {
           </div>
 
           <div class="mt-4 space-y-3">
-            <section class="rounded-xl border border-white bg-white p-3">
-              <h3 class="text-xs font-semibold text-zinc-800">群成员身份（{{ userDossier.memberships.length }}）</h3>
-              <ul class="mt-2 max-h-28 space-y-1 overflow-y-auto text-xs text-zinc-600">
+            <section class="rounded-xl border border-white bg-white dark:bg-zinc-900 p-3">
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">群成员身份（{{ userDossier.memberships.length }}）</h3>
+              <ul class="mt-2 max-h-28 space-y-1 overflow-y-auto text-xs text-zinc-600 dark:text-zinc-300">
                 <li v-for="m in userDossier.memberships" :key="m.roomId">
                   {{ m.title }}
-                  <span class="text-zinc-400">· {{ m.kind }} · {{ formatAdminRelativeTime(m.joinedAt) }}</span>
+                  <span class="text-zinc-400 dark:text-zinc-500">· {{ m.kind }} · {{ formatAdminRelativeTime(m.joinedAt) }}</span>
                 </li>
-                <li v-if="!userDossier.memberships.length" class="text-zinc-400">未加入群聊</li>
+                <li v-if="!userDossier.memberships.length" class="text-zinc-400 dark:text-zinc-500">未加入群聊</li>
               </ul>
             </section>
 
-            <section class="rounded-xl border border-white bg-white p-3">
-              <h3 class="text-xs font-semibold text-zinc-800">关联访客（{{ userDossier.linkedVisitors.length }}）</h3>
+            <section class="rounded-xl border border-white bg-white dark:bg-zinc-900 p-3">
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">关联访客（{{ userDossier.linkedVisitors.length }}）</h3>
               <ul class="mt-2 max-h-32 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="v in userDossier.linkedVisitors"
                   :key="v.id"
-                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                  class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1.5"
                 >
                   <NuxtLink
                     :to="`/admin/visitors?q=${encodeURIComponent(v.id)}`"
-                    class="font-medium text-emerald-700 hover:underline"
+                    class="font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
                   >
                     {{ shortAdminId(v.id, 10) }}
                   </NuxtLink>
-                  <span class="text-zinc-500"> · {{ v.lastCity || v.lastRegion || '未知地点' }} · {{ v.lastIp || '无 IP' }}</span>
-                  <p class="text-zinc-400">末次 {{ formatAdminRelativeTime(v.lastSeenAt) }} · {{ v.eventCount }} 次操作</p>
+                  <span class="text-zinc-500 dark:text-zinc-400"> · {{ v.lastCity || v.lastRegion || '未知地点' }} · {{ v.lastIp || '无 IP' }}</span>
+                  <p class="text-zinc-400 dark:text-zinc-500">末次 {{ formatAdminRelativeTime(v.lastSeenAt) }} · {{ v.eventCount }} 次操作</p>
                 </li>
-                <li v-if="!userDossier.linkedVisitors.length" class="text-zinc-400">无关联访客</li>
+                <li v-if="!userDossier.linkedVisitors.length" class="text-zinc-400 dark:text-zinc-500">无关联访客</li>
               </ul>
             </section>
 
-            <section class="rounded-xl border border-white bg-white p-3">
-              <h3 class="text-xs font-semibold text-zinc-800">封禁记录（{{ userDossier.bans.length }}）</h3>
+            <section class="rounded-xl border border-white bg-white dark:bg-zinc-900 p-3">
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">封禁记录（{{ userDossier.bans.length }}）</h3>
               <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="b in userDossier.bans"
                   :key="b.id"
-                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                  class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1.5"
                 >
-                  <span :class="b.isActive ? 'text-red-700' : 'text-zinc-500'">{{ b.isActive ? '生效' : '失效' }}</span>
+                  <span :class="b.isActive ? 'text-red-700 dark:text-red-300' : 'text-zinc-500 dark:text-zinc-400'">{{ b.isActive ? '生效' : '失效' }}</span>
                   · {{ visitorBanReasonLabel(b.reason) }}
-                  <p class="text-zinc-400">{{ formatTime(b.createdAt) }}</p>
+                  <p class="text-zinc-400 dark:text-zinc-500">{{ formatTime(b.createdAt) }}</p>
                 </li>
-                <li v-if="!userDossier.bans.length" class="text-zinc-400">无账号级封禁</li>
+                <li v-if="!userDossier.bans.length" class="text-zinc-400 dark:text-zinc-500">无账号级封禁</li>
               </ul>
             </section>
 
-            <section class="rounded-xl border border-white bg-white p-3">
-              <h3 class="text-xs font-semibold text-zinc-800">禁言记录（{{ userDossier.mutes.length }}）</h3>
+            <section class="rounded-xl border border-white bg-white dark:bg-zinc-900 p-3">
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">禁言记录（{{ userDossier.mutes.length }}）</h3>
               <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="m in userDossier.mutes"
                   :key="m.id"
-                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                  class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1.5"
                 >
-                  <span :class="m.isActive ? 'text-amber-700' : 'text-zinc-500'">{{ m.isActive ? '生效' : '失效' }}</span>
+                  <span :class="m.isActive ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-500 dark:text-zinc-400'">{{ m.isActive ? '生效' : '失效' }}</span>
                   · {{ m.roomTitle || '全站' }} · {{ m.reason || '—' }}
-                  <p class="text-zinc-400">{{ formatTime(m.createdAt) }}</p>
+                  <p class="text-zinc-400 dark:text-zinc-500">{{ formatTime(m.createdAt) }}</p>
                 </li>
-                <li v-if="!userDossier.mutes.length" class="text-zinc-400">无禁言记录</li>
+                <li v-if="!userDossier.mutes.length" class="text-zinc-400 dark:text-zinc-500">无禁言记录</li>
               </ul>
             </section>
 
-            <section class="rounded-xl border border-white bg-white p-3">
-              <h3 class="text-xs font-semibold text-zinc-800">最近消息（{{ userDossier.recentMessages.length }}）</h3>
+            <section class="rounded-xl border border-white bg-white dark:bg-zinc-900 p-3">
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">最近消息（{{ userDossier.recentMessages.length }}）</h3>
               <ul class="mt-2 max-h-36 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="msg in userDossier.recentMessages"
                   :key="msg.id"
-                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                  class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1.5"
                 >
-                  <p class="text-zinc-500">
+                  <p class="text-zinc-500 dark:text-zinc-400">
                     {{ msg.roomTitle }} · {{ formatAdminRelativeTime(msg.createdAt) }}
-                    <span v-if="msg.deletedAt" class="text-red-600"> · 已删</span>
+                    <span v-if="msg.deletedAt" class="text-red-600 dark:text-red-400"> · 已删</span>
                   </p>
-                  <p class="mt-0.5 line-clamp-2 text-zinc-800">{{ msg.body }}</p>
+                  <p class="mt-0.5 line-clamp-2 text-zinc-800 dark:text-zinc-100">{{ msg.body }}</p>
                 </li>
-                <li v-if="!userDossier.recentMessages.length" class="text-zinc-400">暂无消息</li>
+                <li v-if="!userDossier.recentMessages.length" class="text-zinc-400 dark:text-zinc-500">暂无消息</li>
               </ul>
             </section>
 
-            <section class="rounded-xl border border-white bg-white p-3">
-              <h3 class="text-xs font-semibold text-zinc-800">相关操作记录（{{ userDossier.auditItems.length }}）</h3>
+            <section class="rounded-xl border border-white bg-white dark:bg-zinc-900 p-3">
+              <h3 class="text-xs font-semibold text-zinc-800 dark:text-zinc-100">相关操作记录（{{ userDossier.auditItems.length }}）</h3>
               <ul class="mt-2 max-h-28 space-y-1.5 overflow-y-auto text-xs">
                 <li
                   v-for="a in userDossier.auditItems"
                   :key="a.id"
-                  class="rounded-lg bg-zinc-50 px-2 py-1.5"
+                  class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2 py-1.5"
                 >
                   {{ adminLabel(adminAuditActionLabels, a.action, a.action) }}
-                  <span class="text-zinc-400"> · {{ formatAdminRelativeTime(a.createdAt) }}</span>
+                  <span class="text-zinc-400 dark:text-zinc-500"> · {{ formatAdminRelativeTime(a.createdAt) }}</span>
                 </li>
-                <li v-if="!userDossier.auditItems.length" class="text-zinc-400">暂无操作记录</li>
+                <li v-if="!userDossier.auditItems.length" class="text-zinc-400 dark:text-zinc-500">暂无操作记录</li>
               </ul>
             </section>
           </div>
@@ -1119,7 +1119,7 @@ onMounted(async () => {
 
       <aside
         v-else
-        class="hidden h-fit rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/60 p-4 text-sm text-zinc-500 lg:block lg:sticky lg:top-4"
+        class="hidden h-fit rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/60 p-4 text-sm text-zinc-500 dark:text-zinc-400 lg:block lg:sticky lg:top-4"
       >
         点击账号行或「详情」，可在此查看资料、跳转群聊/操作记录，并快捷改状态。
       </aside>

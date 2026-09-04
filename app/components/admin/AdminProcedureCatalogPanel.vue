@@ -33,8 +33,8 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 bg-white">
-    <div class="grid gap-3 border-b border-zinc-200 bg-zinc-50/70 p-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+  <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <div class="grid gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/70 p-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
       <UInput
         v-model="searchQuery"
         icon="i-lucide-search"
@@ -52,10 +52,10 @@ const emit = defineEmits<{
 
     <div
       v-if="loadError"
-      class="flex flex-col items-start gap-3 border-b border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+      class="flex flex-col items-start gap-3 border-b border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-4 sm:flex-row sm:items-center sm:justify-between"
       role="alert"
     >
-      <div class="flex items-start gap-2 text-sm text-red-800">
+      <div class="flex items-start gap-2 text-sm text-red-800 dark:text-red-300">
         <UIcon
           name="i-lucide-circle-alert"
           class="mt-0.5 size-4 shrink-0"
@@ -74,7 +74,7 @@ const emit = defineEmits<{
 
     <div
       v-if="loading && procedures.length === 0"
-      class="divide-y divide-zinc-100"
+      class="divide-y divide-zinc-100 dark:divide-zinc-800"
       aria-label="正在加载流程"
     >
       <div
@@ -91,49 +91,49 @@ const emit = defineEmits<{
     <template v-else-if="procedures.length">
       <div class="hidden overflow-x-auto md:block">
         <table class="w-full min-w-[980px] border-collapse text-left text-sm">
-          <thead class="bg-zinc-50 text-xs font-semibold text-zinc-500">
+          <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             <tr>
-              <th class="min-w-64 border-b border-zinc-200 px-4 py-2.5">
+              <th class="min-w-64 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5">
                 流程
               </th>
-              <th class="border-b border-zinc-200 px-4 py-2.5">
+              <th class="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5">
                 适用人群
               </th>
-              <th class="border-b border-zinc-200 px-4 py-2.5">
+              <th class="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5">
                 办理方式
               </th>
-              <th class="border-b border-zinc-200 px-4 py-2.5">
+              <th class="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5">
                 信息状态
               </th>
-              <th class="border-b border-zinc-200 px-4 py-2.5">
+              <th class="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5">
                 发布状态
               </th>
-              <th class="border-b border-zinc-200 px-4 py-2.5">
+              <th class="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5">
                 最后确认
               </th>
-              <th class="w-44 border-b border-zinc-200 px-4 py-2.5 text-right">
+              <th class="w-44 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 text-right">
                 操作
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-100">
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
             <tr
               v-for="procedure in procedures"
               :key="procedure.id"
               class="hover:bg-zinc-50/70"
             >
               <td class="px-4 py-3">
-                <p class="line-clamp-1 font-semibold text-zinc-950">
+                <p class="line-clamp-1 font-semibold text-zinc-950 dark:text-zinc-100">
                   {{ procedure.title }}
                 </p>
-                <p class="mt-1 line-clamp-1 text-xs text-zinc-500">
+                <p class="mt-1 line-clamp-1 text-xs text-zinc-500 dark:text-zinc-400">
                   {{ procedure.steps.length }} 个步骤 · {{ procedure.materials.length }} 项材料
                 </p>
               </td>
-              <td class="px-4 py-3 text-zinc-600">
+              <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">
                 {{ audienceLabel(procedure.audience) }}
               </td>
-              <td class="px-4 py-3 text-zinc-600">
+              <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">
                 {{ methodLabel(procedure.method) }}
               </td>
               <td class="px-4 py-3">
@@ -148,7 +148,7 @@ const emit = defineEmits<{
               <td class="px-4 py-3">
                 <AdminStatusBadge :value="procedure.status" />
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">
+              <td class="whitespace-nowrap px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400">
                 {{ formatDate(procedure.lastVerifiedAt) }}
               </td>
               <td class="px-4 py-3">
@@ -210,7 +210,7 @@ const emit = defineEmits<{
         </table>
       </div>
 
-      <div class="divide-y divide-zinc-100 md:hidden">
+      <div class="divide-y divide-zinc-100 dark:divide-zinc-800 md:hidden">
         <article
           v-for="procedure in procedures"
           :key="procedure.id"
@@ -218,10 +218,10 @@ const emit = defineEmits<{
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="line-clamp-2 text-sm font-semibold text-zinc-950">
+              <p class="line-clamp-2 text-sm font-semibold text-zinc-950 dark:text-zinc-100">
                 {{ procedure.title }}
               </p>
-              <p class="mt-1 text-xs text-zinc-500">
+              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                 {{ procedure.steps.length }} 个步骤 · {{ procedure.materials.length }} 项材料
               </p>
             </div>
@@ -229,23 +229,23 @@ const emit = defineEmits<{
           </div>
           <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
             <div>
-              <dt class="text-zinc-400">
+              <dt class="text-zinc-400 dark:text-zinc-500">
                 适用人群
               </dt>
-              <dd class="mt-0.5 text-zinc-700">
+              <dd class="mt-0.5 text-zinc-700 dark:text-zinc-200">
                 {{ audienceLabel(procedure.audience) }}
               </dd>
             </div>
             <div>
-              <dt class="text-zinc-400">
+              <dt class="text-zinc-400 dark:text-zinc-500">
                 办理方式
               </dt>
-              <dd class="mt-0.5 text-zinc-700">
+              <dd class="mt-0.5 text-zinc-700 dark:text-zinc-200">
                 {{ methodLabel(procedure.method) }}
               </dd>
             </div>
           </dl>
-          <div class="mt-3 flex flex-wrap items-center gap-1 border-t border-zinc-100 pt-2">
+          <div class="mt-3 flex flex-wrap items-center gap-1 border-t border-zinc-100 dark:border-zinc-800 pt-2">
             <UButton
               icon="i-lucide-pencil"
               label="编辑"
@@ -295,22 +295,22 @@ const emit = defineEmits<{
       class="grid min-h-64 place-items-center p-8 text-center"
     >
       <div>
-        <span class="mx-auto grid size-10 place-items-center rounded-md bg-zinc-100 text-zinc-500">
+        <span class="mx-auto grid size-10 place-items-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
           <UIcon
             name="i-lucide-list-x"
             class="size-5"
           />
         </span>
-        <p class="mt-3 text-sm font-semibold text-zinc-800">
+        <p class="mt-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           没有匹配流程
         </p>
-        <p class="mt-1 text-xs text-zinc-500">
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           调整搜索或状态筛选后重试。
         </p>
       </div>
     </div>
 
-    <footer class="flex flex-col gap-3 border-t border-zinc-200 bg-zinc-50/70 px-4 py-3 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+    <footer class="flex flex-col gap-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/70 px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
       <span>共 {{ total }} 条，第 {{ page }} / {{ pageCount }} 页</span>
       <div class="flex items-center gap-2">
         <UButton

@@ -88,15 +88,15 @@ function copyPlaceLocation(): void {
 
 <template>
   <div v-if="place">
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <nav
-          class="flex items-center gap-2 text-xs text-zinc-500"
+          class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
           aria-label="当前位置"
         >
           <NuxtLink
             to="/map"
-            class="inline-flex min-h-10 items-center hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700 dark:hover:text-green-400"
           >校园地图</NuxtLink>
           <UIcon
             name="i-lucide-chevron-right"
@@ -123,10 +123,10 @@ function copyPlaceLocation(): void {
                 variant="soft"
               />
             </div>
-            <h1 class="mt-4 text-2xl font-bold text-zinc-950 md:text-3xl">
+            <h1 class="mt-4 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               {{ place.name }}
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 md:text-base">
+            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
               {{ studentSummary }}
             </p>
           </div>
@@ -163,7 +163,7 @@ function copyPlaceLocation(): void {
           </div>
           <p
             v-if="isWechat && place.navigationAvailable && place.externalMapUrl"
-            class="text-xs leading-5 text-zinc-500 md:text-right"
+            class="text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:text-right"
           >
             微信内若未唤起地图，可复制位置后在地图应用中搜索。
           </p>
@@ -173,19 +173,19 @@ function copyPlaceLocation(): void {
 
     <div class="page-shell py-7 md:py-10">
       <article class="mx-auto min-w-0 max-w-4xl">
-        <section class="border-b border-zinc-200 pb-8">
-          <h2 class="text-lg font-bold text-zinc-950">
+        <section class="border-b border-zinc-200 dark:border-zinc-800 pb-8">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             详细位置
           </h2>
-          <dl class="mt-4 divide-y divide-zinc-100 border-y border-zinc-200 text-sm">
+          <dl class="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 text-sm">
             <div
               v-if="place.campusArea"
               class="flex justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 区域
               </dt>
-              <dd class="text-right text-zinc-900">
+              <dd class="text-right text-zinc-900 dark:text-zinc-100">
                 {{ place.campusArea }}
               </dd>
             </div>
@@ -193,10 +193,10 @@ function copyPlaceLocation(): void {
               v-if="place.address"
               class="flex justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 地址
               </dt>
-              <dd class="text-right text-zinc-900">
+              <dd class="text-right text-zinc-900 dark:text-zinc-100">
                 {{ place.address }}
               </dd>
             </div>
@@ -204,21 +204,21 @@ function copyPlaceLocation(): void {
               v-if="place.floor || place.room"
               class="flex justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 楼层 / 房间
               </dt>
-              <dd class="text-right text-zinc-900">
+              <dd class="text-right text-zinc-900 dark:text-zinc-100">
                 {{ floorRoomLabel }}
               </dd>
             </div>
           </dl>
         </section>
 
-        <section class="border-b border-zinc-200 py-8">
-          <h2 class="text-lg font-bold text-zinc-950">
+        <section class="border-b border-zinc-200 dark:border-zinc-800 py-8">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             到这里前先确认
           </h2>
-          <ul class="mt-4 space-y-2 text-sm leading-6 text-zinc-700">
+          <ul class="mt-4 space-y-2 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
             <li
               v-for="item in fallbackUseChecklist"
               :key="item"
@@ -226,7 +226,7 @@ function copyPlaceLocation(): void {
             >
               <UIcon
                 name="i-lucide-circle-check-big"
-                class="mt-0.5 size-4 shrink-0 text-green-700"
+                class="mt-0.5 size-4 shrink-0 text-green-700 dark:text-green-400"
               />
               <span>{{ item }}</span>
             </li>
@@ -235,12 +235,12 @@ function copyPlaceLocation(): void {
 
         <section
           v-if="studentBody"
-          class="border-b border-zinc-200 py-8"
+          class="border-b border-zinc-200 dark:border-zinc-800 py-8"
         >
-          <h2 class="text-lg font-bold text-zinc-950">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             到达与服务说明
           </h2>
-          <p class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600">
+          <p class="mt-4 whitespace-pre-line text-sm leading-7 text-zinc-600 dark:text-zinc-300">
             {{ studentBody }}
           </p>
         </section>
@@ -249,18 +249,18 @@ function copyPlaceLocation(): void {
           v-if="place.openingHours || place.phone || safeExternalHref(place.website)"
           class="py-8"
         >
-          <h2 class="text-lg font-bold text-zinc-950">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             服务信息
           </h2>
-          <dl class="mt-4 divide-y divide-zinc-100 border-y border-zinc-200 text-sm">
+          <dl class="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 text-sm">
             <div
               v-if="place.openingHours"
               class="flex justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 开放时间
               </dt>
-              <dd class="text-right text-zinc-900">
+              <dd class="text-right text-zinc-900 dark:text-zinc-100">
                 {{ place.openingHours }}
               </dd>
             </div>
@@ -268,7 +268,7 @@ function copyPlaceLocation(): void {
               v-if="phoneContacts.length"
               class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="shrink-0 text-zinc-500">
+              <dt class="shrink-0 text-zinc-500 dark:text-zinc-400">
                 公开电话
               </dt>
               <dd class="min-w-0 text-right">
@@ -277,7 +277,7 @@ function copyPlaceLocation(): void {
                     v-for="phone in phoneContacts"
                     :key="phone.href"
                     :href="phone.href"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-800 transition-colors hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                    class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-3 text-sm font-semibold text-green-800 dark:text-green-300 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
                   >
                     <UIcon
                       name="i-lucide-phone"
@@ -292,7 +292,7 @@ function copyPlaceLocation(): void {
               v-if="safeExternalHref(place.website)"
               class="flex justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 网站
               </dt>
               <dd class="text-right">
@@ -300,7 +300,7 @@ function copyPlaceLocation(): void {
                   :href="safeExternalHref(place.website) || undefined"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex min-h-10 items-center font-medium text-green-700 hover:underline"
+                  class="inline-flex min-h-10 items-center font-medium text-green-700 dark:text-green-400 hover:underline"
                 >打开官网</a>
               </dd>
             </div>

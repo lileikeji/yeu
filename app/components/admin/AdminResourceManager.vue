@@ -261,7 +261,7 @@ function validateForm(): string | null {
 
     <p
       v-if="config.readOnlyNote"
-      class="mt-4 border-l-2 border-zinc-300 pl-3 text-sm text-zinc-500"
+      class="mt-4 border-l-2 border-zinc-300 dark:border-zinc-700 pl-3 text-sm text-zinc-500 dark:text-zinc-400"
     >
       {{ config.readOnlyNote }}
     </p>

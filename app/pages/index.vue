@@ -79,7 +79,7 @@ function asActionEntry(item: {
   description: string
   to: string
   icon: string
-}, tone = 'bg-amber-50 text-amber-700') {
+}, tone = 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300') {
   return {
     ...item,
     featureKey: undefined,
@@ -110,7 +110,7 @@ const essentialActions = computed(() => [
       ...entry,
       featureKey: undefined,
       meta: '首页入口',
-      tone: 'bg-amber-50 text-amber-700'
+      tone: 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
     }))
 ].sort((left, right) => featureSortOrder(left.featureKey as FrontendFeatureKey) - featureSortOrder(right.featureKey as FrontendFeatureKey)))
 const timelineStages = computed(() => [
@@ -154,14 +154,14 @@ const serviceNavEntries = computed(() => [
       description: stage.items.join(' · '),
       to: stage.to,
       icon: 'i-lucide-list-todo',
-      tone: 'bg-amber-50 text-amber-700'
+      tone: 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
     })),
   ...customHomeEntries.value
     .filter(entry => entry.placement === 'services' || entry.placement === 'more')
     .map(entry => ({
       ...entry,
       featureKey: undefined,
-      tone: 'bg-amber-50 text-amber-700'
+      tone: 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
     }))
 ])
 
@@ -206,8 +206,8 @@ const {
       v-show="activeHomeMode === 'full'"
       class="animate-spring-up"
     >
-      <section class="border-b border-[var(--line)] bg-white/70 backdrop-blur-md relative overflow-hidden">
-        <div class="border-b border-orange-200/80 bg-orange-50/80 text-orange-800">
+      <section class="border-b border-[var(--line)] bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md relative overflow-hidden">
+        <div class="border-b border-orange-200/80 bg-orange-50/80 dark:bg-orange-950/80 text-orange-800 dark:text-orange-300">
           <button
             type="button"
             class="page-shell grid min-h-12 w-full grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 py-2 text-left text-[11px] md:min-h-12 md:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] md:gap-4 md:text-sm"
@@ -216,7 +216,7 @@ const {
           >
             <UIcon
               name="i-lucide-volume-2"
-              class="size-4 shrink-0 text-orange-600 md:size-5"
+              class="size-4 shrink-0 text-orange-600 dark:text-orange-300 md:size-5"
             />
             <span class="shrink-0 font-semibold">{{ currentCohortLabel }}重要时间</span>
             <span class="hidden h-5 w-px bg-orange-300 md:block" />
@@ -226,7 +226,7 @@ const {
                 <span aria-hidden="true">{{ importantDatesLine }}</span>
               </span>
             </span>
-            <span class="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold text-orange-900 hover:bg-orange-100 md:min-h-9 md:px-2 md:text-xs">
+            <span class="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold text-orange-900 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/50 md:min-h-9 md:px-2 md:text-xs">
               查看
               <UIcon
                 name="i-lucide-chevron-right"
@@ -243,25 +243,25 @@ const {
           :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
         >
           <template #body>
-            <ol class="divide-y divide-zinc-100">
+            <ol class="divide-y divide-zinc-100 dark:divide-zinc-800">
               <li
                 v-for="item in importantDates"
                 :key="item.title"
                 class="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3 py-4 first:pt-0"
               >
-                <span class="text-sm font-bold text-green-700">{{ item.date }}</span>
+                <span class="text-sm font-bold text-green-700 dark:text-green-400">{{ item.date }}</span>
                 <div>
-                  <h3 class="text-sm font-bold text-zinc-950">
+                  <h3 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
                     {{ item.title }}
                   </h3>
-                  <p class="mt-1 text-xs leading-6 text-zinc-600">
+                  <p class="mt-1 text-xs leading-6 text-zinc-600 dark:text-zinc-300">
                     {{ item.description }}
                   </p>
                 </div>
               </li>
             </ol>
-            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-4">
-              <p class="text-xs leading-5 text-zinc-500">
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-4">
+              <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 个人安排有变化时，以学校和学院的最新通知为准。
               </p>
               <UButton
@@ -277,10 +277,10 @@ const {
         </UModal>
 
         <div class="page-shell py-6 text-left md:py-10 md:text-center">
-          <h1 class="text-left text-2xl font-bold tracking-tight text-zinc-950 md:text-center md:text-4xl">
+          <h1 class="text-left text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-100 md:text-center md:text-4xl">
             {{ currentCohortLabel }}入学指南
           </h1>
-          <p class="mx-auto mt-2 max-w-2xl text-left text-xs leading-5 text-zinc-600 md:mt-3 md:text-center md:text-sm md:leading-6">
+          <p class="mx-auto mt-2 max-w-2xl text-left text-xs leading-5 text-zinc-600 dark:text-zinc-300 md:mt-3 md:text-center md:text-sm md:leading-6">
             报到、住宿、地图、办事这些新生要弄明白的事项，集中整理在这里，便于你按需查询。信息以录取通知书和学校最新通知为准。
           </p>
 
@@ -313,7 +313,7 @@ const {
         class="page-shell py-5 md:py-8"
       >
         <div>
-          <h2 class="text-lg font-bold text-zinc-950 md:text-xl">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
             常用查询
           </h2>
         </div>
@@ -323,7 +323,7 @@ const {
             v-for="action in essentialActions"
             :key="action.to"
             :to="action.to"
-            class="group grid min-h-[4.75rem] place-items-center rounded-lg border border-zinc-200 bg-white p-2.5 text-left transition hover:border-green-300 hover:shadow-sm md:min-h-32 md:p-4 md:text-center"
+            class="group grid min-h-[4.75rem] place-items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2.5 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm md:min-h-32 md:p-4 md:text-center"
           >
             <div class="flex w-full min-w-0 items-center gap-2 md:flex-col md:justify-center md:gap-3 md:text-center">
               <span
@@ -336,10 +336,10 @@ const {
                 />
               </span>
               <span class="min-w-0">
-                <h3 class="text-[13px] font-bold leading-4.5 text-zinc-950 md:text-base md:leading-5">
+                <h3 class="text-[13px] font-bold leading-4.5 text-zinc-950 dark:text-zinc-100 md:text-base md:leading-5">
                   {{ action.title }}
                 </h3>
-                <span class="mt-0.5 line-clamp-2 block text-[10px] leading-3.5 text-zinc-500 md:hidden">
+                <span class="mt-0.5 line-clamp-2 block text-[10px] leading-3.5 text-zinc-500 dark:text-zinc-400 md:hidden">
                   {{ action.description }}
                 </span>
               </span>
@@ -350,21 +350,21 @@ const {
 
       <section
         v-if="timelineStages.length"
-        class="border-y border-[var(--line)] bg-white"
+        class="border-y border-[var(--line)] bg-white dark:bg-zinc-900"
       >
         <div class="page-shell py-6 md:py-9">
-          <h2 class="text-lg font-bold text-zinc-950 md:text-xl">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
             按入学阶段查看
           </h2>
           <div class="mt-3 grid gap-5 md:mt-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:items-stretch lg:gap-4">
-            <div class="overflow-hidden rounded-lg border border-zinc-200 bg-white md:p-5">
-              <div class="grid grid-cols-3 border-b border-zinc-200">
+            <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 md:p-5">
+              <div class="grid grid-cols-3 border-b border-zinc-200 dark:border-zinc-800">
                 <button
                   v-for="(stage, index) in timelineStages"
                   :key="stage.label"
                   type="button"
                   class="min-h-10 border-b-2 px-2 text-xs font-medium transition md:min-h-11 md:text-sm"
-                  :class="index === activeTimelineIndex ? 'border-green-700 bg-green-700 font-bold text-white md:bg-transparent md:text-green-700' : 'border-transparent text-zinc-600 hover:text-green-700'"
+                  :class="index === activeTimelineIndex ? 'border-green-700 bg-green-700 font-bold text-white md:bg-transparent md:text-green-700' : 'border-transparent text-zinc-600 dark:text-zinc-300 dark:text-zinc-300 hover:text-green-700 dark:hover:text-green-400'"
                   @click="activeTimelineIndex = index"
                 >
                   {{ stage.label }}
@@ -375,22 +375,22 @@ const {
                 v-if="activeTimelineStage"
                 class="px-3 pb-3 pt-1 md:px-0 md:pb-0 md:pt-2"
               >
-                <ul class="divide-y divide-zinc-100">
+                <ul class="divide-y divide-zinc-100 dark:divide-zinc-800">
                   <li
                     v-for="item in activeTimelineStage.items"
                     :key="item"
-                    class="flex items-center gap-2.5 py-2.5 text-sm leading-5 text-zinc-700 md:gap-3 md:py-3 md:leading-6"
+                    class="flex items-center gap-2.5 py-2.5 text-sm leading-5 text-zinc-700 dark:text-zinc-200 md:gap-3 md:py-3 md:leading-6"
                   >
                     <UIcon
                       name="i-lucide-circle-check"
-                      class="size-4.5 shrink-0 text-green-700 md:size-5"
+                      class="size-4.5 shrink-0 text-green-700 dark:text-green-400 md:size-5"
                     />
                     <span>{{ item }}</span>
                   </li>
                 </ul>
                 <NuxtLink
                   :to="activeTimelineStage.to"
-                  class="mt-1 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 md:mt-3 md:min-h-11"
+                  class="mt-1 inline-flex min-h-10 items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400 md:mt-3 md:min-h-11"
                 >
                   {{ activeTimelineStage.actionLabel }}
                   <UIcon
@@ -404,37 +404,37 @@ const {
             <NuxtLink
               v-if="featureEnabled('home.more.checklist')"
               to="/checklist"
-              class="group bg-white transition lg:rounded-lg lg:border lg:border-zinc-200 lg:p-5 lg:hover:border-green-300 lg:hover:shadow-sm"
+              class="group bg-white dark:bg-zinc-900 transition lg:rounded-lg lg:border lg:border-zinc-200 lg:p-5 lg:hover:border-green-300 dark:hover:border-green-700 lg:hover:shadow-sm"
             >
               <div class="flex items-center gap-3">
-                <span class="hidden size-10 place-items-center rounded-lg bg-green-50 text-green-700 lg:grid">
+                <span class="hidden size-10 place-items-center rounded-lg bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 lg:grid">
                   <UIcon
                     name="i-lucide-list-checks"
                     class="size-5"
                   />
                 </span>
-                <h2 class="text-lg font-bold text-zinc-950 lg:text-base">
+                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 lg:text-base">
                   新生准备清单
                 </h2>
               </div>
-              <p class="mt-3 text-sm text-zinc-700 lg:mt-5">
-                已完成 <strong class="text-lg text-green-700">{{ checklistSummary.percent }}%</strong>
+              <p class="mt-3 text-sm text-zinc-700 dark:text-zinc-200 lg:mt-5">
+                已完成 <strong class="text-lg text-green-700 dark:text-green-400">{{ checklistSummary.percent }}%</strong>
               </p>
-              <div class="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 lg:mt-3">
+              <div class="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800 lg:mt-3">
                 <div
                   class="h-full rounded-full bg-green-700 transition-[width]"
                   :style="{ width: `${checklistSummary.percent}%` }"
                 />
               </div>
               <div class="mt-3 flex items-center justify-between gap-3 lg:mt-4">
-                <p class="min-w-0 text-sm leading-6 text-zinc-600">
+                <p class="min-w-0 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                   <template v-if="checklistHydrated && checklistSummary.remainingCount > 0">
                     下一项：{{ checklistSummary.nextTitle || '继续完成准备事项' }}
                   </template>
                   <template v-else-if="checklistHydrated">当前清单已全部勾完，可随时复查。</template>
                   <template v-else>打开后可以继续勾选。</template>
                 </p>
-                <span class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-green-700 px-4 text-sm font-semibold text-green-700 transition group-hover:bg-green-50 lg:min-h-11 lg:px-5">
+                <span class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-green-700 px-4 text-sm font-semibold text-green-700 dark:text-green-400 transition group-hover:bg-green-50 dark:group-hover:bg-green-950 lg:min-h-11 lg:px-5">
                   打开清单
                 </span>
               </div>
@@ -444,7 +444,7 @@ const {
       </section>
 
       <section
-        class="border-t border-[var(--line)] bg-green-50/60"
+        class="border-t border-[var(--line)] bg-green-50/60 dark:bg-green-950/60"
       >
         <div class="page-shell py-6 md:py-8">
           <div class="flex items-center gap-2">
@@ -454,11 +454,11 @@ const {
                 class="size-4"
               />
             </span>
-            <h2 class="text-base font-bold text-zinc-950 md:text-lg">
+            <h2 class="text-base font-bold text-zinc-950 dark:text-zinc-100 md:text-lg">
               校内求助与常用电话
             </h2>
           </div>
-          <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-700">
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-700 dark:text-zinc-200">
             校内遇到火情、治安或宿舍设施紧急故障，先拨校园 110 报修求助。就医、心理支持和学籍问题上，按下面电话找对应部门。
           </p>
           <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -466,49 +466,49 @@ const {
               v-for="hotline in homeHotlines"
               :key="hotline.id"
               :href="`tel:${hotline.phone.replace(/\D/g, '')}`"
-              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white px-4 text-sm font-semibold text-zinc-950 shadow-sm ring-1 ring-zinc-200 hover:ring-green-300"
+              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-950 dark:text-zinc-100 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 hover:ring-green-300"
             >
               <span class="flex items-center gap-2">
                 <UIcon
                   :name="hotline.icon"
-                  class="size-4 text-green-700"
+                  class="size-4 text-green-700 dark:text-green-400"
                 />
                 <span>{{ hotline.label }}</span>
               </span>
-              <span class="text-zinc-500">{{ hotline.note }}</span>
+              <span class="text-zinc-500 dark:text-zinc-400">{{ hotline.note }}</span>
             </a>
           </div>
-          <p class="mt-3 text-xs leading-5 text-zinc-500">
+          <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
             医务室实行全年 24 小时值班，具体入口可在校园地图搜索「医务所」；报修和求助详情以校保卫处、医务室及到场人员指引为准。
           </p>
         </div>
       </section>
 
       <section
-        class="border-y border-[var(--line)] bg-white"
+        class="border-y border-[var(--line)] bg-white dark:bg-zinc-900"
       >
         <div class="page-shell py-6 md:py-9">
-          <h2 class="text-lg font-bold text-zinc-950 md:text-xl">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
             服务导航
           </h2>
-          <div class="mt-3 grid overflow-hidden rounded-lg border border-zinc-200 bg-white md:mt-4 md:grid-cols-5">
+          <div class="mt-3 grid overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 md:mt-4 md:grid-cols-5">
             <NuxtLink
               v-for="entry in serviceNavEntries"
               :key="entry.to"
               :to="entry.to"
-              class="group flex min-h-16 items-center gap-3 border-b border-zinc-200 px-3 py-2.5 transition hover:bg-green-50 md:min-h-28 md:flex-col md:justify-center md:border-b-0 md:border-r md:p-4 md:text-center md:last:border-r-0"
+              class="group flex min-h-16 items-center gap-3 border-b border-zinc-200 dark:border-zinc-800 px-3 py-2.5 transition hover:bg-green-50 dark:hover:bg-green-950 md:min-h-28 md:flex-col md:justify-center md:border-b-0 md:border-r md:p-4 md:text-center md:last:border-r-0"
             >
               <UIcon
                 :name="entry.icon"
-                class="size-5.5 shrink-0 text-green-700 md:size-7"
+                class="size-5.5 shrink-0 text-green-700 dark:text-green-400 md:size-7"
               />
               <span class="min-w-0">
-                <span class="block text-sm font-bold text-zinc-950">{{ entry.title }}</span>
-                <span class="mt-0.5 block text-[11px] leading-4 text-zinc-500 md:hidden">{{ entry.description }}</span>
+                <span class="block text-sm font-bold text-zinc-950 dark:text-zinc-100">{{ entry.title }}</span>
+                <span class="mt-0.5 block text-[11px] leading-4 text-zinc-500 dark:text-zinc-400 md:hidden">{{ entry.description }}</span>
               </span>
               <UIcon
                 name="i-lucide-chevron-right"
-                class="ml-auto size-4 shrink-0 text-zinc-400 md:hidden"
+                class="ml-auto size-4 shrink-0 text-zinc-400 dark:text-zinc-500 md:hidden"
               />
             </NuxtLink>
           </div>
@@ -516,24 +516,24 @@ const {
       </section>
 
       <section
-        class="border-t border-[var(--line)] bg-zinc-50/60"
+        class="border-t border-[var(--line)] bg-zinc-50/60 dark:bg-zinc-800/60"
       >
         <div class="page-shell py-8 md:py-10">
           <div class="mx-auto max-w-3xl text-center">
-            <span class="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
+            <span class="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-white dark:bg-zinc-900 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700">
               <UIcon
                 name="i-lucide-heart-handshake"
-                class="size-4 text-green-700"
+                class="size-4 text-green-700 dark:text-green-400"
               />
               {{ homeTrustNotice.badge }}
             </span>
-            <h2 class="mt-4 text-lg font-bold text-zinc-950 md:text-xl">
+            <h2 class="mt-4 text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
               {{ homeTrustNotice.title }}
             </h2>
-            <p class="mx-auto mt-2 max-w-2xl text-sm leading-7 text-zinc-600">
+            <p class="mx-auto mt-2 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
               {{ homeTrustNotice.description }}
             </p>
-            <p class="mt-3 text-xs leading-5 text-zinc-500">
+            <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               {{ homeTrustNotice.checkedText }}
             </p>
             <div class="mt-5 flex flex-wrap justify-center gap-2">

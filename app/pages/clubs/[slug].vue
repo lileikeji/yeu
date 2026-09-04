@@ -115,15 +115,15 @@ async function shareClub(): Promise<void> {
 
 <template>
   <div v-if="club">
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <nav
-          class="flex items-center gap-2 text-xs text-zinc-500"
+          class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
           aria-label="当前位置"
         >
           <NuxtLink
             to="/clubs"
-            class="inline-flex min-h-10 items-center hover:text-green-700"
+            class="inline-flex min-h-10 items-center hover:text-green-700 dark:hover:text-green-400"
           >学生社团</NuxtLink>
           <UIcon
             name="i-lucide-chevron-right"
@@ -132,7 +132,7 @@ async function shareClub(): Promise<void> {
           <span>{{ club.name }}</span>
         </nav>
         <div class="mt-5 flex flex-wrap items-center gap-2">
-          <span class="mr-1 grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 text-emerald-700">
+          <span class="mr-1 grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
             <img
               v-if="club.iconUrl"
               :src="club.iconUrl"
@@ -164,7 +164,7 @@ async function shareClub(): Promise<void> {
           />
         </div>
         <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 class="text-2xl font-bold text-zinc-950 md:text-3xl">
+          <h1 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
             {{ club.name }}
           </h1>
           <UButton
@@ -176,7 +176,7 @@ async function shareClub(): Promise<void> {
             @click="shareClub"
           />
         </div>
-        <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 md:text-base">
+        <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
           {{ clubDirection }}
         </p>
       </div>
@@ -186,7 +186,7 @@ async function shareClub(): Promise<void> {
       <article class="mx-auto min-w-0 max-w-4xl">
         <div
           v-if="!hasRecruitmentDetails"
-          class="border-l-4 border-orange-500 bg-orange-50 px-4 py-3 text-sm leading-6 text-orange-950"
+          class="border-l-4 border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-4 py-3 text-sm leading-6 text-orange-950"
           role="status"
         >
           <div class="flex items-start gap-2">
@@ -198,24 +198,24 @@ async function shareClub(): Promise<void> {
           </div>
         </div>
 
-        <section class="border-b border-zinc-200 py-8">
-          <h2 class="text-lg font-bold text-zinc-950">
+        <section class="border-b border-zinc-200 dark:border-zinc-800 py-8">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ overviewTitle }}
           </h2>
           <div class="mt-5 grid gap-5 md:grid-cols-3">
             <div
               v-for="item in overviewItems"
               :key="item.title"
-              class="border-l-2 border-emerald-200 pl-4"
+              class="border-l-2 border-emerald-200 dark:border-emerald-900 pl-4"
             >
-              <div class="flex items-center gap-2 text-sm font-semibold text-zinc-900">
+              <div class="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 <UIcon
                   :name="item.icon"
-                  class="size-4 text-emerald-700"
+                  class="size-4 text-emerald-700 dark:text-emerald-300"
                 />
                 {{ item.title }}
               </div>
-              <p class="mt-2 text-sm leading-6 text-zinc-600">
+              <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                 {{ item.text }}
               </p>
             </div>
@@ -224,28 +224,28 @@ async function shareClub(): Promise<void> {
 
         <PublicContentBoxes :boxes="boxesAt('after-overview')" />
 
-        <section class="border-b border-zinc-200 py-8">
-          <h2 class="text-lg font-bold text-zinc-950">
+        <section class="border-b border-zinc-200 dark:border-zinc-800 py-8">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ clubSectionLabels.signupChecklist }}
           </h2>
-          <div class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200">
+          <div class="mt-4 divide-y divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800">
             <details
               v-for="item in club.signupQa"
               :key="item.question"
               class="group"
             >
-              <summary class="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3.5 text-sm font-semibold leading-6 text-zinc-800 [&::-webkit-details-marker]:hidden">
+              <summary class="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3.5 text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-100 [&::-webkit-details-marker]:hidden">
                 <UIcon
                   name="i-lucide-circle-question-mark"
-                  class="size-4 shrink-0 text-emerald-700"
+                  class="size-4 shrink-0 text-emerald-700 dark:text-emerald-300"
                 />
                 <span class="min-w-0 flex-1">{{ item.question }}</span>
                 <UIcon
                   name="i-lucide-chevron-down"
-                  class="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180"
+                  class="size-4 shrink-0 text-zinc-400 dark:text-zinc-500 transition-transform group-open:rotate-180"
                 />
               </summary>
-              <div class="pb-4 pl-7 pr-6 text-sm leading-7 text-zinc-600">
+              <div class="pb-4 pl-7 pr-6 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
                 {{ item.answer || '该社团暂未补充这项回答，请在本学期招新时向负责人确认。' }}
               </div>
             </details>
@@ -263,20 +263,20 @@ async function shareClub(): Promise<void> {
 
         <section
           v-if="hasRecruitmentDetails"
-          class="border-b border-zinc-200 py-7"
+          class="border-b border-zinc-200 dark:border-zinc-800 py-7"
         >
-          <h2 class="text-lg font-bold text-zinc-950">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ clubSectionLabels.recruitmentDetails }}
           </h2>
-          <dl class="mt-3 divide-y divide-zinc-100 border-y border-zinc-200 text-sm">
+          <dl class="mt-3 divide-y divide-zinc-100 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 text-sm">
             <div
               v-if="club.recruitmentPeriod"
               class="flex justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 招新时间
               </dt>
-              <dd class="text-right text-zinc-900">
+              <dd class="text-right text-zinc-900 dark:text-zinc-100">
                 {{ club.recruitmentPeriod }}
               </dd>
             </div>
@@ -284,10 +284,10 @@ async function shareClub(): Promise<void> {
               v-if="club.activitySchedule"
               class="flex justify-between gap-6 py-3"
             >
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 活动安排
               </dt>
-              <dd class="text-right text-zinc-900">
+              <dd class="text-right text-zinc-900 dark:text-zinc-100">
                 {{ club.activitySchedule }}
               </dd>
             </div>
@@ -295,7 +295,7 @@ async function shareClub(): Promise<void> {
               v-if="contactActions.length"
               class="flex items-start justify-between gap-6 py-3"
             >
-              <dt class="shrink-0 text-zinc-500">
+              <dt class="shrink-0 text-zinc-500 dark:text-zinc-400">
                 {{ clubSectionLabels.contactMethod }}
               </dt>
               <dd class="min-w-0 text-right">
@@ -329,12 +329,12 @@ async function shareClub(): Promise<void> {
                       v-else
                       class="flex max-w-full flex-col items-end gap-2"
                     >
-                      <p class="break-all text-sm font-medium leading-6 text-zinc-900">
+                      <p class="break-all text-sm font-medium leading-6 text-zinc-900 dark:text-zinc-100">
                         {{ action.label }}
                       </p>
                       <button
                         type="button"
-                        class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold text-zinc-800 transition-colors hover:border-zinc-300 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                        class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
                         @click="copyContactAction(action.copyValue)"
                       >
                         <UIcon
@@ -356,13 +356,13 @@ async function shareClub(): Promise<void> {
 
         <section
           v-if="contactSection.kind === 'pending'"
-          class="border-b border-zinc-200 py-7"
+          class="border-b border-zinc-200 dark:border-zinc-800 py-7"
         >
-          <h2 class="text-lg font-bold text-zinc-950">
+          <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ contactSection.title }}
           </h2>
           <div
-            class="mt-3 border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+            class="mt-3 border-l-4 border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-sm leading-6 text-amber-950"
             role="status"
           >
             <div class="flex items-start gap-2">

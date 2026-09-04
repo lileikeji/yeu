@@ -29,11 +29,11 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
     class="order-1 min-w-0 xl:order-2"
     aria-label="选中定位记录详情"
   >
-    <div class="border-b border-zinc-200 pb-4">
+    <div class="border-b border-zinc-200 dark:border-zinc-800 pb-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div class="flex flex-wrap items-center gap-2">
-            <h3 class="text-base font-bold text-zinc-950">
+            <h3 class="text-base font-bold text-zinc-950 dark:text-zinc-100">
               {{ observation.placeName }}
             </h3>
             <UBadge
@@ -48,7 +48,7 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
               variant="soft"
             />
           </div>
-          <p class="mt-2 text-sm leading-6 text-zinc-600">
+          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             {{ observation.evidenceNote }}
           </p>
         </div>
@@ -60,26 +60,26 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
       </div>
       <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
         <div>
-          <dt class="text-zinc-500">
+          <dt class="text-zinc-500 dark:text-zinc-400">
             计算结果
           </dt>
-          <dd class="mt-1 font-mono text-zinc-900">
+          <dd class="mt-1 font-mono text-zinc-900 dark:text-zinc-100">
             {{ observation.longitude.toFixed(7) }}, {{ observation.latitude.toFixed(7) }}
           </dd>
         </div>
         <div>
-          <dt class="text-zinc-500">
+          <dt class="text-zinc-500 dark:text-zinc-400">
             采集方式
           </dt>
-          <dd class="mt-1 text-zinc-900">
+          <dd class="mt-1 text-zinc-900 dark:text-zinc-100">
             {{ captureMethodLabel(observation.captureMethod) }}
           </dd>
         </div>
         <div>
-          <dt class="text-zinc-500">
+          <dt class="text-zinc-500 dark:text-zinc-400">
             采集时间
           </dt>
-          <dd class="mt-1 text-zinc-900">
+          <dd class="mt-1 text-zinc-900 dark:text-zinc-100">
             {{ formatDate(observation.capturedAt) }}
           </dd>
         </div>
@@ -90,12 +90,12 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
       v-if="reviewHint"
       class="mt-4 flex gap-3 border-l-4 px-3 py-3 text-sm"
       :class="reviewHint.stage === 'dual-verified'
-        ? 'border-green-700 bg-green-50 text-green-950'
+        ? 'border-green-700 bg-green-50 dark:bg-green-950 text-green-950 dark:text-green-300'
         : reviewHint.stage === 'possible-dual'
-          ? 'border-blue-700 bg-blue-50 text-blue-950'
+          ? 'border-blue-700 bg-blue-50 dark:bg-blue-950 text-blue-950 dark:text-blue-300'
           : reviewHint.stage === 'replacement'
-            ? 'border-amber-600 bg-amber-50 text-amber-950'
-            : 'border-zinc-500 bg-zinc-50 text-zinc-800'"
+            ? 'border-amber-600 bg-amber-50 dark:bg-amber-950 text-amber-950'
+            : 'border-zinc-500 bg-zinc-50 dark:bg-zinc-800/60 text-zinc-800 dark:text-zinc-100'"
       role="status"
     >
       <UIcon
@@ -127,7 +127,7 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
 
     <div
       v-if="observation.reviewStatus === 'pending'"
-      class="mt-5 border-t border-zinc-200 pt-4"
+      class="mt-5 border-t border-zinc-200 dark:border-zinc-800 pt-4"
     >
       <UFormField
         label="审核依据与现场比对结果"
@@ -162,17 +162,17 @@ const reviewHint = computed(() => buildCoordinateReviewHint(props.observation, p
     </div>
     <div
       v-else
-      class="mt-5 border-t border-zinc-200 pt-4 text-sm"
+      class="mt-5 border-t border-zinc-200 dark:border-zinc-800 pt-4 text-sm"
     >
-      <p class="font-medium text-zinc-800">
+      <p class="font-medium text-zinc-800 dark:text-zinc-100">
         历史审核记录
       </p>
-      <p class="mt-2 leading-6 text-zinc-600">
+      <p class="mt-2 leading-6 text-zinc-600 dark:text-zinc-300">
         {{ observation.reviewNote || '未填写审核说明。' }}
       </p>
       <p
         v-if="observation.reviewedAt"
-        class="mt-2 text-xs text-zinc-500"
+        class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
       >
         {{ formatDate(observation.reviewedAt) }}
       </p>

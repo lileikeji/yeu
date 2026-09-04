@@ -42,16 +42,16 @@ watch(() => props.records, (records) => {
 </script>
 
 <template>
-  <section class="mt-8 border-y border-amber-200 bg-amber-50/50">
-    <div class="flex flex-col gap-3 border-b border-amber-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+  <section class="mt-8 border-y border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/50">
+    <div class="flex flex-col gap-3 border-b border-amber-200 dark:border-amber-900 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p class="text-xs font-medium text-amber-800">
+        <p class="text-xs font-medium text-amber-800 dark:text-amber-300">
           本机 IndexedDB
         </p>
-        <h2 class="mt-1 text-base font-bold text-zinc-950">
+        <h2 class="mt-1 text-base font-bold text-zinc-950 dark:text-zinc-100">
           未上传的定位记录
         </h2>
-        <p class="mt-1 text-xs leading-5 text-zinc-600">
+        <p class="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
           每条记录都有唯一编号，重复上传也不会创建多份记录。
         </p>
       </div>
@@ -73,17 +73,17 @@ watch(() => props.records, (records) => {
       >
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="min-w-0">
-            <h3 class="font-semibold text-zinc-950">
+            <h3 class="font-semibold text-zinc-950 dark:text-zinc-100">
               {{ placeName(record.payload.placeId) }}
             </h3>
-            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
+            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
               <span>{{ record.payload.samples.length }} 条定位记录</span>
               <span>{{ record.payload.pointRole === 'main-entrance' ? '主入口' : '场地点' }}</span>
               <span>{{ formatCoordinateObservationDate(record.queuedAt) }}</span>
             </div>
             <p
               v-if="errors[record.id]"
-              class="mt-2 text-xs leading-5 text-red-700"
+              class="mt-2 text-xs leading-5 text-red-700 dark:text-red-300"
               role="alert"
             >
               {{ errors[record.id] }}
@@ -124,29 +124,29 @@ watch(() => props.records, (records) => {
 
         <div
           v-if="expandedId === record.id"
-          class="mt-4 border-t border-amber-200 pt-4"
+          class="mt-4 border-t border-amber-200 dark:border-amber-900 pt-4"
         >
           <dl class="grid gap-x-5 gap-y-3 text-xs sm:grid-cols-2">
             <div>
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 现场说明
               </dt>
-              <dd class="mt-1 leading-5 text-zinc-800">
+              <dd class="mt-1 leading-5 text-zinc-800 dark:text-zinc-100">
                 {{ record.payload.evidenceNote }}
               </dd>
             </div>
             <div>
-              <dt class="text-zinc-500">
+              <dt class="text-zinc-500 dark:text-zinc-400">
                 本地记录编号
               </dt>
-              <dd class="mt-1 text-zinc-800">
+              <dd class="mt-1 text-zinc-800 dark:text-zinc-100">
                 {{ record.payload.clientObservationId.slice(0, 12) }}…
               </dd>
             </div>
           </dl>
           <div class="mt-4 overflow-x-auto">
             <table class="min-w-full text-left text-xs">
-              <thead class="text-zinc-500">
+              <thead class="text-zinc-500 dark:text-zinc-400">
                 <tr>
                   <th class="whitespace-nowrap px-2 py-2 font-medium">
                     定位记录
@@ -165,7 +165,7 @@ watch(() => props.records, (records) => {
                   </th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-amber-100 text-zinc-800">
+              <tbody class="divide-y divide-amber-100 text-zinc-800 dark:text-zinc-100">
                 <tr
                   v-for="(sample, index) in record.payload.samples"
                   :key="`${record.id}-${index}`"
@@ -200,7 +200,7 @@ watch(() => props.records, (records) => {
       :dismissible="!deleting"
     >
       <template #body>
-        <p class="text-sm leading-6 text-zinc-600">
+        <p class="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                     删除后无法从设备上暂存的记录恢复。仅当这条记录确定无效或已经通过其他方式提交时执行此操作。
         </p>
       </template>

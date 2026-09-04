@@ -38,10 +38,10 @@ async function dismissUpdate(): Promise<void> {
     aria-atomic="true"
     aria-labelledby="pwa-update-title"
     aria-describedby="pwa-update-description"
-    class="pointer-events-auto fixed inset-x-3 bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] z-[100] mx-auto max-w-md rounded-lg border border-green-200 bg-white/95 p-3 shadow-xl backdrop-blur md:bottom-6 md:right-6 md:left-auto md:mx-0 md:w-[23rem]"
+    class="pointer-events-auto fixed inset-x-3 bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] z-[100] mx-auto max-w-md rounded-lg border border-green-200 dark:border-green-800 bg-white/95 dark:bg-zinc-900/95 p-3 shadow-xl backdrop-blur md:bottom-6 md:right-6 md:left-auto md:mx-0 md:w-[23rem]"
   >
     <div class="flex items-start gap-3">
-      <span class="grid size-9 shrink-0 place-items-center rounded-full bg-green-50 text-green-700">
+      <span class="grid size-9 shrink-0 place-items-center rounded-full bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
         <UIcon
           name="i-lucide-sparkles"
           class="size-4.5"
@@ -50,20 +50,20 @@ async function dismissUpdate(): Promise<void> {
       <div class="min-w-0 flex-1">
         <p
           id="pwa-update-title"
-          class="text-sm font-bold text-zinc-950"
+          class="text-sm font-bold text-zinc-950 dark:text-zinc-100"
         >
           有新的校园内容
         </p>
         <p
           id="pwa-update-description"
-          class="mt-0.5 text-xs leading-5 text-zinc-600"
+          class="mt-0.5 text-xs leading-5 text-zinc-600 dark:text-zinc-300"
         >
           刷新后就能看到。正在输入反馈或聊天时，可以先点稍后。
         </p>
         <div class="mt-2 flex items-center justify-end gap-2">
           <button
             type="button"
-            class="min-h-11 rounded-md px-3 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            class="min-h-11 rounded-md px-3 text-sm font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             @click="dismissUpdate"
           >
             稍后

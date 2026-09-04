@@ -198,13 +198,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="border-y border-zinc-200 bg-white px-4 py-5 sm:px-5">
+  <section class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-5 sm:px-5">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p class="text-xs font-medium text-green-700">
+        <p class="text-xs font-medium text-green-700 dark:text-green-400">
           当前地点
         </p>
-        <h2 class="mt-1 text-base font-bold text-zinc-950">
+        <h2 class="mt-1 text-base font-bold text-zinc-950 dark:text-zinc-100">
           {{ placeName }}
         </h2>
       </div>
@@ -227,11 +227,11 @@ onBeforeUnmount(() => {
         v-for="index in FIELD_CAPTURE_MAX_SAMPLES"
         :key="index"
         class="h-2 rounded-sm"
-        :class="index <= samples.length ? 'bg-green-600' : 'bg-zinc-200'"
+        :class="index <= samples.length ? 'bg-green-600' : 'bg-zinc-200 dark:bg-zinc-800'"
       />
     </div>
     <p
-      class="mt-2 text-xs text-zinc-500"
+      class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
       role="status"
       aria-live="polite"
     >
@@ -240,45 +240,45 @@ onBeforeUnmount(() => {
     <p
       class="mt-1 text-xs"
       :class="captureQuality.state === 'unstable' || captureQuality.state === 'invalid'
-        ? 'text-red-700'
-        : 'text-zinc-500'"
+        ? 'text-red-700 dark:text-red-300'
+        : 'text-zinc-500 dark:text-zinc-400'"
     >
       {{ qualityDetail }}
     </p>
 
     <div
       v-if="captureSummary"
-      class="mt-4 grid grid-cols-2 gap-3 border-y border-zinc-100 py-3 text-xs sm:grid-cols-4"
+      class="mt-4 grid grid-cols-2 gap-3 border-y border-zinc-100 dark:border-zinc-800 py-3 text-xs sm:grid-cols-4"
     >
       <div>
-        <p class="text-zinc-400">
+        <p class="text-zinc-400 dark:text-zinc-500">
           经度
         </p>
-        <p class="mt-1 font-medium tabular-nums text-zinc-800">
+        <p class="mt-1 font-medium tabular-nums text-zinc-800 dark:text-zinc-100">
           {{ captureSummary.longitude.toFixed(7) }}
         </p>
       </div>
       <div>
-        <p class="text-zinc-400">
+        <p class="text-zinc-400 dark:text-zinc-500">
           纬度
         </p>
-        <p class="mt-1 font-medium tabular-nums text-zinc-800">
+        <p class="mt-1 font-medium tabular-nums text-zinc-800 dark:text-zinc-100">
           {{ captureSummary.latitude.toFixed(7) }}
         </p>
       </div>
       <div>
-        <p class="text-zinc-400">
+        <p class="text-zinc-400 dark:text-zinc-500">
           最大离散
         </p>
-        <p class="mt-1 font-medium tabular-nums text-zinc-800">
+        <p class="mt-1 font-medium tabular-nums text-zinc-800 dark:text-zinc-100">
           {{ captureSummary.maxSpreadMeters.toFixed(1) }} 米
         </p>
       </div>
       <div>
-        <p class="text-zinc-400">
+        <p class="text-zinc-400 dark:text-zinc-500">
           采样时长
         </p>
-        <p class="mt-1 font-medium tabular-nums text-zinc-800">
+        <p class="mt-1 font-medium tabular-nums text-zinc-800 dark:text-zinc-100">
           {{ (captureSummary.captureDurationMs / 1000).toFixed(0) }} 秒
         </p>
       </div>
@@ -286,7 +286,7 @@ onBeforeUnmount(() => {
 
     <p
       v-if="captureError"
-      class="mt-3 text-sm text-red-700"
+      class="mt-3 text-sm text-red-700 dark:text-red-300"
       role="alert"
     >
       {{ captureError }}

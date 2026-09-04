@@ -74,9 +74,9 @@ function formatTime(iso: string | null | undefined): string {
 }
 
 function statusClass(tone: 'active' | 'expired' | 'inactive'): string {
-  if (tone === 'active') return 'bg-emerald-50 text-emerald-700'
-  if (tone === 'expired') return 'bg-amber-50 text-amber-700'
-  return 'bg-zinc-100 text-zinc-600'
+  if (tone === 'active') return 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+  if (tone === 'expired') return 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+  return 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
 }
 
 async function handleAuth(error: unknown): Promise<boolean> {
@@ -267,7 +267,7 @@ onMounted(async () => {
 
     <div
       v-if="errorMessage"
-      class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
     >
       {{ errorMessage }}
     </div>
@@ -324,8 +324,8 @@ onMounted(async () => {
     </div>
 
     <div class="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-      <section class="rounded-2xl border border-zinc-200 bg-white p-4">
-        <h2 class="font-semibold text-zinc-950">
+      <section class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
           新建封禁
         </h2>
         <div class="mt-3 space-y-3">
@@ -372,7 +372,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section class="rounded-2xl border border-zinc-200 bg-white p-4">
+      <section class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
         <div class="flex flex-wrap items-end gap-3">
           <UFormField
             label="状态"
@@ -424,7 +424,7 @@ onMounted(async () => {
           </UButton>
         </div>
 
-        <p class="mt-3 text-xs text-zinc-500">
+        <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
           本页：生效 {{ statusCounts.activeN }} · 过期 {{ statusCounts.expiredN }} · 已解除 {{ statusCounts.inactiveN }}
         </p>
 
@@ -433,7 +433,7 @@ onMounted(async () => {
             v-for="ban in items"
             :key="ban.id"
             class="rounded-xl border px-3 py-3 text-sm"
-            :class="selectedBan?.id === ban.id ? 'border-red-300 bg-red-50/40' : 'border-zinc-100'"
+            :class="selectedBan?.id === ban.id ? 'border-red-300 bg-red-50/40 dark:bg-red-950/40' : 'border-zinc-100 dark:border-zinc-800'"
           >
             <div class="flex items-start justify-between gap-2">
               <button
@@ -442,7 +442,7 @@ onMounted(async () => {
                 @click="openBanDetail(ban)"
               >
                 <div class="flex flex-wrap items-center gap-2">
-                  <p class="font-medium text-zinc-900">
+                  <p class="font-medium text-zinc-900 dark:text-zinc-100">
                     {{ adminLabel(adminBanScopeLabels, ban.scope) }} · {{ ban.value }}
                   </p>
                   <span
@@ -452,15 +452,15 @@ onMounted(async () => {
                     {{ banStatusMeta(ban).label }}
                   </span>
                 </div>
-                <p class="mt-1 text-xs text-zinc-500">
+                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                   创建 {{ formatTime(ban.createdAt) }}
                   <template v-if="ban.expiresAt"> · 到期 {{ formatTime(ban.expiresAt) }}</template>
                   <template v-else> · 永久</template>
                 </p>
-                <p class="mt-1 text-xs text-zinc-700">
+                <p class="mt-1 text-xs text-zinc-700 dark:text-zinc-200">
                   原因：{{ banReasonText(ban.reason) }}
                 </p>
-                <p class="mt-1 break-all text-[11px] text-zinc-400">
+                <p class="mt-1 break-all text-[11px] text-zinc-400 dark:text-zinc-500">
                   封禁记录 {{ shortAdminId(ban.id, 10) }}
                   <template v-if="ban.bannedByAdminId"> · 管理员 {{ shortAdminId(ban.bannedByAdminId, 10) }}</template>
                 </p>
@@ -496,13 +496,13 @@ onMounted(async () => {
           </li>
           <li
             v-if="!items.length && !loading"
-            class="py-10 text-center text-sm text-zinc-400"
+            class="py-10 text-center text-sm text-zinc-400 dark:text-zinc-500"
           >
             暂无封禁记录
           </li>
         </ul>
 
-        <div class="mt-3 flex items-center justify-between text-sm text-zinc-500">
+        <div class="mt-3 flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
           <span>共 {{ total }} 条 · 第 {{ page }} 页</span>
           <div class="flex gap-2">
             <UButton
@@ -541,34 +541,34 @@ onMounted(async () => {
         >
           <div
             v-if="isAutomaticHoneypotBan(selectedBan)"
-            class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950"
+            class="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-3 py-2 text-sm leading-6 text-amber-950"
           >
             这是系统自动生成的临时限制记录，不是管理员手动封禁。可查看该网络地址当时的访问轨迹。
           </div>
           <dl class="grid gap-2 sm:grid-cols-2">
-            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500">状态</dt>
-              <dd class="text-sm font-medium text-zinc-900">{{ banStatusMeta(selectedBan).label }}</dd>
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">状态</dt>
+              <dd class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ banStatusMeta(selectedBan).label }}</dd>
             </div>
-            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500">原因</dt>
-              <dd class="text-sm text-zinc-800">{{ banReasonText(selectedBan.reason) }}</dd>
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">原因</dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ banReasonText(selectedBan.reason) }}</dd>
             </div>
-            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500">创建时间</dt>
-              <dd class="text-sm text-zinc-800">{{ formatTime(selectedBan.createdAt) }}</dd>
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">创建时间</dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ formatTime(selectedBan.createdAt) }}</dd>
             </div>
-            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500">到期</dt>
-              <dd class="text-sm text-zinc-800">{{ selectedBan.expiresAt ? formatTime(selectedBan.expiresAt) : '永久' }}</dd>
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">到期</dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ selectedBan.expiresAt ? formatTime(selectedBan.expiresAt) : '永久' }}</dd>
             </div>
-            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500">操作管理员</dt>
-              <dd class="text-sm text-zinc-800">{{ selectedBan.bannedByAdminId ? shortAdminId(selectedBan.bannedByAdminId, 12) : '系统自动处理' }}</dd>
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">操作管理员</dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ selectedBan.bannedByAdminId ? shortAdminId(selectedBan.bannedByAdminId, 12) : '系统自动处理' }}</dd>
             </div>
-            <div class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2">
-              <dt class="text-[11px] text-zinc-500">封禁记录</dt>
-              <dd class="text-sm text-zinc-800">{{ shortAdminId(selectedBan.id, 12) }}</dd>
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2">
+              <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">封禁记录</dt>
+              <dd class="text-sm text-zinc-800 dark:text-zinc-100">{{ shortAdminId(selectedBan.id, 12) }}</dd>
             </div>
           </dl>
         </div>

@@ -494,15 +494,15 @@ onBeforeUnmount(() => {
 
     <div
       v-else-if="failed"
-      class="absolute inset-0 z-20 grid place-items-center bg-zinc-100 p-6 text-center"
+      class="absolute inset-0 z-20 grid place-items-center bg-zinc-100 dark:bg-zinc-800 p-6 text-center"
       role="alert"
     >
       <div>
         <UIcon
           name="i-lucide-image-off"
-          class="mx-auto size-8 text-zinc-500"
+          class="mx-auto size-8 text-zinc-500 dark:text-zinc-400"
         />
-        <p class="mt-3 text-sm font-semibold text-zinc-900">
+        <p class="mt-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           官网平面图暂时无法载入
         </p>
         <UButton

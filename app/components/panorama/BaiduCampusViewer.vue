@@ -320,10 +320,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="absolute inset-0 bg-zinc-950">
+  <div class="absolute inset-0 bg-zinc-950 dark:bg-zinc-800">
     <div
       ref="viewerHost"
-      class="panorama-canvas absolute inset-x-0 bottom-[5.75rem] top-0 cursor-grab bg-zinc-950 active:cursor-grabbing"
+      class="panorama-canvas absolute inset-x-0 bottom-[5.75rem] top-0 cursor-grab bg-zinc-950 dark:bg-zinc-800 active:cursor-grabbing"
       aria-label="校园全景画面"
     />
 
@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
           type="button"
           class="min-h-10 shrink-0 rounded-xl border px-3 text-xs font-semibold transition"
           :class="activeSceneIndex === index
-            ? 'border-emerald-300 bg-emerald-300 text-emerald-950'
+            ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-300 text-emerald-950 dark:text-emerald-300'
             : 'border-white/15 bg-white/8 text-white hover:bg-white/15'"
           :aria-pressed="activeSceneIndex === index"
           @click="openScene(index)"

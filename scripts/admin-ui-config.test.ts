@@ -227,7 +227,7 @@ test('super admins can switch between visual and detailed organization editors',
 test('organization accounts only see day-to-day content controls', () => {
   assertContains(organizationVisualEditorSource, [
     /organizationMode\?: boolean/,
-    /v-if="!organizationMode"[\s\S]{0,180}发布、确认与排序/,
+    /v-if="!organizationMode"[\s\S]{0,300}发布、确认与排序/,
     /delete metadata\.verificationState/,
     /delete metadata\.featuredSummary/,
     /delete metadata\.sortOrder/,

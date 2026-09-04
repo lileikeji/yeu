@@ -102,7 +102,7 @@ function isIncomplete(action: ApiNoticeAction): boolean {
       <div
         v-for="(action, index) in actions"
         :key="index"
-        class="rounded-md border border-zinc-200 bg-zinc-50/70 p-3"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/70 p-3"
       >
         <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
           <UInput
@@ -139,14 +139,14 @@ function isIncomplete(action: ApiNoticeAction): boolean {
           />
           <p
             v-else
-            class="min-w-0 flex-1 truncate text-xs text-zinc-500"
+            class="min-w-0 flex-1 truncate text-xs text-zinc-500 dark:text-zinc-400"
             :title="action.href"
           >
             {{ action.href }}
           </p>
           <span
             v-if="isIncomplete(action)"
-            class="shrink-0 text-xs text-amber-700"
+            class="shrink-0 text-xs text-amber-700 dark:text-amber-300"
           >请补全</span>
         </div>
       </div>
@@ -161,7 +161,7 @@ function isIncomplete(action: ApiNoticeAction): boolean {
       :disabled="actions.length >= 12"
       @click="addAction"
     />
-    <p class="text-xs leading-5 text-zinc-500">
+    <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
       选择已有功能会自动填入入口；自定义链接支持站内路径或安全的 https 链接，最多 12 个。
     </p>
   </div>

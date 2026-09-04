@@ -128,7 +128,7 @@ onMounted(() => void refreshAll())
 
     <div
       v-if="loadError"
-      class="mt-4 border-l-2 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-800"
+      class="mt-4 border-l-2 border-red-500 bg-red-50 dark:bg-red-950 px-3 py-2 text-sm text-red-800 dark:text-red-300"
       role="alert"
     >
       {{ loadError }}

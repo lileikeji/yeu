@@ -169,7 +169,7 @@ onMounted(loadLibrary)
 
     <div
       v-if="errorMessage"
-      class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
     >
       {{ errorMessage }}
     </div>
@@ -178,41 +178,41 @@ onMounted(loadLibrary)
       class="grid grid-cols-2 gap-3 md:grid-cols-4"
       aria-label="知识资料统计"
     >
-      <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           可检索资料
         </p>
-        <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950">
+        <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950 dark:text-zinc-100">
           {{ summary.retrievalTotal }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           系统结构化数据
         </p>
-        <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950">
+        <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950 dark:text-zinc-100">
           {{ summary.structured }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           已登记来源
         </p>
-        <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950">
+        <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950 dark:text-zinc-100">
           {{ summary.sources }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           人工审核事实
         </p>
-        <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950">
+        <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950 dark:text-zinc-100">
           {{ summary.claims }}
         </p>
       </div>
     </section>
 
-    <section class="rounded-md border border-zinc-200 bg-white p-2">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2">
       <div
         class="grid grid-cols-2 gap-1 md:grid-cols-4"
         role="tablist"
@@ -225,7 +225,7 @@ onMounted(loadLibrary)
           role="tab"
           :aria-selected="collection === item.value"
           class="flex min-h-11 items-center justify-center gap-2 rounded-md px-2 text-sm font-medium transition"
-          :class="collection === item.value ? 'bg-zinc-950 text-white' : 'text-zinc-600 hover:bg-zinc-100'"
+          :class="collection === item.value ? 'bg-zinc-950 dark:bg-zinc-800 text-white' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'"
           @click="switchCollection(item.value)"
         >
           <UIcon
@@ -238,7 +238,7 @@ onMounted(loadLibrary)
       </div>
     </section>
 
-    <section class="rounded-md border border-zinc-200 bg-white p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
       <div class="flex flex-col gap-3 sm:flex-row">
         <UInput
           v-model="queryText"
@@ -256,12 +256,12 @@ onMounted(loadLibrary)
       </div>
       <p
         v-if="category"
-        class="mt-3 flex items-center gap-2 text-xs text-zinc-600"
+        class="mt-3 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300"
       >
         当前筛选：{{ category }}
         <button
           type="button"
-          class="text-green-700 hover:underline"
+          class="text-green-700 dark:text-green-400 hover:underline"
           @click="category = ''; applySearch()"
         >
           清除
@@ -274,11 +274,11 @@ onMounted(loadLibrary)
         <div>
           <h2
             id="library-list-title"
-            class="text-sm font-bold text-zinc-950"
+            class="text-sm font-bold text-zinc-950 dark:text-zinc-100"
           >
             资料列表
           </h2>
-          <p class="mt-1 text-xs text-zinc-500">
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             当前找到 {{ total }} 条
           </p>
         </div>
@@ -294,7 +294,7 @@ onMounted(loadLibrary)
 
       <div
         v-if="loading && !items.length"
-        class="grid min-h-48 place-items-center text-zinc-500"
+        class="grid min-h-48 place-items-center text-zinc-500 dark:text-zinc-400"
       >
         <UIcon
           name="i-lucide-loader-circle"
@@ -303,7 +303,7 @@ onMounted(loadLibrary)
       </div>
       <div
         v-else-if="!items.length"
-        class="rounded-md border border-dashed border-zinc-300 bg-white px-4 py-14 text-center text-sm text-zinc-500"
+        class="rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-14 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         没有找到符合条件的资料
       </div>
@@ -314,7 +314,7 @@ onMounted(loadLibrary)
         <li
           v-for="item in items"
           :key="item.id"
-          class="rounded-md border border-zinc-200 bg-white p-4"
+          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -324,18 +324,18 @@ onMounted(loadLibrary)
                   color="success"
                   variant="soft"
                 />
-                <span class="text-zinc-500">{{ item.category }}</span>
+                <span class="text-zinc-500 dark:text-zinc-400">{{ item.category }}</span>
                 <span
                   v-if="item.confidence !== null"
-                  class="text-zinc-500"
+                  class="text-zinc-500 dark:text-zinc-400"
                 >可信度 {{ item.confidence }}</span>
               </div>
-              <h3 class="mt-2 break-words text-sm font-bold leading-6 text-zinc-950">
+              <h3 class="mt-2 break-words text-sm font-bold leading-6 text-zinc-950 dark:text-zinc-100">
                 {{ item.title }}
               </h3>
               <p
                 v-if="item.subtitle && item.subtitle !== item.category"
-                class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500"
+                class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
               >
                 {{ item.subtitle }}
               </p>
@@ -352,10 +352,10 @@ onMounted(loadLibrary)
               size="sm"
             />
           </div>
-          <p class="mt-3 line-clamp-5 whitespace-pre-line text-sm leading-6 text-zinc-700">
+          <p class="mt-3 line-clamp-5 whitespace-pre-line text-sm leading-6 text-zinc-700 dark:text-zinc-200">
             {{ item.body }}
           </p>
-          <p class="mt-4 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+          <p class="mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs text-zinc-500 dark:text-zinc-400">
             {{ formatDate(item.capturedAt) }}
           </p>
         </li>
@@ -373,7 +373,7 @@ onMounted(loadLibrary)
           :disabled="page <= 1"
           @click="changePage(page - 1)"
         />
-        <span class="text-xs tabular-nums text-zinc-500">{{ page }} / {{ totalPages }}</span>
+        <span class="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">{{ page }} / {{ totalPages }}</span>
         <UButton
           icon="i-lucide-chevron-right"
           trailing

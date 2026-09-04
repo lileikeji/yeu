@@ -54,15 +54,15 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white">
+    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           {{ status.pageKicker }}
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           {{ status.pageTitle }}
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           {{ status.pageDescription }}
         </p>
       </div>
@@ -70,7 +70,7 @@ onBeforeUnmount(() => {
 
     <div class="page-shell py-8 md:py-12">
       <section
-        class="flex max-w-3xl items-start gap-4 rounded-lg border border-[var(--line)] bg-white px-4 py-5 shadow-sm sm:px-5"
+        class="flex max-w-3xl items-start gap-4 rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 px-4 py-5 shadow-sm sm:px-5"
         role="status"
         aria-live="polite"
       >
@@ -85,10 +85,10 @@ onBeforeUnmount(() => {
           />
         </span>
         <div class="min-w-0">
-          <h2 class="font-bold text-zinc-950">
+          <h2 class="font-bold text-zinc-950 dark:text-zinc-100">
             {{ status.title }}
           </h2>
-          <p class="mt-1 text-sm leading-6 text-zinc-600">
+          <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             {{ status.description }}
           </p>
           <div class="mt-4 flex flex-wrap gap-2">
@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
         <p class="section-kicker">
           现在先这样做
         </p>
-        <h2 class="mt-1 text-xl font-bold text-zinc-950">
+        <h2 class="mt-1 text-xl font-bold text-zinc-950 dark:text-zinc-100">
           重要信息等联网后再确认
         </h2>
 
@@ -122,19 +122,19 @@ onBeforeUnmount(() => {
           <article
             v-for="item in offlineBoundaries"
             :key="item.title"
-            class="flex gap-3 border-t border-zinc-200 py-5"
+            class="flex gap-3 border-t border-zinc-200 dark:border-zinc-800 py-5"
           >
-            <span class="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-800">
+            <span class="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300">
               <UIcon
                 :name="item.icon"
                 class="size-4"
               />
             </span>
             <div class="min-w-0">
-              <h3 class="text-sm font-bold text-zinc-950">
+              <h3 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
                 {{ item.title }}
               </h3>
-              <p class="mt-1.5 text-sm leading-7 text-zinc-600">
+              <p class="mt-1.5 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
                 {{ item.text }}
               </p>
             </div>
@@ -146,10 +146,10 @@ onBeforeUnmount(() => {
         <p class="section-kicker">
           还能先看看
         </p>
-        <h2 class="mt-1 text-xl font-bold text-zinc-950">
+        <h2 class="mt-1 text-xl font-bold text-zinc-950 dark:text-zinc-100">
           之前看过的常用页面
         </h2>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
           如果你之前打开过这些页面，现在可能还能查看。日期和地点仍要等联网后重新确认。
         </p>
         <div class="mt-4 grid gap-2 sm:grid-cols-3">

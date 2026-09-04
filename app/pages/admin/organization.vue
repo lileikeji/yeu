@@ -74,12 +74,12 @@ onMounted(() => {
     >
       <UIcon
         name="i-lucide-loader-circle"
-        class="size-7 animate-spin text-green-700"
+        class="size-7 animate-spin text-green-700 dark:text-green-400"
       />
     </div>
     <div
       v-else-if="errorMessage"
-      class="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-800"
+      class="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-5 text-sm text-red-800 dark:text-red-300"
       role="alert"
     >
       {{ errorMessage }}
@@ -93,10 +93,10 @@ onMounted(() => {
       >
         <template #body>
           <div class="space-y-4">
-            <div class="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+            <div class="flex items-start gap-3 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-4 text-sm leading-6 text-amber-950">
               <UIcon
                 name="i-lucide-triangle-alert"
-                class="mt-0.5 size-5 shrink-0 text-amber-700"
+                class="mt-0.5 size-5 shrink-0 text-amber-700 dark:text-amber-300"
               />
               <p>原来的管理后台域名已经弃用，之后请使用下面的新地址进入。旧地址可能会逐步停止服务。</p>
             </div>

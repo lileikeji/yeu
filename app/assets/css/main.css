@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* 站点主题切换：亮/暗/跟随系统。暗色挂在 <html class="dark">（Nuxt UI v3 组件
+   主题同样以 .dark 类切换），Tailwind dark: 变体跟随类而不是系统偏好。 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme static {
   --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
 
@@ -46,6 +50,18 @@
   --accent-blue: #2d6f8e;
   --header-height: 4.0625rem;
   --mobile-nav-height: 4.5625rem;
+}
+
+/* 暗色主题基础变量：与 .dark 类搭配（页面壳/正文/分隔线等 var() 引用点）。 */
+html.dark {
+  --page-bg: #101310;
+  --surface: #171b17;
+  --ink: #e6e9e5;
+  --muted-ink: #9aa39b;
+  --line: #2b312c;
+  --accent-warm: #e08a6d;
+  --accent-blue: #6fa8c9;
+  color-scheme: dark;
 }
 
 html {

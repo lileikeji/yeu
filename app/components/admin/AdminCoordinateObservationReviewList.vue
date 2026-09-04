@@ -55,16 +55,16 @@ function goToNextPage(): void {
 
 <template>
   <section class="mt-8">
-    <div class="border-b border-zinc-200 pb-4">
+    <div class="border-b border-zinc-200 dark:border-zinc-800 pb-4">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p class="text-xs font-medium text-green-700">
+          <p class="text-xs font-medium text-green-700 dark:text-green-400">
             待审核记录
           </p>
-          <h2 class="mt-1 text-lg font-bold text-zinc-950">
+          <h2 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
             定位记录
           </h2>
-          <p class="mt-1 text-xs text-zinc-500">
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             共 {{ total }} 条符合条件的定位记录
           </p>
         </div>
@@ -96,7 +96,7 @@ function goToNextPage(): void {
 
     <div
       v-if="loading && !observations.length"
-      class="grid min-h-52 place-items-center text-zinc-500"
+      class="grid min-h-52 place-items-center text-zinc-500 dark:text-zinc-400"
       role="status"
     >
       <UIcon
@@ -110,18 +110,18 @@ function goToNextPage(): void {
       class="grid gap-6 pt-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.3fr)]"
     >
       <div class="order-2 min-w-0 xl:order-1">
-        <div class="divide-y divide-zinc-200 border-y border-zinc-200">
+        <div class="divide-y divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800">
           <button
             v-for="observation in observations"
             :key="observation.id"
             type="button"
             class="block w-full px-3 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
-            :class="selectedObservationId === observation.id ? 'bg-green-50' : 'hover:bg-zinc-50'"
+            :class="selectedObservationId === observation.id ? 'bg-green-50 dark:bg-green-950' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60'"
             :aria-pressed="selectedObservationId === observation.id"
             @click="selectedObservationId = observation.id"
           >
             <div class="flex flex-wrap items-center gap-2">
-              <span class="font-semibold text-zinc-950">{{ observation.placeName }}</span>
+              <span class="font-semibold text-zinc-950 dark:text-zinc-100">{{ observation.placeName }}</span>
               <UBadge
                 :label="observationStatusLabel(observation.reviewStatus)"
                 :color="observationStatusColor(observation.reviewStatus)"
@@ -135,10 +135,10 @@ function goToNextPage(): void {
                 size="sm"
               />
             </div>
-            <p class="mt-2 line-clamp-2 text-sm leading-5 text-zinc-600">
+            <p class="mt-2 line-clamp-2 text-sm leading-5 text-zinc-600 dark:text-zinc-300">
               {{ observation.evidenceNote }}
             </p>
-            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
               <span>{{ observation.sampleCount }} 条定位记录</span>
               <span>{{ pointRoleLabel(observation.pointRole) }}</span>
               <span>{{ formatDate(observation.capturedAt) }}</span>
@@ -147,7 +147,7 @@ function goToNextPage(): void {
         </div>
 
         <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-xs text-zinc-500">
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">
             第 {{ page }} / {{ pageCount }} 页
           </p>
           <div class="flex items-center gap-2">
@@ -161,7 +161,7 @@ function goToNextPage(): void {
                 @click="goToPreviousPage"
               />
             </UTooltip>
-            <span class="min-w-20 text-center text-sm tabular-nums text-zinc-700">
+            <span class="min-w-20 text-center text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
               {{ page }} / {{ pageCount }}
             </span>
             <UTooltip text="下一页">
@@ -183,7 +183,7 @@ function goToNextPage(): void {
 
     <p
       v-else-if="!loading"
-      class="py-12 text-center text-sm text-zinc-500"
+      class="py-12 text-center text-sm text-zinc-500 dark:text-zinc-400"
     >
       当前条件下暂无定位记录
     </p>

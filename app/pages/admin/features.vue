@@ -152,7 +152,7 @@ onMounted(() => void loadFeatures())
 
     <div
       v-if="errorMessage"
-      class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      class="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-800 dark:text-red-300"
       role="alert"
     >
       {{ errorMessage }}
@@ -162,19 +162,19 @@ onMounted(() => void loadFeatures())
       class="grid grid-cols-2 gap-3 sm:max-w-md"
       aria-label="功能显示概况"
     >
-      <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           前台显示
         </p>
-        <p class="mt-1 text-2xl font-bold tabular-nums text-emerald-700">
+        <p class="mt-1 text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
           {{ enabledCount }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 bg-white p-4">
-        <p class="text-xs text-zinc-500">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
           已关闭
         </p>
-        <p class="mt-1 text-2xl font-bold tabular-nums text-zinc-700">
+        <p class="mt-1 text-2xl font-bold tabular-nums text-zinc-700 dark:text-zinc-200">
           {{ disabledCount }}
         </p>
       </div>
@@ -182,13 +182,13 @@ onMounted(() => void loadFeatures())
 
     <div
       v-if="loading && !items.length"
-      class="grid min-h-64 place-items-center rounded-md border border-zinc-200 bg-white text-sm text-zinc-500"
+      class="grid min-h-64 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-zinc-500 dark:text-zinc-400"
       role="status"
     >
       <div class="text-center">
         <UIcon
           name="i-lucide-loader-circle"
-          class="mx-auto size-6 animate-spin text-green-700"
+          class="mx-auto size-6 animate-spin text-green-700 dark:text-green-400"
         />
         <p class="mt-3">
           正在加载前台功能
@@ -203,18 +203,18 @@ onMounted(() => void loadFeatures())
       <section
         v-for="group in groups"
         :key="group.label"
-        class="overflow-hidden rounded-md border border-zinc-200 bg-white"
+        class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
       >
-        <div class="border-b border-zinc-100 px-4 py-3 sm:px-5">
-          <h2 class="text-sm font-bold text-zinc-950">
+        <div class="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3 sm:px-5">
+          <h2 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
             {{ group.label }}
           </h2>
-          <p class="mt-1 text-xs text-zinc-500">
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {{ group.features.length }} 个可控制入口
           </p>
         </div>
 
-        <ul class="divide-y divide-zinc-100">
+        <ul class="divide-y divide-zinc-100 dark:divide-zinc-800">
           <li
             v-for="feature in group.features"
             :key="feature.key"
@@ -222,7 +222,7 @@ onMounted(() => void loadFeatures())
           >
             <span
               class="grid size-10 shrink-0 place-items-center rounded-md"
-              :class="feature.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'"
+              :class="feature.enabled ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'"
             >
               <UIcon
                 :name="feature.icon"
@@ -231,7 +231,7 @@ onMounted(() => void loadFeatures())
             </span>
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
-                <h3 class="text-sm font-semibold text-zinc-950">
+                <h3 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
                   {{ feature.title }}
                 </h3>
                 <UBadge
@@ -241,14 +241,14 @@ onMounted(() => void loadFeatures())
                   size="sm"
                 />
               </div>
-              <p class="mt-1 text-xs leading-5 text-zinc-500">
+              <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 {{ feature.description }}
               </p>
               <div class="mt-3 flex flex-wrap items-center gap-2">
-                <label class="inline-flex items-center gap-2 text-xs text-zinc-600">
+                <label class="inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                   <span>显示模块</span>
                   <select
-                    class="h-8 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-800 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                    class="h-8 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2 text-xs text-zinc-800 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
                     :value="feature.placement"
                     :disabled="savingKeys.has(feature.key)"
                     :aria-label="`${feature.title}显示模块`"
@@ -263,10 +263,10 @@ onMounted(() => void loadFeatures())
                     </option>
                   </select>
                 </label>
-                <label class="inline-flex items-center gap-2 text-xs text-zinc-600">
+                <label class="inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                   <span>顺序</span>
                   <input
-                    class="h-8 w-20 rounded-md border border-zinc-200 bg-white px-2 text-xs tabular-nums text-zinc-800 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                    class="h-8 w-20 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2 text-xs tabular-nums text-zinc-800 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
                     type="number"
                     min="0"
                     max="9999"

@@ -643,21 +643,21 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <section class="border-b border-[var(--line)] bg-white">
+    <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           校园搜索
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950 md:text-3xl">
+        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           找地点、办事和校园信息
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">
+        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           可以直接提问，也可以切换到站内搜索查找地点、办事、部门和社团。
         </p>
 
         <div class="mt-6 max-w-3xl">
           <div
-            class="mb-3 inline-grid grid-cols-2 rounded-md border border-zinc-200 bg-zinc-50 p-1"
+            class="mb-3 inline-grid grid-cols-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 p-1"
             role="tablist"
             aria-label="搜索方式"
           >
@@ -665,7 +665,7 @@ onBeforeUnmount(() => {
               type="button"
               role="tab"
               class="inline-flex min-h-10 items-center justify-center gap-2 rounded px-4 text-sm font-semibold transition"
-              :class="activeSearchMode === 'ai' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-600 hover:text-zinc-900'"
+              :class="activeSearchMode === 'ai' ? 'bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'"
               :aria-selected="activeSearchMode === 'ai'"
               @click="switchSearchMode('ai')"
             >
@@ -679,7 +679,7 @@ onBeforeUnmount(() => {
               type="button"
               role="tab"
               class="inline-flex min-h-10 items-center justify-center gap-2 rounded px-4 text-sm font-semibold transition"
-              :class="activeSearchMode === 'site' ? 'bg-white text-green-700 shadow-sm' : 'text-zinc-600 hover:text-zinc-900'"
+              :class="activeSearchMode === 'site' ? 'bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'"
               :aria-selected="activeSearchMode === 'site'"
               @click="switchSearchMode('site')"
             >
@@ -736,7 +736,7 @@ onBeforeUnmount(() => {
           >
             <label
               for="search-result-type"
-              class="shrink-0 text-xs font-medium text-zinc-600"
+              class="shrink-0 text-xs font-medium text-zinc-600 dark:text-zinc-300"
             >
               只看
             </label>
@@ -753,7 +753,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="mt-4">
-            <p class="text-xs font-semibold text-zinc-600">
+            <p class="text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               {{ listMessages.needShortcutsTitle }}
             </p>
             <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -764,7 +764,7 @@ onBeforeUnmount(() => {
                 class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
                 :class="isNeedShortcutActive(shortcut, activeQuery)
                   ? 'border-green-700 bg-green-700 text-white'
-                  : 'border-zinc-200 bg-white text-zinc-700 hover:border-green-300 hover:bg-green-50'"
+                  : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
                 :aria-label="`按${shortcut.label}搜索`"
                 :aria-pressed="isNeedShortcutActive(shortcut, activeQuery)"
                 @click="selectSearchNeed(shortcut.query)"
@@ -793,7 +793,7 @@ onBeforeUnmount(() => {
 
       <div
         v-if="searchError"
-        class="mb-5 flex items-start gap-2 border-l-2 border-orange-500 bg-orange-50 px-3 py-2 text-sm text-orange-900"
+        class="mb-5 flex items-start gap-2 border-l-2 border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-3 py-2 text-sm text-orange-900 dark:text-orange-300"
         role="status"
       >
         <UIcon
@@ -806,11 +806,11 @@ onBeforeUnmount(() => {
       <div v-if="activeQuery">
         <section
           v-if="activeSearchMode === 'ai' && (assistantStatus === 'pending' || assistantResponse || assistantStatus === 'error')"
-          class="mb-6 rounded-lg border border-green-200 bg-white p-4 shadow-sm sm:p-5"
+          class="mb-6 rounded-lg border border-green-200 dark:border-green-800 bg-white dark:bg-zinc-900 p-4 shadow-sm sm:p-5"
           aria-labelledby="assistant-answer-heading"
         >
           <div class="flex items-start gap-3">
-            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+            <span class="grid size-9 shrink-0 place-items-center rounded-md bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
               <UIcon
                 :name="assistantStatus === 'pending' ? 'i-lucide-loader-circle' : 'i-lucide-sparkles'"
                 class="size-4.5"
@@ -821,7 +821,7 @@ onBeforeUnmount(() => {
               <div class="flex flex-wrap items-center gap-2">
                 <h2
                   id="assistant-answer-heading"
-                  class="text-base font-bold text-zinc-950"
+                  class="text-base font-bold text-zinc-950 dark:text-zinc-100"
                 >
                   {{ assistantStatus === 'pending' ? '继续查找答案' : '校园问答' }}
                 </h2>
@@ -836,7 +836,7 @@ onBeforeUnmount(() => {
 
               <p
                 v-if="assistantStatus === 'pending'"
-                class="mt-2 text-sm leading-6 text-zinc-600"
+                class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
               >
                 正在分析问题并检索校园知识库，必要时再联网补充。
               </p>
@@ -847,9 +847,9 @@ onBeforeUnmount(() => {
                 <div
                   v-for="step in assistantDisplayTrace"
                   :key="step.stage"
-                  class="flex min-h-8 items-center justify-between gap-4 rounded-md bg-zinc-50 px-2.5 py-1.5"
+                  class="flex min-h-8 items-center justify-between gap-4 rounded-md bg-zinc-50 dark:bg-zinc-800/60 px-2.5 py-1.5"
                 >
-                  <span class="inline-flex min-w-0 items-start gap-2 font-medium text-zinc-700">
+                  <span class="inline-flex min-w-0 items-start gap-2 font-medium text-zinc-700 dark:text-zinc-200">
                     <UIcon
                       :name="step.status === 'running'
                         ? 'i-lucide-loader-circle'
@@ -858,10 +858,10 @@ onBeforeUnmount(() => {
                           : 'i-lucide-circle-check'"
                       class="mt-0.5 size-3.5 shrink-0"
                       :class="step.status === 'running'
-                        ? 'animate-spin text-green-700'
+                        ? 'animate-spin text-green-700 dark:text-green-400'
                         : step.status === 'failed'
-                          ? 'text-red-600'
-                          : 'text-green-700'"
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-green-700 dark:text-green-400'"
                     />
                     <span class="min-w-0">
                       <span class="block">
@@ -869,24 +869,24 @@ onBeforeUnmount(() => {
                       </span>
                       <span
                         v-if="step.detail"
-                        class="mt-0.5 block text-[11px] font-normal leading-4 text-zinc-500"
+                        class="mt-0.5 block text-[11px] font-normal leading-4 text-zinc-500 dark:text-zinc-400"
                       >
                         {{ step.detail }}
                       </span>
                     </span>
                   </span>
-                  <span class="shrink-0 tabular-nums text-zinc-500">
+                  <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
                     {{ formatAssistantStepDuration(step) }}
                   </span>
                 </div>
                 <div
                   v-if="assistantResponse?.totalDurationMs !== undefined"
-                  class="flex items-center justify-between gap-4 px-2.5 pt-1 text-zinc-500"
+                  class="flex items-center justify-between gap-4 px-2.5 pt-1 text-zinc-500 dark:text-zinc-400"
                 >
                   <span class="inline-flex items-center gap-2 font-medium">
                     <UIcon
                       name="i-lucide-timer"
-                      class="size-3.5 text-green-700"
+                      class="size-3.5 text-green-700 dark:text-green-400"
                     />
                     全部完成
                   </span>
@@ -897,17 +897,17 @@ onBeforeUnmount(() => {
               </div>
               <div
                 v-else-if="assistantStatus === 'pending'"
-                class="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-500"
+                class="mt-3 inline-flex min-h-8 items-center gap-2 rounded-md bg-zinc-50 dark:bg-zinc-800/60 px-2.5 py-1.5 text-xs text-zinc-500 dark:text-zinc-400"
               >
                 <UIcon
                   name="i-lucide-loader-circle"
-                  class="size-3.5 animate-spin text-green-700"
+                  class="size-3.5 animate-spin text-green-700 dark:text-green-400"
                 />
                 正在连接检索服务
               </div>
               <p
                 v-if="assistantStatus === 'pending' && assistantDraftAnswer"
-                class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700"
+                class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700 dark:text-zinc-200"
               >
                 {{ assistantDraftAnswer }}
                 <span class="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-green-600 align-text-bottom" />
@@ -915,23 +915,23 @@ onBeforeUnmount(() => {
               <template v-if="assistantResponse">
                 <!-- 美食榜单：结构化商家卡片（移动端主视觉，解析失败回退纯文本） -->
                 <template v-if="assistantFoodCards">
-                  <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700">
+                  <p class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700 dark:text-zinc-200">
                     {{ assistantFoodCards.intro }}
                   </p>
                   <ul class="mt-3 grid gap-2 sm:grid-cols-2">
                     <li
                       v-for="(item, itemIndex) in assistantFoodCards.items"
                       :key="`${item.name}-${itemIndex}`"
-                      class="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm transition-colors active:border-green-300"
+                      class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 shadow-sm transition-colors active:border-green-300 dark:active:border-green-700"
                     >
                       <div class="flex items-start justify-between gap-2">
-                        <p class="min-w-0 text-sm font-bold leading-5 text-zinc-950">
+                        <p class="min-w-0 text-sm font-bold leading-5 text-zinc-950 dark:text-zinc-100">
                           <span
                             v-if="item.area"
-                            class="mr-1 inline-block rounded bg-green-50 px-1 py-0.5 align-middle text-[10px] font-semibold text-green-700"
+                            class="mr-1 inline-block rounded bg-green-50 dark:bg-green-950 px-1 py-0.5 align-middle text-[10px] font-semibold text-green-700 dark:text-green-400"
                           >{{ item.area }}</span>{{ item.name }}
                         </p>
-                        <span class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-bold tabular-nums text-amber-700">
+                        <span class="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
                           <UIcon
                             name="i-lucide-star"
                             class="size-3"
@@ -940,19 +940,19 @@ onBeforeUnmount(() => {
                       </div>
                       <p
                         v-if="item.cost !== null"
-                        class="mt-1 text-xs font-medium tabular-nums text-zinc-500"
+                        class="mt-1 text-xs font-medium tabular-nums text-zinc-500 dark:text-zinc-400"
                       >
                         人均约 ¥{{ item.cost }}
                       </p>
                       <p
                         v-if="item.tips.length"
-                        class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500"
+                        class="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
                       >
                         {{ item.tips.join('；') }}
                       </p>
                       <NuxtLink
                         :to="`/map?q=${encodeURIComponent(locateSearchTerm(item.name))}`"
-                        class="mt-2 inline-flex min-h-8 items-center gap-1 rounded-md bg-green-50 px-2.5 text-[11px] font-semibold text-green-700 active:bg-green-100"
+                        class="mt-2 inline-flex min-h-8 items-center gap-1 rounded-md bg-green-50 dark:bg-green-950 px-2.5 text-[11px] font-semibold text-green-700 dark:text-green-400 active:bg-green-100 dark:active:bg-green-900/60"
                         @click.stop
                       >
                         <UIcon
@@ -965,7 +965,7 @@ onBeforeUnmount(() => {
                   </ul>
                   <p
                     v-if="assistantFoodCards.tail"
-                    class="mt-3 whitespace-pre-line text-xs leading-5 text-zinc-500"
+                    class="mt-3 whitespace-pre-line text-xs leading-5 text-zinc-500 dark:text-zinc-400"
                   >
                     {{ assistantFoodCards.tail }}
                   </p>
@@ -973,10 +973,10 @@ onBeforeUnmount(() => {
                 <!-- 单店详情：评分头 + 评价卡片 -->
                 <template v-else-if="assistantShopCards">
                   <div class="mt-3 flex flex-wrap items-center gap-2">
-                    <p class="text-sm font-bold text-zinc-950">
+                    <p class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
                       {{ assistantShopCards.shopName }}
                     </p>
-                    <span class="inline-flex items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-bold tabular-nums text-amber-700">
+                    <span class="inline-flex items-center gap-0.5 rounded-md bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
                       <UIcon
                         name="i-lucide-star"
                         class="size-3"
@@ -984,11 +984,11 @@ onBeforeUnmount(() => {
                     </span>
                     <span
                       v-if="assistantShopCards.cost !== null"
-                      class="rounded-md bg-zinc-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-zinc-600"
+                      class="rounded-md bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-300"
                     >人均约 ¥{{ assistantShopCards.cost }}</span>
                     <NuxtLink
                       :to="`/map?q=${encodeURIComponent(locateSearchTerm(assistantShopCards.shopName))}`"
-                      class="inline-flex min-h-8 items-center gap-1 rounded-md bg-green-50 px-2.5 text-[11px] font-semibold text-green-700 active:bg-green-100"
+                      class="inline-flex min-h-8 items-center gap-1 rounded-md bg-green-50 dark:bg-green-950 px-2.5 text-[11px] font-semibold text-green-700 dark:text-green-400 active:bg-green-100 dark:active:bg-green-900/60"
                       @click.stop
                     >
                       <UIcon
@@ -1002,30 +1002,30 @@ onBeforeUnmount(() => {
                     <li
                       v-for="(review, reviewIndex) in assistantShopCards.reviews"
                       :key="reviewIndex"
-                      class="rounded-xl bg-zinc-50 p-3"
+                      class="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-3"
                     >
                       <div class="flex items-center justify-between gap-2">
-                        <span class="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 ring-1 ring-zinc-200">{{ review.tag }}</span>
+                        <span class="rounded bg-white dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 ring-1 ring-zinc-200 dark:ring-zinc-700">{{ review.tag }}</span>
                         <span
                           v-if="review.score !== null"
-                          class="text-xs font-bold tabular-nums text-amber-700"
+                          class="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300"
                         >{{ review.score.toFixed(1) }} 分</span>
                       </div>
-                      <p class="mt-1.5 text-xs leading-5 text-zinc-600">
+                      <p class="mt-1.5 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
                         {{ review.content }}
                       </p>
                     </li>
                   </ul>
                   <p
                     v-if="assistantShopCards.tail"
-                    class="mt-3 whitespace-pre-line text-xs leading-5 text-zinc-500"
+                    class="mt-3 whitespace-pre-line text-xs leading-5 text-zinc-500 dark:text-zinc-400"
                   >
                     {{ assistantShopCards.tail }}
                   </p>
                 </template>
                 <p
                   v-else
-                  class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700"
+                  class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700 dark:text-zinc-200"
                 >
                   <template
                     v-for="(segment, segIndex) in splitAssistantAnswer(assistantResponse.answer)"
@@ -1037,7 +1037,7 @@ onBeforeUnmount(() => {
                     <NuxtLink
                       v-else
                       :to="`/map?q=${encodeURIComponent(locateSearchTerm(segment.shopName))}`"
-                      class="mx-1 inline-flex items-center gap-0.5 rounded bg-green-50 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-green-700 hover:bg-green-100"
+                      class="mx-1 inline-flex items-center gap-0.5 rounded bg-green-50 dark:bg-green-950 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/60"
                       @click.stop
                     >
                       <UIcon
@@ -1050,9 +1050,9 @@ onBeforeUnmount(() => {
                 </p>
                 <div
                   v-if="assistantResponse.citations.length"
-                  class="mt-4 border-t border-zinc-100 pt-3"
+                  class="mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-3"
                 >
-                  <p class="text-xs font-semibold text-zinc-500">
+                  <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     参考内容
                   </p>
                   <div class="mt-2 flex flex-wrap gap-2">
@@ -1060,7 +1060,7 @@ onBeforeUnmount(() => {
                       v-for="citation in assistantResponse.citations.filter(item => item.source === 'site')"
                       :key="citation.url"
                       :to="citation.url"
-                      class="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs font-semibold text-zinc-700 hover:border-green-300 hover:text-green-700"
+                      class="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400"
                     >
                       <UIcon
                         name="i-lucide-file-text"
@@ -1074,7 +1074,7 @@ onBeforeUnmount(() => {
                       :href="citation.url"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-xs font-semibold text-zinc-700 hover:border-green-300 hover:text-green-700"
+                      class="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400"
                     >
                       <UIcon
                         name="i-lucide-external-link"
@@ -1084,13 +1084,13 @@ onBeforeUnmount(() => {
                     </a>
                   </div>
                 </div>
-                <p class="mt-3 text-xs leading-5 text-zinc-500">
+                <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                   {{ assistantResponse.mode === 'ai' ? 'AI 整理可能有遗漏，日期、费用和办理要求请以学校最新通知为准。' : '站内资料可能未覆盖最新变化，重要事项请以学校最新通知为准。' }}
                 </p>
               </template>
               <div
                 v-else-if="assistantStatus === 'error'"
-                class="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600"
+                class="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300"
               >
                 <span>暂时无法继续整理这个问题。</span>
                 <UButton
@@ -1112,10 +1112,10 @@ onBeforeUnmount(() => {
           class="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3"
         >
           <div>
-            <p class="text-xs text-zinc-500">
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
               “{{ activeQuery }}”{{ listMessages.resultQuerySuffix }}
             </p>
-            <h2 class="mt-1 text-lg font-bold text-zinc-950">
+            <h2 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
               {{ searching ? listMessages.searching : activeSearchMode === 'ai' ? `相关站内内容 ${results.length} 项` : resultCountLabel(results.length) }}
             </h2>
           </div>
@@ -1132,10 +1132,10 @@ onBeforeUnmount(() => {
 
         <nav
           v-if="groupedResults.length > 1"
-          class="mt-4 rounded-lg border border-green-100 bg-green-50/60 p-3"
+          class="mt-4 rounded-lg border border-green-100 dark:border-green-900 bg-green-50/60 dark:bg-green-950/60 p-3"
           aria-label="快速跳到结果分类"
         >
-          <p class="text-xs font-semibold text-green-900">
+          <p class="text-xs font-semibold text-green-900 dark:text-green-300">
             {{ listMessages.jumpToGroups }}
           </p>
           <div class="mt-2 flex flex-wrap gap-2">
@@ -1143,14 +1143,14 @@ onBeforeUnmount(() => {
               v-for="group in groupedResults"
               :key="group.type"
               :href="`#search-group-${group.type}`"
-              class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 bg-white px-3 text-sm font-semibold text-zinc-800 transition-colors hover:border-green-400 hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 dark:border-green-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             >
               <UIcon
                 :name="group.icon"
-                class="size-4 text-green-700"
+                class="size-4 text-green-700 dark:text-green-400"
               />
               <span>{{ group.label }}</span>
-              <span class="text-xs font-normal text-zinc-500">{{ group.items.length }} 项</span>
+              <span class="text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ group.items.length }} 项</span>
             </a>
           </div>
         </nav>
@@ -1168,25 +1168,25 @@ onBeforeUnmount(() => {
             <div class="flex items-center gap-2">
               <UIcon
                 :name="group.icon"
-                class="size-4 text-green-700"
+                class="size-4 text-green-700 dark:text-green-400"
               />
               <h3
                 :id="`search-group-${group.type}`"
-                class="text-sm font-bold text-zinc-950"
+                class="text-sm font-bold text-zinc-950 dark:text-zinc-100"
               >
                 {{ group.label }}
               </h3>
-              <span class="text-xs text-zinc-500">{{ group.items.length }} 项</span>
+              <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ group.items.length }} 项</span>
             </div>
 
-            <div class="mt-2 divide-y divide-zinc-100">
+            <div class="mt-2 divide-y divide-zinc-100 dark:divide-zinc-800">
               <NuxtLink
                 v-for="result in group.items"
                 :key="result.key"
                 :to="result.to"
                 class="group flex min-h-24 items-start gap-3 py-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 sm:gap-4"
               >
-                <span class="grid size-9 shrink-0 place-items-center rounded-md bg-zinc-100 text-zinc-700 group-hover:bg-green-50 group-hover:text-green-700 sm:size-10">
+                <span class="grid size-9 shrink-0 place-items-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 group-hover:bg-green-50 dark:group-hover:bg-green-950 group-hover:text-green-700 dark:group-hover:text-green-400 sm:size-10">
                   <UIcon
                     :name="result.icon"
                     class="size-5"
@@ -1194,7 +1194,7 @@ onBeforeUnmount(() => {
                 </span>
                 <span class="min-w-0 flex-1">
                   <span class="flex flex-wrap items-center gap-2">
-                    <span class="break-words font-bold text-zinc-950">{{ result.title }}</span>
+                    <span class="break-words font-bold text-zinc-950 dark:text-zinc-100">{{ result.title }}</span>
                     <UBadge
                       v-if="result.typeLabel !== group.label"
                       color="neutral"
@@ -1204,10 +1204,10 @@ onBeforeUnmount(() => {
                       {{ result.typeLabel }}
                     </UBadge>
                   </span>
-                  <span class="mt-1.5 line-clamp-2 block text-sm leading-6 text-zinc-600">{{ result.summary }}</span>
+                  <span class="mt-1.5 line-clamp-2 block text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ result.summary }}</span>
                   <span class="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-                    <span class="text-zinc-400">{{ result.sourceLabel }}</span>
-                    <span class="inline-flex items-center gap-1 font-semibold text-green-700">
+                    <span class="text-zinc-400 dark:text-zinc-500">{{ result.sourceLabel }}</span>
+                    <span class="inline-flex items-center gap-1 font-semibold text-green-700 dark:text-green-400">
                       {{ searchResultActionLabel(result.resultType) }}
                       <UIcon
                         name="i-lucide-arrow-right"
@@ -1229,9 +1229,9 @@ onBeforeUnmount(() => {
           <div>
             <UIcon
               name="i-lucide-loader-circle"
-              class="mx-auto size-6 animate-spin text-green-700"
+              class="mx-auto size-6 animate-spin text-green-700 dark:text-green-400"
             />
-            <p class="mt-3 text-sm font-medium text-zinc-600">
+            <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
               {{ listMessages.searching }}
             </p>
           </div>
@@ -1244,12 +1244,12 @@ onBeforeUnmount(() => {
           <div>
             <UIcon
               name="i-lucide-cloud-off"
-              class="mx-auto size-7 text-orange-600"
+              class="mx-auto size-7 text-orange-600 dark:text-orange-300"
             />
-            <p class="mt-3 text-sm font-semibold text-zinc-800">
+            <p class="mt-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
               {{ listMessages.emptyErrorTitle }}
             </p>
-            <p class="mt-1 text-xs leading-5 text-zinc-500">
+            <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
               {{ listMessages.emptyErrorHint }}
             </p>
             <div class="mt-4 flex flex-wrap justify-center gap-2">
@@ -1279,12 +1279,12 @@ onBeforeUnmount(() => {
         >
           <UIcon
             name="i-lucide-search-x"
-            class="mx-auto size-7 text-zinc-400"
+            class="mx-auto size-7 text-zinc-400 dark:text-zinc-500"
           />
-          <p class="mt-3 text-sm font-semibold text-zinc-800">
+          <p class="mt-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             {{ listMessages.emptyMatchTitle }}
           </p>
-          <p class="mt-1 text-xs leading-5 text-zinc-500">
+          <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
             {{ listMessages.emptyMatchHint }}
           </p>
           <div class="mt-4 flex flex-wrap justify-center gap-2">
@@ -1350,11 +1350,11 @@ onBeforeUnmount(() => {
           <div class="flex items-center gap-2">
             <UIcon
               name="i-lucide-sparkles"
-              class="size-4 text-green-700"
+              class="size-4 text-green-700 dark:text-green-400"
             />
             <h2
               id="popular-searches-heading"
-              class="text-base font-bold text-zinc-950"
+              class="text-base font-bold text-zinc-950 dark:text-zinc-100"
             >
               大家常找
             </h2>
@@ -1381,7 +1381,7 @@ onBeforeUnmount(() => {
               </p>
               <h2
                 id="search-starting-points-heading"
-                class="mt-1 text-lg font-bold text-zinc-950"
+                class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100"
               >
                 也可以从这里开始
               </h2>
@@ -1392,21 +1392,21 @@ onBeforeUnmount(() => {
               v-for="item in searchStartingPoints"
               :key="item.to"
               :to="item.to"
-              class="group flex min-h-24 items-start gap-3 rounded-md border border-[var(--line)] bg-white p-4 transition-colors hover:border-green-300 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="group flex min-h-24 items-start gap-3 rounded-md border border-[var(--line)] bg-white dark:bg-zinc-900 p-4 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             >
-              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 text-green-700">
+              <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
                 <UIcon
                   :name="item.icon"
                   class="size-5"
                 />
               </span>
               <span class="min-w-0 flex-1">
-                <span class="font-bold text-zinc-950">{{ item.title }}</span>
-                <span class="mt-1 block text-sm leading-6 text-zinc-600">{{ item.description }}</span>
+                <span class="font-bold text-zinc-950 dark:text-zinc-100">{{ item.title }}</span>
+                <span class="mt-1 block text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ item.description }}</span>
               </span>
               <UIcon
                 name="i-lucide-chevron-right"
-                class="mt-3 size-4 shrink-0 text-zinc-300 transition-colors group-hover:text-green-700"
+                class="mt-3 size-4 shrink-0 text-zinc-300 dark:text-zinc-600 transition-colors group-hover:text-green-700 dark:group-hover:text-green-400"
               />
             </NuxtLink>
           </div>

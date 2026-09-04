@@ -26,12 +26,12 @@ const emit = defineEmits<{
 
 <template>
   <section>
-    <div class="flex items-center justify-between gap-3 border-b border-zinc-200 pb-2">
+    <div class="flex items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-2">
       <div>
-        <h3 class="text-sm font-semibold text-zinc-900">
+        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           办理步骤
         </h3>
-        <p class="mt-0.5 text-xs text-zinc-500">
+        <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
           发布至少需要一个步骤，前台按此处顺序展示。
         </p>
       </div>
@@ -49,10 +49,10 @@ const emit = defineEmits<{
       <article
         v-for="(step, index) in steps"
         :key="step.key"
-        class="rounded-md border border-zinc-200 bg-zinc-50/40 p-3 sm:p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-800/40 p-3 sm:p-4"
       >
         <header class="flex items-center justify-between gap-3">
-          <p class="text-sm font-semibold text-zinc-900">
+          <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             步骤 {{ index + 1 }}
           </p>
           <div class="flex items-center gap-1">
@@ -119,7 +119,7 @@ const emit = defineEmits<{
             required
             class="sm:col-span-2"
           >
-            <div class="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-zinc-200 bg-white px-3 py-2">
+            <div class="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2">
               <UCheckbox
                 v-for="option in audienceOptions"
                 :key="option.value"
@@ -183,7 +183,7 @@ const emit = defineEmits<{
 
       <div
         v-if="steps.length === 0"
-        class="rounded-md border border-dashed border-amber-300 bg-amber-50 p-5 text-center text-sm text-amber-900"
+        class="rounded-md border border-dashed border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 p-5 text-center text-sm text-amber-900 dark:text-amber-300"
       >
         发布流程至少需要一个办理步骤。
       </div>

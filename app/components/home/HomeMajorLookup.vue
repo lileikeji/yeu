@@ -59,7 +59,7 @@ function admissionLabel(profile: MajorProfile): string {
           已按学校{{ currentCohortYear }}年招生计划整理 {{ majorProfiles.length }} 个普通本科专业、{{ majorCollegeCount }} 个学院。输入录取专业，可同时核对学院入口与宿舍片区公开状态。
         </p>
 
-        <dl class="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-white/15">
+        <dl class="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-white/15 dark:bg-zinc-900/15">
           <div class="bg-emerald-950 px-3 py-4">
             <dt class="text-xs text-emerald-200/70">
               普通本科
@@ -114,7 +114,7 @@ function admissionLabel(profile: MajorProfile): string {
         </div>
       </div>
 
-      <div class="min-w-0 rounded-lg border border-white/20 bg-white p-4 text-zinc-950 shadow-2xl shadow-black/20 md:p-6">
+      <div class="min-w-0 rounded-lg border border-white/20 bg-white dark:bg-zinc-900 p-4 text-zinc-950 dark:text-zinc-100 shadow-2xl shadow-black/20 md:p-6">
         <label
           for="major-search"
           class="text-sm font-semibold"
@@ -134,26 +134,26 @@ function admissionLabel(profile: MajorProfile): string {
 
           <div
             v-if="showOptions"
-            class="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 max-h-72 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-1.5 shadow-xl"
+            class="absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 max-h-72 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl"
             role="listbox"
           >
             <button
               v-for="profile in matches"
               :key="profile.name"
               type="button"
-              class="flex min-h-12 w-full items-center justify-between gap-3 rounded-md px-3 text-left hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none"
+              class="flex min-h-12 w-full items-center justify-between gap-3 rounded-md px-3 text-left hover:bg-emerald-50 dark:hover:bg-emerald-950 focus:bg-emerald-50 dark:focus:bg-emerald-950 focus:outline-none"
               role="option"
               @mousedown.prevent="selectMajor(profile)"
             >
               <span class="min-w-0">
                 <span class="block truncate text-sm font-semibold">{{ profile.name }}</span>
-                <span class="block truncate text-xs text-zinc-500">{{ profile.collegeName }}</span>
+                <span class="block truncate text-xs text-zinc-500 dark:text-zinc-400">{{ profile.collegeName }}</span>
               </span>
-              <span class="shrink-0 text-xs text-zinc-400">{{ profile.code }}</span>
+              <span class="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">{{ profile.code }}</span>
             </button>
             <p
               v-if="matches.length === 0"
-              class="px-3 py-5 text-center text-sm text-zinc-500"
+              class="px-3 py-5 text-center text-sm text-zinc-500 dark:text-zinc-400"
             >
               2026招生计划中没有找到这个专业
             </p>
@@ -165,7 +165,7 @@ function admissionLabel(profile: MajorProfile): string {
           class="mt-6"
           aria-live="polite"
         >
-          <div class="flex items-start justify-between gap-4 border-b border-zinc-200 pb-4">
+          <div class="flex items-start justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-4">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
                 <h3 class="text-xl font-bold">
@@ -178,7 +178,7 @@ function admissionLabel(profile: MajorProfile): string {
                   {{ selected.code }}
                 </UBadge>
               </div>
-              <p class="mt-1 text-sm text-zinc-500">
+              <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 {{ admissionLabel(selected) }}
               </p>
             </div>
@@ -193,16 +193,16 @@ function admissionLabel(profile: MajorProfile): string {
 
           <div class="grid gap-5 py-5 sm:grid-cols-2">
             <div>
-              <p class="text-xs font-medium text-zinc-500">
+              <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 所属学院
               </p>
-              <p class="mt-1 font-bold text-emerald-800">
+              <p class="mt-1 font-bold text-emerald-800 dark:text-emerald-300">
                 {{ selected.collegeName }}
               </p>
               <div class="mt-2 flex flex-wrap gap-x-3 text-xs">
                 <NuxtLink
                   :to="`/departments/${selected.collegeSlug}`"
-                  class="inline-flex min-h-11 items-center gap-1 text-emerald-700 hover:text-emerald-900"
+                  class="inline-flex min-h-11 items-center gap-1 text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-300"
                 >
                   本站学院页
                   <UIcon
@@ -214,7 +214,7 @@ function admissionLabel(profile: MajorProfile): string {
                   :href="selected.collegeProfileUrl"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex min-h-11 items-center gap-1 text-zinc-600 hover:text-zinc-950"
+                  class="inline-flex min-h-11 items-center gap-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-100"
                 >
                   学院官网
                   <UIcon
@@ -226,10 +226,10 @@ function admissionLabel(profile: MajorProfile): string {
             </div>
 
             <div>
-              <p class="text-xs font-medium text-zinc-500">
+              <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                 {{ currentCohort }}宿舍片区
               </p>
-              <p class="mt-1 inline-flex items-center gap-2 font-bold text-amber-700">
+              <p class="mt-1 inline-flex items-center gap-2 font-bold text-amber-700 dark:text-amber-300">
                 <UIcon
                   name="i-lucide-clock-3"
                   class="size-4"
@@ -239,19 +239,19 @@ function admissionLabel(profile: MajorProfile): string {
             </div>
           </div>
 
-          <p class="border-l-2 border-amber-400 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-950">
+          <p class="border-l-2 border-amber-400 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-3 py-2.5 text-xs leading-5 text-amber-950">
             {{ selected.dormNote }}
           </p>
         </div>
 
         <div
           v-else
-          class="mt-6 border-t border-zinc-200 pt-5 text-sm leading-6 text-zinc-600"
+          class="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
         >
           <p class="flex items-start gap-2">
             <UIcon
               name="i-lucide-info"
-              class="mt-1 size-4 shrink-0 text-emerald-700"
+              class="mt-1 size-4 shrink-0 text-emerald-700 dark:text-emerald-300"
             />
             页面中的新区/旧区来自用户提供的{{ currentCohort }}专业片区整理，先用于行前参考；最终分配以迎新系统个人结果、录取材料和学校当届通知为准。
           </p>
