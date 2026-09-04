@@ -1545,6 +1545,12 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
       .filter(term => term.length >= 3 && !QUERY_TERM_STOPWORDS.has(term))
     const specificTitleMatch = specificTerms.some(term => title.includes(term.toLocaleLowerCase('zh-CN')))
     const specificTextMatch = specificTerms.some(term => text.includes(term.toLocaleLowerCase('zh-CN')))
+    // Map venue records carry their own authoritative summary (position,
+    // rating, notes). When the query names the venue in any concrete form —
+    // full title, alias, or a distinctive fragment (八洛克台球 → 台球) — the
+    // record itself answers the question, so it must never be zeroed by the
+    // generic subject-coverage gate even when surrounding question words
+    // ("新区有…的吗") dilute the term pool.
     const subjectCovered = profile.intent === 'feature'
       || profile.intent === 'gpa'
       || profile.intent === 'identity'
@@ -1553,7 +1559,14 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
       || item.url.startsWith('/transport#')
       || evidenceCoversQuerySubject(query, item)
       || (score >= 12 && (specificTitleMatch || specificTextMatch))
-    return { ...item, score: subjectCovered ? score : 0 }
+    const mapVenueCoverage = item.url.startsWith('/map?place=')
+      && queryCompactSubjectCoveredByPlace(query, item.title)
+    const subjectCoveredScore = subjectCovered || mapVenueCoverage ? score : 0
+    // Keep venue fragments competitive against area words: “新区有可以打
+    // 台球的吗” must rank 八洛克台球 above every unrelated “新区…” record
+    // that only shares the area qualifier.
+    const venueBoost = mapVenueCoverage ? 40 : 0
+    return { ...item, score: subjectCoveredScore === 0 ? 0 : subjectCoveredScore + venueBoost }
   }).filter(item => item.score > 0)
   const openingEvidence = openingDateQuery
     ? ranked.filter(item => /2026级新生报到|9月5日至6日|9月5至6日|9月10日/u.test(`${item.title} ${item.snippet} ${item.text}`))
@@ -1580,6 +1593,108 @@ function shouldSynthesizeOfficialEvidence(query: string): boolean {
     || isCampusProcedureQuery(query)
     || isClassScheduleQuery(query)
     || Boolean(majorCurriculumNameForQuery(query))
+}
+
+const ARABIC_TO_CHINESE_DIGIT: Record<string, string> = {
+  '0': '零', '1': '一', '2': '二', '3': '三', '4': '四',
+  '5': '五', '6': '六', '7': '七', '8': '八', '9': '九'
+}
+
+/** 8洛克台球 → 八洛克台球：把地点名/查询中的阿拉伯数字逐位换成中文数字。 */
+function chineseDigitNormalized(value: string): string {
+  return value.replace(/[0-9]/g, digit => ARABIC_TO_CHINESE_DIGIT[digit]!)
+}
+
+const MAP_VENUE_QUERY_NOISE_RE = /(?:有|打|玩|去|来|找|是|近|区|楼|的|了|吗|呢|啊|吧|哪里|哪|可|以|能|会|要|想|给|在|个|一|这|那|什么|如何|怎么|开放)/u
+
+/** Same filler/strip normalization as assistantQueryProfile, compacted. */
+function profileMeaningfulCompact(value: string): string {
+  let meaningful = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
+  for (const filler of QUESTION_FILLERS) meaningful = meaningful.replaceAll(filler, ' ')
+  return meaningful
+    .replace(/[?？！!，,。；;：:、()（）【】]/g, ' ')
+    .replace(/\s+/g, '')
+    .replace(/(?:在|里|有|是|吗|呢|哪|可以|能|会|怎么|如何|哪里|附近|学校|附近有)+$/u, '')
+}
+
+/** Published map places whose title the query names (subject-tolerant). */
+function querySubjectMapVenueEvidence(
+  client: DatabaseClient,
+  query: string,
+  limit: number
+): AssistantEvidence[] {
+  // 只处理“点名 nearby 地点”的查询；正文推荐类（吃什么/哪家好）由美食通道负责。
+  const normalizedSubjectQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  if (/吃|美食|推荐|评分|奶茶|火锅|好吃/.test(normalizedSubjectQuery)) return []
+  const subjectHits: Array<{
+    row: { slug: string, name: string, summary: string, body: string, address: string | null, scope: 'campus' | 'nearby' },
+    meaningful: string
+  }> = []
+  const rows = client.db.select({
+    slug: places.slug,
+    name: places.name,
+    summary: places.summary,
+    body: places.body,
+    address: places.address,
+    scope: places.scope
+  }).from(places).where(and(eq(places.status, 'published'), eq(places.scope, 'nearby'))).all()
+  const seenSubjects = new Set<string>()
+  for (const row of rows) {
+    if (row.name.length < 3) continue
+    const meaningful = queryCompactSubjectForPlace(query, row.name)
+    if (!meaningful || seenSubjects.has(meaningful)) continue
+    seenSubjects.add(meaningful)
+    subjectHits.push({ row, meaningful })
+  }
+  // 查询点名多个 nearby 地点时（如“XX和YY都在哪”）不当作单地点查询处理。
+  if (subjectHits.length !== 1) return []
+  const { row, meaningful } = subjectHits[0]!
+  const location = [...new Set([row.address].filter((item): item is string => Boolean(item?.trim())))]
+    .join(' · ')
+  const summary = safeText([location, row.summary].filter(Boolean).join('。'), 500)
+  const body = safeText(row.body, 3000)
+  return [{
+    title: row.name,
+    url: `/map?place=${encodeURIComponent(row.slug)}`,
+    snippet: evidenceSnippet(summary, body, [meaningful]),
+    source: 'site' as const,
+    text: `${summary} ${body}`,
+    score: 10_000 - Math.min(9_000, row.name.length * 8)
+  }]
+}
+
+/** Returns the query subject that names this place, or null when absent. */
+function queryCompactSubjectForPlace(query: string, placeTitle: string): string | null {
+  const compactPlace = chineseDigitNormalized(placeTitle.toLocaleLowerCase('zh-CN').replace(/\s+/g, ''))
+  const meaningful = chineseDigitNormalized(profileMeaningfulCompact(query))
+  if (meaningful.includes(compactPlace)) return compactPlace
+  const candidates: string[] = []
+  for (let index = 0; index < meaningful.length - 1; index += 1) {
+    const fragment = meaningful.slice(index, index + 2)
+    if (!MAP_VENUE_QUERY_NOISE_RE.test(fragment) && compactPlace.includes(fragment)) candidates.push(fragment)
+  }
+  return candidates.length === 0 ? null : candidates.join('')
+}
+
+/**
+ * True when the place title covers the query's venue subject in compact form,
+ * for example “新区有可以打台球的吗” / “附近台球” / “8洛克台球在哪” all name
+ * the place 八洛克台球 (digit-normalized, fragment-tolerant). Question and
+ * area words (新区/附近/可以…) never name a venue and are ignored.
+ */
+function queryCompactSubjectCoveredByPlace(query: string, placeTitle: string): boolean {
+  const compactPlace = chineseDigitNormalized(placeTitle.toLocaleLowerCase('zh-CN').replace(/\s+/g, ''))
+  if (compactPlace.length < 3) return false
+  const meaningful = chineseDigitNormalized(profileMeaningfulCompact(query))
+  if (meaningful.includes(compactPlace)) return true
+  const seen = new Set<string>()
+  for (let index = 0; index < meaningful.length - 1; index += 1) {
+    const fragment = meaningful.slice(index, index + 2)
+    if (MAP_VENUE_QUERY_NOISE_RE.test(fragment) || seen.has(fragment)) continue
+    seen.add(fragment)
+    if (compactPlace.includes(fragment)) return true
+  }
+  return false
 }
 
 /**
@@ -2028,7 +2143,7 @@ function isPlaceLocationQuery(query: string): boolean {
 }
 
 function compactPlaceText(value: string): string {
-  return normalizeAssistantQuery(value)
+  return chineseDigitNormalized(normalizeAssistantQuery(value))
     .toLocaleLowerCase('zh-CN')
     .replace(/[\p{P}\p{S}\s]/gu, '')
 }
@@ -4023,13 +4138,18 @@ export function retrieveCampusEvidence(
         }))
 
   const campusOverviewEvidence = campusOverviewEvidenceForQuery(query)
+  // Subject-tagged map venues (school-adjacent POIs with their own name) are
+  // only recalled when the query actually names them, in any concrete form
+  // ("八洛克台球在哪"/"附近台球"). Generic place rows are not loaded here —
+  // the normal placeEvidence fan-out already covers them.
+  const subjectVenueEvidence = querySubjectMapVenueEvidence(client, query, limit)
   // Reciprocal Rank Fusion normalizes the heterogeneous per-source score
   // scales (keyword evidenceScore, FTS bm25, curated) into one rank-based
   // ordering, so no single source's raw magnitude dominates the combined pool.
   // The original score is preserved in rawScore for the sufficiency checks,
   // while score carries the fused rank so dedupe/ranking compare fairly.
   const sourceLists = [
-    featureEvidence, campusOverviewEvidence, compiledKnowledgeEvidence,
+    subjectVenueEvidence, featureEvidence, campusOverviewEvidence, compiledKnowledgeEvidence,
     officialDocumentEvidence, assistantKnowledgeEvidence, studentRuleEvidence,
     majorEvidence, seedEvidence, placeEvidence, contentEvidence, procedureEvidence
   ]
@@ -5134,6 +5254,92 @@ function earlyShopDetailAnswer(client: DatabaseClient, query: string): ApiAssist
     }],
     usedWebSearch: false,
     confidence: 0.78
+  }
+}
+
+/** Query normalized to its venue subject (place/activity words only). */
+function venueSubjectCompact(query: string): string {
+  let value = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  for (const filler of QUESTION_FILLERS) value = value.replaceAll(filler, ' ')
+  const compact = chineseDigitNormalized(value
+    .replace(/[?？！!，,。；;：:、()（）【】]/g, ' ')
+    .replace(/\s+/g, '')
+    .replace(/(?:有|是|在|里|离|去|打|玩|推荐|哪里|哪|怎么样|好不好|吗|呢|啊|呀|吧|没有|有没有)+$/u, ''))
+  // 地点型问句常把场所名夹在范围/句式词中间（"新区有…的/附近有…吗/哪里可以…"）。
+  // 去掉前导范围与句式外壳后再匹配，避免 "附近台球" 这类写法整个落空。
+  let subject = compact.replace(/^(?:附近|周边|新区|旧区|学校|校内|校外|马甲|镇区|学生街)+/u, '')
+    .replace(/^(?:有|可以|能不能|能|哪里|哪|去|找|个)+/u, '')
+    .replace(/(?:的|里|处|家|那|这|个|附近|周边)+$/u, '')
+    .replace(/^(?:新|旧)区/u, '')
+  // "打台球/玩台球/台球厅/台球房" → 场所核心都是 "台球"。
+  subject = subject.replace(/^(?:打|玩|去|找|个)/u, '')
+  subject = subject.replace(/(?:厅|房|吧|馆|店|场|中心|处|室)$/u, '')
+  return subject
+}
+
+/** 场所通名后缀：整体像"某个场所"而不是陈述/疑问句时才当作地点问题。 */
+const VENUE_SUBJECT_SHAPE_RE = /(?:台球|网吧|理发|美发|健身|运动|球|棋牌|游戏|KTV|唱|桌游|剧本|密室|按摩|足浴|汗蒸|洗浴|游泳池|篮球|足球|羽毛球|乒乓|跆拳道|舞蹈|瑜伽|拳击|射箭|蹦床|卡丁车|保龄|溜冰|旱冰|电玩|游戏机|舞室|体操|田径|跑道|球场|游泳馆|活动中心|体育中心|文化中心|大礼堂|体育馆|操场|馆|店|房|厅|吧|室|场|园|中心|站|铺|阁|轩|居|庄|院|城|楼|社|会所)$/u
+
+const VENUE_SCOPE_WORD_RE = /(?:在哪|哪里|位置|地址|怎么去|怎么走|多远|附近|周边|学校|校内|校外|校区|有没有|可以|能|开放|营业)/u
+
+/**
+ * Nearby（学校周边）venue questions: "台球/附近台球/哪里可以打台球/8洛克台球在哪".
+ * 地图收录的周边 POI 由其自身的 title 判别；只有"附近场所"型问句命中，不会抢走
+ * 美食通道或校园内地点路由。
+ */
+function nearbyVenueLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const subject = venueSubjectCompact(query)
+  // 问句腔（推荐/怎么样/哪里有吃等）与食堂/宿舍等校内主题不是周边 POI 问句。
+  if (subject.length < 2 || subject.length > 12) return null
+  if (/(?:吃|喝|饭|菜|餐|奶茶|咖啡|甜品|食堂)/u.test(subject)) return null
+  const subjectIsVenueShape = VENUE_SUBJECT_SHAPE_RE.test(subject)
+  const rows = client.db.select({
+    name: places.name,
+    slug: places.slug,
+    summary: places.summary,
+    address: places.address
+  }).from(places).where(and(
+    eq(places.status, 'published'),
+    eq(places.scope, 'nearby')
+  )).all()
+  const venue = rows
+    .map(row => ({ row, compact: chineseDigitNormalized(row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')) }))
+    .find(({ compact }) => {
+      if (compact.includes(subject) || subject.includes(compact)) return true
+      // 句式外壳剔除不彻底时（"打台球"），场所形状词 + 任意 2 字片段命中也算。
+      if (!subjectIsVenueShape || compact.length < 3) return false
+      for (let index = 0; index <= subject.length - 2; index += 1) {
+        if (compact.includes(subject.slice(index, index + 2))) return true
+      }
+      return false
+    })
+  if (!venue) return null
+  const { row, compact } = venue
+  if (compact.length < 3) return null
+  if (subject.length >= 3 && !compact.includes(subject) && !subject.includes(compact)) {
+    // 只有场所形状主题（打台球/台球厅）才允许片段级命中。
+    if (!subjectIsVenueShape || subject.length > 8) return null
+  }
+  const asksWhere = VENUE_SCOPE_WORD_RE.test(query)
+  const summary = safeText(row.summary, 300).replace(/[。\s]*$/u, '')
+  const answer = asksWhere
+    ? `${summary}。点击下方入口可以查看地图定位和更多信息。`
+    : `校园地图收录的周边休闲场所中有${row.name}：${summary}。点击下方入口可以查看地图定位和更多信息。`
+  const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }: AssistantEvidence = {
+    title: row.name,
+    url: `/map?place=${encodeURIComponent(row.slug)}`,
+    snippet: summary,
+    source: 'site' as const,
+    text: summary,
+    score: 0
+  }
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: [citation],
+    usedWebSearch: false,
+    confidence: 0.92
   }
 }
 
@@ -6468,6 +6674,10 @@ async function answerCampusQuestionCore(
   // and returns nothing useful). Match the shop against place_amap_ratings.
   const earlyShopDetail = earlyShopDetailAnswer(client, rawQuery)
   if (earlyShopDetail) return earlyShopDetail
+  // 周边 POI 问句（"台球/附近台球/8洛克台球在哪"）：本地地图记录可直接作答，
+  // 不必等检索/网页。
+  const earlyNearbyVenue = nearbyVenueLocalAnswer(client, rawQuery)
+  if (earlyNearbyVenue) return earlyNearbyVenue
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],

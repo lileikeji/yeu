@@ -82,7 +82,10 @@ const CASES: SweepCase[] = [
   // ── 服务设施 / 非美食意图（不得答成餐厅榜单）────────────────────────
   { name: '打印', group: '服务设施', q: '打印在哪', notFoodList: true, require: ['打印|复印|图文'] },
   { name: '理发店推荐', group: '服务设施', q: '理发店推荐', notFoodList: true },
-  { name: '台球', group: '服务设施', q: '新区有可以打台球的吗', notFoodList: true },
+  { name: '台球', group: '服务设施', q: '新区有可以打台球的吗', notFoodList: true, require: ['八洛克台球'] },
+  { name: '附近台球', group: '服务设施', q: '附近台球', notFoodList: true, require: ['八洛克台球'] },
+  { name: '台球厅问法', group: '服务设施', q: '学校附近有台球厅吗', notFoodList: true, require: ['八洛克台球'] },
+  { name: '台球带数字', group: '服务设施', q: '8洛克台球在哪', notFoodList: true, require: ['八洛克台球'] },
   { name: '大门进入', group: '服务设施', q: '新区学生从哪个大门进入学校', notFoodList: true },
   { name: '快递取件', group: '服务设施', q: '快递在哪取', notFoodList: true },
   { name: '超市购物', group: '服务设施', q: '学校附近有超市吗', notFoodList: true },
