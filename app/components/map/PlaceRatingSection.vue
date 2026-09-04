@@ -69,7 +69,7 @@ function formatDate(iso: string): string {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
-function roundScore(value: number | null | undefined): number {
+function _roundScore(value: number | null | undefined): number {
   if (value === null || value === undefined) return 0
   return Math.round(value)
 }
@@ -527,7 +527,7 @@ const mineStatusText = computed<string | null>(() => {
               size="xs"
               icon="i-lucide-pen-line"
               :label="`评价${props.placeName}`"
-              class="!text-green-700"
+              :class="['!bg-white !text-green-700 !ring-green-200 hover:!bg-green-50 active:!bg-green-100', props.variant === 'mobile' ? 'min-h-9 px-3' : '']"
               @click="openForm"
             />
           </template>
@@ -564,6 +564,7 @@ const mineStatusText = computed<string | null>(() => {
               :rows="3"
               size="sm"
               placeholder="说说到店体验：口味、服务、价格、卫生等"
+              class="!bg-white !text-zinc-700 !ring-zinc-200 placeholder:!text-zinc-400"
             />
             <div class="flex items-center gap-2">
               <UButton
@@ -578,6 +579,7 @@ const mineStatusText = computed<string | null>(() => {
                 variant="ghost"
                 size="xs"
                 label="取消"
+                class="!text-zinc-400 hover:!bg-zinc-100 hover:!text-zinc-600"
                 @click="closeForm"
               />
               <span

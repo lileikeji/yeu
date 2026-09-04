@@ -28,6 +28,12 @@ const emit = defineEmits<{
 const safeNavigationUrl = computed(() => safeExternalHref(props.place.navigationUrl))
 const phoneContacts = computed(() => parsePublicPhoneContacts(props.place.phone))
 
+// 卡片固定白底（bg-white），而站点可能处于暗色主题：Nuxt UI neutral 按钮的
+// bg-default/text-default 会解析成暗色，在白卡上变成黑底药丸（评价/纠错/
+// 复制位置/高德导航均已线上复现）。卡片内控件一律显式浅色，不跟随站点主题。
+const lightOutlineClass = '!bg-white !text-zinc-700 !ring-zinc-200 hover:!bg-zinc-50 active:!bg-zinc-100 disabled:!bg-white'
+const lightGhostClass = '!text-zinc-400 hover:!bg-zinc-100 hover:!text-zinc-600'
+
 const navigationTooltip = computed(() => {
   if (!safeNavigationUrl.value) return '这个地点暂时没有可用导航入口'
   return props.place.coordinateVerification === 'owner-map-only'
@@ -70,7 +76,7 @@ const navigationTooltip = computed(() => {
         color="neutral"
         variant="ghost"
         size="xs"
-        :class="props.variant === 'mobile' ? '-mr-1.5 size-8' : 'size-11'"
+        :class="[lightGhostClass, props.variant === 'mobile' ? '-mr-1.5 size-8' : 'size-11']"
         aria-label="关闭地点详情"
         @click="emit('close')"
       />
@@ -255,7 +261,7 @@ const navigationTooltip = computed(() => {
             color="neutral"
             variant="outline"
             size="sm"
-            class="min-h-11 w-full justify-center"
+            :class="['min-h-11 w-full justify-center', lightOutlineClass]"
             :disabled="!safeNavigationUrl"
           />
         </UTooltip>
@@ -269,7 +275,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="outline"
           size="sm"
-          class="min-h-11 w-full justify-center"
+          :class="['min-h-11 w-full justify-center', lightOutlineClass]"
           :disabled="!safeNavigationUrl"
         />
       </div>
@@ -330,7 +336,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="outline"
           size="sm"
-          :class="props.variant === 'mobile' ? 'min-h-9 px-2.5 text-xs' : 'min-h-11'"
+          :class="[lightOutlineClass, props.variant === 'mobile' ? 'min-h-9 px-2.5 text-xs' : 'min-h-11']"
         />
         <UButton
           icon="i-lucide-copy"
@@ -338,7 +344,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="outline"
           size="sm"
-          :class="props.variant === 'mobile' ? 'min-h-9 px-2.5 text-xs' : 'min-h-11'"
+          :class="[lightOutlineClass, props.variant === 'mobile' ? 'min-h-9 px-2.5 text-xs' : 'min-h-11']"
           @click="emit('copy')"
         />
         <UButton
@@ -349,7 +355,7 @@ const navigationTooltip = computed(() => {
           color="neutral"
           variant="ghost"
           size="sm"
-          :class="props.variant === 'mobile' ? 'min-h-9 px-2 text-xs' : 'min-h-11'"
+          :class="[lightGhostClass, props.variant === 'mobile' ? 'min-h-9 px-2 text-xs' : 'min-h-11']"
         />
       </div>
     </div>
