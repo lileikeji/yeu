@@ -85,6 +85,10 @@ const CASES: SweepCase[] = [
   { name: '创业园名词', group: '服务设施', q: '创业园', require: ['创业园', '地图定位'], forbid: ['快递地址'] },
   { name: '图书馆名词', group: '服务设施', q: '图书馆', require: ['图书馆'], forbid: ['舒适型宿舍'] },
   { name: '新区操场名词', group: '服务设施', q: '新区操场', require: ['新区操场', '地图定位'] },
+  { name: '天气不被美食劫持', group: '知识', q: '泉州最近一周天气怎么样', require: ['天气预报'], forbid: ['评分较高的选择', '串烧'] },
+  { name: '下雨问法', group: '知识', q: '泉州明天会下雨吗', forbid: ['海交馆'], require: ['气象|天气'] },
+  { name: '现在几点', group: '知识', q: '现在是几点', require: ['状态栏|时间'], forbid: ['美食'] },
+  { name: '无档案人物引导', group: '知识', q: '宋富国是谁', require: ['没有找到'], forbid: ['评分较高的选择'] },
 
   // ── 服务设施 / 非美食意图（不得答成餐厅榜单）────────────────────────
   { name: '打印', group: '服务设施', q: '打印在哪', notFoodList: true, require: ['打印|复印|图文'] },

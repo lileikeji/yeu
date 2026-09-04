@@ -714,9 +714,9 @@ test('gateway authentication outages fall back without turning an identity quest
     })
 
     assert.equal(response.mode, 'local')
-    assert.match(response.answer, /内置资料暂时没有找到/)
+    // 网关故障时身份问法给出“无档案引导”，而不是答成奖学金/组织条目
+    assert.match(response.answer, /站内公开资料里没有找到「宋国富」/)
     assert.doesNotMatch(response.answer, /奖学金评审通知/)
-    assert.equal(response.citations[0]?.url, '/contact')
   } finally {
     globalThis.fetch = originalFetch
     closeDatabase(databasePath)
@@ -850,7 +850,7 @@ test('identity questions do not turn an organization mention into a person profi
   try {
     runMigrations(client)
     const response = await answerCampusQuestion(client, '吴庆星是谁？', emptyAssistantConfig)
-    assert.match(response.answer, /内置资料暂时没有找到/)
+    assert.match(response.answer, /站内公开资料里没有找到「吴庆星」/)
     assert.doesNotMatch(response.answer, /国旗班/)
   } finally {
     closeDatabase(databasePath)

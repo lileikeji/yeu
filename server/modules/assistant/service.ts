@@ -3043,6 +3043,9 @@ function assistantFoodRecommendationAnswer(
 ): ApiAssistantResponse | null {
   if (capture) capture.kind = 'none'
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  // 天气/气温/预报/台风类问法不是美食意图——必须让路给天气引导，
+  // 否则 “泉州最近一周天气怎么样” 会被答成烧烤店榜单。
+  if (/(?:天气|气温|温度|预报|台风)/u.test(normalized)) return null
   const foodIntent = /(?:吃|美食|餐厅|小吃|学生街|食堂|奶茶|火锅|烧烤|麻辣烫|沙县|推荐|哪家|评分高|好吃|去哪儿|去哪吃|觅食|牛肉|寿司|汉堡|咖啡|饮品|烘焙|甜品|早餐|夜宵|面|粉|鸡排|包子|水饺|饺子|盖饭|快餐|小炒|烧腊|卤味|冰城|雪王|蜜雪|螺蛳粉|烧烤店|火锅店|聚餐|辣的|麻辣|川菜|湘菜|辣味|换口味|换换口味|早饭|不辣|不吃辣|清真|水果|新开|有哪些|喝的|喝什么|饮料|大餐|搓一顿|撮一顿|人均|预算)/u.test(normalized)
   const isQuestion = /(?:推荐|有什么|哪家|吃什么|吃啥|吃点啥|吃什么好|去哪|怎么样|好吃吗|评分|好吃|评价|吃点什么|想吃|聚餐|辣的|吃饭|去吃|换口味|早饭|不辣|清真|水果|新开|有哪些|有哪家|有没有|有无|食堂|大餐|人均|预算|以内|[铺店]|[呢呀啊][?？!！]*$)/u.test(normalized)
   // A bare "推荐/哪家" would match the food intent, but explicit non-food
@@ -5422,6 +5425,29 @@ function mapPlaceNameLocalAnswer(client: DatabaseClient, query: string): ApiAssi
   }
 }
 
+/**
+ * 实时天气/时钟类问法（泉州天气、现在几点）：本站不接实时数据，给诚实引导，
+ * 避免落入“内置资料没有找到”或更糟的美食榜单劫持。
+ */
+function weatherAndClockLocalAnswer(query: string): ApiAssistantResponse | null {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  const asksWeather = /(?:天气|气温|天气预报|气象预报|台风|下雨|降雨|降温|冷空气)/u.test(normalized)
+    && !/(?:空调|预报名|报名|吃什么|好吃|食堂|饭|餐|下雨天吃什么)/u.test(normalized)
+  const asksClock = /^(?:现在|目前|当前|今天)(?:是)?(?:几点|几号)|现在几点了|今天是几月几号/u.test(normalized)
+  if (!asksWeather && !asksClock) return null
+  const answer = asksWeather
+    ? '本站只整理校园资料，不提供实时天气预报。泉州属亚热带季风气候，夏季高温多雨、台风季多集中在7-9月；查当天天气可打开手机天气应用定位“泉州市洛江区”，或看气象部门发布的泉州预报，台风/暴雨预警以当地气象台为准。'
+    : '我没有可靠的对时来源，不方便报时间。看手机状态栏即可；关于校园的报到、上课、食堂营业时间等问题可以直接问我。'
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations: [],
+    usedWebSearch: false,
+    confidence: asksWeather ? 0.6 : 0.55
+  }
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
   // eslint-disable-next-line no-console
   const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
@@ -5438,6 +5464,8 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (majorDormAnswer) return majorDormAnswer
   const identityAnswer = identityLocalAnswer(query, evidence)
   if (identityAnswer) return identityAnswer
+  const identityMiss = identityUnlistedLocalAnswer(query)
+  if (identityMiss) return identityMiss
   const campusOverviewAnswer = campusOverviewLocalAnswer(query, evidence)
   if (campusOverviewAnswer) return campusOverviewAnswer
   const studentRuleAnswer = studentRuleLocalAnswer(query, evidence)
@@ -5579,6 +5607,26 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
     citations: evidence.slice(0, 3).map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
     usedWebSearch: false,
     confidence: Math.min(0.58, 0.32 + primary.score / 120)
+  }
+}
+
+/**
+ * “X是谁”但站内没有任何 X 档案：给诚实引导而不是 0.35 的“没有找到”。
+ * 只在明确是人物询问且检索证据里没有以 X 为标题的条目时触发。
+ */
+function identityUnlistedLocalAnswer(query: string): ApiAssistantResponse | null {
+  const subject = assistantIdentitySubject(query)
+  if (!subject || subject.length > 12) return null
+  if (/^(?:他|她|它|这|那|你|我)/u.test(subject)) return null
+  // 奖学金/活动/建筑等“名+是+谁”的关联对象不是人物，交给其它路径
+  if (/(?:奖学金|助学金|基金|奖项|奖金|比赛|活动|楼|馆|雕像|铜像|项目)/u.test(subject)) return null
+  return {
+    query,
+    mode: 'local',
+    answer: `站内公开资料里没有找到「${subject}」的人物档案。如果${subject}是学校的教职工、学生或与校园相关的人物，可以告诉我全名或所属单位，我再帮你查；本站资料以仰恩大学校园信息为主，外部人物建议直接搜索可靠来源核实。`,
+    citations: [],
+    usedWebSearch: false,
+    confidence: 0.6
   }
 }
 
@@ -6766,6 +6814,9 @@ async function answerCampusQuestionCore(
   // 裸地点名词（“创业园/新区操场”）精确命中地图收录 → 直接定位简介
   const earlyPlaceName = mapPlaceNameLocalAnswer(client, rawQuery)
   if (earlyPlaceName) return earlyPlaceName
+  // 实时天气/时钟引导（不接实时数据但阻止美食榜单劫持与无意义兜底）
+  const earlyWeatherClock = weatherAndClockLocalAnswer(rawQuery)
+  if (earlyWeatherClock) return earlyWeatherClock
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],
@@ -7402,11 +7453,11 @@ async function answerCampusQuestionCore(
           const transitLike = /票价|车费|坐几路|几路车|公交线路|怎么坐|坐公交|K2|K6/.test(query)
           return transitLike
             ? buildLocalResponse(query, localEvidence)
-            : (zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
+            : (identityUnlistedLocalAnswer(query) ?? zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
         }
         return localEvidence[0]
           ? buildLocalResponse(query, localEvidence)
-          : (zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
+          : (identityUnlistedLocalAnswer(query) ?? zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
       }
     )
     const result = withRunMetadata(
