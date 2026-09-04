@@ -45,3 +45,26 @@
 - "理发店推荐"诚实兜底——知识库确无理发类数据（数据缺口，非 bug，不可编造条目）。
 - "去食堂吃"等无问句标记的词组由 API 422 引导走站内搜索，前端无感，属产品预期。
 - **移动端卡片视觉已在生产实测**（375×812 视口截图）：美食榜单商家卡（区域 pill + 评分徽章 + 人均 + 口碑两行 + 地图定位按钮）与单店评价卡（高德评分头 + 标签评价卡）渲染正常。
+
+## 追加 2：hotfix `20260904-qa-cards3`（commit `960cde1`）— 周边 POI 检索修复
+
+线上验证 24 题时发现地图周边 POI（八洛克台球，全库唯一 scope=nearby 地点）的多类问法无法命中：
+
+| 问法 | 修复前 | 修复后 |
+|---|---|---|
+| 8洛克台球在哪 | 内置资料没有找到（数字 8 ≠ 八，精确地点路由失配） | 0.92 直接作答（数字↔中文归一化，`compactPlaceText`/subject 归一化） |
+| 附近台球 / 台球厅 / 附近有台球厅吗 | 0.35~0.58 弱兜底（场所名被句式噪声淹没，subjectCovered 清零） | 0.92 直接作答（新增 subject→nearby-venue 召回源 + `nearbyVenueLocalAnswer` 早路） |
+| 新区有可以打台球的吗 | 答成舒适型宿舍（检索噪声），台球厅字眼丢失 | 0.92 直接作答 |
+
+实现要点（server/modules/assistant/service.ts）：
+- `chineseDigitNormalized`：地点名匹配数字↔中文归一化；`compactPlaceText` 接入。
+- `querySubjectMapVenueEvidence`：retrieveCampusEvidence 内按"查询点名 nearby 地点"精确召回（RRF 第一源，杜绝正文/区域词噪声淹没）；含美食/推荐等问句守卫，不污染正文推荐通道。
+- `subjectCovered` 兜底：地图地点标题含查询主题碎片时不再清零（+40 分）；`profileMeaningfulCompact` 剥离句式外壳。
+- `nearbyVenueLocalAnswer` 早路：台球/网吧/台球厅类"附近场所"问句本地直答（0.92），位于 earlyShopDetail 之后、检索之前。
+- qa:sweep 增补 4 条台球问法回归（现 99 题 / 181 runs 全绿，修复前这些问法全部失败）。
+
+部署：本地 `pnpm build` → `tar -czhf`（-h 解引用 symlink）→ `deploy-home-sheet.sh 20260904-qa-cards3`，冒烟通过；当前 release 为 qa-cards3（同时包含 485ec41 地图暗色卡片适配，qa-cards2 未带该提交）。线上复验：新区有可以打台球的吗 / 8洛克台球在哪 / 附近有台球厅吗 均 0.92 命中八洛克台球；食堂几点开门走知识条目；附近有什么好吃的走 food LLM（mode=ai）；宿舍床尺寸 0.88 正常。
+
+## 未完成（下个会话候选）
+
+- **系统级亮/暗/跟随主题切换**：全站为硬编码浅色主题（26+ 组件 bg-white/text-zinc 等约 2700 处 + main.css CSS 变量），无 colorMode/暗色变量架构；直接加切换会产出大量局部违和（白卡、不可读文本），需要整站暗色 token 化设计与逐屏验收，本会话未实施。
