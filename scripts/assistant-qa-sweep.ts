@@ -78,6 +78,10 @@ const CASES: SweepCase[] = [
   { name: '食堂营业时间', group: '知识', q: '食堂营业时间到几点', require: ['食堂'], notFoodList: true, forbid: ['评分较高的选择', '评分靠前'] },
   { name: '宿舍概览不被美食劫持', group: '知识', q: '宿舍怎么样', notFoodList: true },
   { name: '来源链接', group: '知识', q: '你的知识库来源链接是什么' },
+  { name: '综测怎么算', group: '知识', q: '综测怎么算', require: ['满分100分', '德育25分'] },
+  { name: '英文开学时间', group: '知识', q: 'when does school start?', require: ['September|9月'] },
+  { name: '英文开学短写法', group: '知识', q: 'school start date', require: ['September|9月'] },
+  { name: '电子信息工程教学区引导', group: '知识', q: '电子信息工程教学楼在哪个区', require: ['教学区'], forbid: ['舒适型宿舍'] },
 
   // ── 服务设施 / 非美食意图（不得答成餐厅榜单）────────────────────────
   { name: '打印', group: '服务设施', q: '打印在哪', notFoodList: true, require: ['打印|复印|图文'] },

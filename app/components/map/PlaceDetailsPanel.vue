@@ -32,7 +32,7 @@ const phoneContacts = computed(() => parsePublicPhoneContacts(props.place.phone)
 // bg-default/text-default 会解析成暗色，在白卡上变成黑底药丸（评价/纠错/
 // 复制位置/高德导航均已线上复现）。卡片内控件一律显式浅色，不跟随站点主题。
 const lightOutlineClass = '!bg-white dark:!bg-zinc-800 !text-zinc-700 dark:!text-zinc-200 !ring-zinc-200 dark:!ring-zinc-700 hover:!bg-zinc-50 dark:hover:!bg-zinc-700/60 active:!bg-zinc-100 dark:active:!bg-zinc-700 disabled:!bg-white dark:disabled:!bg-zinc-800'
-const lightGhostClass = '!text-zinc-400 dark:!text-zinc-500 hover:!bg-zinc-100 dark:hover:!bg-zinc-800 hover:!text-zinc-600 dark:hover:!text-zinc-300'
+const lightGhostClass = '!text-zinc-400 dark:!text-zinc-300 hover:!bg-zinc-100 dark:hover:!bg-zinc-800 hover:!text-zinc-600 dark:hover:!text-zinc-100'
 
 const navigationTooltip = computed(() => {
   if (!safeNavigationUrl.value) return '这个地点暂时没有可用导航入口'

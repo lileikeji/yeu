@@ -395,7 +395,7 @@ const MAX_MCP_CONCURRENCY = 2
 // v45: site-meta contact/feedback queries now route to the search-system
 // features (contact / feedback) instead of the web-search fallback. Bumping
 // the version invalidates any previously cached web-route answers.
-const ASSISTANT_CACHE_VERSION = 'rag-v45-site-meta-feature-route'
+const ASSISTANT_CACHE_VERSION = 'rag-v46-site-meta-feature-route'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 /** Build the vector-channel embedding config from assistant runtime config. */
 function assistantEmbeddingConfig(config: AssistantConfig): EmbeddingConfig {
@@ -1732,6 +1732,17 @@ function isDormBedDimensionQuery(query: string): boolean {
 
 const BED_DIMENSION_EVIDENCE_RE = /床垫|床笠|床褥|床铺|床板|寝具|床上用品|床.{0,4}(?:尺寸|规格|长|宽)|(?:尺寸|规格|长宽).{0,4}床|厘米/u
 
+function isEnglishOpeningDateQuery(query: string): boolean {
+  const value = normalizeAssistantQuery(query)
+  if (!/[a-zA-Z]/.test(value)) return false
+  const asksWhen = /(?:when|what\s+(?:day|date|time))\b/i.test(value)
+  const topic = /\b(?:school|semester|term|classes|class|fall|autumn|freshmen?|academic\s+year|university|orientation)\b/i.test(value)
+  const asksStart = /\b(?:start|begin|open|register|enroll)\w*\b/i.test(value)
+  if (asksWhen && topic && asksStart) return true
+  // “school start date / fall semester begins” 这类不带 when 的短写法
+  return /\b(?:school|semester|classes?|fall|autumn|term)\b\s+(?:start|begin|opening|registration)\b/i.test(value)
+}
+
 function isOpeningDateQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   return /(?:什么时候|何时|几号|哪天|日期|时间).{0,6}(?:开学|报到|上课)|(?:开学|报到|上课).{0,6}(?:什么时候|何时|几号|哪天|日期|时间)/.test(normalized)
@@ -2408,7 +2419,7 @@ function teachingLocationLocalAnswer(
     return {
       query,
       mode: 'local',
-      answer: `目前站内资料只核实到：${safeText(registrationSentence || registrationOnly.snippet, 320)}这属于新生报到地点，不等同于该专业后续上课的教学区。电子课表、教学楼和当学期授课安排尚未在已索引资料中确认，请以学院课表或最新通知为准。`,
+      answer: `站内资料暂未确认${major}的上课教学楼/教学区，只核实到与报到相关的安排：${safeText(registrationSentence || registrationOnly.snippet, 260)}报到地点不等于上课地点，当学期课表和教室请以教务系统、学院通知为准。`,
       citations: [citation],
       usedWebSearch: false,
       confidence: 0.78
@@ -4569,11 +4580,19 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
     && comprehensiveCalculationQuery
     && !comprehensiveSpecificTopic
     && !/(?:扣分|加分|排名|表格|统计|怎么填|填写|填表|班级代码|学号|姓名|奖励|处分|旷课|迟到)/.test(normalizedQuery)) {
+    const zongceRuleCitations = citationFor('/student-rules#rule-comprehensive-evaluation')
     return {
       query,
       mode: 'local',
       answer: '综合测评满分100分，由德育25分、智育70分、体育5分组成。智育基础分 = 本人学年平均成绩 ÷ 本年级本专业最高平均成绩 × 60，另按2025版办法计入加扣分。',
-      citations: citationFor('/student-rules#rule-comprehensive-evaluation'),
+      citations: zongceRuleCitations.length > 0
+        ? zongceRuleCitations
+        : [{
+            title: comprehensiveEvaluationRules.title,
+            url: comprehensiveEvaluationRules.sourceUrl,
+            snippet: '2025版综合测评实施办法（' + zongceVersion + '）',
+            source: 'site' as const
+          }],
       usedWebSearch: false,
       confidence: 0.98
     }
@@ -5343,7 +5362,26 @@ function nearbyVenueLocalAnswer(client: DatabaseClient, query: string): ApiAssis
   }
 }
 
+/** 英文开学问法：检索对英文问句无效（会拉到无关英文新闻），直接按已核实校历回答。 */
+function englishOpeningDateLocalAnswer(query: string): ApiAssistantResponse | null {
+  if (!isEnglishOpeningDateQuery(query) || !hardcodedAssistantFactIsCurrent('openingSchedule2026')) return null
+  return {
+    query,
+    mode: 'local',
+    answer: 'Yang-En University（仰恩大学）2026 freshmen register on September 5-6, orientation runs September 7-9, and fall classes begin September 10（2026级新生9月5-6日报到、9月7-9日入学教育、9月10日开课）。个人报到时段、地点和材料以录取通知书及学校最新通知为准。',
+    citations: [{
+      title: '2026级新生报到',
+      url: '/procedures/arrival',
+      snippet: '学校已确认9月5日至6日注册报到、9月7日至9日入学教育、9月10日上课；个人时段、材料、具体报到点和接站安排待学校通知。',
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: 0.98
+  }
+}
+
 function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
+  // eslint-disable-next-line no-console
   const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
   if (welcomeSystemAnswer) return welcomeSystemAnswer
   const transferMonthAnswer = official2026TransferMonthLocalAnswer(query, evidence)
@@ -5368,6 +5406,8 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (quantitativeAnswer) return quantitativeAnswer
   const overviewFallback = broadCampusOverviewFallback(query, evidence)
   if (overviewFallback) return overviewFallback
+  const earlyEnglishOpening = englishOpeningDateLocalAnswer(query)
+  if (earlyEnglishOpening) return earlyEnglishOpening
   const opening = evidence.find(item => item.title === '2026级新生报到')
   if (opening && isOpeningDateQuery(query) && hardcodedAssistantFactIsCurrent('openingSchedule2026')) {
     const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = opening
@@ -6678,6 +6718,9 @@ async function answerCampusQuestionCore(
   // 不必等检索/网页。
   const earlyNearbyVenue = nearbyVenueLocalAnswer(client, rawQuery)
   if (earlyNearbyVenue) return earlyNearbyVenue
+  // 英文开学问法走早路（gap 分支不会进入 buildLocalResponse）
+  const earlyEnglishOpening = englishOpeningDateLocalAnswer(rawQuery)
+  if (earlyEnglishOpening) return earlyEnglishOpening
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],

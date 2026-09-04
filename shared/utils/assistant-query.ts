@@ -135,6 +135,9 @@ export function isQuestionLike(value: string): boolean {
     || QUESTION_MARKERS.some(marker => query.includes(marker))
     || ASSISTANT_COMMAND_PATTERN.test(query)
     || SELF_REFERENTIAL_PATTERN.test(query)
+    // 英文疑问词开头（when/what/how/…）即使不带问号也按提问处理，
+    // 否则英文用户打 “when does school start” 会被 422 引导去站内搜索。
+    || /^(?:when|what|which|how|where|why|who|whose|do|does|is|are|can|could|should)\b/i.test(value)
 }
 
 export function containsPromptInjection(value: string): boolean {
