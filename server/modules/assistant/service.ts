@@ -5464,7 +5464,7 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (majorDormAnswer) return majorDormAnswer
   const identityAnswer = identityLocalAnswer(query, evidence)
   if (identityAnswer) return identityAnswer
-  const identityMiss = identityUnlistedLocalAnswer(query)
+  const identityMiss = identityUnlistedLocalAnswer(query, evidence)
   if (identityMiss) return identityMiss
   const campusOverviewAnswer = campusOverviewLocalAnswer(query, evidence)
   if (campusOverviewAnswer) return campusOverviewAnswer
@@ -5614,12 +5614,23 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
  * “X是谁”但站内没有任何 X 档案：给诚实引导而不是 0.35 的“没有找到”。
  * 只在明确是人物询问且检索证据里没有以 X 为标题的条目时触发。
  */
-function identityUnlistedLocalAnswer(query: string): ApiAssistantResponse | null {
+function identityUnlistedLocalAnswer(
+  query: string,
+  evidence: AssistantEvidence[] = []
+): ApiAssistantResponse | null {
   const subject = assistantIdentitySubject(query)
   if (!subject || subject.length > 12) return null
   if (/^(?:他|她|它|这|那|你|我)/u.test(subject)) return null
   // 奖学金/活动/建筑等“名+是+谁”的关联对象不是人物，交给其它路径
   if (/(?:奖学金|助学金|基金|奖项|奖金|比赛|活动|楼|馆|雕像|铜像|项目)/u.test(subject)) return null
+  // 站内检索已存在该人物的正规档案/简介时不得引导“没有找到”
+  const subjectLower = subject.toLocaleLowerCase('zh-CN')
+  if (evidence.some(item => {
+    const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
+    const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+    return (title === subjectLower || title.startsWith(subjectLower + '｜') || title.startsWith(subjectLower + '|'))
+      || (text.includes(subjectLower) && identityEvidenceIsExplicit(item, subject))
+  })) return null
   return {
     query,
     mode: 'local',
@@ -7453,11 +7464,11 @@ async function answerCampusQuestionCore(
           const transitLike = /票价|车费|坐几路|几路车|公交线路|怎么坐|坐公交|K2|K6/.test(query)
           return transitLike
             ? buildLocalResponse(query, localEvidence)
-            : (identityUnlistedLocalAnswer(query) ?? zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
+            : (identityUnlistedLocalAnswer(query, localEvidence) ?? zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
         }
         return localEvidence[0]
           ? buildLocalResponse(query, localEvidence)
-          : (identityUnlistedLocalAnswer(query) ?? zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
+          : (identityUnlistedLocalAnswer(query, localEvidence) ?? zongceBonusLocalAnswer(query) ?? localEvidenceGapResponse(query))
       }
     )
     const result = withRunMetadata(
@@ -7518,7 +7529,10 @@ async function answerCampusQuestionCore(
   const dbEvidence = rankedEvidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...item }) => item)
   const evidence = dedupeAssistantEvidence([...dbEvidence, ...buildStructuredEvidence(query)])
   const response = await runAssistantStage(tracker, 'answer_generation', '整理答案', async () => {
-    if (evidence.length === 0) return localEvidenceGapResponse(query)
+    // 身份问法（X是谁）本地无档案时先给引导，不必让 LLM 再合成“资料不足”。
+    const earlyIdentityMiss = identityUnlistedLocalAnswer(query, evidence)
+    if (earlyIdentityMiss) return earlyIdentityMiss
+    if (evidence.length === 0) return identityUnlistedLocalAnswer(query, evidence) ?? localEvidenceGapResponse(query)
     if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, evidence)) {
       return admissionPlanCountGapResponse(query, rankedEvidence)
     }
@@ -7536,7 +7550,7 @@ async function answerCampusQuestionCore(
         const transitLike = /票价|车费|坐几路|几路车|公交线路|怎么坐|坐公交|K2|K6/.test(query)
         return transitLike
           ? buildLocalResponse(query, rankedEvidence)
-          : localEvidenceGapResponse(query)
+          : (identityUnlistedLocalAnswer(query, rankedEvidence) ?? localEvidenceGapResponse(query))
       }
       const fallback = buildLocalResponse(query, rankedEvidence)
       return {
