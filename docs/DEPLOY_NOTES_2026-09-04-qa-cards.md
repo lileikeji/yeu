@@ -68,3 +68,21 @@
 ## 未完成（下个会话候选）
 
 - **系统级亮/暗/跟随主题切换**：全站为硬编码浅色主题（26+ 组件 bg-white/text-zinc 等约 2700 处 + main.css CSS 变量），无 colorMode/暗色变量架构；直接加切换会产出大量局部违和（白卡、不可读文本），需要整站暗色 token 化设计与逐屏验收，本会话未实施。
+
+
+## 追加 3：`20260904-map-ime`（commit `bf90fdd`）— 地图搜索中文输入法修复
+
+- 地图搜索框在拼音组词阶段（composition）不再触发筛选/高德 POI 搜索/地图跳转；组词结束才提交搜索（UInput compositionstart/end 守卫，model 提交式更新）
+- 原生 POI 搜索最小 2 字符：单字母/单字不再请求高德并自动定位（本地地点列表过滤不受限）
+- 线上复验：搜索框可正常输入中文；health 200
+
+## 追加 4：`20260904-site-theme`（commit `83c77d9`）— 全站亮/暗/跟随系统主题
+
+用户确认做全站双主题（此前评估未实施项）。本轮交付：
+
+- **架构**：`app/utils/theme-mode.ts`（类型/存储/解析/启动脚本）+ `app/composables/useThemeMode.ts`；启动脚本注入 `<head>`（防暗色用户首帧闪白）；`html.dark` 类驱动——Tailwind `@custom-variant dark` + main.css 暗色 CSS 变量 + Nuxt UI v3 自带 `.dark` token
+- **切换 UI**：`ThemeModeToggle`（跟随系统/浅色/深色 三态 UDropdownMenu），接入 default/admin 布局头部；logo 随主题换用深色变体
+- **双主题化**：约 3456 处浅色类追加 `dark:` 变体（zinc/white 表面、正文/次要文字、品牌色块 chip、边框/分割线/ring/outline、hover/focus 变体、半透明与任意渐变背景）；地图卡片组件（PlaceRatingSection/PlaceDetailsPanel）按既有设计保持"任何主题下白卡"豁免
+- **验收**：本地 12 页×2 视口×2 主题截图（48 张）+ 像素白块检测 + 视觉助手逐页复核；修复首页"重要时间"公告条、campus/nearby 白渐变卡片、畸形 dark:hover 链（217 处）等；浅色零回归
+- **回归**：qa:sweep 99题/181runs 0 失败；pnpm test 1134 回落到基线 7 个既有环境失败（主题改动引入的 8 个类名断言失败已同步放宽，断言语义不变）
+- 部署：`deploy-home-sheet.sh 20260904-site-theme`，线上验证 health 200、SSR 含主题启动脚本、localStorage dark/light 切换后 html 类与页面底色正确
