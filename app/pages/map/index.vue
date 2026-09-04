@@ -157,6 +157,32 @@ const activeMapProviderId = ref<MapProviderId | null>(null)
 const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const mapErrorMessage = ref(MAP_LOAD_ERROR_MESSAGE)
 const searchQuery = ref(mapQueryValue(route.query.q))
+// 中文输入法（拼音/手写）组词期间 value 是中间拼音，不能触发搜索/筛选。
+// 组词结束（compositionend）后按最终值提交一次。
+const searchIsComposing = ref(false)
+
+function commitSearchQuery(value: string): void {
+  searchIsComposing.value = false
+  searchQuery.value = value
+}
+
+function onSearchQueryInput(value: string): void {
+  if (searchIsComposing.value) return
+  searchQuery.value = value
+}
+
+function onSearchCompositionStart(): void {
+  searchIsComposing.value = true
+}
+
+function onSearchCompositionEnd(event: CompositionEvent): void {
+  const target = event.target as HTMLInputElement | null
+  commitSearchQuery(target?.value ?? searchQuery.value)
+}
+
+function clearSearchQuery(): void {
+  commitSearchQuery('')
+}
 const activeCategory = ref(resolveInitialMapCategoryId(initialCategory, categoryIds))
 const selectedPoiId = ref<string | null>(initialSelectedPoiId)
 const selectedArea = ref<MapArea | null>(null)
@@ -719,13 +745,16 @@ onBeforeUnmount(() => {
         </div>
 
         <UInput
-          v-model="searchQuery"
+          :model-value="searchQuery"
           size="md"
           class="min-h-10 w-full md:mt-3 md:min-h-11"
           :ui="{ base: 'min-h-10 md:min-h-11' }"
           icon="i-lucide-search"
           placeholder="搜索地点或附近商家"
           aria-label="搜索地图地点"
+          @update:model-value="onSearchQueryInput"
+          @compositionstart="onSearchCompositionStart"
+          @compositionend="onSearchCompositionEnd"
         >
           <template
             v-if="searchQuery"
@@ -737,7 +766,7 @@ onBeforeUnmount(() => {
               variant="ghost"
               size="xs"
               aria-label="清空搜索"
-              @click="() => { searchQuery = '' }"
+              @click="clearSearchQuery"
             />
           </template>
         </UInput>

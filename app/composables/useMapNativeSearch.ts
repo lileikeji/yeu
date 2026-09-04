@@ -35,7 +35,9 @@ export function useMapNativeSearch(options: UseMapNativeSearchOptions) {
     const query = options.searchQuery.value.trim()
     const provider = options.mapProvider.value
     const request = requestGate.begin(query)
-    if (!query || provider?.id !== 'amap' || options.mapViewMode.value !== 'geographic') {
+    // 单个字符（尤其英文/拼音单字母）做不了有意义的 POI 搜索，只会让地图乱跳。
+    // 站内地点列表的本地过滤不受此限制。
+    if (!query || query.length < 2 || provider?.id !== 'amap' || options.mapViewMode.value !== 'geographic') {
       resetResults()
       return
     }
