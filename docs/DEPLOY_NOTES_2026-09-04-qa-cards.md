@@ -1579,3 +1579,100 @@
 3. sweep 增补 5 条（天气×2/时间/无档案人物/空调温度不误伤，现 110 题 / 192 runs 全绿）；assistant 系列 51/51 + contact 36（基线 2 项既有）；全量测试回到基线 7。
 
 部署链 weather→weather2→weather3（weather3 修正身份引导带证据判定），线上复验：宋富国是谁 0.6 引导、吴庆星是谁 0.96 档案、泉州明天会下雨吗 0.6 天气引导、现在几点 0.55 引导。回滚点 placeqa→weather→weather2。
+## 追加 9：`20260905-venue-presence` — 商家卡片泛问覆盖（好七好七/爱眼眼镜推广后规则补齐）
+
+背景：为八洛克台球同款商家卡片新增两家并启用推广（好七好七小吃店 B0M1JKQNKG 快餐/新区学生街后城47-6号；爱眼眼镜 B02530RLAK 眼镜/新区5街5号，places+place_amap_ratings+place_merchants enabled 20/20，坐标 WGS84 由高德 GCJ02 换算并与既有点互验）。店名问法（好七好七在哪/爱眼眼镜怎么样 0.92）直接可用，但泛问覆盖有洞：`哪里可以配眼镜` 0.1 答"未找到"、`想配一副眼镜去哪` 被 422、`附近有快餐店吗` 0.4 "无法确认"。
+
+1. `shared/utils/assistant-query.ts`：QUESTION_MARKERS 增 `去哪/去哪儿`（无问号的目的地问法不再 422 引导站内搜索）。
+2. `nearbyVenueLocalAnswer` 主题提取（venueSubjectCompact）：服务动词（配/买/修/换/做/取）、"想/要"与量词外壳（一副/一个/两家）一并剥除——"哪里可以配眼镜/想配一副眼镜去哪"核心归一为"眼镜"命中爱眼眼镜；`VENUE_SCOPE_WORD_RE` 增 去哪。
+3. 在场问句（有没有/哪里有…吗/去哪）中餐饮类目词（快餐/小吃/简餐）允许用门店**简介**补命中（店招名"好七好七"不带类目，类目只在简介"快餐小吃店"里）；开放式推荐（有什么吃的/推荐）与奶茶/食堂等仍走原美食通道，防止劫持。缓存版本 rag-v46→`rag-v47-venue-presence`。
+
+部署：`pnpm build` → tar -czhf → `deploy-home-sheet.sh 20260905-venue-presence`（DB 备份 + 3101 冒烟 + 原子切换），线上清 rag-v4x 缓存 15 条。线上复验 16 问：想配一副眼镜去哪/哪里可以配眼镜/配眼镜去哪 0.92 爱眼眼镜；附近有快餐店吗/有没有快餐店/学生街有小吃店吗 0.92 好七好七；8洛克台球在哪/附近有台球厅吗/想打个台球 0.92 八洛克（无回归）；附近有什么好吃的仍走 food AI、附近有奶茶店吗行为不变。回滚点 weather3。
+## 追加 10：`20260905-foodpool-promo` 系列（promo→promo2→promo3→promo4→promo5→promo6）— 无评分推广店进美食推荐池
+
+背景：好七好七（快餐小吃卡）只有 places 行+推广，没有高德评分 → 评分驱动的美食池(place_amap_ratings score>0)永远不带它；且**池子评分行 7 天 TTL 大面积过期**（8/28 批量种子 ~9/5 到期，valid 仅剩 3 条）→ 开放推荐整体哑火。
+
+1. **评分池刷新（数据层）**：本地按 place_amap_ratings 全量 amap_poi_id 逐个 /v3/place/detail 重拉（200ms 限速，132 行 ≈1min），INSERT OR REPLACE 刷新 score/cost/fetched/expires(+7d)；detail 取不到的行仅顺延 expires。顺手清了历史占位行 amap-import-row-02x（用真实 POI id 重建）。备份 yeu.sqlite.bak-20260905-ratings-refresh。⚠️ **周更操作**：评分池过期前必须重跑一次，否则美食榜单/开放推荐全部静默失效（本地脚本套路见记忆）。
+2. **无评分推广店入池**（v48 起，service.ts assistantFoodRecommendationAnswer）：scope=nearby + type dining/food + place_merchants.enabled 的已发布卡片并入候选池（去重 by name）；排序 bias 对 score null 用 4.0 底分（蒙特卡洛：3.7→进 top8-12 仅 13%，4.0→79%）；行/引用渲染 null 安全（"暂无评分"）。
+3. **AI 通道候选语义**（v49/v50）：FoodAiCandidate.score 允许 null——候选 JSON score:null、提示词说明"新收录门店可推荐但别编评分"；无评分卡从简介提炼一句口碑（promoCardTips，"…是学校周边的快餐小吃店…"）进候选 tips 与本地列表，避免 score=0 让 LLM 永不选。
+4. 缓存 rag-v47→v50；线上实测"附近有什么好吃的"15 连问 8/15 提到好七好七（"赶时间随便吃一口，好七好七也能当个简餐备选"），芭比Q/古茗/食堂开放时间等既有问答零回归。
+
+部署链 foodpool-promo→…→promo6（promo4 曾因本地 build 崩溃误传旧产物，复验 current 未切换后以 promo5 重建、promo6 修正候选语义）。回滚点 venue-presence。
+## 追加 11：`20260905-courier-cards` 数据 + `courier-fix` / `courier-list`（rag-v51/v52）— 新旧区驿站卡片与取件问答
+
+**数据（无代码改动，直接入库，备份 yeu.sqlite.bak-20260905-courier-cards）**：新旧区学生街周边 7 家驿站按八洛克卡流程建卡（scope=nearby/type=express-service/category=express/WGS84 坐标+评分行）：新区 菜鸟驿站(仰恩大学店)3.8、兔喜生活(仰恩大学店)4.0、中通快递(仰恩大学店)3.5、圆通快递 2.7、顺丰速运(仰恩大学店)4.1；旧区 邮政快递站 2.6、韵达快递超市 3.1。与既有校内 3 卡（快递联盟（中通）/韵达快递/旧区车来车往（京东））及宝洁洗衣店（圆通、顺丰）并存。注：老手册提到的二街妈妈驿站/三街极兔高德已无 POI（变更以现场/短信为准）。
+
+**courier-fix（v51，venue 匹配修复）**：① nearbyVenue 行匹配改"整名/包含级精确优先、片段模糊兜底"——原片段兜底按行序先扫到含"快递"的中通，导致"邮政快递站在哪"答成中通；② courierStation 驿站名单补"速运"字样（顺丰速运行此前被滤掉）；③ 品牌排序"专名自营站优先于代收代理点"（顺丰速运(仰恩大学店) 在 宝洁洗衣店 前）。
+
+**courier-list（v52）**：① 不带品牌的泛取件问法（"取快递去哪/取件去哪里/拿快递去哪"）→ 列出全部已收录驿站/代收点（0.85，11 家）；② 调度顺序把 courierStation 提到 nearbyVenue 之前（否则泛取件被 venue 两字片段随机命中单店）；"快递在哪取/寄快递去哪"仍走官方指引/手册答案（无劫持）。缓存 v51→v52。回滚点 foodpool-promo6。
+
+线上复验 15 问：泛取件 3 问列全量、邮政/顺丰/中通/圆通/菜鸟各品牌 0.9 专站优先、好七好七/爱眼/8洛克/快餐 0.92 零回归。
+## 追加 12：驿站布局校正（数据层，备份 yeu.sqlite.bak-20260905-yunda-move）
+
+用户现场反馈后校正：① 旧区实际 5 家（邮政快递站/韵达快递超市/宝洁洗衣店(圆通、顺丰)/快递联盟(中通)/旧区车来车往(京东)）——现有卡已齐，无需新增；② 原校区中部老卡"韵达快递"（坐标 118.61087,25.11178 马甲镇道）实为**新区二街韵达、坐标标偏**：已迁移至新区学生街（WGS84 118.597441,25.109276，近洋坑村委会），scope campus→nearby，坐标标 coordinate_verification='unverified'（现场待核，不编门牌）。此后旧区仅一家韵达（韵达快递超市），新区一家（韵达快递）。线上复验：韵达三问法 0.9 双店并列、泛取件列全量 11 家、其余驿站问法零回归。遗留：手册提及的二街妈妈驿站/三街极兔高德无 POI 未建卡；"新区快递站"泛问仍会落到邮政（词面精确匹配，待后续规则细化）。
+## 追加 13：`20260905-home-merchants`（release）— 首页"校园周边商家"卡片区块
+
+设计：首页 full 模式"常用查询"与"按入学阶段"之间新增区块，展示**后台开启推广（place_merchants.enabled=true）的已发布商家**——目前正好是 好七好七(快餐)/爱眼眼镜(眼镜)/八洛克台球(台球) 三家；无推广商家时整块自动隐藏（数据驱动，不加开关）。
+- 新公共接口 `GET /api/public/promoted-merchants`（server/api/public/promoted-merchants.get.ts + shared/types ApiPublicPromotedMerchant）：places ⋈ place_merchants(enabled) LEFT JOIN place_amap_ratings(未过期)，返回 slug/name/type/score/cost/area/tagline（tagline 从简介提炼并去掉"高德评分"尾句去重）；按 promo_weight 降序。
+- composable `usePublicPromotedMerchants`；卡片：图标(按 type dining/utensils、shop/store、sports-ground/dumbbell)+店名+区域 pill(新区/旧区)+评分徽章 ★x.x 或"新店收录"+简介两行+「查看地图定位」→ /map?place=slug；桌面 3 列、移动 1 列，暗色适配。
+- 卡片链接复用地图定位页（与商家详情卡同源），可继续跳转查看评分/评价。
+- 部署事故记录：本 release 第二次部署时先 rm 旧 release 再跑 deploy 导致脚本前置校验 current/.output 失败退出、current 悬空；恢复=先把 current 软链指回完好 release（courier-list）再正常 deploy。经验：**不要预删 releases/<id> 再用同名重部署——直接复用脚本的覆盖逻辑（脚本会因目录已存在而失败，应先换 release id）**。
+- DOM 断言验证（桌面 1280/移动 390）：区块存在、3 卡 3 列/1 列、无横向溢出、徽章×3、标题无截断、暗色背景正常；SSR 含区块。截图像素级复核待视觉服务可用后补（_home_desktop.png/_home_mobile.png）。回滚点 courier-list。
+## 追加 14：`20260905-merchant-badge`（release）— 首页"入驻商家"标识 + 好七好七美团链接
+
+① 首页商家区块标题行新增绿色圆角徽章"入驻商家"（badge-check 图标，亮/暗色适配），副文案改为"入驻学生街的商家均已收录在校园地图…"。② 数据：好七好七 place_merchants.meituan_url='#小程序://美团拼好饭/Ohf6fSJgFJz3hiz'（备份 yeu.sqlite.bak-20260905-haoqi-meituan）；三家推广参数一致 enabled=1/20/20。schema 校验仅限长度≤500，微信 scheme 可存。线上验证：SSR 含标识；/api/public/place-reviews?placeId=B0M1JKQNKG promo.meituanUrl 已生效（地图卡将显示"美团下单+合作商家"条；小程序链接仅微信内可打开）。爱眼眼镜暂无外部链接/二维码，其地图推广条仍隐藏——等商家资产（美团/拼好饭链接或二维码图）到位后同法补齐。回滚点 home-merchants。
+## 追加 15：`20260905-promo-panel`（release）— 地图推广条重构：无评分商家也能显示
+
+问题：地图"美团下单/合作商家"推广条原先挂在评分评价组件(PlaceRatingSection)内，组件整体被 hasAnyContent(需有评分/评价)门控——好七好七这种**无评分新店整个推广条被隐藏**（爱眼眼镜因无链接/二维码同样不显示任何标识）。
+重构：① 推广条从评分组件**迁移到地点详情面板(PlaceDetailsPanel)自取数据独立渲染**（GET place-reviews 的 promo 字段 + 点击埋点 merchant-promo/click），不再受评分内容门控；显示条件=启用推广(权重>0 或有链接/二维码)；有 meituanUrl 显示"美团下单"按钮、有 qrCodeUrl 显示可放大二维码、两者皆无显示"合作商家+已入驻校园地图"说明。② PlaceRatingSection 清理回原状（不重复渲染）。
+线上验证(playwright)：好七好七=美团下单+合作商家×1、八洛克=美团下单+合作商家×1、爱眼眼镜=合作商家×1("已入驻…"说明)，无重复无报错。回滚点 merchant-badge。
+## 追加 16：`20260905-map-cluster` / `map-cluster2` — 移动端地图标点观感优化
+
+用户反馈：首屏/放大后"卡片（标点）显示不全"、移动端标点外没有名称。定位：聚合阈值过深（gridSize 56px、zoom 17 才拆），手机捏合很少到 17 级→学生街一直是大聚合球；另微信 WebView 下 MarkerCluster 可能按创建时错误画布布局导致部分标点缺失。
+改动（map/providers/amap/provider.ts）：① CLUSTER_GRID_SIZE 56→40、CLUSTER_MAX_ZOOM 17→16（放大更早拆出带名字的单点；聚合功能保留，遵循用户偏好）；② 聚合球点击=向点击处放大两级（手机免捏合逐层钻取，lnglat 缺失时安全跳过）；③ rebuildMarkers 成功后 1.6s 一次性 overlay 兜底重排（幂等），缓解微信首屏"只出一部分"；测试同步更新（amap-provider 7/7 绿）。
+验证：桌面首屏名称标签 0→10 直接可见、聚合粒度更细（5 球→11 个更小球，总量不变）；移动端行为需真机/微信复核（聚合球点击钻取 + 一次捏合到 16 级即出名称）。回滚点 promo-panel。
+## 追加 17：`20260905-map-labels`（release）— 移动端图钉名称标签与桌面一致
+
+根因：app/pages/map/index.vue 的 `@media (max-width: 639px)` 曾**故意隐藏**所有非选中 poi/area 名称标签（防小屏拥挤），导致手机上图钉下方无名字、电脑端有。移除该媒体查询（选中高亮样式保留）；配合聚合调优（labels 仅在非聚合的街道层级出现），移动端放大后名称与桌面一致。
+验证：移动端街道层级可见名称标签 0→14（含周边商家与楼宇），桌面 10 个不受影响。回滚点 map-cluster2。
+## 追加 18：`20260905-mobile-perf`（release）— 移动端地图性能与操作感
+
+① **WGS84→GCJ02 转换缓存**（provider 内 Map，按 6 位坐标 key）：分类/搜索切换触发的重建不再重复打 convertFrom 接口，只转换新点；② **转换失败兜底**：超时/不完整不再整批丢点，退回 WGS84 直接绘制（校区偏差数十米），下次成功转换自动纠偏——治弱网"标点缺一半"；③ **setPois 集合不变跳过整套重建**（同 id 序列 + 数量一致时直接 return），减少移动端反复 teardown 的闪烁卡顿；④ 图钉名称标签窄屏(<640px) max-width 172→126px，减少街道层级名字互压。provider 测试 7/7 绿。回滚点 map-labels。
+## 追加 19：`20260905-nav-ux`（release）— 步行导航体验修正
+
+① 规划成功后**不再自动进入相机跟随**：此前 startTracking 会立刻飞到用户位置（17 级），高德 autoFitView 刚取景好的整条路线被甩出屏幕。现在保留实时跟踪蓝点与"距目的地"剩余距离，默认停在路线全景；需要贴身跟随时点既有「跟随」按钮。② 「规划步行路线」按钮在规划进行中禁用（desktop/mobile 两处），防止连点重复起路线实例。geolocation 测试 6/6 绿。回滚点 mobile-perf。
+后续候选（未做，需产品决策）：定位被拒/失败的"手动选起点"降级流程；路口级转向指引。
+## 追加 20：`20260905-nav-manual-steps`（release）— 手动选起点降级 + 路口级步行指引
+
+**① 手动选起点**：定位被拒/不支持的浏览器也能规划——详情面板新增「选起点规划」按钮；规划时定位失败（MAP_GEOLOCATION_FAILED）自动弹起"选择出发地点"弹窗，锚点=已收录的校门+公交/交通站（startAnchors，data 驱动不编坐标）；选定后走 planWalkingMapRouteFrom（跳过 geolocation），定位可用仍开启跟踪显示剩余距离。composable 新增 onWalkingRouteLocationFailed 回调 + startWalkingRouteFrom。
+**② 路口级指引**：RouteSummary 扩展 steps?（MapRouteStep{instruction,distanceMeters}）；高德 Walking 的 steps 摘要解析（≤40 条，空安全）；路线条中部变为可点按钮，展开"步行指引分段"列表（指引文案+分段距离，滚动容器）；clearWalkingRoute 同步清空。
+验证：geolocation/amap-provider 测试 14/14 绿（新增显式起点与 steps 解析断言）；playwright 全链路——手动起点弹窗 8 锚点可选并完成规划；授权定位自动规划后路线条出现、展开可见 2 条真实分段指引。顺带把 map-place-details.test.ts 三条基线旧红断言修绿（面板 56dvh 高度/0.5rem 底距/按按钮 label 计数替代 brittle class 计数）。回滚点 nav-ux。
+## 追加 21：驿站现场校正二（数据层，备份 yeu.sqlite.bak-20260905-post-yunda-move）
+
+用户现场反馈：① 邮政快递站已搬至**旧区北苑餐厅二楼**——按用户在自己地图上圈的位置（医务所/北苑餐厅两锚点线性内插）更新坐标 WGS84 118.612255,25.116774，verified，地址/简介同步（"原第一教学区西北侧点位已搬迁"）；② 旧区吉龙旁的**韵达快递超市**实已搬至**新区学生街江户寿司对面**——高德无江户寿司 POI，按公开线索（后城48-7号）落街面点 WGS84 118.598001,25.109046，unverified 待现场核验。清 rag 缓存后 QA：北苑二楼快递/旧区快递站/韵达各问法均命中新位置。注：新区现有两张韵达卡（"韵达快递"二街近洋坑村委会 + "韵达快递超市"江户寿司对面），若实际仅一家需合并再反馈。
+## 追加 22：韵达布局终校正（数据层，备份 yeu.sqlite.bak-20260905-yunda-restore）
+
+用户澄清：① 旧区"韵达快递超市"（第一教学区西侧150米）**原本就对**——上一轮误搬已恢复原坐标（verified）；② 新区江户寿司对面**另有一家**韵达未标注——新增卡「韵达快递(江户寿司对面)」（slug yunda-jianghuo，id 手动 uuid，scope nearby/type express-service，坐标按后城街面近似落点 WGS84 118.598001,25.109046，unverified；无高德POI/评分故无 ratings 行）。现全库韵达三卡：旧区超市 + 新区二街(近洋坑村委会,unverified) + 新区江户对面(unverified)。⚠️ 两张新区卡坐标相距约60米（都是街面近似点）——若实为同一家需合并；若两家，请给各自更准参照（门牌/隔壁店）以核verified。品牌/泛取件问答已验证三卡齐列。
+## 追加 23：韵达最终布局（数据层，备份 yeu.sqlite.bak-20260905-yunda-final）
+
+用户最终确认的地面真相：① 老卡「韵达快递」的**原始坐标（WGS84 118.61087,25.11178）就在旧区学生街，本来就是对的**——此前两轮误挪（先到新区二街）已归位，verified；② 「韵达快递超市」不在旧区第一教学区西侧（吉龙旁，高德旧点位已失效），实际在**新区学生街江户寿司对面**——搬至 WGS84 118.598001,25.109046（街面近似，unverified 待核）；③ 删除上一轮多建的「韵达快递(江户寿司对面)」卡（与搬迁后的超市重复）。全库现两张韵达卡：旧区学生街(韵达快递) + 新区江户对面(韵达快递超市)。教训：**用户对"哪张卡对应哪家店"的指认可能基于缓存旧图，坐标变更后应让用户刷新再确认一轮**。
+## 追加 24：`20260905-courier-jitu`（release）— 极兔速递(三街)新卡 + 韵达快递超市迁二街
+
+用户再次指正街道归属：① 「韵达快递超市」在**新区学生街二街**（好七好七—爱眼连成的横街）**尾段、我的堡对面**——从上一轮"江户对面"再迁至二街东尾（WGS84 118.598491,25.108826，unverified）；② **三街·江户寿司对面是极兔**——新增卡「极兔速递(三街)」（slug jitu-express，WGS84 118.596341,25.109026，即已标注点以西约85m，unverified）；③ courierStation 驿站名匹配补「速递」字样（否则极兔速递无法被品牌问法命中）。QA：极兔在哪取 0.9 命中新卡；韵达双卡正常；泛取件列表 12 家。备份 yeu.sqlite.bak-20260905-jitu-erjie。遗留：二街/三街两卡均为街面近似点，待用户现场核。
+## 追加 25：`20260905-local-gcj`（release）— 坐标偏移根治：本地 WGS84→GCJ02 换算
+
+用户线上反馈"地图上一半坐标偏移"。根因链：标点原依赖高德 convertFrom 网络接口做 WGS84→GCJ02；接口弱网/超时/限流时（此前也因此表现为"初次少卡片"），20260905-mobile-perf 引入的兜底会把失败批直接按 WGS84 画——GCJ02 底图上即约 +0.0045°/-0.003°（≈450m）的系统偏移，正好"一半点偏"。
+修复（map/providers/amap/provider.ts）：改用**本地确定性换算算法**（标准公开算法，此前已与高德八洛克点对拍 6 位一致），彻底移除 convertFrom 网络依赖、转换缓存/超时/失败兜底一并删除——标点位置恒定、首帧更快、不再受接口可用性影响。amap-provider 测试改为断言本地换算偏移量（7/7 绿）。验证：playwright 拦截坐标转换接口全部请求后，地图标点仍正常渲染 37 个标签、0 报错。回滚点 courier-jitu。
+
+## 追加 26：`20260909-miniapp-api`（release）— 小程序 v1 只读 API 上线，线上 403 消除
+
+小程序模拟器/真机的 `GET /api/miniapp/v1/home` 与 `POST /api/miniapp/v1/track` 此前一律 403 `API_ORIGIN_REJECTED`——根因是**旧 release 未含 miniapp 接入代码**（20260905-local-gcj 的 origin guard 无豁免、路由不存在），不是小程序 header bug。本轮以隔离快照上线：
+
+- **范围**（git 快照提交 `979c8af`，分支 `codex/deploy-artifact-miniapp-20260909`，自 HEAD 948cb5a 只叠加 19 个文件，不含工作树其他无关改动）：`server/api/miniapp/v1/*` 11 个 GET/POST 路由（home/places/guides/procedures/notices/search ± slug、track）；`01-api-origin-guard` 对 miniapp 读路由与精确 track POST 窄放行；`visitor-ban` 覆盖 `/api/miniapp/v1`；新增 `miniapp-api-rate-limit`（GET 600/min/IP）；`notices/service` 增 `getPublicNotice`；`features/service` home entry 透传 featureKey；shared schemas/types 增补 telemetry 校验等。**刻意排除**：`server/api/admin/miniapp/analytics.get.ts` 与后台 miniapp 管理 UI（其依赖 visitors/service 增量 + auth capability 层，留待与后台 UI 同批发布）。
+- **验证**：本地冒烟 7 类 endpoint 无 Origin 全 200、`/api/public/home`（不存在路由）仍 403 证明豁免未扩大；线上（服务器侧 curl，无 Origin）：home/places/guides/procedures/notices/search 全 200（UTF-8 中文完好，如"上海楼"），track POST 200 返回 eventId/visitorId，`/api/public/home` 无 Origin 仍 403、health 200、首页 SSR 200。
+- **生产状态**：`current` → `releases/20260909-miniapp-api`；回滚点 `20260905-local-gcj`；DB 备份 `shared/backups/yeu-before-20260909-miniapp-api.sqlite`。
+- **说明**：miniapp `/home` 与 web `/api/public/home-entries` 当前都返回 `entries=[]`——生产库 70 条已发布内容中 0 条带 `homeEntryEnabled=true` 元数据，属既有数据状态（两接口同源同一函数），非发布回归；小程序值班台首页另有静态功能宫格（地图/流程/指南/通知）+ features 开关兜底。若要内容化入口，需在后台为内容行启用 home entry 元数据（数据/内容运营项）。
+
+## 追加 27：小程序 pages.json 导航栏 schema 修复（编译报错消除）
+
+微信开发者工具反复报 `无效的 app.json window["navigationBar"]` + 各 `page.json ["navigationBar"]`（共 11 条）：根因是 `miniapp/pages.json` 误用了非规范嵌套结构 `"navigationBar": { titleText/titleColor/backgroundColor }`，uni-app 原样拷入 mp-weixin 产物。已改为规范扁平键：页级 `navigationBarTitleText` + globalStyle `navigationBarBackgroundColor:#f4efe5`/`navigationBarTextStyle:black`（微信仅允许 black/white，原深墨 #1f2924 意图以 black 表达）。`pnpm --dir miniapp build` 重建后产物 grep 不到 `"navigationBar"`。**开发者工具操作**：重新导入/编译 `miniapp/unpackage/dist/build/mp-weixin` 即可消错；此后模拟器 API 应 200（release 20260909-miniapp-api 已生效）。**真机/上线剩余项**：小程序后台配置 request 合法域名 `yx.huiliyill.cn`（及 uploadFile/downloadFile 如后续需要）、体验版上传与真机验收；后台 miniapp analytics 未随本 release 上线。
