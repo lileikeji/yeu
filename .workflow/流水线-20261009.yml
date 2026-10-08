@@ -71,8 +71,10 @@ stages:
         DEPLOY_TS="$(date +%Y%m%d-%H%M%S)" ARCHIVE="$ARCHIVE" \
         bash "$WORK_DIR/scripts/server-side-deploy.sh" 2>&1 | tee "$WORK_DIR/deploy.log"
     hostGroupID:
-      ID: ***REMOVED***   # TODO(用户)：在仓库「流水线→主机管理」建组后替换为主机组实际 ID
-      hostID: []            # TODO(用户)：填入生产服务器的主机 UUID
+      ID: ***REMOVED***
+      hostID:
+      # 主机组内 gitee-go-runner agent 的 uuid（个人设置 → 主机管理 → 主机组 ***REMOVED***）
+      - ***REMOVED***
     strategy:
       retry: "0"
 triggers:
