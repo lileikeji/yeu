@@ -19,8 +19,22 @@ const src = computed(() => rawSrc.value.startsWith('/uploads/') ? rawSrc.value :
 const backPath = computed(() => `/recruit/${encodeURIComponent(String(route.params.slug ?? ''))}`)
 
 const hint = computed(() => label.value === '微信支付'
-  ? '长按上方二维码，选择「识别二维码」完成付款'
-  : '截图保存二维码，打开支付宝「扫一扫」从相册选取付款')
+  ? '长按二维码保存到相册，再用微信「扫一扫」从相册识别付款'
+  : '长按二维码保存到相册，打开支付宝「扫一扫」从相册选取付款')
+
+// 微信限制网页内直接长按识别付款码（聊天里可以，网页里不行），
+// 唯一可靠路径是保存图片后从「扫一扫 → 相册」识别，故用分步指引。
+const steps = computed(() => label.value === '微信支付'
+  ? [
+      '长按下方二维码，选择「保存图片」',
+      '回到微信首页，点右上角「+」→「扫一扫」',
+      '点右下角「相册」，选中刚保存的二维码即可付款'
+    ]
+  : [
+      '长按下方二维码，选择「保存图片」',
+      '打开支付宝，点「扫一扫」',
+      '点右下角「相册」，选中该二维码完成付款'
+    ])
 
 useSeoMeta({
   title: () => `${label.value} · 付款码`,
@@ -67,6 +81,22 @@ useSeoMeta({
         variant="soft"
         :to="backPath"
       />
+
+      <ol class="mt-6 w-full space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <li
+          v-for="(step, index) in steps"
+          :key="index"
+          class="flex items-start gap-2 text-sm leading-6 text-zinc-700 dark:text-zinc-300"
+        >
+          <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-bold text-white">
+            {{ index + 1 }}
+          </span>
+          {{ step }}
+        </li>
+      </ol>
+      <p class="mt-2 text-center text-[11px] leading-4 text-zinc-400 dark:text-zinc-500">
+        微信/支付宝限制在网页内直接长按识别付款码，保存到相册后用「扫一扫 · 相册」识别即可正常付款。
+      </p>
     </div>
   </div>
 </template>
