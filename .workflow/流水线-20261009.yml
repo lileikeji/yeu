@@ -15,26 +15,25 @@ stages:
   - step: build@nodejs
     name: build-and-test
     displayName: 安装/测试/构建
-    nodeVersion: "22"   # package.json engines 要求 >=22 <25（首跑 node 20 报 ERR_PNPM_UNSUPPORTED_ENGINE）
+    nodeVersion: "20.10.0"
     commands:
-    - npm i -g pnpm@10
-    - pnpm install --frozen-lockfile
-    # 全量单元测试：失败即停，不跳过（与本地 deploy.sh 同一闸门）
-    - pnpm test
-    # 2C4G 构建环境防 OOM：显式抬 Node 堆上限；BUILD_EXIT 必须为 0
-    - export NODE_OPTIONS=--max-old-space-size=3072
-    - pnpm build
-    - test -f .output/server/index.mjs
+    # Gitee Go 的 nodejs step 版本枚举最高只到 20，而 engines 要求 >=22 <25——
+    # 自行解压 Node 22 官方二进制（与生产服务器 /opt/node-v22.18.0 同版本），PATH 前置覆盖
+    - curl -fsSL https://nodejs.org/dist/v22.18.0/node-v22.18.0-linux-x64.tar.gz -o /tmp/node22.tar.gz && mkdir -p /opt/node22 && tar -xzf /tmp/node22.tar.gz -C /opt/node22 --strip-components=1
+    - export PATH=/opt/node22/bin:$PATH && node -v
+    # 关键链 && 串联：Gitee step 命令默认失败不中断，必须显式短路（全量测试失败即停）
+    - npm i -g pnpm@10 && pnpm install --frozen-lockfile && pnpm test
+    # 2C4G 构建环境防 OOM：显式抬 Node 堆上限
+    - export NODE_OPTIONS=--max-old-space-size=3072 && pnpm build && test -f .output/server/index.mjs
     # 制品只含构建产物与部署脚本（源码本身在服务器上没有检出，无需打包）
-    - git rev-parse HEAD > build-sha.txt
-    - tar -czhf yeu-release.tar.gz .output build-sha.txt scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh
+    - git rev-parse HEAD > build-sha.txt && tar -czhf yeu-release.tar.gz .output build-sha.txt scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh
     artifacts:
     - name: RELEASE
       path:
       - yeu-release.tar.gz
       type: .tar.gz
     caches:
-    - "~/.pnpm-store"
+    - "~/.local/share/pnpm"
     - "~/.npm"
     strategy:
       retry: "0"
