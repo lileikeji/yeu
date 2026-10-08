@@ -34,6 +34,20 @@ stages:
       resource:
         cpu: "2"
         memory: "4"
+  - step: build@nodejs
+    name: typecheck
+    displayName: 全量类型检查（与构建并行）
+    nodeVersion: "20.10.0"
+    commands:
+    - curl -fsSL https://nodejs.org/dist/v22.20.0/node-v22.20.0-linux-x64.tar.gz -o /tmp/node22.tar.gz && mkdir -p /opt/node22 && tar -xzf /tmp/node22.tar.gz -C /opt/node22 --strip-components=1 && export PATH=/opt/node22/bin:$PATH && node -v && npm i -g pnpm@10 && pnpm install --frozen-lockfile && export NODE_OPTIONS=--max-old-space-size=3072 && pnpm typecheck
+    caches:
+    - "~/.local/share/pnpm"
+    - "~/.npm"
+    strategy:
+      retry: "0"
+      resource:
+        cpu: "2"
+        memory: "4"
 - name: 部署
   displayName: 主机部署（备份 → 冒烟 → 切换 → 健康检查）
   strategy: naturally
