@@ -15,7 +15,7 @@ stages:
   - step: build@nodejs
     name: build-and-test
     displayName: 安装/测试/构建
-    nodeVersion: "20"
+    nodeVersion: "22"   # package.json engines 要求 >=22 <25（首跑 node 20 报 ERR_PNPM_UNSUPPORTED_ENGINE）
     commands:
     - npm i -g pnpm@10
     - pnpm install --frozen-lockfile
