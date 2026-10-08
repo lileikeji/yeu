@@ -62,16 +62,17 @@ async function loadForm(): Promise<void> {
   notFound.value = false
   try {
     payload.value = await $fetch<PublicRecruitPayload>(`/api/public/recruit/${encodeURIComponent(slug.value)}`)
-    const draft = payload.value?.form?.draft ?? {}
+    const draft = payload.value?.form?.draft ?? null
+    const draftData = draft?.data ?? {}
     textValues.value = Object.fromEntries(fields.value
       .filter(field => field.type !== 'multiselect')
-      .map(field => [field.key, typeof draft[field.key] === 'string' ? draft[field.key] as string : '']))
+      .map(field => [field.key, typeof draftData[field.key] === 'string' ? draftData[field.key] as string : '']))
     multiValues.value = Object.fromEntries(fields.value
       .filter(field => field.type === 'multiselect')
-      .map(field => [field.key, Array.isArray(draft[field.key]) ? draft[field.key] as string[] : []]))
-    if (draft.submitted) {
+      .map(field => [field.key, Array.isArray(draftData[field.key]) ? draftData[field.key] as string[] : []]))
+    if (draft?.submitted) {
       submittedInfo.value = { data: draft.data }
-    } else if (Object.keys(draft).length > 0) {
+    } else if (Object.keys(draftData).length > 0) {
       hasSavedDraft.value = true
       toast.add({ title: '已恢复上次填写的进度', description: '继续填写即可，内容会自动保存。', color: 'success' })
     }
