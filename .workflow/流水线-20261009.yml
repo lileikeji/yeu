@@ -56,7 +56,8 @@ stages:
       exec 9>/root/gitee-deploy/deploy.lock
       flock 9
       WORK_DIR="$(mktemp -d /root/gitee-deploy/run.XXXXXX)"
-      tar zxf /root/gitee-deploy/yeu-release.tar.gz -C "$WORK_DIR"
+      # 制品落盘名 = deployArtifact name + .tar.gz（Gitee 自动补后缀），即 release.tar.gz
+      tar zxf /root/gitee-deploy/release.tar.gz -C "$WORK_DIR"
       # 提交号一致性：制品内 build-sha 必须等于本次流水线触发的提交
       BUILD_SHA="$(cat "$WORK_DIR/build-sha.txt")"
       [[ "$BUILD_SHA" =~ ^[0-9a-f]{40}$ ]]
