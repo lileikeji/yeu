@@ -178,7 +178,7 @@ Get-Content ./data/backups/yeu-<timestamp>.sqlite.json
 - `public/` 只放允许公开、体积可接受且已登记来源的静态资源。
 - `storage/uploads/` 是运行时目录，生产使用 `/www/wwwroot/yeu/shared/uploads`，不进 Git。
 - 高德工作地图的原始响应、Cookie、登录信息和原始表格不进 Git；只提交最小化、脱敏、可审计的结果。
-- 地图来源和坐标状态以 `docs/MAP_DATA_READINESS.md`、`docs/RESEARCH_SOURCES.md` 和数据库审核状态为准。
+- 地图来源和坐标状态以后台数据库审核状态（place_sources、地点核验字段）为准，治理规则见 `docs/CONTENT_POLICY.md`。
 
 相关命令：
 

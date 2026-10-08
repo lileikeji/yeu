@@ -8,6 +8,7 @@
 
 ## 1. 生产原则
 
+- **日常发布一律走 `bash scripts/deploy.sh`**（闸门：脏工作区拒绝 → 缓存版本确认 → 全量测试 → BUILD_EXIT 核验 → tar md5 防旧产物 → 上传 → 服务器端 `scripts/server-side-deploy.sh` 备份/冒烟/原子切换/写 DEPLOYED 标记）；Gitee 流水线（`.workflow/`）push `main` 时复用同一份服务端脚本。服务器上的 `deploy-home-sheet.sh` 以仓库 `scripts/deploy-home-sheet.sh` 为事实源，每次部署自动覆盖。下文的手工步骤仅用于首次建站与特殊运维。
 - 推荐 Node.js 22 LTS，并在部署前以 `package.json` 和 Nuxt 当前版本的 engines 要求复核；pnpm 使用仓库声明的 10.28.1 版本。
 - 应用进程使用独立低权限 Linux 用户运行，不使用 root；Nginx 只读静态文件和公开上传目录。
 - SQLite 只由一个 `yeu.service` 实例写入，禁止 PM2、cluster 或多实例并发。扩展为多实例前先迁移到服务型数据库。

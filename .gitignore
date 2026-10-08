@@ -59,6 +59,35 @@ data/production-monitor-state.json
 # Ad-hoc local probe / sync scripts (never commit secrets)
 _*.py
 
+# Local release bundles (deploy bundles stay out of Git; see scripts/deploy.sh)
+/*.tar.gz
+/deploy-state.json
+
+# Root-level debugging screenshots and probe scripts
+/diag-*.png
+/shot-*.png
+/shots-*.png
+/shots/
+/inspect-*.png
+/inspect-*.mjs
+/verify-*.mjs
+/_home_*.png
+/dsh-web-root.png
+/_*.ts
+/main.py
+
+# Local AI/agent tooling state
+.dsh-mineru/
+.zcode/
+.claude/
+.vscode/
+/ai/
+/deepseek-harness/
+_worktree-*-backup/
+
+# Ad-hoc data exports at repo root
+/yeu-*.json
+
 # Local release bundles and private grade exports
 deploy-output*.tar*
 deploy-source.tar

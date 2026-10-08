@@ -45,9 +45,9 @@
 | 页面、路由、前台入口或后台模块 | `docs/INFORMATION_ARCHITECTURE.md`、`docs/README.md` | 目标桌面/移动入口和权限状态 |
 | 数据表、迁移、发布状态或知识索引 | `docs/DATA_MODEL.md`、`docs/CONTENT_POLICY.md` | 迁移、读写、发布/下线和数据一致性 |
 | AI 路由、检索、缓存、模型或 MCP | `docs/ARCHITECTURE.md`、`docs/ADMIN_RUNBOOK.md` | 命中、无命中、降级、超时、敏感信息和日志 |
-| 地图 provider、坐标、路线或内嵌浏览器兼容 | `docs/ARCHITECTURE.md`、`docs/MAP_INTERACTION_SPEC.md`、`docs/MAP_DATA_READINESS.md` | 桌面、移动、微信/QQ、失败降级和真实坐标 |
+| 地图 provider、坐标、路线或内嵌浏览器兼容 | `docs/ARCHITECTURE.md`、`docs/MAP_INTERACTION_SPEC.md` | 桌面、移动、微信/QQ、失败降级和真实坐标 |
 | PWA、缓存、CDN、Nginx 或进程守护 | `docs/ARCHITECTURE.md`、`docs/DEPLOYMENT.md` | 健康端点、缓存头、重启恢复、回滚 |
-| 内容抓取、PDF/图片导入或来源治理 | `docs/CONTENT_POLICY.md`、`docs/RESEARCH_SOURCES.md` | 去重、来源、审核状态、版权和可追溯性 |
+| 内容抓取、PDF/图片导入或来源治理 | `docs/CONTENT_POLICY.md` | 去重、来源、审核状态、版权和可追溯性 |
 | 账号、访客、聊天、机器人或微信接入 | `docs/ARCHITECTURE.md`、`docs/ADMIN_RUNBOOK.md` | 鉴权、限流、审计、隐私和断线重连 |
 
 ## 4. 持续改进规则

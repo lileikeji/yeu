@@ -1,0 +1,93 @@
+version: "1.0"
+name: 生产部署
+displayName: 生产部署（push main 云端构建 → 服务器部署）
+# 使用前提（Gitee 仓库控制台一次性配置，约 10 分钟）：
+# 1. 仓库「流水线」页开通流水线（免费版每月 1000 核分；本流水线构建约 8-15 分钟/次）。
+# 2. 「主机管理」新建主机组（建议名称 ***REMOVED***），加入生产服务器并配置 SSH 凭据，
+#    把下方 hostGroupID 的 ID 替换为主机组实际标识。
+# 构建发生在 Gitee 云端环境，不占用生产服务器资源；服务器只执行部署脚本。
+stages:
+- name: 构建
+  displayName: 云端构建（测试 + 构建，不碰服务器）
+  strategy: naturally
+  trigger: auto
+  steps:
+  - step: build@nodejs
+    name: build-and-test
+    displayName: 安装/测试/构建
+    nodeVersion: "20"
+    commands:
+    - npm i -g pnpm@10
+    - pnpm install --frozen-lockfile
+    # 全量单元测试：失败即停，不跳过（与本地 deploy.sh 同一闸门）
+    - pnpm test
+    # 2C4G 构建环境防 OOM：显式抬 Node 堆上限；BUILD_EXIT 必须为 0
+    - export NODE_OPTIONS=--max-old-space-size=3072
+    - pnpm build
+    - test -f .output/server/index.mjs
+    # 制品只含构建产物与部署脚本（源码本身在服务器上没有检出，无需打包）
+    - git rev-parse HEAD > build-sha.txt
+    - tar -czhf yeu-release.tar.gz .output build-sha.txt scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh
+    artifacts:
+    - name: RELEASE
+      path:
+      - yeu-release.tar.gz
+      type: .tar.gz
+    caches:
+    - "~/.pnpm-store"
+    - "~/.npm"
+    strategy:
+      retry: "0"
+      resource:
+        cpu: "2"
+        memory: "4"
+- name: 部署
+  displayName: 主机部署（备份 → 冒烟 → 切换 → 健康检查）
+  strategy: naturally
+  trigger: auto
+  steps:
+  - step: deploy@agent
+    name: deploy-to-server
+    displayName: 部署到生产服务器
+    deployArtifact:
+    - name: release
+      target: /root/gitee-deploy/
+      source: build
+      dependArtifact: RELEASE
+      artifactRepository: default
+      artifactName: output
+      artifactVersion: latest
+    script: |-
+      set -euo pipefail
+      mkdir -p /root/gitee-deploy
+      exec 9>/root/gitee-deploy/deploy.lock
+      flock 9
+      WORK_DIR="$(mktemp -d /root/gitee-deploy/run.XXXXXX)"
+      tar zxf /root/gitee-deploy/yeu-release.tar.gz -C "$WORK_DIR"
+      # 提交号一致性：制品内 build-sha 必须等于本次流水线触发的提交
+      BUILD_SHA="$(cat "$WORK_DIR/build-sha.txt")"
+      [[ "$BUILD_SHA" =~ ^[0-9a-f]{40}$ ]]
+      [[ -z "${GITEE_SHORT_COMMIT:-}" || "$BUILD_SHA" == "$GITEE_SHORT_COMMIT"* ]]
+      test -f "$WORK_DIR/.output/server/index.mjs"
+      test -f "$WORK_DIR/scripts/server-side-deploy.sh"
+      # 复用与本地 deploy.sh 相同的服务端脚本（备份/冒烟/切换/回滚/标记）
+      RELEASE_ID="$(date +%Y%m%d)-${GITEE_SHORT_COMMIT:-manual}"
+      ARCHIVE="$WORK_DIR/release-bundle.tar.gz"
+      tar -czf "$ARCHIVE" -C "$WORK_DIR" .output
+      RELEASE_ID="$RELEASE_ID" DEPLOY_SHA="$BUILD_SHA" \
+        DEPLOY_TS="$(date +%Y%m%d-%H%M%S)" ARCHIVE="$ARCHIVE" \
+        bash "$WORK_DIR/scripts/server-side-deploy.sh" 2>&1 | tee "$WORK_DIR/deploy.log"
+    hostGroupID:
+      ID: ***REMOVED***   # TODO(用户)：在仓库「流水线→主机管理」建组后替换为主机组实际 ID
+      hostID: []            # TODO(用户)：填入生产服务器的主机 UUID
+    strategy:
+      retry: "0"
+triggers:
+  trigger: auto
+  push:
+    branches:
+      prefix: []
+      precise:
+      - master
+      include: []
+notify: []

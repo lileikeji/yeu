@@ -423,4 +423,4 @@
 - 学生账号与 AI 检索：在内容库稳定、隐私方案明确后建设，用于跨设备收藏、个性化回答和来源可追溯的问答。
 - 官方合作：增加学校/部门身份、分级审核、操作审计、官方标识和数据导出/交接能力。
 
-具体阶段与发布门槛见 [ROADMAP.md](./ROADMAP.md)，页面和流程结构见 [INFORMATION_ARCHITECTURE.md](./INFORMATION_ARCHITECTURE.md)，地图行为与验收细则见 [MAP_INTERACTION_SPEC.md](./MAP_INTERACTION_SPEC.md)。
+当前阶段以根 [README](../README.md) 为准，页面和流程结构见 [INFORMATION_ARCHITECTURE.md](./INFORMATION_ARCHITECTURE.md)，地图行为与验收细则见 [MAP_INTERACTION_SPEC.md](./MAP_INTERACTION_SPEC.md)。

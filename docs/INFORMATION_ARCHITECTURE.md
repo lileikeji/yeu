@@ -2,7 +2,7 @@
 
 > 文档版本：0.1
 > 适用范围：MVP 前台、单人维护后台、PWA 与微信内访问
-> 关联文档：[PRD.md](./PRD.md)、[ROADMAP.md](./ROADMAP.md)、[MAP_INTERACTION_SPEC.md](./MAP_INTERACTION_SPEC.md)
+> 关联文档：[PRD.md](./PRD.md)、[MAP_INTERACTION_SPEC.md](./MAP_INTERACTION_SPEC.md)
 
 ## 1. 架构目标
 
