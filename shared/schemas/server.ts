@@ -722,6 +722,14 @@ export const publicProceduresQuerySchema = paginationQuerySchema.extend({
   audience: z.enum(PROCEDURE_AUDIENCES).optional()
 })
 
+export const NEARBY_GUIDE_SCOPES = ['nearby', 'city'] as const
+
+/** 周边攻略是静态整理内容，只需要 scope / category 两个筛选条件。 */
+export const nearbyGuideQuerySchema = z.object({
+  scope: z.enum(NEARBY_GUIDE_SCOPES).optional(),
+  category: z.string().trim().max(40).optional()
+})
+
 export const adminProceduresQuerySchema = publicProceduresQuerySchema.extend({
   status: z.enum(['draft', 'published', 'archived']).optional()
 })
@@ -790,6 +798,99 @@ export const visitorTrackSchema = z.object({
   meta: z.record(z.string(), z.unknown()).optional()
 }).strict()
 
+export const MINIAPP_TELEMETRY_ACTIONS = [
+  'page_view',
+  'module_view',
+  'search_submit',
+  'result_click',
+  'map_marker_select',
+  'open_location',
+  'route_plan',
+  'api_request',
+  'api_error',
+  'feedback_open'
+] as const
+
+const MINIAPP_TELEMETRY_META_MAX_KEYS = 32
+const MINIAPP_TELEMETRY_META_MAX_JSON_CHARS = 8_192
+const MINIAPP_TELEMETRY_META_MAX_DEPTH = 4
+
+function metadataDepthForTelemetry(value: unknown, depth = 0): number {
+  if (depth > MINIAPP_TELEMETRY_META_MAX_DEPTH || value === null || typeof value !== 'object') {
+    return depth
+  }
+  const children = Array.isArray(value) ? value : Object.values(value as Record<string, unknown>)
+  return children.reduce(
+    (max, child) => Math.max(max, metadataDepthForTelemetry(child, depth + 1)),
+    depth
+  )
+}
+
+const MINIAPP_TELEMETRY_ACTION_ALIASES: Record<string, typeof MINIAPP_TELEMETRY_ACTIONS[number]> = {
+  result_open: 'result_click',
+  map_marker: 'map_marker_select',
+  navigation: 'open_location',
+  search: 'search_submit'
+}
+
+export const miniappTelemetrySchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw
+  const value = raw as Record<string, unknown>
+  const action = typeof value.action === 'string'
+    ? MINIAPP_TELEMETRY_ACTION_ALIASES[value.action] ?? value.action
+    : value.action
+  return { ...value, action }
+}, z.object({
+  action: z.enum(MINIAPP_TELEMETRY_ACTIONS),
+  pathname: z.string().trim().max(2048).optional(),
+  path: z.string().trim().max(2048).optional(),
+  meta: z.record(z.string().max(80), z.unknown()).optional()
+}).strict().superRefine((value, context) => {
+  if (value.pathname === undefined && value.path === undefined) return
+  const candidate = value.pathname ?? value.path
+  if (candidate && (!candidate.startsWith('/') || candidate.includes('://'))) {
+    context.addIssue({
+      code: 'custom',
+      path: ['pathname'],
+      message: 'pathname must be an application-local path'
+    })
+  }
+  if (!value.meta) return
+  if (Object.keys(value.meta).length > MINIAPP_TELEMETRY_META_MAX_KEYS) {
+    context.addIssue({
+      code: 'custom',
+      path: ['meta'],
+      message: `meta may contain at most ${MINIAPP_TELEMETRY_META_MAX_KEYS} keys`
+    })
+  }
+  if (metadataDepthForTelemetry(value.meta) > MINIAPP_TELEMETRY_META_MAX_DEPTH) {
+    context.addIssue({
+      code: 'custom',
+      path: ['meta'],
+      message: `meta nesting exceeds ${MINIAPP_TELEMETRY_META_MAX_DEPTH} levels`
+    })
+  }
+  try {
+    if (JSON.stringify(value.meta).length > MINIAPP_TELEMETRY_META_MAX_JSON_CHARS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['meta'],
+        message: `meta JSON exceeds ${MINIAPP_TELEMETRY_META_MAX_JSON_CHARS} characters`
+      })
+    }
+  } catch {
+    context.addIssue({
+      code: 'custom',
+      path: ['meta'],
+      message: 'meta must be JSON-serializable'
+    })
+  }
+}))
+
+export const adminMiniappAnalyticsQuerySchema = z.object({
+  hours: z.coerce.number().int().min(1).max(720).default(24)
+}).strict()
+
 export const publicPageViewStatsQuerySchema = z.object({
   path: z.string().trim().min(1).max(2048).default('/')
 }).strict()
@@ -823,7 +924,8 @@ export const adminAssistantRunsQuerySchema = paginationQuerySchema.extend({
     'web_search',
     'error'
   ]).optional(),
-  success: z.enum(['true', 'false']).optional()
+  success: z.enum(['true', 'false']).optional(),
+  channel: z.enum(['web', 'miniapp', 'qq', 'wechat']).optional()
 })
 
 const knowledgePublicUrlSchema = z.union([
@@ -997,4 +1099,84 @@ export const createSeedReviewSchema = z.object({
   score: z.number().min(1).max(5),
   content: z.string().trim().min(1).max(2000),
   sourcePlatform: z.enum(['dianping', 'meituan']).optional()
+}).strict()
+
+const RECRUIT_FIELD_KEY_PATTERN = /^[a-z][a-zA-Z0-9_]{0,31}$/
+
+const recruitFormFieldSchema = z.object({
+  key: z.string().regex(RECRUIT_FIELD_KEY_PATTERN),
+  label: z.string().trim().min(1).max(40),
+  type: z.enum(['text', 'textarea', 'select', 'multiselect']),
+  required: z.boolean(),
+  options: z.array(z.string().trim().min(1).max(40)).max(30).optional(),
+  optionDetails: z.record(z.string().max(40), z.string().trim().max(500)).optional(),
+  placeholder: z.string().trim().max(80).optional()
+}).strict().superRefine((field, context) => {
+  if ((field.type === 'select' || field.type === 'multiselect')
+    && (!field.options || field.options.length === 0)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['options'],
+      message: 'select fields require at least one option'
+    })
+  }
+})
+
+const recruitDocMappingSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  fieldKey: z.string().regex(RECRUIT_FIELD_KEY_PATTERN)
+}).strict()
+
+export const recruitPaymentSchema = z.object({
+  enabled: z.boolean(),
+  wechatImage: z.string().trim().max(300).nullable(),
+  alipayImage: z.string().trim().max(300).nullable(),
+  note: z.string().trim().max(200)
+}).strict()
+
+export const updateRecruitFormSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  slogan: z.string().trim().max(200),
+  intro: z.string().trim().max(5000),
+  status: z.enum(['open', 'closed']),
+  fields: z.array(recruitFormFieldSchema).max(40),
+  doc: z.object({
+    mappings: z.array(recruitDocMappingSchema).max(20),
+    multiSelect: z.object({
+      fieldKey: z.string().regex(RECRUIT_FIELD_KEY_PATTERN),
+      mark: z.string().trim().min(1).max(4)
+    }).strict().nullable()
+  }).strict(),
+  exportColumns: z.array(z.object({
+    key: z.string().regex(RECRUIT_FIELD_KEY_PATTERN),
+    label: z.string().trim().min(1).max(40)
+  }).strict()).max(40),
+  payment: recruitPaymentSchema,
+  /** Optimistic-lock: reject the save when the stored row was changed after this page loaded. */
+  baseUpdatedAt: z.number().int().nonnegative().optional()
+}).strict()
+
+export const uploadRecruitTemplateSchema = z.object({
+  filename: z.string().trim().min(1).max(200),
+  dataBase64: z.string().min(100).max(4_200_000)
+}).strict()
+
+export const createReferrerSchema = z.object({
+  name: z.string().trim().min(1).max(30),
+  code: z.string().trim().max(16).optional()
+}).strict()
+
+export const publicRecruitDraftSchema = z.object({
+  data: z.record(z.string().max(64), z.union([
+    z.string().trim().max(200),
+    z.array(z.string().trim().max(40)).max(30)
+  ]))
+}).strict()
+
+export const publicRecruitSubmissionSchema = z.object({
+  data: z.record(z.string().max(64), z.union([
+    z.string().trim().max(200),
+    z.array(z.string().trim().max(40)).max(30)
+  ])),
+  paymentConfirmed: z.boolean().optional()
 }).strict()

@@ -1,10 +1,12 @@
 import { deactivateVisitorBan } from '../../../../modules/visitors/service'
+import { requireAdminCapability } from '../../../../utils/auth'
 import { useAdminRequest } from '../../../../utils/http'
 import { writeAudit } from '../../../../utils/audit'
 import { requireUuidParam } from '../../../../utils/validation'
 
 export default defineEventHandler((event) => {
   const { client, session } = useAdminRequest(event)
+  requireAdminCapability(session, 'ban.manage')
   const id = requireUuidParam(event, 'id')
   const ok = deactivateVisitorBan(client, id)
   if (!ok) {

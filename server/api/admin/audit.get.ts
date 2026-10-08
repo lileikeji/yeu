@@ -1,6 +1,7 @@
 import { and, count, desc, eq, like } from 'drizzle-orm'
 import { adminAuditLogsQuerySchema } from '../../../shared/schemas/server'
 import { adminUsers, auditLogs } from '../../database/schema'
+import { requireAdminCapability } from '../../utils/auth'
 import { useAdminRequest } from '../../utils/http'
 import { safeMetadata } from '../../utils/serializers'
 import { parseQuery } from '../../utils/validation'
@@ -10,7 +11,8 @@ function parseAuditDetails(value: string): Record<string, unknown> {
 }
 
 export default defineEventHandler((event) => {
-  const { client } = useAdminRequest(event)
+  const { client, session } = useAdminRequest(event)
+  requireAdminCapability(session, 'audit.view')
   const query = parseQuery(event, adminAuditLogsQuerySchema)
   const offset = (query.page - 1) * query.pageSize
   const conditions = []

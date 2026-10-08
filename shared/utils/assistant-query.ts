@@ -9,6 +9,9 @@ const QUESTION_MARKERS = [
   '好不好', '怎么样', '多久', '几人间', '几个人', '几人', '几天',
   '急不急', '允不允许', '会不会', '够不够', '容不容易',
   '哪栋楼', '哪一栋', '叫什么',
+  // Destination questions without a trailing marker ("想配一副眼镜去哪/
+  // 修手机去哪") — 去哪/去哪儿 must stay questions instead of 422 redirects.
+  '去哪', '去哪儿',
   // Entity-intent questions (clubs, procedures, departments): "做什么/门槛/
   // 联系方式/怎么加入" are questions even without a trailing 吗/呢 marker.
   '是做什么的', '做什么的', '是干嘛的', '干嘛的', '主要做什么', '是干什么的',
@@ -39,6 +42,18 @@ const QUESTION_MARKERS = [
 ] as const
 
 const QUESTION_ENDING_PATTERN = /[?？吗嘛呢么]$/u
+
+// 通用疑问词：句子里出现这些词就是在提问，后面接什么都没关系。旧表只收了
+// 「需要什么/要带什么/有什么要求」这类固定搭配，于是“电脑要买什么配置”漏网，
+// 被当成关键词搜索静默跳过——用户侧表现为「AI 没有任何反应」。
+const INTERROGATIVE_RE = /(?:什么|多少|哪|谁|几|如何|怎[么样]|为什么|为何|是否|能不能|可不可以|有没有)/u
+
+// 实体型名词问句：「上课时间表/财务处电话/入党流程/竞赛奖金」是在查一项站内
+// 资料，不是想拿它当关键词搜索。以实体后缀收尾的短名词短语一律交给 AI。
+const ENTITY_LOOKUP_SUFFIX_RE = /(?:时间表|课表|时刻表|作息|时间|日期|电话|号码|联系方式|邮箱|地址|地点|位置|路线|入口|网址|流程|步骤|手续|材料|清单|条件|要求|标准|规则|办法|规定|政策|费用|价格|奖金|补贴|配置|名单|安排|制度|指南|攻略|说明|表)$/u
+
+// 以范围词开头的在场/就近问句（“附近奶茶/周边快递”）同样是提问。
+const LOCALITY_PREFIX_RE = /^(?:附近|周边|学校附近|校内|校外|新区|旧区)/u
 
 const ASSISTANT_COMMAND_PATTERN = /(?:给(?:我)?(?:个|一份)?|发(?:我)?(?:个|一份)?|打开|进入|带我(?:去|看)?|帮我(?:查|找|看)?|查一下|找一下|看一下|看看|展示|跳转到).{0,20}(?:校园|学校|地图|平面图|导览图|校区图|入口|页面|路线|导航|流程|清单|宿舍|社团|成绩|教务|规则|奖学金)/u
 
@@ -135,9 +150,27 @@ export function isQuestionLike(value: string): boolean {
     || QUESTION_MARKERS.some(marker => query.includes(marker))
     || ASSISTANT_COMMAND_PATTERN.test(query)
     || SELF_REFERENTIAL_PATTERN.test(query)
+    || INTERROGATIVE_RE.test(query)
+    || ENTITY_LOOKUP_SUFFIX_RE.test(query)
+    || LOCALITY_PREFIX_RE.test(query)
     // 英文疑问词开头（when/what/how/…）即使不带问号也按提问处理，
     // 否则英文用户打 “when does school start” 会被 422 引导去站内搜索。
     || /^(?:when|what|which|how|where|why|who|whose|do|does|is|are|can|could|should)\b/i.test(value)
+}
+
+/**
+ * 入口放行判定：只排除「没有内容可问」的输入（空白、纯标点），其余一律交给 AI。
+ *
+ * 旧的 `isQuestionLike` 关键词表被当作硬门禁使用时，会把「上课时间表」「竞赛奖金」
+ * 「财务处电话」这类正常提问判成关键词搜索，前端静默不调用、后端回 422——
+ * 用户看到的就是「AI 检索答非所问 / 根本不出结果」。意图识别应当由模型完成，
+ * 这里只做最低限度的可答性检查。
+ */
+export function isAssistantAnswerableQuery(value: string): boolean {
+  const query = normalizeAssistantQuery(value)
+  if (query.length < 2) return false
+  // 去掉空白与标点后还剩内容才算「有东西可问」；表情等符号保留，交给模型回应。
+  return query.replace(/[\s\p{P}]+/gu, '').length >= 1
 }
 
 export function containsPromptInjection(value: string): boolean {

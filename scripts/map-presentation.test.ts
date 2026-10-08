@@ -485,11 +485,16 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   assert.match(utilSource, /export function findPublicMapPlaceByOfficialPlanNumber/)
   assert.match(utilSource, /export function resolveAutoSelectSearchDecision/)
   assert.match(utilSource, /export function toggleMapDisplayOption/)
-  assert.match(source, /\.map-workspace \.yeu-amap-poi-label:not\(\.yeu-amap-poi-label-selected\)/)
-  assert.match(source, /\.map-workspace \.yeu-amap-area-label:not\(\.yeu-amap-area-label-selected\)/)
+  // 标签样式已从 map/index.vue 的 .map-workspace 规则迁到 provider 的内联样式
+  // （marker 内容是运行时 DOM，无法用页面级 CSS 命中选中态）。这里改为断言
+  // provider 真的把「showLabels 控制显隐」和「选中态改边框/字重」写进了样式。
   const amapSource = readFileSync(resolve('map/providers/amap/provider.ts'), 'utf8')
   assert.match(amapSource, /yeu-amap-poi-label-selected/)
   assert.match(amapSource, /yeu-amap-area-label-selected/)
+  assert.match(amapSource, /display:\$\{this\.displayOptions\.showLabels \? 'block' : 'none'\}/)
+  assert.match(amapSource, /border:1px solid \$\{selected \? '#176f46'/)
+  assert.match(amapSource, /areaLabelStyle\(/)
+  assert.doesNotMatch(source, /\.map-workspace \.yeu-amap-poi-label/)
   assert.equal(defaultMapDisplayOptions.labelSize, 'small')
 
   const toggled = toggleMapDisplayOption({

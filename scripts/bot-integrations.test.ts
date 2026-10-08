@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import test from 'node:test'
+import { assistantConfigFromValues } from '../server/utils/assistant-config'
+import { botAssistantConfig } from '../server/modules/bots/runtime'
 import {
   normalizeOneBotQuestion,
   normalizeWechatQuestion,
@@ -184,4 +188,61 @@ test('outbound bot URLs require HTTPS unless they are loopback', () => {
   assert.equal(safeOutboundBotUrl('https://relay.example.com/send').hostname, 'relay.example.com')
   assert.equal(safeOutboundBotUrl('http://127.0.0.1:3005/').port, '3005')
   assert.throws(() => safeOutboundBotUrl('http://192.168.1.20:3005/'), /BOT_OUTBOUND_URL_UNSAFE/)
+})
+
+test('bot channels receive the same retrieval configuration as web and miniapp', () => {
+  // 回归：机器人配置过去手写了一份字段子集，漏掉 embedding / rerank / rewrite
+  // 共 11 个检索字段，导致同一个问题在 QQ/微信里只走关键词通道（答非所问）。
+  const runtime = {
+    aiGatewayBaseUrl: 'https://gateway.example.com',
+    aiGatewayApiKey: 'gateway-key',
+    aiGatewayModel: 'test-model',
+    aiGatewayTimeoutMs: '90000',
+    aiMcpSearchUrl: 'https://mcp.example.com/search',
+    aiMcpSearchBearerToken: 'mcp-token',
+    aiMcpAllowedHosts: 'mcp.example.com',
+    aiMcpToolName: 'firecrawl_search',
+    aiMcpTimeoutMs: '30000',
+    amapWebServiceKey: 'amap-key',
+    aiEmbeddingBaseUrl: 'https://embedding.example.com/v1',
+    aiEmbeddingApiKey: 'embedding-key',
+    aiEmbeddingModel: 'BAAI/bge-m3',
+    aiEmbeddingTimeoutMs: '15000',
+    aiRerankBaseUrl: 'https://rerank.example.com/v1',
+    aiRerankApiKey: 'rerank-key',
+    aiRerankModel: 'BAAI/bge-reranker-v2-m3',
+    aiRerankTimeoutMs: '15000',
+    aiRewriteEnabled: 'true',
+    aiRewriteModel: 'rewrite-model',
+    aiRewriteMaxVariants: '2',
+    aiRewriteTimeoutMs: '8000',
+    aiRerankLocalEnabled: 'true',
+    aiRerankLocalModel: 'local-reranker',
+    botSiteUrl: 'https://yx.huiliyill.cn/',
+    botMaxReplyChars: '1800'
+  }
+
+  const bot = botAssistantConfig(runtime)
+  const shared = assistantConfigFromValues(runtime)
+
+  // 机器人的检索字段必须与 web/小程序逐一同值（不是「有就行」，是取值一致）。
+  for (const [key, expected] of Object.entries(shared)) {
+    assert.deepEqual(
+      (bot as unknown as Record<string, unknown>)[key],
+      expected,
+      `botAssistantConfig 的 ${key} 与共用渠道配置不一致`
+    )
+  }
+  // 语义召回与改写确实被带上（历史上正是这三个字段缺失）。
+  assert.equal(bot.embeddingBaseUrl, 'https://embedding.example.com/v1')
+  assert.equal(bot.rerankBaseUrl, 'https://rerank.example.com/v1')
+  assert.equal(bot.rewriteEnabled, true)
+  // 机器人特有的字段仍然独立存在。
+  assert.equal(bot.siteUrl, 'https://yx.huiliyill.cn/')
+  assert.equal(bot.maxReplyChars, 1800)
+
+  // 服务层必须整份透传通道配置，而不是逐字段抄一遍。
+  const serviceSource = readFileSync(resolve('server/modules/bots/service.ts'), 'utf8')
+  assert.match(serviceSource, /\.\.\.channelConfig/)
+  assert.match(serviceSource, /answerCampusQuestion\(input\.client, input\.question\.question, channelConfig\)/)
 })

@@ -77,7 +77,11 @@
     "caches:cleanup": "tsx scripts/cleanup-assistant-caches.ts",
     "memory:consolidate": "tsx scripts/consolidate-session-memory.ts",
     "eval:retrieval": "tsx scripts/eval-retrieval.ts",
-    "qa:sweep": "tsx scripts/assistant-qa-sweep.ts"
+    "qa:sweep": "tsx scripts/assistant-qa-sweep.ts",
+    "miniapp:install": "pnpm --dir miniapp install --ignore-workspace",
+    "miniapp:dev": "pnpm --dir miniapp dev",
+    "miniapp:build": "pnpm --dir miniapp build",
+    "miniapp:typecheck": "pnpm --dir miniapp typecheck"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",

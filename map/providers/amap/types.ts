@@ -76,6 +76,10 @@ export interface AMapWalkingResult {
   routes?: Array<{
     distance?: number
     time?: number
+    steps?: Array<{
+      instruction?: unknown
+      distance?: unknown
+    }>
   }>
 }
 

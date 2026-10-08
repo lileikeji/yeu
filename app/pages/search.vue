@@ -12,7 +12,7 @@ import type {
   ApiSearchResponse
 } from '~~/shared/types/server'
 import { buildStudentRuleSearchResults } from '~~/app/utils/student-rules-search'
-import { isQuestionLike } from '~~/shared/utils/assistant-query'
+import { isAssistantAnswerableQuery } from '~~/shared/utils/assistant-query'
 import { getOrCreateAssistantSessionId } from '~~/app/utils/assistant-session'
 import { parseAssistantFoodAnswer, parseAssistantShopDetail } from '~~/app/utils/assistant-answer-cards'
 import {
@@ -269,7 +269,6 @@ interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
 const hasInitialAssistantQuery = activeSearchMode.value === 'ai'
   && !activeType.value
   && activeQuery.value.length >= 2
-  && isQuestionLike(activeQuery.value)
 // Start the visible trace as soon as a question is present. The answer stream
 // still starts on the client, but the user never waits behind the site-search
 // request before seeing the first analysis step.
@@ -504,11 +503,14 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
     return requestAssistantFallback(requestBody, signal)
   }
   if (response.status === 404 || response.status === 405) {
+    // 路由形态不匹配（旧版本发布 / 代理剥离 SSE）才退化到普通端点。这是唯一
+    // 仍然值得重试的情况：请求根本没被这个端点受理。
     return requestAssistantFallback(requestBody, signal)
   }
   if (!response.ok || !response.body) {
     if (signal.aborted) throw new Error('ASSISTANT_STREAM_ABORTED')
-    return requestAssistantFallback(requestBody, signal)
+    // 服务端已经明确拒绝（502/503/422），普通端点会以同样方式失败，不再重试。
+    throw new Error(`ASSISTANT_HTTP_${response.status}`)
   }
 
   const reader = response.body.getReader()
@@ -516,6 +518,7 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
   let buffer = ''
   let completed: ApiAssistantResponse | null = null
   let streamError: unknown = null
+  let serverReportedError = false
   try {
     while (true) {
       const chunk = await reader.read()
@@ -531,7 +534,10 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
           const delta = typeof message.data.delta === 'string' ? message.data.delta : ''
           if (delta) assistantDraftAnswer.value += delta
         } else if (message.event === 'completed') completed = message.data as unknown as ApiAssistantResponse
-        else if (message.event === 'error') throw new Error(String(message.data.code ?? 'AI_UNAVAILABLE'))
+        else if (message.event === 'error') {
+          serverReportedError = true
+          throw new Error(String(message.data.code ?? 'AI_UNAVAILABLE'))
+        }
         // A proxy may forward the terminal event without closing the HTTP
         // connection. Do not keep the answer card waiting for EOF.
         if (completed) break
@@ -547,10 +553,25 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
   }
   if (streamError) {
     if (signal.aborted) throw streamError
+    // 服务端已经用 error 事件说明失败原因，重试只会让用户再等一轮同样的时间。
+    if (serverReportedError) throw streamError
     return requestAssistantFallback(requestBody, signal)
   }
   if (!completed) {
     if (signal.aborted) throw new Error('ASSISTANT_STREAM_ABORTED')
+    // 流被代理截断但正文已经增量推过：保留已收到的答案，不要丢掉再来一轮。
+    if (assistantDraftAnswer.value.trim()) {
+      return {
+        query,
+        mode: 'ai',
+        answer: assistantDraftAnswer.value,
+        citations: [],
+        usedWebSearch: false,
+        confidence: 0.5,
+        retrievalPath: 'web_search',
+        trace: []
+      }
+    }
     return requestAssistantFallback(requestBody, signal)
   }
   return completed
@@ -559,10 +580,13 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
 async function requestAssistantAnswer(): Promise<void> {
   if (import.meta.server) return
   const query = activeQuery.value
+  // 用户显式选了 AI 模式：只要输入非空就交给 AI 判意图。旧的关键词表会把
+  // “上课时间表/课表/竞赛奖金”判成关键词搜索并静默不回答，用户看到的是
+  // 「AI 检索什么都没出」。
   const shouldRequest = activeSearchMode.value === 'ai'
     && !activeType.value
     && query.length >= 2
-    && isQuestionLike(query)
+    && isAssistantAnswerableQuery(query)
   if (!shouldRequest) {
     assistantRequestSequence += 1
     assistantAbortController?.abort()

@@ -19,6 +19,7 @@ import {
   MAP_LOCATION_OPTIONS,
   MAP_ROUTE_LOCATION_OPTIONS,
   planWalkingMapRoute,
+  planWalkingMapRouteFrom,
   resolveMapLocateFailureNotice,
   resolveMapLocateGuard,
   resolveMapWalkingRouteFailureNotice,
@@ -125,6 +126,21 @@ test('walking route planning uses WGS84 origin and route-specific timeout', asyn
     destination
   })
   assert.deepEqual(summary, { distanceMeters: 1280, durationSeconds: 780 })
+})
+
+test('planWalkingMapRouteFrom skips geolocation and passes the explicit origin', async () => {
+  let routeCall: { origin: GeoPoint, destination: GeoPoint } | null = null
+  const provider = mapProvider({
+    async planWalkingRoute(origin, destination) {
+      routeCall = { origin, destination }
+      return { distanceMeters: 640, durationSeconds: 480 }
+    }
+  })
+  const origin: GeoPoint = { lng: 118.615, lat: 25.113, crs: 'WGS84' }
+  const destination: GeoPoint = { lng: 118.602, lat: 25.106, crs: 'WGS84' }
+  const summary = await planWalkingMapRouteFrom(() => provider, origin, destination)
+  assert.deepEqual(routeCall, { origin, destination })
+  assert.deepEqual(summary, { distanceMeters: 640, durationSeconds: 480 })
 })
 
 test('walking route resolves the current provider after geolocation completes', async () => {

@@ -162,3 +162,111 @@ export interface HomePayload {
     verifiedAt: string | null
   }
 }
+
+export type RecruitFieldType = 'text' | 'textarea' | 'select' | 'multiselect'
+
+/** Keys persisted as dedicated submission columns for search and export. */
+export type RecruitFieldKey
+  = | 'name'
+    | 'gender'
+    | 'studentNo'
+    | 'major'
+    | 'className'
+    | 'phone'
+    | 'qq'
+    | 'departments'
+    | 'isLeagueMember'
+
+export interface RecruitFormField {
+  /** Stable key, reused as the submission data key and export column key. */
+  key: string
+  label: string
+  type: RecruitFieldType
+  required: boolean
+  /** Options for select / multiselect fields. */
+  options?: string[]
+  /** Per-option long description (部门介绍), keyed by option value. */
+  optionDetails?: Record<string, string>
+  placeholder?: string
+}
+
+export interface RecruitPaymentConfig {
+  enabled: boolean
+  wechatImage: string | null
+  alipayImage: string | null
+  note: string
+}
+
+export interface RecruitDocMapping {
+  /** Exact cell text inside the uploaded docx template. */
+  label: string
+  /** Form field key whose value fills the empty cell to the right of the label. */
+  fieldKey: string
+}
+
+export interface RecruitDocConfig {
+  mappings: RecruitDocMapping[]
+  /** Multi-select field rendered as marks (e.g. √) next to matching option cells. */
+  multiSelect?: { fieldKey: string, mark: string } | null
+}
+
+export interface RecruitExportColumn {
+  key: string
+  label: string
+}
+
+export type RecruitFormStatus = 'open' | 'closed'
+
+export interface RecruitFormConfig {
+  contentId: string
+  clubName: string
+  clubSlug: string
+  title: string
+  slogan: string
+  intro: string
+  status: RecruitFormStatus
+  fields: RecruitFormField[]
+  doc: RecruitDocConfig
+  exportColumns: RecruitExportColumn[]
+  templateName: string | null
+  templateLabels: string[]
+  views: number
+  payment: RecruitPaymentConfig
+  updatedAt: number | null
+}
+
+export type RecruitSubmissionValue = string | string[]
+
+export interface RecruitReferrer {
+  id: string
+  name: string
+  code: string
+  isActive: boolean
+  views: number
+  createdAt: number
+}
+
+export interface RecruitSubmission {
+  id: string
+  formId: string
+  referrerName: string | null
+  paymentConfirmed: boolean | null
+  createdAt: number
+  data: Record<string, RecruitSubmissionValue>
+  name: string
+  gender: string | null
+  studentNo: string | null
+  major: string | null
+  className: string | null
+  phone: string | null
+  qq: string | null
+  departments: string | null
+  isLeagueMember: string | null
+}
+
+export interface RecruitSubmissionPage {
+  items: RecruitSubmission[]
+  total: number
+  page: number
+  pageSize: number
+}

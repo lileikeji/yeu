@@ -95,7 +95,8 @@ export default defineEventHandler((event) => {
     '/api/public',
     '/api/auth',
     '/api/me',
-    '/api/chat'
+    '/api/chat',
+    '/api/miniapp/v1'
   ]
   const isProtectedApi = apiPrefixes.some(
     prefix => pathname === prefix || pathname.startsWith(`${prefix}/`)

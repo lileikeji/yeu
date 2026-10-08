@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
-import { currentCohort, currentCohortLabel } from '~~/shared/config/cohort'
+import { currentCohortLabel } from '~~/shared/config/cohort'
 import { homeHotlines } from '~~/data/hotlines'
 import {
   buildHomeEssentialActions,
@@ -41,14 +41,35 @@ const placeQuery = ref('')
 const importantTimeOpen = ref(false)
 const featureRequest = usePublicFrontendFeatures()
 const homeEntryRequest = usePublicHomeEntries()
+const merchantRequest = usePublicPromotedMerchants()
 const guideListRequest = usePublicGuideList()
 const procedureListRequest = usePublicProcedureList()
-await Promise.all([featureRequest, homeEntryRequest, guideListRequest, procedureListRequest])
+await Promise.all([featureRequest, homeEntryRequest, merchantRequest, guideListRequest, procedureListRequest])
 
 const { data: publicFeatureResponse } = featureRequest
 const { data: publicHomeEntryResponse } = homeEntryRequest
+const { data: publicMerchantResponse } = merchantRequest
 const { data: publicGuideListResponse } = guideListRequest
 const { data: publicProcedureListResponse } = procedureListRequest
+
+/** 首页"校园周边商家"：仅展示后台开启推广的地点，无推广时整块隐藏。 */
+const promotedMerchants = computed(() => publicMerchantResponse.value?.items ?? [])
+const merchantIcon = (type: string | null) => (
+  ({
+    'dining': 'i-lucide-utensils',
+    'food': 'i-lucide-utensils',
+    'sports-ground': 'i-lucide-dumbbell',
+    'shop': 'i-lucide-store'
+  } as Record<string, string>)[type ?? ''] ?? 'i-lucide-store'
+)
+const merchantTypeLabel = (type: string | null) => (
+  ({
+    'dining': '餐饮',
+    'food': '餐饮',
+    'sports-ground': '运动休闲',
+    'shop': '周边商铺'
+  } as Record<string, string>)[type ?? ''] ?? '周边'
+)
 
 const importantDates = computed(() => buildHomeImportantDates(publicProcedureListResponse.value?.items))
 const importantDatesLine = computed(() => (
@@ -211,7 +232,7 @@ const {
           <button
             type="button"
             class="page-shell grid min-h-12 w-full grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 py-2 text-left text-[11px] md:min-h-12 md:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] md:gap-4 md:text-sm"
-            aria-label="查看{{ currentCohortLabel }}重要时间"
+            :aria-label="`查看${currentCohortLabel}重要时间`"
             @click="openImportantTime"
           >
             <UIcon
@@ -238,7 +259,7 @@ const {
 
         <UModal
           v-model:open="importantTimeOpen"
-          title="{{ currentCohortLabel }}重要时间"
+          :title="`${currentCohortLabel}重要时间`"
           description="以下日期来自学校最新校历，具体到校时段与材料以录取通知书及学校后续通知为准。"
           :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
         >
@@ -345,6 +366,99 @@ const {
               </span>
             </div>
           </NuxtLink>
+        </div>
+      </section>
+
+      <section
+        v-if="promotedMerchants.length"
+        class="border-t border-[var(--line)] bg-white dark:bg-zinc-900"
+      >
+        <div class="page-shell py-5 md:py-8">
+          <div class="flex items-end justify-between gap-3">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
+                  校园周边商家
+                </h2>
+                <span class="inline-flex min-h-6 items-center gap-1 rounded-full bg-green-50 dark:bg-green-950 px-2 text-[11px] font-bold text-green-700 dark:text-green-400 ring-1 ring-green-200 dark:ring-green-800">
+                  <UIcon
+                    name="i-lucide-badge-check"
+                    class="size-3.5"
+                  />
+                  入驻商家
+                </span>
+              </div>
+              <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:text-sm md:leading-6">
+                入驻学生街的商家均已收录在校园地图，评分来自高德，营业与价格以到店实际为准。
+              </p>
+            </div>
+            <NuxtLink
+              to="/map"
+              class="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400"
+            >
+              打开地图
+              <UIcon
+                name="i-lucide-arrow-right"
+                class="size-4"
+              />
+            </NuxtLink>
+          </div>
+
+          <div class="mt-3 grid gap-2.5 md:mt-4 md:grid-cols-3 md:gap-3">
+            <NuxtLink
+              v-for="merchant in promotedMerchants"
+              :key="merchant.slug"
+              :to="`/map?place=${encodeURIComponent(merchant.slug)}`"
+              class="group flex flex-col gap-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm md:min-h-40 md:p-4"
+            >
+              <span class="flex items-center gap-2.5">
+                <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
+                  <UIcon
+                    :name="merchantIcon(merchant.type)"
+                    class="size-4.5"
+                  />
+                </span>
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-bold text-zinc-950 dark:text-zinc-100">
+                    {{ merchant.name }}
+                  </span>
+                  <span class="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <template v-if="merchant.area">
+                      <span class="rounded bg-amber-100 px-1 py-px font-semibold text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                        {{ merchant.area }}
+                      </span>
+                    </template>
+                    {{ merchantTypeLabel(merchant.type) }}
+                  </span>
+                </span>
+                <span
+                  v-if="merchant.score !== null"
+                  class="ml-auto shrink-0 rounded-md bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-300"
+                >
+                  ★ {{ merchant.score.toFixed(1) }}
+                </span>
+                <span
+                  v-else
+                  class="ml-auto shrink-0 rounded-md bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400"
+                >
+                  新店收录
+                </span>
+              </span>
+              <span
+                v-if="merchant.tagline"
+                class="line-clamp-2 min-h-0 text-xs leading-5 text-zinc-600 dark:text-zinc-300"
+              >
+                {{ merchant.tagline }}
+              </span>
+              <span class="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-green-700 dark:text-green-400">
+                查看地图定位
+                <UIcon
+                  name="i-lucide-map-pin"
+                  class="size-3.5 transition group-hover:translate-x-0.5"
+                />
+              </span>
+            </NuxtLink>
+          </div>
         </div>
       </section>
 

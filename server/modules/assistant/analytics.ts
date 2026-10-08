@@ -4,10 +4,14 @@ import type { ApiAssistantResponse, ApiAssistantRetrievalPath, ApiAssistantStage
 import type { DatabaseClient } from '../../database/client'
 import { assistantRuns } from '../../database/schema'
 
+/** AI 检索的调用来源，后台按这个维度分类。 */
+export type AssistantChannel = 'web' | 'miniapp' | 'qq' | 'wechat'
+
 interface AssistantRunContext {
   requestId: string
   query: string
   ipAddress?: string | null
+  channel?: AssistantChannel
 }
 
 export interface AssistantRunListQuery {
@@ -16,6 +20,7 @@ export interface AssistantRunListQuery {
   retrievalPath?: string
   success?: boolean
   q?: string
+  channel?: string
 }
 
 function queryHash(query: string): string {
@@ -33,17 +38,21 @@ export function recordAssistantSuccess(
   context: AssistantRunContext,
   response: ApiAssistantResponse
 ): void {
+  // 证据不足的「没找到 / 无法确认」也是 200，但它不是一次有效回答。把它记成
+  // success 会让后台成功率掩盖答非所问——运维看板必须能看出这一类。
+  const gap = response.evidenceGap === true
   client.db.insert(assistantRuns).values({
     id: randomUUID(),
     requestId: context.requestId,
     queryHash: queryHash(context.query),
     query: context.query.trim().slice(0, 300),
     mode: response.mode,
+    channel: context.channel ?? 'web',
     retrievalPath: response.retrievalPath ?? (response.mode === 'local' ? 'local_database' : 'web_search'),
     usedWebSearch: response.usedWebSearch,
     cacheHit: response.cacheHit ?? false,
-    success: true,
-    errorCode: null,
+    success: !gap,
+    errorCode: gap ? 'NO_EVIDENCE' : null,
     analysisMs: stageDuration(response, 'query_analysis'),
     featureApiMs: stageDuration(response, 'feature_api'),
     databaseMs: stageDuration(response, 'local_database'),
@@ -70,6 +79,7 @@ export function recordAssistantFailure(
     queryHash: queryHash(context.query),
     query: context.query.trim().slice(0, 300),
     mode: 'error',
+    channel: context.channel ?? 'web',
     retrievalPath: 'error',
     success: false,
     errorCode: errorCode.slice(0, 80),
@@ -86,6 +96,7 @@ export function listAssistantRuns(client: DatabaseClient, query: AssistantRunLis
   }
   if (typeof query.success === 'boolean') conditions.push(eq(assistantRuns.success, query.success))
   if (query.q?.trim()) conditions.push(like(assistantRuns.query, `%${query.q.trim().slice(0, 100)}%`))
+  if (query.channel) conditions.push(eq(assistantRuns.channel, query.channel as AssistantChannel))
   const where = conditions.length > 0 ? and(...conditions) : undefined
   const offset = (query.page - 1) * query.pageSize
 
@@ -113,11 +124,19 @@ export function listAssistantRuns(client: DatabaseClient, query: AssistantRunLis
         .get()?.value ?? 0)
     : 0
 
+  const channelRows = client.db.select({
+    channel: assistantRuns.channel,
+    total: count()
+  }).from(assistantRuns).where(where).groupBy(assistantRuns.channel).all()
+
   return {
     items: rows.map(row => ({
       ...row,
       createdAt: new Date(row.createdAt).toISOString()
     })),
+    channels: channelRows
+      .map(row => ({ channel: row.channel, total: Number(row.total) }))
+      .sort((left, right) => right.total - left.total),
     total,
     page: query.page,
     pageSize: query.pageSize,

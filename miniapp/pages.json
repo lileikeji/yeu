@@ -1,0 +1,42 @@
+{
+  "pages": [
+    { "path": "pages/index/index", "style": { "navigationBarTitleText": "校园值班台" } },
+    { "path": "pages/map/index", "style": { "navigationBarTitleText": "校园地图", "enablePullDownRefresh": false } },
+    { "path": "pages/guides/index", "style": { "navigationBarTitleText": "校园指南" } },
+    { "path": "pages/guides/detail", "style": { "navigationBarTitleText": "内容详情" } },
+    { "path": "pages/places/detail", "style": { "navigationBarTitleText": "地点详情" } },
+    { "path": "pages/search/index", "style": { "navigationBarTitleText": "站内搜索" } },
+    { "path": "pages/services/index", "style": { "navigationBarTitleText": "服务导航" } },
+    { "path": "pages/checklist/index", "style": { "navigationBarTitleText": "新生清单" } },
+    { "path": "pages/departments/index", "style": { "navigationBarTitleText": "校内部门" } },
+    { "path": "pages/clubs/index", "style": { "navigationBarTitleText": "学生社团" } },
+    { "path": "pages/nearby/index", "style": { "navigationBarTitleText": "周边攻略" } },
+    { "path": "pages/dorms/index", "style": { "navigationBarTitleText": "宿舍实拍" } },
+    { "path": "pages/panorama/index", "style": { "navigationBarTitleText": "全景云游校园" } },
+    { "path": "pages/procedures/index", "style": { "navigationBarTitleText": "流程清单" } },
+    { "path": "pages/procedures/detail", "style": { "navigationBarTitleText": "流程详情" } },
+    { "path": "pages/notices/index", "style": { "navigationBarTitleText": "通知公告" } },
+    { "path": "pages/about/index", "style": { "navigationBarTitleText": "关于与反馈" } }
+  ],
+  "tabBar": {
+    "color": "#6b7263",
+    "selectedColor": "#176f46",
+    "backgroundColor": "#fffdf8",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "值班台", "iconPath": "static/tab-desk.png", "selectedIconPath": "static/tab-desk-active.png" },
+      { "pagePath": "pages/map/index", "text": "地图", "iconPath": "static/tab-map.png", "selectedIconPath": "static/tab-map-active.png" },
+      { "pagePath": "pages/guides/index", "text": "指南", "iconPath": "static/tab-book.png", "selectedIconPath": "static/tab-book-active.png" },
+      { "pagePath": "pages/services/index", "text": "服务", "iconPath": "static/tab-compass.png", "selectedIconPath": "static/tab-compass-active.png" },
+      { "pagePath": "pages/search/index", "text": "搜索", "iconPath": "static/tab-search.png", "selectedIconPath": "static/tab-search-active.png" }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarBackgroundColor": "#f8f4e9",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f8f4e9",
+    "backgroundColorTop": "#f8f4e9",
+    "backgroundColorBottom": "#f8f4e9",
+    "enablePullDownRefresh": true
+  }
+}

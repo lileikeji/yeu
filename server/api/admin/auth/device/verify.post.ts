@@ -3,7 +3,7 @@ import {
   getAdminDeviceConfig,
   verifyAndConsumeAdminDeviceProof
 } from '../../../../utils/admin-device-auth'
-import { loginAdminWithDevice } from '../../../../utils/auth'
+import { adminCapabilities, loginAdminWithDevice } from '../../../../utils/auth'
 import { writeAudit } from '../../../../utils/audit'
 import { getClientIpAddress } from '../../../../utils/client-ip'
 import { useAppDatabase } from '../../../../utils/database'
@@ -62,6 +62,7 @@ export default defineEventHandler(async (event) => {
   return {
     authenticated: true,
     admin: session.admin,
+    capabilities: adminCapabilities(session),
     csrfToken: session.csrfToken,
     expiresAt: new Date(session.expiresAt).toISOString()
   }

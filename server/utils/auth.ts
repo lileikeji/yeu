@@ -117,6 +117,39 @@ function getAdminIdentity(client: DatabaseClient, adminId: string): AdminIdentit
   }
 }
 
+export type AdminCapability = import('../../shared/types/server').AdminCapability
+
+const ADMIN_CAPABILITIES: readonly AdminCapability[] = [
+  'analytics.view',
+  'visitor.list',
+  'visitor.detail',
+  'visitor.raw_ua',
+  'visitor.raw_ip',
+  'visitor.source',
+  'api_metrics.view',
+  'audit.view',
+  'ban.manage'
+]
+
+export function adminCapabilities(session: AdminSessionContext): AdminCapability[] {
+  return session.admin.role === 'super' ? [...ADMIN_CAPABILITIES] : ['analytics.view']
+}
+
+export function hasAdminCapability(
+  session: AdminSessionContext,
+  capability: AdminCapability
+): boolean {
+  return session.admin.role === 'super' || capability === 'analytics.view'
+}
+
+export function requireAdminCapability(
+  session: AdminSessionContext,
+  capability: AdminCapability
+): void {
+  if (hasAdminCapability(session, capability)) return
+  forbidden('ADMIN_CAPABILITY_FORBIDDEN')
+}
+
 export function requireSuperAdmin(session: AdminSessionContext): void {
   if (session.admin.role !== 'super') forbidden('SUPER_ADMIN_REQUIRED')
 }

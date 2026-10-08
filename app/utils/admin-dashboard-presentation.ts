@@ -1,3 +1,5 @@
+import type { AdminCapability } from '~~/shared/types/server'
+
 export type AdminDashboardGroupKey = 'content' | 'ops' | 'security'
 
 export interface AdminDashboardGroupMeta {
@@ -28,6 +30,7 @@ export interface AdminNavigationItem {
   label: string
   icon: string
   to: string
+  capability?: AdminCapability
 }
 
 export interface AdminNavigationGroup {
@@ -158,6 +161,15 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     group: 'security'
   },
   {
+    key: 'miniapp-analytics',
+    label: '小程序分析',
+    icon: 'i-lucide-smartphone',
+    endpoint: '/api/admin/miniapp/analytics',
+    to: '/admin/miniapp',
+    color: 'text-emerald-700 bg-emerald-50',
+    group: 'security'
+  },
+  {
     key: 'bans',
     label: '封禁',
     icon: 'i-lucide-shield-ban',
@@ -183,6 +195,7 @@ export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '群聊管理', icon: 'i-lucide-messages-square', to: '/admin/chat', group: 'ops' },
   { label: 'AI 检索统计', icon: 'i-lucide-bot', to: '/admin/assistant', group: 'ops' },
   { label: '访客轨迹', icon: 'i-lucide-radar', to: '/admin/visitors', group: 'security' },
+  { label: '小程序分析', icon: 'i-lucide-smartphone', to: '/admin/miniapp', group: 'security' },
   { label: '封禁管理', icon: 'i-lucide-shield-ban', to: '/admin/bans', group: 'security' },
   { label: '操作记录', icon: 'i-lucide-history', to: '/admin/audit', group: 'security' }
 ]
@@ -212,7 +225,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: '办事流程', icon: 'i-lucide-list-checks', to: '/admin/procedures' },
       { label: '内容', icon: 'i-lucide-files', to: '/admin/content' },
       { label: '来源', icon: 'i-lucide-book-marked', to: '/admin/sources' },
-      { label: '知识库', icon: 'i-lucide-brain-circuit', to: '/admin/knowledge' }
+      { label: '知识库', icon: 'i-lucide-brain-circuit', to: '/admin/knowledge' },
+      { label: '纳新管理', icon: 'i-lucide-clipboard-list', to: '/admin/recruit' }
     ]
   },
   {
@@ -231,9 +245,10 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     key: 'security',
     label: '安全与操作记录',
     items: [
-      { label: '访客', icon: 'i-lucide-radar', to: '/admin/visitors' },
-      { label: '封禁', icon: 'i-lucide-shield-ban', to: '/admin/bans' },
-      { label: '操作记录', icon: 'i-lucide-scroll-text', to: '/admin/audit' }
+      { label: '小程序分析', icon: 'i-lucide-smartphone', to: '/admin/miniapp', capability: 'analytics.view' },
+      { label: '访客', icon: 'i-lucide-radar', to: '/admin/visitors', capability: 'visitor.list' },
+      { label: '封禁', icon: 'i-lucide-shield-ban', to: '/admin/bans', capability: 'ban.manage' },
+      { label: '操作记录', icon: 'i-lucide-scroll-text', to: '/admin/audit', capability: 'audit.view' }
     ]
   }
 ]

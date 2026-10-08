@@ -1,0 +1,39 @@
+{
+  "name": "yeu-miniapp",
+  "version": "0.2.0",
+  "private": true,
+  "description": "YEU freshman guide WeChat mini-program",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --mode development",
+    "build": "cross-env UNI_PLATFORM=mp-weixin vite build --mode production",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-alpha-5020520260829001",
+    "@dcloudio/uni-app-plus": "3.0.0-alpha-5020520260829001",
+    "@dcloudio/uni-components": "3.0.0-alpha-5020520260829001",
+    "@dcloudio/uni-mp-vue": "3.0.0-alpha-5020520260829001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-alpha-5020520260829001",
+    "@vue/reactivity": "3.5.42",
+    "@vue/runtime-core": "3.5.42",
+    "@vue/runtime-dom": "3.5.42",
+    "@vue/shared": "3.5.42",
+    "vue": "3.5.42"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "3.4.31",
+    "@dcloudio/uni-app-vite": "3.0.0-alpha-5020520260829001",
+    "@dcloudio/uni-cli-shared": "3.0.0-alpha-5020520260829001",
+    "@dcloudio/uni-i18n": "3.0.0-alpha-5020520260829001",
+    "@dcloudio/uni-mp-vite": "3.0.0-alpha-5020520260829001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5020520260829001",
+    "@types/node": "^22.20.1",
+    "@vitejs/plugin-vue": "5.2.4",
+    "@vue/compiler-sfc": "3.4.21",
+    "cross-env": "7.0.3",
+    "typescript": "6.0.3",
+    "vite": "5.2.8",
+    "vue-tsc": "3.3.5"
+  }
+}

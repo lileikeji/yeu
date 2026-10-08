@@ -4,6 +4,7 @@ import type {
   ApiContent,
   ApiPublicHomeEntries,
   ApiPublicFrontendFeatures,
+  ApiPublicPromotedMerchants,
   ApiListResponse,
   ApiPlace,
   ApiProcedure
@@ -20,6 +21,12 @@ export function usePublicFrontendFeatures() {
 export function usePublicHomeEntries() {
   return useFetch<ApiPublicHomeEntries>('/api/public/home-entries', {
     key: 'public-home-entries'
+  })
+}
+
+export function usePublicPromotedMerchants() {
+  return useFetch<ApiPublicPromotedMerchants>('/api/public/promoted-merchants', {
+    key: 'public-promoted-merchants'
   })
 }
 

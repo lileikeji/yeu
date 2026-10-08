@@ -1,4 +1,4 @@
-import { getRequestHost } from 'h3'
+import { getRequestHost, type H3Event } from 'h3'
 
 /**
  * Fire-and-forget CDN warm-up for an uploaded asset. The site sits behind a
@@ -10,7 +10,9 @@ import { getRequestHost } from 'h3'
  * public host can be derived the warm-up is skipped silently (the asset is
  * still served, just slower on its first view).
  */
-export function warmUpUploadedAsset(event: { headers: { get(name: string): string | null } }, urlPath: string): void {
+// 这里需要完整的 H3Event：useRuntimeConfig / getRequestHost 都按 H3Event 取值，
+// 只声明 headers 的结构类型会在调用点报类型不匹配。
+export function warmUpUploadedAsset(event: H3Event, urlPath: string): void {
   try {
     const config = useRuntimeConfig(event)
     const configured = (config.public?.siteUrl as string | undefined)?.trim()

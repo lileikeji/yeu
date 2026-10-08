@@ -6,6 +6,7 @@ import test from 'node:test'
 import {
   assistantIdentitySubject,
   containsPromptInjection,
+  isAssistantAnswerableQuery,
   isQuestionLike,
   normalizeAssistantQuery,
   shouldRequestAssistantAnswer
@@ -816,7 +817,11 @@ test('verified seed catalog covers opening dates when the runtime database is st
   assert.match(opening[0]?.snippet ?? '', /9月10日上课/)
 })
 
-test('opening question returns a deterministic local answer with an empty database', async () => {
+test('opening question returns a deterministic local answer with an empty database', async t => {
+  // 开学日程的时效门在 2026-10-01 过期（有意设计，另有边界测试守护）；
+  // 本测试钉住的是有效期内的行为契约，所以把时钟锁回开学季。
+  t.mock.timers.enable({ apis: ['Date'] })
+  t.mock.timers.setTime(Date.parse('2026-09-20T12:00:00+08:00'))
   const directory = mkdtempSync(join(tmpdir(), 'yeu-assistant-empty-'))
   const databasePath = join(directory, 'test.sqlite')
   const client = getDatabase(databasePath)
@@ -998,9 +1003,9 @@ test('assistant endpoint is server-only, rate limited and excluded from CDN cach
 
   assert.match(route, /assistant:\$\{ipAddress\}.*, 20, 60 \* 1000/)
   assert.match(route, /assistant:global.*, 200, 60 \* 1000/)
-  assert.ok(route.indexOf('containsPromptInjection(body.q)') < route.indexOf('!isQuestionLike(body.q)'))
+  assert.ok(route.indexOf('containsPromptInjection(body.q)') < route.indexOf('!isAssistantAnswerableQuery(body.q)'))
   assert.match(streamRoute, /createEventStream/)
-  assert.match(streamRoute, /!blocked && !isQuestionLike\(body\.q\)/)
+  assert.match(streamRoute, /!blocked && !isAssistantAnswerableQuery\(body\.q\)/)
   assert.match(streamRoute, /event: 'stage_started'/)
   assert.match(streamRoute, /event: 'stage_completed'/)
   assert.match(streamRoute, /event: 'heartbeat'/)
@@ -1017,7 +1022,9 @@ test('assistant endpoint is server-only, rate limited and excluded from CDN cach
   assert.match(searchPage, /watch\(\s*\[activeQuery, activeType, activeSearchMode\][\s\S]*immediate: true/)
   assert.match(searchPage, /requestAssistantFallback/)
   assert.match(searchPage, /streamError/)
-  assert.match(searchPage, /isQuestionLike\(query\)/)
+  // AI 模式不再用关键词表决定「要不要问 AI」：只要输入非空就发请求，意图由模型
+  // 判定。这里断言的是「入口只做可答性检查」，而不是旧的关键词门禁。
+  assert.match(searchPage, /isAssistantAnswerableQuery\(query\)/)
   assert.doesNotMatch(searchPage, /onMounted\(\(\) => \{\s+void requestAssistantAnswer\(\)/)
   assert.match(config, /'\/api\/public\/assistant'/)
   assert.match(config, /'\/api\/public\/assistant\/stream'/)
@@ -1032,10 +1039,40 @@ test('self-referential and conversational statements reach the assistant instead
   assert.equal(isQuestionLike('我这人有什么学习习惯'), true)
   assert.equal(isQuestionLike('我晚上学习效率更高，你觉得我适合晚上学习吗'), true)
   assert.equal(isQuestionLike('我刚才说我一般喜欢什么时候学习'), true)
-  // Pure keyword queries still route to regular search.
-  assert.equal(isQuestionLike('校园网'), false)
-  assert.equal(isQuestionLike('学费'), false)
-  assert.equal(isQuestionLike('宿舍条件'), false)
+  // 实体名词问句由 AI 回答，不再被关键词表推给站内搜索。旧断言（学费/宿舍条件为
+  // false）是关键词门禁时代的遗留，正是那一版门禁让「上课时间表/竞赛奖金/财务处
+  // 电话」这类正常提问静默拿不到回答。
+  assert.equal(isQuestionLike('学费'), true)
+  assert.equal(isQuestionLike('宿舍条件'), true)
+})
+
+test('entity-lookup phrasings reach the assistant instead of being skipped', () => {
+  // 线上实测被前端静默跳过、AI 完全不调用的一批自然问题。
+  for (const query of [
+    '上课时间表',
+    '课表',
+    '一天上几节课',
+    '作息时间',
+    '开学时间',
+    '竞赛奖金',
+    '财务处电话',
+    '教务处电话',
+    '附近奶茶',
+    '入党流程',
+    '补考时间',
+    '电脑要买什么配置'
+  ]) {
+    assert.equal(isQuestionLike(query), true, `${query} 应当被识别为提问`)
+    assert.equal(isAssistantAnswerableQuery(query), true, `${query} 应当被入口放行`)
+  }
+  // 通用疑问词不再依赖固定搭配：「要买什么配置」过去不在关键词表里。
+  assert.equal(isQuestionLike('电脑要买什么配置'), true)
+  // 真正没有内容可问的输入仍然拒绝，避免把空请求送进模型。
+  assert.equal(isAssistantAnswerableQuery('？'), false)
+  assert.equal(isAssistantAnswerableQuery('   '), false)
+  assert.equal(isAssistantAnswerableQuery('...'), false)
+  // 表情等符号不是标点，交给模型回应而不是 422。
+  assert.equal(isAssistantAnswerableQuery('😭'), true)
 })
 
 test('broad school-introduction questions answer locally from the campus profile', async () => {

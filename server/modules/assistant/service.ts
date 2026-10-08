@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { and, desc, eq, gt, inArray, like, or } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, like, or, sql } from 'drizzle-orm'
 import { majorProfiles, ordinaryPlanSource, transferPlanSource } from '../../../data/major-profiles'
 import { campusTransitOptions, campusTransitSearchText } from '../../../data/campus-transit'
 import { nearbyGuideItems, nearbyGuideSearchText } from '../../../data/nearby-guide'
@@ -74,7 +74,8 @@ import { retrieveGraphEvidence } from './graph-search'
 import { embeddingConfigReady } from './embedding'
 import {
   mergeVectorEvidence,
-  retrieveVectorEvidence
+  retrieveVectorEvidence,
+  type VectorLegTiming
 } from './vector-search'
 import { rerankConfigReady, rerankEvidence } from './rerank'
 import { localRerankReady } from './local-rerank'
@@ -103,6 +104,8 @@ import { activePublicContentCondition } from '../content/visibility'
 import { searchOfficialKnowledgeDocuments, searchPublishedKnowledgeClaims } from '../knowledge/service'
 import { currentAssistantKnowledgeRevision } from './knowledge-revision'
 import { tryComputeZongce } from './zongce-calculator'
+import { competitionHintsForQuery, looksLikeCompetitionQuery, primeCompetitionHints } from './competition-classifier'
+import { coalesceInFlight } from './inflight'
 import { activePublicProcedureCondition } from '../procedures/service'
 import {
   fetchAmapTransitPlan,
@@ -377,16 +380,37 @@ let gatewayOpenUntil = 0
 let activeMcpCalls = 0
 let consecutiveMcpFailures = 0
 let mcpOpenUntil = 0
-/** AI intent classification for the most recent ambiguous query (set in the
- * query_analysis stage; consumed by the food/competition routers below).
- * Reset to null at the start of every analysis so stale intents never leak
- * across calls. */
-let lastAiIntent: Awaited<ReturnType<typeof classifyAssistantIntent>> | null = null
+
+/**
+ * AI 意图分类结果（classifyAssistantIntent 的产出）。
+ *
+ * 这里刻意用显式参数在调用链上传递，而不是模块级变量：一个模块级变量在并发
+ * 请求之间会互相污染（A 请求的意图泄漏给 B 请求），并发越高越容易出现「答非
+ * 所问」。
+ */
+export type AssistantIntentName =
+  | 'food' | 'competition' | 'zongce' | 'dorm' | 'course' | 'service' | 'transit' | 'campus' | 'other'
+
+export interface AssistantIntentResult {
+  intent: AssistantIntentName
+  topic: string
+}
 
 const MIN_GATEWAY_TIMEOUT_MS = 60_000
 const MAX_GATEWAY_TIMEOUT_MS = 180_000
-const MIN_MCP_TIMEOUT_MS = 25_000
-const MAX_MCP_TIMEOUT_MS = 60_000
+const MIN_MCP_TIMEOUT_MS = 10_000
+// 整个网页兜底（三次串行 MCP 请求共享一个截止时间）的上限。线上实测一次搜索通常
+// 2-4.5s，20s 留足余量；再长只会把「等网页」变成用户感知的卡死。
+const MAX_MCP_TIMEOUT_MS = 20_000
+/**
+ * 检索增强链（改写 / 向量 / 图谱 / 精排 / 网页缓存）的总预算。
+ *
+ * 这些通道都是「锦上添花」：改写是一次网关调用，向量与精排各是一次 embedding /
+ * 重排调用，每层都有自己的超时。它们串行叠加时，一个纯本地模板答案（answer_ms
+ * 只有 1-5ms）也会让用户等 38-62 秒——线上 15% 的真实请求就是这么被用户等断的。
+ * 超过预算就放弃增强，用已有的本地候选继续作答，而不是继续等。
+ */
+const ASSISTANT_ANALYSIS_BUDGET_MS = 15_000
 const MAX_EXTERNAL_RESPONSE_BYTES = 1024 * 1024
 const MAX_GATEWAY_OUTPUT_TOKENS = 800
 const MAX_DIRECT_QUOTE_CHARS = 40
@@ -395,10 +419,20 @@ const MAX_MCP_CONCURRENCY = 2
 // v45: site-meta contact/feedback queries now route to the search-system
 // features (contact / feedback) instead of the web-search fallback. Bumping
 // the version invalidates any previously cached web-route answers.
-const ASSISTANT_CACHE_VERSION = 'rag-v46-site-meta-feature-route'
+// v53: 入口不再用关键词表拒绝提问、意图分类参与路由、本地生活类问句的网页证据
+// 必须锚定学校所在地——这些都会改变既有问题的答案，缓存必须整体失效。
+// v54: 奖学金简写（国奖/国励）与裸主题词（奖学金）改走确定性条目、综测算分修好
+// 成绩提取与赛事级别映射、公交答案不再劫持「仰恩…多少钱」。同样必须整体失效：
+// 否则线上会把旧口径算出的答案继续发 30 分钟（本地验证时正是被旧缓存误导过）。
+// v55: 比赛归类改为「已知赛事表 + AI 判定」，并按「赛事 × 级别」定档——「数学建模
+// 一等奖」从校级 1 分修正为 A类 6 分，「省赛/国赛/校赛」轮次写法也纳入识别。答案
+// 会变，缓存必须整体失效（否则线上继续发旧口径的分数）。
+// v56: 上一版（v55）先上线、比赛归一的读取方与学术类默认档位后修，导致 v55 的答案
+// 缓存里存着一批"未识别到项目"的比赛答案且会被缓存短路（预热根本轮不到执行）。
+const ASSISTANT_CACHE_VERSION = 'rag-v79-hijack-fix'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 /** Build the vector-channel embedding config from assistant runtime config. */
-function assistantEmbeddingConfig(config: AssistantConfig): EmbeddingConfig {
+export function assistantEmbeddingConfig(config: AssistantConfig): EmbeddingConfig {
   return {
     baseUrl: config.embeddingBaseUrl ?? '',
     apiKey: config.embeddingApiKey ?? '',
@@ -413,6 +447,20 @@ const ASSISTANT_PARAPHRASE_INSTRUCTION = '先用自己的中文提炼与问题�
 const PUBLIC_WEB_CITATION_NOTE = '外部网页来源；回答内容由本站根据问题整理，具体内容请打开原页核对。'
 const ASSISTANT_CANDIDATE_LIMIT = 4
 const ASSISTANT_VECTOR_EVIDENCE_LIMIT = 40
+/**
+ * 交互路径上语义召回的硬预算。见 embeddingConfig 处的说明：外部嵌入 API 有
+ * 「无错但 3~5s」的长尾，语义召回只是增强项，不值得让用户为它等十几秒。
+ */
+const ASSISTANT_VECTOR_LEG_BUDGET_MS = 3_000
+/**
+ * 增强类调用在网关并发名额满时最多等多久。
+ *
+ * `activeGatewayCalls >= 2` 是进程内并发上限，原本一超就抛 AI_BUSY，调用方 catch 成
+ * null 便**静默降级**——并发用户下后来者的意图分类/比赛归类/改写一律拿不到结果，
+ * 用户看到的是"比赛少算了分""意图没切对"，没有任何报错。给一小段等待就把这种
+ * 丢失变成"稍慢但拿到结果"。上限取 1.5s：再长就会顶到 15s 的分析总预算。
+ */
+const ASSISTANT_ENHANCEMENT_SLOT_WAIT_MS = 1_500
 const ASSISTANT_GRAPH_EVIDENCE_LIMIT = 6
 const ASSISTANT_OVERVIEW_CANDIDATE_LIMIT = 6
 const KNOWLEDGE_MAX_PAGES = 6
@@ -427,8 +475,9 @@ const VERIFIED_FACT_VALID_UNTIL = {
   dormGuide2026: Date.parse('2027-09-01T00:00:00+08:00'),
   // Campus scale: 2000余亩, 1.3万余人, 12个学院 — review each academic year.
   campusScale: Date.parse('2027-09-01T00:00:00+08:00'),
-  // K2/K6 fares verified against 2024-10-25 公告; re-verify if bus routes change.
-  transitFares: Date.parse('2026-10-01T00:00:00+08:00')
+  // K2/K6 fares verified against 2024-10-25 公告，无新公告前持续有效；
+  // 按学期粒度复核（2027-01 前需再核对线路与票价）。
+  transitFares: Date.parse('2027-01-01T00:00:00+08:00')
 } as const
 
 export function hardcodedAssistantFactIsCurrent(
@@ -1015,7 +1064,7 @@ const KNOWLEDGE_HIT_REASON_RANK: Record<KnowledgeHitReason, number> = {
 // near-duplicate snippets so one topic facet does not flood the context window.
 const MMR_DIVERSITY_LAMBDA = 0.3
 
-function selectCampusKnowledgeContext(
+export function selectCampusKnowledgeContext(
   query: string,
   evidence: AssistantEvidence[],
   maxPages = KNOWLEDGE_MAX_PAGES
@@ -1081,19 +1130,46 @@ function isOfficialUniversityUrl(value: string): boolean {
   }
 }
 
+const EVIDENCE_PLACEHOLDER_TITLE = '这条站内资料'
+
+/**
+ * 来源标题偶尔是抓取残留的英文/空白 token（例如 "answered"）。这类标题直接拼进
+ * 中文答案会漏出无意义片段（“…请打开《answered》核对”），此时退回通用说法。
+ */
+function evidenceDisplayTitle(title: string | undefined): string {
+  const value = (title ?? '').trim()
+  const cjkCount = value.match(/[\u4e00-\u9fff]/gu)?.length ?? 0
+  if (cjkCount < 2) return EVIDENCE_PLACEHOLDER_TITLE
+  return value.length > 60 ? `${value.slice(0, 60)}…` : value
+}
+
+/**
+ * 校园周边 / 本地生活类问句。这类问题的网页结果必须锚定在学校所在地，否则
+ * “理发店推荐”会命中鹰潭（江西）的同名文章，用户拿到的是 600 公里外的答案。
+ */
+const LOCAL_CONTEXT_QUERY_RE = /(?:附近|周边|学生街|马甲镇|洛江|夜市|外卖|理发|美发|剪发|药店|诊所|打印|复印|取件|寄件|快递点|网吧|KTV|台球|健身房|水果店|眼镜店|维修|练车|驾校)/u
+const LOCAL_ANCHOR_RE = /(?:仰恩|泉州|洛江|马甲|福建|闽南|学生街)/u
+
 export function filterWebEvidenceForQuery(query: string, evidence: ApiAssistantCitation[]): ApiAssistantCitation[] {
   const identitySubject = assistantIdentitySubject(query)
-  if (!identitySubject) return evidence
+  if (identitySubject) {
+    // Identity searches may use external biographies and company profiles, but
+    // only when the result explicitly describes the requested subject. This
+    // preserves useful general-person searches while still rejecting awards,
+    // buildings, activities, and other pages that merely contain the same name.
+    return evidence.filter(item => identityEvidenceIsExplicit({
+      ...item,
+      text: `${item.title} ${item.snippet}`
+    }, identitySubject))
+  }
 
-  // Identity searches may use external biographies and company profiles, but
-  // only when the result explicitly describes the requested subject. This
-  // preserves useful general-person searches while still rejecting awards,
-  // buildings, activities, and other pages that merely contain the same name.
-  return evidence.filter(item => identityEvidenceIsExplicit({
-    ...item,
-    text: `${item.title} ${item.snippet}`,
-    score: 0
-  }, identitySubject))
+  // 本地生活类问句：只保留锚定在学校所在地的结果。整批都不锚定说明搜索整体跑偏
+  // （“理发店推荐” → 鹰潭同题文章），此时宁可回答「站内没有收录」也不要外地答案。
+  if (LOCAL_CONTEXT_QUERY_RE.test(query)) {
+    return evidence.filter(item => LOCAL_ANCHOR_RE.test(`${item.title} ${item.snippet}`))
+  }
+
+  return evidence
 }
 
 export function assistantEvidenceAuthority(item: Pick<ApiAssistantCitation, 'url' | 'source'> & { authority?: EvidenceAuthority }): EvidenceAuthority {
@@ -1317,7 +1393,16 @@ function knowledgeRetrievalDetail(query: string, evidence: AssistantEvidence[]):
   return `命中 ${evidence.length} 页 · ${summary} · 上下文 ${chars} 字`
 }
 
-function assistantQueryAnchors(value: string): string[] {
+// 方位词回答的是“在哪”，不是“问什么”：把它们留作锚词会强迫候选在 240 字内
+// 同时逐字包含方位词与主题词。线上「附近有没有卖文具的店」因此被整批判死——
+// anchors 是 ["附近","卖文具的店"]，没有任何网页原文含「卖文具的店」，
+// 仰恩村两家真实文具店的网页结果全部被 evidenceCoversQuerySubject 丢弃，
+// 用户只得到「没找到」。纯方位词只在精确相等时剔除，不影响 校园卡 这类复合词。
+const ANCHOR_SCOPE_WORDS = new Set([
+  '附近', '周边', '周围', '校内', '校外', '校区', '校园', '镇上', '市区'
+])
+
+export function assistantQueryAnchors(value: string): string[] {
   let normalized = normalizeAssistantQuery(value).toLocaleLowerCase('zh-CN')
   for (const filler of [...QUERY_ANCHOR_FILLERS].sort((left, right) => right.length - left.length)) {
     normalized = normalized.replaceAll(filler, ' ')
@@ -1334,9 +1419,17 @@ function assistantQueryAnchors(value: string): string[] {
           break
         }
       }
+      // 动词外壳（卖/买/想找…）不是主题本身：「卖文具的店」要收敛成「文具」，
+      // 否则 bigram 回退要求 ≥2 个双字命中，带外壳的锚词几乎永远匹配不上原文。
+      const withoutVerb = anchor.replace(/^(?:想要|想买|要买|想去|想找|推荐个?|购买|卖|买)(?=[一-鿿]{2,})/u, '')
+      if (withoutVerb.length >= 2) anchor = withoutVerb
+      // 泛化宾语尾巴（…的店/…地方）同样不是主题：「奶茶店」→「奶茶」。
+      const tailMatch = anchor.match(/^(.+?)的?(?:店|的地方|地方|场所|位置)$/)
+      const tail = tailMatch?.[1]
+      if (tail !== undefined && tail.length >= 2) anchor = tail
       return anchor
     })
-    .filter(anchor => anchor.length >= 2 && !QUERY_ANCHOR_ASPECTS.has(anchor))
+    .filter(anchor => anchor.length >= 2 && !QUERY_ANCHOR_ASPECTS.has(anchor) && !ANCHOR_SCOPE_WORDS.has(anchor))
 
   return [...new Set(anchors)].slice(0, 6)
 }
@@ -1360,7 +1453,7 @@ function evidenceAnchorPosition(value: string, anchor: string): number | null {
     : null
 }
 
-function evidenceCoversQuerySubject(query: string, item: AssistantEvidence): boolean {
+export function evidenceCoversQuerySubject(query: string, item: AssistantEvidence): boolean {
   const anchors = assistantQueryAnchors(query)
   if (anchors.length === 0) return true
   const value = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
@@ -1377,10 +1470,17 @@ function evidenceCoversQuerySubject(query: string, item: AssistantEvidence): boo
   })
 }
 
-function identityEvidenceIsExplicit(item: AssistantEvidence, subject: string): boolean {
+/**
+ * 判断「是否已有该人物的档案」只需要标题与摘要。结构化证据
+ * （buildStructuredEvidence）只产出 ApiAssistantCitation，没有 text/score，
+ * 这里刻意只要求真正会读到的字段，避免调用点为了满足类型而伪造 evidence。
+ */
+type IdentityProbeEvidence = Pick<ApiAssistantCitation, 'title' | 'snippet'> & { text?: string }
+
+function identityEvidenceIsExplicit(item: IdentityProbeEvidence, subject: string): boolean {
   const normalizedSubject = subject.toLocaleLowerCase('zh-CN')
   const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
-  const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+  const text = `${item.title} ${item.snippet} ${item.text ?? ''}`.toLocaleLowerCase('zh-CN')
   const relatedTitle = /奖学金|助学金|基金|奖项|奖励|活动|通知|会议|楼|大楼|馆|道路|雕像|铜像|工程|项目|比赛|论坛|讲座/u
   const officialBiographyTitle = title.includes(normalizedSubject)
     && /人物|校主|董事会主席|创办|教育家|企业家|华侨|建设仰恩|和仰恩大学/u.test(title)
@@ -1443,7 +1543,7 @@ function requiredEvidenceSubjects(query: string): string[] {
   return scholarship ? [scholarship.name.toLocaleLowerCase('zh-CN')] : []
 }
 
-function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
+export function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
   const profile = assistantQueryProfile(query)
   const meaningful = profile.meaningfulQuery.replace(/\s+/g, '')
   const requiredSubjects = requiredEvidenceSubjects(query)
@@ -1455,6 +1555,8 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
   const curriculumMajor = majorCurriculumNameForQuery(query)
   const hardshipRecognitionQuery = isHardshipRecognitionQuery(query)
   const dormBedDimensionQuery = isDormBedDimensionQuery(query)
+  // 非床语境的尺寸问句:床品/蚊帐条目不得充当证据(与 find() 同口径的双保险)。
+  const sizeWithoutBedSubject = sizeWithoutBedSubjectQuery(query)
   const placeLocationQuery = isPlaceLocationQuery(query)
   const registrationLocationQuery = /报名地点|报到地点|在哪(?:里)?报名|在哪(?:里)?报到/.test(query)
   const teachingLocationQuery = isTeachingLocationQuery(query)
@@ -1476,6 +1578,7 @@ function rankAssistantEvidence(query: string, evidence: AssistantEvidence[], lim
       && !broadOverviewTerms.some(term => title.includes(term))
     ) return false
     if (dormBedDimensionQuery && !BED_DIMENSION_EVIDENCE_RE.test(searchable)) return false
+    if (sizeWithoutBedSubject && BED_DIMENSION_CANDIDATE_RE.test(searchable)) return false
     if (placeLocationQuery && !registrationLocationQuery && REGISTRATION_ASSIGNMENT_EVIDENCE_RE.test(searchable)) return false
     const hasRegistrationEvidence = Boolean(
       teachingLocationMajor
@@ -1718,7 +1821,7 @@ function structuredDataCanAnswer(query: string): boolean {
   return false
 }
 
-function filterEvidenceForIntent(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
+export function filterEvidenceForIntent(query: string, evidence: AssistantEvidence[], limit?: number): AssistantEvidence[] {
   return rankAssistantEvidence(query, evidence, limit)
 }
 
@@ -1814,7 +1917,8 @@ function admissionPlanCountGapResponse(
     citations: (directEvidence.length > 0 ? directEvidence : evidence.slice(0, 2))
       .map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
     usedWebSearch: evidence.some(item => item.source === 'web'),
-    confidence: 0.82
+    confidence: 0.82,
+    evidenceGap: true
   }
 }
 
@@ -2721,6 +2825,33 @@ function dormKnowledgePriority(query: string, row: {
   return boost
 }
 
+/**
+ * 口语别名 → 站内条目使用的正式用语。
+ *
+ * 学生口语里「国奖」指国家奖学金、「国励/励志」指国家励志奖学金，而条目正文写的是
+ * 全称。不映射的话这类提问既命中不了确定性条目（线上「国奖多少」要跑 21 秒的
+ * 改写+向量链），也可能被当成别的主题。
+ */
+const KNOWLEDGE_TOPIC_ALIASES: Readonly<Record<string, string>> = {
+  国奖: '国家奖学金',
+  国励: '国家励志奖学金',
+  励志: '国家励志奖学金',
+  国家励志: '国家励志奖学金',
+  助学: '国家助学金',
+  一奖: '一等奖学金',
+  二奖: '二等奖学金',
+  三奖: '三等奖学金'
+}
+
+/** 把口语别名补进检索文本（追加而非替换，保留原话的其它线索）。 */
+function expandKnowledgeAliases(query: string): string {
+  const extra: string[] = []
+  for (const [alias, canonical] of Object.entries(KNOWLEDGE_TOPIC_ALIASES)) {
+    if (query.includes(alias) && !query.includes(canonical)) extra.push(canonical)
+  }
+  return extra.length > 0 ? `${query} ${extra.join(' ')}` : query
+}
+
 export function assistantKnowledgeMatchesForQuery(
   client: DatabaseClient,
   query: string,
@@ -2903,7 +3034,8 @@ function seedRowsForPlace(
 interface FoodAiCandidate {
   placeId: string
   name: string
-  score: number
+  /** 高德评分；null=暂无评分的新收录/推广店（候选仍可推荐，但不编评分）。 */
+  score: number | null
   cost: number | null
   area: '新区' | '旧区' | '学生街' | null
   tips: string[]
@@ -2964,7 +3096,7 @@ async function foodRecommendationAiAnswer(
   const candidates = capture.candidates.slice(0, FOOD_AI_CANDIDATE_LIMIT)
   const candidateJson = candidates.map(candidate => JSON.stringify({
     name: candidate.name,
-    score: Number(candidate.score.toFixed(1)),
+    score: candidate.score !== null ? Number(candidate.score.toFixed(1)) : null,
     cost: candidate.cost !== null ? Math.round(candidate.cost) : null,
     area: candidate.area ?? '',
     tips: candidate.tips
@@ -2976,6 +3108,7 @@ async function foodRecommendationAiAnswer(
     '2. 挑 2~4 家最合适的店，自然口语、直接紧凑，每家给一两句具体理由（招牌、口味、适合什么场景）；',
     '3. 禁止逐条罗列统计数字，不要抄评分/人均/候选清单，也别说“以下是推荐”这类套话；',
     '4. 结合用户的预算、区域、品类、时段需求挑选；高分店可以优先，但要在候选里轮换组合，不要每次只推同一两家；',
+    '4b. score 为 null 表示暂无高德评分的新收录门店——需求合适时带上一家也没问题，用"新开的/新收录"口吻提一句，但不要编评分数字；',
     '5. 全文不超过 300 字；不要用 Markdown 标题、列表符号或链接，可用换行分段。',
     '只输出一个 JSON 对象：{"answer": "推荐正文"}，answer 里不要再嵌 JSON 或多余键。'
   ].join('\n')
@@ -3023,7 +3156,7 @@ async function foodRecommendationAiAnswer(
     citations: candidates.slice(0, 5).map(candidate => ({
       title: candidate.name,
       url: '/map?place=' + encodeURIComponent(candidate.placeId),
-      snippet: `${candidate.name}：${candidate.score.toFixed(1)} 分${candidate.cost !== null ? `，人均约 ¥${Math.round(candidate.cost)}` : ''}`,
+      snippet: `${candidate.name}：${candidate.score !== null ? `${candidate.score.toFixed(1)} 分` : '暂无评分'}${candidate.cost !== null ? `，人均约 ¥${Math.round(candidate.cost)}` : ''}`,
       source: 'site' as const
     })),
     usedWebSearch: false,
@@ -3036,10 +3169,21 @@ async function foodRecommendationAiAnswer(
 // shop's name contains the category word.
 const SHOP_CATEGORY_WORD_RE = /^(?:火锅|火锅店|烧烤|烧烤店|烤肉|奶茶|奶茶店|咖啡|咖啡店|咖啡厅|面|面馆|粉|米粉|米线|汉堡|汉堡店|寿司|日料|包子|包子铺|水饺|饺子|快餐|盖饭|拌饭|麻辣烫|麻辣拌|甜品|甜品店|蛋糕|烘焙|早餐|夜宵|宵夜|水果|果切|饮料|自助|小龙虾|螺蛳粉|鸡排|炸鸡|食堂|学生街)$/u
 
+// 「奶茶/喝的」品类该选哪些店。**必须带品牌名**：高德 POI 名普遍不含「奶茶」二字
+// （线上实测真实 POI 是「古茗(仰恩大学店)」「大茶杯(新区店)」「泰罗手打柠檬茶(仰恩店)」），
+// 只按「奶茶/茶饮」匹配会把古茗、大茶杯整家漏掉——问奶茶推荐却答不出古茗。
+// 刻意**不写裸「茶」**：那会命中「茶思烤肉(仰恩店)」这种烤肉店。
+const TEA_DRINK_NAME_RE = /(?:奶茶|柠檬茶|茶饮|果茶|奶盖|烧仙草|咖啡|冰城|雪王|水吧|饮品|古茗|蜜雪|茶百道|沪上阿姨|益禾堂|书亦|瑞幸|幸运咖|霸王茶姬|喜茶|奈雪|柠季|大茶杯)/u
+
+// 「咖啡」要单独一套：把咖啡混进上面那套饮品名里，问咖啡就会拿回一串奶茶店
+// （线上扫描器的「咖啡推荐」用例就是这么照出来的）。这条只认咖啡。
+const COFFEE_NAME_RE = /(?:咖啡|瑞幸|幸运咖|库迪|coco|CoCo|星巴克|Manner|manner)/u
+
 function assistantFoodRecommendationAnswer(
   client: DatabaseClient,
   query: string,
-  capture?: FoodRecommendationCapture
+  capture?: FoodRecommendationCapture,
+  intent?: AssistantIntentResult | null
 ): ApiAssistantResponse | null {
   if (capture) capture.kind = 'none'
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
@@ -3061,7 +3205,7 @@ function assistantFoodRecommendationAnswer(
   // AI intent disambiguation: when the analysis stage classified this query
   // as a NON-food intent (e.g. "理发店推荐" whose 推荐 word triggered food),
   // do not answer with restaurant rankings.
-  if (lastAiIntent && lastAiIntent.intent !== 'food' && lastAiIntent.intent !== 'competition') return null
+  if (intent && intent.intent !== 'food' && intent.intent !== 'competition') return null
   // Single-shop intent ("古茗怎么样/塔斯汀好吃吗") does not carry a food
   // keyword in the shop name — allow it through when the query ends with an
   // evaluative marker and is not a bare/overview question. The shop name is
@@ -3075,8 +3219,11 @@ function assistantFoodRecommendationAnswer(
 
   // Category filter: "推荐奶茶/火锅/烧烤/面/便宜的" narrows the merchant pool.
   const CATEGORY_PATTERNS: Array<[RegExp, RegExp]> = [
-    [/喝的|饮料|喝什么/u, /(?:奶茶|柠檬茶|咖啡|茶饮|水吧|饮品|冰城|雪王|饮料)/u],
-    [/奶茶|饮品|柠檬茶|茶饮|咖啡|冰城|雪王/u, /(?:奶茶|柠檬茶|咖啡|茶饮|水吧|饮品|冰城|雪王)/u],
+    [/喝的|饮料|喝什么/u, TEA_DRINK_NAME_RE],
+    // 咖啡必须排在下面那条「奶茶|饮品|…|咖啡|…」之前：触发器是按顺序取第一个命中的，
+    // 排在后面就永远轮不到，问咖啡又会答回奶茶。
+    [/咖啡|瑞幸|幸运咖|库迪/u, COFFEE_NAME_RE],
+    [/奶茶|饮品|柠檬茶|茶饮|冰城|雪王/u, TEA_DRINK_NAME_RE],
     [/火锅|自助火锅|牛肉火锅/u, /(?:火锅|涮)/u],
     [/烧烤|烤串|烤肉|铁板/u, /(?:烧烤|烤串|烤肉|铁板|烤鱼)/u],
     [/麻辣烫|麻辣拌/u, /(?:麻辣烫|麻辣拌)/u],
@@ -3136,7 +3283,9 @@ function assistantFoodRecommendationAnswer(
   // 想(去)吃/正餐/聚餐/干饭/请客/午饭/晚饭等。bare "吃"（好吃的/想吃/有什么吃的）
   // 是泛指零食与喝的全域美食问法，不能当正餐意图排除奶茶甜品——否则"新区有什么
   // 好吃的"这类区域问会把整条学生街的饮品店都滤掉。
-  const mealQuery = !drinkIntentQuery && /(?:吃(?:什么|啥|点什么|点啥|饭|个饭|顿饭|东西)|想吃|去吃|正餐|干饭|聚餐|请客|(?:两|几|三)个(?:人|同学|室友)|早饭|午饭|晚饭|宵夜|夜宵|食堂|点菜)/u.test(normalized)
+  // 「餐厅/饭店/饭馆/餐馆」是明确的"吃正餐"名词，同样算正餐意图：线上实测
+  // "学生街有什么推荐的餐厅"原本 4 条推荐里塞了 2 家奶茶店（古茗、蜜雪冰城）。
+  const mealQuery = !drinkIntentQuery && /(?:吃(?:什么|啥|点什么|点啥|饭|个饭|顿饭|东西)|想吃|去吃|正餐|干饭|聚餐|请客|(?:两|几|三)个(?:人|同学|室友)|早饭|午饭|晚饭|宵夜|夜宵|食堂|点菜|餐厅|饭店|饭馆|餐馆|馆子)/u.test(normalized)
   // Canteen intent: "食堂/校内餐厅" — the campus canteens have no per-dish
   // ratings, so be honest about that instead of pretending the student
   // street shops ARE the canteens.
@@ -3170,18 +3319,25 @@ function assistantFoodRecommendationAnswer(
     score: placeAmapRatings.score,
     cost: placeAmapRatings.cost
   }).from(placeAmapRatings)
-    .where(and(
-      // Only fresh ratings; expired cache rows would mislead.
-      gt(placeAmapRatings.expiresAt, now),
-      gt(placeAmapRatings.score, 0)
-    ))
-    .orderBy(desc(placeAmapRatings.score))
+    .where(gt(placeAmapRatings.score, 0))
+    // 新鲜评分优先，但不把过期行整批丢掉。
+    //
+    // TTL 的含义是「该重新抓了」，不是「这条数据无效」——餐馆评分变化很慢。以前这里
+    // 硬过滤 expiresAt，于是刷新链路一旦停摆（线上真的停摆了四天：最后一次抓取
+    // 2026-09-05，09-12 全部过期），整条美食推荐会直接从「排名列表」变成
+    // 「内置资料暂时没有找到」。宁可给出略旧的评分，也不要答不出来。
+    .orderBy(
+      desc(sql`CASE WHEN ${placeAmapRatings.expiresAt} > ${now} THEN 1 ELSE 0 END`),
+      desc(placeAmapRatings.score)
+    )
     .limit(80)
     .all()
 
   // Keep food/drink merchants only: drop express, telecom, banking, repair,
   // salon and other non-eating services that also carry AMap ratings.
-  const NON_FOOD_PATTERN = /(?:快递|物流|驿站|电信|移动|联通|银行|维修|美发|理发|美甲|眼镜|洗衣|干洗|打印|复印|照相|药店|诊所|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷|邮政|造型|美睫|兔喜|妈妈驿站|熊猫快收|自选店|食杂)/u
+  // 「速运」是补上的关键一条：线上实测「学生街有什么推荐的餐厅」把
+  // 「顺丰速运(仰恩大学店)」排进了餐厅榜（它只带"速运"，旧表里的"快递/物流"都匹配不到）。
+  const NON_FOOD_PATTERN = /(?:快递|速运|物流|驿站|菜鸟|电信|移动|联通|银行|信用社|维修|美发|理发|美甲|美睫|眼镜|洗衣|干洗|打印|复印|照相|摄影|药店|药房|诊所|医院|卫生院|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷|邮政|造型|兔喜|妈妈驿站|熊猫快收|自选店|食杂|网吧|网咖|台球|桌球|健身)/u
   const seenNames = new Set<string>()
   const allFood = rows.filter(row => row.score !== null && !NON_FOOD_PATTERN.test(row.name))
     .filter(row => {
@@ -3190,6 +3346,34 @@ function assistantFoodRecommendationAnswer(
       seenNames.add(key)
       return true
     })
+  // 已建卡但暂无高德评分的周边餐饮门店（scope=nearby 的 dining/food 卡片且后台推广
+  // 已启用）也并入候选池，否则"好七好七"这类新店在开放式推荐里永远不出现——评分
+  // 缺失按底分参与排序、展示"暂无评分"。
+  const promotedFoodCards = client.db.select({
+    placeId: places.id,
+    name: places.name,
+    summary: places.summary
+  }).from(places)
+    .innerJoin(placeMerchants, and(eq(placeMerchants.placeId, places.id), eq(placeMerchants.enabled, true)))
+    .where(and(
+      eq(places.status, 'published'),
+      eq(places.scope, 'nearby'),
+      or(eq(places.type, 'dining'), eq(places.type, 'food'))
+    ))
+    .all()
+  // 无评分推广卡的口碑行：从简介提炼一句（"…是学校周边的快餐小吃店…"），LLM 候选
+  // 与本地列表都有内容可用，否则 score=null 的店信息量为零、模型永远不会选。
+  const promoCardTips = new Map<string, string>()
+  for (const card of promotedFoodCards) {
+    const tipMatch = card.summary?.match(/，是([^。；！?？]{2,32})/u)
+    if (tipMatch) promoCardTips.set(card.placeId, `是${tipMatch[1]}`)
+  }
+  for (const card of promotedFoodCards) {
+    const key = card.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
+    if (seenNames.has(key)) continue
+    seenNames.add(key)
+    allFood.push({ placeId: card.placeId, name: card.name, score: null, cost: null })
+  }
 
   // Single-shop detail takes priority: "老贵阳牛肉粉怎么样 / 蜜雪冰城好不好"
   // returns that shop's full review cards, matched against the WHOLE food
@@ -3217,7 +3401,7 @@ function assistantFoodRecommendationAnswer(
         query,
         mode: 'local',
         answer: [
-          `${shopMatch.name}：高德评分 ${shopMatch.score!.toFixed(1)} 分${shopMatch.cost !== null ? `，人均约 ¥${Math.round(shopMatch.cost)}` : ''}。〔地图定位〕`,
+          `${shopMatch.name}：${shopMatch.score !== null ? `高德评分 ${shopMatch.score.toFixed(1)} 分` : '暂无高德评分'}${shopMatch.cost !== null ? `，人均约 ¥${Math.round(shopMatch.cost)}` : ''}。〔地图定位〕`,
           '整理自大众点评用户评价：',
           ...detailLines,
           '以上为评价整理（非原文），实际口味因人而异，到店前可在地图卡片再核对。'
@@ -3225,7 +3409,7 @@ function assistantFoodRecommendationAnswer(
         citations: [{
           title: shopMatch.name,
           url: '/map?place=' + encodeURIComponent(shopMatch.placeId),
-          snippet: `${shopMatch.name}：${shopMatch.score!.toFixed(1)} 分，${shopSeed.length} 条整理评价`,
+          snippet: `${shopMatch.name}：${shopMatch.score !== null ? `${shopMatch.score.toFixed(1)} 分` : '暂无评分'}，${shopSeed.length} 条整理评价`,
           source: 'site' as const
         }],
         usedWebSearch: false,
@@ -3299,7 +3483,10 @@ function assistantFoodRecommendationAnswer(
     (row.aiFrequency ?? 0) / 100 * 0.8 + (row.promoWeight ?? 0) / 100 * 0.5]))
   const biasedShuffle = (items: typeof rated): typeof rated => {
     return items
-      .map(item => ({ item, bias: (item.score ?? 0) + Math.random() * 0.45 + (promoBias.get(item.placeId) ?? 0) }))
+      // 无评分推广卡（score null）按 4.0 底分参与随机序：评分缺失不再等于垫底。
+      // 蒙特卡洛实测（98 店池）：3.7→进前 8-12 概率 ~13%，4.0→~79%。出现频次由
+      // 后台 ai_frequency/promo_weight 调节，此处只保证推广卡能进候选窗口。
+      .map(item => ({ item, bias: (item.score ?? 4.0) + Math.random() * 0.45 + (promoBias.get(item.placeId) ?? 0) }))
       .sort((left, right) => right.bias - left.bias)
       .map(entry => entry.item)
   }
@@ -3338,12 +3525,14 @@ function assistantFoodRecommendationAnswer(
 
   const lines = rated.map((row, index) => {
     const costText = row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''
-    const tips = seedByPlace.get(row.placeId) ?? []
+    const promoTip = promoCardTips.get(row.placeId)
+    const tips = [...(seedByPlace.get(row.placeId) ?? []), ...(promoTip ? [promoTip] : [])].slice(0, 2)
     const tipText = tips.length > 0 ? `（${tips.join('；')}）` : ''
     const area = inferShopArea(row.name)
     const areaText = area === '新区' ? '[新区] ' : area === '旧区' ? '[旧区] ' : area === '学生街' ? '[学生街] ' : ''
+    const scoreText = row.score !== null ? `${row.score.toFixed(1)} 分` : '暂无评分'
     // 〔地图定位〕 marker → rendered as an inline link to /map?q=<shop name>.
-    return `${index + 1}. ${areaText}${row.name}：${row.score!.toFixed(1)} 分${costText}${tipText}〔地图定位〕`
+    return `${index + 1}. ${areaText}${row.name}：${scoreText}${costText}${tipText}〔地图定位〕`
   })
   const filterBits: string[] = []
   if (categoryMatch) filterBits.push('类型')
@@ -3381,15 +3570,18 @@ function assistantFoodRecommendationAnswer(
   if (capture) {
     capture.kind = 'list'
     capture.mealIntent = mealDrinkExclusionApplied
-    capture.candidates = rated.slice(0, FOOD_AI_CANDIDATE_LIMIT).map(row => ({
-      placeId: row.placeId,
-      name: row.name,
-      score: row.score ?? 0,
-      cost: row.cost,
-      area: inferShopArea(row.name),
-      tips: (seedByPlace.get(row.placeId) ?? []).slice(0, 2)
-        .map(line => line.length > 40 ? `${line.slice(0, 40)}…` : line)
-    }))
+    capture.candidates = rated.slice(0, FOOD_AI_CANDIDATE_LIMIT).map(row => {
+      const promoTip = promoCardTips.get(row.placeId)
+      return {
+        placeId: row.placeId,
+        name: row.name,
+        score: row.score,
+        cost: row.cost,
+        area: inferShopArea(row.name),
+        tips: [...(seedByPlace.get(row.placeId) ?? []), ...(promoTip ? [promoTip] : [])].slice(0, 2)
+          .map(line => line.length > 40 ? `${line.slice(0, 40)}…` : line)
+      }
+    })
   }
 
   return {
@@ -3399,7 +3591,7 @@ function assistantFoodRecommendationAnswer(
     citations: rated.slice(0, 5).map(row => ({
       title: row.name,
       url: '/map?place=' + encodeURIComponent(row.placeId),
-      snippet: `${row.name}：${row.score!.toFixed(1)} 分${row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''}`,
+      snippet: `${row.name}：${row.score !== null ? `${row.score.toFixed(1)} 分` : '暂无评分'}${row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''}`,
       source: 'site' as const
     })),
     usedWebSearch: false,
@@ -3407,15 +3599,65 @@ function assistantFoodRecommendationAnswer(
   }
 }
 
-function assistantKnowledgeLocalAnswer(
+/**
+ * 「综测怎么加分/加分有哪些」问的是加分项目总览,不是申请表怎么填——
+ * 条目池里的「综测加分申请要准备什么」曾把这类问句整条抢走(2026-09-23 线上实测,
+ * 答成"模板包含个人自评报告…")。带「申请/材料/表格」的问法不在此列,继续走申请表条目。
+ */
+function isZongceBonusOverviewQuery(query: string): boolean {
+  const normalized = normalizeAssistantQuery(query)
+  return /(?:综合测评|综测)/u.test(normalized)
+    && /(?:怎么加分|如何加分|加分有哪些|有哪些加分|加分规则|加分标准|加分项目|加多少分|加几分)/u.test(normalized)
+    && !/(?:申请|材料|表格|怎么填|填写|填表|自评|模板|交什么)/u.test(normalized)
+}
+
+/**
+ * 问的尺寸与床无关（「桌子尺寸/裸『尺寸』」）：床品/蚊帐条目不得充当候选或证据——
+ * 2026-09-23 线上把蚊帐 90×190 当作桌子尺寸答了出去。含「宿舍/床」的问法
+ * （「宿舍尺寸/宿舍床多宽」）返回 false，保持原行为按床位规格作答。
+ * find()（知识条目匹配）与 rankAssistantEvidence（证据池过滤）是两条独立路径，
+ * 两处都必须用这个判定，否则挡掉一边、另一边照答。
+ */
+function sizeWithoutBedSubjectQuery(query: string): boolean {
+  return /(?:尺寸|多大|多宽|多长|规格|长宽)/u.test(query)
+    && !/(?:床|床垫|床帘|蚊帐|寝具|宿舍|寝室)/u.test(query)
+}
+
+const BED_DIMENSION_CANDIDATE_RE = /(?:蚊帐|床垫|床铺|床上用品|90[×x]190)/iu
+
+export function assistantKnowledgeLocalAnswer(
   client: DatabaseClient,
-  query: string
+  query: string,
+  intent?: AssistantIntentResult | null,
+  /**
+   * 用于「匹配」的文本，默认与 query 相同。
+   *
+   * 当模型识别出意图时，它同时给出规范化的主题短语（例如把「省一能拿多少奖金」
+   * 归纳成「竞赛奖金标准」）。口语缩写本身不含任何条目关键词，直接用原句打分是
+   * 0 分；把主题短语并进来才能命中已审核条目。问答谓词仍然读原始 query，避免
+   * 主题短语污染 transfer/food 之类的判断。
+   */
+  matchQuery: string = query
 ): ApiAssistantResponse | null {
+  // 口语别名（国奖/励志…）在这里补成正式用语：条目正文写的是全称，不映射就命中不了。
+  const effectiveMatchQuery = expandKnowledgeAliases(matchQuery)
+  // 社团招新/加入问句不进知识条目匹配:「电子数模协会什么时候招新」含「数模」
+  // 子串,曾被模型意图短语(如「学科技能竞赛加分」)带进学科竞赛分支,答成智育
+  // 奖励加分表(2026-09-23 线上实测)。招新问题的正确来源是社团页面
+  // (clubIdentityLocalAnswer),它在确定性链里排在本函数之后。
+  if (/(?:社团|协会|俱乐部|研究会|读书社|工作室)/u.test(query)
+    && /(?:招新|纳新|报名时间|什么时候.{0,4}报名|何时.{0,4}报名|怎么加入|如何加入|加群|入群)/u.test(query)) return null
   // Student-rule handlers carry the reviewed scholarship/GPA/综合测评
   // formulas and should win over a similarly-worded FAQ or crawled article.
   // Otherwise a generic “how is comprehensive evaluation assessed” entry can
   // mask a request for the actual scholarship application rules.
-  const studentRuleQuery = /(?:奖学金|助学金|绩点|gpa|综合测评|综测)/i.test(query)
+  // 规则口径类问题（综测/绩点）交给 studentRuleLocalAnswer：它在快速链里排在本函数
+  // 之前，已经先拿到机会；这里的守卫只是防止一个泛泛的条目在不该顶替时顶掉规则回答。
+  //
+  // 旧版守卫把「奖学金|助学金」也一并拦掉，于是学生口语说「国奖/国励」时：
+  // studentRule 认不出这个简称 → 已审核条目又被守卫挡在门外 → 最后退回
+  // 「请打开原文核对」（线上「奖学金」连问三次全失败的真因之一）。
+  const studentRuleQuery = /(?:绩点|gpa|综合测评|综测)/i.test(query)
   const comprehensiveTableQuery = /(?:综测|综合测评).*(?:表格|统计|怎么填|填写|填表)|(?:表格|统计|怎么填|填写|填表).*(?:综测|综合测评)/i.test(query)
   const comprehensiveDetailQuery = /(?:班内互评|互评分|智育|体育|德育奖励|志愿|献血|扣分|加分|排名|评审|流程|奖励|处分|旷课|迟到|表格|统计|怎么填|填写|填表|班级代码|学号|姓名|什么时候评|什么时候开始|什么时候进行|何时评|和奖学金|与奖学金|奖学金关系)/i.test(query)
   if (studentRuleQuery && !comprehensiveTableQuery && !comprehensiveDetailQuery) return null
@@ -3454,7 +3696,7 @@ function assistantKnowledgeLocalAnswer(
   // (the same data shown on the map popup), not from static FAQ entries.
   // Checked BEFORE the broad-overview guard so "学生街有什么推荐" is not
   // swallowed by the generic overview path.
-  const foodAnswer = assistantFoodRecommendationAnswer(client, query)
+  const foodAnswer = assistantFoodRecommendationAnswer(client, query, undefined, intent)
   if (foodAnswer) return foodAnswer
   // “宿舍怎么样 / 校园卡怎么样” asks for a topic overview. A single FAQ
   // that merely mentions the topic (for example a discipline rule mentioning
@@ -3555,10 +3797,18 @@ function assistantKnowledgeLocalAnswer(
   // Competition intent wins over comprehensive-evaluation entries: "竞赛获奖
   // 加多少分/奖金多少" must answer from the 学科竞赛 category (仰大教〔2021〕
   // 33号), NOT from the 综测 entry that also covers 竞赛获奖加分.
+  // 口语缩写（“省一/国一/一等奖”）里没有「竞赛」二字，上面这条正则永远命中不了。
+  // 这条确定性规则专门兜住它们，要求同时出现「奖励语境」，并排除奖学金语境——
+  // 奖学金里的「一等奖」是奖学金等级，不能答成学科竞赛奖金表。
+  //
+  // 为什么不能只靠模型分类：模型不可用（网关超时/熔断）时分类器返回 null，这条
+  // 提问就会退化回「内置资料暂时没有找到」。关键问法必须有确定性兜底。
+  const competitionAbbreviationQuery = /(?:省一|省二|省三|国一|国二|国三|一等奖|二等奖|三等奖|特等奖)/u.test(query)
+    && /(?:奖金|奖励|加多少分|加几分|加分|多少钱|多少元|多少|奖励标准|奖金标准|奖励金额)/u.test(query)
+    && !/(?:奖学金|助学金|助学贷款|励志|国家奖学金)/u.test(query)
+  const competitionIntentConfirmed = competitionAbbreviationQuery || intent?.intent === 'competition'
   const competitionQuery = /(?:学科竞赛|技能竞赛|竞赛|比赛|大赛|获奖加分|竞赛加分|竞赛奖金|竞赛报名|A类赛事|B类赛事|C类赛事|A类竞赛|B类竞赛|互联网\+|挑战杯|大创|ACM|电子设计竞赛|数学建模|数模|竞赛项目|竞赛办法|竞赛管理|竞赛.*(?:加|奖)|比赛.*(?:加分|获奖|加多少分)|竞赛.*(?:报名|参加|参赛|怎么参加|如何参加)|(?:数学建模|电子设计|挑战杯|互联网).*级别)/u.test(query)
-    // AI intent support: the classifier may recognize competition intent even
-    // when the regex above misses an unusual phrasing.
-    || (lastAiIntent?.intent === 'competition')
+    || competitionIntentConfirmed
   if (competitionQuery) {
     // Query the 学科竞赛 category DIRECTLY (no LIKE-term gate): the term
     // splitter can collapse "竞赛A类一等奖加多少分" into one long phrase
@@ -3582,7 +3832,9 @@ function assistantKnowledgeLocalAnswer(
       .all()
     if (competitionRows.length > 0) {
       // Score each row by keyword overlap with the query, then pick by intent.
-      const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+      // 用 matchQuery（可能已经并入了模型给出的主题短语）：口语缩写如「省一」
+      // 本身不含任何条目关键词，只按原句打分会让所有行都得 0 分而被整体过滤掉。
+      const normalizedQuery = normalizeAssistantQuery(effectiveMatchQuery).toLocaleLowerCase('zh-CN')
       const scoreCompetitionRow = (row: typeof competitionRows[number]): number => {
         const keywords = JSON.parse(row.keywordsJson) as string[]
         const haystack = `${row.title} ${row.question} ${keywords.join(' ')}`.toLocaleLowerCase('zh-CN')
@@ -3592,9 +3844,9 @@ function assistantKnowledgeLocalAnswer(
       const competitionMatches = competitionRows
         .map(row => ({ ...row, keywords: JSON.parse(row.keywordsJson) as string[] }))
         .sort((left, right) => scoreCompetitionRow(right) - scoreCompetitionRow(left))
-        .filter(row => scoreCompetitionRow(row) > 0 || /竞赛|比赛|大赛|数学建模|电子设计|ACM|挑战杯|互联网|大创|加分|获奖/.test(query))
+        .filter(row => scoreCompetitionRow(row) > 0 || competitionIntentConfirmed || /竞赛|比赛|大赛|数学建模|电子设计|ACM|挑战杯|互联网|大创|加分|获奖/.test(effectiveMatchQuery))
       const pickByIntent = (pattern: RegExp, prefer: RegExp): typeof competitionMatches[0] | undefined => {
-        if (!pattern.test(query)) return undefined
+        if (!pattern.test(effectiveMatchQuery)) return undefined
         return competitionMatches.find(m => prefer.test(m.title + m.question)) ?? competitionMatches[0]
       }
       // Cross-category dimension lookup (智育 vs 德育 reward entries) — wrapped
@@ -3662,13 +3914,23 @@ function assistantKnowledgeLocalAnswer(
   // fees) even when a later candidate contains every requested aspect.
   // Concrete SUBJECT terms of the query (dropping generic action/function words)
   // are used to reject off-subject curated entries that merely share an entity.
-  const queryConcreteTerms = assistantQueryTerms(query)
+  // 用别名扩展后的文本做覆盖度判定：「国奖」不是任何条目正文的子串，只用原话
+  // 计算 coverage 恒为 0，条目再高分也会被最后这道门拒掉（实测 score=80 仍 NONE）。
+  const coverageQueryTerms = effectiveMatchQuery
+  const queryConcreteTerms = assistantQueryTerms(coverageQueryTerms)
     .filter(term => term.length >= 2 && !QUERY_TERM_STOPWORDS.has(term)
       && !/^(申请|办理|流程|材料|时间|地点|需要|什么|怎么|如何|哪些|多少|哪里|为什么|可以|能不能|请问|学校|大学|学院|学生|同学|专业|情况|问题|方式|方法)$/u.test(term))
-  const match = assistantKnowledgeMatchesForQuery(client, query, counselorContactQuery ? 120 : 24).find((candidate) => {
+  const match = assistantKnowledgeMatchesForQuery(client, effectiveMatchQuery, counselorContactQuery ? 120 : 24).find((candidate) => {
     if (candidate.category === '教职工') return false
     const candidateFactText = `${candidate.title} ${candidate.question} ${candidate.answer}`
     const candidateText = `${candidateFactText} ${candidate.keywords.join(' ')}`
+    // 加分总览问句不得被申请表条目接走(见 isZongceBonusOverviewQuery)。
+    // 这里按原始 query 判定,防止模型意图主题短语绕过 studentRule 的总览分支。
+    if (isZongceBonusOverviewQuery(query)
+      && /(?:申请要准备|加分申请|自评报告|需要填什么表|交什么材料|模板包含)/.test(candidateFactText)) return false
+    // 非床语境的尺寸问句不采信床品条目（与 rankAssistantEvidence 同口径；
+    // 线上裸「尺寸」曾走这条独立路径绕过证据池过滤答出蚊帐 90×190）。
+    if (sizeWithoutBedSubjectQuery(query) && BED_DIMENSION_CANDIDATE_RE.test(candidateFactText)) return false
     const compactQuestion = (value: string) => normalizeAssistantQuery(value)
       .replace(/^(?:请问|麻烦问一下|麻烦)/u, '')
       .replace(/[?？!！,，。；;：:、]/gu, '')
@@ -3743,7 +4005,16 @@ function assistantKnowledgeLocalAnswer(
         || Boolean(teachingLocationMajor && !candidateText.includes(teachingLocationMajor))
       )
     ) return false
-    if (requestedSpecificAspects.length > 0 && candidate.score >= 18) return true
+    // 方面词短路必须同时覆盖问句的具体主题:「新区图书馆」曾因含「新区」两字
+    // 直接采信「舒适型宿舍位置」条目(答成宿舍楼栋),「桌子尺寸」同理被蚊帐
+    // 条目抢走(2026-09-23 线上实测)。方面词只说明"问的是哪个侧面",不说明
+    // "问的是什么主体",主体必须逐字出现在候选里才允许短路。
+    if (
+      requestedSpecificAspects.length > 0
+      && candidate.score >= 18
+      && (queryConcreteTerms.length === 0
+        || queryConcreteTerms.every(term => candidateText.includes(term)))
+    ) return true
     // 精确问题覆盖优先：条目 question 完整包含用户问题（或反之且长度差≤10）
     // 时直接采用已审核条目，避免文档标题/证据片段抢占导致"请打开原文"
     // （新闻学专业/综测查询/入学教育/心理中心等已知案例）。
@@ -3751,7 +4022,7 @@ function assistantKnowledgeLocalAnswer(
     const candidateCoveredByQuery = exactQuestionOverlap && queryQuestion.includes(candidateQuestion)
       && (queryQuestion.length - candidateQuestion.length) <= 10
     if ((queryCoveredByCandidate || candidateCoveredByQuery) && candidate.score >= 12) return true
-    const queryTerms = assistantQueryTerms(query)
+    const queryTerms = assistantQueryTerms(coverageQueryTerms)
       .filter(term => term.length >= 2 && !QUERY_TERM_STOPWORDS.has(term))
     const keywordOverlap = candidate.keywords.some((keyword) => {
       const normalizedKeyword = normalizeAssistantQuery(keyword).toLocaleLowerCase('zh-CN')
@@ -3808,7 +4079,7 @@ function assistantKnowledgeLocalAnswer(
       score: candidate.score,
       rawScore: candidate.score
     }
-    const coverage = evidenceCoreCoverage(query, evidence)
+    const coverage = evidenceCoreCoverage(coverageQueryTerms, evidence)
     const uncoveredConcrete = queryConcreteTerms.some(term => !candidateText.includes(term))
     return coverage >= 0.7
       || (candidate.score >= 18 && coverage >= 0.6)
@@ -4205,6 +4476,28 @@ export interface MultiQueryRetrievalResult {
   applied: boolean
   /** Whether the vector leg contributed to any variant pool. */
   usedVector: boolean
+  /**
+   * 分段耗时，写进检索腿的 note。
+   * 线上「错过整理答案」的提问整段要 6~34s，只看总数无法判断钱花在哪：
+   * 是改写那次模型往返、还是每个变体的向量召回（嵌入 API + 全表扫描）。
+   */
+  timing: {
+    /** 改写模型往返。 */
+    llmMs: number
+    /** 所有变体的关键词+向量召回（并发，取墙钟）。 */
+    recallMs: number
+    /** 其中向量召回最慢的那条（嵌入 API + vec 扫描）。 */
+    vectorMs: number
+    /** 向量召回内部拆分：嵌入 API 与本地扫描各占多少。 */
+    vectorEmbedMs?: number
+    vectorScanMs?: number
+    /** 扫描是否退化成 JS 兜底（原生 vec 扩展不可用时）。 */
+    vectorJsFallback?: boolean
+    /** 向量腿整腿命中最近邻缓存（嵌入与 129MB 全表扫描都没跑）。 */
+    vectorCacheHit?: boolean
+    /** 向量腿自身墙钟（由被调方测，避免把同步关键词召回算进来）。 */
+    vectorTotalMs?: number
+  }
 }
 
 export interface RewriteChatTransportOptions {
@@ -4304,6 +4597,7 @@ export async function retrieveMultiQueryEvidence(
     Math.max(1, Math.round(Number(opts.maxVariants) || QUERY_REWRITE_DEFAULT_VARIANTS))
   )
   let variants: string[]
+  const llmStartedAt = Date.now()
   try {
     const raw = await opts.chat(buildRewriteMessages(rawQuery, maxVariants))
     const content = (raw as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content
@@ -4313,6 +4607,7 @@ export async function retrieveMultiQueryEvidence(
   } catch {
     variants = []
   }
+  const llmMs = Date.now() - llmStartedAt
 
   // Recall set = the original query + LLM variants + deterministic compound
   // sub-intents. The original is the authoritative intent and is fused with
@@ -4322,35 +4617,46 @@ export async function retrieveMultiQueryEvidence(
   const rankedLists: string[][] = []
   const evidenceByKey = new Map<string, AssistantEvidence>()
 
-  // P9b: each query's keyword (+ optional vector) recall is independent, so the
-  // per-variant legs run concurrently instead of serially. Rewrite already adds
-  // a model hop; parallel recall keeps the added wall-clock bounded. The vector
-  // leg itself is best-effort per variant (throws degrade to that varant's
-  // keyword pool only).
-  const pools = await Promise.all(queries.map(async (query, index) => {
-    const retrievalQuery = assistantRetrievalQuery(query)
-    let pool = retrieveCampusEvidence(client, retrievalQuery, limit)
-    let usedVector = false
-    if (embeddingReady && opts.embedding) {
-      try {
-        const vectorEvidence = await retrieveVectorEvidence(
-          client,
-          retrievalQuery,
-          opts.embedding,
-          ASSISTANT_VECTOR_EVIDENCE_LIMIT
-        )
-        if (vectorEvidence.length > 0) {
-          pool = mergeVectorEvidence(pool, vectorEvidence)
-          usedVector = true
-        }
-      } catch {
-        // Vector search is an enhancement; the keyword pool for this variant stands.
-      }
+  // 关键词召回按变体各跑一次（便宜、且变体的价值正在于拓宽关键词命中）。
+  // 向量召回只跑一次，用原问题——改写出的变体与原问题语义几乎相同，语义召回的结果集
+  // 也几乎相同，但每跑一次都要过一次嵌入 API。线上实测该腿单变体 0.7~5.2s，
+  // 3 个变体并发时被提供方限流串行化，整段 recall 拖到 8.8s；压到 1 次后回到 1s 量级。
+  const recallStartedAt = Date.now()
+  const vectorStartedAt = Date.now()
+  let vectorMs = 0
+  const vectorTiming: VectorLegTiming = {}
+  const embedding = embeddingReady ? opts.embedding : undefined
+  const vectorPromise = (async () => {
+    if (!embedding) return []
+    try {
+      return await retrieveVectorEvidence(
+        client,
+        assistantRetrievalQuery(rawQuery),
+        embedding,
+        ASSISTANT_VECTOR_EVIDENCE_LIMIT,
+        undefined,
+        vectorTiming
+      )
+    } catch {
+      // Vector search is an enhancement; the keyword pools stand on their own.
+      return []
+    } finally {
+      vectorMs = Date.now() - vectorStartedAt
     }
-    return { index, retrievalQuery, pool, usedVector }
-  }))
+  })()
+  const pools = queries.map((query, index) => {
+    const retrievalQuery = assistantRetrievalQuery(query)
+    return { index, retrievalQuery, pool: retrieveCampusEvidence(client, retrievalQuery, limit) }
+  })
+  const vectorEvidence = await vectorPromise
+  let usedVector = false
+  const primaryPool = pools[0]
+  if (vectorEvidence.length > 0 && primaryPool) {
+    primaryPool.pool = mergeVectorEvidence(primaryPool.pool, vectorEvidence)
+    usedVector = true
+  }
+  const recallMs = Date.now() - recallStartedAt
 
-  const usedVector = pools.some(poolResult => poolResult.usedVector)
   for (const { index, pool } of pools) {
     const keys: string[] = []
     for (const item of pool) {
@@ -4379,7 +4685,17 @@ export async function retrieveMultiQueryEvidence(
     evidence: deduped.slice(0, limit),
     variants: queries,
     applied: variants.length > 0,
-    usedVector
+    usedVector,
+    timing: {
+      llmMs,
+      recallMs,
+      vectorMs,
+      ...(vectorTiming.embedMs !== undefined ? { vectorEmbedMs: vectorTiming.embedMs } : {}),
+      ...(vectorTiming.scanMs !== undefined ? { vectorScanMs: vectorTiming.scanMs } : {}),
+      ...(vectorTiming.usedJsFallback === true ? { vectorJsFallback: true } : {}),
+      ...(vectorTiming.cacheHit === true ? { vectorCacheHit: true } : {}),
+      ...(vectorTiming.totalMs !== undefined ? { vectorTotalMs: vectorTiming.totalMs } : {})
+    }
   }
 }
 
@@ -4515,7 +4831,9 @@ function featureLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAs
 
 /** 综测算分：用户给出成绩/奖项时按 2025 版办法直接估算总分（放在静态公式回答之前）。 */
 function zongceCalculationLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
-  const result = tryComputeZongce(query)
+  // 赛事判定由 analysis 阶段预热进缓存（表内零成本、表外一次模型调用并缓存），
+  // 这里同步读取——比赛名必须带上，否则「数学建模一等奖」会被按最低档算成校级 1 分。
+  const result = tryComputeZongce(query, { competitionHints: competitionHintsForQuery(query) })
   if (!result) return null
   const ruleEvidence = evidence.find(item => (
     item.url === comprehensiveEvaluationRules.sourceUrl
@@ -4539,7 +4857,7 @@ function zongceCalculationLocalAnswer(query: string, evidence: AssistantEvidence
   }
 }
 
-function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
+export function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse | null {
   const normalizedQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   const citationFor = (url: string): ApiAssistantCitation[] => evidence
     .filter(item => item.url === url)
@@ -4574,6 +4892,29 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
       citations: citationFor('/student-rules#gpa-calculator'),
       usedWebSearch: false,
       confidence: 0.99
+    }
+  }
+
+  // 「综测怎么加分」问的是加分项目总览:本函数在确定性链里排在知识条目之前,
+  // 在这里给出总览,避免通用匹配把「综测加分申请要准备什么」条目放出来
+  // (线上实测答成申请表模板)。具体项目(软件著作/数学建模…)matchZongceItem
+  // 能匹配,仍交给排在后面的 zongceBonusLocalAnswer 按条目作答。
+  if (isZongceBonusOverviewQuery(query) && matchZongceItem(normalizedQuery).length === 0) {
+    const overviewCitations = citationFor(comprehensiveEvaluationRules.sourceUrl)
+    return {
+      query,
+      mode: 'local',
+      answer: '综合测评加分分三块：德育奖励（上限13分，如荣誉称号、学生干部社会工作、志愿献血、文化艺术类竞赛等）、智育奖励（上限10分，如学科与技能竞赛、论文与新闻报道、专利、科研课题、职业技能证书等）、体育奖励（上限2分，如体育竞赛）。同项目、同一作品或同类任职按最高项计、不重复累计，团体获奖分数减半（最低0.1分）。具体分值按2025版《仰恩大学学生综合测评实施办法》的档次表执行；说出你的项目和等级，我可以帮你汇总成一个估算总分。',
+      citations: overviewCitations.length > 0
+        ? overviewCitations
+        : [{
+            title: comprehensiveEvaluationRules.title,
+            url: comprehensiveEvaluationRules.sourceUrl,
+            snippet: '2025版综合测评实施办法（' + zongceVersion + '）',
+            source: 'site' as const
+          }],
+      usedWebSearch: false,
+      confidence: 0.95
     }
   }
 
@@ -4617,7 +4958,14 @@ function studentRuleLocalAnswer(query: string, evidence: AssistantEvidence[]): A
     }
   }
 
-  const mentionedScholarships = scholarships.filter(item => normalizedQuery.includes(item.name.toLocaleLowerCase('zh-CN')))
+  // 档位词可以插在校名与“奖学金”之间：「仰恩一等奖学金」字面上并不包含
+  // 「仰恩奖学金」，按原句 includes 匹配全部落空，于是问金额却答成
+  // 「竞赛获奖与奖学金」条目（线上实测 99ms 答非所问）。剥掉档位词再匹配一次。
+  const scholarshipNameProbe = normalizedQuery.replace(/[一二三]等(?:级)?/gu, '')
+  const mentionedScholarships = scholarships.filter(item => {
+    const name = item.name.toLocaleLowerCase('zh-CN')
+    return normalizedQuery.includes(name) || scholarshipNameProbe.includes(name)
+  })
   if (/奖学金.*(同时|一起|兼得|重复|几个)|同时.*奖学金/.test(normalizedQuery)) {
     return {
       query,
@@ -5138,7 +5486,7 @@ function resolveStructuredDataEvidencePart2(query: string, baseResult: ApiAssist
   return result
 }
 
-function buildStructuredEvidence(query: string): ApiAssistantCitation[] {
+export function buildStructuredEvidence(query: string): ApiAssistantCitation[] {
   const base = resolveStructuredDataEvidence(query)
   return resolveStructuredDataEvidencePart2(query, base)
 }
@@ -5160,7 +5508,11 @@ function zongceBonusLocalAnswer(query: string): ApiAssistantResponse | null {
   // function (historical layout) — do not gate them behind the 综测 check.
   const qLower = q.toLocaleLowerCase('zh-CN')
   const isTransitOrLifestyle = /票价|车费|坐几路|几路车|公交线路|怎么坐|坐公交|吃喝玩乐|学生街|仙公山|泉州市区|西街|开元寺|面线糊|周边|好玩|游玩|K2|K6/i.test(qLower)
-  if (!isTransitOrLifestyle && !/(综合测评|综测)/.test(q) && !/加分|加几分|加多少分|怎么加分|能加/.test(q)) return null
+  // 门控:非综测语境只有真的能匹配到加分条目才放行,避免任何含「加分」的问句
+  // 闯进来后 matchZongceItem 空手而归,白占确定性链的优先级(行为与旧版等价:
+  // 旧版放行后同样在 matchZongceItem 为空时返回 null)。
+  if (!isTransitOrLifestyle && !/(综合测评|综测)/.test(q)
+    && !(/加分|加几分|加多少分|怎么加分|能加/.test(q) && matchZongceItem(q).length > 0)) return null
   // Competition-focused questions ("竞赛获奖加多少分/竞赛加分") are answered
   // by the 学科竞赛 entries (仰大教〔2021〕33号), NOT by the 综测 bonus
   // lookup — the two bonus systems are independent. Also route "竞赛 vs 综测"
@@ -5192,8 +5544,12 @@ function zongceBonusLocalAnswer(query: string): ApiAssistantResponse | null {
 /** 内置公交 K2/K6 回答（无证据依赖）——transit 类问句在任何检索/web 之前直接命中。 */
 function transitBusAnswer(query: string): ApiAssistantResponse | null {
   const normalizedQuery = normalizeAssistantQuery(query)
+  // 第二个条件过去只要出现「仰恩」就算公交信号，而「仰恩」是绝大多数提问的前缀——
+  // 于是「仰恩一等奖学金多少钱 / 仰恩大学学费多少钱 / 仰恩宿舍多少钱」这类问法
+  // 全被答成 K2/K6 票价（实测）。这里只认真正的出行信号：线路名、公交/站点，或
+  // 明确的「到仰恩/去学校」这类位移说法。
   if (!(/票价|车费|多少钱|收费|计价|价格|分段|坐几路|几路车|几路|坐什么车|怎么坐|公交线路|坐公交/.test(normalizedQuery)
-    && /K[26]|公交|到校|去学校|到学校|仰恩/.test(normalizedQuery)
+    && /K[26]|公交|到校|去学校|到学校|去仰恩|到仰恩|回学校|泉州站|泉州东站|晋江机场|动车站|高铁|大巴|班车|站点|换乘|坐车/.test(normalizedQuery)
     && hardcodedAssistantFactIsCurrent('transitFares'))) return null
   const asksK6 = /\bK6\b/i.test(normalizedQuery)
   const asksK2 = /\bK2\b/i.test(normalizedQuery)
@@ -5220,6 +5576,46 @@ function transitBusAnswer(query: string): ApiAssistantResponse | null {
   }
 }
 
+/**
+ * 裸主题词预检："奖学金/助学金/社团" 这类只给主题、不带问法的提问，问的是
+ * 「这个主题都包含什么」。
+ *
+ * 知识库里同时存在概览条目（"仰恩大学有哪些奖学金"）与窄条目（"奖学金发放方式"
+ * "奖学金评选时间"），按词频打分时窄条目常常更高——线上用户直接问「奖学金」被答成
+ * 「发放到银行卡」，或者干脆退回「请打开原文核对」（连问三次全失败）。这里优先
+ * 把概览条目给出去。
+ *
+ * 只在"确实存在以该主题开头的概览条目"时才接管，否则原样交回后续检索。
+ */
+function earlyTopicOverviewAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const normalized = normalizeAssistantQuery(query)
+  if (normalized.length < 2 || normalized.length > 8) return null
+  // 带问法的问题（怎么/多少/条件/流程/申请…）交给各自专门的处理器，这里只处理
+  // "只给了主题词" 这一种输入。
+  if (/(?:怎么|如何|多少|几|哪|什么|为什么|条件|流程|时间|材料|要求|标准|申请|评审|发放|区别|作用|好处|吗|呢|介绍)/u.test(normalized)) return null
+  const canonicalTopic = KNOWLEDGE_TOPIC_ALIASES[normalized] ?? normalized
+  const overview = assistantKnowledgeMatchesForQuery(client, expandKnowledgeAliases(normalized), 12)
+    // 概览条目的标题必须真的以这个主题为主语：否则「助学金」会被
+    // 「仰恩大学有哪些奖学金」（正文顺带提到助学金）抢走，答成奖学金清单。
+    .find(candidate => candidate.title.includes(canonicalTopic)
+      && /(?:有哪些|是什么|一览|汇总|介绍|包括)/u.test(candidate.title)
+      && candidate.score >= 8)
+  if (!overview) return null
+  return {
+    query,
+    mode: 'local',
+    answer: overview.answer,
+    citations: [{
+      title: overview.title,
+      url: overview.publicUrl ?? `/search?knowledge=${encodeURIComponent(overview.id)}`,
+      snippet: overview.question,
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: overview.confidence / 100
+  }
+}
+
 /** 单店美食详情预检："古茗怎么样/塔斯汀好吃吗" → 本地评分+seed卡直接答，不走 web。 */
 function earlyShopDetailAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
   const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
@@ -5238,18 +5634,35 @@ function earlyShopDetailAnswer(client: DatabaseClient, query: string): ApiAssist
   if (SHOP_CATEGORY_WORD_RE.test(shopNameQuery)) return null
   // Evaluative endings include the bare follow-up particle ("那蜜雪冰城呢").
   if (!/(?:怎么样|好不好|好吃吗|好吃不|咋样|如何|评价|值得去吗|评分)/u.test(normalized) && !/[呢呀啊]$/u.test(normalized)) return null
-  const rows = client.db.select({
+  const allRows = client.db.select({
     placeId: placeAmapRatings.placeId,
     name: placeAmapRatings.amapPoiName,
     score: placeAmapRatings.score,
     cost: placeAmapRatings.cost
   }).from(placeAmapRatings)
-    .where(and(
-      gt(placeAmapRatings.expiresAt, Date.now()),
-      gt(placeAmapRatings.score, 0)
-    ))
+    // 同 assistantFoodRecommendationAnswer：过期只是「该重新抓了」，不该让单店
+    // 详情也变成「没找到」。新鲜优先，过期仍可用。
+    .where(gt(placeAmapRatings.score, 0))
+    .orderBy(desc(sql`CASE WHEN ${placeAmapRatings.expiresAt} > ${Date.now()} THEN 1 ELSE 0 END`))
     .all()
-    .filter(r => r.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '').includes(shopNameQuery))
+    .map(r => ({ ...r, key: r.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '') }))
+  let rows = allRows.filter(r => r.key.includes(shopNameQuery))
+  if (rows.length === 0) {
+    // 学生说的店名通常比高德 POI 名短：POI 是「牛先生潮汕鲜切自助牛肉火锅」，
+    // 学生只说「牛先生火锅」。整串子串匹配会落空，于是问某家店却得到一张榜单。
+    // 退一步用**逐步缩短的前缀**去试，但必须是店名的**开头**（学生缩写总是保留
+    // 开头那几个字），且只在唯一命中时才认。
+    // 只做「包含」会出事故：'泉州最近一周天气' 的 2 字前缀 '泉州' 会命中
+    // 「塔斯汀中国汉堡(泉州市仰恩大学校内店)」，把天气问题答成汉堡详情。
+    for (let length = shopNameQuery.length - 1; length >= 2; length -= 1) {
+      const prefix = shopNameQuery.slice(0, length)
+      const candidates = allRows.filter(r => r.key.startsWith(prefix))
+      if (new Set(candidates.map(r => r.placeId)).size === 1) {
+        rows = candidates
+        break
+      }
+    }
+  }
   if (rows.length === 0) return null
   // Some merchants exist under multiple place ids (one without seed cards);
   // prefer the row that actually carries review cards.
@@ -5293,8 +5706,11 @@ function venueSubjectCompact(query: string): string {
     .replace(/^(?:有|可以|能不能|能|哪里|哪|去|找|个)+/u, '')
     .replace(/(?:的|里|处|家|那|这|个|附近|周边)+$/u, '')
     .replace(/^(?:新|旧)区/u, '')
-  // "打台球/玩台球/台球厅/台球房" → 场所核心都是 "台球"。
-  subject = subject.replace(/^(?:打|玩|去|找|个)/u, '')
+  // "打台球/玩台球/台球厅/台球房" → 场所核心都是 "台球"。服务动词（配/买/
+  // 修/换）与"想/要"及量词外壳（一副/一个）也一并剥掉："哪里可以配眼镜/
+  // 想配一副眼镜去哪" 的核心同样是 "眼镜"。
+  subject = subject.replace(/^(?:想|要|打算|准备|打|玩|去|找|个|配|买|修|换|做|取)+/u, '')
+  subject = subject.replace(/^(?:一|两|几)?(?:副|个|家|双|条|份)?/u, '')
   subject = subject.replace(/(?:厅|房|吧|馆|店|场|中心|处|室)$/u, '')
   return subject
 }
@@ -5302,7 +5718,7 @@ function venueSubjectCompact(query: string): string {
 /** 场所通名后缀：整体像"某个场所"而不是陈述/疑问句时才当作地点问题。 */
 const VENUE_SUBJECT_SHAPE_RE = /(?:台球|网吧|理发|美发|健身|运动|球|棋牌|游戏|KTV|唱|桌游|剧本|密室|按摩|足浴|汗蒸|洗浴|游泳池|篮球|足球|羽毛球|乒乓|跆拳道|舞蹈|瑜伽|拳击|射箭|蹦床|卡丁车|保龄|溜冰|旱冰|电玩|游戏机|舞室|体操|田径|跑道|球场|游泳馆|活动中心|体育中心|文化中心|大礼堂|体育馆|操场|馆|店|房|厅|吧|室|场|园|中心|站|铺|阁|轩|居|庄|院|城|楼|社|会所)$/u
 
-const VENUE_SCOPE_WORD_RE = /(?:在哪|哪里|位置|地址|怎么去|怎么走|多远|附近|周边|学校|校内|校外|校区|有没有|可以|能|开放|营业)/u
+const VENUE_SCOPE_WORD_RE = /(?:在哪|哪里|位置|地址|怎么去|怎么走|多远|去哪|去哪儿|附近|周边|学校|校内|校外|校区|有没有|可以|能|开放|营业)/u
 
 /**
  * Nearby（学校周边）venue questions: "台球/附近台球/哪里可以打台球/8洛克台球在哪".
@@ -5313,7 +5729,11 @@ function nearbyVenueLocalAnswer(client: DatabaseClient, query: string): ApiAssis
   const subject = venueSubjectCompact(query)
   // 问句腔（推荐/怎么样/哪里有吃等）与食堂/宿舍等校内主题不是周边 POI 问句。
   if (subject.length < 2 || subject.length > 12) return null
-  if (/(?:吃|喝|饭|菜|餐|奶茶|咖啡|甜品|食堂)/u.test(subject)) return null
+  const foodSubject = /(?:吃|喝|饭|菜|餐|奶茶|咖啡|甜品|食堂)/u.test(subject)
+  // 在场问句（有没有/哪里有…吗/去哪）命中的是"这附近存不存在某类门店"，收录了
+  // 门店卡片就该直接作答；开放式推荐（有什么吃的/推荐一家）仍走美食通道。
+  const presenceAsk = /(?:附近有|周边有|哪里有|哪里可以|哪里能|有没有|去哪|去哪儿|(?:有|开).{0,8}(?:吗|嘛|没有))/u.test(query)
+  if (foodSubject && !presenceAsk) return null
   const subjectIsVenueShape = VENUE_SUBJECT_SHAPE_RE.test(subject)
   const rows = client.db.select({
     name: places.name,
@@ -5324,17 +5744,29 @@ function nearbyVenueLocalAnswer(client: DatabaseClient, query: string): ApiAssis
     eq(places.status, 'published'),
     eq(places.scope, 'nearby')
   )).all()
-  const venue = rows
+  const namedRows = rows
     .map(row => ({ row, compact: chineseDigitNormalized(row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')) }))
-    .find(({ compact }) => {
-      if (compact.includes(subject) || subject.includes(compact)) return true
-      // 句式外壳剔除不彻底时（"打台球"），场所形状词 + 任意 2 字片段命中也算。
-      if (!subjectIsVenueShape || compact.length < 3) return false
+  // 先做整名/包含级精确匹配（"邮政快递站在哪"→邮政快递站）。类目同名的店一多，
+  // 片段级模糊命中会按行序误取（"快递"两字窗口先扫到中通），所以精确命中优先。
+  let venue = namedRows.find(({ compact }) =>
+    compact.includes(subject) || subject.includes(compact))
+  // 句式外壳剔除不彻底时（"打台球"），场所形状词 + 任意 2 字片段命中兜底。
+  if (!venue && subjectIsVenueShape) {
+    venue = namedRows.find(({ compact }) => {
+      if (compact.length < 3) return false
       for (let index = 0; index <= subject.length - 2; index += 1) {
         if (compact.includes(subject.slice(index, index + 2))) return true
       }
       return false
     })
+  }
+  // 店招名常不带类目词（"好七好七"），快餐/小吃这类在场问句的类目只出现在简介里
+  // （"…是学校周边的快餐小吃店…"）。限定在场问句 + 餐饮类目词，避免劫持美食通道
+  // 的开放式推荐与奶茶/食堂等既有列表。
+  if (!venue && presenceAsk && /(?:快餐|小吃|简餐)/u.test(subject)) {
+    venue = namedRows
+      .find(({ row }) => chineseDigitNormalized(`${row.summary ?? ''}${row.address ?? ''}`.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')).includes(subject)) ?? undefined
+  }
   if (!venue) return null
   const { row, compact } = venue
   if (compact.length < 3) return null
@@ -5398,7 +5830,14 @@ function mapPlaceNameLocalAnswer(client: DatabaseClient, query: string): ApiAssi
     address: places.address,
     campusArea: places.campusArea
   }).from(places).where(and(eq(places.status, 'published'), eq(places.scope, 'campus'))).all()
+  // 「新区图书馆」这类带片区前缀的裸地点:库里只有「图书馆」,完全相等匹配落空,
+  // 于是落到知识条目被答成舒适型宿舍楼栋(2026-09-23 线上实测)。剥掉片区前缀
+  // 再比一次;只有剥完正好等于已收录地点名才接受,避免「新区有什么好吃的」误命中。
+  const strippedAreaQuery = compactQuery.replace(/^(?:新区|旧区|新校区|老校区|第三教学区|第一教学区)/u, '')
   const row = rows.find(item => compactPlaceText(item.name ?? '') === compactQuery)
+    ?? (strippedAreaQuery !== compactQuery && strippedAreaQuery.length >= 2
+      ? rows.find(item => compactPlaceText(item.name ?? '') === strippedAreaQuery)
+      : undefined)
   if (!row) return null
   const location = [...new Set([row.campusArea, row.address].filter((item): item is string => Boolean(item?.trim())))]
     .join(' · ')
@@ -5426,6 +5865,40 @@ function mapPlaceNameLocalAnswer(client: DatabaseClient, query: string): ApiAssi
 }
 
 /**
+ * 校内导航问句（「我在X门口，我要去Y」）：站内没有可核验的步行耗时,给诚实的
+ * 路线引导而不是编造分钟数。修前这类问句曾被「2026新生手册｜报到时间、地点与
+ * 专业分组」条目(关键词含 和昌教学楼/旧区)抢走,答成新生报到分组(线上实测)。
+ */
+function campusNavigationGuideLocalAnswer(query: string): ApiAssistantResponse | null {
+  const normalized = normalizeAssistantQuery(query).replace(/[。！？!?，,、；;\s]+$/u, '')
+  // 问交通方式（「怎么去/坐什么车」）或去市区/车站的,交给 transitBusAnswer 与
+  // 既有交通/市区分支——线上测试「我在学校怎么去泉州市区」曾被本分支抢走,
+  // 把该答 K2 的问句答成了步行引导。
+  if (/(?:怎么|如何|坐|搭|乘|公交|几路|K[26]|打车|出租|地铁|高铁|动车|机场|市区|古城|文化宫|泉州站|晋江)/u.test(normalized)) return null
+  const match = /^(?:我)?(?:现在)?在(.{2,24}?)(?:门口|楼下|附近|这里|这儿)?(?:，|,)?(?:我)?(?:要|想)?去(.{2,24})$/u.exec(normalized)
+    ?? /^(?:从)(.{2,24})(?:出发)?(?:去|到|前往)(.{2,24})$/u.exec(normalized)
+  if (!match) return null
+  const from = match[1]!.replace(/(?:门口|楼下|附近)$/u, '').trim()
+  const to = match[2]!.replace(/[。！？?]+$/u, '').trim()
+  if (from.length < 2 || to.length < 2 || from === to) return null
+  // 目的地还是疑问词（「要去哪里」）说明没给出终点,不猜。
+  if (/[哪?？]/u.test(to)) return null
+  return {
+    query,
+    mode: 'local',
+    answer: `可以从「${from}」步行前往「${to}」：打开校园地图，把起点设为「${from}」、终点设为「${to}」即可查看校内步行路线。两点之间可能要横跨教学区，建议预留时间，并以地图实时路线为准。`,
+    citations: [{
+      title: '校园地图',
+      url: '/map',
+      snippet: '设定起点和终点即可规划校内步行路线。',
+      source: 'site' as const
+    }],
+    usedWebSearch: false,
+    confidence: 0.7
+  }
+}
+
+/**
  * 实时天气/时钟类问法（泉州天气、现在几点）：本站不接实时数据，给诚实引导，
  * 避免落入“内置资料没有找到”或更糟的美食榜单劫持。
  */
@@ -5445,6 +5918,111 @@ function weatherAndClockLocalAnswer(query: string): ApiAssistantResponse | null 
     citations: [],
     usedWebSearch: false,
     confidence: asksWeather ? 0.6 : 0.55
+  }
+}
+
+/** 快递公司词表：问“中通在哪取”时用它匹配地图收录的驿站。 */
+const COURIER_COMPANY_RE = /(?:中通|圆通|顺丰|韵达|京东|申通|邮政|ems|极兔|德邦|百世|菜鸟|天天|优速|跨越|安能|丹鸟)/iu
+
+/**
+ * 快递取件问法：“中通快递在哪取/圆通去哪个驿站拿” → 精准命中负责该品牌的
+ * 地图驿站并给出地图链接。只处理点名快递公司的问法；多家品牌无明确驿站或
+ * 没点名公司时交回知识/兜底，避免瞎指。
+ */
+function courierStationLocalAnswer(client: DatabaseClient, query: string): ApiAssistantResponse | null {
+  const normalized = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
+  // 快递异常（丢件/破损/投诉/理赔）不是“去哪个驿站取”的问题，给诚实引导
+  if (/(?:快递|包裹|件).{0,6}(?:丢了|丢失|找不到了|没收到|损坏|破损)|(?:快递|包裹).{0,4}(?:投诉|理赔|退款|退换)/u.test(normalized)) {
+    return {
+      query,
+      mode: 'local',
+      answer: '快递异常（丢件、破损、未收到等）建议先联系对应快递公司官方客服，或在 App 内提交工单；若提示已到校园站点，也可以直接到驿站找工作人员核对接件人信息处理。站点联系电话和营业时间以现场或短信通知为准。',
+      citations: [],
+      usedWebSearch: false,
+      confidence: 0.6
+    }
+  }
+  const company = COURIER_COMPANY_RE.exec(normalized)?.[0]?.toLocaleLowerCase('zh-CN')
+  // 不带品牌的泛取件问法（"取快递去哪/取件去哪里"）不该随机落到某一家驿站，
+  // 改为列出全部已收录驿站；品牌问法继续走下方单品牌匹配。
+  const genericPickupAsk = !company && /(?:取件|取快递|取包裹|拿快递|领快递).{0,8}(?:去哪|去哪里|去哪取|在哪|哪里)|(?:去哪|去哪里|在哪|哪里).{0,8}(?:取件|取快递|取包裹|拿快递)/u.test(normalized)
+  if (!company && !genericPickupAsk) return null
+  const stationRows = client.db.select({
+    slug: places.slug,
+    name: places.name,
+    summary: places.summary,
+    address: places.address,
+    campusArea: places.campusArea
+  }).from(places).where(eq(places.status, 'published')).all()
+    .filter(row => {
+      const name = row.name.toLocaleLowerCase('zh-CN')
+      // 只认驿站类名字（快递/驿站/速运/速递/车来车往/洗衣店/妈妈/兔喜），避免撞上同名建筑
+      if (!/(?:快递|驿站|速运|速递|车来车往|洗衣店|妈妈驿站|兔喜)/u.test(name)) return false
+      return true
+    })
+  if (genericPickupAsk) {
+    if (stationRows.length === 0) return null
+    const stationNames = [...new Set(stationRows.map(row => row.name))].join('、')
+    return {
+      query,
+      mode: 'local',
+      answer: `取快递可以去校园地图已收录的这些驿站/代收点：${stationNames}。具体去哪家以快递短信/App 提示为准，营业时间与假期安排以站点当天说明为准；点击下方入口可查看各站点地图定位。`,
+      citations: stationRows.slice(0, 8).map(row => ({
+        title: row.name,
+        url: `/map?place=${encodeURIComponent(row.slug)}`,
+        snippet: `${row.name}已收录在校园地图中，可在地图上直接定位。`,
+        source: 'site' as const
+      })),
+      usedWebSearch: false,
+      confidence: 0.85
+    }
+  }
+  // 走到这里 company 必然已定义：未点名品牌且不是泛取件问法的情况在上面已返回。
+  // 显式收窄一次，同时也把这个不变量写清楚。
+  if (!company) return null
+  const rows = stationRows
+    .filter(row => {
+      const name = row.name.toLocaleLowerCase('zh-CN')
+      return name.includes(company)
+        || (company === 'ems' && /ems|邮政/u.test(name))
+        || (company === '邮政' && /邮政|ems/u.test(name))
+    })
+  if (rows.length === 0) {
+    // 点名的快递品牌在校内地图暂未收录固定驿站：不瞎指，引导按短信/现场确认
+    return {
+      query,
+      mode: 'local',
+      answer: `校园地图暂未收录「${company}」的固定取件点。取件地点请以快递短信/App 提示为准；如短信指向马甲镇区或学生街周边的代收点，可先电话确认再出发，不要在陌生链接里输入个人信息或验证码。`,
+      citations: [],
+      usedWebSearch: false,
+      confidence: 0.65
+    }
+  }
+  // 品牌自营/专名站（"顺丰速运…/圆通快递…"以品牌开头）优先于顺带代收的代理点
+  // （"宝洁洗衣店（圆通、顺丰）"），同前缀再按名长降序。
+  const brandKey = company === 'ems' ? '邮政' : company
+  const sorted = rows.sort((a, b) =>
+    Number(b.name.startsWith(brandKey)) - Number(a.name.startsWith(brandKey))
+    || b.name.length - a.name.length)
+  const citations: ApiAssistantCitation[] = sorted.map((row) => ({
+    title: row.name,
+    url: `/map?place=${encodeURIComponent(row.slug)}`,
+    snippet: `${row.name}已收录在校园地图中，可在地图上直接定位。`,
+    source: 'site' as const
+  }))
+  const companyLabel = company === 'ems' ? 'EMS/邮政' : company
+  const stationText = sorted.map(row => `「${row.name}」`).join('、')
+  const singleStation = sorted.length === 1 ? sorted[0] : undefined
+  const answer = singleStation
+    ? `${companyLabel}快递一般在${stationText}取件。${singleStation.name}已收录在校园地图中，点击下方入口可以查看地图定位和更多信息；具体营业时间、取件码规则和假期安排以站点当天说明与短信通知为准。`
+    : `${companyLabel}快递相关的取件点有：${stationText}。请以短信/App 提示的具体站点为准，点击下方入口可查看地图定位；营业时间与假期安排以站点当天说明为准。`
+  return {
+    query,
+    mode: 'local',
+    answer,
+    citations,
+    usedWebSearch: false,
+    confidence: 0.9
   }
 }
 
@@ -5598,15 +6176,20 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (featureAnswer) return featureAnswer
 
   const primary = evidence[0]!
-  const related = evidence.slice(1, 3).map(item => `“${item.title}”`).join('、')
+  const related = evidence.slice(1, 3)
+    .map(item => evidenceDisplayTitle(item.title))
+    .filter(title => title !== EVIDENCE_PLACEHOLDER_TITLE)
+    .map(title => `“${title}”`)
+    .join('、')
   const relatedText = related ? `也可以核对${related}。` : ''
   return {
     query,
     mode: 'local',
-    answer: `找到了可能相关的原文，但当前片段不能直接确认这个问题的答案。请打开《${primary.title}》核对完整上下文。${relatedText}`,
+    answer: `找到了可能相关的原文，但当前片段不能直接确认这个问题的答案。请打开《${evidenceDisplayTitle(primary.title)}》核对完整上下文。${relatedText}`,
     citations: evidence.slice(0, 3).map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
     usedWebSearch: false,
-    confidence: Math.min(0.58, 0.32 + primary.score / 120)
+    confidence: Math.min(0.58, 0.32 + primary.score / 120),
+    evidenceGap: true
   }
 }
 
@@ -5616,7 +6199,7 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
  */
 function identityUnlistedLocalAnswer(
   query: string,
-  evidence: AssistantEvidence[] = []
+  evidence: IdentityProbeEvidence[] = []
 ): ApiAssistantResponse | null {
   const subject = assistantIdentitySubject(query)
   if (!subject || subject.length > 12) return null
@@ -5627,9 +6210,10 @@ function identityUnlistedLocalAnswer(
   const subjectLower = subject.toLocaleLowerCase('zh-CN')
   if (evidence.some(item => {
     const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
-    const text = `${item.title} ${item.snippet} ${item.text}`.toLocaleLowerCase('zh-CN')
+    const probeText = item.text ?? `${item.title} ${item.snippet}`
+    const text = `${item.title} ${item.snippet} ${probeText}`.toLocaleLowerCase('zh-CN')
     return (title === subjectLower || title.startsWith(subjectLower + '｜') || title.startsWith(subjectLower + '|'))
-      || (text.includes(subjectLower) && identityEvidenceIsExplicit(item, subject))
+      || (text.includes(subjectLower) && identityEvidenceIsExplicit({ ...item, text: probeText }, subject))
   })) return null
   return {
     query,
@@ -5637,7 +6221,8 @@ function identityUnlistedLocalAnswer(
     answer: `站内公开资料里没有找到「${subject}」的人物档案。如果${subject}是学校的教职工、学生或与校园相关的人物，可以告诉我全名或所属单位，我再帮你查；本站资料以仰恩大学校园信息为主，外部人物建议直接搜索可靠来源核实。`,
     citations: [],
     usedWebSearch: false,
-    confidence: 0.6
+    confidence: 0.6,
+    evidenceGap: true
   }
 }
 
@@ -6116,7 +6701,7 @@ export function cachedWebEvidenceForQuery(
   return relevant.map(item => item.citation)
 }
 
-function rankCitationEvidence(query: string, citations: ApiAssistantCitation[], limit = 8): AssistantEvidence[] {
+export function rankCitationEvidence(query: string, citations: ApiAssistantCitation[], limit = 8): AssistantEvidence[] {
   const terms = assistantQueryProfile(query).terms
   return rankAssistantEvidence(query, citations.map(item => ({
     ...item,
@@ -6183,6 +6768,10 @@ async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAss
     const url = await assertSafeResolvedPublicHttpUrl(config.mcpSearchUrl)
     if (url.protocol !== 'https:') throw new Error('MCP_HTTPS_REQUIRED')
     const timeoutMs = boundedTimeout(config.mcpTimeoutMs, MIN_MCP_TIMEOUT_MS, MAX_MCP_TIMEOUT_MS)
+    // 一次网页兜底 = initialize + notifications/initialized + tools/call 三次串行请求。
+    // 三次各拿一份完整超时的话，最坏情况整段搜索会卡到 3×timeout（线上配 30s → 90s），
+    // 这正是长尾请求把用户等到放弃的来源。这里改成三次共享同一个截止时间。
+    const deadlineSignal = combinedAbortSignal(config.signal, timeoutMs)
     const headers: Record<string, string> = {
       'Accept': 'application/json, text/event-stream',
       'Content-Type': 'application/json'
@@ -6197,21 +6786,28 @@ async function searchWeb(query: string, config: AssistantConfig): Promise<ApiAss
         capabilities: {},
         clientInfo: { name: 'yeu-campus-assistant', version: '1.0.0' }
       }
-    }, timeoutMs, config.signal)
+    }, timeoutMs, deadlineSignal)
     if (initialized.sessionId) headers['Mcp-Session-Id'] = initialized.sessionId
     await mcpPost(url.toString(), headers, {
       jsonrpc: '2.0',
       method: 'notifications/initialized'
-    }, timeoutMs, config.signal)
+    }, timeoutMs, deadlineSignal)
     const result = await mcpPost(url.toString(), headers, {
       jsonrpc: '2.0',
       id: 2,
       method: 'tools/call',
       params: {
         name: config.mcpToolName,
-        arguments: { query: `仰恩大学 ${query}`, limit: 6 }
+        arguments: {
+          // 本地生活类问句必须带上「泉州洛江马甲」这一层地域锚点：只用「仰恩大学」
+          // 时搜索会把外地的同题文章排到前面（实测“理发店推荐”返回鹰潭的结果）。
+          query: LOCAL_CONTEXT_QUERY_RE.test(query)
+            ? `泉州洛江马甲 仰恩大学 ${query}`
+            : `仰恩大学 ${query}`,
+          limit: 6
+        }
       }
-    }, timeoutMs, config.signal)
+    }, timeoutMs, deadlineSignal)
     consecutiveMcpFailures = 0
     return normalizeMcpResult(result.payload)
   } catch (error) {
@@ -6309,10 +6905,51 @@ async function postGatewayChat(
     stream?: boolean
     /** Called once when the first content token arrives (elapsed ms since call start). */
     onFirstToken?: (elapsedMs: number) => void
+    /**
+     * 关闭思考链（`reasoning_effort: 'none'`）。
+     *
+     * 线上网关是推理模型，思考 token 与正文共享 max_tokens 预算。凡是
+     * 「只要一小段 JSON 结论」的小预算调用都会被思考吃光额度，正文一个字符都拿不到。
+     * 线上实测（deepseek-v4-flash，均带 response_format: json_object）：
+     *   - 意图分类 max_tokens=120：4 个问题里 2 个 finish_reason=length、rt=128、content=null
+     *     → JSON 解析失败 → 意图分类恒为 null；关掉后 4/4 成功、325~618ms
+     *   - 查询改写 max_tokens=300：3 个问题里 1 个 rt=287 截断成
+     *     `{"queries":["奖学金如何评定","奖学金评审标准` → 改写通道白跑；关掉后 3/3 成功、501~667ms
+     *   - 比赛归类 max_tokens=200：同样的长提示词 + 小预算，同一失效模式
+     * 关掉后延迟反而降到 0.3~0.7s（省掉了 reasoning 那一段生成）。
+     *
+     * 反过来，**生成正文**的调用不能关：答案合成提示词下，关思考会把
+     * 「应当归入文化艺术类竞赛、按省部级档次计分」退化成「无法确认」，质量损失是实打实的。
+     * 所以本开关只给「结构化小 JSON」用，答案合成（800）与美食合成（700）保持默认开启。
+     */
+    reasoningEffort?: 'none'
+    /**
+     * 最多尝试几次（默认 1 次）。只在**增强类**调用上传 2：
+     * 网关在短时间内被连续调用时会回 429（线上实测：连问两个表外赛事，第二个归类
+     * 直接 429 → 判定拿不到 → 答案退回"未识别到项目"，用户看到的是少算了分）。
+     * 这类调用便宜、失败即静默降级，一次短退避重试就能救回来。
+     * 前台生成正文的调用不要重试——用户已经在等，重试只会让等待更长。
+     */
+    maxAttempts?: number
+    /**
+     * 名额满时最多等多久（毫秒），默认 0 = 立刻抛 AI_BUSY。
+     *
+     * 为什么要有等待：`activeGatewayCalls >= 2` 是进程内的并发上限，原本一超就抛，
+     * 调用方 catch 成 null 就**静默降级**（比赛少算分、意图没切对），并发用户下
+     * 后来者一律吃这个亏。增强类调用便宜且值得等一小会儿，给它一个上限内的等待，
+     * 就把"被丢掉"变成"稍慢但拿到结果"。前台生成正文的调用保持 0：用户已经在等，
+     * 不该再为名额排队。
+     */
+    waitForSlotMs?: number
   } = {}
 ): Promise<unknown> {
   if (!config.gatewayBaseUrl || !config.gatewayApiKey) throw new Error('AI_NOT_CONFIGURED')
   if (gatewayOpenUntil > Date.now()) throw new Error('AI_CIRCUIT_OPEN')
+  const slotDeadline = Date.now() + Math.max(0, options.waitForSlotMs ?? 0)
+  while (activeGatewayCalls >= 2 && Date.now() < slotDeadline) {
+    if (config.signal?.aborted) throw new Error('CLIENT_ABORTED')
+    await new Promise(resolve => setTimeout(resolve, 40))
+  }
   if (activeGatewayCalls >= 2) throw new Error('AI_BUSY')
   activeGatewayCalls += 1
   const callStartedAt = Date.now()
@@ -6343,27 +6980,54 @@ async function postGatewayChat(
         if (!message.includes('DNS resolution failed')) throw error
       }
     }
-    const response = await fetch(`${gatewayUrl.toString().replace(/\/+$/, '')}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.gatewayApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: config.gatewayModel,
-        temperature: 0,
-        max_tokens: options.maxTokens ?? MAX_GATEWAY_OUTPUT_TOKENS,
-        ...options.stream === true ? { stream: true } : {},
-        response_format: { type: 'json_object' },
-        messages
-      }),
-      signal: combinedAbortSignal(config.signal, boundedTimeout(
-        options.timeoutMs ?? config.gatewayTimeoutMs,
-        options.timeoutMs ? 5_000 : MIN_GATEWAY_TIMEOUT_MS,
-        MAX_GATEWAY_TIMEOUT_MS
-      ))
+    const requestBody = JSON.stringify({
+      model: config.gatewayModel,
+      temperature: 0,
+      max_tokens: options.maxTokens ?? MAX_GATEWAY_OUTPUT_TOKENS,
+      ...options.stream === true ? { stream: true } : {},
+      ...options.reasoningEffort === 'none' ? { reasoning_effort: 'none' } : {},
+      response_format: { type: 'json_object' },
+      messages
     })
-    if (!response.ok) throw new Error(`AI_GATEWAY_${response.status}`)
+    const requestSignal = combinedAbortSignal(config.signal, boundedTimeout(
+      options.timeoutMs ?? config.gatewayTimeoutMs,
+      options.timeoutMs ? 5_000 : MIN_GATEWAY_TIMEOUT_MS,
+      MAX_GATEWAY_TIMEOUT_MS
+    ))
+    const maxAttempts = Math.max(1, options.maxAttempts ?? 1)
+    let response: Response
+    for (let attempt = 1; ; attempt += 1) {
+      response = await fetch(`${gatewayUrl.toString().replace(/\/+$/, '')}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.gatewayApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: requestBody,
+        signal: requestSignal
+      })
+      // 429 是「网关此刻太忙/配额用完」，不是请求本身的问题。但网关的 429 带
+      // retry-after（实测 24s，语义是「每分钟请求数」配额用尽）——等它等于把用户
+      // 挂住半分钟，比降级还糟。所以只对「短暂限流」退一步重试，配额型直接放弃。
+      if (response.status !== 429 || attempt >= maxAttempts || requestSignal.aborted) break
+      const retryAfterSeconds = Number(response.headers.get('retry-after'))
+      await response.text().catch(() => '')
+      if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 1) break
+      await new Promise(resolve => setTimeout(resolve, 350 + Math.floor(Math.random() * 350)))
+    }
+    if (!response.ok) {
+      // 网关的内容审核拦截也走非 2xx（实测 403 + {"error":{"category":...,
+      // "blocked":true}}）。必须先读正文判定：否则审核拦截会被报成通用网关故障，
+      // 用户看到的是「暂时不可用」而不是「这条问题不能回答」，而且连续几次审核拦截
+      // 会把自己的失败计入熔断计数，把整个问答熔断 60 秒。
+      const errorText = await readBoundedResponseText(
+        response,
+        MAX_EXTERNAL_RESPONSE_BYTES,
+        'AI_RESPONSE_TOO_LARGE'
+      ).catch(() => '')
+      if (isGatewayContentBlocked(errorText)) throw new Error('AI_CONTENT_BLOCKED')
+      throw new Error(`AI_GATEWAY_${response.status}`)
+    }
     if (options.stream === true) {
       const { content, text } = await readStreamingChatCompletion(
         response,
@@ -6484,14 +7148,17 @@ export async function askGateway(
  */
 export async function classifyAssistantIntent(
   query: string,
-  config: AssistantConfig
-): Promise<{
-  intent: 'food' | 'competition' | 'zongce' | 'dorm' | 'course' | 'service' | 'transit' | 'campus' | 'other'
-  topic: string
-} | null> {
+  config: AssistantConfig,
+  timeoutMs = 4_000
+): Promise<AssistantIntentResult | null> {
   if (!config.gatewayBaseUrl || !config.gatewayApiKey) return null
   try {
-    const payload = await postGatewayChat(config, [
+    // 并发去重：同一句话在途时复用第一次的结果。开学季同问并发很常见，而网关有
+    // 并发上限（AI_BUSY）与每分钟配额（429），多发的那次只会被丢掉 → 意图退回正则。
+    // key 带上网关目标，避免不同渠道（网页/机器人）的配置互相串结果。
+    const payload = await coalesceInFlight(
+      `intent:${config.gatewayBaseUrl}|${config.gatewayModel}|${query}`,
+      () => postGatewayChat(config, [
       {
         role: 'system',
         content: [
@@ -6503,6 +7170,10 @@ export async function classifyAssistantIntent(
           'campus=问校园概况/地点/活动；other=其他。',
           '同时给出 topic：一句话中文主题（如"竞赛加分标准"、"学生街美食推荐"）。',
           '如果查询同时涉及多个意图（如"竞赛加分和综测的区别"），选最贴切的一个。',
+          // 口语缩写往往不带主题词，但意图很明确——分类器的价值正在这里，
+          // 正则匹配做不到，所以要在提示里点明。
+          '注意口语缩写与指代：省一/省二/国奖/国家级指竞赛获奖等级，属 competition；',
+          '转专业/休学/复学/退学属 course；校园卡/水电/报修属 service。',
           '输出格式：{"intent":"food","topic":"学生街奶茶推荐"}'
         ].join('\n')
       },
@@ -6512,8 +7183,18 @@ export async function classifyAssistantIntent(
       }
     ], {
       maxTokens: 120,
-      timeoutMs: 4000
-    })
+      timeoutMs,
+      // 意图分类只是「路由提示」：它失败时正则行为不变，所以绝不能把自己的失败
+      // 计入网关熔断计数——否则分类器一坏就把正常问答一起断掉。
+      trackFailures: false,
+      // 必须关思考：120 tokens 的预算里 reasoning 会吃到 ~128，线上实测 4 个问题有 2 个
+      // finish_reason=length、content=null（正是最需要分类器的那些模糊问法），解析失败即
+      // 意图分类为 null。关掉后 4/4 成功。
+      reasoningEffort: 'none',
+      // 增强类调用：网关偶发 429 时退一步重试一次，别让意图分类/记忆抽取静默降级。
+      maxAttempts: 2,
+      waitForSlotMs: ASSISTANT_ENHANCEMENT_SLOT_WAIT_MS
+    }))
     const text = extractGatewayText(payload)
     if (!text) return null
     const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
@@ -6522,7 +7203,7 @@ export async function classifyAssistantIntent(
     const allowed = ['food', 'competition', 'zongce', 'dorm', 'course', 'service', 'transit', 'campus', 'other'] as const
     if (!intent || !allowed.includes(intent as never)) return null
     return {
-      intent: intent as typeof allowed[number],
+      intent: intent as AssistantIntentName,
       topic: typeof parsed.topic === 'string' ? parsed.topic.slice(0, 40) : ''
     }
   } catch {
@@ -6588,7 +7269,16 @@ async function extractSessionMemoryFacts(
     const payload = await postGatewayChat(config, [
       { role: 'system', content: ASSISTANT_MEMORY_EXTRACTION_PROMPT },
       { role: 'user', content: JSON.stringify({ query: normalized, answer: answer.slice(0, 400) }) }
-    ], { maxTokens: 220, trackFailures: false })
+    ], {
+      maxTokens: 220,
+      trackFailures: false,
+      // 机械抽取任务：开着思考只是白花 50~130 个 reasoning token（实测 715ms → 379ms，
+      // 抽取结果等价）。它挂在答案之后，省下的时间直接落在用户感知的收尾耗时上。
+      reasoningEffort: 'none',
+      // 增强类调用：网关偶发 429 时退一步重试一次，别让意图分类/记忆抽取静默降级。
+      maxAttempts: 2,
+      waitForSlotMs: ASSISTANT_ENHANCEMENT_SLOT_WAIT_MS
+    })
     const memories = parseMemoryExtractionPayload(payload)
     if (memories.length > 0) {
       rememberExtractedFacts(client, sessionKey, normalized, memories)
@@ -6734,7 +7424,8 @@ function localEvidenceGapResponse(query: string): ApiAssistantResponse {
       source: 'site'
     }],
     usedWebSearch: false,
-    confidence: 0.35
+    confidence: 0.35,
+    evidenceGap: true
   }
 }
 
@@ -6815,6 +7506,10 @@ async function answerCampusQuestionCore(
   // and returns nothing useful). Match the shop against place_amap_ratings.
   const earlyShopDetail = earlyShopDetailAnswer(client, rawQuery)
   if (earlyShopDetail) return earlyShopDetail
+  // 快递取件问法（“中通在哪取/取快递去哪”）→ 品牌站/全量驿站列表 + 地图链接。
+  // 放在周边 POI 之前：否则“取快递去哪”会被周边场所按“快递”两字片段随机命中单店。
+  const earlyCourierStation = courierStationLocalAnswer(client, rawQuery)
+  if (earlyCourierStation) return earlyCourierStation
   // 周边 POI 问句（"台球/附近台球/8洛克台球在哪"）：本地地图记录可直接作答，
   // 不必等检索/网页。
   const earlyNearbyVenue = nearbyVenueLocalAnswer(client, rawQuery)
@@ -6825,26 +7520,49 @@ async function answerCampusQuestionCore(
   // 裸地点名词（“创业园/新区操场”）精确命中地图收录 → 直接定位简介
   const earlyPlaceName = mapPlaceNameLocalAnswer(client, rawQuery)
   if (earlyPlaceName) return earlyPlaceName
+  // 「我在X门口，要去Y」校内导航问句:给地图路线引导,不编造步行耗时。
+  const earlyNavigationGuide = campusNavigationGuideLocalAnswer(rawQuery)
+  if (earlyNavigationGuide) return earlyNavigationGuide
   // 实时天气/时钟引导（不接实时数据但阻止美食榜单劫持与无意义兜底）
   const earlyWeatherClock = weatherAndClockLocalAnswer(rawQuery)
   if (earlyWeatherClock) return earlyWeatherClock
+  // 裸主题词（"奖学金/社团"）优先给概览条目，而不是某个细节条目
+  const earlyTopicOverview = earlyTopicOverviewAnswer(client, rawQuery)
+  if (earlyTopicOverview) return earlyTopicOverview
   const tracker: AssistantRunTracker = {
     startedAt: Date.now(),
     trace: [],
     hooks,
     signal: config.signal
   }
+  // 增强链专用配置：总线数受 ASSISTANT_ANALYSIS_BUDGET_MS 约束。答案生成阶段仍
+  // 用原始 config.signal，所以预算到顶只会「少做增强」，不会把请求整体判失败。
+  const enhancementConfig: AssistantConfig = {
+    ...config,
+    signal: combinedAbortSignal(config.signal, ASSISTANT_ANALYSIS_BUDGET_MS)
+  }
   const retrievalLegs: RetrievalLeg[] = []
+  // 本次请求的意图分类结果。刻意用请求级局部变量而不是模块级变量：模块级变量
+  // 会在并发请求之间互相污染。分析阶段写入，答案阶段读取。
+  let requestIntent: AssistantIntentResult | null = null
+  let intentClassified = false
   const analysis = await runAssistantStage(tracker, 'query_analysis', '分析问题', async () => {
     const query = normalizeAssistantQuery(rawQuery)
     const retrievalQuery = assistantRetrievalQuery(query)
     const intentDetail = assistantIntentDetail(query, retrievalQuery)
+    // 意图分类至多调用一次：多意图冲突时提前调用，其余情况等「快速本地路径全部
+    // 落空」后再调用（见下方 late intent）。用 memo 保证两条路径不会各调一次。
+    const ensureIntent = async (): Promise<AssistantIntentResult | null> => {
+      if (intentClassified) return requestIntent
+      intentClassified = true
+      requestIntent = await classifyAssistantIntent(query, config)
+      return requestIntent
+    }
     // AI intent disambiguation for ambiguous queries: when the regex intent
     // detectors fire for MULTIPLE competing intents (e.g. "理发店推荐" hits
     // food's 推荐 word; "竞赛加分和综测的区别" hits both competition and
     // zongce), ask the gateway once to pick the true intent. The result feeds
     // the router below; any failure keeps the regex behavior (never blocks).
-    let aiIntent: Awaited<ReturnType<typeof classifyAssistantIntent>> = null
     const foodSignal = /(?:吃|推荐|有什么|哪家|奶茶|火锅|烧烤|学生街|餐厅|小吃)/u.test(query)
     const competitionSignal = /(?:竞赛|比赛|大赛|互联网\+|挑战杯|数学建模|电子设计|ACM|大创|数模|学科技能)/u.test(query)
     const zongceSignal = /(?:综测|综合测评)/u.test(query)
@@ -6852,9 +7570,9 @@ async function answerCampusQuestionCore(
     const ambiguous = (foodSignal && (competitionSignal || zongceSignal || nonFoodSignal))
       || (competitionSignal && zongceSignal)
     if (ambiguous) {
-      aiIntent = await classifyAssistantIntent(query, config)
+      await ensureIntent()
     }
-    lastAiIntent = aiIntent
+    const aiIntent = requestIntent
     const transitRoute = transitRouteForQuery(query)
     const cacheVariant = transitRoute && (config.transitPlanner || config.amapWebServiceKey?.trim())
       ? 'live-transit'
@@ -6929,6 +7647,28 @@ async function answerCampusQuestionCore(
     // Deterministic answers have their own small in-memory evidence. Resolve
     // them before opening the large knowledge tables; otherwise a cold SQLite
     // read can make a known answer look like a slow or failed search.
+    // 比赛归类预热：学生报的赛事名五花八门（"省级红色文化创意大赛"），关键词表永远
+    // 追不上。表内赛事零成本；表外赛事才问一次模型，并按赛事名缓存，之后再问是 0 延迟。
+    // 走 enhancementConfig 的预算与 trackFailures:false——归类是增强项，失败时算分器
+    // 退回原有的保守档位，不能把自己的失败计入网关熔断。
+    if (looksLikeCompetitionQuery(query) && config.gatewayBaseUrl && config.gatewayApiKey) {
+      try {
+        await primeCompetitionHints(query, messages => postGatewayChat(enhancementConfig, messages, {
+          maxTokens: 200,
+          timeoutMs: 4_000,
+          trackFailures: false,
+          // 同上：不关思考就拿不到判定，比赛归类等于没做。
+          reasoningEffort: 'none',
+          // 线上实测：连着问两个表外赛事，第二个归类会撞上网关 429，判定直接丢掉、
+          // 答案退回"未识别到项目"。重试一次即可救回。
+          maxAttempts: 2,
+          // 增强调用：名额满时等一会儿，别让并发用户静默丢掉判定。
+          waitForSlotMs: ASSISTANT_ENHANCEMENT_SLOT_WAIT_MS
+        }))
+      } catch {
+        // 归类失败不影响本地算分
+      }
+    }
     const fastEvidence = [
       ...officialWelcomeSystemEvidenceForQuery(query),
       ...official2026TransferMonthEvidenceForQuery(query),
@@ -6949,7 +7689,7 @@ async function answerCampusQuestionCore(
       // rerank pipeline, which otherwise waits 0.6..25s (rewrite inherits the
       // gateway timeout) even when the local entry already answers exactly.
       ?? ((!assistantIdentitySubject(query) && !isTeachingLocationQuery(query))
-        ? assistantKnowledgeLocalAnswer(client, query)
+        ? assistantKnowledgeLocalAnswer(client, query, aiIntent)
         : null)
     const fastOpeningEvidence = isOpeningDateQuery(query)
       && hardcodedAssistantFactIsCurrent('openingSchedule2026')
@@ -6994,7 +7734,7 @@ async function answerCampusQuestionCore(
     if (featureMatch && featureMatch.score >= 8 && !isSpecificDirectoryFeatureQuery(query)) {
       const featureEntryWins = (() => {
         try {
-          const entry = assistantKnowledgeLocalAnswer(client, query)
+          const entry = assistantKnowledgeLocalAnswer(client, query, aiIntent)
           return Boolean(entry && (entry.confidence ?? 0) >= 0.75)
         } catch {
           return false
@@ -7053,6 +7793,47 @@ async function answerCampusQuestionCore(
       }
     }
 
+    // 到这里为止全部是「不花外部调用」的本地确定性路径，都没命中。这时如果问题
+    // 看起来落在有专属本地条目的分类里，就让模型判一次意图并按意图重跑本地处理器，
+    // 再决定是否进入改写/向量/精排与网页兜底。
+    //
+    // 旧实现只在多意图冲突时分类，于是 “省一能拿多少奖金” 既不触发分类、也不命中
+    // 竞赛正则（句子里没有「竞赛」二字），既要付十几秒通用检索，又答不出知识库里
+    // 已经存在的「竞赛奖金标准」条目。下面的 hint 只用来避免对纯陌生问题白跑一次
+    // 分类调用，真正的意图判定仍然交给模型。
+    //
+    // 概览型问句（“宿舍怎么样/学校有哪些社团”）不走这条捷径：它们的设计是综合
+    // 多页证据后由模型成文，用单条目顶掉会丢掉综合视角。
+    const intentRoutingHint = /(?:省一|省二|省三|国奖|国家奖|国家级|一等奖|二等奖|三等奖|特等奖|奖金|奖励标准|加多少分|加几分|免修|学分认定|资格证|等级考试|四六级|雅思|托福|入党|党员|转专业|休学|复学|退学|校园卡|一卡通|报修|水电|快递|取件|寄件|代收|打印|复印|理发|美发|药店|诊所|网吧|KTV|健身|台球|水果|眼镜|维修|外卖|食堂|选课|抢课|绩点|挂科|补考|重修|军训|宿舍|寝室)/u.test(query)
+    const overviewStyleQuery = /(?:怎么样|好不好|如何|介绍|是什么|是啥|基本情况|有哪些)/u.test(query)
+    if (!intentClassified && intentRoutingHint && !overviewStyleQuery) {
+      // 不单独出 trace 阶段：意图识别属于「分析问题」，它的耗时计入 query_analysis。
+      // 新增一个可见阶段会改变前端已渲染的步骤序列。
+      const lateIntent = await ensureIntent()
+      if (lateIntent) {
+        // 模型给出的规范化主题（“竞赛奖金标准”）并进匹配文本：口语缩写本身不含
+        // 任何条目关键词，只用原句匹配会全部落空。
+        const matchQuery = lateIntent.topic ? `${query} ${lateIntent.topic}` : query
+        const intentAnswer = assistantKnowledgeLocalAnswer(client, query, lateIntent, matchQuery)
+          ?? assistantFoodRecommendationAnswer(client, query, undefined, lateIntent)
+        if (intentAnswer) {
+          return {
+            query,
+            retrievalQuery,
+            intentDetail,
+            cacheKey,
+            route: 'local_database' as const,
+            cached: null,
+            localEvidence: [] as AssistantEvidence[],
+            webEvidence: [] as ApiAssistantCitation[],
+            requiresSpecificWebEvidence: false,
+            localEvidenceSufficient: true,
+            intentAnswer
+          }
+        }
+      }
+    }
+
     const retrievalLimit = isBroadCampusOverviewQuery(query)
       ? ASSISTANT_OVERVIEW_CANDIDATE_LIMIT
       : ASSISTANT_CANDIDATE_LIMIT
@@ -7060,8 +7841,15 @@ async function answerCampusQuestionCore(
       baseUrl: config.embeddingBaseUrl ?? '',
       apiKey: config.embeddingApiKey ?? '',
       model: config.embeddingModel ?? 'text-embedding-v3',
-      timeoutMs: config.embeddingTimeoutMs ?? 15_000,
-      signal: config.signal
+      // 语义召回是**增强项**，给它一条独立预算，别让外部嵌入 API 的长尾拖住整条回答。
+      // 线上实测（SiliconFlow bge-m3）：单条嵌入 8 成在 85~450ms，但约 2 成会无错返回
+      // 3.7~4.6s（HTTP 200，不是限流），改写腿因此出现过 11.4s、整次提问 32s。
+      // 超时就放弃语义召回、退回关键词召回，用户拿到的是「略少一点召回」而不是「等十几秒」。
+      //
+      // 必须同时给 signal：embedBatchWithRetry 只在「调用方已取消」时才不重试，单纯调小
+      // timeoutMs 会被当成「单次超时」并按 1.2s 起、上限 45s 的退避重试 8 次，反而更慢。
+      timeoutMs: Math.min(config.embeddingTimeoutMs ?? 15_000, ASSISTANT_VECTOR_LEG_BUDGET_MS),
+      signal: combinedAbortSignal(enhancementConfig.signal, ASSISTANT_VECTOR_LEG_BUDGET_MS)
     }
     let localEvidence: AssistantEvidence[] = []
     let hybridEvidenceAdded = false
@@ -7087,17 +7875,41 @@ async function answerCampusQuestionCore(
             model: rewriteConfig.model,
             maxVariants: rewriteConfig.maxVariants,
             timeoutMs: rewriteConfig.timeoutMs,
-            chat: messages => postGatewayChat(config, messages, {
-              maxTokens: 300,
-              timeoutMs: rewriteConfig.timeoutMs,
-              trackFailures: true
-            })
+            chat: messages => coalesceInFlight(
+              // 并发去重：同一句话并发时复用第一次的改写结果（网关有并发上限与每分钟配额）。
+              `rewrite:${rewriteConfig.model}|${rewriteConfig.maxVariants}|${query}`,
+              () => postGatewayChat(enhancementConfig, messages, {
+                maxTokens: 300,
+                timeoutMs: rewriteConfig.timeoutMs,
+                trackFailures: true,
+                // 必须关思考：300 tokens 里 reasoning 会占到 121~287，线上实测 3 个问题有 1 个
+                // 直接截断成 `{"queries":["奖学金如何评定","奖学金评审标准`，改写通道看着跑过了
+                // 其实一个变体都没产出。关掉后 3/3 成功，且从 1.1~2.0s 降到 0.5~0.7s。
+                reasoningEffort: 'none',
+                // 增强通道：撞上 429 时重试一次，避免整条召回白跑。
+                maxAttempts: 2,
+                waitForSlotMs: ASSISTANT_ENHANCEMENT_SLOT_WAIT_MS
+              })
+            )
           })
           retrievalLegs.push({
             leg: 'rewrite',
             ms: Date.now() - rewriteStart,
-            note: result.applied ? `variants=${Math.max(0, result.variants.length - 1)}` : 'no-variants'
+            // 分段耗时：整段偶尔到 14s，只有把「改写模型往返 / 召回 / 向量」拆开，
+            // 才能判断是网关慢还是嵌入 API + 向量扫描慢（线上排查速度问题时直接看这里）。
+            note: `${result.applied ? `variants=${Math.max(0, result.variants.length - 1)}` : 'no-variants'}`
+              + ` llm=${result.timing.llmMs}ms recall=${result.timing.recallMs}ms vec=${result.timing.vectorTotalMs ?? result.timing.vectorMs}ms`
+              + `(embed=${result.timing.vectorEmbedMs ?? '-'} scan=${result.timing.vectorScanMs ?? '-'}${result.timing.vectorJsFallback ? ' JS兜底' : ''}${result.timing.vectorCacheHit ? ' 缓存命中' : ''})`
           })
+          // 冷页扫描会到秒级（实测 6284~6532ms，而热页只要 ~120ms）。埋点只在响应 trace 里，
+          // 不入库，所以这里补一行日志：**"冷扫描一天到底发生几次"是决定要不要上
+          // int8 量化 / vec0 的唯一依据**（另外两个候选已被实测否决：只扫 chunk_index=0
+          // 要丢 15.3% 召回却只省 16% I/O；窄表读法与全列读法耗时相同）。
+          if ((result.timing.vectorScanMs ?? 0) >= 1_000) {
+            console.warn(`[assistant-vector] slow scan ${result.timing.vectorScanMs}ms`
+              + ` embed=${result.timing.vectorEmbedMs ?? '-'}ms`
+              + ` query=${safeText(query, 40)}`)
+          }
           return result
         }, result => result.applied ? `改写 ${Math.max(0, result.variants.length - 1)} 条` : '未改写')
         if (multi.applied && multi.evidence.length > 0) {
@@ -7158,7 +7970,7 @@ async function answerCampusQuestionCore(
       apiKey: config.rerankApiKey ?? '',
       model: config.rerankModel ?? 'BAAI/bge-reranker-v2-m3',
       timeoutMs: config.rerankTimeoutMs ?? 15_000,
-      signal: config.signal,
+      signal: enhancementConfig.signal,
       local: (config.rerankLocalEnabled && config.rerankLocalModel?.trim())
         ? { enabled: true, model: config.rerankLocalModel.trim() }
         : undefined
@@ -7201,7 +8013,7 @@ async function answerCampusQuestionCore(
     const deterministicTeachingLocationAnswer = teachingLocationLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = isTeachingLocationQuery(query)
       ? null
-      : assistantKnowledgeLocalAnswer(client, query)
+      : assistantKnowledgeLocalAnswer(client, query, aiIntent)
     const deterministicClubAnswer = clubIdentityLocalAnswer(client, query)
     const verifiedDormBedAnswerAvailable = dormBedDimensionQuery
       && hardcodedAssistantFactIsCurrent('dormGuide2026')
@@ -7368,7 +8180,7 @@ async function answerCampusQuestionCore(
     const deterministicIdentityAnswer = identityLocalAnswer(query, localEvidence)
     const deterministicKnowledgeAnswer = identitySubject || isTeachingLocationQuery(query)
       ? null
-      : assistantKnowledgeLocalAnswer(client, query)
+      : assistantKnowledgeLocalAnswer(client, query, requestIntent)
     const deterministicRuleAnswer = studentRuleLocalAnswer(query, localEvidence)
     const deterministicZongceCalcAnswer = zongceCalculationLocalAnswer(query, localEvidence)
     const deterministicInstitutionNatureAnswer = institutionNatureLocalAnswer(query)
@@ -7386,6 +8198,11 @@ async function answerCampusQuestionCore(
       'answer_generation',
       '整理答案',
       async () => {
+        // 分析阶段已经按模型识别的意图给出确定性答案（例如把 “省一能拿多少奖金”
+        // 路由到学科竞赛奖金条目）：直接返回，不再进入检索合成与网页兜底。
+        if ('intentAnswer' in analysis && analysis.intentAnswer) {
+          return analysis.intentAnswer
+        }
         if (isAdmissionPlanCountQuery(query) && !admissionPlanCountEvidenceIsSufficient(query, localEvidence)) {
           return admissionPlanCountGapResponse(query, localEvidence)
         }
@@ -7395,7 +8212,7 @@ async function answerCampusQuestionCore(
         // 答案（fallback），行为与改造前一致。非 food 路由不受影响。
         if (analysis.route === 'local_database' && !analysis.requiresSpecificWebEvidence && !historicalTransferAnswer) {
           const foodCapture: FoodRecommendationCapture = { kind: 'none', candidates: [], mealIntent: false }
-          const foodFallback = assistantFoodRecommendationAnswer(client, query, foodCapture)
+          const foodFallback = assistantFoodRecommendationAnswer(client, query, foodCapture, requestIntent)
           if (foodFallback && foodCapture.kind === 'list' && foodCapture.candidates.length > 0) {
             return await foodRecommendationAiAnswer(query, foodCapture, foodFallback, config, tracker.hooks)
           }
@@ -7489,7 +8306,7 @@ async function answerCampusQuestionCore(
   // 不抢占，保留网页综合（网页可能给出更丰富的官方细节）。
   const entryPreempt = (() => {
     try {
-      const entry = assistantKnowledgeLocalAnswer(client, query)
+      const entry = assistantKnowledgeLocalAnswer(client, query, requestIntent)
       return entry && (entry.confidence ?? 0) >= 0.85 ? entry : null
     } catch {
       return null
@@ -7744,13 +8561,22 @@ export function clubIdentityLocalAnswer(client: DatabaseClient, query: string): 
         ? `${club.name}的加入门槛：${suitableFor}`
         : `${club.name}暂未单独公布门槛；一般零基础的新生大多可加入，具体以招新时负责人说明为准。`
       break
-    case 'contact':
+    case 'contact': {
+      // 「什么时候招新」问的是招新安排,不是联系方式:招新期未公布时也要给
+      // 诚实引导,不能只答一句「暂未公布联系方式」(2026-09-23 线上实测)。
+      const asksRecruitment = /(?:招新|纳新|报名时间|什么时候.{0,4}报名|怎么加入|如何加入)/u.test(normalizeAssistantQuery(query))
+      const recruitmentLine = recruitment
+        ? `招新安排：${recruitment}`
+        : asksRecruitment
+          ? '招新时间暂未单独公布，以校团委通知和社团页面为准'
+          : ''
       answer = `${club.name}联系方式：${contactMethod || '暂未单独公布联系方式'}`
         + (contactName ? `（负责人：${contactName}）` : '')
         + (contactPhone ? `；联系：${contactPhone}` : '')
-        + (recruitment ? `；招新安排：${recruitment}` : '')
+        + (recruitmentLine ? `；${recruitmentLine}` : '')
         + `。群二维码与更多入口请以社团页面为准。`
       break
+    }
     default:
       answer = `${club.name}：${direction || body || '这是一个学生社团。'}`
         + (suitableFor ? ` 适合：${suitableFor}` : '')

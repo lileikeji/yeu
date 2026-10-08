@@ -1026,7 +1026,9 @@ test('assistant recommends nearby food from seeded AMap ratings', async () => {
     assert.equal(response.confidence, 0.72)
     // Every recommendation line carries a map-locate marker.
     assert.ok(response.answer.includes('〔地图定位〕'))
-    assert.equal((response.answer.match(/〔地图定位〕/g) ?? []).length, 5)
+    // 4 条而不是 5 条：问「推荐的餐厅」属正餐意图，纯饮品店（蜜雪冰城）被正确剔除。
+    assert.equal((response.answer.match(/〔地图定位〕/g) ?? []).length, 4)
+    assert.doesNotMatch(response.answer, /蜜雪冰城/)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
@@ -1080,6 +1082,88 @@ test('food recommendation filters by category and answers single-shop details', 
   }
 })
 
+test('single-shop detail tolerates a shortened shop name but never a city-name prefix', async () => {
+  // 线上真实事故：高德 POI 名是「牛先生潮汕鲜切自助牛肉火锅」，学生只说「牛先生火锅」，
+  // 整串子串匹配落空 → 问某家店却得到一张榜单（扫描器照出来的）。
+  // 反例同样真实：'泉州最近一周天气怎么样' 若按「包含」匹配，2 字前缀 '泉州' 会命中
+  // 「塔斯汀中国汉堡(泉州市仰恩大学校内店)」，把天气问题答成汉堡详情——所以缩写
+  // 必须落在店名开头，且只能唯一命中。
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-shop-shortname-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    const expires = now + 7 * 24 * 60 * 60 * 1000
+    const seedRating = client.sqlite.prepare(`
+      INSERT OR REPLACE INTO place_amap_ratings
+        (place_id, amap_poi_id, amap_poi_name, score, cost, fetched_at, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    seedRating.run('B0LONG1', 'B0LONG1', '牛先生潮汕鲜切自助牛肉火锅', 4.3, 76, now, expires, now, now)
+    seedRating.run('B0CITY1', 'B0CITY1', '塔斯汀中国汉堡(泉州市仰恩大学校内店)', 3.7, 20, now, expires, now, now)
+    const seedReview = client.sqlite.prepare(`
+      INSERT INTO place_reviews
+        (id, place_id, user_id, anonymous_key, score, content, status, source, source_platform, collected_at, created_at, updated_at)
+      VALUES (?, ?, NULL, ?, ?, ?, 'approved', 'seed', 'dianping', ?, ?, ?)
+    `)
+    seedReview.run('seed-long1', 'B0LONG1', 'seed-dp-long1-0', 4.3, '鲜切胸口油、手切肥牛是招牌肉品。', now, now, now)
+
+    // 缩写命中：学生说的店名是 POI 名的前缀。
+    const short = await answerCampusQuestion(client, '牛先生火锅怎么样', emptyAssistantConfig)
+    assert.match(short.answer, /牛先生潮汕鲜切自助牛肉火锅/)
+    assert.match(short.answer, /鲜切胸口油/)
+
+    // 反例：城市名前缀不能把非美食问题劫持成汉堡详情。
+    const weather = await answerCampusQuestion(client, '泉州最近一周天气怎么样', emptyAssistantConfig)
+    assert.doesNotMatch(weather.answer, /塔斯汀/)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('food recommendation never recommends a non-food POI as a restaurant', async () => {
+  // 线上实测：高德评分表里混着快递/超市/眼镜店，它们有评分也有口碑卡，于是
+  // 「学生街有什么推荐的餐厅」把「顺丰速运」排进了餐厅榜（真事）。
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-food-nonfood-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    const expires = now + 7 * 24 * 60 * 60 * 1000
+    const seed = client.sqlite.prepare(`
+      INSERT OR REPLACE INTO place_amap_ratings
+        (place_id, amap_poi_id, amap_poi_name, score, cost, fetched_at, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const shops = [
+      // 非餐饮：分数还更高，如果不过滤一定排在最前面
+      ['B0NF1', 'B0NF1', '顺丰速运(仰恩大学店)', 4.5, null],
+      ['B0NF2', 'B0NF2', '环星超市', 4.4, null],
+      ['B0NF3', 'B0NF3', '爱眼眼镜', 4.6, null],
+      ['B0NF4', 'B0NF4', '淑君造型', 4.7, null],
+      ['B0NF5', 'B0NF5', '养正自选店', 4.4, null],
+      // 正常餐饮
+      ['B0FD1', 'B0FD1', '好七好七小吃店', 4.2, 15],
+      ['B0FD2', 'B0FD2', '桥都火锅店', 4.1, 58],
+      ['B0FD3', 'B0FD3', '塔斯汀中国汉堡', 3.9, 20]
+    ] as const
+    for (const [id, poiId, name, score, cost] of shops) {
+      seed.run(id, poiId, name, score, cost, now, expires, now, now)
+    }
+    const answer = await answerCampusQuestion(client, '学生街有什么推荐的餐厅', emptyAssistantConfig)
+    assert.match(answer.answer, /好七好七小吃店/)
+    for (const nonFood of ['顺丰速运', '环星超市', '爱眼眼镜', '淑君造型', '养正自选店']) {
+      assert.doesNotMatch(answer.answer, new RegExp(nonFood), `${nonFood} 不该出现在餐厅推荐里`)
+    }
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
 test('food recommendation filters by campus area and budget cap', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-food-area-'))
   const databasePath = join(directory, 'test.sqlite')
@@ -1118,6 +1202,52 @@ test('food recommendation filters by campus area and budget cap', async () => {
     const budget = await answerCampusQuestion(client, '中午吃什么 预算15以内', emptyAssistantConfig)
     assert.match(budget.answer, /蜜雪冰城/)  // ¥9
     assert.doesNotMatch(budget.answer, /桥都火锅店/)  // ¥58
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('asking for a 餐厅 excludes drink-only shops, while 奶茶 keeps them', async () => {
+  // 线上实测："学生街有什么推荐的餐厅" 的 4 条推荐里塞了 2 家奶茶店（古茗、蜜雪冰城）。
+  // 「餐厅/饭店/餐馆」是明确的"吃正餐"名词，必须触发正餐过滤；而显式要奶茶时不能误伤。
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-food-restaurant-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const now = Date.now()
+    const expires = now + 7 * 24 * 60 * 60 * 1000
+    const seed = client.sqlite.prepare(`
+      INSERT OR REPLACE INTO place_amap_ratings
+        (place_id, amap_poi_id, amap_poi_name, score, cost, fetched_at, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const shops = [
+      ['B0RS1', 'B0RS1', '古茗(仰恩大学店)', 4.4, 16],
+      ['B0RS2', 'B0RS2', '蜜雪冰城(仰恩大学新校区店)', 4.3, 9],
+      ['B0RS3', 'B0RS3', '串烧烤肉(仰恩大学新区店)', 4.5, 50],
+      ['B0RS4', 'B0RS4', '芭比Q(仰恩大学店)', 4.5, 54],
+      // 池子要够厚：剔除饮品后若少于 3 家，代码会 relax 回整个池子（把奶茶放回来），
+      // 那是"宁可多给也别没结果"的设计，不是本用例要验的行为。
+      ['B0RS5', 'B0RS5', '沙县小吃(仰恩大学店)', 4.1, 20],
+      ['B0RS6', 'B0RS6', '桥都火锅店', 4.2, 58],
+      ['B0RS7', 'B0RS7', '好七好七小吃店', 4.2, 15]
+    ] as const
+    for (const [id, poiId, name, score, cost] of shops) {
+      seed.run(id, poiId, name, score, cost, now, expires, now, now)
+    }
+
+    // 要「餐厅」→ 只给正餐，不掺奶茶。
+    const restaurant = await answerCampusQuestion(client, '学生街有什么推荐的餐厅', emptyAssistantConfig)
+    assert.match(restaurant.answer, /串烧烤肉|芭比Q/)
+    assert.doesNotMatch(restaurant.answer, /古茗/)
+    assert.doesNotMatch(restaurant.answer, /蜜雪冰城/)
+
+    // 显式要奶茶 → 奶茶店照常出现（正餐过滤不能误伤）。
+    const milkTea = await answerCampusQuestion(client, '学生街有什么奶茶推荐', emptyAssistantConfig)
+    assert.match(milkTea.answer, /古茗/)
+    assert.match(milkTea.answer, /蜜雪冰城/)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

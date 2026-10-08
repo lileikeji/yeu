@@ -1,4 +1,4 @@
-import { getOptionalAdminSession } from '../../../utils/auth'
+import { adminCapabilities, getOptionalAdminSession } from '../../../utils/auth'
 import { useAppDatabase } from '../../../utils/database'
 
 export default defineEventHandler((event) => {
@@ -8,6 +8,7 @@ export default defineEventHandler((event) => {
     ? {
         authenticated: true,
         admin: session.admin,
+        capabilities: adminCapabilities(session),
         csrfToken: session.csrfToken,
         expiresAt: new Date(session.expiresAt).toISOString()
       }

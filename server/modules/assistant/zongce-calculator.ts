@@ -14,6 +14,15 @@ import {
   zongceStructure,
   type ZongceItem
 } from '../../../data/comprehensive-evaluation'
+import type { CompetitionHint } from './competition-classifier'
+
+export interface ZongceComputeOptions {
+  /**
+   * 赛事归类判定（表内赛事或 AI 判定）。学生报的比赛五花八门，关键词表追不上，
+   * 由调用方先解析好再传进来；计算器据此选定条目并按级别定档。
+   */
+  competitionHints?: CompetitionHint[]
+}
 
 export interface ZongceCalcLine {
   label: string
@@ -63,16 +72,19 @@ function extractScores(query: string): { mine: number | null; highest: number | 
   let highest: number | null = null
   const others: ScoreContext[] = []
   for (const n of nums) {
-    if (/最高|年级最高|专业最高|最高平均|本专业最高/.test(n.ctx)) {
+    if (/最高|年级最高|专业最高|最高平均|本专业最高|专业平均|年级平均/.test(n.ctx)) {
       if (highest === null) highest = n.value
     } else if (/我|本人|我的|期末总分|期末成绩|我的成绩|本人成绩|学年成绩|期末考/.test(n.ctx)) {
       if (mine === null) mine = n.value
-    } else if (/平均分|平均成绩/.test(n.ctx)) {
-      // 裸"平均分 X"在提问里通常指本专业最高平均成绩（公式分母），记为最高分候选
-      if (highest === null) highest = n.value
-      else others.push(n)
     } else {
-      others.push(n)
+      // 无明确归属的裸数字按出现顺序补位：先补本人成绩，再补分母（本专业最高）。
+      //
+      // 旧逻辑把裸「平均成绩 85」直接当成"本专业最高平均成绩"（公式分母），于是
+      // 「平均成绩85，专业最高90」把 85 记成分母、90 因为分母已占位被丢弃，用户
+      // 得到的是「未提供成绩，按满分 60 估算」——明明说了成绩却算不出来。
+      if (mine === null) mine = n.value
+      else if (highest === null) highest = n.value
+      else others.push(n)
     }
   }
   if (mine === null && others.length > 0) mine = others[0]!.value
@@ -98,12 +110,23 @@ function gradeTokens(query: string): string[] {
 /** 提取查询里的级别（国家级/省部/市/校/院、A/B/C 类）。 */
 function tierTokens(query: string): string[] {
   const found: string[] = []
+  // 级别词与办法里的档位体系是两套说法：档位表用的是 A类/B类/C类/市级/校级，
+  // 而学生口语说「国家级/省级」。只按口语词去匹配档位一条都命中不了，于是
+  // 「数学建模省二等奖」会被保守地按最低档 0.5 分计入（实测）。按办法注释里
+  // 的定义补齐映射：A类=教育部国家级赛事，B类=福建省级赛事。
   const rules: Array<[RegExp, string]> = [
-    [/国家级|国家[级]?/g, '国家级'],
-    [/省部级|省部|省级/g, '省部级'],
-    [/市级/g, '市级'],
+    // 学生写级别的方式有两类，都要认：
+    //   ① 缩略：「省二等奖」「国一等奖」——既没有「省级」也没有「国家级」
+    //   ② 轮次：「数学建模校赛一等奖」「挑战杯省赛二等奖」「国赛」「市赛」「院赛」
+    // 少了任何一类，整个级别都解析不出来，最后退到最低档（实测「省赛一等奖」
+    // 因为不认「省赛」而按校级 1 分计入，应是省级 B类 4 分）。
+    [/国家级|国家[级]?|全国赛|国赛|国[一二三]/g, '国家级'],
+    [/国家级|国家[级]?|全国赛|国赛|国[一二三]/g, 'A类'],
+    [/省部级|省部|省级|省赛|省[一二三]/g, '省部级'],
+    [/省部级|省部|省级|省赛|省[一二三]/g, 'B类'],
+    [/市级|市赛/g, '市级'],
     [/校级|校赛|学校/g, '校级'],
-    [/院级|学院/g, '院级'],
+    [/院级|学院|院赛/g, '院级'],
     [/A\s*类/g, 'A类'],
     [/B\s*类/g, 'B类'],
     [/C\s*类/g, 'C类']
@@ -157,12 +180,81 @@ function sportsBucketsForQuery(query: string): string[] {
   return out
 }
 
+/** 用户提到的层级。 */
+type LevelScope = 'national' | 'provincial' | 'city' | 'school' | 'institute'
+
+function levelScopeFromTokens(tiers: string[]): LevelScope | null {
+  if (tiers.includes('国家级')) return 'national'
+  if (tiers.includes('省部级')) return 'provincial'
+  if (tiers.includes('市级')) return 'city'
+  if (tiers.includes('校级')) return 'school'
+  if (tiers.includes('院级')) return 'institute'
+  return null
+}
+
+/**
+ * 赛事名自带的层级。学生常说「省职业院校技能大赛」「全国大学生数学建模竞赛」而不
+ * 另说「国一/省二」——此时级别就藏在赛事名里，不看它就会把省赛按 A类算（实测
+ * 「省职业院校技能大赛一等奖」被算成 6 分，应是省级选拔 B类 4 分）。
+ * 注意顺序：「全国职业院校技能大赛」同时含「全国」和「院」，必须先判全国。
+ */
+function scopeFromCompetitionName(name: string): LevelScope | null {
+  if (/全国|国家|国际|中国/u.test(name)) return 'national'
+  if (/省/u.test(name)) return 'provincial'
+  if (/市/u.test(name)) return 'city'
+  if (/校/u.test(name)) return 'school'
+  // 只用「院」：裸「系」会被「系列竞赛」「联系」这类词误伤——实测「挑战杯系列
+  // 竞赛」因此被判成院级，档位解析失败退到最低档（A类一等 6 分 → 校级 1 分）。
+  if (/院|系里|本系|系级/u.test(name)) return 'institute'
+  return null
+}
+
+/**
+ * 用赛事判定 + 用户提到的层级算出档位前缀。
+ *
+ * 关键是「赛事 × 层级」一起看：同一项赛事国家级算 A类、省级算 B类（一览表里几乎都
+ * 写「国家级/省级，A、B类」）。只看赛事名会把省赛按 A类高估，只看「省二」又不知道
+ * 该赛事在省级到底算 B 还是 C。用户没说层级时按该赛事的国家级类别估算（note 里会
+ * 标注省赛口径），避免静默高估。
+ */
+function competitionTierFor(
+  item: ZongceItem,
+  tiers: string[],
+  hint: CompetitionHint | undefined
+): string | undefined {
+  if (!hint) return undefined
+  // 用户明说的级别优先；没说就看赛事名自带的层级
+  // 级别来源优先级：用户明说 → 用户实际写的赛事片段 → 表里的正式名
+  const scope = levelScopeFromTokens(tiers)
+    ?? scopeFromCompetitionName(hint.matched ?? hint.name)
+    ?? scopeFromCompetitionName(hint.name)
+  if (item.id === 'academic-competition') {
+    if (scope === 'national') return hint.nationalClass
+    if (scope === 'provincial') return hint.provincialClass ?? hint.nationalClass
+    // 没说层级：按国家级类别估算
+    if (!scope) return hint.nationalClass
+    // 市级/校级/院级：档位表里本来就有这几档，沿用原有解析
+    return undefined
+  }
+  if (item.id === 'comp-culture' || item.id === 'research-project') {
+    // 这两张档位表的层级词是「国家级/省部级/市·校级/校职能部门级/院级」，而
+    // tierTokens 产出的是「市级/校级」——在这张表里市级与校级合为一档。
+    if (scope === 'city' || scope === 'school') return '市/校级'
+    if (scope === 'national') return '国家级'
+    if (scope === 'provincial') return '省部级'
+    if (scope === 'institute') return '院级'
+    return undefined
+  }
+  return undefined
+}
+
 /** 尝试为某条目解析奖项分数；返回 {points, note}。 */
 function resolveItemPoints(
   item: ZongceItem,
   query: string,
   grades: string[],
-  tiers: string[]
+  tiers: string[],
+  competitionHint?: CompetitionHint
 ): { points: number; note?: string } {
   if (item.points !== undefined) {
     // 数量类条目：志愿时长/献血/讲座/演出 优先从提问解析数量
@@ -180,7 +272,14 @@ function resolveItemPoints(
   const levels = item.levels ?? []
   if (levels.length === 0) return { points: 0, note: `${item.name}暂无自动计分规则` }
 
-  const tier = tiers.find(t => levels.some(l => l.level.includes(t)))
+  const tier = competitionTierFor(item, tiers, competitionHint)
+    ?? tiers.find(t => levels.some(l => l.level.includes(t)))
+  // 赛事判定的出处附在 note 末尾：学生能据此核对主办方与级别
+  const hintSuffix = competitionHint
+    ? `（${competitionHint.name}${competitionHint.host ? '，' + competitionHint.host : ''}${competitionHint.source === 'ai' ? '，按主办层级判定' : ''}）`
+    : ''
+  const withHint = (result: { points: number, note?: string }): { points: number, note?: string } =>
+    result.note && hintSuffix ? { points: result.points, note: `${result.note}${hintSuffix}` } : result
   const effectiveGrades = item.id === 'sports-competition' ? sportsBucketsForQuery(query) : grades
   const picks: Array<{ level: string; points: number }> = []
   const seenGrades = new Set<string>()
@@ -201,24 +300,37 @@ function resolveItemPoints(
     pool.sort((a, b) => a.points - b.points)
     const min = pool[0]!
     const max = pool[pool.length - 1]!
-    return {
+    return withHint({
       points: min.points,
       note: `${item.name}未注明等级/类型，暂按最低档"${min.level}" ${min.points} 分计入（该大类 ${min.points}~${max.points} 分），请补充实际档位`
-    }
+    })
   }
   if (item.multi) {
     const sum = picks.reduce((s, p) => s + p.points, 0)
     const capped = item.cap !== undefined ? Math.min(item.cap, sum) : sum
     const detail = picks.map(p => `${p.level} ${p.points}分`).join(' + ')
-    return {
+    return withHint({
       points: capped,
       note: picks.length > 1 ? `${item.name}多项目累计：${detail}` : `${item.name}：${detail}`
-    }
+    })
   }
   // 单选条目取最高档
   picks.sort((a, b) => b.points - a.points)
-  return { points: picks[0]!.points, note: `${item.name}：${picks[0]!.level} ${picks[0]!.points}分` }
+  return withHint({ points: picks[0]!.points, note: `${item.name}：${picks[0]!.level} ${picks[0]!.points}分` })
 }
+
+/** 赛事类别 → 综测条目 id。 */
+const ITEM_ID_BY_COMPETITION_CATEGORY: Readonly<Record<CompetitionHint['category'], string>> = {
+  academic: 'academic-competition',
+  culture: 'comp-culture',
+  sports: 'sports-competition',
+  research: 'research-project'
+}
+
+/** 条目 id → 条目，用于按赛事判定补条目。 */
+const zongceItemsById = new Map<string, ZongceItem>(
+  zongceBonusCategories.flatMap(category => category.items.map(item => [item.id, item] as const))
+)
 
 /** 用关键词命中的条目（复用 matchZongceItem 的匹配逻辑，但返回条目对象）。 */
 function matchZongceItemsForQuery(query: string): Array<{ item: ZongceItem; hint: string }> {
@@ -298,7 +410,7 @@ function parseDeductions(query: string): { total: number; details: string[] } {
 /**
  * 尝试把一条"综测算分"提问解析成估算结果；不是可计算提问时返回 null。
  */
-export function tryComputeZongce(query: string): ZongceCalcResult | null {
+export function tryComputeZongce(query: string, options: ZongceComputeOptions = {}): ZongceCalcResult | null {
   if (!/综测|综合测评/.test(query)) return null
   // 奖学金/助学金是评选资格问题，不是综测加分项，交给奖学金回答
   if (/奖学金|助学金/.test(query)) return null
@@ -344,10 +456,28 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
   const awardNotes: string[] = []
 
   const matches = matchZongceItemsForQuery(query)
+  // 赛事判定补位：关键词表认不出的比赛（"校园歌手大赛""省级红色文化创意大赛"）
+  // 靠 hint 的类别补上对应条目；同理，hint 说这是文化艺术类时不能按学科技能算。
+  const hintByItemId = new Map<string, CompetitionHint>()
+  for (const hint of options.competitionHints ?? []) {
+    const itemId = ITEM_ID_BY_COMPETITION_CATEGORY[hint.category]
+    if (!itemId || hintByItemId.has(itemId)) continue
+    hintByItemId.set(itemId, hint)
+    if (!matches.some(match => match.item.id === itemId)) {
+      const item = zongceItemsById.get(itemId)
+      if (item) matches.push({ item, hint: hint.name })
+    }
+  }
   let competitionResolved = false
+  // 文化艺术类竞赛只计德育。它不进智育是**判定正确**，不是"没认出来"——智育奖励那一行
+  // 必须说清楚，否则学生看到"未识别到项目"会以为系统漏算了，再问一遍。
+  let cultureCompetitionResolved = false
   for (const { item } of matches) {
-    const r = resolveItemPoints(item, query, grades, tiers)
-    if (r.points > 0 && (item.id === 'academic-competition' || item.id === 'comp-culture')) competitionResolved = true
+    const r = resolveItemPoints(item, query, grades, tiers, hintByItemId.get(item.id))
+    if (r.points > 0 && (item.id === 'academic-competition' || item.id === 'comp-culture')) {
+      competitionResolved = true
+      if (item.id === 'comp-culture') cultureCompetitionResolved = true
+    }
     const section = sectionOfItem(item)
     if (section === 'intellectual') {
       intellectualReward.points += r.points
@@ -411,7 +541,9 @@ export function tryComputeZongce(query: string): ZongceCalcResult | null {
         ? (intellectualReward.points > intellectualRewardCapped
           ? `原计 ${intellectualReward.points}，封顶 10 → ${intellectualRewardCapped} 分`
           : `${intellectualRewardCapped} 分`)
-        : '未识别到项目（0 分）',
+        : cultureCompetitionResolved
+          ? '文化艺术类竞赛计入德育奖励，不计智育'
+          : '未识别到项目（0 分）',
       points: intellectualRewardCapped
     },
     { label: '德育', detail: `基础分+互评 ${moralBase} + 奖励 ${moralRewardCapped}${deduction.total > 0 ? ' − 扣分 ' + deduction.total : ''}`, points: round2(moralTotal) },

@@ -1,0 +1,4 @@
+# Miniapp build outputs
+miniapp/unpackage/
+miniapp/dist/
+miniapp/.hbuilderx/

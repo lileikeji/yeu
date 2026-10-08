@@ -6,6 +6,7 @@ import { activePublicContentCondition } from '../content/visibility'
 import { ensureVisitor, recordVisitorEvent } from '../visitors/service'
 import { safeMetadata, serializeContent } from '../../utils/serializers'
 import { getContentSourceMap } from '../verification/service'
+import { getPublicContent } from '../content/service'
 import { normalizeNoticeActions } from '../../../shared/utils/notice-actions'
 import { sortPublicNoticeItems } from './sorting'
 
@@ -65,6 +66,36 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
   })
 
   return { items: sortPublicNoticeItems(items), total: items.length }
+}
+
+export function getPublicNotice(event: H3Event, client: DatabaseClient, slug: string) {
+  const content = getPublicContent(client, slug, 'notice')
+  const visitor = ensureVisitor(event, client, { path: getRequestURL(event).pathname })
+  const metadata = safeMetadata(JSON.stringify(content.metadata))
+  const confirmationCount = client.db.select({ value: countDistinct(visitorEvents.visitorId) })
+    .from(visitorEvents)
+    .where(confirmationCondition(content.id))
+    .get()?.value ?? 0
+  const confirmed = Boolean(client.db.select({ id: visitorEvents.id })
+    .from(visitorEvents)
+    .where(and(
+      confirmationCondition(content.id, Date.parse(content.updatedAt)),
+      eq(visitorEvents.visitorId, visitor.id)
+    ))
+    .limit(1)
+    .get())
+
+  return {
+    ...content,
+    pinned: metadata.pinned === true,
+    sortOrder: typeof metadata.sortOrder === 'number' && Number.isInteger(metadata.sortOrder) && metadata.sortOrder >= 0
+      ? metadata.sortOrder
+      : null,
+    autoPopup: metadata.autoPopup === true,
+    actions: normalizeNoticeActions(metadata.noticeActions),
+    confirmationCount,
+    confirmed
+  }
 }
 
 export function confirmPublicNotice(event: H3Event, client: DatabaseClient, noticeId: string) {

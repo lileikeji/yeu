@@ -225,6 +225,48 @@
       "when": 1788368498378,
       "tag": "0031_worried_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1789025752028,
+      "tag": "0032_stiff_dexter_bennett",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1790842829988,
+      "tag": "0033_remarkable_lady_ursula",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1791109999294,
+      "tag": "0034_short_sally_floyd",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1791116928510,
+      "tag": "0035_breezy_ultimo",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1791475845849,
+      "tag": "0036_curvy_silver_samurai",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1791479908910,
+      "tag": "0037_daily_the_enforcers",
+      "breakpoints": true
     }
   ]
 }

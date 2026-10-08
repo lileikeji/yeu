@@ -35,7 +35,9 @@ export interface PublicPlaceReviewView {
   displayName: string
   createdAt: string
   mine: boolean
-  source: 'user' | 'seed'
+  // 前台列表按 source IN ('seed','user') 过滤，'original'（抓取原文）不会出现在
+  // 这里；但列类型本身含三值，视图如实承接。
+  source: 'user' | 'seed' | 'original'
   sourcePlatform: 'dianping' | 'meituan' | null
   likeCount: number
   likedByMe: boolean
@@ -59,7 +61,7 @@ export interface PublicPlaceReviewsPayload {
   /** Number of rewritten seed reviews for this place (excluded from aggregate). */
   seedCount: number
   /** Merchant promotion info (Meituan jump link) when enabled by the backoffice. */
-  promo: { meituanUrl: string | null, promoWeight: number, aiFrequency: number } | null
+  promo: PublicMerchantPromoView | null
 }
 
 export interface AdminPlaceReviewView {
@@ -114,13 +116,15 @@ export function createPlaceReview(
   const dedupeKey = identity.userId ?? identity.anonymousKey
   if (!dedupeKey) throw new Error('REVIEW_IDENTITY_REQUIRED')
   const key = normalizePlaceId(input.placeId)
+  // 走到这里 dedupeKey 必然已定义；无 userId 时它来自 anonymousKey，用它做等值
+  // 比较即可（identity.anonymousKey 在类型上是 string | undefined）。
   const existing = dedupeKey
     ? client.db.select({ id: placeReviews.id })
         .from(placeReviews)
         .where(and(
           identity.userId
             ? eq(placeReviews.userId, identity.userId)
-            : eq(placeReviews.anonymousKey, identity.anonymousKey),
+            : eq(placeReviews.anonymousKey, dedupeKey),
           eq(placeReviews.placeId, key)
         ))
         .get()
@@ -165,7 +169,9 @@ function toPublicReviewView(
     displayName: string | null
     userId: string | null
     anonymousKey: string | null
-    source: 'user' | 'seed'
+    // 三值并存：user 学生评价 / seed 后台整理卡 / original 抓取原文。列类型如此，
+    // 读取侧必须都能接受。
+    source: 'user' | 'seed' | 'original'
     sourcePlatform: 'dianping' | 'meituan' | null
     createdAt: number
   },
@@ -270,14 +276,16 @@ export function listPublicPlaceReviews(
 
   let mine: { submitted: boolean, status: PlaceReviewStatus | null }
     = { submitted: false, status: null }
-  if (currentIdentity?.userId || currentIdentity?.anonymousKey) {
+  // 无 userId 时用 anonymousKey 做等值比较；两者至少有一个存在才会进入这个分支。
+  const viewerKey = currentIdentity?.userId ?? currentIdentity?.anonymousKey
+  if (currentIdentity && viewerKey) {
     const mineRow = client.db.select({ status: placeReviews.status })
       .from(placeReviews)
       .where(and(
         eq(placeReviews.placeId, key),
         currentIdentity.userId
           ? eq(placeReviews.userId, currentIdentity.userId)
-          : eq(placeReviews.anonymousKey, currentIdentity.anonymousKey)
+          : eq(placeReviews.anonymousKey, viewerKey)
       ))
       .get()
     if (mineRow) {
@@ -508,9 +516,14 @@ export function adminReviewPlace(
     id: placeReviews.id,
     placeId: placeReviews.placeId,
     userId: placeReviews.userId,
+    anonymousKey: placeReviews.anonymousKey,
     score: placeReviews.score,
     content: placeReviews.content,
     status: placeReviews.status,
+    source: placeReviews.source,
+    sourceUrl: placeReviews.sourceUrl,
+    sourcePlatform: placeReviews.sourcePlatform,
+    collectedAt: placeReviews.collectedAt,
     reviewNote: placeReviews.reviewNote,
     reviewedAt: placeReviews.reviewedAt,
     createdAt: placeReviews.createdAt,
@@ -525,10 +538,13 @@ export function adminReviewPlace(
     })
   }
 
-  const user = client.db.select({
-    username: users.username,
-    displayName: users.displayName
-  }).from(users).where(eq(users.id, row.userId)).get()
+  // 匿名提交（或历史导入）没有 userId：此时不做用户表查询，直接返回空昵称。
+  const user = row.userId
+    ? client.db.select({
+        username: users.username,
+        displayName: users.displayName
+      }).from(users).where(eq(users.id, row.userId)).get()
+    : undefined
 
   return {
     ...row,
@@ -837,6 +853,12 @@ export interface MerchantPromoView {
   clickCount30d: number
 }
 
+/**
+ * 公开详情里附带的推广信息：与后台视图同源，只是不暴露 placeId/enabled。
+ * 同一份声明被地图弹窗与 AI 共用，避免两处内联类型各自漂移。
+ */
+export type PublicMerchantPromoView = Omit<MerchantPromoView, 'placeId' | 'enabled'>
+
 export function getMerchantPromo(client: DatabaseClient, placeId: string): MerchantPromoView {
   const row = client.db.select().from(placeMerchants)
     .where(eq(placeMerchants.placeId, placeId)).get()
@@ -952,11 +974,7 @@ export function updateMerchantPromo(
 }
 
 /** 公开详情附加推广信息（地图弹窗/AI 用）——enabled 且有关联时才暴露。 */
-export function publicMerchantPromo(client: DatabaseClient, placeId: string): {
-  meituanUrl: string | null
-  promoWeight: number
-  aiFrequency: number
-} | null {
+export function publicMerchantPromo(client: DatabaseClient, placeId: string): PublicMerchantPromoView | null {
   const row = client.db.select().from(placeMerchants)
     .where(and(
       eq(placeMerchants.placeId, placeId),

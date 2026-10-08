@@ -193,10 +193,24 @@ const selectedArea = ref<MapArea | null>(null)
 const selectedAreaId = computed(() => selectedArea.value?.id ?? null)
 const selectedNativePlace = ref<PublicMapPlace | null>(null)
 const toast = useToast()
+const manualStartPick = ref<{ destinationName: string, destination: MapPoi['point'] } | null>(null)
+const manualStartOpen = computed({
+  get: () => manualStartPick.value !== null,
+  set: (open: boolean) => {
+    if (!open) manualStartPick.value = null
+  }
+})
+const routeStepsOpen = ref(false)
+/** 手动起点锚点：校门与公交/交通站是最自然的“出发点”。 */
+const startAnchors = computed(() => {
+  const categories = new Set(['gate', 'transit-stop'])
+  return places.value.filter(poi => categories.has(poi.category)).slice(0, 8)
+})
 const {
   locating,
   routePlanning,
   routeSummary,
+  routeSteps,
   routeDestinationName,
   routeSummaryText,
   tracking,
@@ -204,14 +218,34 @@ const {
   remainingSummary,
   locateUser,
   startWalkingRoute,
+  startWalkingRouteFrom,
   clearWalkingRoute,
   toggleTracking,
   toggleFollowing
 } = useMapGeolocation({
   mapProvider,
   activeMapProviderId,
-  notify: notice => toast.add(notice)
+  notify: notice => toast.add(notice),
+  onWalkingRouteLocationFailed: (destinationName, destination) => {
+    if (!destination) return
+    manualStartPick.value = { destinationName, destination }
+  }
 })
+
+function openManualStartPicker(): void {
+  const place = selectedPoi.value
+  if (!place?.point) return
+  manualStartPick.value = { destinationName: place.name, destination: place.point }
+}
+
+function planFromAnchor(anchorName: string, anchorPoint: MapPoi['point'] | null): void {
+  if (!anchorPoint) return
+  const pick = manualStartPick.value
+  if (!pick) return
+  manualStartPick.value = null
+  routeStepsOpen.value = false
+  startWalkingRouteFrom(anchorName, anchorPoint, pick.destinationName, pick.destination)
+}
 const {
   nativeSearchResults,
   nativeSearchLoading,
@@ -1104,20 +1138,34 @@ onBeforeUnmount(() => {
           name="i-lucide-route"
           class="size-5 shrink-0 text-green-700 dark:text-green-400"
         />
-        <div class="min-w-0 whitespace-nowrap">
-          <p class="max-w-48 truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-            步行至 {{ routeDestinationName }}
-          </p>
-          <p class="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
-            <template v-if="tracking && remainingSummary">
-              距目的地 {{ routeSummaryText(remainingSummary) }}
-              <span class="text-zinc-400 dark:text-zinc-500">（实时）</span>
-            </template>
-            <template v-else>
-              {{ routeSummaryText(routeSummary) }}
-            </template>
-          </p>
-        </div>
+        <button
+          type="button"
+          class="flex min-w-0 items-center gap-2 whitespace-nowrap text-left"
+          :aria-expanded="routeStepsOpen"
+          :aria-label="routeSteps.length ? '展开路口级步行指引' : undefined"
+          @click="routeStepsOpen = !routeStepsOpen"
+        >
+          <span class="min-w-0">
+            <span class="block max-w-48 truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              步行至 {{ routeDestinationName }}
+            </span>
+            <span class="mt-0.5 block text-xs text-zinc-600 dark:text-zinc-300">
+              <template v-if="tracking && remainingSummary">
+                距目的地 {{ routeSummaryText(remainingSummary) }}
+                <span class="text-zinc-400 dark:text-zinc-500">（实时）</span>
+              </template>
+              <template v-else>
+                {{ routeSummaryText(routeSummary) }}
+              </template>
+            </span>
+          </span>
+          <UIcon
+            v-if="routeSteps.length"
+            name="i-lucide-chevron-up"
+            class="size-4 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500"
+            :class="routeStepsOpen ? '' : 'rotate-180'"
+          />
+        </button>
         <UButton
           icon="i-lucide-x"
           color="neutral"
@@ -1126,6 +1174,71 @@ onBeforeUnmount(() => {
           aria-label="清除步行路线"
           @click="clearWalkingRoute"
         />
+      </div>
+
+      <!-- 手动选起点（定位被拒/不可用时的降级） -->
+      <UModal
+        v-model:open="manualStartOpen"
+        title="选择出发地点"
+        description="浏览器定位不可用或被拒绝时，选一个出发点来规划步行路线。"
+        :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
+      >
+        <template #body>
+          <ul class="space-y-1">
+            <li
+              v-for="anchor in startAnchors"
+              :key="anchor.id"
+            >
+              <button
+                type="button"
+                class="flex min-h-11 w-full items-center gap-2.5 rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950/60"
+                @click="planFromAnchor(anchor.name, anchor.point)"
+              >
+                <UIcon
+                  :name="categoryIcon(anchor.category)"
+                  class="size-4 shrink-0 text-green-700 dark:text-green-400"
+                />
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ anchor.name }}</span>
+                  <span class="block text-[11px] text-zinc-500 dark:text-zinc-400">设为起点，步行至 {{ manualStartPick?.destinationName }}</span>
+                </span>
+                <UIcon
+                  name="i-lucide-chevron-right"
+                  class="ml-auto size-4 shrink-0 text-zinc-400 dark:text-zinc-500"
+                />
+              </button>
+            </li>
+          </ul>
+          <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            提示：在浏览器设置里允许本站使用定位后，也可以直接点「规划步行路线」自动从你所在位置规划。
+          </p>
+        </template>
+      </UModal>
+
+      <!-- 路口级步行指引（点路线条展开） -->
+      <div
+        v-if="mapViewMode === 'geographic' && routeSummary && routeStepsOpen && routeSteps.length"
+        class="absolute left-1/2 z-20 w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-md border border-green-200 dark:border-green-800 bg-white/95 dark:bg-zinc-900/95 shadow-lg backdrop-blur-sm md:bottom-14"
+        :class="selectedPoi
+          ? 'bottom-[calc(var(--mobile-nav-height)+min(56dvh,30rem)+3.5rem)]'
+          : 'bottom-[calc(var(--mobile-nav-height)+8rem)]'"
+        role="list"
+        aria-label="步行指引分段"
+      >
+        <ol class="max-h-52 overflow-y-auto">
+          <li
+            v-for="(step, index) in routeSteps"
+            :key="index"
+            class="flex items-start gap-2 border-b border-zinc-100 dark:border-zinc-800 px-3 py-2 text-xs leading-5 last:border-b-0"
+          >
+            <UIcon
+              name="i-lucide-corner-down-right"
+              class="mt-0.5 size-3.5 shrink-0 text-green-700 dark:text-green-400"
+            />
+            <span class="min-w-0 flex-1 text-zinc-700 dark:text-zinc-200">{{ step.instruction }}</span>
+            <span class="shrink-0 text-zinc-400 dark:text-zinc-500">{{ step.distanceMeters >= 1000 ? (step.distanceMeters / 1000).toFixed(1) + ' 公里' : Math.round(step.distanceMeters) + ' 米' }}</span>
+          </li>
+        </ol>
       </div>
 
       <div
@@ -1287,6 +1400,7 @@ onBeforeUnmount(() => {
         @close="closePoiDetails"
         @copy="copyPoiLocation(selectedPoi)"
         @plan-route="startWalkingRoute(selectedPoi.name, selectedPoi.point)"
+        @plan-route-manual="openManualStartPicker"
       />
 
       <MapPlaceDetailsPanel
@@ -1306,6 +1420,7 @@ onBeforeUnmount(() => {
         @close="closePoiDetails"
         @copy="copyPoiLocation(selectedPoi)"
         @plan-route="startWalkingRoute(selectedPoi.name, selectedPoi.point)"
+        @plan-route-manual="openManualStartPicker"
       />
     </section>
   </div>
@@ -1401,18 +1516,6 @@ onBeforeUnmount(() => {
 .map-workspace :deep(.map-float-btn [class*="i-lucide"]) {
   color: #18181b !important;
   opacity: 1 !important;
-}
-
-/*
- * The map keeps the full 44px marker hit area on phones, but showing every
- * name at once makes nearby campus points unreadable. The selected marker
- * remains labeled so the current place is still obvious.
- */
-@media (max-width: 639px) {
-  .map-workspace .yeu-amap-poi-label:not(.yeu-amap-poi-label-selected),
-  .map-workspace .yeu-amap-area-label:not(.yeu-amap-area-label-selected) {
-    display: none !important;
-  }
 }
 
 /* At 320px the provider badge and centered view switch share the same row. */

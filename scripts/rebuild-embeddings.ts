@@ -93,7 +93,18 @@ async function main(options: RebuildOptions): Promise<void> {
         }
       }
     })
-    const pruned = pruneVectorIndex(client, new Set(rows.map(row => embeddingChunkId(row.sourceType, row.sourceId, row.chunkIndex))))
+    const pruned = pruneVectorIndex(
+      client,
+      new Set(rows.map(row => embeddingChunkId(row.sourceType, row.sourceId, row.chunkIndex))),
+      {
+        // 只有显式全量（--claims 0 / --chunks 0）才允许删除这两类：默认上限下采集集
+        // 是按最近更新时间截断的子集，"不在集合里" 并不代表该行已失效。
+        protectedSourceTypes: [
+          ...(options.claimLimit !== 0 ? ['claim'] : []),
+          ...(options.documentChunks !== 0 ? ['document'] : [])
+        ]
+      }
+    )
     process.stdout.write(JSON.stringify({
       applied: true,
       embedded: result.embedded,

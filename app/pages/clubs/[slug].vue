@@ -87,6 +87,20 @@ const contactSection = computed(() => resolveClubContactSectionState(Boolean(
 )))
 const { copyText, isWechat, sharePage } = useShareActions()
 
+// Official online signup entry — only when the club opened its recruit form.
+// Deliberately link WITHOUT any ?ref= invite parameter: entries from the club
+// page must never credit a referrer.
+const recruitSignupOpen = ref(false)
+const recruitSignupPath = computed(() => `/recruit/${encodeURIComponent(slug)}`)
+onMounted(async () => {
+  try {
+    const payload = await $fetch<{ available: boolean }>(`/api/public/recruit/${encodeURIComponent(slug)}?probe=1`)
+    recruitSignupOpen.value = payload.available === true
+  } catch {
+    recruitSignupOpen.value = false
+  }
+})
+
 async function copyContactAction(value: string): Promise<void> {
   await copyText(value, '联系方式')
 }
@@ -268,6 +282,23 @@ async function shareClub(): Promise<void> {
           <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ clubSectionLabels.recruitmentDetails }}
           </h2>
+          <NuxtLink
+            v-if="recruitSignupOpen"
+            :to="recruitSignupPath"
+            class="mt-3 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm font-semibold text-emerald-900 dark:text-emerald-200 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900"
+          >
+            <span class="flex items-center gap-2">
+              <UIcon
+                name="i-lucide-clipboard-list"
+                class="size-4 shrink-0"
+              />
+              本社团正式纳新进行中，点此填写入会申请表
+            </span>
+            <UIcon
+              name="i-lucide-chevron-right"
+              class="size-4 shrink-0"
+            />
+          </NuxtLink>
           <dl class="mt-3 divide-y divide-zinc-100 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 text-sm">
             <div
               v-if="club.recruitmentPeriod"

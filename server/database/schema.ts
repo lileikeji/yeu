@@ -757,6 +757,8 @@ export const assistantRuns = sqliteTable('assistant_runs', {
   queryHash: text('query_hash').notNull(),
   query: text('query').notNull(),
   mode: text('mode', { enum: ['local', 'ai', 'error'] }).notNull(),
+  /** 调用来源：网站 / 小程序 / QQ 机器人 / 微信机器人。 */
+  channel: text('channel', { enum: ['web', 'miniapp', 'qq', 'wechat'] }).notNull().default('web'),
   retrievalPath: text('retrieval_path', {
     enum: ['feature_api', 'local_database', 'answer_cache', 'web_cache', 'web_search', 'error']
   }).notNull(),
@@ -780,6 +782,7 @@ export const assistantRuns = sqliteTable('assistant_runs', {
   index('assistant_runs_created_idx').on(table.createdAt),
   index('assistant_runs_path_created_idx').on(table.retrievalPath, table.createdAt),
   index('assistant_runs_success_created_idx').on(table.success, table.createdAt),
+  index('assistant_runs_channel_created_idx').on(table.channel, table.createdAt),
   check('assistant_runs_mode_check', sql`${table.mode} in ('local', 'ai', 'error')`),
   check('assistant_runs_path_check', sql`${table.retrievalPath} in ('feature_api', 'local_database', 'answer_cache', 'web_cache', 'web_search', 'error')`)
 ])
@@ -830,7 +833,12 @@ export const placeReviews = sqliteTable('place_reviews', {
   // Seed reviews (rewritten third-party user reviews imported as initial
   // content) are marked source='seed' and excluded from the public aggregate
   // score so they cannot skew the student-submitted average.
-  source: text('source', { enum: ['user', 'seed'] }).notNull().default('user'),
+  //
+  // 三种取值语义不同，不是同一含义的改名：
+  //   user     = 学生自己提交的评价（唯一参与公开评分聚合的一类）
+  //   seed     = 后台整理的展示卡，前台列表展示但不计入聚合
+  //   original = 抓取来的原文评论，仅后台可见（前台列表按 source IN ('seed','user') 过滤）
+  source: text('source', { enum: ['user', 'seed', 'original'] }).notNull().default('user'),
   sourceUrl: text('source_url'),
   sourcePlatform: text('source_platform', { enum: ['dianping', 'meituan'] }),
   collectedAt: integer('collected_at'),
@@ -913,7 +921,6 @@ export const assistantEmbeddings = sqliteTable('assistant_embeddings', {
   check('assistant_embeddings_dimension_check', sql`${table.dimension} between 1 and 4096`)
 ])
 
-
 /**
  * Likes on place reviews. One row per (review, user); the composite primary
  * key is the dedupe — a repeated like by the same user is a no-op.
@@ -926,4 +933,72 @@ export const reviewLikes = sqliteTable('review_likes', {
   primaryKey({ columns: [table.reviewId, table.userId] }),
   index('review_likes_user_idx').on(table.userId),
   index('review_likes_review_idx').on(table.reviewId)
+])
+
+export const recruitForms = sqliteTable('recruit_forms', {
+  id: text('id').primaryKey(),
+  contentId: text('content_id').notNull().references(() => contents.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default('入会申请表'),
+  slogan: text('slogan').notNull().default(''),
+  intro: text('intro').notNull().default(''),
+  status: text('status', { enum: ['open', 'closed'] }).notNull().default('closed'),
+  fieldsJson: text('fields_json').notNull().default('[]'),
+  docConfigJson: text('doc_config_json').notNull().default('{}'),
+  exportColumnsJson: text('export_columns_json').notNull().default('[]'),
+  templateDocx: text('template_docx'),
+  templateName: text('template_name'),
+  views: integer('views').notNull().default(0),
+  paymentEnabled: integer('payment_enabled', { mode: 'boolean' }).notNull().default(false),
+  paymentWechatImage: text('payment_wechat_image'),
+  paymentAlipayImage: text('payment_alipay_image'),
+  paymentNote: text('payment_note'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('recruit_forms_content_unique').on(table.contentId)
+])
+
+export const recruitSubmissions = sqliteTable('recruit_submissions', {
+  id: text('id').primaryKey(),
+  formId: text('form_id').notNull().references(() => recruitForms.id, { onDelete: 'cascade' }),
+  dataJson: text('data_json').notNull().default('{}'),
+  name: text('name').notNull().default(''),
+  gender: text('gender'),
+  studentNo: text('student_no'),
+  major: text('major'),
+  className: text('class_name'),
+  phone: text('phone'),
+  qq: text('qq'),
+  departments: text('departments'),
+  isLeagueMember: text('is_league_member'),
+  referrerName: text('referrer_name'),
+  paymentConfirmed: integer('payment_confirmed', { mode: 'boolean' }),
+  submitIpHash: text('submit_ip_hash'),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('recruit_submissions_form_created_idx').on(table.formId, table.createdAt),
+  index('recruit_submissions_class_idx').on(table.className)
+])
+
+export const recruitDrafts = sqliteTable('recruit_drafts', {
+  id: text('id').primaryKey(),
+  formId: text('form_id').notNull().references(() => recruitForms.id, { onDelete: 'cascade' }),
+  draftKey: text('draft_key').notNull(),
+  dataJson: text('data_json').notNull().default('{}'),
+  updatedAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('recruit_drafts_form_key_unique').on(table.formId, table.draftKey)
+])
+
+export const recruitReferrers = sqliteTable('recruit_referrers', {
+  id: text('id').primaryKey(),
+  formId: text('form_id').notNull().references(() => recruitForms.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  code: text('code').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  views: integer('views').notNull().default(0),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('recruit_referrers_code_unique').on(table.code),
+  index('recruit_referrers_form_idx').on(table.formId)
 ])

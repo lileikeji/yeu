@@ -38,12 +38,252 @@ import {
   type EmbeddingConfig,
   type EmbeddingProvider
 } from './embedding'
+import { currentAssistantKnowledgeRevision } from './knowledge-revision'
 import { SESSION_MEMORY_KINDS } from './memory'
 import type { SessionMemoryKind } from './memory'
 
 export const VECTOR_EVIDENCE_LIMIT = 40
 export const VECTOR_CHUNK_CHARS = 600
 export const VECTOR_CHUNK_OVERLAP = 80
+
+/**
+ * In-process cache of query text -> nearest chunks.
+ *
+ * 为什么必须缓存这一层：`vec_distance_cosine` 是标量函数，写成 `ORDER BY distance`
+ * 就意味着把 assistant_embeddings 的 33069 行、约 **129MB** 向量整表读一遍再排序。
+ * 线上实测（服务器 4 核 / 3.6GB 内存、page cache 只有 ~1.3GB，装不下这 129MB）：
+ * 空闲连跑 40 次 p50=117ms、p95=132ms，但页面被挤掉时 **max=4577ms**——而且这是
+ * 空闲态测出来的，说明瓶颈是冷页 I/O，不是锁争用。学生重复问同一句话很常见，
+ * 命中缓存后这一腿直接是 0ms，也顺带消掉那个 4.6s 的长尾。
+ *
+ * 关键约束：**TTL 必须长于预热周期（6 小时）**，否则预热基本白做。线上实测：
+ * 日均只有 ~71 次请求，一个热点问法的重复间隔常常是 40~110 分钟；10 分钟的 TTL 让
+ * 预热条目只有约 2.8% 的时间是活的，真实重复大多落在窗口之外。
+ *
+ * 之所以敢给到 7 小时，是因为键里带了知识修订号（见 nearestCacheKeyFor）：内容/地点/
+ * 流程一经后台修改修订号即变，旧键再也不会被查到，**陈旧性由修订号兜住而不是靠 TTL**；
+ * TTL 在这里只负责回收内存与让预热重新扫描。
+ */
+const NEAREST_CACHE_TTL_MS = 7 * 60 * 60 * 1000
+const NEAREST_CACHE_MAX = 300
+const nearestCache = new Map<string, { expiresAt: number, evidence: VectorEvidence[], hits: number }>()
+
+/**
+ * 缓存键的唯一构造处。
+ * 预热模块必须用**同一个键**去查命中次数/主动失效，否则它没法判断"预热过的问法到底有没有人用"。
+ *
+ * 带上知识修订号：修订号在内容/地点/流程被修改时自增（`bumpAssistantKnowledgeRevision`），
+ * 于是陈旧性由它兜住，TTL 可以放心设长。
+ */
+export function nearestCacheKeyFor(query: string, limit: number = VECTOR_EVIDENCE_LIMIT): string {
+  return `${currentAssistantKnowledgeRevision()}:${limit}:${embeddingTextHash(query.trim())}`
+}
+
+/**
+ * 主动丢弃一个缓存条目。
+ * 预热用它做「强制刷新」：每个周期都重新扫一遍，才能把当日重建过的向量索引变化吃进来
+ * （否则命中旧条目就永远不重扫）。
+ */
+export function forgetNearestCacheKey(key: string): void {
+  nearestCache.delete(key)
+}
+
+/** 该键被真实请求命中过多少次（0 = 预热了但没人用）。 */
+export function nearestCacheHits(key: string): number {
+  return hitLedger.get(key) ?? 0
+}
+
+/**
+ * 命中台账：按缓存键累计命中次数，**不随条目过期而消失**。
+ *
+ * 为什么必须有它：`nearestCacheHits` 若读的是存活条目，条目一过期就查不到命中。
+ * 线上实测踩到了这个坑——某个 6 小时周期里 40 条预热中有 2 条真的被问过（4 次真实请求），
+ * 但下一轮报告仍是 `previousHit: 0`，因为命中发生在 10 分钟 TTL 之后、条目早被删掉。
+ * 一个"命中会被过期抹掉"的指标，没法回答"预热有没有白做"。
+ *
+ * 上限按插入顺序粗略淘汰：条目量级是"预热问法 × 少量变体"，2000 足够。
+ */
+const HIT_LEDGER_MAX = 2000
+const hitLedger = new Map<string, number>()
+
+function recordNearestHit(key: string): void {
+  hitLedger.set(key, (hitLedger.get(key) ?? 0) + 1)
+  while (hitLedger.size > HIT_LEDGER_MAX) {
+    const oldest = hitLedger.keys().next().value
+    if (oldest === undefined) break
+    hitLedger.delete(oldest)
+  }
+}
+
+/** 仅供测试：清空命中台账。 */
+export function clearNearestHitLedgerForTests(): void {
+  hitLedger.clear()
+}
+
+/**
+ * 量化向量索引（vec0 int8）——把语义召回的「整表读 129MB 向量」压到 ~32MB。
+ *
+ * 为什么需要：`vec_distance_cosine` 写在 ORDER BY 里会把 assistant_embeddings 的
+ * 33069 行、129.2MB 向量整表读一遍；热页 ~119ms，冷页线上实测到 4860ms（服务器 3.6GB
+ * 内存、page cache 仅 ~1.27GB，装不下）。实测的四个方案里只有「按字节缩小索引」能压冷尾。
+ *
+ * 设计是**两段式**：先用 vec0 int8 出候选（k=120），再用精确 float32 余弦重排到 limit。
+ * 线上同源数据实测（6 条真实热问法）：
+ *   - top-5 100%、**top-40 与现行实现完全一致（100%）** → 零召回损失
+ *   - p50 47ms（现行 119ms）→ 热路径 2.5×
+ *   - 候选表 32.3MB → 冷尾 ≈1220ms（现行 4860ms）
+ * 必须重排的原因：单用 int8 的 top-40 只有 93.8%（单位化 int8 + L2 与真余弦不完全等价），
+ * 多取候选再精确重排即回到 100%。
+ *
+ * 这是**派生数据**：整表重建、可随时 DROP，DROP 后读取路径自动退回现行扫描。
+ * sqlite-vec 的两个实测约束：int8 必须用 `vec_int8(...)` 包裹（否则按 float32 解析报错）；
+ * 不能显式绑 rowid（"Only integers are allows for primary key values"），所以用元数据列
+ * `embedding_id` 回连主表，而不是靠 rowid。
+ */
+const QUANTIZED_TABLE = 'assistant_embedding_vec'
+/** 候选倍数：k=120 实测已覆盖精确 top-40，是召回与耗时的平衡点。 */
+const QUANTIZED_CANDIDATE_K = 120
+/** 就绪判定缓存时长：count 比对要扫一遍候选表，不能每个请求都做。 */
+const QUANTIZED_STATUS_TTL_MS = 60_000
+
+let quantizedStatus: { ready: boolean, checkedAt: number } = { ready: false, checkedAt: 0 }
+
+/** 单位化后量化成 int8（余弦与尺度无关，故单位化 + L2 排序 ≈ 余弦排序）。 */
+export function quantizeUnitInt8(vector: ArrayLike<number>): Buffer {
+  let norm = 0
+  for (let i = 0; i < vector.length; i++) norm += vector[i]! * vector[i]!
+  norm = Math.sqrt(norm) || 1
+  const out = new Int8Array(vector.length)
+  for (let i = 0; i < vector.length; i++) {
+    out[i] = Math.max(-127, Math.min(127, Math.round(vector[i]! / norm * 127)))
+  }
+  return Buffer.from(out)
+}
+
+/**
+ * 全量重建量化索引。选择重建而不是增量同步：派生数据重建天然不会与主表漂移，
+ * 也就不必在 upsert/prune 各挂一处同步点（少两处可能漏掉的地方）。实测 33069 条约 2s。
+ */
+export function rebuildQuantizedVectorIndex(client: DatabaseClient): { total: number, written: number } {
+  if (!vectorSearchReady(client)) return { total: 0, written: 0 }
+  const dim = (client.sqlite.prepare(
+    "SELECT MAX(dimension) AS d FROM assistant_embeddings WHERE source_type <> 'memory'"
+  ).get() as { d: number | null } | undefined)?.d
+  if (!dim || dim <= 0) return { total: 0, written: 0 }
+  const rows = client.sqlite.prepare(
+    "SELECT id, embedding FROM assistant_embeddings WHERE source_type <> 'memory'"
+  ).all() as Array<{ id: string, embedding: Buffer }>
+  client.sqlite.exec(`DROP TABLE IF EXISTS ${QUANTIZED_TABLE}`)
+  client.sqlite.exec(`CREATE VIRTUAL TABLE ${QUANTIZED_TABLE} USING vec0(v int8[${dim}], embedding_id text)`)
+  const insert = client.sqlite.prepare(`INSERT INTO ${QUANTIZED_TABLE}(v, embedding_id) VALUES (vec_int8(?), ?)`)
+  let written = 0
+  client.sqlite.transaction(() => {
+    for (const row of rows) {
+      const floats = new Float32Array(row.embedding.buffer, row.embedding.byteOffset, Math.floor(row.embedding.byteLength / 4))
+      insert.run(quantizeUnitInt8(floats), row.id)
+      written += 1
+    }
+  })()
+  quantizedStatus = { ready: false, checkedAt: 0 }
+  return { total: rows.length, written }
+}
+
+/**
+ * 候选表是否可用：行数必须与主表（排除 memory）完全一致。
+ * 不一致就用现行扫描——**宁可慢，绝不能因为索引不全而少召回**（这正是历史上
+ * 「答案突然变差」那类事故的形态）。
+ */
+export function quantizedIndexReady(client: DatabaseClient, recheckMs = QUANTIZED_STATUS_TTL_MS): boolean {
+  const now = Date.now()
+  if (now - quantizedStatus.checkedAt < recheckMs) return quantizedStatus.ready
+  let ready = false
+  try {
+    const main = client.sqlite.prepare(
+      "SELECT COUNT(*) AS c FROM assistant_embeddings WHERE source_type <> 'memory'"
+    ).get() as { c: number }
+    const quant = client.sqlite.prepare(`SELECT COUNT(*) AS c FROM ${QUANTIZED_TABLE}`).get() as { c: number }
+    ready = main.c > 0 && main.c === quant.c
+    if (!ready) {
+      console.warn(`[assistant-vector] quantized index out of sync (main=${main.c} quant=${quant.c}) → 退回全表扫描`)
+    }
+  } catch {
+    ready = false
+  }
+  quantizedStatus = { ready, checkedAt: now }
+  return ready
+}
+
+/** 两段式取最近邻：int8 候选 → 精确 float32 重排。失败返回 null，由调用方退回全表扫描。 */
+function quantizedNearest(client: DatabaseClient, queryVector: number[], limit: number): NearestRow[] | null {
+  try {
+    const candidates = client.sqlite.prepare(
+      `SELECT embedding_id, distance FROM ${QUANTIZED_TABLE} WHERE v MATCH vec_int8(?) AND k = ?`
+    ).all(quantizeUnitInt8(queryVector), QUANTIZED_CANDIDATE_K) as Array<{ embedding_id: string, distance: number }>
+    if (candidates.length === 0) return null
+    const ids = candidates.map(item => item.embedding_id)
+    const rows = client.sqlite.prepare(
+      `SELECT id, title, url, snippet, content, embedding FROM assistant_embeddings WHERE id IN (${ids.map(() => '?').join(',')})`
+    ).all(...ids) as Array<{ id: string, title: string, url: string, snippet: string, content: string, embedding: Buffer }>
+    const byId = new Map(rows.map(row => [row.id, row]))
+    // 查询向量的模长只需算一次。
+    let queryNorm = 0
+    for (let i = 0; i < queryVector.length; i++) queryNorm += queryVector[i]! * queryVector[i]!
+    queryNorm = Math.sqrt(queryNorm) || 1
+    const scored: NearestRow[] = []
+    for (const id of ids) {
+      const row = byId.get(id)
+      // 主表里已被删掉的候选直接跳过（不回退、不报错）。
+      if (!row) continue
+      const floats = new Float32Array(row.embedding.buffer, row.embedding.byteOffset, Math.floor(row.embedding.byteLength / 4))
+      let dot = 0
+      let norm = 0
+      for (let i = 0; i < floats.length; i++) {
+        dot += queryVector[i]! * floats[i]!
+        norm += floats[i]! * floats[i]!
+      }
+      scored.push({
+        id: row.id,
+        title: row.title,
+        url: row.url,
+        snippet: row.snippet,
+        content: row.content,
+        distance: 1 - dot / (Math.sqrt(norm) * queryNorm || 1)
+      })
+    }
+    if (scored.length === 0) return null
+    scored.sort((left, right) => left.distance - right.distance)
+    return scored.slice(0, limit)
+  } catch {
+    return null
+  }
+}
+
+function cachedNearest(key: string): VectorEvidence[] | undefined {
+  const hit = nearestCache.get(key)
+  if (!hit) return undefined
+  if (hit.expiresAt <= Date.now()) {
+    nearestCache.delete(key)
+    return undefined
+  }
+  hit.hits += 1
+  recordNearestHit(key)
+  // 浅拷贝：调用方会把它并进自己的候选池，不能让它改到缓存里的数组。
+  return [...hit.evidence]
+}
+
+function rememberNearest(key: string, evidence: VectorEvidence[]): void {
+  nearestCache.set(key, { expiresAt: Date.now() + NEAREST_CACHE_TTL_MS, evidence: [...evidence], hits: 0 })
+  while (nearestCache.size > NEAREST_CACHE_MAX) {
+    const oldest = nearestCache.keys().next().value
+    if (oldest === undefined) break
+    nearestCache.delete(oldest)
+  }
+}
+
+/** 仅供测试：清空最近邻缓存。 */
+export function clearNearestCacheForTests(): void {
+  nearestCache.clear()
+}
 
 /**
  * Index-scaling controls. The production knowledge library holds tens of
@@ -402,9 +642,31 @@ export async function upsertVectorIndex(
   return { embedded, skipped }
 }
 
-/** Delete embedding rows whose source no longer resolves (sources archived). */
-export function pruneVectorIndex(client: DatabaseClient, validIds: Set<string>): number {
-  const existing = client.sqlite.prepare('SELECT id FROM assistant_embeddings').all() as Array<{ id: string }>
+/**
+ * 离线索引重建负责维护的来源类型。`memory` 刻意不在此列：会话记忆由运行时
+ * （embedSessionMemoryRows）自己写入，任何一次离线重建的采集集都不包含它——
+ * 如果一起 prune，一次重建就会把全部会话记忆向量删光（实测 2026-08-19 那次
+ * `pruned: 30` 之后记忆向量归零，靠运行时流量才慢慢长回来）。
+ */
+const PRUNABLE_SOURCE_TYPES = ['entry', 'claim', 'document', 'place', 'content', 'procedure'] as const
+
+/**
+ * Delete embedding rows whose source no longer resolves (sources archived).
+ *
+ * `protectedSourceTypes` 用于「采集被上限截断」的来源：例如 `--claims 20000`
+ * 只取最新的两万条，此时不在采集集里并不代表该行已失效，不能删。
+ */
+export function pruneVectorIndex(
+  client: DatabaseClient,
+  validIds: Set<string>,
+  options: { protectedSourceTypes?: readonly string[] } = {}
+): number {
+  const protectedTypes = new Set(options.protectedSourceTypes ?? [])
+  const prunable = PRUNABLE_SOURCE_TYPES.filter(type => !protectedTypes.has(type))
+  if (prunable.length === 0) return 0
+  const existing = client.sqlite.prepare(
+    `SELECT id FROM assistant_embeddings WHERE source_type IN (${prunable.map(() => '?').join(',')})`
+  ).all(...prunable) as Array<{ id: string }>
   const stale = existing.filter(row => !validIds.has(row.id)).map(row => row.id)
   if (stale.length === 0) return 0
   client.sqlite.prepare(`DELETE FROM assistant_embeddings WHERE id IN (${stale.map(() => '?').join(',')})`)
@@ -426,6 +688,24 @@ export function vectorSearchReady(client: DatabaseClient): boolean {
   }
 }
 
+/** 向量腿内部分段耗时。诊断「语义召回为什么慢」时用：是嵌入 API 还是本地扫描。 */
+export interface VectorLegTiming {
+  /** 嵌入 API 往返（缓存命中时为 0）。 */
+  embedMs?: number
+  /** 距离扫描。 */
+  scanMs?: number
+  /** 扫描走了 JS 兜底（原生扩展不可用）——比原生慢一个数量级。 */
+  usedJsFallback?: boolean
+  /** 整腿命中最近邻缓存（嵌入与扫描都没跑）。 */
+  cacheHit?: boolean
+  /**
+   * 本函数自身的墙钟耗时。**不要**用调用方包在 promise 外面测的耗时：
+   * 缓存命中时本函数在第一个 await 之前就返回了，调用方那段同步的关键词召回会被
+   * 算进来，于是「缓存命中」却显示 vec=1473ms，把排查的人带偏。
+   */
+  totalMs?: number
+}
+
 /**
  * Embed the query and return the nearest chunks as candidate evidence. Falls
  * back to a JS cosine scan when the native vec function is unavailable.
@@ -435,37 +715,67 @@ export async function retrieveVectorEvidence(
   query: string,
   config: EmbeddingConfig,
   limit = VECTOR_EVIDENCE_LIMIT,
-  embedder: EmbeddingProvider = openAiCompatibleEmbedder
+  embedder: EmbeddingProvider = openAiCompatibleEmbedder,
+  timing?: VectorLegTiming
 ): Promise<VectorEvidence[]> {
-  if (!embeddingConfigReady(config) || !vectorSearchReady(client)) return []
+  const legStartedAt = Date.now()
+  const finish = (evidence: VectorEvidence[]): VectorEvidence[] => {
+    if (timing) timing.totalMs = Date.now() - legStartedAt
+    return evidence
+  }
+  if (!embeddingConfigReady(config) || !vectorSearchReady(client)) return finish([])
   const trimmedQuery = query.trim()
-  if (!trimmedQuery) return []
+  if (!trimmedQuery) return finish([])
+
+  // 命中就直接返回，嵌入与全表扫描都省掉（见 nearestCache 的说明）。
+  const nearestKey = nearestCacheKeyFor(trimmedQuery, limit)
+  const cachedResult = cachedNearest(nearestKey)
+  if (cachedResult) {
+    if (timing) timing.cacheHit = true
+    return finish(cachedResult)
+  }
 
   const cached = cachedEmbedding(trimmedQuery)
   let queryVector: number[]
   if (cached) {
     queryVector = cached
   } else {
+    const embedStartedAt = Date.now()
     const [vector] = await embedder.embedTexts([trimmedQuery], config)
-    if (!vector || vector.length === 0) return []
+    if (timing) timing.embedMs = Date.now() - embedStartedAt
+    if (!vector || vector.length === 0) return finish([])
     rememberEmbedding(trimmedQuery, vector)
     queryVector = vector
   }
   const queryBlob = vectorToBlob(queryVector)
 
+  // 刻意排除 source_type='memory'：
+  //  * 会话记忆有自己的、按 session_key 过滤的召回通道（sessionMemorySemanticScores）。
+  //    把记忆行混进通用通道就等于跨会话泄漏——实测它们会挤进候选并被当成引用来源
+  //    （答案里因此出现过 “也可以核对“answered”” 这种残留 token，标题来自记忆行）。
+  //  * 记忆行语义上贴近日常口语问题，距离往往比真正的知识条目更近，会把后者挤出
+  //    候选窗口（实测某次提问前 2000 名里有 49 条记忆行）。
+  const scanStartedAt = Date.now()
   let nearest: NearestRow[]
-  try {
+  // 优先走两段式量化索引（int8 候选 + float32 精排）：字节量 129MB→32MB，实测结果与
+  // 现行完全一致。就绪检查含行数比对，不一致就落到下面的全表扫描——宁可慢也不错。
+  const quantized = quantizedIndexReady(client) ? quantizedNearest(client, queryVector, limit) : null
+  if (quantized) {
+    nearest = quantized
+  } else try {
     nearest = client.sqlite.prepare(`
       SELECT id, title, url, snippet, content,
         vec_distance_cosine(embedding, ?) AS distance
       FROM assistant_embeddings
+      WHERE source_type <> 'memory'
       ORDER BY distance ASC
       LIMIT ?
     `).all(queryBlob, limit) as unknown as NearestRow[]
   } catch {
     // Native extension unavailable: JS cosine scan over the same table.
+    if (timing) timing.usedJsFallback = true
     const rows = client.sqlite.prepare(
-      'SELECT id, title, url, snippet, content, embedding FROM assistant_embeddings'
+      "SELECT id, title, url, snippet, content, embedding FROM assistant_embeddings WHERE source_type <> 'memory'"
     ).all() as Array<Omit<NearestRow, 'distance'> & { embedding: Buffer }>
     const scored = rows.map(row => ({
       ...row,
@@ -473,8 +783,9 @@ export async function retrieveVectorEvidence(
     })).sort((left, right) => left.distance - right.distance).slice(0, limit)
     nearest = scored.map(({ embedding: _embedding, ...rest }) => rest)
   }
+  if (timing) timing.scanMs = Date.now() - scanStartedAt
 
-  return nearest
+  const evidence = nearest
     .filter(row => Number.isFinite(row.distance) && row.distance < 1.4)
     .map(row => ({
       title: row.title || '相关资料',
@@ -484,6 +795,8 @@ export async function retrieveVectorEvidence(
       text: row.content,
       score: Math.round((1 - row.distance) * 100)
     }))
+  rememberNearest(nearestKey, evidence)
+  return finish(evidence)
 }
 
 /**

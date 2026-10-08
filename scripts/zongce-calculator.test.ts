@@ -97,3 +97,26 @@ test('combines moral base input with deduction', () => {
   assert.match(r.answer, /基础分\+互评 9/)
 })
 
+
+test('bare average phrasing without a leading 我/本 is the student own grade', () => {
+  // 回归：「平均成绩85，专业最高90」过去把 85 当成"本专业最高"（公式分母），
+  // 于是 90 无处安放被丢弃，最终答成「未提供成绩，按满分 60 估算」。
+  const r = tryComputeZongce('帮我算综测：平均成绩85，专业最高90，数学建模省二等奖')
+  assert.ok(r)
+  assert.match(r.answer, /85 ÷ 90 × 60 = 56\.67/)
+  assert.doesNotMatch(r.answer, /未提供成绩/)
+  assert.equal(r.lines.find(l => l.label === '智育基础分')?.points, 56.67)
+})
+
+test('province and national shorthand map onto the A/B class table', () => {
+  // 回归：「省二等奖」里既没有「省级」也没有「竞赛」，赛事名与级别都得能认出来；
+  // 旧版按最低档 0.5 分计入（省级从未匹配到任何档位）。
+  const province = tryComputeZongce('综测 平均成绩85 专业最高90 数学建模省二等奖')
+  assert.equal(province?.lines.find(l => l.label === '智育奖励')?.points, 3) // B类 二等
+
+  const provinceFirst = tryComputeZongce('综测 平均成绩85 专业最高90 数模省一等奖')
+  assert.equal(provinceFirst?.lines.find(l => l.label === '智育奖励')?.points, 4) // B类 一等
+
+  const campus = tryComputeZongce('综测 平均成绩85 专业最高90 校赛学科竞赛三等奖')
+  assert.equal(campus?.lines.find(l => l.label === '智育奖励')?.points, 0.25) // 校级 三等
+})

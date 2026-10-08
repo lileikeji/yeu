@@ -27,8 +27,11 @@ test('checklist page is a thin shell over presentation + local composable', () =
   assert.doesNotMatch(pageSource, /清除本站数据/)
   assert.match(pageSource, /useFreshmanChecklist/)
   assert.doesNotMatch(pageSource, /const checklistItems = \[/)
-  assert.match(utilSource, /export const checklistItems/)
-  assert.match(utilSource, /export function buildChecklistOverview/)
+  // 目录已抽到 shared 供网页与小程序共用，app 侧保留薄封装转发。
+  assert.match(utilSource, /shared\/utils\/checklist-catalog/)
+  const catalogSource = readFileSync(resolve('shared/utils/checklist-catalog.ts'), 'utf8')
+  assert.match(catalogSource, /export const checklistItems/)
+  assert.match(catalogSource, /export function buildChecklistOverview/)
   assert.match(composableSource, /CHECKLIST_STORAGE_KEY/)
   assert.match(composableSource, /localStorage/)
   assert.match(composableSource, /export function useFreshmanChecklist/)

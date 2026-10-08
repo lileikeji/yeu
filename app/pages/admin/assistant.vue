@@ -10,6 +10,7 @@ type AssistantRunRow = {
   requestId: string
   query: string
   mode: 'local' | 'ai' | 'error'
+  channel: 'web' | 'miniapp' | 'qq' | 'wechat' | string
   retrievalPath: string
   usedWebSearch: boolean
   cacheHit: boolean
@@ -35,6 +36,15 @@ type AssistantRunStats = {
   cacheHitRate: number
   averageMs: number
   p95Ms: number
+}
+
+type AssistantChannelCount = { channel: string, total: number }
+
+const assistantChannels: Record<string, string> = {
+  web: '网站',
+  miniapp: '小程序',
+  qq: 'QQ 机器人',
+  wechat: '微信机器人'
 }
 
 type AssistantStageDurationKey = 'analysisMs' | 'featureApiMs' | 'databaseMs' | 'webCacheMs' | 'webSearchMs' | 'answerMs'
@@ -65,6 +75,8 @@ const pageSize = 30
 const queryText = ref('')
 const retrievalPath = ref('all')
 const success = ref('all')
+const channel = ref('all')
+const channelCounts = ref<AssistantChannelCount[]>([])
 const expanded = ref<Record<string, boolean>>({})
 
 const pathOptions = [
@@ -81,6 +93,17 @@ const successOptions = [
   { label: '成功', value: 'true' },
   { label: '失败', value: 'false' }
 ]
+const channelOptions = [
+  { label: '全部来源', value: 'all' },
+  { label: '网站', value: 'web' },
+  { label: '小程序', value: 'miniapp' },
+  { label: 'QQ 机器人', value: 'qq' },
+  { label: '微信机器人', value: 'wechat' }
+]
+
+function channelLabel(value: string): string {
+  return assistantChannels[value] ?? value
+}
 const statCards = computed(() => [
   { label: '检索次数', value: stats.value.total.toLocaleString('zh-CN'), icon: 'i-lucide-messages-square' },
   { label: '成功率', value: formatPercent(stats.value.successRate), icon: 'i-lucide-circle-check' },
@@ -157,18 +180,21 @@ async function loadRuns(): Promise<void> {
       items: AssistantRunRow[]
       total: number
       stats: AssistantRunStats
+      channels: AssistantChannelCount[]
     }>('/api/admin/assistant', {
       query: {
         page: page.value,
         pageSize,
         q: queryText.value.trim() || undefined,
         retrievalPath: retrievalPath.value === 'all' ? undefined : retrievalPath.value,
-        success: success.value === 'all' ? undefined : success.value
+        success: success.value === 'all' ? undefined : success.value,
+        channel: channel.value === 'all' ? undefined : channel.value
       }
     })
     items.value = payload.items ?? []
     total.value = payload.total ?? 0
     stats.value = payload.stats ?? stats.value
+    channelCounts.value = payload.channels ?? []
   } catch (error) {
     if (isAuthorizationError(error)) {
       await navigateTo('/admin/login', { replace: true })
@@ -239,8 +265,27 @@ onMounted(() => void loadRuns())
       </div>
     </section>
 
+    <section
+      v-if="channelCounts.length > 1"
+      class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+    >
+      <h2 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
+        调用来源分布
+      </h2>
+      <div class="mt-3 flex flex-wrap gap-3">
+        <div
+          v-for="row in channelCounts"
+          :key="row.channel"
+          class="flex min-w-32 items-baseline justify-between gap-4 rounded-md bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2"
+        >
+          <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{{ channelLabel(row.channel) }}</span>
+          <span class="tabular-nums text-sm font-bold text-zinc-950 dark:text-zinc-100">{{ row.total.toLocaleString('zh-CN') }}</span>
+        </div>
+      </div>
+    </section>
+
     <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_10rem_auto] md:items-end">
+      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_11rem_10rem_9rem_auto] md:items-end">
         <UFormField label="问题关键词">
           <UInput
             v-model="queryText"
@@ -251,6 +296,9 @@ onMounted(() => void loadRuns())
         </UFormField>
         <UFormField label="检索路径">
           <USelect v-model="retrievalPath" :items="pathOptions" class="w-full" />
+        </UFormField>
+        <UFormField label="调用来源">
+          <USelect v-model="channel" :items="channelOptions" class="w-full" />
         </UFormField>
         <UFormField label="运行结果">
           <USelect v-model="success" :items="successOptions" class="w-full" />
@@ -283,6 +331,7 @@ onMounted(() => void loadRuns())
                   variant="soft"
                   size="sm"
                 />
+                <UBadge :label="channelLabel(row.channel)" color="neutral" variant="soft" size="sm" />
                 <UBadge :label="pathLabel(row.retrievalPath)" color="neutral" variant="soft" size="sm" />
                 <span v-if="row.cacheHit" class="text-xs font-medium text-emerald-700 dark:text-emerald-300">缓存命中</span>
               </div>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { AdminCapability } from '~~/shared/types/server'
 import {
-  adminNavigationGroups as fullAdminNavigationGroups,
-  adminNavigationItems as fullAdminNavigationItems
+  adminNavigationGroups as fullAdminNavigationGroups
 } from '~~/app/utils/admin-dashboard-presentation'
 
 const route = useRoute()
@@ -10,6 +10,7 @@ const authState = ref<'checking' | 'authenticated' | 'error'>('checking')
 const authError = ref('')
 const adminLabel = ref('管理员')
 const adminRole = ref<'super' | 'organization'>('super')
+const adminCapabilities = ref<AdminCapability[]>([])
 const organizationTitle = ref('')
 const organizationPublicPath = ref('/')
 const mustChangePassword = ref(false)
@@ -20,6 +21,10 @@ const loggingOut = ref(false)
 const desktopSidebarCollapsed = ref(false)
 const collapsedNavigationGroups = ref(new Set(['content', 'ops', 'security']))
 
+function canUseCapability(capability?: AdminCapability): boolean {
+  return !capability || adminRole.value === 'super' || adminCapabilities.value.includes(capability)
+}
+
 const organizationNavigation = computed(() => [{
   key: 'organization',
   label: '组织后台',
@@ -27,14 +32,28 @@ const organizationNavigation = computed(() => [{
     label: organizationTitle.value || '我的组织页面',
     to: '/admin/organization',
     icon: 'i-lucide-panels-top-left'
-  }]
-}])
+  }, {
+    label: '纳新管理',
+    to: '/admin/recruit',
+    icon: 'i-lucide-clipboard-list'
+  }, {
+    label: '小程序分析',
+    to: '/admin/miniapp',
+    icon: 'i-lucide-smartphone',
+    capability: 'analytics.view' as const
+  }].filter(item => canUseCapability(item.capability))
+}].filter(group => group.items.length > 0))
+
+const visibleFullNavigationGroups = computed(() => fullAdminNavigationGroups
+  .map(group => ({ ...group, items: group.items.filter(item => canUseCapability(item.capability)) }))
+  .filter(group => group.items.length > 0))
+const visibleFullNavigationItems = computed(() => visibleFullNavigationGroups.value.flatMap(group => group.items))
 const navigationGroups = computed(() => adminRole.value === 'organization'
   ? organizationNavigation.value
-  : fullAdminNavigationGroups)
+  : visibleFullNavigationGroups.value)
 const navigation = computed(() => adminRole.value === 'organization'
   ? organizationNavigation.value.flatMap(group => group.items)
-  : fullAdminNavigationItems)
+  : visibleFullNavigationItems.value)
 
 useSeoMeta({
   robots: 'noindex, nofollow'
@@ -85,6 +104,10 @@ function resolveAdminLabel(payload: Record<string, unknown>): string {
 function applyAdminScope(payload: Record<string, unknown>): void {
   const user = sessionUser(payload)
   if (!user) return
+  const capabilities = Array.isArray(payload.capabilities)
+    ? payload.capabilities.filter((value): value is AdminCapability => typeof value === 'string')
+    : []
+  adminCapabilities.value = capabilities
   adminRole.value = user.role === 'organization' ? 'organization' : 'super'
   mustChangePassword.value = user.mustChangePassword === true
   const organization = isObject(user.organization) ? user.organization : null
@@ -117,9 +140,11 @@ async function checkSession(): Promise<void> {
 
     adminLabel.value = resolveAdminLabel(payload)
     applyAdminScope(payload)
-    if (adminRole.value === 'organization'
-      && route.path !== '/admin/organization'
-      && !route.path.startsWith('/admin/content/')) {
+    const organizationRouteAllowed = route.path === '/admin/organization'
+      || route.path === '/admin/recruit'
+      || route.path.startsWith('/admin/content/')
+      || (route.path === '/admin/miniapp' && canUseCapability('analytics.view'))
+    if (adminRole.value === 'organization' && !organizationRouteAllowed) {
       await navigateTo({
         path: '/admin/organization',
         query: mustChangePassword.value ? { password: 'required' } : undefined

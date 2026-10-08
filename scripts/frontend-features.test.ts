@@ -122,6 +122,7 @@ test('published content can become a directly searchable home entry at a chosen 
         homeEntryDescription: '查看音乐协会介绍和招新信息。',
         homeEntryContent: '主要活动\n音乐交流、演出和校园活动。',
         homeEntrySourceUrl: 'https://example.com/music-association',
+        homeFeatureKey: 'home.more.clubs',
         homeEntryIcon: 'i-lucide-music-2',
         homeEntrySortOrder: 12
       }),
@@ -139,7 +140,8 @@ test('published content can become a directly searchable home entry at a chosen 
       sourceUrl: 'https://example.com/music-association',
       icon: 'i-lucide-music-2',
       placement: 'services',
-      sortOrder: 12
+      sortOrder: 12,
+      featureKey: 'home.more.clubs'
     }])
   } finally {
     closeDatabase(databasePath)

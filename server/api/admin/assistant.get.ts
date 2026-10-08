@@ -11,6 +11,7 @@ export default defineEventHandler((event) => {
     pageSize: query.pageSize,
     retrievalPath: query.retrievalPath,
     success: query.success === undefined ? undefined : query.success === 'true',
-    q: query.q
+    q: query.q,
+    channel: query.channel
   })
 })

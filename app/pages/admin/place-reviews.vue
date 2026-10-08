@@ -925,7 +925,7 @@ onMounted(loadReviews)
                         accept="image/png,image/jpeg,image/webp"
                         class="hidden"
                         :disabled="uploadingQr"
-                        @change="e => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void uploadPromoQr(f) }"
+                        @change="(e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void uploadPromoQr(f) }"
                       >
                     </label>
                     <button
@@ -1134,7 +1134,7 @@ onMounted(loadReviews)
                     v-if="review.sourceUrl"
                     :href="review.sourceUrl"
                     target="_blank"
-                    rel="noopener"
+                    rel="noopener noreferrer"
                     class="ml-auto text-blue-600 hover:underline"
                   >
                     来源链接

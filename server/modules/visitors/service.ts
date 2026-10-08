@@ -2,14 +2,118 @@ import { randomUUID } from 'node:crypto'
 import { and, asc, count, countDistinct, desc, eq, gt, gte, inArray, isNull, like, lt, lte, max, or, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { VISITOR_COOKIE_NAME } from '../../../shared/constants/security'
+import { MINIAPP_TELEMETRY_ACTIONS } from '../../../shared/schemas/server'
+import type { ApiMiniappAnalytics } from '../../../shared/types/server'
 import type { DatabaseClient } from '../../database/client'
 import { visitorBans, visitorEvents, visitors } from '../../database/schema'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { resolveGeoLocation } from '../../utils/geoip'
+import { resolveRequestId } from '../../utils/request-context'
 import { getSecurityConfig } from '../../utils/security'
 import { safeMetadata } from '../../utils/serializers'
 
 const VISITOR_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const MINIAPP_TELEMETRY_ACTION_SET = new Set<string>(MINIAPP_TELEMETRY_ACTIONS)
+const MINIAPP_TELEMETRY_META_KEYS = new Set([
+  'platform', 'appVersion', 'source', 'scene', 'appIdHash',
+  'route', 'status', 'error', 'latency', 'requestId', 'api', 'method',
+  'moduleKey', 'moduleName', 'resultType',
+  'entityType', 'kind', 'slug', 'id', 'placeId', 'target',
+  'queryLength', 'hasQuery', 'hasPlace', 'hasCoordinate', 'success', 'map'
+])
+const MINIAPP_TELEMETRY_META_MAX_KEYS = 32
+const MINIAPP_TELEMETRY_META_MAX_DEPTH = 4
+const MINIAPP_TELEMETRY_META_MAX_JSON_CHARS = 8192
+const MINIAPP_TELEMETRY_VALUE_MAX_LENGTH = 256
+const MINIAPP_ANALYTICS_MAX_ROWS = 100_000
+const MINIAPP_ANALYTICS_MAX_RAW_VALUES = 100
+const MINIAPP_ANALYTICS_MAX_LATENCY_SAMPLES = 10_000
+const MINIAPP_ANALYTICS_MAX_BUCKET_KEYS = 1_000
+/** 同一访客在窗口内重复上报同一页面的 page_view 视为一次。 */
+const MINIAPP_PAGE_VIEW_DEDUPE_WINDOW_MS = 30_000
+
+function normalizeTelemetryBucket(value: unknown, maxLength = 128): string {
+  if (typeof value !== 'string') return ''
+  const normalized = value.trim()
+  if (!normalized) return ''
+  const safe = Array.from(normalized)
+    .filter(character => character.charCodeAt(0) > 31 && character.charCodeAt(0) !== 127)
+    .join('')
+  return safe.slice(0, maxLength)
+}
+
+function normalizeTelemetryRoute(value: unknown): string {
+  const candidate = normalizeTelemetryBucket(value, 512)
+  if (!candidate.startsWith('/') || candidate.startsWith('//')) return ''
+  return normalizeVisitorPath(candidate)
+}
+
+export function normalizeVisitorPath(path: string | null | undefined): string {
+  const value = (path || '').trim()
+  if (!value) return '/'
+  let pathname: string
+  try {
+    if (/^[a-z][a-z\d+.-]*:\/\//i.test(value)) {
+      pathname = new URL(value).pathname
+    } else {
+      pathname = value.split(/[?#]/, 1)[0] || '/'
+    }
+  } catch {
+    pathname = '/'
+  }
+  const hasControlCharacter = Array.from(pathname)
+    .some(character => character.charCodeAt(0) <= 31 || character.charCodeAt(0) === 127)
+  if (!pathname.startsWith('/') || pathname.includes('\\') || hasControlCharacter) {
+    return '/'
+  }
+  pathname = pathname.replace(/\/+/g, '/')
+  if (pathname.length > 2048) pathname = pathname.slice(0, 2048)
+  return pathname.length > 1 ? pathname.replace(/\/+$/, '') || '/' : '/'
+}
+
+function telemetryValue(value: unknown): string | number | boolean | null {
+  if (typeof value === 'string') return value.trim().slice(0, MINIAPP_TELEMETRY_VALUE_MAX_LENGTH)
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(-1_000_000_000, Math.min(1_000_000_000, value))
+  return null
+}
+
+function telemetryMetaDepth(value: unknown, depth = 0): number {
+  if (depth > MINIAPP_TELEMETRY_META_MAX_DEPTH || value === null || typeof value !== 'object') return depth
+  return Object.values(value as Record<string, unknown>)
+    .reduce<number>((maxDepth, child) => Math.max(maxDepth, telemetryMetaDepth(child, depth + 1)), depth)
+}
+
+export function normalizeMiniappTelemetryMeta(
+  meta: Record<string, unknown> | undefined,
+  requestId?: string | null
+): Record<string, string | number | boolean> {
+  const output: Record<string, string | number | boolean> = {}
+  if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+    for (const [key, raw] of Object.entries(meta)) {
+      if (!MINIAPP_TELEMETRY_META_KEYS.has(key) || Object.keys(output).length >= MINIAPP_TELEMETRY_META_MAX_KEYS) continue
+      const value = telemetryValue(raw)
+      if (value === null || value === '') continue
+      output[key] = value
+    }
+  }
+  if (requestId && !output.requestId) output.requestId = requestId.slice(0, 100)
+  if (typeof output.api === 'string') {
+    const route = normalizeTelemetryRoute(output.api)
+    if (route) output.api = route
+    else delete output.api
+  }
+  for (const key of ['platform', 'appVersion', 'source', 'route', 'error', 'method', 'moduleKey', 'moduleName', 'resultType', 'placeId']) {
+    if (typeof output[key] === 'string') output[key] = normalizeTelemetryBucket(output[key])
+  }
+  let encoded = JSON.stringify(output)
+  if (telemetryMetaDepth(output) > MINIAPP_TELEMETRY_META_MAX_DEPTH || encoded.length > MINIAPP_TELEMETRY_META_MAX_JSON_CHARS) {
+    return Object.fromEntries(Object.entries(output).slice(0, 8))
+  }
+  // JSON.stringify above is deliberately kept as the final serialization boundary.
+  encoded = JSON.stringify(output)
+  return encoded.length <= MINIAPP_TELEMETRY_META_MAX_JSON_CHARS ? output : {}
+}
 
 function setVisitorCookie(event: H3Event, visitorId: string): void {
   const security = getSecurityConfig(event)
@@ -31,8 +135,8 @@ export function readVisitorId(event: H3Event): string | null {
 export function ensureVisitor(
   event: H3Event,
   client: DatabaseClient,
-  options: { userId?: string | null; path?: string | null } = {}
-): { id: string; isNew: boolean } {
+  options: { userId?: string | null, path?: string | null } = {}
+): { id: string, isNew: boolean } {
   const now = Date.now()
   const ip = getClientIpAddress(event)
   const geo = resolveGeoLocation(event, ip)
@@ -96,17 +200,39 @@ export function recordVisitorEvent(
     meta?: Record<string, unknown>
     userId?: string | null
   }
-): { visitorId: string; eventId: string } {
+): { visitorId: string, eventId: string } {
+  const requestId = typeof event.context.requestId === 'string'
+    ? event.context.requestId
+    : resolveRequestId(getHeader(event, 'x-request-id'))
+  event.context.requestId = requestId
+  const pathValue = normalizeVisitorPath(input.path ?? getRequestURL(event).pathname)
+  const telemetry = MINIAPP_TELEMETRY_ACTION_SET.has(input.action)
+  const normalizedMeta = telemetry
+    ? normalizeMiniappTelemetryMeta(input.meta, requestId)
+    : input.meta ?? {}
   const visitor = ensureVisitor(event, client, {
     userId: input.userId ?? null,
-    path: input.path ?? null
+    path: pathValue
   })
   const now = Date.now()
   const ip = getClientIpAddress(event)
   const geo = resolveGeoLocation(event, ip)
   const eventId = randomUUID()
   const userAgent = (getHeader(event, 'user-agent') || '').slice(0, 400)
-  const pathValue = input.path ?? getRequestURL(event).pathname
+
+  if (input.action === 'page_view') {
+    const duplicate = client.db.select({ id: visitorEvents.id })
+      .from(visitorEvents)
+      .where(and(
+        eq(visitorEvents.visitorId, visitor.id),
+        eq(visitorEvents.action, 'page_view'),
+        eq(visitorEvents.path, pathValue),
+        gte(visitorEvents.createdAt, now - MINIAPP_PAGE_VIEW_DEDUPE_WINDOW_MS)
+      ))
+      .limit(1)
+      .get()
+    if (duplicate) return { visitorId: visitor.id, eventId: duplicate.id }
+  }
 
   client.db.transaction((tx) => {
     tx.insert(visitorEvents).values({
@@ -121,7 +247,7 @@ export function recordVisitorEvent(
       path: pathValue,
       method: getMethod(event).toUpperCase(),
       action: input.action,
-      metaJson: JSON.stringify(input.meta ?? {}),
+      metaJson: JSON.stringify(normalizedMeta),
       createdAt: now
     }).run()
     const eventVisitorPatch: Record<string, unknown> = {
@@ -144,8 +270,159 @@ export function recordVisitorEvent(
   return { visitorId: visitor.id, eventId }
 }
 
+function summarizeUserAgent(userAgent: string | null): string {
+  const value = (userAgent || '').trim()
+  if (!value) return 'unknown'
+  const platform = /Android/i.test(value)
+    ? 'Android'
+    : /iPhone|iPad|iPod/i.test(value)
+      ? 'iOS'
+      : /Windows/i.test(value)
+        ? 'Windows'
+        : /Mac OS X/i.test(value)
+          ? 'macOS'
+          : /Linux/i.test(value)
+            ? 'Linux'
+            : 'Other'
+  const browser = /MicroMessenger/i.test(value)
+    ? 'WeChat'
+    : /MiniProgram/i.test(value)
+      ? 'MiniProgram'
+      : /Chrome|CriOS/i.test(value)
+        ? 'Chrome'
+        : /Safari/i.test(value)
+          ? 'Safari'
+          : /Firefox/i.test(value)
+            ? 'Firefox'
+            : 'Other'
+  return `${platform}/${browser}`
+}
+
+export function getMiniappAnalytics(
+  client: DatabaseClient,
+  hours = 24,
+  options: {
+    includeRaw?: boolean
+    includeSources?: boolean
+    includeApiMetrics?: boolean
+  } = {}
+): ApiMiniappAnalytics {
+  const now = Date.now()
+  const normalizedHours = Number.isFinite(hours)
+    ? Math.max(1, Math.min(720, Math.floor(hours)))
+    : 24
+  const since = now - normalizedHours * 60 * 60 * 1000
+  const rows = client.db.select().from(visitorEvents)
+    .where(and(
+      gte(visitorEvents.createdAt, since),
+      lte(visitorEvents.createdAt, now),
+      inArray(visitorEvents.action, [...MINIAPP_TELEMETRY_ACTIONS])
+    ))
+    .orderBy(asc(visitorEvents.createdAt), asc(visitorEvents.id))
+    .limit(MINIAPP_ANALYTICS_MAX_ROWS)
+    .all()
+
+  const parseMeta = (value: string): Record<string, unknown> => {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {}
+    } catch {
+      return {}
+    }
+  }
+  const pageCounts = new Map<string, { events: number, visitors: Set<string> }>()
+  const eventCounts = new Map<string, { events: number, visitors: Set<string> }>()
+  const sourceCounts = new Map<string, { events: number, visitors: Set<string> }>()
+  const versionCounts = new Map<string, { events: number, visitors: Set<string> }>()
+  const deviceCounts = new Map<string, { events: number, visitors: Set<string> }>()
+  const uaCounts = new Map<string, { events: number, visitors: Set<string> }>()
+  const apiRows = new Map<string, { count: number, errors: number, latencies: number[], statuses: Map<number, number> }>()
+  const rawUserAgents = new Set<string>()
+  const rawIps = new Set<string>()
+  const add = (map: Map<string, { events: number, visitors: Set<string> }>, key: string, visitorId: string): void => {
+    const normalized = key.trim()
+    if (!normalized) return
+    if (!map.has(normalized) && map.size >= MINIAPP_ANALYTICS_MAX_BUCKET_KEYS) return
+    const current = map.get(normalized) ?? { events: 0, visitors: new Set<string>() }
+    current.events += 1
+    current.visitors.add(visitorId)
+    map.set(normalized, current)
+  }
+  for (const row of rows) {
+    const meta = parseMeta(row.metaJson)
+    const pathname = normalizeVisitorPath(row.path)
+    add(pageCounts, pathname, row.visitorId)
+    add(eventCounts, row.action, row.visitorId)
+    add(sourceCounts, normalizeTelemetryBucket(meta.source), row.visitorId)
+    add(versionCounts, normalizeTelemetryBucket(meta.appVersion), row.visitorId)
+    const platform = normalizeTelemetryBucket(meta.platform)
+    add(deviceCounts, platform || summarizeUserAgent(row.userAgent), row.visitorId)
+    add(uaCounts, row.userAgent ? summarizeUserAgent(row.userAgent) : 'unknown', row.visitorId)
+    if (options.includeRaw) {
+      if (row.userAgent && rawUserAgents.size < MINIAPP_ANALYTICS_MAX_RAW_VALUES) rawUserAgents.add(row.userAgent)
+      if (row.ip && rawIps.size < MINIAPP_ANALYTICS_MAX_RAW_VALUES) rawIps.add(row.ip)
+    }
+    const api = normalizeTelemetryRoute(meta.api)
+    if (api) {
+      if (!apiRows.has(api) && apiRows.size >= MINIAPP_ANALYTICS_MAX_BUCKET_KEYS) continue
+      const current = apiRows.get(api) ?? { count: 0, errors: 0, latencies: [], statuses: new Map<number, number>() }
+      current.count += 1
+      const status = typeof meta.status === 'number' && Number.isInteger(meta.status) && meta.status >= 100 && meta.status <= 599
+        ? meta.status
+        : null
+      if (status !== null) current.statuses.set(status, (current.statuses.get(status) ?? 0) + 1)
+      if (row.action === 'api_error' || (status !== null && status >= 400)) current.errors += 1
+      const latency = typeof meta.latency === 'number' && Number.isFinite(meta.latency) && meta.latency >= 0 && meta.latency <= 120_000
+        ? Math.round(meta.latency)
+        : null
+      if (latency !== null && current.latencies.length < MINIAPP_ANALYTICS_MAX_LATENCY_SAMPLES) current.latencies.push(latency)
+      apiRows.set(api, current)
+    }
+  }
+  const mapBuckets = (map: Map<string, { events: number, visitors: Set<string> }>) => [...map.entries()]
+    .sort((a, b) => b[1].events - a[1].events || a[0].localeCompare(b[0]))
+    .slice(0, 100)
+    .map(([key, value]) => ({ key, events: value.events, visitors: value.visitors.size }))
+  const api = [...apiRows.entries()].map(([route, value]) => {
+    const sorted = [...value.latencies].sort((a, b) => a - b)
+    return {
+      route,
+      status: value.statuses.size
+        ? [...value.statuses.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]![0]
+        : null,
+      requestCount: value.count,
+      errorCount: value.errors,
+      latencyMs: {
+        count: sorted.length,
+        average: sorted.length ? Math.round(sorted.reduce((sum, item) => sum + item, 0) / sorted.length) : 0,
+        p50: sorted.length
+          ? sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * 0.5) - 1))]!
+          : null,
+        p95: sorted.length
+          ? sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * 0.95) - 1))]!
+          : null,
+        max: sorted.length ? sorted[sorted.length - 1]! : null
+      }
+    }
+  }).sort((a, b) => b.requestCount - a.requestCount).slice(0, 100)
+  const result: ApiMiniappAnalytics = {
+    window: { hours: normalizedHours, since: new Date(since).toISOString(), until: new Date(now).toISOString() },
+    totals: { events: rows.length, visitors: new Set(rows.map(row => row.visitorId)).size },
+    pages: mapBuckets(pageCounts).map(item => ({ pathname: item.key, ...item })),
+    events: mapBuckets(eventCounts),
+    sources: options.includeSources === false ? [] : mapBuckets(sourceCounts),
+    versions: mapBuckets(versionCounts),
+    devices: mapBuckets(deviceCounts),
+    userAgents: mapBuckets(uaCounts),
+    api: options.includeApiMetrics === false ? [] : api
+  }
+  if (options.includeRaw) result.raw = { userAgents: [...rawUserAgents], ips: [...rawIps] }
+  return result
+}
 export function getPublicPageViewStats(client: DatabaseClient, path: string) {
-  const normalizedPath = path.trim() || '/'
+  const normalizedPath = normalizeVisitorPath(path)
   const condition = and(
     eq(visitorEvents.action, 'page_view'),
     eq(visitorEvents.path, normalizedPath)
@@ -164,7 +441,7 @@ export function getPublicPageViewStats(client: DatabaseClient, path: string) {
 
 export function findActiveBan(
   client: DatabaseClient,
-  params: { ip?: string | null; visitorId?: string | null; userId?: string | null }
+  params: { ip?: string | null, visitorId?: string | null, userId?: string | null }
 ) {
   const now = Date.now()
   const conditions = []
@@ -265,7 +542,7 @@ export function listVisitors(
   const bannedUserIds = new Set(
     activeBans.filter(row => row.scope === 'user').map(row => row.value)
   )
-  const isBanned = (row: { id: string; lastIp: string | null; userId: string | null }) =>
+  const isBanned = (row: { id: string, lastIp: string | null, userId: string | null }) =>
     bannedVisitorIds.has(row.id)
     || (row.lastIp ? bannedIps.has(row.lastIp) : false)
     || (row.userId ? bannedUserIds.has(row.userId) : false)
@@ -330,7 +607,7 @@ export function listVisitors(
   }
 }
 
-function chinaDateParts(timestamp: number): { year: string; month: string; day: string; hour: string } {
+function chinaDateParts(timestamp: number): { year: string, month: string, day: string, hour: string } {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
@@ -364,7 +641,7 @@ function buildVisitorAnalytics(client: DatabaseClient) {
     lt(visitorEvents.createdAt, now + 1)
   )).all()
 
-  const daily = new Map<string, { eventCount: number; visitors: Set<string> }>()
+  const daily = new Map<string, { eventCount: number, visitors: Set<string> }>()
   for (let index = 0; index < 14; index += 1) {
     const timestamp = todayStart - ((13 - index) * 24 * 60 * 60 * 1000)
     daily.set(chinaDateParts(timestamp).year + '-' + chinaDateParts(timestamp).month + '-' + chinaDateParts(timestamp).day, {
@@ -446,7 +723,7 @@ function buildVisitorAnalytics(client: DatabaseClient) {
 export function listVisitorEvents(
   client: DatabaseClient,
   visitorId: string,
-  query: { page: number; pageSize: number }
+  query: { page: number, pageSize: number }
 ) {
   const offset = (query.page - 1) * query.pageSize
   const rows = client.db.select().from(visitorEvents)

@@ -177,9 +177,18 @@ class FakeWalking {
   search(
     _origin: [number, number],
     _destination: [number, number],
-    callback: (status: string, result: { routes: Array<{ distance: number, time: number }> }) => void
+    callback: (status: string, result: { routes: Array<{ distance: number, time: number, steps?: Array<{ instruction: string, distance: number }> }> }) => void
   ): void {
-    callback('complete', { routes: [{ distance: 1260, time: 900 }] })
+    callback('complete', {
+      routes: [{
+        distance: 1260,
+        time: 900,
+        steps: [
+          { instruction: '沿学生街向东步行', distance: 300 },
+          { instruction: '过马路后继续直行', distance: 960 }
+        ]
+      }]
+    })
   }
 
   clear(): void {
@@ -283,7 +292,9 @@ class FakeMarkerCluster {
   }
 
   emitClick(clusterData: FakeClusterData[]): void {
-    for (const listener of this.listeners.get('click') ?? []) listener({ clusterData })
+    for (const listener of this.listeners.get('click') ?? []) {
+      listener({ clusterData, lnglat: { getLng: () => 118.61, getLat: () => 25.1 } })
+    }
   }
 
   setData(_data: FakeClusterData[]): void {}
@@ -638,12 +649,16 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.equal(map.options.isHotspot, true)
     assert.deepEqual(map.options.features, ['bg', 'road', 'building', 'point'])
     assert.equal(cluster.data.length, 76)
-    assert.equal(cluster.options.gridSize, 56)
-    assert.equal(cluster.options.maxZoom, 17)
+    assert.equal(cluster.options.gridSize, 40)
+    assert.equal(cluster.options.maxZoom, 16)
     assert.equal(cluster.options.averageCenter, true)
     assert.equal(cluster.options.clusterByZoomChange, true)
-    assert.ok(conversionSources.length >= 3)
-    assert.ok(conversionSources.every(source => source === 'gps'))
+    // 本地换算：所有标点均带有效 GCJ 坐标，且相对 WGS84 存在约 0.004°/0.003° 的系统偏移。
+    assert.ok(cluster.data.every(item => Number.isFinite(item.lnglat[0]) && Number.isFinite(item.lnglat[1])))
+    const wgsSample = createPois(76)[1]!.point
+    const gcjSample = cluster.data[1]!.lnglat
+    assert.ok(gcjSample[0] - wgsSample.lng > 0.0035 && gcjSample[0] - wgsSample.lng < 0.006, 'GCJ lng shifted east')
+    assert.ok(wgsSample.lat - gcjSample[1] > 0.002 && wgsSample.lat - gcjSample[1] < 0.0045, 'GCJ lat shifted south')
     assert.equal(provider.setBaseStyle('satellite'), true)
     assert.equal(FakeTileLayer.instances.length, 2)
     assert.equal(map.added.includes(FakeTileLayer.instances[0]!), true)
@@ -668,8 +683,11 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
 
     cluster.emitClick([cluster.data[1]!])
     assert.equal(selected.at(-1), 'poi-2')
+    const selectionBeforeMulti = selected.length
     cluster.emitClick(cluster.data.slice(0, 3))
-    assert.equal(selected.at(-1), null)
+    // 多点聚合点击不再清空选择，改为朝点击处放大两级便于逐层展开。
+    assert.equal(selected.length, selectionBeforeMulti)
+    assert.deepEqual(map.zoomCalls.at(-1), { zoom: 16, center: [118.61, 25.1] })
 
     const nativeResults = await provider.searchVisiblePois('咖啡')
     assert.equal(nativeResults.length, 1)
@@ -714,7 +732,14 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
       { lng: 118.6, lat: 25.1, crs: 'WGS84' },
       { lng: 118.61, lat: 25.11, crs: 'WGS84' }
     )
-    assert.deepEqual(walkingSummary, { distanceMeters: 1260, durationSeconds: 900 })
+    assert.deepEqual(walkingSummary, {
+      distanceMeters: 1260,
+      durationSeconds: 900,
+      steps: [
+        { instruction: '沿学生街向东步行', distanceMeters: 300 },
+        { instruction: '过马路后继续直行', distanceMeters: 960 }
+      ]
+    })
     assert.equal(FakeWalking.instances.at(-1)?.options.map, map)
     provider.clearRoute()
     assert.equal(FakeWalking.instances.at(-1)?.cleared, true)

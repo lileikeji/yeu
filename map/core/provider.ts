@@ -16,9 +16,17 @@ export interface MapDisplayOptions {
   labelSize: MapLabelSize
 }
 
+/** 路口级步行指引的一条（高德 Walking step 摘要）。 */
+export interface MapRouteStep {
+  instruction: string
+  distanceMeters: number
+}
+
 export interface RouteSummary {
   distanceMeters: number
   durationSeconds: number
+  /** 转弯/沿路指引（可能为空：插件未返回或旧数据）。 */
+  steps?: MapRouteStep[]
 }
 
 /** 用户实时位置（浏览器 geolocation 返回 WGS84）。 */

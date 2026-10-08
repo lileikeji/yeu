@@ -1,0 +1,33 @@
+export default {
+  name: '迎新指南',
+  appid: 'wx7733e11ab884b5f9',
+  description: 'YEU freshman guide mini-program',
+  versionName: '0.2.0',
+  versionCode: '200',
+  transformPx: false,
+  plus: {
+    statusbar: {
+      style: 'dark',
+      background: '#f4efe5'
+    }
+  },
+  'mp-weixin': {
+    appid: 'wx7733e11ab884b5f9',
+    setting: {
+      es6: true,
+      minified: true,
+      postcss: true,
+      minifyWXSS: true,
+      minifyWXML: true,
+      urlCheck: false,
+      compileHotReLoad: true,
+      lazyCodeLoading: 'requiredComponents'
+    },
+    requiredPrivateInfos: ['getLocation'],
+    permission: {
+      'scope.userLocation': {
+        desc: '用于在校园地图显示你的位置并规划步行路线'
+      }
+    }
+  }
+}

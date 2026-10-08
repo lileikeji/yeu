@@ -97,7 +97,9 @@ test('public pages expose dialable public phone contacts', () => {
   assert.match(placePanel, /parsePublicPhoneContacts/)
   assert.match(placePanel, /phoneContacts/)
   assert.match(placePanel, /:href="phone\.href"/)
-  assert.match(placePanel, /props\.variant === 'mobile' && \(props\.place\.campusArea \|\| props\.place\.openingHours \|\| phoneContacts\.length\)/)
+  // 移动端电话块只在确实有电话时渲染：曾经的 (campusArea || openingHours ||
+  // phoneContacts.length) 会让一个纯电话区块因为校区/营业时间而出现。
+  assert.match(placePanel, /props\.variant === 'mobile' && phoneContacts\.length/)
   assert.match(placePanel, /拨打/)
   assert.match(campusPage, /parsePublicPhoneContacts/)
   assert.match(campusPage, /departmentPhoneContacts/)

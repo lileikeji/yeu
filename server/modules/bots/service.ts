@@ -4,21 +4,19 @@ import { recordAssistantFailure, recordAssistantSuccess } from '../assistant/ana
 import { answerCampusQuestion } from '../assistant/service'
 import { containsCredentialSeeking, containsPromptInjection } from '../../../shared/utils/assistant-query'
 import type { ApiAssistantCitation } from '../../../shared/types/server'
+import type { AssistantChannelConfig } from '../../utils/assistant-config'
 import type { NormalizedBotQuestion } from './events'
 
-export interface BotAssistantConfig {
+/**
+ * 机器人渠道配置 = 共用检索通道配置 + 机器人特有的站点地址/回复长度。
+ *
+ * 继承 AssistantChannelConfig 而不是重列字段：历史上这份接口手写了字段子集，
+ * 漏掉 embedding / rerank / rewrite 共 11 个字段，机器人因此没有语义召回，
+ * 同一个问题在 QQ/微信里比网页更容易答非所问。
+ */
+export interface BotAssistantConfig extends AssistantChannelConfig {
   siteUrl: string
   maxReplyChars: number
-  gatewayBaseUrl: string
-  gatewayApiKey: string
-  gatewayModel: string
-  gatewayTimeoutMs: number
-  mcpSearchUrl: string
-  mcpSearchBearerToken: string
-  mcpAllowedHosts: string
-  mcpToolName: string
-  mcpTimeoutMs: number
-  amapWebServiceKey?: string
 }
 
 const acceptedMessages = new Map<string, number>()
@@ -108,7 +106,7 @@ export async function answerAndSendBotQuestion(input: {
 }): Promise<void> {
   const startedAt = Date.now()
   const requestId = `bot:${input.question.platform}:${input.question.messageId}`.slice(0, 200)
-  const context = { requestId, query: input.question.question, ipAddress: null }
+  const context = { requestId, query: input.question.question, ipAddress: null, channel: input.question.platform === 'qq' ? 'qq' as const : 'wechat' as const }
 
   if (containsPromptInjection(input.question.question) || containsCredentialSeeking(input.question.question)) {
     try {
@@ -121,18 +119,10 @@ export async function answerAndSendBotQuestion(input: {
   }
 
   try {
-    const response = await answerCampusQuestion(input.client, input.question.question, {
-      gatewayBaseUrl: input.config.gatewayBaseUrl,
-      gatewayApiKey: input.config.gatewayApiKey,
-      gatewayModel: input.config.gatewayModel,
-      gatewayTimeoutMs: input.config.gatewayTimeoutMs,
-      mcpSearchUrl: input.config.mcpSearchUrl,
-      mcpSearchBearerToken: input.config.mcpSearchBearerToken,
-      mcpAllowedHosts: input.config.mcpAllowedHosts,
-      mcpToolName: input.config.mcpToolName,
-      mcpTimeoutMs: input.config.mcpTimeoutMs,
-      amapWebServiceKey: input.config.amapWebServiceKey
-    })
+    // 整份通道配置透传（而不是逐字段抄一遍）：抄字段正是当初漏掉 embedding /
+    // rerank / rewrite 的原因，以后新增通道字段也不会再漏。
+    const { siteUrl: _siteUrl, maxReplyChars: _maxReplyChars, ...channelConfig } = input.config
+    const response = await answerCampusQuestion(input.client, input.question.question, channelConfig)
     await input.send(formatBotReply(
       response.answer,
       input.config.siteUrl,

@@ -135,8 +135,11 @@ export function listPublicHomeEntries(client: DatabaseClient): PublicHomeEntry[]
       sourceUrl: safeNoticeActionHref(metadata.homeEntrySourceUrl),
       icon,
       placement,
-      sortOrder
-    }]
+      sortOrder,
+      ...(typeof metadata.homeFeatureKey === 'string'
+        && FRONTEND_FEATURE_DEFINITIONS.some(feature => feature.key === metadata.homeFeatureKey)
+        ? { featureKey: metadata.homeFeatureKey as FrontendFeatureKey }
+        : {})    }]
   }).sort((left, right) => (
     left.placement.localeCompare(right.placement)
     || left.sortOrder - right.sortOrder

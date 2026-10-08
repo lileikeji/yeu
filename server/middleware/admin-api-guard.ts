@@ -1,4 +1,4 @@
-import { getMethod, getRequestURL } from 'h3'
+import { getMethod, getRequestURL, getQuery } from 'h3'
 import { requireAdminSession } from '../utils/auth'
 import { getClientIpAddress } from '../utils/client-ip'
 import { useAppDatabase } from '../utils/database'
@@ -53,6 +53,7 @@ export default defineEventHandler((event) => {
   }
 
   if (passwordOnlyPaths.has(pathname)) return
+  if (pathname === '/api/admin/miniapp/analytics' && method === 'GET') return
   if (pathname === '/api/admin/media/images' && method === 'POST') return
 
   const contentMatch = pathname.match(/^\/api\/admin\/content\/([0-9a-f-]+)$/i)
@@ -60,6 +61,15 @@ export default defineEventHandler((event) => {
     && ['GET', 'PATCH', 'PUT'].includes(method)
     && contentMatch[1] === session.admin.organization?.contentId) {
     return
+  }
+
+  // Recruit admin: the club selector lists only the admin's own content, and
+  // every other recruit endpoint scopes itself by the contentId query (handlers
+  // re-check requireAdminContentAccess + submission ownership server-side).
+  if (pathname === '/api/admin/recruit/clubs' && method === 'GET') return
+  if (pathname.startsWith('/api/admin/recruit/')) {
+    const requestedContentId = getQuery(event).contentId
+    if (requestedContentId === session.admin.organization?.contentId) return
   }
 
   throw createError({

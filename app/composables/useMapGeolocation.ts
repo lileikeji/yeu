@@ -1,10 +1,11 @@
 import type { GeoPoint } from '~~/map/core/types'
-import type { MapProvider, MapProviderId, MapUserLocation, RouteSummary } from '~~/map/core/provider'
+import type { MapProvider, MapProviderId, MapRouteStep, MapUserLocation, RouteSummary } from '~~/map/core/provider'
 import { estimateDurationSeconds, haversineMeters } from '~/utils/walk-route'
 import {
   formatMapRouteSummary,
   getCurrentMapPoint,
   planWalkingMapRoute,
+  planWalkingMapRouteFrom,
   resolveMapLocateFailureNotice,
   resolveMapLocateGuard,
   resolveMapWalkingRouteFailureNotice,
@@ -22,6 +23,8 @@ interface UseMapGeolocationOptions {
   activeMapProviderId: { value: MapProviderId | null }
   notify: (notice: MapActionNotice) => void
   getGeolocation?: () => Pick<Geolocation, 'getCurrentPosition' | 'watchPosition' | 'clearWatch'> | null
+  /** 定位失败导致无法规划时回调（打开"手动选起点"降级 UI）。 */
+  onWalkingRouteLocationFailed?: (destinationName: string, destination: GeoPoint) => void
 }
 
 /** 实时跟踪位置更新间隔的最小位移（米）：小于该值不重绘，省电且避免抖动。 */
@@ -33,6 +36,7 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
   const locating = ref(false)
   const routePlanning = ref(false)
   const routeSummary = ref<RouteSummary | null>(null)
+  const routeSteps = ref<MapRouteStep[]>([])
   const routeDestinationName = ref('')
   const tracking = ref(false)
   const following = ref(false)
@@ -50,6 +54,7 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
     options.mapProvider.value?.clearRoute()
     routePlanning.value = false
     routeSummary.value = null
+    routeSteps.value = []
     routeDestinationName.value = ''
     routeDestinationPoint = null
     remainingSummary.value = null
@@ -188,16 +193,71 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
       return
     }
 
+    if (!destination || !geolocation) return
+
     routePlanning.value = true
-    void planWalkingMapRoute(() => options.mapProvider.value, geolocation!, destination!)
+    void planWalkingMapRoute(() => options.mapProvider.value, geolocation, destination)
       .then((summary) => {
         routeSummary.value = summary
+        routeSteps.value = summary.steps ?? []
         routeDestinationName.value = destinationName
         routeDestinationPoint = destination
         lastRemainingPoint = null
         remainingSummary.value = null
-        // 规划成功后自动进入「导航中」：开启实时位置跟踪与相机跟随。
+        // 规划成功后进入「导航中」：开启实时位置跟踪与剩余距离，但**不自动跟随**——
+        // 高德 Walking 的 autoFitView 已把整条路线取景完成，若立刻飞到人所在位置
+        // （17 级），整条路线会被甩出屏幕。默认保持路线全景，需要时点「跟随」按钮。
         startTracking()
+        following.value = false
+      })
+      .catch((error: unknown) => {
+        const failure = resolveMapWalkingRouteFailureNotice(error)
+        if (failure.shouldClearRoute) clearWalkingRoute()
+        options.notify(failure.notice)
+        if (error instanceof Error && error.message === 'MAP_GEOLOCATION_FAILED') {
+          options.onWalkingRouteLocationFailed?.(destinationName, destination)
+        }
+      })
+      .finally(() => {
+        routePlanning.value = false
+      })
+  }
+
+  /**
+   * 手动选起点规划：跳过浏览器定位，直接用用户挑的锚点（校门/公交站等）当起点。
+   * 定位可用时仍开启跟踪以显示剩余距离；不支持定位的浏览器则只画路线。
+   */
+  function startWalkingRouteFrom(
+    originName: string,
+    origin: GeoPoint,
+    destinationName: string,
+    destination: GeoPoint | null
+  ): void {
+    const guard = resolveMapWalkingRouteStartGuard({
+      hasDestination: Boolean(destination),
+      activeMapProviderId: options.activeMapProviderId.value,
+      hasGeolocation: true
+    })
+    if (!guard.ok) {
+      options.notify(guard.notice)
+      return
+    }
+
+    if (!destination) return
+
+    routePlanning.value = true
+    void planWalkingMapRouteFrom(() => options.mapProvider.value, origin, destination)
+      .then((summary) => {
+        routeSummary.value = summary
+        routeSteps.value = summary.steps ?? []
+        routeDestinationName.value = destinationName
+        routeDestinationPoint = destination
+        lastRemainingPoint = null
+        remainingSummary.value = null
+        if (getGeolocation()) {
+          startTracking()
+          following.value = false
+        }
       })
       .catch((error: unknown) => {
         const failure = resolveMapWalkingRouteFailureNotice(error)
@@ -219,8 +279,10 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
     following: readonly(following),
     userLocation: readonly(userLocation),
     remainingSummary: readonly(remainingSummary),
+    routeSteps: readonly(routeSteps),
     locateUser,
     startWalkingRoute,
+    startWalkingRouteFrom,
     clearWalkingRoute,
     toggleTracking,
     toggleFollowing

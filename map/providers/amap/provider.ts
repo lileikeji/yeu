@@ -11,10 +11,10 @@ import type {
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
 import type { GeoPoint, MapArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
+import { wgs84ToGcj02 as convertWgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { ensureAMapPlugins, loadAMap } from './loader'
 import type {
   AMapCircle,
-  AMapConvertResult,
   AMapClusterRenderContext,
   AMapHotspotEvent,
   AMapInfoWindow,
@@ -38,9 +38,10 @@ import type {
 const DEFAULT_ZOOM = 14
 const SINGLE_POI_ZOOM = 17
 const CONVERSION_BATCH_SIZE = 40
-const CONVERSION_TIMEOUT_MS = 8_000
-const CLUSTER_GRID_SIZE = 56
-const CLUSTER_MAX_ZOOM = 17
+// 聚合阈值：格子越小、拆分 zoom 越早，放大两级就能把学生街拆成带名字的单点。
+// 原 56px/17 级在手机上要捏到很深才拆，观感"卡片不全"。
+const CLUSTER_GRID_SIZE = 40
+const CLUSTER_MAX_ZOOM = 16
 const ROUTE_TIMEOUT_MS = 15_000
 const PLACE_SEARCH_TIMEOUT_MS = 8_000
 // A map click resolves to a base-map POI only when a merchant is within this
@@ -63,6 +64,17 @@ const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showLabels: true,
   autoCluster: true,
   labelSize: 'small'
+}
+
+/**
+ * WGS84→GCJ02 本地换算（标准公开算法）。此前依赖高德 convertFrom 网络接口，
+ * 弱网/超时会导致整批标点丢失或退回 WGS84 直接绘制（≈450m 系统偏移）；该算法
+ * 在本区域已与高德返回对拍验证（八洛克台球 6 位小数一致），改为本地计算后标点
+ * 位置确定、首帧更快、不再受转换接口可用性影响。
+ */
+function wgs84ToGcj02(lng: number, lat: number): AMapPosition {
+  const converted = convertWgs84ToGcj02(lng, lat)
+  return [converted.longitude, converted.latitude]
 }
 
 const LABEL_FONT_SIZES = {
@@ -162,6 +174,11 @@ export class AMapProvider implements MapProvider {
   private markersRebuildInFlight = false
   /** canvas 就绪恢复在重建进行中被挂起时置位，重建结束后补跑。 */
   private pendingOverlayRebuild = false
+  /** 首帧后的一次性 overlay 重排兜底（见 scheduleOverlaySettleRetry）。 */
+  private overlaySettleRetryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
+  private overlaySettleRetried = false
+  /** 上一次成功渲染的标点 id 序列；集合未变化时跳过整套重建。 */
+  private lastRenderedPoiKey = ''
   private lifecycleVersion = 0
   private renderVersion = 0
   private areaRenderVersion = 0
@@ -231,9 +248,15 @@ export class AMapProvider implements MapProvider {
   }
 
   setPois(pois: MapPoi[]): void {
+    const nextKey = pois.map(poi => poi.id).join('|')
+    const unchanged = nextKey === this.lastRenderedPoiKey && this.pois.length === pois.length
     this.pois = [...pois]
     if (this.selectedPoiId && !this.pois.some(poi => poi.id === this.selectedPoiId)) {
       this.selectedPoiId = null
+    }
+    if (unchanged && this.markers.size === pois.length && !this.markersRebuildInFlight) {
+      // 列表内容没变（同一批 id）：跳过整套清空/重建，避免移动端反复 teardown 造成闪烁与卡顿。
+      return
     }
     this.startRenderTask(this.rebuildMarkers(), '高德地图标点刷新失败。')
   }
@@ -468,7 +491,18 @@ export class AMapProvider implements MapProvider {
             finish(new Error('高德地图返回的路线信息不完整。'))
             return
           }
-          finish(undefined, { distanceMeters, durationSeconds })
+          // 路口级指引：把高德返回的 steps 摘要成「指引文案 + 分段距离」。
+          const rawSteps = Array.isArray(route?.steps) ? route.steps : []
+          const steps = rawSteps
+            .map(step => ({
+              instruction: String((step as { instruction?: unknown })?.instruction ?? '').trim(),
+              distanceMeters: Number((step as { distance?: unknown })?.distance)
+            }))
+            .filter(step => step.instruction.length > 0 && Number.isFinite(step.distanceMeters))
+            .slice(0, 40)
+          finish(undefined, steps.length
+            ? { distanceMeters, durationSeconds, steps }
+            : { distanceMeters, durationSeconds })
         })
       } catch {
         finish(new Error('步行路线规划调用失败。'))
@@ -505,7 +539,7 @@ export class AMapProvider implements MapProvider {
           const timeout = globalThis.setTimeout(() => finish([]), PLACE_SEARCH_TIMEOUT_MS)
 
           try {
-            const callback = (status: string, result: unknown) => {
+            const callback = (status: string, result: AMapPlaceSearchResult | string) => {
               if (status !== 'complete' || typeof result === 'string') {
                 finish([])
                 return
@@ -608,6 +642,11 @@ export class AMapProvider implements MapProvider {
   destroy(): void {
     ++this.lifecycleVersion
     ++this.renderVersion
+    if (this.overlaySettleRetryTimer !== null) {
+      globalThis.clearTimeout(this.overlaySettleRetryTimer)
+      this.overlaySettleRetryTimer = null
+    }
+    this.lastRenderedPoiKey = ''
     this.disposeMap()
     this.pois = []
     this.areas = []
@@ -620,6 +659,7 @@ export class AMapProvider implements MapProvider {
 
   private async rebuildMarkers(): Promise<void> {
     this.markersRebuildInFlight = true
+    this.overlaySettleRetried = false
     try {
       const map = this.map
       const amap = this.amap
@@ -653,10 +693,13 @@ export class AMapProvider implements MapProvider {
       }
 
       this.renderMarkerOverlay(converted, amap, map)
+      this.lastRenderedPoiKey = this.pois.map(poi => poi.id).join('|')
       if (this.fitAfterRender) {
         this.fitAfterRender = false
         this.fitToPois()
       }
+      // 成功渲染后再排一次兜底重排（见 scheduleOverlaySettleRetry 注释）。
+      this.scheduleOverlaySettleRetry(map, renderVersion)
     } finally {
       this.markersRebuildInFlight = false
       // Canvas 就绪恢复在本次重建进行中被挂起时，重建完成后用完整缓存补跑，
@@ -667,6 +710,25 @@ export class AMapProvider implements MapProvider {
         this.rebuildMarkerOverlay()
       }
     }
+  }
+
+  /**
+   * 微信内嵌 WebView 里 MarkerCluster 可能按「创建时的画布尺寸」布局标点，画布
+   * 尺寸 key 不变时现有就绪检测不会触发重建，导致首屏只出现部分标点。布局稳定后
+   * 从缓存强制重建 overlay 一次作为兜底（幂等、仅一次）。
+   */
+  private scheduleOverlaySettleRetry(map: AMapMap, _renderVersion: number): void {
+    if (this.overlaySettleRetryTimer !== null) {
+      globalThis.clearTimeout(this.overlaySettleRetryTimer)
+      this.overlaySettleRetryTimer = null
+    }
+    this.overlaySettleRetryTimer = globalThis.setTimeout(() => {
+      this.overlaySettleRetryTimer = null
+      if (this.map !== map || this.overlaySettleRetried || this.markersRebuildInFlight || this.markers.size === 0) return
+      if (!this.readCanvasSizeKey()) return
+      this.overlaySettleRetried = true
+      this.rebuildMarkerOverlay()
+    }, 1600)
   }
 
   /**
@@ -899,7 +961,9 @@ export class AMapProvider implements MapProvider {
     const label = document.createElement('span')
     label.className = selected ? 'yeu-amap-poi-label yeu-amap-poi-label-selected' : 'yeu-amap-poi-label'
     label.textContent = poi.name
-    label.style.cssText = `pointer-events:none;position:absolute;top:51px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:172px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
+    // 小屏（<640px）收窄标签，减少街道层级名字互相压盖。
+    const labelMaxWidth = typeof window !== 'undefined' && window.innerWidth < 640 ? 126 : 172
+    label.style.cssText = `pointer-events:none;position:absolute;top:51px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:${labelMaxWidth}px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
     label.style.opacity = '1'
     label.style.visibility = 'visible'
 
@@ -999,7 +1063,17 @@ export class AMapProvider implements MapProvider {
   private readonly handleClusterClick = (event: AMapMarkerClusterEvent): void => {
     const data = event.clusterData ?? []
     if (data.length !== 1) {
-      if (data.length > 1) this.poiSelectHandler?.(null)
+      if (data.length > 1) {
+        // 多点聚合：点击即向该处放大两级，手机上不用捏合也能逐层钻到单点。
+        const map = this.map
+        const lnglat = (event as { lnglat?: { getLng?: () => number, getLat?: () => number } }).lnglat
+        const getLng = lnglat?.getLng
+        const getLat = lnglat?.getLat
+        if (map && typeof getLng === 'function' && typeof getLat === 'function') {
+          const next = Math.min(18, Math.max(15, map.getZoom() + 2))
+          map.setZoomAndCenter(next, [getLng(), getLat()])
+        }
+      }
       return
     }
 
@@ -1186,70 +1260,19 @@ export class AMapProvider implements MapProvider {
     return Math.min(50_000, Math.max(300, Math.ceil(Math.hypot(latMeters, lngMeters))))
   }
 
-  private async convertPoint(point: GeoPoint, amap: AMapNamespace): Promise<AMapPosition | null> {
-    return (await this.convertPoints([point], amap))[0] ?? null
+  private convertSinglePoint(point: GeoPoint): AMapPosition | null {
+    if (!Number.isFinite(point.lng) || !Number.isFinite(point.lat)) return null
+    if (point.crs === 'GCJ-02') return [point.lng, point.lat]
+    if (point.crs === 'WGS84') return wgs84ToGcj02(point.lng, point.lat)
+    return null
   }
 
-  private convertPoints(points: GeoPoint[], amap: AMapNamespace): Promise<Array<AMapPosition | null>> {
-    if (!points.length) return Promise.resolve([])
-
-    const results = points.map<AMapPosition | null>(point => (
-      point.crs === 'GCJ-02' ? [point.lng, point.lat] : null
-    ))
-    const gpsPoints = points.flatMap((point, index) => (
-      point.crs === 'WGS84' ? [{ point, index }] : []
-    ))
-    if (!gpsPoints.length) return Promise.resolve(results)
-
-    return new Promise((resolve) => {
-      let settled = false
-      const fail = (message: string) => {
-        if (settled) return
-        settled = true
-        globalThis.clearTimeout(timeout)
-        this.mapErrorHandler?.(new Error(message))
-        resolve(results)
-      }
-      const timeout = globalThis.setTimeout(() => {
-        fail('高德地图 WGS84 坐标转换超时。')
-      }, CONVERSION_TIMEOUT_MS)
-
-      try {
-        amap.convertFrom(gpsPoints.map<AMapPosition>(({ point }) => [point.lng, point.lat]), 'gps', (status, result) => {
-          if (settled) return
-          if (status !== 'complete') {
-            fail('高德地图无法转换 WGS84 坐标。')
-            return
-          }
-
-          const locations = this.readLocations(result)
-          if (locations.length < gpsPoints.length) {
-            fail('高德地图返回的坐标转换结果不完整。')
-            return
-          }
-
-          settled = true
-          globalThis.clearTimeout(timeout)
-          gpsPoints.forEach(({ index }, locationIndex) => {
-            results[index] = locations[locationIndex] ?? null
-          })
-          resolve(results)
-        })
-      } catch {
-        fail('高德地图坐标转换调用失败。')
-      }
-    })
+  private convertPoints(points: GeoPoint[], _amap: AMapNamespace): Promise<Array<AMapPosition | null>> {
+    return Promise.resolve(points.map(point => this.convertSinglePoint(point)))
   }
 
-  private readLocations(result: AMapConvertResult): Array<AMapPosition | null> {
-    const locations = result.locations
-    if (Array.isArray(locations)) {
-      if (locations.length === 2 && locations.every(value => Number.isFinite(Number(value)))) {
-        return [this.readLocation(locations)]
-      }
-      return locations.map(location => this.readLocation(location))
-    }
-    return locations ? [this.readLocation(locations)] : []
+  private convertPoint(point: GeoPoint, _amap: AMapNamespace): Promise<AMapPosition | null> {
+    return Promise.resolve(this.convertSinglePoint(point))
   }
 
   private readLocation(location: unknown): AMapPosition | null {

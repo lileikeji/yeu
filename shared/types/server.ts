@@ -54,10 +54,30 @@ export interface ApiPublicHomeEntry {
   icon: string
   placement: 'quick' | 'services' | 'more'
   sortOrder: number
+  featureKey?: FrontendFeatureKey
 }
 
 export interface ApiPublicHomeEntries {
   items: ApiPublicHomeEntry[]
+}
+
+/**
+ * 首页"校园周边商家"卡：后台开启了推广（place_merchants.enabled）的已发布地点。
+ * 仅暴露展示所需字段；地图定位由 slug 拼 /map?place=slug。
+ */
+export interface ApiPublicPromotedMerchant {
+  slug: string
+  name: string
+  type: string | null
+  score: number | null
+  cost: number | null
+  area: '新区' | '旧区' | null
+  /** 从简介提炼的一句话口碑（"…是学校周边的快餐小吃店"），无则空串 */
+  tagline: string
+}
+
+export interface ApiPublicPromotedMerchants {
+  items: ApiPublicPromotedMerchant[]
 }
 
 export interface ApiTransitSegment {
@@ -83,6 +103,59 @@ export interface ApiTransitPlanResponse {
   destination: { id: string, label: string }
   plans: ApiTransitPlan[]
   vehiclePositionsAvailable: false
+}
+
+export interface ApiWalkingStep {
+  instruction: string
+  distanceMeters: number
+  durationSeconds: number | null
+}
+
+/** 周边攻略：来源是高德整理的地点，坐标即 GCJ-02，可直接用于微信 map / openLocation。 */
+export interface ApiNearbyDestination {
+  id: string
+  label: string
+  longitude: number
+  latitude: number
+  note: string | null
+}
+
+export interface ApiNearbyGuide {
+  id: string
+  scope: 'nearby' | 'city'
+  category: string
+  categoryLabel: string
+  eyebrow: string
+  title: string
+  summary: string
+  highlights: string[]
+  suitableFor: string
+  travelNote: string
+  costNote: string
+  freshnessNote: string
+  coordinateSystem: 'GCJ-02'
+  destinations: ApiNearbyDestination[]
+}
+
+export interface ApiNearbyGuideResponse {
+  items: ApiNearbyGuide[]
+  total: number
+  /** 当前 scope 下出现过的分类，供小程序做筛选胶囊。 */
+  categories: Array<{ id: string, label: string, count: number }>
+}
+
+export interface ApiWalkingRoute {
+  provider: 'amap'
+  queriedAt: string
+  /** 高德 Web 服务返回的坐标是 GCJ-02，可直接交给微信 map 的 polyline。 */
+  coordinateSystem: 'GCJ-02'
+  origin: { label: string, longitude: number, latitude: number }
+  destination: { label: string, slug: string, longitude: number, latitude: number }
+  distanceMeters: number
+  durationSeconds: number
+  /** 折线点位，按行进顺序排列。 */
+  polyline: Array<{ longitude: number, latitude: number }>
+  steps: ApiWalkingStep[]
 }
 
 export interface ApiSource {
@@ -379,6 +452,54 @@ export interface ApiAssistantResponse {
   /** Milliseconds from request start to the first content token of the model answer. */
   firstTokenMs?: number
   cacheHit?: boolean
+  /**
+   * 检索证据不足以给出确认答案（回答是「没找到 / 无法确认」模板）。
+   * 这类回答仍是合法的 200 响应，但后台统计不应把它算成「成功回答」——
+   * 否则答非所问会被成功率掩盖。
+   */
+  evidenceGap?: boolean
+}
+
+export type AdminCapability
+  = | 'analytics.view'
+    | 'visitor.list'
+    | 'visitor.detail'
+    | 'visitor.raw_ua'
+    | 'visitor.raw_ip'
+    | 'visitor.source'
+    | 'api_metrics.view'
+    | 'audit.view'
+    | 'ban.manage'
+
+export interface ApiMiniappAnalyticsBucket {
+  key: string
+  events: number
+  visitors: number
+}
+
+export interface ApiMiniappAnalyticsPage extends ApiMiniappAnalyticsBucket {
+  pathname: string
+}
+
+export interface ApiMiniappAnalyticsApiMetric {
+  route: string
+  status: number | null
+  requestCount: number
+  errorCount: number
+  latencyMs: { count: number, average: number, p50: number | null, p95: number | null, max: number | null }
+}
+
+export interface ApiMiniappAnalytics {
+  window: { hours: number, since: string, until: string }
+  totals: { events: number, visitors: number }
+  pages: ApiMiniappAnalyticsPage[]
+  events: ApiMiniappAnalyticsBucket[]
+  sources: ApiMiniappAnalyticsBucket[]
+  versions: ApiMiniappAnalyticsBucket[]
+  devices: ApiMiniappAnalyticsBucket[]
+  userAgents: ApiMiniappAnalyticsBucket[]
+  api: ApiMiniappAnalyticsApiMetric[]
+  raw?: { userAgents: string[], ips: string[] }
 }
 
 export interface ApiFeedback {

@@ -1,11 +1,13 @@
 import { createVisitorBanSchema } from '../../../../shared/schemas/server'
 import { createVisitorBan } from '../../../modules/visitors/service'
+import { requireAdminCapability } from '../../../utils/auth'
 import { useAdminRequest } from '../../../utils/http'
 import { writeAudit } from '../../../utils/audit'
 import { parseBody } from '../../../utils/validation'
 
 export default defineEventHandler(async (event) => {
   const { client, session } = useAdminRequest(event)
+  requireAdminCapability(session, 'ban.manage')
   const input = await parseBody(event, createVisitorBanSchema)
   const id = createVisitorBan(client, {
     ...input,

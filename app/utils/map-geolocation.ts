@@ -12,7 +12,9 @@ export const MAP_ROUTE_LOCATION_OPTIONS: PositionOptions = {
   timeout: 10000
 }
 
-export function formatMapRouteSummary(summary: RouteSummary): string {
+export function formatMapRouteSummary(
+  summary: Pick<RouteSummary, 'distanceMeters' | 'durationSeconds'>
+): string {
   const distance = summary.distanceMeters >= 1000
     ? `${(summary.distanceMeters / 1000).toFixed(1)} 公里`
     : `${Math.round(summary.distanceMeters)} 米`
@@ -45,6 +47,20 @@ export async function planWalkingMapRoute(
   destination: GeoPoint
 ): Promise<RouteSummary> {
   const origin = await getCurrentMapPoint(geolocation, MAP_ROUTE_LOCATION_OPTIONS)
+  const provider = getProvider()
+  if (!provider) throw new Error('地图路线组件尚未就绪。')
+  return provider.planWalkingRoute(origin, destination)
+}
+
+/**
+ * 显式指定起点的步行规划（"手动选起点"降级）：浏览器定位被拒/不可用时，
+ * 由用户从校园锚点里挑一个出发点，跳过 geolocation 直接走 provider。
+ */
+export async function planWalkingMapRouteFrom(
+  getProvider: () => MapProvider | null,
+  origin: GeoPoint,
+  destination: GeoPoint
+): Promise<RouteSummary> {
   const provider = getProvider()
   if (!provider) throw new Error('地图路线组件尚未就绪。')
   return provider.planWalkingRoute(origin, destination)

@@ -1,5 +1,5 @@
 import { loginSchema } from '../../../../shared/schemas/server'
-import { loginAdmin } from '../../../utils/auth'
+import { adminCapabilities, loginAdmin } from '../../../utils/auth'
 import { useAppDatabase } from '../../../utils/database'
 import { assertTrustedOrigin } from '../../../utils/security'
 import { parseBody } from '../../../utils/validation'
@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
   return {
     authenticated: true,
     admin: session.admin,
+    capabilities: adminCapabilities(session),
     csrfToken: session.csrfToken,
     expiresAt: new Date(session.expiresAt).toISOString()
   }

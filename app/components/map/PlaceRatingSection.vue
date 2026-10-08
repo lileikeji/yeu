@@ -50,7 +50,6 @@ const loadError = ref('')
 const sort = ref<'newest' | 'hot'>('newest')
 const likingIds = ref(new Set<string>())
 const likeError = ref('')
-const qrPreviewOpen = ref(false)
 
 const formOpen = ref(false)
 const draftScore = ref(0)
@@ -220,13 +219,6 @@ function handleLikeClick(review: PublicReviewView): void {
   void toggleLike(review)
 }
 
-function trackPromoClick(): void {
-  if (!payload.value?.promo?.meituanUrl) return
-  void userFetch('/api/public/merchant-promo/click', {
-    method: 'POST',
-    body: { placeId: props.placeId }
-  }).catch(() => {})
-}
 
 const mineStatusText = computed<string | null>(() => {
   const mine = payload.value?.mine
@@ -308,89 +300,7 @@ const mineStatusText = computed<string | null>(() => {
             </span>
           </div>
 
-          <!-- 商家推广条：美团下单 + 合作商家 + 二维码 -->
-          <div
-            v-if="payload.promo?.meituanUrl || payload.promo?.qrCodeUrl"
-            class="mt-2 flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 px-2.5 py-2"
-          >
-            <div class="flex min-w-0 flex-col gap-1">
-              <div class="flex flex-wrap items-center gap-1.5">
-                <a
-                  v-if="payload.promo?.meituanUrl"
-                  :href="payload.promo.meituanUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-1 rounded-full bg-yellow-400 px-2.5 py-1 text-[11px] font-bold text-yellow-950 shadow-sm transition-transform active:scale-95 hover:bg-yellow-300"
-                  @click="trackPromoClick"
-                >
-                  <UIcon
-                    name="i-lucide-bike"
-                    class="size-3"
-                  />
-                  美团下单
-                </a>
-                <span
-                  v-if="payload.promo?.meituanUrl"
-                  class="inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-900/60 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300"
-                >
-                  <UIcon
-                    name="i-lucide-badge-check"
-                    class="size-3"
-                  />
-                  合作商家
-                </span>
-                <span
-                  v-if="(payload.promo.clickCount30d ?? 0) > 0"
-                  class="text-[10px] text-zinc-400 dark:text-zinc-500"
-                >
-                  已 {{ payload.promo.clickCount30d }} 人跳转
-                </span>
-              </div>
-              <span
-                v-if="payload.promo?.qrCodeUrl"
-                class="text-[10px] text-zinc-400 dark:text-zinc-500"
-              >
-                微信扫码打开小程序
-              </span>
-            </div>
-            <button
-              v-if="payload.promo?.qrCodeUrl"
-              type="button"
-              class="group relative shrink-0 overflow-hidden rounded-lg border border-white bg-white dark:bg-zinc-900 shadow-sm"
-              aria-label="放大查看二维码，用微信扫码"
-              @click="qrPreviewOpen = true"
-            >
-              <img
-                :src="payload.promo.qrCodeUrl"
-                :alt="`${props.placeName} 小程序码`"
-                class="size-14 object-contain"
-              >
-              <span class="absolute bottom-0.5 right-0.5 grid size-4.5 place-items-center rounded bg-zinc-950/60 dark:bg-zinc-800/60 text-white/90">
-                <UIcon
-                  name="i-lucide-zoom-in"
-                  class="size-3"
-                />
-              </span>
-            </button>
-            <UModal
-              v-model:open="qrPreviewOpen"
-              :title="`${props.placeName} 小程序码`"
-              :ui="{ content: 'w-[calc(100vw-2rem)] max-w-none sm:w-full sm:max-w-md' }"
-            >
-              <template #body>
-                <div class="flex items-center justify-center bg-white dark:bg-zinc-900 p-4">
-                  <img
-                    :src="payload.promo?.qrCodeUrl"
-                    :alt="`${props.placeName} 小程序码`"
-                    class="max-h-[70dvh] w-auto max-w-full object-contain"
-                  >
-                </div>
-                <p class="pb-3 text-center text-[11px] text-zinc-500 dark:text-zinc-400">
-                  用微信扫一扫即可打开
-                </p>
-              </template>
-            </UModal>
-          </div>
+
         </div>
 
         <!-- 排序切换 -->

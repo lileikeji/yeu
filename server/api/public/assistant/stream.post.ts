@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createEventStream } from 'h3'
 import { assistantQuestionSchema } from '../../../../shared/schemas/server'
-import { containsPromptInjection, isPlaceNounQuery, isQuestionLike } from '../../../../shared/utils/assistant-query'
+import { containsPromptInjection, isAssistantAnswerableQuery } from '../../../../shared/utils/assistant-query'
 import { recordAssistantFailure, recordAssistantSuccess } from '../../../modules/assistant/analytics'
 import { hashSessionKey } from '../../../modules/assistant/memory'
 import {
@@ -9,6 +9,7 @@ import {
   blockedAssistantResponse
 } from '../../../modules/assistant/service'
 import { getClientIpAddress } from '../../../utils/client-ip'
+import { assistantConfigFromRuntime } from '../../../utils/assistant-config'
 import { useAppDatabase } from '../../../utils/database'
 import { assertRateLimit } from '../../../utils/rate-limit'
 import { createRequestAbortSignal } from '../../../utils/request-abort'
@@ -34,14 +35,19 @@ export default defineEventHandler(async (event) => {
   const blocked = containsPromptInjection(body.q)
   const requestId = typeof event.context.requestId === 'string' ? event.context.requestId : randomUUID()
   const startedAt = Date.now()
-  if (!blocked && !isQuestionLike(body.q)) {
+  // 与 /api/public/assistant 一致：意图识别交给模型，入口只拦空洞输入。
+  if (!blocked && !isAssistantAnswerableQuery(body.q)) {
+    try {
+      recordAssistantFailure(client, { requestId, query: body.q, ipAddress, channel: 'web' }, 'QUERY_EMPTY', Date.now() - startedAt)
+    } catch {
+      // Analytics remains optional during migrations.
+    }
     throw createError({
       statusCode: 422,
-      statusMessage: 'Use regular search for keywords',
-      data: { code: 'REGULAR_SEARCH_PREFERRED' }
+      statusMessage: 'Empty assistant question',
+      data: { code: 'QUERY_EMPTY' }
     })
   }
-  const runtime = useRuntimeConfig(event)
   const stream = createEventStream(event)
   const requestAbort = createRequestAbortSignal(event)
   const heartbeatTimer = setInterval(() => {
@@ -60,7 +66,7 @@ export default defineEventHandler(async (event) => {
       })
       if (blocked) {
         try {
-          recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, 'UNSAFE_QUERY', Date.now() - startedAt)
+          recordAssistantFailure(client, { requestId, query: body.q, ipAddress, channel: 'web' }, 'UNSAFE_QUERY', Date.now() - startedAt)
         } catch {
           // Analytics remains optional during migrations.
         }
@@ -71,32 +77,12 @@ export default defineEventHandler(async (event) => {
         return
       }
       const response = await answerCampusQuestion(client, body.q, {
-        gatewayBaseUrl: String(runtime.aiGatewayBaseUrl || ''),
-        gatewayApiKey: String(runtime.aiGatewayApiKey || ''),
-        gatewayModel: String(runtime.aiGatewayModel || 'gpt-5.4'),
-        gatewayTimeoutMs: Math.max(60_000, Number(runtime.aiGatewayTimeoutMs) || 60_000),
-        mcpSearchUrl: String(runtime.aiMcpSearchUrl || ''),
-        mcpSearchBearerToken: String(runtime.aiMcpSearchBearerToken || ''),
-        mcpAllowedHosts: String(runtime.aiMcpAllowedHosts || 'mcp.firecrawl.dev'),
-        mcpToolName: String(runtime.aiMcpToolName || 'firecrawl_search'),
-        mcpTimeoutMs: Math.max(25_000, Number(runtime.aiMcpTimeoutMs) || 25_000),
-        amapWebServiceKey: String(runtime.amapWebServiceKey || process.env.AMAP_WEB_SERVICE_KEY || ''),
+        // 与 /api/public/assistant、小程序、机器人共用同一份配置映射。这里以前手抄
+        // 了整份字段清单（还漏过 25s 的旧 MCP 下限、缩进也抄乱了），是渠道之间漂移
+        // 的同一类隐患来源。
+        ...assistantConfigFromRuntime(event),
         sessionKey,
         previousQuery: body.previousQ,
-      embeddingBaseUrl: String(runtime.aiEmbeddingBaseUrl || ''),
-      embeddingApiKey: String(runtime.aiEmbeddingApiKey || ''),
-      embeddingModel: String(runtime.aiEmbeddingModel || 'text-embedding-v3'),
-      embeddingTimeoutMs: Math.max(5_000, Number(runtime.aiEmbeddingTimeoutMs) || 15_000),
-      rerankBaseUrl: String(runtime.aiRerankBaseUrl || ''),
-      rerankApiKey: String(runtime.aiRerankApiKey || ''),
-      rerankModel: String(runtime.aiRerankModel || 'BAAI/bge-reranker-v2-m3'),
-      rerankTimeoutMs: Math.max(5_000, Number(runtime.aiRerankTimeoutMs) || 15_000),
-      rewriteEnabled: runtime.aiRewriteEnabled === true || String(runtime.aiRewriteEnabled) === 'true',
-      rewriteModel: String(runtime.aiRewriteModel || ''),
-      rewriteMaxVariants: Math.max(1, Math.min(3, Number(runtime.aiRewriteMaxVariants) || 2)),
-      rewriteTimeoutMs: Math.max(5_000, Number(runtime.aiRewriteTimeoutMs) || 12_000),
-        rerankLocalEnabled: runtime.aiRerankLocalEnabled === true || String(runtime.aiRerankLocalEnabled) === 'true',
-        rerankLocalModel: String(runtime.aiRerankLocalModel || ''),
         signal: requestAbort.signal
       }, {
         onStageStarted: async (stage, label, stageStartedAt) => {
@@ -117,7 +103,7 @@ export default defineEventHandler(async (event) => {
         }
       })
       try {
-        recordAssistantSuccess(client, { requestId, query: body.q, ipAddress }, response)
+        recordAssistantSuccess(client, { requestId, query: body.q, ipAddress, channel: 'web' }, response)
       } catch {
         // Analytics must not affect the public stream during a delayed migration.
       }
@@ -129,7 +115,7 @@ export default defineEventHandler(async (event) => {
         ? 'AI_BUSY'
         : 'AI_UNAVAILABLE'
       try {
-        recordAssistantFailure(client, { requestId, query: body.q, ipAddress }, internalCode, Date.now() - startedAt)
+        recordAssistantFailure(client, { requestId, query: body.q, ipAddress, channel: 'web' }, internalCode, Date.now() - startedAt)
       } catch {
         // Analytics must not affect the public stream during a delayed migration.
       }
