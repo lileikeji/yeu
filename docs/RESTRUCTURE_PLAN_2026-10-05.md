@@ -113,8 +113,12 @@ push 到 `main` 自动触发（`ll` 是开发分支，不触发）：
 
 验证：向 main push 一个小改动，从 push 到线上 version.json 更新全程无人工步骤；故意 push 一个挂测试的提交，流水线中止且线上无变化。
 
-- [x] 流水线定义已落地（2026-10-09）：`.workflow/流水线-20261009.yml`。按维护者决策，**构建放在 Gitee 云端**（花积分，不占服务器资源，同时规避本地构建 OOM）：云端 `pnpm install --frozen-lockfile → pnpm test → pnpm build`（NODE_OPTIONS 抬堆防 OOM）→ 制品（.output + 部署脚本 + build-sha.txt）→ 主机阶段 `flock` + 提交号一致性校验 → 复用 `scripts/server-side-deploy.sh`。push `main` 触发。
-- [ ] 待用户在 Gitee 控制台一次性配置（约 10 分钟）：① 仓库「流水线」页开通；② 「主机管理」新建主机组加入生产服务器并配 SSH 凭据，把 yml 里两处 TODO 替换为主机组实际 ID；③ 首跑观察测试与构建在 2C4G 的时长与内存。
+- [x] 流水线定义已落地（2026-10-09）：`.workflow/流水线-20261009.yml`。按维护者决策，**构建放在 Gitee 云端**（花积分，不占服务器资源，同时规避本地构建 OOM）：云端 `pnpm install --frozen-lockfile → pnpm test → pnpm build` → 制品（.output + 部署脚本 + build-sha.txt）→ 主机阶段 `flock` + 提交号一致性校验 → 复用 `scripts/server-side-deploy.sh`。push `master` 触发（yeu 主分支是 master，不是 dianzi 的 main——首版 yml 照抄 main 导致永不触发，已修）。
+- [x] 首跑联调（2026-10-09，#1~#3 三个真问题并修复）：
+  1. **node 版本枚举**：Gitee `build@nodejs` 的 nodeVersion 不认 "22"（回退 v20.11.1），而 engines 要求 >=22 → 改为 commands 里自行解压 Node 官方二进制（v22.20.0，满足依赖 engines ^22.19.0）并 PATH 前置覆盖；
+  2. **行间失败不中断**：commands 每行独立执行且失败继续下一行 → 关键链合并单行用 `&&` 短路；
+  3. **主机组**：Gitee Go 主机组为账号级资源（个人设置 → 主机管理），与 dianzi（crazy4-thursday 账号）不共享；已建主机组 `***REMOVED***`（与 yml hostGroupID 一致），服务器安装 gitee-go-runner agent（systemd `gitee-go-agent.service`，uuid 616abc1b，重启自启），主机数 1/1 在线。
+- [x] 全链路验证通过（2026-10-09 #7，release `20261009-3b32f4d`）：push master → Gitee 云端构建（install + 1254 测试 + build，5m14s）→ 制品下发 → 主机 agent 执行 `server-side-deploy.sh`（DB 备份 → 冒烟 → 原子切换 → 健康检查）→ `releases/DEPLOYED-<sha>-<ts>.txt` 落盘（含回滚点与 DB 备份路径）。`version.json` 公开 404（Nitro 不服务后写入的静态文件，磁盘标记完整），后续加 `server/api/public/version.get.ts` 解决。Gitee Go 联调共踩 5 个坑（全记录于 git log ci: 系列）：① 分支名 main/master；② nodejs step 版本枚举无 22 → 自装官方二进制；③ commands 行间失败不中断 → 关键链单行 && 短路；④ artifacts 会把 path 声明的文件再包一层 tar → 解两层；⑤ hostGroupID 之外还需 hostID 指定 agent uuid。agent 已 systemd 化（`gitee-go-agent.service`）。
 
 ### P4 基线治理（消灭 HEAD 与线上漂移）
 
