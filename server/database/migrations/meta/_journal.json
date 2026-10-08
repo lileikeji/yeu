@@ -267,6 +267,13 @@
       "when": 1791479908910,
       "tag": "0037_daily_the_enforcers",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1791483308677,
+      "tag": "0038_slippery_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }

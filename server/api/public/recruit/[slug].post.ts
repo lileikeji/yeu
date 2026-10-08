@@ -1,11 +1,13 @@
 import { publicRecruitSubmissionSchema } from '../../../../shared/schemas/server'
 import {
   createSubmission,
-  deleteRecruitDraft,
+  getRecruitDraft,
   getRecruitFormBySlug,
   buildSubmissionFilename,
+  markDraftSubmitted,
   recruitDraftKey,
   resolveReferrerByCode,
+  updateSubmission,
   validateSubmissionInput
 } from '../../../modules/recruit/service'
 import { getClientIpAddress } from '../../../utils/client-ip'
@@ -56,24 +58,29 @@ export default defineEventHandler(async (event) => {
   const refCode = typeof rawRef === 'string' ? rawRef : ''
   const referrerName = resolveReferrerByCode(client, found.form.id, refCode)
 
+  // Same visitor (IP + browser signature) editing an existing signup updates
+  // that record instead of creating a duplicate.
   const security = getSecurityConfig(event)
-  const submission = createSubmission(
+  const draftKey = recruitDraftKey(
     client,
-    found.form,
-    normalized,
-    hashOpaqueToken(security.secret, 'recruit-ip', ipAddress),
-    referrerName,
-    paymentEnabled ? input.paymentConfirmed === true : null
-  )
-
-  // The signup is complete: the half-filled draft has served its purpose.
-  const security2 = getSecurityConfig(event)
-  deleteRecruitDraft(client, found.form.id, recruitDraftKey(
-    client,
-    security2.secret,
+    security.secret,
     ipAddress,
     getHeader(event, 'user-agent') ?? ''
-  ))
+  )
+  const draftState = getRecruitDraft(client, found.form.id, draftKey)
+  let submission = draftState?.submissionId
+    ? updateSubmission(client, found.form, draftState.submissionId, input.data)
+    : createSubmission(
+      client,
+      found.form,
+      normalized,
+      hashOpaqueToken(security.secret, 'recruit-ip', ipAddress),
+      referrerName,
+      paymentEnabled ? input.paymentConfirmed === true : null
+    )
+
+  // Keep the payload linked so the visitor can review, edit again, or restart.
+  markDraftSubmitted(client, found.form.id, draftKey, submission.id, normalized.data)
 
   setResponseStatus(event, 201)
   return {

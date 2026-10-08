@@ -806,13 +806,54 @@ export function recruitDraftKey(client: DatabaseClient, secret: string, ipAddres
   return hashOpaqueToken(secret, 'recruit-draft', `${ipAddress}\u0000${uaHash}`)
 }
 
-export function getRecruitDraft(client: DatabaseClient, formId: string, draftKey: string): Record<string, RecruitSubmissionValue> | null {
-  const row = client.db.select({ dataJson: recruitDrafts.dataJson }).from(recruitDrafts)
+export interface RecruitDraftState {
+  data: Record<string, RecruitSubmissionValue>
+  submitted: boolean
+  submissionId: string | null
+}
+
+export function getRecruitDraft(client: DatabaseClient, formId: string, draftKey: string): RecruitDraftState | null {
+  const row = client.db.select().from(recruitDrafts)
     .where(and(eq(recruitDrafts.formId, formId), eq(recruitDrafts.draftKey, draftKey)))
     .get()
   if (!row) return null
   const data = parseJson<Record<string, RecruitSubmissionValue>>(row.dataJson, {})
-  return Object.keys(data).length > 0 ? data : null
+  if (row.submitted && !row.submissionId) return null
+  return {
+    data,
+    submitted: row.submitted,
+    submissionId: row.submissionId
+  }
+}
+
+/** After a successful signup: keep the payload linked so the visitor can edit or restart. */
+export function markDraftSubmitted(
+  client: DatabaseClient,
+  formId: string,
+  draftKey: string,
+  submissionId: string,
+  data: Record<string, RecruitSubmissionValue>
+): void {
+  client.db.update(recruitDrafts).set({
+    dataJson: JSON.stringify(data),
+    submitted: true,
+    submissionId,
+    updatedAt: Date.now()
+  }).where(and(eq(recruitDrafts.formId, formId), eq(recruitDrafts.draftKey, draftKey)))
+    .run()
+}
+
+/** mode 'edit' reopens the submitted data; 'fresh' wipes the draft entirely. */
+export function resetRecruitDraft(client: DatabaseClient, formId: string, draftKey: string, mode: 'edit' | 'fresh'): void {
+  if (mode === 'fresh') {
+    deleteRecruitDraft(client, formId, draftKey)
+    return
+  }
+  client.db.update(recruitDrafts).set({
+    submitted: false,
+    updatedAt: Date.now()
+  }).where(and(eq(recruitDrafts.formId, formId), eq(recruitDrafts.draftKey, draftKey)))
+    .run()
 }
 
 export function saveRecruitDraft(

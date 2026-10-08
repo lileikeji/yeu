@@ -29,7 +29,10 @@ interface PublicRecruitFormPayload {
       optionDetails?: Record<string, string>
       placeholder?: string
     }>
-    draft?: Record<string, string | string[]> | null
+    draft?: {
+      data: Record<string, string | string[]>
+      submitted: boolean
+    } | null
     payment?: {
       enabled: boolean
       wechatImage: string | null
@@ -73,7 +76,8 @@ export default defineEventHandler((event): PublicRecruitFormPayload => {
     getClientIpAddress(event),
     getHeader(event, 'user-agent') ?? ''
   )
-  const draft = getRecruitDraft(client, found.form.id, draftKey)
+  const draftState = getRecruitDraft(client, found.form.id, draftKey)
+  const draft = draftState ? { data: draftState.data, submitted: draftState.submitted } : null
   if (draft) setHeader(event, 'Cache-Control', 'no-store')
   else setPublicCache(event, 30)
   const config = serializeFormConfig(found.form, { slug: found.clubSlug, title: found.clubTitle })

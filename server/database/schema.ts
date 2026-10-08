@@ -985,6 +985,8 @@ export const recruitDrafts = sqliteTable('recruit_drafts', {
   formId: text('form_id').notNull().references(() => recruitForms.id, { onDelete: 'cascade' }),
   draftKey: text('draft_key').notNull(),
   dataJson: text('data_json').notNull().default('{}'),
+  submitted: integer('submitted', { mode: 'boolean' }).notNull().default(false),
+  submissionId: text('submission_id'),
   updatedAt: timestamp('created_at')
 }, table => [
   uniqueIndex('recruit_drafts_form_key_unique').on(table.formId, table.draftKey)

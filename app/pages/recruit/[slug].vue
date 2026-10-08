@@ -14,6 +14,10 @@ interface PublicRecruitPayload {
     slogan: string
     intro: string
     fields: RecruitFormField[]
+    draft?: {
+      data: Record<string, string | string[]>
+      submitted: boolean
+    } | null
     payment?: {
       enabled: boolean
       wechatImage: string | null
@@ -37,9 +41,16 @@ const submittedFilename = ref('')
 const paymentConfirmed = ref<boolean | null>(null)
 const expandedDetails = ref<Set<string>>(new Set())
 const hasSavedDraft = ref(false)
+const submittedInfo = ref<{ data: Record<string, string | string[]> } | null>(null)
 let draftTimer: ReturnType<typeof setTimeout> | undefined
 
 const fields = computed<RecruitFormField[]>(() => payload.value?.form?.fields ?? [])
+
+// 收款码走中转页 /recruit/<slug>/pay（src 仅允许 /uploads/ 前缀，由中转页校验）
+function payRelayHref(src: string, kind: 'wechat' | 'alipay') {
+  const note = payload.value?.form?.payment?.note ?? '付款请备注：班级+姓名+电话'
+  return `/recruit/${encodeURIComponent(slug.value)}/pay?${new URLSearchParams({ src, label: kind, note })}`
+}
 
 watch([textValues, multiValues], () => {
   if (loading.value) return
@@ -58,7 +69,9 @@ async function loadForm(): Promise<void> {
     multiValues.value = Object.fromEntries(fields.value
       .filter(field => field.type === 'multiselect')
       .map(field => [field.key, Array.isArray(draft[field.key]) ? draft[field.key] as string[] : []]))
-    if (Object.keys(draft).length > 0) {
+    if (draft.submitted) {
+      submittedInfo.value = { data: draft.data }
+    } else if (Object.keys(draft).length > 0) {
       hasSavedDraft.value = true
       toast.add({ title: '已恢复上次填写的进度', description: '继续填写即可，内容会自动保存。', color: 'success' })
     }
@@ -77,6 +90,14 @@ function scheduleDraftSave(): void {
       body: { data: { ...textValues.value, ...multiValues.value } }
     }).catch(() => {})
   }, 1500)
+}
+
+async function resetDraft(mode: 'edit' | 'fresh'): Promise<void> {
+  await $fetch(`/api/public/recruit/${encodeURIComponent(slug.value)}/draft-reset`, {
+    method: 'POST',
+    body: { mode }
+  }).catch(() => {})
+  await loadForm()
 }
 
 function isMultiselectSelected(field: RecruitFormField, option: string): boolean {
@@ -109,16 +130,6 @@ function isDetailExpanded(key: string, option: string): boolean {
 
 function optionDetail(field: RecruitFormField, option: string): string {
   return field.optionDetails?.[option] ?? ''
-}
-
-function openPayRelay(kind: 'wechat' | 'alipay', src: string): void {
-  const query = new URLSearchParams({
-    src,
-    label: kind,
-    note: payment.value?.note ?? '付款请备注：班级+姓名+电话'
-  })
-  // Real navigation (not an overlay) so WeChat allows long-press recognition.
-  window.location.href = `/recruit/${encodeURIComponent(slug.value)}/pay?${query.toString()}`
 }
 
 function missingRequiredField(): RecruitFormField | null {
@@ -300,6 +311,39 @@ onMounted(() => {
         </p>
       </div>
 
+      <div
+        v-else-if="submittedInfo"
+        class="mx-auto max-w-xl border-y border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-5 py-10 text-center"
+        role="status"
+      >
+        <span class="mx-auto grid size-11 place-items-center rounded-full bg-green-700 text-white">
+          <UIcon
+            name="i-lucide-check"
+            class="size-5"
+          />
+        </span>
+        <h2 class="mt-4 text-lg font-bold text-green-950 dark:text-green-300">
+          你已完成报名
+        </h2>
+        <p class="mt-2 text-sm leading-6 text-green-800 dark:text-green-300">
+          检测到该设备已提交过入会申请（{{ submittedInfo.data.name || '未署名' }}），无需重复填写。如信息有变动，可在下方修改。
+        </p>
+        <div class="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+          <UButton
+            icon="i-lucide-pencil-line"
+            label="修改提交信息"
+            @click="resetDraft('edit')"
+          />
+          <UButton
+            icon="i-lucide-file-plus-2"
+            label="重新填一份"
+            color="neutral"
+            variant="soft"
+            @click="resetDraft('fresh')"
+          />
+        </div>
+      </div>
+
       <form
         v-else
         class="mx-auto max-w-2xl space-y-5"
@@ -400,10 +444,9 @@ onMounted(() => {
               :key="qr.kind"
               class="space-y-1"
             >
-              <button
-                type="button"
+              <a
+                :href="payRelayHref(qr.src!, qr.kind)"
                 class="block w-full overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700"
-                @click="openPayRelay(qr.kind, qr.src!)"
               >
                 <img
                   :src="qr.src!"
@@ -411,7 +454,7 @@ onMounted(() => {
                   class="w-full"
                   loading="lazy"
                 >
-              </button>
+              </a>
               <figcaption class="text-center text-xs text-zinc-500 dark:text-zinc-400">
                 {{ qr.label }}（点击进入付款码页）
               </figcaption>
