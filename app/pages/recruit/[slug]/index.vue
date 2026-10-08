@@ -46,10 +46,12 @@ let draftTimer: ReturnType<typeof setTimeout> | undefined
 
 const fields = computed<RecruitFormField[]>(() => payload.value?.form?.fields ?? [])
 
-// 收款码走中转页 /recruit/<slug>/pay（src 仅允许 /uploads/ 前缀，由中转页校验）
+// 收款码走中转页 /recruit/<slug>/pay（src 仅允许 /uploads/ 前缀，由中转页校验）。
+// 不用 URLSearchParams：构建会把全局重写成坏掉的命名空间访问，浏览器里直接抛错白屏。
 function payRelayHref(src: string, kind: 'wechat' | 'alipay') {
   const note = payload.value?.form?.payment?.note ?? '付款请备注：班级+姓名+电话'
-  return `/recruit/${encodeURIComponent(slug.value)}/pay?${new URLSearchParams({ src, label: kind, note })}`
+  return `/recruit/${encodeURIComponent(slug.value)}/pay`
+    + `?src=${encodeURIComponent(src)}&label=${encodeURIComponent(kind)}&note=${encodeURIComponent(note)}`
 }
 
 watch([textValues, multiValues], () => {
