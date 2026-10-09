@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 CI_CACHE="${HOME}/.cache/yeu-ci"
+export npm_config_cache="$CI_CACHE/npm"
 NODE_DIR="$CI_CACHE/node-v22.20.0"
 PNPM_DIR="$CI_CACHE/pnpm-10.28.1"
 mkdir -p "$CI_CACHE"
@@ -21,5 +22,10 @@ fi
 [[ "$(pnpm --version)" == "10.28.1" ]]
 export NODE_OPTIONS=--max-old-space-size=3072
 export CI=true
-pnpm install --frozen-lockfile --store-dir "$CI_CACHE/pnpm-store"
+if ! pnpm install --frozen-lockfile --store-dir "$CI_CACHE/pnpm-store"; then
+  echo "依赖安装失败，复用已下载缓存重试一次；再次失败停止发布" >&2
+  pnpm install --frozen-lockfile --store-dir "$CI_CACHE/pnpm-store"
+fi
+node -e 'const Database=require("better-sqlite3");new Database(":memory:").close()'
 echo "pnpm_store=$(pnpm store path --store-dir "$CI_CACHE/pnpm-store")"
+echo "native_prebuild_cache=$npm_config_cache/_prebuilds"
