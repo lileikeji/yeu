@@ -305,6 +305,8 @@ Gitee 制品插件的 `target` 不展开系统变量。流水线先下发到固�
 
 云端依赖缓存统一位于 `~/.cache/yeu-ci`，包含固定版本的 Node、pnpm、`pnpm-store` 和 `npm/_prebuilds`。`npm_config_cache` 指向该目录内的 `npm`，避免 SQLite 原生预编译包落入未恢复的默认缓存。依赖安装失败最多重试一次，复用已下载内容；安装后必须实际加载 SQLite，失败即停止发布。
 
+源码认证仅在 Gitee 克隆阶段可用；YAML 的 `strategy.cloneDepth: 50` 保留近期提交，避免在构建容器依赖克隆凭证或下载完整历史。文档门禁比较公网 `/version.json` 的生产提交与本次完整提交，关闭重命名检测后，只有全部变更位于 `docs/`、`README.md` 或 `AGENTS.md` 才跳过依赖安装和应用构建。主机只验证文档制品身份，不备份数据库、不切换 release、不重启服务。生产基线读取失败、超出近期历史或无法获取时，仍执行完整检查；运行文件移入文档目录也必须发布。
+
 1. 拉取固定 commit，记录 commit SHA；
 2. `pnpm install --frozen-lockfile`，执行 lint、typecheck、test、build；
 3. 创建 SQLite 在线一致性备份并验证；
