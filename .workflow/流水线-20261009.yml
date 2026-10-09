@@ -6,6 +6,9 @@ displayName: 个人仓库生产部署（push master → 质量检查 → 服务�
 # 2. 「主机管理」新建主机组（建议名称 ***REMOVED***），加入生产服务器并配置 SSH 凭据，
 #    把下方 hostGroupID 的 ID 替换为主机组实际标识。
 # 构建发生在 Gitee 云端环境，不占用生产服务器资源；服务器只执行部署脚本。
+strategy:
+  # 认证只在代码克隆阶段可用；保留近期历史供生产 SHA 比较，避免拉取完整历史。
+  cloneDepth: 50
 stages:
 - name: 构建
   displayName: 云端完整质量检查与构建
