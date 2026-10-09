@@ -239,7 +239,7 @@ export async function verifyNative(output) {
 
 export function docsOnly(root, base, head) {
   if (!/^[0-9a-f]{40}$/.test(base) || !/^[0-9a-f]{40}$/.test(head)) return false
-  const files = execFileSync('git', ['diff', '--name-only', '-z', base, head], { cwd: root }).toString().split('\0').filter(Boolean)
+  const files = execFileSync('git', ['diff', '--no-renames', '--name-only', '-z', base, head], { cwd: root }).toString().split('\0').filter(Boolean)
   return files.length > 0 && files.every(path => path.startsWith('docs/') || ['README.md', 'AGENTS.md'].includes(path))
 }
 

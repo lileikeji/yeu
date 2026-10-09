@@ -11,6 +11,12 @@ printf '%s\n' "$BUILD_SHA" > build-sha.txt
 printf '%s\n' "$RELEASE_ID" > release-id.txt
 BASE_SHA="$(curl --connect-timeout 5 --max-time 10 -fsS https://yx.huiliyill.cn/version.json \
   | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{process.stdout.write(JSON.parse(s).commit||"")}catch{}})' || true)"
+if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+  echo "浅克隆补取已部署提交：$BASE_SHA"
+  if ! timeout 30s git fetch --quiet --no-tags --depth=1 origin "$BASE_SHA" >/dev/null 2>&1; then
+    echo "无法获取生产提交基线，执行完整检查" >&2
+  fi
+fi
 if node scripts/release-tools.mjs docs-only "$BASE_SHA" "$BUILD_SHA"; then
   git diff --check "$BASE_SHA" "$BUILD_SHA"
   printf 'docs-only\n' > release-mode.txt
