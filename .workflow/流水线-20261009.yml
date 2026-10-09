@@ -28,13 +28,11 @@ stages:
       type: .tar.gz
     caches:
     - "~/.cache/yeu-ci"
-    - "~/.cache/ms-playwright"
-    - "~/.npm"
     strategy:
       retry: "0"
       resource:
-        cpu: "2"
-        memory: "4"
+        cpu: "4"
+        memory: "8"
 - name: 部署
   displayName: 主机部署（备份 → 冒烟 → 切换 → 健康检查）
   strategy: naturally

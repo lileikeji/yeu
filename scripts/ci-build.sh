@@ -20,18 +20,60 @@ if node scripts/release-tools.mjs docs-only "$BASE_SHA" "$BUILD_SHA"; then
 fi
 printf 'deploy\n' > release-mode.txt
 source scripts/ci-bootstrap.sh
-pnpm typecheck
-# Full suite on the two-core runner; never omit tests to reduce duration.
-pnpm exec tsx --test --test-concurrency=2 scripts/*.test.ts
 build_start="$(mktemp)"
-trap 'rm -f "$build_start"' EXIT
-pnpm build
-test .output/server/index.mjs -nt "$build_start"
+types_root="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
+types_dir="$(mktemp -d "$types_root/yeu-ci-types.XXXXXX")"
+type_pid=""
+build_pid=""
+owner_pid="$BASHPID"
+cleanup() {
+  [[ "$BASHPID" == "$owner_pid" ]] || return 0
+  for pid in "$type_pid" "$build_pid"; do
+    [[ -z "$pid" ]] || kill -TERM -- "-$pid" 2>/dev/null || true
+  done
+  wait "$type_pid" "$build_pid" 2>/dev/null || true
+  rm -f "$build_start"
+  [[ "$types_dir" == "$types_root"/yeu-ci-types.* ]]
+  [[ "$(dirname "$(realpath "$types_dir")")" == "$types_root" ]]
+  rm -rf -- "$types_dir"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+# Nuxt typecheck and build each generate .nuxt; keep their output directories separate.
+git archive HEAD | tar -xf - -C "$types_dir"
+ln -s "$PWD/node_modules" "$types_dir/node_modules"
+check_types() {
+  set +m
+  set -euo pipefail
+  cd "$types_dir"
+  pnpm typecheck
+}
+test_and_build() {
+  set +m
+  set -euo pipefail
+  pnpm exec tsx --test --test-concurrency=2 scripts/*.test.ts
+  pnpm build
+  test .output/server/index.mjs -nt "$build_start"
+}
+# Monitor mode gives each branch its own process group, including pnpm children.
+set -m
+check_types &
+type_pid="$!"
+test_and_build &
+build_pid="$!"
+status=0
+wait -n "$type_pid" "$build_pid" || status="$?"
+if [[ "$status" != "0" ]]; then
+  echo "并行检查失败：exit=$status；终止另一支，未生成发布制品" >&2
+  exit "$status"
+fi
+wait "$type_pid"
+wait "$build_pid"
+set +m
 node scripts/release-tools.mjs create .output "$RELEASE_ID" "$BUILD_SHA"
 node scripts/release-tools.mjs native .output
 pnpm pwa:build:test
-pnpm e2e:install:ci
-pnpm e2e:run
 tar -czhf yeu-release.tar.gz .output build-sha.txt release-id.txt release-mode.txt \
   scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh
 test -s yeu-release.tar.gz

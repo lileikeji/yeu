@@ -8,7 +8,7 @@
 
 ## 1. 生产原则
 
-- **日常发布使用个人仓库 `lilei1529/yeu` 的 Gitee Go 流水线，push `master` 触发**。Linux 构建环境也可使用 `bash scripts/deploy.sh`。两者必须通过 lint、类型检查、完整测试、构建、预算、PWA 和 E2E，复用制品内的服务端脚本；不覆盖服务器的独立脚本。部署前校验完整 SHA、缓存版本、原生模块与数据库结构，随后备份、冒烟、原子切换、核验健康和运行版本。下文手工步骤仅用于首次建站与特殊运维。
+- **日常发布使用个人仓库 `lilei1529/yeu` 的 Gitee Go 流水线，push `master` 触发**。单次安装后，在 4 核 8G 任务中并行运行独立目录的类型检查和全量测试/构建，任一失败取消另一支；均通过后核验原生模块和 PWA。Linux 构建环境也可使用 `bash scripts/deploy.sh`，其完整门禁另含 lint、预算和 E2E；独立浏览器回归使用 `pnpm check:e2e`。两种发布复用制品内的服务端脚本，不覆盖服务器的独立脚本。部署前校验完整 SHA、缓存版本、原生模块与数据库结构，随后备份、冒烟、原子切换、核验健康、首页和运行版本。下文手工步骤仅用于首次建站与特殊运维。
 - 推荐 Node.js 22 LTS，并在部署前以 `package.json` 和 Nuxt 当前版本的 engines 要求复核；pnpm 使用仓库声明的 10.28.1 版本。
 - 应用进程使用独立低权限 Linux 用户运行，不使用 root；Nginx 只读静态文件和公开上传目录。
 - SQLite 只由一个 `yeu.service` 实例写入，禁止 PM2、cluster 或多实例并发。扩展为多实例前先迁移到服务型数据库。
@@ -135,7 +135,7 @@ pnpm map:sources:sync --apply --database "$NUXT_DATABASE_PATH"
 
 `pnpm check` 统一执行 lint、类型检查、全部 `scripts/*.test.ts` 测试、生产构建、客户端构建体积预算和 Service Worker 产物断言。体积预算要求 MapLibre 保持独立动态分包，并限制首页、搜索、地图、流程详情及全局入口的初始未压缩 JS/CSS；它不代替生产真机性能测试。`pnpm data:verify --database "$NUXT_DATABASE_PATH"` 只读核对目标库中的来源、公开内容、流程和高德草稿标点是否与当前代码种子一致，防止前台显示内容和后台可维护数据分叉。若需要同时验收管理员账号，只在受限部署会话中临时执行 `pnpm data:verify --database "$NUXT_DATABASE_PATH" --admin-user "$NUXT_ADMIN_USERNAME" --admin-password "$NUXT_ADMIN_PASSWORD"`，不要把明文密码写入脚本、日志或发布记录。发布记录仍须明确列出浏览器验收范围。迁移前创建一致性备份；首次建库也要确认目录权限、外键和 WAL 设置。
 
-CI 或发布候选工作站应在 `pnpm install --frozen-lockfile` 后安装与仓库 Playwright 版本匹配的 Chromium，再执行包含完整工程门禁和浏览器测试的命令：
+独立浏览器回归任务或发布候选工作站应在 `pnpm install --frozen-lockfile` 后安装与仓库 Playwright 版本匹配的 Chromium，再执行包含完整工程门禁和浏览器测试的命令。日常 Gitee 发布不安装浏览器：
 
 ```bash
 # 开发/发布候选工作站
@@ -147,7 +147,7 @@ pnpm e2e:install:ci
 pnpm check:e2e
 ```
 
-`pnpm e2e` 会先运行生产构建，再重建 Git 忽略的 `.data/e2e.sqlite`，在其中初始化仅用于 E2E 的管理员、内容草稿和公开地点，不会读取或修改生产数据库，也不会复用生产凭据。已经通过 `pnpm check` 或 `pnpm build` 生成最新 `.output` 时，可使用 `pnpm e2e:run` 避免重复构建；CI 和 `pnpm check:e2e` 使用这一底层命令。当前项目自动执行桌面 Chromium 与 Pixel 5 移动视口，外部地图瓦片和官网请求会被阻断；公开端、地图显示设置、后台发布/下线/审计、反馈处理、PWA 注册/更新提示和六类页面 Axe 扫描共 36 条检查。生产服务器本身无需为运行应用安装浏览器；WebKit、微信内置浏览器、实际安装态 PWA、真机定位、高德正式 Key 与生产域名仍按发布清单人工验收。
+`pnpm e2e` 会先运行生产构建，再重建 Git 忽略的 `.data/e2e.sqlite`，在其中初始化仅用于 E2E 的管理员、内容草稿和公开地点，不会读取或修改生产数据库，也不会复用生产凭据。已经通过 `pnpm check` 或 `pnpm build` 生成最新 `.output` 时，可使用 `pnpm e2e:run` 避免重复构建；`pnpm check:e2e` 使用这一底层命令。当前项目自动执行桌面 Chromium 与 Pixel 5 移动视口，外部地图瓦片和官网请求会被阻断；公开端、地图显示设置、后台发布/下线/审计、反馈处理、PWA 注册/更新提示、版本接口和六类页面 Axe 扫描共 48 条检查。生产服务器本身无需为运行应用安装浏览器；WebKit、微信内置浏览器、实际安装态 PWA、真机定位、高德正式 Key 与生产域名仍按发布清单人工验收。
 
 首次启动（示意）：
 
