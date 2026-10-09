@@ -57,7 +57,7 @@ check_types() {
 test_and_build() {
   set +m
   set -euo pipefail
-  pnpm exec tsx --test --test-concurrency=2 scripts/*.test.ts
+  pnpm exec tsx --test --test-concurrency=4 scripts/*.test.ts
   pnpm build
   test .output/server/index.mjs -nt "$build_start"
 }
