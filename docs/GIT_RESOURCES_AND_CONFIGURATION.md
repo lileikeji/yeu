@@ -1,19 +1,16 @@
 # Git 资源与配置说明
 
-> 适用仓库：`https://gitee.com/newcomers-guide/yeu`
+> 适用仓库：`https://gitee.com/lilei1529/yeu`
 >
 > 这份说明把 Git 中的代码、数据、环境配置、部署文件和生产持久化资源分开说明，避免把数据库、密钥或服务器运行文件误提交。
 
 ## 当前仓库与权限
 
-- **规范远程**：`organization` → `https://gitee.com/newcomers-guide/yeu.git`，用于组织仓库的拉取和发布。
-- **个人远程**：`origin` → `https://gitee.com/lilei1529/yeu.git`，仅作为个人备份或历史来源；发布前不要误推到这里。
+- **生产远程**：`origin` → `https://gitee.com/lilei1529/yeu.git`，个人仓库，用于当前 Gitee Go 构建和发布。
+- **历史远程**：`organization` → `https://gitee.com/newcomers-guide/yeu.git`。保留已有配置；当前流水线不从这里构建。
 - **默认分支**：`master`。日常改动建议从它创建 `codex/<topic>` 分支，通过合并请求进入默认分支。
-- **仓库可见性**：组织下的私有仓库；代码可以协作，生产数据库、密钥和上传文件仍只留在服务器受限目录。
-- **组织成员管理**：<https://gitee.com/organizations/newcomers-guide/members/list>
-- **仓库成员管理**：进入仓库「管理 → 仓库成员管理 → 管理员」。组织管理员和仓库管理员是两层权限，遇到“访问受限”时两处都要检查。
-
-当前已确认 `andylyj` 在 `newcomers-guide` 组织成员页显示为“管理员”。如果该账号仍无法打开私有仓库，应在仓库成员管理页确认它同时位于“管理员”列表，并让账号重新登录或重新接受邀请；不要通过公开仓库或复制密钥绕过权限。
+- **资源边界**：生产数据库、密钥和上传文件只留在服务器受限目录；仓库可见性与成员权限以个人仓库控制台为准。
+- **仓库成员管理**：进入个人仓库「管理 → 仓库成员管理」。不要套用历史组织仓库的成员配置。
 
 ## 仓库结构（当前）
 

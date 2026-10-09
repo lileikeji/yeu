@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import {
   analyzeClientBundle,
+  loadClientManifest,
   type BundleBudget,
   type ClientManifest
 } from './check-client-bundle-budget'
@@ -85,6 +86,18 @@ function fixture() {
   }
   return { directory, manifest, budget }
 }
+
+test('budget reads the preserved manifest when Nitro inlines its original module', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-manifest-'))
+  try {
+    mkdirSync(join(directory, 'deploy'))
+    const manifest: ClientManifest = { entrypoints: ['fresh'], dependencies: {} }
+    writeFileSync(join(directory, 'deploy/client.precomputed.mjs'), `export default ${JSON.stringify(manifest)}`)
+    assert.deepEqual(await loadClientManifest(directory), manifest)
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
 
 test('bundle budget accepts bounded initial assets and an isolated MapLibre dynamic entry', () => {
   const value = fixture()

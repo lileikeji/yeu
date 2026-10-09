@@ -203,7 +203,8 @@ export function analyzeClientBundle(
 }
 
 export async function loadClientManifest(outputRoot: string): Promise<ClientManifest> {
-  const manifestPath = join(outputRoot, 'server', 'chunks', 'build', 'client.precomputed.mjs')
+  const preserved = join(outputRoot, 'deploy', 'client.precomputed.mjs')
+  const manifestPath = existsSync(preserved) ? preserved : join(outputRoot, 'server', 'chunks', 'build', 'client.precomputed.mjs')
   if (!existsSync(manifestPath)) {
     throw new Error(`找不到 Nuxt 客户端构建清单：${manifestPath}；请先运行 pnpm build`)
   }

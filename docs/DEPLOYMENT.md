@@ -8,7 +8,7 @@
 
 ## 1. 生产原则
 
-- **日常发布一律走 `bash scripts/deploy.sh`**（闸门：脏工作区拒绝 → 缓存版本确认 → 全量测试 → BUILD_EXIT 核验 → tar md5 防旧产物 → 上传 → 服务器端 `scripts/server-side-deploy.sh` 备份/冒烟/原子切换/写 DEPLOYED 标记）；Gitee 流水线（`.workflow/`）push `main` 时复用同一份服务端脚本。服务器上的 `deploy-home-sheet.sh` 以仓库 `scripts/deploy-home-sheet.sh` 为事实源，每次部署自动覆盖。下文的手工步骤仅用于首次建站与特殊运维。
+- **日常发布使用个人仓库 `lilei1529/yeu` 的 Gitee Go 流水线，push `master` 触发**。Linux 构建环境也可使用 `bash scripts/deploy.sh`。两者必须通过 lint、类型检查、完整测试、构建、预算、PWA 和 E2E，复用制品内的服务端脚本；不覆盖服务器的独立脚本。部署前校验完整 SHA、缓存版本、原生模块与数据库结构，随后备份、冒烟、原子切换、核验健康和运行版本。下文手工步骤仅用于首次建站与特殊运维。
 - 推荐 Node.js 22 LTS，并在部署前以 `package.json` 和 Nuxt 当前版本的 engines 要求复核；pnpm 使用仓库声明的 10.28.1 版本。
 - 应用进程使用独立低权限 Linux 用户运行，不使用 root；Nginx 只读静态文件和公开上传目录。
 - SQLite 只由一个 `yeu.service` 实例写入，禁止 PM2、cluster 或多实例并发。扩展为多实例前先迁移到服务型数据库。
@@ -304,11 +304,11 @@ curl -sSI https://example.edu.cn/api/admin/auth/session | grep -Ei 'cache-contro
 1. 拉取固定 commit，记录 commit SHA；
 2. `pnpm install --frozen-lockfile`，执行 lint、typecheck、test、build；
 3. 创建 SQLite 在线一致性备份并验证；
-4. 在与生产数据结构兼容的环境演练迁移；
-5. 运行只向前的生产迁移；
+4. 用候选制品执行数据库结构只读检查；缺列或约束不兼容时停止发布，单独演练迁移；
+5. 仅在明确批准的维护窗口执行经过演练的迁移；自动发布不改结构或迁移账本；
 6. 原子切换 `current` 软链接，`sudo systemctl restart yeu.service`；
-7. 执行健康检查和核心路径冒烟测试；
-8. 保留至少前两个可运行 release，再按策略清理旧版本。
+7. 核验健康、核心路径和 `/version.json` 的完整提交号与 release；
+8. 保留至少四个近期 release、当前与回滚版本及关联备份；脚本只生成保留计划，历史清理由明确批准的维护操作执行。
 
 备份和迁移演练完成后，实际迁移、构建、切换和重启应显式复用 shared 环境。例如（时间戳按本次 release 调整）：
 
@@ -363,6 +363,22 @@ pnpm db:backup \
 ```
 
 该命令使用 SQLite online backup API，先写同目录临时文件，验证 `integrity_check`、`foreign_key_check`、文件大小和 SHA-256 后再原子改名，并生成同名 `.json` 元数据。它拒绝覆盖已有文件以及写入 `public/`、`.output/public/`、`storage/uploads/`。备份与元数据随后可作为同一归档加密压缩；压缩后还应记录归档自身哈希。
+
+制品附带 `deploy/release-tools.mjs`，无需生产安装 pnpm。设置 `YEU_NODE` 为目标 Node 路径，`YEU_BASE` 为应用根目录，`YEU_CANDIDATE` 为候选 release 目录，再使用以下检查：
+
+```bash
+TOOLS="$YEU_CANDIDATE/.output/deploy/release-tools.mjs"
+MIGRATIONS="$YEU_CANDIDATE/.output/deploy/migrations"
+"$YEU_NODE" "$TOOLS" db-check "$YEU_BASE/shared/data/yeu.sqlite" "$MIGRATIONS"
+"$YEU_NODE" "$TOOLS" backup-verify "$BACKUP_FILE"
+"$YEU_NODE" "$TOOLS" retention-plan "$YEU_BASE" 4
+```
+
+`db-check` 只读核对业务表、列、默认值、唯一约束、外键、FTS 分词器与已有迁移哈希。`pendingLedger` 大于零且结构检查通过，表示结构与制品一致，但账本仍缺记录；不能直接重放历史 SQL。`db-baseline` 只补齐已验证的手工迁移记录，`db-migrate` 只执行向前且保留旧结构兼容性的迁移；两者均是生产写操作，必须先备份、在副本上演练并取得明确批准。它们不由自动发布调用。
+
+`backup-verify` 恢复到独立私有临时目录，核对源与恢复文件 SHA-256、完整性和外键，完成后删除本次临时副本。返回的耗时只代表数据库副本恢复验证，不能代替应用恢复的 RTO。`retention-plan` 保护近期、当前、回滚和关联备份，只列候选文件；必须先完成异机副本校验和恢复验证，再确认具体清理清单。不得清理其他项目共用的部署根目录。
+
+已有异机 SSH 备份目录时，可将已完成的加密归档同步过去，例如 `rsync --checksum --partial --protect-args "$ENCRYPTED_ARCHIVE" "$BACKUP_DESTINATION/"`。同步后在目标机器核对归档 SHA-256，并从异机归档执行隔离恢复。没有真实目的地、远端哈希和恢复结果时，异机备份仍是待完成项。
 
 保留建议：最近 7 个每日、4 个每周、6 个每月版本；本机备份之外至少有一份异机/对象存储加密副本。备份任务失败必须通知，不能只依赖宝塔显示“计划任务已执行”。
 

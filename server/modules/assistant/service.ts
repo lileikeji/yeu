@@ -429,7 +429,7 @@ const MAX_MCP_CONCURRENCY = 2
 // 会变，缓存必须整体失效（否则线上继续发旧口径的分数）。
 // v56: 上一版（v55）先上线、比赛归一的读取方与学术类默认档位后修，导致 v55 的答案
 // 缓存里存着一批"未识别到项目"的比赛答案且会被缓存短路（预热根本轮不到执行）。
-const ASSISTANT_CACHE_VERSION = 'rag-v79-hijack-fix'
+const ASSISTANT_CACHE_VERSION = 'rag-v80-release-gates'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 /** Build the vector-channel embedding config from assistant runtime config. */
 export function assistantEmbeddingConfig(config: AssistantConfig): EmbeddingConfig {

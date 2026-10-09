@@ -128,6 +128,11 @@ const mobileSheetDragStartHeight = ref(0)
 const mobileSheetDragging = ref(false)
 const sidebarCollapsed = ref(false)
 const displaySettingsOpen = ref(false)
+
+function toggleDisplaySettings(): void {
+  displaySettingsOpen.value = !displaySettingsOpen.value
+  if (displaySettingsOpen.value) mobileSheetState.value = 'collapsed'
+}
 const mapBaseStyle = ref<MapBaseStyle>('standard')
 const mapDisplayOptions = ref<MapDisplayOptions>({ ...defaultMapDisplayOptions })
 const mobileSheetHeightClass = computed(() => resolveMobileSheetHeightClass(mobileSheetState.value))
@@ -1055,7 +1060,7 @@ onBeforeUnmount(() => {
               :class="displaySettingsOpen ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300' : ''"
               aria-label="地图显示设置"
               :aria-expanded="displaySettingsOpen"
-              @click="() => { displaySettingsOpen = !displaySettingsOpen }"
+              @click="toggleDisplaySettings"
             />
           </UTooltip>
           <UTooltip text="显示全部地点">
@@ -1243,7 +1248,7 @@ onBeforeUnmount(() => {
 
       <div
         v-if="mapViewMode === 'geographic' && mapStatus !== 'ready'"
-        class="absolute inset-0 z-40 grid place-items-start p-4 pt-32 text-center md:place-items-center md:p-6"
+        class="absolute inset-0 z-10 grid place-items-start p-4 pt-32 text-center md:place-items-center md:p-6"
         :class="mapStatus === 'loading' ? 'pointer-events-auto bg-[#e5ebe7] dark:bg-[#1c231e]/95' : 'pointer-events-none'"
         :role="mapStatus === 'loading' ? 'status' : 'alert'"
       >

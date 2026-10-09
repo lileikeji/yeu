@@ -1,47 +1,34 @@
 version: "1.0"
 name: 生产部署
-displayName: 生产部署（push main 云端构建 → 服务器部署）
+displayName: 个人仓库生产部署（push master → 质量检查 → 服务器部署）
 # 使用前提（Gitee 仓库控制台一次性配置，约 10 分钟）：
-# 1. 仓库「流水线」页开通流水线（免费版每月 1000 核分；本流水线构建约 8-15 分钟/次）。
+# 1. 个人仓库 lilei1529/yeu 开通流水线；配额以账户控制台为准。
 # 2. 「主机管理」新建主机组（建议名称 ***REMOVED***），加入生产服务器并配置 SSH 凭据，
 #    把下方 hostGroupID 的 ID 替换为主机组实际标识。
 # 构建发生在 Gitee 云端环境，不占用生产服务器资源；服务器只执行部署脚本。
 stages:
 - name: 构建
-  displayName: 云端构建（测试 + 构建，不碰服务器）
+  displayName: 云端完整质量检查与构建
   strategy: naturally
   trigger: auto
   steps:
   - step: build@nodejs
     name: build-and-test
-    displayName: 安装/测试/构建
+    displayName: 安装/质量检查/制品核验
     nodeVersion: "20.10.0"
     commands:
     # Gitee Go 的 nodejs step 版本枚举最高只到 20，而 engines 要求 >=22 <25——
     # 自行解压 Node 22 官方二进制（v22.20.0 满足依赖的 ^22.19.0），PATH 前置覆盖。
-    # Gitee step 的 commands 行间失败不中断（实测），所以关键链必须 && 串成一行短路。
-    - curl -fsSL https://nodejs.org/dist/v22.20.0/node-v22.20.0-linux-x64.tar.gz -o /tmp/node22.tar.gz && mkdir -p /opt/node22 && tar -xzf /tmp/node22.tar.gz -C /opt/node22 --strip-components=1 && export PATH=/opt/node22/bin:$PATH && node -v && npm i -g pnpm@10 && pnpm install --frozen-lockfile && pnpm test && export NODE_OPTIONS=--max-old-space-size=3072 && pnpm build && test -f .output/server/index.mjs && git rev-parse HEAD > build-sha.txt && tar -czhf yeu-release.tar.gz .output build-sha.txt scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh
+    # Gitee step 的 commands 行间失败不中断（实测），关键链在严格失败退出的单个脚本内执行。
+    - timeout 45m bash scripts/ci-build.sh
     artifacts:
     - name: RELEASE
       path:
       - yeu-release.tar.gz
       type: .tar.gz
     caches:
-    - "~/.local/share/pnpm"
-    - "~/.npm"
-    strategy:
-      retry: "0"
-      resource:
-        cpu: "2"
-        memory: "4"
-  - step: build@nodejs
-    name: typecheck
-    displayName: 全量类型检查（与构建并行）
-    nodeVersion: "20.10.0"
-    commands:
-    - curl -fsSL https://nodejs.org/dist/v22.20.0/node-v22.20.0-linux-x64.tar.gz -o /tmp/node22.tar.gz && mkdir -p /opt/node22 && tar -xzf /tmp/node22.tar.gz -C /opt/node22 --strip-components=1 && export PATH=/opt/node22/bin:$PATH && node -v && npm i -g pnpm@10 && pnpm install --frozen-lockfile && export NODE_OPTIONS=--max-old-space-size=3072 && pnpm typecheck
-    caches:
-    - "~/.local/share/pnpm"
+    - "~/.cache/yeu-ci"
+    - "~/.cache/ms-playwright"
     - "~/.npm"
     strategy:
       retry: "0"
@@ -58,7 +45,7 @@ stages:
     displayName: 部署到生产服务器
     deployArtifact:
     - name: release
-      target: /root/gitee-deploy/
+      target: /root/gitee-deploy/yeu/incoming/{GITEE_PIPELINE_BUILD_NUMBER}/
       source: build
       dependArtifact: RELEASE
       artifactRepository: default
@@ -66,24 +53,45 @@ stages:
       artifactVersion: latest
     script: |-
       set -euo pipefail
-      mkdir -p /root/gitee-deploy
-      exec 9>/root/gitee-deploy/deploy.lock
-      flock 9
-      WORK_DIR="$(mktemp -d /root/gitee-deploy/run.XXXXXX)"
+      : "${GITEE_PIPELINE_BUILD_NUMBER:?缺少构建号}"
+      : "${GITEE_COMMIT:?缺少完整提交号}"
+      [[ "$GITEE_PIPELINE_BUILD_NUMBER" =~ ^[0-9]+$ ]]
+      [[ "$GITEE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+      [[ "$GITEE_REPO" == "lilei1529/yeu" && "$GITEE_BRANCH" == "master" ]]
+      mkdir -p /root/gitee-deploy/yeu
+      INCOMING="/root/gitee-deploy/yeu/incoming/$GITEE_PIPELINE_BUILD_NUMBER"
+      TRANSFER_VALID=0
+      WORK_DIR="$(mktemp -d /root/gitee-deploy/yeu/run.XXXXXX)"
+      cleanup() {
+        [[ "$WORK_DIR" == /root/gitee-deploy/yeu/run.* ]] && rm -rf -- "$WORK_DIR"
+        if [[ "$TRANSFER_VALID" == "1" ]]; then
+          rm -f -- "$INCOMING/release.tar.gz"
+          rmdir -- "$INCOMING" 2>/dev/null || true
+        fi
+      }
+      trap cleanup EXIT
       # Gitee 制品机制会把 artifacts.path 声明的文件再包一层 tar（同 dianzi 首跑踩坑）：
       # release.tar.gz 解开后是构建命令产出的 yeu-release.tar.gz，需解两层
-      tar zxf /root/gitee-deploy/release.tar.gz -C "$WORK_DIR"
+      tar zxf "$INCOMING/release.tar.gz" -C "$WORK_DIR"
       INNER="$(find "$WORK_DIR" -name 'yeu-release.tar.gz' -print -quit)"
       test -s "$INNER"
       tar zxf "$INNER" -C "$WORK_DIR"
       # 提交号一致性：制品内 build-sha 必须等于本次流水线触发的提交
       BUILD_SHA="$(cat "$WORK_DIR/build-sha.txt")"
       [[ "$BUILD_SHA" =~ ^[0-9a-f]{40}$ ]]
-      [[ -z "${GITEE_SHORT_COMMIT:-}" || "$BUILD_SHA" == "$GITEE_SHORT_COMMIT"* ]]
+      [[ "$BUILD_SHA" == "$GITEE_COMMIT" ]]
+      TRANSFER_VALID=1
+      MODE="$(cat "$WORK_DIR/release-mode.txt")"
+      if [[ "$MODE" == "docs-only" ]]; then
+        echo "纯文档制品：未备份数据库、未切换 release、未重启服务"
+        exit 0
+      fi
+      [[ "$MODE" == "deploy" ]]
       test -f "$WORK_DIR/.output/server/index.mjs"
       test -f "$WORK_DIR/scripts/server-side-deploy.sh"
       # 复用与本地 deploy.sh 相同的服务端脚本（备份/冒烟/切换/回滚/标记）
-      RELEASE_ID="$(date +%Y%m%d)-${GITEE_SHORT_COMMIT:-manual}"
+      RELEASE_ID="$(cat "$WORK_DIR/release-id.txt")"
+      [[ "$RELEASE_ID" =~ ^[0-9]{8}-[a-z0-9-]+$ ]]
       ARCHIVE="$WORK_DIR/release-bundle.tar.gz"
       tar -czf "$ARCHIVE" -C "$WORK_DIR" .output
       RELEASE_ID="$RELEASE_ID" DEPLOY_SHA="$BUILD_SHA" \

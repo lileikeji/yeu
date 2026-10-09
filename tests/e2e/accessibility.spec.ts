@@ -73,7 +73,11 @@ test.beforeEach(async ({ page }) => {
 for (const auditPage of auditPages) {
   test(`${auditPage.name}没有严重或阻断级自动无障碍问题`, async ({ page }, testInfo) => {
     await page.goto(auditPage.path)
-    await expect(page.getByRole('heading', { level: 1, name: auditPage.heading })).toBeVisible()
+    if (auditPage.path === '/map') {
+      await expect(page.getByLabel('搜索地图地点')).toBeVisible()
+    } else {
+      await expect(page.getByRole('heading', { level: 1, name: auditPage.heading })).toBeVisible()
+    }
     if (auditPage.path === '/') await dismissIntroIfShown(page)
     await auditAccessibility(page, testInfo)
   })

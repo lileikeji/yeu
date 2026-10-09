@@ -20,7 +20,7 @@ function copyBinary(): { copied: string | null, reason?: string } {
   try {
     const loadablePath = sqliteVec.getLoadablePath()
     const sourcePackageDir = dirname(loadablePath)
-    const outputNodeModules = resolve(process.cwd(), '.output', 'server', 'node_modules')
+    const outputNodeModules = resolve(process.cwd(), process.env.NUXT_OUTPUT_DIR || '.output', 'server', 'node_modules')
     const targetPackageDir = join(outputNodeModules, basename(sourcePackageDir))
     mkdirSync(targetPackageDir, { recursive: true })
     let copied = 0

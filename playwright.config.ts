@@ -39,6 +39,8 @@ export default defineConfig({
       NUXT_DATABASE_PATH: resolve(process.cwd(), '.data', 'e2e.sqlite'),
       NUXT_PUBLIC_SITE_URL: baseURL,
       NUXT_PUBLIC_MAP_PROVIDER: 'maplibre-dev',
+      NUXT_AI_GATEWAY_BASE_URL: '',
+      NUXT_AI_GATEWAY_API_KEY: '',
       NUXT_ADMIN_SESSION_SECRET: 'e2e-only-session-secret-not-for-production'
     }
   },

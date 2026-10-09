@@ -19,7 +19,7 @@
 - AI 检索：向量索引（sqlite-vec）+ 网关 LLM，答案缓存两层（表 + 进程内存），改检索/算分逻辑必须 bump `ASSISTANT_CACHE_VERSION`（`server/modules/assistant/service.ts`）
 - 地图：MapLibre/OSM 开发预览，生产高德 JS API 2.0；provider 抽象在 `map/`
 - 部署：宝塔 Linux + **systemd `yeu.service`**（端口 3000，`EnvironmentFile=shared/.env`）+ Nginx；不是 PM2
-- CI/CD：Gitee Go 流水线（`.workflow/`），push `main` 云端构建并自动部署（见下文「发布」）
+- CI/CD：个人仓库 `lilei1529/yeu` 的 Gitee Go 流水线（`.workflow/`），push `master` 云端构建并自动部署（见下文「发布」）
 
 ## 本地启动
 
@@ -49,26 +49,25 @@ pnpm data:verify:local   # 前台公开内容 vs 后台可维护数据分叉检�
 
 ## 发布
 
-一键发布（本机 Git Bash）：
+生产优先使用个人仓库的 Gitee Go 云端流水线。以下命令仅供 Linux 构建环境使用；Windows 可以执行 dry-run，不能上传 Windows 原生模块到 Linux 生产服务器：
 
 ```bash
 bash scripts/deploy.sh              # 全量闸门：测试 → 构建 → 制品核验 → 上传 → 服务器部署
-bash scripts/deploy.sh --no-test    # 跳过测试（输出会显式提示；仅紧急修复用）
 bash scripts/deploy.sh --dry-run    # 只跑闸门与构建，不上传不部署
 ```
 
 脚本强制执行以下检查（历史上每个都真实出过事故）：
 
-1. **工作区必须干净**：存在未提交改动时拒绝发布——线上必须能对应到一个 commit（`--allow-dirty` 逃生口会显式打警告）。当前若被拦下，先把工作区改动提交（2026-10 对账：miniapp/recruit/assistant 等 90+ 文件的代码尚未入库，见 [docs/RESTRUCTURE_PLAN_2026-10-05.md](docs/RESTRUCTURE_PLAN_2026-10-05.md) P4）。
-2. **改过检索/算分必须 bump 缓存版本**：脚本检测 `server/modules/assistant/` 相关改动而 `ASSISTANT_CACHE_VERSION` 未变时要求确认——同版本号会让线上继续发旧答案（缓存有表 + 进程内存两层）。
-3. **测试全绿**：`pnpm test` 失败即停。
+1. **工作区必须干净**：存在未提交改动时拒绝发布；只提交本次任务相关文件，不能用参数绕过。
+2. **改过检索/算分必须 bump 缓存版本**：服务端对比当前已部署制品与候选制品的检索源码摘要和缓存版本。首次从无摘要的旧 release 升级，必须 bump 缓存版本。
+3. **质量检查全绿**：lint、类型检查、完整测试、构建预算、PWA 和 E2E 任一失败即停。
 4. **构建 exit code 必须为 0**：OOM 时 pnpm 只打 `ELIFECYCLE` 不显式报错，必须显式核对。
 5. **tar 包大小与时间戳必须与上一次不同**：完全相同 = 打的是旧产物（hijack-fix2 坏发布事故）。
-6. 服务器端由 `scripts/server-side-deploy.sh` 接管：解包暂存校验 → DB 备份 → 冒烟 → 原子切换 → 健康检查（失败自动回滚 symlink）→ 写 `releases/DEPLOYED-<sha>-<ts>.txt` 部署标记。
+6. 服务器端由 `scripts/server-side-deploy.sh` 接管：空间检查 → 制品提交、Node ABI 和原生模块校验 → 数据库结构只读检查 → DB 备份 → 隔离库冒烟 → 原子切换 → 健康和 `/version.json` 检查（失败恢复旧 symlink 并检查服务）→ 写部署标记。自动发布不迁移生产数据库；缺列时按 [部署文档](docs/DEPLOYMENT.md) 单独处理。
 
-服务器 `/www/wwwroot/yeu/` 布局：`releases/<id>`（保留最近 3 个）+ `current` 软链 + `shared/.env` + `shared/data/yeu.sqlite`。**不在 `current` 内 git pull；每次用新时间戳 release；不删同名 release 重部署；动生产库前先备份。**
+服务器布局：`releases/<id>` + `current` 软链 + `shared/.env` + `shared/data/yeu.sqlite`。发布脚本保留历史 release 和备份；维护时先核对清单、当前与回滚版本及异机备份。**不在 `current` 内 git pull；每次用新时间戳和随机后缀 release；不删同名 release 重部署；动生产库前先备份。**
 
-CI/CD（Gitee Go 流水线）：push `main` 触发云端构建（pnpm install + test + build 在 Gitee 构建环境执行，不占服务器资源；免费版每月 1000 核分）→ 制品下发服务器 → 校验提交号一致 → 复用同一份 `scripts/server-side-deploy.sh` 部署。配置见 `.workflow/流水线-20261009.yml`。
+CI/CD（Gitee Go 流水线）：push `master` 触发 `scripts/ci-build.sh`，固定 Node 22.20.0 / pnpm 10.28.1，显式缓存 pnpm store。类型检查、全量测试、构建、原生模块、PWA 和 E2E 通过后，将 Linux 制品下发到按构建号隔离的目录，强制比较完整提交号，再执行服务端脚本。release 名包含日期时间、构建号、提交号和随机后缀。相对当前生产提交只有文档变更时，发送跳过描述文件，不备份、不切换、不重启。无法确定基线时执行完整流程。全仓库 lint 和包体预算仍可通过 `pnpm check` 独立检查。配置见 `.workflow/流水线-20261009.yml`。
 
 生产排障顺序与历史事故记录见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 与部署纪要；AI 检索排查（网关限流、缓存两层、探针方法）见 [docs/ADMIN_RUNBOOK.md](docs/ADMIN_RUNBOOK.md)。
 

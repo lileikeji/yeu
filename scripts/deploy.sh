@@ -3,27 +3,20 @@
 # 服务器端动作见 scripts/server-side-deploy.sh（与 Gitee 流水线共用同一份）。
 # 用法：
 #   bash scripts/deploy.sh                  # 全量闸门 + 部署
-#   bash scripts/deploy.sh --slug <name>    # release 标识为 <YYYYMMDD>-<name>（默认用短 sha）
+#   bash scripts/deploy.sh --slug <name>    # release 使用日期、名称、时间和随机后缀
 #   bash scripts/deploy.sh --dry-run        # 只跑闸门与构建，不上传不部署
-#   bash scripts/deploy.sh --no-test        # 跳过 pnpm test（输出显式提示；仅紧急修复）
-#   bash scripts/deploy.sh --allow-dirty    # 允许未提交改动发布（显式警告；正常流程禁止）
+# 生产制品必须在 Linux 构建；Windows 使用 Gitee 云端流水线。
 # 服务器与路径可用环境变量覆盖：DEPLOY_SERVER / YEU_BASE / SSH_KEY
 set -euo pipefail
 
-DO_TEST=1
 DO_DEPLOY=1
-ALLOW_DIRTY=0
-CACHE_ACKED=0
 SLUG=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --no-test) DO_TEST=0; shift ;;
     --dry-run) DO_DEPLOY=0; shift ;;
-    --allow-dirty) ALLOW_DIRTY=1; shift ;;
-    --cache-version-acked) CACHE_ACKED=1; shift ;;
     --slug) [ $# -ge 2 ] || { echo "--slug 需要名称参数" >&2; exit 1; }; SLUG="$2"; shift 2 ;;
     --slug=*) SLUG="${1#--slug=}"; shift ;;
-    *) echo "未知参数：$1（支持 --slug <name> / --dry-run / --no-test / --allow-dirty / --cache-version-acked）" >&2; exit 1 ;;
+    *) echo "未知参数：$1（支持 --slug <name> / --dry-run）" >&2; exit 1 ;;
   esac
 done
 
@@ -36,53 +29,31 @@ cd "$ROOT"
 echo "==> [1/7] Git 基线检查"
 SHA="$(git rev-parse HEAD)"
 if [ -n "$(git status --porcelain)" ]; then
-  if [ "$ALLOW_DIRTY" = "1" ]; then
-    echo "警告：工作区有未提交改动，本次制品无法对应到任何 commit（--allow-dirty）" >&2
-    echo "改动预览：" >&2
-    git status --porcelain | head -20 >&2
-    sleep 3
-  else
     echo "拒绝发布：工作区有未提交改动。线上必须能对应到一个 commit。" >&2
-    echo "先提交改动（git add -A && git commit），或确认理解风险后用 --allow-dirty。" >&2
+    echo "请先明确提交本次相关改动，再发布。" >&2
     git status --porcelain | head -20 >&2
     exit 1
-  fi
 fi
 echo "    commit=$SHA"
+if [[ "$DO_DEPLOY" == "1" && "$(node -p 'process.platform')" != "linux" ]]; then
+  echo "生产发布需要 Linux 制品。请使用个人仓库的 Gitee 云端流水线。" >&2
+  exit 1
+fi
 
 echo "==> [2/7] 检索缓存版本检查"
-SERVICE="server/modules/assistant/service.ts"
-CUR_CACHE="$(sed -n "s/^const ASSISTANT_CACHE_VERSION = '\([^']*\)'.*/\1/p" "$SERVICE" || true)"
-HEAD_CACHE="$(git show "HEAD:$SERVICE" 2>/dev/null | sed -n "s/^const ASSISTANT_CACHE_VERSION = '\([^']*\)'.*/\1/p" || true)"
-TOUCHED_RETRIEVAL="$(git diff --name-only HEAD -- server/modules/assistant server/api/public/assistant server/api/public/assistant.stream.post.ts server/utils/assistant-config.ts shared/utils/assistant-query.ts 2>/dev/null | wc -l)"
-if [ "$TOUCHED_RETRIEVAL" -gt 0 ] && [ -n "$CUR_CACHE" ] && [ "$CUR_CACHE" = "$HEAD_CACHE" ]; then
-  if [ "$CACHE_ACKED" = "1" ]; then
-    echo "    已确认缓存版本无需 bump（--cache-version-acked）：$CUR_CACHE"
-  elif [ -t 0 ]; then
-    echo "检测到检索/算分相关文件改动，但 ASSISTANT_CACHE_VERSION 未变（当前 $CUR_CACHE）。" >&2
-    echo "同版本号会让线上两层缓存（表+进程内存）继续发旧答案。确认已 bump 或确属无需 bump：" >&2
-    read -r -p "输入 yes 继续：" ack
-    [ "$ack" = "yes" ] || { echo "已中止。改 $SERVICE 的 ASSISTANT_CACHE_VERSION 后重试。" >&2; exit 1; }
-  else
-    echo "拒绝发布：检索/算分相关文件有改动但 ASSISTANT_CACHE_VERSION 未变（$CUR_CACHE），且当前非交互环境无法确认。" >&2
-    echo "改 $SERVICE bump 版本号后重试；确属无需 bump 时加 --cache-version-acked。" >&2
-    exit 1
-  fi
-else
-  echo "    ASSISTANT_CACHE_VERSION=$CUR_CACHE（无检索改动或已 bump）"
-fi
-
-if [ "$DO_TEST" = "1" ]; then
-  echo "==> [3/7] 全量测试（pnpm test）"
-  pnpm test
-else
-  echo "==> [3/7] 跳过测试（--no-test；仅紧急修复可用，发布纪要必须注明）"
-fi
+echo "    服务端以当前已部署 release 的摘要核验缓存版本，不能绕过。"
+echo "==> [3/7] 全量质量检查"
+pnpm lint
+pnpm typecheck
+pnpm test
 
 echo "==> [4/7] 构建（pnpm build）"
 BUILD_LOG="$(mktemp /tmp/yeu-build-XXXXXX.log)"
-if ! pnpm build >"$BUILD_LOG" 2>&1; then
-  BUILD_EXIT=$?
+BUILD_START="$(mktemp /tmp/yeu-build-start-XXXXXX)"
+trap 'rm -f "$BUILD_START"' EXIT
+BUILD_EXIT=0
+pnpm build >"$BUILD_LOG" 2>&1 || BUILD_EXIT=$?
+if [[ "$BUILD_EXIT" != "0" ]]; then
   echo "构建失败：BUILD_EXIT=$BUILD_EXIT（注意 OOM 时 pnpm 只打 ELIFECYCLE，看日志尾部确认）" >&2
   tail -40 "$BUILD_LOG" >&2
   exit 1
@@ -90,16 +61,23 @@ fi
 grep -q "ELIFECYCLE" "$BUILD_LOG" && { echo "构建日志含 ELIFECYCLE，疑似失败但 exit code 为 0，人工检查：$BUILD_LOG" >&2; exit 1; }
 rm -f "$BUILD_LOG"
 test -f .output/server/index.mjs || { echo "构建产物缺失 .output/server/index.mjs" >&2; exit 1; }
+test .output/server/index.mjs -nt "$BUILD_START" || { echo "构建入口未刷新，拒绝旧产物" >&2; exit 1; }
 echo "    BUILD_EXIT=0"
-
-echo "==> [5/7] 打包与制品核验"
 DEPLOY_TS="$(date +%Y%m%d-%H%M%S)"
 DATE_PART="$(date +%Y%m%d)"
 if [ -n "$SLUG" ]; then
-  RELEASE_ID="$DATE_PART-$(echo "$SLUG" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | sed 's/-*$//')"
+  [[ "$SLUG" =~ ^[a-z0-9-]+$ ]] || { echo "slug 只能使用小写字母、数字和连字符" >&2; exit 1; }
+  RELEASE_ID="$DATE_PART-$SLUG-$(date +%H%M%S)-$(openssl rand -hex 4)"
 else
-  RELEASE_ID="$DATE_PART-$(git rev-parse --short HEAD)"
+  RELEASE_ID="$DATE_PART-$(git rev-parse --short HEAD)-$(date +%H%M%S)-$(openssl rand -hex 4)"
 fi
+node scripts/release-tools.mjs create .output "$RELEASE_ID" "$SHA"
+node scripts/release-tools.mjs native .output
+pnpm bundle:budget
+pnpm pwa:build:test
+pnpm e2e:run
+
+echo "==> [5/7] 打包与制品核验"
 ARCHIVE="$ROOT/yeu-dist-$RELEASE_ID.tar.gz"
 tar -czhf "$ARCHIVE" .output
 SIZE="$(stat -c%s "$ARCHIVE")"
@@ -125,13 +103,13 @@ fi
 
 echo "==> [6/7] 上传制品与部署脚本"
 SSH_OPTS=(-i "$SSH_KEY" -o ConnectTimeout=15)
-ssh "${SSH_OPTS[@]}" "$DEPLOY_SERVER" "mkdir -p $REMOTE_STAGE"
-scp "${SSH_OPTS[@]}" "$ARCHIVE" "$DEPLOY_SERVER:$REMOTE_STAGE/yeu-dist.tar.gz"
-scp "${SSH_OPTS[@]}" scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh "$DEPLOY_SERVER:$REMOTE_STAGE/"
-rm -f "$ARCHIVE"
+RUN_STAGE="$REMOTE_STAGE/$RELEASE_ID"
+ssh "${SSH_OPTS[@]}" "$DEPLOY_SERVER" "mkdir -p '$RUN_STAGE'"
+scp "${SSH_OPTS[@]}" "$ARCHIVE" "$DEPLOY_SERVER:$RUN_STAGE/yeu-dist.tar.gz"
+scp "${SSH_OPTS[@]}" scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh "$DEPLOY_SERVER:$RUN_STAGE/"
 
 echo "==> [7/7] 服务器部署"
 ssh "${SSH_OPTS[@]}" "$DEPLOY_SERVER" \
-  "RELEASE_ID='$RELEASE_ID' DEPLOY_SHA='$SHA' DEPLOY_TS='$DEPLOY_TS' ARCHIVE='$REMOTE_STAGE/yeu-dist.tar.gz' bash $REMOTE_STAGE/server-side-deploy.sh"
+  "RELEASE_ID='$RELEASE_ID' DEPLOY_SHA='$SHA' DEPLOY_TS='$DEPLOY_TS' ARCHIVE='$RUN_STAGE/yeu-dist.tar.gz' bash '$RUN_STAGE/server-side-deploy.sh'"
 echo ""
 echo "发布纪要：发布后按惯例在 docs/DEPLOY_NOTES_2026-09-04-qa-cards.md 追加本次 release 一节。"
