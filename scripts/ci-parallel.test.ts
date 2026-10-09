@@ -83,7 +83,11 @@ function exercise(scenario: string) {
     }).status === 0
     const groupIds = readFileSync(groups, 'utf8').trim().split('\n')
     assert.ok(groupIds.every(pid => /^[1-9]\d*$/.test(pid)))
-    const groupsStopped = groupIds.every(pid => spawnSync(bash, ['-c', 'for attempt in {1..40}; do ! kill -0 -- "-$OWNED_GROUP" 2>/dev/null && exit 0; sleep 0.05; done; exit 1'], {
+    // Container PID 1 may retain dead grandchildren as zombies; reject every live member.
+    const stopped = process.platform === 'win32'
+      ? '! kill -0 -- "-$OWNED_GROUP" 2>/dev/null'
+      : 'ps -eo pgid=,stat= | awk -v group="$OWNED_GROUP" \'$1 == group && $2 !~ /^Z/ { live = 1 } END { exit live ? 1 : 0 }\''
+    const groupsStopped = groupIds.every(pid => spawnSync(bash, ['-c', 'for attempt in {1..40}; do ' + stopped + ' && exit 0; sleep 0.05; done; exit 1'], {
       env: { ...env, OWNED_GROUP: pid }, timeout: 5000
     }).status === 0)
     return {
