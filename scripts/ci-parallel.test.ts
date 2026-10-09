@@ -33,17 +33,19 @@ function exercise(scenario: string) {
     '    while [[ ! -f "$TEST_STARTED" ]]; do sleep 0.01; done',
     '    case "$SCENARIO" in',
     '      type-fail) return 41 ;;',
+    '      term-resistant) return 44 ;;',
     '      test-fail) sleep 20; touch "$LATE_FILE" ;;',
     '      late-type-fail) sleep 1; return 43 ;;',
     '      success) sleep 0.2 ;;',
     '    esac ;;',
     '  exec)',
     '    printf "%s\\n" "$BASHPID" >> "$GROUPS_FILE"',
+    '    [[ "$SCENARIO" != term-resistant ]] || trap "" TERM',
     '    touch "$TEST_STARTED"',
     '    while [[ ! -f "$TYPE_STARTED" ]]; do sleep 0.01; done',
     '    case "$SCENARIO" in',
     '      test-fail) return 42 ;;',
-    '      type-fail) sleep 20; touch "$LATE_FILE" ;;',
+    '      type-fail|term-resistant) sleep 20; touch "$LATE_FILE" ;;',
     '      *) sleep 0.1 ;;',
     '    esac ;;',
     '  build)',
@@ -107,7 +109,7 @@ function exercise(scenario: string) {
   }
 }
 
-for (const [scenario, code] of [['type-fail', 41], ['test-fail', 42], ['late-type-fail', 43]] as const) {
+for (const [scenario, code] of [['type-fail', 41], ['test-fail', 42], ['late-type-fail', 43], ['term-resistant', 44]] as const) {
   test('并行 ' + scenario + '：停止另一支及其子进程，不生成发布包', () => {
     const r = exercise(scenario)
     assert.equal(r.status, code, r.output)

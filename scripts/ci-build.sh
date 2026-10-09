@@ -31,6 +31,11 @@ cleanup() {
   for pid in "$type_pid" "$build_pid"; do
     [[ -z "$pid" ]] || kill -TERM -- "-$pid" 2>/dev/null || true
   done
+  # A child can fork during TERM delivery, or ignore TERM; bound cancellation.
+  sleep 0.5
+  for pid in "$type_pid" "$build_pid"; do
+    [[ -z "$pid" ]] || kill -KILL -- "-$pid" 2>/dev/null || true
+  done
   wait "$type_pid" "$build_pid" 2>/dev/null || true
   rm -f "$build_start"
   [[ "$types_dir" == "$types_root"/yeu-ci-types.* ]]
