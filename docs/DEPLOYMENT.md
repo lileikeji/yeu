@@ -303,6 +303,8 @@ curl -sSI https://example.edu.cn/api/admin/auth/session | grep -Ei 'cache-contro
 
 Gitee 制品插件的 `target` 不展开系统变量。流水线先下发到固定传输入口，再在文件锁内原子移入包含构建号的独占目录。解包后必须同时匹配完整提交号和 release 中的构建号；其他运行的制品即使提交号相同，也不能通过本次验收。
 
+云端依赖缓存统一位于 `~/.cache/yeu-ci`，包含固定版本的 Node、pnpm、`pnpm-store` 和 `npm/_prebuilds`。`npm_config_cache` 指向该目录内的 `npm`，避免 SQLite 原生预编译包落入未恢复的默认缓存。依赖安装失败最多重试一次，复用已下载内容；安装后必须实际加载 SQLite，失败即停止发布。
+
 1. 拉取固定 commit，记录 commit SHA；
 2. `pnpm install --frozen-lockfile`，执行 lint、typecheck、test、build；
 3. 创建 SQLite 在线一致性备份并验证；
