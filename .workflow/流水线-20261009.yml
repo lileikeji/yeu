@@ -43,7 +43,8 @@ stages:
     displayName: 部署到生产服务器
     deployArtifact:
     - name: release
-      target: /root/gitee-deploy/yeu/incoming/{GITEE_PIPELINE_BUILD_NUMBER}/
+      # deployArtifact.target 实测不展开系统变量；脚本再原子移入独占目录。
+      target: /root/gitee-deploy/yeu/incoming/
       source: build
       dependArtifact: RELEASE
       artifactRepository: default
@@ -56,8 +57,10 @@ stages:
       [[ "$GITEE_PIPELINE_BUILD_NUMBER" =~ ^[0-9]+$ ]]
       [[ "$GITEE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
       [[ "$GITEE_REPO" == "lilei1529/yeu" && "$GITEE_BRANCH" == "master" ]]
-      mkdir -p /root/gitee-deploy/yeu
-      INCOMING="/root/gitee-deploy/yeu/incoming/$GITEE_PIPELINE_BUILD_NUMBER"
+      mkdir -p /root/gitee-deploy/yeu/incoming
+      exec 9>/root/gitee-deploy/yeu/transfer.lock
+      flock -w 60 9
+      INCOMING="$(mktemp -d "/root/gitee-deploy/yeu/incoming/$GITEE_PIPELINE_BUILD_NUMBER.XXXXXX")"
       TRANSFER_VALID=0
       WORK_DIR="$(mktemp -d /root/gitee-deploy/yeu/run.XXXXXX)"
       cleanup() {
@@ -68,6 +71,8 @@ stages:
         fi
       }
       trap cleanup EXIT
+      test -s /root/gitee-deploy/yeu/incoming/release.tar.gz
+      mv -- /root/gitee-deploy/yeu/incoming/release.tar.gz "$INCOMING/release.tar.gz"
       # Gitee 制品机制会把 artifacts.path 声明的文件再包一层 tar（同 dianzi 首跑踩坑）：
       # release.tar.gz 解开后是构建命令产出的 yeu-release.tar.gz，需解两层
       tar zxf "$INCOMING/release.tar.gz" -C "$WORK_DIR"
@@ -78,7 +83,10 @@ stages:
       BUILD_SHA="$(cat "$WORK_DIR/build-sha.txt")"
       [[ "$BUILD_SHA" =~ ^[0-9a-f]{40}$ ]]
       [[ "$BUILD_SHA" == "$GITEE_COMMIT" ]]
+      RELEASE_ID="$(cat "$WORK_DIR/release-id.txt")"
+      [[ "$RELEASE_ID" =~ ^[0-9]{8}-[0-9]{6}-${GITEE_PIPELINE_BUILD_NUMBER}-${BUILD_SHA:0:12}-[0-9a-f]{8}$ ]]
       TRANSFER_VALID=1
+      flock -u 9
       MODE="$(cat "$WORK_DIR/release-mode.txt")"
       if [[ "$MODE" == "docs-only" ]]; then
         echo "纯文档制品：未备份数据库、未切换 release、未重启服务"
@@ -88,8 +96,6 @@ stages:
       test -f "$WORK_DIR/.output/server/index.mjs"
       test -f "$WORK_DIR/scripts/server-side-deploy.sh"
       # 复用与本地 deploy.sh 相同的服务端脚本（备份/冒烟/切换/回滚/标记）
-      RELEASE_ID="$(cat "$WORK_DIR/release-id.txt")"
-      [[ "$RELEASE_ID" =~ ^[0-9]{8}-[a-z0-9-]+$ ]]
       ARCHIVE="$WORK_DIR/release-bundle.tar.gz"
       tar -czf "$ARCHIVE" -C "$WORK_DIR" .output
       RELEASE_ID="$RELEASE_ID" DEPLOY_SHA="$BUILD_SHA" \

@@ -67,7 +67,7 @@ bash scripts/deploy.sh --dry-run    # 只跑闸门与构建，不上传不部署
 
 服务器布局：`releases/<id>` + `current` 软链 + `shared/.env` + `shared/data/yeu.sqlite`。发布脚本保留历史 release 和备份；维护时先核对清单、当前与回滚版本及异机备份。**不在 `current` 内 git pull；每次用新时间戳和随机后缀 release；不删同名 release 重部署；动生产库前先备份。**
 
-CI/CD（Gitee Go 流水线）：push `master` 触发 `scripts/ci-build.sh`，固定 Node 22.20.0 / pnpm 10.28.1，显式缓存 pnpm store。单次安装后，在 4 核 8G 任务中并行执行类型检查和全量测试/构建；类型检查使用独立目录，任一失败终止另一支。两支均通过且原生模块、PWA 验证通过后，将 Linux 制品下发到按构建号隔离的目录，强制比较完整提交号，再执行备份、冒烟、切换和健康/首页/版本验收。release 名包含日期时间、构建号、提交号和随机后缀。相对当前生产提交只有文档变更时，发送跳过描述文件，不备份、不切换、不重启。无法确定基线时执行完整流程。全仓库 lint、包体预算和完整浏览器回归可通过 `pnpm check:e2e` 独立执行。配置见 `.workflow/流水线-20261009.yml`。
+CI/CD（Gitee Go 流水线）：push `master` 触发 `scripts/ci-build.sh`，固定 Node 22.20.0 / pnpm 10.28.1，显式缓存 pnpm store。单次安装后，在 4 核 8G 任务中并行执行类型检查和全量测试/构建；类型检查使用独立目录，任一失败终止另一支。两支均通过且原生模块、PWA 验证通过后，将 Linux 制品下发到固定入口，在文件锁内原子移入按构建号建立的独占目录，强制比较完整提交号及 release 中的构建号，再执行备份、冒烟、切换和健康/首页/版本验收。release 名包含日期时间、构建号、提交号和随机后缀。相对当前生产提交只有文档变更时，发送跳过描述文件，不备份、不切换、不重启。无法确定基线时执行完整流程。全仓库 lint、包体预算和完整浏览器回归可通过 `pnpm check:e2e` 独立执行。配置见 `.workflow/流水线-20261009.yml`。
 
 生产排障顺序与历史事故记录见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) 与部署纪要；AI 检索排查（网关限流、缓存两层、探针方法）见 [docs/ADMIN_RUNBOOK.md](docs/ADMIN_RUNBOOK.md)。
 

@@ -301,6 +301,8 @@ curl -sSI https://example.edu.cn/api/admin/auth/session | grep -Ei 'cache-contro
 
 每次发布使用新的时间戳 release，不在 `current` 内 `git pull`。建议顺序：
 
+Gitee 制品插件的 `target` 不展开系统变量。流水线先下发到固定传输入口，再在文件锁内原子移入包含构建号的独占目录。解包后必须同时匹配完整提交号和 release 中的构建号；其他运行的制品即使提交号相同，也不能通过本次验收。
+
 1. 拉取固定 commit，记录 commit SHA；
 2. `pnpm install --frozen-lockfile`，执行 lint、typecheck、test、build；
 3. 创建 SQLite 在线一致性备份并验证；
