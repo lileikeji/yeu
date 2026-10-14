@@ -58,7 +58,7 @@ const form = ref<{
   updatedAt: number | null
 } | null>(null)
 const saving = ref(false)
-const activeSection = ref<'settings' | 'referrers' | 'template' | 'submissions' | 'export'>('settings')
+const activeSection = ref<'settings' | 'referrers' | 'template' | 'submissions' | 'stats' | 'export'>('settings')
 
 const uploadingTemplate = ref(false)
 const templateFileInput = ref<HTMLInputElement | null>(null)
@@ -93,6 +93,7 @@ const sections = [
   { key: 'referrers', label: '纳新人与邀请码', icon: 'i-lucide-user-plus' },
   { key: 'template', label: '申请表模板', icon: 'i-lucide-file-text' },
   { key: 'submissions', label: '提交记录', icon: 'i-lucide-inbox' },
+  { key: 'stats', label: '数据概览', icon: 'i-lucide-bar-chart-3' },
   { key: 'export', label: '总表导出', icon: 'i-lucide-table' }
 ] as const
 
@@ -389,6 +390,10 @@ async function loadSubmissions(): Promise<void> {
   } finally {
     loadingSubmissions.value = false
   }
+}
+
+async function loadSubmissionStats(): Promise<void> {
+  if (!selectedContentId.value) return
   try {
     submissionStats.value = await adminFetch<RecruitSubmissionStats>(
       `/api/admin/recruit/submissions/stats?contentId=${encodeURIComponent(selectedContentId.value)}`
@@ -398,22 +403,18 @@ async function loadSubmissions(): Promise<void> {
   }
 }
 
+watch(activeSection, (section) => {
+  if (section === 'stats') void loadSubmissionStats()
+})
+
 // -- 数据概览 ----------------------------------------------------------------
 
 const statsDaily = computed(() => submissionStats.value?.daily ?? [])
 const statsDepartments = computed(() => submissionStats.value?.departments ?? [])
+const statsClasses = computed(() => submissionStats.value?.classes ?? [])
 const maxDailyCount = computed(() => Math.max(1, ...statsDaily.value.map(day => day.count)))
 const maxDepartmentCount = computed(() => Math.max(1, ...statsDepartments.value.map(bucket => bucket.count)))
-const CLASS_TOP_LIMIT = 12
-const statsClassTop = computed(() => (submissionStats.value?.classes ?? []).slice(0, CLASS_TOP_LIMIT))
-const statsClassRest = computed(() => {
-  const rest = (submissionStats.value?.classes ?? []).slice(CLASS_TOP_LIMIT)
-  return {
-    count: rest.reduce((sum, bucket) => sum + bucket.count, 0),
-    kinds: rest.length
-  }
-})
-const maxClassCount = computed(() => Math.max(1, ...statsClassTop.value.map(bucket => bucket.count)))
+const maxClassCount = computed(() => Math.max(1, ...statsClasses.value.map(bucket => bucket.count)))
 
 function statBarWidth(count: number, max: number): string {
   return `${Math.max(2, Math.round((count / max) * 100))}%`
@@ -1425,91 +1426,6 @@ onMounted(async () => {
         v-show="activeSection === 'submissions'"
         class="space-y-4"
       >
-        <div
-          v-if="submissionStats"
-          class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-4"
-        >
-          <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-            <h3 class="text-sm font-semibold">
-              数据概览
-            </h3>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400">
-              总提交 {{ submissionStats.total }} 份 · 已确认缴费 {{ submissionStats.paidCount }} 份 · 缺关键信息 {{ submissionStats.missingCount }} 份
-            </span>
-          </div>
-          <div>
-            <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              每日提交
-            </p>
-            <div class="overflow-x-auto">
-              <div class="flex min-w-[560px] items-end gap-1 h-36">
-                <div
-                  v-for="day in statsDaily"
-                  :key="day.label"
-                  class="flex min-w-8 flex-1 flex-col items-center justify-end gap-1 h-full"
-                  :title="`${day.label}：${day.count} 份`"
-                >
-                  <span class="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">{{ day.count || '' }}</span>
-                  <div
-                    class="w-full max-w-8 rounded-t bg-primary-500/70"
-                    :style="{ height: `${Math.max(2, Math.round((day.count / maxDailyCount) * 100))}%` }"
-                  />
-                  <span class="text-[9px] whitespace-nowrap text-zinc-400">{{ day.label.slice(5) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="grid gap-6 md:grid-cols-2">
-            <div>
-              <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                意向部门分布
-              </p>
-              <div class="space-y-1.5">
-                <div
-                  v-for="bucket in statsDepartments"
-                  :key="bucket.label"
-                  class="flex items-center gap-2 text-xs"
-                >
-                  <span class="w-12 shrink-0 text-right text-zinc-500 dark:text-zinc-400">{{ bucket.label }}</span>
-                  <div class="h-4 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
-                    <div
-                      class="h-full rounded bg-primary-500/70"
-                      :style="{ width: statBarWidth(bucket.count, maxDepartmentCount) }"
-                    />
-                  </div>
-                  <span class="w-7 tabular-nums text-zinc-500 dark:text-zinc-400">{{ bucket.count }}</span>
-                </div>
-              </div>
-            </div>
-            <div>
-              <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                班级分布
-              </p>
-              <div class="space-y-1.5">
-                <div
-                  v-for="bucket in statsClassTop"
-                  :key="bucket.label"
-                  class="flex items-center gap-2 text-xs"
-                >
-                  <span class="w-32 shrink-0 truncate text-right text-zinc-500 dark:text-zinc-400">{{ bucket.label }}</span>
-                  <div class="h-4 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
-                    <div
-                      class="h-full rounded bg-primary-500/70"
-                      :style="{ width: statBarWidth(bucket.count, maxClassCount) }"
-                    />
-                  </div>
-                  <span class="w-7 tabular-nums text-zinc-500 dark:text-zinc-400">{{ bucket.count }}</span>
-                </div>
-                <p
-                  v-if="statsClassRest.kinds > 0"
-                  class="text-xs text-zinc-400"
-                >
-                  其他 {{ statsClassRest.kinds }} 个班级共 {{ statsClassRest.count }} 人未展示
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
         <div class="flex flex-wrap items-center gap-2">
           <UInput
             v-model="searchQuery"
@@ -1679,6 +1595,97 @@ onMounted(async () => {
               @click="changeSubmissionsPage(1)"
             />
           </div>
+        </div>
+      </section>
+
+      <section
+        v-show="activeSection === 'stats'"
+        class="space-y-4"
+      >
+        <div
+          v-if="submissionStats"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-4"
+        >
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
+            <h3 class="text-sm font-semibold">
+              数据概览
+            </h3>
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">
+              总提交 {{ submissionStats.total }} 份 · 已确认缴费 {{ submissionStats.paidCount }} 份 · 缺关键信息 {{ submissionStats.missingCount }} 份
+            </span>
+          </div>
+          <div>
+            <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              每日提交
+            </p>
+            <div class="overflow-x-auto">
+              <div class="flex min-w-[560px] items-end gap-1 h-36">
+                <div
+                  v-for="day in statsDaily"
+                  :key="day.label"
+                  class="flex min-w-8 flex-1 flex-col items-center justify-end gap-1 h-full"
+                  :title="`${day.label}：${day.count} 份`"
+                >
+                  <span class="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">{{ day.count || '' }}</span>
+                  <div
+                    class="w-full max-w-8 rounded-t bg-primary-500/70"
+                    :style="{ height: `${Math.max(2, Math.round((day.count / maxDailyCount) * 100))}%` }"
+                  />
+                  <span class="text-[9px] whitespace-nowrap text-zinc-400">{{ day.label.slice(5) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid gap-6 md:grid-cols-2">
+            <div>
+              <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                意向部门分布
+              </p>
+              <div class="space-y-1.5">
+                <div
+                  v-for="bucket in statsDepartments"
+                  :key="bucket.label"
+                  class="flex items-center gap-2 text-xs"
+                >
+                  <span class="w-12 shrink-0 text-right text-zinc-500 dark:text-zinc-400">{{ bucket.label }}</span>
+                  <div class="h-4 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+                    <div
+                      class="h-full rounded bg-primary-500/70"
+                      :style="{ width: statBarWidth(bucket.count, maxDepartmentCount) }"
+                    />
+                  </div>
+                  <span class="w-7 tabular-nums text-zinc-500 dark:text-zinc-400">{{ bucket.count }}</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                班级分布（共 {{ statsClasses.length }} 个班级）
+              </p>
+              <div class="max-h-72 space-y-1.5 overflow-y-auto pr-1">
+                <div
+                  v-for="bucket in statsClasses"
+                  :key="bucket.label"
+                  class="flex items-center gap-2 text-xs"
+                >
+                  <span class="w-32 shrink-0 truncate text-right text-zinc-500 dark:text-zinc-400">{{ bucket.label }}</span>
+                  <div class="h-4 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+                    <div
+                      class="h-full rounded bg-primary-500/70"
+                      :style="{ width: statBarWidth(bucket.count, maxClassCount) }"
+                    />
+                  </div>
+                  <span class="w-7 tabular-nums text-zinc-500 dark:text-zinc-400">{{ bucket.count }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          v-else
+          class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
+        >
+          统计加载中，或还没有可统计的提交。
         </div>
       </section>
 
