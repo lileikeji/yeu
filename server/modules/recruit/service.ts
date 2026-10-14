@@ -492,6 +492,56 @@ function formatRecruitStatDate(ms: number): string {
   return new Date(ms + 8 * 3_600_000).toISOString().slice(0, 10)
 }
 
+/**
+ * 专业 → 学院映射，口径来自站内「院系」条目（contents.kind=department，
+ * 2026-07-15 按官网学院简介核对）。规则按顺序匹配，具体专业名在前。
+ */
+const RECRUIT_COLLEGE_RULES: Array<{ pattern: string, major: string, college: string }> = [
+  { pattern: '金融科技', major: '金融科技', college: '经济学院' },
+  { pattern: '金融学', major: '金融学', college: '经济学院' },
+  { pattern: '金融', major: '金融学', college: '经济学院' },
+  { pattern: '国际经济与贸易', major: '国际经济与贸易', college: '经济学院' },
+  { pattern: '经济学', major: '经济学', college: '经济学院' },
+  { pattern: '会计学', major: '会计学', college: '会计学院' },
+  { pattern: '会计', major: '会计学', college: '会计学院' },
+  { pattern: '财务管理', major: '财务管理', college: '会计学院' },
+  { pattern: '人力资源管理', major: '人力资源管理', college: '管理学院' },
+  { pattern: '工商管理', major: '工商管理', college: '管理学院' },
+  { pattern: '市场营销', major: '市场营销', college: '管理学院' },
+  { pattern: '物流管理', major: '物流管理', college: '管理学院' },
+  { pattern: '工业工程', major: '工业工程', college: '管理学院' },
+  { pattern: '人工智能', major: '人工智能', college: '人工智能与数据科学学院' },
+  { pattern: '数据科学与大数据技术', major: '数据科学与大数据技术', college: '人工智能与数据科学学院' },
+  { pattern: '大数据', major: '数据科学与大数据技术', college: '人工智能与数据科学学院' },
+  { pattern: '计算机科学与技术', major: '计算机科学与技术', college: '计算机科学与工程学院' },
+  { pattern: '计算机', major: '计算机科学与技术', college: '计算机科学与工程学院' },
+  { pattern: '网络工程', major: '网络工程', college: '计算机科学与工程学院' },
+  { pattern: '物联网工程', major: '物联网工程', college: '计算机科学与工程学院' },
+  { pattern: '物联网', major: '物联网工程', college: '计算机科学与工程学院' },
+  { pattern: '电子信息工程', major: '电子信息工程', college: '电气工程与自动化学院' },
+  { pattern: '电子信息', major: '电子信息工程', college: '电气工程与自动化学院' },
+  { pattern: '电气工程及其自动化', major: '电气工程及其自动化', college: '电气工程与自动化学院' },
+  { pattern: '电气', major: '电气工程及其自动化', college: '电气工程与自动化学院' },
+  { pattern: '网络与新媒体', major: '网络与新媒体', college: '人文学院' },
+  { pattern: '新闻学', major: '新闻学', college: '人文学院' },
+  { pattern: '广告学', major: '广告学', college: '人文学院' },
+  { pattern: '汉语言文学', major: '汉语言文学', college: '人文学院' },
+  { pattern: '法学', major: '法学', college: '法学院' },
+  { pattern: '商务英语', major: '商务英语', college: '外国语学院' },
+  { pattern: '英语', major: '英语', college: '外国语学院' },
+  { pattern: '艺术教育', major: '艺术教育', college: '艺术与教育学院' }
+]
+
+/** 从规范班级名（26+专业名+班次）里识别专业与学院，识别不出返回 null。 */
+export function classifyRecruitClass(className: string | null | undefined): { major: string, college: string } | null {
+  const name = (className ?? '').trim()
+  if (!name) return null
+  for (const rule of RECRUIT_COLLEGE_RULES) {
+    if (name.includes(rule.pattern)) return { major: rule.major, college: rule.college }
+  }
+  return null
+}
+
 /** 后台「数据概览」：每日提交趋势 + 意向部门/班级分布 + 缺信息计数。 */
 export function getSubmissionStats(client: DatabaseClient, formId: string): RecruitSubmissionStats {
   const rows = client.db.select({
@@ -508,6 +558,7 @@ export function getSubmissionStats(client: DatabaseClient, formId: string): Recr
   const dailyMap = new Map<string, number>()
   const departmentMap = new Map<string, number>()
   const classMap = new Map<string, number>()
+  const collegeMap = new Map<string, number>()
   let paidCount = 0
   let missingCount = 0
 
@@ -517,6 +568,8 @@ export function getSubmissionStats(client: DatabaseClient, formId: string): Recr
 
     const className = (row.className ?? '').trim()
     if (className) classMap.set(className, (classMap.get(className) ?? 0) + 1)
+    const classified = classifyRecruitClass(className)
+    if (classified) collegeMap.set(classified.college, (collegeMap.get(classified.college) ?? 0) + 1)
 
     for (const part of (row.departments ?? '').split('、')) {
       const department = part.trim()
@@ -552,7 +605,8 @@ export function getSubmissionStats(client: DatabaseClient, formId: string): Recr
     missingCount,
     daily,
     departments: sortByCountDesc(departmentMap),
-    classes: sortByCountDesc(classMap)
+    classes: sortByCountDesc(classMap),
+    colleges: sortByCountDesc(collegeMap)
   }
 }
 

@@ -283,4 +283,5 @@ export interface RecruitSubmissionStats {
   daily: RecruitStatBucket[]
   departments: RecruitStatBucket[]
   classes: RecruitStatBucket[]
+  colleges: RecruitStatBucket[]
 }

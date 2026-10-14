@@ -412,9 +412,11 @@ watch(activeSection, (section) => {
 const statsDaily = computed(() => submissionStats.value?.daily ?? [])
 const statsDepartments = computed(() => submissionStats.value?.departments ?? [])
 const statsClasses = computed(() => submissionStats.value?.classes ?? [])
+const statsColleges = computed(() => submissionStats.value?.colleges ?? [])
 const maxDailyCount = computed(() => Math.max(1, ...statsDaily.value.map(day => day.count)))
 const maxDepartmentCount = computed(() => Math.max(1, ...statsDepartments.value.map(bucket => bucket.count)))
 const maxClassCount = computed(() => Math.max(1, ...statsClasses.value.map(bucket => bucket.count)))
+const maxCollegeCount = computed(() => Math.max(1, ...statsColleges.value.map(bucket => bucket.count)))
 
 function statBarWidth(count: number, max: number): string {
   return `${Math.max(2, Math.round((count / max) * 100))}%`
@@ -1677,6 +1679,27 @@ onMounted(async () => {
                   </div>
                   <span class="w-7 tabular-nums text-zinc-500 dark:text-zinc-400">{{ bucket.count }}</span>
                 </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              学院分布
+            </p>
+            <div class="grid gap-x-6 gap-y-1.5 md:grid-cols-2">
+              <div
+                v-for="bucket in statsColleges"
+                :key="bucket.label"
+                class="flex items-center gap-2 text-xs"
+              >
+                <span class="w-32 shrink-0 truncate text-right text-zinc-500 dark:text-zinc-400">{{ bucket.label }}</span>
+                <div class="h-4 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+                  <div
+                    class="h-full rounded bg-primary-500/70"
+                    :style="{ width: statBarWidth(bucket.count, maxCollegeCount) }"
+                  />
+                </div>
+                <span class="w-7 tabular-nums text-zinc-500 dark:text-zinc-400">{{ bucket.count }}</span>
               </div>
             </div>
           </div>

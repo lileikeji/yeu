@@ -21,6 +21,7 @@ import {
   buildSubmissionDocx,
   buildSubmissionFilename,
   buildSubmissionsWorkbook,
+  classifyRecruitClass,
   getSubmission,
   getSubmissionStats,
   resolveExportValue,
@@ -475,9 +476,9 @@ test('getSubmissionStats fills zero days and aggregates departments and classes'
   // 东八区 10-01 两份、10-02 跨天，10-03 空档，10-04 一份
   const day = (date: string, hour = 12) => Date.parse(`${date}T${String(hour).padStart(2, '0')}:00:00+08:00`)
   const seed = [
-    { id: 'sub-s1', createdAt: day('2026-10-01', 9), className: '26网工3班', departments: '演唱部、器乐部' },
-    { id: 'sub-s2', createdAt: day('2026-10-01', 21), className: '26网工3班', departments: '演唱部' },
-    { id: 'sub-s3', createdAt: day('2026-10-02', 1), className: '26汉语言3班', departments: null },
+    { id: 'sub-s1', createdAt: day('2026-10-01', 9), className: '26网络工程3班', departments: '演唱部、器乐部' },
+    { id: 'sub-s2', createdAt: day('2026-10-01', 21), className: '26网络工程3班', departments: '演唱部' },
+    { id: 'sub-s3', createdAt: day('2026-10-02', 1), className: '26汉语言文学3班', departments: null },
     { id: 'sub-s4', createdAt: day('2026-10-04', 8), className: '', departments: '器乐部' }
   ]
   for (const row of seed) {
@@ -504,7 +505,26 @@ test('getSubmissionStats fills zero days and aggregates departments and classes'
     { label: '器乐部', count: 2 }, { label: '演唱部', count: 2 }
   ])
   assert.deepEqual(stats.classes, [
-    { label: '26网工3班', count: 2 }, { label: '26汉语言3班', count: 1 }
+    { label: '26网络工程3班', count: 2 }, { label: '26汉语言文学3班', count: 1 }
+  ])
+  assert.deepEqual(stats.colleges, [
+    { label: '计算机科学与工程学院', count: 2 }, { label: '人文学院', count: 1 }
   ])
   closeDatabase(':memory:')
+})
+
+test('classifyRecruitClass maps canonical classes to majors and colleges', () => {
+  assert.deepEqual(classifyRecruitClass('26电气工程及其自动化（专升本）1班'),
+    { major: '电气工程及其自动化', college: '电气工程与自动化学院' })
+  assert.deepEqual(classifyRecruitClass('26金融科技1班'),
+    { major: '金融科技', college: '经济学院' })
+  assert.deepEqual(classifyRecruitClass('26数据科学与大数据技术4班'),
+    { major: '数据科学与大数据技术', college: '人工智能与数据科学学院' })
+  assert.deepEqual(classifyRecruitClass('25电气工程及其自动化1班'),
+    { major: '电气工程及其自动化', college: '电气工程与自动化学院' })
+  // 非规范简称与识别不出的班级返回 null
+  assert.equal(classifyRecruitClass('26网工3班'), null)
+  assert.equal(classifyRecruitClass('26音乐学1班'), null)
+  assert.equal(classifyRecruitClass(''), null)
+  assert.equal(classifyRecruitClass(null), null)
 })
