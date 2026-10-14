@@ -23,6 +23,8 @@ export default defineEventHandler((event) => {
     if (submissions.length >= result.total || result.items.length === 0) break
     page += 1
   }
+  // 导出按提交时间正序（最早的在最上面，最新的在最下面）。
+  submissions.sort((a, b) => a.createdAt - b.createdAt)
 
   const workbook = buildSubmissionsWorkbook(form, submissions)
   sendXlsx(event, workbook, `纳新总表-${club?.title ?? contentId}.xlsx`)

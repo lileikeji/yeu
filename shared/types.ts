@@ -270,3 +270,17 @@ export interface RecruitSubmissionPage {
   page: number
   pageSize: number
 }
+
+export interface RecruitStatBucket {
+  label: string
+  count: number
+}
+
+export interface RecruitSubmissionStats {
+  total: number
+  paidCount: number
+  missingCount: number
+  daily: RecruitStatBucket[]
+  departments: RecruitStatBucket[]
+  classes: RecruitStatBucket[]
+}

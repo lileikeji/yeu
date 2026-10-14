@@ -22,6 +22,7 @@ import {
   buildSubmissionFilename,
   buildSubmissionsWorkbook,
   getSubmission,
+  getSubmissionStats,
   resolveExportValue,
   updateSubmission,
   validateSubmissionInput
@@ -455,5 +456,55 @@ test('recordRecruitView credits form total and the matching referrer only', () =
   const totalViews = client.db.select({ views: recruitForms.views })
     .from(recruitForms).where(eq(recruitForms.id, 'form-v1')).get()?.views
   assert.equal(totalViews, 4)
+  closeDatabase(':memory:')
+})
+
+test('getSubmissionStats fills zero days and aggregates departments and classes', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+  const now = Date.now()
+  client.db.insert(contents).values({
+    id: 'content-s1', kind: 'club', slug: 'stats-test-club', title: '统计测试社团',
+    summary: 's', body: '', status: 'published', metadataJson: '{}', createdAt: now, updatedAt: now
+  }).run()
+  client.db.insert(recruitForms).values({
+    id: 'form-s1', contentId: 'content-s1', fieldsJson: '[]', docConfigJson: '{}',
+    exportColumnsJson: '[]', createdAt: now, updatedAt: now
+  }).run()
+
+  // 东八区 10-01 两份、10-02 跨天，10-03 空档，10-04 一份
+  const day = (date: string, hour = 12) => Date.parse(`${date}T${String(hour).padStart(2, '0')}:00:00+08:00`)
+  const seed = [
+    { id: 'sub-s1', createdAt: day('2026-10-01', 9), className: '26网工3班', departments: '演唱部、器乐部' },
+    { id: 'sub-s2', createdAt: day('2026-10-01', 21), className: '26网工3班', departments: '演唱部' },
+    { id: 'sub-s3', createdAt: day('2026-10-02', 1), className: '26汉语言3班', departments: null },
+    { id: 'sub-s4', createdAt: day('2026-10-04', 8), className: '', departments: '器乐部' }
+  ]
+  for (const row of seed) {
+    client.db.insert(recruitSubmissions).values({
+      id: row.id, formId: 'form-s1', dataJson: '{}', name: row.id,
+      studentNo: '040320260001', qq: '10000', isLeagueMember: '是',
+      className: row.className || null, departments: row.departments,
+      phone: row.id === 'sub-s4' ? null : '13800000000',
+      paymentConfirmed: row.id === 'sub-s1', createdAt: row.createdAt
+    }).run()
+  }
+
+  const stats = getSubmissionStats(client, 'form-s1')
+
+  assert.equal(stats.total, 4)
+  assert.equal(stats.paidCount, 1)
+  // sub-s4 缺电话、sub-s3 缺部门
+  assert.equal(stats.missingCount, 2)
+
+  assert.deepEqual(stats.daily.map(entry => [entry.label, entry.count]), [
+    ['2026-10-01', 2], ['2026-10-02', 1], ['2026-10-03', 0], ['2026-10-04', 1]
+  ])
+  assert.deepEqual(stats.departments, [
+    { label: '器乐部', count: 2 }, { label: '演唱部', count: 2 }
+  ])
+  assert.deepEqual(stats.classes, [
+    { label: '26网工3班', count: 2 }, { label: '26汉语言3班', count: 1 }
+  ])
   closeDatabase(':memory:')
 })

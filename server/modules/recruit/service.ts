@@ -18,7 +18,9 @@ import type {
   RecruitFieldKey,
   RecruitFormField,
   RecruitFormStatus,
+  RecruitStatBucket,
   RecruitSubmission,
+  RecruitSubmissionStats,
   RecruitSubmissionValue
 } from '../../../shared/types'
 
@@ -482,6 +484,75 @@ export function listSubmissions(
     total,
     page,
     pageSize
+  }
+}
+
+function formatRecruitStatDate(ms: number): string {
+  // 站点业务时间统一按东八区展示，这里先平移再取 ISO 日期段。
+  return new Date(ms + 8 * 3_600_000).toISOString().slice(0, 10)
+}
+
+/** 后台「数据概览」：每日提交趋势 + 意向部门/班级分布 + 缺信息计数。 */
+export function getSubmissionStats(client: DatabaseClient, formId: string): RecruitSubmissionStats {
+  const rows = client.db.select({
+    createdAt: recruitSubmissions.createdAt,
+    className: recruitSubmissions.className,
+    departments: recruitSubmissions.departments,
+    paymentConfirmed: recruitSubmissions.paymentConfirmed,
+    studentNo: recruitSubmissions.studentNo,
+    phone: recruitSubmissions.phone,
+    qq: recruitSubmissions.qq,
+    isLeagueMember: recruitSubmissions.isLeagueMember
+  }).from(recruitSubmissions).where(eq(recruitSubmissions.formId, formId)).all()
+
+  const dailyMap = new Map<string, number>()
+  const departmentMap = new Map<string, number>()
+  const classMap = new Map<string, number>()
+  let paidCount = 0
+  let missingCount = 0
+
+  for (const row of rows) {
+    const date = formatRecruitStatDate(Number(row.createdAt ?? 0))
+    dailyMap.set(date, (dailyMap.get(date) ?? 0) + 1)
+
+    const className = (row.className ?? '').trim()
+    if (className) classMap.set(className, (classMap.get(className) ?? 0) + 1)
+
+    for (const part of (row.departments ?? '').split('、')) {
+      const department = part.trim()
+      if (department) departmentMap.set(department, (departmentMap.get(department) ?? 0) + 1)
+    }
+
+    if (row.paymentConfirmed) paidCount += 1
+    const missingFields = [row.studentNo, row.phone, row.qq, row.departments, row.isLeagueMember]
+    if (missingFields.some(value => value == null || String(value).trim() === '')) missingCount += 1
+  }
+
+  // 日期之间补零，让每日趋势曲线连续。
+  const daily: RecruitStatBucket[] = []
+  if (dailyMap.size > 0) {
+    const dates = [...dailyMap.keys()].sort()
+    const day = 86_400_000
+    let cursor = Date.parse(`${dates[0]}T00:00:00+08:00`)
+    const end = Date.parse(`${dates[dates.length - 1]}T00:00:00+08:00`)
+    while (cursor <= end) {
+      const label = formatRecruitStatDate(cursor)
+      daily.push({ label, count: dailyMap.get(label) ?? 0 })
+      cursor += day
+    }
+  }
+
+  const sortByCountDesc = (map: Map<string, number>): RecruitStatBucket[] => [...map.entries()]
+    .map(([label, bucketCount]) => ({ label, count: bucketCount }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'zh-Hans-CN'))
+
+  return {
+    total: rows.length,
+    paidCount,
+    missingCount,
+    daily,
+    departments: sortByCountDesc(departmentMap),
+    classes: sortByCountDesc(classMap)
   }
 }
 

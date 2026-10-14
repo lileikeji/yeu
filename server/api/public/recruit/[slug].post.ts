@@ -82,6 +82,7 @@ export default defineEventHandler(async (event) => {
   // Keep the payload linked so the visitor can review, edit again, or restart.
   markDraftSubmitted(client, found.form.id, draftKey, submission.id, normalized.data)
 
+
   setResponseStatus(event, 201)
   return {
     id: submission.id,
