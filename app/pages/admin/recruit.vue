@@ -626,6 +626,53 @@ function downloadSelected(): void {
   void downloadFile(url, `纳新申请表-选中${selectedCount.value}份.zip`)
 }
 
+const selectingAll = ref(false)
+
+/** 跨页真全选：把当前搜索条件下所有提交都加进勾选。 */
+async function selectAllFiltered(): Promise<void> {
+  if (!selectedContentId.value) return
+  selectingAll.value = true
+  try {
+    const all = new Set<string>()
+    for (let page = 1; ; page += 1) {
+      const result = await adminFetch<RecruitSubmissionPage>(
+        `/api/admin/recruit/submissions?contentId=${encodeURIComponent(selectedContentId.value)}`
+        + `&page=${page}&pageSize=100&query=${encodeURIComponent(searchQuery.value.trim())}`
+      )
+      for (const item of result.items) all.add(item.id)
+      if (all.size >= result.total || result.items.length === 0) break
+    }
+    selectedIds.value = all
+    toast.add({ title: `已全选 ${all.size} 份提交（含未展示页）`, color: 'success' })
+  } catch {
+    toast.add({ title: '全选失败，请重试', color: 'warning' })
+  } finally {
+    selectingAll.value = false
+  }
+}
+
+const departmentSelectItems = computed(() => {
+  const field = (form.value?.fields ?? []).find(item => item.key === 'departments')
+  return (field?.options ?? []).map(option => ({ label: option, value: option }))
+})
+const downloadDepartment = ref('')
+
+function downloadByDepartment(): void {
+  if (!downloadDepartment.value) {
+    toast.add({ title: '请先选择部门', color: 'warning' })
+    return
+  }
+  const url = `/api/admin/recruit/submissions/download-selected?contentId=${encodeURIComponent(selectedContentId.value)}`
+    + `&all=1&department=${encodeURIComponent(downloadDepartment.value)}`
+  void downloadFile(url, `纳新申请表-${downloadDepartment.value}.zip`)
+}
+
+function downloadGroupedZip(): void {
+  const url = `/api/admin/recruit/submissions/download-selected?contentId=${encodeURIComponent(selectedContentId.value)}`
+    + '&all=1&grouped=1'
+  void downloadFile(url, '纳新申请表-分部门合集.zip')
+}
+
 // -- referrers (纳新人与邀请码) --------------------------------------------------
 
 const referrers = ref<RecruitReferrer[]>([])
@@ -1475,6 +1522,40 @@ onMounted(async () => {
           />
           <span class="text-xs text-zinc-500 dark:text-zinc-400">
             共 {{ submissionsTotal }} 条
+          </span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <UButton
+            icon="i-lucide-check-check"
+            label="全选全部结果"
+            color="neutral"
+            variant="soft"
+            :loading="selectingAll"
+            @click="selectAllFiltered"
+          />
+          <USelect
+            v-model="downloadDepartment"
+            :items="departmentSelectItems"
+            placeholder="选部门单独下载"
+            class="w-44"
+          />
+          <UButton
+            icon="i-lucide-package"
+            label="下载该部门"
+            color="neutral"
+            variant="soft"
+            :disabled="!downloadDepartment"
+            @click="downloadByDepartment"
+          />
+          <UButton
+            icon="i-lucide-folder-down"
+            label="下载分部门合集"
+            color="neutral"
+            variant="soft"
+            @click="downloadGroupedZip"
+          />
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">
+            合集包按五个部门分文件夹，另带「全部」文件夹
           </span>
         </div>
 

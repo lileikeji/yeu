@@ -21,9 +21,11 @@ import {
   buildSubmissionDocx,
   buildSubmissionFilename,
   buildSubmissionsWorkbook,
+  buildSubmissionsZip,
   classifyRecruitClass,
   getSubmission,
   getSubmissionStats,
+  normalizeRecruitClassName,
   resolveExportValue,
   updateSubmission,
   validateSubmissionInput
@@ -134,7 +136,8 @@ test('submission validation enforces required fields, options and formats', () =
   })
   assert.equal(valid.name, '张三')
   assert.equal(valid.departments, '演唱部、器乐部')
-  assert.equal(valid.className, '25电子信息')
+  // 班级名会归一化：补全专业全称与班次
+  assert.equal(valid.className, '25电子信息工程1班')
   assert.equal(valid.major, null)
 
   assert.throws(() => validateSubmissionInput(fields, {
@@ -355,7 +358,7 @@ test('updateSubmission re-validates the payload and refreshes search columns', (
     isLeagueMember: '否'
   })
   assert.equal(updated.name, '李四')
-  assert.equal(updated.className, '25电子信息')
+  assert.equal(updated.className, '25电子信息工程1班')
   assert.equal(updated.departments, '宣传部、综策部')
   assert.equal(updated.isLeagueMember, '否')
 
@@ -522,9 +525,50 @@ test('classifyRecruitClass maps canonical classes to majors and colleges', () =>
     { major: '数据科学与大数据技术', college: '人工智能与数据科学学院' })
   assert.deepEqual(classifyRecruitClass('25电气工程及其自动化1班'),
     { major: '电气工程及其自动化', college: '电气工程与自动化学院' })
-  // 非规范简称与识别不出的班级返回 null
-  assert.equal(classifyRecruitClass('26网工3班'), null)
+  // 识别不出的班级返回 null；常见简称也能归到正确学院
+  assert.deepEqual(classifyRecruitClass('26网工3班'),
+    { major: '网络工程', college: '计算机科学与工程学院' })
+  assert.deepEqual(classifyRecruitClass('26金融1班'),
+    { major: '金融学', college: '经济学院' })
   assert.equal(classifyRecruitClass('26音乐学1班'), null)
   assert.equal(classifyRecruitClass(''), null)
   assert.equal(classifyRecruitClass(null), null)
+})
+
+test('normalizeRecruitClassName canonicalizes common freshman shorthand', () => {
+  assert.equal(normalizeRecruitClassName('26网工3班'), '26网络工程3班')
+  assert.equal(normalizeRecruitClassName('26市销一班'), '26市场营销1班')
+  assert.equal(normalizeRecruitClassName('电气工程及其自动化4'), '26电气工程及其自动化4班')
+  assert.equal(normalizeRecruitClassName('26电气工程（专升本）1班'), '26电气工程及其自动化（专升本）1班')
+  assert.equal(normalizeRecruitClassName('26 人工智能 2 班'), '26人工智能2班')
+  assert.equal(normalizeRecruitClassName('计科专升本2'), '26计算机科学与技术（专升本）2班')
+  assert.equal(normalizeRecruitClassName('25工商管理2班'), '25工商管理2班')
+  assert.equal(normalizeRecruitClassName('26市场营销1班'), '26市场营销1班')
+  assert.equal(normalizeRecruitClassName('26音乐学1班'), '26音乐学1班')
+  assert.equal(normalizeRecruitClassName(''), '')
+})
+
+test('buildSubmissionsZip groups files by department folders when requested', () => {
+  const form = fakeFormRow()
+  const base = { gender: '男', studentNo: '20250001', phone: '13800000000', qq: '123456789', isLeagueMember: '是' }
+  const zip = buildSubmissionsZip(form, [
+    { ...sampleSubmission, name: '张三', departments: '演唱部、器乐部' },
+    { ...sampleSubmission, name: '李四', departments: '演唱部' }
+  ], { groupByDepartment: true })
+
+  const entries = Object.keys(unzipSync(zip.bytes))
+  assert.equal(zip.count, 2)
+  // 每份文件出现在：根目录 + 全部 + 各自选的每个部门
+  assert.ok(entries.includes('25电子信息张三.docx'))
+  assert.ok(entries.includes('全部/25电子信息张三.docx'))
+  assert.ok(entries.includes('演唱部/25电子信息张三.docx'))
+  assert.ok(entries.includes('器乐部/25电子信息张三.docx'))
+  assert.ok(entries.includes('演唱部/25电子信息李四.docx'))
+  assert.ok(!entries.includes('器乐部/25电子信息李四.docx'))
+
+  // 不分组时保持原有平铺结构
+  const flat = buildSubmissionsZip(form, [
+    { ...sampleSubmission, name: '张三', departments: '演唱部' }
+  ])
+  assert.deepEqual(Object.keys(unzipSync(flat.bytes)), ['25电子信息张三.docx'])
 })
