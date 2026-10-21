@@ -1676,3 +1676,12 @@
 ## 追加 27：小程序 pages.json 导航栏 schema 修复（编译报错消除）
 
 微信开发者工具反复报 `无效的 app.json window["navigationBar"]` + 各 `page.json ["navigationBar"]`（共 11 条）：根因是 `miniapp/pages.json` 误用了非规范嵌套结构 `"navigationBar": { titleText/titleColor/backgroundColor }`，uni-app 原样拷入 mp-weixin 产物。已改为规范扁平键：页级 `navigationBarTitleText` + globalStyle `navigationBarBackgroundColor:#f4efe5`/`navigationBarTextStyle:black`（微信仅允许 black/white，原深墨 #1f2924 意图以 black 表达）。`pnpm --dir miniapp build` 重建后产物 grep 不到 `"navigationBar"`。**开发者工具操作**：重新导入/编译 `miniapp/unpackage/dist/build/mp-weixin` 即可消错；此后模拟器 API 应 200（release 20260909-miniapp-api 已生效）。**真机/上线剩余项**：小程序后台配置 request 合法域名 `yx.huiliyill.cn`（及 uploadFile/downloadFile 如后续需要）、体验版上传与真机验收；后台 miniapp analytics 未随本 release 上线。
+
+## 追加 28：`20261021-competition-212416-f4f4c8d0`（release）— 音乐协会新生歌手大赛
+
+- **代码提交**：`2159f9136cc77aa3c9bb89e90d7545ae9caf0726`（分支 `deploy/competition-20261021`），新增三轮制歌手大赛、按轮独立评委账号与 `/judge` 评委端；仅对 `music-association` 社团开放。
+- **发布方式**：Gitee CI 配额不足，改直连发布。Linux 制品在本机干净 worktree 用 Node 22 构建，随后把 `.output` 内的 `better-sqlite3` / `sqlite-vec` 替换为上一 release 的 Linux ELF（版本均为 better-sqlite3 12.11.1、sqlite-vec 0.1.9），并回填 `release.json` 的 `platform=linux`、`abi=127`。检索源码与已部署 `499e796` 完全一致，Windows 换行导致摘要偏移，因此保留生产 release 的 `rag-v80-release-gates` 摘要值 `182d7368…`。
+- **生产库**：先备份 `shared/backups/yeu-before-20261021-competition-212416-f4f4c8d0.sqlite`（约 930MB，`integrity_check=ok`）。生产迁移账本只登记到 0024（0025–0038 为历史手工迁移），直接 `db-migrate` 会被更早迁移里的破坏性语句整批拒绝；0039 为纯新增表，因此按“执行 `0039_nosy_salo.sql` + 写入账本 `88b248e9…`/`1792585413879`”处理，随后 `db-check` 返回 `{"applied":0,"pendingLedger":0}`，7 张 `competition_*` 表均已存在。
+- **切换**：`server-side-deploy.sh` 完成空间检查、`db-check`、二次备份、3101 冒烟、`current` 原子切换和 systemd 重启；健康检查与 `/version.json` 均通过。
+- **线上验收**：`yeu.service` active/enabled；本机与公网 `/version.json` 均为该 release/commit；`/api/health` 为 `status=ok/database=ready`；`/judge/login`、`/judge`、`/admin/competition` 均 200；未登录 `/api/judge/auth/session` 返回 `authenticated:false`，`/api/judge` 与 `/api/admin/competition` 返回 401；公网 `/judge/login` 200；日志无 5xx/启动错误。未在生产创建任何比赛/选手/评委测试数据。
+- **回滚点**：`/www/wwwroot/yeu/releases/20261015-161734-26-499e7964eb3f-691a67b8`；回滚命令见 `DEPLOYED-2159f91…-20261021-212802.txt`。
