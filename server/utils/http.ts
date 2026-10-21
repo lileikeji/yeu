@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 import { getMethod } from 'h3'
 import { requireAdminSession } from './auth'
 import { useAppDatabase } from './database'
+import { requireJudgeSession } from './judge-auth'
 
 /**
  * Resolve admin DB + session for handlers.
@@ -14,6 +15,16 @@ export function useAdminRequest(event: H3Event, csrf?: boolean) {
   const method = getMethod(event).toUpperCase()
   const requireCsrf = csrf ?? !['GET', 'HEAD', 'OPTIONS'].includes(method)
   const session = requireAdminSession(event, client, { csrf: requireCsrf })
+  setHeader(event, 'Cache-Control', 'no-store')
+  return { client, session }
+}
+
+/** Judge endpoints mirror the admin CSRF default for mutating methods. */
+export function useJudgeRequest(event: H3Event, csrf?: boolean) {
+  const client = useAppDatabase(event)
+  const method = getMethod(event).toUpperCase()
+  const requireCsrf = csrf ?? !['GET', 'HEAD', 'OPTIONS'].includes(method)
+  const session = requireJudgeSession(event, client, { csrf: requireCsrf })
   setHeader(event, 'Cache-Control', 'no-store')
   return { client, session }
 }

@@ -1,4 +1,5 @@
 import { getMethod, getRequestURL, getQuery } from 'h3'
+import { isMusicAssociationContent } from '../modules/competition/service'
 import { requireAdminSession } from '../utils/auth'
 import { getClientIpAddress } from '../utils/client-ip'
 import { useAppDatabase } from '../utils/database'
@@ -70,6 +71,12 @@ export default defineEventHandler((event) => {
   if (pathname.startsWith('/api/admin/recruit/')) {
     const requestedContentId = getQuery(event).contentId
     if (requestedContentId === session.admin.organization?.contentId) return
+  }
+
+  // 歌手大赛只对音乐协会开放；组织管理员必须是音协本身。
+  if (pathname === '/api/admin/competition' || pathname.startsWith('/api/admin/competition/')) {
+    const organizationContentId = session.admin.organization?.contentId
+    if (organizationContentId && isMusicAssociationContent(client, organizationContentId)) return
   }
 
   throw createError({

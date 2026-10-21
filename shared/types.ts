@@ -285,3 +285,156 @@ export interface RecruitSubmissionStats {
   classes: RecruitStatBucket[]
   colleges: RecruitStatBucket[]
 }
+
+// -- 新生歌手大赛 -------------------------------------------------------------
+
+export interface CompetitionDimension {
+  key: string
+  label: string
+  /** 相对权重；总分为各维度加权平均分 × 维度数（默认等权时即为各项累加）。 */
+  weight: number
+}
+
+export type CompetitionRoundKey = 'prelim' | 'semi' | 'final'
+export type CompetitionRoundStatus = 'draft' | 'open' | 'closed'
+
+export interface CompetitionEvent {
+  id: string
+  contentId: string
+  clubName: string
+  clubSlug: string
+  title: string
+  dimensions: CompetitionDimension[]
+  maxTotal: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CompetitionRound {
+  id: string
+  key: CompetitionRoundKey
+  title: string
+  position: number
+  status: CompetitionRoundStatus
+  judgeCount: number
+  /** 本轮晋级下一轮的人数；决赛为 null。复赛为 null 表示名额待定。 */
+  advanceCount: number | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CompetitionJudge {
+  id: string
+  roundId: string
+  username: string
+  displayName: string
+  isActive: boolean
+  lastLoginAt: number | null
+  createdAt: number
+  scoreCount: number
+}
+
+export interface CompetitionJudgeCredentials {
+  id: string
+  username: string
+  displayName: string
+  password: string
+}
+
+export interface CompetitionSinger {
+  id: string
+  name: string
+  song: string
+  className: string | null
+  remark: string | null
+  sortOrder: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CompetitionScoreDimension {
+  key: string
+  label: string
+  weight: number
+  score: number
+}
+
+export interface CompetitionScore {
+  id: string
+  roundId: string
+  singerId: string
+  judgeId: string
+  judgeName: string
+  dimensions: CompetitionScoreDimension[]
+  total: number
+  comment: string
+  updatedAt: number
+}
+
+export interface CompetitionRoundEntry {
+  id: string
+  singer: CompetitionSinger
+  /** 本轮出场顺序（复赛/决赛为随机抽签结果）。 */
+  sortOrder: number
+  advancedFromRank: number | null
+  average: number | null
+  scoreCount: number
+  rank: number | null
+  /** 已结束且进入本轮前 N 名。 */
+  qualified: boolean
+  /** 本轮已结束但没有任何评委打分，按弃权处理。 */
+  forfeited: boolean
+}
+
+export interface CompetitionRoundView extends CompetitionRound {
+  entries: CompetitionRoundEntry[]
+  judges: CompetitionJudge[]
+  scores: CompetitionScore[]
+  maxTotal: number
+  hasScores: boolean
+}
+
+export interface CompetitionAdminPayload {
+  event: CompetitionEvent
+  singers: CompetitionSinger[]
+  rounds: CompetitionRoundView[]
+}
+
+export interface CompetitionJudgePayload {
+  event: {
+    id: string
+    title: string
+    dimensions: CompetitionDimension[]
+    maxTotal: number
+  }
+  judge: {
+    id: string
+    username: string
+    displayName: string
+    roundId: string
+  }
+  round: {
+    id: string
+    key: CompetitionRoundKey
+    title: string
+    status: CompetitionRoundStatus
+    advanceCount: number | null
+  }
+  singers: Array<CompetitionSinger & {
+    sortOrder: number
+    advancedFromRank: number | null
+    score: CompetitionScore | null
+  }>
+  /** 本轮结果：本轮结束后才返回。 */
+  roundResults: CompetitionRoundEntry[] | null
+  /** 决赛结果：决赛结束后所有评委都能看到。 */
+  finalResults: CompetitionRoundEntry[] | null
+  finalRound: {
+    title: string
+    status: CompetitionRoundStatus
+  } | null
+  progress: {
+    scored: number
+    total: number
+  }
+}

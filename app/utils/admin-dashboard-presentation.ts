@@ -226,7 +226,8 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: '内容', icon: 'i-lucide-files', to: '/admin/content' },
       { label: '来源', icon: 'i-lucide-book-marked', to: '/admin/sources' },
       { label: '知识库', icon: 'i-lucide-brain-circuit', to: '/admin/knowledge' },
-      { label: '纳新管理', icon: 'i-lucide-clipboard-list', to: '/admin/recruit' }
+      { label: '纳新管理', icon: 'i-lucide-clipboard-list', to: '/admin/recruit' },
+      { label: '歌手大赛', icon: 'i-lucide-mic-vocal', to: '/admin/competition' }
     ]
   },
   {

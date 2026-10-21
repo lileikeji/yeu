@@ -63,3 +63,36 @@ export const ALL_USER_CSRF_COOKIE_NAMES = [
   HOST_USER_CSRF_COOKIE_NAME,
   USER_CSRF_COOKIE_NAME
 ] as const
+
+// 评委账号与管理员完全隔离：独立 Cookie 命名空间，互不顶掉会话。
+export const JUDGE_SESSION_COOKIE_NAME = 'yeu_judge_session'
+export const JUDGE_CSRF_COOKIE_NAME = 'yeu_judge_csrf'
+export const HOST_JUDGE_SESSION_COOKIE_NAME = '__Host-yeu_judge_session'
+export const HOST_JUDGE_CSRF_COOKIE_NAME = '__Host-yeu_judge_csrf'
+export const JUDGE_CSRF_HEADER_NAME = 'x-judge-csrf-token'
+
+export function judgeAuthCookieNames(secure: boolean): {
+  session: string
+  csrf: string
+} {
+  if (secure) {
+    return {
+      session: HOST_JUDGE_SESSION_COOKIE_NAME,
+      csrf: HOST_JUDGE_CSRF_COOKIE_NAME
+    }
+  }
+  return {
+    session: JUDGE_SESSION_COOKIE_NAME,
+    csrf: JUDGE_CSRF_COOKIE_NAME
+  }
+}
+
+export const ALL_JUDGE_SESSION_COOKIE_NAMES = [
+  HOST_JUDGE_SESSION_COOKIE_NAME,
+  JUDGE_SESSION_COOKIE_NAME
+] as const
+
+export const ALL_JUDGE_CSRF_COOKIE_NAMES = [
+  HOST_JUDGE_CSRF_COOKIE_NAME,
+  JUDGE_CSRF_COOKIE_NAME
+] as const

@@ -12,6 +12,7 @@ const adminLabel = ref('管理员')
 const adminRole = ref<'super' | 'organization'>('super')
 const adminCapabilities = ref<AdminCapability[]>([])
 const organizationTitle = ref('')
+const organizationSlug = ref('')
 const organizationPublicPath = ref('/')
 const mustChangePassword = ref(false)
 const mobileNavigationOpen = ref(false)
@@ -25,6 +26,9 @@ function canUseCapability(capability?: AdminCapability): boolean {
   return !capability || adminRole.value === 'super' || adminCapabilities.value.includes(capability)
 }
 
+const isMusicAssociation = computed(() =>
+  organizationSlug.value === 'music-association' || organizationTitle.value === '音乐协会')
+
 const organizationNavigation = computed(() => [{
   key: 'organization',
   label: '组织后台',
@@ -36,7 +40,13 @@ const organizationNavigation = computed(() => [{
     label: '纳新管理',
     to: '/admin/recruit',
     icon: 'i-lucide-clipboard-list'
-  }, {
+  }, ...(isMusicAssociation.value
+    ? [{
+        label: '歌手大赛',
+        to: '/admin/competition',
+        icon: 'i-lucide-mic-vocal'
+      }]
+    : []), {
     label: '小程序分析',
     to: '/admin/miniapp',
     icon: 'i-lucide-smartphone',
@@ -116,6 +126,7 @@ function applyAdminScope(payload: Record<string, unknown>): void {
   organizationTitle.value = typeof organization.title === 'string' ? organization.title : ''
   const kind = organization.kind === 'department' ? 'departments' : 'clubs'
   const slug = typeof organization.slug === 'string' ? organization.slug : ''
+  organizationSlug.value = slug
   organizationPublicPath.value = slug ? `/${kind}/${encodeURIComponent(slug)}` : '/'
 }
 
@@ -143,6 +154,7 @@ async function checkSession(): Promise<void> {
     const organizationRouteAllowed = route.path === '/admin/organization'
       || route.path === '/admin/recruit'
       || route.path.startsWith('/admin/content/')
+      || (route.path === '/admin/competition' && isMusicAssociation.value)
       || (route.path === '/admin/miniapp' && canUseCapability('analytics.view'))
     if (adminRole.value === 'organization' && !organizationRouteAllowed) {
       await navigateTo({

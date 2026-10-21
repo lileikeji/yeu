@@ -1180,3 +1180,53 @@ export const publicRecruitSubmissionSchema = z.object({
   ])),
   paymentConfirmed: z.boolean().optional()
 }).strict()
+
+// -- 新生歌手大赛（仅音乐协会） ----------------------------------------------
+
+export const competitionDimensionSchema = z.object({
+  key: z.string().trim().min(1).max(64),
+  label: z.string().trim().min(1).max(20),
+  weight: z.number().positive().max(100)
+}).strict()
+
+export const updateCompetitionSchema = z.object({
+  title: z.string().trim().min(1).max(60),
+  dimensions: z.array(competitionDimensionSchema).min(1).max(10)
+}).strict()
+
+export const updateCompetitionRoundSchema = z.object({
+  status: z.enum(['draft', 'open', 'closed']).optional(),
+  judgeCount: z.number().int().min(1).max(20).optional(),
+  advanceCount: z.union([z.number().int().min(1).max(500), z.null()]).optional()
+}).strict()
+
+export const reorderCompetitionRoundSchema = z.object({
+  entryIds: z.array(z.string().min(1).max(64)).min(1).max(500)
+}).strict()
+
+export const createCompetitionJudgesSchema = z.object({
+  count: z.number().int().min(1).max(20)
+}).strict()
+
+export const updateCompetitionJudgeSchema = z.object({
+  displayName: z.string().trim().min(1).max(20).optional(),
+  isActive: z.boolean().optional()
+}).strict()
+
+export const competitionSingerSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  song: z.string().trim().min(1).max(80),
+  className: z.string().trim().max(60).nullable().optional(),
+  remark: z.string().trim().max(500).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(9999).optional()
+}).strict()
+
+export const judgeLoginSchema = z.object({
+  username: z.string().trim().min(1).max(64),
+  password: z.string().min(1).max(128)
+}).strict()
+
+export const submitCompetitionScoreSchema = z.object({
+  scores: z.record(z.string().max(64), z.number().min(0).max(10)),
+  comment: z.string().trim().max(500).optional()
+}).strict()

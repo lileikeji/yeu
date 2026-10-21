@@ -234,6 +234,20 @@ erDiagram
 
 字段：`id`、`actor_admin_id`、`action`、`entity_type`、`entity_id`、`request_id`、`before_revision_id`、`after_revision_id`、`metadata_json`、`created_at`。审计日志只追加，不提供普通编辑/删除接口，不记录密码、会话 token 或完整联系方式。
 
+### 6.6 新生歌手大赛（仅音乐协会）
+
+比赛数据只属于 `contents.kind = 'club'` 且 slug 为 `music-association` 的音乐协会，服务端按内容 ID 校验组织管理员范围，不接受其他社团复用。迁移 `0039_nosy_salo.sql` 新增以下表：
+
+- `competition_events`：赛事主表，`content_id` 唯一，保存名称和 `dimensions_json`（维度 key、名称、相对权重）。默认五维等权：音准、节奏、情感、音色、舞台表现，每维满分 10。
+- `competition_rounds`：固定三轮 `prelim` / `semi` / `final`，保存标题、顺序、状态（`draft`/`open`/`closed`）、本轮计划评委数和晋级人数。初赛默认晋级 30 人；复赛晋级人数允许为 `null`（名额待定）；决赛为 `null`。
+- `competition_judges`：按轮次创建的评委账号，`username` 全局唯一，保存 scrypt 密码哈希、展示名、启用状态和最近登录。评委与轮次绑定，跨轮执评必须使用不同账号。
+- `competition_judge_sessions`：评委独立会话，只保存 token/CSRF 哈希、绝对过期时间和最后活跃时间；Cookie 使用 `yeu_judge_*` / `__Host-yeu_judge_*` 命名空间，与管理员、普通用户会话互不影响。
+- `competition_singers`：赛事总名单（姓名、歌曲、班级、备注、初始序号）。
+- `competition_round_entries`：某轮参赛名单与出场顺序。初赛在新增/导入选手时自动写入；复赛/决赛由上一轮晋级结果生成并随机抽签，`advanced_from_rank` 记录晋级名次，管理员可手动调整 `sort_order`。
+- `competition_scores`：按 `(round_id, singer_id, judge_id)` 唯一，保存提交时的维度快照与加权总分；轮次关闭后 API 拒绝写入。
+
+计分规则：单评委总分 = `Σ(维度分 × 权重) / Σ权重 × 维度数`，等权五维时即五项累加（满分 50），四舍五入保留两位。轮次得分 = 该轮所有已提交评委总分的平均分。排名按平均分降序，同分按该轮出场顺序靠前者优先；轮次结束后没有任何评分的选手标记弃权，排在最后且不参与晋级。晋级取有分选手排序后的前 `advance_count` 名，因此同分卡在边界时由出场顺序决定。赛事一旦产生任意评分，维度、权重和数量即锁定，避免不同快照的总分不可比；标题仍可修改。
+
 ## 7. 搜索与知识库
 
 ### 7.1 公开结构化搜索

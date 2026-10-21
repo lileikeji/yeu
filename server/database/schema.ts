@@ -1004,3 +1004,113 @@ export const recruitReferrers = sqliteTable('recruit_referrers', {
   uniqueIndex('recruit_referrers_code_unique').on(table.code),
   index('recruit_referrers_form_idx').on(table.formId)
 ])
+
+export const competitionEvents = sqliteTable('competition_events', {
+  id: text('id').primaryKey(),
+  contentId: text('content_id').notNull().references(() => contents.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default('新生歌手大赛'),
+  dimensionsJson: text('dimensions_json').notNull().default('[]'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('competition_events_content_unique').on(table.contentId)
+])
+
+/** 固定三轮：初赛 → 复赛 → 决赛。每轮有自己的评委、名单与成绩。 */
+export const competitionRounds = sqliteTable('competition_rounds', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  key: text('key', { enum: ['prelim', 'semi', 'final'] }).notNull(),
+  title: text('title').notNull(),
+  position: integer('position').notNull(),
+  status: text('status', { enum: ['draft', 'open', 'closed'] }).notNull().default('draft'),
+  judgeCount: integer('judge_count').notNull().default(5),
+  /** 本轮晋级下一轮的人数；决赛为 null。复赛留空表示名额待定。 */
+  advanceCount: integer('advance_count'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('competition_rounds_event_key_unique').on(table.eventId, table.key),
+  index('competition_rounds_event_position_idx').on(table.eventId, table.position),
+  check('competition_rounds_key_check', sql`${table.key} in ('prelim', 'semi', 'final')`),
+  check('competition_rounds_status_check', sql`${table.status} in ('draft', 'open', 'closed')`),
+  check('competition_rounds_judge_count_check', sql`${table.judgeCount} between 1 and 20`),
+  check('competition_rounds_advance_count_check', sql`${table.advanceCount} is null or ${table.advanceCount} between 1 and 500`)
+])
+
+export const competitionJudges = sqliteTable('competition_judges', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  roundId: text('round_id').notNull().references(() => competitionRounds.id, { onDelete: 'cascade' }),
+  username: text('username').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  displayName: text('display_name').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  lastLoginAt: integer('last_login_at'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('competition_judges_username_unique').on(table.username),
+  index('competition_judges_event_idx').on(table.eventId),
+  index('competition_judges_round_idx').on(table.roundId)
+])
+
+export const competitionJudgeSessions = sqliteTable('competition_judge_sessions', {
+  id: text('id').primaryKey(),
+  judgeId: text('judge_id').notNull().references(() => competitionJudges.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  csrfTokenHash: text('csrf_token_hash').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  lastSeenAt: integer('last_seen_at').notNull(),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('competition_judge_sessions_token_unique').on(table.tokenHash),
+  index('competition_judge_sessions_judge_idx').on(table.judgeId),
+  index('competition_judge_sessions_expires_idx').on(table.expiresAt)
+])
+
+/** 赛事总名单；具体某轮谁参赛由 competition_round_entries 决定。 */
+export const competitionSingers = sqliteTable('competition_singers', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  song: text('song').notNull(),
+  className: text('class_name'),
+  remark: text('remark'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('competition_singers_event_order_idx').on(table.eventId, table.sortOrder)
+])
+
+/** 每轮参赛名单与出场顺序（复赛/决赛生成时随机抽签）。 */
+export const competitionRoundEntries = sqliteTable('competition_round_entries', {
+  id: text('id').primaryKey(),
+  roundId: text('round_id').notNull().references(() => competitionRounds.id, { onDelete: 'cascade' }),
+  singerId: text('singer_id').notNull().references(() => competitionSingers.id, { onDelete: 'cascade' }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  /** 从上一轮晋级时的名次，便于管理员核对。 */
+  advancedFromRank: integer('advanced_from_rank'),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('competition_round_entries_round_singer_unique').on(table.roundId, table.singerId),
+  index('competition_round_entries_round_order_idx').on(table.roundId, table.sortOrder)
+])
+
+export const competitionScores = sqliteTable('competition_scores', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  roundId: text('round_id').notNull().references(() => competitionRounds.id, { onDelete: 'cascade' }),
+  singerId: text('singer_id').notNull().references(() => competitionSingers.id, { onDelete: 'cascade' }),
+  judgeId: text('judge_id').notNull().references(() => competitionJudges.id, { onDelete: 'cascade' }),
+  dimensionsJson: text('dimensions_json').notNull().default('[]'),
+  totalScore: real('total_score').notNull().default(0),
+  comment: text('comment').notNull().default(''),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('competition_scores_round_singer_judge_unique').on(table.roundId, table.singerId, table.judgeId),
+  index('competition_scores_event_idx').on(table.eventId),
+  index('competition_scores_round_idx').on(table.roundId)
+])

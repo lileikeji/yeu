@@ -1,0 +1,1396 @@
+import { randomBytes, randomInt, randomUUID } from 'node:crypto'
+import { createError } from 'h3'
+import * as XLSX from '@e965/xlsx'
+import { and, asc, desc, eq, or } from 'drizzle-orm'
+import type { DatabaseClient } from '../../database/client'
+import {
+  competitionEvents,
+  competitionJudges,
+  competitionRoundEntries,
+  competitionRounds,
+  competitionScores,
+  competitionSingers,
+  contents
+} from '../../database/schema'
+import { hashPassword } from '../../utils/password'
+import {
+  COMPETITION_MAX_DIMENSION_SCORE,
+  COMPETITION_MAX_DIMENSIONS,
+  COMPETITION_MAX_JUDGES,
+  COMPETITION_MAX_SINGERS,
+  DEFAULT_COMPETITION_DIMENSIONS,
+  calculateCompetitionTotal,
+  competitionMaxTotal,
+  roundCompetitionScore
+} from '../../../shared/utils/competition'
+import type {
+  CompetitionAdminPayload,
+  CompetitionDimension,
+  CompetitionEvent,
+  CompetitionJudge,
+  CompetitionJudgeCredentials,
+  CompetitionJudgePayload,
+  CompetitionRound,
+  CompetitionRoundEntry,
+  CompetitionRoundKey,
+  CompetitionRoundStatus,
+  CompetitionRoundView,
+  CompetitionScore,
+  CompetitionScoreDimension,
+  CompetitionSinger
+} from '../../../shared/types'
+
+/** 本功能仅开放给音乐协会，其他社团内容一律拒绝。 */
+export const MUSIC_ASSOCIATION_SLUG = 'music-association'
+export const MUSIC_ASSOCIATION_TITLE = '音乐协会'
+
+const PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+const MAX_SCORE = COMPETITION_MAX_DIMENSION_SCORE
+const MAX_COMMENT_LENGTH = 500
+
+export {
+  COMPETITION_MAX_DIMENSION_SCORE,
+  COMPETITION_MAX_DIMENSIONS,
+  COMPETITION_MAX_JUDGES,
+  COMPETITION_MAX_SINGERS,
+  DEFAULT_COMPETITION_DIMENSIONS,
+  calculateCompetitionTotal,
+  competitionMaxTotal,
+  roundCompetitionScore
+} from '../../../shared/utils/competition'
+
+interface RoundDefinition {
+  key: CompetitionRoundKey
+  title: string
+  position: number
+  advanceCount: number | null
+}
+
+/** 固定三轮；初赛取前 30，复赛名额待定（null），决赛不再晋级。 */
+export const COMPETITION_ROUND_DEFINITIONS: RoundDefinition[] = [
+  { key: 'prelim', title: '初赛', position: 1, advanceCount: 30 },
+  { key: 'semi', title: '复赛', position: 2, advanceCount: null },
+  { key: 'final', title: '决赛', position: 3, advanceCount: null }
+]
+
+function validationError(message: string, field?: string): never {
+  throw createError({
+    statusCode: 422,
+    statusMessage: 'Validation failed',
+    data: { code: 'VALIDATION_ERROR', field, message }
+  })
+}
+
+function conflictError(code: string, message: string): never {
+  throw createError({
+    statusCode: 409,
+    message,
+    data: { code, message }
+  })
+}
+
+export function validateCompetitionDimensions(input: unknown): CompetitionDimension[] {
+  if (!Array.isArray(input) || input.length === 0) {
+    validationError('至少保留一个评分维度', 'dimensions')
+  }
+  if (input.length > COMPETITION_MAX_DIMENSIONS) {
+    validationError(`评分维度不能超过 ${COMPETITION_MAX_DIMENSIONS} 个`, 'dimensions')
+  }
+
+  const seen = new Set<string>()
+  return input.map((item, index) => {
+    if (!item || typeof item !== 'object') validationError(`第 ${index + 1} 个评分维度格式不正确`, 'dimensions')
+    const record = item as Record<string, unknown>
+    const key = String(record.key ?? '').trim() || `dimension-${index + 1}`
+    if (seen.has(key)) validationError('评分维度标识重复', 'dimensions')
+    seen.add(key)
+
+    const label = String(record.label ?? '').replace(/\s+/g, ' ').trim()
+    if (!label || label.length > 20) {
+      validationError(`第 ${index + 1} 个评分维度名称必填且不超过 20 字`, 'dimensions')
+    }
+    const weight = Number(record.weight)
+    if (!Number.isFinite(weight) || weight <= 0 || weight > 100) {
+      validationError(`「${label}」的占比需为 0-100 之间的正数`, 'dimensions')
+    }
+    return { key, label, weight: roundCompetitionScore(weight) }
+  })
+}
+
+function parseJson<T>(raw: string, fallback: T): T {
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+export function getCompetitionDimensions(row: { dimensionsJson: string }): CompetitionDimension[] {
+  const parsed = parseJson<CompetitionDimension[]>(row.dimensionsJson, [])
+  if (!Array.isArray(parsed) || parsed.length === 0) return [...DEFAULT_COMPETITION_DIMENSIONS]
+  return parsed
+}
+
+type EventRow = typeof competitionEvents.$inferSelect
+type RoundRow = typeof competitionRounds.$inferSelect
+type JudgeRow = typeof competitionJudges.$inferSelect
+type EntryRow = typeof competitionRoundEntries.$inferSelect
+type SingerRow = typeof competitionSingers.$inferSelect
+type ScoreRow = typeof competitionScores.$inferSelect
+
+// -- 音乐协会定位 --------------------------------------------------------------
+
+export function findMusicAssociationContent(client: DatabaseClient) {
+  const rows = client.db.select({
+    id: contents.id,
+    slug: contents.slug,
+    title: contents.title,
+    status: contents.status
+  }).from(contents)
+    .where(and(
+      eq(contents.kind, 'club'),
+      or(
+        eq(contents.slug, MUSIC_ASSOCIATION_SLUG),
+        eq(contents.title, MUSIC_ASSOCIATION_TITLE)
+      )
+    ))
+    .all()
+
+  if (rows.length === 0) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Music association content not found',
+      data: { code: 'MUSIC_ASSOCIATION_NOT_FOUND' }
+    })
+  }
+  return rows.find(row => row.status === 'published') ?? rows[0]!
+}
+
+export function isMusicAssociationContent(client: DatabaseClient, contentId: string): boolean {
+  const row = client.db.select({ slug: contents.slug, title: contents.title })
+    .from(contents)
+    .where(and(eq(contents.id, contentId), eq(contents.kind, 'club')))
+    .get()
+  return Boolean(row
+    && (row.slug === MUSIC_ASSOCIATION_SLUG || row.title === MUSIC_ASSOCIATION_TITLE))
+}
+
+export function getCompetitionClub(client: DatabaseClient, contentId: string) {
+  return client.db.select({
+    id: contents.id,
+    slug: contents.slug,
+    title: contents.title
+  }).from(contents).where(eq(contents.id, contentId)).get() ?? null
+}
+
+// -- 赛事与轮次 ----------------------------------------------------------------
+
+export function getCompetitionEventRow(client: DatabaseClient, contentId: string): EventRow | null {
+  return client.db.select().from(competitionEvents)
+    .where(eq(competitionEvents.contentId, contentId))
+    .get() ?? null
+}
+
+function ensureRounds(client: DatabaseClient, eventId: string): RoundRow[] {
+  const existing = client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventId))
+    .all()
+  const byKey = new Map(existing.map(round => [round.key, round]))
+  const now = Date.now()
+
+  for (const definition of COMPETITION_ROUND_DEFINITIONS) {
+    if (byKey.has(definition.key)) continue
+    client.db.insert(competitionRounds).values({
+      id: randomUUID(),
+      eventId,
+      key: definition.key,
+      title: definition.title,
+      position: definition.position,
+      status: 'draft',
+      judgeCount: 5,
+      advanceCount: definition.advanceCount,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+  }
+
+  return client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventId))
+    .orderBy(asc(competitionRounds.position))
+    .all()
+}
+
+export function ensureCompetitionEvent(client: DatabaseClient, contentId: string): EventRow {
+  const existing = getCompetitionEventRow(client, contentId)
+  if (existing) {
+    ensureRounds(client, existing.id)
+    return existing
+  }
+
+  const now = Date.now()
+  const eventId = randomUUID()
+  client.db.transaction((transaction) => {
+    transaction.insert(competitionEvents).values({
+      id: eventId,
+      contentId,
+      title: '新生歌手大赛',
+      dimensionsJson: JSON.stringify(DEFAULT_COMPETITION_DIMENSIONS),
+      createdAt: now,
+      updatedAt: now
+    }).run()
+  })
+  ensureRounds(client, eventId)
+  return getCompetitionEventRow(client, contentId)!
+}
+
+export function listRounds(client: DatabaseClient, eventId: string): RoundRow[] {
+  return client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.eventId, eventId))
+    .orderBy(asc(competitionRounds.position))
+    .all()
+}
+
+export function getRoundByKey(
+  client: DatabaseClient,
+  eventId: string,
+  key: string
+): RoundRow {
+  const round = client.db.select().from(competitionRounds)
+    .where(and(eq(competitionRounds.eventId, eventId), eq(competitionRounds.key, key as CompetitionRoundKey)))
+    .get()
+  if (!round) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Competition round not found',
+      data: { code: 'NOT_FOUND' }
+    })
+  }
+  return round
+}
+
+export function nextRoundOf(client: DatabaseClient, round: RoundRow): RoundRow | null {
+  return client.db.select().from(competitionRounds)
+    .where(and(
+      eq(competitionRounds.eventId, round.eventId),
+      eq(competitionRounds.position, round.position + 1)
+    ))
+    .get() ?? null
+}
+
+export function serializeCompetitionEvent(row: EventRow, club: { slug: string, title: string }): CompetitionEvent {
+  const dimensions = getCompetitionDimensions(row)
+  return {
+    id: row.id,
+    contentId: row.contentId,
+    clubName: club.title,
+    clubSlug: club.slug,
+    title: row.title,
+    dimensions,
+    maxTotal: competitionMaxTotal(dimensions),
+    createdAt: Number(row.createdAt ?? 0),
+    updatedAt: Number(row.updatedAt ?? 0)
+  }
+}
+
+export function serializeRound(row: RoundRow): CompetitionRound {
+  return {
+    id: row.id,
+    key: row.key,
+    title: row.title,
+    position: row.position,
+    status: row.status,
+    judgeCount: row.judgeCount,
+    advanceCount: row.advanceCount,
+    createdAt: Number(row.createdAt ?? 0),
+    updatedAt: Number(row.updatedAt ?? 0)
+  }
+}
+
+export function serializeJudge(row: JudgeRow, scoreCount = 0): CompetitionJudge {
+  return {
+    id: row.id,
+    roundId: row.roundId,
+    username: row.username,
+    displayName: row.displayName,
+    isActive: row.isActive,
+    lastLoginAt: row.lastLoginAt ? Number(row.lastLoginAt) : null,
+    createdAt: Number(row.createdAt ?? 0),
+    scoreCount
+  }
+}
+
+export function serializeSinger(row: SingerRow): CompetitionSinger {
+  return {
+    id: row.id,
+    name: row.name,
+    song: row.song,
+    className: row.className,
+    remark: row.remark,
+    sortOrder: row.sortOrder,
+    createdAt: Number(row.createdAt ?? 0),
+    updatedAt: Number(row.updatedAt ?? 0)
+  }
+}
+
+export function serializeScore(row: ScoreRow, judgeName: string): CompetitionScore {
+  return {
+    id: row.id,
+    roundId: row.roundId,
+    singerId: row.singerId,
+    judgeId: row.judgeId,
+    judgeName,
+    dimensions: parseJson<CompetitionScoreDimension[]>(row.dimensionsJson, []),
+    total: roundCompetitionScore(Number(row.totalScore ?? 0)),
+    comment: row.comment ?? '',
+    updatedAt: Number(row.updatedAt ?? row.createdAt ?? 0)
+  }
+}
+
+export interface UpdateCompetitionInput {
+  title: unknown
+  dimensions: unknown
+}
+
+export function updateCompetitionEvent(
+  client: DatabaseClient,
+  row: EventRow,
+  input: UpdateCompetitionInput
+): EventRow {
+  const title = String(input.title ?? '').replace(/\s+/g, ' ').trim()
+  if (!title || title.length > 60) validationError('比赛名称必填且不超过 60 字', 'title')
+  const dimensions = validateCompetitionDimensions(input.dimensions)
+
+  const currentDimensions = getCompetitionDimensions(row)
+  if (JSON.stringify(currentDimensions) !== JSON.stringify(dimensions)) {
+    const scoreCount = client.db.select({ id: competitionScores.id }).from(competitionScores)
+      .where(eq(competitionScores.eventId, row.id)).all().length
+    if (scoreCount > 0) {
+      conflictError('COMPETITION_HAS_SCORES', '比赛已有评分，不能修改评分维度或占比；请在评分开始前完成设置')
+    }
+  }
+
+  client.db.update(competitionEvents).set({
+    title,
+    dimensionsJson: JSON.stringify(dimensions),
+    updatedAt: Date.now()
+  }).where(eq(competitionEvents.id, row.id)).run()
+
+  return getCompetitionEventRow(client, row.contentId)!
+}
+
+export interface UpdateRoundInput {
+  status?: unknown
+  judgeCount?: unknown
+  advanceCount?: unknown
+}
+
+export function updateRound(
+  client: DatabaseClient,
+  round: RoundRow,
+  input: UpdateRoundInput
+): RoundRow {
+  const nextRound = nextRoundOf(client, round)
+  const downstreamEntries = nextRound ? countEntries(client, nextRound.id) : 0
+  const scores = countRoundScores(client, round.id)
+  const patch: Partial<typeof competitionRounds.$inferInsert> = { updatedAt: Date.now() }
+
+  if (input.status !== undefined) {
+    const status = String(input.status) as CompetitionRoundStatus
+    if (!['draft', 'open', 'closed'].includes(status)) validationError('轮次状态无效', 'status')
+
+    if (status === 'open' && countEntries(client, round.id) === 0) {
+      validationError('本轮还没有参赛名单，不能开放评分', 'status')
+    }
+    if (round.status === 'closed' && status !== 'closed' && downstreamEntries > 0) {
+      conflictError('ROUND_DOWNSTREAM_LOCKED', '下一轮名单已生成，不能重新打开上一轮；请先清空下一轮名单')
+    }
+    if (status === 'draft' && scores > 0) {
+      conflictError('ROUND_HAS_SCORES', '本轮已有评分，不能退回未开始状态')
+    }
+    patch.status = status
+  }
+
+  if (input.judgeCount !== undefined) {
+    const judgeCount = Number(input.judgeCount)
+    if (!Number.isInteger(judgeCount) || judgeCount < 1 || judgeCount > COMPETITION_MAX_JUDGES) {
+      validationError(`评委人数需为 1-${COMPETITION_MAX_JUDGES} 的整数`, 'judgeCount')
+    }
+    patch.judgeCount = judgeCount
+  }
+
+  if (round.key === 'final') {
+    patch.advanceCount = null
+  } else if (input.advanceCount !== undefined) {
+    let advanceCount: number | null = null
+    if (input.advanceCount !== null && String(input.advanceCount).trim() !== '') {
+      const value = Number(input.advanceCount)
+      if (!Number.isInteger(value) || value < 1 || value > COMPETITION_MAX_SINGERS) {
+        validationError('晋级人数需为正整数', 'advanceCount')
+      }
+      advanceCount = value
+    }
+    if (round.key === 'prelim' && advanceCount === null) {
+      validationError('初赛需设置晋级人数（默认前 30）', 'advanceCount')
+    }
+    if (round.advanceCount !== advanceCount && downstreamEntries > 0) {
+      conflictError('ROUND_ADVANCE_LOCKED', '下一轮名单已生成，不能修改本轮晋级人数；请先清空下一轮名单')
+    }
+    patch.advanceCount = advanceCount
+  }
+
+  client.db.update(competitionRounds).set(patch).where(eq(competitionRounds.id, round.id)).run()
+  return client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.id, round.id)).get()!
+}
+
+// -- 名单与排名 ----------------------------------------------------------------
+
+function countEntries(client: DatabaseClient, roundId: string): number {
+  return client.db.select({ id: competitionRoundEntries.id }).from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.roundId, roundId)).all().length
+}
+
+function countRoundScores(client: DatabaseClient, roundId: string): number {
+  return client.db.select({ id: competitionScores.id }).from(competitionScores)
+    .where(eq(competitionScores.roundId, roundId)).all().length
+}
+
+export function listSingers(client: DatabaseClient, eventId: string): SingerRow[] {
+  return client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.eventId, eventId))
+    .orderBy(asc(competitionSingers.sortOrder), asc(competitionSingers.createdAt))
+    .all()
+}
+
+export function listJudges(client: DatabaseClient, eventId: string): JudgeRow[] {
+  return client.db.select().from(competitionJudges)
+    .where(eq(competitionJudges.eventId, eventId))
+    .orderBy(asc(competitionJudges.createdAt))
+    .all()
+}
+
+export function listRoundJudges(client: DatabaseClient, roundId: string): JudgeRow[] {
+  return client.db.select().from(competitionJudges)
+    .where(eq(competitionJudges.roundId, roundId))
+    .orderBy(asc(competitionJudges.createdAt))
+    .all()
+}
+
+export function listRoundScores(client: DatabaseClient, roundId: string): ScoreRow[] {
+  return client.db.select().from(competitionScores)
+    .where(eq(competitionScores.roundId, roundId))
+    .orderBy(desc(competitionScores.updatedAt))
+    .all()
+}
+
+export function listRoundEntryRows(client: DatabaseClient, roundId: string): EntryRow[] {
+  return client.db.select().from(competitionRoundEntries)
+    .where(eq(competitionRoundEntries.roundId, roundId))
+    .orderBy(asc(competitionRoundEntries.sortOrder), asc(competitionRoundEntries.createdAt))
+    .all()
+}
+
+function averageOf(totals: number[]): number | null {
+  if (totals.length === 0) return null
+  return roundCompetitionScore(totals.reduce((sum, value) => sum + value, 0) / totals.length)
+}
+
+/**
+ * 本轮排名：有分选手按平均分降序，同分按本轮出场顺序靠前者优先；
+ * 未评分选手排在最后。本轮结束后仍未评分的标记为弃权。
+ */
+export function buildRoundRanking(
+  round: RoundRow,
+  entries: EntryRow[],
+  singersById: Map<string, SingerRow>,
+  scoreRows: ScoreRow[]
+): CompetitionRoundEntry[] {
+  const totalsBySinger = new Map<string, number[]>()
+  for (const score of scoreRows) {
+    const list = totalsBySinger.get(score.singerId) ?? []
+    list.push(roundCompetitionScore(Number(score.totalScore ?? 0)))
+    totalsBySinger.set(score.singerId, list)
+  }
+
+  const rows = entries
+    .map((entry) => {
+      const singer = singersById.get(entry.singerId)
+      if (!singer) return null
+      const totals = totalsBySinger.get(entry.singerId) ?? []
+      return {
+        entry,
+        singer,
+        average: averageOf(totals),
+        scoreCount: totals.length
+      }
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+
+  const scored = rows
+    .filter(row => row.average !== null)
+    .sort((left, right) =>
+      (right.average! - left.average!)
+      || (left.entry.sortOrder - right.entry.sortOrder)
+      || left.singer.name.localeCompare(right.singer.name, 'zh-Hans-CN'))
+  const unscored = rows
+    .filter(row => row.average === null)
+    .sort((left, right) =>
+      (left.entry.sortOrder - right.entry.sortOrder)
+      || left.singer.name.localeCompare(right.singer.name, 'zh-Hans-CN'))
+
+  const result: CompetitionRoundEntry[] = []
+  let lastAverage: number | null = null
+  let lastRank = 0
+  scored.forEach((row, index) => {
+    if (lastAverage === null || row.average !== lastAverage) {
+      lastRank = index + 1
+      lastAverage = row.average
+    }
+    result.push({
+      id: row.entry.id,
+      singer: serializeSinger(row.singer),
+      sortOrder: row.entry.sortOrder,
+      advancedFromRank: row.entry.advancedFromRank,
+      average: row.average,
+      scoreCount: row.scoreCount,
+      rank: lastRank,
+      qualified: round.status === 'closed'
+        && round.advanceCount !== null
+        && index < round.advanceCount,
+      forfeited: false
+    })
+  })
+  for (const row of unscored) {
+    result.push({
+      id: row.entry.id,
+      singer: serializeSinger(row.singer),
+      sortOrder: row.entry.sortOrder,
+      advancedFromRank: row.entry.advancedFromRank,
+      average: null,
+      scoreCount: 0,
+      rank: null,
+      qualified: false,
+      forfeited: round.status === 'closed'
+    })
+  }
+  return result
+}
+
+function roundView(
+  client: DatabaseClient,
+  round: RoundRow,
+  singers: SingerRow[],
+  dimensions: CompetitionDimension[]
+): CompetitionRoundView {
+  const entries = listRoundEntryRows(client, round.id)
+  const scoreRows = listRoundScores(client, round.id)
+  const judges = listRoundJudges(client, round.id)
+  const judgeNameById = new Map(judges.map(judge => [judge.id, judge.displayName]))
+  const singersById = new Map(singers.map(singer => [singer.id, singer]))
+  const scoreCountByJudge = new Map<string, number>()
+  for (const score of scoreRows) {
+    scoreCountByJudge.set(score.judgeId, (scoreCountByJudge.get(score.judgeId) ?? 0) + 1)
+  }
+
+  return {
+    ...serializeRound(round),
+    entries: buildRoundRanking(round, entries, singersById, scoreRows),
+    judges: judges.map(judge => serializeJudge(judge, scoreCountByJudge.get(judge.id) ?? 0)),
+    scores: scoreRows.map(score => serializeScore(score, judgeNameById.get(score.judgeId) ?? '评委')),
+    maxTotal: competitionMaxTotal(dimensions),
+    hasScores: scoreRows.length > 0
+  }
+}
+
+export function getAdminCompetitionPayload(client: DatabaseClient, contentId: string): CompetitionAdminPayload {
+  const club = getCompetitionClub(client, contentId)
+  if (!club) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Music association content not found',
+      data: { code: 'MUSIC_ASSOCIATION_NOT_FOUND' }
+    })
+  }
+
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const dimensions = getCompetitionDimensions(eventRow)
+  const singers = listSingers(client, eventRow.id)
+  const rounds = listRounds(client, eventRow.id)
+
+  return {
+    event: serializeCompetitionEvent(eventRow, club),
+    singers: singers.map(serializeSinger),
+    rounds: rounds.map(round => roundView(client, round, singers, dimensions))
+  }
+}
+
+// -- 晋级与抽签 ----------------------------------------------------------------
+
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items]
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1)
+    const current = copy[index]!
+    copy[index] = copy[swapIndex]!
+    copy[swapIndex] = current
+  }
+  return copy
+}
+
+export function generateNextRound(
+  client: DatabaseClient,
+  currentRound: RoundRow
+): { round: RoundRow, advanced: number } {
+  const nextRound = nextRoundOf(client, currentRound)
+  if (!nextRound) validationError('决赛没有下一轮', 'round')
+  if (currentRound.status !== 'closed') {
+    conflictError('ROUND_NOT_CLOSED', '请先结束本轮评分，再生成下一轮名单')
+  }
+  if (currentRound.advanceCount === null) {
+    validationError('请先设置本轮晋级人数', 'advanceCount')
+  }
+  if (countRoundScores(client, nextRound.id) > 0) {
+    conflictError('NEXT_ROUND_HAS_SCORES', '下一轮已有评分，不能重新生成名单')
+  }
+  if (countEntries(client, nextRound.id) > 0) {
+    conflictError('NEXT_ROUND_ALREADY_GENERATED', '下一轮名单已生成；如需重做，请先清空下一轮名单')
+  }
+
+  const singers = listSingers(client, currentRound.eventId)
+  const singersById = new Map(singers.map(singer => [singer.id, singer]))
+  const ranking = buildRoundRanking(
+    currentRound,
+    listRoundEntryRows(client, currentRound.id),
+    singersById,
+    listRoundScores(client, currentRound.id)
+  )
+  const qualified = ranking
+    .filter(row => row.scoreCount > 0)
+    .slice(0, currentRound.advanceCount)
+
+  if (qualified.length === 0) {
+    validationError('本轮没有有效成绩（全部弃权），无法生成下一轮名单', 'round')
+  }
+
+  const shuffled = shuffle(qualified)
+  const now = Date.now()
+  client.db.transaction((transaction) => {
+    shuffled.forEach((row, index) => {
+      transaction.insert(competitionRoundEntries).values({
+        id: randomUUID(),
+        roundId: nextRound.id,
+        singerId: row.singer.id,
+        sortOrder: index + 1,
+        advancedFromRank: row.rank,
+        createdAt: now
+      }).run()
+    })
+    transaction.update(competitionRounds).set({
+      status: 'draft',
+      updatedAt: now
+    }).where(eq(competitionRounds.id, nextRound.id)).run()
+  })
+
+  return {
+    round: client.db.select().from(competitionRounds)
+      .where(eq(competitionRounds.id, nextRound.id)).get()!,
+    advanced: qualified.length
+  }
+}
+
+export function redrawRound(client: DatabaseClient, round: RoundRow): void {
+  if (round.key === 'prelim') validationError('初赛按导入顺序出场，不能重新抽签', 'round')
+  if (round.status === 'closed') conflictError('ROUND_CLOSED', '本轮已结束，不能重新抽签')
+  if (countRoundScores(client, round.id) > 0) {
+    conflictError('ROUND_HAS_SCORES', '本轮已有评分，不能重新抽签')
+  }
+  const entries = listRoundEntryRows(client, round.id)
+  if (entries.length < 2) validationError('本轮名单不足 2 人，无需抽签', 'round')
+
+  const shuffled = shuffle(entries)
+  client.db.transaction((transaction) => {
+    shuffled.forEach((entry, index) => {
+      transaction.update(competitionRoundEntries).set({ sortOrder: index + 1 })
+        .where(eq(competitionRoundEntries.id, entry.id))
+        .run()
+    })
+  })
+}
+
+/** 管理员手动调整出场顺序：提交本轮完整、无重复的 entryId 列表。 */
+export function reorderRoundEntries(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryIds: string[]
+): void {
+  if (round.status === 'closed') {
+    conflictError('ROUND_CLOSED', '本轮已结束，出场顺序已锁定')
+  }
+  const entries = listRoundEntryRows(client, round.id)
+  if (entryIds.length !== entries.length) {
+    validationError('顺序列表必须包含本轮全部选手', 'entryIds')
+  }
+  const validIds = new Set(entries.map(entry => entry.id))
+  const seen = new Set<string>()
+  for (const id of entryIds) {
+    if (!validIds.has(id) || seen.has(id)) {
+      validationError('顺序列表包含无效或重复的选手', 'entryIds')
+    }
+    seen.add(id)
+  }
+
+  client.db.transaction((transaction) => {
+    entryIds.forEach((entryId, index) => {
+      transaction.update(competitionRoundEntries).set({ sortOrder: index + 1 })
+        .where(eq(competitionRoundEntries.id, entryId))
+        .run()
+    })
+  })
+}
+
+export function clearRoundRoster(client: DatabaseClient, round: RoundRow): void {
+  if (round.key === 'prelim') validationError('初赛名单来自选手库，不能清空', 'round')
+  if (round.status === 'open') conflictError('ROUND_OPEN', '请先暂停/结束本轮评分，再清空名单')
+  if (countRoundScores(client, round.id) > 0) {
+    conflictError('ROUND_HAS_SCORES', '本轮已有评分，不能清空名单')
+  }
+  const nextRound = nextRoundOf(client, round)
+  if (nextRound && countEntries(client, nextRound.id) > 0) {
+    conflictError('ROUND_DOWNSTREAM_LOCKED', '下一轮名单已生成，请先清空下一轮名单')
+  }
+
+  client.db.transaction((transaction) => {
+    transaction.delete(competitionRoundEntries)
+      .where(eq(competitionRoundEntries.roundId, round.id))
+      .run()
+    transaction.update(competitionRounds).set({
+      status: 'draft',
+      updatedAt: Date.now()
+    }).where(eq(competitionRounds.id, round.id)).run()
+  })
+}
+
+// -- 评委账号 ------------------------------------------------------------------
+
+function generateJudgePassword(): string {
+  const bytes = randomBytes(10)
+  let password = ''
+  for (const byte of bytes) password += PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length]!
+  return password
+}
+
+function nextJudgeIdentity(
+  client: DatabaseClient,
+  round: RoundRow
+): { username: string, displayName: string } {
+  const existingUsernames = new Set(
+    client.db.select({ username: competitionJudges.username }).from(competitionJudges).all()
+      .map(row => row.username)
+  )
+  const existingDisplayNames = new Set(
+    listRoundJudges(client, round.id).map(row => row.displayName)
+  )
+
+  for (let index = 1; index <= 9999; index += 1) {
+    const username = `judge${index}`
+    if (existingUsernames.has(username)) continue
+    existingUsernames.add(username)
+
+    // 展示名按本轮顺序从 1 开始，不受其他轮次账号占用用户名的影响。
+    let displayIndex = 1
+    while (existingDisplayNames.has(`${round.title}评委${displayIndex}`)) displayIndex += 1
+    const displayName = `${round.title}评委${displayIndex}`
+    existingDisplayNames.add(displayName)
+    return { username, displayName }
+  }
+
+  throw createError({
+    statusCode: 409,
+    statusMessage: 'Unable to allocate judge username',
+    data: { code: 'JUDGE_USERNAME_EXHAUSTED' }
+  })
+}
+
+export async function createJudgeAccounts(
+  client: DatabaseClient,
+  round: RoundRow,
+  count: number
+): Promise<CompetitionJudgeCredentials[]> {
+  if (!Number.isInteger(count) || count < 1 || count > COMPETITION_MAX_JUDGES) {
+    validationError(`每次生成 1-${COMPETITION_MAX_JUDGES} 个评委账号`, 'count')
+  }
+
+  const created: CompetitionJudgeCredentials[] = []
+  for (let index = 0; index < count; index += 1) {
+    const identity = nextJudgeIdentity(client, round)
+    const password = generateJudgePassword()
+    const passwordHash = await hashPassword(password)
+    const id = randomUUID()
+    const now = Date.now()
+    client.db.insert(competitionJudges).values({
+      id,
+      eventId: round.eventId,
+      roundId: round.id,
+      username: identity.username,
+      passwordHash,
+      displayName: identity.displayName,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+    created.push({
+      id,
+      username: identity.username,
+      displayName: identity.displayName,
+      password
+    })
+  }
+  return created
+}
+
+function requireJudgeRow(client: DatabaseClient, roundId: string, judgeId: string): JudgeRow {
+  const row = client.db.select().from(competitionJudges)
+    .where(and(eq(competitionJudges.roundId, roundId), eq(competitionJudges.id, judgeId)))
+    .get()
+  if (!row) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Judge not found',
+      data: { code: 'NOT_FOUND' }
+    })
+  }
+  return row
+}
+
+export function updateJudge(
+  client: DatabaseClient,
+  roundId: string,
+  judgeId: string,
+  input: { displayName?: unknown, isActive?: unknown }
+): CompetitionJudge {
+  requireJudgeRow(client, roundId, judgeId)
+  const patch: Partial<typeof competitionJudges.$inferInsert> = { updatedAt: Date.now() }
+
+  if (input.displayName !== undefined) {
+    const displayName = String(input.displayName ?? '').replace(/\s+/g, ' ').trim()
+    if (!displayName || displayName.length > 20) validationError('评委名称必填且不超过 20 字', 'displayName')
+    patch.displayName = displayName
+  }
+  if (input.isActive !== undefined) {
+    patch.isActive = input.isActive === true
+  }
+
+  client.db.update(competitionJudges).set(patch).where(eq(competitionJudges.id, judgeId)).run()
+  const updated = requireJudgeRow(client, roundId, judgeId)
+  const scoreCount = client.db.select({ id: competitionScores.id }).from(competitionScores)
+    .where(eq(competitionScores.judgeId, judgeId)).all().length
+  return serializeJudge(updated, scoreCount)
+}
+
+export async function resetJudgePassword(
+  client: DatabaseClient,
+  roundId: string,
+  judgeId: string
+): Promise<string> {
+  requireJudgeRow(client, roundId, judgeId)
+  const password = generateJudgePassword()
+  const passwordHash = await hashPassword(password)
+  client.db.update(competitionJudges).set({
+    passwordHash,
+    updatedAt: Date.now()
+  }).where(eq(competitionJudges.id, judgeId)).run()
+  return password
+}
+
+export function deleteJudge(client: DatabaseClient, roundId: string, judgeId: string): void {
+  requireJudgeRow(client, roundId, judgeId)
+  client.db.delete(competitionJudges).where(eq(competitionJudges.id, judgeId)).run()
+}
+
+// -- 歌手名单 ------------------------------------------------------------------
+
+export interface SingerInput {
+  name?: unknown
+  song?: unknown
+  className?: unknown
+  remark?: unknown
+  sortOrder?: unknown
+}
+
+function normalizeSingerInput(input: SingerInput): {
+  name: string
+  song: string
+  className: string | null
+  remark: string | null
+  sortOrder: number | null
+} {
+  const name = String(input.name ?? '').replace(/\s+/g, ' ').trim()
+  if (!name || name.length > 40) validationError('选手姓名必填且不超过 40 字', 'name')
+  const song = String(input.song ?? '').replace(/\s+/g, ' ').trim()
+  if (!song || song.length > 80) validationError('参赛歌曲必填且不超过 80 字', 'song')
+
+  const classNameRaw = String(input.className ?? '').replace(/\s+/g, ' ').trim()
+  if (classNameRaw.length > 60) validationError('班级不超过 60 字', 'className')
+  const remarkRaw = String(input.remark ?? '').trim()
+  if (remarkRaw.length > MAX_COMMENT_LENGTH) validationError(`备注不超过 ${MAX_COMMENT_LENGTH} 字`, 'remark')
+
+  let sortOrder: number | null = null
+  if (input.sortOrder !== undefined && input.sortOrder !== null && String(input.sortOrder).trim() !== '') {
+    const value = Number(input.sortOrder)
+    if (!Number.isInteger(value) || value < 0 || value > 9999) {
+      validationError('出场序号需为 0-9999 的整数', 'sortOrder')
+    }
+    sortOrder = value
+  }
+
+  return {
+    name,
+    song,
+    className: classNameRaw || null,
+    remark: remarkRaw || null,
+    sortOrder
+  }
+}
+
+function nextSingerOrder(client: DatabaseClient, eventId: string): number {
+  const rows = client.db.select({ sortOrder: competitionSingers.sortOrder })
+    .from(competitionSingers).where(eq(competitionSingers.eventId, eventId)).all()
+  return rows.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1
+}
+
+function addPrelimEntry(client: DatabaseClient, eventId: string, singerId: string, sortOrder: number): void {
+  const prelim = getRoundByKey(client, eventId, 'prelim')
+  client.db.insert(competitionRoundEntries).values({
+    id: randomUUID(),
+    roundId: prelim.id,
+    singerId,
+    sortOrder,
+    createdAt: Date.now()
+  }).run()
+}
+
+export function createSinger(client: DatabaseClient, eventId: string, input: SingerInput): CompetitionSinger {
+  const normalized = normalizeSingerInput(input)
+  const id = randomUUID()
+  const now = Date.now()
+  const sortOrder = normalized.sortOrder ?? nextSingerOrder(client, eventId)
+  client.db.transaction((transaction) => {
+    transaction.insert(competitionSingers).values({
+      id,
+      eventId,
+      name: normalized.name,
+      song: normalized.song,
+      className: normalized.className,
+      remark: normalized.remark,
+      sortOrder,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+  })
+  addPrelimEntry(client, eventId, id, sortOrder)
+
+  const row = client.db.select().from(competitionSingers)
+    .where(eq(competitionSingers.id, id)).get()!
+  return serializeSinger(row)
+}
+
+function requireSingerRow(client: DatabaseClient, eventId: string, singerId: string): SingerRow {
+  const row = client.db.select().from(competitionSingers)
+    .where(and(eq(competitionSingers.eventId, eventId), eq(competitionSingers.id, singerId)))
+    .get()
+  if (!row) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Singer not found',
+      data: { code: 'NOT_FOUND' }
+    })
+  }
+  return row
+}
+
+export function updateSinger(
+  client: DatabaseClient,
+  eventId: string,
+  singerId: string,
+  input: SingerInput
+): CompetitionSinger {
+  const current = requireSingerRow(client, eventId, singerId)
+  const normalized = normalizeSingerInput({
+    name: input.name ?? current.name,
+    song: input.song ?? current.song,
+    className: input.className ?? current.className,
+    remark: input.remark ?? current.remark,
+    sortOrder: input.sortOrder ?? current.sortOrder
+  })
+  const sortOrder = normalized.sortOrder ?? current.sortOrder
+
+  client.db.transaction((transaction) => {
+    transaction.update(competitionSingers).set({
+      name: normalized.name,
+      song: normalized.song,
+      className: normalized.className,
+      remark: normalized.remark,
+      sortOrder,
+      updatedAt: Date.now()
+    }).where(eq(competitionSingers.id, singerId)).run()
+  })
+
+  return serializeSinger(requireSingerRow(client, eventId, singerId))
+}
+
+export function deleteSinger(client: DatabaseClient, eventId: string, singerId: string): void {
+  requireSingerRow(client, eventId, singerId)
+  client.db.delete(competitionSingers).where(eq(competitionSingers.id, singerId)).run()
+}
+
+export interface ImportedSinger {
+  name: string
+  song: string
+  className: string | null
+}
+
+const NAME_HEADERS = ['姓名', '选手姓名', '参赛选手', '选手', '名字']
+const SONG_HEADERS = ['参赛歌曲', '演唱歌曲', '参赛曲目', '歌曲名称', '歌曲', '曲目', '歌名']
+const CLASS_HEADERS = ['专业班级', '学院班级', '年级班级', '班级']
+
+function normalizeHeaderCell(value: unknown): string {
+  return String(value ?? '').replace(/\s+/g, '').replace(/[()（）:：]/g, '').trim()
+}
+
+function findColumn(headerRow: unknown[], aliases: string[]): number {
+  const normalized = headerRow.map(normalizeHeaderCell)
+  for (const alias of aliases) {
+    const exact = normalized.indexOf(alias)
+    if (exact >= 0) return exact
+  }
+  for (const alias of aliases) {
+    const partial = normalized.findIndex(cell => cell.includes(alias))
+    if (partial >= 0) return partial
+  }
+  return -1
+}
+
+/**
+ * 解析导入文件。支持表头别名与常见顺序，逐行校验；
+ * 空行跳过，只填了半行会报行号，避免安静丢数据。
+ */
+export function parseSingerWorkbook(bytes: Uint8Array): ImportedSinger[] {
+  let workbook: XLSX.WorkBook
+  try {
+    workbook = XLSX.read(Buffer.from(bytes), { type: 'buffer' })
+  } catch {
+    validationError('无法读取文件，请上传 .xlsx / .xls / .csv 格式的名单', 'file')
+  }
+
+  const sheetName = workbook.SheetNames[0]
+  const sheet = sheetName ? workbook.Sheets[sheetName] : undefined
+  if (!sheet) validationError('文件中没有可读取的工作表', 'file')
+
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    blankrows: false,
+    defval: ''
+  })
+  if (rows.length === 0) validationError('名单为空', 'file')
+
+  let headerIndex = -1
+  let nameColumn = -1
+  let songColumn = -1
+  let classColumn = -1
+  const headerScanLimit = Math.min(rows.length, 10)
+  for (let index = 0; index < headerScanLimit; index += 1) {
+    const row = rows[index] ?? []
+    const nameCandidate = findColumn(row, NAME_HEADERS)
+    const songCandidate = findColumn(row, SONG_HEADERS)
+    if (nameCandidate >= 0 && songCandidate >= 0) {
+      headerIndex = index
+      nameColumn = nameCandidate
+      songColumn = songCandidate
+      classColumn = findColumn(row, CLASS_HEADERS)
+      break
+    }
+  }
+
+  if (headerIndex < 0) {
+    validationError('未识别到表头：请确保第一行包含「姓名」和「歌曲」两列', 'file')
+  }
+
+  const singers: ImportedSinger[] = []
+  for (let index = headerIndex + 1; index < rows.length; index += 1) {
+    const row = rows[index] ?? []
+    const name = String(row[nameColumn] ?? '').replace(/\s+/g, ' ').trim()
+    const song = String(row[songColumn] ?? '').replace(/\s+/g, ' ').trim()
+    if (!name && !song) continue
+    if (!name || !song) {
+      validationError(`第 ${index + 1} 行缺少${name ? '歌曲' : '姓名'}`, 'file')
+    }
+    if (name.length > 40) validationError(`第 ${index + 1} 行姓名超过 40 字`, 'file')
+    if (song.length > 80) validationError(`第 ${index + 1} 行歌曲超过 80 字`, 'file')
+
+    const className = classColumn >= 0
+      ? String(row[classColumn] ?? '').replace(/\s+/g, ' ').trim().slice(0, 60) || null
+      : null
+    singers.push({ name, song, className })
+    if (singers.length > COMPETITION_MAX_SINGERS) {
+      validationError(`单次最多导入 ${COMPETITION_MAX_SINGERS} 位选手`, 'file')
+    }
+  }
+
+  if (singers.length === 0) validationError('名单中没有有效数据行', 'file')
+  return singers
+}
+
+export function importSingers(
+  client: DatabaseClient,
+  eventId: string,
+  items: ImportedSinger[]
+): { imported: number, skipped: number } {
+  const existing = new Set(
+    listSingers(client, eventId).map(singer => `${singer.name}\u0000${singer.song}`)
+  )
+  const prelim = getRoundByKey(client, eventId, 'prelim')
+  let sortOrder = nextSingerOrder(client, eventId) - 1
+  let imported = 0
+  let skipped = 0
+  const now = Date.now()
+
+  for (const item of items) {
+    const dedupeKey = `${item.name}\u0000${item.song}`
+    if (existing.has(dedupeKey)) {
+      skipped += 1
+      continue
+    }
+    existing.add(dedupeKey)
+    sortOrder += 1
+    const singerId = randomUUID()
+    client.db.transaction((transaction) => {
+      transaction.insert(competitionSingers).values({
+        id: singerId,
+        eventId,
+        name: item.name,
+        song: item.song,
+        className: item.className,
+        sortOrder,
+        createdAt: now,
+        updatedAt: now
+      }).run()
+      transaction.insert(competitionRoundEntries).values({
+        id: randomUUID(),
+        roundId: prelim.id,
+        singerId,
+        sortOrder,
+        createdAt: now
+      }).run()
+    })
+    imported += 1
+  }
+  return { imported, skipped }
+}
+
+// -- 评委评分 ------------------------------------------------------------------
+
+export interface JudgeSessionIdentity {
+  id: string
+  username: string
+  displayName: string
+  eventId: string
+  roundId: string
+}
+
+export function getRound(client: DatabaseClient, roundId: string): RoundRow | null {
+  return client.db.select().from(competitionRounds)
+    .where(eq(competitionRounds.id, roundId))
+    .get() ?? null
+}
+
+function getEvent(client: DatabaseClient, eventId: string): EventRow | null {
+  return client.db.select().from(competitionEvents)
+    .where(eq(competitionEvents.id, eventId))
+    .get() ?? null
+}
+
+export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdentity): CompetitionJudgePayload {
+  const eventRow = getEvent(client, judge.eventId)
+  const round = getRound(client, judge.roundId)
+  if (!eventRow || !round) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Competition not found',
+      data: { code: 'NOT_FOUND' }
+    })
+  }
+
+  const dimensions = getCompetitionDimensions(eventRow)
+  const singersById = new Map(listSingers(client, eventRow.id).map(singer => [singer.id, singer]))
+  const entryRows = listRoundEntryRows(client, round.id)
+  const scoreRows = listRoundScores(client, round.id)
+  const ownScores = new Map(
+    scoreRows
+      .filter(score => score.judgeId === judge.id)
+      .map(score => [score.singerId, serializeScore(score, judge.displayName)])
+  )
+
+  const singers = entryRows
+    .map((entry) => {
+      const singer = singersById.get(entry.singerId)
+      if (!singer) return null
+      return {
+        ...serializeSinger(singer),
+        sortOrder: entry.sortOrder,
+        advancedFromRank: entry.advancedFromRank,
+        score: ownScores.get(singer.id) ?? null
+      }
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+
+  const roundResults = round.status === 'closed'
+    ? buildRoundRanking(round, entryRows, singersById, scoreRows)
+    : null
+
+  const finalRound = getRoundByKeySafe(client, eventRow.id, 'final')
+  const finalResults = finalRound?.status === 'closed'
+    ? buildRoundRanking(
+        finalRound,
+        listRoundEntryRows(client, finalRound.id),
+        singersById,
+        listRoundScores(client, finalRound.id)
+      )
+    : null
+
+  return {
+    event: {
+      id: eventRow.id,
+      title: eventRow.title,
+      dimensions,
+      maxTotal: competitionMaxTotal(dimensions)
+    },
+    judge: {
+      id: judge.id,
+      username: judge.username,
+      displayName: judge.displayName,
+      roundId: judge.roundId
+    },
+    round: {
+      id: round.id,
+      key: round.key,
+      title: round.title,
+      status: round.status,
+      advanceCount: round.advanceCount
+    },
+    singers,
+    roundResults,
+    finalResults,
+    finalRound: finalRound ? { title: finalRound.title, status: finalRound.status } : null,
+    progress: {
+      scored: ownScores.size,
+      total: singers.length
+    }
+  }
+}
+
+function getRoundByKeySafe(client: DatabaseClient, eventId: string, key: CompetitionRoundKey): RoundRow | null {
+  return client.db.select().from(competitionRounds)
+    .where(and(eq(competitionRounds.eventId, eventId), eq(competitionRounds.key, key)))
+    .get() ?? null
+}
+
+export function submitJudgeScore(
+  client: DatabaseClient,
+  judge: JudgeSessionIdentity,
+  singerId: string,
+  input: { scores?: unknown, comment?: unknown }
+): CompetitionScore {
+  const eventRow = getEvent(client, judge.eventId)
+  const round = getRound(client, judge.roundId)
+  if (!eventRow || !round) {
+    throw createError({ statusCode: 404, statusMessage: 'Competition not found', data: { code: 'NOT_FOUND' } })
+  }
+  if (round.status !== 'open') {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Scoring is closed',
+      data: { code: 'COMPETITION_SCORING_CLOSED', message: '本轮评分未开放或已结束，无法提交成绩' }
+    })
+  }
+
+  requireSingerRow(client, eventRow.id, singerId)
+  const entry = client.db.select({ id: competitionRoundEntries.id }).from(competitionRoundEntries)
+    .where(and(
+      eq(competitionRoundEntries.roundId, round.id),
+      eq(competitionRoundEntries.singerId, singerId)
+    ))
+    .get()
+  if (!entry) {
+    validationError('该选手不在本轮名单中', 'singerId')
+  }
+
+  const dimensions = getCompetitionDimensions(eventRow)
+  const rawScores = input.scores
+  if (!rawScores || typeof rawScores !== 'object' || Array.isArray(rawScores)) {
+    validationError('评分数据格式不正确', 'scores')
+  }
+
+  const scoreMap = rawScores as Record<string, unknown>
+  const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
+    const value = Number(scoreMap[dimension.key])
+    if (!Number.isFinite(value) || value < 0 || value > MAX_SCORE) {
+      validationError(`「${dimension.label}」需为 0-${MAX_SCORE} 的分数`, `scores.${dimension.key}`)
+    }
+    return {
+      key: dimension.key,
+      label: dimension.label,
+      weight: dimension.weight,
+      score: Math.round(value * 10) / 10
+    }
+  })
+
+  const comment = String(input.comment ?? '').trim()
+  if (comment.length > MAX_COMMENT_LENGTH) {
+    validationError(`备注不超过 ${MAX_COMMENT_LENGTH} 字`, 'comment')
+  }
+
+  const total = calculateCompetitionTotal(
+    dimensions,
+    Object.fromEntries(snapshot.map(item => [item.key, item.score]))
+  )
+  const now = Date.now()
+  const existing = client.db.select().from(competitionScores)
+    .where(and(
+      eq(competitionScores.roundId, round.id),
+      eq(competitionScores.singerId, singerId),
+      eq(competitionScores.judgeId, judge.id)
+    ))
+    .get()
+
+  if (existing) {
+    client.db.update(competitionScores).set({
+      dimensionsJson: JSON.stringify(snapshot),
+      totalScore: total,
+      comment,
+      updatedAt: now
+    }).where(eq(competitionScores.id, existing.id)).run()
+  } else {
+    client.db.insert(competitionScores).values({
+      id: randomUUID(),
+      eventId: eventRow.id,
+      roundId: round.id,
+      singerId,
+      judgeId: judge.id,
+      dimensionsJson: JSON.stringify(snapshot),
+      totalScore: total,
+      comment,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+  }
+
+  const row = client.db.select().from(competitionScores)
+    .where(and(
+      eq(competitionScores.roundId, round.id),
+      eq(competitionScores.singerId, singerId),
+      eq(competitionScores.judgeId, judge.id)
+    ))
+    .get()!
+  return serializeScore(row, judge.displayName)
+}
