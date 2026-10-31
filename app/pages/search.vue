@@ -46,11 +46,13 @@ useSeoMeta({
 })
 
 const { data: amapOwnerDraftResponse } = await usePublicAmapOwnerDraftPlaces()
+const geoCipherKey = __GEO_CIPHER_KEY__
 const ownerMapSeeds = computed(() => mergeAmapImportedPlacesWithDrafts(
   amapImportedPlaces,
-  amapOwnerDraftResponse.value?.items
+  amapOwnerDraftResponse.value?.items,
+  geoCipherKey
 ))
-const staticMapPlaces = computed(() => mergePublicMapPlaces(campusMapReferencePlaces, [], ownerMapSeeds.value))
+const staticMapPlaces = computed(() => mergePublicMapPlaces(campusMapReferencePlaces, [], ownerMapSeeds.value, geoCipherKey))
 const staticMapAreas = amapImportedAreas
 
 const route = useRoute()

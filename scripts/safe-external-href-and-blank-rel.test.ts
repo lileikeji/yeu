@@ -87,7 +87,9 @@ test('dynamic public source links filter through safeExternalHref', () => {
   const details = readFileSync(resolve('app/components/public/PublicSourceDetails.vue'), 'utf8')
   assert.match(details, /safeExternalHref\(source\.url\)/)
   const places = readFileSync(resolve('app/pages/places/[slug].vue'), 'utf8')
-  assert.match(places, /safeExternalHref\(place\.externalMapUrl\)/)
+  // 详情页导航链接改为前端解码坐标拼装，仍必须过 safeExternalHref。
+  assert.match(places, /safeExternalHref\(navigationUrl\)/)
+  assert.match(places, /decodePlacePoint/)
   const procedures = readFileSync(resolve('app/pages/procedures/[slug].vue'), 'utf8')
   assert.match(procedures, /safeExternalHref\(step\.actionUrl\)/)
 })

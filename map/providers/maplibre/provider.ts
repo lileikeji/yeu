@@ -7,7 +7,7 @@ import type {
   MapMouseEvent,
   StyleSpecification
 } from 'maplibre-gl'
-import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
+import { campusBoundary } from '../../../data/seeds/osm-campus-boundary-encoded'
 import type {
   AreaSelectHandler,
   MapErrorHandler,
@@ -23,7 +23,7 @@ import {
   YEU_CAMPUS_REFERENCE_BOUNDS,
   YEU_CAMPUS_REFERENCE_CENTER
 } from '../../core/campus'
-import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from '../../core/types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi } from '../../core/types'
 import {
   createMarkerImage,
   getMarkerImageId,
@@ -44,6 +44,13 @@ const SELECTED_POI_LABEL_LAYER_ID = 'yeu-preview-selected-poi-label'
 const USER_LOCATION_SOURCE_ID = 'yeu-user-location'
 const USER_LOCATION_ACCURACY_LAYER_ID = 'yeu-user-location-accuracy'
 const USER_LOCATION_DOT_LAYER_ID = 'yeu-user-location-dot'
+const BUS_ROUTES_SOURCE_ID = 'yeu-bus-routes'
+const BUS_ROUTE_LINES_LAYER_ID = 'yeu-bus-route-lines'
+const BUS_STOP_DOTS_LAYER_ID = 'yeu-bus-stop-dots'
+const BUS_TERMINALS_LAYER_ID = 'yeu-bus-terminals'
+const BUSES_SOURCE_ID = 'yeu-buses'
+const BUSES_LAYER_ID = 'yeu-bus-vehicles'
+const BUS_ROUTE_COLORS = ['#ea580c', '#0d9488'] as const
 const INTERACTIVE_LAYER_IDS = [
   CLUSTER_LAYER_ID,
   POI_LAYER_ID,
@@ -144,6 +151,8 @@ export class MapLibrePreviewProvider implements MapProvider {
   private lifecycleVersion = 0
   private cancelPendingLoad: (() => void) | null = null
   private userLocation: MapUserLocation | null = null
+  private buses: MapBus[] = []
+  private busRoutes: MapBusRoute[] = []
 
   constructor(options: MapLibrePreviewProviderOptions = {}) {
     this.offline = options.offline === true
@@ -420,6 +429,155 @@ export class MapLibrePreviewProvider implements MapProvider {
   private updateUserLocationSource(data: UserLocationFeatureCollection): void {
     const source = this.map?.getSource(USER_LOCATION_SOURCE_ID) as GeoJSONSource | undefined
     source?.setData(data)
+  }
+
+  /**
+   * Live campus-bus vehicles from the YKTGetBusCarInfo poll, rendered as an
+   * orange circle layer updated in place (WGS84, preview basemap is
+   * WGS84-native). Empty array clears the layer.
+   */
+  setBuses(buses: MapBus[]): void {
+    this.buses = buses
+    const map = this.map
+    if (!map) return
+    if (!buses.length) {
+      if (map.getSource(BUSES_SOURCE_ID)) {
+        this.updateSource(BUSES_SOURCE_ID, { type: 'FeatureCollection', features: [] })
+      }
+      return
+    }
+    this.ensureBusLayers(map)
+    this.updateSource(BUSES_SOURCE_ID, {
+      type: 'FeatureCollection',
+      features: buses
+        .filter(bus => this.isRenderablePoint(bus.point))
+        .map(bus => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [bus.point.lng, bus.point.lat] },
+          properties: {
+            id: bus.id,
+            name: bus.name,
+            isAtSite: bus.isAtSite,
+            siteName: bus.siteName ?? ''
+          }
+        }))
+    })
+  }
+
+  /**
+   * Campus-bus routes: stop polylines plus origin/terminal dots. Drawn from
+   * YKTGetBusSiteInfo stops (WGS84). Empty array clears the layer.
+   */
+  setBusRoutes(routes: MapBusRoute[]): void {
+    this.busRoutes = routes
+    const map = this.map
+    if (!map) return
+    if (!routes.length) {
+      if (map.getSource(BUS_ROUTES_SOURCE_ID)) {
+        this.updateSource(BUS_ROUTES_SOURCE_ID, { type: 'FeatureCollection', features: [] })
+      }
+      return
+    }
+    this.ensureBusLayers(map)
+
+    const features: object[] = []
+    for (const [index, route] of routes.entries()) {
+      const color = BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!
+      const stops = route.stops.filter(stop => this.isRenderablePoint(stop.point))
+      // 沿路形状优先（服务端高德算路），缺失回退站点直连。
+      const linePoints = (route.polyline && route.polyline.length >= 2)
+        ? route.polyline
+        : stops.map(stop => stop.point)
+      if (linePoints.length >= 2) {
+        features.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: linePoints.map(point => [point.lng, point.lat])
+          },
+          properties: { kind: 'route', id: route.id, name: route.name, color }
+        })
+      }
+      for (const stop of stops) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [stop.point.lng, stop.point.lat] },
+          properties: {
+            kind: stop.isOrigin || stop.isDestination ? 'terminal' : 'stop',
+            id: stop.id,
+            name: stop.name,
+            color
+          }
+        })
+      }
+    }
+    this.updateSource(BUS_ROUTES_SOURCE_ID, { type: 'FeatureCollection', features })
+  }
+
+  private ensureBusLayers(map: MapLibreMap): void {
+    if (!map.getSource(BUS_ROUTES_SOURCE_ID)) {
+      map.addSource(BUS_ROUTES_SOURCE_ID, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      })
+      map.addLayer({
+        id: BUS_ROUTE_LINES_LAYER_ID,
+        type: 'line',
+        source: BUS_ROUTES_SOURCE_ID,
+        filter: ['==', ['get', 'kind'], 'route'],
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': 5,
+          'line-opacity': 0.75
+        }
+      })
+      map.addLayer({
+        id: BUS_STOP_DOTS_LAYER_ID,
+        type: 'circle',
+        source: BUS_ROUTES_SOURCE_ID,
+        filter: ['==', ['get', 'kind'], 'stop'],
+        paint: {
+          'circle-radius': 5,
+          'circle-color': '#ffffff',
+          'circle-stroke-color': ['get', 'color'],
+          'circle-stroke-width': 2
+        }
+      })
+      map.addLayer({
+        id: BUS_TERMINALS_LAYER_ID,
+        type: 'circle',
+        source: BUS_ROUTES_SOURCE_ID,
+        filter: ['==', ['get', 'kind'], 'terminal'],
+        paint: {
+          'circle-radius': 8,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2
+        }
+      })
+    }
+    if (!map.getSource(BUSES_SOURCE_ID)) {
+      map.addSource(BUSES_SOURCE_ID, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      })
+      map.addLayer({
+        id: BUSES_LAYER_ID,
+        type: 'circle',
+        source: BUSES_SOURCE_ID,
+        paint: {
+          'circle-radius': 9,
+          'circle-color': '#ea580c',
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 3
+        }
+      })
+    }
+  }
+
+  private updateSource(id: string, data: object): void {
+    const source = this.map?.getSource(id) as GeoJSONSource | undefined
+    source?.setData(data as Parameters<GeoJSONSource['setData']>[0])
   }
 
   planWalkingRoute(_origin: GeoPoint, _destination: GeoPoint): Promise<RouteSummary> {

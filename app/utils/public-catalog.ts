@@ -20,8 +20,10 @@ import type {
 import { mapCategoryFromPlaceType } from '~~/shared/utils/place-map-category'
 import { normalizeNoticeActions } from '~~/shared/utils/notice-actions'
 import { isSafePublicHttpUrl } from '~~/shared/utils/public-http-url'
+import { decodePlacePoint, resolveGeoCipherKey } from '~~/shared/utils/geo-obfuscation'
 import { presentStudentSourceContext } from './source-context-presentation'
 import { clubSignupQuestionChecklist } from './club-detail-presentation'
+import { buildAmapMarkerNavigationUrl } from './map-native-search'
 
 type GuideCategory = FreshmanGuide['category']
 
@@ -569,7 +571,8 @@ function ownerMapFriendlySummary(poi: AmapImportedPlace): string {
 
 export function mergeAmapImportedPlacesWithDrafts(
   seeds: AmapImportedPlace[],
-  drafts: ApiAmapOwnerDraftPlace[] | null | undefined
+  drafts: ApiAmapOwnerDraftPlace[] | null | undefined,
+  geoCipherKey?: string | null
 ): AmapImportedPlace[] {
   if (!drafts?.length) return seeds
 
@@ -578,6 +581,10 @@ export function mergeAmapImportedPlacesWithDrafts(
     const draft = draftBySourceRow.get(seed.sourceRow)
     if (!draft) return seed
 
+    // 草稿点坐标为混淆串，解码失败（key 缺失/版本不符）时保留种子原坐标。
+    const draftPoint = decodePlacePoint(draft.encodedPoint, resolveGeoCipherKey(geoCipherKey))
+    if (!draftPoint) return seed
+
     return {
       ...seed,
       name: draft.name || seed.name,
@@ -585,13 +592,13 @@ export function mergeAmapImportedPlacesWithDrafts(
       address: draft.address || seed.address,
       category: mapCategoryFromPlaceType(draft.type, draft.scope),
       point: {
-        lng: draft.longitude,
-        lat: draft.latitude,
+        lng: draftPoint.longitude,
+        lat: draftPoint.latitude,
         crs: 'GCJ-02'
       },
       sourcePoint: {
-        lng: draft.longitude,
-        lat: draft.latitude,
+        lng: draftPoint.longitude,
+        lat: draftPoint.latitude,
         crs: 'GCJ-02'
       }
     }
@@ -1077,16 +1084,19 @@ function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
   }
 }
 
-function apiMapPlace(place: ApiPlace): PublicMapPlace {
+function apiMapPlace(place: ApiPlace, geoCipherKey?: string | null): PublicMapPlace {
   const summary = studentFacingPlaceBody(place.summary) || place.summary
   const body = studentFacingPlaceBody(place.body ?? place.summary) || summary
-  const hasRenderableVerifiedPoint = place.navigationAvailable
+  // 公共出口坐标为混淆串，画点/导航前才在此解码；解码失败则不给点（fail-closed）。
+  const decodedPoint = place.navigationAvailable
+    ? decodePlacePoint(place.encodedPoint, resolveGeoCipherKey(geoCipherKey))
+    : null
+  const hasRenderableVerifiedPoint = Boolean(decodedPoint)
+    && place.navigationAvailable
     && place.coordinateVerification === 'verified'
-    && place.coordinateSystem === 'WGS84'
-    && place.longitude !== null
-    && place.latitude !== null
+    && decodedPoint!.coordinateSystem === 'WGS84'
   const point: GeoPoint | null = hasRenderableVerifiedPoint
-    ? { lng: place.longitude!, lat: place.latitude!, crs: 'WGS84' }
+    ? { lng: decodedPoint!.longitude, lat: decodedPoint!.latitude, crs: 'WGS84' }
     : null
 
   return {
@@ -1109,8 +1119,8 @@ function apiMapPlace(place: ApiPlace): PublicMapPlace {
     officialPlanNumber: null,
     coordinateVerification: place.coordinateVerification,
     coordinateSystem: place.coordinateSystem,
-    navigationUrl: place.navigationAvailable && isHttpUrl(place.externalMapUrl)
-      ? place.externalMapUrl
+    navigationUrl: point
+      ? buildAmapMarkerNavigationUrl(point, place.name)
       : null,
     isApiPublished: true,
     searchText: [
@@ -1127,7 +1137,8 @@ function apiMapPlace(place: ApiPlace): PublicMapPlace {
 export function mergePublicMapPlaces(
   previewPois: CampusMapReferencePlace[],
   places: ApiPlace[],
-  ownerMapPois: AmapImportedPlace[] = []
+  ownerMapPois: AmapImportedPlace[] = [],
+  geoCipherKey?: string | null
 ): PublicMapPlace[] {
   const published = places.filter(place => place.status === 'published')
   const apiNames = new Set(published.flatMap(place => equivalentPlaceNames(place.name)))
@@ -1139,9 +1150,7 @@ export function mergePublicMapPlaces(
     .filter(place => (
       place.navigationAvailable
       && place.coordinateVerification === 'verified'
-      && place.coordinateSystem === 'WGS84'
-      && place.longitude !== null
-      && place.latitude !== null
+      && decodePlacePoint(place.encodedPoint, resolveGeoCipherKey(geoCipherKey))?.coordinateSystem === 'WGS84'
     ))
     .flatMap(place => equivalentPlaceNames(place.name)))
   const previewByName = new Map<string, CampusMapReferencePlace>()
@@ -1153,7 +1162,7 @@ export function mergePublicMapPlaces(
     }
   }
   const apiViews = published.map((place) => {
-    const view = apiMapPlace(place)
+    const view = apiMapPlace(place, geoCipherKey)
     const matchingPreview = equivalentPlaceNames(place.name).map(name => previewByName.get(name)).find(Boolean)
     if (!matchingPreview) return view
 

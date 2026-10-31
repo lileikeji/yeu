@@ -275,7 +275,7 @@ test('public search includes imported AMap markers and student-readable labels',
   assert.match(source, /resolveSearchInputSyncFromRoute/)
   assert.match(source, /usePublicAmapOwnerDraftPlaces/)
   assert.match(source, /mergeAmapImportedPlacesWithDrafts/)
-  assert.match(source, /mergePublicMapPlaces\(campusMapReferencePlaces, \[\], ownerMapSeeds\.value\)/)
+  assert.match(source, /mergePublicMapPlaces\(campusMapReferencePlaces, \[\], ownerMapSeeds\.value, geoCipherKey\)/)
   assert.doesNotMatch(source, /function queryVariants\(value: string\): string\[\]/)
   assert.doesNotMatch(source, /sourceLabel: '后台已发布'/)
   assert.doesNotMatch(source, /sourceLabel: '内置基础指南'/)

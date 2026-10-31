@@ -9,7 +9,7 @@ import type {
   PointPickedHandler,
   RouteSummary
 } from '../../core/provider'
-import type { GeoPoint, MapArea, MapBoundingArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapBoundingArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
 import { YEU_CAMPUS_REFERENCE_BOUNDS } from '../../core/campus'
 import { campusWalkGraph } from '../../../data/seeds/campus-walk-graph'
 import { solveCampusWalkRoute, walkRoutePolyline } from '../../../app/utils/walk-route'
@@ -40,6 +40,9 @@ const CLUSTER_BBOX_PAD = 0.002
 /** 屏幕空间网格聚合（零依赖回退）配置。 */
 const CLUSTER_CELL_PX = 48
 const CLUSTER_MIN_GROUP = 2
+
+/** 校车线路强调色（橙/青循环），与高德 provider 保持一致。 */
+const BUS_ROUTE_COLORS = ['#ea580c', '#0d9488'] as const
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -92,6 +95,9 @@ export class WechatOfflineMapProvider implements MapProvider {
   private root: HTMLDivElement | null = null
   private scene: HTMLDivElement | null = null
   private markerLayer: HTMLDivElement | null = null
+  private buses: MapBus[] = []
+  private busRoutes: MapBusRoute[] = []
+  private busOverlayElements: HTMLElement[] = []
   private overlayLayer: SVGSVGElement | null = null
   private pois: MapPoi[] = []
   private areas: MapArea[] = []
@@ -319,6 +325,123 @@ export class WechatOfflineMapProvider implements MapProvider {
     this.userLocationAccuracyRing = ring
     this.userLocationDot = dot
     layer.append(ring, dot)
+  }
+
+  setBuses(buses: MapBus[]): void {
+    this.buses = [...buses]
+    this.renderBusOverlay()
+  }
+
+  setBusRoutes(routes: MapBusRoute[]): void {
+    this.busRoutes = [...routes]
+    this.renderOverlays()
+    this.renderBusOverlay()
+  }
+
+  /** 校车标点（车、起终点、经停点）追加到 markerLayer，随 renderMarkers 一起重建。 */
+  private renderBusOverlay(): void {
+    const layer = this.markerLayer
+    if (!layer) return
+    for (const element of this.busOverlayElements) element.remove()
+    this.busOverlayElements = []
+    if (!this.displayOptions.showPois) return
+
+    for (const route of this.busRoutes) {
+      for (const stop of route.stops) {
+        if (!isRenderablePoint(stop.point)) continue
+        const isTerminal = stop.isOrigin || stop.isDestination
+        const element = isTerminal ? this.createBusTerminalChip(stop) : this.createBusStopDot()
+        this.positionOverlayElement(element, stop.point)
+        this.busOverlayElements.push(element)
+        layer.append(element)
+      }
+    }
+    for (const bus of this.buses) {
+      if (!isRenderablePoint(bus.point)) continue
+      const element = this.createBusChip(bus)
+      this.positionOverlayElement(element, bus.point)
+      this.busOverlayElements.push(element)
+      layer.append(element)
+    }
+  }
+
+  private positionOverlayElement(element: HTMLElement, point: GeoPoint): void {
+    const x = this.longitudePercent(point.lng)
+    const y = this.latitudePercent(point.lat)
+    Object.assign(element.style, {
+      position: 'absolute',
+      left: `${x}%`,
+      top: `${y}%`,
+      transform: 'translate(-50%, -50%)',
+      pointerEvents: 'none'
+    })
+  }
+
+  private createBusChip(bus: MapBus): HTMLElement {
+    const element = document.createElement('div')
+    element.title = bus.siteName ? `${bus.name}（${bus.isAtSite ? '已到站' : '行驶中'}·${bus.siteName}）` : bus.name
+    element.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'gap:2px',
+      'box-sizing:border-box',
+      'padding:1px 6px 1px 4px',
+      'border:2px solid #fff',
+      'border-radius:999px',
+      'background:#ea580c',
+      'color:#fff',
+      'font:600 11px/1.4 system-ui,sans-serif',
+      'white-space:nowrap',
+      'box-shadow:0 1px 3px rgb(0 0 0 / 30%)'
+    ].join(';')
+    const icon = document.createElement('span')
+    icon.textContent = '🚌'
+    icon.style.cssText = 'font-size:11px;line-height:1;'
+    const label = document.createElement('span')
+    label.textContent = bus.name
+    element.append(icon, label)
+    return element
+  }
+
+  private createBusTerminalChip(stop: { name: string, isOrigin: boolean }): HTMLElement {
+    const element = document.createElement('div')
+    element.title = `${stop.isOrigin ? '起点站' : '终点站'}：${stop.name}`
+    element.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'gap:2px',
+      'box-sizing:border-box',
+      'padding:1px 6px 1px 3px',
+      'border:2px solid #fff',
+      'border-radius:999px',
+      'background:#fff',
+      'color:#18181b',
+      'font:600 11px/1.4 system-ui,sans-serif',
+      'white-space:nowrap',
+      'box-shadow:0 1px 3px rgb(0 0 0 / 25%)'
+    ].join(';')
+    const badge = document.createElement('span')
+    badge.textContent = stop.isOrigin ? '起' : '终'
+    badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#ea580c;color:#fff;font-size:10px;line-height:1;'
+    const label = document.createElement('span')
+    label.textContent = stop.name
+    element.append(badge, label)
+    return element
+  }
+
+  private createBusStopDot(): HTMLElement {
+    const element = document.createElement('div')
+    element.title = '校车站点'
+    element.style.cssText = [
+      'box-sizing:border-box',
+      'width:8px',
+      'height:8px',
+      'border:2px solid #fff',
+      'border-radius:50%',
+      'background:#ea580c',
+      'box-shadow:0 1px 2px rgb(0 0 0 / 30%)'
+    ].join(';')
+    return element
   }
 
   setSelectedArea(_id: string | null): void {}
@@ -583,6 +706,25 @@ export class WechatOfflineMapProvider implements MapProvider {
       line.setAttribute('stroke-linecap', 'round')
       layer.append(line)
     }
+
+    for (const [index, route] of this.busRoutes.entries()) {
+      // 沿路形状优先（服务端高德算路），缺失回退站点直连。
+      const linePoints = (route.polyline && route.polyline.length >= 2)
+        ? route.polyline.filter(point => isRenderablePoint(point))
+        : route.stops.filter(stop => isRenderablePoint(stop.point)).map(stop => stop.point)
+      if (linePoints.length < 2) continue
+      const busLine = doc.createElementNS(svgNamespace, 'polyline')
+      busLine.setAttribute('points', linePoints.map((point) => {
+        const pt = this.scenePoint(point)
+        return `${pt.x},${pt.y}`
+      }).join(' '))
+      busLine.setAttribute('fill', 'none')
+      busLine.setAttribute('stroke', BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!)
+      busLine.setAttribute('stroke-width', '4')
+      busLine.setAttribute('stroke-linejoin', 'round')
+      busLine.setAttribute('stroke-linecap', 'round')
+      layer.append(busLine)
+    }
   }
 
   private areaRing(area: MapArea): Array<{ x: number, y: number }> {
@@ -602,6 +744,11 @@ export class WechatOfflineMapProvider implements MapProvider {
   }
 
   private renderMarkers(): void {
+    this.renderPoiMarkers()
+    this.renderBusOverlay()
+  }
+
+  private renderPoiMarkers(): void {
     const layer = this.markerLayer
     if (!layer) return
     layer.replaceChildren()

@@ -24,6 +24,8 @@ import {
   getPlaceSourceMap
 } from '../verification/service'
 import { cleanSearchTerm } from '../../../shared/utils/like-search'
+import { encodePlacePoint } from '../../../shared/utils/geo-obfuscation'
+import { tryRuntimeGeoCipherKey } from '../../utils/geo-cipher'
 import { bumpAssistantKnowledgeRevision } from '../assistant/knowledge-revision'
 
 type CreatePlaceInput = z.infer<typeof createPlaceSchema>
@@ -100,10 +102,11 @@ function getPlaceByIdRow(client: DatabaseClient, id: string) {
 function serializePlaceRows(
   client: DatabaseClient,
   rows: Array<typeof places.$inferSelect>,
-  includeInternalCoordinates = false
+  includeInternalCoordinates = false,
+  geoCipherKey?: string | null
 ) {
   const sourceMap = getPlaceSourceMap(client, rows.map(row => row.id))
-  return rows.map(row => serializePlace(row, sourceMap.get(row.id) ?? [], includeInternalCoordinates))
+  return rows.map(row => serializePlace(row, sourceMap.get(row.id) ?? [], includeInternalCoordinates, geoCipherKey))
 }
 
 interface CoordinateState {
@@ -164,7 +167,8 @@ function assertPlacePublishableState(
 export function listPlaces(
   client: DatabaseClient,
   query: PublicPlacesQuery | AdminPlacesQuery,
-  publicOnly: boolean
+  publicOnly: boolean,
+  geoCipherKey?: string | null
 ) {
   const baseConditions: SQL[] = []
   const search = query.q ? cleanSearchTerm(query.q) : ''
@@ -220,7 +224,7 @@ export function listPlaces(
       }).from(places).where(baseWhere).get()
 
   return {
-    items: serializePlaceRows(client, rows, !publicOnly),
+    items: serializePlaceRows(client, rows, !publicOnly, geoCipherKey),
     total,
     page: query.page,
     pageSize: query.pageSize,
@@ -236,7 +240,7 @@ export function listPlaces(
   }
 }
 
-export function listPublicAmapOwnerDraftPlaces(client: DatabaseClient): ApiAmapOwnerDraftPlace[] {
+export function listPublicAmapOwnerDraftPlaces(client: DatabaseClient, geoCipherKey?: string | null): ApiAmapOwnerDraftPlace[] {
   const rows = client.db.select().from(places)
     .where(and(
       eq(places.status, 'draft'),
@@ -246,11 +250,17 @@ export function listPublicAmapOwnerDraftPlaces(client: DatabaseClient): ApiAmapO
     .orderBy(places.name)
     .all()
 
+  const geoCipherKeyResolved = geoCipherKey !== undefined ? geoCipherKey : tryRuntimeGeoCipherKey()
   return rows
     .map((row): ApiAmapOwnerDraftPlace | null => {
       const reference = parseAmapDraftReference(row.sourceRawRef)
       if (!reference || row.longitude === null || row.latitude === null) return null
-      // Public overlay DTO: only fields needed for map/search merge. No phone/hours/URLs/body.
+      // 公共覆盖层 DTO：坐标只以混淆串下发，key 不可得时整点丢弃（fail-closed）。
+      const encodedPoint = encodePlacePoint(
+        { longitude: row.longitude, latitude: row.latitude, coordinateSystem: 'GCJ-02' },
+        geoCipherKeyResolved
+      )
+      if (!encodedPoint) return null
       return {
         id: row.id,
         sourceRow: reference.sourceRow,
@@ -260,8 +270,7 @@ export function listPublicAmapOwnerDraftPlaces(client: DatabaseClient): ApiAmapO
         type: row.type,
         category: row.category,
         address: row.address,
-        longitude: row.longitude,
-        latitude: row.latitude,
+        encodedPoint,
         coordinateSystem: 'GCJ-02',
         coordinateVerification: 'unverified'
       }
@@ -270,7 +279,7 @@ export function listPublicAmapOwnerDraftPlaces(client: DatabaseClient): ApiAmapO
     .sort((a, b) => a.sourceRow - b.sourceRow)
 }
 
-export function getPublicPlace(client: DatabaseClient, slug: string) {
+export function getPublicPlace(client: DatabaseClient, slug: string, geoCipherKey?: string | null) {
   const row = client.db.select().from(places).where(and(
     eq(places.slug, slug),
     eq(places.status, 'published')
@@ -280,7 +289,7 @@ export function getPublicPlace(client: DatabaseClient, slug: string) {
     throwNotFound('place')
   }
 
-  return serializePlaceRows(client, [row])[0]!
+  return serializePlaceRows(client, [row], false, geoCipherKey)[0]!
 }
 
 export function getAdminPlace(client: DatabaseClient, id: string) {

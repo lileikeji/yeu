@@ -10,7 +10,7 @@ import type {
   RouteSummary
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
-import type { GeoPoint, MapArea, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
 import { wgs84ToGcj02 as convertWgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { ensureAMapPlugins, loadAMap } from './loader'
 import type {
@@ -109,6 +109,9 @@ interface AMapProviderOptions {
   securityCode: string
 }
 
+/** 校车线路强调色（橙/青循环），与设计规范的线状强调色一致。 */
+const BUS_ROUTE_COLORS = ['#ea580c', '#0d9488'] as const
+
 interface ConvertedPoi {
   poi: MapPoi
   position: AMapPosition
@@ -157,6 +160,12 @@ export class AMapProvider implements MapProvider {
   private selectedMarker: AMapMarker | null = null
   private selectedMarkerClickHandler: ((event: AMapMouseEvent) => void) | null = null
   private selectedPoiId: string | null = null
+  private buses: MapBus[] = []
+  private busMarkers = new Map<string, { marker: AMapMarker, token: object }>()
+  private busRoutes: MapBusRoute[] = []
+  private busRoutePolylines: AMapPolyline[] = []
+  private busStopMarkers: AMapMarker[] = []
+  private busRouteToken: object = {}
   private poiSelectHandler: PoiSelectHandler | null = null
   private areaSelectHandler: AreaSelectHandler | null = null
   private selectedAreaId: string | null = null
@@ -445,6 +454,198 @@ export class AMapProvider implements MapProvider {
     }
     this.userLocationMarker = null
     this.userLocationAccuracyCircle = null
+  }
+
+  /**
+   * Renders live campus buses as chip markers on a dedicated dynamic layer.
+   * Markers are diffed by id: existing ones move to the new position without a
+   * teardown, missing ones are removed. Points follow the usual convertFrom
+   * path for non-GCJ-02 coordinates.
+   */
+  setBuses(buses: MapBus[]): void {
+    this.buses = [...buses]
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap) return
+
+    const seen = new Set<string>()
+    for (const bus of buses) {
+      seen.add(bus.id)
+      if (!this.isRenderablePoint(bus.point)) {
+        this.removeBusMarker(bus.id)
+        continue
+      }
+      const record = this.busMarkers.get(bus.id)
+      const token = record?.token ?? {}
+      const draw = (position: AMapPosition): void => {
+        const current = this.busMarkers.get(bus.id)
+        if (current && current.token !== token) return // A newer update superseded this one.
+        if (current) {
+          current.marker.setPosition(position)
+          return
+        }
+        const marker = new amap.Marker({
+          position,
+          anchor: 'center',
+          content: this.createBusChip(bus),
+          zIndex: 920
+        })
+        this.busMarkers.set(bus.id, { marker, token })
+        map.add(marker)
+      }
+      if (bus.point.crs === 'GCJ-02') {
+        draw([bus.point.lng, bus.point.lat])
+      } else {
+        void this.convertPoint(bus.point, amap).then((converted) => {
+          if (converted) draw(converted)
+        })
+      }
+    }
+    for (const id of [...this.busMarkers.keys()]) {
+      if (!seen.has(id)) this.removeBusMarker(id)
+    }
+  }
+
+  private removeBusMarker(id: string): void {
+    const record = this.busMarkers.get(id)
+    if (!record) return
+    this.map?.remove(record.marker)
+    this.busMarkers.delete(id)
+  }
+
+  private createBusChip(bus: MapBus): HTMLElement {
+    const element = document.createElement('div')
+    element.title = bus.siteName ? `${bus.name}（${bus.isAtSite ? '已到站' : '行驶中'}·${bus.siteName}）` : bus.name
+    element.setAttribute('aria-label', element.title)
+    element.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'gap:3px',
+      'box-sizing:border-box',
+      'padding:2px 8px 2px 5px',
+      'border:2px solid #fff',
+      'border-radius:999px',
+      'background:#ea580c',
+      'color:#fff',
+      'font:600 12px/1.4 system-ui,sans-serif',
+      'white-space:nowrap',
+      'box-shadow:0 1px 4px rgb(0 0 0 / 30%)',
+      'cursor:default'
+    ].join(';')
+    const icon = document.createElement('span')
+    icon.textContent = '🚌'
+    icon.style.cssText = 'font-size:12px;line-height:1;'
+    const label = document.createElement('span')
+    label.textContent = bus.name
+    element.append(icon, label)
+    return element
+  }
+
+  /**
+   * Renders campus bus routes as colored polylines through their stops, with
+   * labeled origin/destination chips and small dots for intermediate stops.
+   */
+  setBusRoutes(routes: MapBusRoute[]): void {
+    this.busRoutes = [...routes]
+    this.clearBusRoutes()
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap || routes.length === 0) return
+
+    const token = this.busRouteToken = {}
+    for (const [index, route] of routes.entries()) {
+      const color = BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!
+      // 沿路形状优先（服务端高德算路），缺失回退站点直连。
+      const linePoints = (route.polyline && route.polyline.length >= 2)
+        ? route.polyline
+        : route.stops.map(stop => stop.point)
+      const stopPoints = route.stops.map(stop => stop.point)
+      void this.convertPoints([...linePoints, ...stopPoints], amap).then((allPositions) => {
+        if (this.busRouteToken !== token) return // A newer update superseded this one.
+        const mapNow = this.map
+        const amapNow = this.amap
+        if (!mapNow || !amapNow) return
+        const path = allPositions.slice(0, linePoints.length)
+          .filter((position): position is AMapPosition => position !== null)
+        const positions = allPositions.slice(linePoints.length)
+        if (path.length >= 2) {
+          const line = new amapNow.Polyline({
+            path,
+            strokeColor: color,
+            strokeWeight: 5,
+            strokeOpacity: 0.75,
+            zIndex: 800
+          })
+          this.busRoutePolylines.push(line)
+          mapNow.add(line)
+        }
+        route.stops.forEach((stop, stopIndex) => {
+          const position = positions[stopIndex]
+          if (!position) return
+          const isTerminal = stop.isOrigin || stop.isDestination
+          const marker = new amapNow.Marker({
+            position,
+            anchor: 'center',
+            content: isTerminal ? this.createBusTerminalChip(stop, color) : this.createBusStopDot(color),
+            zIndex: isTerminal ? 910 : 850
+          })
+          this.busStopMarkers.push(marker)
+          mapNow.add(marker)
+        })
+      })
+    }
+  }
+
+  private clearBusRoutes(): void {
+    this.busRouteToken = {}
+    const overlays: Array<AMapMarker | AMapPolyline> = [...this.busRoutePolylines, ...this.busStopMarkers]
+    if (overlays.length) this.map?.remove(overlays)
+    this.busRoutePolylines = []
+    this.busStopMarkers = []
+  }
+
+  private createBusTerminalChip(stop: { name: string, isOrigin: boolean }, routeColor: string): HTMLElement {
+    const element = document.createElement('div')
+    element.title = `${stop.isOrigin ? '起点站' : '终点站'}：${stop.name}`
+    element.setAttribute('aria-label', element.title)
+    element.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'gap:3px',
+      'box-sizing:border-box',
+      'padding:2px 8px 2px 5px',
+      'border:2px solid #fff',
+      'border-radius:999px',
+      'background:#fff',
+      'color:#18181b',
+      'font:600 12px/1.4 system-ui,sans-serif',
+      'white-space:nowrap',
+      'box-shadow:0 1px 4px rgb(0 0 0 / 25%)',
+      'cursor:default'
+    ].join(';')
+    const badge = document.createElement('span')
+    badge.textContent = stop.isOrigin ? '起' : '终'
+    badge.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:${routeColor};color:#fff;font-size:11px;line-height:1;`
+    const label = document.createElement('span')
+    label.textContent = stop.name
+    element.append(badge, label)
+    return element
+  }
+
+  private createBusStopDot(routeColor: string): HTMLElement {
+    const element = document.createElement('div')
+    element.title = '校车站点'
+    element.style.cssText = [
+      'box-sizing:border-box',
+      'width:10px',
+      'height:10px',
+      'border:2px solid #fff',
+      'border-radius:50%',
+      `background:${routeColor}`,
+      'box-shadow:0 1px 3px rgb(0 0 0 / 30%)',
+      'cursor:default'
+    ].join(';')
+    return element
   }
 
   async planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary> {

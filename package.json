@@ -63,6 +63,7 @@
     "procedures:test": "tsx --test scripts/procedures.test.ts scripts/seed-procedures.test.ts",
     "pwa:build:test": "tsx --test tests/pwa-build.test.ts",
     "search:test": "tsx --test scripts/public-search.test.ts scripts/public-catalog.test.ts",
+    "ykt-bus:test": "tsx --test scripts/ykt-bus-protocol.test.ts",
     "sources:check": "tsx scripts/check-source-links.ts",
     "sources:discover": "tsx scripts/discover-official-sources.ts",
     "test": "tsx --test scripts/*.test.ts",

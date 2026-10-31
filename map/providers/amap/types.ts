@@ -51,6 +51,7 @@ export interface AMapMarker {
   off(event: 'click', handler: (event: AMapMouseEvent) => void): void
   setContent(content: HTMLElement): void
   setOffset(offset: AMapPixel): void
+  setPosition(position: AMapPosition): void
 }
 
 export interface AMapPolygon {

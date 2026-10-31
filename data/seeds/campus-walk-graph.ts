@@ -1,4 +1,14 @@
 import type { CampusWalkGraph } from '../../map/core/walk-graph'
+import { decodePlacePoint } from '../../shared/utils/geo-obfuscation'
+
+/** 步行图节点坐标以混淆串存储，防止 bundle 明文经纬度（同 amap-imported-places）。 */
+const WALK_GEO_KEY = 'c137257a75409e2d5ec2c16efc59d4a80b880ce22b719100'
+
+function walkPoint(encoded: string): CampusWalkGraph['nodes'][number]['point'] {
+  const decoded = decodePlacePoint(encoded, WALK_GEO_KEY)
+  if (!decoded) throw new Error('walk graph geo payload failed to decode')
+  return { lng: decoded.longitude, lat: decoded.latitude, crs: decoded.coordinateSystem }
+}
 
 /**
  * 校内步行参考图（草稿骨架，数据待现场核验后转正）。
@@ -16,11 +26,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-002',
       name: '泽钏教学楼',
-      point: {
-        lng: 118.60579821,
-        lat: 25.11214213,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83bf109a65141efbdddba4e50e390b'),
       aliases: [
         '泽钏教学楼'
       ]
@@ -28,11 +34,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-003',
       name: '网络信息中心',
-      point: {
-        lng: 118.60737572,
-        lat: 25.11231581,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83a54b29ec191efbddae46c312bc0b'),
       aliases: [
         '网络信息中心'
       ]
@@ -40,11 +42,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-004',
       name: '南门',
-      point: {
-        lng: 118.61047233,
-        lat: 25.11303997,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a826b8fc9838d1efbdd9ed3a79edb0b'),
       aliases: [
         '南门'
       ]
@@ -52,11 +50,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-005',
       name: '南洋楼',
-      point: {
-        lng: 118.61029066,
-        lat: 25.1137333,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a827575ceee6b1efbdc735c7a23fe0b'),
       aliases: [
         '南洋楼'
       ]
@@ -64,11 +58,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-006',
       name: '长春楼',
-      point: {
-        lng: 118.6101353,
-        lat: 25.11491474,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a827601ad768b1efbdc05f133f4730b'),
       aliases: [
         '长春楼'
       ]
@@ -76,11 +66,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-007',
       name: '长安楼',
-      point: {
-        lng: 118.60979767,
-        lat: 25.11495934,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a827c998eeac31efbdc0305f47fdc0b'),
       aliases: [
         '长安楼'
       ]
@@ -88,11 +74,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-008',
       name: '宏船楼',
-      point: {
-        lng: 118.60928066,
-        lat: 25.11524624,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8384010fac6f1efbdcee3b561ddf0b'),
       aliases: [
         '宏船楼'
       ]
@@ -100,11 +82,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-009',
       name: '共和教学楼',
-      point: {
-        lng: 118.60886237,
-        lat: 25.11415333,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a838dec9f24bd1efbdc57db4ac0f20b'),
       aliases: [
         '共和教学楼'
       ]
@@ -112,11 +90,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-010',
       name: '吉龙教学楼',
-      point: {
-        lng: 118.6110027,
-        lat: 25.11432659,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8260de510f0f1efbdc2a7dbcc8530b'),
       aliases: [
         '吉龙教学楼'
       ]
@@ -124,11 +98,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-011',
       name: '仰光楼',
-      point: {
-        lng: 118.61101211,
-        lat: 25.1139045,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8260a7c9e4101efbdc46243f8aab0b'),
       aliases: [
         '仰光楼'
       ]
@@ -136,11 +106,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-012',
       name: '黄海楼',
-      point: {
-        lng: 118.6148394,
-        lat: 25.11784343,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8223f21a4c991efbdf4400f432aa0b'),
       aliases: [
         '黄海楼'
       ]
@@ -148,11 +114,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-013',
       name: '东海楼',
-      point: {
-        lng: 118.61507322,
-        lat: 25.11754215,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a82272951bcc51efbdf79c253f2620b'),
       aliases: [
         '东海楼'
       ]
@@ -160,11 +122,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-014',
       name: '新区医务所',
-      point: {
-        lng: 118.60130345,
-        lat: 25.11056882,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8301b437b0181efbdd20c0a00fd10b'),
       aliases: [
         '新区医务所'
       ]
@@ -172,11 +130,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-015',
       name: '旧区医务所',
-      point: {
-        lng: 118.61224313,
-        lat: 25.11721387,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8254888fbd131efbdf6f46339d080b'),
       aliases: [
         '旧区医务所'
       ]
@@ -184,11 +138,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-016',
       name: '新区行政楼',
-      point: {
-        lng: 118.60280388,
-        lat: 25.10908936,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83ee23f93e321efbda83bb985e0c0b'),
       aliases: [
         '新区行政楼'
       ]
@@ -196,11 +146,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-017',
       name: '旧区行政楼',
-      point: {
-        lng: 118.61063506,
-        lat: 25.11468708,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a826ed05381401efbdc32ddb00b050b'),
       aliases: [
         '旧区行政楼'
       ]
@@ -208,11 +154,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-018',
       name: '曼谷楼',
-      point: {
-        lng: 118.61137202,
-        lat: 25.11422507,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a825acd5b7b971efbdc5326f5dc2f0b'),
       aliases: [
         '曼谷楼'
       ]
@@ -220,11 +162,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-019',
       name: '西苑餐厅',
-      point: {
-        lng: 118.59859999,
-        lat: 25.10811138,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8335031585cb1efbdac3d3a0b8410b'),
       aliases: [
         '西苑餐厅'
       ]
@@ -232,11 +170,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-020',
       name: '校保卫处',
-      point: {
-        lng: 118.59852223,
-        lat: 25.10778648,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8334456e6ff61efbdaf9195759a40b'),
       aliases: [
         '校保卫处'
       ]
@@ -244,11 +178,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-021',
       name: '韵达快递',
-      point: {
-        lng: 118.61087054,
-        lat: 25.11177602,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8262f5ff46de1efbddf3a637b42e0b'),
       aliases: [
         '韵达快递'
       ]
@@ -256,11 +186,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-022',
       name: '普照大礼堂',
-      point: {
-        lng: 118.61131235,
-        lat: 25.114932,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8265c89527281efbdc02d2a497250b'),
       aliases: [
         '普照大礼堂'
       ]
@@ -268,11 +194,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-023',
       name: '创业园',
-      point: {
-        lng: 118.6114338,
-        lat: 25.11613666,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a825bce7b34fc1efbdcd5dd8d45b90b'),
       aliases: [
         '创业园'
       ]
@@ -280,11 +202,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-024',
       name: '多功能报告厅',
-      point: {
-        lng: 118.61166237,
-        lat: 25.11646738,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a825f0cac482f1efbdcbe323df2330b'),
       aliases: [
         '多功能报告厅'
       ]
@@ -292,11 +210,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-025',
       name: '祥贤楼',
-      point: {
-        lng: 118.61162358,
-        lat: 25.11695591,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a825ea27afdd21efbdc9e2ec952880b'),
       aliases: [
         '祥贤楼'
       ]
@@ -304,11 +218,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-026',
       name: '和昌教学楼',
-      point: {
-        lng: 118.61195938,
-        lat: 25.11774153,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a825022ec7b0b1efbdf4ab34d6f8b0b'),
       aliases: [
         '和昌教学楼'
       ]
@@ -316,11 +226,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-027',
       name: '北苑餐厅',
-      point: {
-        lng: 118.61219449,
-        lat: 25.11631042,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8254448ccbf41efbdca87953c12b0b'),
       aliases: [
         '北苑餐厅'
       ]
@@ -328,11 +234,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-028',
       name: '东苑餐厅',
-      point: {
-        lng: 118.61284164,
-        lat: 25.11585061,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8242b964c5791efbdcc69eecff590b'),
       aliases: [
         '东苑餐厅'
       ]
@@ -340,11 +242,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-029',
       name: '衡山楼',
-      point: {
-        lng: 118.61296579,
-        lat: 25.11661426,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8240a19df9571efbdcb492f926d60b'),
       aliases: [
         '衡山楼'
       ]
@@ -352,11 +250,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-030',
       name: '彩虹桥',
-      point: {
-        lng: 118.61350067,
-        lat: 25.11556156,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8239ed10f07a1efbdcfb8d190b470b'),
       aliases: [
         '彩虹桥'
       ]
@@ -364,11 +258,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-031',
       name: '威海楼',
-      point: {
-        lng: 118.61450296,
-        lat: 25.11391563,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a822e7179819c1efbdc476f788ec60b'),
       aliases: [
         '威海楼'
       ]
@@ -376,11 +266,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-032',
       name: '宝洁洗衣店（圆通、顺丰）',
-      point: {
-        lng: 118.61037014,
-        lat: 25.1125618,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a826a38abee7c1efbddbe25f813ce0b'),
       aliases: [
         '宝洁洗衣店（圆通、顺丰）'
       ]
@@ -388,11 +274,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-033',
       name: '快递联盟（中通）',
-      point: {
-        lng: 118.61046241,
-        lat: 25.11283301,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a826ba5ad06e71efbdd8c639e0f5f0b'),
       aliases: [
         '快递联盟（中通）'
       ]
@@ -400,11 +282,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-034',
       name: '陕西楼',
-      point: {
-        lng: 118.59470465,
-        lat: 25.1073124,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8375d1573ff01efbda162f09a0250b'),
       aliases: [
         '陕西楼'
       ]
@@ -412,11 +290,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-035',
       name: '吉林楼',
-      point: {
-        lng: 118.59631004,
-        lat: 25.10637465,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a835384d69ac81efbda55a2230b320b'),
       aliases: [
         '吉林楼'
       ]
@@ -424,11 +298,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-036',
       name: '湖南楼',
-      point: {
-        lng: 118.59680408,
-        lat: 25.10690262,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83487cfdf0271efbda33040115100b'),
       aliases: [
         '湖南楼'
       ]
@@ -436,11 +306,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-037',
       name: '黑龙江楼',
-      point: {
-        lng: 118.59734417,
-        lat: 25.10645468,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8340964a38e01efbda2e6170cf840b'),
       aliases: [
         '黑龙江楼'
       ]
@@ -448,11 +314,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-038',
       name: '海南楼',
-      point: {
-        lng: 118.59927832,
-        lat: 25.10619566,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8320e634f8a91efbda415fdf79f10b'),
       aliases: [
         '海南楼'
       ]
@@ -460,11 +322,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-039',
       name: '重庆楼',
-      point: {
-        lng: 118.59886005,
-        lat: 25.10536048,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8329cc5af64c1efbdb961bde30b80b'),
       aliases: [
         '重庆楼'
       ]
@@ -472,11 +330,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-040',
       name: '四川楼',
-      point: {
-        lng: 118.59938041,
-        lat: 25.10485079,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83264ae62a241efbdbb97c03d6280b'),
       aliases: [
         '四川楼'
       ]
@@ -484,11 +338,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-041',
       name: '贵州楼',
-      point: {
-        lng: 118.59995144,
-        lat: 25.10446478,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a831feff9e1101efbdbd0c8747bb80b'),
       aliases: [
         '贵州楼'
       ]
@@ -496,11 +346,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-042',
       name: '渤海楼',
-      point: {
-        lng: 118.61462715,
-        lat: 25.11844147,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a822c785d80d81efbdf3cd279f74a0b'),
       aliases: [
         '渤海楼'
       ]
@@ -508,11 +354,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-043',
       name: '南海楼',
-      point: {
-        lng: 118.61501197,
-        lat: 25.11720731,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a82262e6aed361efbdf6fb00299f10b'),
       aliases: [
         '南海楼'
       ]
@@ -520,11 +362,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-044',
       name: '南京楼',
-      point: {
-        lng: 118.61218667,
-        lat: 25.11880246,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a825465bf32b31efbdf072ad1b6cd0b'),
       aliases: [
         '南京楼'
       ]
@@ -532,11 +370,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-045',
       name: '天山楼',
-      point: {
-        lng: 118.61145399,
-        lat: 25.11807874,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a82587aaa1def1efbdf5494df738c0b'),
       aliases: [
         '天山楼'
       ]
@@ -544,11 +378,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-046',
       name: '安徽楼',
-      point: {
-        lng: 118.60055615,
-        lat: 25.10515364,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8315f64f74741efbdb85a50d0e510b'),
       aliases: [
         '安徽楼'
       ]
@@ -556,11 +386,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-047',
       name: '云南楼',
-      point: {
-        lng: 118.59930801,
-        lat: 25.10543824,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83217abb55be1efbdb90fc7958950b'),
       aliases: [
         '云南楼'
       ]
@@ -568,11 +394,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-048',
       name: '宁夏楼',
-      point: {
-        lng: 118.59925617,
-        lat: 25.10673542,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a832043cd9acc1efbda3dff6bed260b'),
       aliases: [
         '宁夏楼'
       ]
@@ -580,11 +402,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-049',
       name: '辽宁楼',
-      point: {
-        lng: 118.59973890906161,
-        lat: 25.103396572681646,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83186a0ebd911efbdb16cefbfb000b'),
       aliases: [
         '辽宁楼'
       ]
@@ -592,11 +410,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-050',
       name: '甘肃楼',
-      point: {
-        lng: 118.59782803,
-        lat: 25.10699429,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8338a53fc0f61efbda0d0609bc0b0b'),
       aliases: [
         '甘肃楼'
       ]
@@ -604,11 +418,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-051',
       name: '湖北楼',
-      point: {
-        lng: 118.59577918,
-        lat: 25.1068545,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a835b4bbff11b1efbda342d5f3a990b'),
       aliases: [
         '湖北楼'
       ]
@@ -616,11 +426,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-052',
       name: '仰恩基金会体育场',
-      point: {
-        lng: 118.60957851,
-        lat: 25.11406255,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a827920d5acf51efbdc5dc85026600b'),
       aliases: [
         '仰恩基金会体育场'
       ]
@@ -628,11 +434,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-053',
       name: '永康球场',
-      point: {
-        lng: 118.61153768,
-        lat: 25.11371469,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a82591baf69e71efbdc729bb34b590b'),
       aliases: [
         '永康球场'
       ]
@@ -640,11 +442,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-054',
       name: '泰山楼',
-      point: {
-        lng: 118.61315444,
-        lat: 25.11831816,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8247995e52b21efbdf24e50a6db80b'),
       aliases: [
         '泰山楼'
       ]
@@ -652,11 +450,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-055',
       name: '嵩山楼',
-      point: {
-        lng: 118.61277267,
-        lat: 25.11776705,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a824ddf9cfc3b1efbdf4b07659f490b'),
       aliases: [
         '嵩山楼'
       ]
@@ -664,11 +458,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-056',
       name: '黄山楼',
-      point: {
-        lng: 118.61079825,
-        lat: 25.11714945,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a826d24cb93221efbdc937df9aa380b'),
       aliases: [
         '黄山楼'
       ]
@@ -676,11 +466,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-057',
       name: '华山楼',
-      point: {
-        lng: 118.61094188,
-        lat: 25.11765401,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8263deb808f81efbdf706ee4e5d10b'),
       aliases: [
         '华山楼'
       ]
@@ -688,11 +474,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-058',
       name: '湖边舞池',
-      point: {
-        lng: 118.60742086,
-        lat: 25.11156212,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83a58efeb8c01efbdde1a9910bff0b'),
       aliases: [
         '湖边舞池'
       ]
@@ -700,11 +482,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-059',
       name: '湖边操场',
-      point: {
-        lng: 118.61484318,
-        lat: 25.11501609,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8223e2750f1c1efbdc1f4d90c4fd0b'),
       aliases: [
         '湖边操场'
       ]
@@ -712,11 +490,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-060',
       name: '珠海楼',
-      point: {
-        lng: 118.61422158,
-        lat: 25.11317008,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a82351d4738101efbdd964ab9a8ff0b'),
       aliases: [
         '珠海楼'
       ]
@@ -724,11 +498,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-061',
       name: '北海楼',
-      point: {
-        lng: 118.6150965,
-        lat: 25.11818793,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a8227c8f546b81efbdf2f6c37f56f0b'),
       aliases: [
         '北海楼'
       ]
@@ -736,11 +506,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-062',
       name: '校主陵园',
-      point: {
-        lng: 118.6066808,
-        lat: 25.11338477,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83a9aef459301efbdc68349ed71d0b'),
       aliases: [
         '校主陵园'
       ]
@@ -748,11 +514,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-063',
       name: '新区操场',
-      point: {
-        lng: 118.60138807,
-        lat: 25.10858225,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83075123a89c1efbdaa2f78579bd0b'),
       aliases: [
         '新区操场'
       ]
@@ -760,11 +522,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-064',
       name: '新区学生街',
-      point: {
-        lng: 118.59678129,
-        lat: 25.10908803,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a834bdf6644a71efbda83cd28e8850b'),
       aliases: [
         '新区学生街'
       ]
@@ -772,11 +530,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-065',
       name: '新区和昌教学楼',
-      point: {
-        lng: 118.59899673,
-        lat: 25.10902611,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a832f8321ee9e1efbda87dec108870b'),
       aliases: [
         '新区和昌教学楼'
       ]
@@ -784,11 +538,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-066',
       name: '仰恩教学楼',
-      point: {
-        lng: 118.60282477,
-        lat: 25.10807885,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83eedb1889b41efbdac5f26ff7000b'),
       aliases: [
         '仰恩教学楼'
       ]
@@ -796,11 +546,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-067',
       name: '普照教学楼',
-      point: {
-        lng: 118.60166487,
-        lat: 25.10997978,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83fbd81e6d781efbdd495edf86970b'),
       aliases: [
         '普照教学楼'
       ]
@@ -808,11 +554,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-068',
       name: '碑林广场',
-      point: {
-        lng: 118.60289887,
-        lat: 25.11136317,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83ef9064c2ac1efbddecb7acf4570b'),
       aliases: [
         '碑林广场'
       ]
@@ -820,11 +562,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-069',
       name: '文体中心',
-      point: {
-        lng: 118.60207706,
-        lat: 25.11237186,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83f21b7809e11efbddaa9aae64790b'),
       aliases: [
         '文体中心'
       ]
@@ -832,11 +570,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-070',
       name: '校史馆',
-      point: {
-        lng: 118.60468235,
-        lat: 25.11242101,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83c968d9f3d61efbdda963c881fa0b'),
       aliases: [
         '校史馆'
       ]
@@ -844,11 +578,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-071',
       name: '图书馆',
-      point: {
-        lng: 118.60385795,
-        lat: 25.11283209,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a83dfee9035521efbdd8c6c01a9ed0b'),
       aliases: [
         '图书馆'
       ]
@@ -856,11 +586,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-072',
       name: '仰恩大学第三校区(公交站)',
-      point: {
-        lng: 118.59778895,
-        lat: 25.1103153,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a833859d5146d1efbdd5363c46b310b'),
       aliases: [
         '仰恩大学第三校区(公交站)'
       ]
@@ -868,11 +594,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-073',
       name: '北京楼',
-      point: {
-        lng: 118.61271537,
-        lat: 25.11897669,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a824ccfc664281efbdf1bbdf95de50b'),
       aliases: [
         '北京楼'
       ]
@@ -880,11 +602,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-074',
       name: '上海楼',
-      point: {
-        lng: 118.61193286,
-        lat: 25.11854521,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a82539d31dd231efbdf3606c1d88e0b'),
       aliases: [
         '上海楼'
       ]
@@ -892,11 +610,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-075',
       name: '旧区公交车下车点',
-      point: {
-        lng: 118.61171436,
-        lat: 25.11314685,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a825c26bc324e1efbdd99cd7db1920b'),
       aliases: [
         '旧区公交车下车点'
       ]
@@ -904,11 +618,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-076',
       name: '旧区公交车上车点',
-      point: {
-        lng: 118.61218112,
-        lat: 25.11272361,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a82578cf8f6111efbddb58803bb4b0b'),
       aliases: [
         '旧区公交车上车点'
       ]
@@ -916,11 +626,7 @@ export const campusWalkGraph: CampusWalkGraph = {
     {
       id: 'node-077',
       name: '旧区车来车往（京东）',
-      point: {
-        lng: 118.61044041,
-        lat: 25.11214991,
-        crs: 'WGS84'
-      },
+      point: walkPoint('v1:816a826b01e7d8fb1efbdddb271a67a00b'),
       aliases: [
         '旧区车来车往（京东）'
       ]

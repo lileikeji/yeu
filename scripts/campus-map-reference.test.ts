@@ -8,7 +8,10 @@ import { campusMapReferencePlaces } from '../data/seeds/preview-places'
 import { amapImportedPlaces } from '../data/seeds/amap-imported-places'
 import { amapImportedAreas } from '../data/seeds/amap-imported-areas'
 import type { ApiPlace } from '../shared/types/server'
+import { encodePlacePoint } from '../shared/utils/geo-obfuscation'
 import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces } from '../app/utils/public-catalog'
+
+const TEST_GEO_KEY = 'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef'
 
 function publishedPlace(id: string, name: string): ApiPlace {
   const timestamp = '2026-07-13T00:00:00.000Z'
@@ -25,9 +28,10 @@ function publishedPlace(id: string, name: string): ApiPlace {
     campusArea: null,
     floor: null,
     room: null,
-    longitude: 118.605,
-    latitude: 25.115,
-    coordinateSystem: 'WGS84',
+    longitude: null,
+    latitude: null,
+    coordinateSystem: null,
+    encodedPoint: encodePlacePoint({ longitude: 118.605, latitude: 25.115, coordinateSystem: 'WGS84' }, TEST_GEO_KEY),
     coordinateVerification: 'verified',
     coordinateVerifiedAt: timestamp,
     coordinatePointRole: 'site-point',
@@ -75,7 +79,7 @@ test('published alias names replace their official text-only reference entries',
     ['仰恩楼', '仰恩教学楼']
   ] as const
   const published = aliases.map(([, alias], index) => publishedPlace(`published-alias-${index + 1}`, alias))
-  const merged = mergePublicMapPlaces(campusMapReferencePlaces, published)
+  const merged = mergePublicMapPlaces(campusMapReferencePlaces, published, [], TEST_GEO_KEY)
 
   assert.equal(merged.length, campusMapReferencePlaces.length)
   for (const [officialName, alias] of aliases) {
@@ -128,6 +132,7 @@ test('owner-authorized WIA points render as drafts with explicit GCJ-02 AMap nav
 })
 
 test('managed AMap owner drafts override static imported map points without changing stable ids', () => {
+  const draftPoint = { longitude: 118.59973890906161, latitude: 25.103396572681646, coordinateSystem: 'GCJ-02' as const }
   const mergedSeeds = mergeAmapImportedPlacesWithDrafts(amapImportedPlaces, [{
     id: 'managed-row-49',
     sourceRow: 49,
@@ -139,8 +144,7 @@ test('managed AMap owner drafts override static imported map points without chan
     type: 'building',
     category: 'dorm',
     address: '仰恩大学新区辽宁楼',
-    longitude: 118.59973890906161,
-    latitude: 25.103396572681646,
+    encodedPoint: encodePlacePoint(draftPoint, TEST_GEO_KEY)!,
     coordinateSystem: 'GCJ-02',
     coordinateVerification: 'unverified',
     status: 'draft',
@@ -148,7 +152,7 @@ test('managed AMap owner drafts override static imported map points without chan
     phone: null,
     externalMapUrl: null,
     updatedAt: new Date().toISOString()
-  }])
+  }], TEST_GEO_KEY)
 
   const seed = amapImportedPlaces.find(place => place.sourceRow === 49)!
   const overridden = mergedSeeds.find(place => place.sourceRow === 49)!
@@ -163,7 +167,7 @@ test('managed AMap owner drafts override static imported map points without chan
     crs: 'GCJ-02'
   })
 
-  const mapPlace = mergePublicMapPlaces(campusMapReferencePlaces, [], mergedSeeds)
+  const mapPlace = mergePublicMapPlaces(campusMapReferencePlaces, [], mergedSeeds, TEST_GEO_KEY)
     .find(place => place.id === 'amap-import-row-049')
   assert.equal(mapPlace?.summary.includes('辽宁楼在后台维护后的新生可读说明'), true)
   assert.deepEqual(mapPlace?.point, {
@@ -174,7 +178,7 @@ test('managed AMap owner drafts override static imported map points without chan
 })
 
 test('published map places extract student use checklist without repeating its marker in the body', () => {
-  const merged = mergePublicMapPlaces(campusMapReferencePlaces, [publishedPlace('service-desk', '服务点')], [])
+  const merged = mergePublicMapPlaces(campusMapReferencePlaces, [publishedPlace('service-desk', '服务点')], [], TEST_GEO_KEY)
   const place = merged.find(item => item.id === 'service-desk')
   assert.deepEqual(place?.usageChecklist, [
     '出发前再看一次入口标识',

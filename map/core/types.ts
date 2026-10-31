@@ -43,6 +43,44 @@ export interface MapPolygonArea extends MapAreaBase {
 
 export type MapArea = MapBoundingArea | MapPolygonArea
 
+/** 校车线路的一个站点（序即站序，起点在前）。 */
+export interface MapBusStop {
+  id: string
+  name: string
+  point: GeoPoint
+  /** 线路起点站（YKT is_first_site）。 */
+  isOrigin: boolean
+  /** 线路终点站（YKT is_end_site）。 */
+  isDestination: boolean
+}
+
+/** 校车线路（沿路折线 + 起终点标注）。 */
+export interface MapBusRoute {
+  id: string
+  name: string
+  stops: MapBusStop[]
+  /**
+   * 沿实际道路的走向折线（服务端高德算路，WGS84）。
+   * 空/缺失时 provider 回退站点直连。
+   */
+  polyline?: GeoPoint[]
+}
+
+/** 校车实时位置（来自云一卡通 YKTGetBusCarInfo 轮询）。 */
+export interface MapBus {
+  id: string
+  name: string
+  point: GeoPoint
+  /** 车辆当前是否已到站（YKT is_at_site）。 */
+  isAtSite: boolean
+  /** 车辆当前关联站点名（可为空）。 */
+  siteName?: string
+  /** 所属线路名（如「旧区--新区」）。 */
+  routeName?: string
+  /** 数据采集时刻（ISO 字符串）。 */
+  updatedAt?: string
+}
+
 export interface MapMountOptions {
   center?: GeoPoint
   zoom?: number

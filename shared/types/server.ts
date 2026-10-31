@@ -187,6 +187,8 @@ export interface ApiPlace {
   longitude: number | null
   latitude: number | null
   coordinateSystem: CoordinateReferenceSystem | null
+  /** 公共出口的坐标混淆串（v1:<hex>，见 shared/utils/geo-obfuscation.ts）；admin 出口同样附带。 */
+  encodedPoint: string | null
   coordinateVerification: CoordinateVerificationState
   coordinateVerifiedAt: string | null
   coordinatePointRole: CoordinatePointRole | null
@@ -215,8 +217,7 @@ export interface ApiAmapOwnerDraftPlace {
   type: string
   category: string | null
   address: string | null
-  longitude: number
-  latitude: number
+  encodedPoint: string
   coordinateSystem: 'GCJ-02'
   coordinateVerification: 'unverified'
 }

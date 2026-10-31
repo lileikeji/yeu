@@ -18,6 +18,8 @@ import {
   resolvePlaceUseChecklist
 } from '~~/app/utils/place-detail-presentation'
 import { parsePublicPhoneContacts } from '~~/app/utils/public-phone-contact'
+import { decodePlacePoint } from '~~/shared/utils/geo-obfuscation'
+import { buildAmapMarkerNavigationUrl } from '~/utils/map-native-search'
 
 const route = useRoute()
 const { copyText, isWechat } = useShareActions()
@@ -79,6 +81,20 @@ const floorRoomLabel = computed(() => resolvePlaceFloorRoomLabel(
 ))
 
 const phoneContacts = computed(() => parsePublicPhoneContacts(place.value?.phone))
+
+// 公共出口不再下发 externalMapUrl（内嵌明文坐标）；导航链接由解码后的坐标前端拼装。
+// SSR 阶段返回 null：否则含坐标的 href 会打进 SSR HTML，混淆被架空。
+const geoCipherKey = __GEO_CIPHER_KEY__
+const navigationUrl = computed(() => {
+  if (import.meta.server) return null
+  if (!place.value?.navigationAvailable || !place.value.encodedPoint) return null
+  const decoded = decodePlacePoint(place.value.encodedPoint, geoCipherKey)
+  if (!decoded) return null
+  return buildAmapMarkerNavigationUrl(
+    { lng: decoded.longitude, lat: decoded.latitude },
+    place.value.name
+  )
+})
 
 function copyPlaceLocation(): void {
   if (!place.value) return
@@ -149,8 +165,8 @@ function copyPlaceLocation(): void {
               @click="copyPlaceLocation"
             />
             <UButton
-              v-if="place.navigationAvailable && safeExternalHref(place.externalMapUrl)"
-              :to="safeExternalHref(place.externalMapUrl) || undefined"
+              v-if="place.navigationAvailable && safeExternalHref(navigationUrl)"
+              :to="safeExternalHref(navigationUrl) || undefined"
               target="_blank"
               rel="noopener noreferrer"
               icon="i-lucide-navigation"
@@ -162,7 +178,7 @@ function copyPlaceLocation(): void {
             />
           </div>
           <p
-            v-if="isWechat && place.navigationAvailable && place.externalMapUrl"
+            v-if="isWechat && place.navigationAvailable && navigationUrl"
             class="text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:text-right"
           >
             微信内若未唤起地图，可复制位置后在地图应用中搜索。

@@ -1,9 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { randomBytes } from 'node:crypto'
 import { clientBundleIcons } from './shared/client-bundle-icons'
 import { EDGE_ROUTE_BOOTSTRAP_SCRIPT } from './app/utils/edge-route-bootstrap'
 import { THEME_BOOT_SCRIPT } from './app/utils/theme-mode'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
+// 公共出口坐标混淆 key：每次构建重新生成，经 vite define（client）与 nitro replace
+// （server）注入同一常量 __GEO_CIPHER_KEY__（shared/utils/geo-obfuscation 的消费方）。
+// 不走 runtimeConfig：请求上下文与 SSR 渲染两条取值路径会出现 key 不一致。
+const geoCipherKey = randomBytes(24).toString('hex')
 const serviceWorkerBuildId = String(
   process.env.GIT_COMMIT_SHA
   || process.env.NUXT_PUBLIC_BUILD_ID
@@ -95,6 +100,8 @@ export default defineNuxtConfig({
     aiRerankLocalEnabled: false,
     aiRerankLocalModel: '',
     amapWebServiceKey: '',
+    // 云一卡通 YKTPreview open_ticket（校车定位，NUXT_YKT_OPEN_TICKET 覆盖）
+    yktOpenTicket: '',
     botSiteUrl: 'https://yx.huiliyill.cn/',
     botMaxReplyChars: 1800,
     qqBotWebhookToken: '',
@@ -122,6 +129,18 @@ export default defineNuxtConfig({
       // Public map/search overlay of authorized amap owner draft points.
       // Set NUXT_PUBLIC_ENABLE_AMAP_OWNER_DRAFTS=false to disable without code change.
       enableAmapOwnerDrafts: true
+    }
+  },
+
+  vite: {
+    define: {
+      __GEO_CIPHER_KEY__: JSON.stringify(geoCipherKey)
+    }
+  },
+
+  hooks: {
+    'nitro:config'(nitroConfig) {
+      nitroConfig.replace = { ...nitroConfig.replace, __GEO_CIPHER_KEY__: JSON.stringify(geoCipherKey) }
     }
   },
 

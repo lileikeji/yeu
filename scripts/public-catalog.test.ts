@@ -247,6 +247,7 @@ test('published map places use student-facing copy in the map panel', () => {
     longitude: 118.6,
     latitude: 25.1,
     coordinateSystem: 'WGS84',
+    encodedPoint: null,
     coordinateVerification: 'verified',
     coordinateVerifiedAt: null,
     coordinatePointRole: null,

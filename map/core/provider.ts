@@ -1,4 +1,4 @@
-import type { GeoPoint, MapArea, MapMountOptions, MapPoi } from './types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi } from './types'
 
 export type PointPickedHandler = (point: GeoPoint) => void
 export type PoiSelectHandler = (poi: MapPoi | null) => void
@@ -53,6 +53,10 @@ export interface MapProvider {
   flyToPoint(point: GeoPoint, zoom?: number): boolean
   /** 显示/更新「我的位置」蓝点与精度圈；传 null 清除。 */
   setUserLocation(location: MapUserLocation | null): void
+  /** 显示/更新校车实时位置标点（动态图层，按 id 增量更新）；传空数组清除。 */
+  setBuses(buses: MapBus[]): void
+  /** 显示/更新校车线路（站点折线 + 起终点标注）；传空数组清除。 */
+  setBusRoutes(routes: MapBusRoute[]): void
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>
   searchVisiblePois(query: string): Promise<MapPoi[]>
   clearRoute(): void

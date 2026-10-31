@@ -88,14 +88,17 @@ const initialCategory = mapQueryValue(route.query.category)
 const initialPlace = mapQueryValue(route.query.place)
 const { data: publicPlaceResponse, error: publicPlaceError } = await usePublicPlaceList()
 const { data: amapOwnerDraftResponse } = await usePublicAmapOwnerDraftPlaces()
+const geoCipherKey = __GEO_CIPHER_KEY__
 const ownerMapSeeds = computed(() => mergeAmapImportedPlacesWithDrafts(
   amapImportedPlaces,
-  amapOwnerDraftResponse.value?.items
+  amapOwnerDraftResponse.value?.items,
+  geoCipherKey
 ))
 const catalogPlaces = computed(() => mergePublicMapPlaces(
   campusMapReferencePlaces,
   publicPlaceResponse.value?.items ?? [],
-  ownerMapSeeds.value
+  ownerMapSeeds.value,
+  geoCipherKey
 ))
 const places = computed(() => catalogPlaces.value)
 const activeScope = computed(() => mapRouteScope(route.query))
@@ -662,6 +665,10 @@ const { cancelMapRouteSync } = useMapRouteSync({
   selectedAreaId,
   scrollToPoi: id => poiRowElements.get(id)?.scrollIntoView({ block: 'nearest' })
 })
+
+// 校车图层：路线 + 起终点 + 实时车位置（云一卡通 5s 轮询）；快照数据喂掌上公交面板
+const { routes: busRoutes, buses: busVehicles, fetchedAt: busFetchedAt } = useMapBusPositions({ mapProvider })
+const busPanelOpen = ref(true)
 
 onBeforeUnmount(() => {
   mapHeaderTitle.value = ''
@@ -1428,6 +1435,14 @@ onBeforeUnmount(() => {
         @plan-route-manual="openManualStartPicker"
       />
     </section>
+
+    <!-- 掌上公交式校车面板：线路总览 + 车辆进度 + 预计距离 -->
+    <MapBusRoutePanel
+      v-model:open="busPanelOpen"
+      :routes="busRoutes"
+      :buses="busVehicles"
+      :fetched-at="busFetchedAt"
+    />
   </div>
 </template>
 

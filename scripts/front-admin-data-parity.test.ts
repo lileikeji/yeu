@@ -34,6 +34,7 @@ import {
 } from '../server/modules/procedures/service'
 import { createSource } from '../server/modules/verification/service'
 import { searchPublishedContent } from '../server/modules/search/service'
+import { encodePlacePoint, decodePlacePoint } from '../shared/utils/geo-obfuscation'
 import {
   createContentSchema,
   createProcedureSchema,
@@ -179,13 +180,24 @@ test('public frontend records and admin backend records stay aligned for maintai
     `).run(placeId, source.id, now)
     publishPlace(fixture.client, placeId)
     const adminPlace = getAdminPlace(fixture.client, placeId)
-    const publicPlace = getPublicPlace(fixture.client, 'front-admin-parity-place')
+    const geoKey = 'ff'.repeat(24)
+    const publicPlace = getPublicPlace(fixture.client, 'front-admin-parity-place', geoKey)
     assert.equal(publicPlace.id, adminPlace.id)
     assert.equal(publicPlace.name, adminPlace.name)
     assert.equal(publicPlace.summary, adminPlace.summary)
-    assert.equal(publicPlace.longitude, adminPlace.longitude)
-    assert.equal(publicPlace.latitude, adminPlace.latitude)
-    assert.equal(publicPlace.coordinateSystem, 'WGS84')
+    // 公共出口坐标为混淆串：明文字段为空，解码值必须与后台明文一致。
+    assert.equal(publicPlace.longitude, null)
+    assert.equal(publicPlace.latitude, null)
+    assert.equal(publicPlace.encodedPoint, encodePlacePoint({
+      longitude: adminPlace.longitude!,
+      latitude: adminPlace.latitude!,
+      coordinateSystem: adminPlace.coordinateSystem!
+    }, geoKey))
+    assert.deepEqual(decodePlacePoint(publicPlace.encodedPoint, geoKey), {
+      longitude: adminPlace.longitude,
+      latitude: adminPlace.latitude,
+      coordinateSystem: adminPlace.coordinateSystem
+    })
     assert.equal(publicPlace.navigationAvailable, true)
 
     const adminPlaces = listPlaces(fixture.client, {
@@ -435,6 +447,7 @@ test('admin place edits propagate to public detail and search, and archived plac
 
 test('admin AMap draft edits propagate through the safe public map draft export', () => {
   const fixture = createFixture()
+  const geoKey = 'ab'.repeat(24)
   try {
     const now = Date.now() - 60_000
     const placeId = '3f88c402-13c3-4a61-8f77-a61396e7a849'
@@ -463,11 +476,15 @@ test('admin AMap draft edits propagate through the safe public map draft export'
         0, 0, 'draft', null, ?, ?)
     `).run(placeId, sourceRawRef, now, now)
 
-    const initial = listPublicAmapOwnerDraftPlaces(fixture.client)
+    const initial = listPublicAmapOwnerDraftPlaces(fixture.client, geoKey)
     assert.equal(initial.length, 1)
     assert.equal(initial[0]?.sourceRow, 49)
     assert.equal(initial[0]?.name, '辽宁楼')
-    assert.equal(initial[0]?.longitude, 118.599)
+    assert.deepEqual(decodePlacePoint(initial[0]?.encodedPoint, geoKey), {
+      longitude: 118.599,
+      latitude: 25.103,
+      coordinateSystem: 'GCJ-02'
+    })
     assert.equal('sourceRawRef' in initial[0]!, false)
     assert.equal('sources' in initial[0]!, false)
 
@@ -482,13 +499,16 @@ test('admin AMap draft edits propagate through the safe public map draft export'
     }))
     assert.equal(updated.coordinateVerification, 'unverified')
 
-    const exported = listPublicAmapOwnerDraftPlaces(fixture.client)
+    const exported = listPublicAmapOwnerDraftPlaces(fixture.client, geoKey)
     assert.equal(exported.length, 1)
     assert.equal(exported[0]?.id, placeId)
     assert.equal(exported[0]?.sourceRow, 49)
     assert.equal(exported[0]?.summary, '辽宁楼在后台维护后的新生可读说明。')
-    assert.equal(exported[0]?.longitude, 118.59973890906161)
-    assert.equal(exported[0]?.latitude, 25.103396572681646)
+    assert.deepEqual(decodePlacePoint(exported[0]?.encodedPoint, geoKey), {
+      longitude: 118.59973890906161,
+      latitude: 25.103396572681646,
+      coordinateSystem: 'GCJ-02'
+    })
     assert.equal(exported[0]?.coordinateSystem, 'GCJ-02')
     assert.equal(exported[0]?.coordinateVerification, 'unverified')
     assert.equal('sourceRawRef' in exported[0]!, false)

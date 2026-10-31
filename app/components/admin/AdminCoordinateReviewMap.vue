@@ -4,7 +4,7 @@ import type {
   Map as MapLibreMap,
   StyleSpecification
 } from 'maplibre-gl'
-import campusBoundary from '~~/data/seeds/osm-campus-boundary.json'
+import { campusBoundary } from '~~/data/seeds/osm-campus-boundary-encoded'
 import {
   YEU_CAMPUS_REFERENCE_CENTER
 } from '~~/map/core/campus'

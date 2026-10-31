@@ -31,15 +31,24 @@ export function createNativeSearchRequestGate(): NativeSearchRequestGate {
   }
 }
 
+/** 高德 marker 导航链接（前端解码坐标后拼装，公共出口不再下发含坐标的 URL）。 */
+export function buildAmapMarkerNavigationUrl(
+  point: { lng: number, lat: number },
+  name?: string | null
+): string {
+  const navigation = new URL('https://uri.amap.com/marker')
+  navigation.searchParams.set('position', `${point.lng},${point.lat}`)
+  if (name) navigation.searchParams.set('name', name)
+  navigation.searchParams.set('coordinate', 'gaode')
+  navigation.searchParams.set('callnative', '0')
+  return navigation.toString()
+}
+
 export function createNativeMapPlace(
   poi: MapPoi,
   scope: MapPlaceScope | null
 ): PublicMapPlace {
-  const navigation = new URL('https://uri.amap.com/marker')
-  navigation.searchParams.set('position', `${poi.point.lng},${poi.point.lat}`)
-  navigation.searchParams.set('name', poi.name)
-  navigation.searchParams.set('coordinate', 'gaode')
-  navigation.searchParams.set('callnative', '0')
+  const navigation = buildAmapMarkerNavigationUrl(poi.point, poi.name)
 
   return {
     id: poi.id,

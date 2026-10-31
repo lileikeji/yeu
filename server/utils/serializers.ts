@@ -1,6 +1,8 @@
 import type { ApiContent, ApiFeedback, ApiPlace, ApiSource } from '../../shared/types/server'
 import type { contents, feedback, places, sources } from '../database/schema'
 import { isSafePublicHttpUrl } from '../../shared/utils/public-http-url'
+import { encodePlacePoint } from '../../shared/utils/geo-obfuscation'
+import { tryRuntimeGeoCipherKey } from './geo-cipher'
 
 type SourceRow = typeof sources.$inferSelect
 type PlaceRow = typeof places.$inferSelect
@@ -104,21 +106,29 @@ export function serializeAdminSource(row: SourceRow) {
 export function serializePlace(
   row: PlaceRow,
   sourceRows: SourceRow[] = [],
-  includeInternalCoordinates = false
+  includeInternalCoordinates = false,
+  geoCipherKey?: string | null
 ): ApiPlace {
   const navigationAvailable = row.status === 'published'
     && row.coordinateVerification === 'verified'
     && row.longitude !== null
     && row.latitude !== null
     && row.coordinateSystem !== null
-  const exposeCoordinates = includeInternalCoordinates || navigationAvailable
   // Admin keeps raw URL columns for repair; public strips unsafe values.
   const website = includeInternalCoordinates
     ? row.website
     : safeStoredHttpUrl(row.website)
+  // 公共出口不再下发 externalMapUrl：高德导航 URL 内嵌明文坐标，改由前端解码后拼装。
   const externalMapUrl = includeInternalCoordinates
     ? row.externalMapUrl
-    : safeStoredHttpUrl(row.externalMapUrl)
+    : null
+  // 公共出口坐标一律走 encodedPoint 混淆串；明文三字段仅 admin 出口保留。
+  const encodedPoint = navigationAvailable
+    ? encodePlacePoint(
+        { longitude: row.longitude!, latitude: row.latitude!, coordinateSystem: row.coordinateSystem! },
+        geoCipherKey !== undefined ? geoCipherKey : tryRuntimeGeoCipherKey()
+      )
+    : null
 
   return {
     id: row.id,
@@ -133,9 +143,10 @@ export function serializePlace(
     campusArea: row.campusArea,
     floor: row.floor,
     room: row.room,
-    longitude: exposeCoordinates ? row.longitude : null,
-    latitude: exposeCoordinates ? row.latitude : null,
-    coordinateSystem: exposeCoordinates ? row.coordinateSystem : null,
+    longitude: includeInternalCoordinates ? row.longitude : null,
+    latitude: includeInternalCoordinates ? row.latitude : null,
+    coordinateSystem: includeInternalCoordinates ? row.coordinateSystem : null,
+    encodedPoint,
     coordinateVerification: row.coordinateVerification,
     coordinateVerifiedAt: toIso(row.coordinateVerifiedAt),
     coordinatePointRole: row.coordinatePointRole,
