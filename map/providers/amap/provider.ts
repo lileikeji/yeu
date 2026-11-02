@@ -10,7 +10,8 @@ import type {
   RouteSummary
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
-import { busFacing, clusterGlyph, markerSvg } from './marker-icons'
+import { buildingSvg, clusterGlyph, markerSvg, vehicleSvg } from './marker-icons'
+import type { BuildingKind } from './marker-icons'
 import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea, MapSpeedBump, MapTransitVehicle } from '../../core/types'
 import { wgs84ToGcj02 as convertWgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { ensureAMapPlugins, loadAMap } from './loader'
@@ -539,27 +540,15 @@ export class AMapProvider implements MapProvider {
     const element = document.createElement('div')
     element.title = bus.siteName ? `${bus.name}（${bus.isAtSite ? '已到站' : '行驶中'}·${bus.siteName}）` : bus.name
     element.setAttribute('aria-label', element.title)
-    element.style.cssText = [
-      'display:flex',
-      'align-items:center',
-      'gap:4px',
-      'box-sizing:border-box',
-      'padding:1px 8px 1px 2px',
-      'border:2px solid #fff',
-      'border-radius:999px',
-      'background:#ea580c',
-      'color:#fff',
-      'font:700 12px/1.5 system-ui,sans-serif',
-      'white-space:nowrap',
-      'box-shadow:0 1px 4px rgb(0 0 0 / 30%)',
-      'cursor:default'
-    ].join(';')
+    // 车形图标 + 下方车名：整块随车头朝向旋转的是图标本身，文字保持水平可读。
+    element.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px;cursor:default;filter:drop-shadow(0 2px 4px rgb(0 0 0 / 35%));'
     const icon = document.createElement('span')
     icon.dataset.busIcon = ''
-    icon.style.cssText = 'display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:50%;background:#fff;'
-    icon.innerHTML = markerSvg(busFacing(bus.angleDeg), { size: 18, color: '#c2410c' })
+    icon.style.cssText = 'display:grid;place-items:center;width:34px;height:34px;'
+    icon.innerHTML = vehicleSvg({ color: '#c2410c', angleDeg: bus.angleDeg, size: 34 })
     const label = document.createElement('span')
     label.textContent = bus.name
+    label.style.cssText = 'padding:0 4px;border-radius:4px;background:rgb(255 255 255 / 92%);color:#9a3412;font:700 11px/1.5 system-ui,sans-serif;white-space:nowrap;'
     element.append(icon, label)
     return element
   }
@@ -792,17 +781,22 @@ export class AMapProvider implements MapProvider {
       'align-items:center',
       'gap:3px',
       'box-sizing:border-box',
-      'padding:2px 7px 2px 5px',
+      'padding:2px 8px 2px 2px',
       'border:2px solid #fff',
       'border-radius:999px',
-      'background:' + (vehicle.color ?? '#1a6cf5'),
-      'color:#fff',
-      'font:700 11px/1.4 system-ui,sans-serif',
+      'background:rgb(255 255 255 / 96%)',
+      'color:' + (vehicle.color ?? '#1a6cf5'),
+      'font:700 11px/1.5 system-ui,sans-serif',
       'white-space:nowrap',
-      'box-shadow:0 1px 6px rgb(0 0 0 / 35%)'
+      'box-shadow:0 1px 6px rgb(0 0 0 / 32%)'
     ].join(';')
     const plate = vehicle.plate.replace('闽C', '')
-    element.textContent = `🚌 ${plate || '在途'}`
+    const icon = document.createElement('span')
+    icon.style.cssText = 'display:grid;place-items:center;flex:none;width:20px;height:20px;'
+    icon.innerHTML = vehicleSvg({ color: vehicle.color ?? '#1a6cf5', angleDeg: vehicle.angleDeg, size: 20 })
+    const label = document.createElement('span')
+    label.textContent = plate || '在途'
+    element.append(icon, label)
     return element
   }
 
@@ -1381,20 +1375,10 @@ export class AMapProvider implements MapProvider {
     const pin = document.createElement('span')
     pin.setAttribute('aria-hidden', 'true')
     const categoryColor = CATEGORY_COLORS[poi.category] ?? '#176f46'
-    if (poi.category === 'dorm') {
-      // 宿舍用自绘小房子，比圆角胶囊更像「楼」，缩小后仍辨得清。
-      pin.style.cssText = `position:absolute;bottom:4px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;filter:drop-shadow(0 3px 6px rgb(0 0 0 / 28%))${selected ? ' saturate(1.15)' : ''};`
-      pin.innerHTML = markerSvg('dorm', { size: 34, color: categoryColor })
-    } else {
-      pin.textContent = CATEGORY_GLYPHS[poi.category] ?? '点'
-      pin.style.cssText = `position:absolute;bottom:6px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;border:3px solid #fff;border-radius:13px 13px 13px 4px;background:#176f46;box-shadow:${selected ? '0 0 0 4px rgb(23 111 70 / 22%),0 4px 12px rgb(0 0 0 / 32%)' : '0 3px 9px rgb(0 0 0 / 24%)'};color:#fff;font:800 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;transform:rotate(-45deg)${selected ? ' scale(1.14)' : ''};transition:transform 140ms ease,box-shadow 140ms ease;`
-      pin.style.background = categoryColor
-      const glyph = document.createElement('span')
-      glyph.textContent = pin.textContent
-      glyph.style.cssText = 'display:block;transform:rotate(45deg);text-shadow:0 1px 2px rgb(0 0 0 / 22%);'
-      pin.textContent = ''
-      pin.append(glyph)
-    }
+    // 楼栋按类别画不同屋顶/立面（教学楼/宿舍/食堂/服务/快递/校门/周边），
+    // 缩到 30px 仍能凭轮廓区分，比统一的圆角胶囊好认。
+    pin.style.cssText = `position:absolute;bottom:4px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;filter:drop-shadow(0 3px 6px rgb(0 0 0 / 30%))${selected ? ' saturate(1.2)' : ''};`
+    pin.innerHTML = buildingSvg((poi.category as BuildingKind) ?? 'campus-building', { size: 34, color: categoryColor })
 
     if (options.onClick) {
       element.addEventListener('click', (event) => {

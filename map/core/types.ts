@@ -66,6 +66,8 @@ export interface MapTransitVehicle {
   point: GeoPoint
   /** 与线路一致的配色。 */
   color?: string
+  /** 车头朝向（正北 0°，顺时针），用于让车形跟着线路转向。 */
+  angleDeg?: number
 }
 
 /** 校园减速带（WGS-84）：叮叮车路过要踩到近 0，地图上单独一层图标。 */

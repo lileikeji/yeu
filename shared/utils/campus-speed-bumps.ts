@@ -52,21 +52,21 @@ export const CAMPUS_SPEED_BUMPS: SpeedBump[] = CAMPUS_SPEED_BUMPS_GCJ02.map((bum
 })
 
 /** 道路巡航速度（m/s，约 23 km/h）。 */
-export const CAMPUS_CRUISE_MPS = 6.4
-/** 轮子压过减速带时的爬行速度（m/s，约 5.8 km/h）。 */
-export const BUMP_CRAWL_MPS = 1.6
+export const CAMPUS_CRUISE_MPS = 7.0
+/** 轮子压过减速带时的爬行速度（m/s，约 3.6 km/h；现场是「几乎停下」再挪过去）。 */
+export const BUMP_CRAWL_MPS = 1.0
 /** 减速带「带内」半径（米）：这圈里就是爬行速度。 */
-export const BUMP_CRAWL_RADIUS_M = 8
+export const BUMP_CRAWL_RADIUS_M = 9
 /** 减速带外的刹车/加速过渡距离（米）：从爬行线性回到巡航。 */
-export const BUMP_RAMP_M = 20
+export const BUMP_RAMP_M = 22
 /** 减速带离行车轨迹多远仍算「会碾到」（米）。校车折线是 45 点抽稀的，放宽到 40 米。 */
 export const BUMP_ON_LINE_RADIUS_M = 40
 /** 带内爬行长度（米）：轮子真正跨过减速带的距离。 */
-export const BUMP_CRAWL_LENGTH_M = 10
+export const BUMP_CRAWL_LENGTH_M = 12
 /** 单侧减速/加速距离（米）。 */
-export const BUMP_APPROACH_M = 25
+export const BUMP_APPROACH_M = 28
 /** 减速/加速段的平均速度（m/s）。 */
-export const BUMP_APPROACH_MPS = 3.5
+export const BUMP_APPROACH_MPS = 4.2
 
 /**
  * 碾过一处减速带的额外耗时（秒）：

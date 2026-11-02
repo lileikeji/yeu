@@ -822,6 +822,7 @@ function transitVehiclesForMap(data: ApiBusLiveResponse | null): MapTransitVehic
       plate: vehicle.plate,
       nextStation: vehicle.nextStation,
       color: TRANSIT_LINE_COLORS[direction.line] ?? '#1a6cf5',
+      angleDeg: vehicle.angle,
       point: { lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' as const }
     }))
   )
