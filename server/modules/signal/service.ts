@@ -47,6 +47,7 @@ export function documentPublishedAt(title: string, text: string, capturedAt: num
   let latest = 0
   for (const match of head.matchAll(DOCUMENT_DATE_RE)) {
     const [, year, month, day] = match
+    if (!year || !month || !day) continue
     const timestamp = Date.parse(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00+08:00`)
     if (Number.isFinite(timestamp) && timestamp > latest && timestamp <= capturedAt) latest = timestamp
   }
