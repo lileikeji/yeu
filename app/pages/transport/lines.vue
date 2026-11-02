@@ -565,7 +565,7 @@ function formatPrice(value: number | null): string {
             </p>
           </div>
           <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            线路与站点来自高德公交线网（快照 {{ data?.fetchedAt }}）；在途车辆与发车时刻来自掌上公交，每 20 秒刷新。时刻表由掌上公交按历史数据推算，仅供参考。
+            线路几何与站点来自掌上公交（快照 {{ data?.fetchedAt }}），与在途车辆同一套坐标；票价沿用高德公交线网。车辆每 20 秒刷新，时刻表由掌上公交按历史数据推算，仅供参考。
           </p>
         </div>
       </div>

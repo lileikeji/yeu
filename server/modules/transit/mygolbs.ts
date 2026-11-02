@@ -32,10 +32,10 @@ const META_TTL_MS = 12 * 60 * 60_000
 
 const HEADERS = {
   'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-  accept: 'application/json, text/javascript, */*; q=0.01',
+  'accept': 'application/json, text/javascript, */*; q=0.01',
   'x-requested-with': 'XMLHttpRequest',
-  referer: 'https://h5.mygolbs.com/',
-  origin: 'https://h5.mygolbs.com',
+  'referer': 'https://h5.mygolbs.com/',
+  'origin': 'https://h5.mygolbs.com',
   'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
 } as const
 
@@ -97,13 +97,24 @@ type UpstreamDepart = {
   list?: Array<{ group: string, times: string[], isNow?: number }>
 }
 
+type UpstreamStation = {
+  stationName?: string
+  station_lon?: string | number
+  station_lat?: string | number
+  stationOrder?: string | number
+}
+
 type UpstreamDetail = {
   status: number
   routeId?: number
   beginTime?: string
   endTime?: string
-  data?: Array<{ stationName?: string }>
+  data?: UpstreamStation[]
+  /** 逐点折线，元素是 `{ lng, lat }`（早期版本是 ["lng","lat"] 字符串对，两种都收）。 */
+  nihelist?: Array<{ lng?: string | number, lat?: string | number } | [string, string]>
 }
+
+type LineStop = { seq: number, name: string, lng: number, lat: number }
 
 type LineMeta = {
   routeId: number
@@ -111,9 +122,34 @@ type LineMeta = {
   to: string
   beginTime: string
   endTime: string
+  /** 站点与折线来自同一份 CMD 103 详情，和实时车辆用同一套坐标。 */
+  stops: LineStop[]
+  polyline: Array<[number, number]>
+  distanceKm: number
 }
 
-/** 线路方向元信息：routeId + 起终点 + 首末班。 */
+function toPoint(lng: unknown, lat: unknown): [number, number] | null {
+  const x = Number(lng)
+  const y = Number(lat)
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x === 0 || y === 0) return null
+  return [x, y]
+}
+
+/** 折线累加长度（km），平面近似即可：这段路在泉州，纬度 25°。 */
+function polylineKm(points: Array<[number, number]>): number {
+  const kx = 111.32 * Math.cos((25.05 * Math.PI) / 180)
+  const ky = 110.54
+  let total = 0
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1]
+    const next = points[i]
+    if (!prev || !next) continue
+    total += Math.hypot((next[0] - prev[0]) * kx, (next[1] - prev[1]) * ky)
+  }
+  return Math.round(total * 100) / 100
+}
+
+/** 线路方向元信息：routeId + 起终点 + 首末班 + 站序 + 逐点折线。 */
 async function lineMeta(line: string, direction: number): Promise<LineMeta> {
   const key = `meta:${line}:${direction}`
   const hit = cacheGet<LineMeta>(key, META_TTL_MS)
@@ -130,13 +166,31 @@ async function lineMeta(line: string, direction: number): Promise<LineMeta> {
   if (detail.status !== 1 || !detail.routeId) {
     throw new Error(`线路详情获取失败：${line} dir=${direction}`)
   }
-  const stations = (detail.data ?? []).map(item => item.stationName ?? '')
+  const stops: LineStop[] = (detail.data ?? []).flatMap((item, index) => {
+    const point = toPoint(item.station_lon, item.station_lat)
+    if (!point) return []
+    return [{
+      seq: Number(item.stationOrder ?? index + 1) || index + 1,
+      name: item.stationName ?? '',
+      lng: point[0],
+      lat: point[1]
+    }]
+  })
+  const polyline = (detail.nihelist ?? []).flatMap((item) => {
+    const point = Array.isArray(item)
+      ? toPoint(item[0], item[1])
+      : toPoint(item?.lng, item?.lat)
+    return point ? [point] : []
+  })
   const meta: LineMeta = {
     routeId: detail.routeId,
-    from: stations[0] ?? '',
-    to: stations[stations.length - 1] ?? '',
+    from: stops[0]?.name ?? '',
+    to: stops[stops.length - 1]?.name ?? '',
     beginTime: detail.beginTime ?? '',
-    endTime: detail.endTime ?? ''
+    endTime: detail.endTime ?? '',
+    stops,
+    polyline,
+    distanceKm: polyline.length > 1 ? polylineKm(polyline) : 0
   }
   cache.set(key, { at: Date.now(), value: meta })
   return meta
@@ -293,4 +347,53 @@ export async function busDeparturesFor(line?: string | null): Promise<ApiBusDepa
     directions,
     note: '时刻表由掌上公交按历史数据推算，仅供参考，请提前候车。'
   }
+}
+
+export type ApiBusGeometryDirection = {
+  line: string
+  direction: number
+  from: string
+  to: string
+  beginTime: string
+  endTime: string
+  distanceKm: number
+  stops: LineStop[]
+  polyline: Array<[number, number]>
+}
+
+/**
+ * 线路几何（站序 + 逐点折线 + 里程），与实时车辆同源。
+ *
+ * 高德的 `v3/bus/linename` 折线在泉州这一段走的是另一条路（K2 万虹路侧），
+ * 车辆按掌上公交的 GPS 跑，画高德的线就会出现「车在路外」。所以画线一律用这里的几何，
+ * 高德快照退为元信息（票价、首末班格式）与兜底。
+ */
+export async function busGeometryFor(line?: string | null): Promise<ApiBusGeometryDirection[]> {
+  const lines = line ? [line.trim().toUpperCase()] : ['K2', 'K6']
+  const result: ApiBusGeometryDirection[] = []
+
+  for (const item of lines) {
+    for (const direction of [1, 2]) {
+      try {
+        const meta = await lineMeta(item, direction)
+        if (meta.polyline.length < 2) continue
+        result.push({
+          line: item,
+          direction,
+          from: meta.from,
+          to: meta.to,
+          beginTime: meta.beginTime,
+          endTime: meta.endTime,
+          distanceKm: meta.distanceKm,
+          stops: meta.stops,
+          polyline: meta.polyline
+        })
+      } catch {
+        // 单个方向失败不影响其它方向
+      }
+    }
+  }
+
+  if (!result.length) throw new Error('线路几何获取失败')
+  return result
 }
