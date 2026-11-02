@@ -3,6 +3,9 @@
  * 只做平面近似（站点间按直线累加），用于小窗示意，不用于导航。
  */
 
+import { STATION_DWELL_SECONDS } from './bus-route-progress'
+import { CAMPUS_CRUISE_MPS } from './campus-speed-bumps'
+
 export interface SchematicPoint {
   lng: number
   lat: number
@@ -67,8 +70,8 @@ export function vehicleAlong(nextStopIndex: number, distanceToNext: number | und
 
 /** 到站时间：剩余里程 ÷ 平均速度 + 途经站停靠时间。 */
 export function etaSeconds(fromAlong: number, toAlong: number, options: { speedMps?: number, stopSeconds?: number, stopsBetween?: number } = {}): number {
-  const speed = options.speedMps ?? 5.2
-  const stopSeconds = options.stopSeconds ?? 20
+  const speed = options.speedMps ?? CAMPUS_CRUISE_MPS
+  const stopSeconds = options.stopSeconds ?? STATION_DWELL_SECONDS
   const gap = Math.max(0, toAlong - fromAlong)
   return gap / speed + (options.stopsBetween ?? 0) * stopSeconds
 }
