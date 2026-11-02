@@ -126,6 +126,11 @@ function setVisitorCookie(event: H3Event, visitorId: string): void {
   })
 }
 
+function isSqliteContention(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code
+  return code === 'SQLITE_BUSY' || code === 'SQLITE_LOCKED'
+}
+
 export function readVisitorId(event: H3Event): string | null {
   const raw = getCookie(event, VISITOR_COOKIE_NAME)
   if (!raw || !VISITOR_ID_RE.test(raw)) return null
@@ -152,24 +157,33 @@ export function ensureVisitor(
     if (!existing) visitorId = null
   }
 
+  // 访客计数属于旁路统计：SQLite 被后台任务短暂写锁住时（SQLITE_BUSY），
+  // 不能让公开接口跟着 500，直接把这次访问降级成「不记名访客」。
+  let writable = true
   if (!visitorId) {
     visitorId = randomUUID()
     isNew = true
-    client.db.insert(visitors).values({
-      id: visitorId,
-      firstSeenAt: now,
-      lastSeenAt: now,
-      lastIp: ip,
-      lastCountry: geo.country,
-      lastRegion: geo.region,
-      lastCity: geo.city,
-      lastUserAgent: userAgent || null,
-      lastPath: pathValue,
-      eventCount: 0,
-      userId: options.userId ?? null,
-      createdAt: now,
-      updatedAt: now
-    }).run()
+    try {
+      client.db.insert(visitors).values({
+        id: visitorId,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        lastIp: ip,
+        lastCountry: geo.country,
+        lastRegion: geo.region,
+        lastCity: geo.city,
+        lastUserAgent: userAgent || null,
+        lastPath: pathValue,
+        eventCount: 0,
+        userId: options.userId ?? null,
+        createdAt: now,
+        updatedAt: now
+      }).run()
+    } catch (error) {
+      if (!isSqliteContention(error)) throw error
+      writable = false
+      isNew = false
+    }
   } else {
     const visitorPatch: Record<string, unknown> = {
       lastSeenAt: now,
@@ -184,10 +198,15 @@ export function ensureVisitor(
     if (options.userId !== undefined) {
       visitorPatch.userId = options.userId
     }
-    client.db.update(visitors).set(visitorPatch as never).where(eq(visitors.id, visitorId)).run()
+    try {
+      client.db.update(visitors).set(visitorPatch as never).where(eq(visitors.id, visitorId)).run()
+    } catch (error) {
+      if (!isSqliteContention(error)) throw error
+      writable = false
+    }
   }
 
-  setVisitorCookie(event, visitorId)
+  if (writable) setVisitorCookie(event, visitorId)
   return { id: visitorId, isNew }
 }
 
