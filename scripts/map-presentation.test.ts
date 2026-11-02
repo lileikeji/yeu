@@ -492,7 +492,11 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   assert.match(amapSource, /yeu-amap-poi-label-selected/)
   assert.match(amapSource, /yeu-amap-area-label-selected/)
   assert.match(amapSource, /display:\$\{this\.displayOptions\.showLabels \? 'block' : 'none'\}/)
-  assert.match(amapSource, /border:1px solid \$\{selected \? '#176f46'/)
+  // 名字改成无白底的紧凑文字：不加边框、不铺背景，只靠白色描边保可读。
+  assert.match(amapSource, /background:transparent/)
+  assert.match(amapSource, /text-shadow:0 0 2px #fff/)
+  assert.match(amapSource, /top:44px/)
+  assert.doesNotMatch(amapSource, /border:1px solid \$\{selected \? '#176f46'/)
   assert.match(amapSource, /areaLabelStyle\(/)
   assert.doesNotMatch(source, /\.map-workspace \.yeu-amap-poi-label/)
   assert.equal(defaultMapDisplayOptions.labelSize, 'small')

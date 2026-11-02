@@ -84,9 +84,9 @@ function wgs84ToGcj02(lng: number, lat: number): AMapPosition {
 
 const LABEL_FONT_SIZES = {
   'extra-small': 10,
-  'small': 11,
-  'medium': 13,
-  'large': 15
+  'small': 10,
+  'medium': 12,
+  'large': 14
 } as const
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -1493,7 +1493,8 @@ export class AMapProvider implements MapProvider {
     label.textContent = poi.name
     // 小屏（<640px）收窄标签，减少街道层级名字互相压盖。
     const labelMaxWidth = typeof window !== 'undefined' && window.innerWidth < 640 ? 126 : 172
-    label.style.cssText = `pointer-events:none;position:absolute;top:47px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:${labelMaxWidth}px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);text-shadow:0 1px 0 rgb(255 255 255 / 90%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
+    // 名字直接压在房子下面，不要白底胶囊：只留一圈白色描边保证可读，字比图标小一号。
+    label.style.cssText = `pointer-events:none;position:absolute;top:44px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:${labelMaxWidth}px;overflow:hidden;padding:0 2px;border:0;border-radius:0;background:transparent;box-shadow:none;color:${selected ? '#176f46' : '#3f3f46'};text-shadow:0 0 2px #fff,0 0 2px #fff,0 1px 3px rgb(255 255 255 / 95%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:0;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
     label.style.opacity = '1'
     label.style.visibility = 'visible'
 

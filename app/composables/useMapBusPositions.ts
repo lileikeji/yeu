@@ -3,8 +3,7 @@ import type { CoordinateReferenceSystem } from '~~/shared/types'
 import type { MapProvider } from '~~/map/core/provider'
 import type { MapBus, MapBusRoute, MapBusStop } from '~~/map/core/types'
 import { BUS_POSITIONS_API_PATH } from '~~/shared/constants/server'
-import { advanceMotion, observeMotion, stepMotion, type BusMotionState } from '~~/shared/utils/bus-motion'
-import { bumpDistancesOnLine, computeBusProgress, cumulativeDistances, samplePolylinePoint } from '~~/shared/utils/bus-route-progress'
+import { bearingDegrees, computeBusProgress, haversineMeters } from '~~/shared/utils/bus-route-progress'
 
 /** 线路快照（校车实时接口响应 routes[]，路径见 shared/constants/server.ts BUS_POSITIONS_API_PATH）。 */
 export interface BusRouteSnapshot {
@@ -73,24 +72,10 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
   const buses = ref<BusSnapshot[]>([])
   const fetchedAt = ref<string | null>(null)
 
-  // 平滑状态：busId → 沿线里程动画（观测与显示分离）。
-  const motionStates = new Map<string, BusMotionState>()
-  /** 轮询之间的插值段：from → to，span 内线性推进，避免 5 秒一跳。 */
-  const motionSegments = new Map<string, { from: number, to: number, t0: number, span: number }>()
-  /** 上一次认账的实测沿线里程，用来判断这一轮是否来了新位置。 */
-  const lastObserved = new Map<string, number>()
-  const motionLengths = new Map<string, number>()
-  const motionLines = new Map<string, Array<{ lng: number, lat: number }>>()
-  // 每条线路的减速带沿线里程（米），用于动画在减速带上停顿；按线路缓存，避免每帧重算。
-  const bumpCache = new Map<string, number[]>()
-
-  function bumpsOf(routeId: string, line: Array<{ lng: number, lat: number }>): number[] {
-    const cached = bumpCache.get(routeId)
-    if (cached) return cached
-    const bumps = bumpDistancesOnLine(line, cumulativeDistances(line))
-    bumpCache.set(routeId, bumps)
-    return bumps
-  }
+  /** 轮询之间的插值段：上一帧定位 → 本帧定位，span 内线性推进。 */
+  const trails = new Map<string, { from: { lng: number, lat: number }, to: { lng: number, lat: number }, t0: number, span: number }>()
+  /** 上一次上报的定位，用来判断这一轮是否真的有新坐标。 */
+  const lastFix = new Map<string, { lng: number, lat: number }>()
   let lastData: BusPositionsResponse | null = null
 
   function toRoutes(data: BusPositionsResponse): MapBusRoute[] {
@@ -112,16 +97,13 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
   }
 
   /**
-   * 由快照构建平滑显示位：新 fix 观测入 motion 状态，显示位沿折线取样，
+   * 由快照构建显示位：按上报 GPS 做二维插值（不沿线投影、不吸站点），
    * 面板快照与地图 MapBus 用同一份坐标（含车头朝向角）。
    *
    * 云一卡通把同一台车按「车 × 线路」各上报一条（去程/回程都有一条），
    * 直接透传会让一台车同时出现在两个方向的小窗里、进度还按反向折算。
    * 这里按 busName 去重，并用主线路（去程）里程的变化方向判定它实际在跑哪一趟。
    */
-  const lastAlongByName = new Map<string, number>()
-  const directionByName = new Map<string, 'forward' | 'back'>()
-
   /**
    * 这台车真实在跑哪一趟：线路把「车 × 线路」各上报一条，坐标完全相同，
    * 靠「下一站」站点在每条线路上的沿线里程判断——正确那趟的下一站在车前方且很近，
@@ -172,38 +154,21 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
             : route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat })))
         : []
 
-      let lng = bus.lng
-      let lat = bus.lat
-      let angleDeg = progress?.angleDeg ?? 0
-      if (progress && line.length >= 2) {
-        motionLengths.set(name, progress.distanceAlong + progress.distanceToDestinationMeters)
-        motionLines.set(name, line)
-        const state = observeMotion(
-          motionStates.get(name) ?? null,
-          progress.distanceAlong,
-          Date.parse(bus.updatedAt) || 0,
-          now,
-          1,
-          bus.isAtSite ? 'waiting' : 'moving'
-        )
-        motionStates.set(name, state)
-        const observed = progress.distanceAlong
-        const previous = lastObserved.get(name)
-        if (previous === undefined || Math.abs(observed - previous) > 0.5) {
-          lastObserved.set(name, observed)
-          motionSegments.set(name, { from: state.display, to: observed, t0: now, span: POLL_INTERVAL_MS })
-        }
-        const sampled = samplePolylinePoint(line, state.display)
-        lng = sampled.point.lng
-        lat = sampled.point.lat
-        // 车头跟着线路切线走（不是跟着 GPS 抖动的位移），回程也是同一条折线的正向。
-        angleDeg = sampled.angleDeg
-      } else {
-        motionStates.delete(name)
-        motionSegments.delete(name)
-        lastObserved.delete(name)
-        motionLengths.delete(name)
+      // 位置就用上报的 GPS：不再沿线投影、也不往站点上吸。
+      // 两次 poll 之间按经纬度线性插值，车看起来是连续开的，但走的是自己的定位。
+      const fix = { lng: bus.lng, lat: bus.lat }
+      const previousFix = lastFix.get(name)
+      if (!previousFix || haversineMeters(previousFix, fix) > 1.5) {
+        const from = previousFix ?? fix
+        trails.set(name, { from, to: fix, t0: now, span: POLL_INTERVAL_MS })
+        lastFix.set(name, fix)
       }
+      const trail = trails.get(name) ?? { from: fix, to: fix, t0: now, span: POLL_INTERVAL_MS }
+      const ratio = Math.max(0, Math.min(1, (now - trail.t0) / Math.max(1, trail.span)))
+      const lng = trail.from.lng + (trail.to.lng - trail.from.lng) * ratio
+      const lat = trail.from.lat + (trail.to.lat - trail.from.lat) * ratio
+      const moved = haversineMeters(trail.from, trail.to)
+      const angleDeg = moved >= 2 ? bearingDegrees(trail.from, trail.to) : (progress?.angleDeg ?? 0)
       snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, lng, lat })
       mapBuses.push({
         id: name,
@@ -227,28 +192,12 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
     options.mapProvider.value?.setBuses(mapBuses)
   }
 
-  /** 节拍推进动画显示位；仅在有移动时重绘。 */
+  /** 节拍推进插值显示位：每 150ms 用当前时间重算一次，轮询之间也连续移动。 */
   function tickMotion(): void {
-    const now = Date.now()
-    const dt = Math.max(0, Math.min(1, (now - tickMotion.last) / 1000))
-    tickMotion.last = now
-    let moved = false
-    for (const [id, state] of motionStates) {
-      const length = motionLengths.get(id)
-      if (!length) continue
-      const line = motionLines.get(id)
-      const bumps = line ? bumpsOf(id, line) : undefined
-      const segment = motionSegments.get(id)
-      if (!segment) {
-        if (stepMotion(state, now, dt, length, bumps)) moved = true
-        continue
-      }
-      const progress = Math.max(0, Math.min(1, (now - segment.t0) / Math.max(1, segment.span)))
-      const target = segment.from + (segment.to - segment.from) * progress
-      if (advanceMotion(state, target, dt, length, bumps)) moved = true
-    }
-    if (moved) pushDisplay()
+    if (!lastData || stopped) return
+    pushDisplay()
   }
+
   tickMotion.last = Date.now()
 
   async function refresh(): Promise<void> {
@@ -283,10 +232,8 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
       globalThis.clearInterval(motionTimer)
       motionTimer = null
     }
-    motionStates.clear()
-    motionLengths.clear()
-    lastAlongByName.clear()
-    directionByName.clear()
+    trails.clear()
+    lastFix.clear()
     lastData = null
     options.mapProvider.value?.setBuses([])
     options.mapProvider.value?.setBusRoutes([])

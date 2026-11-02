@@ -51,7 +51,7 @@ function toRadians(degrees: number): number {
   return degrees * Math.PI / 180
 }
 
-function haversineMeters(a: LngLat, b: LngLat): number {
+export function haversineMeters(a: LngLat, b: LngLat): number {
   const dLat = toRadians(b.lat - a.lat)
   const dLng = toRadians(b.lng - a.lng)
   const h = Math.sin(dLat / 2) ** 2
@@ -60,6 +60,10 @@ function haversineMeters(a: LngLat, b: LngLat): number {
 }
 
 /** 段方位角：正北 0°、顺时针 0..360；退化段返回 0。 */
+export function bearingDegrees(a: LngLat, b: LngLat): number {
+  return segmentBearing(a, b)
+}
+
 function segmentBearing(a: LngLat, b: LngLat): number {
   const dLat = b.lat - a.lat
   const dLng = (b.lng - a.lng) * Math.cos(toRadians(a.lat))

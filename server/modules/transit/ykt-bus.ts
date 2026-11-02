@@ -713,7 +713,9 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
     // 主源：实测 GPS 轨迹切片（贴真实行驶路径，同步零外呼）。高德算路在校园里会绕远（3.29km vs 实测 2.38km），仅作回退。
     const traced = buildRouteShapeFromChain(route.stops)
     if (traced) {
-      shapeCache.set(key, { fetchedAt: Date.now(), polyline: traced, complete: true })
+      // 先按 2 分钟短缓存登记原链：细化没跑完/被限流时下一轮还会重试，
+      // 否则 24 小时都不会再贴一次路。
+      shapeCache.set(key, { fetchedAt: Date.now(), polyline: traced, complete: false })
       route.polyline = traced
       // 实测链只有 46 个点，采样点之间会拉直线切角：后台再用高德算路把它贴到车行道上，
       // 成功且没绕远就覆盖缓存，下一轮快照即拿到细化后的折线。
