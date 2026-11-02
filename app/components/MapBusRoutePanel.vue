@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BusRouteSnapshot, BusSnapshot } from '~~/app/composables/useMapBusPositions'
 import { haversineMeters } from '~~/app/utils/walk-route'
-import { BUS_SPEED_MPS, computeBusProgress, computeStopToStop } from '~~/shared/utils/bus-route-progress'
+import { computeBusProgress, computeStopToStop, travelSecondsAlongPolyline } from '~~/shared/utils/bus-route-progress'
 
 const props = defineProps<{
   routes: BusRouteSnapshot[]
@@ -181,7 +181,7 @@ const stopArrivals = computed<string[]>(() => {
     for (let index = 0; index < route.stops.length; index++) {
       const stopAlong = progress.stopDistancesAlong[index]
       if (stopAlong == null || stopAlong <= progress.distanceAlong) continue
-      const eta = (stopAlong - progress.distanceAlong) / BUS_SPEED_MPS
+      const eta = travelSecondsAlongPolyline(polyline, progress.distanceAlong, stopAlong)
       if (eta < best[index]!) best[index] = eta
     }
   }

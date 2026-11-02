@@ -3,6 +3,11 @@
  * 沿线里程空间运算（米），纯函数无 IO。移植自掌上叮叮 motion.js 思路。
  */
 
+import { CAMPUS_AVERAGE_MPS } from './campus-speed-bumps'
+
+/** 演示态位移速度：用实测均速（3.4 m/s），不再用理想的 6.5 巡航。 */
+const DEMO_SPEED_MPS = CAMPUS_AVERAGE_MPS
+
 export interface BusMotionState {
   /** 动画显示位（沿线里程，米） */
   display: number
@@ -57,7 +62,7 @@ export function observeMotion(
       position,
       stamp,
       received,
-      speed: demo && status === 'moving' ? dir * 6.5 : 0,
+      speed: demo && status === 'moving' ? dir * DEMO_SPEED_MPS : 0,
       dir
     }
   }
@@ -68,7 +73,7 @@ export function observeMotion(
     state.speed = status !== 'moving'
       ? 0
       : demo
-        ? dir * 6.5
+        ? dir * DEMO_SPEED_MPS
         : Math.abs(measured) <= 12 && measured * dir > 0 ? measured : 0
     state.position = position
     state.stamp = stamp
@@ -79,7 +84,7 @@ export function observeMotion(
     state.speed = 0
   }
   if (status !== 'moving' || dir !== state.dir) {
-    state.speed = demo && status === 'moving' ? dir * 6.5 : 0
+    state.speed = demo && status === 'moving' ? dir * DEMO_SPEED_MPS : 0
   }
   state.dir = dir
   return state

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { CAMPUS_SPEED_BUMPS, bumpExtraSeconds } from '../shared/utils/campus-speed-bumps'
 import {
-  BUS_SPEED_MPS,
+  travelSecondsAlongPolyline,
   computeBusProgress,
   computeStopToStop,
   samplePolylinePoint
@@ -64,7 +65,9 @@ test('computeBusProgress 站点不足两个返回 null', () => {
 test('computeBusProgress etaSeconds=距离/巡航速度、distanceAlong/angleDeg 齐备', () => {
   const result = computeBusProgress({ lng: 0.0045, lat: 0 }, stops, stops)
   assert.ok(result)
-  assert.ok(Math.abs(result.etaSeconds - 500 / BUS_SPEED_MPS) < 1, `eta=${result.etaSeconds}`)
+  // ETA 走减速带限速积分：不会比全速更快，也不会慢过爬行速度
+  assert.ok(result.etaSeconds >= 500 / 6.4 - 1, `eta=${result.etaSeconds}`)
+  assert.ok(result.etaSeconds <= 500 / 1.6, `eta=${result.etaSeconds}`)
   assert.ok(Math.abs(result.distanceAlong - 500) < 10, `along=${result.distanceAlong}`)
   // 正东走向：方位角约 90°
   assert.ok(Math.abs(result.angleDeg - 90) < 1, `angle=${result.angleDeg}`)
@@ -84,10 +87,27 @@ test('computeStopToStop A→B 距离/途经站/ETA，顺序无关', () => {
   assert.ok(ab)
   assert.ok(Math.abs(ab.distanceMeters - 2_000) < 15, `d=${ab.distanceMeters}`)
   assert.equal(ab.stopsBetween, 1)
-  assert.ok(Math.abs(ab.etaSeconds - ab.distanceMeters / BUS_SPEED_MPS) < 1)
+  assert.ok(ab.etaSeconds >= ab.distanceMeters / 6.4, `eta=${ab.etaSeconds}`)
   const ba = computeStopToStop(stops, stops, 2, 0)
   assert.ok(ba)
   assert.ok(Math.abs(ba.distanceMeters - ab.distanceMeters) < 1)
   assert.equal(computeStopToStop(stops, stops, 1, 1)?.distanceMeters, 0)
   assert.equal(computeStopToStop(stops, stops, 0, 5), null)
+})
+
+test('减速带模型：远离校园的直线只按巡航速度算', () => {
+  const far = [{ lng: 0, lat: 0 }, { lng: 0.008, lat: 0 }]
+  const seconds = travelSecondsAlongPolyline(far, 0, 890)
+  assert.ok(Math.abs(seconds - 890 / 6.4) < 2, `seconds=${seconds.toFixed(1)}`)
+})
+
+test('减速带模型：碾过一处减速带会多花约 11 秒', () => {
+  const [a, b] = [CAMPUS_SPEED_BUMPS[5]!, CAMPUS_SPEED_BUMPS[6]!]
+  const segment = [{ lng: a.lng, lat: a.lat }, { lng: b.lng, lat: b.lat }]
+  const meters = 30
+  const seconds = travelSecondsAlongPolyline(segment, 0, meters)
+  const extra = bumpExtraSeconds()
+  assert.ok(extra > 8 && extra < 14, `extra=${extra.toFixed(2)}`)
+  assert.ok(seconds > meters / 6.4 + extra * 0.5, `seconds=${seconds.toFixed(1)}`)
+  assert.ok(seconds < meters / 6.4 + extra * 2.5, `seconds=${seconds.toFixed(1)}`)
 })

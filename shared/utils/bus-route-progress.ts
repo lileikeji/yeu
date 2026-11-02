@@ -3,18 +3,20 @@
  * 纯函数、无 IO，供 composable / 组件与单测共用。
  */
 
+import { BUMP_ON_LINE_RADIUS_M, CAMPUS_AVERAGE_MPS, CAMPUS_CRUISE_MPS, CAMPUS_SPEED_BUMPS, bumpExtraSeconds } from './campus-speed-bumps'
+
 interface LngLat {
   lng: number
   lat: number
 }
 
 /**
- * 校车 ETA 换算速度（m/s，约 12 km/h）。
- * 实测校准（2026-11-02 用户口径）：全程 2.46km 平时 10-12 分钟、下课高峰 12-15 分钟；
- * 两档中值取 3.4 m/s（平时≈3.7、高峰≈3.0，不按时段分档）。
- * 与叮叮车的 6.5 m/s 差异主要来自停站时间——本值为含停站的全程均速。
+ * 兜底均速（m/s，约 12 km/h）。实测 2026-11-02：全程 2.46km 平时 10-12 分钟。
+ *
+ * ETA 不再直接用这个常数——叮叮车过减速带要压到近 0，平均慢是被 27 处减速带拖下来的，
+ * 详细算在 travelSecondsOnLine() 里按「减速带局部限速」沿线积分；本值只用于没有几何数据时的兜底。
  */
-export const BUS_SPEED_MPS = 3.4
+export const BUS_SPEED_MPS = CAMPUS_AVERAGE_MPS
 
 export interface BusProgress {
   /** 车位于 stops[segmentIndex] → stops[segmentIndex+1] 段内 */
@@ -129,8 +131,66 @@ function stopDistancesOnLine(stops: LngLat[], line: LngLat[], cumulative: number
   return stopDistances
 }
 
+
+/** 沿线里程取点（内部用，比 samplePolylinePoint 轻量）。 */
+function pointAtDistance(line: LngLat[], cumulative: number[], distanceAlong: number): LngLat {
+  const total = cumulative[cumulative.length - 1] ?? 0
+  const d = Math.max(0, Math.min(total, distanceAlong))
+  for (let i = 1; i < line.length; i++) {
+    if (cumulative[i]! >= d) {
+      const a = line[i - 1]!
+      const b = line[i]!
+      const span = cumulative[i]! - cumulative[i - 1]! || 1
+      const t = (d - cumulative[i - 1]!) / span
+      return { lng: a.lng + (b.lng - a.lng) * t, lat: a.lat + (b.lat - a.lat) * t }
+    }
+  }
+  return { ...(line[line.length - 1] ?? { lng: 0, lat: 0 }) }
+}
+
+/** 每站上下客停留时间（秒）：实测含停站均速 3.4 m/s 与纯行驶 4 m/s 的差额主要在这里。 */
+export const STATION_DWELL_SECONDS = 10
+
+/** 折线上落在行车轨迹里的减速带沿线里程（横向偏移超过阈值的不算）。 */
+function bumpDistancesOnLine(line: LngLat[], cumulative: number[]): number[] {
+  const distances: number[] = []
+  for (const bump of CAMPUS_SPEED_BUMPS) {
+    const projection = projectOntoPolyline(bump, line, cumulative)
+    if (projection.offsetMeters <= BUMP_ON_LINE_RADIUS_M) distances.push(projection.distanceAlong)
+  }
+  return distances.sort((a, b) => a - b)
+}
+
 /**
- * 计算车辆在线路上的进度。
+ * 从 fromAlong 开到 toAlong 需要多少秒：把减速带当成局部限速，
+ * 沿线每 ETA_SAMPLE_STEP_M 米按该点限速折算，累加即可；
+ * 途中真正碾过的减速带再加一次停车让行时间（叮叮车会踩到近 0）。
+ */
+export function travelSecondsOnLine(
+  line: LngLat[],
+  cumulative: number[],
+  fromAlong: number,
+  toAlong: number
+): number {
+  if (line.length < 2) return 0
+  const total = Math.abs(toAlong - fromAlong)
+  if (total < 1e-6) return 0
+  const low = Math.min(fromAlong, toAlong)
+  const high = Math.max(fromAlong, toAlong)
+  let seconds = total / CAMPUS_CRUISE_MPS
+  for (const bumpAlong of bumpDistancesOnLine(line, cumulative)) {
+    if (bumpAlong > low && bumpAlong <= high) seconds += bumpExtraSeconds()
+  }
+  return seconds
+}
+
+/** 只有折线（没有预计算里程表）时的便捷入口。 */
+export function travelSecondsAlongPolyline(polyline: LngLat[], fromAlong: number, toAlong: number): number {
+  if (polyline.length < 2) return 0
+  return travelSecondsOnLine(polyline, cumulativeDistances(polyline), fromAlong, toAlong)
+}
+
+/** 计算车辆在线路上的进度。
  * @param bus 车辆 GPS（WGS84）
  * @param stops 线路站点（按行驶顺序）
  * @param polyline 沿路折线（WGS84）；不足 2 点时按站点直连回退
@@ -192,7 +252,10 @@ export function computeBusProgress(
   const distanceToNextStopMeters = atStopIndex !== null
     ? 0
     : Math.max(0, stopDistances[nextStopIndex]! - busDistance)
-  const speedMps = options.speedMps && options.speedMps > 0 ? options.speedMps : BUS_SPEED_MPS
+  const cruise = options.speedMps && options.speedMps > 0 ? options.speedMps : null
+  const etaSeconds = cruise
+    ? distanceToNextStopMeters / cruise
+    : travelSecondsOnLine(line, cumulative, busDistance, stopDistances[nextStopIndex]!)
 
   return {
     segmentIndex,
@@ -204,7 +267,7 @@ export function computeBusProgress(
     stopsRemaining: stops.length - 1 - (atStopIndex ?? segmentIndex),
     distanceAlong: busDistance,
     stopDistancesAlong: stopDistances,
-    etaSeconds: distanceToNextStopMeters / speedMps,
+    etaSeconds,
     angleDeg: busProjection.angleDeg
   }
 }
@@ -261,10 +324,13 @@ export function computeStopToStop(
   const cumulative = cumulativeDistances(line)
   const stopDistances = stopDistancesOnLine(stops, line, cumulative)
   const distanceMeters = Math.abs(stopDistances[toIndex]! - stopDistances[fromIndex]!)
-  const speedMps = options.speedMps && options.speedMps > 0 ? options.speedMps : BUS_SPEED_MPS
+  const cruise = options.speedMps && options.speedMps > 0 ? options.speedMps : null
   return {
     distanceMeters,
     stopsBetween: Math.abs(toIndex - fromIndex) - 1,
-    etaSeconds: distanceMeters / speedMps
+    etaSeconds: cruise
+      ? distanceMeters / cruise
+      : travelSecondsOnLine(line, cumulative, stopDistances[fromIndex]!, stopDistances[toIndex]!)
+        + (Math.abs(toIndex - fromIndex) - 1) * STATION_DWELL_SECONDS
   }
 }
