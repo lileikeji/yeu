@@ -39,6 +39,25 @@ const SCORING_BODY_CHARS = 6000
 
 export type SignalItemKind = 'notice' | 'document'
 
+/** 抓取页只记录入库时间，正文里写着的日期才是真发布时间。 */
+const DOCUMENT_DATE_RE = /(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/gu
+
+export function documentPublishedAt(title: string, text: string, capturedAt: number): number {
+  const head = `${title} ${text.slice(0, 400)}`
+  let latest = 0
+  for (const match of head.matchAll(DOCUMENT_DATE_RE)) {
+    const [, year, month, day] = match
+    const timestamp = Date.parse(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00+08:00`)
+    if (Number.isFinite(timestamp) && timestamp > latest && timestamp <= capturedAt) latest = timestamp
+  }
+  if (latest) return latest
+  // 只写到年份的旧文（「2014年上半年…」）也算旧：取当年 1 月 1 日，直接落到回看窗口外。
+  const yearOnly = /(20\d{2})\s*年/u.exec(head)
+  const capturedYear = new Date(capturedAt).getUTCFullYear()
+  if (yearOnly && Number(yearOnly[1]) < capturedYear) return Date.parse(`${yearOnly[1]}-01-01T00:00:00+08:00`)
+  return capturedAt
+}
+
 export interface SignalCandidate {
   itemKind: SignalItemKind
   itemId: string
@@ -260,6 +279,8 @@ function collectDocumentCandidates(client: DatabaseClient, cutoff: number, limit
     const text = (row.extractedText ?? '').trim()
     if (text.length < 60 || !row.originalUrl) continue
     if (!isUsableSignalTitle(row.title) || !looksLikeAnnouncement(row.title, text)) continue
+    const publishedAt = documentPublishedAt(row.title, text, row.capturedAt)
+    if (publishedAt < cutoff) continue
     candidates.push({
       itemKind: 'document',
       itemId: row.id,
@@ -267,7 +288,7 @@ function collectDocumentCandidates(client: DatabaseClient, cutoff: number, limit
       title: row.title,
       summary: text.slice(0, 200),
       body: text.slice(0, SCORING_BODY_CHARS),
-      publishedAt: row.capturedAt,
+      publishedAt,
       sourceId: row.sourceId ?? null,
       sourceTitle: row.sourceTitle ?? '',
       isOfficial: Boolean(row.isOfficial),

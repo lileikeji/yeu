@@ -10,6 +10,7 @@ import { computeSignalHeat, decayedHeat, signalTrend } from '../server/modules/s
 import { buildDailyReport, buildPeriodReport } from '../server/modules/signal/report'
 import { decideSignalScore, isUsableSignalTitle, looksLikeAnnouncement, signalCategoryFor } from '../server/modules/signal/scoring'
 import {
+  documentPublishedAt,
   ensureDailyReport,
   getSignalEventBySlug,
   listHotSignalEvents,
@@ -220,6 +221,24 @@ test('标题可用性与公告判定挡住文件名和常青页面', () => {
   assert.equal(looksLikeAnnouncement('学院简介', '本院设有三个本科专业，教职工六十余人。'), false)
   assert.equal(looksLikeAnnouncement('关于宿舍分配的通知', ''), true)
   assert.equal(signalCategoryFor('关于2026级新生宿舍分配结果查询的通知'), '住宿')
+})
+
+test('文档发布时间取正文里的日期，正文没写才用入库时间', () => {
+  const captured = NOW
+  assert.equal(
+    documentPublishedAt('学生宿舍搬迁通知', '搬迁时间：2014年7月4日至7日，请提前打包。', captured),
+    Date.parse('2014-07-04T00:00:00+08:00')
+  )
+  assert.equal(
+    documentPublishedAt('2026级新生报到须知', '报到时间：2026-09-05，逾期不候。', captured),
+    Date.parse('2026-09-05T00:00:00+08:00')
+  )
+  assert.equal(documentPublishedAt('关于宿舍分配的通知', '本次分配按学院集中安排，具体名单另行公布。', captured), captured)
+  assert.equal(
+    documentPublishedAt('关于组织教师报名参加2014年上半年培训的通知', '请各学院汇总名单后报送。', captured),
+    Date.parse('2014-01-01T00:00:00+08:00')
+  )
+  assert.equal(documentPublishedAt('关于报到的通知', '时间：2099年1月1日。', captured), captured)
 })
 
 test('热度：同一来源重复发布只算一次，按 24 小时半衰', () => {
