@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -9,6 +9,9 @@ import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import {
   crawlOfficialKnowledge,
+  disposeCrawlWorkspace,
+  mergeCrawlWorkspace,
+  prepareCrawlWorkspace,
   crawlPriority,
   DEFAULT_OFFICIAL_KNOWLEDGE_SEEDS,
   EXPLICIT_SEED_PRIORITY,
@@ -340,4 +343,48 @@ test('crawl CLI is bounded and supports an explicit seed', () => {
   assert.equal(options.maxDepth, 2)
   assert.equal(options.concurrency, 1)
   assert.equal(options.dryRun, true)
+})
+
+test('抓取先写副本，结束时按主键合并回生产库', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-official-crawl-merge-'))
+  const databasePath = join(directory, 'live.sqlite')
+  const url = 'https://www.yeu.edu.cn/merge-check.htm'
+  try {
+    const live = getDatabase(databasePath)
+    runMigrations(live)
+    const now = Date.now()
+    live.sqlite.prepare(`
+      INSERT INTO knowledge_crawl_queue (
+        url, hostname, label, depth, discovered_from, priority, status, attempts,
+        last_attempt_at, next_attempt_at, last_error, created_at, updated_at
+      ) VALUES (?, ?, ?, 1, NULL, 10, 'pending', 0, NULL, NULL, '', ?, ?)
+    `).run(url, 'www.yeu.edu.cn', '合并用例', now, now)
+    closeDatabase(databasePath)
+
+    const workspace = prepareCrawlWorkspace(databasePath)
+    assert.notEqual(workspace.workPath, databasePath)
+    assert.equal(workspace.livePath, databasePath)
+
+    const work = getDatabase(workspace.workPath)
+    work.sqlite.prepare('UPDATE knowledge_crawl_queue SET status = ?, attempts = 1 WHERE url = ?').run('completed', url)
+    closeDatabase(workspace.workPath)
+
+    // 合并前生产库仍是旧值：抓取期间确实没写生产库。
+    const before = getDatabase(databasePath)
+    const pendingRow = before.sqlite.prepare('SELECT status FROM knowledge_crawl_queue WHERE url = ?').get(url) as { status: string }
+    assert.equal(pendingRow.status, 'pending')
+    closeDatabase(databasePath)
+
+    mergeCrawlWorkspace(workspace)
+    disposeCrawlWorkspace(workspace)
+
+    const after = getDatabase(databasePath)
+    const mergedRow = after.sqlite.prepare('SELECT status, attempts FROM knowledge_crawl_queue WHERE url = ?').get(url) as { status: string, attempts: number }
+    assert.deepEqual(mergedRow, { status: 'completed', attempts: 1 })
+    closeDatabase(databasePath)
+    assert.equal(existsSync(workspace.workPath), false)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
 })

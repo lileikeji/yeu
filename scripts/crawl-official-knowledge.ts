@@ -2,11 +2,12 @@ import './load-env'
 import { createHash, randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
+import { rmSync } from 'node:fs'
 import * as XLSX from '@e965/xlsx'
 import { load } from 'cheerio'
 import { unzipSync } from 'fflate'
 import WordExtractor from 'word-extractor'
-import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
+import { closeDatabase, getDatabase, resolveDatabasePath, type DatabaseClient } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { compileOfficialKnowledgeDocuments } from '../server/modules/knowledge/document-compiler'
 
@@ -110,6 +111,8 @@ export interface OfficialCrawlReport {
   unchanged: number
   failed: number
   discovered: number
+  /** 合并回生产库失败时的原因；成功时缺省。 */
+  mergeError?: string
   hosts: Record<string, number>
   errors: Array<{ url: string, message: string }>
 }
@@ -1117,9 +1120,69 @@ function failCrawlItem(client: DatabaseClient, url: string, message: string, now
   )
 }
 
+/** 抓取期间只碰副本的两张表；合并回生产库时按主键覆盖。 */
+const CRAWL_MERGE_TABLES = ['knowledge_documents', 'knowledge_crawl_queue'] as const
+
+export interface CrawlWorkspace {
+  /** 真正跑抓取用的库路径（副本；`:memory:` 时就是原路径）。 */
+  workPath: string
+  /** 合并目标；`:memory:` 或显式禁用副本时为 null。 */
+  livePath: string | null
+}
+
+/**
+ * 抓取会连续写几十分钟，直接写生产库会把公开接口堵在 SQLITE_BUSY 上
+ * （实测 /map 30 秒、公告 500）。改成：先 VACUUM INTO 一份副本，抓取全程只写副本，
+ * 结束后用一个短事务把两张表按主键合并回生产库。副本创建只读几十秒，不阻塞写入。
+ */
+export function prepareCrawlWorkspace(databasePath: string): CrawlWorkspace {
+  const livePath = resolveDatabasePath(databasePath)
+  if (livePath === ':memory:' || process.env.YEU_CRAWL_SKIP_COPY === '1') {
+    return { workPath: livePath, livePath: null }
+  }
+  const workPath = `${livePath}.crawl-${process.pid}-${Date.now()}.sqlite`
+  const source = getDatabase(livePath)
+  source.sqlite.prepare('VACUUM INTO ?').run(workPath)
+  closeDatabase(livePath)
+  return { workPath, livePath }
+}
+
+export function mergeCrawlWorkspace(workspace: CrawlWorkspace): void {
+  const { livePath, workPath } = workspace
+  if (!livePath) return
+  const live = getDatabase(livePath)
+  const quoted = workPath.replace(/'/gu, "''")
+  live.sqlite.exec(`ATTACH DATABASE '${quoted}' AS crawl_work`)
+  try {
+    live.sqlite.transaction(() => {
+      for (const table of CRAWL_MERGE_TABLES) {
+        live.sqlite.exec(`INSERT OR REPLACE INTO main.${table} SELECT * FROM crawl_work.${table}`)
+      }
+    })()
+  } finally {
+    live.sqlite.exec('DETACH DATABASE crawl_work')
+  }
+  closeDatabase(livePath)
+}
+
+export function disposeCrawlWorkspace(workspace: CrawlWorkspace): void {
+  if (!workspace.livePath) return
+  closeDatabase(workspace.workPath)
+  for (const suffix of ['', '-wal', '-shm']) {
+    try {
+      rmSync(`${workspace.workPath}${suffix}`, { force: true })
+    } catch {
+      // 副本删不掉不影响本次抓取结果。
+    }
+  }
+}
+
 export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Promise<OfficialCrawlReport> {
+  let failed = false
+  let skippedDispose = false
   const startedAt = new Date()
-  const client = getDatabase(options.databasePath)
+  const workspace = prepareCrawlWorkspace(options.databasePath)
+  const client = getDatabase(workspace.workPath)
   runMigrations(client)
   const seedItems: OfficialCrawlQueueItem[] = options.seeds.flatMap((seed) => {
     const url = normalizeOfficialUrl(seed)
@@ -1163,7 +1226,7 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
     })()
   }
   const report: OfficialCrawlReport = {
-    databasePath: client.path,
+    databasePath: workspace.livePath ?? client.path,
     startedAt: startedAt.toISOString(),
     finishedAt: '',
     attempted: 0,
@@ -1294,10 +1357,26 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
         `${compiled.claimsRemoved} removed\n`
       )
     }
+  } catch (error) {
+    failed = true
+    throw error
   } finally {
     report.discovered = (client.sqlite.prepare('SELECT count(1) AS value FROM knowledge_crawl_queue').get() as { value: number }).value
     report.finishedAt = new Date().toISOString()
-    closeDatabase(options.databasePath)
+    closeDatabase(workspace.workPath)
+    if (!options.dryRun && !failed) {
+      // 抓取全程没碰生产库，这里一次性短事务合并；失败时保留副本现场供排查。
+      try {
+        mergeCrawlWorkspace(workspace)
+      } catch (error) {
+        report.mergeError = error instanceof Error ? error.message : String(error)
+        process.stderr.write(`Merge crawl results failed: ${report.mergeError}
+${workspace.workPath}
+`)
+        skippedDispose = true
+      }
+    }
+    if (!skippedDispose) disposeCrawlWorkspace(workspace)
   }
   return report
 }
