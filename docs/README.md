@@ -16,6 +16,7 @@
 | [DEPLOY_NOTES_2026-09-04-qa-cards.md](./DEPLOY_NOTES_2026-09-04-qa-cards.md) | 部署纪要（活文档，每次发布追加一节：release id、回滚点、DB 备份、变更内容、线上验证） |
 | [ADMIN_RUNBOOK.md](./ADMIN_RUNBOOK.md) | 单管理员运行手册：后台日常操作与巡检 |
 | [CONTENT_POLICY.md](./CONTENT_POLICY.md) | 内容来源与治理政策：来源记录、核验状态、非官方标识边界 |
+| [SIGNAL.md](./SIGNAL.md) | 校园热度：双评分入选、事件聚簇、48 小时半衰热度、日报/周报/月报与调度命令 |
 | [GIT_RESOURCES_AND_CONFIGURATION.md](./GIT_RESOURCES_AND_CONFIGURATION.md) | Git 资源与配置：仓库边界、环境变量、数据库私有存放、发布配置 |
 | [bot-integrations.md](./bot-integrations.md) | QQ / 微信机器人接入 |
 | [rules/TASK_COMPLETION_REVIEW.md](./rules/TASK_COMPLETION_REVIEW.md) | 任务完成复盘与架构同步规则 |

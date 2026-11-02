@@ -592,7 +592,7 @@ export interface ApiBusDeparturesDirection {
   beginTime: string
   endTime: string
   /** 按时间段分组的发车时刻，`isNow` 标记当前那班。 */
-  groups: { group: string; times: string[]; isNow: boolean }[]
+  groups: { group: string, times: string[], isNow: boolean }[]
   /** 当前时刻之后最近的三班。 */
   next: string[]
 }
@@ -614,4 +614,87 @@ export interface ApiBusLinesResponse {
   lines: ApiBusLineDirection[]
   /** 高德不提供实时车辆位置，前端不要等这个字段。 */
   vehiclePositionsAvailable: false
+}
+
+export type ApiSignalTrend = 'new' | 'up' | 'down' | 'flat'
+
+export type ApiSignalTier = 'A' | 'B' | 'C'
+
+/** `/api/public/signal` 的事件摘要，字段与 `SignalEventSummary` 一致。 */
+export interface ApiSignalEventSummary {
+  id: string
+  slug: string
+  title: string
+  summary: string
+  category: string
+  heat: number
+  trend: ApiSignalTrend
+  sourceCount: number
+  itemCount: number
+  score: number
+  tier: ApiSignalTier
+  tierLabel: string
+  firstSeenAt: string
+  lastSeenAt: string
+}
+
+export interface ApiSignalEventItem {
+  id: string
+  title: string
+  url: string
+  excerpt: string
+  sourceTitle: string
+  isOfficial: boolean
+  publishedAt: string | null
+  isPrimary: boolean
+}
+
+export interface ApiSignalEventDetail extends ApiSignalEventSummary {
+  items: ApiSignalEventItem[]
+}
+
+export interface ApiSignalListResponse {
+  events: ApiSignalEventSummary[]
+  generatedAt: string
+}
+
+export interface ApiSignalReportItem {
+  eventId: string
+  slug: string
+  title: string
+  summary: string
+  category: string
+  heat: number
+  sourceCount: number
+  itemCount: number
+  tier: string
+  isNew: boolean
+}
+
+export interface ApiSignalReportSection {
+  key: string
+  title: string
+  items: ApiSignalReportItem[]
+}
+
+export interface ApiSignalReportStats {
+  events: number
+  newEvents: number
+  sources: number
+}
+
+export interface ApiSignalReport {
+  kind: 'daily' | 'weekly' | 'monthly'
+  periodKey: string
+  label: string
+  title: string
+  generatedAt: number
+  lead: ApiSignalReportItem[]
+  sections: ApiSignalReportSection[]
+  stats: ApiSignalReportStats
+}
+
+export interface ApiSignalReportListResponse {
+  kind: string
+  reports: ApiSignalReport[]
 }

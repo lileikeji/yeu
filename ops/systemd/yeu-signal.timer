@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily YEU campus signal rebuild at 07:00
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=5min
+Unit=yeu-signal.service
+
+[Install]
+WantedBy=timers.target

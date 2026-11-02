@@ -7,7 +7,8 @@ import type {
   ApiPublicPromotedMerchants,
   ApiListResponse,
   ApiPlace,
-  ApiProcedure
+  ApiProcedure,
+  ApiSignalListResponse
 } from '~~/shared/types/server'
 
 const PUBLIC_PAGE_SIZE = 100
@@ -52,6 +53,13 @@ export function usePublicContentList(kind?: ContentKind) {
       ({ sanitizePublicContent, sanitizePublicList }) =>
         sanitizePublicList(response, sanitizePublicContent)
     )
+  })
+}
+
+export function usePublicSignalList(limit = 5) {
+  return useFetch<ApiSignalListResponse>('/api/public/signal', {
+    key: `public-signal-${limit}`,
+    query: { limit }
   })
 }
 

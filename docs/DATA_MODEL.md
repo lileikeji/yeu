@@ -272,6 +272,14 @@ erDiagram
 - `places.is_featured` 只表示编辑精选，绝不复用为付费位；
 - v1 不创建虚假的默认商户账号或空推广记录。
 
+### 7.4 校园热度（`signal_events`、`signal_event_items`、`signal_reports`）
+
+三张表只存**可重建的派生结果**，真数据源仍是 `contents`（通知）与 `knowledge_documents`（抓取的网页/PDF）。索引重建时整表重写，删掉就能从源数据重算，不需要备份。
+
+- `signal_events`：一件事。`slug` 唯一（可读标题 → ASCII，否则 `hot-<hash>`），`heat`/`heat_prev` 是 48 小时半衰热度，`trend` 取 `new/up/down/flat`，`source_count` 是跟进这件事的来源数（同源多次发布只算一次），`score`/`tier` 是双评分与信源分级，`first_seen_at`/`last_seen_at` 决定它算不算「新」。
+- `signal_event_items`：事件下的原始条目，`(item_kind, item_id)` 唯一，`item_kind` 取 `notice`/`document`。`is_primary` 标记代表条目，`score_a`/`score_b` 保留双评分，便于解释为什么入选。
+- `signal_reports`：日报/周报/月报，`(kind, period_key)` 唯一，`payload_json` 是完整成品（头条、分栏、统计），重复生成只返回已有那份。
+
 ## 8. 完整性与生命周期
 
 发布服务必须在同一事务或可恢复工作流中检查：

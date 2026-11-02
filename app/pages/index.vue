@@ -53,6 +53,9 @@ const { data: publicGuideListResponse } = guideListRequest
 const { data: publicProcedureListResponse } = procedureListRequest
 
 /** 首页"校园周边商家"：仅展示后台开启推广的地点，无推广时整块隐藏。 */
+const signalListRequest = usePublicSignalList(5)
+const homeSignalEvents = computed(() => signalListRequest.data.value?.events ?? [])
+
 const promotedMerchants = computed(() => publicMerchantResponse.value?.items ?? [])
 const merchantIcon = (type: string | null) => (
   ({
@@ -366,6 +369,82 @@ const {
               </span>
             </div>
           </NuxtLink>
+        </div>
+      </section>
+
+      <section
+        v-if="homeSignalEvents.length"
+        class="border-t border-[var(--line)] bg-white dark:bg-zinc-900"
+      >
+        <div class="page-shell py-5 md:py-8">
+          <div class="flex items-end justify-between gap-3">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
+                  最近在发
+                </h2>
+                <span class="inline-flex min-h-6 items-center gap-1 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
+                  <UIcon
+                    name="i-lucide-flame"
+                    class="size-3.5"
+                  />
+                  每天更新
+                </span>
+              </div>
+              <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:text-sm md:leading-6">
+                教务处、学生处等站点新发的通知，同一件事多个来源合成一条，按热度排。
+              </p>
+            </div>
+            <NuxtLink
+              to="/hot"
+              class="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400"
+            >
+              全部热度
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="size-4"
+              />
+            </NuxtLink>
+          </div>
+
+          <ul class="mt-3 divide-y divide-[var(--line)] overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <li
+              v-for="event in homeSignalEvents"
+              :key="event.id"
+            >
+              <NuxtLink
+                to="/hot"
+                class="flex items-start gap-2.5 px-3 py-3 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 md:gap-3 md:px-4"
+              >
+                <span
+                  class="mt-0.5 inline-flex min-h-5 shrink-0 items-center rounded px-1.5 text-[10px] font-bold"
+                  :class="SIGNAL_TREND_CLASS[event.trend]"
+                >
+                  {{ SIGNAL_TREND_LABEL[event.trend] }}
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="line-clamp-2 text-[13px] font-semibold leading-5 text-zinc-950 dark:text-zinc-100 md:line-clamp-1 md:text-sm">
+                    {{ event.title }}
+                  </span>
+                  <span class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span>{{ event.category }}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{{ event.sourceCount }} 个来源 · {{ event.itemCount }} 条</span>
+                    <span aria-hidden="true">·</span>
+                    <span>热度 {{ signalHeatText(event.heat) }}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{{ signalRelativeTime(event.lastSeenAt) }}</span>
+                  </span>
+                </span>
+                <span
+                  class="mt-0.5 hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold sm:inline-flex"
+                  :class="SIGNAL_TIER_CLASS[event.tier]"
+                >
+                  {{ event.tierLabel }}
+                </span>
+              </NuxtLink>
+            </li>
+          </ul>
         </div>
       </section>
 

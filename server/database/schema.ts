@@ -1114,3 +1114,84 @@ export const competitionScores = sqliteTable('competition_scores', {
   index('competition_scores_event_idx').on(table.eventId),
   index('competition_scores_round_idx').on(table.roundId)
 ])
+
+/**
+ * 校园热点（signal）事件表。
+ *
+ * 一行 = 一件"很多份材料在说的是同一件事"。热度按事件算，不按文章算：
+ * 48 小时窗口内每个独立来源只算一次，24 小时半衰（见 server/modules/signal/heat.ts）。
+ */
+export const signalEvents = sqliteTable('signal_events', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull(),
+  title: text('title').notNull(),
+  summary: text('summary').notNull().default(''),
+  category: text('category').notNull().default('campus'),
+  status: text('status', { enum: ['published', 'archived'] }).notNull().default('published'),
+  heat: real('heat').notNull().default(0),
+  heatPrev: real('heat_prev').notNull().default(0),
+  trend: text('trend', { enum: ['new', 'up', 'down', 'flat'] }).notNull().default('flat'),
+  sourceCount: integer('source_count').notNull().default(0),
+  itemCount: integer('item_count').notNull().default(0),
+  score: real('score').notNull().default(0),
+  tier: text('tier', { enum: ['A', 'B', 'C'] }).notNull().default('C'),
+  firstSeenAt: integer('first_seen_at').notNull(),
+  lastSeenAt: integer('last_seen_at').notNull(),
+  reportedAt: integer('reported_at'),
+  metadataJson: text('metadata_json').notNull().default('{}'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('signal_events_slug_unique').on(table.slug),
+  index('signal_events_status_heat_idx').on(table.status, table.heat),
+  index('signal_events_last_seen_idx').on(table.lastSeenAt),
+  check('signal_events_status_check', sql`${table.status} in ('published', 'archived')`),
+  check('signal_events_trend_check', sql`${table.trend} in ('new', 'up', 'down', 'flat')`),
+  check('signal_events_tier_check', sql`${table.tier} in ('A', 'B', 'C')`)
+])
+
+/**
+ * 事件成员：一份材料（通知或已入库的官方文档）只属于一个事件。
+ * 两次独立评分的原始结果都留在这里，改门槛可以只看不回跑。
+ */
+export const signalEventItems = sqliteTable('signal_event_items', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => signalEvents.id, { onDelete: 'cascade' }),
+  itemKind: text('item_kind', { enum: ['notice', 'document'] }).notNull(),
+  itemId: text('item_id').notNull(),
+  sourceId: text('source_id').references(() => sources.id, { onDelete: 'set null' }),
+  url: text('url').notNull(),
+  title: text('title').notNull(),
+  excerpt: text('excerpt').notNull().default(''),
+  publishedAt: integer('published_at'),
+  score: real('score').notNull().default(0),
+  scoreA: real('score_a').notNull().default(0),
+  scoreB: real('score_b').notNull().default(0),
+  tier: text('tier', { enum: ['A', 'B', 'C'] }).notNull().default('C'),
+  similarity: real('similarity').notNull().default(0),
+  isPrimary: integer('is_primary', { mode: 'boolean' }).notNull().default(false),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('signal_event_items_identity_unique').on(table.itemKind, table.itemId),
+  index('signal_event_items_event_idx').on(table.eventId),
+  index('signal_event_items_source_idx').on(table.sourceId),
+  check('signal_event_items_kind_check', sql`${table.itemKind} in ('notice', 'document')`),
+  check('signal_event_items_tier_check', sql`${table.tier} in ('A', 'B', 'C')`)
+])
+
+/** 日报/周报/月报：规则化编排，不调模型；同一周期只生成一次。 */
+export const signalReports = sqliteTable('signal_reports', {
+  id: text('id').primaryKey(),
+  kind: text('kind', { enum: ['daily', 'weekly', 'monthly'] }).notNull(),
+  periodKey: text('period_key').notNull(),
+  title: text('title').notNull(),
+  payloadJson: text('payload_json').notNull().default('{}'),
+  itemCount: integer('item_count').notNull().default(0),
+  generatedAt: integer('generated_at').notNull(),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('signal_reports_period_unique').on(table.kind, table.periodKey),
+  index('signal_reports_kind_generated_idx').on(table.kind, table.generatedAt),
+  check('signal_reports_kind_check', sql`${table.kind} in ('daily', 'weekly', 'monthly')`)
+])

@@ -427,6 +427,7 @@ NUXT_MONITOR_MAX_RATE_LIMITED=0
   首次启用时应临时将健康 URL 指向不可达端口验证 `unhealthy` 通知，再恢复正确地址验证 `recovery`；同时确认 webhook 接收端和 monitor 日志均未出现路径、密钥或用户数据。默认阈值为备份 26 小时、磁盘至少 5 GiB 且 15%、WAL 最大 256 MiB、可用内存至少 10%、单 CPU 一分钟负载不高于 2；请求指标默认检查最近 15 分钟，任一 5xx、任一 429 或超过 4 次管理员登录 401 即告警，可按机器容量通过 `NUXT_MONITOR_*` 调整。
 - `yeu.service` 的应用日志指向 `NUXT_MONITOR_REQUEST_LOG_PATH`，错误日志单独存放；两者启用轮转并限制磁盘。结构化请求日志包含时间戳、请求 ID、路由、状态和耗时，不记录 Cookie、密码、查询串、完整纠错联系方式或精确用户定位。监控最多读取日志尾部 4 MiB；若该尾部不能覆盖完整时间窗，会返回 `request_log_window_incomplete`，此时必须缩短轮转周期、增加轮转频率或缩短监控时间窗，不能忽略。
 - 在宝塔计划任务中每日运行一次 `pnpm feedback:cleanup`，清除到期的反馈网络标识、联系方式和记录；执行失败应进入运维告警。
+- 校园热度索引每天 07:00 由 `yeu-signal.timer` 重建（`ops/systemd/yeu-signal.service`，排在 03:40 的官方站点抓取之后），一次跑完索引、日报与周报/月报。启用方法与排错见 [SIGNAL.md](SIGNAL.md#6-命令与调度)；单元失败时 `systemctl is-failed yeu-signal.service` 返回非零，接入现有告警。
 - 监控 CPU、内存、磁盘、inode、数据库/WAL 大小、备份最近成功时间、5xx、登录失败和纠错滥用。
 - 管理员发布、下线、坐标修改和来源变更写入数据库审计日志，不能只依赖 systemd 文本日志。
 

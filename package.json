@@ -82,7 +82,8 @@
     "miniapp:install": "pnpm --dir miniapp install --ignore-workspace",
     "miniapp:dev": "pnpm --dir miniapp dev",
     "miniapp:build": "pnpm --dir miniapp build",
-    "miniapp:typecheck": "pnpm --dir miniapp typecheck"
+    "miniapp:typecheck": "pnpm --dir miniapp typecheck",
+    "signal:build": "tsx scripts/signal-build.ts"
   },
   "dependencies": {
     "@e965/xlsx": "0.20.3",

@@ -11,6 +11,7 @@ const desktopNavigation = [
   { label: '地图', to: '/map', icon: 'i-lucide-map' },
   { label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
   { label: '新生专题', to: '/guides', icon: 'i-lucide-notebook-tabs' },
+  { label: '校园热度', to: '/hot', icon: 'i-lucide-flame' },
   { label: '服务导航', to: '/discover', icon: 'i-lucide-layout-grid' }
 ]
 const mobileNavigation = [
