@@ -1,8 +1,8 @@
 import './load-env'
 import { createHash, randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
-import { resolve } from 'node:path'
-import { rmSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { rmSync, statSync, statfsSync } from 'node:fs'
 import * as XLSX from '@e965/xlsx'
 import { load } from 'cheerio'
 import { unzipSync } from 'fflate'
@@ -1138,6 +1138,14 @@ export interface CrawlWorkspace {
 export function prepareCrawlWorkspace(databasePath: string): CrawlWorkspace {
   const livePath = resolveDatabasePath(databasePath)
   if (livePath === ':memory:' || process.env.YEU_CRAWL_SKIP_COPY === '1') {
+    return { workPath: livePath, livePath: null }
+  }
+  // 副本要跟库一样大，磁盘不够时宁可退回直写（旧行为），也别让抓取崩在 ENOSPC 上。
+  const dbBytes = statSync(livePath).size
+  const freeBytes = statfsSync(dirname(livePath)).bavail * statfsSync(dirname(livePath)).bsize
+  if (freeBytes < dbBytes * 1.4) {
+    process.stderr.write(`Not enough free space for crawl copy (${freeBytes} < ${dbBytes * 1.4}); writing live db
+`)
     return { workPath: livePath, livePath: null }
   }
   const workPath = `${livePath}.crawl-${process.pid}-${Date.now()}.sqlite`
