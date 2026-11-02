@@ -10,7 +10,7 @@ import type {
   PointPickedHandler,
   RouteSummary
 } from '../../core/provider'
-import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
+import { YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS, YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
 import { buildingSvg, clusterGlyph, vehicleSvg } from './marker-icons'
 import type { BuildingKind } from './marker-icons'
 import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea, MapSpeedBump, MapTransitVehicle } from '../../core/types'
@@ -271,6 +271,7 @@ export class AMapProvider implements MapProvider {
     })
     this.applyBasemapLabels()
     ;(map as unknown as { on(event: string, handler: () => void): void }).on('zoomchange', this.handleZoomChange)
+    ;(map as unknown as { on(event: string, handler: () => void): void }).on('moveend', this.handleViewChange)
     this.lastPoiZoom = map.getZoom()
     await Promise.all([this.rebuildMarkers(), this.rebuildAreas()])
 
@@ -293,17 +294,36 @@ export class AMapProvider implements MapProvider {
   }
 
   /** 底图注记开关：关掉高德自带的 POI 文字，地图只留项目自己的标点。 */
+  /**
+   * 底图注记：默认「只看校园外」——视线在校园里时把高德 POI 文字收掉（我们自己的
+   * 建筑图标已经占位，两套文字会糊成一片），视线离开校园再放回来。
+   * 传 true 是强制全开（用户点了按钮）。
+   */
   setBasemapLabels(visible: boolean): void {
     this.basemapLabels = visible
     this.applyBasemapLabels()
   }
 
+  /** 当前视野中心是否落在校园范围内（校园里才收注记）。 */
+  private viewportInsideCampus(): boolean {
+    const map = this.map as unknown as { getCenter(): { getLng(): number, getLat(): number } } | null
+    if (!map) return false
+    const center = map.getCenter()
+    const lng = center.getLng()
+    const lat = center.getLat()
+    return lng >= YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS.west
+      && lng <= YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS.east
+      && lat >= YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS.south
+      && lat <= YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS.north
+  }
+
   private applyBasemapLabels(): void {
     const map = this.map
     if (!map) return
-    const features = this.basemapLabels
-      ? ['bg', 'road', 'building', 'point']
-      : ['bg', 'road', 'building']
+    const hideInside = !this.basemapLabels && this.viewportInsideCampus()
+    const features = hideInside
+      ? ['bg', 'road', 'building']
+      : ['bg', 'road', 'building', 'point']
     try {
       ;(map as unknown as { setFeatures(features: string[]): void }).setFeatures(features)
     } catch {
@@ -313,10 +333,15 @@ export class AMapProvider implements MapProvider {
 
   /** 缩放跨过 POI_MIN_ZOOM 时重建标点，避免在挤成一团的级别画一堆房子。 */
   private handleZoomChange = (): void => {
+    this.applyBasemapLabels()
     const zoom = this.map?.getZoom() ?? 0
     const crossed = (zoom >= POI_MIN_ZOOM) !== (this.lastPoiZoom >= POI_MIN_ZOOM)
     this.lastPoiZoom = zoom
     if (crossed) this.startRenderTask(this.rebuildMarkers(), '高德地图标点刷新失败。')
+  }
+
+  private handleViewChange = (): void => {
+    this.applyBasemapLabels()
   }
 
   setPois(pois: MapPoi[]): void {

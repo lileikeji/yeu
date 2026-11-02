@@ -1537,14 +1537,14 @@ onBeforeUnmount(() => {
               @click="toggleSpeedBumps"
             />
           </UTooltip>
-          <UTooltip :text="basemapLabelsVisible ? '隐藏底图注记（高楼/店铺文字）' : '显示底图注记（高楼/店铺文字）'">
+          <UTooltip :text="basemapLabelsVisible ? '底图注记：全部显示（含校内）' : '底图注记：只显示校外'">
             <UButton
               icon="i-lucide-type"
               color="neutral"
               variant="ghost"
               class="map-control-btn size-10 rounded-none md:size-11"
               :class="basemapLabelsVisible ? 'bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300' : ''"
-              aria-label="显示底图注记"
+              aria-label="切换底图注记显示范围"
               :aria-pressed="basemapLabelsVisible"
               @click="toggleBasemapLabels"
             />
