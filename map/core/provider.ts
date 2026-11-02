@@ -66,6 +66,8 @@ export interface MapProvider {
 
   /** 校外公交在途车辆（可选能力；不实现就不显示车辆层）。 */
   setTransitVehicles?(vehicles: MapTransitVehicle[]): void
+  /** 显示/隐藏底图自带的 POI 注记（高德底图 'point' 要素），关掉后只剩我们自己的标点。 */
+  setBasemapLabels?(visible: boolean): void
   /** 校园减速带图标层（校车 ETA 的限速依据）。 */
   setSpeedBumps?(bumps: MapSpeedBump[]): void
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>

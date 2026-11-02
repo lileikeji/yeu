@@ -13,6 +13,7 @@ import type {
   MapProvider,
   MapProviderId
 } from '~~/map/core/provider'
+import { wgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
 import { officialSources } from '~~/data/seeds/public-content'
 import { safeExternalHref } from '~/utils/safe-external-href'
@@ -696,9 +697,22 @@ const speedBumpPoints: MapSpeedBump[] = CAMPUS_SPEED_BUMPS.map(bump => ({
   point: { lng: bump.lng, lat: bump.lat, crs: 'WGS84' as const }
 }))
 const speedBumpsVisible = ref(true)
+/** 底图自带 POI 注记默认关掉：只剩项目自己的建筑图标，画面才不糊。 */
+const basemapLabelsVisible = ref(false)
 
 function applySpeedBumps(provider = mapProvider.value): void {
   provider?.setSpeedBumps?.(speedBumpsVisible.value ? speedBumpPoints : [])
+  provider?.setBasemapLabels?.(basemapLabelsVisible.value)
+}
+
+function applyBasemapLabels(): void {
+  mapProvider.value?.setBasemapLabels?.(basemapLabelsVisible.value)
+}
+
+watch(basemapLabelsVisible, () => applyBasemapLabels())
+
+function toggleBasemapLabels(): void {
+  basemapLabelsVisible.value = !basemapLabelsVisible.value
 }
 
 function toggleSpeedBumps(): void {
@@ -780,12 +794,27 @@ function changeTransitDirection(line: ApiBusLineDirection): void {
   if (visibleTransitRoutes.value.length) focusTransitRoutes(visibleTransitRoutes.value)
 }
 
+function distanceLabel(meters: number | undefined): string {
+  if (meters === undefined || !Number.isFinite(meters)) return '—'
+  if (meters <= 30) return '已到站'
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`
+  return `${Math.round(meters)} m`
+}
+
 function focusTransitStop(point: { lng: number, lat: number }): void {
   mapProvider.value?.flyToPoint({ ...point, crs: 'GCJ-02' }, 16)
 }
 
-function focusTransitVehicle(point: [number, number]): void {
-  mapProvider.value?.flyToPoint({ lng: point[0], lat: point[1], crs: 'GCJ-02' }, 16)
+/** 正在跟的车（点车后镜头一直跟着它，直到关掉详情）。 */
+const transitVehicleFocus = ref<{ plate: string, point: [number, number], nextStation: string, distanceToNext?: number } | null>(null)
+/** 跟车时每秒刷新的 GPS 年龄（秒）。 */
+const transitGpsAge = ref(0)
+let transitAgeTimer: ReturnType<typeof globalThis.setInterval> | null = null
+
+/** 点一辆车：镜头跟住它，并打开车辆详情（含 GPS 更新时间）。 */
+function focusTransitVehicle(payload: { plate: string, point: [number, number], nextStation: string, distanceToNext?: number }): void {
+  transitVehicleFocus.value = { ...payload }
+  mapProvider.value?.flyToPoint({ lng: payload.point[0], lat: payload.point[1], crs: 'GCJ-02' }, 17)
 }
 
 let transitLoadPromise: Promise<boolean> | null = null
@@ -839,6 +868,25 @@ async function refreshTransitLive(): Promise<void> {
   if (transitLinesOpen.value) {
     mapProvider.value?.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
   }
+  followTransitVehicle()
+}
+
+/** 跟车：每轮实时数据里找出同一块车牌，把镜头贴到它身上并刷新详情。 */
+function followTransitVehicle(): void {
+  const focus = transitVehicleFocus.value
+  if (!focus) return
+  const vehicle = (transitLive.value?.directions ?? [])
+    .flatMap(direction => direction.vehicles)
+    .find(item => item.plate === focus.plate)
+  if (!vehicle) return
+  transitVehicleFocus.value = {
+    plate: vehicle.plate,
+    point: vehicle.point,
+    nextStation: vehicle.nextStation,
+    distanceToNext: vehicle.distanceToNext
+  }
+  mapProvider.value?.flyToPoint({ lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' }, 17)
+  transitGpsAge.value = 0
 }
 
 async function loadTransitDepartures(): Promise<void> {
@@ -852,6 +900,13 @@ async function loadTransitDepartures(): Promise<void> {
 
 function startTransitLive(): void {
   void loadTransitDepartures()
+  if (!transitAgeTimer) {
+    transitAgeTimer = globalThis.setInterval(() => {
+      if (!transitVehicleFocus.value) return
+      const fetched = Date.parse(transitLive.value?.fetchedAt ?? '')
+      transitGpsAge.value = Number.isFinite(fetched) ? Math.max(0, Math.round((Date.now() - fetched) / 1000)) : transitGpsAge.value + 1
+    }, 1000)
+  }
   void refreshTransitLive()
   if (transitLiveTimer) return
   transitLiveTimer = setInterval(() => {
@@ -862,6 +917,9 @@ function startTransitLive(): void {
 function stopTransitLive(): void {
   if (transitLiveTimer) clearInterval(transitLiveTimer)
   transitLiveTimer = null
+  if (transitAgeTimer) clearInterval(transitAgeTimer)
+  transitAgeTimer = null
+  transitVehicleFocus.value = null
   mapProvider.value?.setTransitVehicles?.([])
 }
 
@@ -919,6 +977,15 @@ watch(mapProvider, async (provider) => {
   provider.setTransitRoutes?.(visibleTransitRoutes.value)
   provider.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
 }, { immediate: true })
+
+// 掌上公交的站点是 GCJ-02，浏览器定位是 WGS84：先转再算「我在哪一站」。
+const transitMyLocation = computed(() => {
+  const point = userLocation.value
+  if (!point) return null
+  if (point.crs === 'GCJ-02') return { lng: point.lng, lat: point.lat }
+  const converted = wgs84ToGcj02(point.lng, point.lat)
+  return { lng: converted.longitude, lat: converted.latitude }
+})
 
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
 onMounted(() => {
@@ -1368,6 +1435,18 @@ onBeforeUnmount(() => {
               @click="toggleSpeedBumps"
             />
           </UTooltip>
+          <UTooltip :text="basemapLabelsVisible ? '隐藏底图注记（高楼/店铺文字）' : '显示底图注记（高楼/店铺文字）'">
+            <UButton
+              icon="i-lucide-type"
+              color="neutral"
+              variant="ghost"
+              class="map-control-btn size-10 rounded-none md:size-11"
+              :class="basemapLabelsVisible ? 'bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300' : ''"
+              aria-label="显示底图注记"
+              :aria-pressed="basemapLabelsVisible"
+              @click="toggleBasemapLabels"
+            />
+          </UTooltip>
           <UTooltip text="地图显示设置">
             <UButton
               icon="i-lucide-layers-3"
@@ -1756,6 +1835,46 @@ onBeforeUnmount(() => {
     />
 
     <!-- 校外公交面板：K2/K6 方向可展开看站序 -->
+
+    <!-- 车辆详情：点车后镜头跟住它，这里显示下一站与 GPS 新鲜度 -->
+    <div
+      v-if="transitVehicleFocus"
+      class="pointer-events-auto fixed bottom-20 right-3 z-50 w-60 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur md:bottom-6 md:right-6 dark:border-zinc-700 dark:bg-zinc-900/95"
+    >
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            {{ transitVehicleFocus.plate }}
+          </p>
+          <p class="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+            下一站 {{ transitVehicleFocus.nextStation || '在途' }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+          aria-label="关闭车辆详情"
+          @click="transitVehicleFocus = null"
+        >
+          <UIcon name="i-lucide-x" class="size-4" />
+        </button>
+      </div>
+      <dl class="mt-2 space-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+        <div class="flex items-center justify-between gap-2">
+          <dt class="text-zinc-400">距下一站</dt>
+          <dd class="tabular-nums font-medium">{{ distanceLabel(transitVehicleFocus.distanceToNext) }}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <dt class="text-zinc-400">GPS 更新</dt>
+          <dd class="tabular-nums font-medium" :class="transitGpsAge > 40 ? 'text-amber-600' : 'text-emerald-600'">
+            {{ transitGpsAge }} 秒前
+          </dd>
+        </div>
+      </dl>
+      <p class="mt-2 flex items-center gap-1 text-[10px] text-zinc-400">
+        <UIcon name="i-lucide-crosshair" class="size-3" />镜头跟着这辆车走
+      </p>
+    </div>
     <MapTransitPanel
       v-if="transitLinesOpen"
       v-model:open="transitPanelOpen"
@@ -1765,6 +1884,7 @@ onBeforeUnmount(() => {
       :departures="transitDepartures"
       :live-error="transitLiveError"
       :selected-direction="transitSelectedDirection"
+      :location="transitMyLocation"
       :left-offset="sidebarCollapsed ? '1rem' : '19rem'"
       @focus-stop="focusTransitStop"
       @focus-vehicle="focusTransitVehicle"

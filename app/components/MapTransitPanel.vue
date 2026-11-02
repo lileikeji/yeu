@@ -6,6 +6,7 @@ import type {
   ApiBusLiveResponse,
   ApiBusDeparturesResponse
 } from '~~/shared/types/server'
+import { etaSeconds, formatEta, projectAlong, stopAlongs, vehicleAlong } from '~~/shared/utils/transit-schematic'
 
 const props = defineProps<{
   directions: ApiBusLineDirection[]
@@ -20,12 +21,14 @@ const props = defineProps<{
   liveError?: string
   /** 当前只看某一个方向（方向 id）；空串表示双向都画。 */
   selectedDirection?: string
+  /** 「我」的当前位置（已转成 GCJ-02）；没定位时为空。 */
+  location?: { lng: number, lat: number } | null
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'focus-stop': [point: { lng: number, lat: number }]
-  'focus-vehicle': [point: [number, number]]
+  'focus-vehicle': [payload: { plate: string, point: [number, number], nextStation: string, distanceToNext?: number }]
   'select-direction': [line: ApiBusLineDirection]
   'change-line': [line: string]
 }>()
@@ -80,6 +83,79 @@ function onlineCount(direction: ApiBusLineDirection): number {
 function vehiclesOf(direction: ApiBusLineDirection): ApiBusLiveDirection['vehicles'] {
   const list = liveOf(direction)?.vehicles ?? []
   return [...list].sort((a, b) => (a.distanceToNext ?? 99999) - (b.distanceToNext ?? 99999))
+}
+
+
+/** 简略图：站点、在途车辆与「我」都投影到同一条沿线里程轴上（0→100%）。 */
+interface Schematic {
+  total: number
+  ticks: Array<{ x: number, name: string, major: boolean }>
+  buses: Array<{ x: number, plate: string, near: string, lane: number }>
+  me: number | null
+  myStop: { name: string, meters: number, eta: string } | null
+}
+
+const schematics = computed(() => {
+  const result = new Map<string, Schematic>()
+  for (const direction of props.directions) {
+    const stops = direction.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
+    const alongs = stopAlongs(stops)
+    const total = alongs[alongs.length - 1] ?? 0
+    if (total <= 0) continue
+    const toPercent = (along: number): number => Math.max(0, Math.min(100, (along / total) * 100))
+
+    const step = Math.max(1, Math.ceil(direction.stops.length / 9))
+    const ticks = direction.stops
+      .map((stop, index) => ({ x: toPercent(alongs[index] ?? 0), name: stop.name, major: index % step === 0 || index === direction.stops.length - 1 }))
+      .filter(tick => tick.major)
+
+    const laneUsed: number[] = []
+    const buses = vehiclesOf(direction).map((vehicle) => {
+      const index = direction.stops.findIndex(stop => sameStop(stop.name, vehicle.nextStation))
+      const along = vehicleAlong(index >= 0 ? index : (vehicle.stationOrder || 1), vehicle.distanceToNext, alongs)
+      const x = toPercent(along)
+      // 挨得太近的车错开三层，避免完全叠在一起看不出有几辆。
+      let lane = 0
+      while (lane < 3 && laneUsed.some((used, slot) => slot % 3 === lane && Math.abs(used - x) < 3.2)) lane += 1
+      if (lane >= 3) lane = 0
+      laneUsed.push(x)
+      return { x, plate: shortPlate(vehicle.plate), near: vehicle.nextStation, along, lane }
+    })
+
+    let me: number | null = null
+    let myStop: Schematic['myStop'] = null
+    if (props.location) {
+      const projected = projectAlong(props.location, stops, alongs)
+      me = toPercent(projected.along)
+      const nearestIndex = alongs.reduce((best, along, index) => Math.abs(along - projected.along) < Math.abs(alongs[best]! - projected.along) ? index : best, 0)
+      const nearest = direction.stops[nearestIndex]
+      if (nearest) {
+        const meters = Math.hypot((props.location.lng - nearest.lng) * 96_000, (props.location.lat - nearest.lat) * 110_540)
+        const ahead = buses
+          .map(bus => ({ along: bus.along, eta: etaSeconds(bus.along, projected.along, { stopsBetween: Math.max(0, nearestIndex - direction.stops.findIndex(stop => sameStop(stop.name, bus.near))) }) }))
+          .filter(item => item.along <= projected.along)
+          .sort((a, b) => a.eta - b.eta)[0]
+        myStop = {
+          name: nearest.name,
+          meters: Math.round(meters),
+          eta: ahead ? formatEta(ahead.eta) : '暂无在途车'
+        }
+      }
+    }
+    result.set(direction.id, { total, ticks, buses, me, myStop })
+  }
+  return result
+})
+
+function schematicOf(direction: ApiBusLineDirection): Schematic | null {
+  return schematics.value.get(direction.id) ?? null
+}
+
+/** 「我」的到站文案：站名 + 距离 + 车还有多久。 */
+function meStopText(direction: ApiBusLineDirection): string {
+  const stop = schematicOf(direction)?.myStop
+  if (!stop) return '未定位'
+  return `${stop.name} 约 ${stop.meters} m · 车 ${stop.eta} 到`
 }
 
 function shortPlate(plate: string): string {
@@ -298,6 +374,42 @@ const snapshotText = computed(() => {
           />
         </button>
 
+        <!-- 简略图：整段线路按里程铺开，车上在段内、我在站旁，都挂在同一条轴上 -->
+        <div
+          v-if="schematicOf(direction)"
+          class="border-t border-dashed border-zinc-100 px-3 pb-2 pt-2.5 dark:border-zinc-800"
+        >
+          <div class="relative h-7">
+            <div class="absolute inset-x-0 top-[13px] h-[3px] rounded-full bg-zinc-200 dark:bg-zinc-700" />
+            <span
+              v-for="tick in schematicOf(direction)!.ticks"
+              :key="tick.name"
+              class="absolute top-[9px] h-2.5 w-px bg-zinc-400/70 dark:bg-zinc-500/70"
+              :style="{ left: tick.x + '%' }"
+              :title="tick.name"
+            />
+            <span
+              v-for="bus in schematicOf(direction)!.buses"
+              :key="bus.plate"
+              class="absolute size-2 -translate-x-1/2 rounded-sm ring-1 ring-white/80"
+              :style="{ left: bus.x + '%', top: `${1 + bus.lane * 5}px`, backgroundColor: lineColor(direction.line) }"
+              :title="`${bus.plate} → ${bus.near}`"
+            />
+            <span
+              v-if="schematicOf(direction)!.me !== null"
+              class="absolute top-[7px] -translate-x-1/2"
+              :style="{ left: schematicOf(direction)!.me + '%' }"
+              title="我的位置"
+            >
+              <span class="block size-2.5 rounded-full border border-white bg-sky-500 ring-2 ring-sky-200 dark:ring-sky-900" />
+            </span>
+          </div>
+          <p class="mt-1 flex items-center gap-1 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+            <UIcon name="i-lucide-navigation" class="size-3 shrink-0 text-sky-500" />
+            <span class="truncate">{{ meStopText(direction) }}</span>
+          </p>
+        </div>
+
         <!-- 在途车辆：车牌 + 到哪一站 + 还有多远，点一下地图跟过去 -->
         <ol
           v-if="vehiclesOf(direction).length"
@@ -310,7 +422,7 @@ const snapshotText = computed(() => {
             <button
               type="button"
               class="flex w-full items-center gap-2 px-3 py-1 text-left transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
-              @click="emit('focus-vehicle', vehicle.point)"
+              @click="emit('focus-vehicle', { plate: vehicle.plate, point: vehicle.point, nextStation: vehicle.nextStation, distanceToNext: vehicle.distanceToNext })"
             >
               <span
                 class="grid size-4 shrink-0 place-items-center rounded-sm text-[9px] font-bold text-white"

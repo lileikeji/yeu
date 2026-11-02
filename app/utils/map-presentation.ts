@@ -786,7 +786,7 @@ export const defaultMapDisplayOptions: MapDisplayOptions = {
   showPois: true,
   showAreas: true,
   showLabels: true,
-  autoCluster: true,
+  autoCluster: false,
   labelSize: 'small'
 }
 

@@ -112,15 +112,40 @@ export function observeMotion(
   return state
 }
 
+/** 过减速带的显示速度系数：正上方几乎停住，接近段明显减速。 */
+const BUMP_STOP_FACTOR = 0.18
+const BUMP_SLOW_FACTOR = 0.55
+/** 减速带影响半径（米）：内核 6 m 几乎停住，外圈 22 m 开始减速。 */
+const BUMP_STOP_RADIUS_M = 6
+const BUMP_SLOW_RADIUS_M = 22
+
+/** 当前显示位压到减速带附近时，把动画速度压下来，让车在减速带上明显停顿。 */
+function bumpFactor(display: number, bumps: number[] | undefined): number {
+  if (!bumps || bumps.length === 0) return 1
+  let nearest = Number.POSITIVE_INFINITY
+  for (const bump of bumps) {
+    const gap = Math.abs(bump - display)
+    if (gap < nearest) nearest = gap
+  }
+  if (nearest <= BUMP_STOP_RADIUS_M) return BUMP_STOP_FACTOR
+  if (nearest <= BUMP_SLOW_RADIUS_M) {
+    const ratio = (nearest - BUMP_STOP_RADIUS_M) / (BUMP_SLOW_RADIUS_M - BUMP_STOP_RADIUS_M)
+    return BUMP_STOP_FACTOR + (BUMP_SLOW_FACTOR - BUMP_STOP_FACTOR) * ratio
+  }
+  return 1
+}
+
 /**
  * 推进一帧显示位：向「实测位 + 末速 × 外推秒数」缓动。返回是否发生移动。
  * @param length 线路总长（米），用于端点钳制
+ * @param bumps 沿线减速带里程（米）；给了就在减速带上减速停顿
  */
 export function stepMotion(
   state: BusMotionState | null,
   now: number,
   dt: number,
-  length: number
+  length: number,
+  bumps?: number[]
 ): boolean {
   if (!state || !Number.isFinite(length) || length <= 0) return false
   const age = Math.max(0, (now - state.received) / 1000)
@@ -132,7 +157,8 @@ export function stepMotion(
     Math.abs(diff),
     Math.min(15, Math.max(Math.abs(diff) * 3, Math.abs(state.speed))) * frame
   )
-  if (delta < 0.00001) return false
-  state.display += Math.sign(diff) * delta
+  const scaled = delta * bumpFactor(state.display, bumps)
+  if (scaled < 0.00001) return false
+  state.display += Math.sign(diff) * scaled
   return true
 }

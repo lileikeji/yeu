@@ -608,7 +608,14 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     const selectedAreas: Array<string | null> = []
     provider.onPoiSelect(poi => selected.push(poi?.id ?? null))
     provider.onAreaSelect(area => selectedAreas.push(area?.id ?? null))
-    await provider.mount(new FakeElement() as unknown as HTMLElement, { zoom: 14 })
+    await provider.mount(new FakeElement() as unknown as HTMLElement, { zoom: 16 })
+    provider.setDisplayOptions({
+      showPois: true,
+      showAreas: true,
+      showLabels: true,
+      autoCluster: true,
+      labelSize: 'small'
+    })
 
     const pois = createPois(76)
     pois[0]!.point = { ...pois[0]!.point, crs: 'GCJ-02' }
@@ -687,7 +694,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     cluster.emitClick(cluster.data.slice(0, 3))
     // 多点聚合点击不再清空选择，改为朝点击处放大两级便于逐层展开。
     assert.equal(selected.length, selectionBeforeMulti)
-    assert.deepEqual(map.zoomCalls.at(-1), { zoom: 16, center: [118.61, 25.1] })
+    assert.deepEqual(map.zoomCalls.at(-1), { zoom: 18, center: [118.61, 25.1] })
 
     const nativeResults = await provider.searchVisiblePois('咖啡')
     assert.equal(nativeResults.length, 1)
@@ -758,7 +765,7 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.equal(map.fitCalls.at(-1)?.maxZoom, 17)
     assert.equal(provider.flyToPoi('poi-2'), true)
     assert.deepEqual(map.zoomCalls.at(-1), {
-      zoom: 17,
+      zoom: 18,
       center: cluster.data[1]!.lnglat
     })
 
@@ -836,7 +843,14 @@ test('AMap provider re-renders every marker once the canvas settles at its real 
 
   try {
     const provider = new AMapProvider({ key: 'k', securityCode: 'sec' })
-    await provider.mount(element as unknown as HTMLElement, { zoom: 15 })
+    await provider.mount(element as unknown as HTMLElement, { zoom: 17 })
+    provider.setDisplayOptions({
+      showPois: true,
+      showAreas: true,
+      showLabels: true,
+      autoCluster: true,
+      labelSize: 'small'
+    })
     provider.setPois(createPois(12))
     await nextTurn()
 

@@ -67,7 +67,7 @@ function segmentBearing(a: LngLat, b: LngLat): number {
   return (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360
 }
 
-function cumulativeDistances(line: LngLat[]): number[] {
+export function cumulativeDistances(line: LngLat[]): number[] {
   const cumulative = [0]
   for (let i = 1; i < line.length; i++) {
     cumulative.push(cumulative[i - 1]! + haversineMeters(line[i - 1]!, line[i]!))
@@ -152,7 +152,7 @@ function pointAtDistance(line: LngLat[], cumulative: number[], distanceAlong: nu
 export const STATION_DWELL_SECONDS = 10
 
 /** 折线上落在行车轨迹里的减速带沿线里程（横向偏移超过阈值的不算）。 */
-function bumpDistancesOnLine(line: LngLat[], cumulative: number[]): number[] {
+export function bumpDistancesOnLine(line: LngLat[], cumulative: number[]): number[] {
   const distances: number[] = []
   for (const bump of CAMPUS_SPEED_BUMPS) {
     const projection = projectOntoPolyline(bump, line, cumulative)

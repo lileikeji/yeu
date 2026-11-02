@@ -44,6 +44,8 @@ const CONVERSION_BATCH_SIZE = 40
 // 原 56px/17 级在手机上要捏到很深才拆，观感"卡片不全"。
 const CLUSTER_GRID_SIZE = 40
 const CLUSTER_MAX_ZOOM = 16
+// 标点最小显示级别：低于此级别只留底图，避免几十个房子挤在一起互相压字。
+const POI_MIN_ZOOM = 16
 const ROUTE_TIMEOUT_MS = 15_000
 const PLACE_SEARCH_TIMEOUT_MS = 8_000
 // A map click resolves to a base-map POI only when a merchant is within this
@@ -64,7 +66,7 @@ const DEFAULT_DISPLAY_OPTIONS: MapDisplayOptions = {
   showPois: true,
   showAreas: true,
   showLabels: true,
-  autoCluster: true,
+  autoCluster: false,
   labelSize: 'small'
 }
 
@@ -180,6 +182,10 @@ export class AMapProvider implements MapProvider {
   private transitVehicles: MapTransitVehicle[] = []
   private transitVehicleMarkers: AMapMarker[] = []
   private speedBumps: MapSpeedBump[] = []
+  /** 底图 POI 注记是否显示（关闭后高德不再画「XX 楼」「XX 店」这类自带文字）。 */
+  private basemapLabels = false
+  /** 上一次重建标点时的缩放级别，用于判断是否跨过 POI_MIN_ZOOM。 */
+  private lastPoiZoom = 0
   private speedBumpMarkers: AMapMarker[] = []
   private speedBumpToken: object = {}
   private transitVehicleToken: object = {}
@@ -261,6 +267,9 @@ export class AMapProvider implements MapProvider {
         // Recentring is cosmetic; the basemap is already visible.
       }
     })
+    this.applyBasemapLabels()
+    ;(map as unknown as { on(event: string, handler: () => void): void }).on('zoomchange', this.handleZoomChange)
+    this.lastPoiZoom = map.getZoom()
     await Promise.all([this.rebuildMarkers(), this.rebuildAreas()])
 
     // 地图就绪后补画「我的位置」：定位 fix 可能早于 SDK 加载完成到达，
@@ -279,6 +288,33 @@ export class AMapProvider implements MapProvider {
         this.startRenderTask(this.rebuildMarkers(), '高德地图标点刷新失败。')
       }
     })
+  }
+
+  /** 底图注记开关：关掉高德自带的 POI 文字，地图只留项目自己的标点。 */
+  setBasemapLabels(visible: boolean): void {
+    this.basemapLabels = visible
+    this.applyBasemapLabels()
+  }
+
+  private applyBasemapLabels(): void {
+    const map = this.map
+    if (!map) return
+    const features = this.basemapLabels
+      ? ['bg', 'road', 'building', 'point']
+      : ['bg', 'road', 'building']
+    try {
+      ;(map as unknown as { setFeatures(features: string[]): void }).setFeatures(features)
+    } catch {
+      // 老版本 SDK 不支持 setFeatures 时保持默认底图，不影响标点。
+    }
+  }
+
+  /** 缩放跨过 POI_MIN_ZOOM 时重建标点，避免在挤成一团的级别画一堆房子。 */
+  private handleZoomChange = (): void => {
+    const zoom = this.map?.getZoom() ?? 0
+    const crossed = (zoom >= POI_MIN_ZOOM) !== (this.lastPoiZoom >= POI_MIN_ZOOM)
+    this.lastPoiZoom = zoom
+    if (crossed) this.startRenderTask(this.rebuildMarkers(), '高德地图标点刷新失败。')
   }
 
   setPois(pois: MapPoi[]): void {
@@ -1207,6 +1243,12 @@ export class AMapProvider implements MapProvider {
    * re-render that runs once the AMap canvas has settled at its real size.
    */
   private renderMarkerOverlay(converted: ConvertedPoi[], amap: AMapNamespace, map: AMapMap): void {
+    const zoom = this.map?.getZoom() ?? 0
+    if (converted.length && zoom < POI_MIN_ZOOM) {
+      // 缩小到挤成一团的级别：一个房子都不画（也不画聚合气泡），只留底图与选中项。
+      this.renderSelectedMarker()
+      return
+    }
     if (converted.length && this.displayOptions.autoCluster && typeof amap.MarkerCluster === 'function') {
       try {
         const cluster = new amap.MarkerCluster(
@@ -1443,7 +1485,7 @@ export class AMapProvider implements MapProvider {
     // 楼栋按类别画不同屋顶/立面（教学楼/宿舍/食堂/服务/快递/校门/周边），
     // 缩到 30px 仍能凭轮廓区分，比统一的圆角胶囊好认。
     pin.style.cssText = `position:absolute;bottom:4px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;filter:drop-shadow(0 3px 6px rgb(0 0 0 / 30%))${selected ? ' saturate(1.2)' : ''};`
-    pin.innerHTML = buildingSvg((poi.category as BuildingKind) ?? 'campus-building', { size: 34, color: categoryColor })
+    pin.innerHTML = buildingSvg((poi.category as BuildingKind) ?? 'campus-building', { size: 24, color: categoryColor })
 
     if (options.onClick) {
       element.addEventListener('click', (event) => {

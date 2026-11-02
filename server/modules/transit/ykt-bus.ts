@@ -10,6 +10,10 @@ import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-con
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
 import busRouteGps from '../../../data/seeds/bus-route-gps.json'
 import { parseAmapPolyline } from '../directions/amap'
+import { WEST_DEPARTURE_STOP_NAME, WEST_GATE, westApproach } from './campus-west-departure'
+
+const WEST_GATE_LNG = WEST_GATE.lng
+const WEST_GATE_LAT = WEST_GATE.lat
 
 const AES_KEY = '***REMOVED***' // 16 字节 = aes-128-cbc
 const AES_IV = '***REMOVED***'
@@ -651,6 +655,49 @@ async function buildRouteShape(amapKey: string, stops: YktBusStopInfo[]): Promis
  * 后台补线路形状（24h 缓存）：完成前 route.polyline 为空，前端回退站点直连；
  * 快照接口因此永远不等算路。
  */
+
+/**
+ * 旧区实际发车点：YKT 起点是「旧区创业园」，实车从东苑门口三叉路口发车。
+ * 接驳段算好后把起点站挪过去、折线前面接上这一段（幂等，失败保持原样）。
+ */
+async function applyWestDeparture(amapKey: string, routes: YktBusRouteInfo[]): Promise<void> {
+  if (!amapKey) return
+  for (const route of routes) {
+    const first = route.stops[0]
+    const second = route.stops[1]
+    if (!first) continue
+    if (first.siteName !== '旧区创业园' && first.siteName !== WEST_DEPARTURE_STOP_NAME) continue
+    const approach = await westApproach(amapKey, second ? { lng: second.lng, lat: second.lat } : { lng: first.lng, lat: first.lat })
+    if (!approach) continue
+    first.siteName = WEST_DEPARTURE_STOP_NAME
+    first.lng = approach.start.lng
+    first.lat = approach.start.lat
+    // 实车不从创业园绕：接驳段直接连到下一站，原折线从最靠近下一站的点之后接上。
+    const anchor = second ?? first
+    let sliceIndex = 0
+    let bestDistance = Number.POSITIVE_INFINITY
+    route.polyline.forEach((point, index) => {
+      const distance = haversineMeters(point, anchor)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        sliceIndex = index
+      }
+    })
+    const tail = route.polyline.slice(bestDistance < 60 ? sliceIndex + 1 : 0)
+    const head = approach.polyline[approach.polyline.length - 1]!
+    const rest = tail.length && haversineMeters(head, tail[0]!) < 20 ? tail.slice(1) : tail
+    route.polyline = [...approach.polyline, ...rest]
+  }
+}
+
+function haversineMeters(from: { lng: number, lat: number }, to: { lng: number, lat: number }): number {
+  const rad = Math.PI / 180
+  const dLat = (to.lat - from.lat) * rad
+  const dLng = (to.lng - from.lng) * rad
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(from.lat * rad) * Math.cos(to.lat * rad) * Math.sin(dLng / 2) ** 2
+  return 6_371_000 * 2 * Math.asin(Math.min(1, Math.sqrt(a)))
+}
+
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
   for (const route of routes) {
     const key = `${route.routeId}|${route.stops.map(s => s.siteId).join(',')}`
@@ -684,6 +731,8 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
       })
     shapeInflight.set(key, promise)
   }
+  // 形状合并完之后再接旧区接驳段，否则下一轮快照会用缓存形状覆盖掉。
+  void applyWestDeparture(amapKey, routes)
 }
 
 // ---------- 对外入口 ----------
