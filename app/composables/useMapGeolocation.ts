@@ -112,24 +112,24 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
     refreshRemaining(point)
   }
 
-  function startTracking(): void {
+  function startTracking(trackOptions: { follow?: boolean, silent?: boolean } = {}): void {
     const geolocation = getGeolocation()
     const guard = resolveMapLocateGuard(Boolean(geolocation))
     if (!guard.ok) {
-      options.notify(guard.notice)
+      if (!trackOptions.silent) options.notify(guard.notice)
       return
     }
     if (watchId !== null) return
 
     tracking.value = true
-    following.value = true
+    following.value = trackOptions.follow !== false
     watchId = geolocation!.watchPosition(
       (position) => {
         handleTrackedPosition(position)
       },
       () => {
         stopTracking()
-        options.notify(resolveMapLocateFailureNotice())
+        if (!trackOptions.silent) options.notify(resolveMapLocateFailureNotice())
       },
       {
         enableHighAccuracy: true,
@@ -178,6 +178,26 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
       })
       .finally(() => {
         locating.value = false
+      })
+  }
+
+  /** 个人定位接入校车图层：静默显示「我的位置」蓝点并持续更新（不飞相机、失败不弹提示）。 */
+  function startLocateDisplay(): void {
+    const geolocation = getGeolocation()
+    const guard = resolveMapLocateGuard(Boolean(geolocation))
+    if (!guard.ok) return
+    if (watchId !== null) return
+
+    void getCurrentMapPoint(geolocation!)
+      .then((point) => {
+        lastTrackedPoint = point
+        userLocation.value = point
+        options.mapProvider.value?.setUserLocation({ point })
+        startTracking({ follow: false, silent: true })
+      })
+      .catch(() => {
+        // 首次定位超时/被拒：降级走 watchPosition 静默续命（真实 GPS 慢 fix 同受益）
+        startTracking({ follow: false, silent: true })
       })
   }
 
@@ -281,6 +301,7 @@ export function useMapGeolocation(options: UseMapGeolocationOptions) {
     remainingSummary: readonly(remainingSummary),
     routeSteps: readonly(routeSteps),
     locateUser,
+    startLocateDisplay,
     startWalkingRoute,
     startWalkingRouteFrom,
     clearWalkingRoute,

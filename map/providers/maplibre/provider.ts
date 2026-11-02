@@ -23,7 +23,7 @@ import {
   YEU_CAMPUS_REFERENCE_BOUNDS,
   YEU_CAMPUS_REFERENCE_CENTER
 } from '../../core/campus'
-import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi } from '../../core/types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapTransitVehicle } from '../../core/types'
 import {
   createMarkerImage,
   getMarkerImageId,
@@ -51,6 +51,12 @@ const BUS_TERMINALS_LAYER_ID = 'yeu-bus-terminals'
 const BUSES_SOURCE_ID = 'yeu-buses'
 const BUSES_LAYER_ID = 'yeu-bus-vehicles'
 const BUS_ROUTE_COLORS = ['#ea580c', '#0d9488'] as const
+const TRANSIT_ROUTES_SOURCE_ID = 'yeu-transit-routes'
+const TRANSIT_ROUTE_LINES_LAYER_ID = 'yeu-transit-route-lines'
+const TRANSIT_TERMINALS_LAYER_ID = 'yeu-transit-terminals'
+const TRANSIT_VEHICLES_SOURCE_ID = 'yeu-transit-vehicles'
+const TRANSIT_VEHICLES_LAYER_ID = 'yeu-transit-vehicle-dots'
+const TRANSIT_ROUTE_COLOR = '#1a6cf5'
 const INTERACTIVE_LAYER_IDS = [
   CLUSTER_LAYER_ID,
   POI_LAYER_ID,
@@ -153,6 +159,8 @@ export class MapLibrePreviewProvider implements MapProvider {
   private userLocation: MapUserLocation | null = null
   private buses: MapBus[] = []
   private busRoutes: MapBusRoute[] = []
+  private transitRoutes: MapBusRoute[] = []
+  private layersReady = false
 
   constructor(options: MapLibrePreviewProviderOptions = {}) {
     this.offline = options.offline === true
@@ -205,10 +213,17 @@ export class MapLibrePreviewProvider implements MapProvider {
     this.addPoiLayers(map)
     this.attachEvents(map)
 
+    // 样式就绪后补画校外公交（默认打开时页面可能早于 style load 调用）
+    this.layersReady = true
+    if (this.transitRoutes.length) this.setTransitRoutes(this.transitRoutes)
+
     if (this.fitAfterMount) {
       this.fitAfterMount = false
       this.fitToPois()
     }
+
+    // 地图就绪后补画「我的位置」：定位 fix 可能早于地图加载完成到达。
+    if (this.userLocation) this.setUserLocation(this.userLocation)
   }
 
   setPois(pois: MapPoi[]): void {
@@ -447,6 +462,8 @@ export class MapLibrePreviewProvider implements MapProvider {
       return
     }
     this.ensureBusLayers(map)
+    // 车头朝向角（angleDeg）在 circle 渲染层退化不生效（dev-only provider；
+    // 生产 amap 与 offline 走 DOM chip 旋转）。
     this.updateSource(BUSES_SOURCE_ID, {
       type: 'FeatureCollection',
       features: buses
@@ -482,7 +499,7 @@ export class MapLibrePreviewProvider implements MapProvider {
 
     const features: object[] = []
     for (const [index, route] of routes.entries()) {
-      const color = BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!
+      const color = route.color ?? BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!
       const stops = route.stops.filter(stop => this.isRenderablePoint(stop.point))
       // 沿路形状优先（服务端高德算路），缺失回退站点直连。
       const linePoints = (route.polyline && route.polyline.length >= 2)
@@ -512,6 +529,126 @@ export class MapLibrePreviewProvider implements MapProvider {
       }
     }
     this.updateSource(BUS_ROUTES_SOURCE_ID, { type: 'FeatureCollection', features })
+  }
+
+  /** 校外公交（K2/K6）：独立 source，避免被校车 5 s 轮询覆盖。 */
+  /** 校外公交在途车辆（dev 预览用 circle 层，生产走 amap 的 DOM chip）。 */
+  setTransitVehicles(vehicles: MapTransitVehicle[]): void {
+    const map = this.map
+    if (!map) return
+    if (!vehicles.length) {
+      if (map.getSource(TRANSIT_VEHICLES_SOURCE_ID)) {
+        this.updateSource(TRANSIT_VEHICLES_SOURCE_ID, { type: 'FeatureCollection', features: [] })
+      }
+      return
+    }
+    if (!map.getSource(TRANSIT_VEHICLES_SOURCE_ID)) {
+      map.addSource(TRANSIT_VEHICLES_SOURCE_ID, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      })
+      map.addLayer({
+        id: TRANSIT_VEHICLES_LAYER_ID,
+        type: 'circle',
+        source: TRANSIT_VEHICLES_SOURCE_ID,
+        paint: {
+          'circle-radius': 7,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2
+        }
+      })
+    }
+    this.updateSource(TRANSIT_VEHICLES_SOURCE_ID, {
+      type: 'FeatureCollection',
+      features: vehicles
+        .filter(vehicle => this.isRenderablePoint(vehicle.point))
+        .map(vehicle => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [vehicle.point.lng, vehicle.point.lat] },
+          properties: {
+            id: vehicle.id,
+            plate: vehicle.plate,
+            nextStation: vehicle.nextStation,
+            color: vehicle.color ?? '#1a6cf5'
+          }
+        }))
+    })
+  }
+
+  setTransitRoutes(routes: MapBusRoute[]): void {
+    this.transitRoutes = [...routes]
+    const map = this.map
+    if (!map || !this.layersReady) return
+    if (!routes.length) {
+      if (map.getSource(TRANSIT_ROUTES_SOURCE_ID)) {
+        this.updateSource(TRANSIT_ROUTES_SOURCE_ID, { type: 'FeatureCollection', features: [] })
+      }
+      return
+    }
+    this.ensureTransitLayers(map)
+
+    const features: object[] = []
+    // 多方向共用的站点只保留一个，避免重复圆点叠加
+    const drawnStops = new Set<string>()
+    for (const route of routes) {
+      const color = route.color ?? TRANSIT_ROUTE_COLOR
+      // 沿路形状优先（高德线路快照），缺失回退站点直连。
+      const linePoints = (route.polyline && route.polyline.length >= 2)
+        ? route.polyline
+        : route.stops.map(stop => stop.point).filter(point => this.isRenderablePoint(point))
+      if (linePoints.length >= 2) {
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: linePoints.map(point => [point.lng, point.lat]) },
+          properties: { kind: 'route', id: route.id, name: route.name, color }
+        })
+      }
+      for (const stop of route.stops) {
+        if (!stop.isOrigin && !stop.isDestination) continue
+        if (!this.isRenderablePoint(stop.point)) continue
+        const stopKey = stop.name
+        if (drawnStops.has(stopKey)) continue
+        drawnStops.add(stopKey)
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [stop.point.lng, stop.point.lat] },
+          properties: { kind: 'terminal', id: stop.id, name: stop.name, color }
+        })
+      }
+    }
+    this.updateSource(TRANSIT_ROUTES_SOURCE_ID, { type: 'FeatureCollection', features })
+  }
+
+  private ensureTransitLayers(map: MapLibreMap): void {
+    if (map.getSource(TRANSIT_ROUTES_SOURCE_ID)) return
+    map.addSource(TRANSIT_ROUTES_SOURCE_ID, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    })
+    map.addLayer({
+      id: TRANSIT_ROUTE_LINES_LAYER_ID,
+      type: 'line',
+      source: TRANSIT_ROUTES_SOURCE_ID,
+      filter: ['==', ['get', 'kind'], 'route'],
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-width': 5,
+        'line-opacity': 0.9
+      }
+    })
+    map.addLayer({
+      id: TRANSIT_TERMINALS_LAYER_ID,
+      type: 'circle',
+      source: TRANSIT_ROUTES_SOURCE_ID,
+      filter: ['==', ['get', 'kind'], 'terminal'],
+      paint: {
+        'circle-radius': 7,
+        'circle-color': ['get', 'color'],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2
+      }
+    })
   }
 
   private ensureBusLayers(map: MapLibreMap): void {
@@ -1033,5 +1170,6 @@ export class MapLibrePreviewProvider implements MapProvider {
     this.map.getCanvas().style.cursor = ''
     this.map.remove()
     this.map = null
+    this.layersReady = false
   }
 }

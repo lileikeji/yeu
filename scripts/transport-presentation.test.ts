@@ -17,7 +17,7 @@ import {
   transitRouteForQuery
 } from '../server/modules/assistant/service'
 
-const pageSource = readFileSync(resolve('app/pages/transport.vue'), 'utf8')
+const pageSource = readFileSync(resolve('app/pages/transport/index.vue'), 'utf8')
 const emptyAssistantConfig = {
   gatewayBaseUrl: '',
   gatewayApiKey: '',

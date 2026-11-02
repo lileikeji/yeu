@@ -10,7 +10,7 @@ const homeSource = readFileSync(resolve('app/pages/index.vue'), 'utf8')
 const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 const panoramaSource = readFileSync(resolve('app/pages/panorama.vue'), 'utf8')
 const dormSource = readFileSync(resolve('app/pages/dorms.vue'), 'utf8')
-const transportSource = readFileSync(resolve('app/pages/transport.vue'), 'utf8')
+const transportSource = readFileSync(resolve('app/pages/transport/index.vue'), 'utf8')
 const publicDetailSources = [
   ['app/pages/procedures/[slug].vue', '/procedures'],
   ['app/pages/guides/[slug].vue', '/guides'],

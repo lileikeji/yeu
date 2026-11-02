@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import type { MapArea, MapPoi } from '~~/map/core/types'
+import type { MapArea, MapPoi, MapBusRoute, MapTransitVehicle } from '~~/map/core/types'
+import type {
+  ApiBusDeparturesResponse,
+  ApiBusLineDirection,
+  ApiBusLinesResponse,
+  ApiBusLiveResponse
+} from '~~/shared/types/server'
 import type {
   MapBaseStyle,
   MapDisplayOptions,
@@ -224,7 +230,9 @@ const {
   tracking,
   following,
   remainingSummary,
+  userLocation,
   locateUser,
+  startLocateDisplay,
   startWalkingRoute,
   startWalkingRouteFrom,
   clearWalkingRoute,
@@ -670,7 +678,217 @@ const { cancelMapRouteSync } = useMapRouteSync({
 const { routes: busRoutes, buses: busVehicles, fetchedAt: busFetchedAt } = useMapBusPositions({ mapProvider })
 const busPanelOpen = ref(true)
 
+// 校外公交（K2/K6）：默认打开，静态快照，独立图层，不跟校车轮询重绘，也不影响校内校车线路
+const transitLinesOpen = ref(true)
+const transitPanelOpen = ref(true)
+const transitLoading = ref(false)
+const transitRoutes = shallowRef<MapBusRoute[]>([])
+const transitDirections = shallowRef<ApiBusLineDirection[]>([])
+const transitFetchedAt = ref<string | null>(null)
+const transitLive = shallowRef<ApiBusLiveResponse | null>(null)
+const transitDepartures = shallowRef<ApiBusDeparturesResponse | null>(null)
+const transitLiveError = ref('')
+/** 只显示某条线路（'all' = 全部）。 */
+const transitLineFilter = ref<string>('all')
+let transitLiveTimer: ReturnType<typeof setInterval> | null = null
+const TRANSIT_LINE_COLORS: Record<string, string> = { K2: '#1a6cf5', K6: '#e8590c' }
+
+function toTransitRoutes(data: ApiBusLinesResponse): MapBusRoute[] {
+  return data.lines.map(line => ({
+    id: `transit-${line.id}`,
+    name: `${line.line} ${line.from}→${line.to}`,
+    color: TRANSIT_LINE_COLORS[line.line] ?? '#1a6cf5',
+    // 高德线路快照本身是 GCJ-02，别再让 provider 做一次 WGS84→GCJ-02 偏移
+    polyline: line.polyline.map(([lng, lat]) => ({ lng, lat, crs: 'GCJ-02' as const })),
+    stops: line.stops.map(stop => ({
+      id: `transit-${line.id}-${stop.seq}`,
+      name: stop.name,
+      point: { lng: stop.lng, lat: stop.lat, crs: 'GCJ-02' as const },
+      isOrigin: stop.seq === 1,
+      isDestination: stop.seq === line.stops.length
+    }))
+  }))
+}
+
+async function toggleTransitLines(): Promise<void> {
+  if (transitLinesOpen.value) {
+    transitLinesOpen.value = false
+    transitPanelOpen.value = false
+    mapProvider.value?.setTransitRoutes?.([])
+    stopTransitLive()
+    mapProvider.value?.fitToPois()
+    return
+  }
+  if (!await ensureTransitRoutesLoaded()) return
+  transitLinesOpen.value = true
+  transitPanelOpen.value = true
+  mapProvider.value?.setTransitRoutes?.(visibleTransitRoutes.value)
+  startTransitLive()
+  focusTransitRoutes(visibleTransitRoutes.value)
+}
+
+/** 手机竖屏时两个面板都是全屏浮层，开一个就收另一个。 */
+function keepPanelsExclusive(next: 'bus' | 'transit'): void {
+  if (typeof window === 'undefined' || window.innerWidth >= 768) return
+  if (next === 'transit') busPanelOpen.value = false
+  else transitPanelOpen.value = false
+}
+
+watch(transitPanelOpen, (open) => {
+  if (open) keepPanelsExclusive('transit')
+})
+watch(busPanelOpen, (open) => {
+  if (open) keepPanelsExclusive('bus')
+})
+
+function changeTransitLine(line: string): void {
+  transitLineFilter.value = line
+  mapProvider.value?.setTransitRoutes?.(visibleTransitRoutes.value)
+  mapProvider.value?.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
+  // 只看单条线路时把视野拉到这条线，否则车辆多半在校园视角外，看着像没有车
+  if (line !== 'all') focusTransitRoutes(visibleTransitRoutes.value)
+}
+
+function focusTransitStop(point: { lng: number, lat: number }): void {
+  mapProvider.value?.flyToPoint({ ...point, crs: 'GCJ-02' }, 16)
+}
+
+function focusTransitDirection(line: ApiBusLineDirection): void {
+  focusTransitRoutes([{
+    id: `transit-${line.id}`,
+    name: `${line.line} ${line.from}→${line.to}`,
+    color: TRANSIT_LINE_COLORS[line.line] ?? '#1a6cf5',
+    polyline: line.polyline.map(([lng, lat]) => ({ lng, lat, crs: 'GCJ-02' as const })),
+    stops: []
+  }])
+}
+
+let transitLoadPromise: Promise<boolean> | null = null
+
+/** 线路快照只拉一次；默认打开时靠它把图层铺上，失败只提示一次。 */
+const visibleTransitRoutes = computed(() => transitLineFilter.value === 'all'
+  ? transitRoutes.value
+  : transitRoutes.value.filter(route => route.name.startsWith(`${transitLineFilter.value} `)))
+
+function transitVehiclesForMap(data: ApiBusLiveResponse | null): MapTransitVehicle[] {
+  if (!data) return []
+  const filter = transitLineFilter.value
+  const directions = filter === 'all' ? data.directions : data.directions.filter(item => item.line === filter)
+  return directions.flatMap(direction =>
+    direction.vehicles.map((vehicle, index) => ({
+      id: `${direction.line}-${direction.direction}-${vehicle.plate || index}`,
+      line: direction.line,
+      plate: vehicle.plate,
+      nextStation: vehicle.nextStation,
+      color: TRANSIT_LINE_COLORS[direction.line] ?? '#1a6cf5',
+      point: { lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' as const }
+    }))
+  )
+}
+
+/** 车辆走掌上公交的实时接口，20 秒一轮；只有图层打开时才轮询。 */
+async function refreshTransitLive(): Promise<void> {
+  try {
+    transitLive.value = await $fetch<ApiBusLiveResponse>('/api/public/transit/live')
+    transitLiveError.value = ''
+  } catch (error) {
+    transitLiveError.value = (error as Error)?.message || '实时车辆暂时取不到'
+  }
+  if (transitLinesOpen.value) {
+    mapProvider.value?.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
+  }
+}
+
+async function loadTransitDepartures(): Promise<void> {
+  if (transitDepartures.value) return
+  try {
+    transitDepartures.value = await $fetch<ApiBusDeparturesResponse>('/api/public/transit/departures')
+  } catch {
+    // 时刻表拿不到只影响文字展示
+  }
+}
+
+function startTransitLive(): void {
+  void loadTransitDepartures()
+  void refreshTransitLive()
+  if (transitLiveTimer) return
+  transitLiveTimer = setInterval(() => {
+    void refreshTransitLive()
+  }, 20_000)
+}
+
+function stopTransitLive(): void {
+  if (transitLiveTimer) clearInterval(transitLiveTimer)
+  transitLiveTimer = null
+  mapProvider.value?.setTransitVehicles?.([])
+}
+
+async function ensureTransitRoutesLoaded(): Promise<boolean> {
+  if (transitRoutes.value.length) return true
+  if (!transitLoadPromise) {
+    transitLoading.value = true
+    transitLoadPromise = $fetch<ApiBusLinesResponse>('/api/public/transit/lines')
+      .then((data) => {
+        transitRoutes.value = toTransitRoutes(data)
+        transitDirections.value = data.lines
+        transitFetchedAt.value = data.fetchedAt
+        return true
+      })
+      .catch(() => {
+        transitLoadPromise = null
+        toast.add({ title: '公交线路加载失败', description: '稍后再试，或先到「交通指南」看线路图。', color: 'error' })
+        return false
+      })
+      .finally(() => {
+        transitLoading.value = false
+      })
+  }
+  return transitLoadPromise
+}
+
+/** 打开图层时把视野拉到线路走廊，否则校园视角里只会看到起点站一个点。 */
+function focusTransitRoutes(routes: MapBusRoute[]): void {
+  const points = routes.flatMap(route => route.polyline?.length ? route.polyline : route.stops.map(stop => stop.point))
+  if (!points.length) return
+  let minLng = Infinity
+  let maxLng = -Infinity
+  let minLat = Infinity
+  let maxLat = -Infinity
+  for (const point of points) {
+    if (point.lng < minLng) minLng = point.lng
+    if (point.lng > maxLng) maxLng = point.lng
+    if (point.lat < minLat) minLat = point.lat
+    if (point.lat > maxLat) maxLat = point.lat
+  }
+  const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.4)
+  const zoom = span > 1.2 ? 9 : span > 0.6 ? 10 : span > 0.3 ? 11 : span > 0.15 ? 12 : 13
+  mapProvider.value?.flyToPoint({ lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2, crs: 'GCJ-02' }, zoom)
+}
+
+// 底图就绪 / 重建后补画；默认打开时先把快照拉下来（不移动相机，保持校园视角）
+watch(mapProvider, async (provider) => {
+  if (!provider || !transitLinesOpen.value) return
+  const loaded = await ensureTransitRoutesLoaded()
+  if (!loaded || !transitLinesOpen.value) return
+  provider.setTransitRoutes?.(visibleTransitRoutes.value)
+  provider.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
+}, { immediate: true })
+
+// 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
+onMounted(() => {
+  if (transitLinesOpen.value) startTransitLive()
+  startLocateDisplay()
+  // 手机上公交列表默认收起，免得和校车浮层叠在一起
+  if (window.innerWidth < 768) transitPanelOpen.value = false
+})
+watch(mapProvider, (provider, previous) => {
+  if (provider && !previous && userLocation.value) {
+    provider.setUserLocation({ point: userLocation.value })
+  }
+})
+
 onBeforeUnmount(() => {
+  stopTransitLive()
   mapHeaderTitle.value = ''
   cancelMapRouteSync()
   cancelNativeSearch()
@@ -1026,6 +1244,20 @@ onBeforeUnmount(() => {
               校园范围参考
             </UBadge>
           </UTooltip>
+          <div
+            v-if="mapViewMode === 'geographic' && transitLinesOpen"
+            class="pointer-events-auto flex items-center gap-2.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
+          >
+            <span class="flex items-center gap-1">
+              <i class="size-2 rounded-full bg-[#1a6cf5]" />
+              K2
+            </span>
+            <span class="flex items-center gap-1">
+              <i class="size-2 rounded-full bg-[#e8590c]" />
+              K6
+            </span>
+            <span class="text-zinc-500 dark:text-zinc-400">校外公交</span>
+          </div>
         </div>
         <div
           v-if="canShowOfficialPlan"
@@ -1058,6 +1290,19 @@ onBeforeUnmount(() => {
           v-if="mapViewMode === 'geographic'"
           class="pointer-events-auto flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800 overflow-hidden rounded-xl border border-zinc-200/90 bg-white/95 dark:bg-zinc-900/95 shadow-lg backdrop-blur"
         >
+          <UTooltip :text="transitLinesOpen ? '隐藏 K2 / K6 校外公交线路' : '显示 K2 / K6 校外公交线路'">
+            <UButton
+              icon="i-lucide-bus-front"
+              color="neutral"
+              variant="ghost"
+              :loading="transitLoading"
+              class="map-control-btn size-10 rounded-none md:size-11"
+              :class="transitLinesOpen ? 'bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-300' : ''"
+              aria-label="显示 K2 / K6 校外公交线路"
+              :aria-pressed="transitLinesOpen"
+              @click="toggleTransitLines"
+            />
+          </UTooltip>
           <UTooltip text="地图显示设置">
             <UButton
               icon="i-lucide-layers-3"
@@ -1442,6 +1687,22 @@ onBeforeUnmount(() => {
       :routes="busRoutes"
       :buses="busVehicles"
       :fetched-at="busFetchedAt"
+      :user-location="userLocation"
+    />
+
+    <!-- 校外公交面板：K2/K6 方向可展开看站序 -->
+    <MapTransitPanel
+      v-if="transitLinesOpen"
+      v-model:open="transitPanelOpen"
+      :directions="transitDirections"
+      :fetched-at="transitFetchedAt"
+      :live="transitLive"
+      :departures="transitDepartures"
+      :live-error="transitLiveError"
+      :left-offset="sidebarCollapsed ? '1rem' : '19rem'"
+      @focus-stop="focusTransitStop"
+      @focus-direction="focusTransitDirection"
+      @change-line="changeTransitLine"
     />
   </div>
 </template>

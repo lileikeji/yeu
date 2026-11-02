@@ -55,6 +55,19 @@ export interface MapBusStop {
 }
 
 /** 校车线路（沿路折线 + 起终点标注）。 */
+/** 校外公交的在途车辆（掌上公交实时 GPS，GCJ-02）。 */
+export interface MapTransitVehicle {
+  /** 唯一键，建议 `车牌-线路-方向`。 */
+  id: string
+  /** 线路号，如 `K2`。 */
+  line: string
+  plate: string
+  nextStation: string
+  point: GeoPoint
+  /** 与线路一致的配色。 */
+  color?: string
+}
+
 export interface MapBusRoute {
   id: string
   name: string
@@ -64,6 +77,8 @@ export interface MapBusRoute {
    * 空/缺失时 provider 回退站点直连。
    */
   polyline?: GeoPoint[]
+  /** 覆盖默认线路配色（往返合并为单线时指定保留色）。 */
+  color?: string
 }
 
 /** 校车实时位置（来自云一卡通 YKTGetBusCarInfo 轮询）。 */
@@ -79,6 +94,8 @@ export interface MapBus {
   routeName?: string
   /** 数据采集时刻（ISO 字符串）。 */
   updatedAt?: string
+  /** 车头朝向（正北 0°，顺时针；缺省不旋转）。 */
+  angleDeg?: number
 }
 
 export interface MapMountOptions {

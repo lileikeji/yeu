@@ -2,11 +2,15 @@ import assert from 'node:assert/strict'
 import { createCipheriv, createPublicKey, createVerify } from 'node:crypto'
 import test from 'node:test'
 import {
+  buildRouteShapeFromChain,
   buildSignedBody,
   clipPolylineToCampus,
   decryptOpenTicket,
+  extractTpOpenId,
   parseSignedResponse,
+  parseTicketFromLocation,
   pUnescape,
+  projectOnChain,
   stitchShapeSegments,
   toWgs84Point
 } from '../server/modules/transit/ykt-bus'
@@ -156,4 +160,85 @@ test('clipPolylineToCampus 剪掉校外段、邻接内点直连、首末点恒�
     clipPolylineToCampus([{ lng: 1, lat: 1 }, { lng: 1, lat: 1 }, { lng: 2, lat: 2 }], [square]),
     [{ lng: 1, lat: 1 }, { lng: 2, lat: 2 }]
   )
+})
+
+test('extractTpOpenId 从解密 url 提取 TPOpenId，缺失/坏值返回空串', () => {
+  assert.equal(
+    extractTpOpenId({ url: 'http://wx.leyunykt.com/TP_API/DispApiServer/OAuth2?TPOpenId=ojlutxGREY-0AnwjNavgnOAGUttc&PageName=userHome' }),
+    'ojlutxGREY-0AnwjNavgnOAGUttc'
+  )
+  assert.equal(extractTpOpenId({ url: 'http://x/y' }), '')
+  assert.equal(extractTpOpenId({}), '')
+  assert.equal(extractTpOpenId({ url: 'not a url' }), '')
+})
+
+test('parseTicketFromLocation 从 OAuth2 302 Location 解出 open_ticket', () => {
+  const loc = '/MobileWeb/YKTPreview/index.html?tmpDT=261101113900295&open_ticket=NEWTICKETBLOB#/userHome'
+  assert.equal(parseTicketFromLocation(loc, 'http://wx.leyunykt.com'), 'NEWTICKETBLOB')
+  assert.equal(
+    parseTicketFromLocation('http://wx.leyunykt.com/x?open_ticket=ABS', 'http://other'),
+    'ABS'
+  )
+  assert.equal(parseTicketFromLocation('/x?nope=1', 'http://wx.leyunykt.com'), '')
+  assert.equal(parseTicketFromLocation('::::', 'http://wx.leyunykt.com'), '')
+})
+
+// ---------- 手绘链形状源（真实 7 站 WGS84，来自 bus-prod 快照） ----------
+
+const REAL_STOPS = [
+  { lng: 118.611602, lat: 25.116155 }, // 旧区创业园（起）
+  { lng: 118.610073, lat: 25.114604 }, // 旧区行政楼斜对面
+  { lng: 118.610473, lat: 25.113084 }, // 旧区南门天桥
+  { lng: 118.607296, lat: 25.112152 }, // 网络信息中心
+  { lng: 118.603724, lat: 25.112335 }, // 新区图书馆
+  { lng: 118.602564, lat: 25.109580 }, // 普照楼2号门
+  { lng: 118.599025, lat: 25.108666 } // 新区和昌楼2号门（终）
+]
+
+function haversineM(a: { lng: number, lat: number }, b: { lng: number, lat: number }): number {
+  const R = 6371000
+  const rad = Math.PI / 180
+  const dLat = (b.lat - a.lat) * rad
+  const dLng = (b.lng - a.lng) * rad
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+
+test('buildRouteShapeFromChain 真实 7 站：切片贴链、无长弦、端点吸附站点', () => {
+  const line = buildRouteShapeFromChain(REAL_STOPS)
+  assert.ok(line, '链应覆盖真实线路')
+  assert.ok(line!.length >= 2)
+
+  // 端点精确吸附首末站（与起终 chip 无缝）
+  assert.equal(line![0]!.lng, REAL_STOPS[0]!.lng)
+  assert.equal(line![0]!.lat, REAL_STOPS[0]!.lat)
+  assert.equal(line![line!.length - 1]!.lng, REAL_STOPS[6]!.lng)
+  assert.equal(line![line!.length - 1]!.lat, REAL_STOPS[6]!.lat)
+
+  // 无长弦：旧算路残存 300m 直线弦，链切片相邻步长须远小于它
+  let maxStep = 0
+  for (let i = 1; i < line!.length; i += 1) {
+    maxStep = Math.max(maxStep, haversineM(line![i - 1]!, line![i]!))
+  }
+  assert.ok(maxStep < 200, `max step ${maxStep.toFixed(0)}m 应 <200m`)
+
+  // 全线贴链：每个点到链垂距都在覆盖阈值内（端点=站点，实测 max 34m）
+  for (const p of line!) {
+    const { offM } = projectOnChain(p)
+    assert.ok(offM <= 60, `点 ${p.lng},${p.lat} 离链 ${offM.toFixed(0)}m >60m`)
+  }
+})
+
+test('buildRouteShapeFromChain 方向跟随站点顺序，反序得反向线', () => {
+  const fwd = buildRouteShapeFromChain(REAL_STOPS)
+  const rev = buildRouteShapeFromChain([...REAL_STOPS].reverse())
+  assert.ok(fwd && rev)
+  assert.equal(rev![0]!.lng, REAL_STOPS[6]!.lng)
+  assert.equal(rev![rev!.length - 1]!.lng, REAL_STOPS[0]!.lng)
+})
+
+test('buildRouteShapeFromChain 链不覆盖的远站点返回 null（回退算路）', () => {
+  const far = [{ lng: 118.55, lat: 25.05 }, { lng: 118.551, lat: 25.051 }]
+  assert.equal(buildRouteShapeFromChain(far), null)
+  assert.equal(buildRouteShapeFromChain([REAL_STOPS[0]!]), null)
 })

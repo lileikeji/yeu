@@ -518,3 +518,100 @@ export interface ApiFeedback {
   updatedAt: string
   resolvedAt: string | null
 }
+
+/** K2/K6 校外公交线路（高德 v3/bus/linename，extensions=all 的静态快照）。 */
+export interface ApiBusLineStop {
+  seq: number
+  name: string
+  lng: number
+  lat: number
+}
+
+export interface ApiBusLineDirection {
+  /** 线路号，如 `K2`。 */
+  line: string
+  /** 高德线路 ID，方向唯一。 */
+  id: string
+  direction: string
+  from: string
+  to: string
+  /** 起点站首班发车时间，`HH:mm`。 */
+  startTime: string
+  /** 起点站末班发车时间，`HH:mm`。 */
+  endTime: string
+  distanceKm: number
+  basicPrice: number | null
+  totalPrice: number | null
+  stops: ApiBusLineStop[]
+  /** 沿真实道路的折线，`[lng, lat]`。 */
+  polyline: [number, number][]
+}
+
+export interface ApiBusVehicle {
+  /** 车牌，如 `闽C00961D`。 */
+  plate: string
+  /** 下一站站名。 */
+  nextStation: string
+  /** 下一站在线路上的序（从 1 开始）。 */
+  stationOrder: number
+  /** 车辆当前 GPS，`[lng, lat]`，GCJ-02。 */
+  point: [number, number]
+  /** 车头朝向角度，0 为正北。 */
+  angle?: number
+  /** 距离下一站的拟合距离（米）。 */
+  distanceToNext?: number
+  /** 上游判定的运行状态：0 正常行驶，2 即将进站。 */
+  statusType?: string
+}
+
+export interface ApiBusLiveDirection {
+  line: string
+  direction: number
+  from: string
+  to: string
+  /** 起点站下一班计划发车时间，`HH:mm`；上游没给就为空。 */
+  planTime: string | null
+  /** 上游是否真的有 GPS 数据（`hasReal`）。 */
+  hasReal: boolean
+  vehicles: ApiBusVehicle[]
+}
+
+export interface ApiBusLiveResponse {
+  provider: 'mygolbs'
+  city: string
+  /** 服务器抓取时间，ISO 8601。 */
+  fetchedAt: string
+  directions: ApiBusLiveDirection[]
+}
+
+export interface ApiBusDeparturesDirection {
+  line: string
+  direction: number
+  from: string
+  to: string
+  beginTime: string
+  endTime: string
+  /** 按时间段分组的发车时刻，`isNow` 标记当前那班。 */
+  groups: { group: string; times: string[]; isNow: boolean }[]
+  /** 当前时刻之后最近的三班。 */
+  next: string[]
+}
+
+export interface ApiBusDeparturesResponse {
+  provider: 'mygolbs'
+  city: string
+  fetchedAt: string
+  directions: ApiBusDeparturesDirection[]
+  /** 上游原话：时刻表由历史数据推算，仅供参考。 */
+  note: string
+}
+
+export interface ApiBusLinesResponse {
+  provider: 'amap'
+  city: string
+  /** 数据快照日期（`YYYY-MM-DD`）。 */
+  fetchedAt: string
+  lines: ApiBusLineDirection[]
+  /** 高德不提供实时车辆位置，前端不要等这个字段。 */
+  vehiclePositionsAvailable: false
+}

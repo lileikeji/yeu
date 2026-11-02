@@ -1,4 +1,4 @@
-import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi } from './types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapTransitVehicle } from './types'
 
 export type PointPickedHandler = (point: GeoPoint) => void
 export type PoiSelectHandler = (poi: MapPoi | null) => void
@@ -57,6 +57,15 @@ export interface MapProvider {
   setBuses(buses: MapBus[]): void
   /** 显示/更新校车线路（站点折线 + 起终点标注）；传空数组清除。 */
   setBusRoutes(routes: MapBusRoute[]): void
+  /**
+   * 显示/更新校外公交线路（K2/K6 这类静态线路，独立图层）。
+   * 与校车的 5 s 轮询分开维护，互不覆盖；传空数组清除。
+   * 未实现的 provider 由调用方跳过。
+   */
+  setTransitRoutes?(routes: MapBusRoute[]): void
+
+  /** 校外公交在途车辆（可选能力；不实现就不显示车辆层）。 */
+  setTransitVehicles?(vehicles: MapTransitVehicle[]): void
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>
   searchVisiblePois(query: string): Promise<MapPoi[]>
   clearRoute(): void

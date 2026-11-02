@@ -42,6 +42,13 @@ export const REVIEW_SCORE_MAX = 5
 export const PLACE_REVIEW_CONTENT_MAX = 500
 export const PUBLIC_PLACE_REVIEW_PAGE_SIZE = 5
 
+/**
+ * 校车实时接口路径（防爬混淆段）。路由文件名必须与之同步：
+ * server/api/public/bus-rt-d3e2fd11.get.ts —— 改名须两处同改。
+ * 接口另需页面签发的 yeu_page_context 票据 + 限流，curl 直打 403。
+ */
+export const BUS_POSITIONS_API_PATH = '/api/public/bus-rt-d3e2fd11'
+
 export type ContentKind = typeof CONTENT_KINDS[number]
 export type PublicSearchResultType = typeof PUBLIC_SEARCH_RESULT_TYPES[number]
 export type CoordinateVerificationState = typeof COORDINATE_VERIFICATION_STATES[number]

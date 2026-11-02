@@ -8,6 +8,7 @@
 import { createDecipheriv, createSign } from 'node:crypto'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-convert'
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
+import busRouteGps from '../../../data/seeds/bus-route-gps.json'
 import { parseAmapPolyline } from '../directions/amap'
 
 const AES_KEY = '***REMOVED***' // 16 字节 = aes-128-cbc
@@ -17,10 +18,20 @@ const ACCESS_TOKEN = '***REMOVED***'
 const COMMON = '?DirectProcessData=true&DisablePacketHeader=false&PacketHeaderMode=1&PacketVer=2'
 const SIGN_SEP = 'SIGN_VAL'
 const REQUEST_TIMEOUT_MS = 15_000
+
+/** 伪装微信客户端 UA：OAuth2 换票接口校验微信内置浏览器。 */
+const WECHAT_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21C62 MicroMessenger/8.0.49(0x18003133) NetType/WIFI Language/zh_CN'
 const ROUTES_TTL_MS = 10 * 60 * 1000
 const POSITIONS_TTL_MS = 5_000
 
-// ---------- 线路沿路形状（高德算路，24h 缓存） ----------
+// ---------- 线路沿路形状（主：手绘链投影；备：高德算路；24h 缓存） ----------
+/**
+ * 形状源优先级：
+ * 1. 手绘链（data/seeds/ding-route-chain.json，来自校园叮叮车手绘路网，GCJ→WGS84）——
+ *    站点投影切片，同步零外呼；天然贴路，无算路直线弦/校外绕环（实证：我方 7 站到链 mean 17.7m/max 34m）。
+ *    不做校界裁剪：链本身是校内道路，裁剪反而可能剪出新弦。
+ * 2. 高德 walking/driving 算路（链不覆盖该线路时回退，站点直连为末级回退）。
+ */
 const AMAP_WALKING_ENDPOINT = 'https://restapi.amap.com/v3/direction/walking'
 const AMAP_DRIVING_ENDPOINT = 'https://restapi.amap.com/v3/direction/driving'
 /**
@@ -29,6 +40,11 @@ const AMAP_DRIVING_ENDPOINT = 'https://restapi.amap.com/v3/direction/driving'
  */
 const SHAPE_PROVIDER: 'walking' | 'driving' = 'walking'
 const SHAPE_TTL_MS = 24 * 60 * 60 * 1000
+// 有段算路失败（退化成直连弦）时只缓存 2 分钟，让下一轮快照自愈。
+const SHAPE_DEGRADED_TTL_MS = 2 * 60 * 1000
+// 高德 Web 服务 QPS 限流：段间间隔与失败重试延时。
+const SEGMENT_GAP_MS = 250
+const SEGMENT_RETRY_DELAY_MS = 600
 const SHAPE_TIMEOUT_MS = 8_000
 
 // YKT 原始坐标是 GCJ-02（逆地理实证：新区图书馆站原值反查落「仰恩大学图书馆」17m，
@@ -139,6 +155,40 @@ export function decryptOpenTicket(blob: string): Record<string, unknown> {
   return JSON.parse(plain.toString('utf8')) as Record<string, unknown>
 }
 
+/** 从解密后的 url 字段提取 TPOpenId（微信 openId，换票凭证）。 */
+export function extractTpOpenId(info: Record<string, unknown>): string {
+  const url = textValue(info.url)
+  if (!url) return ''
+  try {
+    return new URL(url).searchParams.get('TPOpenId') || ''
+  } catch {
+    return ''
+  }
+}
+
+/** OAuth2 302 Location → open_ticket 参数。 */
+export function parseTicketFromLocation(location: string, base: string): string {
+  try {
+    return new URL(location, base).searchParams.get('open_ticket') || ''
+  } catch {
+    return ''
+  }
+}
+
+/** 用微信 UA 调 OAuth2 换取新 open_ticket（302 Location 带票）。 */
+export async function mintOpenTicket(addr: string, tpOpenId: string): Promise<string> {
+  const url = `${addr}/TP_API/DispApiServer/OAuth2?TPOpenId=${encodeURIComponent(tpOpenId)}&PageName=userBusRoute`
+  const res = await fetch(url, {
+    headers: { 'User-Agent': WECHAT_UA },
+    redirect: 'manual',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  })
+  const location = res.headers.get('location') || ''
+  const ticket = parseTicketFromLocation(location, addr)
+  if (!ticket) throw new Error(`OAuth2 换票失败：HTTP ${res.status} 无 open_ticket`)
+  return ticket
+}
+
 /** JSON → 长度前缀 + JSON + "SIGN_VAL" + base64(RSA-SHA256(JSON))。 */
 export function buildSignedBody(params: Record<string, string>): string {
   const json = JSON.stringify(params)
@@ -148,7 +198,7 @@ export function buildSignedBody(params: Record<string, string>): string {
 }
 
 /** 响应体 → { ret, json }，ret 为 4 位返回码（'0000' 成功）。 */
-export function parseSignedResponse(body: string): { ret: string; json: string } {
+export function parseSignedResponse(body: string): { ret: string, json: string } {
   const payload = body.slice(8)
   const sepIndex = payload.indexOf(SIGN_SEP)
   if (sepIndex < 0) throw new Error('YKT 响应缺少 SIGN_VAL 分隔符')
@@ -190,7 +240,7 @@ function busParams(session: YktSession, extra: Record<string, string>): Record<s
 
 // ---------- 请求与会话 ----------
 
-async function callYkt(addr: string, name: string, params: Record<string, string>): Promise<{ ret: string; json: string }> {
+async function callYkt(addr: string, name: string, params: Record<string, string>): Promise<{ ret: string, json: string }> {
   const url = `${addr}/TP_API/DispApiServer/${name}${COMMON}`
   const response = await fetch(url, {
     method: 'POST',
@@ -209,9 +259,14 @@ let sessionTicketBlob = ''
 
 async function ensureSession(openTicket: string): Promise<YktSession> {
   if (!openTicket) throw new Error('缺少 NUXT_YKT_OPEN_TICKET（云一卡通 open_ticket）')
-  if (sessionPromise && sessionTicketBlob === openTicket) return sessionPromise
-  sessionTicketBlob = openTicket
-  sessionPromise = initSession(openTicket)
+  // 兼容整段 URL：取出 open_ticket 参数
+  const blob = openTicket.startsWith('http')
+    ? new URL(openTicket).searchParams.get('open_ticket') || ''
+    : openTicket
+  if (!blob) throw new Error('NUXT_YKT_OPEN_TICKET 缺少 open_ticket 参数')
+  if (sessionPromise && sessionTicketBlob === blob) return sessionPromise
+  sessionTicketBlob = blob
+  sessionPromise = initSession(blob)
   try {
     return await sessionPromise
   } catch (error) {
@@ -223,15 +278,28 @@ async function ensureSession(openTicket: string): Promise<YktSession> {
 async function initSession(openTicket: string): Promise<YktSession> {
   const info = decryptOpenTicket(openTicket)
   const addr = textValue(info.addr)
-  const ticket = textValue(info.ticket)
+  let ticket = textValue(info.ticket)
+  const tpOpenId = extractTpOpenId(info)
   if (!addr || !ticket) throw new Error('open_ticket 解密结果缺少 addr/ticket')
-  const res = await callYkt(addr, 'YKTGetOpenInfo', {
+  const openParams = (tk: string) => ({
     api_id: API_ID,
     access_token: ACCESS_TOKEN,
     open_id: '123',
-    ticket
+    ticket: tk
   })
-  const body = JSON.parse(res.json) as Record<string, unknown>
+  let body: Record<string, unknown>
+  try {
+    const res = await callYkt(addr, 'YKTGetOpenInfo', openParams(ticket))
+    body = JSON.parse(res.json) as Record<string, unknown>
+  } catch (error) {
+    // 票过期/失效（ret=9000 等）：用 TPOpenId 自动换新票重试一次，免人工换 NUXT_YKT_OPEN_TICKET
+    if (!tpOpenId) throw error
+    const fresh = decryptOpenTicket(await mintOpenTicket(addr, tpOpenId))
+    ticket = textValue(fresh.ticket)
+    if (!ticket) throw error
+    const res = await callYkt(addr, 'YKTGetOpenInfo', openParams(ticket))
+    body = JSON.parse(res.json) as Record<string, unknown>
+  }
   const userId = textValue(body.user_id)
   const openId = textValue(body.id || body.open_id)
   if (!userId || !openId) throw new Error('YKTGetOpenInfo 响应缺少 user_id/open_id')
@@ -240,7 +308,7 @@ async function initSession(openTicket: string): Promise<YktSession> {
 
 // ---------- 线路缓存（10 分钟） ----------
 
-let routesCache: { fetchedAt: number; routes: YktBusRouteInfo[] } | null = null
+let routesCache: { fetchedAt: number, routes: YktBusRouteInfo[] } | null = null
 
 async function ensureRoutes(session: YktSession, amapKey: string): Promise<YktBusRouteInfo[]> {
   if (routesCache && Date.now() - routesCache.fetchedAt < ROUTES_TTL_MS) {
@@ -288,7 +356,7 @@ async function ensureRoutes(session: YktSession, amapKey: string): Promise<YktBu
 
 // ---------- 车辆位置缓存（5 秒，多客户端合并） ----------
 
-let positionsCache: { fetchedAt: number; buses: YktBusVehicle[] } | null = null
+let positionsCache: { fetchedAt: number, buses: YktBusVehicle[] } | null = null
 let positionsPromise: Promise<YktBusVehicle[]> | null = null
 
 async function fetchPositions(session: YktSession, routes: YktBusRouteInfo[]): Promise<YktBusVehicle[]> {
@@ -346,9 +414,97 @@ function ensurePositions(session: YktSession, routes: YktBusRouteInfo[]): Promis
   return positionsPromise
 }
 
+// ---------- 手绘链形状源（同步投影切片） ----------
+
+interface BusRouteGpsSeed { points: RouteShapePoint[] }
+// 实测轨迹（真实校车一次完整去程，来自 yx bus-rt GPS 日志）：贴路且与运营时长一致（2377m / 约 11-13 分钟）。
+const CHAIN_POINTS: RouteShapePoint[] = (busRouteGps as BusRouteGpsSeed).points
+/** 站点到链垂距超过此值视为链不覆盖该线路（实测我方站点 max 34m，留余量）。 */
+const CHAIN_MAX_OFFSET_M = 120
+// 平面米制参考纬度取链中点；校园尺度（<3km）下赤道近似误差可忽略。
+const CHAIN_METRIC_LAT = CHAIN_POINTS[Math.floor(CHAIN_POINTS.length / 2)]!.lat
+const CHAIN_M_LAT = 111_320
+const CHAIN_M_LNG = 111_320 * Math.cos((CHAIN_METRIC_LAT * Math.PI) / 180)
+/** 链累计里程（米），与投影同度量，保证 alongM 可直接用于切片。 */
+const CHAIN_CUM: number[] = (() => {
+  const cum = [0]
+  for (let i = 1; i < CHAIN_POINTS.length; i += 1) {
+    const a = CHAIN_POINTS[i - 1]!
+    const b = CHAIN_POINTS[i]!
+    cum.push(cum[i - 1]! + Math.hypot((b.lng - a.lng) * CHAIN_M_LNG, (b.lat - a.lat) * CHAIN_M_LAT))
+  }
+  return cum
+})()
+
+/** 点垂投到链：返回沿线里程与垂距（米）。 */
+export function projectOnChain(point: RouteShapePoint): { alongM: number, offM: number } {
+  const px = (point.lng - CHAIN_POINTS[0]!.lng) * CHAIN_M_LNG
+  const py = (point.lat - CHAIN_POINTS[0]!.lat) * CHAIN_M_LAT
+  let best = { alongM: 0, offM: Number.POSITIVE_INFINITY }
+  for (let i = 1; i < CHAIN_POINTS.length; i += 1) {
+    const a = CHAIN_POINTS[i - 1]!
+    const b = CHAIN_POINTS[i]!
+    const ax = (a.lng - CHAIN_POINTS[0]!.lng) * CHAIN_M_LNG
+    const ay = (a.lat - CHAIN_POINTS[0]!.lat) * CHAIN_M_LAT
+    const bx = (b.lng - CHAIN_POINTS[0]!.lng) * CHAIN_M_LNG
+    const by = (b.lat - CHAIN_POINTS[0]!.lat) * CHAIN_M_LAT
+    const dx = bx - ax
+    const dy = by - ay
+    const len2 = dx * dx + dy * dy
+    let t = len2 > 0 ? -((px - ax) * dx + (py - ay) * dy) / len2 : 0
+    t = t < 0 ? 0 : t > 1 ? 1 : t
+    const offM = Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+    if (offM < best.offM) {
+      const segLen = CHAIN_CUM[i]! - CHAIN_CUM[i - 1]!
+      best = { alongM: CHAIN_CUM[i - 1]! + t * segLen, offM }
+    }
+  }
+  return best
+}
+
+/** 按沿线里程切链（含 lo/hi 插值端点，内部顶点严格在区间内）。 */
+function sliceChainBetween(lo: number, hi: number): RouteShapePoint[] {
+  const at = (d: number): RouteShapePoint => {
+    let i = 1
+    while (i < CHAIN_CUM.length - 1 && CHAIN_CUM[i]! < d) i += 1
+    const segLen = CHAIN_CUM[i]! - CHAIN_CUM[i - 1]!
+    const t = segLen > 0 ? (d - CHAIN_CUM[i - 1]!) / segLen : 0
+    const a = CHAIN_POINTS[i - 1]!
+    const b = CHAIN_POINTS[i]!
+    return { lng: a.lng + (b.lng - a.lng) * t, lat: a.lat + (b.lat - a.lat) * t }
+  }
+  const out: RouteShapePoint[] = [at(lo)]
+  for (let i = 0; i < CHAIN_POINTS.length; i += 1) {
+    const d = CHAIN_CUM[i]!
+    if (d > lo && d < hi) out.push(CHAIN_POINTS[i]!)
+  }
+  out.push(at(hi))
+  return out
+}
+
+/**
+ * 站点序列 → 手绘链切片折线（方向跟随站点顺序，首末点吸附真实站点坐标保证与起终 chip 无缝）。
+ * 任一站点离链过远（链不覆盖）返回 null，交回退路径。
+ */
+export function buildRouteShapeFromChain(stops: RouteShapePoint[]): RouteShapePoint[] | null {
+  if (CHAIN_POINTS.length < 2 || stops.length < 2) return null
+  const projections = stops.map(projectOnChain)
+  if (projections.some(p => p.offM > CHAIN_MAX_OFFSET_M)) return null
+  const first = projections[0]!.alongM
+  const last = projections[projections.length - 1]!.alongM
+  if (Math.abs(last - first) < 50) return null // 首末投影几乎重合，链方向不对，回退算路
+  const lo = Math.min(first, last)
+  const hi = Math.max(first, last)
+  const slice = sliceChainBetween(lo, hi)
+  if (last < first) slice.reverse()
+  slice[0] = { lng: stops[0]!.lng, lat: stops[0]!.lat }
+  slice[slice.length - 1] = { lng: stops[stops.length - 1]!.lng, lat: stops[stops.length - 1]!.lat }
+  return stitchShapeSegments([slice])
+}
+
 // ---------- 线路沿路形状（高德算路，后台补全，不阻塞快照） ----------
 
-const shapeCache = new Map<string, { fetchedAt: number; polyline: RouteShapePoint[] }>()
+const shapeCache = new Map<string, { fetchedAt: number, polyline: RouteShapePoint[], complete: boolean }>()
 const shapeInflight = new Map<string, Promise<void>>()
 
 /** 拼接相邻段折线并去接缝重复点（可单测）。 */
@@ -459,19 +615,36 @@ async function fetchSegmentShape(amapKey: string, from: RouteShapePoint, to: Rou
   throw lastError instanceof Error ? lastError : new Error('Amap shape failed')
 }
 
-/** 逐相邻站点段算路拼整线；单段失败退化为直连段保持连续。 */
-async function buildRouteShape(amapKey: string, stops: YktBusStopInfo[]): Promise<RouteShapePoint[]> {
+/** 逐相邻站点段算路拼整线；失败的段做一次延时重试，仍失败才退化为直连段（并标记不完整以便短期重算）。 */
+async function buildRouteShape(amapKey: string, stops: YktBusStopInfo[]): Promise<{ polyline: RouteShapePoint[], complete: boolean }> {
   const segments: RouteShapePoint[][] = []
+  let complete = true
   for (let i = 0; i < stops.length - 1; i += 1) {
     const from = stops[i]!
     const to = stops[i + 1]!
+    const start = { lng: from.lng, lat: from.lat }
+    const end = { lng: to.lng, lat: to.lat }
+    // 高德 Web 服务按 QPS 限流，串行段之间留出间隔，避免后面的段被拒后退化成直连弦。
+    if (i > 0) await new Promise(resolve => setTimeout(resolve, SEGMENT_GAP_MS))
+    let shape: RouteShapePoint[] | null
     try {
-      segments.push(await fetchSegmentShape(amapKey, { lng: from.lng, lat: from.lat }, { lng: to.lng, lat: to.lat }))
+      shape = await fetchSegmentShape(amapKey, start, end)
     } catch {
-      segments.push([{ lng: from.lng, lat: from.lat }, { lng: to.lng, lat: to.lat }])
+      // 限流/超时的段延时重试一次，仍未拿到就退化直连并标记不完整。
+      await new Promise(resolve => setTimeout(resolve, SEGMENT_RETRY_DELAY_MS))
+      try {
+        shape = await fetchSegmentShape(amapKey, start, end)
+      } catch {
+        shape = null
+      }
+    }
+    if (shape) segments.push(shape)
+    else {
+      complete = false
+      segments.push([start, end])
     }
   }
-  return clipPolylineToCampus(stitchShapeSegments(segments))
+  return { polyline: clipPolylineToCampus(stitchShapeSegments(segments)), complete }
 }
 
 /**
@@ -479,18 +652,28 @@ async function buildRouteShape(amapKey: string, stops: YktBusStopInfo[]): Promis
  * 快照接口因此永远不等算路。
  */
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
-  if (!amapKey) return
   for (const route of routes) {
     const key = `${route.routeId}|${route.stops.map(s => s.siteId).join(',')}`
     const cached = shapeCache.get(key)
-    if (cached && Date.now() - cached.fetchedAt < SHAPE_TTL_MS) {
+    const cachedTtl = cached && cached.complete !== false ? SHAPE_TTL_MS : SHAPE_DEGRADED_TTL_MS
+    if (cached && Date.now() - cached.fetchedAt < cachedTtl) {
       route.polyline = cached.polyline
       continue
     }
+    // 主源：高德算路（沿真实道路，后台补全，24h 缓存）。
+    // 手绘链（竞品叮叮车路网）实测整体偏移，已弃用，仅保留 buildRouteShapeFromChain 供比对。
+    // 主源：实测 GPS 轨迹切片（贴真实行驶路径，同步零外呼）。高德算路在校园里会绕远（3.29km vs 实测 2.38km），仅作回退。
+    const traced = buildRouteShapeFromChain(route.stops)
+    if (traced) {
+      shapeCache.set(key, { fetchedAt: Date.now(), polyline: traced, complete: true })
+      route.polyline = traced
+      continue
+    }
+    if (!amapKey) continue
     if (shapeInflight.has(key)) continue
     const promise = buildRouteShape(amapKey, route.stops)
-      .then((polyline) => {
-        shapeCache.set(key, { fetchedAt: Date.now(), polyline })
+      .then(({ polyline, complete }) => {
+        shapeCache.set(key, { fetchedAt: Date.now(), polyline, complete })
         route.polyline = polyline
       })
       .catch(() => {

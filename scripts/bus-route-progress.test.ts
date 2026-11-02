@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { computeBusProgress } from '../shared/utils/bus-route-progress'
+import {
+  BUS_SPEED_MPS,
+  computeBusProgress,
+  computeStopToStop,
+  samplePolylinePoint
+} from '../shared/utils/bus-route-progress'
 
 // 经纬度步长：赤道附近 0.009° 经度 ≈ 1000 米（haversine 实算 1000.7m）
 const stops = [
@@ -54,4 +59,35 @@ test('computeBusProgress 折线缺失回退站点直连', () => {
 
 test('computeBusProgress 站点不足两个返回 null', () => {
   assert.equal(computeBusProgress({ lng: 0, lat: 0 }, [{ lng: 0, lat: 0 }], []), null)
+})
+
+test('computeBusProgress etaSeconds=距离/巡航速度、distanceAlong/angleDeg 齐备', () => {
+  const result = computeBusProgress({ lng: 0.0045, lat: 0 }, stops, stops)
+  assert.ok(result)
+  assert.ok(Math.abs(result.etaSeconds - 500 / BUS_SPEED_MPS) < 1, `eta=${result.etaSeconds}`)
+  assert.ok(Math.abs(result.distanceAlong - 500) < 10, `along=${result.distanceAlong}`)
+  // 正东走向：方位角约 90°
+  assert.ok(Math.abs(result.angleDeg - 90) < 1, `angle=${result.angleDeg}`)
+  assert.equal(result.stopDistancesAlong.length, 3)
+})
+
+test('samplePolylinePoint 中点插值与端点钳制', () => {
+  const mid = samplePolylinePoint(stops, 500)
+  assert.ok(Math.abs(mid.point.lng - 0.0045) < 0.0002, `lng=${mid.point.lng}`)
+  assert.ok(Math.abs(mid.angleDeg - 90) < 1)
+  const past = samplePolylinePoint(stops, 9_999)
+  assert.ok(Math.abs(past.point.lng - 0.018) < 1e-9, '越界钳制到终点')
+})
+
+test('computeStopToStop A→B 距离/途经站/ETA，顺序无关', () => {
+  const ab = computeStopToStop(stops, stops, 0, 2)
+  assert.ok(ab)
+  assert.ok(Math.abs(ab.distanceMeters - 2_000) < 15, `d=${ab.distanceMeters}`)
+  assert.equal(ab.stopsBetween, 1)
+  assert.ok(Math.abs(ab.etaSeconds - ab.distanceMeters / BUS_SPEED_MPS) < 1)
+  const ba = computeStopToStop(stops, stops, 2, 0)
+  assert.ok(ba)
+  assert.ok(Math.abs(ba.distanceMeters - ab.distanceMeters) < 1)
+  assert.equal(computeStopToStop(stops, stops, 1, 1)?.distanceMeters, 0)
+  assert.equal(computeStopToStop(stops, stops, 0, 5), null)
 })

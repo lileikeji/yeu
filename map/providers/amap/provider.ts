@@ -10,7 +10,7 @@ import type {
   RouteSummary
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
-import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea } from '../../core/types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea, MapTransitVehicle } from '../../core/types'
 import { wgs84ToGcj02 as convertWgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { ensureAMapPlugins, loadAMap } from './loader'
 import type {
@@ -161,11 +161,18 @@ export class AMapProvider implements MapProvider {
   private selectedMarkerClickHandler: ((event: AMapMouseEvent) => void) | null = null
   private selectedPoiId: string | null = null
   private buses: MapBus[] = []
-  private busMarkers = new Map<string, { marker: AMapMarker, token: object }>()
+  private busMarkers = new Map<string, { marker: AMapMarker, token: object, icon: HTMLElement | null }>()
   private busRoutes: MapBusRoute[] = []
   private busRoutePolylines: AMapPolyline[] = []
   private busStopMarkers: AMapMarker[] = []
   private busRouteToken: object = {}
+  private transitRoutes: MapBusRoute[] = []
+  private transitRoutePolylines: AMapPolyline[] = []
+  private transitStopMarkers: AMapMarker[] = []
+  private transitRouteToken: object = {}
+  private transitVehicles: MapTransitVehicle[] = []
+  private transitVehicleMarkers: AMapMarker[] = []
+  private transitVehicleToken: object = {}
   private poiSelectHandler: PoiSelectHandler | null = null
   private areaSelectHandler: AreaSelectHandler | null = null
   private selectedAreaId: string | null = null
@@ -245,6 +252,13 @@ export class AMapProvider implements MapProvider {
       }
     })
     await Promise.all([this.rebuildMarkers(), this.rebuildAreas()])
+
+    // 地图就绪后补画「我的位置」：定位 fix 可能早于 SDK 加载完成到达，
+    // setUserLocation 在 map 未就绪时只存不画，这里恢复绘制。
+    if (this.userLocation) this.setUserLocation(this.userLocation)
+    // 校外公交同理：默认打开时页面可能早于 SDK 就绪就调了，这里补画。
+    if (this.transitRoutes.length) this.setTransitRoutes(this.transitRoutes)
+    if (this.transitVehicles.length) this.setTransitVehicles(this.transitVehicles)
 
     // Clustering is optional. If the embedded browser finishes loading it
     // later, upgrade the already-visible plain markers without remounting the
@@ -482,15 +496,18 @@ export class AMapProvider implements MapProvider {
         if (current && current.token !== token) return // A newer update superseded this one.
         if (current) {
           current.marker.setPosition(position)
+          if (current.icon) current.icon.style.transform = `rotate(${bus.angleDeg ?? 0}deg)`
           return
         }
+        const chip = this.createBusChip(bus)
         const marker = new amap.Marker({
           position,
           anchor: 'center',
-          content: this.createBusChip(bus),
+          content: chip,
           zIndex: 920
         })
-        this.busMarkers.set(bus.id, { marker, token })
+        const icon = chip.querySelector<HTMLElement>('[data-bus-icon]')
+        this.busMarkers.set(bus.id, { marker, token, icon })
         map.add(marker)
       }
       if (bus.point.crs === 'GCJ-02') {
@@ -534,7 +551,8 @@ export class AMapProvider implements MapProvider {
     ].join(';')
     const icon = document.createElement('span')
     icon.textContent = '🚌'
-    icon.style.cssText = 'font-size:12px;line-height:1;'
+    icon.dataset.busIcon = ''
+    icon.style.cssText = `font-size:12px;line-height:1;transform:rotate(${bus.angleDeg ?? 0}deg)`
     const label = document.createElement('span')
     label.textContent = bus.name
     element.append(icon, label)
@@ -554,7 +572,7 @@ export class AMapProvider implements MapProvider {
 
     const token = this.busRouteToken = {}
     for (const [index, route] of routes.entries()) {
-      const color = BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!
+      const color = route.color ?? BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!
       // 沿路形状优先（服务端高德算路），缺失回退站点直连。
       const linePoints = (route.polyline && route.polyline.length >= 2)
         ? route.polyline
@@ -602,6 +620,139 @@ export class AMapProvider implements MapProvider {
     if (overlays.length) this.map?.remove(overlays)
     this.busRoutePolylines = []
     this.busStopMarkers = []
+  }
+
+  /**
+   * 校外公交（K2/K6）独立图层：只在开关/线路变化时画一次。
+   * 不复用 busRoutes 通道，否则会被校车的 5 s 轮询整层重绘。
+   */
+  setTransitRoutes(routes: MapBusRoute[]): void {
+    // 先存下来：默认打开时页面会在 SDK 就绪前调用，就绪后由 init 补画
+    this.transitRoutes = [...routes]
+    this.clearTransitRoutes()
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap || routes.length === 0) return
+
+    const token = this.transitRouteToken = {}
+    // 同一站点会在多方向/多线路重复出现，只画一次，避免叠成一坨
+    const drawnStops = new Set<string>()
+    for (const route of routes) {
+      const color = route.color ?? '#1a6cf5'
+      const linePoints = (route.polyline && route.polyline.length >= 2)
+        ? route.polyline
+        : route.stops.map(stop => stop.point)
+      if (linePoints.length < 2) continue
+      const terminals = route.stops.filter((stop) => {
+        if (!stop.isOrigin && !stop.isDestination) return false
+        const key = stop.name
+        if (drawnStops.has(key)) return false
+        drawnStops.add(key)
+        return true
+      })
+      void this.convertPoints([...linePoints, ...terminals.map(stop => stop.point)], amap).then((allPositions) => {
+        if (this.transitRouteToken !== token) return
+        const mapNow = this.map
+        const amapNow = this.amap
+        if (!mapNow || !amapNow) return
+        const path = allPositions.slice(0, linePoints.length)
+          .filter((position): position is AMapPosition => position !== null)
+        if (path.length >= 2) {
+          const line = new amapNow.Polyline({
+            path,
+            strokeColor: color,
+            strokeWeight: 6,
+            strokeOpacity: 0.9,
+            zIndex: 780,
+            lineJoin: 'round'
+          })
+          this.transitRoutePolylines.push(line)
+          mapNow.add(line)
+        }
+        terminals.forEach((stop, index) => {
+          const position = allPositions[linePoints.length + index]
+          if (!position) return
+          const marker = new amapNow.Marker({
+            position,
+            anchor: 'center',
+            content: this.createBusTerminalChip(stop, color),
+            zIndex: 905
+          })
+          this.transitStopMarkers.push(marker)
+          mapNow.add(marker)
+        })
+      })
+    }
+  }
+
+  /**
+   * 校外公交在途车辆。每 20 s 更新一次，与线路图层互不清除。
+   * 坐标同样是 GCJ-02，直接落图。
+   */
+  setTransitVehicles(vehicles: MapTransitVehicle[]): void {
+    this.transitVehicles = [...vehicles]
+    this.clearTransitVehicles()
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap) return
+
+    const token = this.transitVehicleToken = {}
+    const points = vehicles.map(vehicle => vehicle.point)
+    void this.convertPoints(points, amap).then((positions) => {
+      if (this.transitVehicleToken !== token) return
+      const mapNow = this.map
+      const amapNow = this.amap
+      if (!mapNow || !amapNow) return
+      vehicles.forEach((vehicle, index) => {
+        const position = positions[index]
+        if (!position) return
+        const marker = new amapNow.Marker({
+          position,
+          anchor: 'center',
+          content: this.createTransitVehicleChip(vehicle),
+          zIndex: 940
+        })
+        this.transitVehicleMarkers.push(marker)
+        mapNow.add(marker)
+      })
+    })
+  }
+
+  private clearTransitVehicles(): void {
+    this.transitVehicleToken = {}
+    if (this.transitVehicleMarkers.length) this.map?.remove(this.transitVehicleMarkers)
+    this.transitVehicleMarkers = []
+  }
+
+  private createTransitVehicleChip(vehicle: MapTransitVehicle): HTMLElement {
+    const element = document.createElement('div')
+    element.title = `${vehicle.plate} · 下一站 ${vehicle.nextStation}`
+    element.setAttribute('aria-label', element.title)
+    element.style.cssText = [
+      'display:flex',
+      'align-items:center',
+      'gap:3px',
+      'box-sizing:border-box',
+      'padding:2px 7px 2px 5px',
+      'border:2px solid #fff',
+      'border-radius:999px',
+      'background:' + (vehicle.color ?? '#1a6cf5'),
+      'color:#fff',
+      'font:700 11px/1.4 system-ui,sans-serif',
+      'white-space:nowrap',
+      'box-shadow:0 1px 6px rgb(0 0 0 / 35%)'
+    ].join(';')
+    const plate = vehicle.plate.replace('闽C', '')
+    element.textContent = `🚌 ${plate || '在途'}`
+    return element
+  }
+
+  private clearTransitRoutes(): void {
+    this.transitRouteToken = {}
+    const overlays: Array<AMapMarker | AMapPolyline> = [...this.transitRoutePolylines, ...this.transitStopMarkers]
+    if (overlays.length) this.map?.remove(overlays)
+    this.transitRoutePolylines = []
+    this.transitStopMarkers = []
   }
 
   private createBusTerminalChip(stop: { name: string, isOrigin: boolean }, routeColor: string): HTMLElement {

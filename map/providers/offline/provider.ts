@@ -97,6 +97,7 @@ export class WechatOfflineMapProvider implements MapProvider {
   private markerLayer: HTMLDivElement | null = null
   private buses: MapBus[] = []
   private busRoutes: MapBusRoute[] = []
+  private transitRoutes: MapBusRoute[] = []
   private busOverlayElements: HTMLElement[] = []
   private overlayLayer: SVGSVGElement | null = null
   private pois: MapPoi[] = []
@@ -206,6 +207,8 @@ export class WechatOfflineMapProvider implements MapProvider {
     this.attachEvents(root)
     this.renderOverlays()
     this.renderMarkers()
+    // 图层就绪后补画「我的位置」：定位 fix 可能早于挂载完成到达。
+    if (this.userLocation) this.setUserLocation(this.userLocation)
   }
 
   setPois(pois: MapPoi[]): void {
@@ -338,6 +341,12 @@ export class WechatOfflineMapProvider implements MapProvider {
     this.renderBusOverlay()
   }
 
+  /** 校外公交（K2/K6）：与校车线路分开存，只在开关变化时重绘。 */
+  setTransitRoutes(routes: MapBusRoute[]): void {
+    this.transitRoutes = [...routes]
+    this.renderOverlays()
+  }
+
   /** 校车标点（车、起终点、经停点）追加到 markerLayer，随 renderMarkers 一起重建。 */
   private renderBusOverlay(): void {
     const layer = this.markerLayer
@@ -346,11 +355,12 @@ export class WechatOfflineMapProvider implements MapProvider {
     this.busOverlayElements = []
     if (!this.displayOptions.showPois) return
 
-    for (const route of this.busRoutes) {
+    for (const [index, route] of this.busRoutes.entries()) {
+      const routeColor = route.color ?? BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!
       for (const stop of route.stops) {
         if (!isRenderablePoint(stop.point)) continue
         const isTerminal = stop.isOrigin || stop.isDestination
-        const element = isTerminal ? this.createBusTerminalChip(stop) : this.createBusStopDot()
+        const element = isTerminal ? this.createBusTerminalChip(stop, routeColor) : this.createBusStopDot(routeColor)
         this.positionOverlayElement(element, stop.point)
         this.busOverlayElements.push(element)
         layer.append(element)
@@ -396,14 +406,15 @@ export class WechatOfflineMapProvider implements MapProvider {
     ].join(';')
     const icon = document.createElement('span')
     icon.textContent = '🚌'
-    icon.style.cssText = 'font-size:11px;line-height:1;'
+    icon.dataset.busIcon = ''
+    icon.style.cssText = `font-size:11px;line-height:1;transform:rotate(${bus.angleDeg ?? 0}deg)`
     const label = document.createElement('span')
     label.textContent = bus.name
     element.append(icon, label)
     return element
   }
 
-  private createBusTerminalChip(stop: { name: string, isOrigin: boolean }): HTMLElement {
+  private createBusTerminalChip(stop: { name: string, isOrigin: boolean }, routeColor: string): HTMLElement {
     const element = document.createElement('div')
     element.title = `${stop.isOrigin ? '起点站' : '终点站'}：${stop.name}`
     element.style.cssText = [
@@ -422,14 +433,14 @@ export class WechatOfflineMapProvider implements MapProvider {
     ].join(';')
     const badge = document.createElement('span')
     badge.textContent = stop.isOrigin ? '起' : '终'
-    badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#ea580c;color:#fff;font-size:10px;line-height:1;'
+    badge.style.cssText = `display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:${routeColor};color:#fff;font-size:10px;line-height:1;`
     const label = document.createElement('span')
     label.textContent = stop.name
     element.append(badge, label)
     return element
   }
 
-  private createBusStopDot(): HTMLElement {
+  private createBusStopDot(routeColor: string): HTMLElement {
     const element = document.createElement('div')
     element.title = '校车站点'
     element.style.cssText = [
@@ -438,7 +449,7 @@ export class WechatOfflineMapProvider implements MapProvider {
       'height:8px',
       'border:2px solid #fff',
       'border-radius:50%',
-      'background:#ea580c',
+      `background:${routeColor}`,
       'box-shadow:0 1px 2px rgb(0 0 0 / 30%)'
     ].join(';')
     return element
@@ -719,11 +730,30 @@ export class WechatOfflineMapProvider implements MapProvider {
         return `${pt.x},${pt.y}`
       }).join(' '))
       busLine.setAttribute('fill', 'none')
-      busLine.setAttribute('stroke', BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!)
+      busLine.setAttribute('stroke', route.color ?? BUS_ROUTE_COLORS[index % BUS_ROUTE_COLORS.length]!)
       busLine.setAttribute('stroke-width', '4')
       busLine.setAttribute('stroke-linejoin', 'round')
       busLine.setAttribute('stroke-linecap', 'round')
       layer.append(busLine)
+    }
+
+    for (const route of this.transitRoutes) {
+      const linePoints = (route.polyline && route.polyline.length >= 2)
+        ? route.polyline.filter(point => isRenderablePoint(point))
+        : route.stops.filter(stop => isRenderablePoint(stop.point)).map(stop => stop.point)
+      if (linePoints.length < 2) continue
+      const transitLine = doc.createElementNS(svgNamespace, 'polyline')
+      transitLine.setAttribute('points', linePoints.map((point) => {
+        const pt = this.scenePoint(point)
+        return `${pt.x},${pt.y}`
+      }).join(' '))
+      transitLine.setAttribute('fill', 'none')
+      transitLine.setAttribute('stroke', route.color ?? '#1a6cf5')
+      transitLine.setAttribute('stroke-width', '4.5')
+      transitLine.setAttribute('stroke-opacity', '0.9')
+      transitLine.setAttribute('stroke-linejoin', 'round')
+      transitLine.setAttribute('stroke-linecap', 'round')
+      layer.append(transitLine)
     }
   }
 

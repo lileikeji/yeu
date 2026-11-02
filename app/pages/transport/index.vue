@@ -94,6 +94,15 @@ const quickFacts = campusTransitQuickFacts
             <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
               泉州站可乘 K6 直达，泉州市区可乘 K2 往返。东站和机场没有稳定直达方案，请在出发当天重新规划。
             </p>
+            <NuxtLink
+              to="/transport/lines"
+              class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-950 dark:border-zinc-100 px-4 text-sm font-semibold text-zinc-950 dark:text-zinc-100 hover:bg-zinc-950 hover:text-white dark:hover:bg-zinc-100 dark:hover:text-zinc-950 transition"
+            >
+              <UIcon
+                name="i-lucide-route"
+                class="size-4"
+              />看 K2 / K6 实际线路图
+            </NuxtLink>
           </div>
           <div class="grid grid-cols-3 divide-x divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
             <div
