@@ -267,7 +267,9 @@ test('published map places use student-facing copy in the map panel', () => {
   } as ApiPlace])[0]
 
   assert.ok(place)
-  assert.equal(place.category, 'campus-building')
+  // 上海楼是核定宿舍楼（宿名单见 shared/utils/campus-dorm-buildings.ts），
+  // 数据里录成 building 也要在展示层归到 dorm，否则地图画不出小房子。
+  assert.equal(place.category, 'dorm')
   assert.equal(place.summary, '上海楼的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
   assert.doesNotMatch(place.summary, /\s的位置|。，/)
   assert.doesNotMatch(place.body, /后台草稿|resourceId|坐标来源|正式发布/)

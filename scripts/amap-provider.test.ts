@@ -673,8 +673,8 @@ test('AMap provider clusters 76 points, keeps names visible, plans walking route
     assert.ok(cluster.renderedMarkers.every(marker => marker.content?.children[0]?.style.visibility === 'visible'))
     assert.match(regularContent.style.cssText, /width:44px;height:50px/)
     assert.deepEqual(cluster.renderedMarkers[0]?.offset, new FakePixel(-22, -50))
-    assert.deepEqual(cluster.renderedClusterMarker.offset, new FakePixel(-26, -26))
-    assert.match(cluster.renderedClusterMarker.content?.style.cssText ?? '', /width:52px;height:52px/)
+    assert.deepEqual(cluster.renderedClusterMarker.offset, new FakePixel(-28, -28))
+    assert.match(cluster.renderedClusterMarker.content?.style.cssText ?? '', /width:56px;height:56px/)
 
     regularContent.dispatch('pointerleave')
     assert.equal(regularLabel.style.visibility, 'visible')

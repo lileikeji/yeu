@@ -18,6 +18,7 @@ import type {
   ApiPlace
 } from '~~/shared/types/server'
 import { mapCategoryFromPlaceType } from '~~/shared/utils/place-map-category'
+import { isCampusDormBuilding, normalizeCampusCategory } from '~~/shared/utils/campus-dorm-buildings'
 import { normalizeNoticeActions } from '~~/shared/utils/notice-actions'
 import { isSafePublicHttpUrl } from '~~/shared/utils/public-http-url'
 import { decodePlacePoint, resolveGeoCipherKey } from '~~/shared/utils/geo-obfuscation'
@@ -590,7 +591,7 @@ export function mergeAmapImportedPlacesWithDrafts(
       name: draft.name || seed.name,
       summary: studentFacingPlaceBody(draft.summary || seed.summary) || seed.summary,
       address: draft.address || seed.address,
-      category: mapCategoryFromPlaceType(draft.type, draft.scope),
+      category: normalizeCampusCategory(draft.name || seed.name, mapCategoryFromPlaceType(draft.type, draft.scope)),
       point: {
         lng: draftPoint.longitude,
         lat: draftPoint.latitude,
@@ -1015,6 +1016,9 @@ export function publicNotices(contents: ApiContent[]): PublicNoticeView[] {
 }
 
 function normalizeMapCategory(place: ApiPlace): string {
+  // places 表里宿舍楼被录成 teaching-building，展示层按核定楼名改回 dorm，
+  // 这样地图画小房子、宿舍筛选也能筛到（不改库）。
+  if (place.scope === 'campus' && isCampusDormBuilding(place.name)) return 'dorm'
   return mapCategoryFromPlaceType(place.type, place.scope)
 }
 
@@ -1026,7 +1030,7 @@ function previewMapPlace(poi: CampusMapReferencePlace): PublicMapPlace {
     slug: null,
     name: poi.name,
     scope: 'campus',
-    category: poi.category,
+    category: normalizeCampusCategory(poi.name, poi.category),
     summary,
     body: summary,
     address: null,
@@ -1060,7 +1064,7 @@ function ownerMapPlace(poi: AmapImportedPlace): PublicMapPlace {
     slug: null,
     name: poi.name,
     scope: poi.category === 'nearby' ? 'nearby' : 'campus',
-    category: poi.category,
+    category: normalizeCampusCategory(poi.name, poi.category),
     summary: ownerMapFriendlySummary(poi),
     body: ownerMapFriendlySummary(poi),
     address: poi.address || null,

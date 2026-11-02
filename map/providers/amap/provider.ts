@@ -10,6 +10,7 @@ import type {
   RouteSummary
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
+import { busFacing, clusterGlyph, markerSvg } from './marker-icons'
 import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea, MapSpeedBump, MapTransitVehicle } from '../../core/types'
 import { wgs84ToGcj02 as convertWgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { ensureAMapPlugins, loadAMap } from './loader'
@@ -78,10 +79,10 @@ function wgs84ToGcj02(lng: number, lat: number): AMapPosition {
 }
 
 const LABEL_FONT_SIZES = {
-  'extra-small': 9,
-  'small': 10,
-  'medium': 12,
-  'large': 14
+  'extra-small': 10,
+  'small': 11,
+  'medium': 13,
+  'large': 15
 } as const
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -541,22 +542,22 @@ export class AMapProvider implements MapProvider {
     element.style.cssText = [
       'display:flex',
       'align-items:center',
-      'gap:3px',
+      'gap:4px',
       'box-sizing:border-box',
-      'padding:2px 8px 2px 5px',
+      'padding:1px 8px 1px 2px',
       'border:2px solid #fff',
       'border-radius:999px',
       'background:#ea580c',
       'color:#fff',
-      'font:600 12px/1.4 system-ui,sans-serif',
+      'font:700 12px/1.5 system-ui,sans-serif',
       'white-space:nowrap',
       'box-shadow:0 1px 4px rgb(0 0 0 / 30%)',
       'cursor:default'
     ].join(';')
     const icon = document.createElement('span')
-    icon.textContent = '🚌'
     icon.dataset.busIcon = ''
-    icon.style.cssText = `font-size:12px;line-height:1;transform:rotate(${bus.angleDeg ?? 0}deg)`
+    icon.style.cssText = 'display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:50%;background:#fff;'
+    icon.innerHTML = markerSvg(busFacing(bus.angleDeg), { size: 18, color: '#c2410c' })
     const label = document.createElement('span')
     label.textContent = bus.name
     element.append(icon, label)
@@ -1373,20 +1374,27 @@ export class AMapProvider implements MapProvider {
     label.textContent = poi.name
     // 小屏（<640px）收窄标签，减少街道层级名字互相压盖。
     const labelMaxWidth = typeof window !== 'undefined' && window.innerWidth < 640 ? 126 : 172
-    label.style.cssText = `pointer-events:none;position:absolute;top:51px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:${labelMaxWidth}px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
+    label.style.cssText = `pointer-events:none;position:absolute;top:47px;left:50%;z-index:2;display:${this.displayOptions.showLabels ? 'block' : 'none'};max-width:${labelMaxWidth}px;overflow:hidden;padding:4px 8px;border:1px solid ${selected ? '#176f46' : 'rgb(228 228 231)'};border-radius:999px;background:rgb(255 255 255 / 96%);box-shadow:0 2px 8px rgb(0 0 0 / 14%);text-shadow:0 1px 0 rgb(255 255 255 / 90%);font-size:${LABEL_FONT_SIZES[this.displayOptions.labelSize]}px;font-weight:${selected ? '700' : '600'};letter-spacing:.01em;opacity:1;text-overflow:ellipsis;transform:translateX(-50%);visibility:visible;white-space:nowrap;`
     label.style.opacity = '1'
     label.style.visibility = 'visible'
 
     const pin = document.createElement('span')
     pin.setAttribute('aria-hidden', 'true')
-    pin.textContent = CATEGORY_GLYPHS[poi.category] ?? '点'
-    pin.style.cssText = `position:absolute;bottom:6px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;border:3px solid #fff;border-radius:13px 13px 13px 4px;background:#176f46;box-shadow:${selected ? '0 0 0 4px rgb(23 111 70 / 22%),0 4px 12px rgb(0 0 0 / 32%)' : '0 3px 9px rgb(0 0 0 / 24%)'};color:#fff;font:800 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;transform:rotate(-45deg)${selected ? ' scale(1.14)' : ''};transition:transform 140ms ease,box-shadow 140ms ease;`
-    pin.style.background = CATEGORY_COLORS[poi.category] ?? '#176f46'
-    const glyph = document.createElement('span')
-    glyph.textContent = pin.textContent
-    glyph.style.cssText = 'display:block;transform:rotate(45deg);text-shadow:0 1px 2px rgb(0 0 0 / 22%);'
-    pin.textContent = ''
-    pin.append(glyph)
+    const categoryColor = CATEGORY_COLORS[poi.category] ?? '#176f46'
+    if (poi.category === 'dorm') {
+      // 宿舍用自绘小房子，比圆角胶囊更像「楼」，缩小后仍辨得清。
+      pin.style.cssText = `position:absolute;bottom:4px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;filter:drop-shadow(0 3px 6px rgb(0 0 0 / 28%))${selected ? ' saturate(1.15)' : ''};`
+      pin.innerHTML = markerSvg('dorm', { size: 34, color: categoryColor })
+    } else {
+      pin.textContent = CATEGORY_GLYPHS[poi.category] ?? '点'
+      pin.style.cssText = `position:absolute;bottom:6px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;border:3px solid #fff;border-radius:13px 13px 13px 4px;background:#176f46;box-shadow:${selected ? '0 0 0 4px rgb(23 111 70 / 22%),0 4px 12px rgb(0 0 0 / 32%)' : '0 3px 9px rgb(0 0 0 / 24%)'};color:#fff;font:800 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;transform:rotate(-45deg)${selected ? ' scale(1.14)' : ''};transition:transform 140ms ease,box-shadow 140ms ease;`
+      pin.style.background = categoryColor
+      const glyph = document.createElement('span')
+      glyph.textContent = pin.textContent
+      glyph.style.cssText = 'display:block;transform:rotate(45deg);text-shadow:0 1px 2px rgb(0 0 0 / 22%);'
+      pin.textContent = ''
+      pin.append(glyph)
+    }
 
     if (options.onClick) {
       element.addEventListener('click', (event) => {
@@ -1399,15 +1407,50 @@ export class AMapProvider implements MapProvider {
     return { content: element, label }
   }
 
-  private createClusterContent(count: number): HTMLButtonElement {
-    const size = count >= 50 ? 52 : count >= 10 ? 48 : 44
+  /**
+   * 聚合气泡：外圈是数量，内嵌一个小剪影（宿舍/校车/通用），
+   * 这样缩小到街区级别也能看出「这坨是宿舍」而不是一堆数字。
+   */
+  private createClusterContent(count: number, glyph: 'dorm' | 'bus' | 'plain' = 'plain'): HTMLButtonElement {
+    const size = count >= 50 ? 56 : count >= 10 ? 50 : 44
     const element = document.createElement('button')
     element.type = 'button'
     element.title = `${count} 个地点，点击放大`
     element.setAttribute('aria-label', element.title)
-    element.textContent = String(count)
-    element.style.cssText = `display:grid;box-sizing:border-box;width:${size}px;height:${size}px;place-items:center;padding:0;border:3px solid rgb(255 255 255 / 96%);border-radius:50%;background:linear-gradient(145deg,${count >= 50 ? '#b44456,#742536' : count >= 10 ? '#12a3ad,#08717c' : '#24915f,#12613f'});box-shadow:0 0 0 5px rgb(255 255 255 / 26%),0 4px 14px rgb(0 0 0 / 28%);color:#fff;font:800 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;`
+    const palette = count >= 50
+      ? 'linear-gradient(145deg,#b44456,#742536)'
+      : count >= 10
+        ? 'linear-gradient(145deg,#12a3ad,#08717c)'
+        : 'linear-gradient(145deg,#24915f,#12613f)'
+    element.style.cssText = `position:relative;display:grid;box-sizing:border-box;width:${size}px;height:${size}px;place-items:center;padding:0;border:3px solid rgb(255 255 255 / 96%);border-radius:50%;background:${palette};box-shadow:0 0 0 5px rgb(255 255 255 / 26%),0 4px 14px rgb(0 0 0 / 28%);color:#fff;font:800 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;`
+
+    const stack = document.createElement('span')
+    stack.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1;'
+    if (glyph !== 'plain') {
+      const icon = document.createElement('span')
+      icon.style.cssText = 'display:block;opacity:.95;'
+      icon.innerHTML = clusterGlyph(glyph)
+      stack.append(icon)
+    }
+    const text = document.createElement('span')
+    text.textContent = String(count)
+    text.style.cssText = `font:800 ${size >= 50 ? 13 : 12}px/1 system-ui,sans-serif;`
+    stack.append(text)
+    element.append(stack)
     return element
+  }
+
+  /** 聚合里宿舍占一半以上就画房子，否则保持数字。 */
+  private clusterGlyphFor(context: AMapClusterRenderContext): 'dorm' | 'bus' | 'plain' {
+    const data = context.clusterData ?? []
+    if (!data.length) return 'plain'
+    let dorm = 0
+    for (const item of data) {
+      const poiId = (item as { poiId?: string }).poiId
+      const poi = poiId ? this.markers.get(poiId)?.poi : null
+      if (poi?.category === 'dorm') dorm += 1
+    }
+    return dorm * 2 >= data.length ? 'dorm' : 'plain'
   }
 
   private readonly renderMarker = (context: AMapMarkerRenderContext): void => {
@@ -1423,8 +1466,8 @@ export class AMapProvider implements MapProvider {
   }
 
   private readonly renderClusterMarker = (context: AMapClusterRenderContext): void => {
-    context.marker.setContent(this.createClusterContent(context.count))
-    const size = context.count >= 50 ? 52 : context.count >= 10 ? 48 : 44
+    context.marker.setContent(this.createClusterContent(context.count, this.clusterGlyphFor(context)))
+    const size = context.count >= 50 ? 56 : context.count >= 10 ? 50 : 44
     if (this.amap) context.marker.setOffset(new this.amap.Pixel(-size / 2, -size / 2))
   }
 
