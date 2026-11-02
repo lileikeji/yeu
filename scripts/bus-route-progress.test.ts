@@ -101,13 +101,13 @@ test('减速带模型：远离校园的直线只按巡航速度算', () => {
   assert.ok(Math.abs(seconds - 890 / CAMPUS_CRUISE_MPS) < 2, `seconds=${seconds.toFixed(1)}`)
 })
 
-test('减速带模型：碾过一处减速带会多花约 16 秒', () => {
+test('减速带模型：碾过一处减速带会多花约 4 秒（实测减速带段均速 6.9 m/s，接近巡航）', () => {
   const [a, b] = [CAMPUS_SPEED_BUMPS[5]!, CAMPUS_SPEED_BUMPS[6]!]
   const segment = [{ lng: a.lng, lat: a.lat }, { lng: b.lng, lat: b.lat }]
   const meters = 30
   const seconds = travelSecondsAlongPolyline(segment, 0, meters)
   const extra = bumpExtraSeconds()
-  assert.ok(extra > 12 && extra < 20, `extra=${extra.toFixed(2)}`)
+  assert.ok(extra > 2.5 && extra < 7, `extra=${extra.toFixed(2)}`)
   assert.ok(seconds > meters / CAMPUS_CRUISE_MPS + extra * 0.5, `seconds=${seconds.toFixed(1)}`)
   assert.ok(seconds < meters / CAMPUS_CRUISE_MPS + extra * 2.5, `seconds=${seconds.toFixed(1)}`)
 })

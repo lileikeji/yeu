@@ -149,7 +149,7 @@ function pointAtDistance(line: LngLat[], cumulative: number[], distanceAlong: nu
 }
 
 /** 每站上下客停留时间（秒）：实测含停站均速 3.4 m/s 与纯行驶 4 m/s 的差额主要在这里。 */
-export const STATION_DWELL_SECONDS = 10
+export const STATION_DWELL_SECONDS = 60
 
 /** 折线上落在行车轨迹里的减速带沿线里程（横向偏移超过阈值的不算）。 */
 export function bumpDistancesOnLine(line: LngLat[], cumulative: number[]): number[] {
