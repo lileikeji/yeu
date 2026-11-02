@@ -766,6 +766,10 @@ function focusTransitStop(point: { lng: number, lat: number }): void {
   mapProvider.value?.flyToPoint({ ...point, crs: 'GCJ-02' }, 16)
 }
 
+function focusTransitVehicle(point: [number, number]): void {
+  mapProvider.value?.flyToPoint({ lng: point[0], lat: point[1], crs: 'GCJ-02' }, 16)
+}
+
 let transitLoadPromise: Promise<boolean> | null = null
 
 /** 线路快照只拉一次；默认打开时靠它把图层铺上，失败只提示一次。 */
@@ -808,7 +812,7 @@ function transitVehiclesForMap(data: ApiBusLiveResponse | null): MapTransitVehic
 /** 车辆走掌上公交的实时接口，20 秒一轮；只有图层打开时才轮询。 */
 async function refreshTransitLive(): Promise<void> {
   try {
-    transitLive.value = await $fetch<ApiBusLiveResponse>('/api/public/transit/live')
+    transitLive.value = await fetchTransit<ApiBusLiveResponse>('/api/public/transit/live')
     transitLiveError.value = ''
   } catch (error) {
     transitLiveError.value = (error as Error)?.message || '实时车辆暂时取不到'
@@ -821,7 +825,7 @@ async function refreshTransitLive(): Promise<void> {
 async function loadTransitDepartures(): Promise<void> {
   if (transitDepartures.value) return
   try {
-    transitDepartures.value = await $fetch<ApiBusDeparturesResponse>('/api/public/transit/departures')
+    transitDepartures.value = await fetchTransit<ApiBusDeparturesResponse>('/api/public/transit/departures')
   } catch {
     // 时刻表拿不到只影响文字展示
   }
@@ -846,7 +850,7 @@ async function ensureTransitRoutesLoaded(): Promise<boolean> {
   if (transitRoutes.value.length) return true
   if (!transitLoadPromise) {
     transitLoading.value = true
-    transitLoadPromise = $fetch<ApiBusLinesResponse>('/api/public/transit/lines')
+    transitLoadPromise = fetchTransit<ApiBusLinesResponse>('/api/public/transit/lines')
       .then((data) => {
         transitRoutes.value = toTransitRoutes(data)
         transitDirections.value = data.lines
@@ -1721,6 +1725,7 @@ onBeforeUnmount(() => {
       :selected-direction="transitSelectedDirection"
       :left-offset="sidebarCollapsed ? '1rem' : '19rem'"
       @focus-stop="focusTransitStop"
+      @focus-vehicle="focusTransitVehicle"
       @select-direction="changeTransitDirection"
       @change-line="changeTransitLine"
     />

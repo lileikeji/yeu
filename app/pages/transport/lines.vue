@@ -19,7 +19,18 @@ const LINE_COLORS: Record<string, string> = {
   K6: '#e8590c'
 }
 
-const { data, status } = await useFetch<ApiBusLinesResponse>('/api/public/transit/lines')
+// 线路数据要带票据 + 解密，只能在浏览器里取（服务端渲染时没有访客票据）。
+const data = ref<ApiBusLinesResponse | null>(null)
+const status = ref<'pending' | 'success' | 'error'>('pending')
+
+async function loadLines(): Promise<void> {
+  try {
+    data.value = await fetchTransit<ApiBusLinesResponse>('/api/public/transit/lines')
+    status.value = 'success'
+  } catch {
+    status.value = 'error'
+  }
+}
 
 const lineNames = computed<string[]>(() => {
   const names = new Set((data.value?.lines ?? []).map(item => item.line))
@@ -301,7 +312,7 @@ async function refreshLive(): Promise<void> {
   if (!import.meta.client || liveLoading.value) return
   liveLoading.value = true
   try {
-    liveData.value = await $fetch<ApiBusLiveResponse>('/api/public/transit/live')
+    liveData.value = await fetchTransit<ApiBusLiveResponse>('/api/public/transit/live')
     liveUpdatedAt.value = new Date().toLocaleTimeString('zh-CN', { hour12: false })
     liveError.value = ''
     drawVehicles()
@@ -314,7 +325,7 @@ async function refreshLive(): Promise<void> {
 
 async function loadDepartures(): Promise<void> {
   try {
-    departures.value = await $fetch<ApiBusDeparturesResponse>('/api/public/transit/departures')
+    departures.value = await fetchTransit<ApiBusDeparturesResponse>('/api/public/transit/departures')
   } catch {
     // 时刻表拿不到就不展示，不影响线路图
   }
@@ -323,6 +334,7 @@ async function loadDepartures(): Promise<void> {
 watch(showVehicles, () => drawVehicles())
 
 onMounted(() => {
+  void loadLines()
   if (status.value !== 'pending') void ensureMap()
   void refreshLive()
   void loadDepartures()

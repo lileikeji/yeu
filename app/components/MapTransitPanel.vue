@@ -25,6 +25,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'focus-stop': [point: { lng: number, lat: number }]
+  'focus-vehicle': [point: [number, number]]
   'select-direction': [line: ApiBusLineDirection]
   'change-line': [line: string]
 }>()
@@ -73,6 +74,23 @@ function laterDepartures(direction: ApiBusLineDirection): string[] {
 
 function onlineCount(direction: ApiBusLineDirection): number {
   return liveOf(direction)?.vehicles.length ?? 0
+}
+
+/** 在途车辆按离下一站由近到远排，最靠前的那辆在最上面。 */
+function vehiclesOf(direction: ApiBusLineDirection): ApiBusLiveDirection['vehicles'] {
+  const list = liveOf(direction)?.vehicles ?? []
+  return [...list].sort((a, b) => (a.distanceToNext ?? 99999) - (b.distanceToNext ?? 99999))
+}
+
+function shortPlate(plate: string): string {
+  return plate.replace(/^闽C/, '') || plate
+}
+
+function distanceText(meters: number | undefined): string {
+  if (meters === undefined || !Number.isFinite(meters)) return ''
+  if (meters <= 30) return '已到站'
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`
+  return `${Math.round(meters)} m`
 }
 
 const lineDirections = computed(() => selectedLine.value === ALL
@@ -279,6 +297,41 @@ const snapshotText = computed(() => {
             :class="expandedId === direction.id ? 'rotate-90' : ''"
           />
         </button>
+
+        <!-- 在途车辆：车牌 + 到哪一站 + 还有多远，点一下地图跟过去 -->
+        <ol
+          v-if="vehiclesOf(direction).length"
+          class="overscroll-y-contain border-t border-dashed border-zinc-100 pb-1 md:max-h-40 md:overflow-y-auto dark:border-zinc-800"
+        >
+          <li
+            v-for="vehicle in vehiclesOf(direction)"
+            :key="vehicle.plate"
+          >
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-3 py-1 text-left transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+              @click="emit('focus-vehicle', vehicle.point)"
+            >
+              <span
+                class="grid size-4 shrink-0 place-items-center rounded-sm text-[9px] font-bold text-white"
+                :style="{ backgroundColor: lineColor(direction.line) }"
+              >
+                巴
+              </span>
+              <span class="min-w-0 flex-1 truncate text-[11px] text-zinc-700 dark:text-zinc-200">
+                {{ shortPlate(vehicle.plate) }}
+                <span class="text-zinc-400">→</span>
+                {{ vehicle.nextStation || '在途' }}
+              </span>
+              <span
+                class="shrink-0 text-[10px] tabular-nums"
+                :class="(vehicle.distanceToNext ?? 9999) < 500 ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'"
+              >
+                {{ distanceText(vehicle.distanceToNext) }}
+              </span>
+            </button>
+          </li>
+        </ol>
 
         <div
           v-if="expandedId === direction.id"

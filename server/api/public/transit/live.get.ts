@@ -1,10 +1,10 @@
 import { createError, getQuery, setHeader } from 'h3'
-import type { ApiBusLiveResponse } from '../../../../shared/types/server'
 import { isBusLineName } from '../../../modules/transit/bus-lines'
 import { busLiveFor } from '../../../modules/transit/mygolbs'
 import { getClientIpAddress } from '../../../utils/client-ip'
 import { setPublicCache } from '../../../utils/http'
 import { assertRateLimit } from '../../../utils/rate-limit'
+import { assertTransitTicket, encodeTransitPayload, transitNonceFrom } from '../../../utils/transit-guard'
 
 /**
  * 校外公交实时车辆位置（掌上公交）。
@@ -12,7 +12,7 @@ import { assertRateLimit } from '../../../utils/rate-limit'
  * 上游缓存 20 秒，页面按同样的节奏轮询；这里给浏览器 10 秒缓存，避免多标签
  * 重复打上游。上游挂了先返回 5 分钟内的旧数据。
  */
-export default defineEventHandler(async (event): Promise<ApiBusLiveResponse> => {
+export default defineEventHandler(async (event) => {
   setHeader(event, 'Cache-Control', 'no-store')
   const query = getQuery(event)
   const requested = typeof query.line === 'string' ? query.line : ''
@@ -20,12 +20,15 @@ export default defineEventHandler(async (event): Promise<ApiBusLiveResponse> => 
     throw createError({ statusCode: 400, statusMessage: 'Unsupported bus line' })
   }
 
+  // 票据先校验：401/403 不能被下面的 502 兜底吞掉。
+  const signature = assertTransitTicket(event)
+
   assertRateLimit(event, `public:bus-live:${getClientIpAddress(event)}`, 90, 60_000)
 
   try {
     const data = await busLiveFor(requested)
-    setPublicCache(event, 10)
-    return data
+    setPublicCache(event, 0)
+    return encodeTransitPayload(signature, transitNonceFrom(event), data)
   } catch (error) {
     throw createError({
       statusCode: 502,
