@@ -3,7 +3,7 @@ import type { CoordinateReferenceSystem } from '~~/shared/types'
 import type { MapProvider } from '~~/map/core/provider'
 import type { MapBus, MapBusRoute, MapBusStop } from '~~/map/core/types'
 import { BUS_POSITIONS_API_PATH } from '~~/shared/constants/server'
-import { bearingDegrees, computeBusProgress, haversineMeters } from '~~/shared/utils/bus-route-progress'
+import { bearingDegrees, computeBusProgress, haversineMeters, snapToPolyline } from '~~/shared/utils/bus-route-progress'
 
 /** 线路快照（校车实时接口响应 routes[]，路径见 shared/constants/server.ts BUS_POSITIONS_API_PATH）。 */
 export interface BusRouteSnapshot {
@@ -78,18 +78,36 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
   const lastFix = new Map<string, { lng: number, lat: number }>()
   let lastData: BusPositionsResponse | null = null
 
+
+  /**
+   * 站点压到线路上：YKT 的站点坐标是实地点位（门口、楼前），直接画会浮在路外、
+   * 面板上的「下一站 / 距离」也会跟着偏。这里把每个站点投到本线路折线上最近的
+   * 一点（30 米内才吸），站点标记就沿着线走了。
+   */
+  function snapStops(route: BusRouteSnapshot, crs: MapBusStop['point']['crs']): MapBusStop[] {
+    const line = (route.polyline ?? []).filter(point => Number.isFinite(point.lng) && Number.isFinite(point.lat))
+    return route.stops.map((stop): MapBusStop => {
+      let point = { lng: stop.lng, lat: stop.lat }
+      if (line.length >= 2) {
+        const snapped = snapToPolyline(point, line)
+        if (snapped && snapped.offsetMeters <= 30) point = snapped.point
+      }
+      return {
+        id: stop.siteId,
+        name: stop.siteName,
+        point: { lng: point.lng, lat: point.lat, crs },
+        isOrigin: stop.isOrigin,
+        isDestination: stop.isDestination
+      }
+    })
+  }
+
   function toRoutes(data: BusPositionsResponse): MapBusRoute[] {
     const crs = toCrs(data.coordinateSystem)
     return data.routes.map((route): MapBusRoute => ({
       id: route.routeId,
       name: route.routeName,
-      stops: route.stops.map((stop): MapBusStop => ({
-        id: stop.siteId,
-        name: stop.siteName,
-        point: { lng: stop.lng, lat: stop.lat, crs },
-        isOrigin: stop.isOrigin,
-        isDestination: stop.isDestination
-      })),
+      stops: snapStops(route, crs),
       polyline: (route.polyline ?? [])
         .filter(point => Number.isFinite(point.lng) && Number.isFinite(point.lat))
         .map(point => ({ lng: point.lng, lat: point.lat, crs }))

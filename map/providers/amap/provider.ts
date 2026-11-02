@@ -1376,12 +1376,16 @@ export class AMapProvider implements MapProvider {
         const closedPath = lastPoint?.[0] === firstPoint[0] && lastPoint[1] === firstPoint[1]
           ? path
           : [...path, firstPoint]
+        // 区域描边别用暖色实线——它和校车线路撞色，看起来像「画错的路线」。
+        // 平时统一成灰色虚线，选中才恢复本色。
+        const areaSelected = this.selectedAreaId === area.id
         const outline = new amap.Polyline({
           path: closedPath,
-          strokeColor: area.strokeColor,
-          strokeWeight: 1.6,
-          strokeOpacity: 0.5,
-          strokeStyle: 'solid',
+          strokeColor: areaSelected ? area.strokeColor : '#94a3b8',
+          strokeWeight: areaSelected ? 2 : 1.4,
+          strokeOpacity: areaSelected ? 0.9 : 0.45,
+          strokeStyle: 'dashed',
+          strokeDasharray: [5, 5],
           bubble: true,
           zIndex: 30
         })

@@ -15,6 +15,7 @@ import type {
 } from '~~/map/core/provider'
 import { wgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
+import { snapToPolyline } from '~~/shared/utils/bus-route-progress'
 import { officialSources } from '~~/data/seeds/public-content'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
@@ -700,8 +701,28 @@ const speedBumpsVisible = ref(true)
 /** 底图自带 POI 注记默认关掉：只剩项目自己的建筑图标，画面才不糊。 */
 const basemapLabelsVisible = ref(false)
 
+/**
+ * 减速带标点压到车行道中心：原始点位是现场标的，偏移几米就会浮在路外。
+ * 按当前校车折线取最近点（25 米内才吸），没有折线时用原点位。
+ */
+function snappedSpeedBumps(): MapSpeedBump[] {
+  const lines = busRoutes.value
+    .map(route => (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat })))
+    .filter(line => line.length >= 2)
+  if (!lines.length) return speedBumpPoints
+  return speedBumpPoints.map((bump) => {
+    let best: { point: { lng: number, lat: number }, offsetMeters: number } | null = null
+    for (const line of lines) {
+      const snapped = snapToPolyline({ lng: bump.point.lng, lat: bump.point.lat }, line)
+      if (snapped && (!best || snapped.offsetMeters < best.offsetMeters)) best = snapped
+    }
+    if (!best || best.offsetMeters > 25) return bump
+    return { ...bump, point: { ...bump.point, lng: best.point.lng, lat: best.point.lat } }
+  })
+}
+
 function applySpeedBumps(provider = mapProvider.value): void {
-  provider?.setSpeedBumps?.(speedBumpsVisible.value ? speedBumpPoints : [])
+  provider?.setSpeedBumps?.(speedBumpsVisible.value ? snappedSpeedBumps() : [])
   provider?.setBasemapLabels?.(basemapLabelsVisible.value)
 }
 
@@ -719,6 +740,11 @@ function toggleSpeedBumps(): void {
   speedBumpsVisible.value = !speedBumpsVisible.value
   applySpeedBumps()
 }
+
+// 折线每 5 秒刷新一次，减速带跟着重新吸到路上（27 个点，开销可忽略）。
+watch(busRoutes, () => {
+  if (speedBumpsVisible.value) applySpeedBumps()
+})
 
 /** 只显示某条线路（'all' = 全部）。 */
 const transitLineFilter = ref<string>('all')

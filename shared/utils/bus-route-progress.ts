@@ -71,6 +71,36 @@ function segmentBearing(a: LngLat, b: LngLat): number {
   return (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360
 }
 
+/**
+ * 把点吸到折线上最近的一点（校园尺度用平面近似足够）。
+ * 返回吸附后的坐标与偏离距离；折线不足两点返回 null。
+ * 站点、减速带标点都用它压到路面中心，避免图标浮在路外。
+ */
+export function snapToPolyline(point: LngLat, line: LngLat[]): { point: LngLat, offsetMeters: number } | null {
+  if (line.length < 2) return null
+  const cumulative = cumulativeDistances(line)
+  let bestOffset = Infinity
+  let bestPoint: LngLat | null = null
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = line[i]!
+    const b = line[i + 1]!
+    const cosLat = Math.cos(toRadians(a.lat))
+    const abx = toRadians(b.lng - a.lng) * cosLat * EARTH_RADIUS_M
+    const aby = toRadians(b.lat - a.lat) * EARTH_RADIUS_M
+    const apx = toRadians(point.lng - a.lng) * cosLat * EARTH_RADIUS_M
+    const apy = toRadians(point.lat - a.lat) * EARTH_RADIUS_M
+    const lengthSquared = abx * abx + aby * aby
+    const t = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0, (apx * abx + apy * aby) / lengthSquared))
+    const closest: LngLat = { lng: a.lng + (b.lng - a.lng) * t, lat: a.lat + (b.lat - a.lat) * t }
+    const offset = haversineMeters(point, closest)
+    if (offset < bestOffset) {
+      bestOffset = offset
+      bestPoint = closest
+    }
+  }
+  return bestPoint ? { point: bestPoint, offsetMeters: bestOffset } : null
+}
+
 export function cumulativeDistances(line: LngLat[]): number[] {
   const cumulative = [0]
   for (let i = 1; i < line.length; i++) {
