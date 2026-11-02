@@ -164,6 +164,11 @@ export class AMapProvider implements MapProvider {
   private selectedPoiId: string | null = null
   private buses: MapBus[] = []
   private busMarkers = new Map<string, { marker: AMapMarker, token: object, icon: HTMLElement | null }>()
+  /** 上次位置与车头朝向（度，正北 0° 顺时针），用于按位移方向推朝向、过弯时平滑。 */
+  private busHeadings = new Map<string, { lng: number, lat: number, heading: number }>()
+  private transitVehicleHeadings = new Map<string, { lng: number, lat: number, heading: number }>()
+  /** 公交 GPS 跳点闸门：记录上次认账的位置与连续跳点次数。 */
+  private transitVehicleAnchors = new Map<string, { lng: number, lat: number, rejects: number, at: number }>()
   private busRoutes: MapBusRoute[] = []
   private busRoutePolylines: AMapPolyline[] = []
   private busStopMarkers: AMapMarker[] = []
@@ -497,15 +502,16 @@ export class AMapProvider implements MapProvider {
       }
       const record = this.busMarkers.get(bus.id)
       const token = record?.token ?? {}
+      const heading = this.resolveHeading(this.busHeadings, bus.id, bus.point, bus.angleDeg)
       const draw = (position: AMapPosition): void => {
         const current = this.busMarkers.get(bus.id)
         if (current && current.token !== token) return // A newer update superseded this one.
         if (current) {
           current.marker.setPosition(position)
-          if (current.icon) current.icon.style.transform = `rotate(${bus.angleDeg ?? 0}deg)`
+          if (current.icon) current.icon.innerHTML = vehicleSvg({ color: '#c2410c', angleDeg: heading, size: 40 })
           return
         }
-        const chip = this.createBusChip(bus)
+        const chip = this.createBusChip(bus, heading)
         const marker = new amap.Marker({
           position,
           anchor: 'center',
@@ -529,6 +535,36 @@ export class AMapProvider implements MapProvider {
     }
   }
 
+  /**
+   * 车头朝向：优先用相邻两次位置的位移方向（真实行进方向），
+   * 位置没动（在站里停着 / GPS 抖动 < 6 m）就沿用上次朝向；
+   * 都没有时才退回接口给的 angle。跨 0°/360° 时取与上次最接近的等价角，避免瞬间翻转。
+   */
+  private resolveHeading(
+    store: Map<string, { lng: number, lat: number, heading: number }>,
+    key: string,
+    point: { lng: number, lat: number },
+    fallback?: number
+  ): number {
+    const last = store.get(key)
+    let heading: number | null = null
+    if (last) {
+      const meters = haversineMeters(last, point)
+      if (meters >= 6) heading = bearingDegrees(last, point)
+      else heading = last.heading
+    }
+    if (heading === null) {
+      heading = typeof fallback === 'number' && Number.isFinite(fallback) ? fallback : 0
+    }
+    let normalized = ((heading % 360) + 360) % 360
+    if (last) {
+      while (normalized - last.heading > 180) normalized -= 360
+      while (normalized - last.heading < -180) normalized += 360
+    }
+    store.set(key, { lng: point.lng, lat: point.lat, heading: normalized })
+    return normalized
+  }
+
   private removeBusMarker(id: string): void {
     const record = this.busMarkers.get(id)
     if (!record) return
@@ -536,7 +572,7 @@ export class AMapProvider implements MapProvider {
     this.busMarkers.delete(id)
   }
 
-  private createBusChip(bus: MapBus): HTMLElement {
+  private createBusChip(bus: MapBus, headingDeg: number): HTMLElement {
     const element = document.createElement('div')
     element.title = bus.siteName ? `${bus.name}（${bus.isAtSite ? '已到站' : '行驶中'}·${bus.siteName}）` : bus.name
     element.setAttribute('aria-label', element.title)
@@ -544,8 +580,8 @@ export class AMapProvider implements MapProvider {
     element.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px;cursor:default;filter:drop-shadow(0 2px 4px rgb(0 0 0 / 35%));'
     const icon = document.createElement('span')
     icon.dataset.busIcon = ''
-    icon.style.cssText = 'display:grid;place-items:center;width:34px;height:34px;'
-    icon.innerHTML = vehicleSvg({ color: '#c2410c', angleDeg: bus.angleDeg, size: 34 })
+    icon.style.cssText = 'display:grid;place-items:center;width:40px;height:40px;'
+    icon.innerHTML = vehicleSvg({ color: '#c2410c', angleDeg: headingDeg, size: 40 })
     const label = document.createElement('span')
     label.textContent = bus.name
     label.style.cssText = 'padding:0 4px;border-radius:4px;background:rgb(255 255 255 / 92%);color:#9a3412;font:700 11px/1.5 system-ui,sans-serif;white-space:nowrap;'
@@ -745,13 +781,14 @@ export class AMapProvider implements MapProvider {
     if (!map || !amap) return
 
     const token = this.transitVehicleToken = {}
-    const points = vehicles.map(vehicle => vehicle.point)
+    const settled = vehicles.map(vehicle => this.settleTransitVehicle(vehicle))
+    const points = settled.map(vehicle => vehicle.point)
     void this.convertPoints(points, amap).then((positions) => {
       if (this.transitVehicleToken !== token) return
       const mapNow = this.map
       const amapNow = this.amap
       if (!mapNow || !amapNow) return
-      vehicles.forEach((vehicle, index) => {
+      settled.forEach((vehicle, index) => {
         const position = positions[index]
         if (!position) return
         const marker = new amapNow.Marker({
@@ -770,6 +807,33 @@ export class AMapProvider implements MapProvider {
     this.transitVehicleToken = {}
     if (this.transitVehicleMarkers.length) this.map?.remove(this.transitVehicleMarkers)
     this.transitVehicleMarkers = []
+  }
+
+  /**
+   * 公交 GPS 跳点闸门：20 秒一轮，隐含速度超过 20 m/s（72 km/h）就当跳点，
+   * 继续用上次认账的位置（车不往回瞬移）；连续两轮都这样才认账。
+   */
+  private settleTransitVehicle(vehicle: MapTransitVehicle): MapTransitVehicle {
+    const now = Date.now()
+    const last = this.transitVehicleAnchors.get(vehicle.id)
+    if (!last) {
+      this.transitVehicleAnchors.set(vehicle.id, { lng: vehicle.point.lng, lat: vehicle.point.lat, rejects: 0, at: now })
+      return vehicle
+    }
+    const seconds = Math.max(1, (now - last.at) / 1000)
+    const meters = haversineMeters(last, vehicle.point)
+    if (meters / seconds > 20) {
+      last.rejects += 1
+      last.at = now
+      if (last.rejects < 2) {
+        return { ...vehicle, point: { ...vehicle.point, lng: last.lng, lat: last.lat } }
+      }
+    }
+    last.rejects = 0
+    last.lng = vehicle.point.lng
+    last.lat = vehicle.point.lat
+    last.at = now
+    return vehicle
   }
 
   private createTransitVehicleChip(vehicle: MapTransitVehicle): HTMLElement {
@@ -793,7 +857,8 @@ export class AMapProvider implements MapProvider {
     const plate = vehicle.plate.replace('闽C', '')
     const icon = document.createElement('span')
     icon.style.cssText = 'display:grid;place-items:center;flex:none;width:20px;height:20px;'
-    icon.innerHTML = vehicleSvg({ color: vehicle.color ?? '#1a6cf5', angleDeg: vehicle.angleDeg, size: 20 })
+    const heading = this.resolveHeading(this.transitVehicleHeadings, vehicle.id, vehicle.point, vehicle.angleDeg)
+    icon.innerHTML = vehicleSvg({ color: vehicle.color ?? '#1a6cf5', angleDeg: heading, size: 22 })
     const label = document.createElement('span')
     label.textContent = plate || '在途'
     element.append(icon, label)
@@ -1973,4 +2038,18 @@ export class AMapProvider implements MapProvider {
     this.userLocation = null
     this.hotspotInfoWindow = null
   }
+}
+
+/** 两点间水平距离（米）。校园尺度下等距投影足够。 */
+function haversineMeters(a: { lng: number, lat: number }, b: { lng: number, lat: number }): number {
+  const scale = Math.cos(a.lat * Math.PI / 180) * 111_320
+  return Math.hypot((b.lng - a.lng) * scale, (b.lat - a.lat) * 110_540)
+}
+
+/** 方位角（度，正北 0°，顺时针）。 */
+function bearingDegrees(a: { lng: number, lat: number }, b: { lng: number, lat: number }): number {
+  const scale = Math.cos(a.lat * Math.PI / 180) * 111_320
+  const dx = (b.lng - a.lng) * scale
+  const dy = (b.lat - a.lat) * 110_540
+  return Math.atan2(dx, dy) * 180 / Math.PI
 }

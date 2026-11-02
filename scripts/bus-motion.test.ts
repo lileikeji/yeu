@@ -75,3 +75,31 @@ test('stepMotion 断讯按末速外推（coast 生效）', () => {
   stepMotion(state, 30_000, 1, 1_000)
   assert.ok(state.display > 0, '断讯期间显示位仍向前走')
 })
+
+test('GPS 回调：倒车超过容差先不认，保留预测位', () => {
+  let state = observeMotion(null, 500, 1_000, 1_000, 1, 'moving')
+  state = observeMotion(state, 520, 6_000, 6_000, 1, 'moving')
+  assert.ok(Math.abs(state.position - 520) < 1e-6, `position=${state.position}`)
+  const before = state.position
+  state = observeMotion(state, 380, 11_000, 11_000, 1, 'moving')
+  assert.ok(Math.abs(state.position - before) < 1e-6, '回调不应改写实测位')
+  assert.equal(state.rejects, 1)
+  assert.ok(state.speed > 0, '保持前行速度继续滑行')
+})
+
+test('GPS 回调：连续三次同向跳点后重新锚定', () => {
+  let state = observeMotion(null, 500, 1_000, 1_000, 1, 'moving')
+  state = observeMotion(state, 520, 6_000, 6_000, 1, 'moving')
+  state = observeMotion(state, 380, 11_000, 11_000, 1, 'moving')
+  state = observeMotion(state, 380, 16_000, 16_000, 1, 'moving')
+  state = observeMotion(state, 380, 21_000, 21_000, 1, 'moving')
+  assert.ok(Math.abs(state.position - 380) < 1e-6, `position=${state.position}`)
+  assert.equal(state.rejects, 0)
+})
+
+test('GPS 跳点：超速位移（>14 m/s）不采纳', () => {
+  let state = observeMotion(null, 0, 1_000, 1_000, 1, 'moving')
+  state = observeMotion(state, 400, 6_000, 6_000, 1, 'moving')
+  assert.ok(state.position === 0, `position=${state.position}`)
+  assert.equal(state.rejects, 1)
+})

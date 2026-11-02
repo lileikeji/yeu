@@ -52,7 +52,7 @@ export const CAMPUS_SPEED_BUMPS: SpeedBump[] = CAMPUS_SPEED_BUMPS_GCJ02.map((bum
 })
 
 /** 道路巡航速度（m/s，约 23 km/h）。 */
-export const CAMPUS_CRUISE_MPS = 7.0
+export const CAMPUS_CRUISE_MPS = 6.4
 /** 轮子压过减速带时的爬行速度（m/s，约 3.6 km/h；现场是「几乎停下」再挪过去）。 */
 export const BUMP_CRAWL_MPS = 1.0
 /** 减速带「带内」半径（米）：这圈里就是爬行速度。 */

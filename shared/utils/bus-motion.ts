@@ -21,7 +21,16 @@ export interface BusMotionState {
   speed: number
   /** 行驶方向（1=沿线正向） */
   dir: number
+  /** 连续被判定为「跳点」的次数；连续多次才认账，避免 GPS 回调把车拽回去。 */
+  rejects?: number
 }
+
+/** 可信速度上限（m/s）：校园电瓶车 3–4 m/s，超过 14 m/s（50 km/h）视为跳点。 */
+const MAX_PLAUSIBLE_MPS = 14
+/** 允许的倒退量（米）：在此之内当作 GPS 抖动吸收，超过则视为回调。 */
+const BACK_TOLERANCE_M = 30
+/** 连续多少次跳点后认账（例如线路重置、车辆换线）。 */
+const REANCHOR_AFTER = 3
 
 /**
  * 断讯外推秒数：前 45s 按实测速度滑行，45–165s 线性缓降到 55% 速度，之后恒速慢行。
@@ -69,7 +78,20 @@ export function observeMotion(
   const fresh = stamp > 0 && (!state.stamp || stamp > state.stamp)
   if (fresh) {
     const seconds = state.stamp ? (stamp - state.stamp) / 1000 : 0
-    const measured = seconds > 0 && seconds <= 90 ? (position - state.position) / seconds : 0
+    const delta = position - state.position
+    const measured = seconds > 0 && seconds <= 90 ? delta / seconds : 0
+    // 跳点判定：倒车超过容差、或隐含速度超过可信上限 —— 保留预测位，等下一帧再看。
+    const jumpBack = delta < -BACK_TOLERANCE_M
+    const tooFast = Math.abs(measured) > MAX_PLAUSIBLE_MPS
+    if (seconds > 0 && (tooFast || jumpBack)) {
+      state.rejects = (state.rejects ?? 0) + 1
+      state.received = received
+      if (state.rejects < REANCHOR_AFTER) {
+        state.stamp = stamp
+        return state
+      }
+    }
+    state.rejects = 0
     state.speed = status !== 'moving'
       ? 0
       : demo

@@ -205,18 +205,20 @@ export function vehicleSvg(options: { color?: string, angleDeg?: number, size?: 
   const angle = typeof options.angleDeg === 'number' && Number.isFinite(options.angleDeg)
     ? ((options.angleDeg % 360) + 360) % 360
     : 0
+  // 车身长、车头在前（+Y = 正北）；rotate 以中心为轴，拐弯时车头始终朝行进方向。
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 32 32" role="img" aria-label="校车">
     <g transform="rotate(${angle} 16 16)">
-      <rect x="9.6" y="5.4" width="12.8" height="21.2" rx="4.4" fill="#fff" stroke="${color}" stroke-width="2"/>
-      <path d="M10.4 8.6h11.2" stroke="${color}" stroke-width="0" />
-      <rect x="11.2" y="7.4" width="9.6" height="4.4" rx="1.6" fill="#bfdbfe" stroke="${color}" stroke-width="1"/>
-      <rect x="11.2" y="13.6" width="9.6" height="2.6" rx="1.2" fill="${color}" opacity=".28"/>
-      <rect x="11.2" y="18.2" width="9.6" height="2.6" rx="1.2" fill="${color}" opacity=".28"/>
-      <circle cx="10" cy="11.4" r="1.5" fill="#facc15"/>
-      <circle cx="22" cy="11.4" r="1.5" fill="#facc15"/>
-      <circle cx="10" cy="23" r="1.4" fill="#dc2626"/>
-      <circle cx="22" cy="23" r="1.4" fill="#dc2626"/>
-      <path d="M12.4 26.2h7.2" stroke="${color}" stroke-width="1.6" stroke-linecap="round"/>
+      <rect x="10.6" y="1.8" width="10.8" height="28.4" rx="5" fill="#fff" stroke="${color}" stroke-width="1.9"/>
+      <path d="M10.6 12.2h10.8" stroke="${color}" stroke-width="1" opacity=".3"/>
+      <path d="M10.6 19.4h10.8" stroke="${color}" stroke-width="1" opacity=".3"/>
+      <rect x="12" y="3.6" width="8" height="4.4" rx="1.3" fill="#bfdbfe" stroke="${color}" stroke-width=".9"/>
+      <rect x="12" y="16.2" width="8" height="2" rx="1" fill="${color}" opacity=".2"/>
+      <rect x="12" y="22.4" width="8" height="2" rx="1" fill="${color}" opacity=".2"/>
+      <circle cx="12.6" cy="9.6" r="1.25" fill="#facc15" stroke="${color}" stroke-width=".6"/>
+      <circle cx="19.4" cy="9.6" r="1.25" fill="#facc15" stroke="${color}" stroke-width=".6"/>
+      <circle cx="12.6" cy="27.8" r="1.15" fill="#dc2626"/>
+      <circle cx="19.4" cy="27.8" r="1.15" fill="#dc2626"/>
+      <path d="M13 29.9h6" stroke="${color}" stroke-width="1.4" stroke-linecap="round"/>
     </g>
   </svg>`
 }
