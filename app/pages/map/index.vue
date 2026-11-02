@@ -690,6 +690,8 @@ const transitDepartures = shallowRef<ApiBusDeparturesResponse | null>(null)
 const transitLiveError = ref('')
 /** 只显示某条线路（'all' = 全部）。 */
 const transitLineFilter = ref<string>('all')
+/** 只显示某个方向（空串 = 双向都画）。 */
+const transitSelectedDirection = ref<string>('')
 let transitLiveTimer: ReturnType<typeof setInterval> | null = null
 const TRANSIT_LINE_COLORS: Record<string, string> = { K2: '#1a6cf5', K6: '#e8590c' }
 
@@ -743,37 +745,54 @@ watch(busPanelOpen, (open) => {
 
 function changeTransitLine(line: string): void {
   transitLineFilter.value = line
+  transitSelectedDirection.value = ''
   mapProvider.value?.setTransitRoutes?.(visibleTransitRoutes.value)
   mapProvider.value?.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
   // 只看单条线路时把视野拉到这条线，否则车辆多半在校园视角外，看着像没有车
   if (line !== 'all') focusTransitRoutes(visibleTransitRoutes.value)
 }
 
-function focusTransitStop(point: { lng: number, lat: number }): void {
-  mapProvider.value?.flyToPoint({ ...point, crs: 'GCJ-02' }, 16)
+/** 点某个方向：只画这一条折线 + 这一条上的车；再点一次回到双向。 */
+function changeTransitDirection(line: ApiBusLineDirection): void {
+  const same = transitSelectedDirection.value === line.id
+  transitSelectedDirection.value = same ? '' : line.id
+  transitLineFilter.value = same ? 'all' : line.line
+  mapProvider.value?.setTransitRoutes?.(visibleTransitRoutes.value)
+  mapProvider.value?.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
+  if (visibleTransitRoutes.value.length) focusTransitRoutes(visibleTransitRoutes.value)
 }
 
-function focusTransitDirection(line: ApiBusLineDirection): void {
-  focusTransitRoutes([{
-    id: `transit-${line.id}`,
-    name: `${line.line} ${line.from}→${line.to}`,
-    color: TRANSIT_LINE_COLORS[line.line] ?? '#1a6cf5',
-    polyline: line.polyline.map(([lng, lat]) => ({ lng, lat, crs: 'GCJ-02' as const })),
-    stops: []
-  }])
+function focusTransitStop(point: { lng: number, lat: number }): void {
+  mapProvider.value?.flyToPoint({ ...point, crs: 'GCJ-02' }, 16)
 }
 
 let transitLoadPromise: Promise<boolean> | null = null
 
 /** 线路快照只拉一次；默认打开时靠它把图层铺上，失败只提示一次。 */
-const visibleTransitRoutes = computed(() => transitLineFilter.value === 'all'
-  ? transitRoutes.value
-  : transitRoutes.value.filter(route => route.name.startsWith(`${transitLineFilter.value} `)))
+const transitDirectionScope = computed(() => transitSelectedDirection.value
+  ? transitDirections.value.find(item => item.id === transitSelectedDirection.value) ?? null
+  : null)
+
+function sameStation(a: string, b: string): boolean {
+  return a === b || a.includes(b) || b.includes(a)
+}
+
+const visibleTransitRoutes = computed(() => {
+  const byLine = transitLineFilter.value === 'all'
+    ? transitRoutes.value
+    : transitRoutes.value.filter(route => route.name.startsWith(`${transitLineFilter.value} `))
+  const scope = transitDirectionScope.value
+  if (!scope) return byLine
+  return byLine.filter(route => route.id === `transit-${scope.id}`)
+})
 
 function transitVehiclesForMap(data: ApiBusLiveResponse | null): MapTransitVehicle[] {
   if (!data) return []
   const filter = transitLineFilter.value
-  const directions = filter === 'all' ? data.directions : data.directions.filter(item => item.line === filter)
+  const scope = transitDirectionScope.value
+  const directions = (filter === 'all' ? data.directions : data.directions.filter(item => item.line === filter))
+    .filter(item => !scope
+      || (item.line === scope.line && sameStation(item.from, scope.from) && sameStation(item.to, scope.to)))
   return directions.flatMap(direction =>
     direction.vehicles.map((vehicle, index) => ({
       id: `${direction.line}-${direction.direction}-${vehicle.plate || index}`,
@@ -1699,9 +1718,10 @@ onBeforeUnmount(() => {
       :live="transitLive"
       :departures="transitDepartures"
       :live-error="transitLiveError"
+      :selected-direction="transitSelectedDirection"
       :left-offset="sidebarCollapsed ? '1rem' : '19rem'"
       @focus-stop="focusTransitStop"
-      @focus-direction="focusTransitDirection"
+      @select-direction="changeTransitDirection"
       @change-line="changeTransitLine"
     />
   </div>

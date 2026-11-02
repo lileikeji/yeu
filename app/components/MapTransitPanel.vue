@@ -18,12 +18,14 @@ const props = defineProps<{
   /** 全天发车时刻表。 */
   departures?: ApiBusDeparturesResponse | null
   liveError?: string
+  /** 当前只看某一个方向（方向 id）；空串表示双向都画。 */
+  selectedDirection?: string
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'focus-stop': [point: { lng: number, lat: number }]
-  'focus-direction': [line: ApiBusLineDirection]
+  'select-direction': [line: ApiBusLineDirection]
   'change-line': [line: string]
 }>()
 
@@ -94,8 +96,28 @@ watch(() => props.open, (open) => {
   if (open) nextTick(autoExpandOnMobile)
 }, { immediate: true })
 
+/** 页面侧切了“只看某方向”时，标签页跟着走，避免标签写着全部但地图只有一条。 */
+watch(() => props.selectedDirection, (id) => {
+  if (!id) {
+    selectedLine.value = ALL
+    return
+  }
+  const hit = props.directions.find(item => item.id === id)
+  if (hit) selectedLine.value = hit.line
+})
+
 function lineColor(line: string): string {
   return LINE_COLORS[line] ?? '#1a6cf5'
+}
+
+const selectedDirectionLabel = computed(() => {
+  const hit = props.directions.find(item => item.id === props.selectedDirection)
+  return hit ? `${hit.line} ${hit.from} → ${hit.to}` : ''
+})
+
+function clearDirection(): void {
+  const hit = props.directions.find(item => item.id === props.selectedDirection)
+  if (hit) emit('select-direction', hit)
 }
 
 function priceText(direction: ApiBusLineDirection): string {
@@ -104,9 +126,11 @@ function priceText(direction: ApiBusLineDirection): string {
   return `全程 ${direction.totalPrice} 元（起步 ${direction.basicPrice ?? '-'} 元）`
 }
 
+/** 点方向行 = 只看这一条（地图只留这条折线与它的车）；再点一次回到双向。 */
 function toggleDirection(direction: ApiBusLineDirection): void {
-  expandedId.value = expandedId.value === direction.id ? '' : direction.id
-  if (expandedId.value) emit('focus-direction', direction)
+  const selected = props.selectedDirection === direction.id
+  expandedId.value = selected ? '' : direction.id
+  emit('select-direction', direction)
 }
 
 const snapshotText = computed(() => {
@@ -177,11 +201,28 @@ const snapshotText = computed(() => {
       </button>
     </div>
 
+    <div
+      v-if="selectedDirectionLabel"
+      class="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-100 px-3 py-1 dark:border-zinc-800"
+    >
+      <span class="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+        只看 {{ selectedDirectionLabel }}
+      </span>
+      <button
+        type="button"
+        class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-blue-600 transition hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+        @click="clearDirection"
+      >
+        显示双向
+      </button>
+    </div>
+
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
       <article
         v-for="direction in lineDirections"
         :key="direction.id"
-        class="border-b border-zinc-100 last:border-b-0 dark:border-zinc-800"
+        class="border-b border-zinc-100 transition-colors last:border-b-0 dark:border-zinc-800"
+        :class="selectedDirection === direction.id ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''"
       >
         <button
           type="button"
@@ -196,6 +237,16 @@ const snapshotText = computed(() => {
           <span class="min-w-0 flex-1">
             <span class="block truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">
               {{ direction.from }} → {{ direction.to }}
+            </span>
+            <span
+              v-if="selectedDirection === direction.id"
+              class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-blue-600 px-1.5 py-px text-[10px] font-medium text-white"
+            >
+              <UIcon
+                name="i-lucide-eye"
+                class="size-2.5"
+              />
+              地图只看这条
             </span>
             <span class="mt-0.5 block text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
               首 {{ direction.startTime }} · 末 {{ direction.endTime }} · {{ direction.distanceKm }} km · {{ direction.stops.length }} 站<br>
