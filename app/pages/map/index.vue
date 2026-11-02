@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MapArea, MapPoi, MapBusRoute, MapTransitVehicle } from '~~/map/core/types'
+import type { MapArea, MapPoi, MapBusRoute, MapSpeedBump, MapTransitVehicle } from '~~/map/core/types'
 import type {
   ApiBusDeparturesResponse,
   ApiBusLineDirection,
@@ -13,6 +13,7 @@ import type {
   MapProvider,
   MapProviderId
 } from '~~/map/core/provider'
+import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
 import { officialSources } from '~~/data/seeds/public-content'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
@@ -679,8 +680,8 @@ const { routes: busRoutes, buses: busVehicles, fetchedAt: busFetchedAt } = useMa
 const busPanelOpen = ref(true)
 
 // 校外公交（K2/K6）：默认打开，静态快照，独立图层，不跟校车轮询重绘，也不影响校内校车线路
-const transitLinesOpen = ref(true)
-const transitPanelOpen = ref(true)
+const transitLinesOpen = ref(false)
+const transitPanelOpen = ref(false)
 const transitLoading = ref(false)
 const transitRoutes = shallowRef<MapBusRoute[]>([])
 const transitDirections = shallowRef<ApiBusLineDirection[]>([])
@@ -688,6 +689,23 @@ const transitFetchedAt = ref<string | null>(null)
 const transitLive = shallowRef<ApiBusLiveResponse | null>(null)
 const transitDepartures = shallowRef<ApiBusDeparturesResponse | null>(null)
 const transitLiveError = ref('')
+/** 校园减速带：与校车 ETA 同一份数据，单独一层图标。 */
+const speedBumpPoints: MapSpeedBump[] = CAMPUS_SPEED_BUMPS.map(bump => ({
+  id: `bump-${bump.id}`,
+  label: String(bump.id),
+  point: { lng: bump.lng, lat: bump.lat, crs: 'WGS84' as const }
+}))
+const speedBumpsVisible = ref(true)
+
+function applySpeedBumps(provider = mapProvider.value): void {
+  provider?.setSpeedBumps?.(speedBumpsVisible.value ? speedBumpPoints : [])
+}
+
+function toggleSpeedBumps(): void {
+  speedBumpsVisible.value = !speedBumpsVisible.value
+  applySpeedBumps()
+}
+
 /** 只显示某条线路（'all' = 全部）。 */
 const transitLineFilter = ref<string>('all')
 /** 只显示某个方向（空串 = 双向都画）。 */
@@ -889,6 +907,10 @@ function focusTransitRoutes(routes: MapBusRoute[]): void {
 }
 
 // 底图就绪 / 重建后补画；默认打开时先把快照拉下来（不移动相机，保持校园视角）
+watch(mapProvider, (provider) => {
+  applySpeedBumps(provider)
+}, { immediate: true })
+
 watch(mapProvider, async (provider) => {
   if (!provider || !transitLinesOpen.value) return
   const loaded = await ensureTransitRoutesLoaded()
@@ -1281,6 +1303,13 @@ onBeforeUnmount(() => {
             </span>
             <span class="text-zinc-500 dark:text-zinc-400">校外公交</span>
           </div>
+          <div
+            v-if="mapViewMode === 'geographic' && speedBumpsVisible"
+            class="pointer-events-auto flex items-center gap-1.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
+          >
+            <i class="h-2.5 w-4 rounded-sm border border-zinc-500 bg-[repeating-linear-gradient(135deg,#facc15_0_3px,#18181b_3px_6px)]" />
+            减速带 27
+          </div>
         </div>
         <div
           v-if="canShowOfficialPlan"
@@ -1324,6 +1353,18 @@ onBeforeUnmount(() => {
               aria-label="显示 K2 / K6 校外公交线路"
               :aria-pressed="transitLinesOpen"
               @click="toggleTransitLines"
+            />
+          </UTooltip>
+          <UTooltip :text="speedBumpsVisible ? '隐藏校园减速带（27 处）' : '显示校园减速带（27 处）'">
+            <UButton
+              icon="i-lucide-triangle-alert"
+              color="neutral"
+              variant="ghost"
+              class="map-control-btn size-10 rounded-none md:size-11"
+              :class="speedBumpsVisible ? 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300' : ''"
+              aria-label="显示校园减速带"
+              :aria-pressed="speedBumpsVisible"
+              @click="toggleSpeedBumps"
             />
           </UTooltip>
           <UTooltip text="地图显示设置">

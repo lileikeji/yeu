@@ -10,7 +10,7 @@ import type {
   RouteSummary
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
-import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea, MapTransitVehicle } from '../../core/types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea, MapSpeedBump, MapTransitVehicle } from '../../core/types'
 import { wgs84ToGcj02 as convertWgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { ensureAMapPlugins, loadAMap } from './loader'
 import type {
@@ -172,6 +172,9 @@ export class AMapProvider implements MapProvider {
   private transitRouteToken: object = {}
   private transitVehicles: MapTransitVehicle[] = []
   private transitVehicleMarkers: AMapMarker[] = []
+  private speedBumps: MapSpeedBump[] = []
+  private speedBumpMarkers: AMapMarker[] = []
+  private speedBumpToken: object = {}
   private transitVehicleToken: object = {}
   private poiSelectHandler: PoiSelectHandler | null = null
   private areaSelectHandler: AreaSelectHandler | null = null
@@ -259,6 +262,7 @@ export class AMapProvider implements MapProvider {
     // 校外公交同理：默认打开时页面可能早于 SDK 就绪就调了，这里补画。
     if (this.transitRoutes.length) this.setTransitRoutes(this.transitRoutes)
     if (this.transitVehicles.length) this.setTransitVehicles(this.transitVehicles)
+    if (this.speedBumps.length) this.setSpeedBumps(this.speedBumps)
 
     // Clustering is optional. If the embedded browser finishes loading it
     // later, upgrade the already-visible plain markers without remounting the
@@ -683,6 +687,60 @@ export class AMapProvider implements MapProvider {
         })
       })
     }
+  }
+
+  /**
+   * 校园减速带图标层。数据是 WGS-84，交给 convertPoints 转 GCJ-02 再落图。
+   */
+  setSpeedBumps(bumps: MapSpeedBump[]): void {
+    this.speedBumps = [...bumps]
+    this.clearSpeedBumps()
+    const map = this.map
+    const amap = this.amap
+    if (!map || !amap) return
+    const token = this.speedBumpToken = {}
+    void this.convertPoints(bumps.map(bump => bump.point), amap).then((positions) => {
+      if (this.speedBumpToken !== token) return
+      const mapNow = this.map
+      const amapNow = this.amap
+      if (!mapNow || !amapNow) return
+      bumps.forEach((bump, index) => {
+        const position = positions[index]
+        if (!position) return
+        const marker = new amapNow.Marker({
+          position,
+          anchor: 'center',
+          content: this.createSpeedBumpIcon(bump),
+          zIndex: 860
+        })
+        this.speedBumpMarkers.push(marker)
+        mapNow.add(marker)
+      })
+    })
+  }
+
+  private clearSpeedBumps(): void {
+    this.speedBumpToken = {}
+    if (this.speedBumpMarkers.length) this.map?.remove(this.speedBumpMarkers)
+    this.speedBumpMarkers = []
+  }
+
+  /** 减速带图标：黄黑斜纹小块 + 深色描边，远看仍能分辨，不抢 POI 的视觉。 */
+  private createSpeedBumpIcon(bump: MapSpeedBump): HTMLElement {
+    const element = document.createElement('div')
+    element.title = `减速带 #${bump.label}（叮叮车到此踩到近 0）`
+    element.setAttribute('aria-label', element.title)
+    element.style.cssText = [
+      'box-sizing:border-box',
+      'width:20px',
+      'height:13px',
+      'border:1.5px solid #3f3f46',
+      'outline:1.5px solid rgb(255 255 255 / 85%)',
+      'border-radius:3px',
+      'background:repeating-linear-gradient(135deg,#facc15 0 3px,#18181b 3px 6px)',
+      'box-shadow:0 1px 3px rgb(0 0 0 / 35%)'
+    ].join(';')
+    return element
   }
 
   /**

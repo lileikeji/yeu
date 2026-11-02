@@ -68,6 +68,15 @@ export interface MapTransitVehicle {
   color?: string
 }
 
+/** 校园减速带（WGS-84）：叮叮车路过要踩到近 0，地图上单独一层图标。 */
+export interface MapSpeedBump {
+  /** 唯一键，如 `bump-7`。 */
+  id: string
+  /** 序号（现场标注表里的 id）。 */
+  label: string
+  point: GeoPoint
+}
+
 export interface MapBusRoute {
   id: string
   name: string

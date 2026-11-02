@@ -1,4 +1,4 @@
-import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapTransitVehicle } from './types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapSpeedBump, MapTransitVehicle } from './types'
 
 export type PointPickedHandler = (point: GeoPoint) => void
 export type PoiSelectHandler = (poi: MapPoi | null) => void
@@ -66,6 +66,8 @@ export interface MapProvider {
 
   /** 校外公交在途车辆（可选能力；不实现就不显示车辆层）。 */
   setTransitVehicles?(vehicles: MapTransitVehicle[]): void
+  /** 校园减速带图标层（校车 ETA 的限速依据）。 */
+  setSpeedBumps?(bumps: MapSpeedBump[]): void
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>
   searchVisiblePois(query: string): Promise<MapPoi[]>
   clearRoute(): void
