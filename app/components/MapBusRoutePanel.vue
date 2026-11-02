@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BusRouteSnapshot, BusSnapshot } from '~~/app/composables/useMapBusPositions'
 import { haversineMeters } from '~~/app/utils/walk-route'
+import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
 import { computeBusProgress, computeStopToStop, travelSecondsAlongPolyline } from '~~/shared/utils/bus-route-progress'
 
 const props = defineProps<{
@@ -18,6 +19,8 @@ const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 const STOP_ROW_HEIGHT = 56
 /** 站点圆点中心相对行顶的偏移（圆点 top 9px + 半径 7.5px）。 */
 const STOP_DOT_CENTER = 16.5
+/** 校园减速带总数（校园口径，与具体线路无关）。 */
+const campusSpeedBumpCount = CAMPUS_SPEED_BUMPS.length
 /** 校车运营时段（07:00–22:30），用于空车时的收车态文案。 */
 const SERVICE_OPEN_MINUTES = 7 * 60
 const SERVICE_CLOSE_MINUTES = 22 * 60 + 30
@@ -458,6 +461,9 @@ const updatedAtText = computed(() => {
           >{{ tripResultText }}</span>
         </summary>
         <div class="space-y-1.5 px-2 pb-2">
+          <p class="text-[10px] text-zinc-500 dark:text-zinc-400">
+            含沿途 {{ campusSpeedBumpCount }} 处减速带（每处踩到近 0 再起步）与停站时间。
+          </p>
           <div class="flex items-center gap-1">
             <select
               v-model.number="tripFromIndex"
