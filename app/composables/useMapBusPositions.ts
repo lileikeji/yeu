@@ -3,7 +3,7 @@ import type { CoordinateReferenceSystem } from '~~/shared/types'
 import type { MapProvider } from '~~/map/core/provider'
 import type { MapBus, MapBusRoute, MapBusStop } from '~~/map/core/types'
 import { BUS_POSITIONS_API_PATH } from '~~/shared/constants/server'
-import { observeMotion, stepMotion, type BusMotionState } from '~~/shared/utils/bus-motion'
+import { advanceMotion, observeMotion, stepMotion, type BusMotionState } from '~~/shared/utils/bus-motion'
 import { bumpDistancesOnLine, computeBusProgress, cumulativeDistances, samplePolylinePoint } from '~~/shared/utils/bus-route-progress'
 
 /** 线路快照（校车实时接口响应 routes[]，路径见 shared/constants/server.ts BUS_POSITIONS_API_PATH）。 */
@@ -75,6 +75,10 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
 
   // 平滑状态：busId → 沿线里程动画（观测与显示分离）。
   const motionStates = new Map<string, BusMotionState>()
+  /** 轮询之间的插值段：from → to，span 内线性推进，避免 5 秒一跳。 */
+  const motionSegments = new Map<string, { from: number, to: number, t0: number, span: number }>()
+  /** 上一次认账的实测沿线里程，用来判断这一轮是否来了新位置。 */
+  const lastObserved = new Map<string, number>()
   const motionLengths = new Map<string, number>()
   const motionLines = new Map<string, Array<{ lng: number, lat: number }>>()
   // 每条线路的减速带沿线里程（米），用于动画在减速带上停顿；按线路缓存，避免每帧重算。
@@ -117,12 +121,6 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
    */
   const lastAlongByName = new Map<string, number>()
   const directionByName = new Map<string, 'forward' | 'back'>()
-
-  function lineOf(route: BusRouteSnapshot | undefined): Array<{ lng: number, lat: number }> {
-    const polyline = (route?.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
-    if (polyline.length >= 2) return polyline
-    return (route?.stops ?? []).map(stop => ({ lng: stop.lng, lat: stop.lat }))
-  }
 
   /**
    * 这台车真实在跑哪一趟：线路把「车 × 线路」各上报一条，坐标完全相同，
@@ -189,6 +187,12 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
           bus.isAtSite ? 'waiting' : 'moving'
         )
         motionStates.set(name, state)
+        const observed = progress.distanceAlong
+        const previous = lastObserved.get(name)
+        if (previous === undefined || Math.abs(observed - previous) > 0.5) {
+          lastObserved.set(name, observed)
+          motionSegments.set(name, { from: state.display, to: observed, t0: now, span: POLL_INTERVAL_MS })
+        }
         const sampled = samplePolylinePoint(line, state.display)
         lng = sampled.point.lng
         lat = sampled.point.lat
@@ -196,6 +200,8 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
         angleDeg = sampled.angleDeg
       } else {
         motionStates.delete(name)
+        motionSegments.delete(name)
+        lastObserved.delete(name)
         motionLengths.delete(name)
       }
       snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, lng, lat })
@@ -232,7 +238,14 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
       if (!length) continue
       const line = motionLines.get(id)
       const bumps = line ? bumpsOf(id, line) : undefined
-      if (stepMotion(state, now, dt, length, bumps)) moved = true
+      const segment = motionSegments.get(id)
+      if (!segment) {
+        if (stepMotion(state, now, dt, length, bumps)) moved = true
+        continue
+      }
+      const progress = Math.max(0, Math.min(1, (now - segment.t0) / Math.max(1, segment.span)))
+      const target = segment.from + (segment.to - segment.from) * progress
+      if (advanceMotion(state, target, dt, length, bumps)) moved = true
     }
     if (moved) pushDisplay()
   }

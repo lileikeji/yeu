@@ -3,6 +3,7 @@ import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, M
 export type PointPickedHandler = (point: GeoPoint) => void
 export type PoiSelectHandler = (poi: MapPoi | null) => void
 export type AreaSelectHandler = (area: MapArea | null) => void
+export type BusSelectHandler = (busId: string) => void
 export type MapErrorHandler = (error: Error) => void
 export type MapProviderId = 'maplibre-dev' | 'amap' | 'offline'
 export type MapBaseStyle = 'standard' | 'satellite'
@@ -74,6 +75,8 @@ export interface MapProvider {
   searchVisiblePois(query: string): Promise<MapPoi[]>
   clearRoute(): void
   onPoiSelect(handler: PoiSelectHandler): () => void
+  /** 校内校车车标被点：回调车辆 id（MapBus.id），返回取消订阅。provider 可不实现。 */
+  onBusSelect?(handler: BusSelectHandler): () => void
   onAreaSelect(handler: AreaSelectHandler): () => void
   onError(handler: MapErrorHandler): () => void
   destroy(): void

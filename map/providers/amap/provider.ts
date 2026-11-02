@@ -1,5 +1,6 @@
 import type {
   AreaSelectHandler,
+  BusSelectHandler,
   MapErrorHandler,
   MapBaseStyle,
   MapDisplayOptions,
@@ -10,7 +11,7 @@ import type {
   RouteSummary
 } from '../../core/provider'
 import { YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
-import { buildingSvg, clusterGlyph, markerSvg, vehicleSvg } from './marker-icons'
+import { buildingSvg, clusterGlyph, vehicleSvg } from './marker-icons'
 import type { BuildingKind } from './marker-icons'
 import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea, MapSpeedBump, MapTransitVehicle } from '../../core/types'
 import { wgs84ToGcj02 as convertWgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
@@ -168,6 +169,7 @@ export class AMapProvider implements MapProvider {
   private busMarkers = new Map<string, { marker: AMapMarker, token: object, icon: HTMLElement | null }>()
   /** 上次位置与车头朝向（度，正北 0° 顺时针），用于按位移方向推朝向、过弯时平滑。 */
   private busHeadings = new Map<string, { lng: number, lat: number, heading: number }>()
+  private busSelectHandler: BusSelectHandler | null = null
   private transitVehicleHeadings = new Map<string, { lng: number, lat: number, heading: number }>()
   /** 公交 GPS 跳点闸门：记录上次认账的位置与连续跳点次数。 */
   private transitVehicleAnchors = new Map<string, { lng: number, lat: number, rejects: number, at: number }>()
@@ -394,6 +396,13 @@ export class AMapProvider implements MapProvider {
     }
   }
 
+  onBusSelect(handler: BusSelectHandler): () => void {
+    this.busSelectHandler = handler
+    return () => {
+      if (this.busSelectHandler === handler) this.busSelectHandler = null
+    }
+  }
+
   onAreaSelect(handler: AreaSelectHandler): () => void {
     this.areaSelectHandler = handler
     return () => {
@@ -613,7 +622,11 @@ export class AMapProvider implements MapProvider {
     element.title = bus.siteName ? `${bus.name}（${bus.isAtSite ? '已到站' : '行驶中'}·${bus.siteName}）` : bus.name
     element.setAttribute('aria-label', element.title)
     // 车形图标 + 下方车名：整块随车头朝向旋转的是图标本身，文字保持水平可读。
-    element.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px;cursor:default;filter:drop-shadow(0 2px 4px rgb(0 0 0 / 35%));'
+    element.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;filter:drop-shadow(0 2px 4px rgb(0 0 0 / 35%));'
+    element.addEventListener('click', (event) => {
+      event.stopPropagation()
+      this.busSelectHandler?.(bus.id)
+    })
     const icon = document.createElement('span')
     icon.dataset.busIcon = ''
     icon.style.cssText = 'display:grid;place-items:center;width:40px;height:40px;'
@@ -876,6 +889,11 @@ export class AMapProvider implements MapProvider {
     const element = document.createElement('div')
     element.title = `${vehicle.plate} · 下一站 ${vehicle.nextStation}`
     element.setAttribute('aria-label', element.title)
+    element.style.cursor = 'pointer'
+    element.addEventListener('click', (event) => {
+      event.stopPropagation()
+      this.busSelectHandler?.(`transit:${vehicle.plate}`)
+    })
     element.style.cssText = [
       'display:flex',
       'align-items:center',
@@ -1361,8 +1379,8 @@ export class AMapProvider implements MapProvider {
         const outline = new amap.Polyline({
           path: closedPath,
           strokeColor: area.strokeColor,
-          strokeWeight: 3,
-          strokeOpacity: 0.95,
+          strokeWeight: 1.6,
+          strokeOpacity: 0.5,
           strokeStyle: 'solid',
           bubble: true,
           zIndex: 30

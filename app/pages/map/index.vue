@@ -806,16 +806,90 @@ function focusTransitStop(point: { lng: number, lat: number }): void {
 }
 
 /** 正在跟的车（点车后镜头一直跟着它，直到关掉详情）。 */
-const transitVehicleFocus = ref<{ plate: string, point: [number, number], nextStation: string, distanceToNext?: number } | null>(null)
+interface VehicleFocus {
+  plate: string
+  point: [number, number]
+  nextStation: string
+  distanceToNext?: number
+  updatedAt?: string
+  source: 'transit' | 'campus'
+  busId?: string
+}
+const transitVehicleFocus = ref<VehicleFocus | null>(null)
 /** 跟车时每秒刷新的 GPS 年龄（秒）。 */
 const transitGpsAge = ref(0)
 let transitAgeTimer: ReturnType<typeof globalThis.setInterval> | null = null
 
 /** 点一辆车：镜头跟住它，并打开车辆详情（含 GPS 更新时间）。 */
-function focusTransitVehicle(payload: { plate: string, point: [number, number], nextStation: string, distanceToNext?: number }): void {
+function focusTransitVehicle(payload: VehicleFocus): void {
   transitVehicleFocus.value = { ...payload }
-  mapProvider.value?.flyToPoint({ lng: payload.point[0], lat: payload.point[1], crs: 'GCJ-02' }, 17)
+  const converted = payload.source === 'campus' ? wgs84ToGcj02(payload.point[0], payload.point[1]) : null
+  const target = converted
+    ? { lng: converted.longitude, lat: converted.latitude }
+    : { lng: payload.point[0], lat: payload.point[1] }
+  mapProvider.value?.flyToPoint({ ...target, crs: 'GCJ-02' }, 17)
 }
+
+/** 面板里点车辆行：等同于点地图上的车标。 */
+function focusTransitVehicleFromPanel(payload: { plate: string, point: [number, number], nextStation: string, distanceToNext?: number }): void {
+  focusTransitVehicle({ ...payload, source: 'transit', updatedAt: transitLive.value?.fetchedAt })
+}
+
+/** 地图上点车标：校外公交（transit:车牌）与校内校车（bus id）都走这里。 */
+function handleBusChipSelect(id: string): void {
+  if (id.startsWith('transit:')) {
+    const plate = id.slice('transit:'.length)
+    const vehicle = (transitLive.value?.directions ?? [])
+      .flatMap(direction => direction.vehicles)
+      .find(item => item.plate === plate)
+    if (!vehicle) return
+    focusTransitVehicle({
+      plate: vehicle.plate,
+      point: vehicle.point,
+      nextStation: vehicle.nextStation,
+      distanceToNext: vehicle.distanceToNext,
+      updatedAt: transitLive.value?.fetchedAt,
+      source: 'transit'
+    })
+    return
+  }
+  const bus = busVehicles.value.find(item => item.busName === id)
+  if (!bus) return
+  focusTransitVehicle({
+    plate: bus.busName,
+    point: [bus.lng, bus.lat],
+    nextStation: bus.siteName,
+    updatedAt: bus.updatedAt,
+    source: 'campus',
+    busId: bus.busName
+  })
+}
+
+let busSelectOff: (() => void) | null = null
+watch(mapProvider, (provider) => {
+  busSelectOff?.()
+  busSelectOff = provider?.onBusSelect?.(handleBusChipSelect) ?? null
+}, { immediate: true })
+onBeforeUnmount(() => {
+  busSelectOff?.()
+  busSelectOff = null
+})
+
+/** 校车在动，跟车卡片跟着最新位置走（校外公交由 followTransitVehicle 负责）。 */
+watch(busVehicles, (list) => {
+  const focus = transitVehicleFocus.value
+  if (!focus || focus.source !== 'campus' || !focus.busId) return
+  const bus = list.find(item => item.busName === focus.busId)
+  if (!bus) return
+  transitVehicleFocus.value = {
+    ...focus,
+    point: [bus.lng, bus.lat],
+    nextStation: bus.siteName,
+    updatedAt: bus.updatedAt
+  }
+  const moved = wgs84ToGcj02(bus.lng, bus.lat)
+  mapProvider.value?.flyToPoint({ lng: moved.longitude, lat: moved.latitude, crs: 'GCJ-02' }, 17)
+}, { deep: false })
 
 let transitLoadPromise: Promise<boolean> | null = null
 
@@ -874,7 +948,7 @@ async function refreshTransitLive(): Promise<void> {
 /** 跟车：每轮实时数据里找出同一块车牌，把镜头贴到它身上并刷新详情。 */
 function followTransitVehicle(): void {
   const focus = transitVehicleFocus.value
-  if (!focus) return
+  if (!focus || focus.source !== 'transit') return
   const vehicle = (transitLive.value?.directions ?? [])
     .flatMap(direction => direction.vehicles)
     .find(item => item.plate === focus.plate)
@@ -883,7 +957,9 @@ function followTransitVehicle(): void {
     plate: vehicle.plate,
     point: vehicle.point,
     nextStation: vehicle.nextStation,
-    distanceToNext: vehicle.distanceToNext
+    distanceToNext: vehicle.distanceToNext,
+    updatedAt: transitLive.value?.fetchedAt,
+    source: 'transit'
   }
   mapProvider.value?.flyToPoint({ lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' }, 17)
   transitGpsAge.value = 0
@@ -903,7 +979,7 @@ function startTransitLive(): void {
   if (!transitAgeTimer) {
     transitAgeTimer = globalThis.setInterval(() => {
       if (!transitVehicleFocus.value) return
-      const fetched = Date.parse(transitLive.value?.fetchedAt ?? '')
+      const fetched = Date.parse(transitVehicleFocus.value?.updatedAt ?? transitLive.value?.fetchedAt ?? '')
       transitGpsAge.value = Number.isFinite(fetched) ? Math.max(0, Math.round((Date.now() - fetched) / 1000)) : transitGpsAge.value + 1
     }, 1000)
   }
@@ -1856,23 +1932,38 @@ onBeforeUnmount(() => {
           aria-label="关闭车辆详情"
           @click="transitVehicleFocus = null"
         >
-          <UIcon name="i-lucide-x" class="size-4" />
+          <UIcon
+            name="i-lucide-x"
+            class="size-4"
+          />
         </button>
       </div>
       <dl class="mt-2 space-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
         <div class="flex items-center justify-between gap-2">
-          <dt class="text-zinc-400">距下一站</dt>
-          <dd class="tabular-nums font-medium">{{ distanceLabel(transitVehicleFocus.distanceToNext) }}</dd>
+          <dt class="text-zinc-400">
+            距下一站
+          </dt>
+          <dd class="tabular-nums font-medium">
+            {{ distanceLabel(transitVehicleFocus.distanceToNext) }}
+          </dd>
         </div>
         <div class="flex items-center justify-between gap-2">
-          <dt class="text-zinc-400">GPS 更新</dt>
-          <dd class="tabular-nums font-medium" :class="transitGpsAge > 40 ? 'text-amber-600' : 'text-emerald-600'">
+          <dt class="text-zinc-400">
+            GPS 更新
+          </dt>
+          <dd
+            class="tabular-nums font-medium"
+            :class="transitGpsAge > 40 ? 'text-amber-600' : 'text-emerald-600'"
+          >
             {{ transitGpsAge }} 秒前
           </dd>
         </div>
       </dl>
       <p class="mt-2 flex items-center gap-1 text-[10px] text-zinc-400">
-        <UIcon name="i-lucide-crosshair" class="size-3" />镜头跟着这辆车走
+        <UIcon
+          name="i-lucide-crosshair"
+          class="size-3"
+        />镜头跟着这辆车走
       </p>
     </div>
     <MapTransitPanel
@@ -1887,7 +1978,7 @@ onBeforeUnmount(() => {
       :location="transitMyLocation"
       :left-offset="sidebarCollapsed ? '1rem' : '19rem'"
       @focus-stop="focusTransitStop"
-      @focus-vehicle="focusTransitVehicle"
+      @focus-vehicle="focusTransitVehicleFromPanel"
       @select-direction="changeTransitDirection"
       @change-line="changeTransitLine"
     />

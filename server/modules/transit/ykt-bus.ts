@@ -6,6 +6,7 @@
 //   响应体 = 8 位长度前缀 + retcode(4 位) + JSON + "SIGN_VAL" + 签名（客户端不验签）
 // 本模块不依赖 Nuxt 运行时，纯函数部分可被 scripts/ykt-bus-protocol.test.ts 直接测试。
 import { createDecipheriv, createSign } from 'node:crypto'
+import { refineShapeWithRoads } from './campus-shape-refine'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-convert'
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
 import busRouteGps from '../../../data/seeds/bus-route-gps.json'
@@ -42,7 +43,7 @@ const AMAP_DRIVING_ENDPOINT = 'https://restapi.amap.com/v3/direction/driving'
  * 算路方式：walking 优先（校园步道贴路概率高），失败退 driving，再退站点直连。
  * 校车实际走车行道时把这里翻成 'driving' 即可。
  */
-const SHAPE_PROVIDER: 'walking' | 'driving' = 'walking'
+const SHAPE_PROVIDER: 'walking' | 'driving' = 'driving'
 const SHAPE_TTL_MS = 24 * 60 * 60 * 1000
 // 有段算路失败（退化成直连弦）时只缓存 2 分钟，让下一轮快照自愈。
 const SHAPE_DEGRADED_TTL_MS = 2 * 60 * 1000
@@ -714,6 +715,22 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
     if (traced) {
       shapeCache.set(key, { fetchedAt: Date.now(), polyline: traced, complete: true })
       route.polyline = traced
+      // 实测链只有 46 个点，采样点之间会拉直线切角：后台再用高德算路把它贴到车行道上，
+      // 成功且没绕远就覆盖缓存，下一轮快照即拿到细化后的折线。
+      const refineKey = `${key}|road`
+      if (amapKey && !shapeInflight.has(refineKey)) {
+        const refine = refineShapeWithRoads(amapKey, traced)
+          .then((refined) => {
+            if (refined && refined.length > traced.length) {
+              shapeCache.set(key, { fetchedAt: Date.now(), polyline: refined, complete: true })
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            shapeInflight.delete(refineKey)
+          })
+        shapeInflight.set(refineKey, refine)
+      }
       continue
     }
     if (!amapKey) continue

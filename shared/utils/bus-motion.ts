@@ -120,7 +120,7 @@ const BUMP_STOP_RADIUS_M = 6
 const BUMP_SLOW_RADIUS_M = 22
 
 /** 当前显示位压到减速带附近时，把动画速度压下来，让车在减速带上明显停顿。 */
-function bumpFactor(display: number, bumps: number[] | undefined): number {
+export function bumpSlowdown(display: number, bumps: number[] | undefined): number {
   if (!bumps || bumps.length === 0) return 1
   let nearest = Number.POSITIVE_INFINITY
   for (const bump of bumps) {
@@ -157,8 +157,31 @@ export function stepMotion(
     Math.abs(diff),
     Math.min(15, Math.max(Math.abs(diff) * 3, Math.abs(state.speed))) * frame
   )
-  const scaled = delta * bumpFactor(state.display, bumps)
+  const scaled = delta * bumpSlowdown(state.display, bumps)
   if (scaled < 0.00001) return false
   state.display += Math.sign(diff) * scaled
+  return true
+}
+
+/**
+ * 按「上一帧显示位 → 本帧目标位」推进显示位（轮询之间做线性插值用）。
+ * 与 stepMotion 的区别：目标是外部给的插值点，不再依赖实测速度外推，
+ * 所以车会一直匀速走，不会停在原地等下一个 GPS。
+ * @returns 是否发生可见移动
+ */
+export function advanceMotion(
+  state: BusMotionState | null,
+  target: number,
+  dt: number,
+  length: number,
+  bumps?: number[]
+): boolean {
+  if (!state || !Number.isFinite(target) || !Number.isFinite(length) || length <= 0) return false
+  const clamped = Math.max(0, Math.min(length, target))
+  const diff = clamped - state.display
+  if (Math.abs(diff) < 0.01) return false
+  const frame = Math.max(0, Math.min(dt, 1))
+  const step = Math.min(Math.abs(diff), Math.max(Math.abs(diff) * 6, 2.5) * frame)
+  state.display += Math.sign(diff) * step * bumpSlowdown(state.display, bumps)
   return true
 }
