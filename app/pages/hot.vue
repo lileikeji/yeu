@@ -41,14 +41,26 @@ const visibleEvents = computed(() => {
 type SignalListRow
   = | { type: 'event', event: ApiSignalListResponse['events'][number] }
     | { type: 'more', count: number }
+    | { type: 'notice-more', count: number }
 
+const NOTICE_PREVIEW_COUNT = 5
+
+const showAllNotices = ref(false)
 const showNews = ref(false)
 const noticeEvents = computed(() => visibleEvents.value.filter(event => event.channel === 'notice'))
 const newsEvents = computed(() => visibleEvents.value.filter(event => event.channel !== 'notice'))
 
 // 通知公告排前面，校园动态默认折叠：两者混在一起会把「要办事的」淹掉。
+// 通知也只露前 5 条，一百多条铺下来要滚很久。
 const listRows = computed<SignalListRow[]>(() => {
-  const rows: SignalListRow[] = noticeEvents.value.map(event => ({ type: 'event', event }))
+  const rows: SignalListRow[] = []
+  const notices = showAllNotices.value
+    ? noticeEvents.value
+    : noticeEvents.value.slice(0, NOTICE_PREVIEW_COUNT)
+  for (const event of notices) rows.push({ type: 'event', event })
+  if (noticeEvents.value.length > NOTICE_PREVIEW_COUNT) {
+    rows.push({ type: 'notice-more', count: noticeEvents.value.length })
+  }
   if (newsEvents.value.length > 0) {
     rows.push({ type: 'more', count: newsEvents.value.length })
     if (showNews.value) {
@@ -156,7 +168,17 @@ const dayText = signalRelativeTime
             ? 'rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900'
             : 'flex items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--line)] px-4 py-3'"
         >
-          <template v-if="row.type === 'more'">
+          <template v-if="row.type === 'notice-more'">
+            <span class="text-sm text-zinc-600 dark:text-zinc-300">通知公告 · 共 {{ row.count }} 条</span>
+            <button
+              type="button"
+              class="min-h-8 shrink-0 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
+              @click="showAllNotices = !showAllNotices"
+            >
+              {{ showAllNotices ? '收起' : `展开全部 ${row.count} 条` }}
+            </button>
+          </template>
+          <template v-else-if="row.type === 'more'">
             <span class="text-sm text-zinc-600 dark:text-zinc-300">校园动态 · {{ row.count }} 条（宣讲、讲堂、活动这类）</span>
             <button
               type="button"
