@@ -190,8 +190,9 @@ export async function refineShapeWithRoads(amapKey: string, shape: ShapePoint[])
     const chunk = shapePoints.slice(start, Math.min(shapePoints.length, start + MAX_POINTS_PER_SEGMENT))
     if (chunk.length < 2) break
     // 步行优先（贴小路），失败退驾车，再失败就用这段的直线，不让整条线路退化。
-    const segment = await fetchRouteSegment(amapKey, chunk, WALKING_ENDPOINT)
-      ?? await fetchRouteSegment(amapKey, chunk, DRIVING_ENDPOINT)
+    // 校车走车行道：先驾车，失败了再退步行（步行会把线拉到人行小道/楼间）
+    const segment = await fetchRouteSegment(amapKey, chunk, DRIVING_ENDPOINT)
+      ?? await fetchRouteSegment(amapKey, chunk, WALKING_ENDPOINT)
       ?? [chunk[0]!, chunk[chunk.length - 1]!]
     for (const point of segment) {
       const last = refined[refined.length - 1]
@@ -227,7 +228,6 @@ export async function buildShapeThroughStops(
     if (i > 0 && gapMs > 0) await new Promise(resolve => setTimeout(resolve, gapMs))
     // 先按车行道算，拿不到再退步行（步行会穿楼间小路，看起来不贴马路）。
     const segment = await fetchRouteSegment(amapKey, [from, to], DRIVING_ENDPOINT)
-      ?? await fetchRouteSegment(amapKey, [from, to], WALKING_ENDPOINT)
     const leg = segment && segment.length >= 2 ? segment : [from, to]
     if (!segment) complete = false
     for (const point of leg) {

@@ -631,12 +631,11 @@ async function buildRouteShape(amapKey: string, stops: YktBusStopInfo[]): Promis
     const end = { lng: to.lng, lat: to.lat }
     // 高德 Web 服务按 QPS 限流，串行段之间留出间隔，避免后面的段被拒后退化成直连弦。
     if (i > 0) await new Promise(resolve => setTimeout(resolve, SEGMENT_GAP_MS))
-    let shape: RouteShapePoint[] | null
-    try {
-      shape = await fetchSegmentShape(amapKey, start, end)
-    } catch {
-      // 限流/超时的段延时重试一次，仍未拿到就退化直连并标记不完整。
-      await new Promise(resolve => setTimeout(resolve, SEGMENT_RETRY_DELAY_MS))
+    let shape: RouteShapePoint[] | null = null
+    // 高德对连续请求限流很敏感：同一段最多试三次，间隔递增，
+    // 拿到算路就别退化直连（直连会在图上拉出横穿楼群的长弦）。
+    for (let attempt = 0; attempt < 3 && !shape; attempt += 1) {
+      if (attempt > 0) await new Promise(resolve => setTimeout(resolve, SEGMENT_RETRY_DELAY_MS * attempt))
       try {
         shape = await fetchSegmentShape(amapKey, start, end)
       } catch {
@@ -649,7 +648,7 @@ async function buildRouteShape(amapKey: string, stops: YktBusStopInfo[]): Promis
       segments.push([start, end])
     }
   }
-  return { polyline: clipPolylineToCampus(stitchShapeSegments(segments)), complete }
+  return { polyline: repairLongChords(clipPolylineToCampus(stitchShapeSegments(segments))), complete }
 }
 
 /**
@@ -692,6 +691,25 @@ async function applyWestDeparture(amapKey: string, routes: YktBusRouteInfo[]): P
     const rest = tail.length && haversineMeters(head, tail[0]!) < 20 ? tail.slice(1) : tail
     route.polyline = [...approach.polyline, ...rest]
   }
+  for (const route of routes) {
+    // 回程末端同样是发车点：尾巴离发车点太远就用车行算路接一段，
+    // 不然最后一段会是从上一站斜切过来的长弦。
+    const last = route.stops[route.stops.length - 1]
+    const before = route.stops[route.stops.length - 2]
+    if (!last || !before) continue
+    if (last.siteName !== '旧区创业园' && last.siteName !== WEST_DEPARTURE_STOP_NAME) continue
+    const tailPoint = route.polyline[route.polyline.length - 1]
+    if (tailPoint && haversineMeters(tailPoint, WEST_GATE) < 40) continue
+    const approach = await westApproach(amapKey, { lng: before.lng, lat: before.lat })
+    if (!approach || approach.polyline.length < 2) continue
+    // approach 是「发车点 → 上一站」，倒过来接到线尾。
+    const reversed = [...approach.polyline].reverse().map(point => ({ ...point }))
+    last.lng = approach.start.lng
+    last.lat = approach.start.lat
+    const head = route.polyline[route.polyline.length - 1]!
+    const rest = reversed.filter(point => haversineMeters(point, head) > 5)
+    route.polyline = [...route.polyline, ...rest]
+  }
 }
 
 function haversineMeters(from: { lng: number, lat: number }, to: { lng: number, lat: number }): number {
@@ -726,6 +744,60 @@ function normalizeWestStops(stops: YktBusStopInfo[]): void {
   if (stops.length > 1) fix(stops[stops.length - 1])
 }
 
+/**
+ * 实测链开头是「旧区创业园」那段绕行：把起点切到真正的发车点（邮政旁）。
+ * 只在链首 1/4 范围内找最近点，避免整条链被截断。
+ */
+function trimHeadToGate(points: RouteShapePoint[]): RouteShapePoint[] {
+  if (points.length < 4) return points
+  const limit = Math.max(1, Math.floor(points.length / 4))
+  let bestIndex = 0
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (let i = 0; i < limit; i += 1) {
+    const distance = haversineMeters(points[i]!, WEST_GATE)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestIndex = i
+    }
+  }
+  // 只有发车点已经贴在链上（≤25 m）才直接切；否则保留原链，
+  // 交给 applyWestDeparture 用算路补一段真实道路的接驳，避免拉出斜穿楼群的长弦。
+  if (bestIndex === 0 || bestDistance > 25) return points
+  return [{ ...WEST_GATE }, ...points.slice(bestIndex + 1)]
+}
+
+/**
+ * 算路失败的段会退化成直连，在图上就是横穿楼群的长弦。
+ * 这里用实测链把长弦补成沿路折线：两端都落在链上（≤120 m）时，
+ * 把两点之间的链上顶点插进去；补不出来就保持原样。
+ */
+function repairLongChords(points: RouteShapePoint[]): RouteShapePoint[] {
+  if (points.length < 2 || CHAIN_POINTS.length < 2) return points
+  const out: RouteShapePoint[] = [points[0]!]
+  for (let i = 1; i < points.length; i += 1) {
+    const from = points[i - 1]!
+    const to = points[i]!
+    const chord = haversineMeters(from, to)
+    if (chord > 200) {
+      const a = projectOnChain(from)
+      const b = projectOnChain(to)
+      if (a.offM <= CHAIN_MAX_OFFSET_M && b.offM <= CHAIN_MAX_OFFSET_M) {
+        const lo = Math.min(a.alongM, b.alongM)
+        const hi = Math.max(a.alongM, b.alongM)
+        const fill = sliceChainBetween(lo, hi)
+        const ordered = a.alongM <= b.alongM ? fill : [...fill].reverse()
+        for (const point of ordered) {
+          const last = out[out.length - 1]!
+          if (haversineMeters(last, point) > 3) out.push(point)
+        }
+        continue
+      }
+    }
+    out.push(to)
+  }
+  return out
+}
+
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
   for (const route of routes) {
     normalizeWestStops(route.stops)
@@ -739,7 +811,8 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
     // 主源：高德算路（沿真实道路，后台补全，24h 缓存）。
     // 手绘链（竞品叮叮车路网）实测整体偏移，已弃用，仅保留 buildRouteShapeFromChain 供比对。
     // 主源：实测 GPS 轨迹切片（贴真实行驶路径，同步零外呼）。高德算路在校园里会绕远（3.29km vs 实测 2.38km），仅作回退。
-    const traced = buildRouteShapeFromChain(route.stops)
+    const tracedRaw = buildRouteShapeFromChain(route.stops)
+    const traced = tracedRaw ? trimHeadToGate(tracedRaw) : null
     if (traced) {
       // 先按 2 分钟短缓存登记原链：细化没跑完/被限流时下一轮还会重试，
       // 否则 24 小时都不会再贴一次路。
@@ -753,7 +826,8 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
         const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
         const refine = buildShapeThroughStops(amapKey, stops)
           .then(async (byStops) => {
-            const usable = byStops && tracedLength > 0
+            // 有一段算路失败（complete=false）就会留直线和弦，不能覆盖实测链。
+            const usable = byStops?.complete === true && tracedLength > 0
               && shapeLengthMeters(byStops.polyline) >= tracedLength * 0.75
               && shapeLengthMeters(byStops.polyline) <= tracedLength * 1.45
             if (usable) {

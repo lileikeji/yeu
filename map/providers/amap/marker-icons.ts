@@ -211,14 +211,12 @@ export function vehicleSvg(options: { color?: string, angleDeg?: number, size?: 
       <rect x="10.6" y="1.8" width="10.8" height="28.4" rx="5" fill="#fff" stroke="${color}" stroke-width="1.9"/>
       <path d="M10.6 12.2h10.8" stroke="${color}" stroke-width="1" opacity=".3"/>
       <path d="M10.6 19.4h10.8" stroke="${color}" stroke-width="1" opacity=".3"/>
-      <rect x="12" y="3.6" width="8" height="4.4" rx="1.3" fill="#bfdbfe" stroke="${color}" stroke-width=".9"/>
+      <path d="M11.8 4.4h8.4l-1 5h-6.4z" fill="#dbeafe" stroke="${color}" stroke-width=".8"/>
+      <rect x="11.5" y="2.1" width="2.5" height="1.5" rx=".7" fill="#fde68a"/>
+      <rect x="18" y="2.1" width="2.5" height="1.5" rx=".7" fill="#fde68a"/>
       <rect x="12" y="16.2" width="8" height="2" rx="1" fill="${color}" opacity=".2"/>
       <rect x="12" y="22.4" width="8" height="2" rx="1" fill="${color}" opacity=".2"/>
-      <circle cx="12.6" cy="9.6" r="1.25" fill="#facc15" stroke="${color}" stroke-width=".6"/>
-      <circle cx="19.4" cy="9.6" r="1.25" fill="#facc15" stroke="${color}" stroke-width=".6"/>
-      <circle cx="12.6" cy="27.8" r="1.15" fill="#dc2626"/>
-      <circle cx="19.4" cy="27.8" r="1.15" fill="#dc2626"/>
-      <path d="M13 29.9h6" stroke="${color}" stroke-width="1.4" stroke-linecap="round"/>
+      <rect x="11.4" y="28.1" width="9.2" height="1.7" rx=".8" fill="#dc2626" opacity=".95"/>
     </g>
   </svg>`
 }

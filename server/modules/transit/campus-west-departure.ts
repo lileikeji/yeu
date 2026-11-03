@@ -12,7 +12,8 @@ import { parseAmapPolyline } from '../directions/amap'
 export interface LngLatPoint { lng: number, lat: number }
 
 /** 邮政快递站旁（WGS84，贴着 多功能报告厅/创业园 一线的小路口）。 */
-export const WEST_GATE: LngLatPoint = { lng: 118.61161, lat: 25.11658 }
+// 实车停靠点：旧区邮政快递站门口东侧（取实测车辆报点 118.61230,25.11650 附近）
+export const WEST_GATE: LngLatPoint = { lng: 118.61230, lat: 25.11650 }
 /** 旧区发车点站名（会替换掉 YKT 的「旧区创业园」）。 */
 export const WEST_DEPARTURE_STOP_NAME = '旧区发车点（邮政快递站旁）'
 
@@ -30,7 +31,8 @@ let inflight: Promise<WestApproach | null> | null = null
 async function fetchApproach(amapKey: string, destination: LngLatPoint): Promise<WestApproach | null> {
   const origin = wgs84ToGcj02(WEST_GATE.lng, WEST_GATE.lat)
   const target = wgs84ToGcj02(destination.lng, destination.lat)
-  const url = 'https://restapi.amap.com/v3/direction/walking'
+  // 接驳段走车行道：步行算路会把线拉进巷子和楼间
+  const url = 'https://restapi.amap.com/v3/direction/driving'
     + `?origin=${origin.longitude.toFixed(6)},${origin.latitude.toFixed(6)}`
     + `&destination=${target.longitude.toFixed(6)},${target.latitude.toFixed(6)}`
     + `&extensions=base&key=${amapKey}`
