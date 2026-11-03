@@ -10,7 +10,7 @@
 | `server/modules/signal/tiers.ts` | 信源分级 A/B/C 与各自门槛 |
 | `server/modules/signal/scoring.ts` | 双评分（新生相关度 + 证据强度）、标题可用性、公告判定、分类 |
 | `server/modules/signal/clustering.ts` | 标题相似度与事件聚簇 |
-| `server/modules/signal/heat.ts` | 48 小时半衰热度、涨跌趋势 |
+| `server/modules/signal/heat.ts` | 30 天窗口热度（7 天半衰）、涨跌趋势 |
 | `server/modules/signal/report.ts` | 日报/周报/月报成品拼装、同标题去重、已报不再重复跟进 |
 | `server/modules/signal/service.ts` | 取候选 → 打分 → 聚簇 → 落库；事件/报告读接口 |
 | `scripts/signal-build.ts` | 命令行重建索引并出报告 |
@@ -78,7 +78,7 @@
 
 口径照 AIHOT 的 `heat-v1`：
 
-- 48 小时窗口，24 小时半衰，权重 `2^(-age/24)`；
+- 30 天窗口，7 天半衰，权重 `2^(-age/168)`；只算最近 48 小时的话，整页热度都是 0，这个数就没人看了；
 - **每个来源只算一次**，同一来源重复发布取最新那条时间，避免一个站点刷屏；
 - `heatPrev` 用 `now - 6h` 作锚点，用于展示「相比 6 小时前」。
 
@@ -89,7 +89,7 @@
 - 来源数比上一份快照少 → `down`（撤稿、合并后出现的正常情况）；
 - 一样多 → `flat`。
 
-热度比不能用来判涨跌：48 小时窗口加半衰，旧来源会自然掉出窗口，热度一定往下走，凡是存在超过两天的正常事件都会被判成「跌」。来源数只增不减，语义稳定。快照重建时会沿用上一份的 `first_seen_at`、`heat_prev`、`reported_at`，所以每天 07:00 重跑不会把每个事件都刷成「刚出现」。
+热度比不能用来判涨跌：窗口加半衰，旧来源会自然掉出窗口，热度一定往下走，凡是存在超过两天的正常事件都会被判成「跌」。来源数只增不减，语义稳定。快照重建时会沿用上一份的 `first_seen_at`、`heat_prev`、`reported_at`，所以每天 07:00 重跑不会把每个事件都刷成「刚出现」。
 
 ## 5. 日报 / 周报 / 月报
 

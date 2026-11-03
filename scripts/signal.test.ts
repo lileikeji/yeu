@@ -243,7 +243,7 @@ test('文档发布时间取正文里的日期，没有日期就不入库', () =>
   assert.equal(documentPublishedAt('关于报到的通知', '时间：2099年1月1日。', captured), 0)
 })
 
-test('热度：同一来源重复发布只算一次，按 24 小时半衰', () => {
+test('热度：同一来源重复发布只算一次，按 7 天半衰', () => {
   const single = decayedHeat([{ key: 'source-a', at: NOW - 2 * HOUR }], NOW)
   // 同一个来源发两次，只按最新那条时间计一次，不能叠加成 1.9
   const duplicated = decayedHeat([
@@ -252,8 +252,8 @@ test('热度：同一来源重复发布只算一次，按 24 小时半衰', () =
   ], NOW)
   assert.equal(duplicated, decayedHeat([{ key: 'source-a', at: NOW - 1 * HOUR }], NOW))
   assert.ok(duplicated < 1)
-  assert.ok(Math.abs(single - 2 ** (-2 / 24)) < 0.002)
-  assert.equal(decayedHeat([{ key: 'source-a', at: NOW - 169 * HOUR }], NOW), 0)
+  assert.ok(Math.abs(single - 2 ** (-2 / 168)) < 0.002)
+  assert.equal(decayedHeat([{ key: 'source-a', at: NOW - 721 * HOUR }], NOW), 0)
 })
 
 test('趋势：第一次进快照判 new，来源数变多算涨', () => {
@@ -264,7 +264,7 @@ test('趋势：第一次进快照判 new，来源数变多算涨', () => {
   assert.equal(signalTrend(2, 2, OLD, NOW), 'flat', '来源数没变')
   assert.equal(signalTrend(5, 1, NOW - HOUR, NOW), 'new', '6 小时内第一次出现')
 
-  // 热度本身是 7 天窗口 + 24 小时半衰
+  // 热度本身是 30 天窗口 + 7 天半衰
   const cooling = computeSignalHeat([
     { key: 'source-a', at: NOW - 8 * HOUR },
     { key: 'source-b', at: NOW - 8 * HOUR }
