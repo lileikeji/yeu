@@ -20,6 +20,10 @@ const SIGNAL_EVIDENCE_POOL = 300
 
 const FRESH_INTENT_RE = /最近|最新|近期|这几天|这两天|近来|新消息|有什么新|有什么通知|热榜|热度|今天|本周/u
 
+// 问「最近有什么」时，科研申报/招标这类跟学生无关的不要占引用位；
+// 只有问题本身点名了这些词（"科研项目申报到几号"）才放回来。
+const FRESH_NOISE_RE = /课题|科研|基金|申报|教改|招标|采购|征文|科技计划|科技创新/u
+
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
 
 function dayLabel(value: number): string {
@@ -60,7 +64,9 @@ export function retrieveSignalEvidence(
     .all()
 
   const now = Date.now()
+  const queryMentionsNoise = FRESH_NOISE_RE.test(query)
   const scored = rows.map((row) => {
+    if (fresh && !queryMentionsNoise && FRESH_NOISE_RE.test(row.title)) return null
     const title = row.title.toLocaleLowerCase('zh-CN')
     const summary = row.summary.toLocaleLowerCase('zh-CN')
     let score = 0
@@ -88,7 +94,7 @@ export function retrieveSignalEvidence(
       text: evidenceText(row),
       score
     }
-  }).filter(item => item.score > 0)
+  }).filter((item): item is SignalEvidence => item !== null && item.score > 0)
 
   scored.sort((left, right) => right.score - left.score)
   return scored.slice(0, limit)
