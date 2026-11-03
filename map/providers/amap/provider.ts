@@ -572,7 +572,11 @@ export class AMapProvider implements MapProvider {
       }
       const record = this.busMarkers.get(bus.id)
       const token = record?.token ?? {}
-      const heading = this.resolveHeading(this.busHeadings, bus.id, bus.point, bus.angleDeg)
+      // 调用方（composable / 页面）已经按线路切线算好角度，直接用它；
+      // 只有没给角度时才回退到「相邻两次位置的方位角」。
+      const heading = typeof bus.angleDeg === 'number' && Number.isFinite(bus.angleDeg)
+        ? bus.angleDeg
+        : this.resolveHeading(this.busHeadings, bus.id, bus.point, bus.angleDeg)
       const draw = (position: AMapPosition): void => {
         const current = this.busMarkers.get(bus.id)
         if (current && current.token !== token) return // A newer update superseded this one.
@@ -940,7 +944,9 @@ export class AMapProvider implements MapProvider {
     const plate = vehicle.plate.replace('闽C', '')
     const icon = document.createElement('span')
     icon.style.cssText = 'display:grid;place-items:center;flex:none;width:20px;height:20px;'
-    const heading = this.resolveHeading(this.transitVehicleHeadings, vehicle.id, vehicle.point, vehicle.angleDeg)
+    const heading = typeof vehicle.angleDeg === 'number' && Number.isFinite(vehicle.angleDeg)
+      ? vehicle.angleDeg
+      : this.resolveHeading(this.transitVehicleHeadings, vehicle.id, vehicle.point, vehicle.angleDeg)
     icon.innerHTML = vehicleSvg({ color: vehicle.color ?? '#1a6cf5', angleDeg: heading, size: 22 })
     const label = document.createElement('span')
     label.textContent = plate || '在途'

@@ -668,6 +668,9 @@ async function applyWestDeparture(amapKey: string, routes: YktBusRouteInfo[]): P
     const second = route.stops[1]
     if (!first) continue
     if (first.siteName !== '旧区创业园' && first.siteName !== WEST_DEPARTURE_STOP_NAME) continue
+    // 折线已经从发车点起头（逐站算路的结果）就不用再接一段，免得重叠。
+    const headPoint = route.polyline[0]
+    if (headPoint && haversineMeters(headPoint, WEST_GATE) < 40) continue
     const approach = await westApproach(amapKey, second ? { lng: second.lng, lat: second.lat } : { lng: first.lng, lat: first.lat })
     if (!approach) continue
     first.siteName = WEST_DEPARTURE_STOP_NAME
@@ -705,8 +708,27 @@ function shapeLengthMeters(points: RouteShapePoint[]): number {
   return total
 }
 
+/**
+ * 旧区两头的站点都该落在实车停靠的位置（邮政快递站旁），而不是「旧区创业园」：
+ * 去程首站在创业园、回程末站也在创业园，两端都要挪过去，否则线尾会折进创业园。
+ * 只改首个/末个站点，中间站不动。
+ */
+function normalizeWestStops(stops: YktBusStopInfo[]): void {
+  if (!stops.length) return
+  const fix = (stop: YktBusStopInfo | undefined) => {
+    if (!stop) return
+    if (stop.siteName !== '旧区创业园' && stop.siteName !== WEST_DEPARTURE_STOP_NAME) return
+    stop.siteName = WEST_DEPARTURE_STOP_NAME
+    stop.lng = WEST_GATE.lng
+    stop.lat = WEST_GATE.lat
+  }
+  fix(stops[0])
+  if (stops.length > 1) fix(stops[stops.length - 1])
+}
+
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
   for (const route of routes) {
+    normalizeWestStops(route.stops)
     const key = `${route.routeId}|${route.stops.map(s => s.siteId).join(',')}`
     const cached = shapeCache.get(key)
     const cachedTtl = cached && cached.complete !== false ? SHAPE_TTL_MS : SHAPE_DEGRADED_TTL_MS
@@ -729,8 +751,7 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
       if (amapKey && !shapeInflight.has(refineKey)) {
         const tracedLength = shapeLengthMeters(traced)
         const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
-        const startIsDepot = route.stops[0]?.siteName === '旧区创业园'
-        const refine = buildShapeThroughStops(amapKey, stops, startIsDepot ? { origin: WEST_GATE } : {})
+        const refine = buildShapeThroughStops(amapKey, stops)
           .then(async (byStops) => {
             const usable = byStops && tracedLength > 0
               && shapeLengthMeters(byStops.polyline) >= tracedLength * 0.75

@@ -193,9 +193,12 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
         ? snapToPolyline({ lng, lat }, line)
         : null
       const shown = snapped && snapped.offsetMeters <= 30 ? snapped.point : { lng, lat }
-      // 车头一律用线路切线（前进方向），不再用两点位移方位角，避免静止/抖动时车头乱转。
+      // 车头用「当前显示位置所在线段」的切线，每个动画帧都重算：
+      // 这样车刚拐进弯道时车头立刻跟着转，而不是等下一次 GPS 上报。
       const moved = haversineMeters(trail.from, trail.to)
-      const angleDeg = progress?.angleDeg ?? (moved >= 2 ? bearingDegrees(trail.from, trail.to) : 0)
+      const angleDeg = snapped && snapped.offsetMeters <= 30
+        ? snapped.angleDeg
+        : (progress?.angleDeg ?? (moved >= 2 ? bearingDegrees(trail.from, trail.to) : 0))
       if (!movedAt.has(name) || haversineMeters(lastFix.get(name) ?? fix, fix) > 3) movedAt.set(name, now)
       snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, lng: shown.lng, lat: shown.lat })
       mapBuses.push({

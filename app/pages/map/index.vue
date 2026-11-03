@@ -861,11 +861,19 @@ let transitAgeTimer: ReturnType<typeof globalThis.setInterval> | null = null
 /** 点一辆车：镜头跟住它，并打开车辆详情（含 GPS 更新时间）。 */
 function focusTransitVehicle(payload: VehicleFocus): void {
   transitVehicleFocus.value = { ...payload }
+  ensureAgeTimer()
   const converted = payload.source === 'campus' ? wgs84ToGcj02(payload.point[0], payload.point[1]) : null
   const target = converted
     ? { lng: converted.longitude, lat: converted.latitude }
     : { lng: payload.point[0], lat: payload.point[1] }
   mapProvider.value?.flyToPoint({ ...target, crs: 'GCJ-02' }, 17)
+}
+
+/** 关掉跟车卡片：同时停掉每秒计时。 */
+function closeVehicleDetails(): void {
+  transitVehicleFocus.value = null
+  if (transitAgeTimer) clearInterval(transitAgeTimer)
+  transitAgeTimer = null
 }
 
 /** 面板里点车辆行：等同于点地图上的车标。 */
@@ -1027,16 +1035,24 @@ async function loadTransitDepartures(): Promise<void> {
   }
 }
 
+/** 跟车卡片里的「GPS 更新」：每秒按数据源自带时间重算，跟车结束就停。 */
+function ensureAgeTimer(): void {
+  if (transitAgeTimer) return
+  transitAgeTimer = globalThis.setInterval(() => {
+    const focus = transitVehicleFocus.value
+    if (!focus) return
+    // 校车是快照时间（5 s 一轮），校外公交是拉取时间（20 s 一轮）。
+    const iso = focus.source === 'campus'
+      ? focus.updatedAt
+      : (transitLive.value?.fetchedAt ?? focus.updatedAt)
+    const at = Date.parse(iso ?? '')
+    transitGpsAge.value = Number.isFinite(at) ? Math.max(0, Math.round((Date.now() - at) / 1000)) : 0
+  }, 1000)
+}
+
 function startTransitLive(): void {
   void loadTransitDepartures()
-  if (!transitAgeTimer) {
-    transitAgeTimer = globalThis.setInterval(() => {
-      const focus = transitVehicleFocus.value
-      if (!focus) return
-      const stamp = transitMoveStamps.get(focus.plate)?.at
-      transitGpsAge.value = stamp ? Math.max(0, Math.round((Date.now() - stamp) / 1000)) : 0
-    }, 1000)
-  }
+  ensureAgeTimer()
   void refreshTransitLive()
   if (transitLiveTimer) return
   transitLiveTimer = setInterval(() => {
@@ -1984,7 +2000,7 @@ onBeforeUnmount(() => {
           type="button"
           class="shrink-0 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
           aria-label="关闭车辆详情"
-          @click="transitVehicleFocus = null"
+          @click="closeVehicleDetails"
         >
           <UIcon
             name="i-lucide-x"
