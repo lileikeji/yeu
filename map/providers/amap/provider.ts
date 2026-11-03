@@ -652,6 +652,8 @@ export class AMapProvider implements MapProvider {
       event.stopPropagation()
       this.busSelectHandler?.(bus.id)
     })
+    element.addEventListener('mousedown', event => event.stopPropagation())
+    element.addEventListener('pointerdown', event => event.stopPropagation())
     const icon = document.createElement('span')
     icon.dataset.busIcon = ''
     icon.style.cssText = 'display:grid;place-items:center;width:40px;height:40px;'
@@ -919,6 +921,8 @@ export class AMapProvider implements MapProvider {
       event.stopPropagation()
       this.busSelectHandler?.(`transit:${vehicle.plate}`)
     })
+    element.addEventListener('mousedown', event => event.stopPropagation())
+    element.addEventListener('pointerdown', event => event.stopPropagation())
     element.style.cssText = [
       'display:flex',
       'align-items:center',
@@ -1541,6 +1545,10 @@ export class AMapProvider implements MapProvider {
         options.onClick?.()
       })
     }
+    // 点完楼栋再挪鼠标不该拖地图：按下事件不能冒泡到高德容器，否则地图进入拖拽态。
+    element.addEventListener('mousedown', event => event.stopPropagation())
+    element.addEventListener('pointerdown', event => event.stopPropagation())
+    element.addEventListener('touchstart', event => event.stopPropagation(), { passive: true })
 
     element.append(label, pin)
     return { content: element, label }

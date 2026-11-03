@@ -225,8 +225,9 @@ export async function buildShapeThroughStops(
     const from = points[i]!
     const to = points[i + 1]!
     if (i > 0 && gapMs > 0) await new Promise(resolve => setTimeout(resolve, gapMs))
-    const segment = await fetchRouteSegment(amapKey, [from, to], WALKING_ENDPOINT)
-      ?? await fetchRouteSegment(amapKey, [from, to], DRIVING_ENDPOINT)
+    // 先按车行道算，拿不到再退步行（步行会穿楼间小路，看起来不贴马路）。
+    const segment = await fetchRouteSegment(amapKey, [from, to], DRIVING_ENDPOINT)
+      ?? await fetchRouteSegment(amapKey, [from, to], WALKING_ENDPOINT)
     const leg = segment && segment.length >= 2 ? segment : [from, to]
     if (!segment) complete = false
     for (const point of leg) {
