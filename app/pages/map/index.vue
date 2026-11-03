@@ -15,7 +15,7 @@ import type {
 } from '~~/map/core/provider'
 import { wgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
 import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
-import { snapToPolyline } from '~~/shared/utils/bus-route-progress'
+import { haversineMeters, snapToPolyline } from '~~/shared/utils/bus-route-progress'
 import { officialSources } from '~~/data/seeds/public-content'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
@@ -851,7 +851,9 @@ watch(busVehicles, list => {
 }, { deep: false })
 function stampTransitMove(plate: string, point: [number, number]): void {
   const last = transitMoveStamps.get(plate)
-  const moved = !last || Math.abs(last.point[0] - point[0]) > 3e-5 || Math.abs(last.point[1] - point[1]) > 3e-5
+  // 12 m 以内算 GPS 抖动，不算「位置更新」，否则停站时也会一直显示 0 秒。
+  const moved = !last
+    || haversineMeters({ lng: last.point[0], lat: last.point[1] }, { lng: point[0], lat: point[1] }) > 12
   transitMoveStamps.set(plate, { point, at: moved ? Date.now() : last?.at ?? Date.now() })
 }
 let transitAgeTimer: ReturnType<typeof globalThis.setInterval> | null = null
