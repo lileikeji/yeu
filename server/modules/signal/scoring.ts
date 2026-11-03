@@ -72,6 +72,8 @@ const NOISE_GROUPS: KeywordGroup[] = [
   // 招生类公告是给考生看的，在校生不需要：志愿、批次、计划都算噪音。
   { key: '招生录取', weight: 12, words: ['征求志愿', '招生计划', '招生简章', '投档线', '批次线', '招生宣传', '录取批次', '生源'] },
   { key: '校友捐赠', weight: 12, words: ['校友', '捐赠', '基金会', '理事会'] },
+  // 表格、模板、流程图是办事材料，不是「最近在发」的消息。
+  { key: '表格附件', weight: 14, words: ['申请表', '确认表', '承诺书', '申请书', '登记表', '审批表', '交底书', '模板', '流程图', '表格', '填写说明', '样表'] },
   { key: '研究生', weight: 6, words: ['研究生', '硕士', '博士', '学位点'] }
 ]
 
@@ -237,6 +239,7 @@ const ANNOUNCEMENT_RE = /通知|公告|公示|名单|安排|须知|日程|报名
 const FILENAME_RE = /^[\w\-.()（）\s]+\.(?:docx?|pdf|xlsx?|pptx?|zip|rar|7z)$/i
 const HASH_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CJK_RE = /[一-鿿]/
+const FORM_TITLE_RE = /申请表|报名表|汇总表|明细表|一览表|确认表|登记表|审批表|评估表|交底书|承诺书|委托书|模板|流程图|表格|样表|填写说明/
 
 /**
  * 抓来的文档不都是「新消息」：学院简介、专业目录、师资名单一躺就是几年。
@@ -252,6 +255,9 @@ export function isUsableSignalTitle(title: string): boolean {
   const trimmed = title.trim()
   if (trimmed.length < 8) return false
   if (HASH_NAME_RE.test(trimmed.replace(/\.[a-z0-9]+$/i, ''))) return false
+  // 表格类材料（申请表、评估表、模板、流程图）不是消息，除非标题本身是通知/公告/公示。
+  // 这里只看这三个词：ANNOUNCEMENT_RE 里的「申请」本身就把大量表格放行了。
+  if (FORM_TITLE_RE.test(trimmed) && !/通知|公告|公示/.test(trimmed)) return false
   if (FILENAME_RE.test(trimmed)) {
     const base = trimmed.replace(/\.[a-z0-9]+$/i, '')
     if (!CJK_RE.test(base) || base.length < 12) return false

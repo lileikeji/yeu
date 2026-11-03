@@ -108,21 +108,27 @@ pnpm tsx scripts/signal-build.ts --report both
 
 索引是整表重写（先 `delete signal_events`，条目跟着级联），不积累历史；要改口径随时重跑。跑完 `/hot` 与 `/api/public/signal` 就是新的。
 
-生产上由 `ops/systemd/yeu-signal.service` + `yeu-signal.timer` 每天 07:00（Asia/Shanghai）跑一次，排在 03:40 的官方站点抓取之后：
+生产上由 `ops/systemd/yeu-signal.service` + `yeu-signal.timer` 每天 07:00（Asia/Shanghai）跑一次，排在 03:40 的官方站点抓取之后。
+
+发布包（tar）只有 `deploy/`、`nitro.json`、`public/`、`release.json`、`server/`，没有脚本也没有 `tsx`；`/www/wwwroot/yeu/repo` 只是代码检出，不装 `node_modules`。所以脚本另有一个独立运行环境 `/opt/yeu-signal`（自带 `node_modules`，约 67 MB），抓取与索引重建都在这里跑：
 
 ```bash
-sudo install -m 644 ops/systemd/yeu-signal.service /etc/systemd/system/
-sudo install -m 644 ops/systemd/yeu-signal.timer /etc/systemd/system/
+# 本机改完 signal / 抓取相关代码后，把文件推到运行环境（顺带收紧 busy_timeout）
+bash scripts/sync-signal-runtime.sh
+
+# 服务器上首次安装与启用（单元文件从本仓库 ops/systemd/ 传上去）
+scp -i ~/.ssh/***REMOVED*** ops/systemd/yeu-signal.service ops/systemd/yeu-signal.timer root@<host>:/tmp/
+sudo install -m 644 /tmp/yeu-signal.service /etc/systemd/system/yeu-signal.service
+sudo install -m 644 /tmp/yeu-signal.timer /etc/systemd/system/yeu-signal.timer
 sudo systemctl daemon-reload
 sudo systemctl enable --now yeu-signal.timer
 
-# 先手跑一次确认口径
 sudo systemctl start yeu-signal.service
 journalctl -u yeu-signal.service -n 40 --no-pager
 systemctl list-timers yeu-signal.timer
 ```
 
-服务 `Type=oneshot`、`MemoryMax=512M`、`TimeoutStartSec=20min`，只对 `shared/data` 与 `shared/logs` 有写权限。失败时 systemd 单元为 `failed`，`systemctl --failed` 与 `journalctl -u yeu-signal` 能看到；接宝塔计划任务或现有监控时，按 `systemctl is-failed yeu-signal.service` 判非零即可告警。
+`WorkingDirectory=/opt/yeu-signal`，数据库走 `Environment=NUXT_DATABASE_PATH=/www/wwwroot/yeu/shared/data/yeu.sqlite`。服务 `Type=oneshot`、`MemoryMax=512M`、`TimeoutStartSec=20min`，只对 `shared/data`、`shared/logs`、`/opt/yeu-signal` 有写权限。失败时 systemd 单元为 `failed`，`systemctl --failed` 与 `journalctl -u yeu-signal` 能看到；接宝塔计划任务或现有监控时，按 `systemctl is-failed yeu-signal.service` 判非零即可告警。
 
 ## 7. 接口与页面
 
@@ -144,8 +150,10 @@ systemctl list-timers yeu-signal.timer
 - 索引是整表重建的，事件 `id`（`sig_` + 代表条目的哈希）与 `slug` 每轮按当前代表条目重算，重建后旧链接可能指向新事件。要长期引用某条，引原始通知 URL，不引 `/hot/:slug`。
 - 不做人工审核，口径即规则：要调质量就改 `scoring.ts` 的权重与门槛，然后重跑索引。
 
-## 8. 抓取边界（2026-11 实测）
+## 9. 抓取边界（2026-11 实测）
 
 - 通知栏目对外不可达：`https://www.yeu.edu.cn/index/tzgg.htm` → 403，`/tzgg/list.htm` → 301 到 `/tzgg/list.psp` 且返回「No Permission」；`jwb.yeu.edu.cn/tzgg/list.htm`、`xgb.yeu.edu.cn` 同样被挡。栏目列表页只有校内网络能取。
-- 外网能抓的是首页可达的内容页与附件（制度、办法、流程图、申请表）。所以 `--max-pages 120 --max-depth 3` 跑一轮只选出制度类事件，不是打分错了，是抓不到当期通知。
+- 外网能抓的是首页可达的内容页与附件（制度、办法、流程图、申请表）。所以 `--max-pages 300 --max-depth 3` 跑一轮只选出制度类事件，不是打分错了，是抓不到当期通知。
+- 抓取与索引都在 `/opt/yeu-signal` 里跑：`yeu-knowledge-crawl.timer`（03:45，`--max-pages 300 --max-depth 6`）负责攒语料，`yeu-signal.timer`（07:00）负责重建索引。两边共用生产库，`/opt/yeu-signal/server/database/client.ts` 的 `busy_timeout` 放宽到 120000，否则 compile 阶段与线上写请求会撞 `database is locked`。
+- `/opt/yeu-signal` 的运行时依赖：`tsx`、`drizzle-orm`、`better-sqlite3`、`sqlite-vec`、`@e965/xlsx`、`cheerio`、`fflate`、`word-extractor`、`pdfjs-dist`。少 `pdfjs-dist` 时 PDF 通知会整批失败并报 `Cannot find package 'pdfjs-dist'`，日志里能看到 url 与 message，补包后重跑即可。
 - 要让「最近在发」真显示当期通知，两条路：①抓取任务放在能访问校内栏目的机器上（生产服务器若在校园网内，直接换 seed 为栏目 URL）；②换公开源（招生网首页新闻、团委公众号等），并相应调整 `NOISE_GROUPS` 与公告闸门。

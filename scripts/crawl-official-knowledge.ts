@@ -78,6 +78,8 @@ export interface OfficialCrawlOptions {
   delayMs: number
   fresh: boolean
   dryRun: boolean
+  /** compile 会把整库重编一遍，几万条要跑一个多小时；只要正文入库时用 --no-compile 跳过。 */
+  compile: boolean
 }
 
 export interface OfficialCrawlQueueItem {
@@ -1223,7 +1225,7 @@ export function mergeCrawlWorkspace(workspace: CrawlWorkspace): void {
   const { livePath, workPath } = workspace
   if (!livePath) return
   const live = getDatabase(livePath)
-  const quoted = workPath.replace(/'/gu, "''")
+  const quoted = workPath.replace(/'/gu, '\'\'')
   live.sqlite.exec(`ATTACH DATABASE '${quoted}' AS crawl_work`)
   try {
     live.sqlite.transaction(() => {
@@ -1424,12 +1426,12 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
 
   try {
     await Promise.all(Array.from({ length: options.concurrency }, () => worker()))
-    if (!options.dryRun) {
+    if (!options.dryRun && options.compile) {
       const compiled = compileOfficialKnowledgeDocuments(client)
       process.stderr.write(
-        `Compiled official knowledge: ${compiled.documents} documents; ` +
-        `${compiled.claimsInserted} inserted; ${compiled.claimsUpdated} updated; ` +
-        `${compiled.claimsRemoved} removed\n`
+        `Compiled official knowledge: ${compiled.documents} documents; `
+        + `${compiled.claimsInserted} inserted; ${compiled.claimsUpdated} updated; `
+        + `${compiled.claimsRemoved} removed\n`
       )
     }
   } catch (error) {
@@ -1473,7 +1475,8 @@ export function parseOfficialCrawlCli(argv: string[]): OfficialCrawlOptions {
     concurrency: 2,
     delayMs: 350,
     fresh: false,
-    dryRun: false
+    dryRun: false,
+    compile: true
   }
   const explicitSeeds: string[] = []
   for (let index = 0; index < argv.length; index += 1) {
@@ -1481,6 +1484,7 @@ export function parseOfficialCrawlCli(argv: string[]): OfficialCrawlOptions {
     const value = argv[index + 1]
     if (argument === '--fresh') options.fresh = true
     else if (argument === '--dry-run') options.dryRun = true
+    else if (argument === '--no-compile') options.compile = false
     else if (argument === '--database' && value) {
       options.databasePath = value
       index += 1

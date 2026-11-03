@@ -29,7 +29,7 @@ import type { SignalReportEventInput, SignalReportPayload } from './report'
 import { decideSignalScore, isUsableSignalTitle, looksLikeAnnouncement, signalCategoryFor } from './scoring'
 import { signalTierFor, signalTierLabel, signalTierThreshold } from './tiers'
 import type { SignalSourceLevel, SignalTier } from './tiers'
-import { signalDayKeysInPeriod, signalPeriodKey } from './time'
+import { signalDayKeysInPeriod, signalPeriodKey, signalPeriodRange } from './time'
 import type { SignalReportKind } from './time'
 
 export const SIGNAL_DEFAULT_LOOKBACK_DAYS = 45
@@ -279,7 +279,8 @@ function collectDocumentCandidates(client: DatabaseClient, cutoff: number, limit
   for (const row of rows) {
     const text = (row.extractedText ?? '').trim()
     if (text.length < 60 || !row.originalUrl) continue
-    if (!isUsableSignalTitle(row.title) || !looksLikeAnnouncement(row.title, text)) continue
+    // 文档只看标题像不像通知：正文里几乎每页都带「通知」二字，放开正文等于放行所有常青页。
+    if (!isUsableSignalTitle(row.title) || !looksLikeAnnouncement(row.title)) continue
     const publishedAt = documentPublishedAt(row.title, text, row.capturedAt)
     if (publishedAt < cutoff) continue
     candidates.push({
@@ -770,16 +771,22 @@ function readReport(client: DatabaseClient, kind: SignalReportKind, periodKey: s
 }
 
 /** 生成（或取回）某一天的日报；同日只出一份。 */
-export function ensureDailyReport(client: DatabaseClient, now = Date.now()): SignalReportPayload {
+export function ensureDailyReport(
+  client: DatabaseClient,
+  now = Date.now(),
+  options: { refresh?: boolean } = {}
+): SignalReportPayload {
   const periodKey = signalPeriodKey('daily', now)
-  const existing = readReport(client, 'daily', periodKey)
+  const existing = options.refresh ? null : readReport(client, 'daily', periodKey)
   if (existing) return existing
 
+  // refresh 时不算今天这份报告的「已报」，否则重建后条目全被判成老消息，日报会空掉。
+  const reportedAt = reportedAtMap(client, options.refresh ? signalPeriodRange('daily', periodKey).start : now)
   const payload = buildDailyReport({
     events: reportEventInputs(client),
     periodKey,
     generatedAt: now,
-    reportedAt: reportedAtMap(client, now)
+    reportedAt
   })
   persistReport(client, payload)
 
@@ -797,10 +804,11 @@ export function ensureDailyReport(client: DatabaseClient, now = Date.now()): Sig
 export function ensurePeriodReport(
   client: DatabaseClient,
   kind: Extract<SignalReportKind, 'weekly' | 'monthly'>,
-  now = Date.now()
+  now = Date.now(),
+  options: { refresh?: boolean } = {}
 ): SignalReportPayload {
   const periodKey = signalPeriodKey(kind, now)
-  const existing = readReport(client, kind, periodKey)
+  const existing = options.refresh ? null : readReport(client, kind, periodKey)
   if (existing) return existing
 
   const dailies: Array<{ periodKey: string, payload: SignalReportPayload }> = []
@@ -815,6 +823,7 @@ export function ensurePeriodReport(
 
 function persistReport(client: DatabaseClient, payload: SignalReportPayload): void {
   const itemCount = payload.lead.length + payload.sections.reduce((total, section) => total + section.items.length, 0)
+  // 报告是派生视图：同一天重跑索引就该反映新口径，覆盖而不是留着上一版。
   client.db.insert(signalReports).values({
     id: `srep_${sha1(`signal-report:${payload.kind}:${payload.periodKey}`).slice(0, 24)}`,
     kind: payload.kind,
@@ -823,7 +832,15 @@ function persistReport(client: DatabaseClient, payload: SignalReportPayload): vo
     payloadJson: JSON.stringify(payload),
     itemCount,
     generatedAt: payload.generatedAt
-  }).onConflictDoNothing().run()
+  }).onConflictDoUpdate({
+    target: [signalReports.kind, signalReports.periodKey],
+    set: {
+      title: payload.title,
+      payloadJson: JSON.stringify(payload),
+      itemCount,
+      generatedAt: payload.generatedAt
+    }
+  }).run()
 }
 
 export function listSignalReports(client: DatabaseClient, kind: SignalReportKind, limit = 10): SignalReportPayload[] {

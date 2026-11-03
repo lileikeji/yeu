@@ -68,7 +68,7 @@ function main(): void {
     const reports: Array<{ kind: SignalReportKind, periodKey: string, items: number }> = []
     if (!options.dryRun && options.report !== 'none') {
       if (options.report === 'daily' || options.report === 'both') {
-        const payload = ensureDailyReport(client, options.now)
+        const payload = ensureDailyReport(client, options.now, { refresh: true })
         reports.push({
           kind: 'daily',
           periodKey: payload.periodKey,
@@ -77,7 +77,7 @@ function main(): void {
       }
       if (options.report === 'weekly' || options.report === 'both') {
         for (const kind of ['weekly', 'monthly'] as const) {
-          const payload = ensurePeriodReport(client, kind, options.now)
+          const payload = ensurePeriodReport(client, kind, options.now, { refresh: true })
           reports.push({
             kind,
             periodKey: payload.periodKey,
