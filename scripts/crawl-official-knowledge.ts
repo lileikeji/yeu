@@ -5,6 +5,7 @@ import { basename, dirname, resolve } from 'node:path'
 import { readdirSync, readFileSync, rmSync, statSync, statfsSync } from 'node:fs'
 import * as XLSX from '@e965/xlsx'
 import { load } from 'cheerio'
+import { candidateImageUrls, imageOcrConfigFromEnv, ocrImageUrls } from '../server/modules/knowledge/image-ocr'
 import { unzipSync } from 'fflate'
 import WordExtractor from 'word-extractor'
 import { closeDatabase, getDatabase, resolveDatabasePath, type DatabaseClient } from '../server/database/client'
@@ -69,6 +70,9 @@ const HIGH_VALUE_TERMS = [
 const BLOCKED_PATH = /(?:\/(?:_upload\/tpl|_js|_css|login|logout|auth|cas|vpn|webvpn)\/|\.(?:avif|bmp|css|eot|gif|ico|jpe?g|js|m4a|m4v|mov|mp3|mp4|mpeg|ogg|png|svg|ttf|webm|webp|woff2?)(?:$|\?))/i
 const SUPPORTED_DOCUMENT = /(?:\.(?:html?|psp|pdf|docx?|xlsx?|txt)(?:$|\?)|\/$)/i
 
+/** 正文短于这个字数才值得 OCR：正常网页正文都远超 300 字。 */
+const OCR_MIN_TEXT = 300
+
 export interface OfficialCrawlOptions {
   databasePath: string
   seeds: string[]
@@ -79,7 +83,9 @@ export interface OfficialCrawlOptions {
   fresh: boolean
   dryRun: boolean
   /** compile 会把整库重编一遍，几万条要跑一个多小时；只要正文入库时用 --no-compile 跳过。 */
-  compile: boolean
+  compile?: boolean
+  /** 正文是图片的通知靠视觉模型转写；没有 OCR_* 环境变量时自动跳过。 */
+  ocr?: boolean
 }
 
 export interface OfficialCrawlQueueItem {
@@ -1252,6 +1258,7 @@ export function disposeCrawlWorkspace(workspace: CrawlWorkspace): void {
 }
 
 export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Promise<OfficialCrawlReport> {
+  const ocrConfig = options.ocr === false ? null : imageOcrConfigFromEnv()
   let failed = false
   let skippedDispose = false
   const startedAt = new Date()
@@ -1366,6 +1373,17 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
           try {
             const html = await fetchOfficialHtml(item.url, options.fresh)
             document = parseOfficialHtml(html, item.url)
+            // 正文做成图片的通知只有一句引导语，交给视觉模型补一次转写。
+            if (options.ocr && ocrConfig && document.text.length < OCR_MIN_TEXT) {
+              const images = candidateImageUrls(html, document.url, 2)
+              if (images.length > 0) {
+                const { text } = await ocrImageUrls(images, ocrConfig, { maxImages: 2 })
+                if (text) document = { ...document, text: `${document.text}
+
+【图片文字】
+${text}` }
+              }
+            }
           } catch (directHtmlError) {
             // 4xx 是站点权限或路径问题，reader 也救不回来，别再白等一轮 65 秒超时。
             const directMessage = directHtmlError instanceof Error ? directHtmlError.message : String(directHtmlError)
@@ -1476,7 +1494,8 @@ export function parseOfficialCrawlCli(argv: string[]): OfficialCrawlOptions {
     delayMs: 350,
     fresh: false,
     dryRun: false,
-    compile: true
+    compile: true,
+    ocr: true
   }
   const explicitSeeds: string[] = []
   for (let index = 0; index < argv.length; index += 1) {
@@ -1485,6 +1504,7 @@ export function parseOfficialCrawlCli(argv: string[]): OfficialCrawlOptions {
     if (argument === '--fresh') options.fresh = true
     else if (argument === '--dry-run') options.dryRun = true
     else if (argument === '--no-compile') options.compile = false
+    else if (argument === '--no-ocr') options.ocr = false
     else if (argument === '--database' && value) {
       options.databasePath = value
       index += 1

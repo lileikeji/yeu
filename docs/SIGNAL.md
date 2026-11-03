@@ -164,3 +164,14 @@ systemctl list-timers yeu-signal.timer
 - 抓取与索引都在 `/opt/yeu-signal` 里跑：`yeu-knowledge-crawl.timer`（03:45，`--max-pages 300 --max-depth 6`）负责攒语料，`yeu-signal.timer`（07:00）负责重建索引。两边共用生产库，`/opt/yeu-signal/server/database/client.ts` 的 `busy_timeout` 放宽到 120000，否则 compile 阶段与线上写请求会撞 `database is locked`。
 - `/opt/yeu-signal` 的运行时依赖：`tsx`、`drizzle-orm`、`better-sqlite3`、`sqlite-vec`、`@e965/xlsx`、`cheerio`、`fflate`、`word-extractor`、`pdfjs-dist`。少 `pdfjs-dist` 时 PDF 通知会整批失败并报 `Cannot find package 'pdfjs-dist'`，日志里能看到 url 与 message，补包后重跑即可。
 - 要让「最近在发」真显示当期通知，两条路：①抓取任务放在能访问校内栏目的机器上（生产服务器若在校园网内，直接换 seed 为栏目 URL）；②换公开源（招生网首页新闻、团委公众号等），并相应调整 `NOISE_GROUPS` 与公告闸门。
+
+## 10. 图片正文的通知（OCR）
+
+官网有一部分通知把正文做成图片：抓下来只剩一句「详见附件」或几十个字的引导语，标题再像通知也进不了榜。这类靠视觉模型转写补回来，代码在 `server/modules/knowledge/image-ocr.ts`。
+
+- 图片筛选：只取 `<img>` 里 `src` / `data-src` / `data-original` 的相对或绝对地址，跳过站标、二维码、按钮这类装饰图（`DECORATION_PATTERN`），跳过模板资源与统计像素（`TRACKING_PATTERN`：`_visitcount`、`/_upload/site/`、`/tpl/`、`_ueditor`），`width`/`height` 显式小于 200 的也跳过。一页最多取 2 张。
+- 转写：`POST {OCR_BASE_URL}/chat/completions`，`image_url` 直接给图片外链（站群图片可公网访问，不用下载再 base64），提示词要求原样转写、不要解释。转写结果拼在正文后面，前缀 `【图片文字】`。
+- 抓取时自动补：`crawl-official-knowledge.ts` 里正文短于 300 字且页面有正文图时触发；`--no-ocr` 关闭。
+- 存量补录：`scripts/ocr-short-documents.ts`，两段式——先并发扫页面挑出真有正文图的，再串行 OCR。只处理 `status=ready`、正文短于 `--min-text`、标题像通知、URL 是 `page.htm` 的文档；`--only-notice` 开启这层过滤。
+- 环境变量（写在 `/www/wwwroot/yeu/shared/.env`，`yeu-signal.service` 通过 `EnvironmentFile` 读取）：`OCR_BASE_URL`、`OCR_API_KEY`、`OCR_MODEL`、`OCR_TIMEOUT_MS`。三个必填项缺一个就不启用，抓取与补录都会自动跳过。
+- 实测：正文全是图片的「人文学院25-26学年奖助学金评审结果公示」补出 55 字名单；单张图约 24 秒（`Qwen/Qwen3.6-27B`），35B 要 35 秒，所以默认用 27B。

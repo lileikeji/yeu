@@ -9,6 +9,7 @@ User=yeu
 Group=yeu
 # 发布包只有 nitro 输出，脚本和 tsx 放在 /opt/yeu-signal（与 yeu-knowledge-crawl.service 同一套运行环境）。
 WorkingDirectory=/opt/yeu-signal
+EnvironmentFile=/www/wwwroot/yeu/shared/.env
 Environment=NUXT_DATABASE_PATH=/www/wwwroot/yeu/shared/data/yeu.sqlite
 Environment=NODE_ENV=production
 ExecStart=/opt/node-v22.18.0/bin/node /opt/yeu-signal/node_modules/tsx/dist/cli.mjs scripts/signal-build.ts --days 45 --report both

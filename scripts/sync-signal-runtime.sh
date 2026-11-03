@@ -18,11 +18,13 @@ FILES=(
   scripts/signal-build.ts
   scripts/crawl-official-knowledge.ts
   scripts/load-env.ts
+  scripts/ocr-short-documents.ts
   server/database/schema.ts
   server/database/client.ts
   server/database/migrate.ts
   server/modules/content/visibility.ts
   server/modules/knowledge/document-compiler.ts
+  server/modules/knowledge/image-ocr.ts
   server/utils/serializers.ts
   server/utils/geo-cipher.ts
   shared/constants/server.ts
