@@ -150,6 +150,16 @@ systemctl list-timers yeu-signal.timer
 
 `app/pages/hot.vue` 是页面：顶部今日简报，分类横向筛选，每条显示标题、趋势、分级、来源数/条数、热度、更新时间，「看原文」按需拉详情，外链直达原始通知。导航入口在 `app/layouts/default.vue` 的「校园热度」。
 
+## 7.1 接入站内问答
+
+`server/modules/signal/assistant-evidence.ts` 把已发布事件当作检索证据，供 `retrieveCampusEvidence` 与其它来源一起做 RRF 融合：
+
+- 匹配：问题词命中标题 +8（≥3 字）或 +5，命中摘要 +4/+2。
+- 「最近有新消息吗」这类没有实词的问法，用 `FRESH_INTENT_RE`（`最近|最新|近期|新消息|热榜|热度|今天|本周` 等）兜底：加基础分，并按 `heat` 与距今时间加权，热度高的排前面。
+- 证据 URL 是 `/hot#<slug>`，引用区直接可点；snippet 带「分类 · N 个来源 · N 条 · 发布日期」，回答里能说清「几号发的、几个站点都发了」。
+- `/hot#` 在 `rankAssistantEvidence` 的主体覆盖闸门里放行（同 `/nearby#`、`/transport`），否则这类条目会被当作「没答到点上」清分。
+- 改检索行为要同步 bump `ASSISTANT_CACHE_VERSION`（`server/modules/assistant/service.ts`），答案缓存有两层，版本号不变会继续发旧答案。
+
 ## 8. 已知边界
 
 - 只用标题和正文前 6000 字判断，不解析附件内容；附件只作为「证据强度」加分项。
