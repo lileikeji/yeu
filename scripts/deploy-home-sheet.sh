@@ -59,7 +59,15 @@ chown -R yeu:yeu "$release"
 find "$release" -type d -exec chmod 0750 {} +
 find "$release" -type f -exec chmod 0640 {} +
 
-sqlite3 "$base/shared/data/yeu.sqlite" ".backup '$backup'"
+# `.backup` 在库持续被写入时会反复重启，实测在生产库上挂了 98 分钟没跑完，
+# 期间公开接口被读锁拖到 10 秒级。VACUUM INTO 是一次性一致快照，不会回退重来。
+if [ -e "$backup" ]; then
+  mv "$backup" "$backup.replaced-$(date -u +%Y%m%d-%H%M%S)"
+fi
+if ! timeout 900 sqlite3 "$base/shared/data/yeu.sqlite" "VACUUM INTO '$backup'"; then
+  echo "数据库快照失败（VACUUM INTO），中止部署" >&2
+  exit 1
+fi
 chown yeu:yeu "$backup"
 chmod 0600 "$backup"
 
