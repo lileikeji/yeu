@@ -1,8 +1,8 @@
 import './load-env'
 import { createHash, randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
-import { dirname, resolve } from 'node:path'
-import { rmSync, statSync, statfsSync } from 'node:fs'
+import { basename, dirname, resolve } from 'node:path'
+import { readdirSync, rmSync, statSync, statfsSync } from 'node:fs'
 import * as XLSX from '@e965/xlsx'
 import { load } from 'cheerio'
 import { unzipSync } from 'fflate'
@@ -15,7 +15,7 @@ const USER_AGENT = 'YEU-Freshman-Guide-knowledge-crawler/1.0 (public official-so
 const BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
 const CRAWLER_VERSION = 6
 const MAX_EXTRACTED_LENGTH = 600_000
-const READER_TIMEOUT_MS = 65_000
+const READER_TIMEOUT_MS = 20_000
 const MAX_PDF_BYTES = 50 * 1024 * 1024
 const MAX_OFFICE_BYTES = 30 * 1024 * 1024
 const MAX_HTML_BYTES = 10 * 1024 * 1024
@@ -174,7 +174,8 @@ async function fetchReader(value: string, fresh: boolean): Promise<string> {
       return body
     } catch (error) {
       lastError = error
-      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+      const timedOut = error instanceof Error && error.name === 'TimeoutError'
+      if (attempt < 2 && !timedOut) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
     }
   }
   throw new Error(lastError instanceof Error ? lastError.message : 'reader request failed')
@@ -201,7 +202,8 @@ async function fetchOfficialHtml(value: string, fresh: boolean): Promise<string>
       return html
     } catch (error) {
       lastError = error
-      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+      const timedOut = error instanceof Error && error.name === 'TimeoutError'
+      if (attempt < 2 && !timedOut) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
     }
   }
   throw new Error(lastError instanceof Error ? lastError.message : 'official page request failed')
@@ -396,7 +398,8 @@ async function fetchPdfBytes(value: string, fresh: boolean, discoveredFrom: stri
       return bytes
     } catch (error) {
       lastError = error
-      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+      const timedOut = error instanceof Error && error.name === 'TimeoutError'
+      if (attempt < 2 && !timedOut) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
     }
   }
   throw new Error(lastError instanceof Error ? lastError.message : 'official PDF request failed')
@@ -427,7 +430,8 @@ async function fetchOfficeBytes(value: string, fresh: boolean, discoveredFrom: s
       return bytes
     } catch (error) {
       lastError = error
-      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+      const timedOut = error instanceof Error && error.name === 'TimeoutError'
+      if (attempt < 2 && !timedOut) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
     }
   }
   throw new Error(lastError instanceof Error ? lastError.message : 'official Office attachment request failed')
@@ -466,7 +470,8 @@ async function fetchLegacyOfficeBytes(
       return bytes
     } catch (error) {
       lastError = error
-      if (attempt < 2) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
+      const timedOut = error instanceof Error && error.name === 'TimeoutError'
+      if (attempt < 2 && !timedOut) await new Promise(resolvePromise => setTimeout(resolvePromise, 700 * attempt))
     }
   }
   throw new Error(lastError instanceof Error ? lastError.message : 'official legacy Office attachment request failed')
@@ -1077,8 +1082,29 @@ function refreshPendingPriorities(client: DatabaseClient): void {
   })()
 }
 
+/**
+ * 生产库同时被线上进程写，WAL 下读快照升级写会直接抛 SQLITE_BUSY_SNAPSHOT，
+ * busy_timeout 拦不住。这里统一用 IMMEDIATE 事务（开事务就拿写锁）并带重试。
+ */
+function busyTx<T>(client: DatabaseClient, run: () => T): T {
+  const attempt = (left: number): T => {
+    try {
+      return client.sqlite.transaction(run).immediate()
+    } catch (error) {
+      const code = (error as { code?: string }).code ?? ''
+      if (left > 0 && code.startsWith('SQLITE_BUSY')) {
+        const wait = 250 * (5 - left)
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait)
+        return attempt(left - 1)
+      }
+      throw error
+    }
+  }
+  return attempt(5)
+}
+
 function claimNextCrawlItem(client: DatabaseClient, now: number): OfficialCrawlQueueItem | null {
-  return client.sqlite.transaction(() => {
+  return busyTx(client, () => {
     const row = client.sqlite.prepare(`
       SELECT url, label, depth, discovered_from AS discoveredFrom
       FROM knowledge_crawl_queue
@@ -1093,7 +1119,7 @@ function claimNextCrawlItem(client: DatabaseClient, now: number): OfficialCrawlQ
       WHERE url = ?
     `).run(now, now, row.url)
     return { ...row, seed: row.depth === 0 }
-  })()
+  })
 }
 
 function completeCrawlItem(client: DatabaseClient, url: string, now: number): void {
@@ -1121,7 +1147,13 @@ function failCrawlItem(client: DatabaseClient, url: string, message: string, now
 }
 
 /** 抓取期间只碰副本的两张表；合并回生产库时按主键覆盖。 */
-const CRAWL_MERGE_TABLES = ['knowledge_documents', 'knowledge_crawl_queue'] as const
+// sources 必须先合并：knowledge_documents.source_id 指着它，否则合并时外键报错。
+// sources 用 OR IGNORE：REPLACE 会先删再插，级联把引用它的文档一起删掉。
+const CRAWL_MERGE_TABLES = [
+  { table: 'sources', verb: 'INSERT OR IGNORE' },
+  { table: 'knowledge_documents', verb: 'INSERT OR REPLACE' },
+  { table: 'knowledge_crawl_queue', verb: 'INSERT OR REPLACE' }
+] as const
 
 export interface CrawlWorkspace {
   /** 真正跑抓取用的库路径（副本；`:memory:` 时就是原路径）。 */
@@ -1135,6 +1167,36 @@ export interface CrawlWorkspace {
  * （实测 /map 30 秒、公告 500）。改成：先 VACUUM INTO 一份副本，抓取全程只写副本，
  * 结束后用一个短事务把两张表按主键合并回生产库。副本创建只读几十秒，不阻塞写入。
  */
+function pruneStaleCrawlCopies(livePath: string): void {
+  const directory = dirname(livePath)
+  const prefix = `${basename(livePath)}.crawl-`
+  let entries: string[] = []
+  try {
+    entries = readdirSync(directory)
+  } catch {
+    return
+  }
+  for (const name of entries) {
+    if (!name.startsWith(prefix)) continue
+    const pid = Number(name.slice(prefix.length).split('-')[0])
+    if (Number.isInteger(pid) && pid > 0) {
+      try {
+        process.kill(pid, 0)
+        continue
+      } catch {
+        // 进程不在了：这份副本可以删。
+      }
+    }
+    for (const suffix of ['', '-wal', '-shm']) {
+      try {
+        rmSync(`${directory}/${name}${suffix}`, { force: true })
+      } catch {
+        // 删不掉就留着，下一次再试。
+      }
+    }
+  }
+}
+
 export function prepareCrawlWorkspace(databasePath: string): CrawlWorkspace {
   const livePath = resolveDatabasePath(databasePath)
   if (livePath === ':memory:' || process.env.YEU_CRAWL_SKIP_COPY === '1') {
@@ -1148,6 +1210,8 @@ export function prepareCrawlWorkspace(databasePath: string): CrawlWorkspace {
 `)
     return { workPath: livePath, livePath: null }
   }
+  // 上一次抓取被 kill 时会留下 1.4 GB 的副本；开跑前先清掉没人用的，避免把盘吃光。
+  pruneStaleCrawlCopies(livePath)
   const workPath = `${livePath}.crawl-${process.pid}-${Date.now()}.sqlite`
   const source = getDatabase(livePath)
   source.sqlite.prepare('VACUUM INTO ?').run(workPath)
@@ -1163,8 +1227,8 @@ export function mergeCrawlWorkspace(workspace: CrawlWorkspace): void {
   live.sqlite.exec(`ATTACH DATABASE '${quoted}' AS crawl_work`)
   try {
     live.sqlite.transaction(() => {
-      for (const table of CRAWL_MERGE_TABLES) {
-        live.sqlite.exec(`INSERT OR REPLACE INTO main.${table} SELECT * FROM crawl_work.${table}`)
+      for (const { table, verb } of CRAWL_MERGE_TABLES) {
+        live.sqlite.exec(`${verb} INTO main.${table} SELECT * FROM crawl_work.${table}`)
       }
     })()
   } finally {
@@ -1301,6 +1365,9 @@ export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Pro
             const html = await fetchOfficialHtml(item.url, options.fresh)
             document = parseOfficialHtml(html, item.url)
           } catch (directHtmlError) {
+            // 4xx 是站点权限或路径问题，reader 也救不回来，别再白等一轮 65 秒超时。
+            const directMessage = directHtmlError instanceof Error ? directHtmlError.message : String(directHtmlError)
+            if (/HTTP 4\d{2}/u.test(directMessage)) throw directHtmlError
             try {
               const raw = await fetchReader(item.url, options.fresh)
               document = parseReaderDocument(raw, item.url)
