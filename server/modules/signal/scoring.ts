@@ -121,14 +121,12 @@ export function scoreFreshmanRelevance(input: SignalScoreInput): SignalScoreDeta
   const title = normalize(input.title)
   const body = normalize(`${input.summary ?? ''} ${input.body ?? ''}`)
   const hits: string[] = []
-  let score = 40
-  let matchedOnTitle = 0
+  let score = 48
   let bodyBonus = 0
 
   for (const group of RELEVANCE_GROUPS) {
     if (group.words.some(word => title.includes(word))) {
       score += group.weight
-      matchedOnTitle += 1
       hits.push(group.key)
       continue
     }
@@ -137,7 +135,8 @@ export function scoreFreshmanRelevance(input: SignalScoreInput): SignalScoreDeta
     }
   }
   score += Math.min(bodyBonus, RELEVANCE_BODY_BONUS_CAP)
-  if (matchedOnTitle === 0) score -= 8
+  // 标题没命中新生关键词，只要不是噪音词，也按「校内通知」对待：
+  // 教务处/学生处发的东西本来就该看；噪音由 NOISE_GROUPS 扣，不在这里重复罚。
 
   let penalty = 0
   for (const group of NOISE_GROUPS) {
@@ -198,12 +197,19 @@ export function decideSignalScore(input: SignalScoreInput, now = Date.now()): Si
   const evidence = scoreEvidenceStrength(input, now)
   const threshold = signalTierThreshold(input.tier)
   const score = Math.round((relevance.score + evidence.score) / 2 * 10) / 10
-  const floor = threshold - SIGNAL_TIER_GAP
+  // 标题本身就是通知/公告的，相关度这条线放宽：教务处发的东西未必命中新生关键词，
+  // 但它确实是要办的事；文件类、制度类没有这层豁免，照样卡住。
+  const announcement = /通知|公告|公示|名单|安排|须知|报名|申请|办理|提醒|预告/.test(input.title)
+  const floor = threshold - SIGNAL_TIER_GAP - (announcement ? 12 : 0)
   const reasons: string[] = []
 
   if (relevance.score < floor) reasons.push('与新生关系偏弱')
   if (evidence.score < floor) reasons.push('证据强度不足')
   if (score < threshold) reasons.push('总分未达线')
+
+  // 旧通知也是通知：文件类、动态类靠总分挡，标题明确是通知/公告且有真实发布时间的，
+  // 只要跟新生挂得上（相关度达线）就收进来，热度只用于排序，不用于准入。
+  const archiveAdmitted = announcement && input.publishedAt > 0 && relevance.score >= floor + 12
 
   return {
     score,
@@ -211,7 +217,7 @@ export function decideSignalScore(input: SignalScoreInput, now = Date.now()): Si
     scoreA: relevance.score,
     scoreB: evidence.score,
     threshold,
-    passed: score >= threshold && relevance.score >= floor && evidence.score >= floor,
+    passed: (score >= threshold && relevance.score >= floor && evidence.score >= floor) || archiveAdmitted,
     reasons
   }
 }
@@ -235,11 +241,16 @@ const CATEGORY_RULES: CategoryRule[] = [
   { category: '就业', words: ['实习', '就业', '招聘', '双选会', '宣讲'] }
 ]
 
-const ANNOUNCEMENT_RE = /通知|公告|公示|名单|安排|须知|日程|报名|申请|办理|提醒|预告|调整|来袭/
+const ANNOUNCEMENT_RE = /通知|公告|公示|名单|安排|须知|日程|报名|申请|办理|提醒|预告|调整|来袭|招募|征集|选拔|评审|答辩|讲座|活动|比赛|竞赛|培训|考试|选课|补考|缴费|报到|注册|领取|开放|预约|停水|停电|搬迁|放假|开学|登记|认定|选聘|招聘|宣讲|公示|征求意见/
 const FILENAME_RE = /^[\w\-.()（）\s]+\.(?:docx?|pdf|xlsx?|pptx?|zip|rar|7z)$/i
 const HASH_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CJK_RE = /[一-鿿]/
 const FORM_TITLE_RE = /申请表|报名表|汇总表|明细表|一览表|确认表|登记表|审批表|评估表|交底书|承诺书|委托书|模板|流程图|表格|样表|填写说明/
+/**
+ * 抓来的正文页里混着一堆制度文本与目录页：办法、法条、指南、清单、条文摘录。
+ * 它们永远是「新抓的」，但不是新消息，标题层面直接挡掉。
+ */
+const JUNK_TITLE_RE = /办法$|法$|实施细则|条例$|暂行规定|章程$|指南$|手册$|流程表|清单$|简表|评分表|评分标准|申报表|第一条|版权登记|官方资料|官方附件|学校简介|学院简介|专业介绍|课程表$|作息时间表|申报书|申请书|论证报告|预期成果|统计表|推荐表|座位|安排表|目录$|期刊|八项规定|^附件|^\d+[.、]|^[A-Za-z(（]/
 
 /**
  * 抓来的文档不都是「新消息」：学院简介、专业目录、师资名单一躺就是几年。
@@ -258,6 +269,9 @@ export function isUsableSignalTitle(title: string): boolean {
   // 表格类材料（申请表、评估表、模板、流程图）不是消息，除非标题本身是通知/公告/公示。
   // 这里只看这三个词：ANNOUNCEMENT_RE 里的「申请」本身就把大量表格放行了。
   if (FORM_TITLE_RE.test(trimmed) && !/通知|公告|公示/.test(trimmed)) return false
+  if (JUNK_TITLE_RE.test(trimmed) && !/通知|公告|公示|名单/.test(trimmed)) return false
+  // 标题里带逗号句号的，基本是从正文里截出来的一段话，不是标题。
+  if (/[，。]/.test(trimmed)) return false
   if (FILENAME_RE.test(trimmed)) {
     const base = trimmed.replace(/\.[a-z0-9]+$/i, '')
     if (!CJK_RE.test(base) || base.length < 12) return false

@@ -2,7 +2,7 @@ import './load-env'
 import { createHash, randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { basename, dirname, resolve } from 'node:path'
-import { readdirSync, rmSync, statSync, statfsSync } from 'node:fs'
+import { readdirSync, readFileSync, rmSync, statSync, statfsSync } from 'node:fs'
 import * as XLSX from '@e965/xlsx'
 import { load } from 'cheerio'
 import { unzipSync } from 'fflate'
@@ -1172,7 +1172,7 @@ export interface CrawlWorkspace {
 function pruneStaleCrawlCopies(livePath: string): void {
   const directory = dirname(livePath)
   const prefix = `${basename(livePath)}.crawl-`
-  let entries: string[] = []
+  let entries: string[]
   try {
     entries = readdirSync(directory)
   } catch {
@@ -1490,6 +1490,13 @@ export function parseOfficialCrawlCli(argv: string[]): OfficialCrawlOptions {
       index += 1
     } else if (argument === '--seed' && value) {
       explicitSeeds.push(value)
+      index += 1
+    } else if (argument === '--seeds-file' && value) {
+      const parsed = JSON.parse(readFileSync(value, 'utf8')) as Array<{ url?: string } | string>
+      for (const entry of parsed) {
+        const url = typeof entry === 'string' ? entry : entry.url
+        if (url) explicitSeeds.push(url)
+      }
       index += 1
     } else if (argument === '--max-pages' && value) {
       options.maxPages = positiveInteger(value, '--max-pages', 1, 10_000)

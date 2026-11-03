@@ -93,24 +93,58 @@ function extractArticles(column: ColumnEntry, html: string): ArticleLink[] {
   return found
 }
 
+/** 列表页翻页：WCM 的 list.htm / list2.htm / list3.htm，另有 list.psp?page=N。 */
+function nextPageUrls(column: ColumnEntry, html: string, page: number): string[] {
+  const urls: string[] = []
+  if (/\/list\.(?:htm|psp)/u.test(column.url)) {
+    urls.push(column.url.replace(/\/list(\d*)\.(htm|psp)/u, `/list${page}.$2`))
+  }
+  for (const match of html.matchAll(ANCHOR_RE)) {
+    const label = textOf(match[2] ?? '')
+    if (!/^(下一页|下页|后一页|>|»)$/u.test(label)) continue
+    try {
+      const url = new URL(match[1]!, column.url)
+      if (!url.hostname.endsWith('.yeu.edu.cn')) continue
+      if (!/list\d*\.(htm|psp)$/u.test(url.pathname)) continue
+      urls.push(url.href)
+    } catch {
+      continue
+    }
+  }
+  return urls
+}
+
 async function main(): Promise<void> {
   const columnsPath = argValue('columns')
   if (!columnsPath) throw new Error('缺少 --columns')
+  const pages = Math.max(1, Number(argValue('pages') ?? '1'))
+  const since = Date.parse(argValue('since') ?? '2000-01-01T00:00:00Z')
   const columns = JSON.parse(readFileSync(columnsPath, 'utf8')) as ColumnEntry[]
   const articles: ArticleLink[] = []
   const seen = new Set<string>()
   for (const column of columns) {
-    const html = await fetchText(column.url)
-    if (!html) continue
-    for (const article of extractArticles(column, html)) {
-      if (seen.has(article.url)) continue
-      seen.add(article.url)
-      articles.push(article)
+    const queue = [column.url]
+    const visited = new Set<string>()
+    while (queue.length && visited.size < pages) {
+      const pageUrl = queue.shift()!
+      if (visited.has(pageUrl)) continue
+      visited.add(pageUrl)
+      const html = await fetchText(pageUrl)
+      if (!html) continue
+      for (const article of extractArticles(column, html)) {
+        if (seen.has(article.url)) continue
+        seen.add(article.url)
+        articles.push(article)
+      }
+      for (const next of nextPageUrls(column, html, visited.size + 1)) {
+        if (!visited.has(next)) queue.push(next)
+      }
     }
   }
   articles.sort((left, right) => (right.publishedAt ?? 0) - (left.publishedAt ?? 0))
-  const recent = articles.filter(article => (article.publishedAt ?? 0) > 0)
-  console.log(`栏目 ${columns.length} 个，抽出文章 ${articles.length} 篇（带日期 ${recent.length}）`)
+  const recent = articles.filter(article => (article.publishedAt ?? 0) >= since)
+  const kept = recent.filter(article => article.publishedAt !== null)
+  console.log(`栏目 ${columns.length} 个，抽出文章 ${articles.length} 篇（带日期 ${articles.filter(a => a.publishedAt !== null).length}，${new Date(since).toISOString().slice(0, 10)} 之后 ${kept.length}）`)
   for (const article of articles.slice(0, 8)) {
     const day = article.publishedAt ? new Date(article.publishedAt).toISOString().slice(0, 10) : '----'
     console.log(`   ${day} ${article.title.slice(0, 40)} ${article.url}`)

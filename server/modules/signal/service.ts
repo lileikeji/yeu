@@ -26,14 +26,14 @@ import { computeSignalHeat, signalTrend } from './heat'
 import type { SignalHeatParticipant, SignalTrend } from './heat'
 import { buildDailyReport, buildPeriodReport } from './report'
 import type { SignalReportEventInput, SignalReportPayload } from './report'
-import { decideSignalScore, isUsableSignalTitle, looksLikeAnnouncement, signalCategoryFor } from './scoring'
+import { decideSignalScore, isUsableSignalTitle, signalCategoryFor } from './scoring'
 import { signalTierFor, signalTierLabel, signalTierThreshold } from './tiers'
 import type { SignalSourceLevel, SignalTier } from './tiers'
 import { signalDayKeysInPeriod, signalPeriodKey, signalPeriodRange } from './time'
 import type { SignalReportKind } from './time'
 
-export const SIGNAL_DEFAULT_LOOKBACK_DAYS = 45
-export const SIGNAL_MAX_CANDIDATES = 2000
+export const SIGNAL_DEFAULT_LOOKBACK_DAYS = 400
+export const SIGNAL_MAX_CANDIDATES = 9000
 /** 正文只截取前这么多字参与打分，够用且不会把内存顶爆。 */
 const SCORING_BODY_CHARS = 6000
 
@@ -41,22 +41,31 @@ export type SignalItemKind = 'notice' | 'document'
 
 /** 抓取页只记录入库时间，正文里写着的日期才是真发布时间。 */
 const DOCUMENT_DATE_RE = /(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/gu
+/** 校内 CMS 的文章地址带发布日期：/2026/0831/c1178a58277/page.htm。 */
+const DOCUMENT_URL_DATE_RE = /\/(20\d{2})\/(\d{2})(\d{2})\//
 
-export function documentPublishedAt(title: string, text: string, capturedAt: number): number {
-  const head = `${title} ${text.slice(0, 400)}`
-  let latest = 0
+export function documentPublishedAt(title: string, text: string, capturedAt: number, url?: string): number {
+  // 地址里的日期是站点自己给的发布时间，比正文里随手提到的日期可靠。
+  const urlMatch = url ? DOCUMENT_URL_DATE_RE.exec(url) : null
+  if (urlMatch) {
+    const [, year, month, day] = urlMatch
+    const timestamp = Date.parse(`${year}-${month}-${day}T00:00:00+08:00`)
+    if (Number.isFinite(timestamp) && timestamp <= capturedAt) return timestamp
+  }
+  const head = `${title} ${text.slice(0, 1500)}`
+  // 正文里第一个出现的完整日期基本就是页面顶部的发布时间；取最大会把文末「截止日期」当成发布日。
   for (const match of head.matchAll(DOCUMENT_DATE_RE)) {
     const [, year, month, day] = match
     if (!year || !month || !day) continue
     const timestamp = Date.parse(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00+08:00`)
-    if (Number.isFinite(timestamp) && timestamp > latest && timestamp <= capturedAt) latest = timestamp
+    if (Number.isFinite(timestamp) && timestamp <= capturedAt) return timestamp
   }
-  if (latest) return latest
   // 只写到年份的旧文（「2014年上半年…」）也算旧：取当年 1 月 1 日，直接落到回看窗口外。
   const yearOnly = /(20\d{2})\s*年/u.exec(head)
   const capturedYear = new Date(capturedAt).getUTCFullYear()
   if (yearOnly && Number(yearOnly[1]) < capturedYear) return Date.parse(`${yearOnly[1]}-01-01T00:00:00+08:00`)
-  return capturedAt
+  // 一点日期都没有的，宁可不要：拿抓取时间冒充发布时机，用户一眼就看出来不对。
+  return 0
 }
 
 export interface SignalCandidate {
@@ -279,10 +288,10 @@ function collectDocumentCandidates(client: DatabaseClient, cutoff: number, limit
   for (const row of rows) {
     const text = (row.extractedText ?? '').trim()
     if (text.length < 60 || !row.originalUrl) continue
-    // 文档只看标题像不像通知：正文里几乎每页都带「通知」二字，放开正文等于放行所有常青页。
-    if (!isUsableSignalTitle(row.title) || !looksLikeAnnouncement(row.title)) continue
-    const publishedAt = documentPublishedAt(row.title, text, row.capturedAt)
-    if (publishedAt < cutoff) continue
+    // 标题得像一句话，也不能是制度文本/目录页（办法、指南、清单、条文摘录）。
+    if (!isUsableSignalTitle(row.title)) continue
+    const publishedAt = documentPublishedAt(row.title, text, row.capturedAt, row.originalUrl)
+    if (!publishedAt || publishedAt < cutoff) continue
     candidates.push({
       itemKind: 'document',
       itemId: row.id,
@@ -649,7 +658,7 @@ export function listHotSignalEvents(client: DatabaseClient, limit = 20): SignalE
     .from(signalEvents)
     .where(eq(signalEvents.status, 'published'))
     .orderBy(desc(signalEvents.heat), desc(signalEvents.lastSeenAt))
-    .limit(Math.min(Math.max(limit, 1), 100))
+    .limit(Math.min(Math.max(limit, 1), 300))
     .all()
   return rows.map(toSummary)
 }

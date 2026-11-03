@@ -137,7 +137,7 @@ function createFixture(): Fixture {
     id: 'd-dorm',
     title: '关于2026级新生宿舍分配结果查询的通知',
     body: '',
-    text: '2026级新生宿舍分配结果已公布，请登录迎新系统查询床位与楼栋。'
+    text: '发布时间：2026年10月30日。2026级新生宿舍分配结果已公布，请登录迎新系统查询床位与楼栋。'
       + '宿舍开放时间为9月4日8:00，入住须持校园卡到宿管值班室登记。'
       + '住宿费标准为每人每年1200元，缴费后可在系统下载电子票据。',
     capturedAt: NOW - 20 * HOUR,
@@ -196,8 +196,9 @@ test('双评分：新生通知过线，科研申报落选', () => {
     tier: 'A',
     isOfficial: true
   }, NOW)
+  // 科研申报的标题里有「申报」，会拿到公告豁免，但相关度不到 门槛-12+12，仍要被拦下。
   assert.equal(research.passed, false)
-  assert.ok(research.reasons.includes('与新生关系偏弱'))
+  assert.ok(research.scoreA < research.threshold, `科研申报应被相关度拦下，实际 ${research.scoreA}/${research.threshold}`)
 })
 
 test('双评分：同样的内容，二手信源门槛更高', () => {
@@ -223,7 +224,7 @@ test('标题可用性与公告判定挡住文件名和常青页面', () => {
   assert.equal(signalCategoryFor('关于2026级新生宿舍分配结果查询的通知'), '住宿')
 })
 
-test('文档发布时间取正文里的日期，正文没写才用入库时间', () => {
+test('文档发布时间取正文里的日期，没有日期就不入库', () => {
   const captured = NOW
   assert.equal(
     documentPublishedAt('学生宿舍搬迁通知', '搬迁时间：2014年7月4日至7日，请提前打包。', captured),
@@ -233,12 +234,13 @@ test('文档发布时间取正文里的日期，正文没写才用入库时间',
     documentPublishedAt('2026级新生报到须知', '报到时间：2026-09-05，逾期不候。', captured),
     Date.parse('2026-09-05T00:00:00+08:00')
   )
-  assert.equal(documentPublishedAt('关于宿舍分配的通知', '本次分配按学院集中安排，具体名单另行公布。', captured), captured)
+  // 一点日期都没有的文档返回 0：不拿抓取时间冒充发布时机。
+  assert.equal(documentPublishedAt('关于宿舍分配的通知', '本次分配按学院集中安排，具体名单另行公布。', captured), 0)
   assert.equal(
     documentPublishedAt('关于组织教师报名参加2014年上半年培训的通知', '请各学院汇总名单后报送。', captured),
     Date.parse('2014-01-01T00:00:00+08:00')
   )
-  assert.equal(documentPublishedAt('关于报到的通知', '时间：2099年1月1日。', captured), captured)
+  assert.equal(documentPublishedAt('关于报到的通知', '时间：2099年1月1日。', captured), 0)
 })
 
 test('热度：同一来源重复发布只算一次，按 24 小时半衰', () => {
@@ -394,11 +396,11 @@ test('端到端：建库、重建索引、读事件、生成日报且同一天�
   const fixture = createFixture()
   try {
     const result = rebuildSignalIndex(fixture.client, { now: NOW, lookbackDays: 400 })
-    // 2 个事件：新生报到（两来源合并 2 条）、宿舍分配；科研申报与旧通知被拦
-    assert.equal(result.events, 2, `应选出 2 个事件，实际 ${result.events}`)
-    assert.equal(result.items, 3)
+    // 3 个事件：新生报到（两来源合并 2 条）、宿舍分配、2024 年寒假放假通知（旧通知也收，热度不参与准入）
+    assert.equal(result.events, 3, `应选出 3 个事件，实际 ${result.events}`)
+    assert.equal(result.items, 4)
     assert.equal(result.persisted, true)
-    assert.ok(result.rejected >= 2, '科研申报与旧通知应被拦下')
+    assert.ok(result.rejected >= 1, '常青页面应被拦下')
 
     const events = listHotSignalEvents(fixture.client, 20)
     const titles = events.map(event => event.title)
@@ -406,7 +408,9 @@ test('端到端：建库、重建索引、读事件、生成日报且同一天�
     assert.ok(titles.some(title => title.includes('宿舍分配结果查询')))
     assert.ok(!titles.some(title => title.includes('社会科学基金')), '科研申报不该进榜')
     assert.ok(!titles.some(title => title === '学院简介'), '常青页面不该进榜')
-    assert.ok(!titles.some(title => title.includes('2024年寒假放假')), '400 天前的旧通知不该进榜')
+    // 旧通知进榜但排在新事件后面：热度为 0，只按发布时间排。
+    const oldIndex = titles.findIndex(title => title.includes('2024年寒假放假'))
+    assert.ok(oldIndex > 0, '旧通知应在榜但不在首位')
 
     const freshman = events.find(event => event.title.includes('新生报到工作的通知'))!
     assert.equal(freshman.tier, 'A')

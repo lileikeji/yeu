@@ -13,7 +13,7 @@ useSeoMeta({
 })
 
 const { data } = await useFetch<ApiSignalListResponse>('/api/public/signal', {
-  query: { limit: 40 },
+  query: { limit: 200 },
   default: () => ({ events: [], generatedAt: '' })
 })
 const { data: reportData } = await useFetch<ApiSignalReportListResponse>('/api/public/signal/reports', {
@@ -79,7 +79,7 @@ const dayText = signalRelativeTime
             最近有什么新消息
           </h1>
           <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            把教务处、学生处等站点新发的通知聚成一件件事，同一件事多个来源只算一条。排序看两件事：跟你有没有关系，以及最近有没有人在跟进。
+            把教务处、各学院站点的通知和消息聚成一件件事，同一件事多个来源只算一条。时间取官网原文的发布日期，不是入库时间；排序先看热度，再看谁更近。
           </p>
         </div>
       </div>
@@ -161,7 +161,7 @@ const dayText = signalRelativeTime
             <span>{{ event.category }}</span>
             <span>{{ event.sourceCount }} 个来源 · {{ event.itemCount }} 条</span>
             <span>热度 {{ heatText(event.heat) }}</span>
-            <span>{{ dayText(event.lastSeenAt) }}更新</span>
+            <span>{{ dayText(event.lastSeenAt) }}发布</span>
             <button
               type="button"
               class="ml-auto min-h-8 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
