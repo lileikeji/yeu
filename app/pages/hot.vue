@@ -38,6 +38,26 @@ const visibleEvents = computed(() => {
   return events.value.filter(event => event.category === activeCategory.value)
 })
 
+type SignalListRow
+  = | { type: 'event', event: ApiSignalListResponse['events'][number] }
+    | { type: 'more', count: number }
+
+const showNews = ref(false)
+const noticeEvents = computed(() => visibleEvents.value.filter(event => event.channel === 'notice'))
+const newsEvents = computed(() => visibleEvents.value.filter(event => event.channel !== 'notice'))
+
+// 通知公告排前面，校园动态默认折叠：两者混在一起会把「要办事的」淹掉。
+const listRows = computed<SignalListRow[]>(() => {
+  const rows: SignalListRow[] = noticeEvents.value.map(event => ({ type: 'event', event }))
+  if (newsEvents.value.length > 0) {
+    rows.push({ type: 'more', count: newsEvents.value.length })
+    if (showNews.value) {
+      for (const event of newsEvents.value) rows.push({ type: 'event', event })
+    }
+  }
+  return rows
+})
+
 const expanded = ref<string | null>(null)
 const details = ref<Record<string, SignalDetail>>({})
 const loading = ref<string | null>(null)
@@ -130,81 +150,95 @@ const dayText = signalRelativeTime
 
       <ul class="mt-3 space-y-2">
         <li
-          v-for="event in visibleEvents"
-          :key="event.id"
-          class="rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900"
+          v-for="(row, index) in listRows"
+          :key="row.type === 'event' ? row.event.id : `more-${index}`"
+          :class="row.type === 'event'
+            ? 'rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900'
+            : 'flex items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--line)] px-4 py-3'"
         >
-          <div class="flex items-start justify-between gap-3">
-            <h2 class="line-clamp-2 text-base font-semibold leading-6 text-zinc-950 dark:text-zinc-100">
-              {{ event.title }}
-            </h2>
-            <span
-              class="shrink-0 rounded-md px-2 py-0.5 text-xs"
-              :class="trendClass[event.trend]"
-            >
-              {{ trendLabel[event.trend] }}
-            </span>
-          </div>
-
-          <p
-            v-if="event.summary"
-            class="mt-1 line-clamp-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
-          >
-            {{ event.summary }}
-          </p>
-
-          <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
-            <span
-              class="rounded px-1.5 py-0.5"
-              :class="tierClass[event.tier]"
-            >{{ event.tierLabel }}</span>
-            <span>{{ event.category }}</span>
-            <span>{{ event.sourceCount }} 个来源 · {{ event.itemCount }} 条</span>
-            <span>热度 {{ heatText(event.heat) }}</span>
-            <span>{{ dayText(event.lastSeenAt) }}发布</span>
+          <template v-if="row.type === 'more'">
+            <span class="text-sm text-zinc-600 dark:text-zinc-300">校园动态 · {{ row.count }} 条（宣讲、讲堂、活动这类）</span>
             <button
               type="button"
-              class="ml-auto min-h-8 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
-              @click="toggle(event.slug)"
+              class="min-h-8 shrink-0 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
+              @click="showNews = !showNews"
             >
-              {{ expanded === event.slug ? '收起原文' : '看原文' }}
+              {{ showNews ? '收起' : '展开' }}
             </button>
-          </div>
-
-          <div
-            v-if="expanded === event.slug"
-            class="mt-3 border-t border-[var(--line)] pt-3"
-          >
-            <p
-              v-if="loading === event.slug"
-              class="text-sm text-zinc-500 dark:text-zinc-400"
-            >
-              正在取原文…
-            </p>
-            <ul
-              v-else
-              class="space-y-2"
-            >
-              <li
-                v-for="item in details[event.slug]?.items ?? []"
-                :key="item.id"
-                class="text-sm leading-6"
+          </template>
+          <template v-else>
+            <div class="flex items-start justify-between gap-3">
+              <h2 class="line-clamp-2 text-base font-semibold leading-6 text-zinc-950 dark:text-zinc-100">
+                {{ row.event.title }}
+              </h2>
+              <span
+                class="shrink-0 rounded-md px-2 py-0.5 text-xs"
+                :class="trendClass[row.event.trend]"
               >
-                <a
-                  :href="item.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                {{ trendLabel[row.event.trend] }}
+              </span>
+            </div>
+
+            <p
+              v-if="row.event.summary"
+              class="mt-1 line-clamp-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
+            >
+              {{ row.event.summary }}
+            </p>
+
+            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <span
+                class="rounded px-1.5 py-0.5"
+                :class="tierClass[row.event.tier]"
+              >{{ row.event.tierLabel }}</span>
+              <span>{{ row.event.category }}</span>
+              <span>{{ row.event.sourceCount }} 个来源 · {{ row.event.itemCount }} 条</span>
+              <span>热度 {{ heatText(row.event.heat) }}</span>
+              <span>{{ dayText(row.event.lastSeenAt) }}发布</span>
+              <button
+                type="button"
+                class="ml-auto min-h-8 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
+                @click="toggle(row.event.slug)"
+              >
+                {{ expanded === row.event.slug ? '收起原文' : '看原文' }}
+              </button>
+            </div>
+
+            <div
+              v-if="expanded === row.event.slug"
+              class="mt-3 border-t border-[var(--line)] pt-3"
+            >
+              <p
+                v-if="loading === row.event.slug"
+                class="text-sm text-zinc-500 dark:text-zinc-400"
+              >
+                正在取原文…
+              </p>
+              <ul
+                v-else
+                class="space-y-2"
+              >
+                <li
+                  v-for="item in details[row.event.slug]?.items ?? []"
+                  :key="item.id"
+                  class="text-sm leading-6"
                 >
-                  {{ item.title }}
-                </a>
-                <p class="text-xs text-zinc-500 dark:text-zinc-400">
-                  {{ item.sourceTitle }}<span v-if="item.isOfficial"> · 官方</span>
-                  <span v-if="item.publishedAt"> · {{ dayText(item.publishedAt) }}</span>
-                </p>
-              </li>
-            </ul>
-          </div>
+                  <a
+                    :href="item.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                  >
+                    {{ item.title }}
+                  </a>
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ item.sourceTitle }}<span v-if="item.isOfficial"> · 官方</span>
+                    <span v-if="item.publishedAt"> · {{ dayText(item.publishedAt) }}</span>
+                  </p>
+                </li>
+              </ul>
+            </div>
+          </template>
         </li>
       </ul>
     </section>

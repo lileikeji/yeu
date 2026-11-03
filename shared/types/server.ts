@@ -634,6 +634,8 @@ export interface ApiSignalEventSummary {
   score: number
   tier: ApiSignalTier
   tierLabel: string
+  /** notice = 通知公告（要办事的），news = 校园动态（看看的）。 */
+  channel: 'notice' | 'news'
   firstSeenAt: string
   lastSeenAt: string
 }

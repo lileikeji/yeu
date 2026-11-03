@@ -1,12 +1,13 @@
 /**
  * 热度。
  *
- * 只看最近 48 小时，按 24 小时半衰加权；同一个来源重复发只算一次。
+ * 看最近 7 天，按 24 小时半衰加权；同一个来源重复发只算一次。
+ * 窗口定 7 天是因为官网不是每天都有新通知：只算 48 小时，大多数条目热度都是 0。
  * 涨跌是拿「现在」和「6 小时前」两次数值比出来的，不是历史峰值。
  */
 import { SIGNAL_HOUR_MS } from './time'
 
-export const SIGNAL_HEAT_WINDOW_HOURS = 48
+export const SIGNAL_HEAT_WINDOW_HOURS = 168
 export const SIGNAL_HEAT_HALF_LIFE_HOURS = 24
 export const SIGNAL_HEAT_COMPARE_HOURS = 6
 /** 判断涨跌看最近两个 6 小时窗口里有没有新来源跟进。 */

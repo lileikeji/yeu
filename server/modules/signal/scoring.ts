@@ -208,8 +208,10 @@ export function decideSignalScore(input: SignalScoreInput, now = Date.now()): Si
   if (score < threshold) reasons.push('总分未达线')
 
   // 旧通知也是通知：文件类、动态类靠总分挡，标题明确是通知/公告且有真实发布时间的，
-  // 只要跟新生挂得上（相关度达线）就收进来，热度只用于排序，不用于准入。
-  const archiveAdmitted = announcement && input.publishedAt > 0 && relevance.score >= floor + 12
+  // 只看新生相关度，不再要求证据强度——学院发的公示常常没日期没附件，
+  // 按信源等级要 65/75 分就永远进不来。热度只用于排序，不用于准入。
+  const publishedAt = input.publishedAt ?? 0
+  const archiveAdmitted = announcement && publishedAt > 0 && relevance.score >= ARCHIVE_RELEVANCE_BAR
 
   return {
     score,
@@ -277,6 +279,19 @@ export function isUsableSignalTitle(title: string): boolean {
     if (!CJK_RE.test(base) || base.length < 12) return false
   }
   return true
+}
+
+/** 站点把事件分两栏：通知公告（要办事的）与校园动态（看看的）。 */
+export type SignalChannel = 'notice' | 'news'
+
+/** 标题带这些词就按通知公告处理；剩下的（宣讲会、讲堂、纪实）算校园动态。 */
+const NOTICE_TITLE_RE = /通知|公告|公示|名单|安排|须知|报名|申请|办理|提醒|预告|征集|招募|选聘|方案|办法|规定|细则|选课|考试|缴费|报到|开学|放假|停水|停电|招生|录取|评审|认定|登记/u
+
+/** 通知类走「相关度豁免」通道时的相关度下限。 */
+export const ARCHIVE_RELEVANCE_BAR = 48
+
+export function signalChannelFor(title: string): SignalChannel {
+  return NOTICE_TITLE_RE.test(title) ? 'notice' : 'news'
 }
 
 export function signalCategoryFor(title: string): string {

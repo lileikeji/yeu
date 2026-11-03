@@ -39,7 +39,7 @@ function parseArgs(argv: string[]): CliOptions {
   if (Number.isNaN(now)) throw new Error(`--now 需要一个可解析的时间，收到 ${nowFlag}`)
 
   const days = Number(readFlag(argv, 'days') ?? 45)
-  const limit = Number(readFlag(argv, 'limit') ?? 2000)
+  const limit = Number(readFlag(argv, 'limit') ?? 12000)
   if (!Number.isFinite(days) || days <= 0) throw new Error('--days 需要正整数')
   if (!Number.isFinite(limit) || limit <= 0) throw new Error('--limit 需要正整数')
 

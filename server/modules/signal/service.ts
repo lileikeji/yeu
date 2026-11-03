@@ -26,7 +26,8 @@ import { computeSignalHeat, signalTrend } from './heat'
 import type { SignalHeatParticipant, SignalTrend } from './heat'
 import { buildDailyReport, buildPeriodReport } from './report'
 import type { SignalReportEventInput, SignalReportPayload } from './report'
-import { decideSignalScore, isUsableSignalTitle, signalCategoryFor } from './scoring'
+import { decideSignalScore, isUsableSignalTitle, signalCategoryFor, signalChannelFor } from './scoring'
+import type { SignalChannel } from './scoring'
 import { signalTierFor, signalTierLabel, signalTierThreshold } from './tiers'
 import type { SignalSourceLevel, SignalTier } from './tiers'
 import { signalDayKeysInPeriod, signalPeriodKey, signalPeriodRange } from './time'
@@ -611,6 +612,7 @@ export interface SignalEventSummary {
   score: number
   tier: SignalTier
   tierLabel: string
+  channel: SignalChannel
   firstSeenAt: string
   lastSeenAt: string
 }
@@ -629,6 +631,7 @@ function toSummary(row: SignalEventRow): SignalEventSummary {
     score: row.score,
     tier: row.tier as SignalTier,
     tierLabel: signalTierLabel(row.tier as SignalTier),
+    channel: signalChannelFor(row.title),
     firstSeenAt: new Date(row.firstSeenAt).toISOString(),
     lastSeenAt: new Date(row.lastSeenAt).toISOString()
   }

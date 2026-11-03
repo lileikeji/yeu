@@ -120,13 +120,32 @@ export function buildDailyReport(input: BuildDailyReportInput): SignalReportPayl
 
   const sameDay = input.events.filter(event => event.lastSeenAt >= start && event.lastSeenAt < end)
   // 先按标题去重再判新鲜度：同一天里同标题的低分副本不该顶替已经报过的那条。
-  const ordered = dedupeReportEvents(sameDay)
+  const fresh = dedupeReportEvents(sameDay)
     .filter((event) => {
       const reported = input.reportedAt.get(event.id)
       if (reported === undefined) return true
       return event.lastSeenAt > reported + SIGNAL_HOUR_MS
     })
     .slice(0, limit)
+  // 当天第一次生成日报时，若 24 小时内的新事件不足头条数，用「最近发布」的条目补到
+  // 头条上限：官网更新断断续续，只报 1 条会显得像坏了。已有报告的日子不再补，避免重复。
+  const ordered = fresh.length > 0 || input.reportedAt.size > 0
+    ? [...fresh]
+    : [...input.events]
+        .sort((left, right) => right.lastSeenAt - left.lastSeenAt || compareByHeat(left, right))
+        .slice(0, Math.min(limit, SIGNAL_REPORT_LEAD_LIMIT + 3))
+  if (input.reportedAt.size === 0 && ordered.length < SIGNAL_REPORT_LEAD_LIMIT) {
+    const taken = new Set(ordered.map(event => event.id))
+    const takenTitles = new Set(ordered.map(event => fingerprint(event.title)))
+    const fills = [...input.events]
+      .filter(event => !taken.has(event.id) && !takenTitles.has(fingerprint(event.title)))
+      .sort((left, right) => right.lastSeenAt - left.lastSeenAt || compareByHeat(left, right))
+    for (const event of fills) {
+      if (ordered.length >= SIGNAL_REPORT_LEAD_LIMIT) break
+      ordered.push(event)
+      takenTitles.add(fingerprint(event.title))
+    }
+  }
   const items = ordered.map(event => toReportItem(event, start))
   const lead = items.slice(0, SIGNAL_REPORT_LEAD_LIMIT)
 

@@ -253,7 +253,7 @@ test('热度：同一来源重复发布只算一次，按 24 小时半衰', () =
   assert.equal(duplicated, decayedHeat([{ key: 'source-a', at: NOW - 1 * HOUR }], NOW))
   assert.ok(duplicated < 1)
   assert.ok(Math.abs(single - 2 ** (-2 / 24)) < 0.002)
-  assert.equal(decayedHeat([{ key: 'source-a', at: NOW - 49 * HOUR }], NOW), 0)
+  assert.equal(decayedHeat([{ key: 'source-a', at: NOW - 169 * HOUR }], NOW), 0)
 })
 
 test('趋势：第一次进快照判 new，来源数变多算涨', () => {
@@ -264,7 +264,7 @@ test('趋势：第一次进快照判 new，来源数变多算涨', () => {
   assert.equal(signalTrend(2, 2, OLD, NOW), 'flat', '来源数没变')
   assert.equal(signalTrend(5, 1, NOW - HOUR, NOW), 'new', '6 小时内第一次出现')
 
-  // 热度本身仍是 48 小时窗口 + 24 小时半衰
+  // 热度本身是 7 天窗口 + 24 小时半衰
   const cooling = computeSignalHeat([
     { key: 'source-a', at: NOW - 8 * HOUR },
     { key: 'source-b', at: NOW - 8 * HOUR }
