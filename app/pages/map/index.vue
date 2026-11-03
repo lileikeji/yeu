@@ -678,7 +678,8 @@ const { cancelMapRouteSync } = useMapRouteSync({
 })
 
 // 校车图层：路线 + 起终点 + 实时车位置（云一卡通 5s 轮询）；快照数据喂掌上公交面板
-const { routes: busRoutes, buses: busVehicles, fetchedAt: busFetchedAt } = useMapBusPositions({ mapProvider })
+const busSelectedRouteId = ref('')
+const { routes: busRoutes, buses: busVehicles, fetchedAt: busFetchedAt } = useMapBusPositions({ mapProvider, activeRouteId: busSelectedRouteId })
 const busPanelOpen = ref(true)
 
 // 校外公交（K2/K6）：默认打开，静态快照，独立图层，不跟校车轮询重绘，也不影响校内校车线路
@@ -1977,6 +1978,7 @@ onBeforeUnmount(() => {
       :routes="busRoutes"
       :buses="busVehicles"
       :fetched-at="busFetchedAt"
+      @select-route="busSelectedRouteId = $event"
       :user-location="userLocation"
     />
 

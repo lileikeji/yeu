@@ -13,7 +13,7 @@ const props = defineProps<{
   userLocation?: { lng: number, lat: number } | null
 }>()
 
-const emit = defineEmits<{ 'update:open': [value: boolean] }>()
+const emit = defineEmits<{ 'update:open': [value: boolean], 'select-route': [routeId: string] }>()
 
 /** 每站最小行高（px）；容器够高时按实际高度均分拉伸，车标按 (段号 + 段内进度) × 行高 定位。 */
 const STOP_ROW_HEIGHT = 56
@@ -192,6 +192,11 @@ const stopArrivals = computed<string[]>(() => {
 })
 
 /** 两站查询（A→B）：起终点下标，默认首站→末站，切换线路时重置。 */
+function selectRoute(routeId: string): void {
+  selectedRouteId.value = routeId
+  emit('select-route', routeId)
+}
+
 const tripFromIndex = ref(0)
 const tripToIndex = ref(0)
 watch(selectedRouteId, () => {
@@ -287,7 +292,7 @@ const updatedAtText = computed(() => {
         :class="route.routeId === selectedRouteId
           ? 'bg-orange-600 text-white shadow-sm'
           : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'"
-        @click="selectedRouteId = route.routeId"
+        @click="selectRoute(route.routeId)"
       >
         {{ route.isBack ? '回程' : '去程' }} · {{ route.stops.length }} 站
       </button>

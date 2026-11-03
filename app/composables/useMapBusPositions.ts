@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import type { CoordinateReferenceSystem } from '~~/shared/types'
 import type { MapProvider } from '~~/map/core/provider'
 import type { MapBus, MapBusRoute, MapBusStop } from '~~/map/core/types'
+import { ref, watch } from 'vue'
 import { BUS_POSITIONS_API_PATH } from '~~/shared/constants/server'
 import { bearingDegrees, computeBusProgress, haversineMeters, snapToPolyline } from '~~/shared/utils/bus-route-progress'
 
@@ -62,7 +63,11 @@ function toCrs(value: string): CoordinateReferenceSystem {
  * 喂给地图 provider 的 setBusRoutes/setBuses。车位置经 motion 平滑（沿线里程动画），
  * 卸载时清空图层。
  */
-export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | null> }) {
+export function useMapBusPositions(options: {
+  mapProvider: Ref<MapProvider | null>
+  /** 只看某条线路（去程/回程各算一条）；空串 = 两条都画，叠在一起会看不清。 */
+  activeRouteId?: Ref<string>
+}) {
   let timer: ReturnType<typeof globalThis.setInterval> | null = null
   let motionTimer: ReturnType<typeof globalThis.setInterval> | null = null
   let stopped = false
@@ -104,9 +109,16 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
     })
   }
 
+  function visibleRoutes(data: BusPositionsResponse): BusRouteSnapshot[] {
+    const want = options.activeRouteId?.value ?? ''
+    if (!want) return data.routes
+    const picked = data.routes.filter(route => route.routeId === want)
+    return picked.length ? picked : data.routes
+  }
+
   function toRoutes(data: BusPositionsResponse): MapBusRoute[] {
     const crs = toCrs(data.coordinateSystem)
-    return data.routes.map((route): MapBusRoute => ({
+    return visibleRoutes(data).map((route): MapBusRoute => ({
       id: route.routeId,
       name: route.routeName,
       stops: snapStops(route, crs),
@@ -231,6 +243,13 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
   }
 
   tickMotion.last = Date.now()
+
+  if (options.activeRouteId) {
+    watch(options.activeRouteId, () => {
+      const provider = options.mapProvider.value
+      if (provider && lastData) provider.setBusRoutes(toRoutes(lastData))
+    })
+  }
 
   async function refresh(): Promise<void> {
     try {
