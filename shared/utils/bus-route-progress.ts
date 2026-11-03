@@ -76,11 +76,12 @@ function segmentBearing(a: LngLat, b: LngLat): number {
  * 返回吸附后的坐标与偏离距离；折线不足两点返回 null。
  * 站点、减速带标点都用它压到路面中心，避免图标浮在路外。
  */
-export function snapToPolyline(point: LngLat, line: LngLat[]): { point: LngLat, offsetMeters: number } | null {
+export function snapToPolyline(point: LngLat, line: LngLat[]): { point: LngLat, offsetMeters: number, angleDeg: number } | null {
   if (line.length < 2) return null
   const cumulative = cumulativeDistances(line)
   let bestOffset = Infinity
   let bestPoint: LngLat | null = null
+  let bestAngle = 0
   for (let i = 0; i < line.length - 1; i++) {
     const a = line[i]!
     const b = line[i + 1]!
@@ -96,9 +97,10 @@ export function snapToPolyline(point: LngLat, line: LngLat[]): { point: LngLat, 
     if (offset < bestOffset) {
       bestOffset = offset
       bestPoint = closest
+      bestAngle = bearingDegrees(a, b)
     }
   }
-  return bestPoint ? { point: bestPoint, offsetMeters: bestOffset } : null
+  return bestPoint ? { point: bestPoint, offsetMeters: bestOffset, angleDeg: bestAngle } : null
 }
 
 export function cumulativeDistances(line: LngLat[]): number[] {

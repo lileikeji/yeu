@@ -76,6 +76,8 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
   const trails = new Map<string, { from: { lng: number, lat: number }, to: { lng: number, lat: number }, t0: number, span: number }>()
   /** 上一次上报的定位，用来判断这一轮是否真的有新坐标。 */
   const lastFix = new Map<string, { lng: number, lat: number }>()
+  // 位置真变了才更新时间戳：面板「GPS 更新 N 秒前」据此显示，静止时不会一直 0 秒。
+  const movedAt = new Map<string, number>()
   let lastData: BusPositionsResponse | null = null
 
 
@@ -185,17 +187,26 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
       const ratio = Math.max(0, Math.min(1, (now - trail.t0) / Math.max(1, trail.span)))
       const lng = trail.from.lng + (trail.to.lng - trail.from.lng) * ratio
       const lat = trail.from.lat + (trail.to.lat - trail.from.lat) * ratio
+      // 贴线：GPS 有 5–15 m 抖动，车头会歪到路肩外；把显示点吸到本方向折线上（30 m 内才吸，
+      // 明显跑偏时保留原始定位，免得车被硬拽到别的路上去）。
+      const snapped = line.length >= 2
+        ? snapToPolyline({ lng, lat }, line)
+        : null
+      const shown = snapped && snapped.offsetMeters <= 30 ? snapped.point : { lng, lat }
+      // 车头一律用线路切线（前进方向），不再用两点位移方位角，避免静止/抖动时车头乱转。
       const moved = haversineMeters(trail.from, trail.to)
-      const angleDeg = moved >= 2 ? bearingDegrees(trail.from, trail.to) : (progress?.angleDeg ?? 0)
-      snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, lng, lat })
+      const angleDeg = progress?.angleDeg ?? (moved >= 2 ? bearingDegrees(trail.from, trail.to) : 0)
+      if (!movedAt.has(name) || haversineMeters(lastFix.get(name) ?? fix, fix) > 3) movedAt.set(name, now)
+      snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, lng: shown.lng, lat: shown.lat })
       mapBuses.push({
         id: name,
         name: bus.busName,
-        point: { lng, lat, crs },
+        point: { lng: shown.lng, lat: shown.lat, crs },
         isAtSite: bus.isAtSite,
         siteName: bus.siteName,
         routeName: route?.routeName ?? bus.routeName,
         updatedAt: bus.updatedAt,
+        movedAt: movedAt.get(name) ?? now,
         angleDeg
       })
     }
@@ -252,6 +263,7 @@ export function useMapBusPositions(options: { mapProvider: Ref<MapProvider | nul
     }
     trails.clear()
     lastFix.clear()
+    movedAt.clear()
     lastData = null
     options.mapProvider.value?.setBuses([])
     options.mapProvider.value?.setBusRoutes([])

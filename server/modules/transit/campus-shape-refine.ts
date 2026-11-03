@@ -204,3 +204,36 @@ export async function refineShapeWithRoads(amapKey: string, shape: ShapePoint[])
   if (shapeLength(clamped) > baseLength * MAX_LENGTH_RATIO) return null
   return clamped
 }
+
+/**
+ * 按站点逐段算路拼整条线路：每两个相邻站点各要一条步行路线（校园里车走的就是这些巷道），
+ * 拼起来天然贴路，也不会凭空绕到别的地方。任何一段失败就退驾车、再退直连，
+ * 并用 complete 标记让调用方决定要不要短期重算。
+ */
+export async function buildShapeThroughStops(
+  amapKey: string,
+  stops: Array<{ lng: number, lat: number }>,
+  options: { gapMs?: number, origin?: { lng: number, lat: number } } = {}
+): Promise<{ polyline: ShapePoint[], complete: boolean } | null> {
+  if (!amapKey || stops.length < 2) return null
+  const points: ShapePoint[] = stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
+  if (options.origin) points[0] = { ...options.origin }
+  const gapMs = options.gapMs ?? 220
+  let complete = true
+  const out: ShapePoint[] = []
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const from = points[i]!
+    const to = points[i + 1]!
+    if (i > 0 && gapMs > 0) await new Promise(resolve => setTimeout(resolve, gapMs))
+    const segment = await fetchRouteSegment(amapKey, [from, to], WALKING_ENDPOINT)
+      ?? await fetchRouteSegment(amapKey, [from, to], DRIVING_ENDPOINT)
+    const leg = segment && segment.length >= 2 ? segment : [from, to]
+    if (!segment) complete = false
+    for (const point of leg) {
+      const last = out[out.length - 1]
+      if (last && Math.abs(last.lng - point.lng) < 1e-9 && Math.abs(last.lat - point.lat) < 1e-9) continue
+      out.push(point)
+    }
+  }
+  return out.length >= 2 ? { polyline: out, complete } : null
+}

@@ -6,7 +6,7 @@
 //   响应体 = 8 位长度前缀 + retcode(4 位) + JSON + "SIGN_VAL" + 签名（客户端不验签）
 // 本模块不依赖 Nuxt 运行时，纯函数部分可被 scripts/ykt-bus-protocol.test.ts 直接测试。
 import { createDecipheriv, createSign } from 'node:crypto'
-import { refineShapeWithRoads } from './campus-shape-refine'
+import { buildShapeThroughStops, refineShapeWithRoads } from './campus-shape-refine'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-convert'
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
 import busRouteGps from '../../../data/seeds/bus-route-gps.json'
@@ -699,6 +699,12 @@ function haversineMeters(from: { lng: number, lat: number }, to: { lng: number, 
   return 6_371_000 * 2 * Math.asin(Math.min(1, Math.sqrt(a)))
 }
 
+function shapeLengthMeters(points: RouteShapePoint[]): number {
+  let total = 0
+  for (let i = 1; i < points.length; i += 1) total += haversineMeters(points[i - 1]!, points[i]!)
+  return total
+}
+
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
   for (const route of routes) {
     const key = `${route.routeId}|${route.stops.map(s => s.siteId).join(',')}`
@@ -721,8 +727,19 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
       // 成功且没绕远就覆盖缓存，下一轮快照即拿到细化后的折线。
       const refineKey = `${key}|road`
       if (amapKey && !shapeInflight.has(refineKey)) {
-        const refine = refineShapeWithRoads(amapKey, traced)
-          .then((refined) => {
+        const tracedLength = shapeLengthMeters(traced)
+        const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
+        const startIsDepot = route.stops[0]?.siteName === '旧区创业园'
+        const refine = buildShapeThroughStops(amapKey, stops, startIsDepot ? { origin: WEST_GATE } : {})
+          .then(async (byStops) => {
+            const usable = byStops && tracedLength > 0
+              && shapeLengthMeters(byStops.polyline) >= tracedLength * 0.75
+              && shapeLengthMeters(byStops.polyline) <= tracedLength * 1.45
+            if (usable) {
+              shapeCache.set(key, { fetchedAt: Date.now(), polyline: byStops.polyline, complete: byStops.complete })
+              return
+            }
+            const refined = await refineShapeWithRoads(amapKey, traced)
             if (refined && refined.length > traced.length) {
               shapeCache.set(key, { fetchedAt: Date.now(), polyline: refined, complete: true })
             }

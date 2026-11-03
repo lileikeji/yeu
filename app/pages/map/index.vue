@@ -844,6 +844,16 @@ interface VehicleFocus {
 const transitVehicleFocus = ref<VehicleFocus | null>(null)
 /** 跟车时每秒刷新的 GPS 年龄（秒）。 */
 const transitGpsAge = ref(0)
+// 每台车「位置真的变了」的本地时刻；位置没变就不刷新，避免恒显示 0 秒前。
+const transitMoveStamps = new Map<string, { point: [number, number], at: number }>()
+watch(busVehicles, list => {
+  for (const bus of list) stampTransitMove(bus.busName, [bus.lng, bus.lat])
+}, { deep: false })
+function stampTransitMove(plate: string, point: [number, number]): void {
+  const last = transitMoveStamps.get(plate)
+  const moved = !last || Math.abs(last.point[0] - point[0]) > 3e-5 || Math.abs(last.point[1] - point[1]) > 3e-5
+  transitMoveStamps.set(plate, { point, at: moved ? Date.now() : last?.at ?? Date.now() })
+}
 let transitAgeTimer: ReturnType<typeof globalThis.setInterval> | null = null
 
 /** 点一辆车：镜头跟住它，并打开车辆详情（含 GPS 更新时间）。 */
@@ -944,17 +954,33 @@ function transitVehiclesForMap(data: ApiBusLiveResponse | null): MapTransitVehic
   const directions = (filter === 'all' ? data.directions : data.directions.filter(item => item.line === filter))
     .filter(item => !scope
       || (item.line === scope.line && sameStation(item.from, scope.from) && sameStation(item.to, scope.to)))
-  return directions.flatMap(direction =>
-    direction.vehicles.map((vehicle, index) => ({
-      id: `${direction.line}-${direction.direction}-${vehicle.plate || index}`,
-      line: direction.line,
-      plate: vehicle.plate,
-      nextStation: vehicle.nextStation,
-      color: TRANSIT_LINE_COLORS[direction.line] ?? '#1a6cf5',
-      angleDeg: vehicle.angle,
-      point: { lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' as const }
-    }))
-  )
+  // 车辆 GPS 与折线同源（掌上公交），但仍有几米抖动：吸附到本方向折线上，
+  // 车头按折线切线走，看起来就是沿着路开。
+  const lineByName = new Map<string, Array<{ lng: number, lat: number }>>()
+  for (const route of transitRoutes.value) {
+    const line = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
+    if (line.length >= 2) lineByName.set(route.name, line)
+  }
+  return directions.flatMap(direction => {
+    const line = lineByName.get(`${direction.line} ${direction.from} → ${direction.to}`)
+      ?? [...lineByName.entries()].find(([name]) => name.startsWith(`${direction.line} `) && name.includes(direction.from))?.[1]
+    return direction.vehicles.map((vehicle, index) => {
+      const snapped = line ? snapToPolyline({ lng: vehicle.point[0], lat: vehicle.point[1] }, line) : null
+      const point = snapped && snapped.offsetMeters <= 40 ? snapped.point : { lng: vehicle.point[0], lat: vehicle.point[1] }
+      const angleDeg = line
+        ? (snapToPolyline({ lng: point.lng, lat: point.lat }, line)?.angleDeg ?? vehicle.angle)
+        : vehicle.angle
+      return {
+        id: `${direction.line}-${direction.direction}-${vehicle.plate || index}`,
+        line: direction.line,
+        plate: vehicle.plate,
+        nextStation: vehicle.nextStation,
+        color: TRANSIT_LINE_COLORS[direction.line] ?? '#1a6cf5',
+        angleDeg,
+        point: { lng: point.lng, lat: point.lat, crs: 'GCJ-02' as const }
+      }
+    })
+  })
 }
 
 /** 车辆走掌上公交的实时接口，20 秒一轮；只有图层打开时才轮询。 */
@@ -988,7 +1014,6 @@ function followTransitVehicle(): void {
     source: 'transit'
   }
   mapProvider.value?.flyToPoint({ lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' }, 17)
-  transitGpsAge.value = 0
 }
 
 async function loadTransitDepartures(): Promise<void> {
@@ -1004,9 +1029,10 @@ function startTransitLive(): void {
   void loadTransitDepartures()
   if (!transitAgeTimer) {
     transitAgeTimer = globalThis.setInterval(() => {
-      if (!transitVehicleFocus.value) return
-      const fetched = Date.parse(transitVehicleFocus.value?.updatedAt ?? transitLive.value?.fetchedAt ?? '')
-      transitGpsAge.value = Number.isFinite(fetched) ? Math.max(0, Math.round((Date.now() - fetched) / 1000)) : transitGpsAge.value + 1
+      const focus = transitVehicleFocus.value
+      if (!focus) return
+      const stamp = transitMoveStamps.get(focus.plate)?.at
+      transitGpsAge.value = stamp ? Math.max(0, Math.round((Date.now() - stamp) / 1000)) : 0
     }, 1000)
   }
   void refreshTransitLive()

@@ -105,6 +105,8 @@ export interface MapBus {
   routeName?: string
   /** 数据采集时刻（ISO 字符串）。 */
   updatedAt?: string
+  /** 客户端认定「位置真的变了」的时刻（毫秒）；不变就保持旧值，用来算定位多久没更新。 */
+  movedAt?: number
   /** 车头朝向（正北 0°，顺时针；缺省不旋转）。 */
   angleDeg?: number
 }
