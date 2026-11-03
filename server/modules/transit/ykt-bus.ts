@@ -798,6 +798,58 @@ function repairLongChords(points: RouteShapePoint[]): RouteShapePoint[] {
   return out
 }
 
+
+/**
+ * 实测链在发车点附近会缺一两个采样点：切到发车点后到下一个顶点可能是一百多米的长弦，
+ * 画出来就斜穿楼群。这里用**实测 GPS 链**在这两点之间补顶点（高德在旧区这条路上
+ * 算不出 140 米直连，会绕 3.6 km，所以只能用实测点）。
+ */
+function spliceGateApproach(polyline: RouteShapePoint[]): RouteShapePoint[] | null {
+  if (CHAIN_POINTS.length < 2 || polyline.length < 2) return null
+  const head = polyline[0]!
+  const next = polyline[1]!
+  if (haversineMeters(head, WEST_GATE) > 25) return null
+  const gap = haversineMeters(head, next)
+  if (gap < 60) return null
+  const a = projectOnChain(head)
+  const b = projectOnChain(next)
+  if (b.offM > CHAIN_MAX_OFFSET_M * 3) return null
+  const fill = sliceChainBetween(0, b.alongM)
+  const ordered = a.alongM <= b.alongM ? fill : [...fill].reverse()
+  const inserted: RouteShapePoint[] = []
+  for (const point of ordered) {
+    const last = inserted[inserted.length - 1] ?? head
+    if (haversineMeters(last, point) > 3 && haversineMeters(point, next) > 5) inserted.push(point)
+  }
+  const candidate = inserted.length ? [head, ...inserted, ...polyline.slice(1)] : [head, ...polyline.slice(1)]
+  // 补完仍有一段长弦，说明实测链在这个位置就是跳的：按「先南北、再东西」折一次，
+  // 这样至少贴着两条路走，而不是斜穿楼群。
+  const corners: RouteShapePoint[] = []
+  for (let i = 1; i < candidate.length; i += 1) {
+    const a = candidate[i - 1]!
+    const b = candidate[i]!
+    const gap = haversineMeters(a, b)
+    if (gap <= 80) continue
+    const dLng = Math.abs(a.lng - b.lng)
+    const dLat = Math.abs(a.lat - b.lat)
+    const corner = dLat >= dLng ? { lng: a.lng, lat: b.lat } : { lng: b.lng, lat: a.lat }
+    corners.push(corner)
+  }
+  if (!corners.length) return candidate.length > polyline.length ? candidate : null
+  const merged: RouteShapePoint[] = [candidate[0]!]
+  let ci = 0
+  for (let i = 1; i < candidate.length; i += 1) {
+    const a = candidate[i - 1]!
+    const b = candidate[i]!
+    if (ci < corners.length && haversineMeters(a, b) > 80) {
+      merged.push(corners[ci]!)
+      ci += 1
+    }
+    merged.push(b)
+  }
+  return merged
+}
+
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
   for (const route of routes) {
     normalizeWestStops(route.stops)
@@ -831,13 +883,18 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
               && shapeLengthMeters(byStops.polyline) >= tracedLength * 0.75
               && shapeLengthMeters(byStops.polyline) <= tracedLength * 1.45
             if (usable) {
-              shapeCache.set(key, { fetchedAt: Date.now(), polyline: byStops.polyline, complete: byStops.complete })
+              const spliced = spliceGateApproach(byStops.polyline) ?? byStops.polyline
+              shapeCache.set(key, { fetchedAt: Date.now(), polyline: spliced, complete: byStops.complete })
               return
             }
             const refined = await refineShapeWithRoads(amapKey, traced)
             if (refined && refined.length > traced.length) {
-              shapeCache.set(key, { fetchedAt: Date.now(), polyline: refined, complete: true })
+              const spliced = spliceGateApproach(refined) ?? refined
+              shapeCache.set(key, { fetchedAt: Date.now(), polyline: spliced, complete: true })
+              return
             }
+            const headFixed = spliceGateApproach(traced)
+            if (headFixed) shapeCache.set(key, { fetchedAt: Date.now(), polyline: headFixed, complete: false })
           })
           .catch(() => {})
           .finally(() => {
