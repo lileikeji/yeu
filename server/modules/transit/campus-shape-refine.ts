@@ -176,6 +176,32 @@ async function fetchRouteSegment(amapKey: string, points: ShapePoint[], endpoint
 }
 
 /**
+ * 把超过阈值的「站间长弦」换成驾车算路。实测链少了某个站点附近的采样点时，
+ * 首末站会被直接连起来，画出来就是斜穿楼群的一截；这里逐段补路，算不出来才退回折角。
+ */
+export async function repairChordsWithRoads(amapKey: string, shape: ShapePoint[], minGap = 60): Promise<ShapePoint[]> {
+  if (shape.length < 2) return shape
+  const out: ShapePoint[] = [shape[0]!]
+  for (let i = 1; i < shape.length; i += 1) {
+    const from = out[out.length - 1]!
+    const to = shape[i]!
+    const gap = shapeLength([from, to])
+    if (gap <= minGap) {
+      out.push(to)
+      continue
+    }
+    const routed = await fetchRouteSegment(amapKey, [from, to], DRIVING_ENDPOINT)
+    const detour = routed ? shapeLength(routed) : 0
+    if (routed && routed.length >= 2 && detour < gap * 2.5) {
+      for (const point of routed.slice(1)) out.push(point)
+    } else {
+      out.push(to)
+    }
+  }
+  return out
+}
+
+/**
  * 把实测轨迹链细化成贴路折线。任何一段失败就整体放弃（返回 null），
  * 由调用方保留原链，不引入半截样的缺口。
  */

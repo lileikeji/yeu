@@ -6,7 +6,7 @@
 //   响应体 = 8 位长度前缀 + retcode(4 位) + JSON + "SIGN_VAL" + 签名（客户端不验签）
 // 本模块不依赖 Nuxt 运行时，纯函数部分可被 scripts/ykt-bus-protocol.test.ts 直接测试。
 import { createDecipheriv, createSign } from 'node:crypto'
-import { buildShapeThroughStops, refineShapeWithRoads } from './campus-shape-refine'
+import { buildShapeThroughStops, refineShapeWithRoads, repairChordsWithRoads } from './campus-shape-refine'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-convert'
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
 import busRouteGps from '../../../data/seeds/bus-route-gps.json'
@@ -915,17 +915,17 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
               && shapeLengthMeters(byStops.polyline) >= tracedLength * 0.75
               && shapeLengthMeters(byStops.polyline) <= tracedLength * 1.45
             if (usable) {
-              const spliced = bendTailToRoad(bendHeadToRoad(spliceGateApproach(byStops.polyline) ?? byStops.polyline))
+              const spliced = await repairChordsWithRoads(amapKey, bendTailToRoad(bendHeadToRoad(spliceGateApproach(byStops.polyline) ?? byStops.polyline)))
               shapeCache.set(key, { fetchedAt: Date.now(), polyline: spliced, complete: byStops.complete })
               return
             }
             const refined = await refineShapeWithRoads(amapKey, traced)
             if (refined && refined.length > traced.length) {
-              const spliced = bendTailToRoad(bendHeadToRoad(spliceGateApproach(refined) ?? refined))
+              const spliced = await repairChordsWithRoads(amapKey, bendTailToRoad(bendHeadToRoad(spliceGateApproach(refined) ?? refined)))
               shapeCache.set(key, { fetchedAt: Date.now(), polyline: spliced, complete: true })
               return
             }
-            const headFixed = bendTailToRoad(bendHeadToRoad(spliceGateApproach(traced) ?? traced))
+            const headFixed = await repairChordsWithRoads(amapKey, bendTailToRoad(bendHeadToRoad(spliceGateApproach(traced) ?? traced)))
             shapeCache.set(key, { fetchedAt: Date.now(), polyline: headFixed, complete: false })
           })
           .catch(() => {})
