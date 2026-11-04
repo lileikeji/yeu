@@ -10,6 +10,7 @@ import { buildShapeThroughStops, fillChordsFromSibling, refineShapeWithRoads, re
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-convert'
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
 import busRouteGps from '../../../data/seeds/bus-route-gps.json'
+import busRouteOverrides from '../../../data/seeds/bus-route-overrides.json'
 import { parseAmapPolyline } from '../directions/amap'
 import { WEST_DEPARTURE_STOP_NAME, WEST_GATE, westApproach } from './campus-west-departure'
 
@@ -939,6 +940,37 @@ function fillChordsFromChain(polyline: RouteShapePoint[], minGap = 50): RouteSha
   return out
 }
 
+interface RouteOverride { id: string, from: [number, number], to: [number, number], points: [number, number][] }
+
+/** 人工标注的路段（高德在该处没有车行道数据时用它替换），按 from→to 最近点之间整段替换。 */
+function applyRouteOverrides(polyline: RouteShapePoint[]): RouteShapePoint[] {
+  const overrides = (busRouteOverrides as { overrides?: RouteOverride[] }).overrides ?? []
+  let result = polyline
+  for (const item of overrides) {
+    if (!result.length || item.points.length < 2) continue
+    const from = { lng: item.from[0], lat: item.from[1] }
+    const to = { lng: item.to[0], lat: item.to[1] }
+    const nearest = (target: RouteShapePoint): number => {
+      let best = 0
+      let bestDistance = Number.POSITIVE_INFINITY
+      result.forEach((point, index) => {
+        const distance = haversineMeters(point, target)
+        if (distance < bestDistance) { bestDistance = distance; best = index }
+      })
+      return bestDistance <= 45 ? best : -1
+    }
+    const startIndex = nearest(from)
+    const endIndex = nearest(to)
+    if (startIndex < 0 || endIndex < 0 || startIndex === endIndex) continue
+    const lower = Math.min(startIndex, endIndex)
+    const upper = Math.max(startIndex, endIndex)
+    const replacement = item.points.map(([lng, lat]) => ({ lng, lat }))
+    const ordered = startIndex <= endIndex ? replacement : [...replacement].reverse()
+    result = [...result.slice(0, lower), ...ordered, ...result.slice(upper + 1)]
+  }
+  return result
+}
+
 function unifyRouteShapes(routes: YktBusRouteInfo[]): void {
   const usable = routes.filter(route => (route.polyline?.length ?? 0) > 8)
   if (usable.length < 2) return
@@ -1048,6 +1080,10 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
   // 算路补不出来的长弦，用加密后的实测链再填一次。
   for (const route of routes) {
     if (route.polyline?.length) route.polyline = fillChordsFromChain(route.polyline)
+  }
+  // 人工标注过的路段优先（高德在校区里缺车行道时会给出步道）。
+  for (const route of routes) {
+    if (route.polyline?.length) route.polyline = applyRouteOverrides(route.polyline)
   }
   // 形状合并完之后再接旧区接驳段，否则下一轮快照会用缓存形状覆盖掉。
   void applyWestDeparture(amapKey, routes)

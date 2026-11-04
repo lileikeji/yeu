@@ -1,0 +1,34 @@
+{
+ "note": "Manual road stretches picked by hand (clicked in GCJ-02, stored as WGS84). Points replace the nearest span between from and to.",
+ "overrides": [
+  {
+   "id": "puzhao-approach",
+   "from": [
+    118.602539,
+    25.109695
+   ],
+   "to": [
+    118.601721,
+    25.109245
+   ],
+   "points": [
+    [
+     118.602539,
+     25.109695
+    ],
+    [
+     118.602514,
+     25.109275
+    ],
+    [
+     118.602122,
+     25.109189
+    ],
+    [
+     118.601721,
+     25.109245
+    ]
+   ]
+  }
+ ]
+}
