@@ -6,7 +6,7 @@
 //   响应体 = 8 位长度前缀 + retcode(4 位) + JSON + "SIGN_VAL" + 签名（客户端不验签）
 // 本模块不依赖 Nuxt 运行时，纯函数部分可被 scripts/ykt-bus-protocol.test.ts 直接测试。
 import { createDecipheriv, createSign } from 'node:crypto'
-import { buildShapeThroughStops, refineShapeWithRoads, repairChordsWithRoads } from './campus-shape-refine'
+import { buildShapeThroughStops, fillChordsFromSibling, refineShapeWithRoads, repairChordsWithRoads } from './campus-shape-refine'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-convert'
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
 import busRouteGps from '../../../data/seeds/bus-route-gps.json'
@@ -950,6 +950,15 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
         shapeInflight.delete(key)
       })
     shapeInflight.set(key, promise)
+  }
+  // 去程/回程走同一条路：一方向采样稀疏留下的长弦，用另一方向的密集点补上。
+  const forwardRoutes = routes.filter(route => !route.isBack)
+  const backRoutes = routes.filter(route => route.isBack)
+  for (const route of routes) {
+    const siblings = route.isBack ? forwardRoutes : backRoutes
+    const sibling = siblings[0]
+    if (!route.polyline || route.polyline.length < 2 || !sibling?.polyline || sibling.polyline.length < 2) continue
+    route.polyline = fillChordsFromSibling(route.polyline, sibling.polyline)
   }
   // 形状合并完之后再接旧区接驳段，否则下一轮快照会用缓存形状覆盖掉。
   void applyWestDeparture(amapKey, routes)

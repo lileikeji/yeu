@@ -111,9 +111,24 @@ export function useMapBusPositions(options: {
 
   function visibleRoutes(data: BusPositionsResponse): BusRouteSnapshot[] {
     const want = options.activeRouteId?.value ?? ''
-    if (!want) return data.routes
-    const picked = data.routes.filter(route => route.routeId === want)
-    return picked.length ? picked : data.routes
+    if (want) {
+      const picked = data.routes.filter(route => route.routeId === want)
+      if (picked.length) return picked
+    }
+    // 没选具体方向时只画一条：去程/回程走同一条路，两条叠着画会在弯道处
+    // 露出另一方向的错位线，看着像「多出来一段斜线」。站点两边合并去重。
+    if (data.routes.length <= 1) return data.routes
+    const [first, ...rest] = data.routes
+    const seen = new Set((first?.stops ?? []).map(stop => stop.siteName))
+    const mergedStops = [...(first?.stops ?? [])]
+    for (const route of rest) {
+      for (const stop of route.stops ?? []) {
+        if (seen.has(stop.siteName)) continue
+        seen.add(stop.siteName)
+        mergedStops.push(stop)
+      }
+    }
+    return [{ ...first!, stops: mergedStops }]
   }
 
   function toRoutes(data: BusPositionsResponse): MapBusRoute[] {

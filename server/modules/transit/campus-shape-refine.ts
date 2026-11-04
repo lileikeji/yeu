@@ -179,7 +179,7 @@ async function fetchRouteSegment(amapKey: string, points: ShapePoint[], endpoint
  * 把超过阈值的「站间长弦」换成驾车算路。实测链少了某个站点附近的采样点时，
  * 首末站会被直接连起来，画出来就是斜穿楼群的一截；这里逐段补路，算不出来才退回折角。
  */
-export async function repairChordsWithRoads(amapKey: string, shape: ShapePoint[], minGap = 60): Promise<ShapePoint[]> {
+export async function repairChordsWithRoads(amapKey: string, shape: ShapePoint[], minGap = 45): Promise<ShapePoint[]> {
   if (shape.length < 2) return shape
   const out: ShapePoint[] = [shape[0]!]
   for (let i = 1; i < shape.length; i += 1) {
@@ -190,7 +190,11 @@ export async function repairChordsWithRoads(amapKey: string, shape: ShapePoint[]
       out.push(to)
       continue
     }
-    const routed = await fetchRouteSegment(amapKey, [from, to], DRIVING_ENDPOINT)
+    // 校园里的巷子多半只进步行图，先用步行算，再退驾车。
+    let routed = await fetchRouteSegment(amapKey, [from, to], WALKING_ENDPOINT)
+    if (!routed || shapeLength(routed) >= gap * 2.5) {
+      routed = await fetchRouteSegment(amapKey, [from, to], DRIVING_ENDPOINT)
+    }
     const detour = routed ? shapeLength(routed) : 0
     if (routed && routed.length >= 2 && detour < gap * 2.5) {
       for (const point of routed.slice(1)) out.push(point)
@@ -263,4 +267,45 @@ export async function buildShapeThroughStops(
     }
   }
   return out.length >= 2 ? { polyline: out, complete } : null
+}
+
+/**
+ * 去程和回程走同一条路，方向相反：某一方向采样稀疏留下的长弦，
+ * 另一方向往往在同一段有密集点，直接借过来补，不需要再外呼算路。
+ */
+export function fillChordsFromSibling(shape: ShapePoint[], sibling: ShapePoint[], minGap = 45): ShapePoint[] {
+  if (shape.length < 2 || sibling.length < 2) return shape
+  const out: ShapePoint[] = [shape[0]!]
+  for (let i = 1; i < shape.length; i += 1) {
+    const from = out[out.length - 1]!
+    const to = shape[i]!
+    const gap = shapeLength([from, to])
+    if (gap <= minGap) {
+      out.push(to)
+      continue
+    }
+    const a = nearestIndexOnChain(sibling, from)
+    const b = nearestIndexOnChain(sibling, to)
+    const low = Math.min(a.index, b.index)
+    const high = Math.max(a.index, b.index)
+    const between = sibling.slice(low, high + 1)
+    const forward = a.index <= b.index ? between : [...between].reverse()
+    const detour = shapeLength(forward)
+    if (forward.length >= 2 && detour > gap * 1.02 && detour < gap * 3) {
+      for (const point of forward) out.push(point)
+    } else {
+      out.push(to)
+    }
+  }
+  return out
+}
+
+function nearestIndexOnChain(chain: ShapePoint[], point: ShapePoint): { index: number, offM: number } {
+  let index = 0
+  let offM = Infinity
+  for (let i = 0; i < chain.length; i += 1) {
+    const d = haversine(point, chain[i]!)
+    if (d < offM) { offM = d; index = i }
+  }
+  return { index, offM }
 }
