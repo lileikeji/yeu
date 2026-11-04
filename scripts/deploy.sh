@@ -5,7 +5,9 @@
 #   bash scripts/deploy.sh                  # 全量闸门 + 部署
 #   bash scripts/deploy.sh --slug <name>    # release 使用日期、名称、时间和随机后缀
 #   bash scripts/deploy.sh --dry-run        # 只跑闸门与构建，不上传不部署
-# 生产制品必须在 Linux 构建；Windows 使用 Gitee 云端流水线。
+# 生产制品必须在 Linux 构建。Windows/macOS 开发机用 scripts/build-linux-artifact.sh：
+# 本机 pnpm build → 只传 14M 产物 → 服务器补 Linux 原生模块 → 冒烟。
+# 不要在生产机上 pnpm build：4 核 / 3.6G 内存，单次 40 分钟起，还会 OOM（exit 137）。
 # 服务器与路径可用环境变量覆盖：DEPLOY_SERVER / YEU_BASE / SSH_KEY
 set -euo pipefail
 
@@ -36,7 +38,8 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 echo "    commit=$SHA"
 if [[ "$DO_DEPLOY" == "1" && "$(node -p 'process.platform')" != "linux" ]]; then
-  echo "生产发布需要 Linux 制品。请使用个人仓库的 Gitee 云端流水线。" >&2
+  echo "生产发布需要 Linux 制品。Windows/macOS 请用 bash scripts/build-linux-artifact.sh 在本机构建后上传。" >&2
+  echo "不要转到生产服务器上 pnpm build：4 核 / 3.6G，单次 40 分钟起，且会 OOM（exit 137）。" >&2
   exit 1
 fi
 

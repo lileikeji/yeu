@@ -42,6 +42,12 @@ const devServiceWorkerCleanupScript = isDevelopment
   : []
 
 export default defineNuxtConfig({
+  // Nuxt 默认给服务端产物生成 sourcemap（@nuxt/schema 的 sourcemap.server 默认 true）。
+  // 代价是本机冷构建多约 7 秒、.nuxt/dist/server 从 6MB 涨到 31MB，而线上排错
+  // 用 .output 里的行号加 release 对应 commit 已足够。构建速度与发布包体积优先。
+  sourcemap: {
+    server: false
+  },
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',

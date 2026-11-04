@@ -8,7 +8,7 @@
     "node": ">=22 <25"
   },
   "scripts": {
-    "build": "nuxt build && tsx scripts/copy-sqlite-vec-binary.ts && tsx scripts/copy-client-manifest.ts",
+    "build": "node scripts/guard-build-host.mjs && nuxt build && tsx scripts/copy-sqlite-vec-binary.ts && tsx scripts/copy-client-manifest.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm bundle:budget && pnpm pwa:build:test",
     "bundle:budget": "tsx scripts/check-client-bundle-budget.ts",
     "amap:coordinates": "tsx scripts/import-amap-coordinates.ts",

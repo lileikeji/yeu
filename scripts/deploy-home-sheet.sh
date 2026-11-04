@@ -61,15 +61,34 @@ find "$release" -type f -exec chmod 0640 {} +
 
 # `.backup` 在库持续被写入时会反复重启，实测在生产库上挂了 98 分钟没跑完，
 # 期间公开接口被读锁拖到 10 秒级。VACUUM INTO 是一次性一致快照，不会回退重来。
-if [ -e "$backup" ]; then
-  mv "$backup" "$backup.replaced-$(date -u +%Y%m%d-%H%M%S)"
-fi
-if ! timeout 900 sqlite3 "$base/shared/data/yeu.sqlite" "VACUUM INTO '$backup'"; then
-  echo "数据库快照失败（VACUUM INTO），中止部署" >&2
-  exit 1
+# 库在 24 小时内已有快照就复用（硬链接），省掉每次 2G 库的 VACUUM。
+# 不能用“库比快照旧”做条件：生产库一直在写，mtime 永远更新，等于每次都重做
+# （单次 30–60 秒，并发时 4 分钟以上）。备份是回滚点，最多接受丢一天数据；
+# 要大改数据前强制新快照时设 BACKUP_FRESH=1。
+reuse="$(ls -t "$base"/shared/backups/yeu-before-*.sqlite 2>/dev/null | head -1)"
+if [[ -z "${BACKUP_FRESH:-}" && -n "$reuse" ]] \
+  && [[ -n "$(find "$reuse" -mmin -1440 -print -quit)" ]] \
+  && ln -f "$reuse" "$backup" && touch "$backup"; then
+  echo "24 小时内已有快照，复用：$(basename "$reuse")（BACKUP_FRESH=1 可强制重做）"
+else
+  if [ -e "$backup" ]; then
+    mv "$backup" "$backup.replaced-$(date -u +%Y%m%d-%H%M%S)"
+  fi
+  if ! timeout 900 sqlite3 "$base/shared/data/yeu.sqlite" "VACUUM INTO '$backup'"; then
+    echo "数据库快照失败（VACUUM INTO），中止部署" >&2
+    exit 1
+  fi
 fi
 chown yeu:yeu "$backup"
 chmod 0600 "$backup"
+# 只留最近 2 份快照；.replaced 是同一 release 重部署的轮转残留，留 1 份即可。
+# 复用的硬链接 mtime 继承自原快照，按 -t 排序会落到末尾被误删，所以显式跳过当前 $backup。
+ls -t "$base"/shared/backups/yeu-before-*.sqlite 2>/dev/null | grep -v -F -- "$backup" | tail -n +2 | xargs -r rm -f --
+ls -t "$base"/shared/backups/*.replaced-* 2>/dev/null | tail -n +2 | xargs -r rm -f --
+# 快照异步复制到对象存储，不阻塞切换（cosfs 写 2G 要几分钟）。
+if [[ -d /mnt/cos/yeu-db-backups ]]; then
+  ( nice -n 10 cp -f "$backup" "/mnt/cos/yeu-db-backups/$(basename "$backup")" >/dev/null 2>&1 & )
+fi
 
 # The smoke test boots the new release as the `yeu` user, which needs a
 # writable SQLite directory for WAL sidecars. Keep the retained backup in
@@ -81,8 +100,18 @@ chown yeu:yeu "$smoke_db"
 chmod 0600 "$smoke_db"
 
 smoke_log="$base/shared/logs/smoke-$release_id.log"
-"$node" --env-file="$base/shared/.env" "$tools" serve "$release" "$smoke_db" "$smoke_port" \
-  >"$smoke_log" 2>&1 &
+# 上一次部署的冒烟进程可能在异常退出时残留（实测 13:01 那次跑了两小时还占着 3101），
+# 不清掉会让这次的 serve 起不来，白等 40 秒后判定冒烟失败。
+fuser -k "$smoke_port/tcp" >/dev/null 2>&1 || true
+sleep 1
+# 冒烟直接起 index.mjs，不走 release-tools.mjs serve：serve 内部再 spawn 一层 runuser，
+# 在部署脚本的非交互环境里子进程起来即退、日志为空（2026-11-04 实测：同样参数手工能起，
+# 经 serve 必退；绕过它 3109 正常 Listening）。stdio 仍要 /dev/null，不继承调用方管道。
+( cd "$release" && exec runuser -u yeu --preserve-environment -- \
+    env NODE_ENV=production NITRO_HOST=127.0.0.1 NITRO_PORT="$smoke_port" \
+    NUXT_DATABASE_PATH="$smoke_db" \
+    "$node" --env-file="$base/shared/.env" .output/server/index.mjs ) \
+  < /dev/null >"$smoke_log" 2>&1 &
 smoke_pid="$!"
 
 smoke_ok=""
@@ -98,6 +127,7 @@ for _ in $(seq 1 80); do
 done
 
 if [[ "$smoke_ok" != "yes" ]]; then
+  echo "冒烟失败：port=$smoke_port pid=$smoke_pid alive=$(kill -0 "$smoke_pid" 2>/dev/null && echo yes || echo no) log=$smoke_log" >&2
   tail -80 "$smoke_log" >&2 || true
   exit 1
 fi

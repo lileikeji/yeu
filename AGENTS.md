@@ -78,5 +78,6 @@
 4. **生产发布走 release 流程**：每次用新时间戳 release，不在 `current` 内 git pull，不删除同名 release 后重部署；动生产数据库前先备份。
 5. **不削弱安全层**：Origin guard、miniapp 限流、visitor ban、anti-crawl 规则是层层设防，不为"绕过某个 403/429"改代码；排障按 README/部署纪要里的排查顺序定位是哪一层。
 6. **一次性调研、审计、验证记录不入 docs/**：放 `docs/verification/<主题>/`，验收后删除；docs/ 只留活文档（索引见 [docs/README.md](docs/README.md)）。
+7. **构建不在生产机做**：生产服务器 4 核 / 3.6G，`pnpm build` 单次 40 分钟起且会 OOM（`exit code 137`），构建期间线上接口跟着变慢。Windows/macOS 用 `bash scripts/build-linux-artifact.sh` 本机构建后上传；同一时刻只跑一个部署，直接调 `deploy-home-sheet.sh` 会绕过 `flock`。
 
 **这些指南生效的标志是：** diff 中不必要的更改更少、坏产物到不了线上、docs/ 不再堆积过程文档。

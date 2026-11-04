@@ -64,6 +64,9 @@ test_and_build() {
   set +m
   set -euo pipefail
   pnpm exec tsx --test --test-concurrency=4 scripts/*.test.ts
+  # 云端 CI 是构建专用机，不承载线上流量，可以在这类低配环境构建；
+  # 生产服务器不在此列（scripts/guard-build-host.mjs 会直接拒绝）。
+  export ALLOW_LOW_SPEC_BUILD=1
   pnpm build
   test .output/server/index.mjs -nt "$build_start"
 }

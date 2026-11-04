@@ -12,9 +12,10 @@
 | [DATA_MODEL.md](./DATA_MODEL.md) | 数据模型：表结构、领域关系与迁移约定 |
 | [MAP_INTERACTION_SPEC.md](./MAP_INTERACTION_SPEC.md) | 地图交互规范：布局、标点、筛选、联动与失败降级 |
 | [MAP_OFFLINE_PROVIDER_FUSION_DESIGN.md](./MAP_OFFLINE_PROVIDER_FUSION_DESIGN.md) | 地图离线/WebView Provider 融合设计 |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | 宝塔 Linux 部署与运维：环境、发布流程、回滚 |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | 宝塔 Linux 部署与运维：环境、发布流程、本机构建制品、回滚 |
 | [DEPLOY_NOTES_2026-09-04-qa-cards.md](./DEPLOY_NOTES_2026-09-04-qa-cards.md) | 部署纪要（活文档，每次发布追加一节：release id、回滚点、DB 备份、变更内容、线上验证） |
 | [ADMIN_RUNBOOK.md](./ADMIN_RUNBOOK.md) | 单管理员运行手册：后台日常操作与巡检 |
+| [LOCAL_WORKSPACE.md](./LOCAL_WORKSPACE.md) | 本地工作区：磁盘占用构成、`pnpm build` 耗时拆解与 `.data/` 清理规则 |
 | [CONTENT_POLICY.md](./CONTENT_POLICY.md) | 内容来源与治理政策：来源记录、核验状态、非官方标识边界 |
 | [SIGNAL.md](./SIGNAL.md) | 校园热度：双评分入选、事件聚簇、48 小时半衰热度、日报/周报/月报与调度命令 |
 | [GIT_RESOURCES_AND_CONFIGURATION.md](./GIT_RESOURCES_AND_CONFIGURATION.md) | Git 资源与配置：仓库边界、环境变量、数据库私有存放、发布配置 |

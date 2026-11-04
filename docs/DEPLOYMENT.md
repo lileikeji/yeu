@@ -9,6 +9,11 @@
 ## 1. 生产原则
 
 - **日常发布使用个人仓库 `lilei1529/yeu` 的 Gitee Go 流水线，push `master` 触发**。单次安装后，在 4 核 8G 任务中并行运行独立目录的类型检查和全量测试/构建，任一失败取消另一支；均通过后核验原生模块和 PWA。Linux 构建环境也可使用 `bash scripts/deploy.sh`，其完整门禁另含 lint、预算和 E2E；独立浏览器回归使用 `pnpm check:e2e`。两种发布复用制品内的服务端脚本，不覆盖服务器的独立脚本。部署前校验完整 SHA、缓存版本、原生模块与数据库结构，随后备份、冒烟、原子切换、核验健康、首页和运行版本。下文手工步骤仅用于首次建站与特殊运维。
+- **Windows/macOS 开发机：本机构建制品，不在生产机构建**。`bash scripts/build-linux-artifact.sh` 在本机跑 `pnpm build`（16 核约 107 秒），只上传 `.output`（约 14M，排除 `*.node` 与 `sqlite-vec-windows-x64`），服务器从 `current` 复用 `better_sqlite3.node` 与 `sqlite-vec-linux-x64/` 后先在 4093 端口冒烟，通过后再打印 `server-side-deploy.sh` 的切换命令。生产机是 4 核 / 3.6G 内存、同时跑 50 多个站点，在它上面 `pnpm build` 单次 40 分钟起，且多次 OOM（日志尾部 `ELIFECYCLE Command failed with exit code 137`），构建期间 load 升到 10 以上，公开接口跟着变慢。better-sqlite3 与线上版本不一致时脚本直接拒绝，不要跳过这一步：原生模块 ABI 必须与服务器的 Node 对应。
+- **同一时刻只允许一个部署**。直接调 `deploy-home-sheet.sh` 会绕过 `server-side-deploy.sh` 的 `flock`，两个部署并发时会对同一个 2.0G 数据库同时 `VACUUM INTO`，两个都跑不完（实测 4 分半仍在 D 状态）。
+- **冒烟直接起 `index.mjs`，不经过 `release-tools.mjs serve`**。serve 内部再 spawn 一层 `runuser`，在部署脚本的非交互环境里子进程起来即退、日志 0 字节（2026-11-04 实测：同样参数手工能起，经 serve 必退）。`deploy-home-sheet.sh` 现在用 `runuser -u yeu --preserve-environment -- node --env-file=shared/.env .output/server/index.mjs`，端口 3101 只读 release 内的 `.smoke.sqlite` 副本。
+- **备份 24 小时内复用，不按库 mtime 判断**。生产库持续写入，mtime 永远比快照新，用 `-nt` 会让每次部署都 VACUUM 一遍 2.0G（单次 30–60 秒，并发时 4 分钟以上）。现在 24 小时内已有快照就硬链接复用；要大改数据前设 `BACKUP_FRESH=1` 强制重做。快照异步复制到 `/mnt/cos/yeu-db-backups/`（2G 约 40 秒），不阻塞切换。
+- **服务器有构建挡板**。`/usr/local/bin/yeu-build-guard.sh` 每分钟由 cron 跑一次，检测到 `nuxt.mjs build` 直接终止并写 `/data/yeu-build/BUILD-BLOCKED.log`；确认要临时放行时 `touch /data/yeu-build/ALLOW_BUILD`。生产机没有编译的理由：2026-11-04 00:09 仍有人按旧模板生成 `deploy-6f71a55.sh`，用 `pgrep -fc "nuxt.mjs build"` 等锁，把它自己也算成匹配，空等 15 分钟没开始构建。这类模板脚本已统一改成 `exec bash /data/yeu-build/deploy-incoming.sh`。
 - 推荐 Node.js 22 LTS，并在部署前以 `package.json` 和 Nuxt 当前版本的 engines 要求复核；pnpm 使用仓库声明的 10.28.1 版本。
 - 应用进程使用独立低权限 Linux 用户运行，不使用 root；Nginx 只读静态文件和公开上传目录。
 - SQLite 只由一个 `yeu.service` 实例写入，禁止 PM2、cluster 或多实例并发。扩展为多实例前先迁移到服务型数据库。
