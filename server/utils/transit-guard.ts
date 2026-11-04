@@ -1,13 +1,12 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import type { H3Event } from 'h3'
 import { createError, getHeader, setHeader } from 'h3'
-import { getClientIpAddress } from './client-ip'
 
 /**
  * 校外公交接口的防盗刷闸门。
  *
  * 思路：接口不再认「有 Origin 就给」，而要一张短票据：
- *   1. `/api/public/transit/ticket` 发一张 120 秒票据，签名绑定 客户端 IP + User-Agent；
+ *   1. `/api/public/transit/ticket` 发一张 120 秒票据，签名绑定 User-Agent；
  *   2. 数据接口必须带 `x-yeu-ticket: <过期毫秒>.<签名>`，过期、换 IP、换 UA、改签名都拒；
  *   3. 响应体统一包成 `{ v: 1, n, d }`，`d` 是按 `n` 派生的密钥流异或后的 base64，
  *      直接 curl 拿到的是乱码，字段名也不在明文里。
@@ -25,7 +24,9 @@ function uaHash(event: H3Event): string {
 }
 
 function sign(event: H3Event, expiresAt: number): string {
-  const material = `${expiresAt}.${getClientIpAddress(event)}.${uaHash(event)}`
+  // 只绑 UA，不绑 IP：本站走多线 CDN，同一个页面连续两次请求的出口 edge 可能不同，
+  // nginx 只能对受信 edge 还原真实 IP，其余回落到 edge 地址，绑 IP 会随机 403。
+  const material = `${expiresAt}.${uaHash(event)}`
   return createHmac('sha256', SECRET).update(material).digest('base64url')
 }
 

@@ -651,7 +651,9 @@ export class AMapProvider implements MapProvider {
     element.title = bus.siteName ? `${bus.name}（${bus.isAtSite ? '已到站' : '行驶中'}·${bus.siteName}）` : bus.name
     element.setAttribute('aria-label', element.title)
     // 车形图标 + 下方车名：整块随车头朝向旋转的是图标本身，文字保持水平可读。
-    element.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;filter:drop-shadow(0 2px 4px rgb(0 0 0 / 35%));'
+    // 图标中心必须压在坐标上（marker anchor=center），所以整块固定 40×40，
+    // 车名用绝对定位挂到图标下方，不参与盒模型居中。
+    element.style.cssText = 'position:relative;width:40px;height:40px;cursor:pointer;filter:drop-shadow(0 2px 4px rgb(0 0 0 / 35%));'
     element.addEventListener('click', (event) => {
       event.stopPropagation()
       this.busSelectHandler?.(bus.id)
@@ -660,11 +662,11 @@ export class AMapProvider implements MapProvider {
     element.addEventListener('pointerdown', event => event.stopPropagation())
     const icon = document.createElement('span')
     icon.dataset.busIcon = ''
-    icon.style.cssText = 'display:grid;place-items:center;width:40px;height:40px;'
+    icon.style.cssText = 'position:absolute;inset:0;display:grid;place-items:center;'
     icon.innerHTML = vehicleSvg({ color: '#c2410c', angleDeg: headingDeg, size: 40 })
     const label = document.createElement('span')
     label.textContent = bus.name
-    label.style.cssText = 'padding:0 4px;border-radius:4px;background:rgb(255 255 255 / 92%);color:#9a3412;font:700 11px/1.5 system-ui,sans-serif;white-space:nowrap;'
+    label.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);padding:0 4px;border-radius:4px;background:rgb(255 255 255 / 92%);color:#9a3412;font:700 11px/1.5 system-ui,sans-serif;white-space:nowrap;'
     element.append(icon, label)
     return element
   }

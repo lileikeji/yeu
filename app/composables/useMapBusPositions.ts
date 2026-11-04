@@ -4,7 +4,7 @@ import type { MapProvider } from '~~/map/core/provider'
 import type { MapBus, MapBusRoute, MapBusStop } from '~~/map/core/types'
 import { ref, watch } from 'vue'
 import { BUS_POSITIONS_API_PATH } from '~~/shared/constants/server'
-import { bearingDegrees, computeBusProgress, haversineMeters, snapToPolyline } from '~~/shared/utils/bus-route-progress'
+import { alongOnPolyline, bearingDegrees, computeBusProgress, haversineMeters, samplePolylinePoint, snapToPolyline } from '~~/shared/utils/bus-route-progress'
 
 /** 线路快照（校车实时接口响应 routes[]，路径见 shared/constants/server.ts BUS_POSITIONS_API_PATH）。 */
 export interface BusRouteSnapshot {
@@ -204,13 +204,25 @@ export function useMapBusPositions(options: {
       const snapped = line.length >= 2
         ? snapToPolyline({ lng, lat }, line)
         : null
-      const shown = snapped && snapped.offsetMeters <= 30 ? snapped.point : { lng, lat }
+      // 一律吸附：车标要压在线上（GPS 抖动 5–15 m 会让车看起来在路肩外）。
+      let shown = snapped ? snapped.point : { lng, lat }
       // 车头用「当前显示位置所在线段」的切线，每个动画帧都重算：
       // 这样车刚拐进弯道时车头立刻跟着转，而不是等下一次 GPS 上报。
       const moved = haversineMeters(trail.from, trail.to)
-      const angleDeg = snapped && snapped.offsetMeters <= 30
+      let angleDeg = snapped
         ? snapped.angleDeg
         : (progress?.angleDeg ?? (moved >= 2 ? bearingDegrees(trail.from, trail.to) : 0))
+      // 定位卡住（同一位重复上报、车停在路边等客）时不要定死在原地：
+      // 超过 20 秒没位移就按线路切线以 2.2 m/s 惯性推进，最多推 60 m。
+      const stillSince = movedAt.get(name) ?? now
+      if (snapped && line.length >= 2 && now - stillSince > 20_000) {
+        const creep = Math.min(((now - stillSince) / 1000) * 2.2, 60)
+        const ahead = samplePolylinePoint(line, alongOnPolyline(snapped.point, line) + creep)
+        shown = ahead.point
+        angleDeg = ahead.angleDeg
+      }
+      // 回程的折线方向与行驶方向相反，车头要补 180°。
+      if (bus.isBack) angleDeg = (angleDeg + 180) % 360
       if (!movedAt.has(name) || haversineMeters(lastFix.get(name) ?? fix, fix) > 3) movedAt.set(name, now)
       snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, lng: shown.lng, lat: shown.lat })
       mapBuses.push({

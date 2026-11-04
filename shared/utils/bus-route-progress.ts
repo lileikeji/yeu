@@ -103,6 +103,32 @@ export function snapToPolyline(point: LngLat, line: LngLat[]): { point: LngLat, 
   return bestPoint ? { point: bestPoint, offsetMeters: bestOffset, angleDeg: bestAngle } : null
 }
 
+/** 点在折线上的沿线里程（米），用于「定位卡住时按线路惯性推进」。 */
+export function alongOnPolyline(point: LngLat, line: LngLat[]): number {
+  if (line.length < 2) return 0
+  const cumulative = cumulativeDistances(line)
+  let bestOffset = Infinity
+  let bestAlong = 0
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = line[i]!
+    const b = line[i + 1]!
+    const cosLat = Math.cos(toRadians(a.lat))
+    const abx = toRadians(b.lng - a.lng) * cosLat * EARTH_RADIUS_M
+    const aby = toRadians(b.lat - a.lat) * EARTH_RADIUS_M
+    const apx = toRadians(point.lng - a.lng) * cosLat * EARTH_RADIUS_M
+    const apy = toRadians(point.lat - a.lat) * EARTH_RADIUS_M
+    const lengthSquared = abx * abx + aby * aby
+    const t = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0, (apx * abx + apy * aby) / lengthSquared))
+    const closest: LngLat = { lng: a.lng + (b.lng - a.lng) * t, lat: a.lat + (b.lat - a.lat) * t }
+    const offset = haversineMeters(point, closest)
+    if (offset < bestOffset) {
+      bestOffset = offset
+      bestAlong = cumulative[i]! + (cumulative[i + 1]! - cumulative[i]!) * t
+    }
+  }
+  return bestAlong
+}
+
 export function cumulativeDistances(line: LngLat[]): number[] {
   const cumulative = [0]
   for (let i = 1; i < line.length; i++) {
