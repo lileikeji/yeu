@@ -11,6 +11,7 @@ import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-con
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
 import busRouteGps from '../../../data/seeds/bus-route-gps.json'
 import busRouteOverrides from '../../../data/seeds/bus-route-overrides.json'
+import busRouteShapes from '../../../data/seeds/bus-route-shapes.json'
 import { parseAmapPolyline } from '../directions/amap'
 import { WEST_DEPARTURE_STOP_NAME, WEST_GATE, westApproach } from './campus-west-departure'
 
@@ -971,6 +972,43 @@ function applyRouteOverrides(polyline: RouteShapePoint[]): RouteShapePoint[] {
   return result
 }
 
+function nearestIndex(polyline: RouteShapePoint[], target: RouteShapePoint): number {
+  let best = -1
+  let bestDistance = Number.POSITIVE_INFINITY
+  polyline.forEach((point, index) => {
+    const distance = haversineMeters(point, target)
+    if (distance < bestDistance) { bestDistance = distance; best = index }
+  })
+  return bestDistance <= 120 ? best : -1
+}
+
+/**
+ * 新区那一段回程（青绿）贴车行道，去程（橙色）走到了步道上。
+ * 两个方向走同一条路，直接把回程这一段反向借给去程，其余部分不动。
+ */
+function adoptSiblingNewArea(routes: YktBusRouteInfo[]): void {
+  const forward = routes.find(route => !route.isBack && (route.polyline?.length ?? 0) > 2)
+  const back = routes.find(route => route.isBack && (route.polyline?.length ?? 0) > 2)
+  if (!forward || !back) return
+  const anchorA = back.stops.find(stop => stop.siteName === '新区和昌楼2号门')
+  const anchorB = back.stops.find(stop => stop.siteName === '网络信息中心')
+  if (!anchorA || !anchorB) return
+  const backLine = back.polyline!
+  const forwardLine = forward.polyline!
+  const backA = nearestIndex(backLine, { lng: anchorA.lng, lat: anchorA.lat })
+  const backB = nearestIndex(backLine, { lng: anchorB.lng, lat: anchorB.lat })
+  if (backA < 0 || backB < 0 || Math.abs(backA - backB) < 5) return
+  const slice = backLine.slice(Math.min(backA, backB), Math.max(backA, backB) + 1)
+  const donated = backA <= backB ? [...slice].reverse() : slice
+  const fA = nearestIndex(forwardLine, { lng: anchorA.lng, lat: anchorA.lat })
+  const fB = nearestIndex(forwardLine, { lng: anchorB.lng, lat: anchorB.lat })
+  if (fA < 0 || fB < 0 || Math.abs(fA - fB) < 5) return
+  const lower = Math.min(fA, fB)
+  const upper = Math.max(fA, fB)
+  const ordered = fA <= fB ? donated : [...donated].reverse()
+  forward.polyline = [...forwardLine.slice(0, lower), ...ordered, ...forwardLine.slice(upper + 1)]
+}
+
 function unifyRouteShapes(routes: YktBusRouteInfo[]): void {
   const usable = routes.filter(route => (route.polyline?.length ?? 0) > 8)
   if (usable.length < 2) return
@@ -992,7 +1030,25 @@ function unifyRouteShapes(routes: YktBusRouteInfo[]): void {
   }
 }
 
+/** 已经验收过的线路形状（去程/回程各一条，两方向重叠），有就直接用，不再走算路与细化。 */
+function bakedShapeFor(route: YktBusRouteInfo): RouteShapePoint[] | null {
+  const shapes = busRouteShapes as { forward?: { lng: number, lat: number }[], back?: { lng: number, lat: number }[] }
+  const points = route.isBack ? shapes.back : shapes.forward
+  if (!points || points.length < 8) return null
+  return points.map(point => ({ lng: point.lng, lat: point.lat }))
+}
+
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
+  for (const route of routes) {
+    const baked = bakedShapeFor(route)
+    if (!baked) continue
+    normalizeWestStops(route.stops)
+    route.polyline = applyRouteOverrides(baked)
+  }
+  if (routes.every(route => bakedShapeFor(route))) {
+    void applyWestDeparture(amapKey, routes)
+    return
+  }
   for (const route of routes) {
     normalizeWestStops(route.stops)
     const key = `${route.routeId}|${route.stops.map(s => s.siteId).join(',')}`
@@ -1073,6 +1129,8 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
     if (!route.polyline || route.polyline.length < 2 || !sibling?.polyline || sibling.polyline.length < 2) continue
     route.polyline = fillChordsFromSibling(route.polyline, sibling.polyline)
   }
+  // 新区：去程借用回程（贴车行道）的那一段，两条线重叠。
+  adoptSiblingNewArea(routes)
   // 人工标注过的路段优先（高德在校区里缺车行道时会给出步道）。
   for (const route of routes) {
     if (route.polyline?.length) route.polyline = applyRouteOverrides(route.polyline)
