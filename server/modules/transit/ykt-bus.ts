@@ -1021,13 +1021,12 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
         const refine = buildShapeThroughStops(amapKey, stops)
           .then(async (byStops) => {
             // 有一段算路失败（complete=false）就会留直线和弦，不能覆盖实测链。
-            // 高德在这几段没有路网，算路会原样返回两点直线（108 m 长弦）。
-            // 实测链已经被采样点加密过，只要算路结果的长弦更长就不用它。
-            const tracedWorst = maxSegmentMeters(traced)
+            // 高德在个别路段没有路网会返回直线，这些点由 bus-route-overrides.json 局部替换，
+            // 不能因为一条长弦就整条丢掉贴路的结果。
             const usable = byStops?.complete === true && tracedLength > 0
               && shapeLengthMeters(byStops.polyline) >= tracedLength * 0.75
               && shapeLengthMeters(byStops.polyline) <= tracedLength * 1.45
-              && maxSegmentMeters(byStops.polyline) <= tracedWorst + 8
+
             if (usable) {
               const spliced = await repairChordsWithRoads(amapKey, bendTailToRoad(bendHeadToRoad(spliceGateApproach(byStops.polyline) ?? byStops.polyline)))
               shapeCache.set(key, { fetchedAt: Date.now(), polyline: spliced, complete: byStops.complete })
