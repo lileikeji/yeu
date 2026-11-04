@@ -494,7 +494,10 @@ function sliceChainBetween(lo: number, hi: number): RouteShapePoint[] {
 export function buildRouteShapeFromChain(stops: RouteShapePoint[]): RouteShapePoint[] | null {
   if (CHAIN_POINTS.length < 2 || stops.length < 2) return null
   const projections = stops.map(projectOnChain)
-  if (projections.some(p => p.offM > CHAIN_MAX_OFFSET_M)) return null
+  // 只要求首末站落在链附近（发车点被挪到邮政旁，离链首 ~140 m，属正常）；
+  // 中间站偶有偏出去 200 m 的（旧区公交上车点与链不重合），不能因此整条放弃实测链——
+  // 一放弃就退回算路，高德在旧区会绕 3.6 km 或直接拉直线。
+  if (projections[0]!.offM > 260 || projections[projections.length - 1]!.offM > 260) return null
   const first = projections[0]!.alongM
   const last = projections[projections.length - 1]!.alongM
   if (Math.abs(last - first) < 50) return null // 首末投影几乎重合，链方向不对，回退算路
@@ -504,7 +507,23 @@ export function buildRouteShapeFromChain(stops: RouteShapePoint[]): RouteShapePo
   if (last < first) slice.reverse()
   slice[0] = { lng: stops[0]!.lng, lat: stops[0]!.lat }
   slice[slice.length - 1] = { lng: stops[stops.length - 1]!.lng, lat: stops[stops.length - 1]!.lat }
-  return stitchShapeSegments([slice])
+  return stitchShapeSegments([bendHeadToRoad(stitchShapeSegments([slice]))])
+}
+
+/**
+ * 实测链首点常比「旧区发车点」更靠西（链从创业园开始采），直接连过去会斜穿楼群。
+ * 旧区实际走法：沿南北向主路往南，再走东西向横路往西 —— 这里补一个折角点。
+ */
+export function bendHeadToRoad(points: RouteShapePoint[]): RouteShapePoint[] {
+  if (points.length < 2) return points
+  const head = points[0]!
+  const next = points[1]!
+  if (haversineMeters(head, WEST_GATE) > 30) return points
+  const gap = haversineMeters(head, next)
+  if (gap < 60) return points
+  const corner = { lng: head.lng, lat: next.lat }
+  if (haversineMeters(head, corner) < 8 || haversineMeters(corner, next) < 8) return points
+  return [head, corner, ...points.slice(1)]
 }
 
 // ---------- 线路沿路形状（高德算路，后台补全，不阻塞快照） ----------
@@ -830,9 +849,9 @@ function spliceGateApproach(polyline: RouteShapePoint[]): RouteShapePoint[] | nu
     const b = candidate[i]!
     const gap = haversineMeters(a, b)
     if (gap <= 80) continue
-    const dLng = Math.abs(a.lng - b.lng)
     const dLat = Math.abs(a.lat - b.lat)
-    const corner = dLat >= dLng ? { lng: a.lng, lat: b.lat } : { lng: b.lng, lat: a.lat }
+    // 旧区这条路：先沿南北向主路下去，再走东西向横路，所以先补「同经度、对方纬度」的拐点。
+    const corner = dLat >= 25 ? { lng: a.lng, lat: b.lat } : { lng: b.lng, lat: a.lat }
     corners.push(corner)
   }
   if (!corners.length) return candidate.length > polyline.length ? candidate : null
