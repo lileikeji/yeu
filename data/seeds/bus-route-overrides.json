@@ -1,5 +1,5 @@
 {
- "note": "Manual road stretches picked by hand (clicked in GCJ-02, stored as WGS84). Points replace the nearest span between from and to.",
+ "note": "Manual road stretches (clicked in GCJ-02, stored as WGS84, plus dense GPS samples). Points replace the nearest span between from and to.",
  "overrides": [
   {
    "id": "puzhao-approach",
@@ -27,6 +27,72 @@
     [
      118.601721,
      25.109245
+    ]
+   ]
+  },
+  {
+   "id": "library-east-chord",
+   "from": [
+    118.60626,
+    25.1119
+   ],
+   "to": [
+    118.60521,
+    25.11207
+   ],
+   "points": [
+    [
+     118.60626,
+     25.1119
+    ],
+    [
+     118.606191,
+     25.112079
+    ],
+    [
+     118.606017,
+     25.112001
+    ],
+    [
+     118.605868,
+     25.112114
+    ],
+    [
+     118.605503,
+     25.11207
+    ],
+    [
+     118.60521,
+     25.11207
+    ]
+   ]
+  },
+  {
+   "id": "hechang-west-chord",
+   "from": [
+    118.60172,
+    25.10925
+   ],
+   "to": [
+    118.60077,
+    25.10937
+   ],
+   "points": [
+    [
+     118.60172,
+     25.10925
+    ],
+    [
+     118.60168,
+     25.10931
+    ],
+    [
+     118.600938,
+     25.109412
+    ],
+    [
+     118.60077,
+     25.10937
     ]
    ]
   }

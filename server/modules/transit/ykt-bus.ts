@@ -1074,13 +1074,6 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
     if (!route.polyline || route.polyline.length < 2 || !sibling?.polyline || sibling.polyline.length < 2) continue
     route.polyline = fillChordsFromSibling(route.polyline, sibling.polyline)
   }
-  // 两个方向走同一条路：以点更多（更贴路）的那条为基准，另一方向反向复用，
-  // 否则会出现「一条贴路、一条沿着步道」的两条线。
-  unifyRouteShapes(routes)
-  // 算路补不出来的长弦，用加密后的实测链再填一次。
-  for (const route of routes) {
-    if (route.polyline?.length) route.polyline = fillChordsFromChain(route.polyline)
-  }
   // 人工标注过的路段优先（高德在校区里缺车行道时会给出步道）。
   for (const route of routes) {
     if (route.polyline?.length) route.polyline = applyRouteOverrides(route.polyline)
