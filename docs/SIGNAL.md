@@ -150,6 +150,14 @@ systemctl list-timers yeu-signal.timer
 
 `app/pages/hot.vue` 是页面：顶部今日简报，分类横向筛选，每条显示标题、趋势、分级、来源数/条数、热度、更新时间，「看原文」按需拉详情，外链直达原始通知。导航入口在 `app/layouts/default.vue` 的「校园热度」。
 
+## 7.2 接入站内搜索
+
+`server/modules/search/service.ts` 在 `searchPublishedContent` 里多查一张表：命中 `signal_events.title/summary/category` 的事件以 `resultType: 'notice'` 出现在搜索结果里，按热度、再看发布时间排序。
+
+- 结果项带 `to: /hot#<slug>`，搜索页 `apiSearchTarget` 优先用它，所以点开是热榜里那一条，不是 `/campus#notice-…`。
+- `type=notice` 时也会带出信号事件；`type=place/procedure` 不带。
+- 事件是派生数据，搜索直接读表，不需要额外索引；索引重建后 slug 会变，旧搜索结果链接可能失效，指向原文请用事件详情里的原始 URL。
+
 ## 7.1 接入站内问答
 
 `server/modules/signal/assistant-evidence.ts` 把已发布事件当作检索证据，供 `retrieveCampusEvidence` 与其它来源一起做 RRF 融合：

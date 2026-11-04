@@ -305,6 +305,7 @@ export function matchesRequiredSearchIntent(
 }
 
 export function apiSearchTarget(item: ApiSearchItem): string {
+  if (item.to) return item.to
   if (item.entityType === 'place') return `/map?place=${encodeURIComponent(item.slug)}`
   if (item.entityType === 'procedure') return `/procedures/${encodeURIComponent(item.slug)}`
   if (item.kind === 'guide') return `/guides/${encodeURIComponent(item.slug)}`

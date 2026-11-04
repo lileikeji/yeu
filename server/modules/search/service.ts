@@ -7,7 +7,8 @@ import {
   places,
   procedureMaterials,
   procedures,
-  procedureSteps
+  procedureSteps,
+  signalEvents
 } from '../../database/schema'
 import { getManagedContentKinds } from '../content/catalog-state'
 import { activePublicContentCondition } from '../content/visibility'
@@ -187,6 +188,26 @@ export function searchPublishedContent(
       : []
   })
 
+  // 校园信号（/hot）是同一批官网通知的聚簇结果：搜索词命中事件时一并给出，
+  // 点进去看「哪几个站点都发了、热度多少」，再跳原文。
+  const signalRows = !type || type === 'notice'
+    ? client.db.select({
+        id: signalEvents.id,
+        slug: signalEvents.slug,
+        title: signalEvents.title,
+        summary: signalEvents.summary,
+        category: signalEvents.category,
+        lastSeenAt: signalEvents.lastSeenAt
+      }).from(signalEvents).where(and(
+        eq(signalEvents.status, 'published'),
+        or(...searchTerms.flatMap(term => [
+          like(signalEvents.title, `%${term}%`),
+          like(signalEvents.summary, `%${term}%`),
+          like(signalEvents.category, `%${term}%`)
+        ]))
+      )).orderBy(desc(signalEvents.heat), desc(signalEvents.lastSeenAt)).all()
+    : []
+
   const rankedItems = [
     ...placeRows.map(row => ({
       entityType: 'place' as const,
@@ -223,6 +244,19 @@ export function searchPublishedContent(
       kind: null,
       updatedAt: new Date(row.updatedAt).toISOString(),
       score: bestMatchScore(row.title, detail, searchTerms)
+    })),
+    ...signalRows.map(row => ({
+      entityType: 'content' as const,
+      resultType: 'notice' as const,
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      summary: row.summary,
+      category: row.category,
+      kind: 'notice' as const,
+      updatedAt: new Date(row.lastSeenAt).toISOString(),
+      to: `/hot#${encodeURIComponent(row.slug)}`,
+      score: bestMatchScore(row.title, row.summary, searchTerms)
     }))
   ]
     .sort((left, right) => left.score - right.score || right.updatedAt.localeCompare(left.updatedAt))

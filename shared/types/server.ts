@@ -385,6 +385,8 @@ export interface ApiSearchItem {
   category: string | null
   kind: ContentKind | null
   updatedAt: string
+  /** 指定落地页；缺省时按 kind 推导。校园信号事件用 /hot#slug。 */
+  to?: string
 }
 
 export interface ApiFeatureSearchItem {
