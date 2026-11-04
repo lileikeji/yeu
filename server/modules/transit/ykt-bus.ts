@@ -507,7 +507,20 @@ export function buildRouteShapeFromChain(stops: RouteShapePoint[]): RouteShapePo
   if (last < first) slice.reverse()
   slice[0] = { lng: stops[0]!.lng, lat: stops[0]!.lat }
   slice[slice.length - 1] = { lng: stops[stops.length - 1]!.lng, lat: stops[stops.length - 1]!.lat }
-  return stitchShapeSegments([bendHeadToRoad(stitchShapeSegments([slice]))])
+  return bendTailToRoad(bendHeadToRoad(stitchShapeSegments([slice])))
+}
+
+/** 回程尾巴：跟头部对称，先沿横路走到发车点纬度，再往北进发车点。 */
+export function bendTailToRoad(points: RouteShapePoint[]): RouteShapePoint[] {
+  if (points.length < 2) return points
+  const tail = points[points.length - 1]!
+  const prev = points[points.length - 2]!
+  if (haversineMeters(tail, WEST_GATE) > 30) return points
+  const gap = haversineMeters(prev, tail)
+  if (gap < 60) return points
+  const corner = { lng: tail.lng, lat: prev.lat }
+  if (haversineMeters(prev, corner) < 8 || haversineMeters(corner, tail) < 8) return points
+  return [...points.slice(0, -1), corner, tail]
 }
 
 /**
@@ -902,18 +915,18 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
               && shapeLengthMeters(byStops.polyline) >= tracedLength * 0.75
               && shapeLengthMeters(byStops.polyline) <= tracedLength * 1.45
             if (usable) {
-              const spliced = spliceGateApproach(byStops.polyline) ?? byStops.polyline
+              const spliced = bendTailToRoad(bendHeadToRoad(spliceGateApproach(byStops.polyline) ?? byStops.polyline))
               shapeCache.set(key, { fetchedAt: Date.now(), polyline: spliced, complete: byStops.complete })
               return
             }
             const refined = await refineShapeWithRoads(amapKey, traced)
             if (refined && refined.length > traced.length) {
-              const spliced = spliceGateApproach(refined) ?? refined
+              const spliced = bendTailToRoad(bendHeadToRoad(spliceGateApproach(refined) ?? refined))
               shapeCache.set(key, { fetchedAt: Date.now(), polyline: spliced, complete: true })
               return
             }
-            const headFixed = spliceGateApproach(traced)
-            if (headFixed) shapeCache.set(key, { fetchedAt: Date.now(), polyline: headFixed, complete: false })
+            const headFixed = bendTailToRoad(bendHeadToRoad(spliceGateApproach(traced) ?? traced))
+            shapeCache.set(key, { fetchedAt: Date.now(), polyline: headFixed, complete: false })
           })
           .catch(() => {})
           .finally(() => {
