@@ -1,10 +1,27 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { randomBytes } from 'node:crypto'
+import { availableParallelism, totalmem } from 'node:os'
 import { clientBundleIcons } from './shared/client-bundle-icons'
 import { EDGE_ROUTE_BOOTSTRAP_SCRIPT } from './app/utils/edge-route-bootstrap'
 import { THEME_BOOT_SCRIPT } from './app/utils/theme-mode'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
+
+// 构建守卫：pnpm build、改名的 nuxt bin、npx、直接 node nuxt.mjs，最后都会加载
+// 这份配置，所以这里是唯一绕不过去的位置。生产机 4 核 / 3.6G，同一份代码本机
+// 105 秒、那边 40 分钟起且会 OOM（exit 137），期间同机 50+ 站点一起变慢。
+if (process.env.ALLOW_LOW_SPEC_BUILD !== '1') {
+  const cpus = availableParallelism()
+  const memGiB = totalmem() / 1024 ** 3
+  if (cpus < 8 || memGiB < 8) {
+    throw new Error(
+      `拒绝在这台机器上运行 Nuxt：${cpus} 核 / ${memGiB.toFixed(1)}G 内存（要求 ≥ 8 核 / 8G）。`
+      + ' 不要在服务器上构建：本机 bash scripts/build-linux-artifact.sh 出制品，'
+      + '服务器 bash /data/yeu-build/deploy-incoming.sh 只做校验与切换（35–90 秒）。'
+      + ' 云端 CI 的构建阶段请设 ALLOW_LOW_SPEC_BUILD=1。',
+    )
+  }
+}
 // 公共出口坐标混淆 key：每次构建重新生成，经 vite define（client）与 nitro replace
 // （server）注入同一常量 __GEO_CIPHER_KEY__（shared/utils/geo-obfuscation 的消费方）。
 // 不走 runtimeConfig：请求上下文与 SSR 渲染两条取值路径会出现 key 不一致。

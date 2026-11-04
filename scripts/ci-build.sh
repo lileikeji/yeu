@@ -52,6 +52,9 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 # Nuxt typecheck and build each generate .nuxt; keep their output directories separate.
+# 云端 CI 是构建专用机，不承载线上流量，可以在这类低配环境运行 Nuxt 构建流程；
+# 生产服务器不在此列（nuxt.config.ts 顶部的守卫会直接抛错）。
+export ALLOW_LOW_SPEC_BUILD=1
 git archive HEAD | tar -xf - -C "$types_dir"
 ln -s "$PWD/node_modules" "$types_dir/node_modules"
 check_types() {
@@ -64,9 +67,6 @@ test_and_build() {
   set +m
   set -euo pipefail
   pnpm exec tsx --test --test-concurrency=4 scripts/*.test.ts
-  # 云端 CI 是构建专用机，不承载线上流量，可以在这类低配环境构建；
-  # 生产服务器不在此列（scripts/guard-build-host.mjs 会直接拒绝）。
-  export ALLOW_LOW_SPEC_BUILD=1
   pnpm build
   test .output/server/index.mjs -nt "$build_start"
 }
