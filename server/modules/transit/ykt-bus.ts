@@ -890,6 +890,76 @@ function maxSegmentMeters(points: RouteShapePoint[]): number {
   return worst
 }
 
+/**
+ * 去程/回程走的是同一条路，但两条折线各自来自不同采样：一条可能贴路、一条切到步道。
+ * 取点更多（更贴路）的那条当基准，另一方向按相反顺序复用，避免同一条路画出两条不同的线。
+ */
+/**
+ * 算路在该段没有路网时会返回两点直线；用实测 GPS 链（已加密到 90+ 点）
+ * 里落在这一弦附近的点补进去，避免长直弦横穿楼群。
+ */
+function fillChordsFromChain(polyline: RouteShapePoint[], minGap = 50): RouteShapePoint[] {
+  if (polyline.length < 2 || CHAIN_POINTS.length < 3) return polyline
+  const lat0 = polyline[0]!.lat
+  const mx = 111320 * Math.cos((lat0 * Math.PI) / 180)
+  const my = 110574
+  const out: RouteShapePoint[] = [polyline[0]!]
+  for (let i = 1; i < polyline.length; i += 1) {
+    const a = polyline[i - 1]!
+    const b = polyline[i]!
+    const gap = haversineMeters(a, b)
+    if (gap > minGap) {
+      const ax = (a.lng - a.lng) * 0, ay = 0
+      const bx = (b.lng - a.lng) * mx
+      const by = (b.lat - a.lat) * my
+      const len2 = bx * bx + by * by
+      const picks: { t: number, point: RouteShapePoint }[] = []
+      for (const point of CHAIN_POINTS) {
+        const px = (point.lng - a.lng) * mx
+        const py = (point.lat - a.lat) * my
+        const t = len2 > 0 ? (px * bx + py * by) / len2 : 0
+        if (!(t > 0.05 && t < 0.95)) continue
+        const dx = px - bx * t
+        const dy = py - by * t
+        if (Math.hypot(dx, dy) > 25) continue
+        picks.push({ t, point })
+      }
+      picks.sort((left, right) => left.t - right.t)
+      let last = 0
+      for (const pick of picks) {
+        if (pick.t - last < 0.08) continue
+        out.push(pick.point)
+        last = pick.t
+      }
+      void ax
+      void ay
+    }
+    out.push(b)
+  }
+  return out
+}
+
+function unifyRouteShapes(routes: YktBusRouteInfo[]): void {
+  const usable = routes.filter(route => (route.polyline?.length ?? 0) > 8)
+  if (usable.length < 2) return
+  const ranked = [...usable].sort((a, b) => {
+    const score = (route: YktBusRouteInfo): number =>
+      (route.polyline?.length ?? 0) * 100 - maxSegmentMeters(route.polyline ?? []) * 10
+    return score(b) - score(a)
+  })
+  const canonical = ranked[0]
+  if (!canonical) return
+  const shared = canonical.polyline ?? []
+  for (const route of routes) {
+    if (!route.polyline?.length) continue
+    if (route === canonical) continue
+    const reversed = [...shared].reverse()
+    const forwardFit = haversineMeters(shared[0]!, route.polyline[0]!)
+    const reverseFit = haversineMeters(reversed[0]!, route.polyline[0]!)
+    route.polyline = reverseFit < forwardFit ? reversed : [...shared]
+  }
+}
+
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
   for (const route of routes) {
     normalizeWestStops(route.stops)
@@ -971,6 +1041,13 @@ function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
     const sibling = siblings[0]
     if (!route.polyline || route.polyline.length < 2 || !sibling?.polyline || sibling.polyline.length < 2) continue
     route.polyline = fillChordsFromSibling(route.polyline, sibling.polyline)
+  }
+  // 两个方向走同一条路：以点更多（更贴路）的那条为基准，另一方向反向复用，
+  // 否则会出现「一条贴路、一条沿着步道」的两条线。
+  unifyRouteShapes(routes)
+  // 算路补不出来的长弦，用加密后的实测链再填一次。
+  for (const route of routes) {
+    if (route.polyline?.length) route.polyline = fillChordsFromChain(route.polyline)
   }
   // 形状合并完之后再接旧区接驳段，否则下一轮快照会用缓存形状覆盖掉。
   void applyWestDeparture(amapKey, routes)
