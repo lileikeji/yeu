@@ -154,6 +154,7 @@ systemctl list-timers yeu-signal.timer
 
 `server/modules/search/service.ts` 在 `searchPublishedContent` 里多查一张表：命中 `signal_events.title/summary/category` 的事件以 `resultType: 'notice'` 出现在搜索结果里，按热度、再看发布时间排序。
 
+- 定时重建的窗口是 400 天（`ops/systemd/yeu-signal.service` 的 `--days 400`）；窗口收窄会连带搜索和问答里能查到的事件一起变少。
 - 结果项带 `to: /hot#<slug>`，搜索页 `apiSearchTarget` 优先用它，所以点开是热榜里那一条，不是 `/campus#notice-…`。
 - `type=notice` 时也会带出信号事件；`type=place/procedure` 不带。
 - 事件是派生数据，搜索直接读表，不需要额外索引；索引重建后 slug 会变，旧搜索结果链接可能失效，指向原文请用事件详情里的原始 URL。

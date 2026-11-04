@@ -12,7 +12,7 @@ WorkingDirectory=/opt/yeu-signal
 EnvironmentFile=/www/wwwroot/yeu/shared/.env
 Environment=NUXT_DATABASE_PATH=/www/wwwroot/yeu/shared/data/yeu.sqlite
 Environment=NODE_ENV=production
-ExecStart=/opt/node-v22.18.0/bin/node /opt/yeu-signal/node_modules/tsx/dist/cli.mjs scripts/signal-build.ts --days 45 --report both
+ExecStart=/opt/node-v22.18.0/bin/node /opt/yeu-signal/node_modules/tsx/dist/cli.mjs scripts/signal-build.ts --days 400 --report both
 TimeoutStartSec=20min
 MemoryMax=512M
 Nice=10
