@@ -30,7 +30,7 @@ import { decideSignalScore, isUsableSignalTitle, signalCategoryFor, signalChanne
 import type { SignalChannel } from './scoring'
 import { signalTierFor, signalTierLabel, signalTierThreshold } from './tiers'
 import type { SignalSourceLevel, SignalTier } from './tiers'
-import { signalDayKeysInPeriod, signalPeriodKey, signalPeriodRange } from './time'
+import { signalDayKeysInPeriod, signalPeriodKey } from './time'
 import type { SignalReportKind } from './time'
 
 export const SIGNAL_DEFAULT_LOOKBACK_DAYS = 400
@@ -792,8 +792,9 @@ export function ensureDailyReport(
   const existing = options.refresh ? null : readReport(client, 'daily', periodKey)
   if (existing) return existing
 
-  // refresh 时不算今天这份报告的「已报」，否则重建后条目全被判成老消息，日报会空掉。
-  const reportedAt = reportedAtMap(client, options.refresh ? signalPeriodRange('daily', periodKey).start : now)
+  // refresh 时把今天这份报告整个重算：已报集合清空，否则早上 07:00 那次
+  // 标记过的条目会被当成「报过了」，重建后日报变成 0 条。
+  const reportedAt = options.refresh ? new Map<string, number>() : reportedAtMap(client, now)
   const payload = buildDailyReport({
     events: reportEventInputs(client),
     periodKey,

@@ -396,6 +396,20 @@ test('重建保留第一次出现时间：第二次重建判涨，不是每次�
   }
 })
 
+test('同一天重跑索引时，日报整个重算，不会因为早上已经报过而变空', () => {
+  const fixture = createFixture()
+  try {
+    rebuildSignalIndex(fixture.client, { now: NOW, lookbackDays: 400 })
+    const first = ensureDailyReport(fixture.client, NOW)
+    assert.ok(first.stats.events > 0, '第一次生成日报应有条目')
+    // 模拟当天早上 07:00 那次已经把条目标成已报。
+    const second = ensureDailyReport(fixture.client, NOW + 6 * HOUR, { refresh: true })
+    assert.ok(second.stats.events > 0, `刷新后的日报应仍有条目，实际 ${second.stats.events}`)
+  } finally {
+    fixture.cleanup()
+  }
+})
+
 test('端到端：建库、重建索引、读事件、生成日报且同一天不重复', () => {
   const fixture = createFixture()
   try {
