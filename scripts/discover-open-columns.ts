@@ -9,6 +9,7 @@
  *   npx tsx scripts/discover-open-columns.ts [--host xsb] [--json out.json]
  */
 import { writeFileSync } from 'node:fs'
+import { relayFetchUrl } from '../server/modules/knowledge/fetch-relay'
 
 const HOSTS = [
   'xsb', 'jwb', 'bgs', 'youth', 'library', 'keyanchu', 'zhaosheng', 'xsc', 'tw',
@@ -41,7 +42,7 @@ async function fetchText(url: string, timeoutMs = 15_000): Promise<{ status: num
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(url, {
+    const response = await fetch(relayFetchUrl(url), {
       signal: controller.signal,
       redirect: 'follow',
       headers: { 'user-agent': USER_AGENT, 'accept': 'text/html,application/xhtml+xml' }

@@ -6,6 +6,7 @@ import { readdirSync, readFileSync, rmSync, statSync, statfsSync } from 'node:fs
 import * as XLSX from '@e965/xlsx'
 import { load } from 'cheerio'
 import { candidateImageUrls, imageOcrConfigFromEnv, ocrImageUrls } from '../server/modules/knowledge/image-ocr'
+import { hasFetchRelay, relayFetchUrl } from '../server/modules/knowledge/fetch-relay'
 import { unzipSync } from 'fflate'
 import WordExtractor from 'word-extractor'
 import { closeDatabase, getDatabase, resolveDatabasePath, type DatabaseClient } from '../server/database/client'
@@ -193,7 +194,7 @@ async function fetchOfficialHtml(value: string, fresh: boolean): Promise<string>
   let lastError: unknown
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      const response = await fetch(value, {
+      const response = await fetch(relayFetchUrl(value), {
         headers: {
           'accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1',
           'user-agent': BROWSER_USER_AGENT,
@@ -1259,6 +1260,8 @@ export function disposeCrawlWorkspace(workspace: CrawlWorkspace): void {
 
 export async function crawlOfficialKnowledge(options: OfficialCrawlOptions): Promise<OfficialCrawlReport> {
   const ocrConfig = options.ocr === false ? null : imageOcrConfigFromEnv()
+  // 主站通知栏目只对校园网出口开放；配了中继就走中继，没配就直连（被挡的页面会记失败）。
+  if (hasFetchRelay()) console.log('抓取出口：中继（CRAWL_FETCH_PROXY）')
   let failed = false
   let skippedDispose = false
   const startedAt = new Date()

@@ -188,6 +188,7 @@ systemctl list-timers yeu-signal.timer
 
 - 通知栏目对外不可达：`https://www.yeu.edu.cn/index/tzgg.htm` → 403，`/tzgg/list.htm` → 301 到 `/tzgg/list.psp` 且返回「No Permission」；`jwb.yeu.edu.cn/tzgg/list.htm`、`xgb.yeu.edu.cn` 同样被挡。栏目列表页只有校内网络能取。
 - 外网能抓的是首页可达的内容页与附件（制度、办法、流程图、申请表）。所以 `--max-pages 300 --max-depth 3` 跑一轮只选出制度类事件，不是打分错了，是抓不到当期通知。
+- 想覆盖主站通知栏目，只能换出口。软件侧已经留好开关：把 `CRAWL_FETCH_PROXY` 写成中继地址（`https://relay.example/fetch?url={url}`，或不带 `{url}` 的纯前缀形式），`crawl-official-knowledge.ts`、`collect-column-articles.ts`、`discover-open-columns.ts` 的所有请求都会先过中继，解析与打分逻辑不动。中继本身要放在能出校园网的地方（校内反代、内网代理转发）。校验方式：`CRAWL_FETCH_PROXY=… npx tsx scripts/discover-open-columns.ts --host jwb`，能列出 `tzgg` 栏目即生效。
 - 抓取与索引都在 `/opt/yeu-signal` 里跑：`yeu-knowledge-crawl.timer`（03:45，`--max-pages 300 --max-depth 6`）负责攒语料，`yeu-signal.timer`（07:00）负责重建索引。两边共用生产库，`/opt/yeu-signal/server/database/client.ts` 的 `busy_timeout` 放宽到 120000，否则 compile 阶段与线上写请求会撞 `database is locked`。
 - `/opt/yeu-signal` 的运行时依赖：`tsx`、`drizzle-orm`、`better-sqlite3`、`sqlite-vec`、`@e965/xlsx`、`cheerio`、`fflate`、`word-extractor`、`pdfjs-dist`。少 `pdfjs-dist` 时 PDF 通知会整批失败并报 `Cannot find package 'pdfjs-dist'`，日志里能看到 url 与 message，补包后重跑即可。
 - 要让「最近在发」真显示当期通知，两条路：①抓取任务放在能访问校内栏目的机器上（生产服务器若在校园网内，直接换 seed 为栏目 URL）；②换公开源（招生网首页新闻、团委公众号等），并相应调整 `NOISE_GROUPS` 与公告闸门。

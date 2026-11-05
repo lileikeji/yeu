@@ -8,6 +8,8 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 
+import { relayFetchUrl } from '../server/modules/knowledge/fetch-relay'
+
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
 const ANCHOR_RE = /<a\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/giu
 const DATE_RE = /(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})/u
@@ -53,7 +55,7 @@ async function fetchText(url: string, timeoutMs = 15_000): Promise<string> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(url, {
+    const response = await fetch(relayFetchUrl(url), {
       signal: controller.signal,
       redirect: 'follow',
       headers: { 'user-agent': USER_AGENT, 'accept': 'text/html,application/xhtml+xml' }

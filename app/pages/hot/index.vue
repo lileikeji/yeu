@@ -134,6 +134,22 @@ const dayText = signalRelativeTime
         <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
           共 {{ reports[0]!.stats.events }} 条：先列通知公告，再列最近几天的校园动态。
         </p>
+        <ul
+          v-if="reports[0]!.lead.length"
+          class="mt-3 space-y-1.5 border-t border-[var(--line)] pt-3"
+        >
+          <li
+            v-for="item in reports[0]!.lead.slice(0, 2)"
+            :key="item.eventId"
+            class="flex items-baseline gap-2 text-sm"
+          >
+            <span class="shrink-0 text-xs text-emerald-700 dark:text-emerald-400">头条</span>
+            <a
+              :href="`#${item.slug}`"
+              class="line-clamp-1 text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
+            >{{ item.title }}</a>
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -191,7 +207,10 @@ const dayText = signalRelativeTime
           <template v-else>
             <div class="flex items-start justify-between gap-3">
               <h2 class="line-clamp-2 text-base font-semibold leading-6 text-zinc-950 dark:text-zinc-100">
-                {{ row.event.title }}
+                <NuxtLink
+                  :to="`/hot/${encodeURIComponent(row.event.slug)}`"
+                  class="underline-offset-2 hover:underline"
+                >{{ row.event.title }}</NuxtLink>
               </h2>
               <span
                 class="shrink-0 rounded-md px-2 py-0.5 text-xs"

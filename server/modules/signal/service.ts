@@ -166,15 +166,20 @@ function oneLine(text: string): string {
 }
 
 /** 抓回来的正文常带「发布时间：… 浏览次数：… 学院地址：…」这类页面噪声，摘要里不该出现。 */
-const PAGE_NOISE_RE = /(发布(?:时间|者)|浏览(?:次数|量)|点击(?:次数|量)|学院地址|学院电话|联系电话|邮政编码|信息公众号|供稿|审核|编辑|摄影|字体|来源)[：:][^。；;]{0,80}/gu
+const PAGE_NOISE_RE = /(发布(?:时间|者)|浏览(?:次数|量)|点击(?:次数|量)|学院地址|学院电话|联系电话|邮政编码|信息公众号|供稿|审核|编辑|摄影|字体|来源|电话邮箱|地址)[：:][^。；;]{0,80}/gu
 const MARKDOWN_LINK_RE = /\[[^\]]*\]\([^)]*\)/g
 const NAV_LINE_RE = /网站首页|学校主页|部门概况|部门简介|办事指南|联系我们|教务部首页|当前位置|返回列表|岗位职责|下载专区|常用链接|教学资讯/
 
-const PAGE_CHROME_RE = /最热更新|上一篇|下一篇|分享到|打印本页|关闭窗口|当前位置|返回列表|友情链接/g
+const PAGE_CHROME_RE = /最热更新|上一篇|下一篇|分享到|打印本页|关闭窗口|当前位置|返回列表|友情链接|版权所有|Copyright|ICP备|闽ICP|技术支持|=yedx/gi
 const DATE_HIT_RE = /20\d{2}\s*[-/年]\s*\d{1,2}/g
+
+// 「日期：2026-07-23 05:38」这种页面时间戳标签要去掉，但「报名截止日期：9月1日」是有用信息，
+// 所以只清紧跟四位数年份的那种。
+const DATE_LABEL_RE = /日期[：:]\s*[:：]?\s*(?=20\d{2})/gu
 
 function stripPageNoise(text: string): string {
   return text
+    .replace(DATE_LABEL_RE, ' ')
     .split(String.fromCharCode(10))
     .filter(line => !NAV_LINE_RE.test(line))
     .join(String.fromCharCode(10))
@@ -194,7 +199,9 @@ function excerptOf(candidate: SignalCandidate): string {
   const body = raw.startsWith(title) ? oneLine(raw.slice(title.length)) : raw
   // 开头 80 字里堆着两个以上日期，说明抓到的是一张「最新公告列表」页，没有正文可摘。
   if ((body.slice(0, 80).match(DATE_HIT_RE)?.length ?? 0) >= 2) return ''
-  const sentences = body.replace(/^\d{1,2}:\d{2}\s*/, '').split(/[。！？；]/).map(part => part.trim()).filter(Boolean)
+  // 句首常挂着页面的时间戳（「2026-07-23 05:38」或「09:12」），先摘掉再判断是不是正文。
+  const TIMESTAMP_PREFIX_RE = /^(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?|\d{1,2}:\d{2})\s*/u
+  const sentences = body.replace(TIMESTAMP_PREFIX_RE, '').split(/[。！？；]/).map(part => part.trim()).filter(Boolean)
   const scored = sentences.filter((sentence) => {
     if (PAGE_CHROME_RE.test(sentence)) return false
     if ((sentence.match(DATE_HIT_RE)?.length ?? 0) >= 2) return false
