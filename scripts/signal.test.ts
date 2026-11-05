@@ -219,6 +219,10 @@ test('标题可用性与公告判定挡住文件名和常青页面', () => {
   assert.equal(isUsableSignalTitle('7e57374d-3d33-484f-b0dc-65a79bc87c58.doc'), false)
   assert.equal(isUsableSignalTitle('招生就业'), false)
   assert.equal(isUsableSignalTitle('2026级新生报到手册.pdf'), true)
+  // 科研申报、招标采购这类给老师看的东西不进榜；标题里提到奖助、报到的仍然放行。
+  assert.equal(isUsableSignalTitle('关于组织申报2026年度市级科技计划项目（第二批）的通知'), false)
+  assert.equal(isUsableSignalTitle('关于开展2026年产学研合作平台申报工作的通知'), false)
+  assert.equal(isUsableSignalTitle('关于做好2026年国家奖学金评审工作的通知'), true)
   assert.equal(looksLikeAnnouncement('学院简介', '本院设有三个本科专业，教职工六十余人。'), false)
   assert.equal(looksLikeAnnouncement('关于宿舍分配的通知', ''), true)
   assert.equal(signalCategoryFor('关于2026级新生宿舍分配结果查询的通知'), '住宿')
@@ -400,7 +404,9 @@ test('端到端：建库、重建索引、读事件、生成日报且同一天�
     assert.equal(result.events, 3, `应选出 3 个事件，实际 ${result.events}`)
     assert.equal(result.items, 4)
     assert.equal(result.persisted, true)
-    assert.ok(result.rejected >= 1, '常青页面应被拦下')
+    // 科研申报与学院简介在标题闸门就被挡掉，不算候选，所以这里没有二次淘汰。
+    assert.equal(result.candidates, 4, `通过的候选应全部成事件，实际候选 ${result.candidates}`)
+    assert.equal(result.rejected, 0)
 
     const events = listHotSignalEvents(fixture.client, 20)
     const titles = events.map(event => event.title)

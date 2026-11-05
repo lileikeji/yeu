@@ -255,6 +255,14 @@ const FORM_TITLE_RE = /申请表|报名表|汇总表|明细表|一览表|确认�
 const JUNK_TITLE_RE = /办法$|法$|实施细则|条例$|暂行规定|章程$|指南$|手册$|流程表|清单$|简表|评分表|评分标准|申报表|第一条|版权登记|官方资料|官方附件|学校简介|学院简介|专业介绍|课程表$|作息时间表|申报书|申请书|论证报告|预期成果|统计表|推荐表|座位|安排表|目录$|期刊|八项规定|^附件|^\d+[.、]|^[A-Za-z(（]/
 
 /**
+ * 科研申报、招标采购、征文比赛这类是发给老师和科研秘书的，新生点开也用不上。
+ * 榜单里这类能占到五分之一，标题层面先挡掉；只要标题还提到奖助、报到、就业这些
+ * 学生事务，就说明它跟学生有关，照常放行。
+ */
+const ACADEMIC_NOISE_RE = /科研|课题|基金|专利|申报|招标|采购|征文|教改|遴选|科技奖|知识产权|产学研|科技特派员|社科规划|教育科学规划|研究项目|专项项目|技术奖|科技副总|科学传播|科普|大讲堂|需求征集|案例学习宣传/
+const STUDENT_TITLE_RE = /奖学金|奖助|助学|助学金|报到|录取|宿舍|缴费|选课|军训|体检|医保|档案|毕业|就业|实习|招聘|新生|入学|勤工|困难生|社团/
+
+/**
  * 抓来的文档不都是「新消息」：学院简介、专业目录、师资名单一躺就是几年。
  * 只放行标题或开头像通知的那一批，免得常青页面把热度榜占满。
  */
@@ -272,6 +280,7 @@ export function isUsableSignalTitle(title: string): boolean {
   // 这里只看这三个词：ANNOUNCEMENT_RE 里的「申请」本身就把大量表格放行了。
   if (FORM_TITLE_RE.test(trimmed) && !/通知|公告|公示/.test(trimmed)) return false
   if (JUNK_TITLE_RE.test(trimmed) && !/通知|公告|公示|名单/.test(trimmed)) return false
+  if (ACADEMIC_NOISE_RE.test(trimmed) && !STUDENT_TITLE_RE.test(trimmed)) return false
   // 标题里带逗号句号的，基本是从正文里截出来的一段话，不是标题。
   if (/[，。]/.test(trimmed)) return false
   if (FILENAME_RE.test(trimmed)) {
