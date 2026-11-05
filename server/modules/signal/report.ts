@@ -7,6 +7,7 @@
  * 否则日报会连着三天推荐同一条放假通知。
  */
 import { SIGNAL_HOUR_MS, signalPeriodLabel } from './time'
+import { signalChannelFor } from './scoring'
 import type { SignalReportKind } from './time'
 
 export interface SignalReportEventInput {
@@ -146,7 +147,15 @@ export function buildDailyReport(input: BuildDailyReportInput): SignalReportPayl
       takenTitles.add(fingerprint(event.title))
     }
   }
-  const items = ordered.map(event => toReportItem(event, start))
+  // 通报按「通知公告优先，再校园动态」排：日报是给人看今天该办什么事的，
+  // 讲堂、宣讲会这类动态排在有截止日期的事项后面更合理。
+  const channelRank = (event: SignalReportEventInput): number => (signalChannelFor(event.title) === 'notice' ? 0 : 1)
+  const leadOrdered = [...ordered].sort((left, right) => (
+    channelRank(left) - channelRank(right)
+    || right.lastSeenAt - left.lastSeenAt
+    || compareByHeat(left, right)
+  ))
+  const items = leadOrdered.map(event => toReportItem(event, start))
   const lead = items.slice(0, SIGNAL_REPORT_LEAD_LIMIT)
 
   const rest = items.slice(SIGNAL_REPORT_LEAD_LIMIT)
