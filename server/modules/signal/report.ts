@@ -135,14 +135,24 @@ export function buildDailyReport(input: BuildDailyReportInput): SignalReportPayl
     : [...input.events]
         .sort((left, right) => right.lastSeenAt - left.lastSeenAt || compareByHeat(left, right))
         .slice(0, Math.min(limit, SIGNAL_REPORT_LEAD_LIMIT + 3))
-  if (input.reportedAt.size === 0 && ordered.length < SIGNAL_REPORT_LEAD_LIMIT) {
+  // 第一次出这份日报时补足头条：先补通知公告，再补最近的动态。
+  // 官网常有「今天只发了活动稿、通知还是上周的」这种情况，只按 24 小时切，
+  // 日报就成了纯活动清单，新生看不到要办的事。
+  const isNotice = (event: SignalReportEventInput): boolean => signalChannelFor(event.title) === 'notice'
+  if (input.reportedAt.size === 0) {
     const taken = new Set(ordered.map(event => event.id))
     const takenTitles = new Set(ordered.map(event => fingerprint(event.title)))
+    const noticeShort = () => ordered.filter(isNotice).length < SIGNAL_REPORT_LEAD_LIMIT
     const fills = [...input.events]
       .filter(event => !taken.has(event.id) && !takenTitles.has(fingerprint(event.title)))
-      .sort((left, right) => right.lastSeenAt - left.lastSeenAt || compareByHeat(left, right))
+      .sort((left, right) => (
+        Number(isNotice(right)) - Number(isNotice(left))
+        || right.lastSeenAt - left.lastSeenAt
+        || compareByHeat(left, right)
+      ))
     for (const event of fills) {
-      if (ordered.length >= SIGNAL_REPORT_LEAD_LIMIT) break
+      if (ordered.length >= SIGNAL_REPORT_LEAD_LIMIT && !noticeShort()) break
+      if (ordered.length >= SIGNAL_REPORT_LEAD_LIMIT + SIGNAL_REPORT_LEAD_LIMIT) break
       ordered.push(event)
       takenTitles.add(fingerprint(event.title))
     }
