@@ -132,7 +132,7 @@ const dayText = signalRelativeTime
           {{ reports[0]!.title }}
         </p>
         <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-          共 {{ reports[0]!.stats.events }} 条值得看的新消息，下面按热度排好了。
+          共 {{ reports[0]!.stats.events }} 条：先列通知公告，再列最近几天的校园动态。
         </p>
       </div>
     </section>
