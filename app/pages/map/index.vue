@@ -133,7 +133,9 @@ const mapViewMode = ref<'geographic' | 'official-plan'>(
 )
 // 手机端一进来先把地点栏收起来：半屏面板会把地图压到两百多像素，
 // 楼栋图标全在面板底下，点了当然没反应。收起来后地图全屏可点，列表往上拖就有。
-const mobileSheetState = ref<MobileSheetState>(initialSelectedPoiId || (typeof window !== 'undefined' && window.innerWidth < 768) ? 'collapsed' : 'half')
+// SSR 拿不到 window，先按桌面给 half；挂载后再在手机端收起（见 onMounted），
+// 否则 SSR 出来的半屏会被 hydration 原样保留，地图只剩两百多像素高。
+const mobileSheetState = ref<MobileSheetState>(initialSelectedPoiId ? 'collapsed' : 'half')
 const mobileSheetElement = ref<HTMLElement | null>(null)
 const mobileSheetDragHeight = ref<number | null>(null)
 const mobileSheetDragPointerId = ref<number | null>(null)
@@ -1152,6 +1154,7 @@ const transitMyLocation = computed(() => {
 
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
 onMounted(() => {
+  if (window.innerWidth < 768) mobileSheetState.value = 'collapsed'
   if (transitLinesOpen.value) startTransitLive()
   startLocateDisplay()
   // 手机上公交列表默认收起，免得和校车浮层叠在一起
