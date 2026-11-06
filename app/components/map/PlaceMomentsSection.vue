@@ -109,6 +109,58 @@ function removeImage(url: string): void {
   images.value = images.value.filter(item => item !== url)
 }
 
+const gallery = computed<string[]>(() => {
+  const seen: string[] = []
+  for (const moment of payload.value?.moments ?? []) {
+    for (const url of moment.images) {
+      if (!seen.includes(url)) seen.push(url)
+    }
+  }
+  return seen
+})
+
+const photoInput = ref<HTMLInputElement | null>(null)
+
+function pickPhotos(): void {
+  photoInput.value?.click()
+}
+
+/**
+ * 「上传照片」是独立入口：选完直接传完就发，不用先写字。
+ * 走同一条 /api/place-moments，kind=comment、body 留空，列表里照样显示成图文。
+ */
+async function uploadPlacePhotos(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? []).slice(0, IMAGE_MAX)
+  input.value = ''
+  if (files.length === 0) return
+  uploading.value = true
+  error.value = ''
+  feedback.value = ''
+  try {
+    const uploaded: string[] = []
+    for (const file of files) {
+      const form = new FormData()
+      form.append('file', file)
+      const stored = await userFetch<{ url: string }>('/api/place-moments/images', {
+        method: 'POST',
+        body: form
+      })
+      uploaded.push(stored.url)
+    }
+    await userFetch('/api/place-moments', {
+      method: 'POST',
+      body: { placeId: props.placeId, kind: 'comment', body: '', images: uploaded }
+    })
+    feedback.value = `已上传 ${uploaded.length} 张照片`
+    await load()
+  } catch (err) {
+    error.value = getRequestMessage(err, '照片上传失败')
+  } finally {
+    uploading.value = false
+  }
+}
+
 async function submit(kind: 'comment' | 'checkin'): Promise<void> {
   if (kind === 'comment' && !body.value.trim() && images.value.length === 0) {
     error.value = '写点什么再发吧'
@@ -154,17 +206,32 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
           {{ payload.checkins }} 人打卡
         </span>
       </div>
-      <button
-        type="button"
-        class="rounded-full px-2.5 py-1 text-[11px] font-medium transition"
-        :class="payload?.checkedInToday
-          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-          : 'bg-emerald-600 text-white hover:bg-emerald-700'"
-        :disabled="submitting || payload?.checkedInToday"
-        @click="submit('checkin')"
-      >
-        {{ payload?.checkedInToday ? '今天已打卡' : '打卡' }}
-      </button>
+      <div class="flex items-center gap-1.5">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] font-medium text-zinc-600 transition hover:border-zinc-300 dark:border-zinc-700 dark:text-zinc-300"
+          :disabled="uploading"
+          aria-label="上传地点照片"
+          @click="pickPhotos"
+        >
+          <UIcon
+            name="i-lucide-camera"
+            class="size-3.5"
+          />
+          {{ uploading ? '上传中…' : '上传照片' }}
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition"
+          :class="payload?.checkedInToday
+            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+            : 'bg-emerald-600 text-white hover:bg-emerald-700'"
+          :disabled="submitting || payload?.checkedInToday"
+          @click="submit('checkin')"
+        >
+          {{ payload?.checkedInToday ? '今天已打卡' : '打卡' }}
+        </button>
+      </div>
     </div>
 
     <p
@@ -272,6 +339,41 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
         class="hidden"
         @change="onFiles"
       >
+    </div>
+
+    <input
+      ref="photoInput"
+      type="file"
+      accept="image/png,image/jpeg,image/webp"
+      multiple
+      class="hidden"
+      @change="uploadPlacePhotos"
+    >
+
+    <div
+      v-if="gallery.length"
+      class="mt-2"
+    >
+      <p class="mb-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+        地点照片 · {{ gallery.length }}
+      </p>
+      <div class="flex gap-1.5 overflow-x-auto pb-1">
+        <a
+          v-for="url in gallery"
+          :key="url"
+          :href="url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block size-16 shrink-0 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700"
+        >
+          <img
+            :src="url"
+            alt=""
+            loading="lazy"
+            class="size-full object-cover"
+          >
+        </a>
+      </div>
     </div>
 
     <div
