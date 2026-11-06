@@ -1302,15 +1302,17 @@ onBeforeUnmount(() => {
           @compositionstart="onSearchCompositionStart"
           @compositionend="onSearchCompositionEnd"
         >
-          <template
-            v-if="searchQuery"
-            #trailing
-          >
+          <!-- 清空按钮不能按需挂载：第一个字出现时插槽一变，UInput 会把内部 input 重建，
+               手机端焦点和值一起丢，表现就是「打一个字母就被清空」。这里常驻、只切可见性。 -->
+          <template #trailing>
             <UButton
               icon="i-lucide-x"
               color="neutral"
               variant="ghost"
               size="xs"
+              :class="searchQuery ? '' : 'pointer-events-none opacity-0'"
+              :aria-hidden="searchQuery ? undefined : 'true'"
+              :tabindex="searchQuery ? undefined : -1"
               aria-label="清空搜索"
               @click="clearSearchQuery"
             />
