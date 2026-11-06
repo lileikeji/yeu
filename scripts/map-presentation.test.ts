@@ -17,6 +17,7 @@ import {
   mapCategories,
   resolveInitialMapViewMode,
   resolveMapCategoryIcon,
+  resolveMapRouteApplyDecision,
   resolveMapCategoryLabel,
   resolveMapDataLabel,
   resolveMapFallbackMessage,
@@ -1069,4 +1070,23 @@ test('map/plan mode switch keeps selection and focuses the basemap', () => {
       keepSelection: false
     }
   )
+})
+
+test('关闭地点详情不触发重新适配视野', () => {
+  const base = {
+    scope: 'map',
+    selectedPoiId: null,
+    selectedArea: null,
+    places: [],
+    filteredPlaces: [],
+    filtersChanged: false
+  }
+  const cleared = resolveMapRouteApplyDecision({ ...base, selectionCleared: true })
+  assert.equal(cleared.cameraAction.kind, 'none')
+
+  const fresh = resolveMapRouteApplyDecision({ ...base })
+  assert.equal(fresh.cameraAction.kind, 'fit-to-pois')
+
+  const filtered = resolveMapRouteApplyDecision({ ...base, selectionCleared: true, filtersChanged: true })
+  assert.equal(filtered.cameraAction.kind, 'fit-to-pois')
 })

@@ -97,14 +97,17 @@ export function useMapRouteSync(options: UseMapRouteSyncOptions) {
       options.selectedPoiId.value = state.selectedPoiId
       options.selectedArea.value = state.selectedArea
 
+      const selectionCleared = !state.selectedPoiId && !state.selectedArea && lastAppliedSelectionId !== null
       const decision = resolveMapRouteApplyDecision({
         scope: state.scope,
         selectedPoiId: state.selectedPoiId,
         selectedArea: state.selectedArea,
         places: options.places.value,
         filteredPlaces: options.filteredPois.value,
-        filtersChanged
+        filtersChanged,
+        selectionCleared
       })
+      lastAppliedSelectionId = state.selectedPoiId ?? state.selectedArea?.id ?? null
       if (decision.forceGeographicView) options.mapViewMode.value = 'geographic'
 
       await nextTick()
@@ -126,6 +129,8 @@ export function useMapRouteSync(options: UseMapRouteSyncOptions) {
       if (applyVersion === routeApplyVersion) applyingRouteState = false
     }
   }, { deep: true, immediate: true })
+
+  let lastAppliedSelectionId: string | null = null
 
   function cancelMapRouteSync(): void {
     if (routeSyncTimer) clearTimeout(routeSyncTimer)

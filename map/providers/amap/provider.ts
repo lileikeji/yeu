@@ -342,6 +342,8 @@ export class AMapProvider implements MapProvider {
 
   private handleViewChange = (): void => {
     this.applyBasemapLabels()
+    // 平移后视野变化：按缓存重排一次标点，避免新进视野的楼栋一直没有图标。
+    if (this.markers.size && !this.markersRebuildInFlight) this.rebuildMarkerOverlay()
   }
 
   setPois(pois: MapPoi[]): void {
@@ -1303,7 +1305,22 @@ export class AMapProvider implements MapProvider {
    * already-converted positions. Shared by the initial render and the cached
    * re-render that runs once the AMap canvas has settled at its real size.
    */
-  private renderMarkerOverlay(converted: ConvertedPoi[], amap: AMapNamespace, map: AMapMap): void {
+  /** 视口外不建 DOM：手机上一屏 100+ 个标点是最主要的重排来源。 */
+  private cullToViewport(converted: ConvertedPoi[], map: AMapMap): ConvertedPoi[] {
+    const bounds = map.getBounds?.()
+    if (!bounds) return converted
+    return converted.filter((item) => {
+      if (item.poi.id === this.selectedPoiId) return true
+      try {
+        return bounds.contains(item.position)
+      } catch {
+        return true
+      }
+    })
+  }
+
+  private renderMarkerOverlay(all: ConvertedPoi[], amap: AMapNamespace, map: AMapMap): void {
+    const converted = this.cullToViewport(all, map)
     const zoom = this.map?.getZoom() ?? 0
     if (converted.length && zoom < POI_MIN_ZOOM) {
       // 缩小到挤成一团的级别：一个房子都不画（也不画聚合气泡），只留底图与选中项。
@@ -1537,7 +1554,11 @@ export class AMapProvider implements MapProvider {
     element.type = 'button'
     element.title = poi.name
     element.setAttribute('aria-label', poi.name)
-    element.style.cssText = 'position:relative;display:block;box-sizing:border-box;width:44px;height:50px;padding:0;border:0;background:transparent;color:#18181b;font:500 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;filter:drop-shadow(0 3px 5px rgb(0 0 0 / 22%));'
+    // 手机上每个标点都挂一层 drop-shadow，等于一百多层合成层，拖地图直接掉帧；小屏去掉投影。
+    const markerShadow = typeof window !== 'undefined' && window.innerWidth < 768
+      ? 'none'
+      : 'drop-shadow(0 3px 5px rgb(0 0 0 / 22%))'
+    element.style.cssText = `position:relative;display:block;box-sizing:border-box;width:44px;height:50px;padding:0;border:0;background:transparent;color:#18181b;font:500 12px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;cursor:pointer;filter:${markerShadow};`
 
     const label = document.createElement('span')
     label.className = selected ? 'yeu-amap-poi-label yeu-amap-poi-label-selected' : 'yeu-amap-poi-label'
@@ -1554,7 +1575,7 @@ export class AMapProvider implements MapProvider {
     const categoryColor = CATEGORY_COLORS[poi.category] ?? '#176f46'
     // 楼栋按类别画不同屋顶/立面（教学楼/宿舍/食堂/服务/快递/校门/周边），
     // 缩到 30px 仍能凭轮廓区分，比统一的圆角胶囊好认。
-    pin.style.cssText = `position:absolute;bottom:4px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;filter:drop-shadow(0 3px 6px rgb(0 0 0 / 30%))${selected ? ' saturate(1.2)' : ''};`
+    pin.style.cssText = `position:absolute;bottom:4px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;filter:${typeof window !== 'undefined' && window.innerWidth < 768 ? 'none' : 'drop-shadow(0 3px 6px rgb(0 0 0 / 30%))'}${selected ? ' saturate(1.2)' : ''};`
     pin.innerHTML = buildingSvg((poi.category as BuildingKind) ?? 'campus-building', { size: 24, color: categoryColor })
 
     if (options.onClick) {

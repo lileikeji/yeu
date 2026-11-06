@@ -811,6 +811,8 @@ export function resolveMapRouteApplyDecision(input: {
   places: readonly PublicMapPlace[]
   filteredPlaces: readonly Pick<PublicMapPlace, 'id'>[]
   filtersChanged: boolean
+  /** 上一轮是「有选中」、这轮被关掉：只是关详情，不能顺手把视野拉回全校园。 */
+  selectionCleared?: boolean
 }): {
   forceGeographicView: boolean
   providerSelectedPoiId: string | null
@@ -832,6 +834,8 @@ export function resolveMapRouteApplyDecision(input: {
     cameraAction = { kind: 'fly-to-poi', poiId: nextSelected.id }
   } else if (input.selectedArea) {
     cameraAction = { kind: 'refocus-selected-area', areaId: input.selectedArea.id }
+  } else if (input.selectionCleared && !input.filtersChanged) {
+    cameraAction = { kind: 'none' }
   } else if (
     input.filtersChanged
     || (!selectionIsVisible && !input.selectedArea)
