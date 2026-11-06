@@ -6,6 +6,7 @@
 //   响应体 = 8 位长度前缀 + retcode(4 位) + JSON + "SIGN_VAL" + 签名（客户端不验签）
 // 本模块不依赖 Nuxt 运行时，纯函数部分可被 scripts/ykt-bus-protocol.test.ts 直接测试。
 import { createDecipheriv, createSign } from 'node:crypto'
+import busRouteLocked from '../../../data/seeds/bus-route-locked.json'
 import { buildShapeThroughStops, refineShapeWithRoads, repairChordsWithRoads } from './campus-shape-refine'
 import { gcj02ToWgs84, wgs84ToGcj02 } from '../../../shared/utils/coordinate-convert'
 import campusBoundary from '../../../data/seeds/osm-campus-boundary.json'
@@ -917,7 +918,21 @@ function applyManualStretches(polyline: RouteShapePoint[]): RouteShapePoint[] {
   return result
 }
 
+/** 冻结的验收几何：存在时直接用，避免每次部署重新算路导致线路漂移。 */
+interface LockedRoute { from: string, to: string, points: [number, number][] }
+const LOCKED_ROUTES = (busRouteLocked as unknown as { routes?: LockedRoute[] }).routes ?? []
+
 function ensureRouteShapes(amapKey: string, routes: YktBusRouteInfo[]): void {
+  if (LOCKED_ROUTES.length) {
+    for (const route of routes) {
+      normalizeWestStops(route.stops)
+      const locked = LOCKED_ROUTES[routes.indexOf(route)]
+      if (!locked) continue
+      route.polyline = locked.points.map(([lng, lat]) => ({ lng, lat }))
+    }
+    void applyWestDeparture(amapKey, routes)
+    return
+  }
   for (const route of routes) {
     normalizeWestStops(route.stops)
     const key = `${route.routeId}|${route.stops.map(s => s.siteId).join(',')}`
