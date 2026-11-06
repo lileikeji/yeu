@@ -1559,7 +1559,11 @@ export class AMapProvider implements MapProvider {
     // 点完楼栋再挪鼠标不该拖地图：按下事件不能冒泡到高德容器，否则地图进入拖拽态。
     element.addEventListener('mousedown', event => event.stopPropagation())
     element.addEventListener('pointerdown', event => event.stopPropagation())
-    element.addEventListener('touchstart', event => event.stopPropagation(), { passive: true })
+    // touchstart 不再拦截：手机上要让它落成一次正常的 tap→click，否则标点点不开详情。
+    element.addEventListener('touchend', (event) => {
+      event.stopPropagation()
+      options.onClick?.()
+    }, { passive: true })
 
     element.append(label, pin)
     return { content: element, label }

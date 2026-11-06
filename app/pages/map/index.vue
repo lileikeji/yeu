@@ -615,11 +615,17 @@ function fitToVisiblePois() {
   }
 }
 
-watch(searchQuery, () => {
-  const reset = resolveSearchQueryChangeReset({ mobileSheetState: mobileSheetState.value })
-  lastAutoLocatedSearchKey = reset.lastAutoLocatedSearchKey
-  selectedNativePlace.value = reset.selectedNativePlace
-  if (reset.mobileSheetState) mobileSheetState.value = reset.mobileSheetState
+// 只在「从空到有」的那一次重置面板；逐字输入时不再改面板状态，否则手机端每敲一个字布局就跳一次。
+let searchWasEmpty = !searchQuery.value.trim()
+watch(searchQuery, (value) => {
+  const nowEmpty = !value.trim()
+  if (searchWasEmpty && !nowEmpty) {
+    const reset = resolveSearchQueryChangeReset({ mobileSheetState: mobileSheetState.value })
+    lastAutoLocatedSearchKey = reset.lastAutoLocatedSearchKey
+    selectedNativePlace.value = reset.selectedNativePlace
+    if (reset.mobileSheetState) mobileSheetState.value = reset.mobileSheetState
+  }
+  searchWasEmpty = nowEmpty
   queueNativeSearch()
 })
 watch(mapViewMode, queueNativeSearch)
@@ -680,7 +686,8 @@ const { cancelMapRouteSync } = useMapRouteSync({
 // 校车图层：路线 + 起终点 + 实时车位置（云一卡通 5s 轮询）；快照数据喂掌上公交面板
 const busSelectedRouteId = ref('')
 const { routes: busRoutes, buses: busVehicles, fetchedAt: busFetchedAt } = useMapBusPositions({ mapProvider, activeRouteId: busSelectedRouteId })
-const busPanelOpen = ref(true)
+// 手机竖屏默认收起：展开时是全屏浮层，会把地图和搜索框一起盖住。
+const busPanelOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 768)
 
 // 校外公交（K2/K6）：默认打开，静态快照，独立图层，不跟校车轮询重绘，也不影响校内校车线路
 const transitLinesOpen = ref(false)
