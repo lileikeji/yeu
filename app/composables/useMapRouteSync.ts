@@ -35,11 +35,16 @@ interface UseMapRouteSyncOptions {
 }
 
 const ROUTE_WRITE_DEBOUNCE_MS = 180
+// 手机端逐字输入时不要每个字都写 URL：写一次就触发 route.query 变化 → 回写搜索框，
+// 输入法还没提交就被覆盖，表现是「打一个字母就被清空」。移动端延后到 700ms 再落 URL。
+const ROUTE_WRITE_DEBOUNCE_MOBILE_MS = 700
 
 export function useMapRouteSync(options: UseMapRouteSyncOptions) {
   const route = useRoute()
   const router = useRouter()
   let routeSyncTimer: ReturnType<typeof setTimeout> | null = null
+  // 我们自己写进 URL 的 q，回读时跳过，避免和输入框打架。
+  let lastWrittenQuery = ''
   let applyingRouteState = false
   let routeApplyVersion = 0
 
@@ -59,8 +64,12 @@ export function useMapRouteSync(options: UseMapRouteSyncOptions) {
         selectedPoiId: options.selectedPoiId.value,
         selectedAreaId: options.selectedAreaId.value
       }, options.places.value)
+      lastWrittenQuery = typeof query.q === 'string' ? query.q : ''
+      const mobile = typeof window !== 'undefined' && window.innerWidth < 768
       void router.replace({ query })
-    }, ROUTE_WRITE_DEBOUNCE_MS)
+    }, typeof window !== 'undefined' && window.innerWidth < 768
+      ? ROUTE_WRITE_DEBOUNCE_MOBILE_MS
+      : ROUTE_WRITE_DEBOUNCE_MS)
   })
 
   watch(() => route.query, async (query, previousQuery) => {
@@ -80,7 +89,10 @@ export function useMapRouteSync(options: UseMapRouteSyncOptions) {
         options.areas
       )
 
-      options.searchQuery.value = state.searchQuery
+      const incomingQuery = typeof query.q === 'string' ? query.q : ''
+      if (incomingQuery !== lastWrittenQuery) {
+        options.searchQuery.value = state.searchQuery
+      }
       options.activeCategory.value = state.activeCategory
       options.selectedPoiId.value = state.selectedPoiId
       options.selectedArea.value = state.selectedArea
