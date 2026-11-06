@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "generatedAt": "2026-11-06T15:02:35.759Z",
+  "files": {
+    "bus-route-locked.json": {
+      "kind": "locked",
+      "routes": [
+        {
+          "id": "",
+          "direction": null,
+          "points": 102,
+          "sha256": "fa816c0c36beaf3987802f639b11d0b30de058ee899dd8b9375aad8d84bfbe77"
+        },
+        {
+          "id": "",
+          "direction": null,
+          "points": 105,
+          "sha256": "8194aba7358d7caa959697d74e8d2c1ed8893301feefcd4a932ffacd73562e6d"
+        }
+      ]
+    },
+    "bus-route-manual.json": {
+      "kind": "manual",
+      "stretches": [
+        {
+          "id": "puzhao-east",
+          "points": 14,
+          "sha256": "6417499c7e521939ad89b6a855a8947fa330c95bd884874aaa0207f131a430b2"
+        },
+        {
+          "id": "west-gate-west",
+          "points": 5,
+          "sha256": "fce59d7bb30c889c411223c805cd629f93f3b7ff870a77e5f426c54a00e9bd61"
+        },
+        {
+          "id": "jijiao-east",
+          "points": 8,
+          "sha256": "0a9397d19b5111a4f6bf3e671370f92da82bd07d3ae9137494340a7a5290c31b"
+        }
+      ]
+    },
+    "bus-route-gps.json": {
+      "kind": "gps",
+      "points": 93,
+      "sha256": "8f76ec4572fd55271e39fa84ced6d520c2d4ce14d419d0892ce0fa471d4c077b"
+    }
+  }
+}

@@ -46,5 +46,6 @@ const pwaManifestComponent = import.meta.dev
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+    <AppUpdateBanner />
   </UApp>
 </template>
