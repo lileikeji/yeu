@@ -406,6 +406,9 @@ export class AMapProvider implements MapProvider {
     }
 
     map.setFitView(overlays, false, [72, 56, 72, 56], SINGLE_POI_ZOOM)
+    // 手机竖屏可视高度很小，setFitView 会把整片区压到 13 级左右，
+    // 屋顶图标会缩成一团、也点不到；这里兜到 16 级保证能看清能点。
+    if (map.getZoom() < POI_MIN_ZOOM) map.setZoomAndCenter(POI_MIN_ZOOM, map.getCenter())
   }
 
   enablePointPicker(_handler: PointPickedHandler): void {
