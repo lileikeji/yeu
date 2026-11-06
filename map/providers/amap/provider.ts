@@ -1307,13 +1307,23 @@ export class AMapProvider implements MapProvider {
   private cullToViewport(converted: ConvertedPoi[], map: AMapMap): ConvertedPoi[] {
     const bounds = map.getBounds?.()
     if (!bounds) return converted
+    const north = bounds.getNorth?.()
+    const south = bounds.getSouth?.()
+    const east = bounds.getEast?.()
+    const west = bounds.getWest?.()
+    if (![north, south, east, west].every((value): value is number => typeof value === 'number')) {
+      return converted
+    }
+    // 留一点余量，避免贴着边缘的楼栋在平移后突然出现。
+    const padLat = 0.002
+    const padLng = 0.002
     return converted.filter((item) => {
       if (item.poi.id === this.selectedPoiId) return true
-      try {
-        return bounds.contains(item.position)
-      } catch {
-        return true
-      }
+      const point = item.position as unknown as { getLng?: () => number, getLat?: () => number, lng?: number, lat?: number }
+      const lng = typeof point.getLng === 'function' ? point.getLng() : point.lng
+      const lat = typeof point.getLat === 'function' ? point.getLat() : point.lat
+      if (typeof lng !== 'number' || typeof lat !== 'number') return true
+      return lat >= south - padLat && lat <= north + padLat && lng >= west - padLng && lng <= east + padLng
     })
   }
 
