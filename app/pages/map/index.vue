@@ -131,7 +131,9 @@ const mapViewMode = ref<'geographic' | 'official-plan'>(
       })
     : 'geographic'
 )
-const mobileSheetState = ref<MobileSheetState>(initialSelectedPoiId ? 'collapsed' : 'half')
+// 手机端一进来先把地点栏收起来：半屏面板会把地图压到两百多像素，
+// 楼栋图标全在面板底下，点了当然没反应。收起来后地图全屏可点，列表往上拖就有。
+const mobileSheetState = ref<MobileSheetState>(initialSelectedPoiId || (typeof window !== 'undefined' && window.innerWidth < 768) ? 'collapsed' : 'half')
 const mobileSheetElement = ref<HTMLElement | null>(null)
 const mobileSheetDragHeight = ref<number | null>(null)
 const mobileSheetDragPointerId = ref<number | null>(null)
