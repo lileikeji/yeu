@@ -342,8 +342,6 @@ export class AMapProvider implements MapProvider {
 
   private handleViewChange = (): void => {
     this.applyBasemapLabels()
-    // 平移后视野变化：按缓存重排一次标点，避免新进视野的楼栋一直没有图标。
-    if (this.markers.size && !this.markersRebuildInFlight) this.rebuildMarkerOverlay()
   }
 
   setPois(pois: MapPoi[]): void {
