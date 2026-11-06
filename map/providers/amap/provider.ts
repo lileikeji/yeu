@@ -1506,7 +1506,11 @@ export class AMapProvider implements MapProvider {
 
   private renderPlainMarkers(converted: ConvertedPoi[], amap: AMapNamespace, map: AMapMap): void {
     for (const item of converted) {
-      const { content } = this.createMarkerContent(item.poi)
+      // 手机端 touchend 会被我们 preventDefault 吃掉，高德收不到 click，
+      // 所以标点必须在 DOM 层自己回调，不能只靠 marker.on('click')。
+      const { content } = this.createMarkerContent(item.poi, {
+        onClick: () => this.poiSelectHandler?.(item.poi)
+      })
       const marker = new amap.Marker({
         position: item.position,
         anchor: 'bottom-center',
@@ -1645,7 +1649,10 @@ export class AMapProvider implements MapProvider {
     const record = this.markers.get(this.selectedPoiId)
     if (!record) return
 
-    const { content } = this.createMarkerContent(record.poi, { selected: true })
+    const { content } = this.createMarkerContent(record.poi, {
+      selected: true,
+      onClick: () => this.poiSelectHandler?.(record.poi)
+    })
     const marker = new this.amap.Marker({
       position: record.position,
       anchor: 'bottom-center',
