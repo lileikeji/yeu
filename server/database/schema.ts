@@ -1195,3 +1195,38 @@ export const signalReports = sqliteTable('signal_reports', {
   index('signal_reports_kind_generated_idx').on(table.kind, table.generatedAt),
   check('signal_reports_kind_check', sql`${table.kind} in ('daily', 'weekly', 'monthly')`)
 ])
+
+/**
+ * 地点留言与打卡。
+ *
+ * 和 `place_reviews` 分开：评价是「一个访客对一个地点一条、带 1-5 分」，
+ * 留言是「随便说几句、可以反复」，打卡是「今天到过这里」。
+ * 三者混在一张表会让「每人一条」的唯一索引直接挡掉留言和打卡。
+ *
+ * `images` 存 JSON 数组，元素是 `/uploads/<uuid>.<ext>`（见 utils/uploaded-images）。
+ * `place_id` 不设外键：地图里的地点来自高德导入、目录种子和数据库三处，
+ * 大部分不是 `places` 表的行（与 place_reviews 同一约定）。
+ */
+export const placeMoments = sqliteTable('place_moments', {
+  id: text('id').primaryKey(),
+  placeId: text('place_id').notNull(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  anonymousKey: text('anonymous_key'),
+  kind: text('kind', { enum: ['comment', 'checkin'] }).notNull().default('comment'),
+  body: text('body').notNull().default(''),
+  images: text('images').notNull().default('[]'),
+  // 本地日期（Asia/Shanghai），用于「同一个人同一天同一个地点只算一次打卡」。
+  dayKey: text('day_key').notNull().default(''),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull().default('approved'),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('place_moments_place_created_idx').on(table.placeId, table.createdAt),
+  index('place_moments_status_created_idx').on(table.status, table.createdAt),
+  // 只对打卡建唯一：留言的 day_key 是 ''，带上留言会互相撞车（SQLite 的
+  // 多列唯一索引里 NULL 互不相等，所以不用 NULL 兜底，直接用部分索引）。
+  uniqueIndex('place_moments_checkin_day_unique')
+    .on(table.placeId, table.dayKey, table.anonymousKey)
+    .where(sql`${table.kind} = 'checkin'`),
+  check('place_moments_kind_check', sql`${table.kind} in ('comment', 'checkin')`),
+  check('place_moments_status_check', sql`${table.status} in ('pending', 'approved', 'rejected')`)
+])

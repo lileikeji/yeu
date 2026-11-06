@@ -288,6 +288,13 @@
       "when": 1793619474465,
       "tag": "0040_fantastic_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1793981546529,
+      "tag": "0041_parallel_machine_man",
+      "breakpoints": true
     }
   ]
 }

@@ -1060,6 +1060,17 @@ export const publicPlaceReviewsQuerySchema = z.object({
   sort: z.enum(['newest', 'hot']).optional()
 }).strict()
 
+export const publicPlaceMomentsQuerySchema = z.object({
+  placeId: publicPlaceIdSchema
+}).strict()
+
+export const createPlaceMomentSchema = z.object({
+  placeId: publicPlaceIdSchema,
+  kind: z.enum(['comment', 'checkin']).default('comment'),
+  body: z.string().max(300).default(''),
+  images: z.array(z.string().max(200)).max(3).default([])
+}).strict()
+
 export const adminPlaceReviewsQuerySchema = paginationQuerySchema.extend({
   status: z.enum(PLACE_REVIEW_STATUSES).optional(),
   placeId: z.string().trim().max(120).optional(),

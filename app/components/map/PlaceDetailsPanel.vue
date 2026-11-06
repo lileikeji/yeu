@@ -246,6 +246,11 @@ const navigationTooltip = computed(() => {
       :variant="props.variant"
     />
 
+    <MapPlaceMomentsSection
+      :place-id="props.place.id"
+      :place-name="props.place.name"
+    />
+
     <!-- 商家推广条（面板级）：美团下单 + 合作商家 + 二维码 -->
     <div
       v-if="promoActive"
