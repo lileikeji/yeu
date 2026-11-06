@@ -290,10 +290,11 @@ export function resolveInitialMapViewMode(input: {
   publishedCount: number
   ownerMapCount: number
 }): 'geographic' | 'official-plan' {
-  if (input.activeScope === 'nearby' || input.publishedCount || input.ownerMapCount) {
-    return 'geographic'
-  }
-  return 'official-plan'
+  // 默认一律先给可点的高德地图：平面图是一张图，点地标不会出详情，手机上尤其容易踩。
+  void input.activeScope
+  void input.publishedCount
+  void input.ownerMapCount
+  return 'geographic'
 }
 
 export type MapDisplayToggleKey = Exclude<keyof MapDisplayOptions, 'labelSize'>
