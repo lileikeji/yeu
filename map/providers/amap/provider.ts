@@ -1243,14 +1243,17 @@ export class AMapProvider implements MapProvider {
       }
 
       for (const item of converted) {
-        this.markers.set(item.poi.id, {
-          ...item,
-          fitMarker: new amap.Marker({
-            position: item.position,
-            anchor: 'bottom-center',
-            title: item.poi.name
-          })
+        const fitMarker = new amap.Marker({
+          position: item.position,
+          anchor: 'bottom-center',
+          title: item.poi.name
         })
+        // 低缩放（< POI_MIN_ZOOM）不画楼栋标点，这个 marker 只用于 fitToPois 取范围，
+        // 必须隐藏：否则会露出一圈点不动的默认小图标，点了也没反应。
+        // 默认图标（高德默认水滴）在 cluster 渲染不可用时就是用户看到的「小房子」，
+        // 它没有我们的 DOM 内容，必须把点击直接绑在这个 marker 上，否则点不开详情。
+        fitMarker.on('click', () => this.poiSelectHandler?.(item.poi))
+        this.markers.set(item.poi.id, { ...item, fitMarker })
       }
 
       this.renderMarkerOverlay(converted, amap, map)
@@ -1689,6 +1692,31 @@ export class AMapProvider implements MapProvider {
     if (record) this.poiSelectHandler?.(record.poi)
   }
 
+
+  /** 用屏幕像素距离命中自有楼栋标点（标点可能不可见或未渲染）。 */
+  private ownPoiAtScreenPoint(map: AMapMap, position: AMapPosition, radiusPx: number): MapPoi | null {
+    if (!this.markers.size) return null
+    const projector = map as unknown as { lngLatToContainer(point: AMapLngLat): { getX(): number, getY(): number } | null }
+    const pixel = projector.lngLatToContainer(position as unknown as AMapLngLat)
+    if (!pixel) return null
+    let best: MapPoi | null = null
+    let bestDistance = radiusPx
+    for (const record of this.markers.values()) {
+      const markerPosition = record.position as AMapPosition | undefined
+      if (!markerPosition) continue
+      const markerPixel = projector.lngLatToContainer(markerPosition as unknown as AMapLngLat)
+      if (!markerPixel) continue
+      const dx = markerPixel.getX() - pixel.getX()
+      const dy = markerPixel.getY() - pixel.getY()
+      const distance = Math.hypot(dx, dy)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        best = record.poi
+      }
+    }
+    return best
+  }
+
   private readonly handleMapClick = (event: AMapMouseEvent): void => {
     // Map clicks on the base map may be a merchant the user wants to see.
     // Instead of blindly clearing the selection (which wiped an open card and
@@ -1709,6 +1737,14 @@ export class AMapProvider implements MapProvider {
       return
     }
     const capturedMap = this.map
+    // 先按屏幕坐标命中我们自己的楼栋（DOM 标点在某些层级/缩放不渲染，
+    // 只依赖高德底图 POI 会导致点房子毫无反应）。
+    const own = this.ownPoiAtScreenPoint(capturedMap, position, 30)
+    if (own) {
+      this.selectArea(null)
+      this.poiSelectHandler?.(own)
+      return
+    }
     void this.poiAtPosition(position, 150).then((poi) => {
       if (this.map !== capturedMap) return
       if (poi) {
