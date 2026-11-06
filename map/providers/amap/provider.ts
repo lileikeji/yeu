@@ -1739,7 +1739,7 @@ export class AMapProvider implements MapProvider {
     const capturedMap = this.map
     // 先按屏幕坐标命中我们自己的楼栋（DOM 标点在某些层级/缩放不渲染，
     // 只依赖高德底图 POI 会导致点房子毫无反应）。
-    const own = this.ownPoiAtScreenPoint(capturedMap, position, 30)
+    const own = this.ownPoiAtScreenPoint(capturedMap, position, 46)
     if (own) {
       this.selectArea(null)
       this.poiSelectHandler?.(own)
