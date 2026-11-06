@@ -430,7 +430,10 @@ function selectPoi(poi: PublicMapPlace) {
   mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
   selectedNativePlace.value = decision.selectedNativePlace
   selectedPoiId.value = decision.selectedPoiId
-  mobileSheetState.value = decision.mobileSheetState
+  // 手机端只要有选中地点就收起面板，让地图露出来；别回到半屏。
+  mobileSheetState.value = window.innerWidth < 768 && decision.mobileSheetState === 'half'
+    ? 'collapsed'
+    : decision.mobileSheetState
   mapViewMode.value = decision.mapViewMode
   mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
   // Opening the desktop details panel changes the settled map layout even
@@ -464,7 +467,10 @@ function setMapViewMode(nextMode: 'geographic' | 'official-plan') {
   })
   mapViewMode.value = decision.mapViewMode
   if (decision.mobileSheetState) {
-    mobileSheetState.value = decision.mobileSheetState
+    // 手机端不回到半屏：半屏会把地图压到两百多像素，楼栋全被面板盖住、点不动。
+    mobileSheetState.value = window.innerWidth < 768 && decision.mobileSheetState === 'half'
+      ? 'collapsed'
+      : decision.mobileSheetState
   }
   if (decision.keepSelection && selectedPoi.value) {
     // Keep the floating place panel open; re-sync geographic selection when returning to map.
