@@ -47,6 +47,8 @@ export function useMapRouteSync(options: UseMapRouteSyncOptions) {
   let lastWrittenQuery = ''
   let applyingRouteState = false
   let routeApplyVersion = 0
+  // 上一轮真正应用过的选中项：关闭详情时 URL 里的 place 会消失，不能据此重新适配全量视野。
+  let lastAppliedSelectionId: string | null = null
 
   watch([
     options.searchQuery,
@@ -129,8 +131,6 @@ export function useMapRouteSync(options: UseMapRouteSyncOptions) {
       if (applyVersion === routeApplyVersion) applyingRouteState = false
     }
   }, { deep: true, immediate: true })
-
-  let lastAppliedSelectionId: string | null = null
 
   function cancelMapRouteSync(): void {
     if (routeSyncTimer) clearTimeout(routeSyncTimer)
