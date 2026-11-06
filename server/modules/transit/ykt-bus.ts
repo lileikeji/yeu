@@ -906,6 +906,11 @@ function applyManualStretches(polyline: RouteShapePoint[]): RouteShapePoint[] {
     const start = nearest(first)
     const end = nearest(last)
     if (start < 0 || end < 0 || start === end) continue
+    // 基准折线随高德算路会变，锚点可能落到别的路段；跨度过大时宁可不换，避免拉出长直弦。
+    let stretchLength = 0
+    for (let i = 1; i < points.length; i += 1) stretchLength += haversineMeters(points[i - 1]!, points[i]!)
+    const anchorGap = haversineMeters(result[Math.min(start, end)]!, result[Math.max(start, end)]!)
+    if (anchorGap > stretchLength * 2.5 + 80) continue
     const ordered = start <= end ? points : [...points].reverse()
     result = [...result.slice(0, Math.min(start, end)), ...ordered, ...result.slice(Math.max(start, end) + 1)]
   }
