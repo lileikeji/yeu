@@ -22,11 +22,15 @@ import {
 } from '../../database/schema'
 import { activePublicContentCondition } from '../content/visibility'
 import { clusterSignalItems, titleSimilarity } from './clustering'
+import { eventMatchText, loadPlaceIndex, matchPlaceTags } from './places'
+import type { SignalPlaceTag } from './places'
 import { computeSignalHeat, signalTrend } from './heat'
 import type { SignalHeatParticipant, SignalTrend } from './heat'
 import { buildDailyReport, buildPeriodReport } from './report'
 import type { SignalReportEventInput, SignalReportPayload } from './report'
-import { decideSignalScore, isUsableSignalTitle, signalCategoryFor, signalChannelFor } from './scoring'
+import { decideWithLlm, readCache, scoreOf, signalLlmEnabled } from './llm-score'
+import type { LlmScoreCache } from './llm-score'
+import { decideSignalScore, isUsableSignalTitle, prescreenSignalCandidate, signalCategoryFor, signalChannelFor } from './scoring'
 import type { SignalChannel } from './scoring'
 import { signalTierFor, signalTierLabel, signalTierThreshold } from './tiers'
 import type { SignalSourceLevel, SignalTier } from './tiers'
@@ -128,6 +132,7 @@ export interface BuiltSignalEvent {
     threshold: number
     scoreA: number
     scoreB: number
+    places: SignalPlaceTag[]
     sources: string[]
     keywords: string[]
   }
@@ -147,10 +152,14 @@ export interface BuildSignalOptions {
   maxCandidates?: number
   /** 只算不写库。 */
   dryRun?: boolean
+  /** 预置的地点索引（测试或批量调用可复用），缺省时从库里读。 */
+  placeIndex?: SignalPlaceTag[]
 }
 
 export interface BuildSignalResult {
   candidates: number
+  /** 便宜预筛丢掉的数量（太短、明显不是资讯）。 */
+  prescreened: number
   rejected: number
   events: number
   items: number
@@ -331,6 +340,17 @@ export function collectSignalCandidates(client: DatabaseClient, options: BuildSi
   return candidates.sort((left, right) => right.publishedAt - left.publishedAt).slice(0, limit)
 }
 
+/** 一次构建只读一次模型评分缓存，文件变化由调用方决定是否重跑。 */
+let llmCacheMemo: { at: number, cache: LlmScoreCache } | null = null
+
+function llmCache(): LlmScoreCache {
+  const now = Date.now()
+  if (!llmCacheMemo || now - llmCacheMemo.at > 60_000) {
+    llmCacheMemo = { at: now, cache: readCache() }
+  }
+  return llmCacheMemo.cache
+}
+
 function scoreCandidate(candidate: SignalCandidate, now: number): ScoredCandidate | null {
   const tier = signalTierFor({ isOfficial: candidate.isOfficial, sourceLevel: candidate.sourceLevel })
   const decision = decideSignalScore({
@@ -344,6 +364,11 @@ function scoreCandidate(candidate: SignalCandidate, now: number): ScoredCandidat
     hasAttachment: candidate.hasAttachment
   }, now)
   if (!decision.passed) return null
+  // 模型评分默认关闭；打开后只用缓存里的结果做加成/淘汰，缺评分按「未评分」放行。
+  if (signalLlmEnabled()) {
+    const modelScore = scoreOf(llmCache(), candidate.itemKind, candidate.itemId)
+    if (decideWithLlm(modelScore, tier) === 'hidden') return null
+  }
   return {
     ...candidate,
     tier,
@@ -380,6 +405,7 @@ function toEvent(
   group: ScoredCandidate[],
   now: number,
   taken: Set<string>,
+  placeIndex: SignalPlaceTag[],
   previous?: PreviousSignalEvent
 ): BuiltSignalEvent {
   const representative = group[0]!
@@ -437,6 +463,11 @@ function toEvent(
   const slug = uniqueSlug(slugFor(representative.title), taken)
   taken.add(slug)
 
+  const placeTags = matchPlaceTags(
+    eventMatchText(representative.title, excerptOf(representative), group.map(candidate => candidate.title)),
+    placeIndex
+  )
+
   return {
     id: `sig_${sha1(`signal:${representative.itemKind}:${representative.itemId}`).slice(0, 24)}`,
     slug,
@@ -456,6 +487,7 @@ function toEvent(
       threshold: signalTierThreshold(representative.tier),
       scoreA,
       scoreB,
+      places: placeTags,
       sources: sourceTitles.slice(0, 12),
       keywords: [...new Set(group.flatMap(candidate => candidate.hits))].slice(0, 12)
     },
@@ -485,7 +517,9 @@ export function buildSignalSnapshot(
   options: BuildSignalOptions = {}
 ): { events: BuiltSignalEvent[], result: BuildSignalResult } {
   const now = options.now ?? Date.now()
-  const candidates = collectSignalCandidates(client, options)
+  const collected = collectSignalCandidates(client, options)
+  // 预筛放在打分之前：这批内容里招标/采购公告占了不少，先按标题挡掉最省事。
+  const candidates = collected.filter(candidate => prescreenSignalCandidate(candidate))
   const scored: ScoredCandidate[] = []
   for (const candidate of candidates) {
     const decision = scoreCandidate(candidate, now)
@@ -502,10 +536,12 @@ export function buildSignalSnapshot(
 
   const previous = readPreviousEvents(client)
   const taken = new Set<string>()
+  // 点位索引一次装载，事件多了也不重复查库。
+  const placeIndex = options.placeIndex ?? loadPlaceIndex(client)
   const events = groups.map((group) => {
     const members = group.map(entry => entry.candidate)
     const id = `sig_${sha1(`signal:${members[0]!.itemKind}:${members[0]!.itemId}`).slice(0, 24)}`
-    return toEvent(members, now, taken, previous.get(id))
+    return toEvent(members, now, taken, placeIndex, previous.get(id))
   })
   events.sort((left, right) => right.heat - left.heat || right.lastSeenAt - left.lastSeenAt)
 
@@ -513,6 +549,7 @@ export function buildSignalSnapshot(
     events,
     result: {
       candidates: candidates.length,
+      prescreened: collected.length - candidates.length,
       rejected: candidates.length - scored.length,
       events: events.length,
       items: events.reduce((total, event) => total + event.items.length, 0),
@@ -622,9 +659,16 @@ export interface SignalEventSummary {
   channel: SignalChannel
   firstSeenAt: string
   lastSeenAt: string
+  places: SignalPlaceTag[]
 }
 
 function toSummary(row: SignalEventRow): SignalEventSummary {
+  const metadata = parseMetadata(row.metadataJson)
+  const places = Array.isArray(metadata.places)
+    ? (metadata.places as Array<{ name?: string, slug?: string }>)
+        .filter(tag => typeof tag?.name === 'string' && typeof tag?.slug === 'string')
+        .map(tag => ({ name: tag.name as string, slug: tag.slug as string }))
+    : []
   return {
     id: row.id,
     slug: row.slug,
@@ -639,6 +683,7 @@ function toSummary(row: SignalEventRow): SignalEventSummary {
     tier: row.tier as SignalTier,
     tierLabel: signalTierLabel(row.tier as SignalTier),
     channel: signalChannelFor(row.title),
+    places,
     firstSeenAt: new Date(row.firstSeenAt).toISOString(),
     lastSeenAt: new Date(row.lastSeenAt).toISOString()
   }

@@ -310,3 +310,21 @@ export function signalCategoryFor(title: string): string {
   }
   return '综合'
 }
+
+/**
+ * 便宜的前置过滤：明显不可能是「学生要去办/去看」的内容直接丢掉，省后面所有计算。
+ *
+ * 只做保守判断——标题+正文不足 8 个字、或明显是招标采购/中标公告这类对外公文。
+ * 宁可放过也不误杀：真正的过滤交给打分。
+ */
+const PRESCREEN_MIN_LENGTH = 8
+const PRESCREEN_NOISE = [
+  /招标公告/, /中标(结果)?公告/, /询价公告/, /采购公告/, /竞争性磋商/,
+  /成交公告/, /废标公告/, /流标公告/, /单一来源采购/
+]
+
+export function prescreenSignalCandidate(input: { title?: string, summary?: string, body?: string }): boolean {
+  const text = `${input.title ?? ''}${input.summary ?? ''}${input.body ?? ''}`.replace(/\s+/g, '')
+  if (text.length < PRESCREEN_MIN_LENGTH) return false
+  return !PRESCREEN_NOISE.some(pattern => pattern.test(input.title ?? '') || pattern.test(input.summary ?? ''))
+}

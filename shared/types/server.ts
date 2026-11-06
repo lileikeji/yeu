@@ -623,6 +623,11 @@ export type ApiSignalTrend = 'new' | 'up' | 'down' | 'flat'
 export type ApiSignalTier = 'A' | 'B' | 'C'
 
 /** `/api/public/signal` 的事件摘要，字段与 `SignalEventSummary` 一致。 */
+export interface ApiSignalPlaceTag {
+  name: string
+  slug: string
+}
+
 export interface ApiSignalEventSummary {
   id: string
   slug: string
@@ -638,6 +643,8 @@ export interface ApiSignalEventSummary {
   tierLabel: string
   /** notice = 通知公告（要办事的），news = 校园动态（看看的）。 */
   channel: 'notice' | 'news'
+  /** 正文里点到的校园地点（已发布点位），点标签可直接跳到地图。 */
+  places?: ApiSignalPlaceTag[]
   firstSeenAt: string
   lastSeenAt: string
 }

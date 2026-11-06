@@ -227,6 +227,19 @@ const dayText = signalRelativeTime
               {{ row.event.summary }}
             </p>
 
+            <div
+              v-if="row.event.places?.length"
+              class="mt-2 flex flex-wrap items-center gap-1.5"
+            >
+              <span class="text-xs text-zinc-500 dark:text-zinc-400">涉及地点</span>
+              <NuxtLink
+                v-for="tag in row.event.places"
+                :key="tag.slug"
+                :to="`/map?place=${encodeURIComponent(tag.slug)}`"
+                class="rounded-full border border-[var(--line)] px-2 py-0.5 text-xs text-zinc-700 underline-offset-2 hover:border-[var(--accent)] hover:underline dark:text-zinc-200"
+              >{{ tag.name }}</NuxtLink>
+            </div>
+
             <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
               <span
                 class="rounded px-1.5 py-0.5"
