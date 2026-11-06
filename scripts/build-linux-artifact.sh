@@ -60,9 +60,27 @@ ssh_run "mkdir -p $REMOTE_STAGE"
 for f in scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh; do
   tr -d '\r' < "$f" > "$STAGE/$(basename "$f")"
 done
-scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -q \
-  "$STAGE/release.tar.gz" "$STAGE/server-side-deploy.sh" "$STAGE/deploy-home-sheet.sh" \
-  "$DEPLOY_SERVER:$REMOTE_STAGE/"
+# scp 单次经常被服务器断连，重试三次再放弃；传完核对远端字节数，避免半个包被当制品。
+upload() {
+  local attempt
+  for attempt in 1 2 3; do
+    if scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ServerAliveInterval=15         -o ServerAliveCountMax=4 -q         "$STAGE/release.tar.gz" "$STAGE/server-side-deploy.sh" "$STAGE/deploy-home-sheet.sh"         "$DEPLOY_SERVER:$REMOTE_STAGE/"; then
+      return 0
+    fi
+    echo "    上传失败（第 $attempt 次），8 秒后重试" >&2
+    sleep 8
+  done
+  return 1
+}
+upload || { echo "上传三次均失败，检查到 $DEPLOY_SERVER 的连通性" >&2; exit 1; }
+local_size="$(stat -c %s "$STAGE/release.tar.gz" 2>/dev/null || wc -c < "$STAGE/release.tar.gz")"
+remote_size="$(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_SERVER" "stat -c %s $REMOTE_STAGE/release.tar.gz")"
+if [[ "$local_size" != "$remote_size" ]]; then
+  echo "上传不完整：本地 $local_size 字节，远端 $remote_size 字节" >&2
+  exit 1
+fi
+echo "    上传校验通过（$local_size 字节）"
+
 ssh_run "set -e
   rm -rf $REMOTE_STAGE/build && mkdir -p $REMOTE_STAGE/build
   tar xzf $REMOTE_STAGE/release.tar.gz -C $REMOTE_STAGE/build
