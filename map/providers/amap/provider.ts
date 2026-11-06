@@ -1560,10 +1560,12 @@ export class AMapProvider implements MapProvider {
     element.addEventListener('mousedown', event => event.stopPropagation())
     element.addEventListener('pointerdown', event => event.stopPropagation())
     // touchstart 不再拦截：手机上要让它落成一次正常的 tap→click，否则标点点不开详情。
+    // 手机上直接吃掉这次 tap：既选中楼栋，也不让同一次点击继续冒泡到地图（否则地图立刻清空选中）。
     element.addEventListener('touchend', (event) => {
+      event.preventDefault()
       event.stopPropagation()
       options.onClick?.()
-    }, { passive: true })
+    }, { passive: false })
 
     element.append(label, pin)
     return { content: element, label }
