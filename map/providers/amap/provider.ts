@@ -46,7 +46,7 @@ const CONVERSION_BATCH_SIZE = 40
 const CLUSTER_GRID_SIZE = 40
 const CLUSTER_MAX_ZOOM = 16
 // 标点最小显示级别：低于此级别只留底图，避免几十个房子挤在一起互相压字。
-const POI_MIN_ZOOM = 15
+const POI_MIN_ZOOM = 11
 const ROUTE_TIMEOUT_MS = 15_000
 const PLACE_SEARCH_TIMEOUT_MS = 8_000
 // A map click resolves to a base-map POI only when a merchant is within this
