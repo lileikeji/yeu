@@ -411,11 +411,12 @@ test('map list filtering and mobile sheet helpers stay pure', () => {
     publishedCount: 0,
     ownerMapCount: 0
   }), 'geographic')
+  // 手机端一进来就要能点楼栋看详情，平面图是图片、点不了，所以一律给地图。
   assert.equal(resolveInitialMapViewMode({
     activeScope: null,
     publishedCount: 0,
     ownerMapCount: 0
-  }), 'official-plan')
+  }), 'geographic')
   assert.equal(resolveInitialMapViewMode({
     activeScope: null,
     publishedCount: 2,

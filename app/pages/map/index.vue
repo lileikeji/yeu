@@ -623,7 +623,8 @@ watch(searchQuery, (value) => {
     const reset = resolveSearchQueryChangeReset({ mobileSheetState: mobileSheetState.value })
     lastAutoLocatedSearchKey = reset.lastAutoLocatedSearchKey
     selectedNativePlace.value = reset.selectedNativePlace
-    if (reset.mobileSheetState) mobileSheetState.value = reset.mobileSheetState
+    // 不要再顺手改 mobileSheetState：手机端一改就会重建浮层，
+    // 正在输入的 input 被销毁，表现为「打一个字就被清空」。
   }
   searchWasEmpty = nowEmpty
   queueNativeSearch()
