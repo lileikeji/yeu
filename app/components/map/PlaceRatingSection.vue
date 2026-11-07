@@ -36,6 +36,15 @@ interface PublicPlaceReviewsPayload {
   promo: { meituanUrl: string | null, qrCodeUrl: string | null, promoWeight: number, aiFrequency: number, clickCount7d: number, clickCount30d: number } | null
 }
 
+interface PlaceReviewTrackView {
+  status: 'pending' | 'approved' | 'rejected'
+  score: number
+  content: string
+  reviewNote: string | null
+  createdAt: string
+  reviewedAt: string | null
+}
+
 const props = defineProps<{
   placeId: string
   placeName: string
@@ -57,6 +66,20 @@ const draftContent = ref('')
 const submitting = ref(false)
 const submitError = ref('')
 const submitSuccess = ref(false)
+const lastTrackCode = ref('')
+const trackCopied = ref(false)
+
+const trackOpen = ref(false)
+const trackCodeInput = ref('')
+const trackLoading = ref(false)
+const trackError = ref('')
+const trackResult = ref<PlaceReviewTrackView | null>(null)
+
+const trackStatusMeta: Record<PlaceReviewTrackView['status'], { text: string, class: string }> = {
+  pending: { text: '待审核', class: 'bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-300' },
+  approved: { text: '已通过', class: 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300' },
+  rejected: { text: '未通过', class: 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' }
+}
 
 const REVIEW_CONTENT_MAX = 500
 
@@ -103,6 +126,11 @@ onMounted(async () => {
 watch(() => props.placeId, async () => {
   formOpen.value = false
   submitSuccess.value = false
+  lastTrackCode.value = ''
+  trackOpen.value = false
+  trackCodeInput.value = ''
+  trackResult.value = null
+  trackError.value = ''
   await loadReviews()
 })
 
@@ -170,7 +198,7 @@ async function submitReview(): Promise<void> {
   submitting.value = true
   submitError.value = ''
   try {
-    await userFetch('/api/place-reviews', {
+    const response = await userFetch<{ review: { trackCode?: string | null } }>('/api/place-reviews', {
       method: 'POST',
       body: {
         placeId: props.placeId,
@@ -178,6 +206,8 @@ async function submitReview(): Promise<void> {
         content
       }
     })
+    lastTrackCode.value = response.review?.trackCode ?? ''
+    trackCopied.value = false
     submitSuccess.value = true
     formOpen.value = false
     await loadReviews()
@@ -185,6 +215,38 @@ async function submitReview(): Promise<void> {
     submitError.value = getRequestMessage(error, '评价提交失败')
   } finally {
     submitting.value = false
+  }
+}
+
+async function copyTrackCode(): Promise<void> {
+  if (!lastTrackCode.value) return
+  try {
+    await navigator.clipboard.writeText(lastTrackCode.value)
+    trackCopied.value = true
+    setTimeout(() => { trackCopied.value = false }, 2000)
+  } catch {
+    // 剪贴板不可用（如非安全上下文）时静默，用户仍可手动抄码
+  }
+}
+
+async function queryTrack(): Promise<void> {
+  const code = trackCodeInput.value.trim().toUpperCase()
+  if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) {
+    trackError.value = '查询码是 8 位字母数字（不含 I、O、0、1）'
+    return
+  }
+  trackLoading.value = true
+  trackError.value = ''
+  try {
+    const response = await userFetch<{ review: PlaceReviewTrackView }>('/api/public/place-reviews/track', {
+      query: { code }
+    })
+    trackResult.value = response.review
+  } catch (error) {
+    trackResult.value = null
+    trackError.value = getRequestMessage(error, '查询失败，请稍后再试')
+  } finally {
+    trackLoading.value = false
   }
 }
 
@@ -424,10 +486,93 @@ const mineStatusText = computed<string | null>(() => {
         >
           {{ mineStatusText }}
         </p>
+        <p
+          v-if="lastTrackCode"
+          class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400"
+        >
+          查询码
+          <span class="font-mono font-bold text-zinc-800 dark:text-zinc-100">{{ lastTrackCode }}</span>
+          <button
+            type="button"
+            class="ml-1 underline decoration-dotted"
+            @click="copyTrackCode"
+          >
+            {{ trackCopied ? '已复制' : '复制' }}
+          </button>
+          ，换设备也能凭它查审核进度
+        </p>
+
+        <!-- 凭码查进度 -->
+        <div
+          v-if="!formOpen"
+          class="mt-2"
+        >
+          <button
+            type="button"
+            class="text-[11px] text-zinc-400 underline decoration-dotted dark:text-zinc-500"
+            @click="trackOpen = !trackOpen"
+          >
+            {{ trackOpen ? '收起查进度' : '凭码查进度' }}
+          </button>
+          <div
+            v-if="trackOpen"
+            class="mt-1.5 space-y-1.5"
+          >
+            <div class="flex items-center gap-1.5">
+              <input
+                v-model="trackCodeInput"
+                type="text"
+                maxlength="8"
+                placeholder="输入 8 位查询码"
+                class="w-40 rounded-md border-0 bg-white px-2 py-1 text-xs text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-zinc-700 placeholder:text-zinc-400 font-mono uppercase"
+                @keyup.enter="queryTrack"
+              >
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="xs"
+                :loading="trackLoading"
+                label="查询"
+                @click="queryTrack"
+              />
+            </div>
+            <p
+              v-if="trackError"
+              class="text-[11px] text-red-600 dark:text-red-400"
+            >
+              {{ trackError }}
+            </p>
+            <div
+              v-else-if="trackResult"
+              class="rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5"
+            >
+              <div class="flex items-center gap-1.5">
+                <span
+                  class="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                  :class="trackStatusMeta[trackResult.status].class"
+                >
+                  {{ trackStatusMeta[trackResult.status].text }}
+                </span>
+                <span class="text-[10px] text-zinc-400 dark:text-zinc-500">
+                  {{ formatDate(trackResult.createdAt) }} 提交
+                </span>
+              </div>
+              <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                {{ trackResult.content }}
+              </p>
+              <p
+                v-if="trackResult.status === 'rejected' && trackResult.reviewNote"
+                class="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400"
+              >
+                驳回理由：{{ trackResult.reviewNote }}
+              </p>
+            </div>
+          </div>
+        </div>
 
         <!-- 写评价入口 -->
         <div
-          v-else
+          v-if="!mineStatusText"
           class="mt-2"
         >
           <template v-if="!formOpen">

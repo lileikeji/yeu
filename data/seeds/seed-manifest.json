@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "generatedAt": "2026-11-07T03:00:13.452Z",
+  "files": {
+    "ding-route-chain.json": {
+      "bytes": 3684,
+      "sha256": "f361e06ad6f57182130f259dc150d13a2a09e65b5af216f83b32804d9c22a0b9"
+    },
+    "osm-campus-boundary.json": {
+      "bytes": 16473,
+      "sha256": "30f90f0b498ad92e4e95dfc9488f22f818dac248110f7e2743db8f4644d0d1cd"
+    }
+  }
+}

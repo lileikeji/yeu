@@ -15,6 +15,8 @@ import {
   adminReviewPlace,
   adminUpdateSeedReview,
   createPlaceReview,
+  findPlaceReviewByTrackCode,
+  generateReviewTrackCode,
   listPublicPlaceReviews,
   normalizePlaceId,
   setReviewLike,
@@ -446,6 +448,60 @@ test('merchant management aggregates seed/original/user reviews and edits seed c
       () => adminUpdateSeedReview(client, 'seed-1', { score: 9 }, ADMIN_ID),
       (error: TestHttpError) => error.statusCode === 400
     )
+  } finally {
+    cleanup()
+  }
+})
+
+test('createPlaceReview returns a track code that resolves the review by code', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const created = createPlaceReview(client, {
+      placeId: PLACE_ID,
+      score: 4,
+      content: '凭码查进度的评价。'
+    }, { userId: USER_A.id })
+    assert.match(created.trackCode, /^[A-HJ-NP-Z2-9]{8}$/)
+
+    const found = findPlaceReviewByTrackCode(client, created.trackCode.toLowerCase())
+    assert.ok(found, 'track lookup should resolve case-insensitively')
+    assert.equal(found.status, 'pending')
+    assert.equal(found.score, 4)
+    assert.equal(found.content, '凭码查进度的评价。')
+    assert.equal(found.reviewNote, null)
+    assert.equal(found.reviewedAt, null)
+  } finally {
+    cleanup()
+  }
+})
+
+test('findPlaceReviewByTrackCode returns null for unknown codes', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    createPlaceReview(client, { placeId: PLACE_ID, score: 3, content: '常规评价' }, { userId: USER_A.id })
+    assert.equal(findPlaceReviewByTrackCode(client, generateReviewTrackCode()), null)
+  } finally {
+    cleanup()
+  }
+})
+
+test('adminReviewPlace outcome is visible through the track code lookup', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const created = createPlaceReview(client, {
+      placeId: PLACE_ID,
+      score: 2,
+      content: '将被驳回的评价'
+    }, { userId: USER_A.id })
+    const rows = client.sqlite.prepare('SELECT id FROM place_reviews WHERE track_code = ?').all(created.trackCode) as Array<{ id: string }>
+    assert.equal(rows.length, 1)
+    adminReviewPlace(client, rows[0]!.id, { status: 'rejected', note: '内容与到店体验不符' }, ADMIN_ID)
+
+    const found = findPlaceReviewByTrackCode(client, created.trackCode)
+    assert.ok(found)
+    assert.equal(found.status, 'rejected')
+    assert.equal(found.reviewNote, '内容与到店体验不符')
+    assert.ok(found.reviewedAt, 'reviewedAt should be set after admin review')
   } finally {
     cleanup()
   }

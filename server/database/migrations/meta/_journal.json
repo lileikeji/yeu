@@ -295,6 +295,13 @@
       "when": 1793981546529,
       "tag": "0041_parallel_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1794020182837,
+      "tag": "0042_minor_puck",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { recordVisitorEvent } from '../visitors/service'
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import type { PlaceReviewStatus } from '../../../shared/constants/server'
@@ -133,6 +133,16 @@ export function createPlaceReview(
     reviewConflictError()
   }
 
+  // 查询码是提交者唯一的进度凭据（匿名 key 服务重启即失效）；32 字符表 8 位约
+  // 1.1e12 组合，碰撞概率可忽略，但仍按唯一索引预查一次防极端碰撞。
+  let trackCode = generateReviewTrackCode()
+  while (client.db.select({ id: placeReviews.id })
+    .from(placeReviews)
+    .where(eq(placeReviews.trackCode, trackCode))
+    .get()) {
+    trackCode = generateReviewTrackCode()
+  }
+
   const now = Date.now()
   const id = randomUUID()
   try {
@@ -141,6 +151,7 @@ export function createPlaceReview(
       placeId: key,
       userId: identity.userId ?? null,
       anonymousKey: identity.anonymousKey ?? null,
+      trackCode,
       score: input.score,
       content: input.content,
       status: 'pending',
@@ -156,7 +167,54 @@ export function createPlaceReview(
     score: input.score,
     content: input.content,
     status: 'pending' as const,
+    trackCode,
     createdAt: now
+  }
+}
+
+const TRACK_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+/** 8 位易读查询码：字母表去掉 I/O/0/1，抄写和口述不会混淆。 */
+export function generateReviewTrackCode(): string {
+  const bytes = randomBytes(8)
+  let code = ''
+  for (let i = 0; i < 8; i++) code += TRACK_CODE_ALPHABET[bytes[i]! % TRACK_CODE_ALPHABET.length]
+  return code
+}
+
+export interface PlaceReviewTrackView {
+  status: 'pending' | 'approved' | 'rejected'
+  score: number
+  content: string
+  reviewNote: string | null
+  createdAt: string
+  reviewedAt: string | null
+}
+
+/** 凭查询码查审核进度；码即凭据，返回的评价字段保持最小集合。 */
+export function findPlaceReviewByTrackCode(
+  client: DatabaseClient,
+  code: string
+): PlaceReviewTrackView | null {
+  const row = client.db.select({
+    status: placeReviews.status,
+    score: placeReviews.score,
+    content: placeReviews.content,
+    reviewNote: placeReviews.reviewNote,
+    createdAt: placeReviews.createdAt,
+    reviewedAt: placeReviews.reviewedAt
+  })
+    .from(placeReviews)
+    .where(eq(placeReviews.trackCode, code.trim().toUpperCase()))
+    .get()
+  if (!row) return null
+  return {
+    status: row.status,
+    score: row.score,
+    content: row.content,
+    reviewNote: row.reviewNote,
+    createdAt: new Date(row.createdAt).toISOString(),
+    reviewedAt: row.reviewedAt === null ? null : new Date(row.reviewedAt).toISOString()
   }
 }
 

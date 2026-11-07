@@ -1060,6 +1060,14 @@ export const publicPlaceReviewsQuerySchema = z.object({
   sort: z.enum(['newest', 'hot']).optional()
 }).strict()
 
+// 服务端 generateReviewTrackCode 的字母表（去 I/O/0/1），8 位；大小写不敏感，
+// 学生手抄的小写码也能查（服务端统一大写化后按原样存的大写匹配）。
+export const REVIEW_TRACK_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/i
+
+export const publicPlaceReviewTrackQuerySchema = z.object({
+  code: z.string().regex(REVIEW_TRACK_CODE_PATTERN)
+}).strict()
+
 export const publicPlaceMomentsQuerySchema = z.object({
   placeId: publicPlaceIdSchema
 }).strict()

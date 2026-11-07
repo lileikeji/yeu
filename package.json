@@ -29,6 +29,8 @@
     "db:seed:assistant": "tsx scripts/seed-assistant-knowledge.ts",
     "db:seed:amap-ratings": "tsx scripts/seed-amap-ratings.ts",
     "db:seed:procedures": "tsx scripts/seed-procedures.ts",
+    "db:seed:manifest": "node scripts/seed-manifest.mjs write",
+    "db:seed:manifest:verify": "node scripts/seed-manifest.mjs verify",
     "db:sync:catalog": "tsx scripts/sync-public-catalog.ts",
     "data:verify": "tsx scripts/verify-live-data-parity.ts",
     "data:verify:local": "tsx scripts/verify-live-data-parity.ts --database .data/codex-map-content-20260713.sqlite",

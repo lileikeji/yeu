@@ -34,6 +34,8 @@
 - `admin-resource-catalog-panel.test.ts`：固定通用资源目录面板统计/筛选/表格/分页展示、行操作事件、请求隔离和管理器组合边界，以及删除确认弹窗的最小权限边界。
 - `admin-procedure-catalog-panel.test.ts`：固定办事流程目录面板筛选/表格/分页展示、行操作事件、请求隔离，以及删除确认弹窗与编辑弹窗壳的组合边界。
 - `admin-resource-editor.test.ts`：固定通用资源编辑弹窗的动态字段、坐标选择、错误提示、类型化事件、请求/路由隔离和管理器委托边界。
+- `seed-manifest.mjs`：对 `data/seeds/*.json`（排除 bus-route-*、`*.bak-*` 与 manifest 自身）计算 key 排序后的 sha256 指纹清单，写 `seed-manifest.json`；改了种子 JSON 后跑 `pnpm db:seed:manifest` 并随改动一起提交，`pnpm db:seed:manifest:verify` 校验漂移。公交几何由 `bus-route-manifest.mjs` 专属守护，不在此清单内。
+- `seed-manifest.test.ts`：验证真实种子与 manifest 一致，以及临时目录下 write/verify 往返、篡改检测和排除规则。
 - `seed-public-catalog.ts`：把首批官方来源、8 个新生指南、官方部门目录和社团目录幂等导入后台；默认只读预检，仅 `--apply` 写入。
 - `seed-public-catalog.test.ts`：用临时 SQLite 验证目录导入的 dry-run、原子写入、幂等、人工冲突和发布证据约束。
 - `verify-live-data-parity.ts`：只读验收当前 SQLite，核对 98 条来源、58 条公开内容、5 条流程、76 个高德草稿标点与管理员账号是否和前台种子/后台库一致。

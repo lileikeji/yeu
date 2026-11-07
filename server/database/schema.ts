@@ -824,6 +824,10 @@ export const placeReviews = sqliteTable('place_reviews', {
   placeId: text('place_id').notNull(),
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
   anonymousKey: text('anonymous_key'),
+  // 提交时返回给提交者的进度查询码（8 位易读字符）。匿名 key 只在同一进程内
+  // 稳定，服务重启后"我的评价"就认不出来了；查询码是跨会话查审核进度的凭据。
+  // 历史评价为 NULL，只有新提交的评价生成。
+  trackCode: text('track_code'),
   score: integer('score').notNull(),
   content: text('content').notNull(),
   status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull().default('pending'),
@@ -847,6 +851,7 @@ export const placeReviews = sqliteTable('place_reviews', {
 }, table => [
   uniqueIndex('place_reviews_user_place_unique').on(table.userId, table.placeId),
   uniqueIndex('place_reviews_anon_place_unique').on(table.anonymousKey, table.placeId),
+  uniqueIndex('place_reviews_track_code_unique').on(table.trackCode),
   index('place_reviews_place_status_idx').on(table.placeId, table.status),
   index('place_reviews_status_created_idx').on(table.status, table.createdAt),
   check('place_reviews_score_check', sql`${table.score} between 1 and 5`),
