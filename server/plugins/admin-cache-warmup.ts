@@ -1,5 +1,4 @@
 import { getSecuritySnapshot } from '../modules/admin-security/service'
-import { getMiniappAnalyticsCached } from '../modules/visitors/service'
 import { useAppDatabase } from '../utils/database'
 
 /**
@@ -26,12 +25,6 @@ export default defineNitroPlugin(() => {
       try {
         const client = useAppDatabase()
         getSecuritySnapshot(client)
-        // 与 super admin 概览请求同参数（全 capability 组合），命中率最高的那档
-        getMiniappAnalyticsCached(client, 24, {
-          includeRaw: true,
-          includeSources: true,
-          includeApiMetrics: true
-        })
       } catch {
         // 预热失败静默：下次间隔重试，不影响在线请求
       } finally {

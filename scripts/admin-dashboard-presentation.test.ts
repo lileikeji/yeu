@@ -42,7 +42,9 @@ test('admin dashboard page is a thin shell over admin-dashboard-presentation uti
 test('admin dashboard catalogs cover content, ops, and security routes', () => {
   assert.equal(adminDashboardGroupMeta.length, 3)
   assert.deepEqual(adminDashboardGroupMeta.map(item => item.key), ['content', 'ops', 'security'])
-  assert.equal(adminDashboardModules.length, 13)
+  // 12 个：miniapp-analytics 卡 2026-11-07 从概览移除（全量分析只保留 /admin/miniapp 专页）
+  assert.equal(adminDashboardModules.length, 12)
+  assert.ok(!adminDashboardModules.some(item => item.key === 'miniapp-analytics'))
   assert.equal(adminDashboardModules[0]?.key, 'places')
   assert.equal(adminDashboardModules[0]?.to, '/admin/places')
   assert.ok(adminDashboardModules.some(item => item.key === 'feedback' && item.query?.status === 'new'))
@@ -56,7 +58,7 @@ test('admin dashboard catalogs cover content, ops, and security routes', () => {
   assert.ok(adminDashboardModules.every(item => item.group === 'content' || item.group === 'ops' || item.group === 'security'))
   assert.equal(adminDashboardModulesByGroup('content').length, 5)
   assert.equal(adminDashboardModulesByGroup('ops').length, 5)
-  assert.equal(adminDashboardModulesByGroup('security').length, 3)
+  assert.equal(adminDashboardModulesByGroup('security').length, 2)
   assert.equal(adminDashboardQuickActions.length, 17)
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/places?action=create'))
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/field-observations'))

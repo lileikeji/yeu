@@ -62,7 +62,6 @@ const securityLast24h = reactive({
   adminLogins: null as number | null
 })
 const securityTopPaths = ref<Array<{ path: string; count: number }>>([])
-const securityTopCities = ref<Array<{ city: string; count: number }>>([])
 const securityRecentMutes = ref<Array<{
   id: string
   userId: string
@@ -118,8 +117,6 @@ const securityPulse = reactive({
   multiVisitorIps: null as number | null,
   staleActiveBans: null as number | null
 })
-const securityIpClusters = ref<Array<{ ip: string; eventCount: number; visitorCount: number; city?: string; topPath?: string; linkedUsers?: number; isBanned?: boolean; riskScore?: number; riskLevel?: string }>>([])
-const securitySuspiciousAgents = ref<Array<{ userAgent: string; eventCount: number; visitorCount: number }>>([])
 const securityAdminActors = ref<Array<{ adminId: string; username: string | null; displayName: string | null; actions: number }>>([])
 const securityOpsTimeline = ref<Array<{
   id: string
@@ -159,27 +156,6 @@ const securityGeoConcentration = reactive({
   topCityShare: null as number | null,
   distinctCities: null as number | null
 })
-const securityRecentSessions = ref<Array<{
-  id: string
-  startAt: string
-  endAt: string
-  durationSeconds: number
-  eventCount: number
-  uniquePathCount: number
-  entryPath: string
-  exitPath: string
-}>>([])
-const securityNetworkClusters = ref<Array<{
-  prefix: string
-  eventCount: number
-  ipCount: number
-  visitorCount: number
-  userCount: number
-  topCity: string
-  topPath: string
-  riskScore: number
-  riskLevel: string
-}>>([])
 const securityAnomalyBaseline = reactive({
   current: null as number | null,
   average: null as number | null,
@@ -291,7 +267,6 @@ async function loadDashboard(): Promise<void> {
       counts?: Record<string, number>
       last24h?: Record<string, number>
       topPaths?: Array<{ path: string; count: number }>
-      topCities?: Array<{ city: string; count: number }>
       topActions?: Array<{ action: string; count: number }>
       topIps?: Array<{ ip: string; count: number }>
       topBanReasons?: Array<{ reason: string; count: number }>
@@ -301,8 +276,6 @@ async function loadDashboard(): Promise<void> {
       deltas24h?: Record<string, number>
       banHygiene?: Record<string, number>
       pulse?: Record<string, number>
-      ipClusters?: Array<{ ip: string; eventCount: number; visitorCount: number }>
-      suspiciousAgents?: Array<{ userAgent: string; eventCount: number; visitorCount: number }>
       adminActors?: Array<{ adminId: string; username: string | null; displayName: string | null; actions: number }>
       opsTimeline?: Array<{ id: string; kind: string; title: string; subtitle: string; createdAt: string; href: string }>
       recentBans?: Array<{ id: string; scope: string; value: string; reason: string; createdAt: string }>
@@ -387,8 +360,6 @@ async function loadDashboard(): Promise<void> {
       securityPulse.events1h = Number(pulse.events1h ?? 0)
       securityPulse.multiVisitorIps = Number(pulse.multiVisitorIps ?? 0)
       securityPulse.staleActiveBans = Number(pulse.staleActiveBans ?? 0)
-      securityIpClusters.value = Array.isArray(snap.ipClusters) ? snap.ipClusters : []
-      securitySuspiciousAgents.value = Array.isArray(snap.suspiciousAgents) ? snap.suspiciousAgents : []
       securityAdminActors.value = Array.isArray(snap.adminActors)
         ? snap.adminActors.map((row: any) => ({
           adminId: row.adminId,
@@ -417,8 +388,6 @@ async function loadDashboard(): Promise<void> {
       securityGeoConcentration.topCity = geo.topCity || ''
       securityGeoConcentration.topCityShare = Number(geo.topCityShare ?? 0)
       securityGeoConcentration.distinctCities = Number(geo.distinctCities ?? 0)
-      securityRecentSessions.value = Array.isArray(snap.recentSessions) ? snap.recentSessions : []
-      securityNetworkClusters.value = Array.isArray(snap.networkClusters) ? snap.networkClusters : []
       const baseline = snap.anomalyBaseline || {}
       securityAnomalyBaseline.current = Number(baseline.current ?? 0)
       securityAnomalyBaseline.average = Number(baseline.average ?? 0)
@@ -429,7 +398,6 @@ async function loadDashboard(): Promise<void> {
       securityAnomalyBaseline.sampleSize = Number(baseline.sampleSize ?? 0)
       securityAnomalyBaseline.status = baseline.status || 'normal'
       securityTopPaths.value = Array.isArray(snap.topPaths) ? snap.topPaths : []
-      securityTopCities.value = Array.isArray(snap.topCities) ? snap.topCities : []
       securityTopActions.value = Array.isArray(snap.topActions) ? snap.topActions : []
       securityTopIps.value = Array.isArray(snap.topIps) ? snap.topIps : []
       securityTopBanReasons.value = Array.isArray(snap.topBanReasons) ? snap.topBanReasons : []
@@ -753,56 +721,7 @@ onMounted(() => {
         </p>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 lg:col-span-2">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">相近网络来源</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">帮助识别来自同一校园网、宿舍网或公共网络的访问</p>
-        <ul class="mt-3 grid gap-2 sm:grid-cols-2">
-          <li
-            v-for="cluster in securityNetworkClusters"
-            :key="cluster.prefix"
-            class="rounded-lg border border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/60 px-3 py-2 text-xs"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <span class="truncate font-medium text-zinc-900 dark:text-zinc-100">{{ cluster.prefix }}</span>
-              <span
-                class="shrink-0 rounded-full px-1.5 py-0.5 text-[10px]"
-                :class="cluster.riskLevel === 'high'
-                  ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'
-                  : cluster.riskLevel === 'medium'
-                    ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-300'
-                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200'"
-              >
-                {{ riskLevelLabel(cluster.riskLevel) }} · {{ adminRiskScoreText(cluster.riskScore) }}
-              </span>
-            </div>
-            <p class="mt-1 text-zinc-600 dark:text-zinc-300">
-              {{ cluster.ipCount }} IP · {{ cluster.visitorCount }} 访客 · {{ cluster.userCount }} 账号 · {{ cluster.eventCount }} 次操作
-            </p>
-            <p class="mt-0.5 truncate text-zinc-400 dark:text-zinc-500" :title="cluster.topPath">{{ cluster.topCity || '未知地点' }} · {{ adminPathLabel(cluster.topPath) }}</p>
-          </li>
-          <li v-if="!securityNetworkClusters.length" class="py-6 text-center text-xs text-zinc-400 dark:text-zinc-500 sm:col-span-2">暂无相近网络来源</li>
-        </ul>
-      </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 lg:col-span-3">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">最近访问过程</h2>
-        <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">连续 30 分钟无操作后视为一次新的访问</p>
-        <ul class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <li
-            v-for="session in securityRecentSessions.slice(0, 8)"
-            :key="session.id"
-            class="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-xs"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-zinc-500 dark:text-zinc-400">{{ formatAdminRelativeTime(session.startAt) }}</span>
-              <span class="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{{ session.eventCount }} 次操作</span>
-            </div>
-            <p class="mt-1 truncate text-zinc-700 dark:text-zinc-200" :title="`${session.entryPath} → ${session.exitPath}`">{{ adminPathTransitionLabel(session.entryPath, session.exitPath) }}</p>
-            <p class="mt-0.5 text-[10px] text-zinc-400 dark:text-zinc-500">{{ session.uniquePathCount }} 个页面 · {{ session.durationSeconds }} 秒</p>
-          </li>
-          <li v-if="!securityRecentSessions.length" class="py-6 text-center text-xs text-zinc-400 dark:text-zinc-500 sm:col-span-2 lg:col-span-4">暂无访问过程</li>
-        </ul>
-      </div>
     </section>
     </details>
 
@@ -902,20 +821,6 @@ onMounted(() => {
         </ul>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">访客主要城市</h2>
-        <ul class="mt-3 space-y-1.5">
-          <li
-            v-for="row in securityTopCities"
-            :key="row.city"
-            class="flex items-center justify-between gap-2 text-xs"
-          >
-            <span class="truncate text-zinc-700 dark:text-zinc-200">{{ row.city }}</span>
-            <span class="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">{{ row.count }}</span>
-          </li>
-          <li v-if="!securityTopCities.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无数据</li>
-        </ul>
-      </div>
 
       <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见操作 · 近 7 天</h2>
@@ -1013,52 +918,7 @@ onMounted(() => {
         </UButton>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-        <div class="flex items-center justify-between gap-2">
-          <div>
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">同一网络的多个访客 · 今天</h2>
-            <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">同一 IP 关联多名访客</p>
-          </div>
-        </div>
-        <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
-          <li
-            v-for="row in securityIpClusters"
-            :key="'ipc-' + row.ip"
-            class="flex items-center justify-between gap-2 text-xs"
-          >
-            <NuxtLink
-              :to="'/admin/visitors?ip=' + encodeURIComponent(row.ip)"
-              class="truncate text-sky-700 dark:text-sky-300 hover:underline"
-            >
-              {{ row.ip }}
-            </NuxtLink>
-            <span class="shrink-0 text-right text-zinc-500 dark:text-zinc-400">
-              <span class="tabular-nums">访客 {{ row.visitorCount }} · {{ row.eventCount }} 次操作</span>
-              <span v-if="row.city" class="block text-[10px] text-zinc-400 dark:text-zinc-500" :title="row.topPath">{{ row.city }} · {{ adminPathLabel(row.topPath) }}</span>
-              <span v-if="row.riskLevel && row.riskLevel !== 'info'" class="block text-[10px]" :class="row.riskLevel === 'high' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'">
-                {{ riskLevelLabel(row.riskLevel) }} · {{ adminRiskScoreText(row.riskScore) }}
-                <template v-if="row.isBanned"> · 已封</template>
-              </span>
-            </span>
-          </li>
-          <li v-if="!securityIpClusters.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无关联访客</li>
-        </ul>
-      </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-        <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">异常设备与浏览器 · 今天</h2>
-        <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
-          <li
-            v-for="(row, idx) in securitySuspiciousAgents"
-            :key="'ua-' + idx"
-            class="text-xs"
-          >
-            <p class="truncate text-zinc-800 dark:text-zinc-100" :title="row.userAgent">{{ shortUaDash(row.userAgent) }}</p>
-            <p class="mt-0.5 text-zinc-500 dark:text-zinc-400">访客 {{ row.visitorCount }} · {{ row.eventCount }} 次操作</p>
-          </li>
-          <li v-if="!securitySuspiciousAgents.length" class="py-4 text-center text-zinc-400 dark:text-zinc-500">暂无异常设备或浏览器</li>
-        </ul>
-      </div>
 
       <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">管理员操作 · 今天</h2>

@@ -526,7 +526,12 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
     city: visitors.lastCity,
     value: count()
   }).from(visitors)
-    .where(and(isNotNull(visitors.lastCity), sql`trim(${visitors.lastCity}) != ''`))
+    .where(and(
+      isNotNull(visitors.lastCity),
+      sql`trim(${visitors.lastCity}) != ''`,
+      // 2026-11-07 减重：原先是全表分组（随 visitors 无限增长），限近 30 天走 lastSeenAt 索引
+      gt(visitors.lastSeenAt, now - DAY_MS * 30)
+    ))
     .groupBy(visitors.lastCity)
     .orderBy(desc(count()))
     .limit(8)
@@ -701,51 +706,6 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
     temporaryActive
   }
 
-  const ipClusterRaw = client.db.select({
-    ip: visitorEvents.ip,
-    eventCount: count(),
-    visitorCount: sql<number>`count(distinct ${visitorEvents.visitorId})`
-  }).from(visitorEvents)
-    .where(and(
-      gt(visitorEvents.createdAt, since24h),
-      isNotNull(visitorEvents.ip),
-      sql`trim(${visitorEvents.ip}) != ''`
-    ))
-    .groupBy(visitorEvents.ip)
-    .orderBy(desc(sql`count(distinct ${visitorEvents.visitorId})`))
-    .limit(12)
-    .all()
-
-  const ipClustersBase = ipClusterRaw
-    .map(row => ({
-      ip: row.ip || '',
-      eventCount: Number(row.eventCount),
-      visitorCount: Number(row.visitorCount)
-    }))
-    .filter(row => row.ip && row.visitorCount >= 2)
-    .slice(0, 8)
-
-  const suspiciousAgents = client.db.select({
-    userAgent: visitorEvents.userAgent,
-    eventCount: count(),
-    visitorCount: sql<number>`count(distinct ${visitorEvents.visitorId})`
-  }).from(visitorEvents)
-    .where(and(
-      gt(visitorEvents.createdAt, since7d),
-      isNotNull(visitorEvents.userAgent),
-      sql`trim(${visitorEvents.userAgent}) != ''`
-    ))
-    .groupBy(visitorEvents.userAgent)
-    .orderBy(desc(count()))
-    .limit(8)
-    .all()
-    .map(row => ({
-      userAgent: shortUa(row.userAgent, 80),
-      eventCount: Number(row.eventCount),
-      visitorCount: Number(row.visitorCount)
-    }))
-    .filter(row => row.eventCount >= 20 || row.visitorCount >= 3)
-
   const adminActorRaw = client.db.select({
     actorAdminId: auditLogs.actorAdminId,
     value: count()
@@ -819,10 +779,8 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, 16)
 
-  const multiVisitorIps = ipClustersBase.length
   const pulse = {
     events1h,
-    multiVisitorIps,
     staleActiveBans: activeExpired
   }
 
@@ -911,17 +869,6 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
       href: '/admin/bans?active=true'
     })
   }
-  if (ipClustersBase.some(row => row.visitorCount >= 4)) {
-    const top = ipClustersBase[0]
-    if (top) {
-      riskHints.push({
-        level: 'medium',
-        code: 'IP_VISITOR_CLUSTER',
-        message: `IP ${top.ip} 近 24 小时关联 ${top.visitorCount} 个访客`,
-        href: `/admin/visitors?ip=${encodeURIComponent(top.ip)}`
-      })
-    }
-  }
   if (deltas24h.visitorEvents >= 300) {
     riskHints.push({
       level: 'medium',
@@ -959,7 +906,7 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
   }).from(visitorEvents)
     .where(gt(visitorEvents.createdAt, since24h))
     .orderBy(desc(visitorEvents.createdAt))
-    .limit(500)
+    .limit(200)
     .all()
 
   const pathTransitions = buildPathTransitions(
@@ -972,27 +919,6 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
     8
   )
   const peakBurst = burstWindows[0]?.count || 0
-  const recentSessions = buildSessions(
-    recentPathRows.map(row => ({
-      path: row.path,
-      action: row.action,
-      ip: row.ip,
-      createdAt: Number(row.createdAt)
-    })),
-    30 * 60 * 1000,
-    16
-  )
-  const networkClusters = buildNetworkClusters(
-    recentPathRows.map(row => ({
-      ip: row.ip,
-      visitorId: row.visitorId,
-      userId: row.userId,
-      city: row.city,
-      path: row.path,
-      createdAt: Number(row.createdAt)
-    })),
-    10
-  )
 
   const dailyBucketExpr = sql<number>`cast(floor(${visitorEvents.createdAt} / 86400000.0) as integer)`
   const dailyEventRows = client.db.select({
@@ -1008,75 +934,6 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
     .map(row => Number(row.value))
   const anomalyBaseline = buildAnomalyBaseline(events24h, historicalDailyEvents)
 
-  const ipClusters = ipClustersBase.map((cluster) => {
-    const cityRow = client.db.select({
-      city: visitorEvents.city,
-      country: visitorEvents.country,
-      value: count()
-    }).from(visitorEvents)
-      .where(and(eq(visitorEvents.ip, cluster.ip), gt(visitorEvents.createdAt, since24h)))
-      .groupBy(visitorEvents.city, visitorEvents.country)
-      .orderBy(desc(count()))
-      .limit(1)
-      .get()
-
-    const pathRow = client.db.select({
-      path: visitorEvents.path,
-      value: count()
-    }).from(visitorEvents)
-      .where(and(eq(visitorEvents.ip, cluster.ip), gt(visitorEvents.createdAt, since24h)))
-      .groupBy(visitorEvents.path)
-      .orderBy(desc(count()))
-      .limit(1)
-      .get()
-
-    const linkedUsers = Number(
-      client.db.select({ value: sql<number>`count(distinct ${visitorEvents.userId})` })
-        .from(visitorEvents)
-        .where(and(
-          eq(visitorEvents.ip, cluster.ip),
-          gt(visitorEvents.createdAt, since24h),
-          isNotNull(visitorEvents.userId),
-          sql`trim(${visitorEvents.userId}) != ''`
-        ))
-        .get()?.value ?? 0
-    )
-
-    const banRowsForIp = client.db.select().from(visitorBans)
-      .where(and(
-        eq(visitorBans.scope, 'ip'),
-        eq(visitorBans.value, cluster.ip),
-        eq(visitorBans.isActive, true)
-      ))
-      .orderBy(desc(visitorBans.createdAt))
-      .limit(5)
-      .all()
-    const isBanned = banRowsForIp.some(row => isBanEffectivelyActive({ isActive: row.isActive, expiresAt: row.expiresAt }, now))
-
-    let riskScore = 0
-    if (cluster.visitorCount >= 5) riskScore += 24
-    else if (cluster.visitorCount >= 3) riskScore += 16
-    else if (cluster.visitorCount >= 2) riskScore += 8
-    if (cluster.eventCount >= 200) riskScore += 18
-    else if (cluster.eventCount >= 80) riskScore += 10
-    if (linkedUsers >= 3) riskScore += 14
-    else if (linkedUsers >= 1) riskScore += 6
-    if (isBanned) riskScore += 12
-
-    const riskLevel: 'high' | 'medium' | 'low' | 'info' =
-      riskScore >= 40 ? 'high' : riskScore >= 22 ? 'medium' : riskScore >= 10 ? 'low' : 'info'
-
-    return {
-      ...cluster,
-      city: cityRow?.city || '',
-      country: cityRow?.country || '',
-      topPath: pathRow?.path || '/',
-      linkedUsers,
-      isBanned,
-      riskScore,
-      riskLevel
-    }
-  })
 
   const bannedTopIpCount = topIps.filter((row) => {
     const ban = client.db.select().from(visitorBans)
@@ -1146,19 +1003,6 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
     score: number
   }> = []
 
-  for (const cluster of ipClusters) {
-    if (cluster.riskLevel === 'info') continue
-    responseQueue.push({
-      id: `ip:${cluster.ip}`,
-      kind: 'ip_cluster',
-      priority: cluster.riskLevel === 'high' ? 'high' : cluster.riskLevel === 'medium' ? 'medium' : 'low',
-      title: `同一网络来源 ${cluster.ip}`,
-      detail: `${cluster.visitorCount} 个访客 · ${cluster.eventCount} 次操作 · ${cluster.city || '未知地区'}${cluster.isBanned ? ' · 已封禁' : ''}`,
-      href: `/admin/visitors?ip=${encodeURIComponent(cluster.ip)}`,
-      score: cluster.riskScore
-    })
-  }
-
   for (const hint of riskHints) {
     if (hint.level === 'info') continue
     responseQueue.push({
@@ -1206,8 +1050,6 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
   const detail = {
     pathTransitions,
     burstWindows,
-    recentSessions,
-    networkClusters,
     anomalyBaseline,
     peakBurst10m: peakBurst,
     sampleEventCount: recentPathRows.length,
@@ -1247,16 +1089,12 @@ function getSecuritySnapshotInner(client: DatabaseClient) {
     banHygiene,
     banCoverage,
     windows,
-    ipClusters,
     pathTransitions,
     burstWindows,
-    recentSessions,
-    networkClusters,
     anomalyBaseline,
     geoConcentration,
     responseQueue: responseQueue.slice(0, 12),
     detail,
-    suspiciousAgents,
     adminActors,
     opsTimeline,
     pulse,

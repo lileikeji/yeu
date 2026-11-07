@@ -161,15 +161,6 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     group: 'security'
   },
   {
-    key: 'miniapp-analytics',
-    label: '小程序分析',
-    icon: 'i-lucide-smartphone',
-    endpoint: '/api/admin/miniapp/analytics',
-    to: '/admin/miniapp',
-    color: 'text-emerald-700 bg-emerald-50',
-    group: 'security'
-  },
-  {
     key: 'bans',
     label: '封禁',
     icon: 'i-lucide-shield-ban',
