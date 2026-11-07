@@ -317,6 +317,28 @@ function summarizeUserAgent(userAgent: string | null): string {
   return `${platform}/${browser}`
 }
 
+// 分析要物化最多 10 万行 visitor_events 并逐行 JSON.parse，同步阻塞事件循环。
+// 60 秒进程内缓存：概览页/小程序页 1 分钟内的重复打开直读缓存。
+const MINIAPP_ANALYTICS_CACHE_TTL_MS = 60_000
+const miniappAnalyticsCache = new Map<string, { at: number, value: ApiMiniappAnalytics }>()
+
+export function getMiniappAnalyticsCached(
+  client: DatabaseClient,
+  hours = 24,
+  options: {
+    includeRaw?: boolean
+    includeSources?: boolean
+    includeApiMetrics?: boolean
+  } = {}
+): ApiMiniappAnalytics {
+  const cacheKey = `${hours}:${options.includeRaw ? 1 : 0}:${options.includeSources ? 1 : 0}:${options.includeApiMetrics ? 1 : 0}`
+  const cached = miniappAnalyticsCache.get(cacheKey)
+  if (cached && Date.now() - cached.at < MINIAPP_ANALYTICS_CACHE_TTL_MS) return cached.value
+  const value = getMiniappAnalytics(client, hours, options)
+  miniappAnalyticsCache.set(cacheKey, { at: Date.now(), value })
+  return value
+}
+
 export function getMiniappAnalytics(
   client: DatabaseClient,
   hours = 24,

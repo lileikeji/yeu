@@ -379,7 +379,21 @@ function buildInvestigationPlaybook(input: {
 }
 
 
+// 快照是 ~60 条同步 SQL（含 6+ 组跨天 GROUP BY），better-sqlite3 同步执行会
+// 阻塞整个事件循环，把并发的其余 admin 请求全堵在后面。统计非个人数据，
+// 60 秒进程内缓存：首次慢，之后 1 分钟内的进后台/刷新都直读缓存。
+const SECURITY_SNAPSHOT_CACHE_TTL_MS = 60_000
+let securitySnapshotCache: { at: number, value: ReturnType<typeof getSecuritySnapshotInner> } | null = null
+
 export function getSecuritySnapshot(client: DatabaseClient) {
+  const cached = securitySnapshotCache
+  if (cached && Date.now() - cached.at < SECURITY_SNAPSHOT_CACHE_TTL_MS) return cached.value
+  const value = getSecuritySnapshotInner(client)
+  securitySnapshotCache = { at: Date.now(), value }
+  return value
+}
+
+function getSecuritySnapshotInner(client: DatabaseClient) {
   const now = Date.now()
   const since24h = now - DAY_MS
   const since7d = now - DAY_MS * 7

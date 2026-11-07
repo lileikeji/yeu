@@ -1,5 +1,5 @@
 import { adminMiniappAnalyticsQuerySchema } from '../../../../shared/schemas/server'
-import { getMiniappAnalytics } from '../../../modules/visitors/service'
+import { getMiniappAnalyticsCached } from '../../../modules/visitors/service'
 import { hasAdminCapability, requireAdminCapability } from '../../../utils/auth'
 import { writeAudit } from '../../../utils/audit'
 import { useAdminRequest } from '../../../utils/http'
@@ -21,5 +21,5 @@ export default defineEventHandler((event) => {
       details: { hours: query.hours, fields: ['userAgent', 'ip'] }
     })
   }
-  return getMiniappAnalytics(client, query.hours, { includeRaw, includeSources, includeApiMetrics })
+  return getMiniappAnalyticsCached(client, query.hours, { includeRaw, includeSources, includeApiMetrics })
 })

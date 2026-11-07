@@ -842,17 +842,23 @@ export class AMapProvider implements MapProvider {
 
   /** 减速带图标：黄黑斜纹小块 + 深色描边，远看仍能分辨，不抢 POI 的视觉。 */
   private createSpeedBumpIcon(bump: MapSpeedBump): HTMLElement {
+    // 移动端屏幕小、同尺寸图标视觉占比更大：窄屏减半，桌面保持原尺寸。
+    const compact = window.matchMedia('(max-width: 767px)').matches
+    const width = compact ? 12 : 20
+    const height = compact ? 8 : 13
+    const border = compact ? 1 : 1.5
+    const stripe = compact ? 2 : 3
     const element = document.createElement('div')
     element.title = `减速带 #${bump.label}（叮叮车到此踩到近 0）`
     element.setAttribute('aria-label', element.title)
     element.style.cssText = [
       'box-sizing:border-box',
-      'width:20px',
-      'height:13px',
-      'border:1.5px solid #3f3f46',
-      'outline:1.5px solid rgb(255 255 255 / 85%)',
+      `width:${width}px`,
+      `height:${height}px`,
+      `border:${border}px solid #3f3f46`,
+      `outline:${border}px solid rgb(255 255 255 / 85%)`,
       'border-radius:3px',
-      'background:repeating-linear-gradient(135deg,#facc15 0 3px,#18181b 3px 6px)',
+      `background:repeating-linear-gradient(135deg,#facc15 0 ${stripe}px,#18181b ${stripe}px ${stripe * 2}px)`,
       'box-shadow:0 1px 3px rgb(0 0 0 / 35%)'
     ].join(';')
     return element

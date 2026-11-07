@@ -60,12 +60,13 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   assert.match(e2eFixtureSource, /【到这里前先确认】\\n- 核对地点名称和入口标识。/)
 })
 
-test('map header hides branding and reflects the selected place on mobile', () => {
-  assert.match(layoutSource, /v-if="!isMapPage"[\s\S]*?aria-label="迎新指南首页"/)
-  assert.match(layoutSource, /v-else-if="mapHeaderTitle"/)
-  assert.match(layoutSource, /\{\{ mapHeaderTitle \}\}/)
-  assert.match(pageSource, /useState<string>\('map-header-title'/)
-  assert.match(pageSource, /mapHeaderTitle\.value = poi\?\.name \?\? area\?\.name \?\? ''/)
+test('map header keeps the same branding as other pages', () => {
+  // 2026-11-07 用户要求地图页顶栏与其他页面统一：品牌 logo 始终渲染，
+  // 不再有「地图页隐藏 logo、移动端显示选中地点名」的特判。
+  assert.doesNotMatch(layoutSource, /v-if="!isMapPage"[^>]*aria-label="迎新指南首页"/)
+  assert.doesNotMatch(layoutSource, /mapHeaderTitle/)
+  assert.doesNotMatch(pageSource, /map-header-title/)
+  assert.match(layoutSource, /aria-label="迎新指南首页"/)
 })
 
 test('mobile map search and controls use the compact interaction layout', () => {
