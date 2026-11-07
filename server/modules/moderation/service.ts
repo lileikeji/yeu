@@ -65,7 +65,10 @@ export async function moderateOnce(
   options: { fetchImpl?: typeof fetch } = {}
 ): Promise<ModerationVerdict | null> {
   const doFetch = options.fetchImpl ?? fetch
-  const url = `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`
+  // 与 assistant 同一网关契约：baseUrl 不含 /v1（如 http://127.0.0.1:18080），
+  // 由这里补 /v1；调用方若直接给了带 /v1 的端点也不重复追加。
+  const base = config.baseUrl.replace(/\/+$/, '')
+  const url = `${base}${base.endsWith('/v1') ? '' : '/v1'}/chat/completions`
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), config.timeoutMs)
   try {
