@@ -59,6 +59,17 @@ async function load(): Promise<void> {
 
 onMounted(load)
 
+// 跟车卡片切车时组件被复用（focus 直接换对象不经过 null），必须监听车号
+// 重拉，否则 10 号的留言会显示在 11 号的卡片里。
+watch(() => props.busName, () => {
+  payload.value = null
+  body.value = ''
+  composerOpen.value = false
+  feedback.value = ''
+  error.value = ''
+  void load()
+})
+
 async function submit(): Promise<void> {
   const content = body.value.trim()
   if (!content) {
