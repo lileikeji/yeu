@@ -172,3 +172,35 @@ test('moderation: 先审后放——pending 经通过转 approved、违规转 re
     cleanup()
   }
 })
+
+test('moderation: 打卡也先审后放——带文字送判定，空文本直放', async () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO place_moments (id, place_id, kind, body, status, created_at)
+      VALUES ('ck-text', 'place-y', 'checkin', '今天来的，顺便打广告加微信xxx', 'pending', ?)
+    `).run(now)
+    client.sqlite.prepare(`
+      INSERT INTO place_moments (id, place_id, kind, body, status, created_at)
+      VALUES ('ck-empty', 'place-y', 'checkin', '', 'pending', ?)
+    `).run(now)
+
+    const flagged = await moderateMomentRow(client, 'place', 'ck-text', '今天来的，顺便打广告加微信xxx', CONFIG, {
+      fetchImpl: (async () => chatResponse({ violation: true, category: 'spam', reason: '广告' })) as typeof fetch
+    })
+    assert.equal(flagged, true)
+    const empty = await moderateMomentRow(client, 'place', 'ck-empty', '', CONFIG, {
+      fetchImpl: (async () => { throw new Error('不应该调用 LLM') }) as typeof fetch
+    })
+    assert.equal(empty, false)
+
+    const rows = client.sqlite.prepare("SELECT id, status FROM place_moments WHERE place_id = 'place-y' ORDER BY id").all() as Array<{ id: string, status: string }>
+    assert.deepEqual(rows, [
+      { id: 'ck-empty', status: 'approved' },
+      { id: 'ck-text', status: 'rejected' }
+    ])
+  } finally {
+    cleanup()
+  }
+})

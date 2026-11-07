@@ -119,8 +119,23 @@ export async function moderateMomentRow(
   config: ModerationConfig,
   options: { fetchImpl?: typeof fetch } = {}
 ): Promise<boolean> {
-  const verdict = await moderateOnce(config, body, options).catch(() => null)
   const now = Date.now()
+  // 纯打卡无文本：无内容可判，直接按通过放出（记检查时间）。
+  if (!body.trim()) {
+    if (kind === 'bus') {
+      client.db.update(busMoments)
+        .set({ status: 'approved', aiCheckedAt: now, aiReason: '无文本内容' , updatedAt: now })
+        .where(eq(busMoments.id, id))
+        .run()
+    } else {
+      client.db.update(placeMoments)
+        .set({ status: 'approved', aiCheckedAt: now, aiReason: '无文本内容' })
+        .where(eq(placeMoments.id, id))
+        .run()
+    }
+    return false
+  }
+  const verdict = await moderateOnce(config, body, options).catch(() => null)
   if (!verdict) {
     // 巡检失败（网关挂/超时/解析失败）：不卡住留言板，直接放出；
     // ai_checked_at 留 NULL，后台能区分「未判定直发」与「AI 通过」。

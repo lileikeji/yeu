@@ -27,6 +27,8 @@ export interface BusMomentView {
 export interface BusMomentsPayload {
   busName: string
   moments: BusMomentView[]
+  /** 当前访客在此车号最新一条留言的审核状态（null = 没发过）。 */
+  mine: { status: 'pending' | 'approved' | 'rejected' | null }
 }
 
 /** 车号规范化：trim 后截断到上限，空串由调用方（schema 校验）挡。 */
@@ -43,7 +45,8 @@ function displayNameOf(userId: string | null, nickname: string | null): string {
 export function listBusMoments(
   client: DatabaseClient,
   busName: string,
-  limit = BUS_MOMENTS_LIMIT
+  limit = BUS_MOMENTS_LIMIT,
+  identity?: { userId?: string, anonymousKey?: string }
 ): BusMomentsPayload {
   const key = normalizeBusName(busName)
   const rows = client.db
@@ -63,6 +66,20 @@ export function listBusMoments(
     .limit(Math.min(Math.max(limit, 1), BUS_MOMENTS_LIMIT))
     .all()
 
+  const mineRow = identity && (identity.userId || identity.anonymousKey)
+    ? client.db
+        .select({ status: busMoments.status })
+        .from(busMoments)
+        .where(and(
+          eq(busMoments.busName, key),
+          identity.userId
+            ? eq(busMoments.userId, identity.userId)
+            : eq(busMoments.anonymousKey, identity.anonymousKey!)
+        ))
+        .orderBy(desc(busMoments.createdAt))
+        .get()
+    : undefined
+
   return {
     busName: key,
     moments: rows.map(row => ({
@@ -72,7 +89,8 @@ export function listBusMoments(
       body: row.body,
       displayName: displayNameOf(row.userId, row.nickname),
       createdAt: new Date(row.createdAt ?? Date.now()).toISOString()
-    }))
+    })),
+    mine: { status: mineRow?.status ?? null }
   }
 }
 

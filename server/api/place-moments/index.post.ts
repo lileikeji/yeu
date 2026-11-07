@@ -30,11 +30,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const input = await parseBody(event, createPlaceMomentSchema)
-  // AI 巡检（异步不阻塞提交）：文字留言先审后放；打卡无文本始终即时可见。
-  // 只巡检文字留言；纯图片打卡无文本可判。
+  // AI 巡检（异步不阻塞提交）：留言与打卡都先审后放（打卡可能带违规文字）；
+  // 纯空文本在 moderateMomentRow 内直接放行，不浪费 LLM 调用。
   const config = moderationConfigFromRuntime(useRuntimeConfig(event))
   const moment = createPlaceMoment(client, input, identity, ip, Boolean(config))
-  if (config && moment.body) {
+  if (config) {
     void moderateMomentRow(client, 'place', moment.id, moment.body, config).catch(() => {})
   }
 

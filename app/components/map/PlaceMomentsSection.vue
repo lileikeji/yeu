@@ -17,6 +17,7 @@ interface PlaceMomentsPayload {
   moments: MomentView[]
   checkins: number
   checkedInToday: boolean
+  mine: { status: 'pending' | 'approved' | 'rejected' | null }
 }
 
 const props = defineProps<{
@@ -39,6 +40,47 @@ const feedback = ref('')
 const error = ref('')
 const aiPending = ref(false)
 const composerOpen = ref(false)
+let minePollTimer: ReturnType<typeof globalThis.setInterval> | null = null
+let minePollElapsed = 0
+
+function stopMinePolling(): void {
+  if (minePollTimer) clearInterval(minePollTimer)
+  minePollTimer = null
+  minePollElapsed = 0
+}
+
+/** 审核中每 4 秒查一次自己的留言状态：过审自动刷新上屏，被拒/超时给出提示。 */
+function startMinePolling(): void {
+  stopMinePolling()
+  minePollTimer = setInterval(async () => {
+    minePollElapsed += 4
+    try {
+      const payload = await userFetch<PlaceMomentsPayload>('/api/public/place-moments', {
+        query: { placeId: props.placeId }
+      })
+      const status = payload.mine?.status
+      if (status === 'approved') {
+        stopMinePolling()
+        aiPending.value = false
+        feedback.value = '审核通过，已发布'
+        await load()
+      } else if (status === 'rejected') {
+        stopMinePolling()
+        aiPending.value = false
+        feedback.value = ''
+        error.value = '留言未通过审核，如有疑问请联系管理员'
+      } else if (minePollElapsed >= 60) {
+        stopMinePolling()
+        aiPending.value = false
+        feedback.value = '审核时间较长，稍后刷新可见'
+      }
+    } catch {
+      // 轮询单次失败忽略，下轮再试
+    }
+  }, 4_000)
+}
+
+onUnmounted(stopMinePolling)
 const fileInput = ref<HTMLInputElement | null>(null)
 
 function formatWhen(iso: string): string {
@@ -74,6 +116,7 @@ watch(() => props.placeId, () => {
   feedback.value = ''
   error.value = ''
   aiPending.value = false
+  stopMinePolling()
   composerOpen.value = false
   void load()
 })
@@ -181,22 +224,14 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
         images: images.value
       }
     })
-    // 文字留言先审后放：AI 启用时提交进 pending，提示审核中动画。
-    aiPending.value = kind === 'comment' && response.moment?.status === 'pending'
-    feedback.value = kind === 'checkin' ? '打卡成功' : (aiPending.value ? 'AI 审核中…' : '发布成功')
+    // 留言与打卡都先审后放：AI 启用时提交进 pending，提示审核中动画。
+    aiPending.value = response.moment?.status === 'pending'
+    feedback.value = aiPending.value ? (kind === 'checkin' ? '打卡成功，AI 审核中…' : 'AI 审核中…') : (kind === 'checkin' ? '打卡成功' : '发布成功')
     body.value = ''
     images.value = []
     composerOpen.value = false
-    if (!aiPending.value) await load()
-    if (aiPending.value) {
-      // 提示挂 15 秒自动消失；判定完成（通常数秒）后刷新列表即可见
-      setTimeout(() => {
-        if (aiPending.value) {
-          aiPending.value = false
-          feedback.value = ''
-        }
-      }, 15_000)
-    }
+    if (aiPending.value) startMinePolling()
+    else await load()
   } catch (err) {
     error.value = getRequestMessage(err, kind === 'checkin' ? '打卡失败' : '发布失败')
   } finally {

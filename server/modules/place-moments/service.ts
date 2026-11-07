@@ -30,6 +30,8 @@ export interface PlaceMomentsPayload {
   moments: PlaceMomentView[]
   checkins: number
   checkedInToday: boolean
+  /** 当前访客在此地点最新一条留言的审核状态（null = 没发过）；先审后放的轮询据此热刷新。 */
+  mine: { status: 'pending' | 'approved' | 'rejected' | null }
 }
 
 const IMAGE_URL = /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i
@@ -119,6 +121,21 @@ export function listPlaceMoments(
     && row.dayKey === today
     && (identity.userId ? row.userId === identity.userId : row.anonymousKey === identity.anonymousKey))
 
+  // 自己最新一条（不限 status）：先审后放的前端轮询据此判断过审/被拒。
+  const mineRow = identity.userId || identity.anonymousKey
+    ? client.db
+        .select({ status: placeMoments.status })
+        .from(placeMoments)
+        .where(and(
+          eq(placeMoments.placeId, key),
+          identity.userId
+            ? eq(placeMoments.userId, identity.userId)
+            : eq(placeMoments.anonymousKey, identity.anonymousKey!)
+        ))
+        .orderBy(desc(placeMoments.createdAt))
+        .get()
+    : undefined
+
   return {
     placeId: placeId.trim(),
     moments: rows.map(row => ({
@@ -131,7 +148,8 @@ export function listPlaceMoments(
       dayKey: row.dayKey
     })),
     checkins: total?.count ?? 0,
-    checkedInToday
+    checkedInToday,
+    mine: { status: mineRow?.status ?? null }
   }
 }
 
@@ -172,7 +190,7 @@ export function createPlaceMoment(
     if (existing) {
       throw createError({
         statusCode: 409,
-        statusMessage: 'Already checked in today',
+        statusMessage: '今天已打过卡，等审核通过后展示',
         data: { code: 'MOMENT_ALREADY_CHECKED_IN' }
       })
     }
@@ -189,11 +207,11 @@ export function createPlaceMoment(
     body,
     images: JSON.stringify(images),
     dayKey,
-    // 打卡无文本不走 AI 始终即时可见；文字留言在 AI 巡检启用时先审后放。
-    status: (!aiEnabled || input.kind === 'checkin') ? 'approved' as const : 'pending' as const,
+    // AI 巡检启用时全部先审后放（打卡可能带文字，同样可能违规）；禁用 = 直接放出。
+    status: aiEnabled ? 'pending' as const : 'approved' as const,
     createdAt: now
   }).run()
 
-  const status = (!aiEnabled || input.kind === 'checkin') ? 'approved' as const : 'pending' as const
+  const status = aiEnabled ? 'pending' as const : 'approved' as const
   return { id, placeId: key, kind: input.kind, body, images, dayKey, status, createdAt: now }
 }

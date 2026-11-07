@@ -14,6 +14,7 @@ interface BusMomentView {
 interface BusMomentsPayload {
   busName: string
   moments: BusMomentView[]
+  mine: { status: 'pending' | 'approved' | 'rejected' | null }
 }
 
 const props = defineProps<{
@@ -31,6 +32,47 @@ const submitting = ref(false)
 const feedback = ref('')
 const error = ref('')
 const aiPending = ref(false)
+let minePollTimer: ReturnType<typeof globalThis.setInterval> | null = null
+let minePollElapsed = 0
+
+function stopMinePolling(): void {
+  if (minePollTimer) clearInterval(minePollTimer)
+  minePollTimer = null
+  minePollElapsed = 0
+}
+
+/** 审核中每 4 秒查一次自己的留言状态：过审自动刷新上屏，被拒/超时给出提示。 */
+function startMinePolling(): void {
+  stopMinePolling()
+  minePollTimer = setInterval(async () => {
+    minePollElapsed += 4
+    try {
+      const payload = await userFetch<BusMomentsPayload>('/api/public/bus-moments', {
+        query: { busName: props.busName }
+      })
+      const status = payload.mine?.status
+      if (status === 'approved') {
+        stopMinePolling()
+        aiPending.value = false
+        feedback.value = '审核通过，已发布'
+        await load()
+      } else if (status === 'rejected') {
+        stopMinePolling()
+        aiPending.value = false
+        feedback.value = ''
+        error.value = '留言未通过审核，如有疑问请联系管理员'
+      } else if (minePollElapsed >= 60) {
+        stopMinePolling()
+        aiPending.value = false
+        feedback.value = '审核时间较长，稍后刷新可见'
+      }
+    } catch {
+      // 轮询单次失败忽略，下轮再试
+    }
+  }, 4_000)
+}
+
+onUnmounted(stopMinePolling)
 
 function formatWhen(iso: string): string {
   const date = new Date(iso)
@@ -69,6 +111,7 @@ watch(() => props.busName, () => {
   feedback.value = ''
   error.value = ''
   aiPending.value = false
+  stopMinePolling()
   void load()
 })
 
@@ -95,16 +138,8 @@ async function submit(): Promise<void> {
     feedback.value = aiPending.value ? 'AI 审核中…' : '发布成功'
     body.value = ''
     composerOpen.value = false
-    if (!aiPending.value) await load()
-    if (aiPending.value) {
-      // 提示挂 15 秒自动消失；判定完成（通常数秒）后刷新列表即可见
-      setTimeout(() => {
-        if (aiPending.value) {
-          aiPending.value = false
-          feedback.value = ''
-        }
-      }, 15_000)
-    }
+    if (aiPending.value) startMinePolling()
+    else await load()
   } catch (err) {
     error.value = getRequestMessage(err, '发布失败')
   } finally {
