@@ -455,6 +455,10 @@ export class AMapProvider implements MapProvider {
     this.refreshAreaSelection()
   }
 
+  getZoom(): number {
+    return this.map?.getZoom() ?? SINGLE_POI_ZOOM
+  }
+
   flyToPoi(id: string): boolean {
     const record = this.markers.get(id)
     if (record && this.map) {

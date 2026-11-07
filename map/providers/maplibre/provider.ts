@@ -346,6 +346,10 @@ export class MapLibrePreviewProvider implements MapProvider {
 
   setSelectedArea(_id: string | null): void {}
 
+  getZoom(): number {
+    return this.map?.getZoom() ?? SINGLE_POI_ZOOM
+  }
+
   flyToPoi(id: string): boolean {
     const poi = this.pois.find(candidate => candidate.id === id)
 

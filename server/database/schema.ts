@@ -1235,3 +1235,28 @@ export const placeMoments = sqliteTable('place_moments', {
   check('place_moments_kind_check', sql`${table.kind} in ('comment', 'checkin')`),
   check('place_moments_status_check', sql`${table.status} in ('pending', 'approved', 'rejected')`)
 ])
+
+/**
+ * 校车留言板，按车号（云一卡通 car_name，如「1」「2」）分区。
+ *
+ * 与 place_moments 分表：分区键不同（车号 vs 地点），且校车留言没有打卡与
+ * 图片，纯文字。按 `bus_name` 聚合而不是 routeId:busName——同一辆车往返
+ * 两个方向时 routeId 不同，按车号聚合才符合「讨论 3 号车」的直觉；
+ * `route_name` 只记录发帖时的线路方向作上下文，不参与分区。
+ * `user_id`/`anonymous_key` 与 place_moments 同约定。
+ */
+export const busMoments = sqliteTable('bus_moments', {
+  id: text('id').primaryKey(),
+  busName: text('bus_name').notNull(),
+  routeName: text('route_name').notNull().default(''),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  anonymousKey: text('anonymous_key'),
+  body: text('body').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull().default('approved'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  index('bus_moments_bus_created_idx').on(table.busName, table.createdAt),
+  index('bus_moments_status_created_idx').on(table.status, table.createdAt),
+  check('bus_moments_status_check', sql`${table.status} in ('pending', 'approved', 'rejected')`)
+])

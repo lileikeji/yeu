@@ -859,6 +859,8 @@ interface VehicleFocus {
   updatedAt?: string
   source: 'transit' | 'campus'
   busId?: string
+  /** 校内校车的线路方向（旧区--新区），留言列表里作上下文展示。 */
+  routeName?: string
 }
 const transitVehicleFocus = ref<VehicleFocus | null>(null)
 /** 跟车时每秒刷新的 GPS 年龄（秒）。 */
@@ -926,7 +928,8 @@ function handleBusChipSelect(id: string): void {
     nextStation: bus.siteName,
     updatedAt: bus.updatedAt,
     source: 'campus',
-    busId: bus.busName
+    busId: bus.busName,
+    routeName: bus.routeName
   })
 }
 
@@ -953,7 +956,11 @@ watch(busVehicles, (list) => {
     updatedAt: bus.updatedAt
   }
   const moved = wgs84ToGcj02(bus.lng, bus.lat)
-  mapProvider.value?.flyToPoint({ lng: moved.longitude, lat: moved.latitude, crs: 'GCJ-02' }, 17)
+  // 只放大不缩小：用户手动放大后保持当前 zoom，没动过（或缩小到 17 以下）用 17 保底防跟丢。
+  mapProvider.value?.flyToPoint(
+    { lng: moved.longitude, lat: moved.latitude, crs: 'GCJ-02' },
+    Math.max(mapProvider.value?.getZoom?.() ?? 17, 17)
+  )
 }, { deep: false })
 
 let transitLoadPromise: Promise<boolean> | null = null
@@ -1042,7 +1049,11 @@ function followTransitVehicle(): void {
     updatedAt: transitLive.value?.fetchedAt,
     source: 'transit'
   }
-  mapProvider.value?.flyToPoint({ lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' }, 17)
+  // 只放大不缩小（同校内校车跟车）：保持用户手动放大的 zoom，保底 17 防跟丢。
+  mapProvider.value?.flyToPoint(
+    { lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' },
+    Math.max(mapProvider.value?.getZoom?.() ?? 17, 17)
+  )
 }
 
 async function loadTransitDepartures(): Promise<void> {
@@ -2052,6 +2063,14 @@ onBeforeUnmount(() => {
           </dd>
         </div>
       </dl>
+
+      <!-- 车上留言（按车号分区）：只给校内校车，校外公交是线路无稳定车号 -->
+      <MapBusMomentsSection
+        v-if="transitVehicleFocus.source === 'campus'"
+        :bus-name="transitVehicleFocus.plate"
+        :route-name="transitVehicleFocus.routeName ?? ''"
+      />
+
       <p class="mt-2 flex items-center gap-1 text-[10px] text-zinc-400">
         <UIcon
           name="i-lucide-crosshair"

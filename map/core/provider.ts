@@ -73,6 +73,8 @@ export interface MapProvider {
   setSpeedBumps?(bumps: MapSpeedBump[]): void
   planWalkingRoute(origin: GeoPoint, destination: GeoPoint): Promise<RouteSummary>
   searchVisiblePois(query: string): Promise<MapPoi[]>
+  /** 当前地图 zoom（跟车等连续镜头用它做「只放大不缩小」的保底）；provider 可不实现。 */
+  getZoom?(): number
   clearRoute(): void
   onPoiSelect(handler: PoiSelectHandler): () => void
   /** 校内校车车标被点：回调车辆 id（MapBus.id），返回取消订阅。provider 可不实现。 */
