@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createPlaceMomentSchema } from '../../../shared/schemas/server'
 import { createPlaceMoment } from '../../modules/place-moments/service'
+import { moderateMomentRow, moderationConfigFromRuntime } from '../../modules/moderation/service'
 import { useAppDatabase } from '../../utils/database'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { assertRateLimit } from '../../utils/rate-limit'
@@ -29,7 +30,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const input = await parseBody(event, createPlaceMomentSchema)
-  const moment = createPlaceMoment(client, input, identity)
+  const moment = createPlaceMoment(client, input, identity, ip)
+
+  // AI 巡检（异步不阻塞提交）：违规由 moderateMomentRow 撤回但记录保留。
+  // 只巡检文字留言；纯图片打卡无文本可判。
+  const config = moderationConfigFromRuntime(useRuntimeConfig(event))
+  if (config && moment.body) {
+    void moderateMomentRow(client, 'place', moment.id, moment.body, config).catch(() => {})
+  }
+
   setResponseStatus(event, 201)
   return { moment }
 })

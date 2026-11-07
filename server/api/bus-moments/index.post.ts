@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createBusMomentSchema } from '../../../shared/schemas/server'
 import { createBusMoment } from '../../modules/transit/bus-moments'
+import { moderateMomentRow, moderationConfigFromRuntime } from '../../modules/moderation/service'
 import { useAppDatabase } from '../../utils/database'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { assertRateLimit } from '../../utils/rate-limit'
@@ -29,7 +30,14 @@ export default defineEventHandler(async (event) => {
   }
 
   const input = await parseBody(event, createBusMomentSchema)
-  const moment = createBusMoment(client, input, identity)
+  const moment = createBusMoment(client, input, identity, ip)
+
+  // AI 巡检（异步不阻塞提交）：违规由 moderateMomentRow 撤回但记录保留。
+  const config = moderationConfigFromRuntime(useRuntimeConfig(event))
+  if (config) {
+    void moderateMomentRow(client, 'bus', moment.id, moment.body, config).catch(() => {})
+  }
+
   setResponseStatus(event, 201)
   return { moment }
 })

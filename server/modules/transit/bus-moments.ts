@@ -79,7 +79,8 @@ export function listBusMoments(
 export function createBusMoment(
   client: DatabaseClient,
   input: CreateBusMomentInput,
-  identity: { userId?: string, anonymousKey?: string }
+  identity: { userId?: string, anonymousKey?: string },
+  ip?: string | null
 ) {
   const identityKey = identity.userId ?? identity.anonymousKey
   if (!identityKey) throw new Error('BUS_MOMENT_IDENTITY_REQUIRED')
@@ -99,6 +100,7 @@ export function createBusMoment(
     routeName: input.routeName.trim().slice(0, BUS_NAME_MAX),
     userId: identity.userId ?? null,
     anonymousKey: identity.anonymousKey ?? null,
+    ip: ip ?? null,
     body,
     // 与 place_moments 同一决策：学生留言板即时可见，不是需要审核的评分。
     status: 'approved',

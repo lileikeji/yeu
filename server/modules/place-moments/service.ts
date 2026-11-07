@@ -138,7 +138,8 @@ export function listPlaceMoments(
 export function createPlaceMoment(
   client: DatabaseClient,
   input: CreatePlaceMomentInput,
-  identity: { userId?: string, anonymousKey?: string }
+  identity: { userId?: string, anonymousKey?: string },
+  ip?: string | null
 ) {
   const identityKey = identity.userId ?? identity.anonymousKey
   if (!identityKey) throw new Error('MOMENT_IDENTITY_REQUIRED')
@@ -181,6 +182,7 @@ export function createPlaceMoment(
     placeId: key,
     userId: identity.userId ?? null,
     anonymousKey: identity.anonymousKey ?? null,
+    ip: ip ?? null,
     kind: input.kind,
     body,
     images: JSON.stringify(images),

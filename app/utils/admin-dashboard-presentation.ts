@@ -236,6 +236,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: '反馈', icon: 'i-lucide-message-square-warning', to: '/admin/feedback' },
       { label: '评价审核', icon: 'i-lucide-star', to: '/admin/place-reviews' },
+      { label: '留言治理', icon: 'i-lucide-shield-check', to: '/admin/moments' },
       { label: '账号', icon: 'i-lucide-users', to: '/admin/users' },
       { label: '组织管理员', icon: 'i-lucide-shield-user', to: '/admin/organization-accounts' },
       { label: '群聊', icon: 'i-lucide-messages-square', to: '/admin/chat' },

@@ -1222,6 +1222,15 @@ export const placeMoments = sqliteTable('place_moments', {
   images: text('images').notNull().default('[]'),
   // 本地日期（Asia/Shanghai），用于「同一个人同一天同一个地点只算一次打卡」。
   dayKey: text('day_key').notNull().default(''),
+  // 审计与 AI 巡检（与 bus_moments 同构）：ip 仅 admin 可见（visitors.lastIp 口径）；
+  // ai_checked_at 为 NULL 表示未巡检；ai_category 非空 = AI 判违规；撤回/恢复人写
+  // moderated_by（'ai' 或 admin id）与 moderation_reason。
+  ip: text('ip'),
+  aiCheckedAt: integer('ai_checked_at'),
+  aiCategory: text('ai_category'),
+  aiReason: text('ai_reason'),
+  moderatedBy: text('moderated_by'),
+  moderationReason: text('moderation_reason'),
   status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull().default('approved'),
   createdAt: timestamp('created_at')
 }, table => [
@@ -1252,6 +1261,13 @@ export const busMoments = sqliteTable('bus_moments', {
   userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
   anonymousKey: text('anonymous_key'),
   body: text('body').notNull(),
+  // 审计与 AI 巡检（与 place_moments 同构，口径见那张表的注释）。
+  ip: text('ip'),
+  aiCheckedAt: integer('ai_checked_at'),
+  aiCategory: text('ai_category'),
+  aiReason: text('ai_reason'),
+  moderatedBy: text('moderated_by'),
+  moderationReason: text('moderation_reason'),
   status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull().default('approved'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')

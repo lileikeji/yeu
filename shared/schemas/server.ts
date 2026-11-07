@@ -1083,6 +1083,22 @@ export const publicBusMomentsQuerySchema = z.object({
   busName: z.string().trim().min(1).max(50)
 }).strict()
 
+// 留言治理（后台）：kind 区分校车/地点留言。
+export const momentKindSchema = z.enum(['bus', 'place'])
+
+export const adminMomentsQuerySchema = z.object({
+  kind: momentKindSchema,
+  status: z.enum(['all', 'approved', 'rejected']).optional(),
+  page: z.coerce.number().int().min(1).max(10_000).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional()
+}).strict()
+
+export const moderateMomentActionSchema = z.object({
+  kind: momentKindSchema,
+  action: z.enum(['withdraw', 'restore']),
+  reason: z.string().trim().max(200).optional()
+}).strict()
+
 // 地图点位反查关联事件：slug 可空（多数点位有，AMap 原生点位没有），name 必传兜底。
 export const publicPlaceEventsQuerySchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
