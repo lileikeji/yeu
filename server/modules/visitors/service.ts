@@ -319,7 +319,7 @@ function summarizeUserAgent(userAgent: string | null): string {
 
 // 分析要物化最多 10 万行 visitor_events 并逐行 JSON.parse，同步阻塞事件循环。
 // 60 秒进程内缓存：概览页/小程序页 1 分钟内的重复打开直读缓存。
-const MINIAPP_ANALYTICS_CACHE_TTL_MS = 60_000
+const MINIAPP_ANALYTICS_CACHE_TTL_MS = 5 * 60_000
 const miniappAnalyticsCache = new Map<string, { at: number, value: ApiMiniappAnalytics }>()
 
 export function getMiniappAnalyticsCached(
