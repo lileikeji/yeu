@@ -29,6 +29,8 @@ export interface BusSnapshot {
   busName: string
   routeId: string
   routeName: string
+  /** 方向判定后所属线路的返程标志（云一卡通同车两方向各上报一条）。 */
+  isBack: boolean
   siteId: string
   siteName: string
   lng: number
@@ -83,6 +85,8 @@ export function useMapBusPositions(options: {
   const lastFix = new Map<string, { lng: number, lat: number }>()
   // 位置真变了才更新时间戳：面板「GPS 更新 N 秒前」据此显示，静止时不会一直 0 秒。
   const movedAt = new Map<string, number>()
+  // 方向判定粘滞：busName -> 上一次选中的 routeId（见 buildDisplay）。
+  const pickedRouteByBus = new Map<string, string>()
   let lastData: BusPositionsResponse | null = null
 
 
@@ -156,8 +160,9 @@ export function useMapBusPositions(options: {
    * 靠「下一站」站点在每条线路上的沿线里程判断——正确那趟的下一站在车前方且很近，
    * 反的那趟同一站在身后或快到终点，得分会被罚到极大。
    */
-  function pickTrip(bus: BusSnapshot, routes: BusRouteSnapshot[]): { route: BusRouteSnapshot, progress: ReturnType<typeof computeBusProgress> } | null {
+  function pickTrip(bus: BusSnapshot, routes: BusRouteSnapshot[]): { route: BusRouteSnapshot, progress: ReturnType<typeof computeBusProgress>, score: number, secondScore: number } | null {
     let best: { route: BusRouteSnapshot, progress: NonNullable<ReturnType<typeof computeBusProgress>>, score: number } | null = null
+    let secondScore = Infinity
     for (const route of routes) {
       const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
       const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
@@ -168,9 +173,14 @@ export function useMapBusPositions(options: {
       const stopAlong = index >= 0 ? progress.stopDistancesAlong[index] : undefined
       const ahead = stopAlong === undefined ? progress.distanceToNextStopMeters : stopAlong - progress.distanceAlong
       const score = ahead >= -25 ? ahead : 1e6 + Math.abs(ahead)
-      if (!best || score < best.score) best = { route, progress, score }
+      if (!best || score < best.score) {
+        secondScore = best?.score ?? Infinity
+        best = { route, progress, score }
+      } else if (score < secondScore) {
+        secondScore = score
+      }
     }
-    return best ? { route: best.route, progress: best.progress } : null
+    return best ? { route: best.route, progress: best.progress, score: best.score, secondScore } : null
   }
 
   function buildDisplay(data: BusPositionsResponse): { snapshots: BusSnapshot[], mapBuses: MapBus[] } {
@@ -188,10 +198,26 @@ export function useMapBusPositions(options: {
     }
 
     for (const [name, entries] of groups) {
-      const trip = entries
+      const scored = entries
         .map(entry => ({ entry, picked: pickTrip(entry, data.routes) }))
         .filter((item): item is { entry: BusSnapshot, picked: NonNullable<ReturnType<typeof pickTrip>> } => Boolean(item.picked))
-        .sort((a, b) => a.picked!.progress!.distanceToNextStopMeters - b.picked!.progress!.distanceToNextStopMeters)[0]
+        .sort((a, b) => a.picked!.progress!.distanceToNextStopMeters - b.picked!.progress!.distanceToNextStopMeters)
+      const best = scored[0]
+      // 方向粘滞：上游同车两方向各上报一条、坐标完全相同，车在站点上或下一站
+      // 在线路中段时两个方向打分几乎一样，会来回翻转。分差小于 120m 时沿用
+      // 上一轮的判定，等车开出一段（下一站真实拉开）再自动纠正。
+      const lastRouteId = pickedRouteByBus.get(name)
+      let chosen = best
+      if (best && lastRouteId && best.entry.routeId !== lastRouteId) {
+        const sticky = scored.find(item => item.entry.routeId === lastRouteId)
+        if (sticky) {
+          const diff = sticky.picked!.progress!.distanceToNextStopMeters - best.picked!.progress!.distanceToNextStopMeters
+          if (diff < 120) chosen = sticky
+        }
+      }
+      if (chosen) pickedRouteByBus.set(name, chosen.entry.routeId)
+      else pickedRouteByBus.delete(name)
+      const trip = chosen
       const bus = trip?.entry ?? entries[0]!
       const progress = trip?.picked?.progress ?? null
       const route = trip?.picked?.route
@@ -239,7 +265,7 @@ export function useMapBusPositions(options: {
       // 回程的折线方向与行驶方向相反，车头要补 180°。
       if (bus.isBack) angleDeg = (angleDeg + 180) % 360
       if (!movedAt.has(name) || haversineMeters(lastFix.get(name) ?? fix, fix) > 3) movedAt.set(name, now)
-      snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, lng: shown.lng, lat: shown.lat })
+      snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, isBack: route?.isBack ?? false, lng: shown.lng, lat: shown.lat })
       mapBuses.push({
         id: name,
         name: bus.busName,

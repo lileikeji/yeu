@@ -2027,6 +2027,12 @@ onBeforeUnmount(() => {
             {{ transitVehicleFocus.plate }}
           </p>
           <p class="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span
+              v-if="transitVehicleFocus.routeName"
+              class="mr-1 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+            >
+              {{ transitVehicleFocus.routeName }}
+            </span>
             下一站 {{ transitVehicleFocus.nextStation || '在途' }}
           </p>
         </div>
