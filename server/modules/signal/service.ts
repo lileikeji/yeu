@@ -9,12 +9,13 @@
  * 事件 id 与 slug 都由条目身份推导，所以同一份数据重跑结果稳定，日报的去重记录才不会错位。
  */
 import { createHash } from 'node:crypto'
-import { and, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
   contents,
   contentSources,
   knowledgeDocuments,
+  places,
   signalEventItems,
   signalEvents,
   signalReports,
@@ -22,8 +23,8 @@ import {
 } from '../../database/schema'
 import { activePublicContentCondition } from '../content/visibility'
 import { clusterSignalItems, titleSimilarity } from './clustering'
-import { eventMatchText, loadPlaceIndex, matchPlaceTags } from './places'
-import type { SignalPlaceTag } from './places'
+import { eventMatchText, loadPlaceIndex, matchPlaceTags, parseEventDateHint } from './places'
+import type { EventDateHint, SignalPlaceTag } from './places'
 import { computeSignalHeat, signalTrend } from './heat'
 import type { SignalHeatParticipant, SignalTrend } from './heat'
 import { buildDailyReport, buildPeriodReport } from './report'
@@ -716,6 +717,70 @@ export function listHotSignalEvents(client: DatabaseClient, limit = 20): SignalE
     .limit(Math.min(Math.max(limit, 1), 300))
     .all()
   return rows.map(toSummary)
+}
+
+export interface PlaceEventView {
+  slug: string
+  title: string
+  summary: string
+  tier: SignalTier
+  lastSeenAt: string
+  /** 标题/摘要里解析出的未来活动日期；解析不出为 null。 */
+  dateHint: EventDateHint | null
+}
+
+/**
+ * 按地图点位反查挂在该点位的已发布事件（详情弹窗「相关通知与活动」的数据源）。
+ * slug 缺省时按地点名解析（同名多行时全部并入）。事件量级是每日重建的聚簇
+ * 结果（几十到几百行），json_each 全表扫可接受，靠公共短缓存兜底。
+ */
+export function listPublishedEventsForPlace(
+  client: DatabaseClient,
+  place: { slug?: string | null, name?: string | null },
+  limit = 5
+): PlaceEventView[] {
+  const slugs = new Set<string>()
+  const name = (place.name ?? '').trim()
+  if (place.slug) {
+    // 与打 tag 侧同一承诺：只认已发布点位，草稿 slug 即使被手改进 metadata 也不外露。
+    const row = client.db.select({ slug: places.slug })
+      .from(places)
+      .where(and(eq(places.status, 'published'), eq(places.slug, place.slug)))
+      .get()
+    if (row?.slug) slugs.add(row.slug)
+  }
+  if (name && slugs.size === 0) {
+    const rows = client.db.select({ slug: places.slug })
+      .from(places)
+      .where(and(eq(places.status, 'published'), eq(places.name, name)))
+      .all()
+    for (const row of rows) {
+      if (row.slug) slugs.add(row.slug)
+    }
+  }
+  if (slugs.size === 0) return []
+  const slugList = [...slugs]
+  const rows = client.db.select(EVENT_COLUMNS)
+    .from(signalEvents)
+    .where(and(
+      eq(signalEvents.status, 'published'),
+      sql`EXISTS (SELECT 1 FROM json_each(${signalEvents.metadataJson}, '$.places') p
+        WHERE json_extract(p.value, '$.slug') IN (${sql.join(slugList.map(item => sql`${item}`), sql`, `)}))`
+    ))
+    .orderBy(desc(signalEvents.lastSeenAt))
+    .limit(Math.min(Math.max(limit, 1), 20))
+    .all()
+  return rows.map(row => {
+    const summary = toSummary(row)
+    return {
+      slug: summary.slug,
+      title: summary.title,
+      summary: summary.summary,
+      tier: summary.tier,
+      lastSeenAt: summary.lastSeenAt,
+      dateHint: parseEventDateHint(summary.title, summary.summary, row.lastSeenAt)
+    }
+  })
 }
 
 export interface SignalEventDetail extends SignalEventSummary {

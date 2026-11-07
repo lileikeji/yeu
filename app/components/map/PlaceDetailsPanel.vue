@@ -240,6 +240,12 @@ const navigationTooltip = computed(() => {
       </div>
     </dl>
 
+    <MapPlaceEventsSection
+      :place-id="props.place.id"
+      :place-slug="props.place.slug"
+      :place-name="props.place.name"
+    />
+
     <MapPlaceRatingSection
       :place-id="props.place.id"
       :place-name="props.place.name"

@@ -1072,6 +1072,23 @@ export const publicPlaceMomentsQuerySchema = z.object({
   placeId: publicPlaceIdSchema
 }).strict()
 
+// 校车留言：busName 是云一卡通 car_name（车号），routeName 只作上下文不参与分区。
+export const createBusMomentSchema = z.object({
+  busName: z.string().trim().min(1).max(50),
+  routeName: z.string().trim().max(50).default(''),
+  body: z.string().trim().min(1).max(300)
+}).strict()
+
+export const publicBusMomentsQuerySchema = z.object({
+  busName: z.string().trim().min(1).max(50)
+}).strict()
+
+// 地图点位反查关联事件：slug 可空（多数点位有，AMap 原生点位没有），name 必传兜底。
+export const publicPlaceEventsQuerySchema = z.object({
+  slug: z.string().trim().min(1).max(120).optional(),
+  name: z.string().trim().min(1).max(120)
+}).strict()
+
 export const createPlaceMomentSchema = z.object({
   placeId: publicPlaceIdSchema,
   kind: z.enum(['comment', 'checkin']).default('comment'),
