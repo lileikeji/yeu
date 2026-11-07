@@ -122,18 +122,31 @@ export async function moderateMomentRow(
   const verdict = await moderateOnce(config, body, options).catch(() => null)
   const now = Date.now()
   if (!verdict) {
-    // 未判定：只记检查时间？不——留 NULL 才能在后台区分「未巡检」与「通过」。
-    return false
-  }
-  if (!verdict.violation) {
+    // 巡检失败（网关挂/超时/解析失败）：不卡住留言板，直接放出；
+    // ai_checked_at 留 NULL，后台能区分「未判定直发」与「AI 通过」。
     if (kind === 'bus') {
       client.db.update(busMoments)
-        .set({ aiCheckedAt: now, aiCategory: null, aiReason: verdict.reason })
+        .set({ status: 'approved', updatedAt: now })
         .where(eq(busMoments.id, id))
         .run()
     } else {
       client.db.update(placeMoments)
-        .set({ aiCheckedAt: now, aiCategory: null, aiReason: verdict.reason })
+        .set({ status: 'approved' })
+        .where(eq(placeMoments.id, id))
+        .run()
+    }
+    return false
+  }
+  if (!verdict.violation) {
+    // 先审后放：通过才放出（pending -> approved）
+    if (kind === 'bus') {
+      client.db.update(busMoments)
+        .set({ status: 'approved', aiCheckedAt: now, aiCategory: null, aiReason: verdict.reason, updatedAt: now })
+        .where(eq(busMoments.id, id))
+        .run()
+    } else {
+      client.db.update(placeMoments)
+        .set({ status: 'approved', aiCheckedAt: now, aiCategory: null, aiReason: verdict.reason })
         .where(eq(placeMoments.id, id))
         .run()
     }
@@ -205,7 +218,7 @@ function displayNameOf(userId: string | null, nickname: string | null): string {
 
 export function adminListMoments(
   client: DatabaseClient,
-  options: { kind: MomentKind, status?: 'all' | 'approved' | 'rejected', page?: number, pageSize?: number }
+  options: { kind: MomentKind, status?: 'all' | 'pending' | 'approved' | 'rejected', page?: number, pageSize?: number }
 ): AdminMomentsPayload {
   const kind = options.kind
   const page = Math.max(1, options.page ?? 1)

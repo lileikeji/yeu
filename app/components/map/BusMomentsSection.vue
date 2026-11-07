@@ -30,6 +30,7 @@ const composerOpen = ref(false)
 const submitting = ref(false)
 const feedback = ref('')
 const error = ref('')
+const aiPending = ref(false)
 
 function formatWhen(iso: string): string {
   const date = new Date(iso)
@@ -67,6 +68,7 @@ watch(() => props.busName, () => {
   composerOpen.value = false
   feedback.value = ''
   error.value = ''
+  aiPending.value = false
   void load()
 })
 
@@ -79,7 +81,7 @@ async function submit(): Promise<void> {
   submitting.value = true
   error.value = ''
   try {
-    await userFetch('/api/bus-moments', {
+    const response = await userFetch<{ moment: { status?: 'pending' | 'approved' | 'rejected' } }>('/api/bus-moments', {
       method: 'POST',
       body: {
         busName: props.busName,
@@ -87,10 +89,22 @@ async function submit(): Promise<void> {
         body: content
       }
     })
-    feedback.value = '发布成功'
+    // 先审后放：AI 启用时提交进 pending，前端提示审核中动画；
+    // 判定完成（数秒）后刷新列表即可见（违规会被撤下，保留在后台）。
+    aiPending.value = response.moment?.status === 'pending'
+    feedback.value = aiPending.value ? 'AI 审核中…' : '发布成功'
     body.value = ''
     composerOpen.value = false
-    await load()
+    if (!aiPending.value) await load()
+    if (aiPending.value) {
+      // 提示挂 15 秒自动消失；判定完成（通常数秒）后刷新列表即可见
+      setTimeout(() => {
+        if (aiPending.value) {
+          aiPending.value = false
+          feedback.value = ''
+        }
+      }, 15_000)
+    }
   } catch (err) {
     error.value = getRequestMessage(err, '发布失败')
   } finally {
@@ -121,8 +135,13 @@ async function submit(): Promise<void> {
     </p>
     <p
       v-else-if="feedback"
-      class="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400"
+      class="mt-1 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400"
     >
+      <UIcon
+        v-if="aiPending"
+        name="i-lucide-loader-circle"
+        class="size-3 animate-spin"
+      />
       {{ feedback }}
     </p>
 

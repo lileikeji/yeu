@@ -30,10 +30,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const input = await parseBody(event, createBusMomentSchema)
-  const moment = createBusMoment(client, input, identity, ip)
-
-  // AI 巡检（异步不阻塞提交）：违规由 moderateMomentRow 撤回但记录保留。
+  // AI 巡检（异步不阻塞提交）：启用时先 pending（先审后放），判定通过才放出。
   const config = moderationConfigFromRuntime(useRuntimeConfig(event))
+  const moment = createBusMoment(client, input, identity, ip, Boolean(config))
   if (config) {
     void moderateMomentRow(client, 'bus', moment.id, moment.body, config).catch(() => {})
   }

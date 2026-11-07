@@ -143,3 +143,32 @@ test('moderation: 地点留言违规同样撤回', async () => {
     cleanup()
   }
 })
+
+test('moderation: 先审后放——pending 经通过转 approved、违规转 rejected、失败直发 approved', async () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const now = Date.now()
+    for (const [id, body] of [['ev-pass', '正常留言'], ['ev-bad', '加微信卖卡'], ['ev-fail', '车坏了']] as const) {
+      client.sqlite.prepare(`
+        INSERT INTO bus_moments (id, bus_name, body, status, created_at, updated_at)
+        VALUES (?, '8', ?, 'pending', ?, ?)
+      `).run(id, body, now, now)
+    }
+    const okFetch = (async () => chatResponse({ violation: false, category: null, reason: null })) as typeof fetch
+    const badFetch = (async () => chatResponse({ violation: true, category: 'spam', reason: '广告' })) as typeof fetch
+    const deadFetch = (async () => jsonResponse({}, false)) as typeof fetch
+
+    assert.equal(await moderateMomentRow(client, 'bus', 'ev-pass', '正常留言', CONFIG, { fetchImpl: okFetch }), false)
+    assert.equal(await moderateMomentRow(client, 'bus', 'ev-bad', '加微信卖卡', CONFIG, { fetchImpl: badFetch }), true)
+    assert.equal(await moderateMomentRow(client, 'bus', 'ev-fail', '车坏了', CONFIG, { fetchImpl: deadFetch }), false)
+
+    const rows = client.sqlite.prepare("SELECT id, status, ai_checked_at IS NOT NULL AS checked FROM bus_moments WHERE bus_name = '8' ORDER BY id").all() as Array<{ id: string, status: string, checked: number }>
+    assert.deepEqual(rows, [
+      { id: 'ev-bad', status: 'rejected', checked: 1 },
+      { id: 'ev-fail', status: 'approved', checked: 0 },
+      { id: 'ev-pass', status: 'approved', checked: 1 }
+    ])
+  } finally {
+    cleanup()
+  }
+})

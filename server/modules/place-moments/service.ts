@@ -139,7 +139,9 @@ export function createPlaceMoment(
   client: DatabaseClient,
   input: CreatePlaceMomentInput,
   identity: { userId?: string, anonymousKey?: string },
-  ip?: string | null
+  ip?: string | null,
+  /** AI 巡检启用时文字留言先 pending（判定通过才放出）；禁用/缺省时直接 approved。打卡无文本不走 AI，始终 approved。 */
+  aiEnabled?: boolean
 ) {
   const identityKey = identity.userId ?? identity.anonymousKey
   if (!identityKey) throw new Error('MOMENT_IDENTITY_REQUIRED')
@@ -187,10 +189,11 @@ export function createPlaceMoment(
     body,
     images: JSON.stringify(images),
     dayKey,
-    // 打卡和留言都即时可见：这是学生之间的留言板，不是需要审核的评分。
-    status: 'approved',
+    // 打卡无文本不走 AI 始终即时可见；文字留言在 AI 巡检启用时先审后放。
+    status: (!aiEnabled || input.kind === 'checkin') ? 'approved' as const : 'pending' as const,
     createdAt: now
   }).run()
 
-  return { id, placeId: key, kind: input.kind, body, images, dayKey, createdAt: now }
+  const status = (!aiEnabled || input.kind === 'checkin') ? 'approved' as const : 'pending' as const
+  return { id, placeId: key, kind: input.kind, body, images, dayKey, status, createdAt: now }
 }

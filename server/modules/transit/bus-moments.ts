@@ -80,7 +80,9 @@ export function createBusMoment(
   client: DatabaseClient,
   input: CreateBusMomentInput,
   identity: { userId?: string, anonymousKey?: string },
-  ip?: string | null
+  ip?: string | null,
+  /** AI 巡检启用时先 pending，判定通过才放出；禁用/缺省时直接 approved。 */
+  aiEnabled?: boolean
 ) {
   const identityKey = identity.userId ?? identity.anonymousKey
   if (!identityKey) throw new Error('BUS_MOMENT_IDENTITY_REQUIRED')
@@ -94,6 +96,7 @@ export function createBusMoment(
   }
   const now = Date.now()
   const id = randomUUID()
+  const status = aiEnabled ? 'pending' as const : 'approved' as const
   client.db.insert(busMoments).values({
     id,
     busName: key,
@@ -102,12 +105,12 @@ export function createBusMoment(
     anonymousKey: identity.anonymousKey ?? null,
     ip: ip ?? null,
     body,
-    // 与 place_moments 同一决策：学生留言板即时可见，不是需要审核的评分。
-    status: 'approved',
+    // AI 巡检启用 = 先审后放（pending，判定通过才 approved）；禁用 = 直接放出。
+    status,
     createdAt: now,
     updatedAt: now
   }).run()
-  return { id, busName: key, routeName: input.routeName, body, createdAt: now }
+  return { id, busName: key, routeName: input.routeName, body, status, createdAt: now }
 }
 
 export function countBusMoments(client: DatabaseClient, busName: string): number {

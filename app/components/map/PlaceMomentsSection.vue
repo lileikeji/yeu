@@ -37,6 +37,7 @@ const uploading = ref(false)
 const submitting = ref(false)
 const feedback = ref('')
 const error = ref('')
+const aiPending = ref(false)
 const composerOpen = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -72,6 +73,7 @@ watch(() => props.placeId, () => {
   images.value = []
   feedback.value = ''
   error.value = ''
+  aiPending.value = false
   composerOpen.value = false
   void load()
 })
@@ -170,7 +172,7 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
   error.value = ''
   feedback.value = ''
   try {
-    await userFetch('/api/place-moments', {
+    const response = await userFetch<{ moment: { status?: 'pending' | 'approved' | 'rejected' } }>('/api/place-moments', {
       method: 'POST',
       body: {
         placeId: props.placeId,
@@ -179,11 +181,22 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
         images: images.value
       }
     })
-    feedback.value = kind === 'checkin' ? '打卡成功' : '发布成功'
+    // 文字留言先审后放：AI 启用时提交进 pending，提示审核中动画。
+    aiPending.value = kind === 'comment' && response.moment?.status === 'pending'
+    feedback.value = kind === 'checkin' ? '打卡成功' : (aiPending.value ? 'AI 审核中…' : '发布成功')
     body.value = ''
     images.value = []
     composerOpen.value = false
-    await load()
+    if (!aiPending.value) await load()
+    if (aiPending.value) {
+      // 提示挂 15 秒自动消失；判定完成（通常数秒）后刷新列表即可见
+      setTimeout(() => {
+        if (aiPending.value) {
+          aiPending.value = false
+          feedback.value = ''
+        }
+      }, 15_000)
+    }
   } catch (err) {
     error.value = getRequestMessage(err, kind === 'checkin' ? '打卡失败' : '发布失败')
   } finally {
@@ -242,8 +255,13 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
     </p>
     <p
       v-if="feedback"
-      class="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400"
+      class="mt-1 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400"
     >
+      <UIcon
+        v-if="aiPending"
+        name="i-lucide-loader-circle"
+        class="size-3 animate-spin"
+      />
       {{ feedback }}
     </p>
     <p
