@@ -10,6 +10,7 @@ import {
   moderateMomentRow,
   moderateOnce
 } from '../server/modules/moderation/service'
+import { createBusMoment, listBusMoments } from '../server/modules/transit/bus-moments'
 
 interface Fixture {
   client: DatabaseClient
@@ -200,6 +201,19 @@ test('moderation: 打卡也先审后放——带文字送判定，空文本直�
       { id: 'ck-empty', status: 'approved' },
       { id: 'ck-text', status: 'rejected' }
     ])
+  } finally {
+    cleanup()
+  }
+})
+
+test('moderation: 含 U+FFFD 替换符的编码错乱内容被拒绝', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    assert.throws(
+      () => createBusMoment(client, { busName: '3', routeName: '', body: '这趟车师傅�开得很稳，全程不颠' }, { anonymousKey: 'anon-1' }),
+      (error: { data?: { code?: string } }) => error.data?.code === 'BUS_MOMENT_ENCODING'
+    )
+    assert.equal(listBusMoments(client, '3').moments.length, 0)
   } finally {
     cleanup()
   }
