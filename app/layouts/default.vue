@@ -4,7 +4,6 @@ const runtimeConfig = useRuntimeConfig()
 const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
 const { isDark: isSiteDark } = useThemeMode()
-const mapHeaderTitle = useState<string>('map-header-title', () => '')
 
 const desktopNavigation = [
   { label: '首页', to: '/', icon: 'i-lucide-house' },
@@ -51,7 +50,6 @@ function shareCurrentPage(): void {
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 dark:bg-zinc-900/95 backdrop-blur">
       <div class="page-shell relative flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
         <NuxtLink
-          v-if="!isMapPage"
           to="/"
           class="flex min-h-11 min-w-0 flex-none items-center gap-2"
           aria-label="迎新指南首页"
@@ -70,14 +68,6 @@ function shareCurrentPage(): void {
             <span class="hidden shrink-0 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 sm:inline">学生整理 · 非官方</span>
           </span>
         </NuxtLink>
-
-        <p
-          v-else-if="mapHeaderTitle"
-          class="pointer-events-none absolute left-1/2 top-1/2 max-w-[42vw] -translate-x-1/2 -translate-y-1/2 truncate text-sm font-bold text-zinc-950 dark:text-zinc-100 md:hidden"
-          aria-live="polite"
-        >
-          {{ mapHeaderTitle }}
-        </p>
 
         <nav
           class="hidden items-center gap-2 md:mr-auto md:ml-4 md:flex lg:gap-4"

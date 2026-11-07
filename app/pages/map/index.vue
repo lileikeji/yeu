@@ -87,7 +87,6 @@ useSeoMeta({
 })
 
 const route = useRoute()
-const mapHeaderTitle = useState<string>('map-header-title', () => '')
 // Temporarily keep the official floor-plan data available without exposing a
 // public entry point. Re-enable this switch when the plan is ready to return.
 const OFFICIAL_PLAN_ENTRY_VISIBLE = false
@@ -307,7 +306,6 @@ const selectedPoi = computed(() => resolveSelectedPublicMapPlace({
   selectedPoiId: selectedPoiId.value
 }))
 watch([selectedPoi, selectedArea], ([poi, area]) => {
-  mapHeaderTitle.value = poi?.name ?? area?.name ?? ''
 }, { immediate: true })
 const returnPath = computed(() => safeLocalPath(route.query.from))
 
@@ -1179,7 +1177,6 @@ watch(mapProvider, (provider, previous) => {
 
 onBeforeUnmount(() => {
   stopTransitLive()
-  mapHeaderTitle.value = ''
   cancelMapRouteSync()
   cancelNativeSearch()
   clearWalkingRoute()
