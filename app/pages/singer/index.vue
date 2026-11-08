@@ -66,11 +66,11 @@ useSeoMeta({
       <!-- 登记入口 -->
       <section class="mt-6 rounded-2xl bg-gradient-to-r from-[#e2725b] to-[#e9997a] p-5 text-white shadow-md sm:p-6">
         <p class="text-lg font-bold">
-          想唱就先报个名
+          报名方式
         </p>
         <p class="mt-1 text-sm leading-6 text-white/90">
-          手机上花十秒填个预报名，姓名写上就行，先占个名额。
-          11.14 / 11.15 任选一天，到了现场再扫码正式登记，之前填的信息会自动带出来，不用重写。
+          先扫码填个预报名，比赛当天到现场扫码确认就能唱。
+          时间：11.14 / 11.15 任选一天，19:00，旧区宏船楼303。
         </p>
         <div class="mt-4">
           <NuxtLink
@@ -82,11 +82,11 @@ useSeoMeta({
               class="size-4"
               aria-hidden="true"
             />
-            去预报名
+            填写预报名
           </NuxtLink>
         </div>
         <p class="mt-3 text-xs text-white/80">
-          现场登记码当天贴在比赛教室门口，不提前放网上，别找错地方。
+          现场登记二维码只在比赛当天现场提供。
         </p>
       </section>
 
