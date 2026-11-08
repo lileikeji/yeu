@@ -65,7 +65,9 @@ find "$release" -type f -exec chmod 0640 {} +
 # 不能用“库比快照旧”做条件：生产库一直在写，mtime 永远更新，等于每次都重做
 # （单次 30–60 秒，并发时 4 分钟以上）。备份是回滚点，最多接受丢一天数据；
 # 要大改数据前强制新快照时设 BACKUP_FRESH=1。
-reuse="$(ls -t "$base"/shared/backups/yeu-before-*.sqlite 2>/dev/null | head -1)"
+# 目录为空（首次部署/清空备份）时 glob 无匹配，ls 退 2；pipefail+set -e 下必须兜住，
+# 让 reuse 落空走新建快照分支。
+reuse="$(ls -t "$base"/shared/backups/yeu-before-*.sqlite 2>/dev/null | head -1 || true)"
 if [[ -z "${BACKUP_FRESH:-}" && -n "$reuse" ]] \
   && [[ -n "$(find "$reuse" -mmin -1440 -print -quit)" ]] \
   && ln -f "$reuse" "$backup" && touch "$backup"; then
@@ -83,8 +85,8 @@ chown yeu:yeu "$backup"
 chmod 0600 "$backup"
 # 只留最近 2 份快照；.replaced 是同一 release 重部署的轮转残留，留 1 份即可。
 # 复用的硬链接 mtime 继承自原快照，按 -t 排序会落到末尾被误删，所以显式跳过当前 $backup。
-ls -t "$base"/shared/backups/yeu-before-*.sqlite 2>/dev/null | grep -v -F -- "$backup" | tail -n +2 | xargs -r rm -f --
-ls -t "$base"/shared/backups/*.replaced-* 2>/dev/null | tail -n +2 | xargs -r rm -f --
+ls -t "$base"/shared/backups/yeu-before-*.sqlite 2>/dev/null | grep -v -F -- "$backup" | tail -n +2 | xargs -r rm -f -- || true
+ls -t "$base"/shared/backups/*.replaced-* 2>/dev/null | tail -n +2 | xargs -r rm -f -- || true
 # 快照异步复制到对象存储，不阻塞切换（cosfs 写 2G 要几分钟）。
 # 复制完成后桶内只保留最近 3 份：以自维护清单 .keep 为真相源，只删"存在但不在清单里"的
 # 对象——cosfs 的目录列表与真实对象可能不一致（2026-11-08 曾把"留最新"删成"留最旧"），
