@@ -61,7 +61,8 @@ export default defineEventHandler(async (event) => {
     studentNo: '20260001',
     phone: '13800000000',
     email: input.email,
-    source: 'admin' as const
+    source: 'admin' as const,
+    preRegistrationId: null
   }
   const variables = buildEmailVariables(round, sampleEntry, sampleSinger)
   const subject = renderCompetitionEmailTemplate(template.subject, variables)
