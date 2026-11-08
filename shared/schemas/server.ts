@@ -1264,6 +1264,7 @@ export const competitionDimensionSchema = z.object({
 
 export const updateCompetitionSchema = z.object({
   title: z.string().trim().min(1).max(60),
+  registrationOpen: z.boolean(),
   dimensions: z.array(competitionDimensionSchema).min(1).max(10)
 }).strict()
 
@@ -1286,11 +1287,28 @@ export const updateCompetitionJudgeSchema = z.object({
   isActive: z.boolean().optional()
 }).strict()
 
+// 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定。
+const COMPETITION_STUDENT_NO_PATTERN = /^[0-9A-Za-z-]{4,20}$/
+const COMPETITION_PHONE_PATTERN = /^1\d{10}$/
+const COMPETITION_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export const competitionRegistrationSchema = z.object({
+  className: z.string().trim().min(1).max(60),
+  name: z.string().trim().min(1).max(40),
+  studentNo: z.string().trim().regex(COMPETITION_STUDENT_NO_PATTERN, '学号格式不正确'),
+  phone: z.string().trim().regex(COMPETITION_PHONE_PATTERN, '手机号格式不正确'),
+  email: z.string().trim().max(120).regex(COMPETITION_EMAIL_PATTERN, '邮箱格式不正确'),
+  song: z.string().trim().max(80).optional()
+}).strict()
+
 export const competitionSingerSchema = z.object({
   name: z.string().trim().min(1).max(40),
-  song: z.string().trim().min(1).max(80),
+  song: z.string().trim().max(80),
   className: z.string().trim().max(60).nullable().optional(),
   remark: z.string().trim().max(500).nullable().optional(),
+  studentNo: z.string().trim().max(20).nullable().optional(),
+  phone: z.string().trim().max(20).nullable().optional(),
+  email: z.string().trim().max(120).nullable().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional()
 }).strict()
 
@@ -1300,6 +1318,22 @@ export const judgeLoginSchema = z.object({
 }).strict()
 
 export const submitCompetitionScoreSchema = z.object({
-  scores: z.record(z.string().max(64), z.number().min(0).max(10)),
+  scores: z.record(z.string().max(64), z.number().min(0).max(20)),
   comment: z.string().trim().max(500).optional()
+}).strict()
+
+export const competitionEmailTemplateSchema = z.object({
+  subject: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(8000)
+}).strict()
+
+export const competitionEmailSendSchema = z.object({
+  /** all = 本轮全部有邮箱的选手；qualified / unqualified = 按本轮结果筛选。 */
+  scope: z.enum(['all', 'qualified', 'unqualified']).default('all'),
+  /** 显式指定 resend 名单（忽略已发送去重）。 */
+  singerIds: z.array(z.string().min(1).max(64)).max(500).optional()
+}).strict()
+
+export const competitionEmailTestSchema = z.object({
+  email: z.string().trim().min(3).max(120)
 }).strict()

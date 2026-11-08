@@ -34,7 +34,8 @@ export async function sendVerificationCodeEmail(
   config: MailerConfig,
   to: string,
   code: string,
-  options: { fetchless?: boolean } = {}
+  // 历史签名保留（无调用方使用）；下划线前缀满足 no-unused-vars。
+  _options: { fetchless?: boolean } = {}
 ): Promise<boolean> {
   try {
     const transporter = nodemailer.createTransport({
@@ -54,4 +55,28 @@ export async function sendVerificationCodeEmail(
   } catch {
     return false
   }
+}
+
+/**
+ * 通用邮件发送（歌手大赛结果通知等）。
+ * fromName 可按业务场景定制（如「仰恩大学音乐协会」）。
+ */
+export async function sendMailMessage(
+  config: MailerConfig,
+  message: { to: string, subject: string, html: string, text: string },
+  options: { fromName?: string } = {}
+): Promise<void> {
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.port === 465,
+    auth: { user: config.user, pass: config.pass }
+  })
+  await transporter.sendMail({
+    from: `"${options.fromName || '仰恩新生指南'}" <${config.from}>`,
+    to: message.to,
+    subject: message.subject,
+    text: message.text,
+    html: message.html
+  })
 }

@@ -9,9 +9,10 @@ import type {
   CompetitionRoundKey,
   CompetitionRoundView,
   CompetitionScore,
-  CompetitionSinger
+  CompetitionSinger,
+  CompetitionSingerPublic
 } from '~~/shared/types'
-import { DEFAULT_COMPETITION_DIMENSIONS } from '~~/shared/utils/competition'
+import { COMPETITION_EMAIL_MERGE_FIELDS, DEFAULT_COMPETITION_DIMENSIONS } from '~~/shared/utils/competition'
 import { adminFetch } from '~~/app/utils/admin-request'
 
 definePageMeta({ layout: 'admin' })
@@ -23,6 +24,7 @@ useSeoMeta({
 
 interface SettingsDraft {
   title: string
+  registrationOpen: boolean
   dimensions: CompetitionDimension[]
 }
 
@@ -31,10 +33,14 @@ interface SingerDraft {
   song: string
   className: string
   remark: string
+  studentNo: string
+  phone: string
+  email: string
   sortOrder: string
 }
 
-type SectionKey = 'settings' | 'singers' | CompetitionRoundKey
+type SectionKey = 'settings' | 'singers' | 'email' | CompetitionRoundKey
+type EmailScope = 'all' | 'qualified' | 'unqualified'
 
 const toast = useToast()
 
@@ -61,17 +67,31 @@ const editSingerForm = ref<SingerDraft>({
   song: '',
   className: '',
   remark: '',
+  studentNo: '',
+  phone: '',
+  email: '',
   sortOrder: ''
 })
 
-const detailSinger = ref<CompetitionSinger | null>(null)
+const detailSinger = ref<CompetitionSingerPublic | null>(null)
 const detailScore = ref<CompetitionScore | null>(null)
+
+const emailRound = ref<CompetitionRoundKey>('prelim')
+const emailScope = ref<EmailScope>('all')
+const emailSavingTemplate = ref(false)
+const emailSending = ref(false)
+const emailTesting = ref(false)
+const emailTestAddress = ref('')
+const emailBodyRef = ref<HTMLTextAreaElement | null>(null)
 
 const newSinger = ref<SingerDraft>({
   name: '',
   song: '',
   className: '',
   remark: '',
+  studentNo: '',
+  phone: '',
+  email: '',
   sortOrder: ''
 })
 
@@ -80,7 +100,8 @@ const sections = [
   { key: 'singers', label: '选手库', icon: 'i-lucide-list-music' },
   { key: 'prelim', label: '初赛', icon: 'i-lucide-flag' },
   { key: 'semi', label: '复赛', icon: 'i-lucide-git-branch' },
-  { key: 'final', label: '决赛', icon: 'i-lucide-trophy' }
+  { key: 'final', label: '决赛', icon: 'i-lucide-trophy' },
+  { key: 'email', label: '邮件通知', icon: 'i-lucide-mail' }
 ] as const
 
 const event = computed<CompetitionEvent | null>(() => payload.value?.event ?? null)
@@ -88,8 +109,9 @@ const maxTotal = computed(() => event.value?.maxTotal ?? 0)
 const singers = computed(() => payload.value?.singers ?? [])
 
 const activeRound = computed<CompetitionRoundView | null>(() => {
-  if (activeSection.value === 'settings' || activeSection.value === 'singers') return null
-  return payload.value?.rounds.find(round => round.key === activeSection.value) ?? null
+  const key = activeSection.value
+  if (key === 'settings' || key === 'singers' || key === 'email') return null
+  return payload.value?.rounds.find(round => round.key === key) ?? null
 })
 
 const settingsWeightSum = computed(() => (settings.value?.dimensions ?? [])
@@ -110,6 +132,7 @@ function cloneDimensions(dimensions: CompetitionDimension[]): CompetitionDimensi
 function settingsFromEvent(source: CompetitionEvent): SettingsDraft {
   return {
     title: source.title,
+    registrationOpen: source.registrationOpen,
     dimensions: cloneDimensions(source.dimensions)
   }
 }
@@ -266,6 +289,7 @@ async function saveSettings(): Promise<void> {
       method: 'PUT',
       body: {
         title: draft.title.trim(),
+        registrationOpen: draft.registrationOpen,
         dimensions: draft.dimensions.map(dimension => ({
           key: dimension.key,
           label: dimension.label.trim(),
@@ -641,7 +665,10 @@ function singerPayload(draft: SingerDraft): Record<string, unknown> {
     name: draft.name.trim(),
     song: draft.song.trim(),
     className: draft.className.trim() || null,
-    remark: draft.remark.trim() || null
+    remark: draft.remark.trim() || null,
+    studentNo: draft.studentNo.trim() || null,
+    phone: draft.phone.trim() || null,
+    email: draft.email.trim() || null
   }
   if (draft.sortOrder.trim() !== '') body.sortOrder = Number(draft.sortOrder)
   return body
@@ -659,7 +686,7 @@ async function addSinger(): Promise<void> {
       method: 'POST',
       body: singerPayload(newSinger.value)
     })
-    newSinger.value = { name: '', song: '', className: '', remark: '', sortOrder: '' }
+    newSinger.value = { name: '', song: '', className: '', remark: '', studentNo: '', phone: '', email: '', sortOrder: '' }
     await load()
     toast.add({ title: '已添加选手', color: 'success' })
   } catch (error) {
@@ -676,6 +703,9 @@ function openEditSinger(singer: CompetitionSinger): void {
     song: singer.song,
     className: singer.className ?? '',
     remark: singer.remark ?? '',
+    studentNo: singer.studentNo ?? '',
+    phone: singer.phone ?? '',
+    email: singer.email ?? '',
     sortOrder: String(singer.sortOrder)
   }
   editSingerOpen.value = true
@@ -719,17 +749,153 @@ function scoreFor(round: CompetitionRoundView, singerId: string, judgeId: string
   return round.scores.find(score => score.singerId === singerId && score.judgeId === judgeId) ?? null
 }
 
+// -- 邮件通知 ------------------------------------------------------------------
+
+const emailTemplate = computed(() => payload.value?.email.templates[emailRound.value]
+  ?? { roundKey: emailRound.value, subject: '', body: '' })
+const emailStats = computed(() => payload.value?.email.stats[emailRound.value]
+  ?? { sent: 0, failed: 0, lastSentAt: null as number | null })
+const emailRoundView = computed<CompetitionRoundView | null>(() =>
+  payload.value?.rounds.find(round => round.key === emailRound.value) ?? null)
+
+function emailPool(scope: EmailScope): CompetitionRoundEntry[] {
+  const round = emailRoundView.value
+  if (!round) return []
+  if (scope === 'qualified') return round.entries.filter(entry => entry.qualified)
+  if (scope === 'unqualified') return round.entries.filter(entry => !entry.qualified && !entry.forfeited)
+  return round.entries
+}
+
+const emailSentIds = computed(() => new Set((payload.value?.email.latest ?? [])
+  .filter(record => record.roundKey === emailRound.value && record.status === 'sent')
+  .map(record => record.singerId)))
+
+function emailCountWithEmail(scope: EmailScope): number {
+  return emailPool(scope).filter(entry => singers.value.find(s => s.id === entry.singer.id)?.email).length
+}
+
+function emailCountWithoutEmail(scope: EmailScope): number {
+  return emailPool(scope).filter(entry => !singers.value.find(s => s.id === entry.singer.id)?.email).length
+}
+
+const emailAlreadySentCount = computed(() =>
+  emailPool(emailScope.value).filter(entry => emailSentIds.value.has(entry.singer.id)).length)
+
+const emailLatestRows = computed(() => (payload.value?.email.latest ?? [])
+  .filter(record => record.roundKey === emailRound.value)
+  .map(record => ({ ...record, name: singers.value.find(s => s.id === record.singerId)?.name ?? '—' })))
+
+function insertPlaceholder(key: string): void {
+  const template = emailTemplate.value
+  if (!template) return
+  const el = emailBodyRef.value
+  if (!el) {
+    template.body += key
+    return
+  }
+  const start = el.selectionStart ?? template.body.length
+  const end = el.selectionEnd ?? start
+  template.body = template.body.slice(0, start) + key + template.body.slice(end)
+  nextTick(() => {
+    el.focus()
+    el.setSelectionRange(start + key.length, start + key.length)
+  })
+}
+
+async function saveEmailTemplate(): Promise<void> {
+  const template = emailTemplate.value
+  if (!template || emailSavingTemplate.value) return
+  if (!template.subject.trim() || !template.body.trim()) {
+    toast.add({ title: '邮件主题和正文不能为空', color: 'warning' })
+    return
+  }
+  emailSavingTemplate.value = true
+  try {
+    const result = await adminFetch<{ template: { roundKey: CompetitionRoundKey, subject: string, body: string } }>(
+      `/api/admin/competition/email/${template.roundKey}`,
+      { method: 'PUT', body: { subject: template.subject.trim(), body: template.body.trim() } }
+    )
+    if (payload.value) {
+      payload.value.email.templates[result.template.roundKey] = result.template
+    }
+    toast.add({ title: '邮件模板已保存', color: 'success' })
+  } catch (error) {
+    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    emailSavingTemplate.value = false
+  }
+}
+
+async function sendEmailTest(): Promise<void> {
+  if (emailTesting.value) return
+  const address = emailTestAddress.value.trim()
+  if (!address) {
+    toast.add({ title: '请填写测试邮箱', color: 'warning' })
+    return
+  }
+  emailTesting.value = true
+  try {
+    await adminFetch(`/api/admin/competition/email/${emailRound.value}/test`, {
+      method: 'POST',
+      body: { email: address }
+    })
+    toast.add({ title: '测试邮件已发送', description: `请查收 ${address}（注意垃圾箱）`, color: 'success' })
+  } catch (error) {
+    toast.add({ title: '测试发送失败', description: apiErrorMessage(error, '请检查邮件配置。'), color: 'warning' })
+  } finally {
+    emailTesting.value = false
+  }
+}
+
+async function sendEmails(): Promise<void> {
+  if (emailSending.value) return
+  const count = emailCountWithEmail(emailScope.value)
+  if (count <= 0) {
+    toast.add({ title: '当前范围没有可发送的选手邮箱', color: 'warning' })
+    return
+  }
+  const roundTitle = emailRoundView.value?.title ?? ''
+  const already = emailAlreadySentCount.value
+  const withoutEmail = emailCountWithoutEmail(emailScope.value)
+  const summary = [
+    `将向 ${count} 位选手发送「${roundTitle}」结果邮件。`,
+    already > 0 ? `其中 ${already} 位已发送过，会被自动跳过。` : '',
+    withoutEmail > 0 ? `另有 ${withoutEmail} 位未填邮箱，将跳过。` : ''
+  ].filter(Boolean).join('\n')
+  if (!window.confirm(`${summary}\n\n确定发送？`)) return
+
+  emailSending.value = true
+  try {
+    const result = await adminFetch<{ sent: number, failed: number, failures: Array<{ name: string, email: string, error: string }> }>(
+      `/api/admin/competition/email/${emailRound.value}/send`,
+      { method: 'POST', body: { scope: emailScope.value } }
+    )
+    await load()
+    toast.add({
+      title: `发送完成：成功 ${result.sent}，失败 ${result.failed}`,
+      description: result.failures.length > 0
+        ? `失败示例：${result.failures[0]!.name}（${result.failures[0]!.email}）`
+        : undefined,
+      color: result.failed > 0 ? 'warning' : 'success'
+    })
+  } catch (error) {
+    toast.add({ title: '发送失败', description: apiErrorMessage(error, '请检查邮件配置。'), color: 'warning' })
+  } finally {
+    emailSending.value = false
+  }
+}
+
 function scoreTotalFor(round: CompetitionRoundView, singerId: string, judgeId: string): string {
   const score = scoreFor(round, singerId, judgeId)
   return score ? score.total.toFixed(2) : '—'
 }
 
-function openScoreFor(round: CompetitionRoundView, singer: CompetitionSinger, judgeId: string): void {
+function openScoreFor(round: CompetitionRoundView, singer: CompetitionSingerPublic, judgeId: string): void {
   const score = scoreFor(round, singer.id, judgeId)
   if (score) openScoreDetail(singer, score)
 }
 
-function openScoreDetail(singer: CompetitionSinger, score: CompetitionScore): void {
+function openScoreDetail(singer: CompetitionSingerPublic, score: CompetitionScore): void {
   detailSinger.value = singer
   detailScore.value = score
 }
@@ -764,6 +930,15 @@ onMounted(load)
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        <UButton
+          icon="i-lucide-megaphone"
+          label="宣传页"
+          to="/singer"
+          target="_blank"
+          rel="noopener noreferrer"
+          color="neutral"
+          variant="soft"
+        />
         <UButton
           icon="i-lucide-external-link"
           label="评委登录页"
@@ -862,17 +1037,30 @@ onMounted(load)
         class="space-y-4"
       >
         <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <UFormField label="比赛名称">
-            <UInput
-              v-model="settings.title"
-              class="w-full"
-              placeholder="新生歌手大赛"
-            />
-          </UFormField>
+          <div class="grid gap-4 md:grid-cols-2">
+            <UFormField label="比赛名称">
+              <UInput
+                v-model="settings.title"
+                class="w-full"
+                placeholder="新生歌手大赛"
+              />
+            </UFormField>
+            <UFormField label="现场登记入口">
+              <div class="flex items-center gap-3 pt-1">
+                <USwitch
+                  :model-value="settings.registrationOpen"
+                  @update:model-value="value => settings && (settings.registrationOpen = value === true)"
+                />
+                <span class="text-sm text-zinc-600 dark:text-zinc-300">
+                  {{ settings.registrationOpen ? '开放中，登记页可提交' : '已关闭，登记页只读' }}
+                </span>
+              </div>
+            </UFormField>
+          </div>
           <div class="mt-3 grid gap-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400 sm:grid-cols-2">
             <p>
               赛制：初赛全员参加，结束后取前 30 名进入复赛；复赛晋级名额在复赛页设置（可先留空）；
-              决赛决出最终排行。
+              决赛决出最终排行。登记入口关闭后，现场扫码登记页不可再提交。
             </p>
             <p>
               每轮评委相互独立，可在各轮页面单独生成账号。未在评分结束前提交成绩的选手，按弃权处理。
@@ -887,7 +1075,7 @@ onMounted(load)
                 评分维度与占比
               </h2>
               <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                每个维度满分 10 分。占比按相对权重归一化；默认五维等权时，单评委总分即五项累加（满分 50）。
+                每个维度满分 20 分。占比按相对权重归一化；默认五维等权时，单评委总分即五项累加（满分 100）。
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -1023,7 +1211,10 @@ onMounted(load)
             <h3 class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
               手动添加选手
             </h3>
-            <div class="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-6">
+            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              现场扫码登记的选手会自动进入本表；这里用于补录或修正。歌曲可留空（待定）。
+            </p>
+            <div class="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
               <UFormField label="姓名">
                 <UInput
                   v-model="newSinger.name"
@@ -1031,18 +1222,39 @@ onMounted(load)
                   placeholder="选手姓名"
                 />
               </UFormField>
-              <UFormField label="参赛歌曲">
-                <UInput
-                  v-model="newSinger.song"
-                  class="w-full"
-                  placeholder="歌曲名"
-                />
-              </UFormField>
               <UFormField label="班级（可选）">
                 <UInput
                   v-model="newSinger.className"
                   class="w-full"
                   placeholder="如 26音乐学1班"
+                />
+              </UFormField>
+              <UFormField label="学号（可选）">
+                <UInput
+                  v-model="newSinger.studentNo"
+                  class="w-full"
+                  placeholder="现场登记自动填写"
+                />
+              </UFormField>
+              <UFormField label="电话（可选）">
+                <UInput
+                  v-model="newSinger.phone"
+                  class="w-full"
+                  placeholder="现场登记自动填写"
+                />
+              </UFormField>
+              <UFormField label="邮箱（可选）">
+                <UInput
+                  v-model="newSinger.email"
+                  class="w-full"
+                  placeholder="用于接收结果邮件"
+                />
+              </UFormField>
+              <UFormField label="参赛歌曲（可待定）">
+                <UInput
+                  v-model="newSinger.song"
+                  class="w-full"
+                  placeholder="可留空，赛前补充"
                 />
               </UFormField>
               <UFormField label="备注（可选）">
@@ -1061,7 +1273,7 @@ onMounted(load)
                   placeholder="自动排到最后"
                 />
               </UFormField>
-              <div class="flex items-end">
+              <div class="flex items-end xl:col-span-2">
                 <UButton
                   icon="i-lucide-plus"
                   label="添加"
@@ -1085,7 +1297,7 @@ onMounted(load)
           v-else
           class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800"
         >
-          <table class="w-full min-w-[860px] text-sm">
+          <table class="w-full min-w-[1180px] text-sm">
             <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
               <tr>
                 <th class="w-16 px-3 py-2 font-medium">
@@ -1099,6 +1311,18 @@ onMounted(load)
                 </th>
                 <th class="px-3 py-2 font-medium">
                   班级
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  学号
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  电话
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  邮箱
+                </th>
+                <th class="px-3 py-2 font-medium">
+                  来源
                 </th>
                 <th class="px-3 py-2 font-medium">
                   备注
@@ -1124,10 +1348,29 @@ onMounted(load)
                   {{ singer.name }}
                 </td>
                 <td class="px-3 py-2">
-                  {{ singer.song }}
+                  {{ singer.song || '待定' }}
                 </td>
                 <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                   {{ singer.className || '—' }}
+                </td>
+                <td class="px-3 py-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                  {{ singer.studentNo || '—' }}
+                </td>
+                <td class="px-3 py-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                  {{ singer.phone || '—' }}
+                </td>
+                <td class="max-w-44 truncate px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  {{ singer.email || '—' }}
+                </td>
+                <td class="px-3 py-2">
+                  <span
+                    class="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                    :class="singer.source === 'form'
+                      ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
+                      : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'"
+                  >
+                    {{ singer.source === 'form' ? '现场登记' : '后台录入' }}
+                  </span>
                 </td>
                 <td class="max-w-56 px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                   <span class="line-clamp-2">{{ singer.remark || '—' }}</span>
@@ -1173,7 +1416,7 @@ onMounted(load)
 
       <section
         v-if="activeRound"
-        v-show="activeSection !== 'settings' && activeSection !== 'singers'"
+        v-show="activeSection !== 'settings' && activeSection !== 'singers' && activeSection !== 'email'"
         class="space-y-4"
       >
         <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
@@ -1685,6 +1928,229 @@ onMounted(load)
           </div>
         </div>
       </section>
+
+      <section
+        v-show="activeSection === 'email'"
+        class="space-y-4"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-1 rounded-lg border border-zinc-200 p-1 dark:border-zinc-800">
+            <button
+              v-for="round in payload.rounds"
+              :key="round.id"
+              type="button"
+              class="rounded-md px-3 py-1 text-xs font-medium transition-colors"
+              :class="emailRound === round.key
+                ? 'bg-zinc-900 text-white dark:bg-zinc-700'
+                : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'"
+              @click="emailRound = round.key"
+            >
+              {{ round.title }}
+            </button>
+          </div>
+          <span
+            class="rounded-full px-2.5 py-1 text-xs font-medium"
+            :class="emailRoundView?.status === 'closed'
+              ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'"
+          >
+            {{ emailRoundView?.status === 'closed' ? '已结束，可发送' : '未结束，发送已锁定' }}
+          </span>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                {{ emailRoundView?.title }}结果邮件模板
+              </h3>
+              <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                点击占位符插入正文光标处；发送时按选手逐一生成。
+              </p>
+            </div>
+            <UButton
+              icon="i-lucide-save"
+              label="保存模板"
+              variant="soft"
+              :loading="emailSavingTemplate"
+              @click="saveEmailTemplate"
+            />
+          </div>
+
+          <div class="mt-3 space-y-3">
+            <UFormField label="邮件主题">
+              <UInput
+                v-model="emailTemplate.subject"
+                class="w-full"
+                placeholder="【音乐协会】新生歌手大赛结果通知"
+              />
+            </UFormField>
+            <UFormField label="邮件正文">
+              <textarea
+                ref="emailBodyRef"
+                v-model="emailTemplate.body"
+                rows="10"
+                class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm leading-6 text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+              />
+            </UFormField>
+            <div class="flex flex-wrap gap-1.5">
+              <UButton
+                v-for="field in COMPETITION_EMAIL_MERGE_FIELDS"
+                :key="field.key"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                :label="`${field.key} ${field.desc}`"
+                @click="insertPlaceholder(field.key)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div class="space-y-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              <p>
+                发送范围：
+                <select
+                  v-model="emailScope"
+                  class="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                >
+                  <option value="all">
+                    全部选手
+                  </option>
+                  <option value="qualified">
+                    仅晋级
+                  </option>
+                  <option value="unqualified">
+                    仅未晋级
+                  </option>
+                </select>
+              </p>
+              <p>
+                可发送 <span class="font-semibold text-zinc-800 dark:text-zinc-100">{{ emailCountWithEmail(emailScope) }}</span> 人
+                <template v-if="emailCountWithoutEmail(emailScope) > 0">
+                  ，{{ emailCountWithoutEmail(emailScope) }} 人未填邮箱将跳过
+                </template>
+                <template v-if="emailAlreadySentCount > 0">
+                  ，{{ emailAlreadySentCount }} 人已发送过将自动跳过
+                </template>。
+              </p>
+              <p>
+                已发送 {{ emailStats.sent }} / 失败 {{ emailStats.failed }}
+                <template v-if="emailStats.lastSentAt">
+                  · 最近发送 {{ formatDateTime(emailStats.lastSentAt) }}
+                </template>
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <UButton
+                icon="i-lucide-send"
+                label="一键发送结果邮件"
+                :loading="emailSending"
+                :disabled="emailRoundView?.status !== 'closed' || emailCountWithEmail(emailScope) <= 0"
+                @click="sendEmails"
+              />
+            </div>
+          </div>
+          <div
+            v-if="emailRoundView?.status !== 'closed'"
+            class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+          >
+            本轮评分尚未结束。结束评分并确认成绩后才能发送，避免发出中间分数。
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+            <UInput
+              v-model="emailTestAddress"
+              class="w-64"
+              placeholder="你的邮箱，用于测试模板效果"
+            />
+            <UButton
+              icon="i-lucide-mail-check"
+              label="发送测试邮件"
+              color="neutral"
+              variant="soft"
+              :loading="emailTesting"
+              @click="sendEmailTest"
+            />
+            <span class="text-xs text-zinc-400">
+              测试邮件使用示例数据，不会写入发送记录。
+            </span>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+              发送记录
+            </h3>
+            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              每位选手显示最近一次发送状态；失败的可在修正邮箱后重新发送。
+            </p>
+          </div>
+          <div
+            v-if="emailLatestRows.length === 0"
+            class="px-4 py-8 text-center text-sm text-zinc-400"
+          >
+            还没有发送记录。
+          </div>
+          <div
+            v-else
+            class="overflow-x-auto"
+          >
+            <table class="w-full min-w-[720px] text-sm">
+              <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
+                <tr>
+                  <th class="px-4 py-2 font-medium">
+                    选手
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    邮箱
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    状态
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    时间
+                  </th>
+                  <th class="px-4 py-2 font-medium">
+                    错误
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                <tr
+                  v-for="record in emailLatestRows"
+                  :key="`${record.roundKey}:${record.singerId}`"
+                >
+                  <td class="px-4 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                    {{ record.name }}
+                  </td>
+                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ record.email }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <span
+                      class="rounded px-1.5 py-0.5 text-xs font-medium"
+                      :class="record.status === 'sent'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                        : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'"
+                    >
+                      {{ record.status === 'sent' ? '已发送' : '失败' }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {{ formatDateTime(record.createdAt) }}
+                  </td>
+                  <td class="max-w-64 px-4 py-2 text-xs text-red-700 dark:text-red-300">
+                    <span class="line-clamp-2">{{ record.error || '—' }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </template>
 
     <UModal
@@ -1776,6 +2242,24 @@ onMounted(load)
               class="w-full"
             />
           </UFormField>
+          <UFormField label="学号">
+            <UInput
+              v-model="editSingerForm.studentNo"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="电话">
+            <UInput
+              v-model="editSingerForm.phone"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="邮箱">
+            <UInput
+              v-model="editSingerForm.email"
+              class="w-full"
+            />
+          </UFormField>
           <UFormField label="选手库序号">
             <UInput
               v-model="editSingerForm.sortOrder"
@@ -1857,7 +2341,7 @@ onMounted(load)
                     {{ dimension.weight }}
                   </td>
                   <td class="px-3 py-2 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                    {{ dimension.score }} / 10
+                    {{ dimension.score }} / 20
                   </td>
                 </tr>
               </tbody>

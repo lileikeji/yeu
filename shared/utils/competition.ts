@@ -1,17 +1,29 @@
 import type { CompetitionDimension } from '../types'
 
-export const COMPETITION_MAX_DIMENSION_SCORE = 10
+export const COMPETITION_MAX_DIMENSION_SCORE = 20
 export const COMPETITION_MAX_DIMENSIONS = 10
 export const COMPETITION_MAX_JUDGES = 20
 export const COMPETITION_MAX_SINGERS = 500
 
-/** 默认五个维度、等权：总分即五项累加（满分 50）。 */
+/** 默认五个维度、等权：总分即五项累加（满分 100，每维 20 分）。 */
 export const DEFAULT_COMPETITION_DIMENSIONS: CompetitionDimension[] = [
   { key: 'pitch', label: '音准', weight: 20 },
   { key: 'rhythm', label: '节奏', weight: 20 },
   { key: 'emotion', label: '情感', weight: 20 },
   { key: 'timbre', label: '音色', weight: 20 },
   { key: 'stage', label: '舞台表现', weight: 20 }
+]
+
+/** 结果邮件模板支持的合并字段；后台展示用，渲染时按 key 精确替换。 */
+export const COMPETITION_EMAIL_MERGE_FIELDS: Array<{ key: string, desc: string }> = [
+  { key: '{{姓名}}', desc: '选手姓名' },
+  { key: '{{班级}}', desc: '班级' },
+  { key: '{{学号}}', desc: '学号' },
+  { key: '{{歌曲}}', desc: '参赛歌曲' },
+  { key: '{{轮次}}', desc: '轮次名称（初赛/复赛/决赛）' },
+  { key: '{{平均分}}', desc: '本轮评委平均分' },
+  { key: '{{名次}}', desc: '本轮排名' },
+  { key: '{{结果}}', desc: '晋级 / 未能晋级 / 弃权' }
 ]
 
 export function roundCompetitionScore(value: number): number {

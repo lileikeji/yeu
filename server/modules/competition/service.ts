@@ -4,6 +4,8 @@ import * as XLSX from '@e965/xlsx'
 import { and, asc, desc, eq, or } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
+  competitionEmailSends,
+  competitionEmailTemplates,
   competitionEvents,
   competitionJudges,
   competitionRoundEntries,
@@ -26,10 +28,16 @@ import {
 import type {
   CompetitionAdminPayload,
   CompetitionDimension,
+  CompetitionEmailRoundStats,
+  CompetitionEmailSendRecord,
+  CompetitionEmailSendStatus,
+  CompetitionEmailState,
+  CompetitionEmailTemplate,
   CompetitionEvent,
   CompetitionJudge,
   CompetitionJudgeCredentials,
   CompetitionJudgePayload,
+  CompetitionRegistrationStatus,
   CompetitionRound,
   CompetitionRoundEntry,
   CompetitionRoundKey,
@@ -37,7 +45,8 @@ import type {
   CompetitionRoundView,
   CompetitionScore,
   CompetitionScoreDimension,
-  CompetitionSinger
+  CompetitionSinger,
+  CompetitionSingerPublic
 } from '../../../shared/types'
 
 /** 本功能仅开放给音乐协会，其他社团内容一律拒绝。 */
@@ -286,6 +295,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     clubName: club.title,
     clubSlug: club.slug,
     title: row.title,
+    registrationOpen: row.registrationOpen !== false,
     dimensions,
     maxTotal: competitionMaxTotal(dimensions),
     createdAt: Number(row.createdAt ?? 0),
@@ -320,7 +330,7 @@ export function serializeJudge(row: JudgeRow, scoreCount = 0): CompetitionJudge 
   }
 }
 
-export function serializeSinger(row: SingerRow): CompetitionSinger {
+export function serializeSingerPublic(row: SingerRow): CompetitionSingerPublic {
   return {
     id: row.id,
     name: row.name,
@@ -330,6 +340,16 @@ export function serializeSinger(row: SingerRow): CompetitionSinger {
     sortOrder: row.sortOrder,
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
+  }
+}
+
+export function serializeSinger(row: SingerRow): CompetitionSinger {
+  return {
+    ...serializeSingerPublic(row),
+    studentNo: row.studentNo,
+    phone: row.phone,
+    email: row.email,
+    source: row.source
   }
 }
 
@@ -349,6 +369,7 @@ export function serializeScore(row: ScoreRow, judgeName: string): CompetitionSco
 
 export interface UpdateCompetitionInput {
   title: unknown
+  registrationOpen: unknown
   dimensions: unknown
 }
 
@@ -359,6 +380,7 @@ export function updateCompetitionEvent(
 ): EventRow {
   const title = String(input.title ?? '').replace(/\s+/g, ' ').trim()
   if (!title || title.length > 60) validationError('比赛名称必填且不超过 60 字', 'title')
+  const registrationOpen = input.registrationOpen === true
   const dimensions = validateCompetitionDimensions(input.dimensions)
 
   const currentDimensions = getCompetitionDimensions(row)
@@ -372,6 +394,7 @@ export function updateCompetitionEvent(
 
   client.db.update(competitionEvents).set({
     title,
+    registrationOpen,
     dimensionsJson: JSON.stringify(dimensions),
     updatedAt: Date.now()
   }).where(eq(competitionEvents.id, row.id)).run()
@@ -549,7 +572,7 @@ export function buildRoundRanking(
     }
     result.push({
       id: row.entry.id,
-      singer: serializeSinger(row.singer),
+      singer: serializeSingerPublic(row.singer),
       sortOrder: row.entry.sortOrder,
       advancedFromRank: row.entry.advancedFromRank,
       average: row.average,
@@ -564,7 +587,7 @@ export function buildRoundRanking(
   for (const row of unscored) {
     result.push({
       id: row.entry.id,
-      singer: serializeSinger(row.singer),
+      singer: serializeSingerPublic(row.singer),
       sortOrder: row.entry.sortOrder,
       advancedFromRank: row.entry.advancedFromRank,
       average: null,
@@ -621,7 +644,8 @@ export function getAdminCompetitionPayload(client: DatabaseClient, contentId: st
   return {
     event: serializeCompetitionEvent(eventRow, club),
     singers: singers.map(serializeSinger),
-    rounds: rounds.map(round => roundView(client, round, singers, dimensions))
+    rounds: rounds.map(round => roundView(client, round, singers, dimensions)),
+    email: listEmailState(client, eventRow.id)
   }
 }
 
@@ -915,6 +939,9 @@ export interface SingerInput {
   song?: unknown
   className?: unknown
   remark?: unknown
+  studentNo?: unknown
+  phone?: unknown
+  email?: unknown
   sortOrder?: unknown
 }
 
@@ -923,17 +950,27 @@ function normalizeSingerInput(input: SingerInput): {
   song: string
   className: string | null
   remark: string | null
+  studentNo: string | null
+  phone: string | null
+  email: string | null
   sortOrder: number | null
 } {
   const name = String(input.name ?? '').replace(/\s+/g, ' ').trim()
   if (!name || name.length > 40) validationError('选手姓名必填且不超过 40 字', 'name')
+  // 歌曲允许留空（可待定），评委端与排行展示为「待定」。
   const song = String(input.song ?? '').replace(/\s+/g, ' ').trim()
-  if (!song || song.length > 80) validationError('参赛歌曲必填且不超过 80 字', 'song')
+  if (song.length > 80) validationError('参赛歌曲不超过 80 字', 'song')
 
   const classNameRaw = String(input.className ?? '').replace(/\s+/g, ' ').trim()
   if (classNameRaw.length > 60) validationError('班级不超过 60 字', 'className')
   const remarkRaw = String(input.remark ?? '').trim()
   if (remarkRaw.length > MAX_COMMENT_LENGTH) validationError(`备注不超过 ${MAX_COMMENT_LENGTH} 字`, 'remark')
+  const studentNoRaw = String(input.studentNo ?? '').trim()
+  if (studentNoRaw.length > 20) validationError('学号不超过 20 字', 'studentNo')
+  const phoneRaw = String(input.phone ?? '').trim()
+  if (phoneRaw.length > 20) validationError('电话不超过 20 字', 'phone')
+  const emailRaw = String(input.email ?? '').trim()
+  if (emailRaw.length > 120) validationError('邮箱不超过 120 字', 'email')
 
   let sortOrder: number | null = null
   if (input.sortOrder !== undefined && input.sortOrder !== null && String(input.sortOrder).trim() !== '') {
@@ -949,6 +986,9 @@ function normalizeSingerInput(input: SingerInput): {
     song,
     className: classNameRaw || null,
     remark: remarkRaw || null,
+    studentNo: studentNoRaw || null,
+    phone: phoneRaw || null,
+    email: emailRaw || null,
     sortOrder
   }
 }
@@ -983,6 +1023,10 @@ export function createSinger(client: DatabaseClient, eventId: string, input: Sin
       song: normalized.song,
       className: normalized.className,
       remark: normalized.remark,
+      studentNo: normalized.studentNo,
+      phone: normalized.phone,
+      email: normalized.email,
+      source: 'admin',
       sortOrder,
       createdAt: now,
       updatedAt: now
@@ -1031,6 +1075,9 @@ export function updateSinger(
       song: normalized.song,
       className: normalized.className,
       remark: normalized.remark,
+      studentNo: normalized.studentNo,
+      phone: normalized.phone,
+      email: normalized.email,
       sortOrder,
       updatedAt: Date.now()
     }).where(eq(competitionSingers.id, singerId)).run()
@@ -1236,7 +1283,7 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
       const singer = singersById.get(entry.singerId)
       if (!singer) return null
       return {
-        ...serializeSinger(singer),
+        ...serializeSingerPublic(singer),
         sortOrder: entry.sortOrder,
         advancedFromRank: entry.advancedFromRank,
         score: ownScores.get(singer.id) ?? null
@@ -1393,4 +1440,348 @@ export function submitJudgeScore(
     ))
     .get()!
   return serializeScore(row, judge.displayName)
+}
+
+// -- 现场扫码登记 ---------------------------------------------------------------
+
+export interface CompetitionRegistrationInput {
+  className: string
+  name: string
+  studentNo: string
+  phone: string
+  email: string
+  song?: string
+}
+
+export function getRegistrationState(client: DatabaseClient, contentId: string): CompetitionRegistrationStatus {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  return { open: eventRow.registrationOpen !== false, title: eventRow.title }
+}
+
+function countSingers(client: DatabaseClient, eventId: string): number {
+  return client.db.select({ id: competitionSingers.id }).from(competitionSingers)
+    .where(eq(competitionSingers.eventId, eventId)).all().length
+}
+
+/** 现场扫码登记：按学号去重，登记顺序即初赛出场顺序。 */
+export function registerSingerFromForm(
+  client: DatabaseClient,
+  contentId: string,
+  input: CompetitionRegistrationInput
+): { id: string, sortOrder: number } {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  if (eventRow.registrationOpen === false) {
+    conflictError('COMPETITION_REGISTRATION_CLOSED', '登记已结束，如需报名请联系现场工作人员')
+  }
+
+  const normalized = normalizeSingerInput({
+    className: input.className,
+    name: input.name,
+    studentNo: input.studentNo,
+    phone: input.phone,
+    email: input.email,
+    song: input.song ?? ''
+  })
+  if (!normalized.studentNo) validationError('学号必填', 'studentNo')
+  if (!normalized.phone) validationError('电话必填', 'phone')
+  if (!normalized.email) validationError('邮箱必填', 'email')
+
+  const existing = client.db.select({ id: competitionSingers.id }).from(competitionSingers)
+    .where(and(
+      eq(competitionSingers.eventId, eventRow.id),
+      eq(competitionSingers.studentNo, normalized.studentNo)
+    ))
+    .get()
+  if (existing) {
+    conflictError('SINGER_ALREADY_REGISTERED', '该学号已完成登记，请勿重复提交；信息有误请联系现场工作人员修改')
+  }
+  if (countSingers(client, eventRow.id) >= COMPETITION_MAX_SINGERS) {
+    conflictError('COMPETITION_SINGERS_FULL', '报名人数已满，请联系现场工作人员')
+  }
+
+  const id = randomUUID()
+  const now = Date.now()
+  const sortOrder = nextSingerOrder(client, eventRow.id)
+  client.db.transaction((transaction) => {
+    transaction.insert(competitionSingers).values({
+      id,
+      eventId: eventRow.id,
+      name: normalized.name,
+      song: normalized.song,
+      className: normalized.className,
+      remark: normalized.remark,
+      studentNo: normalized.studentNo,
+      phone: normalized.phone,
+      email: normalized.email,
+      source: 'form',
+      sortOrder,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+  })
+  addPrelimEntry(client, eventRow.id, id, sortOrder)
+  return { id, sortOrder }
+}
+
+// -- 结果邮件通知 ---------------------------------------------------------------
+
+export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { subject: string, body: string }> = {
+  prelim: {
+    subject: '【音乐协会】新生歌手大赛初赛结果通知',
+    body: [
+      '{{姓名}} 同学：',
+      '',
+      '感谢你参加仰恩大学音乐协会2026新生歌手大赛！',
+      '',
+      '你的初赛成绩：{{平均分}} 分（第{{名次}}名，{{结果}}）。',
+      '',
+      '后续安排请留意初赛群通知，期待在舞台上再次见到你！',
+      '',
+      '仰恩大学音乐协会'
+    ].join('\n')
+  },
+  semi: {
+    subject: '【音乐协会】新生歌手大赛复赛结果通知',
+    body: [
+      '{{姓名}} 同学：',
+      '',
+      '你在仰恩大学音乐协会2026新生歌手大赛复赛中的成绩：{{平均分}} 分（第{{名次}}名，{{结果}}）。',
+      '',
+      '后续安排请留意复赛群通知。感谢你的精彩演唱！',
+      '',
+      '仰恩大学音乐协会'
+    ].join('\n')
+  },
+  final: {
+    subject: '【音乐协会】新生歌手大赛决赛结果通知',
+    body: [
+      '{{姓名}} 同学：',
+      '',
+      '你在仰恩大学音乐协会2026新生歌手大赛决赛中的成绩：{{平均分}} 分（第{{名次}}名）。',
+      '',
+      '感谢你一路唱到决赛，期待来年再会！',
+      '',
+      '仰恩大学音乐协会'
+    ].join('\n')
+  }
+}
+
+function getEmailTemplateRow(client: DatabaseClient, eventId: string, roundKey: CompetitionRoundKey) {
+  return client.db.select().from(competitionEmailTemplates)
+    .where(and(
+      eq(competitionEmailTemplates.eventId, eventId),
+      eq(competitionEmailTemplates.roundKey, roundKey)
+    ))
+    .get() ?? null
+}
+
+export function getEmailTemplate(client: DatabaseClient, eventId: string, roundKey: CompetitionRoundKey): CompetitionEmailTemplate {
+  const row = getEmailTemplateRow(client, eventId, roundKey)
+  if (row) return { roundKey, subject: row.subject, body: row.body }
+  return { roundKey, ...COMPETITION_EMAIL_TEMPLATE_DEFAULTS[roundKey] }
+}
+
+export function updateEmailTemplate(
+  client: DatabaseClient,
+  eventId: string,
+  roundKey: CompetitionRoundKey,
+  input: { subject: string, body: string }
+): CompetitionEmailTemplate {
+  const now = Date.now()
+  const existing = getEmailTemplateRow(client, eventId, roundKey)
+  if (existing) {
+    client.db.update(competitionEmailTemplates).set({
+      subject: input.subject,
+      body: input.body,
+      updatedAt: now
+    }).where(eq(competitionEmailTemplates.id, existing.id)).run()
+  } else {
+    client.db.insert(competitionEmailTemplates).values({
+      id: randomUUID(),
+      eventId,
+      roundKey,
+      subject: input.subject,
+      body: input.body,
+      updatedAt: now
+    }).run()
+  }
+  return getEmailTemplate(client, eventId, roundKey)
+}
+
+export function recordEmailSend(
+  client: DatabaseClient,
+  eventId: string,
+  roundKey: CompetitionRoundKey,
+  singerId: string | null,
+  email: string,
+  status: CompetitionEmailSendStatus,
+  error: string | null
+): void {
+  client.db.insert(competitionEmailSends).values({
+    id: randomUUID(),
+    eventId,
+    roundKey,
+    singerId,
+    email,
+    status,
+    error,
+    createdAt: Date.now()
+  }).run()
+}
+
+/** 合并字段渲染：未识别的占位符原样保留，方便管理员发现拼写问题。 */
+export function renderCompetitionEmailTemplate(template: string, variables: Record<string, string>): string {
+  return template.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (match, key: string) => {
+    const value = variables[key]
+    return value === undefined ? match : value
+  })
+}
+
+export function competitionEmailBodyToHtml(body: string): string {
+  const escaped = body
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return `<p style="margin:0 0 4px;line-height:1.8;">${escaped.split('\n').join('<br>')}</p>`
+}
+
+export function buildEmailVariables(
+  round: RoundRow,
+  entry: CompetitionRoundEntry,
+  singer: CompetitionSinger
+): Record<string, string> {
+  let result: string
+  if (entry.forfeited) result = '弃权'
+  else if (round.advanceCount !== null) result = entry.qualified ? '晋级' : '未能晋级'
+  else result = '完赛'
+  return {
+    姓名: singer.name,
+    班级: singer.className || '—',
+    学号: singer.studentNo || '—',
+    歌曲: singer.song || '待定',
+    轮次: round.title,
+    平均分: entry.average === null ? '—' : entry.average.toFixed(2),
+    名次: entry.rank === null ? '未排名' : String(entry.rank),
+    结果: result
+  }
+}
+
+export function listEmailState(client: DatabaseClient, eventId: string): CompetitionEmailState {
+  const roundKeys: CompetitionRoundKey[] = ['prelim', 'semi', 'final']
+  const templates = Object.fromEntries(
+    roundKeys.map(key => [key, getEmailTemplate(client, eventId, key)])
+  ) as Record<CompetitionRoundKey, CompetitionEmailTemplate>
+  const stats = Object.fromEntries(
+    roundKeys.map(key => [key, { sent: 0, failed: 0, lastSentAt: null as number | null }])
+  ) as Record<CompetitionRoundKey, CompetitionEmailRoundStats>
+
+  const rows = client.db.select().from(competitionEmailSends)
+    .where(eq(competitionEmailSends.eventId, eventId))
+    .orderBy(desc(competitionEmailSends.createdAt))
+    .all()
+
+  const latest: CompetitionEmailSendRecord[] = []
+  const seen = new Set<string>()
+  for (const row of rows) {
+    const roundKey = row.roundKey as CompetitionRoundKey
+    const stat = stats[roundKey]
+    if (row.status === 'sent') stat.sent += 1
+    else stat.failed += 1
+    const createdAt = Number(row.createdAt ?? 0)
+    if (stat.lastSentAt === null || createdAt > stat.lastSentAt) stat.lastSentAt = createdAt
+    if (row.singerId && latest.length < 500) {
+      const key = `${row.roundKey}:${row.singerId}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        latest.push({
+          roundKey,
+          singerId: row.singerId,
+          email: row.email,
+          status: row.status as CompetitionEmailSendStatus,
+          error: row.error,
+          createdAt
+        })
+      }
+    }
+  }
+  return { templates, stats, latest }
+}
+
+export interface CompetitionEmailRecipient {
+  singer: CompetitionSinger
+  entry: CompetitionRoundEntry
+}
+
+/**
+ * 组装一轮的收件人：轮次结束后才允许发送；
+ * scope 过滤目标，显式 singerIds 视为重发（跳过已发送去重）。
+ */
+export function buildEmailSendPlan(
+  client: DatabaseClient,
+  eventId: string,
+  round: RoundRow,
+  scope: 'all' | 'qualified' | 'unqualified',
+  singerIds?: string[]
+): {
+  template: CompetitionEmailTemplate
+  recipients: CompetitionEmailRecipient[]
+  skippedNoEmail: number
+  skippedAlreadySent: number
+} {
+  if (round.status !== 'closed') {
+    conflictError('ROUND_NOT_CLOSED', '请先结束本轮评分并确认成绩，再发送通知邮件')
+  }
+  if (scope !== 'all' && scope !== 'qualified' && scope !== 'unqualified') {
+    validationError('发送范围无效', 'scope')
+  }
+
+  const template = getEmailTemplate(client, eventId, round.key)
+  const singers = listSingers(client, eventId)
+  const singersById = new Map(singers.map(singer => [singer.id, singer]))
+  const ranking = buildRoundRanking(
+    round,
+    listRoundEntryRows(client, round.id),
+    singersById,
+    listRoundScores(client, round.id)
+  )
+
+  let pool = ranking
+  if (singerIds && singerIds.length > 0) {
+    const requested = new Set(singerIds)
+    pool = ranking.filter(entry => requested.has(entry.singer.id))
+  } else if (scope === 'qualified') {
+    pool = ranking.filter(entry => entry.qualified)
+  } else if (scope === 'unqualified') {
+    pool = ranking.filter(entry => !entry.qualified && !entry.forfeited)
+  }
+
+  const sentOk = new Set(
+    client.db.select({ singerId: competitionEmailSends.singerId }).from(competitionEmailSends)
+      .where(and(
+        eq(competitionEmailSends.eventId, eventId),
+        eq(competitionEmailSends.roundKey, round.key),
+        eq(competitionEmailSends.status, 'sent')
+      ))
+      .all()
+      .map(row => row.singerId)
+      .filter((id): id is string => id !== null)
+  )
+
+  const recipients: CompetitionEmailRecipient[] = []
+  let skippedNoEmail = 0
+  let skippedAlreadySent = 0
+  for (const entry of pool) {
+    const singer = singersById.get(entry.singer.id)
+    if (!singer) continue
+    if (!singer.email) {
+      skippedNoEmail += 1
+      continue
+    }
+    if (!singerIds && sentOk.has(singer.id)) {
+      skippedAlreadySent += 1
+      continue
+    }
+    recipients.push({ singer, entry })
+  }
+  return { template, recipients, skippedNoEmail, skippedAlreadySent }
 }

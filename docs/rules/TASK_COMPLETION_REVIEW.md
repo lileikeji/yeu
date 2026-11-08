@@ -62,6 +62,20 @@
 
 ## 5. 历史记录
 
+## 2026-11-08 · 歌手大赛宣传页/现场登记/结果邮件 + 满分口径改 100
+
+- 本次目标：按两张海报做公开宣传页；现场扫码登记（班级/姓名/学号/电话/邮箱/歌曲可待定）直进初赛名单；评委按顺序或任意切换评分（沿用已有能力）；轮次成绩确认后按后台模板一键发送结果邮件（支持 {{姓名}} 等合并字段）。
+- 实际完成：满分口径改为每维 20 分、五维满分 100（与海报一致，评分维度仍在赛事设置可调）；迁移 0046 新增 registration_open、歌手学号/电话/邮箱/source 列与 competition_email_templates / competition_email_sends 两表；公开 /singer 宣传页与 /singer/register 登记页（按学号去重、IP 限流、后台开关控制）；后台 /admin/competition 新增邮件通知分区（模板编辑+占位符插入+测试发送+按范围一键发送+发送记录）；复用既有 QQ SMTP（server/utils/mailer.ts 新增通用 sendMailMessage）；评委端每维输入上限 20、歌曲待定兜底显示。
+- 未完成或待确认：未部署生产；SMTP 需确认生产 shared/.env 的 QQ_EMAIL / QQ_EMAIL_AUTH_CODE 可用；发送记录表在真实邮件量下的表现未验证；宣传页视觉未做真机截图比对。
+- 做得好的地方：邮件渲染/合并字段做成纯函数并进单测；登记直接复用 round_entries 结构，评委端零改动即可看到新登记选手；发布前用构建产物对本地库做真实 HTTP 冒烟。
+- 做得不好的地方：drizzle 对「加列+加 CHECK」生成的表重建语句把新列写进 INSERT SELECT（旧表无此列，执行必失败），迁移需手工收敛为公共列拷贝；master 上 hot 页/amap/mailer 存在既有 lint/type 问题，排查花了额外时间。
+- 根因：drizzle-kit 的表重建 diff 缺陷；master 在制功能（hot/signal、auth）自带 20 个类型错误与 mailer 未用参数，均为本次改动之前已存在（HEAD 基线 worktree 复验确认）。
+- 后续避免：凡「新增列 + 新增约束」的 SQLite 迁移必须本地真实执行一遍再提交；接手别人在制的 master 时先用 HEAD 基线跑 typecheck/lint 区分新旧问题。
+- 验证环境与结果：Windows 工作区 E:\yeu；competition 测试 6/6 全绿（含登记去重/开关、模板渲染、三轮全流程）；pnpm test 仅剩 4 个 deployment-recovery 失败（HEAD 基线同样失败，属他人未提交改动相关）；typecheck 错误集与 HEAD 基线完全一致（20 个既有）；lint 目标文件清零（顺手把 mailer 未用参数改名 _options）；pnpm build exit 0。
+- 发布/回滚信息：未发布；待确认 SMTP 后走 scripts/build-linux-artifact.sh + server-side-deploy.sh 流程。
+- 架构变化：歌手大赛新增公开登记面与邮件通知子系统（DATA_MODEL 6.6、INFORMATION_ARCHITECTURE 8.1 已同步）。
+- 后续动作：部署后用真实扫码流程验证登记→评委可见→评分→关闭→发信全链路；确认 QQ 邮箱授权码与发件频率上限。
+
 ## 2026-10-21 · 音乐协会新生歌手大赛后台与独立评委端
 
 - 本次目标：为音协新增三轮制新生歌手大赛：后台创建按轮独立的评委账号、导入歌手与歌曲、配置评分维度与占比、随机抽签和手动改序、汇总评分与排行；评委端只能评分和查看已公布结果，未评分按弃权处理。

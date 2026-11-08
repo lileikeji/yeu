@@ -8,20 +8,25 @@ import {
   DEFAULT_COMPETITION_DIMENSIONS
 } from '../shared/utils/competition'
 import {
+  competitionEmailBodyToHtml,
   createJudgeAccounts,
   createSinger,
   ensureCompetitionEvent,
   findMusicAssociationContent,
   generateNextRound,
   getAdminCompetitionPayload,
+  getEmailTemplate,
   getJudgePayload,
   getRoundByKey,
   importSingers,
   isMusicAssociationContent,
   parseSingerWorkbook,
+  registerSingerFromForm,
   reorderRoundEntries,
+  renderCompetitionEmailTemplate,
   submitJudgeScore,
   updateCompetitionEvent,
+  updateEmailTemplate,
   updateRound
 } from '../server/modules/competition/service'
 import { closeDatabase, getDatabase } from '../server/database/client'
@@ -36,9 +41,9 @@ function roundView(payload: ReturnType<typeof getAdminCompetitionPayload>, key: 
   return payload.rounds.find(round => round.key === key)!
 }
 
-test('等权五维时总分等于各维度累加，满分 50', () => {
-  assert.equal(competitionMaxTotal(DEFAULT_COMPETITION_DIMENSIONS), 50)
-  assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, scoresForAll(10)), 50)
+test('等权五维时总分等于各维度累加，满分 100（每维 20）', () => {
+  assert.equal(competitionMaxTotal(DEFAULT_COMPETITION_DIMENSIONS), 100)
+  assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, scoresForAll(20)), 100)
   assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, {
     pitch: 9,
     rhythm: 8,
@@ -48,7 +53,7 @@ test('等权五维时总分等于各维度累加，满分 50', () => {
   }), 35)
 })
 
-test('权重不等时按加权平均 × 维度数折算，仍保持满分 50', () => {
+test('权重不等时按加权平均 × 维度数折算，仍保持满分 100', () => {
   const dimensions = [
     { key: 'a', label: 'A', weight: 2 },
     { key: 'b', label: 'B', weight: 1 },
@@ -56,8 +61,21 @@ test('权重不等时按加权平均 × 维度数折算，仍保持满分 50', (
     { key: 'd', label: 'D', weight: 1 },
     { key: 'e', label: 'E', weight: 1 }
   ]
-  assert.equal(calculateCompetitionTotal(dimensions, { a: 10, b: 0, c: 0, d: 0, e: 0 }), 16.67)
-  assert.equal(calculateCompetitionTotal(dimensions, { a: 10, b: 10, c: 10, d: 10, e: 10 }), 50)
+  assert.equal(calculateCompetitionTotal(dimensions, { a: 20, b: 0, c: 0, d: 0, e: 0 }), 33.33)
+  assert.equal(calculateCompetitionTotal(dimensions, { a: 20, b: 20, c: 20, d: 20, e: 20 }), 100)
+})
+
+test('结果邮件模板渲染：占位符替换、未识别保留、正文转 HTML', () => {
+  const rendered = renderCompetitionEmailTemplate(
+    '{{姓名}} 同学：初赛 {{平均分}} 分（第{{名次}}名，{{结果}}）',
+    { 姓名: '张三', 平均分: '88.88', 名次: '3', 结果: '晋级' }
+  )
+  assert.equal(rendered, '张三 同学：初赛 88.88 分（第3名，晋级）')
+  assert.equal(renderCompetitionEmailTemplate('你好 {{名字}}', { 姓名: '张三' }), '你好 {{名字}}')
+
+  const html = competitionEmailBodyToHtml('第一行\n<b>注意</b>')
+  assert.equal(html.includes('<br>'), true)
+  assert.equal(html.includes('<b>'), false)
 })
 
 test('名单导入识别姓名/歌曲/班级表头并跳过空行', () => {
@@ -144,6 +162,41 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   ])
   assert.deepEqual(imported, { imported: 1, skipped: 1 })
 
+  // 现场扫码登记：进选手库 + 初赛名单，按学号去重，歌曲可待定。
+  const registered = registerSingerFromForm(client, musicId, {
+    className: '26工商管理1班',
+    name: '陈七',
+    studentNo: '20260099',
+    phone: '13800001234',
+    email: 'chen7@example.com',
+    song: ''
+  })
+  assert.ok(registered.sortOrder > 0)
+  assert.throws(
+    () => registerSingerFromForm(client, musicId, {
+      className: '26工商管理1班',
+      name: '陈七二',
+      studentNo: '20260099',
+      phone: '13800001235',
+      email: 'chen72@example.com'
+    }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'SINGER_ALREADY_REGISTERED'
+  )
+  const payloadAfterRegister = getAdminCompetitionPayload(client, musicId)
+  const registeredSinger = payloadAfterRegister.singers.find(singer => singer.studentNo === '20260099')!
+  assert.equal(registeredSinger.source, 'form')
+  assert.equal(registeredSinger.song, '')
+  assert.equal(registeredSinger.email, 'chen7@example.com')
+  assert.equal(payloadAfterRegister.rounds[0]!.entries.some(entry => entry.singer.id === registeredSinger.id), true)
+
+  // 邮件模板：默认模板可直接用，更新后生效。
+  assert.equal(getEmailTemplate(client, event.id, 'prelim').body.includes('{{姓名}}'), true)
+  const updatedTemplate = updateEmailTemplate(client, event.id, 'prelim', {
+    subject: '初赛结果',
+    body: '{{姓名}} 你好，成绩 {{平均分}}'
+  })
+  assert.equal(updatedTemplate.body, '{{姓名}} 你好，成绩 {{平均分}}')
+
   let prelim = getRoundByKey(client, event.id, 'prelim')
   updateRound(client, prelim, { status: 'open', advanceCount: 2 })
 
@@ -176,7 +229,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
 
   let payload = getAdminCompetitionPayload(client, musicId)
   const prelimView = roundView(payload, 'prelim')
-  assert.equal(prelimView.entries.length, 4)
+  assert.equal(prelimView.entries.length, 5)
   assert.equal(prelimView.entries[0]!.singer.id, singerA.id)
   assert.equal(prelimView.entries[0]!.average, 50)
   assert.equal(prelimView.entries[0]!.qualified, true)
@@ -267,17 +320,36 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(finalResult.entries[0]!.rank, 1)
   assert.equal(finalResult.entries[0]!.qualified, false)
 
-  // 初赛评委也能在决赛结束后看到决赛总结果。
+  // 初赛评委也能在决赛结束后看到决赛总结果；评委端不暴露联系方式。
   const prelimJudgePayload = getJudgePayload(client, prelimJudgeOne)
   assert.equal(prelimJudgePayload.round.key, 'prelim')
-  assert.equal(prelimJudgePayload.roundResults?.length, 4)
+  assert.equal(prelimJudgePayload.roundResults?.length, 5)
   assert.equal(prelimJudgePayload.finalResults?.length, 1)
   assert.equal(prelimJudgePayload.finalResults?.[0]?.singer.id, singerB.id)
+  assert.equal('email' in prelimJudgePayload.singers[0]!, false)
+  assert.equal('phone' in prelimJudgePayload.singers[0]!, false)
 
   // 已结束的轮次不能手动改序。
   assert.throws(
     () => reorderRoundEntries(client, getRoundByKey(client, event.id, 'final'), [finalResult.entries[0]!.id]),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'ROUND_CLOSED'
+  )
+
+  // 登记开关关闭后拒绝现场登记。
+  updateCompetitionEvent(client, event, {
+    title: event.title,
+    registrationOpen: false,
+    dimensions: DEFAULT_COMPETITION_DIMENSIONS
+  })
+  assert.throws(
+    () => registerSingerFromForm(client, musicId, {
+      className: '26工商管理2班',
+      name: '周八',
+      studentNo: '20260088',
+      phone: '13800004321',
+      email: 'zhou8@example.com'
+    }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'COMPETITION_REGISTRATION_CLOSED'
   )
 
   closeDatabase(':memory:')

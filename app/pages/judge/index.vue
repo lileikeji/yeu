@@ -4,7 +4,7 @@ import type {
   CompetitionJudgePayload,
   CompetitionRoundEntry
 } from '~~/shared/types'
-import { calculateCompetitionTotal, roundCompetitionScore } from '~~/shared/utils/competition'
+import { calculateCompetitionTotal, COMPETITION_MAX_DIMENSION_SCORE, roundCompetitionScore } from '~~/shared/utils/competition'
 
 definePageMeta({ layout: false })
 
@@ -41,6 +41,8 @@ const selectedSinger = computed<SingerWithScore | null>(() =>
   singers.value.find(singer => singer.id === selectedSingerId.value) ?? null)
 const selectedIndex = computed(() => singers.value.findIndex(singer => singer.id === selectedSingerId.value))
 const maxTotal = computed(() => event.value?.maxTotal ?? dimensions.value.length * 10)
+/** 每个维度的满分（当前 20 分），供输入框与校验使用。 */
+const dimensionMax = COMPETITION_MAX_DIMENSION_SCORE
 const weightSum = computed(() => dimensions.value.reduce((sum, dimension) => sum + dimension.weight, 0))
 
 const tabs = computed<Array<{ key: TabKey, label: string }>>(() => {
@@ -175,7 +177,7 @@ function normalizeScore(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const value = Number(raw)
   if (!Number.isFinite(value)) return null
-  return roundCompetitionScore(Math.min(10, Math.max(0, value)))
+  return roundCompetitionScore(Math.min(dimensionMax, Math.max(0, value)))
 }
 
 function setDraftScore(key: string, raw: unknown): void {
@@ -480,7 +482,7 @@ onMounted(bootstrap)
                 </span>
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ singer.name }}</span>
-                  <span class="block truncate text-xs text-zinc-500 dark:text-zinc-400">{{ singer.song }}</span>
+                  <span class="block truncate text-xs text-zinc-500 dark:text-zinc-400">{{ singer.song || '待定' }}</span>
                 </span>
                 <UIcon
                   v-if="singer.score"
@@ -516,7 +518,7 @@ onMounted(bootstrap)
                 <h2 class="mt-1 flex flex-wrap items-baseline gap-2 text-xl font-bold text-zinc-900 dark:text-zinc-100">
                   {{ selectedSinger.name }}
                   <span class="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                    《{{ selectedSinger.song }}》
+                    《{{ selectedSinger.song || '待定' }}》
                   </span>
                 </h2>
                 <p
@@ -574,22 +576,22 @@ onMounted(bootstrap)
                   <input
                     type="number"
                     min="0"
-                    max="10"
+                    :max="dimensionMax"
                     step="0.1"
                     inputmode="decimal"
                     class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
                     :value="draftScores[dimension.key] ?? ''"
                     :disabled="!scoringOpen"
                     :aria-label="`${dimension.label}评分`"
-                    placeholder="0-10"
+                    :placeholder="`0-${dimensionMax}`"
                     @input="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
                   >
-                  <span class="shrink-0 text-xs text-zinc-400">/ 10</span>
+                  <span class="shrink-0 text-xs text-zinc-400">/ {{ dimensionMax }}</span>
                 </span>
                 <input
                   type="range"
                   min="0"
-                  max="10"
+                  :max="dimensionMax"
                   step="0.1"
                   class="mt-2 w-full accent-green-600"
                   :value="draftScores[dimension.key] ?? 0"
@@ -745,7 +747,7 @@ onMounted(bootstrap)
                     {{ entry.singer.name }}
                   </td>
                   <td class="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">
-                    {{ entry.singer.song }}
+                    {{ entry.singer.song || '待定' }}
                   </td>
                   <td class="px-3 py-2.5 text-right font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {{ averageText(entry) }}

@@ -1034,6 +1034,8 @@ export const competitionEvents = sqliteTable('competition_events', {
   id: text('id').primaryKey(),
   contentId: text('content_id').notNull().references(() => contents.id, { onDelete: 'cascade' }),
   title: text('title').notNull().default('新生歌手大赛'),
+  /** 现场扫码登记入口开关；关闭后公开登记页只读。 */
+  registrationOpen: integer('registration_open', { mode: 'boolean' }).notNull().default(true),
   dimensionsJson: text('dimensions_json').notNull().default('[]'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
@@ -1102,11 +1104,46 @@ export const competitionSingers = sqliteTable('competition_singers', {
   song: text('song').notNull(),
   className: text('class_name'),
   remark: text('remark'),
+  studentNo: text('student_no'),
+  phone: text('phone'),
+  email: text('email'),
+  source: text('source', { enum: ['admin', 'form'] }).notNull().default('admin'),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
-  index('competition_singers_event_order_idx').on(table.eventId, table.sortOrder)
+  index('competition_singers_event_order_idx').on(table.eventId, table.sortOrder),
+  check('competition_singers_source_check', sql`${table.source} in ('admin', 'form')`)
+])
+
+/** 每轮结果邮件模板；发送时按选手合并字段渲染。 */
+export const competitionEmailTemplates = sqliteTable('competition_email_templates', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  roundKey: text('round_key', { enum: ['prelim', 'semi', 'final'] }).notNull(),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('competition_email_templates_event_round_unique').on(table.eventId, table.roundKey),
+  check('competition_email_templates_round_check', sql`${table.roundKey} in ('prelim', 'semi', 'final')`)
+])
+
+/** 邮件发送流水：每次尝试一条，用于去重、失败重发与发送状态展示。 */
+export const competitionEmailSends = sqliteTable('competition_email_sends', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  roundKey: text('round_key', { enum: ['prelim', 'semi', 'final'] }).notNull(),
+  singerId: text('singer_id').references(() => competitionSingers.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  status: text('status', { enum: ['sent', 'failed'] }).notNull(),
+  error: text('error'),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('competition_email_sends_event_round_idx').on(table.eventId, table.roundKey),
+  index('competition_email_sends_singer_idx').on(table.singerId),
+  check('competition_email_sends_round_check', sql`${table.roundKey} in ('prelim', 'semi', 'final')`),
+  check('competition_email_sends_status_check', sql`${table.status} in ('sent', 'failed')`)
 ])
 
 /** 每轮参赛名单与出场顺序（复赛/决赛生成时随机抽签）。 */

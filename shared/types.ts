@@ -304,6 +304,8 @@ export interface CompetitionEvent {
   clubName: string
   clubSlug: string
   title: string
+  /** 现场扫码登记入口开关；关闭后公开登记页只读。 */
+  registrationOpen: boolean
   dimensions: CompetitionDimension[]
   maxTotal: number
   createdAt: number
@@ -341,7 +343,8 @@ export interface CompetitionJudgeCredentials {
   password: string
 }
 
-export interface CompetitionSinger {
+/** 评委端可见的选手公开字段；联系方式只进后台。 */
+export interface CompetitionSingerPublic {
   id: string
   name: string
   song: string
@@ -350,6 +353,57 @@ export interface CompetitionSinger {
   sortOrder: number
   createdAt: number
   updatedAt: number
+}
+
+export interface CompetitionSinger extends CompetitionSingerPublic {
+  studentNo: string | null
+  phone: string | null
+  email: string | null
+  /** admin = 后台录入/导入；form = 现场扫码登记。 */
+  source: 'admin' | 'form'
+}
+
+export type CompetitionEmailSendStatus = 'sent' | 'failed'
+
+export interface CompetitionEmailTemplate {
+  roundKey: CompetitionRoundKey
+  subject: string
+  body: string
+}
+
+export interface CompetitionEmailRoundStats {
+  sent: number
+  failed: number
+  lastSentAt: number | null
+}
+
+export interface CompetitionEmailSendRecord {
+  roundKey: CompetitionRoundKey
+  singerId: string | null
+  email: string
+  status: CompetitionEmailSendStatus
+  error: string | null
+  createdAt: number
+}
+
+export interface CompetitionEmailState {
+  templates: Record<CompetitionRoundKey, CompetitionEmailTemplate>
+  stats: Record<CompetitionRoundKey, CompetitionEmailRoundStats>
+  /** 每个（轮次，选手）最近一次发送记录。 */
+  latest: CompetitionEmailSendRecord[]
+}
+
+export interface CompetitionRegistrationStatus {
+  open: boolean
+  title: string
+}
+
+export interface CompetitionEmailSendResult {
+  sent: number
+  failed: number
+  skippedNoEmail: number
+  skippedAlreadySent: number
+  failures: Array<{ name: string, email: string, error: string }>
 }
 
 export interface CompetitionScoreDimension {
@@ -373,7 +427,7 @@ export interface CompetitionScore {
 
 export interface CompetitionRoundEntry {
   id: string
-  singer: CompetitionSinger
+  singer: CompetitionSingerPublic
   /** 本轮出场顺序（复赛/决赛为随机抽签结果）。 */
   sortOrder: number
   advancedFromRank: number | null
@@ -398,6 +452,7 @@ export interface CompetitionAdminPayload {
   event: CompetitionEvent
   singers: CompetitionSinger[]
   rounds: CompetitionRoundView[]
+  email: CompetitionEmailState
 }
 
 export interface CompetitionJudgePayload {
@@ -420,7 +475,7 @@ export interface CompetitionJudgePayload {
     status: CompetitionRoundStatus
     advanceCount: number | null
   }
-  singers: Array<CompetitionSinger & {
+  singers: Array<CompetitionSingerPublic & {
     sortOrder: number
     advancedFromRank: number | null
     score: CompetitionScore | null
