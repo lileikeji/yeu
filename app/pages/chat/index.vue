@@ -47,6 +47,12 @@ const { user, isAuthenticated, refreshSession } = useUserSession()
 const loading = ref(true)
 const rooms = ref<ChatRoom[]>([])
 const placeRooms = ref<PlaceChatRoom[]>([])
+const placeFilter = ref('')
+const searchOpen = ref(false)
+const searchKeyword = ref('')
+const searchResults = ref<Array<ChatMessage & { roomId: string }>>([])
+const searching = ref(false)
+const searchDone = ref(false)
 const activeRoomId = ref('')
 const messages = ref<ChatMessage[]>([])
 const draft = ref('')
@@ -58,6 +64,11 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 let stickToBottom = true
 
 const activeRoom = computed(() => rooms.value.find(room => room.id === activeRoomId.value) || null)
+const filteredPlaceRooms = computed(() => {
+  const keyword = placeFilter.value.trim().toLowerCase()
+  if (!keyword) return placeRooms.value
+  return placeRooms.value.filter(room => room.title.toLowerCase().includes(keyword))
+})
 const composerLocked = computed(() => Boolean(activeRoom.value?.isMutedAll || activeRoom.value?.isMuted))
 const activeRoomDescription = computed(() => {
   if (!activeRoom.value) return '请选择一个群聊'
@@ -139,6 +150,38 @@ async function loadRooms(): Promise<void> {
   if (activeRoomId.value && !rooms.value.some(room => room.id === activeRoomId.value)) {
     activeRoomId.value = rooms.value[0]?.id || ''
   }
+}
+
+async function runSearch(): Promise<void> {
+  const keyword = searchKeyword.value.trim()
+  if (!keyword || !activeRoomId.value) return
+  searching.value = true
+  searchDone.value = false
+  try {
+    const payload = await userFetch<{ items: ChatMessage[] }>(`/api/chat/rooms/${encodeURIComponent(activeRoomId.value)}/search`, {
+      query: { q: keyword }
+    })
+    searchResults.value = payload.items || []
+    searchDone.value = true
+  } catch (error) {
+    searchResults.value = []
+    searchDone.value = true
+    sendError.value = getRequestMessage(error, '搜索失败，请稍后再试')
+  }
+}
+
+function toggleSearch(): void {
+  searchOpen.value = !searchOpen.value
+  if (!searchOpen.value) {
+    searchKeyword.value = ''
+    searchResults.value = []
+    searchDone.value = false
+  }
+}
+
+function openResultRoom(roomId: string): void {
+  if (roomId !== activeRoomId.value) return
+  searchOpen.value = false
 }
 
 async function loadPlaceRooms(): Promise<void> {
@@ -265,6 +308,7 @@ function onListScroll(): void {
 }
 
 async function switchRoom(roomId: string): Promise<void> {
+  searchOpen.value = false
   if (roomId === activeRoomId.value) return
   activeRoomId.value = roomId
   sendError.value = ''
@@ -422,9 +466,9 @@ watch(activeRoomId, () => {
 
       <div
         v-else
-        class="grid min-h-[70vh] overflow-hidden rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 shadow-sm lg:grid-cols-[15rem_minmax(0,1fr)]"
+        class="grid min-h-[70vh] overflow-hidden rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 shadow-sm lg:h-[calc(100vh-var(--header-height)-5rem)] lg:min-h-0 lg:grid-cols-[15rem_minmax(0,1fr)]"
       >
-        <aside class="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 p-3 lg:border-b-0 lg:border-r">
+        <aside class="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 p-3 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
           <p class="px-2 pb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             群聊
           </p>
@@ -463,9 +507,18 @@ watch(activeRoomId, () => {
             <p class="mt-4 px-2 pb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
               楼栋群
             </p>
+            <div class="px-2 pb-2">
+              <UInput
+                v-model="placeFilter"
+                placeholder="搜索楼栋群…"
+                size="xs"
+                icon="i-lucide-search"
+                class="w-full"
+              />
+            </div>
             <div class="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
               <button
-                v-for="place in placeRooms"
+                v-for="place in filteredPlaceRooms"
                 :key="place.placeId"
                 type="button"
                 class="min-h-11 min-w-[9rem] rounded-xl px-3 py-2 text-left text-sm transition disabled:opacity-60 lg:min-w-0"
@@ -482,11 +535,17 @@ watch(activeRoomId, () => {
                   楼栋群 · {{ place.memberCount }} 人
                 </span>
               </button>
+              <li
+                v-if="!filteredPlaceRooms.length"
+                class="px-2 py-3 text-xs text-zinc-400 dark:text-zinc-500"
+              >
+                没有匹配的楼栋群。
+              </li>
             </div>
           </template>
         </aside>
 
-        <section class="flex min-h-[28rem] flex-col">
+        <section class="flex min-h-[28rem] flex-col lg:min-h-0 lg:border-l-0">
           <header class="flex items-center justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
             <div class="min-w-0">
               <h2 class="truncate font-semibold text-zinc-950 dark:text-zinc-100">
@@ -496,7 +555,65 @@ watch(activeRoomId, () => {
                 {{ activeRoomDescription }}
               </p>
             </div>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :icon="searchOpen ? 'i-lucide-x' : 'i-lucide-search'"
+              aria-label="搜索聊天记录"
+              class="shrink-0 min-h-9 min-w-9"
+              :disabled="!activeRoomId"
+              @click="toggleSearch"
+            />
           </header>
+
+          <div
+            v-if="searchOpen"
+            class="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-800/60 px-4 py-3"
+          >
+            <form
+              class="flex items-center gap-2"
+              @submit.prevent="runSearch"
+            >
+              <UInput
+                v-model="searchKeyword"
+                placeholder="搜这个群的聊天记录…"
+                size="sm"
+                class="flex-1"
+                icon="i-lucide-search"
+                @keyup.enter="runSearch"
+              />
+              <UButton
+                type="submit"
+                size="sm"
+                color="primary"
+                :loading="searching"
+                label="搜索"
+              />
+            </form>
+            <ul
+              v-if="searchResults.length"
+              class="mt-2 max-h-48 space-y-1.5 overflow-y-auto"
+            >
+              <li
+                v-for="item in searchResults"
+                :key="item.id"
+                class="rounded-lg bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ item.displayName }}</span>
+                  <span class="text-[10px] tabular-nums text-zinc-400">{{ new Date(item.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) }}</span>
+                </div>
+                <p class="mt-0.5 whitespace-pre-line text-zinc-600 dark:text-zinc-300">{{ item.body }}</p>
+              </li>
+            </ul>
+            <p
+              v-else-if="searchDone"
+              class="mt-2 text-xs text-zinc-400 dark:text-zinc-500"
+            >
+              没有找到包含「{{ searchKeyword }}」的消息。
+            </p>
+          </div>
 
           <div
             ref="listEl"

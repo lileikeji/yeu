@@ -693,3 +693,35 @@ export function enterPlaceChatRoom(
   ensureMembership(client, room.id, user.id)
   return { roomId: room.id, title: place.name }
 }
+
+/** 房间内按关键词搜历史消息（LIKE，倒序，轻量限 50 条）。 */
+export function searchRoomMessages(
+  client: DatabaseClient,
+  roomId: string,
+  query: string,
+  limit = 50
+): Array<{ id: string, roomId: string, userId: string, displayName: string, body: string, createdAt: string }> {
+  const keyword = query.trim()
+  if (!keyword) return []
+  const rows = client.db.select({
+    id: chatMessages.id,
+    roomId: chatMessages.roomId,
+    userId: chatMessages.userId,
+    displayName: chatMessages.displayName,
+    body: chatMessages.body,
+    createdAt: chatMessages.createdAt
+  })
+    .from(chatMessages)
+    .where(and(
+      eq(chatMessages.roomId, roomId),
+      isNull(chatMessages.deletedAt),
+      like(chatMessages.body, `%${keyword.replace(/[%_]/g, '\$&')}%`)
+    ))
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(Math.min(Math.max(limit, 1), 50))
+    .all()
+  return rows.map(row => ({
+    ...row,
+    createdAt: new Date(row.createdAt).toISOString()
+  }))
+}
