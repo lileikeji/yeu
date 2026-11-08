@@ -207,7 +207,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
     }),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'ALREADY_PRE_REGISTERED'
   )
-  const candidates = lookupPreRegistrations(client, event.id, '孙九')
+  const candidates = lookupPreRegistrations(client, musicId, '孙九')
   assert.equal(candidates.length, 1)
   assert.equal(candidates[0]!.name, '孙九')
   assert.equal(candidates[0]!.email, 'sun9@example.com')
@@ -226,7 +226,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(preSinger.source, 'pre')
   assert.equal(preSinger.preRegistrationId, candidates[0]!.id)
   // 已使用的预报名不再出现在检索结果；再登记同预报名会被拒绝。
-  assert.equal(lookupPreRegistrations(client, event.id, '孙九').length, 0)
+  assert.equal(lookupPreRegistrations(client, musicId, '孙九').length, 0)
   assert.throws(
     () => registerSingerFromForm(client, musicId, {
       className: 'x',
