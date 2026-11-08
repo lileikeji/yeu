@@ -20,6 +20,9 @@ jobs:
       # GitHub 托管 runner 仅 4 核，低于本仓库 8C/8G 构建门槛；
       # scripts/ci-build.sh（Gitee 云端 CI）导出的是同一个开关。
       ALLOW_LOW_SPEC_BUILD: 1
+      # CI 无本地 .env：按生产形态构建（高德外链），否则落到 nuxt.config
+      # 默认 maplibre-dev，整个 maplibre 打进包直接撑爆包体预算。
+      NUXT_PUBLIC_MAP_PROVIDER: amap
 
     strategy:
       matrix:
