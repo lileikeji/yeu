@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
+const { isAuthenticated } = useUserSession()
 const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
 const { isDark: isSiteDark } = useThemeMode()
@@ -112,6 +113,26 @@ function shareCurrentPage(): void {
         </div>
 
         <div class="flex shrink-0 items-center gap-0 md:gap-1">
+          <UButton
+            v-if="!isAuthenticated"
+            to="/login"
+            icon="i-lucide-user-round"
+            color="primary"
+            variant="ghost"
+            aria-label="登录"
+            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+          >
+            <span class="hidden sm:inline">登录</span>
+          </UButton>
+          <UButton
+            v-else
+            to="/me"
+            icon="i-lucide-user-round"
+            color="neutral"
+            variant="ghost"
+            aria-label="个人中心"
+            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+          />
           <ThemeModeToggle />
           <PublicNoticeCenter />
           <UButton

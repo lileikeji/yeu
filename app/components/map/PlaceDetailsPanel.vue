@@ -27,9 +27,15 @@ const emit = defineEmits<{
 }>()
 
 // 楼栋类点位开放群聊（campus-building/dorm）：登录后进入对应楼栋群
+const { isAuthenticated } = useUserSession()
 const isBuildingPlace = computed(() =>
   props.place.category === 'campus-building' || props.place.category === 'dorm')
 function goPlaceChat(): void {
+  // 未登录直达登录页（登录后 redirect 回群聊）；已登录进聊天页
+  if (!isAuthenticated.value) {
+    void navigateTo({ path: '/login', query: { redirect: `/chat?place=${props.place.id}` } })
+    return
+  }
   void navigateTo({ path: '/chat', query: { place: props.place.id } })
 }
 
