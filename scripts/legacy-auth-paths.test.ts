@@ -57,3 +57,10 @@ test('canonical admin auth handlers exist', () => {
     assert.equal(existsSync(join(process.cwd(), rel)), true, rel)
   }
 })
+
+test('admin auth entry points keep their per-IP rate limits', () => {
+  const login = readFileSync(join(process.cwd(), 'server/api/admin/auth/login.post.ts'), 'utf8')
+  assert.match(login, /assertRateLimit\(/, 'admin login must keep per-IP rate limiting (brute-force gate)')
+  const passwordChange = readFileSync(join(process.cwd(), 'server/api/admin/auth/password.post.ts'), 'utf8')
+  assert.match(passwordChange, /assertRateLimit\(/, 'admin password change must keep per-IP rate limiting')
+})

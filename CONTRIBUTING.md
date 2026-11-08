@@ -26,7 +26,7 @@
 
 ## 硬性红线（改动即拒收）
 
-1. **安全层层设防不削弱**：Origin guard、miniapp 限流、visitor ban、anti-crawl 规则不为绕过 403/429 而改。
+1. **安全层层设防不削弱**：Origin guard、miniapp 限流、visitor ban、anti-crawl、admin 登录限流不为绕过 403/429 而改。漏洞报告走 [SECURITY.md](SECURITY.md)，不开公开 Issue。
 2. **凭证与隐私不入库**：不提交密码、Cookie、令牌、私钥、学生个人信息；学校官方原始文件（docx/xls/pdf/rar）不入库，脱敏后的结构化种子放 `data/seeds/`。
 3. **改检索/算分必须 bump `ASSISTANT_CACHE_VERSION`**（`server/modules/assistant/service.ts`）：答案缓存有表 + 进程内存两层，同版本号会继续发旧答案。
 4. **测试不过不发布**：改任何 `scripts/*.test.ts` 覆盖的模块后，全量 `pnpm test` 必须清零。

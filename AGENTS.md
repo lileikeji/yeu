@@ -64,6 +64,7 @@
 
 - **全程使用中文进行对话**，按 ASD-STE100 规范使用简体中文（不适用于代码）。
 - **禁止主动操作 Git**：不允许主动执行 `git commit`、`git push`、`git push --force`、`git cherry-pick`、`git rebase`、`git reset --hard` 等不可逆操作。只有当用户明确要求时才可以执行。
+- **AI 会话提交/推送必须用自己名字的分支**：需要 `git commit` / `git push` 时，先从 `master` 切出以自己名字命名的分支（形如 `ai/<模型名>-<主题>`，如 `ai/glm-opensource-hardening`），在分支上提交推送；不得直接在 `master` 上提交、推送或 force push。多个会话并行工作时各用各的分支互不干扰，`master` 的合并由人工或主会话执行（2026-11-08 双会话在 master 交错提交的事故教训）。
 - **文档与文件引用禁止硬编码绝对路径**：引用仓库内文件一律用相对路径（相对于仓库根或所在文档）。
 - **Windows 环境下执行命令默认使用 Git Bash**，而非 PowerShell，除非 Git Bash 不可用。
 - **检索优先用 `rg`**：内容搜索用 `rg`，找文件用 `rg --files`；相互独立的读取和查询尽量批量执行。
