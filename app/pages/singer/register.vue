@@ -11,10 +11,20 @@ interface RegistrationStatus {
   title: string
 }
 
+interface PreRegistrationCandidate {
+  id: string
+  name: string
+  className: string | null
+  studentNo: string | null
+  phone: string | null
+  email: string | null
+  song: string | null
+}
+
 const status = ref<RegistrationStatus | null>(null)
 const statusError = ref('')
 const submitting = ref(false)
-const succeeded = ref<{ name: string, sortOrder: number } | null>(null)
+const succeeded = ref<{ name: string, sortOrder: number, fromPre: boolean } | null>(null)
 const errorMessage = ref('')
 
 const form = reactive({
@@ -25,6 +35,12 @@ const form = reactive({
   email: '',
   song: ''
 })
+
+/** 命中的预报名；确认「是这个人」后自动填表并随提交关联。 */
+const preCandidates = ref<PreRegistrationCandidate[]>([])
+const preSelected = ref<PreRegistrationCandidate | null>(null)
+const lookingUp = ref(false)
+const lookupDone = ref(false)
 
 function serverErrorMessage(error: unknown, fallback: string): string {
   if (typeof error !== 'object' || error === null) return fallback
@@ -40,6 +56,40 @@ async function loadStatus(): Promise<void> {
   } catch {
     statusError.value = '登记状态获取失败，请刷新重试；如持续失败请联系现场工作人员。'
   }
+}
+
+async function lookupPreRegistrations(): Promise<void> {
+  const name = form.name.trim()
+  if (!name || lookingUp.value) return
+  lookingUp.value = true
+  try {
+    const result = await $fetch<{ candidates: PreRegistrationCandidate[] }>(
+      '/api/public/competition/register/lookup',
+      { method: 'POST', body: { name } }
+    )
+    preCandidates.value = result.candidates
+    lookupDone.value = true
+  } catch {
+    preCandidates.value = []
+    lookupDone.value = true
+  } finally {
+    lookingUp.value = false
+  }
+}
+
+function confirmCandidate(candidate: PreRegistrationCandidate): void {
+  preSelected.value = candidate
+  form.name = candidate.name
+  form.className = candidate.className ?? ''
+  form.studentNo = candidate.studentNo ?? ''
+  form.phone = candidate.phone ?? ''
+  form.email = candidate.email ?? ''
+  form.song = candidate.song ?? ''
+  preCandidates.value = []
+}
+
+function clearCandidate(): void {
+  preSelected.value = null
 }
 
 function validateLocally(): string {
@@ -70,10 +120,15 @@ async function submit(): Promise<void> {
         studentNo: form.studentNo.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
-        song: form.song.trim()
+        song: form.song.trim(),
+        ...(preSelected.value ? { preRegistrationId: preSelected.value.id } : {})
       }
     })
-    succeeded.value = { name: form.name.trim(), sortOrder: result.sortOrder }
+    succeeded.value = {
+      name: form.name.trim(),
+      sortOrder: result.sortOrder,
+      fromPre: Boolean(preSelected.value)
+    }
   } catch (error) {
     const code = typeof error === 'object' && error !== null
       ? (error as { data?: { data?: { code?: string } } }).data?.data?.code
@@ -83,6 +138,9 @@ async function submit(): Promise<void> {
       : undefined
     if (code === 'SINGER_ALREADY_REGISTERED') {
       errorMessage.value = serverErrorMessage(error, '该学号已完成登记，请勿重复提交。')
+    } else if (code === 'PRE_REGISTRATION_ALREADY_USED') {
+      errorMessage.value = '该预报名刚被确认过，请直接手动填写。'
+      clearCandidate()
     } else if (code === 'COMPETITION_REGISTRATION_CLOSED') {
       errorMessage.value = serverErrorMessage(error, '登记已结束，请联系现场工作人员。')
     } else if (code === 'RATE_LIMITED' || status === 429) {
@@ -109,11 +167,11 @@ onMounted(loadStatus)
           仰恩大学音乐协会 · 新生歌手大赛
         </NuxtLink>
         <h1 class="mt-5 text-2xl font-black text-[#2f3a34]">
-          参赛信息登记
+          现场正式登记
         </h1>
         <p class="mt-2 text-sm leading-6 text-[#6b7a70]">
-          现场扫码填写即可完成登记，登记顺序即初赛出场顺序。
-          歌曲可先留空（待定），赛前告知工作人员补充即可。
+          先填姓名检索预报名，是本人即可一键填表；没预报名也可以直接手填。
+          登记顺序即初赛出场顺序。
         </p>
       </header>
 
@@ -159,6 +217,9 @@ onMounted(loadStatus)
         <p class="mt-2 text-sm leading-6 text-[#4a564e]">
           {{ succeeded.name }}，你的出场序号为
           <span class="font-bold text-[#c2543c]">{{ succeeded.sortOrder }}</span>。
+          <template v-if="succeeded.fromPre">
+            已关联你的预报名信息。
+          </template>
           比赛顺序以现场签到顺序为主，请留意叫号；
           工作人员会通过 QQ / 电话联系，结果也会发送到你的邮箱。
         </p>
@@ -172,7 +233,7 @@ onMounted(loadStatus)
           <button
             type="button"
             class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#4a564e] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
-            @click="succeeded = null"
+            @click="succeeded = null; preSelected = null; preCandidates = []; lookupDone = false"
           >
             继续登记下一位
           </button>
@@ -192,16 +253,95 @@ onMounted(loadStatus)
           >
             姓名 <span class="text-[#c2543c]">*</span>
           </label>
-          <input
-            id="reg-name"
-            v-model="form.name"
-            required
-            maxlength="40"
-            name="name"
-            autocomplete="name"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
-            placeholder="你的姓名"
+          <div class="mt-1.5 flex gap-2">
+            <input
+              id="reg-name"
+              v-model="form.name"
+              required
+              maxlength="40"
+              name="name"
+              autocomplete="name"
+              class="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+              placeholder="你的姓名"
+              @blur="lookupPreRegistrations"
+            >
+            <button
+              type="button"
+              class="shrink-0 rounded-xl bg-[#4a564e] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3a453e] disabled:opacity-60"
+              :disabled="lookingUp || !form.name.trim()"
+              @click="lookupPreRegistrations"
+            >
+              {{ lookingUp ? '检索中…' : '检索预报名' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 预报名命中确认 -->
+        <div
+          v-if="preCandidates.length > 0"
+          class="rounded-xl border border-[#f2d8c4] bg-[#fdf6ec] p-3"
+        >
+          <p class="text-sm font-bold text-[#33413a]">
+            是不是这个人？
+          </p>
+          <div class="mt-2 space-y-2">
+            <div
+              v-for="candidate in preCandidates"
+              :key="candidate.id"
+              class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-zinc-200"
+            >
+              <div class="min-w-0 text-sm">
+                <p class="font-semibold text-[#33413a]">
+                  {{ candidate.name }}
+                  <span
+                    v-if="candidate.className"
+                    class="ml-1 text-xs font-normal text-[#6b7a70]"
+                  >{{ candidate.className }}</span>
+                </p>
+                <p class="truncate text-xs text-[#8b968c]">
+                  {{ candidate.song || '歌曲待定' }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700"
+                @click="confirmCandidate(candidate)"
+              >
+                是，帮我填好
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="mt-2 text-xs text-[#8b968c] underline"
+            @click="preCandidates = []"
           >
+            都不是，手动填写
+          </button>
+        </div>
+
+        <div
+          v-else-if="lookupDone && !preSelected"
+          class="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-[#6b7a70]"
+        >
+          没有找到「{{ form.name.trim() }}」的预报名记录，继续手动填写即可。
+        </div>
+
+        <div
+          v-if="preSelected"
+          class="flex items-center justify-between gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
+        >
+          <span>
+            已关联预报名：{{ preSelected.name }}<template v-if="preSelected.className">
+              （{{ preSelected.className }}）</template>，信息已填好，可修改后提交。
+          </span>
+          <button
+            type="button"
+            class="shrink-0 text-xs text-green-800 underline"
+            @click="clearCandidate"
+          >
+            解除关联
+          </button>
         </div>
 
         <div>

@@ -1,7 +1,7 @@
-import { competitionRegistrationSchema } from '../../../../shared/schemas/server'
+import { competitionPreRegisterSchema } from '../../../../shared/schemas/server'
 import {
   findMusicAssociationContent,
-  registerSingerFromForm
+  preRegisterFromForm
 } from '../../../modules/competition/service'
 import { getClientIpAddress } from '../../../utils/client-ip'
 import { useAppDatabase } from '../../../utils/database'
@@ -15,12 +15,11 @@ export default defineEventHandler(async (event) => {
   const client = useAppDatabase(event)
 
   const ip = getClientIpAddress(event)
-  assertRateLimit(event, `competition-register:${ip}`, 5, 60 * 60 * 1000, client)
-  assertRateLimit(event, 'competition-register:global', 200, 60 * 60 * 1000, client)
+  assertRateLimit(event, `competition-pre-register:${ip}`, 5, 60 * 60 * 1000, client)
 
-  const input = await parseBody(event, competitionRegistrationSchema)
+  const input = await parseBody(event, competitionPreRegisterSchema)
   const contentId = findMusicAssociationContent(client).id
-  const result = registerSingerFromForm(client, contentId, input)
+  const result = preRegisterFromForm(client, contentId, input)
 
   setResponseStatus(event, 201)
   return result

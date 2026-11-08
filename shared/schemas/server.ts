@@ -1287,7 +1287,8 @@ export const updateCompetitionJudgeSchema = z.object({
   isActive: z.boolean().optional()
 }).strict()
 
-// 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定。
+// 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定；
+// 带 preRegistrationId = 从预报名确认生成。
 const COMPETITION_STUDENT_NO_PATTERN = /^[0-9A-Za-z-]{4,20}$/
 const COMPETITION_PHONE_PATTERN = /^1\d{10}$/
 const COMPETITION_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -1298,7 +1299,22 @@ export const competitionRegistrationSchema = z.object({
   studentNo: z.string().trim().regex(COMPETITION_STUDENT_NO_PATTERN, '学号格式不正确'),
   phone: z.string().trim().regex(COMPETITION_PHONE_PATTERN, '手机号格式不正确'),
   email: z.string().trim().max(120).regex(COMPETITION_EMAIL_PATTERN, '邮箱格式不正确'),
+  song: z.string().trim().max(80).optional(),
+  preRegistrationId: z.string().trim().min(1).max(64).optional()
+}).strict()
+
+// 赛前预报名：只填姓名即可提交，其余到场确认时补全。
+export const competitionPreRegisterSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  className: z.string().trim().max(60).optional(),
+  studentNo: z.string().trim().max(20).optional(),
+  phone: z.string().trim().max(20).optional(),
+  email: z.string().trim().max(120).optional(),
   song: z.string().trim().max(80).optional()
+}).strict()
+
+export const competitionLookupSchema = z.object({
+  name: z.string().trim().min(1).max(40)
 }).strict()
 
 export const competitionSingerSchema = z.object({

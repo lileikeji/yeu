@@ -330,6 +330,13 @@
       "when": 1794110892893,
       "tag": "0046_steep_dorian_gray",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1794118480180,
+      "tag": "0047_nasty_miss_america",
+      "breakpoints": true
     }
   ]
 }

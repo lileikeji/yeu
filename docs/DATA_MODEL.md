@@ -236,21 +236,22 @@ erDiagram
 
 ### 6.6 新生歌手大赛（仅音乐协会）
 
-比赛数据只属于 `contents.kind = 'club'` 且 slug 为 `music-association` 的音乐协会，服务端按内容 ID 校验组织管理员范围，不接受其他社团复用。迁移 `0039_nosy_salo.sql` + `0046_steep_dorian_gray.sql` 新增以下表：
+比赛数据只属于 `contents.kind = 'club'` 且 slug 为 `music-association` 的音乐协会，服务端按内容 ID 校验组织管理员范围，不接受其他社团复用。迁移 `0039_nosy_salo.sql` + `0046_steep_dorian_gray.sql` + `0047_nasty_miss_america.sql` 新增以下表：
 
 - `competition_events`：赛事主表，`content_id` 唯一，保存名称、`registration_open`（现场扫码登记开关）和 `dimensions_json`（维度 key、名称、相对权重）。默认五维等权：音准、节奏、情感、音色、舞台表现，每维满分 20，单评委满分 100。
 - `competition_rounds`：固定三轮 `prelim` / `semi` / `final`，保存标题、顺序、状态（`draft`/`open`/`closed`）、本轮计划评委数和晋级人数。初赛默认晋级 30 人；复赛晋级人数允许为 `null`（名额待定）；决赛为 `null`。
 - `competition_judges`：按轮次创建的评委账号，`username` 全局唯一，保存 scrypt 密码哈希、展示名、启用状态和最近登录。评委与轮次绑定，跨轮执评必须使用不同账号。
 - `competition_judge_sessions`：评委独立会话，只保存 token/CSRF 哈希、绝对过期时间和最后活跃时间；Cookie 使用 `yeu_judge_*` / `__Host-yeu_judge_*` 命名空间，与管理员、普通用户会话互不影响。
-- `competition_singers`：赛事总名单（姓名、歌曲——可留空表示待定、班级、备注、学号、电话、邮箱、`source`（`admin` 后台录入 / `form` 现场扫码登记）、初始序号）。学号是公开登记的去重键。
+- `competition_singers`：赛事总名单（姓名、歌曲——可留空表示待定、班级、备注、学号、电话、邮箱、`source`（`admin` 后台录入 / `form` 现场手填 / `pre` 预报名确认）、初始序号）。学号是公开登记的去重键。
 - `competition_round_entries`：某轮参赛名单与出场顺序。初赛在新增/导入/登记时自动写入；复赛/决赛由上一轮晋级结果生成并随机抽签，`advanced_from_rank` 记录晋级名次，管理员可手动调整 `sort_order`。
 - `competition_scores`：按 `(round_id, singer_id, judge_id)` 唯一，保存提交时的维度快照与加权总分；轮次关闭后 API 拒绝写入。
+- `competition_pre_registrations`：赛前预报名（姓名必填，班级/学号/电话/邮箱/歌曲选填）；`registered_at` 非空表示已在现场确认为正式报名，对应选手见 `competition_singers.pre_registration_id`。
 - `competition_email_templates`：每轮结果邮件模板（`(event_id, round_key)` 唯一），未落库时返回内置默认模板。
 - `competition_email_sends`：邮件发送流水（每次尝试一条；`singer_id` 可空表示测试发送），用于已发送去重、失败重发与后台状态展示。
 
 计分规则：单评委总分 = `Σ(维度分 × 权重) / Σ权重 × 维度数`，等权五维时即五项累加（满分 100），四舍五入保留两位。轮次得分 = 该轮所有已提交评委总分的平均分。排名按平均分降序，同分按该轮出场顺序靠前者优先；轮次结束后没有任何评分的选手标记弃权，排在最后且不参与晋级。晋级取有分选手排序后的前 `advance_count` 名，因此同分卡在边界时由出场顺序决定。赛事一旦产生任意评分，维度、权重和数量即锁定，避免不同快照的总分不可比；标题与登记开关仍可修改。
 
-公开登记：`POST /api/public/competition/register`（班级/姓名/学号/电话/邮箱必填，歌曲可待定）按学号去重、受 IP 限流和 `registration_open` 开关控制，登记顺序即初赛出场顺序；`GET /api/public/competition/register` 返回开关状态（30 秒短缓存）。结果邮件：`PUT /api/admin/competition/email/[roundKey]` 保存模板，`.../test` 发测试邮件（示例数据、不落流水），`.../send` 仅在轮次 `closed` 后可发送——按 scope（全部/仅晋级/仅未晋级）渲染合并字段（`{{姓名}}` 等）并逐条记录发送结果，已成功发送的选手自动跳过，显式 `singerIds` 视为重发。
+预报名与登记：`POST /api/public/competition/pre-register`（姓名必填、其余选填，有学号按学号去重）；`POST /api/public/competition/register/lookup` 按姓名检索未确认的预报名（精确优先、模糊兜底，返回联系方式用于一键填表）；正式登记 `POST /api/public/competition/register` 可带 `preRegistrationId` 关联并标记已确认。原描述：公开登记：`POST /api/public/competition/register`（班级/姓名/学号/电话/邮箱必填，歌曲可待定）按学号去重、受 IP 限流和 `registration_open` 开关控制，登记顺序即初赛出场顺序；`GET /api/public/competition/register` 返回开关状态（30 秒短缓存）。结果邮件：`PUT /api/admin/competition/email/[roundKey]` 保存模板，`.../test` 发测试邮件（示例数据、不落流水），`.../send` 仅在轮次 `closed` 后可发送——按 scope（全部/仅晋级/仅未晋级）渲染合并字段（`{{姓名}}` 等）并逐条记录发送结果，已成功发送的选手自动跳过，显式 `singerIds` 视为重发。
 
 ## 7. 搜索与知识库
 

@@ -1365,11 +1365,13 @@ onMounted(load)
                 <td class="px-3 py-2">
                   <span
                     class="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                    :class="singer.source === 'form'
-                      ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
-                      : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'"
+                    :class="singer.source === 'pre'
+                      ? 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300'
+                      : singer.source === 'form'
+                        ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
+                        : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'"
                   >
-                    {{ singer.source === 'form' ? '现场登记' : '后台录入' }}
+                    {{ singer.source === 'pre' ? '预报名确认' : singer.source === 'form' ? '现场填写' : '后台录入' }}
                   </span>
                 </td>
                 <td class="max-w-56 px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -1411,6 +1413,92 @@ onMounted(load)
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+              预报名名单
+            </h3>
+            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              赛前预报名共 {{ payload.preRegistrations.length }} 人，其中
+              {{ payload.preRegistrations.filter(item => item.registeredAt).length }} 人已到现场确认正式登记。
+              未确认的选手在正式登记页输入姓名即可一键带出。
+            </p>
+          </div>
+          <div
+            v-if="payload.preRegistrations.length === 0"
+            class="px-4 py-8 text-center text-sm text-zinc-400"
+          >
+            还没有预报名记录。
+          </div>
+          <div
+            v-else
+            class="overflow-x-auto"
+          >
+            <table class="w-full min-w-[860px] text-sm">
+              <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
+                <tr>
+                  <th class="px-4 py-2 font-medium">
+                    姓名
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    班级
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    学号
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    电话
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    歌曲
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    状态
+                  </th>
+                  <th class="px-4 py-2 font-medium">
+                    预报名时间
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                <tr
+                  v-for="item in payload.preRegistrations"
+                  :key="item.id"
+                >
+                  <td class="px-4 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                    {{ item.name }}
+                  </td>
+                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ item.className || '—' }}
+                  </td>
+                  <td class="px-3 py-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {{ item.studentNo || '—' }}
+                  </td>
+                  <td class="px-3 py-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {{ item.phone || '—' }}
+                  </td>
+                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ item.song || '待定' }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <span
+                      class="rounded px-1.5 py-0.5 text-xs font-medium"
+                      :class="item.registeredAt
+                        ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                        : 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300'"
+                    >
+                      {{ item.registeredAt ? `已登记（${item.registeredSingerName || item.name}）` : '未到场确认' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {{ formatDateTime(item.createdAt) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 

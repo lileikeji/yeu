@@ -20,7 +20,9 @@ import {
   getRoundByKey,
   importSingers,
   isMusicAssociationContent,
+  lookupPreRegistrations,
   parseSingerWorkbook,
+  preRegisterFromForm,
   registerSingerFromForm,
   reorderRoundEntries,
   renderCompetitionEmailTemplate,
@@ -189,6 +191,54 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(registeredSinger.email, 'chen7@example.com')
   assert.equal(payloadAfterRegister.rounds[0]!.entries.some(entry => entry.singer.id === registeredSinger.id), true)
 
+  // 赛前预报名 → 现场按姓名检索 → 确认后一键带出并标记来源 pre。
+  preRegisterFromForm(client, musicId, {
+    name: '孙九',
+    className: '26汉语言文学2班',
+    studentNo: '20260077',
+    phone: '13800000777',
+    email: 'sun9@example.com',
+    song: '起风了'
+  })
+  assert.throws(
+    () => preRegisterFromForm(client, musicId, {
+      name: '孙九二',
+      studentNo: '20260077'
+    }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'ALREADY_PRE_REGISTERED'
+  )
+  const candidates = lookupPreRegistrations(client, event.id, '孙九')
+  assert.equal(candidates.length, 1)
+  assert.equal(candidates[0]!.name, '孙九')
+  assert.equal(candidates[0]!.email, 'sun9@example.com')
+
+  const preRegistered = registerSingerFromForm(client, musicId, {
+    className: candidates[0]!.className!,
+    name: candidates[0]!.name,
+    studentNo: candidates[0]!.studentNo!,
+    phone: candidates[0]!.phone!,
+    email: candidates[0]!.email!,
+    song: candidates[0]!.song!,
+    preRegistrationId: candidates[0]!.id
+  })
+  const preSinger = getAdminCompetitionPayload(client, musicId).singers
+    .find(singer => singer.id === preRegistered.id)!
+  assert.equal(preSinger.source, 'pre')
+  assert.equal(preSinger.preRegistrationId, candidates[0]!.id)
+  // 已使用的预报名不再出现在检索结果；再登记同预报名会被拒绝。
+  assert.equal(lookupPreRegistrations(client, event.id, '孙九').length, 0)
+  assert.throws(
+    () => registerSingerFromForm(client, musicId, {
+      className: 'x',
+      name: '孙九',
+      studentNo: '20260078',
+      phone: '13800000778',
+      email: 'sun92@example.com',
+      preRegistrationId: candidates[0]!.id
+    }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'PRE_REGISTRATION_ALREADY_USED'
+  )
+
   // 邮件模板：默认模板可直接用，更新后生效。
   assert.equal(getEmailTemplate(client, event.id, 'prelim').body.includes('{{姓名}}'), true)
   const updatedTemplate = updateEmailTemplate(client, event.id, 'prelim', {
@@ -229,7 +279,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
 
   let payload = getAdminCompetitionPayload(client, musicId)
   const prelimView = roundView(payload, 'prelim')
-  assert.equal(prelimView.entries.length, 5)
+  assert.equal(prelimView.entries.length, 6)
   assert.equal(prelimView.entries[0]!.singer.id, singerA.id)
   assert.equal(prelimView.entries[0]!.average, 50)
   assert.equal(prelimView.entries[0]!.qualified, true)
@@ -323,7 +373,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   // 初赛评委也能在决赛结束后看到决赛总结果；评委端不暴露联系方式。
   const prelimJudgePayload = getJudgePayload(client, prelimJudgeOne)
   assert.equal(prelimJudgePayload.round.key, 'prelim')
-  assert.equal(prelimJudgePayload.roundResults?.length, 5)
+  assert.equal(prelimJudgePayload.roundResults?.length, 6)
   assert.equal(prelimJudgePayload.finalResults?.length, 1)
   assert.equal(prelimJudgePayload.finalResults?.[0]?.singer.id, singerB.id)
   assert.equal('email' in prelimJudgePayload.singers[0]!, false)

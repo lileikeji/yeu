@@ -1,13 +1,14 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto'
 import { createError } from 'h3'
 import * as XLSX from '@e965/xlsx'
-import { and, asc, desc, eq, or } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, like, or } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
   competitionEmailSends,
   competitionEmailTemplates,
   competitionEvents,
   competitionJudges,
+  competitionPreRegistrations,
   competitionRoundEntries,
   competitionRounds,
   competitionScores,
@@ -37,6 +38,7 @@ import type {
   CompetitionJudge,
   CompetitionJudgeCredentials,
   CompetitionJudgePayload,
+  CompetitionPreRegistration,
   CompetitionRegistrationStatus,
   CompetitionRound,
   CompetitionRoundEntry,
@@ -147,6 +149,7 @@ type JudgeRow = typeof competitionJudges.$inferSelect
 type EntryRow = typeof competitionRoundEntries.$inferSelect
 type SingerRow = typeof competitionSingers.$inferSelect
 type ScoreRow = typeof competitionScores.$inferSelect
+type PreRegistrationRow = typeof competitionPreRegistrations.$inferSelect
 
 // -- 音乐协会定位 --------------------------------------------------------------
 
@@ -349,7 +352,8 @@ export function serializeSinger(row: SingerRow): CompetitionSinger {
     studentNo: row.studentNo,
     phone: row.phone,
     email: row.email,
-    source: row.source
+    source: row.source,
+    preRegistrationId: row.preRegistrationId
   }
 }
 
@@ -645,7 +649,8 @@ export function getAdminCompetitionPayload(client: DatabaseClient, contentId: st
     event: serializeCompetitionEvent(eventRow, club),
     singers: singers.map(serializeSinger),
     rounds: rounds.map(round => roundView(client, round, singers, dimensions)),
-    email: listEmailState(client, eventRow.id)
+    email: listEmailState(client, eventRow.id),
+    preRegistrations: listPreRegistrations(client, eventRow.id)
   }
 }
 
@@ -1451,6 +1456,8 @@ export interface CompetitionRegistrationInput {
   phone: string
   email: string
   song?: string
+  /** 命中预报名确认生成时传入；服务端校验归属与未使用。 */
+  preRegistrationId?: string
 }
 
 export function getRegistrationState(client: DatabaseClient, contentId: string): CompetitionRegistrationStatus {
@@ -1499,6 +1506,21 @@ export function registerSingerFromForm(
     conflictError('COMPETITION_SINGERS_FULL', '报名人数已满，请联系现场工作人员')
   }
 
+  // 预报名确认：记录必须属于本场且尚未被使用；来源标记为 pre。
+  let preRegistration: PreRegistrationRow | null = null
+  if (input.preRegistrationId) {
+    preRegistration = client.db.select().from(competitionPreRegistrations)
+      .where(and(
+        eq(competitionPreRegistrations.id, input.preRegistrationId),
+        eq(competitionPreRegistrations.eventId, eventRow.id)
+      ))
+      .get() ?? null
+    if (!preRegistration) validationError('预报名记录不存在', 'preRegistrationId')
+    if (preRegistration.registeredAt) {
+      conflictError('PRE_REGISTRATION_ALREADY_USED', '该预报名已被确认使用，请直接手动填写')
+    }
+  }
+
   const id = randomUUID()
   const now = Date.now()
   const sortOrder = nextSingerOrder(client, eventRow.id)
@@ -1513,11 +1535,16 @@ export function registerSingerFromForm(
       studentNo: normalized.studentNo,
       phone: normalized.phone,
       email: normalized.email,
-      source: 'form',
+      source: preRegistration ? 'pre' : 'form',
+      preRegistrationId: preRegistration?.id ?? null,
       sortOrder,
       createdAt: now,
       updatedAt: now
     }).run()
+    if (preRegistration) {
+      transaction.update(competitionPreRegistrations).set({ registeredAt: now })
+        .where(eq(competitionPreRegistrations.id, preRegistration.id)).run()
+    }
   })
   addPrelimEntry(client, eventRow.id, id, sortOrder)
   return { id, sortOrder }
@@ -1784,4 +1811,159 @@ export function buildEmailSendPlan(
     recipients.push({ singer, entry })
   }
   return { template, recipients, skippedNoEmail, skippedAlreadySent }
+}
+
+// -- 赛前预报名 ----------------------------------------------------------------
+
+const COMPETITION_MAX_PRE_REGISTRATIONS = 2000
+const COMPETITION_LOOKUP_LIMIT = 5
+
+export interface CompetitionPreRegisterInput {
+  name: string
+  className?: string
+  studentNo?: string
+  phone?: string
+  email?: string
+  song?: string
+}
+
+export function serializePreRegistration(row: PreRegistrationRow, registeredSingerName: string | null): CompetitionPreRegistration {
+  return {
+    id: row.id,
+    name: row.name,
+    className: row.className,
+    studentNo: row.studentNo,
+    phone: row.phone,
+    email: row.email,
+    song: row.song,
+    registeredAt: row.registeredAt ? Number(row.registeredAt) : null,
+    createdAt: Number(row.createdAt ?? 0),
+    registeredSingerName
+  }
+}
+
+/** 赛前预报名：姓名必填；有学号时按学号去重，防止重复占位。 */
+export function preRegisterFromForm(
+  client: DatabaseClient,
+  contentId: string,
+  input: CompetitionPreRegisterInput
+): { id: string } {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  if (eventRow.registrationOpen === false) {
+    conflictError('COMPETITION_REGISTRATION_CLOSED', '报名已结束，如需报名请联系音乐协会工作人员')
+  }
+
+  const normalized = normalizeSingerInput({
+    name: input.name,
+    className: input.className,
+    studentNo: input.studentNo,
+    phone: input.phone,
+    email: input.email,
+    song: input.song
+  })
+
+  if (normalized.studentNo) {
+    const existing = client.db.select({ id: competitionPreRegistrations.id }).from(competitionPreRegistrations)
+      .where(and(
+        eq(competitionPreRegistrations.eventId, eventRow.id),
+        eq(competitionPreRegistrations.studentNo, normalized.studentNo)
+      ))
+      .get()
+    if (existing) {
+      conflictError('ALREADY_PRE_REGISTERED', '该学号已预报名过，请勿重复提交')
+    }
+  }
+  if (countPreRegistrations(client, eventRow.id) >= COMPETITION_MAX_PRE_REGISTRATIONS) {
+    conflictError('COMPETITION_PRE_REGISTRATIONS_FULL', '预报名人数已满，请联系音乐协会工作人员')
+  }
+
+  const id = randomUUID()
+  client.db.insert(competitionPreRegistrations).values({
+    id,
+    eventId: eventRow.id,
+    name: normalized.name,
+    className: normalized.className,
+    studentNo: normalized.studentNo,
+    phone: normalized.phone,
+    email: normalized.email,
+    song: normalized.song,
+    createdAt: Date.now()
+  }).run()
+  return { id }
+}
+
+function countPreRegistrations(client: DatabaseClient, eventId: string): number {
+  return client.db.select({ id: competitionPreRegistrations.id }).from(competitionPreRegistrations)
+    .where(eq(competitionPreRegistrations.eventId, eventId)).all().length
+}
+
+/**
+ * 现场正式报名时按姓名检索未使用的预报名：先精确同名，再模糊包含。
+ * 返回联系方式用于一键填表；已确认的（registered_at 非空）不再出现。
+ */
+export function lookupPreRegistrations(
+  client: DatabaseClient,
+  contentId: string,
+  nameInput: string
+): Array<CompetitionPreRegistration & { registered: boolean }> {
+  const name = String(nameInput ?? '').replace(/\s+/g, ' ').trim()
+  if (!name) return []
+
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const unused = and(
+    eq(competitionPreRegistrations.eventId, eventRow.id),
+    isNull(competitionPreRegistrations.registeredAt)
+  )
+  const mapRows = (rows: PreRegistrationRow[]) => rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    className: row.className,
+    studentNo: row.studentNo,
+    phone: row.phone,
+    email: row.email,
+    song: row.song,
+    registeredAt: null,
+    createdAt: Number(row.createdAt ?? 0),
+    registered: false,
+    registeredSingerName: null
+  }))
+
+  const exact = client.db.select().from(competitionPreRegistrations)
+    .where(and(unused, eq(competitionPreRegistrations.name, name)))
+    .orderBy(desc(competitionPreRegistrations.createdAt))
+    .limit(COMPETITION_LOOKUP_LIMIT)
+    .all()
+  if (exact.length > 0) return mapRows(exact)
+
+  const partial = client.db.select().from(competitionPreRegistrations)
+    .where(and(unused, like(competitionPreRegistrations.name, `%${name}%`)))
+    .orderBy(desc(competitionPreRegistrations.createdAt))
+    .limit(COMPETITION_LOOKUP_LIMIT)
+    .all()
+  return mapRows(partial)
+}
+
+export function listPreRegistrations(client: DatabaseClient, eventId: string): CompetitionPreRegistration[] {
+  const rows = client.db.select().from(competitionPreRegistrations)
+    .where(eq(competitionPreRegistrations.eventId, eventId))
+    .orderBy(desc(competitionPreRegistrations.createdAt))
+    .limit(500)
+    .all()
+  const singerNameByPreId = new Map(
+    listSingers(client, eventId)
+      .filter(singer => singer.preRegistrationId)
+      .map(singer => [singer.preRegistrationId!, singer.name])
+  )
+  return rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    className: row.className,
+    studentNo: row.studentNo,
+    phone: row.phone,
+    email: row.email,
+    song: row.song,
+    registeredAt: row.registeredAt ? Number(row.registeredAt) : null,
+    createdAt: Number(row.createdAt ?? 0),
+    registeredSingerName: row.registeredAt ? singerNameByPreId.get(row.id) ?? null : null
+  }))
 }

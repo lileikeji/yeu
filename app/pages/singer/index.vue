@@ -65,28 +65,40 @@ useSeoMeta({
 
       <!-- 登记入口 -->
       <section class="mt-6 rounded-2xl bg-gradient-to-r from-[#e2725b] to-[#e9997a] p-5 text-white shadow-md sm:p-6">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p class="text-lg font-bold">
-              现场登记入口
-            </p>
-            <p class="mt-1 text-sm leading-6 text-white/90">
-              扫码或点击填写班级、姓名、学号、电话、邮箱与参赛歌曲（可待定）。
-              登记顺序即初赛出场顺序。
-            </p>
-          </div>
+        <p class="text-lg font-bold">
+          报名入口
+        </p>
+        <p class="mt-1 text-sm leading-6 text-white/90">
+          赛前先预报名占位（只填姓名即可）；比赛当天到场扫码做正式登记，
+          输入姓名即可一键带出预报名信息，登记顺序即初赛出场顺序。
+        </p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <NuxtLink
+            to="/singer/pre-register"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-[#c2543c] shadow transition hover:bg-orange-50"
+          >
+            <UIcon
+              name="i-lucide-calendar-plus"
+              class="size-4"
+              aria-hidden="true"
+            />
+            赛前预报名
+          </NuxtLink>
           <NuxtLink
             to="/singer/register"
-            class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-[#c2543c] shadow transition hover:bg-orange-50"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#8c3b26] px-4 py-3 text-sm font-bold text-white shadow transition hover:bg-[#7a3020]"
           >
             <UIcon
               name="i-lucide-clipboard-pen"
               class="size-4"
               aria-hidden="true"
             />
-            立即登记
+            现场正式登记
           </NuxtLink>
         </div>
+        <p class="mt-3 text-xs text-white/80">
+          预报名不等于正式登记：当天仍需扫码确认，确认后信息自动带出。
+        </p>
       </section>
 
       <!-- 赛程与规则 -->

@@ -359,8 +359,24 @@ export interface CompetitionSinger extends CompetitionSingerPublic {
   studentNo: string | null
   phone: string | null
   email: string | null
-  /** admin = 后台录入/导入；form = 现场扫码登记。 */
-  source: 'admin' | 'form'
+  /** admin = 后台录入/导入；form = 现场手填；pre = 预报名确认生成。 */
+  source: 'admin' | 'form' | 'pre'
+  preRegistrationId: string | null
+}
+
+export interface CompetitionPreRegistration {
+  id: string
+  name: string
+  className: string | null
+  studentNo: string | null
+  phone: string | null
+  email: string | null
+  song: string | null
+  /** 非空 = 已在现大确认为正式报名。 */
+  registeredAt: number | null
+  createdAt: number
+  /** 确认后对应的正式报名选手名（后台展示用）。 */
+  registeredSingerName: string | null
 }
 
 export type CompetitionEmailSendStatus = 'sent' | 'failed'
@@ -453,6 +469,7 @@ export interface CompetitionAdminPayload {
   singers: CompetitionSinger[]
   rounds: CompetitionRoundView[]
   email: CompetitionEmailState
+  preRegistrations: CompetitionPreRegistration[]
 }
 
 export interface CompetitionJudgePayload {

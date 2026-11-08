@@ -1,6 +1,6 @@
-import { findMusicAssociationContent, getRegistrationState } from '../../../modules/competition/service'
-import { useAppDatabase } from '../../../utils/database'
-import { setPublicCache } from '../../../utils/http'
+import { findMusicAssociationContent, getRegistrationState } from '../../../../modules/competition/service'
+import { useAppDatabase } from '../../../../utils/database'
+import { setPublicCache } from '../../../../utils/http'
 
 export default defineEventHandler((event) => {
   setHeader(event, 'Cache-Control', 'no-store')

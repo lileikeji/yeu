@@ -1096,6 +1096,25 @@ export const competitionJudgeSessions = sqliteTable('competition_judge_sessions'
   index('competition_judge_sessions_expires_idx').on(table.expiresAt)
 ])
 
+/**
+ * 赛前预报名：只填姓名即可提交，其余信息到场确认正式报名时补全。
+ * registered_at 非空 = 已确认为正式报名（关联选手见 competition_singers.pre_registration_id）。
+ */
+export const competitionPreRegistrations = sqliteTable('competition_pre_registrations', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  className: text('class_name'),
+  studentNo: text('student_no'),
+  phone: text('phone'),
+  email: text('email'),
+  song: text('song'),
+  registeredAt: integer('registered_at'),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('competition_pre_registrations_event_name_idx').on(table.eventId, table.name)
+])
+
 /** 赛事总名单；具体某轮谁参赛由 competition_round_entries 决定。 */
 export const competitionSingers = sqliteTable('competition_singers', {
   id: text('id').primaryKey(),
@@ -1107,13 +1126,15 @@ export const competitionSingers = sqliteTable('competition_singers', {
   studentNo: text('student_no'),
   phone: text('phone'),
   email: text('email'),
-  source: text('source', { enum: ['admin', 'form'] }).notNull().default('admin'),
+  source: text('source', { enum: ['admin', 'form', 'pre'] }).notNull().default('admin'),
+  /** 由预报名确认生成时，关联的预报名记录。 */
+  preRegistrationId: text('pre_registration_id').references(() => competitionPreRegistrations.id, { onDelete: 'set null' }),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
   index('competition_singers_event_order_idx').on(table.eventId, table.sortOrder),
-  check('competition_singers_source_check', sql`${table.source} in ('admin', 'form')`)
+  check('competition_singers_source_check', sql`${table.source} in ('admin', 'form', 'pre')`)
 ])
 
 /** 每轮结果邮件模板；发送时按选手合并字段渲染。 */
