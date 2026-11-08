@@ -12,13 +12,21 @@ minimumReleaseAgeExclude:
   - brace-expansion@5.0.8
 
 overrides:
+  # vue-tsc 3.3.8-3.3.14 回归：模板检查给普通 const 绑定误插 .value（TS2339 假阳性）；
+  # 3.3.14 是当前最新且无修复版，钉回 3.3.7（与 TS 6.0.3 组合今日已验证全绿）。
+  vue-tsc: 3.3.7
+  '@vue/language-core': 3.3.7
   # Close GHSA-g7r4-m6w7-qqqr path for @nuxt/fonts fontless build tooling.
   fontless>esbuild: 0.28.1
   # Keep the callable v2 API while using the bounded expansion from 5.0.8.
   brace-expansion@2.1.2: file:vendor/brace-expansion-compat
   # Bump known-CVE transitive ranges to their patched versions.
-  brace-expansion@5.0.8: 5.0.9
-  fast-uri@3.1.4: 3.1.5
-  js-yaml@4.3.0: 4.3.1
+  brace-expansion@5.0.8: 5.0.12
+  brace-expansion@5.0.9: 5.0.12
+  fast-uri: 3.1.9
+  js-yaml@4.3.0: 4.3.2
+  js-yaml@4.3.1: 4.3.2
+  minimatch@10.2.6: 11.0.5
+  prosemirror-view@1.42.1: 1.42.3
   nanoid@3.3.16: 3.3.18
   postcss@8.5.19: 8.5.23
