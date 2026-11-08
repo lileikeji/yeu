@@ -86,8 +86,20 @@ chmod 0600 "$backup"
 ls -t "$base"/shared/backups/yeu-before-*.sqlite 2>/dev/null | grep -v -F -- "$backup" | tail -n +2 | xargs -r rm -f --
 ls -t "$base"/shared/backups/*.replaced-* 2>/dev/null | tail -n +2 | xargs -r rm -f --
 # 快照异步复制到对象存储，不阻塞切换（cosfs 写 2G 要几分钟）。
+# 复制完成后按日期窗口清理桶内旧快照（删除 3 天前的）：不依赖 cosfs 列表排序——
+# 其 readdir 与真实列表可能不一致，2026-11-08 曾因此把"留最新 7 份"删反成"留最旧 7 份"；
+# 按文件名日期判断即使列表陈旧也只会少删，下次部署补上。
 if [[ -d /mnt/cos/yeu-db-backups ]]; then
-  ( nice -n 10 cp -f "$backup" "/mnt/cos/yeu-db-backups/$(basename "$backup")" >/dev/null 2>&1 & )
+  (
+    nice -n 10 cp -f "$backup" "/mnt/cos/yeu-db-backups/$(basename "$backup")" >/dev/null 2>&1
+    cd /mnt/cos/yeu-db-backups || exit 0
+    cutoff=$(date -d "3 days ago" +%Y%m%d)
+    for f in yeu-before-*.sqlite; do
+      [ -e "$f" ] || continue
+      d=${f#yeu-before-}; d=${d%%-*}
+      if [[ "$d" < "$cutoff" ]]; then rm -f -- "$f"; fi
+    done
+  ) &
 fi
 
 # The smoke test boots the new release as the `yeu` user, which needs a
