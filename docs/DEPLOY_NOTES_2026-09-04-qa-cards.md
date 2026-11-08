@@ -1758,3 +1758,13 @@
 - **发布**：直连发布（Linux ELF 换装 df9fbd0d… + sqlite-vec-linux-x64/vec0.so + release.json 回填 linux/v22.18.0/abi127/retrieval 182d7368… 且 release 字段同步；`tar -czhf` 校验 hookable 实体 12 条、软链 0、vec0.so 在；md5 f424594b14c3c4ee0a13dd7983ff161d）。server-side-deploy.sh 全绿（applied 0/pendingLedger 0、3101 冒烟过）。
 - **线上验收**：`/version.json`=`20261102-gpsroute-124611-97bd`；bus-rt 带票 200，两线路各 **45 点 / 2090m / minlat 25.1087**（南区操场绕行消失）；`dir-tab-check.cjs` 实测去程 tab 只有电瓶车11（距和昌 150m、前方 1 站）、回程 tab 只有电瓶车6（距普照 202m、前方 6 站）——同车不再跨 tab 重复；面板「两站查询 约 2.1 公里 · 途经 5 站 · 约 10 分钟」。
 - **回滚点**：`/www/wwwroot/yeu/releases/20261102-eta34-101748-3c2e`；DB 备份 `shared/backups/yeu-before-20261102-gpsroute-124611-97bd.sqlite`；回滚命令 `ln -sfn /www/wwwroot/yeu/releases/20261102-eta34-101748-3c2e /www/wwwroot/yeu/current && sudo systemctl restart yeu.service`（标记 `DEPLOYED-e65bd8a…-20261102T124700.txt`）。
+
+## 追加 29：`20261108-local-143539`（release）— 歌手大赛宣传页/预报名/现场登记/结果邮件上线
+
+- **代码提交**：`e0b9df1`（登记+邮件+每维 20 分）与 `76a06e2`（预报名+按姓名一键带出），分支 `deploy/competition-20261108`；`866df01` 顺手入库了今日另一会话对 `deploy-home-sheet.sh` 的 COS 备份清理修复。
+- **发布方式**：`bash scripts/build-linux-artifact.sh` 本机构建（build+上传+服务器补 ELF+4093 冒烟）→ 生产库迁移 → `server-side-deploy.sh` 切换。
+- **数据库**：迁移 `0046`（登记开关/歌手联系方式/邮件两表）与 `0047`（预报名表+singers 来源 'pre'）手工应用并写入账本（drizzle 对「加列+加 CHECK」的表重建 SQL 两次都把新列写进 INSERT SELECT 引用旧表不存在的列，均已手工收敛为公共列拷贝）；`db-check` 返回 pendingLedger=0。
+- **重要运维发现**：`sqlite3 .backup` 在持续写入的线上库上会活锁——实测挂了 50 分钟文件大小不动（vdb 被自身重试打到 98% util）。换 `VACUUM INTO`（单一一致快照，写者走 WAL）92 秒完成 2.02G 备份，integrity ok。部署脚本今日已改为 VACUUM INTO + 24h 快照硬链接复用，本次部署的备份即复用该快照，未再触发。
+- **发布波折**：第一次切换误用未补二进制的 `release.tar.gz`（正确应为补齐 ELF 后的 `release-bundle.tar.gz`），native 校验在冒烟前即失败——current 未受影响、无备份无切换，清理解包残留后用正确包一次成功。
+- **线上验收**：`/version.json`=76a06e2/143539；health ok；`/singer`、`/singer/pre-register`、`/singer/register`、`/admin/competition`、`/judge/login` 全 200；公开登记接口返回 open=true；预报名→检索→带 preRegistrationId 登记（source='pre'、pre_registration_id 落库、检索不再返回）全链路实测通过后测试数据已删除（singers/pre-registrations 清零）；公网三个页面 200；journal 无错误。
+- **回滚点**：`/data/yeu/releases/20261108-local-114417`；备份 `yeu-before-20261108-local-135530.sqlite`（2.02G，integrity ok，为迁移前快照，与旧版回滚语义一致）。

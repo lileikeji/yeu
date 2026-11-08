@@ -72,7 +72,7 @@
 - 根因：drizzle-kit 的表重建 diff 缺陷；master 在制功能（hot/signal、auth）自带 20 个类型错误与 mailer 未用参数，均为本次改动之前已存在（HEAD 基线 worktree 复验确认）。
 - 后续避免：凡「新增列 + 新增约束」的 SQLite 迁移必须本地真实执行一遍再提交；接手别人在制的 master 时先用 HEAD 基线跑 typecheck/lint 区分新旧问题。
 - 验证环境与结果：Windows 工作区 E:\yeu；competition 测试 6/6 全绿（含登记去重/开关、模板渲染、三轮全流程）；pnpm test 仅剩 4 个 deployment-recovery 失败（HEAD 基线同样失败，属他人未提交改动相关）；typecheck 错误集与 HEAD 基线完全一致（20 个既有）；lint 目标文件清零（顺手把 mailer 未用参数改名 _options）；pnpm build exit 0。
-- 发布/回滚信息：未发布；待确认 SMTP 后走 scripts/build-linux-artifact.sh + server-side-deploy.sh 流程。
+- 发布/回滚信息：2026-11-08 已发布 release `20261108-local-143539`（commit `76a06e2`，含 e0b9df1+76a06e2 两个功能提交与 866df01 部署脚本修复）；回滚点 `/data/yeu/releases/20261108-local-114417`；备份 `yeu-before-20261108-local-135530.sqlite`（2.02G，迁移前快照）。发布过程中发现并修复：sqlite3 .backup 在持续写入的线上库活锁 50 分钟（部署脚本今日已改 VACUUM INTO+24h 硬链接复用）；drizzle 两次生成含新列引用旧表的坏重建 SQL（均手工收敛）；第一次切换误用未补 ELF 的包（native 校验前即失败，线上无影响）。
 - 架构变化：歌手大赛新增公开登记面与邮件通知子系统（DATA_MODEL 6.6、INFORMATION_ARCHITECTURE 8.1 已同步）。
 - 后续动作：部署后用真实扫码流程验证登记→评委可见→评分→关闭→发信全链路；确认 QQ 邮箱授权码与发件频率上限。
 
