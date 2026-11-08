@@ -36,7 +36,7 @@ useSeoMeta({
             11.7 - 11.14
           </p>
           <p class="mt-0.5 text-xs text-[#8b968c]">
-            支持现场扫码登记
+            现场报名也可以
           </p>
         </div>
         <div class="rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-[#f2d8c4]">
@@ -66,38 +66,27 @@ useSeoMeta({
       <!-- 登记入口 -->
       <section class="mt-6 rounded-2xl bg-gradient-to-r from-[#e2725b] to-[#e9997a] p-5 text-white shadow-md sm:p-6">
         <p class="text-lg font-bold">
-          报名入口
+          想唱就先报个名
         </p>
         <p class="mt-1 text-sm leading-6 text-white/90">
-          赛前先预报名占位（只填姓名即可）；比赛当天到场扫码做正式登记，
-          输入姓名即可一键带出预报名信息，登记顺序即初赛出场顺序。
+          手机上花十秒填个预报名，姓名写上就行，先占个名额。
+          11.14 / 11.15 任选一天，到了现场再扫码正式登记，之前填的信息会自动带出来，不用重写。
         </p>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div class="mt-4">
           <NuxtLink
             to="/singer/pre-register"
-            class="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-[#c2543c] shadow transition hover:bg-orange-50"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-[#c2543c] shadow transition hover:bg-orange-50 sm:w-auto"
           >
             <UIcon
               name="i-lucide-calendar-plus"
               class="size-4"
               aria-hidden="true"
             />
-            赛前预报名
-          </NuxtLink>
-          <NuxtLink
-            to="/singer/register"
-            class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#8c3b26] px-4 py-3 text-sm font-bold text-white shadow transition hover:bg-[#7a3020]"
-          >
-            <UIcon
-              name="i-lucide-clipboard-pen"
-              class="size-4"
-              aria-hidden="true"
-            />
-            现场正式登记
+            去预报名
           </NuxtLink>
         </div>
         <p class="mt-3 text-xs text-white/80">
-          预报名不等于正式登记：当天仍需扫码确认，确认后信息自动带出。
+          现场登记码当天贴在比赛教室门口，不提前放网上，别找错地方。
         </p>
       </section>
 

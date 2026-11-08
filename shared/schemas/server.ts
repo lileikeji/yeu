@@ -1353,3 +1353,10 @@ export const competitionEmailSendSchema = z.object({
 export const competitionEmailTestSchema = z.object({
   email: z.string().trim().min(3).max(120)
 }).strict()
+
+// 报名二维码：仅允许赛事自己的两个公开页面，防被当开放代理。
+export const competitionQrQuerySchema = z.object({
+  path: z.enum(['/singer/pre-register', '/singer/register']),
+  size: z.coerce.number().int().min(128).max(1024).catch(512),
+  download: z.string().max(80).optional()
+}).strict()

@@ -39,7 +39,7 @@ interface SingerDraft {
   sortOrder: string
 }
 
-type SectionKey = 'settings' | 'singers' | 'email' | CompetitionRoundKey
+type SectionKey = 'settings' | 'singers' | 'email' | 'materials' | CompetitionRoundKey
 type EmailScope = 'all' | 'qualified' | 'unqualified'
 
 const toast = useToast()
@@ -84,6 +84,190 @@ const emailTesting = ref(false)
 const emailTestAddress = ref('')
 const emailBodyRef = ref<HTMLTextAreaElement | null>(null)
 
+// -- 报名物料（二维码 / 海报拼接） ----------------------------------------------
+
+const posterInput = ref<HTMLInputElement | null>(null)
+const posterSrc = ref<string | null>(null)
+const posterImg = ref<HTMLImageElement | null>(null)
+const qrPreEnabled = ref(true)
+const qrRegisterEnabled = ref(false)
+const qrSizeRatio = ref(18)
+const qrPosition = ref<'bottom-left' | 'bottom-right' | 'bottom-center'>('bottom-right')
+const preCaption = ref('扫码预报名')
+const regCaption = ref('现场扫码登记')
+const patchColor = ref('#ffffff')
+const patchMode = ref(false)
+const patches = ref<Array<{ x: number, y: number, w: number, h: number, color: string }>>([])
+const drawingStart = ref<{ x: number, y: number } | null>(null)
+const draftPatch = ref<{ x: number, y: number, w: number, h: number, color: string } | null>(null)
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const qrPreImg = ref<HTMLImageElement | null>(null)
+const qrRegImg = ref<HTMLImageElement | null>(null)
+const qrPreUrl = '/api/admin/competition/qr?path=%2Fsinger%2Fpre-register&size=512'
+const qrRegisterUrl = '/api/admin/competition/qr?path=%2Fsinger%2Fregister&size=512'
+
+function loadQrImage(src: string, target: { value: HTMLImageElement | null }): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      target.value = img
+      resolve()
+    }
+    img.onerror = () => resolve()
+    img.src = src
+  })
+}
+
+function composePoster(): void {
+  const canvas = canvasRef.value
+  const img = posterImg.value
+  if (!canvas || !img) return
+  canvas.width = img.naturalWidth
+  canvas.height = img.naturalHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.drawImage(img, 0, 0)
+  for (const patch of [...patches.value, ...(draftPatch.value ? [draftPatch.value] : [])]) {
+    ctx.fillStyle = patch.color
+    ctx.fillRect(patch.x, patch.y, patch.w, patch.h)
+  }
+
+  const items = [
+    { img: qrPreImg.value, caption: preCaption.value, enabled: qrPreEnabled.value },
+    { img: qrRegImg.value, caption: regCaption.value, enabled: qrRegisterEnabled.value }
+  ].filter(item => item.enabled && item.img)
+  if (items.length === 0) return
+
+  const width = canvas.width
+  const height = canvas.height
+  const size = Math.round(width * (qrSizeRatio.value / 100))
+  const margin = Math.round(width * 0.04)
+  const captionHeight = Math.round(size * 0.22)
+  const blockHeight = size + captionHeight
+  const totalWidth = items.length * size + (items.length - 1) * margin
+  const startX = qrPosition.value === 'bottom-center'
+    ? Math.round((width - totalWidth) / 2)
+    : qrPosition.value === 'bottom-right'
+      ? width - totalWidth - margin
+      : margin
+  const startY = height - blockHeight - margin
+
+  items.forEach((item, index) => {
+    const x = startX + index * (size + margin)
+    const pad = Math.round(size * 0.06)
+    const radius = Math.round(size * 0.05)
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.roundRect(x - pad, startY - pad, size + pad * 2, blockHeight + pad * 2, radius)
+    ctx.fill()
+    ctx.drawImage(item.img!, x, startY, size, size)
+    ctx.fillStyle = '#33413a'
+    ctx.font = `bold ${Math.round(size * 0.11)}px system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(item.caption, x + size / 2, startY + size + captionHeight * 0.55, size)
+  })
+}
+
+watch([posterSrc, qrPreEnabled, qrRegisterEnabled, qrSizeRatio, qrPosition, preCaption, regCaption,
+  qrPreImg, qrRegImg, patches, draftPatch], () => composePoster(), { deep: true })
+
+function onPosterFileChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    posterSrc.value = String(reader.result)
+    const img = new Image()
+    img.onload = () => {
+      posterImg.value = img
+      composePoster()
+    }
+    img.src = posterSrc.value
+  }
+  reader.readAsDataURL(file)
+}
+
+function canvasPoint(event: MouseEvent): { x: number, y: number } {
+  const canvas = canvasRef.value!
+  const rect = canvas.getBoundingClientRect()
+  const scale = canvas.width / rect.width
+  return {
+    x: Math.round((event.clientX - rect.left) * scale),
+    y: Math.round((event.clientY - rect.top) * scale)
+  }
+}
+
+function onCanvasDown(event: MouseEvent): void {
+  if (!patchMode.value) return
+  drawingStart.value = canvasPoint(event)
+}
+
+function onCanvasMove(event: MouseEvent): void {
+  const start = drawingStart.value
+  if (!start || !patchMode.value) return
+  const point = canvasPoint(event)
+  draftPatch.value = {
+    x: Math.min(start.x, point.x),
+    y: Math.min(start.y, point.y),
+    w: Math.abs(point.x - start.x),
+    h: Math.abs(point.y - start.y),
+    color: patchColor.value
+  }
+}
+
+function onCanvasUp(): void {
+  const draft = draftPatch.value
+  if (draft && draft.w > 4 && draft.h > 4) {
+    patches.value = [...patches.value, draft]
+  }
+  draftPatch.value = null
+  drawingStart.value = null
+  composePoster()
+}
+
+function undoLastPatch(): void {
+  patches.value = patches.value.slice(0, -1)
+}
+
+function clearPatches(): void {
+  patches.value = []
+}
+
+function downloadQr(path: string, name: string): void {
+  const link = document.createElement('a')
+  link.href = `/api/admin/competition/qr?path=${encodeURIComponent(path)}&size=1024&download=1&name=${encodeURIComponent(name)}`
+  link.download = name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
+function downloadPoster(): void {
+  const canvas = canvasRef.value
+  if (!canvas) return
+  canvas.toBlob((blob) => {
+    if (!blob) return
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = '新生歌手大赛-海报拼接.png'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(link.href)
+  }, 'image/png')
+}
+
+onMounted(async () => {
+  await Promise.all([
+    loadQrImage(qrPreUrl, qrPreImg),
+    loadQrImage(qrRegisterUrl, qrRegImg)
+  ])
+  composePoster()
+})
+
 const newSinger = ref<SingerDraft>({
   name: '',
   song: '',
@@ -101,7 +285,8 @@ const sections = [
   { key: 'prelim', label: '初赛', icon: 'i-lucide-flag' },
   { key: 'semi', label: '复赛', icon: 'i-lucide-git-branch' },
   { key: 'final', label: '决赛', icon: 'i-lucide-trophy' },
-  { key: 'email', label: '邮件通知', icon: 'i-lucide-mail' }
+  { key: 'email', label: '邮件通知', icon: 'i-lucide-mail' },
+  { key: 'materials', label: '报名物料', icon: 'i-lucide-qr-code' }
 ] as const
 
 const event = computed<CompetitionEvent | null>(() => payload.value?.event ?? null)
@@ -110,7 +295,7 @@ const singers = computed(() => payload.value?.singers ?? [])
 
 const activeRound = computed<CompetitionRoundView | null>(() => {
   const key = activeSection.value
-  if (key === 'settings' || key === 'singers' || key === 'email') return null
+  if (key === 'settings' || key === 'singers' || key === 'email' || key === 'materials') return null
   return payload.value?.rounds.find(round => round.key === key) ?? null
 })
 
@@ -1423,7 +1608,7 @@ onMounted(load)
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               赛前预报名共 {{ payload.preRegistrations.length }} 人，其中
               {{ payload.preRegistrations.filter(item => item.registeredAt).length }} 人已到现场确认正式登记。
-              未确认的选手在正式登记页输入姓名即可一键带出。
+              未确认的选手在正式登记页输入姓名就能带出来。
             </p>
           </div>
           <div
@@ -1504,7 +1689,7 @@ onMounted(load)
 
       <section
         v-if="activeRound"
-        v-show="activeSection !== 'settings' && activeSection !== 'singers' && activeSection !== 'email'"
+        v-show="activeSection !== 'settings' && activeSection !== 'singers' && activeSection !== 'email' && activeSection !== 'materials'"
         class="space-y-4"
       >
         <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
@@ -2236,6 +2421,225 @@ onMounted(load)
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <section
+        v-show="activeSection === 'materials'"
+        class="space-y-4"
+      >
+        <div class="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+          <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+            <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+              报名二维码
+            </h3>
+            <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              印在海报或物料上。预报名码赛前发放；现场登记码只在比赛当天现场提供，不放在公开网页上。
+            </p>
+            <div class="mt-3 space-y-4">
+              <div class="text-center">
+                <img
+                  :src="qrPreUrl"
+                  alt="预报名二维码"
+                  class="mx-auto w-40 rounded-lg border border-zinc-200 dark:border-zinc-700"
+                >
+                <p class="mt-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                  赛前预报名
+                </p>
+                <p class="text-xs text-zinc-400">
+                  /singer/pre-register
+                </p>
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  icon="i-lucide-download"
+                  label="下载 PNG"
+                  class="mt-1.5"
+                  @click="downloadQr('/singer/pre-register', '新生歌手大赛预报名二维码.png')"
+                />
+              </div>
+              <div class="text-center">
+                <img
+                  :src="qrRegisterUrl"
+                  alt="现场登记二维码"
+                  class="mx-auto w-40 rounded-lg border border-zinc-200 dark:border-zinc-700"
+                >
+                <p class="mt-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                  现场正式登记
+                </p>
+                <p class="text-xs text-zinc-400">
+                  /singer/register
+                </p>
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  icon="i-lucide-download"
+                  label="下载 PNG"
+                  class="mt-1.5"
+                  @click="downloadQr('/singer/register', '新生歌手大赛现场登记二维码.png')"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                  海报拼接
+                </h3>
+                <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                  上传海报图 → 选择二维码与位置 → 可用「遮盖贴片」盖住海报上不需要的文字（如 AI 水印）→ 下载成品图。
+                </p>
+              </div>
+              <div>
+                <input
+                  ref="posterInput"
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="onPosterFileChange"
+                >
+                <UButton
+                  icon="i-lucide-image-up"
+                  :label="posterSrc ? '更换海报图' : '上传海报图'"
+                  variant="soft"
+                  @click="posterInput?.click()"
+                />
+              </div>
+            </div>
+
+            <div
+              v-if="posterSrc"
+              class="mt-3 space-y-3"
+            >
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="space-y-2 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+                  <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                    二维码
+                  </p>
+                  <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
+                    <UCheckbox
+                      v-model="qrPreEnabled"
+                      label="预报名码"
+                    />
+                    <UInput
+                      v-model="preCaption"
+                      size="xs"
+                      class="w-28"
+                      placeholder="二维码下文字"
+                    />
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
+                    <UCheckbox
+                      v-model="qrRegisterEnabled"
+                      label="现场登记码"
+                    />
+                    <UInput
+                      v-model="regCaption"
+                      size="xs"
+                      class="w-28"
+                      placeholder="二维码下文字"
+                    />
+                  </div>
+                  <p class="pt-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                    大小与位置
+                  </p>
+                  <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
+                    <label class="flex items-center gap-2">
+                      边长
+                      <input
+                        v-model.number="qrSizeRatio"
+                        type="range"
+                        min="10"
+                        max="35"
+                        class="accent-green-600"
+                      >
+                      {{ qrSizeRatio }}%
+                    </label>
+                    <select
+                      v-model="qrPosition"
+                      class="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                    >
+                      <option value="bottom-left">
+                        左下角
+                      </option>
+                      <option value="bottom-right">
+                        右下角
+                      </option>
+                      <option value="bottom-center">
+                        底部居中
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="space-y-2 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+                  <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                    遮盖贴片（去除海报上的文字/水印）
+                  </p>
+                  <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                    <USwitch
+                      v-model="patchMode"
+                      @update:model-value="() => composePoster()"
+                    />
+                    <span>开启后在图上拖拽涂抹</span>
+                    <input
+                      v-model="patchColor"
+                      type="color"
+                      class="h-7 w-10 cursor-pointer rounded border border-zinc-300 dark:border-zinc-700"
+                      title="贴片颜色"
+                    >
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="soft"
+                      label="撤销上一块"
+                      :disabled="patches.length === 0"
+                      @click="undoLastPatch"
+                    />
+                    <UButton
+                      size="xs"
+                      color="neutral"
+                      variant="soft"
+                      label="全部清除"
+                      :disabled="patches.length === 0"
+                      @click="clearPatches"
+                    />
+                  </div>
+                  <p class="text-xs leading-5 text-zinc-400">
+                    贴片颜色建议用吸管取海报邻近底色，盖住后更自然。
+                  </p>
+                </div>
+              </div>
+
+              <div class="overflow-auto rounded-md border border-zinc-200 bg-[#f6f7f5] p-2 dark:border-zinc-800 dark:bg-zinc-900">
+                <canvas
+                  ref="canvasRef"
+                  class="mx-auto block max-w-full cursor-crosshair rounded"
+                  @mousedown="onCanvasDown"
+                  @mousemove="onCanvasMove"
+                  @mouseup="onCanvasUp"
+                  @mouseleave="onCanvasUp"
+                />
+              </div>
+
+              <div class="flex justify-end">
+                <UButton
+                  icon="i-lucide-image-down"
+                  label="下载拼接图 PNG"
+                  @click="downloadPoster"
+                />
+              </div>
+            </div>
+
+            <div
+              v-else
+              class="mt-3 grid min-h-48 place-items-center rounded-md border border-dashed border-zinc-300 text-sm text-zinc-400 dark:border-zinc-700"
+            >
+              先上传海报图（当前两张海报的图片文件）
+            </div>
           </div>
         </div>
       </section>

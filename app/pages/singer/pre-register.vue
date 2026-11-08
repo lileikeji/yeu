@@ -102,8 +102,7 @@ onMounted(loadStatus)
           赛前预报名
         </h1>
         <p class="mt-2 text-sm leading-6 text-[#6b7a70]">
-          只填姓名即可占位，其余信息选填。
-          比赛当天到场扫码做正式登记时，输入姓名就能一键带出，无需重复填写。
+          姓名填一下就先报上名了，其他的不急，到了现场确认的时候再补。
         </p>
       </header>
 
@@ -143,12 +142,11 @@ onMounted(loadStatus)
           aria-hidden="true"
         />
         <h2 class="mt-3 text-xl font-black text-[#2f3a34]">
-          预报名成功！
+          报好名了！
         </h2>
         <p class="mt-2 text-sm leading-6 text-[#4a564e]">
-          {{ succeeded }}，已为你占位。
-          比赛当天（11.14 / 11.15 两天任选一天，19:00 旧区宏船楼303）
-          到场扫码做正式登记，输入姓名即可一键带出信息。
+          {{ succeeded }}，11.14 或 11.15 任选一天，晚上 7 点宏船楼303见。
+          到了扫现场码确认，信息会自动带出来。记得进初赛群，通知都在群里发。
         </p>
         <div class="mt-5 flex justify-center gap-2">
           <NuxtLink
@@ -192,7 +190,7 @@ onMounted(loadStatus)
         </div>
 
         <p class="rounded-xl bg-[#fdf6ec] px-3 py-2 text-xs leading-5 text-[#8b968c]">
-          以下都是选填：填了学号可以在现场更快对上号；填了电话/邮箱方便工作人员联系与发送结果。
+          下面这些不填也行，想到什么填什么：
         </p>
 
         <div class="grid gap-4 sm:grid-cols-2">
@@ -305,8 +303,7 @@ onMounted(loadStatus)
         </button>
 
         <p class="text-center text-xs leading-5 text-[#8b968c]">
-          提交即视为同意主办方按大赛规则使用以上信息进行赛事通知与安排。
-          预报名不等于正式登记，当天仍需扫码确认。
+          预报名就是先留个名，正式参加以当天现场登记为准。
         </p>
       </form>
 

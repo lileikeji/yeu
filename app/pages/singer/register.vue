@@ -170,8 +170,7 @@ onMounted(loadStatus)
           现场正式登记
         </h1>
         <p class="mt-2 text-sm leading-6 text-[#6b7a70]">
-          先填姓名检索预报名，是本人即可一键填表；没预报名也可以直接手填。
-          登记顺序即初赛出场顺序。
+          先输个姓名查一下预报名，是本人就直接带出来；没报过的话手填也行。
         </p>
       </header>
 
@@ -212,16 +211,13 @@ onMounted(loadStatus)
           aria-hidden="true"
         />
         <h2 class="mt-3 text-xl font-black text-[#2f3a34]">
-          登记成功！
+          登记好了！
         </h2>
         <p class="mt-2 text-sm leading-6 text-[#4a564e]">
-          {{ succeeded.name }}，你的出场序号为
-          <span class="font-bold text-[#c2543c]">{{ succeeded.sortOrder }}</span>。
-          <template v-if="succeeded.fromPre">
-            已关联你的预报名信息。
-          </template>
-          比赛顺序以现场签到顺序为主，请留意叫号；
-          工作人员会通过 QQ / 电话联系，结果也会发送到你的邮箱。
+          {{ succeeded.name }}，你是第
+          <span class="font-bold text-[#c2543c]">{{ succeeded.sortOrder }}</span>
+          位出场（以现场签到顺序为准），留意叫号就行。
+          比赛结果会发到你邮箱，记得进初赛群看通知。
         </p>
         <div class="mt-5 flex justify-center gap-2">
           <NuxtLink
@@ -271,7 +267,7 @@ onMounted(loadStatus)
               :disabled="lookingUp || !form.name.trim()"
               @click="lookupPreRegistrations"
             >
-              {{ lookingUp ? '检索中…' : '检索预报名' }}
+              {{ lookingUp ? '查一下…' : '查预报名' }}
             </button>
           </div>
         </div>
@@ -307,7 +303,7 @@ onMounted(loadStatus)
                 class="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700"
                 @click="confirmCandidate(candidate)"
               >
-                是，帮我填好
+                是，就我
               </button>
             </div>
           </div>
@@ -316,7 +312,7 @@ onMounted(loadStatus)
             class="mt-2 text-xs text-[#8b968c] underline"
             @click="preCandidates = []"
           >
-            都不是，手动填写
+            都不是，自己填
           </button>
         </div>
 
@@ -324,7 +320,7 @@ onMounted(loadStatus)
           v-else-if="lookupDone && !preSelected"
           class="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-[#6b7a70]"
         >
-          没有找到「{{ form.name.trim() }}」的预报名记录，继续手动填写即可。
+          没查到「{{ form.name.trim() }}」，直接填下面的表就行。
         </div>
 
         <div
@@ -332,15 +328,14 @@ onMounted(loadStatus)
           class="flex items-center justify-between gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
         >
           <span>
-            已关联预报名：{{ preSelected.name }}<template v-if="preSelected.className">
-              （{{ preSelected.className }}）</template>，信息已填好，可修改后提交。
+            已带上{{ preSelected.name }}的预报名信息，核对一下再提交。
           </span>
           <button
             type="button"
             class="shrink-0 text-xs text-green-800 underline"
             @click="clearCandidate"
           >
-            解除关联
+            重新填
           </button>
         </div>
 
@@ -438,7 +433,7 @@ onMounted(loadStatus)
             maxlength="80"
             name="song"
             class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
-            placeholder="想唱的歌；没想好可留空"
+            placeholder="想唱的歌，没定就先空着"
           >
         </div>
 
@@ -465,7 +460,7 @@ onMounted(loadStatus)
         </button>
 
         <p class="text-center text-xs leading-5 text-[#8b968c]">
-          提交即视为同意主办方按大赛规则使用以上信息进行赛事通知与安排。
+          提交即同意主办方为比赛通知和安排使用以上信息。
         </p>
       </form>
 
