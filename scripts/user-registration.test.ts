@@ -51,8 +51,9 @@ test('registration: 验证码下发、正确验证建号（邮箱已验证）、
     await requestRegistrationCode(client, INPUT, fakeSender(codes))
     assert.equal(codes.length, 1)
 
-    const user = await registerUser(client, { ...INPUT, code: codes[0]! })
+    const user = await registerUser(client, { ...INPUT, nickname: '小明同学', code: codes[0]! })
     assert.equal(user.username, '新生小明')
+    assert.equal(user.displayName, '小明同学', 'nickname should become display name')
     assert.ok(user.emailVerifiedAt)
     assert.equal(user.email, 'ming@test.com')
     assert.equal(client.sqlite.prepare('SELECT COUNT(*) c FROM email_verifications').get().c, 0)

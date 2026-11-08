@@ -154,6 +154,17 @@ function removeImage(url: string): void {
   images.value = images.value.filter(item => item !== url)
 }
 
+// 照片点击当前页放大（灯箱），不再新开标签页跳到图片原地址
+const lightboxUrl = ref<string | null>(null)
+
+function openLightbox(url: string): void {
+  lightboxUrl.value = url
+}
+
+function closeLightbox(): void {
+  lightboxUrl.value = null
+}
+
 const gallery = computed<string[]>(() => {
   const seen: string[] = []
   for (const moment of payload.value?.moments ?? []) {
@@ -411,13 +422,13 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
         地点照片 · {{ gallery.length }}
       </p>
       <div class="flex gap-1.5 overflow-x-auto pb-1">
-        <a
+        <button
           v-for="url in gallery"
           :key="url"
-          :href="url"
-          target="_blank"
-          rel="noopener noreferrer"
+          type="button"
           class="block size-16 shrink-0 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700"
+          aria-label="查看大图"
+          @click="openLightbox(url)"
         >
           <img
             :src="url"
@@ -425,7 +436,7 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
             loading="lazy"
             class="size-full object-cover"
           >
-        </a>
+        </button>
       </div>
     </div>
 
@@ -465,13 +476,13 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
           v-if="moment.images.length"
           class="mt-1.5 flex flex-wrap gap-1.5"
         >
-          <a
+          <button
             v-for="url in moment.images"
             :key="url"
-            :href="url"
-            target="_blank"
-            rel="noopener noreferrer"
+            type="button"
             class="block size-16 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700"
+            aria-label="查看大图"
+            @click="openLightbox(url)"
           >
             <img
               :src="url"
@@ -479,7 +490,7 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
               loading="lazy"
               class="size-full object-cover"
             >
-          </a>
+          </button>
         </div>
       </li>
     </ul>

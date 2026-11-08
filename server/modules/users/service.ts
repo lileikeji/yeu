@@ -190,6 +190,7 @@ export const REGISTRATION_CODE_MAX_ATTEMPTS = 5
 
 export interface RegistrationInput {
   username: string
+  nickname?: string
   password: string
   email: string
 }
@@ -209,8 +210,9 @@ function assertRegistrationIdentityAvailable(client: DatabaseClient, username: s
   }
 }
 
-function normalizeRegistrationInput(input: RegistrationInput): { username: string, email: string, password: string } {
+function normalizeRegistrationInput(input: RegistrationInput): { username: string, nickname: string, email: string, password: string } {
   const username = input.username.trim()
+  const nickname = (input.nickname ?? '').trim().slice(0, 12) || username
   const email = input.email.trim().toLowerCase()
   const password = input.password
   if (!USERNAME_RE.test(username)) {
@@ -222,7 +224,7 @@ function normalizeRegistrationInput(input: RegistrationInput): { username: strin
   if (password.length < 8 || password.length > 72) {
     throw createError({ statusCode: 422, statusMessage: '密码至少 8 位', data: { code: 'REG_PASSWORD_INVALID' } })
   }
-  return { username, email, password }
+  return { username, nickname, email, password }
 }
 
 /** 校验注册信息并下发邮箱验证码。sendEmail 由路由注入（SMTP 配置检查在路由）。 */
@@ -295,7 +297,7 @@ export async function registerUser(
       id,
       username: normalized.username,
       passwordHash,
-      displayName: normalized.username,
+      displayName: normalized.nickname,
       email: normalized.email,
       emailVerifiedAt: now,
       status: 'active',

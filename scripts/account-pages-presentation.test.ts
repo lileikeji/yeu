@@ -50,7 +50,7 @@ test('login button names the protected page it will open', () => {
 
 test('login controls keep a comfortable mobile touch height', () => {
   // 登录 2 处 + 注册表单 4 处（用户名/邮箱/密码/验证码）
-  assert.equal((loginPage.match(/class="min-h-11 w-full"/g) || []).length, 5)
+  assert.equal((loginPage.match(/class="min-h-11 w-full"/g) || []).length, 6)
   assert.equal((loginPage.match(/base: 'min-h-11'/g) || []).length, 2)
   assert.match(loginPage, /class="min-h-11 min-w-11"\s+@click="togglePasswordVisibility"/)
   assert.match(loginPage, /icon="i-lucide-log-in"\s+class="min-h-11"/)

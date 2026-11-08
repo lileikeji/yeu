@@ -27,6 +27,7 @@ const errorMessage = ref('')
 // ---------- 注册（邮箱验证码） ----------
 const mode = ref<'login' | 'register'>('login')
 const regUsername = ref('')
+const regNickname = ref('')
 const regEmail = ref('')
 const regPassword = ref('')
 const regCode = ref('')
@@ -73,6 +74,7 @@ async function sendRegisterCode(): Promise<void> {
       method: 'POST',
       body: {
         username: regUsername.value.trim(),
+        nickname: regNickname.value.trim() || undefined,
         email: regEmail.value.trim(),
         password: regPassword.value,
         captchaId: regCaptchaId.value,
@@ -330,6 +332,18 @@ watch(mode, (next) => {
               size="lg"
               class="min-h-11 w-full"
               :disabled="submitting"
+            />
+          </UFormField>
+          <UFormField label="昵称（选填）">
+            <UInput
+              v-model="regNickname"
+              name="reg-nickname"
+              icon="i-lucide-smile"
+              placeholder="群聊里显示的名字，不填默认用用户名"
+              size="lg"
+              class="min-h-11 w-full"
+              :disabled="submitting"
+              :maxlength="12"
             />
           </UFormField>
           <UFormField label="邮箱" required>
