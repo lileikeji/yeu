@@ -13,6 +13,11 @@ export interface AMapLngLat {
 export interface AMapBounds {
   getSouthWest(): AMapLngLat
   getNorthEast(): AMapLngLat
+  /** 高德 JS API 2.0 的 Bounds 另带四向读取，返回 WGS84 数值。 */
+  getNorth?(): number
+  getSouth?(): number
+  getEast?(): number
+  getWest?(): number
 }
 export interface AMapMouseEvent {
   originEvent?: Event
@@ -120,7 +125,8 @@ export interface AMapMap {
   getZoom(): number
   getCenter(): AMapLngLat
   getBounds(): AMapBounds
-  setZoomAndCenter(zoom: number, center: AMapPosition): void
+  /** 高德 2.0 的 center 同时接受 LngLat 实例与 [lng, lat] 元组。 */
+  setZoomAndCenter(zoom: number, center: AMapPosition | AMapLngLat): void
   setFitView(overlays?: AMapOverlay[], immediately?: boolean, avoid?: number[], maxZoom?: number): void
 }
 

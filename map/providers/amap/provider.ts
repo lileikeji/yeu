@@ -1321,7 +1321,7 @@ export class AMapProvider implements MapProvider {
     const south = bounds.getSouth?.()
     const east = bounds.getEast?.()
     const west = bounds.getWest?.()
-    if (![north, south, east, west].every((value): value is number => typeof value === 'number')) {
+    if (typeof north !== 'number' || typeof south !== 'number' || typeof east !== 'number' || typeof west !== 'number') {
       return converted
     }
     // 留一点余量，避免贴着边缘的楼栋在平移后突然出现。

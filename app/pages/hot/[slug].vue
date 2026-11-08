@@ -4,10 +4,10 @@ import type { ApiSignalEventDetail } from '~~/shared/types/server'
 const route = useRoute()
 const slug = computed(() => String(route.params.slug ?? ''))
 
-const { data: event, error } = await useFetch<ApiSignalEventDetail>(
-  () => `/api/public/signal/${encodeURIComponent(slug.value)}`,
-  { key: () => `signal-detail-${slug.value}`, default: () => null }
-)
+const eventUrl = computed(() => `/api/public/signal/${encodeURIComponent(slug.value)}`)
+const { data: event, error } = await useFetch<ApiSignalEventDetail>(eventUrl, {
+  key: 'signal-event-detail'
+})
 
 useSeoMeta({
   title: () => event.value ? `${event.value.title} · 校园热度` : '校园热度',
