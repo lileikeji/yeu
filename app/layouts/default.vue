@@ -112,7 +112,9 @@ function shareCurrentPage(): void {
           </button>
         </div>
 
-        <div class="flex shrink-0 items-center gap-0 md:gap-1">
+        <!-- z-20：窄屏上首页的「完整/简洁」切换层 absolute z-10 居中，右缘会压住本组
+             登录按钮（无 z 值被盖住，点击落到切换层上没反应）——抬到其上方。 -->
+        <div class="relative z-20 flex shrink-0 items-center gap-0 md:gap-1">
           <UButton
             v-if="!isAuthenticated"
             to="/login"
