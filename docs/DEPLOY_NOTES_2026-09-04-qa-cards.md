@@ -1768,3 +1768,13 @@
 - **发布波折**：第一次切换误用未补二进制的 `release.tar.gz`（正确应为补齐 ELF 后的 `release-bundle.tar.gz`），native 校验在冒烟前即失败——current 未受影响、无备份无切换，清理解包残留后用正确包一次成功。
 - **线上验收**：`/version.json`=76a06e2/143539；health ok；`/singer`、`/singer/pre-register`、`/singer/register`、`/admin/competition`、`/judge/login` 全 200；公开登记接口返回 open=true；预报名→检索→带 preRegistrationId 登记（source='pre'、pre_registration_id 落库、检索不再返回）全链路实测通过后测试数据已删除（singers/pre-registrations 清零）；公网三个页面 200；journal 无错误。
 - **回滚点**：`/data/yeu/releases/20261108-local-114417`；备份 `yeu-before-20261108-local-135530.sqlite`（2.02G，integrity ok，为迁移前快照，与旧版回滚语义一致）。
+
+## 追加 30：`20261108-local-163045`（release）— 报名物料生成 + 文案去 AI 味 + 现场入口下线
+
+- **代码提交**：`08a8d8d`（物料生成+文案）+ `07ed21d`（测试数据补列）+ `6e7020f`（COS 清理清单法，另一会话迭代）。分支 `deploy/competition-20261108`。
+- **内容**：后台「报名物料」分区——两个报名二维码（预报名/现场登记，服务端 qrcode 库生成 PNG，路径白名单防开放代理）+ 海报拼接合成器（本地上传海报图 → 选二维码/大小/位置/说明文字 → 遮盖贴片拖拽盖住海报上不要的字（如 AI 水印）→ 下载 PNG，纯前端 canvas 不落库）。宣传页下线「现场正式登记」入口（现场码只在当天现场提供）；三个公开页面的二级文案全部重写为学生社团口吻，去掉「占位/一键带出/即可/无需」等 AI 腔。
+- **依赖**：新增 `qrcode@1.5.4`（服务端生成，不进客户端包体）。
+- **发布**：build-linux-artifact 构建 → 手工确认 staged build（ELF/ABI/release.json）→ server-side-deploy 切换；备份复用 24h 内快照（硬链接），零拷贝。
+- **线上验收**：version=6e7020f/163045、health ok；五个页面 200；宣传页 grep「现场正式登记」为 0；公网 /singer、/singer/pre-register 200；QR 路由未登录 401（门禁在）；journal 无错误。
+- **回滚点**：`/data/yeu/releases/20261108-local-143539`。
+- **备注**：本次构建与另一会话的本地 `pnpm build` 在同一工作树并发执行过一次（先后完成，产物以最后写者为准并经 staged 校验），建议同类操作避免并发。管理员可在后台「报名物料」里直接预览二维码效果与拼接成品图。

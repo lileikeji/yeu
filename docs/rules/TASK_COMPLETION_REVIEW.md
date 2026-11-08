@@ -74,6 +74,7 @@
 - 验证环境与结果：Windows 工作区 E:\yeu；competition 测试 6/6 全绿（含登记去重/开关、模板渲染、三轮全流程）；pnpm test 仅剩 4 个 deployment-recovery 失败（HEAD 基线同样失败，属他人未提交改动相关）；typecheck 错误集与 HEAD 基线完全一致（20 个既有）；lint 目标文件清零（顺手把 mailer 未用参数改名 _options）；pnpm build exit 0。
 - 发布/回滚信息：2026-11-08 已发布 release `20261108-local-143539`（commit `76a06e2`，含 e0b9df1+76a06e2 两个功能提交与 866df01 部署脚本修复）；回滚点 `/data/yeu/releases/20261108-local-114417`；备份 `yeu-before-20261108-local-135530.sqlite`（2.02G，迁移前快照）。发布过程中发现并修复：sqlite3 .backup 在持续写入的线上库活锁 50 分钟（部署脚本今日已改 VACUUM INTO+24h 硬链接复用）；drizzle 两次生成含新列引用旧表的坏重建 SQL（均手工收敛）；第一次切换误用未补 ELF 的包（native 校验前即失败，线上无影响）。
 - 架构变化：歌手大赛新增公开登记面与邮件通知子系统（DATA_MODEL 6.6、INFORMATION_ARCHITECTURE 8.1 已同步）。
+- 发布/回滚信息（2026-11-08 补）：已发布 release `20261108-local-143539`（76a06e2）与 `20261108-local-163045`（6e7020f，报名物料生成+文案去 AI 味+现场入口下线）；回滚点 114417/143539。期间发现 sqlite3 .backup 在持续写入的线上库会活锁（50 分钟无进展），部署脚本已改 VACUUM INTO+24h 硬链接复用。
 - 后续动作：部署后用真实扫码流程验证登记→评委可见→评分→关闭→发信全链路；确认 QQ 邮箱授权码与发件频率上限。
 
 ## 2026-10-21 · 音乐协会新生歌手大赛后台与独立评委端
