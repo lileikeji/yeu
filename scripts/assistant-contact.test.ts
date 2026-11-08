@@ -1001,8 +1001,12 @@ test('assistant endpoint is server-only, rate limited and excluded from CDN cach
   const searchPage = readFileSync(resolve(root, 'app/pages/search.vue'), 'utf8')
   const config = readFileSync(resolve(root, 'nuxt.config.ts'), 'utf8')
 
-  assert.match(route, /assistant:\$\{ipAddress\}.*, 20, 60 \* 1000/)
-  assert.match(route, /assistant:global.*, 200, 60 \* 1000/)
+  // 限流参数收口在 utils/abuse-alert.ts 的统一入口（429 时触发邮件告警）。
+  const abuse = readFileSync(resolve(root, 'server/utils/abuse-alert.ts'), 'utf8')
+  assert.match(route, /assertAssistantRateLimit\(event, client, ipAddress\)/)
+  assert.match(streamRoute, /assertAssistantRateLimit\(event, client, ipAddress\)/)
+  assert.match(abuse, /assistant:\$\{ipAddress\}.*, 20, 60 \* 1000/)
+  assert.match(abuse, /assistant:global.*, 200, 60 \* 1000/)
   assert.ok(route.indexOf('containsPromptInjection(body.q)') < route.indexOf('!isAssistantAnswerableQuery(body.q)'))
   assert.match(streamRoute, /createEventStream/)
   assert.match(streamRoute, /!blocked && !isAssistantAnswerableQuery\(body\.q\)/)

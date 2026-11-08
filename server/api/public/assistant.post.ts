@@ -9,7 +9,7 @@ import {
 } from '../../modules/assistant/service'
 import { getClientIpAddress } from '../../utils/client-ip'
 import { useAppDatabase } from '../../utils/database'
-import { assertRateLimit } from '../../utils/rate-limit'
+import { assertAssistantRateLimit } from '../../utils/abuse-alert'
 import { assistantConfigFromRuntime } from '../../utils/assistant-config'
 import { createRequestAbortSignal } from '../../utils/request-abort'
 import { parseBody } from '../../utils/validation'
@@ -19,8 +19,7 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'CDN-Cache-Control', 'no-store')
   const client = useAppDatabase(event)
   const ipAddress = getClientIpAddress(event)
-  assertRateLimit(event, `assistant:${ipAddress}`, 20, 60 * 1000, client)
-  assertRateLimit(event, 'assistant:global', 200, 60 * 1000, client)
+  assertAssistantRateLimit(event, client, ipAddress)
 
   const body = await parseBody(event, assistantQuestionSchema)
   const sessionKey = body.sessionId ? hashSessionKey(body.sessionId) : undefined
