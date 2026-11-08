@@ -18,10 +18,18 @@ type ChatRoom = {
   slug: string
   title: string
   dormBuilding: string | null
+  placeId?: string | null
   isMutedAll: boolean
   isMuted: boolean
   muteReason: string | null
   isActive: boolean
+}
+
+type PlaceChatRoom = {
+  placeId: string
+  title: string
+  roomId: string | null
+  memberCount: number
 }
 
 type ChatMessage = {
@@ -33,10 +41,12 @@ type ChatMessage = {
   createdAt: string
 }
 
+const route = useRoute()
 const { user, isAuthenticated, refreshSession } = useUserSession()
 
 const loading = ref(true)
 const rooms = ref<ChatRoom[]>([])
+const placeRooms = ref<PlaceChatRoom[]>([])
 const activeRoomId = ref('')
 const messages = ref<ChatMessage[]>([])
 const draft = ref('')
@@ -52,6 +62,7 @@ const composerLocked = computed(() => Boolean(activeRoom.value?.isMutedAll || ac
 const activeRoomDescription = computed(() => {
   if (!activeRoom.value) return '请选择一个群聊'
   if (activeRoom.value.kind === 'public') return '所有已登录同学都可以参与'
+  if (activeRoom.value.kind === 'place') return '本楼同学的交流区，发言请注意文明用语'
   return activeRoom.value.dormBuilding
     ? `${activeRoom.value.dormBuilding}楼群`
     : '同宿舍楼同学的交流区'
@@ -128,6 +139,79 @@ async function loadRooms(): Promise<void> {
   if (activeRoomId.value && !rooms.value.some(room => room.id === activeRoomId.value)) {
     activeRoomId.value = rooms.value[0]?.id || ''
   }
+}
+
+async function loadPlaceRooms(): Promise<void> {
+  try {
+    const payload = await userFetch<{ items: PlaceChatRoom[] }>('/api/chat/places-rooms')
+    placeRooms.value = payload.items || []
+  } catch {
+    placeRooms.value = []
+  }
+}
+
+/** 进入楼栋群：懒建房，把房间合成进列表并选中。 */
+const enteringPlaceId = ref('')
+
+async function openPlaceRoom(place: PlaceChatRoom): Promise<void> {
+  if (enteringPlaceId.value) return
+  enteringPlaceId.value = place.placeId
+  try {
+    if (place.roomId) {
+      const existing = rooms.value.find(room => room.id === place.roomId)
+      if (!existing) {
+        rooms.value = [...rooms.value, {
+          id: place.roomId,
+          kind: 'place',
+          slug: `place-${place.placeId}`,
+          title: place.title,
+          dormBuilding: null,
+          placeId: place.placeId,
+          isMutedAll: false,
+          isMuted: false,
+          muteReason: null,
+          isActive: true
+        }]
+      }
+      activeRoomId.value = place.roomId
+      stickToBottom = true
+      await loadInitialMessages()
+    } else {
+      await enterPlaceChat(place.placeId)
+    }
+  } catch (error) {
+    sendError.value = getRequestMessage(error, '进不了这个楼栋群，请稍后再试')
+  } finally {
+    enteringPlaceId.value = ''
+  }
+}
+
+async function enterPlaceChat(placeId: string): Promise<void> {
+  const response = await userFetch<{ roomId: string, title: string }>('/api/chat/rooms/place', {
+    method: 'POST',
+    body: { placeId }
+  })
+  const existing = rooms.value.find(room => room.id === response.roomId)
+  if (!existing) {
+    rooms.value = [...rooms.value, {
+      id: response.roomId,
+      kind: 'place',
+      slug: `place-${placeId}`,
+      title: response.title,
+      dormBuilding: null,
+      placeId,
+      isMutedAll: false,
+      isMuted: false,
+      muteReason: null,
+      isActive: true
+    }]
+    // 同步楼栋列表里的 roomId，再次点击直接切房
+    placeRooms.value = placeRooms.value.map(item =>
+      item.placeId === placeId ? { ...item, roomId: response.roomId } : item)
+  }
+  activeRoomId.value = response.roomId
+  stickToBottom = true
+  await loadInitialMessages()
 }
 
 async function loadInitialMessages(): Promise<void> {
@@ -259,7 +343,14 @@ onMounted(async () => {
   if (!ok) return
   try {
     await loadRooms()
-    await loadInitialMessages()
+    const queryPlace = Array.isArray(route.query.place) ? route.query.place[0] : route.query.place
+    if (typeof queryPlace === 'string' && queryPlace.trim()) {
+      await enterPlaceChat(queryPlace.trim())
+      await loadPlaceRooms()
+    } else {
+      await loadPlaceRooms()
+      await loadInitialMessages()
+    }
     startPolling()
   } catch (error) {
     const status = getRequestStatusCode(error)
@@ -291,10 +382,10 @@ watch(activeRoomId, () => {
             群聊
           </p>
           <h1 class="mt-1 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
-            公共群与宿舍楼群
+            群聊
           </h1>
           <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {{ user?.displayName || '同学' }}，选择公共群或宿舍楼群开始交流。
+            {{ user?.displayName || '同学' }}，公共群、宿舍楼群和各楼栋群都在这里。
           </p>
         </div>
         <div class="flex gap-2">
@@ -367,6 +458,32 @@ watch(activeRoomId, () => {
           >
             在个人中心填写宿舍楼后，可自动出现楼群入口。
           </p>
+
+          <template v-if="placeRooms.length">
+            <p class="mt-4 px-2 pb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              楼栋群
+            </p>
+            <div class="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
+              <button
+                v-for="place in placeRooms"
+                :key="place.placeId"
+                type="button"
+                class="min-h-11 min-w-[9rem] rounded-xl px-3 py-2 text-left text-sm transition disabled:opacity-60 lg:min-w-0"
+                :class="place.roomId && place.roomId === activeRoomId
+                  ? 'bg-green-700 text-white shadow-sm'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-green-50 dark:hover:bg-green-950'"
+                :disabled="enteringPlaceId === place.placeId"
+                @click="openPlaceRoom(place)"
+              >
+                <span class="block truncate font-medium">
+                  {{ place.title }}
+                </span>
+                <span class="mt-0.5 block text-[11px] opacity-80">
+                  楼栋群 · {{ place.memberCount }} 人
+                </span>
+              </button>
+            </div>
+          </template>
         </aside>
 
         <section class="flex min-h-[28rem] flex-col">

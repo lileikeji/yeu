@@ -9,7 +9,9 @@ const chatPage = readFileSync(resolve('app/pages/chat/index.vue'), 'utf8')
 
 test('login page stays compact and uses ordinary account language', () => {
   assert.match(loginPage, /新生账号/)
-  assert.match(loginPage, /目前只支持已有账号，暂不能自己注册/)
+  // 2026-11-08 开放注册：登录页改为「登录/注册」双 tab
+  assert.match(loginPage, /mode === 'login' \? '账号登录' : '注册账号'/)
+  assert.match(loginPage, /邮箱验证后即可注册/)
   assert.match(loginPage, /没有账号也不影响使用校园指南/)
   assert.match(loginPage, /不登录也能用/)
   assert.match(loginPage, /查地图、看办事指南、勾选新生清单/)
@@ -47,7 +49,8 @@ test('login button names the protected page it will open', () => {
 })
 
 test('login controls keep a comfortable mobile touch height', () => {
-  assert.equal((loginPage.match(/class="min-h-11 w-full"/g) || []).length, 2)
+  // 登录 2 处 + 注册表单 4 处（用户名/邮箱/密码/验证码）
+  assert.equal((loginPage.match(/class="min-h-11 w-full"/g) || []).length, 5)
   assert.equal((loginPage.match(/base: 'min-h-11'/g) || []).length, 2)
   assert.match(loginPage, /class="min-h-11 min-w-11"\s+@click="togglePasswordVisibility"/)
   assert.match(loginPage, /icon="i-lucide-log-in"\s+class="min-h-11"/)

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { and, asc, count, desc, eq, gt, isNotNull, isNull, like, lt, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, like, lt, or, sql } from 'drizzle-orm'
 import { createError } from 'h3'
+import { findBannedWord } from '../../../shared/constants/chat-banned-words'
 import type { DatabaseClient } from '../../database/client'
 import {
   chatMembers,
@@ -72,6 +73,57 @@ export function ensureDormRoom(client: DatabaseClient, dormBuilding: string) {
     slug,
     title: `${name} 楼群`,
     dormBuilding: name,
+    placeId: null,
+    isMutedAll: false,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now
+  }
+  client.db.insert(chatRooms).values(row).run()
+  return row
+}
+
+// 楼栋群 slug：place-<placeId>
+function slugifyPlace(placeId: string): string {
+  return `place-${placeId.trim().toLowerCase()}`.slice(0, 80)
+}
+
+/**
+ * 楼栋群（kind='place'）：每个楼栋类地图点位一个群，懒创建。
+ * 与宿舍群（kind='dorm'，按 chatDormBuilding 限定同楼）不同——place 房
+ * 任何登录用户都可进（见 assertUserCanAccessRoom）。
+ */
+export function ensurePlaceRoom(
+  client: DatabaseClient,
+  place: { placeId: string, title: string }
+) {
+  const placeId = place.placeId.trim()
+  if (!placeId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Place id is required',
+      data: { code: 'PLACE_REQUIRED' }
+    })
+  }
+  const existing = client.db.select().from(chatRooms)
+    .where(and(eq(chatRooms.kind, 'place'), eq(chatRooms.placeId, placeId)))
+    .get()
+  if (existing) return existing
+
+  const now = Date.now()
+  let slug = slugifyPlace(placeId)
+  const slugTaken = client.db.select({ id: chatRooms.id }).from(chatRooms)
+    .where(eq(chatRooms.slug, slug))
+    .get()
+  if (slugTaken) slug = `${slug}-${randomUUID().slice(0, 8)}`
+
+  const row = {
+    id: randomUUID(),
+    kind: 'place' as const,
+    slug,
+    title: `${place.title.trim().slice(0, 40)} 群聊`,
+    dormBuilding: null,
+    placeId,
     isMutedAll: false,
     isActive: true,
     createdAt: now,
@@ -160,6 +212,11 @@ export function assertUserCanAccessRoom(
     ensureMembership(client, room.id, user.id)
     return
   }
+  if (room.kind === 'place') {
+    // 楼栋群对全体登录用户开放
+    ensureMembership(client, room.id, user.id)
+    return
+  }
   throw createError({
     statusCode: 403,
     statusMessage: 'Chat room forbidden',
@@ -239,6 +296,14 @@ export function sendMessage(
       statusCode: 422,
       statusMessage: 'Message body required',
       data: { code: 'VALIDATION_ERROR' }
+    })
+  }
+  const banned = findBannedWord(text)
+  if (banned) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: `消息包含违禁内容（${banned.label}），无法发送`,
+      data: { code: 'CHAT_BANNED_WORD', category: banned.label }
     })
   }
   if (room.isMutedAll) {
@@ -565,4 +630,66 @@ export function listDormSuggestions(client: DatabaseClient, q?: string) {
     if (row.name) set.add(row.name)
   }
   return [...set].sort((a, b) => a.localeCompare(b, 'zh-CN')).slice(0, 30)
+}
+
+// ---------- 楼栋群（按地图点位分房） ----------
+
+export interface PlaceChatRoomView {
+  placeId: string
+  title: string
+  roomId: string | null
+  memberCount: number
+}
+
+/** 楼栋类点位（published + category 为楼栋/宿舍）与其群房；未创建的 roomId 为 null。 */
+export function listPlaceChatRooms(client: DatabaseClient): PlaceChatRoomView[] {
+  const rows = client.db.select({ id: places.id, name: places.name })
+    .from(places)
+    .where(and(
+      eq(places.status, 'published'),
+      inArray(places.category, ['campus-building', 'dorm'])
+    ))
+    .orderBy(asc(places.name))
+    .all()
+  return rows.map((row) => {
+    const room = client.db.select().from(chatRooms)
+      .where(and(eq(chatRooms.kind, 'place'), eq(chatRooms.placeId, row.id)))
+      .get()
+    const memberCount = room
+      ? client.db.select({ value: count() }).from(chatMembers)
+          .where(eq(chatMembers.roomId, room.id)).get()?.value ?? 0
+      : 0
+    return {
+      placeId: row.id,
+      title: row.name,
+      roomId: room?.id ?? null,
+      memberCount: Number(memberCount)
+    }
+  })
+}
+
+/** 进入楼栋群：校验点位是楼栋类且已发布，懒建房 + 入会，返回 roomId。 */
+export function enterPlaceChatRoom(
+  client: DatabaseClient,
+  user: { id: string },
+  placeId: string
+): { roomId: string, title: string } {
+  const place = client.db.select({ id: places.id, name: places.name })
+    .from(places)
+    .where(and(
+      eq(places.id, placeId.trim()),
+      eq(places.status, 'published'),
+      inArray(places.category, ['campus-building', 'dorm'])
+    ))
+    .get()
+  if (!place) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Place not found',
+      data: { code: 'CHAT_PLACE_NOT_FOUND' }
+    })
+  }
+  const room = ensurePlaceRoom(client, { placeId: place.id, title: place.name })
+  ensureMembership(client, room.id, user.id)
+  return { roomId: room.id, title: place.name }
 }

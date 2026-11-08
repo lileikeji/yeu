@@ -454,6 +454,9 @@ export const users = sqliteTable('users', {
   major: text('major'),
   dormBuilding: text('dorm_building'),
   chatDormBuilding: text('chat_dorm_building'),
+  // 开放注册（邮箱验证码）：email 注册时验证后写入；管理员建号的历史账号可为 NULL。
+  email: text('email'),
+  emailVerifiedAt: integer('email_verified_at'),
   status: text('status', { enum: ['active', 'disabled', 'banned'] }).notNull().default('active'),
   createdByAdminId: text('created_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
   lastLoginAt: integer('last_login_at'),
@@ -461,6 +464,7 @@ export const users = sqliteTable('users', {
   updatedAt: timestamp('updated_at')
 }, table => [
   uniqueIndex('users_username_unique').on(table.username),
+  uniqueIndex('users_email_unique').on(table.email),
   index('users_status_idx').on(table.status),
   index('users_dorm_idx').on(table.dormBuilding),
   index('users_chat_dorm_idx').on(table.chatDormBuilding),
@@ -484,10 +488,12 @@ export const userSessions = sqliteTable('user_sessions', {
 
 export const chatRooms = sqliteTable('chat_rooms', {
   id: text('id').primaryKey(),
-  kind: text('kind', { enum: ['public', 'dorm'] }).notNull(),
+  kind: text('kind', { enum: ['public', 'dorm', 'place'] }).notNull(),
   slug: text('slug').notNull(),
   title: text('title').notNull(),
   dormBuilding: text('dorm_building'),
+  // kind='place' 的楼栋群：对应地图点位（places.category IN ('campus-building','dorm')）
+  placeId: text('place_id'),
   isMutedAll: integer('is_muted_all', { mode: 'boolean' }).notNull().default(false),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: timestamp('created_at'),
@@ -496,8 +502,22 @@ export const chatRooms = sqliteTable('chat_rooms', {
   uniqueIndex('chat_rooms_slug_unique').on(table.slug),
   index('chat_rooms_kind_idx').on(table.kind),
   index('chat_rooms_dorm_idx').on(table.dormBuilding),
-  check('chat_rooms_kind_check', sql`${table.kind} in ('public', 'dorm')`)
+  // 一个点位一个群；非 place 房为 NULL 不受约束
+  uniqueIndex('chat_rooms_place_unique').on(table.placeId).where(sql`${table.kind} = 'place'`),
+  check('chat_rooms_kind_check', sql`${table.kind} in ('public', 'dorm', 'place')`)
 ])
+
+/**
+ * 注册邮箱验证码（hash 存储，10 分钟有效、5 次尝试后作废）。
+ * 单实例部署 + 低频写入，主键直接用 email（一邮箱同时只有一个有效码）。
+ */
+export const emailVerifications = sqliteTable('email_verifications', {
+  email: text('email').primaryKey(),
+  codeHash: text('code_hash').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: timestamp('created_at')
+})
 
 export const chatMembers = sqliteTable('chat_members', {
   roomId: text('room_id').notNull().references(() => chatRooms.id, { onDelete: 'cascade' }),

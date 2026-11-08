@@ -1,8 +1,10 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { and, count, desc, eq, like, or } from 'drizzle-orm'
+import { createError } from 'h3'
 import type { DatabaseClient } from '../../database/client'
-import { userSessions, users } from '../../database/schema'
+import { emailVerifications, userSessions, users } from '../../database/schema'
 import { hashUserPassword } from '../../utils/password'
+import { generateVerificationCode } from '../../utils/mailer'
 
 export function serializeAppUser(row: typeof users.$inferSelect) {
   return {
@@ -177,4 +179,135 @@ export function updateOwnProfile(
 
   const row = client.db.select().from(users).where(eq(users.id, userId)).get()!
   return serializeAppUser(row)
+}
+
+// ---------- 开放注册（邮箱验证码） ----------
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const USERNAME_RE = /^[\u4e00-\u9fa5A-Za-z0-9_]{2,20}$/
+export const REGISTRATION_CODE_TTL_MS = 10 * 60 * 1000
+export const REGISTRATION_CODE_MAX_ATTEMPTS = 5
+
+export interface RegistrationInput {
+  username: string
+  password: string
+  email: string
+}
+
+function assertRegistrationIdentityAvailable(client: DatabaseClient, username: string, email: string): void {
+  const nameTaken = client.db.select({ id: users.id }).from(users)
+    .where(eq(users.username, username))
+    .get()
+  if (nameTaken) {
+    throw createError({ statusCode: 409, statusMessage: '用户名已被使用', data: { code: 'REG_USERNAME_TAKEN' } })
+  }
+  const emailTaken = client.db.select({ id: users.id }).from(users)
+    .where(eq(users.email, email))
+    .get()
+  if (emailTaken) {
+    throw createError({ statusCode: 409, statusMessage: '邮箱已被注册', data: { code: 'REG_EMAIL_TAKEN' } })
+  }
+}
+
+function normalizeRegistrationInput(input: RegistrationInput): { username: string, email: string, password: string } {
+  const username = input.username.trim()
+  const email = input.email.trim().toLowerCase()
+  const password = input.password
+  if (!USERNAME_RE.test(username)) {
+    throw createError({ statusCode: 422, statusMessage: '用户名 2-20 位，可为中文、字母、数字、下划线', data: { code: 'REG_USERNAME_INVALID' } })
+  }
+  if (!EMAIL_RE.test(email)) {
+    throw createError({ statusCode: 422, statusMessage: '邮箱格式不正确', data: { code: 'REG_EMAIL_INVALID' } })
+  }
+  if (password.length < 8 || password.length > 72) {
+    throw createError({ statusCode: 422, statusMessage: '密码至少 8 位', data: { code: 'REG_PASSWORD_INVALID' } })
+  }
+  return { username, email, password }
+}
+
+/** 校验注册信息并下发邮箱验证码。sendEmail 由路由注入（SMTP 配置检查在路由）。 */
+export async function requestRegistrationCode(
+  client: DatabaseClient,
+  input: RegistrationInput,
+  sendEmail: (to: string, code: string) => Promise<boolean>
+): Promise<{ sent: boolean }> {
+  const normalized = normalizeRegistrationInput(input)
+  assertRegistrationIdentityAvailable(client, normalized.username, normalized.email)
+
+  const code = generateVerificationCode()
+  const codeHash = createHash('sha256').update(code).digest('hex')
+  const now = Date.now()
+  client.db.insert(emailVerifications)
+    .values({
+      email: normalized.email,
+      codeHash,
+      attempts: 0,
+      expiresAt: now + REGISTRATION_CODE_TTL_MS,
+      createdAt: now
+    })
+    .onConflictDoUpdate({
+      target: emailVerifications.email,
+      set: { codeHash, attempts: 0, expiresAt: now + REGISTRATION_CODE_TTL_MS, createdAt: now }
+    })
+    .run()
+
+  const sent = await sendEmail(normalized.email, code)
+  if (!sent) {
+    throw createError({ statusCode: 502, statusMessage: '验证码邮件发送失败，请稍后再试', data: { code: 'REG_SEND_FAILED' } })
+  }
+  return { sent: true }
+}
+
+/** 验证码校验 + 建号（邮箱已验证）；username/email 冲突时 409。 */
+export async function registerUser(
+  client: DatabaseClient,
+  input: RegistrationInput & { code: string }
+): Promise<typeof users.$inferSelect> {
+  const normalized = normalizeRegistrationInput(input)
+  assertRegistrationIdentityAvailable(client, normalized.username, normalized.email)
+
+  const row = client.db.select().from(emailVerifications)
+    .where(eq(emailVerifications.email, normalized.email))
+    .get()
+  if (!row) {
+    throw createError({ statusCode: 422, statusMessage: '请先获取邮箱验证码', data: { code: 'REG_CODE_MISSING' } })
+  }
+  if (row.expiresAt <= Date.now()) {
+    throw createError({ statusCode: 422, statusMessage: '验证码已过期，请重新获取', data: { code: 'REG_CODE_EXPIRED' } })
+  }
+  if (row.attempts >= REGISTRATION_CODE_MAX_ATTEMPTS) {
+    throw createError({ statusCode: 422, statusMessage: '尝试次数过多，请重新获取验证码', data: { code: 'REG_CODE_LOCKED' } })
+  }
+  const codeHash = createHash('sha256').update(input.code.trim()).digest('hex')
+  if (codeHash !== row.codeHash) {
+    client.db.update(emailVerifications)
+      .set({ attempts: row.attempts + 1 })
+      .where(eq(emailVerifications.email, normalized.email))
+      .run()
+    throw createError({ statusCode: 422, statusMessage: '验证码不正确', data: { code: 'REG_CODE_MISMATCH' } })
+  }
+
+  const now = Date.now()
+  const passwordHash = await hashUserPassword(normalized.password)
+  const id = randomUUID()
+  try {
+    client.db.insert(users).values({
+      id,
+      username: normalized.username,
+      passwordHash,
+      displayName: normalized.username,
+      email: normalized.email,
+      emailVerifiedAt: now,
+      status: 'active',
+      createdAt: now,
+      updatedAt: now
+    }).run()
+  } catch {
+    throw createError({ statusCode: 409, statusMessage: '用户名或邮箱已被使用', data: { code: 'REG_CONFLICT' } })
+  }
+  client.db.delete(emailVerifications).where(eq(emailVerifications.email, normalized.email)).run()
+
+  const created = client.db.select().from(users).where(eq(users.id, id)).get()
+  if (!created) throw new Error('REGISTRATION_INSERT_MISSING')
+  return created
 }

@@ -26,6 +26,13 @@ const emit = defineEmits<{
   planRouteManual: []
 }>()
 
+// 楼栋类点位开放群聊（campus-building/dorm）：登录后进入对应楼栋群
+const isBuildingPlace = computed(() =>
+  props.place.category === 'campus-building' || props.place.category === 'dorm')
+function goPlaceChat(): void {
+  void navigateTo({ path: '/chat', query: { place: props.place.id } })
+}
+
 const safeNavigationUrl = computed(() => safeExternalHref(props.place.navigationUrl))
 const phoneContacts = computed(() => parsePublicPhoneContacts(props.place.phone))
 
@@ -245,6 +252,21 @@ const navigationTooltip = computed(() => {
       :place-slug="props.place.slug"
       :place-name="props.place.name"
     />
+
+    <div
+      v-if="isBuildingPlace"
+      class="mt-3"
+    >
+      <UButton
+        color="neutral"
+        variant="outline"
+        size="xs"
+        icon="i-lucide-messages-square"
+        :label="`进入「${props.place.name}」楼栋群聊`"
+        :class="['!bg-white dark:!bg-zinc-800 !text-sky-700 dark:!text-sky-300 !ring-sky-200 dark:!ring-sky-800 hover:!bg-sky-50 dark:hover:!bg-sky-950/60', props.variant === 'mobile' ? 'min-h-9 w-full px-3' : 'w-full']"
+        @click="goPlaceChat"
+      />
+    </div>
 
     <MapPlaceRatingSection
       :place-id="props.place.id"

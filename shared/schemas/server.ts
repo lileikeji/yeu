@@ -759,6 +759,20 @@ export const assistantQuestionSchema = z.object({
     .optional()
 }).strict()
 
+// 开放注册（邮箱验证码）
+export const userRegistrationCodeSchema = z.object({
+  username: z.string().trim().min(2).max(20),
+  email: z.string().trim().min(3).max(120),
+  password: z.string().min(8).max(72)
+}).strict()
+
+export const userRegisterSchema = z.object({
+  username: z.string().trim().min(2).max(20),
+  email: z.string().trim().min(3).max(120),
+  password: z.string().min(8).max(72),
+  code: z.string().trim().min(6).max(6)
+}).strict()
+
 export const userLoginSchema = z.object({
   username: z.string().trim().min(1).max(80),
   password: z.string().min(8).max(128)
@@ -992,6 +1006,11 @@ export const createVisitorBanSchema = z.object({
   value: z.string().trim().min(1).max(200),
   reason: z.string().trim().min(1).max(500),
   expiresAt: z.union([z.iso.datetime({ offset: true }), z.null()]).optional()
+}).strict()
+
+// 进入楼栋群：placeId 为已发布楼栋类点位 id
+export const enterPlaceChatRoomSchema = z.object({
+  placeId: z.string().trim().min(1).max(120)
 }).strict()
 
 export const sendChatMessageSchema = z.object({

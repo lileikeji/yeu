@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getRequestMessage } from '~~/app/utils/request-error'
+import { userFetch } from '~~/app/utils/user-request'
 
 useSeoMeta({
   title: '账号登录',
@@ -13,6 +14,7 @@ const { isAuthenticated, refreshSession, login } = useUserSession()
 const username = ref('')
 const password = ref('')
 const passwordVisible = ref(false)
+const regCodeSentHint = ref('')
 const accountHelpLink = '/feedback?type=other&from=%2Flogin'
 
 function togglePasswordVisibility(): void {
@@ -21,6 +23,81 @@ function togglePasswordVisibility(): void {
 const submitting = ref(false)
 const checkingSession = ref(true)
 const errorMessage = ref('')
+
+// ---------- 注册（邮箱验证码） ----------
+const mode = ref<'login' | 'register'>('login')
+const regUsername = ref('')
+const regEmail = ref('')
+const regPassword = ref('')
+const regCode = ref('')
+const regSending = ref(false)
+const regCodeCountdown = ref(0)
+let regCountdownTimer: ReturnType<typeof globalThis.setInterval> | null = null
+
+function switchMode(next: 'login' | 'register'): void {
+  mode.value = next
+  errorMessage.value = ''
+}
+
+async function sendRegisterCode(): Promise<void> {
+  if (regCodeCountdown.value > 0 || regSending.value) return
+  if (!regUsername.value.trim() || !regEmail.value.trim() || regPassword.value.length < 8) {
+    errorMessage.value = '先填好用户名、邮箱和密码（至少 8 位），再获取验证码'
+    return
+  }
+  regSending.value = true
+  errorMessage.value = ''
+  try {
+    await userFetch('/api/auth/register-code', {
+      method: 'POST',
+      body: {
+        username: regUsername.value.trim(),
+        email: regEmail.value.trim(),
+        password: regPassword.value
+      }
+    })
+    regCodeCountdown.value = 60
+    regCountdownTimer = setInterval(() => {
+      regCodeCountdown.value -= 1
+      if (regCodeCountdown.value <= 0 && regCountdownTimer) {
+        clearInterval(regCountdownTimer)
+        regCountdownTimer = null
+      }
+    }, 1000)
+    errorMessage.value = ''
+    regCodeSentHint.value = '验证码已发送到邮箱，注意查收垃圾箱'
+  } catch (error) {
+    errorMessage.value = getRequestMessage(error, '验证码发送失败')
+  } finally {
+    regSending.value = false
+  }
+}
+
+async function submitRegister(): Promise<void> {
+  if (!regUsername.value.trim() || !regEmail.value.trim() || regPassword.value.length < 8 || regCode.value.trim().length !== 6) {
+    errorMessage.value = '请完整填写用户名、邮箱、密码（至少 8 位）和 6 位验证码'
+    return
+  }
+  submitting.value = true
+  errorMessage.value = ''
+  try {
+    await userFetch('/api/auth/register', {
+      method: 'POST',
+      body: {
+        username: regUsername.value.trim(),
+        email: regEmail.value.trim(),
+        password: regPassword.value,
+        code: regCode.value.trim()
+      }
+    })
+    await refreshSession(true)
+    await navigateTo(redirectTarget(), { replace: true })
+  } catch (error) {
+    errorMessage.value = getRequestMessage(error, '注册失败')
+  } finally {
+    submitting.value = false
+  }
+}
 
 function requestedRedirectTarget(): string | null {
   const raw = Array.isArray(route.query.redirect) ? route.query.redirect[0] : route.query.redirect
@@ -111,11 +188,31 @@ onMounted(() => {
         <p class="text-xs font-semibold text-green-700 dark:text-green-400">
           新生账号
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
-          账号登录
-        </h1>
+        <div class="mt-2 flex items-center justify-between gap-3">
+          <h1 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100">
+            {{ mode === 'login' ? '账号登录' : '注册账号' }}
+          </h1>
+          <div class="flex items-center rounded-md bg-zinc-100 dark:bg-zinc-800 p-0.5">
+            <button
+              type="button"
+              class="rounded px-2.5 py-1 text-xs font-medium transition"
+              :class="mode === 'login' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
+              @click="switchMode('login')"
+            >
+              登录
+            </button>
+            <button
+              type="button"
+              class="rounded px-2.5 py-1 text-xs font-medium transition"
+              :class="mode === 'register' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
+              @click="switchMode('register')"
+            >
+              注册
+            </button>
+          </div>
+        </div>
         <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-          目前只支持已有账号，暂不能自己注册。没有账号也不影响使用校园指南。
+          {{ mode === 'login' ? '登录后可进入群聊与个人中心。没有账号也不影响使用校园指南。' : '邮箱验证后即可注册，注册后可直接进入楼栋群聊。' }}
         </p>
 
         <div class="mt-4 flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950 p-3 text-sm text-sky-950 dark:text-sky-300" role="note">
@@ -184,8 +281,92 @@ onMounted(() => {
           />
           <span>{{ errorMessage }}</span>
         </div>
+        <p
+          v-if="mode === 'register' && regCodeSentHint"
+          class="mt-3 text-xs text-emerald-600 dark:text-emerald-400"
+        >
+          {{ regCodeSentHint }}
+        </p>
 
         <form
+          v-if="mode === 'register'"
+          class="mt-5 space-y-4"
+          @submit.prevent="submitRegister"
+        >
+          <UFormField label="用户名" required>
+            <UInput
+              v-model="regUsername"
+              name="reg-username"
+              autocomplete="username"
+              icon="i-lucide-user-round"
+              placeholder="2-20 位：中文、字母、数字、下划线"
+              size="lg"
+              class="min-h-11 w-full"
+              :disabled="submitting"
+            />
+          </UFormField>
+          <UFormField label="邮箱" required>
+            <UInput
+              v-model="regEmail"
+              name="reg-email"
+              type="email"
+              autocomplete="email"
+              icon="i-lucide-mail"
+              placeholder="用于接收验证码"
+              size="lg"
+              class="min-h-11 w-full"
+              :disabled="submitting"
+            />
+          </UFormField>
+          <UFormField label="密码" required>
+            <UInput
+              v-model="regPassword"
+              name="reg-password"
+              type="password"
+              autocomplete="new-password"
+              icon="i-lucide-lock-keyhole"
+              placeholder="至少 8 位"
+              size="lg"
+              class="min-h-11 w-full"
+              :disabled="submitting"
+            />
+          </UFormField>
+          <UFormField label="邮箱验证码" required>
+            <div class="flex items-center gap-2">
+              <UInput
+                v-model="regCode"
+                name="reg-code"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="6 位验证码"
+                size="lg"
+                class="min-h-11 flex-1"
+                :disabled="submitting"
+              />
+              <UButton
+                type="button"
+                color="neutral"
+                variant="outline"
+                size="lg"
+                :label="regCodeCountdown > 0 ? `${regCodeCountdown}s` : '获取验证码'"
+                :disabled="regCodeCountdown > 0 || regSending"
+                :loading="regSending"
+                @click="sendRegisterCode"
+              />
+            </div>
+          </UFormField>
+          <UButton
+            type="submit"
+            color="primary"
+            size="lg"
+            block
+            :loading="submitting"
+            label="注册并进入"
+          />
+        </form>
+
+        <form
+          v-else
           class="mt-6 space-y-4"
           @submit.prevent="submitLogin"
         >
