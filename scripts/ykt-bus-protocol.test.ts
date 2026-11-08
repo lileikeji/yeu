@@ -1,3 +1,4 @@
+import './ykt-test-env'
 import assert from 'node:assert/strict'
 import { createCipheriv, createPublicKey, createVerify } from 'node:crypto'
 import test from 'node:test'
@@ -14,6 +15,7 @@ import {
   stitchShapeSegments,
   toWgs84Point
 } from '../server/modules/transit/ykt-bus'
+import { TEST_YKT_AES_IV, TEST_YKT_AES_KEY, TEST_YKT_API_ID } from './ykt-test-env'
 
 // 与模块内一致的客户端签名私钥（前端 app.js 硬编码，非机密），用于导出公钥验签。
 const CLIENT_SIGNING_PEM = [
@@ -47,7 +49,7 @@ test('decryptOpenTicket 解出 addr/ticket JSON', () => {
   const info = { addr: 'http://wx.leyunykt.com', ticket: '218F524442904F65', url: 'h5' }
   // 模拟前端编码链的逆向：AES-CBC 加密 → base64 → yktkey 混淆
   const plain = JSON.stringify(info)
-  const cipher = createCipheriv('aes-128-cbc', Buffer.from('***REMOVED***'), Buffer.from('***REMOVED***'))
+  const cipher = createCipheriv('aes-128-cbc', Buffer.from(TEST_YKT_AES_KEY), Buffer.from(TEST_YKT_AES_IV))
   const encrypted = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]).toString('base64')
   const blob = encrypted
     .replaceAll('+', 'yktkey2b')
@@ -57,7 +59,7 @@ test('decryptOpenTicket 解出 addr/ticket JSON', () => {
 })
 
 test('buildSignedBody 生成长度前缀 + SIGN_VAL + RSA-SHA256 签名', () => {
-  const params = { api_id: '***REMOVED***', open_id: '123', ticket: 'T' }
+  const params = { api_id: TEST_YKT_API_ID, open_id: '123', ticket: 'T' }
   const body = buildSignedBody(params)
 
   const prefix = body.slice(0, 8)

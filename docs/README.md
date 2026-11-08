@@ -20,6 +20,7 @@
 | [SIGNAL.md](./SIGNAL.md) | 校园热度：双评分入选、事件聚簇、48 小时半衰热度、日报/周报/月报与调度命令 |
 | [GIT_RESOURCES_AND_CONFIGURATION.md](./GIT_RESOURCES_AND_CONFIGURATION.md) | Git 资源与配置：仓库边界、环境变量、数据库私有存放、发布配置 |
 | [bot-integrations.md](./bot-integrations.md) | QQ / 微信机器人接入 |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | 贡献指南：Issue/PR 流程、测试要求、安全红线与文档同步 |
 | [rules/TASK_COMPLETION_REVIEW.md](./rules/TASK_COMPLETION_REVIEW.md) | 任务完成复盘与架构同步规则 |
 
 ## 进行中的规划
@@ -28,4 +29,4 @@
 
 ## 阅读顺序
 
-首次了解项目：根 [README](../README.md) → PRD → INFORMATION_ARCHITECTURE → ARCHITECTURE → DATA_MODEL。改代码前：ARCHITECTURE 对应小节 + MAP_INTERACTION_SPEC（涉及地图时）+ CONTENT_POLICY（涉及内容时）。发布：DEPLOYMENT + DEPLOY_NOTES 纪要 + RESTRUCTURE_PLAN 中的部署检查单（P2 落地后收敛进 scripts/deploy.sh）。
+首次了解项目：根 [README](../README.md) → PRD → INFORMATION_ARCHITECTURE → ARCHITECTURE → DATA_MODEL。改代码前：[CONTRIBUTING](../CONTRIBUTING.md) + ARCHITECTURE 对应小节 + MAP_INTERACTION_SPEC（涉及地图时）+ CONTENT_POLICY（涉及内容时）。发布：DEPLOYMENT + DEPLOY_NOTES 纪要 + RESTRUCTURE_PLAN 中的部署检查单（P2 落地后收敛进 scripts/deploy.sh）。

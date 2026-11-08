@@ -8,7 +8,7 @@
 # 生产制品必须在 Linux 构建。Windows/macOS 开发机用 scripts/build-linux-artifact.sh：
 # 本机 pnpm build → 只传 14M 产物 → 服务器补 Linux 原生模块 → 冒烟。
 # 不要在生产机上 pnpm build：4 核 / 3.6G 内存，单次 40 分钟起，还会 OOM（exit 137）。
-# 服务器与路径可用环境变量覆盖：DEPLOY_SERVER / YEU_BASE / SSH_KEY
+# 部署目标与私钥经环境变量传入（必填，无内置默认值）：DEPLOY_SERVER / SSH_KEY
 set -euo pipefail
 
 DO_DEPLOY=1
@@ -22,9 +22,12 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-DEPLOY_SERVER="${DEPLOY_SERVER:-root@***REMOVED***}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/***REMOVED***}"
-REMOTE_STAGE="/root/yeu-deploy"
+# 部署目标不入库（开源仓库不携带生产信息）：实际部署前必须显式提供。
+if [ "$DO_DEPLOY" = "1" ]; then
+  : "${DEPLOY_SERVER:?缺少 DEPLOY_SERVER（形如 user@host），配置见 docs/DEPLOYMENT.md}"
+  : "${SSH_KEY:?缺少 SSH_KEY（部署私钥路径）}"
+fi
+REMOTE_STAGE="${REMOTE_STAGE:-/root/yeu-deploy}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 

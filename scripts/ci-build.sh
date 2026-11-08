@@ -9,8 +9,15 @@ BUILD_SHA="$(git rev-parse HEAD)"
 RELEASE_ID="$(date -u +%Y%m%d-%H%M%S)-${GITEE_PIPELINE_BUILD_NUMBER}-${BUILD_SHA:0:12}-$(openssl rand -hex 4)"
 printf '%s\n' "$BUILD_SHA" > build-sha.txt
 printf '%s\n' "$RELEASE_ID" > release-id.txt
-BASE_SHA="$(curl --connect-timeout 5 --max-time 10 -fsS https://yx.huiliyill.cn/version.json \
-  | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{process.stdout.write(JSON.parse(s).commit||"")}catch{}})' || true)"
+# 生产基线探测仅在维护者的部署流水线里启用；外部贡献者的 CI 设 YEU_CI_SKIP_BASELINE=1
+# 跳过对生产站点的请求（fork 流水线不应探测生产环境）。
+if [ "${YEU_CI_SKIP_BASELINE:-0}" = "1" ]; then
+  BASE_SHA=""
+  echo "跳过生产基线探测（YEU_CI_SKIP_BASELINE=1）"
+else
+  BASE_SHA="$(curl --connect-timeout 5 --max-time 10 -fsS https://yx.huiliyill.cn/version.json \
+    | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{process.stdout.write(JSON.parse(s).commit||"")}catch{}})' || true)"
+fi
 if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
   echo "浅克隆补取已部署提交：$BASE_SHA"
   if ! timeout 30s git fetch --quiet --no-tags --depth=1 origin "$BASE_SHA" >/dev/null 2>&1; then

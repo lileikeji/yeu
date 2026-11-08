@@ -2,6 +2,7 @@
   "name": "yeu-freshman-guide",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Unofficial freshman guide for Yang-En University",
   "type": "module",
   "engines": {

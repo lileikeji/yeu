@@ -39,7 +39,9 @@ export default defineEventHandler(async (event) => {
 
   const config = useRuntimeConfig(event)
   const openTicket = config.yktOpenTicket
-  if (!openTicket) {
+  // 云一卡通凭据五项任一未配置即整体降级，不发出上游请求。
+  const yktCreds = [openTicket, config.yktAesKey, config.yktAesIv, config.yktApiId, config.yktAccessToken]
+  if (yktCreds.some((value) => !String(value ?? '').trim())) {
     throw createError({ statusCode: 503, statusMessage: 'Bus positions service not configured' })
   }
   try {

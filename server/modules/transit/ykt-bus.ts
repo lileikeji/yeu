@@ -1,6 +1,5 @@
 // 云一卡通（YKTPreview）校车定位协议客户端
-// 协议逆向自 wx.leyunykt.com YKTPreview 前端 app.js，实测链路见
-// E:/nixiang/work/leyunykt-bus/阶段报告-校车定位协议.md。
+// 协议逆向自 wx.leyunykt.com YKTPreview 前端 app.js。
 //   open_ticket = yktkey 反替换 → Base64 → AES-128-CBC(key/iv 固定) → JSON{addr,ticket}
 //   请求体 = 8 位 UTF8 长度前缀 + JSON + "SIGN_VAL" + base64(RSA-SHA256(JSON))
 //   响应体 = 8 位长度前缀 + retcode(4 位) + JSON + "SIGN_VAL" + 签名（客户端不验签）
@@ -18,10 +17,12 @@ import { WEST_DEPARTURE_STOP_NAME, WEST_GATE, westApproach } from './campus-west
 const WEST_GATE_LNG = WEST_GATE.lng
 const WEST_GATE_LAT = WEST_GATE.lat
 
-const AES_KEY = '***REMOVED***' // 16 字节 = aes-128-cbc
-const AES_IV = '***REMOVED***'
-const API_ID = '***REMOVED***'
-const ACCESS_TOKEN = '***REMOVED***'
+// 云一卡通凭据由 NUXT_YKT_* 环境变量注入（见 .env.example）；任一缺失时上层
+// 公交实时接口直接 503 not configured，不做请求。
+const AES_KEY = process.env.NUXT_YKT_AES_KEY ?? '' // 16 字节 = aes-128-cbc
+const AES_IV = process.env.NUXT_YKT_AES_IV ?? ''
+const API_ID = process.env.NUXT_YKT_API_ID ?? ''
+const ACCESS_TOKEN = process.env.NUXT_YKT_ACCESS_TOKEN ?? ''
 const COMMON = '?DirectProcessData=true&DisablePacketHeader=false&PacketHeaderMode=1&PacketVer=2'
 const SIGN_SEP = 'SIGN_VAL'
 const REQUEST_TIMEOUT_MS = 15_000

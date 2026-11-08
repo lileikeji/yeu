@@ -19,7 +19,7 @@
 - AI 检索：向量索引（sqlite-vec）+ 网关 LLM，答案缓存两层（表 + 进程内存），改检索/算分逻辑必须 bump `ASSISTANT_CACHE_VERSION`（`server/modules/assistant/service.ts`）
 - 地图：MapLibre/OSM 开发预览，生产高德 JS API 2.0；provider 抽象在 `map/`
 - 部署：宝塔 Linux + **systemd `yeu.service`**（端口 3000，`EnvironmentFile=shared/.env`）+ Nginx；不是 PM2
-- CI/CD：个人仓库 `lilei1529/yeu` 的 Gitee Go 流水线（`.workflow/`），push `master` 云端构建并自动部署（见下文「发布」）
+- CI/CD：Gitee Go 流水线（`.workflow/`），push `master` 云端构建并自动部署；生产发布由维护者的私有部署环境执行（见下文「发布」）
 
 ## 本地启动
 
@@ -91,6 +91,7 @@ public/              公共静态资源与 PWA 资源
 完整索引见 [docs/README.md](docs/README.md)。常用入口：
 
 - [产品需求文档](docs/PRD.md)：用户、范围、验收标准和后续边界。
+- [参与贡献](CONTRIBUTING.md)：Issue/PR 流程、测试要求、安全红线与文档同步。
 - [AGENTS.md](AGENTS.md)：AI 协作编码约束（行为红线、发布纪律），项目事实不在此重复。
 - [地图交互规范](docs/MAP_INTERACTION_SPEC.md)：地图行为、标点联动和失败降级。
 - [内容治理政策](docs/CONTENT_POLICY.md)：资料来源、时效、版权和发布门槛；地点审核状态以后台数据库为准。
@@ -98,6 +99,10 @@ public/              公共静态资源与 PWA 资源
 - [技术架构](docs/ARCHITECTURE.md) 与 [宝塔 Linux 部署](docs/DEPLOYMENT.md)：运行边界、环境变量、发布、备份和恢复。
 - [Git 资源与配置说明](docs/GIT_RESOURCES_AND_CONFIGURATION.md)：Git 资源边界、环境配置、数据库私有存放、协作和发布流程。
 - [工程重构规划](docs/RESTRUCTURE_PLAN_2026-10-05.md)：对标 electro-exam 的文档/CI/部署重构路线（P0~P4 执行状态）。
+
+## 参与贡献
+
+欢迎通过 Issue 与 Pull Request 参与共建：纠错线索（地点、流程、社团信息）、内容补全与代码改进。流程、测试与安全要求见 [CONTRIBUTING.md](CONTRIBUTING.md)；内容类贡献请先读 [内容治理政策](docs/CONTENT_POLICY.md)——所有重要信息记录来源与核验状态，未核验不公开。
 
 ## 名称与声明
 

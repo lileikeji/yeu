@@ -1,10 +1,11 @@
 version: "1.0"
 name: 生产部署
-displayName: 个人仓库生产部署（push master → 质量检查 → 服务器部署）
+displayName: 生产部署（push master → 质量检查 → 服务器部署）
 # 使用前提（Gitee 仓库控制台一次性配置，约 10 分钟）：
-# 1. 个人仓库 lilei1529/yeu 开通流水线；配额以账户控制台为准。
-# 2. 「主机管理」新建主机组（建议名称 ***REMOVED***），加入生产服务器并配置 SSH 凭据，
-#    把下方 hostGroupID 的 ID 替换为主机组实际标识。
+# 1. 仓库开通流水线；配额以账户控制台为准。
+# 2. 「主机管理」新建主机组（名称需与下方 hostGroupID 一致，默认 yeu-prod），
+#    加入生产服务器并配置 SSH 凭据；服务器 IP 等部署环境信息不入仓库。
+# 3. 如需限定只有特定仓库触发部署，在流水线环境变量配置 YEU_DEPLOY_REPO=<owner>/<repo>。
 # 构建发生在 Gitee 云端环境，不占用生产服务器资源；服务器只执行部署脚本。
 strategy:
   # 认证只在代码克隆阶段可用；保留近期历史供生产 SHA 比较，避免拉取完整历史。
@@ -59,7 +60,8 @@ stages:
       : "${GITEE_COMMIT:?缺少完整提交号}"
       [[ "$GITEE_PIPELINE_BUILD_NUMBER" =~ ^[0-9]+$ ]]
       [[ "$GITEE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
-      [[ "$GITEE_REPO" == "lilei1529/yeu" && "$GITEE_BRANCH" == "master" ]]
+      [[ "${YEU_DEPLOY_REPO:-}" == "" || "$GITEE_REPO" == "$YEU_DEPLOY_REPO" ]]
+      [[ "$GITEE_BRANCH" == "master" ]]
       mkdir -p /root/gitee-deploy/yeu/incoming
       exec 9>/root/gitee-deploy/yeu/transfer.lock
       flock -w 60 9
@@ -105,10 +107,9 @@ stages:
         DEPLOY_TS="$(date +%Y%m%d-%H%M%S)" ARCHIVE="$ARCHIVE" \
         bash "$WORK_DIR/scripts/server-side-deploy.sh" 2>&1 | tee "$WORK_DIR/deploy.log"
     hostGroupID:
-      ID: ***REMOVED***
+      # Gitee 控制台主机组名（不含服务器 IP）；与「主机管理」里的配置保持一致
+      ID: yeu-prod
       hostID:
-      # 主机组内 gitee-go-runner agent 的 uuid（个人设置 → 主机管理 → 主机组 ***REMOVED***）
-      - ***REMOVED***
     strategy:
       retry: "0"
 triggers:

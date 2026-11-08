@@ -106,7 +106,7 @@ push 到 `main` 自动触发（`ll` 是开发分支，不触发）：
 ### P3 CI 流水线（Gitee Go）
 
 动作：
-1. 仓库「流水线」开通 + 主机部署组（服务器 ***REMOVED*** 已有 SSH 凭据基础）。
+1. 仓库「流水线」开通 + 主机部署组（生产服务器已有 SSH 凭据基础，服务器信息不入公开仓库）。
 2. `.workflow/流水线-<ts>.yml`：push `main` 触发；构建阶段只打包**源码**制品（`pnpm install && pnpm build` 在云端跑，写 `build-sha.txt`），不把本地 .output 混入；主机阶段解包校验 sha 一致后跑全量测试再调 `scripts/server-side-deploy.sh`。
 3. 测试环境：SQLite 场景用临时目录/内存库替代 dianzi 的临时 PG 容器；冒烟探针（`scripts/assistant-qa-sweep.ts`）跑在部署后阶段，失败即标记 DEPLOY_FAILED。
 4. 流水线配额策略照抄 dianzi：注册常开机器为自有构建机不耗核分。
@@ -117,7 +117,7 @@ push 到 `main` 自动触发（`ll` 是开发分支，不触发）：
 - [x] 首跑联调（2026-10-09，#1~#3 三个真问题并修复）：
   1. **node 版本枚举**：Gitee `build@nodejs` 的 nodeVersion 不认 "22"（回退 v20.11.1），而 engines 要求 >=22 → 改为 commands 里自行解压 Node 官方二进制（v22.20.0，满足依赖 engines ^22.19.0）并 PATH 前置覆盖；
   2. **行间失败不中断**：commands 每行独立执行且失败继续下一行 → 关键链合并单行用 `&&` 短路；
-  3. **主机组**：Gitee Go 主机组为账号级资源（个人设置 → 主机管理），与 dianzi（crazy4-thursday 账号）不共享；已建主机组 `***REMOVED***`（与 yml hostGroupID 一致），服务器安装 gitee-go-runner agent（systemd `gitee-go-agent.service`，uuid 616abc1b，重启自启），主机数 1/1 在线。
+  3. **主机组**：Gitee Go 主机组为账号级资源（个人设置 → 主机管理），与 dianzi（crazy4-thursday 账号）不共享；已建主机组（名称与 yml hostGroupID 一致），服务器安装 gitee-go-runner agent（systemd `gitee-go-agent.service`，重启自启），主机数 1/1 在线；主机组名与 agent uuid 属部署环境信息，不入公开仓库。
 - [x] 全链路验证通过（2026-10-09 #7，release `20261009-3b32f4d`）：push master → Gitee 云端构建（install + 1254 测试 + build，5m14s）→ 制品下发 → 主机 agent 执行 `server-side-deploy.sh`（DB 备份 → 冒烟 → 原子切换 → 健康检查）→ `releases/DEPLOYED-<sha>-<ts>.txt` 落盘（含回滚点与 DB 备份路径）。`version.json` 公开 404（Nitro 不服务后写入的静态文件，磁盘标记完整），后续加 `server/api/public/version.get.ts` 解决。Gitee Go 联调共踩 5 个坑（全记录于 git log ci: 系列）：① 分支名 main/master；② nodejs step 版本枚举无 22 → 自装官方二进制；③ commands 行间失败不中断 → 关键链单行 && 短路；④ artifacts 会把 path 声明的文件再包一层 tar → 解两层；⑤ hostGroupID 之外还需 hostID 指定 agent uuid。agent 已 systemd 化（`gitee-go-agent.service`）。
 
 ### P4 基线治理（消灭 HEAD 与线上漂移）

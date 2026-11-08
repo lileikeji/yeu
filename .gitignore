@@ -45,6 +45,15 @@ storage/uploads/
 data/imports/*.xls
 data/imports/*.xlsx
 data/imports/*.xlsm
+# 学校官方原始文件与个人隐私材料一律不入库（含子目录；2026-11 开源前审计补充）。
+# 已脱敏的结构化种子放 data/seeds/，原始 docx/xls/pdf/rar 只留本地与私有备份。
+data/imports/**/*.xls
+data/imports/**/*.xlsx
+data/imports/**/*.xlsm
+data/imports/**/*.doc
+data/imports/**/*.docx
+data/imports/**/*.rar
+data/imports/**/*.pdf
 data/imports/private/
 data/imports/exports/
 data/imports/raw-media/
@@ -58,6 +67,9 @@ data/production-monitor-state.json
 
 # Ad-hoc local probe / sync scripts (never commit secrets)
 _*.py
+_*.ts
+tmp-*
+*.bak-*
 
 # Local release bundles (deploy bundles stay out of Git; see scripts/deploy.sh)
 /*.tar.gz

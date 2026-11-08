@@ -5,11 +5,11 @@
 # 代码以本仓库为准，用本脚本推送，不从服务器上的 /www/wwwroot/yeu/repo 取（那个检出可能落后）。
 #
 # 用法：bash scripts/sync-signal-runtime.sh
-# 依赖：ssh / scp，密钥默认 ~/.ssh/***REMOVED***，可用 SSH_KEY / SSH_HOST 覆盖。
+# 依赖：ssh / scp，目标与私钥经 SSH_HOST / SSH_KEY 环境变量传入（必填，无内置默认值）。
 set -euo pipefail
 
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/***REMOVED***}"
-SSH_HOST="${SSH_HOST:-root@***REMOVED***}"
+: "${SSH_HOST:?缺少 SSH_HOST（形如 user@host），配置见 docs/DEPLOYMENT.md}"
+: "${SSH_KEY:?缺少 SSH_KEY（部署私钥路径）}"
 REMOTE_DIR="${REMOTE_DIR:-/opt/yeu-signal}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE" "$TARBALL"' EXIT

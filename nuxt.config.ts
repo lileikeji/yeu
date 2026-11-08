@@ -125,6 +125,11 @@ export default defineNuxtConfig({
     amapWebServiceKey: '',
     // 云一卡通 YKTPreview open_ticket（校车定位，NUXT_YKT_OPEN_TICKET 覆盖）
     yktOpenTicket: '',
+    // 云一卡通凭据（NUXT_YKT_* 覆盖）；任一缺失时公交实时接口 503 降级
+    yktAesKey: '',
+    yktAesIv: '',
+    yktApiId: '',
+    yktAccessToken: '',
     botSiteUrl: 'https://yx.huiliyill.cn/',
     botMaxReplyChars: 1800,
     qqBotWebhookToken: '',

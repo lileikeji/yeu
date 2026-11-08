@@ -13,8 +13,8 @@
 # 备份/切换/回滚仍走 scripts/server-side-deploy.sh，本脚本不碰 current。
 set -euo pipefail
 
-DEPLOY_SERVER="${DEPLOY_SERVER:-root@***REMOVED***}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/***REMOVED***}"
+: "${DEPLOY_SERVER:?缺少 DEPLOY_SERVER（形如 user@host），配置见 docs/DEPLOYMENT.md}"
+: "${SSH_KEY:?缺少 SSH_KEY（部署私钥路径）}"
 REMOTE_STAGE="${REMOTE_STAGE:-/root/yeu-deploy}"
 SMOKE_PORT="${SMOKE_PORT:-4093}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

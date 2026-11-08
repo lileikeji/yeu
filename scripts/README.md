@@ -4,7 +4,7 @@
 
 ## 部署
 
-- `deploy.sh`：本地一键发布。闸门顺序：Git 基线（脏工作区拒绝，`--allow-dirty` 显式逃生）→ 检索缓存版本确认（`server/modules/assistant` 有改动而 `ASSISTANT_CACHE_VERSION` 未 bump 时要求确认，非交互环境须 `--cache-version-acked`）→ `pnpm test`（`--no-test` 逃生）→ `pnpm build` 并核对 exit code 与 ELIFECYCLE → tar（`-h` 解引用）md5 与上次对比防旧产物 → scp 上传 → 服务器部署。`--dry-run` 只跑到制品核验；`--slug <name>` 自定义 release 标识。
+- `deploy.sh`：本地一键发布（维护者用；部署目标经 `DEPLOY_SERVER` / `SSH_KEY` 环境变量传入，无内置默认值）。闸门顺序：Git 基线（脏工作区拒绝）→ `pnpm test` → `pnpm build` 并核对 exit code 与 ELIFECYCLE → tar（`-h` 解引用）md5 与上次对比防旧产物 → scp 上传 → 服务器部署（服务端再做检索源码摘要与缓存版本对比）。`--dry-run` 只跑闸门与构建，不上传不部署；`--slug <name>` 自定义 release 标识。
 - `server-side-deploy.sh`：服务器端部署动作（本地脚本与 Gitee 流水线共用）。同步 `deploy-home-sheet.sh` → 执行核心部署（DB 备份/冒烟/原子切换/失败自动回滚）→ 写 `releases/DEPLOYED-<sha>-<ts>.txt` 与 `.output/public/version.json` → 清理旧 release（保留 4 个）。环境变量：`RELEASE_ID`/`DEPLOY_SHA`/`ARCHIVE` 必填，`DEPLOY_TS`/`KEEP_RELEASES` 可选。
 - `deploy-home-sheet.sh`：核心部署实现（事实源在本仓库；部署时自动覆盖服务器副本）。解包校验 → Linux native 替换（better-sqlite3/sqlite-vec）→ DB 一致性备份 → 独立端口冒烟 → symlink 原子切换 → 健康检查失败自动回滚。
 

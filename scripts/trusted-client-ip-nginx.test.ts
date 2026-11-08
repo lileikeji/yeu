@@ -11,7 +11,7 @@ const uploadConfig = readFileSync(resolve('ops/nginx/admin-media-upload.conf'), 
 test('Nginx accepts forwarded client IP only from observed CDN peers', () => {
   assert.match(trustedIpConfig, /geo \$yeu_trusted_cdn_edge/)
   assert.match(trustedIpConfig, /default 0;/)
-  assert.match(trustedIpConfig, /180\.97\.221\.85 1;/)
+  assert.match(trustedIpConfig, /203\.0\.113\.10 1;/)
   assert.match(trustedIpConfig, /default \$remote_addr;/)
   assert.match(trustedIpConfig, /~\^1:\(\[0-9A-Fa-f:\.\]\+\)/)
 })
