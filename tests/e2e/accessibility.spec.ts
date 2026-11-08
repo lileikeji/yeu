@@ -74,7 +74,12 @@ for (const auditPage of auditPages) {
   test(`${auditPage.name}没有严重或阻断级自动无障碍问题`, async ({ page }, testInfo) => {
     await page.goto(auditPage.path)
     if (auditPage.path === '/map') {
-      await expect(page.getByLabel('搜索地图地点')).toBeVisible()
+      // 移动端默认收起面板（2026-11-06），先展开再审计搜索框所在视图。
+      const search = page.getByLabel('搜索地图地点')
+      if (!(await search.isVisible().catch(() => false))) {
+        await page.getByRole('button', { name: '打开地点列表' }).click()
+      }
+      await expect(search).toBeVisible()
     } else {
       await expect(page.getByRole('heading', { level: 1, name: auditPage.heading })).toBeVisible()
     }
