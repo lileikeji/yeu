@@ -132,7 +132,7 @@ pnpm tsx scripts/signal-build.ts --report both
 bash scripts/sync-signal-runtime.sh
 
 # 服务器上首次安装与启用（单元文件从本仓库 ops/systemd/ 传上去）
-scp -i ~/.ssh/***REMOVED*** ops/systemd/yeu-signal.service ops/systemd/yeu-signal.timer root@<host>:/tmp/
+scp -i ~/.ssh/<deploy-key>.pem ops/systemd/yeu-signal.service ops/systemd/yeu-signal.timer root@<host>:/tmp/
 sudo install -m 644 /tmp/yeu-signal.service /etc/systemd/system/yeu-signal.service
 sudo install -m 644 /tmp/yeu-signal.timer /etc/systemd/system/yeu-signal.timer
 sudo systemctl daemon-reload

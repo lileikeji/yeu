@@ -2,9 +2,15 @@ const { randomBytes, scrypt, randomUUID } = require('node:crypto')
 const path = require('node:path')
 const fs = require('node:fs')
 
-const password = process.argv[2] || '***REMOVED***'
+// 用法：node scripts/force-reset-admin-password.cjs <新密码> [用户名] [数据库路径]
+// 密码一律显式传入，脚本不内置默认值（开源前审计 2026-11）。
+const password = process.argv[2]
 const username = process.argv[3] || 'admin'
 const dbPath = process.argv[4] || '/www/wwwroot/yeu/shared/data/yeu.sqlite'
+if (!password) {
+  console.error('缺少参数：<新密码>（可选 [用户名] [数据库路径]）')
+  process.exit(1)
+}
 
 const SCRYPT_N = 16384
 const SCRYPT_R = 8
