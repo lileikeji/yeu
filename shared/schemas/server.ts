@@ -759,11 +759,13 @@ export const assistantQuestionSchema = z.object({
     .optional()
 }).strict()
 
-// 开放注册（邮箱验证码）
+// 开放注册（邮箱验证码 + 图形验证码反扒）
 export const userRegistrationCodeSchema = z.object({
   username: z.string().trim().min(2).max(20),
   email: z.string().trim().min(3).max(120),
-  password: z.string().min(8).max(72)
+  password: z.string().min(8).max(72),
+  captchaId: z.string().trim().min(8).max(80),
+  captchaCode: z.string().trim().min(4).max(8)
 }).strict()
 
 export const userRegisterSchema = z.object({

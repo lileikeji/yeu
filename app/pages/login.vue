@@ -30,6 +30,10 @@ const regUsername = ref('')
 const regEmail = ref('')
 const regPassword = ref('')
 const regCode = ref('')
+const regCaptchaId = ref('')
+const regCaptchaSvg = ref('')
+const regCaptchaInput = ref('')
+const regCaptchaRefreshKey = ref(0)
 const regSending = ref(false)
 const regCodeCountdown = ref(0)
 let regCountdownTimer: ReturnType<typeof globalThis.setInterval> | null = null
@@ -37,12 +41,29 @@ let regCountdownTimer: ReturnType<typeof globalThis.setInterval> | null = null
 function switchMode(next: 'login' | 'register'): void {
   mode.value = next
   errorMessage.value = ''
+  if (next === 'register' && !regCaptchaSvg.value) void refreshCaptcha()
+}
+
+async function refreshCaptcha(): Promise<void> {
+  regCaptchaRefreshKey.value += 1
+  try {
+    const payload = await userFetch<{ captchaId: string, svg: string }>('/api/auth/captcha')
+    regCaptchaId.value = payload.captchaId
+    regCaptchaSvg.value = payload.svg
+    regCaptchaInput.value = ''
+  } catch (error) {
+    errorMessage.value = getRequestMessage(error, '图形验证码加载失败')
+  }
 }
 
 async function sendRegisterCode(): Promise<void> {
   if (regCodeCountdown.value > 0 || regSending.value) return
   if (!regUsername.value.trim() || !regEmail.value.trim() || regPassword.value.length < 8) {
     errorMessage.value = '先填好用户名、邮箱和密码（至少 8 位），再获取验证码'
+    return
+  }
+  if (!regCaptchaId.value || regCaptchaInput.value.trim().length < 4) {
+    errorMessage.value = '请先填写图形验证码'
     return
   }
   regSending.value = true
@@ -53,7 +74,9 @@ async function sendRegisterCode(): Promise<void> {
       body: {
         username: regUsername.value.trim(),
         email: regEmail.value.trim(),
-        password: regPassword.value
+        password: regPassword.value,
+        captchaId: regCaptchaId.value,
+        captchaCode: regCaptchaInput.value.trim()
       }
     })
     regCodeCountdown.value = 60
@@ -68,6 +91,7 @@ async function sendRegisterCode(): Promise<void> {
     regCodeSentHint.value = '验证码已发送到邮箱，注意查收垃圾箱'
   } catch (error) {
     errorMessage.value = getRequestMessage(error, '验证码发送失败')
+    void refreshCaptcha()
   } finally {
     regSending.value = false
   }
@@ -179,6 +203,9 @@ async function submitLogin(): Promise<void> {
 onMounted(() => {
   void checkExistingSession()
 })
+watch(mode, (next) => {
+  if (next === 'register' && !regCaptchaSvg.value) void refreshCaptcha()
+})
 </script>
 
 <template>
@@ -220,7 +247,7 @@ onMounted(() => {
             name="i-lucide-info"
             class="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
           />
-          <span>新生学号暂未录入，当前登录使用已创建的账号；没有账号也可以正常浏览公开内容。</span>
+          <span>现在开放注册了：切到「注册」填用户名、邮箱并验证即可拥有账号；没有账号也可以正常浏览公开内容。</span>
         </div>
 
         <div class="mt-5 border-y border-zinc-100 dark:border-zinc-800">
@@ -330,6 +357,38 @@ onMounted(() => {
               class="min-h-11 w-full"
               :disabled="submitting"
             />
+          </UFormField>
+          <UFormField label="图形验证码" required>
+            <div class="flex items-center gap-2">
+              <UInput
+                v-model="regCaptchaInput"
+                name="reg-captcha"
+                maxlength="5"
+                placeholder="图中字符"
+                size="lg"
+                class="min-h-11 flex-1"
+                :disabled="submitting"
+              />
+              <button
+                :key="regCaptchaRefreshKey"
+                type="button"
+                class="min-h-11 shrink-0 rounded-md border border-zinc-200 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-800"
+                aria-label="点击刷新图形验证码"
+                @click="refreshCaptcha"
+              >
+                <span
+                  v-if="regCaptchaSvg"
+                  class="block h-9 w-[130px]"
+                  v-html="regCaptchaSvg"
+                />
+                <span
+                  v-else
+                  class="flex h-9 w-[130px] items-center justify-center text-[11px] text-zinc-400"
+                >
+                  加载中…
+                </span>
+              </button>
+            </div>
           </UFormField>
           <UFormField label="邮箱验证码" required>
             <div class="flex items-center gap-2">
