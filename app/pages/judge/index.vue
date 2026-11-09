@@ -419,10 +419,10 @@ onBeforeUnmount(stopPolling)
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f5f7f4] dark:bg-zinc-950">
+  <div class="min-h-dvh bg-[#f5f7f4] dark:bg-zinc-950">
     <div
       v-if="authState === 'checking'"
-      class="grid min-h-screen place-items-center p-6"
+      class="grid min-h-dvh place-items-center p-6"
       role="status"
       aria-live="polite"
     >
@@ -439,7 +439,7 @@ onBeforeUnmount(stopPolling)
 
     <div
       v-else-if="authState === 'error'"
-      class="grid min-h-screen place-items-center p-6"
+      class="grid min-h-dvh place-items-center p-6"
     >
       <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-900">
         <UIcon

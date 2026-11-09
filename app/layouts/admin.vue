@@ -259,10 +259,10 @@ watch(desktopSidebarCollapsed, (collapsed) => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f6f7f5] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+  <div class="min-h-dvh bg-[#f6f7f5] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
     <div
       v-if="authState === 'checking'"
-      class="grid min-h-screen place-items-center p-6"
+      class="grid min-h-dvh place-items-center p-6"
       role="status"
       aria-live="polite"
     >
@@ -279,7 +279,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
 
     <div
       v-else-if="authState === 'error'"
-      class="grid min-h-screen place-items-center p-6"
+      class="grid min-h-dvh place-items-center p-6"
     >
       <div class="w-full max-w-md rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 text-center">
         <UIcon

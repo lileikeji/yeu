@@ -36,7 +36,7 @@ function shareCurrentPage(): void {
 </script>
 
 <template>
-  <div class="min-h-screen bg-white dark:bg-zinc-900">
+  <div class="min-h-dvh bg-white dark:bg-zinc-900">
     <a
       href="#main-content"
       class="fixed left-3 top-3 z-50 inline-flex min-h-11 -translate-y-20 items-center rounded-md bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-green-800 dark:text-green-300 shadow-lg focus:translate-y-0"
@@ -172,7 +172,7 @@ function shareCurrentPage(): void {
       :class="[
         isMapPage
           ? 'map-page min-h-0 overflow-hidden overscroll-none'
-          : 'safe-bottom min-h-[calc(100vh-var(--header-height))]',
+          : 'safe-bottom min-h-[calc(100dvh-var(--header-height))]',
         useCompactPageDensity ? 'compact-page-density' : ''
       ]"
       tabindex="-1"

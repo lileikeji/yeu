@@ -216,7 +216,7 @@ onMounted(loadStatus)
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-[#ffe8d9] via-[#fdf6ec] to-[#ddf3ea] text-[#33413a]">
+  <div class="min-h-dvh bg-gradient-to-b from-[#ffe8d9] via-[#fdf6ec] to-[#ddf3ea] text-[#33413a]">
     <main class="mx-auto max-w-lg px-4 py-8 sm:py-12">
       <header class="text-center">
         <NuxtLink

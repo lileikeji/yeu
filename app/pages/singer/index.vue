@@ -8,7 +8,7 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-[#ffe8d9] via-[#fdf6ec] to-[#ddf3ea] text-[#33413a]">
+  <div class="min-h-dvh bg-gradient-to-b from-[#ffe8d9] via-[#fdf6ec] to-[#ddf3ea] text-[#33413a]">
     <main class="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
       <!-- 头部 -->
       <header class="text-center">
