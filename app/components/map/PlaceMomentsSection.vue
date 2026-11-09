@@ -501,4 +501,34 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
       还没有人留言，来当第一个。
     </p>
   </section>
+
+  <!-- 照片灯箱：当前页全屏放大，点遮罩或关闭按钮退出 -->
+  <Teleport to="body">
+    <div
+      v-if="lightboxUrl"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="照片查看"
+      @click="closeLightbox"
+    >
+      <button
+        type="button"
+        class="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+        aria-label="关闭大图"
+        @click.stop="closeLightbox"
+      >
+        <UIcon
+          name="i-lucide-x"
+          class="size-6"
+        />
+      </button>
+      <img
+        :src="lightboxUrl"
+        alt="照片大图"
+        class="max-h-[85vh] max-w-full rounded-lg object-contain shadow-2xl"
+        @click.stop
+      >
+    </div>
+  </Teleport>
 </template>
