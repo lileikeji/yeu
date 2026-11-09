@@ -85,7 +85,7 @@ onMounted(checkSession)
             音乐协会
           </p>
           <p class="text-xs text-green-200">
-            新生歌手大赛 · 评委端
+            新声歌手大赛 · 评委端
           </p>
         </div>
       </div>
@@ -97,12 +97,9 @@ onMounted(checkSession)
           为每一位选手打分
         </h1>
         <p class="mt-4 text-sm leading-7 text-green-100/80">
-          登录后按音准、节奏、情感等维度评分，系统会自动计算总分与排名。评分结束前请勿将账号转借他人。
+          账号仅限本人使用。
         </p>
       </div>
-      <p class="text-xs text-green-200/70">
-        本页面仅供评委使用，访客请返回站点首页。
-      </p>
     </section>
 
     <section class="flex items-center justify-center px-4 py-10 sm:px-8">
@@ -117,7 +114,7 @@ onMounted(checkSession)
           </span>
           <div>
             <p class="font-semibold text-zinc-900 dark:text-zinc-100">
-              音乐协会 · 新生歌手大赛
+              音乐协会 · 新声歌手大赛
             </p>
             <p class="text-xs text-zinc-500 dark:text-zinc-400">
               评委登录
@@ -129,9 +126,6 @@ onMounted(checkSession)
           <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">
             评委登录
           </h2>
-          <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            使用组织者发放的评委账号和密码。
-          </p>
 
           <div
             v-if="checking"
@@ -207,7 +201,7 @@ onMounted(checkSession)
         </div>
 
         <p class="mt-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
-          忘记密码请联系音乐协会负责同学重置。
+          忘记密码联系协会负责人重置。
         </p>
       </div>
     </section>

@@ -2,8 +2,8 @@
 definePageMeta({ layout: false })
 
 useSeoMeta({
-  title: '新生歌手大赛 · Songs of Autumn | 仰恩大学音乐协会',
-  description: '仰恩大学音乐协会2026新生歌手大赛：报名时间11.7-11.14，初赛11.14-11.15旧区宏船楼303，复赛11.21新区和昌讲堂，决赛12.5旧区普照大礼堂。'
+  title: '新声歌手大赛 · Songs of Autumn | 仰恩大学音乐协会',
+  description: '仰恩大学音乐协会2026新声歌手大赛：报名时间11.7-11.14，初赛11.14-11.15旧区宏船楼303，复赛11.21新区和昌讲堂，决赛12.5旧区普照大礼堂。'
 })
 </script>
 
@@ -16,7 +16,7 @@ useSeoMeta({
           仰恩大学音乐协会 · Music Association of YUE
         </p>
         <h1 class="mt-5 text-4xl font-black leading-tight tracking-wide text-[#2f3a34] sm:text-5xl">
-          新生歌手大赛
+          新声歌手大赛
         </h1>
         <p class="mt-2 font-serif text-2xl italic text-[#7d8a80]">
           Songs of Autumn
@@ -69,8 +69,8 @@ useSeoMeta({
           报名方式
         </p>
         <p class="mt-1 text-sm leading-6 text-white/90">
-          先扫码填个预报名，比赛当天到现场扫码确认就能唱。
-          时间：11.14 / 11.15 任选一天，19:00，旧区宏船楼303。
+          扫码预报名，比赛当天到现场扫码确认。
+          11.14 / 11.15 任选一天，19:00，旧区宏船楼303。
         </p>
         <div class="mt-4">
           <NuxtLink
@@ -85,9 +85,6 @@ useSeoMeta({
             填写预报名
           </NuxtLink>
         </div>
-        <p class="mt-3 text-xs text-white/80">
-          现场登记二维码只在比赛当天现场提供。
-        </p>
       </section>
 
       <!-- 赛程与规则 -->
@@ -191,10 +188,7 @@ useSeoMeta({
 
       <!-- 底部 -->
       <footer class="mt-10 pb-6 text-center">
-        <p class="font-serif text-lg italic text-[#a39c8f]">
-          秋日恋歌 · 新的序曲
-        </p>
-        <p class="mt-2 text-xs text-[#a8b0a6]">
+        <p class="text-xs text-[#a8b0a6]">
           主办：仰恩大学音乐协会 · 最终解释权归主办方所有
         </p>
       </footer>

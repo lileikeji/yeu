@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import type {
   CompetitionAdminPayload,
+  CompetitionCurrentSinger,
   CompetitionDimension,
+  CompetitionEmailImage,
   CompetitionEvent,
+  CompetitionFormField,
   CompetitionJudge,
   CompetitionJudgeCredentials,
   CompetitionRoundEntry,
   CompetitionRoundKey,
   CompetitionRoundView,
+  CompetitionScheduleItem,
   CompetitionScore,
   CompetitionSinger,
   CompetitionSingerPublic
@@ -18,13 +22,16 @@ import { adminFetch } from '~~/app/utils/admin-request'
 definePageMeta({ layout: 'admin' })
 
 useSeoMeta({
-  title: '新生歌手大赛',
+  title: '新声歌手大赛',
   robots: 'noindex, nofollow'
 })
 
 interface SettingsDraft {
   title: string
+  edition: string
   registrationOpen: boolean
+  schedule: CompetitionScheduleItem[]
+  formFields: CompetitionFormField[]
   dimensions: CompetitionDimension[]
 }
 
@@ -56,6 +63,14 @@ const importingSingers = ref(false)
 const addingSinger = ref(false)
 const savingSinger = ref(false)
 const busyJudgeId = ref('')
+const addingJudge = ref(false)
+const newJudgeUsername = ref('')
+const newJudgePassword = ref('')
+const newJudgeDisplayName = ref('')
+const judgeCredEditId = ref('')
+const judgeCredEditName = ref('')
+const judgeUsernameDraft = ref('')
+const judgePasswordDraft = ref('')
 const credentials = ref<CompetitionJudgeCredentials[]>([])
 const credentialsOpen = ref(false)
 const importInput = ref<HTMLInputElement | null>(null)
@@ -83,6 +98,11 @@ const emailSending = ref(false)
 const emailTesting = ref(false)
 const emailTestAddress = ref('')
 const emailBodyRef = ref<HTMLTextAreaElement | null>(null)
+const emailImageInput = ref<HTMLInputElement | null>(null)
+const emailImageUploading = ref(false)
+const emailImageDeletingId = ref('')
+
+const emailImages = computed<CompetitionEmailImage[]>(() => payload.value?.email.images ?? [])
 
 // -- 报名物料（二维码 / 海报拼接） ----------------------------------------------
 
@@ -252,7 +272,7 @@ function downloadPoster(): void {
     if (!blob) return
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = '新生歌手大赛-海报拼接.png'
+    link.download = '新声歌手大赛-海报拼接.png'
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -314,12 +334,58 @@ function cloneDimensions(dimensions: CompetitionDimension[]): CompetitionDimensi
   return dimensions.map(dimension => ({ ...dimension }))
 }
 
+function cloneSchedule(items: CompetitionScheduleItem[]): CompetitionScheduleItem[] {
+  return items.map(item => ({ ...item }))
+}
+
+function cloneFormFields(fields: CompetitionFormField[]): CompetitionFormField[] {
+  return fields.map(field => ({ ...field }))
+}
+
 function settingsFromEvent(source: CompetitionEvent): SettingsDraft {
   return {
     title: source.title,
+    edition: source.edition,
     registrationOpen: source.registrationOpen,
+    schedule: cloneSchedule(source.schedule),
+    formFields: cloneFormFields(source.formFields),
     dimensions: cloneDimensions(source.dimensions)
   }
+}
+
+const SCHEDULE_KEY_OPTIONS = [
+  { value: 'prelim', label: '初赛' },
+  { value: 'semi', label: '复赛' },
+  { value: 'final', label: '决赛' }
+] as const
+
+function addScheduleRow(): void {
+  if (!settings.value) return
+  settings.value.schedule.push({ key: 'prelim', dateLabel: '', timeLabel: '', venue: '', note: '' })
+}
+
+function removeScheduleRow(index: number): void {
+  if (!settings.value || settings.value.schedule.length <= 1) return
+  settings.value.schedule.splice(index, 1)
+}
+
+function restoreDefaultFormFields(): void {
+  if (!settings.value) return
+  const labels: Record<string, string> = {
+    name: '姓名',
+    className: '班级',
+    studentNo: '学号',
+    phone: '联系电话',
+    email: '邮箱',
+    song: '参赛歌曲',
+    preferredDay: '打算哪天来'
+  }
+  settings.value.formFields = Object.entries(labels).map(([key, label]) => ({
+    key: key as CompetitionFormField['key'],
+    label,
+    required: key === 'name' || key === 'preferredDay',
+    enabled: true
+  }))
 }
 
 function apiErrorMessage(error: unknown, fallback: string): string {
@@ -358,8 +424,38 @@ function rosterEntries(round: CompetitionRoundView): CompetitionRoundEntry[] {
   return [...round.entries].sort((left, right) => left.sortOrder - right.sortOrder)
 }
 
+const rosterQuery = ref('')
+
+/** 搜索只筛显示，不动排序与拖动用的真实下标。 */
+function rosterVisible(round: CompetitionRoundView): CompetitionRoundEntry[] {
+  const keyword = rosterQuery.value.trim().toLowerCase()
+  const entries = rosterEntries(round)
+  if (!keyword) return entries
+  return entries.filter(entry => entry.singer.name.toLowerCase().includes(keyword)
+    || (entry.singer.song ?? '').toLowerCase().includes(keyword))
+}
+
 function missingJudgeCount(round: CompetitionRoundView): number {
   return Math.max(0, Number(round.judgeCount || 0) - round.judges.length)
+}
+
+function queueStateText(entry: CompetitionRoundEntry): string {
+  if (entry.queueState === 'singing') return '演唱中'
+  if (entry.queueState === 'finished') return '已结束'
+  if (entry.queueState === 'waiting') {
+    return entry.ahead && entry.ahead > 0 ? `前面还有 ${entry.ahead} 人` : '下一位'
+  }
+  if (entry.queueState === 'idle') {
+    return entry.ahead && entry.ahead > 0 ? `前面还有 ${entry.ahead} 人` : '待开始'
+  }
+  return '未开始'
+}
+
+function queueStateClass(entry: CompetitionRoundEntry): string {
+  if (entry.queueState === 'singing') return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+  if (entry.queueState === 'finished') return 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
+  if (entry.queueState === 'waiting') return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+  return 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
 }
 
 function roundStatusText(round: CompetitionRoundView): string {
@@ -467,6 +563,14 @@ async function saveSettings(): Promise<void> {
     toast.add({ title: '每个维度的占比必须大于 0', color: 'warning' })
     return
   }
+  if (draft.schedule.some(item => !item.dateLabel.trim())) {
+    toast.add({ title: '赛程里每一行都要填日期', color: 'warning' })
+    return
+  }
+  if (draft.formFields.some(field => !field.label.trim())) {
+    toast.add({ title: '表单字段名称不能为空', color: 'warning' })
+    return
+  }
 
   savingSettings.value = true
   try {
@@ -474,7 +578,21 @@ async function saveSettings(): Promise<void> {
       method: 'PUT',
       body: {
         title: draft.title.trim(),
+        edition: draft.edition.trim(),
         registrationOpen: draft.registrationOpen,
+        schedule: draft.schedule.map(item => ({
+          key: item.key,
+          dateLabel: item.dateLabel.trim(),
+          timeLabel: item.timeLabel.trim(),
+          venue: item.venue.trim(),
+          note: item.note.trim()
+        })),
+        formFields: draft.formFields.map(field => ({
+          key: field.key,
+          label: field.label.trim(),
+          required: field.required,
+          enabled: field.enabled
+        })),
         dimensions: draft.dimensions.map(dimension => ({
           key: dimension.key,
           label: dimension.label.trim(),
@@ -592,6 +710,134 @@ async function setRoundStatus(round: CompetitionRoundView, status: 'open' | 'clo
   }
 }
 
+const currentBusyKey = ref('')
+
+/** 顺序评分：本场已提交人数占比。 */
+function currentPercent(round: CompetitionRoundView): number {
+  const item = round.current
+  if (!item || item.judgeTotal <= 0) return 0
+  return Math.round((item.submitted.length / item.judgeTotal) * 100)
+}
+
+/** 顺序评分：开始 / 下一位 / 上一位 / 跳过 / 退出。 */
+async function moveCurrent(
+  round: CompetitionRoundView,
+  action: 'start' | 'next' | 'prev' | 'skip' | 'stop'
+): Promise<void> {
+  if (currentBusyKey.value) return
+  if (action === 'stop' && !window.confirm('退出顺序评分？评委可自由给任意选手打分，当前进度不再限制。')) return
+
+  currentBusyKey.value = `${round.key}:${action}`
+  try {
+    const result = await adminFetch<{ payload: CompetitionAdminPayload, current: CompetitionCurrentSinger | null }>(
+      `/api/admin/competition/rounds/${round.key}/current`,
+      { method: 'POST', body: { action } }
+    )
+    payload.value = result.payload
+    const item = result.current
+    const titles: Record<typeof action, string> = {
+      start: item ? `已开始顺序评分：第 ${item.index} 位 ${item.singer.name}` : '已开始顺序评分',
+      next: item ? `已切到下一位：${item.singer.name}` : '本场已评完',
+      prev: item ? `已回到第 ${item.index} 位 ${item.singer.name}` : '已回到上一位',
+      skip: item ? `已跳过，当前第 ${item.index} 位 ${item.singer.name}` : '已跳过此人',
+      stop: '已退出顺序评分'
+    }
+    toast.add({ title: titles[action], color: 'success' })
+  } catch (error) {
+    toast.add({ title: '操作失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    currentBusyKey.value = ''
+  }
+}
+
+const dayBusyKey = ref('')
+
+/** 某一天有多少位选手（不分天时算未分配）。 */
+function dayCount(round: CompetitionRoundView, day: number | null): number {
+  return round.entries.filter(entry => (entry.contestDay ?? null) === day).length
+}
+
+/** 当天到岗、要收票的启用评委。 */
+function dutyJudgeCount(round: CompetitionRoundView): number {
+  return round.judges.filter(judge => judge.isActive
+    && (!round.activeDay || judge.day === null || judge.day === round.activeDay)).length
+}
+
+function dayLabel(day: number | null | undefined): string {
+  if (day === 1) return '第一天'
+  if (day === 2) return '第二天'
+  return '两天都在'
+}
+
+/** 初赛分天：切到第一天 / 第二天 / 不分天，split 时按出场顺序平分两天。 */
+async function changeRoundDay(
+  round: CompetitionRoundView,
+  day: number | null,
+  split = false
+): Promise<void> {
+  if (dayBusyKey.value) return
+  if (split && !window.confirm('按当前出场顺序把名单平分成两天？前一半第一天、后一半第二天，分完还能单条改。')) return
+
+  dayBusyKey.value = round.key
+  try {
+    const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+      `/api/admin/competition/rounds/${round.key}/day`,
+      { method: 'POST', body: { day, split } }
+    )
+    payload.value = result.payload
+    toast.add({
+      title: day === null ? '已取消分天' : `已切到${dayLabel(day)}`,
+      color: 'success'
+    })
+  } catch (error) {
+    toast.add({ title: '切换失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    dayBusyKey.value = ''
+  }
+}
+
+/** 单条名单改到某一天。 */
+async function changeEntryDay(
+  round: CompetitionRoundView,
+  entry: CompetitionRoundEntry,
+  value: string
+): Promise<void> {
+  const parsed = Number(value)
+  const day = parsed === 1 || parsed === 2 ? parsed : null
+  if ((entry.contestDay ?? null) === day) return
+  try {
+    const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+      `/api/admin/competition/rounds/${round.key}/entry-day`,
+      { method: 'POST', body: { entryId: entry.id, day } }
+    )
+    payload.value = result.payload
+  } catch (error) {
+    toast.add({ title: '改天失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  }
+}
+
+/** 评委到岗天：两天都在 / 第一天 / 第二天。 */
+async function changeJudgeDay(
+  round: CompetitionRoundView,
+  judge: CompetitionJudge,
+  value: string
+): Promise<void> {
+  const parsed = Number(value)
+  const day = parsed === 1 || parsed === 2 ? parsed : null
+  busyJudgeId.value = judge.id
+  try {
+    await adminFetch(`/api/admin/competition/rounds/${round.key}/judges/${judge.id}`, {
+      method: 'PATCH',
+      body: { day }
+    })
+    await load()
+  } catch (error) {
+    toast.add({ title: '改到岗天失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    busyJudgeId.value = ''
+  }
+}
+
 async function generateNextRound(round: CompetitionRoundView): Promise<void> {
   if (generatingRoundKey.value) return
   const hint = advanceHint(round)
@@ -650,6 +896,54 @@ async function clearRoster(round: CompetitionRoundView): Promise<void> {
   }
 }
 
+const draggingEntryId = ref('')
+const dragOverEntryId = ref('')
+
+function startDragEntry(round: CompetitionRoundView, entry: CompetitionRoundEntry, event: DragEvent): void {
+  if (round.status === 'closed') return
+  draggingEntryId.value = entry.id
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', entry.id)
+  }
+}
+
+function dragOverEntry(entry: CompetitionRoundEntry, event: DragEvent): void {
+  if (!draggingEntryId.value || draggingEntryId.value === entry.id) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragOverEntryId.value = entry.id
+}
+
+async function dropOnEntry(round: CompetitionRoundView, entry: CompetitionRoundEntry): Promise<void> {
+  const draggedId = draggingEntryId.value
+  dragOverEntryId.value = ''
+  draggingEntryId.value = ''
+  if (!draggedId || draggedId === entry.id) return
+
+  const list = rosterEntries(round)
+  const fromIndex = list.findIndex(item => item.id === draggedId)
+  const toIndex = list.findIndex(item => item.id === entry.id)
+  if (fromIndex < 0 || toIndex < 0) return
+  // 往下拖放到目标行后面，往上拖放到目标行前面，符合手感。
+  const place = fromIndex < toIndex ? 'after' : 'before'
+
+  try {
+    const data = await adminFetch<CompetitionAdminPayload>(
+      `/api/admin/competition/rounds/${round.key}/entry-move`,
+      { method: 'POST', body: { entryId: draggedId, targetId: entry.id, place } }
+    )
+    payload.value = data
+  } catch (error) {
+    toast.add({ title: '调整顺序失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  }
+}
+
+function endDragEntry(): void {
+  draggingEntryId.value = ''
+  dragOverEntryId.value = ''
+}
+
 async function moveEntry(round: CompetitionRoundView, entry: CompetitionRoundEntry, delta: number): Promise<void> {
   if (round.status === 'closed') {
     toast.add({ title: '本轮已结束，出场顺序已锁定', color: 'warning' })
@@ -680,7 +974,7 @@ async function copyRoster(round: CompetitionRoundView): Promise<void> {
   const list = rosterEntries(round)
   if (list.length === 0) return
   const lines = [
-    `${event.value?.title || '新生歌手大赛'} · ${round.title}出场名单`,
+    `${event.value?.title || '新声歌手大赛'} · ${round.title}出场名单`,
     '',
     ...list.map((entry, index) =>
       `${index + 1}. ${entry.singer.name}《${entry.singer.song}》${entry.singer.className ? `（${entry.singer.className}）` : ''}`)
@@ -711,6 +1005,72 @@ async function generateJudges(round: CompetitionRoundView): Promise<void> {
     toast.add({ title: '生成失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
   } finally {
     generatingRoundKey.value = ''
+  }
+}
+
+async function addJudge(round: CompetitionRoundView): Promise<void> {
+  if (addingJudge.value) return
+  addingJudge.value = true
+  try {
+    const body: Record<string, string> = {}
+    if (newJudgeUsername.value.trim()) body.username = newJudgeUsername.value.trim()
+    if (newJudgePassword.value) body.password = newJudgePassword.value
+    if (newJudgeDisplayName.value.trim()) body.displayName = newJudgeDisplayName.value.trim()
+
+    const result = await adminFetch<{ judges: CompetitionJudgeCredentials[] }>(
+      `/api/admin/competition/rounds/${round.key}/judges`,
+      { method: 'POST', body }
+    )
+    credentials.value = result.judges
+    credentialsOpen.value = true
+    newJudgeUsername.value = ''
+    newJudgePassword.value = ''
+    newJudgeDisplayName.value = ''
+    await load()
+  } catch (error) {
+    toast.add({ title: '添加失败', description: apiErrorMessage(error, '账号可能已被占用。'), color: 'warning' })
+  } finally {
+    addingJudge.value = false
+  }
+}
+
+function openJudgeCredentials(judge: CompetitionJudge): void {
+  judgeCredEditId.value = judge.id
+  judgeCredEditName.value = judge.displayName
+  judgeUsernameDraft.value = judge.username
+  judgePasswordDraft.value = ''
+}
+
+function closeJudgeCredentials(): void {
+  judgeCredEditId.value = ''
+  judgeCredEditName.value = ''
+  judgeUsernameDraft.value = ''
+  judgePasswordDraft.value = ''
+}
+
+async function saveJudgeCredentials(round: CompetitionRoundView | null): Promise<void> {
+  if (!round || !judgeCredEditId.value) return
+  const username = judgeUsernameDraft.value.trim()
+  if (!username) {
+    toast.add({ title: '登录账号不能为空', color: 'warning' })
+    return
+  }
+  const body: Record<string, string> = { username }
+  if (judgePasswordDraft.value) body.password = judgePasswordDraft.value
+
+  busyJudgeId.value = judgeCredEditId.value
+  try {
+    await adminFetch(`/api/admin/competition/rounds/${round.key}/judges/${judgeCredEditId.value}`, {
+      method: 'PATCH',
+      body
+    })
+    closeJudgeCredentials()
+    await load()
+    toast.add({ title: '账号密码已更新', color: 'success' })
+  } catch (error) {
+    toast.add({ title: '保存失败', description: apiErrorMessage(error, '账号可能已被占用。'), color: 'warning' })
+  } finally {
+    busyJudgeId.value = ''
   }
 }
 
@@ -797,7 +1157,7 @@ async function removeJudge(round: CompetitionRoundView, judge: CompetitionJudge)
 async function copyCredentials(): Promise<void> {
   if (credentials.value.length === 0) return
   const lines = [
-    `${settings.value?.title || '新生歌手大赛'} 评委账号`,
+    `${settings.value?.title || '新声歌手大赛'} 评委账号`,
     '登录地址：/judge/login',
     '',
     ...credentials.value.map(item =>
@@ -971,20 +1331,87 @@ const emailLatestRows = computed(() => (payload.value?.email.latest ?? [])
   .map(record => ({ ...record, name: singers.value.find(s => s.id === record.singerId)?.name ?? '—' })))
 
 function insertPlaceholder(key: string): void {
+  insertBodyText(key)
+}
+
+/** 在正文光标处插入文本（占位符与图片标记共用）。 */
+function insertBodyText(text: string): void {
   const template = emailTemplate.value
   if (!template) return
   const el = emailBodyRef.value
   if (!el) {
-    template.body += key
+    template.body += text
     return
   }
   const start = el.selectionStart ?? template.body.length
   const end = el.selectionEnd ?? start
-  template.body = template.body.slice(0, start) + key + template.body.slice(end)
+  template.body = template.body.slice(0, start) + text + template.body.slice(end)
   nextTick(() => {
     el.focus()
-    el.setSelectionRange(start + key.length, start + key.length)
+    el.setSelectionRange(start + text.length, start + text.length)
   })
+}
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || '').replace(/^data:[^;]+;base64,/, ''))
+    reader.onerror = () => reject(new Error('读取图片失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function pickEmailImage(): void {
+  emailImageInput.value?.click()
+}
+
+async function uploadEmailImage(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (file.size > 4 * 1024 * 1024) {
+    toast.add({ title: '图片不能超过 4MB', color: 'warning' })
+    return
+  }
+  emailImageUploading.value = true
+  try {
+    const data = await readFileAsBase64(file)
+    const result = await adminFetch<{ image: CompetitionEmailImage, payload: CompetitionAdminPayload }>(
+      `/api/admin/competition/email/${emailRound.value}/images`,
+      { method: 'POST', body: { filename: file.name, mime: file.type, data } }
+    )
+    if (payload.value) payload.value.email.images = result.payload.email.images
+    insertBodyText(`[[图片:${result.image.id}]]`)
+    toast.add({ title: '图片已上传', description: '已插入正文光标处，可拖动位置。', color: 'success' })
+  } catch (error) {
+    toast.add({ title: '上传失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    emailImageUploading.value = false
+  }
+}
+
+async function removeEmailImage(image: CompetitionEmailImage): Promise<void> {
+  if (emailImageDeletingId.value) return
+  emailImageDeletingId.value = image.id
+  try {
+    const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+      `/api/admin/competition/email/${emailRound.value}/images/${image.id}`,
+      { method: 'DELETE' }
+    )
+    if (payload.value) payload.value.email.images = result.payload.email.images
+    const marker = `[[图片:${image.id}]]`
+    if (emailTemplate.value && emailTemplate.value.body.includes(marker)) {
+      emailTemplate.value.body = emailTemplate.value.body.split(marker).join('')
+      toast.add({ title: '图片已删除', description: '正文里的引用也一并清掉了，记得保存模板。', color: 'success' })
+    } else {
+      toast.add({ title: '图片已删除', color: 'success' })
+    }
+  } catch (error) {
+    toast.add({ title: '删除失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+  } finally {
+    emailImageDeletingId.value = ''
+  }
 }
 
 async function saveEmailTemplate(): Promise<void> {
@@ -1098,7 +1525,38 @@ function closeEditSinger(): void {
   editSingerOpen.value = false
 }
 
-onMounted(load)
+const liveRefreshing = ref(false)
+let liveTimer: ReturnType<typeof setInterval> | null = null
+
+function stopLiveRefresh(): void {
+  if (liveTimer) {
+    clearInterval(liveTimer)
+    liveTimer = null
+  }
+}
+
+/** 名单实时刷新：页面在前台、本轮评分进行中时每 5 秒拉一次。 */
+function startLiveRefresh(): void {
+  stopLiveRefresh()
+  liveTimer = setInterval(async () => {
+    if (document.visibilityState !== 'visible' || liveRefreshing.value) return
+    const round = activeRound.value
+    if (!round || round.status !== 'open') return
+    liveRefreshing.value = true
+    try {
+      await load()
+    } finally {
+      liveRefreshing.value = false
+    }
+  }, 5000)
+}
+
+onMounted(async () => {
+  await load()
+  startLiveRefresh()
+})
+
+onBeforeUnmount(stopLiveRefresh)
 </script>
 
 <template>
@@ -1106,12 +1564,10 @@ onMounted(load)
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-          新生歌手大赛
+          新声歌手大赛
         </h1>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {{ event
-            ? `音乐协会 · 初赛/复赛/决赛 · 单评委满分 ${event.maxTotal}`
-            : '仅音乐协会可用：三轮独立评委、随机抽签、评分与排行' }}
+          {{ event ? `单评委满分 ${event.maxTotal}` : '音乐协会专属' }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -1227,7 +1683,7 @@ onMounted(load)
               <UInput
                 v-model="settings.title"
                 class="w-full"
-                placeholder="新生歌手大赛"
+                placeholder="新声歌手大赛"
               />
             </UFormField>
             <UFormField label="现场登记入口">
@@ -1257,11 +1713,151 @@ onMounted(load)
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                届次与赛程
+              </h2>
+            </div>
+            <UButton
+              size="xs"
+              icon="i-lucide-plus"
+              label="加一行赛程"
+              variant="soft"
+              @click="addScheduleRow"
+            />
+          </div>
+
+          <div class="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <UFormField label="届次">
+              <UInput
+                v-model="settings.edition"
+                class="w-full"
+                maxlength="40"
+                placeholder="如 2026 第六届"
+              />
+            </UFormField>
+            <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:pt-7">
+              届次留空时，预报名页只显示「赛前预报名」。
+            </p>
+          </div>
+
+          <div class="mt-3 space-y-2">
+            <div
+              v-for="(item, index) in settings.schedule"
+              :key="`schedule-${index}`"
+              class="grid gap-2 rounded-md border border-zinc-200 p-2.5 dark:border-zinc-800 md:grid-cols-[6rem_minmax(0,1fr)_8rem_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+            >
+              <UFormField label="轮次">
+                <USelect
+                  v-model="item.key"
+                  :items="[...SCHEDULE_KEY_OPTIONS]"
+                  value-key="value"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField label="日期">
+                <UInput
+                  v-model="item.dateLabel"
+                  class="w-full"
+                  maxlength="40"
+                  placeholder="11 月 14 日（周六）"
+                />
+              </UFormField>
+              <UFormField label="时间">
+                <UInput
+                  v-model="item.timeLabel"
+                  class="w-full"
+                  maxlength="40"
+                  placeholder="19:00 开始"
+                />
+              </UFormField>
+              <UFormField label="地点">
+                <UInput
+                  v-model="item.venue"
+                  class="w-full"
+                  maxlength="60"
+                  placeholder="旧区宏船楼 303"
+                />
+              </UFormField>
+              <UFormField label="备注">
+                <UInput
+                  v-model="item.note"
+                  class="w-full"
+                  maxlength="80"
+                  placeholder="如 30 进 12"
+                />
+              </UFormField>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-trash-2"
+                :disabled="settings.schedule.length <= 1"
+                aria-label="删除这一行赛程"
+                @click="removeScheduleRow(index)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                报名表单字段
+              </h2>
+            </div>
+            <UButton
+              size="xs"
+              icon="i-lucide-rotate-ccw"
+              label="恢复默认"
+              color="neutral"
+              variant="soft"
+              @click="restoreDefaultFormFields"
+            />
+          </div>
+
+          <div class="mt-3 space-y-2">
+            <div
+              v-for="field in settings.formFields"
+              :key="field.key"
+              class="flex flex-wrap items-end gap-3 rounded-md border border-zinc-200 p-2.5 dark:border-zinc-800"
+            >
+              <UFormField
+                label="字段名称"
+                class="min-w-36 flex-1"
+              >
+                <UInput
+                  v-model="field.label"
+                  class="w-full"
+                  maxlength="20"
+                  :disabled="field.key === 'name'"
+                />
+              </UFormField>
+              <div class="flex items-center gap-2 pb-2.5">
+                <USwitch
+                  :model-value="field.enabled"
+                  :disabled="field.key === 'name'"
+                  @update:model-value="value => field.enabled = value === true"
+                />
+                <span class="text-xs text-zinc-600 dark:text-zinc-300">显示</span>
+              </div>
+              <div class="flex items-center gap-2 pb-2.5">
+                <USwitch
+                  :model-value="field.required"
+                  :disabled="field.key === 'name'"
+                  @update:model-value="value => field.required = value === true"
+                />
+                <span class="text-xs text-zinc-600 dark:text-zinc-300">必填</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 评分维度与占比
               </h2>
-              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                每个维度满分 20 分。占比按相对权重归一化；默认五维等权时，单评委总分即五项累加（满分 100）。
-              </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <UButton
@@ -1396,9 +1992,6 @@ onMounted(load)
             <h3 class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
               手动添加选手
             </h3>
-            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              现场扫码登记的选手会自动进入本表；这里用于补录或修正。歌曲可留空（待定）。
-            </p>
             <div class="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
               <UFormField label="姓名">
                 <UInput
@@ -1606,9 +2199,8 @@ onMounted(load)
               预报名名单
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              赛前预报名共 {{ payload.preRegistrations.length }} 人，其中
-              {{ payload.preRegistrations.filter(item => item.registeredAt).length }} 人已到现场确认正式登记。
-              未确认的选手在正式登记页输入姓名就能带出来。
+              预报名 {{ payload.preRegistrations.length }} 人，已到现场
+              {{ payload.preRegistrations.filter(item => item.registeredAt).length }} 人。
             </p>
           </div>
           <div
@@ -1779,6 +2371,192 @@ onMounted(load)
             </div>
           </div>
 
+          <div
+            v-if="activeRound.key === 'prelim'"
+            class="mt-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p class="text-sm font-medium">
+                  赛程天
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <UButton
+                  v-if="!activeRound.activeDay"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-calendar-range"
+                  label="按顺序平分两天"
+                  :loading="dayBusyKey === activeRound.key"
+                  @click="changeRoundDay(activeRound, null, true)"
+                />
+                <UButton
+                  v-if="activeRound.activeDay !== 1"
+                  size="xs"
+                  icon="i-lucide-calendar-days"
+                  :label="activeRound.activeDay ? '切到第一天' : '第一天'"
+                  :disabled="activeRound.status === 'closed'"
+                  :loading="dayBusyKey === activeRound.key"
+                  @click="changeRoundDay(activeRound, 1)"
+                />
+                <UButton
+                  v-if="activeRound.activeDay !== 2"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-calendar-days"
+                  :label="activeRound.activeDay ? '切到第二天' : '第二天'"
+                  :disabled="activeRound.status === 'closed'"
+                  :loading="dayBusyKey === activeRound.key"
+                  @click="changeRoundDay(activeRound, 2)"
+                />
+                <UButton
+                  v-if="activeRound.activeDay"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-x"
+                  label="不分天"
+                  :disabled="activeRound.status === 'closed'"
+                  :loading="dayBusyKey === activeRound.key"
+                  @click="changeRoundDay(activeRound, null)"
+                />
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              第一天 {{ dayCount(activeRound, 1) }} 人 · 第二天 {{ dayCount(activeRound, 2) }} 人 ·
+              未分配 {{ dayCount(activeRound, null) }} 人
+              <span class="mx-1">|</span>
+              当天到岗评委 {{ dutyJudgeCount(activeRound) }} 位
+              <span
+                v-if="activeRound.activeDay"
+                class="ml-1 font-medium text-green-700 dark:text-green-400"
+              >
+                当前：{{ dayLabel(activeRound.activeDay) }}
+              </span>
+            </p>
+          </div>
+
+          <div class="mt-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p class="text-sm font-medium">
+                  顺序评分
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <UButton
+                  v-if="!activeRound.current"
+                  size="xs"
+                  icon="i-lucide-play"
+                  label="开始顺序评分"
+                  :disabled="activeRound.status !== 'open' || activeRound.entries.length === 0"
+                  :loading="currentBusyKey === `${activeRound.key}:start`"
+                  @click="moveCurrent(activeRound, 'start')"
+                />
+                <template v-else>
+                  <UButton
+                    size="xs"
+                    icon="i-lucide-skip-forward"
+                    label="下一位"
+                    :disabled="!activeRound.current.allSubmitted"
+                    :loading="currentBusyKey === `${activeRound.key}:next`"
+                    @click="moveCurrent(activeRound, 'next')"
+                  />
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-lucide-undo-2"
+                    label="上一位"
+                    :loading="currentBusyKey === `${activeRound.key}:prev`"
+                    @click="moveCurrent(activeRound, 'prev')"
+                  />
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-lucide-forward"
+                    label="跳过此人"
+                    :loading="currentBusyKey === `${activeRound.key}:skip`"
+                    @click="moveCurrent(activeRound, 'skip')"
+                  />
+                  <UButton
+                    size="xs"
+                    color="error"
+                    variant="soft"
+                    icon="i-lucide-x"
+                    label="退出"
+                    :loading="currentBusyKey === `${activeRound.key}:stop`"
+                    @click="moveCurrent(activeRound, 'stop')"
+                  />
+                </template>
+              </div>
+            </div>
+            <div
+              v-if="activeRound.current"
+              class="mt-3"
+            >
+              <p class="text-sm">
+                第 {{ activeRound.current.index }} / {{ activeRound.current.total }} 位 ·
+                <span class="font-semibold">{{ activeRound.current.singer.name }}</span>
+                <span class="text-zinc-500 dark:text-zinc-400">《{{ activeRound.current.singer.song }}》</span>
+              </p>
+              <div class="mt-2 flex items-center gap-2">
+                <div class="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <div
+                    class="h-full rounded-full bg-green-600 transition-[width] duration-300"
+                    :style="{ width: `${currentPercent(activeRound)}%` }"
+                  />
+                </div>
+                <span class="shrink-0 text-xs font-semibold tabular-nums">
+                  {{ activeRound.current.submitted.length }} / {{ activeRound.current.judgeTotal }}
+                </span>
+              </div>
+              <p
+                v-if="activeRound.current.pending.length"
+                class="mt-1 text-xs text-amber-600 dark:text-amber-400"
+              >
+                还差 {{ activeRound.current.pending.length }} 位：{{ activeRound.current.pending.join('、') }}
+              </p>
+              <p
+                v-else
+                class="mt-1 text-xs text-green-600 dark:text-green-400"
+              >
+                全部提交，可以点「下一位」。
+              </p>
+              <ul class="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                <li
+                  v-for="(item, slot) in activeRound.current.judges"
+                  :key="item.id"
+                  class="flex items-center gap-2 rounded-md border px-2 py-1 text-xs"
+                  :class="item.submitted
+                    ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40'
+                    : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
+                >
+                  <span class="w-4 shrink-0 tabular-nums text-zinc-400">{{ slot + 1 }}</span>
+                  <span class="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">{{ item.name }}</span>
+                  <span
+                    class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium"
+                    :class="item.submitted
+                      ? 'bg-green-600 text-white'
+                      : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'"
+                  >
+                    {{ item.submitted ? '已提交' : '未提交' }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <p
+              v-else
+              class="mt-2 text-xs text-zinc-400"
+            >
+              {{ activeRound.status === 'open' ? '未开启：评委可自由给任意选手打分。' : '本轮未开放评分。' }}
+            </p>
+          </div>
+
           <div class="mt-4 flex flex-wrap items-end gap-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
             <UFormField
               label="评委人数"
@@ -1824,15 +2602,245 @@ onMounted(load)
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
             <div>
               <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                {{ activeRound.title }}评委账号
+              </h3>
+              <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                已创建 {{ activeRound.judges.length }} / 计划 {{ activeRound.judgeCount }}
+              </p>
+            </div>
+            <UButton
+              icon="i-lucide-user-plus"
+              :label="missingJudgeCount(activeRound) > 0
+                ? `补齐 ${missingJudgeCount(activeRound)} 个评委账号`
+                : '账号已满员'"
+              :disabled="missingJudgeCount(activeRound) <= 0"
+              :loading="generatingRoundKey === activeRound.key"
+              @click="generateJudges(activeRound)"
+            />
+          </div>
+
+          <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+            <p class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              自定义账号（留空自动生成；密码至少 6 位）
+            </p>
+            <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <UInput
+                v-model="newJudgeUsername"
+                size="xs"
+                placeholder="登录账号"
+                autocomplete="off"
+              />
+              <UInput
+                v-model="newJudgePassword"
+                size="xs"
+                placeholder="密码"
+                autocomplete="new-password"
+              />
+              <UInput
+                v-model="newJudgeDisplayName"
+                size="xs"
+                placeholder="显示名称"
+              />
+              <UButton
+                size="xs"
+                icon="i-lucide-user-plus"
+                label="添加评委"
+                :loading="addingJudge"
+                :disabled="activeRound.status === 'closed'"
+                @click="addJudge(activeRound)"
+              />
+            </div>
+          </div>
+
+          <div
+            v-if="judgeCredEditId"
+            class="border-b border-zinc-100 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-800/40"
+          >
+            <p class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              修改「{{ judgeCredEditName }}」的账号密码
+            </p>
+            <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <UInput
+                v-model="judgeUsernameDraft"
+                size="xs"
+                placeholder="登录账号"
+                autocomplete="off"
+              />
+              <UInput
+                v-model="judgePasswordDraft"
+                size="xs"
+                placeholder="新密码（留空不改）"
+                autocomplete="new-password"
+              />
+              <UButton
+                size="xs"
+                icon="i-lucide-save"
+                label="保存"
+                :loading="busyJudgeId === judgeCredEditId"
+                @click="saveJudgeCredentials(activeRound)"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                label="取消"
+                @click="closeJudgeCredentials"
+              />
+            </div>
+          </div>
+
+          <div
+            v-if="activeRound.judges.length === 0"
+            class="px-4 py-8 text-center text-sm text-zinc-400"
+          >
+            还没有评委账号。设置上方「评委人数」后点「补齐评委账号」，或直接在上面填账号密码添加。
+          </div>
+
+          <div
+            v-else
+            class="overflow-x-auto"
+          >
+            <table class="w-full min-w-[820px] text-sm">
+              <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
+                <tr>
+                  <th class="px-3 py-2 font-medium">
+                    评委名称
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    登录账号
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    已评
+                  </th>
+                  <th
+                    v-if="activeRound.key === 'prelim'"
+                    class="px-3 py-2 font-medium"
+                  >
+                    到岗天
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    最近登录
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    启用
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tr
+                  v-for="judge in activeRound.judges"
+                  :key="judge.id"
+                  class="text-zinc-800 dark:text-zinc-200"
+                >
+                  <td class="px-3 py-2">
+                    <UInput
+                      v-model="judge.displayName"
+                      size="xs"
+                      class="w-36"
+                    />
+                  </td>
+                  <td class="px-3 py-2">
+                    <code class="rounded bg-zinc-100 px-2 py-0.5 font-mono text-xs dark:bg-zinc-800">{{ judge.username }}</code>
+                  </td>
+                  <td class="px-3 py-2 tabular-nums">
+                    {{ judge.scoreCount }} / {{ activeRound.entries.length }}
+                  </td>
+                  <td
+                    v-if="activeRound.key === 'prelim'"
+                    class="px-3 py-2"
+                  >
+                    <select
+                      class="rounded-md border border-zinc-200 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      :value="judge.day ?? 0"
+                      :disabled="busyJudgeId === judge.id || activeRound.status === 'closed'"
+                      @change="changeJudgeDay(activeRound, judge, ($event.target as HTMLSelectElement).value)"
+                    >
+                      <option :value="0">
+                        两天都在
+                      </option>
+                      <option :value="1">
+                        第一天
+                      </option>
+                      <option :value="2">
+                        第二天
+                      </option>
+                    </select>
+                  </td>
+                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ formatDateTime(judge.lastLoginAt) }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <USwitch
+                      :model-value="judge.isActive"
+                      :disabled="busyJudgeId === judge.id"
+                      @update:model-value="value => toggleJudgeActive(activeRound, judge, value === true)"
+                    />
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="flex flex-wrap items-center gap-1">
+                      <UButton
+                        size="xs"
+                        variant="soft"
+                        icon="i-lucide-save"
+                        label="存名称"
+                        :loading="busyJudgeId === judge.id"
+                        @click="saveJudgeName(activeRound, judge)"
+                      />
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="soft"
+                        icon="i-lucide-at-sign"
+                        label="改账号密码"
+                        :disabled="busyJudgeId === judge.id || activeRound.status === 'closed'"
+                        @click="openJudgeCredentials(judge)"
+                      />
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="soft"
+                        icon="i-lucide-key-round"
+                        label="重置密码"
+                        :disabled="busyJudgeId === judge.id"
+                        @click="resetJudgePassword(activeRound, judge)"
+                      />
+                      <UButton
+                        size="xs"
+                        color="error"
+                        variant="soft"
+                        icon="i-lucide-trash-2"
+                        aria-label="删除评委"
+                        :disabled="busyJudgeId === judge.id"
+                        @click="removeJudge(activeRound, judge)"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+            <div>
+              <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 出场名单
               </h3>
               <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                复赛/决赛名单由上一轮晋级后随机抽签生成；可用上下箭头手动调整。调整只影响出场顺序与同分时的先后。
+                复赛/决赛名单由上一轮晋级后抽签生成，可拖动调整。
               </p>
             </div>
-            <span class="text-xs text-zinc-400">
-              按抽签顺序排列
-            </span>
+            <input
+              v-model="rosterQuery"
+              type="search"
+              placeholder="搜选手名字或歌名"
+              class="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+              aria-label="搜索出场名单"
+            >
           </div>
 
           <div
@@ -1849,8 +2857,8 @@ onMounted(load)
             <table class="w-full min-w-[780px] text-sm">
               <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
                 <tr>
-                  <th class="w-20 px-4 py-2 font-medium">
-                    出场序
+                  <th class="w-24 px-4 py-2 font-medium">
+                    出场序（可拖动）
                   </th>
                   <th class="px-3 py-2 font-medium">
                     选手
@@ -1864,6 +2872,9 @@ onMounted(load)
                   <th class="px-3 py-2 font-medium">
                     来源
                   </th>
+                  <th class="w-24 px-3 py-2 font-medium">
+                    状态
+                  </th>
                   <th class="w-32 px-4 py-2 font-medium">
                     调整
                   </th>
@@ -1871,11 +2882,29 @@ onMounted(load)
               </thead>
               <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                 <tr
-                  v-for="(entry, index) in rosterEntries(activeRound)"
+                  v-for="(entry, index) in rosterVisible(activeRound)"
                   :key="entry.id"
+                  :draggable="activeRound.status !== 'closed'"
+                  class="transition-colors"
+                  :class="[
+                    entry.id === draggingEntryId ? 'opacity-40' : '',
+                    entry.id === dragOverEntryId ? 'bg-green-50 dark:bg-green-950/40' : ''
+                  ]"
+                  @dragstart="startDragEntry(activeRound, entry, $event)"
+                  @dragover="dragOverEntry(entry, $event)"
+                  @drop.prevent="dropOnEntry(activeRound, entry)"
+                  @dragend="endDragEntry"
                 >
-                  <td class="px-4 py-2 font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                    {{ index + 1 }}
+                  <td class="cursor-grab px-4 py-2 font-semibold tabular-nums text-zinc-900 active:cursor-grabbing dark:text-zinc-100">
+                    <span class="inline-flex items-center gap-1">
+                      <UIcon
+                        v-if="activeRound.status !== 'closed'"
+                        name="i-lucide-grip-vertical"
+                        class="size-3.5 text-zinc-300 dark:text-zinc-600"
+                        aria-hidden="true"
+                      />
+                      {{ entry.sortOrder || index + 1 }}
+                    </span>
                   </td>
                   <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
                     {{ entry.singer.name }}
@@ -1888,6 +2917,14 @@ onMounted(load)
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {{ entry.advancedFromRank ? `上一轮第 ${entry.advancedFromRank} 名` : '选手库' }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <span
+                      class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      :class="queueStateClass(entry)"
+                    >
+                      {{ queueStateText(entry) }}
+                    </span>
                   </td>
                   <td class="px-4 py-2">
                     <div class="flex items-center gap-1">
@@ -1923,7 +2960,7 @@ onMounted(load)
               成绩与排名
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              按所有评委平均分排序；同分按出场顺序靠前者优先。结束后未评分的选手标为弃权，不参与晋级。
+              按平均分排序，同分按出场顺序；未评分的按弃权处理。
             </p>
           </div>
 
@@ -1949,6 +2986,12 @@ onMounted(load)
                   </th>
                   <th class="px-3 py-2 font-medium">
                     歌曲
+                  </th>
+                  <th
+                    v-if="activeRound.key === 'prelim'"
+                    class="px-3 py-2 font-medium"
+                  >
+                    天
                   </th>
                   <th class="px-3 py-2 text-right font-medium">
                     平均分
@@ -1981,6 +3024,27 @@ onMounted(load)
                   <td class="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">
                     {{ entry.singer.song }}
                   </td>
+                  <td
+                    v-if="activeRound.key === 'prelim'"
+                    class="px-3 py-2.5"
+                  >
+                    <select
+                      class="rounded-md border border-zinc-200 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      :value="entry.contestDay ?? 0"
+                      :disabled="activeRound.status === 'closed'"
+                      @change="changeEntryDay(activeRound, entry, ($event.target as HTMLSelectElement).value)"
+                    >
+                      <option :value="0">
+                        未分配
+                      </option>
+                      <option :value="1">
+                        第一天
+                      </option>
+                      <option :value="2">
+                        第二天
+                      </option>
+                    </select>
+                  </td>
                   <td class="px-3 py-2.5 text-right font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {{ entry.average === null ? '—' : entry.average.toFixed(2) }}
                     <span class="text-xs font-normal text-zinc-400">/ {{ maxTotal }}</span>
@@ -2003,133 +3067,10 @@ onMounted(load)
         </div>
 
         <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-            <div>
-              <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                {{ activeRound.title }}评委账号
-              </h3>
-              <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                已创建 {{ activeRound.judges.length }} 个 / 计划 {{ activeRound.judgeCount }} 个。每轮评委独立，登录后只看本轮选手。
-              </p>
-            </div>
-            <UButton
-              icon="i-lucide-user-plus"
-              :label="missingJudgeCount(activeRound) > 0
-                ? `补齐 ${missingJudgeCount(activeRound)} 个评委账号`
-                : '账号已满员'"
-              :disabled="missingJudgeCount(activeRound) <= 0"
-              :loading="generatingRoundKey === activeRound.key"
-              @click="generateJudges(activeRound)"
-            />
-          </div>
-
-          <div
-            v-if="activeRound.judges.length === 0"
-            class="px-4 py-8 text-center text-sm text-zinc-400"
-          >
-            还没有评委账号。设置上方「评委人数」后点「补齐评委账号」。
-          </div>
-
-          <div
-            v-else
-            class="overflow-x-auto"
-          >
-            <table class="w-full min-w-[820px] text-sm">
-              <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
-                <tr>
-                  <th class="px-3 py-2 font-medium">
-                    评委名称
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    登录账号
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    已评
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    最近登录
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    启用
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
-                <tr
-                  v-for="judge in activeRound.judges"
-                  :key="judge.id"
-                  class="text-zinc-800 dark:text-zinc-200"
-                >
-                  <td class="px-3 py-2">
-                    <UInput
-                      v-model="judge.displayName"
-                      size="xs"
-                      class="w-36"
-                    />
-                  </td>
-                  <td class="px-3 py-2">
-                    <code class="rounded bg-zinc-100 px-2 py-0.5 font-mono text-xs dark:bg-zinc-800">{{ judge.username }}</code>
-                  </td>
-                  <td class="px-3 py-2 tabular-nums">
-                    {{ judge.scoreCount }} / {{ activeRound.entries.length }}
-                  </td>
-                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    {{ formatDateTime(judge.lastLoginAt) }}
-                  </td>
-                  <td class="px-3 py-2">
-                    <USwitch
-                      :model-value="judge.isActive"
-                      :disabled="busyJudgeId === judge.id"
-                      @update:model-value="value => toggleJudgeActive(activeRound, judge, value === true)"
-                    />
-                  </td>
-                  <td class="px-3 py-2">
-                    <div class="flex flex-wrap items-center gap-1">
-                      <UButton
-                        size="xs"
-                        variant="soft"
-                        icon="i-lucide-save"
-                        label="存名称"
-                        :loading="busyJudgeId === judge.id"
-                        @click="saveJudgeName(activeRound, judge)"
-                      />
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="soft"
-                        icon="i-lucide-key-round"
-                        label="重置密码"
-                        :disabled="busyJudgeId === judge.id"
-                        @click="resetJudgePassword(activeRound, judge)"
-                      />
-                      <UButton
-                        size="xs"
-                        color="error"
-                        variant="soft"
-                        icon="i-lucide-trash-2"
-                        aria-label="删除评委"
-                        :disabled="busyJudgeId === judge.id"
-                        @click="removeJudge(activeRound, judge)"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
           <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
             <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
               {{ activeRound.title }}评分明细
             </h3>
-            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              每格为该评委给这位选手的总分，点击可查看各维度分数与备注。
-            </p>
           </div>
 
           <div
@@ -2237,9 +3178,6 @@ onMounted(load)
               <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 {{ emailRoundView?.title }}结果邮件模板
               </h3>
-              <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                点击占位符插入正文光标处；发送时按选手逐一生成。
-              </p>
             </div>
             <UButton
               icon="i-lucide-save"
@@ -2255,7 +3193,7 @@ onMounted(load)
               <UInput
                 v-model="emailTemplate.subject"
                 class="w-full"
-                placeholder="【音乐协会】新生歌手大赛结果通知"
+                placeholder="【音乐协会】新声歌手大赛结果通知"
               />
             </UFormField>
             <UFormField label="邮件正文">
@@ -2276,6 +3214,70 @@ onMounted(load)
                 :label="`${field.key} ${field.desc}`"
                 @click="insertPlaceholder(field.key)"
               />
+            </div>
+
+            <div class="rounded-md border border-dashed border-zinc-300 p-3 dark:border-zinc-700">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                  <span class="font-semibold text-zinc-800 dark:text-zinc-100">邮件图片</span>
+                  支持 JPG / PNG / WebP / GIF，单张 4MB 以内；上传后自动在光标处插入
+                  <code class="rounded bg-zinc-100 px-1 dark:bg-zinc-800">[[图片:ID]]</code>，发送时内嵌进邮件正文。
+                </div>
+                <div class="flex items-center gap-2">
+                  <input
+                    ref="emailImageInput"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    class="hidden"
+                    @change="uploadEmailImage"
+                  >
+                  <UButton
+                    icon="i-lucide-image-plus"
+                    label="上传图片"
+                    size="xs"
+                    variant="soft"
+                    :loading="emailImageUploading"
+                    @click="pickEmailImage"
+                  />
+                </div>
+              </div>
+              <div
+                v-if="emailImages.length > 0"
+                class="mt-3 flex flex-wrap gap-1.5"
+              >
+                <span
+                  v-for="image in emailImages"
+                  :key="image.id"
+                  class="group relative inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-1 pr-1.5 dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <img
+                    :src="image.url"
+                    :alt="image.filename"
+                    class="h-8 w-8 rounded object-cover"
+                  >
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    label="插入"
+                    @click="insertBodyText(`[[图片:${image.id}]]`)"
+                  />
+                  <UButton
+                    size="xs"
+                    color="error"
+                    variant="ghost"
+                    icon="i-lucide-trash-2"
+                    :loading="emailImageDeletingId === image.id"
+                    @click="removeEmailImage(image)"
+                  />
+                </span>
+              </div>
+              <p
+                v-else
+                class="mt-2 text-xs text-zinc-400"
+              >
+                还没有图片。上传后可复用，删除前请确认正文里不再引用。
+              </p>
             </div>
           </div>
         </div>
@@ -2358,7 +3360,7 @@ onMounted(load)
               发送记录
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              每位选手显示最近一次发送状态；失败的可在修正邮箱后重新发送。
+              显示最近一次发送状态。
             </p>
           </div>
           <div
@@ -2456,7 +3458,7 @@ onMounted(load)
                   icon="i-lucide-download"
                   label="下载 PNG"
                   class="mt-1.5"
-                  @click="downloadQr('/singer/pre-register', '新生歌手大赛预报名二维码.png')"
+                  @click="downloadQr('/singer/pre-register', '新声歌手大赛预报名二维码.png')"
                 />
               </div>
               <div class="text-center">
@@ -2477,7 +3479,7 @@ onMounted(load)
                   icon="i-lucide-download"
                   label="下载 PNG"
                   class="mt-1.5"
-                  @click="downloadQr('/singer/register', '新生歌手大赛现场登记二维码.png')"
+                  @click="downloadQr('/singer/register', '新声歌手大赛现场登记二维码.png')"
                 />
               </div>
             </div>

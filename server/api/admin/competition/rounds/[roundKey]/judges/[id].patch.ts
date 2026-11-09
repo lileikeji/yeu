@@ -21,14 +21,14 @@ export default defineEventHandler(async (event) => {
 
   const competition = ensureCompetitionEvent(client, contentId)
   const round = getRoundByKey(client, competition.id, roundKey)
-  const judge = updateJudge(client, round.id, judgeId, input)
+  const judge = await updateJudge(client, round.id, judgeId, input)
 
   writeAudit(client, event, {
     actorAdminId: session.admin.id,
     action: 'competition.judge_update',
     entityType: 'competition_judge',
     entityId: judgeId,
-    details: { key: roundKey, displayName: judge.displayName, isActive: judge.isActive }
+    details: { key: roundKey, username: judge.username, displayName: judge.displayName, isActive: judge.isActive }
   })
   return { judge }
 })

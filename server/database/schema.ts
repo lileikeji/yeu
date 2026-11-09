@@ -1033,9 +1033,15 @@ export const recruitReferrers = sqliteTable('recruit_referrers', {
 export const competitionEvents = sqliteTable('competition_events', {
   id: text('id').primaryKey(),
   contentId: text('content_id').notNull().references(() => contents.id, { onDelete: 'cascade' }),
-  title: text('title').notNull().default('新生歌手大赛'),
+  title: text('title').notNull().default('新声歌手大赛'),
   /** 现场扫码登记入口开关；关闭后公开登记页只读。 */
   registrationOpen: integer('registration_open', { mode: 'boolean' }).notNull().default(true),
+  /** 第几届，例如「2026 年 · 第 1 届」；换届时改这里。 */
+  edition: text('edition').notNull().default(''),
+  /** 赛程：每轮的日期/时间/地点，JSON 数组。 */
+  scheduleJson: text('schedule_json').notNull().default('[]'),
+  /** 报名表单字段配置：label / required / enabled，JSON 数组。 */
+  formFieldsJson: text('form_fields_json').notNull().default('[]'),
   dimensionsJson: text('dimensions_json').notNull().default('[]'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
@@ -1054,6 +1060,17 @@ export const competitionRounds = sqliteTable('competition_rounds', {
   judgeCount: integer('judge_count').notNull().default(5),
   /** 本轮晋级下一轮的人数；决赛为 null。复赛留空表示名额待定。 */
   advanceCount: integer('advance_count'),
+  /**
+   * 顺序评分模式下的当前出场条目（competition_round_entries.id）。
+   * 为空 = 未开启顺序评分，评委可自由给任意选手打分（旧行为）。
+   * 非空时服务端只接受该条目的评分，全员提交后自动切到下一位。
+   */
+  currentEntryId: text('current_entry_id'),
+  /**
+   * 分场天（初赛两天）：1 / 2，空 = 不分天。
+   * 非空时只在这一天的名单里顺序切人，也只收这一天的评委票。
+   */
+  activeDay: integer('active_day'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
@@ -1073,6 +1090,8 @@ export const competitionJudges = sqliteTable('competition_judges', {
   passwordHash: text('password_hash').notNull(),
   displayName: text('display_name').notNull(),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  /** 到岗天：1 / 2，空 = 两天都在（初赛里跨两天的评委）。 */
+  day: integer('day'),
   lastLoginAt: integer('last_login_at'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
@@ -1109,6 +1128,8 @@ export const competitionPreRegistrations = sqliteTable('competition_pre_registra
   phone: text('phone'),
   email: text('email'),
   song: text('song'),
+  /** 预报名时自选的参赛日：1 / 2，空 = 还没定。实际以现场签到当天为准。 */
+  preferredDay: integer('preferred_day'),
   registeredAt: integer('registered_at'),
   createdAt: timestamp('created_at')
 }, table => [
@@ -1167,6 +1188,23 @@ export const competitionEmailSends = sqliteTable('competition_email_sends', {
   check('competition_email_sends_status_check', sql`${table.status} in ('sent', 'failed')`)
 ])
 
+/**
+ * 结果邮件可插入的图片；存 base64，随邮件以 cid 内嵌发送，
+ * 收到邮件不依赖外链也能直接看到图。
+ */
+export const competitionEmailImages = sqliteTable('competition_email_images', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  filename: text('filename').notNull(),
+  mime: text('mime').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  /** base64（不含 data: 前缀）。 */
+  data: text('data').notNull(),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('competition_email_images_event_idx').on(table.eventId)
+])
+
 /** 每轮参赛名单与出场顺序（复赛/决赛生成时随机抽签）。 */
 export const competitionRoundEntries = sqliteTable('competition_round_entries', {
   id: text('id').primaryKey(),
@@ -1175,6 +1213,8 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   sortOrder: integer('sort_order').notNull().default(0),
   /** 从上一轮晋级时的名次，便于管理员核对。 */
   advancedFromRank: integer('advanced_from_rank'),
+  /** 分场天：1 / 2，空 = 未分配（不分天的轮次一直是空）。 */
+  contestDay: integer('contest_day'),
   createdAt: timestamp('created_at')
 }, table => [
   uniqueIndex('competition_round_entries_round_singer_unique').on(table.roundId, table.singerId),

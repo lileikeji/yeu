@@ -2,7 +2,7 @@
 definePageMeta({ layout: false })
 
 useSeoMeta({
-  title: '新生歌手大赛 · 现场登记 | 仰恩大学音乐协会',
+  title: '新声歌手大赛 · 现场登记 | 仰恩大学音乐协会',
   robots: 'noindex, nofollow'
 })
 
@@ -24,7 +24,64 @@ interface PreRegistrationCandidate {
 const status = ref<RegistrationStatus | null>(null)
 const statusError = ref('')
 const submitting = ref(false)
-const succeeded = ref<{ name: string, sortOrder: number, fromPre: boolean } | null>(null)
+interface QueuePosition {
+  state: 'finished' | 'singing' | 'waiting' | 'idle' | 'unknown'
+  ahead: number | null
+  position: number | null
+  total: number
+}
+
+const succeeded = ref<{ singerId: string, name: string, sortOrder: number, fromPre: boolean } | null>(null)
+const queue = ref<QueuePosition | null>(null)
+let queueTimer: ReturnType<typeof setInterval> | null = null
+
+const queueText = computed(() => {
+  const data = queue.value
+  if (!data) return ''
+  if (data.state === 'singing') return '现在轮到你上场了，加油！'
+  if (data.state === 'finished') return '你已经唱完了，等结果就行。'
+  if (data.state === 'waiting') {
+    const ahead = data.ahead ?? 0
+    return ahead > 0 ? `前面还有 ${ahead} 位` : '你是下一位，准备一下'
+  }
+  return '还没开始叫号，坐等主持人喊名字就行。'
+})
+
+async function loadQueue(): Promise<void> {
+  const singerId = succeeded.value?.singerId
+  if (!singerId) return
+  try {
+    queue.value = await $fetch<QueuePosition>('/api/public/competition/register/queue', {
+      query: { singerId }
+    })
+  } catch {
+    // 网络抖动就不更新，保留上一次的数字。
+  }
+}
+
+function stopQueuePolling(): void {
+  if (queueTimer) {
+    clearInterval(queueTimer)
+    queueTimer = null
+  }
+}
+
+function startQueuePolling(): void {
+  stopQueuePolling()
+  void loadQueue()
+  queueTimer = setInterval(loadQueue, 10000)
+}
+
+function resetAfterSuccess(): void {
+  stopQueuePolling()
+  queue.value = null
+  succeeded.value = null
+  preSelected.value = null
+  preCandidates.value = []
+  lookupDone.value = false
+}
+
+onBeforeUnmount(stopQueuePolling)
 const errorMessage = ref('')
 
 const form = reactive({
@@ -125,10 +182,12 @@ async function submit(): Promise<void> {
       }
     })
     succeeded.value = {
+      singerId: result.id,
       name: form.name.trim(),
       sortOrder: result.sortOrder,
       fromPre: Boolean(preSelected.value)
     }
+    startQueuePolling()
   } catch (error) {
     const code = typeof error === 'object' && error !== null
       ? (error as { data?: { data?: { code?: string } } }).data?.data?.code
@@ -164,13 +223,13 @@ onMounted(loadStatus)
           to="/singer"
           class="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm"
         >
-          仰恩大学音乐协会 · 新生歌手大赛
+          仰恩大学音乐协会 · 新声歌手大赛
         </NuxtLink>
         <h1 class="mt-5 text-2xl font-black text-[#2f3a34]">
           现场正式登记
         </h1>
         <p class="mt-2 text-sm leading-6 text-[#6b7a70]">
-          先输个姓名查一下预报名，是本人就直接带出来；没报过的话手填也行。
+          先输姓名查预报名，查到就自动带出；没报过直接填。
         </p>
       </header>
 
@@ -216,9 +275,29 @@ onMounted(loadStatus)
         <p class="mt-2 text-sm leading-6 text-[#4a564e]">
           {{ succeeded.name }}，你是第
           <span class="font-bold text-[#c2543c]">{{ succeeded.sortOrder }}</span>
-          位出场（以现场签到顺序为准），留意叫号就行。
-          比赛结果会发到你邮箱，记得进初赛群看通知。
+          位出场，留意叫号。结果会发到你邮箱。
         </p>
+
+        <div
+          v-if="queue && queue.state !== 'unknown'"
+          class="mt-4 rounded-xl bg-[#fdf6ec] px-4 py-3 text-left ring-1 ring-[#f2d8c4]"
+        >
+          <p class="text-xs font-semibold tracking-wider text-[#b4552f]">
+            现场进度（每 10 秒自动刷新）
+          </p>
+          <p class="mt-1 text-lg font-black text-[#2f3a34]">
+            {{ queueText }}
+          </p>
+          <p class="mt-1 text-xs text-[#6b7a70]">
+            <template v-if="queue.position">
+              今天第 {{ queue.position }} / {{ queue.total }} 位
+            </template>
+            <template v-else>
+              今天共 {{ queue.total }} 位
+            </template>
+            · 别走远，叫到就上台
+          </p>
+        </div>
         <div class="mt-5 flex justify-center gap-2">
           <NuxtLink
             to="/singer"
@@ -229,7 +308,7 @@ onMounted(loadStatus)
           <button
             type="button"
             class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#4a564e] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
-            @click="succeeded = null; preSelected = null; preCandidates = []; lookupDone = false"
+            @click="resetAfterSuccess"
           >
             继续登记下一位
           </button>
@@ -320,7 +399,7 @@ onMounted(loadStatus)
           v-else-if="lookupDone && !preSelected"
           class="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-[#6b7a70]"
         >
-          没查到「{{ form.name.trim() }}」，直接填下面的表就行。
+          没查到「{{ form.name.trim() }}」，直接填写。
         </div>
 
         <div
@@ -328,7 +407,7 @@ onMounted(loadStatus)
           class="flex items-center justify-between gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
         >
           <span>
-            已带上{{ preSelected.name }}的预报名信息，核对一下再提交。
+            已带入{{ preSelected.name }}的预报名信息。
           </span>
           <button
             type="button"
@@ -415,9 +494,6 @@ onMounted(loadStatus)
             class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="用于接收比赛结果通知"
           >
-          <p class="mt-1 text-xs text-[#8b968c]">
-            比赛结果会发送到该邮箱，请确认填写无误。
-          </p>
         </div>
 
         <div>
@@ -460,7 +536,7 @@ onMounted(loadStatus)
         </button>
 
         <p class="text-center text-xs leading-5 text-[#8b968c]">
-          提交即同意主办方为比赛通知和安排使用以上信息。
+          提交即同意以上信息用于比赛通知与安排。
         </p>
       </form>
 

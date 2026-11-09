@@ -57,13 +57,22 @@ export async function sendVerificationCodeEmail(
   }
 }
 
+/** 内嵌图片附件：cid 与邮件 HTML 里的 cid:xxx 对应。 */
+export interface MailAttachment {
+  filename: string
+  mime: string
+  /** base64（不含 data: 前缀） */
+  data: string
+  cid: string
+}
+
 /**
  * 通用邮件发送（歌手大赛结果通知等）。
  * fromName 可按业务场景定制（如「仰恩大学音乐协会」）。
  */
 export async function sendMailMessage(
   config: MailerConfig,
-  message: { to: string, subject: string, html: string, text: string },
+  message: { to: string, subject: string, html: string, text: string, attachments?: MailAttachment[] },
   options: { fromName?: string } = {}
 ): Promise<void> {
   const transporter = nodemailer.createTransport({
@@ -72,11 +81,19 @@ export async function sendMailMessage(
     secure: config.port === 465,
     auth: { user: config.user, pass: config.pass }
   })
+  const attachments = (message.attachments ?? []).map(item => ({
+    filename: item.filename,
+    content: Buffer.from(item.data, 'base64'),
+    contentType: item.mime,
+    cid: item.cid,
+    contentDisposition: 'inline' as const
+  }))
   await transporter.sendMail({
     from: `"${options.fromName || '仰恩新生指南'}" <${config.from}>`,
     to: message.to,
     subject: message.subject,
     text: message.text,
-    html: message.html
+    html: message.html,
+    ...(attachments.length > 0 ? { attachments } : {})
   })
 }
