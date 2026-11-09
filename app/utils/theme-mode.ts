@@ -15,7 +15,7 @@ export const THEME_PALETTES: ReadonlyArray<{ id: ThemePalette, label: string, sw
   { id: 'indigo', label: '靛蓝', swatchClass: 'text-[#5159bb]' },
   { id: 'violet', label: '紫罗兰', swatchClass: 'text-[#7a49bd]' },
   { id: 'rose', label: '玫瑰', swatchClass: 'text-[#b23450]' },
-  { id: 'teal', label: '青绿', swatchClass: 'text-[#0f6b73]' }
+  { id: 'teal', label: '青蓝', swatchClass: 'text-[#0a7aa3]' }
 ]
 
 function systemPrefersDark(): boolean {
