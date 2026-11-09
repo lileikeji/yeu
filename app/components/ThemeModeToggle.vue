@@ -49,7 +49,7 @@ const icon = computed(() => isDark.value ? 'i-lucide-moon' : 'i-lucide-sun')
       color="neutral"
       variant="ghost"
       :aria-label="`外观主题：${modeLabel}，当前配色：${paletteLabel}。点击切换浅色/深色/跟随系统与配色`"
-      class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+      class="justify-center min-h-10 min-w-10 md:min-h-11 md:min-w-11"
     />
   </UDropdownMenu>
 </template>
