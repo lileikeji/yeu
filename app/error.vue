@@ -50,7 +50,7 @@ function retryPage(): void {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--page-bg)] text-zinc-950 dark:text-zinc-100">
+  <div class="min-h-dvh bg-[var(--page-bg)] text-zinc-950 dark:text-zinc-100">
     <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell flex h-16 items-center justify-between gap-3">
         <a
@@ -86,7 +86,7 @@ function retryPage(): void {
       </div>
     </header>
 
-    <main class="page-shell grid min-h-[calc(100vh-4rem)] content-center py-10 md:py-16">
+    <main class="page-shell grid min-h-[calc(100dvh-4rem)] content-center py-10 md:py-16">
       <section
         class="mx-auto w-full max-w-2xl"
         aria-labelledby="error-page-title"

@@ -812,7 +812,7 @@ onBeforeUnmount(stopPolling)
                 </div>
               </div>
 
-              <div class="mt-1.5 grid flex-1 content-start gap-1 sm:hidden">
+              <div class="mt-1.5 judge-compact-scores flex-1 content-start gap-1">
                 <label
                   v-for="dimension in dimensions"
                   :key="`m-${dimension.key}`"
