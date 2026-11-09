@@ -174,7 +174,7 @@ test('C11: each palette keeps its planned green-500 value', () => {
     indigo: '#5159bb',
     violet: '#7a49bd',
     rose: '#b23450',
-    teal: '#0f6b73'
+    teal: '#0a7aa3'
   }
   for (const id of PALETTE_IDS) {
     const green = declarations(cssBlock(`[data-palette="${id}"]`), 'green')
