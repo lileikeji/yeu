@@ -18,6 +18,7 @@ interface AdminMomentView {
   aiReason: string | null
   moderatedBy: string | null
   moderationReason: string | null
+  images: string[]
   createdAt: string
 }
 
@@ -39,6 +40,11 @@ const statusFilter = ref<'all' | 'approved' | 'rejected'>('all')
 const loading = ref(true)
 const errorMessage = ref('')
 const actingIds = ref(new Set<string>())
+const lightboxUrl = ref<string | null>(null)
+
+function openLightbox(url: string): void {
+  lightboxUrl.value = url
+}
 const reasonDrafts = ref(new Map<string, string>())
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -243,9 +249,32 @@ async function act(item: AdminMomentView, action: 'withdraw' | 'restore' | 'dele
             {{ formatWhen(item.createdAt) }}
           </span>
         </div>
-        <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-700 dark:text-zinc-200">
+        <p
+          v-if="item.body"
+          class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-700 dark:text-zinc-200"
+        >
           {{ item.body }}
         </p>
+        <div
+          v-if="item.images.length"
+          class="mt-1.5 flex flex-wrap gap-1.5"
+        >
+          <button
+            v-for="url in item.images"
+            :key="url"
+            type="button"
+            class="block size-16 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700"
+            aria-label="查看大图"
+            @click="openLightbox(url)"
+          >
+            <img
+              :src="url"
+              alt=""
+              loading="lazy"
+              class="size-full object-cover"
+            >
+          </button>
+        </div>
         <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-400">
           <span>IP：{{ item.ip ?? '未记录' }}</span>
           <span v-if="item.aiReason">

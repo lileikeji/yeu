@@ -211,7 +211,7 @@ export function createPlaceMoment(
     body,
     images: JSON.stringify(images),
     dayKey,
-    // AI 巡检启用时全部先审后放（打卡可能带文字，同样可能违规）；禁用 = 直接放出。
+    // AI 巡检启用且有内容（文字或图片）时先审后放；无内容打卡直接放出。
     status: aiEnabled ? 'pending' as const : 'approved' as const,
     createdAt: now
   }).run()
