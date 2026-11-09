@@ -204,12 +204,17 @@ async function uploadPlacePhotos(event: Event): Promise<void> {
       })
       uploaded.push(stored.url)
     }
-    await userFetch('/api/place-moments', {
+    const response = await userFetch<{ moment: { status?: 'pending' | 'approved' | 'rejected' } }>('/api/place-moments', {
       method: 'POST',
       body: { placeId: props.placeId, kind: 'comment', body: '', images: uploaded }
     })
-    feedback.value = `已上传 ${uploaded.length} 张照片`
-    await load()
+    // 图片同样先审后放：pending 时提示审核中动画并轮询，过审自动上屏
+    aiPending.value = response.moment?.status === 'pending'
+    feedback.value = aiPending.value
+      ? `已上传 ${uploaded.length} 张照片，AI 审核中…`
+      : `已上传 ${uploaded.length} 张照片`
+    if (aiPending.value) startMinePolling()
+    else await load()
   } catch (err) {
     error.value = getRequestMessage(err, '照片上传失败')
   } finally {
