@@ -5,6 +5,7 @@ import {
   resolveErrorPageContent
 } from '~~/app/utils/error-page-presentation'
 import { recoverClientPage } from '~~/app/utils/client-recovery'
+import { THEME_PALETTE_THEME_COLORS } from '~~/app/utils/theme-mode'
 
 const props = defineProps<{
   error: NuxtError
@@ -12,14 +13,15 @@ const props = defineProps<{
 
 const content = computed(() => resolveErrorPageContent(props.error.statusCode))
 const recovering = ref(false)
-const { isDark: isSiteDark } = useThemeMode()
+const { isDark: isSiteDark, palette } = useThemeMode()
+const themeColor = computed(() => THEME_PALETTE_THEME_COLORS[palette.value])
 
 useHead({
   title: () => `${content.value.title} | 迎新指南`,
   htmlAttrs: { lang: 'zh-CN' },
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-    { name: 'theme-color', content: '#0f5132' }
+    { name: 'theme-color', content: themeColor }
   ],
   link: [
     { rel: 'icon', type: 'image/png', href: '/icons/app-icon-192.png' },
