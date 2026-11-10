@@ -46,7 +46,7 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   assert.equal((detailsSource.match(/label="规划步行路线"/g) || []).length, 2)
   assert.equal((detailsSource.match(/label="选起点规划"/g) || []).length, 1)
   assert.match(pageSource, /aria-label="全隐藏地点面板"[\s\S]{0,120}?mobileSheetState === 'collapsed'/)
-  assert.equal((pageSource.match(/class="[^"]*justify-center[^"]*\bsize-9"\s+aria-label="(?:全隐藏|半屏显示|展开)地点面板"/g) || []).length, 3)
+  assert.equal((pageSource.match(/class="justify-center size-9"\s+aria-label="(?:全隐藏|半屏显示|展开)地点面板"/g) || []).length, 3)
   assert.match(pageSource, /class="min-h-10(?:\s+dark:[^"\s]+)*\s+w-full(?:\s+dark:[^"\s]+)*\s+md:mt-3(?:\s+dark:[^"\s]+)*\s+md:min-h-11(?:\s+dark:[^"\s]+)*"/)
   assert.equal((pageSource.match(/\['min-h-11 rounded-none px-3'/g) || []).length, 2)
   assert.match(detailsSource, /max-h-\[min\(56dvh,30rem\)\]/)
@@ -74,6 +74,9 @@ test('mobile map search and controls use the compact interaction layout', () => 
   assert.match(pageSource, /class="mt-2 grid grid-cols-4 gap-1/)
   assert.match(pageSource, /class="min-h-9 min-w-0 justify-center/)
   assert.match(pageSource, /map-control-btn size-10 rounded-none md:size-11/)
+  // 右侧连体工具栏 7 个按钮必须带 justify-center：UButton 的 base 只有 items-center，
+  // 方形按钮不加 justify-center 时图标会贴左侧。
+  assert.equal((pageSource.match(/class="justify-center map-control-btn size-10 rounded-none md:size-11"/g) || []).length, 7)
   assert.match(pageSource, /divide-y(?:\s+dark:[^"\s]+)*\s+divide-zinc-200(?:\s+dark:[^"\s]+)*\s+overflow-hidden(?:\s+dark:[^"\s]+)*\s+rounded-xl(?:\s+dark:[^"\s]+)*/)
 })
 
