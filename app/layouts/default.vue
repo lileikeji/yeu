@@ -122,7 +122,7 @@ function shareCurrentPage(): void {
             color="primary"
             variant="ghost"
             aria-label="登录"
-            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+            class="justify-center min-h-10 min-w-10 md:min-h-11 md:min-w-11"
           >
             <span class="hidden sm:inline">登录</span>
           </UButton>
@@ -133,7 +133,7 @@ function shareCurrentPage(): void {
             color="neutral"
             variant="ghost"
             aria-label="个人中心"
-            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+            class="justify-center min-h-10 min-w-10 md:min-h-11 md:min-w-11"
           />
           <ThemeModeToggle />
           <PublicNoticeCenter />
@@ -143,7 +143,7 @@ function shareCurrentPage(): void {
             color="primary"
             variant="ghost"
             aria-label="联系我们"
-            class="hidden min-h-10 min-w-10 sm:inline-flex md:min-h-11 md:min-w-11"
+            class="justify-center hidden min-h-10 min-w-10 sm:inline-flex md:min-h-11 md:min-w-11"
           >
             <span class="hidden lg:inline">联系我们</span>
           </UButton>
@@ -153,14 +153,14 @@ function shareCurrentPage(): void {
             color="neutral"
             variant="ghost"
             aria-label="AI 搜索与站内搜索"
-            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+            class="justify-center min-h-10 min-w-10 md:min-h-11 md:min-w-11"
           />
           <UButton
             icon="i-lucide-share-2"
             color="neutral"
             variant="ghost"
             aria-label="分享当前页面"
-            class="hidden min-h-11 min-w-11 sm:inline-flex"
+            class="justify-center hidden min-h-11 min-w-11 sm:inline-flex"
             @click="shareCurrentPage"
           />
         </div>
