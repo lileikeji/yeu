@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import { THEME_PALETTE_THEME_COLORS } from '~/utils/theme-mode'
+
+const { palette } = useThemeMode()
+const themeColor = computed(() => THEME_PALETTE_THEME_COLORS[palette.value])
+
 useHead({
   htmlAttrs: {
     lang: 'zh-CN'
   },
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-    { name: 'theme-color', content: '#0f5132' },
+    { name: 'theme-color', content: themeColor },
     { name: 'mobile-web-app-capable', content: 'yes' },
     { name: 'apple-mobile-web-app-capable', content: 'yes' },
     { name: 'apple-mobile-web-app-status-bar-style', content: 'default' }
