@@ -1,19 +1,14 @@
 import {
   THEME_MODE_STORAGE_KEY,
-  THEME_PALETTE_STORAGE_KEY,
-  THEME_PALETTES,
   applyThemeClass,
-  applyThemePalette,
   resolveThemeDark,
-  storedThemeMode,
-  storedThemePalette
+  storedThemeMode
 } from '~/utils/theme-mode'
-import type { ThemeMode, ThemePalette } from '~/utils/theme-mode'
+import type { ThemeMode } from '~/utils/theme-mode'
 
 export function useThemeMode() {
   const mode = ref<ThemeMode>(storedThemeMode())
   const isDark = ref(resolveThemeDark(mode.value))
-  const palette = ref<ThemePalette>(storedThemePalette())
   let mediaQuery: MediaQueryList | null = null
   let mediaListener: ((event: MediaQueryListEvent) => void) | null = null
 
@@ -27,22 +22,6 @@ export function useThemeMode() {
         // localStorage 不可用时只影响本次会话
       }
     }
-  }
-
-  function syncPalette(next: ThemePalette): void {
-    palette.value = next
-    applyThemePalette(next)
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem(THEME_PALETTE_STORAGE_KEY, next)
-      } catch {
-        // localStorage 不可用时只影响本次会话
-      }
-    }
-  }
-
-  function setPalette(next: ThemePalette): void {
-    syncPalette(next)
   }
 
   function refreshSystemPreference(): void {
@@ -69,8 +48,6 @@ export function useThemeMode() {
     mode.value = storedThemeMode()
     isDark.value = resolveThemeDark(mode.value)
     applyThemeClass(isDark.value)
-    palette.value = storedThemePalette()
-    applyThemePalette(palette.value)
     watchSystemPreference()
   })
 
@@ -81,9 +58,6 @@ export function useThemeMode() {
   return {
     mode,
     isDark,
-    palette,
-    palettes: THEME_PALETTES,
-    setMode,
-    setPalette
+    setMode
   }
 }

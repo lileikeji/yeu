@@ -316,7 +316,7 @@ const snapshotText = computed(() => {
         v-for="direction in lineDirections"
         :key="direction.id"
         class="border-b border-zinc-100 transition-colors last:border-b-0 dark:border-zinc-800"
-        :class="selectedDirection === direction.id ? 'bg-green-50/70 dark:bg-green-950/30' : ''"
+        :class="selectedDirection === direction.id ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''"
       >
         <button
           type="button"
@@ -334,7 +334,7 @@ const snapshotText = computed(() => {
             </span>
             <span
               v-if="selectedDirection === direction.id"
-              class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-green-600 px-1.5 py-px text-[10px] font-medium text-white"
+              class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-blue-600 px-1.5 py-px text-[10px] font-medium text-white"
             >
               <UIcon
                 name="i-lucide-eye"

@@ -16,20 +16,8 @@ test('every Lucide icon used by the app exists in the installed icon set', () =>
   const iconFile = resolve('node_modules/@iconify-json/lucide/icons.json')
   const iconData = JSON.parse(readFileSync(iconFile, 'utf8')) as {
     icons: Record<string, unknown>
-    aliases?: Record<string, { parent?: string }>
   }
-  // 运行时（@iconify/utils getIconData）按 icons → aliases→parent 链解析；
-  // lucide 新版把部分名字挪进 aliases，测试必须镜像同一语义，否则假阳性。
-  const resolvable = (name: string): boolean => {
-    let current = name
-    for (let hop = 0; hop < 10; hop++) {
-      if (current in iconData.icons) return true
-      const parent = iconData.aliases?.[current]?.parent
-      if (!parent) return false
-      current = parent
-    }
-    return false
-  }
+  const available = new Set(Object.keys(iconData.icons))
   const used = new Set<string>()
 
   for (const file of collectSourceFiles(resolve('app'))) {
@@ -38,6 +26,6 @@ test('every Lucide icon used by the app exists in the installed icon set', () =>
     }
   }
 
-  const missing = [...used].filter(icon => !resolvable(icon)).sort()
+  const missing = [...used].filter(icon => !available.has(icon)).sort()
   assert.deepEqual(missing, [])
 })

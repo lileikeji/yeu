@@ -52,11 +52,6 @@ export function withJudgeRequestOptions<T extends JudgeFetchOptions>(options: T 
   }
 }
 
-/** 类型擦除的 fetch 调用面：judgeFetch 的 url 是动态字符串，命中不了任何字面量路由，
- *  而 Nuxt 4.6 的 $fetch 会尝试把 options 与全量路由联合逐一比对（TS2321 爆栈）。 */
-type UntypedFetch = (url: string, options?: JudgeFetchOptions) => Promise<unknown>
-const rawFetch = $fetch as unknown as UntypedFetch
-
 export function judgeFetch<T = unknown>(url: string, options: JudgeFetchOptions = {}): Promise<T> {
-  return rawFetch(url, withJudgeRequestOptions(options)) as Promise<T>
+  return $fetch(url, withJudgeRequestOptions(options) as never) as Promise<T>
 }

@@ -62,20 +62,6 @@
 
 ## 5. 历史记录
 
-## 2026-11-10 · 站点主题配色切换（5 套预设主色）
-
-- 本次目标：在既有「明/暗/跟随系统」之外增加正交的「主题配色」维度，用户可自由切换预设主色，选择持久化，首帧不闪，不需要改动全站 1000+ 处硬编码 `green-*` / `orange-*` 类。
-- 实际完成：`app/utils/theme-mode.ts` 新增 `ThemePalette` 类型、5 项 `THEME_PALETTES`、`resolveThemePalette`/`storedThemePalette`/`applyThemePalette`，`THEME_BOOT_SCRIPT` 追加 palette 首帧应用（白名单由 `THEME_PALETTE_IDS` 模板生成，避免双份真值）；`app/assets/css/main.css` 新增 4 个无层 `[data-palette]` 覆盖块（indigo/violet/rose/teal，各 22 条变量），`::selection` 与 `.section-kicker` 改用 `var(--color-green-500)`；`useThemeMode` 增加 `palette`/`palettes`/`setPalette`；`ThemeModeToggle` 改为「外观」+「主题配色」两组菜单，色板项带彩色圆点；新增 `scripts/theme-palette.test.ts` 21 条断言。用户验收后追加修正：teal 由 `#0f6b73`（H=185°）改为 `#0a7aa3`（H=196°、L=34%）并更名「青蓝」，解决与默认绿的辨识度问题；`ThemeModeToggle` 补 `justify-center` 修复图标不居中；`DisplaySettingsPanel`、地图页定位/跟随态、`MapTransitPanel` 选中态由 `blue-*` 改为 `green-*`，使其跟随主题。
-- 未完成或待确认：`app/app.config.ts` 的 `success:'green'`、`warning:'orange'` 未拆分，非绿配色下「成功」提示会跟随主色（L2 范围）；`app/pages/singer/**`（121 处 hex）、`app/pages/admin/knowledge/graph.vue`（96 处）为硬编码颜色不参与换肤；PWA manifest 的 `theme_color` 仍为绿色；`AdminCoordinateObservationReviewDetails` 的 `possible-dual` 蓝与公交模块品牌蓝按语义色保留，未跟随主题。
-- 做得好的地方：先做 Tailwind 4 编译探针验证 `@theme static` 确实输出 `:root` 变量、工具类确实编译为 `var()`，再据此确定「只改变量、不动 1200+ 处类名」的方案；用 CDP 读取 `getComputedStyle` 实测 5 套色板的 `--color-green-500`、`text-green-700` 计算值、`--ui-color-primary-500` 三级联动，以及明暗正交、刷新保持、非法值回落。
-- 做得不好的地方：首版 teal 只按「与绿同明度曲线」生成（H=185°/L=25%），与默认绿 H=152°/L=26% 几乎无法区分，直到用户截图指出才发现；首版未检查 `UButton` 缺 `justify-center`，图标贴左；首版只覆盖 `--color-green-*` 与 `--color-orange-*`，漏掉了 17 个文件里作为交互选中态使用的 `blue-*`。
-- 根因：配色方案设计时只对齐了「明度曲线一致」，没有校验「相邻方案之间的色相/明度差异下限」；按钮几何未在真实布局下测量（Moli 无头渲染 header 只有 100x20，未复现真实尺寸）；换肤覆盖面按「变量名」而非「语义用途」梳理，把 `blue-*` 一律当成 info 语义而漏掉其中的选中态。
-- 后续避免：设计多套调色板时先算 HSL，相邻方案色相差 ≥40° 或明度差 ≥8%，并写成测试断言；改共享 UI 组件前先看其 base class 是否自带对齐类；换肤覆盖清单按「语义用途」逐文件过一遍，区分交互选中态与状态语义色。
-- 验证环境与结果：`pnpm typecheck` 0 error；`tsx --test scripts/theme-palette.test.ts` 21/21；`tsx --test scripts/admin-accessibility-presentation.test.ts` 2/2；`pnpm test` 1432/1439（7 个 `deployment-recovery.test.ts` symlink 用例为 Windows 环境限制，CI 上通过，与基线一致）；`/`、`/map`、`/discover`、`/admin/login` 均 200；日志仅 `NUXT_YKT_*` 未配置导致的 503（本地开发预期）。CDP 实测：5 套 `--color-green-500` 依次 `#176f46`/`#5159bb`/`#7a49bd`/`#b23450`/`#0a7aa3`，`--ui-color-primary-500` 同步；violet 下地图面板选中态 `rgb(101,58,156)`、浅底 `rgb(247,240,253)`；刷新保持与非法值回落均正常。
-- 发布/回滚信息：未发布。分支 `feature/E-shell`，commit `741f0e0`（主功能）+ `757619d`（三处修正）。回滚：还原 `app/utils/theme-mode.ts`、`app/assets/css/main.css`、`app/composables/useThemeMode.ts`、`app/components/ThemeModeToggle.vue`、`app/components/map/DisplaySettingsPanel.vue`、`app/components/MapTransitPanel.vue`、`app/pages/map/index.vue` 并删除 `scripts/theme-palette.test.ts`；`localStorage['yeu-palette']` 残留无害（旧代码不读）。
-- 架构变化：新增前端主题配色层，不涉及数据库、迁移、依赖或服务端。机制依赖两个外部事实：Tailwind 4 `@theme static` 输出到 `@layer theme` 的 `:root`，以及 `@nuxt/ui` 运行时插件生成 `--ui-color-primary-*: var(--color-green-*)`。若 Nuxt UI 未来改为构建期内联颜色，整条链路会静默断掉，需要补 e2e 断言钉住。
-- 后续动作：L2 拆分独立 `success` / `warning` 语义变量，解耦「品牌色」与「状态色」；把 `singer/**` 与 `knowledge/graph.vue` 的硬编码 hex 迁移到变量；补一条 e2e 断言验证 `<html data-palette>` 切换后 `getComputedStyle` 真的变化。
-
 ## 2026-11-08 · 歌手大赛宣传页/现场登记/结果邮件 + 满分口径改 100
 
 - 本次目标：按两张海报做公开宣传页；现场扫码登记（班级/姓名/学号/电话/邮箱/歌曲可待定）直进初赛名单；评委按顺序或任意切换评分（沿用已有能力）；轮次成绩确认后按后台模板一键发送结果邮件（支持 {{姓名}} 等合并字段）。

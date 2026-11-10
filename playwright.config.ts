@@ -11,9 +11,7 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  // 固定串行：并行 workers 会撞上 admin 登录限流与 visitor-ban 层（本地多 worker
-  // 实测触发、CI 单 worker 从未触发）。本地必须与 CI/发布闸门同构。
-  workers: 1,
+  workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['list'],
     ['html', { outputFolder: '.data/playwright-report', open: 'never' }]

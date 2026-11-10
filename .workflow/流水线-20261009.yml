@@ -21,8 +21,8 @@ stages:
     displayName: 安装/质量检查/制品核验
     nodeVersion: "20.10.0"
     commands:
-    # Gitee Go 的 nodejs step 版本枚举最高只到 20，而 engines 要求 ^22.22.3+——
-    # ci-bootstrap.sh 自行解压 Node 22.23.4 官方二进制（sha256 校验），PATH 前置覆盖。
+    # Gitee Go 的 nodejs step 版本枚举最高只到 20，而 engines 要求 >=22 <25——
+    # 自行解压 Node 22 官方二进制（v22.20.0 满足依赖的 ^22.19.0），PATH 前置覆盖。
     # Gitee step 的 commands 行间失败不中断（实测），关键链在严格失败退出的单个脚本内执行。
     - timeout 45m bash scripts/ci-build.sh
     artifacts:

@@ -40,111 +40,6 @@
   --color-zinc-500: #52525b;
 }
 
-/* 可选调色板（palette）：Tailwind 4 的 @theme static 变量输出到 @layer theme 的 :root，
-   而这里是未分层（unlayered）的顶层规则——无层规则在层叠中优先于任何 @layer，因此
-   [data-palette] 覆盖能稳定生效。只覆盖 green/orange 两组变量：工具类编译为
-   var(--color-green-*)，Nuxt UI 的 --ui-color-primary-* 也从 green 派生，改这两组即可
-   连带换肤，无需改动组件。默认绿色不写覆盖块，沿用 @theme static，避免双份真值漂移。 */
-[data-palette="indigo"] {
-  --color-green-50: #f0f3fd;
-  --color-green-100: #e1e6fb;
-  --color-green-200: #ccd3f6;
-  --color-green-300: #adb5ea;
-  --color-green-400: #8a93e0;
-  --color-green-500: #5159bb;
-  --color-green-600: #3f469a;
-  --color-green-700: #333c78;
-  --color-green-800: #2b3470;
-  --color-green-900: #262d63;
-  --color-green-950: #131737;
-  --color-orange-50: #fffaed;
-  --color-orange-100: #fff3d4;
-  --color-orange-200: #ffe3a7;
-  --color-orange-300: #ffcc6e;
-  --color-orange-400: #fb9533;
-  --color-orange-500: #b43c0b;
-  --color-orange-600: #923010;
-  --color-orange-700: #782911;
-  --color-orange-800: #923010;
-  --color-orange-900: #782911;
-  --color-orange-950: #451204;
-}
-
-[data-palette="violet"] {
-  --color-green-50: #f7f0fd;
-  --color-green-100: #eee1fb;
-  --color-green-200: #e1ccf7;
-  --color-green-300: #caa9ee;
-  --color-green-400: #b083e4;
-  --color-green-500: #7a49bd;
-  --color-green-600: #653a9c;
-  --color-green-700: #512d80;
-  --color-green-800: #472875;
-  --color-green-900: #402368;
-  --color-green-950: #221339;
-  --color-orange-50: #fffbed;
-  --color-orange-100: #fff6d4;
-  --color-orange-200: #ffe9a7;
-  --color-orange-300: #ffd56e;
-  --color-orange-400: #fb9533;
-  --color-orange-500: #b43c0b;
-  --color-orange-600: #923010;
-  --color-orange-700: #782911;
-  --color-orange-800: #923010;
-  --color-orange-900: #782911;
-  --color-orange-950: #451204;
-}
-
-[data-palette="rose"] {
-  --color-green-50: #fdf0f4;
-  --color-green-100: #fbdde7;
-  --color-green-200: #f9c8d6;
-  --color-green-300: #f39fb2;
-  --color-green-400: #e8728f;
-  --color-green-500: #b23450;
-  --color-green-600: #8f273d;
-  --color-green-700: #741f31;
-  --color-green-800: #6a1d2d;
-  --color-green-900: #601a28;
-  --color-green-950: #360d16;
-  --color-orange-50: #fff7ed;
-  --color-orange-100: #ffebd4;
-  --color-orange-200: #ffd3a7;
-  --color-orange-300: #ffb16e;
-  --color-orange-400: #fb9533;
-  --color-orange-500: #b43c0b;
-  --color-orange-600: #923010;
-  --color-orange-700: #782911;
-  --color-orange-800: #923010;
-  --color-orange-900: #782911;
-  --color-orange-950: #451204;
-}
-
-[data-palette="teal"] {
-  --color-green-50: #eef8fb;
-  --color-green-100: #d6edf5;
-  --color-green-200: #afd9e9;
-  --color-green-300: #81c2d9;
-  --color-green-400: #40a5c9;
-  --color-green-500: #0a7aa3;
-  --color-green-600: #0b6789;
-  --color-green-700: #0b556f;
-  --color-green-800: #0c495f;
-  --color-green-900: #0c3e50;
-  --color-green-950: #082530;
-  --color-orange-50: #fffaed;
-  --color-orange-100: #fff5d4;
-  --color-orange-200: #ffe6a7;
-  --color-orange-300: #ffd06e;
-  --color-orange-400: #fb9533;
-  --color-orange-500: #b43c0b;
-  --color-orange-600: #923010;
-  --color-orange-700: #782911;
-  --color-orange-800: #923010;
-  --color-orange-900: #782911;
-  --color-orange-950: #451204;
-}
-
 :root {
   --page-bg: #f7f8f6;
   --surface: #ffffff;
@@ -191,7 +86,7 @@ select {
 
 ::selection {
   color: #ffffff;
-  background: var(--color-green-500);
+  background: #176f46;
 }
 
 .page-shell {
@@ -253,7 +148,7 @@ select {
 }
 
 .section-kicker {
-  color: var(--color-green-500);
+  color: #176f46;
   font-size: 0.75rem;
   font-weight: 700;
 }
