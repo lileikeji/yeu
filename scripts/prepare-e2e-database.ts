@@ -1,5 +1,4 @@
-import { execSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { mkdirSync, rmSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { initializeAdmin } from '../server/database/admin-bootstrap'
 import { closeDatabase, getDatabase } from '../server/database/client'
@@ -169,15 +168,3 @@ export async function prepareE2eDatabase() {
 
 const result = await prepareE2eDatabase()
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
-
-// release-version.spec 校验运行版本与制品一致：nuxt build 不产出 release.json
-// （只有部署流程的 release-tools create 会写），e2e 前补一份 e2e 专用 manifest。
-if (existsSync(resolve('.output/server/index.mjs'))) {
-  const { createRelease } = await import('../scripts/release-tools.mjs')
-  const commit = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim()
-  const release = `${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-e2e`
-  createRelease(process.cwd(), resolve('.output'), release, commit)
-  process.stdout.write(`release.json ready: ${release}\n`)
-} else {
-  throw new Error('.output 缺失：先运行 pnpm build 再跑 e2e')
-}

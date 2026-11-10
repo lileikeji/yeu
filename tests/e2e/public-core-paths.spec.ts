@@ -78,7 +78,7 @@ test('搜索可进入已发布地点、查看详情并返回地图', async ({ pa
   await page.getByRole('link', { name: '详情', exact: true }).filter({ visible: true }).click()
   await expect(page).toHaveURL(/\/places\/e2e-verified-service-point\?from=/)
   await expect(page.getByRole('heading', { level: 1, name: 'E2E 确认服务点' })).toBeVisible()
-  await expect(page.getByRole('link', { name: '开始导航', exact: true })).toHaveAttribute('href', /position=118\.604(?:%2C|,)25\.107/)
+  await expect(page.getByRole('link', { name: '开始导航', exact: true })).toHaveAttribute('href', /position=118\.604,25\.107/)
 
   await page.getByRole('link', { name: '查看地图', exact: true }).click()
   await expect(page).toHaveURL(/\/map\?place=e2e-verified-service-point/)
@@ -95,21 +95,9 @@ test('地图区域查询可在首次加载恢复，并在关闭详情后清理 U
   await expect(page).not.toHaveURL(/(?:\?|&)area=/)
 })
 
-// 移动端 onMounted 默认收起地点面板（2026-11-06 产品决策：手机上保证地图可点）；
-// 断言搜索框前先展开，桌面端已可见则不动。
-async function ensureMapSearchVisible(page: Page): Promise<void> {
-  const search = page.getByLabel('搜索地图地点')
-  if (!(await search.isVisible().catch(() => false))) {
-    // 展开地点面板按钮在收起态 pointer-events:none 且被底栏遮挡；可用入口是底栏的“打开地点列表”。
-    await page.getByRole('button', { name: '打开地点列表' }).click()
-  }
-  await expect(search).toBeVisible()
-}
-
 test('地图不展示已停用的平面图入口，地点查询保持可用', async ({ page }) => {
   await page.goto('/map')
   await expect(page.getByRole('button', { name: '平面图', exact: true })).toHaveCount(0)
-  await ensureMapSearchVisible(page)
   await page.getByLabel('搜索地图地点').fill('图书馆')
   await expect(page.getByRole('button', { name: /^图书馆 / }).first()).toBeVisible()
 })
@@ -174,7 +162,7 @@ test('地图 SDK 加载失败时保留地点列表和重试说明', async ({ pag
   await page.route(`**/_nuxt/${mapLibreAssetFile}`, route => route.abort())
   await page.goto('/map')
 
-  await ensureMapSearchVisible(page)
+  await expect(page.getByLabel('搜索地图地点')).toBeVisible()
   await expect(page.getByText('地图画面暂时没有显示出来', { exact: true })).toBeVisible()
   await expect(page.getByText(/可以重新试一次，也可以先查看学校平面图或地点清单/)).toBeVisible()
   const fallbackPlace = page.getByRole('button', { name: /E2E 确认服务点/ })
@@ -304,9 +292,6 @@ test('Service Worker 在断网导航时返回明确离线说明页', async ({ co
   try {
     await page.goto('/e2e-offline-navigation-probe', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { level: 1, name: '先检查网络，连上后再继续' })).toBeVisible()
-    // 真离线时 navigator.onLine=false，offline.html 不会自动探测（设计如此）；
-    // 点按钮触发探测，离线必失败 → 落到“暂时还没有可用线路”，同时覆盖按钮恢复路径。
-    await page.getByRole('button', { name: '再试一次' }).click()
     await expect(page.getByRole('heading', { level: 2, name: '暂时还没有可用线路' })).toBeVisible()
     await expect(page.getByText(/校园地图、路线和最新通知需要联网查看/)).toBeVisible()
   } finally {

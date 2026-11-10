@@ -763,17 +763,15 @@ export class MapLibrePreviewProvider implements MapProvider {
       const finish = (error?: Error) => {
         if (settled) return
         settled = true
-        map.off('load', onLoad)
+        map.off('load', finish)
         if (timeoutRef.id !== undefined) window.clearTimeout(timeoutRef.id)
         this.cancelPendingLoad = null
         if (error) reject(error)
         else resolve()
       }
-      // maplibre 6 的 load 监听器带事件参数；直接传 finish 会把事件对象当 error。
-      const onLoad = () => finish()
 
       this.cancelPendingLoad = finish
-      map.on('load', onLoad)
+      map.on('load', finish)
       timeoutRef.id = window.setTimeout(() => {
         finish(new Error('地图底图加载超时，请检查网络后重试。'))
       }, MAP_LOAD_TIMEOUT_MS)

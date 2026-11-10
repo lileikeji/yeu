@@ -14,7 +14,7 @@ function install(scenario: string) {
   // Only remap the fixture cache; production resolves it from the user's home.
   writeFileSync(bootstrap, readFileSync(resolve('scripts/ci-bootstrap.sh'), 'utf8')
     .replace('CI_CACHE="${HOME}/.cache/yeu-ci"', 'CI_CACHE="$FIXTURE_CACHE"'))
-  for (const executable of ['node-v22.23.4/bin/node', 'pnpm-10.28.1/bin/pnpm']) {
+  for (const executable of ['node-v22.20.0/bin/node', 'pnpm-10.28.1/bin/pnpm']) {
     const file = join(root, executable)
     mkdirSync(join(file, '..'), { recursive: true })
     writeFileSync(file, '#!/bin/sh\nexit 99\n')
@@ -22,7 +22,7 @@ function install(scenario: string) {
   }
   const command = [
     'attempts=0; loads=0',
-    'node(){ if [[ "$1" == --version ]]; then echo v22.23.4; else loads=$((loads+1)); [[ "$SCENARIO" != native-fail ]]; fi; }',
+    'node(){ if [[ "$1" == --version ]]; then echo v22.20.0; else loads=$((loads+1)); [[ "$SCENARIO" != native-fail ]]; fi; }',
     'pnpm(){',
     '  case "$1" in',
     '  --version) echo 10.28.1 ;;',
