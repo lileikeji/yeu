@@ -30,7 +30,7 @@ test('homepage switches between full and compact modes without a separate route 
 test('mobile header keeps the centered mode switch clear of action buttons', () => {
   assert.match(layoutSource, /min-w-10[^"]*sm:min-w-12/)
   assert.match(layoutSource, /hidden(?:\s+dark:[^"\s]+)*\s+truncate(?:\s+dark:[^"\s]+)*\s+text-base(?:\s+dark:[^"\s]+)*\s+font-bold(?:\s+dark:[^"\s]+)*\s+text-zinc-950(?:\s+dark:[^"\s]+)*\s+sm:inline(?:\s+dark:[^"\s]+)*/)
-  assert.match(layoutSource, /class="hidden min-h-10 min-w-10 sm:inline-flex/)
+  assert.match(layoutSource, /class="[^"]*justify-center[^"]*min-w-10[^"]*sm:inline-flex/)
 })
 
 test('compact cards open a content-first bottom sheet with a configurable source link', () => {
