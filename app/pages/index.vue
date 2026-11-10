@@ -309,7 +309,7 @@ const {
           </p>
 
           <form
-            class="mx-auto mt-4 flex max-w-3xl gap-0 text-left md:mt-7"
+            class="mx-auto mt-4 grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] gap-2 text-left md:mt-7"
             role="search"
             @submit.prevent="searchSite"
           >
@@ -317,7 +317,8 @@ const {
               v-model="placeQuery"
               icon="i-lucide-search"
               size="md"
-              class="min-w-0 flex-1"
+              class="min-w-0 min-h-10 md:min-h-11"
+              :ui="{ base: 'min-h-10 md:min-h-11' }"
               placeholder="搜索校园信息，或输入你的问题"
               aria-label="搜索校园信息或提出问题"
             />
@@ -326,7 +327,7 @@ const {
               icon="i-lucide-sparkles"
               label="AI 搜索"
               size="md"
-              class="min-h-10 rounded-l-none px-3 text-xs md:min-h-11 md:px-8 md:text-sm"
+              class="min-h-10 shrink-0 px-3 text-xs md:min-h-11 md:px-8 md:text-sm"
             />
           </form>
         </div>
@@ -611,7 +612,7 @@ const {
                 </h2>
               </div>
               <p class="mt-3 text-sm text-zinc-700 dark:text-zinc-200 lg:mt-5">
-                已完成 <strong class="text-lg text-green-700 dark:text-green-400">{{ checklistSummary.percent }}%</strong>
+                已完成 <strong class="text-lg text-success-700 dark:text-success-400">{{ checklistSummary.percent }}%</strong>
               </p>
               <div class="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800 lg:mt-3">
                 <div

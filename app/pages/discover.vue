@@ -41,7 +41,7 @@ function toggleTaskPreview(): void {
             to="/search"
             icon="i-lucide-search"
             size="md"
-            class="min-h-11 min-w-11 shrink-0"
+            class="justify-center min-h-11 min-w-11 shrink-0"
             aria-label="搜索全站"
           >
             <span class="hidden sm:inline">搜索全站</span>
