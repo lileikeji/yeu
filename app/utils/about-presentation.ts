@@ -96,49 +96,49 @@ export const aboutProjectFacts: AboutProjectFact[] = [
 
 export const aboutBoundaries: AboutBoundary[] = [
   {
-    title: '重要事项看学校通知',
+    title: '学校通知优先',
     icon: 'i-lucide-file-warning',
     text: '报到、缴费、学籍、住宿、安全和材料，以录取通知书及学校最新通知为准。',
     tone: 'amber'
   },
   {
-    title: '地图不猜位置',
+    title: '地图标确认过的位置',
     icon: 'i-lucide-map-pinned',
-    text: '只标确认过的位置，不确定的会说明，不会为了看起来完整而随便标位置。',
+    text: '只标核对过的位置。没核对的不标。',
     tone: 'sky'
   },
   {
-    title: '往年消息只作参考',
+    title: '往年安排会过期',
     icon: 'i-lucide-calendar-clock',
     text: '往年安排可能已变，出发前看今年通知。',
     tone: 'zinc'
   },
   {
-    title: '没有付费排名',
-    icon: 'i-lucide-badge-percent',
-    text: '没有商家推广和付费排名，合作内容会明确标出。',
+    title: '错误会改',
+    icon: 'i-lucide-file-pen-line',
+    text: '指出错误后对照原文核对，改完在提交记录里留下改动。',
     tone: 'green'
   }
 ]
 
 export const aboutGovernanceLinks: AboutGovernanceLink[] = [
   {
-    title: '看看信息从哪里来',
-    description: '查看学校通知、部门页面和地图资料',
+    title: '信息从哪里来',
+    description: '学校通知、部门页面、地图资料',
     to: '/sources',
     icon: 'i-lucide-list-checks',
     tone: 'sky'
   },
   {
     title: '告诉我们哪里不对',
-    description: '说明出错的页面和正确情况，不登录也能提交',
+    description: '写清哪一页、哪里不对，不用登录',
     to: '/feedback',
     icon: 'i-lucide-message-square-warning',
     tone: 'amber'
   },
   {
-    title: '看看隐私说明',
-    description: '会记录哪些信息，怎么查、怎么删',
+    title: '隐私说明',
+    description: '记录了什么、怎么查、怎么删',
     to: '/privacy',
     icon: 'i-lucide-shield-check',
     tone: 'green'
@@ -152,7 +152,7 @@ export const aboutMaintainers: AboutMaintainer[] = [
     handle: 'GitHub @lileikeji · Gitee @lilei1529',
     role: '维护者',
     focus: ['内容整理与核验', '地图与地点数据', '页面与交互', '问答与查找', '发布与运维'],
-    note: '2026 年 7 月开始搭这个站，950 多次提交，改动都能在提交记录里查。',
+    note: '仰恩 25 级专升本，2026-07 起整理；提交 950 次以上。',
     icon: 'i-lucide-user-round',
     tone: 'green'
   }
@@ -162,22 +162,22 @@ export const aboutMaintainers: AboutMaintainer[] = [
 export const aboutContributionTracks: AboutContributionTrack[] = [
   {
     title: '拍入口照片',
-    detail: '每栋宿舍、每个场馆的正门和侧门，从路口拍过去，再写一句“从哪边进”。最后 50 米现在还是空的。',
+    detail: '宿舍和场馆的正门、侧门，从路口拍一张，写明从哪边进。',
     icon: 'i-lucide-camera'
   },
   {
     title: '核校车和公交时刻',
-    detail: '班次会变。每月核一次首末班和间隔，记下采样时间，比写死一张表有用。',
+    detail: '每月核一次首末班和班次间隔，记下核对日期。',
     icon: 'i-lucide-bus'
   },
   {
     title: '把长句改短',
-    detail: '指南里还有读着费劲的段落。改一句算一句，不用整篇重写。',
+    detail: '指南里读着费劲的段落，一条一条改短。',
     icon: 'i-lucide-pen-line'
   },
   {
     title: '补测试和守卫',
-    detail: '每条新数据都要有测试盯着，防止下次改坏。不会写代码也能提需求。',
+    detail: '新加的数据配一条测试，防止后面改坏。',
     icon: 'i-lucide-shield-check'
   }
 ]
@@ -186,18 +186,18 @@ export const aboutContributionTracks: AboutContributionTrack[] = [
 export const aboutRepositories: AboutRepository[] = [
   {
     name: 'lileikeji/yeu',
-    description: '主仓库。页面、内容数据、测试和发布脚本都在同一个仓库里。',
+    description: '页面、数据、测试、发布脚本都在这里。',
     url: 'https://github.com/lileikeji/yeu',
-    label: '去 GitHub 看看',
+    label: '去 GitHub',
     meta: 'GitHub',
     icon: 'i-lucide-github',
     tone: 'zinc'
   },
   {
     name: 'lilei1529/yeu',
-    description: '国内访问快一些，和 GitHub 同步。两个仓库内容一样，在哪边提 issue 都行。',
+    description: '国内访问用这个，和 GitHub 同步。',
     url: 'https://gitee.com/lilei1529/yeu',
-    label: '去 Gitee 看看',
+    label: '去 Gitee',
     meta: 'Gitee',
     icon: 'i-lucide-git-branch',
     tone: 'amber'

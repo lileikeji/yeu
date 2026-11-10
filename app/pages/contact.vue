@@ -36,7 +36,7 @@ useSeoMeta({
                 id="contact-help-heading"
                 class="mt-0.5 text-xl font-bold text-zinc-950 dark:text-zinc-100"
               >
-                添加时说一下你的来意
+                加好友时写一句要问的事
               </h2>
             </div>
           </div>

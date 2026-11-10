@@ -454,7 +454,7 @@ test('about page is a thin shell over about presentation', () => {
   assert.match(presentation, /export const aboutProjectFacts/)
   assert.match(presentation, /export const aboutBoundaries/)
   assert.match(presentation, /export const aboutGovernanceLinks/)
-  assert.match(presentation, /重要事项看学校通知/)
+  assert.match(presentation, /学校通知优先/)
   assert.match(presentation, /告诉我们哪里不对/)
 })
 

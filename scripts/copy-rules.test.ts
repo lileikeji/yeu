@@ -116,3 +116,17 @@ test('小程序的页面容器不再挂 subtitle', () => {
   })
   assert.deepEqual(offenders, [])
 })
+
+test('前台页面不再提商家合作与付费位置', () => {
+  // 站长 2026-11-11：站里不再有商家合作/推广这回事，前台也不要再出现这类话题。
+  const PAGES_TERMS = [/\u5546\u5bb6\u5408\u4f5c/, /\u5546\u5bb6\u63a8\u5e7f/, /\u63a8\u5e7f\u4f4d/, /\u4ed8\u8d39\u6392\u540d/, /\u8d5e\u52a9/]
+  const offenders: string[] = []
+  for (const { file, text } of readAll(files)) {
+    if (!file.startsWith('app/pages/') || file.includes('/admin/')) continue
+    for (const pattern of PAGES_TERMS) {
+      const hit = text.match(pattern)
+      if (hit) offenders.push(`${file}: ${hit[0]}`)
+    }
+  }
+  assert.deepEqual(offenders, [], '前台页面还在提商家合作或付费位置')
+})

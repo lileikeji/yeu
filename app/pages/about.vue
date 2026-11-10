@@ -18,8 +18,8 @@ const aboutToneClasses: Record<AboutTone, string> = {
 }
 
 useSeoMeta({
-  title: '关于这份指南',
-  description: '这里能查什么、哪些要看学校通知、发现错误怎么反馈。'
+  title: '关于本站',
+  description: '学生个人整理的非官方新生指南；报到、缴费等以学校通知为准。'
 })
 </script>
 
@@ -33,7 +33,7 @@ useSeoMeta({
           variant="soft"
         />
         <h1 class="mt-4 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
-          这个站能查到什么
+          关于本站
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
           内容由学生个人整理，不代表学校。
@@ -97,10 +97,10 @@ useSeoMeta({
                 谁在维护
               </p>
               <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
-                一个人，加几位帮手
+                维护者
               </h2>
               <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-                这不是机构在运营。内容靠一个人整理，错的地方靠读者指出。下面这些名字和账号，在仓库的提交记录里都能对上。
+                内容、地图数据、页面和发布，一个人做。改动都在仓库提交里。
               </p>
             </div>
 
@@ -150,7 +150,7 @@ useSeoMeta({
                 </div>
               </article>
               <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                站还在改：页面结构、文案和排序都会变。过期的条目会标出上次核验时间，到期就重新核；核不到就撤下来。
+                过期的条目会标核验时间，核不到就撤。
               </p>
             </div>
           </div>
@@ -164,10 +164,10 @@ useSeoMeta({
               一起做
             </p>
             <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
-              现在缺的是这些活
+              可以帮的事
             </h2>
             <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              不用会写代码。拍照、核对通知、把一段话改顺，都是现在最缺的。想接哪块，加微信说一声。
+              不要求会写代码。想接哪一块，加微信说。
             </p>
 
             <ul class="mt-6 divide-y divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800">
@@ -197,7 +197,7 @@ useSeoMeta({
               加微信
             </p>
             <h3 class="mt-1 text-base font-bold text-zinc-950 dark:text-zinc-100">
-              备注一句“想一起做”
+              备注“想一起做”
             </h3>
             <img
               src="/images/contact-wechat.png"
@@ -221,10 +221,10 @@ useSeoMeta({
                 开源
               </p>
               <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
-                代码和内容都在仓库里
+                仓库
               </h2>
               <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-                点 star 支持这个项目
+                觉得有用就点个 star。
               </p>
               <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 代码用 MIT 许可；引用的学校通知和官网内容，版权归原单位。
@@ -281,7 +281,7 @@ useSeoMeta({
                 使用前先知道
               </p>
               <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
-                这些信息可以怎么用
+                四条规则
               </h2>
             </div>
 
