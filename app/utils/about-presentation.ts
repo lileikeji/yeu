@@ -28,6 +28,32 @@ export interface AboutHeroAction {
 
 export type AboutTone = 'amber' | 'green' | 'sky' | 'zinc'
 
+export interface AboutMaintainer {
+  name: string
+  handle: string
+  role: string
+  focus: string[]
+  note: string
+  icon: string
+  tone: AboutTone
+}
+
+export interface AboutContributionTrack {
+  title: string
+  detail: string
+  icon: string
+}
+
+export interface AboutRepository {
+  name: string
+  description: string
+  url: string
+  label: string
+  meta: string
+  icon: string
+  tone: AboutTone
+}
+
 export const aboutHeroActions: AboutHeroAction[] = [
   {
     label: '查看参考页面',
@@ -50,7 +76,7 @@ export const aboutProjectFacts: AboutProjectFact[] = [
   },
   {
     label: '谁在整理',
-    value: '个人或学生团队',
+    value: '学生个人维护',
     icon: 'i-lucide-users-round',
     tone: 'green'
   },
@@ -62,7 +88,7 @@ export const aboutProjectFacts: AboutProjectFact[] = [
   },
   {
     label: '怎么使用',
-    value: '无需登录即可浏览',
+    value: '不登录也能看',
     icon: 'i-lucide-log-in',
     tone: 'zinc'
   }
@@ -112,9 +138,68 @@ export const aboutGovernanceLinks: AboutGovernanceLink[] = [
   },
   {
     title: '看看隐私说明',
-    description: '了解会记录哪些信息，以及如何查询或删除',
+    description: '会记录哪些信息，怎么查、怎么删',
     to: '/privacy',
     icon: 'i-lucide-shield-check',
     tone: 'green'
+  }
+]
+
+/** 现在实际在维护的人。名字与仓库账号都对得上，改这条要同时改提交记录里的身份。 */
+export const aboutMaintainers: AboutMaintainer[] = [
+  {
+    name: '李磊',
+    handle: 'GitHub @lileikeji · Gitee @lilei1529',
+    role: '维护者',
+    focus: ['内容整理与核验', '地图与地点数据', '页面与交互', 'AI 问答与检索', '发布与运维'],
+    note: '2026 年 7 月开始搭这个站，到现在 950 多次提交。哪条事实改了、引的是哪份通知，提交记录里都能查到。',
+    icon: 'i-lucide-user-round',
+    tone: 'green'
+  }
+]
+
+/** 一起做的话，现在真的缺这些活。顺序按“补上以后读者立刻能用”排。 */
+export const aboutContributionTracks: AboutContributionTrack[] = [
+  {
+    title: '拍入口照片',
+    detail: '每栋宿舍、每个场馆的正门和侧门，从路口拍过去，再写一句“从哪边进”。最后 50 米现在还是空的。',
+    icon: 'i-lucide-camera'
+  },
+  {
+    title: '核校车和公交时刻',
+    detail: '班次会变。每月核一次首末班和间隔，记下采样时间，比写死一张表有用。',
+    icon: 'i-lucide-bus'
+  },
+  {
+    title: '把长句改短',
+    detail: '指南里还有读着费劲的段落。改一句算一句，不用整篇重写。',
+    icon: 'i-lucide-pen-line'
+  },
+  {
+    title: '补测试和守卫',
+    detail: '每条新数据都要有测试盯着，防止下次改坏。不会写代码也能提需求。',
+    icon: 'i-lucide-shield-check'
+  }
+]
+
+/** 两个仓库地址都从 git remote 里取，不写死分支名。 */
+export const aboutRepositories: AboutRepository[] = [
+  {
+    name: 'lileikeji/yeu',
+    description: '主仓库。页面、内容数据、测试和发布脚本都在同一个仓库里。',
+    url: 'https://github.com/lileikeji/yeu',
+    label: '去 GitHub 看看',
+    meta: 'GitHub',
+    icon: 'i-lucide-github',
+    tone: 'zinc'
+  },
+  {
+    name: 'lilei1529/yeu',
+    description: '国内访问快一些，和 GitHub 同步。两个仓库内容一样，在哪边提 issue 都行。',
+    url: 'https://gitee.com/lilei1529/yeu',
+    label: '去 Gitee 看看',
+    meta: 'Gitee',
+    icon: 'i-lucide-git-branch',
+    tone: 'amber'
   }
 ]

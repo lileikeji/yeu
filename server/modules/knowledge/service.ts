@@ -16,6 +16,7 @@ import {
   knowledgeDocuments,
   sources
 } from '../../database/schema'
+import { bumpAssistantKnowledgeRevision } from '../assistant/knowledge-revision'
 import { rethrowDatabaseError, throwNotFound } from '../../utils/errors'
 import { fromIso } from '../../utils/serializers'
 import { assertSourceIds, countPublishableSourcesByIds } from '../verification/service'
@@ -327,6 +328,8 @@ export function createKnowledgeClaim(client: DatabaseClient, input: CreateKnowle
         updatedAt: now
       }).run()
       replaceClaimSources(client, id, sourceRows)
+      // 知识库写入要让答案缓存失效：修订号是 cache_key 的一段，不 bump 就继续发旧答案。
+      bumpAssistantKnowledgeRevision(client)
     })()
   } catch (error) {
     rethrowDatabaseError(error)
@@ -374,6 +377,7 @@ export function updateKnowledgeClaim(client: DatabaseClient, id: string, input: 
         updatedAt: now
       }).where(eq(knowledgeClaims.id, id)).run()
       if (input.sources) replaceClaimSources(client, id, sourceRows)
+      bumpAssistantKnowledgeRevision(client)
     })()
   } catch (error) {
     rethrowDatabaseError(error)
@@ -389,6 +393,7 @@ export function archiveKnowledgeClaim(client: DatabaseClient, id: string, adminI
     updatedAt: Date.now()
   }).where(eq(knowledgeClaims.id, id)).run()
   if (result.changes === 0) throwNotFound('Knowledge claim')
+  bumpAssistantKnowledgeRevision(client)
 }
 
 function ftsQuery(terms: string[]): string {

@@ -15,10 +15,13 @@ interface PreRegistrationCandidate {
   id: string
   name: string
   className: string | null
-  studentNo: string | null
-  phone: string | null
-  email: string | null
   song: string | null
+  preferredDay: 1 | 2 | null
+  createdAt: number
+  /** 只回传后四位，形如 `****0077`。 */
+  studentNoMasked: string
+  /** 预报名当时留过手机或邮箱。 */
+  hasContact: boolean
 }
 
 const status = ref<RegistrationStatus | null>(null)
@@ -97,6 +100,9 @@ const form = reactive({
 const preCandidates = ref<PreRegistrationCandidate[]>([])
 const preSelected = ref<PreRegistrationCandidate | null>(null)
 const lookingUp = ref(false)
+/** 学号后四位：查预报名必须与姓名一起填，避免拿姓名翻别人的联系方式。 */
+const lookupTail = ref('')
+const canLookup = computed(() => form.name.trim().length > 0 && /^\d{4}$/.test(lookupTail.value.trim()))
 const lookupDone = ref(false)
 
 function serverErrorMessage(error: unknown, fallback: string): string {
@@ -117,12 +123,13 @@ async function loadStatus(): Promise<void> {
 
 async function lookupPreRegistrations(): Promise<void> {
   const name = form.name.trim()
-  if (!name || lookingUp.value) return
+  const studentNoTail = lookupTail.value.trim()
+  if (!name || !/^\d{4}$/.test(studentNoTail) || lookingUp.value) return
   lookingUp.value = true
   try {
     const result = await $fetch<{ candidates: PreRegistrationCandidate[] }>(
       '/api/public/competition/register/lookup',
-      { method: 'POST', body: { name } }
+      { method: 'POST', body: { name, studentNoTail } }
     )
     preCandidates.value = result.candidates
     lookupDone.value = true
@@ -138,11 +145,12 @@ function confirmCandidate(candidate: PreRegistrationCandidate): void {
   preSelected.value = candidate
   form.name = candidate.name
   form.className = candidate.className ?? ''
-  form.studentNo = candidate.studentNo ?? ''
-  form.phone = candidate.phone ?? ''
-  form.email = candidate.email ?? ''
   form.song = candidate.song ?? ''
+  // 手机、邮箱、学号不跟随下发，也不回填：本人填自己的联系方式，页面不留别人的。
   preCandidates.value = []
+  nextTick(() => {
+    document.getElementById('reg-student-no')?.focus()
+  })
 }
 
 function clearCandidate(): void {
@@ -338,17 +346,29 @@ onMounted(loadStatus)
               autocomplete="name"
               class="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
               placeholder="你的姓名"
+            >
+            <input
+              v-model="lookupTail"
+              maxlength="4"
+              inputmode="numeric"
+              autocomplete="off"
+              aria-label="学号后四位"
+              class="w-28 shrink-0 rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base tabular-nums outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+              placeholder="学号后 4 位"
               @blur="lookupPreRegistrations"
             >
             <button
               type="button"
               class="shrink-0 rounded-xl bg-[#4a564e] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3a453e] disabled:opacity-60"
-              :disabled="lookingUp || !form.name.trim()"
+              :disabled="lookingUp || !canLookup"
               @click="lookupPreRegistrations"
             >
               {{ lookingUp ? '查一下…' : '查预报名' }}
             </button>
           </div>
+          <p class="mt-1 text-xs text-[#8b968c]">
+            姓名 + 学号后四位一起填才能查，查到的记录不含手机和邮箱。
+          </p>
         </div>
 
         <!-- 预报名命中确认 -->
@@ -374,7 +394,8 @@ onMounted(loadStatus)
                   >{{ candidate.className }}</span>
                 </p>
                 <p class="truncate text-xs text-[#8b968c]">
-                  {{ candidate.song || '歌曲待定' }}
+                  学号 {{ candidate.studentNoMasked }} · {{ candidate.song || '歌曲待定' }}
+                  <span v-if="candidate.hasContact"> · 预报名里留过联系方式</span>
                 </p>
               </div>
               <button
@@ -399,7 +420,7 @@ onMounted(loadStatus)
           v-else-if="lookupDone && !preSelected"
           class="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-[#6b7a70]"
         >
-          没查到「{{ form.name.trim() }}」，直接填写。
+          没查到「{{ form.name.trim() }}」+ 学号后四位 {{ lookupTail.trim() }} 的预报名，直接填写。
         </div>
 
         <div
@@ -407,7 +428,7 @@ onMounted(loadStatus)
           class="flex items-center justify-between gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
         >
           <span>
-            已带入{{ preSelected.name }}的预报名信息。
+            已带入{{ preSelected.name }}的姓名、班级与歌曲；手机和邮箱请自己填。
           </span>
           <button
             type="button"

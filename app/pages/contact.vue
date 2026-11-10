@@ -1,7 +1,7 @@
 <script setup lang="ts">
 useSeoMeta({
   title: '联系我们',
-  description: '联系迎新指南整理者，反馈问题或申请加入新生交流群。'
+  description: '反馈内容错误、加入新生群，或联系整理者。'
 })
 </script>
 
@@ -16,7 +16,7 @@ useSeoMeta({
           有问题，直接来找我
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          指南内容看不明白、发现信息有误，或者想加入新生交流群，都可以扫码添加微信。
+          哪句写错了、和现场对不上，加微信告诉我，我核对后改。想进新生群也是这个号。
         </p>
       </div>
     </header>
@@ -83,7 +83,7 @@ useSeoMeta({
                   纠错或补充内容
                 </h3>
                 <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                  说明哪里不对并附上可信来源；不方便加微信，也可以使用站内反馈。
+                  说清哪句不对，附上学校通知或截图更好；不加微信也行，站内反馈一样看得到。
                 </p>
               </div>
             </div>

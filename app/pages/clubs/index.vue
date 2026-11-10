@@ -279,6 +279,33 @@ function clearClubFilters() {
           @click="clearClubFilters"
         />
       </div>
+
+      <section class="mt-8 border-t border-zinc-200 dark:border-zinc-800 pt-4">
+        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          近期活动与招新
+        </h2>
+        <p class="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+          音乐协会的新声歌手大赛正在报名；其他社团的招新时间以各社团通知为准。
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <UButton
+            to="/singer"
+            icon="i-lucide-mic-vocal"
+            label="新声歌手大赛"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+          />
+          <UButton
+            to="/competition"
+            icon="i-lucide-trophy"
+            label="赛事与招新总览"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+          />
+        </div>
+      </section>
     </div>
   </div>
 </template>

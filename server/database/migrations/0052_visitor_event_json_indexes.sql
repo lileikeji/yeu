@@ -1,0 +1,25 @@
+﻿-- 公告确认人数（server/modules/notices/service.ts 的 listConfirmationCounts）是
+-- visitor_events 上唯一还在热路径跑的聚合：
+--   WHERE action = 'notice_confirm' GROUP BY json_extract(meta_json, '$.noticeId')
+--   并对每个分组 count(distinct visitor_id)
+--
+-- 实测（24 万事件 / 40 条公告 / 12 000 访客，夹具见
+-- docs/verification/final-review-2026-11-10/_scale-migration-check.ts）：
+--   无索引                                  1230 ms
+--   部分索引 (json_extract, visitor_id)
+--     WHERE action = 'notice_confirm'       1230 ms ← 规划器不选
+--   (action, json_extract, visitor_id)        31 ms ← 无 TEMP B-TREE，count(distinct) 覆盖
+--
+-- 部分索引为什么没用：首列是表达式，查询给不出该表达式的前导等值约束，
+-- 规划器只能整索引扫描，代价高过 action_created_idx 的等值 search，于是继续走旧索引。
+-- 把 action 放首列才能变成 SEARCH ... (action=?)，再靠表达式列消除 GROUP BY 的临时表。
+--
+-- 推广点击（action = 'merchant_promo_click'）在 2026-11-10 随商家推广位整块下线，
+-- 已无写入方与读取方，对应的表达式索引不再创建。
+--
+-- 建索引前先兜住脏数据：json_extract 遇到非法 JSON 会抛 malformed JSON，
+-- 索引建到一半失败会把迁移卡死。meta_json 一律由 JSON.stringify 写入，
+-- 这里只会命中人为改动。
+UPDATE `visitor_events` SET `meta_json` = '{}' WHERE NOT json_valid(`meta_json`);
+--> statement-breakpoint
+CREATE INDEX `visitor_events_notice_confirm_idx` ON `visitor_events` (`action`, json_extract(`meta_json`, '$.noticeId'), `visitor_id`);

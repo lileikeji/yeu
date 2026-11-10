@@ -263,6 +263,14 @@ const assistantFoodCards = computed(() => assistantResponse.value
 const assistantShopCards = computed(() => assistantResponse.value
   ? parseAssistantShopDetail(assistantResponse.value.answer)
   : null)
+// 没有来源的答案要自己说出来：模型没给合法引用时后端回 citationStatus 'none'。
+// 旧响应不带该字段（undefined），那种情况不提示，避免把老缓存误标成无来源。
+const assistantAnswerNotice = computed(() => {
+  const response = assistantResponse.value
+  if (!response || response.blocked) return ''
+  if (response.citationStatus !== 'none') return ''
+  return '这条回答没有可核验来源，建议以官方通知为准'
+})
 interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
   status: 'running' | 'completed' | 'failed'
   startedAt?: string
@@ -1049,6 +1057,21 @@ onBeforeUnmount(() => {
                     {{ assistantShopCards.tail }}
                   </p>
                 </template>
+                <div
+                  v-else-if="assistantResponse.blocked"
+                  class="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300"
+                >
+                  <span>这个问题不在可回答范围内，可以换个问法，或直接联系整理者。</span>
+                  <UButton
+                    to="/contact"
+                    icon="i-lucide-message-circle"
+                    label="联系整理者"
+                    color="neutral"
+                    variant="soft"
+                    size="sm"
+                    class="min-h-10"
+                  />
+                </div>
                 <p
                   v-else
                   class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700 dark:text-zinc-200"
@@ -1074,8 +1097,18 @@ onBeforeUnmount(() => {
                     </NuxtLink>
                   </template>
                 </p>
+                <p
+                  v-if="assistantAnswerNotice"
+                  class="mt-3 flex items-start gap-1.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
+                >
+                  <UIcon
+                    name="i-lucide-info"
+                    class="mt-0.5 size-3.5 shrink-0"
+                  />
+                  <span>{{ assistantAnswerNotice }}</span>
+                </p>
                 <div
-                  v-if="assistantResponse.citations.length"
+                  v-if="assistantResponse.citations.length && !assistantResponse.blocked"
                   class="mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-3"
                 >
                   <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
@@ -1159,7 +1192,7 @@ onBeforeUnmount(() => {
         <nav
           v-if="groupedResults.length > 1"
           class="mt-4 rounded-lg border border-green-100 dark:border-green-900 bg-green-50/60 dark:bg-green-950/60 p-3"
-          aria-label="快速跳到结果分类"
+          aria-label="跳到结果分类"
         >
           <p class="text-xs font-semibold text-green-900 dark:text-green-300">
             {{ listMessages.jumpToGroups }}
@@ -1403,7 +1436,7 @@ onBeforeUnmount(() => {
           <div class="flex items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
             <div>
               <p class="section-kicker">
-                按需要浏览
+                按需浏览
               </p>
               <h2
                 id="search-starting-points-heading"

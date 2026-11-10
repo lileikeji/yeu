@@ -86,7 +86,7 @@ export const checklistStages: ChecklistStage[] = [
     id: 'daily',
     label: '日常',
     title: '把校园生活跑顺',
-    description: '快递外卖、周边生活和社团招新可在报到后逐步了解。',
+    description: '快递外卖、周边生活、社团招新，报到后再看也不迟。',
     icon: 'i-lucide-store',
     tone: 'bg-orange-50 text-orange-700'
   },
@@ -246,7 +246,7 @@ export const checklistItems: ChecklistItem[] = [
   {
     id: 'dorm-repair-channel',
     stageId: 'first-week',
-    title: '了解宿舍报修入口',
+    title: '找宿舍报修入口',
     description: '水电门窗等问题先记上报修渠道，避免临时找不到人。',
     to: '/procedures',
     icon: 'i-lucide-wrench',
@@ -268,7 +268,7 @@ export const checklistItems: ChecklistItem[] = [
   {
     id: 'nearby-life',
     stageId: 'daily',
-    title: '了解周边餐饮与生活服务',
+    title: '看周边餐饮与生活服务',
     description: '学生街、便利和常用商铺可按需浏览，先确认位置和是否营业再去。',
     to: '/nearby',
     icon: 'i-lucide-store',
@@ -278,7 +278,7 @@ export const checklistItems: ChecklistItem[] = [
   {
     id: 'club-recruit',
     stageId: 'daily',
-    title: '了解社团与招新安排',
+    title: '看社团与招新安排',
     description: '招新时间以当年通知为准；可先按兴趣浏览社团方向。',
     to: '/clubs',
     icon: 'i-lucide-users-round',
@@ -290,7 +290,7 @@ export const checklistItems: ChecklistItem[] = [
     id: 'department-contacts',
     stageId: 'daily',
     title: '收藏常用部门入口',
-    description: '招生、教务、学生事务等部门入口可在需要时快速找到。',
+    description: '招生、教务、学生事务的电话和办公地点。',
     to: '/departments',
     icon: 'i-lucide-landmark',
     audience: [...allFreshmen],

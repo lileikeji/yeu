@@ -70,9 +70,57 @@ test('public read APIs only enable short caching after successful data preparati
       assert.doesNotMatch(source, /'Cache-Control': 'public,/)
       continue
     }
+    if (normalizedPath === 'notices/index.get.ts') {
+      // 2026-11-10：改成「数据准备好之后再给 30 秒私有缓存」——
+      // 响应里有按访客计算的 confirmed，不能上 CDN（setPublicCache 自带 s-maxage=0），
+      // 但也不必连浏览器自己的前进/后退都重新打接口。错误路径在执行中抛出，
+      // 到不了 setPublicCache，所以仍然是「只缓存成功响应」。
+      assert.doesNotMatch(source, /'Cache-Control': 'public,/)
+      assert.doesNotMatch(source, /setHeader\(event, 'Cache-Control', 'no-store'\)/)
+      assert.ok(source.indexOf('setPublicCache(event, 30)') >= 0, `${relativePath} must cache for 30s`)
+      assert.ok(
+        source.indexOf('setPublicCache(event, 30)') > source.indexOf('listPublicNotices('),
+        `${relativePath} must cache only after the data is prepared`
+      )
+      continue
+    }
+    if (normalizedPath === 'evidence/[claimId].get.ts') {
+      // 证据链是只读的已发布结论，按 claimId 命中后可以给 5 分钟私有缓存；
+      // 404 在执行中抛出，走不到 setPublicCache，所以缓存只覆盖成功响应。
+      assert.doesNotMatch(source, /'Cache-Control': 'public,/)
+      assert.doesNotMatch(source, /setHeader\(event, 'Cache-Control', 'no-store'\)/)
+      assert.ok(source.indexOf('setPublicCache(event, 300)') >= 0, `${relativePath} must cache for 300s`)
+      assert.ok(
+        source.indexOf('setPublicCache(event, 300)') > source.indexOf('getClaimEvidence('),
+        `${relativePath} must cache only after the evidence is loaded`
+      )
+      continue
+    }
+    if (normalizedPath === 'feedback/receipt/[code].get.ts') {
+      // 回执状态会随处理进展变化，缓存窗口压到 60 秒；未命中直接 404 不缓存。
+      assert.doesNotMatch(source, /'Cache-Control': 'public,/)
+      assert.doesNotMatch(source, /setHeader\(event, 'Cache-Control', 'no-store'\)/)
+      assert.ok(source.indexOf('setPublicCache(event, 60)') >= 0, `${relativePath} must cache for 60s`)
+      assert.ok(
+        source.indexOf('setPublicCache(event, 60)') > source.indexOf('getFeedbackByReceiptCode('),
+        `${relativePath} must cache only after the receipt is loaded`
+      )
+      continue
+    }
+    if (normalizedPath === 'bus/eta.get.ts') {
+      // 站间区间同一份实测样本对所有人相同，可以上 CDN 60 秒；
+      // 参数非法时在执行中抛 400，走不到 setPublicCache，所以缓存只覆盖成功响应。
+      assert.doesNotMatch(source, /'Cache-Control': 'public,/)
+      assert.doesNotMatch(source, /setHeader\(event, 'Cache-Control', 'no-store'\)/)
+      assert.ok(source.indexOf('setPublicCache(event, 60)') >= 0, `${relativePath} must cache for 60s`)
+      assert.ok(
+        source.indexOf('setPublicCache(event, 60)') > source.indexOf('buildBusSegmentProfile('),
+        `${relativePath} must cache only after the profile is built`
+      )
+      continue
+    }
     if (
-      normalizedPath === 'notices/index.get.ts'
-      || normalizedPath === 'track/stats.get.ts'
+      normalizedPath === 'track/stats.get.ts'
       || normalizedPath === 'competition/register/queue.get.ts'
     ) {
       assert.ok(initialNoStore >= 0, `${relativePath} must start with no-store`)

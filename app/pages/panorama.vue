@@ -47,7 +47,7 @@ const tours: PanoramaTour[] = [
     eyebrow: '再了解学校',
     title: '走进校史馆',
     shortTitle: '校史馆',
-    description: '这是学校发布的 VR 校史馆，沿着展厅往前看，了解学校从筹建到现在的办学历程。',
+    description: '学校发布的 VR 校史馆，沿着展厅往前看，从筹建到现在的办学历程都在里面。',
     detail: '可以切换前言、艰苦筹建、学校初创、教育改革、开放办学、校友风采等展厅，展板也能放大看；本站只提供入口，不复制校史馆全景内容。',
     url: OFFICIAL_HISTORY_VR_URL,
     sourceUrl: OFFICIAL_HISTORY_VR_URL,
@@ -168,7 +168,7 @@ onMounted(() => {
             大门、教学楼、宿舍，<br>先看看长什么样
           </h1>
           <p class="mt-4 max-w-2xl text-sm leading-7 text-white/80 md:text-base">
-            想认路就先逛校内实景，想了解学校故事再去校史馆。电脑和手机都能拖动画面，不用下载 App。
+            想认路就先逛校内实景，想了解学校故事再去校史馆。电脑和手机都能拖动，不用装 App。
           </p>
 
           <div class="mt-5 flex flex-wrap gap-3">

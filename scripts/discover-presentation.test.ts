@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -29,19 +29,23 @@ test('discover page is a thin shell over discover-presentation util', () => {
 })
 
 test('discover catalogs stay student-facing', () => {
-  assert.equal(discoverTaskEntries.length, 14)
+  assert.equal(discoverTaskEntries.length, 16)
   assert.equal(discoverTaskEntries[0]?.title, '新生清单')
   assert.equal(discoverTaskEntries[0]?.to, '/checklist')
-  assert.equal(discoverTaskEntries[2]?.title, '学费与资助')
-  assert.equal(discoverTaskEntries[2]?.to, '/guides/fees-aid')
+  assert.equal(discoverTaskEntries[2]?.title, '从车站到宿舍')
+  assert.equal(discoverTaskEntries[2]?.to, '/arrival')
+  assert.equal(discoverTaskEntries[3]?.title, '到校与离校')
+  assert.equal(discoverTaskEntries[3]?.to, '/transport')
+  assert.equal(discoverTaskEntries[4]?.title, '学费与资助')
+  assert.equal(discoverTaskEntries[4]?.to, '/guides/fees-aid')
   assert.equal(
     discoverTaskEntries.find(item => item.title === '军训安排（暂定）')?.to,
     '/campus#military-training'
   )
-  assert.equal(discoverTaskEntries[5]?.title, '食堂在哪里')
-  assert.equal(discoverTaskEntries[5]?.to, '/guides/find-campus#dining')
-  assert.match(discoverTaskEntries[5]?.description ?? '', /东苑、北苑和西苑餐厅/)
-  assert.match(discoverTaskEntries[5]?.description ?? '', /先看.*说明，再去地图找位置/)
+  assert.equal(discoverTaskEntries[7]?.title, '食堂在哪里')
+  assert.equal(discoverTaskEntries[7]?.to, '/guides/find-campus#dining')
+  assert.match(discoverTaskEntries[7]?.description ?? '', /东苑、北苑和西苑餐厅/)
+  assert.match(discoverTaskEntries[7]?.description ?? '', /先看.*说明，再去地图找位置/)
   assert.ok(discoverTaskEntries.some(item => (
     item.title === '军训安排（暂定）'
     && item.when === '12 月 13—26 日'
@@ -53,10 +57,10 @@ test('discover catalogs stay student-facing', () => {
   assert.ok(discoverTaskEntries.some(item => item.title === '宿舍实拍' && item.to === '/dorms'))
   assert.ok(discoverTaskEntries.some(item => item.to === '/map?category=express'))
   assert.ok(discoverTaskEntries.some(item => item.description === '查看校园网、校外访问和图书馆登录说明'))
-  assert.equal(discoverDirectoryEntries.length, 4)
+  assert.equal(discoverDirectoryEntries.length, 6)
   assert.deepEqual(
     discoverDirectoryEntries.map(item => item.title),
-    ['全部指南', '校园概览', '校内部门', '学生社团']
+    ['全部指南', '校园概览', '赛事与招新', '校内部门', '学生社团', '查专业']
   )
   assert.equal(discoverDirectoryEntries.some(item => item.to === '/checklist' || item.to === '/map' || item.to === '/search'), false)
   assert.match(pageSource, /to="\/search"/)
@@ -85,9 +89,9 @@ test('discover task preview keeps the mobile page manageable', () => {
   assert.equal(discoverTaskPreviewLimit, 6)
   const collapsed = buildDiscoverTaskPreview(discoverTaskEntries, false)
   assert.equal(collapsed.items.length, 6)
-  assert.equal(collapsed.hiddenCount, 8)
+  assert.equal(collapsed.hiddenCount, 10)
   const expanded = buildDiscoverTaskPreview(discoverTaskEntries, true)
-  assert.equal(expanded.items.length, 14)
+  assert.equal(expanded.items.length, 16)
   assert.equal(expanded.hiddenCount, 0)
   assert.match(pageSource, /grid grid-cols-2 gap-2\.5 sm:gap-3/)
   assert.match(pageSource, /min-h-20 items-center gap-2\.5[\s\S]*sm:min-h-24 sm:gap-3/)

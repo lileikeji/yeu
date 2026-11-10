@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ApiProcedure } from '~~/shared/types/server'
+import { formatOfflineSnapshotTime, useOfflineSnapshot } from '~/composables/useOfflineSnapshot'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
@@ -33,13 +35,32 @@ import {
   studentFacingProcedureTitle,
   toggleProcedureStep
 } from '~~/app/utils/procedure-detail-presentation'
+import {
+  describeProcedureWindow,
+  procedureWindowBadgeColor,
+  procedureWindowStateLabels,
+  resolveProcedureWindowBySlug
+} from '~~/app/utils/procedure-window'
 
 const route = useRoute()
 const router = useRouter()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
-const { data: procedure, error } = await usePublicProcedure(slug)
+const { data: procedure, stale, savedAt, error } = await useOfflineSnapshot<ApiProcedure>(
+  `procedure:${slug}`,
+  loadProcedurePayload
+)
 if (error.value) throwPublicDetailError(error.value, '办事流程')
 if (!procedure.value) throw createError({ statusCode: 404, statusMessage: '办事流程不存在' })
+
+async function loadProcedurePayload(): Promise<ApiProcedure> {
+  const payload = await $fetch<ApiProcedure>(`/api/public/procedures/${encodeURIComponent(slug)}`)
+  // 服务端照旧过一遍公开字段清洗；客户端原样用，别把展示层工具带进客户端包。
+  if (import.meta.client) return payload
+  const { sanitizePublicProcedure } = await import('~/utils/public-api-presentation')
+  return sanitizePublicProcedure(payload)
+}
+
+const offlineSavedAtLabel = computed(() => formatOfflineSnapshotTime(savedAt.value))
 
 useSeoMeta({
   title: () => studentFacingProcedureTitle(procedure.value?.title ?? '办事流程'),
@@ -76,6 +97,15 @@ const detailSources = computed(() => buildProcedureDetailSources(procedure.value
 const officialSourceHref = computed(() => safeExternalHref(
   resolveProcedureOfficialSource(detailSources.value)?.url
 ))
+const procedureWindowNow = useState('procedure-window-now', () => Date.now())
+const procedureWindow = computed(() => resolveProcedureWindowBySlug(procedure.value?.slug ?? slug))
+const procedureWindowDescription = computed(() => describeProcedureWindow(
+  procedureWindow.value,
+  procedureWindowNow.value
+))
+const procedureWindowHref = computed(() => safeExternalHref(procedureWindow.value?.sourceUrl))
+const procedureWindowVisible = computed(() => Boolean(procedureWindow.value)
+  && procedureWindowDescription.value.state !== 'unknown')
 
 const completedStepIds = ref<string[]>([])
 const packedMaterialIds = ref<string[]>([])
@@ -263,6 +293,35 @@ watch(selectedAudience, (value) => {
               />
               <span><strong class="font-semibold text-zinc-800 dark:text-zinc-100">目前：</strong>{{ studentFacingProcedureText(procedure.statusText) }}</span>
             </p>
+            <div
+              v-if="procedureWindowVisible"
+              class="mt-4 max-w-2xl"
+            >
+              <div class="flex flex-wrap items-center gap-2">
+                <UBadge
+                  :color="procedureWindowBadgeColor(procedureWindowDescription.tone)"
+                  variant="soft"
+                >
+                  {{ procedureWindowStateLabels[procedureWindowDescription.state] }}
+                </UBadge>
+                <span class="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                  <strong class="font-semibold text-zinc-800 dark:text-zinc-100">{{ procedureWindow?.label }}：</strong>{{ procedureWindowDescription.text }}
+                </span>
+              </div>
+              <a
+                v-if="procedureWindowHref"
+                :href="procedureWindowHref"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="mt-1 inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:underline dark:text-green-400"
+              >
+                以学校通知为准
+                <UIcon
+                  name="i-lucide-external-link"
+                  class="size-3.5"
+                />
+              </a>
+            </div>
             <UButton
               v-if="officialSourceHref"
               :to="officialSourceHref"
@@ -331,6 +390,19 @@ watch(selectedAudience, (value) => {
 
     <div class="page-shell py-7 md:py-10">
       <div class="mx-auto min-w-0 max-w-4xl">
+        <div
+          v-if="stale"
+          role="status"
+          class="surface-panel mb-5 flex items-start gap-2.5 px-3.5 py-2.5 text-sm text-zinc-600 dark:text-zinc-300"
+        >
+          <UIcon
+            name="i-lucide-cloud-off"
+            class="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+          />
+          <p>
+            现在连不上网，下面是你上次打开时保存的内容（{{ offlineSavedAtLabel }}）。学校通知可能有更新，恢复网络后刷新一次。
+          </p>
+        </div>
         <section class="border-l-2 border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-4 py-3 text-sm leading-6 text-orange-950 dark:text-orange-100">
           <div class="flex items-start gap-2">
             <UIcon
@@ -364,7 +436,7 @@ watch(selectedAudience, (value) => {
                 v-if="visibleMaterials.length"
                 class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
               >
-                点一下就能标记已备齐，只保存在这台设备上。
+                点一下标记为已备齐，只保存在这台设备上。
               </p>
             </div>
             <div class="flex flex-wrap items-center justify-end gap-2">

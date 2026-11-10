@@ -33,7 +33,6 @@ interface PublicPlaceReviewsPayload {
   reviews: PublicReviewView[]
   mine: { submitted: boolean, status: 'pending' | 'approved' | 'rejected' | null }
   seedCount: number
-  promo: { meituanUrl: string | null, qrCodeUrl: string | null, promoWeight: number, aiFrequency: number, clickCount7d: number, clickCount30d: number } | null
 }
 
 interface PlaceReviewTrackView {
@@ -223,7 +222,9 @@ async function copyTrackCode(): Promise<void> {
   try {
     await navigator.clipboard.writeText(lastTrackCode.value)
     trackCopied.value = true
-    setTimeout(() => { trackCopied.value = false }, 2000)
+    setTimeout(() => {
+      trackCopied.value = false
+    }, 2000)
   } catch {
     // 剪贴板不可用（如非安全上下文）时静默，用户仍可手动抄码
   }
@@ -280,7 +281,6 @@ function handleLikeClick(review: PublicReviewView): void {
   }
   void toggleLike(review)
 }
-
 
 const mineStatusText = computed<string | null>(() => {
   const mine = payload.value?.mine
@@ -361,8 +361,6 @@ const mineStatusText = computed<string | null>(() => {
               {{ sourceLabel }}
             </span>
           </div>
-
-
         </div>
 
         <!-- 排序切换 -->
@@ -476,7 +474,7 @@ const mineStatusText = computed<string | null>(() => {
           v-if="payload.seedCount > 0 && !payload.reviews.some(r => r.source === 'user')"
           class="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500"
         >
-          以上为整理评价，也欢迎你写下真实到店体验。
+          以上为整理评价，也可以写下到店体验。
         </p>
 
         <!-- 我的评价状态 -->

@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
           之前看过的常用页面
         </h2>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          如果你之前打开过这些页面，现在可能还能查看。日期和地点仍要等联网后重新确认。
+          之前打开过的页面现在可能还能看；日期和地点等联网后再确认。
         </p>
         <div class="mt-4 grid gap-2 sm:grid-cols-3">
           <UButton

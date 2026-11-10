@@ -48,7 +48,7 @@ const sourceToneClasses: Record<SourceTone, {
 
 useSeoMeta({
   title: '信息从哪里来',
-  description: '了解迎新指南引用的参考页面，以及新生查看不同消息时应该注意什么。'
+  description: '本站引用了哪些页面，看不同消息时该核对什么。'
 })
 
 const sourceQuery = ref('')
@@ -220,7 +220,7 @@ async function refreshSources(): Promise<void> {
             不同消息，适合用在不同地方
           </h2>
           <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-            同一件事可能同时出现在官网、群聊和地图上。下面四类提醒可以帮你快速决定先看哪一个。
+            同一件事可能同时出现在官网、群聊和地图上。下面四类提醒，用来决定先看哪一个。
           </p>
         </div>
 
@@ -261,7 +261,7 @@ async function refreshSources(): Promise<void> {
           地图怎么用
         </p>
         <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
-          地图边界只帮助你辨认方向
+          地图边界只用来辨认方向
         </h2>
         <div class="mt-4 grid gap-5 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:grid-cols-2">
           <p>
@@ -472,7 +472,7 @@ async function refreshSources(): Promise<void> {
           {{ sourceFilterActive ? sourceListMessages.emptyMatch : sourceListMessages.emptyList }}
         </h3>
         <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          {{ sourceFilterActive ? '换个学校、部门或信息名称试试。' : '可以先从各篇指南中查看对应通知和链接。' }}
+          {{ sourceFilterActive ? '换个学校、部门或信息名称试试。' : '各篇指南里都有对应的通知和链接。' }}
         </p>
         <div class="mt-5 flex flex-wrap justify-center gap-2">
           <UButton

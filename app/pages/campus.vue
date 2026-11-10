@@ -28,7 +28,7 @@ import { safeNoticeActionHref } from '~~/shared/utils/notice-actions'
 
 useSeoMeta({
   title: '校园与部门',
-  description: '快速了解校园，找到新生常用部门和学生社团入口。'
+  description: '校园地图、常用部门、学生社团入口。'
 })
 
 const { data: publicContentResponse, error: publicContentError, refresh } = await usePublicContentList()
@@ -178,7 +178,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           </div>
         </div>
         <nav
-          aria-label="校园概览快速入口"
+          aria-label="校园概览入口"
           class="mt-6 grid grid-cols-2 gap-2 sm:flex"
         >
           <a

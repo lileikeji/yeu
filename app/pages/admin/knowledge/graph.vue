@@ -511,7 +511,7 @@ onBeforeUnmount(() => {
     <AdminPageHeader
       class="graph-page-intro"
       title="数字山水知识图谱"
-      description="把站内知识、官网正文和网页资料放在同一张可探索的知识地图里。"
+      description="站内知识、官网正文和网页资料，按主题连成一张图。"
       icon="i-lucide-git-fork"
       eyebrow="知识库"
     >

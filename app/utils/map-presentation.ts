@@ -129,7 +129,7 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
       : [
           '这个地点会在学校平面图中标出，方便按编号找方向；这里不能直接导航。',
           '到校后请再看楼名、门牌或现场指引，确认具体入口。',
-          '如果你知道准确入口，可以提交位置纠错。'
+          '知道准确入口的话，可以提交位置纠错。'
         ]
 
   if (poi.category === 'express') {

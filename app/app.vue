@@ -18,7 +18,7 @@ useHead({
 
 useSeoMeta({
   titleTemplate: title => title ? `${title} | 迎新指南` : '迎新指南',
-  description: '新生报到、宿舍、校园地图、办事流程与校园生活信息，一处快速查找。',
+  description: '新生报到、宿舍、校园地图、办事流程和生活信息，按入学当天的顺序排好。',
   ogTitle: '迎新指南｜报到、地图与校园生活',
   ogDescription: '查报到时间、宿舍、校园地图、办事流程和新生常见问题。',
   ogSiteName: '迎新指南',

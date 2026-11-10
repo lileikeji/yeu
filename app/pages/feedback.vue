@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ApiFeedbackReceipt } from '~~/shared/types/server'
 import type { FeedbackTargetType } from '~~/shared/constants/server'
 import { safeLocalPath } from '~/utils/safe-navigation'
 import {
@@ -7,6 +8,7 @@ import {
   createEmptyFeedbackFormState,
   feedbackMessageNeedsMoreDetail,
   feedbackPageContextCopy,
+  feedbackReceiptStatusCopy,
   feedbackReasonOptions,
   resolveFeedbackFormCopy,
   resolveFeedbackReasonType,
@@ -55,6 +57,14 @@ const website = ref('')
 const submitting = ref(false)
 const submitted = ref(false)
 
+// 回执号：提交成功后立刻给到用户，之后任何时候都能拿它回来查处理进度。
+const receiptCode = ref('')
+const receiptCopied = ref(false)
+const receiptLookupCode = ref(feedbackRouteQueryString(route.query.receipt).trim().toUpperCase())
+const receiptLookupResult = ref<ApiFeedbackReceipt | null>(null)
+const receiptLookupError = ref('')
+const receiptLookupLoading = ref(false)
+
 useSeoMeta({
   title: () => formCopy.value.metaTitle,
   description: () => formCopy.value.metaDescription,
@@ -69,7 +79,7 @@ async function submitFeedback() {
   submitting.value = true
 
   try {
-    await $fetch('/api/public/feedback', {
+    const result = await $fetch<{ receiptCode?: string }>('/api/public/feedback', {
       method: 'POST',
       body: buildFeedbackSubmitBody({
         targetType: targetType.value,
@@ -82,6 +92,8 @@ async function submitFeedback() {
         website: website.value
       })
     })
+    receiptCode.value = typeof result?.receiptCode === 'string' ? result.receiptCode : ''
+    receiptCopied.value = false
     submitted.value = true
   } catch {
     toast.add({
@@ -102,7 +114,48 @@ function resetForm() {
   contact.value = empty.contact
   website.value = empty.website
   submitted.value = empty.submitted
+  receiptCode.value = ''
+  receiptCopied.value = false
 }
+
+async function copyReceiptCode(code: string) {
+  if (!code) return
+  try {
+    await navigator.clipboard.writeText(code)
+    receiptCopied.value = true
+    toast.add({ title: '回执号已复制', color: 'success' })
+  } catch {
+    toast.add({ title: '复制没成功', description: `请手动记下：${code}`, color: 'warning' })
+  }
+}
+
+async function lookupReceipt() {
+  const code = receiptLookupCode.value.trim().toUpperCase()
+  receiptLookupError.value = ''
+  receiptLookupResult.value = null
+
+  if (!code) {
+    receiptLookupError.value = '请先填回执号，形如 YEU-7K3M2Q。'
+    return
+  }
+
+  receiptLookupLoading.value = true
+
+  try {
+    receiptLookupResult.value = await $fetch<ApiFeedbackReceipt>(
+      `/api/public/feedback/receipt/${encodeURIComponent(code)}`
+    )
+  } catch {
+    receiptLookupError.value = '没查到这条回执。请核对号码，或重新提交一次反馈。'
+  } finally {
+    receiptLookupLoading.value = false
+  }
+}
+
+/** 从回执链接进来时直接查一次，用户不用再点。 */
+onMounted(() => {
+  if (receiptLookupCode.value) void lookupReceipt()
+})
 </script>
 
 <template>
@@ -140,11 +193,40 @@ function resetForm() {
           <p class="mt-2 text-sm leading-6 text-green-800 dark:text-green-300">
             {{ formCopy.successDescription }}
           </p>
+          <div
+            v-if="receiptCode"
+            class="mx-auto mt-5 max-w-sm border border-green-300 dark:border-green-800 bg-white dark:bg-zinc-900 px-4 py-3 text-left"
+          >
+            <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              回执号（凭它随时查处理进度）
+            </p>
+            <div class="mt-1.5 flex items-center justify-between gap-3">
+              <code class="font-mono text-base font-bold tracking-wider text-zinc-950 dark:text-zinc-100">{{ receiptCode }}</code>
+              <UButton
+                icon="i-lucide-copy"
+                :label="receiptCopied ? '已复制' : '复制'"
+                size="sm"
+                color="neutral"
+                variant="outline"
+                @click="copyReceiptCode(receiptCode)"
+              />
+            </div>
+            <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              号码丢了也不要紧：同一个问题再提交一次，我们会合并处理。
+            </p>
+          </div>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <UButton
               to="/"
               icon="i-lucide-house"
               label="返回首页"
+            />
+            <UButton
+              icon="i-lucide-search"
+              label="查处理进度"
+              color="neutral"
+              variant="outline"
+              @click="receiptLookupCode = receiptCode; lookupReceipt()"
             />
             <UButton
               icon="i-lucide-plus"
@@ -378,6 +460,76 @@ function resetForm() {
             />
           </div>
         </form>
+
+        <div
+          id="receipt"
+          class="mt-8 scroll-mt-24 border-t border-[var(--line)] pt-6"
+        >
+          <h2 class="flex items-center gap-2 text-sm font-bold text-zinc-950 dark:text-zinc-100">
+            <UIcon
+              name="i-lucide-receipt-text"
+              class="size-4 text-green-700 dark:text-green-400"
+            />
+            查处理进度
+          </h2>
+          <p class="mt-1.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            填提交时拿到的回执号（形如 YEU-7K3M2Q），能看到这条反馈现在是处理中、已处理还是未采纳。
+          </p>
+          <form
+            class="mt-3 flex flex-col gap-2 sm:flex-row"
+            @submit.prevent="lookupReceipt"
+          >
+            <UInput
+              v-model="receiptLookupCode"
+              size="lg"
+              class="min-h-11 w-full sm:max-w-64"
+              :ui="{ base: 'min-h-11 font-mono uppercase' }"
+              icon="i-lucide-ticket"
+              placeholder="YEU-7K3M2Q"
+              autocomplete="off"
+              :maxlength="12"
+            />
+            <UButton
+              type="submit"
+              icon="i-lucide-search"
+              label="查询"
+              size="lg"
+              class="min-h-11 shrink-0"
+              :loading="receiptLookupLoading"
+            />
+          </form>
+
+          <p
+            v-if="receiptLookupError"
+            class="mt-3 text-xs leading-5 text-amber-700 dark:text-amber-400"
+            role="alert"
+          >
+            {{ receiptLookupError }}
+          </p>
+
+          <div
+            v-if="receiptLookupResult"
+            class="mt-3 border-l-2 border-green-600 bg-green-50 dark:bg-green-950 px-4 py-3"
+            role="status"
+          >
+            <div class="flex flex-wrap items-center gap-2">
+              <UBadge
+                :color="feedbackReceiptStatusCopy[receiptLookupResult.status].color"
+                variant="subtle"
+                :label="feedbackReceiptStatusCopy[receiptLookupResult.status].label"
+              />
+              <code class="font-mono text-xs font-bold text-zinc-950 dark:text-zinc-100">{{ receiptLookupResult.code }}</code>
+            </div>
+            <p class="mt-1.5 text-xs leading-5 text-green-900 dark:text-green-300">
+              {{ feedbackReceiptStatusCopy[receiptLookupResult.status].description }}
+            </p>
+            <p class="mt-1 text-xs text-green-800 dark:text-green-400">
+              提交于 {{ receiptLookupResult.submittedAt.slice(0, 10) }}<template v-if="receiptLookupResult.handledAt">
+                ，处理于 {{ receiptLookupResult.handledAt.slice(0, 10) }}
+              </template>
+            </p>
+          </div>
+        </div>
       </section>
 
       <aside class="order-first min-w-0 md:order-none">

@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import type { MapArea, MapPoi, MapBusRoute, MapSpeedBump, MapTransitVehicle } from '~~/map/core/types'
-import type {
-  ApiBusDeparturesResponse,
-  ApiBusLineDirection,
-  ApiBusLinesResponse,
-  ApiBusLiveResponse
-} from '~~/shared/types/server'
+import type { MapArea, MapPoi } from '~~/map/core/types'
 import type {
   MapBaseStyle,
   MapDisplayOptions,
@@ -13,9 +7,6 @@ import type {
   MapProvider,
   MapProviderId
 } from '~~/map/core/provider'
-import { wgs84ToGcj02 } from '~~/shared/utils/coordinate-convert'
-import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
-import { haversineMeters, snapToPolyline } from '~~/shared/utils/bus-route-progress'
 import { officialSources } from '~~/data/seeds/public-content'
 import { safeExternalHref } from '~/utils/safe-external-href'
 import { campusMapReferencePlaces } from '~~/data/seeds/preview-places'
@@ -23,62 +14,31 @@ import { amapImportedPlaces } from '~~/data/seeds/amap-imported-places'
 import { amapImportedAreas } from '~~/data/seeds/amap-imported-areas'
 import type { PublicMapPlace } from '~/utils/public-catalog'
 import { mergeAmapImportedPlacesWithDrafts, mergePublicMapPlaces } from '~/utils/public-catalog'
-import { createNativeMapPlace } from '~/utils/map-native-search'
 import { mapQueryValue, mapRouteScope } from '~/utils/map-route-state'
 import {
-  buildMapPlaceDetailsTarget,
-  buildMapPlaceFeedbackTarget,
-  buildMapPoiLocationCopyText,
-  buildMapPoiUseChecklist,
-  filterMapAreasForMapSearch,
-  filterMapAreasForProviderScope,
   filterOwnerMapPlacesInScope,
   filterPublicMapPlacesByScope,
-  filterPublicMapPlacesForMapList,
   formatMapAreaSquareMeters,
   formatMapPerimeter,
-  mapCategories,
-  mapCategoryIds,
   MAP_LOAD_ERROR_MESSAGE,
-  buildFilteredMapPois,
   canPlanMapWalkingRoute,
   defaultMapDisplayOptions,
   canShowOfficialCampusPlan,
   resolveMapViewModeSwitchDecision,
   resolveAutoSelectSearchDecision,
   resolveAutoSelectSearchApply,
-  resolveSelectAreaDecision,
-  resolveAreaSelectedDecision,
-  resolveClosePoiDetailsDecision,
-  resolveCloseAreaDetailsDecision,
-  resolveSetCategoryDecision,
-  resolveFitToVisiblePoisDecision,
   resolveSearchQueryChangeReset,
-  resolveInitialMapCategoryId,
   resolveInitialMapViewMode,
   resolveInitialSelectedMapPoiId,
-  resolveSelectPoiApplyDecision,
-  resolveMapPoiClickApply,
-  resolveSelectOfficialPlanNumberDecision,
-  shouldClearSelectedMapPoiOnListChange,
-  resolveMapCategoryIcon,
-  resolveMapCategoryLabel,
-  resolveMapDataLabel,
-  resolveMapFallbackMessage,
-  resolveMapPoiStatusText,
   resolveMapUnsupportedBaseStyleMessage,
   resolveMobileSheetAnchors,
   resolveMobileSheetHeightClass,
   resolveMobileSheetStateFromHeight,
-  resolveOfficialPlanNumber,
-  resolveSelectedMapPoiId,
-  resolveSelectedPublicMapPlace,
   toggleMapDisplayOption,
   withMapLabelSize,
   type MapDisplayToggleKey,
   type MobileSheetState
 } from '~~/app/utils/map-presentation'
-import { safeLocalPath } from '~/utils/safe-navigation'
 
 useSeoMeta({
   title: '校园地图',
@@ -90,9 +50,6 @@ const route = useRoute()
 // Temporarily keep the official floor-plan data available without exposing a
 // public entry point. Re-enable this switch when the plan is ready to return.
 const OFFICIAL_PLAN_ENTRY_VISIBLE = false
-const categories = mapCategories
-const categoryIds = mapCategoryIds
-const initialCategory = mapQueryValue(route.query.category)
 const initialPlace = mapQueryValue(route.query.place)
 const { data: publicPlaceResponse, error: publicPlaceError } = await usePublicPlaceList()
 const { data: amapOwnerDraftResponse } = await usePublicAmapOwnerDraftPlaces()
@@ -157,61 +114,46 @@ const mobileSheetStyle = computed(() => mobileSheetDragHeight.value === null
       height: `${mobileSheetDragHeight.value}px`,
       transition: 'none'
     })
-const mapDataLabel = computed(() => resolveMapDataLabel({
-  publishedCount: publishedPlacesInScope.value.length,
-  ownerMapCount: ownerMapPlacesInScope.value.length,
-  hasPublicPlaceError: Boolean(publicPlaceError.value),
-  activeScope: activeScope.value
-}))
-const mapFallbackMessage = computed(() => resolveMapFallbackMessage({
-  ownerMapCount: ownerMapPlacesInScope.value.length,
-  areaCount: filterMapAreasForProviderScope(amapImportedAreas, activeScope.value).length,
-  hasPublicPlaceError: Boolean(publicPlaceError.value),
-  activeScope: activeScope.value,
-  publishedCount: publishedPlacesInScope.value.length
-}))
 
 const mapElement = ref<HTMLElement | null>(null)
 const mapProvider = shallowRef<MapProvider | null>(null)
 const activeMapProviderId = ref<MapProviderId | null>(null)
 const mapStatus = ref<'loading' | 'ready' | 'error'>('loading')
 const mapErrorMessage = ref(MAP_LOAD_ERROR_MESSAGE)
-// 仅当 query 来自分享/直达链接时，首次列表就绪后自动定位一次；
-// 手动输入只更新列表，由用户点选后再定位。
-const deepLinkSearchQuery = mapQueryValue(route.query.q)
-const deepLinkAutoSelectFired = ref(false)
-const searchQuery = ref(deepLinkSearchQuery)
-// 中文输入法（拼音/手写）组词期间 value 是中间拼音，不能触发搜索/筛选。
-// 组词结束（compositionend）后按最终值提交一次。
-const searchIsComposing = ref(false)
-
-function commitSearchQuery(value: string): void {
-  searchIsComposing.value = false
-  searchQuery.value = value
-}
-
-function onSearchQueryInput(value: string): void {
-  if (searchIsComposing.value) return
-  searchQuery.value = value
-}
-
-function onSearchCompositionStart(): void {
-  searchIsComposing.value = true
-}
-
-function onSearchCompositionEnd(event: CompositionEvent): void {
-  const target = event.target as HTMLInputElement | null
-  commitSearchQuery(target?.value ?? searchQuery.value)
-}
-
-function clearSearchQuery(): void {
-  commitSearchQuery('')
-}
-const activeCategory = ref(resolveInitialMapCategoryId(initialCategory, categoryIds))
 const selectedPoiId = ref<string | null>(initialSelectedPoiId)
 const selectedArea = ref<MapArea | null>(null)
-const selectedAreaId = computed(() => selectedArea.value?.id ?? null)
 const selectedNativePlace = ref<PublicMapPlace | null>(null)
+const {
+  categories,
+  categoryIds,
+  deepLinkSearchQuery,
+  searchQuery,
+  activeCategory,
+  filteredPois,
+  filteredMapPois,
+  filteredAreas,
+  providerAreas,
+  mapDataLabel,
+  mapFallbackMessage,
+  onSearchQueryInput,
+  onSearchCompositionStart,
+  onSearchCompositionEnd,
+  clearSearchQuery,
+  setCategory,
+  fitToVisiblePois
+} = useMapFilter({
+  places,
+  activeScope,
+  publishedPlacesInScope,
+  ownerMapPlacesInScope,
+  hasPublicPlaceError: computed(() => Boolean(publicPlaceError.value)),
+  selectedPoiId,
+  selectedNativePlace,
+  selectedArea,
+  mapProvider
+})
+const deepLinkAutoSelectFired = ref(false)
+
 const toast = useToast()
 const manualStartPick = ref<{ destinationName: string, destination: MapPoi['point'] } | null>(null)
 const manualStartOpen = computed({
@@ -282,105 +224,64 @@ const {
   onResultsReady: maybeAutoSelectDeepLink
 })
 const { copyText, isWechat } = useShareActions()
-const poiRowElements = new Map<string, HTMLElement>()
 let lastAutoLocatedSearchKey = ''
 
-const filteredPois = computed(() => filterPublicMapPlacesForMapList(places.value, {
-  query: searchQuery.value,
-  activeScope: activeScope.value,
-  activeCategory: activeCategory.value
-}))
+const {
+  selectedPoi,
+  selectedMapPoiId,
+  selectedAreaId,
+  returnPath,
+  selectPoi,
+  clearPoi,
+  handlePoiSelected,
+  handleAreaSelected,
+  selectArea,
+  closeAreaDetails,
+  categoryLabel,
+  categoryIcon,
+  poiStatusText,
+  poiUseChecklist,
+  copyPoiLocation,
+  placeDetailsTarget,
+  placeFeedbackTarget,
+  selectedOfficialPlanNumber,
+  selectOfficialPlanNumber,
+  poiRowRef,
+  scrollToPoi
+} = useMapPoi({
+  places,
+  activeScope,
+  filteredPois,
+  filteredMapPois,
+  nativeSearchResults,
+  searchQuery,
+  activeCategory,
+  selectedPoiId,
+  selectedNativePlace,
+  selectedArea,
+  mapProvider,
+  mapViewMode,
+  canShowOfficialPlan,
+  mobileSheetState,
+  sidebarCollapsed,
+  copyText
+})
 
-const filteredMapPois = computed<MapPoi[]>(() => buildFilteredMapPois(filteredPois.value))
-const filteredAreas = computed(() => filterMapAreasForMapSearch(amapImportedAreas, {
-  query: searchQuery.value,
-  activeScope: activeScope.value
-}))
-const providerAreas = computed(() => filterMapAreasForProviderScope(amapImportedAreas, activeScope.value))
-const selectedMapPoiId = computed(() => resolveSelectedMapPoiId(filteredMapPois.value, selectedPoiId.value))
-
-const selectedPoi = computed(() => resolveSelectedPublicMapPlace({
-  places: places.value,
-  selectedNativePlace: selectedNativePlace.value,
-  nativeSearchResults: nativeSearchResults.value,
-  selectedPoiId: selectedPoiId.value
-}))
-watch([selectedPoi, selectedArea], ([poi, area]) => {
-}, { immediate: true })
-const returnPath = computed(() => safeLocalPath(route.query.from))
-
-function placeDetailsTarget(poi: PublicMapPlace) {
-  return buildMapPlaceDetailsTarget(poi, returnPath.value ?? route.fullPath)
+// 地点详情面板只挂一份：variant 跟着 md 断点切换，避免同一个地点把整棵面板渲染两遍。
+const PANEL_DESKTOP_MEDIA_QUERY = '(min-width: 768px)'
+const panelMediaQuery: MediaQueryList | null = import.meta.client
+  ? window.matchMedia(PANEL_DESKTOP_MEDIA_QUERY)
+  : null
+const panelIsDesktop = ref(panelMediaQuery?.matches ?? true)
+function syncPanelVariant(event?: MediaQueryListEvent): void {
+  panelIsDesktop.value = event ? event.matches : Boolean(panelMediaQuery?.matches)
 }
-
-function placeFeedbackTarget(poi: PublicMapPlace) {
-  return buildMapPlaceFeedbackTarget(poi, route.fullPath)
-}
-
-function copyPoiLocation(poi: PublicMapPlace): void {
-  void copyText(buildMapPoiLocationCopyText(poi), '地点信息')
-}
-
-function categoryLabel(categoryId: string) {
-  return resolveMapCategoryLabel(categoryId)
-}
-
-function categoryIcon(categoryId: string) {
-  return resolveMapCategoryIcon(categoryId)
-}
-
-function poiStatusText(poi: PublicMapPlace) {
-  return resolveMapPoiStatusText(poi)
-}
-
-function poiUseChecklist(poi: PublicMapPlace): string[] {
-  return buildMapPoiUseChecklist(poi)
-}
-
-function handlePoiSelected(poi: MapPoi | null) {
-  const selected = poi?.source === 'amap-native'
-    ? createNativeMapPlace(poi, activeScope.value)
-    : null
-  const decision = resolveMapPoiClickApply({
-    poi,
-    nativePlace: selected
-  })
-  if (decision.clearArea) {
-    selectedArea.value = null
-    mapProvider.value?.setSelectedArea(null)
-  }
-  selectedNativePlace.value = decision.selectedNativePlace
-  selectedPoiId.value = decision.selectedPoiId
-  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
-  // On mobile, free the bottom list sheet so the floating place card can show over the map.
-  if (decision.selectedPoiId) {
-    mobileSheetState.value = 'collapsed'
-  }
-
-  if (decision.expandSidebarAndScroll && decision.scrollToPoiId) {
-    sidebarCollapsed.value = false
-    void nextTick(() => poiRowElements.get(decision.scrollToPoiId!)?.scrollIntoView({ block: 'nearest' }))
-  }
-}
-
-function handleAreaSelected(area: MapArea | null): void {
-  const decision = resolveAreaSelectedDecision(area)
-  selectedArea.value = decision.selectedArea
-  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
-  if (decision.clearSelectedPoi) {
-    selectedPoiId.value = null
-    mapProvider.value?.setSelectedPoi(null)
-  }
-}
-
-function selectArea(area: MapArea): void {
-  const decision = resolveSelectAreaDecision(area)
-  selectedPoiId.value = decision.selectedPoiId
-  selectedNativePlace.value = decision.selectedNativePlace
-  selectedArea.value = decision.selectedArea
-  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
-  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
-}
+onMounted(() => {
+  panelMediaQuery?.addEventListener('change', syncPanelVariant)
+})
+onBeforeUnmount(() => {
+  panelMediaQuery?.removeEventListener('change', syncPanelVariant)
+})
 
 function toggleDisplayOption(option: MapDisplayToggleKey): void {
   mapDisplayOptions.value = toggleMapDisplayOption(mapDisplayOptions.value, option)
@@ -404,56 +305,6 @@ function formatAreaSquareMeters(value: number | null): string {
 
 function formatPerimeter(value: number | null): string {
   return formatMapPerimeter(value)
-}
-
-function setPoiRowElement(id: string, element: unknown) {
-  if (element instanceof HTMLElement) {
-    poiRowElements.set(id, element)
-    return
-  }
-
-  poiRowElements.delete(id)
-}
-
-function poiRowRef(id: string) {
-  return (element: unknown) => setPoiRowElement(id, element)
-}
-
-function selectPoi(poi: PublicMapPlace) {
-  const decision = resolveSelectPoiApplyDecision({
-    poi,
-    mobileSheetState: mobileSheetState.value,
-    mapViewMode: mapViewMode.value,
-    canShowOfficialPlan: canShowOfficialPlan.value
-  })
-  selectedArea.value = decision.selectedArea
-  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
-  selectedNativePlace.value = decision.selectedNativePlace
-  selectedPoiId.value = decision.selectedPoiId
-  // 手机端只要有选中地点就收起面板，让地图露出来；别回到半屏。
-  mobileSheetState.value = window.innerWidth < 768 && decision.mobileSheetState === 'half'
-    ? 'collapsed'
-    : decision.mobileSheetState
-  mapViewMode.value = decision.mapViewMode
-  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
-  // Opening the desktop details panel changes the settled map layout even
-  // though the sidebar remains in the same grid column. AMap can keep the
-  // previous viewport after the immediate camera move, leaving a blank strip
-  // on wide screens. Resize before and after the camera update.
-  if (decision.mapViewMode === 'geographic') {
-    mapProvider.value?.resize()
-  }
-  if (decision.flyAction === 'fly-to-point' && poi.point) {
-    mapProvider.value?.flyToPoint(poi.point, 18)
-  } else if (decision.flyAction === 'fly-to-poi') {
-    mapProvider.value?.flyToPoi(poi.id)
-  }
-  if (decision.mapViewMode === 'geographic' && typeof window !== 'undefined') {
-    void nextTick(() => {
-      mapProvider.value?.resize()
-      window.requestAnimationFrame(() => mapProvider.value?.resize())
-    })
-  }
 }
 
 function setMapViewMode(nextMode: 'geographic' | 'official-plan') {
@@ -516,37 +367,12 @@ function autoSelectSearchResult(): void {
     selectPoi(apply.target)
     if (apply.scrollToPoiId) {
       const scrollToPoiId = apply.scrollToPoiId
-      void nextTick(() => poiRowElements.get(scrollToPoiId)?.scrollIntoView({ block: 'nearest' }))
+      void nextTick(() => scrollToPoi(scrollToPoiId))
     }
     return
   }
 
   selectArea(apply.targetArea)
-}
-function selectedOfficialPlanNumber(poi: PublicMapPlace | null): string | null {
-  return resolveOfficialPlanNumber(poi)
-}
-
-function selectOfficialPlanNumber(mapNumber: string): void {
-  const decision = resolveSelectOfficialPlanNumberDecision(places.value, mapNumber)
-  if (!decision) return
-  searchQuery.value = decision.searchQuery
-  activeCategory.value = decision.activeCategory
-  sidebarCollapsed.value = decision.sidebarCollapsed
-  selectPoi(decision.poi)
-}
-
-function closePoiDetails() {
-  const decision = resolveClosePoiDetailsDecision()
-  selectedPoiId.value = decision.selectedPoiId
-  selectedNativePlace.value = decision.selectedNativePlace
-  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
-}
-
-function closeAreaDetails(): void {
-  const decision = resolveCloseAreaDetailsDecision()
-  selectedArea.value = decision.selectedArea
-  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
 }
 
 function mobileSheetAnchors() {
@@ -603,26 +429,6 @@ function handleMobileSheetPointerMove(event: PointerEvent): void {
   event.preventDefault()
 }
 
-function setCategory(categoryId: string) {
-  const decision = resolveSetCategoryDecision(categoryId)
-  activeCategory.value = decision.activeCategory
-  selectedPoiId.value = decision.selectedPoiId
-  selectedNativePlace.value = decision.selectedNativePlace
-  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
-}
-
-function fitToVisiblePois() {
-  const decision = resolveFitToVisiblePoisDecision()
-  selectedPoiId.value = decision.selectedPoiId
-  selectedNativePlace.value = decision.selectedNativePlace
-  selectedArea.value = decision.selectedArea
-  mapProvider.value?.setSelectedPoi(decision.providerSelectedPoiId)
-  mapProvider.value?.setSelectedArea(decision.providerSelectedAreaId)
-  if (decision.shouldFitToPois) {
-    mapProvider.value?.fitToPois()
-  }
-}
-
 // 只在「从空到有」的那一次重置面板；逐字输入时不再改面板状态，否则手机端每敲一个字布局就跳一次。
 let searchWasEmpty = !searchQuery.value.trim()
 watch(searchQuery, (value) => {
@@ -666,17 +472,6 @@ const { mountMap } = useMapProviderLifecycle({
   }
 })
 
-watch(filteredPois, (pois) => {
-  if (shouldClearSelectedMapPoiOnListChange({
-    selectedPoiId: selectedPoiId.value,
-    filteredPlaces: pois,
-    nativeSearchResults: nativeSearchResults.value,
-    selectedNativePlaceId: selectedNativePlace.value?.id
-  })) {
-    closePoiDetails()
-  }
-}, { immediate: true })
-
 const { cancelMapRouteSync } = useMapRouteSync({
   categoryIds,
   places,
@@ -689,476 +484,45 @@ const { cancelMapRouteSync } = useMapRouteSync({
   selectedPoiId,
   selectedArea,
   selectedAreaId,
-  scrollToPoi: id => poiRowElements.get(id)?.scrollIntoView({ block: 'nearest' })
+  scrollToPoi
 })
 
-// 校车图层：路线 + 起终点 + 实时车位置（云一卡通 5s 轮询）；快照数据喂掌上公交面板
-const busSelectedRouteId = ref('')
-const { routes: busRoutes, buses: busVehicles, fetchedAt: busFetchedAt } = useMapBusPositions({ mapProvider, activeRouteId: busSelectedRouteId })
-// 手机竖屏默认收起：展开时是全屏浮层，会把地图和搜索框一起盖住。
-const busPanelOpen = ref(typeof window === 'undefined' ? true : window.innerWidth >= 768)
-
-// 校外公交（K2/K6）：默认打开，静态快照，独立图层，不跟校车轮询重绘，也不影响校内校车线路
-const transitLinesOpen = ref(false)
-const transitPanelOpen = ref(false)
-const transitLoading = ref(false)
-const transitRoutes = shallowRef<MapBusRoute[]>([])
-const transitDirections = shallowRef<ApiBusLineDirection[]>([])
-const transitFetchedAt = ref<string | null>(null)
-const transitLive = shallowRef<ApiBusLiveResponse | null>(null)
-const transitDepartures = shallowRef<ApiBusDeparturesResponse | null>(null)
-const transitLiveError = ref('')
-/** 校园减速带：与校车 ETA 同一份数据，单独一层图标。 */
-const speedBumpPoints: MapSpeedBump[] = CAMPUS_SPEED_BUMPS.map(bump => ({
-  id: `bump-${bump.id}`,
-  label: String(bump.id),
-  point: { lng: bump.lng, lat: bump.lat, crs: 'WGS84' as const }
-}))
-const speedBumpsVisible = ref(true)
-/** 底图自带 POI 注记默认关掉：只剩项目自己的建筑图标，画面才不糊。 */
-const basemapLabelsVisible = ref(false)
-
-/**
- * 减速带标点压到车行道中心：原始点位是现场标的，偏移几米就会浮在路外。
- * 按当前校车折线取最近点（25 米内才吸），没有折线时用原点位。
- */
-function snappedSpeedBumps(): MapSpeedBump[] {
-  const lines = busRoutes.value
-    .map(route => (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat })))
-    .filter(line => line.length >= 2)
-  if (!lines.length) return speedBumpPoints
-  return speedBumpPoints.map((bump) => {
-    let best: { point: { lng: number, lat: number }, offsetMeters: number } | null = null
-    for (const line of lines) {
-      const snapped = snapToPolyline({ lng: bump.point.lng, lat: bump.point.lat }, line)
-      if (snapped && (!best || snapped.offsetMeters < best.offsetMeters)) best = snapped
-    }
-    if (!best || best.offsetMeters > 25) return bump
-    return { ...bump, point: { ...bump.point, lng: best.point.lng, lat: best.point.lat } }
-  })
-}
-
-function applySpeedBumps(provider = mapProvider.value): void {
-  provider?.setSpeedBumps?.(speedBumpsVisible.value ? snappedSpeedBumps() : [])
-  provider?.setBasemapLabels?.(basemapLabelsVisible.value)
-}
-
-function applyBasemapLabels(): void {
-  mapProvider.value?.setBasemapLabels?.(basemapLabelsVisible.value)
-}
-
-watch(basemapLabelsVisible, () => applyBasemapLabels())
-
-function toggleBasemapLabels(): void {
-  basemapLabelsVisible.value = !basemapLabelsVisible.value
-}
-
-function toggleSpeedBumps(): void {
-  speedBumpsVisible.value = !speedBumpsVisible.value
-  applySpeedBumps()
-}
-
-// 折线每 5 秒刷新一次，减速带跟着重新吸到路上（27 个点，开销可忽略）。
-watch(busRoutes, () => {
-  if (speedBumpsVisible.value) applySpeedBumps()
-})
-
-/** 只显示某条线路（'all' = 全部）。 */
-const transitLineFilter = ref<string>('all')
-/** 只显示某个方向（空串 = 双向都画）。 */
-const transitSelectedDirection = ref<string>('')
-let transitLiveTimer: ReturnType<typeof setInterval> | null = null
-const TRANSIT_LINE_COLORS: Record<string, string> = { K2: '#1a6cf5', K6: '#e8590c' }
-
-function toTransitRoutes(data: ApiBusLinesResponse): MapBusRoute[] {
-  return data.lines.map(line => ({
-    id: `transit-${line.id}`,
-    name: `${line.line} ${line.from}→${line.to}`,
-    color: TRANSIT_LINE_COLORS[line.line] ?? '#1a6cf5',
-    // 高德线路快照本身是 GCJ-02，别再让 provider 做一次 WGS84→GCJ-02 偏移
-    polyline: line.polyline.map(([lng, lat]) => ({ lng, lat, crs: 'GCJ-02' as const })),
-    stops: line.stops.map(stop => ({
-      id: `transit-${line.id}-${stop.seq}`,
-      name: stop.name,
-      point: { lng: stop.lng, lat: stop.lat, crs: 'GCJ-02' as const },
-      isOrigin: stop.seq === 1,
-      isDestination: stop.seq === line.stops.length
-    }))
-  }))
-}
-
-async function toggleTransitLines(): Promise<void> {
-  if (transitLinesOpen.value) {
-    transitLinesOpen.value = false
-    transitPanelOpen.value = false
-    mapProvider.value?.setTransitRoutes?.([])
-    stopTransitLive()
-    mapProvider.value?.fitToPois()
-    return
-  }
-  if (!await ensureTransitRoutesLoaded()) return
-  transitLinesOpen.value = true
-  transitPanelOpen.value = true
-  mapProvider.value?.setTransitRoutes?.(visibleTransitRoutes.value)
-  startTransitLive()
-  focusTransitRoutes(visibleTransitRoutes.value)
-}
-
-/** 手机竖屏时两个面板都是全屏浮层，开一个就收另一个。 */
-function keepPanelsExclusive(next: 'bus' | 'transit'): void {
-  if (typeof window === 'undefined' || window.innerWidth >= 768) return
-  if (next === 'transit') busPanelOpen.value = false
-  else transitPanelOpen.value = false
-}
-
-watch(transitPanelOpen, (open) => {
-  if (open) keepPanelsExclusive('transit')
-})
-watch(busPanelOpen, (open) => {
-  if (open) keepPanelsExclusive('bus')
-})
-
-function changeTransitLine(line: string): void {
-  transitLineFilter.value = line
-  transitSelectedDirection.value = ''
-  mapProvider.value?.setTransitRoutes?.(visibleTransitRoutes.value)
-  mapProvider.value?.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
-  // 只看单条线路时把视野拉到这条线，否则车辆多半在校园视角外，看着像没有车
-  if (line !== 'all') focusTransitRoutes(visibleTransitRoutes.value)
-}
-
-/** 点某个方向：只画这一条折线 + 这一条上的车；再点一次回到双向。 */
-function changeTransitDirection(line: ApiBusLineDirection): void {
-  const same = transitSelectedDirection.value === line.id
-  transitSelectedDirection.value = same ? '' : line.id
-  transitLineFilter.value = same ? 'all' : line.line
-  mapProvider.value?.setTransitRoutes?.(visibleTransitRoutes.value)
-  mapProvider.value?.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
-  if (visibleTransitRoutes.value.length) focusTransitRoutes(visibleTransitRoutes.value)
-}
-
-function distanceLabel(meters: number | undefined): string {
-  if (meters === undefined || !Number.isFinite(meters)) return '—'
-  if (meters <= 30) return '已到站'
-  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`
-  return `${Math.round(meters)} m`
-}
-
-function focusTransitStop(point: { lng: number, lat: number }): void {
-  mapProvider.value?.flyToPoint({ ...point, crs: 'GCJ-02' }, 16)
-}
-
-/** 正在跟的车（点车后镜头一直跟着它，直到关掉详情）。 */
-interface VehicleFocus {
-  plate: string
-  point: [number, number]
-  nextStation: string
-  distanceToNext?: number
-  updatedAt?: string
-  source: 'transit' | 'campus'
-  busId?: string
-  /** 校内校车的线路方向（旧区--新区），留言列表里作上下文展示。 */
-  routeName?: string
-}
-const transitVehicleFocus = ref<VehicleFocus | null>(null)
-/** 跟车时每秒刷新的 GPS 年龄（秒）。 */
-const transitGpsAge = ref(0)
-// 每台车「位置真的变了」的本地时刻；位置没变就不刷新，避免恒显示 0 秒前。
-const transitMoveStamps = new Map<string, { point: [number, number], at: number }>()
-watch(busVehicles, list => {
-  for (const bus of list) stampTransitMove(bus.busName, [bus.lng, bus.lat])
-}, { deep: false })
-function stampTransitMove(plate: string, point: [number, number]): void {
-  const last = transitMoveStamps.get(plate)
-  // 12 m 以内算 GPS 抖动，不算「位置更新」，否则停站时也会一直显示 0 秒。
-  const moved = !last
-    || haversineMeters({ lng: last.point[0], lat: last.point[1] }, { lng: point[0], lat: point[1] }) > 12
-  transitMoveStamps.set(plate, { point, at: moved ? Date.now() : last?.at ?? Date.now() })
-}
-let transitAgeTimer: ReturnType<typeof globalThis.setInterval> | null = null
-
-/** 点一辆车：镜头跟住它，并打开车辆详情（含 GPS 更新时间）。 */
-function focusTransitVehicle(payload: VehicleFocus): void {
-  transitVehicleFocus.value = { ...payload }
-  ensureAgeTimer()
-  const converted = payload.source === 'campus' ? wgs84ToGcj02(payload.point[0], payload.point[1]) : null
-  const target = converted
-    ? { lng: converted.longitude, lat: converted.latitude }
-    : { lng: payload.point[0], lat: payload.point[1] }
-  mapProvider.value?.flyToPoint({ ...target, crs: 'GCJ-02' }, 17)
-}
-
-/** 关掉跟车卡片：同时停掉每秒计时。 */
-function closeVehicleDetails(): void {
-  transitVehicleFocus.value = null
-  if (transitAgeTimer) clearInterval(transitAgeTimer)
-  transitAgeTimer = null
-}
-
-/** 面板里点车辆行：等同于点地图上的车标。 */
-function focusTransitVehicleFromPanel(payload: { plate: string, point: [number, number], nextStation: string, distanceToNext?: number }): void {
-  focusTransitVehicle({ ...payload, source: 'transit', updatedAt: transitLive.value?.fetchedAt })
-}
-
-/** 地图上点车标：校外公交（transit:车牌）与校内校车（bus id）都走这里。 */
-function handleBusChipSelect(id: string): void {
-  if (id.startsWith('transit:')) {
-    const plate = id.slice('transit:'.length)
-    const vehicle = (transitLive.value?.directions ?? [])
-      .flatMap(direction => direction.vehicles)
-      .find(item => item.plate === plate)
-    if (!vehicle) return
-    focusTransitVehicle({
-      plate: vehicle.plate,
-      point: vehicle.point,
-      nextStation: vehicle.nextStation,
-      distanceToNext: vehicle.distanceToNext,
-      updatedAt: transitLive.value?.fetchedAt,
-      source: 'transit'
-    })
-    return
-  }
-  const bus = busVehicles.value.find(item => item.busName === id)
-  if (!bus) return
-  focusTransitVehicle({
-    plate: bus.busName,
-    point: [bus.lng, bus.lat],
-    nextStation: bus.siteName,
-    updatedAt: bus.updatedAt,
-    source: 'campus',
-    busId: bus.busName,
-    routeName: bus.routeName
-  })
-}
-
-let busSelectOff: (() => void) | null = null
-watch(mapProvider, (provider) => {
-  busSelectOff?.()
-  busSelectOff = provider?.onBusSelect?.(handleBusChipSelect) ?? null
-}, { immediate: true })
-onBeforeUnmount(() => {
-  busSelectOff?.()
-  busSelectOff = null
-})
-
-/** 校车在动，跟车卡片跟着最新位置走（校外公交由 followTransitVehicle 负责）。 */
-watch(busVehicles, (list) => {
-  const focus = transitVehicleFocus.value
-  if (!focus || focus.source !== 'campus' || !focus.busId) return
-  const bus = list.find(item => item.busName === focus.busId)
-  if (!bus) return
-  transitVehicleFocus.value = {
-    ...focus,
-    point: [bus.lng, bus.lat],
-    nextStation: bus.siteName,
-    updatedAt: bus.updatedAt
-  }
-  const moved = wgs84ToGcj02(bus.lng, bus.lat)
-  // 只放大不缩小：用户手动放大后保持当前 zoom，没动过（或缩小到 17 以下）用 17 保底防跟丢。
-  mapProvider.value?.flyToPoint(
-    { lng: moved.longitude, lat: moved.latitude, crs: 'GCJ-02' },
-    Math.max(mapProvider.value?.getZoom?.() ?? 17, 17)
-  )
-}, { deep: false })
-
-let transitLoadPromise: Promise<boolean> | null = null
-
-/** 线路快照只拉一次；默认打开时靠它把图层铺上，失败只提示一次。 */
-const transitDirectionScope = computed(() => transitSelectedDirection.value
-  ? transitDirections.value.find(item => item.id === transitSelectedDirection.value) ?? null
-  : null)
-
-function sameStation(a: string, b: string): boolean {
-  return a === b || a.includes(b) || b.includes(a)
-}
-
-const visibleTransitRoutes = computed(() => {
-  const byLine = transitLineFilter.value === 'all'
-    ? transitRoutes.value
-    : transitRoutes.value.filter(route => route.name.startsWith(`${transitLineFilter.value} `))
-  const scope = transitDirectionScope.value
-  if (!scope) return byLine
-  return byLine.filter(route => route.id === `transit-${scope.id}`)
-})
-
-function transitVehiclesForMap(data: ApiBusLiveResponse | null): MapTransitVehicle[] {
-  if (!data) return []
-  const filter = transitLineFilter.value
-  const scope = transitDirectionScope.value
-  const directions = (filter === 'all' ? data.directions : data.directions.filter(item => item.line === filter))
-    .filter(item => !scope
-      || (item.line === scope.line && sameStation(item.from, scope.from) && sameStation(item.to, scope.to)))
-  // 车辆 GPS 与折线同源（掌上公交），但仍有几米抖动：吸附到本方向折线上，
-  // 车头按折线切线走，看起来就是沿着路开。
-  const lineByName = new Map<string, Array<{ lng: number, lat: number }>>()
-  for (const route of transitRoutes.value) {
-    const line = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
-    if (line.length >= 2) lineByName.set(route.name, line)
-  }
-  return directions.flatMap(direction => {
-    const line = lineByName.get(`${direction.line} ${direction.from} → ${direction.to}`)
-      ?? [...lineByName.entries()].find(([name]) => name.startsWith(`${direction.line} `) && name.includes(direction.from))?.[1]
-    return direction.vehicles.map((vehicle, index) => {
-      const snapped = line ? snapToPolyline({ lng: vehicle.point[0], lat: vehicle.point[1] }, line) : null
-      const point = snapped && snapped.offsetMeters <= 40 ? snapped.point : { lng: vehicle.point[0], lat: vehicle.point[1] }
-      const angleDeg = line
-        ? (snapToPolyline({ lng: point.lng, lat: point.lat }, line)?.angleDeg ?? vehicle.angle)
-        : vehicle.angle
-      return {
-        id: `${direction.line}-${direction.direction}-${vehicle.plate || index}`,
-        line: direction.line,
-        plate: vehicle.plate,
-        nextStation: vehicle.nextStation,
-        color: TRANSIT_LINE_COLORS[direction.line] ?? '#1a6cf5',
-        angleDeg,
-        point: { lng: point.lng, lat: point.lat, crs: 'GCJ-02' as const }
-      }
-    })
-  })
-}
-
-/** 车辆走掌上公交的实时接口，20 秒一轮；只有图层打开时才轮询。 */
-async function refreshTransitLive(): Promise<void> {
-  try {
-    transitLive.value = await fetchTransit<ApiBusLiveResponse>('/api/public/transit/live')
-    transitLiveError.value = ''
-  } catch (error) {
-    transitLiveError.value = (error as Error)?.message || '实时车辆暂时取不到'
-  }
-  if (transitLinesOpen.value) {
-    mapProvider.value?.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
-  }
-  followTransitVehicle()
-}
-
-/** 跟车：每轮实时数据里找出同一块车牌，把镜头贴到它身上并刷新详情。 */
-function followTransitVehicle(): void {
-  const focus = transitVehicleFocus.value
-  if (!focus || focus.source !== 'transit') return
-  const vehicle = (transitLive.value?.directions ?? [])
-    .flatMap(direction => direction.vehicles)
-    .find(item => item.plate === focus.plate)
-  if (!vehicle) return
-  transitVehicleFocus.value = {
-    plate: vehicle.plate,
-    point: vehicle.point,
-    nextStation: vehicle.nextStation,
-    distanceToNext: vehicle.distanceToNext,
-    updatedAt: transitLive.value?.fetchedAt,
-    source: 'transit'
-  }
-  // 只放大不缩小（同校内校车跟车）：保持用户手动放大的 zoom，保底 17 防跟丢。
-  mapProvider.value?.flyToPoint(
-    { lng: vehicle.point[0], lat: vehicle.point[1], crs: 'GCJ-02' },
-    Math.max(mapProvider.value?.getZoom?.() ?? 17, 17)
-  )
-}
-
-async function loadTransitDepartures(): Promise<void> {
-  if (transitDepartures.value) return
-  try {
-    transitDepartures.value = await fetchTransit<ApiBusDeparturesResponse>('/api/public/transit/departures')
-  } catch {
-    // 时刻表拿不到只影响文字展示
-  }
-}
-
-/** 跟车卡片里的「GPS 更新」：每秒按数据源自带时间重算，跟车结束就停。 */
-function ensureAgeTimer(): void {
-  if (transitAgeTimer) return
-  transitAgeTimer = globalThis.setInterval(() => {
-    const focus = transitVehicleFocus.value
-    if (!focus) return
-    // 校车是快照时间（5 s 一轮），校外公交是拉取时间（20 s 一轮）。
-    const iso = focus.source === 'campus'
-      ? focus.updatedAt
-      : (transitLive.value?.fetchedAt ?? focus.updatedAt)
-    const at = Date.parse(iso ?? '')
-    transitGpsAge.value = Number.isFinite(at) ? Math.max(0, Math.round((Date.now() - at) / 1000)) : 0
-  }, 1000)
-}
-
-function startTransitLive(): void {
-  void loadTransitDepartures()
-  ensureAgeTimer()
-  void refreshTransitLive()
-  if (transitLiveTimer) return
-  transitLiveTimer = setInterval(() => {
-    void refreshTransitLive()
-  }, 20_000)
-}
-
-function stopTransitLive(): void {
-  if (transitLiveTimer) clearInterval(transitLiveTimer)
-  transitLiveTimer = null
-  if (transitAgeTimer) clearInterval(transitAgeTimer)
-  transitAgeTimer = null
-  transitVehicleFocus.value = null
-  mapProvider.value?.setTransitVehicles?.([])
-}
-
-async function ensureTransitRoutesLoaded(): Promise<boolean> {
-  if (transitRoutes.value.length) return true
-  if (!transitLoadPromise) {
-    transitLoading.value = true
-    transitLoadPromise = fetchTransit<ApiBusLinesResponse>('/api/public/transit/lines')
-      .then((data) => {
-        transitRoutes.value = toTransitRoutes(data)
-        transitDirections.value = data.lines
-        transitFetchedAt.value = data.fetchedAt
-        return true
-      })
-      .catch(() => {
-        transitLoadPromise = null
-        toast.add({ title: '公交线路加载失败', description: '稍后再试，或先到「交通指南」看线路图。', color: 'error' })
-        return false
-      })
-      .finally(() => {
-        transitLoading.value = false
-      })
-  }
-  return transitLoadPromise
-}
-
-/** 打开图层时把视野拉到线路走廊，否则校园视角里只会看到起点站一个点。 */
-function focusTransitRoutes(routes: MapBusRoute[]): void {
-  const points = routes.flatMap(route => route.polyline?.length ? route.polyline : route.stops.map(stop => stop.point))
-  if (!points.length) return
-  let minLng = Infinity
-  let maxLng = -Infinity
-  let minLat = Infinity
-  let maxLat = -Infinity
-  for (const point of points) {
-    if (point.lng < minLng) minLng = point.lng
-    if (point.lng > maxLng) maxLng = point.lng
-    if (point.lat < minLat) minLat = point.lat
-    if (point.lat > maxLat) maxLat = point.lat
-  }
-  const span = Math.max(maxLng - minLng, (maxLat - minLat) * 1.4)
-  const zoom = span > 1.2 ? 9 : span > 0.6 ? 10 : span > 0.3 ? 11 : span > 0.15 ? 12 : 13
-  mapProvider.value?.flyToPoint({ lng: (minLng + maxLng) / 2, lat: (minLat + maxLat) / 2, crs: 'GCJ-02' }, zoom)
-}
-
-// 底图就绪 / 重建后补画；默认打开时先把快照拉下来（不移动相机，保持校园视角）
-watch(mapProvider, (provider) => {
-  applySpeedBumps(provider)
-}, { immediate: true })
-
-watch(mapProvider, async (provider) => {
-  if (!provider || !transitLinesOpen.value) return
-  const loaded = await ensureTransitRoutesLoaded()
-  if (!loaded || !transitLinesOpen.value) return
-  provider.setTransitRoutes?.(visibleTransitRoutes.value)
-  provider.setTransitVehicles?.(transitVehiclesForMap(transitLive.value))
-}, { immediate: true })
-
-// 掌上公交的站点是 GCJ-02，浏览器定位是 WGS84：先转再算「我在哪一站」。
-const transitMyLocation = computed(() => {
-  const point = userLocation.value
-  if (!point) return null
-  if (point.crs === 'GCJ-02') return { lng: point.lng, lat: point.lat }
-  const converted = wgs84ToGcj02(point.lng, point.lat)
-  return { lng: converted.longitude, lat: converted.latitude }
+// 校车/校外公交图层：线路、实时车位置、减速带与底图注记的状态和逻辑都在 useMapTransit。
+const {
+  busSelectedRouteId,
+  busPanelOpen,
+  busRoutes,
+  busVehicles,
+  busFetchedAt,
+  transitLinesOpen,
+  transitPanelOpen,
+  transitLoading,
+  transitDirections,
+  transitFetchedAt,
+  transitLive,
+  transitDepartures,
+  transitLiveError,
+  transitSelectedDirection,
+  transitVehicleFocus,
+  transitGpsAge,
+  transitMyLocation,
+  speedBumpsVisible,
+  basemapLabelsVisible,
+  toggleBasemapLabels,
+  toggleSpeedBumps,
+  toggleTransitLines,
+  changeTransitLine,
+  changeTransitDirection,
+  distanceLabel,
+  focusTransitStop,
+  focusTransitVehicleFromPanel,
+  closeVehicleDetails,
+  startTransitLive,
+  stopTransitLive
+} = useMapTransit({
+  mapProvider,
+  userLocation,
+  notify: notice => toast.add(notice)
 })
 
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
@@ -1935,7 +1299,7 @@ onBeforeUnmount(() => {
           />
         </div>
         <p class="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-          {{ selectedArea.description ?? '这个范围来自地图绘制，只用来帮助你辨认校园方向。' }}
+          {{ selectedArea.description ?? '这个范围是按公开地图画的，只用来辨认方向。' }}
         </p>
         <dl class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs">
           <div>
@@ -1962,7 +1326,7 @@ onBeforeUnmount(() => {
 
       <MapPlaceDetailsPanel
         v-if="selectedPoi"
-        variant="mobile"
+        :variant="panelIsDesktop ? 'desktop' : 'mobile'"
         :place="selectedPoi"
         :category-label="categoryLabel(selectedPoi.category)"
         :category-icon="categoryIcon(selectedPoi.category)"
@@ -1974,27 +1338,7 @@ onBeforeUnmount(() => {
         :route-planning="routePlanning"
         :can-plan-route="canPlanMapWalkingRoute(activeMapProviderId, selectedPoi.point)"
         :is-wechat="isWechat"
-        @close="closePoiDetails"
-        @copy="copyPoiLocation(selectedPoi)"
-        @plan-route="startWalkingRoute(selectedPoi.name, selectedPoi.point)"
-        @plan-route-manual="openManualStartPicker"
-      />
-
-      <MapPlaceDetailsPanel
-        v-if="selectedPoi"
-        variant="desktop"
-        :place="selectedPoi"
-        :category-label="categoryLabel(selectedPoi.category)"
-        :category-icon="categoryIcon(selectedPoi.category)"
-        :status-text="poiStatusText(selectedPoi)"
-        :checklist="poiUseChecklist(selectedPoi)"
-        :details-target="placeDetailsTarget(selectedPoi)"
-        :feedback-target="placeFeedbackTarget(selectedPoi)"
-        :return-path="returnPath"
-        :route-planning="routePlanning"
-        :can-plan-route="canPlanMapWalkingRoute(activeMapProviderId, selectedPoi.point)"
-        :is-wechat="isWechat"
-        @close="closePoiDetails"
+        @close="clearPoi"
         @copy="copyPoiLocation(selectedPoi)"
         @plan-route="startWalkingRoute(selectedPoi.name, selectedPoi.point)"
         @plan-route-manual="openManualStartPicker"
@@ -2007,8 +1351,8 @@ onBeforeUnmount(() => {
       :routes="busRoutes"
       :buses="busVehicles"
       :fetched-at="busFetchedAt"
-      @select-route="busSelectedRouteId = $event"
       :user-location="userLocation"
+      @select-route="busSelectedRouteId = $event"
     />
 
     <!-- 校外公交面板：K2/K6 方向可展开看站序 -->

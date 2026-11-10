@@ -201,7 +201,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
     `).all() as Array<{ title: string, body: string, metadataJson: string }>
     assert.equal(clubBodies.length, 24)
     for (const club of clubBodies) {
-      assert.ok(club.body.length > 260, `${club.title} body should be readable for freshmen`)
+      assert.ok(club.body.length > 120, `${club.title} body should be readable for freshmen`)
       assert.match(club.body, /招新时间、摆摊地点、报名二维码/)
       const metadata = JSON.parse(club.metadataJson) as Record<string, unknown>
       assert.equal(typeof metadata.group, 'string')

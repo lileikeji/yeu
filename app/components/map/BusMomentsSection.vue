@@ -60,7 +60,7 @@ function startMinePolling(): void {
         stopMinePolling()
         aiPending.value = false
         feedback.value = ''
-        error.value = '留言未通过审核，如有疑问请联系管理员'
+        error.value = '留言没通过审核，有问题找管理员'
       } else if (minePollElapsed >= 60) {
         stopMinePolling()
         aiPending.value = false

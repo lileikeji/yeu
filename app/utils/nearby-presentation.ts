@@ -77,7 +77,6 @@ export const nearbyNeedShortcuts = [
   { label: '打印维修', category: 'service' as const, icon: 'i-lucide-wrench' }
 ] as const
 
-
 export const nearbyCategoryLabels: Record<string, string> = {
   food: '餐饮',
   shopping: '购物 / 便利',
@@ -124,14 +123,13 @@ export function nearbyMatchCountLabel(count: number): string {
   return nearbyListMessages.matchCountPrefix + ' ' + value + ' ' + nearbyListMessages.matchCountSuffix
 }
 
-
 export function nearbySourceIsClickable(source: { status?: string }): boolean {
   return source.status !== 'unavailable' && source.status !== 'disputed'
 }
 
 export function nearbySourceContextForStudents(value: string | undefined): string {
   return presentStudentSourceContext(value, { includeUnavailableNote: false })
-    ?? '这条信息可以帮助了解大致情况，具体以现场和最新通知为准。'
+    ?? '这条只是大致情况，以现场和最新通知为准。'
 }
 
 export function nearbyCandidateMapUrl(candidate: NearbyCandidate): string {

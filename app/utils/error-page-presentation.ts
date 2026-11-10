@@ -19,7 +19,7 @@ export function resolveErrorPageContent(statusCode: number | null | undefined): 
       code: null,
       kicker: '页面走丢了',
       title: '这个页面不存在',
-      description: '链接可能已经更新，这条内容也可能已经移动或下架。你可以返回首页，或从下面的入口继续查找。',
+      description: '链接可能已经更新，这条内容也可能已经移动或下架。回首页，或从下面这些入口继续找。',
       icon: 'i-lucide-map-pin-off',
       canRetry: false
     }

@@ -365,6 +365,27 @@
       "when": 1794252600000,
       "tag": "0051_competition_edition_form",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "6",
+      "when": 1794339000000,
+      "tag": "0052_visitor_event_json_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1794342600000,
+      "tag": "0053_assistant_knowledge_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1794600000000,
+      "tag": "0054_feedback_receipt",
+      "breakpoints": true
     }
   ]
 }

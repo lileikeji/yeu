@@ -131,11 +131,11 @@ export const searchListMessages = {
   tellUsMissing: '告诉我们还缺什么',
   retrySearch: '重新搜索',
   onlyMap: '在地图里看',
-  searching: '正在帮你查找',
+  searching: '正在查找',
   resultHeadingPrefix: '找到',
   resultHeadingSuffix: '项',
   resultQuerySuffix: '的结果',
-  jumpToGroups: '快速跳到',
+  jumpToGroups: '跳到',
   resultCountPrefix: '下方找到',
   resultCountSuffix: '项相关内容'
 } as const
@@ -199,7 +199,7 @@ export function searchResultActionLabel(resultType: PublicSearchResultType): str
     procedure: '查看办理步骤',
     guide: '打开指南',
     department: '查看部门信息',
-    club: '了解社团',
+    club: '看社团',
     notice: '查看校园通知'
   }
   return labels[resultType]
@@ -453,7 +453,7 @@ export function buildSearchErrorMessage(
   if (!hasError) return ''
   return activeType && activeType !== 'place'
     ? '现在没搜出来，请稍后再试。'
-    : '有些内容暂时没显示出来，先为你保留地图里能找到的地点。'
+    : '有些内容没显示出来，地图里能找到的地点还在。'
 }
 
 export function buildPublicSearchResults(input: {
@@ -629,11 +629,11 @@ export function buildSearchAnnouncement(input: {
   resultCount: number
   groupCount: number
 }): string {
-  if (!input.query) return '输入关键词，或点下方要办的事，就能查找地点、办事和校园信息。'
+  if (!input.query) return '输关键词，或点下面要办的事，找地点、办事和校园信息。'
   if (input.searching) return `正在查找“${input.query}”……`
   if (input.searchError) {
     return input.resultCount > 0
-      ? `有些内容暂时没显示出来，先为你找到 ${input.resultCount} 项。`
+      ? `有些内容没显示出来，已找到 ${input.resultCount} 项。`
       : '有些内容暂时没显示出来，请稍后再试。'
   }
   if (input.resultCount === 0) {

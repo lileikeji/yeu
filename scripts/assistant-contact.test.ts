@@ -625,8 +625,11 @@ test('gateway moderation blocks produce the fixed refusal without treating outag
   assert.equal(isGatewayContentBlocked('{"error":{"message":"upstream timeout"}}'), false)
 
   const service = readFileSync(resolve(root, 'server/modules/assistant/service.ts'), 'utf8')
+  const blockedResponseSource = readFileSync(resolve(root, 'server/modules/assistant/assistant-response.ts'), 'utf8')
   assert.match(service, /message === 'AI_CONTENT_BLOCKED'/)
-  assert.match(service, /answer: '禁止回答'/)
+  // 固定拒答文案抽成了常量（assistant-response.ts），断言跟着常量走。
+  assert.match(service, /answer: BLOCKED_ASSISTANT_ANSWER/)
+  assert.match(blockedResponseSource, /BLOCKED_ASSISTANT_ANSWER = '禁止回答'/)
 })
 
 test('gateway moderation 403 maps to AI_CONTENT_BLOCKED', async () => {
@@ -817,7 +820,7 @@ test('verified seed catalog covers opening dates when the runtime database is st
   assert.match(opening[0]?.snippet ?? '', /9月10日上课/)
 })
 
-test('opening question returns a deterministic local answer with an empty database', async t => {
+test('opening question returns a deterministic local answer with an empty database', async (t) => {
   // 开学日程的时效门在 2026-10-01 过期（有意设计，另有边界测试守护）；
   // 本测试钉住的是有效期内的行为契约，所以把时钟锁回开学季。
   t.mock.timers.enable({ apis: ['Date'] })

@@ -2822,51 +2822,57 @@ function countPreRegistrations(client: DatabaseClient, eventId: string): number 
     .where(eq(competitionPreRegistrations.eventId, eventId)).all().length
 }
 
+/** 现场登记时命中的预报名：只够让本人认出自己那条，不构成通讯录。 */
+export interface CompetitionPreRegistrationMatch {
+  id: string
+  name: string
+  className: string | null
+  song: string | null
+  preferredDay: 1 | 2 | null
+  createdAt: number
+  /** 只下发后四位（形如 `****0077`），完整学号留在库里。 */
+  studentNoMasked: string
+  /** 预报名当时有没有留手机或邮箱；具体值不下发。 */
+  hasContact: boolean
+}
+
 /**
- * 现场正式报名时按姓名检索未使用的预报名：先精确同名，再模糊包含。
- * 返回联系方式用于一键填表；已确认的（registered_at 非空）不再出现。
+ * 现场正式报名时检索未使用的预报名：姓名必须同名，且学号后四位要对上。
+ * 双因子是这条接口的下限——单凭姓名查不到任何人的记录；返回值不含手机、邮箱与完整学号。
+ * 已确认的（registered_at 非空）不再出现。
  */
 export function lookupPreRegistrations(
   client: DatabaseClient,
   contentId: string,
-  nameInput: string
-): Array<CompetitionPreRegistration & { registered: boolean }> {
+  nameInput: string,
+  studentNoTailInput: string
+): CompetitionPreRegistrationMatch[] {
   const name = String(nameInput ?? '').replace(/\s+/g, ' ').trim()
-  if (!name) return []
+  const tail = String(studentNoTailInput ?? '').replace(/\D/g, '').slice(-4)
+  if (!name || tail.length !== 4) return []
 
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const unused = and(
-    eq(competitionPreRegistrations.eventId, eventRow.id),
-    isNull(competitionPreRegistrations.registeredAt)
-  )
-  const mapRows = (rows: PreRegistrationRow[]) => rows.map(row => ({
+  const rows = client.db.select().from(competitionPreRegistrations)
+    .where(and(
+      eq(competitionPreRegistrations.eventId, eventRow.id),
+      isNull(competitionPreRegistrations.registeredAt),
+      eq(competitionPreRegistrations.name, name),
+      like(competitionPreRegistrations.studentNo, `%${tail}`)
+    ))
+    .orderBy(desc(competitionPreRegistrations.createdAt))
+    .limit(COMPETITION_LOOKUP_LIMIT)
+    .all()
+
+  return rows.map(row => ({
     id: row.id,
     name: row.name,
     className: row.className,
-    studentNo: row.studentNo,
-    phone: row.phone,
-    email: row.email,
     song: row.song,
     preferredDay: row.preferredDay === 1 || row.preferredDay === 2 ? row.preferredDay : null,
-    registeredAt: null,
     createdAt: Number(row.createdAt ?? 0),
-    registered: false,
-    registeredSingerName: null
+    studentNoMasked: `****${tail}`,
+    hasContact: Boolean(row.phone || row.email)
   }))
-
-  const exact = client.db.select().from(competitionPreRegistrations)
-    .where(and(unused, eq(competitionPreRegistrations.name, name)))
-    .orderBy(desc(competitionPreRegistrations.createdAt))
-    .limit(COMPETITION_LOOKUP_LIMIT)
-    .all()
-  if (exact.length > 0) return mapRows(exact)
-
-  const partial = client.db.select().from(competitionPreRegistrations)
-    .where(and(unused, like(competitionPreRegistrations.name, `%${name}%`)))
-    .orderBy(desc(competitionPreRegistrations.createdAt))
-    .limit(COMPETITION_LOOKUP_LIMIT)
-    .all()
-  return mapRows(partial)
 }
 
 export function listPreRegistrations(client: DatabaseClient, eventId: string): CompetitionPreRegistration[] {

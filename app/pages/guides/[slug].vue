@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
                 name="i-lucide-list"
                 class="size-4 text-green-700 dark:text-green-400"
               />
-              快速跳到
+              跳到
             </span>
             <span class="flex items-center gap-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">
               共 {{ guide.sections.length }} 个部分

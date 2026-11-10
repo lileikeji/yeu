@@ -88,7 +88,7 @@ test('nearby page and home expose the eat-play guide as a visible module', () =>
   assert.match(routeDialogSource, /api\/public\/transit\/plan/)
   assert.match(routeDialogSource, /从当前位置坐公交/)
   assert.match(routeDialogSource, /驾车 \/ 打车/)
-  assert.match(routeDialogSource, /切换地点即可分别查看/)
+  assert.match(routeDialogSource, /切换地点分别查看/)
   assert.match(cardSource, /这条攻略从哪里来/)
   assert.match(cardSource, /item\.image/)
   assert.match(pageSource, /nearby-route-path/)

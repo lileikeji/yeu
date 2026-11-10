@@ -597,11 +597,22 @@ const sourceFields = {
 export const createSourceSchema = z.object(sourceFields).strict()
 export const updateSourceSchema = z.object(sourceFields).partial().strict()
 
+// Feedback targets are opaque ids: places/contents/procedures use UUIDs while
+// compiled knowledge claims use `docclaim:<documentId>:<digest>` (see
+// server/modules/knowledge/document-compiler.ts), so the pattern stays bounded
+// but does not require a UUID shape.
+const feedbackTargetIdSchema = z.string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9:._-]*$/, 'Invalid target id')
+
 export const createFeedbackSchema = z.object({
   targetType: z.enum(FEEDBACK_TARGET_TYPES),
-  targetId: z.union([z.string().uuid(), z.null()]).optional(),
+  targetId: z.union([feedbackTargetIdSchema, z.null()]).optional(),
   reasonType: z.string().trim().min(1).max(80),
   message: z.string().trim().min(5).max(4000),
+  expected: nullableTextSchema(1000),
   evidenceUrl: nullableUrlSchema,
   pageUrl: nullableLocalPagePathSchema,
   contact: nullableTextSchema(300),
@@ -611,7 +622,7 @@ export const createFeedbackSchema = z.object({
     context.addIssue({
       code: 'custom',
       path: ['targetId'],
-      message: 'targetId is required for place, content, or procedure feedback'
+      message: 'targetId is required for place, content, procedure, or claim feedback'
     })
   }
 
@@ -1154,20 +1165,6 @@ export const updateSeedReviewSchema = z.object({
   message: '至少提供 content 或 score 之一'
 })
 
-/** 后台商家推广设置：美团跳转链接、排行占比、AI 出现频率。 */
-export const recordPromoClickSchema = z.object({
-  placeId: publicPlaceIdSchema
-}).strict()
-
-export const updateMerchantPromoSchema = z.object({
-  meituanUrl: z.string().trim().max(500).nullable().optional(),
-  /** Uploaded QR image path (/uploads/<uuid>.<ext>); null clears it. */
-  qrCodeUrl: z.string().regex(UPLOADED_IMAGE_URL_PATTERN).nullable().optional(),
-  promoWeight: z.number().int().min(0).max(100).optional(),
-  aiFrequency: z.number().int().min(0).max(100).optional(),
-  enabled: z.boolean().optional()
-}).strict()
-
 /** 后台创建整理卡（source='seed'）。 */
 export const createSeedReviewSchema = z.object({
   placeId: z.string().trim().min(1).max(100),
@@ -1371,7 +1368,9 @@ export const competitionPreRegisterSchema = z.object({
 }).strict()
 
 export const competitionLookupSchema = z.object({
-  name: z.string().trim().min(1).max(40)
+  name: z.string().trim().min(1).max(40),
+  /** 学号后四位：与姓名一起构成最小双因子，避免凭姓名查到别人的联系方式。 */
+  studentNoTail: z.string().trim().regex(/^\d{4}$/, '请填写学号后四位')
 }).strict()
 
 export const competitionSingerSchema = z.object({

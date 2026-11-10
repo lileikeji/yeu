@@ -9,7 +9,7 @@ import {
 
 useSeoMeta({
   title: '更多服务',
-  description: '按新生当前要做的事，快速进入校园地图、报到、指南、部门、社团与周边目录。'
+  description: '按现在要做的事，进校园地图、报到、指南、部门、社团和周边。'
 })
 
 const tasksExpanded = ref(false)

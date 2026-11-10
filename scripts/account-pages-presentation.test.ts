@@ -11,11 +11,12 @@ test('login page stays compact and uses ordinary account language', () => {
   assert.match(loginPage, /新生账号/)
   // 2026-11-08 开放注册：登录页改为「登录/注册」双 tab
   assert.match(loginPage, /mode === 'login' \? '账号登录' : '注册账号'/)
-  assert.match(loginPage, /邮箱验证后即可注册/)
+  assert.match(loginPage, /邮箱验证后完成注册/)
   assert.match(loginPage, /没有账号也不影响使用校园指南/)
   assert.match(loginPage, /不登录也能用/)
   assert.match(loginPage, /查地图、看办事指南、勾选新生清单/)
   assert.match(loginPage, /登录后可以/)
+  assert.doesNotMatch(loginPage, /即可注册|都可以|帮你|为你/)
   assert.match(loginPage, /修改个人资料，进入公共群和宿舍楼群/)
   assert.match(loginPage, /max-w-md/)
   assert.doesNotMatch(loginPage, /ACCOUNT|账号服务|登录后可做什么|管理员入口不在公开导航中展示|账号由管理员统一创建|工作人员提前创建/)
@@ -84,7 +85,7 @@ test('profile controls keep a comfortable mobile touch height', () => {
 })
 
 test('chat page uses group language and truthful composer copy', () => {
-  assert.match(chatPage, /所有已登录同学都可以参与/)
+  assert.match(chatPage, /登录后都能看/)
   assert.match(chatPage, /这里还没有消息/)
   assert.match(chatPage, /当前群聊已开启全员禁言/)
   assert.match(chatPage, /消息暂时没显示出来，请重新打开群聊/)

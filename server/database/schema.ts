@@ -331,13 +331,17 @@ export const procedureSources = sqliteTable('procedure_sources', {
 
 export const feedback = sqliteTable('feedback', {
   id: text('id').primaryKey(),
-  targetType: text('target_type', { enum: ['general', 'place', 'content', 'procedure'] }).notNull(),
+  targetType: text('target_type', { enum: ['general', 'place', 'content', 'procedure', 'claim'] }).notNull(),
   targetId: text('target_id'),
   reasonType: text('reason_type').notNull(),
   message: text('message').notNull(),
+  /** 用户认为正确的说法（纠错回执用，选填）。 */
+  expected: text('expected'),
   evidenceUrl: text('evidence_url'),
   pageUrl: text('page_url'),
   contact: text('contact'),
+  /** 可查询回执号；历史数据为 null。 */
+  receiptCode: text('receipt_code'),
   status: text('status', { enum: ['new', 'reviewing', 'resolved', 'rejected', 'spam'] }).notNull().default('new'),
   resolutionNote: text('resolution_note'),
   submitterIpHash: text('submitter_ip_hash'),
@@ -348,8 +352,9 @@ export const feedback = sqliteTable('feedback', {
 }, table => [
   index('feedback_status_created_idx').on(table.status, table.createdAt),
   index('feedback_target_idx').on(table.targetType, table.targetId),
+  uniqueIndex('feedback_receipt_code_unique').on(table.receiptCode),
   check('feedback_status_check', sql`${table.status} in ('new', 'reviewing', 'resolved', 'rejected', 'spam')`),
-  check('feedback_target_type_check', sql`${table.targetType} in ('general', 'place', 'content', 'procedure')`),
+  check('feedback_target_type_check', sql`${table.targetType} in ('general', 'place', 'content', 'procedure', 'claim')`),
   check('feedback_target_id_check', sql`(${table.targetType} = 'general' and ${table.targetId} is null) or (${table.targetType} != 'general' and ${table.targetId} is not null)`)
 ])
 
@@ -427,7 +432,13 @@ export const visitorEvents = sqliteTable('visitor_events', {
   index('visitor_events_visitor_created_idx').on(table.visitorId, table.createdAt),
   index('visitor_events_action_created_idx').on(table.action, table.createdAt),
   index('visitor_events_ip_created_idx').on(table.ip, table.createdAt),
-  index('visitor_events_created_idx').on(table.createdAt)
+  index('visitor_events_created_idx').on(table.createdAt),
+  // 公告确认人数按 meta_json 里的 noticeId 分组并 count(distinct visitor_id)，
+  // 是 visitor_events 上唯一的热聚合（迁移 0052_visitor_event_json_indexes）。
+  // action 必须在首列：部分索引或表达式首列的写法，规划器拿不到前导等值约束，
+  // 会退回 action_created_idx 再建临时表，24 万事件下 31ms 变回 1230ms。
+  index('visitor_events_notice_confirm_idx')
+    .on(table.action, sql`json_extract(${table.metaJson}, '$.noticeId')`, table.visitorId)
 ])
 
 export const visitorBans = sqliteTable('visitor_bans', {
@@ -593,6 +604,14 @@ export const assistantAnswerCache = sqliteTable('assistant_answer_cache', {
   index('assistant_answer_cache_expiry_idx').on(table.expiresAt),
   index('assistant_answer_cache_query_idx').on(table.query)
 ])
+
+// 知识修订号的持久化单行表（id 固定为 'assistant'）。原来是进程内计数，重启归零，
+// 会让上一轮留在 assistant_answer_cache 里的旧答案继续命中。
+export const assistantKnowledgeState = sqliteTable('assistant_knowledge_state', {
+  id: text('id').primaryKey(),
+  revision: integer('revision').notNull().default(0),
+  updatedAt: integer('updated_at').notNull().default(0)
+})
 
 export const assistantKnowledgeEntries = sqliteTable('assistant_knowledge_entries', {
   id: text('id').primaryKey(),
@@ -902,8 +921,8 @@ export const placeAmapRatings = sqliteTable('place_amap_ratings', {
 
 /**
  * Merchant promotion settings (backoffice): per-place Meituan jump link,
- * promo weight for ranking boosts and AI recommendation frequency. The AI
- * food recommender and the map popup read these to surface promoted shops.
+ * promo weight for ranking boosts and AI recommendation frequency.
+ * 2026-11-10 推广位下线，表保留只读，不再写入，也不再有任何读写入口。
  */
 export const placeMerchants = sqliteTable('place_merchants', {
   placeId: text('place_id').primaryKey(),

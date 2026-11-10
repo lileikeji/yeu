@@ -232,19 +232,26 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
     }),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'ALREADY_PRE_REGISTERED'
   )
-  const candidates = lookupPreRegistrations(client, musicId, '孙九')
+  // 双因子检索：姓名 + 学号后四位；返回值只带掩码学号，不带手机/邮箱/完整学号。
+  const candidates = lookupPreRegistrations(client, musicId, '孙九', '0077')
   assert.equal(candidates.length, 1)
   assert.equal(candidates[0]!.name, '孙九')
-  assert.equal(candidates[0]!.email, 'sun9@example.com')
+  assert.equal(candidates[0]!.studentNoMasked, '****0077')
+  assert.equal(candidates[0]!.hasContact, true)
+  assert.equal('email' in candidates[0]!, false)
+  assert.equal('phone' in candidates[0]!, false)
+  // 后四位不对、或只给姓名（后四位为空）都查不到人。
+  assert.equal(lookupPreRegistrations(client, musicId, '孙九', '0078').length, 0)
+  assert.equal(lookupPreRegistrations(client, musicId, '孙九', '').length, 0)
 
   setRoundDay(client, getRoundByKey(client, event.id, 'prelim'), 1)
   const preRegistered = registerSingerFromForm(client, musicId, {
-    className: candidates[0]!.className!,
-    name: candidates[0]!.name,
-    studentNo: candidates[0]!.studentNo!,
-    phone: candidates[0]!.phone!,
-    email: candidates[0]!.email!,
-    song: candidates[0]!.song!,
+    className: '26汉语言文学2班',
+    name: '孙九',
+    studentNo: '20260077',
+    phone: '13800000777',
+    email: 'sun9@example.com',
+    song: '起风了',
     preRegistrationId: candidates[0]!.id
   })
   const preSinger = getAdminCompetitionPayload(client, musicId).singers
@@ -252,7 +259,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(preSinger.source, 'pre')
   assert.equal(preSinger.preRegistrationId, candidates[0]!.id)
   // 已使用的预报名不再出现在检索结果；再登记同预报名会被拒绝。
-  assert.equal(lookupPreRegistrations(client, musicId, '孙九').length, 0)
+  assert.equal(lookupPreRegistrations(client, musicId, '孙九', '0077').length, 0)
   assert.throws(
     () => registerSingerFromForm(client, musicId, {
       className: 'x',

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { execFileSync, spawn } from 'node:child_process'
-import { chmodSync, cpSync, createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, statfsSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, rmSync, statfsSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { basename, dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -193,8 +193,16 @@ export async function migrateDatabase(path, directory, mode = 'migrate') {
       applySql(db, pending.map(entry => ({ ...entry, sql: '' })))
     } else {
       const before = schema(db)
-      if (Object.keys(before).length && pending.some(entry => /\b(DROP\s+(TABLE|COLUMN)|RENAME\s+(TO|COLUMN))\b/i.test(entry.sql))) {
-        throw new Error('包含破坏兼容性的迁移，需单独迁移与恢复方案')
+      // SQLite 改不了已有 CHECK，唯一可行路径是建 __new_ 表再原子替换，
+      // 这类迁移必然出现 DROP/RENAME。默认拒绝；只有 SQL 头部显式写
+      // `-- yeu:allow-table-rebuild <表名>`（人工审过重建 SQL、备份与回滚）
+      // 才放行，否则一处正则漏判就可能在发布时丢掉整表。
+      const destructive = pending.filter(entry => /\b(DROP\s+(TABLE|COLUMN)|RENAME\s+(TO|COLUMN))\b/i.test(entry.sql))
+      const unapproved = destructive.filter(entry => !/^--\s*yeu:allow-table-rebuild\b/m.test(entry.sql))
+      if (Object.keys(before).length && unapproved.length) {
+        throw new Error(
+          `包含破坏兼容性的迁移，需单独迁移与恢复方案：${unapproved.map(entry => entry.tag).join(', ')}`
+        )
       }
       applySql(db, pending, () => {
         assertSchema(contract, schema(db))
@@ -333,7 +341,19 @@ async function main([command, ...args]) {
   else throw new Error(`未知 release 命令：${command}`)
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// 入口判定必须解符号链接：生产上 `current` 是指向 releases/<id> 的软链，
+// 用 resolve(argv[1]) 与 import.meta.url 直接比较会不相等，CLI 会「成功退出但什么都不做」——
+// 运维跑 db-check / backup-verify 时看到 exit 0 会以为校验通过。
+export function isEntryPoint(argvPath, moduleUrl) {
+  if (!argvPath) return false
+  try {
+    return realpathSync(resolve(argvPath)) === realpathSync(fileURLToPath(moduleUrl))
+  } catch {
+    return false
+  }
+}
+
+if (isEntryPoint(process.argv[1], import.meta.url)) {
   main(process.argv.slice(2)).catch((error) => {
     console.error(error.message)
     process.exitCode = 1

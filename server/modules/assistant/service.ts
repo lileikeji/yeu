@@ -93,7 +93,6 @@ import {
   assistantWebKnowledge,
   contents,
   placeAmapRatings,
-  placeMerchants,
   placeReviews,
   places,
   procedureMaterials,
@@ -103,7 +102,18 @@ import {
 import { activePublicContentCondition } from '../content/visibility'
 import { searchOfficialKnowledgeDocuments, searchPublishedKnowledgeClaims } from '../knowledge/service'
 import { retrieveSignalEvidence } from '../signal/assistant-evidence'
-import { currentAssistantKnowledgeRevision } from './knowledge-revision'
+import {
+  bindAssistantKnowledgeRevisionDatabase,
+  currentAssistantKnowledgeRevision
+} from './knowledge-revision'
+import { buildAssistantCacheKey } from './cache-key'
+import { ASSISTANT_STORED_QUERY_MAX_LENGTH, maskAssistantQuery } from './query-mask'
+import {
+  BLOCKED_ASSISTANT_ANSWER,
+  isBlockedAssistantResponse,
+  resolveAssistantCitations,
+  type AssistantAnswerResponse
+} from './assistant-response'
 import { tryComputeZongce } from './zongce-calculator'
 import { competitionHintsForQuery, looksLikeCompetitionQuery, primeCompetitionHints } from './competition-classifier'
 import { coalesceInFlight } from './inflight'
@@ -374,7 +384,55 @@ const TERM_EXPANSIONS: Record<string, string[]> = {
   k2: ['文化宫', '泉州市区', '首班车', '末班车']
 }
 
-const answerCache = new Map<string, { expiresAt: number, response: ApiAssistantResponse }>()
+interface AssistantAnswerCacheEntry {
+  expiresAt: number
+  response: ApiAssistantResponse
+  /** 证据不足的负缓存条目：只活在进程内，TTL 更短，命中要单独计数。 */
+  negative: boolean
+}
+
+const answerCache = new Map<string, AssistantAnswerCacheEntry>()
+const assistantAnswerCacheCounters = {
+  hits: 0,
+  negativeHits: 0,
+  misses: 0,
+  evictions: 0,
+  expired: 0,
+  writes: 0,
+  negativeWrites: 0,
+  blockedSkipped: 0,
+  staleRevision: 0
+}
+
+/**
+ * 写入并维护 LRU 顺序。
+ *
+ * Map 的迭代顺序就是插入顺序：先删再插等于把条目移到队尾，读命中也会刷新年龄，
+ * 于是超限时淘汰的是真正最久没被用过的那条。原实现是写满 100 条就删队首（FIFO），
+ * 反复问的热点问题照样被淘汰，冷问题反而长期占位。
+ */
+function rememberAnswerCacheEntry(key: string, entry: AssistantAnswerCacheEntry): void {
+  answerCache.delete(key)
+  answerCache.set(key, entry)
+  while (answerCache.size > ASSISTANT_ANSWER_CACHE_MAX_ENTRIES) {
+    const oldest = answerCache.keys().next().value
+    if (!oldest) break
+    answerCache.delete(oldest)
+    assistantAnswerCacheCounters.evictions += 1
+  }
+}
+
+/** 进程内答案缓存的命中/淘汰计数（运维与测试用，不含库层）。 */
+export function assistantAnswerCacheStats(): Record<string, number> {
+  return { ...assistantAnswerCacheCounters, size: answerCache.size }
+}
+
+export function clearAssistantAnswerCache(): void {
+  answerCache.clear()
+  for (const key of Object.keys(assistantAnswerCacheCounters) as Array<keyof typeof assistantAnswerCacheCounters>) {
+    assistantAnswerCacheCounters[key] = 0
+  }
+}
 let activeGatewayCalls = 0
 let consecutiveGatewayFailures = 0
 let gatewayOpenUntil = 0
@@ -389,8 +447,8 @@ let mcpOpenUntil = 0
  * 请求之间会互相污染（A 请求的意图泄漏给 B 请求），并发越高越容易出现「答非
  * 所问」。
  */
-export type AssistantIntentName =
-  | 'food' | 'competition' | 'zongce' | 'dorm' | 'course' | 'service' | 'transit' | 'campus' | 'other'
+export type AssistantIntentName
+  = | 'food' | 'competition' | 'zongce' | 'dorm' | 'course' | 'service' | 'transit' | 'campus' | 'other'
 
 export interface AssistantIntentResult {
   intent: AssistantIntentName
@@ -430,8 +488,15 @@ const MAX_MCP_CONCURRENCY = 2
 // 会变，缓存必须整体失效（否则线上继续发旧口径的分数）。
 // v56: 上一版（v55）先上线、比赛归一的读取方与学术类默认档位后修，导致 v55 的答案
 // 缓存里存着一批"未识别到项目"的比赛答案且会被缓存短路（预热根本轮不到执行）。
-const ASSISTANT_CACHE_VERSION = 'rag-v81-signal-evidence'
+// v82: ①答案缓存 key 增加会话域（prompt 里注入了 session_context，四段式 key 会把
+// 一个会话的答案发给另一个会话）；②knowledge_revision 落库并在读路径真比对；
+// ③模型没给引用时不再拿「证据列表前 N 条」充当引用；④内容安全拦截不进两级缓存；
+// ⑤内存缓存 FIFO 改 LRU，并补上证据不足的短 TTL 负缓存。命中语义变了，必须 bump。
+const ASSISTANT_CACHE_VERSION = 'rag-v83-zongce-local-first'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
+/** 证据不足（confidence < 0.6）的负缓存只活 60 秒：重试往往能拿到新证据。 */
+const ASSISTANT_ANSWER_GAP_CACHE_TTL_MS = 60 * 1000
+const ASSISTANT_ANSWER_CACHE_MAX_ENTRIES = 100
 /** Build the vector-channel embedding config from assistant runtime config. */
 export function assistantEmbeddingConfig(config: AssistantConfig): EmbeddingConfig {
   return {
@@ -1702,8 +1767,8 @@ function shouldSynthesizeOfficialEvidence(query: string): boolean {
 }
 
 const ARABIC_TO_CHINESE_DIGIT: Record<string, string> = {
-  '0': '零', '1': '一', '2': '二', '3': '三', '4': '四',
-  '5': '五', '6': '六', '7': '七', '8': '八', '9': '九'
+  0: '零', 1: '一', 2: '二', 3: '三', 4: '四',
+  5: '五', 6: '六', 7: '七', 8: '八', 9: '九'
 }
 
 /** 8洛克台球 → 八洛克台球：把地点名/查询中的阿拉伯数字逐位换成中文数字。 */
@@ -1726,14 +1791,13 @@ function profileMeaningfulCompact(value: string): string {
 /** Published map places whose title the query names (subject-tolerant). */
 function querySubjectMapVenueEvidence(
   client: DatabaseClient,
-  query: string,
-  limit: number
+  query: string
 ): AssistantEvidence[] {
   // 只处理“点名 nearby 地点”的查询；正文推荐类（吃什么/哪家好）由美食通道负责。
   const normalizedSubjectQuery = normalizeAssistantQuery(query).toLocaleLowerCase('zh-CN')
   if (/吃|美食|推荐|评分|奶茶|火锅|好吃/.test(normalizedSubjectQuery)) return []
   const subjectHits: Array<{
-    row: { slug: string, name: string, summary: string, body: string, address: string | null, scope: 'campus' | 'nearby' },
+    row: { slug: string, name: string, summary: string, body: string, address: string | null, scope: 'campus' | 'nearby' }
     meaningful: string
   }> = []
   const rows = client.db.select({
@@ -1906,19 +1970,28 @@ function admissionPlanCountEvidenceIsSufficient(
 function admissionPlanCountGapResponse(
   query: string,
   evidence: AssistantEvidence[]
-): ApiAssistantResponse {
+): AssistantAnswerResponse {
   const asksTransferPlan = /专升本/.test(query)
   const requestedYear = /(?:^|\D)(20\d{2})(?:\D|$)/.exec(query)?.[1] ?? '当前年度'
   const track = asksTransferPlan ? '专升本' : '普通本科'
-  const directEvidence = evidence
-    .filter(item => item.title.includes(requestedYear) && item.title.includes(track))
+  // 正文只点名了「年份 + 招生类型」都对得上的招生计划页；同一批检索到的其它
+  // 页面不能拿来充引用。索引交给 resolveAssistantCitations 统一解析：一条合法
+  // 引用都没有时返回空列表 + citationStatus 'none'。
+  const directIndexes = evidence
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.title.includes(requestedYear) && item.title.includes(track))
     .slice(0, 2)
+    .map(({ index }) => index)
+  const resolved = resolveAssistantCitations(
+    evidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
+    directIndexes
+  )
   return {
     query,
     mode: 'ai',
     answer: `已找到学校发布的${requestedYear}年${track}招生计划页面，但当前可检索正文没有提取出可核验的招生总人数，因此不能把其他招生类型或其他年份的数字当作答案。请点击下方官方招生计划查看原表；待表格完成结构化识别后，系统会直接给出准确总数。`,
-    citations: (directEvidence.length > 0 ? directEvidence : evidence.slice(0, 2))
-      .map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
+    citations: resolved.citations,
+    citationStatus: resolved.citationStatus,
     usedWebSearch: evidence.some(item => item.source === 'web'),
     confidence: 0.82,
     evidenceGap: true
@@ -3021,7 +3094,7 @@ function seedRowsForPlace(
     ))
     .orderBy(desc(placeReviews.score))
     .all()
-  return rows.map(row => {
+  return rows.map((row) => {
     const firstLine = row.content.split('\n', 1)[0]?.trim() ?? ''
     const tag = row.score >= 4.5 ? '综合口碑' : row.score >= 3.5 ? '学生常点' : '需要注意'
     return { tag, score: row.score, content: firstLine }
@@ -3037,7 +3110,7 @@ function seedRowsForPlace(
 interface FoodAiCandidate {
   placeId: string
   name: string
-  /** 高德评分；null=暂无评分的新收录/推广店（候选仍可推荐，但不编评分）。 */
+  /** 高德评分；null=暂无评分的新收录门店（候选仍可推荐，但不编评分）。 */
   score: number | null
   cost: number | null
   area: '新区' | '旧区' | '学生街' | null
@@ -3343,40 +3416,12 @@ function assistantFoodRecommendationAnswer(
   const NON_FOOD_PATTERN = /(?:快递|速运|物流|驿站|菜鸟|电信|移动|联通|银行|信用社|维修|美发|理发|美甲|美睫|眼镜|洗衣|干洗|打印|复印|照相|摄影|药店|药房|诊所|医院|卫生院|超市|便利店|文具|五金|鞋|服装|饰品|手机|营业厅|文印|图文|广告|印刷|邮政|造型|兔喜|妈妈驿站|熊猫快收|自选店|食杂|网吧|网咖|台球|桌球|健身)/u
   const seenNames = new Set<string>()
   const allFood = rows.filter(row => row.score !== null && !NON_FOOD_PATTERN.test(row.name))
-    .filter(row => {
+    .filter((row) => {
       const key = row.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
       if (seenNames.has(key)) return false
       seenNames.add(key)
       return true
     })
-  // 已建卡但暂无高德评分的周边餐饮门店（scope=nearby 的 dining/food 卡片且后台推广
-  // 已启用）也并入候选池，否则"好七好七"这类新店在开放式推荐里永远不出现——评分
-  // 缺失按底分参与排序、展示"暂无评分"。
-  const promotedFoodCards = client.db.select({
-    placeId: places.id,
-    name: places.name,
-    summary: places.summary
-  }).from(places)
-    .innerJoin(placeMerchants, and(eq(placeMerchants.placeId, places.id), eq(placeMerchants.enabled, true)))
-    .where(and(
-      eq(places.status, 'published'),
-      eq(places.scope, 'nearby'),
-      or(eq(places.type, 'dining'), eq(places.type, 'food'))
-    ))
-    .all()
-  // 无评分推广卡的口碑行：从简介提炼一句（"…是学校周边的快餐小吃店…"），LLM 候选
-  // 与本地列表都有内容可用，否则 score=null 的店信息量为零、模型永远不会选。
-  const promoCardTips = new Map<string, string>()
-  for (const card of promotedFoodCards) {
-    const tipMatch = card.summary?.match(/，是([^。；！?？]{2,32})/u)
-    if (tipMatch) promoCardTips.set(card.placeId, `是${tipMatch[1]}`)
-  }
-  for (const card of promotedFoodCards) {
-    const key = card.name.toLocaleLowerCase('zh-CN').replace(/\s+/g, '')
-    if (seenNames.has(key)) continue
-    seenNames.add(key)
-    allFood.push({ placeId: card.placeId, name: card.name, score: null, cost: null })
-  }
 
   // Single-shop detail takes priority: "老贵阳牛肉粉怎么样 / 蜜雪冰城好不好"
   // returns that shop's full review cards, matched against the WHOLE food
@@ -3427,7 +3472,7 @@ function assistantFoodRecommendationAnswer(
   }
   if (areaQuery) {
     const target = areaQuery
-    rated = rated.filter(row => {
+    rated = rated.filter((row) => {
       const area = inferShopArea(row.name)
       return area === target || area === '学生街'
     })
@@ -3470,26 +3515,11 @@ function assistantFoodRecommendationAnswer(
   // identical list. Score-biased shuffle keeps high-rated shops likely (but
   // not guaranteed) to appear early while varying the order and membership
   // between calls, so repeated "附近吃什么" questions feel fresh. The count
-  // also varies (8-12) instead of a fixed 15. Promoted merchants (backoffice
-  // aiFrequency) get an extra bias so they surface more often.
-  const promoRows = client.db.select({
-    placeId: placeMerchants.placeId,
-    aiFrequency: placeMerchants.aiFrequency,
-    promoWeight: placeMerchants.promoWeight
-  }).from(placeMerchants)
-    .where(eq(placeMerchants.enabled, true))
-    .all()
-  // Promoted merchants get two independent linear biases: aiFrequency lifts
-  // how often they surface in AI recommendations; promoWeight lifts their
-  // rank position. 100% frequency adds up to +0.8, 100% promo weight +0.5.
-  const promoBias = new Map(promoRows.map(row => [row.placeId,
-    (row.aiFrequency ?? 0) / 100 * 0.8 + (row.promoWeight ?? 0) / 100 * 0.5]))
+  // also varies (8-12) instead of a fixed 15.
   const biasedShuffle = (items: typeof rated): typeof rated => {
     return items
-      // 无评分推广卡（score null）按 4.0 底分参与随机序：评分缺失不再等于垫底。
-      // 蒙特卡洛实测（98 店池）：3.7→进前 8-12 概率 ~13%，4.0→~79%。出现频次由
-      // 后台 ai_frequency/promo_weight 调节，此处只保证推广卡能进候选窗口。
-      .map(item => ({ item, bias: (item.score ?? 4.0) + Math.random() * 0.45 + (promoBias.get(item.placeId) ?? 0) }))
+      // 无评分卡（score null）按 4.0 底分参与随机序：评分缺失不再等于垫底。
+      .map(item => ({ item, bias: (item.score ?? 4.0) + Math.random() * 0.45 }))
       .sort((left, right) => right.bias - left.bias)
       .map(entry => entry.item)
   }
@@ -3528,8 +3558,7 @@ function assistantFoodRecommendationAnswer(
 
   const lines = rated.map((row, index) => {
     const costText = row.cost !== null ? `，人均约 ¥${Math.round(row.cost)}` : ''
-    const promoTip = promoCardTips.get(row.placeId)
-    const tips = [...(seedByPlace.get(row.placeId) ?? []), ...(promoTip ? [promoTip] : [])].slice(0, 2)
+    const tips = (seedByPlace.get(row.placeId) ?? []).slice(0, 2)
     const tipText = tips.length > 0 ? `（${tips.join('；')}）` : ''
     const area = inferShopArea(row.name)
     const areaText = area === '新区' ? '[新区] ' : area === '旧区' ? '[旧区] ' : area === '学生街' ? '[学生街] ' : ''
@@ -3573,15 +3602,14 @@ function assistantFoodRecommendationAnswer(
   if (capture) {
     capture.kind = 'list'
     capture.mealIntent = mealDrinkExclusionApplied
-    capture.candidates = rated.slice(0, FOOD_AI_CANDIDATE_LIMIT).map(row => {
-      const promoTip = promoCardTips.get(row.placeId)
+    capture.candidates = rated.slice(0, FOOD_AI_CANDIDATE_LIMIT).map((row) => {
       return {
         placeId: row.placeId,
         name: row.name,
         score: row.score,
         cost: row.cost,
         area: inferShopArea(row.name),
-        tips: [...(seedByPlace.get(row.placeId) ?? []), ...(promoTip ? [promoTip] : [])].slice(0, 2)
+        tips: (seedByPlace.get(row.placeId) ?? []).slice(0, 2)
           .map(line => line.length > 40 ? `${line.slice(0, 40)}…` : line)
       }
     })
@@ -4432,7 +4460,7 @@ export function retrieveCampusEvidence(
   // only recalled when the query actually names them, in any concrete form
   // ("八洛克台球在哪"/"附近台球"). Generic place rows are not loaded here —
   // the normal placeEvidence fan-out already covers them.
-  const subjectVenueEvidence = querySubjectMapVenueEvidence(client, query, limit)
+  const subjectVenueEvidence = querySubjectMapVenueEvidence(client, query)
   // Reciprocal Rank Fusion normalizes the heterogeneous per-source score
   // scales (keyword evidenceScore, FTS bm25, curated) into one rank-based
   // ordering, so no single source's raw magnitude dominates the combined pool.
@@ -4967,7 +4995,7 @@ export function studentRuleLocalAnswer(query: string, evidence: AssistantEvidenc
   // 「仰恩奖学金」，按原句 includes 匹配全部落空，于是问金额却答成
   // 「竞赛获奖与奖学金」条目（线上实测 99ms 答非所问）。剥掉档位词再匹配一次。
   const scholarshipNameProbe = normalizedQuery.replace(/[一二三]等(?:级)?/gu, '')
-  const mentionedScholarships = scholarships.filter(item => {
+  const mentionedScholarships = scholarships.filter((item) => {
     const name = item.name.toLocaleLowerCase('zh-CN')
     return normalizedQuery.includes(name) || scholarshipNameProbe.includes(name)
   })
@@ -5048,7 +5076,7 @@ export function studentRuleLocalAnswer(query: string, evidence: AssistantEvidenc
 // the institution's nature with a reviewed official fact instead.
 function isInstitutionNatureQuery(query: string): boolean {
   const normalized = normalizeAssistantQuery(normalizeAssistantQuery(query).replace(/[，。？?！!：:、s]/g, '')).toLocaleLowerCase('zh-CN')
-  let q = normalized
+  const q = normalized
   const anchor = /仰恩|仰恩大学|咱们学校|我们学校|本校/.test(q) ? true : false
   if (!anchor) return false
   // 「几本」可能是图书/册数（“图书馆能借几本书”“教材几本”），不是院校批次（一本/二本）。
@@ -5497,10 +5525,14 @@ export function buildStructuredEvidence(query: string): ApiAssistantCitation[] {
 }
 
 function ensureGroundedLocalCitation(
-  response: ApiAssistantResponse,
+  response: AssistantAnswerResponse,
   evidence: AssistantEvidence[]
-): ApiAssistantResponse {
-  if (response.citations.length > 0 || response.answer === '禁止回答') return response
+): AssistantAnswerResponse {
+  // 这个兜底只对「确定性本地答案」成立：正文就是按证据拼出来的，补一条真实来源
+  // 说得通。模型综合的答案若已显式声明 citationStatus='none'（它一条引用都没指），
+  // 再塞证据第一条就是替模型圆谎，必须放过。
+  if (response.citations.length > 0 || response.answer === BLOCKED_ASSISTANT_ANSWER) return response
+  if (response.citationStatus === 'none') return response
   const first = evidence[0]
   if (!first) return response
   const { text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation } = first
@@ -5959,7 +5991,7 @@ function courierStationLocalAnswer(client: DatabaseClient, query: string): ApiAs
     address: places.address,
     campusArea: places.campusArea
   }).from(places).where(eq(places.status, 'published')).all()
-    .filter(row => {
+    .filter((row) => {
       const name = row.name.toLocaleLowerCase('zh-CN')
       // 只认驿站类名字（快递/驿站/速运/速递/车来车往/洗衣店/妈妈/兔喜），避免撞上同名建筑
       if (!/(?:快递|驿站|速运|速递|车来车往|洗衣店|妈妈驿站|兔喜)/u.test(name)) return false
@@ -5986,7 +6018,7 @@ function courierStationLocalAnswer(client: DatabaseClient, query: string): ApiAs
   // 显式收窄一次，同时也把这个不变量写清楚。
   if (!company) return null
   const rows = stationRows
-    .filter(row => {
+    .filter((row) => {
       const name = row.name.toLocaleLowerCase('zh-CN')
       return name.includes(company)
         || (company === 'ems' && /ems|邮政/u.test(name))
@@ -6009,7 +6041,7 @@ function courierStationLocalAnswer(client: DatabaseClient, query: string): ApiAs
   const sorted = rows.sort((a, b) =>
     Number(b.name.startsWith(brandKey)) - Number(a.name.startsWith(brandKey))
     || b.name.length - a.name.length)
-  const citations: ApiAssistantCitation[] = sorted.map((row) => ({
+  const citations: ApiAssistantCitation[] = sorted.map(row => ({
     title: row.name,
     url: `/map?place=${encodeURIComponent(row.slug)}`,
     snippet: `${row.name}已收录在校园地图中，可在地图上直接定位。`,
@@ -6031,8 +6063,7 @@ function courierStationLocalAnswer(client: DatabaseClient, query: string): ApiAs
   }
 }
 
-function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAssistantResponse {
-  // eslint-disable-next-line no-console
+function buildLocalResponse(query: string, evidence: AssistantEvidence[]): AssistantAnswerResponse {
   const welcomeSystemAnswer = officialWelcomeSystemLocalAnswer(query, evidence)
   if (welcomeSystemAnswer) return welcomeSystemAnswer
   const transferMonthAnswer = official2026TransferMonthLocalAnswer(query, evidence)
@@ -6181,17 +6212,24 @@ function buildLocalResponse(query: string, evidence: AssistantEvidence[]): ApiAs
   if (featureAnswer) return featureAnswer
 
   const primary = evidence[0]!
-  const related = evidence.slice(1, 3)
-    .map(item => evidenceDisplayTitle(item.title))
-    .filter(title => title !== EVIDENCE_PLACEHOLDER_TITLE)
-    .map(title => `“${title}”`)
-    .join('、')
+  // 正文只点名了主条目和 related 里列出的这几条；旧实现把 evidence 前 3 条一律
+  // 挂成引用，用户点进去会发现正文从没提过它。索引统一交给
+  // resolveAssistantCitations：没被正文点名的证据不产出引用。
+  const relatedEvidence = evidence.slice(1, 3)
+    .map((item, offset) => ({ index: offset + 1, title: evidenceDisplayTitle(item.title) }))
+    .filter(({ title }) => title !== EVIDENCE_PLACEHOLDER_TITLE)
+  const related = relatedEvidence.map(({ title }) => `“${title}”`).join('、')
   const relatedText = related ? `也可以核对${related}。` : ''
+  const resolved = resolveAssistantCitations(
+    evidence.map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
+    [0, ...relatedEvidence.map(({ index }) => index)]
+  )
   return {
     query,
     mode: 'local',
     answer: `找到了可能相关的原文，但当前片段不能直接确认这个问题的答案。请打开《${evidenceDisplayTitle(primary.title)}》核对完整上下文。${relatedText}`,
-    citations: evidence.slice(0, 3).map(({ text: _text, score: _score, rawScore: _rawScore, hitReason: _hitReason, ...citation }) => citation),
+    citations: resolved.citations,
+    citationStatus: resolved.citationStatus,
     usedWebSearch: false,
     confidence: Math.min(0.58, 0.32 + primary.score / 120),
     evidenceGap: true
@@ -6213,7 +6251,7 @@ function identityUnlistedLocalAnswer(
   if (/(?:奖学金|助学金|基金|奖项|奖金|比赛|活动|楼|馆|雕像|铜像|项目)/u.test(subject)) return null
   // 站内检索已存在该人物的正规档案/简介时不得引导“没有找到”
   const subjectLower = subject.toLocaleLowerCase('zh-CN')
-  if (evidence.some(item => {
+  if (evidence.some((item) => {
     const title = item.title.toLocaleLowerCase('zh-CN').replace(/[《》“”"'「」【】\s]/gu, '')
     const probeText = item.text ?? `${item.title} ${item.snippet}`
     const text = `${item.title} ${item.snippet} ${probeText}`.toLocaleLowerCase('zh-CN')
@@ -6882,14 +6920,18 @@ export function sanitizeAssistantAnswer(value: string): string {
     .replace(/(?:链接|网址)[:：]\s*(?=$|[。；，,])/g, '')), 1800)
 }
 
-export function blockedAssistantResponse(rawQuery: string): ApiAssistantResponse {
+export function blockedAssistantResponse(rawQuery: string): AssistantAnswerResponse {
   return {
     query: normalizeAssistantQuery(rawQuery),
     mode: 'ai',
-    answer: '禁止回答',
+    answer: BLOCKED_ASSISTANT_ANSWER,
     citations: [],
+    citationStatus: 'none',
     usedWebSearch: false,
-    confidence: 1
+    // 拦截不是「高置信度答案」：confidence 1 会让缓存层（阈值 0.6）把它当正常
+    // 回答写进两级缓存，统计里也记成一次成功。0 表示本次没有可采信的结论。
+    confidence: 0,
+    blocked: true
   }
 }
 
@@ -6957,7 +6999,6 @@ async function postGatewayChat(
   }
   if (activeGatewayCalls >= 2) throw new Error('AI_BUSY')
   activeGatewayCalls += 1
-  const callStartedAt = Date.now()
   try {
     // Gate the gateway URL against SSRF without breaking the supported local
     // topology: a same-host loopback proxy (http://127.0.0.1:18080) is the
@@ -7164,42 +7205,42 @@ export async function classifyAssistantIntent(
     const payload = await coalesceInFlight(
       `intent:${config.gatewayBaseUrl}|${config.gatewayModel}|${query}`,
       () => postGatewayChat(config, [
-      {
-        role: 'system',
-        content: [
-          '你是仰恩大学新生指南的查询意图分类器。只输出一个 JSON 对象，不要输出任何其他文字。',
-          '意图选项：',
-          'food=问吃的/喝的学生街餐厅奶茶；competition=问学科竞赛/比赛/获奖加分奖金；',
-          'zongce=问综合测评/综测评分加分；dorm=问宿舍住宿；course=问课程学业选课；',
-          'service=问校园服务(快递/打印/银行/理发/药店等)；transit=问交通出行；',
-          'campus=问校园概况/地点/活动；other=其他。',
-          '同时给出 topic：一句话中文主题（如"竞赛加分标准"、"学生街美食推荐"）。',
-          '如果查询同时涉及多个意图（如"竞赛加分和综测的区别"），选最贴切的一个。',
-          // 口语缩写往往不带主题词，但意图很明确——分类器的价值正在这里，
-          // 正则匹配做不到，所以要在提示里点明。
-          '注意口语缩写与指代：省一/省二/国奖/国家级指竞赛获奖等级，属 competition；',
-          '转专业/休学/复学/退学属 course；校园卡/水电/报修属 service。',
-          '输出格式：{"intent":"food","topic":"学生街奶茶推荐"}'
-        ].join('\n')
-      },
-      {
-        role: 'user',
-        content: `请分类这个查询的意图：${query}`
-      }
-    ], {
-      maxTokens: 120,
-      timeoutMs,
-      // 意图分类只是「路由提示」：它失败时正则行为不变，所以绝不能把自己的失败
-      // 计入网关熔断计数——否则分类器一坏就把正常问答一起断掉。
-      trackFailures: false,
-      // 必须关思考：120 tokens 的预算里 reasoning 会吃到 ~128，线上实测 4 个问题有 2 个
-      // finish_reason=length、content=null（正是最需要分类器的那些模糊问法），解析失败即
-      // 意图分类为 null。关掉后 4/4 成功。
-      reasoningEffort: 'none',
-      // 增强类调用：网关偶发 429 时退一步重试一次，别让意图分类/记忆抽取静默降级。
-      maxAttempts: 2,
-      waitForSlotMs: ASSISTANT_ENHANCEMENT_SLOT_WAIT_MS
-    }))
+        {
+          role: 'system',
+          content: [
+            '你是仰恩大学新生指南的查询意图分类器。只输出一个 JSON 对象，不要输出任何其他文字。',
+            '意图选项：',
+            'food=问吃的/喝的学生街餐厅奶茶；competition=问学科竞赛/比赛/获奖加分奖金；',
+            'zongce=问综合测评/综测评分加分；dorm=问宿舍住宿；course=问课程学业选课；',
+            'service=问校园服务(快递/打印/银行/理发/药店等)；transit=问交通出行；',
+            'campus=问校园概况/地点/活动；other=其他。',
+            '同时给出 topic：一句话中文主题（如"竞赛加分标准"、"学生街美食推荐"）。',
+            '如果查询同时涉及多个意图（如"竞赛加分和综测的区别"），选最贴切的一个。',
+            // 口语缩写往往不带主题词，但意图很明确——分类器的价值正在这里，
+            // 正则匹配做不到，所以要在提示里点明。
+            '注意口语缩写与指代：省一/省二/国奖/国家级指竞赛获奖等级，属 competition；',
+            '转专业/休学/复学/退学属 course；校园卡/水电/报修属 service。',
+            '输出格式：{"intent":"food","topic":"学生街奶茶推荐"}'
+          ].join('\n')
+        },
+        {
+          role: 'user',
+          content: `请分类这个查询的意图：${query}`
+        }
+      ], {
+        maxTokens: 120,
+        timeoutMs,
+        // 意图分类只是「路由提示」：它失败时正则行为不变，所以绝不能把自己的失败
+        // 计入网关熔断计数——否则分类器一坏就把正常问答一起断掉。
+        trackFailures: false,
+        // 必须关思考：120 tokens 的预算里 reasoning 会吃到 ~128，线上实测 4 个问题有 2 个
+        // finish_reason=length、content=null（正是最需要分类器的那些模糊问法），解析失败即
+        // 意图分类为 null。关掉后 4/4 成功。
+        reasoningEffort: 'none',
+        // 增强类调用：网关偶发 429 时退一步重试一次，别让意图分类/记忆抽取静默降级。
+        maxAttempts: 2,
+        waitForSlotMs: ASSISTANT_ENHANCEMENT_SLOT_WAIT_MS
+      }))
     const text = extractGatewayText(payload)
     if (!text) return null
     const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()
@@ -7315,21 +7356,30 @@ function cacheResponse(
         ]
       }
     : response
+  // 内容安全拦截既不是答案也不是证据不足：写进缓存等于把一次网关风控记成 30 分钟
+  // 的有效回答，而且是「可复现」地返回拦截文案。两级缓存都不收它。
+  if (isBlockedAssistantResponse(normalizedResponse)) {
+    answerCache.delete(key)
+    assistantAnswerCacheCounters.blockedSkipped += 1
+    return normalizedResponse
+  }
   const now = Date.now()
   const expiresAt = now + ASSISTANT_ANSWER_CACHE_TTL_MS
+  const knowledgeRevision = currentAssistantKnowledgeRevision(client)
   if (normalizedResponse.confidence >= 0.6) {
-    answerCache.set(key, { expiresAt, response: normalizedResponse })
-    if (answerCache.size > 100) {
-      const oldest = answerCache.keys().next().value
-      if (oldest) answerCache.delete(oldest)
-    }
+    rememberAnswerCacheEntry(key, { expiresAt, response: normalizedResponse, negative: false })
+    assistantAnswerCacheCounters.writes += 1
+    // 落库的问题必须脱敏：手机号/身份证/学号/姓名进了 assistant_answer_cache 就是
+    // 后台列表与备份里的明文；response_json 里还带着原始 query，一起替换。
+    const storedQuery = maskAssistantQuery(response.query).slice(0, ASSISTANT_STORED_QUERY_MAX_LENGTH)
+    const storedJson = JSON.stringify({ ...normalizedResponse, query: storedQuery })
     try {
       client.db.insert(assistantAnswerCache).values({
         id: randomUUID(),
         cacheKey: key,
-        query: response.query.slice(0, 300),
-        responseJson: JSON.stringify(normalizedResponse),
-        knowledgeRevision: currentAssistantKnowledgeRevision(),
+        query: storedQuery,
+        responseJson: storedJson,
+        knowledgeRevision,
         expiresAt,
         lastUsedAt: now,
         createdAt: now,
@@ -7337,9 +7387,9 @@ function cacheResponse(
       }).onConflictDoUpdate({
         target: assistantAnswerCache.cacheKey,
         set: {
-          query: response.query.slice(0, 300),
-          responseJson: JSON.stringify(normalizedResponse),
-          knowledgeRevision: currentAssistantKnowledgeRevision(),
+          query: storedQuery,
+          responseJson: storedJson,
+          knowledgeRevision,
           expiresAt,
           lastUsedAt: now,
           updatedAt: now
@@ -7349,9 +7399,15 @@ function cacheResponse(
       // A cache write must never turn a successful answer into a failed answer.
     }
   } else {
-    // A gap response is request-scoped. A later retry may have fresher search
-    // evidence or a recovered gateway and must not replay this result.
-    answerCache.delete(key)
+    // 证据不足的回答原来完全不缓存：用户每次重问都要重跑一遍检索链（含网关意图
+    // 分类）。改成 60 秒的进程内负缓存，同会话同一问句窗口内直接复用「资料不足」
+    // 模板；不写库——重试可能拿到新证据，落库会把临时缺口固化成 30 分钟。
+    rememberAnswerCacheEntry(key, {
+      expiresAt: now + ASSISTANT_ANSWER_GAP_CACHE_TTL_MS,
+      response: normalizedResponse,
+      negative: true
+    })
+    assistantAnswerCacheCounters.negativeWrites += 1
   }
   return normalizedResponse
 }
@@ -7365,28 +7421,51 @@ function readCachedAssistantResponse(
   const now = Date.now()
   const memory = answerCache.get(key)
   if (memory) {
-    if (memory.expiresAt > now) return memory.response
+    if (memory.expiresAt > now) {
+      rememberAnswerCacheEntry(key, memory)
+      assistantAnswerCacheCounters.hits += 1
+      if (memory.negative) assistantAnswerCacheCounters.negativeHits += 1
+      return memory.response
+    }
     answerCache.delete(key)
+    assistantAnswerCacheCounters.expired += 1
   }
   try {
     const row = client.db.select({
       id: assistantAnswerCache.id,
       responseJson: assistantAnswerCache.responseJson,
-      expiresAt: assistantAnswerCache.expiresAt
+      expiresAt: assistantAnswerCache.expiresAt,
+      knowledgeRevision: assistantAnswerCache.knowledgeRevision
     }).from(assistantAnswerCache).where(and(
       eq(assistantAnswerCache.cacheKey, key),
       gt(assistantAnswerCache.expiresAt, now)
     )).get()
-    if (!row) return null
+    if (!row) {
+      assistantAnswerCacheCounters.misses += 1
+      return null
+    }
+    // knowledge_revision 原来是只写不读的死列：写入时记了修订号，读时从不比对，
+    // 内容更新后旧答案照样命中满 30 分钟的 TTL。现在必须比对，不等就删行。
+    if (row.knowledgeRevision !== currentAssistantKnowledgeRevision(client)) {
+      client.db.delete(assistantAnswerCache).where(eq(assistantAnswerCache.id, row.id)).run()
+      assistantAnswerCacheCounters.staleRevision += 1
+      assistantAnswerCacheCounters.misses += 1
+      return null
+    }
     const response = JSON.parse(row.responseJson) as ApiAssistantResponse
-    if (!response || typeof response.answer !== 'string' || !Array.isArray(response.citations)) return null
-    answerCache.set(key, { expiresAt: row.expiresAt, response })
+    if (!response || typeof response.answer !== 'string' || !Array.isArray(response.citations)) {
+      assistantAnswerCacheCounters.misses += 1
+      return null
+    }
+    rememberAnswerCacheEntry(key, { expiresAt: row.expiresAt, response, negative: false })
+    assistantAnswerCacheCounters.hits += 1
     client.db.update(assistantAnswerCache)
       .set({ lastUsedAt: now, updatedAt: now })
       .where(eq(assistantAnswerCache.id, row.id))
       .run()
     return response
   } catch {
+    assistantAnswerCacheCounters.misses += 1
     return null
   }
 }
@@ -7582,7 +7661,16 @@ async function answerCampusQuestionCore(
     const cacheVariant = transitRoute && (config.transitPlanner || config.amapWebServiceKey?.trim())
       ? 'live-transit'
       : 'standard'
-    const cacheKey = `${ASSISTANT_CACHE_VERSION}:${cacheVariant}:${currentAssistantKnowledgeRevision()}:${query.toLocaleLowerCase('zh-CN')}`
+    // key 必须带会话域：prompt 里拼了 session_context，只按「版本:变体:修订:问题」
+    // 命中会让 A 会话的答案出现在 B 会话（跨会话串答案）。
+    const cacheKey = buildAssistantCacheKey({
+      version: ASSISTANT_CACHE_VERSION,
+      variant: cacheVariant,
+      knowledgeRevision: currentAssistantKnowledgeRevision(client),
+      sessionKey: config.sessionKey,
+      sessionContext: config.sessionContext,
+      query
+    })
     const historicalTransferAnswer = transferMajorHistoricalAnswer(query)
     // Food recommendations are randomized on purpose (biased shuffle + varied
     // phrasing) — serving a cached answer would freeze one random outcome and
@@ -7911,6 +7999,7 @@ async function answerCampusQuestionCore(
           // int8 量化 / vec0 的唯一依据**（另外两个候选已被实测否决：只扫 chunk_index=0
           // 要丢 15.3% 召回却只省 16% I/O；窄表读法与全列读法耗时相同）。
           if ((result.timing.vectorScanMs ?? 0) >= 1_000) {
+            // eslint-disable-next-line no-console -- 冷扫描频率是决定要不要上量化的唯一依据，必须留进程日志
             console.warn(`[assistant-vector] slow scan ${result.timing.vectorScanMs}ms`
               + ` embed=${result.timing.vectorEmbedMs ?? '-'}ms`
               + ` query=${safeText(query, 40)}`)
@@ -8049,6 +8138,7 @@ async function answerCampusQuestionCore(
       || deterministicClubAnswer
       || deterministicKnowledgeAnswer
       || deterministicRuleAnswer
+      || deterministicZongceCalcAnswer
       || zongceBonusLocalAnswer(query) !== null
       || directDirectoryEvidence(query, localEvidence)
       || hasStructuredLocalAnswer(query, localEvidence)
@@ -8111,8 +8201,15 @@ async function answerCampusQuestionCore(
     return cacheResponse(client, cacheKey, withRunMetadata(response, tracker, 'local_database'), config.signal)
   }
   if (analysis.route === 'answer_cache' && analysis.cached) {
-    const response = await runAssistantStage(tracker, 'answer_cache', '读取答案缓存', () => analysis.cached!)
-    return withRunMetadata(response, tracker, 'answer_cache', true)
+    const cached = analysis.cached
+    const response = await runAssistantStage(tracker, 'answer_cache', '读取答案缓存', () => cached)
+    // 负缓存（证据不足的重问）不算「答案缓存命中」：保留原来的检索路径，否则后台
+    // 会把一次重问记成 answer_cache 的命中，gap 也会被缓存命中率掩盖。
+    const negativeHit = cached.evidenceGap === true || cached.confidence < 0.6
+    const cachedPath: ApiAssistantRetrievalPath = negativeHit
+      ? (cached.retrievalPath ?? (cached.mode === 'local' ? 'local_database' : 'web_search'))
+      : 'answer_cache'
+    return withRunMetadata(response, tracker, cachedPath, true)
   }
 
   if (analysis.route === 'transit_api') {
@@ -8263,16 +8360,20 @@ async function answerCampusQuestionCore(
             const model = await askGateway(query, evidence, config, {
               onFirstToken: () => { if (firstTokenAt === 0) firstTokenAt = Date.now() - tracker.startedAt }
             })
-            const selectedCitations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
-            return {
+            // 模型没给引用就是没引用。原来回退 evidence.slice(0, 1)，等于替模型
+            // 「补」一条它从未引用过的来源，前端还照常展示——这是造假，不是兜底。
+            const resolved = resolveAssistantCitations(evidence, model.citationIndexes)
+            const answered: AssistantAnswerResponse = {
               query,
-              mode: 'ai' as const,
+              mode: 'ai',
               answer: model.answer,
-              citations: selectedCitations.length > 0 ? selectedCitations : evidence.slice(0, 1),
+              citations: resolved.citations,
+              citationStatus: resolved.citationStatus,
               usedWebSearch: false,
               confidence: model.confidence,
               firstTokenMs: firstTokenAt > 0 ? firstTokenAt : undefined
             }
+            return answered
           } catch (error) {
             if (error instanceof Error && error.message === 'AI_CONTENT_BLOCKED') {
               return blockedAssistantResponse(query)
@@ -8381,19 +8482,20 @@ async function answerCampusQuestionCore(
         confidence: Math.min(fallback.confidence, 0.62)
       }
     }
-    const selectedCitations = model.citationIndexes.map(index => evidence[index]!).filter(Boolean)
-    const citations = selectedCitations.length > 0
-      ? selectedCitations
-      : evidence.slice(0, Math.min(3, evidence.length))
-    return {
+    // 同理：网页分支原来回退 evidence.slice(0, 3)，把「检索到但模型没引用」的
+    // 网页当成引用挂上去，用户点进去会发现正文根本没提这些内容。
+    const resolved = resolveAssistantCitations(evidence, model.citationIndexes)
+    const answered: AssistantAnswerResponse = {
       query,
-      mode: 'ai' as const,
+      mode: 'ai',
       answer: model.answer,
-      citations,
-      usedWebSearch: citations.some(item => item.source === 'web'),
+      citations: resolved.citations,
+      citationStatus: resolved.citationStatus,
+      usedWebSearch: resolved.citations.some(item => item.source === 'web'),
       confidence: model.confidence,
       firstTokenMs: firstTokenAt > 0 ? firstTokenAt : undefined
     }
+    return answered
   })
   throwIfAssistantAborted(config.signal)
   // Fix C: the web path runs for web_cache/web_search routes, but when the
@@ -8626,6 +8728,9 @@ export async function answerCampusQuestion(
   config: AssistantConfig,
   hooks: AssistantRunHooks = {}
 ): Promise<ApiAssistantResponse> {
+  // 知识修订号现在落库：先把本次请求的连接挂上，content/places/procedures 里那十几处
+  // 零参 bump 调用才能写进 assistant_knowledge_state（不绑就只剩进程内计数）。
+  bindAssistantKnowledgeRevisionDatabase(client)
   if (containsPromptInjection(rawQuery) || containsCredentialSeeking(rawQuery)) return blockedAssistantResponse(rawQuery)
   const sessionKey = config.sessionKey?.trim() ? config.sessionKey : undefined
   const compose = (query: string, previousQuery: string | undefined): string =>

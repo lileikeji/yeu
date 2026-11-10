@@ -10,6 +10,7 @@ import {
   VECTOR_EVIDENCE_LIMIT,
   type VectorLegTiming
 } from './vector-search'
+import { bindAssistantKnowledgeRevisionDatabase } from './knowledge-revision'
 
 /**
  * 为**高频提问**预热语义召回缓存。
@@ -59,6 +60,8 @@ export interface VectorPrewarmOptions {
   limit?: number
   /** 嵌入实现，仅供测试注入（线上用默认的 OpenAI 兼容实现）。 */
   embedder?: EmbeddingProvider
+  /** 时钟，仅供测试注入：预算判定要可复现，不能挂在真实墙钟上。 */
+  now?: () => number
 }
 
 const DEFAULT_MAX_QUERIES = 40
@@ -174,7 +177,8 @@ export async function prewarmVectorCacheForHotQueries(
   retrievalQueryFor: (query: string) => string,
   options: VectorPrewarmOptions = {}
 ): Promise<VectorPrewarmResult> {
-  const startedAt = Date.now()
+  const now = options.now ?? Date.now
+  const startedAt = now()
   const maxQueries = Math.max(1, options.maxQueries ?? DEFAULT_MAX_QUERIES)
   // 不设人为下限：调用方给多少预算就照多少执行（唯一的线上调用方用默认值）。
   // 之前垫了个 1000ms 的下限，结果是"预算"这个参数说了不算。
@@ -191,9 +195,11 @@ export async function prewarmVectorCacheForHotQueries(
     previousHit: 0,
     ms: 0
   }
+  // 预热要算出与在线请求一致的缓存键：知识修订号现在落库，先把连接挂上。
+  bindAssistantKnowledgeRevisionDatabase(client)
   // 没配嵌入端点就整个跳过：语义召回本来就关着，预热毫无意义。
   if (!embeddingConfigReady(embedding)) {
-    result.ms = Date.now() - startedAt
+    result.ms = now() - startedAt
     return result
   }
 
@@ -205,7 +211,7 @@ export async function prewarmVectorCacheForHotQueries(
   const seen = new Set<string>()
   const deduped: string[] = []
   for (const stats of ranked) {
-    let retrievalQuery = stats.query
+    let retrievalQuery: string
     try {
       retrievalQuery = retrievalQueryFor(stats.query)
     } catch {
@@ -231,7 +237,7 @@ export async function prewarmVectorCacheForHotQueries(
 
   const warmedKeys: Array<{ key: string, baseline: number }> = []
   for (const retrievalQuery of targets) {
-    if (Date.now() - startedAt > budgetMs) {
+    if (now() - startedAt > budgetMs) {
       result.skipped = targets.length - result.attempted
       break
     }
@@ -261,6 +267,6 @@ export async function prewarmVectorCacheForHotQueries(
   // 记下本轮写进缓存的**键 + 基线**（不是问法原文）：下一轮按 `计数 > 基线` 结算，
   // 即使期间知识修订号变化导致重算出的键不同，也不会把命中数算错。
   lastWarmed = warmedKeys
-  result.ms = Date.now() - startedAt
+  result.ms = now() - startedAt
   return result
 }

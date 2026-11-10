@@ -43,7 +43,7 @@ export const feedbackDefaultFormCopy: FeedbackFormCopy = {
   metaDescription: '告诉我们校园地点、办事步骤或指南内容哪里不对，也可以提供更准确的学校通知。',
   kicker: '一起完善指南',
   title: '发现信息不对？告诉我们',
-  description: '地点搬了、营业时间变了、通知过期了，或者你有更准确的学校通知，都可以在这里告诉我们。',
+  description: '地点搬了、营业时间变了、通知过期了，或者你手上有更准的学校通知，都写在这里。',
   reasonLabel: '哪里需要修改',
   messageLabel: '具体情况',
   messageHint: '请写清哪个地点或页面、哪里不对，以及正确情况。至少写 5 个字。',
@@ -63,7 +63,7 @@ export const feedbackDefaultFormCopy: FeedbackFormCopy = {
 
 export const feedbackPrivacyRequestFormCopy: FeedbackFormCopy = {
   metaTitle: '查询或删除自己的信息',
-  metaDescription: '申请查询或删除你在本站留下的信息，并了解需要提供哪些核对线索。',
+  metaDescription: '申请查询或删除本站记录，以及要提供什么线索核对。',
   kicker: '信息查询与删除',
   title: '查询或删除自己的信息',
   description: '请说明你想查询或删除哪类信息，以及大约什么时候留下的。不要填写密码、证件号码或完整网络地址。',
@@ -93,13 +93,15 @@ export function resolveFeedbackFormCopy(reasonType: FeedbackReasonValue): Feedba
 export const feedbackTargetLabels = {
   place: '地点',
   content: '内容',
-  procedure: '办事流程'
+  procedure: '办事流程',
+  claim: '事实结论'
 } as const satisfies Record<Exclude<FeedbackTargetType, 'general'>, string>
 
 export const feedbackTargetIcons = {
   place: 'i-lucide-map-pin',
   content: 'i-lucide-file-text',
-  procedure: 'i-lucide-list-checks'
+  procedure: 'i-lucide-list-checks',
+  claim: 'i-lucide-quote'
 } as const satisfies Record<Exclude<FeedbackTargetType, 'general'>, string>
 
 export function feedbackRouteQueryString(value: unknown): string {
@@ -141,6 +143,28 @@ export function resolveFeedbackTargetName(
 
 export function resolveFeedbackTargetLabel(targetType: FeedbackTargetType): string {
   return targetType === 'general' ? '反馈对象' : feedbackTargetLabels[targetType]
+}
+
+/** 回执状态只讲用户关心的三件事：还在处理、已受理、没被采纳。 */
+export const feedbackReceiptStatusCopy: Record<
+  import('~~/shared/types/server').FeedbackReceiptStatus,
+  { label: string, description: string, color: 'info' | 'success' | 'warning' }
+> = {
+  pending: {
+    label: '处理中',
+    description: '我们已经收到，正在核对。',
+    color: 'info'
+  },
+  accepted: {
+    label: '已处理',
+    description: '这条反馈已经落到对应的内容或流程上了。',
+    color: 'success'
+  },
+  rejected: {
+    label: '未采纳',
+    description: '核对后没有改动，通常是信息本身无误或缺少可核验来源。',
+    color: 'warning'
+  }
 }
 
 export function resolveFeedbackTargetIcon(targetType: FeedbackTargetType): string {

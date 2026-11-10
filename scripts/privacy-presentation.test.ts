@@ -77,7 +77,7 @@ test('privacy sections stay student-facing', () => {
 test('privacy summary presents the important choices before the detailed rules', () => {
   assert.match(pageSource, /先记住这三点/)
   assert.match(pageSource, /常用功能怎么保护你的信息/)
-  assert.match(pageSource, /不会向你索要学号、校园一卡通密码或校园网密码/)
+  assert.match(pageSource, /不会要你的学号、一卡通密码或校园网密码/)
   assert.match(pageSource, /class="mt-4 grid gap-3 sm:grid-cols-3"/)
   assert.match(pageSource, /highlight\.tone === 'blue'/)
   assert.match(pageSource, /highlight\.tone === 'amber'/)

@@ -72,8 +72,8 @@ const filteredPlaceRooms = computed(() => {
 const composerLocked = computed(() => Boolean(activeRoom.value?.isMutedAll || activeRoom.value?.isMuted))
 const activeRoomDescription = computed(() => {
   if (!activeRoom.value) return '请选择一个群聊'
-  if (activeRoom.value.kind === 'public') return '所有已登录同学都可以参与'
-  if (activeRoom.value.kind === 'place') return '本楼同学的交流区，发言请注意文明用语'
+  if (activeRoom.value.kind === 'public') return '登录后都能看'
+  if (activeRoom.value.kind === 'place') return '本楼同学的交流区，说话注意分寸'
   return activeRoom.value.dormBuilding
     ? `${activeRoom.value.dormBuilding}楼群`
     : '同宿舍楼同学的交流区'
@@ -177,11 +177,6 @@ function toggleSearch(): void {
     searchResults.value = []
     searchDone.value = false
   }
-}
-
-function openResultRoom(roomId: string): void {
-  if (roomId !== activeRoomId.value) return
-  searchOpen.value = false
 }
 
 async function loadPlaceRooms(): Promise<void> {
@@ -429,7 +424,7 @@ watch(activeRoomId, () => {
             群聊
           </h1>
           <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {{ user?.displayName || '同学' }}，公共群、宿舍楼群和各楼栋群都在这里。
+            {{ user?.displayName || '同学' }}，这里是公共群和宿舍楼群。
           </p>
         </div>
         <div class="flex gap-2">
@@ -604,7 +599,9 @@ watch(activeRoomId, () => {
                   <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ item.displayName }}</span>
                   <span class="text-[10px] tabular-nums text-zinc-400">{{ new Date(item.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) }}</span>
                 </div>
-                <p class="mt-0.5 whitespace-pre-line text-zinc-600 dark:text-zinc-300">{{ item.body }}</p>
+                <p class="mt-0.5 whitespace-pre-line text-zinc-600 dark:text-zinc-300">
+                  {{ item.body }}
+                </p>
               </li>
             </ul>
             <p

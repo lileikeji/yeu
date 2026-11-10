@@ -19,7 +19,7 @@ interface DormTour {
 
 useSeoMeta({
   title: '宿舍实拍',
-  description: '查看普通型宿舍和舒适型宿舍的竖屏实拍视频，提前了解床桌柜、洗漱区、卫生间和洗衣区域。'
+  description: '普通型和舒适型宿舍的竖屏实拍，拍到了床桌柜、洗漱台、卫生间和洗衣区。'
 })
 
 const dormTours: DormTour[] = [

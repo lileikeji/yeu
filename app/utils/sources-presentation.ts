@@ -134,7 +134,7 @@ export const sourceLevelGuides: SourceLevelGuide[] = [
   {
     level: '到现场再看',
     title: '地图和同学分享',
-    description: '适合先找地点和了解生活经验；营业情况、收费和办事要求仍以现场或最新通知为准。',
+    description: '找地点、看生活经验先看这里；营业、收费和办事要求以现场或最新通知为准。',
     icon: 'i-lucide-map-pin-check',
     tone: 'zinc'
   }

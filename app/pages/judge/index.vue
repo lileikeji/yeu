@@ -31,6 +31,23 @@ const loggingOut = ref(false)
 const singerSheetOpen = ref(false)
 const toast = useToast()
 
+/** 断网续评：分数先落本地草稿，发送失败进队列，联网后自动补交。 */
+const {
+  pendingCount: draftPending,
+  flushing: draftFlushing,
+  save: saveScoreDraft,
+  retryNow: retryDrafts
+} = useScoreDraft({
+  send: item => judgeFetch(`/api/judge/scores/${encodeURIComponent(item.singerId)}`, {
+    method: 'PUT',
+    body: {
+      scores: item.payload.scores,
+      comment: item.payload.comment
+    }
+  }),
+  onFlushed: () => { void loadPayload(true) }
+})
+
 const event = computed(() => payload.value?.event ?? null)
 const round = computed(() => payload.value?.round ?? null)
 const dimensions = computed<CompetitionDimension[]>(() => event.value?.dimensions ?? [])
@@ -256,9 +273,37 @@ function setDraftScore(key: string, raw: unknown): void {
   }
 }
 
+/** 服务端明确拒绝的几种情况，提示完就同步成最新状态。 */
+function handleSaveError(error: unknown): void {
+  const code = errorCode(error)
+  if (code === 'COMPETITION_NOT_CURRENT_SINGER') {
+    toast.add({
+      title: '已经换到别人了',
+      description: errorMessage(error) || '页面已同步到当前这位选手。',
+      color: 'warning'
+    })
+    void loadPayload(true)
+  } else if (code === 'COMPETITION_SCORING_CLOSED') {
+    toast.add({
+      title: '本轮评分未开放或已结束',
+      description: '成绩已锁定，页面将刷新为只读。',
+      color: 'warning'
+    })
+    void loadPayload(true)
+  } else {
+    toast.add({
+      title: '保存失败',
+      description: errorMessage(error) || '请检查网络后重试。',
+      color: 'warning'
+    })
+  }
+}
+
 async function saveScore(advance: boolean): Promise<void> {
   const singer = selectedSinger.value
-  if (!singer || saving.value || !scoringOpen.value) return
+  const roundKey = round.value?.key
+  const judgeId = payload.value?.judge.id
+  if (!singer || !roundKey || !judgeId || saving.value || !scoringOpen.value) return
 
   if (!hasCompleteScore.value) {
     toast.add({ title: '请填写全部评分维度', color: 'warning' })
@@ -271,13 +316,30 @@ async function saveScore(advance: boolean): Promise<void> {
     for (const dimension of dimensions.value) {
       scores[dimension.key] = Number(draftScores.value[dimension.key])
     }
-    await judgeFetch(`/api/judge/scores/${encodeURIComponent(singer.id)}`, {
-      method: 'PUT',
-      body: {
+
+    // 先落草稿再发请求：网断了分数也还在，回头按顺序补交。
+    const result = await saveScoreDraft({
+      roundKey,
+      singerId: singer.id,
+      judgeId,
+      payload: {
         scores,
         comment: draftComment.value.trim()
       }
     })
+
+    if (result.status === 'queued') {
+      toast.add({
+        title: '已经记下了',
+        description: '网好了会自动交上去，不用重新打分。',
+        color: 'warning'
+      })
+      return
+    }
+    if (result.status === 'rejected') {
+      handleSaveError(result.error)
+      return
+    }
 
     const wasSequential = sequential.value
     await loadPayload(true)
@@ -293,29 +355,6 @@ async function saveScore(advance: boolean): Promise<void> {
         .slice(index + 1)
         .find(item => item.score === null) ?? singers.value[index + 1]
       if (next) selectSinger(next.id)
-    }
-  } catch (error) {
-    const code = errorCode(error)
-    if (code === 'COMPETITION_NOT_CURRENT_SINGER') {
-      toast.add({
-        title: '已经换到别人了',
-        description: errorMessage(error) || '页面已同步到当前这位选手。',
-        color: 'warning'
-      })
-      await loadPayload(true)
-    } else if (code === 'COMPETITION_SCORING_CLOSED') {
-      toast.add({
-        title: '本轮评分未开放或已结束',
-        description: '成绩已锁定，页面将刷新为只读。',
-        color: 'warning'
-      })
-      await loadPayload(true)
-    } else {
-      toast.add({
-        title: '保存失败',
-        description: errorMessage(error) || '请检查网络后重试。',
-        color: 'warning'
-      })
     }
   } finally {
     saving.value = false
@@ -525,7 +564,20 @@ onBeforeUnmount(stopPolling)
           <div class="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                <span>我的进度</span>
+                <span class="flex min-w-0 items-center gap-1.5">
+                  我的进度
+                  <span
+                    v-if="draftPending > 0"
+                    class="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                    :title="`还有 ${draftPending} 份没交上去`"
+                  >
+                    <UIcon
+                      name="i-lucide-cloud-off"
+                      class="size-3"
+                    />
+                    待交 {{ draftPending }}
+                  </span>
+                </span>
                 <span class="tabular-nums">{{ payload.progress.scored }} / {{ payload.progress.total }} 位</span>
               </div>
               <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
@@ -564,6 +616,30 @@ onBeforeUnmount(stopPolling)
             role="status"
           >
             本轮评分已结束，成绩已锁定。未提交评分的选手按弃权处理。
+          </div>
+
+          <div
+            v-if="draftPending > 0"
+            class="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+            role="status"
+            data-score-draft-queue
+          >
+            <UIcon
+              name="i-lucide-cloud-off"
+              class="size-4 shrink-0"
+            />
+            <span class="min-w-0 flex-1">
+              {{ SCORE_DRAFT_QUEUED_NOTICE }}。还有 {{ draftPending }} 份没交上去。
+            </span>
+            <UButton
+              icon="i-lucide-refresh-cw"
+              label="立即重试"
+              color="warning"
+              variant="soft"
+              size="xs"
+              :loading="draftFlushing"
+              @click="retryDrafts()"
+            />
           </div>
 
           <section

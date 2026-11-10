@@ -421,7 +421,8 @@ test('express guide gives students direct, current-use advice', () => {
     '容易变化的地方',
     '往年信息怎么用'
   ])
-  assert.match(view.leadNotice, /本学期现场标识和宿舍通知/)
+  assert.match(view.leadNotice, /以本学期现场标识和宿舍通知为准/)
+  assert.doesNotMatch(view.leadNotice, /帮助你了解|收集了/)
   assert.match(view.sections[0]?.items[1] ?? '', /带好取件码/)
   assert.match(view.sections[1]?.items[1] ?? '', /只表示商家接单/)
   assert.match(view.sections[2]?.items[2] ?? '', /先问宿管或站点工作人员/)
@@ -434,7 +435,7 @@ test('express guide gives students direct, current-use advice', () => {
   assert.doesNotMatch(publicCopy, /上线前|线索|追溯|本系统|两项独立核验|再发布到地图|不直接转录|最后核验日期/)
   assert.equal(
     studentFacingGuideText('以下链接用于追溯线索，不表示学校或本系统已经确认其内容。'),
-    '下面是往年公开分享和校园地图，适合先了解大致情况；今年的具体安排请以学校通知和现场标识为准。'
+    '下面是往年分享和校园地图；今年的安排以学校通知和现场标识为准。'
   )
   assert.equal(studentFacingGuideText('使用时注意'), '容易变化的地方')
   assert.equal(
@@ -450,7 +451,7 @@ test('clubs guide helps students choose an interest and verify this year recruit
   assert.ok(view)
   assert.equal(view.statusText, '2026级招新时间和报名方式还要等通知')
   assert.deepEqual(view.sections.map(section => section.title), [
-    '先了解有哪些方向',
+    '有哪些方向',
     '2026年仍有活动的社团',
     '按兴趣找社团',
     '学校仍在组织社团活动',
@@ -459,10 +460,11 @@ test('clubs guide helps students choose an interest and verify this year recruit
     '名称不同怎么办',
     '报名时注意'
   ])
-  assert.match(view.summary, /先按兴趣了解/)
-  assert.match(view.leadNotice, /具体招新时间、报名方式和群聊入口/)
+  assert.match(view.summary, /先按兴趣挑方向/)
+  assert.match(view.leadNotice, /招新时间、报名方式和群聊入口以本学期校团委或社团通知为准/)
+  assert.doesNotMatch(view.leadNotice, /你可以|帮你|了解/)
   assert.match(view.sections[2]?.items[1] ?? '', /学术、表达和创作方向/)
-  assert.match(view.sections[4]?.items[1] ?? '', /仍要等本学期通知/)
+  assert.match(view.sections[4]?.items[1] ?? '', /等本学期通知/)
   assert.match(view.sections[7]?.items[2] ?? '', /不要使用往年群二维码/)
   const publicCopy = JSON.stringify({
     summary: view.summary,
@@ -676,9 +678,11 @@ test('official club catalog keeps every listed organization traceable to a sourc
     club.source !== officialSources.clubShowcase2026
     && club.source !== officialSources.clubCadreAttachment2024
   )).length, 4)
-  assert.ok(officialClubs.every(club => /适合.*(?:了解|关注)|可确认近期有正式活动证据|可作为社团名称线索/.test(club.summary)))
+  assert.ok(officialClubs.every(club => (
+    club.summary.length >= 20 && /方向是|官网记录过|竞赛通知/.test(club.summary)
+  )))
   assert.ok(officialClubs.every(club => club.group.length >= 4 && club.direction.length >= 8))
-  assert.ok(officialClubs.every(club => officialClubBody(club).length > 260))
+  assert.ok(officialClubs.every(club => officialClubBody(club).length > 120))
   assert.ok(officialClubs.every(club => officialClubBody(club).includes(club.direction)))
   assert.ok(officialClubs.every(club => officialClubBody(club).includes('招新时间、摆摊地点、报名二维码')))
 

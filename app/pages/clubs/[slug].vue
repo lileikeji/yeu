@@ -432,14 +432,26 @@ async function shareClub(): Promise<void> {
           :title="clubSectionLabels.sourceDetails"
         />
 
-        <UButton
-          :to="feedbackLink"
-          icon="i-lucide-message-square-warning"
-          :label="clubSectionLabels.feedback"
-          color="neutral"
-          variant="outline"
-          class="mt-6 min-h-11"
-        />
+        <div class="mt-6 flex flex-wrap gap-2">
+          <UButton
+            :to="feedbackLink"
+            icon="i-lucide-message-square-warning"
+            :label="clubSectionLabels.feedback"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+          />
+          <!-- Stable recruit entry: the recruit page itself explains when a club
+               has no open form yet, so this link never dead-ends. -->
+          <UButton
+            :to="recruitSignupPath"
+            icon="i-lucide-clipboard-list"
+            label="纳新报名表"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+          />
+        </div>
       </article>
     </div>
   </div>

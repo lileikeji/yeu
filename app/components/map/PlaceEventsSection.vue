@@ -22,8 +22,7 @@ const props = defineProps<{
 
 const events = ref<PlaceEventView[] | null>(null)
 
-// 关联事件是辅助增强内容：拿不到/为空就整块不渲染，不显示错误横幅
-// （与商家推广条同一降级惯例）。
+// 关联事件是辅助增强内容：拿不到/为空就整块不渲染，不显示错误横幅。
 async function load(): Promise<void> {
   try {
     const payload = await userFetch<PlaceEventsPayload>('/api/public/place-events', {

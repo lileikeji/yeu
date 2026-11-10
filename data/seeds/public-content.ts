@@ -1000,7 +1000,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'awaiting-notice',
     statusText: '站点和配送规则还要到现场确认',
     updatedAt: '2026-07-15',
-    leadNotice: '这里收集了2025年的快递地图和新生经验，可以先帮助你了解大致方向。具体站点、取餐点和配送边界可能变化，请以本学期现场标识和宿舍通知为准。',
+    leadNotice: '这里放了 2025 年的快递地图和新生经验，先用来看方向。站点、取餐点和配送边界会变，以本学期现场标识和宿舍通知为准。',
     sections: [
       {
         title: '取件前先确认',
@@ -1027,7 +1027,7 @@ export const freshmanGuides: FreshmanGuide[] = [
           '有新生分享提到新旧区外卖取餐边界不同；2026级报到后请按宿舍楼附近的现场标识确认。',
           '如果名称、位置或负责品牌对不上，请先问宿管或站点工作人员，不要只按往年图片寻找。'
         ],
-        notice: '下面是往年公开分享和校园地图，适合先了解大致情况；今年的具体安排请以学校通知和现场标识为准。',
+        notice: '下面是往年分享和校园地图；今年的安排以学校通知和现场标识为准。',
         sources: [researchSources.expressMap, researchSources.freshmanSurvival]
       }
     ],
@@ -1037,7 +1037,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     slug: 'clubs',
     title: '社团与招新',
     shortTitle: '社团招新',
-    summary: '先按兴趣了解现有社团方向，再等2026级招新通知确认报名时间和入口。官网目前列出23个学生社团，部分社团在2026年仍有活动。',
+    summary: '先按兴趣挑方向，报名时间和入口等 2026 级招新通知。官网列出 23 个社团，其中部分 2026 年还有活动。',
     icon: 'i-lucide-users-round',
     category: 'community',
     audience: ['本科新生', '专升本新生'],
@@ -1045,10 +1045,10 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'partial',
     statusText: '2026级招新时间和报名方式还要等通知',
     updatedAt: '2026-07-15',
-    leadNotice: '校团委官网列出23个学生社团，部分社团在2026年有公开活动。你可以先按兴趣做选择，具体招新时间、报名方式和群聊入口请以本学期校团委或社团通知为准。',
+    leadNotice: '校团委官网列出 23 个社团，部分 2026 年有公开活动。招新时间、报名方式和群聊入口以本学期校团委或社团通知为准。',
     sections: [
       {
-        title: '先了解有哪些方向',
+        title: '有哪些方向',
         icon: 'i-lucide-layout-grid',
         items: [
           '校团委官网目前介绍23个学生社团：思想政治类2个、学术科技类1个、文化体育类12个、创新创业类5个、其他类2个、志愿公益类1个。',
@@ -1094,7 +1094,7 @@ export const freshmanGuides: FreshmanGuide[] = [
         icon: 'i-lucide-history',
         items: [
           '2025年社团嘉年华曾在第三教学区碑林广场开展纳新，并在普照大礼堂举行晚会。',
-          '可以先了解往年的活动形式，今年去哪里、哪天开始仍要等本学期通知。'
+          '往年的活动形式可以先看；今年在哪儿、哪天开始，等本学期通知。'
         ]
       },
       {
@@ -1102,7 +1102,7 @@ export const freshmanGuides: FreshmanGuide[] = [
         icon: 'i-lucide-list-tree',
         items: [
           '一篇2025年学生分享整理了“23个社团”名单，其中提到了计算机协会和电子数模协会；图片名单可能并不完整。',
-          '这份分享可以帮助你发现感兴趣的方向，但不能替代今年招新通知；报名时间和联系方式请到校后确认。'
+          '这份分享可以当兴趣参考，不能当招新通知；报名时间和联系方式到校后确认。'
         ],
         sources: [researchSources.clubs]
       },
@@ -1186,25 +1186,44 @@ export const freshmanGuides: FreshmanGuide[] = [
   }
 ]
 
+function pickBySeed<T>(seed: string, items: readonly T[]): T {
+  let hash = 0
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0
+  }
+  return items[hash % items.length]!
+}
+
+const clubSourceNotes = {
+  active: [
+    '2026 年的活动报道里出现过',
+    '学校 2026 年的活动报道里提到过',
+    '2026 年的校园报道里有它的活动记录',
+    '2026 年的报道里出现过它的活动'
+  ],
+  lead: [
+    '校团委公开资料里提到过',
+    '只在校团委的公开名单里出现过',
+    '校团委的社团名单上有这个名字',
+    '能查到的只有校团委公开资料里的一行记录'
+  ]
+} as const
+
 function clubSummary(direction: string, sourceType: 'active' | 'lead'): string {
-  const sourceNote = sourceType === 'active'
-    ? '这个社团在学校2026年的活动报道中出现过，近期仍有活动'
-    : '校团委公开资料曾提到这个社团'
-  return `${sourceNote}。适合想了解“${direction}”的新生先收藏；今年是否招新、在哪里报名，请以本学期校团委或社团通知为准。`
+  const sourceNote = pickBySeed(direction, clubSourceNotes[sourceType])
+  return `${sourceNote}，方向是${direction}。招新和报名以本学期校团委通知为准。`
 }
 
 export function officialClubBody(club: OfficialClub): string {
   const isRecent = club.verification === 'active' || club.source === officialSources.clubShowcase2026
   const confidenceText = isRecent
-    ? `${club.source.publisher}在2026年的活动报道中提到过这个社团，近期仍有活动。`
-    : `${club.source.publisher}的公开资料曾提到这个社团；今年是否仍使用同名、是否招新，请以本学期通知为准。`
+    ? `${club.source.publisher}在 2026 年的活动报道里提到过这个社团。`
+    : `${club.source.publisher}的公开资料里提到过这个社团；今年还是不是同一批人在办，要问本学期的负责人。`
   return [
-    `这个社团属于「${club.group}」方向。`,
-    `你可以把它理解成：主要围绕 ${club.direction}。如果你对这个方向感兴趣，开学社团招新时可以优先去找它的摊位或公告。`,
-    `适合的新生：想尝试 ${club.direction}，或者想找同好、参加校内活动、积累实践经历的同学。零基础能不能加入、训练/例会频率、是否需要自备器材，要等社团当年说明。`,
-    `入群或报名之前建议先问清楚：本学期主要活动是什么、多久一次、是否有考核或值班、是否收费、是否和课程时间冲突、负责人联系方式是否来自官方渠道。`,
+    `方向：${club.group}。平时主要做${club.direction}。`,
+    '想知道合不合自己，去招新摊位问三件事就够：这学期主要活动是什么、多久一次、要不要自备器材或交费。',
     confidenceText,
-    '今年的招新时间、摆摊地点、报名二维码、QQ群/微信群、固定例会时间、收费或装备要求，请以本学期校团委或社团通知为准。'
+    '招新时间、摆摊地点、报名二维码和负责人联系方式，以本学期校团委或社团通知为准。'
   ].join('\n')
 }
 
@@ -1376,7 +1395,7 @@ export const officialClubs: OfficialClub[] = [
   { slug: 'employment-entrepreneurship-association', name: '就业与创业者协会', group: '就业创业', direction: '就业能力、创业实践、职业规划和项目交流', summary: clubSummary('就业能力、创业实践、职业规划和项目交流', 'active'), source: officialSources.clubShowcase2026 },
   { slug: 'qingyun-hanfu-club', name: '青云汉服社', group: '传统文化', direction: '汉服文化、传统礼仪和传统文化展示', summary: clubSummary('汉服文化、传统礼仪和传统文化展示', 'active'), source: officialSources.clubShowcase2026 },
   { slug: 'dance-association', name: '舞蹈协会', group: '文化艺术', direction: '舞蹈训练、舞台展示和校园文艺活动', summary: clubSummary('舞蹈训练、舞台展示和校园文艺活动', 'active'), source: officialSources.clubShowcase2026 },
-  { slug: 'war-eagle-veterans-association', name: '战鹰退伍兵协会', group: '国防教育与体能', direction: '国防教育、体能活动、校园公益和退役大学生交流', summary: '学校官网记录了战鹰退伍兵协会在2025年联合学生书院开展健康校园跑，说明近年有公开活动。适合关注国防教育、体能活动和退役大学生交流的新生先收藏；2026级是否招新、是否面向非退役学生开放，仍需以人民武装部或协会通知为准。', source: officialSources.warEagleAssociationActivity2025, verification: 'lead' },
+  { slug: 'war-eagle-veterans-association', name: '战鹰退伍兵协会', group: '国防教育与体能', direction: '国防教育、体能活动、校园公益和退役大学生交流', summary: '学校官网记录过 2025 年它和学生书院一起办的健康校园跑。2026 级是否招新、非退役学生能不能加入，要问人民武装部或协会。', source: officialSources.warEagleAssociationActivity2025, verification: 'lead' },
   { slug: 'sunzi-art-of-war-research-association', name: '孙子兵法研究会', group: '学术兴趣', direction: '经典研读、战略思维和主题讨论', summary: clubSummary('经典研读、战略思维和主题讨论', 'lead'), source: officialSources.clubCadreAttachment2024 },
   { slug: 'speech-and-eloquence-association', name: '演讲与口才协会', group: '表达与实践', direction: '演讲、主持、辩论表达和口才训练', summary: clubSummary('演讲、主持、辩论表达和口才训练', 'lead'), source: officialSources.clubCadreAttachment2024 },
   { slug: 'calligraphy-and-painting-club', name: '书画社', group: '文化艺术', direction: '书法、绘画、作品交流和校园文化展示', summary: clubSummary('书法、绘画、作品交流和校园文化展示', 'lead'), source: officialSources.clubCadreAttachment2024 },
@@ -1387,7 +1406,7 @@ export const officialClubs: OfficialClub[] = [
   { slug: 'sports-orienteering-branch', name: '体育协会定向越野分会', group: '体育运动', direction: '定向越野、户外识图和体能活动', summary: clubSummary('定向越野、户外识图和体能活动', 'lead'), source: officialSources.clubCadreAttachment2024 },
   { slug: 'innovation-invention-association', name: '创新发明协会', group: '科技创新', direction: '创新项目、发明实践和竞赛准备', summary: clubSummary('创新项目、发明实践和竞赛准备', 'lead'), source: officialSources.clubCadreAttachment2024 },
   { slug: 'computer-association', name: '计算机协会', group: '科技创新', direction: '编程、计算机技术交流和实践项目', summary: clubSummary('编程、计算机技术交流和实践项目', 'lead'), source: officialSources.clubCadreAttachment2024 },
-  { slug: 'electronic-mathematical-modeling-association', name: '电子数模协会', group: '科技创新', direction: '电子技术、数学建模和竞赛实践', summary: '数学系2025年竞赛通知明确该协会是校内数学建模竞赛协办单位，可确认近期有正式活动证据。适合想了解电子技术、数学建模和竞赛实践的新生先收藏；2026级招新时间、报名方式和当前注册状态仍待校团委或协会负责人确认。', source: officialSources.electronicModelingAssociation2025, verification: 'lead' },
+  { slug: 'electronic-mathematical-modeling-association', name: '电子数模协会', group: '科技创新', direction: '电子技术、数学建模和竞赛实践', summary: '数学系 2025 年的竞赛通知里写明它是校内数学建模竞赛的协办单位。招新时间、报名方式和现在的注册状态，待校团委或协会确认。', source: officialSources.electronicModelingAssociation2025, verification: 'lead' },
   { slug: 'hongcheng-literature-club', name: '红城文学社', group: '文化艺术', direction: '文学写作、阅读交流和作品分享', summary: clubSummary('文学写作、阅读交流和作品分享', 'lead'), source: officialSources.clubCadreAttachment2024 },
   { slug: 'english-learning-club', name: '英语学习社', group: '语言学习', direction: '英语学习、口语交流和语言能力提升', summary: clubSummary('英语学习、口语交流和语言能力提升', 'lead'), source: officialSources.clubCadreAttachment2024 },
   { slug: 'psychology-association', name: '心理协会', group: '成长支持', direction: '心理健康知识、同伴支持和主题活动', summary: clubSummary('心理健康知识、同伴支持和主题活动', 'active'), source: officialSources.psychologyAssociationActivity2026, verification: 'active' },
@@ -1403,7 +1422,7 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'school-of-economics',
     name: '经济学院',
-    summary: '学院开设经济学、金融学、国际经济与贸易、金融科技4个本科专业；新生可在官网查看专业介绍、课程实践、竞赛和学院通知。',
+    summary: '学院开设经济学、金融学、国际经济与贸易、金融科技 4 个本科专业，新生查专业介绍、课程实践和学院通知看官网。',
     website: 'https://jjxy.yeu.edu.cn/',
     profileUrl: 'https://jjxy.yeu.edu.cn/973/list.htm',
     contactUrl: 'https://jjxy.yeu.edu.cn/lxwm/list.htm',
@@ -1549,7 +1568,7 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'teaching-affairs-office',
     name: '教务部',
-    summary: '新生查询学籍、课表、选课、考试、成绩、补缓考和教学管理规则的官方入口。',
+    summary: '学籍、课表、选课、考试、成绩、补缓考都归这里管，新生第一学期的课表也在这里查。',
     website: 'https://jwb.yeu.edu.cn/',
     phone: '0595-22082006',
     email: 'yeujwb@yeu.edu.cn'
@@ -1557,13 +1576,13 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'university-office',
     name: '学校办公室',
-    summary: '新生查看校历、校级通知、节假日安排、学校办公室信息和全校性安排的官方入口。',
+    summary: '校历、校级通知、节假日安排、全校性通知都从这里发，新生报到时间以这里为准。',
     website: 'https://bgs.yeu.edu.cn/'
   },
   {
     slug: 'admissions-office',
     name: '招生办公室',
-    summary: '本科和专升本新生查询招生章程、录取进度、通知书和入学前咨询的官方入口。',
+    summary: '招生章程、录取进度、通知书寄送、入学前咨询，本科和专升本新生都问这里。',
     website: 'https://zhaosheng.yeu.edu.cn/',
     phone: '0595-22091988 / 0595-22085622',
     email: 'yeu@yeu.edu.cn'
@@ -1571,68 +1590,68 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'student-affairs',
     name: '学生事务部',
-    summary: '新生查询学生资助、心理健康、就业指导、一站式社区、学生管理规章和相关服务入口。',
+    summary: '学生资助、心理健康、就业指导、学生管理规章都在这里；一站式社区也归这里管。',
     website: 'https://xsb.yeu.edu.cn/',
     phone: '0595-22082008'
   },
   {
     slug: 'information-office',
     name: '实验室与信息化管理处',
-    summary: '新生遇到校园网、校外访问校内系统、网络故障或校园系统问题时，可以找这个部门。',
+    summary: '校园网、校外访问校内系统、VPN、网络故障，学生遇到这些系统问题找这里。',
     website: 'https://metc.yeu.edu.cn/',
     phone: '0595-22098521 / 0595-22087606'
   },
   {
     slug: 'financial-aid-center',
     name: '学生资助中心',
-    summary: '新生查询家庭经济困难认定、助学贷款、奖助学金和资助业务咨询的官方入口。',
+    summary: '家庭经济困难认定、助学贷款、奖助学金；学生办理认定和贷款都归这里，先看通知。',
     website: 'https://xsb.yeu.edu.cn/127/list.htm',
     phone: '0595-22099018'
   },
   {
     slug: 'mental-health-center',
     name: '心理健康教育与咨询中心',
-    summary: '新生了解心理咨询预约、适应支持、心理健康教育、隐私提醒和相关活动的官方入口。',
+    summary: '心理咨询预约、适应支持、心理健康教育课，新生也能预约；谈的内容保密，不外传。',
     website: 'https://xsb.yeu.edu.cn/128/list.htm',
     phone: '0595-22099033'
   },
   {
     slug: 'finance-office',
     name: '财务处',
-    summary: '新生查询学费住宿费缴纳、票据、退款提醒、缴费风险提示和学校财务政策的官方入口。',
+    summary: '学费住宿费缴纳、票据、退款都在这办；学生缴费前先看学校发的防骗提醒，别扫陌生码。',
     website: 'https://uf.yeu.edu.cn/',
     phone: '财务咨询：0595-22082010'
   },
   {
     slug: 'general-affairs-office',
     name: '总务处',
-    summary: '新生处理宿舍管理、维修报修、水电家具、生活设施和校园生活服务问题的官方入口。',
+    summary: '宿舍管理、维修报修、水电家具、校园生活设施，学生生活上的问题都找这里。',
     website: 'https://zwc.yeu.edu.cn/',
     phone: '宿舍水电/家具报修：0595-22076110'
   },
   {
     slug: 'security-office',
     name: '保卫处',
-    summary: '新生处理校园安全、反诈提醒、交通秩序、消防隐患、失物风险和求助事项的官方入口。',
+    summary: '校园安全、反诈提醒、交通秩序、消防隐患、失物和求助，学生遇到就找这里。',
     website: 'https://bwc.yeu.edu.cn/'
   },
   {
     slug: 'campus-clinic',
     name: '医务室',
-    summary: '新生了解校内医务室值班、基础就医和健康咨询信息的入口；直拨电话仍需当学期复核。',
+    summary: '校内值班、基础就医、健康咨询；学生看病先来这里，医务服务电话每学期再核一遍。',
     website: 'https://www.yeu.edu.cn/yws/list.htm'
   },
   {
     slug: 'youth-league',
     name: '校团委',
-    summary: '新生查看社团招新、校园文化、志愿服务、团学活动和青年工作通知的官方入口。',
+    summary: '社团招新、校园文化、志愿服务、团学活动，学生组织的事情从这里发通知，招新季最集中。',
     website: 'https://youth.yeu.edu.cn/',
     phone: '0595-22098512'
   },
   {
     slug: 'library',
     name: '图书馆',
-    summary: '新生查询图书馆开放时间、借阅规则、馆藏检索、学习空间和读者服务的官方入口。',
+    summary: '开放时间、借阅规则、馆藏检索、自习空间；学生查资料和借还书都看图书馆这一页。',
     website: 'https://library.yeu.edu.cn/',
     phone: '借阅部：0595-22099025 / 0595-22099026'
   }

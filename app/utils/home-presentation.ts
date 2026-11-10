@@ -144,7 +144,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.departments',
     title: '校内部门',
-    description: '快速找到招生、教务、学生事务等部门',
+    description: '招生、教务、学生事务的入口',
     to: '/departments',
     icon: 'i-lucide-landmark',
     tone: 'bg-blue-50 text-blue-700'
@@ -301,4 +301,3 @@ export function buildHomeSearchTarget(query: string): { path: string, query?: { 
     ...(trimmed ? { query: { q: trimmed } } : {})
   }
 }
-

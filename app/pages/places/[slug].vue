@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ApiPlace } from '~~/shared/types/server'
+import { formatOfflineSnapshotTime, useOfflineSnapshot } from '~/composables/useOfflineSnapshot'
 import { buildDetailFeedbackLink } from '~/utils/feedback-context'
 import { throwPublicDetailError } from '~/utils/public-errors'
 import { safeLocalPath } from '~/utils/safe-navigation'
@@ -24,9 +26,22 @@ import { buildAmapMarkerNavigationUrl } from '~/utils/map-native-search'
 const route = useRoute()
 const { copyText, isWechat } = useShareActions()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
-const { data: place, error } = await usePublicPlace(slug)
+const { data: place, stale, savedAt, error } = await useOfflineSnapshot<ApiPlace>(
+  `place:${slug}`,
+  loadPlacePayload
+)
 if (error.value) throwPublicDetailError(error.value, '地点')
 if (!place.value) throw createError({ statusCode: 404, statusMessage: '地点不存在' })
+
+async function loadPlacePayload(): Promise<ApiPlace> {
+  const payload = await $fetch<ApiPlace>(`/api/public/places/${encodeURIComponent(slug)}`)
+  // 服务端照旧过一遍公开字段清洗；客户端原样用，别把展示层工具带进客户端包。
+  if (import.meta.client) return payload
+  const { sanitizePublicPlace } = await import('~/utils/public-api-presentation')
+  return sanitizePublicPlace(payload)
+}
+
+const offlineSavedAtLabel = computed(() => formatOfflineSnapshotTime(savedAt.value))
 
 const studentSummary = computed(() => resolvePlaceStudentSummary(
   place.value?.summary,
@@ -66,6 +81,15 @@ const studentBody = computed(() => {
   return body === studentSummary.value ? '' : body
 })
 const detailSources = computed(() => buildPlaceDetailSources(place.value?.sources))
+// F2「来源与核验时间」：地点接口本来就下发 place.sources（ApiSource[]），这里只做字段改名。
+// 不补造来源、不调 /api/public/evidence 拼假 claimId；核验时间只认 accessedAt（sources.accessed_at）。
+const placeCitationSources = computed(() => (place.value?.sources ?? []).map(source => ({
+  title: source.title,
+  url: source.url,
+  level: source.sourceLevel,
+  official: source.isOfficial,
+  verifiedAt: source.accessedAt
+})))
 const fallbackUseChecklist = computed(() => buildPlaceFallbackUseChecklist(
   placeUseChecklist.value,
   place.value?.category ?? place.value?.type
@@ -189,6 +213,19 @@ function copyPlaceLocation(): void {
 
     <div class="page-shell py-7 md:py-10">
       <article class="mx-auto min-w-0 max-w-4xl">
+        <div
+          v-if="stale"
+          role="status"
+          class="surface-panel mb-5 flex items-start gap-2.5 px-3.5 py-2.5 text-sm text-zinc-600 dark:text-zinc-300"
+        >
+          <UIcon
+            name="i-lucide-cloud-off"
+            class="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+          />
+          <p>
+            现在连不上网，下面是你上次打开时保存的内容（{{ offlineSavedAtLabel }}）。学校通知可能有更新，恢复网络后刷新一次。
+          </p>
+        </div>
         <section class="border-b border-zinc-200 dark:border-zinc-800 pb-8">
           <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             详细位置
@@ -326,6 +363,11 @@ function copyPlaceLocation(): void {
         <PublicSourceDetails
           :sources="detailSources"
           :verified-at="place.lastVerifiedAt?.slice(0, 10)"
+        />
+
+        <SourceCitationBlock
+          :sources="placeCitationSources"
+          :target-id="place.id"
         />
 
         <div class="mt-6 flex flex-wrap gap-2">

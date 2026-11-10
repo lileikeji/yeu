@@ -29,6 +29,14 @@ export interface ProcedureSeedMaterial {
   placeSlug: string | null
 }
 
+export interface ProcedureSeedWindow {
+  // 日期一律 YYYY-MM-DD，按北京时间理解；只写能从官方来源核实到的开放与截止日
+  opensAt: string
+  closesAt: string
+  label: string
+  sourceUrl: string
+}
+
 export interface ProcedureSeed {
   id: string
   slug: string
@@ -42,6 +50,7 @@ export interface ProcedureSeed {
   statusText: string
   processingTime: string | null
   deadlineText: string | null
+  window?: ProcedureSeedWindow | null
   startsAt: string | null
   endsAt: string | null
   validFrom: string | null
@@ -70,6 +79,12 @@ export const procedureSeeds: ProcedureSeed[] = [
     statusText: '报到日期已确认，个人时段、材料、报到地点和接站待通知',
     processingTime: null,
     deadlineText: '2026年9月5日至6日；个人日期和时段以录取通知书及学校后续通知为准。',
+    window: {
+      opensAt: '2026-09-05',
+      closesAt: '2026-09-06',
+      label: '2026级新生注册报到',
+      sourceUrl: officialSources.academicCalendar2026Fall.url
+    },
     startsAt: '2026-09-05T00:00:00+08:00',
     endsAt: '2026-09-06T23:59:59+08:00',
     validFrom: null,

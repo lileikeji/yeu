@@ -76,7 +76,7 @@ async function loadForm(): Promise<void> {
       submittedInfo.value = { data: draft.data }
     } else if (Object.keys(draftData).length > 0) {
       hasSavedDraft.value = true
-      toast.add({ title: '已恢复上次填写的进度', description: '继续填写即可，内容会自动保存。', color: 'success' })
+      toast.add({ title: '已恢复上次填写的进度', description: '接着填就行，内容会自动保存。', color: 'success' })
     }
   } catch {
     notFound.value = true
@@ -436,7 +436,7 @@ onMounted(() => {
             缴纳会费
           </h3>
           <p class="text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-            {{ payment.note }}。点击二维码进入付款页，按页面步骤保存识别即可付款。
+            {{ payment.note }}。点击二维码进入付款页，按页面步骤保存后识别付款。
           </p>
           <div
             v-if="payment.wechatImage || payment.alipayImage"

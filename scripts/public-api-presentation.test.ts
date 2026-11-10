@@ -115,7 +115,7 @@ test('public department payload removes maintainer notes before SSR serializatio
 
   assert.doesNotMatch(serialized, /独立官网已经上线|网站仍混有|资料核对|优先确认的官方渠道/)
   assert.match(sanitized.summary, /可以在学院官网查看/)
-  assert.match(sanitized.body, /新生可以在计算机科学与工程学院官网查找/)
+  assert.match(sanitized.body, /计算机科学与工程学院官网有相关通知和办事入口/)
 })
 
 test('public department payload gives the university office a direct website label', () => {
@@ -139,8 +139,8 @@ test('public department payload gives the university office a direct website lab
   } satisfies ApiContent
 
   const presented = sanitizePublicContent(content)
-  assert.equal(presented.summary, '新生可以在学校办公室官网查看校历、校级通知和全校性安排。')
-  assert.match(presented.body, /新生可以在学校办公室官网查看/)
+  assert.equal(presented.summary, '学校办公室官网：校历、校级通知、全校性安排。')
+  assert.match(presented.body, /学校办公室官网/)
 })
 
 test('public search payload removes raw department maintenance copy', () => {

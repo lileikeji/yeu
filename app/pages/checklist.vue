@@ -296,7 +296,7 @@ function confirmResetProgress() {
               id="checklist-section-nav-title"
               class="mt-1 text-base font-bold text-zinc-950 dark:text-zinc-100"
             >
-              快速跳到
+              跳到
             </h2>
           </div>
           <p class="text-xs text-zinc-500 dark:text-zinc-400">

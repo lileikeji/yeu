@@ -288,7 +288,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
             v-if="item.destinations.length > 1"
             class="mt-2 text-xs leading-5 text-zinc-400 dark:text-zinc-500"
           >
-            上面的公交 API 每次只规划到你选中的一个地点。切换地点即可分别查看，不会把多个相距较远的点误当成同一个终点。
+            上面的公交 API 每次只规划到你选中的一个地点。切换地点分别查看，不会把相距很远的几个点当成同一个终点。
           </p>
         </section>
       </div>

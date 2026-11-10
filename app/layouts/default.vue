@@ -6,29 +6,86 @@ const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
 const { isDark: isSiteDark } = useThemeMode()
 
-const desktopNavigation = [
-  { label: '首页', to: '/', icon: 'i-lucide-house' },
-  { label: '地图', to: '/map', icon: 'i-lucide-map' },
-  { label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
-  { label: '新生专题', to: '/guides', icon: 'i-lucide-notebook-tabs' },
-  { label: '校园热度', to: '/hot', icon: 'i-lucide-flame' },
-  { label: '服务导航', to: '/discover', icon: 'i-lucide-layout-grid' }
+type NavigationKey = 'home' | 'map' | 'procedures' | 'life' | 'campus' | 'me'
+
+interface NavigationItem {
+  key: NavigationKey
+  label: string
+  to: string
+  icon: string
+}
+
+const desktopNavigation: NavigationItem[] = [
+  { key: 'home', label: '首页', to: '/', icon: 'i-lucide-house' },
+  { key: 'map', label: '地图', to: '/map', icon: 'i-lucide-map' },
+  { key: 'procedures', label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
+  { key: 'life', label: '生活', to: '/guides', icon: 'i-lucide-notebook-tabs' },
+  { key: 'campus', label: '校园', to: '/campus', icon: 'i-lucide-school' },
+  { key: 'me', label: '我的', to: '/me', icon: 'i-lucide-user-round' }
 ]
-const mobileNavigation = [
-  { label: '首页', to: '/', icon: 'i-lucide-house' },
-  { label: '地图', to: '/map', icon: 'i-lucide-map' },
-  { label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
-  { label: '服务', to: '/discover', icon: 'i-lucide-layout-grid' }
+const mobileNavigation: NavigationItem[] = [
+  { key: 'home', label: '首页', to: '/', icon: 'i-lucide-house' },
+  { key: 'map', label: '地图', to: '/map', icon: 'i-lucide-map' },
+  { key: 'procedures', label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
+  { key: 'life', label: '生活', to: '/guides', icon: 'i-lucide-notebook-tabs' },
+  { key: 'me', label: '我的', to: '/me', icon: 'i-lucide-user-round' }
 ]
+
+// 页面族 → 一级项的前缀表。匹配规则：path === prefix 或 path 以 `${prefix}/` 开头，
+// 所以 /me 不会吞掉 /mex；`/` 只命中首页。13 个页面族（checklist、clubs、transport、
+// campus、dorms、nearby、search、me、panorama、student-rules、sources、feedback、
+// guides）全部在此表内，进入后底栏一定有 aria-current="page"。
+const navigationSections: Array<{ prefix: string, key: NavigationKey }> = [
+  { prefix: '/', key: 'home' },
+  { prefix: '/checklist', key: 'procedures' },
+  { prefix: '/procedures', key: 'procedures' },
+  { prefix: '/departments', key: 'procedures' },
+  { prefix: '/guides', key: 'life' },
+  { prefix: '/clubs', key: 'life' },
+  { prefix: '/dorms', key: 'life' },
+  { prefix: '/transport', key: 'life' },
+  { prefix: '/campus', key: 'campus' },
+  { prefix: '/hot', key: 'campus' },
+  { prefix: '/student-rules', key: 'campus' },
+  { prefix: '/map', key: 'map' },
+  { prefix: '/nearby', key: 'map' },
+  { prefix: '/panorama', key: 'map' },
+  { prefix: '/search', key: 'map' },
+  { prefix: '/me', key: 'me' },
+  { prefix: '/feedback', key: 'me' },
+  { prefix: '/sources', key: 'me' }
+]
+
+// 窄屏 5 项没有「校园」，校园页族回落到「生活」，避免底栏全灭。
+const sectionFallbacks: Partial<Record<NavigationKey, NavigationKey>> = {
+  campus: 'life'
+}
+
+function matchesSectionPath(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`)
+}
+
+function sectionKeyForPath(rawPath: string): NavigationKey | null {
+  const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath
+  const match = navigationSections.find(section => matchesSectionPath(path, section.prefix))
+  return match?.key ?? null
+}
+
+function resolveActiveKey(items: NavigationItem[]): NavigationKey | null {
+  const key = sectionKeyForPath(route.path)
+  if (!key) return null
+  if (items.some(item => item.key === key)) return key
+  const fallback = sectionFallbacks[key]
+  return fallback && items.some(item => item.key === fallback) ? fallback : null
+}
+
+const activeDesktopKey = computed(() => resolveActiveKey(desktopNavigation))
+const activeMobileKey = computed(() => resolveActiveKey(mobileNavigation))
 const icpNumber = computed(() => String(runtimeConfig.public.icpNumber || '').trim())
 const isHomePage = computed(() => route.path === '/')
 const isMapPage = computed(() => route.path === '/map' || route.path.startsWith('/map/'))
 const isSearchPage = computed(() => route.path === '/search' || route.path.startsWith('/search/'))
 const useCompactPageDensity = computed(() => !isHomePage.value && !isMapPage.value)
-
-function isActive(to: string) {
-  return to === '/' ? route.path === '/' : route.path.startsWith(to)
-}
 
 function shareCurrentPage(): void {
   void sharePage()
@@ -49,7 +106,7 @@ function shareCurrentPage(): void {
       class="pointer-events-none fixed -left-[9999px] -top-[9999px] size-px overflow-hidden opacity-0"
     >site index</a>
     <header class="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 dark:bg-zinc-900/95 backdrop-blur">
-      <div class="page-shell relative flex h-16 items-center justify-between gap-2 md:h-[4.5rem] md:gap-6">
+      <div class="page-shell relative flex min-h-16 flex-wrap items-center justify-between gap-2 py-2 md:h-[4.5rem] md:flex-nowrap md:gap-6 md:py-0">
         <NuxtLink
           to="/"
           class="flex min-h-11 min-w-0 flex-none items-center gap-2"
@@ -80,16 +137,19 @@ function shareCurrentPage(): void {
             :to="item.to"
             color="neutral"
             variant="ghost"
-            :aria-current="isActive(item.to) ? 'page' : undefined"
-            :class="isActive(item.to) ? 'rounded-none border-b-2 border-green-700 text-sm font-bold text-green-700 dark:text-green-400' : 'rounded-none border-b-2 border-transparent text-sm text-zinc-700 dark:text-zinc-200'"
+            :aria-current="activeDesktopKey === item.key ? 'page' : undefined"
+            :class="activeDesktopKey === item.key ? 'rounded-none border-b-2 border-green-700 text-sm font-bold text-green-700 dark:text-green-400' : 'rounded-none border-b-2 border-transparent text-sm text-zinc-700 dark:text-zinc-200'"
           >
             {{ item.label }}
           </UButton>
         </nav>
 
+        <!-- 窄屏两行：品牌 + 右侧按钮占第一行，首页「完整/简洁」切换落第二行整宽，
+             避免绝对居中时压住右侧按钮（360px 实测重叠 34px）。
+             md 断点仍保留原来的 static/z-auto/translate 复位类，布局契约不变。 -->
         <div
           v-if="isHomePage"
-          class="absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-2 rounded-md bg-zinc-100 dark:bg-zinc-800 p-0.5 md:static md:z-auto md:ml-auto md:shrink-0 md:translate-x-0 md:translate-y-0"
+          class="order-3 grid w-full grid-cols-2 rounded-md bg-zinc-100 dark:bg-zinc-800 p-0.5 md:order-none md:static md:z-auto md:ml-auto md:shrink-0 md:translate-x-0 md:translate-y-0 md:w-auto"
           aria-label="首页显示模式"
         >
           <button
@@ -112,8 +172,6 @@ function shareCurrentPage(): void {
           </button>
         </div>
 
-        <!-- z-20：窄屏上首页的「完整/简洁」切换层 absolute z-10 居中，右缘会压住本组
-             登录按钮（无 z 值被盖住，点击落到切换层上没反应）——抬到其上方。 -->
         <div class="relative z-20 flex shrink-0 items-center gap-0 md:gap-1">
           <UButton
             v-if="!isAuthenticated"
@@ -235,14 +293,14 @@ function shareCurrentPage(): void {
       class="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-white/95 dark:bg-zinc-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       aria-label="移动端主导航"
     >
-      <div class="grid h-[var(--mobile-nav-height)] grid-cols-4">
+      <div class="grid h-[var(--mobile-nav-height)] grid-cols-5">
         <NuxtLink
           v-for="item in mobileNavigation"
           :key="item.to"
           :to="item.to"
           class="flex min-w-0 flex-col items-center justify-center gap-1 text-xs"
-          :class="isActive(item.to) ? 'text-green-700 dark:text-green-400' : 'text-zinc-500 dark:text-zinc-400'"
-          :aria-current="isActive(item.to) ? 'page' : undefined"
+          :class="activeMobileKey === item.key ? 'text-green-700 dark:text-green-400' : 'text-zinc-500 dark:text-zinc-400'"
+          :aria-current="activeMobileKey === item.key ? 'page' : undefined"
         >
           <UIcon
             :name="item.icon"
