@@ -22,6 +22,8 @@
 | [bot-integrations.md](./bot-integrations.md) | QQ / 微信机器人接入 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 贡献指南：Issue/PR 流程、测试要求、安全红线与文档同步 |
 | [rules/TASK_COMPLETION_REVIEW.md](./rules/TASK_COMPLETION_REVIEW.md) | 任务完成复盘与架构同步规则 |
+| [rules/LESSONS.md](./rules/LESSONS.md) | 技术教训库：踩过的坑、验证过的机制、反直觉行为（按主题累积） |
+| [tasks/README.md](./tasks/README.md) | 任务台账：跨轮次任务的决策、进度与下一步（支持中断恢复） |
 
 ## 进行中的规划
 
