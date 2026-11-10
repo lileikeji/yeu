@@ -32,6 +32,20 @@
   --color-orange-900: #782911;
   --color-orange-950: #451204;
 
+  /* 状态色 success 固定在默认绿上，不参与 [data-palette] 覆盖：
+     品牌换色时「已通过」不能变红，白字压在 500 上也要保持 4.5:1 以上。 */
+  --color-success-50: #eef8f2;
+  --color-success-100: #d8efe0;
+  --color-success-200: #b2dfc2;
+  --color-success-300: #7dc79b;
+  --color-success-400: #47aa72;
+  --color-success-500: #176f46;
+  --color-success-600: #125a3a;
+  --color-success-700: #104830;
+  --color-success-800: #104830;
+  --color-success-900: #0d3c29;
+  --color-success-950: #062219;
+
   /* Destructive actions need enough contrast on white and pale red surfaces. */
   --color-red-500: #b4232c;
 
@@ -46,7 +60,8 @@
    Nuxt UI 的 --ui-color-primary-* 也从 green 派生，改这一组即可连带换肤，无需改动组件。
    默认绿色不写覆盖块，沿用 @theme static，避免双份真值漂移。
    orange（secondary/warning）刻意不覆盖：warning 是语义色，跟品牌色漂移会让「警告」
-   在每套配色下深浅不一；状态色改用 emerald，与品牌绿解耦。 */
+   在每套配色下深浅不一。状态色 success 同样不覆盖，改用 @theme static 里固定的
+   --color-success-*，品牌换色时「已通过」不变红、白字对比度不塌。 */
 [data-palette="indigo"] {
   --color-green-50: #f0f3fd;
   --color-green-100: #e1e6fb;

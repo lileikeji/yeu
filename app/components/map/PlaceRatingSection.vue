@@ -77,7 +77,7 @@ const trackResult = ref<PlaceReviewTrackView | null>(null)
 
 const trackStatusMeta: Record<PlaceReviewTrackView['status'], { text: string, class: string }> = {
   pending: { text: '待审核', class: 'bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-300' },
-  approved: { text: '已通过', class: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' },
+  approved: { text: '已通过', class: 'bg-success-50 dark:bg-success-950 text-success-700 dark:text-success-300' },
   rejected: { text: '未通过', class: 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400' }
 }
 

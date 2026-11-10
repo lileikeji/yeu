@@ -31,7 +31,7 @@ function cssBlock(selector: string): string {
   return css.slice(open + 1, close)
 }
 
-function declarations(block: string, family: 'green' | 'orange'): Map<string, string> {
+function declarations(block: string, family: 'green' | 'orange' | 'success'): Map<string, string> {
   const found = new Map<string, string>()
   const pattern = new RegExp(`--color-${family}-(\\d+):\\s*(#[0-9a-fA-F]{3,8})`, 'g')
   for (const match of block.matchAll(pattern)) found.set(match[1]!, match[2]!.toLowerCase())
@@ -294,13 +294,24 @@ test('F22: 状态色 success 不再挂在会被换肤的 green 上', () => {
   const primary = /primary:\s*'([^']+)'/.exec(appConfigSource)?.[1]
   assert.equal(primary, 'green', 'primary 应为 green（换肤靠覆盖 --color-green-*）')
   assert.notEqual(success, 'green', 'success 不能跟随品牌绿，否则玫瑰配色下「已通过」会变红')
-  assert.equal(success, 'emerald', 'success 固定用 emerald')
+  assert.equal(success, 'success', 'success 用 @theme static 里固定的 --color-success-*')
+  const theme = declarations(cssBlock('@theme static'), 'success')
+  assert.equal(theme.size, GREEN_SHADES.length, `--color-success-* 应有 ${GREEN_SHADES.length} 条`)
+  assert.equal(theme.get('500'), '#176f46', 'success-500 保持默认绿，白字压在上面才有 4.5:1')
+})
+
+test('F27: success 色板不参与换肤覆盖', () => {
+  for (const id of PALETTE_IDS) {
+    const block = cssBlock(`[data-palette="${id}"]`)
+    assert.equal(declarations(block, 'success').size, 0, `${id} 不应覆盖 --color-success-*`)
+  }
 })
 
 test('F23: 「已通过」这类状态标记不再使用绿工具类', () => {
   const ratingSource = readFileSync(resolve('app/components/map/PlaceRatingSection.vue'), 'utf8')
   assert.doesNotMatch(ratingSource, /(bg|text)-green-\d{2,3}/, 'PlaceRatingSection 仍在使用 green-*')
-  assert.match(ratingSource, /text-emerald-700/)
+  assert.doesNotMatch(ratingSource, /emerald-/, 'PlaceRatingSection 仍在使用 emerald-*')
+  assert.match(ratingSource, /text-success-700/)
 })
 
 test('F24: 浏览器 UI 色与各套 green-500 锚点一致', () => {

@@ -1418,7 +1418,7 @@ onBeforeUnmount(() => {
         >
           <div class="flex items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <span>{{ selectedNotice.confirmationCount }} 人已读</span>
-            <span :class="selectedNotice.confirmed ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-300'">{{ selectedNotice.confirmed ? '已读' : '未读' }}</span>
+            <span :class="selectedNotice.confirmed ? 'text-success-700 dark:text-success-400' : 'text-amber-700 dark:text-amber-300'">{{ selectedNotice.confirmed ? '已读' : '未读' }}</span>
           </div>
           <h2 class="mt-2 text-xl font-black text-zinc-950 dark:text-zinc-100">
             {{ selectedNotice.title }}
