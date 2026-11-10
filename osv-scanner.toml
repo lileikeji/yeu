@@ -35,3 +35,41 @@ reason = "false positive: vendored shim delegates to brace-expansion@5.0.9"
 id = "GHSA-rgw5-rvv9-x895"
 ignoreUntil = 2027-08-31
 reason = "false positive: vendored shim delegates to brace-expansion@5.0.9"
+
+
+# ---- 批次 B 残留（2026-11-09 依赖升级，剩余4项中的3项）----
+
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-05-09
+reason = "glob 需 >=14.0.2 才修复，但 workbox-build@7 要求 glob ^10.1.1（14 为 ESM-only 大版本）；当前仅存在于构建期文件遍历，不进服务端运行时。等 workbox 支持 glob14 后移除本豁免。"
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-05-09
+reason = "minimatch 需 >=11.0.1 才修复，但 glob@11 硬依赖 ^10.1.1；2026-11-09 实证强升 11.0.5 会让 glob 通配匹配整体归零（precache 塌缩事故）。等 glob 支持 mm11 后移除本豁免，禁止再尝试全局强升。"
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-05-09
+reason = "deepmerge 官方无修复版本（patched <0.0.0）；仅经 @vite-pwa/nuxt 构建链引入，不进产物运行时。上游发布修复后移除。"
+
+[[IgnoredVulns]]
+id = "GHSA-vjh5-4x84-xrqp"
+ignoreUntil = 2026-12-09
+reason = "nuxt@4.6.4 自身公告，上游 FIXED VERSION 为空（尚无补丁版）；每30天复查，上游发布修复后立即升级并移除本豁免。"
+
+[[IgnoredVulns]]
+id = "GHSA-6j4f-fj2g-mc7p"
+ignoreUntil = 2027-05-09
+reason = "false positive via vendor shim：file:vendor/brace-expansion-compat 的 index.cjs 仅 re-export 已修补 brace-expansion@5.0.12 的 expand（brace-expansion-safe 别名），无自有展开逻辑；osv-scanner 对 pnpm overrides 的 file: 边会幻影解析出 npm 1.1.x 版本。与既有五条 shim 豁免同理。"
+
+[[IgnoredVulns]]
+id = "GHSA-q2hr-2g5m-vwhr"
+ignoreUntil = 2027-05-09
+reason = "false positive via vendor shim：同 GHSA-6j4f-fj2g-mc7p（shim 委托已修补5.0.12，无自有逻辑）。"
+
+[[IgnoredVulns]]
+id = "GHSA-qhr7-859c-m2p7"
+ignoreUntil = 2027-05-09
+reason = "false positive via vendor shim：同 GHSA-6j4f-fj2g-mc7p（shim 委托已修补5.0.12，无自有逻辑）。"
