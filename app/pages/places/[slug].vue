@@ -205,7 +205,7 @@ function copyPlaceLocation(): void {
             v-if="isWechat && place.navigationAvailable && navigationUrl"
             class="text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:text-right"
           >
-            微信内若未唤起地图，可复制位置后在地图应用中搜索。
+            微信内可复制位置再搜。
           </p>
         </div>
       </div>
@@ -223,7 +223,7 @@ function copyPlaceLocation(): void {
             class="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
           />
           <p>
-            现在连不上网，下面是你上次打开时保存的内容（{{ offlineSavedAtLabel }}）。学校通知可能有更新，恢复网络后刷新一次。
+            现在连不上网，显示 {{ offlineSavedAtLabel }} 保存的内容。恢复网络后刷新。
           </p>
         </div>
         <section class="border-b border-zinc-200 dark:border-zinc-800 pb-8">

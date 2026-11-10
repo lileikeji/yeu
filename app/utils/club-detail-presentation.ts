@@ -11,13 +11,13 @@ export const clubSectionLabels = {
   findingIt: '开学后怎么找',
   recruitmentPending: '招新安排待公布',
   recruitmentDetails: '最新招新安排',
-  recruitmentNotice: '2026 级招新时间、地点和群聊入口还没公布。开学后请留意校团委、社团负责人或现场摊位的最新消息。',
+  recruitmentNotice: '2026 级招新时间、地点和群入口还没公布，开学后看校团委或社团通知。',
   sourceDetails: '看看这些信息从哪里来',
   feedback: '告诉我们新的招新消息',
   contactMethod: '联系方式',
   copyContact: '复制联系方式',
   contactPending: '联系方式待公布',
-  contactPendingNotice: '目前还没有公开的电话、邮箱或群入口。开学后请以校团委、社团负责人或现场摊位公布的信息为准。',
+  contactPendingNotice: '还没有公开的电话、邮箱或群入口，开学后看校团委或社团通知。',
   contactPendingAction: '知道新的联系方式？告诉我们'
 } as const
 
@@ -27,8 +27,8 @@ export interface ClubOverviewItem {
   icon: string
 }
 
-export const defaultClubSuitableFor = '对这个方向感兴趣、想认识同好或参加校园活动的同学。零基础能否加入，请在招新时直接询问。'
-export const defaultClubFindingIt = '留意开学社团招新现场、校团委通知和社团负责人发布的消息，不要只凭转发二维码入群。'
+export const defaultClubSuitableFor = '对这个方向感兴趣的同学；零基础能不能加，招新时问一句。'
+export const defaultClubFindingIt = '开学社团招新现场、校团委通知；别只凭转发的二维码入群。'
 
 export function buildClubOverviewItems(
   direction: string,
@@ -59,9 +59,9 @@ export function buildClubOverviewItems(
 
 export const clubSignupQuestionChecklist = [
   '本学期主要活动是什么，是否适合零基础新生',
-  '例会或训练多久一次，时间是否和课程冲突',
+  '多久一次，和课程冲突吗',
   '是否收费，是否需要自备器材、服装或材料',
-  '报名入口、群二维码和负责人是否由校团委、社团负责人或现场摊位公布'
+  '报名入口和群二维码由谁公布'
 ] as const
 
 export const clubRecentActivityUrlMarker = '/2026/'

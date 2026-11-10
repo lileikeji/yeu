@@ -38,7 +38,7 @@ onPullDownRefresh(() => { void load() })
 </script>
 
 <template>
-  <AppPage title="校内部门" subtitle="按要办的事查职责和公开联系方式，具体窗口和电话以部门最新通知为准。">
+  <AppPage title="校内部门">
     <StateView :loading="loading" :error="error" :empty="!items.length" empty-text="暂时没有已公开的部门资料。" @retry="load">
       <view class="list-stack">
         <button v-for="item in items" :key="item.id" class="dept-row list-card" @click="openDepartment(item.slug)">

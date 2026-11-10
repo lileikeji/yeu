@@ -269,7 +269,7 @@ const assistantAnswerNotice = computed(() => {
   const response = assistantResponse.value
   if (!response || response.blocked) return ''
   if (response.citationStatus !== 'none') return ''
-  return '这条回答没有可核验来源，建议以官方通知为准'
+  return '这条回答没有来源，以学校通知为准'
 })
 interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
   status: 'running' | 'completed' | 'failed'
@@ -324,14 +324,14 @@ function formatAssistantStepDuration(step: AssistantDisplayStep): string {
 
 function assistantModeLabel(response: ApiAssistantResponse): string {
   const labels: Record<string, string> = {
-    feature_api: '系统 API',
-    local_database: '内置数据库',
-    answer_cache: '答案缓存',
-    web_cache: '网页资料缓存',
-    web_search: 'AI + 网页检索'
+    feature_api: '系统接口',
+    local_database: '本站资料',
+    answer_cache: '已存答案',
+    web_cache: '网页资料',
+    web_search: '本站 + 网页'
   }
   return labels[response.retrievalPath ?? '']
-    ?? (response.mode === 'local' ? '本站资料' : response.usedWebSearch ? 'AI + 网页检索' : 'AI 整理')
+    ?? (response.mode === 'local' ? '本站资料' : response.usedWebSearch ? '本站 + 网页' : '整理结果')
 }
 
 interface AssistantAnswerSegment {
@@ -426,7 +426,7 @@ function updateAssistantStageStarted(payload: Record<string, unknown>): void {
     next
   ]
   // 同一时刻只保留一个“加载中”行：外层阶段（如“分析问题”）与它内部嵌套的
-  // 检索腿（改写查询/向量检索…）会先后发出 stage_started，若都保持 running，
+  // 子步骤（改写问法、比对近义说法…）会先后发出 stage_started，若都保持 running，
   // 界面上会出现两个转圈 + 计时同时转。新阶段开始时，把之前仍在 running 的
   // 阶段先降为 completed 展示；若它随后有真实的 stage_completed 事件，
   // 会用真实耗时覆盖回来。
@@ -590,9 +590,9 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
 async function requestAssistantAnswer(): Promise<void> {
   if (import.meta.server) return
   const query = activeQuery.value
-  // 用户显式选了 AI 模式：只要输入非空就交给 AI 判意图。旧的关键词表会把
+  // 用户显式选了问答模式：只要输入非空就按提问处理。旧的关键词表会把
   // “上课时间表/课表/竞赛奖金”判成关键词搜索并静默不回答，用户看到的是
-  // 「AI 检索什么都没出」。
+  // 「问什么都没出」。
   const shouldRequest = activeSearchMode.value === 'ai'
     && !activeType.value
     && query.length >= 2
@@ -685,9 +685,6 @@ onBeforeUnmount(() => {
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           找地点、办事和校园信息
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          可以直接提问，也可以切换到站内搜索查找地点、办事、部门和社团。
-        </p>
 
         <div class="mt-6 max-w-3xl">
           <div
@@ -868,12 +865,6 @@ onBeforeUnmount(() => {
                 />
               </div>
 
-              <p
-                v-if="assistantStatus === 'pending'"
-                class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
-              >
-                正在分析问题并检索校园知识库，必要时再联网补充。
-              </p>
               <div
                 v-if="assistantDisplayTrace.length"
                 class="mt-3 max-w-xl space-y-1.5 text-xs"
@@ -937,7 +928,7 @@ onBeforeUnmount(() => {
                   name="i-lucide-loader-circle"
                   class="size-3.5 animate-spin text-green-700 dark:text-green-400"
                 />
-                正在连接检索服务
+                正在查找
               </div>
               <p
                 v-if="assistantStatus === 'pending' && assistantDraftAnswer"
@@ -1144,7 +1135,7 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
                 <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                  {{ assistantResponse.mode === 'ai' ? 'AI 整理可能有遗漏，日期、费用和办理要求请以学校最新通知为准。' : '站内资料可能未覆盖最新变化，重要事项请以学校最新通知为准。' }}
+                  {{ assistantResponse.mode === 'ai' ? '整理结果可能有遗漏，以学校最新通知为准。' : '重要事项以学校最新通知为准。' }}
                 </p>
               </template>
               <div

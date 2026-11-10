@@ -211,9 +211,6 @@ onMounted(() => {
                 @click="copyReceiptCode(receiptCode)"
               />
             </div>
-            <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              号码丢了也不要紧：同一个问题再提交一次，我们会合并处理。
-            </p>
           </div>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <UButton
@@ -380,7 +377,7 @@ onMounted(() => {
                 <span class="min-w-0">
                   <span class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">补充信息（选填）</span>
                   <span class="mt-0.5 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                    有学校通知链接，或希望我们回复时再填写
+                    有通知链接可附上
                   </span>
                 </span>
               </span>
@@ -442,8 +439,7 @@ onMounted(() => {
 
           <div class="flex flex-col-reverse gap-3 border-t border-[var(--line)] pt-5 sm:flex-row sm:items-center sm:justify-between">
             <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              请勿提交账号密码、证件、宿舍房间、他人私人手机号或未经同意的群二维码。
-              提交即表示你已阅读
+              勿提交密码、证件、房间号或他人手机号。提交即表示已读
               <NuxtLink
                 to="/privacy"
                 class="-mx-1 inline-flex min-h-10 items-center px-1 align-middle font-medium text-green-700 dark:text-green-400 hover:underline"
@@ -473,7 +469,7 @@ onMounted(() => {
             查处理进度
           </h2>
           <p class="mt-1.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            填提交时拿到的回执号（形如 YEU-7K3M2Q），能看到这条反馈现在是处理中、已处理还是未采纳。
+            填回执号查看状态
           </p>
           <form
             class="mt-3 flex flex-col gap-2 sm:flex-row"

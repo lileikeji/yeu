@@ -133,7 +133,7 @@ test('all map categories remain visible in a two-row mobile grid', () => {
 })
 
 test('map data labels and fallback messages follow scope and data readiness', () => {
-  assert.equal(MAP_LOAD_ERROR_MESSAGE, '可以重新试一次，也可以先查看学校平面图或地点清单。')
+  assert.equal(MAP_LOAD_ERROR_MESSAGE, '可重试，或先看平面图与清单')
   assert.match(pageSource, /地图画面暂时没有显示出来/)
   assert.match(pageSource, /label="重新试一次"/)
   assert.match(pageSource, /label="查看学校平面图"/)
@@ -154,7 +154,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
   assert.doesNotMatch(placeDetailsPanelSource, /label="返回来源"/)
   assert.match(
     placeDetailsPanelSource,
-    /这个地点目前只能在学校平面图中查看，还不能直接规划路线/
+    /平面图可看，暂不能导航/
   )
 
   assert.equal(resolveMapDataLabel({
@@ -200,25 +200,25 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }), '可以查找 76 个地点和 8 个区域。地图位置适合先认路，到入口处再看现场标识；楼层、开放时间和营业情况可能会调整。')
+  }), '可查找 76 个地点和 8 个区域')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: true,
     activeScope: null,
     publishedCount: 0
-  }), '有些校园地点暂时没显示出来，可以先用现有清单找方向；没有位置的地点仍可在学校平面图中查看。')
+  }), '部分地点暂未显示')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: 'nearby',
     publishedCount: 0
-  }), '附近地点暂时不多，可以先查看周边生活指南；营业时间和位置请在出发前再确认。')
+  }), '附近地点较少')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }), '可以按学校平面图上的 47 个地点查找校内建筑；需要导航时请切回地图，到达后再看现场入口。')
+  }), '可查平面图 47 个地点')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,

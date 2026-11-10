@@ -210,7 +210,7 @@ function shareCurrentPage(): void {
             icon="i-lucide-search"
             color="neutral"
             variant="ghost"
-            aria-label="AI 搜索与站内搜索"
+            aria-label="搜索"
             class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
           />
           <UButton

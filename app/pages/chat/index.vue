@@ -42,7 +42,7 @@ type ChatMessage = {
 }
 
 const route = useRoute()
-const { user, isAuthenticated, refreshSession } = useUserSession()
+const { isAuthenticated, refreshSession } = useUserSession()
 
 const loading = ref(true)
 const rooms = ref<ChatRoom[]>([])
@@ -73,7 +73,7 @@ const composerLocked = computed(() => Boolean(activeRoom.value?.isMutedAll || ac
 const activeRoomDescription = computed(() => {
   if (!activeRoom.value) return '请选择一个群聊'
   if (activeRoom.value.kind === 'public') return '登录后都能看'
-  if (activeRoom.value.kind === 'place') return '本楼同学的交流区，说话注意分寸'
+  if (activeRoom.value.kind === 'place') return '本楼同学的交流区'
   return activeRoom.value.dormBuilding
     ? `${activeRoom.value.dormBuilding}楼群`
     : '同宿舍楼同学的交流区'
@@ -423,9 +423,6 @@ watch(activeRoomId, () => {
           <h1 class="mt-1 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
             群聊
           </h1>
-          <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {{ user?.displayName || '同学' }}，这里是公共群和宿舍楼群。
-          </p>
         </div>
         <div class="flex gap-2">
           <UButton
@@ -495,7 +492,7 @@ watch(activeRoomId, () => {
             v-if="!rooms.some(room => room.kind === 'dorm')"
             class="mt-3 px-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
           >
-            在个人中心填写宿舍楼后，可自动出现楼群入口。
+            未填写宿舍楼。
           </p>
 
           <template v-if="placeRooms.length">
@@ -626,7 +623,7 @@ watch(activeRoomId, () => {
                 class="size-7 text-zinc-300 dark:text-zinc-600"
               />
               <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                {{ activeRoom ? '这里还没有消息' : '暂时没有可用群聊' }}
+                {{ activeRoom ? '还没有消息' : '暂时没有可用群聊' }}
               </p>
               <p
                 v-if="activeRoom"

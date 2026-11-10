@@ -49,10 +49,10 @@ const lightOutlineClass = '!bg-white dark:!bg-zinc-800 !text-zinc-700 dark:!text
 const lightGhostClass = '!text-zinc-400 dark:!text-zinc-300 hover:!bg-zinc-100 dark:hover:!bg-zinc-800 hover:!text-zinc-600 dark:hover:!text-zinc-100'
 
 const navigationTooltip = computed(() => {
-  if (!safeNavigationUrl.value) return '这个地点暂时没有可用导航入口'
+  if (!safeNavigationUrl.value) return '暂无导航入口'
   return props.place.coordinateVerification === 'owner-map-only'
-    ? '导航到这个地图位置，实际入口请现场确认'
-    : '使用该地点提供的外部导航入口'
+    ? '导航到这里，入口现场确认'
+    : '外部导航'
 })
 </script>
 
@@ -263,7 +263,7 @@ const navigationTooltip = computed(() => {
       >
         <UTooltip
           v-if="props.variant === 'desktop'"
-          text="在地图上规划从你所在位置到这里的步行路线"
+          text="从当前位置规划步行路线"
         >
           <UButton
             icon="i-lucide-route"
@@ -336,13 +336,13 @@ const navigationTooltip = computed(() => {
         v-else
         class="mt-3 rounded-md bg-orange-50 dark:bg-orange-950 px-3 py-2 text-xs leading-5 text-orange-800 dark:text-orange-300"
       >
-        这个地点目前只能在学校平面图中查看，还不能直接规划路线。到校后请按编号和现场标识确认。
+        平面图可看，暂不能导航
       </p>
 
       <span
         v-if="props.isWechat && safeNavigationUrl"
         class="mt-2 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400"
-      >微信内未唤起地图时，可复制位置后搜索。</span>
+      >微信内可复制位置再搜。</span>
 
       <div
         class="mt-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2.5 py-2"

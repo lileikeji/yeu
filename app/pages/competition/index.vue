@@ -29,14 +29,14 @@ const schedule = computed(() => status.value?.schedule ?? [])
 const singerEntries = [
   { title: '赛事详情', description: '看赛制、时间地点和参赛要求', to: '/singer', icon: 'i-lucide-mic-vocal' },
   { title: '预报名', description: '先留联系方式，现场再补齐资料', to: '/singer/pre-register', icon: 'i-lucide-clipboard-check' },
-  { title: '现场登记', description: '比赛当天扫码登记，登记顺序就是出场顺序', to: '/singer/register', icon: 'i-lucide-scan' }
+  { title: '现场登记', description: '比赛当天扫码登记', to: '/singer/register', icon: 'i-lucide-scan' }
 ]
 
 const recruitEntries = [
-  { title: '全部社团', description: '按兴趣找社团，看招新是否已经开始', to: '/clubs', icon: 'i-lucide-users-round' },
-  { title: '社团报名表', description: '音乐协会在线报名表；未开启时页面会说明已结束', to: '/recruit/music-association', icon: 'i-lucide-file-plus-2' },
+  { title: '全部社团', description: '按兴趣找社团', to: '/clubs', icon: 'i-lucide-users-round' },
+  { title: '社团报名表', description: '音乐协会在线报名表', to: '/recruit/music-association', icon: 'i-lucide-file-plus-2' },
   { title: '招新指南', description: '什么时候招新、怎么联系社团', to: '/guides/clubs', icon: 'i-lucide-notebook-tabs' },
-  { title: '评委登录', description: '评委打分入口，账号由后台发放', to: '/judge/login', icon: 'i-lucide-key-round' }
+  { title: '评委登录', description: '评委打分入口', to: '/judge/login', icon: 'i-lucide-key-round' }
 ]
 </script>
 
@@ -50,9 +50,6 @@ const recruitEntries = [
         <h1 class="mt-1 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           {{ status?.title || '新声歌手大赛' }}
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          报名、赛程和社团招新的入口都汇总在这一页。具体安排以主办方最新通知为准。
-        </p>
         <p
           class="mt-3 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold"
           :class="registrationOpen

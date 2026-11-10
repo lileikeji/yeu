@@ -51,9 +51,9 @@ test('dynamic services are presented with explicit freshness warnings', () => {
   assert.match(k2?.notes.join(' ') ?? '', /埔边.*临时分段点.*河市/)
   assert.ok(campusTransitSources.some(source => source.id === 'k2-k6-fare-notice' && source.url.includes('fjdaily.com')))
   assert.match(k6?.notes.join(' ') ?? '', /差异/)
-  assert.match(pageSource, /班次会变，入口留给你复核/)
-  assert.match(pageSource, /以泉州公交、学校最新通知和出发当天地图结果为准/)
-  assert.match(pageSource, /打开高德重新规划/)
+  assert.match(pageSource, /出发前复核/)
+  assert.match(pageSource, /首末班、票价以出发当天公告为准/)
+  assert.match(pageSource, /打开地图重新规划/)
 })
 
 test('site search and local assistant retrieve transport facts and entry', () => {

@@ -537,7 +537,7 @@ export const freshmanGuides: FreshmanGuide[] = [
         icon: 'i-lucide-history',
         items: [
           '2025级迎新曾在第一、第三教学区设置报到点，并安排泉州火车站接站和校内电瓶车。',
-          '这些安排不能推定为2026级方案；本页会在学校发布当年通知后再更新具体日期、材料和路线。'
+          '这些安排不能推定为2026级方案；具体日期、材料和路线以学校当年通知为准。'
         ]
       },
       {
@@ -602,7 +602,7 @@ export const freshmanGuides: FreshmanGuide[] = [
           '经济学、金融学、金融科技、国际经济与贸易、法学、汉语言文学、英语、新闻学、广告学、工商管理、市场营销、会计学、财务管理、物流管理、工业工程、商务英语、网络与新媒体、人力资源管理：每学年23000元。',
           '艺术教育：每学年24000元。',
           '电气工程及其自动化、电子信息工程、计算机科学与技术、网络工程、人工智能、物联网工程、数据科学与大数据技术：每学年25000元。',
-          '上面是2026年普通高考招生章程中的标准。专升本、转专业或其他特殊情况，请按自己的招生类别和录取材料核对。'
+          '2026年普通高考招生章程中的标准；专升本、转专业或其他特殊情况，请按自己的招生类别和录取材料核对。'
         ],
         sources: [officialSources.undergraduateRules2026]
       },
@@ -624,7 +624,7 @@ export const freshmanGuides: FreshmanGuide[] = [
         items: [
           '先对照录取通知书确认收费项目、金额、缴费时间和学校指定入口。',
           '不要扫群聊、短信或搜索广告里的私人收款码，也不要把验证码、银行卡密码发给任何人。',
-          '页面暂不写死缴费网址，因为学校尚未在面向2026级新生的公开通知中公布统一操作入口。',
+          '学校尚未在面向2026级新生的公开通知中公布统一操作入口。',
           '对金额、票据或退费有疑问，可从财务处官网进入；财务处公开电话为0595-22082010，办公地点为旧区行政楼一楼。'
         ],
         notice: '本站不代收学费、住宿费或任何押金，也不会私聊发送缴费二维码。',
@@ -771,7 +771,7 @@ export const freshmanGuides: FreshmanGuide[] = [
         items: [
           '近期有学生分享普通型宿舍的图片和视频，并介绍了上床下桌、空调、风扇和公共卫浴隔间等情况。',
           '这些笔记没有形成可覆盖所有楼栋和房型的证据；房型、床位和设施仍以录取安排、学校规定及实际分配为准。',
-          '系统只在内部资料目录保存少量带来源和版权状态的核验图片，不在前台发布，也不复制完整正文或评论用户资料。'
+          '这些图片暂不展示，只保留来源和版权记录。'
         ],
         sources: [researchSources.dormQuestions, researchSources.dormPhotos]
       },
@@ -886,7 +886,7 @@ export const freshmanGuides: FreshmanGuide[] = [
           '教务部官网提供教务系统、选课主页、超星网络教学平台等官方入口；优先从教务部页面跳转，不点击搜索广告或群聊中的仿冒登录页。',
           '教务部公开电话为0595-22082006，邮箱为 yeujwb@yeu.edu.cn；涉及学籍、课表和成绩事项时，先查看官网办事指南，再按学院或教务部通知办理。',
           '本系统不会代登录教务、选课、超星或邮箱，也不会要求提交学号密码、短信验证码或人脸信息。',
-          '首次登录、默认口令、统一身份认证和忘记密码流程必须以学校当年页面为准，本指南不公开或猜测默认密码。'
+          '首次登录、默认口令、统一身份认证和忘记密码流程以学校当年页面为准，本指南不公开或猜测默认密码。'
         ]
       },
       {
@@ -1000,7 +1000,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'awaiting-notice',
     statusText: '站点和配送规则还要到现场确认',
     updatedAt: '2026-07-15',
-    leadNotice: '这里放了 2025 年的快递地图和新生经验，先用来看方向。站点、取餐点和配送边界会变，以本学期现场标识和宿舍通知为准。',
+    leadNotice: '2025 年的快递地图和新生分享只说明大致方向；站点、取餐点和配送边界以本学期现场标识和宿舍通知为准。',
     sections: [
       {
         title: '取件前先确认',
@@ -1027,7 +1027,7 @@ export const freshmanGuides: FreshmanGuide[] = [
           '有新生分享提到新旧区外卖取餐边界不同；2026级报到后请按宿舍楼附近的现场标识确认。',
           '如果名称、位置或负责品牌对不上，请先问宿管或站点工作人员，不要只按往年图片寻找。'
         ],
-        notice: '下面是往年分享和校园地图；今年的安排以学校通知和现场标识为准。',
+        notice: '往年分享和校园地图只供认路；今年的安排以学校通知和现场标识为准。',
         sources: [researchSources.expressMap, researchSources.freshmanSurvival]
       }
     ],
@@ -1143,7 +1143,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     slug: 'nearby',
     title: '周边商铺与生活',
     shortTitle: '周边生活',
-    summary: '按位置和服务类型查找周边商铺，并标明营业情况和最后确认时间。页面只提供找店参考，不做主观排名。',
+    summary: '按位置和服务类型查找周边商铺，并标明营业情况和最后确认时间；不做主观排名。',
     icon: 'i-lucide-store',
     category: 'life',
     audience: ['本科新生', '专升本新生'],
@@ -1151,7 +1151,7 @@ export const freshmanGuides: FreshmanGuide[] = [
     status: 'awaiting-notice',
     statusText: '首批商铺待实地核验',
     updatedAt: '2026-07-15',
-    leadNotice: '地图和学生分享里提到的商铺先作为参考。只有门店位置、是否营业和营业时间同时从平台页面和现场或电话得到确认后，才会公开显示。',
+    leadNotice: '地图和学生分享里提到的商铺先作为参考；位置和营业情况以平台页面与现场确认结果为准。',
     sections: [
       {
         title: '现在可以查看',
@@ -1159,7 +1159,7 @@ export const freshmanGuides: FreshmanGuide[] = [
         items: [
           '可以查看门店名称、类别、位置、营业时间、服务内容和最后确认日期。',
           '价格只显示带日期的参考范围或示例，实际价格以门店当天为准。',
-          '部分评价为公开平台用户评价的整理摘录并标注来源，不照搬原文；不复制菜单图片或用户照片。'
+          '部分评价摘录自公开平台用户评价并标注来源。'
         ]
       },
       {
@@ -1178,7 +1178,7 @@ export const freshmanGuides: FreshmanGuide[] = [
           '学生公开分享里提到旧区“喜又”和新区二街“思念小馆”，高德地图也能找到同名地点，可以先用于认路。',
           '同名信息不代表一定仍在营业，也不能说明菜品、价格或口碑；出发前请再确认。'
         ],
-        notice: '还没完成位置和营业情况确认，这两家暂时只作为找店参考，不会标成已确认推荐。',
+        notice: '这两家的位置和营业情况还没确认，只作为找店参考。',
         sources: [researchSources.food]
       }
     ],
@@ -1221,7 +1221,7 @@ export function officialClubBody(club: OfficialClub): string {
     : `${club.source.publisher}的公开资料里提到过这个社团；今年还是不是同一批人在办，要问本学期的负责人。`
   return [
     `方向：${club.group}。平时主要做${club.direction}。`,
-    '想知道合不合自己，去招新摊位问三件事就够：这学期主要活动是什么、多久一次、要不要自备器材或交费。',
+    '活动频次、会费和器材要求，校团委公开名单里没有写，以社团本学期安排为准。',
     confidenceText,
     '招新时间、摆摊地点、报名二维码和负责人联系方式，以本学期校团委或社团通知为准。'
   ].join('\n')
@@ -1244,7 +1244,7 @@ export function freshmanGuideBody(guide: FreshmanGuide): string {
     guide.leadNotice,
     sectionText,
     `适用对象：${guide.audience.join('、')}。`,
-    `资料状态：${guide.statusText}。强时效事项以页面底部列出的官方来源和学校最新通知为准。`
+    `资料状态：${guide.statusText}。强时效事项以列出的官方来源和学校最新通知为准。`
   ].join('\n\n')
 }
 
@@ -1354,7 +1354,7 @@ const departmentUseCases: Record<string, { when: string[], check: string }> = {
     check: '社团群号、收费、报名表等要以校团委或社团官方当年发布为准，不要只信转发二维码。'
   },
   'library': {
-    when: ['查图书馆开放时间、借阅规则、馆藏检索、学习空间和读者服务。', '新生想自习、借书、绑定借阅证或了解开放安排时，优先看图书馆。'],
+    when: ['查图书馆开放时间、借阅规则、馆藏查询、学习空间和读者服务。', '新生想自习、借书、绑定借阅证或了解开放安排时，优先看图书馆。'],
     check: '考试周、节假日和临时闭馆可能变化，进馆前核对图书馆最新通知。'
   }
 }
@@ -1604,7 +1604,7 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'financial-aid-center',
     name: '学生资助中心',
-    summary: '家庭经济困难认定、助学贷款、奖助学金；学生办理认定和贷款都归这里，先看通知。',
+    summary: '家庭经济困难认定、助学贷款、奖助学金；学生办理认定、贷款和资助咨询都归这里。',
     website: 'https://xsb.yeu.edu.cn/127/list.htm',
     phone: '0595-22099018'
   },
@@ -1618,7 +1618,7 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'finance-office',
     name: '财务处',
-    summary: '学费住宿费缴纳、票据、退款都在这办；学生缴费前先看学校发的防骗提醒，别扫陌生码。',
+    summary: '学费住宿费缴纳、票据、退款都在这办；学生缴费走学校通知里的官方入口办理。',
     website: 'https://uf.yeu.edu.cn/',
     phone: '财务咨询：0595-22082010'
   },
@@ -1638,7 +1638,7 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'campus-clinic',
     name: '医务室',
-    summary: '校内值班、基础就医、健康咨询；学生看病先来这里，医务服务电话每学期再核一遍。',
+    summary: '校内值班、基础就医、健康咨询、急救与安全指引；学生看病、常见不适先来这里找值班人员。',
     website: 'https://www.yeu.edu.cn/yws/list.htm'
   },
   {
@@ -1651,7 +1651,7 @@ export const officialDepartments: OfficialDepartment[] = [
   {
     slug: 'library',
     name: '图书馆',
-    summary: '开放时间、借阅规则、馆藏检索、自习空间；学生查资料和借还书都看图书馆这一页。',
+    summary: '图书馆开放时间、借阅规则、馆藏查询、自习空间；学生查资料、借还书和自习都归这里。',
     website: 'https://library.yeu.edu.cn/',
     phone: '借阅部：0595-22099025 / 0595-22099026'
   }

@@ -19,7 +19,7 @@ useSeoMeta({
           隐私说明
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          这一页写清楚本站记录什么、为什么记录、怎么查询和删除。我们不会要你的学号、一卡通密码或校园网密码。最近更新：2026-07-14。
+          不要学号、一卡通密码、校园网密码 · 最近更新 2026-07-14
         </p>
       </div>
     </header>

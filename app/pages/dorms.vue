@@ -9,7 +9,6 @@ interface DormTour {
   badge: string
   duration: string
   summary: string
-  detail: string
   video: string
   poster: string
   icon: string
@@ -29,7 +28,6 @@ const dormTours: DormTour[] = [
     badge: '28 秒实拍',
     duration: '约 28 秒',
     summary: '从宿舍内部走到公共洗衣、洗漱和卫生间区域。',
-    detail: '这段走拍能看到床桌柜、公共洗衣机、公共洗漱台和卫生间。不同楼栋的布局、设备数量和维护状态可能不同。',
     video: '/media/ordinary-dorm-tour.mp4',
     poster: '/images/panorama/ordinary-dorm-poster.jpg',
     icon: 'i-lucide-bed-single',
@@ -46,7 +44,6 @@ const dormTours: DormTour[] = [
     badge: '24 秒实拍',
     duration: '约 24 秒',
     summary: '查看卧室、床桌柜、空调、独立卫浴和洗衣区域。',
-    detail: '这段视频展示一间舒适型宿舍的实际状态，不是学校发布的标准样板间。楼栋、房型、家具和入住后的布置会有差异。',
     video: '/media/comfort-dorm-tour.mp4',
     poster: '/images/panorama/comfort-dorm-poster.jpg',
     icon: 'i-lucide-bed-double',
@@ -95,8 +92,8 @@ function selectDorm(id: DormId) {
           <h1 class="mt-3 text-3xl font-black sm:text-4xl md:text-5xl">
             宿舍实拍
           </h1>
-          <p class="mt-4 max-w-2xl text-sm leading-7 text-white/80 md:text-base">
-            普通型和舒适型分开看。两段视频由本站维护者自行拍摄并整理，适合提前了解空间与公共区域，不代表学校官方样板，也不代表最终分配到的具体房间。
+          <p class="mt-4 max-w-2xl text-xs leading-6 text-white/70">
+            自行拍摄 · 非官方样板 · 不代表最终分配
           </p>
           <div class="mt-5 flex flex-wrap gap-3">
             <UButton
@@ -189,9 +186,6 @@ function selectDorm(id: DormId) {
             >
               {{ activeDorm.name }}
             </h2>
-            <p class="mt-4 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              {{ activeDorm.detail }}
-            </p>
 
             <ul class="mt-6 space-y-3">
               <li
@@ -269,38 +263,9 @@ function selectDorm(id: DormId) {
         </div>
       </section>
 
-      <section class="border-t border-zinc-200 dark:border-zinc-800 pt-8">
-        <div class="grid gap-5 md:grid-cols-2">
-          <details class="group rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-5">
-            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 marker:hidden">
-              <span class="text-sm font-bold text-amber-950 dark:text-amber-100">
-                实拍不是标准样板间
-              </span>
-              <UIcon
-                name="i-lucide-chevron-down"
-                class="size-4 shrink-0 text-amber-700 dark:text-amber-300 transition group-open:rotate-180"
-              />
-            </summary>
-            <p class="mt-2 text-sm leading-6 text-amber-950/75 dark:text-amber-100/75">
-              拍摄时间、楼栋、入住人数和个人布置都会影响画面。床位、家具、热水和公共设施以实际分配及学校最新安排为准。
-            </p>
-          </details>
-          <details class="group rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950 p-5">
-            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 marker:hidden">
-              <span class="text-sm font-bold text-sky-950 dark:text-sky-300">
-                影像来源与隐私说明
-              </span>
-              <UIcon
-                name="i-lucide-chevron-down"
-                class="size-4 shrink-0 text-sky-700 dark:text-sky-300 transition group-open:rotate-180"
-              />
-            </summary>
-            <p class="mt-2 text-sm leading-6 text-sky-950/75 dark:text-sky-100/75">
-              视频由本站维护者自行拍摄，本站只提供行前参考，不代表学校官方宣传。发布或转载时应确认入镜人员同意，并避免展示房号、联系方式和其他可识别的私人信息；如发现相关内容，请通过反馈联系处理。
-            </p>
-          </details>
-        </div>
-      </section>
+      <p class="border-t border-zinc-200 dark:border-zinc-800 pt-4 text-xs text-zinc-500 dark:text-zinc-400">
+        实拍非官方样板 · 床位与设施以实际分配为准
+      </p>
     </main>
   </div>
 </template>

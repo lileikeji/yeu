@@ -9,7 +9,7 @@ interface ArrivalRoutesPayload {
 
 useSeoMeta({
   title: '到校动线：泉州站、机场、自驾到仰恩大学',
-  description: '按「我现在在」选出发地，看到仰恩大学的逐段动线：每段耗时区间、费用、雨天/夜间/行李提示，以及来源与核验时间。'
+  description: '按「我现在在」选出发地，看逐段耗时、费用与换乘次数。'
 })
 
 const route = useRoute()
@@ -36,6 +36,9 @@ const activeRoute = computed<ArrivalRoute | null>(
 )
 
 const routePlainText = computed(() => activeRoute.value ? buildRouteText(activeRoute.value) : '')
+const transferCount = computed(() => activeRoute.value
+  ? activeRoute.value.steps.filter(step => step.title.startsWith('换乘')).length
+  : 0)
 
 async function loadArrivalRoutes(): Promise<ArrivalRoutesPayload> {
   const { arrivalRoutes, defaultArrivalRoute } = await import('~~/data/arrival-routes')
@@ -127,9 +130,6 @@ watch(() => route.query.from, () => {
           <h1 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
             从车站到宿舍，一条一条走
           </h1>
-          <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-            先选你现在的位置，再按时间轴走。耗时和费用都给区间；班次、发车时刻和精确票价以现场与官方公告为准，本页不写死。
-          </p>
         </div>
       </div>
     </header>
@@ -146,7 +146,7 @@ watch(() => route.query.from, () => {
             class="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
           />
           <p>
-            现在连不上网，下面是你上次打开时保存的内容（{{ offlineSavedAtLabel }}）。学校通知可能有更新，恢复网络后刷新一次。
+            现在连不上网，显示 {{ offlineSavedAtLabel }} 保存的内容。恢复网络后刷新。
           </p>
         </div>
         <section aria-labelledby="arrival-origin-heading">
@@ -185,9 +185,6 @@ watch(() => route.query.from, () => {
                 <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
                   {{ activeRoute.from }} → 仰恩大学
                 </h2>
-                <p class="mt-1.5 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                  {{ activeRoute.fromDetail }}
-                </p>
               </div>
               <div class="flex shrink-0 flex-col items-start gap-2">
                 <UButton
@@ -221,21 +218,29 @@ watch(() => route.query.from, () => {
                   {{ activeRoute.totalCostCny ? formatCost(activeRoute.totalCostCny) : '以现场为准' }}
                 </dd>
               </div>
+              <div class="flex items-center gap-1.5">
+                <dt class="text-zinc-500 dark:text-zinc-400">
+                  换乘
+                </dt>
+                <dd class="font-semibold text-emerald-700 dark:text-emerald-400">
+                  {{ transferCount }} 次
+                </dd>
+              </div>
             </dl>
 
-            <ul class="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 text-xs leading-5 text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-              <li
+            <dl class="mt-3 grid gap-x-4 gap-y-1.5 border-t border-zinc-100 pt-3 text-xs leading-5 text-zinc-600 dark:border-zinc-800 dark:text-zinc-300 sm:grid-cols-3">
+              <div
                 v-for="note in activeRoute.notes"
                 :key="note"
-                class="flex gap-2"
               >
-                <span
-                  class="mt-2 size-1 shrink-0 rounded-full bg-emerald-500"
-                  aria-hidden="true"
-                />
-                <span>{{ note }}</span>
-              </li>
-            </ul>
+                <dt class="font-semibold text-zinc-500 dark:text-zinc-400">
+                  {{ note.split('：')[0] }}
+                </dt>
+                <dd>
+                  {{ note.split('：').slice(1).join('：') }}
+                </dd>
+              </div>
+            </dl>
 
             <div
               v-if="copyState === 'manual'"
@@ -299,16 +304,17 @@ watch(() => route.query.from, () => {
                     />
                     {{ stepCostText(step) }}
                   </span>
+                  <span
+                    v-if="step.tip"
+                    class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                  >
+                    <UIcon
+                      name="i-lucide-triangle-alert"
+                      class="size-3.5"
+                    />
+                    {{ step.tip }}
+                  </span>
                 </div>
-                <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                  {{ step.detail }}
-                </p>
-                <p
-                  v-if="step.tip"
-                  class="mt-2 border-l-2 border-emerald-300 pl-3 text-xs leading-5 text-zinc-600 dark:border-emerald-800 dark:text-zinc-300"
-                >
-                  <span class="font-semibold text-emerald-700 dark:text-emerald-400">提示：</span>{{ step.tip }}
-                </p>
               </div>
             </li>
           </ol>
@@ -352,7 +358,7 @@ watch(() => route.query.from, () => {
             </li>
           </ul>
           <p class="mt-4 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            本页不写班次号、发车时刻和精确票价；公交线路、票价、报到点与进校安排都可能临时调整，出发前再核对一次官方公告和当天实时公交。
+            班次与票价以当天公告为准。
           </p>
         </section>
       </div>

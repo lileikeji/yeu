@@ -1,5 +1,5 @@
 export const guideFallbackMessages = {
-  staticGuide: '这里先显示已经整理好的指南；时间、地点、材料和费用请以学校最新通知为准。'
+  staticGuide: '指南为整理稿；时间、地点以学校最新通知为准。'
 } as const
 
 export interface GuideStatePresentation {

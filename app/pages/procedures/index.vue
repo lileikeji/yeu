@@ -114,9 +114,6 @@ onMounted(() => {
             <h1 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               新生办事流程
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              先找你要办的事，再按步骤准备时间、材料和地点。尚未公布的安排会直接标明，费用请以录取通知书和学校最新通知为准。
-            </p>
           </div>
           <UButton
             to="/guides"
@@ -217,7 +214,6 @@ onMounted(() => {
           <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             {{ procedures.length }} 件事
           </h2>
-          <span class="text-xs text-zinc-500 dark:text-zinc-400">点开查看步骤</span>
         </div>
 
         <div
@@ -320,9 +316,6 @@ onMounted(() => {
           <h2 class="mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
             {{ filtersActive ? procedureListMessages.emptyMatch : procedureListMessages.emptyList }}
           </h2>
-          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            {{ filtersActive ? '换个关键词或适用人群试试。' : '入学前能准备什么，看入学指南。' }}
-          </p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <UButton
               v-if="filtersActive"

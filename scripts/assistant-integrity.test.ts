@@ -261,7 +261,7 @@ test('the admission-plan gap answer cites nothing rather than padding with retri
       gatewayConfig
     ) as AssistantAnswerResponse
 
-    assert.match(response.answer, /没有提取出可核验的招生总人数/u, 'must take the admission-plan gap branch')
+    assert.match(response.answer, /正文里没有可以核验的招生总人数/u, 'must take the admission-plan gap branch')
     assert.equal(response.citations.length, 0, 'evidence the answer never names must not be cited')
     assert.equal(response.citationStatus, 'none')
     assert.equal(response.evidenceGap, true)

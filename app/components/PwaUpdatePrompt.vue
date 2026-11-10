@@ -58,7 +58,7 @@ async function dismissUpdate(): Promise<void> {
           id="pwa-update-description"
           class="mt-0.5 text-xs leading-5 text-zinc-600 dark:text-zinc-300"
         >
-          刷新后生效。正在输入反馈或聊天时，可以先点稍后。
+          刷新后生效
         </p>
         <div class="mt-2 flex items-center justify-end gap-2">
           <button

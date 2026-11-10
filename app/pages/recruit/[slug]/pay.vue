@@ -18,10 +18,6 @@ const note = computed(() => String(route.query.note ?? '付款请备注：班级
 const src = computed(() => rawSrc.value.startsWith('/uploads/') ? rawSrc.value : '')
 const backPath = computed(() => `/recruit/${encodeURIComponent(String(route.params.slug ?? ''))}`)
 
-const hint = computed(() => label.value === '微信支付'
-  ? '长按二维码保存到相册，再用微信「扫一扫」从相册识别付款'
-  : '长按二维码保存到相册，打开支付宝「扫一扫」从相册选取付款')
-
 // 微信限制网页内直接长按识别付款码（聊天里可以，网页里不行），
 // 唯一可靠路径是保存图片后从「扫一扫 → 相册」识别，故用分步指引。
 const steps = computed(() => label.value === '微信支付'
@@ -48,9 +44,6 @@ useSeoMeta({
       <h1 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
         {{ label }} · 扫码付款
       </h1>
-      <p class="mt-2 text-center text-sm leading-6 text-emerald-700 dark:text-emerald-300">
-        {{ hint }}
-      </p>
       <p class="mt-1 text-center text-xs text-zinc-500 dark:text-zinc-400">
         付款请备注：{{ note }}
       </p>
@@ -94,9 +87,6 @@ useSeoMeta({
           {{ step }}
         </li>
       </ol>
-      <p class="mt-2 text-center text-[11px] leading-4 text-zinc-400 dark:text-zinc-500">
-        微信/支付宝限制在网页内直接长按识别付款码，保存到相册，再用「扫一扫 · 相册」识别付款。
-      </p>
     </div>
   </div>
 </template>

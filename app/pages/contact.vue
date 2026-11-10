@@ -15,9 +15,6 @@ useSeoMeta({
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           有问题，直接来找我
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          哪句写错了、和现场对不上，加微信告诉我，我核对后改。想进新生群也是这个号。
-        </p>
       </div>
     </header>
 
@@ -55,7 +52,7 @@ useSeoMeta({
                   咨询指南问题
                 </h3>
                 <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                  请带上你看到的页面名称或截图，我会更快定位到对应内容。
+                  带上页面名或截图
                 </p>
               </div>
             </div>
@@ -69,7 +66,7 @@ useSeoMeta({
                   申请加入新生群
                 </h3>
                 <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                  添加后备注“新生群”和你的年级；群内信息仍需自行核对，不代替学校通知。
+                  备注“新生群”和年级
                 </p>
               </div>
             </div>
@@ -83,7 +80,7 @@ useSeoMeta({
                   纠错或补充内容
                 </h3>
                 <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                  说清哪句不对，附上学校通知或截图更好；不加微信也行，站内反馈一样看得到。
+                  说清哪句不对，附截图
                 </p>
               </div>
             </div>
@@ -138,7 +135,7 @@ useSeoMeta({
             class="mt-4 aspect-[888/1131] w-full rounded-md border border-zinc-100 dark:border-zinc-800 object-contain"
           >
           <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            请勿发送身份证号、银行卡、密码等敏感信息。涉及缴费、录取和学籍的事项，以学校官方渠道为准。
+            勿发身份证、银行卡、密码；缴费和学籍以学校官方渠道为准。
           </p>
         </section>
       </div>

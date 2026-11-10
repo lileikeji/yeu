@@ -66,8 +66,6 @@ const filteredAmapRatings = computed(() => {
   )
 })
 
-const amapExpiredCount = computed(() => amapRatings.value.filter(rating => rating.expired).length)
-
 async function loadAmapRatings(): Promise<void> {
   amapLoading.value = true
   amapError.value = ''
@@ -382,11 +380,6 @@ onMounted(loadReviews)
         <h1 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
           商家评价审核
         </h1>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {{ viewTab === 'reviews'
-            ? `共 ${total} 条用户评价，通过后在校园地图弹窗公开展示`
-            : `高德评分种子数据 ${amapRatings.length} 家（其中已过期 ${amapExpiredCount} 家），用于地图弹窗评分展示，过期后需重新拉取` }}
-        </p>
       </div>
       <div class="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 p-1">
         <button

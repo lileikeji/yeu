@@ -47,7 +47,7 @@ test('草稿键固定为 yeu:score-draft:v1', () => {
   const storage = memoryStorage()
   writeScoreDrafts(storage, [draft()])
   assert.ok(storage.dump().has('yeu:score-draft:v1'))
-  assert.equal(SCORE_DRAFT_QUEUED_NOTICE, '已经记下了，网好了会自动交上去')
+  assert.equal(SCORE_DRAFT_QUEUED_NOTICE, '待提交')
   assert.equal(SCORE_DRAFT_RETRY_TICK_MS, 20_000)
 })
 
@@ -145,7 +145,7 @@ test('评分页接上了断网续评', () => {
   assert.match(page, /result\.status === 'queued'/)
   assert.match(page, /data-score-draft-queue/)
   assert.match(page, /SCORE_DRAFT_QUEUED_NOTICE/)
-  assert.match(page, /还有 \{\{ draftPending \}\} 份没交上去/)
-  assert.match(page, /label="立即重试"/)
+  assert.match(page, /SCORE_DRAFT_QUEUED_NOTICE \}\} \{\{ draftPending \}\} 条/)
+  assert.match(page, /label="重试"/)
   assert.match(page, /:loading="draftFlushing"/)
 })

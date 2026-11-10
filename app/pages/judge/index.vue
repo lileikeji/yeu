@@ -286,7 +286,7 @@ function handleSaveError(error: unknown): void {
   } else if (code === 'COMPETITION_SCORING_CLOSED') {
     toast.add({
       title: '本轮评分未开放或已结束',
-      description: '成绩已锁定，页面将刷新为只读。',
+      description: '成绩已锁定。',
       color: 'warning'
     })
     void loadPayload(true)
@@ -330,8 +330,7 @@ async function saveScore(advance: boolean): Promise<void> {
 
     if (result.status === 'queued') {
       toast.add({
-        title: '已经记下了',
-        description: '网好了会自动交上去，不用重新打分。',
+        title: '已加入待提交',
         color: 'warning'
       })
       return
@@ -569,13 +568,13 @@ onBeforeUnmount(stopPolling)
                   <span
                     v-if="draftPending > 0"
                     class="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                    :title="`还有 ${draftPending} 份没交上去`"
+                    :title="`待提交 ${draftPending} 条`"
                   >
                     <UIcon
                       name="i-lucide-cloud-off"
                       class="size-3"
                     />
-                    待交 {{ draftPending }}
+                    待提交 {{ draftPending }}
                   </span>
                 </span>
                 <span class="tabular-nums">{{ payload.progress.scored }} / {{ payload.progress.total }} 位</span>
@@ -608,14 +607,14 @@ onBeforeUnmount(stopPolling)
             class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
             role="status"
           >
-            本轮尚未开放评分。名单与出场顺序已确定，请等待组织者开放后开始打分。
+            本轮尚未开放评分。
           </div>
           <div
             v-else-if="roundClosed"
             class="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
             role="status"
           >
-            本轮评分已结束，成绩已锁定。未提交评分的选手按弃权处理。
+            本轮评分已结束，成绩已锁定。
           </div>
 
           <div
@@ -629,11 +628,11 @@ onBeforeUnmount(stopPolling)
               class="size-4 shrink-0"
             />
             <span class="min-w-0 flex-1">
-              {{ SCORE_DRAFT_QUEUED_NOTICE }}。还有 {{ draftPending }} 份没交上去。
+              {{ SCORE_DRAFT_QUEUED_NOTICE }} {{ draftPending }} 条
             </span>
             <UButton
               icon="i-lucide-refresh-cw"
-              label="立即重试"
+              label="重试"
               color="warning"
               variant="soft"
               size="xs"
@@ -1087,7 +1086,7 @@ onBeforeUnmount(stopPolling)
                   {{ resultsTitle(activeTab) }}
                 </h2>
                 <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                  按平均分从高到低，同分按出场顺序；未评分的按弃权处理。
+                  按平均分从高到低。
                 </p>
               </div>
               <span class="text-xs text-zinc-400">

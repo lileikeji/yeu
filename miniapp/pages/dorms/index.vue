@@ -41,7 +41,7 @@ onLoad(() => {
 </script>
 
 <template>
-  <AppPage title="宿舍实拍" subtitle="普通型和舒适型分开看。视频由本站维护者自行拍摄，只作行前参考。">
+  <AppPage title="宿舍实拍">
     <view class="list-stack">
       <button
         v-for="tour in dormTours"

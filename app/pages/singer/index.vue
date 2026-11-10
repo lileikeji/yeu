@@ -68,10 +68,26 @@ useSeoMeta({
         <p class="text-lg font-bold">
           报名方式
         </p>
-        <p class="mt-1 text-sm leading-6 text-white/90">
-          扫码预报名，比赛当天到现场扫码确认。
-          11.14 / 11.15 任选一天，19:00，旧区宏船楼303。
-        </p>
+        <dl class="mt-3 grid gap-1 text-sm leading-6 text-white/90">
+          <div class="flex gap-2">
+            <dt class="shrink-0 font-semibold">
+              时间
+            </dt>
+            <dd>11.14 / 11.15 任选一天 19:00</dd>
+          </div>
+          <div class="flex gap-2">
+            <dt class="shrink-0 font-semibold">
+              地点
+            </dt>
+            <dd>旧区宏船楼303</dd>
+          </div>
+          <div class="flex gap-2">
+            <dt class="shrink-0 font-semibold">
+              报名入口
+            </dt>
+            <dd>现场扫码，或先填预报名</dd>
+          </div>
+        </dl>
         <div class="mt-4">
           <NuxtLink
             to="/singer/pre-register"

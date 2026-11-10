@@ -16,8 +16,8 @@ export const SCORE_DRAFT_MAX_ATTEMPTS = 5
 export const SCORE_DRAFT_BACKOFF_MS = [2000, 4000, 8000, 16000, 32000] as const
 /** 队列里有草稿时，每 20 秒兜底扫一次。 */
 export const SCORE_DRAFT_RETRY_TICK_MS = 20_000
-/** 提交失败后给评委看的一句话。 */
-export const SCORE_DRAFT_QUEUED_NOTICE = '已经记下了，网好了会自动交上去'
+/** 队列状态标签。 */
+export const SCORE_DRAFT_QUEUED_NOTICE = '待提交'
 
 export interface ScoreDraftPayload {
   scores: Record<string, number>

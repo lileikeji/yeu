@@ -449,7 +449,7 @@ export function useMapTransit(options: UseMapTransitOptions) {
         })
         .catch(() => {
           transitLoadPromise = null
-          options.notify({ title: '公交线路加载失败', description: '稍后再试，或先到「交通指南」看线路图。', color: 'error' })
+          options.notify({ title: '公交线路加载失败', description: '可重试，或看交通指南线路图', color: 'error' })
           return false
         })
         .finally(() => {

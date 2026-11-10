@@ -114,9 +114,6 @@ async function refreshSources(): Promise<void> {
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           校园消息，<span class="block sm:inline">先看能不能直接用</span>
         </h1>
-        <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          报到、缴费和学籍等重要事项，请优先看学校和主管部门的最新通知。地图、商铺和社团消息变化较快，页面会保留参考链接，方便你自己再看一眼。
-        </p>
         <div class="mt-5 flex flex-wrap gap-2">
           <a
             href="https://www.yeu.edu.cn/"
@@ -159,9 +156,6 @@ async function refreshSources(): Promise<void> {
             <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
               最近补充了这些内容
             </h2>
-            <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              有新的学校通知时，我们会继续补充。下面会写清最近整理的内容和时间，方便你判断是不是最新的。
-            </p>
           </div>
           <UButton
             to="/feedback?type=correction&from=/sources"
@@ -219,9 +213,6 @@ async function refreshSources(): Promise<void> {
           <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
             不同消息，适合用在不同地方
           </h2>
-          <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-            同一件事可能同时出现在官网、群聊和地图上。下面四类提醒，用来决定先看哪一个。
-          </p>
         </div>
 
         <ul class="grid gap-3 sm:grid-cols-2">
@@ -265,10 +256,10 @@ async function refreshSources(): Promise<void> {
         </h2>
         <div class="mt-4 grid gap-5 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:grid-cols-2">
           <p>
-            地图上的绿色虚线来自公开社区地图，只帮助辨认校园大致范围，不代表学校公布的正式边界。找楼栋和入口时，请继续看地图上的地点与现场指示牌。
+            绿色虚线来自公开社区地图，只用于辨认范围，不代表学校边界。
           </p>
           <p>
-            点开地点可以查看位置和导航；绿色虚线区域只用来认方向，不会挡住里面的商铺和建筑。
+            点开地点可看位置和导航。
           </p>
         </div>
         <div class="mt-5 flex flex-wrap gap-2">
@@ -322,8 +313,11 @@ async function refreshSources(): Promise<void> {
           class="min-h-11 w-full sm:max-w-md"
           :ui="{ base: 'min-h-11' }"
         />
-        <span class="text-xs text-zinc-500 dark:text-zinc-400">
-          {{ sourceFilterActive ? `找到 ${filteredSources.length} 条` : '可按学校、部门或信息名称查找' }}
+        <span
+          v-if="sourceFilterActive"
+          class="text-xs text-zinc-500 dark:text-zinc-400"
+        >
+          找到 {{ filteredSources.length }} 条
         </span>
       </div>
 
@@ -471,9 +465,6 @@ async function refreshSources(): Promise<void> {
         <h3 class="mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
           {{ sourceFilterActive ? sourceListMessages.emptyMatch : sourceListMessages.emptyList }}
         </h3>
-        <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          {{ sourceFilterActive ? '换个学校、部门或信息名称试试。' : '各篇指南里都有对应的通知和链接。' }}
-        </p>
         <div class="mt-5 flex flex-wrap justify-center gap-2">
           <UButton
             v-if="sourceFilterActive"

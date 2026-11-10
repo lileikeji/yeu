@@ -340,7 +340,7 @@ const supplementalQuickEntries: CompactHomeEntry[] = [
   {
     id: 'compact-search',
     title: '校园问答',
-    summary: '检索资料并找到功能入口',
+    summary: '查资料、找功能入口',
     to: '/search?mode=ai',
     icon: 'i-lucide-circle-question-mark',
     placement: 'quick',
@@ -430,7 +430,7 @@ const guideToolDefinitions: CompactHomeEntry[] = [
   { id: 'tool-arrival', title: '报到安排', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival', linkPreviewOnly: true },
   { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40, linkPreviewOnly: true },
   { id: 'tool-rules', title: '学生手册与资助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-book-open-check', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules', linkPreviewOnly: true },
-  { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-question-mark', placement: 'timeline', sortOrder: 60, linkPreviewOnly: true }
+  { id: 'tool-search', title: '校园问答', summary: '查资料、找功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-question-mark', placement: 'timeline', sortOrder: 60, linkPreviewOnly: true }
 ]
 
 const directEntryDefinitions: CompactHomeEntry[] = [
@@ -775,9 +775,6 @@ onBeforeUnmount(() => {
             <h1 class="truncate text-base font-black text-zinc-950 dark:text-zinc-100 sm:text-lg">
               迎新指南
             </h1>
-            <p class="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400 sm:text-xs">
-              新生报到、校园生活与办事信息，一页看完；重要内容以学校最新通知为准
-            </p>
           </div>
           <div class="flex shrink-0 items-center gap-1.5">
             <UButton
@@ -1303,7 +1300,6 @@ onBeforeUnmount(() => {
     <UModal
       v-model:open="entrySheetOpen"
       :title="selectedEntryIsLinkPreview ? '链接预览' : (selectedEntry?.title || '入口详情')"
-      :description="selectedEntryIsLinkPreview ? undefined : '查看完整内容，需要时再进入对应页面'"
       :ui="entryModalUi"
     >
       <template #body>
@@ -1338,7 +1334,7 @@ onBeforeUnmount(() => {
               联系整理者
             </h3>
             <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              有问题、想补资料，或想进新生群，长按识别二维码。
+              长按识别二维码
             </p>
             <NuxtLink
               to="/images/contact-wechat.png"
@@ -1409,7 +1405,6 @@ onBeforeUnmount(() => {
     <UModal
       v-model:open="noticeOpen"
       title="公告详情"
-      description="查看公告完整内容"
     >
       <template #body>
         <article

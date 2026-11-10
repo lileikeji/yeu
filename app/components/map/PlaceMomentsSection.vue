@@ -328,7 +328,7 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
       class="mt-2 w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-left text-[11px] text-zinc-400 transition hover:border-zinc-300 dark:border-zinc-700 dark:text-zinc-500"
       @click="composerOpen = true"
     >
-      说说这里怎么样，或者传张图…
+      说两句，或传张图…
     </button>
 
     <div
@@ -339,7 +339,7 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
         v-model="body"
         :maxlength="BODY_MAX"
         rows="2"
-        placeholder="写点具体的：几点关、哪个门近、值不值得来"
+        placeholder="几点开门、哪个门近"
         class="w-full resize-none bg-transparent text-[12px] leading-5 text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
       />
       <div

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -121,9 +121,9 @@ test('home essential actions and timeline keep freshman-first copy', () => {
   assert.equal(homeTimelineStages[0]?.to, '/procedures/arrival')
   assert.equal(homeMoreEntries.length, 10)
   assert.equal(homeMoreEntries[0]?.to, '/checklist')
-  assert.equal(homeMoreEntries[0]?.description, '勾选到校前和第一周事项，进度会留在这台设备上')
+  assert.equal(homeMoreEntries[0]?.description, '勾选到校前和第一周事项')
   assert.equal(homeMoreEntries[1]?.to, '/guides/safety-health')
-  assert.equal(homeMoreEntries[1]?.description, '保存校园 110，知道紧急情况先找谁')
+  assert.equal(homeMoreEntries[1]?.description, '保存校园 110')
   assert.equal(homeMoreEntries[3]?.title, '学生社团')
   assert.equal(homeMoreEntries[4]?.title, '校内部门')
   assert.equal(homeMoreEntries[5]?.description, '学生街、马甲周边与泉州市区吃喝玩乐攻略')

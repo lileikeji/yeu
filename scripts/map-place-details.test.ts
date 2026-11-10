@@ -40,7 +40,7 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   assert.match(detailsSource, /emit\('planRoute'\)/)
   assert.match(detailsSource, /props\.variant === 'desktop'/)
   assert.match(detailsSource, /props\.place\.campusArea/)
-  assert.match(detailsSource, /微信内未唤起地图时/)
+  assert.match(detailsSource, /微信内可复制位置再搜/)
   assert.match(detailsSource, /grid grid-cols-2 gap-2/)
   assert.ok(
     detailsSource.indexOf('label="规划步行路线"')

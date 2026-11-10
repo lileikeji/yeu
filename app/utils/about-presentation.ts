@@ -98,25 +98,25 @@ export const aboutBoundaries: AboutBoundary[] = [
   {
     title: '重要事项看学校通知',
     icon: 'i-lucide-file-warning',
-    text: '报到、缴费、学籍、住宿、安全和需要提交的材料，以录取通知书及学校相关部门发布的最新通知为准。',
+    text: '报到、缴费、学籍、住宿、安全和材料，以录取通知书及学校最新通知为准。',
     tone: 'amber'
   },
   {
     title: '地图不猜位置',
     icon: 'i-lucide-map-pinned',
-    text: '只有能从学校资料或现场记录中确认的位置才会标在地图上。暂时不确定的地点会明确说明，不会为了看起来完整而随便标位置。',
+    text: '只标确认过的位置，不确定的会说明，不会为了看起来完整而随便标位置。',
     tone: 'sky'
   },
   {
     title: '往年消息只作参考',
     icon: 'i-lucide-calendar-clock',
-    text: '往年的报到点、接站、快递外卖、商铺营业和社团招新安排可能已经变化，出发前请再看今年的通知。',
+    text: '往年安排可能已变，出发前看今年通知。',
     tone: 'zinc'
   },
   {
     title: '没有付费排名',
     icon: 'i-lucide-badge-percent',
-    text: '本站目前没有商家推广或付费排名。以后如果出现合作内容，会清楚标出，不会混在普通校园信息里。',
+    text: '没有商家推广和付费排名，合作内容会明确标出。',
     tone: 'green'
   }
 ]
@@ -151,8 +151,8 @@ export const aboutMaintainers: AboutMaintainer[] = [
     name: '李磊',
     handle: 'GitHub @lileikeji · Gitee @lilei1529',
     role: '维护者',
-    focus: ['内容整理与核验', '地图与地点数据', '页面与交互', 'AI 问答与检索', '发布与运维'],
-    note: '2026 年 7 月开始搭这个站，到现在 950 多次提交。哪条事实改了、引的是哪份通知，提交记录里都能查到。',
+    focus: ['内容整理与核验', '地图与地点数据', '页面与交互', '问答与查找', '发布与运维'],
+    note: '2026 年 7 月开始搭这个站，950 多次提交，改动都能在提交记录里查。',
     icon: 'i-lucide-user-round',
     tone: 'green'
   }

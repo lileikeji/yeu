@@ -17,11 +17,11 @@ export const ORIENTATION_START = '2026-09-07'
 export const ORIENTATION_END = '2026-09-09'
 export const CLASS_START = '2026-09-10'
 
-export type ArrivalPhase =
-  | 'before-report'
-  | 'report-window'
-  | 'orientation'
-  | 'class-started'
+export type ArrivalPhase
+  = | 'before-report'
+    | 'report-window'
+    | 'orientation'
+    | 'class-started'
 
 export interface ArrivalMilestone {
   id: string
@@ -140,7 +140,7 @@ export function buildArrivalCountdown(now: Date = new Date()): ArrivalCountdownV
     }
   ]
 
-  const honestyNote = '个人时段、窗口与材料以录取通知书和学校当年通知为准，本页只整理校历已确认的公共日期。'
+  const honestyNote = '个人时段以录取通知书为准。'
 
   if (phase === 'before-report') {
     return {
@@ -257,7 +257,7 @@ export function buildTodayFocus(
       title: '报到当天优先做',
       description: '先定位再办理，保存紧急求助入口。'
     },
-    orientation: {
+    'orientation': {
       title: '入学教育期间优先做',
       description: '补齐校园一卡通、网络、学习和安全相关事项。'
     },

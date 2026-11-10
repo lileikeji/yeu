@@ -38,7 +38,7 @@ onPullDownRefresh(() => { void load() })
 </script>
 
 <template>
-  <AppPage title="学生社团" subtitle="按兴趣看社团方向和近期活动，招新时间以当学期通知为准。">
+  <AppPage title="学生社团">
     <StateView :loading="loading" :error="error" :empty="!items.length" empty-text="暂时没有已公开的社团资料。" @retry="load">
       <view class="list-stack">
         <button v-for="item in items" :key="item.id" class="dept-row list-card" @click="openClub(item.slug)">

@@ -74,7 +74,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               从这里认识校园
             </h1>
             <p class="mt-4 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
-              学校位于福建省泉州市洛江区马甲镇。先看校园地图，再从常用部门和学生社团入口找到你需要的信息。
+              学校位于福建省泉州市洛江区马甲镇。
             </p>
             <div class="mt-6 flex flex-wrap gap-2">
               <UButton
@@ -173,7 +173,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
               </div>
             </dl>
             <p class="mt-3 text-xs leading-5 text-zinc-400 dark:text-zinc-500">
-              校园规模会随建设和统计时间变化，具体请以学校官网最新介绍为准。
+              以学校官网为准
             </p>
           </div>
         </div>
@@ -425,9 +425,6 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100 md:text-2xl">
             新生常用入口
           </h2>
-          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            学籍、住宿、资助、就医等事情可以先从对应部门查起。办公地点和时间可能调整，出发前建议再看一次官网。
-          </p>
         </div>
         <UButton
           :to="safeExternalHref(officialSources.organizations.url) || undefined"
@@ -567,9 +564,6 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
             <h2 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
               按兴趣认识校园社团
             </h2>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              这里先推荐几个不同方向。完整名单可以按兴趣筛选，2026 级招新安排请留意校团委和各社团的最新通知。
-            </p>
             <div class="mt-5 flex flex-wrap gap-2">
               <UButton
                 to="/clubs"

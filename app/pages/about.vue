@@ -36,7 +36,7 @@ useSeoMeta({
           这个站能查到什么
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          把新生常用的地图、办事、清单和校园生活信息放在一起，方便你少走弯路。内容由学生个人整理，不代表学校。
+          内容由学生个人整理，不代表学校。
         </p>
         <nav
           aria-label="关于本站常用入口"
@@ -207,7 +207,7 @@ useSeoMeta({
               class="mt-4 aspect-[888/1131] w-full rounded-md border border-zinc-100 dark:border-zinc-800 object-contain"
             >
             <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              和纠错、加新生群是同一个号。加了直接说想接哪块，不用先自我介绍。
+              纠错和加群都用这个号
             </p>
           </aside>
         </div>
@@ -224,9 +224,9 @@ useSeoMeta({
                 代码和内容都在仓库里
               </h2>
               <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-                觉得有用就点个 star。star 数是这个项目最直接的反馈，也方便别的同学搜到这里。
+                点 star 支持这个项目
               </p>
-              <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
                 代码用 MIT 许可；引用的学校通知和官网内容，版权归原单位。
               </p>
             </div>
@@ -283,9 +283,6 @@ useSeoMeta({
               <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
                 这些信息可以怎么用
               </h2>
-              <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-                日常找路和查资料可以从这里开始，报到、缴费等重要事项仍要看学校通知。
-              </p>
             </div>
 
             <div class="grid gap-x-8 md:grid-cols-2">
@@ -327,7 +324,7 @@ useSeoMeta({
               想确认来源，或发现信息不对
             </h2>
             <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              重要信息会尽量附上参考链接，并写明我们最近查看的时间。发现错误时，只要告诉我们哪个页面、哪里不对以及正确情况。请不要提交密码、证件号码或他人的私人信息。
+              提交时不要写密码、证件号码或他人的私人信息。
             </p>
           </div>
 
@@ -367,7 +364,7 @@ useSeoMeta({
               重要事项以学校通知为准
             </h2>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              校名、校徽和官网内容归学校及相关单位所有。本站引用这些内容只是为了帮助新生查找信息，不表示学校参与维护或认可本站。
+              校名、校徽和官网内容归学校及相关单位所有；引用不代表学校认可本站。
             </p>
           </div>
           <UButton

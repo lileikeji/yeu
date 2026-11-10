@@ -106,8 +106,8 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
             <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               从报到到开学后的常用事项
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              本站把常用的新生事项集中整理，优先给出已确认信息，未落实的会标注待通知。本科和专升本的安排会分开说明，具体时间与材料以录取通知书及学校最新通知为准。
+            <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+              本科与专升本分开整理 · 时间以录取通知书为准
             </p>
           </div>
           <UButton
@@ -349,9 +349,6 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
         />
         <p class="mt-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {{ guideListMessages.emptyMatchTitle }}
-        </p>
-        <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-          {{ guideListMessages.emptyMatchHint }}
         </p>
         <div class="mt-4 flex flex-wrap justify-center gap-2">
           <UButton

@@ -136,12 +136,12 @@ async function submit(): Promise<void> {
 
 const successHint = computed(() => {
   const first = prelimDays.value[0]
-  if (!first) return '到了现场扫码确认，信息会自动带出来。'
+  if (!first) return '到现场扫码确认。'
   const second = prelimDays.value[1]
   const dates = second
     ? `${first.dateLabel.replace(/（.*?）/g, '')} 或 ${second.dateLabel.replace(/（.*?）/g, '')} 任选一天`
     : first.dateLabel
-  return `${dates}，${first.timeLabel.replace(' 开始', '')} ${first.venue}见。到了扫现场码确认，信息会自动带出来。`
+  return `${dates}，${first.timeLabel.replace(' 开始', '')} ${first.venue}见。`
 })
 
 onMounted(loadStatus)

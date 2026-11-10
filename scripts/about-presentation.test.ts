@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -64,7 +64,7 @@ test('about catalogs stay student-facing', () => {
   assert.doesNotMatch(pageSource, /学生团队维护/)
   assert.match(pageSource, /内容由学生个人整理/)
   assert.match(pageSource, /想确认来源，或发现信息不对/)
-  assert.match(pageSource, /附上参考链接，并写明我们最近查看的时间/)
+  assert.match(pageSource, /提交时不要写密码/)
   assert.match(pageSource, /校名、校徽和官网内容归学校及相关单位所有/)
   assert.doesNotMatch(pageSource, /相应权利人/)
   assert.doesNotMatch(pageSource, /出处/)

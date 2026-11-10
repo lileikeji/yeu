@@ -150,8 +150,8 @@ function etaSegmentText(index: number): string | null {
             <h1 class="mt-2 text-3xl font-bold md:text-4xl">
               到学校，也要知道怎么出去
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
-              泉州站可乘 K6 直达，泉州市区可乘 K2 往返。东站和机场没有稳定直达方案，请在出发当天重新规划。
+            <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+              泉州站 K6 直达 · 市区 K2 往返 · 东站与机场需换乘
             </p>
             <NuxtLink
               to="/transport/lines"
@@ -246,7 +246,7 @@ function etaSegmentText(index: number): string | null {
                 color="success"
                 variant="solid"
               >
-                高德 API 优先
+                实时优先
               </UBadge>
               <span
                 v-if="livePlan"
@@ -261,9 +261,6 @@ function etaSegmentText(index: number): string | null {
             >
               {{ livePlan ? `${livePlan.origin.label} → ${livePlan.destination.label}` : '正在获取当天公交方案' }}
             </h2>
-            <p class="mt-1 text-xs leading-5 text-emerald-950/65">
-              高德提供路线、站点与运营时段，不提供泉州公交车辆实时位置或“还有几站”。
-            </p>
           </div>
           <UButton
             type="button"
@@ -331,7 +328,7 @@ function etaSegmentText(index: number): string | null {
             name="i-lucide-wifi-off"
             class="mt-1 size-4 shrink-0 text-amber-700 dark:text-amber-300"
           />
-          高德实时规划暂时不可用，下面已自动保留核验过的 K6、K2 与换乘建议。
+          实时路线暂时不可用，下面保留核验过的 K2、K6 方案。
         </div>
       </section>
 
@@ -351,7 +348,7 @@ function etaSegmentText(index: number): string | null {
               现在出发几分钟后到哪
             </h2>
             <p class="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-              数据口径：{{ busEta?.measuredAt ?? '2026-11-04' }} 实测采样，非实时。区间由「已从首站发车多少分钟」推算，不是车辆当前位置。
+              按 {{ busEta?.measuredAt ?? '2026-11-04' }} 实测区间
             </p>
           </div>
           <div class="w-full max-w-sm">
@@ -432,13 +429,13 @@ function etaSegmentText(index: number): string | null {
             name="i-lucide-info"
             class="mr-1 inline size-4 text-zinc-400 dark:text-zinc-500"
           />
-          校车站间数据暂不可用{{ busEta?.warning ? `：${busEta.warning}` : '' }}。上面的公交方案不受影响。
+          校车站间数据暂不可用。上面的公交方案不受影响。
         </div>
         <p
           v-if="etaTotalMinutes !== null"
           class="mt-3 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400"
         >
-          首站到末站实测约 {{ etaTotalMinutes }} 分钟；每站区间取实测中位数 ±20%，不代表实时车辆位置。
+          首站到末站实测约 {{ etaTotalMinutes }} 分钟
         </p>
       </section>
 
@@ -493,7 +490,7 @@ function etaSegmentText(index: number): string | null {
                 target="_blank"
                 rel="noopener noreferrer"
                 icon="i-lucide-navigation"
-                label="打开高德重新规划"
+                label="打开地图重新规划"
                 size="lg"
                 class="mt-5 min-h-11"
               />
@@ -538,7 +535,7 @@ function etaSegmentText(index: number): string | null {
               信息来源
             </p>
             <h2 class="mt-1 text-xl font-bold">
-              班次会变，入口留给你复核
+              出发前复核
             </h2>
           </div>
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
@@ -564,7 +561,7 @@ function etaSegmentText(index: number): string | null {
           </a>
         </div>
         <p class="mt-4 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-          本页是第三方整理，不代表公交公司的实时承诺。首末班、票价、停靠站、临时接驳与新生接站安排，以泉州公交、学校最新通知和出发当天地图结果为准。
+          首末班、票价以出发当天公告为准。
         </p>
       </section>
     </main>

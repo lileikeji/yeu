@@ -103,7 +103,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
     } catch (error) {
       const status = (error as { statusCode?: number }).statusCode
       loadError.value = status === 403
-        ? '该功能仅开放给音乐协会的组织管理员。'
+        ? '仅限组织管理员。'
         : apiErrorMessage(error, '比赛数据加载失败，请刷新重试。')
     } finally {
       loading.value = false
@@ -246,11 +246,11 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
 
   async function setRoundStatus(round: CompetitionRoundView, status: 'open' | 'closed'): Promise<void> {
     if (savingRoundKey.value) return
-    if (status === 'closed' && !window.confirm(`结束${round.title}评分？结束后评委不能再修改成绩；未评分选手按弃权处理。`)) {
+    if (status === 'closed' && !window.confirm(`结束${round.title}评分？结束后成绩锁定。`)) {
       return
     }
     if (status === 'open' && round.status === 'closed'
-      && !window.confirm(`重新开放${round.title}评分？如果下一轮名单已生成，系统会拒绝此操作。`)) {
+      && !window.confirm(`重新开放${round.title}评分？`)) {
       return
     }
 

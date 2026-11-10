@@ -25,7 +25,7 @@ test('map display settings are isolated behind a typed presentation component', 
   assert.doesNotMatch(panelSource, /createRuntimeMapProvider|useRoute|useRouter/)
   assert.match(panelSource, /区域范围/)
   assert.match(panelSource, /合并附近标记/)
-  assert.match(panelSource, /校园分区范围还没有可确认的资料/)
+  assert.match(panelSource, /title="校园分区暂时没有可确认的范围"/)
   assert.doesNotMatch(panelSource, /绘图层|自动聚合|行政分块/)
   assert.match(pageSource, /地图显示设置/)
   assert.doesNotMatch(pageSource, /地图图层与显示设置/)

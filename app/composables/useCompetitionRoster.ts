@@ -220,7 +220,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     action: 'start' | 'next' | 'prev' | 'skip' | 'stop'
   ): Promise<void> {
     if (currentBusyKey.value) return
-    if (action === 'stop' && !window.confirm('退出顺序评分？评委可自由给任意选手打分，当前进度不再限制。')) return
+    if (action === 'stop' && !window.confirm('退出顺序评分？')) return
 
     currentBusyKey.value = `${round.key}:${action}`
     try {
@@ -271,7 +271,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     split = false
   ): Promise<void> {
     if (dayBusyKey.value) return
-    if (split && !window.confirm('按当前出场顺序把名单平分成两天？前一半第一天、后一半第二天，分完还能单条改。')) return
+    if (split && !window.confirm('按出场顺序平分成两天？')) return
 
     dayBusyKey.value = round.key
     try {
@@ -478,7 +478,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       await navigator.clipboard.writeText(lines.join('\n'))
       toast.add({ title: '出场名单已复制', color: 'success' })
     } catch {
-      toast.add({ title: '复制失败，请手动选择文本复制', color: 'warning' })
+      toast.add({ title: '复制失败，请手动选取。', color: 'warning' })
     }
   }
 

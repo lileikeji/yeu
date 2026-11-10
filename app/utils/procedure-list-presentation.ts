@@ -31,7 +31,7 @@ export const procedureListQuickEntries: ProcedureListQuickEntry[] = [
 export const procedureListMessages = {
   serviceUnavailable: '可以稍后再试，也可以先查看入学指南。',
   emptyMatch: '没有找到你要办的事',
-  emptyList: '这里暂时没有可查看的办事流程'
+  emptyList: '没有可查看的办事流程'
 } as const
 
 export type ProcedureListStatePresentation = {

@@ -59,7 +59,7 @@ export const nearbyCandidatePreviewLimit = 6
 
 export const nearbyListMessages = {
   emptyMatchTitle: '没有找到相关地点',
-  emptyMatchHint: '可以换个名字或分类，也可以直接打开周边地图看看。',
+  emptyMatchHint: '换个名字或分类试试',
   clearFilters: '清除筛选',
   openMap: '打开周边地图',
   viewPlace: '查看地点',
@@ -91,24 +91,24 @@ export const nearbyCategoryLabels: Record<string, string> = {
 }
 
 export const nearbyCategoryHints: Record<NearbyCandidateCategory, string> = {
-  food: '营业时间、菜单和价格可能变化，出发前可以先在地图上看一眼。',
-  shopping: '日用品库存和营业时间变化较快，具体以到店看到的情况为准。',
-  service: '打印、维修、电信和美发的服务项目与价格，请到店或电话询问。',
-  express: '取件请以短信里的站点、取件码和现场牌子为准。'
+  food: '营业、菜单、价格常有变化',
+  shopping: '库存、营业时间常变',
+  service: '服务项目和价格先问店里',
+  express: '取件以短信和取件码为准'
 }
 
 export const nearbyVerificationChecklist = [
-  '出发前先看地图是否还显示营业，并确认路线能不能到门口',
-  '吃饭和购物先看近期评价，但不要只按评分决定',
-  '快递取件以短信里的站点和取件码为准',
-  '维修、电信等服务先问价格，需要证件时只交给正规工作人员'
+  '出发前确认营业和路线',
+  '看评价，不只看评分',
+  '取件看短信和取件码',
+  '先问价格，证件不乱给'
 ] as const
 
 export const nearbyUsageTips = [
-  { title: '吃饭', text: '出发前看看营业时间和路线，到店后以现场为准。', icon: 'i-lucide-utensils', category: 'food' },
-  { title: '取快递', text: '实际站点以短信、取件码和现场牌子为准。', icon: 'i-lucide-package-check', category: 'express' },
-  { title: '买日用品', text: '开学季库存变化快，急需物品可以先电话询问。', icon: 'i-lucide-shopping-basket', category: 'shopping' },
-  { title: '维修和电信', text: '先问清服务项目、价格和是否需要证件。', icon: 'i-lucide-wrench', category: 'service' }
+  { title: '吃饭', text: '营业和路线先看一遍', icon: 'i-lucide-utensils', category: 'food' },
+  { title: '取快递', text: '看短信和取件码', icon: 'i-lucide-package-check', category: 'express' },
+  { title: '买日用品', text: '急需先打电话问', icon: 'i-lucide-shopping-basket', category: 'shopping' },
+  { title: '维修和电信', text: '先问价格和证件', icon: 'i-lucide-wrench', category: 'service' }
 ] as const
 
 export function isNearbyNeedShortcutActive(
@@ -129,7 +129,7 @@ export function nearbySourceIsClickable(source: { status?: string }): boolean {
 
 export function nearbySourceContextForStudents(value: string | undefined): string {
   return presentStudentSourceContext(value, { includeUnavailableNote: false })
-    ?? '这条只是大致情况，以现场和最新通知为准。'
+    ?? '以现场和最新通知为准。'
 }
 
 export function nearbyCandidateMapUrl(candidate: NearbyCandidate): string {

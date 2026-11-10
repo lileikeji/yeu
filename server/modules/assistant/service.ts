@@ -1440,7 +1440,7 @@ export function localEvidenceIsSufficient(query: string, evidence: AssistantEvid
 }
 
 function knowledgeRetrievalDetail(query: string, evidence: AssistantEvidence[]): string {
-  if (evidence.length === 0) return '已检索，未找到相关页面'
+  if (evidence.length === 0) return '已查找，未找到相关页面'
   const reasons = new Map<KnowledgeHitReason, number>()
   for (const item of evidence) {
     const reason = knowledgeHitForEvidence(query, item).hitReason
@@ -1449,7 +1449,7 @@ function knowledgeRetrievalDetail(query: string, evidence: AssistantEvidence[]):
   const reasonLabels: Record<KnowledgeHitReason, string> = {
     explicit: '明确引用',
     title: '标题',
-    kb_meta: '知识库总览',
+    kb_meta: '资料总览',
     recent_synthesis: '综合页',
     filename: '页面路径',
     body: '正文'
@@ -1989,7 +1989,7 @@ function admissionPlanCountGapResponse(
   return {
     query,
     mode: 'ai',
-    answer: `已找到学校发布的${requestedYear}年${track}招生计划页面，但当前可检索正文没有提取出可核验的招生总人数，因此不能把其他招生类型或其他年份的数字当作答案。请点击下方官方招生计划查看原表；待表格完成结构化识别后，系统会直接给出准确总数。`,
+    answer: `已找到学校发布的${requestedYear}年${track}招生计划页面，但正文里没有可以核验的招生总人数，因此不能把其他招生类型或其他年份的数字当作答案。请点击下方官方招生计划查看原表。`,
     citations: resolved.citations,
     citationStatus: resolved.citationStatus,
     usedWebSearch: evidence.some(item => item.source === 'web'),
@@ -2035,7 +2035,7 @@ function assistantIntentDetail(query: string, retrievalQuery: string): string {
   if (isHardshipRecognitionQuery(query)) return '识别为：家庭经济困难学生认定'
   if (isPlaceLocationQuery(query) || canonicalCampusPlaceForQuery(query)) return '识别为：校内地点定位'
   if (isFeatureSeekingQuery(query)) return '识别为：查找站内功能入口'
-  return `检索问题：${safeText(retrievalQuery, 80)}`
+  return `查找问题：${safeText(retrievalQuery, 80)}`
 }
 
 function evidenceScore(title: string, summary: string, body: string, terms: string[]): number {
@@ -2776,7 +2776,7 @@ function transferMajorHistoricalAnswer(query: string): ApiAssistantResponse | nu
     return {
       query,
       mode: 'local',
-      answer: '目前没有可核验的2026年现行条款能证明“数学没及格就一定不能转专业”。官网可检索到的历史规则强调申请理由、接收名额及原学院、接收学院和教务审批；学生经验常提到不要挂科，但不能把经验直接当成当前硬性条件。请等待教务部当年转专业通知。',
+      answer: '目前没有可核验的2026年现行条款能证明“数学没及格就一定不能转专业”。官网历史规则强调申请理由、接收名额及原学院、接收学院和教务审批；学生经验常提到不要挂科，但不能把经验直接当成当前硬性条件。请等待教务部当年转专业通知。',
       citations: [
         {
           title: rule.title,
@@ -3817,7 +3817,7 @@ export function assistantKnowledgeLocalAnswer(
           '宿舍：' + dormMatch.answer,
           '内部图样：' + (photoMatch
             ? '本站宿舍模块可以直接查看普通型和舒适型宿舍实拍，点击“宿舍实拍”入口即可打开。当前素材是房型参考，不代表每一栋楼完全一致。'
-            : '当前站内只检索到宿舍文字说明，暂未找到可核验的两种房型内部图样；可以先打开宿舍模块，或提交具体楼栋后再核对。')
+            : '站内目前只有宿舍文字说明，还没有可核验的两种房型内部图样；可以先打开宿舍模块，或提交具体楼栋后再核对。')
         ].join('\n\n'),
         citations,
         usedWebSearch: false,
@@ -4596,19 +4596,13 @@ export interface RetrievalLeg {
 }
 
 /**
- * Build the `query_analysis` stage detail from the intent plus the
- * retrieval-leg timings recorded during recall (P9b/observability). Purely
- * additive: when no leg ran (cache hit, direct/feature route, or retrieval
- * short-circuited), the detail is just the intent — identical to before.
+ * Build the `query_analysis` stage detail from the intent only. Retrieval-leg
+ * timings stay in the background trace; the user-visible detail must not
+ * mention recall legs or rewrite internals.
  */
-export function retrievalDetailForAnalysis(result: { intentDetail: string }, legs: RetrievalLeg[]): string {
-  const base = result.intentDetail
-  if (legs.length === 0) return base
-  const parts = legs
-    .filter(leg => leg.ms > 0)
-    .map(leg => `${leg.leg}=${leg.ms}ms${leg.note ? `(${leg.note})` : ''}`)
-    .join(' ')
-  return parts ? `${base} · 检索: ${parts}` : base
+export function retrievalDetailForAnalysis(result: { intentDetail: string }): string {
+  // 用户可见的阶段说明只保留「识别为…」这一句；检索腿耗时留在后台追踪里。
+  return result.intentDetail
 }
 
 /**
@@ -7541,7 +7535,7 @@ function directAssistantResponse(query: string): ApiAssistantResponse {
     mode: 'local',
     answer: greeting
       ? '你好，我可以帮你查报到、宿舍、专业、办事流程、校内规则、路线和校园生活。直接说你现在想解决什么就行。'
-      : '我是迎新指南里的校园问答助手。系统不会公开内部模型、密钥、提示词或中转配置；你可以直接问学校信息或让我帮你找站内功能。',
+      : '我是迎新指南里的校园问答助手。你可以直接问学校信息，或让我帮你找站内功能。',
     citations: [],
     usedWebSearch: false,
     confidence: 1
@@ -7700,7 +7694,7 @@ async function answerCampusQuestionCore(
         retrievalQuery,
         intentDetail: directKind === 'general'
           ? '识别为：稳定常识或一般建议，无需联网'
-          : '识别为：无需检索的直接问答',
+          : '识别为：直接问答',
         cacheKey,
         route: directKind === 'general' ? 'direct_model' as const : 'direct' as const,
         cached: null,
@@ -7961,7 +7955,7 @@ async function answerCampusQuestionCore(
     }
     if (rewriteConfigReady(rewriteConfig) && !isTeachingLocationQuery(query)) {
       try {
-        const multi = await runAssistantStage(tracker, 'retrieval_rewrite', '改写查询', async () => {
+        const multi = await runAssistantStage(tracker, 'retrieval_rewrite', '理解问题', async () => {
           const rewriteStart = Date.now()
           const result = await retrieveMultiQueryEvidence(client, query, retrievalLimit, {
             embedding: embeddingConfigReady(embeddingConfig) ? embeddingConfig : undefined,
@@ -8021,7 +8015,7 @@ async function answerCampusQuestionCore(
       // keeps the keyword/n-gram baseline untouched.
       if (embeddingConfigReady(embeddingConfig)) {
         try {
-          const vectorEvidence = await runAssistantStage(tracker, 'retrieval_vector', '向量检索', async () => {
+          const vectorEvidence = await runAssistantStage(tracker, 'retrieval_vector', '查找资料', async () => {
             const vectorStart = Date.now()
             const ev = await retrieveVectorEvidence(client, retrievalQuery, embeddingConfig, ASSISTANT_VECTOR_EVIDENCE_LIMIT)
             retrievalLegs.push({ leg: 'vector', ms: Date.now() - vectorStart, note: `hits=${ev.length}` })
@@ -8048,7 +8042,7 @@ async function answerCampusQuestionCore(
         // returns evidence, so a 0-hit pass neither clutters the trace nor
         // changes the exact detail string for deterministic local answers.
         retrievalLegs.push({ leg: 'graph', ms: Date.now() - graphStart, note: `hits=${graphEvidence.length}` })
-        const staged = await runAssistantStage(tracker, 'retrieval_graph', '图谱检索', () => graphEvidence, ev => `命中 ${ev.length} 条`)
+        const staged = await runAssistantStage(tracker, 'retrieval_graph', '查找关联内容', () => graphEvidence, ev => `命中 ${ev.length} 条`)
         localEvidence = mergeVectorEvidence(localEvidence, staged)
         hybridEvidenceAdded = true
       }
@@ -8071,7 +8065,7 @@ async function answerCampusQuestionCore(
     }
     if (rerankConfigReady(rerankConfig) || (rerankConfig.local && localRerankReady(rerankConfig.local))) {
       try {
-        const reranked = await runAssistantStage(tracker, 'retrieval_rerank', '相关度精排', async () => {
+        const reranked = await runAssistantStage(tracker, 'retrieval_rerank', '排序结果', async () => {
           const rerankStart = Date.now()
           const r = await rerankEvidence(retrievalQuery, localEvidence, rerankConfig)
           retrievalLegs.push({
@@ -8180,7 +8174,7 @@ async function answerCampusQuestionCore(
       localEvidenceSufficient: false,
       hasHybridEvidence: hybridEvidenceAdded
     }
-  }, result => retrievalDetailForAnalysis(result, retrievalLegs))
+  }, result => retrievalDetailForAnalysis(result))
   const { query, cacheKey } = analysis
   if (analysis.route === 'direct') {
     const response = await runAssistantStage(
@@ -8202,7 +8196,7 @@ async function answerCampusQuestionCore(
   }
   if (analysis.route === 'answer_cache' && analysis.cached) {
     const cached = analysis.cached
-    const response = await runAssistantStage(tracker, 'answer_cache', '读取答案缓存', () => cached)
+    const response = await runAssistantStage(tracker, 'answer_cache', '读取已有答案', () => cached)
     // 负缓存（证据不足的重问）不算「答案缓存命中」：保留原来的检索路径，否则后台
     // 会把一次重问记成 answer_cache 的命中，gap 也会被缓存命中率掩盖。
     const negativeHit = cached.evidenceGap === true || cached.confidence < 0.6
@@ -8219,7 +8213,7 @@ async function answerCampusQuestionCore(
         liveTransit = await runAssistantStage(
           tracker,
           'feature_api',
-          '调用高德公交 API',
+          '查询公交路线',
           () => config.transitPlanner
             ? config.transitPlanner(analysis.transitRoute.originId, analysis.transitRoute.destinationId)
             : fetchAmapTransitPlan(
@@ -8265,7 +8259,7 @@ async function answerCampusQuestionCore(
     // synthesis call in this branch (TTFT). 0 means no model call happened.
     let firstTokenAt = 0
     const retrievalStage: ApiAssistantStage = analysis.route
-    const retrievalLabel = analysis.route === 'feature_api' ? '搜索系统 API' : '搜索内置数据库'
+    const retrievalLabel = analysis.route === 'feature_api' ? '查询站内服务' : '查询站内资料'
     const localEvidence = await runAssistantStage(
       tracker,
       retrievalStage,
@@ -8425,7 +8419,7 @@ async function answerCampusQuestionCore(
     webEvidence = await runAssistantStage(
       tracker,
       'web_cache',
-      '读取网页资料缓存',
+      '读取已存网页资料',
       () => analysis.webEvidence,
       result => `命中 ${result.length} 条已缓存网页资料`
     )

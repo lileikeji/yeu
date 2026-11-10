@@ -179,10 +179,25 @@ test('SSR never touches localStorage', () => {
 })
 
 test('the three pages use the composable and show the offline banner', () => {
-  for (const [name, source, matcher] of [
-    ['places', placesSource, /useOfflineSnapshot<ApiPlace>\(/],
-    ['procedures', proceduresSource, /useOfflineSnapshot<ApiProcedure>\(/],
-    ['arrival', arrivalSource, /useOfflineSnapshot<ArrivalRoutesPayload>\(/]
+  for (const [name, source, matcher, copyPattern] of [
+    [
+      'places',
+      placesSource,
+      /useOfflineSnapshot<ApiPlace>\(/,
+      /现在连不上网，显示 \{\{ offlineSavedAtLabel \}\} 保存的内容。恢复网络后刷新。/
+    ],
+    [
+      'procedures',
+      proceduresSource,
+      /useOfflineSnapshot<ApiProcedure>\(/,
+      /现在连不上网，显示 \{\{ offlineSavedAtLabel \}\} 保存的内容。恢复网络后刷新。/
+    ],
+    [
+      'arrival',
+      arrivalSource,
+      /useOfflineSnapshot<ArrivalRoutesPayload>\(/,
+      /现在连不上网，显示 \{\{ offlineSavedAtLabel \}\} 保存的内容。恢复网络后刷新。/
+    ]
   ] as const) {
     assert.match(source, matcher, `${name} 页应接入 useOfflineSnapshot`)
     assert.match(source, /v-if="stale"/, `${name} 页应有 stale 分支`)
@@ -192,8 +207,7 @@ test('the three pages use the composable and show the offline banner', () => {
       /v-if="stale"[\s\S]{0,400}surface-panel/,
       `${name} 页提示条复用 surface-panel`
     )
-    assert.match(source, /现在连不上网，下面是你上次打开时保存的内容/, `${name} 页文案`)
-    assert.match(source, /恢复网络后刷新一次/, `${name} 页给出恢复动作`)
+    assert.match(source, copyPattern, `${name} 页文案`)
     assert.match(source, /offlineSavedAtLabel/, `${name} 页显示核验时间`)
     assert.doesNotMatch(source, /温馨提示|为您/, `${name} 页不要客套腔`)
   }

@@ -169,11 +169,6 @@ onMounted(async () => {
         <h1 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
           纳新管理
         </h1>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {{ form
-            ? `${form.clubName} · 表单${form.status === 'open' ? '已开放，新生可填写提交' : '未开放，开放后报名入口生效'}`
-            : '配置社团正式纳新表单、申请表模板与总表导出' }}
-        </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <USelect

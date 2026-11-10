@@ -125,7 +125,7 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
       )
       if (payload.value) payload.value.email.images = result.payload.email.images
       insertBodyText(`[[图片:${result.image.id}]]`)
-      toast.add({ title: '图片已上传', description: '已插入正文光标处，可拖动位置。', color: 'success' })
+      toast.add({ title: '图片已上传', color: 'success' })
     } catch (error) {
       toast.add({ title: '上传失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
     } finally {
@@ -145,7 +145,7 @@ export function useCompetitionEmail(options: UseCompetitionEmailOptions) {
       const marker = `[[图片:${image.id}]]`
       if (emailTemplate.value && emailTemplate.value.body.includes(marker)) {
         emailTemplate.value.body = emailTemplate.value.body.split(marker).join('')
-        toast.add({ title: '图片已删除', description: '正文里的引用也一并清掉了，记得保存模板。', color: 'success' })
+        toast.add({ title: '图片已删除', description: '引用已一并清除。', color: 'success' })
       } else {
         toast.add({ title: '图片已删除', color: 'success' })
       }

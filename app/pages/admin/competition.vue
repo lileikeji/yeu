@@ -98,9 +98,6 @@ onBeforeUnmount(stopLiveRefresh)
         <h1 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
           新声歌手大赛
         </h1>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {{ event ? `单评委满分 ${event.maxTotal}` : '音乐协会专属' }}
-        </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <UButton
@@ -2024,7 +2021,7 @@ onBeforeUnmount(stopLiveRefresh)
                   海报拼接
                 </h3>
                 <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                  上传海报图 → 选择二维码与位置 → 可用「遮盖贴片」盖住海报上不需要的文字（如 AI 水印）→ 下载成品图。
+                  上传海报图 → 选择二维码与位置 → 可用「遮盖贴片」盖住海报上不需要的文字（如水印）→ 下载成品图。
                 </p>
               </div>
               <div>

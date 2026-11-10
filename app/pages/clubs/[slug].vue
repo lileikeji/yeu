@@ -260,7 +260,7 @@ async function shareClub(): Promise<void> {
                 />
               </summary>
               <div class="pb-4 pl-7 pr-6 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-                {{ item.answer || '该社团暂未补充这项回答，请在本学期招新时向负责人确认。' }}
+                {{ item.answer || '该社团暂未补充这项回答。' }}
               </div>
             </details>
           </div>
@@ -292,7 +292,7 @@ async function shareClub(): Promise<void> {
                 name="i-lucide-clipboard-list"
                 class="size-4 shrink-0"
               />
-              本社团正式纳新进行中，点此填写入会申请表
+              填写入会申请表
             </span>
             <UIcon
               name="i-lucide-chevron-right"

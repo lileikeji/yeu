@@ -171,7 +171,7 @@ export function useRecruitForms() {
         await loadForm()
         toast.add({
           title: '配置刚被外部修改（如纳新介绍预填）',
-          description: '已重新载入最新数据，确认内容后再保存。',
+          description: '已载入最新数据。',
           color: 'warning'
         })
       } else {

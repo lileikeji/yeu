@@ -242,7 +242,6 @@ const {
         <UModal
           v-model:open="importantTimeOpen"
           :title="`${currentCohortLabel}重要时间`"
-          description="以下日期来自学校最新校历，具体到校时段与材料以录取通知书及学校后续通知为准。"
           :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
         >
           <template #body>
@@ -265,7 +264,7 @@ const {
             </ol>
             <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-4">
               <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                个人安排有变化时，以学校和学院的最新通知为准。
+                个人安排以学校和学院最新通知为准。
               </p>
               <UButton
                 to="/guides/arrival"
@@ -283,9 +282,6 @@ const {
           <h1 class="text-left text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-100 md:text-center md:text-4xl">
             {{ currentCohortLabel }}入学指南
           </h1>
-          <p class="mx-auto mt-2 max-w-2xl text-left text-xs leading-5 text-zinc-600 dark:text-zinc-300 md:mt-3 md:text-center md:text-sm md:leading-6">
-            报到要带什么、宿舍怎么走、食堂几点开门、手续在哪办，按入学当天的先后顺序排好了。信息以录取通知书和学校通知为准。
-          </p>
 
           <form
             class="mx-auto mt-4 flex max-w-3xl gap-0 text-left md:mt-7"
@@ -370,9 +366,6 @@ const {
                   每天更新
                 </span>
               </div>
-              <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:text-sm md:leading-6">
-                教务处、学生处等站点新发的通知，同一件事多个来源合成一条，按热度排。
-              </p>
             </div>
             <NuxtLink
               to="/hot"
@@ -511,7 +504,7 @@ const {
                     下一项：{{ checklistSummary.nextTitle || '继续完成准备事项' }}
                   </template>
                   <template v-else-if="checklistHydrated">当前清单已全部勾完，可随时复查。</template>
-                  <template v-else>打开后可以继续勾选。</template>
+                  <template v-else>进度只存在这台设备</template>
                 </p>
                 <span class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-green-700 px-4 text-sm font-semibold text-green-700 dark:text-green-400 transition group-hover:bg-green-50 dark:group-hover:bg-green-950 lg:min-h-11 lg:px-5">
                   打开清单
@@ -538,7 +531,7 @@ const {
             </h2>
           </div>
           <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-700 dark:text-zinc-200">
-            校内遇到火情、治安或宿舍设施紧急故障，先拨校园 110 报修求助。就医、心理支持和学籍问题上，按下面电话找对应部门。
+            紧急先拨校园 110
           </p>
           <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <a
@@ -558,7 +551,7 @@ const {
             </a>
           </div>
           <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            医务室实行全年 24 小时值班，具体入口可在校园地图搜索「医务所」；报修和求助详情以校保卫处、医务室及到场人员指引为准。
+            医务室 24 小时值班 · 地图搜「医务所」
           </p>
         </div>
       </section>

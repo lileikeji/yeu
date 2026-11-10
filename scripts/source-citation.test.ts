@@ -24,8 +24,8 @@ test('source citation block renders an honest empty state with a report link', (
   assert.match(componentSource, /targetType: 'place'/)
   assert.match(componentSource, /targetId: props\.targetId/)
   // 核验时间缺失时直说缺失，不用抓取时间顶替。
-  assert.match(componentSource, /未标注核验时间/)
-  assert.match(componentSource, /核验时间：/)
+  assert.match(componentSource, /未标注核验/)
+  assert.match(componentSource, /`核验 \$\{value\.slice\(0, 10\)\}`/)
 })
 
 test('source citation block lists sources with a safe external link and clamped quote', () => {

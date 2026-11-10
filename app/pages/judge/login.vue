@@ -96,9 +96,6 @@ onMounted(checkSession)
         <h1 class="mt-3 text-3xl font-bold leading-tight">
           为每一位选手打分
         </h1>
-        <p class="mt-4 text-sm leading-7 text-green-100/80">
-          账号仅限本人使用。
-        </p>
       </div>
     </section>
 

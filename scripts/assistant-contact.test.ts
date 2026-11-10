@@ -731,9 +731,9 @@ test('gateway authentication outages fall back without turning an identity quest
 test('assistant admin distinguishes bot origin and hides zero-duration stages', () => {
   const page = readFileSync(resolve(root, 'app/pages/admin/assistant.vue'), 'utf8')
   assert.match(page, /QQ 机器人请求，不产生网页访客 IP/)
-  assert.match(page, /AI 中转鉴权失败/)
+  assert.match(page, /问答服务鉴权失败/)
   assert.match(page, /\.filter\(stage => stage\.durationMs > 0\)/)
-  assert.match(page, /请求在进入可计时检索阶段前失败/)
+  assert.match(page, /请求尚未进入计时阶段就失败了/)
   assert.doesNotMatch(page, /row\.ipAddress \|\| '未记录'/)
 })
 

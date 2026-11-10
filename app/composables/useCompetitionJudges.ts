@@ -211,7 +211,7 @@ export function useCompetitionJudges(options: UseCompetitionJudgesOptions) {
       await navigator.clipboard.writeText(lines.join('\n'))
       toast.add({ title: '账号密码已复制', color: 'success' })
     } catch {
-      toast.add({ title: '复制失败，请手动选择文本复制', color: 'warning' })
+      toast.add({ title: '复制失败，请手动选取。', color: 'warning' })
     }
   }
 

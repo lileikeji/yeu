@@ -390,7 +390,7 @@ test('official campus plan renders the reviewed image with hotspots and navigati
   assert.match(source, /resolveOfficialPlanAnchorScrollFromRects/)
   assert.match(source, /aria-label="放大平面图"/)
   assert.match(source, /aria-label="缩小平面图"/)
-  assert.match(source, /这张平面图只用来对照校园方向，不能用来精确导航/)
+  assert.match(source, /仅供对照方向/)
   assert.doesNotMatch(source, /地理控制点|导航坐标/)
   assert.match(source, />查看来源<\/a>/)
 })

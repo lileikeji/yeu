@@ -881,22 +881,18 @@ onBeforeUnmount(() => {
                 ? '高德地图'
                 : '校园范围参考' }}
           </UBadge>
-          <UTooltip
+          <UBadge
             v-if="mapViewMode === 'geographic' && activeMapProviderId !== 'amap'"
-            text="绿色虚线来自公开社区地图资料，只表示校园范围参考，不代表楼栋位置已经确认。"
+            color="success"
+            variant="solid"
+            class="pointer-events-auto shadow-sm"
           >
-            <UBadge
-              color="success"
-              variant="solid"
-              class="pointer-events-auto shadow-sm"
-            >
-              <UIcon
-                name="i-lucide-pentagon"
-                class="mr-1 size-3.5"
-              />
-              校园范围参考
-            </UBadge>
-          </UTooltip>
+            <UIcon
+              name="i-lucide-pentagon"
+              class="mr-1 size-3.5"
+            />
+            校园范围参考
+          </UBadge>
           <div
             v-if="mapViewMode === 'geographic' && transitLinesOpen"
             class="pointer-events-auto flex items-center gap-2.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
@@ -1009,7 +1005,7 @@ onBeforeUnmount(() => {
               @click="fitToVisiblePois"
             />
           </UTooltip>
-          <UTooltip :text="tracking ? '停止实时定位' : '定位到我的位置并开启实时跟踪'">
+          <UTooltip :text="tracking ? '停止实时定位' : '开启实时定位'">
             <UButton
               :icon="tracking ? 'i-lucide-locate-fixed' : 'i-lucide-locate'"
               color="neutral"
@@ -1017,7 +1013,7 @@ onBeforeUnmount(() => {
               :loading="locating"
               class="map-control-btn size-10 rounded-none md:size-11"
               :class="tracking ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : ''"
-              aria-label="定位到我的位置并开启实时跟踪"
+              :aria-label="tracking ? '停止实时定位' : '开启实时定位'"
               :aria-pressed="tracking"
               @click="tracking ? toggleTracking() : locateUser()"
             />
@@ -1121,7 +1117,6 @@ onBeforeUnmount(() => {
       <UModal
         v-model:open="manualStartOpen"
         title="选择出发地点"
-        description="浏览器定位不可用或被拒绝时，选一个出发点来规划步行路线。"
         :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-md' }"
       >
         <template #body>
@@ -1150,9 +1145,6 @@ onBeforeUnmount(() => {
               </button>
             </li>
           </ul>
-          <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            提示：在浏览器设置里允许本站使用定位后，也可以直接点「规划步行路线」自动从你所在位置规划。
-          </p>
         </template>
       </UModal>
 
@@ -1248,11 +1240,6 @@ onBeforeUnmount(() => {
           <p class="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             当前地图还没有可直接显示的地点
           </p>
-          <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            {{ activeMapProviderId === 'amap'
-              ? '左侧目录仍可搜索；部分地图地点可以直接显示，平面图中的文字地点不会被强行放到错误的位置。'
-              : '绿色虚线只表示校园的大致范围。左侧目录仍可搜索；没有确认位置的地点不会硬塞到地图上。' }}
-          </p>
           <UButton
             v-if="canShowOfficialPlan"
             :to="safeExternalHref(officialSources.campusMap.url) || undefined"
@@ -1298,9 +1285,6 @@ onBeforeUnmount(() => {
             @click="closeAreaDetails"
           />
         </div>
-        <p class="mt-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-          {{ selectedArea.description ?? '这个范围是按公开地图画的，只用来辨认方向。' }}
-        </p>
         <dl class="mt-3 grid grid-cols-2 gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-3 text-xs">
           <div>
             <dt class="text-zinc-400 dark:text-zinc-500">
@@ -1319,9 +1303,6 @@ onBeforeUnmount(() => {
             </dd>
           </div>
         </dl>
-        <p class="mt-3 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
-          这里只显示范围边界，不会挡住里面的商铺点击。
-        </p>
       </section>
 
       <MapPlaceDetailsPanel
@@ -1417,13 +1398,6 @@ onBeforeUnmount(() => {
         :bus-name="transitVehicleFocus.plate"
         :route-name="transitVehicleFocus.routeName ?? ''"
       />
-
-      <p class="mt-2 flex items-center gap-1 text-[10px] text-zinc-400">
-        <UIcon
-          name="i-lucide-crosshair"
-          class="size-3"
-        />镜头跟着这辆车走
-      </p>
     </div>
     <MapTransitPanel
       v-if="transitLinesOpen"

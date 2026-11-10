@@ -20,12 +20,10 @@ const props = withDefaults(defineProps<{
   claimId?: string | null
   targetId?: string | null
   title?: string
-  emptyHint?: string
 }>(), {
   claimId: null,
   targetId: null,
-  title: '来源与核验时间',
-  emptyHint: ''
+  title: '来源与核验时间'
 })
 
 const feedbackLink = computed(() => ({
@@ -47,7 +45,7 @@ function resolveSourceHref(source: SourceCitationSource): string | null {
 
 function resolveVerifiedAtLabel(source: SourceCitationSource): string {
   const value = source.verifiedAt?.trim()
-  return value ? `核验时间：${value.slice(0, 10)}` : '未标注核验时间'
+  return value ? `核验 ${value.slice(0, 10)}` : '未标注核验'
 }
 </script>
 
@@ -125,12 +123,6 @@ function resolveVerifiedAtLabel(source: SourceCitationSource): string {
     >
       <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
         这条信息还没有可核验来源
-      </p>
-      <p
-        v-if="emptyHint"
-        class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
-      >
-        {{ emptyHint }}
       </p>
       <NuxtLink
         v-if="targetId"

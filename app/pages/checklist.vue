@@ -73,10 +73,6 @@ function confirmResetProgress() {
             <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               新生入学清单
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              按到校前、报到当天、第一周和行李材料逐项勾选。进度只保存在这台设备，不会上传，也不需要登录。
-              标有「以通知为准」的内容请再核对本年官方通知。
-            </p>
           </div>
           <div class="flex flex-wrap gap-2">
             <UButton
@@ -522,16 +518,9 @@ function confirmResetProgress() {
         </ul>
       </section>
 
-      <section class="mt-10 border-y border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-4 py-4 text-xs leading-6 text-zinc-600 dark:text-zinc-300">
-        <p class="font-semibold text-zinc-800 dark:text-zinc-100">
-          使用说明
-        </p>
-        <ul class="mt-2 list-disc space-y-1 pl-4">
-          <li>清单进度只保存在这台设备，换设备或清除本地记录后会丢失。</li>
-          <li>本清单为自助整理工具，不替代学校官方通知、录取通知书或现场安排。</li>
-          <li>涉及报到时段、材料、接站、招新等以当年学校通知为准。</li>
-        </ul>
-      </section>
+      <p class="mt-10 border-t border-zinc-200 dark:border-zinc-800 pt-4 text-xs text-zinc-500 dark:text-zinc-400">
+        报到安排以学校当年通知为准
+      </p>
     </div>
   </div>
 </template>

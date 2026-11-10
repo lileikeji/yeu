@@ -149,9 +149,6 @@ onBeforeUnmount(() => {
         <h2 class="mt-1 text-xl font-bold text-zinc-950 dark:text-zinc-100">
           之前看过的常用页面
         </h2>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          之前打开过的页面现在可能还能看；日期和地点等联网后再确认。
-        </p>
         <div class="mt-4 grid gap-2 sm:grid-cols-3">
           <UButton
             v-for="entry in offlineStaticEntries"

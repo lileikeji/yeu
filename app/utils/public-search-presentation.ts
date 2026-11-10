@@ -121,9 +121,9 @@ export const searchNeedShortcuts = [
 export const searchListMessages = {
   needShortcutsTitle: '按要办的事找',
   emptyMatchTitle: '没找到合适的内容',
-  emptyMatchHint: '换个叫法试试，或者直接写“宿舍报修”“校园网登录”这类问题。',
+  emptyMatchHint: '换个叫法试试',
   emptyErrorTitle: '暂时没能完成搜索',
-  emptyErrorHint: '请稍后再试，或先从校园地图和新生指南里找找。',
+  emptyErrorHint: '稍后再试',
   clearSearch: '换个关键词',
   openMap: '打开校园地图',
   openGuides: '浏览指南',
@@ -341,13 +341,13 @@ export function mapTypeLabel(place: PublicMapPlace): string {
 
 export function mapResultSummary(place: PublicMapPlace): string {
   if (place.coordinateVerification === 'owner-map-only') {
-    return place.summary || '已经放到地图上，点开会直接定位；具体入口和开放情况请以现场标识为准。'
+    return place.summary || '已经放到地图上，点开会定位。'
   }
-  return place.summary || '点开会切换到学校平面图并标出编号，方便你按图找方向；这里不能直接规划路线。'
+  return place.summary || '点开是学校平面图，标出编号；不能直接规划路线。'
 }
 
 export function mapAreaSummary(name: string): string {
-  return `点开地图可以查看${name}的大致范围，方便辨认方向；边界只作参考。`
+  return `地图里可看${name}大致范围，边界仅供参考。`
 }
 
 export function searchRouteQuery(

@@ -86,7 +86,7 @@ test('profile controls keep a comfortable mobile touch height', () => {
 
 test('chat page uses group language and truthful composer copy', () => {
   assert.match(chatPage, /登录后都能看/)
-  assert.match(chatPage, /这里还没有消息/)
+  assert.match(chatPage, /'还没有消息' : '暂时没有可用群聊'/)
   assert.match(chatPage, /当前群聊已开启全员禁言/)
   assert.match(chatPage, /消息暂时没显示出来，请重新打开群聊/)
   assert.match(chatPage, /这条消息没发出去，请再试一次/)

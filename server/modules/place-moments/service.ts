@@ -171,7 +171,7 @@ export function createPlaceMoment(
   }
   // U+FFFD = 客户端编码错乱的替换符（见 bus-moments 同款校验）。
   if (body.includes('�')) {
-    throw createError({ statusCode: 422, statusMessage: '内容包含无法识别的字符，请检查输入法或客户端编码', data: { code: 'MOMENT_ENCODING' } })
+    throw createError({ statusCode: 422, statusMessage: '内容包含无法识别的字符，请删掉后重新提交', data: { code: 'MOMENT_ENCODING' } })
   }
   const now = Date.now()
   const dayKey = momentDayKey(now)
@@ -194,7 +194,7 @@ export function createPlaceMoment(
     if (existing) {
       throw createError({
         statusCode: 409,
-        statusMessage: '今天已打过卡，等审核通过后展示',
+        statusMessage: '今天已打过卡，审核通过后会展示',
         data: { code: 'MOMENT_ALREADY_CHECKED_IN' }
       })
     }

@@ -5,7 +5,7 @@ import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-er
 import { safeExternalHref } from '~/utils/safe-external-href'
 
 definePageMeta({ layout: 'admin' })
-useSeoMeta({ title: '数字山水知识图谱', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '关联视图', robots: 'noindex, nofollow' })
 
 type CollectionId = 'entries' | 'documents' | 'claims' | 'web' | 'structured'
 type NodeType = 'entity' | 'topic' | 'source' | 'comparison' | 'synthesis' | 'query'
@@ -239,9 +239,9 @@ async function loadEngineLibrary(): Promise<GraphEngineLibrary> {
         tuneGraphRenderBudgets(window.LlmWikiGraphEngine)
         enableCommunityDragPanning(window.LlmWikiGraphEngine)
         resolve(window.LlmWikiGraphEngine)
-      } else reject(new Error('图谱引擎加载后没有完成初始化'))
+      } else reject(new Error('关联视图没有加载完成'))
     }
-    const handleError = () => reject(new Error('数字山水图谱引擎加载失败'))
+    const handleError = () => reject(new Error('关联视图加载失败'))
     script.addEventListener('load', handleLoad, { once: true })
     script.addEventListener('error', handleError, { once: true })
     if (!existing) {
@@ -375,7 +375,7 @@ async function loadGraph(): Promise<void> {
       await navigateTo('/admin/login', { replace: true })
       return
     }
-    errorMessage.value = getRequestMessage(error, '知识图谱加载失败')
+    errorMessage.value = getRequestMessage(error, '关联视图加载失败')
   } finally {
     loading.value = false
   }
@@ -510,8 +510,7 @@ onBeforeUnmount(() => {
   <div class="knowledge-landscape-page">
     <AdminPageHeader
       class="graph-page-intro"
-      title="数字山水知识图谱"
-      description="站内知识、官网正文和网页资料，按主题连成一张图。"
+      title="关联视图"
       icon="i-lucide-git-fork"
       eyebrow="知识库"
     >
@@ -556,7 +555,7 @@ onBeforeUnmount(() => {
         'is-left-collapsed': !leftPanelOpen,
         'is-right-collapsed': !rightPanelOpen
       }"
-      aria-label="数字山水知识图谱工作区"
+      aria-label="关联视图工作区"
     >
       <aside
         v-show="leftPanelOpen"
@@ -565,15 +564,15 @@ onBeforeUnmount(() => {
         <div class="landscape-brand">
           <span class="landscape-seal">迎新</span>
           <div>
-            <p>数字山水</p>
+            <p>关联视图</p>
             <span>
-              {{ graph?.summary.publishedClaims ?? 0 }} 个官网知识点已索引 · 当前绘制 {{ graph?.meta.total_nodes ?? 0 }} 个
+              {{ graph?.summary.publishedClaims ?? 0 }} 个官网知识点已收录 · 当前绘制 {{ graph?.meta.total_nodes ?? 0 }} 个
             </span>
           </div>
           <button
             type="button"
             class="mobile-panel-close"
-            aria-label="关闭图谱目录"
+            aria-label="关闭视图目录"
             @click="leftPanelOpen = false"
           >
             <UIcon name="i-lucide-x" />
@@ -663,7 +662,7 @@ onBeforeUnmount(() => {
           <div
             class="canvas-toolstrip"
             role="toolbar"
-            aria-label="图谱快捷操作"
+            aria-label="视图快捷操作"
           >
             <button
               type="button"
@@ -676,7 +675,7 @@ onBeforeUnmount(() => {
             </button>
             <button
               type="button"
-              title="搜索图谱"
+              title="搜索视图"
               @click="focusGraphSearch"
             >
               <UIcon name="i-lucide-search" />
@@ -684,16 +683,16 @@ onBeforeUnmount(() => {
             </button>
             <button
               type="button"
-              title="缩小图谱"
-              @click="triggerEngineControl('缩小图谱')"
+              title="缩小视图"
+              @click="triggerEngineControl('缩小视图')"
             >
               <UIcon name="i-lucide-zoom-out" />
               <span>缩小</span>
             </button>
             <button
               type="button"
-              title="放大图谱"
-              @click="triggerEngineControl('放大图谱')"
+              title="放大视图"
+              @click="triggerEngineControl('放大视图')"
             >
               <UIcon name="i-lucide-zoom-in" />
               <span>放大</span>
@@ -709,7 +708,7 @@ onBeforeUnmount(() => {
             <button
               type="button"
               :aria-pressed="interactionHelpOpen"
-              title="查看图谱操作方法"
+              title="查看视图操作方法"
               @click="interactionHelpOpen = !interactionHelpOpen"
             >
               <UIcon name="i-lucide-circle-question-mark" />
@@ -748,7 +747,6 @@ onBeforeUnmount(() => {
               class="size-7"
             />
             <strong>知识库里还没有可绘制的资料</strong>
-            <span>先导入或抓取内容，再回来生成图谱</span>
           </div>
           <div
             ref="graphHost"
@@ -758,13 +756,13 @@ onBeforeUnmount(() => {
             <aside
               v-if="interactionHelpOpen"
               class="interaction-help"
-              aria-label="图谱操作帮助"
+              aria-label="视图操作帮助"
             >
               <header>
                 <strong>怎样操作这张图</strong>
                 <button
                   type="button"
-                  aria-label="关闭图谱操作帮助"
+                  aria-label="关闭视图操作帮助"
                   @click="interactionHelpOpen = false"
                 >
                   <UIcon name="i-lucide-x" />
@@ -970,7 +968,7 @@ onBeforeUnmount(() => {
           <header class="reader-heading">
             <div>
               <span>阅读台</span>
-              <small>从图谱中选一条内容</small>
+              <small>从视图中选一条内容</small>
             </div>
           </header>
           <div class="reader-body empty-reader">

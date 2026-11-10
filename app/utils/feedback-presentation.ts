@@ -43,16 +43,16 @@ export const feedbackDefaultFormCopy: FeedbackFormCopy = {
   metaDescription: '告诉我们校园地点、办事步骤或指南内容哪里不对，也可以提供更准确的学校通知。',
   kicker: '一起完善指南',
   title: '发现信息不对？告诉我们',
-  description: '地点搬了、营业时间变了、通知过期了，或者你手上有更准的学校通知，都写在这里。',
+  description: '地点搬了、时间变了、通知过期了，都写这里。',
   reasonLabel: '哪里需要修改',
   messageLabel: '具体情况',
-  messageHint: '请写清哪个地点或页面、哪里不对，以及正确情况。至少写 5 个字。',
+  messageHint: '写清地点和正确情况，至少 5 字',
   messagePlaceholder: '例如：某地点已经搬迁，现场标牌显示……',
   contactLabel: '怎么联系你（选填）',
-  contactPlaceholder: '不填也可以，仅用于追问这次反馈',
+  contactPlaceholder: '选填，仅用于追问',
   submitLabel: '提交反馈',
   successTitle: '已经收到你的反馈',
-  successDescription: '我们会先看清来源和日期，确认后再更新。相同问题不用重复提交。',
+  successDescription: '相同问题不用重复提交。',
   sidebarTitle: '写清楚这三点',
   sidebarItems: [
     '你在哪个地点、页面或办事步骤遇到了问题',
@@ -66,16 +66,16 @@ export const feedbackPrivacyRequestFormCopy: FeedbackFormCopy = {
   metaDescription: '申请查询或删除本站记录，以及要提供什么线索核对。',
   kicker: '信息查询与删除',
   title: '查询或删除自己的信息',
-  description: '请说明你想查询或删除哪类信息，以及大约什么时候留下的。不要填写密码、证件号码或完整网络地址。',
+  description: '说明想查询或删除哪类信息，不要填写密码、证件号码或完整网络地址。',
   reasonLabel: '这次申请',
   messageLabel: '需要处理的信息',
-  messageHint: '请写明想查询还是删除、涉及的页面或聊天，以及大致时间。至少写 5 个字。',
+  messageHint: '写明想查询还是删除，以及大致时间，至少 5 字',
   messagePlaceholder: '例如：我想删除 7 月 18 日在公共群发送的一条消息……',
   contactLabel: '方便回复你的方式（建议填写）',
   contactPlaceholder: '例如邮箱，仅用于回复这次申请',
   submitLabel: '提交申请',
   successTitle: '已经收到你的申请',
-  successDescription: '我们会先核对对应信息，再按你填写的联系方式回复处理情况。',
+  successDescription: '核对后按你填的方式回复。',
   sidebarTitle: '请写清这三点',
   sidebarItems: [
     '你想查询还是删除哪些信息',
@@ -157,12 +157,12 @@ export const feedbackReceiptStatusCopy: Record<
   },
   accepted: {
     label: '已处理',
-    description: '这条反馈已经落到对应的内容或流程上了。',
+    description: '已改到对应内容。',
     color: 'success'
   },
   rejected: {
     label: '未采纳',
-    description: '核对后没有改动，通常是信息本身无误或缺少可核验来源。',
+    description: '核对后没有改动。',
     color: 'warning'
   }
 }

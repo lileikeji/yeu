@@ -632,7 +632,7 @@ export function getKnowledgeLandscapeGraph(
   return {
     meta: {
       build_date: new Date().toISOString(),
-      wiki_title: '迎新资料知识图谱',
+      wiki_title: '迎新资料关联视图',
       total_nodes: nodes.length,
       total_edges: edges.length,
       initial_view: nodes.slice(0, 180).map(node => node.id),

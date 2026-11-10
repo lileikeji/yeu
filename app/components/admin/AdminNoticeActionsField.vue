@@ -26,7 +26,7 @@ const quickEntryOptions: QuickEntryOption[] = [
   { value: '/clubs', label: '社团入口', href: '/clubs', icon: 'i-lucide-users-round' },
   { value: '/departments', label: '部门入口', href: '/departments', icon: 'i-lucide-landmark' },
   { value: '/transport', label: '交通指南', href: '/transport', icon: 'i-lucide-bus-front' },
-  { value: '/search', label: 'AI 问答', href: '/search', icon: 'i-lucide-sparkles' },
+  { value: '/search', label: '问答', href: '/search', icon: 'i-lucide-sparkles' },
   { value: '/contact', label: '联系整理者', href: '/contact', icon: 'i-lucide-message-circle' }
 ]
 

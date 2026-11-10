@@ -47,7 +47,7 @@ const queueText = computed(() => {
     const ahead = data.ahead ?? 0
     return ahead > 0 ? `前面还有 ${ahead} 位` : '你是下一位，准备一下'
   }
-  return '还没开始叫号，坐等主持人喊名字就行。'
+  return '还没开始叫号。'
 })
 
 async function loadQueue(): Promise<void> {
@@ -117,7 +117,7 @@ async function loadStatus(): Promise<void> {
   try {
     status.value = await $fetch<RegistrationStatus>('/api/public/competition/register')
   } catch {
-    statusError.value = '登记状态获取失败，请刷新重试；如持续失败请联系现场工作人员。'
+    statusError.value = '登记状态获取失败，请刷新重试。'
   }
 }
 
@@ -211,7 +211,7 @@ async function submit(): Promise<void> {
     } else if (code === 'COMPETITION_REGISTRATION_CLOSED') {
       errorMessage.value = serverErrorMessage(error, '登记已结束，请联系现场工作人员。')
     } else if (code === 'RATE_LIMITED' || status === 429) {
-      errorMessage.value = '提交过于频繁，请稍后再试；如急用请联系现场工作人员代录。'
+      errorMessage.value = '提交过于频繁，请稍后再试。'
     } else {
       errorMessage.value = serverErrorMessage(error, '提交失败，请检查网络后重试。')
     }
@@ -236,9 +236,6 @@ onMounted(loadStatus)
         <h1 class="mt-5 text-2xl font-black text-[#2f3a34]">
           现场正式登记
         </h1>
-        <p class="mt-2 text-sm leading-6 text-[#6b7a70]">
-          先输姓名查预报名，查到就自动带出；没报过直接填。
-        </p>
       </header>
 
       <div
@@ -263,7 +260,7 @@ onMounted(loadStatus)
           登记已结束
         </p>
         <p class="mt-1 leading-6">
-          本期登记已关闭。如有特殊情况，请直接联系现场工作人员。
+          特殊情况请联系现场工作人员。
         </p>
       </div>
 
@@ -283,7 +280,7 @@ onMounted(loadStatus)
         <p class="mt-2 text-sm leading-6 text-[#4a564e]">
           {{ succeeded.name }}，你是第
           <span class="font-bold text-[#c2543c]">{{ succeeded.sortOrder }}</span>
-          位出场，留意叫号。结果会发到你邮箱。
+          位出场。
         </p>
 
         <div
@@ -291,7 +288,7 @@ onMounted(loadStatus)
           class="mt-4 rounded-xl bg-[#fdf6ec] px-4 py-3 text-left ring-1 ring-[#f2d8c4]"
         >
           <p class="text-xs font-semibold tracking-wider text-[#b4552f]">
-            现场进度（每 10 秒自动刷新）
+            现场进度
           </p>
           <p class="mt-1 text-lg font-black text-[#2f3a34]">
             {{ queueText }}
@@ -367,7 +364,7 @@ onMounted(loadStatus)
             </button>
           </div>
           <p class="mt-1 text-xs text-[#8b968c]">
-            姓名 + 学号后四位一起填才能查，查到的记录不含手机和邮箱。
+            姓名 + 学号后四位
           </p>
         </div>
 
@@ -420,7 +417,7 @@ onMounted(loadStatus)
           v-else-if="lookupDone && !preSelected"
           class="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-[#6b7a70]"
         >
-          没查到「{{ form.name.trim() }}」+ 学号后四位 {{ lookupTail.trim() }} 的预报名，直接填写。
+          没查到预报名记录。
         </div>
 
         <div
@@ -428,7 +425,7 @@ onMounted(loadStatus)
           class="flex items-center justify-between gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
         >
           <span>
-            已带入{{ preSelected.name }}的姓名、班级与歌曲；手机和邮箱请自己填。
+            已带入姓名、班级与歌曲。
           </span>
           <button
             type="button"

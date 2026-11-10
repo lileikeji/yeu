@@ -400,7 +400,7 @@ watch(selectedAudience, (value) => {
             class="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
           />
           <p>
-            现在连不上网，下面是你上次打开时保存的内容（{{ offlineSavedAtLabel }}）。学校通知可能有更新，恢复网络后刷新一次。
+            现在连不上网，显示 {{ offlineSavedAtLabel }} 保存的内容。恢复网络后刷新。
           </p>
         </div>
         <section class="border-l-2 border-orange-500 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 px-4 py-3 text-sm leading-6 text-orange-950 dark:text-orange-100">
@@ -436,7 +436,7 @@ watch(selectedAudience, (value) => {
                 v-if="visibleMaterials.length"
                 class="mt-1 text-xs text-zinc-500 dark:text-zinc-400"
               >
-                点一下标记为已备齐，只保存在这台设备上。
+                点一下标记为已备齐
               </p>
             </div>
             <div class="flex flex-wrap items-center justify-end gap-2">
@@ -515,7 +515,7 @@ watch(selectedAudience, (value) => {
               v-if="materialPackProgress.isComplete"
               class="mt-3 text-sm leading-6 text-green-900 dark:text-green-300"
             >
-              出发前再对照录取通知书或学校最新通知，确认材料没有变化。
+              出发前再核对一次材料。
             </p>
             <a
               v-else-if="nextPackedMaterial"
@@ -597,9 +597,6 @@ watch(selectedAudience, (value) => {
               <h2 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
                 按顺序完成
               </h2>
-              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                勾选内容只留在这台设备上。
-              </p>
             </div>
             <div class="flex flex-wrap justify-end gap-1">
               <UButton
@@ -671,7 +668,7 @@ watch(selectedAudience, (value) => {
               v-if="checklistProgress.isComplete"
               class="mt-3 text-sm leading-6 text-green-900 dark:text-green-300"
             >
-              办理前再看一眼学校最新通知，确认时间、地点和材料没有变化。
+              办理前再核对时间、地点和材料。
             </p>
             <a
               v-else-if="nextVisibleStep"

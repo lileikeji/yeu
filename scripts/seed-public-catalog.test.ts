@@ -151,7 +151,7 @@ test('dry-run is read-only; apply writes readable metadata and valid publication
       WHERE kind = 'guide' AND slug = 'arrival'
     `).get() as { category: string, audience: string, body: string, metadataJson: string }
     assert.match(guide.body, /适用对象：本科新生、专升本新生/)
-    assert.match(guide.body, /强时效事项以页面底部列出的官方来源/)
+    assert.match(guide.body, /强时效事项以列出的官方来源/)
     const guideMetadata = JSON.parse(guide.metadataJson) as Record<string, unknown>
     assert.deepEqual({ category: guide.category, audience: guide.audience }, {
       category: 'arrival',
