@@ -12,13 +12,49 @@ minimumReleaseAgeExclude:
   - brace-expansion@5.0.8
 
 overrides:
+  # vue-tsc 3.3.8-3.3.14 回归：模板检查给普通 const 绑定误插 .value（TS2339 假阳性）；
+  # 3.3.14 是当前最新且无修复版，钉回 3.3.7（与 TS 6.0.3 组合今日已验证全绿）。
+  vue-tsc: 3.3.7
+  '@vue/language-core': 3.3.7
   # Close GHSA-g7r4-m6w7-qqqr path for @nuxt/fonts fontless build tooling.
   fontless>esbuild: 0.28.1
   # Keep the callable v2 API while using the bounded expansion from 5.0.8.
   brace-expansion@2.1.2: file:vendor/brace-expansion-compat
   # Bump known-CVE transitive ranges to their patched versions.
-  brace-expansion@5.0.8: 5.0.9
-  fast-uri@3.1.4: 3.1.5
-  js-yaml@4.3.0: 4.3.1
+  brace-expansion@5.0.8: 5.0.12
+  brace-expansion@5.0.9: 5.0.12
+  fast-uri: 3.1.9
+  js-yaml@4.3.0: 4.3.2
+  js-yaml@4.3.1: 4.3.2
+  minimatch@10.2.6: 11.0.5
+  # 批次 B：tiptap 全簇强制 3.33.0（@nuxt/ui peer 链被 y-tiptap 残留 peer 冻结在 3.27.4；
+  # y-tiptap 源码零引用已移除直接依赖，强制升级无运行时风险）。
+  '@tiptap/core': 3.33.0
+  '@tiptap/pm': 3.33.0
+  '@tiptap/extension-bubble-menu': 3.33.0
+  '@tiptap/extension-code': 3.33.0
+  '@tiptap/extension-collaboration': 3.33.0
+  '@tiptap/extension-drag-handle': 3.33.0
+  '@tiptap/extension-drag-handle-vue-3': 3.33.0
+  '@tiptap/extension-floating-menu': 3.33.0
+  '@tiptap/extension-horizontal-rule': 3.33.0
+  '@tiptap/extension-image': 3.33.0
+  '@tiptap/extension-mention': 3.33.0
+  '@tiptap/extension-node-range': 3.33.0
+  '@tiptap/extension-placeholder': 3.33.0
+  '@tiptap/markdown': 3.33.0
+  '@tiptap/starter-kit': 3.33.0
+  '@tiptap/suggestion': 3.33.0
+  '@tiptap/vue-3': 3.33.0
+  '@tiptap/extensions': 3.33.0
+  # 批次 B：sharp（libvips/libheif/librsvg CVE，@huggingface/transformers 链）
+  sharp@0.34.5: 0.35.5
+  # drizzle-kit 的 esbuild（dev CLI，GHSA 过期豁免已失效）对齐树内已用的 0.28.2
+  drizzle-kit>esbuild: 0.28.2
+  '@esbuild-kit/core-utils>esbuild': 0.28.2
+  # glob@11 要求 minimatch ^10.1.1；全局塞 11.0.5 会打穿它的通配匹配
+  # （字面量正常、一切 * 归零 → precache 清单只剩 manifest）。定向回 10.2.6。
+  glob>minimatch: 10.2.6
+  prosemirror-view@1.42.1: 1.42.3
   nanoid@3.3.16: 3.3.18
   postcss@8.5.19: 8.5.23

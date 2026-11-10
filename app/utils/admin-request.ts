@@ -55,6 +55,11 @@ export function withAdminRequestOptions<T extends AdminFetchOptions>(options: T 
   }
 }
 
+/** 类型擦除的 fetch 调用面：adminFetch 的 url 是动态字符串，命中不了任何字面量路由，
+ *  而 Nuxt 4.6 的 $fetch 会尝试把 options 与全量路由联合逐一比对（TS2321 爆栈）。 */
+type UntypedFetch = (url: string, options?: AdminFetchOptions) => Promise<unknown>
+const rawFetch = $fetch as unknown as UntypedFetch
+
 export function adminFetch<T = unknown>(url: string, options: AdminFetchOptions = {}): Promise<T> {
-  return $fetch(url, withAdminRequestOptions(options) as never) as Promise<T>
+  return rawFetch(url, withAdminRequestOptions(options)) as Promise<T>
 }
