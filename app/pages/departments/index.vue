@@ -92,7 +92,7 @@ function selectDepartmentNeed(query: string) {
               variant="ghost"
               size="xs"
               aria-label="清空搜索"
-              class="min-h-10 min-w-10"
+              class="justify-center min-h-10 min-w-10"
               @click="clearDepartmentSearch"
             />
           </template>
