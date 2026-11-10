@@ -802,7 +802,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <form
-          class="mt-2 flex"
+          class="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2"
           role="search"
           @submit.prevent="submitSearch"
         >
@@ -812,13 +812,14 @@ onBeforeUnmount(() => {
             placeholder="搜专业、地点、办事，或直接提问"
             aria-label="搜索迎新信息"
             size="md"
-            class="min-w-0 flex-1"
+            class="min-w-0 min-h-9"
+            :ui="{ base: 'min-h-9' }"
           />
           <UButton
             type="submit"
             icon="i-lucide-arrow-right"
             aria-label="开始搜索"
-            class="min-h-9 rounded-l-none"
+            class="min-h-9 shrink-0"
           />
         </form>
       </div>
