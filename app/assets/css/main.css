@@ -42,9 +42,11 @@
 
 /* 可选调色板（palette）：Tailwind 4 的 @theme static 变量输出到 @layer theme 的 :root，
    而这里是未分层（unlayered）的顶层规则——无层规则在层叠中优先于任何 @layer，因此
-   [data-palette] 覆盖能稳定生效。只覆盖 green/orange 两组变量：工具类编译为
-   var(--color-green-*)，Nuxt UI 的 --ui-color-primary-* 也从 green 派生，改这两组即可
-   连带换肤，无需改动组件。默认绿色不写覆盖块，沿用 @theme static，避免双份真值漂移。 */
+   [data-palette] 覆盖能稳定生效。只覆盖 green 一组变量：工具类编译为 var(--color-green-*)，
+   Nuxt UI 的 --ui-color-primary-* 也从 green 派生，改这一组即可连带换肤，无需改动组件。
+   默认绿色不写覆盖块，沿用 @theme static，避免双份真值漂移。
+   orange（secondary/warning）刻意不覆盖：warning 是语义色，跟品牌色漂移会让「警告」
+   在每套配色下深浅不一；状态色改用 emerald，与品牌绿解耦。 */
 [data-palette="indigo"] {
   --color-green-50: #f0f3fd;
   --color-green-100: #e1e6fb;
@@ -57,17 +59,6 @@
   --color-green-800: #2b3470;
   --color-green-900: #262d63;
   --color-green-950: #131737;
-  --color-orange-50: #fffaed;
-  --color-orange-100: #fff3d4;
-  --color-orange-200: #ffe3a7;
-  --color-orange-300: #ffcc6e;
-  --color-orange-400: #fb9533;
-  --color-orange-500: #b43c0b;
-  --color-orange-600: #923010;
-  --color-orange-700: #782911;
-  --color-orange-800: #923010;
-  --color-orange-900: #782911;
-  --color-orange-950: #451204;
 }
 
 [data-palette="violet"] {
@@ -82,17 +73,6 @@
   --color-green-800: #472875;
   --color-green-900: #402368;
   --color-green-950: #221339;
-  --color-orange-50: #fffbed;
-  --color-orange-100: #fff6d4;
-  --color-orange-200: #ffe9a7;
-  --color-orange-300: #ffd56e;
-  --color-orange-400: #fb9533;
-  --color-orange-500: #b43c0b;
-  --color-orange-600: #923010;
-  --color-orange-700: #782911;
-  --color-orange-800: #923010;
-  --color-orange-900: #782911;
-  --color-orange-950: #451204;
 }
 
 [data-palette="rose"] {
@@ -107,17 +87,6 @@
   --color-green-800: #6a1d2d;
   --color-green-900: #601a28;
   --color-green-950: #360d16;
-  --color-orange-50: #fff7ed;
-  --color-orange-100: #ffebd4;
-  --color-orange-200: #ffd3a7;
-  --color-orange-300: #ffb16e;
-  --color-orange-400: #fb9533;
-  --color-orange-500: #b43c0b;
-  --color-orange-600: #923010;
-  --color-orange-700: #782911;
-  --color-orange-800: #923010;
-  --color-orange-900: #782911;
-  --color-orange-950: #451204;
 }
 
 [data-palette="teal"] {
@@ -132,17 +101,6 @@
   --color-green-800: #0c495f;
   --color-green-900: #0c3e50;
   --color-green-950: #082530;
-  --color-orange-50: #fffaed;
-  --color-orange-100: #fff5d4;
-  --color-orange-200: #ffe6a7;
-  --color-orange-300: #ffd06e;
-  --color-orange-400: #fb9533;
-  --color-orange-500: #b43c0b;
-  --color-orange-600: #923010;
-  --color-orange-700: #782911;
-  --color-orange-800: #923010;
-  --color-orange-900: #782911;
-  --color-orange-950: #451204;
 }
 
 :root {

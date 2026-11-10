@@ -2129,7 +2129,7 @@ onBeforeUnmount(() => {
 }
 
 .map-workspace .maplibregl-canvas:focus-visible {
-  outline: 2px solid #176f46;
+  outline: 2px solid var(--ui-color-primary-600, #176f46);
   outline-offset: -2px;
 }
 

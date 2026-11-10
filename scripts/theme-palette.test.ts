@@ -8,6 +8,7 @@ import {
   THEME_PALETTE_IDS,
   THEME_PALETTE_STORAGE_KEY,
   THEME_PALETTES,
+  THEME_PALETTE_THEME_COLORS,
   isThemePalette,
   resolveThemePalette
 } from '../app/utils/theme-mode'
@@ -15,6 +16,7 @@ import {
 const css = readFileSync(resolve('app/assets/css/main.css'), 'utf8')
 const vueSource = readFileSync(resolve('app/components/ThemeModeToggle.vue'), 'utf8')
 const composableSource = readFileSync(resolve('app/composables/useThemeMode.ts'), 'utf8')
+const appConfigSource = readFileSync(resolve('app/app.config.ts'), 'utf8')
 
 const PALETTE_IDS = ['indigo', 'violet', 'rose', 'teal'] as const
 const GREEN_SHADES = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const
@@ -41,22 +43,18 @@ interface PaletteColors {
   green400: string
   green500: string
   green700: string
-  orange600: string
 }
 
 function paletteColors(block: string): PaletteColors {
   const green = declarations(block, 'green')
-  const orange = declarations(block, 'orange')
   for (const shade of ['300', '400', '500', '700']) {
     assert.ok(green.has(shade), `块内缺少 --color-green-${shade}`)
   }
-  assert.ok(orange.has('600'), '块内缺少 --color-orange-600')
   return {
     green300: green.get('300')!,
     green400: green.get('400')!,
     green500: green.get('500')!,
-    green700: green.get('700')!,
-    orange600: orange.get('600')!
+    green700: green.get('700')!
   }
 }
 
@@ -155,16 +153,17 @@ test('C9: no green override block is written (default keeps @theme static as sin
   assert.doesNotMatch(css, /\[data-palette="green"\]/)
 })
 
-test('C10: each palette block overrides exactly the 11 green and 11 orange shades', () => {
+test('C10: 每个 palette 块只覆盖 11 条 green，不再碰 orange', () => {
   for (const id of PALETTE_IDS) {
     const block = cssBlock(`[data-palette="${id}"]`)
     const green = declarations(block, 'green')
     const orange = declarations(block, 'orange')
     assert.equal(green.size, 11, `[data-palette="${id}"] 的 green 声明数不是 11`)
-    assert.equal(orange.size, 11, `[data-palette="${id}"] 的 orange 声明数不是 11`)
+    // orange 是 secondary/warning 的语义色。跟着品牌漂移会让「警告」在每套配色下深浅不一，
+    // 所以覆盖块里一条 orange 都不许出现——这条断言就是防回归的闸门。
+    assert.equal(orange.size, 0, `[data-palette="${id}"] 不应覆盖 --color-orange-*`)
     for (const shade of GREEN_SHADES) {
       assert.ok(green.has(shade), `[data-palette="${id}"] 缺少 --color-green-${shade}`)
-      assert.ok(orange.has(shade), `[data-palette="${id}"] 缺少 --color-orange-${shade}`)
     }
   }
 })
@@ -260,12 +259,11 @@ test('D17: green-300 reads on the dark surface for every palette (>= 4.5)', () =
   }
 })
 
-test('D18: orange-600 reads on white for every palette (>= 4.5)', () => {
-  for (const [id, selector] of Object.entries(paletteBlocks)) {
-    const { orange600 } = paletteColors(cssBlock(selector))
-    const ratio = contrastRatio(orange600, '#ffffff')
-    assert.ok(ratio >= 4.5, `${id} orange-600 ${orange600} 对白色对比度 ${ratio.toFixed(2)} < 4.5`)
-  }
+test('D18: 唯一的 orange-600 来自 @theme static，且对白色 >= 4.5', () => {
+  const orange600 = declarations(cssBlock('@theme static'), 'orange').get('600')
+  assert.ok(orange600, '@theme static 缺少 --color-orange-600')
+  const ratio = contrastRatio(orange600, '#ffffff')
+  assert.ok(ratio >= 4.5, `orange-600 ${orange600} 对白色对比度 ${ratio.toFixed(2)} < 4.5`)
 })
 
 // E. 组件与组合式接线
@@ -287,4 +285,42 @@ test('E21: useThemeMode keeps palette and mode logic wired together', () => {
   assert.match(composableSource, /THEME_PALETTE_STORAGE_KEY/)
   assert.match(composableSource, /applyThemePalette/)
   assert.match(composableSource, /storedThemeMode/)
+})
+
+// F. 语义色与浏览器 UI 色
+
+test('F22: 状态色 success 不再挂在会被换肤的 green 上', () => {
+  const success = /success:\s*'([^']+)'/.exec(appConfigSource)?.[1]
+  const primary = /primary:\s*'([^']+)'/.exec(appConfigSource)?.[1]
+  assert.equal(primary, 'green', 'primary 应为 green（换肤靠覆盖 --color-green-*）')
+  assert.notEqual(success, 'green', 'success 不能跟随品牌绿，否则玫瑰配色下「已通过」会变红')
+  assert.equal(success, 'emerald', 'success 固定用 emerald')
+})
+
+test('F23: 「已通过」这类状态标记不再使用绿工具类', () => {
+  const ratingSource = readFileSync(resolve('app/components/map/PlaceRatingSection.vue'), 'utf8')
+  assert.doesNotMatch(ratingSource, /(bg|text)-green-\d{2,3}/, 'PlaceRatingSection 仍在使用 green-*')
+  assert.match(ratingSource, /text-emerald-700/)
+})
+
+test('F24: 浏览器 UI 色与各套 green-500 锚点一致', () => {
+  assert.deepEqual(Object.keys(THEME_PALETTE_THEME_COLORS).sort(), [...THEME_PALETTE_IDS].sort())
+  for (const [id, selector] of Object.entries(paletteBlocks)) {
+    const { green500 } = paletteColors(cssBlock(selector))
+    assert.equal(THEME_PALETTE_THEME_COLORS[id as keyof typeof THEME_PALETTE_THEME_COLORS], green500,
+      `${id} 的 theme-color 与 green-500 不一致`)
+  }
+})
+
+test('F25: boot script 首帧就同步 theme-color，避免地址栏留旧绿', () => {
+  assert.ok(THEME_BOOT_SCRIPT.includes('meta[name="theme-color"]'), 'boot script 未查询 theme-color meta')
+  assert.ok(THEME_BOOT_SCRIPT.includes("'#b23450'"), 'boot script 未内联配色到 theme-color 的映射')
+})
+
+test('F26: 页面 head 不再硬编码绿色 theme-color', () => {
+  for (const file of ['app/app.vue', 'app/error.vue']) {
+    const source = readFileSync(resolve(file), 'utf8')
+    assert.doesNotMatch(source, /theme-color',\s*content:\s*'#/, `${file} 仍硬编码 theme-color`)
+    assert.match(source, /THEME_PALETTE_THEME_COLORS/, `${file} 未接入动态 theme-color`)
+  }
 })

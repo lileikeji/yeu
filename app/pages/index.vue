@@ -611,7 +611,7 @@ const {
                 </h2>
               </div>
               <p class="mt-3 text-sm text-zinc-700 dark:text-zinc-200 lg:mt-5">
-                已完成 <strong class="text-lg text-green-700 dark:text-green-400">{{ checklistSummary.percent }}%</strong>
+                已完成 <strong class="text-lg text-emerald-700 dark:text-emerald-400">{{ checklistSummary.percent }}%</strong>
               </p>
               <div class="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800 lg:mt-3">
                 <div

@@ -18,6 +18,15 @@ export const THEME_PALETTES: ReadonlyArray<{ id: ThemePalette, label: string, sw
   { id: 'teal', label: '青蓝', swatchClass: 'text-[#0a7aa3]' }
 ]
 
+/** 浏览器 UI（地址栏、任务栏、PWA 标题栏）跟随配色；取值与各套 green-500 锚点一致。 */
+export const THEME_PALETTE_THEME_COLORS: Readonly<Record<ThemePalette, string>> = {
+  green: '#176f46',
+  indigo: '#5159bb',
+  violet: '#7a49bd',
+  rose: '#b23450',
+  teal: '#0a7aa3'
+}
+
 function systemPrefersDark(): boolean {
   return typeof window !== 'undefined'
     && window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -61,13 +70,28 @@ export function storedThemePalette(): ThemePalette {
   }
 }
 
-/** 把 palette 落到 <html data-palette>；SSR 早退。 */
+/** 同步 <meta name="theme-color">；标签缺失时补一个，避免换肤后地址栏仍留旧绿。 */
+function applyThemeColorMeta(palette: ThemePalette): void {
+  let meta = document.querySelector('meta[name="theme-color"]')
+  if (!meta) {
+    meta = document.createElement('meta')
+    meta.setAttribute('name', 'theme-color')
+    document.head.append(meta)
+  }
+  meta.setAttribute('content', THEME_PALETTE_THEME_COLORS[palette])
+}
+
+/** 把 palette 落到 <html data-palette> 与浏览器 UI 色；SSR 早退。 */
 export function applyThemePalette(palette: ThemePalette): void {
   if (typeof document === 'undefined') return
   document.documentElement.dataset.palette = palette
+  applyThemeColorMeta(palette)
 }
 
-/** 早于 hydration 的内联启动脚本（避免暗色用户首帧闪白）。 */
+/** 早于 hydration 的内联启动脚本（避免暗色用户首帧闪白、换色用户地址栏留旧绿）。 */
 const PALETTE_WHITELIST = THEME_PALETTE_IDS.map(id => `'${id}'`).join(',')
+const PALETTE_THEME_COLOR_MAP = THEME_PALETTE_IDS
+  .map(id => `'${id}':'${THEME_PALETTE_THEME_COLORS[id]}'`)
+  .join(',')
 
-export const THEME_BOOT_SCRIPT = `(function(){try{var m=localStorage.getItem('${THEME_MODE_STORAGE_KEY}')||'system';var d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.classList.toggle('light',!d);r.style.colorScheme=d?'dark':'light';var p=localStorage.getItem('${THEME_PALETTE_STORAGE_KEY}');if([${PALETTE_WHITELIST}].indexOf(p)<0)p='${DEFAULT_THEME_PALETTE}';r.setAttribute('data-palette',p);}catch(e){}})();`
+export const THEME_BOOT_SCRIPT = `(function(){try{var m=localStorage.getItem('${THEME_MODE_STORAGE_KEY}')||'system';var d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.classList.toggle('light',!d);r.style.colorScheme=d?'dark':'light';var p=localStorage.getItem('${THEME_PALETTE_STORAGE_KEY}');if([${PALETTE_WHITELIST}].indexOf(p)<0)p='${DEFAULT_THEME_PALETTE}';r.setAttribute('data-palette',p);var mc=document.querySelector('meta[name="theme-color"]');if(mc)mc.setAttribute('content',({${PALETTE_THEME_COLOR_MAP}})[p]||'${THEME_PALETTE_THEME_COLORS.green}');}catch(e){}})();`
