@@ -20,6 +20,8 @@ interface PlaceOption {
   id: string
   name: string
   slug: string
+  floor?: string | null
+  room?: string | null
 }
 
 interface ActivityFormState {
@@ -83,10 +85,33 @@ const statusTabs = computed(() => {
   return tabs
 })
 
+const selectedPlace = computed(() => (
+  places.value.find(place => place.id === form.placeId) ?? null
+))
 const placeOptions = computed(() => [
   { label: '不关联校园地点', value: '' },
-  ...places.value.map(place => ({ label: place.name, value: place.id }))
+  ...places.value.map((place) => {
+    const detail = [place.floor, place.room].filter(Boolean).join(' ')
+    return {
+      label: detail ? `${place.name} · ${detail}` : place.name,
+      value: place.id
+    }
+  })
 ])
+const roomSuggestions = computed(() => {
+  const rooms = new Set<string>()
+  if (selectedPlace.value?.room?.trim()) rooms.add(selectedPlace.value.room.trim())
+  for (const item of items.value) {
+    if (item.place?.id === form.placeId && item.room?.trim()) rooms.add(item.room.trim())
+  }
+  return [...rooms].slice(0, 5)
+})
+
+watch(() => form.placeId, () => {
+  // 地点库里已经标了教室时直接带出，避免每次手打；用户已填的内容不覆盖。
+  const placeRoom = selectedPlace.value?.room?.trim()
+  if (placeRoom && !form.room.trim()) form.room = placeRoom
+})
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 const canCreate = computed(() => props.role === 'organization')
@@ -748,14 +773,41 @@ onMounted(() => {
               :items="placeOptions"
               class="w-full"
             />
+            <p
+              v-if="selectedPlace?.floor || selectedPlace?.room"
+              class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+            >
+              地点库教室：
+              <span class="font-medium text-gray-700 dark:text-gray-200">
+                {{ [selectedPlace?.floor, selectedPlace?.room].filter(Boolean).join(' ') }}
+              </span>
+            </p>
           </UFormField>
-          <UFormField label="教室 / 地点备注">
+          <UFormField
+            label="教室 / 地点备注"
+            hint="地点库有教室时会自动带出，也可以手填"
+          >
             <UInput
               v-model="form.room"
               maxlength="80"
               placeholder="如：吉龙楼 302"
               class="w-full"
             />
+            <div
+              v-if="roomSuggestions.length"
+              class="mt-1.5 flex flex-wrap items-center gap-1.5"
+            >
+              <span class="text-[11px] text-gray-500 dark:text-gray-400">常用教室</span>
+              <button
+                v-for="room in roomSuggestions"
+                :key="room"
+                type="button"
+                class="rounded-full border border-gray-200 px-2 py-0.5 text-[11px] text-gray-600 transition hover:border-green-500 hover:text-green-700 dark:border-gray-700 dark:text-gray-300 dark:hover:border-green-500 dark:hover:text-green-400"
+                @click="form.room = room"
+              >
+                {{ room }}
+              </button>
+            </div>
           </UFormField>
         </div>
 

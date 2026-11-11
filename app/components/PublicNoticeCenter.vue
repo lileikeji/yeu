@@ -361,39 +361,51 @@ onMounted(() => {
             <span class="text-[11px] text-emerald-700/70 dark:text-emerald-400/70">{{ activities.length }} 场</span>
           </div>
           <div class="mt-2 space-y-1.5">
-            <NuxtLink
+            <div
               v-for="activity in activities"
               :key="activity.id"
-              :to="`/activities/${activity.slug}`"
-              class="group flex items-start gap-2.5 rounded-md bg-white/80 px-2 py-2 transition-colors hover:bg-white dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
-              @click="open = false"
+              class="flex items-stretch gap-1 rounded-md bg-white/80 transition-colors hover:bg-white dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
             >
-              <img
-                v-if="activity.coverUrl"
-                :src="activity.coverUrl"
-                :alt="`${activity.title} 活动照片`"
-                class="size-11 shrink-0 rounded-md object-cover"
-                loading="lazy"
+              <NuxtLink
+                :to="`/activities/${activity.slug}`"
+                class="group flex min-w-0 flex-1 items-start gap-2.5 px-2 py-2"
+                @click="open = false"
               >
-              <span
-                v-else
-                class="grid size-11 shrink-0 place-items-center rounded-md bg-emerald-600 text-[11px] font-bold text-white"
+                <img
+                  v-if="activity.coverUrl"
+                  :src="activity.coverUrl"
+                  :alt="`${activity.title} 活动照片`"
+                  class="size-11 shrink-0 rounded-md object-cover"
+                  loading="lazy"
+                >
+                <span
+                  v-else
+                  class="grid size-11 shrink-0 place-items-center rounded-md bg-emerald-600 text-[11px] font-bold text-white"
+                >
+                  {{ activityDay(activity.startsAt) }}
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="line-clamp-2 block text-sm font-semibold leading-5 text-zinc-900 dark:text-zinc-100">
+                    {{ activity.title }}
+                  </span>
+                  <span class="mt-0.5 block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {{ activityMeta(activity) }}
+                  </span>
+                </span>
+              </NuxtLink>
+              <NuxtLink
+                :to="`/activities/${activity.slug}#comments`"
+                class="my-2 inline-flex shrink-0 items-center gap-1 self-center rounded-md border border-emerald-200 px-2 py-1 text-[11px] font-medium text-emerald-700 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                aria-label="查看活动留言"
+                @click="open = false"
               >
-                {{ activityDay(activity.startsAt) }}
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="line-clamp-2 block text-sm font-semibold leading-5 text-zinc-900 dark:text-zinc-100">
-                  {{ activity.title }}
-                </span>
-                <span class="mt-0.5 block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {{ activityMeta(activity) }}
-                </span>
-              </span>
-              <UIcon
-                name="i-lucide-chevron-right"
-                class="mt-1 size-3.5 shrink-0 text-emerald-600 transition-transform group-hover:translate-x-0.5 dark:text-emerald-400"
-              />
-            </NuxtLink>
+                <UIcon
+                  name="i-lucide-message-circle"
+                  class="size-3.5"
+                />
+                留言
+              </NuxtLink>
+            </div>
           </div>
         </section>
 
