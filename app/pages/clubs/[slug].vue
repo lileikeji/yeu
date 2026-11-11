@@ -238,6 +238,8 @@ async function shareClub(): Promise<void> {
 
         <PublicContentBoxes :boxes="boxesAt('after-overview')" />
 
+        <PublicActivityList :organization-slug="slug" />
+
         <section class="border-b border-zinc-200 dark:border-zinc-800 py-8">
           <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
             {{ clubSectionLabels.signupChecklist }}

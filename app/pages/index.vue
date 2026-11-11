@@ -52,6 +52,28 @@ const { data: publicProcedureListResponse } = procedureListRequest
 
 const signalListRequest = usePublicSignalList(5)
 const homeSignalEvents = computed(() => signalListRequest.data.value?.events ?? [])
+const activityListRequest = usePublicActivityList(3)
+const homeActivities = computed(() => activityListRequest.data.value?.items ?? [])
+
+function activityDay(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date)
+}
+
+function activityTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(date)
+}
+
+function activityMeta(item: (typeof homeActivities.value)[number]): string {
+  const parts: string[] = []
+  if (item.organization) parts.push(item.organization.title)
+  if (item.place) parts.push(`${item.place.name}${item.room ? ` ${item.room}` : ''}`)
+  else if (item.room) parts.push(item.room)
+  return parts.join(' · ')
+}
 
 const importantDates = computed(() => buildHomeImportantDates(publicProcedureListResponse.value?.items))
 const importantDatesLine = computed(() => (
@@ -349,75 +371,162 @@ const {
       </section>
 
       <section
-        v-if="homeSignalEvents.length"
+        v-if="homeSignalEvents.length || homeActivities.length"
         class="border-t border-[var(--line)] bg-white dark:bg-zinc-900"
       >
         <div class="page-shell py-5 md:py-8">
-          <div class="flex items-end justify-between gap-3">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
-                  最近在发
-                </h2>
-                <span class="inline-flex min-h-6 items-center gap-1 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
-                  <UIcon
-                    name="i-lucide-flame"
-                    class="size-3.5"
-                  />
-                  每天更新
-                </span>
-              </div>
-            </div>
-            <NuxtLink
-              to="/hot"
-              class="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400"
-            >
-              全部热度
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
+              最近在发
+            </h2>
+            <span class="inline-flex min-h-6 items-center gap-1 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
               <UIcon
-                name="i-lucide-chevron-right"
-                class="size-4"
+                name="i-lucide-flame"
+                class="size-3.5"
               />
-            </NuxtLink>
+              每天更新
+            </span>
           </div>
 
-          <ul class="mt-3 divide-y divide-[var(--line)] overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
-            <li
-              v-for="event in homeSignalEvents"
-              :key="event.id"
+          <div class="mt-3 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <div
+              v-if="homeSignalEvents.length"
+              class="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-zinc-50 px-3 py-2 dark:bg-zinc-800/60 md:px-4"
             >
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 text-sm font-bold text-zinc-950 dark:text-zinc-100">
+                  <UIcon
+                    name="i-lucide-megaphone"
+                    class="size-4 text-orange-600 dark:text-orange-300"
+                  />
+                  公告
+                </span>
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ homeSignalEvents.length }} 条</span>
+              </div>
               <NuxtLink
                 to="/hot"
-                class="flex items-start gap-2.5 px-3 py-3 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 md:gap-3 md:px-4"
+                class="inline-flex min-h-8 items-center gap-0.5 text-xs font-semibold text-green-700 dark:text-green-400"
               >
-                <span
-                  class="mt-0.5 inline-flex min-h-5 shrink-0 items-center rounded px-1.5 text-[10px] font-bold"
-                  :class="SIGNAL_TREND_CLASS[event.trend]"
-                >
-                  {{ SIGNAL_TREND_LABEL[event.trend] }}
-                </span>
-                <span class="min-w-0 flex-1">
-                  <span class="line-clamp-2 text-[13px] font-semibold leading-5 text-zinc-950 dark:text-zinc-100 md:line-clamp-1 md:text-sm">
-                    {{ event.title }}
-                  </span>
-                  <span class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    <span>{{ event.category }}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{{ event.sourceCount }} 个来源 · {{ event.itemCount }} 条</span>
-                    <span aria-hidden="true">·</span>
-                    <span>热度 {{ signalHeatText(event.heat) }}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{{ signalRelativeTime(event.lastSeenAt) }}</span>
-                  </span>
-                </span>
-                <span
-                  class="mt-0.5 hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold sm:inline-flex"
-                  :class="SIGNAL_TIER_CLASS[event.tier]"
-                >
-                  {{ event.tierLabel }}
-                </span>
+                全部热度
+                <UIcon
+                  name="i-lucide-chevron-right"
+                  class="size-3.5"
+                />
               </NuxtLink>
-            </li>
-          </ul>
+            </div>
+
+            <ul
+              v-if="homeSignalEvents.length"
+              class="divide-y divide-[var(--line)]"
+            >
+              <li
+                v-for="event in homeSignalEvents"
+                :key="event.id"
+              >
+                <NuxtLink
+                  :to="`/hot/${event.slug}`"
+                  class="flex items-start gap-2.5 px-3 py-3 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 md:gap-3 md:px-4"
+                >
+                  <span
+                    class="mt-0.5 inline-flex min-h-5 shrink-0 items-center rounded px-1.5 text-[10px] font-bold"
+                    :class="SIGNAL_TREND_CLASS[event.trend]"
+                  >
+                    {{ SIGNAL_TREND_LABEL[event.trend] }}
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="line-clamp-2 text-[13px] font-semibold leading-5 text-zinc-950 dark:text-zinc-100 md:line-clamp-1 md:text-sm">
+                      {{ event.title }}
+                    </span>
+                    <span class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span>{{ event.category }}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{{ event.sourceCount }} 个来源 · {{ event.itemCount }} 条</span>
+                      <span aria-hidden="true">·</span>
+                      <span>热度 {{ signalHeatText(event.heat) }}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{{ signalRelativeTime(event.lastSeenAt) }}</span>
+                    </span>
+                  </span>
+                  <span
+                    class="mt-0.5 hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold sm:inline-flex"
+                    :class="SIGNAL_TIER_CLASS[event.tier]"
+                  >
+                    {{ event.tierLabel }}
+                  </span>
+                </NuxtLink>
+              </li>
+            </ul>
+
+            <div
+              v-if="homeActivities.length"
+              :class="homeSignalEvents.length ? 'border-t border-[var(--line)]' : ''"
+            >
+              <div class="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-emerald-50/70 px-3 py-2 dark:bg-emerald-950/40 md:px-4">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1 text-sm font-bold text-zinc-950 dark:text-zinc-100">
+                    <UIcon
+                      name="i-lucide-calendar-days"
+                      class="size-4 text-emerald-700 dark:text-emerald-300"
+                    />
+                    活动
+                  </span>
+                  <span class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ homeActivities.length }} 条</span>
+                </div>
+                <NuxtLink
+                  to="/activities"
+                  class="inline-flex min-h-8 items-center gap-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+                >
+                  全部活动
+                  <UIcon
+                    name="i-lucide-chevron-right"
+                    class="size-3.5"
+                  />
+                </NuxtLink>
+              </div>
+
+              <ul class="divide-y divide-[var(--line)]">
+                <li
+                  v-for="item in homeActivities"
+                  :key="item.id"
+                >
+                  <div class="flex items-start gap-3 px-3 py-3 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 md:px-4">
+                    <div class="flex w-12 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-emerald-50 px-1 py-2 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      <span class="text-sm font-bold leading-none">{{ activityDay(item.startsAt) }}</span>
+                      <span class="mt-1 text-[11px] leading-none">{{ activityTime(item.startsAt) }}</span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <NuxtLink
+                        :to="`/activities/${item.slug}`"
+                        class="line-clamp-1 text-[13px] font-semibold leading-5 text-zinc-950 underline-offset-2 hover:text-emerald-800 hover:underline dark:text-zinc-100 dark:hover:text-emerald-300 md:text-sm"
+                      >
+                        {{ item.title }}
+                      </NuxtLink>
+                      <p class="mt-0.5 line-clamp-1 text-xs text-zinc-600 dark:text-zinc-300">
+                        {{ item.summary }}
+                      </p>
+                      <p class="mt-1 flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <UIcon
+                          name="i-lucide-map-pin"
+                          class="size-3.5 shrink-0"
+                        />
+                        <span class="truncate">{{ activityMeta(item) }}</span>
+                      </p>
+                    </div>
+                    <NuxtLink
+                      :to="`/activities/${item.slug}#comments`"
+                      class="inline-flex min-h-7 shrink-0 items-center gap-1 rounded-md border border-emerald-200 px-2 text-[11px] font-medium text-emerald-700 underline-offset-2 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                    >
+                      <UIcon
+                        name="i-lucide-message-circle"
+                        class="size-3.5"
+                      />
+                      留言
+                    </NuxtLink>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -57,6 +57,10 @@ export default defineEventHandler((event) => {
   if (pathname === '/api/admin/miniapp/analytics' && method === 'GET') return
   if (pathname === '/api/admin/media/images' && method === 'POST') return
 
+  // 组织管理员只能看到自己组织的活动（服务层再按 organizationContentId 收口）；
+  // 审核路由在 handler 内 requireSuperAdmin，不能只靠这里放行。
+  if (pathname === '/api/admin/activities' || pathname.startsWith('/api/admin/activities/')) return
+
   const contentMatch = pathname.match(/^\/api\/admin\/content\/([0-9a-f-]+)$/i)
   if (contentMatch
     && ['GET', 'PATCH', 'PUT'].includes(method)
