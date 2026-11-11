@@ -42,8 +42,9 @@ test('admin dashboard page is a thin shell over admin-dashboard-presentation uti
 test('admin dashboard catalogs cover content, ops, and security routes', () => {
   assert.equal(adminDashboardGroupMeta.length, 3)
   assert.deepEqual(adminDashboardGroupMeta.map(item => item.key), ['content', 'ops', 'security'])
-  // 12 个：miniapp-analytics 卡 2026-11-07 从概览移除（全量分析只保留 /admin/miniapp 专页）
-  assert.equal(adminDashboardModules.length, 12)
+  // 13 个：miniapp-analytics 卡 2026-11-07 从概览移除（全量分析只保留 /admin/miniapp 专页）
+  // 2026-11-11 新增活动管理，进入内容管理分组。
+  assert.equal(adminDashboardModules.length, 13)
   assert.ok(!adminDashboardModules.some(item => item.key === 'miniapp-analytics'))
   assert.equal(adminDashboardModules[0]?.key, 'places')
   assert.equal(adminDashboardModules[0]?.to, '/admin/places')
@@ -56,10 +57,11 @@ test('admin dashboard catalogs cover content, ops, and security routes', () => {
   assert.ok(adminDashboardModules.some(item => item.key === 'bans' && item.endpoint === '/api/admin/visitors/bans' && item.to === '/admin/bans'))
   assert.ok(adminDashboardModules.every(item => item.endpoint.startsWith('/api/admin/')))
   assert.ok(adminDashboardModules.every(item => item.group === 'content' || item.group === 'ops' || item.group === 'security'))
-  assert.equal(adminDashboardModulesByGroup('content').length, 5)
+  assert.ok(adminDashboardModules.some(item => item.key === 'activities' && item.to === '/admin/activities'))
+  assert.equal(adminDashboardModulesByGroup('content').length, 6)
   assert.equal(adminDashboardModulesByGroup('ops').length, 5)
   assert.equal(adminDashboardModulesByGroup('security').length, 2)
-  assert.equal(adminDashboardQuickActions.length, 17)
+  assert.equal(adminDashboardQuickActions.length, 18)
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/places?action=create'))
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/field-observations'))
   assert.ok(adminDashboardQuickActions.some(item => item.to === '/admin/knowledge?action=create'))
