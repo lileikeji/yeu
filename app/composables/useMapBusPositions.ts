@@ -61,6 +61,56 @@ function toCrs(value: string): CoordinateReferenceSystem {
 }
 
 /**
+ * 开发态示例快照：本机没有 NUXT_YKT_* 凭据时 /api/public/bus-rt-* 按红线返回 503，
+ * 线路面板永远是空的，没法做可视验收。仅在 import.meta.dev 且接口失败时兜底，
+ * 生产构建完全不走这段。站名与折线取自 data/seeds/bus-route-gps.json 的真实采样。
+ */
+const DEV_SAMPLE_STOPS: Array<{ name: string, lng: number, lat: number }> = [
+  { name: '旧区创业园', lng: 118.611602, lat: 25.116155 },
+  { name: '旧区行政楼斜对面', lng: 118.610156, lat: 25.115665 },
+  { name: '旧区南门天桥', lng: 118.608699, lat: 25.112295 },
+  { name: '网络信息中心', lng: 118.603857, lat: 25.112168 },
+  { name: '新区图书馆', lng: 118.602658, lat: 25.110282 },
+  { name: '普照楼2号门', lng: 118.600412, lat: 25.109565 },
+  { name: '新区和昌楼2号门', lng: 118.599025, lat: 25.108666 }
+]
+
+function buildDevSampleSnapshot(): BusPositionsResponse {
+  const routeStops = DEV_SAMPLE_STOPS.map((stop, index) => ({
+    siteId: `dev-stop-${index}`,
+    siteName: stop.name,
+    lng: stop.lng,
+    lat: stop.lat,
+    isOrigin: index === 0,
+    isDestination: index === DEV_SAMPLE_STOPS.length - 1
+  }))
+  const polyline = DEV_SAMPLE_STOPS.map(stop => ({ lng: stop.lng, lat: stop.lat }))
+  const now = new Date()
+  return {
+    coordinateSystem: 'WGS84',
+    fetchedAt: now.toISOString(),
+    routes: [
+      { routeId: 'dev-outbound', routeName: '新区线', isBack: false, stops: routeStops, polyline },
+      { routeId: 'dev-inbound', routeName: '新区线', isBack: true, stops: [...routeStops].reverse(), polyline: [...polyline].reverse() }
+    ],
+    // 一辆车放在第 3 站，让面板的「下一站 / 距离」有内容可看
+    buses: [{
+      busId: 'dev-bus-1',
+      busName: '示例校车 1 号',
+      routeId: 'dev-outbound',
+      routeName: '新区线',
+      isBack: false,
+      siteId: routeStops[2]!.siteId,
+      siteName: routeStops[2]!.siteName,
+      lng: routeStops[2]!.lng,
+      lat: routeStops[2]!.lat,
+      isAtSite: true,
+      updatedAt: now.toISOString()
+    }]
+  }
+}
+
+/**
  * 校车图层同步：每 5 秒拉取云一卡通校车快照（线路折线 + 起终点 + 实时车位置），
  * 喂给地图 provider 的 setBusRoutes/setBuses。车位置经 motion 平滑（沿线里程动画），
  * 卸载时清空图层。
@@ -315,7 +365,20 @@ export function useMapBusPositions(options: {
       provider.setBusRoutes(toRoutes(data))
       pushDisplay()
     } catch {
-      // 拉取失败静默跳过，下一轮重试（页面不因校车数据报错）
+      // 拉取失败静默跳过，下一轮重试（页面不因校车数据报错）。
+      // 开发态兜底示例数据：本机没有 NUXT_YKT_* 时接口恒 503，否则线路面板与
+      // 地图图层永远是空的，无法做可视验收。生产构建下 import.meta.dev 为 false。
+      if (import.meta.dev && !lastData) {
+        const sample = buildDevSampleSnapshot()
+        lastData = sample
+        routes.value = sample.routes
+        fetchedAt.value = sample.fetchedAt
+        const provider = options.mapProvider.value
+        if (provider) {
+          provider.setBusRoutes(toRoutes(sample))
+          pushDisplay()
+        }
+      }
     }
   }
 
