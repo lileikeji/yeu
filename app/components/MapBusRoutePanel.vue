@@ -3,6 +3,7 @@ import type { BusRouteSnapshot, BusSnapshot } from '~~/app/composables/useMapBus
 import { haversineMeters } from '~~/app/utils/walk-route'
 import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
 import { computeBusProgress, computeStopToStop, travelSecondsAlongPolyline } from '~~/shared/utils/bus-route-progress'
+import { buildSegmentProfile } from '~~/shared/utils/bus-segment-speeds'
 
 const props = defineProps<{
   routes: BusRouteSnapshot[]
@@ -159,13 +160,22 @@ onUnmounted(() => {
   rowsResizeObserver = null
 })
 
+/** 分段实测车速表 → 沿线车速切片；表里没有该线路时返回 undefined，ETA 退回老算法。 */
+const segmentProfile = computed(() => {
+  const route = selectedRoute.value
+  if (!route) return undefined
+  const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
+  const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
+  return buildSegmentProfile(route.routeId, stops, polyline)
+})
+
 const busMarkers = computed<BusMarker[]>(() => {
   const route = selectedRoute.value
   if (!route) return []
   const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
   const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
   return routeBuses.value.map((bus) => {
-    const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite })
+    const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite, profile: segmentProfile.value })
     const atStopIndex = progress?.atStopIndex ?? null
     const isTerminal = atStopIndex !== null && atStopIndex === route.stops.length - 1
     const nextStopName = progress ? (route.stops[progress.nextStopIndex]?.siteName ?? '') : bus.siteName
@@ -207,12 +217,12 @@ const stopArrivals = computed<string[]>(() => {
   const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
   const best = route.stops.map(() => Number.POSITIVE_INFINITY)
   for (const bus of routeBuses.value) {
-    const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite })
+    const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite, profile: segmentProfile.value })
     if (!progress) continue
     for (let index = 0; index < route.stops.length; index++) {
       const stopAlong = progress.stopDistancesAlong[index]
       if (stopAlong == null || stopAlong <= progress.distanceAlong) continue
-      const eta = travelSecondsAlongPolyline(polyline, progress.distanceAlong, stopAlong)
+      const eta = travelSecondsAlongPolyline(polyline, progress.distanceAlong, stopAlong, segmentProfile.value)
       if (eta < best[index]!) best[index] = eta
     }
   }
@@ -243,7 +253,7 @@ const tripResult = computed(() => {
   if (!route || route.stops.length < 2) return null
   const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
   const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
-  return computeStopToStop(stops, polyline, tripFromIndex.value, tripToIndex.value)
+  return computeStopToStop(stops, polyline, tripFromIndex.value, tripToIndex.value, { profile: segmentProfile.value })
 })
 
 const tripResultText = computed(() => {
