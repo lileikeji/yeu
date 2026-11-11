@@ -340,7 +340,7 @@ onBeforeUnmount(() => {
     <div class="absolute inset-x-0 bottom-0 h-[5.75rem] border-t border-white/10 bg-zinc-950/95 px-3 py-2 text-white">
       <div class="mb-1 flex items-center justify-between gap-3 px-1">
         <p class="text-[11px] font-semibold text-white/65">
-          想看哪里，点名字就行
+          拍摄点
         </p>
         <p class="shrink-0 text-[11px] text-emerald-300">
           {{ activeSceneIndex + 1 }} / {{ scenes.length }}

@@ -115,7 +115,7 @@ export function createBusMoment(
   // U+FFFD 是「字节无法按 UTF-8 解码」的替换符：出现即说明客户端编码错乱
   // （代理/终端转码），存进去只会变成一堆 �，直接拒绝。
   if (body.includes('�')) {
-    throw createError({ statusCode: 422, statusMessage: '内容包含无法识别的字符，请检查输入法或客户端编码', data: { code: 'BUS_MOMENT_ENCODING' } })
+    throw createError({ statusCode: 422, statusMessage: '内容包含无法识别的字符，请删掉后重新提交', data: { code: 'BUS_MOMENT_ENCODING' } })
   }
   const now = Date.now()
   const id = randomUUID()

@@ -1,5 +1,5 @@
 [Unit]
-Description=YEU sensitive-data retention cleanup
+Description=YEU sensitive-data retention cleanup and orphan upload pruning
 After=yeu.service
 
 [Service]
@@ -8,10 +8,14 @@ User=yeu
 Group=yeu
 WorkingDirectory=/www/wwwroot/yeu/current
 EnvironmentFile=/www/wwwroot/yeu/shared/.env
-ExecStart=/opt/node-v22.18.0/bin/node /www/wwwroot/yeu/current/scripts/cleanup-sensitive-data.mjs
+# 两个任务都从 /opt/yeu-ops 装好的副本执行：release 只发 `.output`，`current/scripts`
+# 在部署目录里并不存在（旧版本这里指向 $current/scripts，实际会以 203/EXEC 失败，
+# 连带后面的上传回收也跑不到）。安装命令见 docs/DEPLOYMENT.md「备份与恢复」。
+ExecStart=/opt/node-v22.18.0/bin/node /opt/yeu-ops/cleanup-sensitive-data.mjs
+ExecStart=/opt/node-v22.18.0/bin/node /opt/yeu-ops/prune-uploads.mjs --days 7 --dir /www/wwwroot/yeu/shared/uploads
 UMask=0027
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/www/wwwroot/yeu/shared/data
+ReadWritePaths=/www/wwwroot/yeu/shared/data /www/wwwroot/yeu/shared/uploads

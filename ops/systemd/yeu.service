@@ -32,6 +32,7 @@ LockPersonality=true
 CapabilityBoundingSet=
 SystemCallArchitectures=native
 ReadWritePaths=/www/wwwroot/yeu/shared/data /www/wwwroot/yeu/shared/uploads /www/wwwroot/yeu/shared/logs /www/wwwroot/yeu/shared/monitor
+MemoryHigh=576M
 MemoryMax=768M
 
 [Install]

@@ -78,7 +78,7 @@ export const campusMilitaryPreparation = {
     },
     {
       title: '身体情况提前说明',
-      description: '需要请假、免训或调整训练内容时，提前保留相关材料；交给谁、要哪些证明，以学校当届通知为准。',
+      description: '需要请假、免训或调整训练内容时，提前保留相关材料；交给谁、要哪些证明，看学校当届通知。',
       icon: 'i-lucide-heart-pulse'
     },
     {

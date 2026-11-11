@@ -18,6 +18,8 @@ export default defineEventHandler(async (event) => {
   return {
     id: result.id,
     status: result.status,
-    createdAt: result.createdAt
+    createdAt: result.createdAt,
+    // 用户凭这个号回来查处理进度：GET /api/public/feedback/receipt/:code
+    receiptCode: result.receiptCode
   }
 })

@@ -6,7 +6,7 @@
   "description": "Unofficial freshman guide for Yang-En University",
   "type": "module",
   "engines": {
-    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
+    "node": "^22.18.0 || ^24.15.0 || >=26.0.0"
   },
   "scripts": {
     "build": "node scripts/guard-build-host.mjs && nuxt build && tsx scripts/copy-sqlite-vec-binary.ts && tsx scripts/copy-client-manifest.ts",

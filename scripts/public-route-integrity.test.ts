@@ -70,7 +70,6 @@ function concretePageRoutes(): Set<string> {
     '/panorama',
     '/privacy',
     '/procedures',
-    '/research/xiaohongshu-images',
     '/search',
     '/sources',
     '/student-rules',
@@ -297,9 +296,12 @@ test('map page can select imported drawn areas directly from route and search te
   const routeSyncSource = readFileSync(resolve('app/composables/useMapRouteSync.ts'), 'utf8')
   const routeStateSource = readFileSync(resolve('app/utils/map-route-state.ts'), 'utf8')
   const providerLifecycleSource = readFileSync(resolve('app/utils/map-provider-lifecycle.ts'), 'utf8')
+  // 地图页拆分后：筛选与选点决策归 composable，页面只校验注入后的调用名。
+  const filterComposableSource = readFileSync(resolve('app/composables/useMapFilter.ts'), 'utf8')
+  const poiComposableSource = readFileSync(resolve('app/composables/useMapPoi.ts'), 'utf8')
 
-  assert.match(source, /filterMapAreasForMapSearch/)
-  assert.match(source, /const filteredAreas = computed/)
+  assert.match(filterComposableSource, /filterMapAreasForMapSearch/)
+  assert.match(filterComposableSource, /const filteredAreas = computed/)
   assert.match(providerLifecycleSource, /provider\.setSelectedArea\(snapshot\.selectedAreaId\)/)
   assert.match(source, /v-if="selectedArea"\s+class="[^"]*z-30[^"]*"/)
   assert.match(routeStateSource, /mapQueryValue\(query\.area\)/)
@@ -311,13 +313,13 @@ test('map page can select imported drawn areas directly from route and search te
   assert.match(source, /selectArea\(apply\.targetArea\)/)
   assert.match(source, /resolveAutoSelectSearchApply/)
   assert.match(source, /resolveAutoSelectSearchDecision/)
-  assert.match(source, /resolveClosePoiDetailsDecision/)
-  assert.match(source, /resolveSetCategoryDecision/)
-  assert.match(source, /resolveFitToVisiblePoisDecision/)
+  assert.match(poiComposableSource, /resolveClosePoiDetailsDecision/)
+  assert.match(filterComposableSource, /resolveSetCategoryDecision/)
+  assert.match(filterComposableSource, /resolveFitToVisiblePoisDecision/)
   assert.match(source, /resolveSearchQueryChangeReset/)
-  assert.match(source, /resolveSelectPoiApplyDecision/)
-  assert.match(source, /resolveMapPoiClickApply/)
-  assert.match(source, /resolveSelectOfficialPlanNumberDecision/)
+  assert.match(poiComposableSource, /resolveSelectPoiApplyDecision/)
+  assert.match(poiComposableSource, /resolveMapPoiClickApply/)
+  assert.match(poiComposableSource, /resolveSelectOfficialPlanNumberDecision/)
   assert.doesNotMatch(source, /selectArea\(targetArea!\)/)
 })
 
@@ -325,15 +327,17 @@ test('map selected-place details explain how students should use unverified and 
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   const mapPresentation = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
   const placeDetailsSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
+  // poiUseChecklist 的实现搬进 useMapPoi：页面只解构注入后的函数名。
+  const poiComposableSource = readFileSync(resolve('app/composables/useMapPoi.ts'), 'utf8')
 
   assert.match(source, /from ['"]~~\/app\/utils\/map-presentation['"]/)
-  assert.match(source, /function poiUseChecklist\(poi: PublicMapPlace\): string\[\]/)
-  assert.match(source, /return buildMapPoiUseChecklist\(poi\)/)
+  assert.match(poiComposableSource, /function poiUseChecklist\(poi: PublicMapPlace\): string\[\]/)
+  assert.match(poiComposableSource, /return buildMapPoiUseChecklist\(poi\)/)
   assert.match(placeDetailsSource, /到这里前先确认/)
-  assert.match(mapPresentation, /可以先导航到附近，最后一段请看现场门牌/)
-  assert.match(mapPresentation, /取快递以短信、平台取件码和站点现场牌子为准/)
-  assert.match(mapPresentation, /周边商铺到店前再确认是否营业、价格、服务范围/)
-  assert.match(mapPresentation, /这是高德地图搜索到的地点，只在当前页面显示/)
+  assert.match(mapPresentation, /可导航到附近，末段看门牌/)
+  assert.match(mapPresentation, /取件码为准，品牌窗口不同/)
+  assert.match(mapPresentation, /营业与价格到店确认/)
+  assert.match(mapPresentation, /当前页面内的结果/)
 })
 
 test('student-facing pages do not expose maintenance-only map and backend wording', () => {
@@ -377,7 +381,7 @@ test('student-facing pages do not expose maintenance-only map and backend wordin
   assert.doesNotMatch(source, /地图内路线/)
   assert.match(source, /学校平面图/)
   assert.match(source, /校园范围参考/)
-  assert.match(source, /学校平面图或地点清单/)
+  assert.match(source, /可重试，或先看平面图与清单/)
   assert.match(source, /高德地图位置/)
 })
 
@@ -398,7 +402,7 @@ test('guide list page is a thin shell over guide-list presentation', () => {
   assert.match(presentation, /可以稍后再试，也可以先查看校园地图和常用部门/)
   assert.match(page, /指南暂时没有显示出来/)
   assert.match(page, /label="重新试一次"/)
-  assert.match(presentation, /这里先显示已经整理好的指南/)
+  assert.match(presentation, /指南为整理稿/)
   assert.match(presentation, /指南还在整理，过一会再来看看/)
 })
 
@@ -408,7 +412,7 @@ test('global public copy describes the student project in ordinary language', ()
 
   assert.match(layout, /个人整理，非学校官方发布/)
   assert.doesNotMatch(layout, /学生团队维护的非官方指南/)
-  assert.match(about, /内容由个人或学生团队整理/)
+  assert.match(about, /内容由学生个人整理/)
   assert.doesNotMatch(about, /个人或学生团队维护/)
 })
 
@@ -450,7 +454,7 @@ test('about page is a thin shell over about presentation', () => {
   assert.match(presentation, /export const aboutProjectFacts/)
   assert.match(presentation, /export const aboutBoundaries/)
   assert.match(presentation, /export const aboutGovernanceLinks/)
-  assert.match(presentation, /重要事项看学校通知/)
+  assert.match(presentation, /学校通知优先/)
   assert.match(presentation, /告诉我们哪里不对/)
 })
 
@@ -534,9 +538,10 @@ test('public source and place pages use student-facing data status wording', () 
   assert.match(sourcePage, /sourceLevelGuides/)
   assert.match(sourcePage, /sourceLevelLabels/)
   assert.match(sourcePage, /校园消息，<span class="block sm:inline">先看能不能直接用<\/span>/)
-  assert.match(sourcePage, /地图边界只帮助你辨认方向/)
+  assert.match(sourcePage, /地图边界只用来辨认方向/)
   assert.match(sourcePage, /了解社区地图/)
-  assert.match(sourcesPresentation, /适合先找地点和了解生活经验/)
+  assert.match(sourcesPresentation, /找地点和生活经验/)
+  assert.match(sourcesPresentation, /营业、收费和办事要求看现场/)
   assert.match(sourcesPresentation, /export function collectActiveLinkedSources/)
   assert.doesNotMatch(sourcePage, /function dateOnly/)
   assert.doesNotMatch(sourcePage, /const sourceLevels =/)
@@ -557,25 +562,23 @@ test('public source and place pages use student-facing data status wording', () 
   assert.doesNotMatch(placePage, /\{\{ place\.coordinateSystem \}\}/)
 
   assert.match(mapPage, /from ['"]~~\/app\/utils\/map-presentation['"]/)
-  assert.match(mapPage, /resolveMapPoiStatusText/)
+  // 状态文案解析搬进 useMapPoi，页面只渲染注入后的 poiStatusText。
+  assert.match(readFileSync(resolve('app/composables/useMapPoi.ts'), 'utf8'), /resolveMapPoiStatusText/)
   assert.match(mapPresentation, /可直接导航/)
   assert.match(mapPresentation, /已有位置 · 暂时无法在地图显示/)
   assert.doesNotMatch(mapPage, /WGS84 坐标已核验/)
   assert.doesNotMatch(mapPresentation, /WGS84 坐标已核验/)
 })
 
-test('student-facing nearby and research pages use reader-facing wording', () => {
+test('student-facing nearby pages use reader-facing wording', () => {
   const files = [
     'app/pages/nearby.vue',
-    'app/utils/nearby-presentation.ts',
-    'app/pages/research/xiaohongshu-images.vue'
+    'app/utils/nearby-presentation.ts'
   ]
   const source = files.map(file => readFileSync(resolve(file), 'utf8')).join('\n')
 
   assert.match(source, /从下课随手吃，到周末出去玩/)
   assert.match(source, /附近这些地方可以先看看/)
-  assert.match(source, /图片使用说明/)
-  assert.match(source, /部分社交平台图片暂不展示/)
   assert.doesNotMatch(source, /高德候选 · 待核验/)
   assert.doesNotMatch(source, /待实地核验候选/)
   assert.doesNotMatch(source, /社交平台待核验素材/)

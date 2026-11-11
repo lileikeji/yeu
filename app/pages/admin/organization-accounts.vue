@@ -151,7 +151,6 @@ onMounted(() => {
   <div class="mx-auto max-w-6xl">
     <AdminPageHeader
       title="组织管理员"
-      description="为社团或部门创建独立后台账号。每个账号只能编辑被授权的一个组织页面。"
       icon="i-lucide-shield-user"
     />
 

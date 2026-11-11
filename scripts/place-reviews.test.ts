@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import test from 'node:test'
 import { closeDatabase, getDatabase, type DatabaseClient } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
@@ -505,4 +505,74 @@ test('adminReviewPlace outcome is visible through the track code lookup', () => 
   } finally {
     cleanup()
   }
+})
+
+/* ------------------------------------------------------------------ */
+/* 推广位下线（2026-11-10）：只保留 place_merchants 历史表，不再有入口  */
+/* ------------------------------------------------------------------ */
+
+test('推广位已下线：公开与后台推广接口文件均已删除', () => {
+  const removedFiles = [
+    'server/api/public/merchant-promo/click.post.ts',
+    'server/api/public/promoted-merchants.get.ts',
+    'server/api/admin/place-reviews/merchants/[placeId]/promo.get.ts',
+    'server/api/admin/place-reviews/merchants/[placeId]/promo.patch.ts'
+  ]
+  for (const file of removedFiles) {
+    assert.equal(existsSync(resolve(file)), false, `${file} 应已删除`)
+  }
+  assert.equal(existsSync(resolve('data/yeu-promoted-merchants.json')), false, '推广位数据文件不应存在')
+})
+
+test('推广位已下线：/api/public/place-reviews 响应不再包含 promo 字段', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    createPlaceReview(client, { placeId: PLACE_ID, score: 4, content: '推广位下线后的评价。' }, { userId: USER_A.id })
+    const payload = listPublicPlaceReviews(client, PLACE_ID)
+    assert.equal('promo' in payload, false, '响应体不应再带 promo')
+    assert.deepEqual(Object.keys(payload).sort(), ['aggregate', 'amap', 'mine', 'placeId', 'reviews', 'seedCount'].sort())
+  } finally {
+    cleanup()
+  }
+})
+
+test('推广位已下线：服务层与共享类型里不再有推广读写代码', () => {
+  const serviceSource = readFileSync(resolve('server/modules/place-reviews/service.ts'), 'utf8')
+  assert.equal(/promo/i.test(serviceSource), false, 'place-reviews service 不应再有推广代码')
+  const typesSource = readFileSync(resolve('shared/types/server.ts'), 'utf8')
+  assert.equal(/promo/i.test(typesSource), false, 'shared/types 不应再有推广类型')
+  const schemasSource = readFileSync(resolve('shared/schemas/server.ts'), 'utf8')
+  assert.equal(/promo/i.test(schemasSource), false, 'shared/schemas 不应再有推广校验')
+})
+
+test('推广位已下线：前台首页与地图面板不再渲染推广位', () => {
+  const homeSource = readFileSync(resolve('app/pages/index.vue'), 'utf8')
+  assert.equal(/promotedMerchants|promoted-merchants|merchant-promo/i.test(homeSource), false, '首页不应再有推广位区块')
+  const catalogSource = readFileSync(resolve('app/composables/usePublicCatalog.ts'), 'utf8')
+  assert.equal(/promotedMerchant/i.test(catalogSource), false, '不应再有拉取推广商家的 composable')
+  const panelSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
+  assert.equal(/MerchantPromo|promoActive|trackPromoClick|loadMerchantPromo/.test(panelSource), false, '详情面板不应再有推广条')
+  const ratingSource = readFileSync(resolve('app/components/map/PlaceRatingSection.vue'), 'utf8')
+  assert.equal(/promo/i.test(ratingSource), false, '评分区不应再有 promo prop')
+  const adminSource = readFileSync(resolve('app/pages/admin/place-reviews.vue'), 'utf8')
+  assert.equal(/promo/i.test(adminSource), false, '后台不应再有推广位编辑区')
+})
+
+test('推广位下线后 place_merchants 历史表仍保留（只读，不再写入）', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const columns = client.sqlite.prepare('PRAGMA table_info(place_merchants)').all() as Array<{ name: string }>
+    assert.deepEqual(
+      columns.map(row => row.name).sort(),
+      ['ai_frequency', 'enabled', 'meituan_url', 'place_id', 'promo_weight', 'qr_code_url', 'updated_at']
+    )
+    assert.equal(client.sqlite.prepare('SELECT COUNT(*) AS count FROM place_merchants').get<{ count: number }>()?.count, 0)
+  } finally {
+    cleanup()
+  }
+  const schemaSource = readFileSync(resolve('server/database/schema.ts'), 'utf8')
+  assert.ok(
+    schemaSource.includes('2026-11-10 推广位下线，表保留只读，不再写入，也不再有任何读写入口'),
+    'schema 里应留下线说明注释'
+  )
 })

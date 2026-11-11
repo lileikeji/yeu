@@ -41,38 +41,17 @@ const placeQuery = ref('')
 const importantTimeOpen = ref(false)
 const featureRequest = usePublicFrontendFeatures()
 const homeEntryRequest = usePublicHomeEntries()
-const merchantRequest = usePublicPromotedMerchants()
 const guideListRequest = usePublicGuideList()
 const procedureListRequest = usePublicProcedureList()
-await Promise.all([featureRequest, homeEntryRequest, merchantRequest, guideListRequest, procedureListRequest])
+await Promise.all([featureRequest, homeEntryRequest, guideListRequest, procedureListRequest])
 
 const { data: publicFeatureResponse } = featureRequest
 const { data: publicHomeEntryResponse } = homeEntryRequest
-const { data: publicMerchantResponse } = merchantRequest
 const { data: publicGuideListResponse } = guideListRequest
 const { data: publicProcedureListResponse } = procedureListRequest
 
-/** 首页"校园周边商家"：仅展示后台开启推广的地点，无推广时整块隐藏。 */
 const signalListRequest = usePublicSignalList(5)
 const homeSignalEvents = computed(() => signalListRequest.data.value?.events ?? [])
-
-const promotedMerchants = computed(() => publicMerchantResponse.value?.items ?? [])
-const merchantIcon = (type: string | null) => (
-  ({
-    'dining': 'i-lucide-utensils',
-    'food': 'i-lucide-utensils',
-    'sports-ground': 'i-lucide-dumbbell',
-    'shop': 'i-lucide-store'
-  } as Record<string, string>)[type ?? ''] ?? 'i-lucide-store'
-)
-const merchantTypeLabel = (type: string | null) => (
-  ({
-    'dining': '餐饮',
-    'food': '餐饮',
-    'sports-ground': '运动休闲',
-    'shop': '周边商铺'
-  } as Record<string, string>)[type ?? ''] ?? '周边'
-)
 
 const importantDates = computed(() => buildHomeImportantDates(publicProcedureListResponse.value?.items))
 const importantDatesLine = computed(() => (
@@ -263,7 +242,6 @@ const {
         <UModal
           v-model:open="importantTimeOpen"
           :title="`${currentCohortLabel}重要时间`"
-          description="以下日期来自学校最新校历，具体到校时段与材料以录取通知书及学校后续通知为准。"
           :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
         >
           <template #body>
@@ -286,7 +264,7 @@ const {
             </ol>
             <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-4">
               <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                个人安排有变化时，以学校和学院的最新通知为准。
+                个人安排以学校和学院最新通知为准。
               </p>
               <UButton
                 to="/guides/arrival"
@@ -304,9 +282,6 @@ const {
           <h1 class="text-left text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-100 md:text-center md:text-4xl">
             {{ currentCohortLabel }}入学指南
           </h1>
-          <p class="mx-auto mt-2 max-w-2xl text-left text-xs leading-5 text-zinc-600 dark:text-zinc-300 md:mt-3 md:text-center md:text-sm md:leading-6">
-            报到、住宿、地图、办事这些新生要弄明白的事项，集中整理在这里，便于你按需查询。信息以录取通知书和学校最新通知为准。
-          </p>
 
           <form
             class="mx-auto mt-4 grid max-w-3xl grid-cols-[minmax(0,1fr)_auto] gap-2 text-left md:mt-7"
@@ -392,9 +367,6 @@ const {
                   每天更新
                 </span>
               </div>
-              <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:text-sm md:leading-6">
-                教务处、学生处等站点新发的通知，同一件事多个来源合成一条，按热度排。
-              </p>
             </div>
             <NuxtLink
               to="/hot"
@@ -446,99 +418,6 @@ const {
               </NuxtLink>
             </li>
           </ul>
-        </div>
-      </section>
-
-      <section
-        v-if="promotedMerchants.length"
-        class="border-t border-[var(--line)] bg-white dark:bg-zinc-900"
-      >
-        <div class="page-shell py-5 md:py-8">
-          <div class="flex items-end justify-between gap-3">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
-                  校园周边商家
-                </h2>
-                <span class="inline-flex min-h-6 items-center gap-1 rounded-full bg-green-50 dark:bg-green-950 px-2 text-[11px] font-bold text-green-700 dark:text-green-400 ring-1 ring-green-200 dark:ring-green-800">
-                  <UIcon
-                    name="i-lucide-badge-check"
-                    class="size-3.5"
-                  />
-                  入驻商家
-                </span>
-              </div>
-              <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:text-sm md:leading-6">
-                入驻学生街的商家均已收录在校园地图，评分来自高德，营业与价格以到店实际为准。
-              </p>
-            </div>
-            <NuxtLink
-              to="/map"
-              class="inline-flex min-h-10 shrink-0 items-center gap-1 text-sm font-semibold text-green-700 dark:text-green-400"
-            >
-              打开地图
-              <UIcon
-                name="i-lucide-arrow-right"
-                class="size-4"
-              />
-            </NuxtLink>
-          </div>
-
-          <div class="mt-3 grid gap-2.5 md:mt-4 md:grid-cols-3 md:gap-3">
-            <NuxtLink
-              v-for="merchant in promotedMerchants"
-              :key="merchant.slug"
-              :to="`/map?place=${encodeURIComponent(merchant.slug)}`"
-              class="group flex flex-col gap-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm md:min-h-40 md:p-4"
-            >
-              <span class="flex items-center gap-2.5">
-                <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
-                  <UIcon
-                    :name="merchantIcon(merchant.type)"
-                    class="size-4.5"
-                  />
-                </span>
-                <span class="min-w-0">
-                  <span class="block truncate text-sm font-bold text-zinc-950 dark:text-zinc-100">
-                    {{ merchant.name }}
-                  </span>
-                  <span class="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    <template v-if="merchant.area">
-                      <span class="rounded bg-amber-100 px-1 py-px font-semibold text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
-                        {{ merchant.area }}
-                      </span>
-                    </template>
-                    {{ merchantTypeLabel(merchant.type) }}
-                  </span>
-                </span>
-                <span
-                  v-if="merchant.score !== null"
-                  class="ml-auto shrink-0 rounded-md bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-300"
-                >
-                  ★ {{ merchant.score.toFixed(1) }}
-                </span>
-                <span
-                  v-else
-                  class="ml-auto shrink-0 rounded-md bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400"
-                >
-                  新店收录
-                </span>
-              </span>
-              <span
-                v-if="merchant.tagline"
-                class="line-clamp-2 min-h-0 text-xs leading-5 text-zinc-600 dark:text-zinc-300"
-              >
-                {{ merchant.tagline }}
-              </span>
-              <span class="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-green-700 dark:text-green-400">
-                查看地图定位
-                <UIcon
-                  name="i-lucide-map-pin"
-                  class="size-3.5 transition group-hover:translate-x-0.5"
-                />
-              </span>
-            </NuxtLink>
-          </div>
         </div>
       </section>
 
@@ -626,7 +505,7 @@ const {
                     下一项：{{ checklistSummary.nextTitle || '继续完成准备事项' }}
                   </template>
                   <template v-else-if="checklistHydrated">当前清单已全部勾完，可随时复查。</template>
-                  <template v-else>打开后可以继续勾选。</template>
+                  <template v-else>进度只存在这台设备</template>
                 </p>
                 <span class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-green-700 px-4 text-sm font-semibold text-green-700 dark:text-green-400 transition group-hover:bg-green-50 dark:group-hover:bg-green-950 lg:min-h-11 lg:px-5">
                   打开清单
@@ -653,7 +532,7 @@ const {
             </h2>
           </div>
           <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-700 dark:text-zinc-200">
-            校内遇到火情、治安或宿舍设施紧急故障，先拨校园 110 报修求助。就医、心理支持和学籍问题上，按下面电话找对应部门。
+            紧急先拨校园 110
           </p>
           <div class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <a
@@ -673,7 +552,7 @@ const {
             </a>
           </div>
           <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            医务室实行全年 24 小时值班，具体入口可在校园地图搜索「医务所」；报修和求助详情以校保卫处、医务室及到场人员指引为准。
+            医务室 24 小时值班 · 地图搜「医务所」
           </p>
         </div>
       </section>

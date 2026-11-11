@@ -60,7 +60,7 @@ test('department need shortcuts use student tasks instead of office names', () =
 })
 
 test('department list messages stay student-facing', () => {
-  assert.equal(departmentListMessages.serviceUnavailable, '下方仍可查看学校公开的常用部门；办公地点和联系方式请以学校最新信息为准。')
+  assert.equal(departmentListMessages.serviceUnavailable, '下方仍可查看学校公开的常用部门；办公地点和联系方式看学校最新信息。')
   assert.equal(departmentListMessages.emptyMatch, '没有匹配的部门')
   assert.equal(departmentListMessages.contactPending, '联系方式待公布')
   assert.equal(departmentListMessages.contactReady, '有公开联系方式')

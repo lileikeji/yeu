@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   if (query.download) {
     const label = QR_PATHS[query.path]
     setHeader(event, 'Content-Disposition',
-      `attachment; filename="qr.png"; filename*=UTF-8''${encodeURIComponent(`新生歌手大赛${label}二维码.png`)}`)
+      `attachment; filename="qr.png"; filename*=UTF-8''${encodeURIComponent(`新声歌手大赛${label}二维码.png`)}`)
   }
   return png
 })

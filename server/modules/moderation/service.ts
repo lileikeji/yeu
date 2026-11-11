@@ -9,6 +9,8 @@
  * - 网关配置复用 assistant 的 NUXT_AI_GATEWAY_*，NUXT_MOMENT_MODERATION='0'
  *   可显式关闭。
  */
+import { readFile as fsReadFile, stat as fsStat } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { desc, eq, sql } from 'drizzle-orm'
 import { busMoments, placeMoments, users } from '../../database/schema'
 import type { DatabaseClient } from '../../database/client'
@@ -58,11 +60,11 @@ export function moderationConfigFromRuntime(runtime: {
   }
 }
 
-/** 调一次网关要 JSON 判定。任何失败返回 null（= 未判定）。 */
+/** 调一次网关要 JSON 判定（文本；可选附带图片走多模态）。任何失败返回 null（= 未判定）。 */
 export async function moderateOnce(
   config: ModerationConfig,
   body: string,
-  options: { fetchImpl?: typeof fetch } = {}
+  options: { fetchImpl?: typeof fetch, imageDataUrls?: string[] } = {}
 ): Promise<ModerationVerdict | null> {
   const doFetch = options.fetchImpl ?? fetch
   // 与 assistant 同一网关契约：baseUrl 不含 /v1（如 http://127.0.0.1:18080），
@@ -81,7 +83,25 @@ export async function moderateOnce(
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: MODERATION_SYSTEM_PROMPT },
-          { role: 'user', content: body.slice(0, 600) }
+          options.imageDataUrls?.length
+            ? {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: body.trim()
+                      ? `${body.slice(0, 600)}
+
+（同时判断附图是否违规：涉黄、暴力、二维码广告、他人隐私照片等）`
+                      : '判断这些附图是否违规（涉黄、暴力、二维码广告、他人隐私照片等）。若无违规，violation 为 false。'
+                  },
+                  ...options.imageDataUrls.slice(0, 3).map(url => ({
+                    type: 'image_url',
+                    image_url: { url }
+                  }))
+                ]
+              }
+            : { role: 'user', content: body.slice(0, 600) }
         ]
       }),
       signal: controller.signal
@@ -117,11 +137,12 @@ export async function moderateMomentRow(
   id: string,
   body: string,
   config: ModerationConfig,
-  options: { fetchImpl?: typeof fetch } = {}
+  options: { fetchImpl?: typeof fetch, images?: string[] } = {}
 ): Promise<boolean> {
   const now = Date.now()
-  // 纯打卡无文本：无内容可判，直接按通过放出（记检查时间）。
-  if (!body.trim()) {
+  const images = options.images ?? []
+  // 纯打卡无文本也无图：无内容可判，直接按通过放出（记检查时间）。
+  if (!body.trim() && images.length === 0) {
     if (kind === 'bus') {
       client.db.update(busMoments)
         .set({ status: 'approved', aiCheckedAt: now, aiReason: '无文本内容' , updatedAt: now })
@@ -135,7 +156,13 @@ export async function moderateMomentRow(
     }
     return false
   }
-  const verdict = await moderateOnce(config, body, options).catch(() => null)
+  // 附图读文件转 data URL 送多模态判定（最多 3 张；读失败跳过该图）
+  const imageDataUrls: string[] = []
+  for (const url of images.slice(0, 3)) {
+    const dataUrl = await imageUrlToDataUrl(url).catch(() => null)
+    if (dataUrl) imageDataUrls.push(dataUrl)
+  }
+  const verdict = await moderateOnce(config, body, { ...options, imageDataUrls }).catch(() => null)
   if (!verdict) {
     // 巡检失败（网关挂/超时/解析失败）：不卡住留言板，直接放出；
     // ai_checked_at 留 NULL，后台能区分「未判定直发」与「AI 通过」。
@@ -214,6 +241,8 @@ export interface AdminMomentView {
   aiReason: string | null
   moderatedBy: string | null
   moderationReason: string | null
+  /** 附图（/uploads/...）；校车留言为空数组。 */
+  images: string[]
   createdAt: string
 }
 
@@ -292,6 +321,7 @@ export function adminListMoments(
         aiReason: row.aiReason,
         moderatedBy: row.moderatedBy,
         moderationReason: row.moderationReason,
+        images: [],
         createdAt: new Date(row.createdAt ?? Date.now()).toISOString()
       }))
     }
@@ -305,6 +335,7 @@ export function adminListMoments(
       id: placeMoments.id,
       placeId: placeMoments.placeId,
       body: placeMoments.body,
+      images: placeMoments.images,
       ip: placeMoments.ip,
       status: placeMoments.status,
       aiCheckedAt: placeMoments.aiCheckedAt,
@@ -347,8 +378,22 @@ export function adminListMoments(
       aiReason: row.aiReason,
       moderatedBy: row.moderatedBy,
       moderationReason: row.moderationReason,
+      images: parseImagesJson(row.images),
       createdAt: new Date(row.createdAt ?? Date.now()).toISOString()
     }))
+  }
+}
+
+const ADMIN_IMAGE_URL = /^\/uploads\/[0-9a-f-]{36}\.(?:png|jpg|jpeg|webp)$/i
+function parseImagesJson(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string' && ADMIN_IMAGE_URL.test(item))
+      : []
+  } catch {
+    return []
   }
 }
 
@@ -383,4 +428,37 @@ export function adminDeleteMoment(client: DatabaseClient, kind: MomentKind, id: 
     return client.db.delete(busMoments).where(eq(busMoments.id, id)).run().changes > 0
   }
   return client.db.delete(placeMoments).where(eq(placeMoments.id, id)).run().changes > 0
+}
+
+
+const UPLOAD_URL = /^\/uploads\/([0-9a-f-]{36})\.(png|jpe?g|webp)$/i
+const MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp'
+}
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024
+
+/** /uploads/<uuid>.<ext> → data URL（读共享上传目录；超 4MB 跳过防网关拒绝）。 */
+async function imageUrlToDataUrl(url: string): Promise<string | null> {
+  const match = UPLOAD_URL.exec(url.trim())
+  if (!match) return null
+  const ext = match[2]!.toLowerCase()
+  const uploadDir = process.env.NUXT_UPLOAD_DIR?.trim() || 'shared/uploads'
+  const candidates = [
+    resolve(process.cwd(), uploadDir, `${match[1]}.${ext}`),
+    resolve(process.cwd(), 'shared', 'uploads', `${match[1]}.${ext}`)
+  ]
+  for (const filePath of candidates) {
+    try {
+      const stat = await fsStat(filePath)
+      if (!stat.isFile() || stat.size > MAX_IMAGE_BYTES) continue
+      const buffer = await fsReadFile(filePath)
+      return `data:${MIME_BY_EXT[ext] ?? 'image/jpeg'};base64,${buffer.toString('base64')}`
+    } catch {
+      // 该候选路径不存在，继续下一个
+    }
+  }
+  return null
 }

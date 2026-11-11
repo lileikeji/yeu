@@ -68,7 +68,7 @@ function startMinePolling(): void {
         stopMinePolling()
         aiPending.value = false
         feedback.value = ''
-        error.value = '留言未通过审核，如有疑问请联系管理员'
+        error.value = '留言没通过审核，有问题找管理员'
       } else if (minePollElapsed >= 60) {
         stopMinePolling()
         aiPending.value = false
@@ -204,12 +204,17 @@ async function uploadPlacePhotos(event: Event): Promise<void> {
       })
       uploaded.push(stored.url)
     }
-    await userFetch('/api/place-moments', {
+    const response = await userFetch<{ moment: { status?: 'pending' | 'approved' | 'rejected' } }>('/api/place-moments', {
       method: 'POST',
       body: { placeId: props.placeId, kind: 'comment', body: '', images: uploaded }
     })
-    feedback.value = `已上传 ${uploaded.length} 张照片`
-    await load()
+    // 图片同样先审后放：pending 时提示审核中动画并轮询，过审自动上屏
+    aiPending.value = response.moment?.status === 'pending'
+    feedback.value = aiPending.value
+      ? `已上传 ${uploaded.length} 张照片，AI 审核中…`
+      : `已上传 ${uploaded.length} 张照片`
+    if (aiPending.value) startMinePolling()
+    else await load()
   } catch (err) {
     error.value = getRequestMessage(err, '照片上传失败')
   } finally {
@@ -323,7 +328,7 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
       class="mt-2 w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-left text-[11px] text-zinc-400 transition hover:border-zinc-300 dark:border-zinc-700 dark:text-zinc-500"
       @click="composerOpen = true"
     >
-      说说这里怎么样，或者传张图…
+      说两句，或传张图…
     </button>
 
     <div
@@ -334,7 +339,7 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
         v-model="body"
         :maxlength="BODY_MAX"
         rows="2"
-        placeholder="写点具体的：几点关、哪个门近、值不值得来"
+        placeholder="几点开门、哪个门近"
         class="w-full resize-none bg-transparent text-[12px] leading-5 text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
       />
       <div
@@ -501,4 +506,34 @@ async function submit(kind: 'comment' | 'checkin'): Promise<void> {
       还没有人留言，来当第一个。
     </p>
   </section>
+
+  <!-- 照片灯箱：当前页全屏放大，点遮罩或关闭按钮退出 -->
+  <Teleport to="body">
+    <div
+      v-if="lightboxUrl"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="照片查看"
+      @click="closeLightbox"
+    >
+      <button
+        type="button"
+        class="absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
+        aria-label="关闭大图"
+        @click.stop="closeLightbox"
+      >
+        <UIcon
+          name="i-lucide-x"
+          class="size-6"
+        />
+      </button>
+      <img
+        :src="lightboxUrl"
+        alt="照片大图"
+        class="max-h-[85vh] max-w-full rounded-lg object-contain shadow-2xl"
+        @click.stop
+      >
+    </div>
+  </Teleport>
 </template>

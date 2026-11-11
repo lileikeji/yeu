@@ -1,9 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { recordVisitorEvent } from '../visitors/service'
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import type { PlaceReviewStatus } from '../../../shared/constants/server'
 import type { DatabaseClient } from '../../database/client'
-import { placeAmapRatings, placeMerchants, placeReviews, reviewLikes, users, visitorEvents } from '../../database/schema'
+import { placeAmapRatings, placeReviews, reviewLikes, users } from '../../database/schema'
 
 export const AMAP_RATING_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const PUBLIC_REVIEWS_LIMIT = 5
@@ -60,8 +59,6 @@ export interface PublicPlaceReviewsPayload {
   mine: { submitted: boolean, status: PlaceReviewStatus | null }
   /** Number of rewritten seed reviews for this place (excluded from aggregate). */
   seedCount: number
-  /** Merchant promotion info (Meituan jump link) when enabled by the backoffice. */
-  promo: PublicMerchantPromoView | null
 }
 
 export interface AdminPlaceReviewView {
@@ -370,8 +367,7 @@ export function listPublicPlaceReviews(
       : null,
     reviews,
     mine,
-    seedCount: Number(seedCountRow?.count ?? 0),
-    promo: publicMerchantPromo(client, key)
+    seedCount: Number(seedCountRow?.count ?? 0)
   }
 }
 
@@ -767,7 +763,7 @@ export function adminUpdateSeedReview(
   client: DatabaseClient,
   id: string,
   input: { content?: string, score?: number },
-  adminId: string
+  _adminId: string
 ): AdminPlaceReviewView {
   const now = Date.now()
   const existing = client.db.select({
@@ -892,160 +888,4 @@ export function adminDeleteReview(client: DatabaseClient, id: string): void {
     })
   }
   client.db.delete(placeReviews).where(eq(placeReviews.id, id)).run()
-}
-
-/* ------------------------------------------------------------------ */
-/* 商家推广设置：美团跳转链接、排行占比（promo_weight）、AI 出现频率    */
-/* ------------------------------------------------------------------ */
-
-export interface MerchantPromoView {
-  placeId: string
-  meituanUrl: string | null
-  /** Uploaded QR image path shown on the map popup; click to zoom for scanning. */
-  qrCodeUrl: string | null
-  promoWeight: number
-  aiFrequency: number
-  enabled: boolean
-  /** Outbound Meituan jump clicks recorded via visitor_events (7 / 30 days). */
-  clickCount7d: number
-  clickCount30d: number
-}
-
-/**
- * 公开详情里附带的推广信息：与后台视图同源，只是不暴露 placeId/enabled。
- * 同一份声明被地图弹窗与 AI 共用，避免两处内联类型各自漂移。
- */
-export type PublicMerchantPromoView = Omit<MerchantPromoView, 'placeId' | 'enabled'>
-
-export function getMerchantPromo(client: DatabaseClient, placeId: string): MerchantPromoView {
-  const row = client.db.select().from(placeMerchants)
-    .where(eq(placeMerchants.placeId, placeId)).get()
-  const now = Date.now()
-  const week = now - 7 * 24 * 60 * 60 * 1000
-  const month = now - 30 * 24 * 60 * 60 * 1000
-  return {
-    placeId,
-    meituanUrl: row?.meituanUrl ?? null,
-    qrCodeUrl: row?.qrCodeUrl ?? null,
-    promoWeight: row?.promoWeight ?? 0,
-    aiFrequency: row?.aiFrequency ?? 0,
-    enabled: row?.enabled ?? false,
-    clickCount7d: row ? countPromoClicks(client, placeId, week) : 0,
-    clickCount30d: row ? countPromoClicks(client, placeId, month) : 0
-  }
-}
-
-/** Count outbound promo clicks in visitor_events for one place since a time. */
-function countPromoClicks(client: DatabaseClient, placeId: string, sinceMs: number): number {
-  const row = client.db.select({ count: sql<number>`count(*)` })
-    .from(visitorEvents)
-    .where(and(
-      eq(visitorEvents.action, 'merchant_promo_click'),
-      sql`json_extract(${visitorEvents.metaJson}, '$.placeId') = ${placeId}`,
-      sql`${visitorEvents.createdAt} >= ${sinceMs}`
-    ))
-    .get()
-  return Number(row?.count ?? 0)
-}
-
-/** Record an outbound Meituan jump click from the map popup (visitor-level). */
-export function recordPromoClick(
-  client: DatabaseClient,
-  event: import('h3').H3Event,
-  placeId: string
-): void {
-  recordVisitorEvent(event, client, {
-    action: 'merchant_promo_click',
-    path: '/map',
-    meta: { placeId }
-  })
-}
-
-export function updateMerchantPromo(
-  client: DatabaseClient,
-  placeId: string,
-  input: { meituanUrl?: string | null, qrCodeUrl?: string | null, promoWeight?: number, aiFrequency?: number, enabled?: boolean }
-): MerchantPromoView {
-  const now = Date.now()
-  const existing = client.db.select({ placeId: placeMerchants.placeId }).from(placeMerchants)
-    .where(eq(placeMerchants.placeId, placeId)).get()
-
-  if (input.meituanUrl !== undefined && input.meituanUrl !== null) {
-    const url = input.meituanUrl.trim()
-    if (url && !/^https?:\/\//i.test(url)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Meituan URL must start with http(s)://',
-        data: { code: 'INVALID_MEITUAN_URL' }
-      })
-    }
-    input.meituanUrl = url || null
-  }
-  if (input.qrCodeUrl !== undefined && input.qrCodeUrl !== null) {
-    if (!/^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:png|jpg|webp)$/i.test(input.qrCodeUrl)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Invalid QR image path',
-        data: { code: 'INVALID_QR_CODE_URL' }
-      })
-    }
-  }
-  if (input.promoWeight !== undefined) {
-    if (input.promoWeight < 0 || input.promoWeight > 100) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'promoWeight must be 0-100',
-        data: { code: 'INVALID_PROMO_WEIGHT' }
-      })
-    }
-  }
-  if (input.aiFrequency !== undefined) {
-    if (input.aiFrequency < 0 || input.aiFrequency > 100) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'aiFrequency must be 0-100',
-        data: { code: 'INVALID_AI_FREQUENCY' }
-      })
-    }
-  }
-
-  if (existing) {
-    const set: Record<string, unknown> = { updatedAt: now }
-    if (input.meituanUrl !== undefined) set.meituanUrl = input.meituanUrl
-    if (input.qrCodeUrl !== undefined) set.qrCodeUrl = input.qrCodeUrl
-    if (input.promoWeight !== undefined) set.promoWeight = input.promoWeight
-    if (input.aiFrequency !== undefined) set.aiFrequency = input.aiFrequency
-    if (input.enabled !== undefined) set.enabled = input.enabled
-    client.db.update(placeMerchants).set(set).where(eq(placeMerchants.placeId, placeId)).run()
-  } else {
-    client.db.insert(placeMerchants).values({
-      placeId,
-      meituanUrl: input.meituanUrl ?? null,
-      qrCodeUrl: input.qrCodeUrl ?? null,
-      promoWeight: input.promoWeight ?? 0,
-      aiFrequency: input.aiFrequency ?? 0,
-      enabled: input.enabled ?? false,
-      updatedAt: now
-    }).run()
-  }
-  return getMerchantPromo(client, placeId)
-}
-
-/** 公开详情附加推广信息（地图弹窗/AI 用）——enabled 且有关联时才暴露。 */
-export function publicMerchantPromo(client: DatabaseClient, placeId: string): PublicMerchantPromoView | null {
-  const row = client.db.select().from(placeMerchants)
-    .where(and(
-      eq(placeMerchants.placeId, placeId),
-      eq(placeMerchants.enabled, true)
-    )).get()
-  if (!row) return null
-  const now = Date.now()
-  return {
-    meituanUrl: row.meituanUrl,
-    qrCodeUrl: row.qrCodeUrl,
-    promoWeight: row.promoWeight,
-    aiFrequency: row.aiFrequency,
-    clickCount7d: countPromoClicks(client, placeId, now - 7 * 24 * 60 * 60 * 1000),
-    clickCount30d: countPromoClicks(client, placeId, now - 30 * 24 * 60 * 60 * 1000)
-  }
 }

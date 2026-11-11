@@ -77,7 +77,7 @@ onPullDownRefresh(() => { void loadProcedures() })
 </script>
 
 <template>
-  <AppPage eyebrow="校园值班台 / 办事情" title="流程清单" subtitle="先看办理路径，再核对当前通知。信息不完整的流程会明确标注。">
+  <AppPage eyebrow="校园值班台 / 办事情" title="流程清单">
     <scroll-view v-if="!loading && !error && items.length" class="filter-scroll" scroll-x>
       <view class="filter-row">
         <button

@@ -91,9 +91,6 @@ onMounted(load)
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
           看用户怎么使用值班台
         </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-          只展示经过白名单处理的聚合数据。原始 UA 和 IP 仅对总管理员返回，组织管理员不会看到。
-        </p>
       </div>
       <div class="flex items-center gap-2">
         <select

@@ -164,7 +164,6 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="操作记录"
-      description="查看管理员近期做过的操作，记录仅供核对，不能修改。"
       icon="i-lucide-scroll-text"
       eyebrow="安全与操作记录"
     >

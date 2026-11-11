@@ -331,13 +331,17 @@ export const procedureSources = sqliteTable('procedure_sources', {
 
 export const feedback = sqliteTable('feedback', {
   id: text('id').primaryKey(),
-  targetType: text('target_type', { enum: ['general', 'place', 'content', 'procedure'] }).notNull(),
+  targetType: text('target_type', { enum: ['general', 'place', 'content', 'procedure', 'claim'] }).notNull(),
   targetId: text('target_id'),
   reasonType: text('reason_type').notNull(),
   message: text('message').notNull(),
+  /** 用户认为正确的说法（纠错回执用，选填）。 */
+  expected: text('expected'),
   evidenceUrl: text('evidence_url'),
   pageUrl: text('page_url'),
   contact: text('contact'),
+  /** 可查询回执号；历史数据为 null。 */
+  receiptCode: text('receipt_code'),
   status: text('status', { enum: ['new', 'reviewing', 'resolved', 'rejected', 'spam'] }).notNull().default('new'),
   resolutionNote: text('resolution_note'),
   submitterIpHash: text('submitter_ip_hash'),
@@ -348,8 +352,9 @@ export const feedback = sqliteTable('feedback', {
 }, table => [
   index('feedback_status_created_idx').on(table.status, table.createdAt),
   index('feedback_target_idx').on(table.targetType, table.targetId),
+  uniqueIndex('feedback_receipt_code_unique').on(table.receiptCode),
   check('feedback_status_check', sql`${table.status} in ('new', 'reviewing', 'resolved', 'rejected', 'spam')`),
-  check('feedback_target_type_check', sql`${table.targetType} in ('general', 'place', 'content', 'procedure')`),
+  check('feedback_target_type_check', sql`${table.targetType} in ('general', 'place', 'content', 'procedure', 'claim')`),
   check('feedback_target_id_check', sql`(${table.targetType} = 'general' and ${table.targetId} is null) or (${table.targetType} != 'general' and ${table.targetId} is not null)`)
 ])
 
@@ -427,7 +432,13 @@ export const visitorEvents = sqliteTable('visitor_events', {
   index('visitor_events_visitor_created_idx').on(table.visitorId, table.createdAt),
   index('visitor_events_action_created_idx').on(table.action, table.createdAt),
   index('visitor_events_ip_created_idx').on(table.ip, table.createdAt),
-  index('visitor_events_created_idx').on(table.createdAt)
+  index('visitor_events_created_idx').on(table.createdAt),
+  // 公告确认人数按 meta_json 里的 noticeId 分组并 count(distinct visitor_id)，
+  // 是 visitor_events 上唯一的热聚合（迁移 0052_visitor_event_json_indexes）。
+  // action 必须在首列：部分索引或表达式首列的写法，规划器拿不到前导等值约束，
+  // 会退回 action_created_idx 再建临时表，24 万事件下 31ms 变回 1230ms。
+  index('visitor_events_notice_confirm_idx')
+    .on(table.action, sql`json_extract(${table.metaJson}, '$.noticeId')`, table.visitorId)
 ])
 
 export const visitorBans = sqliteTable('visitor_bans', {
@@ -593,6 +604,14 @@ export const assistantAnswerCache = sqliteTable('assistant_answer_cache', {
   index('assistant_answer_cache_expiry_idx').on(table.expiresAt),
   index('assistant_answer_cache_query_idx').on(table.query)
 ])
+
+// 知识修订号的持久化单行表（id 固定为 'assistant'）。原来是进程内计数，重启归零，
+// 会让上一轮留在 assistant_answer_cache 里的旧答案继续命中。
+export const assistantKnowledgeState = sqliteTable('assistant_knowledge_state', {
+  id: text('id').primaryKey(),
+  revision: integer('revision').notNull().default(0),
+  updatedAt: integer('updated_at').notNull().default(0)
+})
 
 export const assistantKnowledgeEntries = sqliteTable('assistant_knowledge_entries', {
   id: text('id').primaryKey(),
@@ -902,8 +921,8 @@ export const placeAmapRatings = sqliteTable('place_amap_ratings', {
 
 /**
  * Merchant promotion settings (backoffice): per-place Meituan jump link,
- * promo weight for ranking boosts and AI recommendation frequency. The AI
- * food recommender and the map popup read these to surface promoted shops.
+ * promo weight for ranking boosts and AI recommendation frequency.
+ * 2026-11-10 推广位下线，表保留只读，不再写入，也不再有任何读写入口。
  */
 export const placeMerchants = sqliteTable('place_merchants', {
   placeId: text('place_id').primaryKey(),
@@ -1033,9 +1052,15 @@ export const recruitReferrers = sqliteTable('recruit_referrers', {
 export const competitionEvents = sqliteTable('competition_events', {
   id: text('id').primaryKey(),
   contentId: text('content_id').notNull().references(() => contents.id, { onDelete: 'cascade' }),
-  title: text('title').notNull().default('新生歌手大赛'),
+  title: text('title').notNull().default('新声歌手大赛'),
   /** 现场扫码登记入口开关；关闭后公开登记页只读。 */
   registrationOpen: integer('registration_open', { mode: 'boolean' }).notNull().default(true),
+  /** 第几届，例如「2026 年 · 第 1 届」；换届时改这里。 */
+  edition: text('edition').notNull().default(''),
+  /** 赛程：每轮的日期/时间/地点，JSON 数组。 */
+  scheduleJson: text('schedule_json').notNull().default('[]'),
+  /** 报名表单字段配置：label / required / enabled，JSON 数组。 */
+  formFieldsJson: text('form_fields_json').notNull().default('[]'),
   dimensionsJson: text('dimensions_json').notNull().default('[]'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
@@ -1054,6 +1079,17 @@ export const competitionRounds = sqliteTable('competition_rounds', {
   judgeCount: integer('judge_count').notNull().default(5),
   /** 本轮晋级下一轮的人数；决赛为 null。复赛留空表示名额待定。 */
   advanceCount: integer('advance_count'),
+  /**
+   * 顺序评分模式下的当前出场条目（competition_round_entries.id）。
+   * 为空 = 未开启顺序评分，评委可自由给任意选手打分（旧行为）。
+   * 非空时服务端只接受该条目的评分，全员提交后自动切到下一位。
+   */
+  currentEntryId: text('current_entry_id'),
+  /**
+   * 分场天（初赛两天）：1 / 2，空 = 不分天。
+   * 非空时只在这一天的名单里顺序切人，也只收这一天的评委票。
+   */
+  activeDay: integer('active_day'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
@@ -1073,6 +1109,8 @@ export const competitionJudges = sqliteTable('competition_judges', {
   passwordHash: text('password_hash').notNull(),
   displayName: text('display_name').notNull(),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  /** 到岗天：1 / 2，空 = 两天都在（初赛里跨两天的评委）。 */
+  day: integer('day'),
   lastLoginAt: integer('last_login_at'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
@@ -1109,6 +1147,8 @@ export const competitionPreRegistrations = sqliteTable('competition_pre_registra
   phone: text('phone'),
   email: text('email'),
   song: text('song'),
+  /** 预报名时自选的参赛日：1 / 2，空 = 还没定。实际以现场签到当天为准。 */
+  preferredDay: integer('preferred_day'),
   registeredAt: integer('registered_at'),
   createdAt: timestamp('created_at')
 }, table => [
@@ -1167,6 +1207,23 @@ export const competitionEmailSends = sqliteTable('competition_email_sends', {
   check('competition_email_sends_status_check', sql`${table.status} in ('sent', 'failed')`)
 ])
 
+/**
+ * 结果邮件可插入的图片；存 base64，随邮件以 cid 内嵌发送，
+ * 收到邮件不依赖外链也能直接看到图。
+ */
+export const competitionEmailImages = sqliteTable('competition_email_images', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  filename: text('filename').notNull(),
+  mime: text('mime').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  /** base64（不含 data: 前缀）。 */
+  data: text('data').notNull(),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('competition_email_images_event_idx').on(table.eventId)
+])
+
 /** 每轮参赛名单与出场顺序（复赛/决赛生成时随机抽签）。 */
 export const competitionRoundEntries = sqliteTable('competition_round_entries', {
   id: text('id').primaryKey(),
@@ -1175,6 +1232,8 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   sortOrder: integer('sort_order').notNull().default(0),
   /** 从上一轮晋级时的名次，便于管理员核对。 */
   advancedFromRank: integer('advanced_from_rank'),
+  /** 分场天：1 / 2，空 = 未分配（不分天的轮次一直是空）。 */
+  contestDay: integer('contest_day'),
   createdAt: timestamp('created_at')
 }, table => [
   uniqueIndex('competition_round_entries_round_singer_unique').on(table.roundId, table.singerId),

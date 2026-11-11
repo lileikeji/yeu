@@ -1,0 +1,20 @@
+[Unit]
+Description=YEU daily SQLite snapshot with verified metadata
+After=yeu.service
+Wants=yeu.service
+
+[Service]
+Type=oneshot
+# shared/backups 是 root:yeu 0750（ops/harden-production.sh），组没有写位，
+# 以 yeu 身份跑会直接 EACCES；部署时打快照本来也是 root。这里保持 root，
+# 其余 hardening 照旧，写权限只用 ReadWritePaths 收到快照目录。
+User=root
+Group=yeu
+EnvironmentFile=/www/wwwroot/yeu/shared/.env
+ExecStart=/bin/bash /opt/yeu-ops/yeu-backup.sh
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/www/wwwroot/yeu/shared/backups

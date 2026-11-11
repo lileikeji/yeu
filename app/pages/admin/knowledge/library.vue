@@ -74,7 +74,7 @@ function formatDate(value: number): string {
 }
 
 function statusLabel(value: string): string {
-  return ({ active: '可检索', inactive: '已停用', ready: '已入索引', processing: '处理中', failed: '失败', expired: '已过期', rejected: '已拒绝' } as Record<string, string>)[value] ?? value
+  return ({ active: '可查找', inactive: '已停用', ready: '已收录', processing: '处理中', failed: '失败', expired: '已过期', rejected: '已拒绝' } as Record<string, string>)[value] ?? value
 }
 
 async function loadLibrary(): Promise<void> {
@@ -145,7 +145,6 @@ onMounted(loadLibrary)
   <div class="mx-auto max-w-7xl space-y-5">
     <AdminPageHeader
       title="全部知识资料"
-      description="查看 AI 实际会检索的内置知识、平台实时数据、官网正文和网页资料缓存。"
       icon="i-lucide-database"
       eyebrow="知识库"
     >
@@ -153,7 +152,7 @@ onMounted(loadLibrary)
         <UButton
           to="/admin/knowledge/graph"
           icon="i-lucide-git-fork"
-          label="知识图谱"
+          label="关联视图"
           color="neutral"
           variant="outline"
         />
@@ -180,7 +179,7 @@ onMounted(loadLibrary)
     >
       <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-          可检索资料
+          可查找资料
         </p>
         <p class="mt-2 text-2xl font-bold tabular-nums text-zinc-950 dark:text-zinc-100">
           {{ summary.retrievalTotal }}

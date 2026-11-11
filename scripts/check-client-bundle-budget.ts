@@ -62,8 +62,7 @@ export const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
     'pages/procedures/[slug].vue': 470 * 1024,
     'pages/admin/[section].vue': 670 * 1024,
     'pages/admin/procedures.vue': 720 * 1024,
-    'pages/admin/field-observations.vue': 650 * 1024,
-    'pages/research/xiaohongshu-images.vue': 420 * 1024
+    'pages/admin/field-observations.vue': 650 * 1024
   }
 }
 

@@ -7,7 +7,6 @@ interface PanoramaTour {
   title: string
   shortTitle: string
   description: string
-  detail: string
   url: string
   sourceUrl: string
   sourceLabel: string
@@ -33,8 +32,7 @@ const tours: PanoramaTour[] = [
     eyebrow: '先看这里',
     title: '逛校园里的路和楼',
     shortTitle: '校内实景',
-    description: '这是百度地图用户上传的校园全景，从大门一路看到教学楼、部分宿舍、体育馆、医务所和公交站。',
-    detail: '底部可以切换 26 个拍摄点，包括大门、和昌教学楼、普照教学楼、黑龙江楼、吉林楼、辽宁楼、湖北楼、湖南楼、甘肃楼、体育馆、医务所、学生公寓、篮球场、草坪、商店和校园公交站；画面来自百度地图用户上传，不是学校官方拍摄。',
+    description: '百度地图用户全景 · 26 个拍摄点 · 非学校官方拍摄',
     url: BAIDU_CAMPUS_PANORAMA_URL,
     sourceUrl: BAIDU_CAMPUS_PANORAMA_URL,
     sourceLabel: '打开百度地图用户全景',
@@ -47,8 +45,7 @@ const tours: PanoramaTour[] = [
     eyebrow: '再了解学校',
     title: '走进校史馆',
     shortTitle: '校史馆',
-    description: '这是学校发布的 VR 校史馆，沿着展厅往前看，了解学校从筹建到现在的办学历程。',
-    detail: '可以切换前言、艰苦筹建、学校初创、教育改革、开放办学、校友风采等展厅，展板也能放大看；本站只提供入口，不复制校史馆全景内容。',
+    description: '学校党委宣传部发布 · 2023 年上线 · 仅校史馆内景',
     url: OFFICIAL_HISTORY_VR_URL,
     sourceUrl: OFFICIAL_HISTORY_VR_URL,
     sourceLabel: '打开学校发布的 VR 校史馆',
@@ -75,17 +72,14 @@ const activeViewerUrl = computed(() => (
 const controlTips = [
   {
     title: '按住画面转一圈',
-    description: '电脑用鼠标拖，手机用手指左右滑。也可以上下看看。',
     icon: 'i-lucide-mouse-pointer-2'
   },
   {
     title: '放大看清一点',
-    description: '电脑滚动鼠标，手机用两根手指缩放。',
     icon: 'i-lucide-scan'
   },
   {
     title: '点底部换地方',
-    description: '不用自己一路走，直接点想看的楼或拍摄点。',
     icon: 'i-lucide-orbit'
   }
 ] as const
@@ -167,8 +161,8 @@ onMounted(() => {
           <h1 class="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl md:text-5xl">
             大门、教学楼、宿舍，<br>先看看长什么样
           </h1>
-          <p class="mt-4 max-w-2xl text-sm leading-7 text-white/80 md:text-base">
-            想认路就先逛校内实景，想了解学校故事再去校史馆。电脑和手机都能拖动画面，不用下载 App。
+          <p class="mt-4 max-w-2xl text-xs leading-6 text-white/70">
+            校内实景来自百度地图用户 · 校史馆由学校发布
           </p>
 
           <div class="mt-5 flex flex-wrap gap-3">
@@ -206,9 +200,6 @@ onMounted(() => {
               <p class="text-xs font-bold text-white md:text-sm">
                 {{ tip.title }}
               </p>
-              <p class="mt-1 hidden text-xs leading-5 text-white/65 md:block">
-                {{ tip.description }}
-              </p>
             </div>
           </div>
         </div>
@@ -223,9 +214,6 @@ onMounted(() => {
         <h2 class="mt-1 text-2xl font-black tracking-tight text-zinc-950 dark:text-zinc-100 md:text-3xl">
           校园实景和校史馆分开看
         </h2>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          两套画面来自不同地方，我们把来源和能看的内容都写清楚了。
-        </p>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
@@ -285,9 +273,6 @@ onMounted(() => {
           <h2 class="mt-1 text-2xl font-black tracking-tight text-zinc-950 dark:text-zinc-100 md:text-3xl">
             {{ activeTour.title }}
           </h2>
-          <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            {{ activeTour.detail }}
-          </p>
         </div>
         <UButton
           :to="activeTour.sourceUrl"
@@ -421,71 +406,19 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="mt-6 grid gap-4 lg:grid-cols-2">
-        <details class="group rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/60 p-5 md:p-6">
-          <summary class="flex cursor-pointer list-none items-start gap-3 marker:hidden">
-            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-300 shadow-sm">
-              <UIcon
-                name="i-lucide-school"
-                class="size-5"
-              />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="block text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                校内实景从哪里来
-              </span>
-              <span class="mt-1 block text-base font-bold text-emerald-950 dark:text-emerald-300">
-                百度地图用户上传的校园全景
-              </span>
-            </span>
-            <UIcon
-              name="i-lucide-chevron-down"
-              class="mt-1 size-4 shrink-0 text-emerald-600 transition group-open:rotate-180"
-            />
-          </summary>
-          <p class="mt-4 text-sm leading-6 text-emerald-950/75 dark:text-emerald-100/75">
-            这是百度地图用户上传的校园全景，不是学校官方拍摄；拍摄时间也没有写清楚。它只用于提前认路，楼栋外观、商店和道路如果变了，以你到校看到的为准。
-          </p>
-        </details>
-
-        <details class="group rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/70 p-5 md:p-6">
-          <summary class="flex cursor-pointer list-none items-start gap-3 marker:hidden">
-            <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-white dark:bg-zinc-900 text-amber-700 dark:text-amber-300 shadow-sm">
-              <UIcon
-                name="i-lucide-badge-check"
-                class="size-5"
-              />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="block text-xs font-semibold text-amber-800 dark:text-amber-300">
-                校史馆从哪里来
-              </span>
-              <span class="mt-1 block text-base font-bold text-amber-950 dark:text-amber-100">
-                学校党委宣传部发布的 VR 校史馆
-              </span>
-            </span>
-            <UIcon
-              name="i-lucide-chevron-down"
-              class="mt-1 size-4 shrink-0 text-amber-600 dark:text-amber-300 transition group-open:rotate-180"
-            />
-          </summary>
-          <div class="mt-4">
-            <p class="text-sm leading-6 text-amber-950/75">
-              学校在 2023 年上线了这套 VR 校史馆全景。本站只提供学校原页入口，不复制全景内容；它只拍了校史馆里面，不包含宿舍和教学楼。
-            </p>
-            <UButton
-              :to="OFFICIAL_ANNOUNCEMENT_URL"
-              external
-              target="_blank"
-              rel="noopener noreferrer"
-              icon="i-lucide-external-link"
-              label="看看学校怎么介绍"
-              color="warning"
-              variant="link"
-              class="mt-2 px-0"
-            />
-          </div>
-        </details>
+      <div class="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-zinc-200 dark:border-zinc-800 pt-4 text-xs text-zinc-500 dark:text-zinc-400">
+        <span>校内实景：百度地图用户上传 · 校史馆：学校 2023 年发布</span>
+        <UButton
+          :to="OFFICIAL_ANNOUNCEMENT_URL"
+          external
+          target="_blank"
+          rel="noopener noreferrer"
+          icon="i-lucide-external-link"
+          label="学校介绍"
+          color="neutral"
+          variant="link"
+          class="px-0"
+        />
       </div>
     </section>
   </div>

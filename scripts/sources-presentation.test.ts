@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -76,7 +76,7 @@ test('source page offers a direct path from the introduction to source search', 
   assert.match(pageSource, />\s*学校官网 · yeu\.edu\.cn\s*<\/a>/)
   assert.match(pageSource, />\s*查看原文链接\s*<\/a>/)
   assert.match(pageSource, /id="source-list"/)
-  assert.match(pageSource, /地图上的地点与现场指示牌/)
+  assert.match(pageSource, /绿色虚线来自公开社区地图/)
   assert.doesNotMatch(pageSource, /地图标点与现场指示牌/)
   assert.match(pageSource, /class="page-shell page-section scroll-mt-20"/)
   assert.match(pageSource, /id="source-list"[\s\S]*查看学校原文和其他参考链接/)
@@ -112,7 +112,7 @@ test('source level guides use ordinary decision wording', () => {
   assert.equal(sourceLevelGuides[0]?.tone, 'blue')
   assert.equal(sourceLevelGuides.at(-1)?.level, '到现场再看')
   assert.equal(sourceLevelGuides.at(-1)?.tone, 'zinc')
-  assert.match(sourceLevelGuides.at(-1)?.description ?? '', /营业情况、收费和办事要求/)
+  assert.match(sourceLevelGuides.at(-1)?.description ?? '', /营业、收费和办事要求/)
   assert.doesNotMatch(pageSource, /确认范围|判断可信度|按有效期复核|地图数据|已发布内容关联来源/)
   assert.match(pageSource, /<ul class="grid gap-3 sm:grid-cols-2"/)
   assert.match(pageSource, /<li[\s\S]*v-for="item in sourceLevelGuides"/)

@@ -80,7 +80,7 @@ onPullDownRefresh(() => {
 </script>
 
 <template>
-  <AppPage eyebrow="校园值班台 / 读说明" title="校园指南" subtitle="按主题查看已经核验的公开信息，具体日期和规则以当届通知为准。">
+  <AppPage eyebrow="校园值班台 / 读说明" title="校园指南">
     <scroll-view v-if="!loading && !error && guides.length" class="filter-scroll" scroll-x>
       <view class="filter-row">
         <button

@@ -121,7 +121,7 @@ onShow(() => {
 </script>
 
 <template>
-  <AppPage title="新生清单" subtitle="按到校前、报到当天和第一周逐项勾选，进度只保存在这台设备。">
+  <AppPage title="新生清单">
     <view v-if="ready" class="summary card">
       <view class="summary-head">
         <text class="summary-percent">{{ overview.percent }}%</text>

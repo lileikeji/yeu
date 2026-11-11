@@ -61,25 +61,6 @@ export interface ApiPublicHomeEntries {
   items: ApiPublicHomeEntry[]
 }
 
-/**
- * 首页"校园周边商家"卡：后台开启了推广（place_merchants.enabled）的已发布地点。
- * 仅暴露展示所需字段；地图定位由 slug 拼 /map?place=slug。
- */
-export interface ApiPublicPromotedMerchant {
-  slug: string
-  name: string
-  type: string | null
-  score: number | null
-  cost: number | null
-  area: '新区' | '旧区' | null
-  /** 从简介提炼的一句话口碑（"…是学校周边的快餐小吃店"），无则空串 */
-  tagline: string
-}
-
-export interface ApiPublicPromotedMerchants {
-  items: ApiPublicPromotedMerchant[]
-}
-
 export interface ApiTransitSegment {
   name: string
   departureStop: string
@@ -461,6 +442,13 @@ export interface ApiAssistantResponse {
    * 否则答非所问会被成功率掩盖。
    */
   evidenceGap?: boolean
+  /**
+   * 引用状态：'cited' = 回答确实带可核验来源；'none' = 模型没给合法引用，
+   * citations 为空。前端据此显示「没有可核验来源」提示。旧响应可能不带此字段。
+   */
+  citationStatus?: 'cited' | 'none'
+  /** 命中回答边界（如个人信息套取）被拦截，答案只有固定提示，无来源。 */
+  blocked?: boolean
 }
 
 export type AdminCapability
@@ -511,14 +499,87 @@ export interface ApiFeedback {
   targetId: string | null
   reasonType: string
   message: string
+  /** 用户认为正确的说法（纠错时填写，选填）。 */
+  expected: string | null
   evidenceUrl: string | null
   pageUrl: string | null
   contact: string | null
+  /** 可查询回执号，形如 `YEU-7K3M2Q`。 */
+  receiptCode: string | null
   status: FeedbackStatus
   resolutionNote: string | null
   createdAt: string
   updatedAt: string
   resolvedAt: string | null
+}
+
+/** 公开回执状态：受理中 / 已采纳并更新 / 未采纳。 */
+export type FeedbackReceiptStatus = 'pending' | 'accepted' | 'rejected'
+
+/**
+ * 公开回执查询结果。按设计不回显 message、contact 等提交内容，
+ * 只回答「这份反馈处理到哪一步」。
+ */
+export interface ApiFeedbackReceipt {
+  code: string
+  status: FeedbackReceiptStatus
+  targetType: FeedbackTargetType
+  submittedAt: string
+  updatedAt: string
+  /** 进入 accepted/rejected 的时间；pending 时为 null。 */
+  handledAt: string | null
+}
+
+/** 证据链里一条来源在公开端允许出现的字段。 */
+export interface ApiClaimEvidenceSource {
+  id: string
+  documentId: string | null
+  documentTitle: string | null
+  sourceTitle: string | null
+  sourceUrl: string | null
+  /** 来源分级（A–E）；来源记录不可用时为 null，不做推测。 */
+  sourceLevel: SourceLevel | null
+  isOfficial: boolean | null
+  /** sources.accessed_at：资料最近一次被查看/核验的时间。 */
+  verifiedAt: string | null
+  /** knowledge_documents.captured_at：原始文档抓取时间。 */
+  fetchedAt: string | null
+  /** 原文摘录，最多 200 字。 */
+  quote: string
+}
+
+export interface ApiClaimEvidenceEntity {
+  id: string
+  entityType: string
+  canonicalName: string
+  role: 'subject' | 'object' | 'mentioned'
+}
+
+export interface ApiClaimEvidenceClaim {
+  id: string
+  title: string
+  statement: string
+  category: string
+  confidenceLabel: string
+  confidenceScore: number
+  validFrom: string | null
+  validUntil: string | null
+  publishedAt: string | null
+  updatedAt: string
+}
+
+/**
+ * 公开「事实证据链」。
+ * `citationStatus: 'none'` 时 sources 必须为空数组 —— 不拿别的来源顶替。
+ */
+export interface ApiClaimEvidence {
+  claim: ApiClaimEvidenceClaim
+  entity: ApiClaimEvidenceEntity | null
+  sources: ApiClaimEvidenceSource[]
+  /** 同一实体下的其它已发布结论数；无实体关联时为 null。 */
+  claimCount: number | null
+  citationStatus: 'available' | 'none'
+  updatedAt: string
 }
 
 /** K2/K6 校外公交线路（高德 v3/bus/linename，extensions=all 的静态快照）。 */

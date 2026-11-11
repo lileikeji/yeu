@@ -7,7 +7,6 @@
 - `procedures`：结构化办事流程、材料与步骤。
 - `organizations`：部门与社团。
 - `search`：首版关键词搜索，后续 AI 检索从独立服务接入。
-- `merchants`：商家资料；认领、优惠和推广在后续版本启用。
 - `admin`：单管理员内容工作台。
 
 跨域基础 UI 放在 `app/components`，前后端共享契约放在 `shared`。

@@ -203,7 +203,7 @@ async function selectNearbyNeed(category: string): Promise<void> {
           从下课随手吃，到周末出去玩
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          学生街吃什么、马甲周边能去哪、泉州市区怎么逛，已经按范围和时间成本整理好。商家营业、景区开放和票价变化较快，出发前再用地图复核。
+          学生街、马甲周边、泉州市区三片，按距离和路上时间分开整理。商家、景区和票价会变，出发前用地图复核。
         </p>
         <div class="mt-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
           <UInput

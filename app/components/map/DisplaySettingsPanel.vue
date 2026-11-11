@@ -107,9 +107,6 @@ const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: st
         校园分区
       </button>
     </div>
-    <p class="mt-2 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
-      校园分区范围还没有可确认的资料，先用地点和区域范围找路。
-    </p>
 
     <div class="mt-4">
       <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">

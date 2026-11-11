@@ -131,7 +131,7 @@ const { data: campusPlaceResponse } = campusPlaceRequest
 const banners: BannerItem[] = [
   {
     title: '迎新指南，先看重点',
-    summary: '报到、住宿、地图和校园生活，一页快速找到',
+    summary: '报到、住宿、地图和校园生活，一页看完',
     image: '/images/intro/yeu-campus-hero.webp',
     to: '/procedures/arrival'
   },
@@ -149,7 +149,7 @@ const banners: BannerItem[] = [
   },
   {
     title: '周末进城，先把路线存好',
-    summary: '交通、吃喝和泉州市区攻略都在这里',
+    summary: '交通、吃喝、泉州市区怎么走',
     image: '/images/nearby/city-night.webp',
     to: '/nearby'
   }
@@ -237,7 +237,7 @@ const managedEntryDefinitions: ManagedEntryDefinition[] = [
     id: 'compact-map',
     featureKey: 'home.essential.map',
     title: '校园地图',
-    summary: '旧区、新区和高频地点快速查找',
+    summary: '旧区、新区和常去的地方',
     to: '/map',
     icon: 'i-lucide-map-pinned',
     defaultPlacement: 'services',
@@ -307,7 +307,7 @@ const managedEntryDefinitions: ManagedEntryDefinition[] = [
     id: 'compact-clubs',
     featureKey: 'home.more.clubs',
     title: '学生社团',
-    summary: '按兴趣了解社团和招新信息',
+    summary: '按兴趣看社团和招新',
     to: '/clubs',
     icon: 'i-lucide-users-round',
     defaultPlacement: 'more',
@@ -340,7 +340,7 @@ const supplementalQuickEntries: CompactHomeEntry[] = [
   {
     id: 'compact-search',
     title: '校园问答',
-    summary: '检索资料并找到功能入口',
+    summary: '查资料、找功能入口',
     to: '/search?mode=ai',
     icon: 'i-lucide-circle-question-mark',
     placement: 'quick',
@@ -430,7 +430,7 @@ const guideToolDefinitions: CompactHomeEntry[] = [
   { id: 'tool-arrival', title: '报到安排', summary: '按时间和材料逐项准备', to: '/procedures/arrival', icon: 'i-lucide-calendar-check-2', placement: 'timeline', sortOrder: 30, featureKey: 'home.essential.arrival', linkPreviewOnly: true },
   { id: 'tool-major', title: '专业住宿查询', summary: '查学院、专业和住宿片区', to: '/major-lookup', icon: 'i-lucide-graduation-cap', placement: 'timeline', sortOrder: 40, linkPreviewOnly: true },
   { id: 'tool-rules', title: '学生手册与资助', summary: '查看绩点、综测和奖助规则', to: '/student-rules', icon: 'i-lucide-book-open-check', placement: 'timeline', sortOrder: 50, featureKey: 'home.more.student-rules', linkPreviewOnly: true },
-  { id: 'tool-search', title: '校园 AI 问答', summary: '检索资料并找到功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-question-mark', placement: 'timeline', sortOrder: 60, linkPreviewOnly: true }
+  { id: 'tool-search', title: '校园问答', summary: '查资料、找功能入口', to: '/search?mode=ai', icon: 'i-lucide-circle-question-mark', placement: 'timeline', sortOrder: 60, linkPreviewOnly: true }
 ]
 
 const directEntryDefinitions: CompactHomeEntry[] = [
@@ -674,21 +674,21 @@ function defaultEntryDetailContent(entry: CompactHomeEntry): string {
   const exact = compactPreviewContentByPath[path]
   if (exact) return exact
   if (path.startsWith('/guides/')) {
-    return `先看这份指南\n${entry.summary}\n\n继续查看\n进入完整页面后可以查看具体说明、相关入口和需要再次确认的事项。`
+    return `先看这份指南\n${entry.summary}\n\n往下还能看\n完整页面有具体说明、入口和需要再确认的事项。`
   }
   if (path.startsWith('/procedures/')) {
-    return `先确认要办的事情\n${entry.summary}\n\n办理前\n按完整页面列出的步骤准备，遇到当年安排变化时以负责部门最新通知为准。`
+    return `动手前先看\n${entry.summary}\n\n办理前\n按完整页面的步骤准备；当年安排有变化时，以负责部门最新通知为准。`
   }
   if (path.startsWith('/places/')) {
-    return `地点简介\n${entry.summary}\n\n怎么去\n进入完整页面查看地点信息和路线；开放入口与现场通行情况以当天为准。`
+    return `地点简介\n${entry.summary}\n\n怎么走\n完整页面有地点信息和路线；开放入口和当天通行情况以现场为准。`
   }
   if (path.startsWith('/clubs/')) {
-    return `先了解社团\n${entry.summary}\n\n开学后怎么找\n进入完整页面查看活动和联系方式，招新时间与群聊入口以当期发布为准。`
+    return `社团简介\n${entry.summary}\n\n开学后\n完整页面有活动和联系方式；招新时间与群入口以当期发布为准。`
   }
   if (path.startsWith('/departments/')) {
-    return `部门职责\n${entry.summary}\n\n联系前准备\n进入完整页面查看办事范围和联系方式，并准备好需要说明的具体事项。`
+    return `部门职责\n${entry.summary}\n\n联系前\n完整页面有办事范围和联系方式；先想清楚要问哪件事。`
   }
-  return `主要内容\n${entry.summary}\n\n继续查看\n进入完整页面后可以查看更详细的信息和可用功能。`
+  return `主要内容\n${entry.summary}\n\n继续看\n完整页面有更细的信息和可用功能。`
 }
 
 const selectedEntryContentBlocks = computed<CompactEntryContentBlock[]>(() => {
@@ -767,7 +767,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f3f6f8] dark:bg-zinc-950 pb-10 text-zinc-900 dark:text-zinc-100">
+  <div class="min-h-dvh bg-[#f3f6f8] dark:bg-zinc-950 pb-10 text-zinc-900 dark:text-zinc-100">
     <section class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
       <div class="mx-auto max-w-3xl px-4 py-2.5 sm:px-6 sm:py-3">
         <div class="flex items-center justify-between gap-3">
@@ -775,9 +775,6 @@ onBeforeUnmount(() => {
             <h1 class="truncate text-base font-black text-zinc-950 dark:text-zinc-100 sm:text-lg">
               迎新指南
             </h1>
-            <p class="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400 sm:text-xs">
-              新生报到、校园生活与办事信息，一页快速找到；重要内容以学校最新通知为准
-            </p>
           </div>
           <div class="flex shrink-0 items-center gap-1.5">
             <UButton
@@ -1304,7 +1301,6 @@ onBeforeUnmount(() => {
     <UModal
       v-model:open="entrySheetOpen"
       :title="selectedEntryIsLinkPreview ? '链接预览' : (selectedEntry?.title || '入口详情')"
-      :description="selectedEntryIsLinkPreview ? undefined : '查看完整内容，需要时再进入对应页面'"
       :ui="entryModalUi"
     >
       <template #body>
@@ -1339,7 +1335,7 @@ onBeforeUnmount(() => {
               联系整理者
             </h3>
             <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              有问题、想补充资料或加入新生交流群，可以长按识别二维码。
+              长按识别二维码
             </p>
             <NuxtLink
               to="/images/contact-wechat.png"
@@ -1410,7 +1406,6 @@ onBeforeUnmount(() => {
     <UModal
       v-model:open="noticeOpen"
       title="公告详情"
-      description="查看公告完整内容"
     >
       <template #body>
         <article

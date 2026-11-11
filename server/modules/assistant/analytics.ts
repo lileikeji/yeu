@@ -3,6 +3,8 @@ import { and, asc, count, desc, eq, like, sql } from 'drizzle-orm'
 import type { ApiAssistantResponse, ApiAssistantRetrievalPath, ApiAssistantStage } from '../../../shared/types/server'
 import type { DatabaseClient } from '../../database/client'
 import { assistantRuns } from '../../database/schema'
+import { isBlockedAssistantResponse } from './assistant-response'
+import { ASSISTANT_STORED_QUERY_MAX_LENGTH, maskAssistantQuery } from './query-mask'
 
 /** AI 检索的调用来源，后台按这个维度分类。 */
 export type AssistantChannel = 'web' | 'miniapp' | 'qq' | 'wechat'
@@ -40,19 +42,22 @@ export function recordAssistantSuccess(
 ): void {
   // 证据不足的「没找到 / 无法确认」也是 200，但它不是一次有效回答。把它记成
   // success 会让后台成功率掩盖答非所问——运维看板必须能看出这一类。
+  // 内容安全拦截同理：它不是答案，更不该计入成功率。
   const gap = response.evidenceGap === true
+  const blocked = isBlockedAssistantResponse(response)
   client.db.insert(assistantRuns).values({
     id: randomUUID(),
     requestId: context.requestId,
     queryHash: queryHash(context.query),
-    query: context.query.trim().slice(0, 300),
+    // 问题里可能带手机号/身份证/学号/姓名，落库前先脱敏。
+    query: maskAssistantQuery(context.query).trim().slice(0, ASSISTANT_STORED_QUERY_MAX_LENGTH),
     mode: response.mode,
     channel: context.channel ?? 'web',
     retrievalPath: response.retrievalPath ?? (response.mode === 'local' ? 'local_database' : 'web_search'),
     usedWebSearch: response.usedWebSearch,
     cacheHit: response.cacheHit ?? false,
-    success: !gap,
-    errorCode: gap ? 'NO_EVIDENCE' : null,
+    success: !gap && !blocked,
+    errorCode: blocked ? 'BLOCKED_QUERY' : gap ? 'NO_EVIDENCE' : null,
     analysisMs: stageDuration(response, 'query_analysis'),
     featureApiMs: stageDuration(response, 'feature_api'),
     databaseMs: stageDuration(response, 'local_database'),
@@ -77,7 +82,7 @@ export function recordAssistantFailure(
     id: randomUUID(),
     requestId: context.requestId,
     queryHash: queryHash(context.query),
-    query: context.query.trim().slice(0, 300),
+    query: maskAssistantQuery(context.query).trim().slice(0, ASSISTANT_STORED_QUERY_MAX_LENGTH),
     mode: 'error',
     channel: context.channel ?? 'web',
     retrievalPath: 'error',

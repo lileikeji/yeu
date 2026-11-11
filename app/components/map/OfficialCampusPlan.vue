@@ -524,7 +524,7 @@ onBeforeUnmount(() => {
       :class="selectedLabel ? 'hidden md:block' : ''"
     >
       <p class="mx-auto max-w-2xl border border-white/30 bg-zinc-950/85 px-3 py-2 text-center text-xs leading-5 text-white shadow-sm backdrop-blur-sm">
-        滚轮/双指可自由缩放，拖动可平移。这张平面图只用来对照校园方向，不能用来精确导航。
+        可缩放拖动，仅供对照方向
         <a
           :href="OFFICIAL_PLAN_PAGE_URL || undefined"
           target="_blank"

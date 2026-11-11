@@ -58,7 +58,7 @@ export interface AdminStatsDefinition {
 export interface AdminResourceConfig {
   key: string
   title: string
-  description: string
+  description?: string
   icon: string
   endpoint: string
   createLabel: string

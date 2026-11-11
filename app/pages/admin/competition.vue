@@ -1,1104 +1,94 @@
 <script setup lang="ts">
-import type {
-  CompetitionAdminPayload,
-  CompetitionDimension,
-  CompetitionEvent,
-  CompetitionJudge,
-  CompetitionJudgeCredentials,
-  CompetitionRoundEntry,
-  CompetitionRoundKey,
-  CompetitionRoundView,
-  CompetitionScore,
-  CompetitionSinger,
-  CompetitionSingerPublic
-} from '~~/shared/types'
-import { COMPETITION_EMAIL_MERGE_FIELDS, DEFAULT_COMPETITION_DIMENSIONS } from '~~/shared/utils/competition'
-import { adminFetch } from '~~/app/utils/admin-request'
+import { COMPETITION_EMAIL_MERGE_FIELDS } from '~~/shared/utils/competition'
 
 definePageMeta({ layout: 'admin' })
 
 useSeoMeta({
-  title: '新生歌手大赛',
+  title: '新声歌手大赛',
   robots: 'noindex, nofollow'
 })
 
-interface SettingsDraft {
-  title: string
-  registrationOpen: boolean
-  dimensions: CompetitionDimension[]
-}
-
-interface SingerDraft {
-  name: string
-  song: string
-  className: string
-  remark: string
-  studentNo: string
-  phone: string
-  email: string
-  sortOrder: string
-}
-
-type SectionKey = 'settings' | 'singers' | 'email' | 'materials' | CompetitionRoundKey
-type EmailScope = 'all' | 'qualified' | 'unqualified'
-
 const toast = useToast()
 
-const loading = ref(true)
-const loadError = ref('')
-const payload = ref<CompetitionAdminPayload | null>(null)
-const settings = ref<SettingsDraft | null>(null)
-const activeSection = ref<SectionKey>('settings')
-const savingSettings = ref(false)
-const savingRoundKey = ref('')
-const generatingRoundKey = ref('')
-const importingSingers = ref(false)
-const addingSinger = ref(false)
-const savingSinger = ref(false)
-const busyJudgeId = ref('')
-const credentials = ref<CompetitionJudgeCredentials[]>([])
-const credentialsOpen = ref(false)
-const importInput = ref<HTMLInputElement | null>(null)
+const {
+  loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
+  sections, event, maxTotal, singers, activeRound, settingsWeightSum, hasAnyScores, roundSummary,
+  load, saveSettings, addDimension, removeDimension, moveDimension, restoreDefaultDimensions,
+  saveRound, setRoundStatus
+} = useCompetitionPayload({ toast })
 
-const editingSinger = ref<CompetitionSinger | null>(null)
-const editSingerOpen = ref(false)
-const editSingerForm = ref<SingerDraft>({
-  name: '',
-  song: '',
-  className: '',
-  remark: '',
-  studentNo: '',
-  phone: '',
-  email: '',
-  sortOrder: ''
-})
+const {
+  busyJudgeId, addingJudge, newJudgeUsername, newJudgePassword, newJudgeDisplayName,
+  judgeCredEditId, judgeCredEditName, judgeUsernameDraft, judgePasswordDraft, credentials, credentialsOpen,
+  addJudge, generateJudges, openJudgeCredentials, closeJudgeCredentials, saveJudgeCredentials,
+  saveJudgeName, toggleJudgeActive, resetJudgePassword, removeJudge, copyCredentials, closeCredentials
+} = useCompetitionJudges({ settings, load, toast, generatingRoundKey })
 
-const detailSinger = ref<CompetitionSingerPublic | null>(null)
-const detailScore = ref<CompetitionScore | null>(null)
+const {
+  SCHEDULE_KEY_OPTIONS, addScheduleRow, removeScheduleRow, restoreDefaultFormFields, formatDateTime,
+  weightPercent, rosterEntries, rosterQuery, rosterVisible, missingJudgeCount,
+  queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
+  wrongStatus, advanceHint, canGenerate, canRedraw, canClearRoster, rankClass,
+  currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
+  changeRoundDay, changeEntryDay, changeJudgeDay, generateNextRound, redrawRound, clearRoster,
+  draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
+  moveEntry, copyRoster
+} = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
 
-const emailRound = ref<CompetitionRoundKey>('prelim')
-const emailScope = ref<EmailScope>('all')
-const emailSavingTemplate = ref(false)
-const emailSending = ref(false)
-const emailTesting = ref(false)
-const emailTestAddress = ref('')
-const emailBodyRef = ref<HTMLTextAreaElement | null>(null)
+const {
+  importInput, importingSingers, triggerImport, onImportFile, newSinger, addingSinger,
+  addSinger, editingSinger, editSingerOpen, editSingerForm, savingSinger, openEditSinger, saveSingerEdit,
+  removeSinger, detailSinger, detailScore, scoreFor, scoreTotalFor, openScoreFor,
+  closeDetail, closeEditSinger
+} = useCompetitionSingers({ load, toast })
 
-// -- 报名物料（二维码 / 海报拼接） ----------------------------------------------
+const {
+  emailRound, emailScope, emailSavingTemplate, emailSending, emailTesting, emailTestAddress, emailBodyRef,
+  emailImageInput, emailImageUploading, emailImageDeletingId, emailImages, emailTemplate, emailStats,
+  emailRoundView, emailCountWithEmail, emailCountWithoutEmail,
+  emailAlreadySentCount, emailLatestRows, insertPlaceholder, insertBodyText,
+  pickEmailImage, uploadEmailImage, removeEmailImage, saveEmailTemplate, sendEmailTest, sendEmails
+} = useCompetitionEmail({ payload, singers, load, toast })
 
-const posterInput = ref<HTMLInputElement | null>(null)
-const posterSrc = ref<string | null>(null)
-const posterImg = ref<HTMLImageElement | null>(null)
-const qrPreEnabled = ref(true)
-const qrRegisterEnabled = ref(false)
-const qrSizeRatio = ref(18)
-const qrPosition = ref<'bottom-left' | 'bottom-right' | 'bottom-center'>('bottom-right')
-const preCaption = ref('扫码预报名')
-const regCaption = ref('现场扫码登记')
-const patchColor = ref('#ffffff')
-const patchMode = ref(false)
-const patches = ref<Array<{ x: number, y: number, w: number, h: number, color: string }>>([])
-const drawingStart = ref<{ x: number, y: number } | null>(null)
-const draftPatch = ref<{ x: number, y: number, w: number, h: number, color: string } | null>(null)
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const qrPreImg = ref<HTMLImageElement | null>(null)
-const qrRegImg = ref<HTMLImageElement | null>(null)
-const qrPreUrl = '/api/admin/competition/qr?path=%2Fsinger%2Fpre-register&size=512'
-const qrRegisterUrl = '/api/admin/competition/qr?path=%2Fsinger%2Fregister&size=512'
+const {
+  posterInput, posterSrc, qrPreEnabled, qrRegisterEnabled, qrSizeRatio, qrPosition, preCaption,
+  regCaption, patchColor, patchMode, patches, canvasRef,
+  qrPreUrl, qrRegisterUrl, composePoster, onPosterFileChange, onCanvasDown,
+  onCanvasMove, onCanvasUp, undoLastPatch, clearPatches, downloadQr, downloadPoster
+} = useCompetitionPoster()
 
-function loadQrImage(src: string, target: { value: HTMLImageElement | null }): Promise<void> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      target.value = img
-      resolve()
+const liveRefreshing = ref(false)
+let liveTimer: ReturnType<typeof setInterval> | null = null
+
+function stopLiveRefresh(): void {
+  if (liveTimer) {
+    clearInterval(liveTimer)
+    liveTimer = null
+  }
+}
+
+/** 名单实时刷新：页面在前台、本轮评分进行中时每 5 秒拉一次。 */
+function startLiveRefresh(): void {
+  stopLiveRefresh()
+  liveTimer = setInterval(async () => {
+    if (document.visibilityState !== 'visible' || liveRefreshing.value) return
+    const round = activeRound.value
+    if (!round || round.status !== 'open') return
+    liveRefreshing.value = true
+    try {
+      await load()
+    } finally {
+      liveRefreshing.value = false
     }
-    img.onerror = () => resolve()
-    img.src = src
-  })
-}
-
-function composePoster(): void {
-  const canvas = canvasRef.value
-  const img = posterImg.value
-  if (!canvas || !img) return
-  canvas.width = img.naturalWidth
-  canvas.height = img.naturalHeight
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  ctx.drawImage(img, 0, 0)
-  for (const patch of [...patches.value, ...(draftPatch.value ? [draftPatch.value] : [])]) {
-    ctx.fillStyle = patch.color
-    ctx.fillRect(patch.x, patch.y, patch.w, patch.h)
-  }
-
-  const items = [
-    { img: qrPreImg.value, caption: preCaption.value, enabled: qrPreEnabled.value },
-    { img: qrRegImg.value, caption: regCaption.value, enabled: qrRegisterEnabled.value }
-  ].filter(item => item.enabled && item.img)
-  if (items.length === 0) return
-
-  const width = canvas.width
-  const height = canvas.height
-  const size = Math.round(width * (qrSizeRatio.value / 100))
-  const margin = Math.round(width * 0.04)
-  const captionHeight = Math.round(size * 0.22)
-  const blockHeight = size + captionHeight
-  const totalWidth = items.length * size + (items.length - 1) * margin
-  const startX = qrPosition.value === 'bottom-center'
-    ? Math.round((width - totalWidth) / 2)
-    : qrPosition.value === 'bottom-right'
-      ? width - totalWidth - margin
-      : margin
-  const startY = height - blockHeight - margin
-
-  items.forEach((item, index) => {
-    const x = startX + index * (size + margin)
-    const pad = Math.round(size * 0.06)
-    const radius = Math.round(size * 0.05)
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.roundRect(x - pad, startY - pad, size + pad * 2, blockHeight + pad * 2, radius)
-    ctx.fill()
-    ctx.drawImage(item.img!, x, startY, size, size)
-    ctx.fillStyle = '#33413a'
-    ctx.font = `bold ${Math.round(size * 0.11)}px system-ui, sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(item.caption, x + size / 2, startY + size + captionHeight * 0.55, size)
-  })
-}
-
-watch([posterSrc, qrPreEnabled, qrRegisterEnabled, qrSizeRatio, qrPosition, preCaption, regCaption,
-  qrPreImg, qrRegImg, patches, draftPatch], () => composePoster(), { deep: true })
-
-function onPosterFileChange(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
-  const reader = new FileReader()
-  reader.onload = () => {
-    posterSrc.value = String(reader.result)
-    const img = new Image()
-    img.onload = () => {
-      posterImg.value = img
-      composePoster()
-    }
-    img.src = posterSrc.value
-  }
-  reader.readAsDataURL(file)
-}
-
-function canvasPoint(event: MouseEvent): { x: number, y: number } {
-  const canvas = canvasRef.value!
-  const rect = canvas.getBoundingClientRect()
-  const scale = canvas.width / rect.width
-  return {
-    x: Math.round((event.clientX - rect.left) * scale),
-    y: Math.round((event.clientY - rect.top) * scale)
-  }
-}
-
-function onCanvasDown(event: MouseEvent): void {
-  if (!patchMode.value) return
-  drawingStart.value = canvasPoint(event)
-}
-
-function onCanvasMove(event: MouseEvent): void {
-  const start = drawingStart.value
-  if (!start || !patchMode.value) return
-  const point = canvasPoint(event)
-  draftPatch.value = {
-    x: Math.min(start.x, point.x),
-    y: Math.min(start.y, point.y),
-    w: Math.abs(point.x - start.x),
-    h: Math.abs(point.y - start.y),
-    color: patchColor.value
-  }
-}
-
-function onCanvasUp(): void {
-  const draft = draftPatch.value
-  if (draft && draft.w > 4 && draft.h > 4) {
-    patches.value = [...patches.value, draft]
-  }
-  draftPatch.value = null
-  drawingStart.value = null
-  composePoster()
-}
-
-function undoLastPatch(): void {
-  patches.value = patches.value.slice(0, -1)
-}
-
-function clearPatches(): void {
-  patches.value = []
-}
-
-function downloadQr(path: string, name: string): void {
-  const link = document.createElement('a')
-  link.href = `/api/admin/competition/qr?path=${encodeURIComponent(path)}&size=1024&download=1&name=${encodeURIComponent(name)}`
-  link.download = name
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-}
-
-function downloadPoster(): void {
-  const canvas = canvasRef.value
-  if (!canvas) return
-  canvas.toBlob((blob) => {
-    if (!blob) return
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = '新生歌手大赛-海报拼接.png'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(link.href)
-  }, 'image/png')
+  }, 5000)
 }
 
 onMounted(async () => {
-  await Promise.all([
-    loadQrImage(qrPreUrl, qrPreImg),
-    loadQrImage(qrRegisterUrl, qrRegImg)
-  ])
-  composePoster()
+  await load()
+  startLiveRefresh()
 })
 
-const newSinger = ref<SingerDraft>({
-  name: '',
-  song: '',
-  className: '',
-  remark: '',
-  studentNo: '',
-  phone: '',
-  email: '',
-  sortOrder: ''
-})
-
-const sections = [
-  { key: 'settings', label: '赛事设置', icon: 'i-lucide-sliders-horizontal' },
-  { key: 'singers', label: '选手库', icon: 'i-lucide-list-music' },
-  { key: 'prelim', label: '初赛', icon: 'i-lucide-flag' },
-  { key: 'semi', label: '复赛', icon: 'i-lucide-git-branch' },
-  { key: 'final', label: '决赛', icon: 'i-lucide-trophy' },
-  { key: 'email', label: '邮件通知', icon: 'i-lucide-mail' },
-  { key: 'materials', label: '报名物料', icon: 'i-lucide-qr-code' }
-] as const
-
-const event = computed<CompetitionEvent | null>(() => payload.value?.event ?? null)
-const maxTotal = computed(() => event.value?.maxTotal ?? 0)
-const singers = computed(() => payload.value?.singers ?? [])
-
-const activeRound = computed<CompetitionRoundView | null>(() => {
-  const key = activeSection.value
-  if (key === 'settings' || key === 'singers' || key === 'email' || key === 'materials') return null
-  return payload.value?.rounds.find(round => round.key === key) ?? null
-})
-
-const settingsWeightSum = computed(() => (settings.value?.dimensions ?? [])
-  .reduce((sum, dimension) => sum + (Number(dimension.weight) || 0), 0))
-
-const hasAnyScores = computed(() => (payload.value?.rounds ?? []).some(round => round.hasScores))
-
-const roundSummary = computed(() => (payload.value?.rounds ?? []).map(round => ({
-  ...round,
-  scoredSingerCount: round.entries.filter(entry => entry.scoreCount > 0).length,
-  qualifiedCount: round.entries.filter(entry => entry.qualified).length
-})))
-
-function cloneDimensions(dimensions: CompetitionDimension[]): CompetitionDimension[] {
-  return dimensions.map(dimension => ({ ...dimension }))
-}
-
-function settingsFromEvent(source: CompetitionEvent): SettingsDraft {
-  return {
-    title: source.title,
-    registrationOpen: source.registrationOpen,
-    dimensions: cloneDimensions(source.dimensions)
-  }
-}
-
-function apiErrorMessage(error: unknown, fallback: string): string {
-  if (typeof error !== 'object' || error === null) return fallback
-  const data = (error as { data?: { data?: { message?: string, issues?: Array<{ message?: string }> } } }).data?.data
-  if (data?.message) return data.message
-  const issue = data?.issues?.find(item => item?.message)
-  return issue?.message ?? fallback
-}
-
-function formatDateTime(ms: number | null): string {
-  if (!ms) return '—'
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(ms))
-}
-
-function weightPercent(dimension: CompetitionDimension): number {
-  if (settingsWeightSum.value <= 0) return 0
-  return Math.round(((Number(dimension.weight) || 0) / settingsWeightSum.value) * 100)
-}
-
-function previousRound(round: CompetitionRoundView): CompetitionRoundView | null {
-  return payload.value?.rounds.find(item => item.position === round.position - 1) ?? null
-}
-
-function nextRound(round: CompetitionRoundView): CompetitionRoundView | null {
-  return payload.value?.rounds.find(item => item.position === round.position + 1) ?? null
-}
-
-/** 出场名单按抽签顺序，而不是成绩排名顺序。 */
-function rosterEntries(round: CompetitionRoundView): CompetitionRoundEntry[] {
-  return [...round.entries].sort((left, right) => left.sortOrder - right.sortOrder)
-}
-
-function missingJudgeCount(round: CompetitionRoundView): number {
-  return Math.max(0, Number(round.judgeCount || 0) - round.judges.length)
-}
-
-function roundStatusText(round: CompetitionRoundView): string {
-  if (round.status === 'open') return '评分进行中'
-  if (round.status === 'closed') return '评分已结束'
-  return '未开始'
-}
-
-function roundStatusClass(round: CompetitionRoundView): string {
-  if (round.status === 'open') return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
-  if (round.status === 'closed') return 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200'
-  return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-}
-
-function entryStatus(entry: CompetitionRoundEntry): string {
-  if (entry.qualified) return '晋级'
-  if (entry.forfeited) return '弃权'
-  if (entry.scoreCount > 0) return '已评分'
-  return '未评分'
-}
-
-function entryStatusClass(entry: CompetitionRoundEntry): string {
-  if (entry.qualified) return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
-  if (entry.forfeited) return 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
-  if (entry.scoreCount > 0) return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
-  return 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-}
-
-function wrongStatus(entry: CompetitionRoundEntry): string {
-  return entry.forfeited ? '本轮所有评委均未打分，按弃权处理' : ''
-}
-
-function advanceHint(round: CompetitionRoundView): string {
-  if (round.key === 'prelim') return ''
-  const previous = previousRound(round)
-  if (!previous) return ''
-  if (previous.status !== 'closed') return `请先结束${previous.title}评分`
-  if (previous.advanceCount === null) return `请先设置${previous.title}晋级名额`
-  if (previous.entries.every(entry => entry.scoreCount === 0)) return `${previous.title}还没有有效成绩`
-  if (round.entries.length > 0) return `本轮名单已生成；如需重做，请先清空本轮名单`
-  return `将从${previous.title}取前 ${previous.advanceCount} 名，并随机抽签决定出场顺序`
-}
-
-function canGenerate(round: CompetitionRoundView): boolean {
-  if (round.key === 'prelim') return false
-  const previous = previousRound(round)
-  return Boolean(previous
-    && previous.status === 'closed'
-    && previous.advanceCount !== null
-    && previous.entries.some(entry => entry.scoreCount > 0)
-    && round.entries.length === 0)
-}
-
-function canRedraw(round: CompetitionRoundView): boolean {
-  return round.key !== 'prelim'
-    && round.status !== 'closed'
-    && !round.hasScores
-    && round.entries.length >= 2
-}
-
-function canClearRoster(round: CompetitionRoundView): boolean {
-  const next = nextRound(round)
-  return round.key !== 'prelim'
-    && round.status !== 'open'
-    && !round.hasScores
-    && (next?.entries.length ?? 0) === 0
-}
-
-function rankClass(rank: number | null): string {
-  if (rank === 1) return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-  if (rank === 2) return 'bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200'
-  if (rank === 3) return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300'
-  return 'text-zinc-500 dark:text-zinc-400'
-}
-
-async function load(): Promise<void> {
-  loading.value = true
-  loadError.value = ''
-  try {
-    const data = await adminFetch<CompetitionAdminPayload>('/api/admin/competition')
-    payload.value = data
-    settings.value = settingsFromEvent(data.event)
-  } catch (error) {
-    const status = (error as { statusCode?: number }).statusCode
-    loadError.value = status === 403
-      ? '该功能仅开放给音乐协会的组织管理员。'
-      : apiErrorMessage(error, '比赛数据加载失败，请刷新重试。')
-  } finally {
-    loading.value = false
-  }
-}
-
-async function saveSettings(): Promise<void> {
-  if (!settings.value || savingSettings.value) return
-  const draft = settings.value
-  if (!draft.title.trim()) {
-    toast.add({ title: '比赛名称不能为空', color: 'warning' })
-    return
-  }
-  if (draft.dimensions.some(dimension => !dimension.label.trim())) {
-    toast.add({ title: '评分维度名称不能为空', color: 'warning' })
-    return
-  }
-  if (draft.dimensions.some(dimension => !(Number(dimension.weight) > 0))) {
-    toast.add({ title: '每个维度的占比必须大于 0', color: 'warning' })
-    return
-  }
-
-  savingSettings.value = true
-  try {
-    const data = await adminFetch<CompetitionAdminPayload>('/api/admin/competition', {
-      method: 'PUT',
-      body: {
-        title: draft.title.trim(),
-        registrationOpen: draft.registrationOpen,
-        dimensions: draft.dimensions.map(dimension => ({
-          key: dimension.key,
-          label: dimension.label.trim(),
-          weight: Number(dimension.weight)
-        }))
-      }
-    })
-    payload.value = data
-    settings.value = settingsFromEvent(data.event)
-    toast.add({ title: '赛事设置已保存', color: 'success' })
-  } catch (error) {
-    toast.add({
-      title: '保存失败',
-      description: apiErrorMessage(error, '请检查网络后重试。'),
-      color: 'warning'
-    })
-  } finally {
-    savingSettings.value = false
-  }
-}
-
-function addDimension(): void {
-  if (!settings.value) return
-  if (settings.value.dimensions.length >= 10) {
-    toast.add({ title: '最多 10 个评分维度', color: 'warning' })
-    return
-  }
-  settings.value.dimensions.push({
-    key: `dim-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    label: '新维度',
-    weight: 10
-  })
-}
-
-function removeDimension(index: number): void {
-  if (!settings.value || settings.value.dimensions.length <= 1) return
-  settings.value.dimensions.splice(index, 1)
-}
-
-function moveDimension(index: number, delta: number): void {
-  if (!settings.value) return
-  const target = index + delta
-  const dimensions = settings.value.dimensions
-  if (target < 0 || target >= dimensions.length) return
-  const [item] = dimensions.splice(index, 1)
-  if (item) dimensions.splice(target, 0, item)
-}
-
-function restoreDefaultDimensions(): void {
-  if (!settings.value) return
-  settings.value.dimensions = cloneDimensions(DEFAULT_COMPETITION_DIMENSIONS)
-  toast.add({ title: '已恢复默认五维（等权）', color: 'success' })
-}
-
-async function saveRound(round: CompetitionRoundView): Promise<void> {
-  if (savingRoundKey.value) return
-  if (!Number.isInteger(Number(round.judgeCount)) || Number(round.judgeCount) < 1 || Number(round.judgeCount) > 20) {
-    toast.add({ title: '评委人数需为 1-20 的整数', color: 'warning' })
-    return
-  }
-  if (round.key !== 'final' && round.advanceCount !== null
-    && (!Number.isInteger(Number(round.advanceCount)) || Number(round.advanceCount) < 1)) {
-    toast.add({ title: '晋级人数需为正整数', color: 'warning' })
-    return
-  }
-  if (round.key === 'prelim' && round.advanceCount === null) {
-    toast.add({ title: '初赛需设置晋级人数', color: 'warning' })
-    return
-  }
-
-  savingRoundKey.value = round.key
-  try {
-    const body: Record<string, unknown> = { judgeCount: Number(round.judgeCount) }
-    if (round.key !== 'final') {
-      body.advanceCount = round.advanceCount === null ? null : Number(round.advanceCount)
-    }
-    const data = await adminFetch<CompetitionAdminPayload>(
-      `/api/admin/competition/rounds/${round.key}`,
-      { method: 'PUT', body }
-    )
-    payload.value = data
-    toast.add({ title: `${round.title}设置已保存`, color: 'success' })
-  } catch (error) {
-    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    savingRoundKey.value = ''
-  }
-}
-
-async function setRoundStatus(round: CompetitionRoundView, status: 'open' | 'closed'): Promise<void> {
-  if (savingRoundKey.value) return
-  if (status === 'closed' && !window.confirm(`结束${round.title}评分？结束后评委不能再修改成绩；未评分选手按弃权处理。`)) {
-    return
-  }
-  if (status === 'open' && round.status === 'closed'
-    && !window.confirm(`重新开放${round.title}评分？如果下一轮名单已生成，系统会拒绝此操作。`)) {
-    return
-  }
-
-  savingRoundKey.value = round.key
-  try {
-    const data = await adminFetch<CompetitionAdminPayload>(
-      `/api/admin/competition/rounds/${round.key}`,
-      { method: 'PUT', body: { status } }
-    )
-    payload.value = data
-    toast.add({
-      title: status === 'open' ? `${round.title}已开放评分` : `${round.title}评分已结束`,
-      color: 'success'
-    })
-  } catch (error) {
-    toast.add({ title: '操作失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    savingRoundKey.value = ''
-  }
-}
-
-async function generateNextRound(round: CompetitionRoundView): Promise<void> {
-  if (generatingRoundKey.value) return
-  const hint = advanceHint(round)
-  if (!window.confirm(`${hint}\n\n确定生成下一轮名单并随机抽签？`)) return
-
-  generatingRoundKey.value = round.key
-  try {
-    const result = await adminFetch<{ advanced: number, payload: CompetitionAdminPayload }>(
-      `/api/admin/competition/rounds/${round.key}/advance`,
-      { method: 'POST' }
-    )
-    payload.value = result.payload
-    toast.add({ title: `已生成下一轮名单：${result.advanced} 位选手`, color: 'success' })
-  } catch (error) {
-    toast.add({ title: '生成失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    generatingRoundKey.value = ''
-  }
-}
-
-async function redrawRound(round: CompetitionRoundView): Promise<void> {
-  if (generatingRoundKey.value) return
-  if (!window.confirm(`重新随机抽签${round.title}出场顺序？现有顺序会被打乱。`)) return
-
-  generatingRoundKey.value = round.key
-  try {
-    const data = await adminFetch<CompetitionAdminPayload>(
-      `/api/admin/competition/rounds/${round.key}/redraw`,
-      { method: 'POST' }
-    )
-    payload.value = data
-    toast.add({ title: `${round.title}已重新抽签`, color: 'success' })
-  } catch (error) {
-    toast.add({ title: '抽签失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    generatingRoundKey.value = ''
-  }
-}
-
-async function clearRoster(round: CompetitionRoundView): Promise<void> {
-  if (generatingRoundKey.value) return
-  if (!window.confirm(`清空${round.title}名单？只能清空没有评分的轮次。`)) return
-
-  generatingRoundKey.value = round.key
-  try {
-    const data = await adminFetch<CompetitionAdminPayload>(
-      `/api/admin/competition/rounds/${round.key}/clear-roster`,
-      { method: 'POST' }
-    )
-    payload.value = data
-    toast.add({ title: `${round.title}名单已清空`, color: 'success' })
-  } catch (error) {
-    toast.add({ title: '清空失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    generatingRoundKey.value = ''
-  }
-}
-
-async function moveEntry(round: CompetitionRoundView, entry: CompetitionRoundEntry, delta: number): Promise<void> {
-  if (round.status === 'closed') {
-    toast.add({ title: '本轮已结束，出场顺序已锁定', color: 'warning' })
-    return
-  }
-  const list = rosterEntries(round)
-  const index = list.findIndex(item => item.id === entry.id)
-  const target = index + delta
-  if (index < 0 || target < 0 || target >= list.length) return
-
-  const reordered = [...list]
-  const [moved] = reordered.splice(index, 1)
-  if (!moved) return
-  reordered.splice(target, 0, moved)
-
-  try {
-    const data = await adminFetch<CompetitionAdminPayload>(
-      `/api/admin/competition/rounds/${round.key}/order`,
-      { method: 'PUT', body: { entryIds: reordered.map(item => item.id) } }
-    )
-    payload.value = data
-  } catch (error) {
-    toast.add({ title: '调整顺序失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  }
-}
-
-async function copyRoster(round: CompetitionRoundView): Promise<void> {
-  const list = rosterEntries(round)
-  if (list.length === 0) return
-  const lines = [
-    `${event.value?.title || '新生歌手大赛'} · ${round.title}出场名单`,
-    '',
-    ...list.map((entry, index) =>
-      `${index + 1}. ${entry.singer.name}《${entry.singer.song}》${entry.singer.className ? `（${entry.singer.className}）` : ''}`)
-  ]
-  try {
-    await navigator.clipboard.writeText(lines.join('\n'))
-    toast.add({ title: '出场名单已复制', color: 'success' })
-  } catch {
-    toast.add({ title: '复制失败，请手动选择文本复制', color: 'warning' })
-  }
-}
-
-async function generateJudges(round: CompetitionRoundView): Promise<void> {
-  const count = missingJudgeCount(round)
-  if (count <= 0 || generatingRoundKey.value) return
-
-  generatingRoundKey.value = round.key
-  try {
-    const result = await adminFetch<{ judges: CompetitionJudgeCredentials[] }>(
-      `/api/admin/competition/rounds/${round.key}/judges`,
-      { method: 'POST', body: { count } }
-    )
-    credentials.value = result.judges
-    credentialsOpen.value = true
-    await load()
-    toast.add({ title: `已生成 ${result.judges.length} 个${round.title}评委账号`, color: 'success' })
-  } catch (error) {
-    toast.add({ title: '生成失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    generatingRoundKey.value = ''
-  }
-}
-
-async function saveJudgeName(round: CompetitionRoundView, judge: CompetitionJudge): Promise<void> {
-  if (!judge.displayName.trim()) {
-    toast.add({ title: '评委名称不能为空', color: 'warning' })
-    return
-  }
-  busyJudgeId.value = judge.id
-  try {
-    await adminFetch(`/api/admin/competition/rounds/${round.key}/judges/${judge.id}`, {
-      method: 'PATCH',
-      body: { displayName: judge.displayName.trim() }
-    })
-    await load()
-    toast.add({ title: '评委名称已保存', color: 'success' })
-  } catch (error) {
-    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    busyJudgeId.value = ''
-  }
-}
-
-async function toggleJudgeActive(
-  round: CompetitionRoundView | null,
-  judge: CompetitionJudge,
-  isActive: boolean
-): Promise<void> {
-  if (!round) return
-  busyJudgeId.value = judge.id
-  try {
-    await adminFetch(`/api/admin/competition/rounds/${round.key}/judges/${judge.id}`, {
-      method: 'PATCH',
-      body: { isActive }
-    })
-    await load()
-  } catch (error) {
-    toast.add({ title: '操作失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    busyJudgeId.value = ''
-  }
-}
-
-async function resetJudgePassword(round: CompetitionRoundView, judge: CompetitionJudge): Promise<void> {
-  if (!window.confirm(`重置「${judge.displayName}」的密码？旧密码将立即失效。`)) return
-  busyJudgeId.value = judge.id
-  try {
-    const result = await adminFetch<{ password: string }>(
-      `/api/admin/competition/rounds/${round.key}/judges/${judge.id}/reset-password`,
-      { method: 'POST' }
-    )
-    credentials.value = [{
-      id: judge.id,
-      username: judge.username,
-      displayName: judge.displayName,
-      password: result.password
-    }]
-    credentialsOpen.value = true
-  } catch (error) {
-    toast.add({ title: '重置失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    busyJudgeId.value = ''
-  }
-}
-
-async function removeJudge(round: CompetitionRoundView, judge: CompetitionJudge): Promise<void> {
-  const warning = judge.scoreCount > 0
-    ? `「${judge.displayName}」已提交 ${judge.scoreCount} 条评分，删除账号会同时删除这些评分并改变排名。确定删除？`
-    : `确定删除评委账号「${judge.displayName}」？`
-  if (!window.confirm(warning)) return
-
-  busyJudgeId.value = judge.id
-  try {
-    await adminFetch(`/api/admin/competition/rounds/${round.key}/judges/${judge.id}`, { method: 'DELETE' })
-    toast.add({ title: '评委账号已删除', color: 'success' })
-    await load()
-  } catch (error) {
-    toast.add({ title: '删除失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    busyJudgeId.value = ''
-  }
-}
-
-async function copyCredentials(): Promise<void> {
-  if (credentials.value.length === 0) return
-  const lines = [
-    `${settings.value?.title || '新生歌手大赛'} 评委账号`,
-    '登录地址：/judge/login',
-    '',
-    ...credentials.value.map(item =>
-      `${item.displayName}\t账号：${item.username}\t密码：${item.password}`)
-  ]
-  try {
-    await navigator.clipboard.writeText(lines.join('\n'))
-    toast.add({ title: '账号密码已复制', color: 'success' })
-  } catch {
-    toast.add({ title: '复制失败，请手动选择文本复制', color: 'warning' })
-  }
-}
-
-function triggerImport(): void {
-  importInput.value?.click()
-}
-
-async function onImportFile(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file || importingSingers.value) return
-
-  const formData = new FormData()
-  formData.append('file', file)
-  importingSingers.value = true
-  try {
-    const result = await adminFetch<{ imported: number, skipped: number, parsed: number }>(
-      '/api/admin/competition/singers/import',
-      { method: 'POST', body: formData }
-    )
-    await load()
-    toast.add({
-      title: `导入完成：新增 ${result.imported} 位${result.skipped > 0 ? `，跳过重复 ${result.skipped} 位` : ''}`,
-      color: 'success'
-    })
-  } catch (error) {
-    toast.add({
-      title: '导入失败',
-      description: apiErrorMessage(error, '请检查表格是否包含「姓名」和「歌曲」两列。'),
-      color: 'warning'
-    })
-  } finally {
-    importingSingers.value = false
-  }
-}
-
-function singerPayload(draft: SingerDraft): Record<string, unknown> {
-  const body: Record<string, unknown> = {
-    name: draft.name.trim(),
-    song: draft.song.trim(),
-    className: draft.className.trim() || null,
-    remark: draft.remark.trim() || null,
-    studentNo: draft.studentNo.trim() || null,
-    phone: draft.phone.trim() || null,
-    email: draft.email.trim() || null
-  }
-  if (draft.sortOrder.trim() !== '') body.sortOrder = Number(draft.sortOrder)
-  return body
-}
-
-async function addSinger(): Promise<void> {
-  if (addingSinger.value) return
-  if (!newSinger.value.name.trim() || !newSinger.value.song.trim()) {
-    toast.add({ title: '请填写选手姓名和参赛歌曲', color: 'warning' })
-    return
-  }
-  addingSinger.value = true
-  try {
-    await adminFetch('/api/admin/competition/singers', {
-      method: 'POST',
-      body: singerPayload(newSinger.value)
-    })
-    newSinger.value = { name: '', song: '', className: '', remark: '', studentNo: '', phone: '', email: '', sortOrder: '' }
-    await load()
-    toast.add({ title: '已添加选手', color: 'success' })
-  } catch (error) {
-    toast.add({ title: '添加失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    addingSinger.value = false
-  }
-}
-
-function openEditSinger(singer: CompetitionSinger): void {
-  editingSinger.value = singer
-  editSingerForm.value = {
-    name: singer.name,
-    song: singer.song,
-    className: singer.className ?? '',
-    remark: singer.remark ?? '',
-    studentNo: singer.studentNo ?? '',
-    phone: singer.phone ?? '',
-    email: singer.email ?? '',
-    sortOrder: String(singer.sortOrder)
-  }
-  editSingerOpen.value = true
-}
-
-async function saveSingerEdit(): Promise<void> {
-  const singer = editingSinger.value
-  if (!singer || savingSinger.value) return
-  if (!editSingerForm.value.name.trim() || !editSingerForm.value.song.trim()) {
-    toast.add({ title: '请填写选手姓名和参赛歌曲', color: 'warning' })
-    return
-  }
-  savingSinger.value = true
-  try {
-    await adminFetch(`/api/admin/competition/singers/${singer.id}`, {
-      method: 'PUT',
-      body: singerPayload(editSingerForm.value)
-    })
-    editSingerOpen.value = false
-    await load()
-    toast.add({ title: '选手信息已保存', color: 'success' })
-  } catch (error) {
-    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    savingSinger.value = false
-  }
-}
-
-async function removeSinger(singer: CompetitionSinger): Promise<void> {
-  if (!window.confirm(`删除选手「${singer.name}」？该选手在各轮的评分与名单会一并删除。`)) return
-  try {
-    await adminFetch(`/api/admin/competition/singers/${singer.id}`, { method: 'DELETE' })
-    await load()
-    toast.add({ title: '选手已删除', color: 'success' })
-  } catch (error) {
-    toast.add({ title: '删除失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  }
-}
-
-function scoreFor(round: CompetitionRoundView, singerId: string, judgeId: string): CompetitionScore | null {
-  return round.scores.find(score => score.singerId === singerId && score.judgeId === judgeId) ?? null
-}
-
-// -- 邮件通知 ------------------------------------------------------------------
-
-const emailTemplate = computed(() => payload.value?.email.templates[emailRound.value]
-  ?? { roundKey: emailRound.value, subject: '', body: '' })
-const emailStats = computed(() => payload.value?.email.stats[emailRound.value]
-  ?? { sent: 0, failed: 0, lastSentAt: null as number | null })
-const emailRoundView = computed<CompetitionRoundView | null>(() =>
-  payload.value?.rounds.find(round => round.key === emailRound.value) ?? null)
-
-function emailPool(scope: EmailScope): CompetitionRoundEntry[] {
-  const round = emailRoundView.value
-  if (!round) return []
-  if (scope === 'qualified') return round.entries.filter(entry => entry.qualified)
-  if (scope === 'unqualified') return round.entries.filter(entry => !entry.qualified && !entry.forfeited)
-  return round.entries
-}
-
-const emailSentIds = computed(() => new Set((payload.value?.email.latest ?? [])
-  .filter(record => record.roundKey === emailRound.value && record.status === 'sent')
-  .map(record => record.singerId)))
-
-function emailCountWithEmail(scope: EmailScope): number {
-  return emailPool(scope).filter(entry => singers.value.find(s => s.id === entry.singer.id)?.email).length
-}
-
-function emailCountWithoutEmail(scope: EmailScope): number {
-  return emailPool(scope).filter(entry => !singers.value.find(s => s.id === entry.singer.id)?.email).length
-}
-
-const emailAlreadySentCount = computed(() =>
-  emailPool(emailScope.value).filter(entry => emailSentIds.value.has(entry.singer.id)).length)
-
-const emailLatestRows = computed(() => (payload.value?.email.latest ?? [])
-  .filter(record => record.roundKey === emailRound.value)
-  .map(record => ({ ...record, name: singers.value.find(s => s.id === record.singerId)?.name ?? '—' })))
-
-function insertPlaceholder(key: string): void {
-  const template = emailTemplate.value
-  if (!template) return
-  const el = emailBodyRef.value
-  if (!el) {
-    template.body += key
-    return
-  }
-  const start = el.selectionStart ?? template.body.length
-  const end = el.selectionEnd ?? start
-  template.body = template.body.slice(0, start) + key + template.body.slice(end)
-  nextTick(() => {
-    el.focus()
-    el.setSelectionRange(start + key.length, start + key.length)
-  })
-}
-
-async function saveEmailTemplate(): Promise<void> {
-  const template = emailTemplate.value
-  if (!template || emailSavingTemplate.value) return
-  if (!template.subject.trim() || !template.body.trim()) {
-    toast.add({ title: '邮件主题和正文不能为空', color: 'warning' })
-    return
-  }
-  emailSavingTemplate.value = true
-  try {
-    const result = await adminFetch<{ template: { roundKey: CompetitionRoundKey, subject: string, body: string } }>(
-      `/api/admin/competition/email/${template.roundKey}`,
-      { method: 'PUT', body: { subject: template.subject.trim(), body: template.body.trim() } }
-    )
-    if (payload.value) {
-      payload.value.email.templates[result.template.roundKey] = result.template
-    }
-    toast.add({ title: '邮件模板已保存', color: 'success' })
-  } catch (error) {
-    toast.add({ title: '保存失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
-  } finally {
-    emailSavingTemplate.value = false
-  }
-}
-
-async function sendEmailTest(): Promise<void> {
-  if (emailTesting.value) return
-  const address = emailTestAddress.value.trim()
-  if (!address) {
-    toast.add({ title: '请填写测试邮箱', color: 'warning' })
-    return
-  }
-  emailTesting.value = true
-  try {
-    await adminFetch(`/api/admin/competition/email/${emailRound.value}/test`, {
-      method: 'POST',
-      body: { email: address }
-    })
-    toast.add({ title: '测试邮件已发送', description: `请查收 ${address}（注意垃圾箱）`, color: 'success' })
-  } catch (error) {
-    toast.add({ title: '测试发送失败', description: apiErrorMessage(error, '请检查邮件配置。'), color: 'warning' })
-  } finally {
-    emailTesting.value = false
-  }
-}
-
-async function sendEmails(): Promise<void> {
-  if (emailSending.value) return
-  const count = emailCountWithEmail(emailScope.value)
-  if (count <= 0) {
-    toast.add({ title: '当前范围没有可发送的选手邮箱', color: 'warning' })
-    return
-  }
-  const roundTitle = emailRoundView.value?.title ?? ''
-  const already = emailAlreadySentCount.value
-  const withoutEmail = emailCountWithoutEmail(emailScope.value)
-  const summary = [
-    `将向 ${count} 位选手发送「${roundTitle}」结果邮件。`,
-    already > 0 ? `其中 ${already} 位已发送过，会被自动跳过。` : '',
-    withoutEmail > 0 ? `另有 ${withoutEmail} 位未填邮箱，将跳过。` : ''
-  ].filter(Boolean).join('\n')
-  if (!window.confirm(`${summary}\n\n确定发送？`)) return
-
-  emailSending.value = true
-  try {
-    const result = await adminFetch<{ sent: number, failed: number, failures: Array<{ name: string, email: string, error: string }> }>(
-      `/api/admin/competition/email/${emailRound.value}/send`,
-      { method: 'POST', body: { scope: emailScope.value } }
-    )
-    await load()
-    toast.add({
-      title: `发送完成：成功 ${result.sent}，失败 ${result.failed}`,
-      description: result.failures.length > 0
-        ? `失败示例：${result.failures[0]!.name}（${result.failures[0]!.email}）`
-        : undefined,
-      color: result.failed > 0 ? 'warning' : 'success'
-    })
-  } catch (error) {
-    toast.add({ title: '发送失败', description: apiErrorMessage(error, '请检查邮件配置。'), color: 'warning' })
-  } finally {
-    emailSending.value = false
-  }
-}
-
-function scoreTotalFor(round: CompetitionRoundView, singerId: string, judgeId: string): string {
-  const score = scoreFor(round, singerId, judgeId)
-  return score ? score.total.toFixed(2) : '—'
-}
-
-function openScoreFor(round: CompetitionRoundView, singer: CompetitionSingerPublic, judgeId: string): void {
-  const score = scoreFor(round, singer.id, judgeId)
-  if (score) openScoreDetail(singer, score)
-}
-
-function openScoreDetail(singer: CompetitionSingerPublic, score: CompetitionScore): void {
-  detailSinger.value = singer
-  detailScore.value = score
-}
-
-function closeDetail(): void {
-  detailSinger.value = null
-  detailScore.value = null
-}
-
-function closeCredentials(): void {
-  credentialsOpen.value = false
-}
-
-function closeEditSinger(): void {
-  editSingerOpen.value = false
-}
-
-onMounted(load)
+onBeforeUnmount(stopLiveRefresh)
 </script>
 
 <template>
@@ -1106,13 +96,8 @@ onMounted(load)
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-          新生歌手大赛
+          新声歌手大赛
         </h1>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {{ event
-            ? `音乐协会 · 初赛/复赛/决赛 · 单评委满分 ${event.maxTotal}`
-            : '仅音乐协会可用：三轮独立评委、随机抽签、评分与排行' }}
-        </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <UButton
@@ -1227,7 +212,7 @@ onMounted(load)
               <UInput
                 v-model="settings.title"
                 class="w-full"
-                placeholder="新生歌手大赛"
+                placeholder="新声歌手大赛"
               />
             </UFormField>
             <UFormField label="现场登记入口">
@@ -1257,11 +242,151 @@ onMounted(load)
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                届次与赛程
+              </h2>
+            </div>
+            <UButton
+              size="xs"
+              icon="i-lucide-plus"
+              label="加一行赛程"
+              variant="soft"
+              @click="addScheduleRow"
+            />
+          </div>
+
+          <div class="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <UFormField label="届次">
+              <UInput
+                v-model="settings.edition"
+                class="w-full"
+                maxlength="40"
+                placeholder="如 2026 第六届"
+              />
+            </UFormField>
+            <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400 md:pt-7">
+              届次留空时，预报名页只显示「赛前预报名」。
+            </p>
+          </div>
+
+          <div class="mt-3 space-y-2">
+            <div
+              v-for="(item, index) in settings.schedule"
+              :key="`schedule-${index}`"
+              class="grid gap-2 rounded-md border border-zinc-200 p-2.5 dark:border-zinc-800 md:grid-cols-[6rem_minmax(0,1fr)_8rem_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+            >
+              <UFormField label="轮次">
+                <USelect
+                  v-model="item.key"
+                  :items="[...SCHEDULE_KEY_OPTIONS]"
+                  value-key="value"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField label="日期">
+                <UInput
+                  v-model="item.dateLabel"
+                  class="w-full"
+                  maxlength="40"
+                  placeholder="11 月 14 日（周六）"
+                />
+              </UFormField>
+              <UFormField label="时间">
+                <UInput
+                  v-model="item.timeLabel"
+                  class="w-full"
+                  maxlength="40"
+                  placeholder="19:00 开始"
+                />
+              </UFormField>
+              <UFormField label="地点">
+                <UInput
+                  v-model="item.venue"
+                  class="w-full"
+                  maxlength="60"
+                  placeholder="旧区宏船楼 303"
+                />
+              </UFormField>
+              <UFormField label="备注">
+                <UInput
+                  v-model="item.note"
+                  class="w-full"
+                  maxlength="80"
+                  placeholder="如 30 进 12"
+                />
+              </UFormField>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-trash-2"
+                :disabled="settings.schedule.length <= 1"
+                aria-label="删除这一行赛程"
+                @click="removeScheduleRow(index)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                报名表单字段
+              </h2>
+            </div>
+            <UButton
+              size="xs"
+              icon="i-lucide-rotate-ccw"
+              label="恢复默认"
+              color="neutral"
+              variant="soft"
+              @click="restoreDefaultFormFields"
+            />
+          </div>
+
+          <div class="mt-3 space-y-2">
+            <div
+              v-for="field in settings.formFields"
+              :key="field.key"
+              class="flex flex-wrap items-end gap-3 rounded-md border border-zinc-200 p-2.5 dark:border-zinc-800"
+            >
+              <UFormField
+                label="字段名称"
+                class="min-w-36 flex-1"
+              >
+                <UInput
+                  v-model="field.label"
+                  class="w-full"
+                  maxlength="20"
+                  :disabled="field.key === 'name'"
+                />
+              </UFormField>
+              <div class="flex items-center gap-2 pb-2.5">
+                <USwitch
+                  :model-value="field.enabled"
+                  :disabled="field.key === 'name'"
+                  @update:model-value="value => field.enabled = value === true"
+                />
+                <span class="text-xs text-zinc-600 dark:text-zinc-300">显示</span>
+              </div>
+              <div class="flex items-center gap-2 pb-2.5">
+                <USwitch
+                  :model-value="field.required"
+                  :disabled="field.key === 'name'"
+                  @update:model-value="value => field.required = value === true"
+                />
+                <span class="text-xs text-zinc-600 dark:text-zinc-300">必填</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 评分维度与占比
               </h2>
-              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                每个维度满分 20 分。占比按相对权重归一化；默认五维等权时，单评委总分即五项累加（满分 100）。
-              </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <UButton
@@ -1396,9 +521,6 @@ onMounted(load)
             <h3 class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
               手动添加选手
             </h3>
-            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              现场扫码登记的选手会自动进入本表；这里用于补录或修正。歌曲可留空（待定）。
-            </p>
             <div class="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
               <UFormField label="姓名">
                 <UInput
@@ -1606,9 +728,8 @@ onMounted(load)
               预报名名单
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              赛前预报名共 {{ payload.preRegistrations.length }} 人，其中
-              {{ payload.preRegistrations.filter(item => item.registeredAt).length }} 人已到现场确认正式登记。
-              未确认的选手在正式登记页输入姓名就能带出来。
+              预报名 {{ payload.preRegistrations.length }} 人，已到现场
+              {{ payload.preRegistrations.filter(item => item.registeredAt).length }} 人。
             </p>
           </div>
           <div
@@ -1779,6 +900,192 @@ onMounted(load)
             </div>
           </div>
 
+          <div
+            v-if="activeRound.key === 'prelim'"
+            class="mt-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p class="text-sm font-medium">
+                  赛程天
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <UButton
+                  v-if="!activeRound.activeDay"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-calendar-range"
+                  label="按顺序平分两天"
+                  :loading="dayBusyKey === activeRound.key"
+                  @click="changeRoundDay(activeRound, null, true)"
+                />
+                <UButton
+                  v-if="activeRound.activeDay !== 1"
+                  size="xs"
+                  icon="i-lucide-calendar-days"
+                  :label="activeRound.activeDay ? '切到第一天' : '第一天'"
+                  :disabled="activeRound.status === 'closed'"
+                  :loading="dayBusyKey === activeRound.key"
+                  @click="changeRoundDay(activeRound, 1)"
+                />
+                <UButton
+                  v-if="activeRound.activeDay !== 2"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-calendar-days"
+                  :label="activeRound.activeDay ? '切到第二天' : '第二天'"
+                  :disabled="activeRound.status === 'closed'"
+                  :loading="dayBusyKey === activeRound.key"
+                  @click="changeRoundDay(activeRound, 2)"
+                />
+                <UButton
+                  v-if="activeRound.activeDay"
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  icon="i-lucide-x"
+                  label="不分天"
+                  :disabled="activeRound.status === 'closed'"
+                  :loading="dayBusyKey === activeRound.key"
+                  @click="changeRoundDay(activeRound, null)"
+                />
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              第一天 {{ dayCount(activeRound, 1) }} 人 · 第二天 {{ dayCount(activeRound, 2) }} 人 ·
+              未分配 {{ dayCount(activeRound, null) }} 人
+              <span class="mx-1">|</span>
+              当天到岗评委 {{ dutyJudgeCount(activeRound) }} 位
+              <span
+                v-if="activeRound.activeDay"
+                class="ml-1 font-medium text-green-700 dark:text-green-400"
+              >
+                当前：{{ dayLabel(activeRound.activeDay) }}
+              </span>
+            </p>
+          </div>
+
+          <div class="mt-4 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p class="text-sm font-medium">
+                  顺序评分
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <UButton
+                  v-if="!activeRound.current"
+                  size="xs"
+                  icon="i-lucide-play"
+                  label="开始顺序评分"
+                  :disabled="activeRound.status !== 'open' || activeRound.entries.length === 0"
+                  :loading="currentBusyKey === `${activeRound.key}:start`"
+                  @click="moveCurrent(activeRound, 'start')"
+                />
+                <template v-else>
+                  <UButton
+                    size="xs"
+                    icon="i-lucide-skip-forward"
+                    label="下一位"
+                    :disabled="!activeRound.current.allSubmitted"
+                    :loading="currentBusyKey === `${activeRound.key}:next`"
+                    @click="moveCurrent(activeRound, 'next')"
+                  />
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-lucide-undo-2"
+                    label="上一位"
+                    :loading="currentBusyKey === `${activeRound.key}:prev`"
+                    @click="moveCurrent(activeRound, 'prev')"
+                  />
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    icon="i-lucide-forward"
+                    label="跳过此人"
+                    :loading="currentBusyKey === `${activeRound.key}:skip`"
+                    @click="moveCurrent(activeRound, 'skip')"
+                  />
+                  <UButton
+                    size="xs"
+                    color="error"
+                    variant="soft"
+                    icon="i-lucide-x"
+                    label="退出"
+                    :loading="currentBusyKey === `${activeRound.key}:stop`"
+                    @click="moveCurrent(activeRound, 'stop')"
+                  />
+                </template>
+              </div>
+            </div>
+            <div
+              v-if="activeRound.current"
+              class="mt-3"
+            >
+              <p class="text-sm">
+                第 {{ activeRound.current.index }} / {{ activeRound.current.total }} 位 ·
+                <span class="font-semibold">{{ activeRound.current.singer.name }}</span>
+                <span class="text-zinc-500 dark:text-zinc-400">《{{ activeRound.current.singer.song }}》</span>
+              </p>
+              <div class="mt-2 flex items-center gap-2">
+                <div class="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <div
+                    class="h-full rounded-full bg-green-600 transition-[width] duration-300"
+                    :style="{ width: `${currentPercent(activeRound)}%` }"
+                  />
+                </div>
+                <span class="shrink-0 text-xs font-semibold tabular-nums">
+                  {{ activeRound.current.submitted.length }} / {{ activeRound.current.judgeTotal }}
+                </span>
+              </div>
+              <p
+                v-if="activeRound.current.pending.length"
+                class="mt-1 text-xs text-amber-600 dark:text-amber-400"
+              >
+                还差 {{ activeRound.current.pending.length }} 位：{{ activeRound.current.pending.join('、') }}
+              </p>
+              <p
+                v-else
+                class="mt-1 text-xs text-green-600 dark:text-green-400"
+              >
+                全部提交，可以点「下一位」。
+              </p>
+              <ul class="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                <li
+                  v-for="(item, slot) in activeRound.current.judges"
+                  :key="item.id"
+                  class="flex items-center gap-2 rounded-md border px-2 py-1 text-xs"
+                  :class="item.submitted
+                    ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40'
+                    : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
+                >
+                  <span class="w-4 shrink-0 tabular-nums text-zinc-400">{{ slot + 1 }}</span>
+                  <span class="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">{{ item.name }}</span>
+                  <span
+                    class="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium"
+                    :class="item.submitted
+                      ? 'bg-green-600 text-white'
+                      : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'"
+                  >
+                    {{ item.submitted ? '已提交' : '未提交' }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <p
+              v-else
+              class="mt-2 text-xs text-zinc-400"
+            >
+              {{ activeRound.status === 'open' ? '未开启：评委可自由给任意选手打分。' : '本轮未开放评分。' }}
+            </p>
+          </div>
+
           <div class="mt-4 flex flex-wrap items-end gap-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
             <UFormField
               label="评委人数"
@@ -1824,15 +1131,245 @@ onMounted(load)
           <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
             <div>
               <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                {{ activeRound.title }}评委账号
+              </h3>
+              <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                已创建 {{ activeRound.judges.length }} / 计划 {{ activeRound.judgeCount }}
+              </p>
+            </div>
+            <UButton
+              icon="i-lucide-user-plus"
+              :label="missingJudgeCount(activeRound) > 0
+                ? `补齐 ${missingJudgeCount(activeRound)} 个评委账号`
+                : '账号已满员'"
+              :disabled="missingJudgeCount(activeRound) <= 0"
+              :loading="generatingRoundKey === activeRound.key"
+              @click="generateJudges(activeRound)"
+            />
+          </div>
+
+          <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+            <p class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              自定义账号（留空自动生成；密码至少 6 位）
+            </p>
+            <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <UInput
+                v-model="newJudgeUsername"
+                size="xs"
+                placeholder="登录账号"
+                autocomplete="off"
+              />
+              <UInput
+                v-model="newJudgePassword"
+                size="xs"
+                placeholder="密码"
+                autocomplete="new-password"
+              />
+              <UInput
+                v-model="newJudgeDisplayName"
+                size="xs"
+                placeholder="显示名称"
+              />
+              <UButton
+                size="xs"
+                icon="i-lucide-user-plus"
+                label="添加评委"
+                :loading="addingJudge"
+                :disabled="activeRound.status === 'closed'"
+                @click="addJudge(activeRound)"
+              />
+            </div>
+          </div>
+
+          <div
+            v-if="judgeCredEditId"
+            class="border-b border-zinc-100 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-800/40"
+          >
+            <p class="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              修改「{{ judgeCredEditName }}」的账号密码
+            </p>
+            <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <UInput
+                v-model="judgeUsernameDraft"
+                size="xs"
+                placeholder="登录账号"
+                autocomplete="off"
+              />
+              <UInput
+                v-model="judgePasswordDraft"
+                size="xs"
+                placeholder="新密码（留空不改）"
+                autocomplete="new-password"
+              />
+              <UButton
+                size="xs"
+                icon="i-lucide-save"
+                label="保存"
+                :loading="busyJudgeId === judgeCredEditId"
+                @click="saveJudgeCredentials(activeRound)"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                label="取消"
+                @click="closeJudgeCredentials"
+              />
+            </div>
+          </div>
+
+          <div
+            v-if="activeRound.judges.length === 0"
+            class="px-4 py-8 text-center text-sm text-zinc-400"
+          >
+            还没有评委账号。设置上方「评委人数」后点「补齐评委账号」，或直接在上面填账号密码添加。
+          </div>
+
+          <div
+            v-else
+            class="overflow-x-auto"
+          >
+            <table class="w-full min-w-[820px] text-sm">
+              <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
+                <tr>
+                  <th class="px-3 py-2 font-medium">
+                    评委名称
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    登录账号
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    已评
+                  </th>
+                  <th
+                    v-if="activeRound.key === 'prelim'"
+                    class="px-3 py-2 font-medium"
+                  >
+                    到岗天
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    最近登录
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    启用
+                  </th>
+                  <th class="px-3 py-2 font-medium">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tr
+                  v-for="judge in activeRound.judges"
+                  :key="judge.id"
+                  class="text-zinc-800 dark:text-zinc-200"
+                >
+                  <td class="px-3 py-2">
+                    <UInput
+                      v-model="judge.displayName"
+                      size="xs"
+                      class="w-36"
+                    />
+                  </td>
+                  <td class="px-3 py-2">
+                    <code class="rounded bg-zinc-100 px-2 py-0.5 font-mono text-xs dark:bg-zinc-800">{{ judge.username }}</code>
+                  </td>
+                  <td class="px-3 py-2 tabular-nums">
+                    {{ judge.scoreCount }} / {{ activeRound.entries.length }}
+                  </td>
+                  <td
+                    v-if="activeRound.key === 'prelim'"
+                    class="px-3 py-2"
+                  >
+                    <select
+                      class="rounded-md border border-zinc-200 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      :value="judge.day ?? 0"
+                      :disabled="busyJudgeId === judge.id || activeRound.status === 'closed'"
+                      @change="changeJudgeDay(activeRound, judge, ($event.target as HTMLSelectElement).value)"
+                    >
+                      <option :value="0">
+                        两天都在
+                      </option>
+                      <option :value="1">
+                        第一天
+                      </option>
+                      <option :value="2">
+                        第二天
+                      </option>
+                    </select>
+                  </td>
+                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ formatDateTime(judge.lastLoginAt) }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <USwitch
+                      :model-value="judge.isActive"
+                      :disabled="busyJudgeId === judge.id"
+                      @update:model-value="value => toggleJudgeActive(activeRound, judge, value === true)"
+                    />
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="flex flex-wrap items-center gap-1">
+                      <UButton
+                        size="xs"
+                        variant="soft"
+                        icon="i-lucide-save"
+                        label="存名称"
+                        :loading="busyJudgeId === judge.id"
+                        @click="saveJudgeName(activeRound, judge)"
+                      />
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="soft"
+                        icon="i-lucide-at-sign"
+                        label="改账号密码"
+                        :disabled="busyJudgeId === judge.id || activeRound.status === 'closed'"
+                        @click="openJudgeCredentials(judge)"
+                      />
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="soft"
+                        icon="i-lucide-key-round"
+                        label="重置密码"
+                        :disabled="busyJudgeId === judge.id"
+                        @click="resetJudgePassword(activeRound, judge)"
+                      />
+                      <UButton
+                        size="xs"
+                        color="error"
+                        variant="soft"
+                        icon="i-lucide-trash-2"
+                        aria-label="删除评委"
+                        :disabled="busyJudgeId === judge.id"
+                        @click="removeJudge(activeRound, judge)"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+            <div>
+              <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 出场名单
               </h3>
               <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                复赛/决赛名单由上一轮晋级后随机抽签生成；可用上下箭头手动调整。调整只影响出场顺序与同分时的先后。
+                复赛/决赛名单由上一轮晋级后抽签生成，可拖动调整。
               </p>
             </div>
-            <span class="text-xs text-zinc-400">
-              按抽签顺序排列
-            </span>
+            <input
+              v-model="rosterQuery"
+              type="search"
+              placeholder="搜选手名字或歌名"
+              class="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+              aria-label="搜索出场名单"
+            >
           </div>
 
           <div
@@ -1849,8 +1386,8 @@ onMounted(load)
             <table class="w-full min-w-[780px] text-sm">
               <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
                 <tr>
-                  <th class="w-20 px-4 py-2 font-medium">
-                    出场序
+                  <th class="w-24 px-4 py-2 font-medium">
+                    出场序（可拖动）
                   </th>
                   <th class="px-3 py-2 font-medium">
                     选手
@@ -1864,6 +1401,9 @@ onMounted(load)
                   <th class="px-3 py-2 font-medium">
                     来源
                   </th>
+                  <th class="w-24 px-3 py-2 font-medium">
+                    状态
+                  </th>
                   <th class="w-32 px-4 py-2 font-medium">
                     调整
                   </th>
@@ -1871,11 +1411,29 @@ onMounted(load)
               </thead>
               <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                 <tr
-                  v-for="(entry, index) in rosterEntries(activeRound)"
+                  v-for="(entry, index) in rosterVisible(activeRound)"
                   :key="entry.id"
+                  :draggable="activeRound.status !== 'closed'"
+                  class="transition-colors"
+                  :class="[
+                    entry.id === draggingEntryId ? 'opacity-40' : '',
+                    entry.id === dragOverEntryId ? 'bg-green-50 dark:bg-green-950/40' : ''
+                  ]"
+                  @dragstart="startDragEntry(activeRound, entry, $event)"
+                  @dragover="dragOverEntry(entry, $event)"
+                  @drop.prevent="dropOnEntry(activeRound, entry)"
+                  @dragend="endDragEntry"
                 >
-                  <td class="px-4 py-2 font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                    {{ index + 1 }}
+                  <td class="cursor-grab px-4 py-2 font-semibold tabular-nums text-zinc-900 active:cursor-grabbing dark:text-zinc-100">
+                    <span class="inline-flex items-center gap-1">
+                      <UIcon
+                        v-if="activeRound.status !== 'closed'"
+                        name="i-lucide-grip-vertical"
+                        class="size-3.5 text-zinc-300 dark:text-zinc-600"
+                        aria-hidden="true"
+                      />
+                      {{ entry.sortOrder || index + 1 }}
+                    </span>
                   </td>
                   <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
                     {{ entry.singer.name }}
@@ -1888,6 +1446,14 @@ onMounted(load)
                   </td>
                   <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {{ entry.advancedFromRank ? `上一轮第 ${entry.advancedFromRank} 名` : '选手库' }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <span
+                      class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      :class="queueStateClass(entry)"
+                    >
+                      {{ queueStateText(entry) }}
+                    </span>
                   </td>
                   <td class="px-4 py-2">
                     <div class="flex items-center gap-1">
@@ -1923,7 +1489,7 @@ onMounted(load)
               成绩与排名
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              按所有评委平均分排序；同分按出场顺序靠前者优先。结束后未评分的选手标为弃权，不参与晋级。
+              按平均分排序，同分按出场顺序；未评分的按弃权处理。
             </p>
           </div>
 
@@ -1949,6 +1515,12 @@ onMounted(load)
                   </th>
                   <th class="px-3 py-2 font-medium">
                     歌曲
+                  </th>
+                  <th
+                    v-if="activeRound.key === 'prelim'"
+                    class="px-3 py-2 font-medium"
+                  >
+                    天
                   </th>
                   <th class="px-3 py-2 text-right font-medium">
                     平均分
@@ -1981,6 +1553,27 @@ onMounted(load)
                   <td class="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">
                     {{ entry.singer.song }}
                   </td>
+                  <td
+                    v-if="activeRound.key === 'prelim'"
+                    class="px-3 py-2.5"
+                  >
+                    <select
+                      class="rounded-md border border-zinc-200 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      :value="entry.contestDay ?? 0"
+                      :disabled="activeRound.status === 'closed'"
+                      @change="changeEntryDay(activeRound, entry, ($event.target as HTMLSelectElement).value)"
+                    >
+                      <option :value="0">
+                        未分配
+                      </option>
+                      <option :value="1">
+                        第一天
+                      </option>
+                      <option :value="2">
+                        第二天
+                      </option>
+                    </select>
+                  </td>
                   <td class="px-3 py-2.5 text-right font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
                     {{ entry.average === null ? '—' : entry.average.toFixed(2) }}
                     <span class="text-xs font-normal text-zinc-400">/ {{ maxTotal }}</span>
@@ -2003,133 +1596,10 @@ onMounted(load)
         </div>
 
         <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-            <div>
-              <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                {{ activeRound.title }}评委账号
-              </h3>
-              <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                已创建 {{ activeRound.judges.length }} 个 / 计划 {{ activeRound.judgeCount }} 个。每轮评委独立，登录后只看本轮选手。
-              </p>
-            </div>
-            <UButton
-              icon="i-lucide-user-plus"
-              :label="missingJudgeCount(activeRound) > 0
-                ? `补齐 ${missingJudgeCount(activeRound)} 个评委账号`
-                : '账号已满员'"
-              :disabled="missingJudgeCount(activeRound) <= 0"
-              :loading="generatingRoundKey === activeRound.key"
-              @click="generateJudges(activeRound)"
-            />
-          </div>
-
-          <div
-            v-if="activeRound.judges.length === 0"
-            class="px-4 py-8 text-center text-sm text-zinc-400"
-          >
-            还没有评委账号。设置上方「评委人数」后点「补齐评委账号」。
-          </div>
-
-          <div
-            v-else
-            class="overflow-x-auto"
-          >
-            <table class="w-full min-w-[820px] text-sm">
-              <thead class="bg-zinc-50 text-left text-xs text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400">
-                <tr>
-                  <th class="px-3 py-2 font-medium">
-                    评委名称
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    登录账号
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    已评
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    最近登录
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    启用
-                  </th>
-                  <th class="px-3 py-2 font-medium">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
-                <tr
-                  v-for="judge in activeRound.judges"
-                  :key="judge.id"
-                  class="text-zinc-800 dark:text-zinc-200"
-                >
-                  <td class="px-3 py-2">
-                    <UInput
-                      v-model="judge.displayName"
-                      size="xs"
-                      class="w-36"
-                    />
-                  </td>
-                  <td class="px-3 py-2">
-                    <code class="rounded bg-zinc-100 px-2 py-0.5 font-mono text-xs dark:bg-zinc-800">{{ judge.username }}</code>
-                  </td>
-                  <td class="px-3 py-2 tabular-nums">
-                    {{ judge.scoreCount }} / {{ activeRound.entries.length }}
-                  </td>
-                  <td class="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    {{ formatDateTime(judge.lastLoginAt) }}
-                  </td>
-                  <td class="px-3 py-2">
-                    <USwitch
-                      :model-value="judge.isActive"
-                      :disabled="busyJudgeId === judge.id"
-                      @update:model-value="value => toggleJudgeActive(activeRound, judge, value === true)"
-                    />
-                  </td>
-                  <td class="px-3 py-2">
-                    <div class="flex flex-wrap items-center gap-1">
-                      <UButton
-                        size="xs"
-                        variant="soft"
-                        icon="i-lucide-save"
-                        label="存名称"
-                        :loading="busyJudgeId === judge.id"
-                        @click="saveJudgeName(activeRound, judge)"
-                      />
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="soft"
-                        icon="i-lucide-key-round"
-                        label="重置密码"
-                        :disabled="busyJudgeId === judge.id"
-                        @click="resetJudgePassword(activeRound, judge)"
-                      />
-                      <UButton
-                        size="xs"
-                        color="error"
-                        variant="soft"
-                        icon="i-lucide-trash-2"
-                        aria-label="删除评委"
-                        :disabled="busyJudgeId === judge.id"
-                        @click="removeJudge(activeRound, judge)"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800">
           <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
             <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
               {{ activeRound.title }}评分明细
             </h3>
-            <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              每格为该评委给这位选手的总分，点击可查看各维度分数与备注。
-            </p>
           </div>
 
           <div
@@ -2237,9 +1707,6 @@ onMounted(load)
               <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                 {{ emailRoundView?.title }}结果邮件模板
               </h3>
-              <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                点击占位符插入正文光标处；发送时按选手逐一生成。
-              </p>
             </div>
             <UButton
               icon="i-lucide-save"
@@ -2255,7 +1722,7 @@ onMounted(load)
               <UInput
                 v-model="emailTemplate.subject"
                 class="w-full"
-                placeholder="【音乐协会】新生歌手大赛结果通知"
+                placeholder="【音乐协会】新声歌手大赛结果通知"
               />
             </UFormField>
             <UFormField label="邮件正文">
@@ -2276,6 +1743,70 @@ onMounted(load)
                 :label="`${field.key} ${field.desc}`"
                 @click="insertPlaceholder(field.key)"
               />
+            </div>
+
+            <div class="rounded-md border border-dashed border-zinc-300 p-3 dark:border-zinc-700">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                  <span class="font-semibold text-zinc-800 dark:text-zinc-100">邮件图片</span>
+                  支持 JPG / PNG / WebP / GIF，单张 4MB 以内；上传后自动在光标处插入
+                  <code class="rounded bg-zinc-100 px-1 dark:bg-zinc-800">[[图片:ID]]</code>，发送时内嵌进邮件正文。
+                </div>
+                <div class="flex items-center gap-2">
+                  <input
+                    ref="emailImageInput"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    class="hidden"
+                    @change="uploadEmailImage"
+                  >
+                  <UButton
+                    icon="i-lucide-image-plus"
+                    label="上传图片"
+                    size="xs"
+                    variant="soft"
+                    :loading="emailImageUploading"
+                    @click="pickEmailImage"
+                  />
+                </div>
+              </div>
+              <div
+                v-if="emailImages.length > 0"
+                class="mt-3 flex flex-wrap gap-1.5"
+              >
+                <span
+                  v-for="image in emailImages"
+                  :key="image.id"
+                  class="group relative inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-1 pr-1.5 dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <img
+                    :src="image.url"
+                    :alt="image.filename"
+                    class="h-8 w-8 rounded object-cover"
+                  >
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    label="插入"
+                    @click="insertBodyText(`[[图片:${image.id}]]`)"
+                  />
+                  <UButton
+                    size="xs"
+                    color="error"
+                    variant="ghost"
+                    icon="i-lucide-trash-2"
+                    :loading="emailImageDeletingId === image.id"
+                    @click="removeEmailImage(image)"
+                  />
+                </span>
+              </div>
+              <p
+                v-else
+                class="mt-2 text-xs text-zinc-400"
+              >
+                还没有图片。上传后可复用，删除前请确认正文里不再引用。
+              </p>
             </div>
           </div>
         </div>
@@ -2358,7 +1889,7 @@ onMounted(load)
               发送记录
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              每位选手显示最近一次发送状态；失败的可在修正邮箱后重新发送。
+              显示最近一次发送状态。
             </p>
           </div>
           <div
@@ -2456,7 +1987,7 @@ onMounted(load)
                   icon="i-lucide-download"
                   label="下载 PNG"
                   class="mt-1.5"
-                  @click="downloadQr('/singer/pre-register', '新生歌手大赛预报名二维码.png')"
+                  @click="downloadQr('/singer/pre-register', '新声歌手大赛预报名二维码.png')"
                 />
               </div>
               <div class="text-center">
@@ -2477,7 +2008,7 @@ onMounted(load)
                   icon="i-lucide-download"
                   label="下载 PNG"
                   class="mt-1.5"
-                  @click="downloadQr('/singer/register', '新生歌手大赛现场登记二维码.png')"
+                  @click="downloadQr('/singer/register', '新声歌手大赛现场登记二维码.png')"
                 />
               </div>
             </div>
@@ -2490,7 +2021,7 @@ onMounted(load)
                   海报拼接
                 </h3>
                 <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                  上传海报图 → 选择二维码与位置 → 可用「遮盖贴片」盖住海报上不需要的文字（如 AI 水印）→ 下载成品图。
+                  上传海报图 → 选择二维码与位置 → 可用「遮盖贴片」盖住海报上不需要的文字（如水印）→ 下载成品图。
                 </p>
               </div>
               <div>

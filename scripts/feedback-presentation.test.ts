@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -54,7 +54,7 @@ test('feedback page separates required and optional information on small screens
   assert.match(pageSource, /<details/)
   assert.match(pageSource, /:open="isPrivacyRequest"/)
   assert.match(pageSource, /补充信息（选填）/)
-  assert.match(pageSource, /有学校通知链接，或希望我们回复时再填写/)
+  assert.match(pageSource, /有通知链接可附上/)
   assert.match(pageSource, /group-open:rotate-180/)
   assert.match(pageSource, /divide-y divide-sky-100/)
   assert.match(pageSource, /flex items-start gap-3 py-3 text-xs leading-5/)
@@ -149,7 +149,7 @@ test('feedback reason defaults and submit body normalize empty optional fields',
 })
 
 test('feedback form explains the short-message requirement in plain language', () => {
-  assert.match(utilSource, /至少写 5 个字/)
+  assert.match(utilSource, /至少 5 字/)
   assert.match(pageSource, /还需要再写一点才能提交。/)
   assert.match(pageSource, /messageNeedsMoreDetail/)
   assert.match(pageSource, /createEmptyFeedbackFormState\(initialReasonType\.value\)/)

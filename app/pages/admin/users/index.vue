@@ -337,7 +337,6 @@ onMounted(async () => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="账号管理"
-      description="创建和管理账号，可按专业、宿舍楼和状态查找。"
       icon="i-lucide-users"
       eyebrow="用户与互动"
     >
