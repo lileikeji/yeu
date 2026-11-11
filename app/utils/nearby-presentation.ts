@@ -129,7 +129,7 @@ export function nearbySourceIsClickable(source: { status?: string }): boolean {
 
 export function nearbySourceContextForStudents(value: string | undefined): string {
   return presentStudentSourceContext(value, { includeUnavailableNote: false })
-    ?? '以现场和最新通知为准。'
+    ?? '看现场和最新通知。'
 }
 
 export function nearbyCandidateMapUrl(candidate: NearbyCandidate): string {

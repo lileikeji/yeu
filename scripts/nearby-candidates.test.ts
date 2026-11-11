@@ -133,7 +133,7 @@ test('nearby presentation helpers rewrite source context and build map links', (
     nearbySourceContextForStudents('现场核验后再公开，争议配图禁止发布。'),
     '现场确认后再公开，有争议信息不作为公开参考。'
   )
-  assert.match(nearbySourceContextForStudents(undefined), /以现场和最新通知为准/)
+  assert.match(nearbySourceContextForStudents(undefined), /看现场和最新通知/)
   assert.doesNotMatch(nearbySourceContextForStudents(undefined), /帮助|了解/)
 
   const sample = candidateData.candidates[0] as NearbyCandidate

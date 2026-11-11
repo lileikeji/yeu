@@ -43,7 +43,7 @@ export const feedbackDefaultFormCopy: FeedbackFormCopy = {
   metaDescription: '告诉我们校园地点、办事步骤或指南内容哪里不对，也可以提供更准确的学校通知。',
   kicker: '一起完善指南',
   title: '发现信息不对？告诉我们',
-  description: '地点搬了、时间变了、通知过期了，都写这里。',
+  description: '发现信息过期，或地点、时间对不上，写在这里。',
   reasonLabel: '哪里需要修改',
   messageLabel: '具体情况',
   messageHint: '写清地点和正确情况，至少 5 字',

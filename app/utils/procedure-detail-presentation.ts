@@ -96,7 +96,7 @@ export function getProcedureNoticeText(
     return '个人报到时段、材料、报到点和接站安排还要看录取通知书及学校后续通知。'
   }
   if (informationState === 'confirmed') {
-    return '部门调整后以最新通知为准。'
+    return '部门调整后看最新通知。'
   }
   return '有些办理入口、材料或时间还没公布，其余等学校通知。'
 }

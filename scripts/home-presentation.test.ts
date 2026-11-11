@@ -145,7 +145,7 @@ test('home essential actions and timeline keep freshman-first copy', () => {
 
 test('home puts its student-run status, official entry points and correction path up front', () => {
   assert.equal(homeTrustNotice.badge, '学生整理 · 非学校官网')
-  assert.match(homeTrustNotice.description, /最终以录取通知书和学校最新通知为准/)
+  assert.match(homeTrustNotice.description, /最终看录取通知书和学校通知/)
   assert.match(homeTrustNotice.checkedText, /2026年7月23日/)
   assert.deepEqual(
     homeTrustNotice.links.map(link => link.label),

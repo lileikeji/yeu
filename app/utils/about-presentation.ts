@@ -98,7 +98,7 @@ export const aboutBoundaries: AboutBoundary[] = [
   {
     title: '学校通知优先',
     icon: 'i-lucide-file-warning',
-    text: '报到、缴费、学籍、住宿、安全和材料，以录取通知书及学校最新通知为准。',
+    text: '报到、缴费、学籍、住宿、安全和材料，看录取通知书和学校通知。',
     tone: 'amber'
   },
   {

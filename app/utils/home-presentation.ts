@@ -45,7 +45,7 @@ export interface HomeTrustLink {
 export const homeTrustNotice = {
   badge: '学生整理 · 非学校官网',
   title: '重要事项，再到学校原文确认一次',
-  description: '报到、缴费、住宿和资助等要求，最终以录取通知书和学校最新通知为准。',
+  description: '报到、缴费、住宿和资助等要求，最终看录取通知书和学校通知。',
   checkedText: '学校、招生和学生资助入口最近查看：2026年7月23日',
   links: [
     {

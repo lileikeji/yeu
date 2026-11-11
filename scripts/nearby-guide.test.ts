@@ -93,7 +93,7 @@ test('nearby page and home expose the eat-play guide as a visible module', () =>
   assert.match(cardSource, /item\.image/)
   assert.match(pageSource, /nearby-route-path/)
   assert.match(pageSource, /guide-switch/)
-  assert.match(pageSource, /商家营业、景区开放和票价变化较快/)
+  assert.match(pageSource, /商家、景区和票价会变/)
   assert.match(cardSource, /:id="`guide-\$\{item\.id\}`"/)
   assert.match(homeSource, /title: '吃喝玩乐'/)
   assert.match(homeSource, /学生街、马甲周边与泉州市区吃喝玩乐攻略/)

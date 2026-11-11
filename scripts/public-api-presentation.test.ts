@@ -316,7 +316,7 @@ test('public place payload removes internal notes and maintenance wording', () =
   assert.doesNotMatch(serialized, /后台草稿|resourceId|坐标来源|GCJ-02 原坐标|sourceRawRef/)
   assert.equal(
     sanitized.summary,
-    '上海楼的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。'
+    '上海楼的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间看现场标识或学校通知。'
   )
   assert.doesNotMatch(sanitized.summary, /\s的位置|。，/)
   assert.equal('sourceRawRef' in sanitized, false)
@@ -460,7 +460,7 @@ test('server public presentation rewrites nested club and guide maintenance copy
 
   assert.doesNotMatch(serialized, /资料状态|可信度|写死|伪装|未核验|内部资料目录|版权状态|前台/)
   assert.match(presented.summary, /今年是否继续招新还要等通知/)
-  assert.match(presented.body, /请以本学期通知为准/)
+  assert.match(presented.body, /看本学期通知/)
   assert.match(presented.body, /请不要使用往年的二维码或群聊入口/)
   assert.equal(presented.category, 'community')
 })

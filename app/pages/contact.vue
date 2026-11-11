@@ -135,7 +135,7 @@ useSeoMeta({
             class="mt-4 aspect-[888/1131] w-full rounded-md border border-zinc-100 dark:border-zinc-800 object-contain"
           >
           <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            勿发身份证、银行卡、密码；缴费和学籍以学校官方渠道为准。
+            身份证、银行卡、密码别发。缴费和学籍走学校官方渠道。
           </p>
         </section>
       </div>

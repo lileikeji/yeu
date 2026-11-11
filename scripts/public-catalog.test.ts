@@ -270,7 +270,7 @@ test('published map places use student-facing copy in the map panel', () => {
   // 上海楼是核定宿舍楼（宿名单见 shared/utils/campus-dorm-buildings.ts），
   // 数据里录成 building 也要在展示层归到 dorm，否则地图画不出小房子。
   assert.equal(place.category, 'dorm')
-  assert.equal(place.summary, '上海楼的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间请以现场标识或学校通知为准。')
+  assert.equal(place.summary, '上海楼的位置来自高德地图，可以先用来找方向。具体入口、楼层和开放时间看现场标识或学校通知。')
   assert.doesNotMatch(place.summary, /\s的位置|。，/)
   assert.doesNotMatch(place.body, /后台草稿|resourceId|坐标来源|正式发布/)
 })
@@ -308,7 +308,7 @@ test('official plan places explain how students can use the number', () => {
 test('guide copy hides maintainer language from student pages', () => {
   assert.equal(
     studentFacingGuideText('学院独立官网已经上线，可查询计算机、网络工程、物联网等相关栏目；网站仍混有原工程技术学院历史内容，2026级专业归属应以录取材料和学院最新通知为准。'),
-    '可以在学院官网查看计算机、网络工程、物联网等专业信息。2026级专业归属和报到安排请以录取材料及学院最新通知为准。'
+    '可以在学院官网查看计算机、网络工程、物联网等专业信息。2026级专业归属和报到安排看录取材料及学院最新通知。'
   )
   assert.equal(
     studentFacingGuideText('计算机科学与工程学院是新生查找相关通知和办事入口时需要优先确认的官方渠道。\n使用建议：如果你不确定该不该找这个部门，可以先在站内搜索关键词，再核对官网栏目名称、发布时间和落款；不要只靠群聊截图或二手转述。\n资料核对：独立官网入口已于2026-07-15核对。\n当前只整理到官网入口，固定办公地点、办公时间和直拨电话未核验前不写死。'),
@@ -421,7 +421,7 @@ test('express guide gives students direct, current-use advice', () => {
     '容易变化的地方',
     '往年信息怎么用'
   ])
-  assert.match(view.leadNotice, /以本学期现场标识和宿舍通知为准/)
+  assert.match(view.leadNotice, /看本学期现场标识和宿舍通知/)
   assert.doesNotMatch(view.leadNotice, /帮助你了解|收集了/)
   assert.match(view.sections[0]?.items[1] ?? '', /带好取件码/)
   assert.match(view.sections[1]?.items[1] ?? '', /只表示商家接单/)
@@ -435,7 +435,7 @@ test('express guide gives students direct, current-use advice', () => {
   assert.doesNotMatch(publicCopy, /上线前|线索|追溯|本系统|两项独立核验|再发布到地图|不直接转录|最后核验日期/)
   assert.equal(
     studentFacingGuideText('以下链接用于追溯线索，不表示学校或本系统已经确认其内容。'),
-    '下面是往年分享和校园地图；今年的安排以学校通知和现场标识为准。'
+    '下面是往年分享和校园地图；今年的安排看学校通知和现场标识。'
   )
   assert.equal(studentFacingGuideText('使用时注意'), '容易变化的地方')
   assert.equal(
@@ -461,7 +461,7 @@ test('clubs guide helps students choose an interest and verify this year recruit
     '报名时注意'
   ])
   assert.match(view.summary, /先按兴趣挑方向/)
-  assert.match(view.leadNotice, /招新时间、报名方式和群聊入口以本学期校团委或社团通知为准/)
+  assert.match(view.leadNotice, /招新时间、报名方式和群聊入口看本学期校团委或社团通知/)
   assert.doesNotMatch(view.leadNotice, /你可以|帮你|了解/)
   assert.match(view.sections[2]?.items[1] ?? '', /学术、表达和创作方向/)
   assert.match(view.sections[4]?.items[1] ?? '', /等本学期通知/)
@@ -479,7 +479,7 @@ test('clubs guide helps students choose an interest and verify this year recruit
   assert.doesNotMatch(publicCopy, /线索|运行证据|干部任职|系统保留|自动合并|发布规则|存续状态|归档/)
   assert.equal(
     studentFacingGuideText('其余名称主要来自校团委公开附件中的干部任职线索，适合做招新前索引，不适合直接写成“2026正在招新”。'),
-    '这些名称来自校团委公开资料，社团名称和是否招新可能调整，报名时以本学期通知为准。'
+    '这些名称来自校团委公开资料，社团名称和是否招新可能调整，报名时看本学期通知。'
   )
 })
 
@@ -716,7 +716,7 @@ test('fees and aid guide makes 2026 costs discoverable without inventing a payme
   assert.match(text, /国家助学金分每年3000元和5000元两档/)
   assert.match(text, /尚未在面向2026级新生的公开通知中公布统一操作入口/)
   assert.doesNotMatch(text, /支付宝|微信缴费|统一支付平台/)
-  assert.match(guide.leadNotice, /专升本新生.*以自己的录取通知书/)
+  assert.match(guide.leadNotice, /专升本新生.*看自己的录取通知书/)
 })
 
 test('published seed summaries are specific enough for freshman cards', () => {
