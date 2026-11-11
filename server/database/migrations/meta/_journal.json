@@ -386,6 +386,20 @@
       "when": 1794600000000,
       "tag": "0054_feedback_receipt",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1794600001000,
+      "tag": "0055_activities",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "6",
+      "when": 1794600002000,
+      "tag": "0056_activity_comments",
+      "breakpoints": true
     }
   ]
 }

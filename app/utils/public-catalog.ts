@@ -309,6 +309,7 @@ export interface PublicMapPlace {
   navigationUrl: string | null
   isApiPublished: boolean
   searchText: string
+  hasActivities?: boolean
 }
 
 function metadataString(content: ApiContent, key: string): string | null {
@@ -1214,6 +1215,7 @@ export function toMapPoi(place: PublicMapPlace): MapPoi | null {
     category: place.category,
     point: place.point,
     status: place.pointIsVerified ? 'published' : 'draft',
+    hasActivities: place.hasActivities === true,
     source: 'catalog'
   }
 }

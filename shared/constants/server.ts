@@ -31,6 +31,7 @@ export const PUBLIC_SEARCH_RESULT_TYPES = [
 ] as const
 export const SOURCE_LEVELS = ['A', 'B', 'C', 'D', 'E'] as const
 export const SOURCE_STATUSES = ['active', 'unavailable', 'disputed'] as const
+export const ACTIVITY_STATUSES = ['draft', 'pending', 'published', 'rejected', 'archived'] as const
 export const FEEDBACK_STATUSES = ['new', 'reviewing', 'resolved', 'rejected', 'spam'] as const
 export const FEEDBACK_TARGET_TYPES = ['general', 'place', 'content', 'procedure', 'claim'] as const
 export const PROCEDURE_METHODS = ['online', 'offline', 'mixed'] as const
@@ -57,6 +58,7 @@ export type CoordinateObservationStatus = typeof COORDINATE_OBSERVATION_STATUSES
 export type CoordinatePointRole = typeof COORDINATE_POINT_ROLES[number]
 export type SourceLevel = typeof SOURCE_LEVELS[number]
 export type SourceStatus = typeof SOURCE_STATUSES[number]
+export type ActivityStatus = typeof ACTIVITY_STATUSES[number]
 export type FeedbackStatus = typeof FEEDBACK_STATUSES[number]
 export type FeedbackTargetType = typeof FEEDBACK_TARGET_TYPES[number]
 export type ProcedureMethod = typeof PROCEDURE_METHODS[number]
