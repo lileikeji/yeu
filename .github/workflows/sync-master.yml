@@ -55,6 +55,8 @@ jobs:
 
       - name: Check if master is ahead
         id: check
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           DEFAULT_BRANCH="ai/glm-opensource-hardening"
           git fetch origin "$DEFAULT_BRANCH" master --no-tags
@@ -69,9 +71,26 @@ jobs:
           if [ "$AHEAD" -eq 0 ]; then
             echo "master 没有新提交，跳过"
             echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # 去重：已有未合并的同步 PR 就不再建新的。
+          # schedule 每天触发，若上一个 PR 还没合，会重复建 PR。
+          EXISTING=$(gh pr list \
+            --base "$DEFAULT_BRANCH" \
+            --state open \
+            --search "in:title chore(sync)" \
+            --json number,title \
+            --jq '.[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            echo "已存在未合并的同步 PR #$EXISTING，跳过本次"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "### ⏭️ 跳过：已有未合并的同步 PR #$EXISTING" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Create sync branch and attempt merge
         if: steps.check.outputs.skip == 'false'
