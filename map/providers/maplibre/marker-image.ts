@@ -29,11 +29,15 @@ export function resolveMarkerCategory(category: string): MapMarkerCategory {
   return 'default'
 }
 
-export function getMarkerImageId(category: MapMarkerCategory, selected: boolean): string {
-  return `yeu-pin-${category}${selected ? '-selected' : ''}`
+export function getMarkerImageId(
+  category: MapMarkerCategory,
+  selected: boolean,
+  hasActivities = false
+): string {
+  return `yeu-pin-${category}${selected ? '-selected' : ''}${hasActivities ? '-activity' : ''}`
 }
 
-export function createMarkerImage(color: string, selected: boolean): ImageData {
+export function createMarkerImage(color: string, selected: boolean, hasActivities = false): ImageData {
   const canvas = document.createElement('canvas')
   canvas.width = MARKER_WIDTH * MARKER_PIXEL_RATIO
   canvas.height = MARKER_HEIGHT * MARKER_PIXEL_RATIO
@@ -87,6 +91,17 @@ export function createMarkerImage(color: string, selected: boolean): ImageData {
   context.arc(19, 17.5, selected ? 3.5 : 3, 0, Math.PI * 2)
   context.fillStyle = selected ? '#17211d' : color
   context.fill()
+
+  if (hasActivities) {
+    // 红点落在图钉右上角，白色描边保证在深色楼栋和底图上都能认出来。
+    context.beginPath()
+    context.arc(31, 8, 5.4, 0, Math.PI * 2)
+    context.fillStyle = '#e11d48'
+    context.fill()
+    context.strokeStyle = '#ffffff'
+    context.lineWidth = 2
+    context.stroke()
+  }
 
   return context.getImageData(0, 0, canvas.width, canvas.height)
 }

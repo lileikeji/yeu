@@ -783,12 +783,18 @@ export class MapLibrePreviewProvider implements MapProvider {
   private registerMarkerImages(map: MapLibreMap): void {
     for (const [category, color] of Object.entries(MAP_MARKER_COLORS)) {
       for (const selected of [false, true]) {
-        const imageId = getMarkerImageId(category as keyof typeof MAP_MARKER_COLORS, selected)
+        for (const hasActivities of [false, true]) {
+          const imageId = getMarkerImageId(
+            category as keyof typeof MAP_MARKER_COLORS,
+            selected,
+            hasActivities
+          )
 
-        if (!map.hasImage(imageId)) {
-          map.addImage(imageId, createMarkerImage(color, selected), {
-            pixelRatio: MAP_MARKER_PIXEL_RATIO
-          })
+          if (!map.hasImage(imageId)) {
+            map.addImage(imageId, createMarkerImage(color, selected, hasActivities), {
+              pixelRatio: MAP_MARKER_PIXEL_RATIO
+            })
+          }
         }
       }
     }
@@ -1115,6 +1121,7 @@ export class MapLibrePreviewProvider implements MapProvider {
       features: this.renderablePois().map((poi) => {
         const category = resolveMarkerCategory(poi.category)
         const selected = poi.id === this.selectedPoiId
+        const hasActivities = poi.hasActivities === true
 
         return {
           type: 'Feature',
@@ -1128,7 +1135,7 @@ export class MapLibrePreviewProvider implements MapProvider {
             name: poi.name,
             category: poi.category,
             status: poi.status,
-            markerImage: getMarkerImageId(category, selected),
+            markerImage: getMarkerImageId(category, selected, hasActivities),
             markerScale: selected ? 1.375 : 1,
             sortKey: selected ? 1 : 0,
             selected

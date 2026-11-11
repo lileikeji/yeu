@@ -13,6 +13,7 @@ import {
   deleteActivity,
   getAdminActivity,
   getPublicActivity,
+  listActivityPlaceIds,
   listAdminActivities,
   listHomepageActivities,
   listPublicActivities,
@@ -199,6 +200,7 @@ test('activities: 提交后进入待审核，总管理员通过后公开', () =>
     assert.equal(detail.organization?.slug, 'club-a')
 
     assert.equal(listHomepageActivities(client, 5).length, 1)
+    assert.deepEqual(listActivityPlaceIds(client), [BUILDING_ID])
 
     assert.throws(
       () => reviewActivity(client, superSession(), created.id, { decision: 'approve', note: null }),
