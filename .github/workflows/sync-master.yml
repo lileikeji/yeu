@@ -1,0 +1,133 @@
+name: sync-master
+
+# master → 默认分支 的单向同步。
+#
+# 背景：master 是上游（Gitee 同步来源之一），默认分支 ai/glm-opensource-hardening
+# 是主开发线。master 有新提交时，需要把内容汇入默认分支。
+#
+# 行为：
+#   1. master 有新提交 → 建同步 PR（base = 默认分支）
+#   2. 无冲突 → 开 auto-merge，CI 绿了自动合
+#   3. 有冲突 → 不合并，PR 标题加 [需手工解决冲突]，等人工处理
+#
+# 不做反向同步（默认分支 → master）。那个方向由人工决定。
+
+on:
+  push:
+    branches: [master]
+  # 每天跑一次兜底，防止 missed push event
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-master
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # 用 PAT 而非 GITHUB_TOKEN：GITHUB_TOKEN 创建的 PR 不会触发后续 workflow
+          # （包括 ci.yml），导致 auto-merge 永远等不到 CI 结果。
+          token: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Check if master is ahead
+        id: check
+        run: |
+          DEFAULT_BRANCH="ai/glm-opensource-hardening"
+          git fetch origin "$DEFAULT_BRANCH" master --no-tags
+
+          AHEAD=$(git rev-list --count "origin/$DEFAULT_BRANCH..origin/master")
+          BEHIND=$(git rev-list --count "origin/master..origin/$DEFAULT_BRANCH")
+
+          echo "master 领先默认分支: $AHEAD 个提交"
+          echo "默认分支领先 master: $BEHIND 个提交"
+          echo "ahead=$AHEAD" >> "$GITHUB_OUTPUT"
+
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "master 没有新提交，跳过"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create sync branch and attempt merge
+        if: steps.check.outputs.skip == 'false'
+        id: merge
+        run: |
+          DEFAULT_BRANCH="ai/glm-opensource-hardening"
+          BRANCH="chore/sync-master-$(date -u +%Y%m%d-%H%M%S)"
+
+          git switch -c "$BRANCH" "origin/$DEFAULT_BRANCH"
+
+          # 关掉 autocrlf：master 上有大量 CRLF 文件，开启会把它们转成 LF，
+          # 产生数万行无关的换行符 diff（2026-11-11 实测 45754 行）。
+          if git -c core.autocrlf=false -c core.eol=crlf merge "origin/master" \
+               --no-edit -m "chore(sync): 合入 master 的 ${{ steps.check.outputs.ahead }} 个提交"; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "冲突，放弃本次自动同步"
+            git merge --abort || true
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Push sync branch
+        if: steps.check.outputs.skip == 'false' && steps.merge.outputs.conflict == 'false'
+        run: |
+          git push origin "${{ steps.merge.outputs.branch }}"
+
+      - name: Open PR and enable auto-merge
+        if: steps.check.outputs.skip == 'false' && steps.merge.outputs.conflict == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          DEFAULT_BRANCH="ai/glm-opensource-hardening"
+
+          gh pr create \
+            --base "$DEFAULT_BRANCH" \
+            --head "${{ steps.merge.outputs.branch }}" \
+            --title "chore(sync): 合入 master 的 ${{ steps.check.outputs.ahead }} 个提交" \
+            --body "自动同步 PR：把 \`master\` 上领先默认分支的 ${{ steps.check.outputs.ahead }} 个提交合入 \`$DEFAULT_BRANCH\`。
+
+          由 \`.github/workflows/sync-master.yml\` 自动创建。合并前请确认 CI 绿灯。
+
+          ## 说明
+
+          - 方向：**master → 默认分支**（单向）
+          - 冲突已在 workflow 内检测，有冲突时不会创建 PR
+          - 换行符按 master 原样保留（\`core.autocrlf=false\`），不做规范化"
+
+          gh pr merge --auto --merge --delete-branch
+
+      - name: Report conflict
+        if: steps.check.outputs.skip == 'false' && steps.merge.outputs.conflict == 'true'
+        run: |
+          echo "::warning::master 与默认分支有合并冲突，需要人工处理。"
+          echo "### ⚠️ 同步被冲突阻断" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "master 有 ${{ steps.check.outputs.ahead }} 个新提交，但与默认分支存在冲突。" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "请本地执行：" >> "$GITHUB_STEP_SUMMARY"
+          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+          echo "git switch -c chore/sync-master-manual origin/ai/glm-opensource-hardening" >> "$GITHUB_STEP_SUMMARY"
+          echo "git -c core.autocrlf=false -c core.eol=crlf merge origin/master" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
