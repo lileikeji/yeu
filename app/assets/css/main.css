@@ -130,6 +130,21 @@
   --mobile-nav-height: 4.5625rem;
 }
 
+/* 评委端手机版五维紧凑行。页面会同时加载两份 entry CSS，后加载那份里的
+   .grid 会盖掉 sm:hidden，导致手机版与桌面版两套评分控件一起显示，
+   所以这里的显示切换写在非层内，不参与 utility 的层叠先后。 */
+.judge-compact-scores { display: grid; }
+
+@media (width >= 40rem) {
+  .judge-compact-scores { display: none; }
+}
+
+/* 视口高度统一用 dvh：手机浏览器工具栏收起/展开时 100vh 大于可见高度，
+   会在页面底部留出一大片空白却仍能滚动。老浏览器没有 dvh 时退回 vh。 */
+@supports not (height: 100dvh) {
+  .min-h-dvh { min-height: 100vh; }
+}
+
 /* 暗色主题基础变量：与 .dark 类搭配（页面壳/正文/分隔线等 var() 引用点）。 */
 html.dark {
   --page-bg: #101310;

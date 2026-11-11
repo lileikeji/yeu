@@ -12,11 +12,23 @@ import { useAppDatabase } from '../utils/database'
  * 缓存 TTL 5 分钟（统计延迟 5 分钟对概览可接受），预热间隔 60s，两者错开保证
  * 常驻热缓存。跑在应用进程内与 amap-rating-refresh 同一理由：永远和当前部署的
  * 代码、同一个 SQLite 连接一致。
+ *
+ * 默认关闭，用 NUXT_ADMIN_CACHE_WARMUP=1 显式打开：预热跑在 Node 单线程事件
+ * 循环里，~60 条同步 SQL 会占住请求线程一拍；在 4 核 3.6G 的生产机上，这一拍
+ * 正好落在公开接口上就是一次抖动。管理后台是低频入口，冷缓存只让第一个管理员
+ * 等一次，比让所有访客周期性陪跑更划算。需要热缓存时（比如演示前）再开。
  */
 const STARTUP_DELAY_MS = 20 * 1000
 const WARMUP_INTERVAL_MS = 60 * 1000
 
+function warmupEnabled(): boolean {
+  const value = (process.env.NUXT_ADMIN_CACHE_WARMUP ?? '').trim().toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on'
+}
+
 export default defineNitroPlugin(() => {
+  if (!warmupEnabled()) return
+
   let running = false
   const warm = () => {
     if (running) return

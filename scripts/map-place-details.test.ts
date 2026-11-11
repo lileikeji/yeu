@@ -4,17 +4,22 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 
 const pageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
+// 选点后收起底部列表的行为搬进了 useMapPoi（selectPoi），断言跟着实现走。
+const poiComposableSource = readFileSync(resolve('app/composables/useMapPoi.ts'), 'utf8')
 const detailsSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
 const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 const e2eFixtureSource = readFileSync(resolve('scripts/prepare-e2e-database.ts'), 'utf8')
 
 test('map place details use compact mobile and desktop-only floating panels', () => {
-  assert.equal(pageSource.match(/<MapPlaceDetailsPanel\b/g)?.length, 2)
-  assert.match(pageSource, /variant="mobile"/)
-  assert.match(pageSource, /variant="desktop"/)
+  // 拆分后整棵面板只挂一份，variant 由 matchMedia 断点切换：两份并挂会把同一地点在 DOM 里渲染两遍。
+  assert.equal(pageSource.match(/<MapPlaceDetailsPanel\b/g)?.length, 1)
+  assert.match(pageSource, /:variant="panelIsDesktop \? 'desktop' : 'mobile'"/)
+  assert.match(pageSource, /const PANEL_DESKTOP_MEDIA_QUERY = '\(min-width: 768px\)'/)
+  assert.doesNotMatch(pageSource, /variant="mobile"/)
+  assert.doesNotMatch(pageSource, /variant="desktop"/)
   assert.match(pageSource, /@copy="copyPoiLocation\(selectedPoi\)"/)
   assert.match(pageSource, /@plan-route="startWalkingRoute\(selectedPoi\.name, selectedPoi\.point\)"/)
-  assert.match(pageSource, /On mobile, free the bottom list sheet so the floating place card can show over the map/)
+  assert.match(poiComposableSource, /On mobile, free the bottom list sheet so the floating place card can show over the map/)
   assert.match(pageSource, /const initialSelectedPoiId = resolveInitialSelectedMapPoiId\(places\.value, initialPlace\)/)
   assert.match(pageSource, /ref<MobileSheetState>\(initialSelectedPoiId \? 'collapsed' : 'half'\)/)
   assert.match(pageSource, /ref="mobileSheetElement"/)
@@ -35,7 +40,7 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   assert.match(detailsSource, /emit\('planRoute'\)/)
   assert.match(detailsSource, /props\.variant === 'desktop'/)
   assert.match(detailsSource, /props\.place\.campusArea/)
-  assert.match(detailsSource, /微信内未唤起地图时/)
+  assert.match(detailsSource, /微信内可复制位置再搜/)
   assert.match(detailsSource, /grid grid-cols-2 gap-2/)
   assert.ok(
     detailsSource.indexOf('label="规划步行路线"')

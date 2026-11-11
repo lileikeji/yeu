@@ -112,18 +112,21 @@ test('prewarming dedupes by retrieval query and honours the budget', async () =>
     assert.equal(deduped.attempted, 1, '映射到同一检索问题只预热一次')
 
     // 预算极小：只跑得完第一条就该停下并记 skipped，而不是硬跑完。
-    // 用慢嵌入让"时间确实过去了"，断言才稳定（否则快实现可能在 1ms 内全跑完）。
+    // 时钟走注入的计数器而不是墙钟：整机负载高时，"第一次嵌入还没开始就已经超预算"
+    // 会让断言在 0 与 1 之间抖（2026-11-10 全量跑复现过一次）。
     clearNearestCacheForTests()
-    const slowEmbedder: EmbeddingProvider = {
+    let clock = 0
+    const tickingEmbedder: EmbeddingProvider = {
       async embedTexts(texts) {
-        await new Promise(resolve => setTimeout(resolve, 30))
+        clock += 30 // 一次嵌入模拟花掉 30ms
         return texts.map(text => bagVector(text))
       }
     }
     const budgeted = await prewarmVectorCacheForHotQueries(client, fakeConfig, query => query, {
-      embedder: slowEmbedder,
+      embedder: tickingEmbedder,
       maxQueries: 10,
-      budgetMs: 10
+      budgetMs: 10,
+      now: () => clock
     })
     assert.equal(budgeted.attempted, 1, '预算只够跑第一条')
     assert.equal(budgeted.skipped, 2, '剩下两条应记为 skipped')

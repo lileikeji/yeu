@@ -12,7 +12,7 @@ export const departmentSectionLabels = {
   publicContact: '公开联系方式',
   emptyContact: '暂时没有找到电话、邮箱或服务时间，可以先打开上方部门官网。',
   contactPending: '联系方式待公布',
-  contactPendingNotice: '目前还没有公开的电话或邮箱。可以先打开上方部门官网，或开学后以学校和部门最新通知为准。',
+  contactPendingNotice: '目前还没有公开的电话或邮箱。可以先打开上方部门官网，或开学后看学校和部门通知。',
   contactPendingAction: '知道新的联系方式？告诉我们',
   openWebsiteFirst: '先打开部门官网'
 } as const
@@ -116,9 +116,9 @@ export function resolveDepartmentVerifiedDate(
   return (lastVerifiedAt ?? updatedAt ?? fallbackAccessedAt).slice(0, 10)
 }
 
-export type DepartmentContactSectionState =
-  | { kind: 'ready' }
-  | { kind: 'pending'; title: string; notice: string; actionLabel: string }
+export type DepartmentContactSectionState
+  = | { kind: 'ready' }
+    | { kind: 'pending', title: string, notice: string, actionLabel: string }
 
 export function hasDepartmentPublicContact(input: {
   phone?: string | null
@@ -136,4 +136,3 @@ export function resolveDepartmentContactSectionState(hasContact: boolean): Depar
     actionLabel: departmentSectionLabels.contactPendingAction
   }
 }
-

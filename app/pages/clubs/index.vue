@@ -77,9 +77,6 @@ function clearClubFilters() {
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           找到你感兴趣的社团
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          先按兴趣看看学校里有哪些社团。2026 级招新时间、地点和群聊入口还没公布，开学后记得留意校团委和现场通知。
-        </p>
         <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500 dark:text-zinc-400">
           <span class="inline-flex items-center gap-1.5">
             <UIcon
@@ -279,6 +276,30 @@ function clearClubFilters() {
           @click="clearClubFilters"
         />
       </div>
+
+      <section class="mt-8 border-t border-zinc-200 dark:border-zinc-800 pt-4">
+        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          近期活动与招新
+        </h2>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <UButton
+            to="/singer"
+            icon="i-lucide-mic-vocal"
+            label="新声歌手大赛"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+          />
+          <UButton
+            to="/competition"
+            icon="i-lucide-trophy"
+            label="赛事与招新总览"
+            color="neutral"
+            variant="outline"
+            class="min-h-11"
+          />
+        </div>
+      </section>
     </div>
   </div>
 </template>

@@ -1,11 +1,9 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
   title: string
-  description?: string
   icon?: string
   eyebrow?: string
 }>(), {
-  description: '',
   icon: 'i-lucide-folder',
   eyebrow: '内容管理'
 })
@@ -27,12 +25,6 @@ withDefaults(defineProps<{
         <h1 class="mt-1 text-xl font-bold text-zinc-950 dark:text-zinc-100 sm:text-2xl">
           {{ title }}
         </h1>
-        <p
-          v-if="description"
-          class="mt-1 max-w-3xl text-sm leading-6 text-zinc-500 dark:text-zinc-400"
-        >
-          {{ description }}
-        </p>
       </div>
     </div>
     <div class="flex shrink-0 items-center gap-2">

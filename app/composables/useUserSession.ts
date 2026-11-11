@@ -79,7 +79,7 @@ export function useUserSession() {
       await userFetch('/api/auth/logout', { method: 'POST' })
     } catch (error) {
       if (!isAuthorizationError(error)) {
-        throw new Error(getRequestMessage(error, '退出登录失败'))
+        throw new Error(getRequestMessage(error, '退出登录失败'), { cause: error })
       }
     } finally {
       user.value = null

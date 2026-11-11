@@ -1,5 +1,6 @@
 import { createCompetitionJudgesSchema } from '../../../../../../../shared/schemas/server'
 import {
+  createJudgeAccount,
   createJudgeAccounts,
   ensureCompetitionEvent,
   getRoundByKey
@@ -20,7 +21,18 @@ export default defineEventHandler(async (event) => {
 
   const competition = ensureCompetitionEvent(client, contentId)
   const round = getRoundByKey(client, competition.id, roundKey)
-  const judges = await createJudgeAccounts(client, round, input.count)
+  const custom = Boolean(
+    (input.username && input.username.trim())
+    || input.password
+    || input.displayName
+  )
+  const judges = custom
+    ? [await createJudgeAccount(client, round, {
+        username: input.username,
+        password: input.password,
+        displayName: input.displayName
+      })]
+    : await createJudgeAccounts(client, round, input.count ?? 1)
 
   writeAudit(client, event, {
     actorAdminId: session.admin.id,

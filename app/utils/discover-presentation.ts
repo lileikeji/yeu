@@ -45,6 +45,22 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
     when: '9 月 5—6 日'
   },
   {
+    title: '从车站到宿舍',
+    description: '选你到达的车站，按时间轴一步步走到报到点和宿舍，含时长区间与换乘',
+    to: '/arrival',
+    icon: 'i-lucide-route',
+    tone: 'bg-teal-50 text-teal-700',
+    when: '出发前一天'
+  },
+  {
+    title: '到校与离校',
+    description: '查泉州站、泉州东站、晋江机场和市区往返学校的公交与换乘方案',
+    to: '/transport',
+    icon: 'i-lucide-bus-front',
+    tone: 'bg-sky-50 text-sky-700',
+    when: '出发前查一次'
+  },
+  {
     title: '学费与资助',
     description: '查 2026 年学费、住宿费、助学贷款和助学金，缴费入口等学校通知',
     to: '/guides/fees-aid',
@@ -118,7 +134,7 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
   },
   {
     title: '社团与招新',
-    description: '了解社团方向和近期活动，招新时间看最新消息',
+    description: '社团方向、近期活动；招新时间看最新消息',
     to: '/clubs',
     icon: 'i-lucide-users-round',
     tone: 'bg-violet-50 text-violet-700',
@@ -145,15 +161,17 @@ export const discoverTaskEntries: DiscoverTaskEntry[] = [
 export const discoverDirectoryEntries: DiscoverLinkEntry[] = [
   { title: '全部指南', description: '查看入学、校园、生活与社团事项', to: '/guides', icon: 'i-lucide-notebook-tabs' },
   { title: '校园概览', description: '学校简介、当前公告和常用入口', to: '/campus', icon: 'i-lucide-school' },
+  { title: '赛事与招新', description: '看新声歌手大赛赛程、社团招新和报名入口', to: '/competition', icon: 'i-lucide-trophy' },
   { title: '校内部门', description: '按要办的事查职责和公开联系方式', to: '/departments', icon: 'i-lucide-landmark' },
-  { title: '学生社团', description: '按兴趣找社团，留意本学期招新消息', to: '/clubs', icon: 'i-lucide-users-round' }
+  { title: '学生社团', description: '按兴趣找社团，留意本学期招新消息', to: '/clubs', icon: 'i-lucide-users-round' },
+  { title: '查专业', description: '按学院和专业查住宿片区与报到说明', to: '/major-lookup', icon: 'i-lucide-graduation-cap' }
 ]
 
 export const discoverTrustEntries: DiscoverLinkEntry[] = [
-  { title: '联系我们 / 加新生群', description: '扫码联系整理者，咨询问题或申请加入新生交流群', to: '/contact', icon: 'i-lucide-message-circle' },
+  { title: '联系我们 / 加新生群', description: '扫码联系整理者，问问题或加新生群', to: '/contact', icon: 'i-lucide-message-circle' },
   { title: '参考页面', description: '看看学校通知、部门页面和地图资料', to: '/sources', icon: 'i-lucide-list-checks' },
   { title: '告诉我们哪里不对', description: '说明出错的页面和正确情况，不登录也能提交', to: '/feedback', icon: 'i-lucide-message-square-warning' },
-  { title: '隐私说明', description: '了解会记录哪些信息，以及如何查询或删除', to: '/privacy', icon: 'i-lucide-shield-check' },
-  { title: '关于这份指南', description: '了解本站能帮你做什么，哪些事项要看学校通知', to: '/about', icon: 'i-lucide-info' },
+  { title: '隐私说明', description: '会记录哪些信息，怎么查、怎么删', to: '/privacy', icon: 'i-lucide-shield-check' },
+  { title: '关于这份指南', description: '本站能查什么，哪些要看学校通知', to: '/about', icon: 'i-lucide-info' },
   { title: '网络提示', description: '没有网络时能看什么，以及怎样回到原页面', to: '/offline', icon: 'i-lucide-cloud-off' }
 ]

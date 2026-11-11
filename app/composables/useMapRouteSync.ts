@@ -67,7 +67,6 @@ export function useMapRouteSync(options: UseMapRouteSyncOptions) {
         selectedAreaId: options.selectedAreaId.value
       }, options.places.value)
       lastWrittenQuery = typeof query.q === 'string' ? query.q : ''
-      const mobile = typeof window !== 'undefined' && window.innerWidth < 768
       void router.replace({ query })
     }, typeof window !== 'undefined' && window.innerWidth < 768
       ? ROUTE_WRITE_DEBOUNCE_MOBILE_MS

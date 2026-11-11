@@ -58,8 +58,9 @@ test('procedure quick entries cover the tasks freshmen most often look for', () 
 })
 
 test('procedure introduction stays direct and balanced on narrow phones', () => {
-  assert.match(pageSource, /先找你要办的事，再按步骤准备时间、材料和地点/)
-  assert.match(pageSource, /尚未公布的安排会直接标明/)
+  assert.match(pageSource, /新生办事流程/)
+  assert.doesNotMatch(pageSource, /先找你要办的事，再按步骤准备时间、材料和地点/)
+  assert.doesNotMatch(pageSource, /尚未公布的安排会直接标明/)
   assert.doesNotMatch(pageSource, /页面会告诉你现在能做什么、还要等什么/)
 })
 
@@ -94,7 +95,7 @@ test('procedure list audience and method labels stay student-facing', () => {
   assert.equal(procedureMethodLabel('mixed'), '网上确认 + 到校办理')
   assert.equal(procedureListMessages.serviceUnavailable, '可以稍后再试，也可以先查看入学指南。')
   assert.equal(procedureListMessages.emptyMatch, '没有找到你要办的事')
-  assert.equal(procedureListMessages.emptyList, '这里暂时没有可查看的办事流程')
+  assert.equal(procedureListMessages.emptyList, '没有可查看的办事流程')
   assert.match(pageSource, /clearProcedureFilters/)
   assert.match(pageSource, /label="清除条件"/)
   assert.match(pageSource, /label="重新试一次"/)
@@ -213,7 +214,6 @@ test('procedure list puts shared newcomer tasks first until an audience is selec
     ]
   )
 })
-
 
 test('procedure list cards expose step/material counts and local progress hints', () => {
   const item = {

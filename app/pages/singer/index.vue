@@ -2,13 +2,13 @@
 definePageMeta({ layout: false })
 
 useSeoMeta({
-  title: '新生歌手大赛 · Songs of Autumn | 仰恩大学音乐协会',
-  description: '仰恩大学音乐协会2026新生歌手大赛：报名时间11.7-11.14，初赛11.14-11.15旧区宏船楼303，复赛11.21新区和昌讲堂，决赛12.5旧区普照大礼堂。'
+  title: '新声歌手大赛 · Songs of Autumn | 仰恩大学音乐协会',
+  description: '仰恩大学音乐协会2026新声歌手大赛：报名时间11.7-11.14，初赛11.14-11.15旧区宏船楼303，复赛11.21新区和昌讲堂，决赛12.5旧区普照大礼堂。'
 })
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-[#ffe8d9] via-[#fdf6ec] to-[#ddf3ea] text-[#33413a]">
+  <div class="min-h-dvh bg-gradient-to-b from-[#ffe8d9] via-[#fdf6ec] to-[#ddf3ea] text-[#33413a]">
     <main class="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
       <!-- 头部 -->
       <header class="text-center">
@@ -16,7 +16,7 @@ useSeoMeta({
           仰恩大学音乐协会 · Music Association of YUE
         </p>
         <h1 class="mt-5 text-4xl font-black leading-tight tracking-wide text-[#2f3a34] sm:text-5xl">
-          新生歌手大赛
+          新声歌手大赛
         </h1>
         <p class="mt-2 font-serif text-2xl italic text-[#7d8a80]">
           Songs of Autumn
@@ -68,10 +68,26 @@ useSeoMeta({
         <p class="text-lg font-bold">
           报名方式
         </p>
-        <p class="mt-1 text-sm leading-6 text-white/90">
-          先扫码填个预报名，比赛当天到现场扫码确认就能唱。
-          时间：11.14 / 11.15 任选一天，19:00，旧区宏船楼303。
-        </p>
+        <dl class="mt-3 grid gap-1 text-sm leading-6 text-white/90">
+          <div class="flex gap-2">
+            <dt class="shrink-0 font-semibold">
+              时间
+            </dt>
+            <dd>11.14 / 11.15 任选一天 19:00</dd>
+          </div>
+          <div class="flex gap-2">
+            <dt class="shrink-0 font-semibold">
+              地点
+            </dt>
+            <dd>旧区宏船楼303</dd>
+          </div>
+          <div class="flex gap-2">
+            <dt class="shrink-0 font-semibold">
+              报名入口
+            </dt>
+            <dd>现场扫码，或先填预报名</dd>
+          </div>
+        </dl>
         <div class="mt-4">
           <NuxtLink
             to="/singer/pre-register"
@@ -85,9 +101,6 @@ useSeoMeta({
             填写预报名
           </NuxtLink>
         </div>
-        <p class="mt-3 text-xs text-white/80">
-          现场登记二维码只在比赛当天现场提供。
-        </p>
       </section>
 
       <!-- 赛程与规则 -->
@@ -125,7 +138,7 @@ useSeoMeta({
             </li>
             <li>初赛评定标准：由评委根据选手表现进行打分，满分100分（五个维度，每项20分），取平均值。最终取前30名进入复赛。</li>
             <li>有填写报名信息的选手，工作人员以QQ联系形式通知其来参加。如果两天都未能在比赛时间段之内到达现场参赛，且未向负责人说明原因，则默认视为弃权。</li>
-            <li>初赛共分两天，自选一天参加即可。支持现场报名，比赛顺序以现场签到顺序为主。</li>
+            <li>初赛共分两天，自选一天参加。支持现场报名，比赛顺序以现场签到顺序为主。</li>
           </ol>
         </article>
 
@@ -191,10 +204,7 @@ useSeoMeta({
 
       <!-- 底部 -->
       <footer class="mt-10 pb-6 text-center">
-        <p class="font-serif text-lg italic text-[#a39c8f]">
-          秋日恋歌 · 新的序曲
-        </p>
-        <p class="mt-2 text-xs text-[#a8b0a6]">
+        <p class="text-xs text-[#a8b0a6]">
           主办：仰恩大学音乐协会 · 最终解释权归主办方所有
         </p>
       </footer>

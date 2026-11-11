@@ -55,7 +55,7 @@ onLoad(() => {
 </script>
 
 <template>
-  <AppPage title="全景云游校园" subtitle="校内实景和校史馆全景的入口整理，画面来源各自不同，请在原页面查看。">
+  <AppPage title="全景云游校园">
     <view class="note note-calm intro">
       <text class="t-meta">
         微信小程序不能直接内嵌外部全景页面（需要配置业务域名），这里先给出来源和入口：点按钮复制链接后，粘贴到浏览器或微信里打开即可。

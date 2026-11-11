@@ -89,7 +89,6 @@ export function useMapBusPositions(options: {
   const pickedRouteByBus = new Map<string, string>()
   let lastData: BusPositionsResponse | null = null
 
-
   /**
    * 站点压到线路上：YKT 的站点坐标是实地点位（门口、楼前），直接画会浮在路外、
    * 面板上的「下一站 / 距离」也会跟着偏。这里把每个站点投到本线路折线上最近的

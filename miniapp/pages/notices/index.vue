@@ -49,7 +49,7 @@ onPullDownRefresh(() => { void loadNotices() })
 </script>
 
 <template>
-  <AppPage eyebrow="校园值班台 / 看变化" title="通知公告" subtitle="按公开时间查看通知。涉及个人安排时，请回到学校正式入口确认。">
+  <AppPage eyebrow="校园值班台 / 看变化" title="通知公告">
     <StateView :loading="loading" :error="error" :empty="!items.length" empty-text="暂无已发布公告。" @retry="loadNotices">
       <view class="list-stack">
         <view v-for="item in items" :key="item.id" class="notice-row list-card">

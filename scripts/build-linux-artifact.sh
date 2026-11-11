@@ -15,6 +15,11 @@ set -euo pipefail
 
 : "${DEPLOY_SERVER:?缺少 DEPLOY_SERVER（形如 user@host），配置见 docs/DEPLOYMENT.md}"
 : "${SSH_KEY:?缺少 SSH_KEY（部署私钥路径）}"
+# Git Bash 里常写成 /c/Users/...，但 ssh/scp 是 Windows 可执行文件，会把它当成相对路径，
+# 结果远端探测拿回空串、脚本误报「版本不一致」并中止。统一转成 C:/... 形式。
+if [[ "$SSH_KEY" == /[a-zA-Z]/* ]]; then
+  SSH_KEY="$(printf %s "$SSH_KEY" | sed -E 's#^/([a-zA-Z])/#\U\1:/#')"
+fi
 REMOTE_STAGE="${REMOTE_STAGE:-/root/yeu-deploy}"
 SMOKE_PORT="${SMOKE_PORT:-4093}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -57,14 +62,14 @@ echo "    $(du -h "$STAGE/release.tar.gz" | cut -f1)"
 echo "==> [4/6] 上传并补齐 ELF 二进制"
 ssh_run "mkdir -p $REMOTE_STAGE"
 # 工作区 core.autocrlf=true，直接 scp 会把 CRLF 带上 Linux，bash 报 $'\r' 语法错误。
-for f in scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh; do
+for f in scripts/server-side-deploy.sh scripts/deploy-home-sheet.sh scripts/remote-patch-native.sh; do
   tr -d '\r' < "$f" > "$STAGE/$(basename "$f")"
 done
 # scp 单次经常被服务器断连，重试三次再放弃；传完核对远端字节数，避免半个包被当制品。
 upload() {
   local attempt
   for attempt in 1 2 3; do
-    if scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ServerAliveInterval=15         -o ServerAliveCountMax=4 -q         "$STAGE/release.tar.gz" "$STAGE/server-side-deploy.sh" "$STAGE/deploy-home-sheet.sh"         "$DEPLOY_SERVER:$REMOTE_STAGE/"; then
+    if scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ServerAliveInterval=15         -o ServerAliveCountMax=4 -q         "$STAGE/release.tar.gz" "$STAGE/server-side-deploy.sh" "$STAGE/deploy-home-sheet.sh" "$STAGE/remote-patch-native.sh"         "$DEPLOY_SERVER:$REMOTE_STAGE/"; then
       return 0
     fi
     echo "    上传失败（第 $attempt 次），8 秒后重试" >&2
@@ -81,27 +86,7 @@ if [[ "$local_size" != "$remote_size" ]]; then
 fi
 echo "    上传校验通过（$local_size 字节）"
 
-ssh_run "set -e
-  rm -rf $REMOTE_STAGE/build && mkdir -p $REMOTE_STAGE/build
-  tar xzf $REMOTE_STAGE/release.tar.gz -C $REMOTE_STAGE/build
-  CUR=/www/wwwroot/yeu/current/.output/server/node_modules
-  # 线上 current 可能缺 sqlite-vec 的平台包（20261103-233258 就没有），回退到最近一个带的 release。
-  # 历史 release 有两种布局（<id>/.output/server/node_modules 与 <id>/server/node_modules），按目录名找。
-  if [ ! -d \"\$CUR/sqlite-vec-linux-x64\" ]; then
-    ALT=\$(find /data/yeu/releases -maxdepth 7 -type d -name sqlite-vec-linux-x64 2>/dev/null | head -1)
-    [ -n \"\$ALT\" ] && CUR=\$(dirname \"\$ALT\")
-    echo \"    sqlite-vec 回退源：\$CUR\"
-  fi
-  NEW=$REMOTE_STAGE/build/.output/server/node_modules
-  mkdir -p \$NEW/better-sqlite3/build/Release
-  cp -f \$CUR/better-sqlite3/build/Release/better_sqlite3.node \$NEW/better-sqlite3/build/Release/
-  rm -rf \$NEW/sqlite-vec-linux-x64 && cp -r \$CUR/sqlite-vec-linux-x64 \$NEW/
-  test -f \$NEW/better-sqlite3/build/Release/better_sqlite3.node
-  # create 记录的 native.hash 是本机 Windows 二进制的摘要，换成 ELF 后必须重算，
-  # 否则 deploy-home-sheet.sh 的 native 校验会报「SQLite 原生模块摘要不匹配」。
-  node -e \"const fs=require('fs'),c=require('crypto');const [p,n]=process.argv.slice(1);const m=JSON.parse(fs.readFileSync(p,'utf8'));m.native.hash=c.createHash('sha256').update(fs.readFileSync(n)).digest('hex');m.platform=process.platform;m.arch=process.arch;m.node=process.version;m.abi=process.versions.modules;fs.writeFileSync(p,JSON.stringify(m)+'\\n')\" $REMOTE_STAGE/build/.output/release.json \$NEW/better-sqlite3/build/Release/better_sqlite3.node
-  echo \"    native.hash=\$(grep -o '\\\"hash\\\":\\\"[0-9a-f]\\{8\\}' \$REMOTE_STAGE/build/.output/release.json | tail -1)\"
-  echo \"    modules=\$(ls \$NEW | wc -l)\""
+ssh_run "bash $REMOTE_STAGE/remote-patch-native.sh $REMOTE_STAGE"
 
 echo "==> [5/6] 临时端口冒烟（$SMOKE_PORT，不碰 current）"
 ssh_run "cd $REMOTE_STAGE/build/.output/server && NUXT_DATABASE_PATH=/tmp/yeu-smoke.sqlite PORT=$SMOKE_PORT HOST=127.0.0.1 NODE_ENV=production setsid nohup node index.mjs > /tmp/yeu-smoke.log 2>&1 &

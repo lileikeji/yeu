@@ -92,7 +92,7 @@ export function getWalkingRoute(options: {
   })
 }
 
-/** AI 问答：与网页共用服务端同一套检索/回答逻辑。 */
+/** 问答：与网页共用服务端同一套查找与回答逻辑。 */
 export function askAssistant(q: string, sessionId?: string): Promise<ApiAssistantResponse> {
   return postJson<ApiAssistantResponse>({
     path: '/api/miniapp/v1/assistant',

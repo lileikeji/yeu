@@ -109,13 +109,11 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             官网公开制度整理
           </UBadge>
           <span class="text-zinc-500 dark:text-zinc-400">核对日期：2026年7月24日</span>
+          <span class="text-zinc-500 dark:text-zinc-400">官网未公开整本手册</span>
         </div>
         <h1 class="mt-3 text-3xl font-bold text-zinc-950 dark:text-zinc-100 md:text-4xl">
           学生规则与奖学金
         </h1>
-        <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
-          查绩点公式、试算 GPA、比较奖学金条件，也可以按主题打开学校公开的学生制度原文。
-        </p>
         <div class="mt-6 flex flex-wrap gap-2">
           <UButton
             to="#gpa-calculator"
@@ -147,18 +145,6 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
       </div>
     </section>
 
-    <section class="border-b border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950">
-      <div class="page-shell py-4 text-sm leading-6 text-amber-950">
-        <p class="flex items-start gap-2">
-          <UIcon
-            name="i-lucide-info"
-            class="mt-1 size-4 shrink-0"
-          />
-          <span><strong>公开范围说明：</strong>官网目前没有公开可下载的整本《学生手册》。这里把学生事务部规章制度目录及教务部公开文件整理成可检索规则库，不把分散文件误称为完整原册；校内如有更新版，以辅导员、教务系统和学校最新通知为准。</span>
-        </p>
-      </div>
-    </section>
-
     <section
       id="gpa-calculator"
       class="scroll-mt-20 border-b border-[var(--line)] bg-zinc-50 dark:bg-zinc-800/60"
@@ -174,8 +160,8 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                 <h2 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100">
                   GPA 计算器
                 </h2>
-                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-                  录入参与绩点计算的课程；0学分课程会自动排除。
+                <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  0 学分课程不计入
                 </p>
               </div>
               <UButton
@@ -345,8 +331,8 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
         <h2 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
           奖学金条件对比
         </h2>
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          2025年总规定列出的7类奖学金均已纳入。先选奖项，再逐项核对资格；达到条件不代表必然获奖。
+        <p class="mt-2 max-w-3xl text-xs text-zinc-500 dark:text-zinc-400">
+          2025 年总规定 · 7 类奖学金 · 达标不等于获奖
         </p>
 
         <div
@@ -475,8 +461,8 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             <h2 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100">
               综测加分计算器
             </h2>
-            <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              综合测评 ≠ GPA，满分 100 分，2025 版办法自 2025 年 1 月起施行，用于多项评奖排名。下方点选各板块加分项，总分实时更新。
+            <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              满分 100 · 2025 版办法 · 用于评奖排名
             </p>
           </div>
           <a
@@ -542,8 +528,8 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             <h2 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100">
               学生规则库
             </h2>
-            <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-              当前整理 {{ studentRuleCatalog.length }} 项公开制度，点击可打开学校原文。
+            <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              {{ studentRuleCatalog.length }} 项公开制度
             </p>
           </div>
           <UInput
@@ -597,7 +583,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                 external
                 target="_blank"
                 rel="noopener noreferrer"
-                label="官方原文"
+                label="学校原文"
                 trailing-icon="i-lucide-external-link"
                 color="neutral"
                 variant="ghost"
@@ -609,7 +595,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             v-if="filteredRules.length === 0"
             class="py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
           >
-            没有匹配的公开制度，换个关键词试试。
+            没有匹配的公开制度
           </p>
         </div>
       </div>

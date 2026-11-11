@@ -33,9 +33,11 @@ export default defineEventHandler(async (event) => {
   // AI 巡检（异步不阻塞提交）：留言与打卡都先审后放（打卡可能带违规文字）；
   // 纯空文本在 moderateMomentRow 内直接放行，不浪费 LLM 调用。
   const config = moderationConfigFromRuntime(useRuntimeConfig(event))
-  const moment = createPlaceMoment(client, input, identity, ip, Boolean(config))
-  if (config) {
-    void moderateMomentRow(client, 'place', moment.id, moment.body, config).catch(() => {})
+  // 有图或有文字都要审（纯图留言同样可能违规）；纯打卡无图无字直放。
+  const willModerate = Boolean(config) && (Boolean(input.body?.trim()) || (input.images?.length ?? 0) > 0)
+  const moment = createPlaceMoment(client, input, identity, ip, willModerate)
+  if (willModerate && config) {
+    void moderateMomentRow(client, 'place', moment.id, moment.body, config, { images: moment.images }).catch(() => {})
   }
 
   setResponseStatus(event, 201)

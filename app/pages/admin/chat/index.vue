@@ -320,7 +320,6 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="群聊管理"
-      description="查看群聊消息，处理违规内容，并管理个人或全员禁言。"
       icon="i-lucide-messages-square"
       eyebrow="用户与互动"
     >

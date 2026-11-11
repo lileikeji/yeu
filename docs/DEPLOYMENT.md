@@ -227,7 +227,16 @@ server {
 #     return 444;
 # }
 
+# 服务器级兜底；真正生效的是更内层的值，见下面「上传体积口径」。
 client_max_body_size 10m;
+
+# 上传体积口径（`ops/configure-nginx.sh:73-74` 会把 256k 自动写进 `location @nuxt`，
+# 手改 vhost 会被下次执行覆盖）：
+# - `location @nuxt` 的 256k 覆盖服务器级 10m，所有走 Nitro 的接口都受它约束；
+# - `/api/place-moments/images`（匿名留言配图）没有单独 location，线上真实上限就是
+#   256 KB；应用侧 `MAX_UPLOADED_IMAGE_BYTES = 5 MB` 是内层兜底，放宽 Nginx 后才生效；
+# - `/api/admin/media/images` 由 `ops/nginx/admin-media-upload.conf` 单独给 6m，
+#   与后台媒体 5 MB 上限对齐；`/api/assistant/stream` 由 `assistant-stream.conf` 给 256k。
 
 location /_nuxt/ {
     root /www/wwwroot/yeu/current/.output/public;
@@ -375,6 +384,19 @@ pnpm db:backup \
 
 该命令使用 SQLite online backup API，先写同目录临时文件，验证 `integrity_check`、`foreign_key_check`、文件大小和 SHA-256 后再原子改名，并生成同名 `.json` 元数据。它拒绝覆盖已有文件以及写入 `public/`、`.output/public/`、`storage/uploads/`。备份与元数据随后可作为同一归档加密压缩；压缩后还应记录归档自身哈希。
 
+日常回滚点由 `yeu-backup.timer`（每天 04:00）驱动 `yeu-backup.sh`：`sqlite3 -readonly VACUUM INTO` 生成 `shared/backups/yeu-daily-<UTC>.sqlite`，并写同名 `.sqlite.json`（`createdAt` 为 ISO 时间、`outputPath` 为裸文件名），字段与 `scripts/backup-database.ts` 同形，`pnpm ops:monitor` 的「最近备份」检查直接读它；本机保留 14 份后成对清理 `.sqlite` 与 `.json`。这样连续几天不发版也不会缺回滚点，也不会再触发 `backup_missing`。
+
+release 只发 `.output`，`current/scripts` 与 `current/ops` 在部署目录里并不存在，所以定时任务依赖的脚本与单元、以及 wechatpadpro 的两个单元，统一由源码检出安装到 `/opt/yeu-ops`：
+
+```bash
+cd /www/wwwroot/yeu/repo && bash ops/harden-production.sh
+```
+
+这一步做四件事（都幂等，可反复跑）：① 按 `current/ops` → `repo/ops` 的顺序解析 ops 目录；② 把 `cleanup-sensitive-data.mjs`、`prune-uploads.mjs`、`yeu-backup.sh`、`wechatpadpro-relay.mjs`、`wechatpadpro/docker-compose.yml`、`wechatpadpro/.env.example` 投放到 `/opt/yeu-ops`；③ 安装 6 个单元（yeu / yeu-qq-relay / yeu-wechatpadpro / yeu-wechatpadpro-relay / yeu-retention / yeu-backup）；④ `daemon-reload` 并 `enable --now yeu-retention.timer yeu-backup.timer`。
+
+装完核对：`systemctl list-timers 'yeu-*'` 应有两次下次触发时间；`systemctl cat yeu-wechatpadpro.service` 的 ExecStart 应指向 `/opt/yeu-ops/wechatpadpro/docker-compose.yml`。
+`yeu-retention.timer`（03:25）除敏感数据清理外，还跑 `prune-uploads.mjs --days 7`：只删「超过 7 天且数据库任何文本列都没有引用」的 `UUID.png|jpg|webp`，其余文件一律不动，`--dry-run` 可先看清单。
+
 制品附带 `deploy/release-tools.mjs`，无需生产安装 pnpm。设置 `YEU_NODE` 为目标 Node 路径，`YEU_BASE` 为应用根目录，`YEU_CANDIDATE` 为候选 release 目录，再使用以下检查：
 
 ```bash
@@ -401,6 +423,91 @@ MIGRATIONS="$YEU_CANDIDATE/.output/deploy/migrations"
 4. 用临时 `NUXT_DATABASE_PATH` 启动隔离实例；
 5. 验证地图地点、指南、管理员登录、发布/下线和媒体引用；
 6. 确认无误后原子切换数据库路径并记录恢复点、耗时与数据损失窗口。
+
+### 2026-11-10 上线清单（迁移 0052/0053/0054 + systemd + Nginx 6m）
+
+一次发版里要动的东西按顺序做完，每步都有验收命令；任何一步不过就停在这步，不要跳到下一步。
+
+**0. 本机出制品**（不在生产机构建）
+
+```bash
+bash scripts/build-linux-artifact.sh          # 约 105 秒，产出 ~16M 制品
+scp 制品到 /data/yeu-build/incoming/
+```
+
+**1. 备份并验证**（任何生产写操作之前必须做）
+
+```bash
+cd /www/wwwroot/yeu/current            # 或任意一个含 .output/deploy 的候选 release
+TOOLS=.output/deploy/release-tools.mjs
+MIGRATIONS=.output/deploy/migrations
+YEU_BACKUP_PREFIX=yeu-before-migrate \
+  bash /www/wwwroot/yeu/repo/ops/systemd/yeu-backup.sh
+LATEST=$(ls -t /www/wwwroot/yeu/shared/backups/yeu-before-migrate-*.sqlite | head -1)
+ls -l "$LATEST"
+node "$TOOLS" backup-verify "$LATEST"
+```
+
+服务器上不需要 pnpm/node_modules：`yeu-backup.sh` 只用 `sqlite3 -readonly VACUUM INTO`，产出 `<prefix>-<UTC>.sqlite` 与同名 `.json` 元数据（与监控读的字段同形）。
+
+后面几步统一用这两个变量（服务器上没有 pnpm 也能跑 `db-migrate`/`db-check`）。
+
+验收：输出里 `integrity` 与 `foreignKeys` 都正常，且 `.json` 元数据的 `sha256` 与文件一致。
+
+**2. 在副本上先演练迁移**（约 0.9 GB，几十秒）
+
+```bash
+LATEST=$(ls -t /www/wwwroot/yeu/shared/backups/yeu-before-migrate-*.sqlite | head -1)
+cp "$LATEST" /tmp/rehearsal.sqlite
+node "$TOOLS" db-migrate /tmp/rehearsal.sqlite "$MIGRATIONS"
+node "$TOOLS" db-check   /tmp/rehearsal.sqlite "$MIGRATIONS"
+```
+
+验收：`db-migrate` 返回 `applied` 为 3（0052/0053/0054）；`db-check` 返回 `applied` 0、`pendingLedger` 0。副本不过就别碰生产库。
+
+**3. 生产库迁移**
+
+```bash
+node "$TOOLS" db-migrate /www/wwwroot/yeu/shared/data/yeu.sqlite "$MIGRATIONS"
+node "$TOOLS" db-check   /www/wwwroot/yeu/shared/data/yeu.sqlite "$MIGRATIONS"
+```
+
+0054 是表重建（把 `feedback.target_type` 的 CHECK 扩到 5 值），SQL 头部有 `-- yeu:allow-table-rebuild feedback` 放行标记；没有这行的重建迁移会被发布闸门直接拒绝。回滚方式是把第 1 步的备份拷回 `shared/data/`（先 `systemctl stop yeu.service`，拷回后再 start）。
+
+**4. 安装运维单元**
+
+```bash
+cd /www/wwwroot/yeu/repo && bash ops/harden-production.sh
+systemctl list-timers 'yeu-*'
+```
+
+验收：`yeu-retention.timer`（03:25）与 `yeu-backup.timer`（04:00）都有下次触发时间；`systemctl cat yeu-wechatpadpro-relay.service` 的 ExecStart 指向 `/opt/yeu-ops/wechatpadpro-relay.mjs`。
+
+**5. 放开图片上传体积**
+
+```bash
+cd /www/wwwroot/yeu/repo && bash ops/configure-nginx.sh
+nginx -t && nginx -s reload
+```
+
+验收：`nginx -T | grep -A3 'place-moments/images'` 能看到 `client_max_body_size 6m`。真机验证：一张 3 MB 照片走前台发图应返回 200；超过 5 MB 应返回应用层的 413 文案，而不是 Nginx 的 413 页面。
+
+**6. 切换发布并冒烟**
+
+```bash
+bash /data/yeu-build/deploy-incoming.sh        # 校验 + 备份复用 + 3101 冒烟 + 切换，35–90 秒
+curl -s http://127.0.0.1:3101/api/health
+```
+
+验收：`deploy-incoming.sh` 全绿；`/api/health` 返回 `database: ready`；`/api/public/notices` 首字节时间明显低于迁移前（24 万事件夹具上那条聚合从 1.2 s 降到 30 ms 量级）。
+
+**7. 观察 15 分钟**
+
+```bash
+journalctl -u yeu.service -S -15min | grep -E 'ERROR|SqliteError'
+```
+
+出现 `no such table` / `no such column` 立即回滚到第 1 步的备份；出现单条 5xx 先确认 `assistant_knowledge_state` 存在（0053 建它）。
 
 ## 9. 监控与日志
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -33,6 +33,41 @@ test('实际迁移失败时事务回滚，已有业务数据保留', async () =>
     assert.equal(restored.prepare('SELECT value FROM items').get()?.value, 'keep')
     assert.equal(restored.prepare('PRAGMA table_info(items)').all().length, 2)
     restored.close()
+  } finally { rmSync(f.root, { recursive: true, force: true }) }
+})
+
+test('表重建迁移默认被拒，只有显式放行标记才执行并保留数据', async () => {
+  const f = fixture('CREATE TABLE items(id integer PRIMARY KEY, value text NOT NULL);')
+  try {
+    await tools.migrateDatabase(f.database, f.migrations)
+    const db = new DatabaseSync(f.database)
+    db.exec('INSERT INTO items VALUES(1,\'keep\')')
+    db.close()
+    writeFileSync(
+      join(f.migrations, 'meta/_journal.json'),
+      JSON.stringify({ entries: [{ tag: '0000_test', when: 1 }, { tag: '0001_rebuild', when: 2 }] })
+    )
+    // 需要重建表才能把 CHECK 从 1 列放宽到 2 列，SQLite 只能 DROP + RENAME。
+    const rebuild = [
+      'CREATE TABLE __new_items(id integer PRIMARY KEY, value text NOT NULL, extra text);--> statement-breakpoint',
+      'INSERT INTO __new_items(id, value) SELECT id, value FROM items;--> statement-breakpoint',
+      'DROP TABLE items;--> statement-breakpoint',
+      'ALTER TABLE __new_items RENAME TO items;'
+    ].join('\n')
+    writeFileSync(join(f.migrations, '0001_rebuild.sql'), rebuild)
+    await assert.rejects(tools.migrateDatabase(f.database, f.migrations), /破坏兼容性的迁移.*0001_rebuild/)
+    const untouched = new DatabaseSync(f.database)
+    assert.equal(untouched.prepare('PRAGMA table_info(items)').all().length, 2)
+    untouched.close()
+    writeFileSync(
+      join(f.migrations, '0001_rebuild.sql'),
+      `-- yeu:allow-table-rebuild items\n${rebuild}`
+    )
+    assert.deepEqual(await tools.migrateDatabase(f.database, f.migrations), { applied: 1 })
+    const rebuilt = new DatabaseSync(f.database)
+    assert.equal(rebuilt.prepare('PRAGMA table_info(items)').all().length, 3)
+    assert.equal(rebuilt.prepare('SELECT value FROM items').get()?.value, 'keep')
+    rebuilt.close()
   } finally { rmSync(f.root, { recursive: true, force: true }) }
 })
 
@@ -117,4 +152,22 @@ test('公开版本只返回提交、release 和时间，非法元数据拒绝读
     writeFileSync(join(root, '.output/release.json'), JSON.stringify({ ...value, commit: 'short' }))
     assert.throws(() => readReleaseVersion(root))
   } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+test('CLI 入口判定解开符号链接：经由 current 软链调用不再静默退出', () => {
+  const root = mkdtempSync(join(tmpdir(), 'yeu-entry-'))
+  try {
+    const modulePath = join(root, 'release-tools.mjs')
+    writeFileSync(modulePath, 'console.log(\'ran\')\n')
+    const linkPath = join(root, 'current')
+    symlinkSync(modulePath, linkPath, 'file')
+    const moduleUrl = pathToFileURL(modulePath).href
+    // 生产布局：argv[1] 走软链，import.meta.url 是真实路径。直接比较 resolve() 会漏。
+    assert.equal(tools.isEntryPoint(linkPath, moduleUrl), true)
+    assert.equal(tools.isEntryPoint(modulePath, moduleUrl), true)
+    assert.equal(tools.isEntryPoint(join(root, 'other.mjs'), moduleUrl), false)
+    assert.equal(tools.isEntryPoint(undefined, moduleUrl), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

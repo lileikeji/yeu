@@ -49,7 +49,7 @@ test('guide search keeps a comfortable mobile touch height', () => {
 
 test('guide heading and introduction stay balanced on narrow phones', () => {
   assert.match(pageSource, /从报到到开学后的常用事项/)
-  assert.match(pageSource, /本科和专升本的安排会分开说明/)
+  assert.match(pageSource, /本科与专升本分开整理/)
   assert.doesNotMatch(pageSource, /从到校前到开学后的常用事项/)
 })
 
@@ -114,7 +114,7 @@ test('guide list categories and fallback messages stay student-facing', () => {
   assert.ok(guideListCategories.some(item => item.id === 'arrival' && item.label === '入学'))
   assert.equal(guideCategoryIconTones.arrival, 'bg-green-50 text-green-700')
   assert.equal(guideListFallbackMessages.serviceUnavailable, '可以稍后再试，也可以先查看校园地图和常用部门。')
-  assert.match(guideListFallbackMessages.staticGuide, /已经整理好的指南/)
+  assert.match(guideListFallbackMessages.staticGuide, /指南为整理稿/)
   assert.equal(guideListMessages.emptyMatchTitle, '没有找到相关指南')
   assert.match(guideListMessages.emptyMatchHint, /校园地图和办事入口/)
   assert.equal(guideListMessages.openGuide, '打开指南')

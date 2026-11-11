@@ -42,49 +42,6 @@ function goPlaceChat(): void {
 const safeNavigationUrl = computed(() => safeExternalHref(props.place.navigationUrl))
 const phoneContacts = computed(() => parsePublicPhoneContacts(props.place.phone))
 
-// 商家推广条（美团下单 + 合作商家 + 二维码）：在详情面板独立加载渲染，
-// 不依赖评分/评价内容是否存在——新收录无评分商家（如好七好七）也能显示。
-interface MerchantPromo {
-  meituanUrl: string | null
-  qrCodeUrl: string | null
-  promoWeight: number
-  aiFrequency: number
-  clickCount7d: number
-  clickCount30d: number
-}
-interface MerchantPromoPayload { promo: MerchantPromo | null }
-const promo = ref<MerchantPromo | null>(null)
-const qrPreviewOpen = ref(false)
-const promoActive = computed(() => {
-  const p = promo.value
-  if (!p) return false
-  return Boolean(p.meituanUrl || p.qrCodeUrl || (p.promoWeight ?? 0) > 0 || (p.aiFrequency ?? 0) > 0)
-})
-async function loadMerchantPromo(): Promise<void> {
-  try {
-    const payload = await userFetch<MerchantPromoPayload>('/api/public/place-reviews', {
-      query: { placeId: props.place.id, sort: 'newest' }
-    })
-    promo.value = payload?.promo ?? null
-  } catch {
-    promo.value = null
-  }
-}
-function trackPromoClick(): void {
-  if (!promo.value?.meituanUrl) return
-  void userFetch('/api/public/merchant-promo/click', {
-    method: 'POST',
-    body: { placeId: props.place.id }
-  }).catch(() => {})
-}
-onMounted(() => {
-  void loadMerchantPromo()
-})
-watch(() => props.place.id, () => {
-  qrPreviewOpen.value = false
-  void loadMerchantPromo()
-})
-
 // 卡片固定白底（bg-white），而站点可能处于暗色主题：Nuxt UI neutral 按钮的
 // bg-default/text-default 会解析成暗色，在白卡上变成黑底药丸（评价/纠错/
 // 复制位置/高德导航均已线上复现）。卡片内控件一律显式浅色，不跟随站点主题。
@@ -92,10 +49,10 @@ const lightOutlineClass = '!bg-white dark:!bg-zinc-800 !text-zinc-700 dark:!text
 const lightGhostClass = '!text-zinc-400 dark:!text-zinc-300 hover:!bg-zinc-100 dark:hover:!bg-zinc-800 hover:!text-zinc-600 dark:hover:!text-zinc-100'
 
 const navigationTooltip = computed(() => {
-  if (!safeNavigationUrl.value) return '这个地点暂时没有可用导航入口'
+  if (!safeNavigationUrl.value) return '暂无导航入口'
   return props.place.coordinateVerification === 'owner-map-only'
-    ? '导航到这个地图位置，实际入口请现场确认'
-    : '使用该地点提供的外部导航入口'
+    ? '导航到这里，入口现场确认'
+    : '外部导航'
 })
 </script>
 
@@ -285,95 +242,6 @@ const navigationTooltip = computed(() => {
       :place-name="props.place.name"
     />
 
-    <!-- 商家推广条（面板级）：美团下单 + 合作商家 + 二维码 -->
-    <div
-      v-if="promoActive"
-      class="mt-2 flex items-center justify-between gap-2 rounded-xl bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 px-2.5 py-2"
-    >
-      <div class="flex min-w-0 flex-col gap-1">
-        <div class="flex flex-wrap items-center gap-1.5">
-          <a
-            v-if="promo?.meituanUrl"
-            :href="promo.meituanUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center gap-1 rounded-full bg-yellow-400 px-2.5 py-1 text-[11px] font-bold text-yellow-950 shadow-sm transition-transform active:scale-95 hover:bg-yellow-300"
-            @click="trackPromoClick"
-          >
-            <UIcon
-              name="i-lucide-bike"
-              class="size-3"
-            />
-            美团下单
-          </a>
-          <span
-            class="inline-flex items-center gap-1 rounded-full bg-violet-100 dark:bg-violet-900/60 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300"
-          >
-            <UIcon
-              name="i-lucide-badge-check"
-              class="size-3"
-            />
-            合作商家
-          </span>
-          <span
-            v-if="(promo?.clickCount30d ?? 0) > 0"
-            class="text-[10px] text-zinc-400 dark:text-zinc-500"
-          >
-            已 {{ promo?.clickCount30d }} 人跳转
-          </span>
-        </div>
-        <span
-          v-if="promo?.qrCodeUrl"
-          class="text-[10px] text-zinc-400 dark:text-zinc-500"
-        >
-          微信扫码打开小程序
-        </span>
-        <span
-          v-else-if="!promo?.meituanUrl"
-          class="text-[10px] text-zinc-400 dark:text-zinc-500"
-        >
-          已入驻校园地图，优惠与营业信息以到店为准
-        </span>
-      </div>
-      <button
-        v-if="promo?.qrCodeUrl"
-        type="button"
-        class="group relative shrink-0 overflow-hidden rounded-lg border border-white bg-white dark:bg-zinc-900 shadow-sm"
-        aria-label="放大查看二维码，用微信扫码"
-        @click="qrPreviewOpen = true"
-      >
-        <img
-          :src="promo.qrCodeUrl"
-          :alt="`${props.place.name} 小程序码`"
-          class="size-14 object-contain"
-        >
-        <span class="absolute bottom-0.5 right-0.5 grid size-4.5 place-items-center rounded bg-zinc-950/60 dark:bg-zinc-800/60 text-white/90">
-          <UIcon
-            name="i-lucide-zoom-in"
-            class="size-3"
-          />
-        </span>
-      </button>
-      <UModal
-        v-model:open="qrPreviewOpen"
-        :title="`${props.place.name} 小程序码`"
-        :ui="{ content: 'w-[calc(100vw-2rem)] max-w-none sm:w-full sm:max-w-md' }"
-      >
-        <template #body>
-          <div class="flex items-center justify-center bg-white dark:bg-zinc-900 p-4">
-            <img
-              :src="promo?.qrCodeUrl"
-              :alt="`${props.place.name} 小程序码`"
-              class="max-h-[70dvh] w-auto max-w-full object-contain"
-            >
-          </div>
-          <p class="pb-3 text-center text-[11px] text-zinc-500 dark:text-zinc-400">
-            用微信扫一扫即可打开
-          </p>
-        </template>
-      </UModal>
-    </div>
-
     <div
       class="border-t border-zinc-100 dark:border-zinc-800 pt-3"
       :class="props.variant === 'mobile' ? 'mt-3' : 'mt-4'"
@@ -395,7 +263,7 @@ const navigationTooltip = computed(() => {
       >
         <UTooltip
           v-if="props.variant === 'desktop'"
-          text="在地图上规划从你所在位置到这里的步行路线"
+          text="从当前位置规划步行路线"
         >
           <UButton
             icon="i-lucide-route"
@@ -468,13 +336,13 @@ const navigationTooltip = computed(() => {
         v-else
         class="mt-3 rounded-md bg-orange-50 dark:bg-orange-950 px-3 py-2 text-xs leading-5 text-orange-800 dark:text-orange-300"
       >
-        这个地点目前只能在学校平面图中查看，还不能直接规划路线。到校后请按编号和现场标识确认。
+        平面图可看，暂不能导航
       </p>
 
       <span
         v-if="props.isWechat && safeNavigationUrl"
         class="mt-2 block text-[11px] leading-5 text-zinc-500 dark:text-zinc-400"
-      >微信内未唤起地图时，可复制位置后搜索。</span>
+      >微信内可复制位置再搜。</span>
 
       <div
         class="mt-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 px-2.5 py-2"

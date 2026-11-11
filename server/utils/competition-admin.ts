@@ -5,7 +5,7 @@ import { findMusicAssociationContent } from '../modules/competition/service'
 import type { CompetitionRoundKey } from '../../shared/types'
 
 /**
- * 新生歌手大赛只属于音乐协会。总管理员可操作；组织管理员必须是音协本身，
+ * 新声歌手大赛只属于音乐协会。总管理员可操作；组织管理员必须是音协本身，
  * 其他社团即使直接调用接口也会在这里被拒绝。
  */
 export function resolveCompetitionContentId(

@@ -20,6 +20,6 @@ export default defineEventHandler(async (event) => {
   const input = await parseBody(event, competitionLookupSchema)
   const contentId = findMusicAssociationContent(client).id
   return {
-    candidates: lookupPreRegistrations(client, contentId, input.name)
+    candidates: lookupPreRegistrations(client, contentId, input.name, input.studentNoTail)
   }
 })

@@ -205,7 +205,6 @@ function validateForm(): string | null {
   <div class="mx-auto max-w-[1500px]">
     <AdminPageHeader
       :title="config.title"
-      :description="config.description"
       :icon="config.icon"
     >
       <template #actions>

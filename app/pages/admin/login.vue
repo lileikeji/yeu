@@ -151,7 +151,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="grid min-h-screen bg-[#f5f7f4] dark:bg-zinc-950 lg:grid-cols-[minmax(20rem,0.72fr)_minmax(30rem,1fr)]">
+  <div class="grid min-h-dvh bg-[#f5f7f4] dark:bg-zinc-950 lg:grid-cols-[minmax(20rem,0.72fr)_minmax(30rem,1fr)]">
     <section class="hidden border-r border-green-950 bg-green-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
       <div class="flex items-center gap-3">
         <span class="grid size-10 place-items-center rounded-md bg-green-600 text-white">

@@ -235,7 +235,6 @@ onMounted(async () => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="封禁管理"
-      description="按状态、类型和关键词查找并管理 IP、访客和账号封禁。原因必填，可设置到期时间。"
       icon="i-lucide-shield-ban"
       eyebrow="安全与操作记录"
     >

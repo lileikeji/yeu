@@ -203,7 +203,7 @@ export async function request<T>(options: MiniAppRequestOptions): Promise<T> {
 }
 
 /**
- * JSON POST 请求（AI 问答用）。与 GET 相同的重试/429/遥测策略，
+ * JSON POST 请求（问答用）。与 GET 相同的重试/429/遥测策略，
  * 但不会读取或写入 GET 缓存，避免把问答结果缓存成静态数据。
  */
 export async function postJson<T>(options: {

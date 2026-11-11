@@ -597,11 +597,22 @@ const sourceFields = {
 export const createSourceSchema = z.object(sourceFields).strict()
 export const updateSourceSchema = z.object(sourceFields).partial().strict()
 
+// Feedback targets are opaque ids: places/contents/procedures use UUIDs while
+// compiled knowledge claims use `docclaim:<documentId>:<digest>` (see
+// server/modules/knowledge/document-compiler.ts), so the pattern stays bounded
+// but does not require a UUID shape.
+const feedbackTargetIdSchema = z.string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9:._-]*$/, 'Invalid target id')
+
 export const createFeedbackSchema = z.object({
   targetType: z.enum(FEEDBACK_TARGET_TYPES),
-  targetId: z.union([z.string().uuid(), z.null()]).optional(),
+  targetId: z.union([feedbackTargetIdSchema, z.null()]).optional(),
   reasonType: z.string().trim().min(1).max(80),
   message: z.string().trim().min(5).max(4000),
+  expected: nullableTextSchema(1000),
   evidenceUrl: nullableUrlSchema,
   pageUrl: nullableLocalPagePathSchema,
   contact: nullableTextSchema(300),
@@ -611,7 +622,7 @@ export const createFeedbackSchema = z.object({
     context.addIssue({
       code: 'custom',
       path: ['targetId'],
-      message: 'targetId is required for place, content, or procedure feedback'
+      message: 'targetId is required for place, content, procedure, or claim feedback'
     })
   }
 
@@ -1154,20 +1165,6 @@ export const updateSeedReviewSchema = z.object({
   message: '至少提供 content 或 score 之一'
 })
 
-/** 后台商家推广设置：美团跳转链接、排行占比、AI 出现频率。 */
-export const recordPromoClickSchema = z.object({
-  placeId: publicPlaceIdSchema
-}).strict()
-
-export const updateMerchantPromoSchema = z.object({
-  meituanUrl: z.string().trim().max(500).nullable().optional(),
-  /** Uploaded QR image path (/uploads/<uuid>.<ext>); null clears it. */
-  qrCodeUrl: z.string().regex(UPLOADED_IMAGE_URL_PATTERN).nullable().optional(),
-  promoWeight: z.number().int().min(0).max(100).optional(),
-  aiFrequency: z.number().int().min(0).max(100).optional(),
-  enabled: z.boolean().optional()
-}).strict()
-
 /** 后台创建整理卡（source='seed'）。 */
 export const createSeedReviewSchema = z.object({
   placeId: z.string().trim().min(1).max(100),
@@ -1256,7 +1253,7 @@ export const publicRecruitSubmissionSchema = z.object({
   paymentConfirmed: z.boolean().optional()
 }).strict()
 
-// -- 新生歌手大赛（仅音乐协会） ----------------------------------------------
+// -- 新声歌手大赛（仅音乐协会） ----------------------------------------------
 
 export const competitionDimensionSchema = z.object({
   key: z.string().trim().min(1).max(64),
@@ -1264,10 +1261,28 @@ export const competitionDimensionSchema = z.object({
   weight: z.number().positive().max(100)
 }).strict()
 
+export const competitionScheduleItemSchema = z.object({
+  key: z.enum(['prelim', 'semi', 'final']),
+  dateLabel: z.string().trim().max(40).default(''),
+  timeLabel: z.string().trim().max(40).default(''),
+  venue: z.string().trim().max(60).default(''),
+  note: z.string().trim().max(80).default('')
+}).strict()
+
+export const competitionFormFieldSchema = z.object({
+  key: z.enum(['name', 'className', 'studentNo', 'phone', 'email', 'song', 'preferredDay']),
+  label: z.string().trim().min(1).max(20),
+  required: z.boolean().default(false),
+  enabled: z.boolean().default(true)
+}).strict()
+
 export const updateCompetitionSchema = z.object({
   title: z.string().trim().min(1).max(60),
   registrationOpen: z.boolean(),
-  dimensions: z.array(competitionDimensionSchema).min(1).max(10)
+  dimensions: z.array(competitionDimensionSchema).min(1).max(10),
+  edition: z.string().trim().max(40).optional(),
+  schedule: z.array(competitionScheduleItemSchema).min(1).max(12).optional(),
+  formFields: z.array(competitionFormFieldSchema).min(1).max(7).optional()
 }).strict()
 
 export const updateCompetitionRoundSchema = z.object({
@@ -1276,17 +1291,53 @@ export const updateCompetitionRoundSchema = z.object({
   advanceCount: z.union([z.number().int().min(1).max(500), z.null()]).optional()
 }).strict()
 
+export const moveCompetitionEntrySchema = z.object({
+  entryId: z.string().uuid(),
+  targetId: z.string().uuid(),
+  place: z.enum(['before', 'after']).optional()
+}).strict()
+
 export const reorderCompetitionRoundSchema = z.object({
   entryIds: z.array(z.string().min(1).max(64)).min(1).max(500)
 }).strict()
 
+/**
+ * 顺序评分切人。`next` 要求当前这位全员已提交（缺人返回 409
+ * COMPETITION_PENDING_JUDGES），`skip` 无视提交情况强制下一位。
+ */
+export const moveCompetitionCurrentSchema = z.object({
+  action: z.enum(['start', 'next', 'prev', 'skip', 'stop', 'set']),
+  entryId: z.string().min(1).max(64).optional()
+}).strict()
+
 export const createCompetitionJudgesSchema = z.object({
-  count: z.number().int().min(1).max(20)
+  count: z.number().int().min(1).max(20).optional(),
+  /** 自定义登录账号（3-32 位字母数字下划线短横线），留空自动生成。 */
+  username: z.string().trim().min(3).max(32).optional(),
+  /** 自定义密码，至少 6 位；留空自动生成。 */
+  password: z.string().min(6).max(128).optional(),
+  displayName: z.string().trim().min(1).max(20).optional()
 }).strict()
 
 export const updateCompetitionJudgeSchema = z.object({
   displayName: z.string().trim().min(1).max(20).optional(),
-  isActive: z.boolean().optional()
+  isActive: z.boolean().optional(),
+  /** 到岗天：1 / 2，null = 两天都在。 */
+  day: z.number().int().min(1).max(2).nullable().optional(),
+  username: z.string().trim().min(3).max(32).optional(),
+  password: z.string().min(6).max(128).optional()
+}).strict()
+
+/** 切换初赛赛程天；split = 按当前出场顺序把名单平分成两天。 */
+export const setCompetitionDaySchema = z.object({
+  day: z.number().int().min(1).max(2).nullable(),
+  split: z.boolean().optional()
+}).strict()
+
+/** 单条出场名单改到某一天。 */
+export const setCompetitionEntryDaySchema = z.object({
+  entryId: z.string().min(1).max(64),
+  day: z.number().int().min(1).max(2).nullable()
 }).strict()
 
 // 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定；
@@ -1312,11 +1363,14 @@ export const competitionPreRegisterSchema = z.object({
   studentNo: z.string().trim().max(20).optional(),
   phone: z.string().trim().max(20).optional(),
   email: z.string().trim().max(120).optional(),
-  song: z.string().trim().max(80).optional()
+  song: z.string().trim().max(80).optional(),
+  preferredDay: z.number().int().min(1).max(2).optional()
 }).strict()
 
 export const competitionLookupSchema = z.object({
-  name: z.string().trim().min(1).max(40)
+  name: z.string().trim().min(1).max(40),
+  /** 学号后四位：与姓名一起构成最小双因子，避免凭姓名查到别人的联系方式。 */
+  studentNoTail: z.string().trim().regex(/^\d{4}$/, '请填写学号后四位')
 }).strict()
 
 export const competitionSingerSchema = z.object({
@@ -1354,6 +1408,13 @@ export const competitionEmailSendSchema = z.object({
 
 export const competitionEmailTestSchema = z.object({
   email: z.string().trim().min(3).max(120)
+}).strict()
+
+// 结果邮件插图：前端把 File 读成 base64 再提交，服务端按解码字节数卡 4MB。
+export const competitionEmailImageUploadSchema = z.object({
+  filename: z.string().trim().max(200).optional(),
+  mime: z.string().trim().min(3).max(100),
+  data: z.string().min(1)
 }).strict()
 
 // 报名二维码：仅允许赛事自己的两个公开页面，防被当开放代理。

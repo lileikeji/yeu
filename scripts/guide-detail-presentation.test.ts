@@ -40,7 +40,7 @@ test('guide detail page is a thin shell over guide-detail-presentation util', ()
 test('long guide pages expose every section in a compact mobile jump menu', () => {
   assert.match(pageSource, /<details[\s\S]*v-if="guide\.sections\.length > 1"/)
   assert.match(pageSource, /id="guide-contents"/)
-  assert.match(pageSource, /<summary[\s\S]*快速跳到/)
+  assert.match(pageSource, /<summary[\s\S]*跳到/)
   assert.match(pageSource, /共 \{\{ guide\.sections\.length \}\} 个部分/)
   assert.match(pageSource, /class="grid grid-cols-2[^"]*sm:grid-cols-3"/)
   assert.match(pageSource, /aria-label="本页内容"/)

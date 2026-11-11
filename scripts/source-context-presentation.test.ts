@@ -16,14 +16,15 @@ test('known research notes become concise student-facing explanations', () => {
   const presented = internalSourceContexts.map(context => presentStudentSourceContext(context))
 
   assert.match(presented[0] ?? '', /往年的学生分享/)
-  assert.match(presented[0] ?? '', /到校后看到的情况/)
+  assert.match(presented[0] ?? '', /到校后看实际房间/)
+  assert.doesNotMatch(presented[0] ?? '', /为准/)
   assert.match(presented[1] ?? '', /往年的宿舍视频/)
-  assert.match(presented[2] ?? '', /介绍吃饭、出行和校园生活/)
-  assert.match(presented[2] ?? '', /学校通知为准/)
+  assert.match(presented[2] ?? '', /讲吃饭、出行和校园生活/)
+  assert.match(presented[2] ?? '', /出发前再看一眼/)
   assert.match(presented[3] ?? '', /同时出现在学生分享和高德地图中/)
   assert.match(presented[4] ?? '', /快递点数量、品牌和营业情况/)
-  assert.match(presented[5] ?? '', /校团委本学期公布的社团名单/)
-  assert.match(presented[6] ?? '', /学校最新安排及现场标识/)
+  assert.match(presented[5] ?? '', /校团委公布的社团名单/)
+  assert.match(presented[6] ?? '', /看学校最新安排和现场标识/)
   assert.ok(presented.every(context => context?.endsWith('原分享目前打不开。')))
   assert.doesNotMatch(
     presented.join('\n'),
@@ -46,7 +47,7 @@ test('generic source notes still remove maintainer language', () => {
   )
   assert.equal(
     previouslySimplified,
-    '这是往年的学生分享，宿舍设施请以学校通知和到校后的实际情况为准。原分享目前打不开。'
+    '这是往年的学生分享。宿舍里有什么，到校后看实际房间。原分享目前打不开。'
   )
   assert.equal(presentStudentSourceContext(previouslySimplified), previouslySimplified)
 
