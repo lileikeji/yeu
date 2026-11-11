@@ -196,7 +196,7 @@ onMounted(() => {
     color="neutral"
     variant="ghost"
     aria-label="查看公告"
-    class="relative min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+    class="relative justify-center min-h-10 min-w-10 md:min-h-11 md:min-w-11"
     @click="openNoticeCenter"
   >
     <span class="hidden lg:inline">公告</span>

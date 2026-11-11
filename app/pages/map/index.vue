@@ -1012,7 +1012,7 @@ onBeforeUnmount(() => {
               variant="ghost"
               :loading="locating"
               class="map-control-btn size-10 rounded-none md:size-11"
-              :class="tracking ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : ''"
+              :class="tracking ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300' : ''"
               :aria-label="tracking ? '停止实时定位' : '开启实时定位'"
               :aria-pressed="tracking"
               @click="tracking ? toggleTracking() : locateUser()"
@@ -1025,7 +1025,7 @@ onBeforeUnmount(() => {
               variant="ghost"
               :disabled="!tracking"
               class="map-control-btn size-10 rounded-none md:size-11"
-              :class="following ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : ''"
+              :class="following ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300' : ''"
               aria-label="相机跟随我的位置"
               :aria-pressed="following"
               @click="toggleFollowing"
@@ -1447,7 +1447,7 @@ onBeforeUnmount(() => {
 }
 
 .map-workspace .maplibregl-canvas:focus-visible {
-  outline: 2px solid #176f46;
+  outline: 2px solid var(--ui-color-primary-600, #176f46);
   outline-offset: -2px;
 }
 

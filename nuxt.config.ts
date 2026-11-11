@@ -319,7 +319,7 @@ export default defineNuxtConfig({
       display: 'standalone',
       orientation: 'portrait-primary',
       background_color: '#f7f8f6',
-      theme_color: '#104830',
+      theme_color: '#176f46',
       categories: ['education', 'navigation', 'utilities'],
       icons: [
         {
