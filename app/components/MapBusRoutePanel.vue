@@ -9,6 +9,8 @@ const props = defineProps<{
   buses: BusSnapshot[]
   fetchedAt: string | null
   open: boolean
+  /** 桌面端距地图左缘的距离；左侧地点栏展开时要让开 18rem。 */
+  leftOffset?: string
   /** 用户实时位置（WGS84）；提供后每辆车显示「距您 X 米」。 */
   userLocation?: { lng: number, lat: number } | null
 }>()
@@ -243,21 +245,23 @@ const updatedAtText = computed(() => {
 </script>
 
 <template>
-  <!-- 收起态：移动端右下角浮钮；桌面端顶部横幅位置（左让开 18rem 侧边栏 + 16px 内缩） -->
+  <!-- 收起态：移动端右下角浮钮；桌面端顶部横幅位置（跟随侧边栏宽度，见 leftOffset） -->
   <UButton
     v-if="!open"
     icon="i-lucide-bus-front"
     label="校车实时"
     color="primary"
     variant="solid"
-    class="absolute bottom-20 right-3 z-30 shadow-lg md:bottom-auto md:right-auto md:top-4 md:left-[19rem]"
+    class="absolute bottom-20 right-3 z-30 shadow-lg md:bottom-auto md:right-auto md:top-4 md:left-[var(--bus-left,19rem)]"
+    :style="{ '--bus-left': leftOffset ?? '19rem' }"
     @click="emit('update:open', true)"
   />
 
   <!-- 展开态：移动端全屏浮层；桌面端顶部横向横幅（右侧留出右侧工具栏） -->
   <section
     v-else
-    class="absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-4 md:bottom-auto md:right-16 md:left-[19rem] md:z-20 md:max-h-[70vh] md:w-auto md:rounded-xl md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
+    class="absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-4 md:bottom-auto md:right-20 md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-auto md:rounded-xl md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
+    :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="校车线路总览"
   >
     <header class="sticky top-0 z-10 flex items-center gap-2 border-b border-zinc-100 bg-white px-3 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
