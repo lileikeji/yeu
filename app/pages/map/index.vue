@@ -1455,7 +1455,13 @@ onBeforeUnmount(() => {
  * 缩放/指南针控件（.map-zoom-dock，挂 top-right）。
  * 桌面端下移到右侧工具栏正下方：工具栏 top-4(16px) 起、7×44px + 6×1px ≈ 310px，
  * 21rem(336px) = 16 + 310 + 10px 间隙；margin-right 1rem 让右边缘与工具栏对齐。
- * 移动端工具栏同在右上角，控件右移 3.5rem（56px ≈ 40px 工具栏 + 16px 内缩）避让。
+ * 移动端同样下移到工具栏正下方（右边缘对齐，button 收到 40×40 与工具栏一致）：
+ * margin-top 相对 .maplibregl-ctrl-top-right（该容器内缩到地图顶边，实测 top=65px），
+ * 与视口坐标差一个地图顶边，所以用实测算式
+ *   工具栏 bottom(359) − ctrl 容器 top(65) + 8px 间隙 = 302px = 18.875rem
+ * （390×844 下工具栏 282px 高 = 7×40px button + 2px 容器边框，分隔线是
+ *  border-box 内含的 1px 不额外占高；工具栏自 top-3 起于 77、止于 359）。
+ * margin-right 0.75rem 与工具栏右边缘（right-3 = 12px）对齐。
  */
 .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
   margin-top: 21rem;
@@ -1463,10 +1469,16 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 767px) {
-  /* 窄屏：工具栏占着右上角，控件右移到它外侧。 */
+  /* 窄屏：工具栏占着右上角，控件挪到它正下方并右边缘对齐。 */
   .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
-    margin-top: 0.75rem;
-    margin-right: 3.5rem;
+    margin-top: 18.875rem;
+    margin-right: 0.75rem;
+  }
+
+  /* 覆盖后面 44px 的全局规则，与移动端工具栏 button（size-10）一致。 */
+  .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock button {
+    width: 40px;
+    height: 40px;
   }
 }
 
