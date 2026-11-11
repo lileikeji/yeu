@@ -1,5 +1,6 @@
 import type { ContentKind } from '~~/shared/constants/server'
 import type {
+  ApiActivitySummary,
   ApiAmapOwnerDraftPlace,
   ApiContent,
   ApiPublicHomeEntries,
@@ -52,6 +53,13 @@ export function usePublicContentList(kind?: ContentKind) {
 export function usePublicSignalList(limit = 5) {
   return useFetch<ApiSignalListResponse>('/api/public/signal', {
     key: `public-signal-${limit}`,
+    query: { limit }
+  })
+}
+
+export function usePublicActivityList(limit = 5) {
+  return useFetch<ApiListResponse<ApiActivitySummary>>('/api/public/activities', {
+    key: `public-activities-home-${limit}`,
     query: { limit }
   })
 }

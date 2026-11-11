@@ -14,6 +14,14 @@ useSeoMeta({
   description: () => event.value?.summary ?? '学校各站点同一件事的原文汇总。'
 })
 
+const brief = computed(() => {
+  const summary = event.value?.summary?.trim()
+  if (summary) return summary
+  const primary = event.value?.items.find(item => item.isPrimary) ?? event.value?.items[0]
+  return primary?.excerpt?.trim()
+    || '这条消息目前只聚合到原文标题，点开下方原文可以看完整内容。'
+})
+
 const dayText = (value?: string | number | null): string => {
   if (!value) return ''
   const time = typeof value === 'number' ? value : Date.parse(value)
@@ -56,12 +64,26 @@ const dayText = (value?: string | number | null): string => {
         <h1 class="mt-1 text-2xl font-semibold leading-9 text-zinc-950 md:text-[28px] dark:text-zinc-100">
           {{ event.title }}
         </h1>
-        <p
-          v-if="event.summary"
-          class="mt-2 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300"
-        >
-          {{ event.summary }}
-        </p>
+        <div class="mt-4 max-w-3xl rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900">
+          <h2 class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            简要
+          </h2>
+          <p class="mt-1 text-sm leading-7 text-zinc-700 dark:text-zinc-200">
+            {{ brief }}
+          </p>
+          <div
+            v-if="event.places?.length"
+            class="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[var(--line)] pt-3"
+          >
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">相关地点</span>
+            <NuxtLink
+              v-for="tag in event.places"
+              :key="tag.slug"
+              :to="`/map?place=${encodeURIComponent(tag.slug)}`"
+              class="rounded-full border border-[var(--line)] px-2 py-0.5 text-xs text-zinc-700 underline-offset-2 hover:border-[var(--accent)] hover:underline dark:text-zinc-200"
+            >{{ tag.name }}</NuxtLink>
+          </div>
+        </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
           <span class="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">{{ event.tierLabel }}</span>

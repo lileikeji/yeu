@@ -40,6 +40,10 @@ const organizationNavigation = computed(() => [{
     label: '纳新管理',
     to: '/admin/recruit',
     icon: 'i-lucide-clipboard-list'
+  }, {
+    label: '活动管理',
+    to: '/admin/activities',
+    icon: 'i-lucide-calendar-days'
   }, ...(isMusicAssociation.value
     ? [{
         label: '歌手大赛',
@@ -153,6 +157,7 @@ async function checkSession(): Promise<void> {
     applyAdminScope(payload)
     const organizationRouteAllowed = route.path === '/admin/organization'
       || route.path === '/admin/recruit'
+      || route.path === '/admin/activities'
       || route.path.startsWith('/admin/content/')
       || (route.path === '/admin/competition' && isMusicAssociation.value)
       || (route.path === '/admin/miniapp' && canUseCapability('analytics.view'))

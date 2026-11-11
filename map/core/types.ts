@@ -13,6 +13,8 @@ export interface MapPoi {
   point: GeoPoint
   status: 'draft' | 'published' | 'archived'
   address?: string
+  /** 该建筑当前有已发布、尚未结束的活动；地图图标上显示红点。 */
+  hasActivities?: boolean
   source?: 'catalog' | 'amap-native'
 }
 
