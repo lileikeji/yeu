@@ -76,12 +76,15 @@ jobs:
 
           # 去重：已有未合并的同步 PR 就不再建新的。
           # schedule 每天触发，若上一个 PR 还没合，会重复建 PR。
+          #
+          # 注意：不能用 `--search "in:title chore(sync)"`——GitHub search
+          # 语法会把括号当特殊字符，匹配不到我们自己建的那些标题。
+          # 改为拉全部 open PR 再用 jq 按标题前缀过滤。
           EXISTING=$(gh pr list \
             --base "$DEFAULT_BRANCH" \
             --state open \
-            --search "in:title chore(sync)" \
             --json number,title \
-            --jq '.[0].number // empty')
+            --jq '[.[] | select(.title | startswith("chore(sync):"))] | .[0].number // empty')
 
           if [ -n "$EXISTING" ]; then
             echo "已存在未合并的同步 PR #$EXISTING，跳过本次"
