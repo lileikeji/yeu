@@ -9,6 +9,7 @@ import { getContentSourceMap } from '../verification/service'
 import { getPublicContent } from '../content/service'
 import { normalizeNoticeActions } from '../../../shared/utils/notice-actions'
 import { sortPublicNoticeItems } from './sorting'
+import { listHomepageActivities } from '../activities/service'
 
 // 表达式索引（migration 0052）按这个表达式建，查询里必须字面一致才会被规划器命中。
 const noticeIdExpression = sql<string | null>`json_extract(${visitorEvents.metaJson}, '$.noticeId')`
@@ -103,7 +104,13 @@ export function listPublicNotices(event: H3Event, client: DatabaseClient) {
     }
   })
 
-  return { items: sortPublicNoticeItems(items), total: items.length }
+  return {
+    items: sortPublicNoticeItems(items),
+    total: items.length,
+    // 首页公告弹层的数据源。活动不需要“已读确认”，但放进同一次请求可以
+    // 避免首屏再发一个活动接口。
+    activities: listHomepageActivities(client, 5)
+  }
 }
 
 export function getPublicNotice(event: H3Event, client: DatabaseClient, slug: string) {
