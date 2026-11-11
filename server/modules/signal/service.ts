@@ -724,6 +724,8 @@ export interface PlaceEventView {
   title: string
   summary: string
   tier: SignalTier
+  /** notice = 通知公告，news = 校园动态。 */
+  channel: SignalChannel
   lastSeenAt: string
   /** 标题/摘要里解析出的未来活动日期；解析不出为 null。 */
   dateHint: EventDateHint | null
@@ -777,6 +779,7 @@ export function listPublishedEventsForPlace(
       title: summary.title,
       summary: summary.summary,
       tier: summary.tier,
+      channel: summary.channel,
       lastSeenAt: summary.lastSeenAt,
       dateHint: parseEventDateHint(summary.title, summary.summary, row.lastSeenAt)
     }

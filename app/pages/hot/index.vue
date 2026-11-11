@@ -24,7 +24,35 @@ const { data: reportData } = await useFetch<ApiSignalReportListResponse>('/api/p
 const events = computed(() => data.value?.events ?? [])
 const reports = computed(() => reportData.value?.reports ?? [])
 
+const route = useRoute()
+const router = useRouter()
+
+function hashSlug(): string {
+  // 生产环境首屏的 route.hash 可能被 hydration 抹成空串，浏览器地址栏才是准的。
+  const source = import.meta.client ? window.location.hash : String(route.hash ?? '')
+  const raw = source.replace(/^#/, '')
+  if (!raw) return ''
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
+// 地图卡片跳过来时带 #slug：只显示这一条，和筛选器一样可一键还原。
+// hash 只有浏览器端可见，先留空再在挂载后读取，避免 SSR 与客户端首帧不一致。
+const focusSlug = ref('')
+const focusEvent = computed(() => {
+  if (!focusSlug.value) return null
+  return events.value.find(event =>
+    event.slug === focusSlug.value || event.id === focusSlug.value
+  ) ?? null
+})
+
 const activeCategory = ref('全部')
+const searchQuery = ref('')
+const searchActive = computed(() => normalizeHotSearch(searchQuery.value).length > 0)
+const searchedEvents = computed(() => filterHotEvents(events.value, searchQuery.value))
 const categories = computed(() => {
   const seen: string[] = []
   for (const event of events.value) {
@@ -34,8 +62,33 @@ const categories = computed(() => {
 })
 
 const visibleEvents = computed(() => {
+  if (focusSlug.value) return focusEvent.value ? [focusEvent.value] : []
+  if (searchActive.value) return searchedEvents.value
   if (activeCategory.value === '全部') return events.value
   return events.value.filter(event => event.category === activeCategory.value)
+})
+
+function resetFocus(): void {
+  focusSlug.value = ''
+  activeCategory.value = '全部'
+  searchQuery.value = ''
+  void router.replace({ hash: '' })
+}
+
+function clearSearch(): void {
+  searchQuery.value = ''
+}
+
+watch(() => route.hash, () => {
+  focusSlug.value = hashSlug()
+})
+
+onMounted(() => {
+  focusSlug.value = hashSlug()
+  if (!focusSlug.value) return
+  void nextTick(() => {
+    document.getElementById(focusSlug.value)?.scrollIntoView({ block: 'start' })
+  })
 })
 
 type SignalListRow
@@ -53,6 +106,12 @@ const newsEvents = computed(() => visibleEvents.value.filter(event => event.chan
 // 通知公告排前面，校园动态默认折叠：两者混在一起会把「要办事的」淹掉。
 // 通知也只露前 5 条，一百多条铺下来要滚很久。
 const listRows = computed<SignalListRow[]>(() => {
+  if (focusSlug.value) {
+    return focusEvent.value ? [{ type: 'event', event: focusEvent.value }] : []
+  }
+  if (searchActive.value) {
+    return visibleEvents.value.map(event => ({ type: 'event', event }))
+  }
   const rows: SignalListRow[] = []
   const notices = showAllNotices.value
     ? noticeEvents.value
@@ -113,12 +172,74 @@ const dayText = signalRelativeTime
           <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             把教务处、各学院站点的通知和消息聚成一件件事，同一件事多个来源只算一条。时间取官网原文的发布日期，不是入库时间；排序先看热度，再看谁更近。
           </p>
+
+          <div
+            v-if="!focusSlug"
+            class="mt-4"
+          >
+            <label
+              for="hot-search"
+              class="sr-only"
+            >搜索通知、活动或地点</label>
+            <div class="relative">
+              <UIcon
+                name="i-lucide-search"
+                class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400"
+              />
+              <input
+                id="hot-search"
+                v-model="searchQuery"
+                type="search"
+                enterkeyhint="search"
+                autocomplete="off"
+                placeholder="搜索通知、活动或地点，如「宏船楼」"
+                class="h-11 w-full rounded-xl border border-[var(--line)] bg-white pl-9 pr-20 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:bg-zinc-900 dark:text-zinc-100"
+              >
+              <button
+                v-if="searchActive"
+                type="button"
+                class="absolute right-2 top-1/2 min-h-8 -translate-y-1/2 rounded-md px-2 text-xs font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                @click="clearSearch"
+              >
+                清除
+              </button>
+            </div>
+            <p
+              v-if="searchActive"
+              class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+            >
+              找到 {{ searchedEvents.length }} 条{{ searchedEvents.length ? '，已按热度排序' : '' }}
+            </p>
+          </div>
         </div>
       </div>
     </header>
 
     <section
-      v-if="reports.length"
+      v-if="focusSlug"
+      class="page-shell pt-4 md:pt-5"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/50">
+        <div class="min-w-0">
+          <p class="text-xs text-emerald-700 dark:text-emerald-300">
+            已定位到地图点过来的这条
+          </p>
+          <p class="mt-0.5 truncate text-sm font-semibold text-emerald-950 dark:text-emerald-100">
+            {{ focusEvent?.title || '没有找到这条消息' }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="min-h-9 shrink-0 rounded-md border border-emerald-300 bg-white px-3 text-sm font-medium text-emerald-800 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-200"
+          @click="resetFocus"
+        >
+          查看全部
+        </button>
+      </div>
+    </section>
+
+    <section
+      v-if="!focusSlug && !searchActive && reports.length"
       class="page-shell pt-4 md:pt-5"
     >
       <div class="rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900">
@@ -154,7 +275,10 @@ const dayText = signalRelativeTime
     </section>
 
     <section class="page-shell py-4 md:py-5">
-      <div class="-mx-1 flex snap-x gap-1 overflow-x-auto pb-1">
+      <div
+        v-if="!focusSlug && !searchActive"
+        class="-mx-1 flex snap-x gap-1 overflow-x-auto pb-1"
+      >
         <button
           v-for="category in categories"
           :key="category"
@@ -173,15 +297,20 @@ const dayText = signalRelativeTime
         v-if="!visibleEvents.length"
         class="mt-6 rounded-xl border border-dashed border-[var(--line)] p-6 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
-        这一类暂时没有新消息。换个分类，或者过一会儿再来看看。
+        {{ focusSlug
+          ? '这条消息可能已经被新的抓取结果替换，点上面的「查看全部」看当前列表。'
+          : searchActive
+            ? `没有找到包含「${searchQuery.trim()}」的消息。换个关键词，或清除搜索看全部。`
+            : '这一类暂时没有新消息。换个分类，或者过一会儿再来看看。' }}
       </p>
 
       <ul class="mt-3 space-y-2">
         <li
           v-for="(row, index) in listRows"
+          :id="row.type === 'event' ? row.event.slug : undefined"
           :key="row.type === 'event' ? row.event.id : `more-${index}`"
           :class="row.type === 'event'
-            ? 'rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900'
+            ? 'scroll-mt-24 rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900'
             : 'flex items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--line)] px-4 py-3'"
         >
           <template v-if="row.type === 'notice-more'">
@@ -249,12 +378,18 @@ const dayText = signalRelativeTime
               <span>{{ row.event.sourceCount }} 个来源 · {{ row.event.itemCount }} 条</span>
               <span>热度 {{ heatText(row.event.heat) }}</span>
               <span>{{ dayText(row.event.lastSeenAt) }}发布</span>
+              <NuxtLink
+                :to="`/hot/${encodeURIComponent(row.event.slug)}`"
+                class="ml-auto min-h-8 rounded-md px-2 text-xs font-medium text-emerald-700 underline-offset-2 hover:underline dark:text-emerald-300"
+              >
+                查看详情
+              </NuxtLink>
               <button
                 type="button"
-                class="ml-auto min-h-8 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
+                class="min-h-8 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
                 @click="toggle(row.event.slug)"
               >
-                {{ expanded === row.event.slug ? '收起原文' : '看原文' }}
+                {{ expanded === row.event.slug ? '收起摘要' : '展开摘要' }}
               </button>
             </div>
 

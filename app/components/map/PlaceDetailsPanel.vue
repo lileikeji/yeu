@@ -210,7 +210,7 @@ const navigationTooltip = computed(() => {
       </div>
     </dl>
 
-    <MapPlaceEventsSection
+    <MapPlaceFeedSection
       :place-id="props.place.id"
       :place-slug="props.place.slug"
       :place-name="props.place.name"

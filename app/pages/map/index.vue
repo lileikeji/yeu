@@ -53,6 +53,11 @@ const OFFICIAL_PLAN_ENTRY_VISIBLE = false
 const initialPlace = mapQueryValue(route.query.place)
 const { data: publicPlaceResponse, error: publicPlaceError } = await usePublicPlaceList()
 const { data: amapOwnerDraftResponse } = await usePublicAmapOwnerDraftPlaces()
+const { data: activityPlaceResponse } = await useFetch<{ placeIds: string[] }>(
+  '/api/public/activity-place-markers',
+  { key: 'public-activity-place-markers' }
+)
+const activityPlaceIds = computed(() => new Set(activityPlaceResponse.value?.placeIds ?? []))
 const geoCipherKey = __GEO_CIPHER_KEY__
 const ownerMapSeeds = computed(() => mergeAmapImportedPlacesWithDrafts(
   amapImportedPlaces,
@@ -64,6 +69,9 @@ const catalogPlaces = computed(() => mergePublicMapPlaces(
   publicPlaceResponse.value?.items ?? [],
   ownerMapSeeds.value,
   geoCipherKey
+).map(place => activityPlaceIds.value.has(place.id)
+  ? { ...place, hasActivities: true }
+  : place
 ))
 const places = computed(() => catalogPlaces.value)
 const activeScope = computed(() => mapRouteScope(route.query))

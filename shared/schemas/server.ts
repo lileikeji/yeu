@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { FRONTEND_FEATURE_KEYS } from '../config/frontend-features'
 import {
+  ACTIVITY_STATUSES,
   CONTENT_KINDS,
   COORDINATE_OBSERVATION_METHODS,
   COORDINATE_OBSERVATION_STATUSES,
@@ -497,6 +498,78 @@ export const createContentSchema = z.object({
 }).strict()
 export const updateContentSchema = z.object(contentFields).partial().strict()
 
+const activityPhotoUrlSchema = z.string().trim().max(500).refine(
+  value => (value.startsWith('/uploads/') && !value.includes('..'))
+    || isSafePublicHttpUrl(value),
+  'Photo must be an uploaded file or a safe public URL'
+)
+
+const activityFields = {
+  title: z.string().trim().min(1).max(120),
+  summary: z.string().trim().min(1).max(500),
+  body: z.string().trim().max(20_000),
+  room: nullableTextSchema(80),
+  placeId: nullableUuidSchema,
+  photos: z.array(activityPhotoUrlSchema).max(9)
+    .refine(value => new Set(value).size === value.length, 'Photos must be unique'),
+  startsAt: z.iso.datetime({ offset: true }),
+  endsAt: nullableDateSchema
+}
+
+function validateActivityTime(
+  value: { startsAt?: string, endsAt?: string | null },
+  context: z.RefinementCtx
+): void {
+  if (!value.startsAt || !value.endsAt) return
+  if (Date.parse(value.endsAt) >= Date.parse(value.startsAt)) return
+  context.addIssue({
+    code: 'custom',
+    path: ['endsAt'],
+    message: 'End time must not be earlier than start time'
+  })
+}
+
+export const createActivitySchema = z.object({
+  ...activityFields,
+  body: activityFields.body.default(''),
+  photos: activityFields.photos.default([])
+}).strict().superRefine(validateActivityTime)
+
+export const updateActivitySchema = z.object(activityFields).partial().strict()
+  .refine(value => Object.keys(value).length > 0, 'At least one field is required')
+  .superRefine(validateActivityTime)
+
+export const reviewActivitySchema = z.object({
+  decision: z.enum(['approve', 'reject']),
+  note: z.string().trim().max(2000).nullable().optional()
+}).strict().superRefine((value, context) => {
+  if (value.decision === 'reject' && !value.note) {
+    context.addIssue({
+      code: 'custom',
+      path: ['note'],
+      message: 'A review note is required when rejecting'
+    })
+  }
+})
+
+export const createActivityCommentSchema = z.object({
+  activitySlug: slugSchema,
+  body: z.string().trim().max(300).default(''),
+  images: z.array(activityPhotoUrlSchema).max(3)
+    .refine(value => new Set(value).size === value.length, 'Images must be unique')
+    .default([])
+}).strict().refine(
+  value => Boolean(value.body) || value.images.length > 0,
+  { message: 'Comment text or at least one image is required' }
+)
+
+export const publicActivitiesQuerySchema = z.object({
+  organization: z.string().trim().max(120).optional(),
+  place: z.string().trim().max(120).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  includePast: z.enum(['true', 'false']).optional()
+}).strict()
+
 const procedureStepSchema = z.object({
   title: z.string().trim().min(1).max(180),
   description: z.string().trim().max(4000).default(''),
@@ -670,6 +743,11 @@ export const paginationQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().trim().max(100).optional()
 })
+
+export const adminActivitiesQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(ACTIVITY_STATUSES).optional(),
+  organization: z.string().uuid().optional()
+}).strict()
 
 export const publicPlacesQuerySchema = paginationQuerySchema.extend({
   scope: z.enum(PLACE_SCOPES).optional(),
@@ -1138,6 +1216,16 @@ export const publicPlaceEventsQuerySchema = z.object({
   slug: z.string().trim().min(1).max(120).optional(),
   name: z.string().trim().min(1).max(120)
 }).strict()
+
+// 地图地点卡片统一信息流：通知事件 + 社团活动，limit 取合并后的总条数。
+export const publicPlaceFeedQuerySchema = z.object({
+  slug: z.string().trim().min(1).max(120).optional(),
+  name: z.string().trim().min(1).max(120).optional(),
+  limit: z.coerce.number().int().min(1).max(20).default(10)
+}).strict().refine(query => Boolean(query.slug || query.name), {
+  message: 'slug or name is required',
+  path: ['slug']
+})
 
 export const createPlaceMomentSchema = z.object({
   placeId: publicPlaceIdSchema,
