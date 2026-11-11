@@ -25,6 +25,8 @@ import { buildAmapMarkerNavigationUrl } from '~/utils/map-native-search'
 
 const route = useRoute()
 const { copyText, isWechat } = useShareActions()
+// SSR 期间内部请求必须带上原始请求上下文，否则会被 /api 的 origin guard 判成无来源请求。
+const requestFetch = useRequestFetch()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
 const { data: place, stale, savedAt, error } = await useOfflineSnapshot<ApiPlace>(
   `place:${slug}`,
@@ -34,7 +36,7 @@ if (error.value) throwPublicDetailError(error.value, '地点')
 if (!place.value) throw createError({ statusCode: 404, statusMessage: '地点不存在' })
 
 async function loadPlacePayload(): Promise<ApiPlace> {
-  const payload = await $fetch<ApiPlace>(`/api/public/places/${encodeURIComponent(slug)}`)
+  const payload = await requestFetch<ApiPlace>(`/api/public/places/${encodeURIComponent(slug)}`)
   // 服务端照旧过一遍公开字段清洗；客户端原样用，别把展示层工具带进客户端包。
   if (import.meta.client) return payload
   const { sanitizePublicPlace } = await import('~/utils/public-api-presentation')
