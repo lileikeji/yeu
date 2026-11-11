@@ -69,10 +69,9 @@ function formatMeta(item: ApiActivitySummary): string {
     </div>
 
     <div class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-      <NuxtLink
+      <div
         v-for="item in items"
         :key="item.id"
-        :to="`/activities/${item.slug}`"
         class="group flex gap-4 py-4 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
       >
         <div class="flex w-12 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-emerald-50 px-1 py-2 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
@@ -89,26 +88,50 @@ function formatMeta(item: ApiActivitySummary): string {
         >
 
         <div class="min-w-0 flex-1">
-          <h3 class="text-sm font-semibold leading-6 text-zinc-900 group-hover:text-emerald-800 dark:text-zinc-100 dark:group-hover:text-emerald-300">
-            {{ item.title }}
+          <h3 class="text-sm font-semibold leading-6 text-zinc-900 dark:text-zinc-100">
+            <NuxtLink
+              :to="`/activities/${item.slug}`"
+              class="underline-offset-2 hover:text-emerald-800 hover:underline dark:hover:text-emerald-300"
+            >
+              {{ item.title }}
+            </NuxtLink>
           </h3>
           <p class="mt-0.5 line-clamp-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             {{ item.summary }}
           </p>
-          <p class="mt-1 flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-            <UIcon
-              name="i-lucide-calendar-clock"
-              class="size-3.5 shrink-0"
-            />
-            <span class="truncate">{{ formatMeta(item) }}</span>
-          </p>
+          <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <p class="flex min-w-0 items-center gap-1">
+              <UIcon
+                name="i-lucide-calendar-clock"
+                class="size-3.5 shrink-0"
+              />
+              <span class="truncate">{{ formatMeta(item) }}</span>
+            </p>
+            <span class="ml-auto inline-flex shrink-0 items-center gap-2">
+              <NuxtLink
+                :to="`/activities/${item.slug}`"
+                class="inline-flex min-h-7 items-center gap-0.5 rounded-md px-1.5 font-medium text-zinc-600 underline-offset-2 hover:text-emerald-700 hover:underline dark:text-zinc-300 dark:hover:text-emerald-300"
+              >
+                活动详情
+                <UIcon
+                  name="i-lucide-chevron-right"
+                  class="size-3.5"
+                />
+              </NuxtLink>
+              <NuxtLink
+                :to="`/activities/${item.slug}#comments`"
+                class="inline-flex min-h-7 items-center gap-1 rounded-md border border-emerald-200 px-2 font-medium text-emerald-700 underline-offset-2 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-950"
+              >
+                <UIcon
+                  name="i-lucide-message-circle"
+                  class="size-3.5"
+                />
+                留言
+              </NuxtLink>
+            </span>
+          </div>
         </div>
-
-        <UIcon
-          name="i-lucide-chevron-right"
-          class="mt-1 size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-emerald-700 dark:text-zinc-600 dark:group-hover:text-emerald-300"
-        />
-      </NuxtLink>
+      </div>
     </div>
   </section>
 </template>
