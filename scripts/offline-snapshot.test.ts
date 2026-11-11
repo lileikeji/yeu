@@ -219,3 +219,19 @@ test('pages still sanitize public payloads on the server only', () => {
   assert.match(proceduresSource, /if \(import\.meta\.client\) return payload/)
   assert.match(proceduresSource, /await import\('~\/utils\/public-api-presentation'\)/)
 })
+
+// 2026-11-11 线上 /places/:slug、/procedures/:slug 全量 503：loader 里的裸 $fetch
+// 在 SSR 期间不带请求上下文，被 server/middleware/01-api-origin-guard.ts 判成
+// missing-source 403，页面再把非 404 统一映射成「服务暂时不可用」。
+test('detail pages fetch through useRequestFetch so SSR keeps the request context', () => {
+  const cases = [
+    ['places', placesSource, /await requestFetch<ApiPlace>\(`\/api\/public\/places\//],
+    ['procedures', proceduresSource, /await requestFetch<ApiProcedure>\(`\/api\/public\/procedures\//]
+  ] as const
+
+  for (const [name, source, fetchPattern] of cases) {
+    assert.match(source, /const requestFetch = useRequestFetch\(\)/, `${name} 页要取 useRequestFetch`)
+    assert.match(source, fetchPattern, `${name} 页 loader 走 requestFetch`)
+    assert.doesNotMatch(source, /await \$fetch<Api(?:Place|Procedure)>\(/, `${name} 页不要裸 $fetch 取详情`)
+  }
+})

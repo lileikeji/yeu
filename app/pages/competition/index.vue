@@ -2,10 +2,12 @@
 import type { CompetitionRegistrationStatus } from '~~/shared/types'
 
 // useFetch 的推断在「显式泛型 + default 返回 null」组合下会退化成 unknown，
-// 这里改用 useAsyncData 显式声明返回类型，SSR 首屏照旧由 $fetch 取。
+// 这里改用 useAsyncData 显式声明返回类型；SSR 首屏必须走 useRequestFetch，
+// 裸 $fetch 不带请求上下文，会被 /api 的 origin guard 判成 missing-source。
+const requestFetch = useRequestFetch()
 const { data: status } = await useAsyncData<CompetitionRegistrationStatus | null>(
   'public-competition-register',
-  () => $fetch<CompetitionRegistrationStatus>('/api/public/competition/register'),
+  () => requestFetch<CompetitionRegistrationStatus>('/api/public/competition/register'),
   { default: () => null }
 )
 

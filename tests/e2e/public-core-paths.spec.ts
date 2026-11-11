@@ -176,7 +176,7 @@ test('地图 SDK 加载失败时保留地点列表和重试说明', async ({ pag
 
   await ensureMapSearchVisible(page)
   await expect(page.getByText('地图画面暂时没有显示出来', { exact: true })).toBeVisible()
-  await expect(page.getByText(/可以重新试一次，也可以先查看学校平面图或地点清单/)).toBeVisible()
+  await expect(page.getByText('可重试，或先看平面图与清单', { exact: true })).toBeVisible()
   const fallbackPlace = page.getByRole('button', { name: /E2E 确认服务点/ })
   await fallbackPlace.scrollIntoViewIfNeeded()
   await expect(fallbackPlace).toBeVisible()
