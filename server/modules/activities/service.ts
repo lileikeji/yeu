@@ -186,14 +186,16 @@ function assertPlaceAssignable(client: DatabaseClient, placeId: string | null | 
   const place = client.db.select({
     status: places.status,
     type: places.type,
-    scope: places.scope
+    scope: places.scope,
+    category: places.category
   }).from(places).where(eq(places.id, placeId)).get()
 
-  if (!place || place.status !== 'published' || place.scope !== 'campus'
-    || place.type !== 'teaching-building') {
+  // 校园活动不只进教学楼：宏船楼是 building，普照大礼堂是 event-venue/
+  // service，只要地点本身已发布且在校园范围内，就允许关联。
+  if (!place || place.status !== 'published' || place.scope !== 'campus') {
     activityError(
       422,
-      'Activity place must be a published teaching building',
+      'Activity place must be a published campus place',
       'ACTIVITY_PLACE_INVALID'
     )
   }

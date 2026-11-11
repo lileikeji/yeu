@@ -84,7 +84,7 @@ const statusTabs = computed(() => {
 })
 
 const placeOptions = computed(() => [
-  { label: '不关联教学楼', value: '' },
+  { label: '不关联校园地点', value: '' },
   ...places.value.map(place => ({ label: place.name, value: place.id }))
 ])
 
@@ -187,7 +187,7 @@ async function load(): Promise<void> {
 
 async function loadPlaces(): Promise<void> {
   try {
-    const payload = await adminFetch<{ items?: PlaceOption[] }>('/api/public/places?type=teaching-building&scope=campus&pageSize=100')
+    const payload = await adminFetch<{ items?: PlaceOption[] }>('/api/public/places?scope=campus&pageSize=100')
     places.value = payload.items ?? []
   } catch {
     places.value = []
@@ -740,7 +740,7 @@ onMounted(() => {
 
         <div class="grid gap-4 sm:grid-cols-2">
           <UFormField
-            label="教学楼"
+            label="校园地点"
             hint="关联后活动会出现在地图建筑卡片中"
           >
             <USelect

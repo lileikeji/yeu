@@ -1462,3 +1462,27 @@ export const activities = sqliteTable('activities', {
     sql`${table.endsAt} is null or ${table.endsAt} >= ${table.startsAt}`
   )
 ])
+
+/**
+ * 活动留言。和 place_moments 分开：地点留言按地点聚合，活动留言按活动聚合，
+ * 两者生命周期不同（活动结束/归档后留言仍应跟着活动走，地点还在）。
+ *
+ * images 与 place_moments 同口径：JSON 数组，最多 3 张，元素只接受
+ * `/uploads/<uuid>.<ext>`。status=hidden 预留给后续治理，当前创建即 approved。
+ */
+export const activityComments = sqliteTable('activity_comments', {
+  id: text('id').primaryKey(),
+  activityId: text('activity_id').notNull()
+    .references(() => activities.id, { onDelete: 'cascade' }),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  anonymousKey: text('anonymous_key'),
+  body: text('body').notNull().default(''),
+  images: text('images').notNull().default('[]'),
+  ip: text('ip'),
+  status: text('status', { enum: ['approved', 'hidden'] }).notNull().default('approved'),
+  createdAt: timestamp('created_at')
+}, table => [
+  index('activity_comments_activity_created_idx').on(table.activityId, table.createdAt),
+  index('activity_comments_status_created_idx').on(table.status, table.createdAt),
+  check('activity_comments_status_check', sql`${table.status} in ('approved', 'hidden')`)
+])

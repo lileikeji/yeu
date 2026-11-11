@@ -20,6 +20,10 @@ import {
   submitActivity,
   updateActivity
 } from '../server/modules/activities/service'
+import {
+  createActivityComment,
+  listActivityComments
+} from '../server/modules/activity-comments/service'
 
 const SUPER_ADMIN_ID = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d'
 const ORG_ADMIN_A_ID = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e'
@@ -28,6 +32,7 @@ const CLUB_A_ID = 'd4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f70'
 const CLUB_B_ID = 'e5f6a7b8-c9d0-4e1f-8a2b-3c4d5e6f7081'
 const BUILDING_ID = 'f6a7b8c9-d0e1-4f2a-9b3c-4d5e6f708192'
 const DRAFT_BUILDING_ID = 'a7b8c9d0-e1f2-4a3b-8c4d-5e6f708192a3'
+const OLD_BUILDING_ID = 'b8c9d0e1-f2a3-4b4c-9d5e-6f708192a3b4'
 
 interface Fixture {
   client: DatabaseClient
@@ -60,8 +65,9 @@ function createFixture(): Fixture {
     INSERT INTO places (id, slug, name, summary, scope, type, category, status, created_at, updated_at)
     VALUES
       (?, 'teaching-building-a', '吉龙楼', '教学楼', 'campus', 'teaching-building', 'campus-building', 'published', ?, ?),
-      (?, 'teaching-building-draft', '待发布楼', '教学楼', 'campus', 'teaching-building', 'campus-building', 'draft', ?, ?)
-  `).run(BUILDING_ID, now, now, DRAFT_BUILDING_ID, now, now)
+      (?, 'teaching-building-draft', '待发布楼', '教学楼', 'campus', 'teaching-building', 'campus-building', 'draft', ?, ?),
+      (?, 'old-building', '宏船楼', '老楼', 'campus', 'building', 'campus-building', 'published', ?, ?)
+  `).run(BUILDING_ID, now, now, DRAFT_BUILDING_ID, now, now, OLD_BUILDING_ID, now, now)
 
   return {
     client,
@@ -275,6 +281,80 @@ test('activities: 删除草稿与归档已发布活动', () => {
     const archived = archiveActivity(client, org, published.id)
     assert.equal(archived.status, 'archived')
     assert.equal(listHomepageActivities(client, 5).length, 0)
+  } finally {
+    cleanup()
+  }
+})
+
+test('activities: 活动留言与地点留言分离，可带照片', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const org = organizationSession(ORG_ADMIN_A_ID, CLUB_A_ID, 'club-a', '社团甲')
+    const created = createActivity(client, org, activityInput())
+    submitActivity(client, org, created.id)
+    reviewActivity(client, superSession(), created.id, { decision: 'approve', note: null })
+
+    assert.deepEqual(listActivityComments(client, created.slug).items, [])
+
+    const comment = createActivityComment(client, {
+      activitySlug: created.slug,
+      body: '现场很热闹，补一张照片。',
+      images: ['/uploads/11111111-1111-4111-8111-111111111111.png']
+    }, { anonymousKey: 'visitor-a' }, '127.0.0.1').comment
+
+    assert.equal(comment.displayName, '访客')
+    assert.deepEqual(comment.images, ['/uploads/11111111-1111-4111-8111-111111111111.png'])
+
+    const payload = listActivityComments(client, created.slug)
+    assert.equal(payload.total, 1)
+    assert.equal(payload.items[0]!.body, '现场很热闹，补一张照片。')
+    assert.equal(payload.items[0]!.displayName, '访客')
+  } finally {
+    cleanup()
+  }
+})
+
+test('activities: 空留言与无效图片被拒绝，草稿活动不开放留言', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const org = organizationSession(ORG_ADMIN_A_ID, CLUB_A_ID, 'club-a', '社团甲')
+    const created = createActivity(client, org, activityInput())
+
+    assert.throws(
+      () => listActivityComments(client, created.slug),
+      (error: { statusCode?: number }) => error.statusCode === 404
+    )
+    assert.throws(
+      () => createActivityComment(client, {
+        activitySlug: created.slug,
+        body: '',
+        images: []
+      }, { anonymousKey: 'visitor-b' }),
+      (error: { statusCode?: number }) => error.statusCode === 404
+    )
+
+    submitActivity(client, org, created.id)
+    reviewActivity(client, superSession(), created.id, { decision: 'approve', note: null })
+
+    assert.throws(
+      () => createActivityComment(client, {
+        activitySlug: created.slug,
+        body: '   ',
+        images: ['https://evil.example.com/a.png']
+      }, { anonymousKey: 'visitor-c' }),
+      (error: { statusCode?: number }) => error.statusCode === 422
+    )
+  } finally {
+    cleanup()
+  }
+})
+
+test('activities: 宏船楼这类 building 也可作为活动地点', () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const org = organizationSession(ORG_ADMIN_A_ID, CLUB_A_ID, 'club-a', '社团甲')
+    const created = createActivity(client, org, activityInput({ placeId: OLD_BUILDING_ID }))
+    assert.equal(created.place?.name, '宏船楼')
   } finally {
     cleanup()
   }

@@ -552,6 +552,17 @@ export const reviewActivitySchema = z.object({
   }
 })
 
+export const createActivityCommentSchema = z.object({
+  activitySlug: slugSchema,
+  body: z.string().trim().max(300).default(''),
+  images: z.array(activityPhotoUrlSchema).max(3)
+    .refine(value => new Set(value).size === value.length, 'Images must be unique')
+    .default([])
+}).strict().refine(
+  value => Boolean(value.body) || value.images.length > 0,
+  { message: 'Comment text or at least one image is required' }
+)
+
 export const publicActivitiesQuerySchema = z.object({
   organization: z.string().trim().max(120).optional(),
   place: z.string().trim().max(120).optional(),
