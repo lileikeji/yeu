@@ -68,6 +68,10 @@ const pageSource = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
 const utilSource = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 const placeDetailsPanelSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
 const officialPlanSource = readFileSync(resolve('app/components/map/OfficialCampusPlan.vue'), 'utf8')
+// 地图页拆分后实现换了归属：POI/详情/平面图相关在 useMapPoi，筛选与兜底文案在 useMapFilter。
+// 断言跟着实现走，页面侧只校验「注入调用」与「不得内联实现体」，强度不变。
+const poiComposableSource = readFileSync(resolve('app/composables/useMapPoi.ts'), 'utf8')
+const filterComposableSource = readFileSync(resolve('app/composables/useMapFilter.ts'), 'utf8')
 
 function samplePoi(overrides: Partial<MapPoiStatusFields> = {}): MapPoiStatusFields {
   return {
@@ -87,20 +91,26 @@ function samplePoi(overrides: Partial<MapPoiStatusFields> = {}): MapPoiStatusFie
 
 test('map page is a thin shell over map-presentation util for labels and checklists', () => {
   assert.match(pageSource, /from ['"]~~\/app\/utils\/map-presentation['"]/)
-  assert.match(pageSource, /buildMapPoiUseChecklist/)
-  assert.match(pageSource, /resolveMapPoiStatusText/)
-  assert.match(pageSource, /resolveMapFallbackMessage/)
-  assert.match(pageSource, /buildMapPlaceDetailsTarget/)
-  assert.match(pageSource, /buildMapPlaceFeedbackTarget/)
-  assert.match(pageSource, /resolveOfficialPlanNumber/)
-  assert.match(pageSource, /filterPublicMapPlacesForMapList/)
-  assert.match(pageSource, /filterMapAreasForMapSearch/)
+  // 这些函数在地图页拆分时搬进了 composable：页面只留注入后的调用名，实现体归 composable。
+  assert.match(pageSource, /useMapPoi\(/)
+  assert.match(pageSource, /useMapFilter\(/)
+  assert.match(poiComposableSource, /buildMapPoiUseChecklist/)
+  assert.match(poiComposableSource, /resolveMapPoiStatusText/)
+  assert.match(poiComposableSource, /buildMapPlaceDetailsTarget/)
+  assert.match(poiComposableSource, /buildMapPlaceFeedbackTarget/)
+  assert.match(poiComposableSource, /resolveOfficialPlanNumber/)
+  assert.match(filterComposableSource, /resolveMapFallbackMessage/)
+  assert.match(filterComposableSource, /filterPublicMapPlacesForMapList/)
+  assert.match(filterComposableSource, /filterMapAreasForMapSearch/)
+  // 原来的断言只看「页面出现过函数名」；拆分后改成「页面禁止内联实现体 + composable 必须实现」。
+  assert.doesNotMatch(pageSource, /function (?:buildMapPoiUseChecklist|resolveMapPoiStatusText|buildMapPlaceDetailsTarget|buildMapPlaceFeedbackTarget|resolveOfficialPlanNumber|resolveMapFallbackMessage)\(/)
   assert.match(pageSource, /resolveMobileSheetHeightClass/)
   assert.match(pageSource, /resolveInitialMapViewMode/)
   assert.match(pageSource, /resolveMapViewModeSwitchDecision/)
   assert.match(pageSource, /setMapViewMode/)
   assert.match(utilSource, /export function resolveMapViewModeSwitchDecision/)
-  assert.match(pageSource, /mapCategories/)
+  // mapCategories 的列表也归 useMapFilter（页面只拿返回值渲染分类栏）。
+  assert.match(filterComposableSource, /mapCategories/)
   assert.doesNotMatch(pageSource, /const categories: MapCategory\[\] = \[/)
   assert.doesNotMatch(pageSource, /这个点来自你提供的高德地图标点，可以先导航到附近/)
   assert.match(utilSource, /export function buildMapPoiUseChecklist/)
@@ -123,7 +133,7 @@ test('all map categories remain visible in a two-row mobile grid', () => {
 })
 
 test('map data labels and fallback messages follow scope and data readiness', () => {
-  assert.equal(MAP_LOAD_ERROR_MESSAGE, '可以重新试一次，也可以先查看学校平面图或地点清单。')
+  assert.equal(MAP_LOAD_ERROR_MESSAGE, '可重试，或先看平面图与清单')
   assert.match(pageSource, /地图画面暂时没有显示出来/)
   assert.match(pageSource, /label="重新试一次"/)
   assert.match(pageSource, /label="查看学校平面图"/)
@@ -144,7 +154,7 @@ test('map data labels and fallback messages follow scope and data readiness', ()
   assert.doesNotMatch(placeDetailsPanelSource, /label="返回来源"/)
   assert.match(
     placeDetailsPanelSource,
-    /这个地点目前只能在学校平面图中查看，还不能直接规划路线/
+    /平面图可看，暂不能导航/
   )
 
   assert.equal(resolveMapDataLabel({
@@ -190,25 +200,25 @@ test('map data labels and fallback messages follow scope and data readiness', ()
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }), '可以查找 76 个地点和 8 个区域。地图位置适合先认路，到入口处再看现场标识；楼层、开放时间和营业情况可能会调整。')
+  }), '可查找 76 个地点和 8 个区域')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: true,
     activeScope: null,
     publishedCount: 0
-  }), '有些校园地点暂时没显示出来，可以先用现有清单找方向；没有位置的地点仍可在学校平面图中查看。')
+  }), '部分地点暂未显示')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: 'nearby',
     publishedCount: 0
-  }), '附近地点暂时不多，可以先查看周边生活指南；营业时间和位置请在出发前再确认。')
+  }), '附近地点较少')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
     activeScope: null,
     publishedCount: 0
-  }), '可以按学校平面图上的 47 个地点查找校内建筑；需要导航时请切回地图，到达后再看现场入口。')
+  }), '可查平面图 47 个地点')
   assert.equal(resolveMapFallbackMessage({
     ownerMapCount: 0,
     hasPublicPlaceError: false,
@@ -478,11 +488,14 @@ test('map selection, display options and auto-select decisions stay pure', () =>
   const utilSource = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 
   assert.match(source, /resolveAutoSelectSearchDecision/)
-  assert.match(source, /resolveSelectedPublicMapPlace/)
+  // resolveSelectedPublicMapPlace 与平面图编号决策在拆分时搬进 useMapPoi；
+  // filterMapAreasForProviderScope 搬进 useMapFilter，断言目标改成各自归属文件。
+  assert.match(poiComposableSource, /resolveSelectedPublicMapPlace/)
   assert.match(source, /toggleMapDisplayOption/)
   assert.match(source, /withMapLabelSize/)
-  assert.match(source, /filterMapAreasForProviderScope/)
-  assert.match(source, /resolveSelectOfficialPlanNumberDecision/)
+  assert.match(filterComposableSource, /filterMapAreasForProviderScope/)
+  assert.match(poiComposableSource, /resolveSelectOfficialPlanNumberDecision/)
+  assert.doesNotMatch(source, /function (?:resolveSelectedPublicMapPlace|resolveSelectOfficialPlanNumberDecision|filterMapAreasForProviderScope)\(/)
   assert.match(source, /class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden/)
   assert.match(utilSource, /export function findPublicMapPlaceByOfficialPlanNumber/)
   assert.match(utilSource, /export function resolveAutoSelectSearchDecision/)
@@ -598,9 +611,11 @@ test('selectPoi and map click selection decisions stay pure', () => {
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 
-  assert.match(source, /resolveSelectPoiApplyDecision/)
-  assert.match(source, /resolveMapPoiClickApply/)
+  // selectPoi/地图点击的决策函数在拆分时搬进 useMapPoi，页面只剩调用，实现体禁止内联。
+  assert.match(poiComposableSource, /resolveSelectPoiApplyDecision/)
+  assert.match(poiComposableSource, /resolveMapPoiClickApply/)
   assert.match(source, /canShowOfficialCampusPlan/)
+  assert.doesNotMatch(source, /function (?:resolveSelectPoiApplyDecision|resolveMapPoiClickApply)\(/)
   assert.match(utilSrc, /export function resolveSelectPoiUiDecision/)
   assert.match(utilSrc, /export function resolveMapPoiClickSelection/)
   assert.match(utilSrc, /export function resolveSelectPoiApplyDecision/)
@@ -705,11 +720,13 @@ test('map initial selection, filtered map pois and list-change clear stay pure',
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 
-  assert.match(source, /resolveInitialMapCategoryId/)
+  // 初始分类/过滤结果/列表变更清空在拆分时分别搬进 useMapFilter 与 useMapPoi。
+  assert.match(filterComposableSource, /resolveInitialMapCategoryId/)
   assert.match(source, /resolveInitialSelectedMapPoiId/)
-  assert.match(source, /buildFilteredMapPois/)
-  assert.match(source, /shouldClearSelectedMapPoiOnListChange/)
-  assert.match(source, /resolveSelectOfficialPlanNumberDecision/)
+  assert.match(filterComposableSource, /buildFilteredMapPois/)
+  assert.match(poiComposableSource, /shouldClearSelectedMapPoiOnListChange/)
+  assert.match(poiComposableSource, /resolveSelectOfficialPlanNumberDecision/)
+  assert.doesNotMatch(source, /function (?:resolveInitialMapCategoryId|buildFilteredMapPois|shouldClearSelectedMapPoiOnListChange)\(/)
   assert.match(utilSrc, /export function resolveOfficialPlanHotspotSelectionReset/)
   assert.match(utilSrc, /export function shouldClearSelectedMapPoiOnListChange/)
   assert.doesNotMatch(source, /categoryIds\.has\(initialCategory\) \? initialCategory : 'all'/)
@@ -784,9 +801,11 @@ test('area selected / select area / auto-select apply stay pure', () => {
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 
-  assert.match(source, /resolveAreaSelectedDecision/)
-  assert.match(source, /resolveSelectAreaDecision/)
+  // 区域选中/选择区域的决策在拆分时搬进 useMapPoi；自动选中的应用仍在页面。
+  assert.match(poiComposableSource, /resolveAreaSelectedDecision/)
+  assert.match(poiComposableSource, /resolveSelectAreaDecision/)
   assert.match(source, /resolveAutoSelectSearchApply/)
+  assert.doesNotMatch(source, /function (?:resolveAreaSelectedDecision|resolveSelectAreaDecision)\(/)
   assert.match(utilSrc, /export function resolveAreaSelectedDecision/)
   assert.match(utilSrc, /export function resolveSelectAreaDecision/)
   assert.match(utilSrc, /export function shouldScrollAfterAutoSelectPoi/)
@@ -868,11 +887,13 @@ test('close / category / fit / search-reset decisions stay pure', () => {
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 
-  assert.match(source, /resolveClosePoiDetailsDecision/)
-  assert.match(source, /resolveCloseAreaDetailsDecision/)
-  assert.match(source, /resolveSetCategoryDecision/)
-  assert.match(source, /resolveFitToVisiblePoisDecision/)
+  // 关闭详情/分类切换/适配视野在拆分时分别搬进 useMapPoi 与 useMapFilter；搜索重置仍在页面。
+  assert.match(poiComposableSource, /resolveClosePoiDetailsDecision/)
+  assert.match(poiComposableSource, /resolveCloseAreaDetailsDecision/)
+  assert.match(filterComposableSource, /resolveSetCategoryDecision/)
+  assert.match(filterComposableSource, /resolveFitToVisiblePoisDecision/)
   assert.match(source, /resolveSearchQueryChangeReset/)
+  assert.doesNotMatch(source, /function (?:resolveClosePoiDetailsDecision|resolveCloseAreaDetailsDecision|resolveSetCategoryDecision|resolveFitToVisiblePoisDecision)\(/)
   assert.match(utilSrc, /export function resolveClosePoiDetailsDecision/)
   assert.match(utilSrc, /export function resolveCloseAreaDetailsDecision/)
   assert.match(utilSrc, /export function resolveSetCategoryDecision/)
@@ -915,9 +936,11 @@ test('selectPoi apply / map click apply / official plan number decisions stay pu
   const source = readFileSync(resolve('app/pages/map/index.vue'), 'utf8')
   const utilSrc = readFileSync(resolve('app/utils/map-presentation.ts'), 'utf8')
 
-  assert.match(source, /resolveSelectPoiApplyDecision/)
-  assert.match(source, /resolveMapPoiClickApply/)
-  assert.match(source, /resolveSelectOfficialPlanNumberDecision/)
+  // selectPoi 应用/点击应用/平面图编号三个决策在拆分时搬进 useMapPoi，页面禁止内联实现体。
+  assert.match(poiComposableSource, /resolveSelectPoiApplyDecision/)
+  assert.match(poiComposableSource, /resolveMapPoiClickApply/)
+  assert.match(poiComposableSource, /resolveSelectOfficialPlanNumberDecision/)
+  assert.doesNotMatch(source, /function (?:resolveSelectPoiApplyDecision|resolveMapPoiClickApply|resolveSelectOfficialPlanNumberDecision)\(/)
   assert.match(utilSrc, /export function resolveSelectPoiApplyDecision/)
   assert.match(utilSrc, /export function resolveMapPoiClickApply/)
   assert.match(utilSrc, /export function resolveSelectOfficialPlanNumberDecision/)
