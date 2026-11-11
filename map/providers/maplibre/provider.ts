@@ -24,6 +24,7 @@ import {
   YEU_CAMPUS_REFERENCE_CENTER
 } from '../../core/campus'
 import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapTransitVehicle } from '../../core/types'
+import { gcj02ToWgs84 } from '~~/shared/utils/coordinate-convert'
 import {
   createMarkerImage,
   getMarkerImageId,
@@ -31,6 +32,23 @@ import {
   MAP_MARKER_PIXEL_RATIO,
   resolveMarkerCategory
 } from './marker-image'
+
+/**
+ * 预览底图（OSM / MapLibre）只吃 WGS84。业务库里的 POI 多为 GCJ-02
+ * （高德/微信来源），直接喂给 MapLibre 会偏移约 450m，因此统一转成 WGS84
+ * 再渲染。转换沿用 shared/utils/coordinate-convert 的迭代逼近实现。
+ * 未知或非法坐标返回 null，由调用方过滤。
+ */
+function toWgs84Point(point: GeoPoint): GeoPoint | null {
+  if (!Number.isFinite(point.lng) || !Number.isFinite(point.lat)) return null
+  if (point.crs === 'WGS84') return point
+  if (point.crs === 'GCJ-02') {
+    const converted = gcj02ToWgs84(point.lng, point.lat)
+    return { lng: converted.longitude, lat: converted.latitude, crs: 'WGS84' }
+  }
+  // BD-09 等其它坐标系不在此处硬转，交给上层统一预处理。
+  return null
+}
 
 const SOURCE_ID = 'yeu-preview-pois'
 const CAMPUS_BOUNDARY_SOURCE_ID = 'yeu-campus-boundary'
@@ -182,6 +200,18 @@ export class MapLibrePreviewProvider implements MapProvider {
       return
     }
 
+    // Vite 预打包 maplibre-gl 成单个 deps 文件后，库内部的
+    // `new URL('./maplibre-gl-worker.mjs', import.meta.url)` 会指向
+    // node_modules/.cache/vite/client/deps/ 下不存在的路径，浏览器报
+    // 「Worker failed to load」，所有依赖 worker 的图层（POI marker、
+    // 校车线路）都不渲染。
+    // 用 `?url` 后缀让 Vite 解析出真实可访问的 worker 资源地址，
+    // 再交给 maplibre 官方的 setWorkerUrl()。
+    if (typeof window !== 'undefined') {
+      const { default: workerUrl } = await import('maplibre-gl/dist/maplibre-gl-worker.mjs?url')
+      maplibre.setWorkerUrl(workerUrl)
+    }
+
     const map = new maplibre.Map({
       container: element,
       style: this.offline ? OFFLINE_PREVIEW_STYLE : OSM_PREVIEW_STYLE,
@@ -225,6 +255,10 @@ export class MapLibrePreviewProvider implements MapProvider {
     // 样式就绪后补画校外公交（默认打开时页面可能早于 style load 调用）
     this.layersReady = true
     if (this.transitRoutes.length) this.setTransitRoutes(this.transitRoutes)
+    // 同理补画校车：轮询/示例数据可能早于 style load 到达，
+    // 那时 addSource 会抛错并中断后续图层构建。
+    if (this.busRoutes.length) this.setBusRoutes(this.busRoutes)
+    if (this.buses.length) this.setBuses(this.buses)
 
     if (this.fitAfterMount) {
       this.fitAfterMount = false
@@ -467,7 +501,9 @@ export class MapLibrePreviewProvider implements MapProvider {
   setBuses(buses: MapBus[]): void {
     this.buses = buses
     const map = this.map
-    if (!map) return
+    // style 未就绪时只缓存数据；mount() 里 layersReady=true 之后会补画。
+    // 否则 addSource 抛错会中断后续图层构建（POI 图层整片消失）。
+    if (!map || !this.layersReady) return
     if (!buses.length) {
       if (map.getSource(BUSES_SOURCE_ID)) {
         this.updateSource(BUSES_SOURCE_ID, { type: 'FeatureCollection', features: [] })
@@ -501,7 +537,9 @@ export class MapLibrePreviewProvider implements MapProvider {
   setBusRoutes(routes: MapBusRoute[]): void {
     this.busRoutes = routes
     const map = this.map
-    if (!map) return
+    // style 未就绪时只缓存数据；mount() 里 layersReady=true 之后会补画。
+    // 否则 addSource 抛错会中断后续图层构建（POI 图层整片消失）。
+    if (!map || !this.layersReady) return
     if (!routes.length) {
       if (map.getSource(BUS_ROUTES_SOURCE_ID)) {
         this.updateSource(BUS_ROUTES_SOURCE_ID, { type: 'FeatureCollection', features: [] })
@@ -1155,12 +1193,14 @@ export class MapLibrePreviewProvider implements MapProvider {
   }
 
   private renderablePois(): MapPoi[] {
-    return this.pois.filter(poi => this.isRenderablePoint(poi.point))
+    return this.pois
+      .map(poi => ({ poi, point: toWgs84Point(poi.point) }))
+      .filter(entry => entry.point !== null)
+      .map(({ poi, point }) => ({ ...poi, point: point! }))
   }
 
   private isRenderablePoint(point: GeoPoint): boolean {
-    return point.crs === 'WGS84'
-      && Number.isFinite(point.lng)
+    return Number.isFinite(point.lng)
       && Number.isFinite(point.lat)
       && point.lng >= -180
       && point.lng <= 180
