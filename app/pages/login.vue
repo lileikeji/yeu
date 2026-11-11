@@ -491,7 +491,8 @@ watch(mode, (next) => {
                   size="sm"
                   type="button"
                   :aria-label="passwordVisible ? '隐藏密码' : '显示密码'"
-                  class="min-h-11 min-w-11"
+                  class="justify-center min-h-11 min-w-11"
+                  :ui="{ base: 'hover:bg-transparent active:bg-transparent dark:hover:bg-transparent dark:active:bg-transparent hover:text-zinc-950 dark:hover:text-zinc-100' }"
                   @click="togglePasswordVisibility"
                 />
               </template>
