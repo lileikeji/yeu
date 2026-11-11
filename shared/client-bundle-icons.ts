@@ -51,6 +51,7 @@ export const clientBundleIcons = [
   'lucide:clipboard-list',
   'lucide:clock-3',
   'lucide:cloud-off',
+  'lucide:cloud-sun',
   'lucide:cloud-upload',
   'lucide:coffee',
   'lucide:copy',
