@@ -20,7 +20,6 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   'places': {
     key: 'places',
     title: '地点管理',
-    description: '维护校内与周边地点、坐标、发布状态和信息来源；主入口和场地点坐标需通过现场采点审核后更新。',
     icon: 'i-lucide-map-pin',
     endpoint: '/api/admin/places',
     createLabel: '新增地点',
@@ -295,7 +294,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '关联来源编号',
         type: 'textarea',
         rows: 3,
-        description: '每行填写一个来源编号；发布前至少需要一条有效来源。',
+        description: '每行一个来源编号，至少一条。',
         group: '来源与确认',
         span: 'full'
       },
@@ -309,7 +308,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'isOfficial',
         label: '校方设施',
         type: 'checkbox',
-        description: '表示地点主体属性，不代表本页面已获校方确认。',
+        description: '不代表校方确认。',
         defaultValue: false,
         group: '发布与确认',
         span: 'full'
@@ -327,7 +326,6 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   'content': {
     key: 'content',
     title: '内容管理',
-    description: '统一维护指南、部门、社团和时效公告。',
     icon: 'i-lucide-files',
     endpoint: '/api/admin/content',
     createLabel: '新增内容',
@@ -481,7 +479,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         type: 'json',
         rows: 12,
         placeholder: '[{"title":"先做什么","icon":"i-lucide-list-checks","items":["第一条说明"]}]',
-        description: '一般无需填写。仅在需要自定义指南卡片结构时使用，留空会根据正文自动生成。',
+        description: '留空按正文自动生成。',
         group: '高级设置（一般无需修改）',
         span: 'full',
         condition: { key: 'kind', values: ['guide'] }
@@ -581,7 +579,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'metadata.groupQrUrls',
         label: '招新与群聊二维码',
         type: 'image-list',
-        description: '最多上传 8 张，可同时展示不同招新群、校区群或交流群二维码。',
+        description: '最多 8 张。',
         group: '群聊与负责人',
         span: 'half',
         condition: { key: 'kind', values: ['department', 'club'] }
@@ -592,7 +590,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         type: 'text-list',
         rows: 4,
         placeholder: '每行对应一张二维码；留空行会使用默认标题',
-        description: '按图片顺序填写，每行一个标题，最多 100 个字。',
+        description: '每行一个标题，最多 100 字。',
         group: '群聊与负责人',
         span: 'half',
         condition: { key: 'kind', values: ['department', 'club'] }
@@ -601,7 +599,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'metadata.contactQrUrls',
         label: '负责人二维码',
         type: 'image-list',
-        description: '最多上传 8 张负责人微信、QQ或其他公开联系二维码。',
+        description: '最多 8 张。',
         group: '群聊与负责人',
         span: 'half',
         condition: { key: 'kind', values: ['department', 'club'] }
@@ -612,7 +610,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         type: 'text-list',
         rows: 4,
         placeholder: '每行对应一张二维码；留空行会使用默认标题',
-        description: '按图片顺序填写，每行一个标题，最多 100 个字。',
+        description: '每行一个标题，最多 100 字。',
         group: '群聊与负责人',
         span: 'half',
         condition: { key: 'kind', values: ['department', 'club'] }
@@ -628,7 +626,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'metadata.contactPhones',
         label: '负责人电话',
         type: 'tel-list',
-        description: '可添加多个联系电话，前台会为每个号码提供复制和拨打操作。',
+        description: '前台可直接拨打。',
         group: '群聊与负责人',
         condition: { key: 'kind', values: ['department', 'club'] }
       },
@@ -646,7 +644,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'metadata.homeEntryEnabled',
         label: '加入首页入口',
         type: 'checkbox',
-        description: '打开后可把当前已发布页面加入首页，AI 搜索也会直接返回这个页面入口。',
+        description: '勾选后进首页与搜索结果。',
         group: '首页入口配置',
         span: 'full',
         condition: { key: 'kind', values: ['guide', 'department', 'club'] }
@@ -687,7 +685,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         type: 'textarea',
         rows: 7,
         placeholder: '例如：\n先看什么\n这里填写具体说明。\n\n下一步怎么做\n这里填写操作建议。',
-        description: '入口点击后先显示这里的内容。用空行分段，每段第一行会作为小标题；留空时使用入口说明。',
+        description: '空行分段，首行作小标题。',
         group: '首页入口配置',
         span: 'full',
         condition: { key: 'kind', values: ['guide', 'department', 'club'] }
@@ -696,7 +694,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'metadata.homeEntrySourceUrl',
         label: '来源地址',
         placeholder: '例如 https://example.com/source 或 /sources',
-        description: '可选。简洁模式半屏详情底部会显示这个来源入口；留空时显示当前页面地址。',
+        description: '留空用当前页面地址。',
         group: '首页入口配置',
         span: 'full',
         condition: { key: 'kind', values: ['guide', 'department', 'club'] }
@@ -705,7 +703,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'metadata.homeEntryIcon',
         label: '入口图标',
         placeholder: '例如 i-lucide-music-2',
-        description: '使用 Lucide 图标名；不填写时使用默认箭头图标。',
+        description: 'Lucide 图标名。',
         group: '首页入口配置',
         condition: { key: 'kind', values: ['guide', 'department', 'club'] }
       },
@@ -729,7 +727,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         max: 9999,
         step: 1,
         defaultValue: 100,
-        description: '数字越小越靠前；公告不填写时按发布时间倒序。',
+        description: '数字越小越靠前。',
         group: '发布与排序',
         condition: { key: 'kind', values: ['department', 'club', 'notice'] }
       },
@@ -748,7 +746,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '用户进入时自动弹出',
         type: 'checkbox',
         defaultValue: false,
-        description: '开启后，用户进入网站时会直接打开公告详情；关闭后仍可从前台公告入口手动查看。',
+        description: '进站直接打开。',
         group: '公告时效',
         span: 'full',
         condition: { key: 'kind', values: ['notice'] }
@@ -757,7 +755,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         key: 'metadata.noticeActions',
         label: '正文快捷入口',
         type: 'link-list',
-        description: '在公告正文下方添加可点击按钮；可以直接选择已有功能，也可以填写站内路径或安全的 https 链接。',
+        description: '站内路径或 https 链接。',
         group: '正文快捷入口',
         span: 'full',
         condition: { key: 'kind', values: ['notice'] }
@@ -781,7 +779,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '关联来源编号',
         type: 'textarea',
         rows: 3,
-        description: '每行填写一个来源编号；发布前至少需要一条有效来源。',
+        description: '每行一个来源编号，至少一条。',
         group: '来源与确认',
         span: 'full',
         condition: { key: 'kind', values: ['guide', 'department', 'club'] }
@@ -798,7 +796,7 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
         label: '加入校园页精选',
         type: 'checkbox',
         defaultValue: false,
-        description: '开启后会优先出现在校园页精选区域，并遵循前台排序值。',
+        description: '勾选后进校园页精选。',
         group: '发布与排序',
         span: 'full',
         condition: { key: 'kind', values: ['guide', 'department', 'club'] }
@@ -808,7 +806,6 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   'sources': {
     key: 'sources',
     title: '来源管理',
-    description: '维护来源链接、发布方、可信程度和可用状态。',
     icon: 'i-lucide-book-marked',
     endpoint: '/api/admin/sources',
     createLabel: '登记来源',
@@ -972,7 +969,6 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   'feedback': {
     key: 'feedback',
     title: '反馈管理',
-    description: '处理地点纠错、内容与流程问题和资料补充建议。',
     icon: 'i-lucide-message-square-warning',
     endpoint: '/api/admin/feedback',
     createLabel: '登记反馈',
@@ -1049,7 +1045,6 @@ export const adminSectionConfigs: Record<string, AdminResourceConfig> = {
   'audit-logs': {
     key: 'audit-logs',
     title: '操作记录',
-    description: '查看登录、创建、更新、发布、下架和删除记录。',
     icon: 'i-lucide-scroll-text',
     endpoint: '/api/admin/audit-logs',
     createLabel: '新增日志',

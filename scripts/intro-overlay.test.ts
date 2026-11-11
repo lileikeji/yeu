@@ -96,7 +96,7 @@ test('开场动画操作保持清晰且适合触控', () => {
 })
 
 test('开场动画加载提示面向新生而不是暴露实现过程', () => {
-  assert.match(introSource, /正在准备校园地图/)
+  assert.match(introSource, /正在加载地图/)
   assert.doesNotMatch(introSource, /正在构建粒子星图/)
 })
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -14,6 +14,7 @@ import { createBusMoment, listBusMoments } from '../server/modules/transit/bus-m
 
 interface Fixture {
   client: DatabaseClient
+  directory: string
   cleanup: () => void
 }
 
@@ -24,6 +25,7 @@ function createFixture(): Fixture {
   runMigrations(client)
   return {
     client,
+    directory,
     cleanup: () => {
       closeDatabase(databasePath)
       rmSync(directory, { recursive: true, force: true })
@@ -214,6 +216,67 @@ test('moderation: 含 U+FFFD 替换符的编码错乱内容被拒绝', () => {
       (error: { data?: { code?: string } }) => error.data?.code === 'BUS_MOMENT_ENCODING'
     )
     assert.equal(listBusMoments(client, '3').moments.length, 0)
+  } finally {
+    cleanup()
+  }
+})
+
+test('moderation: 带图留言送多模态判定，纯图无文本也送审', async () => {
+  const { client, cleanup, directory } = createFixture()
+  const uploadDir = join(directory, 'uploads')
+  mkdirSync(uploadDir, { recursive: true })
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+  writeFileSync(join(uploadDir, '114ad1f6-efd6-4eff-b8a4-52446e64cf5b.png'), png)
+  const prevUploadDir = process.env.NUXT_UPLOAD_DIR
+  process.env.NUXT_UPLOAD_DIR = uploadDir
+  try {
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO place_moments (id, place_id, kind, body, images, status, created_at)
+      VALUES ('pm-img', 'place-z', 'comment', '', '["/uploads/114ad1f6-efd6-4eff-b8a4-52446e64cf5b.png"]', 'pending', ?)
+    `).run(now)
+
+    let seenBody: unknown = null
+    const flagged = await moderateMomentRow(client, 'place', 'pm-img', '', CONFIG, {
+      images: ['/uploads/114ad1f6-efd6-4eff-b8a4-52446e64cf5b.png'],
+      fetchImpl: (async (_url: any, init: any) => {
+        seenBody = JSON.parse(init.body)
+        return chatResponse({ violation: true, category: 'porn', reason: '图片违规' })
+      }) as typeof fetch
+    })
+    assert.equal(flagged, true)
+    const messages = seenBody?.messages
+    assert.ok(Array.isArray(messages), 'should send chat messages')
+    const userContent = messages[messages.length - 1].content
+    assert.ok(Array.isArray(userContent), 'multimodal content should be an array')
+    const imagePart = userContent.find((part: any) => part.type === 'image_url')
+    assert.ok(imagePart, 'should include image part')
+
+    const row = client.sqlite.prepare("SELECT status, ai_category FROM place_moments WHERE id = 'pm-img'").get() as any
+    assert.equal(row.status, 'rejected')
+    assert.equal(row.ai_category, 'porn')
+  } finally {
+    if (prevUploadDir === undefined) delete process.env.NUXT_UPLOAD_DIR
+    else process.env.NUXT_UPLOAD_DIR = prevUploadDir
+    cleanup()
+  }
+})
+
+test('moderation: 无图且无文本的打卡仍直放（不调 LLM）', async () => {
+  const { client, cleanup } = createFixture()
+  try {
+    const now = Date.now()
+    client.sqlite.prepare(`
+      INSERT INTO place_moments (id, place_id, kind, body, images, status, created_at)
+      VALUES ('ck-plain', 'place-y', 'checkin', '', '[]', 'pending', ?)
+    `).run(now)
+    const called = await moderateMomentRow(client, 'place', 'ck-plain', '', CONFIG, {
+      fetchImpl: (async () => { throw new Error('should not call LLM') }) as typeof fetch
+    })
+    assert.equal(called, false)
+    const row = client.sqlite.prepare("SELECT status, ai_checked_at IS NOT NULL AS checked FROM place_moments WHERE id = 'ck-plain'").get() as any
+    assert.equal(row.status, 'approved')
+    assert.equal(row.checked, 1)
   } finally {
     cleanup()
   }

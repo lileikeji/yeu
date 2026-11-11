@@ -29,6 +29,14 @@ export interface ProcedureSeedMaterial {
   placeSlug: string | null
 }
 
+export interface ProcedureSeedWindow {
+  // 日期一律 YYYY-MM-DD，按北京时间理解；只写能从官方来源核实到的开放与截止日
+  opensAt: string
+  closesAt: string
+  label: string
+  sourceUrl: string
+}
+
 export interface ProcedureSeed {
   id: string
   slug: string
@@ -42,6 +50,7 @@ export interface ProcedureSeed {
   statusText: string
   processingTime: string | null
   deadlineText: string | null
+  window?: ProcedureSeedWindow | null
   startsAt: string | null
   endsAt: string | null
   validFrom: string | null
@@ -62,7 +71,7 @@ export const procedureSeeds: ProcedureSeed[] = [
     slug: 'arrival',
     title: '2026级新生报到',
     summary: '学校已确认9月5日至6日注册报到、9月7日至9日入学教育、9月10日上课；个人时段、材料、具体报到点和接站安排待学校通知。',
-    body: '这条流程给新生按顺序核对报到事项。当前官方来源已经能确认2026级新生注册报到日期是9月5日至6日，9月7日至9日参加入学教育，9月10日开始上课；但个人报到时段、具体窗口、材料清单、接站安排和宿舍衔接还没有公开到可逐项写死的程度。这里先把已确认事项和待通知事项分开，避免把往年经验或群聊截图当成今年通知。',
+    body: '官方来源已确认2026级新生9月5日至6日注册报到、9月7日至9日参加入学教育、9月10日开始上课；个人报到时段、具体窗口、材料清单、接站安排和宿舍衔接，学校目前还没有公开。',
     category: 'arrival',
     audience: [...allFreshmen],
     method: 'mixed',
@@ -70,6 +79,12 @@ export const procedureSeeds: ProcedureSeed[] = [
     statusText: '报到日期已确认，个人时段、材料、报到地点和接站待通知',
     processingTime: null,
     deadlineText: '2026年9月5日至6日；个人日期和时段以录取通知书及学校后续通知为准。',
+    window: {
+      opensAt: '2026-09-05',
+      closesAt: '2026-09-06',
+      label: '2026级新生注册报到',
+      sourceUrl: officialSources.academicCalendar2026Fall.url
+    },
     startsAt: '2026-09-05T00:00:00+08:00',
     endsAt: '2026-09-06T23:59:59+08:00',
     validFrom: null,
@@ -179,7 +194,7 @@ export const procedureSeeds: ProcedureSeed[] = [
       {
         id: '9c45e82d-64bf-4f7e-a006-2026handbookpack',
         name: '到校前可参考准备',
-        description: '2026 新生手册建议先准备：身份证、录取通知书及所需证件照片；少量常用药、洗漱用品和日常衣物；手机、充电器和必要电子设备；床上用品先列清单，床垫、床单、被褥和蚊帐等尺寸等确认楼栋和床型后再购买。军训用品按当届通知准备。这里是手册中的行前建议，不等于学校最终材料清单；正式原件、复印件、照片、银行卡和线上预办理事项仍以录取通知书及迎新通知为准。',
+        description: '2026 新生手册建议先准备：身份证、录取通知书及所需证件照片；少量常用药、洗漱用品和日常衣物；手机、充电器和必要电子设备；床上用品先列清单，床垫、床单、被褥和蚊帐等尺寸等确认楼栋和床型后再购买。军训用品按当届通知准备。手册的行前建议不等于学校最终材料清单；正式原件、复印件、照片、银行卡和线上预办理事项以录取通知书及迎新通知为准。',
         audience: [...allFreshmen],
         isRequired: null,
         informationState: 'partial',
@@ -193,7 +208,7 @@ export const procedureSeeds: ProcedureSeed[] = [
     slug: 'campus-network',
     title: '校园网与统一认证排查',
     summary: '先按信息化管理处校园网指南核对覆盖范围、账号入口和常见问题；宿舍区网络、账号异常和设备报错要带截图咨询。',
-    body: '这条流程给新生处理“连不上校园网、认证不了、账号不知道怎么用”的情况。学校官网已经公布校园网指南和信息化管理处入口，但个人账号、初始密码、宿舍区网络细节和报修渠道可能随当年安排变化，不要使用网上流传的默认密码。',
+    body: '学校官网已公布校园网指南和信息化管理处入口，指南写明覆盖范围、认证入口和常见问题；个人账号、初始密码、宿舍区网络细节和报修渠道会随当年安排变化，以信息化管理处最新通知为准。',
     category: 'life-service',
     audience: [...allFreshmen],
     method: 'mixed',
@@ -283,7 +298,7 @@ export const procedureSeeds: ProcedureSeed[] = [
     slug: 'dorm-repair',
     title: '宿舍维修报修',
     summary: '宿舍设施损坏先按总务处报修流程处理；紧急安全问题不要只等线上反馈，应马上联系宿管、辅导员或现场管理人员。',
-    body: '这条流程用于宿舍门锁、水电、家具、空调等生活设施问题。总务处公开了报修流程、宿舍维修管理规定和宿舍管理办法；具体入口、受理时段和维修单状态以总务处当年页面或现场说明为准。',
+    body: '宿舍门锁、水电、家具、空调等生活设施问题走总务处报修流程。总务处公开了报修流程、宿舍维修管理规定和宿舍管理办法；具体入口、受理时段和维修单状态以总务处当年页面或现场说明为准。',
     category: 'life-service',
     audience: [...allFreshmen],
     method: 'mixed',
@@ -377,7 +392,7 @@ export const procedureSeeds: ProcedureSeed[] = [
     slug: 'library-card-wechat',
     title: '图书馆借阅证与微信绑定',
     summary: '新生想借书、查馆藏或用图书馆微信服务，先看图书馆借阅规定、开放时间和微信平台绑定借阅证流程。',
-    body: '这条流程用于“怎么进图书馆、怎么借书、怎么绑定借阅证”。学校官网已经公布图书馆开放时间、借阅规定和微信平台绑定流程；如果新生账号、入馆权限或具体开放安排临时变化，以图书馆最新通知为准。',
+    body: '图书馆官网已公布开放时间、借阅规定和微信平台绑定借阅证的流程；学校相关部门提供学生名单后，图书馆统一审核并开通校园一卡通借阅权限。账号、入馆权限或开放安排临时变化时，以图书馆最新通知为准。',
     category: 'study',
     audience: [...allFreshmen],
     method: 'online',
@@ -433,7 +448,7 @@ export const procedureSeeds: ProcedureSeed[] = [
       {
         id: '62f1b0b1-2674-4ebe-baa6-26ac7c863ce0',
         title: '借书前核对借阅规则',
-        description: '借阅册数、期限、续借、逾期等规则以图书馆借阅规定为准；不要只按学长学姐经验判断。',
+        description: '借阅册数、期限、续借、逾期等规则以图书馆借阅规定为准。',
         audience: [...allFreshmen],
         informationState: 'confirmed',
         timeText: '借书前',
@@ -471,7 +486,7 @@ export const procedureSeeds: ProcedureSeed[] = [
     slug: 'transfer-archive-mailing',
     title: '专升本学生档案邮寄',
     summary: '专升本新生档案邮寄以招生办公室2026年档案邮寄说明为准；普通本科新生不要套用专升本档案流程。',
-    body: '这条流程只面向专升本新生，用于处理学生档案邮寄。招生办公室已经公布2026年专升本学生档案邮寄说明和专升本招生章程；邮寄前请逐项核对官网上的地址、收件信息、材料和时间要求，不要只按群聊截图操作。',
+    body: '招生办公室已公布2026年专升本学生档案邮寄说明和专升本招生章程；档案通常由原学校或档案管理单位按规定寄送，个人能否自带、是否需要密封件以官方说明和原单位要求为准。邮寄前逐项核对官网上的地址、收件信息、材料和时间要求。',
     category: 'arrival',
     audience: ['transfer'],
     method: 'offline',
@@ -505,7 +520,7 @@ export const procedureSeeds: ProcedureSeed[] = [
       {
         id: '7756755b-80ea-4e2d-acc8-e6ddadd1bc12',
         title: '确认自己属于专升本新生',
-        description: '本流程只适用于2026年专升本学生档案邮寄；普通本科新生档案事项如有安排，应看普通本科对应通知或录取材料。',
+        description: '2026年专升本学生档案邮寄与普通本科的档案事项分开办理；普通本科新生看普通本科对应通知或录取材料。',
         audience: ['transfer'],
         informationState: 'confirmed',
         timeText: '邮寄前',

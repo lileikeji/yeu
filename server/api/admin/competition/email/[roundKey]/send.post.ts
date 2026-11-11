@@ -3,8 +3,10 @@ import {
   buildEmailSendPlan,
   buildEmailVariables,
   competitionEmailBodyToHtml,
+  emailImageAttachments,
   ensureCompetitionEvent,
   getRoundByKey,
+  loadEmailImagesForBody,
   recordEmailSend,
   renderCompetitionEmailTemplate
 } from '../../../../../modules/competition/service'
@@ -61,12 +63,14 @@ export default defineEventHandler(async (event) => {
     const variables = buildEmailVariables(round, recipient.entry, recipient.singer)
     const subject = renderCompetitionEmailTemplate(plan.template.subject, variables)
     const body = renderCompetitionEmailTemplate(plan.template.body, variables)
+    const images = loadEmailImagesForBody(client, competition.id, body)
     try {
       await sendMailMessage(mailerConfig, {
         to: recipient.singer.email!,
         subject,
         text: body,
-        html: competitionEmailBodyToHtml(body)
+        html: competitionEmailBodyToHtml(body, images),
+        attachments: emailImageAttachments(body, images)
       }, { fromName: '仰恩大学音乐协会' })
       recordEmailSend(client, competition.id, roundKey, recipient.singer.id, recipient.singer.email!, 'sent', null)
       sent += 1

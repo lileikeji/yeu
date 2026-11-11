@@ -195,10 +195,12 @@ export function serializeFeedback(row: FeedbackRow): ApiFeedback {
     targetId: row.targetId,
     reasonType: row.reasonType,
     message: row.message,
+    expected: row.expected,
     // Null unsafe legacy evidence links; pageUrl is a local path (validated on write).
     evidenceUrl: safeStoredHttpUrl(row.evidenceUrl),
     pageUrl: row.pageUrl,
     contact: row.contact,
+    receiptCode: row.receiptCode,
     status: row.status,
     resolutionNote: row.resolutionNote,
     createdAt: new Date(row.createdAt).toISOString(),

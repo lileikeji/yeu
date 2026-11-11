@@ -1,7 +1,7 @@
 export const clubListRecentActivityUrlMarker = '/2026/'
 
 export const clubListMessages = {
-  serviceUnavailable: '下方仍可按兴趣查看已有社团；本学期招新请以校团委和现场通知为准。',
+  serviceUnavailable: '下方仍可按兴趣查看已有社团；本学期招新看校团委和现场通知。',
   emptyMatch: '没有匹配的社团',
   defaultCategory: '校园社团',
   allGroups: '全部',
@@ -56,6 +56,9 @@ export function listClubGroups<T extends { category?: string | null }>(clubs: Re
 
 export function resolveClubDirection(summary: string, preferredDirection?: string | null): string {
   if (preferredDirection?.trim()) return preferredDirection.trim()
+
+  const explicitDirection = summary.match(/方向是([^。；]+)/)
+  if (explicitDirection?.[1]) return explicitDirection[1].trim()
 
   const quotedDirection = summary.match(/适合想了解[“"](.+?)[”"]的新生/)
   if (quotedDirection?.[1]) return quotedDirection[1]

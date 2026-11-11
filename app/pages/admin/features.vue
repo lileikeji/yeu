@@ -125,7 +125,6 @@ onMounted(() => void loadFeatures())
   <div class="mx-auto max-w-6xl space-y-6">
     <AdminPageHeader
       title="前台功能"
-      description="控制首页每个功能卡片是否显示。关闭后用户刷新首页就不会再看到该入口。"
       icon="i-lucide-layout-grid"
       eyebrow="内容管理"
     >

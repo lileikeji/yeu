@@ -38,7 +38,10 @@ import {
   type EmbeddingConfig,
   type EmbeddingProvider
 } from './embedding'
-import { currentAssistantKnowledgeRevision } from './knowledge-revision'
+import {
+  bindAssistantKnowledgeRevisionDatabase,
+  currentAssistantKnowledgeRevision
+} from './knowledge-revision'
 import { SESSION_MEMORY_KINDS } from './memory'
 import type { SessionMemoryKind } from './memory'
 
@@ -167,11 +170,11 @@ export function quantizeUnitInt8(vector: ArrayLike<number>): Buffer {
 export function rebuildQuantizedVectorIndex(client: DatabaseClient): { total: number, written: number } {
   if (!vectorSearchReady(client)) return { total: 0, written: 0 }
   const dim = (client.sqlite.prepare(
-    "SELECT MAX(dimension) AS d FROM assistant_embeddings WHERE source_type <> 'memory'"
+    'SELECT MAX(dimension) AS d FROM assistant_embeddings WHERE source_type <> \'memory\''
   ).get() as { d: number | null } | undefined)?.d
   if (!dim || dim <= 0) return { total: 0, written: 0 }
   const rows = client.sqlite.prepare(
-    "SELECT id, embedding FROM assistant_embeddings WHERE source_type <> 'memory'"
+    'SELECT id, embedding FROM assistant_embeddings WHERE source_type <> \'memory\''
   ).all() as Array<{ id: string, embedding: Buffer }>
   client.sqlite.exec(`DROP TABLE IF EXISTS ${QUANTIZED_TABLE}`)
   client.sqlite.exec(`CREATE VIRTUAL TABLE ${QUANTIZED_TABLE} USING vec0(v int8[${dim}], embedding_id text)`)
@@ -196,14 +199,15 @@ export function rebuildQuantizedVectorIndex(client: DatabaseClient): { total: nu
 export function quantizedIndexReady(client: DatabaseClient, recheckMs = QUANTIZED_STATUS_TTL_MS): boolean {
   const now = Date.now()
   if (now - quantizedStatus.checkedAt < recheckMs) return quantizedStatus.ready
-  let ready = false
+  let ready: boolean
   try {
     const main = client.sqlite.prepare(
-      "SELECT COUNT(*) AS c FROM assistant_embeddings WHERE source_type <> 'memory'"
+      'SELECT COUNT(*) AS c FROM assistant_embeddings WHERE source_type <> \'memory\''
     ).get() as { c: number }
     const quant = client.sqlite.prepare(`SELECT COUNT(*) AS c FROM ${QUANTIZED_TABLE}`).get() as { c: number }
     ready = main.c > 0 && main.c === quant.c
     if (!ready) {
+      // eslint-disable-next-line no-console -- 索引与主表数量不一致是“答案变差”的前兆，必须留进程日志
       console.warn(`[assistant-vector] quantized index out of sync (main=${main.c} quant=${quant.c}) → 退回全表扫描`)
     }
   } catch {
@@ -724,6 +728,8 @@ export async function retrieveVectorEvidence(
     return evidence
   }
   if (!embeddingConfigReady(config) || !vectorSearchReady(client)) return finish([])
+  // 缓存键里带知识修订号（落库了）：本次调用先把连接挂上，键才和在线请求一致。
+  bindAssistantKnowledgeRevisionDatabase(client)
   const trimmedQuery = query.trim()
   if (!trimmedQuery) return finish([])
 
@@ -775,7 +781,7 @@ export async function retrieveVectorEvidence(
     // Native extension unavailable: JS cosine scan over the same table.
     if (timing) timing.usedJsFallback = true
     const rows = client.sqlite.prepare(
-      "SELECT id, title, url, snippet, content, embedding FROM assistant_embeddings WHERE source_type <> 'memory'"
+      'SELECT id, title, url, snippet, content, embedding FROM assistant_embeddings WHERE source_type <> \'memory\''
     ).all() as Array<Omit<NearestRow, 'distance'> & { embedding: Buffer }>
     const scored = rows.map(row => ({
       ...row,
@@ -818,7 +824,7 @@ export async function embedSessionMemoryRows(
   const allowed = new Set(SESSION_MEMORY_KINDS)
   const safeKinds = kinds.filter(kind => allowed.has(kind))
   if (safeKinds.length === 0) return 0
-  const kindList = safeKinds.map(kind => "'" + kind + "'").join(',')
+  const kindList = safeKinds.map(kind => '\'' + kind + '\'').join(',')
 
   let rows: Array<{ id: string, kind: string, content: string, contentHash: string }>
   try {
@@ -836,7 +842,7 @@ export async function embedSessionMemoryRows(
     const placeholders = rows.map(() => '?').join(',')
     const existing = client.sqlite.prepare(
       'SELECT id, text_hash AS textHash FROM assistant_embeddings'
-      + " WHERE source_type = 'memory' AND source_id IN (" + placeholders + ')'
+      + ' WHERE source_type = \'memory\' AND source_id IN (' + placeholders + ')'
     ).all(...rows.map(row => row.id)) as Array<{ id: string, textHash: string }>
     existingByMemoryId = new Map(existing.map(row => [row.id, row.textHash]))
   } catch {
@@ -879,7 +885,7 @@ export async function embedSessionMemoryRows(
     'INSERT INTO assistant_embeddings ('
     + ' id, source_type, source_id, chunk_index, content, text_hash, embedding,'
     + ' model, dimension, title, url, snippet, source, created_at, updated_at'
-    + " ) VALUES (?, 'memory', ?, 0, ?, ?, ?, ?, ?, ?, '', ?, 'session', ?, ?)"
+    + ' ) VALUES (?, \'memory\', ?, 0, ?, ?, ?, ?, ?, ?, \'\', ?, \'session\', ?, ?)'
     + ' ON CONFLICT(id) DO UPDATE SET'
     + ' content = excluded.content, text_hash = excluded.text_hash,'
     + ' embedding = excluded.embedding, model = excluded.model,'
@@ -954,7 +960,7 @@ export async function sessionMemorySemanticScores(
       + ' vec_distance_cosine(e.embedding, ?) AS distance'
       + ' FROM assistant_embeddings e'
       + ' JOIN assistant_session_memory m ON m.id = e.source_id'
-      + " WHERE e.source_type = 'memory' AND m.session_key = ?"
+      + ' WHERE e.source_type = \'memory\' AND m.session_key = ?'
       + ' ORDER BY distance ASC'
       + ' LIMIT ?'
     ).all(queryBlob, sessionKey, limit) as Array<{ memoryId: string, distance: number }>
@@ -972,7 +978,7 @@ export async function sessionMemorySemanticScores(
         'SELECT m.id AS memoryId, e.embedding AS embedding'
         + ' FROM assistant_embeddings e'
         + ' JOIN assistant_session_memory m ON m.id = e.source_id'
-        + " WHERE e.source_type = 'memory' AND m.session_key = ?"
+        + ' WHERE e.source_type = \'memory\' AND m.session_key = ?'
       ).all(sessionKey) as Array<{ memoryId: string, embedding: Buffer }>
       for (const row of rows) {
         const cosine = cosineSimilarity(queryVector, blobToVector(row.embedding))

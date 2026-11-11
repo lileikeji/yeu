@@ -13,7 +13,7 @@ onMounted(() => trackMiniApp('page_view', '/pages/about/index'))
 </script>
 
 <template>
-  <AppPage eyebrow="校园值班台" title="关于与反馈" subtitle="这是一个只读的校园信息整理入口。">
+  <AppPage eyebrow="校园值班台" title="关于与反馈">
     <text class="t-title slogan">让找路和办事少绕一点。</text>
     <text class="t-body intro">值班台聚合公开的校园地点、指南、流程和通知。它不代替迎新系统、教务系统或学院审批，也不会要求你在这里输入账号、验证码或付款信息。</text>
 

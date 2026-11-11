@@ -600,7 +600,6 @@ onMounted(async () => {
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
       title="访客轨迹"
-      description="查看访客来源、访问记录和异常情况。"
       icon="i-lucide-radar"
       eyebrow="安全与操作记录"
     >

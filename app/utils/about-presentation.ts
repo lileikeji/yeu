@@ -28,6 +28,32 @@ export interface AboutHeroAction {
 
 export type AboutTone = 'amber' | 'green' | 'sky' | 'zinc'
 
+export interface AboutMaintainer {
+  name: string
+  handle: string
+  role: string
+  focus: string[]
+  note: string
+  icon: string
+  tone: AboutTone
+}
+
+export interface AboutContributionTrack {
+  title: string
+  detail: string
+  icon: string
+}
+
+export interface AboutRepository {
+  name: string
+  description: string
+  url: string
+  label: string
+  meta: string
+  icon: string
+  tone: AboutTone
+}
+
 export const aboutHeroActions: AboutHeroAction[] = [
   {
     label: '查看参考页面',
@@ -50,7 +76,7 @@ export const aboutProjectFacts: AboutProjectFact[] = [
   },
   {
     label: '谁在整理',
-    value: '个人或学生团队',
+    value: '学生个人维护',
     icon: 'i-lucide-users-round',
     tone: 'green'
   },
@@ -62,7 +88,7 @@ export const aboutProjectFacts: AboutProjectFact[] = [
   },
   {
     label: '怎么使用',
-    value: '无需登录即可浏览',
+    value: '不登录也能看',
     icon: 'i-lucide-log-in',
     tone: 'zinc'
   }
@@ -70,51 +96,110 @@ export const aboutProjectFacts: AboutProjectFact[] = [
 
 export const aboutBoundaries: AboutBoundary[] = [
   {
-    title: '重要事项看学校通知',
+    title: '学校通知优先',
     icon: 'i-lucide-file-warning',
-    text: '报到、缴费、学籍、住宿、安全和需要提交的材料，以录取通知书及学校相关部门发布的最新通知为准。',
+    text: '报到、缴费、学籍、住宿、安全和材料，看录取通知书和学校通知。',
     tone: 'amber'
   },
   {
-    title: '地图不猜位置',
+    title: '地图标确认过的位置',
     icon: 'i-lucide-map-pinned',
-    text: '只有能从学校资料或现场记录中确认的位置才会标在地图上。暂时不确定的地点会明确说明，不会为了看起来完整而随便标位置。',
+    text: '只标核对过的位置。没核对的不标。',
     tone: 'sky'
   },
   {
-    title: '往年消息只作参考',
+    title: '往年安排会过期',
     icon: 'i-lucide-calendar-clock',
-    text: '往年的报到点、接站、快递外卖、商铺营业和社团招新安排可能已经变化，出发前请再看今年的通知。',
+    text: '往年安排可能已变，出发前看今年通知。',
     tone: 'zinc'
   },
   {
-    title: '没有付费排名',
-    icon: 'i-lucide-badge-percent',
-    text: '本站目前没有商家推广或付费排名。以后如果出现合作内容，会清楚标出，不会混在普通校园信息里。',
+    title: '错误会改',
+    icon: 'i-lucide-file-pen-line',
+    text: '指出错误后对照原文核对，改完在提交记录里留下改动。',
     tone: 'green'
   }
 ]
 
 export const aboutGovernanceLinks: AboutGovernanceLink[] = [
   {
-    title: '看看信息从哪里来',
-    description: '查看学校通知、部门页面和地图资料',
+    title: '信息从哪里来',
+    description: '学校通知、部门页面、地图资料',
     to: '/sources',
     icon: 'i-lucide-list-checks',
     tone: 'sky'
   },
   {
     title: '告诉我们哪里不对',
-    description: '说明出错的页面和正确情况，不登录也能提交',
+    description: '写清哪一页、哪里不对，不用登录',
     to: '/feedback',
     icon: 'i-lucide-message-square-warning',
     tone: 'amber'
   },
   {
-    title: '看看隐私说明',
-    description: '了解会记录哪些信息，以及如何查询或删除',
+    title: '隐私说明',
+    description: '记录了什么、怎么查、怎么删',
     to: '/privacy',
     icon: 'i-lucide-shield-check',
     tone: 'green'
+  }
+]
+
+/** 现在实际在维护的人。名字与仓库账号都对得上，改这条要同时改提交记录里的身份。 */
+export const aboutMaintainers: AboutMaintainer[] = [
+  {
+    name: '李磊',
+    handle: 'GitHub @lileikeji · Gitee @lilei1529',
+    role: '维护者',
+    focus: ['内容整理与核验', '地图与地点数据', '页面与交互', '问答与查找', '发布与运维'],
+    note: '仰恩 25 级专升本，2026-07 起整理；提交 950 次以上。',
+    icon: 'i-lucide-user-round',
+    tone: 'green'
+  }
+]
+
+/** 一起做的话，现在真的缺这些活。顺序按“补上以后读者立刻能用”排。 */
+export const aboutContributionTracks: AboutContributionTrack[] = [
+  {
+    title: '拍入口照片',
+    detail: '宿舍和场馆的正门、侧门，从路口拍一张，写明从哪边进。',
+    icon: 'i-lucide-camera'
+  },
+  {
+    title: '核校车和公交时刻',
+    detail: '每月核一次首末班和班次间隔，记下核对日期。',
+    icon: 'i-lucide-bus'
+  },
+  {
+    title: '把长句改短',
+    detail: '指南里读着费劲的段落，一条一条改短。',
+    icon: 'i-lucide-pen-line'
+  },
+  {
+    title: '补测试和守卫',
+    detail: '新加的数据配一条测试，防止后面改坏。',
+    icon: 'i-lucide-shield-check'
+  }
+]
+
+/** 两个仓库地址都从 git remote 里取，不写死分支名。 */
+export const aboutRepositories: AboutRepository[] = [
+  {
+    name: 'lileikeji/yeu',
+    description: '页面、数据、测试、发布脚本都在这里。',
+    url: 'https://github.com/lileikeji/yeu',
+    label: '去 GitHub',
+    meta: 'GitHub',
+    icon: 'i-lucide-github',
+    tone: 'zinc'
+  },
+  {
+    name: 'lilei1529/yeu',
+    description: '国内访问用这个，和 GitHub 同步。',
+    url: 'https://gitee.com/lilei1529/yeu',
+    label: '去 Gitee',
+    meta: 'Gitee',
+    icon: 'i-lucide-git-branch',
+    tone: 'amber'
   }
 ]

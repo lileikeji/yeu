@@ -53,7 +53,7 @@ test('club search keeps a comfortable mobile touch height', () => {
 
 test('club list stats and messages stay student-facing', () => {
   assert.equal(clubListRecentActivityUrlMarker, '/2026/')
-  assert.equal(clubListMessages.serviceUnavailable, '下方仍可按兴趣查看已有社团；本学期招新请以校团委和现场通知为准。')
+  assert.equal(clubListMessages.serviceUnavailable, '下方仍可按兴趣查看已有社团；本学期招新看校团委和现场通知。')
   assert.equal(clubListMessages.emptyMatch, '没有匹配的社团')
   assert.equal(clubListMessages.defaultCategory, '校园社团')
   assert.equal(clubListMessages.recentActivity, '近期有活动')
@@ -99,7 +99,6 @@ test('club list pure helpers filter and summarize catalogs', () => {
   assert.equal(filterClubListItems(clubs, '', '兴趣').map(item => item.name).join(','), '摄影协会')
   assert.equal(filterClubListItems(clubs, '没有这个').length, 0)
 })
-
 
 test('club contact status helpers stay student-facing', () => {
   assert.equal(clubListMessages.contactPending, '联系方式待公布')

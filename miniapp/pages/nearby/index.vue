@@ -83,7 +83,7 @@ onPullDownRefresh(() => { void load() })
 </script>
 
 <template>
-  <AppPage title="周边攻略" subtitle="学校周边和泉州市区的去处整理；商家与营业状态请在出发当天再复核一次。">
+  <AppPage title="周边攻略">
     <view class="scope-row">
       <button
         v-for="option in scopeOptions"

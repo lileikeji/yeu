@@ -8,8 +8,8 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/www/wwwroot/yeu/current
-ExecStart=/usr/bin/docker compose --env-file /www/wwwroot/yeu/shared/wechatpadpro/.env -f /www/wwwroot/yeu/current/ops/wechatpadpro/docker-compose.yml up -d
-ExecStop=/usr/bin/docker compose --env-file /www/wwwroot/yeu/shared/wechatpadpro/.env -f /www/wwwroot/yeu/current/ops/wechatpadpro/docker-compose.yml stop
+ExecStart=/usr/bin/docker compose --env-file /www/wwwroot/yeu/shared/wechatpadpro/.env -f /opt/yeu-ops/wechatpadpro/docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose --env-file /www/wwwroot/yeu/shared/wechatpadpro/.env -f /opt/yeu-ops/wechatpadpro/docker-compose.yml stop
 TimeoutStartSec=180
 TimeoutStopSec=90
 

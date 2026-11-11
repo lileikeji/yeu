@@ -782,7 +782,7 @@ onUnmounted(clearRuntime)
             name="i-lucide-loader-circle"
             class="size-7 animate-spin"
           />
-          <span class="text-xs">正在准备校园地图...</span>
+          <span class="text-xs">正在加载地图</span>
         </div>
       </div>
 

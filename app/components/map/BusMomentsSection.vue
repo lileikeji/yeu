@@ -60,7 +60,7 @@ function startMinePolling(): void {
         stopMinePolling()
         aiPending.value = false
         feedback.value = ''
-        error.value = '留言未通过审核，如有疑问请联系管理员'
+        error.value = '留言没通过审核，有问题找管理员'
       } else if (minePollElapsed >= 60) {
         stopMinePolling()
         aiPending.value = false
@@ -186,7 +186,7 @@ async function submit(): Promise<void> {
       class="mt-1.5 w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-left text-[11px] text-zinc-400 transition hover:border-zinc-300 dark:border-zinc-700 dark:text-zinc-500"
       @click="composerOpen = true"
     >
-      说说这辆车（司机、车况、挤不挤）…
+      说说车况、挤不挤…
     </button>
 
     <div
@@ -197,7 +197,7 @@ async function submit(): Promise<void> {
         v-model="body"
         :maxlength="BODY_MAX"
         rows="2"
-        placeholder="对大家有用的信息：等车多久、空调、师傅态度"
+        placeholder="等车多久、空调、师傅态度"
         class="w-full resize-none bg-transparent text-[12px] leading-5 text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
       />
       <div class="mt-1.5 flex items-center justify-between">

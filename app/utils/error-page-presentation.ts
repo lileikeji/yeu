@@ -1,4 +1,4 @@
-export interface ErrorPageContent {
+﻿export interface ErrorPageContent {
   code: string | null
   kicker: string
   title: string
@@ -19,7 +19,7 @@ export function resolveErrorPageContent(statusCode: number | null | undefined): 
       code: null,
       kicker: '页面走丢了',
       title: '这个页面不存在',
-      description: '链接可能已经更新，这条内容也可能已经移动或下架。你可以返回首页，或从下面的入口继续查找。',
+      description: '内容可能已经移动或下架。',
       icon: 'i-lucide-map-pin-off',
       canRetry: false
     }
@@ -30,7 +30,7 @@ export function resolveErrorPageContent(statusCode: number | null | undefined): 
       code: null,
       kicker: '暂时不能进入',
       title: '这里现在不能访问',
-      description: '这个账号暂时不能打开这里。校园地图和办事指南仍然可以正常使用。',
+      description: '这个账号暂时不能打开这里。',
       icon: 'i-lucide-shield-alert',
       canRetry: false
     }
@@ -41,7 +41,7 @@ export function resolveErrorPageContent(statusCode: number | null | undefined): 
       code: null,
       kicker: '先缓一缓',
       title: '刚才的操作有点快',
-      description: '请稍等一会儿再试。你也可以先去地图、办事指南或校园搜索看看。',
+      description: '请稍等一会儿再试。',
       icon: 'i-lucide-timer-reset',
       canRetry: true
     }
@@ -51,7 +51,7 @@ export function resolveErrorPageContent(statusCode: number | null | undefined): 
     code: null,
     kicker: '暂时没打开',
     title: '页面现在有点忙',
-    description: '请稍后重新打开。校园地图和办事指南通常仍能使用，你也可以先从首页继续浏览。',
+    description: '请稍后重新打开。',
     icon: 'i-lucide-cloud-sun',
     canRetry: true
   }

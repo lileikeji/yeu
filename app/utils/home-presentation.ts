@@ -45,7 +45,7 @@ export interface HomeTrustLink {
 export const homeTrustNotice = {
   badge: '学生整理 · 非学校官网',
   title: '重要事项，再到学校原文确认一次',
-  description: '本站把分散的新生信息整理到一起，方便你先找到方向。报到、缴费、住宿和资助等要求，最终以录取通知书和学校最新通知为准。',
+  description: '报到、缴费、住宿和资助等要求，最终看录取通知书和学校通知。',
   checkedText: '学校、招生和学生资助入口最近查看：2026年7月23日',
   links: [
     {
@@ -112,7 +112,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.checklist',
     title: '新生清单',
-    description: '勾选到校前和第一周事项，进度会留在这台设备上',
+    description: '勾选到校前和第一周事项',
     to: '/checklist',
     icon: 'i-lucide-list-checks',
     tone: 'bg-emerald-50 text-emerald-700'
@@ -120,7 +120,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.safety',
     title: '安全、医疗与心理支持',
-    description: '保存校园 110，知道紧急情况先找谁',
+    description: '保存校园 110',
     to: '/guides/safety-health',
     icon: 'i-lucide-shield-plus',
     tone: 'bg-red-50 text-red-700'
@@ -136,7 +136,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.clubs',
     title: '学生社团',
-    description: '按兴趣看社团方向和本学期招新消息',
+    description: '社团方向与本学期招新',
     to: '/clubs',
     icon: 'i-lucide-users-round',
     tone: 'bg-violet-50 text-violet-700'
@@ -144,7 +144,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.departments',
     title: '校内部门',
-    description: '快速找到招生、教务、学生事务等部门',
+    description: '招生、教务、学生事务的入口',
     to: '/departments',
     icon: 'i-lucide-landmark',
     tone: 'bg-blue-50 text-blue-700'
@@ -160,7 +160,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.transport',
     title: '到校与离校交通',
-    description: '泉州站、东站、晋江机场和市区往返学校的公交与换乘方案',
+    description: '泉州站、东站、机场到校公交',
     to: '/transport',
     icon: 'i-lucide-bus-front',
     tone: 'bg-sky-50 text-sky-800'
@@ -168,7 +168,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.panorama',
     title: '全景云游校园',
-    description: '先看大门、教学楼和部分宿舍长什么样，再去逛校史馆',
+    description: '大门、教学楼和校史馆实景',
     to: '/panorama',
     icon: 'i-lucide-orbit',
     tone: 'bg-emerald-50 text-emerald-800'
@@ -176,7 +176,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.dorms',
     title: '宿舍实拍',
-    description: '分别查看普通型和舒适型宿舍、洗漱区与卫生间实拍',
+    description: '普通型、舒适型宿舍实拍',
     to: '/dorms',
     icon: 'i-lucide-bed-double',
     tone: 'bg-sky-50 text-sky-800'
@@ -184,7 +184,7 @@ export const homeMoreEntries: HomeMoreEntry[] = [
   {
     featureKey: 'home.more.welearn',
     title: 'WeLearn 学习工具',
-    description: '独立第三方工具，打开软件下载页查看版本说明并获取最新版',
+    description: '第三方工具 · 下载页取最新版',
     to: 'https://dz.lileikeji.top/uploads/releases/download.php',
     icon: 'i-lucide-download',
     tone: 'bg-cyan-50 text-cyan-700',
@@ -249,9 +249,9 @@ export interface HomeImportantDate {
 }
 
 const homeImportantDateFallback: HomeImportantDate[] = [
-  { date: '9月5–6日', title: '注册报到', description: '具体到校时段、报到地点和材料以录取通知书及学校后续通知为准。' },
-  { date: '9月7–9日', title: '入学教育', description: '学院集合地点、时间和安排以辅导员或学院通知为准。' },
-  { date: '9月10日', title: '开始上课', description: '课表、教材和教学安排以教务系统及学院通知为准。' }
+  { date: '9月5–6日', title: '注册报到', description: '看录取通知书' },
+  { date: '9月7–9日', title: '入学教育', description: '看学院通知' },
+  { date: '9月10日', title: '开始上课', description: '看教务系统' }
 ]
 
 /** Turn a step timeText like "2026年9月5日至6日" into "9月5–6日". */
@@ -301,4 +301,3 @@ export function buildHomeSearchTarget(query: string): { path: string, query?: { 
     ...(trimmed ? { query: { q: trimmed } } : {})
   }
 }
-

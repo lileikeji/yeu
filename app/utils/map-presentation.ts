@@ -10,7 +10,7 @@ export interface MapCategory {
   icon: string
 }
 
-export const MAP_LOAD_ERROR_MESSAGE = '可以重新试一次，也可以先查看学校平面图或地点清单。'
+export const MAP_LOAD_ERROR_MESSAGE = '可重试，或先看平面图与清单'
 
 export type MapPoiStatusFields = Pick<
   PublicMapPlace,
@@ -69,16 +69,16 @@ export function resolveMapFallbackMessage(input: {
 }): string | null {
   if (input.ownerMapCount) {
     const areaText = input.areaCount ? `和 ${input.areaCount} 个区域` : ''
-    return `可以查找 ${input.ownerMapCount} 个地点${areaText}。地图位置适合先认路，到入口处再看现场标识；楼层、开放时间和营业情况可能会调整。`
+    return `可查找 ${input.ownerMapCount} 个地点${areaText}`
   }
   if (input.hasPublicPlaceError) {
-    return '有些校园地点暂时没显示出来，可以先用现有清单找方向；没有位置的地点仍可在学校平面图中查看。'
+    return '部分地点暂未显示'
   }
   if (input.activeScope === 'nearby' && !input.publishedCount) {
-    return '附近地点暂时不多，可以先查看周边生活指南；营业时间和位置请在出发前再确认。'
+    return '附近地点较少'
   }
   if (!input.publishedCount) {
-    return '可以按学校平面图上的 47 个地点查找校内建筑；需要导航时请切回地图，到达后再看现场入口。'
+    return '可查平面图 47 个地点'
   }
   return null
 }
@@ -108,41 +108,41 @@ export function buildMapPoiUseChecklist(poi: MapPoiStatusFields): string[] {
 
   if (poi.coordinateVerification === 'native-map-session') {
     return [
-      '这是高德地图搜索到的地点，只在当前页面显示。',
-      '可以先用来找附近商家；营业状态、价格、电话和入口仍要到店或电话确认。',
-      '如果这个地点对新生有帮助，可以通过反馈告诉我们，确认后会加入校园地点。'
+      '当前页面内的结果',
+      '营业、价格、电话到店确认',
+      '有帮助请提交反馈'
     ]
   }
 
   const checklist = poi.coordinateVerification === 'owner-map-only'
     ? [
-        '可以先导航到附近，最后一段请看现场门牌、楼栋名或服务窗口。',
-        '入口还可能调整，出发前请再看学校通知或现场标识。',
-        '如果地图落点和现场入口有偏差，可以通过纠错入口告诉我们。'
+        '可导航到附近，末段看门牌',
+        '出发前再看学校通知',
+        '偏差请走纠错入口'
       ]
     : poi.pointIsVerified
       ? [
-          '可以直接导航到这个入口；到达后仍请留意现场门牌和临时封路。',
-          '开放时间、办理材料和临时管控仍要看对应部门或现场通知。',
-          '如果发现入口变更或道路封闭，请提交纠错。'
+          '可直达入口，现场看封路',
+          '开放时间看部门通知',
+          '入口变更请提交纠错'
         ]
       : [
-          '这个地点会在学校平面图中标出，方便按编号找方向；这里不能直接导航。',
-          '到校后请再看楼名、门牌或现场指引，确认具体入口。',
-          '如果你知道准确入口，可以提交位置纠错。'
+          '平面图中按编号找方向',
+          '到校再看楼名与门牌',
+          '准确入口请提交纠错'
         ]
 
   if (poi.category === 'express') {
-    checklist.push('取快递以短信、平台取件码和站点现场牌子为准；不同品牌可能不在同一窗口。')
+    checklist.push('取件码为准，品牌窗口不同')
   }
   if (poi.category === 'nearby') {
-    checklist.push('周边商铺到店前再确认是否营业、价格、服务范围和是否有开学季临时变化。')
+    checklist.push('营业与价格到店确认')
   }
   if (poi.category === 'food') {
-    checklist.push('餐饮点高峰期可能排队或临时调整营业；外卖能否送达以平台和校门现场规则为准。')
+    checklist.push('高峰排队，外卖看校门规则')
   }
   if (poi.category === 'dorm') {
-    checklist.push('找宿舍时先确认楼栋名称，再看入口、门禁和辅导员/宿管现场安排。')
+    checklist.push('楼栋门禁问辅导员/宿管')
   }
   return checklist
 }

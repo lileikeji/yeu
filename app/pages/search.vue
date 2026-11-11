@@ -263,6 +263,14 @@ const assistantFoodCards = computed(() => assistantResponse.value
 const assistantShopCards = computed(() => assistantResponse.value
   ? parseAssistantShopDetail(assistantResponse.value.answer)
   : null)
+// 没有来源的答案要自己说出来：模型没给合法引用时后端回 citationStatus 'none'。
+// 旧响应不带该字段（undefined），那种情况不提示，避免把老缓存误标成无来源。
+const assistantAnswerNotice = computed(() => {
+  const response = assistantResponse.value
+  if (!response || response.blocked) return ''
+  if (response.citationStatus !== 'none') return ''
+  return '这条回答没有来源，以学校通知为准'
+})
 interface AssistantDisplayStep extends Omit<ApiAssistantTraceStep, 'status'> {
   status: 'running' | 'completed' | 'failed'
   startedAt?: string
@@ -316,14 +324,14 @@ function formatAssistantStepDuration(step: AssistantDisplayStep): string {
 
 function assistantModeLabel(response: ApiAssistantResponse): string {
   const labels: Record<string, string> = {
-    feature_api: '系统 API',
-    local_database: '内置数据库',
-    answer_cache: '答案缓存',
-    web_cache: '网页资料缓存',
-    web_search: 'AI + 网页检索'
+    feature_api: '系统接口',
+    local_database: '本站资料',
+    answer_cache: '已存答案',
+    web_cache: '网页资料',
+    web_search: '本站 + 网页'
   }
   return labels[response.retrievalPath ?? '']
-    ?? (response.mode === 'local' ? '本站资料' : response.usedWebSearch ? 'AI + 网页检索' : 'AI 整理')
+    ?? (response.mode === 'local' ? '本站资料' : response.usedWebSearch ? '本站 + 网页' : '整理结果')
 }
 
 interface AssistantAnswerSegment {
@@ -418,7 +426,7 @@ function updateAssistantStageStarted(payload: Record<string, unknown>): void {
     next
   ]
   // 同一时刻只保留一个“加载中”行：外层阶段（如“分析问题”）与它内部嵌套的
-  // 检索腿（改写查询/向量检索…）会先后发出 stage_started，若都保持 running，
+  // 子步骤（改写问法、比对近义说法…）会先后发出 stage_started，若都保持 running，
   // 界面上会出现两个转圈 + 计时同时转。新阶段开始时，把之前仍在 running 的
   // 阶段先降为 completed 展示；若它随后有真实的 stage_completed 事件，
   // 会用真实耗时覆盖回来。
@@ -582,9 +590,9 @@ async function requestAssistantStream(query: string, signal: AbortSignal): Promi
 async function requestAssistantAnswer(): Promise<void> {
   if (import.meta.server) return
   const query = activeQuery.value
-  // 用户显式选了 AI 模式：只要输入非空就交给 AI 判意图。旧的关键词表会把
+  // 用户显式选了问答模式：只要输入非空就按提问处理。旧的关键词表会把
   // “上课时间表/课表/竞赛奖金”判成关键词搜索并静默不回答，用户看到的是
-  // 「AI 检索什么都没出」。
+  // 「问什么都没出」。
   const shouldRequest = activeSearchMode.value === 'ai'
     && !activeType.value
     && query.length >= 2
@@ -677,9 +685,6 @@ onBeforeUnmount(() => {
         <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
           找地点、办事和校园信息
         </h1>
-        <p class="mt-3 max-w-2xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          可以直接提问，也可以切换到站内搜索查找地点、办事、部门和社团。
-        </p>
 
         <div class="mt-6 max-w-3xl">
           <div
@@ -860,12 +865,6 @@ onBeforeUnmount(() => {
                 />
               </div>
 
-              <p
-                v-if="assistantStatus === 'pending'"
-                class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
-              >
-                正在分析问题并检索校园知识库，必要时再联网补充。
-              </p>
               <div
                 v-if="assistantDisplayTrace.length"
                 class="mt-3 max-w-xl space-y-1.5 text-xs"
@@ -929,7 +928,7 @@ onBeforeUnmount(() => {
                   name="i-lucide-loader-circle"
                   class="size-3.5 animate-spin text-green-700 dark:text-green-400"
                 />
-                正在连接检索服务
+                正在查找
               </div>
               <p
                 v-if="assistantStatus === 'pending' && assistantDraftAnswer"
@@ -1049,6 +1048,21 @@ onBeforeUnmount(() => {
                     {{ assistantShopCards.tail }}
                   </p>
                 </template>
+                <div
+                  v-else-if="assistantResponse.blocked"
+                  class="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300"
+                >
+                  <span>这个问题不在可回答范围内，可以换个问法，或直接联系整理者。</span>
+                  <UButton
+                    to="/contact"
+                    icon="i-lucide-message-circle"
+                    label="联系整理者"
+                    color="neutral"
+                    variant="soft"
+                    size="sm"
+                    class="min-h-10"
+                  />
+                </div>
                 <p
                   v-else
                   class="mt-3 whitespace-pre-line text-sm leading-7 text-zinc-700 dark:text-zinc-200"
@@ -1074,8 +1088,18 @@ onBeforeUnmount(() => {
                     </NuxtLink>
                   </template>
                 </p>
+                <p
+                  v-if="assistantAnswerNotice"
+                  class="mt-3 flex items-start gap-1.5 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
+                >
+                  <UIcon
+                    name="i-lucide-info"
+                    class="mt-0.5 size-3.5 shrink-0"
+                  />
+                  <span>{{ assistantAnswerNotice }}</span>
+                </p>
                 <div
-                  v-if="assistantResponse.citations.length"
+                  v-if="assistantResponse.citations.length && !assistantResponse.blocked"
                   class="mt-4 border-t border-zinc-100 dark:border-zinc-800 pt-3"
                 >
                   <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
@@ -1111,7 +1135,7 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
                 <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                  {{ assistantResponse.mode === 'ai' ? 'AI 整理可能有遗漏，日期、费用和办理要求请以学校最新通知为准。' : '站内资料可能未覆盖最新变化，重要事项请以学校最新通知为准。' }}
+                  {{ assistantResponse.mode === 'ai' ? '整理结果可能有遗漏，以学校最新通知为准。' : '重要事项以学校最新通知为准。' }}
                 </p>
               </template>
               <div
@@ -1159,7 +1183,7 @@ onBeforeUnmount(() => {
         <nav
           v-if="groupedResults.length > 1"
           class="mt-4 rounded-lg border border-green-100 dark:border-green-900 bg-green-50/60 dark:bg-green-950/60 p-3"
-          aria-label="快速跳到结果分类"
+          aria-label="跳到结果分类"
         >
           <p class="text-xs font-semibold text-green-900 dark:text-green-300">
             {{ listMessages.jumpToGroups }}
@@ -1403,7 +1427,7 @@ onBeforeUnmount(() => {
           <div class="flex items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
             <div>
               <p class="section-kicker">
-                按需要浏览
+                按需浏览
               </p>
               <h2
                 id="search-starting-points-heading"

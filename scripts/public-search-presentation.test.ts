@@ -144,7 +144,7 @@ test('search result cards tell students what opening each result will do', () =>
   assert.equal(searchResultActionLabel('procedure'), '查看办理步骤')
   assert.equal(searchResultActionLabel('guide'), '打开指南')
   assert.equal(searchResultActionLabel('department'), '查看部门信息')
-  assert.equal(searchResultActionLabel('club'), '了解社团')
+  assert.equal(searchResultActionLabel('club'), '看社团')
   assert.equal(searchResultActionLabel('notice'), '查看校园通知')
   assert.match(pageSource, /searchResultActionLabel\(result\.resultType\)/)
   assert.match(pageSource, /result\.sourceLabel/)
@@ -168,7 +168,7 @@ test('search empty state offers useful student starting points', () => {
   assert.match(pageSource, /v-for="item in searchStartingPoints"/)
   assert.match(pageSource, /大家常找/)
   assert.match(pageSource, /校园搜索/)
-  assert.match(pageSource, /按需要浏览|也可以从这里开始/)
+  assert.match(pageSource, /按需浏览|也可以从这里开始/)
   assert.match(pageSource, /也可以从这里开始/)
   assert.doesNotMatch(pageSource, /地图结果点开后/)
   assert.doesNotMatch(pageSource, /一处查找/)
@@ -568,7 +568,7 @@ test('api target and presentation map entity kinds', () => {
       title: '招生办公室',
       summary: '本科和专升本新生查询招生章程、录取进度、通知书和入学前咨询的官方入口。'
     }),
-    '本科和专升本新生可以在这里查询招生章程、录取进度、通知书和入学前咨询。'
+    '本科和专升本查询招生章程、录取进度、通知书和入学前咨询，问这里。'
   )
   assert.equal(
     apiSearchSummary({
@@ -576,7 +576,7 @@ test('api target and presentation map entity kinds', () => {
       title: '计算机科学与工程学院',
       summary: '学院独立官网已经上线，可查询计算机、网络工程、物联网等相关栏目；网站仍混有原工程技术学院历史内容，2026级专业归属应以录取材料和学院最新通知为准。'
     }),
-    '可以在学院官网查看计算机、网络工程、物联网等专业信息。2026级专业归属和报到安排请以录取材料及学院最新通知为准。'
+    '可以在学院官网查看计算机、网络工程、物联网等专业信息。2026级专业归属和报到安排看录取材料及学院最新通知。'
   )
 })
 
@@ -829,7 +829,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
     searchError: '',
     resultCount: 0,
     groupCount: 0
-  }), '输入关键词，或点下方要办的事，就能查找地点、办事和校园信息。')
+  }), '输关键词，或点下面要办的事，找地点、办事和校园信息。')
   assert.equal(buildSearchAnnouncement({
     query: '图书馆',
     searching: true,
@@ -843,7 +843,7 @@ test('groupPublicSearchResults and announcement helpers stay stable', () => {
     searchError: 'err',
     resultCount: 2,
     groupCount: 1
-  }), '有些内容暂时没显示出来，先为你找到 2 项。')
+  }), '有些内容没显示出来，已找到 2 项。')
   assert.equal(buildSearchAnnouncement({
     query: '图书馆',
     searching: false,
@@ -937,7 +937,7 @@ test('search result groups follow the freshman intent behind broad and specific 
 })
 
 test('search results offer touch-friendly shortcuts to each visible group', () => {
-  assert.match(pageSource, /aria-label="快速跳到结果分类"/)
+  assert.match(pageSource, /aria-label="跳到结果分类"/)
   assert.match(pageSource, /v-if="groupedResults\.length > 1"/)
   assert.match(pageSource, /:href="`#search-group-\$\{group\.type\}`"/)
   assert.match(pageSource, /class="inline-flex min-h-11[^"]*"/)

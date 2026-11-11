@@ -89,6 +89,9 @@ install -o root -g root -m 0644 \
   "$OPS_DIR/nginx/admin-media-upload.conf" \
   "$EXTENSION/admin-media-upload.conf"
 install -o root -g root -m 0644 \
+  "$OPS_DIR/nginx/place-moments-upload.conf" \
+  "$EXTENSION/place-moments-upload.conf"
+install -o root -g root -m 0644 \
   "$OPS_DIR/nginx/0.yeu_zz_anti_crawl.conf" \
   /www/server/panel/vhost/nginx/0.yeu_zz_anti_crawl.conf
 install -o root -g root -m 0644 \

@@ -96,9 +96,9 @@ export function getProcedureNoticeText(
     return '个人报到时段、材料、报到点和接站安排还要看录取通知书及学校后续通知。'
   }
   if (informationState === 'confirmed') {
-    return '这里整理了学校目前已经说明的办理入口、步骤和注意事项；如果部门之后调整要求，请以最新通知为准。'
+    return '部门调整后看最新通知。'
   }
-  return '有些办理入口、材料或时间还没公布，可以先按已经明确的部分准备，其余等学校通知，不必照搬往年经验或群聊截图。'
+  return '有些办理入口、材料或时间还没公布，其余等学校通知。'
 }
 
 export function getProcedureMaterialTitle(category: string | null | undefined): string {
@@ -109,8 +109,8 @@ export function getProcedureMaterialTitle(category: string | null | undefined): 
 
 export function getProcedureEmptyMaterialText(category: string | null | undefined): string {
   return category === 'arrival'
-    ? '学校目前还没有公布个人材料清单。收到录取通知书或当年报到通知后，再逐项准备。'
-    : '学校目前没有列出需要提前准备的个人材料。办理时请留意对应部门页面或现场窗口的要求。'
+    ? '学校目前还没有公布个人材料清单，收到录取通知书后再核对。'
+    : '学校目前没有列出需要提前准备的个人材料，留意现场窗口的要求。'
 }
 
 export function sourceClaimForStudents(claimScope: string): string {

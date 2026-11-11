@@ -48,8 +48,11 @@ test('all public detail pages build feedback context from the current full path'
 test('map detail panel keeps typed place feedback bound to the current map path', () => {
   const page = readFileSync('app/pages/map/index.vue', 'utf8')
   const util = readFileSync('app/utils/map-presentation.ts', 'utf8')
-  const targetBuilder = page.match(/function placeFeedbackTarget[\s\S]*?\n}/)?.[0]
+  // placeFeedbackTarget 的实现搬进 useMapPoi：页面只解构注入后的函数名，实现体归 composable。
+  const poi = readFileSync('app/composables/useMapPoi.ts', 'utf8')
+  const targetBuilder = poi.match(/function placeFeedbackTarget[\s\S]*?\n}/)?.[0]
 
+  assert.match(page, /placeFeedbackTarget/)
   assert.ok(targetBuilder)
   assert.match(targetBuilder, /buildMapPlaceFeedbackTarget/)
   assert.match(targetBuilder, /route\.fullPath/)

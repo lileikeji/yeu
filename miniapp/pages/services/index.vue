@@ -101,7 +101,7 @@ const groups: ServiceGroup[] = [
       { title: '流程清单', description: '办事步骤、材料和负责部门', action: () => goProcedures() },
       { title: '通知公告', description: '按时间查看近期公开通知', action: () => goNotices() },
       { title: '校园地图', description: '全部已发布地点与分类筛选', action: () => goMap() },
-      { title: '站内检索 / AI 问答', description: '按关键词查，或直接问一句话', action: () => goSearch() },
+      { title: '搜索与提问', action: () => goSearch() },
       { title: '校内部门', description: '招生、教务、学生事务等部门入口', action: () => openDepartments() },
       { title: '学生社团', description: '按兴趣浏览社团方向', action: () => openClubs() },
       { title: '周边攻略', description: '学校周边与泉州市区的去处整理', action: () => openNearby() },
@@ -128,7 +128,7 @@ onShow(() => {
 </script>
 
 <template>
-  <AppPage title="服务导航" subtitle="按要办的事、办事流程、位置或资料类型找到入口。">
+  <AppPage title="服务导航">
     <button class="search-bar" @click="goSearch()">
       <image class="search-bar-icon" src="/static/icon-search.png" mode="aspectFit" />
       <text class="search-bar-text">搜索校园信息，或输入你的问题</text>

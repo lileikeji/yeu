@@ -286,7 +286,7 @@ export interface RecruitSubmissionStats {
   colleges: RecruitStatBucket[]
 }
 
-// -- 新生歌手大赛 -------------------------------------------------------------
+// -- 新声歌手大赛 -------------------------------------------------------------
 
 export interface CompetitionDimension {
   key: string
@@ -306,10 +306,34 @@ export interface CompetitionEvent {
   title: string
   /** 现场扫码登记入口开关；关闭后公开登记页只读。 */
   registrationOpen: boolean
+  /** 第几届，例如「2026 年 · 第 1 届」。 */
+  edition: string
+  /** 赛程：每轮的日期/时间/地点。 */
+  schedule: CompetitionScheduleItem[]
+  /** 报名表单字段（可改名、可设必填、可整项隐藏）。 */
+  formFields: CompetitionFormField[]
   dimensions: CompetitionDimension[]
   maxTotal: number
   createdAt: number
   updatedAt: number
+}
+
+export interface CompetitionScheduleItem {
+  key: CompetitionRoundKey
+  dateLabel: string
+  timeLabel: string
+  venue: string
+  note: string
+}
+
+export type CompetitionFormFieldKey
+  = | 'name' | 'className' | 'studentNo' | 'phone' | 'email' | 'song' | 'preferredDay'
+
+export interface CompetitionFormField {
+  key: CompetitionFormFieldKey
+  label: string
+  required: boolean
+  enabled: boolean
 }
 
 export interface CompetitionRound {
@@ -321,6 +345,8 @@ export interface CompetitionRound {
   judgeCount: number
   /** 本轮晋级下一轮的人数；决赛为 null。复赛为 null 表示名额待定。 */
   advanceCount: number | null
+  /** 分场天：1 / 2；null = 不分天（复赛、决赛）。 */
+  activeDay: number | null
   createdAt: number
   updatedAt: number
 }
@@ -331,6 +357,8 @@ export interface CompetitionJudge {
   username: string
   displayName: string
   isActive: boolean
+  /** 到岗天：1 / 2；null = 两天都在。 */
+  day: number | null
   lastLoginAt: number | null
   createdAt: number
   scoreCount: number
@@ -372,6 +400,8 @@ export interface CompetitionPreRegistration {
   phone: string | null
   email: string | null
   song: string | null
+  /** 自选参赛日：1 / 2，空 = 没定；实际以现场签到为准。 */
+  preferredDay: number | null
   /** 非空 = 已在现大确认为正式报名。 */
   registeredAt: number | null
   createdAt: number
@@ -407,11 +437,27 @@ export interface CompetitionEmailState {
   stats: Record<CompetitionRoundKey, CompetitionEmailRoundStats>
   /** 每个（轮次，选手）最近一次发送记录。 */
   latest: CompetitionEmailSendRecord[]
+  /** 结果邮件可插入的图片（存库，随邮件内嵌发送）。 */
+  images: CompetitionEmailImage[]
+}
+
+/** 邮件图片：后台按活动维护，正文用 [[图片:id]] 占位。 */
+export interface CompetitionEmailImage {
+  id: string
+  filename: string
+  mime: string
+  byteSize: number
+  /** 可直接放进 img src 的地址（预览用）。 */
+  url: string
+  createdAt: number
 }
 
 export interface CompetitionRegistrationStatus {
   open: boolean
   title: string
+  edition: string
+  schedule: CompetitionScheduleItem[]
+  formFields: CompetitionFormField[]
 }
 
 export interface CompetitionEmailSendResult {
@@ -441,11 +487,26 @@ export interface CompetitionScore {
   updatedAt: number
 }
 
+export type CompetitionQueueState = 'finished' | 'singing' | 'waiting' | 'idle' | 'unknown'
+
+/** 选手自己在现场看到的排队情况。 */
+export interface CompetitionQueuePosition {
+  state: CompetitionQueueState
+  /** 前面还有几位（不含正在唱的那位）；演唱中为 0，已结束为 null。 */
+  ahead: number | null
+  /** 当天的序号（1 起）。 */
+  position: number | null
+  /** 当天总人数。 */
+  total: number
+}
+
 export interface CompetitionRoundEntry {
   id: string
   singer: CompetitionSingerPublic
   /** 本轮出场顺序（复赛/决赛为随机抽签结果）。 */
   sortOrder: number
+  /** 分场天：1 / 2；null = 未分配。 */
+  contestDay: number | null
   advancedFromRank: number | null
   average: number | null
   scoreCount: number
@@ -454,6 +515,12 @@ export interface CompetitionRoundEntry {
   qualified: boolean
   /** 本轮已结束但没有任何评委打分，按弃权处理。 */
   forfeited: boolean
+  /** 顺序评分下的现场状态：已唱完 / 正在唱 / 排队 / 未开始。 */
+  queueState?: CompetitionQueueState
+  /** 排队时前面还有几位（不含正在唱的那位）；其余状态为 null。 */
+  ahead?: number | null
+  /** 本人在当天的序号（1 起）；未分天或不在当天为 null。 */
+  queuePosition?: number | null
 }
 
 export interface CompetitionRoundView extends CompetitionRound {
@@ -462,6 +529,39 @@ export interface CompetitionRoundView extends CompetitionRound {
   scores: CompetitionScore[]
   maxTotal: number
   hasScores: boolean
+  /** 顺序评分：当前这位选手与全场提交情况；未开启顺序评分时为 null。 */
+  current: CompetitionCurrentSinger | null
+}
+
+/**
+ * 顺序评分（一位选手评完、全员提交才切下一位）的当前状态。
+ *
+ * `pending` 是本场启用中、还没给这位选手提交分数的评委名；后台据此拦住
+ * 「下一位」，评委端据此显示等待条。
+ */
+export interface CompetitionCurrentSinger {
+  entryId: string
+  singer: CompetitionSingerPublic
+  /** 本轮出场序号，从 1 开始。 */
+  index: number
+  /** 本轮总人数。 */
+  total: number
+  /** 本场到岗、要收票的评委人数（分天时只算当天的）。 */
+  judgeTotal: number
+  /** 当前所处赛程天：1 / 2；null = 不分天。 */
+  day: number | null
+  /** 逐个评委的提交状态，按评委顺序排列（评委进度表用）。 */
+  judges: CompetitionJudgeProgress[]
+  submitted: string[]
+  pending: string[]
+  allSubmitted: boolean
+}
+
+/** 顺序评分进度表的一行：某位启用中的评委有没有给当前这位选手交分。 */
+export interface CompetitionJudgeProgress {
+  id: string
+  name: string
+  submitted: boolean
 }
 
 export interface CompetitionAdminPayload {
@@ -499,6 +599,8 @@ export interface CompetitionJudgePayload {
   }>
   /** 本轮结果：本轮结束后才返回。 */
   roundResults: CompetitionRoundEntry[] | null
+  /** 顺序评分：当前这位选手与全场提交情况；未开启顺序评分时为 null。 */
+  current: CompetitionCurrentSinger | null
   /** 决赛结果：决赛结束后所有评委都能看到。 */
   finalResults: CompetitionRoundEntry[] | null
   finalRound: {

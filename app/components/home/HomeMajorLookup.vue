@@ -56,7 +56,7 @@ function admissionLabel(profile: MajorProfile): string {
           录取专业属于哪个学院？
         </h2>
         <p class="mt-3 text-sm leading-7 text-emerald-50/75">
-          已按学校{{ currentCohortYear }}年招生计划整理 {{ majorProfiles.length }} 个普通本科专业、{{ majorCollegeCount }} 个学院。输入录取专业，可同时核对学院入口与宿舍片区公开状态。
+          {{ currentCohortYear }} 年招生计划 · {{ majorProfiles.length }} 个本科专业 · {{ majorCollegeCount }} 个学院
         </p>
 
         <dl class="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-white/15 dark:bg-zinc-900/15">
@@ -204,7 +204,7 @@ function admissionLabel(profile: MajorProfile): string {
                   :to="`/departments/${selected.collegeSlug}`"
                   class="inline-flex min-h-11 items-center gap-1 text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-300"
                 >
-                  本站学院页
+                  学院页
                   <UIcon
                     name="i-lucide-arrow-right"
                     class="size-3.5"
@@ -244,18 +244,12 @@ function admissionLabel(profile: MajorProfile): string {
           </p>
         </div>
 
-        <div
+        <p
           v-else
-          class="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
+          class="mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-4 text-xs text-zinc-500 dark:text-zinc-400"
         >
-          <p class="flex items-start gap-2">
-            <UIcon
-              name="i-lucide-info"
-              class="mt-1 size-4 shrink-0 text-emerald-700 dark:text-emerald-300"
-            />
-            页面中的新区/旧区来自用户提供的{{ currentCohort }}专业片区整理，先用于行前参考；最终分配以迎新系统个人结果、录取材料和学校当届通知为准。
-          </p>
-        </div>
+          {{ currentCohort }} 片区整理 · 以迎新系统为准
+        </p>
       </div>
     </div>
   </section>
