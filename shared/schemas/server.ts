@@ -1217,6 +1217,16 @@ export const publicPlaceEventsQuerySchema = z.object({
   name: z.string().trim().min(1).max(120)
 }).strict()
 
+// 地图地点卡片统一信息流：通知事件 + 社团活动，limit 取合并后的总条数。
+export const publicPlaceFeedQuerySchema = z.object({
+  slug: z.string().trim().min(1).max(120).optional(),
+  name: z.string().trim().min(1).max(120).optional(),
+  limit: z.coerce.number().int().min(1).max(20).default(10)
+}).strict().refine(query => Boolean(query.slug || query.name), {
+  message: 'slug or name is required',
+  path: ['slug']
+})
+
 export const createPlaceMomentSchema = z.object({
   placeId: publicPlaceIdSchema,
   kind: z.enum(['comment', 'checkin']).default('comment'),
