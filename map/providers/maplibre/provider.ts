@@ -195,8 +195,17 @@ export class MapLibrePreviewProvider implements MapProvider {
     this.map = map
     map.on('error', this.handleMapError)
     this.errorEventAttached = true
-    map.addControl(new maplibre.NavigationControl(), 'bottom-right')
-    map.addControl(new maplibre.AttributionControl({ compact: true }), 'bottom-right')
+    // 控件锚点：
+    // - NavigationControl 挂 top-right，由 index.vue 的 CSS 分别定位：
+    //   桌面端下移到右侧工具栏下方；移动端与工具栏同一角但右移 3.5rem 避让。
+    // - AttributionControl 挂 bottom-left（与比例尺同角、上下错开）；
+    //   留在右下角会与「N 人看过」统计重叠（实测 168×20）。
+    map.addControl(new maplibre.NavigationControl(), 'top-right')
+    // 语义 class：addControl 之后容器才挂进 DOM。
+    map.getContainer()
+      .querySelector('.maplibregl-ctrl-top-right .maplibregl-ctrl-group')
+      ?.classList.add('map-zoom-dock')
+    map.addControl(new maplibre.AttributionControl({ compact: true }), 'bottom-left')
     map.addControl(new maplibre.ScaleControl({ unit: 'metric' }), 'bottom-left')
 
     await this.waitForLoad(map)
