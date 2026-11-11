@@ -855,24 +855,21 @@ onBeforeUnmount(() => {
         @select-number="selectOfficialPlanNumber"
       />
 
-      <!-- 徽章区：移动端左上角竖排不动；桌面端右下角，flex-col-reverse 使「长在下短在上」、底部对齐 -->
-      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex flex-col items-start md:inset-x-auto md:right-4 md:top-auto md:bottom-14 md:items-end">
-        <div class="map-provider-badges flex flex-col items-start gap-1.5 md:flex-col-reverse md:items-end">
-          <!-- 桌面端 DOM 顺序按实测宽度从长到短排列：reverse 后视觉上短在上、长在下 -->
-          <div
-            v-if="mapViewMode === 'geographic' && transitLinesOpen"
-            class="pointer-events-auto flex items-center gap-2.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
+      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-3 md:inset-x-4 md:top-4">
+        <div class="map-provider-badges flex flex-col items-start gap-1.5">
+          <UTooltip
+            v-if="sidebarCollapsed"
+            text="展开地点栏"
           >
-            <span class="flex items-center gap-1">
-              <i class="size-2 rounded-full bg-[#1a6cf5]" />
-              K2
-            </span>
-            <span class="flex items-center gap-1">
-              <i class="size-2 rounded-full bg-[#e8590c]" />
-              K6
-            </span>
-            <span class="text-zinc-500 dark:text-zinc-400">校外公交</span>
-          </div>
+            <UButton
+              icon="i-lucide-panel-left-open"
+              color="neutral"
+              variant="solid"
+              class="justify-center pointer-events-auto hidden size-11 md:inline-flex"
+              aria-label="展开地点栏"
+              @click="() => { sidebarCollapsed = false }"
+            />
+          </UTooltip>
           <UBadge
             color="neutral"
             variant="solid"
@@ -890,7 +887,7 @@ onBeforeUnmount(() => {
               ? '学校平面图'
               : activeMapProviderId === 'amap'
                 ? '高德地图'
-                : '校园范围参考底图' }}
+                : '校园范围参考' }}
           </UBadge>
           <UBadge
             v-if="mapViewMode === 'geographic' && activeMapProviderId !== 'amap'"
@@ -905,30 +902,27 @@ onBeforeUnmount(() => {
             校园范围参考
           </UBadge>
           <div
+            v-if="mapViewMode === 'geographic' && transitLinesOpen"
+            class="pointer-events-auto flex items-center gap-2.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
+          >
+            <span class="flex items-center gap-1">
+              <i class="size-2 rounded-full bg-[#1a6cf5]" />
+              K2
+            </span>
+            <span class="flex items-center gap-1">
+              <i class="size-2 rounded-full bg-[#e8590c]" />
+              K6
+            </span>
+            <span class="text-zinc-500 dark:text-zinc-400">校外公交</span>
+          </div>
+          <div
             v-if="mapViewMode === 'geographic' && speedBumpsVisible"
             class="pointer-events-auto flex items-center gap-1.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
           >
             <i class="h-2.5 w-4 rounded-sm border border-zinc-500 bg-[repeating-linear-gradient(135deg,#facc15_0_3px,#18181b_3px_6px)]" />
             减速带 27
           </div>
-          <UTooltip
-            v-if="sidebarCollapsed"
-            text="展开地点栏"
-          >
-            <UButton
-              icon="i-lucide-panel-left-open"
-              color="neutral"
-              variant="solid"
-              class="justify-center pointer-events-auto hidden size-11 md:inline-flex"
-              aria-label="展开地点栏"
-              @click="() => { sidebarCollapsed = false }"
-            />
-          </UTooltip>
         </div>
-      </div>
-
-      <!-- 视图切换 + 右侧工具栏：保持在顶部一行（工具栏靠右） -->
-      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-end gap-3 md:inset-x-4 md:top-4">
         <div
           v-if="canShowOfficialPlan"
           class="pointer-events-auto absolute left-1/2 top-0 flex -translate-x-1/2 overflow-hidden rounded-md border border-white/40 bg-white dark:bg-zinc-900 shadow-sm"
@@ -1449,40 +1443,6 @@ onBeforeUnmount(() => {
 .map-workspace .maplibregl-ctrl-bottom-left,
 .map-workspace .maplibregl-ctrl-bottom-right {
   bottom: 0.5rem;
-}
-
-/*
- * 缩放/指南针控件（.map-zoom-dock，挂 top-right）。
- * 桌面端下移到右侧工具栏正下方：工具栏 top-4(16px) 起、7×44px + 6×1px ≈ 310px，
- * 21rem(336px) = 16 + 310 + 10px 间隙；margin-right 1rem 让右边缘与工具栏对齐。
- * 移动端工具栏同在右上角，控件右移 3.5rem（56px ≈ 40px 工具栏 + 16px 内缩）避让。
- */
-.map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
-  margin-top: 21rem;
-  margin-right: 1rem;
-}
-
-@media (max-width: 767px) {
-  /* 窄屏：工具栏占着右上角，控件右移到它外侧。 */
-  .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
-    margin-top: 0.75rem;
-    margin-right: 3.5rem;
-  }
-}
-
-/*
- * 版权条与比例尺现在都在左下角容器里：竖排（版权在上、比例尺在下）。
- * 版权条留在右下角会与「N 人看过」统计重叠（实测 168×20）。
- */
-.map-workspace .maplibregl-ctrl-attrib {
-  margin: 0;
-}
-
-.map-workspace .maplibregl-ctrl-bottom-left {
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-start;
-  gap: 4px;
 }
 
 .map-workspace .maplibregl-ctrl-group {
