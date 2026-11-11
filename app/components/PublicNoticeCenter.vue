@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ApiContent, ApiNoticeAction } from '~~/shared/types/server'
+import type { ApiActivitySummary, ApiContent, ApiNoticeAction } from '~~/shared/types/server'
 import { safeNoticeActionHref } from '~~/shared/utils/notice-actions'
 import {
   noticePublishedTime,
@@ -28,13 +28,18 @@ const autoPopupShown = ref(false)
 const detailSource = ref<'list' | 'auto' | null>(null)
 const toast = useToast()
 const autoPopupDismissalKey = 'yeu-notice-auto-popup-dismissed-v1'
-const { data } = await useFetch<{ items: PublicNotice[], total: number }>('/api/public/notices', {
+const { data } = await useFetch<{ items: PublicNotice[], total: number, activities?: ApiActivitySummary[] }>('/api/public/notices', {
   key: 'public-notices'
 })
 const notices = computed(() => data.value?.items ?? [])
+const activities = computed(() => data.value?.activities ?? [])
 const unreadCount = computed(() => noticeUnreadCount(notices.value))
 const selectedNotice = computed(() => notices.value.find(notice => notice.id === selectedNoticeId.value) ?? null)
-const modalTitle = computed(() => selectedNotice.value ? '公告详情' : '公告通知')
+const modalTitle = computed(() => selectedNotice.value
+  ? '公告详情'
+  : activities.value.length
+    ? '公告与活动'
+    : '公告通知')
 
 function replaceNotice(id: string, patch: Partial<PublicNotice>): void {
   if (!data.value) return
@@ -46,11 +51,14 @@ function replaceNotice(id: string, patch: Partial<PublicNotice>): void {
   }
 }
 
-const modalDescription = computed(() => selectedNotice.value
-  ? '查看公告的完整内容和发布时间。'
-  : unreadCount.value > 0
-    ? `还有 ${unreadCount.value} 条公告未读`
-    : '近期公告都已阅读')
+const modalDescription = computed(() => {
+  if (selectedNotice.value) return '查看公告的完整内容和发布时间。'
+  const parts: string[] = []
+  if (activities.value.length) parts.push(`${activities.value.length} 场近期活动`)
+  if (notices.value.length) parts.push(`${notices.value.length} 条公告`)
+  if (!parts.length) return '近期没有新的公告或活动'
+  return `${parts.join(' · ')}${unreadCount.value > 0 ? `，${unreadCount.value} 条公告未读` : ''}`
+})
 
 function noticeTime(notice: PublicNotice): string {
   return notice.publishedAt || notice.updatedAt
@@ -58,6 +66,27 @@ function noticeTime(notice: PublicNotice): string {
 
 function noticeActionHref(action: ApiNoticeAction): string | null {
   return safeNoticeActionHref(action.href)
+}
+
+function activityDay(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
+function activityMeta(activity: ApiActivitySummary): string {
+  const date = new Date(activity.startsAt)
+  if (Number.isNaN(date.getTime())) return ''
+  const time = new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date)
+  const place = activity.place
+    ? `${activity.place.name}${activity.room ? ` ${activity.room}` : ''}`
+    : activity.room
+  return place ? `${time} · ${place}` : time
 }
 
 function openNoticeCenter(): void {
@@ -314,9 +343,79 @@ onMounted(() => {
       </div>
 
       <div
-        v-else-if="notices.length"
+        v-else-if="notices.length || activities.length"
         class="max-h-[min(72dvh,42rem)] space-y-2 overflow-y-auto overscroll-y-contain px-4 pb-4 pr-1 sm:px-5 sm:pb-5"
       >
+        <section
+          v-if="activities.length"
+          class="rounded-md border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900 dark:bg-emerald-950/50"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <p class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              <UIcon
+                name="i-lucide-calendar-days"
+                class="size-3.5"
+              />
+              近期活动
+            </p>
+            <span class="text-[11px] text-emerald-700/70 dark:text-emerald-400/70">{{ activities.length }} 场</span>
+          </div>
+          <div class="mt-2 space-y-1.5">
+            <div
+              v-for="activity in activities"
+              :key="activity.id"
+              class="flex items-stretch gap-1 rounded-md bg-white/80 transition-colors hover:bg-white dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
+            >
+              <NuxtLink
+                :to="`/activities/${activity.slug}`"
+                class="group flex min-w-0 flex-1 items-start gap-2.5 px-2 py-2"
+                @click="open = false"
+              >
+                <img
+                  v-if="activity.coverUrl"
+                  :src="activity.coverUrl"
+                  :alt="`${activity.title} 活动照片`"
+                  class="size-11 shrink-0 rounded-md object-cover"
+                  loading="lazy"
+                >
+                <span
+                  v-else
+                  class="grid size-11 shrink-0 place-items-center rounded-md bg-emerald-600 text-[11px] font-bold text-white"
+                >
+                  {{ activityDay(activity.startsAt) }}
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="line-clamp-2 block text-sm font-semibold leading-5 text-zinc-900 dark:text-zinc-100">
+                    {{ activity.title }}
+                  </span>
+                  <span class="mt-0.5 block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {{ activityMeta(activity) }}
+                  </span>
+                </span>
+              </NuxtLink>
+              <NuxtLink
+                :to="`/activities/${activity.slug}#comments`"
+                class="my-2 inline-flex shrink-0 items-center gap-1 self-center rounded-md border border-emerald-200 px-2 py-1 text-[11px] font-medium text-emerald-700 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                aria-label="查看活动留言"
+                @click="open = false"
+              >
+                <UIcon
+                  name="i-lucide-message-circle"
+                  class="size-3.5"
+                />
+                留言
+              </NuxtLink>
+            </div>
+          </div>
+        </section>
+
+        <p
+          v-if="activities.length && notices.length"
+          class="px-1 pt-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400"
+        >
+          校园公告
+        </p>
+
         <button
           v-for="notice in notices"
           :key="notice.id"
@@ -388,7 +487,7 @@ onMounted(() => {
             class="mx-auto size-6 text-zinc-400 dark:text-zinc-500"
           />
           <p class="mt-2">
-            目前没有新公告
+            目前没有新公告或活动
           </p>
         </div>
       </div>

@@ -79,6 +79,15 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     group: 'content'
   },
   {
+    key: 'activities',
+    label: '活动管理',
+    icon: 'i-lucide-calendar-days',
+    endpoint: '/api/admin/activities',
+    to: '/admin/activities',
+    color: 'text-orange-700 bg-orange-50',
+    group: 'content'
+  },
+  {
     key: 'procedures',
     label: '办事流程',
     icon: 'i-lucide-list-checks',
@@ -174,6 +183,7 @@ export const adminDashboardModules: AdminDashboardModule[] = [
 export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '前台功能', icon: 'i-lucide-layout-grid', to: '/admin/features', group: 'content' },
   { label: '发布公告', icon: 'i-lucide-megaphone', to: '/admin/content?action=create&kind=notice', group: 'content' },
+  { label: '审核活动', icon: 'i-lucide-calendar-check', to: '/admin/activities?status=pending', group: 'content' },
   { label: '新增地点', icon: 'i-lucide-map-pin-plus', to: '/admin/places?action=create', group: 'content' },
   { label: '新增内容', icon: 'i-lucide-file-plus-2', to: '/admin/content?action=create', group: 'content' },
   { label: '新增流程', icon: 'i-lucide-list-plus', to: '/admin/procedures?action=create', group: 'content' },
@@ -212,6 +222,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     items: [
       { label: '前台功能', icon: 'i-lucide-layout-grid', to: '/admin/features' },
       { label: '地点', icon: 'i-lucide-map-pin', to: '/admin/places' },
+      { label: '活动管理', icon: 'i-lucide-calendar-days', to: '/admin/activities' },
       { label: '现场采点', icon: 'i-lucide-crosshair', to: '/admin/field-observations' },
       { label: '办事流程', icon: 'i-lucide-list-checks', to: '/admin/procedures' },
       { label: '内容', icon: 'i-lucide-files', to: '/admin/content' },

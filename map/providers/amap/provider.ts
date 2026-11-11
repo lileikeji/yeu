@@ -1596,6 +1596,15 @@ export class AMapProvider implements MapProvider {
     pin.style.cssText = `position:absolute;bottom:4px;left:5px;display:grid;box-sizing:border-box;width:34px;height:34px;place-items:center;filter:${typeof window !== 'undefined' && window.innerWidth < 768 ? 'none' : 'drop-shadow(0 3px 6px rgb(0 0 0 / 30%))'}${selected ? ' saturate(1.2)' : ''};`
     pin.innerHTML = buildingSvg((poi.category as BuildingKind) ?? 'campus-building', { size: 24, color: categoryColor })
 
+    let activityBadge: HTMLSpanElement | null = null
+    if (poi.hasActivities) {
+      element.setAttribute('aria-label', `${poi.name}，有活动`)
+      activityBadge = document.createElement('span')
+      activityBadge.setAttribute('aria-hidden', 'true')
+      activityBadge.textContent = '!'
+      activityBadge.style.cssText = 'pointer-events:none;position:absolute;top:7px;right:2px;z-index:3;display:grid;box-sizing:border-box;width:12px;height:12px;place-items:center;border:2px solid #fff;border-radius:50%;background:#e11d48;box-shadow:0 1px 3px rgb(0 0 0 / 28%);color:#fff;font:800 8px/1 system-ui,sans-serif;'
+    }
+
     if (options.onClick) {
       element.addEventListener('click', (event) => {
         event.stopPropagation()
@@ -1614,6 +1623,7 @@ export class AMapProvider implements MapProvider {
     }, { passive: false })
 
     element.append(label, pin)
+    if (activityBadge) element.append(activityBadge)
     return { content: element, label }
   }
 
