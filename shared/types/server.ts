@@ -1,4 +1,5 @@
 import type {
+  ActivityStatus,
   ContentKind,
   CoordinateObservationMethod,
   CoordinateObservationStatus,
@@ -769,4 +770,79 @@ export interface ApiSignalReport {
 export interface ApiSignalReportListResponse {
   kind: string
   reports: ApiSignalReport[]
+}
+
+export interface ApiActivityOrganization {
+  id: string
+  slug: string
+  title: string
+  kind: 'department' | 'club'
+}
+
+export interface ApiActivityPlace {
+  id: string
+  slug: string
+  name: string
+  type: string
+  category: string | null
+}
+
+/**
+ * 活动详情。后台与公开接口共用同一组只读字段；审核备注只对后台返回，
+ * 公开接口用 ApiPublicActivity 明确裁掉。
+ */
+export interface ApiActivity {
+  id: string
+  slug: string
+  title: string
+  summary: string
+  body: string
+  room: string | null
+  photos: string[]
+  startsAt: string
+  endsAt: string | null
+  status: ActivityStatus
+  organization: ApiActivityOrganization | null
+  place: ApiActivityPlace | null
+  submittedAt: string | null
+  reviewedAt: string | null
+  reviewNote: string | null
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** 列表卡片只带渲染所需字段，避免首页/地图把正文和全部照片一起拉下来。 */
+export interface ApiActivitySummary {
+  id: string
+  slug: string
+  title: string
+  summary: string
+  coverUrl: string | null
+  photos: string[]
+  startsAt: string
+  endsAt: string | null
+  room: string | null
+  organization: ApiActivityOrganization | null
+  place: ApiActivityPlace | null
+}
+
+export interface ApiPublicActivity {
+  id: string
+  slug: string
+  title: string
+  summary: string
+  body: string
+  room: string | null
+  photos: string[]
+  startsAt: string
+  endsAt: string | null
+  organization: ApiActivityOrganization | null
+  place: ApiActivityPlace | null
+  publishedAt: string | null
+  updatedAt: string
+}
+
+export interface ApiAdminActivity extends ApiActivity {
+  createdByAdminId: string | null
 }

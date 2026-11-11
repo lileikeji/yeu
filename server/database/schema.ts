@@ -1413,3 +1413,52 @@ export const busMoments = sqliteTable('bus_moments', {
   index('bus_moments_status_created_idx').on(table.status, table.createdAt),
   check('bus_moments_status_check', sql`${table.status} in ('pending', 'approved', 'rejected')`)
 ])
+
+/**
+ * 社团/部门活动。没有挂到 contents.kind 上：内容表的 kind 是封闭枚举，且发布
+ * 需要来源与核验时间，活动的时间/地点/审核语义完全不同。组织身份仍指向
+ * contents 行，一处组织页面只对应一个后台账号。
+ *
+ * photos_json 存最多 9 个上传后的 URL（第一张为封面）；活动不需要按图片反查，
+ * 单独建表只会多一次 join。
+ */
+export const activities = sqliteTable('activities', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull(),
+  organizationContentId: text('organization_content_id')
+    .notNull()
+    .references(() => contents.id, { onDelete: 'cascade' }),
+  placeId: text('place_id').references(() => places.id, { onDelete: 'set null' }),
+  room: text('room'),
+  title: text('title').notNull(),
+  summary: text('summary').notNull(),
+  body: text('body').notNull().default(''),
+  photosJson: text('photos_json').notNull().default('[]'),
+  startsAt: integer('starts_at').notNull(),
+  endsAt: integer('ends_at'),
+  status: text('status', {
+    enum: ['draft', 'pending', 'published', 'rejected', 'archived']
+  }).notNull().default('draft'),
+  submittedAt: integer('submitted_at'),
+  reviewedBy: text('reviewed_by').references(() => adminUsers.id, { onDelete: 'set null' }),
+  reviewedAt: integer('reviewed_at'),
+  reviewNote: text('review_note'),
+  publishedAt: integer('published_at'),
+  createdByAdminId: text('created_by_admin_id')
+    .references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at')
+}, table => [
+  uniqueIndex('activities_slug_unique').on(table.slug),
+  index('activities_org_status_idx').on(table.organizationContentId, table.status),
+  index('activities_place_status_idx').on(table.placeId, table.status, table.startsAt),
+  index('activities_public_idx').on(table.status, table.startsAt),
+  check(
+    'activities_status_check',
+    sql`${table.status} in ('draft', 'pending', 'published', 'rejected', 'archived')`
+  ),
+  check(
+    'activities_time_check',
+    sql`${table.endsAt} is null or ${table.endsAt} >= ${table.startsAt}`
+  )
+])

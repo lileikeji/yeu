@@ -218,6 +218,8 @@ const feedbackLink = computed(() => content.value
 
         <PublicContentBoxes :boxes="boxesAt('after-overview')" />
 
+        <PublicActivityList :organization-slug="slug" />
+
         <PublicContentBody
           :body="department.body"
           title="部门介绍"

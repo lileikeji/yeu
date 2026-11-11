@@ -216,6 +216,12 @@ const navigationTooltip = computed(() => {
       :place-name="props.place.name"
     />
 
+    <MapPlaceActivitiesSection
+      v-if="isBuildingPlace"
+      :place-id="props.place.id"
+      :place-slug="props.place.slug"
+    />
+
     <div
       v-if="isBuildingPlace"
       class="mt-3"
