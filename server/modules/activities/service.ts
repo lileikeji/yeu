@@ -509,6 +509,31 @@ export function listHomepageActivities(
   return listPublicActivities(client, { limit, includePast: false }).items
 }
 
+/**
+ * 地图建筑图标上的活动红点：只返回“已发布且尚未结束”的活动关联地点。
+ * 与活动列表使用同一条时间边界，避免列表已经结束、红点还挂着。
+ */
+export function listActivityPlaceIds(client: DatabaseClient): string[] {
+  const now = Date.now()
+  const rows = client.db
+    .select({ placeId: activities.placeId })
+    .from(activities)
+    .where(and(
+      eq(activities.status, 'published'),
+      isNotNull(activities.placeId),
+      or(
+        and(isNotNull(activities.endsAt), gte(activities.endsAt, now)),
+        and(isNull(activities.endsAt), gte(activities.startsAt, now - ACTIVITY_PUBLIC_GRACE_MS))
+      )
+    ))
+    .groupBy(activities.placeId)
+    .all()
+
+  return rows
+    .map(row => row.placeId)
+    .filter((placeId): placeId is string => Boolean(placeId))
+}
+
 export function getPublicActivity(client: DatabaseClient, slug: string): ApiPublicActivity {
   const row = activityQuery(client)
     .where(and(eq(activities.slug, slug), eq(activities.status, 'published')))
