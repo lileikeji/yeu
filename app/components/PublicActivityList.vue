@@ -2,12 +2,14 @@
 import type { ApiActivitySummary } from '~~/shared/types/server'
 
 const props = withDefaults(defineProps<{
-  organizationSlug: string
+  organizationSlug?: string
   limit?: number
   includePast?: boolean
+  showEmpty?: boolean
 }>(), {
   limit: 5,
-  includePast: false
+  includePast: false,
+  showEmpty: false
 })
 
 interface ActivityListPayload {
@@ -16,9 +18,9 @@ interface ActivityListPayload {
 }
 
 const { data, pending } = await useFetch<ActivityListPayload>('/api/public/activities', {
-  key: `public-activities-${props.organizationSlug}-${props.limit}-${props.includePast ? 'past' : 'upcoming'}`,
+  key: `public-activities-${props.organizationSlug ?? 'all'}-${props.limit}-${props.includePast ? 'past' : 'upcoming'}`,
   query: {
-    organization: props.organizationSlug,
+    ...(props.organizationSlug ? { organization: props.organizationSlug } : {}),
     limit: props.limit,
     includePast: props.includePast ? 'true' : undefined
   }
@@ -49,26 +51,29 @@ function formatMeta(item: ApiActivitySummary): string {
 
 <template>
   <section
-    v-if="!pending && items.length"
+    v-if="showEmpty || (!pending && items.length)"
     class="border-b border-zinc-200 py-8 dark:border-zinc-800"
-    aria-labelledby="organization-activities-title"
+    :aria-labelledby="`activities-title-${organizationSlug ?? 'all'}`"
   >
     <div class="flex items-end justify-between gap-3">
       <div>
         <h2
-          id="organization-activities-title"
+          :id="`activities-title-${organizationSlug ?? 'all'}`"
           class="text-lg font-bold text-zinc-950 dark:text-zinc-100"
         >
-          {{ includePast ? '活动回顾' : '活动通知' }}
+          {{ includePast ? '活动回顾' : organizationSlug ? '活动通知' : '近期活动' }}
         </h2>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          由本组织发布，经校方审核后展示
+          {{ organizationSlug ? '由本组织发布，经校方审核后展示' : '由社团与部门发布，经校方审核后展示' }}
         </p>
       </div>
       <span class="text-xs text-zinc-400 dark:text-zinc-500">{{ items.length }} 条</span>
     </div>
 
-    <div class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+    <div
+      v-if="items.length"
+      class="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
+    >
       <div
         v-for="item in items"
         :key="item.id"
@@ -133,5 +138,11 @@ function formatMeta(item: ApiActivitySummary): string {
         </div>
       </div>
     </div>
+    <p
+      v-else
+      class="mt-4 rounded-lg border border-dashed border-zinc-200 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400"
+    >
+      暂时没有即将开始的活动。
+    </p>
   </section>
 </template>
