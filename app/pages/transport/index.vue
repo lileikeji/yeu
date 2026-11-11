@@ -68,6 +68,65 @@ function formatPlanFare(plan: ApiTransitPlanResponse['plans'][number]): string {
 }
 
 const quickFacts = campusTransitQuickFacts
+
+interface BusEtaStopView {
+  stop: string
+  etaMin: [number, number]
+  status: 'passed' | 'upcoming' | 'due'
+  cumulativeSeconds: number
+}
+
+interface BusEtaSegmentView {
+  from: string
+  to: string
+  seconds: number
+  cumulativeSeconds: number
+}
+
+interface BusEtaPayload {
+  available: boolean
+  measuredAt: string
+  minutesSinceDeparture: number
+  stops: BusEtaStopView[]
+  segments: BusEtaSegmentView[]
+  warning: string
+}
+
+/** 滑杆范围与接口的 0–90 校验分开：页面上只开放 0–60，避免给出离谱估算。 */
+const ETA_SLIDER_MIN = 0
+const ETA_SLIDER_MAX = 60
+const etaMinutes = ref(0)
+const etaQuery = computed(() => ({ minutes: etaMinutes.value }))
+const { data: busEta, status: busEtaStatus } = await useFetch<BusEtaPayload>('/api/public/bus/eta', {
+  query: etaQuery,
+  watch: [etaQuery]
+})
+const etaTotalMinutes = computed(() => {
+  const last = busEta.value?.segments.at(-1)
+  return last ? Math.round(last.cumulativeSeconds / 60) : null
+})
+
+function onEtaMinutesInput(event: Event) {
+  const value = Number((event.target as HTMLInputElement).value)
+  if (!Number.isFinite(value)) return
+  etaMinutes.value = Math.min(ETA_SLIDER_MAX, Math.max(ETA_SLIDER_MIN, Math.round(value)))
+}
+
+function stepEtaMinutes() {
+  etaMinutes.value = Math.min(ETA_SLIDER_MAX, etaMinutes.value + 5)
+}
+
+function etaStatusText(stop: BusEtaStopView): string {
+  if (stop.status === 'passed') return '已过站'
+  const range = `${stop.etaMin[0]}–${stop.etaMin[1]} 分钟`
+  return stop.status === 'due' ? `${range} · 即将到站` : range
+}
+
+function etaSegmentText(index: number): string | null {
+  const segment = busEta.value?.segments[index]
+  if (!segment) return null
+  return `站间约 ${Math.max(1, Math.round(segment.seconds / 60))} 分钟`
+}
 </script>
 
 <template>
@@ -91,8 +150,8 @@ const quickFacts = campusTransitQuickFacts
             <h1 class="mt-2 text-3xl font-bold md:text-4xl">
               到学校，也要知道怎么出去
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300 md:text-base">
-              泉州站可乘 K6 直达，泉州市区可乘 K2 往返。东站和机场没有稳定直达方案，请在出发当天重新规划。
+            <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+              泉州站 K6 直达 · 市区 K2 往返 · 东站与机场需换乘
             </p>
             <NuxtLink
               to="/transport/lines"
@@ -187,7 +246,7 @@ const quickFacts = campusTransitQuickFacts
                 color="success"
                 variant="solid"
               >
-                高德 API 优先
+                实时优先
               </UBadge>
               <span
                 v-if="livePlan"
@@ -202,9 +261,6 @@ const quickFacts = campusTransitQuickFacts
             >
               {{ livePlan ? `${livePlan.origin.label} → ${livePlan.destination.label}` : '正在获取当天公交方案' }}
             </h2>
-            <p class="mt-1 text-xs leading-5 text-emerald-950/65">
-              高德提供路线、站点与运营时段，不提供泉州公交车辆实时位置或“还有几站”。
-            </p>
           </div>
           <UButton
             type="button"
@@ -272,8 +328,115 @@ const quickFacts = campusTransitQuickFacts
             name="i-lucide-wifi-off"
             class="mt-1 size-4 shrink-0 text-amber-700 dark:text-amber-300"
           />
-          高德实时规划暂时不可用，下面已自动保留核验过的 K6、K2 与换乘建议。
+          实时路线暂时不可用，下面保留核验过的 K2、K6 方案。
         </div>
+      </section>
+
+      <section
+        class="mt-7 surface-panel px-4 py-5 md:px-6 md:py-7"
+        aria-labelledby="bus-eta-title"
+      >
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div class="max-w-2xl">
+            <p class="section-kicker">
+              校车站间
+            </p>
+            <h2
+              id="bus-eta-title"
+              class="mt-2 text-lg font-bold text-emerald-950 dark:text-emerald-300"
+            >
+              现在出发几分钟后到哪
+            </h2>
+            <p class="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+              按 {{ busEta?.measuredAt ?? '2026-11-04' }} 实测区间
+            </p>
+          </div>
+          <div class="w-full max-w-sm">
+            <label
+              for="bus-eta-minutes"
+              class="flex items-center justify-between text-xs font-semibold text-zinc-600 dark:text-zinc-300"
+            >
+              <span>已发车</span>
+              <span class="text-emerald-800 dark:text-emerald-300">{{ etaMinutes }} 分钟</span>
+            </label>
+            <input
+              id="bus-eta-minutes"
+              type="range"
+              :min="ETA_SLIDER_MIN"
+              :max="ETA_SLIDER_MAX"
+              step="1"
+              :value="etaMinutes"
+              class="mt-2 w-full accent-emerald-700"
+              @change="onEtaMinutesInput"
+            >
+            <div class="mt-2 flex items-center justify-between gap-2">
+              <span class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ ETA_SLIDER_MIN }}</span>
+              <UButton
+                type="button"
+                size="xs"
+                color="success"
+                variant="outline"
+                icon="i-lucide-plus"
+                label="+5 分钟"
+                class="min-h-9"
+                @click="stepEtaMinutes"
+              />
+              <span class="text-[11px] text-zinc-500 dark:text-zinc-400">{{ ETA_SLIDER_MAX }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="busEta?.available && busEta.stops.length"
+          class="mt-5 divide-y divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800"
+          :class="busEtaStatus === 'pending' ? 'opacity-60' : ''"
+        >
+          <div
+            v-for="(stop, index) in busEta.stops"
+            :key="stop.stop"
+            class="flex items-center justify-between gap-3 py-3"
+          >
+            <div class="min-w-0">
+              <p
+                class="truncate text-sm font-semibold"
+                :class="stop.status === 'passed' ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-900 dark:text-zinc-100'"
+              >
+                {{ stop.stop }}
+              </p>
+              <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                {{ etaSegmentText(index - 1) ?? '起点站' }}
+              </p>
+            </div>
+            <span
+              class="shrink-0 text-sm font-bold"
+              :class="stop.status === 'passed' ? 'text-zinc-400 dark:text-zinc-500' : stop.status === 'due' ? 'text-emerald-700 dark:text-emerald-300' : 'text-zinc-900 dark:text-zinc-100'"
+            >
+              {{ etaStatusText(stop) }}
+            </span>
+          </div>
+        </div>
+        <p
+          v-else-if="busEtaStatus === 'pending'"
+          class="mt-4 text-sm text-zinc-500 dark:text-zinc-400"
+        >
+          正在读取实测区间…
+        </p>
+        <div
+          v-else
+          class="mt-4 border-l-2 border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
+        >
+          <UIcon
+            name="i-lucide-info"
+            class="mr-1 inline size-4 text-zinc-400 dark:text-zinc-500"
+          />
+          校车站间数据暂不可用。上面的公交方案不受影响。
+        </div>
+        <p
+          v-if="etaTotalMinutes !== null"
+          class="mt-3 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400"
+        >
+          首站到末站实测约 {{ etaTotalMinutes }} 分钟
+        </p>
       </section>
 
       <section
@@ -327,7 +490,7 @@ const quickFacts = campusTransitQuickFacts
                 target="_blank"
                 rel="noopener noreferrer"
                 icon="i-lucide-navigation"
-                label="打开高德重新规划"
+                label="打开地图重新规划"
                 size="lg"
                 class="mt-5 min-h-11"
               />
@@ -372,7 +535,7 @@ const quickFacts = campusTransitQuickFacts
               信息来源
             </p>
             <h2 class="mt-1 text-xl font-bold">
-              班次会变，入口留给你复核
+              出发前复核
             </h2>
           </div>
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
@@ -398,7 +561,7 @@ const quickFacts = campusTransitQuickFacts
           </a>
         </div>
         <p class="mt-4 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-          本页是第三方整理，不代表公交公司的实时承诺。首末班、票价、停靠站、临时接驳与新生接站安排，以泉州公交、学校最新通知和出发当天地图结果为准。
+          首末班、票价以出发当天公告为准。
         </p>
       </section>
     </main>

@@ -266,7 +266,7 @@ onPullDownRefresh(() => {
 </script>
 
 <template>
-  <AppPage title="今天要办什么？" subtitle="报到、住宿、地图、办事这些新生要弄明白的事项，集中整理在这里。">
+  <AppPage title="今天要办什么？">
     <button class="search-bar" @click="goSearch()">
       <image class="search-bar-icon" src="/static/icon-search.png" mode="aspectFit" />
       <text class="search-bar-text">搜索校园信息，或输入你的问题</text>

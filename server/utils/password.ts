@@ -25,14 +25,21 @@ function deriveKey(password: string, salt: Buffer): Promise<Buffer> {
   })
 }
 
-export async function hashPassword(password: string): Promise<string> {
-  if (password.length < ADMIN_PASSWORD_MIN_LENGTH) {
-    throw new Error(`Admin password must contain at least ${ADMIN_PASSWORD_MIN_LENGTH} characters`)
+export async function hashPasswordWithMinLength(password: string, minLength: number): Promise<string> {
+  if (password.length < minLength) {
+    throw new Error(`Password must contain at least ${minLength} characters`)
+  }
+  if (password.length > 128) {
+    throw new Error('Password is too long')
   }
 
   const salt = randomBytes(16)
   const key = await deriveKey(password, salt)
   return `scrypt$${SCRYPT_N}$${SCRYPT_R}$${SCRYPT_P}$${salt.toString('base64url')}$${key.toString('base64url')}`
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  return hashPasswordWithMinLength(password, ADMIN_PASSWORD_MIN_LENGTH)
 }
 
 export function isSupportedPasswordHash(value: string): boolean {

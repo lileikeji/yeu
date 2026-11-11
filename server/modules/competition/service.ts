@@ -4,6 +4,7 @@ import * as XLSX from '@e965/xlsx'
 import { and, asc, desc, eq, isNull, like, or } from 'drizzle-orm'
 import type { DatabaseClient } from '../../database/client'
 import {
+  competitionEmailImages,
   competitionEmailSends,
   competitionEmailTemplates,
   competitionEvents,
@@ -15,7 +16,7 @@ import {
   competitionSingers,
   contents
 } from '../../database/schema'
-import { hashPassword } from '../../utils/password'
+import { hashPasswordWithMinLength } from '../../utils/password'
 import {
   COMPETITION_MAX_DIMENSION_SCORE,
   COMPETITION_MAX_DIMENSIONS,
@@ -28,23 +29,30 @@ import {
 } from '../../../shared/utils/competition'
 import type {
   CompetitionAdminPayload,
+  CompetitionCurrentSinger,
   CompetitionDimension,
+  CompetitionEmailImage,
   CompetitionEmailRoundStats,
   CompetitionEmailSendRecord,
   CompetitionEmailSendStatus,
   CompetitionEmailState,
   CompetitionEmailTemplate,
   CompetitionEvent,
+  CompetitionFormField,
+  CompetitionFormFieldKey,
   CompetitionJudge,
   CompetitionJudgeCredentials,
   CompetitionJudgePayload,
   CompetitionPreRegistration,
+  CompetitionQueuePosition,
+  CompetitionQueueState,
   CompetitionRegistrationStatus,
   CompetitionRound,
   CompetitionRoundEntry,
   CompetitionRoundKey,
   CompetitionRoundStatus,
   CompetitionRoundView,
+  CompetitionScheduleItem,
   CompetitionScore,
   CompetitionScoreDimension,
   CompetitionSinger,
@@ -233,6 +241,81 @@ function ensureRounds(client: DatabaseClient, eventId: string): RoundRow[] {
     .all()
 }
 
+/** 赛程默认值：初赛两天、复赛、决赛；后台可逐项改。 */
+export const DEFAULT_COMPETITION_SCHEDULE: CompetitionScheduleItem[] = [
+  { key: 'prelim', dateLabel: '11 月 14 日（周六）', timeLabel: '19:00 开始', venue: '旧区宏船楼 303', note: '第一天，唱到当天最后一位结束' },
+  { key: 'prelim', dateLabel: '11 月 15 日（周日）', timeLabel: '19:00 开始', venue: '旧区宏船楼 303', note: '第二天，两天自选一天来' },
+  { key: 'semi', dateLabel: '11 月 21 日（周六）', timeLabel: '19:00 开始', venue: '新区和昌讲堂', note: '30 进 12' },
+  { key: 'final', dateLabel: '12 月 5 日（周六）', timeLabel: '19:00 - 21:30', venue: '旧区普照大礼堂', note: '决赛' }
+]
+
+/** 报名表单默认字段：预报名只要姓名，其余到现场再补。 */
+export const DEFAULT_COMPETITION_FORM_FIELDS: CompetitionFormField[] = [
+  { key: 'name', label: '姓名', required: true, enabled: true },
+  { key: 'className', label: '班级', required: true, enabled: true },
+  { key: 'studentNo', label: '学号', required: true, enabled: true },
+  { key: 'phone', label: '联系电话', required: true, enabled: true },
+  { key: 'email', label: '邮箱', required: true, enabled: true },
+  { key: 'song', label: '参赛歌曲', required: true, enabled: true },
+  { key: 'preferredDay', label: '打算哪天来', required: true, enabled: true }
+]
+
+const FORM_FIELD_KEYS = new Set(DEFAULT_COMPETITION_FORM_FIELDS.map(item => item.key))
+
+/** 读赛程：库里空数组时回落到默认值。 */
+export function getCompetitionSchedule(row: EventRow): CompetitionScheduleItem[] {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(row.scheduleJson || '[]')
+  } catch {
+    return DEFAULT_COMPETITION_SCHEDULE
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_COMPETITION_SCHEDULE
+  return parsed.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const raw = item as Record<string, unknown>
+    const key = raw.key
+    if (key !== 'prelim' && key !== 'semi' && key !== 'final') return []
+    return [{
+      key,
+      dateLabel: String(raw.dateLabel ?? '').slice(0, 40),
+      timeLabel: String(raw.timeLabel ?? '').slice(0, 40),
+      venue: String(raw.venue ?? '').slice(0, 60),
+      note: String(raw.note ?? '').slice(0, 80)
+    }]
+  })
+}
+
+/** 读表单字段：缺项补齐、顺序按默认顺序，未知 key 丢掉。 */
+export function getCompetitionFormFields(row: EventRow): CompetitionFormField[] {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(row.formFieldsJson || '[]')
+  } catch {
+    return DEFAULT_COMPETITION_FORM_FIELDS
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_COMPETITION_FORM_FIELDS
+  const stored = new Map<string, { label: string, required: boolean, enabled: boolean }>()
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue
+    const raw = item as Record<string, unknown>
+    const key = String(raw.key ?? '')
+    if (!FORM_FIELD_KEYS.has(key as CompetitionFormFieldKey)) continue
+    stored.set(key, {
+      label: String(raw.label ?? '').slice(0, 20) || (DEFAULT_COMPETITION_FORM_FIELDS.find(field => field.key === key)!.label),
+      required: raw.required === true,
+      enabled: raw.enabled !== false
+    })
+  }
+  if (stored.size === 0) return DEFAULT_COMPETITION_FORM_FIELDS
+  return DEFAULT_COMPETITION_FORM_FIELDS
+    .filter(field => stored.has(field.key))
+    .map((field) => {
+      const saved = stored.get(field.key)!
+      return { key: field.key, ...saved }
+    })
+}
+
 export function ensureCompetitionEvent(client: DatabaseClient, contentId: string): EventRow {
   const existing = getCompetitionEventRow(client, contentId)
   if (existing) {
@@ -246,7 +329,10 @@ export function ensureCompetitionEvent(client: DatabaseClient, contentId: string
     transaction.insert(competitionEvents).values({
       id: eventId,
       contentId,
-      title: '新生歌手大赛',
+      title: '新声歌手大赛',
+      edition: '',
+      scheduleJson: JSON.stringify(DEFAULT_COMPETITION_SCHEDULE),
+      formFieldsJson: JSON.stringify(DEFAULT_COMPETITION_FORM_FIELDS),
       dimensionsJson: JSON.stringify(DEFAULT_COMPETITION_DIMENSIONS),
       createdAt: now,
       updatedAt: now
@@ -299,6 +385,9 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     clubSlug: club.slug,
     title: row.title,
     registrationOpen: row.registrationOpen !== false,
+    edition: row.edition ?? '',
+    schedule: getCompetitionSchedule(row),
+    formFields: getCompetitionFormFields(row),
     dimensions,
     maxTotal: competitionMaxTotal(dimensions),
     createdAt: Number(row.createdAt ?? 0),
@@ -315,6 +404,7 @@ export function serializeRound(row: RoundRow): CompetitionRound {
     status: row.status,
     judgeCount: row.judgeCount,
     advanceCount: row.advanceCount,
+    activeDay: row.activeDay ?? null,
     createdAt: Number(row.createdAt ?? 0),
     updatedAt: Number(row.updatedAt ?? 0)
   }
@@ -327,6 +417,7 @@ export function serializeJudge(row: JudgeRow, scoreCount = 0): CompetitionJudge 
     username: row.username,
     displayName: row.displayName,
     isActive: row.isActive,
+    day: row.day ?? null,
     lastLoginAt: row.lastLoginAt ? Number(row.lastLoginAt) : null,
     createdAt: Number(row.createdAt ?? 0),
     scoreCount
@@ -375,6 +466,52 @@ export interface UpdateCompetitionInput {
   title: unknown
   registrationOpen: unknown
   dimensions: unknown
+  edition?: unknown
+  schedule?: unknown
+  formFields?: unknown
+}
+
+function normalizeSchedule(input: unknown): CompetitionScheduleItem[] {
+  if (!Array.isArray(input)) validationError('赛程格式不正确', 'schedule')
+  const items: CompetitionScheduleItem[] = []
+  for (const raw of input) {
+    if (!raw || typeof raw !== 'object') continue
+    const item = raw as Record<string, unknown>
+    const key = item.key
+    if (key !== 'prelim' && key !== 'semi' && key !== 'final') continue
+    items.push({
+      key,
+      dateLabel: String(item.dateLabel ?? '').trim().slice(0, 40),
+      timeLabel: String(item.timeLabel ?? '').trim().slice(0, 40),
+      venue: String(item.venue ?? '').trim().slice(0, 60),
+      note: String(item.note ?? '').trim().slice(0, 80)
+    })
+  }
+  if (items.length === 0) validationError('赛程至少要有一行', 'schedule')
+  return items
+}
+
+function normalizeFormFields(input: unknown): CompetitionFormField[] {
+  if (!Array.isArray(input)) validationError('表单字段格式不正确', 'formFields')
+  const byKey = new Map<string, CompetitionFormField>()
+  for (const raw of input) {
+    if (!raw || typeof raw !== 'object') continue
+    const item = raw as Record<string, unknown>
+    const key = String(item.key ?? '')
+    if (!FORM_FIELD_KEYS.has(key as CompetitionFormFieldKey)) continue
+    byKey.set(key, {
+      key: key as CompetitionFormFieldKey,
+      label: String(item.label ?? '').trim().slice(0, 20) || '未命名字段',
+      required: item.required === true,
+      enabled: item.enabled !== false
+    })
+  }
+  if (!byKey.has('name')) {
+    byKey.set('name', { key: 'name', label: '姓名', required: true, enabled: true })
+  }
+  return DEFAULT_COMPETITION_FORM_FIELDS
+    .filter(field => byKey.has(field.key))
+    .map(field => byKey.get(field.key)!)
 }
 
 export function updateCompetitionEvent(
@@ -386,6 +523,13 @@ export function updateCompetitionEvent(
   if (!title || title.length > 60) validationError('比赛名称必填且不超过 60 字', 'title')
   const registrationOpen = input.registrationOpen === true
   const dimensions = validateCompetitionDimensions(input.dimensions)
+  const edition = String(input.edition ?? row.edition ?? '').trim().slice(0, 40)
+  const schedule = input.schedule === undefined
+    ? getCompetitionSchedule(row)
+    : normalizeSchedule(input.schedule)
+  const formFields = input.formFields === undefined
+    ? getCompetitionFormFields(row)
+    : normalizeFormFields(input.formFields)
 
   const currentDimensions = getCompetitionDimensions(row)
   if (JSON.stringify(currentDimensions) !== JSON.stringify(dimensions)) {
@@ -399,6 +543,9 @@ export function updateCompetitionEvent(
   client.db.update(competitionEvents).set({
     title,
     registrationOpen,
+    edition,
+    scheduleJson: JSON.stringify(schedule),
+    formFieldsJson: JSON.stringify(formFields),
     dimensionsJson: JSON.stringify(dimensions),
     updatedAt: Date.now()
   }).where(eq(competitionEvents.id, row.id)).run()
@@ -436,6 +583,8 @@ export function updateRound(
       conflictError('ROUND_HAS_SCORES', '本轮已有评分，不能退回未开始状态')
     }
     patch.status = status
+    // 结束本轮时退出顺序评分，避免下一位还挂着人。
+    if (status === 'closed') patch.currentEntryId = null
   }
 
   if (input.judgeCount !== undefined) {
@@ -526,8 +675,51 @@ function averageOf(totals: number[]): number | null {
 /**
  * 本轮排名：有分选手按平均分降序，同分按本轮出场顺序靠前者优先；
  * 未评分选手排在最后。本轮结束后仍未评分的标记为弃权。
+ *
+ * 名次只在整轮结束后给（初赛两天共用一轮，中途不出排名，免得第一天就看出
+ * 谁进谁出）；评分进行中按出场顺序排，名次列为空，平均分照常算，记分与
+ * 复核要用。
  */
-export function buildRoundRanking(
+export /**
+ * 现场状态：正在唱的、已唱完的、前面还有几位的，都按「当天出场顺序」算。
+ * 没开顺序评分时，只区分已打分 / 未打分。
+ */
+function buildQueueBoard(
+  round: RoundRow,
+  entries: EntryRow[],
+  scoreRows: ScoreRow[],
+  alreadyScoped = false
+): Map<string, { state: CompetitionQueueState, ahead: number | null, position: number | null }> {
+  const board = new Map<string, { state: CompetitionQueueState, ahead: number | null, position: number | null }>()
+  const dayEntries = alreadyScoped ? entries : entriesForDay(round, entries)
+  const singingIndex = round.currentEntryId
+    ? dayEntries.findIndex(entry => entry.id === round.currentEntryId)
+    : -1
+  const scoredSingerIds = new Set(scoreRows.map(score => score.singerId))
+
+  dayEntries.forEach((entry, index) => {
+    const position = index + 1
+    if (singingIndex >= 0) {
+      if (index < singingIndex) {
+        board.set(entry.id, { state: 'finished', ahead: null, position })
+      } else if (index === singingIndex) {
+        board.set(entry.id, { state: 'singing', ahead: 0, position })
+      } else {
+        board.set(entry.id, { state: 'waiting', ahead: index - singingIndex - 1, position })
+      }
+      return
+    }
+    board.set(entry.id, {
+      state: scoredSingerIds.has(entry.singerId) ? 'finished' : 'idle',
+      // 没开顺序评分时，队伍就是名单顺序：前面还有 index 个人。
+      ahead: index,
+      position
+    })
+  })
+  return board
+}
+
+function buildRoundRanking(
   round: RoundRow,
   entries: EntryRow[],
   singersById: Map<string, SingerRow>,
@@ -566,6 +758,28 @@ export function buildRoundRanking(
       (left.entry.sortOrder - right.entry.sortOrder)
       || left.singer.name.localeCompare(right.singer.name, 'zh-Hans-CN'))
 
+  const settled = round.status === 'closed'
+  if (!settled) {
+    // 未结束：按出场顺序平铺，不给名次。
+    return rows
+      .slice()
+      .sort((left, right) =>
+        (left.entry.sortOrder - right.entry.sortOrder)
+        || left.singer.name.localeCompare(right.singer.name, 'zh-Hans-CN'))
+      .map(row => ({
+        id: row.entry.id,
+        singer: serializeSingerPublic(row.singer),
+        sortOrder: row.entry.sortOrder,
+        contestDay: row.entry.contestDay ?? null,
+        advancedFromRank: row.entry.advancedFromRank,
+        average: row.average,
+        scoreCount: row.scoreCount,
+        rank: null,
+        qualified: false,
+        forfeited: false
+      }))
+  }
+
   const result: CompetitionRoundEntry[] = []
   let lastAverage: number | null = null
   let lastRank = 0
@@ -578,6 +792,7 @@ export function buildRoundRanking(
       id: row.entry.id,
       singer: serializeSingerPublic(row.singer),
       sortOrder: row.entry.sortOrder,
+      contestDay: row.entry.contestDay ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       average: row.average,
       scoreCount: row.scoreCount,
@@ -593,6 +808,7 @@ export function buildRoundRanking(
       id: row.entry.id,
       singer: serializeSingerPublic(row.singer),
       sortOrder: row.entry.sortOrder,
+      contestDay: row.entry.contestDay ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       average: null,
       scoreCount: 0,
@@ -602,6 +818,229 @@ export function buildRoundRanking(
     })
   }
   return result
+}
+
+/**
+ * 顺序评分：当前这位选手 + 本场提交情况。
+ *
+ * `round.currentEntryId` 为空、或指向已被删掉的条目时返回 null（等同未开启
+ * 顺序评分，评委可自由打分）。`pending` 只算启用中的评委，停用的人不计入，
+ * 否则一停用就永远凑不齐、切不了下一位。
+ *
+ * 收票门槛不是「账号数」，而是本轮 `judgeCount`（本场到岗人数）：初赛两天
+ * 共用同一个 prelim 轮，账号里既有 14 号的人也有 15 号的人，9 个账号只有 6
+ * 个当天在场，所以 6 票齐了就该切下一位。
+ */
+/** 分天时只取当天的出场名单；不分天时返回全部。 */
+export function entriesForDay(round: RoundRow, entries: EntryRow[]): EntryRow[] {
+  if (!round.activeDay) return entries
+  return entries.filter(entry => entry.contestDay === round.activeDay)
+}
+
+/** 赛程里初赛那两行的真实日期，用来判断「今天该排哪一天的队」。 */
+const COMPETITION_DATE_PATTERN = /(\d{1,2})\s*月\s*(\d{1,2})\s*日/
+
+export function prelimDayDates(eventRow: EventRow): { day: 1 | 2, dateKey: string }[] {
+  const year = Number(String(eventRow.edition ?? '').match(/\d{4}/)?.[0] ?? new Date().getFullYear())
+  const dates: string[] = []
+  for (const item of getCompetitionSchedule(eventRow)) {
+    if (item.key !== 'prelim') continue
+    const matched = COMPETITION_DATE_PATTERN.exec(item.dateLabel)
+    if (!matched) continue
+    const month = String(Number(matched[1])).padStart(2, '0')
+    const day = String(Number(matched[2])).padStart(2, '0')
+    dates.push(`${year}-${month}-${day}`)
+  }
+  return dates.slice(0, 2).map((dateKey, index) => ({ day: (index + 1) as 1 | 2, dateKey }))
+}
+
+function shanghaiDateKey(now: number): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date(now))
+}
+
+/**
+ * 今天排哪一天：管理员手动切天优先；没切就按赛程里的初赛日期比对系统日期。
+ * source 为 date 且 day 为空，说明今天不是初赛日，现场不该收人。
+ */
+export function resolvePrelimDay(
+  eventRow: EventRow,
+  round: RoundRow,
+  now: number = Date.now()
+): { day: 1 | 2 | null, source: 'active' | 'date' | 'unknown' } {
+  if (round.activeDay === 1 || round.activeDay === 2) return { day: round.activeDay, source: 'active' }
+  const dates = prelimDayDates(eventRow)
+  if (dates.length === 0) return { day: null, source: 'unknown' }
+  const today = shanghaiDateKey(now)
+  const matched = dates.find(item => item.dateKey === today)
+  return matched ? { day: matched.day, source: 'date' } : { day: null, source: 'date' }
+}
+
+/** 分天时只算当天到岗的启用评委；不分天时是全部启用评委。 */
+export function judgesForDay(client: DatabaseClient, round: RoundRow): JudgeRow[] {
+  const active = listRoundJudges(client, round.id).filter(judge => judge.isActive)
+  if (!round.activeDay) return active
+  const onDuty = active.filter(judge => judge.day === null || judge.day === round.activeDay)
+  return onDuty.length > 0 ? onDuty : active
+}
+
+export function requiredJudgeCount(client: DatabaseClient, round: RoundRow): number {
+  if (round.activeDay) {
+    // 分天：当天到岗的启用评委就是收票数。judgeCount 只在不分天时生效。
+    return Math.max(1, judgesForDay(client, round).length)
+  }
+  const activeCount = listRoundJudges(client, round.id).filter(judge => judge.isActive).length
+  const wanted = Math.max(1, Number(round.judgeCount) || 1)
+  return Math.min(activeCount, wanted)
+}
+
+export function buildCurrentSinger(
+  client: DatabaseClient,
+  round: RoundRow,
+  entries: EntryRow[],
+  singersById: Map<string, SingerRow>,
+  scoreRows: ScoreRow[]
+): CompetitionCurrentSinger | null {
+  if (!round.currentEntryId) return null
+  const dayEntries = entriesForDay(round, entries)
+  const index = dayEntries.findIndex(entry => entry.id === round.currentEntryId)
+  if (index < 0) return null
+  const entry = dayEntries[index]
+  if (!entry) return null
+  const singer = singersById.get(entry.singerId)
+  if (!singer) return null
+
+  const judges = judgesForDay(client, round)
+  const judgedTotal = requiredJudgeCount(client, round)
+  const scoredJudgeIds = new Set(
+    scoreRows.filter(score => score.singerId === entry.singerId).map(score => score.judgeId)
+  )
+  const submitted: string[] = []
+  const missing: string[] = []
+  const progress = judges.map((judge) => {
+    const done = scoredJudgeIds.has(judge.id)
+    if (done) submitted.push(judge.displayName)
+    else missing.push(judge.displayName)
+    return { id: judge.id, name: judge.displayName, submitted: done }
+  })
+  // 还差几位就只列几位：本场 6 人、账号 9 个时，5 票时不能喊「还差 4 位」。
+  const pending = missing.slice(0, Math.max(0, judgedTotal - submitted.length))
+
+  return {
+    entryId: entry.id,
+    singer: serializeSingerPublic(singer),
+    index: index + 1,
+    total: dayEntries.length,
+    judgeTotal: judgedTotal,
+    day: round.activeDay ?? null,
+    judges: progress,
+    submitted,
+    pending,
+    allSubmitted: judgedTotal > 0 && submitted.length >= judgedTotal
+  }
+}
+
+/** 提交/切人之后重新取一次当前状态。 */
+export function getCurrentSinger(
+  client: DatabaseClient,
+  round: RoundRow
+): CompetitionCurrentSinger | null {
+  if (!round.currentEntryId) return null
+  const entries = listRoundEntryRows(client, round.id)
+  const singersById = new Map(listSingers(client, round.eventId).map(singer => [singer.id, singer]))
+  return buildCurrentSinger(client, round, entries, singersById, listRoundScores(client, round.id))
+}
+
+function setCurrentEntryId(
+  client: DatabaseClient,
+  roundId: string,
+  entryId: string | null
+): void {
+  client.db.update(competitionRounds)
+    .set({ currentEntryId: entryId, updatedAt: Date.now() })
+    .where(eq(competitionRounds.id, roundId))
+    .run()
+}
+
+export type CurrentEntryAction = 'start' | 'next' | 'prev' | 'skip' | 'stop' | 'set'
+
+/**
+ * 顺序评分切人。
+ *
+ * - `start`：从第一位开始（已在评某人时保持不变）
+ * - `next`：全员提交才允许，缺人时 409 `COMPETITION_PENDING_JUDGES` 并带上缺谁
+ * - `skip`：不管提交情况强制下一位（选手弃权/临时缺席）
+ * - `prev`：回上一位改分；回去后评审再提交不会自动往前推，等管理员点 next
+ * - `stop`：退出顺序评分，评委恢复自由打分
+ * - `set`：指到指定条目
+ */
+export function moveCurrentEntry(
+  client: DatabaseClient,
+  round: RoundRow,
+  action: CurrentEntryAction,
+  entryId?: string
+): CompetitionCurrentSinger | null {
+  if (round.status !== 'open') {
+    conflictError('ROUND_NOT_OPEN', '请先开放本轮评分，再控制出场顺序')
+  }
+  const entries = entriesForDay(round, listRoundEntryRows(client, round.id))
+  if (entries.length === 0) {
+    validationError(round.activeDay ? '这一天的名单还是空的，先把选手分配到这一天' : '本轮还没有出场名单', 'entries')
+  }
+
+  const currentIndex = round.currentEntryId
+    ? entries.findIndex(entry => entry.id === round.currentEntryId)
+    : -1
+
+  if (action === 'stop') {
+    setCurrentEntryId(client, round.id, null)
+    return null
+  }
+
+  if (action === 'set') {
+    const target = entries.find(entry => entry.id === entryId)
+    if (!target) validationError('出场条目不存在', 'entryId')
+    setCurrentEntryId(client, round.id, target!.id)
+    return buildCurrentSinger(
+      client,
+      { ...round, currentEntryId: target!.id },
+      entries,
+      new Map(listSingers(client, round.eventId).map(singer => [singer.id, singer])),
+      listRoundScores(client, round.id)
+    )
+  }
+
+  if (action === 'prev') {
+    const target = entries[Math.max(0, currentIndex - 1)]
+    if (!target) validationError('本轮还没有出场名单', 'entries')
+    setCurrentEntryId(client, round.id, target.id)
+    return getCurrentSinger(client, { ...round, currentEntryId: target.id })
+  }
+
+  if (action === 'start' || currentIndex < 0) {
+    const target = entries[currentIndex >= 0 ? currentIndex : 0]
+    if (!target) validationError('本轮还没有出场名单', 'entries')
+    setCurrentEntryId(client, round.id, target.id)
+    return getCurrentSinger(client, { ...round, currentEntryId: target.id })
+  }
+
+  if (action === 'next') {
+    const current = getCurrentSinger(client, round)
+    if (current && !current.allSubmitted) {
+      conflictError(
+        'COMPETITION_PENDING_JUDGES',
+        `还有 ${current.pending.length} 位评委没提交：${current.pending.join('、')}；确认弃评请用「跳过此人」`
+      )
+    }
+  }
+
+  const target = entries[currentIndex + 1] ?? null
+  setCurrentEntryId(client, round.id, target ? target.id : null)
+  return target ? getCurrentSinger(client, { ...round, currentEntryId: target.id }) : null
 }
 
 function roundView(
@@ -620,13 +1059,54 @@ function roundView(
     scoreCountByJudge.set(score.judgeId, (scoreCountByJudge.get(score.judgeId) ?? 0) + 1)
   }
 
+  const queueBoard = buildQueueBoard(round, entries, scoreRows)
+  const rankedEntries = buildRoundRanking(round, entries, singersById, scoreRows).map((entry) => {
+    const board = queueBoard.get(entry.id)
+    return {
+      ...entry,
+      queueState: board?.state ?? 'idle',
+      ahead: board?.ahead ?? null,
+      queuePosition: board?.position ?? null
+    }
+  })
+
   return {
     ...serializeRound(round),
-    entries: buildRoundRanking(round, entries, singersById, scoreRows),
+    entries: rankedEntries,
     judges: judges.map(judge => serializeJudge(judge, scoreCountByJudge.get(judge.id) ?? 0)),
     scores: scoreRows.map(score => serializeScore(score, judgeNameById.get(score.judgeId) ?? '评委')),
     maxTotal: competitionMaxTotal(dimensions),
-    hasScores: scoreRows.length > 0
+    hasScores: scoreRows.length > 0,
+    current: buildCurrentSinger(client, round, entries, singersById, scoreRows)
+  }
+}
+
+/**
+ * 扫码登记的选手看自己的排队情况：他在初赛第几位、前面还有几位、是不是正在唱。
+ * 只回人数与状态，不回别人的姓名。
+ */
+export function getSingerQueuePosition(
+  client: DatabaseClient,
+  contentId: string,
+  singerId: string
+): CompetitionQueuePosition {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const prelim = getRoundByKey(client, eventRow.id, 'prelim')
+  const entries = listRoundEntryRows(client, prelim.id)
+  const mine = entries.find(item => item.singerId === singerId)
+  // 同一天的排同一天的队：按这位选手自己登记的场次算，不按管理员此刻停在哪天。
+  const day = mine?.contestDay ?? prelim.activeDay ?? null
+  const dayEntries = day ? entries.filter(item => item.contestDay === day) : entries
+  if (!mine) {
+    return { state: 'unknown', ahead: null, position: null, total: dayEntries.length }
+  }
+  const board = buildQueueBoard(prelim, dayEntries, listRoundScores(client, prelim.id), true)
+  const seat = board.get(mine.id)
+  return {
+    state: seat?.state ?? 'idle',
+    ahead: seat?.ahead ?? null,
+    position: seat?.position ?? null,
+    total: dayEntries.length
   }
 }
 
@@ -744,10 +1224,50 @@ export function redrawRound(client: DatabaseClient, round: RoundRow): void {
         .where(eq(competitionRoundEntries.id, entry.id))
         .run()
     })
+    // 顺序变了，原来指着的「当前选手」已经没意义。
+    transaction.update(competitionRounds).set({
+      currentEntryId: null,
+      updatedAt: Date.now()
+    }).where(eq(competitionRounds.id, round.id)).run()
   })
 }
 
 /** 管理员手动调整出场顺序：提交本轮完整、无重复的 entryId 列表。 */
+/**
+ * 拖动排序：把 entryId 挪到 targetId 的前面或后面，其余顺序不变。
+ * 分天时只显示当天名单，但服务端按整轮列表重排，避免把另一天的选手冲掉。
+ */
+export function moveRoundEntry(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  targetId: string,
+  place: 'before' | 'after' = 'before'
+): void {
+  if (round.status === 'closed') {
+    conflictError('ROUND_CLOSED', '本轮已结束，出场顺序已锁定')
+  }
+  if (entryId === targetId) return
+
+  const entries = listRoundEntryRows(client, round.id)
+  const fromIndex = entries.findIndex(entry => entry.id === entryId)
+  if (fromIndex < 0) validationError('没有找到要移动的选手', 'entryId')
+  if (!entries.some(entry => entry.id === targetId)) validationError('没有找到目标位置', 'targetId')
+
+  const [moved] = entries.splice(fromIndex, 1)
+  if (!moved) return
+  const targetIndex = entries.findIndex(entry => entry.id === targetId)
+  entries.splice(targetIndex + (place === 'after' ? 1 : 0), 0, moved)
+
+  client.db.transaction((transaction) => {
+    entries.forEach((entry, index) => {
+      transaction.update(competitionRoundEntries).set({ sortOrder: index + 1 })
+        .where(eq(competitionRoundEntries.id, entry.id))
+        .run()
+    })
+  })
+}
+
 export function reorderRoundEntries(
   client: DatabaseClient,
   round: RoundRow,
@@ -775,6 +1295,10 @@ export function reorderRoundEntries(
         .where(eq(competitionRoundEntries.id, entryId))
         .run()
     })
+    transaction.update(competitionRounds).set({
+      currentEntryId: null,
+      updatedAt: Date.now()
+    }).where(eq(competitionRounds.id, round.id)).run()
   })
 }
 
@@ -795,9 +1319,77 @@ export function clearRoundRoster(client: DatabaseClient, round: RoundRow): void 
       .run()
     transaction.update(competitionRounds).set({
       status: 'draft',
+      currentEntryId: null,
       updatedAt: Date.now()
     }).where(eq(competitionRounds.id, round.id)).run()
   })
+}
+
+// -- 初赛分天 ------------------------------------------------------------------
+
+/**
+ * 切换赛程天（初赛两天共用 prelim 轮）。
+ *
+ * - `day` = 1 / 2：这一天的名单顺序评分、只收当天到岗评委的票
+ * - `day` = null：回到不分天（复赛/决赛，或还没分天的初赛）
+ * - `split` = true：按当前出场顺序把名单平分成两天（前一半第一天）
+ *
+ * 排行不在这里算——整轮结束才出排名。
+ */
+export function setRoundDay(
+  client: DatabaseClient,
+  round: RoundRow,
+  day: number | null,
+  split = false
+): void {
+  if (round.status === 'closed') {
+    conflictError('ROUND_CLOSED', '本轮已结束，赛程天已锁定')
+  }
+  if (day !== null && day !== 1 && day !== 2) {
+    validationError('赛程天只能是第一天或第二天', 'day')
+  }
+  const entries = listRoundEntryRows(client, round.id)
+
+  client.db.transaction((transaction) => {
+    if (split) {
+      const half = Math.ceil(entries.length / 2)
+      entries.forEach((entry, index) => {
+        transaction.update(competitionRoundEntries)
+          .set({ contestDay: index < half ? 1 : 2 })
+          .where(eq(competitionRoundEntries.id, entry.id))
+          .run()
+      })
+    }
+    // 换天等于换名单，原来指着的「当前选手」不再成立。
+    transaction.update(competitionRounds).set({
+      activeDay: day,
+      currentEntryId: null,
+      updatedAt: Date.now()
+    }).where(eq(competitionRounds.id, round.id)).run()
+  })
+}
+
+/** 单条出场名单改到某一天（null = 不分配）。 */
+export function setEntryDay(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  day: number | null
+): void {
+  if (round.status === 'closed') {
+    conflictError('ROUND_CLOSED', '本轮已结束，名单天数已锁定')
+  }
+  if (day !== null && day !== 1 && day !== 2) {
+    validationError('只能分配到第一天、第二天或不分天', 'day')
+  }
+  const entry = listRoundEntryRows(client, round.id).find(item => item.id === entryId)
+  if (!entry) validationError('出场条目不存在', 'entryId')
+
+  client.db.update(competitionRoundEntries).set({ contestDay: day })
+    .where(eq(competitionRoundEntries.id, entryId)).run()
+  if (round.currentEntryId === entryId && round.activeDay && day !== round.activeDay) {
+    setCurrentEntryId(client, round.id, null)
+  }
 }
 
 // -- 评委账号 ------------------------------------------------------------------
@@ -841,6 +1433,68 @@ function nextJudgeIdentity(
   })
 }
 
+/** 评委密码门槛：现场发号，够用就行。 */
+const JUDGE_PASSWORD_MIN_LENGTH = 6
+const JUDGE_USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/
+
+function normalizeJudgeUsername(raw: unknown): string {
+  const username = String(raw ?? '').trim()
+  if (!JUDGE_USERNAME_PATTERN.test(username)) {
+    validationError('登录账号用 3-32 位字母、数字、下划线或短横线', 'username')
+  }
+  return username
+}
+
+function assertJudgeUsernameFree(client: DatabaseClient, username: string, exceptJudgeId?: string): void {
+  const taken = client.db.select({ id: competitionJudges.id, username: competitionJudges.username })
+    .from(competitionJudges).all()
+    .some(row => row.username.toLowerCase() === username.toLowerCase() && row.id !== exceptJudgeId)
+  if (taken) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Judge username taken',
+      data: { code: 'JUDGE_USERNAME_TAKEN', message: `账号 ${username} 已被占用，换一个` }
+    })
+  }
+}
+
+/** 自定义账号密码建一个评委；账号/密码/显示名留空则自动生成。 */
+export async function createJudgeAccount(
+  client: DatabaseClient,
+  round: RoundRow,
+  input: { username?: unknown, password?: unknown, displayName?: unknown } = {}
+): Promise<CompetitionJudgeCredentials> {
+  const auto = nextJudgeIdentity(client, round)
+  const username = String(input.username ?? '').trim()
+    ? normalizeJudgeUsername(input.username)
+    : auto.username
+  assertJudgeUsernameFree(client, username)
+
+  const rawPassword = String(input.password ?? '')
+  if (rawPassword && rawPassword.length < JUDGE_PASSWORD_MIN_LENGTH) {
+    validationError(`密码至少 ${JUDGE_PASSWORD_MIN_LENGTH} 位`, 'password')
+  }
+  const password = rawPassword || generateJudgePassword()
+
+  const rawDisplayName = String(input.displayName ?? '').replace(/\s+/g, ' ').trim()
+  const displayName = rawDisplayName || auto.displayName
+  const passwordHash = await hashPasswordWithMinLength(password, JUDGE_PASSWORD_MIN_LENGTH)
+  const id = randomUUID()
+  const now = Date.now()
+  client.db.insert(competitionJudges).values({
+    id,
+    eventId: round.eventId,
+    roundId: round.id,
+    username,
+    passwordHash,
+    displayName,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now
+  }).run()
+  return { id, username, displayName, password }
+}
+
 export async function createJudgeAccounts(
   client: DatabaseClient,
   round: RoundRow,
@@ -854,7 +1508,7 @@ export async function createJudgeAccounts(
   for (let index = 0; index < count; index += 1) {
     const identity = nextJudgeIdentity(client, round)
     const password = generateJudgePassword()
-    const passwordHash = await hashPassword(password)
+    const passwordHash = await hashPasswordWithMinLength(password, JUDGE_PASSWORD_MIN_LENGTH)
     const id = randomUUID()
     const now = Date.now()
     client.db.insert(competitionJudges).values({
@@ -892,14 +1546,27 @@ function requireJudgeRow(client: DatabaseClient, roundId: string, judgeId: strin
   return row
 }
 
-export function updateJudge(
+export async function updateJudge(
   client: DatabaseClient,
   roundId: string,
   judgeId: string,
-  input: { displayName?: unknown, isActive?: unknown }
-): CompetitionJudge {
+  input: { displayName?: unknown, isActive?: unknown, day?: unknown, username?: unknown, password?: unknown }
+): Promise<CompetitionJudge> {
   requireJudgeRow(client, roundId, judgeId)
   const patch: Partial<typeof competitionJudges.$inferInsert> = { updatedAt: Date.now() }
+
+  if (input.username !== undefined) {
+    const username = normalizeJudgeUsername(input.username)
+    assertJudgeUsernameFree(client, username, judgeId)
+    patch.username = username
+  }
+  if (input.password !== undefined) {
+    const password = String(input.password ?? '')
+    if (password.length < JUDGE_PASSWORD_MIN_LENGTH) {
+      validationError(`密码至少 ${JUDGE_PASSWORD_MIN_LENGTH} 位`, 'password')
+    }
+    patch.passwordHash = await hashPasswordWithMinLength(password, JUDGE_PASSWORD_MIN_LENGTH)
+  }
 
   if (input.displayName !== undefined) {
     const displayName = String(input.displayName ?? '').replace(/\s+/g, ' ').trim()
@@ -908,6 +1575,11 @@ export function updateJudge(
   }
   if (input.isActive !== undefined) {
     patch.isActive = input.isActive === true
+  }
+  if (input.day !== undefined) {
+    if (input.day === null) patch.day = null
+    else if (input.day === 1 || input.day === 2) patch.day = input.day
+    else validationError('到岗天只能是第一天、第二天或两天都在', 'day')
   }
 
   client.db.update(competitionJudges).set(patch).where(eq(competitionJudges.id, judgeId)).run()
@@ -924,7 +1596,7 @@ export async function resetJudgePassword(
 ): Promise<string> {
   requireJudgeRow(client, roundId, judgeId)
   const password = generateJudgePassword()
-  const passwordHash = await hashPassword(password)
+  const passwordHash = await hashPasswordWithMinLength(password, JUDGE_PASSWORD_MIN_LENGTH)
   client.db.update(competitionJudges).set({
     passwordHash,
     updatedAt: Date.now()
@@ -1004,13 +1676,24 @@ function nextSingerOrder(client: DatabaseClient, eventId: string): number {
   return rows.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1
 }
 
-function addPrelimEntry(client: DatabaseClient, eventId: string, singerId: string, sortOrder: number): void {
+/**
+ * 现场登记直接进初赛名单：当天切到第几天（rounds.active_day）就归到哪一天，
+ * 预报名填的「打算哪天来」只作参考，实际以现场签到为准。
+ */
+function addPrelimEntry(
+  client: DatabaseClient,
+  eventId: string,
+  singerId: string,
+  sortOrder: number,
+  contestDay?: 1 | 2 | null
+): void {
   const prelim = getRoundByKey(client, eventId, 'prelim')
   client.db.insert(competitionRoundEntries).values({
     id: randomUUID(),
     roundId: prelim.id,
     singerId,
     sortOrder,
+    contestDay: contestDay ?? prelim.activeDay ?? null,
     createdAt: Date.now()
   }).run()
 }
@@ -1283,7 +1966,8 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
       .map(score => [score.singerId, serializeScore(score, judge.displayName)])
   )
 
-  const singers = entryRows
+  const dayEntries = entriesForDay(round, entryRows)
+  const singers = dayEntries
     .map((entry) => {
       const singer = singersById.get(entry.singerId)
       if (!singer) return null
@@ -1295,6 +1979,8 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
       }
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
+  const daySingerIds = new Set(dayEntries.map(entry => entry.singerId))
+  const dayScored = [...ownScores.keys()].filter(singerId => daySingerIds.has(singerId)).length
 
   const roundResults = round.status === 'closed'
     ? buildRoundRanking(round, entryRows, singersById, scoreRows)
@@ -1332,10 +2018,11 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
     },
     singers,
     roundResults,
+    current: buildCurrentSinger(client, round, entryRows, singersById, scoreRows),
     finalResults,
     finalRound: finalRound ? { title: finalRound.title, status: finalRound.status } : null,
     progress: {
-      scored: ownScores.size,
+      scored: dayScored,
       total: singers.length
     }
   }
@@ -1375,6 +2062,18 @@ export function submitJudgeScore(
     .get()
   if (!entry) {
     validationError('该选手不在本轮名单中', 'singerId')
+  }
+
+  // 顺序评分：只接受「当前这位」的分数。六位评委看到的是同一个选手，
+  // 谁想跳到下一位都会被这里挡住，避免有人先给后面的人打分。
+  if (round.currentEntryId && entry.id !== round.currentEntryId) {
+    const current = getCurrentSinger(client, round)
+    conflictError(
+      'COMPETITION_NOT_CURRENT_SINGER',
+      current
+        ? `现在评的是 ${current.index}/${current.total}「${current.singer.name}」，请等主持人切到下一位`
+        : '现在不在顺序评分中，请刷新页面'
+    )
   }
 
   const dimensions = getCompetitionDimensions(eventRow)
@@ -1444,6 +2143,30 @@ export function submitJudgeScore(
       eq(competitionScores.judgeId, judge.id)
     ))
     .get()!
+
+  // 顺序评分：这一位凑齐本场到岗人数（judgeCount，不超过启用中的账号数），
+  // 才自动切下一位。初赛两天共用 prelim 轮、账号有 9 个但当天只有 6 人。
+  // 只在「这次提交把人数补齐」时推进——管理员回上一位改分后，再提交不会被
+  // 立刻推回去，要等管理员点「下一位」。
+  if (!existing && round.currentEntryId === entry.id) {
+    const required = requiredJudgeCount(client, round)
+    const beforeCount = new Set(
+      client.db.select({ judgeId: competitionScores.judgeId }).from(competitionScores)
+        .where(and(
+          eq(competitionScores.roundId, round.id),
+          eq(competitionScores.singerId, singerId)
+        ))
+        .all()
+        .map(item => item.judgeId)
+    ).size
+    if (required > 0 && beforeCount >= required) {
+      const entries = entriesForDay(round, listRoundEntryRows(client, round.id))
+      const index = entries.findIndex(item => item.id === entry.id)
+      const nextEntry = index >= 0 ? entries[index + 1] ?? null : null
+      setCurrentEntryId(client, round.id, nextEntry ? nextEntry.id : null)
+    }
+  }
+
   return serializeScore(row, judge.displayName)
 }
 
@@ -1462,7 +2185,13 @@ export interface CompetitionRegistrationInput {
 
 export function getRegistrationState(client: DatabaseClient, contentId: string): CompetitionRegistrationStatus {
   const eventRow = ensureCompetitionEvent(client, contentId)
-  return { open: eventRow.registrationOpen !== false, title: eventRow.title }
+  return {
+    open: eventRow.registrationOpen !== false,
+    title: eventRow.title,
+    edition: eventRow.edition ?? '',
+    schedule: getCompetitionSchedule(eventRow),
+    formFields: getCompetitionFormFields(eventRow)
+  }
 }
 
 function countSingers(client: DatabaseClient, eventId: string): number {
@@ -1521,6 +2250,12 @@ export function registerSingerFromForm(
     }
   }
 
+  const prelim = getRoundByKey(client, eventRow.id, 'prelim')
+  const resolved = resolvePrelimDay(eventRow, prelim)
+  if (resolved.day === null && resolved.source === 'date') {
+    validationError('今天不是初赛日，现场不登记；请联系工作人员确认场次', 'day')
+  }
+
   const id = randomUUID()
   const now = Date.now()
   const sortOrder = nextSingerOrder(client, eventRow.id)
@@ -1546,7 +2281,7 @@ export function registerSingerFromForm(
         .where(eq(competitionPreRegistrations.id, preRegistration.id)).run()
     }
   })
-  addPrelimEntry(client, eventRow.id, id, sortOrder)
+  addPrelimEntry(client, eventRow.id, id, sortOrder, resolved.day)
   return { id, sortOrder }
 }
 
@@ -1554,11 +2289,11 @@ export function registerSingerFromForm(
 
 export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { subject: string, body: string }> = {
   prelim: {
-    subject: '【音乐协会】新生歌手大赛初赛结果通知',
+    subject: '【音乐协会】新声歌手大赛初赛结果通知',
     body: [
       '{{姓名}} 同学：',
       '',
-      '感谢你参加仰恩大学音乐协会2026新生歌手大赛！',
+      '感谢你参加仰恩大学音乐协会2026新声歌手大赛！',
       '',
       '你的初赛成绩：{{平均分}} 分（第{{名次}}名，{{结果}}）。',
       '',
@@ -1568,11 +2303,11 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
     ].join('\n')
   },
   semi: {
-    subject: '【音乐协会】新生歌手大赛复赛结果通知',
+    subject: '【音乐协会】新声歌手大赛复赛结果通知',
     body: [
       '{{姓名}} 同学：',
       '',
-      '你在仰恩大学音乐协会2026新生歌手大赛复赛中的成绩：{{平均分}} 分（第{{名次}}名，{{结果}}）。',
+      '你在仰恩大学音乐协会2026新声歌手大赛复赛中的成绩：{{平均分}} 分（第{{名次}}名，{{结果}}）。',
       '',
       '后续安排请留意复赛群通知。感谢你的精彩演唱！',
       '',
@@ -1580,11 +2315,11 @@ export const COMPETITION_EMAIL_TEMPLATE_DEFAULTS: Record<CompetitionRoundKey, { 
     ].join('\n')
   },
   final: {
-    subject: '【音乐协会】新生歌手大赛决赛结果通知',
+    subject: '【音乐协会】新声歌手大赛决赛结果通知',
     body: [
       '{{姓名}} 同学：',
       '',
-      '你在仰恩大学音乐协会2026新生歌手大赛决赛中的成绩：{{平均分}} 分（第{{名次}}名）。',
+      '你在仰恩大学音乐协会2026新声歌手大赛决赛中的成绩：{{平均分}} 分（第{{名次}}名）。',
       '',
       '感谢你一路唱到决赛，期待来年再会！',
       '',
@@ -1664,12 +2399,36 @@ export function renderCompetitionEmailTemplate(template: string, variables: Reco
   })
 }
 
-export function competitionEmailBodyToHtml(body: string): string {
-  const escaped = body
+/**
+ * 正文转邮件 HTML。`[[图片:id]]` 换成 cid 内嵌图（发信时作为附件带上），
+ * 其余文字照旧转义、换行转 <br>。
+ */
+export function competitionEmailBodyToHtml(
+  body: string,
+  images: CompetitionEmailImageBinary[] = []
+): string {
+  const byId = new Map(images.map(image => [image.id, image]))
+  const escape = (text: string): string => text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  return `<p style="margin:0 0 4px;line-height:1.8;">${escaped.split('\n').join('<br>')}</p>`
+
+  const parts: string[] = []
+  let cursor = 0
+  for (const match of body.matchAll(EMAIL_IMAGE_TOKEN_PATTERN)) {
+    const index = match.index ?? 0
+    parts.push(escape(body.slice(cursor, index)))
+    const image = match[1] ? byId.get(match[1]) : null
+    if (image) {
+      parts.push(`<img src="cid:${emailImageCid(image.id)}" alt="${escape(image.filename)}" style="max-width:100%;height:auto;display:block;margin:8px 0;border-radius:6px;">`)
+    } else {
+      parts.push(escape(match[0]))
+    }
+    cursor = index + match[0].length
+  }
+  parts.push(escape(body.slice(cursor)))
+
+  return `<p style="margin:0 0 4px;line-height:1.8;">${parts.join('').split('\n').join('<br>')}</p>`
 }
 
 export function buildEmailVariables(
@@ -1731,7 +2490,149 @@ export function listEmailState(client: DatabaseClient, eventId: string): Competi
       }
     }
   }
-  return { templates, stats, latest }
+  return { templates, stats, latest, images: listEmailImages(client, eventId) }
+}
+
+// -- 邮件图片 ------------------------------------------------------------------
+
+/** 单张图片上限 4MB（base64 前），够放证书或活动海报。 */
+export const EMAIL_IMAGE_MAX_BYTES = 4 * 1024 * 1024
+export const EMAIL_IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
+
+/** 正文里插入图片的占位写法：[[图片:图片ID]]。 */
+export const EMAIL_IMAGE_TOKEN_PATTERN = /\[\[图片:([0-9a-fA-F-]{36})\]\]/g
+
+export interface CompetitionEmailImageBinary {
+  id: string
+  filename: string
+  mime: string
+  data: string
+}
+
+export function emailImageCid(id: string): string {
+  return `email-image-${id}`
+}
+
+export function emailImageUrl(id: string): string {
+  // 走 /media 而不是 /api：api 全局 no-store，邮件插图需要 CDN 长期缓存。
+  return `/media/competition/${id}.png`
+}
+
+function serializeEmailImage(row: typeof competitionEmailImages.$inferSelect): CompetitionEmailImage {
+  return {
+    id: row.id,
+    filename: row.filename,
+    mime: row.mime,
+    byteSize: Number(row.byteSize),
+    url: emailImageUrl(row.id),
+    createdAt: Number(row.createdAt ?? 0)
+  }
+}
+
+export function listEmailImages(client: DatabaseClient, eventId: string): CompetitionEmailImage[] {
+  return client.db.select().from(competitionEmailImages)
+    .where(eq(competitionEmailImages.eventId, eventId))
+    .orderBy(desc(competitionEmailImages.createdAt))
+    .all()
+    .map(serializeEmailImage)
+}
+
+/** 校验上传：只收图片，按解码后的字节数卡上限。 */
+export function normalizeEmailImageInput(input: { filename?: string, mime?: string, data?: string }): {
+  filename: string
+  mime: string
+  data: string
+  byteSize: number
+} {
+  const mime = String(input.mime || '').trim().toLowerCase()
+  if (!(EMAIL_IMAGE_MIMES as readonly string[]).includes(mime)) {
+    validationError('只支持 JPG / PNG / WebP / GIF 图片', 'mime')
+  }
+  const raw = String(input.data || '').trim()
+  const base64 = raw.replace(/^data:[^;]+;base64,/, '').replace(/\s+/g, '')
+  if (!base64) validationError('图片内容为空', 'data')
+  if (!/^[A-Za-z0-9+/=]+$/.test(base64)) validationError('图片内容不是合法的 base64', 'data')
+  const byteSize = Buffer.from(base64, 'base64').byteLength
+  if (byteSize === 0) validationError('图片内容为空', 'data')
+  if (byteSize > EMAIL_IMAGE_MAX_BYTES) {
+    validationError(`单张图片不能超过 ${Math.round(EMAIL_IMAGE_MAX_BYTES / 1024 / 1024)}MB`, 'data')
+  }
+  const filename = String(input.filename || '')
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .trim()
+    .slice(0, 120) || `图片-${Date.now()}`
+  return { filename, mime, data: base64, byteSize }
+}
+
+export function createEmailImage(
+  client: DatabaseClient,
+  eventId: string,
+  input: { filename?: string, mime?: string, data?: string }
+): CompetitionEmailImage {
+  const normalized = normalizeEmailImageInput(input)
+  const id = randomUUID()
+  const row = {
+    id,
+    eventId,
+    filename: normalized.filename,
+    mime: normalized.mime,
+    byteSize: normalized.byteSize,
+    data: normalized.data,
+    createdAt: Date.now()
+  }
+  client.db.insert(competitionEmailImages).values(row).run()
+  return serializeEmailImage(row as typeof competitionEmailImages.$inferSelect)
+}
+
+export function deleteEmailImage(client: DatabaseClient, eventId: string, imageId: string): boolean {
+  const existing = client.db.select({ id: competitionEmailImages.id }).from(competitionEmailImages)
+    .where(and(eq(competitionEmailImages.eventId, eventId), eq(competitionEmailImages.id, imageId)))
+    .get()
+  if (!existing) return false
+  client.db.delete(competitionEmailImages).where(eq(competitionEmailImages.id, imageId)).run()
+  return true
+}
+
+/** 取出正文里引用到的图片（带 base64），发送时按需带上。 */
+export function loadEmailImagesForBody(
+  client: DatabaseClient,
+  eventId: string,
+  body: string
+): CompetitionEmailImageBinary[] {
+  const ids = new Set<string>()
+  for (const match of body.matchAll(EMAIL_IMAGE_TOKEN_PATTERN)) {
+    if (match[1]) ids.add(match[1])
+  }
+  if (ids.size === 0) return []
+  const rows = client.db.select().from(competitionEmailImages)
+    .where(eq(competitionEmailImages.eventId, eventId))
+    .all()
+  return rows
+    .filter(row => ids.has(row.id))
+    .map(row => ({ id: row.id, filename: row.filename, mime: row.mime, data: row.data }))
+}
+
+/** 正文引用的图片转成 nodemailer 附件（cid 内嵌）。 */
+export function emailImageAttachments(
+  body: string,
+  images: CompetitionEmailImageBinary[]
+): Array<{ filename: string, mime: string, data: string, cid: string }> {
+  const byId = new Map(images.map(image => [image.id, image]))
+  const attachments: Array<{ filename: string, mime: string, data: string, cid: string }> = []
+  for (const match of body.matchAll(EMAIL_IMAGE_TOKEN_PATTERN)) {
+    const id = match[1]
+    if (!id) continue
+    const image = byId.get(id)
+    if (!image) continue
+    if (attachments.some(item => item.cid === emailImageCid(id))) continue
+    attachments.push({
+      filename: image.filename,
+      mime: image.mime,
+      data: image.data,
+      cid: emailImageCid(id)
+    })
+  }
+  return attachments
 }
 
 export interface CompetitionEmailRecipient {
@@ -1825,6 +2726,8 @@ export interface CompetitionPreRegisterInput {
   phone?: string
   email?: string
   song?: string
+  /** 自选参赛日：1 / 2；现场以签到当天为准。 */
+  preferredDay?: number | null
 }
 
 export function serializePreRegistration(row: PreRegistrationRow, registeredSingerName: string | null): CompetitionPreRegistration {
@@ -1836,6 +2739,7 @@ export function serializePreRegistration(row: PreRegistrationRow, registeredSing
     phone: row.phone,
     email: row.email,
     song: row.song,
+    preferredDay: row.preferredDay === 1 || row.preferredDay === 2 ? row.preferredDay : null,
     registeredAt: row.registeredAt ? Number(row.registeredAt) : null,
     createdAt: Number(row.createdAt ?? 0),
     registeredSingerName
@@ -1862,6 +2766,25 @@ export function preRegisterFromForm(
     song: input.song
   })
 
+  // 表单里标了必填的项，服务端也拦一遍，不只靠页面上的 required。
+  const requiredFields = getCompetitionFormFields(eventRow).filter(field => field.enabled && field.required)
+  const values: Record<string, string | null> = {
+    name: normalized.name,
+    className: normalized.className,
+    studentNo: normalized.studentNo,
+    phone: normalized.phone,
+    email: normalized.email,
+    song: normalized.song
+  }
+  for (const field of requiredFields) {
+    if (field.key === 'preferredDay') continue
+    if (!values[field.key]) validationError(`${field.label}必填`, field.key)
+  }
+  if (requiredFields.some(field => field.key === 'preferredDay')
+    && input.preferredDay !== 1 && input.preferredDay !== 2) {
+    validationError('请选择打算哪天来', 'preferredDay')
+  }
+
   if (normalized.studentNo) {
     const existing = client.db.select({ id: competitionPreRegistrations.id }).from(competitionPreRegistrations)
       .where(and(
@@ -1878,6 +2801,7 @@ export function preRegisterFromForm(
   }
 
   const id = randomUUID()
+  const preferredDay = input.preferredDay === 1 || input.preferredDay === 2 ? input.preferredDay : null
   client.db.insert(competitionPreRegistrations).values({
     id,
     eventId: eventRow.id,
@@ -1887,6 +2811,7 @@ export function preRegisterFromForm(
     phone: normalized.phone,
     email: normalized.email,
     song: normalized.song,
+    preferredDay,
     createdAt: Date.now()
   }).run()
   return { id }
@@ -1897,50 +2822,57 @@ function countPreRegistrations(client: DatabaseClient, eventId: string): number 
     .where(eq(competitionPreRegistrations.eventId, eventId)).all().length
 }
 
+/** 现场登记时命中的预报名：只够让本人认出自己那条，不构成通讯录。 */
+export interface CompetitionPreRegistrationMatch {
+  id: string
+  name: string
+  className: string | null
+  song: string | null
+  preferredDay: 1 | 2 | null
+  createdAt: number
+  /** 只下发后四位（形如 `****0077`），完整学号留在库里。 */
+  studentNoMasked: string
+  /** 预报名当时有没有留手机或邮箱；具体值不下发。 */
+  hasContact: boolean
+}
+
 /**
- * 现场正式报名时按姓名检索未使用的预报名：先精确同名，再模糊包含。
- * 返回联系方式用于一键填表；已确认的（registered_at 非空）不再出现。
+ * 现场正式报名时检索未使用的预报名：姓名必须同名，且学号后四位要对上。
+ * 双因子是这条接口的下限——单凭姓名查不到任何人的记录；返回值不含手机、邮箱与完整学号。
+ * 已确认的（registered_at 非空）不再出现。
  */
 export function lookupPreRegistrations(
   client: DatabaseClient,
   contentId: string,
-  nameInput: string
-): Array<CompetitionPreRegistration & { registered: boolean }> {
+  nameInput: string,
+  studentNoTailInput: string
+): CompetitionPreRegistrationMatch[] {
   const name = String(nameInput ?? '').replace(/\s+/g, ' ').trim()
-  if (!name) return []
+  const tail = String(studentNoTailInput ?? '').replace(/\D/g, '').slice(-4)
+  if (!name || tail.length !== 4) return []
 
   const eventRow = ensureCompetitionEvent(client, contentId)
-  const unused = and(
-    eq(competitionPreRegistrations.eventId, eventRow.id),
-    isNull(competitionPreRegistrations.registeredAt)
-  )
-  const mapRows = (rows: PreRegistrationRow[]) => rows.map(row => ({
+  const rows = client.db.select().from(competitionPreRegistrations)
+    .where(and(
+      eq(competitionPreRegistrations.eventId, eventRow.id),
+      isNull(competitionPreRegistrations.registeredAt),
+      eq(competitionPreRegistrations.name, name),
+      like(competitionPreRegistrations.studentNo, `%${tail}`)
+    ))
+    .orderBy(desc(competitionPreRegistrations.createdAt))
+    .limit(COMPETITION_LOOKUP_LIMIT)
+    .all()
+
+  return rows.map(row => ({
     id: row.id,
     name: row.name,
     className: row.className,
-    studentNo: row.studentNo,
-    phone: row.phone,
-    email: row.email,
     song: row.song,
-    registeredAt: null,
+    preferredDay: row.preferredDay === 1 || row.preferredDay === 2 ? row.preferredDay : null,
     createdAt: Number(row.createdAt ?? 0),
-    registered: false,
-    registeredSingerName: null
+    studentNoMasked: `****${tail}`,
+    hasContact: Boolean(row.phone || row.email)
   }))
-
-  const exact = client.db.select().from(competitionPreRegistrations)
-    .where(and(unused, eq(competitionPreRegistrations.name, name)))
-    .orderBy(desc(competitionPreRegistrations.createdAt))
-    .limit(COMPETITION_LOOKUP_LIMIT)
-    .all()
-  if (exact.length > 0) return mapRows(exact)
-
-  const partial = client.db.select().from(competitionPreRegistrations)
-    .where(and(unused, like(competitionPreRegistrations.name, `%${name}%`)))
-    .orderBy(desc(competitionPreRegistrations.createdAt))
-    .limit(COMPETITION_LOOKUP_LIMIT)
-    .all()
-  return mapRows(partial)
 }
 
 export function listPreRegistrations(client: DatabaseClient, eventId: string): CompetitionPreRegistration[] {
@@ -1962,6 +2894,7 @@ export function listPreRegistrations(client: DatabaseClient, eventId: string): C
     phone: row.phone,
     email: row.email,
     song: row.song,
+    preferredDay: row.preferredDay === 1 || row.preferredDay === 2 ? row.preferredDay : null,
     registeredAt: row.registeredAt ? Number(row.registeredAt) : null,
     createdAt: Number(row.createdAt ?? 0),
     registeredSingerName: row.registeredAt ? singerNameByPreId.get(row.id) ?? null : null

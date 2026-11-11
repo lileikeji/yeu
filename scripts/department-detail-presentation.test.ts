@@ -50,7 +50,7 @@ test('department body extractors keep student-facing section markers', () => {
   assert.equal(departmentSectionLabels.contactPending, '联系方式待公布')
   assert.equal(
     departmentSectionLabels.contactPendingNotice,
-    '目前还没有公开的电话或邮箱。可以先打开上方部门官网，或开学后以学校和部门最新通知为准。'
+    '目前还没有公开的电话或邮箱。可以先打开上方部门官网，或开学后看学校和部门通知。'
   )
   assert.equal(departmentSectionLabels.contactPendingAction, '知道新的联系方式？告诉我们')
   assert.equal(hasDepartmentPublicContact({ phone: null, email: ' ' }), false)
@@ -122,7 +122,6 @@ test('department sources and verified date prefer API then seed fallbacks', () =
     [{ key: 'organizations', title: '组织机构', url: 'https://example.test/org' }]
   )
 })
-
 
 test('department detail pending contact UI stays student-facing', () => {
   assert.match(pageSource, /contactSection\.kind === 'pending'/)

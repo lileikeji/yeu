@@ -241,16 +241,8 @@ watch(mode, (next) => {
           </div>
         </div>
         <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-          {{ mode === 'login' ? '登录后可进入群聊与个人中心。没有账号也不影响使用校园指南。' : '邮箱验证后即可注册，注册后可直接进入楼栋群聊。' }}
+          {{ mode === 'login' ? '没有账号也不影响使用校园指南。' : '邮箱验证后完成注册。' }}
         </p>
-
-        <div class="mt-4 flex items-start gap-2 rounded-md border border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950 p-3 text-sm text-sky-950 dark:text-sky-300" role="note">
-          <UIcon
-            name="i-lucide-info"
-            class="mt-0.5 size-4 shrink-0 text-sky-700 dark:text-sky-300"
-          />
-          <span>现在开放注册了：切到「注册」填用户名、邮箱并验证即可拥有账号；没有账号也可以正常浏览公开内容。</span>
-        </div>
 
         <div class="mt-5 border-y border-zinc-100 dark:border-zinc-800">
           <div class="flex items-start gap-3 py-3">
@@ -322,7 +314,10 @@ watch(mode, (next) => {
           class="mt-5 space-y-4"
           @submit.prevent="submitRegister"
         >
-          <UFormField label="用户名" required>
+          <UFormField
+            label="用户名"
+            required
+          >
             <UInput
               v-model="regUsername"
               name="reg-username"
@@ -339,14 +334,17 @@ watch(mode, (next) => {
               v-model="regNickname"
               name="reg-nickname"
               icon="i-lucide-smile"
-              placeholder="群聊里显示的名字，不填默认用用户名"
+              placeholder="群聊显示名，默认用用户名"
               size="lg"
               class="min-h-11 w-full"
               :disabled="submitting"
               :maxlength="12"
             />
           </UFormField>
-          <UFormField label="邮箱" required>
+          <UFormField
+            label="邮箱"
+            required
+          >
             <UInput
               v-model="regEmail"
               name="reg-email"
@@ -359,7 +357,10 @@ watch(mode, (next) => {
               :disabled="submitting"
             />
           </UFormField>
-          <UFormField label="密码" required>
+          <UFormField
+            label="密码"
+            required
+          >
             <UInput
               v-model="regPassword"
               name="reg-password"
@@ -372,7 +373,10 @@ watch(mode, (next) => {
               :disabled="submitting"
             />
           </UFormField>
-          <UFormField label="图形验证码" required>
+          <UFormField
+            label="图形验证码"
+            required
+          >
             <div class="flex items-center gap-2">
               <UInput
                 v-model="regCaptchaInput"
@@ -404,7 +408,10 @@ watch(mode, (next) => {
               </button>
             </div>
           </UFormField>
-          <UFormField label="邮箱验证码" required>
+          <UFormField
+            label="邮箱验证码"
+            required
+          >
             <div class="flex items-center gap-2">
               <UInput
                 v-model="regCode"

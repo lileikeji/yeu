@@ -2,9 +2,11 @@ import { competitionEmailTestSchema } from '../../../../../../shared/schemas/ser
 import {
   buildEmailVariables,
   competitionEmailBodyToHtml,
+  emailImageAttachments,
   ensureCompetitionEvent,
   getEmailTemplate,
   getRoundByKey,
+  loadEmailImagesForBody,
   renderCompetitionEmailTemplate
 } from '../../../../../modules/competition/service'
 import { writeAudit } from '../../../../../utils/audit'
@@ -49,6 +51,7 @@ export default defineEventHandler(async (event) => {
       updatedAt: 0
     },
     sortOrder: 1,
+    contestDay: null,
     advancedFromRank: null,
     average: 88.88,
     scoreCount: 5,
@@ -67,12 +70,14 @@ export default defineEventHandler(async (event) => {
   const variables = buildEmailVariables(round, sampleEntry, sampleSinger)
   const subject = renderCompetitionEmailTemplate(template.subject, variables)
   const body = renderCompetitionEmailTemplate(template.body, variables)
+  const images = loadEmailImagesForBody(client, competition.id, body)
 
   await sendMailMessage(mailerConfig, {
     to: input.email,
     subject,
     text: body,
-    html: competitionEmailBodyToHtml(body)
+    html: competitionEmailBodyToHtml(body, images),
+    attachments: emailImageAttachments(body, images)
   }, { fromName: '仰恩大学音乐协会' })
 
   writeAudit(client, event, {

@@ -18,6 +18,7 @@ interface AdminMomentView {
   aiReason: string | null
   moderatedBy: string | null
   moderationReason: string | null
+  images: string[]
   createdAt: string
 }
 
@@ -39,6 +40,11 @@ const statusFilter = ref<'all' | 'approved' | 'rejected'>('all')
 const loading = ref(true)
 const errorMessage = ref('')
 const actingIds = ref(new Set<string>())
+const lightboxUrl = ref<string | null>(null)
+
+function openLightbox(url: string): void {
+  lightboxUrl.value = url
+}
 const reasonDrafts = ref(new Map<string, string>())
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -65,9 +71,9 @@ const AI_CATEGORY_LABELS: Record<string, string> = {
 function aiLabel(item: AdminMomentView): { text: string, class: string } {
   if (item.aiCategory) {
     const label = AI_CATEGORY_LABELS[item.aiCategory] ?? item.aiCategory
-    return { text: `AI 违规 · ${label}`, class: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300' }
+    return { text: `自动审核 · ${label}`, class: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300' }
   }
-  if (item.aiCheckedAt) return { text: 'AI 通过', class: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' }
+  if (item.aiCheckedAt) return { text: '自动通过', class: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' }
   return { text: '未巡检', class: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' }
 }
 
@@ -243,16 +249,39 @@ async function act(item: AdminMomentView, action: 'withdraw' | 'restore' | 'dele
             {{ formatWhen(item.createdAt) }}
           </span>
         </div>
-        <p class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-700 dark:text-zinc-200">
+        <p
+          v-if="item.body"
+          class="mt-1.5 whitespace-pre-line text-xs leading-5 text-zinc-700 dark:text-zinc-200"
+        >
           {{ item.body }}
         </p>
+        <div
+          v-if="item.images.length"
+          class="mt-1.5 flex flex-wrap gap-1.5"
+        >
+          <button
+            v-for="url in item.images"
+            :key="url"
+            type="button"
+            class="block size-16 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700"
+            aria-label="查看大图"
+            @click="openLightbox(url)"
+          >
+            <img
+              :src="url"
+              alt=""
+              loading="lazy"
+              class="size-full object-cover"
+            >
+          </button>
+        </div>
         <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-400">
           <span>IP：{{ item.ip ?? '未记录' }}</span>
           <span v-if="item.aiReason">
-            AI：{{ item.aiReason }}
+            自动审核：{{ item.aiReason }}
           </span>
           <span v-if="item.moderatedBy">
-            处理：{{ item.moderatedBy === 'ai' ? 'AI 自动' : '管理员' }}{{ item.moderationReason ? ` · ${item.moderationReason}` : '' }}
+            处理：{{ item.moderatedBy === 'ai' ? '系统自动' : '管理员' }}{{ item.moderationReason ? ` · ${item.moderationReason}` : '' }}
           </span>
         </div>
         <div class="mt-2 flex flex-wrap items-center gap-1.5">

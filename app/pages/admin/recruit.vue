@@ -1,92 +1,7 @@
 <script setup lang="ts">
-import type {
-  RecruitDocConfig,
-  RecruitReferrer,
-  RecruitExportColumn,
-  RecruitFormField,
-  RecruitFormStatus,
-  RecruitStatBucket,
-  RecruitSubmissionPage,
-  RecruitSubmissionStats,
-  RecruitSubmission
-} from '~~/shared/types'
-
-definePageMeta({ layout: 'admin' })
-
-interface AdminClubOption {
-  id: string
-  slug: string
-  title: string
-  status: string
-}
-
-interface AdminSessionPayload {
-  authenticated?: boolean
-  admin?: {
-    role?: 'super' | 'organization'
-    organization?: { contentId?: string } | null
-  }
-}
-
-const toast = useToast()
-
-const loading = ref(true)
-const loadError = ref('')
-const adminRole = ref<'super' | 'organization'>('super')
-const clubs = ref<AdminClubOption[]>([])
-const selectedContentId = ref('')
-const form = ref<{
-  contentId: string
-  clubName: string
-  clubSlug: string
-  title: string
-  slogan: string
-  intro: string
-  status: RecruitFormStatus
-  fields: RecruitFormField[]
-  doc: RecruitDocConfig
-  exportColumns: RecruitExportColumn[]
-  templateName: string | null
-  templateLabels: string[]
-  views: number
-  payment: {
-    enabled: boolean
-    wechatImage: string | null
-    alipayImage: string | null
-    note: string
-  }
-  updatedAt: number | null
-} | null>(null)
-const saving = ref(false)
-const activeSection = ref<'settings' | 'referrers' | 'template' | 'submissions' | 'stats' | 'export'>('settings')
-
-const uploadingTemplate = ref(false)
-const templateFileInput = ref<HTMLInputElement | null>(null)
-const submissions = ref<RecruitSubmission[]>([])
-const submissionsTotal = ref(0)
-const submissionsPage = ref(1)
-const submissionsPageSize = 20
-const searchQuery = ref('')
-const loadingSubmissions = ref(false)
-const submissionStats = ref<RecruitSubmissionStats | null>(null)
-
-const FIELD_TYPE_OPTIONS = [
-  { label: '文本', value: 'text' },
-  { label: '多行文本', value: 'textarea' },
-  { label: '单选下拉', value: 'select' },
-  { label: '多选勾选', value: 'multiselect' }
-]
-
-const WELL_KNOWN_COLUMN_SOURCES = [
-  { key: 'name', label: '姓名' },
-  { key: 'gender', label: '性别' },
-  { key: 'studentNo', label: '学号' },
-  { key: 'className', label: '专业班级' },
-  { key: 'phone', label: '手机号' },
-  { key: 'qq', label: 'QQ' },
-  { key: 'departments', label: '意向部门' },
-  { key: 'isLeagueMember', label: '是否为共青团员' }
-]
+import RecruitStatsPanel from '~/components/admin/recruit/RecruitStatsPanel.vue'
+import RecruitExportPanel from '~/components/admin/recruit/RecruitExportPanel.vue'
+import RecruitSubmissionEditModal from '~/components/admin/recruit/RecruitSubmissionEditModal.vue'
 
 const sections = [
   { key: 'settings', label: '基础设置', icon: 'i-lucide-sliders-horizontal' },
@@ -97,760 +12,129 @@ const sections = [
   { key: 'export', label: '总表导出', icon: 'i-lucide-table' }
 ] as const
 
-const fieldOptions = computed(() => (form.value?.fields ?? [])
-  .map(field => ({ label: `${field.label}（${field.key}）`, value: field.key })))
-const multiselectFieldOptions = computed(() => (form.value?.fields ?? [])
-  .filter(field => field.type === 'multiselect')
-  .map(field => ({ label: field.label, value: field.key })))
-const columnSourceOptions = computed(() => [
-  ...WELL_KNOWN_COLUMN_SOURCES,
-  ...(form.value?.fields ?? [])
-    .filter(field => !WELL_KNOWN_COLUMN_SOURCES.some(wellKnown => wellKnown.key === field.key))
-    .map(field => ({ key: field.key, label: field.label }))
-])
+type RecruitSection = typeof sections[number]['key']
 
-function withContentId(path: string): string {
-  const contentId = selectedContentId.value || form.value?.contentId
-  return contentId ? `${path}?contentId=${encodeURIComponent(contentId)}` : path
+const route = useRoute()
+const router = useRouter()
+
+/** URL 里的 tab 只认已注册的面板，其余（含缺省）一律回落到基础设置。 */
+function resolveSection(value: unknown): RecruitSection {
+  const raw = Array.isArray(value) ? value[0] : value
+  return sections.some(section => section.key === raw) ? raw as RecruitSection : 'settings'
 }
 
-const templateDownloadUrl = computed(() => withContentId('/api/admin/recruit/template'))
-const sampleDocUrl = computed(() => withContentId('/api/admin/recruit/template-sample'))
-const exportUrl = computed(() => withContentId('/api/admin/recruit/submissions/export'))
-const recruitPublicUrl = computed(() => form.value?.clubSlug
-  ? `/recruit/${encodeURIComponent(form.value.clubSlug)}`
-  : '')
+const activeSection = ref<RecruitSection>(resolveSection(route.query.tab))
 
-async function loadSession(): Promise<void> {
-  const session = await adminFetch<AdminSessionPayload>('/api/admin/auth/session')
-  if (!session.authenticated) {
-    await navigateTo('/admin/login', { replace: true })
-    throw new Error('unauthenticated')
-  }
-  adminRole.value = session.admin?.role === 'organization' ? 'organization' : 'super'
-  if (adminRole.value === 'organization' && session.admin?.organization?.contentId) {
-    selectedContentId.value = session.admin.organization.contentId
-  }
-}
+const {
+  loading,
+  loadError,
+  adminRole,
+  clubs,
+  selectedContentId,
+  form,
+  saving,
+  refreshingForm,
+  FIELD_TYPE_OPTIONS,
+  fieldOptions,
+  multiselectFieldOptions,
+  columnSourceOptions,
+  exportUrl,
+  recruitPublicUrl,
+  templateFileInput,
+  uploadingTemplate,
+  paymentFileInput,
+  paymentUploadTarget,
+  paymentUploading,
+  loadSession,
+  loadClubs,
+  loadForm,
+  refreshFormData,
+  saveForm,
+  onTemplateFileChange,
+  copyTemplateLabel,
+  addField,
+  removeField,
+  moveField,
+  setFieldOptions,
+  fieldOptionsText,
+  addMapping,
+  removeMapping,
+  moveMapping,
+  addExportColumn,
+  removeExportColumn,
+  moveExportColumn,
+  onExportColumnKeyChange,
+  renameExportColumn,
+  downloadTemplate,
+  downloadSampleDoc,
+  triggerPaymentUpload,
+  onPaymentFileChange,
+  clearPaymentImage,
+  fieldOptionDetailText,
+  setFieldOptionDetail
+} = useRecruitForms()
 
-async function loadClubs(): Promise<void> {
-  const result = await adminFetch<{ items: AdminClubOption[] }>('/api/admin/recruit/clubs')
-  clubs.value = result.items
-  if (!selectedContentId.value && result.items.length > 0) {
-    selectedContentId.value = result.items[0]!.id
-  }
-}
+const {
+  submissions,
+  submissionsTotal,
+  submissionsPage,
+  submissionsPageSize,
+  searchQuery,
+  loadingSubmissions,
+  submissionStats,
+  loadSubmissions,
+  loadSubmissionStats,
+  searchSubmissions,
+  changeSubmissionsPage,
+  deleteSubmission,
+  downloadSubmissionDoc,
+  downloadExportWorkbook,
+  selectedIds,
+  selectedCount,
+  allOnPageSelected,
+  toggleSelectAll,
+  toggleSelectOne,
+  downloadSelected,
+  selectingAll,
+  selectAllFiltered,
+  departmentSelectItems,
+  downloadDepartment,
+  downloadByDepartment,
+  downloadGroupedZip,
+  sheetRows,
+  sheetSavingKey,
+  loadSheet,
+  saveSheetCell,
+  editOpen,
+  editSaving,
+  editingSubmission,
+  openEdit,
+  saveEdit,
+  formatDateTime
+} = useRecruitSubmissions({ contentId: selectedContentId, form, exportUrl })
 
-async function loadForm(): Promise<void> {
-  if (!selectedContentId.value) {
-    form.value = null
-    return
-  }
-  loading.value = true
-  loadError.value = ''
-  try {
-    const result = await adminFetch<{ form: NonNullable<typeof form.value> }>(
-      `/api/admin/recruit/form?contentId=${encodeURIComponent(selectedContentId.value)}`
-    )
-    form.value = result.form
-  } catch {
-    loadError.value = '纳新表单配置加载失败，请刷新重试。'
-  } finally {
-    loading.value = false
-  }
-}
-
-const refreshingForm = ref(false)
-
-/** Pull the latest config from the server (picks up external edits like prefilled introductions). */
-async function refreshFormData(): Promise<void> {
-  if (refreshingForm.value) return
-  refreshingForm.value = true
-  await loadForm()
-  refreshingForm.value = false
-  toast.add({ title: '表单数据已刷新', color: 'success' })
-}
-
-async function saveForm(): Promise<void> {
-  if (!form.value || saving.value) return
-  const invalidField = form.value.fields.find(field => !field.label.trim()
-    || ((field.type === 'select' || field.type === 'multiselect') && (field.options ?? []).length === 0))
-  if (invalidField) {
-    toast.add({
-      title: '表单字段配置不完整',
-      description: `请检查「${invalidField.label || invalidField.key}」：文本字段需要名称，选择字段需要至少一个选项。`,
-      color: 'warning'
-    })
-    return
-  }
-
-  saving.value = true
-  try {
-    const result = await adminFetch<{ form: NonNullable<typeof form.value> }>(
-      `/api/admin/recruit/form?contentId=${encodeURIComponent(selectedContentId.value)}`,
-      {
-        method: 'PUT',
-        body: {
-          title: form.value.title,
-          slogan: form.value.slogan,
-          intro: form.value.intro,
-          status: form.value.status,
-          fields: form.value.fields,
-          doc: form.value.doc,
-          exportColumns: form.value.exportColumns,
-          payment: form.value.payment,
-          baseUpdatedAt: form.value.updatedAt ?? undefined
-        }
-      }
-    )
-    form.value = result.form
-    toast.add({ title: '纳新配置已保存', color: 'success' })
-  } catch (error) {
-    const conflict = typeof error === 'object' && error !== null
-      && (error as { data?: { data?: { code?: string } } }).data?.data?.code === 'RECRUIT_FORM_CONFLICT'
-    if (conflict) {
-      await loadForm()
-      toast.add({
-        title: '配置刚被外部修改（如纳新介绍预填）',
-        description: '已为你载入最新数据，确认内容后再点保存。',
-        color: 'warning'
-      })
-    } else {
-      toast.add({ title: '保存失败', description: '请检查网络后重试。', color: 'warning' })
-    }
-  } finally {
-    saving.value = false
-  }
-}
-
-function onTemplateFileChange(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
-  if (!file.name.toLowerCase().endsWith('.docx')) {
-    toast.add({ title: '请选择 .docx 文件', color: 'warning' })
-    return
-  }
-  if (file.size > 3 * 1024 * 1024) {
-    toast.add({ title: '模板文件不能超过 3MB', color: 'warning' })
-    return
-  }
-
-  uploadingTemplate.value = true
-  const reader = new FileReader()
-  reader.onload = async () => {
-    try {
-      const dataUrl = String(reader.result || '')
-      const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
-      const result = await adminFetch<{ templateName: string, labels: string[] }>(
-        `/api/admin/recruit/template?contentId=${encodeURIComponent(selectedContentId.value)}`,
-        { method: 'POST', body: { filename: file.name, dataBase64: base64 } }
-      )
-      if (form.value) {
-        form.value.templateName = result.templateName
-        form.value.templateLabels = result.labels
-      }
-      toast.add({
-        title: '模板已上传',
-        description: `识别到 ${result.labels.length} 个可映射标签，请在下方完成文档标签映射。`,
-        color: 'success'
-      })
-    } catch {
-      toast.add({ title: '模板上传失败', description: '请确认文件是有效的 .docx 后重试。', color: 'warning' })
-    } finally {
-      uploadingTemplate.value = false
-    }
-  }
-  reader.onerror = () => {
-    uploadingTemplate.value = false
-    toast.add({ title: '读取文件失败', color: 'warning' })
-  }
-  reader.readAsDataURL(file)
-}
-
-// -- form field editor -------------------------------------------------------
-
-function addField(): void {
-  if (!form.value) return
-  form.value.fields = [...form.value.fields, {
-    key: `f${Date.now().toString(36)}`,
-    label: '',
-    type: 'text',
-    required: false
-  }]
-}
-
-function removeField(index: number): void {
-  if (!form.value) return
-  const field = form.value.fields[index]
-  if (!field) return
-  form.value.fields = form.value.fields.filter((_, i) => i !== index)
-  form.value.doc.mappings = form.value.doc.mappings.filter(m => m.fieldKey !== field.key)
-  if (form.value.doc.multiSelect?.fieldKey === field.key) form.value.doc.multiSelect = null
-  form.value.exportColumns = form.value.exportColumns.filter(c => c.key !== field.key)
-}
-
-function moveField(index: number, delta: number): void {
-  if (!form.value) return
-  const target = index + delta
-  if (target < 0 || target >= form.value.fields.length) return
-  const next = [...form.value.fields]
-  ;[next[index], next[target]] = [next[target]!, next[index]!]
-  form.value.fields = next
-}
-
-function setFieldOptions(field: RecruitFormField, text: string): void {
-  field.options = text.split(/[、,，\n]/).map(item => item.trim()).filter(Boolean)
-}
-
-function fieldOptionsText(field: RecruitFormField): string {
-  return (field.options ?? []).join('、')
-}
-
-function defaultLabelForKey(key: string): string {
-  return WELL_KNOWN_COLUMN_SOURCES.find(source => source.key === key)?.label ?? key
-}
-
-async function copyTemplateLabel(label: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(label)
-    toast.add({ title: `已复制「${label}」`, color: 'success' })
-  } catch {
-    toast.add({ title: '复制失败，请手动输入', color: 'warning' })
-  }
-}
-
-// -- doc mapping editor ------------------------------------------------------
-
-function addMapping(): void {
-  if (!form.value) return
-  form.value.doc.mappings = [...form.value.doc.mappings, { label: '', fieldKey: fieldOptions.value[0]?.value ?? 'name' }]
-}
-
-function removeMapping(index: number): void {
-  if (!form.value) return
-  form.value.doc.mappings = form.value.doc.mappings.filter((_, i) => i !== index)
-}
-
-function moveMapping(index: number, delta: number): void {
-  if (!form.value) return
-  const mappings = [...form.value.doc.mappings]
-  const target = index + delta
-  if (target < 0 || target >= mappings.length) return
-  ;[mappings[index], mappings[target]] = [mappings[target]!, mappings[index]!]
-  form.value.doc.mappings = mappings
-}
-
-// -- export column editor ----------------------------------------------------
-
-function addExportColumn(): void {
-  if (!form.value) return
-  const used = new Set(form.value.exportColumns.map(column => column.key))
-  const source = columnSourceOptions.value.find(option => !used.has(option.key))
-    ?? columnSourceOptions.value[0]
-  if (!source) return
-  form.value.exportColumns = [...form.value.exportColumns, { key: source.key, label: source.label }]
-}
-
-function removeExportColumn(index: number): void {
-  if (!form.value) return
-  form.value.exportColumns = form.value.exportColumns.filter((_, i) => i !== index)
-}
-
-function moveExportColumn(index: number, delta: number): void {
-  if (!form.value) return
-  const columns = [...form.value.exportColumns]
-  const target = index + delta
-  if (target < 0 || target >= columns.length) return
-  ;[columns[index], columns[target]] = [columns[target]!, columns[index]!]
-  form.value.exportColumns = columns
-}
-
-function onExportColumnKeyChange(column: RecruitExportColumn, key: string): void {
-  column.key = key
-  column.label = defaultLabelForKey(key)
-}
-
-// -- submissions -------------------------------------------------------------
-
-async function loadSubmissions(): Promise<void> {
-  if (!selectedContentId.value) return
-  loadingSubmissions.value = true
-  try {
-    const result = await adminFetch<RecruitSubmissionPage>(
-      `/api/admin/recruit/submissions?contentId=${encodeURIComponent(selectedContentId.value)}`
-      + `&page=${submissionsPage.value}&pageSize=${submissionsPageSize}`
-      + `&query=${encodeURIComponent(searchQuery.value.trim())}`
-    )
-    submissions.value = result.items
-    submissionsTotal.value = result.total
-  } catch {
-    toast.add({ title: '提交记录加载失败', color: 'warning' })
-  } finally {
-    loadingSubmissions.value = false
-  }
-}
-
-async function loadSubmissionStats(): Promise<void> {
-  if (!selectedContentId.value) return
-  try {
-    submissionStats.value = await adminFetch<RecruitSubmissionStats>(
-      `/api/admin/recruit/submissions/stats?contentId=${encodeURIComponent(selectedContentId.value)}`
-    )
-  } catch {
-    submissionStats.value = null
-  }
-}
+const {
+  referrers,
+  referrerNameInput,
+  referrerCodeInput,
+  referrerBusy,
+  referrerLink,
+  loadReferrers,
+  addReferrer,
+  removeReferrer,
+  copyReferrerLink
+} = useRecruitReferrers({ contentId: selectedContentId, form })
 
 watch(activeSection, (section) => {
   if (section === 'stats') void loadSubmissionStats()
+  if (resolveSection(route.query.tab) === section) return
+  void router.replace({ query: { ...route.query, tab: section } })
 })
 
-// -- 数据概览 ----------------------------------------------------------------
-
-const statsDaily = computed(() => submissionStats.value?.daily ?? [])
-const statsDepartments = computed(() => submissionStats.value?.departments ?? [])
-const statsClasses = computed(() => submissionStats.value?.classes ?? [])
-const statsColleges = computed(() => submissionStats.value?.colleges ?? [])
-const maxDailyCount = computed(() => Math.max(1, ...statsDaily.value.map(day => day.count)))
-const maxClassCount = computed(() => Math.max(1, ...statsClasses.value.map(bucket => bucket.count)))
-
-function statBarWidth(count: number, max: number): string {
-  return `${Math.max(2, Math.round((count / max) * 100))}%`
-}
-
-const statPieGroups = computed(() => ([
-  { key: 'departments', label: '意向部门分布', buckets: statsDepartments.value },
-  { key: 'colleges', label: '学院分布', buckets: statsColleges.value }
-]))
-
-function pieTotal(buckets: RecruitStatBucket[]): number {
-  return buckets.reduce((sum, bucket) => sum + bucket.count, 0)
-}
-
-// viewBox 42、半径 15.9155 的圆周长恰好为 100，dasharray 直接用百分比。
-function pieSlices(buckets: RecruitStatBucket[]) {
-  const total = pieTotal(buckets)
-  let accumulated = 0
-  return buckets.map((bucket, index) => {
-    const pct = total ? (bucket.count / total) * 100 : 0
-    const slice = {
-      label: bucket.label,
-      count: bucket.count,
-      pct: Math.round(pct * 10) / 10,
-      offset: 25 - accumulated,
-      color: `hsl(${(index * 67 + 210) % 360} 62% 50%)`
-    }
-    accumulated += pct
-    return slice
-  })
-}
-
-function searchSubmissions(): void {
-  submissionsPage.value = 1
-  void loadSubmissions()
-}
-
-function changeSubmissionsPage(delta: number): void {
-  const nextPage = submissionsPage.value + delta
-  if (nextPage < 1 || (delta > 0 && submissionsPage.value * submissionsPageSize >= submissionsTotal.value)) return
-  submissionsPage.value = nextPage
-  void loadSubmissions()
-}
-
-async function deleteSubmission(submission: RecruitSubmission): Promise<void> {
-  if (!window.confirm(`确定删除「${submission.name || '未署名'}」的报名记录？删除后不可恢复。`)) return
-  try {
-    await adminFetch(
-      `/api/admin/recruit/submissions/${submission.id}?contentId=${encodeURIComponent(selectedContentId.value)}`,
-      { method: 'DELETE' }
-    )
-    selectedIds.value = new Set([...selectedIds.value].filter(id => id !== submission.id))
-    toast.add({ title: '已删除', color: 'success' })
-    void loadSubmissions()
-    void loadSheet()
-  } catch {
-    toast.add({ title: '删除失败', color: 'warning' })
-  }
-}
-
-function submissionDocUrl(submission: RecruitSubmission): string {
-  return `/api/admin/recruit/submissions/${submission.id}/doc?contentId=${encodeURIComponent(selectedContentId.value)}`
-}
-
-const isWeChatBrowser = /MicroMessenger/i.test(navigator.userAgent)
-
-/**
- * Nuxt UI buttons render `href` through NuxtLink, which treats an /api path as
- * an internal route and SPA-navigates to the 404 page instead of downloading.
- * Fetch the bytes with session cookies and hand the blob to a temp anchor;
- * WeChat's in-app browser cannot save blobs, so it opens a new window instead.
- */
-async function downloadFile(url: string, filename: string): Promise<void> {
-  if (isWeChatBrowser) {
-    window.open(url, '_blank', 'noopener')
-    return
-  }
-  try {
-    const blob = await $fetch<Blob>(url, { responseType: 'blob' })
-    const blobUrl = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = blobUrl
-    anchor.download = filename
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
-  } catch {
-    window.open(url, '_blank', 'noopener')
-  }
-}
-
-function downloadTemplate(): void {
-  void downloadFile(templateDownloadUrl.value, form.value?.templateName || '入会申请表模板.docx')
-}
-
-function downloadSampleDoc(): void {
-  void downloadFile(sampleDocUrl.value, '示例-入会申请表.docx')
-}
-
-function downloadSubmissionDoc(submission: RecruitSubmission): void {
-  const base = `${submission.className || ''}${submission.name || ''}`.trim()
-  void downloadFile(submissionDocUrl(submission), `${base || '入会申请表'}.docx`)
-}
-
-function downloadExportWorkbook(): void {
-  void downloadFile(exportUrl.value, `纳新总表-${form.value?.clubName || '社团'}.xlsx`)
-}
-
-// -- payment QR setup (缴费设置) -----------------------------------------------
-
-const paymentUploadTarget = ref<'wechat' | 'alipay' | ''>('')
-const paymentFileInput = ref<HTMLInputElement | null>(null)
-const paymentUploading = ref(false)
-
-function triggerPaymentUpload(target: 'wechat' | 'alipay'): void {
-  paymentUploadTarget.value = target
-  paymentFileInput?.value?.click()
-}
-
-function onPaymentFileChange(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  const target = paymentUploadTarget.value
-  if (!file || !target || !form.value) return
-  if (!file.type.startsWith('image/')) {
-    toast.add({ title: '请选择图片文件', color: 'warning' })
-    return
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    toast.add({ title: '图片不能超过 5MB', color: 'warning' })
-    return
-  }
-
-  paymentUploading.value = true
-  const body = new FormData()
-  body.append('image', file)
-  const csrfHeaders = withAdminRequestOptions({ headers: new Headers() }).headers
-  $fetch<{ url: string }>('/api/admin/media/images', {
-    method: 'POST',
-    body,
-    credentials: 'include',
-    headers: csrfHeaders
-  }).then((result) => {
-    if (!form.value) return
-    if (target === 'wechat') form.value.payment.wechatImage = result.url
-    else form.value.payment.alipayImage = result.url
-    toast.add({ title: '图片已上传，记得点右上角「保存配置」', color: 'success' })
-  }).catch(() => {
-    toast.add({ title: '图片上传失败', color: 'warning' })
-  }).finally(() => {
-    paymentUploading.value = false
-  })
-}
-
-function clearPaymentImage(target: 'wechat' | 'alipay'): void {
-  if (!form.value) return
-  if (target === 'wechat') form.value.payment.wechatImage = null
-  else form.value.payment.alipayImage = null
-}
-
-// -- field option details (部门介绍) --------------------------------------------
-
-function fieldOptionDetailText(field: RecruitFormField, option: string): string {
-  return field.optionDetails?.[option] ?? ''
-}
-
-function setFieldOptionDetail(field: RecruitFormField, option: string, text: string): void {
-  const next: Record<string, string> = {}
-  for (const [key, value] of Object.entries(field.optionDetails ?? {})) {
-    if (key !== option && value.trim()) next[key] = value.trim()
-  }
-  if (text.trim()) next[option] = text.trim()
-  field.optionDetails = Object.keys(next).length ? next : undefined
-}
-
-// -- selection & bulk download -------------------------------------------------
-
-const selectedIds = ref<Set<string>>(new Set())
-const selectedCount = computed(() => selectedIds.value.size)
-const allOnPageSelected = computed(() => submissions.value.length > 0
-  && submissions.value.every(submission => selectedIds.value.has(submission.id)))
-
-function toggleSelectAll(value: boolean | 'indeterminate'): void {
-  const next = new Set(selectedIds.value)
-  if (value === true) {
-    for (const submission of submissions.value) next.add(submission.id)
-  } else {
-    for (const submission of submissions.value) next.delete(submission.id)
-  }
-  selectedIds.value = next
-}
-
-function toggleSelectOne(id: string, value: boolean | 'indeterminate'): void {
-  const next = new Set(selectedIds.value)
-  if (value === true) next.add(id)
-  else next.delete(id)
-  selectedIds.value = next
-}
-
-function downloadSelected(): void {
-  if (selectedCount.value === 0) {
-    toast.add({ title: '请先勾选要下载的提交', color: 'warning' })
-    return
-  }
-  const ids = [...selectedIds.value].join(',')
-  const url = `/api/admin/recruit/submissions/download-selected?contentId=${encodeURIComponent(selectedContentId.value)}&ids=${encodeURIComponent(ids)}`
-  void downloadFile(url, `纳新申请表-选中${selectedCount.value}份.zip`)
-}
-
-const selectingAll = ref(false)
-
-/** 跨页真全选：把当前搜索条件下所有提交都加进勾选。 */
-async function selectAllFiltered(): Promise<void> {
-  if (!selectedContentId.value) return
-  selectingAll.value = true
-  try {
-    const all = new Set<string>()
-    for (let page = 1; ; page += 1) {
-      const result = await adminFetch<RecruitSubmissionPage>(
-        `/api/admin/recruit/submissions?contentId=${encodeURIComponent(selectedContentId.value)}`
-        + `&page=${page}&pageSize=100&query=${encodeURIComponent(searchQuery.value.trim())}`
-      )
-      for (const item of result.items) all.add(item.id)
-      if (all.size >= result.total || result.items.length === 0) break
-    }
-    selectedIds.value = all
-    toast.add({ title: `已全选 ${all.size} 份提交（含未展示页）`, color: 'success' })
-  } catch {
-    toast.add({ title: '全选失败，请重试', color: 'warning' })
-  } finally {
-    selectingAll.value = false
-  }
-}
-
-const departmentSelectItems = computed(() => {
-  const field = (form.value?.fields ?? []).find(item => item.key === 'departments')
-  return (field?.options ?? []).map(option => ({ label: option, value: option }))
+watch(() => route.query.tab, (value) => {
+  const section = resolveSection(value)
+  if (section !== activeSection.value) activeSection.value = section
 })
-const downloadDepartment = ref('')
-
-function downloadByDepartment(): void {
-  if (!downloadDepartment.value) {
-    toast.add({ title: '请先选择部门', color: 'warning' })
-    return
-  }
-  const url = `/api/admin/recruit/submissions/download-selected?contentId=${encodeURIComponent(selectedContentId.value)}`
-    + `&all=1&department=${encodeURIComponent(downloadDepartment.value)}`
-  void downloadFile(url, `纳新申请表-${downloadDepartment.value}.zip`)
-}
-
-function downloadGroupedZip(): void {
-  const url = `/api/admin/recruit/submissions/download-selected?contentId=${encodeURIComponent(selectedContentId.value)}`
-    + '&all=1&grouped=1'
-  void downloadFile(url, '纳新申请表-分部门合集.zip')
-}
-
-// -- referrers (纳新人与邀请码) --------------------------------------------------
-
-const referrers = ref<RecruitReferrer[]>([])
-const referrerNameInput = ref('')
-const referrerCodeInput = ref('')
-const referrerBusy = ref(false)
-
-const recruitOrigin = import.meta.client ? window.location.origin : ''
-
-function referrerLink(code: string): string {
-  return `${recruitOrigin}/recruit/${form.value?.clubSlug ?? ''}?ref=${encodeURIComponent(code)}`
-}
-
-async function loadReferrers(): Promise<void> {
-  if (!selectedContentId.value) return
-  try {
-    const result = await adminFetch<{ items: RecruitReferrer[] }>(
-      `/api/admin/recruit/referrers?contentId=${encodeURIComponent(selectedContentId.value)}`
-    )
-    referrers.value = result.items
-  } catch {
-    toast.add({ title: '纳新人列表加载失败', color: 'warning' })
-  }
-}
-
-async function addReferrer(): Promise<void> {
-  const name = referrerNameInput.value.trim()
-  if (!name) {
-    toast.add({ title: '请填写纳新人姓名', color: 'warning' })
-    return
-  }
-  referrerBusy.value = true
-  try {
-    const result = await adminFetch<{ items: RecruitReferrer[] }>(
-      `/api/admin/recruit/referrers?contentId=${encodeURIComponent(selectedContentId.value)}`,
-      { method: 'POST', body: { name, code: referrerCodeInput.value.trim() || undefined } }
-    )
-    referrers.value = result.items
-    referrerNameInput.value = ''
-    referrerCodeInput.value = ''
-    toast.add({ title: `已添加「${name}」`, description: '复制对应的报名链接发给 TA 即可开始推广。', color: 'success' })
-  } catch {
-    toast.add({ title: '添加失败', description: '姓名可能已存在，或自定义邀请码格式不合法（4-16 位字母数字）。', color: 'warning' })
-  } finally {
-    referrerBusy.value = false
-  }
-}
-
-async function removeReferrer(referrer: RecruitReferrer): Promise<void> {
-  if (!window.confirm(`确定删除纳新人「${referrer.name}」？其邀请码立即失效，已记录的邀请关系不受影响。`)) return
-  try {
-    await adminFetch(
-      `/api/admin/recruit/referrers/${referrer.id}?contentId=${encodeURIComponent(selectedContentId.value)}`,
-      { method: 'DELETE' }
-    )
-    referrers.value = referrers.value.filter(item => item.id !== referrer.id)
-  } catch {
-    toast.add({ title: '删除失败', color: 'warning' })
-  }
-}
-
-async function copyReferrerLink(referrer: RecruitReferrer): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(referrerLink(referrer.code))
-    toast.add({ title: `已复制「${referrer.name}」的报名链接`, color: 'success' })
-  } catch {
-    toast.add({ title: '复制失败，请手动复制', description: referrerLink(referrer.code), color: 'warning' })
-  }
-}
-
-// -- online sheet preview (总表在线预览编辑) ------------------------------------
-
-const sheetRows = ref<RecruitSubmission[]>([])
-const sheetSavingKey = ref('')
-
-async function loadSheet(): Promise<void> {
-  if (!selectedContentId.value) return
-  try {
-    const result = await adminFetch<RecruitSubmissionPage>(
-      `/api/admin/recruit/submissions?contentId=${encodeURIComponent(selectedContentId.value)}&page=1&pageSize=100&query=`
-    )
-    sheetRows.value = result.items
-  } catch {
-    toast.add({ title: '总表预览加载失败', color: 'warning' })
-  }
-}
-
-function sheetFieldType(key: string): string | undefined {
-  return form.value?.fields.find(field => field.key === key)?.type
-}
-
-function sheetCellText(row: RecruitSubmission, key: string): string {
-  const value = row.data[key]
-  if (value === undefined || value === null) return ''
-  return Array.isArray(value) ? value.join('、') : String(value)
-}
-
-async function saveSheetCell(row: RecruitSubmission, key: string, value: string): Promise<void> {
-  const cellKey = `${row.id}:${key}`
-  if (sheetSavingKey.value || sheetCellText(row, key) === value.trim()) return
-  sheetSavingKey.value = cellKey
-  try {
-    const result = await adminFetch<{ submission: RecruitSubmission }>(
-      `/api/admin/recruit/submissions/${row.id}?contentId=${encodeURIComponent(selectedContentId.value)}`,
-      { method: 'PUT', body: { data: { ...row.data, [key]: value.trim() } } }
-    )
-    const index = sheetRows.value.findIndex(item => item.id === row.id)
-    if (index !== -1) sheetRows.value[index] = result.submission
-    void loadSubmissions()
-  } catch {
-    toast.add({ title: '保存失败', description: '该值格式不正确（请检查手机号/QQ/学号/选项）。', color: 'warning' })
-  } finally {
-    sheetSavingKey.value = ''
-  }
-}
-
-function formatDateTime(value: number): string {
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
-}
-
-// -- online viewing/editing of one submission ---------------------------------
-
-const editOpen = ref(false)
-const editSaving = ref(false)
-const editingSubmission = ref<RecruitSubmission | null>(null)
-const editTextValues = ref<Record<string, string>>({})
-const editMultiValues = ref<Record<string, string[]>>({})
-
-function openEdit(submission: RecruitSubmission): void {
-  const fields = form.value?.fields ?? []
-  editingSubmission.value = submission
-  editTextValues.value = Object.fromEntries(fields
-    .filter(field => field.type !== 'multiselect')
-    .map(field => [field.key, typeof submission.data[field.key] === 'string'
-      ? submission.data[field.key] as string
-      : '']))
-  editMultiValues.value = Object.fromEntries(fields
-    .filter(field => field.type === 'multiselect')
-    .map(field => [field.key, Array.isArray(submission.data[field.key])
-      ? submission.data[field.key] as string[]
-      : []]))
-  editOpen.value = true
-}
-
-function editMultiselectSelected(fieldKey: string, option: string): boolean {
-  return (editMultiValues.value[fieldKey] ?? []).includes(option)
-}
-
-function editToggleMultiselect(fieldKey: string, option: string, checked: boolean): void {
-  const current = editMultiValues.value[fieldKey] ?? []
-  editMultiValues.value = {
-    ...editMultiValues.value,
-    [fieldKey]: checked
-      ? [...new Set([...current, option])]
-      : current.filter(item => item !== option)
-  }
-}
-
-async function saveEdit(): Promise<void> {
-  const submission = editingSubmission.value
-  if (!submission || editSaving.value) return
-  // Missing fields are tolerated (paper-form imports) — the server only
-  // rejects invalid values such as malformed phone/QQ/student numbers.
-  editSaving.value = true
-  try {
-    await adminFetch(
-      `/api/admin/recruit/submissions/${submission.id}?contentId=${encodeURIComponent(selectedContentId.value)}`,
-      { method: 'PUT', body: { data: { ...editTextValues.value, ...editMultiValues.value } } }
-    )
-    editOpen.value = false
-    toast.add({ title: '已保存', description: '修改会同步到之后生成的申请表文档与总表。', color: 'success' })
-    void loadSubmissions()
-  } catch {
-    toast.add({ title: '保存失败', description: '请检查填写内容（手机号/QQ/学号格式）后重试。', color: 'warning' })
-  } finally {
-    editSaving.value = false
-  }
-}
 
 watch(selectedContentId, () => {
   void loadForm()
@@ -885,11 +169,6 @@ onMounted(async () => {
         <h1 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
           纳新管理
         </h1>
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {{ form
-            ? `${form.clubName} · 表单${form.status === 'open' ? '已开放，新生可填写提交' : '未开放，开放后报名入口生效'}`
-            : '配置社团正式纳新表单、申请表模板与总表导出' }}
-        </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <USelect
@@ -1706,361 +985,34 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section
+      <RecruitStatsPanel
         v-show="activeSection === 'stats'"
-        class="space-y-4"
-      >
-        <div
-          v-if="submissionStats"
-          class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-4"
-        >
-          <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-            <h3 class="text-sm font-semibold">
-              数据概览
-            </h3>
-            <span class="text-xs text-zinc-500 dark:text-zinc-400">
-              总提交 {{ submissionStats.total }} 份 · 已确认缴费 {{ submissionStats.paidCount }} 份 · 缺关键信息 {{ submissionStats.missingCount }} 份
-            </span>
-          </div>
-          <div>
-            <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              每日提交
-            </p>
-            <div class="overflow-x-auto">
-              <div class="flex min-w-[560px] items-end gap-1 h-36">
-                <div
-                  v-for="day in statsDaily"
-                  :key="day.label"
-                  class="flex min-w-8 flex-1 flex-col items-center justify-end gap-1 h-full"
-                  :title="`${day.label}：${day.count} 份`"
-                >
-                  <span class="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">{{ day.count || '' }}</span>
-                  <div
-                    class="w-full max-w-8 rounded-t bg-primary-500/70"
-                    :style="{ height: `${Math.max(2, Math.round((day.count / maxDailyCount) * 100))}%` }"
-                  />
-                  <span class="text-[9px] whitespace-nowrap text-zinc-400">{{ day.label.slice(5) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="grid gap-6 md:grid-cols-2">
-            <div
-              v-for="group in statPieGroups"
-              :key="group.key"
-            >
-              <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                {{ group.label }}
-              </p>
-              <div class="flex items-center gap-5">
-                <svg
-                  viewBox="0 0 42 42"
-                  class="size-36 shrink-0"
-                  role="img"
-                  :aria-label="group.label"
-                >
-                  <circle
-                    cx="21"
-                    cy="21"
-                    r="15.9155"
-                    fill="none"
-                    stroke-width="6"
-                    class="stroke-zinc-100 dark:stroke-zinc-800"
-                  />
-                  <circle
-                    v-for="slice in pieSlices(group.buckets)"
-                    :key="slice.label"
-                    cx="21"
-                    cy="21"
-                    r="15.9155"
-                    fill="none"
-                    stroke-width="6"
-                    :stroke="slice.color"
-                    :stroke-dasharray="`${slice.pct} ${100 - slice.pct}`"
-                    :stroke-dashoffset="slice.offset"
-                  />
-                  <text
-                    x="21"
-                    y="23.5"
-                    text-anchor="middle"
-                    class="fill-zinc-700 dark:fill-zinc-200"
-                    style="font-size: 7px; font-weight: 600;"
-                  >{{ pieTotal(group.buckets) }}</text>
-                  <text
-                    x="21"
-                    y="30"
-                    text-anchor="middle"
-                    class="fill-zinc-400"
-                    style="font-size: 3.5px;"
-                  >总人数</text>
-                </svg>
-                <ul class="min-w-0 flex-1 space-y-1 text-xs">
-                  <li
-                    v-for="slice in pieSlices(group.buckets)"
-                    :key="slice.label"
-                    class="flex items-center gap-2"
-                  >
-                    <span
-                      class="size-2.5 shrink-0 rounded-sm"
-                      :style="{ backgroundColor: slice.color }"
-                    />
-                    <span class="min-w-0 flex-1 truncate text-zinc-600 dark:text-zinc-300">{{ slice.label }}</span>
-                    <span class="tabular-nums text-zinc-400">{{ slice.pct }}%</span>
-                    <span class="w-7 text-right tabular-nums text-zinc-500 dark:text-zinc-400">{{ slice.count }}</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-          <div>
-            <p class="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              班级分布（共 {{ statsClasses.length }} 个班级）
-            </p>
-            <div class="grid gap-x-6 gap-y-1.5 md:grid-cols-2">
-              <div
-                v-for="bucket in statsClasses"
-                :key="bucket.label"
-                class="flex items-center gap-2 text-xs"
-              >
-                <span class="w-32 shrink-0 truncate text-right text-zinc-500 dark:text-zinc-400">{{ bucket.label }}</span>
-                <div class="h-4 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
-                  <div
-                    class="h-full rounded bg-primary-500/70"
-                    :style="{ width: statBarWidth(bucket.count, maxClassCount) }"
-                  />
-                </div>
-                <span class="w-7 tabular-nums text-zinc-500 dark:text-zinc-400">{{ bucket.count }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div
-          v-else
-          class="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 p-8 text-center text-sm text-zinc-500 dark:text-zinc-400"
-        >
-          统计加载中，或还没有可统计的提交。
-        </div>
-      </section>
+        :stats="submissionStats"
+      />
 
-      <section
+      <RecruitExportPanel
         v-show="activeSection === 'export'"
-        class="space-y-4"
-      >
-        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                总表导出列
-              </h2>
-              <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                调整导出 Excel 的列与顺序，保存配置后生效。
-              </p>
-            </div>
-            <UButton
-              icon="i-lucide-file-spreadsheet"
-              label="下载总表（xlsx）"
-              @click="downloadExportWorkbook"
-            />
-          </div>
-          <div class="space-y-2">
-            <div
-              v-for="(column, index) in form.exportColumns"
-              :key="`${column.key}-${index}`"
-              class="flex flex-wrap items-center gap-2"
-            >
-              <USelect
-                :model-value="column.key"
-                :items="columnSourceOptions.map(source => ({ label: source.label, value: source.key }))"
-                class="w-52"
-                @update:model-value="value => onExportColumnKeyChange(column, String(value))"
-              />
-              <UInput
-                v-model="column.label"
-                placeholder="表头显示名"
-                class="w-44"
-              />
-              <div class="flex items-center gap-1">
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="soft"
-                  icon="i-lucide-arrow-up"
-                  aria-label="上移"
-                  @click="moveExportColumn(index, -1)"
-                />
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="soft"
-                  icon="i-lucide-arrow-down"
-                  aria-label="下移"
-                  @click="moveExportColumn(index, 1)"
-                />
-                <UButton
-                  size="xs"
-                  color="error"
-                  variant="soft"
-                  icon="i-lucide-trash-2"
-                  aria-label="删除列"
-                  @click="removeExportColumn(index)"
-                />
-              </div>
-            </div>
-          </div>
-          <UButton
-            size="xs"
-            icon="i-lucide-plus"
-            label="添加导出列"
-            variant="soft"
-            @click="addExportColumn"
-          />
-        </div>
-
-        <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3">
-          <div>
-            <h2 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-              总表在线预览
-            </h2>
-            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              按上方导出列实时预览全部提交，单元格可直接修改，失焦后自动保存并同步到文档与 Excel。
-            </p>
-          </div>
-          <div
-            v-if="sheetRows.length === 0"
-            class="border border-dashed border-zinc-300 dark:border-zinc-700 rounded-md p-6 text-center text-sm text-zinc-500 dark:text-zinc-400"
-          >
-            还没有提交数据
-          </div>
-          <div
-            v-else
-            class="overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800"
-          >
-            <table class="w-full text-sm">
-              <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-left text-xs text-zinc-500 dark:text-zinc-400">
-                <tr>
-                  <th
-                    v-for="column in form.exportColumns"
-                    :key="`head-${column.key}`"
-                    class="px-3 py-2 font-medium whitespace-nowrap"
-                  >
-                    {{ column.label }}
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
-                <tr
-                  v-for="row in sheetRows"
-                  :key="row.id"
-                  class="text-zinc-800 dark:text-zinc-200"
-                >
-                  <td
-                    v-for="column in form.exportColumns"
-                    :key="`${row.id}:${column.key}`"
-                    class="px-2 py-1.5 min-w-[9rem]"
-                  >
-                    <span
-                      v-if="sheetFieldType(column.key) === 'multiselect'"
-                      class="text-xs leading-6"
-                    >{{ sheetCellText(row, column.key) || '—' }}</span>
-                    <UInput
-                      v-else
-                      size="xs"
-                      class="w-full"
-                      :model-value="sheetCellText(row, column.key)"
-                      :loading="sheetSavingKey === `${row.id}:${column.key}`"
-                      @change="event => saveSheetCell(row, column.key, (event.target as HTMLInputElement)?.value ?? '')"
-                    />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+        :columns="form?.exportColumns ?? []"
+        :sources="columnSourceOptions"
+        :rows="sheetRows"
+        :fields="form?.fields ?? []"
+        :saving-key="sheetSavingKey"
+        @download="downloadExportWorkbook"
+        @add-column="addExportColumn"
+        @remove-column="removeExportColumn"
+        @move-column="moveExportColumn"
+        @change-column-key="onExportColumnKeyChange"
+        @change-column-label="renameExportColumn"
+        @save-cell="saveSheetCell"
+      />
     </template>
 
-    <UModal
+    <RecruitSubmissionEditModal
       v-model:open="editOpen"
-      :title="editingSubmission ? `查看 / 编辑 - ${editingSubmission.name || '未署名'}` : '查看 / 编辑'"
-      :ui="{ content: 'w-[calc(100vw-1rem)] sm:max-w-xl' }"
-    >
-      <template #body>
-        <div
-          v-if="editingSubmission"
-          class="space-y-4"
-        >
-          <p class="text-xs text-zinc-500 dark:text-zinc-400">
-            提交于 {{ formatDateTime(editingSubmission.createdAt) }} · 保存后重新校验并同步到申请表文档与总表
-          </p>
-          <div
-            v-for="field in form?.fields ?? []"
-            :key="field.key"
-          >
-            <label
-              class="flex items-baseline gap-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
-              :for="`edit-field-${field.key}`"
-            >
-              <span>{{ field.label }}</span>
-              <span
-                v-if="field.required"
-                class="text-red-600 dark:text-red-400"
-                aria-hidden="true"
-              >*</span>
-            </label>
-            <div class="mt-2">
-              <UTextarea
-                v-if="field.type === 'textarea'"
-                :id="`edit-field-${field.key}`"
-                v-model="editTextValues[field.key]"
-                :rows="3"
-                class="w-full"
-              />
-              <USelect
-                v-else-if="field.type === 'select'"
-                :id="`edit-field-${field.key}`"
-                v-model="editTextValues[field.key]"
-                :items="field.options ?? []"
-                class="w-full"
-              />
-              <div
-                v-else-if="field.type === 'multiselect'"
-                class="flex min-h-10 flex-wrap items-center gap-x-5 gap-y-2"
-              >
-                <UCheckbox
-                  v-for="option in field.options ?? []"
-                  :key="option"
-                  :model-value="editMultiselectSelected(field.key, option)"
-                  :label="option"
-                  @update:model-value="value => editToggleMultiselect(field.key, option, value === true)"
-                />
-              </div>
-              <UInput
-                v-else
-                :id="`edit-field-${field.key}`"
-                v-model="editTextValues[field.key]"
-                :placeholder="field.placeholder"
-                class="w-full"
-              />
-            </div>
-          </div>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex w-full items-center justify-end gap-2">
-          <UButton
-            label="取消"
-            color="neutral"
-            variant="soft"
-            @click="() => { editOpen = false }"
-          />
-          <UButton
-            label="保存修改"
-            icon="i-lucide-save"
-            :loading="editSaving"
-            @click="saveEdit"
-          />
-        </div>
-      </template>
-    </UModal>
+      :submission="editingSubmission"
+      :fields="form?.fields ?? []"
+      :saving="editSaving"
+      @save="saveEdit"
+    />
   </div>
 </template>

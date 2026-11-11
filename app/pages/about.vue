@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import {
   aboutBoundaries,
+  aboutContributionTracks,
   aboutGovernanceLinks,
   aboutHeroActions,
-  aboutProjectFacts
+  aboutMaintainers,
+  aboutProjectFacts,
+  aboutRepositories
 } from '~~/app/utils/about-presentation'
 import type { AboutTone } from '~~/app/utils/about-presentation'
 
@@ -15,8 +18,8 @@ const aboutToneClasses: Record<AboutTone, string> = {
 }
 
 useSeoMeta({
-  title: '关于这份指南',
-  description: '了解迎新指南能帮你做什么、哪些事项要看学校通知，以及怎样反馈错误。'
+  title: '关于本站',
+  description: '学生个人整理的非官方新生指南；报到、缴费等以学校通知为准。'
 })
 </script>
 
@@ -30,10 +33,10 @@ useSeoMeta({
           variant="soft"
         />
         <h1 class="mt-4 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
-          这个指南能帮你做什么
+          关于本站
         </h1>
         <p class="mt-3 max-w-3xl text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-          把新生常用的地图、办事、清单和校园生活信息放在一起，方便你少走弯路。内容由个人或学生团队整理，不代表学校。
+          内容由学生个人整理，不代表学校。
         </p>
         <nav
           aria-label="关于本站常用入口"
@@ -91,14 +94,195 @@ useSeoMeta({
           <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
             <div>
               <p class="section-kicker">
+                谁在维护
+              </p>
+              <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
+                维护者
+              </h2>
+              <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+                内容、地图数据、页面和发布，一个人做。改动都在仓库提交里。
+              </p>
+            </div>
+
+            <div class="space-y-4">
+              <article
+                v-for="person in aboutMaintainers"
+                :key="person.name"
+                class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 sm:p-5"
+              >
+                <div class="flex items-start gap-4">
+                  <span
+                    class="grid size-11 shrink-0 place-items-center rounded-full"
+                    :class="aboutToneClasses[person.tone]"
+                  >
+                    <UIcon
+                      :name="person.icon"
+                      class="size-5"
+                    />
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h3 class="text-base font-bold text-zinc-950 dark:text-zinc-100">
+                        {{ person.name }}
+                      </h3>
+                      <UBadge
+                        :label="person.role"
+                        color="success"
+                        variant="soft"
+                      />
+                    </div>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      {{ person.handle }}
+                    </p>
+                    <ul class="mt-3 flex flex-wrap gap-1.5">
+                      <li
+                        v-for="item in person.focus"
+                        :key="item"
+                        class="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-300"
+                      >
+                        {{ item }}
+                      </li>
+                    </ul>
+                    <p class="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                      {{ person.note }}
+                    </p>
+                  </div>
+                </div>
+              </article>
+              <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                过期的条目会标核验时间，核不到就撤。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-shell py-8 md:py-10">
+        <div class="grid gap-7 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
+          <div>
+            <p class="section-kicker">
+              一起做
+            </p>
+            <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
+              可以帮的事
+            </h2>
+            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+              不要求会写代码。想接哪一块，加微信说。
+            </p>
+
+            <ul class="mt-6 divide-y divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800">
+              <li
+                v-for="track in aboutContributionTracks"
+                :key="track.title"
+                class="flex gap-4 py-4"
+              >
+                <UIcon
+                  :name="track.icon"
+                  class="mt-0.5 size-5 shrink-0 text-green-700 dark:text-green-400"
+                />
+                <div>
+                  <h3 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
+                    {{ track.title }}
+                  </h3>
+                  <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                    {{ track.detail }}
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <aside class="rounded-lg border border-green-200 dark:border-green-800 bg-white dark:bg-zinc-900 p-4 shadow-sm sm:p-5">
+            <p class="text-xs font-semibold text-green-700 dark:text-green-400">
+              加微信
+            </p>
+            <h3 class="mt-1 text-base font-bold text-zinc-950 dark:text-zinc-100">
+              备注“想一起做”
+            </h3>
+            <img
+              src="/images/contact-wechat.png"
+              alt="维护者微信二维码，加好友时备注想一起做"
+              width="888"
+              height="1131"
+              class="mt-4 aspect-[888/1131] w-full rounded-md border border-zinc-100 dark:border-zinc-800 object-contain"
+            >
+            <p class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              纠错和加群都用这个号
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
+        <div class="page-shell py-8 md:py-10">
+          <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
+            <div>
+              <p class="section-kicker">
+                开源
+              </p>
+              <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
+                仓库
+              </h2>
+              <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
+                觉得有用就点个 star。
+              </p>
+              <p class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                代码用 MIT 许可；引用的学校通知和官网内容，版权归原单位。
+              </p>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <article
+                v-for="repo in aboutRepositories"
+                :key="repo.url"
+                class="flex flex-col rounded-lg border border-zinc-200 dark:border-zinc-800 p-4"
+              >
+                <div class="flex items-center gap-2">
+                  <span
+                    class="grid size-8 place-items-center rounded-md"
+                    :class="aboutToneClasses[repo.tone]"
+                  >
+                    <UIcon
+                      :name="repo.icon"
+                      class="size-4"
+                    />
+                  </span>
+                  <span class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    {{ repo.meta }}
+                  </span>
+                </div>
+                <h3 class="mt-3 font-mono text-sm font-bold text-zinc-950 dark:text-zinc-100">
+                  {{ repo.name }}
+                </h3>
+                <p class="mt-2 flex-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                  {{ repo.description }}
+                </p>
+                <UButton
+                  :to="repo.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  :icon="repo.icon"
+                  :label="repo.label"
+                  color="neutral"
+                  variant="outline"
+                  class="mt-4 min-h-11 self-start"
+                />
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
+        <div class="page-shell py-8 md:py-10">
+          <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
+            <div>
+              <p class="section-kicker">
                 使用前先知道
               </p>
               <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100">
-                这些信息可以怎么用
+                四条规则
               </h2>
-              <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-                日常找路和查资料可以从这里开始，报到、缴费等重要事项仍要看学校通知。
-              </p>
             </div>
 
             <div class="grid gap-x-8 md:grid-cols-2">
@@ -140,7 +324,7 @@ useSeoMeta({
               想确认来源，或发现信息不对
             </h2>
             <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              重要信息会尽量附上参考链接，并写明我们最近查看的时间。发现错误时，只要告诉我们哪个页面、哪里不对以及正确情况。请不要提交密码、证件号码或他人的私人信息。
+              提交时不要写密码、证件号码或他人的私人信息。
             </p>
           </div>
 
@@ -180,7 +364,7 @@ useSeoMeta({
               重要事项以学校通知为准
             </h2>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              校名、校徽和官网内容归学校及相关单位所有。本站引用这些内容只是为了帮助新生查找信息，不表示学校参与维护或认可本站。
+              校名、校徽和官网内容归学校及相关单位所有；引用不代表学校认可本站。
             </p>
           </div>
           <UButton

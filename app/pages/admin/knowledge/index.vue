@@ -323,7 +323,7 @@ async function saveClaim(): Promise<void> {
 }
 
 async function archiveClaim(row: ClaimRow): Promise<void> {
-  if (!window.confirm(`确认归档“${row.title}”？归档后 AI 不再使用这条内容。`)) return
+  if (!window.confirm(`确认归档“${row.title}”？归档后问答不再使用这条内容。`)) return
   try {
     await adminFetch(`/api/admin/knowledge/${row.id}`, { method: 'DELETE' })
     await loadClaims()
@@ -358,7 +358,6 @@ onMounted(async () => {
   <div class="mx-auto max-w-7xl space-y-5">
     <AdminPageHeader
       title="知识库"
-      description="管理 AI 可以引用的事实、证据和有效期。"
       icon="i-lucide-brain-circuit"
       eyebrow="内容管理"
     >
@@ -373,7 +372,7 @@ onMounted(async () => {
         <UButton
           to="/admin/knowledge/graph"
           icon="i-lucide-git-fork"
-          label="知识图谱"
+          label="关联视图"
           color="neutral"
           variant="outline"
         />
@@ -391,15 +390,6 @@ onMounted(async () => {
         />
       </template>
     </AdminPageHeader>
-
-    <section class="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-sm leading-6 text-blue-950 dark:text-blue-300">
-      此页只管理需要人工审核的“知识事实”。AI 已收录的内置知识、官网正文和网页资料，请到
-      <NuxtLink
-        to="/admin/knowledge/library"
-        class="font-semibold underline underline-offset-2"
-      >全部资料</NuxtLink>
-      查看；它们不会因为此处暂无审核事实而丢失。
-    </section>
 
     <div
       v-if="errorMessage"
@@ -657,7 +647,7 @@ onMounted(async () => {
               required
             />
           </UFormField>
-          <UFormField label="检索词">
+          <UFormField label="查找词">
             <UInput
               v-model="form.keywordsText"
               class="w-full"

@@ -1,6 +1,6 @@
 /**
  * Official 2026 arrival calendar helpers + "today focus" from the local checklist.
- * Dates are school-calendar confirmed windows; personal times still "以通知为准".
+ * Dates are school-calendar confirmed windows; personal times still come from the admission notice.
  */
 
 import {
@@ -17,11 +17,11 @@ export const ORIENTATION_START = '2026-09-07'
 export const ORIENTATION_END = '2026-09-09'
 export const CLASS_START = '2026-09-10'
 
-export type ArrivalPhase =
-  | 'before-report'
-  | 'report-window'
-  | 'orientation'
-  | 'class-started'
+export type ArrivalPhase
+  = | 'before-report'
+    | 'report-window'
+    | 'orientation'
+    | 'class-started'
 
 export interface ArrivalMilestone {
   id: string
@@ -140,7 +140,7 @@ export function buildArrivalCountdown(now: Date = new Date()): ArrivalCountdownV
     }
   ]
 
-  const honestyNote = '个人时段、窗口与材料以录取通知书和学校当年通知为准，本页只整理校历已确认的公共日期。'
+  const honestyNote = '个人到校时段写在录取通知书上。'
 
   if (phase === 'before-report') {
     return {
@@ -167,7 +167,7 @@ export function buildArrivalCountdown(now: Date = new Date()): ArrivalCountdownV
       phase,
       phaseLabel: '报到窗口',
       headline: isLastDay ? '今天是报到窗口最后一天' : '今天处于报到窗口',
-      detail: '先在地图定位报到点或宿舍，再按现场指引办理；材料有变以现场通知为准。',
+      detail: '先在地图定位报到点或宿舍，再按现场指引办理；材料有变，现场会另行通知。',
       daysNumber: 0,
       daysUnit: '今天',
       primaryCtaLabel: '打开校园地图',
@@ -186,7 +186,7 @@ export function buildArrivalCountdown(now: Date = new Date()): ArrivalCountdownV
       phase,
       phaseLabel: '入学教育',
       headline: '入学教育进行中',
-      detail: '集合地点与学院安排以辅导员/学院通知为准；同时把校园一卡通、网络和安全电话补齐。',
+      detail: '集合地点和学院安排看辅导员或学院通知；同时把校园一卡通、网络和安全电话补齐。',
       daysNumber: Math.max(0, daysToClass),
       daysUnit: daysToClass > 0 ? '天后上课' : '天',
       primaryCtaLabel: '校园一卡通与网络',
@@ -204,7 +204,7 @@ export function buildArrivalCountdown(now: Date = new Date()): ArrivalCountdownV
     phase,
     phaseLabel: '已开学',
     headline: daysToClass < 0 ? '已进入日常学期' : '今天开始上课',
-    detail: '日常事项、快递外卖、社团和周边生活可以按需查看；过期流程仍以学校最新通知为准。',
+    detail: '日常事项、快递外卖、社团和周边生活，用到时再看；过期流程看学校最新通知。',
     daysNumber: null,
     daysUnit: '',
     primaryCtaLabel: '校园生活入口',
@@ -257,7 +257,7 @@ export function buildTodayFocus(
       title: '报到当天优先做',
       description: '先定位再办理，保存紧急求助入口。'
     },
-    orientation: {
+    'orientation': {
       title: '入学教育期间优先做',
       description: '补齐校园一卡通、网络、学习和安全相关事项。'
     },

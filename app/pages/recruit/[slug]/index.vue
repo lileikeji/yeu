@@ -76,7 +76,7 @@ async function loadForm(): Promise<void> {
       submittedInfo.value = { data: draft.data }
     } else if (Object.keys(draftData).length > 0) {
       hasSavedDraft.value = true
-      toast.add({ title: '已恢复上次填写的进度', description: '继续填写即可，内容会自动保存。', color: 'success' })
+      toast.add({ title: '已恢复上次填写的进度', color: 'success' })
     }
   } catch {
     notFound.value = true
@@ -157,7 +157,6 @@ async function submitForm(): Promise<void> {
   if (payment.value?.enabled && paymentConfirmed.value !== true) {
     toast.add({
       title: '请先缴纳会费',
-      description: '按下方收款码完成付款后，勾选「已缴纳会费」再提交。',
       color: 'warning'
     })
     return
@@ -274,7 +273,7 @@ onMounted(() => {
           没有找到纳新表单
         </h2>
         <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          该社团还没有开放纳新，或链接有误。请联系社团负责人获取最新报名入口。
+          该社团还没有开放纳新。
         </p>
       </div>
 
@@ -291,7 +290,7 @@ onMounted(() => {
           纳新暂未开放
         </h2>
         <p class="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-300">
-          {{ payload.club?.name || '该社团' }}的纳新表单当前未开放，开放后可在此填写。
+          {{ payload.club?.name || '该社团' }}的纳新表单当前未开放。
         </p>
       </div>
 
@@ -329,7 +328,7 @@ onMounted(() => {
           你已完成报名
         </h2>
         <p class="mt-2 text-sm leading-6 text-green-800 dark:text-green-300">
-          检测到该设备已提交过入会申请（{{ submittedInfo.data.name || '未署名' }}），无需重复填写。如信息有变动，可在下方修改。
+          该设备已提交过入会申请（{{ submittedInfo.data.name || '未署名' }}）。
         </p>
         <div class="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
           <UButton
@@ -436,7 +435,7 @@ onMounted(() => {
             缴纳会费
           </h3>
           <p class="text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-            {{ payment.note }}。点击二维码进入付款页，按页面步骤保存识别即可付款。
+            {{ payment.note }}。
           </p>
           <div
             v-if="payment.wechatImage || payment.alipayImage"
@@ -459,11 +458,11 @@ onMounted(() => {
                 >
               </a>
               <figcaption class="text-center text-xs text-zinc-500 dark:text-zinc-400">
-                {{ qr.label }}（点击进入付款码页）
+                {{ qr.label }}（点击打开付款页）
               </figcaption>
             </figure>
           </div>
-          <UFormField label="是否已缴纳会费（选「是」才能提交）">
+          <UFormField label="是否已缴纳会费">
             <USelect
               :model-value="paymentConfirmed === true ? 'yes' : 'no'"
               :items="[
@@ -476,10 +475,7 @@ onMounted(() => {
           </UFormField>
         </div>
 
-        <div class="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-            提交后将自动生成你的入会申请表，请确认信息真实准确。
-          </p>
+        <div class="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
           <UButton
             type="submit"
             icon="i-lucide-send"

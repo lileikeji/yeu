@@ -81,7 +81,7 @@ test('campus page gives 2026 freshmen a cautious military training preparation s
   assert.equal(campusMilitaryPreparation.items.length, 4)
   assert.match(campusMilitaryPreparation.description, /具体地点.*服装装备.*请假要求还要等当届通知/)
   assert.match(campusMilitaryPreparation.items[1]?.description ?? '', /不要按往年帖子购买/)
-  assert.match(campusMilitaryPreparation.items[2]?.description ?? '', /以学校当届通知为准/)
+  assert.match(campusMilitaryPreparation.items[2]?.description ?? '', /看学校当届通知/)
   assert.match(campusMilitaryPreparation.items[3]?.description ?? '', /不能据此推定2026级/)
   assert.doesNotMatch(
     JSON.stringify(campusMilitaryPreparation),
@@ -157,7 +157,7 @@ test('campus overview keeps short, useful previews and links to complete lists',
 })
 
 test('campus overview lets mobile visitors jump to departments and clubs', () => {
-  assert.match(pageSource, /aria-label="校园概览快速入口"/)
+  assert.match(pageSource, /aria-label="校园概览入口"/)
   assert.match(pageSource, /href="#departments"/)
   assert.match(pageSource, /href="#clubs"/)
   assert.match(pageSource, /id="departments"[\s\S]*scroll-mt-20/)

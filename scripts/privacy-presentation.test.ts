@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
@@ -24,7 +24,7 @@ test('privacy actions keep a comfortable mobile touch height', () => {
 })
 
 test('public update and offline copy avoid admin-facing language', () => {
-  assert.match(updatePromptSource, /正在输入反馈或聊天时，可以先点稍后/)
+  assert.match(updatePromptSource, /刷新后生效/)
   assert.match(updatePromptSource, /有新的校园内容/)
   assert.match(updatePromptSource, /window\.setTimeout/)
   // Refreshing is delegated to updateServiceWorker + the shared recovery/navigation
@@ -77,7 +77,7 @@ test('privacy sections stay student-facing', () => {
 test('privacy summary presents the important choices before the detailed rules', () => {
   assert.match(pageSource, /先记住这三点/)
   assert.match(pageSource, /常用功能怎么保护你的信息/)
-  assert.match(pageSource, /不会向你索要学号、校园一卡通密码或校园网密码/)
+  assert.match(pageSource, /不要学号、一卡通密码、校园网密码/)
   assert.match(pageSource, /class="mt-4 grid gap-3 sm:grid-cols-3"/)
   assert.match(pageSource, /highlight\.tone === 'blue'/)
   assert.match(pageSource, /highlight\.tone === 'amber'/)

@@ -72,7 +72,7 @@ async function submit(force = false): Promise<void> {
       // 关键词类提问服务端会要求走普通检索，这里自动回退，不让用户卡住。
       if (code === 'REGULAR_SEARCH_PREFERRED') {
         mode.value = 'search'
-        notice.value = '这句话更像关键词，已按站内检索显示结果。可以换成完整问句再试 AI 问答。'
+        notice.value = '已按关键词显示结果；换成完整问句可继续提问。'
         aiAnswer.value = null
         await runCatalogSearch(value)
       } else {
@@ -194,13 +194,13 @@ onShow(handleShow)
 </script>
 
 <template>
-  <AppPage title="站内搜索" subtitle="可以按关键词查地点和资料，也可以直接用一句话问 AI。">
+  <AppPage title="站内搜索">
     <view class="mode-row">
       <button class="mode-button" :class="{ selected: mode === 'search' }" @click="switchMode('search')">
-        <text class="mode-text">站内检索</text>
+        <text class="mode-text">查资料</text>
       </button>
       <button class="mode-button" :class="{ selected: mode === 'ai' }" @click="switchMode('ai')">
-        <text class="mode-text">AI 问答</text>
+        <text class="mode-text">直接问</text>
       </button>
     </view>
 
@@ -244,7 +244,7 @@ onShow(handleShow)
     >
       <view v-if="aiAnswer" class="ai-block">
         <view class="ai-head">
-          <text class="chip">AI 回答</text>
+          <text class="chip">回答</text>
           <text class="t-meta">{{ aiAnswer.mode === 'ai' ? '结合站内与公开资料' : '基于站内资料' }}</text>
         </view>
         <ContentBlocks class="ai-body" :body="aiAnswer.answer" />
@@ -265,7 +265,7 @@ onShow(handleShow)
             <text v-if="citation.snippet" class="t-meta citation-snippet">{{ citation.snippet }}</text>
           </button>
         </view>
-        <text class="t-meta ai-disclaimer">AI 回答只做整理，办理要求以学校当届通知和现场为准。</text>
+        <text class="t-meta ai-disclaimer">整理结果可能有出入，办理要求以学校当届通知和现场为准。</text>
       </view>
 
       <view v-if="features.length" class="feature-list">

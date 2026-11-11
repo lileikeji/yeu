@@ -74,7 +74,7 @@ async function loadRoutes(): Promise<void> {
   if (outboundResult.status === 'fulfilled') outbound.value = outboundResult.value
   if (inboundResult.status === 'fulfilled') inbound.value = inboundResult.value
   if (!outbound.value && !inbound.value) {
-    routeError.value = '高德当前没有返回可用的公交组合。可直接用下方“驾车 / 打车”规划，出发前同时确认返程是否还能叫到车。'
+    routeError.value = '暂时没有可用公交方案，可先用下方驾车 / 打车。'
   }
   loading.value = false
 }
@@ -104,7 +104,6 @@ function selectDestination(destination: NearbyGuideDestination): void {
   <UModal
     v-model:open="open"
     :title="`怎么去 ${selectedDestination.label}`"
-    description="先选这张攻略里的具体地点，再看实时公交、打车和返校方案。"
     scrollable
     :ui="{ content: 'sm:max-w-3xl' }"
   >
@@ -153,7 +152,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
                 导航目标：{{ selectedDestination.label }}
               </p>
               <p class="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-                {{ selectedDestination.poiId ? '已用高德 POI 与经纬度交叉核对，不再使用可能搜不到的模糊关键词。' : '已使用系统内核验过的区域中心坐标，不依赖模糊关键词。' }}
+                {{ selectedDestination.poiId ? '坐标已核对' : '区域中心坐标' }}
               </p>
               <p
                 v-if="selectedDestination.note"
@@ -272,7 +271,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
               v-else
               class="mt-3 text-xs leading-5 text-zinc-500 dark:text-zinc-400"
             >
-              这一方向暂未取得实时公交结果，请用高德公交或打车按钮重新规划。
+              暂无实时公交，可改用打车
             </p>
           </section>
         </div>
@@ -288,7 +287,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
             v-if="item.destinations.length > 1"
             class="mt-2 text-xs leading-5 text-zinc-400 dark:text-zinc-500"
           >
-            上面的公交 API 每次只规划到你选中的一个地点。切换地点即可分别查看，不会把多个相距较远的点误当成同一个终点。
+            切换地点分别查看
           </p>
         </section>
       </div>

@@ -144,7 +144,7 @@ export const adminDashboardModules: AdminDashboardModule[] = [
   },
   {
     key: 'assistant-runs',
-    label: 'AI 检索',
+    label: '问答',
     icon: 'i-lucide-bot',
     endpoint: '/api/admin/assistant',
     to: '/admin/assistant',
@@ -184,7 +184,7 @@ export const adminDashboardQuickActions: AdminDashboardQuickAction[] = [
   { label: '评价审核', icon: 'i-lucide-star', to: '/admin/place-reviews', group: 'ops' },
   { label: '创建账号', icon: 'i-lucide-user-plus', to: '/admin/users', group: 'ops' },
   { label: '群聊管理', icon: 'i-lucide-messages-square', to: '/admin/chat', group: 'ops' },
-  { label: 'AI 检索统计', icon: 'i-lucide-bot', to: '/admin/assistant', group: 'ops' },
+  { label: '问答统计', icon: 'i-lucide-bot', to: '/admin/assistant', group: 'ops' },
   { label: '访客轨迹', icon: 'i-lucide-radar', to: '/admin/visitors', group: 'security' },
   { label: '小程序分析', icon: 'i-lucide-smartphone', to: '/admin/miniapp', group: 'security' },
   { label: '封禁管理', icon: 'i-lucide-shield-ban', to: '/admin/bans', group: 'security' },
@@ -201,9 +201,9 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   },
   {
     key: 'graph',
-    label: '知识图谱',
+    label: '关联',
     items: [
-      { label: '数字山水图谱', icon: 'i-lucide-git-fork', to: '/admin/knowledge/graph' }
+      { label: '关联视图', icon: 'i-lucide-git-fork', to: '/admin/knowledge/graph' }
     ]
   },
   {
@@ -231,7 +231,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
       { label: '账号', icon: 'i-lucide-users', to: '/admin/users' },
       { label: '组织管理员', icon: 'i-lucide-shield-user', to: '/admin/organization-accounts' },
       { label: '群聊', icon: 'i-lucide-messages-square', to: '/admin/chat' },
-      { label: 'AI 检索', icon: 'i-lucide-bot', to: '/admin/assistant' }
+      { label: '问答', icon: 'i-lucide-bot', to: '/admin/assistant' }
     ]
   },
   {

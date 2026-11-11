@@ -24,16 +24,12 @@ const imageFiles = [
   'dingding-old-area-stop-concept-hd.png'
 ]
 
-test('social image notice explains the permission boundary in ordinary language', () => {
+test('the social image research page is retired and cannot come back as a public route', () => {
+  // 2026-11-10 下线：这个内部研究页混在公开路由里，没有任何前台入口，
+  // 也没有用户价值。保留这条断言，防止它被重新加回 app/pages。
   const pagePath = join(process.cwd(), 'app/pages/research/xiaohongshu-images.vue')
-  const page = readFileSync(pagePath, 'utf8')
-  assert.match(page, /部分社交平台图片暂不展示/)
-  assert.match(page, /没有获得明确同意前，本站不会展示或改编它们/)
-  assert.match(page, /用 AI 重画也不能代替作者同意/)
-  assert.doesNotMatch(page, /研究素材|书面再利用许可|AI 重构|概念示意/)
-  assert.match(page, /robots: 'noindex, nofollow'/)
-  assert.doesNotMatch(page, /<img|xiaohongshu-recreations-2026-07-15/)
-  assert.doesNotMatch(page, /<main\b/)
+  assert.equal(existsSync(pagePath), false, '研究页已下线，不要加回公开路由')
+  assert.equal(existsSync(join(process.cwd(), 'app/pages/research')), false, 'research 目录不再存在')
 })
 
 test('xiaohongshu derivatives are absent from public images and indexed without shipping binaries', () => {

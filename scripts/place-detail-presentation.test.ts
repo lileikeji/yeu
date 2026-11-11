@@ -104,7 +104,7 @@ test('place category checklist and copy text follow student-facing rules', () =>
     key: 'map-source',
     title: '高德地图位置参考',
     url: null,
-    meta: '这个位置来自高德地图，可先用来确认大致方向。',
+    meta: '位置来自高德，仅供认路',
     unavailable: true
   }])
 })

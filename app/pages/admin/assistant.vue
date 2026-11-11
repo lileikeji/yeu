@@ -3,7 +3,7 @@ import { adminFetch } from '~~/app/utils/admin-request'
 import { getRequestMessage, isAuthorizationError } from '~~/app/utils/request-error'
 
 definePageMeta({ layout: 'admin' })
-useSeoMeta({ title: 'AI 检索统计', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '问答统计', robots: 'noindex, nofollow' })
 
 type AssistantRunRow = {
   id: string
@@ -51,8 +51,8 @@ type AssistantStageDurationKey = 'analysisMs' | 'featureApiMs' | 'databaseMs' | 
 
 const assistantStageDefinitions: Array<{ key: AssistantStageDurationKey, label: string }> = [
   { key: 'analysisMs', label: '分析问题' },
-  { key: 'featureApiMs', label: '系统 API' },
-  { key: 'databaseMs', label: '内置数据库' },
+  { key: 'featureApiMs', label: '本站数据' },
+  { key: 'databaseMs', label: '本站资料' },
   { key: 'webCacheMs', label: '网页缓存' },
   { key: 'webSearchMs', label: '网页搜索' },
   { key: 'answerMs', label: '整理答案' }
@@ -80,12 +80,12 @@ const channelCounts = ref<AssistantChannelCount[]>([])
 const expanded = ref<Record<string, boolean>>({})
 
 const pathOptions = [
-  { label: '全部路径', value: 'all' },
-  { label: '系统 API', value: 'feature_api' },
-  { label: '内置数据库', value: 'local_database' },
-  { label: '答案缓存', value: 'answer_cache' },
-  { label: '网页资料缓存', value: 'web_cache' },
-  { label: '网页搜索', value: 'web_search' },
+  { label: '全部来源', value: 'all' },
+  { label: '本站数据', value: 'feature_api' },
+  { label: '本站资料', value: 'local_database' },
+  { label: '缓存答案', value: 'answer_cache' },
+  { label: '网页缓存', value: 'web_cache' },
+  { label: '网页', value: 'web_search' },
   { label: '失败', value: 'error' }
 ]
 const successOptions = [
@@ -105,7 +105,7 @@ function channelLabel(value: string): string {
   return assistantChannels[value] ?? value
 }
 const statCards = computed(() => [
-  { label: '检索次数', value: stats.value.total.toLocaleString('zh-CN'), icon: 'i-lucide-messages-square' },
+  { label: '问答次数', value: stats.value.total.toLocaleString('zh-CN'), icon: 'i-lucide-messages-square' },
   { label: '成功率', value: formatPercent(stats.value.successRate), icon: 'i-lucide-circle-check' },
   { label: '网页调用占比', value: formatPercent(stats.value.webSearchRate), icon: 'i-lucide-globe' },
   { label: '缓存命中率', value: formatPercent(stats.value.cacheHitRate), icon: 'i-lucide-database-zap' },
@@ -139,12 +139,12 @@ function requestOrigin(row: AssistantRunRow): string {
 
 function errorDescription(code: string): string {
   const descriptions: Record<string, string> = {
-    AI_GATEWAY_401: 'AI 中转鉴权失败',
-    AI_GATEWAY_403: 'AI 中转拒绝请求',
-    AI_CIRCUIT_OPEN: 'AI 中转连续失败，熔断保护已开启',
+    AI_GATEWAY_401: '问答服务鉴权失败',
+    AI_GATEWAY_403: '问答服务拒绝请求',
+    AI_CIRCUIT_OPEN: '问答服务连续失败，已暂停请求',
     AI_CONTENT_BLOCKED: '内容安全规则拒绝回答',
-    AI_BUSY: 'AI 当前请求过多',
-    AI_NOT_CONFIGURED: 'AI 中转尚未配置'
+    AI_BUSY: '问答服务当前请求过多',
+    AI_NOT_CONFIGURED: '问答服务尚未配置'
   }
   return descriptions[code] ?? '问答处理失败'
 }
@@ -160,7 +160,7 @@ function formatDate(value: string): string {
 }
 
 function pathLabel(value: string): string {
-  return pathOptions.find(item => item.value === value)?.label ?? value
+  return pathOptions.find(item => item.value === value)?.label ?? '其他来源'
 }
 
 function shortValue(value: string | null, length = 12): string {
@@ -200,7 +200,7 @@ async function loadRuns(): Promise<void> {
       await navigateTo('/admin/login', { replace: true })
       return
     }
-    errorMessage.value = getRequestMessage(error, 'AI 检索记录加载失败')
+    errorMessage.value = getRequestMessage(error, '问答记录加载失败')
   } finally {
     loading.value = false
   }
@@ -222,8 +222,7 @@ onMounted(() => void loadRuns())
 <template>
   <div class="mx-auto max-w-7xl space-y-6">
     <AdminPageHeader
-      title="AI 检索统计"
-      description="查看问答走了哪条检索路径、各阶段耗时、网页调用和失败情况。"
+      title="问答统计"
       icon="i-lucide-bot"
       eyebrow="用户与互动"
     >
@@ -253,7 +252,7 @@ onMounted(() => void loadRuns())
       {{ errorMessage }}
     </div>
 
-    <section class="grid grid-cols-2 gap-3 lg:grid-cols-6" aria-label="AI 检索概览">
+    <section class="grid grid-cols-2 gap-3 lg:grid-cols-6" aria-label="问答概览">
       <div
         v-for="card in statCards"
         :key="card.label"
@@ -294,7 +293,7 @@ onMounted(() => void loadRuns())
             @keyup.enter="applyFilters"
           />
         </UFormField>
-        <UFormField label="检索路径">
+        <UFormField label="回答来源">
           <USelect v-model="retrievalPath" :items="pathOptions" class="w-full" />
         </UFormField>
         <UFormField label="调用来源">
@@ -318,7 +317,7 @@ onMounted(() => void loadRuns())
         正在加载
       </div>
       <div v-else-if="!items.length" class="grid min-h-48 place-items-center px-4 text-sm text-zinc-500 dark:text-zinc-400">
-        暂无符合条件的 AI 检索记录
+        暂无符合条件的问答记录
       </div>
       <ul v-else class="divide-y divide-zinc-100 dark:divide-zinc-800">
         <li v-for="row in items" :key="row.id" class="px-4 py-4">
@@ -372,7 +371,7 @@ onMounted(() => void loadRuns())
                   执行阶段
                 </dt>
                 <dd class="mt-0.5">
-                  请求在进入可计时检索阶段前失败
+                  请求尚未进入计时阶段就失败了
                 </dd>
               </div>
               <div>

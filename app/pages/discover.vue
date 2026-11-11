@@ -9,7 +9,7 @@ import {
 
 useSeoMeta({
   title: '更多服务',
-  description: '按新生当前要做的事，快速进入校园地图、报到、指南、部门、社团与周边目录。'
+  description: '按现在要做的事，进校园地图、报到、指南、部门、社团和周边。'
 })
 
 const tasksExpanded = ref(false)
@@ -33,9 +33,6 @@ function toggleTaskPreview(): void {
             <h1 class="mt-1 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               你现在想做什么
             </h1>
-            <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              首页只放了最常用的几个入口，这里把全部入口按要办的事汇总在一起，也支持直接搜索地点、部门和社团。
-            </p>
           </div>
           <UButton
             to="/search"

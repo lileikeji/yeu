@@ -165,7 +165,7 @@ test.describe('搜索故障恢复', () => {
     await search.getByLabel('站内搜索', { exact: true }).fill('图书馆')
     await search.getByRole('button', { name: '搜索', exact: true }).click()
 
-    await expect(page.getByText('有些内容暂时没显示出来，先为你保留地图里能找到的地点。')).toBeVisible()
+    await expect(page.getByText('有些内容没显示出来，地图里能找到的地点还在。')).toBeVisible()
     await expect(page.getByRole('link', { name: /图书馆/ }).first()).toBeVisible()
   })
 })
@@ -176,7 +176,7 @@ test('地图 SDK 加载失败时保留地点列表和重试说明', async ({ pag
 
   await ensureMapSearchVisible(page)
   await expect(page.getByText('地图画面暂时没有显示出来', { exact: true })).toBeVisible()
-  await expect(page.getByText(/可以重新试一次，也可以先查看学校平面图或地点清单/)).toBeVisible()
+  await expect(page.getByText('可重试，或先看平面图与清单', { exact: true })).toBeVisible()
   const fallbackPlace = page.getByRole('button', { name: /E2E 确认服务点/ })
   await fallbackPlace.scrollIntoViewIfNeeded()
   await expect(fallbackPlace).toBeVisible()

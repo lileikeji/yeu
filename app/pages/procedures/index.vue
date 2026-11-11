@@ -17,12 +17,19 @@ import {
   studentFacingProcedureText,
   studentFacingProcedureTitle
 } from '~~/app/utils/procedure-detail-presentation'
+import {
+  describeProcedureWindow,
+  procedureWindowBadgeColor,
+  procedureWindowStateLabels,
+  resolveProcedureWindowBySlug,
+  type ProcedureWindowBadgeColor
+} from '~~/app/utils/procedure-window'
 
 const { data, error, refresh } = await usePublicProcedureList()
 
 useSeoMeta({
   title: '新生办事流程',
-  description: '查看新生报到等事项的办理步骤、材料、地点，以及现在可以准备的内容。'
+  description: '报到等事项的办理步骤、要带的材料、去哪儿办，以及现在就能准备的。'
 })
 
 const query = ref('')
@@ -34,6 +41,21 @@ const procedures = computed(() => filterProcedureListItems(data.value?.items ?? 
 }))
 const filtersActive = computed(() => Boolean(query.value.trim()) || audience.value !== 'all')
 const checklistTick = ref(0)
+const procedureWindowTick = useState('procedure-window-now', () => Date.now())
+const hiddenProcedureWindowBadge = { label: '', color: 'neutral' as ProcedureWindowBadgeColor, visible: false }
+
+// 办理窗口只写在 seed 里，公开接口不带这个字段；没有核实日期的流程（upcoming/unknown）不占卡片位置
+function procedureWindowBadge(slug: string) {
+  const seedWindow = resolveProcedureWindowBySlug(slug)
+  if (!seedWindow) return hiddenProcedureWindowBadge
+  const description = describeProcedureWindow(seedWindow, procedureWindowTick.value)
+  if (description.state === 'upcoming' || description.state === 'unknown') return hiddenProcedureWindowBadge
+  return {
+    label: procedureWindowStateLabels[description.state],
+    color: procedureWindowBadgeColor(description.tone),
+    visible: true
+  }
+}
 
 function readChecklistForItem(item: { slug: string, steps: ReadonlyArray<{ id: string }>, materials: ReadonlyArray<{ id: string }> }) {
   void checklistTick.value
@@ -92,9 +114,6 @@ onMounted(() => {
             <h1 class="text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
               新生办事流程
             </h1>
-            <p class="mt-3 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
-              先找你要办的事，再按步骤准备时间、材料和地点。尚未公布的安排会直接标明，费用请以录取通知书和学校最新通知为准。
-            </p>
           </div>
           <UButton
             to="/guides"
@@ -195,7 +214,6 @@ onMounted(() => {
           <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             {{ procedures.length }} 件事
           </h2>
-          <span class="text-xs text-zinc-500 dark:text-zinc-400">点开查看步骤</span>
         </div>
 
         <div
@@ -218,17 +236,31 @@ onMounted(() => {
                   class="size-5"
                 />
               </span>
-              <UBadge
-                :color="procedureListStatePresentation(item.informationState).color"
-                variant="soft"
-                size="sm"
-              >
-                <UIcon
-                  :name="procedureListStatePresentation(item.informationState).icon"
-                  class="mr-1 size-3.5"
-                />
-                {{ procedureListStatePresentation(item.informationState).label }}
-              </UBadge>
+              <div class="flex shrink-0 flex-col items-end gap-1.5">
+                <UBadge
+                  :color="procedureListStatePresentation(item.informationState).color"
+                  variant="soft"
+                  size="sm"
+                >
+                  <UIcon
+                    :name="procedureListStatePresentation(item.informationState).icon"
+                    class="mr-1 size-3.5"
+                  />
+                  {{ procedureListStatePresentation(item.informationState).label }}
+                </UBadge>
+                <UBadge
+                  v-if="procedureWindowBadge(item.slug).visible"
+                  :color="procedureWindowBadge(item.slug).color"
+                  variant="soft"
+                  size="sm"
+                >
+                  <UIcon
+                    name="i-lucide-calendar-clock"
+                    class="mr-1 size-3.5"
+                  />
+                  {{ procedureWindowBadge(item.slug).label }}
+                </UBadge>
+              </div>
             </div>
             <h2 class="mt-3 text-base font-bold text-zinc-950 dark:text-zinc-100 md:mt-5">
               {{ studentFacingProcedureTitle(item.title) }}
@@ -284,9 +316,6 @@ onMounted(() => {
           <h2 class="mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
             {{ filtersActive ? procedureListMessages.emptyMatch : procedureListMessages.emptyList }}
           </h2>
-          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            {{ filtersActive ? '换个关键词或适用人群试试。' : '可以先看看入学指南，了解现在能准备什么。' }}
-          </p>
           <div class="mt-5 flex flex-wrap justify-center gap-2">
             <UButton
               v-if="filtersActive"
