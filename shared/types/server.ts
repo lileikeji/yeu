@@ -855,3 +855,28 @@ export interface ApiActivityComment {
   displayName: string
   createdAt: string
 }
+
+/**
+ * 地图地点卡片里的统一信息流：把「校园热度事件」和「社团/部门活动」放在
+ * 同一个列表里。signal 的日期来自标题/摘要里的预告日期，活动用真实开始时间。
+ */
+export interface ApiPlaceFeedItem {
+  kind: 'activity' | 'signal'
+  id: string
+  slug: string
+  title: string
+  summary: string
+  /** 用于展示和排序的时间；signal 无预告日期时回落到最近发布时间。 */
+  at: string
+  /** signal 才有：从标题/摘要解析出的预告日期（YYYY-MM-DD）。 */
+  dateHint: string | null
+  status: 'upcoming' | 'started'
+  room: string | null
+  coverUrl: string | null
+  organization: ApiActivityOrganization | null
+  channel: 'notice' | 'news' | null
+}
+
+export interface ApiPlaceFeedResponse {
+  items: ApiPlaceFeedItem[]
+}

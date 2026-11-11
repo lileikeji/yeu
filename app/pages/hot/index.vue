@@ -24,6 +24,29 @@ const { data: reportData } = await useFetch<ApiSignalReportListResponse>('/api/p
 const events = computed(() => data.value?.events ?? [])
 const reports = computed(() => reportData.value?.reports ?? [])
 
+const route = useRoute()
+const router = useRouter()
+
+function hashSlug(): string {
+  const raw = String(route.hash ?? '').replace(/^#/, '')
+  if (!raw) return ''
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
+// 地图卡片跳过来时带 #slug：只显示这一条，和筛选器一样可一键还原。
+// hash 只有浏览器端可见，先留空再在挂载后读取，避免 SSR 与客户端首帧不一致。
+const focusSlug = ref('')
+const focusEvent = computed(() => {
+  if (!focusSlug.value) return null
+  return events.value.find(event =>
+    event.slug === focusSlug.value || event.id === focusSlug.value
+  ) ?? null
+})
+
 const activeCategory = ref('全部')
 const categories = computed(() => {
   const seen: string[] = []
@@ -34,8 +57,27 @@ const categories = computed(() => {
 })
 
 const visibleEvents = computed(() => {
+  if (focusSlug.value) return focusEvent.value ? [focusEvent.value] : []
   if (activeCategory.value === '全部') return events.value
   return events.value.filter(event => event.category === activeCategory.value)
+})
+
+function resetFocus(): void {
+  focusSlug.value = ''
+  activeCategory.value = '全部'
+  void router.replace({ hash: '' })
+}
+
+watch(() => route.hash, () => {
+  focusSlug.value = hashSlug()
+})
+
+onMounted(() => {
+  focusSlug.value = hashSlug()
+  if (!focusSlug.value) return
+  void nextTick(() => {
+    document.getElementById(focusSlug.value)?.scrollIntoView({ block: 'start' })
+  })
 })
 
 type SignalListRow
@@ -53,6 +95,9 @@ const newsEvents = computed(() => visibleEvents.value.filter(event => event.chan
 // 通知公告排前面，校园动态默认折叠：两者混在一起会把「要办事的」淹掉。
 // 通知也只露前 5 条，一百多条铺下来要滚很久。
 const listRows = computed<SignalListRow[]>(() => {
+  if (focusSlug.value) {
+    return focusEvent.value ? [{ type: 'event', event: focusEvent.value }] : []
+  }
   const rows: SignalListRow[] = []
   const notices = showAllNotices.value
     ? noticeEvents.value
@@ -118,7 +163,30 @@ const dayText = signalRelativeTime
     </header>
 
     <section
-      v-if="reports.length"
+      v-if="focusSlug"
+      class="page-shell pt-4 md:pt-5"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/50">
+        <div class="min-w-0">
+          <p class="text-xs text-emerald-700 dark:text-emerald-300">
+            已定位到地图点过来的这条
+          </p>
+          <p class="mt-0.5 truncate text-sm font-semibold text-emerald-950 dark:text-emerald-100">
+            {{ focusEvent?.title || '没有找到这条消息' }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="min-h-9 shrink-0 rounded-md border border-emerald-300 bg-white px-3 text-sm font-medium text-emerald-800 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-200"
+          @click="resetFocus"
+        >
+          查看全部
+        </button>
+      </div>
+    </section>
+
+    <section
+      v-if="!focusSlug && reports.length"
       class="page-shell pt-4 md:pt-5"
     >
       <div class="rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900">
@@ -154,7 +222,10 @@ const dayText = signalRelativeTime
     </section>
 
     <section class="page-shell py-4 md:py-5">
-      <div class="-mx-1 flex snap-x gap-1 overflow-x-auto pb-1">
+      <div
+        v-if="!focusSlug"
+        class="-mx-1 flex snap-x gap-1 overflow-x-auto pb-1"
+      >
         <button
           v-for="category in categories"
           :key="category"
@@ -173,15 +244,16 @@ const dayText = signalRelativeTime
         v-if="!visibleEvents.length"
         class="mt-6 rounded-xl border border-dashed border-[var(--line)] p-6 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
-        这一类暂时没有新消息。换个分类，或者过一会儿再来看看。
+        {{ focusSlug ? '这条消息可能已经被新的抓取结果替换，点上面的「查看全部」看当前列表。' : '这一类暂时没有新消息。换个分类，或者过一会儿再来看看。' }}
       </p>
 
       <ul class="mt-3 space-y-2">
         <li
           v-for="(row, index) in listRows"
+          :id="row.type === 'event' ? row.event.slug : undefined"
           :key="row.type === 'event' ? row.event.id : `more-${index}`"
           :class="row.type === 'event'
-            ? 'rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900'
+            ? 'scroll-mt-24 rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900'
             : 'flex items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--line)] px-4 py-3'"
         >
           <template v-if="row.type === 'notice-more'">
@@ -249,12 +321,18 @@ const dayText = signalRelativeTime
               <span>{{ row.event.sourceCount }} 个来源 · {{ row.event.itemCount }} 条</span>
               <span>热度 {{ heatText(row.event.heat) }}</span>
               <span>{{ dayText(row.event.lastSeenAt) }}发布</span>
+              <NuxtLink
+                :to="`/hot/${encodeURIComponent(row.event.slug)}`"
+                class="ml-auto min-h-8 rounded-md px-2 text-xs font-medium text-emerald-700 underline-offset-2 hover:underline dark:text-emerald-300"
+              >
+                查看详情
+              </NuxtLink>
               <button
                 type="button"
-                class="ml-auto min-h-8 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
+                class="min-h-8 rounded-md px-2 text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
                 @click="toggle(row.event.slug)"
               >
-                {{ expanded === row.event.slug ? '收起原文' : '看原文' }}
+                {{ expanded === row.event.slug ? '收起摘要' : '展开摘要' }}
               </button>
             </div>
 
