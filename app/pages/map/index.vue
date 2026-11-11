@@ -1469,7 +1469,13 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 767px) {
-  /* 窄屏：工具栏占着右上角，控件挪到它正下方并右边缘对齐。 */
+  /*
+   * 窄屏：工具栏占着右上角，控件挪到它正下方并右边缘对齐。
+   * 18.875rem(302px) = 工具栏 bottom(359) − ctrl 容器 top(65) + 8px 间隙。
+   * ⚠️ 该值耦合了「移动端工具栏 = 7 个 40px 按钮 + 2px 边框」这一事实：
+   * 工具栏按钮增减、或 .maplibregl-ctrl button 的移动端 40px 再调整，
+   * 都需要重新量算这个 margin-top，否则控件会静默错位。
+   */
   .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
     margin-top: 18.875rem;
     margin-right: 0.75rem;
@@ -1479,6 +1485,19 @@ onBeforeUnmount(() => {
   .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock button {
     width: 40px;
     height: 40px;
+  }
+}
+
+/*
+ * 横屏且极矮（≤480px 高）：7 个按钮的竖直工具栏（约 282px）本身就已经超过
+ * 地图可视区高度（740×360 下只有 222px），没有空间在它下方再放缩放组。
+ * 此时退回到改动前的「贴右上、靠工具栏左侧」形态，保证控件仍可见可点。
+ * 工具栏本身的收纳是另一个问题，不在这里处理。
+ */
+@media (max-width: 767px) and (max-height: 480px) {
+  .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
+    margin-top: 0.75rem;
+    margin-right: 3.5rem;
   }
 }
 
