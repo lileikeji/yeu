@@ -10,6 +10,16 @@ interface LngLat {
   lat: number
 }
 
+/** 分段实测车速切片：沿线里程 [fromAlong, toAlong] 用实测均速（已含减速带与上下客）。 */
+export interface LineSpeedSlice {
+  fromAlong: number
+  toAlong: number
+  speedMps: number
+}
+
+/** 分段车速表；为空时退回「巡航 6.4 m/s + 减速带加时」的老算法。 */
+export type LineSpeedProfile = LineSpeedSlice[]
+
 /**
  * 兜底均速（m/s，约 12 km/h）。实测 2026-11-02：全程 2.46km 平时 10-12 分钟。
  *
@@ -232,13 +242,15 @@ export function travelSecondsOnLine(
   line: LngLat[],
   cumulative: number[],
   fromAlong: number,
-  toAlong: number
+  toAlong: number,
+  profile?: LineSpeedProfile
 ): number {
   if (line.length < 2) return 0
   const total = Math.abs(toAlong - fromAlong)
   if (total < 1e-6) return 0
   const low = Math.min(fromAlong, toAlong)
   const high = Math.max(fromAlong, toAlong)
+  if (profile && profile.length > 0) return travelSecondsWithProfile(low, high, profile)
   let seconds = total / CAMPUS_CRUISE_MPS
   for (const bumpAlong of bumpDistancesOnLine(line, cumulative)) {
     if (bumpAlong > low && bumpAlong <= high) seconds += bumpExtraSeconds()
@@ -246,10 +258,36 @@ export function travelSecondsOnLine(
   return seconds
 }
 
+/**
+ * 按分段实测车速积分：切片内用实测均速（已含减速带与上下客），
+ * 切片没覆盖到的空档用 3.4 m/s 兜底。避免「段速已含减速带 + 再加 4.07s」重复计入。
+ */
+function travelSecondsWithProfile(low: number, high: number, profile: LineSpeedProfile): number {
+  const slices = [...profile].sort((a, b) => a.fromAlong - b.fromAlong)
+  let seconds = 0
+  let cursor = low
+  for (const slice of slices) {
+    if (slice.speedMps <= 0 || slice.toAlong <= slice.fromAlong) continue
+    const start = Math.max(low, slice.fromAlong)
+    const end = Math.min(high, slice.toAlong)
+    if (end <= start) continue
+    if (start > cursor) seconds += (start - cursor) / CAMPUS_AVERAGE_MPS
+    seconds += (end - start) / slice.speedMps
+    cursor = Math.max(cursor, end)
+  }
+  if (cursor < high) seconds += (high - cursor) / CAMPUS_AVERAGE_MPS
+  return seconds
+}
+
 /** 只有折线（没有预计算里程表）时的便捷入口。 */
-export function travelSecondsAlongPolyline(polyline: LngLat[], fromAlong: number, toAlong: number): number {
+export function travelSecondsAlongPolyline(
+  polyline: LngLat[],
+  fromAlong: number,
+  toAlong: number,
+  profile?: LineSpeedProfile
+): number {
   if (polyline.length < 2) return 0
-  return travelSecondsOnLine(polyline, cumulativeDistances(polyline), fromAlong, toAlong)
+  return travelSecondsOnLine(polyline, cumulativeDistances(polyline), fromAlong, toAlong, profile)
 }
 
 /** 计算车辆在线路上的进度。
@@ -263,7 +301,7 @@ export function computeBusProgress(
   bus: LngLat,
   stops: LngLat[],
   polyline: LngLat[],
-  options: { isAtSite?: boolean, speedMps?: number } = {}
+  options: { isAtSite?: boolean, speedMps?: number, profile?: LineSpeedProfile } = {}
 ): BusProgress | null {
   if (stops.length < 2) return null
   const line = resolveLine(stops, polyline)
@@ -317,7 +355,7 @@ export function computeBusProgress(
   const cruise = options.speedMps && options.speedMps > 0 ? options.speedMps : null
   const etaSeconds = cruise
     ? distanceToNextStopMeters / cruise
-    : travelSecondsOnLine(line, cumulative, busDistance, stopDistances[nextStopIndex]!)
+    : travelSecondsOnLine(line, cumulative, busDistance, stopDistances[nextStopIndex]!, options.profile)
 
   return {
     segmentIndex,
@@ -377,7 +415,7 @@ export function computeStopToStop(
   polyline: LngLat[],
   fromIndex: number,
   toIndex: number,
-  options: { speedMps?: number } = {}
+  options: { speedMps?: number, profile?: LineSpeedProfile } = {}
 ): { distanceMeters: number, stopsBetween: number, etaSeconds: number } | null {
   if (stops.length < 2) return null
   if (fromIndex < 0 || fromIndex >= stops.length || toIndex < 0 || toIndex >= stops.length) return null
@@ -392,7 +430,7 @@ export function computeStopToStop(
     stopsBetween: Math.abs(toIndex - fromIndex) - 1,
     etaSeconds: cruise
       ? distanceMeters / cruise
-      : travelSecondsOnLine(line, cumulative, stopDistances[fromIndex]!, stopDistances[toIndex]!)
+      : travelSecondsOnLine(line, cumulative, stopDistances[fromIndex]!, stopDistances[toIndex]!, options.profile)
         + (Math.abs(toIndex - fromIndex) - 1) * STATION_DWELL_SECONDS
   }
 }
