@@ -23,7 +23,7 @@ import {
   YEU_CAMPUS_REFERENCE_BOUNDS,
   YEU_CAMPUS_REFERENCE_CENTER
 } from '../../core/campus'
-import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapTransitVehicle } from '../../core/types'
+import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapBusStop, MapMountOptions, MapPoi, MapTransitVehicle } from '../../core/types'
 import { gcj02ToWgs84 } from '~~/shared/utils/coordinate-convert'
 import {
   createMarkerImage,
@@ -408,8 +408,16 @@ export class MapLibrePreviewProvider implements MapProvider {
       return false
     }
 
+    // 预览底图是 WGS84，必须先把 GCJ-02 归一化，否则飞到的位置会偏移约 558m。
+    // toWgs84Point 对 BD-09 返回 null（留给上层统一预处理）：此时不飞、返回
+    // false；所有现有调用方都忽略返回值，行为上就是「BD-09 点不再飞」。
+    const target = toWgs84Point(point)
+    if (!target) {
+      return false
+    }
+
     this.map.flyTo({
-      center: [point.lng, point.lat],
+      center: [target.lng, target.lat],
       zoom,
       essential: true
     })
@@ -610,13 +618,17 @@ export class MapLibrePreviewProvider implements MapProvider {
         }
       })
     }
+    // 校外公交数据是 GCJ-02（useMapTransit 里 crs 标注属实），预览底图是
+    // WGS84，必须在渲染层转换，否则车辆圆点整体偏移约 558m。
     this.updateSource(TRANSIT_VEHICLES_SOURCE_ID, {
       type: 'FeatureCollection',
       features: vehicles
         .filter(vehicle => this.isRenderablePoint(vehicle.point))
-        .map(vehicle => ({
+        .map(vehicle => ({ vehicle, point: toWgs84Point(vehicle.point) }))
+        .filter((entry): entry is { vehicle: MapTransitVehicle, point: GeoPoint } => entry.point !== null)
+        .map(({ vehicle, point }) => ({
           type: 'Feature',
-          geometry: { type: 'Point', coordinates: [vehicle.point.lng, vehicle.point.lat] },
+          geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
           properties: {
             id: vehicle.id,
             plate: vehicle.plate,
@@ -644,10 +656,20 @@ export class MapLibrePreviewProvider implements MapProvider {
     const drawnStops = new Set<string>()
     for (const route of routes) {
       const color = route.color ?? TRANSIT_ROUTE_COLOR
+      // 校外公交折线与站点都是 GCJ-02，预览底图是 WGS84：先逐点转换，
+      // 再判断折线是否仍够 2 点（顺序反了会把有效线路误判为空）。
+      const polylinePoints = (route.polyline ?? [])
+        .filter(point => this.isRenderablePoint(point))
+        .map(point => toWgs84Point(point))
+        .filter((point): point is GeoPoint => point !== null)
+      const routeStops = route.stops
+        .filter(stop => this.isRenderablePoint(stop.point))
+        .map(stop => ({ stop, point: toWgs84Point(stop.point) }))
+        .filter((entry): entry is { stop: MapBusStop, point: GeoPoint } => entry.point !== null)
       // 沿路形状优先（高德线路快照），缺失回退站点直连。
-      const linePoints = (route.polyline && route.polyline.length >= 2)
-        ? route.polyline
-        : route.stops.map(stop => stop.point).filter(point => this.isRenderablePoint(point))
+      const linePoints = polylinePoints.length >= 2
+        ? polylinePoints
+        : routeStops.map(entry => entry.point)
       if (linePoints.length >= 2) {
         features.push({
           type: 'Feature',
@@ -655,15 +677,14 @@ export class MapLibrePreviewProvider implements MapProvider {
           properties: { kind: 'route', id: route.id, name: route.name, color }
         })
       }
-      for (const stop of route.stops) {
+      for (const { stop, point } of routeStops) {
         if (!stop.isOrigin && !stop.isDestination) continue
-        if (!this.isRenderablePoint(stop.point)) continue
         const stopKey = stop.name
         if (drawnStops.has(stopKey)) continue
         drawnStops.add(stopKey)
         features.push({
           type: 'Feature',
-          geometry: { type: 'Point', coordinates: [stop.point.lng, stop.point.lat] },
+          geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
           properties: { kind: 'terminal', id: stop.id, name: stop.name, color }
         })
       }
