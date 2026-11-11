@@ -260,7 +260,7 @@ const updatedAtText = computed(() => {
   <button
     v-if="!open"
     type="button"
-    class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:min-h-11 md:w-80 md:rounded-lg md:border md:border-zinc-200 md:bg-white md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-4 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700 dark:md:bg-zinc-900"
+    class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg md:border md:border-zinc-200 md:bg-white md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-4 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700 dark:md:bg-zinc-900"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="展开校车线路总览"
     @click="emit('update:open', true)"
@@ -280,11 +280,11 @@ const updatedAtText = computed(() => {
   <!-- 展开态：移动端全屏浮层；桌面端 320px 竖面板，从单行条底边向下展开 -->
   <section
     v-else
-    class="absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-4 md:bottom-auto md:right-auto md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-80 md:rounded-lg md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
+    class="map-bus-panel-enter absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-4 md:bottom-auto md:right-auto md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-80 md:rounded-lg md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="校车线路总览"
   >
-    <header class="sticky top-0 z-10 flex items-center gap-2 border-b border-zinc-100 bg-white px-3 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
+    <header class="sticky top-0 z-10 flex h-11 items-center gap-2 border-b border-zinc-100 bg-white px-3 dark:border-zinc-800 dark:bg-zinc-900">
       <UIcon
         name="i-lucide-bus-front"
         class="size-4 text-orange-600"
@@ -593,3 +593,30 @@ const updatedAtText = computed(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+/*
+ * 展开/收起过渡：收起条 44px 与展开面板 header 44px 同高、同 x/y，
+ * 切换点位不跳；这里只补一个淡入 + 轻微下移，避免瞬间替换显得生硬。
+ */
+.map-bus-panel-enter {
+  animation: map-bus-panel-in 160ms ease-out;
+}
+
+@keyframes map-bus-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-bus-panel-enter {
+    animation: none;
+  }
+}
+</style>
