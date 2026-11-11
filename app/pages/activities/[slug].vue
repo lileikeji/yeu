@@ -183,7 +183,7 @@ useSeoMeta({
               icon="i-lucide-map"
               color="primary"
             >
-              在地图中查看教学楼
+              在地图中查看地点
             </UButton>
             <UButton
               v-if="organizationPath"
@@ -226,6 +226,11 @@ useSeoMeta({
               >
             </div>
           </div>
+
+          <ActivityComments
+            id="comments"
+            :activity-slug="slug"
+          />
 
           <p class="mt-8 text-xs text-zinc-400 dark:text-zinc-500">
             活动信息由{{ activity.organization?.title || '组织' }}发布，经校方审核后展示。

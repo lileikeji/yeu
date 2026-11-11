@@ -846,3 +846,12 @@ export interface ApiPublicActivity {
 export interface ApiAdminActivity extends ApiActivity {
   createdByAdminId: string | null
 }
+
+/** 活动留言：公开只返回已展示的，不暴露 IP/匿名键/审核字段。 */
+export interface ApiActivityComment {
+  id: string
+  body: string
+  images: string[]
+  displayName: string
+  createdAt: string
+}
