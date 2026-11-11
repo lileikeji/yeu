@@ -7,8 +7,14 @@ name: sync-master
 #
 # 行为：
 #   1. master 有新提交 → 建同步 PR（base = 默认分支）
-#   2. 无冲突 → 开 auto-merge，CI 绿了自动合
-#   3. 有冲突 → 不合并，PR 标题加 [需手工解决冲突]，等人工处理
+#   2. 检测到冲突 → 不建 PR，workflow 失败并输出手工处理指引
+#   3. 建完 PR 就结束，**不自动合并**
+#
+# 为什么不自动合并：
+#   - GitHub 的 auto-merge 要求目标分支有 branch protection 规则，而默认分支
+#     目前没有（且协作者无 admin 权限添加）。
+#   - 在 workflow 里 sleep 轮询 CI 会占用 runner 最多 40 分钟，且容易误判。
+#   - master 的更新可能是几十个文件的功能提交，合并前值得看一眼。
 #
 # 不做反向同步（默认分支 → master）。那个方向由人工决定。
 
@@ -38,8 +44,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          # 用 PAT 而非 GITHUB_TOKEN：GITHUB_TOKEN 创建的 PR 不会触发后续 workflow
-          # （包括 ci.yml），导致 auto-merge 永远等不到 CI 结果。
+          # 用 PAT 而非 GITHUB_TOKEN：GITHUB_TOKEN 创建的 PR 不会触发后续
+          # workflow（包括 ci.yml），PR 上的 CI 永远不跑。
           token: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Configure git
@@ -94,28 +100,45 @@ jobs:
         run: |
           git push origin "${{ steps.merge.outputs.branch }}"
 
-      - name: Open PR and enable auto-merge
+      - name: Open PR
         if: steps.check.outputs.skip == 'false' && steps.merge.outputs.conflict == 'false'
+        id: pr
         env:
           GH_TOKEN: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           DEFAULT_BRANCH="ai/glm-opensource-hardening"
 
-          gh pr create \
+          PR_URL=$(gh pr create \
             --base "$DEFAULT_BRANCH" \
             --head "${{ steps.merge.outputs.branch }}" \
             --title "chore(sync): 合入 master 的 ${{ steps.check.outputs.ahead }} 个提交" \
             --body "自动同步 PR：把 \`master\` 上领先默认分支的 ${{ steps.check.outputs.ahead }} 个提交合入 \`$DEFAULT_BRANCH\`。
 
-          由 \`.github/workflows/sync-master.yml\` 自动创建。合并前请确认 CI 绿灯。
+          由 \`.github/workflows/sync-master.yml\` 自动创建。**需要人工确认后合并。**
 
           ## 说明
 
           - 方向：**master → 默认分支**（单向）
           - 冲突已在 workflow 内检测，有冲突时不会创建 PR
-          - 换行符按 master 原样保留（\`core.autocrlf=false\`），不做规范化"
+          - 换行符按 master 原样保留（\`core.autocrlf=false\`），不做规范化
+          - 合并前请确认 CI 通过、改动内容符合预期")
 
-          gh pr merge --auto --merge --delete-branch
+          PR_NUM=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "pr_number=$PR_NUM" >> "$GITHUB_OUTPUT"
+          echo "已创建 PR #$PR_NUM: $PR_URL"
+
+      - name: Summary
+        if: steps.check.outputs.skip == 'false' && steps.merge.outputs.conflict == 'false'
+        run: |
+          echo "### 📬 已创建同步 PR，等待人工确认" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "master 有 **${{ steps.check.outputs.ahead }}** 个新提交已合入同步分支并建 PR。" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "PR: #${{ steps.pr.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "合并前请确认：" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [ ] CI 通过" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [ ] 改动内容符合预期" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report conflict
         if: steps.check.outputs.skip == 'false' && steps.merge.outputs.conflict == 'true'
