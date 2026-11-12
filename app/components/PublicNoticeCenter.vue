@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ApiActivitySummary, ApiContent, ApiNoticeAction } from '~~/shared/types/server'
 import { safeNoticeActionHref } from '~~/shared/utils/notice-actions'
+import { isActivityStartingToday } from '~/utils/activity-presentation'
 import {
   noticePublishedTime,
   noticeRelativeTime,
@@ -364,7 +365,10 @@ onMounted(() => {
             <div
               v-for="activity in activities"
               :key="activity.id"
-              class="flex items-stretch gap-1 rounded-md bg-white/80 transition-colors hover:bg-white dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
+              class="flex items-stretch gap-1 rounded-md transition-colors"
+              :class="isActivityStartingToday(activity.startsAt)
+                ? 'bg-amber-50/80 ring-2 ring-inset ring-amber-400 dark:bg-amber-950/30 dark:ring-amber-500'
+                : 'bg-white/80 hover:bg-white dark:bg-zinc-900/70 dark:hover:bg-zinc-900'"
             >
               <NuxtLink
                 :to="`/activities/${activity.slug}`"
@@ -387,6 +391,10 @@ onMounted(() => {
                 <span class="min-w-0 flex-1">
                   <span class="line-clamp-2 block text-sm font-semibold leading-5 text-zinc-900 dark:text-zinc-100">
                     {{ activity.title }}
+                    <span
+                      v-if="isActivityStartingToday(activity.startsAt)"
+                      class="ml-1 inline-flex rounded bg-amber-400 px-1 py-0.5 align-middle text-[10px] font-bold leading-none text-amber-950"
+                    >今天</span>
                   </span>
                   <span class="mt-0.5 block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
                     {{ activityMeta(activity) }}
