@@ -855,21 +855,24 @@ onBeforeUnmount(() => {
         @select-number="selectOfficialPlanNumber"
       />
 
-      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-3 md:inset-x-4 md:top-4">
-        <div class="map-provider-badges flex flex-col items-start gap-1.5">
-          <UTooltip
-            v-if="sidebarCollapsed"
-            text="展开地点栏"
+      <!-- 徽章区：移动端左上角竖排不动；桌面端右下角，flex-col-reverse 使「长在下短在上」、底部对齐 -->
+      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex flex-col items-start md:inset-x-auto md:right-4 md:top-auto md:bottom-14 md:items-end">
+        <div class="map-provider-badges flex flex-col items-start gap-1.5 md:flex-col-reverse md:items-end">
+          <!-- 桌面端 DOM 顺序按实测宽度从长到短排列：reverse 后视觉上短在上、长在下 -->
+          <div
+            v-if="mapViewMode === 'geographic' && transitLinesOpen"
+            class="pointer-events-auto flex items-center gap-2.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
           >
-            <UButton
-              icon="i-lucide-panel-left-open"
-              color="neutral"
-              variant="solid"
-              class="justify-center pointer-events-auto hidden size-11 md:inline-flex"
-              aria-label="展开地点栏"
-              @click="() => { sidebarCollapsed = false }"
-            />
-          </UTooltip>
+            <span class="flex items-center gap-1">
+              <i class="size-2 rounded-full bg-[#1a6cf5]" />
+              K2
+            </span>
+            <span class="flex items-center gap-1">
+              <i class="size-2 rounded-full bg-[#e8590c]" />
+              K6
+            </span>
+            <span class="text-zinc-500 dark:text-zinc-400">校外公交</span>
+          </div>
           <UBadge
             color="neutral"
             variant="solid"
@@ -887,7 +890,7 @@ onBeforeUnmount(() => {
               ? '学校平面图'
               : activeMapProviderId === 'amap'
                 ? '高德地图'
-                : '校园范围参考' }}
+                : '校园范围参考底图' }}
           </UBadge>
           <UBadge
             v-if="mapViewMode === 'geographic' && activeMapProviderId !== 'amap'"
@@ -902,20 +905,6 @@ onBeforeUnmount(() => {
             校园范围参考
           </UBadge>
           <div
-            v-if="mapViewMode === 'geographic' && transitLinesOpen"
-            class="pointer-events-auto flex items-center gap-2.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
-          >
-            <span class="flex items-center gap-1">
-              <i class="size-2 rounded-full bg-[#1a6cf5]" />
-              K2
-            </span>
-            <span class="flex items-center gap-1">
-              <i class="size-2 rounded-full bg-[#e8590c]" />
-              K6
-            </span>
-            <span class="text-zinc-500 dark:text-zinc-400">校外公交</span>
-          </div>
-          <div
             v-if="mapViewMode === 'geographic' && speedBumpsVisible"
             class="pointer-events-auto flex items-center gap-1.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
           >
@@ -923,6 +912,27 @@ onBeforeUnmount(() => {
             减速带 27
           </div>
         </div>
+      </div>
+
+      <!-- 展开地点栏：侧栏收起后桌面的唯一入口，固定在左上角（不放右下角徽章堆里） -->
+      <div class="pointer-events-none absolute left-3 top-3 z-20 hidden md:left-4 md:top-4 md:block">
+        <UTooltip
+          v-if="sidebarCollapsed"
+          text="展开地点栏"
+        >
+          <UButton
+            icon="i-lucide-panel-left-open"
+            color="neutral"
+            variant="solid"
+            class="justify-center pointer-events-auto size-11 shadow-sm"
+            aria-label="展开地点栏"
+            @click="() => { sidebarCollapsed = false }"
+          />
+        </UTooltip>
+      </div>
+
+      <!-- 视图切换 + 右侧工具栏：保持在顶部一行（工具栏靠右） -->
+      <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-end gap-3 md:inset-x-4 md:top-4">
         <div
           v-if="canShowOfficialPlan"
           class="pointer-events-auto absolute left-1/2 top-0 flex -translate-x-1/2 overflow-hidden rounded-md border border-white/40 bg-white dark:bg-zinc-900 shadow-sm"
@@ -1340,6 +1350,7 @@ onBeforeUnmount(() => {
       :routes="busRoutes"
       :buses="busVehicles"
       :fetched-at="busFetchedAt"
+      :left-offset="sidebarCollapsed ? '1rem' : '19rem'"
       :user-location="userLocation"
       @select-route="busSelectedRouteId = $event"
     />
@@ -1442,6 +1453,91 @@ onBeforeUnmount(() => {
 .map-workspace .maplibregl-ctrl-bottom-left,
 .map-workspace .maplibregl-ctrl-bottom-right {
   bottom: 0.5rem;
+}
+
+/*
+ * 缩放/指南针控件（.map-zoom-dock，挂 top-right）。
+ * 桌面端下移到右侧工具栏正下方：工具栏 top-4(16px) 起、7×44px + 6×1px ≈ 310px，
+ * 21rem(336px) = 16 + 310 + 10px 间隙；margin-right 1rem 让右边缘与工具栏对齐。
+ * 移动端同样下移到工具栏正下方（右边缘对齐，button 收到 40×40 与工具栏一致）：
+ * margin-top 相对 .maplibregl-ctrl-top-right（该容器内缩到地图顶边，实测 top=65px），
+ * 与视口坐标差一个地图顶边，所以用实测算式
+ *   工具栏 bottom(359) − ctrl 容器 top(65) + 8px 间隙 = 302px = 18.875rem
+ * （390×844 下工具栏 282px 高 = 7×40px button + 2px 容器边框，分隔线是
+ *  border-box 内含的 1px 不额外占高；工具栏自 top-3 起于 77、止于 359）。
+ * margin-right 0.75rem 与工具栏右边缘（right-3 = 12px）对齐。
+ */
+.map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
+  margin-top: 21rem;
+  margin-right: 1rem;
+}
+
+@media (max-width: 767px) {
+  /*
+   * 窄屏：工具栏占着右上角，控件挪到它正下方并右边缘对齐。
+   * 18.875rem(302px) = 工具栏 bottom(359) − ctrl 容器 top(65) + 8px 间隙。
+   * ⚠️ 该值耦合了「移动端工具栏 = 7 个 40px 按钮 + 2px 边框」这一事实：
+   * 工具栏按钮增减、或 .maplibregl-ctrl button 的移动端 40px 再调整，
+   * 都需要重新量算这个 margin-top，否则控件会静默错位。
+   */
+  .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
+    margin-top: 18.875rem;
+    margin-right: 0.75rem;
+  }
+
+  /* 覆盖后面 44px 的全局规则，与移动端工具栏 button（size-10）一致。 */
+  .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/*
+ * 宽 ≥768 但视口矮：桌面规则把 dock 顶边推到 409、底边 541，
+ * 视口高 < 541 时会被地图 overflow 裁掉，844×390 下 visibleRatio 实测为 0。
+ * 退回「贴右上、靠工具栏左侧」：桌面工具栏 right-4(16px) + 宽 46px → 左边缘 W−62，
+ * 留 8px 间隙 → dock 右边缘 W−70 → margin-right 4.375rem。
+ * 34.375rem(550px) 的由来：桌面 dock 底边 541 + 9px 余量，且不会误伤 1366×768 这类桌面。
+ * 与下面的窄屏兜底块媒体条件互斥（min-width 768 vs max-width 767），互不覆盖。
+ */
+@media (min-width: 768px) and (max-height: 34.375rem) {
+  .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
+    margin-top: 0.75rem;
+    margin-right: 4.375rem;
+  }
+}
+
+/*
+ * 窄屏且极矮（≤559px 高）：工具栏占着右上角，302px 的下移量会把 dock 底边
+ * 固定到 487，宽 <768 时地图底边 = 视口高 − 73，所以视口 <560 就开始裁切
+ * （500px 高时 visibleRatio 只有 0.500）。此时同样退回「贴右上、靠工具栏左侧」。
+ * 断点取 34.9375rem(559px) 而不是 480px：481–559 这条裁切带需要兜底；
+ * 而 560px 恰好是「dock 底边 487 = 地图底边 487」的临界点，完全可见（ratio 1.000），
+ * 所以 560 必须走正常规则。若写成 35rem(560px)，因 max-height 是闭区间，
+ * 390×560 会被误判进兜底分支、位置退到 294,77，与验收表期望的 338,367 不符。
+ * margin-right 3.5rem(56px) 按窄屏工具栏 right-3(12) + 宽 42 + 2px 间隙算。
+ * 工具栏本身的收纳是另一个问题，不在这里处理。
+ */
+@media (max-width: 767px) and (max-height: 34.9375rem) {
+  .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
+    margin-top: 0.75rem;
+    margin-right: 3.5rem;
+  }
+}
+
+/*
+ * 版权条与比例尺现在都在左下角容器里：竖排（版权在上、比例尺在下）。
+ * 版权条留在右下角会与「N 人看过」统计重叠（实测 168×20）。
+ */
+.map-workspace .maplibregl-ctrl-attrib {
+  margin: 0;
+}
+
+.map-workspace .maplibregl-ctrl-bottom-left {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .map-workspace .maplibregl-ctrl-group {
