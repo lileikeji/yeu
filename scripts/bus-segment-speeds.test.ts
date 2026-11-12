@@ -65,3 +65,14 @@ test('站点或折线不足时 buildSegmentProfile 返回 undefined', () => {
     assert.equal(buildSegmentProfile(row.routeId, twoStops, [{ lng: 118.6, lat: 25.11 }]), undefined)
   }
 })
+
+test('每条线路的段速表从起点站开始且连续覆盖，不能缺首段', () => {
+  const routeIds = [...new Set(BUS_SEGMENT_SPEEDS.map(row => row.routeId))]
+  for (const routeId of routeIds) {
+    const rows = BUS_SEGMENT_SPEEDS.filter(row => row.routeId === routeId).sort((a, b) => a.from - b.from)
+    assert.equal(rows[0]!.from, 0, `${routeId} 的首段必须从起点站（下标 0）开始，否则整段会退回 3.4 m/s 兜底`)
+    for (let i = 1; i < rows.length; i += 1) {
+      assert.equal(rows[i]!.from, rows[i - 1]!.to, `${routeId} 的 ${rows[i - 1]!.to} 号站之后出现断层`)
+    }
+  }
+})
