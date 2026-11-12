@@ -211,7 +211,7 @@ function shareCurrentPage(): void {
             color="neutral"
             variant="ghost"
             aria-label="搜索"
-            class="min-h-10 min-w-10 md:min-h-11 md:min-w-11"
+            class="justify-center min-h-10 min-w-10 md:min-h-11 md:min-w-11"
           />
           <UButton
             icon="i-lucide-share-2"

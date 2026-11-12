@@ -33,6 +33,23 @@ test('mobile header keeps the centered mode switch clear of action buttons', () 
   assert.match(layoutSource, /class="[^"]*justify-center[^"]*hidden[^"]*min-h-10[^"]*min-w-10[^"]*sm:inline-flex/)
 })
 
+test('every header icon button centers its glyph', () => {
+  // UButton 的 base 只有 inline-flex items-center，没有 justify-center：
+  // 靠 min-w 撑成方块时图标会贴左。合并冲突里漏过一次（搜索按钮），这里逐个盯住。
+  const blocks = layoutSource
+    .split('<UButton')
+    .slice(1)
+    .map(chunk => chunk.split('/>')[0] ?? '')
+    .filter(block => /icon="/.test(block) && /min-w-1[01]/.test(block))
+  assert.ok(blocks.length >= 5, `顶栏图标按钮至少 5 个，实际 ${blocks.length}`)
+  const missing = blocks.filter(block => !/justify-center/.test(block))
+  assert.deepEqual(
+    missing.map(block => block.trim().split('\n')[0]),
+    [],
+    '这些图标按钮缺 justify-center'
+  )
+})
+
 test('compact cards open a content-first bottom sheet with a configurable source link', () => {
   assert.match(componentSource, /entrySheetOpen/)
   assert.match(componentSource, /@click="openEntry\(entry\)"/)
