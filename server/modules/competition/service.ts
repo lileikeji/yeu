@@ -2078,6 +2078,19 @@ export function submitJudgeScore(
     )
   }
 
+  // 分天时只认当天到岗的评委：第二天的人不能给第一天的选手凑票。
+  if (round.activeDay) {
+    const dutyRow = client.db.select({ day: competitionJudges.day }).from(competitionJudges)
+      .where(eq(competitionJudges.id, judge.id))
+      .get()
+    if (dutyRow?.day && dutyRow.day !== round.activeDay) {
+      conflictError(
+        'COMPETITION_JUDGE_OFF_DAY',
+        `今天是第 ${round.activeDay} 天，你的评分班次是第 ${dutyRow.day} 天`
+      )
+    }
+  }
+
   const dimensions = getCompetitionDimensions(eventRow)
   const rawScores = input.scores
   if (!rawScores || typeof rawScores !== 'object' || Array.isArray(rawScores)) {
@@ -2152,6 +2165,8 @@ export function submitJudgeScore(
   // 立刻推回去，要等管理员点「下一位」。
   if (!existing && round.currentEntryId === entry.id) {
     const required = requiredJudgeCount(client, round)
+    // 只数当天到岗评委的票，第二天/没排班的人不算。
+    const dutyJudgeIds = new Set(judgesForDay(client, round).map(item => item.id))
     const beforeCount = new Set(
       client.db.select({ judgeId: competitionScores.judgeId }).from(competitionScores)
         .where(and(
@@ -2160,6 +2175,7 @@ export function submitJudgeScore(
         ))
         .all()
         .map(item => item.judgeId)
+        .filter(id => dutyJudgeIds.has(id))
     ).size
     if (required > 0 && beforeCount >= required) {
       const entries = entriesForDay(round, listRoundEntryRows(client, round.id))
