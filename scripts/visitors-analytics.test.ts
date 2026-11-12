@@ -187,3 +187,47 @@ test('expired automatic bans stay available as history but do not count as activ
     rmSync(directory, { recursive: true, force: true })
   }
 })
+
+test('unfiltered visitor total follows the visitor_stats counter', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-visitor-total-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const total = () => listVisitors(client, {
+      page: 1,
+      pageSize: 5,
+      sort: 'last-seen',
+      analytics: 'false'
+    }).total
+
+    assert.equal(total(), 0)
+    const visitorId = randomUUID()
+    const now = Date.now()
+    client.db.insert(visitors).values({
+      id: visitorId,
+      firstSeenAt: now,
+      lastSeenAt: now,
+      lastIp: '192.0.2.20',
+      lastPath: '/',
+      eventCount: 1,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+    // 触发器即时维护计数器，不需要缓存失效
+    assert.equal(total(), 1)
+    assert.equal(client.sqlite.prepare('SELECT total FROM visitor_stats WHERE id = 1').get<{ total: number }>()['total'], 1)
+    client.sqlite.prepare('DELETE FROM visitors WHERE id = ?').run(visitorId)
+    assert.equal(total(), 0)
+    // 带筛选的查询仍实时统计，不走计数器
+    assert.equal(listVisitors(client, {
+      page: 1,
+      pageSize: 5,
+      ip: '192.0.2.20',
+      analytics: 'false'
+    }).total, 0)
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})

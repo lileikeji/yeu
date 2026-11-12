@@ -230,12 +230,29 @@ async function loadDashboard(): Promise<void> {
   loading.value = true
   loadError.value = ''
 
-  const requests = adminDashboardModules.map(async (module) => {
-    const response = await adminFetch<unknown>(module.endpoint, {
-      query: { page: 1, pageSize: 5, ...(module.query ?? {}) }
+  // 知识库概览是全表聚合（12 万行），单独拉、不参与整页等待：其余卡片先出，
+  // 知识库数字到位后再补，避免一个慢接口把整个概览压在骨架里。
+  const deferredModule = adminDashboardModules.find(module => module.key === 'knowledge')
+  if (deferredModule) {
+    void adminFetch<unknown>(deferredModule.endpoint, {
+      query: { page: 1, pageSize: 5, ...(deferredModule.query ?? {}) }
     })
-    return { key: module.key, ...normalizeAdminDashboardResponse(response) }
-  })
+      .then((response) => {
+        counts[deferredModule.key] = normalizeAdminDashboardResponse(response).total
+      })
+      .catch(() => {
+        counts[deferredModule.key] = null
+      })
+  }
+
+  const requests = adminDashboardModules
+    .filter(module => module.key !== 'knowledge')
+    .map(async (module) => {
+      const response = await adminFetch<unknown>(module.endpoint, {
+        query: { page: 1, pageSize: 5, ...(module.query ?? {}) }
+      })
+      return { key: module.key, ...normalizeAdminDashboardResponse(response) }
+    })
 
   requests.push((async () => {
     const response = await adminFetch<unknown>('/api/admin/audit', {
