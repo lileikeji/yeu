@@ -553,7 +553,7 @@ watch(activeRoomId, () => {
               size="sm"
               :icon="searchOpen ? 'i-lucide-x' : 'i-lucide-search'"
               aria-label="搜索聊天记录"
-              class="shrink-0 min-h-9 min-w-9"
+              class="justify-center shrink-0 min-h-9 min-w-9"
               :disabled="!activeRoomId"
               @click="toggleSearch"
             />

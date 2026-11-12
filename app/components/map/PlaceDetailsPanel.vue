@@ -92,7 +92,7 @@ const navigationTooltip = computed(() => {
         color="neutral"
         variant="ghost"
         size="xs"
-        :class="[lightGhostClass, props.variant === 'mobile' ? '-mr-1.5 size-8' : 'size-11']"
+        :class="['justify-center', lightGhostClass, props.variant === 'mobile' ? '-mr-1.5 size-8' : 'size-11']"
         aria-label="关闭地点详情"
         @click="emit('close')"
       />
