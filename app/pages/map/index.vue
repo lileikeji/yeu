@@ -1489,12 +1489,32 @@ onBeforeUnmount(() => {
 }
 
 /*
- * 横屏且极矮（≤480px 高）：7 个按钮的竖直工具栏（约 282px）本身就已经超过
- * 地图可视区高度（740×360 下只有 222px），没有空间在它下方再放缩放组。
- * 此时退回到改动前的「贴右上、靠工具栏左侧」形态，保证控件仍可见可点。
+ * 宽 ≥768 但视口矮：桌面规则把 dock 顶边推到 409、底边 541，
+ * 视口高 < 541 时会被地图 overflow 裁掉，844×390 下 visibleRatio 实测为 0。
+ * 退回「贴右上、靠工具栏左侧」：桌面工具栏 right-4(16px) + 宽 46px → 左边缘 W−62，
+ * 留 8px 间隙 → dock 右边缘 W−70 → margin-right 4.375rem。
+ * 34.375rem(550px) 的由来：桌面 dock 底边 541 + 9px 余量，且不会误伤 1366×768 这类桌面。
+ * 与下面的窄屏兜底块媒体条件互斥（min-width 768 vs max-width 767），互不覆盖。
+ */
+@media (min-width: 768px) and (max-height: 34.375rem) {
+  .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
+    margin-top: 0.75rem;
+    margin-right: 4.375rem;
+  }
+}
+
+/*
+ * 窄屏且极矮（≤559px 高）：工具栏占着右上角，302px 的下移量会把 dock 底边
+ * 固定到 487，宽 <768 时地图底边 = 视口高 − 73，所以视口 <560 就开始裁切
+ * （500px 高时 visibleRatio 只有 0.500）。此时同样退回「贴右上、靠工具栏左侧」。
+ * 断点取 34.9375rem(559px) 而不是 480px：481–559 这条裁切带需要兜底；
+ * 而 560px 恰好是「dock 底边 487 = 地图底边 487」的临界点，完全可见（ratio 1.000），
+ * 所以 560 必须走正常规则。若写成 35rem(560px)，因 max-height 是闭区间，
+ * 390×560 会被误判进兜底分支、位置退到 294,77，与验收表期望的 338,367 不符。
+ * margin-right 3.5rem(56px) 按窄屏工具栏 right-3(12) + 宽 42 + 2px 间隙算。
  * 工具栏本身的收纳是另一个问题，不在这里处理。
  */
-@media (max-width: 767px) and (max-height: 480px) {
+@media (max-width: 767px) and (max-height: 34.9375rem) {
   .map-workspace .maplibregl-ctrl-top-right .map-zoom-dock {
     margin-top: 0.75rem;
     margin-right: 3.5rem;

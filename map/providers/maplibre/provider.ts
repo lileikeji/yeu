@@ -226,8 +226,10 @@ export class MapLibrePreviewProvider implements MapProvider {
     map.on('error', this.handleMapError)
     this.errorEventAttached = true
     // 控件锚点：
-    // - NavigationControl 挂 top-right，由 index.vue 的 CSS 分别定位：
-    //   桌面端下移到右侧工具栏下方；移动端与工具栏同一角但右移 3.5rem 避让。
+    // - NavigationControl 挂 top-right，由 index.vue 的 CSS 分三档定位：
+    //   ① 常规视口：下移到右侧工具栏正下方、右边缘对齐（桌面 21rem / 窄屏 18.875rem）；
+    //   ② 宽 ≥768 且视口 ≤550px 高：下移量会把 dock 推出地图，退回「贴右上、靠工具栏左侧」；
+    //   ③ 宽 <768 且视口 ≤559px 高：同上，退回「贴右上、靠工具栏左侧」。
     // - AttributionControl 挂 bottom-left（与比例尺同角、上下错开）；
     //   留在右下角会与「N 人看过」统计重叠（实测 168×20）。
     map.addControl(new maplibre.NavigationControl(), 'top-right')
