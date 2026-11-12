@@ -350,7 +350,7 @@ export function useMapBusPositions(options: {
       options.mapProvider.value?.setBusRoutes(toRoutes(data))
       pushDisplay()
     } catch {
-      // 拉取失败静默跳过，下一轮重试（页面不因校车数据报错）
+      // 拉取失败静默跳过，下一轮重试（页面不因校车数据报错）。
     }
   }
 

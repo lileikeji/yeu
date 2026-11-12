@@ -10,6 +10,8 @@ const props = defineProps<{
   buses: BusSnapshot[]
   fetchedAt: string | null
   open: boolean
+  /** 桌面端距地图左缘的距离；左侧地点栏展开时要让开 18rem。 */
+  leftOffset?: string
   /** 用户实时位置（WGS84）；提供后每辆车显示「距您 X 米」。 */
   userLocation?: { lng: number, lat: number } | null
 }>()
@@ -287,24 +289,46 @@ const updatedAtText = computed(() => {
 </script>
 
 <template>
-  <!-- 收起态：地图右下角浮钮 -->
+  <!-- 收起态（移动端）：保持原实心绿浮钮，class 除惰性 md:hidden 外未动 -->
   <UButton
     v-if="!open"
     icon="i-lucide-bus-front"
     label="校车实时"
     color="primary"
     variant="solid"
-    class="absolute bottom-20 right-3 z-30 shadow-lg md:bottom-6 md:right-4"
+    class="absolute bottom-20 right-3 z-30 shadow-lg md:hidden"
     @click="emit('update:open', true)"
   />
 
-  <!-- 展开态：掌上公交式线路总览 -->
+  <!-- 收起态（桌面端）：320px 白底单行条，跟随侧边栏宽度（见 leftOffset） -->
+  <button
+    v-if="!open"
+    type="button"
+    class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg md:border md:border-zinc-200 md:bg-white md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-16 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700 dark:md:bg-zinc-900"
+    :style="{ '--bus-left': leftOffset ?? '19rem' }"
+    aria-label="展开校车线路总览"
+    @click="emit('update:open', true)"
+  >
+    <UIcon
+      name="i-lucide-bus-front"
+      class="size-4 shrink-0 text-orange-600"
+    />
+    <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">校车实时</span>
+    <span class="ml-auto text-[10px] text-zinc-400 dark:text-zinc-500">更新 {{ updatedAtText }}</span>
+    <UIcon
+      name="i-lucide-chevron-down"
+      class="size-4 shrink-0 text-zinc-400"
+    />
+  </button>
+
+  <!-- 展开态：移动端全屏浮层；桌面端 320px 竖面板，从单行条底边向下展开 -->
   <section
     v-else
-    class="absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:inset-x-auto md:top-auto md:bottom-6 md:right-4 md:z-30 md:max-h-[62vh] md:w-80 max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
+    class="map-bus-panel-enter absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-16 md:bottom-auto md:right-auto md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-80 md:rounded-lg md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
+    :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="校车线路总览"
   >
-    <header class="sticky top-0 z-10 flex items-center gap-2 border-b border-zinc-100 bg-white px-3 py-1.5 dark:border-zinc-800 dark:bg-zinc-900">
+    <header class="sticky top-0 z-10 flex h-11 items-center gap-2 border-b border-zinc-100 bg-white px-3 dark:border-zinc-800 dark:bg-zinc-900">
       <UIcon
         name="i-lucide-bus-front"
         class="size-4 text-orange-600"
@@ -613,3 +637,30 @@ const updatedAtText = computed(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+/*
+ * 展开/收起过渡：收起条 44px 与展开面板 header 44px 同高、同 x/y，
+ * 切换点位不跳；这里只补一个淡入 + 轻微下移，避免瞬间替换显得生硬。
+ */
+.map-bus-panel-enter {
+  animation: map-bus-panel-in 160ms ease-out;
+}
+
+@keyframes map-bus-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-bus-panel-enter {
+    animation: none;
+  }
+}
+</style>
