@@ -717,9 +717,19 @@ test('数据库：初赛分天——两天各有自己的顺序与到岗评委�
 
   // 不是当天的人不给评；第一天的 6 票齐了自动切到第一天第二位。
   const actors = judges.map(judge => ({ ...judge, eventId: event.id, roundId: reload().id }))
-  for (let index = 0; index < 6; index += 1) {
+  // 第二天的人（index 6-8）替第一天顶票必须被拒。
+  assert.throws(
+    () => submitJudgeScore(client, actors[6]!, entries[0]!.singer.id, { scores: scoresForAll(9) }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'COMPETITION_JUDGE_OFF_DAY'
+  )
+  // 5 位当天评委投完还不切人（第二天那票不计入）。
+  for (let index = 0; index < 5; index += 1) {
     submitJudgeScore(client, actors[index]!, entries[0]!.singer.id, { scores: scoresForAll(9) })
   }
+  assert.equal(getCurrentSinger(client, reload())?.singer.id, entries[0]!.singer.id)
+  assert.equal(getCurrentSinger(client, reload())?.submitted.length, 5)
+  // 第 6 位当天评委投完才自动切到第一位之后。
+  submitJudgeScore(client, actors[5]!, entries[0]!.singer.id, { scores: scoresForAll(9) })
   assert.equal(getCurrentSinger(client, reload())?.singer.id, entries[1]!.singer.id)
   assert.equal(getCurrentSinger(client, reload())?.index, 2)
 
