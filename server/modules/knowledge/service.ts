@@ -175,6 +175,12 @@ function assertPublishableClaim(
 
 function replaceClaimSources(client: DatabaseClient, claimId: string, input: ClaimSourceInput[]): void {
   client.db.delete(knowledgeClaimSources).where(eq(knowledgeClaimSources.claimId, claimId)).run()
+  // 计数器与证据表必须同一步更新：后台 health 的 missingSource 直接读这个字段，
+  // 漏更新就会把「有证据」的知识条误报成缺证据。
+  client.db.update(knowledgeClaims)
+    .set({ sourceCount: input.length })
+    .where(eq(knowledgeClaims.id, claimId))
+    .run()
   if (input.length === 0) return
   client.db.insert(knowledgeClaimSources).values(input.map(item => ({
     id: randomUUID(),
@@ -205,7 +211,32 @@ function issueCondition(issue: KnowledgeClaimsQuery['issue'], now: number): SQL 
   return undefined
 }
 
+const KNOWLEDGE_HEALTH_CACHE_TTL_MS = 60_000
+const knowledgeHealthCache = new WeakMap<
+  DatabaseClient,
+  { at: number, value: ReturnType<typeof computeKnowledgeHealth> }
+>()
+
+function invalidateKnowledgeHealth(client: DatabaseClient): void {
+  knowledgeHealthCache.delete(client)
+}
+
+// 后台列表每次返回都带 health，而它是 knowledge_claims 的全表聚合（12 万行，
+// 含 NOT EXISTS 相关子查询）。better-sqlite3 同步执行会阻塞事件循环，所以概览
+// 路径读 60 秒进程内缓存，写操作显式失效；直连 knowledgeHealth() 仍然实时计算。
+function cachedKnowledgeHealth(client: DatabaseClient, now = Date.now()) {
+  const cached = knowledgeHealthCache.get(client)
+  if (cached && now - cached.at < KNOWLEDGE_HEALTH_CACHE_TTL_MS) return cached.value
+  const value = computeKnowledgeHealth(client, now)
+  knowledgeHealthCache.set(client, { at: now, value })
+  return value
+}
+
 export function knowledgeHealth(client: DatabaseClient, now = Date.now()) {
+  return computeKnowledgeHealth(client, now)
+}
+
+function computeKnowledgeHealth(client: DatabaseClient, now: number) {
   const row = client.sqlite.prepare(`
     SELECT
       count(*) AS total,
@@ -214,9 +245,7 @@ export function knowledgeHealth(client: DatabaseClient, now = Date.now()) {
       sum(review_status = 'published') AS published,
       sum(review_status = 'rejected') AS rejected,
       sum(review_status = 'archived') AS archived,
-      sum(review_status IN ('review', 'published') AND NOT EXISTS (
-        SELECT 1 FROM knowledge_claim_sources kcs WHERE kcs.claim_id = knowledge_claims.id
-      )) AS missingSource,
+      sum(review_status IN ('review', 'published') AND source_count = 0) AS missingSource,
       sum(review_status = 'published' AND valid_until IS NOT NULL AND valid_until < ?) AS expired,
       sum(review_status = 'published' AND confidence_label = 'unverified') AS publishedUnverified
     FROM knowledge_claims
@@ -287,7 +316,7 @@ export function listKnowledgeClaims(client: DatabaseClient, query: KnowledgeClai
   return {
     items: rows.map(row => serializeClaim(row, sourceRows.filter(source => source.claimId === row.id))),
     total,
-    health: knowledgeHealth(client)
+    health: cachedKnowledgeHealth(client)
   }
 }
 
@@ -330,6 +359,7 @@ export function createKnowledgeClaim(client: DatabaseClient, input: CreateKnowle
       replaceClaimSources(client, id, sourceRows)
       // 知识库写入要让答案缓存失效：修订号是 cache_key 的一段，不 bump 就继续发旧答案。
       bumpAssistantKnowledgeRevision(client)
+      invalidateKnowledgeHealth(client)
     })()
   } catch (error) {
     rethrowDatabaseError(error)
@@ -378,6 +408,7 @@ export function updateKnowledgeClaim(client: DatabaseClient, id: string, input: 
       }).where(eq(knowledgeClaims.id, id)).run()
       if (input.sources) replaceClaimSources(client, id, sourceRows)
       bumpAssistantKnowledgeRevision(client)
+      invalidateKnowledgeHealth(client)
     })()
   } catch (error) {
     rethrowDatabaseError(error)
@@ -394,6 +425,7 @@ export function archiveKnowledgeClaim(client: DatabaseClient, id: string, adminI
   }).where(eq(knowledgeClaims.id, id)).run()
   if (result.changes === 0) throwNotFound('Knowledge claim')
   bumpAssistantKnowledgeRevision(client)
+  invalidateKnowledgeHealth(client)
 }
 
 function ftsQuery(terms: string[]): string {

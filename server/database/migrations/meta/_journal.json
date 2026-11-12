@@ -400,6 +400,27 @@
       "when": 1794600002000,
       "tag": "0056_activity_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "6",
+      "when": 1794600003000,
+      "tag": "0057_knowledge_claims_updated_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1794600004000,
+      "tag": "0058_knowledge_claims_health_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1794600005000,
+      "tag": "0059_visitor_stats_counter",
+      "breakpoints": true
     }
   ]
 }
