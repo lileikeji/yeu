@@ -11,6 +11,7 @@ import type {
   RouteSummary
 } from '../../core/provider'
 import { YEU_CAMPUS_COORDINATE_REVIEW_BOUNDS, YEU_CAMPUS_REFERENCE_CENTER } from '../../core/campus'
+import { attachTapGesture } from '../../core/tap-gesture'
 import { buildingSvg, clusterGlyph, vehicleSvg } from './marker-icons'
 import type { BuildingKind } from './marker-icons'
 import type { GeoPoint, MapArea, MapBus, MapBusRoute, MapMountOptions, MapPoi, MapPolygonArea, MapSpeedBump, MapTransitVehicle } from '../../core/types'
@@ -1615,12 +1616,11 @@ export class AMapProvider implements MapProvider {
     element.addEventListener('mousedown', event => event.stopPropagation())
     element.addEventListener('pointerdown', event => event.stopPropagation())
     // touchstart 不再拦截：手机上要让它落成一次正常的 tap→click，否则标点点不开详情。
-    // 手机上直接吃掉这次 tap：既选中楼栋，也不让同一次点击继续冒泡到地图（否则地图立刻清空选中）。
-    element.addEventListener('touchend', (event) => {
-      event.preventDefault()
-      event.stopPropagation()
-      options.onClick?.()
-    }, { passive: false })
+    // 只用 attachTapGesture 记录起点并判位移：真 tap 才 preventDefault/stopPropagation
+    // 并触发 onClick（4023af0 的修复）；滑动/多指放行，让地图正常收尾拖拽。
+    if (options.onClick) {
+      attachTapGesture(element, () => options.onClick?.())
+    }
 
     element.append(label, pin)
     if (activityBadge) element.append(activityBadge)
