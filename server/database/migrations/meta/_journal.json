@@ -407,6 +407,13 @@
       "when": 1794600003000,
       "tag": "0057_knowledge_claims_updated_index",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1794600004000,
+      "tag": "0058_knowledge_claims_health_index",
+      "breakpoints": true
     }
   ]
 }
