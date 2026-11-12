@@ -7,6 +7,11 @@
  * 表里 seconds 是「站点到站点」实测用时中位，已经包含减速带减速与中途上下客，
  * 因此用到 ETA 时**不再叠加** `bumpExtraSeconds()`，否则重复计入。
  * 没有实测覆盖的里程段退回 `CAMPUS_AVERAGE_MPS`（3.4 m/s）。
+ *
+ * 首段（`from: 0`）靠「离站锚定」得来：切段时若要求「先看到车在站之前」，起点站与终点站天然缺一帧，
+ * 2026-11-12 的采样里去程首段 483m、回程首段 478m 曾一直走 3.4 m/s 兜底。
+ * 现在首段用「最后一帧还在起点 20m 内」当离站时刻。回程末段（旧区行政楼斜对面→旧区发车点，483m）
+ * 仍只有 4 个样本，未达 5 个下限，继续兜底。
  */
 
 import { alongOnPolyline, type LineSpeedProfile } from './bus-route-progress'
@@ -32,11 +37,13 @@ export interface BusSegmentSpeed {
 
 /** 由 `.tmp/busprobe/emit-segments.ts` 从实测采样生成。 */
 export const BUS_SEGMENT_SPEEDS: BusSegmentSpeed[] = [
+  { routeId: '6ee6770bd81043b8939054e4c0a112c6', from: 0, to: 1, meters: 483, seconds: 132, samples: 36 }, // 旧区--新区 旧区发车点（邮政快递站旁）→旧区行政楼斜对面 3.66 m/s
   { routeId: '6ee6770bd81043b8939054e4c0a112c6', from: 1, to: 2, meters: 266, seconds: 102, samples: 8 }, // 旧区--新区 旧区行政楼斜对面→旧区南门天桥 2.61 m/s
   { routeId: '6ee6770bd81043b8939054e4c0a112c6', from: 2, to: 3, meters: 410, seconds: 78, samples: 9 }, // 旧区--新区 旧区南门天桥→网络信息中心 5.26 m/s
   { routeId: '6ee6770bd81043b8939054e4c0a112c6', from: 3, to: 4, meters: 357, seconds: 108, samples: 14 }, // 旧区--新区 网络信息中心→新区图书馆 3.31 m/s
   { routeId: '6ee6770bd81043b8939054e4c0a112c6', from: 4, to: 5, meters: 325, seconds: 76, samples: 14 }, // 旧区--新区 新区图书馆→普照楼2号门 4.28 m/s
   { routeId: '6ee6770bd81043b8939054e4c0a112c6', from: 5, to: 6, meters: 478, seconds: 127, samples: 7 }, // 旧区--新区 普照楼2号门→新区和昌楼2号门 3.76 m/s
+  { routeId: '865cf7c5edcc45ffa3c373e2a3f117a9', from: 0, to: 1, meters: 478, seconds: 108, samples: 37 }, // 新区--旧区 新区和昌楼2号门→普照楼2号门 4.42 m/s
   { routeId: '865cf7c5edcc45ffa3c373e2a3f117a9', from: 1, to: 2, meters: 325, seconds: 80, samples: 11 }, // 新区--旧区 普照楼2号门→新区图书馆 4.06 m/s
   { routeId: '865cf7c5edcc45ffa3c373e2a3f117a9', from: 2, to: 3, meters: 357, seconds: 113, samples: 11 }, // 新区--旧区 新区图书馆→网络信息中心 3.16 m/s
   { routeId: '865cf7c5edcc45ffa3c373e2a3f117a9', from: 3, to: 4, meters: 411, seconds: 89, samples: 11 }, // 新区--旧区 网络信息中心→旧区南门天桥 4.62 m/s
