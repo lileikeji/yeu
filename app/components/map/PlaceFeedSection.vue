@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ApiPlaceFeedItem, ApiPlaceFeedResponse } from '~~/shared/types/server'
 import { userFetch } from '~~/app/utils/user-request'
+import { isActivityStartingToday } from '~/utils/activity-presentation'
 
 const props = defineProps<{
   placeId: string
@@ -46,7 +47,7 @@ function dateLabel(item: ApiPlaceFeedItem): string {
   if (item.kind === 'activity') {
     const date = new Date(item.at)
     const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-    return `${monthDay(item.at)} ${time}`
+    return `${isActivityStartingToday(item.at) ? '今天 ' : ''}${monthDay(item.at)} ${time}`
   }
   return `近期 ${monthDay(item.at)}`
 }
@@ -105,6 +106,9 @@ function toggleComments(slug: string): void {
             <NuxtLink
               :to="linkFor(item)"
               class="flex min-w-0 flex-1 items-start gap-2 rounded-lg px-1 py-1 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+              :class="item.kind === 'activity' && isActivityStartingToday(item.at)
+                ? 'bg-amber-50/80 ring-1 ring-inset ring-amber-400 dark:bg-amber-950/30 dark:ring-amber-500'
+                : ''"
             >
               <img
                 v-if="item.coverUrl"
