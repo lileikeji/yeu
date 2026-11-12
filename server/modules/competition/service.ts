@@ -66,6 +66,8 @@ export const MUSIC_ASSOCIATION_TITLE = '音乐协会'
 const PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 const MAX_SCORE = COMPETITION_MAX_DIMENSION_SCORE
 const MAX_COMMENT_LENGTH = 500
+/** 现场登记里这些写法等于没报歌，一律按未填处理。 */
+const COMPETITION_SONG_PLACEHOLDERS = new Set(['待定', '未定', '暂无', '无', '没有', '还没定', '没定', 'tbd', 'tba', 'na', 'n/a'])
 
 export {
   COMPETITION_MAX_DIMENSION_SCORE,
@@ -1108,6 +1110,35 @@ export function getSingerQueuePosition(
     position: seat?.position ?? null,
     total: dayEntries.length
   }
+}
+
+/**
+ * 换了手机也能查：姓名 + 学号后四位认人，只回他自己的排队位置。
+ * 用来在登记页随时看前面还有几个人。
+ */
+export function findSingerQueueByName(
+  client: DatabaseClient,
+  contentId: string,
+  name: string,
+  studentNoTail: string
+): CompetitionQueuePosition & { name?: string } {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const normalizedName = name.replace(/\s+/g, ' ').trim()
+  const tail = studentNoTail.replace(/\s+/g, '').trim()
+  if (!normalizedName) validationError('请填写姓名', 'name')
+  if (!/^\d{4}$/.test(tail)) validationError('请填写学号后四位', 'studentNoTail')
+
+  const singer = client.db.select().from(competitionSingers)
+    .where(and(
+      eq(competitionSingers.eventId, eventRow.id),
+      eq(competitionSingers.name, normalizedName)
+    ))
+    .all()
+    .find(row => String(row.studentNo ?? '').endsWith(tail))
+  if (!singer) {
+    return { state: 'unknown', ahead: null, position: null, total: 0 }
+  }
+  return { ...getSingerQueuePosition(client, contentId, singer.id), name: singer.name }
 }
 
 export function getAdminCompetitionPayload(client: DatabaseClient, contentId: string): CompetitionAdminPayload {
@@ -2221,6 +2252,11 @@ export function registerSingerFromForm(
   if (!normalized.studentNo) validationError('学号必填', 'studentNo')
   if (!normalized.phone) validationError('电话必填', 'phone')
   if (!normalized.email) validationError('邮箱必填', 'email')
+  // 现场登记必须报具体曲目：留空或写「待定」的都拦下，避免上台前才发现没歌。
+  if (!normalized.song) validationError('参赛歌曲必填，请填写具体歌名', 'song')
+  if (COMPETITION_SONG_PLACEHOLDERS.has(normalized.song.replace(/\s+/g, '').toLowerCase())) {
+    validationError('参赛歌曲要填具体歌名，不能填「待定」', 'song')
+  }
 
   const existing = client.db.select({ id: competitionSingers.id }).from(competitionSingers)
     .where(and(

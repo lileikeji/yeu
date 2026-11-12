@@ -23,6 +23,7 @@ import {
   getRoundByKey,
   getSingerQueuePosition,
   getCurrentSinger,
+  findSingerQueueByName,
   importSingers,
   emailImageAttachments,
   isMusicAssociationContent,
@@ -182,7 +183,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   ])
   assert.deepEqual(imported, { imported: 1, skipped: 1 })
 
-  // 现场扫码登记：进选手库 + 初赛名单，按学号去重，歌曲可待定。
+  // 现场扫码登记：进选手库 + 初赛名单，按学号去重；歌曲必填且不能写「待定」。
   setRoundDay(client, getRoundByKey(client, event.id, 'prelim'), 1)
   const registered = registerSingerFromForm(client, musicId, {
     className: '26工商管理1班',
@@ -190,23 +191,46 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
     studentNo: '20260099',
     phone: '13800001234',
     email: 'chen7@example.com',
-    song: ''
+    song: '晴天'
   })
   assert.ok(registered.sortOrder > 0)
+  assert.throws(
+    () => registerSingerFromForm(client, musicId, {
+      className: '26工商管理1班',
+      name: '陈七空',
+      studentNo: '20260098',
+      phone: '13800001236',
+      email: 'chen7k@example.com',
+      song: '   '
+    }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'song'
+  )
+  assert.throws(
+    () => registerSingerFromForm(client, musicId, {
+      className: '26工商管理1班',
+      name: '陈七待',
+      studentNo: '20260097',
+      phone: '13800001237',
+      email: 'chen7d@example.com',
+      song: '待定'
+    }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'song'
+  )
   assert.throws(
     () => registerSingerFromForm(client, musicId, {
       className: '26工商管理1班',
       name: '陈七二',
       studentNo: '20260099',
       phone: '13800001235',
-      email: 'chen72@example.com'
+      email: 'chen72@example.com',
+      song: '后来'
     }),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'SINGER_ALREADY_REGISTERED'
   )
   const payloadAfterRegister = getAdminCompetitionPayload(client, musicId)
   const registeredSinger = payloadAfterRegister.singers.find(singer => singer.studentNo === '20260099')!
   assert.equal(registeredSinger.source, 'form')
-  assert.equal(registeredSinger.song, '')
+  assert.equal(registeredSinger.song, '晴天')
   assert.equal(registeredSinger.email, 'chen7@example.com')
   assert.equal(payloadAfterRegister.rounds[0]!.entries.some(entry => entry.singer.id === registeredSinger.id), true)
 
@@ -267,6 +291,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
       studentNo: '20260078',
       phone: '13800000778',
       email: 'sun92@example.com',
+      song: '后来',
       preRegistrationId: candidates[0]!.id
     }),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'PRE_REGISTRATION_ALREADY_USED'
@@ -1101,6 +1126,48 @@ test('数据库：现场进度——正在唱/已结束/前方几人，选手自
   assert.equal(queueFor('甲').state, 'finished')
   assert.equal(queueFor('丙').ahead, 0)
   assert.equal(queueFor('丙').state, 'waiting')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：换手机也能按姓名 + 学号后四位查到自己前面还有几个人', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association-lookup',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '甲', song: '晴天', studentNo: '20260001' })
+  createSinger(client, event.id, { name: '乙', song: '后来', studentNo: '20260002' })
+
+  const reload = () => getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, reload(), { status: 'open' })
+  moveCurrentEntry(client, reload(), 'start')
+
+  const mine = findSingerQueueByName(client, musicId, '乙', '0002')
+  assert.equal(mine.name, '乙')
+  assert.deepEqual(
+    { state: mine.state, ahead: mine.ahead, position: mine.position, total: mine.total },
+    { state: 'waiting', ahead: 0, position: 2, total: 2 }
+  )
+  assert.equal(findSingerQueueByName(client, musicId, '乙', '9999').state, 'unknown')
+  assert.equal(findSingerQueueByName(client, musicId, '查无此人', '0002').state, 'unknown')
+  assert.throws(
+    () => findSingerQueueByName(client, musicId, '  ', '0002'),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'VALIDATION_ERROR'
+  )
+  assert.throws(
+    () => findSingerQueueByName(client, musicId, '乙', '12'),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'VALIDATION_ERROR'
+  )
 
   closeDatabase(':memory:')
 })
