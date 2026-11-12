@@ -738,6 +738,7 @@ export const knowledgeClaims = sqliteTable('knowledge_claims', {
 }, table => [
   index('knowledge_claims_review_category_idx').on(table.reviewStatus, table.category),
   index('knowledge_claims_validity_idx').on(table.reviewStatus, table.validFrom, table.validUntil),
+  index('knowledge_claims_updated_idx').on(table.updatedAt),
   check('knowledge_claims_confidence_label_check', sql`${table.confidenceLabel} in ('extracted', 'inferred', 'ambiguous', 'unverified')`),
   check('knowledge_claims_confidence_score_check', sql`${table.confidenceScore} between 0 and 100`),
   check('knowledge_claims_review_status_check', sql`${table.reviewStatus} in ('draft', 'review', 'published', 'rejected', 'archived')`),
