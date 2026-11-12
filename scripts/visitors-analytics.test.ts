@@ -7,7 +7,7 @@ import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { visitorBans, visitorEvents, visitors } from '../server/database/schema'
-import { getPublicPageViewStats, listVisitorBans, listVisitors } from '../server/modules/visitors/service'
+import { getPublicPageViewStats, invalidateVisitorTotal, listVisitorBans, listVisitors } from '../server/modules/visitors/service'
 
 test('visitor list supports activity sorting and daily/hourly analytics', () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-visitors-'))
@@ -182,6 +182,48 @@ test('expired automatic bans stay available as history but do not count as activ
     const history = listVisitorBans(client, { page: 1, pageSize: 10, active: 'false' })
     assert.equal(history.total, 1)
     assert.equal(history.items[0]?.reason, 'crawler_honeypot')
+  } finally {
+    closeDatabase(databasePath)
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('unfiltered visitor total is cached until it is invalidated', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'yeu-visitor-total-'))
+  const databasePath = join(directory, 'test.sqlite')
+  const client = getDatabase(databasePath)
+  try {
+    runMigrations(client)
+    const total = () => listVisitors(client, {
+      page: 1,
+      pageSize: 5,
+      sort: 'last-seen',
+      analytics: 'false'
+    }).total
+
+    assert.equal(total(), 0)
+    const now = Date.now()
+    client.db.insert(visitors).values({
+      id: randomUUID(),
+      firstSeenAt: now,
+      lastSeenAt: now,
+      lastIp: '192.0.2.20',
+      lastPath: '/',
+      eventCount: 1,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+    // 直接写库不会触发失效，总数沿用缓存（概览页允许 30 秒滞后）
+    assert.equal(total(), 0)
+    invalidateVisitorTotal(client)
+    assert.equal(total(), 1)
+    // 带筛选的查询不走缓存
+    assert.equal(listVisitors(client, {
+      page: 1,
+      pageSize: 5,
+      ip: '192.0.2.20',
+      analytics: 'false'
+    }).total, 1)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })
