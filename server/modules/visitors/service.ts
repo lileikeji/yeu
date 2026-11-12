@@ -179,7 +179,6 @@ export function ensureVisitor(
         createdAt: now,
         updatedAt: now
       }).run()
-      invalidateVisitorTotal(client)
     } catch (error) {
       if (!isSqliteContention(error)) throw error
       writable = false
@@ -525,22 +524,14 @@ export function assertNotBanned(
   })
 }
 
-// 无筛选的访客总数要数全表（38k 行的覆盖索引全扫，冷读约 500ms），是概览页唯一
-// 还过百毫秒的查询。总数允许滞后：新建访客会主动作废缓存，其余情况最多滞后 30 秒。
-const VISITOR_TOTAL_CACHE_TTL_MS = 30_000
-const visitorTotalCache = new WeakMap<DatabaseClient, { at: number, total: number }>()
-
-export function invalidateVisitorTotal(client: DatabaseClient): void {
-  visitorTotalCache.delete(client)
-}
-
+// 无筛选的访客总数原来每次数全表（38,335 行的覆盖索引全扫，冷读约 500ms），是
+// 概览页最后一个过百毫秒的查询。改成读 visitor_stats 计数器（1 行，约 0.01ms），
+// 计数由 0059 迁移建的触发器在 visitors 增删时维护，永远精确、不需要缓存失效。
 function visitorTotal(client: DatabaseClient): number {
-  const cached = visitorTotalCache.get(client)
-  const now = Date.now()
-  if (cached && now - cached.at < VISITOR_TOTAL_CACHE_TTL_MS) return cached.total
-  const total = Number(client.db.select({ value: count() }).from(visitors).get()?.value ?? 0)
-  visitorTotalCache.set(client, { at: now, total })
-  return total
+  const row = client.sqlite.prepare('SELECT total FROM visitor_stats WHERE id = 1').get() as { total?: number } | undefined
+  if (row && typeof row.total === 'number') return row.total
+  // 迁移尚未执行（老库 / 只跑到一半）时退回实时计数，避免概览页报错。
+  return Number(client.db.select({ value: count() }).from(visitors).get()?.value ?? 0)
 }
 
 export function listVisitors(

@@ -7,7 +7,7 @@ import test from 'node:test'
 import { closeDatabase, getDatabase } from '../server/database/client'
 import { runMigrations } from '../server/database/migrate'
 import { visitorBans, visitorEvents, visitors } from '../server/database/schema'
-import { getPublicPageViewStats, invalidateVisitorTotal, listVisitorBans, listVisitors } from '../server/modules/visitors/service'
+import { getPublicPageViewStats, listVisitorBans, listVisitors } from '../server/modules/visitors/service'
 
 test('visitor list supports activity sorting and daily/hourly analytics', () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-visitors-'))
@@ -188,7 +188,7 @@ test('expired automatic bans stay available as history but do not count as activ
   }
 })
 
-test('unfiltered visitor total is cached until it is invalidated', () => {
+test('unfiltered visitor total follows the visitor_stats counter', () => {
   const directory = mkdtempSync(join(tmpdir(), 'yeu-visitor-total-'))
   const databasePath = join(directory, 'test.sqlite')
   const client = getDatabase(databasePath)
@@ -202,9 +202,10 @@ test('unfiltered visitor total is cached until it is invalidated', () => {
     }).total
 
     assert.equal(total(), 0)
+    const visitorId = randomUUID()
     const now = Date.now()
     client.db.insert(visitors).values({
-      id: randomUUID(),
+      id: visitorId,
       firstSeenAt: now,
       lastSeenAt: now,
       lastIp: '192.0.2.20',
@@ -213,17 +214,18 @@ test('unfiltered visitor total is cached until it is invalidated', () => {
       createdAt: now,
       updatedAt: now
     }).run()
-    // 直接写库不会触发失效，总数沿用缓存（概览页允许 30 秒滞后）
-    assert.equal(total(), 0)
-    invalidateVisitorTotal(client)
+    // 触发器即时维护计数器，不需要缓存失效
     assert.equal(total(), 1)
-    // 带筛选的查询不走缓存
+    assert.equal(client.sqlite.prepare('SELECT total FROM visitor_stats WHERE id = 1').get<{ total: number }>()['total'], 1)
+    client.sqlite.prepare('DELETE FROM visitors WHERE id = ?').run(visitorId)
+    assert.equal(total(), 0)
+    // 带筛选的查询仍实时统计，不走计数器
     assert.equal(listVisitors(client, {
       page: 1,
       pageSize: 5,
       ip: '192.0.2.20',
       analytics: 'false'
-    }).total, 1)
+    }).total, 0)
   } finally {
     closeDatabase(databasePath)
     rmSync(directory, { recursive: true, force: true })

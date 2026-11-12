@@ -64,6 +64,9 @@ export const sources = sqliteTable('sources', {
 }, table => [
   uniqueIndex('sources_url_unique').on(table.url),
   index('sources_level_status_idx').on(table.sourceLevel, table.status),
+  // 后台资料列表按 updated_at 倒序取第一页。没有这个索引时是「全表扫 + 临时 B 树
+  // 排序」，10,685 行热读 12ms、冷读 300ms 级，同步 SQLite 期间事件循环停摆。
+  index('sources_updated_idx').on(table.updatedAt),
   check('sources_level_check', sql`${table.sourceLevel} in ('A', 'B', 'C', 'D', 'E')`),
   check('sources_status_check', sql`${table.status} in ('active', 'unavailable', 'disputed')`)
 ])
