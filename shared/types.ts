@@ -498,6 +498,8 @@ export interface CompetitionQueuePosition {
   position: number | null
   /** 当天总人数。 */
   total: number
+  /** 按姓名 + 学号后四位查询时回传本人姓名。 */
+  name?: string
 }
 
 export interface CompetitionRoundEntry {
