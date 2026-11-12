@@ -205,7 +205,32 @@ function issueCondition(issue: KnowledgeClaimsQuery['issue'], now: number): SQL 
   return undefined
 }
 
+const KNOWLEDGE_HEALTH_CACHE_TTL_MS = 60_000
+const knowledgeHealthCache = new WeakMap<
+  DatabaseClient,
+  { at: number, value: ReturnType<typeof computeKnowledgeHealth> }
+>()
+
+function invalidateKnowledgeHealth(client: DatabaseClient): void {
+  knowledgeHealthCache.delete(client)
+}
+
+// 后台列表每次返回都带 health，而它是 knowledge_claims 的全表聚合（12 万行，
+// 含 NOT EXISTS 相关子查询）。better-sqlite3 同步执行会阻塞事件循环，所以概览
+// 路径读 60 秒进程内缓存，写操作显式失效；直连 knowledgeHealth() 仍然实时计算。
+function cachedKnowledgeHealth(client: DatabaseClient, now = Date.now()) {
+  const cached = knowledgeHealthCache.get(client)
+  if (cached && now - cached.at < KNOWLEDGE_HEALTH_CACHE_TTL_MS) return cached.value
+  const value = computeKnowledgeHealth(client, now)
+  knowledgeHealthCache.set(client, { at: now, value })
+  return value
+}
+
 export function knowledgeHealth(client: DatabaseClient, now = Date.now()) {
+  return computeKnowledgeHealth(client, now)
+}
+
+function computeKnowledgeHealth(client: DatabaseClient, now: number) {
   const row = client.sqlite.prepare(`
     SELECT
       count(*) AS total,
@@ -287,7 +312,7 @@ export function listKnowledgeClaims(client: DatabaseClient, query: KnowledgeClai
   return {
     items: rows.map(row => serializeClaim(row, sourceRows.filter(source => source.claimId === row.id))),
     total,
-    health: knowledgeHealth(client)
+    health: cachedKnowledgeHealth(client)
   }
 }
 
@@ -330,6 +355,7 @@ export function createKnowledgeClaim(client: DatabaseClient, input: CreateKnowle
       replaceClaimSources(client, id, sourceRows)
       // 知识库写入要让答案缓存失效：修订号是 cache_key 的一段，不 bump 就继续发旧答案。
       bumpAssistantKnowledgeRevision(client)
+      invalidateKnowledgeHealth(client)
     })()
   } catch (error) {
     rethrowDatabaseError(error)
@@ -378,6 +404,7 @@ export function updateKnowledgeClaim(client: DatabaseClient, id: string, input: 
       }).where(eq(knowledgeClaims.id, id)).run()
       if (input.sources) replaceClaimSources(client, id, sourceRows)
       bumpAssistantKnowledgeRevision(client)
+      invalidateKnowledgeHealth(client)
     })()
   } catch (error) {
     rethrowDatabaseError(error)
@@ -394,6 +421,7 @@ export function archiveKnowledgeClaim(client: DatabaseClient, id: string, adminI
   }).where(eq(knowledgeClaims.id, id)).run()
   if (result.changes === 0) throwNotFound('Knowledge claim')
   bumpAssistantKnowledgeRevision(client)
+  invalidateKnowledgeHealth(client)
 }
 
 function ftsQuery(terms: string[]): string {
