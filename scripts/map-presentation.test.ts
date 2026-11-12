@@ -70,6 +70,7 @@ const placeDetailsPanelSource = readFileSync(resolve('app/components/map/PlaceDe
 const officialPlanSource = readFileSync(resolve('app/components/map/OfficialCampusPlan.vue'), 'utf8')
 // 地图页拆分后实现换了归属：POI/详情/平面图相关在 useMapPoi，筛选与兜底文案在 useMapFilter。
 // 断言跟着实现走，页面侧只校验「注入调用」与「不得内联实现体」，强度不变。
+const busRoutePanelSource = readFileSync(resolve('app/components/MapBusRoutePanel.vue'), 'utf8')
 const poiComposableSource = readFileSync(resolve('app/composables/useMapPoi.ts'), 'utf8')
 const filterComposableSource = readFileSync(resolve('app/composables/useMapFilter.ts'), 'utf8')
 
@@ -130,6 +131,18 @@ test('all map categories remain visible in a two-row mobile grid', () => {
   assert.match(pageSource, /class="mt-2(?:\s+dark:[^"\s]+)*\s+grid(?:\s+dark:[^"\s]+)*\s+grid-cols-4(?:\s+dark:[^"\s]+)*\s+gap-1(?:\s+dark:[^"\s]+)*\s+md:mt-3(?:\s+dark:[^"\s]+)*\s+md:flex(?:\s+dark:[^"\s]+)*\s+md:overflow-x-auto(?:\s+dark:[^"\s]+)*\s+md:pb-1(?:\s+dark:[^"\s]+)*"/)
   assert.match(pageSource, /class="min-h-9 min-w-0 justify-center px-1 text-\[11px\] md:min-h-11/)
   assert.equal(mapCategories.length, 8)
+})
+
+test('map bus dock clears the top switcher row and keeps its own expand entry', () => {
+  // 桌面收起条与展开面板都从 top-16 起排：顶部 44px 那行留给居中的「地图 / 平面图」切换器。
+  // 否则 768–1180px 宽度下，19rem 起、20rem 宽的横条会压住切换按钮，且 z-30 让按钮点不到。
+  assert.match(busRoutePanelSource, /md:bottom-auto md:right-auto md:top-16 md:left-\[var\(--bus-left,19rem\)\]/)
+  assert.match(busRoutePanelSource, /md:top-16 md:bottom-auto md:right-auto md:left-\[var\(--bus-left,19rem\)\]/)
+  assert.doesNotMatch(busRoutePanelSource, /md:top-4/)
+  // 展开地点栏的入口固定在左上角独立容器里，不混进右下角徽章堆（侧栏收起后它是唯一入口）。
+  assert.match(pageSource, /<div class="pointer-events-none absolute left-3 top-3 z-20 hidden md:left-4 md:top-4 md:block">[\s\S]{0,400}?展开地点栏/)
+  assert.match(pageSource, /class="justify-center pointer-events-auto size-11 shadow-sm"[\s\S]{0,80}?aria-label="展开地点栏"/)
+  assert.equal(pageSource.split('aria-label="展开地点栏"').length - 1, 1)
 })
 
 test('map data labels and fallback messages follow scope and data readiness', () => {

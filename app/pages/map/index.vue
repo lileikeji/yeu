@@ -911,20 +911,24 @@ onBeforeUnmount(() => {
             <i class="h-2.5 w-4 rounded-sm border border-zinc-500 bg-[repeating-linear-gradient(135deg,#facc15_0_3px,#18181b_3px_6px)]" />
             减速带 27
           </div>
-          <UTooltip
-            v-if="sidebarCollapsed"
-            text="展开地点栏"
-          >
-            <UButton
-              icon="i-lucide-panel-left-open"
-              color="neutral"
-              variant="solid"
-              class="justify-center pointer-events-auto hidden size-11 md:inline-flex"
-              aria-label="展开地点栏"
-              @click="() => { sidebarCollapsed = false }"
-            />
-          </UTooltip>
         </div>
+      </div>
+
+      <!-- 展开地点栏：侧栏收起后桌面的唯一入口，固定在左上角（不放右下角徽章堆里） -->
+      <div class="pointer-events-none absolute left-3 top-3 z-20 hidden md:left-4 md:top-4 md:block">
+        <UTooltip
+          v-if="sidebarCollapsed"
+          text="展开地点栏"
+        >
+          <UButton
+            icon="i-lucide-panel-left-open"
+            color="neutral"
+            variant="solid"
+            class="justify-center pointer-events-auto size-11 shadow-sm"
+            aria-label="展开地点栏"
+            @click="() => { sidebarCollapsed = false }"
+          />
+        </UTooltip>
       </div>
 
       <!-- 视图切换 + 右侧工具栏：保持在顶部一行（工具栏靠右） -->
