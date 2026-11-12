@@ -23,7 +23,6 @@ import {
   getRoundByKey,
   getSingerQueuePosition,
   getCurrentSinger,
-  findSingerQueueByName,
   importSingers,
   emailImageAttachments,
   isMusicAssociationContent,
@@ -1126,48 +1125,6 @@ test('数据库：现场进度——正在唱/已结束/前方几人，选手自
   assert.equal(queueFor('甲').state, 'finished')
   assert.equal(queueFor('丙').ahead, 0)
   assert.equal(queueFor('丙').state, 'waiting')
-
-  closeDatabase(':memory:')
-})
-
-test('数据库：换手机也能按姓名 + 学号后四位查到自己前面还有几个人', async () => {
-  const client = getDatabase(':memory:')
-  runMigrations(client)
-
-  const musicId = randomUUID()
-  client.db.insert(contents).values({
-    id: musicId,
-    kind: 'club',
-    slug: 'music-association-lookup',
-    title: '音乐协会',
-    summary: 'test',
-    status: 'published'
-  }).run()
-
-  const event = ensureCompetitionEvent(client, musicId)
-  createSinger(client, event.id, { name: '甲', song: '晴天', studentNo: '20260001' })
-  createSinger(client, event.id, { name: '乙', song: '后来', studentNo: '20260002' })
-
-  const reload = () => getRoundByKey(client, event.id, 'prelim')
-  updateRound(client, reload(), { status: 'open' })
-  moveCurrentEntry(client, reload(), 'start')
-
-  const mine = findSingerQueueByName(client, musicId, '乙', '0002')
-  assert.equal(mine.name, '乙')
-  assert.deepEqual(
-    { state: mine.state, ahead: mine.ahead, position: mine.position, total: mine.total },
-    { state: 'waiting', ahead: 0, position: 2, total: 2 }
-  )
-  assert.equal(findSingerQueueByName(client, musicId, '乙', '9999').state, 'unknown')
-  assert.equal(findSingerQueueByName(client, musicId, '查无此人', '0002').state, 'unknown')
-  assert.throws(
-    () => findSingerQueueByName(client, musicId, '  ', '0002'),
-    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'VALIDATION_ERROR'
-  )
-  assert.throws(
-    () => findSingerQueueByName(client, musicId, '乙', '12'),
-    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'VALIDATION_ERROR'
-  )
 
   closeDatabase(':memory:')
 })

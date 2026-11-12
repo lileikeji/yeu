@@ -32,8 +32,6 @@ interface QueuePosition {
   ahead: number | null
   position: number | null
   total: number
-  /** 按姓名 + 学号后四位查询时带回来。 */
-  name?: string
 }
 
 const succeeded = ref<{ singerId: string, name: string, sortOrder: number, fromPre: boolean } | null>(null)
@@ -133,46 +131,9 @@ function startQueuePolling(): void {
   queueTimer = setInterval(loadQueue, 15000)
 }
 
-const queueLookupName = ref('')
-const queueLookupTail = ref('')
-const queueLookupBusy = ref(false)
-const queueLookupError = ref('')
-
-/** 换了手机也能查：姓名 + 学号后四位。 */
-async function lookupQueue(): Promise<void> {
-  const name = queueLookupName.value.trim()
-  const tail = queueLookupTail.value.trim()
-  if (!name) {
-    queueLookupError.value = '请填写姓名'
-    return
-  }
-  if (!/^\d{4}$/.test(tail)) {
-    queueLookupError.value = '请填写学号后四位'
-    return
-  }
-  if (queueLookupBusy.value) return
-  queueLookupBusy.value = true
-  queueLookupError.value = ''
-  try {
-    const data = await $fetch<QueuePosition>('/api/public/competition/register/queue', {
-      query: { name, studentNoTail: tail }
-    })
-    if (data.state === 'unknown') {
-      queueLookupError.value = '没查到登记记录，核对姓名和学号后四位'
-      return
-    }
-    queue.value = data
-    queueUpdatedAt.value = Date.now()
-  } catch {
-    queueLookupError.value = '查询失败，稍后再试'
-  } finally {
-    queueLookupBusy.value = false
-  }
-}
-
+/** 只有登记过（本机记住了身份）才刷新进度。 */
 function refreshQueue(): void {
   if (queueOwner.value) void loadQueue()
-  else void lookupQueue()
 }
 
 function resetAfterSuccess(): void {
@@ -359,24 +320,24 @@ onMounted(async () => {
         </h1>
       </header>
 
-      <!-- 现场进度：登记过就一直能看到，换手机用姓名 + 学号后四位查 -->
+      <!-- 现场进度：只有登记过（本机记住了身份）才显示 -->
       <section
         v-if="queue"
         class="mt-6 rounded-2xl bg-white/90 p-4 shadow-md ring-1 ring-[#f2d8c4]"
       >
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs font-semibold tracking-wider text-[#b4552f]">
-            我的现场进度<template v-if="queueOwner?.name || queue.name">
-              · {{ queueOwner?.name || queue.name }}
+            我的现场进度<template v-if="queueOwner?.name">
+              · {{ queueOwner.name }}
             </template>
           </p>
           <button
             type="button"
             class="shrink-0 text-xs font-semibold text-[#4a564e] underline disabled:opacity-60"
-            :disabled="queueRefreshing || queueLookupBusy"
+            :disabled="queueRefreshing"
             @click="refreshQueue"
           >
-            {{ queueRefreshing || queueLookupBusy ? '刷新中…' : '刷新' }}
+            {{ queueRefreshing ? '刷新中…' : '刷新' }}
           </button>
         </div>
         <p class="mt-1 text-xl font-black text-[#2f3a34]">
@@ -392,50 +353,6 @@ onMounted(async () => {
           <template v-if="queueTime">
             · 更新于 {{ queueTime }}
           </template>
-        </p>
-      </section>
-
-      <section
-        v-else
-        class="mt-6 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-[#f2d8c4]"
-      >
-        <p class="text-xs font-semibold tracking-wider text-[#b4552f]">
-          查我的现场进度
-        </p>
-        <div class="mt-2 flex gap-2">
-          <input
-            v-model="queueLookupName"
-            maxlength="40"
-            name="queueName"
-            autocomplete="name"
-            aria-label="查进度用的姓名"
-            class="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
-            placeholder="姓名"
-          >
-          <input
-            v-model="queueLookupTail"
-            maxlength="4"
-            inputmode="numeric"
-            name="queueTail"
-            autocomplete="off"
-            aria-label="查进度用的学号后四位"
-            class="w-28 shrink-0 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
-            placeholder="学号后 4 位"
-          >
-          <button
-            type="button"
-            class="shrink-0 rounded-xl bg-[#4a564e] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#3a453e] disabled:opacity-60"
-            :disabled="queueLookupBusy"
-            @click="lookupQueue"
-          >
-            {{ queueLookupBusy ? '查…' : '查询' }}
-          </button>
-        </div>
-        <p
-          v-if="queueLookupError"
-          class="mt-1.5 text-xs text-red-600"
-        >
-          {{ queueLookupError }}
         </p>
       </section>
 

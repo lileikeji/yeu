@@ -1112,35 +1112,6 @@ export function getSingerQueuePosition(
   }
 }
 
-/**
- * 换了手机也能查：姓名 + 学号后四位认人，只回他自己的排队位置。
- * 用来在登记页随时看前面还有几个人。
- */
-export function findSingerQueueByName(
-  client: DatabaseClient,
-  contentId: string,
-  name: string,
-  studentNoTail: string
-): CompetitionQueuePosition & { name?: string } {
-  const eventRow = ensureCompetitionEvent(client, contentId)
-  const normalizedName = name.replace(/\s+/g, ' ').trim()
-  const tail = studentNoTail.replace(/\s+/g, '').trim()
-  if (!normalizedName) validationError('请填写姓名', 'name')
-  if (!/^\d{4}$/.test(tail)) validationError('请填写学号后四位', 'studentNoTail')
-
-  const singer = client.db.select().from(competitionSingers)
-    .where(and(
-      eq(competitionSingers.eventId, eventRow.id),
-      eq(competitionSingers.name, normalizedName)
-    ))
-    .all()
-    .find(row => String(row.studentNo ?? '').endsWith(tail))
-  if (!singer) {
-    return { state: 'unknown', ahead: null, position: null, total: 0 }
-  }
-  return { ...getSingerQueuePosition(client, contentId, singer.id), name: singer.name }
-}
-
 export function getAdminCompetitionPayload(client: DatabaseClient, contentId: string): CompetitionAdminPayload {
   const club = getCompetitionClub(client, contentId)
   if (!club) {
