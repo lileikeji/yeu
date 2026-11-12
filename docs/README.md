@@ -7,6 +7,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [PRD.md](./PRD.md) | 产品需求：用户、问题、MVP 范围、验收标准与非目标 |
+| [REVIEW-2026-11-11.md](./REVIEW-2026-11-11.md) | 终局评审结论：11 维评分、五条总裁决、目标 IA 与 AI 架构、路线图与已落地清单、未做项 |
 | [INFORMATION_ARCHITECTURE.md](./INFORMATION_ARCHITECTURE.md) | 信息架构：公开页面、导航、路由与后台模块 |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 技术架构：运行拓扑、目录职责、领域边界、API 约定、安全与可靠性 |
 | [DATA_MODEL.md](./DATA_MODEL.md) | 数据模型：表结构、领域关系与迁移约定 |
