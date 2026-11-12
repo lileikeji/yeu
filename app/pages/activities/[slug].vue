@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ApiPublicActivity } from '~~/shared/types/server'
 import { throwPublicDetailError } from '~/utils/public-errors'
+import { isActivityStartingToday } from '~/utils/activity-presentation'
 
 const route = useRoute()
 const slug = String(Array.isArray(route.params.slug) ? route.params.slug[0] : route.params.slug ?? '')
@@ -124,6 +125,14 @@ useSeoMeta({
             >
               {{ formatKind(activity.organization?.kind) }}
             </UBadge>
+            <UBadge
+              v-if="isActivityStartingToday(activity.startsAt)"
+              color="warning"
+              variant="solid"
+              icon="i-lucide-sparkles"
+            >
+              今天开始
+            </UBadge>
             <NuxtLink
               v-if="organizationPath"
               :to="organizationPath"
@@ -140,7 +149,12 @@ useSeoMeta({
             {{ activity.summary }}
           </p>
 
-          <dl class="mt-6 grid gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950/60 sm:grid-cols-2">
+          <dl
+            class="mt-6 grid gap-3 rounded-xl border p-4 text-sm sm:grid-cols-2"
+            :class="isActivityStartingToday(activity.startsAt)
+              ? 'border-amber-400 bg-amber-50/70 ring-2 ring-inset ring-amber-400 dark:border-amber-600 dark:bg-amber-950/30 dark:ring-amber-500'
+              : 'border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/60'"
+          >
             <div class="flex items-start gap-2">
               <UIcon
                 name="i-lucide-calendar-clock"
