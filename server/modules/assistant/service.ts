@@ -492,7 +492,7 @@ const MAX_MCP_CONCURRENCY = 2
 // 一个会话的答案发给另一个会话）；②knowledge_revision 落库并在读路径真比对；
 // ③模型没给引用时不再拿「证据列表前 N 条」充当引用；④内容安全拦截不进两级缓存；
 // ⑤内存缓存 FIFO 改 LRU，并补上证据不足的短 TTL 负缓存。命中语义变了，必须 bump。
-const ASSISTANT_CACHE_VERSION = 'rag-v85-search-comments'
+const ASSISTANT_CACHE_VERSION = 'rag-v86-master-merge'
 const ASSISTANT_ANSWER_CACHE_TTL_MS = 30 * 60 * 1000
 /** 证据不足（confidence < 0.6）的负缓存只活 60 秒：重试往往能拿到新证据。 */
 const ASSISTANT_ANSWER_GAP_CACHE_TTL_MS = 60 * 1000
