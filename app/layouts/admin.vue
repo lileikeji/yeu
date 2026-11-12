@@ -141,41 +141,67 @@ async function redirectToLogin(): Promise<void> {
   }, { replace: true })
 }
 
-async function checkSession(): Promise<void> {
+async function applySessionPayload(payload: Record<string, unknown>): Promise<void> {
+  adminLabel.value = resolveAdminLabel(payload)
+  applyAdminScope(payload)
+  const organizationRouteAllowed = route.path === '/admin/organization'
+    || route.path === '/admin/recruit'
+    || route.path === '/admin/activities'
+    || route.path.startsWith('/admin/content/')
+    || (route.path === '/admin/competition' && isMusicAssociation.value)
+    || (route.path === '/admin/miniapp' && canUseCapability('analytics.view'))
+  if (adminRole.value === 'organization' && !organizationRouteAllowed) {
+    await navigateTo({
+      path: '/admin/organization',
+      query: mustChangePassword.value ? { password: 'required' } : undefined
+    }, { replace: true })
+    return
+  }
+  authState.value = 'authenticated'
+}
+
+// 会话校验放进 SSR：原来它挂在 onMounted，首屏只能先画「验证管理会话」转圈，
+// 等 54 个后台 chunk（约 765KB）下载解析完、水合之后才发这 26ms 的请求，
+// 用户实际要干等好几秒。useAsyncData 让服务端直接把 authenticated 状态写进
+// HTML，payload 随水合复用，客户端不再重复请求。
+const requestFetch = useRequestFetch()
+const { data: initialSession, error: initialSessionError } = await useAsyncData(
+  'admin-session',
+  () => requestFetch<unknown>('/api/admin/auth/session'),
+  { deep: false }
+)
+if (initialSessionError.value) {
+  const code = statusCode(initialSessionError.value)
+  if (code === 401 || code === 403) {
+    await redirectToLogin()
+  } else {
+    authError.value = '无法验证管理会话，请检查网络或服务状态。'
+    authState.value = 'error'
+  }
+} else if (isAuthenticated(initialSession.value)) {
+  await applySessionPayload(initialSession.value)
+} else {
+  await redirectToLogin()
+}
+
+// 错误页「重新验证」按钮：SSR 已经失败过一次，这里在客户端重试。
+async function retrySession(): Promise<void> {
   authState.value = 'checking'
   authError.value = ''
 
   try {
-    const payload = await adminFetch<unknown>('/api/admin/auth/session')
-
+    const payload = await requestFetch<unknown>('/api/admin/auth/session')
     if (!isAuthenticated(payload)) {
       await redirectToLogin()
       return
     }
-
-    adminLabel.value = resolveAdminLabel(payload)
-    applyAdminScope(payload)
-    const organizationRouteAllowed = route.path === '/admin/organization'
-      || route.path === '/admin/recruit'
-      || route.path === '/admin/activities'
-      || route.path.startsWith('/admin/content/')
-      || (route.path === '/admin/competition' && isMusicAssociation.value)
-      || (route.path === '/admin/miniapp' && canUseCapability('analytics.view'))
-    if (adminRole.value === 'organization' && !organizationRouteAllowed) {
-      await navigateTo({
-        path: '/admin/organization',
-        query: mustChangePassword.value ? { password: 'required' } : undefined
-      }, { replace: true })
-      return
-    }
-    authState.value = 'authenticated'
+    await applySessionPayload(payload)
   } catch (error) {
     const code = statusCode(error)
     if (code === 401 || code === 403) {
       await redirectToLogin()
       return
     }
-
     authError.value = '无法验证管理会话，请检查网络或服务状态。'
     authState.value = 'error'
   }
@@ -192,6 +218,9 @@ async function logout(): Promise<void> {
     // Redirect even when the session has already expired server-side.
   } finally {
     loggingOut.value = false
+    // 清掉 SSR 带下来的会话快照，否则登录页回来时 useAsyncData 还拿着旧的
+    // authenticated=true，界面显示已登录而后台接口全部 401。
+    clearNuxtData('admin-session')
     await navigateTo('/admin/login', { replace: true })
   }
 }
@@ -255,7 +284,6 @@ watch(() => route.path, () => {
 
 onMounted(() => {
   desktopSidebarCollapsed.value = localStorage.getItem('yeu-admin-sidebar-collapsed') === 'true'
-  void checkSession()
 })
 
 watch(desktopSidebarCollapsed, (collapsed) => {
@@ -307,7 +335,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
           <UButton
             icon="i-lucide-refresh-cw"
             label="重新验证"
-            @click="checkSession"
+            @click="retrySession"
           />
         </div>
       </div>
@@ -368,6 +396,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
               v-show="isStandaloneGroup(group.key) || desktopSidebarCollapsed || !isNavigationGroupCollapsed(group.key)"
               :key="item.to"
               :to="item.to"
+              :prefetch="false"
               class="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
               :class="isActive(item.to) ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100' : 'text-zinc-300 dark:text-zinc-600 hover:bg-white/10 hover:text-white'"
               :aria-current="isActive(item.to) ? 'page' : undefined"
@@ -532,6 +561,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
                 v-show="isStandaloneGroup(group.key) || !isNavigationGroupCollapsed(group.key)"
                 :key="item.to"
                 :to="item.to"
+                :prefetch="false"
                 class="flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm"
                 :class="isActive(item.to) ? 'bg-green-50 dark:bg-green-950 font-medium text-green-800 dark:text-green-300' : 'text-zinc-600 dark:text-zinc-300'"
                 :aria-current="isActive(item.to) ? 'page' : undefined"
