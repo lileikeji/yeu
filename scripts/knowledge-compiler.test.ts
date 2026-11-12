@@ -382,6 +382,8 @@ test('published facts are indexed, validity-gated and removed from retrieval aft
     const assistantEvidence = retrieveCampusEvidence(value.client, '新生应该买多大的床垫？', 8)
     assert.ok(assistantEvidence.some(item => item.title === '新生床垫购买尺寸'))
     assert.equal(knowledgeHealth(value.client).claims.published, 1)
+    // 计数器必须和证据表同步：这条知识挂了 1 条证据，不能被 health 报成缺证据
+    assert.equal(knowledgeHealth(value.client).issues.missingSource, 0)
 
     archiveKnowledgeClaim(value.client, claim.id, value.adminId)
     assert.deepEqual(searchPublishedKnowledgeClaims(value.client, ['床垫', '尺寸'], 5), [])
