@@ -4,7 +4,8 @@ import type { MapProvider } from '~~/map/core/provider'
 import type { MapBus, MapBusRoute, MapBusStop } from '~~/map/core/types'
 import { ref, watch } from 'vue'
 import { BUS_POSITIONS_API_PATH } from '~~/shared/constants/server'
-import { alongOnPolyline, bearingDegrees, computeBusProgress, haversineMeters, samplePolylinePoint, snapToPolyline } from '~~/shared/utils/bus-route-progress'
+import { alongOnPolyline, cumulativeDistances, samplePolylinePoint, snapToPolyline } from '~~/shared/utils/bus-route-progress'
+import { advanceBusTrack, createBusTrack, observeBusTrack, resetBusTrack, TRACK_OFF_ROUTE_M, type BusTrack } from '~~/shared/utils/bus-track'
 
 /** 线路快照（校车实时接口响应 routes[]，路径见 shared/constants/server.ts BUS_POSITIONS_API_PATH）。 */
 export interface BusRouteSnapshot {
@@ -49,8 +50,25 @@ interface BusPositionsResponse {
 
 /** 与服务端 5s 缓存对齐的轮询间隔。 */
 const POLL_INTERVAL_MS = 5_000
-/** 显示平滑节拍（ms）：轮询之间沿折线推进动画显示位，车标不再硬跳。 */
+/** 显示平滑节拍（ms）：两次上报之间按沿线里程向前推进，车标连续移动。 */
 const MOTION_TICK_MS = 150
+
+/** 一台车的渲染状态：所属线路 + 沿线里程跟踪器。 */
+interface BusRender {
+  bus: BusSnapshot
+  route: BusRouteSnapshot
+  line: Array<{ lng: number, lat: number }>
+  /** 本帧投影到该线路上的沿线里程（米）。 */
+  along: number
+  totalMeters: number
+  offsetMeters: number
+  track: BusTrack
+  /** 连续几轮「上报点不在线路上」（车停在车场）：累计 3 轮就不再画这辆车。 */
+  misses: number
+}
+
+/** 本帧的候选线路（还没和跟踪状态合并）。 */
+type BusCandidate = Omit<BusRender, 'track' | 'misses'>
 
 /** YKT 坐标系字符串 → 项目 CRS 枚举（未知值按 WGS84 处理）。 */
 function toCrs(value: string): CoordinateReferenceSystem {
@@ -62,8 +80,10 @@ function toCrs(value: string): CoordinateReferenceSystem {
 
 /**
  * 校车图层同步：每 5 秒拉取云一卡通校车快照（线路折线 + 起终点 + 实时车位置），
- * 喂给地图 provider 的 setBusRoutes/setBuses。车位置经 motion 平滑（沿线里程动画），
- * 卸载时清空图层。
+ * 喂给地图 provider 的 setBusRoutes/setBuses。
+ *
+ * 车位置按「沿线里程」平滑：每帧从当前显示位向前推进，里程只增不减，
+ * 本趟没跑完不会回退（算法见 shared/utils/bus-track.ts）。卸载时清空图层。
  */
 export function useMapBusPositions(options: {
   mapProvider: Ref<MapProvider | null>
@@ -79,15 +99,19 @@ export function useMapBusPositions(options: {
   const buses = ref<BusSnapshot[]>([])
   const fetchedAt = ref<string | null>(null)
 
-  /** 轮询之间的插值段：上一帧定位 → 本帧定位，span 内线性推进。 */
-  const trails = new Map<string, { from: { lng: number, lat: number }, to: { lng: number, lat: number }, t0: number, span: number }>()
-  /** 上一次上报的定位，用来判断这一轮是否真的有新坐标。 */
-  const lastFix = new Map<string, { lng: number, lat: number }>()
-  // 位置真变了才更新时间戳：面板「GPS 更新 N 秒前」据此显示，静止时不会一直 0 秒。
-  const movedAt = new Map<string, number>()
-  // 方向判定粘滞：busName -> 上一次选中的 routeId（见 buildDisplay）。
-  const pickedRouteByBus = new Map<string, string>()
+  /** 每台车一条跟踪状态（busName → 渲染状态）。 */
+  const renders = new Map<string, BusRender>()
+  /** 上游把车临时挂到另一条线路时的待确认切换：连续两帧才换手，防单帧误报。 */
+  const pendingRoute = new Map<string, { routeId: string, frames: number }>()
   let lastData: BusPositionsResponse | null = null
+
+  function routeLine(route: BusRouteSnapshot): Array<{ lng: number, lat: number }> {
+    const points = (route.polyline ?? []).filter(point => Number.isFinite(point.lng) && Number.isFinite(point.lat))
+    if (points.length >= 2) return points.map(point => ({ lng: point.lng, lat: point.lat }))
+    return route.stops
+      .filter(stop => Number.isFinite(stop.lng) && Number.isFinite(stop.lat))
+      .map(stop => ({ lng: stop.lng, lat: stop.lat }))
+  }
 
   /**
    * 站点压到线路上：YKT 的站点坐标是实地点位（门口、楼前），直接画会浮在路外、
@@ -147,48 +171,16 @@ export function useMapBusPositions(options: {
   }
 
   /**
-   * 由快照构建显示位：按上报 GPS 做二维插值（不沿线投影、不吸站点），
-   * 面板快照与地图 MapBus 用同一份坐标（含车头朝向角）。
+   * 吸收一轮上报：只更新里程跟踪状态，不做显示。
    *
-   * 云一卡通把同一台车按「车 × 线路」各上报一条（去程/回程都有一条），
-   * 直接透传会让一台车同时出现在两个方向的小窗里、进度还按反向折算。
-   * 这里按 busName 去重，并用主线路（去程）里程的变化方向判定它实际在跑哪一趟。
+   * 上游 YKTGetBusCarInfo 是按 route_id 逐条线路查询的，返回的车就是这条线路
+   * 上在跑的车，所以以它给的 routeId 为准；不再按「下一站得分」把车改判到
+   * 反方向线路（改判后里程在反方向折线上是递减的，正是「二次定位后回退」的
+   * 直接来源）。同一台车若重复上报，取投影偏离本线路最小的那条。
    */
-  /**
-   * 这台车真实在跑哪一趟：线路把「车 × 线路」各上报一条，坐标完全相同，
-   * 靠「下一站」站点在每条线路上的沿线里程判断——正确那趟的下一站在车前方且很近，
-   * 反的那趟同一站在身后或快到终点，得分会被罚到极大。
-   */
-  function pickTrip(bus: BusSnapshot, routes: BusRouteSnapshot[]): { route: BusRouteSnapshot, progress: ReturnType<typeof computeBusProgress>, score: number, secondScore: number } | null {
-    let best: { route: BusRouteSnapshot, progress: NonNullable<ReturnType<typeof computeBusProgress>>, score: number } | null = null
-    let secondScore = Infinity
-    for (const route of routes) {
-      const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
-      const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
-      if (stops.length < 2 || polyline.length < 2) continue
-      const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite })
-      if (!progress) continue
-      const index = route.stops.findIndex(stop => stop.siteId === bus.siteId)
-      const stopAlong = index >= 0 ? progress.stopDistancesAlong[index] : undefined
-      const ahead = stopAlong === undefined ? progress.distanceToNextStopMeters : stopAlong - progress.distanceAlong
-      const score = ahead >= -25 ? ahead : 1e6 + Math.abs(ahead)
-      if (!best || score < best.score) {
-        secondScore = best?.score ?? Infinity
-        best = { route, progress, score }
-      } else if (score < secondScore) {
-        secondScore = score
-      }
-    }
-    return best ? { route: best.route, progress: best.progress, score: best.score, secondScore } : null
-  }
-
-  function buildDisplay(data: BusPositionsResponse): { snapshots: BusSnapshot[], mapBuses: MapBus[] } {
-    const crs = toCrs(data.coordinateSystem)
+  function ingest(data: BusPositionsResponse): void {
     const now = Date.now()
-    const snapshots: BusSnapshot[] = []
-    const mapBuses: MapBus[] = []
-
-    // 同一台车在两条线路上各上报一次：按 busName 分组，只留「下一站对得上」的那条。
+    const routeById = new Map(data.routes.map(route => [route.routeId, route]))
     const groups = new Map<string, BusSnapshot[]>()
     for (const bus of data.buses) {
       const list = groups.get(bus.busName)
@@ -197,84 +189,127 @@ export function useMapBusPositions(options: {
     }
 
     for (const [name, entries] of groups) {
-      const scored = entries
-        .map(entry => ({ entry, picked: pickTrip(entry, data.routes) }))
-        .filter((item): item is { entry: BusSnapshot, picked: NonNullable<ReturnType<typeof pickTrip>> } => Boolean(item.picked))
-        .sort((a, b) => a.picked!.progress!.distanceToNextStopMeters - b.picked!.progress!.distanceToNextStopMeters)
-      const best = scored[0]
-      // 方向粘滞：上游同车两方向各上报一条、坐标完全相同，车在站点上或下一站
-      // 在线路中段时两个方向打分几乎一样，会来回翻转。分差小于 120m 时沿用
-      // 上一轮的判定，等车开出一段（下一站真实拉开）再自动纠正。
-      const lastRouteId = pickedRouteByBus.get(name)
-      let chosen = best
-      if (best && lastRouteId && best.entry.routeId !== lastRouteId) {
-        const sticky = scored.find(item => item.entry.routeId === lastRouteId)
-        if (sticky) {
-          const diff = sticky.picked!.progress!.distanceToNextStopMeters - best.picked!.progress!.distanceToNextStopMeters
-          if (diff < 120) chosen = sticky
+      const currentRouteId = renders.get(name)?.track.routeId
+      let best: BusCandidate | null = null
+      let onCurrent: BusCandidate | null = null
+      for (const bus of entries) {
+        const route = routeById.get(bus.routeId)
+        if (!route) continue
+        const line = routeLine(route)
+        if (line.length < 2) continue
+        const snapped = snapToPolyline({ lng: bus.lng, lat: bus.lat }, line)
+        if (!snapped) continue
+        // 偏离线路太多 = 车不在本线路上（实测有校车全天停在东侧车场，离线路 2.9 km）。
+        // 这种点不能当成本线路的位置，否则车标会画在线路上一个根本不存在的位置。
+        if (snapped.offsetMeters > TRACK_OFF_ROUTE_M) continue
+        const candidate: BusCandidate = {
+          bus,
+          route,
+          line,
+          along: alongOnPolyline(snapped.point, line),
+          totalMeters: cumulativeDistances(line).at(-1) ?? 0,
+          offsetMeters: snapped.offsetMeters
         }
+        if (!best || candidate.offsetMeters < best.offsetMeters) best = candidate
+        if (route.routeId === currentRouteId) onCurrent = candidate
       }
-      if (chosen) pickedRouteByBus.set(name, chosen.entry.routeId)
-      else pickedRouteByBus.delete(name)
-      const trip = chosen
-      const bus = trip?.entry ?? entries[0]!
-      const progress = trip?.picked?.progress ?? null
-      const route = trip?.picked?.route
-      const line = route
-        ? ((route.polyline ?? []).length >= 2
-            ? route.polyline!.map(point => ({ lng: point.lng, lat: point.lat }))
-            : route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat })))
-        : []
+      if (!best) {
+        // 本帧没有可用位置：先保留上一次位置（单帧 GPS 漂移不闪），连续 3 轮都不可用再撤掉。
+        const previous = renders.get(name)
+        pendingRoute.delete(name)
+        if (!previous) continue
+        const misses = previous.misses + 1
+        if (misses >= 3) renders.delete(name)
+        else renders.set(name, { ...previous, misses })
+        continue
+      }
 
-      // 位置就用上报的 GPS：不再沿线投影、也不往站点上吸。
-      // 两次 poll 之间按经纬度线性插值，车看起来是连续开的，但走的是自己的定位。
-      const fix = { lng: bus.lng, lat: bus.lat }
-      const previousFix = lastFix.get(name)
-      if (!previousFix || haversineMeters(previousFix, fix) > 1.5) {
-        const from = previousFix ?? fix
-        trails.set(name, { from, to: fix, t0: now, span: POLL_INTERVAL_MS })
-        lastFix.set(name, fix)
+      // 单帧换线不认：上游在终点附近偶尔把车同时挂在两条线路上，或者某帧只报另一条。
+      // 车离旧线路很近时等第二帧再换趟；已经不在旧线路上（>150 m）就立刻换。
+      if (currentRouteId && best.route.routeId !== currentRouteId) {
+        const nearOld = !!onCurrent && onCurrent.offsetMeters <= TRACK_OFF_ROUTE_M
+        if (nearOld) {
+          const pending = pendingRoute.get(name)
+          const frames = pending?.routeId === best.route.routeId ? pending.frames + 1 : 1
+          pendingRoute.set(name, { routeId: best.route.routeId, frames })
+          if (frames < 2) continue
+        } else {
+          pendingRoute.delete(name)
+        }
+      } else {
+        pendingRoute.delete(name)
       }
-      const trail = trails.get(name) ?? { from: fix, to: fix, t0: now, span: POLL_INTERVAL_MS }
-      const ratio = Math.max(0, Math.min(1, (now - trail.t0) / Math.max(1, trail.span)))
-      const lng = trail.from.lng + (trail.to.lng - trail.from.lng) * ratio
-      const lat = trail.from.lat + (trail.to.lat - trail.from.lat) * ratio
-      // 贴线：GPS 有 5–15 m 抖动，车头会歪到路肩外；把显示点吸到本方向折线上（30 m 内才吸，
-      // 明显跑偏时保留原始定位，免得车被硬拽到别的路上去）。
-      const snapped = line.length >= 2
-        ? snapToPolyline({ lng, lat }, line)
-        : null
-      // 一律吸附：车标要压在线上（GPS 抖动 5–15 m 会让车看起来在路肩外）。
-      let shown = snapped ? snapped.point : { lng, lat }
-      // 车头用「当前显示位置所在线段」的切线，每个动画帧都重算：
-      // 这样车刚拐进弯道时车头立刻跟着转，而不是等下一次 GPS 上报。
-      const moved = haversineMeters(trail.from, trail.to)
-      let angleDeg = snapped
-        ? snapped.angleDeg
-        : (progress?.angleDeg ?? (moved >= 2 ? bearingDegrees(trail.from, trail.to) : 0))
-      // 定位卡住（同一位重复上报、车停在路边等客）时不要定死在原地：
-      // 超过 20 秒没位移就按线路切线以 2.2 m/s 惯性推进，最多推 60 m。
-      const stillSince = movedAt.get(name) ?? now
-      if (snapped && line.length >= 2 && now - stillSince > 20_000) {
-        const creep = Math.min(((now - stillSince) / 1000) * 2.2, 60)
-        const ahead = samplePolylinePoint(line, alongOnPolyline(snapped.point, line) + creep)
-        shown = ahead.point
-        angleDeg = ahead.angleDeg
+
+      // 换趟那一帧要按新线路记账，里程从新线路起点重算。
+      const { bus, route, line, totalMeters, offsetMeters, along } = best
+      const previous = renders.get(name)?.track
+      let track = previous
+      if (!track) {
+        track = createBusTrack(route.routeId, totalMeters, along, now)
+      } else if (track.routeId !== route.routeId) {
+        track = resetBusTrack(track, route.routeId, totalMeters, along, now)
       }
-      // 回程的折线方向与行驶方向相反，车头要补 180°。
-      if (bus.isBack) angleDeg = (angleDeg + 180) % 360
-      if (!movedAt.has(name) || haversineMeters(lastFix.get(name) ?? fix, fix) > 3) movedAt.set(name, now)
-      snapshots.push({ ...bus, routeId: route?.routeId ?? bus.routeId, routeName: route?.routeName ?? bus.routeName, isBack: route?.isBack ?? false, lng: shown.lng, lat: shown.lat })
+      observeBusTrack(track, { along, now, offsetMeters, atSite: bus.isAtSite })
+      renders.set(name, {
+        bus,
+        route,
+        line,
+        along,
+        totalMeters,
+        offsetMeters,
+        track,
+        misses: 0
+      })
+    }
+
+    // 整条响应里消失的车（跑完收车）也按 3 轮宽限再撤，避免上游偶发漏报导致车标闪一下。
+    for (const [name, item] of [...renders]) {
+      if (groups.has(name)) continue
+      const misses = item.misses + 1
+      if (misses >= 3) {
+        renders.delete(name)
+        pendingRoute.delete(name)
+      } else {
+        renders.set(name, { ...item, misses })
+      }
+    }
+  }
+
+  /**
+   * 生成当前显示位：显示里程按动画帧向前推进，再反算成线路上的坐标。
+   * 面板快照与地图 MapBus 用同一份坐标与车头朝向。
+   */
+  function buildDisplay(data: BusPositionsResponse): { snapshots: BusSnapshot[], mapBuses: MapBus[] } {
+    const crs = toCrs(data.coordinateSystem)
+    const now = Date.now()
+    const activeRouteId = options.activeRouteId?.value ?? ''
+    const snapshots: BusSnapshot[] = []
+    const mapBuses: MapBus[] = []
+
+    for (const [name, item] of renders) {
+      const display = advanceBusTrack(item.track, now, item.bus.isAtSite)
+      const sample = samplePolylinePoint(item.line, display)
+      snapshots.push({
+        ...item.bus,
+        routeId: item.route.routeId,
+        routeName: item.route.routeName,
+        isBack: item.route.isBack,
+        lng: sample.point.lng,
+        lat: sample.point.lat
+      })
+      // 地图只画当前方向的车：否则车上地图了、简略图里没有（面板按方向过滤）。
+      if (activeRouteId && item.route.routeId !== activeRouteId) continue
       mapBuses.push({
         id: name,
-        name: bus.busName,
-        point: { lng: shown.lng, lat: shown.lat, crs },
-        isAtSite: bus.isAtSite,
-        siteName: bus.siteName,
-        routeName: route?.routeName ?? bus.routeName,
-        updatedAt: bus.updatedAt,
-        movedAt: movedAt.get(name) ?? now,
-        angleDeg
+        name: item.bus.busName,
+        point: { lng: sample.point.lng, lat: sample.point.lat, crs },
+        isAtSite: item.bus.isAtSite,
+        siteName: item.bus.siteName,
+        routeName: item.route.routeName,
+        updatedAt: item.bus.updatedAt,
+        movedAt: item.track.lastAdvanceAt,
+        // 折线按行驶方向排点，回程线路的切线本身就是车头方向，不再补 180°。
+        angleDeg: sample.angleDeg
       })
     }
     return { snapshots, mapBuses }
@@ -288,18 +323,18 @@ export function useMapBusPositions(options: {
     options.mapProvider.value?.setBuses(mapBuses)
   }
 
-  /** 节拍推进插值显示位：每 150ms 用当前时间重算一次，轮询之间也连续移动。 */
+  /** 节拍推进插值显示位：每 150ms 用当前时间重算一次，两次轮询之间也连续移动。 */
   function tickMotion(): void {
     if (!lastData || stopped) return
     pushDisplay()
   }
 
-  tickMotion.last = Date.now()
-
   if (options.activeRouteId) {
     watch(options.activeRouteId, () => {
       const provider = options.mapProvider.value
       if (provider && lastData) provider.setBusRoutes(toRoutes(lastData))
+      // 方向一切换，地图上的车也要立刻跟着换，否则地图留着另一方向的车。
+      pushDisplay()
     })
   }
 
@@ -310,9 +345,9 @@ export function useMapBusPositions(options: {
       lastData = data
       routes.value = data.routes
       fetchedAt.value = data.fetchedAt
-      const provider = options.mapProvider.value
-      if (!provider) return
-      provider.setBusRoutes(toRoutes(data))
+      ingest(data)
+      // 地图 provider 还没就绪时也要刷新面板数据（否则面板要等下一轮轮询才有车）。
+      options.mapProvider.value?.setBusRoutes(toRoutes(data))
       pushDisplay()
     } catch {
       // 拉取失败静默跳过，下一轮重试（页面不因校车数据报错）
@@ -335,9 +370,8 @@ export function useMapBusPositions(options: {
       globalThis.clearInterval(motionTimer)
       motionTimer = null
     }
-    trails.clear()
-    lastFix.clear()
-    movedAt.clear()
+    renders.clear()
+    pendingRoute.clear()
     lastData = null
     options.mapProvider.value?.setBuses([])
     options.mapProvider.value?.setBusRoutes([])
