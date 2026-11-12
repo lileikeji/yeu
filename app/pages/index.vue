@@ -2,6 +2,7 @@
 import type { FrontendFeatureKey } from '~~/shared/config/frontend-features'
 import { currentCohortLabel } from '~~/shared/config/cohort'
 import { homeHotlines } from '~~/data/hotlines'
+import { isActivityStartingToday } from '~/utils/activity-presentation'
 import {
   buildHomeEssentialActions,
   buildHomeImportantDates,
@@ -489,10 +490,24 @@ const {
                   v-for="item in homeActivities"
                   :key="item.id"
                 >
-                  <div class="flex items-start gap-3 px-3 py-3 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 md:px-4">
-                    <div class="flex w-12 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-emerald-50 px-1 py-2 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  <div
+                    class="flex items-start gap-3 px-3 py-3 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 md:px-4"
+                    :class="isActivityStartingToday(item.startsAt)
+                      ? 'bg-amber-50/70 ring-2 ring-inset ring-amber-400 dark:bg-amber-950/30 dark:ring-amber-500'
+                      : ''"
+                  >
+                    <div
+                      class="flex w-12 shrink-0 flex-col items-center justify-center self-start rounded-lg px-1 py-2"
+                      :class="isActivityStartingToday(item.startsAt)
+                        ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                        : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'"
+                    >
                       <span class="text-sm font-bold leading-none">{{ activityDay(item.startsAt) }}</span>
                       <span class="mt-1 text-[11px] leading-none">{{ activityTime(item.startsAt) }}</span>
+                      <span
+                        v-if="isActivityStartingToday(item.startsAt)"
+                        class="mt-1 text-[9px] font-bold leading-none"
+                      >今天</span>
                     </div>
                     <div class="min-w-0 flex-1">
                       <NuxtLink

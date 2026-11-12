@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ApiActivitySummary } from '~~/shared/types/server'
+import { isActivityStartingToday } from '~/utils/activity-presentation'
 
 const props = withDefaults(defineProps<{
   organizationSlug?: string
@@ -78,10 +79,22 @@ function formatMeta(item: ApiActivitySummary): string {
         v-for="item in items"
         :key="item.id"
         class="group flex gap-4 py-4 transition hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+        :class="isActivityStartingToday(item.startsAt)
+          ? 'bg-amber-50/70 ring-2 ring-inset ring-amber-400 dark:bg-amber-950/30 dark:ring-amber-500'
+          : ''"
       >
-        <div class="flex w-12 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-emerald-50 px-1 py-2 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+        <div
+          class="flex w-12 shrink-0 flex-col items-center justify-center self-start rounded-lg px-1 py-2"
+          :class="isActivityStartingToday(item.startsAt)
+            ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+            : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'"
+        >
           <span class="text-sm font-bold leading-none">{{ formatDay(item.startsAt) }}</span>
           <span class="mt-1 text-[11px] leading-none">{{ formatTime(item.startsAt) }}</span>
+          <span
+            v-if="isActivityStartingToday(item.startsAt)"
+            class="mt-1 text-[9px] font-bold leading-none"
+          >今天</span>
         </div>
 
         <img
