@@ -3,6 +3,7 @@ import type { BusRouteSnapshot, BusSnapshot } from '~~/app/composables/useMapBus
 import { haversineMeters } from '~~/app/utils/walk-route'
 import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
 import { computeBusProgress, computeStopToStop, travelSecondsAlongPolyline } from '~~/shared/utils/bus-route-progress'
+import { buildSegmentProfile } from '~~/shared/utils/bus-segment-speeds'
 
 const props = defineProps<{
   routes: BusRouteSnapshot[]
@@ -60,9 +61,37 @@ const inServiceHours = computed(() => {
 const emptyBusesText = computed(() => (inServiceHours.value ? '暂无在线车辆' : '已收车'))
 
 const selectedRouteId = ref('')
-watch(() => props.routes, (routes) => {
-  if (!routes.some(route => route.routeId === selectedRouteId.value)) {
-    selectedRouteId.value = routes[0]?.routeId ?? ''
+/** 用户点过方向按钮后不再自动改选，避免和手选打架。 */
+const routePickedByUser = ref(false)
+/** 挂载前不要向父组件 emit（会在渲染阶段改父状态），挂载后补一次。 */
+const panelMounted = ref(false)
+onMounted(() => {
+  panelMounted.value = true
+  if (selectedRouteId.value) emit('select-route', selectedRouteId.value)
+})
+
+/** 该方向当前有几辆车（地图与面板要显示同一方向，默认方向优先选有车的）。 */
+function routeBusCount(routeId: string): number {
+  return props.buses.reduce((count, bus) => (bus.routeId === routeId ? count + 1 : count), 0)
+}
+
+/** 线路集合与「哪些方向有车」的变化签名：每 150ms 的车位刷新不触发重选。 */
+const routeSignature = computed(() => props.routes.map(route => route.routeId).join('|'))
+const busRouteSignature = computed(() => [...new Set(props.buses.map(bus => bus.routeId))].sort().join('|'))
+
+watch([routeSignature, busRouteSignature], () => {
+  const routes = props.routes
+  if (!routes.length) return
+  const current = routes.find(route => route.routeId === selectedRouteId.value)
+  const withBus = routes.find(route => routeBusCount(route.routeId) > 0)
+  // 首次挂载 / 线路数据换了一批：选有车的方向，都没有车就用第一条。
+  if (!current) {
+    selectRoute((withBus ?? routes[0]!).routeId)
+    return
+  }
+  // 当前方向没车、另一方向有车：自动切过去，地图和简略图跟着一起换。
+  if (!routePickedByUser.value && withBus && withBus.routeId !== current.routeId && routeBusCount(current.routeId) === 0) {
+    selectRoute(withBus.routeId)
   }
 }, { immediate: true })
 
@@ -131,13 +160,22 @@ onUnmounted(() => {
   rowsResizeObserver = null
 })
 
+/** 分段实测车速表 → 沿线车速切片；表里没有该线路时返回 undefined，ETA 退回老算法。 */
+const segmentProfile = computed(() => {
+  const route = selectedRoute.value
+  if (!route) return undefined
+  const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
+  const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
+  return buildSegmentProfile(route.routeId, stops, polyline)
+})
+
 const busMarkers = computed<BusMarker[]>(() => {
   const route = selectedRoute.value
   if (!route) return []
   const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
   const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
   return routeBuses.value.map((bus) => {
-    const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite })
+    const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite, profile: segmentProfile.value })
     const atStopIndex = progress?.atStopIndex ?? null
     const isTerminal = atStopIndex !== null && atStopIndex === route.stops.length - 1
     const nextStopName = progress ? (route.stops[progress.nextStopIndex]?.siteName ?? '') : bus.siteName
@@ -179,12 +217,12 @@ const stopArrivals = computed<string[]>(() => {
   const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
   const best = route.stops.map(() => Number.POSITIVE_INFINITY)
   for (const bus of routeBuses.value) {
-    const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite })
+    const progress = computeBusProgress({ lng: bus.lng, lat: bus.lat }, stops, polyline, { isAtSite: bus.isAtSite, profile: segmentProfile.value })
     if (!progress) continue
     for (let index = 0; index < route.stops.length; index++) {
       const stopAlong = progress.stopDistancesAlong[index]
       if (stopAlong == null || stopAlong <= progress.distanceAlong) continue
-      const eta = travelSecondsAlongPolyline(polyline, progress.distanceAlong, stopAlong)
+      const eta = travelSecondsAlongPolyline(polyline, progress.distanceAlong, stopAlong, segmentProfile.value)
       if (eta < best[index]!) best[index] = eta
     }
   }
@@ -194,7 +232,13 @@ const stopArrivals = computed<string[]>(() => {
 /** 两站查询（A→B）：起终点下标，默认首站→末站，切换线路时重置。 */
 function selectRoute(routeId: string): void {
   selectedRouteId.value = routeId
-  emit('select-route', routeId)
+  if (panelMounted.value) emit('select-route', routeId)
+}
+
+/** 用户手点方向：从此不再自动改选。 */
+function pickRoute(routeId: string): void {
+  routePickedByUser.value = true
+  selectRoute(routeId)
 }
 
 const tripFromIndex = ref(0)
@@ -209,7 +253,7 @@ const tripResult = computed(() => {
   if (!route || route.stops.length < 2) return null
   const stops = route.stops.map(stop => ({ lng: stop.lng, lat: stop.lat }))
   const polyline = (route.polyline ?? []).map(point => ({ lng: point.lng, lat: point.lat }))
-  return computeStopToStop(stops, polyline, tripFromIndex.value, tripToIndex.value)
+  return computeStopToStop(stops, polyline, tripFromIndex.value, tripToIndex.value, { profile: segmentProfile.value })
 })
 
 const tripResultText = computed(() => {
@@ -292,7 +336,7 @@ const updatedAtText = computed(() => {
         :class="route.routeId === selectedRouteId
           ? 'bg-orange-600 text-white shadow-sm'
           : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'"
-        @click="selectRoute(route.routeId)"
+        @click="pickRoute(route.routeId)"
       >
         {{ route.isBack ? '回程' : '去程' }} · {{ route.stops.length }} 站
       </button>
