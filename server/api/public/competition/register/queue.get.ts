@@ -1,6 +1,5 @@
 import {
   findMusicAssociationContent,
-  findSingerQueueByName,
   getSingerQueuePosition
 } from '../../../../modules/competition/service'
 import { useAppDatabase } from '../../../../utils/database'
@@ -13,9 +12,7 @@ export default defineEventHandler((event) => {
 
   const query = getQuery(event)
   const singerId = String(query.singerId ?? '').trim()
-  const name = String(query.name ?? '').trim()
-  const studentNoTail = String(query.studentNoTail ?? '').trim()
-  if (!singerId && !(name && studentNoTail)) {
+  if (!singerId) {
     throw createError({
       statusCode: 422,
       statusMessage: 'Validation failed',
@@ -24,6 +21,5 @@ export default defineEventHandler((event) => {
   }
 
   const contentId = findMusicAssociationContent(client).id
-  if (singerId) return getSingerQueuePosition(client, contentId, singerId)
-  return findSingerQueueByName(client, contentId, name, studentNoTail)
+  return getSingerQueuePosition(client, contentId, singerId)
 })
