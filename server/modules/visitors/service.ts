@@ -179,6 +179,7 @@ export function ensureVisitor(
         createdAt: now,
         updatedAt: now
       }).run()
+      invalidateVisitorTotal(client)
     } catch (error) {
       if (!isSqliteContention(error)) throw error
       writable = false
@@ -524,6 +525,24 @@ export function assertNotBanned(
   })
 }
 
+// 无筛选的访客总数要数全表（38k 行的覆盖索引全扫，冷读约 500ms），是概览页唯一
+// 还过百毫秒的查询。总数允许滞后：新建访客会主动作废缓存，其余情况最多滞后 30 秒。
+const VISITOR_TOTAL_CACHE_TTL_MS = 30_000
+const visitorTotalCache = new WeakMap<DatabaseClient, { at: number, total: number }>()
+
+export function invalidateVisitorTotal(client: DatabaseClient): void {
+  visitorTotalCache.delete(client)
+}
+
+function visitorTotal(client: DatabaseClient): number {
+  const cached = visitorTotalCache.get(client)
+  const now = Date.now()
+  if (cached && now - cached.at < VISITOR_TOTAL_CACHE_TTL_MS) return cached.total
+  const total = Number(client.db.select({ value: count() }).from(visitors).get()?.value ?? 0)
+  visitorTotalCache.set(client, { at: now, total })
+  return total
+}
+
 export function listVisitors(
   client: DatabaseClient,
   query: {
@@ -617,7 +636,9 @@ export function listVisitors(
     total = rows.length
     pageRows = rows.slice(offset, offset + query.pageSize)
   } else {
-    total = Number(client.db.select({ value: count() }).from(visitors).where(where).get()?.value ?? 0)
+    total = where
+      ? Number(client.db.select({ value: count() }).from(visitors).where(where).get()?.value ?? 0)
+      : visitorTotal(client)
     pageRows = client.db.select().from(visitors)
       .where(where)
       .orderBy(...orderBy)
