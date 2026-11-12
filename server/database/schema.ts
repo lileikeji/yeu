@@ -728,6 +728,10 @@ export const knowledgeClaims = sqliteTable('knowledge_claims', {
   sourceNote: text('source_note').notNull().default(''),
   validFrom: integer('valid_from'),
   validUntil: integer('valid_until'),
+  // 证据条数计数器：后台概览的 health 聚合要统计「评审/已发布但没有证据」的条数。
+  // 用 NOT EXISTS 相关子查询跑在 12 万行上要 1.4–5.9 秒（冷），维护一个计数器后
+  // 聚合成单次覆盖索引扫描（约 50ms）。写入路径只有 replaceClaimSources 一处。
+  sourceCount: integer('source_count').notNull().default(0),
   publishedAt: integer('published_at'),
   reviewedAt: integer('reviewed_at'),
   reviewedByAdminId: text('reviewed_by_admin_id').references(() => adminUsers.id, { onDelete: 'set null' }),
@@ -739,6 +743,10 @@ export const knowledgeClaims = sqliteTable('knowledge_claims', {
   index('knowledge_claims_review_category_idx').on(table.reviewStatus, table.category),
   index('knowledge_claims_validity_idx').on(table.reviewStatus, table.validFrom, table.validUntil),
   index('knowledge_claims_updated_idx').on(table.updatedAt),
+  // health 聚合的覆盖索引：列全在索引里，扫描量从 180MB 表降到约 2.5MB。
+  index('knowledge_claims_health_idx').on(table.reviewStatus, table.confidenceLabel, table.validUntil, table.sourceCount),
+  // 「按分类统计」原来靠 group by 全表扫，覆盖索引把它从 375ms 降到 10ms。
+  index('knowledge_claims_category_idx').on(table.category),
   check('knowledge_claims_confidence_label_check', sql`${table.confidenceLabel} in ('extracted', 'inferred', 'ambiguous', 'unverified')`),
   check('knowledge_claims_confidence_score_check', sql`${table.confidenceScore} between 0 and 100`),
   check('knowledge_claims_review_status_check', sql`${table.reviewStatus} in ('draft', 'review', 'published', 'rejected', 'archived')`),

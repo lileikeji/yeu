@@ -175,6 +175,12 @@ function assertPublishableClaim(
 
 function replaceClaimSources(client: DatabaseClient, claimId: string, input: ClaimSourceInput[]): void {
   client.db.delete(knowledgeClaimSources).where(eq(knowledgeClaimSources.claimId, claimId)).run()
+  // 计数器与证据表必须同一步更新：后台 health 的 missingSource 直接读这个字段，
+  // 漏更新就会把「有证据」的知识条误报成缺证据。
+  client.db.update(knowledgeClaims)
+    .set({ sourceCount: input.length })
+    .where(eq(knowledgeClaims.id, claimId))
+    .run()
   if (input.length === 0) return
   client.db.insert(knowledgeClaimSources).values(input.map(item => ({
     id: randomUUID(),
@@ -239,9 +245,7 @@ function computeKnowledgeHealth(client: DatabaseClient, now: number) {
       sum(review_status = 'published') AS published,
       sum(review_status = 'rejected') AS rejected,
       sum(review_status = 'archived') AS archived,
-      sum(review_status IN ('review', 'published') AND NOT EXISTS (
-        SELECT 1 FROM knowledge_claim_sources kcs WHERE kcs.claim_id = knowledge_claims.id
-      )) AS missingSource,
+      sum(review_status IN ('review', 'published') AND source_count = 0) AS missingSource,
       sum(review_status = 'published' AND valid_until IS NOT NULL AND valid_until < ?) AS expired,
       sum(review_status = 'published' AND confidence_label = 'unverified') AS publishedUnverified
     FROM knowledge_claims
