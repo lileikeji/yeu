@@ -23,6 +23,7 @@
 | [bot-integrations.md](./bot-integrations.md) | QQ / 微信机器人接入 |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 贡献指南：Issue/PR 流程、测试要求、安全红线与文档同步 |
 | [rules/TASK_COMPLETION_REVIEW.md](./rules/TASK_COMPLETION_REVIEW.md) | 任务完成复盘与架构同步规则 |
+| [rules/RELEASE_RULES.md](./rules/RELEASE_RULES.md) | 发布规则与已发生事故：基线含 master、干净工作树构建、外键体检、同名 release、种子清单行尾 |
 
 ## 进行中的规划
 
