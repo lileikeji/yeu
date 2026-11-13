@@ -18,6 +18,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     { prefix: '/major-lookup', key: 'major-lookup', name: '专业与住宿查询' },
     { prefix: '/discover', key: 'discover', name: '服务导航' },
     { prefix: '/campus', key: 'campus', name: '校园与公告' },
+    { prefix: '/notices', key: 'notices', name: '公告' },
     { prefix: '/departments', key: 'departments', name: '学校部门' },
     { prefix: '/clubs', key: 'clubs', name: '学生社团' },
     { prefix: '/nearby', key: 'nearby', name: '校园周边' },
