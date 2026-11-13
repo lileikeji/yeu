@@ -41,6 +41,7 @@ import {
   reorderRoundEntries,
   renderCompetitionEmailTemplate,
   setEntryDay,
+  setEntryCheckIn,
   setRoundDay,
   submitJudgeScore,
   updateCompetitionEvent,
@@ -59,6 +60,22 @@ function scoresForAll(value: number): Record<string, number> {
 
 function roundView(payload: ReturnType<typeof getAdminCompetitionPayload>, key: 'prelim' | 'semi' | 'final') {
   return payload.rounds.find(round => round.key === key)!
+}
+
+/** 测试里用选手库造人，默认没签到；评委看得到、能排队，就得先签到。 */
+function checkInEntries(
+  client: ReturnType<typeof getDatabase>,
+  contentId: string,
+  key?: 'prelim' | 'semi' | 'final'
+): void {
+  const payload = getAdminCompetitionPayload(client, contentId)
+  const eventId = payload.event.id
+  const keys: ('prelim' | 'semi' | 'final')[] = key ? [key] : ['prelim', 'semi', 'final']
+  for (const roundKey of keys) {
+    const round = getRoundByKey(client, eventId, roundKey)
+    if (round.status === 'closed') continue
+    for (const entry of roundView(payload, roundKey).entries) setEntryCheckIn(client, round, entry.id, true)
+  }
 }
 
 test('等权五维时总分等于各维度累加，满分 100（每维 20）', () => {
@@ -304,6 +321,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   })
   assert.equal(updatedTemplate.body, '{{姓名}} 你好，成绩 {{平均分}}')
 
+  checkInEntries(client, musicId)
   let prelim = getRoundByKey(client, event.id, 'prelim')
   updateRound(client, prelim, { status: 'open', advanceCount: 2 })
 
@@ -357,6 +375,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
 
   // 生成复赛：取前 2 名，随机抽签。
   const advanced = generateNextRound(client, getRoundByKey(client, event.id, 'prelim'))
+  checkInEntries(client, musicId)
   assert.equal(advanced.advanced, 2)
   payload = getAdminCompetitionPayload(client, musicId)
   const semiInitial = roundView(payload, 'semi')
@@ -399,6 +418,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(semiView.entries[1]!.qualified, false)
 
   const finalAdvanced = generateNextRound(client, getRoundByKey(client, event.id, 'semi'))
+  checkInEntries(client, musicId)
   assert.equal(finalAdvanced.advanced, 1)
   payload = getAdminCompetitionPayload(client, musicId)
   const finalView = roundView(payload, 'final')
@@ -480,6 +500,7 @@ test('数据库：顺序评分只认当前选手，启用中评委全员提交�
   createSinger(client, event.id, { name: '张三', song: '晴天' })
   createSinger(client, event.id, { name: '李四', song: '后来' })
   createSinger(client, event.id, { name: '王五', song: '如愿' })
+  checkInEntries(client, musicId)
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
   updateRound(client, reload(), { status: 'open' })
@@ -622,6 +643,61 @@ test('数据库：邮件插图上传、正文标记转内嵌 cid、附件按引�
   closeDatabase(':memory:')
 })
 
+test('数据库：没签到的人不进评委名单，签到才进，取消签到后移出并清空当前选手', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '张三', song: '晴天' })
+  createSinger(client, event.id, { name: '李四', song: '后来' })
+
+  const reload = () => getRoundByKey(client, event.id, 'prelim')
+  updateRound(client, reload(), { status: 'open' })
+  const judges = await createJudgeAccounts(client, reload(), 2)
+  const actor = { ...judges[0]!, eventId: event.id, roundId: reload().id }
+
+  const entries = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const [first, second] = [entries[0]!, entries[1]!]
+
+  // 两个人都还没到场：评委端一个都看不到。
+  assert.equal(getJudgePayload(client, actor).singers.length, 0)
+  assert.throws(
+    () => submitJudgeScore(client, actor, first.singer.id, { scores: scoresForAll(10) }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'COMPETITION_NOT_CHECKED_IN'
+  )
+
+  // 签到一个，名单里出现一个。
+  setEntryCheckIn(client, reload(), first.id, true)
+  assert.deepEqual(getJudgePayload(client, actor).singers.map(item => item.name), ['张三'])
+
+  // 顺序评分停在他身上，取消签到后名单清空、当前指针也清掉。
+  moveCurrentEntry(client, reload(), 'start')
+  assert.equal(getCurrentSinger(client, reload())?.singer.id, first.singer.id)
+  setEntryCheckIn(client, reload(), first.id, false)
+  assert.equal(getCurrentSinger(client, reload()), null)
+  assert.equal(getJudgePayload(client, actor).singers.length, 0)
+
+  // 两个人签到后恢复正常，签到时间落在条目上。
+  setEntryCheckIn(client, reload(), first.id, true)
+  setEntryCheckIn(client, reload(), second.id, true)
+  const payload = getJudgePayload(client, actor)
+  assert.deepEqual(payload.singers.map(item => item.name), ['张三', '李四'])
+  assert.equal(roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+    .every(entry => typeof entry.checkedInAt === 'number'), true)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：顺序评分按「本场到岗人数」收票，账号多于当天人数也能切人', async () => {
   const client = getDatabase(':memory:')
   runMigrations(client)
@@ -639,6 +715,7 @@ test('数据库：顺序评分按「本场到岗人数」收票，账号多于�
   const event = ensureCompetitionEvent(client, musicId)
   createSinger(client, event.id, { name: '张三', song: '晴天' })
   createSinger(client, event.id, { name: '李四', song: '后来' })
+  checkInEntries(client, musicId)
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
   updateRound(client, reload(), { status: 'open' })
@@ -686,6 +763,7 @@ test('数据库：初赛分天——两天各有自己的顺序与到岗评委�
   const event = ensureCompetitionEvent(client, musicId)
   for (const [name, song] of [['张三', '晴天'], ['李四', '后来'], ['王五', '如愿'], ['赵六', '起风了']] as const) {
     createSinger(client, event.id, { name, song })
+  checkInEntries(client, musicId)
   }
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
@@ -951,6 +1029,7 @@ test('数据库：拖动排序把选手挪到目标前后，分天时不影响�
   const event = ensureCompetitionEvent(client, musicId)
   for (const [name, song] of [['甲', '晴天'], ['乙', '后来'], ['丙', '如愿'], ['丁', '起风了']] as const) {
     createSinger(client, event.id, { name, song })
+  checkInEntries(client, musicId)
   }
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
@@ -1010,6 +1089,7 @@ test('数据库：评委端进度只算当天到场的人，新扫码登记后�
   for (const [name, song] of [['张三', '晴天'], ['李四', '后来'], ['王五', '如愿']] as const) {
     createSinger(client, event.id, { name, song })
   }
+  checkInEntries(client, musicId, 'prelim')
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
   updateRound(client, reload(), { status: 'open' })
@@ -1036,6 +1116,7 @@ test('数据库：评委端进度只算当天到场的人，新扫码登记后�
     email: 'new@example.com',
     song: '夜曲'
   })
+  checkInEntries(client, musicId)
   const afterScan = getJudgePayload(client, actor)
   assert.equal(afterScan.singers.length, 3)
   assert.deepEqual(afterScan.progress, { scored: 0, total: 3 })
@@ -1100,6 +1181,7 @@ test('数据库：现场进度——正在唱/已结束/前方几人，选手自
   const event = ensureCompetitionEvent(client, musicId)
   const singers = [['甲', '晴天'], ['乙', '后来'], ['丙', '如愿']] as const
   for (const [name, song] of singers) createSinger(client, event.id, { name, song })
+  checkInEntries(client, musicId)
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
   updateRound(client, reload(), { status: 'open' })
