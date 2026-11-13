@@ -273,6 +273,24 @@ onMounted(async () => {
           </div>
         </form>
       </div>
+
+      <NuxtLink
+        v-if="!loading"
+        to="/discover"
+        class="mt-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 p-4 text-sm transition hover:border-green-300 hover:bg-green-50 dark:hover:border-green-700 dark:hover:bg-green-950"
+      >
+        <span class="flex min-w-0 items-center gap-2 font-medium text-zinc-800 dark:text-zinc-200">
+          <UIcon
+            name="i-lucide-compass"
+            class="size-4 shrink-0 text-green-700 dark:text-green-400"
+          />
+          找不到要的功能？去全部服务入口
+        </span>
+        <UIcon
+          name="i-lucide-chevron-right"
+          class="size-4 shrink-0 text-zinc-400"
+        />
+      </NuxtLink>
     </div>
   </div>
 </template>

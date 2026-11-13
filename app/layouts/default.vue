@@ -6,7 +6,7 @@ const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
 const { isDark: isSiteDark } = useThemeMode()
 
-type NavigationKey = 'home' | 'map' | 'procedures' | 'life' | 'campus' | 'me'
+type NavigationKey = 'home' | 'map' | 'procedures' | 'life' | 'hot' | 'me'
 
 interface NavigationItem {
   key: NavigationKey
@@ -20,7 +20,7 @@ const desktopNavigation: NavigationItem[] = [
   { key: 'map', label: '地图', to: '/map', icon: 'i-lucide-map' },
   { key: 'procedures', label: '办事', to: '/procedures', icon: 'i-lucide-list-checks' },
   { key: 'life', label: '生活', to: '/guides', icon: 'i-lucide-notebook-tabs' },
-  { key: 'campus', label: '校园', to: '/campus', icon: 'i-lucide-school' },
+  { key: 'hot', label: '热点', to: '/hot', icon: 'i-lucide-flame' },
   { key: 'me', label: '我的', to: '/me', icon: 'i-lucide-user-round' }
 ]
 const mobileNavigation: NavigationItem[] = [
@@ -44,9 +44,10 @@ const navigationSections: Array<{ prefix: string, key: NavigationKey }> = [
   { prefix: '/clubs', key: 'life' },
   { prefix: '/dorms', key: 'life' },
   { prefix: '/transport', key: 'life' },
-  { prefix: '/campus', key: 'campus' },
-  { prefix: '/hot', key: 'campus' },
-  { prefix: '/student-rules', key: 'campus' },
+  { prefix: '/campus', key: 'life' },
+  { prefix: '/hot', key: 'hot' },
+  { prefix: '/notices', key: 'hot' },
+  { prefix: '/student-rules', key: 'hot' },
   { prefix: '/map', key: 'map' },
   { prefix: '/nearby', key: 'map' },
   { prefix: '/panorama', key: 'map' },
@@ -56,9 +57,9 @@ const navigationSections: Array<{ prefix: string, key: NavigationKey }> = [
   { prefix: '/sources', key: 'me' }
 ]
 
-// 窄屏 5 项没有「校园」，校园页族回落到「生活」，避免底栏全灭。
+// 窄屏 5 项没有「热点」，热点页族回落到「生活」，避免底栏全灭。
 const sectionFallbacks: Partial<Record<NavigationKey, NavigationKey>> = {
-  campus: 'life'
+  hot: 'life'
 }
 
 function matchesSectionPath(path: string, prefix: string): boolean {

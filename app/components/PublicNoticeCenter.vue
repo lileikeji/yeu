@@ -499,6 +499,17 @@ onMounted(() => {
           </p>
         </div>
       </div>
+      <div class="mt-4 flex justify-end border-t border-zinc-100 pt-3 dark:border-zinc-800">
+        <UButton
+          to="/notices"
+          icon="i-lucide-megaphone"
+          label="打开公告页"
+          color="primary"
+          variant="ghost"
+          size="sm"
+          @click="open = false"
+        />
+      </div>
     </template>
   </UModal>
 </template>
