@@ -507,6 +507,8 @@ export interface CompetitionRoundEntry {
   sortOrder: number
   /** 分场天：1 / 2；null = 未分配。 */
   contestDay: number | null
+  /** 现场签到时间；null = 还没到场（评委看不到、不占排队位置）。 */
+  checkedInAt: number | null
   advancedFromRank: number | null
   average: number | null
   scoreCount: number
