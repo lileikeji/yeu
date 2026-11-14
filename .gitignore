@@ -21,6 +21,7 @@ logs
 
 # Local deployment and inspection artifacts
 .deploy-*/
+.tmp/
 .tmp-*
 .tmp_*
 _yeu_.tmp-*
@@ -115,3 +116,6 @@ docs/marketing/map-promo/*.webm
 docs/marketing/map-promo/*.mp3
 docs/marketing/map-promo/*.png
 docs/marketing/map-promo/*.jpg
+
+# One-off audits and verification evidence: local only, delete after acceptance (AGENTS.md §6.6)
+docs/verification/

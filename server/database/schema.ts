@@ -1246,6 +1246,8 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   advancedFromRank: integer('advanced_from_rank'),
   /** 分场天：1 / 2，空 = 未分配（不分天的轮次一直是空）。 */
   contestDay: integer('contest_day'),
+  /** 现场签到时间；空 = 还没到场，评委看不到、不占排队位置。 */
+  checkedInAt: integer('checked_in_at'),
   createdAt: timestamp('created_at')
 }, table => [
   uniqueIndex('competition_round_entries_round_singer_unique').on(table.roundId, table.singerId),
