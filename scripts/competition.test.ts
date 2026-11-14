@@ -1174,6 +1174,7 @@ test('数据库：免登录叫号台只给叫号信息，按出场顺序，不�
   assert.equal('email' in board.rows[0]!, false)
   assert.equal('average' in board.rows[0]!, false)
   assert.equal(board.current, null)
+  assert.equal(board.next?.name, '阿甲')
 
   const judge = await createJudgeAccounts(client, round, 1)
   updateRound(client, round, { status: 'open', judgeCount: 1 })
