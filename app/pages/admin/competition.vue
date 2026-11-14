@@ -30,7 +30,7 @@ const {
   queueStateText, queueStateClass, roundStatusText, roundStatusClass, entryStatus, entryStatusClass,
   wrongStatus, advanceHint, canGenerate, canRedraw, canClearRoster, rankClass,
   currentBusyKey, currentPercent, moveCurrent, dayBusyKey, dayCount, dutyJudgeCount, dayLabel,
-  changeRoundDay, changeEntryDay, changeJudgeDay, generateNextRound, redrawRound, clearRoster,
+  changeRoundDay, changeEntryDay, checkInBusyId, toggleEntryCheckIn, changeJudgeDay, generateNextRound, redrawRound, clearRoster,
   draggingEntryId, dragOverEntryId, startDragEntry, dragOverEntry, dropOnEntry, endDragEntry,
   moveEntry, copyRoster
 } = useCompetitionRoster({ payload, settings, event, settingsWeightSum, load, toast, generatingRoundKey, busyJudgeId })
@@ -1404,6 +1404,9 @@ onBeforeUnmount(stopLiveRefresh)
                   <th class="w-24 px-3 py-2 font-medium">
                     状态
                   </th>
+                  <th class="w-20 px-3 py-2 font-medium">
+                    签到
+                  </th>
                   <th class="w-32 px-4 py-2 font-medium">
                     调整
                   </th>
@@ -1454,6 +1457,18 @@ onBeforeUnmount(stopLiveRefresh)
                     >
                       {{ queueStateText(entry) }}
                     </span>
+                  </td>
+                  <td class="px-3 py-2">
+                    <UButton
+                      size="xs"
+                      :color="entry.checkedInAt ? 'success' : 'neutral'"
+                      :variant="entry.checkedInAt ? 'soft' : 'outline'"
+                      :loading="checkInBusyId === entry.id"
+                      :disabled="activeRound.status === 'closed'"
+                      @click="toggleEntryCheckIn(activeRound, entry)"
+                    >
+                      {{ entry.checkedInAt ? '已签到' : '签到' }}
+                    </UButton>
                   </td>
                   <td class="px-4 py-2">
                     <div class="flex items-center gap-1">

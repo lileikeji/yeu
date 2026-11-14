@@ -165,6 +165,9 @@ export const adminDashboardModules: AdminDashboardModule[] = [
     label: '访客',
     icon: 'i-lucide-radar',
     endpoint: '/api/admin/visitors',
+    // 概览只要总数。不带 analytics=false 时服务端会顺手算 14 天访客物化
+    // （十万级 visitor_events），实测 509ms，而卡片根本不画图。
+    query: { analytics: 'false' },
     to: '/admin/visitors',
     color: 'text-rose-700 bg-rose-50',
     group: 'security'

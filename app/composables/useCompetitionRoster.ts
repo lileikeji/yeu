@@ -246,6 +246,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
   }
 
   const dayBusyKey = ref('')
+  const checkInBusyId = ref('')
 
   /** 某一天有多少位选手（不分天时算未分配）。 */
   function dayCount(round: CompetitionRoundView, day: number | null): number {
@@ -308,6 +309,31 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
       payload.value = result.payload
     } catch (error) {
       toast.add({ title: '改天失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    }
+  }
+
+  /**
+   * 现场签到开关。只有签到的人进评委名单与顺序评分队列，
+   * 所以这里勾上/取消会直接改变评委看到的名单与人数。
+   */
+  async function toggleEntryCheckIn(
+    round: CompetitionRoundView,
+    entry: CompetitionRoundEntry
+  ): Promise<void> {
+    if (round.status === 'closed' || checkInBusyId.value) return
+    const checkedIn = entry.checkedInAt == null
+    checkInBusyId.value = entry.id
+    try {
+      const result = await adminFetch<{ payload: CompetitionAdminPayload }>(
+        `/api/admin/competition/rounds/${round.key}/entry-checkin`,
+        { method: 'POST', body: { entryId: entry.id, checkedIn } }
+      )
+      payload.value = result.payload
+      toast.add({ title: checkedIn ? `${entry.singer.name} 已签到` : `已取消 ${entry.singer.name} 的签到`, color: 'success' })
+    } catch (error) {
+      toast.add({ title: '签到失败', description: apiErrorMessage(error, '请重试。'), color: 'warning' })
+    } finally {
+      checkInBusyId.value = ''
     }
   }
 
@@ -516,6 +542,8 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     dayLabel,
     changeRoundDay,
     changeEntryDay,
+    checkInBusyId,
+    toggleEntryCheckIn,
     changeJudgeDay,
     generateNextRound,
     redrawRound,
