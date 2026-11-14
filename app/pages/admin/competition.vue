@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { COMPETITION_EMAIL_MERGE_FIELDS } from '~~/shared/utils/competition'
+import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
 
 definePageMeta({ layout: 'admin' })
 
@@ -9,6 +9,7 @@ useSeoMeta({
 })
 
 const toast = useToast()
+const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
 
 const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
@@ -2379,7 +2380,7 @@ onBeforeUnmount(stopLiveRefresh)
                     {{ dimension.weight }}
                   </td>
                   <td class="px-3 py-2 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                    {{ dimension.score }} / 20
+                    {{ dimension.score }} / {{ dimensionScoreMax }}
                   </td>
                 </tr>
               </tbody>

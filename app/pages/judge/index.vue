@@ -263,7 +263,8 @@ function normalizeScore(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const value = Number(raw)
   if (!Number.isFinite(value)) return null
-  return roundCompetitionScore(Math.min(dimensionMax, Math.max(0, value)))
+  // 十点制按整数打：滑块与输入框都只收整数，避免出现 8.3 这种手感很差的分数。
+  return Math.min(dimensionMax, Math.max(0, Math.round(value)))
 }
 
 function setDraftScore(key: string, raw: unknown): void {
@@ -900,7 +901,7 @@ onBeforeUnmount(stopPolling)
                     type="range"
                     min="0"
                     :max="dimensionMax"
-                    step="0.1"
+                    step="1"
                     class="min-w-0 flex-1 accent-green-600"
                     :value="draftScores[dimension.key] ?? 0"
                     :disabled="!scoringOpen || currentSubmitted"
@@ -911,8 +912,8 @@ onBeforeUnmount(stopPolling)
                     type="number"
                     min="0"
                     :max="dimensionMax"
-                    step="0.1"
-                    inputmode="decimal"
+                    step="1"
+                    inputmode="numeric"
                     enterkeyhint="next"
                     :data-score-input="dimension.key"
                     class="w-14 shrink-0 rounded-md border border-zinc-300 bg-white px-1 py-1 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
@@ -941,8 +942,8 @@ onBeforeUnmount(stopPolling)
                       type="number"
                       min="0"
                       :max="dimensionMax"
-                      step="0.1"
-                      inputmode="decimal"
+                      step="1"
+                      inputmode="numeric"
                       enterkeyhint="next"
                       :data-score-input="dimension.key"
                       class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
@@ -959,7 +960,7 @@ onBeforeUnmount(stopPolling)
                     type="range"
                     min="0"
                     :max="dimensionMax"
-                    step="0.1"
+                    step="1"
                     class="mt-2 w-full accent-green-600"
                     :value="draftScores[dimension.key] ?? 0"
                     :disabled="!scoringOpen || currentSubmitted"

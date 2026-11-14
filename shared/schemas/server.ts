@@ -1483,7 +1483,7 @@ export const judgeLoginSchema = z.object({
 }).strict()
 
 export const submitCompetitionScoreSchema = z.object({
-  scores: z.record(z.string().max(64), z.number().min(0).max(20)),
+  scores: z.record(z.string().max(64), z.number().min(0).max(10)),
   comment: z.string().trim().max(500).optional()
 }).strict()
 
