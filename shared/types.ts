@@ -500,6 +500,32 @@ export interface CompetitionQueuePosition {
   total: number
 }
 
+/** 叫号台的一行：出场序、姓名、歌曲、班级、当前状态。 */
+export interface CompetitionCallBoardRow {
+  position: number
+  name: string
+  song: string
+  className: string
+  state: CompetitionQueueState
+  /** 前面还有几位（不含正在唱的那位）。 */
+  ahead: number | null
+}
+
+/** 免登录叫号台：只露出叫号要用的信息，不含电话、邮箱、评分。 */
+export interface CompetitionCallBoard {
+  round: {
+    key: string
+    title: string
+    status: CompetitionRoundStatus
+    activeDay: 1 | 2 | null
+  }
+  total: number
+  current: CompetitionCallBoardRow | null
+  next: CompetitionCallBoardRow | null
+  rows: CompetitionCallBoardRow[]
+  updatedAt: number
+}
+
 export interface CompetitionRoundEntry {
   id: string
   singer: CompetitionSingerPublic

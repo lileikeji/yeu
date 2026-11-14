@@ -1364,13 +1364,23 @@ onBeforeUnmount(stopLiveRefresh)
                 复赛/决赛名单由上一轮晋级后抽签生成，可拖动调整。
               </p>
             </div>
-            <input
-              v-model="rosterQuery"
-              type="search"
-              placeholder="搜选手名字或歌名"
-              class="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-              aria-label="搜索出场名单"
-            >
+            <div class="flex items-center gap-2">
+              <input
+                v-model="rosterQuery"
+                type="search"
+                placeholder="搜选手名字或歌名"
+                class="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                aria-label="搜索出场名单"
+              >
+              <a
+                href="/singer/call"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-green-600 hover:text-green-700 dark:border-zinc-700 dark:text-zinc-200"
+              >
+                叫号台
+              </a>
+            </div>
           </div>
 
           <div
