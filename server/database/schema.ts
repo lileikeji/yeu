@@ -1073,6 +1073,8 @@ export const competitionEvents = sqliteTable('competition_events', {
   scheduleJson: text('schedule_json').notNull().default('[]'),
   /** 报名表单字段配置：label / required / enabled，JSON 数组。 */
   formFieldsJson: text('form_fields_json').notNull().default('[]'),
+  /** 1 = 算平均分时去掉一个最高分和一个最低分（至少 3 位评委才生效）。 */
+  trimExtremes: integer('trim_extremes').notNull().default(0),
   dimensionsJson: text('dimensions_json').notNull().default('[]'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')

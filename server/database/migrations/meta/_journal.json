@@ -435,6 +435,13 @@
       "when": 1794630000000,
       "tag": "0060_competition_entry_checkin",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1794658000000,
+      "tag": "0062_competition_trim_extremes",
+      "breakpoints": true
     }
   ]
 }

@@ -1529,6 +1529,19 @@ onBeforeUnmount(stopLiveRefresh)
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               实时按平均分排序，同分按出场顺序；还没分数的排在最后。
             </p>
+            <label
+              v-if="settings"
+              class="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300"
+            >
+              <input
+                v-model="settings.trimExtremes"
+                type="checkbox"
+                class="size-4 accent-emerald-600"
+                :disabled="savingSettings"
+                @change="saveSettings"
+              >
+              算平均分时去掉一个最高分和一个最低分（至少 3 位评委）
+            </label>
           </div>
 
           <div

@@ -392,6 +392,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     edition: row.edition ?? '',
     schedule: getCompetitionSchedule(row),
     formFields: getCompetitionFormFields(row),
+    trimExtremes: row.trimExtremes === 1,
     dimensions,
     maxTotal: competitionMaxTotal(dimensions),
     createdAt: Number(row.createdAt ?? 0),
@@ -473,6 +474,7 @@ export interface UpdateCompetitionInput {
   edition?: unknown
   schedule?: unknown
   formFields?: unknown
+  trimExtremes?: unknown
 }
 
 function normalizeSchedule(input: unknown): CompetitionScheduleItem[] {
@@ -544,10 +546,14 @@ export function updateCompetitionEvent(
     }
   }
 
+  const trimExtremes = input.trimExtremes === undefined
+    ? row.trimExtremes === 1
+    : input.trimExtremes === true
   client.db.update(competitionEvents).set({
     title,
     registrationOpen,
     edition,
+    trimExtremes: trimExtremes ? 1 : 0,
     scheduleJson: JSON.stringify(schedule),
     formFieldsJson: JSON.stringify(formFields),
     dimensionsJson: JSON.stringify(dimensions),
@@ -671,9 +677,13 @@ export function listRoundEntryRows(client: DatabaseClient, roundId: string): Ent
     .all()
 }
 
-function averageOf(totals: number[]): number | null {
+function averageOf(totals: number[], trimExtremes = false): number | null {
   if (totals.length === 0) return null
-  return roundCompetitionScore(totals.reduce((sum, value) => sum + value, 0) / totals.length)
+  // 去掉一个最高分和一个最低分：至少 3 位评委才有意义，人少时照常取全部。
+  const usable = trimExtremes && totals.length >= 3
+    ? [...totals].sort((left, right) => left - right).slice(1, -1)
+    : totals
+  return roundCompetitionScore(usable.reduce((sum, value) => sum + value, 0) / usable.length)
 }
 
 /**
@@ -723,11 +733,16 @@ function buildQueueBoard(
   return board
 }
 
+function trimExtremesFor(client: DatabaseClient, round: RoundRow): boolean {
+  return getEvent(client, round.eventId)?.trimExtremes === 1
+}
+
 function buildRoundRanking(
   round: RoundRow,
   entries: EntryRow[],
   singersById: Map<string, SingerRow>,
-  scoreRows: ScoreRow[]
+  scoreRows: ScoreRow[],
+  options: { trimExtremes?: boolean } = {}
 ): CompetitionRoundEntry[] {
   const totalsBySinger = new Map<string, number[]>()
   for (const score of scoreRows) {
@@ -744,7 +759,7 @@ function buildRoundRanking(
       return {
         entry,
         singer,
-        average: averageOf(totals),
+        average: averageOf(totals, options.trimExtremes === true),
         scoreCount: totals.length
       }
     })
@@ -1102,7 +1117,7 @@ function roundView(
 
   const presentEntries = presentEntriesForDay(round, entries)
   const queueBoard = buildQueueBoard(round, presentEntries, scoreRows, true)
-  const rankedEntries = buildRoundRanking(round, entries, singersById, scoreRows).map((entry) => {
+  const rankedEntries = buildRoundRanking(round, entries, singersById, scoreRows, { trimExtremes: trimExtremesFor(client, round) }).map((entry) => {
     const board = queueBoard.get(entry.id)
     return {
       ...entry,
@@ -1263,7 +1278,8 @@ export function generateNextRound(
     currentRound,
     listRoundEntryRows(client, currentRound.id),
     singersById,
-    listRoundScores(client, currentRound.id)
+    listRoundScores(client, currentRound.id),
+    { trimExtremes: trimExtremesFor(client, currentRound) }
   )
   const qualified = ranking
     .filter(row => row.scoreCount > 0)
@@ -2107,7 +2123,7 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
   const dayScored = [...ownScores.keys()].filter(singerId => daySingerIds.has(singerId)).length
 
   const roundResults = round.status === 'closed'
-    ? buildRoundRanking(round, entryRows, singersById, scoreRows)
+    ? buildRoundRanking(round, entryRows, singersById, scoreRows, { trimExtremes: trimExtremesFor(client, round) })
     : null
 
   const finalRound = getRoundByKeySafe(client, eventRow.id, 'final')
@@ -2116,7 +2132,8 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
         finalRound,
         listRoundEntryRows(client, finalRound.id),
         singersById,
-        listRoundScores(client, finalRound.id)
+        listRoundScores(client, finalRound.id),
+        { trimExtremes: trimExtremesFor(client, finalRound) }
       )
     : null
 
@@ -2829,7 +2846,8 @@ export function buildEmailSendPlan(
     round,
     listRoundEntryRows(client, round.id),
     singersById,
-    listRoundScores(client, round.id)
+    listRoundScores(client, round.id),
+    { trimExtremes: trimExtremesFor(client, round) }
   )
 
   let pool = ranking
