@@ -487,7 +487,7 @@ export interface CompetitionScore {
   updatedAt: number
 }
 
-export type CompetitionQueueState = 'finished' | 'singing' | 'waiting' | 'idle' | 'unknown'
+export type CompetitionQueueState = 'finished' | 'singing' | 'waiting' | 'skipped' | 'idle' | 'unknown'
 
 /** 选手自己在现场看到的排队情况。 */
 export interface CompetitionQueuePosition {

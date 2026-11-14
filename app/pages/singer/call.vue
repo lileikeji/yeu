@@ -24,6 +24,7 @@ const statusText: Record<CompetitionCallBoardRow['state'], string> = {
   singing: '演唱中',
   waiting: '等候',
   finished: '已唱完',
+  skipped: '未唱',
   idle: '待开始',
   unknown: '—'
 }
@@ -32,6 +33,7 @@ const statusClass: Record<CompetitionCallBoardRow['state'], string> = {
   singing: 'bg-[#1f7a4d] text-white',
   waiting: 'bg-[#ffe3c9] text-[#8a4a1c]',
   finished: 'bg-[#e6ece7] text-[#7d8a80]',
+  skipped: 'bg-[#f6e7d8] text-[#a0642a]',
   idle: 'bg-[#f4f1ea] text-[#9aa39b]',
   unknown: 'bg-[#f4f1ea] text-[#9aa39b]'
 }
