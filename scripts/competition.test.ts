@@ -79,8 +79,8 @@ function checkInEntries(
 }
 
 test('等权五维时总分等于各维度累加，满分 100（每维 20）', () => {
-  assert.equal(competitionMaxTotal(DEFAULT_COMPETITION_DIMENSIONS), 100)
-  assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, scoresForAll(20)), 100)
+  assert.equal(competitionMaxTotal(DEFAULT_COMPETITION_DIMENSIONS), 50)
+  assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, scoresForAll(10)), 50)
   assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, {
     pitch: 9,
     rhythm: 8,
@@ -98,8 +98,8 @@ test('权重不等时按加权平均 × 维度数折算，仍保持满分 100', 
     { key: 'd', label: 'D', weight: 1 },
     { key: 'e', label: 'E', weight: 1 }
   ]
-  assert.equal(calculateCompetitionTotal(dimensions, { a: 20, b: 0, c: 0, d: 0, e: 0 }), 33.33)
-  assert.equal(calculateCompetitionTotal(dimensions, { a: 20, b: 20, c: 20, d: 20, e: 20 }), 100)
+  assert.equal(calculateCompetitionTotal(dimensions, { a: 10, b: 0, c: 0, d: 0, e: 0 }), 16.67)
+  assert.equal(calculateCompetitionTotal(dimensions, { a: 10, b: 10, c: 10, d: 10, e: 10 }), 50)
 })
 
 test('结果邮件模板渲染：占位符替换、未识别保留、正文转 HTML', () => {
@@ -406,7 +406,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(semiJudges[0]!.displayName, '复赛评委1')
   const semiJudge = { ...semiJudges[0]!, eventId: event.id, roundId: semi.id }
   submitJudgeScore(client, semiJudge, singerA.id, { scores: scoresForAll(8) })
-  submitJudgeScore(client, semiJudge, singerB.id, { scores: scoresForAll(9.5) })
+  submitJudgeScore(client, semiJudge, singerB.id, { scores: scoresForAll(9) })
   semi = getRoundByKey(client, event.id, 'semi')
   updateRound(client, semi, { status: 'closed' })
 
@@ -436,14 +436,14 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   updateRound(client, finalRound, { status: 'open' })
   const finalJudges = await createJudgeAccounts(client, finalRound, 1)
   const finalJudge = { ...finalJudges[0]!, eventId: event.id, roundId: finalRound.id }
-  submitJudgeScore(client, finalJudge, singerB.id, { scores: scoresForAll(9.8) })
+  submitJudgeScore(client, finalJudge, singerB.id, { scores: scoresForAll(9) })
   finalRound = getRoundByKey(client, event.id, 'final')
   updateRound(client, finalRound, { status: 'closed' })
 
   payload = getAdminCompetitionPayload(client, musicId)
   const finalResult = roundView(payload, 'final')
   assert.equal(finalResult.entries.length, 1)
-  assert.equal(finalResult.entries[0]!.average, 49)
+  assert.equal(finalResult.entries[0]!.average, 45)
   assert.equal(finalResult.entries[0]!.rank, 1)
   assert.equal(finalResult.entries[0]!.qualified, false)
 
@@ -932,6 +932,17 @@ test('数据库：届次/赛程/表单字段可配置，预报名带自选天，
   const day2Entries = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
   assert.equal(day2Entries.find(entry => entry.singer.name === '现场甲')?.contestDay, 2)
 
+  // 换到跟今天无关的日子，才能稳定验证「非初赛日现场不收人」。
+  updateCompetitionEvent(client, event, {
+    title: '新声歌手大赛',
+    registrationOpen: true,
+    dimensions: DEFAULT_COMPETITION_DIMENSIONS,
+    schedule: [
+      { key: 'prelim', dateLabel: '12 月 20 日（周六）', timeLabel: '19:00 开始', venue: '旧区宏船楼 303', note: '' },
+      { key: 'prelim', dateLabel: '12 月 21 日（周日）', timeLabel: '19:00 开始', venue: '旧区宏船楼 303', note: '' }
+    ]
+  })
+
   // 不分天且今天不在初赛那两天：现场不收人，避免把人排错日期。
   setRoundDay(client, reload(), null)
   assert.throws(
@@ -1123,7 +1134,7 @@ test('数据库：评委端进度只算当天到场的人，新扫码登记后�
   assert.equal(afterScan.singers.at(-1)?.name, '新来的')
 
   // 自己评过的人只算当天，评第二天的不会把进度顶上去。
-  submitJudgeScore(client, actor, entries[0]!.singer.id, { scores: scoresForAll(12) })
+  submitJudgeScore(client, actor, entries[0]!.singer.id, { scores: scoresForAll(10) })
   assert.deepEqual(getJudgePayload(client, actor).progress, { scored: 1, total: 3 })
 
   closeDatabase(':memory:')

@@ -1,11 +1,11 @@
 import type { CompetitionDimension } from '../types'
 
-export const COMPETITION_MAX_DIMENSION_SCORE = 20
+export const COMPETITION_MAX_DIMENSION_SCORE = 10
 export const COMPETITION_MAX_DIMENSIONS = 10
 export const COMPETITION_MAX_JUDGES = 20
 export const COMPETITION_MAX_SINGERS = 500
 
-/** 默认五个维度、等权：总分即五项累加（满分 100，每维 20 分）。 */
+/** 默认五个维度、等权：总分即五项累加（满分 50，每维 10 分）。 */
 export const DEFAULT_COMPETITION_DIMENSIONS: CompetitionDimension[] = [
   { key: 'pitch', label: '音准', weight: 20 },
   { key: 'rhythm', label: '节奏', weight: 20 },
@@ -41,7 +41,7 @@ function clampScore(value: number): number {
 
 /**
  * 单个评委的总分：各维度按权重求加权平均，再乘以维度数。
- * 等权（默认五项）时等价于各维度直接累加，满分 10×维度数。
+ * 等权（默认五项）时等价于各维度直接累加，满分 10×维度数 = 50。
  */
 export function calculateCompetitionTotal(
   dimensions: CompetitionDimension[],
