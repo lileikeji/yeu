@@ -308,6 +308,8 @@ export interface CompetitionEvent {
   registrationOpen: boolean
   /** 第几届，例如「2026 年 · 第 1 届」。 */
   edition: string
+  /** 算平均分时去掉一个最高分和一个最低分（至少 3 位评委才生效）。 */
+  trimExtremes: boolean
   /** 赛程：每轮的日期/时间/地点。 */
   schedule: CompetitionScheduleItem[]
   /** 报名表单字段（可改名、可设必填、可整项隐藏）。 */
