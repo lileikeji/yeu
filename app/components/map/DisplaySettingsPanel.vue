@@ -37,7 +37,7 @@ const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: st
 
 <template>
   <section
-    class="absolute right-16 top-3 z-20 w-[min(19rem,calc(100%-5rem))] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 shadow-xl md:right-20 md:top-4"
+    class="absolute right-16 top-3 z-20 w-[min(19rem,calc(100%-5rem))] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3 shadow-xl md:right-20 md:top-4"
     aria-label="地图显示设置"
   >
     <div class="flex items-center justify-between gap-3">
@@ -63,7 +63,7 @@ const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: st
         :key="style.value"
         type="button"
         class="flex min-h-11 items-center justify-center gap-2 px-2 text-xs font-medium"
-        :class="props.baseStyle === style.value ? 'bg-green-600 text-white' : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'"
+        :class="props.baseStyle === style.value ? 'bg-green-600 text-white' : 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'"
         :aria-pressed="props.baseStyle === style.value"
         @click="emit('setBaseStyle', style.value)"
       >
@@ -84,7 +84,7 @@ const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: st
         :key="item.key"
         type="button"
         class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-md border px-2 text-xs font-medium transition"
-        :class="props.displayOptions[item.key] ? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400'"
+        :class="props.displayOptions[item.key] ? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300' : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400'"
         :aria-pressed="props.displayOptions[item.key]"
         @click="emit('toggleOption', item.key)"
       >
@@ -118,7 +118,7 @@ const displayToggleItems: Array<{ key: DisplayToggleKey, label: string, icon: st
           :key="size.value"
           type="button"
           class="min-h-10 px-2 text-xs font-medium"
-          :class="props.displayOptions.labelSize === size.value ? 'bg-green-600 text-white' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'"
+          :class="props.displayOptions.labelSize === size.value ? 'bg-green-600 text-white' : 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'"
           :aria-pressed="props.displayOptions.labelSize === size.value"
           @click="emit('setLabelSize', size.value)"
         >

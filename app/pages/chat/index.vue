@@ -440,7 +440,7 @@ watch(activeRoomId, () => {
 
       <div
         v-if="loading"
-        class="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 p-8 text-sm text-zinc-500 dark:text-zinc-400"
+        class="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 p-8 text-sm text-zinc-500 dark:text-zinc-400"
       >
         <UIcon
           name="i-lucide-loader-circle"
@@ -458,7 +458,7 @@ watch(activeRoomId, () => {
 
       <div
         v-else
-        class="grid min-h-[70vh] overflow-hidden rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 shadow-sm lg:h-[calc(100vh-var(--header-height)-5rem)] lg:min-h-0 lg:grid-cols-[15rem_minmax(0,1fr)]"
+        class="grid min-h-[70vh] overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 shadow-sm lg:h-[calc(100vh-var(--header-height)-5rem)] lg:min-h-0 lg:grid-cols-[15rem_minmax(0,1fr)]"
       >
         <aside class="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 p-3 lg:min-h-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
           <p class="px-2 pb-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
@@ -471,8 +471,8 @@ watch(activeRoomId, () => {
               type="button"
               class="min-h-11 min-w-[9rem] rounded-xl px-3 py-2 text-left text-sm transition lg:min-w-0"
               :class="room.id === activeRoomId
-                ? 'bg-green-700 text-white shadow-sm'
-                : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-green-50 dark:hover:bg-green-950'"
+                ? 'bg-green-700 text-[var(--surface)] shadow-sm'
+                : 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-green-50 dark:hover:bg-green-950'"
               :aria-pressed="room.id === activeRoomId"
               @click="switchRoom(room.id)"
             >
@@ -515,8 +515,8 @@ watch(activeRoomId, () => {
                 type="button"
                 class="min-h-11 min-w-[9rem] rounded-xl px-3 py-2 text-left text-sm transition disabled:opacity-60 lg:min-w-0"
                 :class="place.roomId && place.roomId === activeRoomId
-                  ? 'bg-green-700 text-white shadow-sm'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-green-50 dark:hover:bg-green-950'"
+                  ? 'bg-green-700 text-[var(--surface)] shadow-sm'
+                  : 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700 hover:bg-green-50 dark:hover:bg-green-950'"
                 :disabled="enteringPlaceId === place.placeId"
                 @click="openPlaceRoom(place)"
               >
@@ -590,7 +590,7 @@ watch(activeRoomId, () => {
               <li
                 v-for="item in searchResults"
                 :key="item.id"
-                class="rounded-lg bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs"
+                class="rounded-lg bg-[var(--surface)] dark:bg-zinc-900 px-2.5 py-1.5 text-xs"
               >
                 <div class="flex items-center justify-between gap-2">
                   <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ item.displayName }}</span>

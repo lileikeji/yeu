@@ -636,7 +636,7 @@ onMounted(async () => {
     </div>
 
     <div class="grid gap-3 sm:grid-cols-3">
-      <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+      <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           当前筛选结果
         </p>
@@ -644,7 +644,7 @@ onMounted(async () => {
           {{ total }}
         </p>
       </div>
-      <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+      <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           本页已封禁访客
         </p>
@@ -652,7 +652,7 @@ onMounted(async () => {
           {{ bannedCountOnPage }}
         </p>
       </div>
-      <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+      <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           当前生效封禁
         </p>
@@ -664,7 +664,7 @@ onMounted(async () => {
 
     <section
       v-if="visitorAnalytics?.moduleViews?.length"
-      class="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+      class="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
     >
       <div class="flex flex-wrap items-end justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 px-4 py-4">
         <div>
@@ -703,7 +703,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <div class="grid gap-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="grid gap-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 sm:grid-cols-2 lg:grid-cols-5">
       <UFormField label="关键词">
         <UInput
           v-model="q"
@@ -792,7 +792,7 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-      <div class="rounded-xl border border-white bg-white/80 dark:bg-zinc-900/80 p-3">
+      <div class="rounded-xl border border-white bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] dark:bg-zinc-900/80 p-3">
         <div class="flex items-center justify-between gap-2">
           <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">近 14 天</h3>
           <span class="text-[11px] text-zinc-500 dark:text-zinc-400">按日汇总</span>
@@ -820,7 +820,7 @@ onMounted(async () => {
       <article
         v-for="row in items"
         :key="'mobile-' + row.id"
-        class="min-w-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
+        class="min-w-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3"
         :class="selectedVisitor?.id === row.id ? 'border-sky-300 bg-sky-50/40 dark:bg-sky-950/40' : ''"
       >
         <div class="flex min-w-0 items-start justify-between gap-3">
@@ -848,10 +848,10 @@ onMounted(async () => {
           <UButton v-if="row.userId" size="xs" color="error" variant="ghost" @click="prepBan(row, 'user')">封账号</UButton>
         </div>
       </article>
-      <p v-if="!items.length && !loading" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">暂无访客数据</p>
+      <p v-if="!items.length && !loading" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 py-8 text-center text-sm text-zinc-400 dark:text-zinc-500">暂无访客数据</p>
     </div>
 
-    <div class="hidden overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 md:block">
+    <div class="hidden overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 md:block">
       <table class="min-w-full text-left text-sm">
         <thead class="bg-zinc-50 dark:bg-zinc-800/60 text-xs text-zinc-500 dark:text-zinc-400">
           <tr>
@@ -990,7 +990,7 @@ onMounted(async () => {
     <div class="grid gap-4 lg:grid-cols-2">
       <section
         id="visitor-ban-form"
-        class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+        class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
       >
         <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
           快速封禁
@@ -1042,7 +1042,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <section class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <div class="flex items-center justify-between">
           <div>
             <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
@@ -1178,7 +1178,7 @@ onMounted(async () => {
             <li
               v-for="factor in ipDossier.riskFactors"
               :key="'ipf-' + factor.code + '-' + factor.points"
-              class="rounded-full bg-white dark:bg-zinc-900 px-2 py-0.5 text-[11px] text-rose-900 dark:text-rose-300 ring-1 ring-rose-100"
+              class="rounded-full bg-[var(--surface)] dark:bg-zinc-900 px-2 py-0.5 text-[11px] text-rose-900 dark:text-rose-300 ring-1 ring-rose-100"
             >
               {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
               风险分数 +{{ factor.points }} · {{ factor.message }}
@@ -1195,7 +1195,7 @@ onMounted(async () => {
               v-for="(action, idx) in ipDossier.suggestedActions"
               :key="'ipsa-' + action.kind + '-' + idx"
               type="button"
-              class="rounded-full bg-white dark:bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-sky-900 dark:text-sky-300 ring-1 ring-sky-200 hover:bg-sky-50 dark:hover:bg-sky-950"
+              class="rounded-full bg-[var(--surface)] dark:bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-sky-900 dark:text-sky-300 ring-1 ring-sky-200 hover:bg-sky-50 dark:hover:bg-sky-950"
               :title="action.reason"
               @click="applySuggestedAction(action)"
             >
@@ -1205,7 +1205,7 @@ onMounted(async () => {
         </div>
 
         <div class="mt-3 grid gap-3 md:grid-cols-3">
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">关联访客</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
               <li
@@ -1225,7 +1225,7 @@ onMounted(async () => {
               <li v-if="!(ipDossier.visitors || []).length" class="text-zinc-400 dark:text-zinc-500">暂无</li>
             </ul>
           </div>
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">常访页面</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
               <li
@@ -1239,7 +1239,7 @@ onMounted(async () => {
               <li v-if="!(ipDossier.pathTop || []).length" class="text-zinc-400 dark:text-zinc-500">暂无</li>
             </ul>
           </div>
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">设备与地点</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px] text-zinc-700 dark:text-zinc-200">
               <li
@@ -1281,7 +1281,7 @@ onMounted(async () => {
             <p class="mt-1 text-sm font-semibold text-sky-900 dark:text-sky-300">{{ activityLevel(ipDossier.peerComparison?.percentile ?? ipDossier.summary?.peerPercentile) }}</p>
             <p class="mt-0.5 text-sky-800/80">参考 {{ ipDossier.peerComparison?.sampleSize ?? '—' }} 个来源</p>
           </div>
-          <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2.5 text-[11px]">
+          <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-2.5 text-[11px]">
             <p class="font-medium text-zinc-800 dark:text-zinc-100">活跃时段</p>
             <p class="mt-1 text-zinc-600 dark:text-zinc-300">首见 {{ formatAdminRelativeTime(ipDossier.firstEventAt || ipDossier.summary?.firstEventAt) }}</p>
             <p class="mt-0.5 text-zinc-500 dark:text-zinc-400">最近 {{ formatAdminRelativeTime(ipDossier.lastEventAt || ipDossier.summary?.lastEventAt) }}</p>
@@ -1292,7 +1292,7 @@ onMounted(async () => {
           v-if="ipDossier?.pathSequence?.length || ipDossier?.pathTransitions?.length || ipDossier?.burstWindows?.length"
           class="mt-3 grid gap-3 md:grid-cols-3"
         >
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">访问过程</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
               <li v-for="(row, idx) in (ipDossier.pathSequence || []).slice(0, 10)" :key="'iseq-' + idx" class="flex justify-between gap-2">
@@ -1301,7 +1301,7 @@ onMounted(async () => {
               </li>
             </ul>
           </div>
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">常见访问顺序</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
               <li v-for="(row, idx) in (ipDossier.pathTransitions || []).slice(0, 8)" :key="'ipt-' + idx" class="flex justify-between gap-2">
@@ -1310,7 +1310,7 @@ onMounted(async () => {
               </li>
             </ul>
           </div>
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">访问高峰</p>
             <ul class="mt-1.5 max-h-32 space-y-1 overflow-y-auto text-[11px]">
               <li v-for="(row, idx) in (ipDossier.burstWindows || []).slice(0, 6)" :key="'ibw-' + idx" class="flex justify-between gap-2">
@@ -1343,7 +1343,7 @@ onMounted(async () => {
               <li v-for="item in ipDossier.evidenceLedger" :key="'ipe-' + item.code" class="text-[11px]">
                 <div class="flex items-center justify-between gap-2">
                   <span class="truncate font-medium text-zinc-800 dark:text-zinc-100">{{ item.message }}</span>
-                  <span class="shrink-0 rounded-full bg-white dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] text-rose-800">
+                  <span class="shrink-0 rounded-full bg-[var(--surface)] dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] text-rose-800">
                     {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · 参考分 {{ item.weight }}
                   </span>
                 </div>
@@ -1355,7 +1355,7 @@ onMounted(async () => {
             <h3 class="text-xs font-semibold text-emerald-950 dark:text-emerald-300">处理建议</h3>
             <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
               <li v-for="step in ipDossier.playbook" :key="'ippb-' + step.code" class="text-[11px]">
-                <NuxtLink :to="step.href" class="block rounded-md bg-white dark:bg-zinc-900 px-2 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950">
+                <NuxtLink :to="step.href" class="block rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950">
                   <div class="flex items-center justify-between gap-2">
                     <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ step.step }}. {{ adminLabel(adminInvestigationStepLabels, step.code, step.title) }}</span>
                     <span class="shrink-0 text-[10px] text-emerald-800 dark:text-emerald-300">{{ adminLabel(adminPlaybookStatusLabels, step.status, step.status) }}</span>
@@ -1469,7 +1469,7 @@ onMounted(async () => {
           <span
             v-for="row in visitorDossier.actionBreakdown.slice(0, 8)"
             :key="'act-' + row.action"
-            class="rounded-full bg-white dark:bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-700 dark:text-zinc-200 ring-1 ring-violet-100"
+            class="rounded-full bg-[var(--surface)] dark:bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-700 dark:text-zinc-200 ring-1 ring-violet-100"
           >
             {{ actionLabel(row.action) }} {{ row.count }}
           </span>
@@ -1484,7 +1484,7 @@ onMounted(async () => {
             <li
               v-for="factor in visitorDossier.riskFactors"
               :key="factor.code + '-' + factor.points"
-              class="rounded-full bg-white dark:bg-zinc-900 px-2 py-0.5 text-[11px] text-rose-900 dark:text-rose-300 ring-1 ring-rose-100"
+              class="rounded-full bg-[var(--surface)] dark:bg-zinc-900 px-2 py-0.5 text-[11px] text-rose-900 dark:text-rose-300 ring-1 ring-rose-100"
               :title="factor.message"
             >
               {{ adminLabel(adminRiskFactorLabels, factor.code, factor.code) }}
@@ -1509,7 +1509,7 @@ onMounted(async () => {
                 ? 'bg-red-100 dark:bg-red-900/50 text-red-900 ring-red-200'
                 : action.priority === 'medium'
                   ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-950 ring-amber-200'
-                  : 'bg-white dark:bg-zinc-900 text-sky-900 dark:text-sky-300 ring-sky-200'"
+                  : 'bg-[var(--surface)] dark:bg-zinc-900 text-sky-900 dark:text-sky-300 ring-sky-200'"
               :title="action.reason"
               @click="applySuggestedAction(action)"
             >
@@ -1524,7 +1524,7 @@ onMounted(async () => {
         >
           <div
             v-if="visitorDossier.userAgentHistory?.length"
-            class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5"
+            class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5"
           >
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">设备与浏览器</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
@@ -1540,7 +1540,7 @@ onMounted(async () => {
           </div>
           <div
             v-if="visitorDossier.geoTrail?.length"
-            class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5"
+            class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5"
           >
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">地理轨迹</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
@@ -1558,7 +1558,7 @@ onMounted(async () => {
           </div>
           <div
             v-if="activeHourlyRows(visitorDossier.hourlyPattern).length"
-            class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5"
+            class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5"
           >
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">活跃时段</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
@@ -1594,7 +1594,7 @@ onMounted(async () => {
               · 参考 {{ visitorDossier.peerComparison?.sampleSize ?? '—' }} 位访客
             </p>
           </div>
-          <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2.5 text-[11px]">
+          <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-2.5 text-[11px]">
             <p class="font-medium text-zinc-800 dark:text-zinc-100">关系摘要</p>
             <p class="mt-1 text-zinc-600 dark:text-zinc-300">
               IP {{ visitorDossier.relationship?.lastIp || visitorDossier.visitor?.lastIp || '—' }}
@@ -1609,7 +1609,7 @@ onMounted(async () => {
           v-if="visitorDossier?.pathSequence?.length || visitorDossier?.pathTransitions?.length || visitorDossier?.burstWindows?.length"
           class="mt-3 grid gap-3 md:grid-cols-3"
         >
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">访问过程</p>
             <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
               <li
@@ -1623,7 +1623,7 @@ onMounted(async () => {
               <li v-if="!(visitorDossier.pathSequence || []).length" class="text-zinc-400 dark:text-zinc-500">暂无</li>
             </ul>
           </div>
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">常见访问顺序</p>
             <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
               <li
@@ -1637,7 +1637,7 @@ onMounted(async () => {
               <li v-if="!(visitorDossier.pathTransitions || []).length" class="text-zinc-400 dark:text-zinc-500">暂无</li>
             </ul>
           </div>
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">访问高峰</p>
             <ul class="mt-1.5 max-h-36 space-y-1 overflow-y-auto text-[11px]">
               <li
@@ -1653,7 +1653,7 @@ onMounted(async () => {
           </div>
         </div>
 
-<div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+<div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">IP 历史</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
               <li
@@ -1673,7 +1673,7 @@ onMounted(async () => {
               <li v-if="!visitorDossier.ipHistory.length" class="text-zinc-400 dark:text-zinc-500">暂无</li>
             </ul>
           </div>
-          <div class="rounded-lg border border-white bg-white/90 dark:bg-zinc-900/90 p-2.5">
+          <div class="rounded-lg border border-white bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-2.5">
             <p class="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">常访页面</p>
             <ul class="mt-1.5 max-h-28 space-y-1 overflow-y-auto">
               <li
@@ -1767,7 +1767,7 @@ onMounted(async () => {
           <section class="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
             <h3 class="text-xs font-semibold text-indigo-950">最近访问过程</h3>
             <ul class="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
-              <li v-for="session in visitorDossier.sessions" :key="session.id" class="rounded-md bg-white dark:bg-zinc-900 px-2 py-1.5 text-[11px]">
+              <li v-for="session in visitorDossier.sessions" :key="session.id" class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1.5 text-[11px]">
                 <div class="flex items-center justify-between gap-2">
                   <span class="text-zinc-500 dark:text-zinc-400">{{ formatAdminRelativeTime(session.startAt) }}</span>
                   <span class="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">{{ session.eventCount }} 次操作</span>
@@ -1784,7 +1784,7 @@ onMounted(async () => {
               <li v-for="item in visitorDossier.evidenceLedger" :key="'ve-' + item.code" class="text-[11px]">
                 <div class="flex items-center justify-between gap-2">
                   <span class="truncate font-medium text-zinc-800 dark:text-zinc-100">{{ item.message }}</span>
-                  <span class="shrink-0 rounded-full bg-white dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] text-rose-800">
+                  <span class="shrink-0 rounded-full bg-[var(--surface)] dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] text-rose-800">
                     {{ adminLabel(adminEvidenceStrengthLabels, item.strength, item.strength) }} · 参考分 {{ item.weight }}
                   </span>
                 </div>
@@ -1796,7 +1796,7 @@ onMounted(async () => {
             <h3 class="text-xs font-semibold text-emerald-950 dark:text-emerald-300">处理建议</h3>
             <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto">
               <li v-for="step in visitorDossier.playbook" :key="'vpb-' + step.code" class="text-[11px]">
-                <NuxtLink :to="step.href" class="block rounded-md bg-white dark:bg-zinc-900 px-2 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950">
+                <NuxtLink :to="step.href" class="block rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950">
                   <div class="flex items-center justify-between gap-2">
                     <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ step.step }}. {{ adminLabel(adminInvestigationStepLabels, step.code, step.title) }}</span>
                     <span class="shrink-0 text-[10px] text-emerald-800 dark:text-emerald-300">{{ adminLabel(adminPlaybookStatusLabels, step.status, step.status) }}</span>
@@ -1821,7 +1821,7 @@ onMounted(async () => {
       >
         <div
           v-if="eventActionSummary.length"
-          class="flex flex-wrap gap-1.5 rounded-xl border border-sky-100 dark:border-sky-900 bg-white dark:bg-zinc-900 px-3 py-2"
+          class="flex flex-wrap gap-1.5 rounded-xl border border-sky-100 dark:border-sky-900 bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2"
         >
           <span class="w-full text-[11px] font-medium text-sky-900 dark:text-sky-300">本页操作摘要</span>
           <span
@@ -1843,7 +1843,7 @@ onMounted(async () => {
             <li
               v-for="event in group.items"
               :key="event.id"
-              class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-3 text-sm shadow-sm"
+              class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-3 text-sm shadow-sm"
             >
               <div class="flex flex-wrap items-center justify-between gap-2">
                 <div class="flex flex-wrap items-center gap-2">

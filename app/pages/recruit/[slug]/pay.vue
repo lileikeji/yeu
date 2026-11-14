@@ -39,7 +39,7 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="min-h-dvh bg-white dark:bg-zinc-950">
+  <div class="min-h-dvh bg-[var(--surface)] dark:bg-zinc-950">
     <div class="mx-auto flex min-h-dvh max-w-md flex-col items-center px-5 py-8">
       <h1 class="text-lg font-bold text-zinc-950 dark:text-zinc-100">
         {{ label }} · 扫码付款

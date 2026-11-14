@@ -53,7 +53,7 @@ function retryPage(): void {
 
 <template>
   <div class="min-h-dvh bg-[var(--page-bg)] text-zinc-950 dark:text-zinc-100">
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell flex h-16 items-center justify-between gap-3">
         <a
           href="/"
@@ -123,7 +123,7 @@ function retryPage(): void {
           <button
             v-if="content.canRetry"
             type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-[var(--surface)] transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             :disabled="recovering"
             @click="retryPage"
           >
@@ -135,7 +135,7 @@ function retryPage(): void {
           </button>
           <button
             type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-800 dark:hover:text-green-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-800 dark:hover:text-green-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             :disabled="recovering"
             @click="recover('/')"
           >
@@ -156,7 +156,7 @@ function retryPage(): void {
               v-for="action in errorRecoveryActions"
               :key="action.to"
               type="button"
-              class="group flex min-h-20 items-center gap-3 rounded-md border border-[var(--line)] bg-white dark:bg-zinc-900 px-4 text-left transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="group flex min-h-20 items-center gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 px-4 text-left transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               :disabled="recovering"
               @click="recover(action.to)"
             >

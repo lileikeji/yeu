@@ -104,7 +104,7 @@ onMounted(() => {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           按步骤办理
@@ -306,7 +306,7 @@ onMounted(() => {
 
         <div
           v-else
-          class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-12 text-center"
+          class="border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-5 py-12 text-center"
           role="status"
         >
           <UIcon

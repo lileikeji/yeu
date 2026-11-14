@@ -104,7 +104,7 @@ useSeoMeta({
     </div>
 
     <article class="page-shell mt-4">
-      <div class="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-zinc-200 bg-[var(--surface)] shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div
           v-if="activity.photos[0]"
           class="relative aspect-[16/8] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800"

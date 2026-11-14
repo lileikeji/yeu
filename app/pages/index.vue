@@ -231,7 +231,7 @@ const {
       v-show="activeHomeMode === 'full'"
       class="animate-spring-up"
     >
-      <section class="border-b border-[var(--line)] bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md relative overflow-hidden">
+      <section class="border-b border-[var(--line)] bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:bg-zinc-900/70 backdrop-blur-md relative overflow-hidden">
         <div class="border-b border-orange-200/80 bg-orange-50/80 dark:bg-orange-950/80 text-orange-800 dark:text-orange-300">
           <button
             type="button"
@@ -345,7 +345,7 @@ const {
             v-for="action in essentialActions"
             :key="action.to"
             :to="action.to"
-            class="group grid min-h-[4.75rem] place-items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2.5 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm md:min-h-32 md:p-4 md:text-center"
+            class="group grid min-h-[4.75rem] place-items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-2.5 text-left transition hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm md:min-h-32 md:p-4 md:text-center"
           >
             <div class="flex w-full min-w-0 items-center gap-2 md:flex-col md:justify-center md:gap-3 md:text-center">
               <span
@@ -372,7 +372,7 @@ const {
 
       <section
         v-if="homeSignalEvents.length || homeActivities.length"
-        class="border-t border-[var(--line)] bg-white dark:bg-zinc-900"
+        class="border-t border-[var(--line)] bg-[var(--page-bg)]"
       >
         <div class="page-shell py-5 md:py-8">
           <div class="flex flex-wrap items-center gap-2">
@@ -532,21 +532,21 @@ const {
 
       <section
         v-if="timelineStages.length"
-        class="border-y border-[var(--line)] bg-white dark:bg-zinc-900"
+        class="border-y border-[var(--line)] bg-[var(--page-bg)]"
       >
         <div class="page-shell py-6 md:py-9">
           <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
             按入学阶段查看
           </h2>
           <div class="mt-3 grid gap-5 md:mt-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(18rem,1fr)] lg:items-stretch lg:gap-4">
-            <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 md:p-5">
+            <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 md:p-5">
               <div class="grid grid-cols-3 border-b border-zinc-200 dark:border-zinc-800">
                 <button
                   v-for="(stage, index) in timelineStages"
                   :key="stage.label"
                   type="button"
                   class="min-h-10 border-b-2 px-2 text-xs font-medium transition md:min-h-11 md:text-sm"
-                  :class="index === activeTimelineIndex ? 'border-green-700 bg-green-700 font-bold text-white md:bg-transparent dark:md:bg-transparent md:text-green-700 dark:md:text-green-400' : 'border-transparent text-zinc-600 dark:text-zinc-300 hover:text-green-700 dark:hover:text-green-400'"
+                  :class="index === activeTimelineIndex ? 'border-green-700 bg-green-700 font-bold text-[var(--surface)] md:bg-transparent dark:md:bg-transparent md:text-green-700 dark:md:text-green-400' : 'border-transparent text-zinc-600 dark:text-zinc-300 hover:text-green-700 dark:hover:text-green-400'"
                   @click="activeTimelineIndex = index"
                 >
                   {{ stage.label }}
@@ -586,7 +586,7 @@ const {
             <NuxtLink
               v-if="featureEnabled('home.more.checklist')"
               to="/checklist"
-              class="group bg-white dark:bg-zinc-900 transition lg:rounded-lg lg:border lg:border-zinc-200 dark:lg:border-zinc-800 lg:p-5 lg:hover:border-green-300 dark:hover:border-green-700 dark:lg:hover:border-green-600 lg:hover:shadow-sm"
+              class="group bg-[var(--surface)] dark:bg-zinc-900 transition lg:rounded-lg lg:border lg:border-zinc-200 dark:lg:border-zinc-800 lg:p-5 lg:hover:border-green-300 dark:hover:border-green-700 dark:lg:hover:border-green-600 lg:hover:shadow-sm"
             >
               <div class="flex items-center gap-3">
                 <span class="hidden size-10 place-items-center rounded-lg bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 lg:grid">
@@ -630,7 +630,7 @@ const {
       >
         <div class="page-shell py-6 md:py-8">
           <div class="flex items-center gap-2">
-            <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-green-700 text-white">
+            <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-green-700 text-[var(--surface)]">
               <UIcon
                 name="i-lucide-phone-call"
                 class="size-4"
@@ -648,7 +648,7 @@ const {
               v-for="hotline in homeHotlines"
               :key="hotline.id"
               :href="`tel:${hotline.phone.replace(/\D/g, '')}`"
-              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-950 dark:text-zinc-100 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 hover:ring-green-300"
+              class="inline-flex min-h-11 items-center justify-between gap-2 rounded-md bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-950 dark:text-zinc-100 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 hover:ring-green-300"
             >
               <span class="flex items-center gap-2">
                 <UIcon
@@ -667,13 +667,13 @@ const {
       </section>
 
       <section
-        class="border-y border-[var(--line)] bg-white dark:bg-zinc-900"
+        class="border-y border-[var(--line)] bg-[var(--page-bg)]"
       >
         <div class="page-shell py-6 md:py-9">
           <h2 class="text-lg font-bold text-zinc-950 dark:text-zinc-100 md:text-xl">
             服务导航
           </h2>
-          <div class="mt-3 grid overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 md:mt-4 md:grid-cols-5">
+          <div class="mt-3 grid overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 md:mt-4 md:grid-cols-5">
             <NuxtLink
               v-for="entry in serviceNavEntries"
               :key="entry.to"
@@ -702,7 +702,7 @@ const {
       >
         <div class="page-shell py-8 md:py-10">
           <div class="mx-auto max-w-3xl text-center">
-            <span class="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-white dark:bg-zinc-900 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700">
+            <span class="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[var(--surface)] dark:bg-zinc-900 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700">
               <UIcon
                 name="i-lucide-heart-handshake"
                 class="size-4 text-green-700 dark:text-green-400"

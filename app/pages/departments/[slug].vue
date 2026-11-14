@@ -117,7 +117,7 @@ const feedbackLink = computed(() => content.value
 
 <template>
   <div v-if="department">
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <nav
           class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
@@ -193,7 +193,7 @@ const feedbackLink = computed(() => content.value
           <div class="mt-4 grid gap-3 md:grid-cols-2">
             <div
               v-if="contactPreparation"
-              class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+              class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
             >
               <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 咨询前准备
@@ -204,7 +204,7 @@ const feedbackLink = computed(() => content.value
             </div>
             <div
               v-if="usageSuggestion"
-              class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+              class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
             >
               <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                 使用建议

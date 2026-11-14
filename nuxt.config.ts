@@ -318,8 +318,10 @@ export default defineNuxtConfig({
       scope: '/',
       display: 'standalone',
       orientation: 'portrait-primary',
-      background_color: '#f7f8f6',
-      theme_color: '#176f46',
+      background_color: '#f4f4f5',
+      // PWA manifest 只能写静态值，无法跟随 [data-palette]：取 paper 的纸面色，
+      // 避免「选了奶油/莓红，桌面图标外框却还是品牌绿」。
+      theme_color: '#f4f4f5',
       categories: ['education', 'navigation', 'utilities'],
       icons: [
         {

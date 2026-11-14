@@ -48,10 +48,10 @@ function recordStatus(record: AdminRecord): string {
 </script>
 
 <template>
-  <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
     <div
       v-if="config.stats"
-      class="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 sm:grid-cols-3 lg:grid-cols-5"
+      class="grid grid-cols-2 gap-x-4 gap-y-3 border-b border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3 sm:grid-cols-3 lg:grid-cols-5"
       role="group"
       aria-label="地点坐标统计"
     >

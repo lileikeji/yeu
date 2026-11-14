@@ -451,7 +451,7 @@ onMounted(loadReviews)
         <li
           v-for="review in items"
           :key="review.id"
-          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
         >
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -606,7 +606,7 @@ onMounted(loadReviews)
         <li
           v-for="rating in filteredAmapRatings"
           :key="rating.placeId"
-          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3"
+          class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3"
         >
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -699,7 +699,7 @@ onMounted(loadReviews)
           <li
             v-for="merchant in filteredMerchants"
             :key="merchant.placeId"
-            class="cursor-pointer rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 transition-colors hover:border-zinc-400 dark:hover:border-zinc-600"
+            class="cursor-pointer rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3 transition-colors hover:border-zinc-400 dark:hover:border-zinc-600"
             @click="openMerchant(merchant.placeId)"
           >
             <div class="flex items-center gap-3">
@@ -884,7 +884,7 @@ onMounted(loadReviews)
               <li
                 v-for="review in selectedMerchant.originalReviews"
                 :key="review.id"
-                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
+                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3"
               >
                 <div class="flex items-center gap-2 text-xs">
                   <span class="text-zinc-700 dark:text-zinc-200">
@@ -925,7 +925,7 @@ onMounted(loadReviews)
               <li
                 v-for="review in selectedMerchant.userReviews"
                 :key="review.id"
-                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3"
+                class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3"
               >
                 <div class="flex items-center gap-2 text-xs">
                   <span class="text-zinc-700 dark:text-zinc-200">
@@ -956,7 +956,7 @@ onMounted(loadReviews)
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
         @click.self="editingSeed = null"
       >
-        <div class="w-full max-w-lg rounded-xl bg-white dark:bg-zinc-900 p-5 shadow-xl">
+        <div class="w-full max-w-lg rounded-xl bg-[var(--surface)] dark:bg-zinc-900 p-5 shadow-xl">
           <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100">
             编辑整理卡
           </h3>

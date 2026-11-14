@@ -364,7 +364,7 @@ onMounted(() => {
             <div
               v-for="activity in activities"
               :key="activity.id"
-              class="flex items-stretch gap-1 rounded-md bg-white/80 transition-colors hover:bg-white dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
+              class="flex items-stretch gap-1 rounded-md bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] transition-colors hover:bg-[var(--surface)] dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
             >
               <NuxtLink
                 :to="`/activities/${activity.slug}`"
@@ -422,7 +422,7 @@ onMounted(() => {
           type="button"
           class="group w-full rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           :class="notice.confirmed
-            ? 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
+            ? 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
             : 'border-amber-300 dark:border-amber-800 bg-amber-50/80 hover:border-amber-400 dark:hover:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950'"
           :aria-label="`${notice.confirmed ? '已读' : '未读'}公告：${notice.title}`"
           @click="openNoticeDetail(notice)"

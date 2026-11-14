@@ -247,7 +247,7 @@ watch(selectedAudience, (value) => {
 
 <template>
   <div v-if="procedure">
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <nav
           class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
@@ -501,7 +501,7 @@ watch(selectedAudience, (value) => {
               </span>
             </div>
             <div
-              class="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-zinc-900 ring-1 ring-zinc-200 dark:ring-zinc-700"
+              class="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface)] dark:bg-zinc-900 ring-1 ring-zinc-200 dark:ring-zinc-700"
               role="progressbar"
               :aria-valuenow="materialPackProgress.percent"
               aria-valuemin="0"
@@ -581,7 +581,7 @@ watch(selectedAudience, (value) => {
           </ul>
           <p
             v-else
-            class="mt-4 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
+            class="mt-4 border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 py-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
           >
             {{ emptyMaterialText }}
           </p>
@@ -654,7 +654,7 @@ watch(selectedAudience, (value) => {
               </span>
             </div>
             <div
-              class="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-zinc-900 ring-1 ring-zinc-200 dark:ring-zinc-700"
+              class="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface)] dark:bg-zinc-900 ring-1 ring-zinc-200 dark:ring-zinc-700"
               role="progressbar"
               :aria-valuenow="checklistProgress.percent"
               aria-valuemin="0"
@@ -788,7 +788,7 @@ watch(selectedAudience, (value) => {
           </ol>
           <p
             v-if="visibleSteps.length === 0"
-            class="mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
+            class="mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 py-5 text-sm leading-6 text-zinc-600 dark:text-zinc-300"
           >
             没有适合这一新生类型的步骤。
           </p>

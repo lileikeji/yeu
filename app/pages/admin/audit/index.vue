@@ -200,7 +200,7 @@ onMounted(() => {
       {{ errorMessage }}
     </div>
 
-    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
       <div class="mb-3 flex flex-wrap gap-2">
         <UButton
           v-for="preset in adminAuditPresets"
@@ -261,7 +261,7 @@ onMounted(() => {
           v-for="group in auditDayGroups"
           :key="group.day"
         >
-          <p class="sticky top-0 z-[1] mb-2 bg-white/90 dark:bg-zinc-900/90 py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200 backdrop-blur">
+          <p class="sticky top-0 z-[1] mb-2 bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200 backdrop-blur">
             {{ group.day }} · {{ group.items.length }} 条
           </p>
           <ul class="space-y-2">

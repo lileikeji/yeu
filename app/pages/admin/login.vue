@@ -189,7 +189,7 @@ onMounted(async () => {
     <main class="grid place-items-center p-5 sm:p-8">
       <div class="w-full max-w-md">
         <div class="mb-7 flex items-center gap-3 lg:hidden">
-          <span class="grid size-10 place-items-center rounded-md bg-green-700 text-white">
+          <span class="grid size-10 place-items-center rounded-md bg-green-700 text-[var(--surface)]">
             <UIcon
               name="i-lucide-compass"
               class="size-5"
@@ -206,7 +206,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm sm:p-7">
+        <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 shadow-sm sm:p-7">
           <div>
             <p class="text-xs font-semibold text-green-700 dark:text-green-400">
               ADMIN

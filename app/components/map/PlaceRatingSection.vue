@@ -371,7 +371,7 @@ const mineStatusText = computed<string | null>(() => {
           <button
             type="button"
             class="rounded-full px-2.5 py-1 text-[10px] font-medium transition-all"
-            :class="sort === 'newest' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
+            :class="sort === 'newest' ? 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
             @click="changeSort('newest')"
           >
             最新
@@ -379,7 +379,7 @@ const mineStatusText = computed<string | null>(() => {
           <button
             type="button"
             class="rounded-full px-2.5 py-1 text-[10px] font-medium transition-all"
-            :class="sort === 'hot' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
+            :class="sort === 'hot' ? 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
             @click="changeSort('hot')"
           >
             最热
@@ -400,7 +400,7 @@ const mineStatusText = computed<string | null>(() => {
           <li
             v-for="review in payload.reviews"
             :key="review.id"
-            class="rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+            class="rounded-xl border border-zinc-100 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
           >
             <div class="flex items-center gap-1.5">
               <span
@@ -522,7 +522,7 @@ const mineStatusText = computed<string | null>(() => {
                 type="text"
                 maxlength="8"
                 placeholder="输入 8 位查询码"
-                class="w-40 rounded-md border-0 bg-white px-2 py-1 text-xs text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-zinc-700 placeholder:text-zinc-400 font-mono uppercase"
+                class="w-40 rounded-md border-0 bg-[var(--surface)] px-2 py-1 text-xs text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-zinc-700 placeholder:text-zinc-400 font-mono uppercase"
                 @keyup.enter="queryTrack"
               >
               <UButton
@@ -542,7 +542,7 @@ const mineStatusText = computed<string | null>(() => {
             </p>
             <div
               v-else-if="trackResult"
-              class="rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2.5"
+              class="rounded-xl border border-zinc-100 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2.5"
             >
               <div class="flex items-center gap-1.5">
                 <span
@@ -580,7 +580,7 @@ const mineStatusText = computed<string | null>(() => {
               size="xs"
               icon="i-lucide-pen-line"
               :label="`评价${props.placeName}`"
-              :class="['!bg-white dark:!bg-zinc-800 !text-green-700 dark:!text-green-300 !ring-green-200 dark:!ring-green-800 hover:!bg-green-50 dark:hover:!bg-green-950/60 active:!bg-green-100 dark:active:!bg-green-900/50', props.variant === 'mobile' ? 'min-h-9 px-3' : '']"
+              :class="['!bg-[var(--surface)] dark:!bg-zinc-800 !text-green-700 dark:!text-green-300 !ring-green-200 dark:!ring-green-800 hover:!bg-green-50 dark:hover:!bg-green-950/60 active:!bg-green-100 dark:active:!bg-green-900/50', props.variant === 'mobile' ? 'min-h-9 px-3' : '']"
               @click="openForm"
             />
           </template>
@@ -617,7 +617,7 @@ const mineStatusText = computed<string | null>(() => {
               :rows="3"
               size="sm"
               placeholder="说说到店体验：口味、服务、价格、卫生等"
-              class="!bg-white dark:!bg-zinc-900 !text-zinc-700 dark:!text-zinc-200 !ring-zinc-200 dark:!ring-zinc-700 placeholder:!text-zinc-400 dark:placeholder:!text-zinc-500"
+              class="!bg-[var(--surface)] dark:!bg-zinc-900 !text-zinc-700 dark:!text-zinc-200 !ring-zinc-200 dark:!ring-zinc-700 placeholder:!text-zinc-400 dark:placeholder:!text-zinc-500"
             />
             <div class="flex items-center gap-2">
               <UButton

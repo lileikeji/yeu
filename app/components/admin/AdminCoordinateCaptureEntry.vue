@@ -96,7 +96,7 @@ defineExpose({ markSubmitted })
     />
     <div
       v-else-if="!placesLoading"
-      class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400"
+      class="border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400"
     >
       暂无可采点地点
     </div>

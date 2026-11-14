@@ -252,7 +252,7 @@ const snapshotText = computed(() => {
 
   <section
     v-else
-    class="absolute inset-x-3 bottom-2 top-2 z-50 flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:inset-x-auto md:bottom-6 md:left-[var(--transit-left,1rem)] md:top-auto md:z-50 md:max-h-[62vh] md:w-80 max-md:landscape:inset-x-auto max-md:landscape:left-2 max-md:landscape:w-60"
+    class="absolute inset-x-3 bottom-2 top-2 z-50 flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-[var(--surface)] shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:inset-x-auto md:bottom-6 md:left-[var(--transit-left,1rem)] md:top-auto md:z-50 md:max-h-[62vh] md:w-80 max-md:landscape:inset-x-auto max-md:landscape:left-2 max-md:landscape:w-60"
     :style="{ '--transit-left': leftOffset ?? '1rem' }"
     aria-label="校外公交线路"
   >

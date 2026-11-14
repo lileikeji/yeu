@@ -121,7 +121,7 @@ watch(() => route.query.from, () => {
 
 <template>
   <div class="bg-zinc-50 text-zinc-950 dark:bg-zinc-800/60 dark:text-zinc-100">
-    <header class="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+    <header class="border-b border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           新生报到 · 到校动线

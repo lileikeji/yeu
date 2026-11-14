@@ -213,7 +213,7 @@ watch(mode, (next) => {
 <template>
   <div class="page-shell py-8 sm:py-12">
     <div class="mx-auto max-w-md">
-      <section class="rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 p-5 shadow-sm sm:p-7">
+      <section class="rounded-lg border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 p-5 shadow-sm sm:p-7">
         <p class="text-xs font-semibold text-green-700 dark:text-green-400">
           新生账号
         </p>
@@ -225,7 +225,7 @@ watch(mode, (next) => {
             <button
               type="button"
               class="rounded px-2.5 py-1 text-xs font-medium transition"
-              :class="mode === 'login' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
+              :class="mode === 'login' ? 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
               @click="switchMode('login')"
             >
               登录
@@ -233,7 +233,7 @@ watch(mode, (next) => {
             <button
               type="button"
               class="rounded px-2.5 py-1 text-xs font-medium transition"
-              :class="mode === 'register' ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
+              :class="mode === 'register' ? 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
               @click="switchMode('register')"
             >
               注册
@@ -390,7 +390,7 @@ watch(mode, (next) => {
               <button
                 :key="regCaptchaRefreshKey"
                 type="button"
-                class="min-h-11 shrink-0 rounded-md border border-zinc-200 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-800"
+                class="min-h-11 shrink-0 rounded-md border border-zinc-200 bg-[var(--surface)] p-1 dark:border-zinc-700 dark:bg-zinc-800"
                 aria-label="点击刷新图形验证码"
                 @click="refreshCaptcha"
               >

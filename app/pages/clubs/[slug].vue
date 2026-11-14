@@ -129,7 +129,7 @@ async function shareClub(): Promise<void> {
 
 <template>
   <div v-if="club">
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <nav
           class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
@@ -367,7 +367,7 @@ async function shareClub(): Promise<void> {
                       </p>
                       <button
                         type="button"
-                        class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+                        class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
                         @click="copyContactAction(action.copyValue)"
                       >
                         <UIcon

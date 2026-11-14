@@ -128,7 +128,7 @@ const primaryDestination = computed(() => props.item.destinations[0]!)
 
         <details
           v-if="item.sources.length"
-          class="group mt-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+          class="group mt-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
         >
           <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 marker:hidden">
             <span class="inline-flex items-center gap-2">

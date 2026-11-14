@@ -47,7 +47,7 @@ const dayText = (value?: string | number | null): string => {
 
       <div
         v-if="!event"
-        class="mt-6 rounded-xl border border-[var(--line)] bg-white p-6 dark:bg-zinc-900"
+        class="mt-6 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-6 dark:bg-zinc-900"
       >
         <p class="text-base font-semibold text-zinc-950 dark:text-zinc-100">
           没有这件事了
@@ -64,7 +64,7 @@ const dayText = (value?: string | number | null): string => {
         <h1 class="mt-1 text-2xl font-semibold leading-9 text-zinc-950 md:text-[28px] dark:text-zinc-100">
           {{ event.title }}
         </h1>
-        <div class="mt-4 max-w-3xl rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900">
+        <div class="mt-4 max-w-3xl rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 dark:bg-zinc-900">
           <h2 class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
             简要
           </h2>
@@ -100,7 +100,7 @@ const dayText = (value?: string | number | null): string => {
           <li
             v-for="item in event.items"
             :key="item.id"
-            class="rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900"
+            class="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 dark:bg-zinc-900"
           >
             <a
               :href="item.url"

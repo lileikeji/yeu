@@ -22,7 +22,7 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-  <details class="group border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <details class="group border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
     <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 marker:hidden">
       <span class="inline-flex items-center gap-2">
         <UIcon

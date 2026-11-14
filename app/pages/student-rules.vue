@@ -99,7 +99,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
 
 <template>
   <div>
-    <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <section class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-12">
         <div class="flex flex-wrap items-center gap-2 text-xs">
           <UBadge
@@ -173,7 +173,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
               />
             </div>
 
-            <div class="mt-5 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+            <div class="mt-5 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
               <div class="hidden grid-cols-[minmax(8rem,1fr)_5.5rem_8rem_7rem_4.5rem_2.75rem] gap-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 md:grid">
                 <span>课程</span><span>学分</span><span>成绩制</span><span>成绩</span><span>绩点</span><span />
               </div>
@@ -198,7 +198,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                   <button
                     type="button"
                     class="min-h-9 rounded px-2"
-                    :class="course.mode === 'percentage' ? 'bg-white dark:bg-zinc-900 font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
+                    :class="course.mode === 'percentage' ? 'bg-[var(--surface)] dark:bg-zinc-900 font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
                     @click="course.mode = 'percentage'"
                   >
                     百分
@@ -206,7 +206,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                   <button
                     type="button"
                     class="min-h-9 rounded px-2"
-                    :class="course.mode === 'five-level' ? 'bg-white dark:bg-zinc-900 font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
+                    :class="course.mode === 'five-level' ? 'bg-[var(--surface)] dark:bg-zinc-900 font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400'"
                     @click="course.mode = 'five-level'"
                   >
                     五级
@@ -224,7 +224,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
                 <select
                   v-else
                   v-model="course.grade"
-                  class="min-h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 text-sm"
+                  class="min-h-10 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-2 text-sm"
                   aria-label="五级制成绩"
                 >
                   <option
@@ -259,7 +259,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
           </div>
 
           <aside class="lg:sticky lg:top-24 lg:self-start">
-            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm">
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 shadow-sm">
               <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 当前试算
               </p>
@@ -322,7 +322,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
 
     <section
       id="scholarships"
-      class="scroll-mt-20 border-b border-[var(--line)] bg-white dark:bg-zinc-900"
+      class="scroll-mt-20 border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900"
     >
       <div class="page-shell py-9 md:py-14">
         <p class="text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -347,7 +347,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             role="tab"
             :aria-selected="selectedScholarship === item.slug"
             class="min-h-11 shrink-0 rounded-md border px-3 text-sm font-semibold"
-            :class="selectedScholarship === item.slug ? 'border-zinc-900 bg-zinc-900 dark:bg-zinc-700 dark:bg-zinc-700 text-white' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600'"
+            :class="selectedScholarship === item.slug ? 'border-zinc-900 bg-zinc-900 dark:bg-zinc-700 dark:bg-zinc-700 text-white' : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600'"
             @click="selectedScholarship = item.slug"
           >
             {{ item.name }}
@@ -450,7 +450,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
 
     <section
       id="zongce-calculator"
-      class="scroll-mt-20 bg-white dark:bg-zinc-900"
+      class="scroll-mt-20 bg-[var(--surface)] dark:bg-zinc-900"
     >
       <div class="page-shell py-9 md:py-14">
         <div class="flex flex-wrap items-start justify-between gap-4">
@@ -550,7 +550,7 @@ watch(() => route.hash, hash => void syncScholarshipHash(hash))
             :key="category"
             type="button"
             class="min-h-10 shrink-0 rounded-md px-3 text-sm"
-            :class="selectedCategory === category ? 'bg-zinc-900 dark:bg-zinc-700 font-semibold text-white' : 'border border-zinc-200 dark:border-zinc-800 dark:border-zinc-800 bg-white dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200'"
+            :class="selectedCategory === category ? 'bg-zinc-900 dark:bg-zinc-700 font-semibold text-white' : 'border border-zinc-200 dark:border-zinc-800 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200'"
             @click="selectedCategory = category as StudentRuleCategory | '全部'"
           >
             {{ category }}

@@ -229,7 +229,7 @@ onMounted(loadStatus)
       <header class="text-center">
         <NuxtLink
           to="/singer"
-          class="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm"
+          class="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm"
         >
           仰恩大学音乐协会 · 新声歌手大赛
         </NuxtLink>
@@ -267,7 +267,7 @@ onMounted(loadStatus)
       <!-- 登记成功 -->
       <div
         v-else-if="succeeded"
-        class="mt-6 rounded-2xl bg-white/90 p-6 text-center shadow-md ring-1 ring-[#f2d8c4]"
+        class="mt-6 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-6 text-center shadow-md ring-1 ring-[#f2d8c4]"
       >
         <UIcon
           name="i-lucide-circle-check"
@@ -312,7 +312,7 @@ onMounted(loadStatus)
           </NuxtLink>
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#4a564e] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
+            class="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[#4a564e] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
             @click="resetAfterSuccess"
           >
             继续登记下一位
@@ -323,7 +323,7 @@ onMounted(loadStatus)
       <!-- 登记表单 -->
       <form
         v-else
-        class="mt-6 space-y-4 rounded-2xl bg-white/90 p-5 shadow-md ring-1 ring-[#f2d8c4] sm:p-6"
+        class="mt-6 space-y-4 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-5 shadow-md ring-1 ring-[#f2d8c4] sm:p-6"
         @submit.prevent="submit"
       >
         <div>
@@ -341,7 +341,7 @@ onMounted(loadStatus)
               maxlength="40"
               name="name"
               autocomplete="name"
-              class="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+              class="w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
               placeholder="你的姓名"
             >
             <input
@@ -350,7 +350,7 @@ onMounted(loadStatus)
               inputmode="numeric"
               autocomplete="off"
               aria-label="学号后四位"
-              class="w-28 shrink-0 rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base tabular-nums outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+              class="w-28 shrink-0 rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base tabular-nums outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
               placeholder="学号后 4 位"
               @blur="lookupPreRegistrations"
             >
@@ -380,7 +380,7 @@ onMounted(loadStatus)
             <div
               v-for="candidate in preCandidates"
               :key="candidate.id"
-              class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-zinc-200"
+              class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--surface)] px-3 py-2 ring-1 ring-zinc-200"
             >
               <div class="min-w-0 text-sm">
                 <p class="font-semibold text-[#33413a]">
@@ -397,7 +397,7 @@ onMounted(loadStatus)
               </div>
               <button
                 type="button"
-                class="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700"
+                class="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-800 hover:text-[var(--surface)]"
                 @click="confirmCandidate(candidate)"
               >
                 是，就我
@@ -449,7 +449,7 @@ onMounted(loadStatus)
             required
             maxlength="60"
             name="className"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="如 26工商管理1班"
           >
         </div>
@@ -468,7 +468,7 @@ onMounted(loadStatus)
             maxlength="20"
             name="studentNo"
             inputmode="text"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="录取通知书 / 学生证上的学号"
           >
         </div>
@@ -489,7 +489,7 @@ onMounted(loadStatus)
             type="tel"
             inputmode="numeric"
             autocomplete="tel"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="常用手机号"
           >
         </div>
@@ -509,7 +509,7 @@ onMounted(loadStatus)
             name="email"
             type="email"
             autocomplete="email"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="用于接收比赛结果通知"
           >
         </div>
@@ -526,7 +526,7 @@ onMounted(loadStatus)
             v-model="form.song"
             maxlength="80"
             name="song"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="想唱的歌，没定就先空着"
           >
         </div>
