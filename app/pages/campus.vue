@@ -63,7 +63,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
 
 <template>
   <div>
-    <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <section class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-12">
         <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start">
           <div class="max-w-3xl">
@@ -122,7 +122,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
                 />
               </a>
             </div>
-            <ol class="grid grid-cols-2 border-t border-green-100 dark:border-green-900 bg-white/80 dark:bg-zinc-900/80">
+            <ol class="grid grid-cols-2 border-t border-green-100 dark:border-green-900 bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] dark:bg-zinc-900/80">
               <li
                 v-for="item in campusFreshmanDates"
                 :key="item.title"
@@ -183,7 +183,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
         >
           <a
             href="#departments"
-            class="group flex min-h-11 items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950 hover:text-green-800 dark:hover:text-green-300"
+            class="group flex min-h-11 items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950 hover:text-green-800 dark:hover:text-green-300"
           >
             <span>找常用部门</span>
             <UIcon
@@ -193,7 +193,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           </a>
           <a
             href="#clubs"
-            class="group flex min-h-11 items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950 hover:text-green-800 dark:hover:text-green-300"
+            class="group flex min-h-11 items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950 hover:text-green-800 dark:hover:text-green-300"
           >
             <span>看学生社团</span>
             <UIcon
@@ -250,7 +250,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
           </div>
         </div>
 
-        <div class="grid border-t border-lime-100 bg-white/70 dark:bg-zinc-900/70 sm:grid-cols-2">
+        <div class="grid border-t border-lime-100 bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:bg-zinc-900/70 sm:grid-cols-2">
           <article
             v-for="(item, index) in campusMilitaryPreparation.items"
             :key="item.title"
@@ -553,7 +553,7 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
 
     <section
       id="clubs"
-      class="scroll-mt-20 border-y border-[var(--line)] bg-white dark:bg-zinc-900"
+      class="scroll-mt-20 border-y border-[var(--line)] bg-[var(--page-bg)]"
     >
       <div class="page-shell py-10 md:py-14">
         <div class="grid gap-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-14">

@@ -677,7 +677,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <section class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           校园搜索
@@ -696,7 +696,7 @@ onBeforeUnmount(() => {
               type="button"
               role="tab"
               class="inline-flex min-h-10 items-center justify-center gap-2 rounded px-4 text-sm font-semibold transition"
-              :class="activeSearchMode === 'ai' ? 'bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'"
+              :class="activeSearchMode === 'ai' ? 'bg-[var(--surface)] dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'"
               :aria-selected="activeSearchMode === 'ai'"
               @click="switchSearchMode('ai')"
             >
@@ -710,7 +710,7 @@ onBeforeUnmount(() => {
               type="button"
               role="tab"
               class="inline-flex min-h-10 items-center justify-center gap-2 rounded px-4 text-sm font-semibold transition"
-              :class="activeSearchMode === 'site' ? 'bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'"
+              :class="activeSearchMode === 'site' ? 'bg-[var(--surface)] dark:bg-zinc-900 text-green-700 dark:text-green-400 dark:text-green-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100'"
               :aria-selected="activeSearchMode === 'site'"
               @click="switchSearchMode('site')"
             >
@@ -794,8 +794,8 @@ onBeforeUnmount(() => {
                 type="button"
                 class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
                 :class="isNeedShortcutActive(shortcut, activeQuery)
-                  ? 'border-green-700 bg-green-700 text-white'
-                  : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
+                  ? 'border-green-700 bg-green-700 text-[var(--surface)]'
+                  : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
                 :aria-label="`按${shortcut.label}搜索`"
                 :aria-pressed="isNeedShortcutActive(shortcut, activeQuery)"
                 @click="selectSearchNeed(shortcut.query)"
@@ -837,7 +837,7 @@ onBeforeUnmount(() => {
       <div v-if="activeQuery">
         <section
           v-if="activeSearchMode === 'ai' && (assistantStatus === 'pending' || assistantResponse || assistantStatus === 'error')"
-          class="mb-6 rounded-lg border border-green-200 dark:border-green-800 bg-white dark:bg-zinc-900 p-4 shadow-sm sm:p-5"
+          class="mb-6 rounded-lg border border-green-200 dark:border-green-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm sm:p-5"
           aria-labelledby="assistant-answer-heading"
         >
           <div class="flex items-start gap-3">
@@ -947,7 +947,7 @@ onBeforeUnmount(() => {
                     <li
                       v-for="(item, itemIndex) in assistantFoodCards.items"
                       :key="`${item.name}-${itemIndex}`"
-                      class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 shadow-sm transition-colors active:border-green-300 dark:active:border-green-700"
+                      class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-3 shadow-sm transition-colors active:border-green-300 dark:active:border-green-700"
                     >
                       <div class="flex items-start justify-between gap-2">
                         <p class="min-w-0 text-sm font-bold leading-5 text-zinc-950 dark:text-zinc-100">
@@ -1030,7 +1030,7 @@ onBeforeUnmount(() => {
                       class="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 p-3"
                     >
                       <div class="flex items-center justify-between gap-2">
-                        <span class="rounded bg-white dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 ring-1 ring-zinc-200 dark:ring-zinc-700">{{ review.tag }}</span>
+                        <span class="rounded bg-[var(--surface)] dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 ring-1 ring-zinc-200 dark:ring-zinc-700">{{ review.tag }}</span>
                         <span
                           v-if="review.score !== null"
                           class="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300"
@@ -1193,7 +1193,7 @@ onBeforeUnmount(() => {
               v-for="group in groupedResults"
               :key="group.type"
               :href="`#search-group-${group.type}`"
-              class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 dark:border-green-800 bg-white dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="inline-flex min-h-11 items-center gap-2 rounded-md border border-green-200 dark:border-green-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100 transition-colors hover:border-green-400 dark:hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             >
               <UIcon
                 :name="group.icon"
@@ -1442,7 +1442,7 @@ onBeforeUnmount(() => {
               v-for="item in searchStartingPoints"
               :key="item.to"
               :to="item.to"
-              class="group flex min-h-24 items-start gap-3 rounded-md border border-[var(--line)] bg-white dark:bg-zinc-900 p-4 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="group flex min-h-24 items-start gap-3 rounded-md border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 p-4 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             >
               <span class="grid size-10 shrink-0 place-items-center rounded-md bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
                 <UIcon

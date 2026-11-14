@@ -96,7 +96,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
 
 <template>
   <div>
-    <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <section class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div class="max-w-2xl">
@@ -175,8 +175,8 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
               type="button"
               class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               :class="isGuideNeedShortcutActive(shortcut, { query: searchQuery, category: activeCategory })
-                ? 'border-green-700 bg-green-700 text-white'
-                : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
+                ? 'border-green-700 bg-green-700 text-[var(--surface)]'
+                : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
               :aria-label="`按${shortcut.label}查找指南`"
               :aria-pressed="isGuideNeedShortcutActive(shortcut, { query: searchQuery, category: activeCategory })"
               @click="selectGuideNeed(shortcut)"
@@ -341,7 +341,7 @@ function selectGuideNeed(shortcut: (typeof guideNeedShortcuts)[number]): void {
 
       <div
         v-else-if="!publicGuideError && !filteredGuides.length"
-        class="border-y border-[var(--line)] bg-white dark:bg-zinc-900 px-5 py-12 text-center"
+        class="border-y border-[var(--line)] bg-[var(--page-bg)] px-5 py-12 text-center"
       >
         <UIcon
           name="i-lucide-search-x"

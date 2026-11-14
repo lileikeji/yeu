@@ -143,7 +143,7 @@ function dotContent(color: string, active: boolean): HTMLElement {
     'width:' + (active ? '12px' : '8px'),
     'height:' + (active ? '12px' : '8px'),
     'border-radius:50%',
-    'background:' + (active ? color : '#fff'),
+    'background:' + (active ? color : 'var(--surface)'),
     'border:2px solid ' + color,
     'box-sizing:border-box'
   ].join(';')
@@ -405,7 +405,7 @@ function formatPrice(value: number | null): string {
               class="min-h-11 flex-1 rounded-md border px-3 text-sm font-bold transition"
               :class="activeLine === name
                 ? 'border-transparent text-white'
-                : 'border-zinc-200 bg-white text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200'"
+                : 'border-zinc-200 bg-[var(--surface)] text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200'"
               :style="activeLine === name ? { backgroundColor: LINE_COLORS[name] } : undefined"
               @click="activeLine = name"
             >
@@ -415,7 +415,7 @@ function formatPrice(value: number | null): string {
 
           <div
             v-if="directionsForActiveLine.length"
-            class="bg-white p-3 shadow-sm dark:bg-zinc-900"
+            class="bg-[var(--surface)] p-3 shadow-sm dark:bg-zinc-900"
           >
             <div class="flex items-center justify-between gap-2">
               <div class="flex gap-1">
@@ -496,7 +496,7 @@ function formatPrice(value: number | null): string {
 
           <div
             v-if="showVehicles && primaryLive?.vehicles.length"
-            class="bg-white shadow-sm dark:bg-zinc-900"
+            class="bg-[var(--surface)] shadow-sm dark:bg-zinc-900"
           >
             <p class="border-b border-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
               在途车辆 · 点车牌定位
@@ -527,7 +527,7 @@ function formatPrice(value: number | null): string {
             </ul>
           </div>
 
-          <div class="bg-white shadow-sm dark:bg-zinc-900">
+          <div class="bg-[var(--surface)] shadow-sm dark:bg-zinc-900">
             <p class="border-b border-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
               {{ shortStop(primaryDirection?.from ?? '') }} → {{ shortStop(primaryDirection?.to ?? '') }} · 站点顺序
             </p>
@@ -548,7 +548,7 @@ function formatPrice(value: number | null): string {
                   </span>
                   <span
                     class="size-2 shrink-0 rounded-full border"
-                    :style="{ borderColor: LINE_COLORS[activeLine], backgroundColor: stop.seq === 1 ? LINE_COLORS[activeLine] : '#fff' }"
+                    :style="{ borderColor: LINE_COLORS[activeLine], backgroundColor: stop.seq === 1 ? LINE_COLORS[activeLine] : 'var(--surface)' }"
                   />
                   <span class="truncate text-zinc-800 dark:text-zinc-100">{{ stop.name }}</span>
                 </button>

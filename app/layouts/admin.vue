@@ -286,7 +286,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
       v-else-if="authState === 'error'"
       class="grid min-h-dvh place-items-center p-6"
     >
-      <div class="w-full max-w-md rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 text-center">
+      <div class="w-full max-w-md rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-6 text-center">
         <UIcon
           name="i-lucide-shield-alert"
           class="mx-auto size-7 text-orange-700 dark:text-orange-300"
@@ -352,7 +352,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
             <button
               v-if="!isStandaloneGroup(group.key) && !desktopSidebarCollapsed"
               type="button"
-              class="flex min-h-9 w-full items-center justify-between rounded-md px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-300 dark:text-zinc-600 hover:bg-white/10 hover:text-white"
+              class="flex min-h-9 w-full items-center justify-between rounded-md px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-300 dark:text-zinc-600 hover:bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] hover:text-white"
               :aria-expanded="!isNavigationGroupCollapsed(group.key)"
               @click="toggleNavigationGroup(group.key)"
             >
@@ -369,7 +369,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
               :key="item.to"
               :to="item.to"
               class="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
-              :class="isActive(item.to) ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100' : 'text-zinc-300 dark:text-zinc-600 hover:bg-white/10 hover:text-white'"
+              :class="isActive(item.to) ? 'bg-[var(--surface)] dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100' : 'text-zinc-300 dark:text-zinc-600 hover:bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] hover:text-white'"
               :aria-current="isActive(item.to) ? 'page' : undefined"
               :title="desktopSidebarCollapsed ? item.label : undefined"
             >
@@ -433,7 +433,7 @@ watch(desktopSidebarCollapsed, (collapsed) => {
         class="min-w-0 overflow-x-hidden transition-[padding] duration-200"
         :class="desktopSidebarCollapsed ? 'lg:pl-16' : 'lg:pl-60'"
       >
-        <header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 px-3 backdrop-blur sm:px-5 lg:px-6">
+        <header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-[color-mix(in_srgb,var(--surface)_95%,transparent)] dark:bg-zinc-900/95 px-3 backdrop-blur sm:px-5 lg:px-6">
           <UButton
             ref="mobileNavigationButton"
             icon="i-lucide-menu"
@@ -484,10 +484,10 @@ watch(desktopSidebarCollapsed, (collapsed) => {
         @click.self="closeMobileNavigation"
         @keydown.esc.prevent.stop="closeMobileNavigation"
       >
-        <aside class="absolute inset-y-0 left-0 flex w-[min(19rem,88vw)] flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xl">
+        <aside class="absolute inset-y-0 left-0 flex w-[min(19rem,88vw)] flex-col border-r border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 shadow-xl">
           <div class="flex h-16 items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-4">
             <div class="flex items-center gap-3">
-              <span class="grid size-8 place-items-center rounded-md bg-green-700 text-white">
+              <span class="grid size-8 place-items-center rounded-md bg-green-700 text-[var(--surface)]">
                 <UIcon
                   name="i-lucide-compass"
                   class="size-4"

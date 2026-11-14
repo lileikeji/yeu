@@ -406,7 +406,7 @@ onMounted(async () => {
         v-for="card in healthCards"
         :key="card.label"
         type="button"
-        class="min-h-24 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-left transition hover:border-green-400 dark:hover:border-green-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+        class="min-h-24 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 text-left transition hover:border-green-400 dark:hover:border-green-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
         @click="applyHealthFilter(card)"
       >
         <UIcon
@@ -422,7 +422,7 @@ onMounted(async () => {
       </button>
     </section>
 
-    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
       <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem_11rem_11rem_auto] md:items-end">
         <UFormField label="关键词">
           <UInput
@@ -496,7 +496,7 @@ onMounted(async () => {
       </div>
       <div
         v-else-if="!items.length"
-        class="rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-14 text-center text-sm text-zinc-500 dark:text-zinc-400"
+        class="rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-14 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         暂无符合条件的知识
       </div>
@@ -507,7 +507,7 @@ onMounted(async () => {
         <li
           v-for="row in items"
           :key="row.id"
-          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -585,7 +585,7 @@ onMounted(async () => {
 
     <dialog
       ref="editorDialog"
-      class="m-auto max-h-[92dvh] w-[min(94vw,860px)] overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0 shadow-2xl backdrop:bg-black/45"
+      class="m-auto max-h-[92dvh] w-[min(94vw,860px)] overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-0 shadow-2xl backdrop:bg-black/45"
       @close="resetForm"
     >
       <form

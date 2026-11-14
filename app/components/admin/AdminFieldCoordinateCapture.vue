@@ -198,7 +198,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-5 sm:px-5">
+  <section class="border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-5 sm:px-5">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p class="text-xs font-medium text-green-700 dark:text-green-400">

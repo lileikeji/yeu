@@ -95,7 +95,7 @@ onMounted(load)
       <div class="flex items-center gap-2">
         <select
           v-model="hours"
-          class="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          class="h-10 rounded-md border border-zinc-300 bg-[var(--surface)] px-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           @change="changeWindow(String(hours))"
         >
           <option :value="24">
@@ -128,35 +128,35 @@ onMounted(load)
     />
     <div
       v-if="loading && !data"
-      class="rounded-lg border border-zinc-200 bg-white p-8 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900"
+      class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-8 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900"
     >
       正在整理小程序访问数据…
     </div>
 
     <template v-if="data">
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <p class="text-xs text-zinc-500">
             事件总量
           </p><p class="mt-2 text-3xl font-bold tabular-nums">
             {{ formatNumber(data.totals.events) }}
           </p>
         </div>
-        <div class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <p class="text-xs text-zinc-500">
             独立访客
           </p><p class="mt-2 text-3xl font-bold tabular-nums">
             {{ formatNumber(data.totals.visitors) }}
           </p>
         </div>
-        <div class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <p class="text-xs text-zinc-500">
             页面入口
           </p><p class="mt-2 text-3xl font-bold tabular-nums">
             {{ formatNumber(data.pages.length) }}
           </p>
         </div>
-        <div class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <p class="text-xs text-zinc-500">
             接口错误事件
           </p><p class="mt-2 text-3xl font-bold tabular-nums">
@@ -166,7 +166,7 @@ onMounted(load)
       </div>
 
       <div class="grid gap-5 xl:grid-cols-2">
-        <section class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <section class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div class="flex items-baseline justify-between">
             <h2 class="font-semibold">
               页面与入口
@@ -192,7 +192,7 @@ onMounted(load)
           </p>
         </section>
 
-        <section class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <section class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div class="flex items-baseline justify-between">
             <h2 class="font-semibold">
               行为分布
@@ -220,7 +220,7 @@ onMounted(load)
       </div>
 
       <div class="grid gap-5 xl:grid-cols-3">
-        <section class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <section class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div class="flex items-baseline justify-between">
             <h2 class="font-semibold">
               版本
@@ -241,7 +241,7 @@ onMounted(load)
           </p>
         </section>
 
-        <section class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <section class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div class="flex items-baseline justify-between">
             <h2 class="font-semibold">
               来源场景
@@ -262,7 +262,7 @@ onMounted(load)
           </p>
         </section>
 
-        <section class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <section class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div class="flex items-baseline justify-between">
             <h2 class="font-semibold">
               机型 / 系统
@@ -284,7 +284,7 @@ onMounted(load)
         </section>
       </div>
 
-      <section class="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section class="rounded-lg border border-zinc-200 bg-[var(--surface)] p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <div class="flex items-baseline justify-between">
           <h2 class="font-semibold">
             接口状态与延迟

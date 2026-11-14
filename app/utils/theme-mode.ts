@@ -1,30 +1,36 @@
 export type ThemeMode = 'light' | 'dark' | 'system'
 
-export type ThemePalette = 'green' | 'indigo' | 'violet' | 'rose' | 'teal'
+export type ThemePalette = 'paper' | 'mist' | 'cream' | 'berry'
 
 export const THEME_MODE_STORAGE_KEY = 'yeu-theme'
 
 export const THEME_PALETTE_STORAGE_KEY = 'yeu-palette'
 
-export const DEFAULT_THEME_PALETTE: ThemePalette = 'green'
+export const DEFAULT_THEME_PALETTE: ThemePalette = 'paper'
 
-export const THEME_PALETTE_IDS: readonly ThemePalette[] = ['green', 'indigo', 'violet', 'rose', 'teal']
+/* 2026-11-14 第二轮配色候选（用户：之前的都不满意，要四套，且要贴项目主题）。
+   项目主题＝本科/专升本新生报到 · 校园地图 · 宿舍 · 校园生活，所以四套从场景反推：
+   paper  白纸 ← 纯黑白灰，最克制（默认）
+   mist   雾蓝 ← 冷白底 + 一个克制的蓝，工具感
+   cream  奶油 ← 暖白底 + 深琥珀，像手账纸，最亲和
+   berry  莓红 ← 中性白 + 高饱和玫红，最跳、最年轻
+   四套 id 与 main.css 的 html[data-palette='…'] 块一一对应，默认 paper（2026-11-14 用户确认极光紫舍弃）。变量落地在 app/assets/css/main.css 末尾的
+   html[data-palette='…'] 块里。 */
+export const THEME_PALETTE_IDS: readonly ThemePalette[] = ['paper', 'mist', 'cream', 'berry']
 
 export const THEME_PALETTES: ReadonlyArray<{ id: ThemePalette, label: string, swatchClass: string }> = [
-  { id: 'green', label: '绿（默认）', swatchClass: 'text-[#176f46]' },
-  { id: 'indigo', label: '靛蓝', swatchClass: 'text-[#5159bb]' },
-  { id: 'violet', label: '紫罗兰', swatchClass: 'text-[#7a49bd]' },
-  { id: 'rose', label: '玫瑰', swatchClass: 'text-[#b23450]' },
-  { id: 'teal', label: '青蓝', swatchClass: 'text-[#0a7aa3]' }
+  { id: 'paper', label: '白纸', swatchClass: 'text-[#171717]' },
+  { id: 'mist', label: '雾蓝', swatchClass: 'text-[#2c5bd9]' },
+  { id: 'cream', label: '奶油', swatchClass: 'text-[#ab4f09]' },
+  { id: 'berry', label: '莓红', swatchClass: 'text-[#d01b43]' }
 ]
 
-/** 浏览器 UI（地址栏、任务栏、PWA 标题栏）跟随配色；取值与各套 green-500 锚点一致。 */
+/** 浏览器 UI（地址栏、PWA 标题栏）跟随纸面色，不跟主色。 */
 export const THEME_PALETTE_THEME_COLORS: Readonly<Record<ThemePalette, string>> = {
-  green: '#176f46',
-  indigo: '#5159bb',
-  violet: '#7a49bd',
-  rose: '#b23450',
-  teal: '#0a7aa3'
+  paper: '#fcfcfc',
+  mist: '#f4f6f9',
+  cream: '#faf7f2',
+  berry: '#fcfbfc'
 }
 
 function systemPrefersDark(): boolean {
@@ -94,4 +100,4 @@ const PALETTE_THEME_COLOR_MAP = THEME_PALETTE_IDS
   .map(id => `'${id}':'${THEME_PALETTE_THEME_COLORS[id]}'`)
   .join(',')
 
-export const THEME_BOOT_SCRIPT = `(function(){try{var m=localStorage.getItem('${THEME_MODE_STORAGE_KEY}')||'system';var d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.classList.toggle('light',!d);r.style.colorScheme=d?'dark':'light';var p=localStorage.getItem('${THEME_PALETTE_STORAGE_KEY}');if([${PALETTE_WHITELIST}].indexOf(p)<0)p='${DEFAULT_THEME_PALETTE}';r.setAttribute('data-palette',p);var mc=document.querySelector('meta[name="theme-color"]');if(mc)mc.setAttribute('content',({${PALETTE_THEME_COLOR_MAP}})[p]||'${THEME_PALETTE_THEME_COLORS.green}');}catch(e){}})();`
+export const THEME_BOOT_SCRIPT = `(function(){try{var m=localStorage.getItem('${THEME_MODE_STORAGE_KEY}')||'system';var d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.classList.toggle('light',!d);r.style.colorScheme=d?'dark':'light';var p=localStorage.getItem('${THEME_PALETTE_STORAGE_KEY}');if([${PALETTE_WHITELIST}].indexOf(p)<0)p='${DEFAULT_THEME_PALETTE}';r.setAttribute('data-palette',p);var mc=document.querySelector('meta[name="theme-color"]');if(mc)mc.setAttribute('content',({${PALETTE_THEME_COLOR_MAP}})[p]||'${THEME_PALETTE_THEME_COLORS[DEFAULT_THEME_PALETTE]}');}catch(e){}})();`

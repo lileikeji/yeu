@@ -153,7 +153,7 @@ onMounted(loadStatus)
       <header class="text-center">
         <NuxtLink
           to="/singer"
-          class="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm"
+          class="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm"
         >
           仰恩大学音乐协会 · {{ status?.title ?? '新声歌手大赛' }}
         </NuxtLink>
@@ -190,7 +190,7 @@ onMounted(loadStatus)
 
       <div
         v-else-if="succeeded"
-        class="mt-6 rounded-2xl bg-white/90 p-6 text-center shadow-md ring-1 ring-[#f2d8c4]"
+        class="mt-6 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-6 text-center shadow-md ring-1 ring-[#f2d8c4]"
       >
         <UIcon
           name="i-lucide-circle-check"
@@ -212,7 +212,7 @@ onMounted(loadStatus)
           </NuxtLink>
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#4a564e] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
+            class="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[#4a564e] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
             @click="succeeded = null; form.name = ''; form.preferredDay = null"
           >
             继续帮同学报名
@@ -222,7 +222,7 @@ onMounted(loadStatus)
 
       <form
         v-else
-        class="mt-6 space-y-4 rounded-2xl bg-white/90 p-5 shadow-md ring-1 ring-[#f2d8c4] sm:p-6"
+        class="mt-6 space-y-4 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-5 shadow-md ring-1 ring-[#f2d8c4] sm:p-6"
         @submit.prevent="submit"
       >
         <section
@@ -238,7 +238,7 @@ onMounted(loadStatus)
               :key="`${item.key}-${index}`"
               class="flex flex-wrap items-baseline gap-x-2 text-xs leading-5 text-[#5b675d]"
             >
-              <span class="rounded bg-white px-1.5 py-0.5 font-semibold text-[#b4552f] ring-1 ring-[#f0d6c1]">
+              <span class="rounded bg-[var(--surface)] px-1.5 py-0.5 font-semibold text-[#b4552f] ring-1 ring-[#f0d6c1]">
                 {{ ROUND_LABELS[item.key] ?? item.key }}
               </span>
               <span class="font-medium text-[#33413a]">{{ item.dateLabel }}</span>
@@ -270,7 +270,7 @@ onMounted(loadStatus)
             maxlength="40"
             name="name"
             autocomplete="name"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="你的姓名"
           >
         </div>
@@ -291,7 +291,7 @@ onMounted(loadStatus)
               class="rounded-xl border px-3 py-2.5 text-left text-sm transition"
               :class="form.preferredDay === day
                 ? 'border-[#e2725b] bg-[#fff1ea] text-[#a8452f] shadow-sm'
-                : 'border-zinc-300 bg-white text-[#4a564e] hover:border-[#e6a48f]'"
+                : 'border-zinc-300 bg-[var(--surface)] text-[#4a564e] hover:border-[#e6a48f]'"
               @click="form.preferredDay = form.preferredDay === day ? null : day"
             >
               <span class="block font-bold">{{ day === 1 ? '第一天' : '第二天' }}</span>
@@ -330,7 +330,7 @@ onMounted(loadStatus)
                 :required="requiredOf('className')"
                 maxlength="60"
                 name="className"
-                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
                 placeholder="如 26工商管理1班"
               >
             </div>
@@ -355,7 +355,7 @@ onMounted(loadStatus)
                 :required="requiredOf('studentNo')"
                 maxlength="20"
                 name="studentNo"
-                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
                 placeholder="录取通知书 / 学生证上的学号"
               >
             </div>
@@ -382,7 +382,7 @@ onMounted(loadStatus)
                 name="phone"
                 type="tel"
                 inputmode="numeric"
-                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
                 placeholder="常用手机号"
               >
             </div>
@@ -408,7 +408,7 @@ onMounted(loadStatus)
                 maxlength="120"
                 name="email"
                 type="email"
-                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
                 placeholder="用于接收比赛结果通知"
               >
             </div>
@@ -436,7 +436,7 @@ onMounted(loadStatus)
             :required="requiredOf('song')"
             maxlength="80"
             name="song"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="歌名"
           >
         </div>

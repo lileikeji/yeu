@@ -130,7 +130,7 @@ function copyPlaceLocation(): void {
 
 <template>
   <div v-if="place">
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <nav
           class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"

@@ -479,7 +479,7 @@ onBeforeUnmount(stopPolling)
       v-else-if="authState === 'error'"
       class="grid min-h-dvh place-items-center p-6"
     >
-      <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-900">
+      <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-[var(--surface)] p-6 text-center dark:border-zinc-800 dark:bg-zinc-900">
         <UIcon
           name="i-lucide-shield-alert"
           class="mx-auto size-7 text-orange-600 dark:text-orange-300"
@@ -508,9 +508,9 @@ onBeforeUnmount(stopPolling)
 
     <template v-else-if="payload && event && round">
       <div class="flex h-[100dvh] flex-col overflow-hidden lg:block lg:h-auto lg:overflow-visible">
-        <header class="shrink-0 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
+        <header class="shrink-0 border-b border-zinc-200 bg-[color-mix(in_srgb,var(--surface)_95%,transparent)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
           <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3">
-            <span class="hidden size-10 shrink-0 place-items-center rounded-lg bg-green-700 text-white sm:grid">
+            <span class="hidden size-10 shrink-0 place-items-center rounded-lg bg-green-700 text-[var(--surface)] sm:grid">
               <UIcon
                 name="i-lucide-mic-vocal"
                 class="size-5"
@@ -560,7 +560,7 @@ onBeforeUnmount(stopPolling)
           class="mx-auto w-full max-w-6xl min-h-0 flex-1 space-y-2 px-2 py-2 sm:space-y-4 sm:px-6 sm:py-6 lg:flex-none lg:overflow-visible lg:pb-6"
           :class="activeTab === 'score' ? 'overflow-hidden' : 'overflow-y-auto'"
         >
-          <div class="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3">
+          <div class="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-[var(--surface)] px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <span class="flex min-w-0 items-center gap-1.5">
@@ -611,7 +611,7 @@ onBeforeUnmount(stopPolling)
           </div>
           <div
             v-else-if="roundClosed"
-            class="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+            class="rounded-lg border border-zinc-200 bg-[var(--surface)] px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
             role="status"
           >
             本轮评分已结束，成绩已锁定。
@@ -648,7 +648,7 @@ onBeforeUnmount(stopPolling)
           >
             <aside
               v-if="sequential && current"
-              class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+              class="rounded-xl border border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900"
             >
               <div class="border-b border-zinc-100 px-3 py-2.5 dark:border-zinc-800">
                 <h2 class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
@@ -676,7 +676,7 @@ onBeforeUnmount(stopPolling)
                     class="flex items-center gap-2 px-2.5 py-1.5 text-[11px]"
                     :class="item.submitted
                       ? 'bg-green-50/70 dark:bg-green-950/40'
-                      : 'bg-white dark:bg-zinc-900'"
+                      : 'bg-[var(--surface)] dark:bg-zinc-900'"
                   >
                     <span class="w-4 shrink-0 tabular-nums text-zinc-400">{{ slot + 1 }}</span>
                     <span class="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">
@@ -701,7 +701,7 @@ onBeforeUnmount(stopPolling)
 
             <aside
               v-else
-              class="hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:block"
+              class="hidden rounded-xl border border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900 lg:block"
             >
               <div class="border-b border-zinc-100 px-3 py-2.5 dark:border-zinc-800">
                 <h2 class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
@@ -711,7 +711,7 @@ onBeforeUnmount(stopPolling)
                   v-model="singerQuery"
                   type="search"
                   placeholder="搜名字或歌名"
-                  class="mt-2 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  class="mt-2 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                   aria-label="搜索选手"
                 >
               </div>
@@ -774,7 +774,7 @@ onBeforeUnmount(stopPolling)
                   class="absolute inset-0 bg-black/40"
                   @click="singerSheetOpen = false"
                 />
-                <div class="absolute inset-x-0 bottom-0 max-h-[72dvh] rounded-t-2xl border-t border-zinc-200 bg-white px-3 pt-3 pb-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+                <div class="absolute inset-x-0 bottom-0 max-h-[72dvh] rounded-t-2xl border-t border-zinc-200 bg-[var(--surface)] px-3 pt-3 pb-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
                   <div class="flex items-center justify-between gap-2 pb-2">
                     <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                       选手名单（{{ singers.length }}）
@@ -792,7 +792,7 @@ onBeforeUnmount(stopPolling)
                     v-model="singerQuery"
                     type="search"
                     placeholder="搜名字或歌名"
-                    class="mb-2 w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                    class="mb-2 w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-sm text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                     aria-label="搜索选手"
                   >
                   <div class="max-h-[60dvh] overflow-y-auto">
@@ -830,7 +830,7 @@ onBeforeUnmount(stopPolling)
 
             <article
               v-if="selectedSinger"
-              class="flex min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-2.5 dark:border-zinc-800 dark:bg-zinc-900 sm:p-5"
+              class="flex min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-[var(--surface)] p-2.5 dark:border-zinc-800 dark:bg-zinc-900 sm:p-5"
             >
               <div class="flex flex-wrap items-start justify-between gap-2 border-b border-zinc-100 pb-1.5 dark:border-zinc-800 sm:gap-3 sm:pb-4">
                 <div class="min-w-0">
@@ -915,7 +915,7 @@ onBeforeUnmount(stopPolling)
                     inputmode="decimal"
                     enterkeyhint="next"
                     :data-score-input="dimension.key"
-                    class="w-14 shrink-0 rounded-md border border-zinc-300 bg-white px-1 py-1 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
+                    class="w-14 shrink-0 rounded-md border border-zinc-300 bg-[var(--surface)] px-1 py-1 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
                     :value="draftScores[dimension.key] ?? ''"
                     :disabled="!scoringOpen || currentSubmitted"
                     :aria-label="`${dimension.label}评分`"
@@ -945,7 +945,7 @@ onBeforeUnmount(stopPolling)
                       inputmode="decimal"
                       enterkeyhint="next"
                       :data-score-input="dimension.key"
-                      class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
+                      class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-base font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
                       :value="draftScores[dimension.key] ?? ''"
                       :disabled="!scoringOpen || currentSubmitted"
                       :aria-label="`${dimension.label}评分`"
@@ -1005,7 +1005,7 @@ onBeforeUnmount(stopPolling)
                   maxlength="500"
                   data-score-comment
                   enterkeyhint="done"
-                  class="mt-0 h-8 w-full resize-none rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 sm:mt-1.5 sm:h-auto sm:px-3 sm:py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
+                  class="mt-0 h-8 w-full resize-none rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1 text-sm text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 sm:mt-1.5 sm:h-auto sm:px-3 sm:py-2 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
                   :disabled="!scoringOpen || currentSubmitted"
                   placeholder="备注（可选）"
                   @keydown.enter.prevent
@@ -1078,7 +1078,7 @@ onBeforeUnmount(stopPolling)
 
           <section
             v-if="activeTab !== 'score'"
-            class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+            class="rounded-xl border border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900"
           >
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
               <div>

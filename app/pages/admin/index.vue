@@ -522,7 +522,7 @@ onMounted(() => {
     </section>
     <section
       v-if="securityRiskHints.length"
-      class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+      class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
       aria-label="风险提示"
     >
       <div class="flex items-center justify-between gap-2">
@@ -566,7 +566,7 @@ onMounted(() => {
 
     <section
       v-if="securityResponseQueue.length"
-      class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+      class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
       aria-label="待处理事项"
     >
       <div class="flex items-center justify-between gap-2">
@@ -593,7 +593,7 @@ onMounted(() => {
                 : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-800/40'"
           >
             <div class="flex flex-wrap items-center gap-1.5">
-              <span class="rounded-full bg-white dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700">
+              <span class="rounded-full bg-[var(--surface)] dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 dark:text-zinc-200 ring-1 ring-zinc-200 dark:ring-zinc-700">
                 {{ adminLabel(adminResponseQueueKindLabels, item.kind, item.kind) }}
               </span>
               <span
@@ -616,7 +616,7 @@ onMounted(() => {
     </section>
 
     <section class="mt-4 grid gap-3 lg:grid-cols-3" aria-label="近期情况与封禁覆盖">
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">近期变化</h2>
         <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">1 小时、今天与近 7 天</p>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -639,7 +639,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">封禁覆盖</h2>
         <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">高频 IP 是否已封禁</p>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -659,7 +659,7 @@ onMounted(() => {
         </p>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">访问高峰</h2>
         <ul
           class="mt-3 max-h-40 space-y-1.5 overflow-y-auto text-xs"
@@ -678,7 +678,7 @@ onMounted(() => {
         </ul>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 lg:col-span-3">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-3">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见访问顺序 · 今天</h2>
         <ul class="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 text-xs">
           <li
@@ -694,7 +694,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <details class="group mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <details class="group mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
       <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100 [&::-webkit-details-marker]:hidden">
         <span>更多访问分析</span>
         <span class="flex items-center gap-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
@@ -703,7 +703,7 @@ onMounted(() => {
         </span>
       </summary>
     <section class="grid gap-3 border-t border-zinc-100 dark:border-zinc-800 p-3 lg:grid-cols-3" aria-label="更多访问分析">
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <div class="flex items-start justify-between gap-2">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">今天与平时相比</h2>
@@ -741,7 +741,7 @@ onMounted(() => {
     </section>
     </details>
 
-    <details class="group mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <details class="group mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
       <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100 [&::-webkit-details-marker]:hidden">
         <span>更多安全数据</span>
         <span class="flex items-center gap-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
@@ -750,7 +750,7 @@ onMounted(() => {
         </span>
       </summary>
     <section class="grid gap-3 border-t border-zinc-100 dark:border-zinc-800 p-3 lg:grid-cols-3" aria-label="更多安全数据">
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 lg:col-span-2">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
         <div class="flex items-center justify-between gap-2">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">今天的动态</h2>
@@ -801,7 +801,7 @@ onMounted(() => {
         </p>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">生效禁言</h2>
         <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">根据近期安全情况整理 · 最多 6 条</p>
         <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
@@ -822,7 +822,7 @@ onMounted(() => {
         </ul>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见访问页面 · 近 7 天</h2>
         <ul class="mt-3 space-y-1.5">
           <li
@@ -838,7 +838,7 @@ onMounted(() => {
       </div>
 
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见操作 · 近 7 天</h2>
         <ul class="mt-3 space-y-1.5">
           <li
@@ -853,7 +853,7 @@ onMounted(() => {
         </ul>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">高频网络地址 · 今天</h2>
         <ul class="mt-3 space-y-1.5">
           <li
@@ -873,7 +873,7 @@ onMounted(() => {
         </ul>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">常见封禁原因</h2>
         <ul class="mt-3 space-y-1.5">
           <li
@@ -888,7 +888,7 @@ onMounted(() => {
         </ul>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 lg:col-span-2">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
         <div class="flex items-center justify-between gap-2">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">24 小时操作趋势</h2>
@@ -908,7 +908,7 @@ onMounted(() => {
       </div>
 
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">封禁状态检查</h2>
         <p class="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">过期未清理 / 即将到期 / 永久与临时</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
@@ -936,7 +936,7 @@ onMounted(() => {
 
 
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">管理员操作 · 今天</h2>
         <ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto">
           <li
@@ -951,7 +951,7 @@ onMounted(() => {
         </ul>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 lg:col-span-2">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 lg:col-span-2">
         <div class="flex items-center justify-between gap-2">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">最近管理记录</h2>
@@ -982,7 +982,7 @@ onMounted(() => {
         </ul>
       </div>
 
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">最近生效封禁</h2>
         <ul class="mt-3 max-h-56 space-y-2 overflow-y-auto">
           <li
@@ -1028,7 +1028,7 @@ onMounted(() => {
           v-for="module in group.modules"
           :key="module.key"
           :to="module.to"
-          class="group rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700"
+          class="group rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700"
         >
           <div class="flex items-start justify-between gap-3">
             <span
@@ -1061,7 +1061,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+    <section class="mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
         <h2 class="shrink-0 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           快捷操作
@@ -1082,7 +1082,7 @@ onMounted(() => {
     </section>
 
     <div class="mt-5 grid gap-5 xl:grid-cols-2">
-      <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
         <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
@@ -1137,7 +1137,7 @@ onMounted(() => {
         </p>
       </section>
 
-      <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
         <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
@@ -1191,7 +1191,7 @@ onMounted(() => {
         </p>
       </section>
 
-      <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
         <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">
@@ -1246,7 +1246,7 @@ onMounted(() => {
         </p>
       </section>
 
-      <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
         <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-4 py-3">
           <div>
             <h2 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">

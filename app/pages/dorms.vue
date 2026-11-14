@@ -101,7 +101,7 @@ function selectDorm(id: DormId) {
               label="普通型宿舍"
               size="xl"
               color="neutral"
-              class="min-h-12 bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              class="min-h-12 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
               @click="selectDorm('ordinary')"
             />
             <UButton
@@ -110,7 +110,7 @@ function selectDorm(id: DormId) {
               size="xl"
               color="neutral"
               variant="soft"
-              class="min-h-12 bg-white/85 dark:bg-zinc-900/85 text-zinc-950 dark:text-zinc-100 hover:bg-white dark:hover:bg-white:bg-zinc-900"
+              class="min-h-12 bg-[color-mix(in_srgb,var(--surface)_85%,transparent)] dark:bg-zinc-900/85 text-zinc-950 dark:text-zinc-100 hover:bg-[var(--surface)] dark:hover:bg-zinc-900"
               @click="selectDorm('comfort')"
             />
           </div>

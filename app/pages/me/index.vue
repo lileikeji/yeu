@@ -148,7 +148,7 @@ onMounted(async () => {
 
       <div
         v-if="loading"
-        class="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 p-8 text-sm text-zinc-500 dark:text-zinc-400"
+        class="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 p-8 text-sm text-zinc-500 dark:text-zinc-400"
       >
         <UIcon
           name="i-lucide-loader-circle"
@@ -159,7 +159,7 @@ onMounted(async () => {
 
       <div
         v-else
-        class="rounded-lg border border-[var(--line)] bg-white dark:bg-zinc-900 p-5 shadow-sm sm:p-7"
+        class="rounded-lg border border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900 p-5 shadow-sm sm:p-7"
       >
         <div class="flex flex-wrap items-center gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
           <span class="grid size-11 place-items-center rounded-full bg-green-100 dark:bg-green-900/60 text-sm font-bold text-green-800 dark:text-green-300">

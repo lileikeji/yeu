@@ -177,7 +177,7 @@ onMounted(loadLibrary)
       class="grid grid-cols-2 gap-3 md:grid-cols-4"
       aria-label="知识资料统计"
     >
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           可查找资料
         </p>
@@ -185,7 +185,7 @@ onMounted(loadLibrary)
           {{ summary.retrievalTotal }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           系统结构化数据
         </p>
@@ -193,7 +193,7 @@ onMounted(loadLibrary)
           {{ summary.structured }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           已登记来源
         </p>
@@ -201,7 +201,7 @@ onMounted(loadLibrary)
           {{ summary.sources }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           人工审核事实
         </p>
@@ -211,7 +211,7 @@ onMounted(loadLibrary)
       </div>
     </section>
 
-    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-2">
       <div
         class="grid grid-cols-2 gap-1 md:grid-cols-4"
         role="tablist"
@@ -237,7 +237,7 @@ onMounted(loadLibrary)
       </div>
     </section>
 
-    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
       <div class="flex flex-col gap-3 sm:flex-row">
         <UInput
           v-model="queryText"
@@ -302,7 +302,7 @@ onMounted(loadLibrary)
       </div>
       <div
         v-else-if="!items.length"
-        class="rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-14 text-center text-sm text-zinc-500 dark:text-zinc-400"
+        class="rounded-md border border-dashed border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-14 text-center text-sm text-zinc-500 dark:text-zinc-400"
       >
         没有找到符合条件的资料
       </div>
@@ -313,7 +313,7 @@ onMounted(loadLibrary)
         <li
           v-for="item in items"
           :key="item.id"
-          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">

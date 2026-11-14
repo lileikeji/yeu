@@ -10,8 +10,8 @@ const themeOptions: Array<{ label: string, value: ThemeMode, icon: string }> = [
   { label: '深色', value: 'dark', icon: 'i-lucide-moon' }
 ]
 
-const items = computed<DropdownMenuItem[][]>(() => [
-  [
+const items = computed<DropdownMenuItem[][]>(() => {
+  const groups: DropdownMenuItem[][] = [[
     { type: 'label', label: '外观' },
     ...themeOptions.map(option => ({
       label: option.label,
@@ -20,22 +20,26 @@ const items = computed<DropdownMenuItem[][]>(() => [
       onSelect: () => setMode(option.value),
       icon: option.icon
     }))
-  ],
-  [
-    { type: 'label', label: '主题配色' },
-    ...palettes.map(p => ({
-      type: 'checkbox' as const,
-      label: p.label,
-      checked: palette.value === p.id,
-      onSelect: () => setPalette(p.id),
-      icon: 'i-lucide-circle',
-      ui: { itemLeadingIcon: p.swatchClass }
-    }))
-  ]
-])
+  ]]
+  // 只有一套配色时不渲染配色组（2026-11-14：原 9 套已全部作废，只剩「极光紫」）
+  if (palettes.length > 1) {
+    groups.push([
+      { type: 'label', label: '主题配色' },
+      ...palettes.map(p => ({
+        type: 'checkbox' as const,
+        label: p.label,
+        checked: palette.value === p.id,
+        onSelect: () => setPalette(p.id),
+        icon: 'i-lucide-circle',
+        ui: { itemLeadingIcon: p.swatchClass }
+      }))
+    ])
+  }
+  return groups
+})
 
 const modeLabel = computed(() => themeOptions.find(option => option.value === mode.value)?.label ?? '跟随系统')
-const paletteLabel = computed(() => palettes.find(p => p.id === palette.value)?.label ?? '绿（默认）')
+const paletteLabel = computed(() => palettes.find(p => p.id === palette.value)?.label ?? '极光紫')
 const icon = computed(() => isDark.value ? 'i-lucide-moon' : 'i-lucide-sun')
 </script>
 

@@ -128,7 +128,7 @@ const reset = (): void => {
 </script>
 
 <template>
-  <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-sm md:p-7">
+  <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5 shadow-sm md:p-7">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="max-w-2xl">
         <p class="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -151,7 +151,7 @@ const reset = (): void => {
     </div>
 
     <!-- 实时汇总：选择加分项时始终可见 -->
-    <div class="sticky top-[calc(var(--header-height)+0.75rem)] z-20 mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 shadow-sm backdrop-blur">
+    <div class="sticky top-[calc(var(--header-height)+0.75rem)] z-20 mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[color-mix(in_srgb,var(--surface)_95%,transparent)] dark:bg-zinc-900/95 px-4 py-3 shadow-sm backdrop-blur">
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500 dark:text-zinc-400">
         <span>德育 <strong class="ml-0.5 font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">{{ sections.moral.subtotal.toFixed(2) }}</strong></span>
         <span class="text-zinc-300 dark:text-zinc-600">+</span>
@@ -199,7 +199,7 @@ const reset = (): void => {
               min="0"
               max="6"
               step="0.1"
-              class="w-20 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
+              class="w-20 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
               aria-label="德育基础分"
             ><span class="text-xs text-zinc-400 dark:text-zinc-500">/ 6</span>
           </label>
@@ -211,7 +211,7 @@ const reset = (): void => {
               min="0"
               max="6"
               step="0.1"
-              class="w-20 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
+              class="w-20 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
               aria-label="班内互评分"
             ><span class="text-xs text-zinc-400 dark:text-zinc-500">/ 6</span>
           </label>
@@ -339,7 +339,7 @@ const reset = (): void => {
               min="0"
               max="100"
               step="0.1"
-              class="w-24 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
+              class="w-24 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
               placeholder="如 86"
               aria-label="我的平均成绩"
             >
@@ -352,7 +352,7 @@ const reset = (): void => {
               min="0"
               max="100"
               step="0.1"
-              class="w-24 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
+              class="w-24 rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-2 py-1 text-sm focus:border-zinc-500 dark:focus:border-zinc-500 focus:outline-none"
               placeholder="如 90"
               aria-label="本专业最高平均成绩"
             >
@@ -530,7 +530,7 @@ const reset = (): void => {
         总成绩估算
       </p>
       <div class="mt-4 grid gap-3 sm:grid-cols-3">
-        <div class="rounded-lg bg-white dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
+        <div class="rounded-lg bg-[var(--surface)] dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
             德育小计
           </p>
@@ -538,7 +538,7 @@ const reset = (): void => {
             {{ sections.moral.subtotal.toFixed(2) }}
           </p>
         </div>
-        <div class="rounded-lg bg-white dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
+        <div class="rounded-lg bg-[var(--surface)] dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
             智育小计
           </p>
@@ -546,7 +546,7 @@ const reset = (): void => {
             {{ sections.intellectual.subtotal.toFixed(2) }}
           </p>
         </div>
-        <div class="rounded-lg bg-white dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
+        <div class="rounded-lg bg-[var(--surface)] dark:bg-zinc-900 p-3 ring-1 ring-zinc-100 dark:ring-zinc-800">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
             体育小计
           </p>

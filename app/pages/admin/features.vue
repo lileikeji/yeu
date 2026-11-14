@@ -161,7 +161,7 @@ onMounted(() => void loadFeatures())
       class="grid grid-cols-2 gap-3 sm:max-w-md"
       aria-label="功能显示概况"
     >
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           前台显示
         </p>
@@ -169,7 +169,7 @@ onMounted(() => void loadFeatures())
           {{ enabledCount }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           已关闭
         </p>
@@ -181,7 +181,7 @@ onMounted(() => void loadFeatures())
 
     <div
       v-if="loading && !items.length"
-      class="grid min-h-64 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-zinc-500 dark:text-zinc-400"
+      class="grid min-h-64 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-sm text-zinc-500 dark:text-zinc-400"
       role="status"
     >
       <div class="text-center">
@@ -202,7 +202,7 @@ onMounted(() => void loadFeatures())
       <section
         v-for="group in groups"
         :key="group.label"
-        class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+        class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
       >
         <div class="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3 sm:px-5">
           <h2 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
@@ -247,7 +247,7 @@ onMounted(() => void loadFeatures())
                 <label class="inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                   <span>显示模块</span>
                   <select
-                    class="h-8 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2 text-xs text-zinc-800 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                    class="h-8 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-2 text-xs text-zinc-800 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
                     :value="feature.placement"
                     :disabled="savingKeys.has(feature.key)"
                     :aria-label="`${feature.title}显示模块`"
@@ -265,7 +265,7 @@ onMounted(() => void loadFeatures())
                 <label class="inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                   <span>顺序</span>
                   <input
-                    class="h-8 w-20 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2 text-xs tabular-nums text-zinc-800 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                    class="h-8 w-20 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-2 text-xs tabular-nums text-zinc-800 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
                     type="number"
                     min="0"
                     max="9999"

@@ -158,7 +158,7 @@ onBeforeUnmount(stopLiveRefresh)
 
     <template v-else-if="payload && settings && event">
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="rounded-lg border border-zinc-200 bg-[var(--surface)] px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
             选手库
           </p>
@@ -169,7 +169,7 @@ onBeforeUnmount(stopLiveRefresh)
         <div
           v-for="round in roundSummary"
           :key="round.id"
-          class="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+          class="rounded-lg border border-zinc-200 bg-[var(--surface)] px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
         >
           <p class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
             <span>{{ round.title }}</span>
@@ -1063,7 +1063,7 @@ onBeforeUnmount(stopLiveRefresh)
                   class="flex items-center gap-2 rounded-md border px-2 py-1 text-xs"
                   :class="item.submitted
                     ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40'
-                    : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
+                    : 'border-zinc-200 bg-[var(--surface)] dark:border-zinc-800 dark:bg-zinc-900'"
                 >
                   <span class="w-4 shrink-0 tabular-nums text-zinc-400">{{ slot + 1 }}</span>
                   <span class="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">{{ item.name }}</span>
@@ -1282,7 +1282,7 @@ onBeforeUnmount(stopLiveRefresh)
                     class="px-3 py-2"
                   >
                     <select
-                      class="rounded-md border border-zinc-200 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      class="rounded-md border border-zinc-200 bg-[var(--surface)] px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                       :value="judge.day ?? 0"
                       :disabled="busyJudgeId === judge.id || activeRound.status === 'closed'"
                       @change="changeJudgeDay(activeRound, judge, ($event.target as HTMLSelectElement).value)"
@@ -1367,7 +1367,7 @@ onBeforeUnmount(stopLiveRefresh)
               v-model="rosterQuery"
               type="search"
               placeholder="搜选手名字或歌名"
-              class="w-48 rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+              class="w-48 rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
               aria-label="搜索出场名单"
             >
           </div>
@@ -1558,7 +1558,7 @@ onBeforeUnmount(stopLiveRefresh)
                     class="px-3 py-2.5"
                   >
                     <select
-                      class="rounded-md border border-zinc-200 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      class="rounded-md border border-zinc-200 bg-[var(--surface)] px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                       :value="entry.contestDay ?? 0"
                       :disabled="activeRound.status === 'closed'"
                       @change="changeEntryDay(activeRound, entry, ($event.target as HTMLSelectElement).value)"
@@ -1640,7 +1640,7 @@ onBeforeUnmount(stopLiveRefresh)
                   v-for="entry in rosterEntries(activeRound)"
                   :key="entry.id"
                 >
-                  <td class="sticky left-0 bg-white px-4 py-2 font-medium text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+                  <td class="sticky left-0 bg-[var(--surface)] px-4 py-2 font-medium text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
                     {{ entry.singer.name }}
                     <span class="block text-xs font-normal text-zinc-400">{{ entry.singer.song }}</span>
                   </td>
@@ -1730,7 +1730,7 @@ onBeforeUnmount(stopLiveRefresh)
                 ref="emailBodyRef"
                 v-model="emailTemplate.body"
                 rows="10"
-                class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm leading-6 text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                class="w-full rounded-md border border-zinc-300 bg-[var(--surface)] px-3 py-2 text-sm leading-6 text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
               />
             </UFormField>
             <div class="flex flex-wrap gap-1.5">
@@ -1818,7 +1818,7 @@ onBeforeUnmount(stopLiveRefresh)
                 发送范围：
                 <select
                   v-model="emailScope"
-                  class="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                  class="rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
                 >
                   <option value="all">
                     全部选手
@@ -2091,7 +2091,7 @@ onBeforeUnmount(stopLiveRefresh)
                     </label>
                     <select
                       v-model="qrPosition"
-                      class="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                      class="rounded-md border border-zinc-300 bg-[var(--surface)] px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
                     >
                       <option value="bottom-left">
                         左下角

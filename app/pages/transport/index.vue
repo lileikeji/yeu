@@ -131,7 +131,7 @@ function etaSegmentText(index: number): string | null {
 
 <template>
   <div class="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-950 dark:text-zinc-100">
-    <section class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <section class="border-b border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-12">
         <NuxtLink
           to="/"
@@ -163,7 +163,7 @@ function etaSegmentText(index: number): string | null {
               />看 K2 / K6 实际线路图
             </NuxtLink>
           </div>
-          <div class="grid grid-cols-3 divide-x divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <div class="grid grid-cols-3 divide-x divide-zinc-200 dark:divide-zinc-800 border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
             <div
               v-for="fact in quickFacts"
               :key="fact.route"
@@ -207,7 +207,7 @@ function etaSegmentText(index: number): string | null {
             role="tab"
             :aria-selected="selectedOrigin === origin.id"
             class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border px-3.5 text-sm font-semibold transition"
-            :class="selectedOrigin === origin.id ? 'border-zinc-950 bg-zinc-950 dark:bg-zinc-800 dark:bg-zinc-800 text-white' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600'"
+            :class="selectedOrigin === origin.id ? 'border-zinc-950 bg-zinc-950 dark:bg-zinc-800 dark:bg-zinc-800 text-white' : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600'"
             @click="selectedOrigin = origin.id"
           >
             <UIcon
@@ -227,7 +227,7 @@ function etaSegmentText(index: number): string | null {
             :key="destination.id"
             type="button"
             class="min-h-10 shrink-0 rounded-md px-3 text-sm font-semibold"
-            :class="departureDestination === destination.id ? 'bg-emerald-700 text-white' : 'border border-zinc-200 dark:border-zinc-800 dark:border-zinc-800 bg-white dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200'"
+            :class="departureDestination === destination.id ? 'bg-emerald-700 text-white' : 'border border-zinc-200 dark:border-zinc-800 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200'"
             @click="departureDestination = destination.id"
           >
             {{ destination.label }}
@@ -281,7 +281,7 @@ function etaSegmentText(index: number): string | null {
           <article
             v-for="(plan, planIndex) in livePlan.plans"
             :key="`${livePlan.queriedAt}-${planIndex}`"
-            class="bg-white dark:bg-zinc-900 p-4 shadow-sm"
+            class="bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
           >
             <div class="flex items-end justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
               <div>
@@ -322,7 +322,7 @@ function etaSegmentText(index: number): string | null {
         </div>
         <div
           v-else-if="livePlanStatus !== 'pending'"
-          class="mt-4 flex items-start gap-2 border-l-2 border-amber-400 dark:border-amber-700 bg-white dark:bg-zinc-900 px-3 py-3 text-sm leading-6 text-zinc-700 dark:text-zinc-200"
+          class="mt-4 flex items-start gap-2 border-l-2 border-amber-400 dark:border-amber-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 py-3 text-sm leading-6 text-zinc-700 dark:text-zinc-200"
         >
           <UIcon
             name="i-lucide-wifi-off"
@@ -446,7 +446,7 @@ function etaSegmentText(index: number): string | null {
         <article
           v-for="option in visibleOptions"
           :key="option.id"
-          class="border-t-2 border-emerald-700 bg-white dark:bg-zinc-900 px-4 py-5 shadow-sm md:px-6 md:py-7"
+          class="border-t-2 border-emerald-700 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-5 shadow-sm md:px-6 md:py-7"
         >
           <div class="grid gap-6 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
             <div>
@@ -549,7 +549,7 @@ function etaSegmentText(index: number): string | null {
             :href="source.url"
             target="_blank"
             rel="noopener noreferrer"
-            class="group min-h-32 bg-white dark:bg-zinc-900 p-4"
+            class="group min-h-32 bg-[var(--surface)] dark:bg-zinc-900 p-4"
           >
             <span class="flex items-center justify-between gap-2 text-sm font-bold">
               {{ source.title }}<UIcon

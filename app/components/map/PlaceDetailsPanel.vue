@@ -42,10 +42,10 @@ function goPlaceChat(): void {
 const safeNavigationUrl = computed(() => safeExternalHref(props.place.navigationUrl))
 const phoneContacts = computed(() => parsePublicPhoneContacts(props.place.phone))
 
-// 卡片固定白底（bg-white），而站点可能处于暗色主题：Nuxt UI neutral 按钮的
+// 卡片固定纸面底（bg-[var(--surface)]），而站点可能处于暗色主题：Nuxt UI neutral 按钮的
 // bg-default/text-default 会解析成暗色，在白卡上变成黑底药丸（评价/纠错/
 // 复制位置/高德导航均已线上复现）。卡片内控件一律显式浅色，不跟随站点主题。
-const lightOutlineClass = '!bg-white dark:!bg-zinc-800 !text-zinc-700 dark:!text-zinc-200 !ring-zinc-200 dark:!ring-zinc-700 hover:!bg-zinc-50 dark:hover:!bg-zinc-700/60 active:!bg-zinc-100 dark:active:!bg-zinc-700 disabled:!bg-white dark:disabled:!bg-zinc-800'
+const lightOutlineClass = '!bg-[var(--surface)] dark:!bg-zinc-800 !text-zinc-700 dark:!text-zinc-200 !ring-zinc-200 dark:!ring-zinc-700 hover:!bg-zinc-50 dark:hover:!bg-zinc-700/60 active:!bg-zinc-100 dark:active:!bg-zinc-700 disabled:!bg-[var(--surface)] dark:disabled:!bg-zinc-800'
 const lightGhostClass = '!text-zinc-400 dark:!text-zinc-300 hover:!bg-zinc-100 dark:hover:!bg-zinc-800 hover:!text-zinc-600 dark:hover:!text-zinc-100'
 
 const navigationTooltip = computed(() => {
@@ -59,8 +59,8 @@ const navigationTooltip = computed(() => {
 <template>
   <section
     :class="props.variant === 'mobile'
-      ? 'absolute bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.5rem)] inset-x-0 z-40 mx-2.5 max-h-[min(56dvh,30rem)] overflow-y-auto overscroll-y-contain rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 px-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-sm md:hidden'
-      : 'hidden md:absolute md:bottom-12 md:left-4 md:z-20 md:block md:max-h-[min(52vh,26rem)] md:w-[min(24rem,calc(100%-2rem))] md:overflow-y-auto md:rounded-lg md:border md:border-zinc-200 dark:md:border-zinc-800 md:bg-white dark:md:bg-zinc-900 md:p-4 md:shadow-xl'"
+      ? 'absolute bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.5rem)] inset-x-0 z-40 mx-2.5 max-h-[min(56dvh,30rem)] overflow-y-auto overscroll-y-contain rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-[var(--surface)]/95 dark:bg-zinc-900/95 px-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-sm md:hidden'
+      : 'hidden md:absolute md:bottom-12 md:left-4 md:z-20 md:block md:max-h-[min(52vh,26rem)] md:w-[min(24rem,calc(100%-2rem))] md:overflow-y-auto md:rounded-lg md:border md:border-zinc-200 dark:md:border-zinc-800 md:bg-[var(--surface)] dark:md:bg-zinc-900 md:p-4 md:shadow-xl'"
     aria-live="polite"
     @pointerdown.stop
     @mousedown.stop
@@ -226,7 +226,7 @@ const navigationTooltip = computed(() => {
         size="xs"
         icon="i-lucide-messages-square"
         :label="`进入「${props.place.name}」楼栋群聊`"
-        :class="['!bg-white dark:!bg-zinc-800 !text-sky-700 dark:!text-sky-300 !ring-sky-200 dark:!ring-sky-800 hover:!bg-sky-50 dark:hover:!bg-sky-950/60', props.variant === 'mobile' ? 'min-h-9 w-full px-3' : 'w-full']"
+        :class="['!bg-[var(--surface)] dark:!bg-zinc-800 !text-sky-700 dark:!text-sky-300 !ring-sky-200 dark:!ring-sky-800 hover:!bg-sky-50 dark:hover:!bg-sky-950/60', props.variant === 'mobile' ? 'min-h-9 w-full px-3' : 'w-full']"
         @click="goPlaceChat"
       />
     </div>

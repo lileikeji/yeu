@@ -256,7 +256,7 @@ onMounted(() => void loadRuns())
       <div
         v-for="card in statCards"
         :key="card.label"
-        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
       >
         <UIcon :name="card.icon" class="size-4 text-green-700 dark:text-green-400" />
         <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{{ card.label }}</p>
@@ -266,7 +266,7 @@ onMounted(() => void loadRuns())
 
     <section
       v-if="channelCounts.length > 1"
-      class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+      class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
     >
       <h2 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">
         调用来源分布
@@ -283,7 +283,7 @@ onMounted(() => void loadRuns())
       </div>
     </section>
 
-    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
       <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_11rem_10rem_9rem_auto] md:items-end">
         <UFormField label="问题关键词">
           <UInput
@@ -306,7 +306,7 @@ onMounted(() => void loadRuns())
       </div>
     </section>
 
-    <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <section class="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
       <div class="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
         <h2 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">运行记录</h2>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">当前筛选共 {{ total }} 次</p>

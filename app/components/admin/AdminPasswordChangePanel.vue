@@ -46,7 +46,7 @@ async function changePassword(): Promise<void> {
 <template>
   <section
     class="rounded-lg border p-5"
-    :class="required ? 'border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'"
+    :class="required ? 'border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900'"
   >
     <div class="flex items-start gap-3">
       <UIcon
