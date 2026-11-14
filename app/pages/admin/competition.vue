@@ -11,6 +11,18 @@ useSeoMeta({
 const toast = useToast()
 const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
 
+// 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
+const rankedEntries = computed(() => {
+  const list = activeRound.value?.entries ?? []
+  return [...list].sort((left, right) => {
+    const rankLeft = left.rank ?? Number.MAX_SAFE_INTEGER
+    const rankRight = right.rank ?? Number.MAX_SAFE_INTEGER
+    return (rankLeft - rankRight)
+      || ((right.average ?? -1) - (left.average ?? -1))
+      || (left.sortOrder - right.sortOrder)
+  })
+})
+
 const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
   sections, event, maxTotal, singers, activeRound, settingsWeightSum, hasAnyScores, roundSummary,
@@ -1515,7 +1527,7 @@ onBeforeUnmount(stopLiveRefresh)
               成绩与排名
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              按平均分排序，同分按出场顺序；未评分的按弃权处理。
+              实时按平均分排序，同分按出场顺序；还没分数的排在最后。
             </p>
           </div>
 
@@ -1561,7 +1573,7 @@ onBeforeUnmount(stopLiveRefresh)
               </thead>
               <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                 <tr
-                  v-for="entry in activeRound.entries"
+                  v-for="entry in rankedEntries"
                   :key="entry.id"
                   :title="wrongStatus(entry)"
                 >

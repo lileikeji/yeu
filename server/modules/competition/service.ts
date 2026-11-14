@@ -764,7 +764,19 @@ function buildRoundRanking(
 
   const settled = round.status === 'closed'
   if (!settled) {
-    // 未结束：按出场顺序平铺，不给名次。
+    // 进行中也出名次（实时排行），但名单仍按出场顺序返回，避免后台名单表被排名打乱；
+    // 晋级标记只有整轮结束才给。
+    const liveRank = new Map<string, number>()
+    let liveAverage: number | null = null
+    let liveRankValue = 0
+    scored.forEach((row, index) => {
+      if (liveAverage === null || row.average !== liveAverage) {
+        liveRankValue = index + 1
+        liveAverage = row.average
+      }
+      liveRank.set(row.entry.id, liveRankValue)
+    })
+
     return rows
       .slice()
       .sort((left, right) =>
@@ -779,7 +791,7 @@ function buildRoundRanking(
         advancedFromRank: row.entry.advancedFromRank,
         average: row.average,
         scoreCount: row.scoreCount,
-        rank: null,
+        rank: liveRank.get(row.entry.id) ?? null,
         qualified: false,
         forfeited: false
       }))
