@@ -827,7 +827,9 @@ test('数据库：初赛分天——两天各有自己的顺序与到岗评委�
 
   // 整轮还开着：名次一律不给，只有平均分。
   const openView = roundView(getAdminCompetitionPayload(client, musicId), 'prelim')
-  assert.ok(openView.entries.every(item => item.rank === null))
+  // 进行中就实时给名次，但还没结束谁都不算晋级。
+  assert.equal(openView.entries.filter(item => item.rank !== null).length, 1)
+  assert.equal(openView.entries.find(item => item.rank !== null)?.rank, 1)
   assert.ok(openView.entries.every(item => item.qualified === false))
 
   // 结束后才出排名与晋级标记。
