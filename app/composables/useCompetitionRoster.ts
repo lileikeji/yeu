@@ -119,6 +119,7 @@ export function useCompetitionRoster(options: UseCompetitionRosterOptions) {
     if (entry.queueState === 'waiting') {
       return entry.ahead && entry.ahead > 0 ? `前面还有 ${entry.ahead} 人` : '下一位'
     }
+    if (entry.queueState === 'skipped') return '未唱'
     if (entry.queueState === 'idle') {
       return entry.ahead && entry.ahead > 0 ? `前面还有 ${entry.ahead} 人` : '待开始'
     }

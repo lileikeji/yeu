@@ -1189,6 +1189,52 @@ test('数据库：免登录叫号台只给叫号信息，按出场顺序，不�
   closeDatabase(':memory:')
 })
 
+test('数据库：第一张评分自动开始叫号，当天评委评完自动下一位', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  createSinger(client, event.id, { name: '乙二', song: '后来' })
+  setRoundDay(client, round, 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  for (const entry of roster) setEntryCheckIn(client, getRoundByKey(client, event.id, 'prelim'), entry.id, true)
+
+  const judges = await createJudgeAccounts(client, round, 2)
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'open', judgeCount: 2 })
+  assert.equal(getCurrentSinger(client, getRoundByKey(client, event.id, 'prelim')), null)
+
+  // 没人点「开始」，第一张评分就把这位设成正在唱。
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, roster[0]!.singer.id, { scores: scoresForAll(8) })
+  const started = getCurrentSinger(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.equal(started?.singer.id, roster[0]!.singer.id)
+  assert.equal(started?.judgeTotal, 2)
+  assert.equal(started?.allSubmitted, false)
+
+  // 第二张也是这一位 → 凑齐 2 票，自动切到第二位。
+  submitJudgeScore(client, { ...judges[1]!, eventId: event.id, roundId: round.id }, roster[0]!.singer.id, { scores: scoresForAll(9) })
+  assert.equal(getCurrentSinger(client, getRoundByKey(client, event.id, 'prelim'))?.singer.id, roster[1]!.singer.id)
+
+  // 叫号台跟着显示「正在唱」，并且第一位是已唱完。
+  const board = getCallBoard(client, musicId)
+  assert.equal(board.current?.name, '乙二')
+  assert.equal(board.rows[0]!.state, 'finished')
+  assert.equal(board.next, null)
+
+  closeDatabase(':memory:')
+})
+
 test('数据库：今天排哪一天按赛程日期判断，非初赛日不收，手动切天优先', () => {
   const client = getDatabase(':memory:')
   runMigrations(client)

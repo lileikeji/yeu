@@ -1036,8 +1036,16 @@ export function moveCurrentEntry(
     return getCurrentSinger(client, { ...round, currentEntryId: target.id })
   }
 
-  if (action === 'start' || currentIndex < 0) {
-    const target = entries[currentIndex >= 0 ? currentIndex : 0]
+  // 「开始」永远从当天第一位起，避免第一张评分已经自动开了头之后，再点开始时停在半路。
+  if (action === 'start') {
+    const target = entries[0]
+    if (!target) validationError('本轮还没有出场名单', 'entries')
+    setCurrentEntryId(client, round.id, target.id)
+    return getCurrentSinger(client, { ...round, currentEntryId: target.id })
+  }
+
+  if (currentIndex < 0) {
+    const target = entries[0]
     if (!target) validationError('本轮还没有出场名单', 'entries')
     setCurrentEntryId(client, round.id, target.id)
     return getCurrentSinger(client, { ...round, currentEntryId: target.id })
@@ -2165,6 +2173,13 @@ export function submitJudgeScore(
   }
   if (entry.checkedInAt == null) {
     conflictError('COMPETITION_NOT_CHECKED_IN', '这位选手还没签到，先让现场签到再打分')
+  }
+
+  // 没人手动点「开始顺序评分」时，第一张评分就把这位当成正在唱：
+  // 叫号台据此显示「正在唱」，评委端也跟着锁定到同一位。
+  if (!round.currentEntryId) {
+    setCurrentEntryId(client, round.id, entry.id)
+    round.currentEntryId = entry.id
   }
 
   // 顺序评分：只接受「当前这位」的分数。六位评委看到的是同一个选手，
