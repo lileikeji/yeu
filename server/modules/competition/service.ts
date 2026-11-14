@@ -1136,7 +1136,10 @@ export function getCallBoard(client: DatabaseClient, contentId: string): Competi
     },
     total: rows.length,
     current: rows.find(row => row.state === 'singing') ?? null,
-    next: rows.find(row => row.state === 'waiting' && row.ahead === 0) ?? null,
+    // 没开顺序评分时，「下一位」就是名单里第一个还没唱的人，叫号的人照样能用。
+    next: rows.find(row => row.state === 'waiting' && row.ahead === 0)
+      ?? rows.find(row => row.state === 'idle')
+      ?? null,
     rows,
     updatedAt: Date.now()
   }
