@@ -76,6 +76,7 @@ async function loginWithDevice(): Promise<void> {
       body: proof,
       credentials: 'include'
     })
+    clearNuxtData('admin-session')
     await navigateTo(resolveAdminPostLoginTarget(payload, route.query.redirect), { replace: true })
   } catch (error) {
     errorMessage.value = adminDeviceLoginRequestMessage(error)
@@ -131,6 +132,7 @@ async function login(): Promise<void> {
       },
       credentials: 'include'
     })
+    clearNuxtData('admin-session')
     await navigateTo(resolveAdminPostLoginTarget(payload, route.query.redirect), { replace: true })
   } catch (error) {
     errorMessage.value = adminLoginRequestMessage(error)
