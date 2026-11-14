@@ -18,6 +18,7 @@ import {
   findMusicAssociationContent,
   generateNextRound,
   getAdminCompetitionPayload,
+  getCallBoard,
   getEmailTemplate,
   getJudgePayload,
   getRoundByKey,
@@ -763,7 +764,7 @@ test('数据库：初赛分天——两天各有自己的顺序与到岗评委�
   const event = ensureCompetitionEvent(client, musicId)
   for (const [name, song] of [['张三', '晴天'], ['李四', '后来'], ['王五', '如愿'], ['赵六', '起风了']] as const) {
     createSinger(client, event.id, { name, song })
-  checkInEntries(client, musicId)
+    checkInEntries(client, musicId)
   }
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
@@ -1040,7 +1041,7 @@ test('数据库：拖动排序把选手挪到目标前后，分天时不影响�
   const event = ensureCompetitionEvent(client, musicId)
   for (const [name, song] of [['甲', '晴天'], ['乙', '后来'], ['丙', '如愿'], ['丁', '起风了']] as const) {
     createSinger(client, event.id, { name, song })
-  checkInEntries(client, musicId)
+    checkInEntries(client, musicId)
   }
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
@@ -1136,6 +1137,53 @@ test('数据库：评委端进度只算当天到场的人，新扫码登记后�
   // 自己评过的人只算当天，评第二天的不会把进度顶上去。
   submitJudgeScore(client, actor, entries[0]!.singer.id, { scores: scoresForAll(10) })
   assert.deepEqual(getJudgePayload(client, actor).progress, { scored: 1, total: 3 })
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：免登录叫号台只给叫号信息，按出场顺序，不露电话邮箱评分', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  createSinger(client, event.id, { name: '阿甲', song: '晴天', className: '26音乐学1班' })
+  createSinger(client, event.id, { name: '阿乙', song: '后来', className: '26英语1班' })
+  setRoundDay(client, round, 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  for (const entry of roster) setEntryCheckIn(client, getRoundByKey(client, event.id, 'prelim'), entry.id, true)
+
+  const board = getCallBoard(client, musicId)
+  assert.equal(board.round.activeDay, 1)
+  assert.equal(board.total, 2)
+  assert.deepEqual(board.rows.map(row => [row.position, row.name, row.song]), [
+    [1, '阿甲', '晴天'],
+    [2, '阿乙', '后来']
+  ])
+  assert.equal('phone' in board.rows[0]!, false)
+  assert.equal('email' in board.rows[0]!, false)
+  assert.equal('average' in board.rows[0]!, false)
+  assert.equal(board.current, null)
+
+  const judge = await createJudgeAccounts(client, round, 1)
+  updateRound(client, round, { status: 'open', judgeCount: 1 })
+  moveCurrentEntry(client, getRoundByKey(client, event.id, 'prelim'), 'start')
+  submitJudgeScore(client, { ...judge[0]!, eventId: event.id, roundId: round.id }, roster[0]!.singer.id, { scores: scoresForAll(8) })
+
+  const live = getCallBoard(client, musicId)
+  assert.equal(live.current?.name, '阿乙')
+  assert.equal(live.rows[0]!.state, 'finished')
+  assert.equal(live.next, null)
 
   closeDatabase(':memory:')
 })

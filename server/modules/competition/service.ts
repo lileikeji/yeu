@@ -29,6 +29,8 @@ import {
 } from '../../../shared/utils/competition'
 import type {
   CompetitionAdminPayload,
+  CompetitionCallBoard,
+  CompetitionCallBoardRow,
   CompetitionCurrentSinger,
   CompetitionDimension,
   CompetitionEmailImage,
@@ -1099,6 +1101,47 @@ function roundView(
  * 扫码登记的选手看自己的排队情况：他在初赛第几位、前面还有几位、是不是正在唱。
  * 只回人数与状态，不回别人的姓名。
  */
+/**
+ * 免登录叫号台：只列当天已经签到的选手，按出场顺序给序号与状态。
+ * 不返回电话、邮箱、评分——叫号的人只需要知道谁该上台。
+ */
+export function getCallBoard(client: DatabaseClient, contentId: string): CompetitionCallBoard {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const prelim = getRoundByKey(client, eventRow.id, 'prelim')
+  const entries = presentEntriesForDay(prelim, listRoundEntryRows(client, prelim.id))
+  const singersById = new Map(listSingers(client, prelim.eventId).map(singer => [singer.id, singer]))
+  const board = buildQueueBoard(prelim, entries, listRoundScores(client, prelim.id), true)
+
+  const rows: CompetitionCallBoardRow[] = []
+  entries.forEach((entry, index) => {
+    const singer = singersById.get(entry.singerId)
+    if (!singer) return
+    const seat = board.get(entry.id)
+    rows.push({
+      position: seat?.position ?? index + 1,
+      name: singer.name,
+      song: singer.song ?? '',
+      className: singer.className ?? '',
+      state: seat?.state ?? 'idle',
+      ahead: seat?.ahead ?? null
+    })
+  })
+
+  return {
+    round: {
+      key: prelim.key,
+      title: prelim.title,
+      status: prelim.status,
+      activeDay: prelim.activeDay === 1 || prelim.activeDay === 2 ? prelim.activeDay : null
+    },
+    total: rows.length,
+    current: rows.find(row => row.state === 'singing') ?? null,
+    next: rows.find(row => row.state === 'waiting' && row.ahead === 0) ?? null,
+    rows,
+    updatedAt: Date.now()
+  }
+}
+
 export function getSingerQueuePosition(
   client: DatabaseClient,
   contentId: string,
