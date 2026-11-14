@@ -63,6 +63,89 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
 
 <template>
   <div>
+    <section
+      v-if="notices.length"
+      id="notices"
+      class="page-shell scroll-mt-20 pt-8"
+    >
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="section-kicker">
+            公告
+          </p>
+          <h1 class="mt-2 text-2xl font-bold text-zinc-950 dark:text-zinc-100 md:text-3xl">
+            新生近期需要留意
+          </h1>
+          <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            共 {{ notices.length }} 条 · 更新于 {{ notices[0]?.updatedAt }}
+          </p>
+        </div>
+        <UButton
+          to="/notices"
+          icon="i-lucide-megaphone"
+          label="全部公告"
+          color="primary"
+          variant="soft"
+          size="sm"
+        />
+      </div>
+      <div class="mt-5 grid gap-3 md:grid-cols-2">
+        <article
+          v-for="notice in notices"
+          :id="`notice-${notice.slug}`"
+          :key="notice.id"
+          class="surface-panel p-5"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <UBadge
+              color="warning"
+              variant="soft"
+            >
+              近期提醒
+            </UBadge>
+            <span class="text-xs text-zinc-400 dark:text-zinc-500">更新于 {{ notice.updatedAt }}</span>
+          </div>
+          <h3 class="mt-4 font-bold text-zinc-950 dark:text-zinc-100">
+            {{ notice.title }}
+          </h3>
+          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+            {{ notice.summary }}
+          </p>
+          <PublicNoticeBody
+            v-if="notice.body"
+            :body="notice.body"
+            class="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800"
+          />
+          <div
+            v-if="notice.actions.length"
+            class="mt-4 flex flex-wrap gap-2"
+          >
+            <UButton
+              v-for="action in notice.actions"
+              :key="`${action.label}-${action.href}`"
+              :to="safeNoticeActionHref(action.href) || undefined"
+              :icon="action.icon || 'i-lucide-arrow-up-right'"
+              :label="action.label"
+              color="primary"
+              variant="soft"
+              size="sm"
+            />
+          </div>
+          <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <span>{{ notice.audience }}</span>
+            <span v-if="notice.validUntil">有效至 {{ notice.validUntil.slice(0, 10) }}</span>
+            <a
+              v-if="notice.sources[0]"
+              :href="safeExternalHref(notice.sources[0]?.url) || undefined"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="font-medium text-green-700 dark:text-green-400 hover:underline"
+            >查看学校原文</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-12">
         <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start">
@@ -341,77 +424,6 @@ const fallbackMessage = computed(() => resolveCampusFallbackMessage({
         <span>{{ fallbackMessage }}</span>
       </div>
     </div>
-
-    <section
-      v-if="notices.length"
-      id="notices"
-      class="page-shell scroll-mt-20 pt-8"
-    >
-      <div>
-        <p class="section-kicker">
-          当前公告
-        </p>
-        <h2 class="mt-2 text-xl font-bold text-zinc-950 dark:text-zinc-100 md:text-2xl">
-          新生近期需要留意
-        </h2>
-      </div>
-      <div class="mt-5 grid gap-3 md:grid-cols-2">
-        <article
-          v-for="notice in notices"
-          :id="`notice-${notice.slug}`"
-          :key="notice.id"
-          class="surface-panel p-5"
-        >
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <UBadge
-              color="warning"
-              variant="soft"
-            >
-              近期提醒
-            </UBadge>
-            <span class="text-xs text-zinc-400 dark:text-zinc-500">更新于 {{ notice.updatedAt }}</span>
-          </div>
-          <h3 class="mt-4 font-bold text-zinc-950 dark:text-zinc-100">
-            {{ notice.title }}
-          </h3>
-          <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-            {{ notice.summary }}
-          </p>
-          <p
-            v-if="notice.body"
-            class="mt-3 whitespace-pre-line border-t border-zinc-100 dark:border-zinc-800 pt-3 text-sm leading-7 text-zinc-700 dark:text-zinc-200"
-          >
-            {{ notice.body }}
-          </p>
-          <div
-            v-if="notice.actions.length"
-            class="mt-4 flex flex-wrap gap-2"
-          >
-            <UButton
-              v-for="action in notice.actions"
-              :key="`${action.label}-${action.href}`"
-              :to="safeNoticeActionHref(action.href) || undefined"
-              :icon="action.icon || 'i-lucide-arrow-up-right'"
-              :label="action.label"
-              color="primary"
-              variant="soft"
-              size="sm"
-            />
-          </div>
-          <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>{{ notice.audience }}</span>
-            <span v-if="notice.validUntil">有效至 {{ notice.validUntil.slice(0, 10) }}</span>
-            <a
-              v-if="notice.sources[0]"
-              :href="safeExternalHref(notice.sources[0]?.url) || undefined"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="font-medium text-green-700 dark:text-green-400 hover:underline"
-            >查看学校原文</a>
-          </div>
-        </article>
-      </div>
-    </section>
 
     <section
       id="departments"

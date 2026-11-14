@@ -66,6 +66,8 @@ export const MUSIC_ASSOCIATION_TITLE = '音乐协会'
 const PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 const MAX_SCORE = COMPETITION_MAX_DIMENSION_SCORE
 const MAX_COMMENT_LENGTH = 500
+/** 现场登记里这些写法等于没报歌，一律按未填处理。 */
+const COMPETITION_SONG_PLACEHOLDERS = new Set(['待定', '未定', '暂无', '无', '没有', '还没定', '没定', 'tbd', 'tba', 'na', 'n/a'])
 
 export {
   COMPETITION_MAX_DIMENSION_SCORE,
@@ -771,6 +773,7 @@ function buildRoundRanking(
         singer: serializeSingerPublic(row.singer),
         sortOrder: row.entry.sortOrder,
         contestDay: row.entry.contestDay ?? null,
+        checkedInAt: row.entry.checkedInAt ?? null,
         advancedFromRank: row.entry.advancedFromRank,
         average: row.average,
         scoreCount: row.scoreCount,
@@ -793,6 +796,7 @@ function buildRoundRanking(
       singer: serializeSingerPublic(row.singer),
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
+      checkedInAt: row.entry.checkedInAt ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       average: row.average,
       scoreCount: row.scoreCount,
@@ -809,6 +813,7 @@ function buildRoundRanking(
       singer: serializeSingerPublic(row.singer),
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
+      checkedInAt: row.entry.checkedInAt ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       average: null,
       scoreCount: 0,
@@ -835,6 +840,14 @@ function buildRoundRanking(
 export function entriesForDay(round: RoundRow, entries: EntryRow[]): EntryRow[] {
   if (!round.activeDay) return entries
   return entries.filter(entry => entry.contestDay === round.activeDay)
+}
+
+/**
+ * 当天已现场签到的人。评委看谁、顺序评分走到谁、排队人数算多少，都以这一批
+ * 为准：提前导入但还没到场的名字不占位置，也不进评委的名单。
+ */
+export function presentEntriesForDay(round: RoundRow, entries: EntryRow[]): EntryRow[] {
+  return entriesForDay(round, entries).filter(entry => entry.checkedInAt != null)
 }
 
 /** 赛程里初赛那两行的真实日期，用来判断「今天该排哪一天的队」。 */
@@ -987,7 +1000,7 @@ export function moveCurrentEntry(
   if (round.status !== 'open') {
     conflictError('ROUND_NOT_OPEN', '请先开放本轮评分，再控制出场顺序')
   }
-  const entries = entriesForDay(round, listRoundEntryRows(client, round.id))
+  const entries = presentEntriesForDay(round, listRoundEntryRows(client, round.id))
   if (entries.length === 0) {
     validationError(round.activeDay ? '这一天的名单还是空的，先把选手分配到这一天' : '本轮还没有出场名单', 'entries')
   }
@@ -1059,7 +1072,8 @@ function roundView(
     scoreCountByJudge.set(score.judgeId, (scoreCountByJudge.get(score.judgeId) ?? 0) + 1)
   }
 
-  const queueBoard = buildQueueBoard(round, entries, scoreRows)
+  const presentEntries = presentEntriesForDay(round, entries)
+  const queueBoard = buildQueueBoard(round, presentEntries, scoreRows, true)
   const rankedEntries = buildRoundRanking(round, entries, singersById, scoreRows).map((entry) => {
     const board = queueBoard.get(entry.id)
     return {
@@ -1077,7 +1091,7 @@ function roundView(
     scores: scoreRows.map(score => serializeScore(score, judgeNameById.get(score.judgeId) ?? '评委')),
     maxTotal: competitionMaxTotal(dimensions),
     hasScores: scoreRows.length > 0,
-    current: buildCurrentSinger(client, round, entries, singersById, scoreRows)
+    current: buildCurrentSinger(client, round, presentEntries, singersById, scoreRows)
   }
 }
 
@@ -1096,9 +1110,13 @@ export function getSingerQueuePosition(
   const mine = entries.find(item => item.singerId === singerId)
   // 同一天的排同一天的队：按这位选手自己登记的场次算，不按管理员此刻停在哪天。
   const day = mine?.contestDay ?? prelim.activeDay ?? null
-  const dayEntries = day ? entries.filter(item => item.contestDay === day) : entries
+  const dayEntries = (day ? entries.filter(item => item.contestDay === day) : entries)
+    .filter(item => item.checkedInAt != null)
   if (!mine) {
     return { state: 'unknown', ahead: null, position: null, total: dayEntries.length }
+  }
+  if (mine.checkedInAt == null) {
+    return { state: 'idle', ahead: null, position: null, total: dayEntries.length }
   }
   const board = buildQueueBoard(prelim, dayEntries, listRoundScores(client, prelim.id), true)
   const seat = board.get(mine.id)
@@ -1370,6 +1388,37 @@ export function setRoundDay(
 }
 
 /** 单条出场名单改到某一天（null = 不分配）。 */
+/**
+ * 现场签到：勾上这个人，评委与顺序评分立刻能看到；取消签到把他移出队列，
+ * 如果正好是当前这位，指针一并清空。
+ */
+export function setEntryCheckIn(
+  client: DatabaseClient,
+  round: RoundRow,
+  entryId: string,
+  checkedIn: boolean
+): void {
+  if (round.status === 'closed') {
+    conflictError('ROUND_CLOSED', '本轮已结束，不能再改签到')
+  }
+  const row = client.db.select().from(competitionRoundEntries)
+    .where(and(eq(competitionRoundEntries.roundId, round.id), eq(competitionRoundEntries.id, entryId)))
+    .get()
+  if (!row) {
+    throw createError({ statusCode: 404, statusMessage: 'Entry not found', data: { code: 'NOT_FOUND' } })
+  }
+  client.db.update(competitionRoundEntries)
+    .set({
+      checkedInAt: checkedIn ? Date.now() : null,
+      contestDay: checkedIn && row.contestDay == null ? round.activeDay ?? null : row.contestDay
+    })
+    .where(eq(competitionRoundEntries.id, entryId))
+    .run()
+  if (!checkedIn && round.currentEntryId === entryId) {
+    setCurrentEntryId(client, round.id, null)
+  }
+}
+
 export function setEntryDay(
   client: DatabaseClient,
   round: RoundRow,
@@ -1685,7 +1734,8 @@ function addPrelimEntry(
   eventId: string,
   singerId: string,
   sortOrder: number,
-  contestDay?: 1 | 2 | null
+  contestDay?: 1 | 2 | null,
+  checkedInAt?: number | null
 ): void {
   const prelim = getRoundByKey(client, eventId, 'prelim')
   client.db.insert(competitionRoundEntries).values({
@@ -1694,6 +1744,7 @@ function addPrelimEntry(
     singerId,
     sortOrder,
     contestDay: contestDay ?? prelim.activeDay ?? null,
+    checkedInAt: checkedInAt ?? null,
     createdAt: Date.now()
   }).run()
 }
@@ -1966,7 +2017,7 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
       .map(score => [score.singerId, serializeScore(score, judge.displayName)])
   )
 
-  const dayEntries = entriesForDay(round, entryRows)
+  const dayEntries = presentEntriesForDay(round, entryRows)
   const singers = dayEntries
     .map((entry) => {
       const singer = singersById.get(entry.singerId)
@@ -2018,7 +2069,7 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
     },
     singers,
     roundResults,
-    current: buildCurrentSinger(client, round, entryRows, singersById, scoreRows),
+    current: buildCurrentSinger(client, round, presentEntriesForDay(round, entryRows), singersById, scoreRows),
     finalResults,
     finalRound: finalRound ? { title: finalRound.title, status: finalRound.status } : null,
     progress: {
@@ -2054,7 +2105,10 @@ export function submitJudgeScore(
   }
 
   requireSingerRow(client, eventRow.id, singerId)
-  const entry = client.db.select({ id: competitionRoundEntries.id }).from(competitionRoundEntries)
+  const entry = client.db.select({
+    id: competitionRoundEntries.id,
+    checkedInAt: competitionRoundEntries.checkedInAt
+  }).from(competitionRoundEntries)
     .where(and(
       eq(competitionRoundEntries.roundId, round.id),
       eq(competitionRoundEntries.singerId, singerId)
@@ -2062,6 +2116,9 @@ export function submitJudgeScore(
     .get()
   if (!entry) {
     validationError('该选手不在本轮名单中', 'singerId')
+  }
+  if (entry.checkedInAt == null) {
+    conflictError('COMPETITION_NOT_CHECKED_IN', '这位选手还没签到，先让现场签到再打分')
   }
 
   // 顺序评分：只接受「当前这位」的分数。六位评委看到的是同一个选手，
@@ -2074,6 +2131,19 @@ export function submitJudgeScore(
         ? `现在评的是 ${current.index}/${current.total}「${current.singer.name}」，请等主持人切到下一位`
         : '现在不在顺序评分中，请刷新页面'
     )
+  }
+
+  // 分天时只认当天到岗的评委：第二天的人不能给第一天的选手凑票。
+  if (round.activeDay) {
+    const dutyRow = client.db.select({ day: competitionJudges.day }).from(competitionJudges)
+      .where(eq(competitionJudges.id, judge.id))
+      .get()
+    if (dutyRow?.day && dutyRow.day !== round.activeDay) {
+      conflictError(
+        'COMPETITION_JUDGE_OFF_DAY',
+        `今天是第 ${round.activeDay} 天，你的评分班次是第 ${dutyRow.day} 天`
+      )
+    }
   }
 
   const dimensions = getCompetitionDimensions(eventRow)
@@ -2150,6 +2220,8 @@ export function submitJudgeScore(
   // 立刻推回去，要等管理员点「下一位」。
   if (!existing && round.currentEntryId === entry.id) {
     const required = requiredJudgeCount(client, round)
+    // 只数当天到岗评委的票，第二天/没排班的人不算。
+    const dutyJudgeIds = new Set(judgesForDay(client, round).map(item => item.id))
     const beforeCount = new Set(
       client.db.select({ judgeId: competitionScores.judgeId }).from(competitionScores)
         .where(and(
@@ -2158,9 +2230,10 @@ export function submitJudgeScore(
         ))
         .all()
         .map(item => item.judgeId)
+        .filter(id => dutyJudgeIds.has(id))
     ).size
     if (required > 0 && beforeCount >= required) {
-      const entries = entriesForDay(round, listRoundEntryRows(client, round.id))
+      const entries = presentEntriesForDay(round, listRoundEntryRows(client, round.id))
       const index = entries.findIndex(item => item.id === entry.id)
       const nextEntry = index >= 0 ? entries[index + 1] ?? null : null
       setCurrentEntryId(client, round.id, nextEntry ? nextEntry.id : null)
@@ -2221,6 +2294,11 @@ export function registerSingerFromForm(
   if (!normalized.studentNo) validationError('学号必填', 'studentNo')
   if (!normalized.phone) validationError('电话必填', 'phone')
   if (!normalized.email) validationError('邮箱必填', 'email')
+  // 现场登记必须报具体曲目：留空或写「待定」的都拦下，避免上台前才发现没歌。
+  if (!normalized.song) validationError('参赛歌曲必填，请填写具体歌名', 'song')
+  if (COMPETITION_SONG_PLACEHOLDERS.has(normalized.song.replace(/\s+/g, '').toLowerCase())) {
+    validationError('参赛歌曲要填具体歌名，不能填「待定」', 'song')
+  }
 
   const existing = client.db.select({ id: competitionSingers.id }).from(competitionSingers)
     .where(and(
@@ -2281,7 +2359,7 @@ export function registerSingerFromForm(
         .where(eq(competitionPreRegistrations.id, preRegistration.id)).run()
     }
   })
-  addPrelimEntry(client, eventRow.id, id, sortOrder, resolved.day)
+  addPrelimEntry(client, eventRow.id, id, sortOrder, resolved.day, now)
   return { id, sortOrder }
 }
 

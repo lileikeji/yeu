@@ -57,6 +57,7 @@ export default defineEventHandler((event) => {
     ['/search', '0.7', 'weekly'],
     ['/guides', '0.8', 'weekly'],
     ['/procedures', '0.9', 'weekly'],
+    ['/notices', '0.8', 'weekly'],
     ['/departments', '0.7', 'weekly'],
     ['/clubs', '0.7', 'weekly'],
     ['/panorama', '0.7', 'monthly'],

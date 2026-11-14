@@ -35,8 +35,21 @@ interface QueuePosition {
 }
 
 const succeeded = ref<{ singerId: string, name: string, sortOrder: number, fromPre: boolean } | null>(null)
+
+/** 登记过的人记住自己是谁，刷新或下次打开还能看排队进度。 */
+const QUEUE_STORAGE_KEY = 'yeu:singer:queue'
+interface QueueOwner { singerId: string, name: string, sortOrder: number | null }
+const queueOwner = ref<QueueOwner | null>(null)
 const queue = ref<QueuePosition | null>(null)
+const queueUpdatedAt = ref(0)
+const queueRefreshing = ref(false)
 let queueTimer: ReturnType<typeof setInterval> | null = null
+
+const queueTime = computed(() => {
+  if (!queueUpdatedAt.value) return ''
+  const date = new Date(queueUpdatedAt.value)
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`
+})
 
 const queueText = computed(() => {
   const data = queue.value
@@ -50,15 +63,58 @@ const queueText = computed(() => {
   return '还没开始叫号。'
 })
 
-async function loadQueue(): Promise<void> {
-  const singerId = succeeded.value?.singerId
-  if (!singerId) return
+function readStoredOwner(): QueueOwner | null {
+  if (typeof localStorage === 'undefined') return null
   try {
-    queue.value = await $fetch<QueuePosition>('/api/public/competition/register/queue', {
-      query: { singerId }
+    const raw = localStorage.getItem(QUEUE_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<QueueOwner>
+    if (!parsed || typeof parsed.singerId !== 'string' || !parsed.singerId) return null
+    return {
+      singerId: parsed.singerId,
+      name: typeof parsed.name === 'string' ? parsed.name : '',
+      sortOrder: typeof parsed.sortOrder === 'number' ? parsed.sortOrder : null
+    }
+  } catch {
+    return null
+  }
+}
+
+function storeOwner(owner: QueueOwner | null): void {
+  if (typeof localStorage === 'undefined') return
+  if (!owner) {
+    localStorage.removeItem(QUEUE_STORAGE_KEY)
+    return
+  }
+  try {
+    localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(owner))
+  } catch {
+    // 隐私模式下写不进去就算了，至少本次会话还能看。
+  }
+}
+
+async function loadQueue(): Promise<void> {
+  const owner = queueOwner.value
+  if (!owner) return
+  queueRefreshing.value = true
+  try {
+    const data = await $fetch<QueuePosition>('/api/public/competition/register/queue', {
+      query: { singerId: owner.singerId }
     })
+    if (data.state === 'unknown') {
+      // 名单被清过或换了届，本地这条记录作废。
+      queueOwner.value = null
+      queue.value = null
+      storeOwner(null)
+      stopQueuePolling()
+      return
+    }
+    queue.value = data
+    queueUpdatedAt.value = Date.now()
   } catch {
     // 网络抖动就不更新，保留上一次的数字。
+  } finally {
+    queueRefreshing.value = false
   }
 }
 
@@ -72,12 +128,20 @@ function stopQueuePolling(): void {
 function startQueuePolling(): void {
   stopQueuePolling()
   void loadQueue()
-  queueTimer = setInterval(loadQueue, 10000)
+  queueTimer = setInterval(loadQueue, 15000)
+}
+
+/** 只有登记过（本机记住了身份）才刷新进度。 */
+function refreshQueue(): void {
+  if (queueOwner.value) void loadQueue()
 }
 
 function resetAfterSuccess(): void {
   stopQueuePolling()
   queue.value = null
+  queueUpdatedAt.value = 0
+  queueOwner.value = null
+  storeOwner(null)
   succeeded.value = null
   preSelected.value = null
   preCandidates.value = []
@@ -163,6 +227,11 @@ function validateLocally(): string {
   if (!/^[0-9A-Za-z-]{4,20}$/.test(form.studentNo.trim())) return '请填写正确的学号'
   if (!/^1\d{10}$/.test(form.phone.trim())) return '请填写正确的手机号'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return '请填写正确的邮箱'
+  const song = form.song.trim()
+  if (!song) return '请填写参赛歌曲'
+  if (/^(待定|未定|暂无|无|没有|还没定|没定|tbd|tba|na|n\/a)$/i.test(song.replace(/\s+/g, ''))) {
+    return '参赛歌曲要填具体歌名，不能填「待定」'
+  }
   return ''
 }
 
@@ -195,6 +264,12 @@ async function submit(): Promise<void> {
       sortOrder: result.sortOrder,
       fromPre: Boolean(preSelected.value)
     }
+    queueOwner.value = {
+      singerId: result.id,
+      name: form.name.trim(),
+      sortOrder: result.sortOrder
+    }
+    storeOwner(queueOwner.value)
     startQueuePolling()
   } catch (error) {
     const code = typeof error === 'object' && error !== null
@@ -220,7 +295,14 @@ async function submit(): Promise<void> {
   }
 }
 
-onMounted(loadStatus)
+onMounted(async () => {
+  await loadStatus()
+  const stored = readStoredOwner()
+  if (stored) {
+    queueOwner.value = stored
+    startQueuePolling()
+  }
+})
 </script>
 
 <template>
@@ -237,6 +319,42 @@ onMounted(loadStatus)
           现场正式登记
         </h1>
       </header>
+
+      <!-- 现场进度：只有登记过（本机记住了身份）才显示 -->
+      <section
+        v-if="queue"
+        class="mt-6 rounded-2xl bg-white/90 p-4 shadow-md ring-1 ring-[#f2d8c4]"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-xs font-semibold tracking-wider text-[#b4552f]">
+            我的现场进度<template v-if="queueOwner?.name">
+              · {{ queueOwner.name }}
+            </template>
+          </p>
+          <button
+            type="button"
+            class="shrink-0 text-xs font-semibold text-[#4a564e] underline disabled:opacity-60"
+            :disabled="queueRefreshing"
+            @click="refreshQueue"
+          >
+            {{ queueRefreshing ? '刷新中…' : '刷新' }}
+          </button>
+        </div>
+        <p class="mt-1 text-xl font-black text-[#2f3a34]">
+          {{ queueText }}
+        </p>
+        <p class="mt-1 text-xs text-[#6b7a70]">
+          <template v-if="queue.position">
+            今天第 {{ queue.position }} / {{ queue.total }} 位
+          </template>
+          <template v-else>
+            今天共 {{ queue.total }} 位
+          </template>
+          <template v-if="queueTime">
+            · 更新于 {{ queueTime }}
+          </template>
+        </p>
+      </section>
 
       <div
         v-if="statusError"
@@ -283,26 +401,6 @@ onMounted(loadStatus)
           位出场。
         </p>
 
-        <div
-          v-if="queue && queue.state !== 'unknown'"
-          class="mt-4 rounded-xl bg-[#fdf6ec] px-4 py-3 text-left ring-1 ring-[#f2d8c4]"
-        >
-          <p class="text-xs font-semibold tracking-wider text-[#b4552f]">
-            现场进度
-          </p>
-          <p class="mt-1 text-lg font-black text-[#2f3a34]">
-            {{ queueText }}
-          </p>
-          <p class="mt-1 text-xs text-[#6b7a70]">
-            <template v-if="queue.position">
-              今天第 {{ queue.position }} / {{ queue.total }} 位
-            </template>
-            <template v-else>
-              今天共 {{ queue.total }} 位
-            </template>
-            · 别走远，叫到就上台
-          </p>
-        </div>
         <div class="mt-5 flex justify-center gap-2">
           <NuxtLink
             to="/singer"
@@ -519,15 +617,16 @@ onMounted(loadStatus)
             class="block text-sm font-semibold text-[#33413a]"
             for="reg-song"
           >
-            参赛歌曲 <span class="text-xs font-normal text-[#8b968c]">（可待定）</span>
+            参赛歌曲 <span class="text-[#c2543c]">*</span>
           </label>
           <input
             id="reg-song"
             v-model="form.song"
+            required
             maxlength="80"
             name="song"
             class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
-            placeholder="想唱的歌，没定就先空着"
+            placeholder="写具体歌名，如 晴天"
           >
         </div>
 

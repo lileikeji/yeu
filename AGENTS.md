@@ -80,5 +80,10 @@
 5. **不削弱安全层**：Origin guard、miniapp 限流、visitor ban、anti-crawl 规则是层层设防，不为"绕过某个 403/429"改代码；排障按 README/部署纪要里的排查顺序定位是哪一层。
 6. **一次性调研、审计、验证记录不入 docs/**：放 `docs/verification/<主题>/`，验收后删除；docs/ 只留活文档（索引见 [docs/README.md](docs/README.md)）。
 7. **构建不在生产机做**：生产服务器 4 核 / 3.6G，`pnpm build` 单次 40 分钟起且会 OOM（`exit code 137`），构建期间线上接口跟着变慢。Windows/macOS 用 `bash scripts/build-linux-artifact.sh` 本机构建后上传；同一时刻只跑一个部署，直接调 `deploy-home-sheet.sh` 会绕过 `flock`。
+8. **构建基线必须含 master**：`git merge-base --is-ancestor <构建commit> master` 不成立就先 `git merge master`。分支落后时用分支 HEAD 构建，线上会缺 master 上的修复，表现为"功能被回退"（2026-11-12 事故）。
+9. **构建在干净工作树里做，清理工作树先删联接点**：`git worktree add <dir> <commit> --detach` + 目录联接 `node_modules`；清理时先 `cmd /c rmdir "<dir>\node_modules"`（**不加 `/s`**）再 `git worktree remove`。加 `/s` 会顺联接掏空主仓 `node_modules`（2026-11-12 事故，需 `pnpm install --force` 恢复）。
+10. **发布前跑 `PRAGMA foreign_key_check;`，失败重试必须换 release 标识**：孤儿行会让部署卡在"数据库外键检查失败"；同名 release 重部署被判"release 已存在"直接 `EXIT=1`，真实原因只在 `/data/yeu/shared/logs/deploy-incoming-*.log`。
+
+发布检查单与全部已发生事故见 [docs/rules/RELEASE_RULES.md](docs/rules/RELEASE_RULES.md)。
 
 **这些指南生效的标志是：** diff 中不必要的更改更少、坏产物到不了线上、docs/ 不再堆积过程文档。

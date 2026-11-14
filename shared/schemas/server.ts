@@ -1428,6 +1428,11 @@ export const setCompetitionEntryDaySchema = z.object({
   day: z.number().int().min(1).max(2).nullable()
 }).strict()
 
+export const setCompetitionEntryCheckInSchema = z.object({
+  entryId: z.string().min(1).max(64),
+  checkedIn: z.boolean()
+}).strict()
+
 // 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定；
 // 带 preRegistrationId = 从预报名确认生成。
 const COMPETITION_STUDENT_NO_PATTERN = /^[0-9A-Za-z-]{4,20}$/

@@ -241,8 +241,14 @@ export default defineNuxtConfig({
     }
   },
 
+  // 链接预取改为 hover/focus 触发。默认的 visibility 策略会在首屏把侧栏和卡片上
+  // 所有链接的页面 chunk 一起拉下来（后台实测 89 个 chunk / 526KB，其中约 50 个
+  // 是预取），首屏白等 2 秒多。interaction 仍然保证鼠标移上去就开始加载。
   experimental: {
-    appManifest: !isDevelopment
+    appManifest: !isDevelopment,
+    defaults: {
+      nuxtLink: { prefetchOn: { visibility: false, interaction: true } }
+    }
   },
 
   compatibilityDate: '2026-06-30',
