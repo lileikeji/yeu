@@ -45,9 +45,11 @@
    git worktree prune
    ```
 
-8. **静态资源真的进了 CDN**
+8. **静态资源真的进了 CDN，并且预热过**
    第一次请求 `curl -sI https://yx.huiliyill.cn/_nuxt/<最新 chunk>.js` 应当是 `Cache Miss`，第二次必须 `X-Cache-Lookup: Cache Hit` 且 `Age` 递增；`Cache-Control` 里不能再出现 `no-store`。
    出现 `no-store` 就先查权限：`sudo -u www test -r /www/wwwroot/yeu/current/.output/public/_nuxt/<file>` 必须可读。
+   预热由发布链路自动完成：`/data/yeu/server-side-deploy.sh` 在放开静态资源权限后调用 `warmCdn`，把当前 release 的全部 `_nuxt` 资源从边缘拉一遍并打印 `200=… 非200=…`（约 16 秒）。源站 no-store 的 `robots.txt`、`site.webmanifest`、`sw-*.js` 不预热。
+   手动补跑（本机，扫远端 current）：`DEPLOY_SERVER=root@<host> SSH_KEY=~/.ssh/key bash scripts/warm-cdn.sh`；命中率低于 95% 脚本退出码 1。
 
 ## 二、已发生事故
 
