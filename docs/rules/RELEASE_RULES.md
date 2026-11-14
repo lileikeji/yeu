@@ -45,6 +45,10 @@
    git worktree prune
    ```
 
+8. **静态资源真的进了 CDN**
+   第一次请求 `curl -sI https://yx.huiliyill.cn/_nuxt/<最新 chunk>.js` 应当是 `Cache Miss`，第二次必须 `X-Cache-Lookup: Cache Hit` 且 `Age` 递增；`Cache-Control` 里不能再出现 `no-store`。
+   出现 `no-store` 就先查权限：`sudo -u www test -r /www/wwwroot/yeu/current/.output/public/_nuxt/<file>` 必须可读。
+
 ## 二、已发生事故
 
 ### 1. 部署基线旧于 master，线上像「PR 被回退」（2026-11-12）
@@ -89,8 +93,20 @@
 - 原因：迁移 SQL 用 sqlite3 手工执行了，但没往 `__drizzle_migrations` 写账本行。
 - 做法：账本行的 `hash` = 迁移 SQL **原始字节**的 sha256，`created_at` = `server/database/migrations/meta/_journal.json` 里该条目的 `when`；写前用已知迁移（如 0047 的 `99caf6a4…`）对账。
 
-## 三、固定约定
+### 8. 静态资源目录 750，CDN 一个 chunk 都缓存不了（2026-11-14）
 
+- 现象：`/_nuxt/*.js` 每次请求都是 `X-Cache-Lookup: Cache Miss`、`Age: 0`，响应里同时有 `public, max-age=31536000, immutable` 和 `no-cache, no-store, must-revalidate`，首屏要把十几个 chunk 从 3Mbps 出口重新拉一遍。
+- 原因：`releases/<rel>/.output/public` 与 `_nuxt` 是 `drwxr-x--- yeu yeu`，nginx worker 跑在 `www` 下读不到文件；`try_files` 落到 `@nuxt_compat` → `@nuxt` 反代给 Node。Nitro 发的 immutable 与 `@nuxt` 的 `no-store` 叠在一起，CDN 按最严格的来，等于完全不缓存。
+- 做法：发布后放开读权限，`server-side-deploy.sh` 已内置这一步：
+
+  ```bash
+  chmod o+rx "$BASE/releases/$RELEASE_ID" "$BASE/releases/$RELEASE_ID/.output"
+  chmod -R o+rX "$BASE/releases/$RELEASE_ID/.output/public"
+  ```
+
+  核对：`sudo -u www test -r .../_nuxt/<file>` 返回 0；线上第二次请求 `X-Cache-Lookup: Cache Hit`。
+
+## 三、固定约定
 - 生产发布只用 `deploy-incoming.sh` 一条入口，`deploy-home-sheet.sh` 会绕过 `flock`。
 - 构建一律在本机（Windows/macOS）做，不在生产机跑 `pnpm build`。
 - 动生产库前先做表级 dump 到 `/data/yeu/shared/backups/<主题>-<时间>/`。
