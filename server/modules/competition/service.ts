@@ -973,10 +973,16 @@ export function getCurrentSinger(
 function setCurrentEntryId(
   client: DatabaseClient,
   roundId: string,
-  entryId: string | null
+  entryId: string | null,
+  sequential?: boolean
 ): void {
+  const patch: { currentEntryId: string | null, updatedAt: number, sequentialMode?: number } = {
+    currentEntryId: entryId,
+    updatedAt: Date.now()
+  }
+  if (sequential !== undefined) patch.sequentialMode = sequential ? 1 : 0
   client.db.update(competitionRounds)
-    .set({ currentEntryId: entryId, updatedAt: Date.now() })
+    .set(patch)
     .where(eq(competitionRounds.id, roundId))
     .run()
 }
@@ -1012,14 +1018,14 @@ export function moveCurrentEntry(
     : -1
 
   if (action === 'stop') {
-    setCurrentEntryId(client, round.id, null)
+    setCurrentEntryId(client, round.id, null, false)
     return null
   }
 
   if (action === 'set') {
     const target = entries.find(entry => entry.id === entryId)
     if (!target) validationError('出场条目不存在', 'entryId')
-    setCurrentEntryId(client, round.id, target!.id)
+    setCurrentEntryId(client, round.id, target!.id, true)
     return buildCurrentSinger(
       client,
       { ...round, currentEntryId: target!.id },
@@ -1032,7 +1038,7 @@ export function moveCurrentEntry(
   if (action === 'prev') {
     const target = entries[Math.max(0, currentIndex - 1)]
     if (!target) validationError('本轮还没有出场名单', 'entries')
-    setCurrentEntryId(client, round.id, target.id)
+    setCurrentEntryId(client, round.id, target.id, true)
     return getCurrentSinger(client, { ...round, currentEntryId: target.id })
   }
 
@@ -1040,7 +1046,7 @@ export function moveCurrentEntry(
   if (action === 'start') {
     const target = entries[0]
     if (!target) validationError('本轮还没有出场名单', 'entries')
-    setCurrentEntryId(client, round.id, target.id)
+    setCurrentEntryId(client, round.id, target.id, true)
     return getCurrentSinger(client, { ...round, currentEntryId: target.id })
   }
 
@@ -1062,7 +1068,7 @@ export function moveCurrentEntry(
   }
 
   const target = entries[currentIndex + 1] ?? null
-  setCurrentEntryId(client, round.id, target ? target.id : null)
+  setCurrentEntryId(client, round.id, target ? target.id : null, true)
   return target ? getCurrentSinger(client, { ...round, currentEntryId: target.id }) : null
 }
 
@@ -1101,6 +1107,7 @@ function roundView(
     scores: scoreRows.map(score => serializeScore(score, judgeNameById.get(score.judgeId) ?? '评委')),
     maxTotal: competitionMaxTotal(dimensions),
     hasScores: scoreRows.length > 0,
+    sequential: round.sequentialMode === 1,
     current: buildCurrentSinger(client, round, presentEntries, singersById, scoreRows)
   }
 }
@@ -2119,7 +2126,8 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
       key: round.key,
       title: round.title,
       status: round.status,
-      advanceCount: round.advanceCount
+      advanceCount: round.advanceCount,
+      sequential: round.sequentialMode === 1
     },
     singers,
     roundResults,
@@ -2182,9 +2190,9 @@ export function submitJudgeScore(
     round.currentEntryId = entry.id
   }
 
-  // 顺序评分：只接受「当前这位」的分数。六位评委看到的是同一个选手，
-  // 谁想跳到下一位都会被这里挡住，避免有人先给后面的人打分。
-  if (round.currentEntryId && entry.id !== round.currentEntryId) {
+  // 只有后台显式开了顺序评分才锁人。自动记下的「正在唱」只给叫号台用，
+  // 评委端仍然可以自由选人打分。
+  if (round.sequentialMode === 1 && round.currentEntryId && entry.id !== round.currentEntryId) {
     const current = getCurrentSinger(client, round)
     conflictError(
       'COMPETITION_NOT_CURRENT_SINGER',

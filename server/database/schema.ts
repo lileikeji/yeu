@@ -1097,6 +1097,8 @@ export const competitionRounds = sqliteTable('competition_rounds', {
    * 非空时服务端只接受该条目的评分，全员提交后自动切到下一位。
    */
   currentEntryId: text('current_entry_id'),
+  /** 1 = 后台显式开启顺序评分（评委只能评当前这位）；0 = 自由打分，指针只用于叫号台。 */
+  sequentialMode: integer('sequential_mode').notNull().default(0),
   /**
    * 分场天（初赛两天）：1 / 2，空 = 不分天。
    * 非空时只在这一天的名单里顺序切人，也只收这一天的评委票。

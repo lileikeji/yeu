@@ -78,7 +78,7 @@ const weightSum = computed(() => dimensions.value.reduce((sum, dimension) => sum
 
 /** 顺序评分：主持人把全场指到同一位选手，所有人都只能给这一位打分。 */
 const current = computed(() => payload.value?.current ?? null)
-const sequential = computed(() => current.value !== null)
+const sequential = computed(() => payload.value?.round.sequential === true && current.value !== null)
 /** 顺序评分下，我这一位已经提交过：锁定输入，等其他人。 */
 const currentSubmitted = computed(() => Boolean(sequential.value && selectedSinger.value?.score))
 /** 本场提交进度：1/6 这种。 */
@@ -508,7 +508,7 @@ onBeforeUnmount(stopPolling)
     </div>
 
     <template v-else-if="payload && event && round">
-      <div class="flex h-[100dvh] flex-col overflow-hidden lg:block lg:h-auto lg:overflow-visible">
+      <div class="flex min-h-[100dvh] flex-col lg:block">
         <header class="shrink-0 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
           <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-6 sm:py-3">
             <span class="hidden size-10 shrink-0 place-items-center rounded-lg bg-green-700 text-white sm:grid">
@@ -559,7 +559,7 @@ onBeforeUnmount(stopPolling)
 
         <main
           class="mx-auto w-full max-w-6xl min-h-0 flex-1 space-y-2 px-2 py-2 sm:space-y-4 sm:px-6 sm:py-6 lg:flex-none lg:overflow-visible lg:pb-6"
-          :class="activeTab === 'score' ? 'overflow-hidden' : 'overflow-y-auto'"
+          class="overflow-y-auto"
         >
           <div class="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 sm:gap-3 sm:px-4 sm:py-3">
             <div class="min-w-0 flex-1">

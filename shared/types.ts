@@ -557,6 +557,8 @@ export interface CompetitionRoundView extends CompetitionRound {
   scores: CompetitionScore[]
   maxTotal: number
   hasScores: boolean
+  /** 后台显式开启了顺序评分（评委只能评当前这位）。 */
+  sequential: boolean
   /** 顺序评分：当前这位选手与全场提交情况；未开启顺序评分时为 null。 */
   current: CompetitionCurrentSinger | null
 }
@@ -619,6 +621,8 @@ export interface CompetitionJudgePayload {
     title: string
     status: CompetitionRoundStatus
     advanceCount: number | null
+    /** 后台显式开启了顺序评分；false 时评委可自由选人打分。 */
+    sequential: boolean
   }
   singers: Array<CompetitionSingerPublic & {
     sortOrder: number
