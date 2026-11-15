@@ -19,6 +19,10 @@ interface BusEtaPill {
 
 /** 最多同时显示几辆车，避免折叠态被胶囊铺满。 */
 export const MAX_BUS_ETA_PILLS = 3
+/** 右侧地图控件列（缩放 + 罗盘约 40px，含 10px 边距）之前留出的安全区。 */
+const RIGHT_CONTROL_GUTTER_PX = 56
+/** 胶囊最宽约 110px，按半宽兜底判断是否已经贴到右缘。 */
+const PILL_HALF_WIDTH_PX = 56
 
 /**
  * 分段实测车速切片按 routeId 缓存。
@@ -87,13 +91,18 @@ export function useMapBusEta(options: {
         ? (route.stops[progress.nextStopIndex]?.siteName ?? '')
         : ''
       const stopName = nextStopName || bus.siteName || ''
+      // 贴到右缘时把胶囊翻到车点左侧：maplibre 的缩放 / 罗盘控件组会盖住居中悬挂的胶囊。
+      const viewportWidth = typeof window === 'undefined' ? 0 : window.innerWidth
+      const flipLeft = viewportWidth > 0 && screen.x + PILL_HALF_WIDTH_PX > viewportWidth - RIGHT_CONTROL_GUTTER_PX
+      // 贴左缘时向右偏，别让居中悬挂的胶囊出血到屏幕外。
+      const nearLeft = viewportWidth > 0 && screen.x - PILL_HALF_WIDTH_PX < 8
       pills.push({
         id: bus.busId,
         label: stopName ? `到${stopName}` : bus.busName,
         etaMinutes,
         x: Math.round(screen.x),
         y: Math.round(screen.y),
-        transform: `translate3d(${Math.round(screen.x)}px, ${Math.round(screen.y)}px, 0) translate(-50%, calc(-100% - 10px))`
+        transform: `translate3d(${Math.round(screen.x)}px, ${Math.round(screen.y)}px, 0) translate(${flipLeft ? 'calc(-100% - 10px)' : nearLeft ? '10px' : '-50%'}, calc(-100% - 10px))`
       })
     }
     return pills
