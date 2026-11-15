@@ -200,7 +200,7 @@ const {
 const mapGlassActive = computed(() => glassEnabled.value && mapGlassReady.value && glassStrengthScale.value > 0)
 
 /**
- * 展开/收起这 280ms 里玻璃层一直在画：面板在动，底图没动，所以只冻结底图纹理上传，
+ * 展开/收起这 320ms 里玻璃层一直在画：面板在动，底图没动，所以只冻结底图纹理上传，
  * 四边形照常每帧重算，折射边缘跟着面板走。渲染类始终保持 map-glass-refracting，
  * 不做 90% 白纱 ↔ 66% 玻璃的切换——那一步就是用户看到的「收起时闪一下」。
  */
@@ -222,7 +222,7 @@ function beginGlassTransition(): void {
   // transitionend 可能被吞掉（快速连点、中途反向拖拽、tab 切走）：
   // 用略长于动画的兜底定时器保证一定能恢复，不让折射卡在暂停态。
   clearGlassTransitionTimer()
-  glassTransitionTimer = setTimeout(endGlassTransition, 360)
+  glassTransitionTimer = setTimeout(endGlassTransition, 420)
 }
 
 function handleSheetTransitionStart(event: TransitionEvent): void {
@@ -831,7 +831,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   >
     <aside
       ref="mobileSheetElement"
-      class="map-glass-sheet absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="map-glass-sheet absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[320ms] ease-[cubic-bezier(0.24,1,0.32,1)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
       @transitionstart="handleSheetTransitionStart"
       @transitionend="handleSheetTransitionEnd"
