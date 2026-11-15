@@ -57,6 +57,16 @@ test('胶囊层只在地图折叠态出现，且避开点按（pointer-events-no
   assert.match(layerWindow, /v-if="mobileSheetState === 'collapsed'"/)
 })
 
+test('贴到右缘时胶囊翻到车点左侧，不被缩放/罗盘控件压住', () => {
+  // maplibre 右侧控件组 40×120 会盖住居中悬挂的胶囊：必须有右缘安全区与翻转分支。
+  assert.match(etaSource, /RIGHT_CONTROL_GUTTER_PX = \d+/)
+  assert.match(etaSource, /PILL_HALF_WIDTH_PX = \d+/)
+  assert.match(etaSource, /screen\.x \+ PILL_HALF_WIDTH_PX > viewportWidth - RIGHT_CONTROL_GUTTER_PX/)
+  assert.match(etaSource, /window\.innerWidth/)
+  assert.match(etaSource, /nearLeft = viewportWidth > 0 && screen\.x - PILL_HALF_WIDTH_PX < 8/)
+  assert.match(etaSource, /flipLeft \? 'calc\(-100% - 10px\)' : nearLeft \? '10px' : '-50%'/)
+})
+
 test('页面按当前方向接线，胶囊用 transform 定位', () => {
   assert.ok(pillAt >= 0, '页面上找不到 <MapBusEtaPill>')
   assert.match(pageSource, /useMapBusEta\(\{ buses: busVehicles, routes: busRoutes, provider: mapProvider, activeRouteId: busSelectedRouteId \}\)/)
