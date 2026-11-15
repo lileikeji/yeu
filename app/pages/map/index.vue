@@ -863,7 +863,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     :data-glass-ready="mapGlassActive ? 'on' : 'off'"
     :data-glass-fps="mapGlassFps"
     :data-sheet-state="mobileSheetState"
-    :data-mobile-dock="mobileSheetState === 'collapsed' ? 'bottom' : mapSheetSearching ? 'floating' : 'hidden'"
     :style="{ '--map-mobile-dock': `${mobileDockBottom}px` }"
   >
     <aside
@@ -2026,8 +2025,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       :fetched-at="busFetchedAt"
       :left-offset="sidebarCollapsed ? '1rem' : '19rem'"
       :user-location="userLocation"
-      :dock-visible="mapSheetView !== 'bus'"
-      @open-sheet="openBusSheet"
       @select-route="busSelectedRouteId = $event"
     />
 
@@ -2402,24 +2399,8 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     background: transparent;
   }
 
-  /* 校车胶囊（MapBusRoutePanel 折叠触发器）跟着同一条基线走 */
-  .map-workspace .map-bus-dock {
-    bottom: var(--map-mobile-dock, 10.25rem);
-  }
-
-  /* 搜索胶囊浮在面板上沿时（搜索把面板抬到半屏、dock 改跟 --map-mobile-dock），
-     胶囊自己占 10px + 54px + 22px ≈ 86px 的一条浮带。校车胶囊原来跟它同基线，
-     右半截被搜索框压住，这里整体让开那条浮带。 */
-  .map-workspace[data-mobile-dock='floating'] .map-bus-dock {
-    bottom: calc(var(--map-mobile-dock, 10.25rem) + 86px);
-  }
-
   /* impl/05：折叠态面板收起，底栏搜索块占住底部，校车浮标上移让位 */
   .map-workspace[data-sheet-state='collapsed'] .map-mobile-dock {
-    bottom: calc(var(--map-mobile-dock, 0px) + 87px);
-  }
-
-  .map-workspace[data-sheet-state='collapsed'] .map-bus-dock {
     bottom: calc(var(--map-mobile-dock, 0px) + 87px);
   }
 
@@ -2433,8 +2414,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   }
 
   /* 面板展开（上沿已顶到搜索胶囊）时，浮动带没有空间，整条收起，避免穿模 */
-  .map-workspace[data-sheet-state='expanded'] .map-mobile-dock,
-  .map-workspace[data-sheet-state='expanded'] .map-bus-dock {
+  .map-workspace[data-sheet-state='expanded'] .map-mobile-dock {
     display: none;
   }
 

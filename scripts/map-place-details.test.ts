@@ -367,8 +367,9 @@ test('clearing the search folds the mobile sheet so the dock stays reachable', (
   assert.equal((pageSource.match(/@click="onClearSearch"/g) || []).length, 2)
 })
 
-test('bus chip clears the floating mobile search dock', () => {
-  // F30：搜索胶囊浮在面板上沿时与校车胶囊同基线，右半截被搜索框压住。
-  assert.match(pageSource, /:data-mobile-dock="mobileSheetState === 'collapsed' \? 'bottom' : mapSheetSearching \? 'floating' : 'hidden'"/)
-  assert.match(pageSource, /\[data-mobile-dock='floating'\] \.map-bus-dock \{[\s\S]{0,120}?\+ 86px\)/)
+test('mobile bus pill is gone: no dock offset rules left to collide with the search dock', () => {
+  // 手机浮标删除后，T-026 的 data-mobile-dock 让位机制整体退场；搜索胶囊位置只看 data-sheet-state。
+  assert.doesNotMatch(pageSource, /map-bus-dock/)
+  assert.doesNotMatch(pageSource, /data-mobile-dock/)
+  assert.match(pageSource, /\.map-workspace\[data-sheet-state='expanded'\] \.map-mobile-dock \{[\s\S]{0,80}?display: none/)
 })

@@ -16,8 +16,6 @@ const props = defineProps<{
   /** 用户实时位置（WGS84）；提供后每辆车显示「距您 X 米」。 */
   userLocation?: { lng: number, lat: number } | null
   variant?: 'floating' | 'sheet'
-  /** 手机「校车实时」胶囊是否可见；叮叮车视图占着面板时置 false，避免与折叠条重复 */
-  dockVisible?: boolean
   state?: MobileSheetState
 }>()
 
@@ -28,7 +26,6 @@ const emit = defineEmits<{
   'sheet-expand': []
   'sheet-collapse': []
   'sheet-back': []
-  'open-sheet': []
   'sheet-drag-start': [event: PointerEvent]
 }>()
 
@@ -510,17 +507,6 @@ function markerBarTop(ratio: number): string {
       </div>
     </template>
   </div>
-
-  <!-- 收起态（移动端）：仅 floating 变体；sheet 变体由上方折叠条承载 -->
-  <UButton
-    v-if="!isSheet && !open && dockVisible !== false"
-    icon="i-lucide-bus-front"
-    label="校车实时"
-    color="primary"
-    variant="solid"
-    class="map-bus-dock absolute right-3 z-30 shadow-lg md:hidden"
-    @click="emit('open-sheet')"
-  />
 
   <!-- 收起态（桌面端）：320px 白底单行条，跟随侧边栏宽度（见 leftOffset） -->
   <button
