@@ -116,6 +116,13 @@ test('手机浮标退场：dock 机制清零，顶部分类行仍是五格横向
   assert.doesNotMatch(pageSource, /dock-visible/)
   assert.doesNotMatch(pageSource, /data-mobile-dock/)
 })
+test('叮叮车标题与「我的地图」同级：15px 半粗，不再是小号标签', () => {
+  const at = componentSource.indexOf('text-[15px] font-semibold leading-6')
+  assert.ok(at > 0, '标题用 15px 半粗')
+  assert.equal(componentSource.slice(at, at + 200).includes('叮叮车'), true)
+  assert.match(pageSource, /text-\[15px\] font-semibold[^>]*>\s*我的地图/)
+})
+
 test('车辆卡：有车是暖橙描边卡，车名 + 正驶向 + 右侧 ETA', () => {
   assert.match(componentSource, /正驶向「\$\{bus\.nextStopName\}」/)
   assert.match(componentSource, /已到「\$\{bus\.atSiteDetail\}」/)
