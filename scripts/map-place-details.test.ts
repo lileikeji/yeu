@@ -106,3 +106,13 @@ test('desktop place list keeps mouse and wheel control after mobile sheet collap
   assert.match(pageSource, /'overflow-hidden'/)
   assert.match(pageSource, /mobileSheetState === 'collapsed'[\s\S]*?'hidden md:block' : 'block'/)
 })
+
+// T-022 修正 01（R-010 F14）：半屏 326 / 折叠 0 必须由 CSS 断点决定（max-md:），
+// 不能挂在 panelIsDesktop 上——JS 断点与 CSS 断点不同源时面板会卡在 58vh。
+test('mobile sheet half height is pinned by the max-md breakpoint', () => {
+  assert.match(pageSource, /max-md:!h-\[326px\]/, '半屏高度应使用 max-md:!h-[326px]')
+})
+
+test('mobile sheet collapsed state collapses via the max-md breakpoint', () => {
+  assert.match(pageSource, /max-md:!h-0 max-md:border-t-0 max-md:shadow-none/, '折叠态收起与边框阴影应走 max-md:')
+})
