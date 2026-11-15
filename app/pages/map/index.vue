@@ -789,8 +789,10 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       :style="mobileSheetStyle"
       :class="[
         mobileSheetHeightClass,
-        !panelIsDesktop && mobileSheetState === 'half' ? '!h-[326px]' : '',
-        !panelIsDesktop && mobileSheetState === 'collapsed' ? '!h-0 border-t-0 shadow-none' : '',
+        // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
+        // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
+        mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
+        mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
         // 真折射跑起来时不要再叠 backdrop-filter：叠了等于把已经弯折的底图再糊一遍，
         // 08-WebGL全屏折射 里「楼在玻璃里折」的观感就没了。ready=false 才回落到 blur。
         mapGlassActive ? 'map-glass-refracting' : 'map-glass-surface',
