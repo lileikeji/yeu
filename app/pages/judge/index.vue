@@ -15,7 +15,21 @@ useSeoMeta({
 
 type AuthState = 'checking' | 'ready' | 'unauthenticated' | 'error'
 type TabKey = 'score' | 'round' | 'final'
+type ScoreInputMode = 'tap' | 'slider'
 type SingerWithScore = CompetitionJudgePayload['singers'][number]
+
+const SCORE_MODE_STORAGE_KEY = 'yeu:judge:score-mode'
+const scoreInputMode = ref<ScoreInputMode>('tap')
+
+function setScoreInputMode(mode: ScoreInputMode): void {
+  scoreInputMode.value = mode
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(SCORE_MODE_STORAGE_KEY, mode)
+  } catch {
+    // 隐私模式无法写存储时忽略，不影响当前页面切换。
+  }
+}
 
 const authState = ref<AuthState>('checking')
 const loadError = ref('')
@@ -72,8 +86,13 @@ const singerList = computed(() => {
     })
 })
 const maxTotal = computed(() => event.value?.maxTotal ?? dimensions.value.length * 10)
-/** 每个维度的满分（当前 20 分），供输入框与校验使用。 */
+/** 每个维度的满分（10 分制），供输入框与校验使用。 */
 const dimensionMax = COMPETITION_MAX_DIMENSION_SCORE
+/** 本轮打分精度：整数（默认）或小数（小数只能用拖滑块，输入框只读）。 */
+const scorePrecision = computed(() => payload.value?.round.scorePrecision ?? 'integer')
+const decimalMode = computed(() => scorePrecision.value === 'decimal')
+const scoreStep = computed(() => (decimalMode.value ? 0.1 : 1))
+const tapScoreChoices = Array.from({ length: dimensionMax }, (_, index) => index + 1)
 const weightSum = computed(() => dimensions.value.reduce((sum, dimension) => sum + dimension.weight, 0))
 
 /** 顺序评分：主持人把全场指到同一位选手，所有人都只能给这一位打分。 */
@@ -263,8 +282,10 @@ function normalizeScore(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   const value = Number(raw)
   if (!Number.isFinite(value)) return null
-  // 十点制按整数打：滑块与输入框都只收整数，避免出现 8.3 这种手感很差的分数。
-  return Math.min(dimensionMax, Math.max(0, Math.round(value)))
+  const bounded = Math.min(dimensionMax, Math.max(0, value))
+  if (decimalMode.value) return Math.round(bounded * 10) / 10
+  // 整数模式：滑块与输入框都只收整数，避免出现 8.3 这种手感很差的分数。
+  return Math.round(bounded)
 }
 
 function setDraftScore(key: string, raw: unknown): void {
@@ -272,6 +293,12 @@ function setDraftScore(key: string, raw: unknown): void {
     ...draftScores.value,
     [key]: normalizeScore(raw)
   }
+}
+
+function sliderFillPercent(key: string): string {
+  const value = draftScores.value[key]
+  if (typeof value !== 'number') return '0%'
+  return `${Math.round((value / dimensionMax) * 100)}%`
 }
 
 /** 服务端明确拒绝的几种情况，提示完就同步成最新状态。 */
@@ -453,7 +480,15 @@ function syncPolling(): void {
 
 watch([authState, saving], syncPolling)
 
-onMounted(bootstrap)
+onMounted(() => {
+  try {
+    const savedMode = localStorage.getItem(SCORE_MODE_STORAGE_KEY)
+    if (savedMode === 'tap' || savedMode === 'slider') scoreInputMode.value = savedMode
+  } catch {
+    // 忽略本地存储读取异常。
+  }
+  void bootstrap()
+})
 onBeforeUnmount(stopPolling)
 </script>
 
@@ -644,56 +679,59 @@ onBeforeUnmount(stopPolling)
           <section
             v-show="activeTab === 'score'"
             data-score-section
-            class="grid min-h-0 gap-2 overflow-hidden lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)] lg:gap-4 lg:overflow-visible"
+            class="grid min-h-0 gap-2 overflow-hidden lg:grid-cols-[minmax(20rem,22rem)_minmax(0,1fr)] lg:gap-4 lg:overflow-visible"
           >
             <aside
               v-if="sequential && current"
               class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
             >
-              <div class="border-b border-zinc-100 px-3 py-2.5 dark:border-zinc-800">
+              <div class="flex items-center justify-between gap-2 px-3 pt-2 pb-1.5">
                 <h2 class="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
                   顺序评分 · {{ current.day === 1 ? '第一天' : current.day === 2 ? '第二天' : '本场' }} ·
-                  第 {{ current.index }} / {{ current.total }} 位
+                  第 {{ current.index }}/{{ current.total }} 位
                 </h2>
+                <span class="shrink-0 text-xs font-semibold tabular-nums text-green-700 dark:text-green-400">
+                  {{ current.submitted.length }}/{{ current.judgeTotal }}
+                </span>
               </div>
-              <div class="space-y-2 p-3">
-                <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                  <span>本场提交进度</span>
-                  <span class="font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">
-                    {{ current.submitted.length }} / {{ current.judgeTotal }}
-                  </span>
-                </div>
-                <div class="h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div class="px-3 pb-2.5">
+                <div class="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                   <div
                     class="h-full rounded-full bg-green-600 transition-[width] duration-300"
                     :style="{ width: `${currentSubmitPercent}%` }"
                   />
                 </div>
-                <ul class="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+                <ul class="mt-2 grid grid-cols-3 gap-1 sm:gap-1.5">
                   <li
-                    v-for="(item, slot) in current.judges"
+                    v-for="item in current.judges"
                     :key="item.id"
-                    class="flex items-center gap-2 px-2.5 py-1.5 text-[11px]"
-                    :class="item.submitted
-                      ? 'bg-green-50/70 dark:bg-green-950/40'
-                      : 'bg-white dark:bg-zinc-900'"
+                    class="flex min-w-0 items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] leading-tight transition-colors"
+                    :class="[
+                      item.submitted
+                        ? 'border-green-300 bg-green-50 text-green-900 dark:border-green-800/80 dark:bg-green-950/50 dark:text-green-200'
+                        : 'border-zinc-200 bg-zinc-50/70 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/50 dark:text-zinc-300',
+                      item.id === payload.judge.id ? 'font-semibold ring-1 ring-inset ring-green-500/30' : ''
+                    ]"
+                    :title="`${item.name}（${item.submitted ? '已提交' : '未提交'}）`"
                   >
-                    <span class="w-4 shrink-0 tabular-nums text-zinc-400">{{ slot + 1 }}</span>
-                    <span class="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">
+                    <UIcon
+                      v-if="item.submitted"
+                      name="i-lucide-check"
+                      class="size-3 shrink-0 text-green-600 dark:text-green-400"
+                      aria-hidden="true"
+                    />
+                    <span
+                      v-else
+                      class="size-1.5 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-600"
+                      aria-hidden="true"
+                    />
+                    <span class="min-w-0 flex-1 truncate">
                       {{ item.name }}
-                      <span
-                        v-if="item.id === payload.judge.id"
-                        class="text-zinc-400 dark:text-zinc-500"
-                      >（我）</span>
                     </span>
                     <span
-                      class="shrink-0 rounded px-1.5 py-0.5 font-medium"
-                      :class="item.submitted
-                        ? 'bg-green-600 text-white'
-                        : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'"
-                    >
-                      {{ item.submitted ? '已提交' : '未提交' }}
-                    </span>
+                      v-if="item.id === payload.judge.id"
+                      class="shrink-0 text-[10px] text-green-700 dark:text-green-400"
+                    >我</span>
                   </li>
                 </ul>
               </div>
@@ -862,111 +900,161 @@ onBeforeUnmount(stopPolling)
                     备注：{{ selectedSinger.remark }}
                   </p>
                 </div>
-                <div
-                  v-if="!sequential"
-                  class="flex items-center gap-1"
-                >
-                  <UButton
-                    icon="i-lucide-chevron-left"
-                    color="neutral"
-                    variant="soft"
-                    size="sm"
-                    aria-label="上一位"
-                    :disabled="selectedIndex <= 0"
-                    @click="moveSelection(-1)"
-                  />
-                  <UButton
-                    icon="i-lucide-chevron-right"
-                    color="neutral"
-                    variant="soft"
-                    size="sm"
-                    aria-label="下一位"
-                    :disabled="selectedIndex >= singers.length - 1"
-                    @click="moveSelection(1)"
-                  />
+                <div class="flex shrink-0 items-center gap-1.5">
+                  <div
+                    class="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/80 p-0.5 dark:border-zinc-700 dark:bg-zinc-800"
+                    role="group"
+                    aria-label="打分方式"
+                  >
+                    <button
+                      type="button"
+                      class="rounded-md px-2 py-1 text-[11px] font-medium transition-colors touch-manipulation"
+                      :class="scoreInputMode === 'tap'
+                        ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-950 dark:text-zinc-100'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                      :aria-pressed="scoreInputMode === 'tap'"
+                      @click="setScoreInputMode('tap')"
+                    >
+                      点选 1-{{ dimensionMax }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded-md px-2 py-1 text-[11px] font-medium transition-colors touch-manipulation"
+                      :class="scoreInputMode === 'slider'
+                        ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-950 dark:text-zinc-100'
+                        : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                      :aria-pressed="scoreInputMode === 'slider'"
+                      @click="setScoreInputMode('slider')"
+                    >
+                      滑块
+                    </button>
+                  </div>
+                  <div
+                    v-if="!sequential"
+                    class="flex items-center gap-1"
+                  >
+                    <UButton
+                      icon="i-lucide-chevron-left"
+                      color="neutral"
+                      variant="soft"
+                      size="sm"
+                      aria-label="上一位"
+                      :disabled="selectedIndex <= 0"
+                      @click="moveSelection(-1)"
+                    />
+                    <UButton
+                      icon="i-lucide-chevron-right"
+                      color="neutral"
+                      variant="soft"
+                      size="sm"
+                      aria-label="下一位"
+                      :disabled="selectedIndex >= singers.length - 1"
+                      @click="moveSelection(1)"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div class="mt-1.5 judge-compact-scores flex-1 content-start gap-1">
-                <label
-                  v-for="dimension in dimensions"
-                  :key="`m-${dimension.key}`"
-                  class="flex items-center gap-2 rounded-lg border border-zinc-200 px-2 py-0.5 dark:border-zinc-800"
-                >
-                  <span class="w-[4.6rem] shrink-0 truncate text-xs font-medium text-zinc-800 dark:text-zinc-100">
-                    {{ dimension.label }}
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    :max="dimensionMax"
-                    step="1"
-                    class="min-w-0 flex-1 accent-green-600"
-                    :value="draftScores[dimension.key] ?? 0"
-                    :disabled="!scoringOpen || currentSubmitted"
-                    :aria-label="`${dimension.label}滑块`"
-                    @input="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
-                  >
-                  <input
-                    type="number"
-                    min="0"
-                    :max="dimensionMax"
-                    step="1"
-                    inputmode="numeric"
-                    enterkeyhint="next"
-                    :data-score-input="dimension.key"
-                    class="w-14 shrink-0 rounded-md border border-zinc-300 bg-white px-1 py-1 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
-                    :value="draftScores[dimension.key] ?? ''"
-                    :disabled="!scoringOpen || currentSubmitted"
-                    :aria-label="`${dimension.label}评分`"
-                    :placeholder="`0-${dimensionMax}`"
-                    @input="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
-                    @keydown.enter.prevent="focusNextScore(dimension.key)"
-                  >
-                </label>
-              </div>
-
-              <div class="mt-4 hidden gap-3 sm:grid sm:grid-cols-2">
-                <label
+              <div class="mt-2 grid flex-1 content-start gap-1.5 sm:mt-4 sm:grid-cols-2 sm:gap-3">
+                <div
                   v-for="dimension in dimensions"
                   :key="dimension.key"
-                  class="rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-800"
+                  class="rounded-lg border border-zinc-200 px-2 py-1.5 dark:border-zinc-800 sm:px-3 sm:py-2.5"
                 >
-                  <span class="flex items-center justify-between gap-2">
-                    <span class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ dimension.label }}</span>
-                    <span class="text-xs text-zinc-400">占比 {{ weightPercent(dimension) }}%</span>
-                  </span>
-                  <span class="mt-2 flex items-center gap-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex min-w-0 items-baseline gap-1.5">
+                      <span class="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100 sm:text-sm">
+                        {{ dimension.label }}
+                      </span>
+                      <span class="hidden shrink-0 text-xs text-zinc-400 sm:inline">
+                        占比 {{ weightPercent(dimension) }}%
+                      </span>
+                    </div>
+
+                    <template v-if="scoreInputMode === 'tap'">
+                      <span
+                        v-if="typeof draftScores[dimension.key] === 'number'"
+                        class="shrink-0 text-xs font-bold tabular-nums text-green-700 dark:text-green-400 sm:text-sm"
+                      >
+                        {{ draftScores[dimension.key] }} 分
+                      </span>
+                      <span
+                        v-else
+                        class="shrink-0 text-[11px] text-zinc-400"
+                      >
+                        请点选
+                      </span>
+                    </template>
+                    <div
+                      v-else
+                      class="flex shrink-0 items-center gap-1"
+                    >
+                      <input
+                        type="number"
+                        min="0"
+                        :max="dimensionMax"
+                        :step="scoreStep"
+                        :inputmode="decimalMode ? 'decimal' : 'numeric'"
+                        enterkeyhint="next"
+                        :readonly="decimalMode"
+                        :data-score-input="dimension.key"
+                        class="w-12 rounded-md border border-zinc-300 bg-white px-1 py-0.5 text-center text-sm font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800 sm:w-14 sm:py-1"
+                        :value="draftScores[dimension.key] ?? ''"
+                        :disabled="!scoringOpen || currentSubmitted"
+                        :aria-label="`${dimension.label}评分`"
+                        :placeholder="`0-${dimensionMax}`"
+                        @input="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
+                        @keydown.enter.prevent="focusNextScore(dimension.key)"
+                      >
+                      <span class="text-[11px] text-zinc-400">/ {{ dimensionMax }}</span>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="scoreInputMode === 'tap'"
+                    class="mt-1 grid grid-cols-10 gap-[3px] sm:mt-2 sm:gap-1"
+                  >
+                    <button
+                      v-for="point in tapScoreChoices"
+                      :key="point"
+                      type="button"
+                      :disabled="!scoringOpen || currentSubmitted"
+                      :aria-label="`${dimension.label}打 ${point} 分`"
+                      :aria-pressed="draftScores[dimension.key] === point"
+                      class="h-9 rounded-md border text-xs font-semibold tabular-nums select-none touch-manipulation active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:text-sm"
+                      :class="draftScores[dimension.key] === point
+                        ? 'border-green-600 bg-green-600 text-white shadow-xs dark:border-green-500 dark:bg-green-500 dark:text-zinc-950'
+                        : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-200 dark:hover:bg-zinc-800'"
+                      @click="setDraftScore(dimension.key, point)"
+                    >
+                      {{ point }}
+                    </button>
+                  </div>
+
+                  <div
+                    v-else
+                    class="mt-0.5 sm:mt-1.5"
+                  >
                     <input
-                      type="number"
+                      type="range"
                       min="0"
                       :max="dimensionMax"
-                      step="1"
-                      inputmode="numeric"
-                      enterkeyhint="next"
-                      :data-score-input="dimension.key"
-                      class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base font-semibold tabular-nums text-zinc-900 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 disabled:cursor-not-allowed disabled:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:disabled:bg-zinc-800"
-                      :value="draftScores[dimension.key] ?? ''"
+                      :step="scoreStep"
+                      class="judge-slider"
+                      :style="{ '--slider-pct': sliderFillPercent(dimension.key) }"
+                      :value="draftScores[dimension.key] ?? 0"
                       :disabled="!scoringOpen || currentSubmitted"
-                      :aria-label="`${dimension.label}评分`"
-                      :placeholder="`0-${dimensionMax}`"
+                      :aria-label="`${dimension.label}滑块`"
                       @input="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
-                      @keydown.enter.prevent="focusNextScore(dimension.key)"
+                      @change="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
                     >
-                    <span class="shrink-0 text-xs text-zinc-400">/ {{ dimensionMax }}</span>
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    :max="dimensionMax"
-                    step="1"
-                    class="mt-2 w-full accent-green-600"
-                    :value="draftScores[dimension.key] ?? 0"
-                    :disabled="!scoringOpen || currentSubmitted"
-                    :aria-label="`${dimension.label}滑块`"
-                    @input="setDraftScore(dimension.key, ($event.target as HTMLInputElement).value)"
-                  >
-                </label>
+                    <div class="flex justify-between px-[11px] text-[10px] leading-none tabular-nums text-zinc-400">
+                      <span>0</span>
+                      <span>5</span>
+                      <span>{{ dimensionMax }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-zinc-50 px-2.5 py-1 dark:bg-zinc-800/60 sm:mt-4 sm:items-end sm:px-4 sm:py-3">
@@ -1180,3 +1268,84 @@ onBeforeUnmount(stopPolling)
     </template>
   </div>
 </template>
+
+<style>
+/* 评委端触控滑块：加高 36px 触控热区与 26px 拇指圆球，水平拖拽时允许竖向滚动。 */
+.judge-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2.25rem;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  touch-action: pan-y;
+  cursor: pointer;
+}
+
+.judge-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.judge-slider::-webkit-slider-runnable-track {
+  height: 0.625rem;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #16a34a var(--slider-pct, 0%),
+    #e4e4e7 var(--slider-pct, 0%)
+  );
+}
+
+html.dark .judge-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    #22c55e var(--slider-pct, 0%),
+    #3f3f46 var(--slider-pct, 0%)
+  );
+}
+
+.judge-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.625rem;
+  height: 1.625rem;
+  margin-top: -0.5rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 3px solid #16a34a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.judge-slider:not(:disabled):active::-webkit-slider-thumb {
+  transform: scale(1.16);
+  box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.18), 0 3px 8px rgba(0, 0, 0, 0.22);
+}
+
+.judge-slider::-moz-range-track {
+  height: 0.625rem;
+  border-radius: 9999px;
+  background: #e4e4e7;
+}
+
+html.dark .judge-slider::-moz-range-track {
+  background: #3f3f46;
+}
+
+.judge-slider::-moz-range-progress {
+  height: 0.625rem;
+  border-radius: 9999px;
+  background: #16a34a;
+}
+
+.judge-slider::-moz-range-thumb {
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 3px solid #16a34a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+</style>

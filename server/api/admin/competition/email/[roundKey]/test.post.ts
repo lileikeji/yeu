@@ -53,6 +53,7 @@ export default defineEventHandler(async (event) => {
     sortOrder: 1,
     contestDay: null,
     checkedInAt: null,
+    advanced: null,
     advancedFromRank: null,
     average: 88.88,
     scoreCount: 5,
@@ -65,6 +66,7 @@ export default defineEventHandler(async (event) => {
     studentNo: '20260001',
     phone: '13800000000',
     email: input.email,
+    qq: '12345678',
     source: 'admin' as const,
     preRegistrationId: null
   }

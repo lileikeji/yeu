@@ -16,6 +16,7 @@ interface PreRegistrationCandidate {
   name: string
   className: string | null
   song: string | null
+  qq: string | null
   preferredDay: 1 | 2 | null
   createdAt: number
   /** 只回传后四位，形如 `****0077`。 */
@@ -157,6 +158,7 @@ const form = reactive({
   studentNo: '',
   phone: '',
   email: '',
+  qq: '',
   song: ''
 })
 
@@ -210,6 +212,7 @@ function confirmCandidate(candidate: PreRegistrationCandidate): void {
   form.name = candidate.name
   form.className = candidate.className ?? ''
   form.song = candidate.song ?? ''
+  form.qq = candidate.qq ?? ''
   // 手机、邮箱、学号不跟随下发，也不回填：本人填自己的联系方式，页面不留别人的。
   preCandidates.value = []
   nextTick(() => {
@@ -227,6 +230,7 @@ function validateLocally(): string {
   if (!/^[0-9A-Za-z-]{4,20}$/.test(form.studentNo.trim())) return '请填写正确的学号'
   if (!/^1\d{10}$/.test(form.phone.trim())) return '请填写正确的手机号'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return '请填写正确的邮箱'
+  if (!/^[0-9]{5,12}$/.test(form.qq.trim())) return 'QQ 填数字，5-12 位'
   const song = form.song.trim()
   if (!song) return '请填写参赛歌曲'
   if (/^(待定|未定|暂无|无|没有|还没定|没定|tbd|tba|na|n\/a)$/i.test(song.replace(/\s+/g, ''))) {
@@ -254,6 +258,7 @@ async function submit(): Promise<void> {
         studentNo: form.studentNo.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
+        qq: form.qq.trim(),
         song: form.song.trim(),
         ...(preSelected.value ? { preRegistrationId: preSelected.value.id } : {})
       }
@@ -609,6 +614,25 @@ onMounted(async () => {
             autocomplete="email"
             class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="用于接收比赛结果通知"
+          >
+        </div>
+
+        <div>
+          <label
+            class="block text-sm font-semibold text-[#33413a]"
+            for="reg-qq"
+          >
+            QQ <span class="text-[#c2543c]">*</span>
+          </label>
+          <input
+            id="reg-qq"
+            v-model="form.qq"
+            required
+            maxlength="12"
+            name="qq"
+            inputmode="numeric"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            placeholder="查结果和接通知都要用"
           >
         </div>
 
