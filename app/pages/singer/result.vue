@@ -10,7 +10,7 @@ useSeoMeta({
 
 const route = useRoute()
 
-const form = reactive({ name: '', studentNo: '', qq: '' })
+const form = reactive({ name: '', studentNo: '', contact: '' })
 const loading = ref(false)
 const errorMessage = ref('')
 const result = ref<CompetitionResultLookup | null>(null)
@@ -30,8 +30,8 @@ function fillError(error: unknown): string {
 
 async function lookup(): Promise<void> {
   if (loading.value) return
-  if (!form.name.trim() || !form.studentNo.trim() || !form.qq.trim()) {
-    errorMessage.value = '姓名、学号、QQ 三项都要填'
+  if (!form.name.trim() || !form.studentNo.trim() || !form.contact.trim()) {
+    errorMessage.value = '姓名、学号和 QQ 或邮箱都要填'
     return
   }
   loading.value = true
@@ -44,7 +44,7 @@ async function lookup(): Promise<void> {
       body: {
         name: form.name.trim(),
         studentNo: form.studentNo.trim(),
-        qq: form.qq.trim()
+        contact: form.contact.trim()
       }
     })
     receiptDone.value = Boolean(result.value.receipt.confirmedAt)
@@ -121,7 +121,7 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
       <template v-else>
         <div class="mt-6 rounded-2xl border border-[#f0dcc9] bg-white p-4">
           <p class="text-sm text-[#5b6b62]">
-            填姓名、学号和 QQ，三项都对了才能查到。
+            填姓名、学号和 QQ 或邮箱，三项都对了才能查到。
           </p>
           <div class="mt-3 space-y-3">
             <input
@@ -138,10 +138,9 @@ const bodyLines = computed(() => (result.value?.body ?? '').split('\n').map(line
               class="w-full rounded-xl border border-[#e5d3c3] px-3 py-2.5 text-base outline-none focus:border-[#e2725b]"
             >
             <input
-              v-model="form.qq"
-              maxlength="12"
-              inputmode="numeric"
-              placeholder="QQ"
+              v-model="form.contact"
+              maxlength="120"
+              placeholder="QQ 号或 QQ 邮箱"
               class="w-full rounded-xl border border-[#e5d3c3] px-3 py-2.5 text-base outline-none focus:border-[#e2725b]"
             >
           </div>

@@ -222,7 +222,7 @@ export function getCompetitionEventRow(client: DatabaseClient, contentId: string
       .where(eq(competitionEvents.contentId, contentId))
       .orderBy(desc(competitionEvents.createdAt))
       .get()
-    ?? null
+      ?? null
 }
 
 function ensureRounds(client: DatabaseClient, eventId: string): RoundRow[] {
@@ -853,7 +853,7 @@ function buildRoundRanking(
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
-        advanced: row.entry.advanced ?? null,
+      advanced: row.entry.advanced ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       average: row.average,
       scoreCount: row.scoreCount,
@@ -871,7 +871,7 @@ function buildRoundRanking(
       sortOrder: row.entry.sortOrder,
       contestDay: row.entry.contestDay ?? null,
       checkedInAt: row.entry.checkedInAt ?? null,
-        advanced: row.entry.advanced ?? null,
+      advanced: row.entry.advanced ?? null,
       advancedFromRank: row.entry.advancedFromRank,
       average: null,
       scoreCount: 0,
@@ -3393,35 +3393,47 @@ function normalizeLookup(value: string | undefined): string {
 export function lookupCompetitionResult(
   client: DatabaseClient,
   contentId: string,
-  input: { name?: string, studentNo?: string, qq?: string }
+  input: { name?: string, studentNo?: string, contact?: string }
 ): CompetitionResultLookup {
   const name = normalizeLookup(input.name)
   const studentNo = normalizeLookup(input.studentNo)
-  const qq = normalizeLookup(input.qq)
-  if (!name || !studentNo || !qq) {
-    validationError('姓名、学号、QQ 三项都要填', !name ? 'name' : !studentNo ? 'studentNo' : 'qq')
+  const contact = normalizeLookup(input.contact)
+  if (!name || !studentNo || !contact) {
+    validationError('姓名、学号、QQ 或邮箱三项都要填', !name ? 'name' : !studentNo ? 'studentNo' : 'contact')
   }
+  // 第三要素既可以是 QQ 号，也可以是邮箱：带 @ 就按邮箱比，纯数字按 QQ 比。
+  const byEmail = contact.includes('@')
   const eventRow = ensureCompetitionEvent(client, contentId)
   // 老选手可能没在选手库填 QQ：允许用他预报名时留下的 QQ 对上。
   const preRows = client.db.select().from(competitionPreRegistrations)
     .where(eq(competitionPreRegistrations.eventId, eventRow.id))
     .all()
+  const preKey = (row: { name?: string | null, studentNo?: string | null }) =>
+    `${normalizeLookup(row.name ?? undefined)}|${normalizeLookup(row.studentNo ?? undefined)}`
   const preQqByNameAndNo = new Map(
-    preRows
-      .filter(row => row.qq)
-      .map(row => [`${normalizeLookup(row.name ?? undefined)}|${normalizeLookup(row.studentNo ?? undefined)}`, normalizeLookup(row.qq ?? undefined)])
+    preRows.filter(row => row.qq).map(row => [preKey(row), normalizeLookup(row.qq ?? undefined)])
+  )
+  const preEmailByNameAndNo = new Map(
+    preRows.filter(row => row.email).map(row => [preKey(row), normalizeLookup(row.email ?? undefined)])
   )
   const singer = listSingers(client, eventRow.id).find((item) => {
     const itemName = normalizeLookup(item.name ?? undefined)
     const itemNo = normalizeLookup(item.studentNo ?? undefined)
+    if (itemName !== name || itemNo !== studentNo) return false
+    if (byEmail) {
+      const itemEmail = normalizeLookup(item.email ?? undefined)
+        || preEmailByNameAndNo.get(`${itemName}|${itemNo}`)
+        || ''
+      return itemEmail === contact
+    }
     const itemQq = normalizeLookup(item.qq ?? undefined)
       || normalizeLookup(qqFromEmail(item.email))
       || preQqByNameAndNo.get(`${itemName}|${itemNo}`)
       || ''
-    return itemName === name && itemNo === studentNo && itemQq === qq
+    return itemQq === contact
   })
   if (!singer) {
-    conflictError('COMPETITION_LOOKUP_NOT_FOUND', '姓名、学号、QQ 对不上，请核对后重试')
+    conflictError('COMPETITION_LOOKUP_NOT_FOUND', '姓名、学号、QQ 或邮箱对不上，请核对后重试')
   }
 
   const rounds = client.db.select().from(competitionRounds)

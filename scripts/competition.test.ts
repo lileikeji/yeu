@@ -1549,21 +1549,29 @@ test('数据库：三要素查询只在发信后开放，回执点一次就记�
   const prelim = getRoundByKey(client, event.id, 'prelim')
 
   assert.throws(
-    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', qq: '12345678' }),
+    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', contact: '12345678' }),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_CLOSED'
   )
   assert.throws(
-    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', qq: '' }),
-    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'qq'
+    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', contact: '' }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'contact'
   )
 
   openResultQuery(client, prelim)
   assert.throws(
-    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260002', qq: '12345678' }),
+    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260002', contact: '12345678' }),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND'
   )
 
-  const found = lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', qq: '12345678' })
+  // 第三要素既可以是 QQ 号，也可以是邮箱。
+  const byEmail = lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', contact: 'A@Example.com' })
+  assert.equal(byEmail.singerName, '甲一')
+  assert.throws(
+    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', contact: 'b@example.com' }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND'
+  )
+
+  const found = lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', contact: '12345678' })
   assert.equal(found.singerName, '甲一')
   assert.match(found.body, /甲一/)
   assert.doesNotMatch(found.body, /平均分|排名/)
@@ -1572,7 +1580,7 @@ test('数据库：三要素查询只在发信后开放，回执点一次就记�
   const receipt = confirmReceiptByToken(client, found.receiptToken)
   assert.equal(receipt.singerName, '甲一')
   assert.equal(typeof receipt.confirmedAt, 'number')
-  const again = lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', qq: '12345678' })
+  const again = lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', contact: '12345678' })
   assert.equal(typeof again.receipt.confirmedAt, 'number')
 
   closeDatabase(':memory:')
@@ -1766,9 +1774,17 @@ test('数据库：QQ 就是邮箱去掉 @qq.com，没填 QQ 也能自动补上',
   const found = lookupCompetitionResult(client, musicId, {
     name: '甲一',
     studentNo: '20260001',
-    qq: '13850839985'
+    contact: '13850839985'
   })
   assert.equal(found.singerName, '甲一')
+
+  // 同一人也允许直接用邮箱查
+  const byEmail = lookupCompetitionResult(client, musicId, {
+    name: '甲一',
+    studentNo: '20260001',
+    contact: '13850839985@qq.com'
+  })
+  assert.equal(byEmail.singerName, '甲一')
 
   closeDatabase(':memory:')
 })
