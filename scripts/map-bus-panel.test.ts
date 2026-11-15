@@ -99,3 +99,13 @@ test('视图切换只藏地点内容，桌面浮层原样保留', () => {
   assert.match(componentSource, /v-else-if="!isSheet"/)
   assert.match(pageSource, /v-model:open="busPanelOpen"/)
 })
+
+test('分类格有第九格叮叮车入口，一次点击进第三视图', () => {
+  const grid = pageSource.indexOf('map-sheet-categories')
+  const at = pageSource.indexOf('aria-label="打开叮叮车"')
+  assert.ok(grid > 0 && at > grid, '入口排在手机端分类格内')
+  assert.ok(at - grid < 2600, '入口紧跟在分类按钮之后')
+  const block = pageSource.slice(at - 500, at + 300)
+  assert.match(block, /@click="openBusSheet"/)
+  assert.match(block, /var\(--bus-accent-soft\)/)
+})
