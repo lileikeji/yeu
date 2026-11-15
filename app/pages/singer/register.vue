@@ -224,6 +224,12 @@ function clearCandidate(): void {
   preSelected.value = null
 }
 
+/** QQ 邮箱就是 QQ 号@qq.com：填了邮箱就顺手补上 QQ。 */
+function syncQqFromEmail(): void {
+  const match = /^\s*([0-9]{5,12})@qq\.com\s*$/i.exec(form.email)
+  if (match) form.qq = match[1]!
+}
+
 function validateLocally(): string {
   if (!form.name.trim()) return '请填写姓名'
   if (!form.className.trim()) return '请填写班级'
@@ -612,6 +618,7 @@ onMounted(async () => {
             name="email"
             type="email"
             autocomplete="email"
+            @blur="syncQqFromEmail"
             class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
             placeholder="用于接收比赛结果通知"
           >

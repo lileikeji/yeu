@@ -25,6 +25,12 @@ const form = reactive({
   preferredDay: null as number | null
 })
 
+/** QQ 邮箱就是 QQ 号@qq.com：填了邮箱就顺手补上 QQ。 */
+function syncQqFromEmail(): void {
+  const match = /^\s*([0-9]{5,12})@qq\.com\s*$/i.exec(form.email)
+  if (match) form.qq = match[1]!
+}
+
 const ROUND_LABELS: Record<string, string> = { prelim: '初赛', semi: '复赛', final: '决赛' }
 
 const schedule = computed(() => status.value?.schedule ?? [])
@@ -410,6 +416,7 @@ onMounted(loadStatus)
                 maxlength="120"
                 name="email"
                 type="email"
+                @blur="syncQqFromEmail"
                 class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
                 placeholder="用于接收比赛结果通知"
               >

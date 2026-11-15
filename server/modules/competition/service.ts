@@ -1833,7 +1833,7 @@ function normalizeSingerInput(input: SingerInput): {
   if (phoneRaw.length > 20) validationError('电话不超过 20 字', 'phone')
   const emailRaw = String(input.email ?? '').trim()
   if (emailRaw.length > 120) validationError('邮箱不超过 120 字', 'email')
-  const qqRaw = String(input.qq ?? '').trim()
+  const qqRaw = String(input.qq ?? '').trim() || qqFromEmail(emailRaw)
   if (qqRaw.length > 20) validationError('QQ 不超过 20 字', 'qq')
   if (qqRaw && !/^[0-9]{5,12}$/.test(qqRaw)) validationError('QQ 填数字，5-12 位', 'qq')
 
@@ -1917,6 +1917,12 @@ export function createSinger(client: DatabaseClient, eventId: string, input: Sin
   const row = client.db.select().from(competitionSingers)
     .where(eq(competitionSingers.id, id)).get()!
   return serializeSinger(row)
+}
+
+/** QQ 邮箱就是「QQ 号@qq.com」：邮箱去掉后缀就是 QQ 号。 */
+export function qqFromEmail(email: string | null | undefined): string {
+  const match = /^\s*([0-9]{5,12})@qq\.com\s*$/i.exec(String(email ?? ''))
+  return match ? match[1]! : ''
 }
 
 function requireSingerRow(client: DatabaseClient, eventId: string, singerId: string): SingerRow {
@@ -3408,7 +3414,10 @@ export function lookupCompetitionResult(
   const singer = listSingers(client, eventRow.id).find((item) => {
     const itemName = normalizeLookup(item.name ?? undefined)
     const itemNo = normalizeLookup(item.studentNo ?? undefined)
-    const itemQq = normalizeLookup(item.qq ?? undefined) || preQqByNameAndNo.get(`${itemName}|${itemNo}`) || ''
+    const itemQq = normalizeLookup(item.qq ?? undefined)
+      || normalizeLookup(qqFromEmail(item.email))
+      || preQqByNameAndNo.get(`${itemName}|${itemNo}`)
+      || ''
     return itemName === name && itemNo === studentNo && itemQq === qq
   })
   if (!singer) {

@@ -38,6 +38,7 @@ import {
   preRegisterFromForm,
   prelimDayDates,
   resolvePrelimDay,
+  qqFromEmail,
   registerSingerFromForm,
   reorderRoundEntries,
   renderCompetitionEmailTemplate,
@@ -1728,6 +1729,46 @@ test('数据库：编辑选手只传姓名时不清空学号、QQ、邮箱', () 
   assert.equal(after.email, 'yu@example.com')
   assert.equal(after.qq, '88889999')
   assert.equal(after.className, '26物联网1班')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：QQ 就是邮箱去掉 @qq.com，没填 QQ 也能自动补上', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  assert.equal(qqFromEmail('13850839985@qq.com'), '13850839985')
+  assert.equal(qqFromEmail(' 13850839985@QQ.com '), '13850839985')
+  assert.equal(qqFromEmail('someone@163.com'), '')
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const singer = createSinger(client, event.id, {
+    name: '甲一',
+    song: '晴天',
+    studentNo: '20260001',
+    email: '13850839985@qq.com',
+    qq: null
+  })
+  assert.equal(singer.qq, '13850839985')
+
+  // 查结果时也能用「邮箱里的 QQ 号」对上，不必单独维护 QQ 字段
+  openResultQuery(client, getRoundByKey(client, event.id, 'prelim'))
+  const found = lookupCompetitionResult(client, musicId, {
+    name: '甲一',
+    studentNo: '20260001',
+    qq: '13850839985'
+  })
+  assert.equal(found.singerName, '甲一')
 
   closeDatabase(':memory:')
 })
