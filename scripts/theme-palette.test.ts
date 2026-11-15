@@ -150,3 +150,24 @@ test('F13: 暗色 theme-color 与各套 html.dark 的 --page-bg 对齐，boot sc
   }
   assert.ok(THEME_BOOT_SCRIPT.includes('theme-color'), 'boot script 未写 theme-color')
 })
+
+// G. SSR 与首屏一致：主题相关节点不能靠 JS 条件渲染（SSR 不知道用户存的暗色），否则首屏 hydration mismatch
+
+test('G14: 品牌 logo 与主题按钮图标由 CSS 切明暗，不按 isDark 条件渲染', () => {
+  const layout = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
+  const errorPage = readFileSync(resolve('app/error.vue'), 'utf8')
+  for (const [name, source] of [['default.vue', layout], ['error.vue', errorPage]] as const) {
+    assert.ok(source.includes('/images/brand/system-logo-mark-light.png'), `${name} 缺少浅色 logo`)
+    assert.ok(source.includes('/images/brand/system-logo-mark.png'), `${name} 缺少暗色 logo`)
+    assert.doesNotMatch(source, /isSiteDark/, `${name} 仍按 isDark 条件渲染 logo，首屏会 hydration mismatch`)
+    assert.doesNotMatch(source, /:src="is/, `${name} 的 logo src 不应是条件绑定`)
+  }
+  assert.ok(vueSource.includes('i-lucide-sun'), '主题按钮缺少太阳图标')
+  assert.ok(vueSource.includes('i-lucide-moon'), '主题按钮缺少月亮图标')
+  assert.ok(
+    vueSource.includes('dark:hidden') && vueSource.includes('dark:block'),
+    '主题按钮图标未用 CSS 切明暗'
+  )
+  assert.doesNotMatch(vueSource, /:icon="/, '主题按钮仍条件绑定图标，首屏会 hydration mismatch')
+  assert.doesNotMatch(vueSource, /isDark/, '主题按钮仍按 isDark 派生渲染，首屏会 hydration mismatch')
+})

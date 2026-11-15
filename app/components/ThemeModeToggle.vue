@@ -2,7 +2,7 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { ThemeMode } from '~/utils/theme-mode'
 
-const { mode, isDark, palette, palettes, setMode, setPalette } = useThemeMode()
+const { mode, palette, palettes, setMode, setPalette } = useThemeMode()
 
 const themeOptions: Array<{ label: string, value: ThemeMode, icon: string }> = [
   { label: '跟随系统', value: 'system', icon: 'i-lucide-monitor' },
@@ -37,10 +37,6 @@ const items = computed<DropdownMenuItem[][]>(() => {
   }
   return groups
 })
-
-const modeLabel = computed(() => themeOptions.find(option => option.value === mode.value)?.label ?? '跟随系统')
-const paletteLabel = computed(() => palettes.find(p => p.id === palette.value)?.label ?? palettes[0]?.label ?? '白纸')
-const icon = computed(() => isDark.value ? 'i-lucide-moon' : 'i-lucide-sun')
 </script>
 
 <template>
@@ -49,11 +45,20 @@ const icon = computed(() => isDark.value ? 'i-lucide-moon' : 'i-lucide-sun')
     :content="{ align: 'end', sideOffset: 8 }"
   >
     <UButton
-      :icon="icon"
       color="neutral"
       variant="ghost"
-      :aria-label="`外观主题：${modeLabel}，当前配色：${paletteLabel}。点击切换浅色/深色/跟随系统与配色`"
+      aria-label="外观主题：点击切换浅色/深色/跟随系统与配色"
       class="justify-center min-h-10 min-w-10 md:min-h-11 md:min-w-11"
-    />
+    >
+      <!-- 两枚图标由 CSS 切：SSR 不知道用户存的是暗色，条件 icon 会造成 hydration mismatch -->
+      <UIcon
+        name="i-lucide-sun"
+        class="size-5 dark:hidden"
+      />
+      <UIcon
+        name="i-lucide-moon"
+        class="hidden size-5 dark:block"
+      />
+    </UButton>
   </UDropdownMenu>
 </template>

@@ -191,26 +191,29 @@ export class MapLibrePreviewProvider implements MapProvider {
 
     this.disposeMap()
     const lifecycleVersion = ++this.lifecycleVersion
-    const [maplibre] = await Promise.all([
+    const [maplibre, , workerModule] = await Promise.all([
       import('maplibre-gl'),
-      import('maplibre-gl/dist/maplibre-gl.css')
+      import('maplibre-gl/dist/maplibre-gl.css'),
+      // CR-13：worker 交给打包器产出 URL。库自身按 import.meta.url 推导时，产物里没有
+      // maplibre-gl-worker*.mjs（`.output/public/_nuxt` 实测只有 css 与主 chunk），
+      // worker 请求 404 → 地图一直「正在载入」。?worker&url 让 Vite 打包 worker 并给出产物地址。
+      import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url')
     ])
+    const maplibreWorkerUrl: unknown = (workerModule as { default?: unknown }).default
+    if (typeof maplibreWorkerUrl === 'string' && maplibreWorkerUrl) {
+      maplibre.setWorkerUrl(maplibreWorkerUrl)
+    }
 
     if (lifecycleVersion !== this.lifecycleVersion) {
       return
     }
 
-    // Vite 预打包 maplibre-gl 成单个 deps 文件后，库内部的
-    // `new URL('./maplibre-gl-worker.mjs', import.meta.url)` 会指向
-    // node_modules/.cache/vite/client/deps/ 下不存在的路径，浏览器报
-    // 「Worker failed to load」，所有依赖 worker 的图层（POI marker、
-    // 校车线路）都不渲染。
-    // 用 `?url` 后缀让 Vite 解析出真实可访问的 worker 资源地址，
-    // 再交给 maplibre 官方的 setWorkerUrl()。
-    if (typeof window !== 'undefined') {
-      const { default: workerUrl } = await import('maplibre-gl/dist/maplibre-gl-worker.mjs?url')
-      maplibre.setWorkerUrl(workerUrl)
-    }
+    // worker 地址交给 maplibre 自己按 import.meta.url 推导：dev 侧已在 nuxt.config 里
+    // 把 maplibre-gl 排除出 Vite 预打包（optimizeDeps.exclude），模块 URL 落在
+    // node_modules/maplibre-gl/dist/ 下，./maplibre-gl-worker.mjs 能正确命中。
+    // 早先的 `import('…worker.mjs?url')` 在 pnpm + @fs 路径下不会返回 URL 字符串
+    // （实测拿到的是 worker 源码模块，default 为 undefined），setWorkerUrl(undefined)
+    // 反而让库内部 tl() 收到非字符串，手机端抛 TypeError: e.endsWith is not a function。
 
     const map = new maplibre.Map({
       container: element,
