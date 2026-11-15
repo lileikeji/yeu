@@ -1291,14 +1291,6 @@ onBeforeUnmount(stopPolling)
   );
 }
 
-html.dark .judge-slider::-webkit-slider-runnable-track {
-  background: linear-gradient(
-    to right,
-    var(--color-green-500) var(--slider-pct, 0%),
-    var(--line) var(--slider-pct, 0%)
-  );
-}
-
 .judge-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -1320,15 +1312,14 @@ html.dark .judge-slider::-webkit-slider-runnable-track {
 .judge-slider::-moz-range-track {
   height: 0.625rem;
   border-radius: 9999px;
-  background: var(--line);
+  background: linear-gradient(
+    to right,
+    var(--color-green-600) var(--slider-pct, 0%),
+    var(--line) var(--slider-pct, 0%)
+  );
 }
 
 
-.judge-slider::-moz-range-progress {
-  height: 0.625rem;
-  border-radius: 9999px;
-  background: var(--color-green-600);
-}
 
 .judge-slider::-moz-range-thumb {
   width: 1.625rem;
