@@ -921,57 +921,56 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           @click="() => { mobileSheetState = mobileSheetState === 'collapsed' ? 'half' : 'collapsed' }"
         >
           {{ mobileSheetState === 'collapsed' ? '展开' : '收起' }}
-
-          <!-- CR-11：手机端搜索没有结果面板（命中列表原本只在桌面侧栏里），这里复用同一批 handler 渲染一份。 -->
-          <div
-            v-show="mapSheetSearching"
-            class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-2 md:hidden"
-            aria-label="地图搜索结果"
-          >
-            <p
-              v-if="nativeSearchLoading"
-              class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
-              role="status"
-            >
-              正在搜索地图里的地点…
-            </p>
-            <template v-else-if="nativeSearchResults.length">
-              <p
-                class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
-                role="status"
-              >
-                找到 {{ nativeSearchResults.length }} 个地点
-              </p>
-              <ul class="mt-1 space-y-0.5">
-                <li
-                  v-for="place in nativeSearchResults"
-                  :key="place.id"
-                >
-                  <button
-                    type="button"
-                    class="flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-[13px] text-zinc-900 dark:text-zinc-100"
-                    @click="selectPoi(place)"
-                  >
-                    <UIcon
-                      name="i-lucide-map-pin"
-                      class="size-3.5 shrink-0 text-green-700 dark:text-green-400"
-                    />
-                    <span class="min-w-0 truncate">{{ place.name }}</span>
-                  </button>
-                </li>
-              </ul>
-            </template>
-            <p
-              v-else
-              class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
-              role="status"
-            >
-              没有找到匹配的地点
-            </p>
-          </div>
         </button>
       </div>
 
+      <!-- F23：搜索结果块移出「展开/收起」按钮，与头部行同级——按钮里不能再套按钮。 -->
+      <div
+        v-show="mapSheetSearching"
+        class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-2 md:hidden"
+        aria-label="地图搜索结果"
+      >
+        <p
+          v-if="nativeSearchLoading"
+          class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+          role="status"
+        >
+          正在搜索地图里的地点…
+        </p>
+        <template v-else-if="nativeSearchResults.length">
+          <p
+            class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+            role="status"
+          >
+            找到 {{ nativeSearchResults.length }} 个地点
+          </p>
+          <ul class="mt-1 space-y-0.5">
+            <li
+              v-for="place in nativeSearchResults"
+              :key="place.id"
+            >
+              <button
+                type="button"
+                class="flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-[13px] text-zinc-900 dark:text-zinc-100"
+                @click="selectPoi(place)"
+              >
+                <UIcon
+                  name="i-lucide-map-pin"
+                  class="size-3.5 shrink-0 text-green-700 dark:text-green-400"
+                />
+                <span class="min-w-0 truncate">{{ place.name }}</span>
+              </button>
+            </li>
+          </ul>
+        </template>
+        <p
+          v-else
+          class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+          role="status"
+        >
+          没有找到匹配的地点
+        </p>
+      </div>
       <div
         v-if="mobileSheetState === 'collapsed'"
         class="grid min-h-0 flex-1 place-items-center px-3 text-[11px] text-zinc-400 dark:text-zinc-500 md:hidden"
@@ -1435,8 +1434,9 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 
       <!-- 底部整块：搜索胶囊贴底栏上沿，和 tabbar 同底色，中间不露地图 -->
       <div
-        v-show="mobileSheetState === 'collapsed'"
+        v-show="mobileSheetState === 'collapsed' || mapSheetSearching"
         class="pointer-events-none absolute inset-x-0 bottom-0 z-30 md:hidden"
+        :class="mobileSheetState === 'collapsed' ? '' : 'bottom-[var(--map-mobile-dock)]'"
       >
         <div class="pointer-events-auto px-3 pb-[22px] pt-2.5">
           <div

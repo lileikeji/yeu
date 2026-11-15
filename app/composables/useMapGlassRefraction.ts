@@ -455,7 +455,6 @@ function uploadSource(
     // CR-2：中转画布复用，source-over 是叠加不是替换，先擦干净再画，纹理才等于当前帧。
     downscaleContext.clearRect(0, 0, targetWidth, targetHeight)
     downscaleContext.drawImage(source, 0, 0, targetWidth, targetHeight)
-    downscaleContext.drawImage(source, 0, 0, targetWidth, targetHeight)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, downscaleCanvas)
   } catch {
     // 跨域污染时 drawImage / texImage2D 会抛 DOMException；本帧不画，下一帧继续试。
@@ -525,8 +524,9 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
     // source 拿不到（地图还没就绪）就先清成透明，等下一帧。
     const source = options.source()
     if (!source) {
-      // CR-3：源不可用时不能继续声称折射可用，否则页面拿不到 backdrop-filter 回落。
+      // CR-3：源不可用时不能继续声称折射可用，否则页面拿不到 backdrop-filter 回落；F25：画布也要擦干净，别挂着上一帧发白玻璃。
       ready.value = false
+      gl.clear(gl.COLOR_BUFFER_BIT)
       return
     }
 
@@ -605,7 +605,7 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
   }
 
   function stop(): void {
-  // 停画 = 不需要运行：连「上下文恢复后继续」的意图一起清掉，否则 restored 会把循环拉回来。
+    // 停画 = 不需要运行：连「上下文恢复后继续」的意图一起清掉，否则 restored 会把循环拉回来。
     resumeAfterRestore = false
     if (rafId !== null) {
       globalThis.cancelAnimationFrame(rafId)
