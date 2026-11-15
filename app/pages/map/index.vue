@@ -963,8 +963,9 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             </li>
           </ul>
         </template>
+        <!-- 空态只在地图侧没结果、本地列表也零匹配时说话；本地有匹配就让下方列表承载，避免同屏两套结论。 -->
         <p
-          v-else
+          v-else-if="!filteredPois.length"
           class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
           role="status"
         >
@@ -1435,8 +1436,8 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       <!-- 底部整块：搜索胶囊贴底栏上沿，和 tabbar 同底色，中间不露地图 -->
       <div
         v-show="mobileSheetState === 'collapsed' || mapSheetSearching"
-        class="pointer-events-none absolute inset-x-0 bottom-0 z-30 md:hidden"
-        :class="mobileSheetState === 'collapsed' ? '' : 'bottom-[var(--map-mobile-dock)]'"
+        class="pointer-events-none absolute inset-x-0 z-30 md:hidden"
+        :class="mobileSheetState === 'collapsed' ? 'bottom-0' : 'bottom-[var(--map-mobile-dock)]'"
       >
         <div class="pointer-events-auto px-3 pb-[22px] pt-2.5">
           <div
@@ -2309,6 +2310,12 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   .map-workspace .map-glass-sheet.map-glass-refracting {
     background: color-mix(in srgb, var(--surface) 66%, transparent);
     backdrop-filter: blur(2px) saturate(1.05);
+  }
+
+  /* 原生 search 的取消钮与自绘「清空搜索」会并成两个 ×；appearance:none 挡不住伪元素，只能显式隐藏。 */
+  .map-workspace input[type='search']::-webkit-search-cancel-button,
+  .map-workspace input[type='search']::-webkit-search-decoration {
+    display: none;
   }
 
   /*
