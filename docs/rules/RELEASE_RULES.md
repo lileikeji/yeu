@@ -45,6 +45,12 @@
    git worktree prune
    ```
 
+8. **静态资源真的进了 CDN，并且预热过**
+   第一次请求 `curl -sI https://yx.huiliyill.cn/_nuxt/<最新 chunk>.js` 应当是 `Cache Miss`，第二次必须 `X-Cache-Lookup: Cache Hit` 且 `Age` 递增；`Cache-Control` 里不能再出现 `no-store`。
+   出现 `no-store` 就先查权限：`sudo -u www test -r /www/wwwroot/yeu/current/.output/public/_nuxt/<file>` 必须可读。
+   预热由发布链路自动完成：`/data/yeu/server-side-deploy.sh` 在放开静态资源权限后调用 `warmCdn`，把当前 release 的全部 `_nuxt` 资源从边缘拉一遍并打印 `200=… 非200=…`（约 16 秒）。源站 no-store 的 `robots.txt`、`site.webmanifest`、`sw-*.js` 不预热。
+   手动补跑（本机，扫远端 current）：`DEPLOY_SERVER=root@<host> SSH_KEY=~/.ssh/key bash scripts/warm-cdn.sh`；命中率低于 95% 脚本退出码 1。
+
 ## 二、已发生事故
 
 ### 1. 部署基线旧于 master，线上像「PR 被回退」（2026-11-12）
@@ -89,8 +95,31 @@
 - 原因：迁移 SQL 用 sqlite3 手工执行了，但没往 `__drizzle_migrations` 写账本行。
 - 做法：账本行的 `hash` = 迁移 SQL **原始字节**的 sha256，`created_at` = `server/database/migrations/meta/_journal.json` 里该条目的 `when`；写前用已知迁移（如 0047 的 `99caf6a4…`）对账。
 
-## 三、固定约定
+### 8. 静态资源目录 750，CDN 一个 chunk 都缓存不了（2026-11-14）
 
+- 现象：`/_nuxt/*.js` 每次请求都是 `X-Cache-Lookup: Cache Miss`、`Age: 0`，响应里同时有 `public, max-age=31536000, immutable` 和 `no-cache, no-store, must-revalidate`，首屏要把十几个 chunk 从 3Mbps 出口重新拉一遍。
+- 原因：`releases/<rel>/.output/public` 与 `_nuxt` 是 `drwxr-x--- yeu yeu`，nginx worker 跑在 `www` 下读不到文件；`try_files` 落到 `@nuxt_compat` → `@nuxt` 反代给 Node。Nitro 发的 immutable 与 `@nuxt` 的 `no-store` 叠在一起，CDN 按最严格的来，等于完全不缓存。
+- 做法：发布后放开读权限，`server-side-deploy.sh` 已内置这一步：
+
+  ```bash
+  chmod o+rx "$BASE/releases/$RELEASE_ID" "$BASE/releases/$RELEASE_ID/.output"
+  chmod -R o+rX "$BASE/releases/$RELEASE_ID/.output/public"
+  ```
+
+  核对：`sudo -u www test -r .../_nuxt/<file>` 返回 0；线上第二次请求 `X-Cache-Lookup: Cache Hit`。
+
+### 9. 线上跑的是功能分支，部署 master 等于回退功能（2026-11-10 / 2026-11-15）
+线上 `current` 指向的 release 记录的 commit 不在 master 里时，用 master 构建并切换会把该分支上的功能整体顶回去：11-10 主题配色被隔壁会话的脏树产物覆盖（palette CSS 直接消失），11-15 线上跑着叫号台/十分制/去掉最高最低分那条线，若照旧部署 master 会一次性回退 10 个提交。
+落地做法：部署前 `cat /www/wwwroot/yeu/current/.output/release.json` 取 commit，`git merge-base --is-ancestor <commit> master` 不成立就先把 master 合进该分支，用合并后的提交构建。
+
+### 10. 本机构建不可用，制品只能从 CI 出（2026-11-11 起）
+`npx nuxt build` 稳定失败 `[nitro] ERROR Error: remove D:\DevTemp\esbuild-<hex>: Access is denied.`，最小复现为 esbuild 用 stdin 传 2.5MB 源码时删不掉临时文件；换 Node 22/26、esbuild 0.18–0.28 都复现，属环境级限制。改为：推 `deploy/theme-on-competition` 触发 `build-artifact.yml`，`gh run download -n output` 取制品，本地补 `release.json`（`platform/arch/node/abi` 必须改成服务器实际值）。
+
+### 11. 检索哈希按行尾算，CRLF 工作树会假报「未 bump」（2026-11-11 / 2026-11-13）
+`release-tools.mjs checkRetrieval` 用文件字节算 hash：`core.autocrlf=true` 的工作树算出 `d7978e91…`，LF 工作树算出 `8c3787f2…`，与线上一致的是后者。命令必须在 LF 工作树（或 Linux CI）里跑，否则会被「检索代码已变更但 ASSISTANT_CACHE_VERSION 未 bump」拦下，且改的是假问题。
+
+## 三、固定约定
+- 上传制品：`scp -O -i "C:/Users/15294/.ssh/tencent_yeu.pem" release.tar.gz root@124.221.145.182:/data/yeu-build/incoming/<release>.tar.gz`。密钥路径要 `C:/…`（MSYS 的 `/c/…` 会被 Windows OpenSSH 当成不存在），`-O` 不能省（默认 sftp 常被服务端断开，只落下 0 字节文件，`deploy-incoming.sh` 会报包损坏）。
 - 生产发布只用 `deploy-incoming.sh` 一条入口，`deploy-home-sheet.sh` 会绕过 `flock`。
 - 构建一律在本机（Windows/macOS）做，不在生产机跑 `pnpm build`。
 - 动生产库前先做表级 dump 到 `/data/yeu/shared/backups/<主题>-<时间>/`。

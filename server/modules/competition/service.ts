@@ -29,6 +29,8 @@ import {
 } from '../../../shared/utils/competition'
 import type {
   CompetitionAdminPayload,
+  CompetitionCallBoard,
+  CompetitionCallBoardRow,
   CompetitionCurrentSinger,
   CompetitionDimension,
   CompetitionEmailImage,
@@ -390,6 +392,7 @@ export function serializeCompetitionEvent(row: EventRow, club: { slug: string, t
     edition: row.edition ?? '',
     schedule: getCompetitionSchedule(row),
     formFields: getCompetitionFormFields(row),
+    trimExtremes: row.trimExtremes === 1,
     dimensions,
     maxTotal: competitionMaxTotal(dimensions),
     createdAt: Number(row.createdAt ?? 0),
@@ -471,6 +474,7 @@ export interface UpdateCompetitionInput {
   edition?: unknown
   schedule?: unknown
   formFields?: unknown
+  trimExtremes?: unknown
 }
 
 function normalizeSchedule(input: unknown): CompetitionScheduleItem[] {
@@ -542,10 +546,14 @@ export function updateCompetitionEvent(
     }
   }
 
+  const trimExtremes = input.trimExtremes === undefined
+    ? row.trimExtremes === 1
+    : input.trimExtremes === true
   client.db.update(competitionEvents).set({
     title,
     registrationOpen,
     edition,
+    trimExtremes: trimExtremes ? 1 : 0,
     scheduleJson: JSON.stringify(schedule),
     formFieldsJson: JSON.stringify(formFields),
     dimensionsJson: JSON.stringify(dimensions),
@@ -669,9 +677,13 @@ export function listRoundEntryRows(client: DatabaseClient, roundId: string): Ent
     .all()
 }
 
-function averageOf(totals: number[]): number | null {
+function averageOf(totals: number[], trimExtremes = false): number | null {
   if (totals.length === 0) return null
-  return roundCompetitionScore(totals.reduce((sum, value) => sum + value, 0) / totals.length)
+  // 去掉一个最高分和一个最低分：至少 3 位评委才有意义，人少时照常取全部。
+  const usable = trimExtremes && totals.length >= 3
+    ? [...totals].sort((left, right) => left - right).slice(1, -1)
+    : totals
+  return roundCompetitionScore(usable.reduce((sum, value) => sum + value, 0) / usable.length)
 }
 
 /**
@@ -721,11 +733,16 @@ function buildQueueBoard(
   return board
 }
 
+function trimExtremesFor(client: DatabaseClient, round: RoundRow): boolean {
+  return getEvent(client, round.eventId)?.trimExtremes === 1
+}
+
 function buildRoundRanking(
   round: RoundRow,
   entries: EntryRow[],
   singersById: Map<string, SingerRow>,
-  scoreRows: ScoreRow[]
+  scoreRows: ScoreRow[],
+  options: { trimExtremes?: boolean } = {}
 ): CompetitionRoundEntry[] {
   const totalsBySinger = new Map<string, number[]>()
   for (const score of scoreRows) {
@@ -742,7 +759,7 @@ function buildRoundRanking(
       return {
         entry,
         singer,
-        average: averageOf(totals),
+        average: averageOf(totals, options.trimExtremes === true),
         scoreCount: totals.length
       }
     })
@@ -762,7 +779,19 @@ function buildRoundRanking(
 
   const settled = round.status === 'closed'
   if (!settled) {
-    // 未结束：按出场顺序平铺，不给名次。
+    // 进行中也出名次（实时排行），但名单仍按出场顺序返回，避免后台名单表被排名打乱；
+    // 晋级标记只有整轮结束才给。
+    const liveRank = new Map<string, number>()
+    let liveAverage: number | null = null
+    let liveRankValue = 0
+    scored.forEach((row, index) => {
+      if (liveAverage === null || row.average !== liveAverage) {
+        liveRankValue = index + 1
+        liveAverage = row.average
+      }
+      liveRank.set(row.entry.id, liveRankValue)
+    })
+
     return rows
       .slice()
       .sort((left, right) =>
@@ -777,7 +806,7 @@ function buildRoundRanking(
         advancedFromRank: row.entry.advancedFromRank,
         average: row.average,
         scoreCount: row.scoreCount,
-        rank: null,
+        rank: liveRank.get(row.entry.id) ?? null,
         qualified: false,
         forfeited: false
       }))
@@ -971,10 +1000,16 @@ export function getCurrentSinger(
 function setCurrentEntryId(
   client: DatabaseClient,
   roundId: string,
-  entryId: string | null
+  entryId: string | null,
+  sequential?: boolean
 ): void {
+  const patch: { currentEntryId: string | null, updatedAt: number, sequentialMode?: number } = {
+    currentEntryId: entryId,
+    updatedAt: Date.now()
+  }
+  if (sequential !== undefined) patch.sequentialMode = sequential ? 1 : 0
   client.db.update(competitionRounds)
-    .set({ currentEntryId: entryId, updatedAt: Date.now() })
+    .set(patch)
     .where(eq(competitionRounds.id, roundId))
     .run()
 }
@@ -1010,14 +1045,14 @@ export function moveCurrentEntry(
     : -1
 
   if (action === 'stop') {
-    setCurrentEntryId(client, round.id, null)
+    setCurrentEntryId(client, round.id, null, false)
     return null
   }
 
   if (action === 'set') {
     const target = entries.find(entry => entry.id === entryId)
     if (!target) validationError('出场条目不存在', 'entryId')
-    setCurrentEntryId(client, round.id, target!.id)
+    setCurrentEntryId(client, round.id, target!.id, true)
     return buildCurrentSinger(
       client,
       { ...round, currentEntryId: target!.id },
@@ -1030,12 +1065,20 @@ export function moveCurrentEntry(
   if (action === 'prev') {
     const target = entries[Math.max(0, currentIndex - 1)]
     if (!target) validationError('本轮还没有出场名单', 'entries')
-    setCurrentEntryId(client, round.id, target.id)
+    setCurrentEntryId(client, round.id, target.id, true)
     return getCurrentSinger(client, { ...round, currentEntryId: target.id })
   }
 
-  if (action === 'start' || currentIndex < 0) {
-    const target = entries[currentIndex >= 0 ? currentIndex : 0]
+  // 「开始」永远从当天第一位起，避免第一张评分已经自动开了头之后，再点开始时停在半路。
+  if (action === 'start') {
+    const target = entries[0]
+    if (!target) validationError('本轮还没有出场名单', 'entries')
+    setCurrentEntryId(client, round.id, target.id, true)
+    return getCurrentSinger(client, { ...round, currentEntryId: target.id })
+  }
+
+  if (currentIndex < 0) {
+    const target = entries[0]
     if (!target) validationError('本轮还没有出场名单', 'entries')
     setCurrentEntryId(client, round.id, target.id)
     return getCurrentSinger(client, { ...round, currentEntryId: target.id })
@@ -1052,7 +1095,7 @@ export function moveCurrentEntry(
   }
 
   const target = entries[currentIndex + 1] ?? null
-  setCurrentEntryId(client, round.id, target ? target.id : null)
+  setCurrentEntryId(client, round.id, target ? target.id : null, true)
   return target ? getCurrentSinger(client, { ...round, currentEntryId: target.id }) : null
 }
 
@@ -1074,7 +1117,7 @@ function roundView(
 
   const presentEntries = presentEntriesForDay(round, entries)
   const queueBoard = buildQueueBoard(round, presentEntries, scoreRows, true)
-  const rankedEntries = buildRoundRanking(round, entries, singersById, scoreRows).map((entry) => {
+  const rankedEntries = buildRoundRanking(round, entries, singersById, scoreRows, { trimExtremes: trimExtremesFor(client, round) }).map((entry) => {
     const board = queueBoard.get(entry.id)
     return {
       ...entry,
@@ -1091,6 +1134,7 @@ function roundView(
     scores: scoreRows.map(score => serializeScore(score, judgeNameById.get(score.judgeId) ?? '评委')),
     maxTotal: competitionMaxTotal(dimensions),
     hasScores: scoreRows.length > 0,
+    sequential: round.sequentialMode === 1,
     current: buildCurrentSinger(client, round, presentEntries, singersById, scoreRows)
   }
 }
@@ -1099,6 +1143,50 @@ function roundView(
  * 扫码登记的选手看自己的排队情况：他在初赛第几位、前面还有几位、是不是正在唱。
  * 只回人数与状态，不回别人的姓名。
  */
+/**
+ * 免登录叫号台：只列当天已经签到的选手，按出场顺序给序号与状态。
+ * 不返回电话、邮箱、评分——叫号的人只需要知道谁该上台。
+ */
+export function getCallBoard(client: DatabaseClient, contentId: string): CompetitionCallBoard {
+  const eventRow = ensureCompetitionEvent(client, contentId)
+  const prelim = getRoundByKey(client, eventRow.id, 'prelim')
+  const entries = presentEntriesForDay(prelim, listRoundEntryRows(client, prelim.id))
+  const singersById = new Map(listSingers(client, prelim.eventId).map(singer => [singer.id, singer]))
+  const board = buildQueueBoard(prelim, entries, listRoundScores(client, prelim.id), true)
+
+  const rows: CompetitionCallBoardRow[] = []
+  entries.forEach((entry, index) => {
+    const singer = singersById.get(entry.singerId)
+    if (!singer) return
+    const seat = board.get(entry.id)
+    rows.push({
+      position: seat?.position ?? index + 1,
+      name: singer.name,
+      song: singer.song ?? '',
+      className: singer.className ?? '',
+      state: seat?.state ?? 'idle',
+      ahead: seat?.ahead ?? null
+    })
+  })
+
+  return {
+    round: {
+      key: prelim.key,
+      title: prelim.title,
+      status: prelim.status,
+      activeDay: prelim.activeDay === 1 || prelim.activeDay === 2 ? prelim.activeDay : null
+    },
+    total: rows.length,
+    current: rows.find(row => row.state === 'singing') ?? null,
+    // 没开顺序评分时，「下一位」就是名单里第一个还没唱的人，叫号的人照样能用。
+    next: rows.find(row => row.state === 'waiting' && row.ahead === 0)
+      ?? rows.find(row => row.state === 'idle')
+      ?? null,
+    rows,
+    updatedAt: Date.now()
+  }
+}
+
 export function getSingerQueuePosition(
   client: DatabaseClient,
   contentId: string,
@@ -1108,8 +1196,14 @@ export function getSingerQueuePosition(
   const prelim = getRoundByKey(client, eventRow.id, 'prelim')
   const entries = listRoundEntryRows(client, prelim.id)
   const mine = entries.find(item => item.singerId === singerId)
+  const activeDay = prelim.activeDay === 1 || prelim.activeDay === 2 ? prelim.activeDay : null
+  // 管理员已明确切到另一天时，前一天的旧浏览器缓存作废并按今天队列统计人数（避免继续显示昨天 44 人）。
+  if (mine && activeDay !== null && mine.contestDay !== activeDay) {
+    const todayEntries = entries.filter(item => item.contestDay === activeDay && item.checkedInAt != null)
+    return { state: 'unknown', ahead: null, position: null, total: todayEntries.length }
+  }
   // 同一天的排同一天的队：按这位选手自己登记的场次算，不按管理员此刻停在哪天。
-  const day = mine?.contestDay ?? prelim.activeDay ?? null
+  const day = mine?.contestDay ?? activeDay
   const dayEntries = (day ? entries.filter(item => item.contestDay === day) : entries)
     .filter(item => item.checkedInAt != null)
   if (!mine) {
@@ -1190,7 +1284,8 @@ export function generateNextRound(
     currentRound,
     listRoundEntryRows(client, currentRound.id),
     singersById,
-    listRoundScores(client, currentRound.id)
+    listRoundScores(client, currentRound.id),
+    { trimExtremes: trimExtremesFor(client, currentRound) }
   )
   const qualified = ranking
     .filter(row => row.scoreCount > 0)
@@ -2018,23 +2113,25 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
   )
 
   const dayEntries = presentEntriesForDay(round, entryRows)
+  const scopedByDay = round.activeDay === 1 || round.activeDay === 2
   const singers = dayEntries
     .map((entry) => {
       const singer = singersById.get(entry.singerId)
-      if (!singer) return null
-      return {
-        ...serializeSingerPublic(singer),
-        sortOrder: entry.sortOrder,
-        advancedFromRank: entry.advancedFromRank,
-        score: ownScores.get(singer.id) ?? null
-      }
+      return singer ? { entry, singer } : null
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
+    .map(({ entry, singer }, index) => ({
+      ...serializeSingerPublic(singer),
+      // 分天评比时给评委展示当天顺位（1 起），避免第二天从昨日总数之后接续显示。
+      sortOrder: scopedByDay ? index + 1 : entry.sortOrder,
+      advancedFromRank: entry.advancedFromRank,
+      score: ownScores.get(singer.id) ?? null
+    }))
   const daySingerIds = new Set(dayEntries.map(entry => entry.singerId))
   const dayScored = [...ownScores.keys()].filter(singerId => daySingerIds.has(singerId)).length
 
   const roundResults = round.status === 'closed'
-    ? buildRoundRanking(round, entryRows, singersById, scoreRows)
+    ? buildRoundRanking(round, entryRows, singersById, scoreRows, { trimExtremes: trimExtremesFor(client, round) })
     : null
 
   const finalRound = getRoundByKeySafe(client, eventRow.id, 'final')
@@ -2043,7 +2140,8 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
         finalRound,
         listRoundEntryRows(client, finalRound.id),
         singersById,
-        listRoundScores(client, finalRound.id)
+        listRoundScores(client, finalRound.id),
+        { trimExtremes: trimExtremesFor(client, finalRound) }
       )
     : null
 
@@ -2065,7 +2163,8 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
       key: round.key,
       title: round.title,
       status: round.status,
-      advanceCount: round.advanceCount
+      advanceCount: round.advanceCount,
+      sequential: round.sequentialMode === 1
     },
     singers,
     roundResults,
@@ -2121,9 +2220,16 @@ export function submitJudgeScore(
     conflictError('COMPETITION_NOT_CHECKED_IN', '这位选手还没签到，先让现场签到再打分')
   }
 
-  // 顺序评分：只接受「当前这位」的分数。六位评委看到的是同一个选手，
-  // 谁想跳到下一位都会被这里挡住，避免有人先给后面的人打分。
-  if (round.currentEntryId && entry.id !== round.currentEntryId) {
+  // 没人手动点「开始顺序评分」时，第一张评分就把这位当成正在唱：
+  // 叫号台据此显示「正在唱」，评委端也跟着锁定到同一位。
+  if (!round.currentEntryId) {
+    setCurrentEntryId(client, round.id, entry.id)
+    round.currentEntryId = entry.id
+  }
+
+  // 只有后台显式开了顺序评分才锁人。自动记下的「正在唱」只给叫号台用，
+  // 评委端仍然可以自由选人打分。
+  if (round.sequentialMode === 1 && round.currentEntryId && entry.id !== round.currentEntryId) {
     const current = getCurrentSinger(client, round)
     conflictError(
       'COMPETITION_NOT_CURRENT_SINGER',
@@ -2360,7 +2466,13 @@ export function registerSingerFromForm(
     }
   })
   addPrelimEntry(client, eventRow.id, id, sortOrder, resolved.day, now)
-  return { id, sortOrder }
+  const prelimEntries = listRoundEntryRows(client, prelim.id)
+  const dayEntries = (resolved.day
+    ? prelimEntries.filter(entry => entry.contestDay === resolved.day)
+    : prelimEntries
+  ).filter(entry => entry.checkedInAt != null)
+  const dayIndex = dayEntries.findIndex(entry => entry.singerId === id)
+  return { id, sortOrder: dayIndex >= 0 ? dayIndex + 1 : sortOrder }
 }
 
 // -- 结果邮件通知 ---------------------------------------------------------------
@@ -2748,7 +2860,8 @@ export function buildEmailSendPlan(
     round,
     listRoundEntryRows(client, round.id),
     singersById,
-    listRoundScores(client, round.id)
+    listRoundScores(client, round.id),
+    { trimExtremes: trimExtremesFor(client, round) }
   )
 
   let pool = ranking
