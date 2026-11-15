@@ -1884,7 +1884,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             class="mx-auto size-5 text-zinc-500 dark:text-zinc-400"
           />
           <p class="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            当前地图还没有可直接显示的地点
+            {{ mapSheetSearching ? '没有匹配的地点' : '当前地图还没有可直接显示的地点' }}
           </p>
           <UButton
             v-if="canShowOfficialPlan"
