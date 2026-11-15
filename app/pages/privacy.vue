@@ -10,7 +10,7 @@ useSeoMeta({
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
           信息使用说明
@@ -36,7 +36,7 @@ useSeoMeta({
           <li
             v-for="highlight in privacyHighlights"
             :key="highlight.label"
-            class="flex items-center gap-3 rounded-md border bg-white dark:bg-zinc-900 p-4 shadow-sm"
+            class="flex items-center gap-3 rounded-md border bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
             :class="{
               'border-blue-200 dark:border-blue-900': highlight.tone === 'blue',
               'border-green-200 dark:border-green-800': highlight.tone === 'green',

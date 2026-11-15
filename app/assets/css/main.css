@@ -8,17 +8,17 @@
 @theme static {
   --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
 
-  --color-green-50: #eef8f2;
-  --color-green-100: #d8efe0;
-  --color-green-200: #b2dfc2;
-  --color-green-300: #7dc79b;
-  --color-green-400: #47aa72;
-  --color-green-500: #176f46;
-  --color-green-600: #125a3a;
-  --color-green-700: #104830;
-  --color-green-800: #104830;
-  --color-green-900: #0d3c29;
-  --color-green-950: #062219;
+  --color-green-50: #f5f5f5;
+  --color-green-100: #e9e9e9;
+  --color-green-200: #d4d4d4;
+  --color-green-300: #a3a3a3;
+  --color-green-400: #737373;
+  --color-green-500: #171717;
+  --color-green-600: #171717;
+  --color-green-700: #0a0a0a;
+  --color-green-800: #000000;
+  --color-green-900: #000000;
+  --color-green-950: #000000;
 
   --color-orange-50: #fff8ed;
   --color-orange-100: #ffefd4;
@@ -62,72 +62,20 @@
    orange（secondary/warning）刻意不覆盖：warning 是语义色，跟品牌色漂移会让「警告」
    在每套配色下深浅不一。状态色 success 同样不覆盖，改用 @theme static 里固定的
    --color-success-*，品牌换色时「已通过」不变红、白字对比度不塌。 */
-[data-palette="indigo"] {
-  --color-green-50: #f0f3fd;
-  --color-green-100: #e1e6fb;
-  --color-green-200: #ccd3f6;
-  --color-green-300: #adb5ea;
-  --color-green-400: #8a93e0;
-  --color-green-500: #5159bb;
-  --color-green-600: #3f469a;
-  --color-green-700: #333c78;
-  --color-green-800: #2b3470;
-  --color-green-900: #262d63;
-  --color-green-950: #131737;
-}
-
-[data-palette="violet"] {
-  --color-green-50: #f7f0fd;
-  --color-green-100: #eee1fb;
-  --color-green-200: #e1ccf7;
-  --color-green-300: #caa9ee;
-  --color-green-400: #b083e4;
-  --color-green-500: #7a49bd;
-  --color-green-600: #653a9c;
-  --color-green-700: #512d80;
-  --color-green-800: #472875;
-  --color-green-900: #402368;
-  --color-green-950: #221339;
-}
-
-[data-palette="rose"] {
-  --color-green-50: #fdf0f4;
-  --color-green-100: #fbdde7;
-  --color-green-200: #f9c8d6;
-  --color-green-300: #f39fb2;
-  --color-green-400: #e8728f;
-  --color-green-500: #b23450;
-  --color-green-600: #8f273d;
-  --color-green-700: #741f31;
-  --color-green-800: #6a1d2d;
-  --color-green-900: #601a28;
-  --color-green-950: #360d16;
-}
-
-[data-palette="teal"] {
-  --color-green-50: #eef8fb;
-  --color-green-100: #d6edf5;
-  --color-green-200: #afd9e9;
-  --color-green-300: #81c2d9;
-  --color-green-400: #40a5c9;
-  --color-green-500: #0a7aa3;
-  --color-green-600: #0b6789;
-  --color-green-700: #0b556f;
-  --color-green-800: #0c495f;
-  --color-green-900: #0c3e50;
-  --color-green-950: #082530;
-}
 
 :root {
-  --page-bg: #f7f8f6;
+  --page-bg: #f4f4f5;
   --surface: #ffffff;
-  --ink: #202522;
-  --muted-ink: #66706a;
-  --line: #e2e6e2;
-  --accent-warm: #b9472d;
-  --accent-blue: #2d6f8e;
+  --ink: #0a0a0a;
+  --muted-ink: #6f6f6f;
+  --line: rgb(0 0 0 / 8%);
+  --accent-warm: #c2410c;
+  --accent-blue: #1d4ed8;
   --header-height: 4.0625rem;
   --mobile-nav-height: 4.5625rem;
+
+  /* 表面下沉档：卡片内的凹槽、表头、分段控件的槽底。四套 palette 各自覆盖。 */
+  --surface-sunken: #f4f4f4;
 }
 
 /* 评委端手机版五维紧凑行。页面会同时加载两份 entry CSS，后加载那份里的
@@ -145,15 +93,22 @@
   .min-h-dvh { min-height: 100vh; }
 }
 
+/* ===== 配色四套：paper / mist / cream / berry =====
+   学生自建站调性：现代、简洁，不成套的官方感。四套不只换 green 主色阶，还把整套
+   「纸面材质」一起换掉——`--page-bg` / `--surface` / `--ink` / `--line`，否则会出现
+   「换色壳 + 白底」的拼贴感。success 语义色不动。
+   默认 paper（兜底见文件末尾 `html:not([data-palette])`）。 */
+
 /* 暗色主题基础变量：与 .dark 类搭配（页面壳/正文/分隔线等 var() 引用点）。 */
 html.dark {
-  --page-bg: #101310;
-  --surface: #171b17;
-  --ink: #e6e9e5;
-  --muted-ink: #9aa39b;
-  --line: #2b312c;
-  --accent-warm: #e08a6d;
-  --accent-blue: #6fa8c9;
+  --page-bg: #0a0a0a;
+  --surface: #171717;
+  --ink: #fafafa;
+  --muted-ink: #a3a3a3;
+  --line: #262626;
+  --surface-sunken: #0f0f0f;
+  --accent-warm: #ff7a45;
+  --accent-blue: #6b9bff;
   color-scheme: dark;
 }
 
@@ -178,7 +133,7 @@ select {
 }
 
 ::selection {
-  color: #ffffff;
+  color: var(--surface);
   background: var(--color-green-500);
 }
 
@@ -296,14 +251,14 @@ main.map-page {
 }
 
 .content-prose {
-  color: #343a36;
+  color: var(--ink);
   line-height: 1.7;
 }
 
 .content-prose h2 {
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
-  color: #17211b;
+  color: var(--ink);
   font-size: 1.25rem;
   font-weight: 700;
 }
@@ -311,7 +266,7 @@ main.map-page {
 .content-prose h3 {
   margin-top: 1.25rem;
   margin-bottom: 0.5rem;
-  color: #17211b;
+  color: var(--ink);
   font-size: 1.05rem;
   font-weight: 700;
 }
@@ -412,45 +367,8 @@ main.map-page {
   }
 }
 
-.premium-card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(226, 230, 226, 0.8);
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
-  transition: transform 0.35s cubic-bezier(0.25, 1, 0.3, 1),
-              box-shadow 0.35s cubic-bezier(0.25, 1, 0.3, 1),
-              border-color 0.35s cubic-bezier(0.25, 1, 0.3, 1);
-  transform-style: preserve-3d;
-}
-
-.premium-card:hover {
-  border-color: rgba(23, 111, 70, 0.3);
-  box-shadow: 0 16px 36px -4px rgba(23, 111, 70, 0.08), 0 4px 16px -2px rgba(23, 111, 70, 0.04);
-}
-
-.glow-effect {
-  position: relative;
-  overflow: hidden;
-}
-
-.glow-effect::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(800px circle at var(--mouse-x, 0) var(--mouse-y, 0), rgba(23, 111, 70, 0.06), transparent 40%);
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.5s ease;
-}
-
-.glow-effect:hover::before {
-  opacity: 1;
-}
+/* .premium-card 与其 :hover、.glow-effect 在 app/ 已无任何组件引用（且 hover 值仍是旧绿），
+   T-019 修正轮整体删除（N3）；需要卡片描边时统一用 --line / --surface token。 */
 
 .premium-gradient-bg {
   background: linear-gradient(135deg, #104830 0%, #166040 50%, #0d3c29 100%);
@@ -464,4 +382,275 @@ main.map-page {
   inset: 0;
   background: radial-gradient(circle at 80% 20%, rgba(251, 149, 51, 0.15) 0%, transparent 50%);
   pointer-events: none;
+}
+
+/* ==========================================================================
+   配色候选 4 套 —— 学生自建站调性：现代、简洁、不成套的官方感。
+   参照的是当下工具类产品的配色语言（Linear 的冷灰、Geist 的纯黑白、Raycast 的
+   高对比点缀），而不是学校公文/录取通知书那种庄重配色。
+   - paper 白纸：无彩色，纯黑白灰，最克制
+   - mist  雾蓝：冷白底 + 一个克制的蓝，工具感
+   - cream 奶油：暖白底 + 深琥珀，像手账纸，最亲和
+   - berry 莓红：中性白 + 高饱和玫红，最跳、最年轻
+   默认 paper（首屏兜底见文件末尾 html:not([data-palette])）。覆盖中性层 + green 主色阶；success 语义色不动。
+   ========================================================================== */
+
+/* ---------- 1. paper 白纸：无彩色 ---------- */
+html[data-palette='paper'] {
+  --page-bg: #f4f4f5;
+  --surface: #ffffff;
+  --ink: #0a0a0a;
+  --muted-ink: #6f6f6f;
+  --line: rgb(0 0 0 / 8%);
+  --surface-sunken: #f4f4f4;
+  --accent-warm: #c2410c;
+  --accent-blue: #1d4ed8;
+  --color-green-50: #f5f5f5;
+  --color-green-100: #e9e9e9;
+  --color-green-200: #d4d4d4;
+  --color-green-300: #a3a3a3;
+  --color-green-500: #171717;
+  --color-green-700: #0a0a0a;
+  --color-green-900: #000000;
+}
+html.dark[data-palette='paper'] {
+  --page-bg: #0a0a0a;
+  --surface: #171717;
+  --ink: #fafafa;
+  --muted-ink: #a3a3a3;
+  --line: #262626;
+  --surface-sunken: #0f0f0f;
+  --accent-warm: #ff7a45;
+  --accent-blue: #6b9bff;
+  --color-green-50: #1a1a1a;
+  --color-green-100: #262626;
+  --color-green-200: #333333;
+  --color-green-300: #4d4d4d;
+  --color-green-500: #fafafa;
+  --color-green-700: #ffffff;
+  --color-green-900: #ffffff;
+  --color-zinc-900: #171717;
+}
+
+/* ---------- 2. mist 雾蓝：冷白 + 克制的蓝 ---------- */
+html[data-palette='mist'] {
+  --page-bg: #e9eff7;
+  --surface: #f8fbff;
+  --ink: #14171c;
+  --muted-ink: #5b6472;
+  --line: rgb(20 23 28 / 9%);
+  --surface-sunken: #eceff4;
+  --accent-warm: #b45309;
+  --accent-blue: #2c5bd9;
+  --color-green-50: #eff3fd;
+  --color-green-100: #dfe7fb;
+  --color-green-200: #c2d1f6;
+  --color-green-300: #9ab2ef;
+  --color-green-500: #2c5bd9;
+  --color-green-700: #1e3f99;
+  --color-green-900: #122758;
+}
+html.dark[data-palette='mist'] {
+  --page-bg: #0d1015;
+  --surface: #121821;
+  --ink: #e8ecf3;
+  --muted-ink: #94a0b3;
+  --line: #232936;
+  --surface-sunken: #10141b;
+  --accent-warm: #e08a4f;
+  --accent-blue: #7ba0f5;
+  --color-green-50: #101a33;
+  --color-green-100: #16234a;
+  --color-green-200: #1e3066;
+  --color-green-300: #2b4384;
+  --color-green-500: #7ba0f5;
+  --color-green-700: #a5bffa;
+  --color-green-900: #cddafe;
+  --color-zinc-900: #121821;
+}
+
+/* ---------- 3. cream 奶油：暖白 + 深琥珀 ---------- */
+html[data-palette='cream'] {
+  --page-bg: #f4ebdd;
+  --surface: #fdf8ef;
+  --ink: #1b1917;
+  --muted-ink: #6f6760;
+  --line: rgb(27 25 23 / 9%);
+  --surface-sunken: #f2ede4;
+  --accent-warm: #b45309;
+  --accent-blue: #3f5f8f;
+  --color-green-50: #fdf3e7;
+  --color-green-100: #fae6cc;
+  --color-green-200: #f2cfa4;
+  --color-green-300: #e6b478;
+  --color-green-500: #ab4f09;
+  --color-green-700: #8a3f08;
+  --color-green-900: #542705;
+}
+html.dark[data-palette='cream'] {
+  --page-bg: #131110;
+  --surface: #201a14;
+  --ink: #f2ede6;
+  --muted-ink: #a89f96;
+  --line: #2b2724;
+  --surface-sunken: #171412;
+  --accent-warm: #e8a15a;
+  --accent-blue: #93aecd;
+  --color-green-50: #2a1c10;
+  --color-green-100: #3a2716;
+  --color-green-200: #553920;
+  --color-green-300: #734d2b;
+  --color-green-500: #e8a15a;
+  --color-green-700: #f2bd8c;
+  --color-green-900: #fbdcc2;
+  --color-zinc-900: #201a14;
+}
+
+/* ---------- 4. berry 莓红：中性白 + 高饱和玫红 ---------- */
+html[data-palette='berry'] {
+  --page-bg: #f7ebef;
+  --surface: #fdf5f7;
+  --ink: #1a1217;
+  --muted-ink: #6d626a;
+  --line: rgb(26 18 23 / 9%);
+  --surface-sunken: #f6f0f3;
+  --accent-warm: #b45309;
+  --accent-blue: #1f5fd0;
+  --color-green-50: #fff1f4;
+  --color-green-100: #ffe0e7;
+  --color-green-200: #ffc2d0;
+  --color-green-300: #ff9db4;
+  --color-green-500: #d01b43;
+  --color-green-700: #be123c;
+  --color-green-900: #881337;
+}
+html.dark[data-palette='berry'] {
+  --page-bg: #121013;
+  --surface: #1e171b;
+  --ink: #f6eef1;
+  --muted-ink: #a89aa1;
+  --line: #2b242a;
+  --surface-sunken: #161316;
+  --accent-warm: #e8a15a;
+  --accent-blue: #7ba0f5;
+  --color-green-50: #2e1018;
+  --color-green-100: #42151f;
+  --color-green-200: #5d1c2b;
+  --color-green-300: #83243a;
+  --color-green-500: #fb7185;
+  --color-green-700: #fda4af;
+  --color-green-900: #fecdd3;
+  --color-zinc-900: #1e171b;
+}
+
+/* 默认配色 = paper 白纸（2026-11-14 用户确认：只留四套，极光紫舍弃）。
+   :root 仍是 palette 之前的旧基线值，boot script 设置 data-palette 之前（SSR 首屏）由这里兜住。 */
+html:not([data-palette]) {
+  --page-bg: #f4f4f5;
+  --surface: #ffffff;
+  --ink: #0a0a0a;
+  --muted-ink: #6f6f6f;
+  --line: rgb(0 0 0 / 8%);
+  --surface-sunken: #f4f4f4;
+  --accent-warm: #c2410c;
+  --accent-blue: #1d4ed8;
+  --color-green-50: #f5f5f5;
+  --color-green-100: #e9e9e9;
+  --color-green-200: #d4d4d4;
+  --color-green-300: #a3a3a3;
+  --color-green-500: #171717;
+  --color-green-700: #0a0a0a;
+  --color-green-900: #000000;
+}
+html.dark:not([data-palette]) {
+  --page-bg: #0a0a0a;
+  --surface: #171717;
+  --ink: #fafafa;
+  --muted-ink: #a3a3a3;
+  --line: #262626;
+  --surface-sunken: #101010;
+  --accent-warm: #ff7a45;
+  --accent-blue: #6b9bff;
+  --color-green-50: #1a1a1a;
+  --color-green-100: #262626;
+  --color-green-200: #333333;
+  --color-green-300: #4d4d4d;
+  --color-green-500: #fafafa;
+  --color-green-700: #ffffff;
+  --color-green-900: #ffffff;
+  --color-zinc-900: #171717;
+}
+
+/* 补全 green 阶梯：组件里 dark:text-green-400 / bg-green-600+text-white / bg-green-950
+   必须落到本主题的颜色，否则会漏出 Tailwind 默认绿（白纸/雾蓝主题里尤其明显）。 */
+html[data-palette='paper'] {
+  --color-green-400: #6e6e6e;
+  --color-green-600: #0a0a0a;
+  --color-green-800: #000000;
+  --color-green-950: #000000;
+}
+html.dark[data-palette='paper'] {
+  --color-green-400: #a3a3a3;
+  --color-green-600: #3f3f3f;
+  --color-green-800: #ffffff;
+  --color-green-950: #0f0f0f;
+}
+html[data-palette='mist'] {
+  --color-green-400: #4168bb;
+  --color-green-600: #2449b8;
+  --color-green-800: #1a3478;
+  --color-green-950: #0f1c3f;
+}
+html.dark[data-palette='mist'] {
+  --color-green-400: #7ba0f5;
+  --color-green-600: #2f5fd0;
+  --color-green-800: #dbe6fe;
+  --color-green-950: #0a1220;
+}
+html[data-palette='cream'] {
+  --color-green-400: #8d602b;
+  --color-green-600: #98450a;
+  --color-green-800: #6d3106;
+  --color-green-950: #2e1403;
+}
+html.dark[data-palette='cream'] {
+  --color-green-400: #e8a15a;
+  --color-green-600: #a46729;
+  --color-green-800: #fae2c8;
+  --color-green-950: #120d09;
+}
+html[data-palette='berry'] {
+  --color-green-400: #ac4a63;
+  --color-green-600: #c4163d;
+  --color-green-800: #9f1239;
+  --color-green-950: #4c0519;
+}
+html.dark[data-palette='berry'] {
+  --color-green-400: #fb7185;
+  --color-green-600: #c81e4a;
+  --color-green-800: #ffe4e6;
+  --color-green-950: #170a0e;
+}
+html:not([data-palette]) {
+  --color-green-400: #6e6e6e;
+  --color-green-600: #0a0a0a;
+  --color-green-800: #000000;
+  --color-green-950: #000000;
+}
+html.dark:not([data-palette]) {
+  --color-green-400: #a3a3a3;
+  --color-green-600: #3f3f3f;
+  --color-green-800: #ffffff;
+  --color-green-950: #0f0f0f;
+}
+
+/* ===== 暗色中性层（T-019） =====
+zinc 阶梯用的是 Tailwind 默认值，400/500 两档是给浅底设计的深灰（#606068 / #52525b）。
+全站 3000+ 处 dark:text-zinc-400/500 压到 #17 / #201a14 这类深底上只有 2.3–2.7:1，
+暗色下一次要文字直接糊成一片。这里只提亮 400/500 这两个「文字档」到 6:1 以上；
+600–950 不动——它们多数当背景、描边、分割线用，提亮会把卡片和边框翻白。
+四套 palette 块都不重定义 zinc，所以一个 html.dark 覆盖四套暗色，无需逐套复制。 */
+html.dark {
+  --color-zinc-400: #a3a3ac;
+  --color-zinc-500: #b0b0b9;
 }

@@ -33,7 +33,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <section class="mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
     <div class="grid gap-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/70 p-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
       <UInput
         v-model="searchQuery"

@@ -133,7 +133,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-7 md:py-10">
         <nav
           class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400"
@@ -243,7 +243,7 @@ onBeforeUnmount(() => {
           v-if="guide.sections.length > 1"
           id="guide-contents"
           ref="contentsDetails"
-          class="group mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+          class="group mt-5 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
         >
           <summary
             class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3.5 text-sm font-semibold text-zinc-800 dark:text-zinc-100 marker:hidden focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
               v-for="(section, index) in guide.sections"
               :key="section.title"
               :href="`#${guideSectionId(guide.slug, section.title, index)}`"
-              class="inline-flex min-h-11 min-w-0 items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-xs font-medium leading-5 text-zinc-700 dark:text-zinc-200 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+              class="inline-flex min-h-11 min-w-0 items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-xs font-medium leading-5 text-zinc-700 dark:text-zinc-200 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             >
               <span class="line-clamp-2">{{ studentFacingGuideSectionTitle(section.title) }}</span>
             </a>
@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
             class="absolute -bottom-7 left-4 top-16 w-px bg-zinc-200 dark:bg-zinc-800"
           />
           <div class="min-w-0">
-            <span class="absolute left-0 top-7 grid size-8 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 shadow-sm transition-colors group-hover:border-green-300 dark:group-hover:border-green-700 group-hover:bg-green-50 dark:group-hover:bg-green-950">
+            <span class="absolute left-0 top-7 grid size-8 place-items-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-green-700 dark:text-green-400 shadow-sm transition-colors group-hover:border-green-300 dark:group-hover:border-green-700 group-hover:bg-green-50 dark:group-hover:bg-green-950">
               <UIcon
                 :name="section.icon"
                 class="size-4"
@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
       <a
         v-if="showContentsShortcut"
         href="#guide-contents"
-        class="fixed bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] right-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 shadow-lg shadow-zinc-950/10 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 md:hidden"
+        class="fixed bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] right-4 z-30 inline-flex min-h-11 items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-800 dark:text-zinc-100 shadow-lg shadow-zinc-950/10 hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 md:hidden"
         aria-label="返回本页目录"
         @click="openContents"
       >

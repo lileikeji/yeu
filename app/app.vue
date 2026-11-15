@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { THEME_PALETTE_THEME_COLORS } from '~/utils/theme-mode'
+import { themeColorFor } from '~/utils/theme-mode'
 
-const { palette } = useThemeMode()
-const themeColor = computed(() => THEME_PALETTE_THEME_COLORS[palette.value])
+const { palette, isDark } = useThemeMode()
+const themeColor = computed(() => themeColorFor(palette.value, isDark.value))
 
 useHead({
   htmlAttrs: {
