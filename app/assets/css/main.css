@@ -654,3 +654,29 @@ html.dark {
   --color-zinc-400: #a3a3ac;
   --color-zinc-500: #b0b0b9;
 }
+
+/* ===== 歌手页主题壳层（T-021，R-008 F1 修正） =====
+/singer、/singer/pre-register、/singer/register 三页原先共用一条写死的浅暖渐变
+（#ffe8d9 → #fdf6ec → #ddf3ea）+ 写死的墨色，换配色或切暗色时整片不跟随，深底上直接白压白。
+这里把外壳换成跟随主题变量的 canvas，三页统一写 class="singer-canvas min-h-dvh text-[var(--ink)]"。
+
+浅色（默认块）：径向光晕归零，线性只把顶端抬到 --surface 附近（主色洗色 4%），底部回到 --page-bg。
+  原因：paper 的 --color-green-600 是墨色 #0a0a0a，18% 径向 + 10% 线性把顶端压到 #c5c5c5，
+  --muted-ink #6f6f6f 压上去只剩 2.91:1（R-008 F1）；而 --muted-ink 压 --page-bg 本身只有 4.57，
+  零余量，任何可见的深色光晕都会击穿 4.5。抬到 --surface 方向则顶端更亮：paper 浅 = #f5f5f5，
+  #6f6f6f 压上 4.61，其余七套更高（浅色端 4.61–6.0+）。
+暗色（html.dark 覆盖块）：暗底上 --muted-ink 有 6.1–7.9 余量，保留品牌径向光晕 18% + 深主色压底 8%。 */
+.singer-canvas {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface) 96%, var(--color-green-600)) 0%,
+    var(--page-bg) 42%,
+    var(--page-bg) 100%
+  );
+}
+
+html.dark .singer-canvas {
+  background-image:
+    radial-gradient(90% 60% at 50% 0%, color-mix(in srgb, var(--color-green-600) 18%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-green-600) 10%, var(--page-bg)) 0%, var(--page-bg) 42%, color-mix(in srgb, var(--color-green-800) 8%, var(--page-bg)) 100%);
+}
