@@ -32,6 +32,7 @@ import {
   resolveInitialMapViewMode,
   resolveInitialSelectedMapPoiId,
   resolveMapUnsupportedBaseStyleMessage,
+  resolveDockSearchMobileSheetState,
   resolveMobileSheetAnchors,
   resolveMobileSheetHeightClass,
   resolveMobileSheetStateFromHeight,
@@ -787,7 +788,7 @@ const mapSheetSearching = computed(() => searchQuery.value.trim().length > 0)
 function onMobileDockSearchInput(value: string): void {
   onSearchQueryInput(value)
   if (!value.trim() || panelIsDesktop.value) return
-  if (mobileSheetState.value === 'collapsed') mobileSheetState.value = 'half'
+  mobileSheetState.value = resolveDockSearchMobileSheetState(mobileSheetState.value)
 }
 const mapSheetShowsSections = computed(() => mobileSheetState.value !== 'collapsed'
   && mapSheetView.value === 'sections'
