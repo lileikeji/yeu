@@ -926,7 +926,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 
       <!-- F23：搜索结果块移出「展开/收起」按钮，与头部行同级——按钮里不能再套按钮。 -->
       <div
-        v-show="mapSheetSearching"
+        v-show="mapSheetSearching && (nativeSearchLoading || nativeSearchResults.length > 0)"
         class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-2 md:hidden"
         aria-label="地图搜索结果"
       >
@@ -963,14 +963,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             </li>
           </ul>
         </template>
-        <!-- 空态只在地图侧没结果、本地列表也零匹配时说话；本地有匹配就让下方列表承载，避免同屏两套结论。 -->
-        <p
-          v-else-if="!filteredPois.length"
-          class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
-          role="status"
-        >
-          没有找到匹配的地点
-        </p>
       </div>
       <div
         v-if="mobileSheetState === 'collapsed'"

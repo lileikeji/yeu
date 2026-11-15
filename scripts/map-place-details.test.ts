@@ -326,10 +326,12 @@ test('native search widgets are hidden so only the custom clear button shows', (
   assert.match(rule![1], /display:\s*none/)
 })
 
-test('sheet empty state yields to the local place list when it has matches', () => {
-  // F28：地图侧零结果时不再直接断言「没有找到」，本地有匹配就交给列表。
-  assert.match(pageSource, /<p\s+v-else-if="!filteredPois\.length"/)
-  assert.doesNotMatch(pageSource, /<p\s+v-else\s+class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"\s+role="status"/)
+test('search result block only occupies space when it has content', () => {
+  // F31：结果块是 flex-1，搜索中但没有 native 结果时仍占位，面板头部与列表之间空出一大块。
+  assert.match(pageSource, /v-show="mapSheetSearching && \(nativeSearchLoading \|\| nativeSearchResults\.length > 0\)"/)
+  // 空态交给下方的「地点列表」承载，结果块里不再留第二套空态文案。
+  assert.doesNotMatch(pageSource, /没有找到匹配的地点/)
+  assert.match(pageSource, /v-if="filteredPois\.length === 0"[\s\S]{0,600}?没有匹配的地点/)
 })
 
 test('map empty overlay separates "no match" from "no data"', () => {
