@@ -182,7 +182,7 @@ const {
   attach: attachMapGlass,
   start: startMapGlass,
   stop: stopMapGlass,
-  setPaused: setMapGlassPaused,
+  setUploadFrozen: setMapGlassUploadFrozen,
   ready: mapGlassReady,
   fps: mapGlassFps
 } = useMapGlassRefraction({
@@ -200,12 +200,10 @@ const {
 const mapGlassActive = computed(() => glassEnabled.value && mapGlassReady.value && glassStrengthScale.value > 0)
 
 /**
- * T-024：展开/收起这 280ms 里不画折射。面板高度每帧都在变，玻璃层要重算四边形、
- * 重传底图，正好是掉帧最狠的一段；这段改走 CSS 白纱兜底（90% + blur(16px)），
- * 动画一结束立刻接回来。过渡期 canvas 是清空的，所以 DOM 类同时切回
- * map-glass-surface，避免 72% 白纱透出没折射的底图。
+ * 展开/收起这 280ms 里玻璃层一直在画：面板在动，底图没动，所以只冻结底图纹理上传，
+ * 四边形照常每帧重算，折射边缘跟着面板走。渲染类始终保持 map-glass-refracting，
+ * 不做 90% 白纱 ↔ 66% 玻璃的切换——那一步就是用户看到的「收起时闪一下」。
  */
-const glassTransitioning = ref(false)
 let glassTransitionTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearGlassTransitionTimer(): void {
@@ -216,13 +214,11 @@ function clearGlassTransitionTimer(): void {
 
 function endGlassTransition(): void {
   clearGlassTransitionTimer()
-  glassTransitioning.value = false
-  setMapGlassPaused(false)
+  setMapGlassUploadFrozen(false)
 }
 
 function beginGlassTransition(): void {
-  glassTransitioning.value = true
-  setMapGlassPaused(true)
+  setMapGlassUploadFrozen(true)
   // transitionend 可能被吞掉（快速连点、中途反向拖拽、tab 切走）：
   // 用略长于动画的兜底定时器保证一定能恢复，不让折射卡在暂停态。
   clearGlassTransitionTimer()
@@ -848,7 +844,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
         // 真折射跑起来时不要再叠 backdrop-filter：叠了等于把已经弯折的底图再糊一遍，
         // 08-WebGL全屏折射 里「楼在玻璃里折」的观感就没了。ready=false 才回落到 blur。
-        mapGlassActive && !glassTransitioning ? 'map-glass-refracting' : 'map-glass-surface',
+        mapGlassActive ? 'map-glass-refracting' : 'map-glass-surface',
         // 折叠态也要有视觉边界：没有边框和阴影，面板会和地图糊在一起，
         // 用户看不出「这里还有一列地点、可以上滑」。
         mobileSheetState === 'collapsed'
