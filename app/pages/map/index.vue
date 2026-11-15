@@ -101,6 +101,10 @@ const mapViewMode = ref<'geographic' | 'official-plan'>(
 // SSR 拿不到 window，先按桌面给 half；挂载后再在手机端收起（见 onMounted），
 // 否则 SSR 出来的半屏会被 hydration 原样保留，地图只剩两百多像素高。
 const mobileSheetState = ref<MobileSheetState>(initialSelectedPoiId ? 'collapsed' : 'half')
+// 首帧防闪烁：SSR 拿不到 window，mobileSheetState 初值是 half，手机上一进页面
+// 面板会先整个展开、等 hydration 完再收起（用户 2026-11-15 截图：地图还在转圈，面板已经张开）。
+// 这里用 sheetHydrated 把「挂载前的手机面板」按折叠态渲染，桌面 md+ 不受影响。
+const sheetHydrated = ref(false)
 const mobileSheetElement = ref<HTMLElement | null>(null)
 const mobileSheetDragHeight = ref<number | null>(null)
 const mobileSheetDragPointerId = ref<number | null>(null)
@@ -716,6 +720,7 @@ const {
 
 // 个人定位接入校车定位：进图即静默显示「我的位置」蓝点（不飞相机）
 onMounted(() => {
+  sheetHydrated.value = true
   if (window.innerWidth < 768) mobileSheetState.value = 'collapsed'
   if (transitLinesOpen.value) startTransitLive()
   startLocateDisplay()
@@ -840,8 +845,9 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         mobileSheetHeightClass,
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
         // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
-        mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
-        mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
+        sheetHydrated && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
+        // 挂载前一律按折叠渲染，避免手机上首帧先弹出一块面板再收回。
+        !sheetHydrated || mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
         // 真折射跑起来时不要再叠 backdrop-filter：叠了等于把已经弯折的底图再糊一遍，
         // 08-WebGL全屏折射 里「楼在玻璃里折」的观感就没了。ready=false 才回落到 blur。
         mapGlassActive ? 'map-glass-refracting' : 'map-glass-surface',
@@ -1277,7 +1283,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     </aside>
 
     <section
-      class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden bg-[#e5ebe7] dark:bg-[#1c231e] md:relative md:inset-auto md:order-2"
+      class="absolute inset-0 isolate min-h-0 min-w-0 overflow-hidden bg-[var(--page-bg)] md:relative md:inset-auto md:order-2"
       aria-label="校园地图"
     >
       <div
@@ -1751,7 +1757,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       <div
         v-if="mapViewMode === 'geographic' && mapStatus !== 'ready'"
         class="absolute inset-0 z-10 grid place-items-start p-4 pt-32 text-center md:place-items-center md:p-6"
-        :class="mapStatus === 'loading' ? 'pointer-events-auto bg-[#e5ebe7] dark:bg-[#1c231e]/95' : 'pointer-events-none'"
+        :class="mapStatus === 'loading' ? 'pointer-events-auto bg-[var(--page-bg)]/95' : 'pointer-events-none'"
         :role="mapStatus === 'loading' ? 'status' : 'alert'"
       >
         <div v-if="mapStatus === 'loading'">

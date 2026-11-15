@@ -205,3 +205,18 @@ test('glass texture upload is downsampled to half size and rate limited to 30Hz'
   assert.match(glassSource, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA, gl\.RGBA, gl\.UNSIGNED_BYTE, downscaleCanvas\)/)
   assert.match(glassSource, /if \(!textureUploaded \|\| \(!uploadFrozen && now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS\)\)/)
 })
+
+test('sheet stays collapsed before hydration so mobile first paint never flashes open', () => {
+  // 用户手机反馈：地图还在转圈时面板已经展开，hydration 完才收起。
+  assert.match(pageSource, /const sheetHydrated = ref\(false\)/)
+  assert.match(pageSource, /sheetHydrated\.value = true/)
+  assert.ok(pageSource.includes("sheetHydrated && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : ''"))
+  assert.ok(pageSource.includes("!sheetHydrated || mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : ''"))
+})
+
+test('map chrome backdrop follows the palette instead of a fixed green grey', () => {
+  // 固定 #e5ebe7/#1c231e 会让纸色/莓红等配色下地图底板透出灰绿，玻璃面板也跟着染色。
+  assert.doesNotMatch(pageSource, /#e5ebe7/)
+  assert.doesNotMatch(pageSource, /#1c231e/)
+  assert.match(pageSource, /bg-\[var\(--page-bg\)\]/)
+})
