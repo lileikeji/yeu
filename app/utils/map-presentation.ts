@@ -237,6 +237,16 @@ export function resolveMobileSheetHeightClass(state: MobileSheetState): string {
   } as const)[state]
 }
 
+/**
+ * 手机 dock 区的搜索框不在面板里：开始输入时如果面板是折叠的，就抬到半屏，
+ * 结果列表才有地方出现；另外两态保持用户当前的展开程度。
+ * 单独成函数而不是页面里就地写一句赋值，一是和 resolveSelectPoiMobileSheetState
+ * 一样可以单测，二是把「为什么会自动抬起来」这个意图写在唯一一处。
+ */
+export function resolveDockSearchMobileSheetState(state: MobileSheetState): MobileSheetState {
+  return state === 'collapsed' ? 'half' : state
+}
+
 export function filterPublicMapPlacesByScope<T extends Pick<PublicMapPlace, 'scope'>>(
   places: readonly T[],
   activeScope: string | null | undefined
