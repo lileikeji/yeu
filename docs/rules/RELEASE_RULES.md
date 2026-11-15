@@ -119,6 +119,7 @@
 `release-tools.mjs checkRetrieval` 用文件字节算 hash：`core.autocrlf=true` 的工作树算出 `d7978e91…`，LF 工作树算出 `8c3787f2…`，与线上一致的是后者。命令必须在 LF 工作树（或 Linux CI）里跑，否则会被「检索代码已变更但 ASSISTANT_CACHE_VERSION 未 bump」拦下，且改的是假问题。
 
 ## 三、固定约定
+- 上传制品：`scp -O -i "C:/Users/15294/.ssh/tencent_yeu.pem" release.tar.gz root@124.221.145.182:/data/yeu-build/incoming/<release>.tar.gz`。密钥路径要 `C:/…`（MSYS 的 `/c/…` 会被 Windows OpenSSH 当成不存在），`-O` 不能省（默认 sftp 常被服务端断开，只落下 0 字节文件，`deploy-incoming.sh` 会报包损坏）。
 - 生产发布只用 `deploy-incoming.sh` 一条入口，`deploy-home-sheet.sh` 会绕过 `flock`。
 - 构建一律在本机（Windows/macOS）做，不在生产机跑 `pnpm build`。
 - 动生产库前先做表级 dump 到 `/data/yeu/shared/backups/<主题>-<时间>/`。
