@@ -40,6 +40,10 @@ test('折叠条结构：4px 把手 + 30px 图标 + 两行文案 + 4 分钟胶囊
   assert.match(componentSource, /size-\[30px\]/)
   assert.match(componentSource, /collapsedEta/)
   assert.match(componentSource, /collapsedDetail/)
+  // 叮叮车只有车名（叮叮车10 / 叮叮车2）没有车牌；分钟数只留右侧胶囊一处，标题不重复。
+  assert.match(componentSource, /return bus\.busName \|\| '叮叮车'/)
+  assert.doesNotMatch(componentSource, /'叮叮车 ' \+ eta/)
+  assert.doesNotMatch(componentSource, /bus\.busName \+ ' · ' \+ where/)
   assert.match(componentSource, /:data-bus-stops="sheetStops\.length"/)
 })
 
