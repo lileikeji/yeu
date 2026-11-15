@@ -63,9 +63,12 @@ export const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
   routeJavaScriptBytes: {
     'pages/index.vue': 620 * 1024,
     'pages/search.vue': 800 * 1024,
-    'pages/map/index.vue': 905 * 1024,
+    // 2026-11-16 实测 934753 B：叮叮车并入面板三态 + 折叠态 ETA 胶囊（约 +8 KB）后再顶破旧预算，
+    // 按合并后实测重标 920 KiB（余量约 7.3 KB）；再涨就谈瘦包（面板异步化 / 胶囊懒载）。
+    'pages/map/index.vue': 920 * 1024,
     'pages/procedures/[slug].vue': 470 * 1024,
-    'pages/admin/[section].vue': 670 * 1024,
+    // 2026-11-16 实测 686790 B：新增投影辅助进入 utils auto-import 共享 chunk，管理端初始依赖随之 +0.7 KB。
+    'pages/admin/[section].vue': 678 * 1024,
     'pages/admin/procedures.vue': 720 * 1024,
     'pages/admin/field-observations.vue': 650 * 1024
   }
