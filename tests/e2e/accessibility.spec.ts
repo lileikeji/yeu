@@ -74,12 +74,9 @@ for (const auditPage of auditPages) {
   test(`${auditPage.name}没有严重或阻断级自动无障碍问题`, async ({ page }, testInfo) => {
     await page.goto(auditPage.path)
     if (auditPage.path === '/map') {
-      // 移动端默认收起面板（2026-11-06），先展开再审计搜索框所在视图。
-      const search = page.getByLabel('搜索地图地点')
-      if (!(await search.isVisible().catch(() => false))) {
-        await page.getByRole('button', { name: '打开地点列表' }).click()
-      }
-      await expect(search).toBeVisible()
+      // 地图搜索框手机端在底部 dock、桌面端在左侧栏，收起态即可审计；
+      // 两处 input 同名且都在 DOM 里，定位限定可见的那个。
+      await expect(page.locator('input[aria-label="搜索地图地点"]:visible').first()).toBeVisible()
     } else {
       await expect(page.getByRole('heading', { level: 1, name: auditPage.heading })).toBeVisible()
     }
