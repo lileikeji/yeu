@@ -9,7 +9,7 @@
 按顺序执行，每一步都有对应的核对动作。
 
 1. **基线含 master**
-   构建前确认：`git merge-base --is-ancestor <构建commit> master`。不成立就先 `git merge master` 再构建。
+   构建前确认：`git merge-base --is-ancestor github/master <构建commit>`（A 必须是 master，B 才是构建提交；写反会把老提交判成通过）。不成立就先 `git merge github/master` 再构建。
    核对：`git log --oneline <commit>..master` 输出为空。
 2. **自带测试清零**
    `pnpm run test` 与 `npx nuxt typecheck` 都必须 exit 0。
@@ -57,7 +57,7 @@
 
 - 现象：线上 commit 是分支上的 `d7731a1d`，master 已到 `4c5392bc`。顶栏搜索按钮居中、`ASSISTANT_CACHE_VERSION` v86、移动端滑动标点不再误开详情这三处线上都没有。
 - 原因：分支父链是 `684fca98`，从没合过 master，用分支 HEAD 构建就等于用旧基线发版。
-- 做法：构建前跑 `git merge-base --is-ancestor <commit> master`；不成立先 merge master，用 merge commit 构建。
+- 做法：构建前跑 `git merge-base --is-ancestor github/master <构建commit>`；不成立先 merge master，用 merge commit 构建。
 
 ### 2. 删除工作树时掏空主仓 node_modules（2026-11-12）
 

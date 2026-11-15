@@ -673,7 +673,7 @@ onBeforeUnmount(stopPolling)
           <section
             v-show="activeTab === 'score'"
             data-score-section
-            class="grid min-h-0 gap-2 overflow-hidden lg:grid-cols-[minmax(17rem,21rem)_minmax(0,1fr)] lg:gap-4 lg:overflow-visible"
+            class="grid min-h-0 gap-2 overflow-hidden lg:grid-cols-[minmax(20rem,22rem)_minmax(0,1fr)] lg:gap-4 lg:overflow-visible"
           >
             <aside
               v-if="sequential && current"
@@ -1014,7 +1014,7 @@ onBeforeUnmount(stopPolling)
                       :disabled="!scoringOpen || currentSubmitted"
                       :aria-label="`${dimension.label}打 ${point} 分`"
                       :aria-pressed="draftScores[dimension.key] === point"
-                      class="h-9 rounded-md border text-xs font-semibold tabular-nums transition select-none touch-manipulation active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:text-sm"
+                      class="h-9 rounded-md border text-xs font-semibold tabular-nums select-none touch-manipulation active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:text-sm"
                       :class="draftScores[dimension.key] === point
                         ? 'border-green-600 bg-green-600 text-white shadow-xs dark:border-green-500 dark:bg-green-500 dark:text-zinc-950'
                         : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-200 dark:hover:bg-zinc-800'"
