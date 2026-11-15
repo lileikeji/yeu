@@ -106,7 +106,7 @@ async function refreshSources(): Promise<void> {
 
 <template>
   <div>
-    <section class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <section class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           信息从哪里来
@@ -120,7 +120,7 @@ async function refreshSources(): Promise<void> {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="打开学校官网 yeu.edu.cn（新窗口）"
-            class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md bg-green-700 px-4 text-sm font-semibold text-[var(--surface)] transition-colors hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
           >
             <UIcon
               name="i-lucide-external-link"
@@ -130,7 +130,7 @@ async function refreshSources(): Promise<void> {
           </a>
           <a
             href="#source-list"
-            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-700 dark:text-zinc-200 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
+            class="inline-flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 text-sm font-semibold text-zinc-700 dark:text-zinc-200 transition-colors hover:border-green-300 dark:hover:border-green-700 hover:text-green-700 dark:hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
             @click="clearSourceFilters"
           >
             <UIcon
@@ -147,7 +147,7 @@ async function refreshSources(): Promise<void> {
       id="recent-updates"
       class="page-shell scroll-mt-20 py-8 md:py-10"
     >
-      <div class="overflow-hidden rounded-lg border border-green-100 dark:border-green-900 bg-gradient-to-br from-green-50 via-white to-amber-50 shadow-sm">
+      <div class="overflow-hidden rounded-lg border border-green-100 dark:border-green-900 bg-gradient-to-br from-green-50 via-white to-amber-50 dark:from-green-950 dark:via-zinc-900 dark:to-amber-950 shadow-sm">
         <div class="grid gap-5 border-b border-green-100 dark:border-green-900 px-5 py-6 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <div>
             <p class="section-kicker">
@@ -174,7 +174,7 @@ async function refreshSources(): Promise<void> {
           >
             <NuxtLink
               :to="item.to"
-              class="group flex h-full min-h-40 gap-4 px-5 py-5 transition-colors hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 sm:px-6"
+              class="group flex h-full min-h-40 gap-4 px-5 py-5 transition-colors hover:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 sm:px-6"
             >
               <span
                 class="grid size-10 shrink-0 place-items-center rounded-lg"
@@ -219,7 +219,7 @@ async function refreshSources(): Promise<void> {
           <li
             v-for="item in sourceLevelGuides"
             :key="item.level"
-            class="rounded-md border bg-white dark:bg-zinc-900 p-4 shadow-sm"
+            class="rounded-md border bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
             :class="sourceToneClasses[item.tone].border"
           >
             <div class="flex items-center gap-3">
@@ -246,7 +246,7 @@ async function refreshSources(): Promise<void> {
       </div>
     </section>
 
-    <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
+    <section class="border-y border-[var(--line)] bg-[var(--page-bg)]">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
           地图怎么用
@@ -331,8 +331,8 @@ async function refreshSources(): Promise<void> {
           type="button"
           class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 sm:px-3"
           :class="activeSourceKind === option.id
-            ? 'border-green-700 bg-green-700 text-white'
-            : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
+            ? 'border-green-700 bg-green-700 text-[var(--surface)]'
+            : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
           :aria-pressed="activeSourceKind === option.id"
           @click="activeSourceKind = option.id"
         >
@@ -455,7 +455,7 @@ async function refreshSources(): Promise<void> {
 
       <div
         v-if="!loadError && !visibleSources.length"
-        class="mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-10 text-center"
+        class="mt-5 border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-5 py-10 text-center"
         role="status"
       >
         <UIcon

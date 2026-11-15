@@ -160,7 +160,7 @@ onMounted(() => {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-10">
         <p class="section-kicker">
           {{ formCopy.kicker }}
@@ -181,7 +181,7 @@ onMounted(() => {
           class="border-y border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-5 py-10 text-center"
           role="status"
         >
-          <span class="mx-auto grid size-11 place-items-center rounded-full bg-green-700 text-white">
+          <span class="mx-auto grid size-11 place-items-center rounded-full bg-green-700 text-[var(--surface)]">
             <UIcon
               name="i-lucide-check"
               class="size-5"
@@ -195,7 +195,7 @@ onMounted(() => {
           </p>
           <div
             v-if="receiptCode"
-            class="mx-auto mt-5 max-w-sm border border-green-300 dark:border-green-800 bg-white dark:bg-zinc-900 px-4 py-3 text-left"
+            class="mx-auto mt-5 max-w-sm border border-green-300 dark:border-green-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3 text-left"
           >
             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
               回执号（凭它随时查处理进度）
@@ -305,7 +305,7 @@ onMounted(() => {
               v-if="!isDedicatedPrivacyRequest"
               id="feedback-reason"
               v-model="reasonType"
-              class="mt-2 min-h-11 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+              class="mt-2 min-h-11 w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 px-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
             >
               <option
                 v-for="option in reasonOptions"
@@ -363,7 +363,7 @@ onMounted(() => {
           </div>
 
           <details
-            class="group border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+            class="group border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
             :open="isPrivacyRequest"
           >
             <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-1 py-3 [&::-webkit-details-marker]:hidden">

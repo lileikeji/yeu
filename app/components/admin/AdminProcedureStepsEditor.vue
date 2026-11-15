@@ -119,7 +119,7 @@ const emit = defineEmits<{
             required
             class="sm:col-span-2"
           >
-            <div class="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2">
+            <div class="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
               <UCheckbox
                 v-for="option in audienceOptions"
                 :key="option.value"

@@ -350,7 +350,7 @@ onMounted(() => {
     </div>
 
     <div class="grid gap-3 sm:grid-cols-3">
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           房间数
         </p>
@@ -361,7 +361,7 @@ onMounted(() => {
           全员禁言 {{ mutedRoomCount }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           消息结果
         </p>
@@ -372,7 +372,7 @@ onMounted(() => {
           本页已删 {{ deletedOnPage }}
         </p>
       </div>
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3">
         <p class="text-xs text-zinc-500 dark:text-zinc-400">
           生效禁言
         </p>
@@ -382,7 +382,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+    <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
       <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
         房间与全员禁言
       </h2>
@@ -468,7 +468,7 @@ onMounted(() => {
     </section>
 
     <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
         <div class="flex flex-wrap items-end gap-3">
           <UFormField
             label="房间"
@@ -625,7 +625,7 @@ onMounted(() => {
       <div class="space-y-4">
         <section
           id="chat-mute-form"
-          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+          class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
         >
           <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
             个人禁言
@@ -674,7 +674,7 @@ onMounted(() => {
           </div>
         </section>
 
-        <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <section class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4">
           <div class="flex items-center justify-between">
             <h2 class="font-semibold text-zinc-950 dark:text-zinc-100">
               生效中的禁言
@@ -761,7 +761,7 @@ onMounted(() => {
         </UButton>
       </div>
       <dl class="mt-3 grid gap-2 sm:grid-cols-2">
-        <div class="rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+        <div class="rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
           <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
             房间
           </dt>
@@ -769,7 +769,7 @@ onMounted(() => {
             {{ roomTitle(selectedMessage.roomId, selectedMessage.roomTitle) }}
           </dd>
         </div>
-        <div class="rounded-md border border-white bg-white dark:bg-zinc-900 px-3 py-2">
+        <div class="rounded-md border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2">
           <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
             账号编号
           </dt>
@@ -777,7 +777,7 @@ onMounted(() => {
             {{ shortAdminId(selectedMessage.userId, 12) }}
           </dd>
         </div>
-        <div class="rounded-md border border-white bg-white dark:bg-zinc-900 px-3 py-2 sm:col-span-2">
+        <div class="rounded-md border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-2 sm:col-span-2">
           <dt class="text-[11px] text-zinc-500 dark:text-zinc-400">
             消息编号
           </dt>
@@ -786,7 +786,7 @@ onMounted(() => {
           </dd>
         </div>
       </dl>
-      <div class="mt-3 rounded-xl border border-white bg-white dark:bg-zinc-900 px-3 py-3">
+      <div class="mt-3 rounded-xl border border-white bg-[var(--surface)] dark:bg-zinc-900 px-3 py-3">
         <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
           正文
         </p>

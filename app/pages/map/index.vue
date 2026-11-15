@@ -557,12 +557,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="map-workspace relative h-full min-h-0 overflow-hidden bg-white dark:bg-zinc-900 overscroll-none md:grid md:grid-rows-1"
+    class="map-workspace relative h-full min-h-0 overflow-hidden bg-[var(--surface)] dark:bg-zinc-900 overscroll-none md:grid md:grid-rows-1"
     :class="sidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[18rem_minmax(0,1fr)]'"
   >
     <aside
       ref="mobileSheetElement"
-      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md bg-white dark:bg-zinc-900 transition-[height] duration-200 md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
+      class="absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-md bg-[var(--surface)] dark:bg-zinc-900 transition-[height] duration-200 md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
       :class="[
         mobileSheetHeightClass,
@@ -794,12 +794,12 @@ onBeforeUnmount(() => {
           :ref="poiRowRef(poi.id)"
           type="button"
           class="flex w-full items-center gap-2.5 border-b border-zinc-100 dark:border-zinc-800 px-3 py-2 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700 md:gap-3 md:px-5 md:py-3"
-          :class="selectedPoiId === poi.id ? 'bg-green-50 dark:bg-green-950' : 'bg-white dark:bg-zinc-900'"
+          :class="selectedPoiId === poi.id ? 'bg-green-50 dark:bg-green-950' : 'bg-[var(--surface)] dark:bg-zinc-900'"
           @click="selectPoi(poi)"
         >
           <span
             class="grid size-8 shrink-0 place-items-center rounded-md md:size-9"
-            :class="selectedPoiId === poi.id ? 'bg-green-700 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'"
+            :class="selectedPoiId === poi.id ? 'bg-green-700 text-[var(--surface)]' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'"
           >
             <UIcon
               :name="categoryIcon(poi.category)"
@@ -861,7 +861,7 @@ onBeforeUnmount(() => {
           <!-- 桌面端 DOM 顺序按实测宽度从长到短排列：reverse 后视觉上短在上、长在下 -->
           <div
             v-if="mapViewMode === 'geographic' && transitLinesOpen"
-            class="pointer-events-auto flex items-center gap-2.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
+            class="pointer-events-auto flex items-center gap-2.5 rounded-md border border-zinc-200/90 bg-[var(--surface)]/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
           >
             <span class="flex items-center gap-1">
               <i class="size-2 rounded-full bg-[#1a6cf5]" />
@@ -906,7 +906,7 @@ onBeforeUnmount(() => {
           </UBadge>
           <div
             v-if="mapViewMode === 'geographic' && speedBumpsVisible"
-            class="pointer-events-auto flex items-center gap-1.5 rounded-md border border-zinc-200/90 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
+            class="pointer-events-auto flex items-center gap-1.5 rounded-md border border-zinc-200/90 bg-[var(--surface)]/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200"
           >
             <i class="h-2.5 w-4 rounded-sm border border-zinc-500 bg-[repeating-linear-gradient(135deg,#facc15_0_3px,#18181b_3px_6px)]" />
             减速带 27
@@ -935,7 +935,7 @@ onBeforeUnmount(() => {
       <div class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-end gap-3 md:inset-x-4 md:top-4">
         <div
           v-if="canShowOfficialPlan"
-          class="pointer-events-auto absolute left-1/2 top-0 flex -translate-x-1/2 overflow-hidden rounded-md border border-white/40 bg-white dark:bg-zinc-900 shadow-sm"
+          class="pointer-events-auto absolute left-1/2 top-0 flex -translate-x-1/2 overflow-hidden rounded-md border border-white/40 bg-[var(--surface)] dark:bg-zinc-900 shadow-sm"
           role="group"
           aria-label="地图显示模式"
         >
@@ -962,7 +962,7 @@ onBeforeUnmount(() => {
         </div>
         <div
           v-if="mapViewMode === 'geographic'"
-          class="pointer-events-auto flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800 overflow-hidden rounded-xl border border-zinc-200/90 bg-white/95 dark:bg-zinc-900/95 shadow-lg backdrop-blur"
+          class="pointer-events-auto flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800 overflow-hidden rounded-xl border border-zinc-200/90 bg-[var(--surface)]/95 dark:bg-zinc-900/95 shadow-lg backdrop-blur"
         >
           <UTooltip :text="transitLinesOpen ? '隐藏 K2 / K6 校外公交线路' : '显示 K2 / K6 校外公交线路'">
             <UButton
@@ -1083,7 +1083,7 @@ onBeforeUnmount(() => {
 
       <div
         v-if="mapViewMode === 'geographic' && routeSummary"
-        class="absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 dark:border-green-800 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 shadow-lg backdrop-blur-sm md:bottom-14"
+        class="absolute left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-md border border-green-200 dark:border-green-800 bg-[var(--surface)]/95 dark:bg-zinc-900/95 px-4 py-3 shadow-lg backdrop-blur-sm md:bottom-14"
         :class="selectedPoi
           ? 'bottom-[calc(var(--mobile-nav-height)+min(56dvh,30rem)+1rem)]'
           : 'bottom-[calc(var(--mobile-nav-height)+5.5rem)]'"
@@ -1169,7 +1169,7 @@ onBeforeUnmount(() => {
       <!-- 路口级步行指引（点路线条展开） -->
       <div
         v-if="mapViewMode === 'geographic' && routeSummary && routeStepsOpen && routeSteps.length"
-        class="absolute left-1/2 z-20 w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-md border border-green-200 dark:border-green-800 bg-white/95 dark:bg-zinc-900/95 shadow-lg backdrop-blur-sm md:bottom-14"
+        class="absolute left-1/2 z-20 w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-md border border-green-200 dark:border-green-800 bg-[var(--surface)]/95 dark:bg-zinc-900/95 shadow-lg backdrop-blur-sm md:bottom-14"
         :class="selectedPoi
           ? 'bottom-[calc(var(--mobile-nav-height)+min(56dvh,30rem)+3.5rem)]'
           : 'bottom-[calc(var(--mobile-nav-height)+8rem)]'"
@@ -1209,7 +1209,7 @@ onBeforeUnmount(() => {
         </div>
         <div
           v-else
-          class="pointer-events-auto max-w-sm rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 p-5 shadow-lg backdrop-blur-sm"
+          class="pointer-events-auto max-w-sm rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)]/95 dark:bg-zinc-900/95 p-5 shadow-lg backdrop-blur-sm"
         >
           <UIcon
             name="i-lucide-map-pin-off"
@@ -1250,7 +1250,7 @@ onBeforeUnmount(() => {
         class="pointer-events-none absolute inset-x-4 top-32 z-10 flex justify-center md:top-20"
         role="status"
       >
-        <div class="max-w-sm border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 px-4 py-3 text-center shadow-sm backdrop-blur-sm">
+        <div class="max-w-sm border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)]/95 dark:bg-zinc-900/95 px-4 py-3 text-center shadow-sm backdrop-blur-sm">
           <UIcon
             name="i-lucide-map-pin-off"
             class="mx-auto size-5 text-zinc-500 dark:text-zinc-400"
@@ -1275,7 +1275,7 @@ onBeforeUnmount(() => {
 
       <section
         v-if="selectedArea"
-        class="absolute left-3 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-xl md:bottom-12 md:left-4"
+        class="absolute left-3 z-30 w-[min(22rem,calc(100%-1.5rem))] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-xl md:bottom-12 md:left-4"
         :class="mobileSheetState === 'collapsed' || selectedPoi
           ? 'bottom-[calc(var(--mobile-nav-height)+0.75rem)] md:bottom-12'
           : 'bottom-[calc(44%+1rem)] md:bottom-12'"
@@ -1360,7 +1360,7 @@ onBeforeUnmount(() => {
     <!-- 车辆详情：点车后镜头跟住它，这里显示下一站与 GPS 新鲜度 -->
     <div
       v-if="transitVehicleFocus"
-      class="pointer-events-auto fixed bottom-20 right-3 z-50 w-60 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur md:bottom-6 md:right-6 dark:border-zinc-700 dark:bg-zinc-900/95"
+      class="pointer-events-auto fixed bottom-20 right-3 z-50 w-60 rounded-xl border border-zinc-200 bg-[var(--surface)]/95 p-3 shadow-lg backdrop-blur md:bottom-6 md:right-6 dark:border-zinc-700 dark:bg-zinc-900/95"
     >
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
@@ -1564,12 +1564,12 @@ onBeforeUnmount(() => {
 
 .map-workspace :deep(.map-float-btn),
 .map-workspace :deep(button.map-float-btn) {
-  background: #ffffff !important;
-  background-color: #ffffff !important;
+  background: var(--surface) !important;
+  background-color: var(--surface) !important;
   color: #18181b !important;
   border: 1px solid #d4d4d8 !important;
   box-shadow: 0 2px 12px rgb(0 0 0 / 18%) !important;
-  --ui-bg: #ffffff;
+  --ui-bg: var(--surface);
   --ui-text: #18181b;
   --ui-border: #d4d4d8;
 }
@@ -1582,7 +1582,7 @@ onBeforeUnmount(() => {
 
 .map-workspace :deep(.map-float-btn:disabled),
 .map-workspace :deep(button.map-float-btn:disabled) {
-  background: #ffffff !important;
+  background: var(--surface) !important;
   opacity: 0.75;
 }
 

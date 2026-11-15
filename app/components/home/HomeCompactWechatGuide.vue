@@ -768,7 +768,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="min-h-dvh bg-[#f3f6f8] dark:bg-zinc-950 pb-10 text-zinc-900 dark:text-zinc-100">
-    <section class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <section class="border-b border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
       <div class="mx-auto max-w-3xl px-4 py-2.5 sm:px-6 sm:py-3">
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
@@ -856,8 +856,8 @@ onBeforeUnmount(() => {
             v-for="(_, index) in banners"
             :key="index"
             type="button"
-            class="h-1.5 rounded-full bg-white/60 dark:bg-zinc-900/60 transition-all"
-            :class="activeBannerIndex === index ? 'w-5 bg-white dark:bg-zinc-900' : 'w-1.5'"
+            class="h-1.5 rounded-full bg-[color-mix(in_srgb,var(--surface)_60%,transparent)] dark:bg-zinc-900/60 transition-all"
+            :class="activeBannerIndex === index ? 'w-5 bg-[var(--surface)] dark:bg-zinc-900' : 'w-1.5'"
             :aria-label="`查看第 ${index + 1} 张轮播图`"
             @click="activeBannerIndex = index"
           />
@@ -866,7 +866,7 @@ onBeforeUnmount(() => {
 
       <section
         v-if="notices.length"
-        class="overflow-hidden rounded-md border border-amber-200 dark:border-amber-900 bg-white dark:bg-zinc-900"
+        class="overflow-hidden rounded-md border border-amber-200 dark:border-amber-900 bg-[var(--surface)] dark:bg-zinc-900"
         aria-labelledby="compact-notice-title"
       >
         <div class="flex items-center justify-between border-b border-amber-100 bg-amber-50 dark:bg-amber-950 px-4 py-2.5">
@@ -898,7 +898,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
+        class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-quick-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -930,7 +930,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
+        class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-service-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -969,7 +969,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
+        class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-tools-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1025,7 +1025,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
+        class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-direct-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1097,7 +1097,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
+        class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-more-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1130,7 +1130,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
+        class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-content-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1158,7 +1158,7 @@ onBeforeUnmount(() => {
             class="inline-flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-md border px-3 text-left transition"
             :class="activeCatalogId === catalog.id
               ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950 text-emerald-900'
-              : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300'"
+              : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300'"
             :aria-selected="activeCatalogId === catalog.id"
             @click="selectCatalog(catalog.id)"
           >
@@ -1205,7 +1205,7 @@ onBeforeUnmount(() => {
       </section>
 
       <section
-        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
         aria-labelledby="compact-major-title"
       >
         <div class="flex items-end justify-between gap-3">
@@ -1246,7 +1246,7 @@ onBeforeUnmount(() => {
 
       <section
         v-if="nearbyHighlights.length"
-        class="rounded-md bg-white dark:bg-zinc-900 p-4 shadow-sm"
+        class="rounded-md bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm"
         aria-labelledby="compact-nearby-title"
       >
         <div class="flex items-center justify-between gap-3">
@@ -1269,7 +1269,7 @@ onBeforeUnmount(() => {
             v-for="item in nearbyHighlights"
             :key="item.id"
             type="button"
-            class="w-48 shrink-0 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-left"
+            class="w-48 shrink-0 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-left"
             @click="openNearbyItem(item)"
           >
             <img
@@ -1315,7 +1315,7 @@ onBeforeUnmount(() => {
             <article
               v-for="(block, index) in selectedEntryContentBlocks"
               :key="`${selectedEntry.id}-detail-${index}`"
-              class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3"
+              class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-4 py-3"
             >
               <h3 class="text-sm font-black text-zinc-900 dark:text-zinc-100">
                 {{ block.title }}
@@ -1342,7 +1342,7 @@ onBeforeUnmount(() => {
               external
               target="_blank"
               rel="noopener noreferrer"
-              class="mx-auto mt-3 block w-fit rounded-md bg-white dark:bg-zinc-900 p-2 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
+              class="mx-auto mt-3 block w-fit rounded-md bg-[var(--surface)] dark:bg-zinc-900 p-2 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
               aria-label="打开联系整理者二维码原图"
             >
               <img

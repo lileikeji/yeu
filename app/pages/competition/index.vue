@@ -44,7 +44,7 @@ const recruitEntries = [
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-4 md:py-5">
         <p class="section-kicker">
           赛事与招新

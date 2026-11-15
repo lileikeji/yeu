@@ -24,10 +24,10 @@ const STOP_ROW_HEIGHT = 56
 const STOP_DOT_CENTER = 16.5
 /** 校园减速带总数（校园口径，与具体线路无关）。 */
 const campusSpeedBumpCount = CAMPUS_SPEED_BUMPS.length
-/** 校车运营时段（07:00–22:30），用于空车时的收车态文案。 */
-const SERVICE_OPEN_MINUTES = 7 * 60
-const SERVICE_CLOSE_MINUTES = 22 * 60 + 30
-const SERVICE_HOURS_LABEL = '运营时段 07:00–22:30'
+/** 校车冬令时运营时段，用于空车时的收车态文案。 */
+const SERVICE_OPEN_MINUTES = 7 * 60 + 20
+const SERVICE_CLOSE_MINUTES = 21 * 60 + 20
+const SERVICE_HOURS_LABEL = '运营时段 07:20–21:20（冬令时） · 末班车 21:10'
 
 /** 上海时区分钟数（不依赖浏览器本地时区）。 */
 function shanghaiMinutes(epochMs: number): number {
@@ -304,7 +304,7 @@ const updatedAtText = computed(() => {
   <button
     v-if="!open"
     type="button"
-    class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg md:border md:border-zinc-200 md:bg-white md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-16 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700 dark:md:bg-zinc-900"
+    class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg md:border md:border-zinc-200 md:bg-[var(--surface)] md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-16 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700 dark:md:bg-zinc-900"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="展开校车线路总览"
     @click="emit('update:open', true)"
@@ -324,11 +324,11 @@ const updatedAtText = computed(() => {
   <!-- 展开态：移动端全屏浮层；桌面端 320px 竖面板，从单行条底边向下展开 -->
   <section
     v-else
-    class="map-bus-panel-enter absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-16 md:bottom-auto md:right-auto md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-80 md:rounded-lg md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
+    class="map-bus-panel-enter absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-[var(--surface)] shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-16 md:bottom-auto md:right-auto md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-80 md:rounded-lg md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="校车线路总览"
   >
-    <header class="sticky top-0 z-10 flex h-11 items-center gap-2 border-b border-zinc-100 bg-white px-3 dark:border-zinc-800 dark:bg-zinc-900">
+    <header class="sticky top-0 z-10 flex h-11 items-center gap-2 border-b border-zinc-100 bg-[var(--surface)] px-3 dark:border-zinc-800 dark:bg-zinc-900">
       <UIcon
         name="i-lucide-bus-front"
         class="size-4 text-orange-600"
@@ -390,7 +390,7 @@ const updatedAtText = computed(() => {
             class="flex items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[9px] font-semibold shadow-sm"
             :class="marker.isAtSite
               ? 'border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400'
-              : 'border-zinc-200 bg-white text-green-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-green-400'"
+              : 'border-zinc-200 bg-[var(--surface)] text-green-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-green-400'"
           >
             <UIcon
               name="i-lucide-bus-front"
@@ -490,7 +490,7 @@ const updatedAtText = computed(() => {
             class="flex max-w-[13.5rem] items-center gap-1 rounded-full border px-2 py-1 shadow-md"
             :class="marker.isAtSite
               ? 'border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950'
-              : 'border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800'"
+              : 'border-zinc-200 bg-[var(--surface)] dark:border-zinc-700 dark:bg-zinc-800'"
           >
             <UIcon
               name="i-lucide-bus-front"
@@ -540,7 +540,7 @@ const updatedAtText = computed(() => {
           <div class="flex items-center gap-1">
             <select
               v-model.number="tripFromIndex"
-              class="min-w-0 flex-1 rounded border border-zinc-200 bg-white px-1 py-1 text-[11px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+              class="min-w-0 flex-1 rounded border border-zinc-200 bg-[var(--surface)] px-1 py-1 text-[11px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
             >
               <option
                 v-for="(stop, index) in selectedRoute.stops"
@@ -556,7 +556,7 @@ const updatedAtText = computed(() => {
             />
             <select
               v-model.number="tripToIndex"
-              class="min-w-0 flex-1 rounded border border-zinc-200 bg-white px-1 py-1 text-[11px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+              class="min-w-0 flex-1 rounded border border-zinc-200 bg-[var(--surface)] px-1 py-1 text-[11px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
             >
               <option
                 v-for="(stop, index) in selectedRoute.stops"
