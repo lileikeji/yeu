@@ -83,6 +83,11 @@
 8. **构建基线必须含 master**：`git merge-base --is-ancestor <构建commit> master` 不成立就先 `git merge master`。分支落后时用分支 HEAD 构建，线上会缺 master 上的修复，表现为"功能被回退"（2026-11-12 事故）。
 9. **构建在干净工作树里做，清理工作树先删联接点**：`git worktree add <dir> <commit> --detach` + 目录联接 `node_modules`；清理时先 `cmd /c rmdir "<dir>\node_modules"`（**不加 `/s`**）再 `git worktree remove`。加 `/s` 会顺联接掏空主仓 `node_modules`（2026-11-12 事故，需 `pnpm install --force` 恢复）。
 10. **发布前跑 `PRAGMA foreign_key_check;`，失败重试必须换 release 标识**：孤儿行会让部署卡在"数据库外键检查失败"；同名 release 重部署被判"release 已存在"直接 `EXIT=1`，真实原因只在 `/data/yeu/shared/logs/deploy-incoming-*.log`。
+11. **部署前先核对「线上 commit 在不在 master 里」**：`ssh root@124.221.145.182 cat /www/wwwroot/yeu/current/.output/release.json` 拿到 commit，再 `git merge-base --is-ancestor <commit> master || git merge <线上分支>`。线上经常跑着没合进 master 的功能分支，直接拿 master 构建会把线上功能顶回去（2026-11-10 主题配色、2026-11-15 叫号台/十分制，两次）。
+12. **制品只走 GitHub Actions**：本机 `nuxt build` 自 2026-11-11 起因 esbuild 删临时文件 `Access denied` 必失败；推 `deploy/theme-on-competition` 触发 `build-artifact`，再 `gh run download -n output`。生成 `release.json` 后必须把 `platform/arch/node/abi` 改成 `linux/x64/v22.x/127`；检索哈希要用 **LF** 工作树算，CRLF 会算出另一个 hash 触发假「未 bump」拦截。
+13. **不要用脚本整文件重写源码**：会把 CRLF 文件改成 LF，产生整文件 diff（2026-11-15 `scripts/check-client-bundle-budget.ts` 出现 480 行换行噪音）。多行改动用精确替换，改完看 `git diff --stat` 只该动目标行。
+14. **时间/导航/文案类测试要防漂移**：按「今年」推导日期的用例必须钉死届次（`ensureCompetitionEventPinned`），否则每年 11-14 初赛日必红；改导航或页面文案要同步 `tests/e2e/*.spec.ts` 断言，否则 master CI 长期红（2026-11-13 起连续两次）。
+15. **Gitee 侧不要在网页上合并 PR**：`mirror-to-gitee.yml` 是 master → gitee `yeu-yx/yeu` 的单向 push 且不带 `--force`，在 Gitee 上合并会让下一次镜像 non-fast-forward 失败；`organization`（gitee newcomers-guide）是旧分叉线，不要动。
 
 发布检查单与全部已发生事故见 [docs/rules/RELEASE_RULES.md](docs/rules/RELEASE_RULES.md)。
 

@@ -17,6 +17,8 @@ export interface SettingsDraft {
   title: string
   edition: string
   registrationOpen: boolean
+  /** 算平均分时去掉一个最高分和一个最低分。 */
+  trimExtremes: boolean
   schedule: CompetitionScheduleItem[]
   formFields: CompetitionFormField[]
   dimensions: CompetitionDimension[]
@@ -87,6 +89,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
       title: source.title,
       edition: source.edition,
       registrationOpen: source.registrationOpen,
+      trimExtremes: source.trimExtremes === true,
       schedule: cloneSchedule(source.schedule),
       formFields: cloneFormFields(source.formFields),
       dimensions: cloneDimensions(source.dimensions)
@@ -142,6 +145,7 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
           title: draft.title.trim(),
           edition: draft.edition.trim(),
           registrationOpen: draft.registrationOpen,
+          trimExtremes: draft.trimExtremes,
           schedule: draft.schedule.map(item => ({
             key: item.key,
             dateLabel: item.dateLabel.trim(),
