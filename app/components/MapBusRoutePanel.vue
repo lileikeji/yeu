@@ -495,7 +495,13 @@ function markerBarTop(ratio: number): string {
 
       <!-- 站行：最小 32，容器富余时等分拉伸；车标按行中心百分比定位 -->
       <div class="min-h-0 flex-1 overflow-hidden px-3">
-        <div class="relative grid h-full auto-rows-[minmax(32px,1fr)]">
+        <!-- 方案 A：站列底部 24px 渐隐。用 mask 而不是盖一层白纱——面板本身是 66% 玻璃，
+             白纱会把渐隐区糊成一块比面板更实的白。 -->
+        <div
+          data-bus-stops-fade
+          class="relative grid h-full auto-rows-[minmax(32px,1fr)]"
+          style="-webkit-mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent)"
+        >
           <span
             aria-hidden="true"
             class="absolute bottom-3 left-[4px] top-3 w-px bg-[var(--bus-accent-line)]"

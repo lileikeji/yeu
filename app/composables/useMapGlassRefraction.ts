@@ -42,6 +42,8 @@ export interface GlassTarget {
   strengthMul: number
   /** 中心雾化强度 0..1。大面板给 0.8+，小元素给 0 */
   frost: number
+  /** 亮边（水切面）倍率，默认 1；大面板给 0，边缘只留模糊与折射，不出白线 */
+  rim?: number
 }
 
 export interface MapGlassOptions {
@@ -66,6 +68,7 @@ export interface GlassQuad {
   radius: number
   strengthMul: number
   frost: number
+  rim: number
 }
 
 /** 容器在屏幕上的位置与尺寸（getBoundingClientRect 的原样裁剪）。 */
@@ -225,7 +228,9 @@ void main() {
   col += vec3(1.0) * topLit * 0.18;
 
   // 2 CSS px 亮边 rim：紧贴边界内侧，液态玻璃的「水切面」。
-  float rim = 1.0 - smoothstep(0.0, 2.0 * uDpr, -d);
+  // vParams.w 是逐目标的 rim 倍率（默认 1）：大面板上这条 2px 亮边会变成一道白线，
+  // 面板把倍率设 0，边缘只留模糊与折射。
+  float rim = (1.0 - smoothstep(0.0, 2.0 * uDpr, -d)) * clamp(vParams.w, 0.0, 2.0);
   col += vec3(1.0) * rim * 0.35;
 
   // 16~34 CSS px 内侧 gloss：一道很软的内高光。12→16 淡入、34→40 淡出，
@@ -319,7 +324,8 @@ export function collectGlassQuads(
       h: rect.height / viewport.height,
       radius: clamp(target.radius, 0, 0.5),
       strengthMul: clamp(target.strengthMul, 0, 4),
-      frost: clamp(target.frost, 0, 1)
+      frost: clamp(target.frost, 0, 1),
+      rim: clamp(target.rim ?? 1, 0, 2)
     })
   }
   return quads
@@ -566,7 +572,7 @@ export function useMapGlassRefraction(options: MapGlassOptions): {
       mount.params[base] = quad.radius
       mount.params[base + 1] = quad.strengthMul
       mount.params[base + 2] = quad.frost
-      mount.params[base + 3] = 0
+      mount.params[base + 3] = quad.rim
     }
 
     gl.useProgram(pipeline.program)
