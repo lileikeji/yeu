@@ -172,7 +172,7 @@ function resolveGlassTargets(): GlassTarget[] {
   push(glassChipsElement.value, 0.5, 2, 0.25)
   // T-023：底部面板重新进 target。radius 0.043 → min(390,326)×0.043×2 ≈ 28px，对齐 rounded-t-[28px]；
   // frost 压到 0.18（chips 是 0.25），别把底图糊平。
-  push(mobileSheetElement.value, 0.043, 1.4, 0.18)
+  push(mobileSheetElement.value, 0.043, 2.2, 0.18)
   push(glassLocateElement.value, 0.35, 1.4, 0)
   push(glassSearchElement.value, 0.5, 1.8, 0.3)
   return targets
@@ -2190,7 +2190,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
   /* T-023：面板重新成为折射 target，白纱降到 72%、blur 收到 2px，让弯折的底图色带透出来。
      72% 是 390×844 半屏态 13px 标签可读性实测值（72%–82% 区间取偏透一端）。 */
   .map-workspace .map-glass-sheet.map-glass-refracting {
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    background: color-mix(in srgb, var(--surface) 66%, transparent);
     backdrop-filter: blur(2px) saturate(1.05);
   }
 
