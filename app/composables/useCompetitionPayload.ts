@@ -231,7 +231,10 @@ export function useCompetitionPayload(options: UseCompetitionPayloadOptions) {
 
     savingRoundKey.value = round.key
     try {
-      const body: Record<string, unknown> = { judgeCount: Number(round.judgeCount) }
+      const body: Record<string, unknown> = {
+        judgeCount: Number(round.judgeCount),
+        scorePrecision: round.scorePrecision === 'decimal' ? 'decimal' : 'integer'
+      }
       if (round.key !== 'final') {
         body.advanceCount = round.advanceCount === null ? null : Number(round.advanceCount)
       }

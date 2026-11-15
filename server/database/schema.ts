@@ -1075,11 +1075,16 @@ export const competitionEvents = sqliteTable('competition_events', {
   formFieldsJson: text('form_fields_json').notNull().default('[]'),
   /** 1 = 算平均分时去掉一个最高分和一个最低分（至少 3 位评委才生效）。 */
   trimExtremes: integer('trim_extremes').notNull().default(0),
+  /** 1 = 当前届；换届后旧届置 0，数据各自留在这条事件下，互不串号。 */
+  isCurrent: integer('is_current').notNull().default(1),
+  /** 预报名未到场的一键提醒：主题与正文（独立模板）。 */
+  reminderSubject: text('reminder_subject'),
+  reminderBody: text('reminder_body'),
   dimensionsJson: text('dimensions_json').notNull().default('[]'),
   createdAt: timestamp('created_at'),
   updatedAt: timestamp('updated_at')
 }, table => [
-  uniqueIndex('competition_events_content_unique').on(table.contentId)
+  index('competition_events_content_current_idx').on(table.contentId, table.isCurrent)
 ])
 
 /** 固定三轮：初赛 → 复赛 → 决赛。每轮有自己的评委、名单与成绩。 */
@@ -1093,6 +1098,12 @@ export const competitionRounds = sqliteTable('competition_rounds', {
   judgeCount: integer('judge_count').notNull().default(5),
   /** 本轮晋级下一轮的人数；决赛为 null。复赛留空表示名额待定。 */
   advanceCount: integer('advance_count'),
+  /** 晋级名单确认时间；空 = 还没确认，不能发结果邮件。 */
+  rosterConfirmedAt: integer('roster_confirmed_at'),
+  /** 1 = 本轮结果查询通道已开（发出结果邮件后自动打开）。 */
+  resultQueryOpen: integer('result_query_open').notNull().default(0),
+  /** 打分精度：integer = 只能整数，decimal = 小数（只能拖滑块）。 */
+  scorePrecision: text('score_precision', { enum: ['integer', 'decimal'] }).notNull().default('integer'),
   /**
    * 顺序评分模式下的当前出场条目（competition_round_entries.id）。
    * 为空 = 未开启顺序评分，评委可自由给任意选手打分（旧行为）。
@@ -1162,6 +1173,7 @@ export const competitionPreRegistrations = sqliteTable('competition_pre_registra
   studentNo: text('student_no'),
   phone: text('phone'),
   email: text('email'),
+  qq: text('qq'),
   song: text('song'),
   /** 预报名时自选的参赛日：1 / 2，空 = 还没定。实际以现场签到当天为准。 */
   preferredDay: integer('preferred_day'),
@@ -1182,6 +1194,7 @@ export const competitionSingers = sqliteTable('competition_singers', {
   studentNo: text('student_no'),
   phone: text('phone'),
   email: text('email'),
+  qq: text('qq'),
   source: text('source', { enum: ['admin', 'form', 'pre'] }).notNull().default('admin'),
   /** 由预报名确认生成时，关联的预报名记录。 */
   preRegistrationId: text('pre_registration_id').references(() => competitionPreRegistrations.id, { onDelete: 'set null' }),
@@ -1191,6 +1204,22 @@ export const competitionSingers = sqliteTable('competition_singers', {
 }, table => [
   index('competition_singers_event_order_idx').on(table.eventId, table.sortOrder),
   check('competition_singers_source_check', sql`${table.source} in ('admin', 'form', 'pre')`)
+])
+
+/** 结果邮件回执：发出邮件时给每位选手建一行，点「收到」后写 confirmed_at。 */
+export const competitionEmailReceipts = sqliteTable('competition_email_receipts', {
+  id: text('id').primaryKey(),
+  eventId: text('event_id').notNull().references(() => competitionEvents.id, { onDelete: 'cascade' }),
+  roundKey: text('round_key', { enum: ['prelim', 'semi', 'final'] }).notNull(),
+  singerId: text('singer_id').notNull().references(() => competitionSingers.id, { onDelete: 'cascade' }),
+  /** 邮件里「收到」按钮带的一次性凭据。 */
+  token: text('token').notNull(),
+  confirmedAt: integer('confirmed_at'),
+  createdAt: timestamp('created_at')
+}, table => [
+  uniqueIndex('competition_email_receipts_unique').on(table.eventId, table.roundKey, table.singerId),
+  uniqueIndex('competition_email_receipts_token_unique').on(table.token),
+  check('competition_email_receipts_round_check', sql`${table.roundKey} in ('prelim', 'semi', 'final')`)
 ])
 
 /** 每轮结果邮件模板；发送时按选手合并字段渲染。 */
@@ -1252,6 +1281,8 @@ export const competitionRoundEntries = sqliteTable('competition_round_entries', 
   contestDay: integer('contest_day'),
   /** 现场签到时间；空 = 还没到场，评委看不到、不占排队位置。 */
   checkedInAt: integer('checked_in_at'),
+  /** 1 = 已确认晋级下一轮，0 = 未晋级，空 = 还没确认（按排名自动判定）。 */
+  advanced: integer('advanced'),
   createdAt: timestamp('created_at')
 }, table => [
   uniqueIndex('competition_round_entries_round_singer_unique').on(table.roundId, table.singerId),

@@ -20,6 +20,7 @@ const form = reactive({
   studentNo: '',
   phone: '',
   email: '',
+  qq: '',
   song: '',
   preferredDay: null as number | null
 })
@@ -108,6 +109,7 @@ async function submit(): Promise<void> {
         ...(has('studentNo') && form.studentNo.trim() ? { studentNo: form.studentNo.trim() } : {}),
         ...(has('phone') && form.phone.trim() ? { phone: form.phone.trim() } : {}),
         ...(has('email') && form.email.trim() ? { email: form.email.trim() } : {}),
+        ...(has('qq') && form.qq.trim() ? { qq: form.qq.trim() } : {}),
         ...(has('song') && form.song.trim() ? { song: form.song.trim() } : {}),
         ...(has('preferredDay') && form.preferredDay ? { preferredDay: form.preferredDay } : {})
       }
@@ -412,6 +414,35 @@ onMounted(loadStatus)
                 placeholder="用于接收比赛结果通知"
               >
             </div>
+          </div>
+          <div
+            v-if="has('qq')"
+            class="mt-3"
+          >
+            <label
+              class="block text-sm font-semibold text-[#33413a]"
+              for="pre-qq"
+            >
+              {{ labelOf('qq', 'QQ') }}
+              <span
+                v-if="!requiredOf('qq')"
+                class="text-xs font-normal text-[#8b968c]"
+              >（选填）</span>
+              <span
+                v-else
+                class="text-[#c2543c]"
+              >*</span>
+            </label>
+            <input
+              id="pre-qq"
+              v-model="form.qq"
+              :required="requiredOf('qq')"
+              maxlength="12"
+              name="qq"
+              inputmode="numeric"
+              class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+              placeholder="填数字"
+            >
           </div>
         </template>
 

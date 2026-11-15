@@ -44,9 +44,20 @@ import {
   setEntryDay,
   setEntryCheckIn,
   setRoundDay,
+  buildEmailSendPlan,
+  buildReminderPlan,
+  listSingers,
+  confirmReceiptByToken,
+  createNextEdition,
+  listEditions,
+  lookupCompetitionResult,
+  openResultQuery,
+  setEntryAdvanced,
+  confirmAdvanceRoster,
   submitJudgeScore,
   updateCompetitionEvent,
   updateEmailTemplate,
+  updateSinger,
   updateJudge,
   updateRound
 } from '../server/modules/competition/service'
@@ -208,6 +219,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
     studentNo: '20260099',
     phone: '13800001234',
     email: 'chen7@example.com',
+    qq: '30000001',
     song: '晴天'
   })
   assert.ok(registered.sortOrder > 0)
@@ -218,6 +230,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
       studentNo: '20260098',
       phone: '13800001236',
       email: 'chen7k@example.com',
+      qq: '30000002',
       song: '   '
     }),
     (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'song'
@@ -229,6 +242,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
       studentNo: '20260097',
       phone: '13800001237',
       email: 'chen7d@example.com',
+      qq: '30000003',
       song: '待定'
     }),
     (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'song'
@@ -240,6 +254,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
       studentNo: '20260099',
       phone: '13800001235',
       email: 'chen72@example.com',
+      qq: '30000004',
       song: '后来'
     }),
     (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'SINGER_ALREADY_REGISTERED'
@@ -258,6 +273,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
     studentNo: '20260077',
     phone: '13800000777',
     email: 'sun9@example.com',
+    qq: '30000005',
     song: '起风了',
     preferredDay: 1
   })
@@ -268,6 +284,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
       studentNo: '20260077',
       phone: '13800000778',
       email: 'sun92@example.com',
+      qq: '30000006',
       song: '后来',
       preferredDay: 1
     }),
@@ -292,6 +309,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
     studentNo: '20260077',
     phone: '13800000777',
     email: 'sun9@example.com',
+    qq: '30000007',
     song: '起风了',
     preRegistrationId: candidates[0]!.id
   })
@@ -308,6 +326,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
       studentNo: '20260078',
       phone: '13800000778',
       email: 'sun92@example.com',
+      qq: '30000008',
       song: '后来',
       preRegistrationId: candidates[0]!.id
     }),
@@ -473,6 +492,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
     () => registerSingerFromForm(client, musicId, {
       className: '26工商管理2班',
       name: '周八',
+      qq: '30000009',
       studentNo: '20260088',
       phone: '13800004321',
       email: 'zhou8@example.com'
@@ -858,14 +878,14 @@ test('数据库：届次/赛程/表单字段可配置，预报名带自选天，
   }).run()
 
   const event = ensureCompetitionEvent(client, musicId)
-  // 默认值：赛程 4 行（初赛两天 + 复赛 + 决赛），表单 7 项，姓名与「哪天来」必填。
+  // 默认值：赛程 4 行（初赛两天 + 复赛 + 决赛），表单 8 项，全部必填。
   const initial = getRegistrationState(client, musicId)
   assert.equal(initial.edition, '')
   assert.equal(initial.schedule.length, 4)
   assert.equal(initial.schedule.filter(item => item.key === 'prelim').length, 2)
   assert.deepEqual(
     initial.formFields.map(field => field.key),
-    ['name', 'className', 'studentNo', 'phone', 'email', 'song', 'preferredDay']
+    ['name', 'className', 'studentNo', 'phone', 'email', 'qq', 'song', 'preferredDay']
   )
   assert.equal(initial.formFields.every(field => field.required), true)
 
@@ -904,6 +924,7 @@ test('数据库：届次/赛程/表单字段可配置，预报名带自选天，
     name: '测试甲',
     studentNo: '20260011',
     preferredDay: 2,
+    qq: '30000010',
     song: '晴天'
   })
   preRegisterFromForm(client, musicId, {
@@ -911,6 +932,7 @@ test('数据库：届次/赛程/表单字段可配置，预报名带自选天，
     name: '测试乙',
     studentNo: '20260012',
     preferredDay: 9,
+    qq: '30000011',
     song: '后来'
   })
   // 必填项缺失时服务端直接拦下。
@@ -927,6 +949,7 @@ test('数据库：届次/赛程/表单字段可配置，预报名带自选天，
   setRoundDay(client, reload(), 2)
   registerSingerFromForm(client, musicId, {
     name: '现场甲',
+    qq: '30000013',
     song: '起风了',
     studentNo: '2026001',
     phone: '13800000001',
@@ -951,6 +974,7 @@ test('数据库：届次/赛程/表单字段可配置，预报名带自选天，
   assert.throws(
     () => registerSingerFromForm(client, musicId, {
       name: '现场乙',
+      qq: '30000014',
       song: '如愿',
       studentNo: '2026002',
       phone: '13800000002',
@@ -1128,6 +1152,7 @@ test('数据库：评委端进度只算当天到场的人，新扫码登记后�
     studentNo: '20260100',
     phone: '13800009999',
     email: 'new@example.com',
+    qq: '30000015',
     song: '夜曲'
   })
   checkInEntries(client, musicId)
@@ -1366,6 +1391,343 @@ test('数据库：现场进度——正在唱/已结束/前方几人，选手自
   assert.equal(queueFor('甲').state, 'finished')
   assert.equal(queueFor('丙').ahead, 0)
   assert.equal(queueFor('丙').state, 'waiting')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：切到第二天后叫号/评委/旧缓存归零，新人出场序从 1 开始', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const reload = () => getRoundByKey(client, event.id, 'prelim')
+  setRoundDay(client, reload(), 1)
+
+  const day1First = registerSingerFromForm(client, musicId, {
+    name: '第一天甲',
+    className: '25电子1班',
+    studentNo: '20261001',
+    phone: '13800001001',
+    email: 'day1a@example.com',
+    qq: '30000016',
+    song: '晴天'
+  })
+  const day1Second = registerSingerFromForm(client, musicId, {
+    name: '第一天乙',
+    className: '25电子1班',
+    studentNo: '20261002',
+    phone: '13800001002',
+    email: 'day1b@example.com',
+    qq: '30000017',
+    song: '后来'
+  })
+  assert.equal(day1First.sortOrder, 1)
+  assert.equal(day1Second.sortOrder, 2)
+  updateRound(client, reload(), { status: 'open' })
+
+  const judges = await createJudgeAccounts(client, reload(), 1)
+  const actor = { ...judges[0]!, eventId: event.id, roundId: reload().id }
+
+  // 切到第二天：第二天没人时，叫号端、评委端进度及旧设备排队人数都必须是 0。
+  setRoundDay(client, reload(), 2)
+
+  const boardBefore = getCallBoard(client, musicId)
+  assert.equal(boardBefore.round.activeDay, 2)
+  assert.equal(boardBefore.total, 0)
+  assert.deepEqual(boardBefore.rows, [])
+
+  const judgeBefore = getJudgePayload(client, actor)
+  assert.deepEqual(judgeBefore.progress, { scored: 0, total: 0 })
+  assert.equal(judgeBefore.singers.length, 0)
+
+  const staleQueue = getSingerQueuePosition(client, musicId, day1First.id)
+  assert.deepEqual(staleQueue, { state: 'unknown', ahead: null, position: null, total: 0 })
+
+  // 第二天第一位新人现场登记：返回的出场序和评委端看到的出场序都从 1 起算，不是第 3 位。
+  const day2First = registerSingerFromForm(client, musicId, {
+    name: '第二天甲',
+    className: '25电子2班',
+    studentNo: '20262001',
+    phone: '13800002001',
+    email: 'day2a@example.com',
+    qq: '30000018',
+    song: '如愿'
+  })
+  assert.equal(day2First.sortOrder, 1)
+
+  const boardAfter = getCallBoard(client, musicId)
+  assert.equal(boardAfter.total, 1)
+  assert.equal(boardAfter.rows[0]?.position, 1)
+  assert.equal(boardAfter.rows[0]?.name, '第二天甲')
+
+  const judgeAfter = getJudgePayload(client, actor)
+  assert.deepEqual(judgeAfter.progress, { scored: 0, total: 1 })
+  assert.equal(judgeAfter.singers[0]?.sortOrder, 1)
+
+  const day2Queue = getSingerQueuePosition(client, musicId, day2First.id)
+  assert.deepEqual(day2Queue, { state: 'idle', ahead: 0, position: 1, total: 1 })
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：晋级名单确认后才发邮件，确认后下一轮名单自动生成', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '甲一', song: '晴天', studentNo: '20260001', qq: '12345678', email: 'a@example.com' })
+  createSinger(client, event.id, { name: '乙二', song: '后来', studentNo: '20260002', qq: '22345678', email: 'b@example.com' })
+  checkInEntries(client, musicId)
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'open', judgeCount: 1, advanceCount: 1 })
+  const judges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: getRoundByKey(client, event.id, 'prelim').id }, roster[0]!.singer.id, { scores: scoresForAll(9) })
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: getRoundByKey(client, event.id, 'prelim').id }, roster[1]!.singer.id, { scores: scoresForAll(5) })
+
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'closed' })
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+  const payload = getAdminCompetitionPayload(client, musicId)
+  assert.equal(payload.advance.prelim?.length, 2)
+  assert.equal(payload.advance.prelim?.filter(row => row.advanced).length, 1)
+
+  // 没确认之前邮件发不出去
+  assert.throws(
+    () => buildEmailSendPlan(client, event.id, prelim, 'all'),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'ROSTER_NOT_CONFIRMED'
+  )
+
+  const first = payload.advance.prelim![0]!
+  setEntryAdvanced(client, prelim, first.entryId, true)
+  const confirmed = confirmAdvanceRoster(client, prelim)
+  assert.equal(confirmed.advanced, 1)
+  const after = getRoundByKey(client, event.id, 'prelim')
+  assert.equal(after.rosterConfirmedAt !== null, true)
+  const semiView = roundView(getAdminCompetitionPayload(client, musicId), 'semi')
+  assert.equal(semiView.entries.length, 1)
+  assert.equal(semiView.entries[0]!.singer.name, first.singer.name)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：三要素查询只在发信后开放，回执点一次就记下', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  createSinger(client, event.id, { name: '甲一', song: '晴天', studentNo: '20260001', qq: '12345678', email: 'a@example.com' })
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+
+  assert.throws(
+    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', qq: '12345678' }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_CLOSED'
+  )
+  assert.throws(
+    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', qq: '' }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'qq'
+  )
+
+  openResultQuery(client, prelim)
+  assert.throws(
+    () => lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260002', qq: '12345678' }),
+    (error: unknown) => (error as { data?: { code?: string } }).data?.code === 'COMPETITION_LOOKUP_NOT_FOUND'
+  )
+
+  const found = lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', qq: '12345678' })
+  assert.equal(found.singerName, '甲一')
+  assert.match(found.body, /甲一/)
+  assert.doesNotMatch(found.body, /平均分|排名/)
+  assert.equal(found.receipt.confirmedAt, null)
+
+  const receipt = confirmReceiptByToken(client, found.receiptToken)
+  assert.equal(receipt.singerName, '甲一')
+  assert.equal(typeof receipt.confirmedAt, 'number')
+  const again = lookupCompetitionResult(client, musicId, { name: '甲一', studentNo: '20260001', qq: '12345678' })
+  assert.equal(typeof again.receipt.confirmedAt, 'number')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：一键提醒只发没签到的预报名，签到的跳过', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  setRoundDay(client, getRoundByKey(client, event.id, 'prelim'), 1)
+  preRegisterFromForm(client, musicId, {
+    name: '迟到甲',
+    className: '26测试1班',
+    studentNo: '20260011',
+    phone: '13800000011',
+    email: 'late@example.com',
+    qq: '32345678',
+    song: '晴天',
+    preferredDay: 1
+  })
+  preRegisterFromForm(client, musicId, {
+    name: '到场乙',
+    className: '26测试1班',
+    studentNo: '20260012',
+    phone: '13800000012',
+    email: 'here@example.com',
+    qq: '42345678',
+    song: '后来',
+    preferredDay: 1
+  })
+  registerSingerFromForm(client, musicId, {
+    name: '到场乙',
+    className: '26测试1班',
+    studentNo: '20260012',
+    phone: '13800000012',
+    email: 'here@example.com',
+    qq: '42345678',
+    song: '后来',
+    preferredDay: 1
+  })
+
+  const plan = buildReminderPlan(client, event.id)
+  assert.equal(plan.recipients.length, 1)
+  assert.equal(plan.recipients[0]!.name, '迟到甲')
+  assert.equal(plan.skippedCheckedIn, 1)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：换届把旧届留档，新届从空白开始', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  updateCompetitionEvent(client, event, {
+    title: '新声歌手大赛',
+    registrationOpen: true,
+    dimensions: DEFAULT_COMPETITION_DIMENSIONS,
+    edition: '2026 第六届'
+  })
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+
+  const next = createNextEdition(client, musicId, '2027 第七届')
+  assert.notEqual(next.id, event.id)
+  assert.equal(next.edition, '2027 第七届')
+  assert.equal(listEditions(client, musicId).length, 2)
+  assert.equal(listEditions(client, musicId).filter(row => row.isCurrent).length, 1)
+  assert.equal(listSingers(client, next.id).length, 0)
+  assert.equal(getRoundByKey(client, next.id, 'prelim').status, 'draft')
+  assert.equal(getRegistrationState(client, musicId).edition, '2027 第七届')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：每一轮可以单独设整数或小数打分', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const prelim = getRoundByKey(client, event.id, 'prelim')
+  assert.equal(prelim.scorePrecision, 'integer')
+  updateRound(client, prelim, { scorePrecision: 'decimal' })
+  assert.equal(getRoundByKey(client, event.id, 'prelim').scorePrecision, 'decimal')
+  assert.equal(getRoundByKey(client, event.id, 'semi').scorePrecision, 'integer')
+  assert.throws(
+    () => updateRound(client, getRoundByKey(client, event.id, 'prelim'), { scorePrecision: 'half' as never }),
+    (error: unknown) => (error as { data?: { field?: string } }).data?.field === 'scorePrecision'
+  )
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：编辑选手只传姓名时不清空学号、QQ、邮箱', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const singer = createSinger(client, event.id, {
+    name: '余雨萱',
+    song: 'April encounter',
+    className: '26物联网1班',
+    studentNo: '286320260008',
+    phone: '13800001111',
+    email: 'yu@example.com',
+    qq: '88889999'
+  })
+
+  updateSinger(client, event.id, singer.id, { name: '余雨萱', song: 'April encounter' })
+
+  const after = getAdminCompetitionPayload(client, musicId).singers.find(item => item.id === singer.id)!
+  assert.equal(after.studentNo, '286320260008')
+  assert.equal(after.phone, '13800001111')
+  assert.equal(after.email, 'yu@example.com')
+  assert.equal(after.qq, '88889999')
+  assert.equal(after.className, '26物联网1班')
 
   closeDatabase(':memory:')
 })
