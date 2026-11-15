@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { COMPETITION_EMAIL_MERGE_FIELDS } from '~~/shared/utils/competition'
+import { COMPETITION_EMAIL_MERGE_FIELDS, COMPETITION_MAX_DIMENSION_SCORE } from '~~/shared/utils/competition'
 
 definePageMeta({ layout: 'admin' })
 
@@ -9,6 +9,19 @@ useSeoMeta({
 })
 
 const toast = useToast()
+const dimensionScoreMax = COMPETITION_MAX_DIMENSION_SCORE
+
+// 成绩与排名：进行中也按平均分实时排；还没分数的排在最后。
+const rankedEntries = computed(() => {
+  const list = activeRound.value?.entries ?? []
+  return [...list].sort((left, right) => {
+    const rankLeft = left.rank ?? Number.MAX_SAFE_INTEGER
+    const rankRight = right.rank ?? Number.MAX_SAFE_INTEGER
+    return (rankLeft - rankRight)
+      || ((right.average ?? -1) - (left.average ?? -1))
+      || (left.sortOrder - right.sortOrder)
+  })
+})
 
 const {
   loading, loadError, payload, settings, activeSection, savingSettings, savingRoundKey, generatingRoundKey,
@@ -1363,13 +1376,23 @@ onBeforeUnmount(stopLiveRefresh)
                 复赛/决赛名单由上一轮晋级后抽签生成，可拖动调整。
               </p>
             </div>
-            <input
-              v-model="rosterQuery"
-              type="search"
-              placeholder="搜选手名字或歌名"
-              class="w-48 rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-              aria-label="搜索出场名单"
-            >
+            <div class="flex items-center gap-2">
+              <input
+                v-model="rosterQuery"
+                type="search"
+                placeholder="搜选手名字或歌名"
+                class="w-48 rounded-md border border-zinc-300 bg-[var(--surface)] px-2.5 py-1.5 text-xs text-zinc-800 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-600/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                aria-label="搜索出场名单"
+              >
+              <a
+                href="/singer/call"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition hover:border-green-600 hover:text-green-700 dark:border-zinc-700 dark:text-zinc-200"
+              >
+                叫号台
+              </a>
+            </div>
           </div>
 
           <div
@@ -1504,8 +1527,21 @@ onBeforeUnmount(stopLiveRefresh)
               成绩与排名
             </h3>
             <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              按平均分排序，同分按出场顺序；未评分的按弃权处理。
+              实时按平均分排序，同分按出场顺序；还没分数的排在最后。
             </p>
+            <label
+              v-if="settings"
+              class="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300"
+            >
+              <input
+                v-model="settings.trimExtremes"
+                type="checkbox"
+                class="size-4 accent-emerald-600"
+                :disabled="savingSettings"
+                @change="saveSettings"
+              >
+              算平均分时去掉一个最高分和一个最低分（至少 3 位评委）
+            </label>
           </div>
 
           <div
@@ -1550,7 +1586,7 @@ onBeforeUnmount(stopLiveRefresh)
               </thead>
               <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                 <tr
-                  v-for="entry in activeRound.entries"
+                  v-for="entry in rankedEntries"
                   :key="entry.id"
                   :title="wrongStatus(entry)"
                 >
@@ -2379,7 +2415,7 @@ onBeforeUnmount(stopLiveRefresh)
                     {{ dimension.weight }}
                   </td>
                   <td class="px-3 py-2 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                    {{ dimension.score }} / 20
+                    {{ dimension.score }} / {{ dimensionScoreMax }}
                   </td>
                 </tr>
               </tbody>

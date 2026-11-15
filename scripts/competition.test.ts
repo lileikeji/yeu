@@ -18,6 +18,7 @@ import {
   findMusicAssociationContent,
   generateNextRound,
   getAdminCompetitionPayload,
+  getCallBoard,
   getEmailTemplate,
   getJudgePayload,
   getRoundByKey,
@@ -78,9 +79,33 @@ function checkInEntries(
   }
 }
 
+type TestClient = ReturnType<typeof getDatabase>
+
+/**
+ * 赛程里初赛两天写的是「11 月 14 日 / 11 月 15 日」，年份取自届次，届次为空时回落当前年。
+ * 用例跑在真实时钟上：初赛当天会把「今天就是初赛日」判成真，收人、分天、到岗校验全部跟着变，
+ * 于是每年 11-14 这套用例必红（2026-11-14 实测 6 条失败）。
+ * 这里在造完事件后把届次钉到 2031：初赛日期只由 fixture 决定，与运行当天无关。
+ */
+const PINNED_EDITION = '2031 第六届'
+
+function ensureCompetitionEventPinned(client: TestClient, contentId: string) {
+  const created = ensureCompetitionEvent(client, contentId)
+  if (created.edition === '') {
+    updateCompetitionEvent(client, created, {
+      title: created.title,
+      edition: PINNED_EDITION,
+      // 该入参缺省即「关闭登记」，必须原样带回去，否则后续用例全被判「登记已结束」。
+      registrationOpen: created.registrationOpen !== false,
+      dimensions: DEFAULT_COMPETITION_DIMENSIONS
+    })
+  }
+  return ensureCompetitionEvent(client, contentId)
+}
+
 test('等权五维时总分等于各维度累加，满分 100（每维 20）', () => {
-  assert.equal(competitionMaxTotal(DEFAULT_COMPETITION_DIMENSIONS), 100)
-  assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, scoresForAll(20)), 100)
+  assert.equal(competitionMaxTotal(DEFAULT_COMPETITION_DIMENSIONS), 50)
+  assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, scoresForAll(10)), 50)
   assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, {
     pitch: 9,
     rhythm: 8,
@@ -98,8 +123,8 @@ test('权重不等时按加权平均 × 维度数折算，仍保持满分 100', 
     { key: 'd', label: 'D', weight: 1 },
     { key: 'e', label: 'E', weight: 1 }
   ]
-  assert.equal(calculateCompetitionTotal(dimensions, { a: 20, b: 0, c: 0, d: 0, e: 0 }), 33.33)
-  assert.equal(calculateCompetitionTotal(dimensions, { a: 20, b: 20, c: 20, d: 20, e: 20 }), 100)
+  assert.equal(calculateCompetitionTotal(dimensions, { a: 10, b: 0, c: 0, d: 0, e: 0 }), 16.67)
+  assert.equal(calculateCompetitionTotal(dimensions, { a: 10, b: 10, c: 10, d: 10, e: 10 }), 50)
 })
 
 test('结果邮件模板渲染：占位符替换、未识别保留、正文转 HTML', () => {
@@ -178,7 +203,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(isMusicAssociationContent(client, musicId), true)
   assert.equal(isMusicAssociationContent(client, otherClubId), false)
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   const rounds = getAdminCompetitionPayload(client, musicId).rounds
   assert.deepEqual(rounds.map(round => round.key), ['prelim', 'semi', 'final'])
   assert.equal(rounds[0]!.advanceCount, 30)
@@ -186,7 +211,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(rounds[2]!.advanceCount, null)
 
   // 再次 ensure 不会重复建轮次。
-  ensureCompetitionEvent(client, musicId)
+  ensureCompetitionEventPinned(client, musicId)
   assert.equal(getAdminCompetitionPayload(client, musicId).rounds.length, 3)
 
   const singerA = createSinger(client, event.id, { name: '张三', song: '晴天' })
@@ -406,7 +431,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(semiJudges[0]!.displayName, '复赛评委1')
   const semiJudge = { ...semiJudges[0]!, eventId: event.id, roundId: semi.id }
   submitJudgeScore(client, semiJudge, singerA.id, { scores: scoresForAll(8) })
-  submitJudgeScore(client, semiJudge, singerB.id, { scores: scoresForAll(9.5) })
+  submitJudgeScore(client, semiJudge, singerB.id, { scores: scoresForAll(9) })
   semi = getRoundByKey(client, event.id, 'semi')
   updateRound(client, semi, { status: 'closed' })
 
@@ -436,14 +461,14 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   updateRound(client, finalRound, { status: 'open' })
   const finalJudges = await createJudgeAccounts(client, finalRound, 1)
   const finalJudge = { ...finalJudges[0]!, eventId: event.id, roundId: finalRound.id }
-  submitJudgeScore(client, finalJudge, singerB.id, { scores: scoresForAll(9.8) })
+  submitJudgeScore(client, finalJudge, singerB.id, { scores: scoresForAll(9) })
   finalRound = getRoundByKey(client, event.id, 'final')
   updateRound(client, finalRound, { status: 'closed' })
 
   payload = getAdminCompetitionPayload(client, musicId)
   const finalResult = roundView(payload, 'final')
   assert.equal(finalResult.entries.length, 1)
-  assert.equal(finalResult.entries[0]!.average, 49)
+  assert.equal(finalResult.entries[0]!.average, 45)
   assert.equal(finalResult.entries[0]!.rank, 1)
   assert.equal(finalResult.entries[0]!.qualified, false)
 
@@ -496,7 +521,7 @@ test('数据库：顺序评分只认当前选手，启用中评委全员提交�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   createSinger(client, event.id, { name: '张三', song: '晴天' })
   createSinger(client, event.id, { name: '李四', song: '后来' })
   createSinger(client, event.id, { name: '王五', song: '如愿' })
@@ -599,7 +624,7 @@ test('数据库：邮件插图上传、正文标记转内嵌 cid、附件按引�
     summary: 'test',
     status: 'published'
   }).run()
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
 
   // 1×1 PNG，够验证 base64 往返与字节数。
   const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -657,7 +682,7 @@ test('数据库：没签到的人不进评委名单，签到才进，取消签�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   createSinger(client, event.id, { name: '张三', song: '晴天' })
   createSinger(client, event.id, { name: '李四', song: '后来' })
 
@@ -712,7 +737,7 @@ test('数据库：顺序评分按「本场到岗人数」收票，账号多于�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   createSinger(client, event.id, { name: '张三', song: '晴天' })
   createSinger(client, event.id, { name: '李四', song: '后来' })
   checkInEntries(client, musicId)
@@ -760,10 +785,10 @@ test('数据库：初赛分天——两天各有自己的顺序与到岗评委�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   for (const [name, song] of [['张三', '晴天'], ['李四', '后来'], ['王五', '如愿'], ['赵六', '起风了']] as const) {
     createSinger(client, event.id, { name, song })
-  checkInEntries(client, musicId)
+    checkInEntries(client, musicId)
   }
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
@@ -826,7 +851,9 @@ test('数据库：初赛分天——两天各有自己的顺序与到岗评委�
 
   // 整轮还开着：名次一律不给，只有平均分。
   const openView = roundView(getAdminCompetitionPayload(client, musicId), 'prelim')
-  assert.ok(openView.entries.every(item => item.rank === null))
+  // 进行中就实时给名次，但还没结束谁都不算晋级。
+  assert.equal(openView.entries.filter(item => item.rank !== null).length, 1)
+  assert.equal(openView.entries.find(item => item.rank !== null)?.rank, 1)
   assert.ok(openView.entries.every(item => item.qualified === false))
 
   // 结束后才出排名与晋级标记。
@@ -932,6 +959,17 @@ test('数据库：届次/赛程/表单字段可配置，预报名带自选天，
   const day2Entries = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
   assert.equal(day2Entries.find(entry => entry.singer.name === '现场甲')?.contestDay, 2)
 
+  // 换到跟今天无关的日子，才能稳定验证「非初赛日现场不收人」。
+  updateCompetitionEvent(client, event, {
+    title: '新声歌手大赛',
+    registrationOpen: true,
+    dimensions: DEFAULT_COMPETITION_DIMENSIONS,
+    schedule: [
+      { key: 'prelim', dateLabel: '12 月 20 日（周六）', timeLabel: '19:00 开始', venue: '旧区宏船楼 303', note: '' },
+      { key: 'prelim', dateLabel: '12 月 21 日（周日）', timeLabel: '19:00 开始', venue: '旧区宏船楼 303', note: '' }
+    ]
+  })
+
   // 不分天且今天不在初赛那两天：现场不收人，避免把人排错日期。
   setRoundDay(client, reload(), null)
   assert.throws(
@@ -961,7 +999,7 @@ test('数据库：评委可以自定义账号密码，重名报 409，改账号�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   const round = getRoundByKey(client, event.id, 'prelim')
 
   const custom = await createJudgeAccount(client, round, {
@@ -1026,10 +1064,10 @@ test('数据库：拖动排序把选手挪到目标前后，分天时不影响�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   for (const [name, song] of [['甲', '晴天'], ['乙', '后来'], ['丙', '如愿'], ['丁', '起风了']] as const) {
     createSinger(client, event.id, { name, song })
-  checkInEntries(client, musicId)
+    checkInEntries(client, musicId)
   }
 
   const reload = () => getRoundByKey(client, event.id, 'prelim')
@@ -1085,7 +1123,7 @@ test('数据库：评委端进度只算当天到场的人，新扫码登记后�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   for (const [name, song] of [['张三', '晴天'], ['李四', '后来'], ['王五', '如愿']] as const) {
     createSinger(client, event.id, { name, song })
   }
@@ -1123,8 +1161,143 @@ test('数据库：评委端进度只算当天到场的人，新扫码登记后�
   assert.equal(afterScan.singers.at(-1)?.name, '新来的')
 
   // 自己评过的人只算当天，评第二天的不会把进度顶上去。
-  submitJudgeScore(client, actor, entries[0]!.singer.id, { scores: scoresForAll(12) })
+  submitJudgeScore(client, actor, entries[0]!.singer.id, { scores: scoresForAll(10) })
   assert.deepEqual(getJudgePayload(client, actor).progress, { scored: 1, total: 3 })
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：免登录叫号台只给叫号信息，按出场顺序，不露电话邮箱评分', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  createSinger(client, event.id, { name: '阿甲', song: '晴天', className: '26音乐学1班' })
+  createSinger(client, event.id, { name: '阿乙', song: '后来', className: '26英语1班' })
+  setRoundDay(client, round, 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  for (const entry of roster) setEntryCheckIn(client, getRoundByKey(client, event.id, 'prelim'), entry.id, true)
+
+  const board = getCallBoard(client, musicId)
+  assert.equal(board.round.activeDay, 1)
+  assert.equal(board.total, 2)
+  assert.deepEqual(board.rows.map(row => [row.position, row.name, row.song]), [
+    [1, '阿甲', '晴天'],
+    [2, '阿乙', '后来']
+  ])
+  assert.equal('phone' in board.rows[0]!, false)
+  assert.equal('email' in board.rows[0]!, false)
+  assert.equal('average' in board.rows[0]!, false)
+  assert.equal(board.current, null)
+  assert.equal(board.next?.name, '阿甲')
+
+  const judge = await createJudgeAccounts(client, round, 1)
+  updateRound(client, round, { status: 'open', judgeCount: 1 })
+  moveCurrentEntry(client, getRoundByKey(client, event.id, 'prelim'), 'start')
+  submitJudgeScore(client, { ...judge[0]!, eventId: event.id, roundId: round.id }, roster[0]!.singer.id, { scores: scoresForAll(8) })
+
+  const live = getCallBoard(client, musicId)
+  assert.equal(live.current?.name, '阿乙')
+  assert.equal(live.rows[0]!.state, 'finished')
+  assert.equal(live.next, null)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：第一张评分自动开始叫号，当天评委评完自动下一位', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  createSinger(client, event.id, { name: '乙二', song: '后来' })
+  setRoundDay(client, round, 1)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  for (const entry of roster) setEntryCheckIn(client, getRoundByKey(client, event.id, 'prelim'), entry.id, true)
+
+  const judges = await createJudgeAccounts(client, round, 2)
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'open', judgeCount: 2 })
+  assert.equal(getCurrentSinger(client, getRoundByKey(client, event.id, 'prelim')), null)
+
+  // 没人点「开始」，第一张评分就把这位设成正在唱。
+  submitJudgeScore(client, { ...judges[0]!, eventId: event.id, roundId: round.id }, roster[0]!.singer.id, { scores: scoresForAll(8) })
+  const started = getCurrentSinger(client, getRoundByKey(client, event.id, 'prelim'))
+  assert.equal(started?.singer.id, roster[0]!.singer.id)
+  assert.equal(started?.judgeTotal, 2)
+  assert.equal(started?.allSubmitted, false)
+
+  // 第二张也是这一位 → 凑齐 2 票，自动切到第二位。
+  submitJudgeScore(client, { ...judges[1]!, eventId: event.id, roundId: round.id }, roster[0]!.singer.id, { scores: scoresForAll(9) })
+  assert.equal(getCurrentSinger(client, getRoundByKey(client, event.id, 'prelim'))?.singer.id, roster[1]!.singer.id)
+
+  // 叫号台跟着显示「正在唱」，并且第一位是已唱完。
+  const board = getCallBoard(client, musicId)
+  assert.equal(board.current?.name, '乙二')
+  assert.equal(board.rows[0]!.state, 'finished')
+  assert.equal(board.next, null)
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：可以选去掉最高分和最低分再算平均', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEvent(client, musicId)
+  const round = getRoundByKey(client, event.id, 'prelim')
+  createSinger(client, event.id, { name: '甲一', song: '晴天' })
+  checkInEntries(client, musicId)
+  updateRound(client, getRoundByKey(client, event.id, 'prelim'), { status: 'open', judgeCount: 3 })
+  const judges = await createJudgeAccounts(client, getRoundByKey(client, event.id, 'prelim'), 3)
+  const roster = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries
+  const singerId = roster[0]!.singer.id
+  for (const [index, score] of [2, 6, 10].entries()) {
+    submitJudgeScore(client, { ...judges[index]!, eventId: event.id, roundId: round.id }, singerId, { scores: scoresForAll(score) })
+  }
+
+  const plain = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!
+  assert.equal(plain.average, 30) // (10+30+50)/3
+
+  updateCompetitionEvent(client, event, {
+    title: '新声歌手大赛',
+    registrationOpen: true,
+    dimensions: DEFAULT_COMPETITION_DIMENSIONS,
+    trimExtremes: true
+  })
+  const trimmed = roundView(getAdminCompetitionPayload(client, musicId), 'prelim').entries[0]!
+  assert.equal(trimmed.average, 30) // 去掉 10 与 50，只剩中间 30
 
   closeDatabase(':memory:')
 })
@@ -1143,7 +1316,7 @@ test('数据库：今天排哪一天按赛程日期判断，非初赛日不收�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   const round = getRoundByKey(client, event.id, 'prelim')
 
   const dates = prelimDayDates(event)
@@ -1178,7 +1351,7 @@ test('数据库：现场进度——正在唱/已结束/前方几人，选手自
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   const singers = [['甲', '晴天'], ['乙', '后来'], ['丙', '如愿']] as const
   for (const [name, song] of singers) createSinger(client, event.id, { name, song })
   checkInEntries(client, musicId)
@@ -1217,6 +1390,117 @@ test('数据库：现场进度——正在唱/已结束/前方几人，选手自
   assert.equal(queueFor('甲').state, 'finished')
   assert.equal(queueFor('丙').ahead, 0)
   assert.equal(queueFor('丙').state, 'waiting')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：赛程年份取届次，钉住后运行当天永不落入初赛日', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  assert.equal(event.edition, PINNED_EDITION)
+
+  // 初赛两天由赛程标签里的月日 + 届次年份拼出，全部落在 2031，与运行当天无关。
+  const days = prelimDayDates(event)
+  assert.equal(days.length, 2)
+  assert.deepEqual(days.map(item => item.dateKey), ['2031-11-14', '2031-11-15'])
+
+  // 兜底逻辑单独验：没有届次时回落当前年，这才是 11-14 当天必红的来源。
+  const bare = { ...event, edition: '' }
+  const currentYear = new Date().getFullYear()
+  assert.equal(prelimDayDates(bare)[0]!.dateKey, `${currentYear}-11-14`)
+  closeDatabase(':memory:')
+})
+
+test('数据库：切到第二天后叫号/评委/旧缓存归零，新人出场序从 1 开始', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  const reload = () => getRoundByKey(client, event.id, 'prelim')
+  setRoundDay(client, reload(), 1)
+
+  const day1First = registerSingerFromForm(client, musicId, {
+    name: '第一天甲',
+    className: '25电子1班',
+    studentNo: '20261001',
+    phone: '13800001001',
+    email: 'day1a@example.com',
+    song: '晴天'
+  })
+  const day1Second = registerSingerFromForm(client, musicId, {
+    name: '第一天乙',
+    className: '25电子1班',
+    studentNo: '20261002',
+    phone: '13800001002',
+    email: 'day1b@example.com',
+    song: '后来'
+  })
+  assert.equal(day1First.sortOrder, 1)
+  assert.equal(day1Second.sortOrder, 2)
+  updateRound(client, reload(), { status: 'open' })
+
+  const judges = await createJudgeAccounts(client, reload(), 1)
+  const actor = { ...judges[0]!, eventId: event.id, roundId: reload().id }
+
+  // 切到第二天：第二天没人时，叫号端、评委端进度及旧设备排队人数都必须是 0。
+  setRoundDay(client, reload(), 2)
+
+  const boardBefore = getCallBoard(client, musicId)
+  assert.equal(boardBefore.round.activeDay, 2)
+  assert.equal(boardBefore.total, 0)
+  assert.deepEqual(boardBefore.rows, [])
+
+  const judgeBefore = getJudgePayload(client, actor)
+  assert.deepEqual(judgeBefore.progress, { scored: 0, total: 0 })
+  assert.equal(judgeBefore.singers.length, 0)
+
+  const staleQueue = getSingerQueuePosition(client, musicId, day1First.id)
+  assert.deepEqual(staleQueue, { state: 'unknown', ahead: null, position: null, total: 0 })
+
+  // 第二天第一位新人现场登记：返回的出场序和评委端看到的出场序都从 1 起算，不是第 3 位。
+  const day2First = registerSingerFromForm(client, musicId, {
+    name: '第二天甲',
+    className: '25电子2班',
+    studentNo: '20262001',
+    phone: '13800002001',
+    email: 'day2a@example.com',
+    song: '如愿'
+  })
+  assert.equal(day2First.sortOrder, 1)
+
+  const boardAfter = getCallBoard(client, musicId)
+  assert.equal(boardAfter.total, 1)
+  assert.equal(boardAfter.rows[0]?.position, 1)
+  assert.equal(boardAfter.rows[0]?.name, '第二天甲')
+
+  const judgeAfter = getJudgePayload(client, actor)
+  assert.deepEqual(judgeAfter.progress, { scored: 0, total: 1 })
+  assert.equal(judgeAfter.singers[0]?.sortOrder, 1)
+
+  const day2Queue = getSingerQueuePosition(client, musicId, day2First.id)
+  assert.deepEqual(day2Queue, { state: 'idle', ahead: 0, position: 1, total: 1 })
 
   closeDatabase(':memory:')
 })
