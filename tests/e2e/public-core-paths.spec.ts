@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { resolve } from 'node:path'
 import { loadClientManifest } from '../../scripts/check-client-bundle-budget'
 
@@ -87,7 +87,9 @@ test('搜索可进入已发布地点、查看详情并返回地图', async ({ pa
 test('地图区域查询可在首次加载恢复，并在关闭详情后清理 URL', async ({ page }) => {
   await page.goto('/map?q=学生街&area=wia-area-2003534061878101222')
 
-  await expect(page.getByLabel('搜索地图地点')).toHaveValue('学生街')
+  // 搜索框有两处（桌面侧栏 / 手机 dock），可访问名不同：桌面「搜索地图地点」，手机「搜索地点」。
+  // 只按可见的那个断言，避免 strict mode 同时命中两个。
+  await expect(await resolveMapSearch(page)).toHaveValue('学生街')
   await expect(page.getByRole('heading', { level: 2, name: '旧区学生街' }).filter({ visible: true })).toBeVisible()
   await expect(page).toHaveURL(/area=wia-area-2003534061878101222/)
 
@@ -96,21 +98,40 @@ test('地图区域查询可在首次加载恢复，并在关闭详情后清理 U
 })
 
 // 移动端 onMounted 默认收起地点面板（2026-11-06 产品决策：手机上保证地图可点）；
-// 断言搜索框前先展开，桌面端已可见则不动。
-async function ensureMapSearchVisible(page: Page): Promise<void> {
-  const search = page.getByLabel('搜索地图地点')
-  if (!(await search.isVisible().catch(() => false))) {
-    // 展开地点面板按钮在收起态 pointer-events:none 且被底栏遮挡；可用入口是底栏的“打开地点列表”。
-    await page.getByRole('button', { name: '打开地点列表' }).click()
-  }
-  await expect(search).toBeVisible()
+// 手机端搜索框常驻在顶部 dock，不需要先展开面板，因此这里只按视口取对应的那个输入框。
+async function resolveMapSearch(page: Page): Promise<Locator> {
+  const desktopSearch = page.getByLabel('搜索地图地点')
+  if (await desktopSearch.isVisible().catch(() => false)) return desktopSearch
+  const mobileSearch = page.getByLabel('搜索地点')
+  await expect(mobileSearch).toBeVisible()
+  return mobileSearch
+}
+
+// 手机折叠态面板高度为 0，面板里的按钮虽然「可见」（Playwright 不做裁切判定），点击会被底部导航栏接走。
+// 按 workspace 上的 data-sheet-state 判状态，折叠就先展开成半屏；桌面端没有这个状态，直接跳过。
+async function ensureSheetExpanded(page: Page) {
+  const workspace = page.locator('.map-workspace')
+  if ((await workspace.getAttribute('data-sheet-state')) !== 'collapsed') return
+  // 折叠态唯一能点的入口是 dock 的圆钮：面板头的「展开」自己被底栏压住。
+  const pull = page.getByRole('button', { name: '拉起点位面板' })
+  if (await pull.count()) await pull.first().click()
+  await expect(workspace).toHaveAttribute('data-sheet-state', 'half')
+}
+
+// 手机半屏面板默认是「收藏 / 最近 / 分类」三块，地点列表要点分类里的「全部地点」才出来（桌面侧栏一直显示）。
+async function ensurePlaceListVisible(page: Page) {
+  await ensureSheetExpanded(page)
+  const list = page.locator('[aria-label="地点列表"]')
+  if (await list.isVisible().catch(() => false)) return
+  const all = page.getByRole('button', { name: '筛选分类 全部地点' })
+  if (await all.count()) await all.first().click()
+  await expect(list).toBeVisible()
 }
 
 test('地图不展示已停用的平面图入口，地点查询保持可用', async ({ page }) => {
   await page.goto('/map')
   await expect(page.getByRole('button', { name: '平面图', exact: true })).toHaveCount(0)
-  await ensureMapSearchVisible(page)
-  await page.getByLabel('搜索地图地点').fill('图书馆')
+  await (await resolveMapSearch(page)).fill('图书馆')
   await expect(page.getByRole('button', { name: /^图书馆 / }).first()).toBeVisible()
 })
 
@@ -174,9 +195,10 @@ test('地图 SDK 加载失败时保留地点列表和重试说明', async ({ pag
   await page.route(`**/_nuxt/${mapLibreAssetFile}`, route => route.abort())
   await page.goto('/map')
 
-  await ensureMapSearchVisible(page)
+  await resolveMapSearch(page)
   await expect(page.getByText('地图画面暂时没有显示出来', { exact: true })).toBeVisible()
   await expect(page.getByText('可重试，或先看平面图与清单', { exact: true })).toBeVisible()
+  await ensurePlaceListVisible(page)
   const fallbackPlace = page.getByRole('button', { name: /E2E 确认服务点/ })
   await fallbackPlace.scrollIntoViewIfNeeded()
   await expect(fallbackPlace).toBeVisible()
@@ -184,8 +206,13 @@ test('地图 SDK 加载失败时保留地点列表和重试说明', async ({ pag
 
 test('地图显示设置可切换名称图层并关闭面板', async ({ page }) => {
   await page.goto('/map')
+  await ensureSheetExpanded(page)
 
-  await page.getByRole('button', { name: '地图显示设置', exact: true }).click()
+  // 桌面工具条叫「地图显示设置」，手机面板头叫「打开地图显示设置」；同名会让 getByRole 命中两个。
+  const settingsTrigger = page
+    .getByRole('button', { name: /^(?:打开)?地图显示设置$/, exact: true })
+    .filter({ visible: true })
+  await settingsTrigger.first().click()
   const settings = page.getByRole('region', { name: '地图显示设置' })
   await expect(settings).toBeVisible()
 

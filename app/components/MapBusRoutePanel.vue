@@ -296,7 +296,7 @@ const updatedAtText = computed(() => {
     label="校车实时"
     color="primary"
     variant="solid"
-    class="absolute bottom-20 right-3 z-30 shadow-lg md:hidden"
+    class="map-bus-dock absolute right-3 z-30 shadow-lg md:hidden"
     @click="emit('update:open', true)"
   />
 
