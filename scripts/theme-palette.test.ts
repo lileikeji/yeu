@@ -9,6 +9,7 @@ import {
   THEME_PALETTE_STORAGE_KEY,
   THEME_PALETTES,
   THEME_PALETTE_THEME_COLORS,
+  THEME_PALETTE_THEME_COLORS_DARK,
   isThemePalette,
   resolveThemePalette
 } from '../app/utils/theme-mode'
@@ -17,8 +18,8 @@ const css = readFileSync(resolve('app/assets/css/main.css'), 'utf8')
 const vueSource = readFileSync(resolve('app/components/ThemeModeToggle.vue'), 'utf8')
 
 /* 2026-11-14 用户裁定「重做，全部配色都不要」：原 9 套（绿/靛蓝/紫罗兰/玫瑰/青蓝 +
-   clay/mercury/oura/mist）全部作废，只留一套「极光紫」（Radix Colors violet 色阶）。
-   本文件随之收敛为单配色契约测试。 */
+   clay/mercury/oura/mist）全部作废；2026-11-15 定型为 paper/mist/cream/berry 四套。
+   本文件守住四套的 id 契约、boot script 白名单与默认 paper 契约。 */
 
 function relativeLuminance(hex: string): number {
   const value = hex.replace('#', '')
@@ -121,4 +122,31 @@ test('D11: 正文墨色压在纸面上 ≥ 7:1', () => {
 
 test('E12: 只有一套配色时下拉菜单不渲染配色组', () => {
   assert.ok(vueSource.includes('palettes.length > 1'), '缺少「只有一套不渲染配色组」的守卫')
+})
+
+// F. 浏览器 UI 色（地址栏 / PWA 标题栏）跟随纸面色，明暗各一套
+
+test('F13: 暗色 theme-color 与各套 html.dark 的 --page-bg 对齐，boot script 也带暗色映射', () => {
+  assert.deepEqual(Object.keys(THEME_PALETTE_THEME_COLORS_DARK).sort(), [...THEME_PALETTE_IDS].sort())
+  for (const id of THEME_PALETTE_IDS) {
+    const block = css.match(new RegExp(`html\\.dark\\[data-palette='${id}'\\]\\s*\\{([^}]*)\\}`, 'i'))
+    assert.ok(block, `缺少 ${id} 暗色主块`)
+    const pageBg = block[1].match(/--page-bg:\s*(#[0-9a-f]{6})/i)
+    assert.ok(pageBg, `${id} 暗色主块缺 --page-bg`)
+    assert.equal(
+      THEME_PALETTE_THEME_COLORS_DARK[id].toLowerCase(),
+      pageBg[1].toLowerCase(),
+      `${id} 暗色 theme-color 与 --page-bg 不一致`
+    )
+    assert.ok(
+      THEME_BOOT_SCRIPT.includes(`'${id}':'${THEME_PALETTE_THEME_COLORS_DARK[id]}'`),
+      `boot script 缺少 ${id} 暗色 theme-color`
+    )
+    assert.notEqual(
+      THEME_PALETTE_THEME_COLORS_DARK[id].toLowerCase(),
+      THEME_PALETTE_THEME_COLORS[id].toLowerCase(),
+      `${id} 明暗 theme-color 相同，暗色地址栏会发亮`
+    )
+  }
+  assert.ok(THEME_BOOT_SCRIPT.includes('theme-color'), 'boot script 未写 theme-color')
 })
