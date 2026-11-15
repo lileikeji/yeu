@@ -160,7 +160,7 @@ const dayText = signalRelativeTime
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-4 md:py-5">
         <div class="max-w-2xl">
           <p class="section-kicker">
@@ -193,7 +193,7 @@ const dayText = signalRelativeTime
                 enterkeyhint="search"
                 autocomplete="off"
                 placeholder="搜索通知、活动或地点，如「宏船楼」"
-                class="h-11 w-full rounded-xl border border-[var(--line)] bg-white pl-9 pr-20 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:bg-zinc-900 dark:text-zinc-100"
+                class="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] pl-9 pr-20 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 dark:bg-zinc-900 dark:text-zinc-100"
               >
               <button
                 v-if="searchActive"
@@ -230,7 +230,7 @@ const dayText = signalRelativeTime
         </div>
         <button
           type="button"
-          class="min-h-9 shrink-0 rounded-md border border-emerald-300 bg-white px-3 text-sm font-medium text-emerald-800 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-200"
+          class="min-h-9 shrink-0 rounded-md border border-emerald-300 bg-[var(--surface)] px-3 text-sm font-medium text-emerald-800 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-200"
           @click="resetFocus"
         >
           查看全部
@@ -242,7 +242,7 @@ const dayText = signalRelativeTime
       v-if="!focusSlug && !searchActive && reports.length"
       class="page-shell pt-4 md:pt-5"
     >
-      <div class="rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900">
+      <div class="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 dark:bg-zinc-900">
         <div class="flex items-center justify-between gap-3">
           <p class="section-kicker">
             今日简报
@@ -310,7 +310,7 @@ const dayText = signalRelativeTime
           :id="row.type === 'event' ? row.event.slug : undefined"
           :key="row.type === 'event' ? row.event.id : `more-${index}`"
           :class="row.type === 'event'
-            ? 'scroll-mt-24 rounded-xl border border-[var(--line)] bg-white p-4 dark:bg-zinc-900'
+            ? 'scroll-mt-24 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 dark:bg-zinc-900'
             : 'flex items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--line)] px-4 py-3'"
         >
           <template v-if="row.type === 'notice-more'">

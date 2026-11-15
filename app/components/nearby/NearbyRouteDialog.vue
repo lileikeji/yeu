@@ -127,7 +127,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
               class="min-h-11 shrink-0 rounded-xl border px-3 text-left text-xs transition"
               :class="destination.id === selectedDestination.id
                 ? 'border-green-700 bg-green-50 dark:bg-green-950 text-green-900 dark:text-green-300'
-                : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:border-green-300 dark:hover:border-green-700'"
+                : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:border-green-300 dark:hover:border-green-700'"
               @click="selectDestination(destination)"
             >
               <span class="block font-semibold">{{ index + 1 }}. {{ destination.label }}</span>
@@ -141,7 +141,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
 
         <section class="rounded-2xl border border-green-100 dark:border-green-900 bg-green-50/70 dark:bg-green-950/70 p-4">
           <div class="flex items-start gap-3">
-            <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-white dark:bg-zinc-900 text-green-700 dark:text-green-400 shadow-sm">
+            <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--surface)] dark:bg-zinc-900 text-green-700 dark:text-green-400 shadow-sm">
               <UIcon
                 name="i-lucide-map-pin-check-inside"
                 class="size-4.5"
@@ -230,7 +230,7 @@ function selectDestination(destination: NearbyGuideDestination): void {
               { key: 'inbound', title: '回学校', data: inbound }
             ]"
             :key="routeGroup.key"
-            class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+            class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
           >
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-sm font-bold text-zinc-950 dark:text-zinc-100">

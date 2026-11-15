@@ -23,7 +23,7 @@ function toggleTaskPreview(): void {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-4 md:py-5">
         <div class="flex items-end justify-between gap-4">
           <div class="max-w-2xl">
@@ -109,7 +109,7 @@ function toggleTaskPreview(): void {
         </div>
       </section>
 
-      <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
+      <section class="border-y border-[var(--line)] bg-[var(--page-bg)]">
         <div class="page-shell py-4 md:py-5">
           <p class="section-kicker">
             继续浏览
