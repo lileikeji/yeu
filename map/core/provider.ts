@@ -75,6 +75,12 @@ export interface MapProvider {
   searchVisiblePois(query: string): Promise<MapPoi[]>
   /** 当前地图 zoom（跟车等连续镜头用它做「只放大不缩小」的保底）；provider 可不实现。 */
   getZoom?(): number
+  /**
+   * 业务经纬度（与 setBuses 同口径）→ 地图容器像素坐标，左上角为原点。
+   * 供 DOM 覆盖层（例如贴在车上的 ETA 胶囊）贴着地图标注摆放；
+   * 地图未就绪、点不可渲染时返回 null，调用方需判空跳过。provider 可不实现。
+   */
+  projectToScreen?(point: GeoPoint): { x: number; y: number } | null
   clearRoute(): void
   onPoiSelect(handler: PoiSelectHandler): () => void
   /** 校内校车车标被点：回调车辆 id（MapBus.id），返回取消订阅。provider 可不实现。 */

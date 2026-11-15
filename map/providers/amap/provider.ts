@@ -618,6 +618,26 @@ export class AMapProvider implements MapProvider {
   }
 
   /**
+   * 业务经纬度 → 容器像素坐标（左上角原点），供 DOM 覆盖层（灵感来自 ETA 胶囊）
+   * 贴着车上标点摆放。WGS84 走本地换算转 GCJ-02 再投影，不依赖网络转换接口；
+   * 地图未就绪或点不可渲染时返回 null，调用方跳过。
+   */
+  projectToScreen(point: GeoPoint): { x: number, y: number } | null {
+    const map = this.map
+    if (!map) return null
+    if (!this.isRenderablePoint(point)) return null
+    const position: AMapPosition = point.crs === 'GCJ-02'
+      ? [point.lng, point.lat]
+      : wgs84ToGcj02(point.lng, point.lat)
+    const projector = map as unknown as {
+      lngLatToContainer?: (input: AMapLngLat) => { getX(): number, getY(): number } | null
+    }
+    const pixel = projector.lngLatToContainer?.(position as unknown as AMapLngLat)
+    if (!pixel) return null
+    return { x: pixel.getX(), y: pixel.getY() }
+  }
+
+  /**
    * 车头朝向：优先用相邻两次位置的位移方向（真实行进方向），
    * 位置没动（在站里停着 / GPS 抖动 < 6 m）就沿用上次朝向；
    * 都没有时才退回接口给的 angle。跨 0°/360° 时取与上次最接近的等价角，避免瞬间翻转。
