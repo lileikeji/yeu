@@ -154,7 +154,8 @@ export function useCompetitionPoster() {
 
   function downloadQr(path: string, name: string): void {
     const link = document.createElement('a')
-    link.href = `/api/admin/competition/qr?path=${encodeURIComponent(path)}&size=1024&download=1&name=${encodeURIComponent(name)}`
+    // 查询 schema 为 strict，多传字段会 400；下载文件名由服务端按 path 生成。
+    link.href = `/api/admin/competition/qr?path=${encodeURIComponent(path)}&size=1024&download=1`
     link.download = name
     document.body.appendChild(link)
     link.click()

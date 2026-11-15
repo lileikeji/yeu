@@ -1196,8 +1196,14 @@ export function getSingerQueuePosition(
   const prelim = getRoundByKey(client, eventRow.id, 'prelim')
   const entries = listRoundEntryRows(client, prelim.id)
   const mine = entries.find(item => item.singerId === singerId)
+  const activeDay = prelim.activeDay === 1 || prelim.activeDay === 2 ? prelim.activeDay : null
+  // 管理员已明确切到另一天时，前一天的旧浏览器缓存作废并按今天队列统计人数（避免继续显示昨天 44 人）。
+  if (mine && activeDay !== null && mine.contestDay !== activeDay) {
+    const todayEntries = entries.filter(item => item.contestDay === activeDay && item.checkedInAt != null)
+    return { state: 'unknown', ahead: null, position: null, total: todayEntries.length }
+  }
   // 同一天的排同一天的队：按这位选手自己登记的场次算，不按管理员此刻停在哪天。
-  const day = mine?.contestDay ?? prelim.activeDay ?? null
+  const day = mine?.contestDay ?? activeDay
   const dayEntries = (day ? entries.filter(item => item.contestDay === day) : entries)
     .filter(item => item.checkedInAt != null)
   if (!mine) {
@@ -2107,18 +2113,20 @@ export function getJudgePayload(client: DatabaseClient, judge: JudgeSessionIdent
   )
 
   const dayEntries = presentEntriesForDay(round, entryRows)
+  const scopedByDay = round.activeDay === 1 || round.activeDay === 2
   const singers = dayEntries
     .map((entry) => {
       const singer = singersById.get(entry.singerId)
-      if (!singer) return null
-      return {
-        ...serializeSingerPublic(singer),
-        sortOrder: entry.sortOrder,
-        advancedFromRank: entry.advancedFromRank,
-        score: ownScores.get(singer.id) ?? null
-      }
+      return singer ? { entry, singer } : null
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
+    .map(({ entry, singer }, index) => ({
+      ...serializeSingerPublic(singer),
+      // 分天评比时给评委展示当天顺位（1 起），避免第二天从昨日总数之后接续显示。
+      sortOrder: scopedByDay ? index + 1 : entry.sortOrder,
+      advancedFromRank: entry.advancedFromRank,
+      score: ownScores.get(singer.id) ?? null
+    }))
   const daySingerIds = new Set(dayEntries.map(entry => entry.singerId))
   const dayScored = [...ownScores.keys()].filter(singerId => daySingerIds.has(singerId)).length
 
@@ -2458,7 +2466,13 @@ export function registerSingerFromForm(
     }
   })
   addPrelimEntry(client, eventRow.id, id, sortOrder, resolved.day, now)
-  return { id, sortOrder }
+  const prelimEntries = listRoundEntryRows(client, prelim.id)
+  const dayEntries = (resolved.day
+    ? prelimEntries.filter(entry => entry.contestDay === resolved.day)
+    : prelimEntries
+  ).filter(entry => entry.checkedInAt != null)
+  const dayIndex = dayEntries.findIndex(entry => entry.singerId === id)
+  return { id, sortOrder: dayIndex >= 0 ? dayIndex + 1 : sortOrder }
 }
 
 // -- 结果邮件通知 ---------------------------------------------------------------
