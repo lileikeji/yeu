@@ -79,6 +79,30 @@ function checkInEntries(
   }
 }
 
+type TestClient = ReturnType<typeof getDatabase>
+
+/**
+ * 赛程里初赛两天写的是「11 月 14 日 / 11 月 15 日」，年份取自届次，届次为空时回落当前年。
+ * 用例跑在真实时钟上：初赛当天会把「今天就是初赛日」判成真，收人、分天、到岗校验全部跟着变，
+ * 于是每年 11-14 这套用例必红（2026-11-14 实测 6 条失败）。
+ * 这里在造完事件后把届次钉到 2031：初赛日期只由 fixture 决定，与运行当天无关。
+ */
+const PINNED_EDITION = '2031 第六届'
+
+function ensureCompetitionEventPinned(client: TestClient, contentId: string) {
+  const created = ensureCompetitionEvent(client, contentId)
+  if (created.edition === '') {
+    updateCompetitionEvent(client, created, {
+      title: created.title,
+      edition: PINNED_EDITION,
+      // 该入参缺省即「关闭登记」，必须原样带回去，否则后续用例全被判「登记已结束」。
+      registrationOpen: created.registrationOpen !== false,
+      dimensions: DEFAULT_COMPETITION_DIMENSIONS
+    })
+  }
+  return ensureCompetitionEvent(client, contentId)
+}
+
 test('等权五维时总分等于各维度累加，满分 100（每维 20）', () => {
   assert.equal(competitionMaxTotal(DEFAULT_COMPETITION_DIMENSIONS), 50)
   assert.equal(calculateCompetitionTotal(DEFAULT_COMPETITION_DIMENSIONS, scoresForAll(10)), 50)
@@ -179,7 +203,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(isMusicAssociationContent(client, musicId), true)
   assert.equal(isMusicAssociationContent(client, otherClubId), false)
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   const rounds = getAdminCompetitionPayload(client, musicId).rounds
   assert.deepEqual(rounds.map(round => round.key), ['prelim', 'semi', 'final'])
   assert.equal(rounds[0]!.advanceCount, 30)
@@ -187,7 +211,7 @@ test('数据库：三轮独立评委、初赛前 N 晋级、随机抽签、手�
   assert.equal(rounds[2]!.advanceCount, null)
 
   // 再次 ensure 不会重复建轮次。
-  ensureCompetitionEvent(client, musicId)
+  ensureCompetitionEventPinned(client, musicId)
   assert.equal(getAdminCompetitionPayload(client, musicId).rounds.length, 3)
 
   const singerA = createSinger(client, event.id, { name: '张三', song: '晴天' })
@@ -497,7 +521,7 @@ test('数据库：顺序评分只认当前选手，启用中评委全员提交�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   createSinger(client, event.id, { name: '张三', song: '晴天' })
   createSinger(client, event.id, { name: '李四', song: '后来' })
   createSinger(client, event.id, { name: '王五', song: '如愿' })
@@ -600,7 +624,7 @@ test('数据库：邮件插图上传、正文标记转内嵌 cid、附件按引�
     summary: 'test',
     status: 'published'
   }).run()
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
 
   // 1×1 PNG，够验证 base64 往返与字节数。
   const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
@@ -658,7 +682,7 @@ test('数据库：没签到的人不进评委名单，签到才进，取消签�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   createSinger(client, event.id, { name: '张三', song: '晴天' })
   createSinger(client, event.id, { name: '李四', song: '后来' })
 
@@ -713,7 +737,7 @@ test('数据库：顺序评分按「本场到岗人数」收票，账号多于�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   createSinger(client, event.id, { name: '张三', song: '晴天' })
   createSinger(client, event.id, { name: '李四', song: '后来' })
   checkInEntries(client, musicId)
@@ -761,7 +785,7 @@ test('数据库：初赛分天——两天各有自己的顺序与到岗评委�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   for (const [name, song] of [['张三', '晴天'], ['李四', '后来'], ['王五', '如愿'], ['赵六', '起风了']] as const) {
     createSinger(client, event.id, { name, song })
     checkInEntries(client, musicId)
@@ -975,7 +999,7 @@ test('数据库：评委可以自定义账号密码，重名报 409，改账号�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   const round = getRoundByKey(client, event.id, 'prelim')
 
   const custom = await createJudgeAccount(client, round, {
@@ -1040,7 +1064,7 @@ test('数据库：拖动排序把选手挪到目标前后，分天时不影响�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   for (const [name, song] of [['甲', '晴天'], ['乙', '后来'], ['丙', '如愿'], ['丁', '起风了']] as const) {
     createSinger(client, event.id, { name, song })
     checkInEntries(client, musicId)
@@ -1099,7 +1123,7 @@ test('数据库：评委端进度只算当天到场的人，新扫码登记后�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   for (const [name, song] of [['张三', '晴天'], ['李四', '后来'], ['王五', '如愿']] as const) {
     createSinger(client, event.id, { name, song })
   }
@@ -1292,7 +1316,7 @@ test('数据库：今天排哪一天按赛程日期判断，非初赛日不收�
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   const round = getRoundByKey(client, event.id, 'prelim')
 
   const dates = prelimDayDates(event)
@@ -1327,7 +1351,7 @@ test('数据库：现场进度——正在唱/已结束/前方几人，选手自
     status: 'published'
   }).run()
 
-  const event = ensureCompetitionEvent(client, musicId)
+  const event = ensureCompetitionEventPinned(client, musicId)
   const singers = [['甲', '晴天'], ['乙', '后来'], ['丙', '如愿']] as const
   for (const [name, song] of singers) createSinger(client, event.id, { name, song })
   checkInEntries(client, musicId)
@@ -1366,6 +1390,36 @@ test('数据库：现场进度——正在唱/已结束/前方几人，选手自
   assert.equal(queueFor('甲').state, 'finished')
   assert.equal(queueFor('丙').ahead, 0)
   assert.equal(queueFor('丙').state, 'waiting')
+
+  closeDatabase(':memory:')
+})
+
+test('数据库：赛程年份取届次，钉住后运行当天永不落入初赛日', () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  assert.equal(event.edition, PINNED_EDITION)
+
+  // 初赛两天由赛程标签里的月日 + 届次年份拼出，全部落在 2031，与运行当天无关。
+  const days = prelimDayDates(event)
+  assert.equal(days.length, 2)
+  assert.deepEqual(days.map(item => item.dateKey), ['2031-11-14', '2031-11-15'])
+
+  // 兜底逻辑单独验：没有届次时回落当前年，这才是 11-14 当天必红的来源。
+  const bare = { ...event, edition: '' }
+  const currentYear = new Date().getFullYear()
+  assert.equal(prelimDayDates(bare)[0]!.dateKey, `${currentYear}-11-14`)
 
   closeDatabase(':memory:')
 })
