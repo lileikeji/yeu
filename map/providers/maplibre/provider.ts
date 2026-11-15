@@ -544,6 +544,20 @@ export class MapLibrePreviewProvider implements MapProvider {
   }
 
   /**
+   * 业务经纬度 → 容器像素坐标（左上角原点）。预览底图直接用 WGS84，
+   * 与 setBuses 同口径。style 未就绪或点不可渲染时返回 null，
+   * 供 DOM 覆盖层（贴在车上的 ETA 胶囊）判空跳过。
+   */
+  projectToScreen(point: GeoPoint): { x: number, y: number } | null {
+    const map = this.map
+    if (!map || !this.layersReady) return null
+    if (!this.isRenderablePoint(point)) return null
+    const projected = map.project([point.lng, point.lat])
+    if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y)) return null
+    return { x: projected.x, y: projected.y }
+  }
+
+  /**
    * Campus-bus routes: stop polylines plus origin/terminal dots. Drawn from
    * YKTGetBusSiteInfo stops (WGS84). Empty array clears the layer.
    */
