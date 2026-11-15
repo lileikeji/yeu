@@ -50,12 +50,14 @@ export type BundleBudgetReport = {
 // 2026-11-09 基线重标（依赖升级后实测 + 约 5% 余量）：CSS/index/search/map 四项
 // 自发布期起长期超支（二分证实非新回归），旧值形同虚设——闸门保留但从今天起
 // 才真正拦截"未来的新膨胀"。瘦包优化另立任务，完成后回收余量。
-// 2026-11-15：移动端地图页改版新增的任意值工具类（`max-md:!h-[326px]`、`duration-[320ms]`、
-// `ease-[cubic-bezier(0.24,1,0.32,1)]`、`[contain:layout_paint]` 等）会一并推高 Tailwind 全局
-// 产物，实测入口 CSS 352876 B；入口 CSS 上抬 8KB 到 348KB，超过 348KB 再谈瘦包。
+// 2026-11-15 两项改动叠加，入口 CSS 预算按合并后的实测重标：配色 token 化
+// （color-mix 面层）与评委端评分页滑块把基线推到 348761 B；移动端地图页改版的
+// 任意值工具类（`max-md:!h-[326px]`、`duration-[320ms]`、`[contain:layout_paint]` 等）
+// 会再推高 Tailwind 全局产物。两项合并后实测入口 CSS 352943 B，预算取 352 KiB
+// （余量约 7.5 KB），再顶破就谈瘦包。
 export const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
   entryJavaScriptBytes: 430 * 1024,
-  entryCssBytes: 348 * 1024,
+  entryCssBytes: 352 * 1024,
   mapLibreBytes: 1150 * 1024,
   mapLibreCssBytes: 80 * 1024,
   routeJavaScriptBytes: {

@@ -308,6 +308,8 @@ export interface CompetitionEvent {
   registrationOpen: boolean
   /** 第几届，例如「2026 年 · 第 1 届」。 */
   edition: string
+  /** 算平均分时去掉一个最高分和一个最低分（至少 3 位评委才生效）。 */
+  trimExtremes: boolean
   /** 赛程：每轮的日期/时间/地点。 */
   schedule: CompetitionScheduleItem[]
   /** 报名表单字段（可改名、可设必填、可整项隐藏）。 */
@@ -487,7 +489,7 @@ export interface CompetitionScore {
   updatedAt: number
 }
 
-export type CompetitionQueueState = 'finished' | 'singing' | 'waiting' | 'idle' | 'unknown'
+export type CompetitionQueueState = 'finished' | 'singing' | 'waiting' | 'skipped' | 'idle' | 'unknown'
 
 /** 选手自己在现场看到的排队情况。 */
 export interface CompetitionQueuePosition {
@@ -498,6 +500,32 @@ export interface CompetitionQueuePosition {
   position: number | null
   /** 当天总人数。 */
   total: number
+}
+
+/** 叫号台的一行：出场序、姓名、歌曲、班级、当前状态。 */
+export interface CompetitionCallBoardRow {
+  position: number
+  name: string
+  song: string
+  className: string
+  state: CompetitionQueueState
+  /** 前面还有几位（不含正在唱的那位）。 */
+  ahead: number | null
+}
+
+/** 免登录叫号台：只露出叫号要用的信息，不含电话、邮箱、评分。 */
+export interface CompetitionCallBoard {
+  round: {
+    key: string
+    title: string
+    status: CompetitionRoundStatus
+    activeDay: 1 | 2 | null
+  }
+  total: number
+  current: CompetitionCallBoardRow | null
+  next: CompetitionCallBoardRow | null
+  rows: CompetitionCallBoardRow[]
+  updatedAt: number
 }
 
 export interface CompetitionRoundEntry {
@@ -531,6 +559,8 @@ export interface CompetitionRoundView extends CompetitionRound {
   scores: CompetitionScore[]
   maxTotal: number
   hasScores: boolean
+  /** 后台显式开启了顺序评分（评委只能评当前这位）。 */
+  sequential: boolean
   /** 顺序评分：当前这位选手与全场提交情况；未开启顺序评分时为 null。 */
   current: CompetitionCurrentSinger | null
 }
@@ -593,6 +623,8 @@ export interface CompetitionJudgePayload {
     title: string
     status: CompetitionRoundStatus
     advanceCount: number | null
+    /** 后台显式开启了顺序评分；false 时评委可自由选人打分。 */
+    sequential: boolean
   }
   singers: Array<CompetitionSingerPublic & {
     sortOrder: number
