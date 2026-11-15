@@ -322,6 +322,13 @@ const collapsedDetail = computed(() => {
   const where = bus.isAtSite ? bus.atSiteLabel + ' · ' + bus.atSiteDetail : '下一站 ' + bus.nextStopName
   return bus.busName + ' · ' + where
 })
+/** 车辆卡副行：到站说「已到 X」，在途说「正驶向「X」」。 */
+const vehicleWhereText = computed(() => {
+  const bus = leadBus.value
+  if (!bus) return ''
+  return bus.isAtSite ? `已到「${bus.atSiteDetail}」` : `正驶向「${bus.nextStopName}」`
+})
+
 const vehicleLine = computed(() => {
   const bus = leadBus.value
   if (!bus) return emptyBusesText.value + ' · ' + SERVICE_HOURS_LABEL
@@ -440,15 +447,50 @@ function markerBarTop(ratio: number): string {
         />
       </div>
 
-      <!-- 车辆卡 56 -->
-      <div class="flex h-14 shrink-0 items-center gap-2 border-y border-[var(--line)] px-3">
-        <span
-          aria-hidden="true"
-          class="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--bus-accent-soft)] text-[13px] text-[var(--bus-accent)]"
-        >🚌</span>
-        <p class="min-w-0 flex-1 truncate text-[12px] text-[var(--ink)]">
-          {{ vehicleLine }}
-        </p>
+      <!-- 车辆卡 56：有车是暖橙描边卡（车名 / 正驶向 / 右侧 ETA），无车退回落款条 -->
+      <div class="flex h-14 shrink-0 items-center px-3">
+        <div
+          v-if="leadBus"
+          class="flex h-full w-full items-center gap-2.5 rounded-[16px] border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] px-2.5"
+        >
+          <span
+            aria-hidden="true"
+            class="grid size-[34px] shrink-0 place-items-center rounded-[12px] bg-[var(--surface)] text-[var(--bus-accent)]"
+          >
+            <UIcon name="i-lucide-bus-front" class="size-[18px]" />
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[13px] font-bold leading-4 text-[var(--ink)]">
+              {{ leadBus.busName }}
+            </p>
+            <p class="truncate text-[11px] leading-4 text-[var(--muted-ink)]">
+              {{ vehicleWhereText }}
+            </p>
+          </div>
+          <div class="shrink-0 text-right leading-none">
+            <p class="text-[19px] font-extrabold leading-5 text-[var(--bus-accent)]">
+              {{ collapsedEta }}
+            </p>
+            <p
+              v-if="!leadBus.isAtSite"
+              class="mt-0.5 text-[9.5px] text-[var(--muted-ink)]"
+            >
+              到下一站
+            </p>
+          </div>
+        </div>
+        <div
+          v-else
+          class="flex h-full w-full items-center gap-2 rounded-[16px] border border-[var(--line)] px-3"
+        >
+          <span
+            aria-hidden="true"
+            class="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--bus-accent-soft)] text-[13px] text-[var(--bus-accent)]"
+          >🚌</span>
+          <p class="min-w-0 flex-1 truncate text-[12px] text-[var(--ink)]">
+            {{ vehicleLine }}
+          </p>
+        </div>
       </div>
 
       <!-- 站行：最小 32，容器富余时等分拉伸；车标按行中心百分比定位 -->
