@@ -817,7 +817,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     >
       <div
         data-sheet-drag-zone
-        class="relative flex h-14 shrink-0 touch-none cursor-ns-resize items-center justify-between gap-2 border-b border-[var(--line)] px-3 md:hidden"
+        class="relative flex h-14 shrink-0 touch-none cursor-ns-resize items-center justify-between gap-2 px-3 md:hidden"
         :class="mobileSheetState === 'half' ? '!h-10' : ''"
         @pointerdown="handleMobileSheetPointerDown"
       >
@@ -861,8 +861,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       </div>
 
       <div
-        class="shrink-0 border-b border-[var(--line)] px-3 py-2 md:block md:px-5 md:py-4"
-        :class="searchQuery.trim() || nativeSearchLoading || mapFallbackMessage ? '' : 'hidden md:block'"
+        class="hidden shrink-0 border-b border-[var(--line)] px-3 py-2 md:block md:px-5 md:py-4"
       >
         <!-- 桌面端的搜索框与分类栏留在侧栏里（现状不变）；移动端这两块搬到顶部浮层，见下方 md:hidden 的浮层。 -->
         <div class="hidden md:block">
@@ -987,7 +986,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 
       <div
         v-if="mapSheetShowsSections"
-        class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"
+        class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"
         aria-label="收藏、最近去过与分类"
       >
         <section
