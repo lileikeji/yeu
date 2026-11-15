@@ -903,7 +903,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           <button
             type="button"
             class="flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 dark:text-zinc-400"
-            aria-label="地图显示设置"
+            aria-label="打开地图显示设置"
             @click="toggleDisplaySettings"
           >
             <UIcon
@@ -1448,7 +1448,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               enterkeyhint="search"
               class="min-w-0 flex-1 appearance-none bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-500 dark:text-zinc-100 dark:placeholder:text-zinc-400"
               placeholder="搜索地点或附近商家"
-              aria-label="搜索地图地点"
+              aria-label="搜索地点"
               @input="onMobileDockSearchInput(($event.target as HTMLInputElement).value)"
               @compositionstart="onSearchCompositionStart"
               @compositionend="onSearchCompositionEnd"

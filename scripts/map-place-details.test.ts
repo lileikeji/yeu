@@ -288,7 +288,14 @@ test('mobile dock search expands the sheet and renders results in the panel', ()
 
 test('mobile sheet exposes the display settings entry', () => {
   // CR-12：手机要有「地图显示设置」入口，开的是同一个面板。
-  assert.match(pageSource, /aria-label="地图显示设置"[\s\S]{0,120}?@click="toggleDisplaySettings"/)
+  // 手机入口用独立名字：桌面工具条的那个按钮同时存在于 DOM（只是 md 以下隐藏），
+  // 同名会让读屏与 Playwright 的 getByRole 都解析到两个控件。
+  assert.match(pageSource, /aria-label="打开地图显示设置"[\s\S]{0,120}?@click="toggleDisplaySettings"/)
+  assert.doesNotMatch(
+    pageSource,
+    /aria-label="地图显示设置"[\s\S]{0,120}?toggleDisplaySettings[\s\S]{0,200}?打开地图显示设置/,
+    '手机入口与桌面工具条不应共用同一个可访问名'
+  )
 })
 
 test('page source keeps no multiple consecutive blank lines', () => {
