@@ -784,11 +784,15 @@ watch(selectedPoiId, (id) => {
 })
 
 const mapSheetSearching = computed(() => searchQuery.value.trim().length > 0)
-// CR-11：手机 dock 里的搜索框不在面板内，输入时把面板抬到半屏，结果块才有地方显示（输入框不会被重建）。
+// CR-11：手机 dock 里的搜索框不在面板内，搜索有词了就把面板抬到半屏，结果块才有地方显示。
+// CR-14：只认提交后的 searchQuery —— 中文输入法组词期间 searchQuery 不变，若跟着原始 input 抬面板，
+// 半屏会把 dock（连同正在组词的输入框）按 v-show 一起隐藏，组词就断了。
+watch(searchQuery, (query) => {
+  if (!query.trim() || panelIsDesktop.value) return
+  mobileSheetState.value = resolveDockSearchMobileSheetState(mobileSheetState.value)
+})
 function onMobileDockSearchInput(value: string): void {
   onSearchQueryInput(value)
-  if (!value.trim() || panelIsDesktop.value) return
-  mobileSheetState.value = resolveDockSearchMobileSheetState(mobileSheetState.value)
 }
 const mapSheetShowsSections = computed(() => mobileSheetState.value !== 'collapsed'
   && mapSheetView.value === 'sections'

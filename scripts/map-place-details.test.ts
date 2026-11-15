@@ -277,9 +277,12 @@ test('sheet live height records the collapsed zero baseline', () => {
   assert.doesNotMatch(pageSource, /if \(height > 0\) mobileSheetLiveHeightPx/)
 })
 
-test('mobile dock search expands the sheet and renders results in the panel', () => {
+test('mobile dock search expands the sheet from the committed query and renders results', () => {
   // CR-11：手机搜索要有加载态/结果列表并可点选。
-  assert.match(pageSource, /function onMobileDockSearchInput\(value: string\): void \{/)
+  // CR-14：抬面板只能跟提交后的 searchQuery，不能跟原始 input —— 输入法组词期间 searchQuery 不变，
+  // 若按原始 input 抬成半屏，dock 里的输入框会被 v-show 隐藏、组词直接断掉。
+  assert.match(pageSource, /function onMobileDockSearchInput\(value: string\): void \{\s*onSearchQueryInput\(value\)\s*\}/)
+  assert.match(pageSource, /watch\(searchQuery, \(query\) => \{[\s\S]{0,260}?resolveDockSearchMobileSheetState/)
   assert.match(pageSource, /@input="onMobileDockSearchInput\(/)
   assert.match(pageSource, /aria-label="地图搜索结果"/)
   assert.match(pageSource, /正在搜索地图里的地点…/)
