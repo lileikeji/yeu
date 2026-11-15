@@ -124,6 +124,26 @@ test('mobile sheet no longer renders an in-panel search input', () => {
   assert.match(pageSource, /hidden md:block/)
 })
 
+// T-023 修正 01（用户手机截图）：面板里两条突兀横线 —— 桌面侧栏搜索块在移动端内层已隐藏，
+// 外壳只剩 py-2 空白 + border-b（实测 17px 空条）；移动端整块不该出。滚动区竖向滚动条也要藏。
+test('mobile sheet drops the empty desktop search strip and its border', () => {
+  assert.doesNotMatch(
+    pageSource,
+    /searchQuery\.trim\(\) \|\| nativeSearchLoading \|\| mapFallbackMessage \? '' : 'hidden md:block'/,
+  )
+  assert.match(
+    pageSource,
+    /class="hidden shrink-0 border-b border-\[var\(--line\)\] px-3 py-2 md:block md:px-5 md:py-4"/,
+  )
+})
+
+test('mobile sheet sections scroller hides the scrollbar', () => {
+  assert.match(
+    pageSource,
+    /class="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-3 pt-0 md:hidden"/,
+  )
+})
+
 test('mobile sheet stays bound to the two glass state classes', () => {
   assert.match(pageSource, /mapGlassActive \? 'map-glass-refracting' : 'map-glass-surface'/)
 })
