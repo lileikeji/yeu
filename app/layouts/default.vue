@@ -4,7 +4,6 @@ const runtimeConfig = useRuntimeConfig()
 const { isAuthenticated } = useUserSession()
 const { sharePage } = useShareActions()
 const { mode: activeHomeMode, setMode: setHomeMode } = useHomeMode()
-const { isDark: isSiteDark } = useThemeMode()
 
 type NavigationKey = 'home' | 'map' | 'procedures' | 'life' | 'hot' | 'me'
 
@@ -115,11 +114,19 @@ function shareCurrentPage(): void {
         >
           <span class="flex min-w-0 items-center gap-2">
             <span class="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-transparent p-0">
+              <!-- 两枚 logo 由 CSS 切：SSR 不知道用户存的是暗色，条件 src 会造成 hydration mismatch -->
               <img
-                :src="isSiteDark ? '/images/brand/system-logo-mark.png' : '/images/brand/system-logo-mark-light.png'"
+                src="/images/brand/system-logo-mark-light.png"
                 alt=""
                 aria-hidden="true"
-                class="size-full object-contain"
+                class="size-full object-contain dark:hidden"
+                decoding="async"
+              >
+              <img
+                src="/images/brand/system-logo-mark.png"
+                alt=""
+                aria-hidden="true"
+                class="hidden size-full object-contain dark:block"
                 decoding="async"
               >
             </span>
