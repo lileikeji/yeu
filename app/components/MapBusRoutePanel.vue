@@ -405,7 +405,7 @@ function markerBarTop(ratio: number): string {
             class="mx-auto block h-1 w-10 rounded-full bg-[var(--line)]"
           />
         </button>
-        <p class="truncate text-[13px] font-semibold leading-5 text-[var(--ink)]">
+        <p class="truncate text-[15px] font-semibold leading-6 text-[var(--ink)]">
           叮叮车
         </p>
       </div>
