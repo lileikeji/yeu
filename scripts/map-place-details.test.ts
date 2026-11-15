@@ -50,8 +50,17 @@ test('map place details use compact mobile and desktop-only floating panels', ()
   // 结构性断言：桌面/移动各有「规划步行路线」，另有共用的「选起点规划」降级入口。
   assert.equal((detailsSource.match(/label="规划步行路线"/g) || []).length, 2)
   assert.equal((detailsSource.match(/label="选起点规划"/g) || []).length, 1)
-  assert.match(pageSource, /aria-label="全隐藏地点面板"[\s\S]{0,120}?mobileSheetState === 'collapsed'/)
-  assert.equal((pageSource.match(/class="justify-center size-9"\s+aria-label="(?:全隐藏|半屏显示|展开)地点面板"/g) || []).length, 3)
+  // T-022：面板头部三态图标按钮（全隐藏 / 半屏 / 展开）换成「展开 / 收起」文字按钮，
+  // 结构以 mockup 18-地图页-真折射手机.png 为准。
+  assert.match(
+    pageSource,
+    /:aria-label="mobileSheetState === 'collapsed' \? '展开地点面板' : '收起地点面板'"/,
+  )
+  assert.equal(
+    (pageSource.match(/class="justify-center size-9"/g) || []).length,
+    0,
+    '三态图标按钮应已被文字按钮取代',
+  )
   assert.match(pageSource, /class="min-h-10(?:\s+dark:[^"\s]+)*\s+w-full(?:\s+dark:[^"\s]+)*\s+md:mt-3(?:\s+dark:[^"\s]+)*\s+md:min-h-11(?:\s+dark:[^"\s]+)*"/)
   assert.equal((pageSource.match(/\['min-h-11 rounded-none px-3'/g) || []).length, 2)
   assert.match(detailsSource, /max-h-\[min\(56dvh,30rem\)\]/)
