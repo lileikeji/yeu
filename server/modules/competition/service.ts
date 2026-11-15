@@ -995,6 +995,20 @@ export function buildCompetitionExport(
     trimExtremes: eventRow?.trimExtremes === 1
   })
   const entryBySinger = new Map(entries.map(entry => [entry.singerId, entry]))
+  // 「出场顺序」按当天排、不跨天累计：第 2 天第 1 位就是 1，而不是第一天的 50 之后接着数。
+  const daySequence = new Map<string, number>()
+  const entriesByDay = new Map<number, EntryRow[]>()
+  for (const entry of entries) {
+    const day = entry.contestDay ?? 0
+    const bucket = entriesByDay.get(day)
+    if (bucket) bucket.push(entry)
+    else entriesByDay.set(day, [entry])
+  }
+  for (const bucket of entriesByDay.values()) {
+    ;[...bucket]
+      .sort((left, right) => left.sortOrder - right.sortOrder || left.createdAt - right.createdAt)
+      .forEach((entry, index) => { daySequence.set(entry.id, index + 1) })
+  }
   const dayLabelOf = (day: number | null | undefined): string => (day ? `第 ${day} 天` : '')
 
   const rows: unknown[][] = []
@@ -1015,7 +1029,7 @@ export function buildCompetitionExport(
           singer.className ?? '',
           singer.song,
           dayLabelOf(entry.contestDay),
-          entry.sortOrder,
+          daySequence.get(entry.id) ?? '',
           formatExportTime(entry.checkedInAt),
           judge.displayName,
           ...dimensions.map(item => scoreByDimension.get(item.key) ?? ''),
@@ -1056,7 +1070,7 @@ export function buildCompetitionExport(
         row.singer.className ?? '',
         row.singer.song,
         dayLabelOf(entry?.contestDay ?? null),
-        entry?.sortOrder ?? '',
+        (entry && daySequence.get(entry.id)) || '',
         row.scoreCount,
         row.average === null ? '' : row.average.toFixed(2)
       ]
