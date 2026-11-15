@@ -7,7 +7,7 @@ useSeoMeta({
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           联系整理者
@@ -107,7 +107,7 @@ useSeoMeta({
         </section>
 
         <section
-          class="rounded-lg border border-green-200 dark:border-green-800 bg-white dark:bg-zinc-900 p-4 shadow-sm sm:p-5"
+          class="rounded-lg border border-green-200 dark:border-green-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm sm:p-5"
           aria-labelledby="wechat-qr-heading"
         >
           <div class="flex items-center justify-between gap-3">
