@@ -116,3 +116,13 @@ test('手机浮标退场：dock 机制清零，顶部分类行仍是五格横向
   assert.doesNotMatch(pageSource, /dock-visible/)
   assert.doesNotMatch(pageSource, /data-mobile-dock/)
 })
+test('车辆卡：有车是暖橙描边卡，车名 + 正驶向 + 右侧 ETA', () => {
+  assert.match(componentSource, /正驶向「\$\{bus\.nextStopName\}」/)
+  assert.match(componentSource, /已到「\$\{bus\.atSiteDetail\}」/)
+  assert.match(componentSource, /到下一站/)
+  assert.match(componentSource, /border-\[var\(--bus-accent-line\)\] bg-\[var\(--bus-accent-soft\)\]/)
+  assert.match(componentSource, /text-\[19px\] font-extrabold/)
+  assert.match(componentSource, /i-lucide-bus-front/)
+  // 空态仍要有落款行，不能因为隐藏卡片就把「已收车 · 运营时段」一起丢了
+  assert.match(componentSource, /v-else[\s\S]{0,700}?vehicleLine/)
+})
