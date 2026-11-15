@@ -17,13 +17,12 @@ const sheetSource = componentSource.slice(0, componentSource.indexOf('v-if="!isS
 test('叮叮车是面板第三视图：枚举含 bus、初值 sections、地图胶囊一键进入', () => {
   assert.match(pageSource, /type MapSheetView = 'sections' \| 'all' \| 'bus'/)
   assert.match(pageSource, /ref<MapSheetView>\('sections'\)/)
-  assert.match(pageSource, /@open-sheet="openBusSheet"/)
   assert.match(pageSource, /function openBusSheet\(\): void \{/)
   assert.match(pageSource, /mapSheetView\.value = 'bus'/)
   assert.match(pageSource, /mobileSheetState\.value = 'half'/)
-  // 手机端地图上的 🚌 胶囊不再拉起旧全屏浮层，改为进面板第三视图（一次点击）
-  assert.match(componentSource, /@click="emit\('open-sheet'\)"/)
-  assert.doesNotMatch(componentSource, /class="map-bus-dock[\s\S]{0,200}emit\('update:open', true\)/)
+  // 手机浮标已删：顶部第 6 格 chip 与折叠条是仅有的两个入口，组件里不再有 map-bus-dock
+  assert.doesNotMatch(componentSource, /map-bus-dock/)
+  assert.match(pageSource, /aria-label="打开叮叮车"/)
 })
 
 test('折叠态 84px 是叮叮车专属，和地点列表的 h-0 互斥', () => {
@@ -110,9 +109,10 @@ test('分类格有第九格叮叮车入口，一次点击进第三视图', () =>
   assert.match(block, /var\(--bus-accent-soft\)/)
 })
 
-test('叮叮车视图占着面板时不再渲染手机「校车实时」胶囊', () => {
-  const page = pageSource
-  assert.match(page, /:dock-visible="mapSheetView !== 'bus'"/)
-  const panel = componentSource
-  assert.match(panel, /v-if="!isSheet && !open && dockVisible !== false"/)
+test('手机浮标退场：dock 机制清零，顶部分类行仍是五格横向滑动', () => {
+  // 顶部行本身就有 6 个分类、靠横滑展示，再塞第 7 格会被挤到屏幕外，所以入口只留在面板内。
+  assert.match(pageSource, /auto-cols-\[calc\(\(100%_-_28px\)\/5\)\]/)
+  assert.doesNotMatch(pageSource, /打开叮叮车线路/)
+  assert.doesNotMatch(pageSource, /dock-visible/)
+  assert.doesNotMatch(pageSource, /data-mobile-dock/)
 })
