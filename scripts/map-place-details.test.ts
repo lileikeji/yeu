@@ -332,6 +332,11 @@ test('sheet empty state yields to the local place list when it has matches', () 
   assert.doesNotMatch(pageSource, /<p\s+v-else\s+class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"\s+role="status"/)
 })
 
+test('map empty overlay separates "no match" from "no data"', () => {
+  // F29：搜索筛掉全部地点时，覆盖层仍说「还没有可直接显示的地点」——把筛选无匹配说成数据缺失。
+  assert.match(pageSource, /mapSheetSearching \? '没有匹配的地点' : '当前地图还没有可直接显示的地点'/)
+})
+
 test('glass upload scales the source once per frame', () => {
   // F24：clearRect + drawImage 各一次，重复的 drawImage 会让每帧多做一次缩放绘制。
   assert.equal((glassSource.match(/downscaleContext\.drawImage\(/g) || []).length, 1)
