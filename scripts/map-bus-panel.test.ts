@@ -109,3 +109,10 @@ test('分类格有第九格叮叮车入口，一次点击进第三视图', () =>
   assert.match(block, /@click="openBusSheet"/)
   assert.match(block, /var\(--bus-accent-soft\)/)
 })
+
+test('叮叮车视图占着面板时不再渲染手机「校车实时」胶囊', () => {
+  const page = pageSource
+  assert.match(page, /:dock-visible="mapSheetView !== 'bus'"/)
+  const panel = componentSource
+  assert.match(panel, /v-if="!isSheet && !open && dockVisible !== false"/)
+})

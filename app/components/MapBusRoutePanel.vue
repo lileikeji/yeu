@@ -16,6 +16,8 @@ const props = defineProps<{
   /** 用户实时位置（WGS84）；提供后每辆车显示「距您 X 米」。 */
   userLocation?: { lng: number, lat: number } | null
   variant?: 'floating' | 'sheet'
+  /** 手机「校车实时」胶囊是否可见；叮叮车视图占着面板时置 false，避免与折叠条重复 */
+  dockVisible?: boolean
   state?: MobileSheetState
 }>()
 
@@ -511,7 +513,7 @@ function markerBarTop(ratio: number): string {
 
   <!-- 收起态（移动端）：仅 floating 变体；sheet 变体由上方折叠条承载 -->
   <UButton
-    v-if="!isSheet && !open"
+    v-if="!isSheet && !open && dockVisible !== false"
     icon="i-lucide-bus-front"
     label="校车实时"
     color="primary"
