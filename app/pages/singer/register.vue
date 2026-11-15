@@ -306,16 +306,16 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-gradient-to-b from-[#ffe8d9] via-[#fdf6ec] to-[#ddf3ea] text-[#33413a]">
+  <div class="singer-canvas min-h-dvh text-[var(--ink)]">
     <main class="mx-auto max-w-lg px-4 py-8 sm:py-12">
       <header class="text-center">
         <NuxtLink
           to="/singer"
-          class="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm"
+          class="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] px-4 py-1.5 text-xs font-semibold tracking-wider text-[var(--color-green-700)] shadow-sm"
         >
           仰恩大学音乐协会 · 新声歌手大赛
         </NuxtLink>
-        <h1 class="mt-5 text-2xl font-black text-[#2f3a34]">
+        <h1 class="mt-5 text-2xl font-black text-[var(--ink)]">
           现场正式登记
         </h1>
       </header>
@@ -323,27 +323,27 @@ onMounted(async () => {
       <!-- 现场进度：只有登记过（本机记住了身份）才显示 -->
       <section
         v-if="queue"
-        class="mt-6 rounded-2xl bg-white/90 p-4 shadow-md ring-1 ring-[#f2d8c4]"
+        class="mt-6 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-4 shadow-md ring-1 ring-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)]"
       >
         <div class="flex items-center justify-between gap-2">
-          <p class="text-xs font-semibold tracking-wider text-[#b4552f]">
+          <p class="text-xs font-semibold tracking-wider text-[var(--color-green-700)]">
             我的现场进度<template v-if="queueOwner?.name">
               · {{ queueOwner.name }}
             </template>
           </p>
           <button
             type="button"
-            class="shrink-0 text-xs font-semibold text-[#4a564e] underline disabled:opacity-60"
+            class="shrink-0 text-xs font-semibold text-[var(--muted-ink)] underline disabled:opacity-60"
             :disabled="queueRefreshing"
             @click="refreshQueue"
           >
             {{ queueRefreshing ? '刷新中…' : '刷新' }}
           </button>
         </div>
-        <p class="mt-1 text-xl font-black text-[#2f3a34]">
+        <p class="mt-1 text-xl font-black text-[var(--ink)]">
           {{ queueText }}
         </p>
-        <p class="mt-1 text-xs text-[#6b7a70]">
+        <p class="mt-1 text-xs text-[var(--muted-ink)]">
           <template v-if="queue.position">
             今天第 {{ queue.position }} / {{ queue.total }} 位
           </template>
@@ -385,32 +385,32 @@ onMounted(async () => {
       <!-- 登记成功 -->
       <div
         v-else-if="succeeded"
-        class="mt-6 rounded-2xl bg-white/90 p-6 text-center shadow-md ring-1 ring-[#f2d8c4]"
+        class="mt-6 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-6 text-center shadow-md ring-1 ring-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)]"
       >
         <UIcon
           name="i-lucide-circle-check"
-          class="mx-auto size-10 text-green-600"
+          class="mx-auto size-10 text-[var(--color-green-600)]"
           aria-hidden="true"
         />
-        <h2 class="mt-3 text-xl font-black text-[#2f3a34]">
+        <h2 class="mt-3 text-xl font-black text-[var(--ink)]">
           登记好了！
         </h2>
-        <p class="mt-2 text-sm leading-6 text-[#4a564e]">
+        <p class="mt-2 text-sm leading-6 text-[var(--muted-ink)]">
           {{ succeeded.name }}，你是第
-          <span class="font-bold text-[#c2543c]">{{ succeeded.sortOrder }}</span>
+          <span class="font-bold text-[var(--color-green-700)]">{{ succeeded.sortOrder }}</span>
           位出场。
         </p>
 
         <div class="mt-5 flex justify-center gap-2">
           <NuxtLink
             to="/singer"
-            class="inline-flex items-center gap-2 rounded-xl bg-[#e2725b] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#d05f48]"
+            class="inline-flex items-center gap-2 rounded-xl bg-[var(--color-green-600)] px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
           >
             返回赛事介绍
           </NuxtLink>
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#4a564e] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
+            class="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--muted-ink)] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
             @click="resetAfterSuccess"
           >
             继续登记下一位
@@ -421,15 +421,15 @@ onMounted(async () => {
       <!-- 登记表单 -->
       <form
         v-else
-        class="mt-6 space-y-4 rounded-2xl bg-white/90 p-5 shadow-md ring-1 ring-[#f2d8c4] sm:p-6"
+        class="mt-6 space-y-4 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-5 shadow-md ring-1 ring-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)] sm:p-6"
         @submit.prevent="submit"
       >
         <div>
           <label
-            class="block text-sm font-semibold text-[#33413a]"
+            class="block text-sm font-semibold text-[var(--ink)]"
             for="reg-name"
           >
-            姓名 <span class="text-[#c2543c]">*</span>
+            姓名 <span class="text-[var(--color-green-700)]">*</span>
           </label>
           <div class="mt-1.5 flex gap-2">
             <input
@@ -439,7 +439,7 @@ onMounted(async () => {
               maxlength="40"
               name="name"
               autocomplete="name"
-              class="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+              class="w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
               placeholder="你的姓名"
             >
             <input
@@ -448,20 +448,20 @@ onMounted(async () => {
               inputmode="numeric"
               autocomplete="off"
               aria-label="学号后四位"
-              class="w-28 shrink-0 rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base tabular-nums outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+              class="w-28 shrink-0 rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base tabular-nums outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
               placeholder="学号后 4 位"
               @blur="lookupPreRegistrations"
             >
             <button
               type="button"
-              class="shrink-0 rounded-xl bg-[#4a564e] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3a453e] disabled:opacity-60"
+              class="shrink-0 rounded-xl bg-[var(--color-green-600)] px-3 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
               :disabled="lookingUp || !canLookup"
               @click="lookupPreRegistrations"
             >
               {{ lookingUp ? '查一下…' : '查预报名' }}
             </button>
           </div>
-          <p class="mt-1 text-xs text-[#8b968c]">
+          <p class="mt-1 text-xs text-[var(--muted-ink)]">
             姓名 + 学号后四位
           </p>
         </div>
@@ -469,33 +469,33 @@ onMounted(async () => {
         <!-- 预报名命中确认 -->
         <div
           v-if="preCandidates.length > 0"
-          class="rounded-xl border border-[#f2d8c4] bg-[#fdf6ec] p-3"
+          class="rounded-xl border border-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-green-600)_10%,var(--surface))] p-3"
         >
-          <p class="text-sm font-bold text-[#33413a]">
+          <p class="text-sm font-bold text-[var(--ink)]">
             是不是这个人？
           </p>
           <div class="mt-2 space-y-2">
             <div
               v-for="candidate in preCandidates"
               :key="candidate.id"
-              class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 ring-1 ring-zinc-200"
+              class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--surface)] px-3 py-2 ring-1 ring-zinc-200"
             >
               <div class="min-w-0 text-sm">
-                <p class="font-semibold text-[#33413a]">
+                <p class="font-semibold text-[var(--ink)]">
                   {{ candidate.name }}
                   <span
                     v-if="candidate.className"
-                    class="ml-1 text-xs font-normal text-[#6b7a70]"
+                    class="ml-1 text-xs font-normal text-[var(--muted-ink)]"
                   >{{ candidate.className }}</span>
                 </p>
-                <p class="truncate text-xs text-[#8b968c]">
+                <p class="truncate text-xs text-[var(--muted-ink)]">
                   学号 {{ candidate.studentNoMasked }} · {{ candidate.song || '歌曲待定' }}
                   <span v-if="candidate.hasContact"> · 预报名里留过联系方式</span>
                 </p>
               </div>
               <button
                 type="button"
-                class="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-green-700"
+                class="shrink-0 rounded-lg bg-[var(--color-green-600)] px-3 py-1.5 text-xs font-bold text-white transition hover:opacity-90"
                 @click="confirmCandidate(candidate)"
               >
                 是，就我
@@ -504,7 +504,7 @@ onMounted(async () => {
           </div>
           <button
             type="button"
-            class="mt-2 text-xs text-[#8b968c] underline"
+            class="mt-2 text-xs text-[var(--muted-ink)] underline"
             @click="preCandidates = []"
           >
             都不是，自己填
@@ -513,21 +513,21 @@ onMounted(async () => {
 
         <div
           v-else-if="lookupDone && !preSelected"
-          class="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-[#6b7a70]"
+          class="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--muted-ink)]"
         >
           没查到预报名记录。
         </div>
 
         <div
           v-if="preSelected"
-          class="flex items-center justify-between gap-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
+          class="flex items-center justify-between gap-2 rounded-xl border border-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-green-600)_10%,var(--surface))] px-3 py-2 text-sm text-[var(--ink)]"
         >
           <span>
             已带入姓名、班级与歌曲。
           </span>
           <button
             type="button"
-            class="shrink-0 text-xs text-green-800 underline"
+            class="shrink-0 text-xs text-[var(--color-green-700)] underline"
             @click="clearCandidate"
           >
             重新填
@@ -536,10 +536,10 @@ onMounted(async () => {
 
         <div>
           <label
-            class="block text-sm font-semibold text-[#33413a]"
+            class="block text-sm font-semibold text-[var(--ink)]"
             for="reg-class"
           >
-            班级 <span class="text-[#c2543c]">*</span>
+            班级 <span class="text-[var(--color-green-700)]">*</span>
           </label>
           <input
             id="reg-class"
@@ -547,17 +547,17 @@ onMounted(async () => {
             required
             maxlength="60"
             name="className"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
             placeholder="如 26工商管理1班"
           >
         </div>
 
         <div>
           <label
-            class="block text-sm font-semibold text-[#33413a]"
+            class="block text-sm font-semibold text-[var(--ink)]"
             for="reg-student-no"
           >
-            学号 <span class="text-[#c2543c]">*</span>
+            学号 <span class="text-[var(--color-green-700)]">*</span>
           </label>
           <input
             id="reg-student-no"
@@ -566,17 +566,17 @@ onMounted(async () => {
             maxlength="20"
             name="studentNo"
             inputmode="text"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
             placeholder="录取通知书 / 学生证上的学号"
           >
         </div>
 
         <div>
           <label
-            class="block text-sm font-semibold text-[#33413a]"
+            class="block text-sm font-semibold text-[var(--ink)]"
             for="reg-phone"
           >
-            电话 <span class="text-[#c2543c]">*</span>
+            电话 <span class="text-[var(--color-green-700)]">*</span>
           </label>
           <input
             id="reg-phone"
@@ -587,17 +587,17 @@ onMounted(async () => {
             type="tel"
             inputmode="numeric"
             autocomplete="tel"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
             placeholder="常用手机号"
           >
         </div>
 
         <div>
           <label
-            class="block text-sm font-semibold text-[#33413a]"
+            class="block text-sm font-semibold text-[var(--ink)]"
             for="reg-email"
           >
-            邮箱 <span class="text-[#c2543c]">*</span>
+            邮箱 <span class="text-[var(--color-green-700)]">*</span>
           </label>
           <input
             id="reg-email"
@@ -607,17 +607,17 @@ onMounted(async () => {
             name="email"
             type="email"
             autocomplete="email"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
             placeholder="用于接收比赛结果通知"
           >
         </div>
 
         <div>
           <label
-            class="block text-sm font-semibold text-[#33413a]"
+            class="block text-sm font-semibold text-[var(--ink)]"
             for="reg-song"
           >
-            参赛歌曲 <span class="text-[#c2543c]">*</span>
+            参赛歌曲 <span class="text-[var(--color-green-700)]">*</span>
           </label>
           <input
             id="reg-song"
@@ -625,7 +625,7 @@ onMounted(async () => {
             required
             maxlength="80"
             name="song"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
             placeholder="写具体歌名，如 晴天"
           >
         </div>
@@ -641,7 +641,7 @@ onMounted(async () => {
         <button
           type="submit"
           :disabled="submitting || Boolean(status && !status.open)"
-          class="flex w-full items-center justify-center gap-2 rounded-xl bg-[#e2725b] px-4 py-3 text-base font-bold text-white shadow transition hover:bg-[#d05f48] disabled:cursor-not-allowed disabled:opacity-60"
+          class="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-green-600)] px-4 py-3 text-base font-bold text-white shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <UIcon
             v-if="submitting"
@@ -652,12 +652,12 @@ onMounted(async () => {
           {{ submitting ? '提交中…' : '完成登记' }}
         </button>
 
-        <p class="text-center text-xs leading-5 text-[#8b968c]">
+        <p class="text-center text-xs leading-5 text-[var(--muted-ink)]">
           提交即同意以上信息用于比赛通知与安排。
         </p>
       </form>
 
-      <p class="mt-6 pb-6 text-center text-xs text-[#a8b0a6]">
+      <p class="mt-6 pb-6 text-center text-xs text-[var(--muted-ink)]">
         主办：仰恩大学音乐协会 · 咨询请在初赛群内联系工作人员
       </p>
     </main>

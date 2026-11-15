@@ -38,7 +38,7 @@ async function dismissUpdate(): Promise<void> {
     aria-atomic="true"
     aria-labelledby="pwa-update-title"
     aria-describedby="pwa-update-description"
-    class="pointer-events-auto fixed inset-x-3 bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] z-[100] mx-auto max-w-md rounded-lg border border-green-200 dark:border-green-800 bg-white/95 dark:bg-zinc-900/95 p-3 shadow-xl backdrop-blur md:bottom-6 md:right-6 md:left-auto md:mx-0 md:w-[23rem]"
+    class="pointer-events-auto fixed inset-x-3 bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.75rem)] z-[100] mx-auto max-w-md rounded-lg border border-green-200 dark:border-green-800 bg-[color-mix(in_srgb,var(--surface)_95%,transparent)] dark:bg-zinc-900/95 p-3 shadow-xl backdrop-blur md:bottom-6 md:right-6 md:left-auto md:mx-0 md:w-[23rem]"
   >
     <div class="flex items-start gap-3">
       <span class="grid size-9 shrink-0 place-items-center rounded-full bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
@@ -70,7 +70,7 @@ async function dismissUpdate(): Promise<void> {
           </button>
           <button
             type="button"
-            class="min-h-11 rounded-md bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 disabled:cursor-wait disabled:opacity-70"
+            class="min-h-11 rounded-md bg-green-700 px-4 text-sm font-semibold text-[var(--surface)] hover:bg-green-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 disabled:cursor-wait disabled:opacity-70"
             :disabled="updating"
             @click="applyUpdate"
           >

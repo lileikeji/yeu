@@ -25,7 +25,7 @@ useSeoMeta({
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <UBadge
           label="非官方学生指南"
@@ -89,7 +89,7 @@ useSeoMeta({
         </ul>
       </section>
 
-      <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
+      <section class="border-y border-[var(--line)] bg-[var(--page-bg)]">
         <div class="page-shell py-8 md:py-10">
           <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
             <div>
@@ -192,7 +192,7 @@ useSeoMeta({
             </ul>
           </div>
 
-          <aside class="rounded-lg border border-green-200 dark:border-green-800 bg-white dark:bg-zinc-900 p-4 shadow-sm sm:p-5">
+          <aside class="rounded-lg border border-green-200 dark:border-green-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 shadow-sm sm:p-5">
             <p class="text-xs font-semibold text-green-700 dark:text-green-400">
               加微信
             </p>
@@ -213,7 +213,7 @@ useSeoMeta({
         </div>
       </section>
 
-      <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
+      <section class="border-y border-[var(--line)] bg-[var(--page-bg)]">
         <div class="page-shell py-8 md:py-10">
           <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
             <div>
@@ -273,7 +273,7 @@ useSeoMeta({
         </div>
       </section>
 
-      <section class="border-y border-[var(--line)] bg-white dark:bg-zinc-900">
+      <section class="border-y border-[var(--line)] bg-[var(--page-bg)]">
         <div class="page-shell py-8 md:py-10">
           <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
             <div>
@@ -357,7 +357,7 @@ useSeoMeta({
         </div>
       </section>
 
-      <section class="border-t border-[var(--line)] bg-white dark:bg-zinc-900">
+      <section class="border-t border-[var(--line)] bg-[var(--page-bg)]">
         <div class="page-shell grid gap-5 py-8 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div>
             <h2 class="text-base font-bold text-zinc-950 dark:text-zinc-100">

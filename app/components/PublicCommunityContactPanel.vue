@@ -72,7 +72,7 @@ async function copyPhone(value: string): Promise<void> {
       <figure
         v-for="(qrUrl, index) in groupQrUrls"
         :key="qrUrl"
-        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
       >
         <figcaption class="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <UIcon
@@ -84,14 +84,14 @@ async function copyPhone(value: string): Promise<void> {
         <ImagePreviewButton
           :src="qrUrl"
           :alt="groupQrTitle(index)"
-          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
           image-class="size-full object-contain"
         />
       </figure>
       <figure
         v-for="(qrUrl, index) in contactQrUrls"
         :key="qrUrl"
-        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+        class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4"
       >
         <figcaption class="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <UIcon
@@ -103,7 +103,7 @@ async function copyPhone(value: string): Promise<void> {
         <ImagePreviewButton
           :src="qrUrl"
           :alt="contactQrTitle(index)"
-          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+          button-class="mx-auto mt-4 aspect-square w-full max-w-64 rounded-md border border-zinc-100 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900"
           image-class="size-full object-contain"
         />
       </figure>

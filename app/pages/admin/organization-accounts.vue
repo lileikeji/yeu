@@ -154,7 +154,7 @@ onMounted(() => {
       icon="i-lucide-shield-user"
     />
 
-    <section class="mt-5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+    <section class="mt-5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-5">
       <h2 class="font-bold text-zinc-950 dark:text-zinc-100">
         创建组织账号
       </h2>
@@ -232,7 +232,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="mt-5 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <section class="mt-5 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900">
       <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
         <h2 class="font-bold text-zinc-950 dark:text-zinc-100">
           已授权账号

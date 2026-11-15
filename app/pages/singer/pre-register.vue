@@ -148,16 +148,16 @@ onMounted(loadStatus)
 </script>
 
 <template>
-  <div class="min-h-dvh bg-gradient-to-b from-[#ffe8d9] via-[#fdf6ec] to-[#ddf3ea] text-[#33413a]">
+  <div class="singer-canvas min-h-dvh text-[var(--ink)]">
     <main class="mx-auto max-w-lg px-4 py-8 sm:py-12">
       <header class="text-center">
         <NuxtLink
           to="/singer"
-          class="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-1.5 text-xs font-semibold tracking-wider text-[#b4552f] shadow-sm"
+          class="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] px-4 py-1.5 text-xs font-semibold tracking-wider text-[var(--color-green-700)] shadow-sm"
         >
           仰恩大学音乐协会 · {{ status?.title ?? '新声歌手大赛' }}
         </NuxtLink>
-        <h1 class="mt-5 text-2xl font-black text-[#2f3a34]">
+        <h1 class="mt-5 text-2xl font-black text-[var(--ink)]">
           {{ status?.edition ? `${status.edition} 预报名` : '赛前预报名' }}
         </h1>
       </header>
@@ -190,29 +190,29 @@ onMounted(loadStatus)
 
       <div
         v-else-if="succeeded"
-        class="mt-6 rounded-2xl bg-white/90 p-6 text-center shadow-md ring-1 ring-[#f2d8c4]"
+        class="mt-6 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-6 text-center shadow-md ring-1 ring-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)]"
       >
         <UIcon
           name="i-lucide-circle-check"
-          class="mx-auto size-10 text-green-600"
+          class="mx-auto size-10 text-[var(--color-green-600)]"
           aria-hidden="true"
         />
-        <h2 class="mt-3 text-xl font-black text-[#2f3a34]">
+        <h2 class="mt-3 text-xl font-black text-[var(--ink)]">
           报好名了！
         </h2>
-        <p class="mt-2 text-sm leading-6 text-[#4a564e]">
+        <p class="mt-2 text-sm leading-6 text-[var(--muted-ink)]">
           {{ succeeded }}，{{ successHint }} 通知在初赛群发。
         </p>
         <div class="mt-5 flex justify-center gap-2">
           <NuxtLink
             to="/singer"
-            class="inline-flex items-center gap-2 rounded-xl bg-[#e2725b] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#d05f48]"
+            class="inline-flex items-center gap-2 rounded-xl bg-[var(--color-green-600)] px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
           >
             返回赛事介绍
           </NuxtLink>
           <button
             type="button"
-            class="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#4a564e] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
+            class="inline-flex items-center gap-2 rounded-xl bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--muted-ink)] ring-1 ring-zinc-200 transition hover:bg-zinc-50"
             @click="succeeded = null; form.name = ''; form.preferredDay = null"
           >
             继续帮同学报名
@@ -222,31 +222,31 @@ onMounted(loadStatus)
 
       <form
         v-else
-        class="mt-6 space-y-4 rounded-2xl bg-white/90 p-5 shadow-md ring-1 ring-[#f2d8c4] sm:p-6"
+        class="mt-6 space-y-4 rounded-2xl bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] p-5 shadow-md ring-1 ring-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)] sm:p-6"
         @submit.prevent="submit"
       >
         <section
           v-if="schedule.length"
-          class="rounded-xl bg-[#fff7ee] px-3.5 py-3 ring-1 ring-[#f3ddc9]"
+          class="rounded-xl bg-[color-mix(in_srgb,var(--color-green-600)_10%,var(--surface))] px-3.5 py-3 ring-1 ring-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)]"
         >
-          <p class="text-xs font-bold tracking-wider text-[#b4552f]">
+          <p class="text-xs font-bold tracking-wider text-[var(--color-green-700)]">
             比赛时间与地点
           </p>
           <ul class="mt-2 space-y-1.5">
             <li
               v-for="(item, index) in schedule"
               :key="`${item.key}-${index}`"
-              class="flex flex-wrap items-baseline gap-x-2 text-xs leading-5 text-[#5b675d]"
+              class="flex flex-wrap items-baseline gap-x-2 text-xs leading-5 text-[var(--muted-ink)]"
             >
-              <span class="rounded bg-white px-1.5 py-0.5 font-semibold text-[#b4552f] ring-1 ring-[#f0d6c1]">
+              <span class="rounded bg-[var(--surface)] px-1.5 py-0.5 font-semibold text-[var(--color-green-700)] ring-1 ring-[color-mix(in_srgb,var(--color-green-600)_30%,transparent)]">
                 {{ ROUND_LABELS[item.key] ?? item.key }}
               </span>
-              <span class="font-medium text-[#33413a]">{{ item.dateLabel }}</span>
+              <span class="font-medium text-[var(--ink)]">{{ item.dateLabel }}</span>
               <span>{{ item.timeLabel }}</span>
-              <span class="text-[#7a857c]">{{ item.venue }}</span>
+              <span class="text-[var(--muted-ink)]">{{ item.venue }}</span>
               <span
                 v-if="item.note"
-                class="text-[#9aa39b]"
+                class="text-[var(--muted-ink)]"
               >{{ item.note }}</span>
             </li>
           </ul>
@@ -254,13 +254,13 @@ onMounted(loadStatus)
 
         <div v-if="has('name')">
           <label
-            class="block text-sm font-semibold text-[#33413a]"
+            class="block text-sm font-semibold text-[var(--ink)]"
             for="pre-name"
           >
             {{ labelOf('name', '姓名') }}
             <span
               v-if="requiredOf('name')"
-              class="text-[#c2543c]"
+              class="text-[var(--color-green-700)]"
             >*</span>
           </label>
           <input
@@ -270,17 +270,17 @@ onMounted(loadStatus)
             maxlength="40"
             name="name"
             autocomplete="name"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
             placeholder="你的姓名"
           >
         </div>
 
         <div v-if="has('preferredDay')">
-          <p class="block text-sm font-semibold text-[#33413a]">
+          <p class="block text-sm font-semibold text-[var(--ink)]">
             打算哪天来
             <span
               v-if="requiredOf('preferredDay')"
-              class="text-[#c2543c]"
+              class="text-[var(--color-green-700)]"
             >*</span>
           </p>
           <div class="mt-1.5 grid gap-2 sm:grid-cols-2">
@@ -290,12 +290,12 @@ onMounted(loadStatus)
               type="button"
               class="rounded-xl border px-3 py-2.5 text-left text-sm transition"
               :class="form.preferredDay === day
-                ? 'border-[#e2725b] bg-[#fff1ea] text-[#a8452f] shadow-sm'
-                : 'border-zinc-300 bg-white text-[#4a564e] hover:border-[#e6a48f]'"
+                ? 'border-[var(--color-green-600)] bg-[color-mix(in_srgb,var(--color-green-600)_10%,var(--surface))] text-[var(--color-green-700)] shadow-sm'
+                : 'border-zinc-300 bg-[var(--surface)] text-[var(--muted-ink)] hover:border-[color-mix(in_srgb,var(--color-green-600)_60%,transparent)]'"
               @click="form.preferredDay = form.preferredDay === day ? null : day"
             >
               <span class="block font-bold">{{ day === 1 ? '第一天' : '第二天' }}</span>
-              <span class="mt-0.5 block text-xs text-[#7a857c]">{{ dayLabel(day) }}</span>
+              <span class="mt-0.5 block text-xs text-[var(--muted-ink)]">{{ dayLabel(day) }}</span>
             </button>
           </div>
         </div>
@@ -303,7 +303,7 @@ onMounted(loadStatus)
         <template v-if="has('className') || has('studentNo') || has('phone') || has('email')">
           <p
             v-if="!requiredOf('className') || !requiredOf('studentNo') || !requiredOf('phone') || !requiredOf('email')"
-            class="text-xs font-bold tracking-wider text-[#b4552f]"
+            class="text-xs font-bold tracking-wider text-[var(--color-green-700)]"
           >
             选填
           </p>
@@ -311,17 +311,17 @@ onMounted(loadStatus)
           <div class="grid gap-4 sm:grid-cols-2">
             <div v-if="has('className')">
               <label
-                class="block text-sm font-semibold text-[#33413a]"
+                class="block text-sm font-semibold text-[var(--ink)]"
                 for="pre-class"
               >
                 {{ labelOf('className', '班级') }}
                 <span
                   v-if="!requiredOf('className')"
-                  class="text-xs font-normal text-[#8b968c]"
+                  class="text-xs font-normal text-[var(--muted-ink)]"
                 >（选填）</span>
                 <span
                   v-else
-                  class="text-[#c2543c]"
+                  class="text-[var(--color-green-700)]"
                 >*</span>
               </label>
               <input
@@ -330,23 +330,23 @@ onMounted(loadStatus)
                 :required="requiredOf('className')"
                 maxlength="60"
                 name="className"
-                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
                 placeholder="如 26工商管理1班"
               >
             </div>
             <div v-if="has('studentNo')">
               <label
-                class="block text-sm font-semibold text-[#33413a]"
+                class="block text-sm font-semibold text-[var(--ink)]"
                 for="pre-student-no"
               >
                 {{ labelOf('studentNo', '学号') }}
                 <span
                   v-if="!requiredOf('studentNo')"
-                  class="text-xs font-normal text-[#8b968c]"
+                  class="text-xs font-normal text-[var(--muted-ink)]"
                 >（选填）</span>
                 <span
                   v-else
-                  class="text-[#c2543c]"
+                  class="text-[var(--color-green-700)]"
                 >*</span>
               </label>
               <input
@@ -355,23 +355,23 @@ onMounted(loadStatus)
                 :required="requiredOf('studentNo')"
                 maxlength="20"
                 name="studentNo"
-                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
                 placeholder="录取通知书 / 学生证上的学号"
               >
             </div>
             <div v-if="has('phone')">
               <label
-                class="block text-sm font-semibold text-[#33413a]"
+                class="block text-sm font-semibold text-[var(--ink)]"
                 for="pre-phone"
               >
                 {{ labelOf('phone', '联系电话') }}
                 <span
                   v-if="!requiredOf('phone')"
-                  class="text-xs font-normal text-[#8b968c]"
+                  class="text-xs font-normal text-[var(--muted-ink)]"
                 >（选填）</span>
                 <span
                   v-else
-                  class="text-[#c2543c]"
+                  class="text-[var(--color-green-700)]"
                 >*</span>
               </label>
               <input
@@ -382,23 +382,23 @@ onMounted(loadStatus)
                 name="phone"
                 type="tel"
                 inputmode="numeric"
-                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
                 placeholder="常用手机号"
               >
             </div>
             <div v-if="has('email')">
               <label
-                class="block text-sm font-semibold text-[#33413a]"
+                class="block text-sm font-semibold text-[var(--ink)]"
                 for="pre-email"
               >
                 {{ labelOf('email', '邮箱') }}
                 <span
                   v-if="!requiredOf('email')"
-                  class="text-xs font-normal text-[#8b968c]"
+                  class="text-xs font-normal text-[var(--muted-ink)]"
                 >（选填）</span>
                 <span
                   v-else
-                  class="text-[#c2543c]"
+                  class="text-[var(--color-green-700)]"
                 >*</span>
               </label>
               <input
@@ -408,7 +408,7 @@ onMounted(loadStatus)
                 maxlength="120"
                 name="email"
                 type="email"
-                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+                class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
                 placeholder="用于接收比赛结果通知"
               >
             </div>
@@ -417,17 +417,17 @@ onMounted(loadStatus)
 
         <div v-if="has('song')">
           <label
-            class="block text-sm font-semibold text-[#33413a]"
+            class="block text-sm font-semibold text-[var(--ink)]"
             for="pre-song"
           >
             {{ labelOf('song', '想唱的歌') }}
             <span
               v-if="!requiredOf('song')"
-              class="text-xs font-normal text-[#8b968c]"
+              class="text-xs font-normal text-[var(--muted-ink)]"
             >（选填，可待定）</span>
             <span
               v-else
-              class="text-[#c2543c]"
+              class="text-[var(--color-green-700)]"
             >*</span>
           </label>
           <input
@@ -436,7 +436,7 @@ onMounted(loadStatus)
             :required="requiredOf('song')"
             maxlength="80"
             name="song"
-            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-base outline-none transition focus:border-[#e2725b] focus:ring-2 focus:ring-[#e2725b]/20"
+            class="mt-1.5 w-full rounded-xl border border-zinc-300 bg-[var(--surface)] px-3 py-2.5 text-base outline-none transition focus:border-[var(--color-green-600)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--color-green-600)_20%,transparent)]"
             placeholder="歌名"
           >
         </div>
@@ -452,7 +452,7 @@ onMounted(loadStatus)
         <button
           type="submit"
           :disabled="submitting || Boolean(status && !status.open)"
-          class="flex w-full items-center justify-center gap-2 rounded-xl bg-[#e2725b] px-4 py-3 text-base font-bold text-white shadow transition hover:bg-[#d05f48] disabled:cursor-not-allowed disabled:opacity-60"
+          class="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-green-600)] px-4 py-3 text-base font-bold text-white shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <UIcon
             v-if="submitting"
@@ -464,7 +464,7 @@ onMounted(loadStatus)
         </button>
       </form>
 
-      <p class="mt-6 pb-6 text-center text-xs text-[#a8b0a6]">
+      <p class="mt-6 pb-6 text-center text-xs text-[var(--muted-ink)]">
         主办：仰恩大学音乐协会 · 咨询请在初赛群内联系工作人员
       </p>
     </main>

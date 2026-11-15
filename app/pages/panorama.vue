@@ -180,7 +180,7 @@ onMounted(() => {
               size="xl"
               color="neutral"
               variant="soft"
-              class="min-h-12 bg-white/90 dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 hover:bg-white dark:hover:bg-white:bg-zinc-900"
+              class="min-h-12 bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 hover:bg-[var(--surface)] dark:hover:bg-zinc-900"
               @click="openTour('history')"
             />
           </div>
@@ -221,7 +221,7 @@ onMounted(() => {
           v-for="tour in tours"
           :key="tour.id"
           type="button"
-          class="group relative overflow-hidden rounded-3xl border bg-white dark:bg-zinc-900 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 md:p-6"
+          class="group relative overflow-hidden rounded-3xl border bg-[var(--surface)] dark:bg-zinc-900 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 md:p-6"
           :class="activeTourId === tour.id ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-zinc-200 dark:border-zinc-800'"
           @click="chooseTour(tour.id)"
         >
@@ -360,7 +360,7 @@ onMounted(() => {
               aria-label="重新打开实景"
               color="neutral"
               variant="solid"
-              class="bg-white/90 dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 shadow-lg backdrop-blur hover:bg-white dark:hover:bg-white:bg-zinc-900"
+              class="bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 shadow-lg backdrop-blur hover:bg-[var(--surface)] dark:hover:bg-zinc-900"
               @click="reloadViewer"
             />
             <UButton
@@ -368,7 +368,7 @@ onMounted(() => {
               aria-label="全屏查看实景"
               color="neutral"
               variant="solid"
-              class="bg-white/90 dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 shadow-lg backdrop-blur hover:bg-white dark:hover:bg-white:bg-zinc-900"
+              class="bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 text-zinc-950 dark:text-zinc-100 shadow-lg backdrop-blur hover:bg-[var(--surface)] dark:hover:bg-zinc-900"
               @click="enterFullscreen"
             />
           </div>
@@ -385,7 +385,7 @@ onMounted(() => {
           >
           <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,120,82,.12),rgba(2,15,12,.9))]" />
           <div class="relative z-10 max-w-md px-6 text-center text-white">
-            <span class="mx-auto grid size-20 place-items-center rounded-full border border-white/25 bg-white/10 dark:bg-zinc-900/10 text-2xl font-black backdrop-blur">
+            <span class="mx-auto grid size-20 place-items-center rounded-full border border-white/25 bg-[color-mix(in_srgb,var(--surface)_10%,transparent)] dark:bg-zinc-900/10 text-2xl font-black backdrop-blur">
               360°
             </span>
             <h3 class="mt-5 text-2xl font-black">
