@@ -733,7 +733,8 @@ onMounted(() => {
   if (typeof ResizeObserver !== 'undefined' && mobileSheetElement.value) {
     mobileSheetResizeObserver = new ResizeObserver((entries) => {
       const height = entries[0]?.contentRect.height ?? 0
-      if (height > 0) mobileSheetLiveHeightPx.value = height
+      // CR-8：折叠态高度是 0，也要记进基线，否则 dock 还按初值 152 抬着。
+      mobileSheetLiveHeightPx.value = height
     })
     mobileSheetResizeObserver.observe(mobileSheetElement.value)
   }
@@ -782,6 +783,12 @@ watch(selectedPoiId, (id) => {
 })
 
 const mapSheetSearching = computed(() => searchQuery.value.trim().length > 0)
+// CR-11：手机 dock 里的搜索框不在面板内，输入时把面板抬到半屏，结果块才有地方显示（输入框不会被重建）。
+function onMobileDockSearchInput(value: string): void {
+  onSearchQueryInput(value)
+  if (!value.trim() || panelIsDesktop.value) return
+  if (mobileSheetState.value === 'collapsed') mobileSheetState.value = 'half'
+}
 const mapSheetShowsSections = computed(() => mobileSheetState.value !== 'collapsed'
   && mapSheetView.value === 'sections'
   && !mapSheetSearching.value)
@@ -809,6 +816,7 @@ function focusMapSheetSection(section: 'favorites' | 'recent' | 'category'): voi
 
 // 分类 2×3：五个主分类 + 全部地点（图标取自 map-presentation 的分类真值）
 const mapSheetCategoryEntries = [
+  { id: 'all', label: '全部地点', icon: 'i-lucide-layout-list' },
   { id: 'campus-building', label: '教学', icon: 'i-lucide-school' },
   { id: 'dorm', label: '宿舍', icon: 'i-lucide-bed-single' },
   { id: 'food', label: '食堂', icon: 'i-lucide-utensils' },
@@ -820,7 +828,8 @@ type MapSheetCategoryId = (typeof mapSheetCategoryEntries)[number]['id']
 
 function openMapSheetCategory(id: MapSheetCategoryId): void {
   setCategory(id)
-  mapSheetView.value = 'sections'
+  // CR-7：点分类要真的看到该分类的地点，直接切整表视图；「全部地点」走 setCategory('all') 清分类。
+  mapSheetView.value = 'all'
   mobileSheetState.value = 'half'
 }
 </script>
@@ -838,14 +847,11 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       ref="mobileSheetElement"
       class="map-glass-sheet absolute inset-x-0 bottom-0 z-30 flex min-h-0 min-w-0 flex-col rounded-t-[28px] bg-[var(--surface)] transition-[height] duration-[320ms] ease-[cubic-bezier(0.24,1,0.32,1)] [contain:layout_paint] md:pointer-events-auto md:static md:order-1 md:h-auto md:rounded-none md:border-r md:border-t-0 md:shadow-none"
       :style="mobileSheetStyle"
-      @transitionstart="handleSheetTransitionStart"
-      @transitionend="handleSheetTransitionEnd"
-      @transitioncancel="handleSheetTransitionEnd"
       :class="[
         mobileSheetHeightClass,
         // T-022 修正 01（R-010 F14）：高度只按 CSS 断点走，不再依赖 panelIsDesktop。
         // JS 的 matchMedia 与 CSS 的 md 断点不同源时（如 CDP emulate 视口），面板会卡在 58vh 而非 326。
-        sheetHydrated && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
+        sheetHydrated && !mobileSheetDragging && mobileSheetState === 'half' ? 'max-md:!h-[326px]' : '',
         // 挂载前一律按折叠渲染，避免手机上首帧先弹出一块面板再收回。
         !sheetHydrated || mobileSheetState === 'collapsed' ? 'max-md:!h-0 max-md:border-t-0 max-md:shadow-none' : '',
         // 真折射跑起来时不要再叠 backdrop-filter：叠了等于把已经弯折的底图再糊一遍，
@@ -862,6 +868,9 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
         mobileSheetDragging ? 'select-none' : '',
         sidebarCollapsed ? 'md:hidden' : ''
       ]"
+      @transitionstart="handleSheetTransitionStart"
+      @transitionend="handleSheetTransitionEnd"
+      @transitioncancel="handleSheetTransitionEnd"
       @pointermove="handleMobileSheetPointerMove"
       @pointerup="finishMobileSheetDrag($event.pointerId)"
       @pointercancel="finishMobileSheetDrag($event.pointerId)"
@@ -889,6 +898,18 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           <p class="truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
             我的地图
           </p>
+          <!-- CR-12：桌面端的显示设置入口在右侧工具条（hidden md:flex），手机这里补一个图标按钮，开的是同一个面板。 -->
+          <button
+            type="button"
+            class="flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 dark:text-zinc-400"
+            aria-label="地图显示设置"
+            @click="toggleDisplaySettings"
+          >
+            <UIcon
+              name="i-lucide-sliders-horizontal"
+              class="size-4"
+            />
+          </button>
         </div>
         <!-- 三态入口收成一个文字按钮：mockup（18-地图页-真折射手机.png）里只有「收起 / 展开」；
              三个 chevron 图标在 390px 宽下把标题挤掉，用户也分不清 minus 是三态里的哪个。 -->
@@ -900,9 +921,56 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           @click="() => { mobileSheetState = mobileSheetState === 'collapsed' ? 'half' : 'collapsed' }"
         >
           {{ mobileSheetState === 'collapsed' ? '展开' : '收起' }}
+
+          <!-- CR-11：手机端搜索没有结果面板（命中列表原本只在桌面侧栏里），这里复用同一批 handler 渲染一份。 -->
+          <div
+            v-show="mapSheetSearching"
+            class="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-2 md:hidden"
+            aria-label="地图搜索结果"
+          >
+            <p
+              v-if="nativeSearchLoading"
+              class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+              role="status"
+            >
+              正在搜索地图里的地点…
+            </p>
+            <template v-else-if="nativeSearchResults.length">
+              <p
+                class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+                role="status"
+              >
+                找到 {{ nativeSearchResults.length }} 个地点
+              </p>
+              <ul class="mt-1 space-y-0.5">
+                <li
+                  v-for="place in nativeSearchResults"
+                  :key="place.id"
+                >
+                  <button
+                    type="button"
+                    class="flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-[13px] text-zinc-900 dark:text-zinc-100"
+                    @click="selectPoi(place)"
+                  >
+                    <UIcon
+                      name="i-lucide-map-pin"
+                      class="size-3.5 shrink-0 text-green-700 dark:text-green-400"
+                    />
+                    <span class="min-w-0 truncate">{{ place.name }}</span>
+                  </button>
+                </li>
+              </ul>
+            </template>
+            <p
+              v-else
+              class="mt-2 text-xs text-zinc-500 dark:text-zinc-400"
+              role="status"
+            >
+              没有找到匹配的地点
+            </p>
+          </div>
         </button>
       </div>
-
 
       <div
         v-if="mobileSheetState === 'collapsed'"
@@ -917,84 +985,84 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       >
         <!-- 桌面端的搜索框与分类栏留在侧栏里（现状不变）；移动端这两块搬到顶部浮层，见下方 md:hidden 的浮层。 -->
         <div class="hidden md:block">
-        <div class="hidden items-start justify-between gap-3 md:flex">
-          <div class="min-w-0">
-            <p class="text-xs font-semibold text-green-700 dark:text-green-400">
-              校园地图
-            </p>
-            <h1 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
-              校园与周边
-            </h1>
+          <div class="hidden items-start justify-between gap-3 md:flex">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-green-700 dark:text-green-400">
+                校园地图
+              </p>
+              <h1 class="mt-1 text-lg font-bold text-zinc-950 dark:text-zinc-100">
+                校园与周边
+              </h1>
+            </div>
+            <div class="flex items-center gap-1">
+              <UBadge
+                color="warning"
+                variant="soft"
+                size="sm"
+              >
+                {{ mapDataLabel }}
+              </UBadge>
+              <UTooltip text="收起地点栏">
+                <UButton
+                  icon="i-lucide-panel-left-close"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  class="justify-center hidden size-11 md:inline-flex"
+                  aria-label="收起地点栏"
+                  @click="() => { sidebarCollapsed = true }"
+                />
+              </UTooltip>
+            </div>
           </div>
-          <div class="flex items-center gap-1">
-            <UBadge
-              color="warning"
-              variant="soft"
-              size="sm"
-            >
-              {{ mapDataLabel }}
-            </UBadge>
-            <UTooltip text="收起地点栏">
+
+          <UInput
+            :model-value="searchQuery"
+            size="md"
+            class="min-h-10 w-full md:mt-3 md:min-h-11"
+            :ui="{ base: 'min-h-10 md:min-h-11' }"
+            icon="i-lucide-search"
+            placeholder="搜索地点或附近商家"
+            aria-label="搜索地图地点"
+            @update:model-value="onSearchQueryInput"
+            @compositionstart="onSearchCompositionStart"
+            @compositionend="onSearchCompositionEnd"
+          >
+            <!-- 清空按钮不能按需挂载：第一个字出现时插槽一变，UInput 会把内部 input 重建，
+               手机端焦点和值一起丢，表现就是「打一个字母就被清空」。这里常驻、只切可见性。 -->
+            <template #trailing>
               <UButton
-                icon="i-lucide-panel-left-close"
+                icon="i-lucide-x"
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                class="justify-center hidden size-11 md:inline-flex"
-                aria-label="收起地点栏"
-                @click="() => { sidebarCollapsed = true }"
+                :class="searchQuery ? '' : 'pointer-events-none opacity-0'"
+                :aria-hidden="searchQuery ? undefined : 'true'"
+                :tabindex="searchQuery ? undefined : -1"
+                aria-label="清空搜索"
+                @click="clearSearchQuery"
               />
-            </UTooltip>
-          </div>
-        </div>
+            </template>
+          </UInput>
 
-        <UInput
-          :model-value="searchQuery"
-          size="md"
-          class="min-h-10 w-full md:mt-3 md:min-h-11"
-          :ui="{ base: 'min-h-10 md:min-h-11' }"
-          icon="i-lucide-search"
-          placeholder="搜索地点或附近商家"
-          aria-label="搜索地图地点"
-          @update:model-value="onSearchQueryInput"
-          @compositionstart="onSearchCompositionStart"
-          @compositionend="onSearchCompositionEnd"
-        >
-          <!-- 清空按钮不能按需挂载：第一个字出现时插槽一变，UInput 会把内部 input 重建，
-               手机端焦点和值一起丢，表现就是「打一个字母就被清空」。这里常驻、只切可见性。 -->
-          <template #trailing>
+          <div
+            class="mt-2 grid grid-cols-4 gap-1 md:mt-3 md:flex md:overflow-x-auto md:pb-1"
+            :class="mobileSheetState === 'collapsed' ? 'hidden md:flex' : ''"
+            aria-label="地点分类"
+          >
             <UButton
-              icon="i-lucide-x"
-              color="neutral"
-              variant="ghost"
+              v-for="category in categories"
+              :key="category.id"
+              :icon="category.icon"
+              :label="category.label"
+              :color="activeCategory === category.id ? 'primary' : 'neutral'"
+              :variant="activeCategory === category.id ? 'soft' : 'ghost'"
               size="xs"
-              :class="searchQuery ? '' : 'pointer-events-none opacity-0'"
-              :aria-hidden="searchQuery ? undefined : 'true'"
-              :tabindex="searchQuery ? undefined : -1"
-              aria-label="清空搜索"
-              @click="clearSearchQuery"
+              class="min-h-9 min-w-0 justify-center px-1 text-[11px] md:min-h-11 md:shrink-0 md:px-2.5 md:text-xs"
+              :aria-pressed="activeCategory === category.id"
+              @click="setCategory(category.id)"
             />
-          </template>
-        </UInput>
-
-        <div
-          class="mt-2 grid grid-cols-4 gap-1 md:mt-3 md:flex md:overflow-x-auto md:pb-1"
-          :class="mobileSheetState === 'collapsed' ? 'hidden md:flex' : ''"
-          aria-label="地点分类"
-        >
-          <UButton
-            v-for="category in categories"
-            :key="category.id"
-            :icon="category.icon"
-            :label="category.label"
-            :color="activeCategory === category.id ? 'primary' : 'neutral'"
-            :variant="activeCategory === category.id ? 'soft' : 'ghost'"
-            size="xs"
-            class="min-h-9 min-w-0 justify-center px-1 text-[11px] md:min-h-11 md:shrink-0 md:px-2.5 md:text-xs"
-            :aria-pressed="activeCategory === category.id"
-            @click="setCategory(category.id)"
-          />
-        </div>
+          </div>
         </div>
 
         <p
@@ -1046,45 +1114,44 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           class="mt-0.5"
           aria-labelledby="map-sheet-category-title"
         >
-        <div class="mt-0.5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
-            aria-label="打开收藏列表"
-            @click="focusMapSheetSection('favorites')"
-          >
-            <span class="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
-              <UIcon
-                name="i-lucide-star"
-                class="size-3.5"
-              />
-              收藏
-            </span>
-            <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ favorites.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
-          </button>
-          <button
-            type="button"
-            class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
-            aria-label="打开最近去过列表"
-            @click="focusMapSheetSection('recent')"
-          >
-            <span class="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
-              <UIcon
-                name="i-lucide-history"
-                class="size-3.5"
-              />
-              最近
-            </span>
-            <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ recent.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
-          </button>
-        
-        </div>
-        <div class="map-sheet-categories mt-0.5 grid grid-cols-3 gap-1 pb-2">
+          <div class="mt-0.5 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
+              aria-label="打开收藏列表"
+              @click="focusMapSheetSection('favorites')"
+            >
+              <span class="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+                <UIcon
+                  name="i-lucide-star"
+                  class="size-3.5"
+                />
+                收藏
+              </span>
+              <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ favorites.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
+            </button>
+            <button
+              type="button"
+              class="flex h-[74px] flex-col justify-between rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-3.5 py-3 text-left active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)]"
+              aria-label="打开最近去过列表"
+              @click="focusMapSheetSection('recent')"
+            >
+              <span class="flex items-center gap-1.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">
+                <UIcon
+                  name="i-lucide-history"
+                  class="size-3.5"
+                />
+                最近
+              </span>
+              <span class="text-[22px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{{ recent.length }}<small class="ml-1 text-[11px] font-normal text-zinc-400">个地点</small></span>
+            </button>
+          </div>
+          <div class="map-sheet-categories mt-0.5 grid grid-cols-3 gap-1 pb-2">
             <button
               v-for="entry in mapSheetCategoryEntries"
               :key="entry.id"
               type="button"
-            class="flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-1 text-center text-[12.5px] font-medium text-zinc-800 active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)] dark:text-zinc-100"
+              class="flex h-[62px] flex-col items-center justify-center gap-1 rounded-[18px] border border-white/70 bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-1 text-center text-[12.5px] font-medium text-zinc-800 active:bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] dark:border-white/10 dark:bg-[color-mix(in_srgb,var(--surface)_5%,transparent)] dark:text-zinc-100"
               :aria-label="'筛选分类 ' + entry.label"
               @click="openMapSheetCategory(entry.id)"
             >
@@ -1094,7 +1161,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               />
               {{ entry.label }}
             </button>
-        </div>
+          </div>
         </section>
         <section
           id="map-sheet-favorites"
@@ -1193,8 +1260,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             </li>
           </ul>
         </section>
-
-        
       </div>
 
       <div
@@ -1308,10 +1373,9 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       <div
         class="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 px-[10px] pt-[calc(env(safe-area-inset-top)+8px)] md:hidden"
       >
-
         <div
-          ref="glassChipsElement"
           v-show="mobileSheetState === 'collapsed'"
+          ref="glassChipsElement"
           class="map-glass-shell pointer-events-auto grid w-full grid-flow-col auto-cols-[calc((100%_-_28px)/5)] grid-rows-1 gap-[7px] overflow-x-auto overscroll-x-contain rounded-[17px] p-1"
           :class="mapGlassActive ? 'map-glass-refracting' : 'map-glass-surface'"
           aria-label="地点分类"
@@ -1320,7 +1384,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
             v-for="category in categories"
             :key="category.id"
             type="button"
-          class="flex h-[34px] min-h-0 shrink-0 items-center justify-center gap-1 rounded-[17px] px-0 text-[13px] font-medium transition-colors"
+            class="flex h-[34px] min-h-0 shrink-0 items-center justify-center gap-1 rounded-[17px] px-0 text-[13px] font-medium transition-colors"
             :class="activeCategory === category.id
               ? 'bg-[var(--ink)] text-[var(--surface)]'
               : 'text-zinc-700 dark:text-zinc-200'"
@@ -1352,20 +1416,22 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
       <!-- 移动端右侧竖排：定位（实心）+ 地点列表（玻璃）。
            取代原来那排 7 个工具按钮：mockup 上只有这两个入口，其余按钮移动端整排收起。 -->
       <div class="map-mobile-rail pointer-events-none absolute inset-y-0 right-3 z-20 flex flex-col justify-center gap-2 md:hidden">
-        <div ref="glassLocateElement" class="pointer-events-none">
-        <UButton
-          :icon="tracking ? 'i-lucide-locate-fixed' : 'i-lucide-locate'"
-          color="primary"
-          variant="solid"
-          :loading="locating"
-          class="pointer-events-auto size-12 justify-center rounded-[17px] shadow-lg"
-          :aria-label="tracking ? '停止实时定位' : '开启实时定位'"
-          :aria-pressed="tracking"
-          @click="tracking ? toggleTracking() : locateUser()"
-        />
+        <div
+          ref="glassLocateElement"
+          class="pointer-events-none"
+        >
+          <UButton
+            :icon="tracking ? 'i-lucide-locate-fixed' : 'i-lucide-locate'"
+            color="primary"
+            variant="solid"
+            :loading="locating"
+            class="pointer-events-auto size-12 justify-center rounded-[17px] shadow-lg"
+            :aria-label="tracking ? '停止实时定位' : '开启实时定位'"
+            :aria-pressed="tracking"
+            @click="tracking ? toggleTracking() : locateUser()"
+          />
         </div>
       </div>
-
 
       <!-- 底部整块：搜索胶囊贴底栏上沿，和 tabbar 同底色，中间不露地图 -->
       <div
@@ -1389,7 +1455,7 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
               class="min-w-0 flex-1 appearance-none bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-500 dark:text-zinc-100 dark:placeholder:text-zinc-400"
               placeholder="搜索地点或附近商家"
               aria-label="搜索地图地点"
-              @input="onSearchQueryInput(($event.target as HTMLInputElement).value)"
+              @input="onMobileDockSearchInput(($event.target as HTMLInputElement).value)"
               @compositionstart="onSearchCompositionStart"
               @compositionend="onSearchCompositionEnd"
             >
@@ -1629,7 +1695,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
           </UTooltip>
         </div>
       </div>
-
 
       <MapDisplaySettingsPanel
         v-if="mapViewMode === 'geographic' && displaySettingsOpen"
@@ -2332,7 +2397,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
 
 }
 
-
   /* 浏览数：贴在搜索胶囊右下角，纯文字、无底色、不抢视线 */
   .map-workspace .map-view-stats-mini {
     position: absolute;
@@ -2352,7 +2416,6 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
     pointer-events: none;
     white-space: nowrap;
   }
-
 
   /* 分类只剩 5 个：上排 3 个、下排 2 个各占一半，不留空洞 */
   @media (max-width: 767px) {
