@@ -17,6 +17,7 @@ const props = defineProps<{
   routePlanning: boolean
   canPlanRoute: boolean
   isWechat: boolean
+  favorite?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -24,6 +25,7 @@ const emit = defineEmits<{
   copy: []
   planRoute: []
   planRouteManual: []
+  toggleFavorite: []
 }>()
 
 // 楼栋类点位开放群聊（campus-building/dorm）：登录后进入对应楼栋群
@@ -42,7 +44,7 @@ function goPlaceChat(): void {
 const safeNavigationUrl = computed(() => safeExternalHref(props.place.navigationUrl))
 const phoneContacts = computed(() => parsePublicPhoneContacts(props.place.phone))
 
-// 卡片固定纸面底（bg-[var(--surface)]），而站点可能处于暗色主题：Nuxt UI neutral 按钮的
+// 卡片固定白底（bg-[var(--surface)]），而站点可能处于暗色主题：Nuxt UI neutral 按钮的
 // bg-default/text-default 会解析成暗色，在白卡上变成黑底药丸（评价/纠错/
 // 复制位置/高德导航均已线上复现）。卡片内控件一律显式浅色，不跟随站点主题。
 const lightOutlineClass = '!bg-[var(--surface)] dark:!bg-zinc-800 !text-zinc-700 dark:!text-zinc-200 !ring-zinc-200 dark:!ring-zinc-700 hover:!bg-zinc-50 dark:hover:!bg-zinc-700/60 active:!bg-zinc-100 dark:active:!bg-zinc-700 disabled:!bg-[var(--surface)] dark:disabled:!bg-zinc-800'
@@ -59,7 +61,7 @@ const navigationTooltip = computed(() => {
 <template>
   <section
     :class="props.variant === 'mobile'
-      ? 'absolute bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.5rem)] inset-x-0 z-40 mx-2.5 max-h-[min(56dvh,30rem)] overflow-y-auto overscroll-y-contain rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-[var(--surface)]/95 dark:bg-zinc-900/95 px-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-sm md:hidden'
+      ? 'absolute bottom-[calc(var(--mobile-nav-height)+env(safe-area-inset-bottom)+0.5rem)] inset-x-0 z-40 mx-2.5 max-h-[min(56dvh,30rem)] overflow-y-auto overscroll-y-contain rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-[color-mix(in_srgb,var(--surface)_95%,transparent)] dark:bg-zinc-900/95 px-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-sm md:hidden'
       : 'hidden md:absolute md:bottom-12 md:left-4 md:z-20 md:block md:max-h-[min(52vh,26rem)] md:w-[min(24rem,calc(100%-2rem))] md:overflow-y-auto md:rounded-lg md:border md:border-zinc-200 dark:md:border-zinc-800 md:bg-[var(--surface)] dark:md:bg-zinc-900 md:p-4 md:shadow-xl'"
     aria-live="polite"
     @pointerdown.stop
@@ -87,15 +89,33 @@ const navigationTooltip = computed(() => {
           {{ props.place.name }}
         </h2>
       </div>
-      <UButton
-        icon="i-lucide-x"
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        :class="['justify-center', lightGhostClass, props.variant === 'mobile' ? '-mr-1.5 size-8' : 'size-11']"
-        aria-label="关闭地点详情"
-        @click="emit('close')"
-      />
+      <div class="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          class="grid size-11 min-h-11 min-w-11 place-items-center rounded-md transition"
+          :class="props.favorite
+            ? 'text-amber-500 dark:text-amber-400'
+            : 'text-zinc-400 dark:text-zinc-500'"
+          :aria-pressed="props.favorite ? 'true' : 'false'"
+          :aria-label="props.favorite ? '取消收藏此地' : '收藏此地'"
+          @click="emit('toggleFavorite')"
+        >
+          <UIcon
+            name="i-lucide-star"
+            class="size-5"
+            :class="props.favorite ? 'fill-current' : ''"
+          />
+        </button>
+        <UButton
+          icon="i-lucide-x"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          :class="['justify-center', lightGhostClass, props.variant === 'mobile' ? '-mr-1.5 size-8' : 'size-11']"
+          aria-label="关闭地点详情"
+          @click="emit('close')"
+        />
+      </div>
     </div>
 
     <p
