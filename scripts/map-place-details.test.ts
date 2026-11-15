@@ -295,3 +295,33 @@ test('page source keeps no multiple consecutive blank lines', () => {
   // CR-10：@stylistic/no-multiple-empty-lines。
   assert.doesNotMatch(pageSource, /\n[ \t]*\n[ \t]*\n/)
 })
+
+test('search results block sits next to the toggle button instead of inside it', () => {
+  // F23：<button> 里不能再套 <button>，结果块必须是「展开/收起」按钮的兄弟节点。
+  const labelAt = pageSource.indexOf('{{ mobileSheetState === \'collapsed\' ? \'展开\' : \'收起\' }}')
+  const resultsAt = pageSource.indexOf('aria-label="地图搜索结果"')
+  const closeAt = pageSource.indexOf('</button>', labelAt)
+  assert.ok(labelAt > 0, '面板头部应有「展开/收起」文字按钮')
+  assert.ok(closeAt > 0, '「展开/收起」按钮应正常闭合')
+  assert.ok(resultsAt > closeAt, '搜索结果块必须在按钮闭合之后，不能嵌在按钮里')
+  // 结果条目仍然是 selectPoi 的入口，移出按钮后不许丢。
+  assert.match(pageSource, /v-for="place in nativeSearchResults"[\s\S]{0,400}?@click="selectPoi\(place\)"/)
+})
+
+test('mobile dock search input stays visible while searching', () => {
+  // F23：抬到半屏后 dock 整块被 v-show 关掉，用户正在输入的搜索框会消失。
+  assert.match(pageSource, /v-show="mobileSheetState === 'collapsed' \|\| mapSheetSearching"/)
+  // 搜索把面板抬到半屏后，dock 要让开面板高度，否则搜索框被面板压在下面看不见。
+  assert.match(pageSource, /mobileSheetState === 'collapsed' \? '' : 'bottom-\[var\(--map-mobile-dock\)\]'/)
+})
+
+test('glass upload scales the source once per frame', () => {
+  // F24：clearRect + drawImage 各一次，重复的 drawImage 会让每帧多做一次缩放绘制。
+  assert.equal((glassSource.match(/downscaleContext\.drawImage\(/g) || []).length, 1)
+})
+
+test('glass clears the canvas on both missing-source and missing-target paths', () => {
+  // F25：源缺失也要擦画布，否则地图区挂着上一帧发白玻璃；stop() 注释缩进与函数体对齐。
+  assert.match(glassSource, /if \(!source\) \{[\s\S]{0,240}?gl\.clear\(gl\.COLOR_BUFFER_BIT\)/)
+  assert.match(glassSource, /^ {4}\/\/ 停画 = 不需要运行/m)
+})
