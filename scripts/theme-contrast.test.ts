@@ -318,6 +318,34 @@ test('歌手页 canvas 顶端（弱化文字实际落点）过 4.5:1：浅色 = 
   assert.equal(rows.length, PAGES.length * 2)
 })
 
+test('叮叮车暖橙 token：四套 palette × 浅深都过 4.5:1（橙压面板底、橙底文字各一遍）', () => {
+  const blocks = collect()
+  const lightAccent = CSS.match(/--bus-accent: (#[0-9a-f]{6});/i)?.[1]
+  assert.ok(lightAccent, '--bus-accent 浅色 token 缺失')
+  const darkBlock = blocks['root-dark']
+  assert.ok(darkBlock, '缺少 html.dark 变量块')
+  const darkAccent = darkBlock['--bus-accent']
+  const darkInk = darkBlock['--bus-accent-ink']
+  assert.ok(darkAccent && darkInk, 'html.dark 缺 --bus-accent / --bus-accent-ink')
+  const rows: string[] = []
+  for (const id of PAGES) {
+    for (const mode of ['light', 'dark'] as const) {
+      const key = id + '-' + mode
+      const block = blocks[key]
+      assert.ok(block, '缺少 ' + key + ' 变量块')
+      const accent = mode === 'light' ? lightAccent : darkAccent
+      const ink = mode === 'light' ? '#ffffff' : darkInk
+      const onSurface = contrast(accent, block['--surface'])
+      const inkOnAccent = contrast(ink, accent)
+      assert.ok(onSurface !== null && inkOnAccent !== null, key + ' 叮叮车暖橙无法解析')
+      rows.push(key + ' 橙 ' + accent + ' ↔ --surface ' + onSurface.toFixed(2) + '，橙底文字 ' + inkOnAccent.toFixed(2))
+      assert.ok(onSurface >= TEXT_MIN, key + ' 暖橙压面板底 = ' + onSurface.toFixed(2) + ' < ' + TEXT_MIN)
+      assert.ok(inkOnAccent >= TEXT_MIN, key + ' 橙底文字 ' + ink + ' = ' + inkOnAccent.toFixed(2) + ' < ' + TEXT_MIN)
+    }
+  }
+  assert.equal(rows.length, PAGES.length * 2)
+})
+
 test('歌手三页不得再用静态品牌色工具类：bg|text|border|ring-(green|emerald)-(500|600|700) 归零', () => {
   const files = singerPages()
   assert.ok(files.length >= 3, '没扫到 app/pages/singer/*.vue：' + files.join(', '))
