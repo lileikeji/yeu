@@ -359,3 +359,16 @@ test('glass clears the canvas on both missing-source and missing-target paths', 
   assert.match(glassSource, /if \(!source\) \{[\s\S]{0,240}?gl\.clear\(gl\.COLOR_BUFFER_BIT\)/)
   assert.match(glassSource, /^ {4}\/\/ 停画 = 不需要运行/m)
 })
+
+test('clearing the search folds the mobile sheet so the dock stays reachable', () => {
+  // F32：面板停在半屏、查询又被清空时，dock 的 v-show 两个条件都不成立，整条 dock 会连输入框一起消失。
+  assert.match(pageSource, /function onClearSearch\(\): void \{[\s\S]{0,220}?mobileSheetState\.value = 'collapsed'/)
+  assert.equal((pageSource.match(/@click="clearSearchQuery"/g) || []).length, 0)
+  assert.equal((pageSource.match(/@click="onClearSearch"/g) || []).length, 2)
+})
+
+test('bus chip clears the floating mobile search dock', () => {
+  // F30：搜索胶囊浮在面板上沿时与校车胶囊同基线，右半截被搜索框压住。
+  assert.match(pageSource, /:data-mobile-dock="mobileSheetState === 'collapsed' \? 'bottom' : mapSheetSearching \? 'floating' : 'hidden'"/)
+  assert.match(pageSource, /\[data-mobile-dock='floating'\] \.map-bus-dock \{[\s\S]{0,120}?\+ 86px\)/)
+})
