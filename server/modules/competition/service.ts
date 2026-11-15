@@ -1001,7 +1001,7 @@ export function buildCompetitionExport(
   let label = '成绩明细'
 
   if (kind === 'detail') {
-    rows.push(['选手', '班级', '歌曲', '参赛天', '签到时间', '评委', ...dimensions.map(item => item.label), '总分', '备注', '更新时间'])
+    rows.push(['选手', '班级', '歌曲', '参赛天', '出场顺序', '签到时间', '评委', ...dimensions.map(item => item.label), '总分', '备注', '更新时间'])
     for (const entry of entries) {
       const singer = singersById.get(entry.singerId)
       if (!singer) continue
@@ -1015,6 +1015,7 @@ export function buildCompetitionExport(
           singer.className ?? '',
           singer.song,
           dayLabelOf(entry.contestDay),
+          entry.sortOrder,
           formatExportTime(entry.checkedInAt),
           judge.displayName,
           ...dimensions.map(item => scoreByDimension.get(item.key) ?? ''),
@@ -1042,6 +1043,7 @@ export function buildCompetitionExport(
       '班级',
       '歌曲',
       '参赛天',
+      '出场顺序',
       '评分人数',
       '平均分',
       ...(kind === 'advancing' ? ['备注'] : ['状态'])
@@ -1054,6 +1056,7 @@ export function buildCompetitionExport(
         row.singer.className ?? '',
         row.singer.song,
         dayLabelOf(entry?.contestDay ?? null),
+        entry?.sortOrder ?? '',
         row.scoreCount,
         row.average === null ? '' : row.average.toFixed(2)
       ]

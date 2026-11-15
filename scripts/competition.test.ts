@@ -1569,16 +1569,21 @@ test('数据库：后台可改分与补录，平均分、名次与三种导出�
   assert.match(detail.filename, /成绩明细/)
   const detailLines = detail.csv.split('\r\n')
   assert.equal(detailLines.length, 4) // 表头 + 甲一两人 + 乙二一人
-  assert.match(detailLines[0]!, /选手,班级,歌曲,参赛天,签到时间,评委/)
+  assert.match(detailLines[0]!, /选手,班级,歌曲,参赛天,出场顺序,签到时间,评委/)
   assert.match(detailLines[1]!, /甲一/)
   assert.match(detailLines[3]!, /乙二.*崂山道士/)
 
   const summary = buildCompetitionExport(client, round, 'summary')
   const summaryLines = summary.csv.split('\r\n')
   assert.equal(summaryLines.length, 3)
-  assert.match(summaryLines[0]!, /排名,选手,班级,歌曲,参赛天,评分人数,平均分,状态/)
+  assert.match(summaryLines[0]!, /排名,选手,班级,歌曲,参赛天,出场顺序,评分人数,平均分,状态/)
   assert.match(summaryLines[1]!, /^1,甲一/)
   assert.match(summaryLines[1]!, /45\.00/)
+  // 出场顺序紧跟在「参赛天」右边，导出的名单能直接按场次顺位念
+  const summaryHeader = summaryLines[0]!.split(',')
+  assert.equal(summaryHeader.indexOf('出场顺序'), summaryHeader.indexOf('参赛天') + 1)
+  const summaryFirst = summaryLines[1]!.split(',')
+  assert.match(summaryFirst[summaryHeader.indexOf('出场顺序')]!, /^\d+$/)
 
   // 晋级名单：进行中按当前排名预排，并标注状态
   updateRound(client, round, { advanceCount: 1 })
