@@ -100,7 +100,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   'nearby': '#087f8c'
 }
 
-const CATEGORY_GLYPHS: Record<string, string> = {
+// 预留：分类图标字形表（当前未接入，保留数据避免丢失）。
+export const CATEGORY_GLYPHS: Record<string, string> = {
   'campus-building': '教',
   'dorm': '住',
   'food': '食',
@@ -116,7 +117,7 @@ interface AMapProviderOptions {
 }
 
 /** 校车线路强调色（橙/青循环），与设计规范的线状强调色一致。 */
-const BUS_ROUTE_COLORS = ['#ea580c', '#0d9488'] as const
+const BUS_ROUTE_COLORS = ['#c2410c', '#0f766e'] as const
 
 interface ConvertedPoi {
   poi: MapPoi
@@ -730,8 +731,8 @@ export class AMapProvider implements MapProvider {
           const line = new amapNow.Polyline({
             path,
             strokeColor: color,
-            strokeWeight: 5,
-            strokeOpacity: 0.75,
+            strokeWeight: 4,
+            strokeOpacity: 0.6,
             zIndex: 800
           })
           this.busRoutePolylines.push(line)
@@ -1776,7 +1777,6 @@ export class AMapProvider implements MapProvider {
     const record = this.markers.get(data[0]!.poiId)
     if (record) this.poiSelectHandler?.(record.poi)
   }
-
 
   /** 用屏幕像素距离命中自有楼栋标点（标点可能不可见或未渲染）。 */
   private ownPoiAtScreenPoint(map: AMapMap, position: AMapPosition, radiusPx: number): MapPoi | null {
