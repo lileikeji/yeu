@@ -225,6 +225,27 @@ export function resolveMobileSheetStateFromHeight(
   ), 'collapsed')
 }
 
+/**
+ * 叮叮车（校车实时）视图的三态高度：折叠 84 / 半屏 326 / 展开 ≤548。
+ * 与地点列表共用同一块面板，但折叠态不是 h-0 —— 84px 折叠条本身要能点开，
+ * 因此它和 resolveMobileSheetHeightClass 的 collapsed 互斥，由视图分支二选一。
+ */
+export function resolveBusSheetHeightClass(state: MobileSheetState): string {
+  return ({
+    collapsed: 'max-md:!h-[84px]',
+    half: 'max-md:!h-[326px]',
+    expanded: 'max-md:!h-[548px]'
+  } as const)[state]
+}
+
+/**
+ * 叮叮车视图的拖拽锚点：折叠条 84 起拖，展开上限 548（再多就把地图压没了）。
+ * 列表视图仍走 resolveMobileSheetAnchors，两者不互相污染。
+ */
+export function resolveBusSheetAnchors(fallback: MobileSheetAnchors): MobileSheetAnchors {
+  return { collapsed: 84, half: 326, expanded: Math.min(548, fallback.expanded) }
+}
+
 export function resolveMobileSheetHeightClass(state: MobileSheetState): string {
   return ({
     // Fully hide the list sheet on mobile so the map and floating place card stay usable.

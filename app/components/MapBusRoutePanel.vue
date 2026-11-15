@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { BusRouteSnapshot, BusSnapshot } from '~~/app/composables/useMapBusPositions'
+import type { MobileSheetState } from '~~/app/utils/map-presentation'
 import { haversineMeters } from '~~/app/utils/walk-route'
 import { CAMPUS_SPEED_BUMPS } from '~~/shared/utils/campus-speed-bumps'
 import { computeBusProgress, computeStopToStop, travelSecondsAlongPolyline } from '~~/shared/utils/bus-route-progress'
@@ -14,12 +15,22 @@ const props = defineProps<{
   leftOffset?: string
   /** 用户实时位置（WGS84）；提供后每辆车显示「距您 X 米」。 */
   userLocation?: { lng: number, lat: number } | null
+  variant?: 'floating' | 'sheet'
+  state?: MobileSheetState
 }>()
 
-const emit = defineEmits<{ 'update:open': [value: boolean], 'select-route': [routeId: string] }>()
+const emit = defineEmits<{
+  'update:open': [value: boolean]
+  'select-route': [routeId: string]
+  'sheet-raise': []
+  'sheet-expand': []
+  'sheet-collapse': []
+  'sheet-back': []
+  'open-sheet': []
+  'sheet-drag-start': [event: PointerEvent]
+}>()
 
-/** 每站最小行高（px）；容器够高时按实际高度均分拉伸，车标按 (段号 + 段内进度) × 行高 定位。 */
-const STOP_ROW_HEIGHT = 56
+const STOP_ROW_HEIGHT = 32
 /** 站点圆点中心相对行顶的偏移（圆点 top 9px + 半径 7.5px）。 */
 const STOP_DOT_CENTER = 16.5
 /** 校园减速带总数（校园口径，与具体线路无关）。 */
@@ -286,23 +297,232 @@ const updatedAtText = computed(() => {
   if (Number.isNaN(date.getTime())) return ''
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`
 })
+/* ---------- 面板第三视图（sheet 变体）：折叠条 / 标题 / 车辆卡文案 ---------- */
+
+const isSheet = computed(() => props.variant === 'sheet')
+const sheetState = computed<MobileSheetState>(() => props.state ?? 'half')
+const sheetStops = computed(() => selectedRoute.value?.stops ?? [])
+/** 面板只展示排在第一位的车（与线路条首个车标一致），其余车辆数量折进文案。 */
+const leadBus = computed(() => busMarkers.value[0] ?? null)
+/** 折叠条右侧胶囊：`约 4 分钟` → `4′`。 */
+const collapsedEta = computed(() => {
+  const bus = leadBus.value
+  if (!bus) return ''
+  if (bus.isAtSite) return '到站'
+  return bus.etaText.replace(/^约\s*/, '').replace(/\s*分钟$/, '′')
+})
+const collapsedTitle = computed(() => {
+  const bus = leadBus.value
+  if (!bus) return '叮叮车 · ' + emptyBusesText.value
+  const eta = collapsedEta.value
+  return eta ? (eta === '到站' ? '叮叮车 ' + eta : '叮叮车 ' + eta + ' 到') : '叮叮车'
+})
+const collapsedDetail = computed(() => {
+  const bus = leadBus.value
+  if (!bus) return SERVICE_HOURS_LABEL
+  const where = bus.isAtSite ? bus.atSiteLabel + ' · ' + bus.atSiteDetail : '下一站 ' + bus.nextStopName
+  return bus.busName + ' · ' + where
+})
+const vehicleLine = computed(() => {
+  const bus = leadBus.value
+  if (!bus) return emptyBusesText.value + ' · ' + SERVICE_HOURS_LABEL
+  const more = busMarkers.value.length > 1 ? ' · 另 ' + (busMarkers.value.length - 1) + ' 辆在途' : ''
+  return bus.busName + ' · ' + bus.statusText + more
+})
+
+function routeTabLabel(route: BusRouteSnapshot): string {
+  return route.isBack ? '回程' : '去程'
+}
+
+/** 线路条上的站点比例 0..1。 */
+function stopRatio(index: number): number {
+  const count = sheetStops.value.length
+  return count > 1 ? index / (count - 1) : 0
+}
+
+/** 站列里车标的纵向位置：段号折成「行中心」百分比，等分拉伸后仍精确。 */
+function markerBarTop(ratio: number): string {
+  const count = sheetStops.value.length
+  if (!count) return '0%'
+  const anchor = Math.min(count - 1, Math.max(0, ratio * (count - 1)))
+  return ((anchor + 0.5) / count * 100).toFixed(3) + '%'
+}
 </script>
 
 <template>
-  <!-- 收起态（移动端）：保持原实心绿浮钮，class 除惰性 md:hidden 外未动 -->
+  <!-- 地图面板第三视图（手机）：折叠 84 / 半屏 326 / 展开 ≤548，与地点列表、详情共用同一块可拖拽面板 -->
+  <div
+    v-if="isSheet"
+    data-bus-sheet
+    :data-bus-state="sheetState"
+    :data-bus-stops="sheetStops.length"
+    class="flex h-full min-h-0 w-full flex-col md:hidden"
+  >
+    <button
+      v-if="sheetState === 'collapsed'"
+      type="button"
+      data-bus-collapsed-bar
+      aria-label="展开叮叮车"
+      class="relative flex h-full w-full items-center gap-2.5 px-4 text-left"
+      @click="emit('sheet-raise')"
+    >
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute left-1/2 top-[7px] h-1 w-9 -translate-x-1/2 rounded-full bg-[var(--bus-accent-line)]"
+      />
+      <span
+        aria-hidden="true"
+        class="grid size-[30px] shrink-0 place-items-center rounded-full bg-[var(--bus-accent-soft)] text-[15px] text-[var(--bus-accent)]"
+      >🚌</span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-[13px] font-semibold leading-5 text-[var(--ink)]">{{ collapsedTitle }}</span>
+        <span class="block truncate text-[11px] leading-4 text-[var(--muted-ink)]">{{ collapsedDetail }}</span>
+      </span>
+      <span
+        v-if="collapsedEta"
+        class="shrink-0 rounded-full bg-[var(--bus-accent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--bus-accent-ink)]"
+      >{{ collapsedEta }}</span>
+    </button>
+
+    <template v-else>
+      <!-- 标题行 44 -->
+      <div class="relative flex h-11 shrink-0 items-end px-3 pb-1">
+        <button
+          type="button"
+          data-sheet-drag-handle
+          aria-label="上下拖动叮叮车面板"
+          class="absolute left-1/2 top-1 h-5 w-16 -translate-x-1/2 touch-none rounded-md"
+          @pointerdown="emit('sheet-drag-start', $event)"
+        >
+          <span
+            aria-hidden="true"
+            class="mx-auto block h-1 w-10 rounded-full bg-[var(--line)]"
+          />
+        </button>
+        <p class="truncate text-[13px] font-semibold leading-5 text-[var(--ink)]">
+          叮叮车
+        </p>
+      </div>
+
+      <!-- 线路 tab 34 -->
+      <div class="flex h-[34px] shrink-0 items-center gap-1.5 px-3">
+        <button
+          v-for="route in routes"
+          :key="route.routeId"
+          type="button"
+          class="h-[26px] min-w-0 shrink-0 truncate rounded-full px-4 text-[12px] font-medium"
+          :class="route.routeId === selectedRouteId
+            ? 'bg-[var(--bus-accent)] text-[var(--bus-accent-ink)]'
+            : 'bg-[var(--bus-accent-soft)] text-[var(--bus-accent)]'"
+          :aria-pressed="route.routeId === selectedRouteId"
+          @click="pickRoute(route.routeId)"
+        >
+          {{ routeTabLabel(route) }}
+        </button>
+      </div>
+
+      <!-- 线路条 56：站点刻度 + 车辆锚点 -->
+      <div
+        aria-hidden="true"
+        class="relative h-14 shrink-0 px-3"
+      >
+        <span class="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 bg-[var(--bus-accent-line)]" />
+        <span
+          v-for="(stop, index) in sheetStops"
+          :key="'tick-' + stop.siteId + index"
+          class="absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--bus-accent)]"
+          :style="{ left: stripLeft(stopRatio(index)) }"
+        />
+        <span
+          v-for="marker in busMarkers"
+          :key="'strip-' + marker.busId"
+          class="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--bus-accent)] ring-2 ring-[var(--surface)]"
+          :style="{ left: stripLeft(Math.min(0.96, Math.max(0.04, marker.anchorRatio))) }"
+        />
+      </div>
+
+      <!-- 车辆卡 56 -->
+      <div class="flex h-14 shrink-0 items-center gap-2 border-y border-[var(--line)] px-3">
+        <span
+          aria-hidden="true"
+          class="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--bus-accent-soft)] text-[13px] text-[var(--bus-accent)]"
+        >🚌</span>
+        <p class="min-w-0 flex-1 truncate text-[12px] text-[var(--ink)]">
+          {{ vehicleLine }}
+        </p>
+      </div>
+
+      <!-- 站行：最小 32，容器富余时等分拉伸；车标按行中心百分比定位 -->
+      <div class="min-h-0 flex-1 overflow-hidden px-3">
+        <div class="relative grid h-full auto-rows-[minmax(32px,1fr)]">
+          <span
+            aria-hidden="true"
+            class="absolute bottom-3 left-[4px] top-3 w-px bg-[var(--bus-accent-line)]"
+          />
+          <div
+            v-for="(stop, index) in sheetStops"
+            :key="stop.siteId + index"
+            class="relative flex min-h-0 items-center gap-2"
+          >
+            <span
+              aria-hidden="true"
+              class="relative z-10 size-2.5 shrink-0 rounded-full border-2 bg-[var(--surface)]"
+              :style="{ borderColor: 'var(--bus-accent)' }"
+            />
+            <p
+              class="min-w-0 truncate text-[12px]"
+              :class="index === 0 ? 'font-semibold text-[var(--ink)]' : 'text-[var(--muted-ink)]'"
+            >
+              {{ stop.siteName }}
+            </p>
+          </div>
+          <span
+            v-for="marker in busMarkers"
+            :key="'dot-' + marker.busId"
+            aria-hidden="true"
+            class="pointer-events-none absolute left-0 z-20 -translate-y-1/2"
+            :style="{ top: markerBarTop(marker.anchorRatio) }"
+          >
+            <span class="block size-3.5 rounded-full bg-[var(--bus-accent)] ring-2 ring-[var(--surface)]" />
+          </span>
+        </div>
+      </div>
+
+      <!-- 底栏 44 -->
+      <div class="flex h-11 shrink-0 items-center gap-1 px-3 pb-1">
+        <button
+          type="button"
+          class="h-9 min-w-0 flex-1 truncate rounded-full bg-[var(--bus-accent-soft)] px-3 text-[12px] font-medium text-[var(--bus-accent)]"
+          @click="sheetState === 'expanded' ? emit('sheet-collapse') : emit('sheet-expand')"
+        >
+          {{ sheetState === 'expanded' ? '收起全部站点' : '全部站点 ' + sheetStops.length }}
+        </button>
+        <button
+          type="button"
+          aria-label="切回地点列表"
+          class="h-9 shrink-0 rounded-full px-3 text-[12px] font-medium text-[var(--muted-ink)]"
+          @click="emit('sheet-back')"
+        >
+          地点
+        </button>
+      </div>
+    </template>
+  </div>
+
+  <!-- 收起态（移动端）：仅 floating 变体；sheet 变体由上方折叠条承载 -->
   <UButton
-    v-if="!open"
+    v-if="!isSheet && !open"
     icon="i-lucide-bus-front"
     label="校车实时"
     color="primary"
     variant="solid"
     class="map-bus-dock absolute right-3 z-30 shadow-lg md:hidden"
-    @click="emit('update:open', true)"
+    @click="emit('open-sheet')"
   />
 
   <!-- 收起态（桌面端）：320px 白底单行条，跟随侧边栏宽度（见 leftOffset） -->
   <button
-    v-if="!open"
+    v-if="!isSheet && !open"
     type="button"
     class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg md:border md:border-zinc-200 md:bg-[var(--surface)] md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-16 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700 dark:md:bg-zinc-900"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
@@ -311,7 +531,7 @@ const updatedAtText = computed(() => {
   >
     <UIcon
       name="i-lucide-bus-front"
-      class="size-4 shrink-0 text-orange-600"
+      class="size-4 shrink-0 text-[var(--bus-accent)]"
     />
     <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">校车实时</span>
     <span class="ml-auto text-[10px] text-zinc-400 dark:text-zinc-500">更新 {{ updatedAtText }}</span>
@@ -323,7 +543,7 @@ const updatedAtText = computed(() => {
 
   <!-- 展开态：移动端全屏浮层；桌面端 320px 竖面板，从单行条底边向下展开 -->
   <section
-    v-else
+    v-else-if="!isSheet"
     class="map-bus-panel-enter absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-[var(--surface)] shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-16 md:bottom-auto md:right-auto md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-80 md:rounded-lg md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="校车线路总览"
@@ -331,7 +551,7 @@ const updatedAtText = computed(() => {
     <header class="sticky top-0 z-10 flex h-11 items-center gap-2 border-b border-zinc-100 bg-[var(--surface)] px-3 dark:border-zinc-800 dark:bg-zinc-900">
       <UIcon
         name="i-lucide-bus-front"
-        class="size-4 text-orange-600"
+        class="size-4 text-[var(--bus-accent)]"
       />
       <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
         校车实时
@@ -358,7 +578,7 @@ const updatedAtText = computed(() => {
         type="button"
         class="min-h-9 flex-1 rounded-md px-2 py-1 text-xs font-semibold transition"
         :class="route.routeId === selectedRouteId
-          ? 'bg-orange-600 text-white shadow-sm'
+          ? 'bg-[var(--bus-accent)] text-[var(--bus-accent-ink)] shadow-sm'
           : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'"
         @click="pickRoute(route.routeId)"
       >
@@ -389,7 +609,7 @@ const updatedAtText = computed(() => {
           <div
             class="flex items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[9px] font-semibold shadow-sm"
             :class="marker.isAtSite
-              ? 'border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-400'
+              ? 'border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] text-[var(--bus-accent)]'
               : 'border-zinc-200 bg-[var(--surface)] text-green-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-green-400'"
           >
             <UIcon
@@ -409,16 +629,16 @@ const updatedAtText = computed(() => {
           :key="stop.siteId"
           class="absolute top-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white dark:border-zinc-900"
           :class="stop.isOrigin || stop.isDestination
-            ? 'size-[11px] bg-orange-600'
+            ? 'size-[11px] bg-[var(--bus-accent)]'
             : 'size-[7px] bg-zinc-400 dark:bg-zinc-500'"
           :style="{ left: stripLeft(selectedRoute.stops.length > 1 ? index / (selectedRoute.stops.length - 1) : 0.5) }"
         />
 
         <!-- 起终点名称 -->
-        <div class="absolute bottom-0 left-0 max-w-[38%] truncate text-[9px] font-medium text-orange-600">
+        <div class="absolute bottom-0 left-0 max-w-[38%] truncate text-[9px] font-medium text-[var(--bus-accent)]">
           {{ selectedRoute.stops[0]?.siteName }}
         </div>
-        <div class="absolute bottom-0 right-0 max-w-[38%] truncate text-right text-[9px] font-medium text-orange-600">
+        <div class="absolute bottom-0 right-0 max-w-[38%] truncate text-right text-[9px] font-medium text-[var(--bus-accent)]">
           {{ selectedRoute.stops[selectedRoute.stops.length - 1]?.siteName }}
         </div>
       </div>
@@ -449,7 +669,7 @@ const updatedAtText = computed(() => {
           <span
             class="absolute left-[3px] top-[9px] size-[15px] rounded-full border-[3px] border-white dark:border-zinc-900"
             :class="stop.isOrigin || stop.isDestination
-              ? 'bg-orange-600'
+              ? 'bg-[var(--bus-accent)]'
               : 'bg-zinc-400 dark:bg-zinc-500'"
             :style="{ zIndex: 2 }"
           />
@@ -459,13 +679,13 @@ const updatedAtText = computed(() => {
             </p>
             <p
               v-if="stop.isOrigin"
-              class="text-[10px] font-medium text-orange-600"
+              class="text-[10px] font-medium text-[var(--bus-accent)]"
             >
               起点
             </p>
             <p
               v-else-if="stop.isDestination"
-              class="text-[10px] font-medium text-orange-600"
+              class="text-[10px] font-medium text-[var(--bus-accent)]"
             >
               终点
             </p>
@@ -489,19 +709,19 @@ const updatedAtText = computed(() => {
           <div
             class="flex max-w-[13.5rem] items-center gap-1 rounded-full border px-2 py-1 shadow-md"
             :class="marker.isAtSite
-              ? 'border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950'
+              ? 'border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)]'
               : 'border-zinc-200 bg-[var(--surface)] dark:border-zinc-700 dark:bg-zinc-800'"
           >
             <UIcon
               name="i-lucide-bus-front"
-              class="size-3 shrink-0 text-orange-600"
+              class="size-3 shrink-0 text-[var(--bus-accent)]"
             />
             <span class="truncate text-[10px] font-semibold text-zinc-900 dark:text-zinc-100">
               {{ marker.busName }}
             </span>
             <span
               class="shrink-0 text-[10px] font-semibold"
-              :class="marker.isAtSite ? 'text-orange-600' : 'text-green-700 dark:text-green-400'"
+              :class="marker.isAtSite ? 'text-[var(--bus-accent)]' : 'text-green-700 dark:text-green-400'"
             >
               {{ marker.isAtSite ? marker.atSiteLabel : `约 ${marker.distanceText}` }}
             </span>
@@ -603,7 +823,7 @@ const updatedAtText = computed(() => {
           >
             <UIcon
               name="i-lucide-bus-front"
-              class="mt-0.5 size-3 shrink-0 text-orange-600"
+              class="mt-0.5 size-3 shrink-0 text-[var(--bus-accent)]"
             />
             <span class="min-w-0 flex-1 text-zinc-700 dark:text-zinc-200">
               <span class="font-semibold">{{ marker.busName }}</span>
