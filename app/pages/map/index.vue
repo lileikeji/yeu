@@ -27,6 +27,7 @@ import {
   canShowOfficialCampusPlan,
   resolveMapViewModeSwitchDecision,
   resolveAutoSelectSearchDecision,
+  resolveAutoSelectSearchApply,
   resolveBusSheetAnchors,
   resolveBusSheetHeightClass,
   resolveSearchQueryChangeReset,
@@ -1175,6 +1176,18 @@ function openMapSheetCategory(id: MapSheetCategoryId): void {
                   class="size-4 shrink-0 text-zinc-500 dark:text-zinc-400"
                 />
                 {{ entry.label }}
+              </button>
+              <button
+                type="button"
+                class="flex min-h-9 items-center justify-center gap-1 rounded-[10px] border border-[var(--bus-accent-line)] bg-[var(--bus-accent-soft)] px-2 text-[12px] font-medium text-[var(--bus-accent)]"
+                aria-label="打开叮叮车"
+                @click="openBusSheet"
+              >
+                <UIcon
+                  name="i-lucide-bus-front"
+                  class="size-4 shrink-0"
+                />
+                叮叮车
               </button>
             </div>
           </section>
