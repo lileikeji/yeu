@@ -63,7 +63,7 @@ function confirmResetProgress() {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div class="max-w-2xl">
@@ -115,7 +115,7 @@ function confirmResetProgress() {
           <li
             v-for="milestone in arrival.milestones"
             :key="milestone.id"
-            class="min-h-20 bg-white/90 dark:bg-zinc-900/90 p-3 text-xs leading-5"
+            class="min-h-20 bg-[color-mix(in_srgb,var(--surface)_90%,transparent)] dark:bg-zinc-900/90 p-3 text-xs leading-5"
             :class="milestone.active
               ? 'font-semibold text-orange-950 dark:text-orange-200 ring-2 ring-inset ring-orange-400 dark:ring-orange-400'
               : milestone.done
@@ -149,7 +149,7 @@ function confirmResetProgress() {
               </p>
             </div>
             <div
-              class="mt-2 h-2 overflow-hidden rounded-full bg-white dark:bg-zinc-900 ring-1 ring-green-100 dark:ring-green-900"
+              class="mt-2 h-2 overflow-hidden rounded-full bg-[var(--surface)] dark:bg-zinc-900 ring-1 ring-green-100 dark:ring-green-900"
               role="progressbar"
               :aria-valuenow="overview.percent"
               aria-valuemin="0"
@@ -214,7 +214,7 @@ function confirmResetProgress() {
         </div>
       </section>
 
-      <section class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-5">
+      <section class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 p-4 md:p-5">
         <div class="flex items-start gap-3">
           <button
             v-if="todayFocus.items[0]"
@@ -228,7 +228,7 @@ function confirmResetProgress() {
               class="grid size-7 place-items-center rounded-md border transition"
               :class="isCompleted(todayFocus.items[0].id)
                 ? 'border-green-600 bg-green-600 text-white'
-                : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-transparent group-hover:border-green-500 dark:group-hover:border-green-600'"
+                : 'border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 text-transparent group-hover:border-green-500 dark:group-hover:border-green-600'"
             >
               <UIcon
                 name="i-lucide-check"
@@ -305,7 +305,7 @@ function confirmResetProgress() {
             v-for="section in checklistSectionLinks"
             :key="section.id"
             :href="`#${section.id}`"
-            class="flex min-h-16 flex-col items-center justify-center bg-white dark:bg-zinc-900 px-1 py-2 text-center transition hover:bg-green-50 dark:hover:bg-green-950 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
+            class="flex min-h-16 flex-col items-center justify-center bg-[var(--surface)] dark:bg-zinc-900 px-1 py-2 text-center transition hover:bg-green-50 dark:hover:bg-green-950 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-green-700"
           >
             <span class="text-xs font-semibold leading-4 text-zinc-900 dark:text-zinc-100">{{ section.label }}</span>
             <span class="mt-1 text-[11px] leading-4 text-zinc-500 dark:text-zinc-400">
@@ -369,7 +369,7 @@ function confirmResetProgress() {
                 class="grid size-6 place-items-center rounded-md border transition"
                 :class="isCompleted(item.id)
                   ? 'border-green-600 bg-green-600 text-white'
-                  : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-transparent group-hover:border-green-500 dark:group-hover:border-green-600'"
+                  : 'border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 text-transparent group-hover:border-green-500 dark:group-hover:border-green-600'"
               >
                 <UIcon
                   name="i-lucide-check"
@@ -475,7 +475,7 @@ function confirmResetProgress() {
                 class="grid size-6 place-items-center rounded-md border transition"
                 :class="isCompleted(item.id)
                   ? 'border-amber-600 bg-amber-600 text-white'
-                  : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-transparent group-hover:border-amber-500 dark:group-hover:border-amber-700'"
+                  : 'border-zinc-300 dark:border-zinc-700 bg-[var(--surface)] dark:bg-zinc-900 text-transparent group-hover:border-amber-500 dark:group-hover:border-amber-700'"
               >
                 <UIcon
                   name="i-lucide-check"

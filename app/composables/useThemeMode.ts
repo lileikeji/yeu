@@ -19,7 +19,7 @@ export function useThemeMode() {
 
   function syncFromMode(next: ThemeMode): void {
     isDark.value = resolveThemeDark(next)
-    applyThemeClass(isDark.value)
+    applyThemeClass(isDark.value, palette.value)
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(THEME_MODE_STORAGE_KEY, next)
@@ -48,7 +48,7 @@ export function useThemeMode() {
   function refreshSystemPreference(): void {
     if (mode.value !== 'system') return
     isDark.value = resolveThemeDark('system')
-    applyThemeClass(isDark.value)
+    applyThemeClass(isDark.value, palette.value)
   }
 
   function watchSystemPreference(): void {
@@ -68,8 +68,8 @@ export function useThemeMode() {
   onMounted(() => {
     mode.value = storedThemeMode()
     isDark.value = resolveThemeDark(mode.value)
-    applyThemeClass(isDark.value)
     palette.value = storedThemePalette()
+    applyThemeClass(isDark.value)
     applyThemePalette(palette.value)
     watchSystemPreference()
   })

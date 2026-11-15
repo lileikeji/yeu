@@ -62,7 +62,7 @@ function selectDepartmentNeed(query: string) {
 
 <template>
   <div>
-    <header class="border-b border-[var(--line)] bg-white dark:bg-zinc-900">
+    <header class="border-b border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900">
       <div class="page-shell py-8 md:py-11">
         <p class="section-kicker">
           校内办事
@@ -108,8 +108,8 @@ function selectDepartmentNeed(query: string) {
               type="button"
               class="min-h-11 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700"
               :class="searchQuery === shortcut.query
-                ? 'border-green-700 bg-green-700 text-white'
-                : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
+                ? 'border-green-700 bg-green-700 text-[var(--surface)]'
+                : 'border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50 dark:hover:bg-green-950'"
               :aria-label="`按${shortcut.label}查找部门`"
               :aria-pressed="searchQuery === shortcut.query"
               @click="selectDepartmentNeed(shortcut.query)"
@@ -230,7 +230,7 @@ function selectDepartmentNeed(query: string) {
 
       <div
         v-if="!error && !filteredDepartments.length"
-        class="border-y border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-12 text-center"
+        class="border-y border-zinc-200 dark:border-zinc-800 bg-[var(--surface)] dark:bg-zinc-900 px-5 py-12 text-center"
       >
         <UIcon
           name="i-lucide-search-x"

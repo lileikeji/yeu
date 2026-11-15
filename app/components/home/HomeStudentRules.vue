@@ -5,7 +5,7 @@ import { scholarships, studentRuleCatalog } from '~~/data/student-rules'
 <template>
   <section
     id="student-rules-summary"
-    class="border-t border-[var(--line)] bg-white dark:bg-zinc-900"
+    class="border-t border-[var(--line)] bg-[var(--surface)] dark:bg-zinc-900"
     aria-labelledby="home-student-rules-title"
   >
     <div class="page-shell grid gap-6 py-9 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:py-12">
