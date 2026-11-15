@@ -94,8 +94,8 @@ const navigationTooltip = computed(() => {
           type="button"
           class="grid size-11 min-h-11 min-w-11 place-items-center rounded-md transition"
           :class="props.favorite
-            ? 'text-amber-500 dark:text-amber-400'
-            : 'text-zinc-400 dark:text-zinc-500'"
+            ? 'text-amber-600 dark:text-amber-400'
+            : 'text-zinc-500 dark:text-zinc-400'"
           :aria-pressed="props.favorite ? 'true' : 'false'"
           :aria-label="props.favorite ? '取消收藏此地' : '收藏此地'"
           @click="emit('toggleFavorite')"
