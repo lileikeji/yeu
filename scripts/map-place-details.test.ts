@@ -9,6 +9,8 @@ const poiComposableSource = readFileSync(resolve('app/composables/useMapPoi.ts')
 const detailsSource = readFileSync(resolve('app/components/map/PlaceDetailsPanel.vue'), 'utf8')
 const layoutSource = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
 const e2eFixtureSource = readFileSync(resolve('scripts/prepare-e2e-database.ts'), 'utf8')
+// T-024：展开/收起过渡期的暂停与纹理降本都在这个 composable 里。
+const glassSource = readFileSync(resolve('app/composables/useMapGlassRefraction.ts'), 'utf8')
 
 test('map place details use compact mobile and desktop-only floating panels', () => {
   // 拆分后整棵面板只挂一份，variant 由 matchMedia 断点切换：两份并挂会把同一地点在 DOM 里渲染两遍。
@@ -168,4 +170,33 @@ test('sheet refracting state drops the veil to <=82% and blur to <=2px', () => {
   assert.ok(Number.isFinite(veil) && veil <= 82, '折射态白纱应 ≤82%，实际 ' + veil + '%')
   const blur = Number(body.match(/blur\((\d+(?:\.\d+)?)px\)/)?.[1])
   assert.ok(Number.isFinite(blur) && blur <= 2, '折射态 blur 应 ≤2px，实际 ' + blur + 'px')
+})
+
+test('sheet height transition animates height only and keeps a 280ms soft ease', () => {
+  // T-024：只过渡 height。transition-all 会把圆角、阴影、边框一起插值，展开时抖动明显。
+  assert.match(pageSource, /transition-\[height\] duration-\[280ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\]/)
+  assert.equal(pageSource.match(/transition-all/g), null, '页面里不应出现 transition-all')
+  // 面板内容隔离 layout/paint：高度变化不再触发整块重排。
+  assert.match(pageSource, /\[contain:layout_paint\]/)
+})
+
+test('sheet transition pauses glass refraction and resumes afterwards', () => {
+  // T-024：过渡期不画折射，靠 transitionstart/end 开关；360ms 兜底定时器覆盖反向拖拽。
+  assert.match(pageSource, /@transitionstart="handleSheetTransitionStart"/)
+  assert.match(pageSource, /@transitionend="handleSheetTransitionEnd"/)
+  assert.match(pageSource, /setMapGlassPaused\(true\)/)
+  assert.match(pageSource, /setMapGlassPaused\(false\)/)
+  assert.match(pageSource, /setTimeout\(endGlassTransition, 360\)/)
+  assert.match(glassSource, /function setPaused\(value: boolean\): void/)
+  assert.match(glassSource, /if \(paused\.value\) return/, 'renderFrame 应在暂停时提前返回')
+  assert.match(glassSource, /return \{ attach, start, stop, setPaused, ready, fps, paused \}/)
+})
+
+test('glass texture upload is downsampled to half size and rate limited to 30Hz', () => {
+  // T-024 降本：底图纹理 0.5x 降采样（像素量 1/4）+ 上传限频 33ms。
+  assert.match(glassSource, /const GLASS_UPLOAD_SCALE = 0\.5/)
+  assert.match(glassSource, /const GLASS_UPLOAD_INTERVAL_MS = 33/)
+  assert.match(glassSource, /downscaleContext\.drawImage\(source, 0, 0, targetWidth, targetHeight\)/)
+  assert.match(glassSource, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA, gl\.RGBA, gl\.UNSIGNED_BYTE, downscaleCanvas\)/)
+  assert.match(glassSource, /if \(!textureUploaded \|\| now - lastUploadAt >= GLASS_UPLOAD_INTERVAL_MS\)/)
 })
