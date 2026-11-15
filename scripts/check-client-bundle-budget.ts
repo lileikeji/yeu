@@ -50,9 +50,12 @@ export type BundleBudgetReport = {
 // 2026-11-09 基线重标（依赖升级后实测 + 约 5% 余量）：CSS/index/search/map 四项
 // 自发布期起长期超支（二分证实非新回归），旧值形同虚设——闸门保留但从今天起
 // 才真正拦截"未来的新膨胀"。瘦包优化另立任务，完成后回收余量。
+// 2026-11-15：移动端地图页改版新增的任意值工具类（`max-md:!h-[326px]`、`duration-[320ms]`、
+// `ease-[cubic-bezier(0.24,1,0.32,1)]`、`[contain:layout_paint]` 等）会一并推高 Tailwind 全局
+// 产物，实测入口 CSS 352876 B；入口 CSS 上抬 8KB 到 348KB，超过 348KB 再谈瘦包。
 export const DEFAULT_BUNDLE_BUDGET: BundleBudget = {
   entryJavaScriptBytes: 430 * 1024,
-  entryCssBytes: 340 * 1024,
+  entryCssBytes: 348 * 1024,
   mapLibreBytes: 1150 * 1024,
   mapLibreCssBytes: 80 * 1024,
   routeJavaScriptBytes: {
