@@ -560,7 +560,7 @@ function markerBarTop(ratio: number): string {
   <button
     v-if="!isSheet && !open"
     type="button"
-    class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg md:border md:border-zinc-200 md:bg-[var(--surface)] md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-16 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700 dark:md:bg-zinc-900"
+    class="absolute bottom-20 right-3 z-30 hidden md:flex md:items-center md:gap-2 md:h-11 md:w-80 md:rounded-lg map-bus-glass md:border md:border-zinc-200 md:px-3 md:shadow-lg md:bottom-auto md:right-auto md:top-16 md:left-[var(--bus-left,19rem)] dark:md:border-zinc-700"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="展开校车线路总览"
     @click="emit('update:open', true)"
@@ -580,11 +580,11 @@ function markerBarTop(ratio: number): string {
   <!-- 展开态：移动端全屏浮层；桌面端 320px 竖面板，从单行条底边向下展开 -->
   <section
     v-else-if="!isSheet"
-    class="map-bus-panel-enter absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain rounded-lg border border-zinc-200 bg-[var(--surface)] shadow-xl dark:border-zinc-700 dark:bg-zinc-900 md:top-16 md:bottom-auto md:right-auto md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-80 md:rounded-lg md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
+    class="map-bus-panel-enter absolute inset-x-3 top-2 bottom-2 z-50 flex flex-col overflow-y-auto overscroll-y-contain map-bus-glass rounded-lg border border-zinc-200 shadow-xl dark:border-zinc-700 md:top-16 md:bottom-auto md:right-auto md:left-[var(--bus-left,19rem)] md:z-20 md:max-h-[70vh] md:w-80 md:rounded-lg md:shadow-lg max-md:landscape:inset-x-auto max-md:landscape:right-2 max-md:landscape:w-60"
     :style="{ '--bus-left': leftOffset ?? '19rem' }"
     aria-label="校车线路总览"
   >
-    <header class="sticky top-0 z-10 flex h-11 items-center gap-2 border-b border-zinc-100 bg-[var(--surface)] px-3 dark:border-zinc-800 dark:bg-zinc-900">
+    <header class="sticky top-0 z-10 flex h-11 items-center gap-2 map-bus-glass-header border-b border-zinc-100 px-3 dark:border-zinc-800">
       <UIcon
         name="i-lucide-bus-front"
         class="size-4 text-[var(--bus-accent)]"
@@ -918,5 +918,21 @@ function markerBarTop(ratio: number): string {
   .map-bus-panel-enter {
     animation: none;
   }
+}
+
+/*
+ * 桌面浮层接玻璃面板：与地图页 .map-glass-surface 同一口径（白纱 + 背景模糊）。
+ * 桌面没有 WebGL 折射层（折射画布 md:hidden），只能靠 backdrop-filter；
+ * 白纱取 68%，比移动端 62% 厚一档，保住 320px 宽面板里 13px 正文的可读性。
+ */
+.map-bus-glass {
+  background: color-mix(in srgb, var(--surface) 68%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+}
+
+/* 吸顶标题条要压住滚上去的车辆卡，白纱再厚一点 */
+.map-bus-glass-header {
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+  backdrop-filter: blur(10px) saturate(1.05);
 }
 </style>
