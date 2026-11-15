@@ -173,13 +173,14 @@ let glassLowFpsSamples = 0
 function resolveGlassTargets(): GlassTarget[] {
   if (!glassEnabled.value || glassStrengthScale.value <= 0) return []
   const targets: GlassTarget[] = []
-  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number): void => {
-    if (element) targets.push({ element, radius, strengthMul: strengthMul * glassStrengthScale.value, frost })
+  const push = (element: HTMLElement | null, radius: number, strengthMul: number, frost: number, rim = 1): void => {
+    if (element) targets.push({ element, radius, strengthMul: strengthMul * glassStrengthScale.value, frost, rim })
   }
   push(glassChipsElement.value, 0.5, 2, 0.25)
   // T-023：底部面板重新进 target。radius 0.043 → min(390,326)×0.043×2 ≈ 28px，对齐 rounded-t-[28px]；
   // frost 压到 0.18（chips 是 0.25），别把底图糊平。
-  push(mobileSheetElement.value, 0.043, 2.2, 0.18)
+  // rim 传 0：面板顶部的 28px 圆角够长，着色器那段 2px 亮边在那里就是一条白线。
+  push(mobileSheetElement.value, 0.043, 2.2, 0.18, 0)
   push(glassLocateElement.value, 0.35, 1.4, 0)
   push(glassSearchElement.value, 0.5, 1.8, 0.3)
   return targets

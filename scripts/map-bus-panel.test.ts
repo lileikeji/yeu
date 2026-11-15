@@ -133,3 +133,13 @@ test('车辆卡：有车是暖橙描边卡，车名 + 正驶向 + 右侧 ETA', (
   // 空态仍要有落款行，不能因为隐藏卡片就把「已收车 · 运营时段」一起丢了
   assert.match(componentSource, /v-else[\s\S]{0,700}?vehicleLine/)
 })
+
+test('站列底部 24px 渐隐：最后一行被半屏切掉时不再硬切（F33 方案 A）', () => {
+  assert.match(componentSource, /data-bus-stops-fade/)
+  assert.match(componentSource, /mask-image: linear-gradient\(to bottom, black calc\(100% - 24px\), transparent\)/)
+  assert.match(componentSource, /-webkit-mask-image: linear-gradient\(to bottom, black calc\(100% - 24px\), transparent\)/)
+  // 渐隐挂在不滚动的站列网格上；盖白纱会把 66% 玻璃糊实，所以断言不再出现背景渐变那版
+  const at = componentSource.indexOf('data-bus-stops-fade')
+  assert.equal(componentSource.slice(at, at + 400).includes('grid h-full auto-rows-[minmax(32px,1fr)]'), true)
+  assert.doesNotMatch(componentSource, /data-bus-stops-fade[\s\S]{0,300}?linear-gradient\(to top/)
+})
