@@ -1420,6 +1420,87 @@ test('数据库：赛程年份取届次，钉住后运行当天永不落入初�
   const bare = { ...event, edition: '' }
   const currentYear = new Date().getFullYear()
   assert.equal(prelimDayDates(bare)[0]!.dateKey, `${currentYear}-11-14`)
+  closeDatabase(':memory:')
+})
+
+test('数据库：切到第二天后叫号/评委/旧缓存归零，新人出场序从 1 开始', async () => {
+  const client = getDatabase(':memory:')
+  runMigrations(client)
+
+  const musicId = randomUUID()
+  client.db.insert(contents).values({
+    id: musicId,
+    kind: 'club',
+    slug: 'music-association',
+    title: '音乐协会',
+    summary: 'test',
+    status: 'published'
+  }).run()
+
+  const event = ensureCompetitionEventPinned(client, musicId)
+  const reload = () => getRoundByKey(client, event.id, 'prelim')
+  setRoundDay(client, reload(), 1)
+
+  const day1First = registerSingerFromForm(client, musicId, {
+    name: '第一天甲',
+    className: '25电子1班',
+    studentNo: '20261001',
+    phone: '13800001001',
+    email: 'day1a@example.com',
+    song: '晴天'
+  })
+  const day1Second = registerSingerFromForm(client, musicId, {
+    name: '第一天乙',
+    className: '25电子1班',
+    studentNo: '20261002',
+    phone: '13800001002',
+    email: 'day1b@example.com',
+    song: '后来'
+  })
+  assert.equal(day1First.sortOrder, 1)
+  assert.equal(day1Second.sortOrder, 2)
+  updateRound(client, reload(), { status: 'open' })
+
+  const judges = await createJudgeAccounts(client, reload(), 1)
+  const actor = { ...judges[0]!, eventId: event.id, roundId: reload().id }
+
+  // 切到第二天：第二天没人时，叫号端、评委端进度及旧设备排队人数都必须是 0。
+  setRoundDay(client, reload(), 2)
+
+  const boardBefore = getCallBoard(client, musicId)
+  assert.equal(boardBefore.round.activeDay, 2)
+  assert.equal(boardBefore.total, 0)
+  assert.deepEqual(boardBefore.rows, [])
+
+  const judgeBefore = getJudgePayload(client, actor)
+  assert.deepEqual(judgeBefore.progress, { scored: 0, total: 0 })
+  assert.equal(judgeBefore.singers.length, 0)
+
+  const staleQueue = getSingerQueuePosition(client, musicId, day1First.id)
+  assert.deepEqual(staleQueue, { state: 'unknown', ahead: null, position: null, total: 0 })
+
+  // 第二天第一位新人现场登记：返回的出场序和评委端看到的出场序都从 1 起算，不是第 3 位。
+  const day2First = registerSingerFromForm(client, musicId, {
+    name: '第二天甲',
+    className: '25电子2班',
+    studentNo: '20262001',
+    phone: '13800002001',
+    email: 'day2a@example.com',
+    song: '如愿'
+  })
+  assert.equal(day2First.sortOrder, 1)
+
+  const boardAfter = getCallBoard(client, musicId)
+  assert.equal(boardAfter.total, 1)
+  assert.equal(boardAfter.rows[0]?.position, 1)
+  assert.equal(boardAfter.rows[0]?.name, '第二天甲')
+
+  const judgeAfter = getJudgePayload(client, actor)
+  assert.deepEqual(judgeAfter.progress, { scored: 0, total: 1 })
+  assert.equal(judgeAfter.singers[0]?.sortOrder, 1)
+
+  const day2Queue = getSingerQueuePosition(client, musicId, day2First.id)
+  assert.deepEqual(day2Queue, { state: 'idle', ahead: 0, position: 1, total: 1 })
 
   closeDatabase(':memory:')
 })
