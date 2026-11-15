@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test'
  *
  * 断言三件事：
  * 1. 13 个页面族 → 一级项的映射与约定一致；
- * 2. 桌面 6 项 / 窄屏 5 项，窄屏缺「校园」时靠 sectionFallbacks 回落，底栏不会全灭；
+ * 2. 桌面 6 项 / 窄屏 5 项，窄屏缺「热点」时靠 sectionFallbacks 回落，底栏不会全灭；
  * 3. 页头窄屏两行布局，分段器不再绝对定位居中（360px 重叠 34px 的根因）。
  */
 
@@ -51,13 +51,13 @@ const EXPECTED_SECTION_KEYS: Record<string, string> = {
   '/checklist': 'procedures',
   '/clubs': 'life',
   '/transport': 'life',
-  '/campus': 'campus',
+  '/campus': 'life',
   '/dorms': 'life',
   '/nearby': 'map',
   '/search': 'map',
   '/me': 'me',
   '/panorama': 'map',
-  '/student-rules': 'campus',
+  '/student-rules': 'hot',
   '/sources': 'me',
   '/feedback': 'me',
   '/guides': 'life'
@@ -88,18 +88,21 @@ test('选中判断实现与断言镜像一致', () => {
   expect(layoutSource).toContain('/\\/+$/')
 })
 
-test('一级项固定：桌面 6 项、窄屏 5 项，/hot 与 /transport 不在一级项里', () => {
-  expect(desktop.map(item => item.to)).toEqual(['/', '/map', '/procedures', '/guides', '/campus', '/me'])
+test('一级项固定：桌面 6 项、窄屏 5 项，/transport 与 /discover 不在一级项里', () => {
+  expect(desktop.map(item => item.to)).toEqual(['/', '/map', '/procedures', '/guides', '/hot', '/me'])
   expect(mobile.map(item => item.to)).toEqual(['/', '/map', '/procedures', '/guides', '/me'])
   const desktopRoutes = desktop.map(item => item.to)
   const mobileRoutes = mobile.map(item => item.to)
-  for (const route of ['/hot', '/transport', '/discover']) {
+  // 桌面第五格是「热点」(/hot)，窄屏没有热点，靠 sectionFallbacks 回落到生活。
+  expect(desktopRoutes, '/hot 是桌面一级项').toContain('/hot')
+  expect(mobileRoutes, '窄屏不放 /hot').not.toContain('/hot')
+  for (const route of ['/transport', '/discover', '/campus']) {
     expect(desktopRoutes, `${route} 不应是一级项`).not.toContain(route)
     expect(mobileRoutes, `${route} 不应是一级项`).not.toContain(route)
   }
 })
 
-test('窄屏页面族全部有选中项（校园回落生活）', () => {
+test('窄屏页面族全部有选中项（校园→生活，学生手册→热点回落生活）', () => {
   const mobileKeys = mobile.map(item => item.key)
   const unresolved = Object.keys(EXPECTED_SECTION_KEYS)
     .map(family => ({ family, key: resolveActiveKey(mobileKeys, family) }))
@@ -107,6 +110,7 @@ test('窄屏页面族全部有选中项（校园回落生活）', () => {
   expect(unresolved, `窄屏没有选中项：${JSON.stringify(unresolved)}`).toEqual([])
   expect(resolveActiveKey(mobileKeys, '/campus')).toBe('life')
   expect(resolveActiveKey(mobileKeys, '/student-rules')).toBe('life')
+  expect(resolveActiveKey(mobileKeys, '/hot')).toBe('life')
 })
 
 test('桌面页面族全部有选中项', () => {
@@ -115,7 +119,9 @@ test('桌面页面族全部有选中项', () => {
     .map(family => ({ family, key: resolveActiveKey(desktopKeys, family) }))
     .filter(entry => entry.key === null || !desktopKeys.includes(entry.key))
   expect(unresolved, `桌面没有选中项：${JSON.stringify(unresolved)}`).toEqual([])
-  expect(resolveActiveKey(desktopKeys, '/campus')).toBe('campus')
+  expect(resolveActiveKey(desktopKeys, '/campus')).toBe('life')
+  expect(resolveActiveKey(desktopKeys, '/student-rules')).toBe('hot')
+  expect(resolveActiveKey(desktopKeys, '/hot')).toBe('hot')
 })
 
 test('二级路径、尾斜杠与相近路径都落在正确一级项', () => {
@@ -134,7 +140,7 @@ test('二级路径、尾斜杠与相近路径都落在正确一级项', () => {
 test('导航 key 都在 NavigationKey 联合类型内', () => {
   const union = layoutSource.match(/type NavigationKey = ([^\n]+)/)?.[1] ?? ''
   const keys = [...union.matchAll(/'(\w+)'/g)].map(match => match[1]!)
-  expect(keys.sort()).toEqual(['campus', 'home', 'life', 'map', 'me', 'procedures'])
+  expect(keys.sort()).toEqual(['home', 'hot', 'life', 'map', 'me', 'procedures'])
   for (const item of [...desktop, ...mobile]) expect(keys).toContain(item.key)
   for (const section of sections) expect(keys).toContain(section.key)
   for (const key of Object.keys(fallbacks)) expect(keys).toContain(key)
