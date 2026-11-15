@@ -467,6 +467,102 @@ export function serializeScore(row: ScoreRow, judgeName: string): CompetitionSco
   }
 }
 
+export interface AdminRoundScoreInput {
+  singerId: string
+  judgeId: string
+  scores: Record<string, number>
+  comment?: string
+}
+
+/**
+ * 后台替某位评委改分或补录。
+ *
+ * 与评委自己提交的差别只有校验口径：不看轮次是否开放、不看评委当天班次、
+ * 不锁「正在唱」的那位。现场要救场的情况很多（评委手机没电、漏打一个维度、
+ * 结束评分后才发现算错），由管理员直接改，改完平均分与排名按同一套规则重算。
+ */
+export function adminUpsertRoundScore(
+  client: DatabaseClient,
+  round: RoundRow,
+  input: AdminRoundScoreInput
+): CompetitionScore {
+  const eventRow = getEvent(client, round.eventId)
+  if (!eventRow) {
+    throw createError({ statusCode: 404, statusMessage: 'Competition not found', data: { code: 'NOT_FOUND' } })
+  }
+
+  const entry = client.db.select({ id: competitionRoundEntries.id }).from(competitionRoundEntries)
+    .where(and(
+      eq(competitionRoundEntries.roundId, round.id),
+      eq(competitionRoundEntries.singerId, input.singerId)
+    ))
+    .get()
+  if (!entry) validationError('该选手不在本轮名单中', 'singerId')
+
+  const judge = client.db.select().from(competitionJudges)
+    .where(and(
+      eq(competitionJudges.id, input.judgeId),
+      eq(competitionJudges.roundId, round.id)
+    ))
+    .get()
+  if (!judge) validationError('这位评委不在本轮', 'judgeId')
+
+  const dimensions = getCompetitionDimensions(eventRow)
+  const snapshot: CompetitionScoreDimension[] = dimensions.map((dimension) => {
+    const value = Number(input.scores?.[dimension.key])
+    if (!Number.isFinite(value) || value < 0 || value > MAX_SCORE) {
+      validationError(`「${dimension.label}」需为 0-${MAX_SCORE} 的分数`, `scores.${dimension.key}`)
+    }
+    return {
+      key: dimension.key,
+      label: dimension.label,
+      weight: dimension.weight,
+      score: Math.round(value * 10) / 10
+    }
+  })
+  const comment = String(input.comment ?? '').trim()
+  if (comment.length > MAX_COMMENT_LENGTH) {
+    validationError(`备注不超过 ${MAX_COMMENT_LENGTH} 字`, 'comment')
+  }
+
+  const total = calculateCompetitionTotal(
+    dimensions,
+    Object.fromEntries(snapshot.map(item => [item.key, item.score]))
+  )
+  const now = Date.now()
+  const where = and(
+    eq(competitionScores.roundId, round.id),
+    eq(competitionScores.singerId, input.singerId),
+    eq(competitionScores.judgeId, input.judgeId)
+  )
+  const existing = client.db.select().from(competitionScores).where(where).get()
+
+  if (existing) {
+    client.db.update(competitionScores).set({
+      dimensionsJson: JSON.stringify(snapshot),
+      totalScore: total,
+      comment,
+      updatedAt: now
+    }).where(eq(competitionScores.id, existing.id)).run()
+  } else {
+    client.db.insert(competitionScores).values({
+      id: randomUUID(),
+      eventId: eventRow.id,
+      roundId: round.id,
+      singerId: input.singerId,
+      judgeId: input.judgeId,
+      dimensionsJson: JSON.stringify(snapshot),
+      totalScore: total,
+      comment,
+      createdAt: now,
+      updatedAt: now
+    }).run()
+  }
+
+  const row = client.db.select().from(competitionScores).where(where).get()!
+  return serializeScore(row, judge.displayName)
+}
+
 export interface UpdateCompetitionInput {
   title: unknown
   registrationOpen: unknown
@@ -852,6 +948,124 @@ function buildRoundRanking(
     })
   }
   return result
+}
+
+// -- 导出（后台名单） ----------------------------------------------------------
+
+export type CompetitionExportKind = 'detail' | 'summary' | 'advancing'
+
+function csvCell(value: unknown): string {
+  const text = String(value ?? '')
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+function csvTable(rows: unknown[][]): string {
+  return rows.map(row => row.map(csvCell).join(',')).join('\r\n')
+}
+
+function formatExportTime(value: number | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(Number(value))
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (input: number): string => String(input).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/**
+ * 后台导出：成绩明细（一行 = 一位评委给一位选手的一次评分）、
+ * 排名汇总（一行 = 一位选手）、晋级名单（按本轮晋级人数截取）。
+ *
+ * 导出复用页面上的同一套排名算法（含去极值开关），所以导出的名次与
+ * 后台看到的完全一致，不存在「导出另算一套」的偏差。
+ */
+export function buildCompetitionExport(
+  client: DatabaseClient,
+  round: RoundRow,
+  kind: CompetitionExportKind
+): { filename: string, csv: string } {
+  const eventRow = getEvent(client, round.eventId)
+  const dimensions = eventRow ? getCompetitionDimensions(eventRow) : []
+  const singers = listSingers(client, round.eventId)
+  const singersById = new Map(singers.map(singer => [singer.id, singer]))
+  const entries = listRoundEntryRows(client, round.id)
+  const scoreRows = listRoundScores(client, round.id)
+  const judges = listRoundJudges(client, round.id)
+  const scoreByKey = new Map(scoreRows.map(score => [`${score.singerId}:${score.judgeId}`, score]))
+  const ranking = buildRoundRanking(round, entries, singersById, scoreRows, {
+    trimExtremes: eventRow?.trimExtremes === 1
+  })
+  const entryBySinger = new Map(entries.map(entry => [entry.singerId, entry]))
+  const dayLabelOf = (day: number | null | undefined): string => (day ? `第 ${day} 天` : '')
+
+  const rows: unknown[][] = []
+  let label = '成绩明细'
+
+  if (kind === 'detail') {
+    rows.push(['选手', '班级', '歌曲', '参赛天', '签到时间', '评委', ...dimensions.map(item => item.label), '总分', '备注', '更新时间'])
+    for (const entry of entries) {
+      const singer = singersById.get(entry.singerId)
+      if (!singer) continue
+      for (const judge of judges) {
+        const score = scoreByKey.get(`${singer.id}:${judge.id}`)
+        if (!score) continue
+        const snapshot = parseJson<CompetitionScoreDimension[]>(score.dimensionsJson, [])
+        const scoreByDimension = new Map(snapshot.map(item => [item.key, item.score]))
+        rows.push([
+          singer.name,
+          singer.className ?? '',
+          singer.song,
+          dayLabelOf(entry.contestDay),
+          formatExportTime(entry.checkedInAt),
+          judge.displayName,
+          ...dimensions.map(item => scoreByDimension.get(item.key) ?? ''),
+          roundCompetitionScore(Number(score.totalScore ?? 0)).toFixed(2),
+          score.comment ?? '',
+          formatExportTime(Number(score.updatedAt ?? score.createdAt ?? 0))
+        ])
+      }
+    }
+  } else {
+    const ordered = [...ranking].sort((left, right) =>
+      ((left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER))
+      || (left.sortOrder - right.sortOrder)
+    )
+    const limit = round.advanceCount
+    const pending = round.status !== 'closed'
+    const selected = kind === 'advancing' && limit !== null
+      ? ordered.filter(row => row.average !== null).slice(0, limit)
+      : ordered
+    label = kind === 'advancing' ? '晋级名单' : '排名汇总'
+
+    rows.push([
+      kind === 'advancing' ? '晋级序' : '排名',
+      '选手',
+      '班级',
+      '歌曲',
+      '参赛天',
+      '评分人数',
+      '平均分',
+      ...(kind === 'advancing' ? ['备注'] : ['状态'])
+    ])
+    selected.forEach((row, index) => {
+      const entry = entryBySinger.get(row.singer.id)
+      const common = [
+        kind === 'advancing' ? index + 1 : (row.rank ?? ''),
+        row.singer.name,
+        row.singer.className ?? '',
+        row.singer.song,
+        dayLabelOf(entry?.contestDay ?? null),
+        row.scoreCount,
+        row.average === null ? '' : row.average.toFixed(2)
+      ]
+      rows.push(kind === 'advancing'
+        ? [...common, pending ? '本轮未结束，按当前排名预排' : `第 ${row.rank ?? index + 1} 名`]
+        : [...common, row.forfeited ? '弃权' : (row.qualified ? '晋级' : '')])
+    })
+  }
+
+  const prefix = eventRow?.title || '新声歌手大赛'
+  const filename = `${prefix}-${round.title}-${label}-${shanghaiDateKey(Date.now())}.csv`
+  return { filename, csv: csvTable(rows) }
 }
 
 /**

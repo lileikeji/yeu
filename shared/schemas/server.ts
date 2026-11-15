@@ -1434,6 +1434,16 @@ export const setCompetitionEntryCheckInSchema = z.object({
   checkedIn: z.boolean()
 }).strict()
 
+/** 后台替评委改分/补录：与评委提交同一套分数形状，只是不锁轮次状态。 */
+export const adminCompetitionScoreSchema = z.object({
+  singerId: z.string().min(1).max(64),
+  judgeId: z.string().min(1).max(64),
+  scores: z.record(z.string().max(64), z.number().min(0).max(10)),
+  comment: z.string().trim().max(500).optional()
+}).strict()
+
+export const competitionExportKindSchema = z.enum(['detail', 'summary', 'advancing'])
+
 // 现场扫码登记：班级/姓名/学号/电话/邮箱必填，歌曲可待定；
 // 带 preRegistrationId = 从预报名确认生成。
 const COMPETITION_STUDENT_NO_PATTERN = /^[0-9A-Za-z-]{4,20}$/
